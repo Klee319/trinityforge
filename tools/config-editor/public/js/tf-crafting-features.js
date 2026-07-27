@@ -417,7 +417,7 @@
       bodyEl.appendChild(card(
         [h("span", { class: "entry-key-label", text: "共通" })],
         [
-          formHint("解放: weapon-coating-unlock。スタック増は coating-stack-increase（value 加算）。オフハンドに素材、メインに武器で右クリック。"),
+          formHint("解放: weapon-coating-unlock。スタック増は stat coating_charges_bonus（skilltreeの buffs:）。オフハンドに素材、メインに武器で右クリック。"),
           field("基本最大スタック (フォールバック)", window.numberInput(c["base-max-stacks"], (v) => {
             if (v == null) return;
             c["base-max-stacks"] = Math.max(1, Math.floor(v));
@@ -457,7 +457,7 @@
         matCard.appendChild(field("この素材のスタック上限", window.numberInput(entry["max-stacks"], (v) => {
           if (v == null) return;
           entry["max-stacks"] = Math.max(1, Math.floor(v));
-        }, { int: true }), "実効上限 = min(基本最大スタック, この値) + coating-stack-increase"));
+        }, { int: true }), "実効上限 = min(基本最大スタック, この値) + coating_charges_bonus"));
         list.appendChild(matCard);
       }
       list.appendChild(h("button", {
@@ -874,6 +874,23 @@
             if (v == null) return;
             dis["percent-per-level"] = Math.max(0, Math.floor(v));
           }, { int: true }), "例: Lv1 × 25% → 鉄チェスト(8) なら floor(8×0.25)=2 個")
+        ]
+      ));
+
+      // 2026-07-28(数値のギミックyml集約): tiers はレベルの完全一致でのみ引く(digging/smithingと違い
+      // 「以下で最大」フォールバックはしない — tier キー = 解体レベルそのもの。未設定ならグローバル
+      // 既定値(上のレベルあたり返却%)×レベルの線形式がそのまま使われる。
+      root.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "レベル別 戻り総% (任意)" })],
+        [
+          formHint("解体レベルの完全一致でのみ使われる(以下最大へのフォールバックなし)。未設定のレベルは"
+            + "「レベルあたり返却% × レベル」の線形計算がそのまま使われる。"),
+          typeof window.tierTableEditor === "function"
+            ? window.tierTableEditor(dis, [{ key: "percent", label: "戻り総%", int: true }], {
+                emptyTitle: "レベル別設定未使用(線形計算のみ)",
+                emptyHint: "「+ tier追加」で特定レベルの戻り総%を個別に上書きできます。"
+              })
+            : h("div", { class: "empty-hint", text: "tier表エディタ(tf-lifestyle-forms.js)が読み込まれていません。" })
         ]
       ));
 

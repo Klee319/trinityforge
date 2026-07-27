@@ -16,12 +16,18 @@ drop-tables:
           amount: 1
 
 durability-exp:
-  durability-per-percent: 100
-  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
-  # tierはスキルツリーのノード value から決まる — ここでは digging-durability-vanilla-exp(C-1、value=50)/
-  # digging-durability-job-exp(C-2、value=25)それぞれの上限%そのものをtierとして流用する
-  # (DedicatedEffectsConfig#valueMax)。該当tier未満の行しか無い場合はより小さいtierの行へフォールバックし、
-  # どの行にも満たない場合はグローバル既定値(上のdurability-per-percent)を使う。
-  # tiers:
-  #   25: { durability-per-percent: 80 }   # C-2(職業EXP、上限25%)保持者向けに変換レートを個別調整する例
-  #   50: { durability-per-percent: 120 }  # C-1(バニラEXP、上限50%)保持者向けに変換レートを個別調整する例
+  durability-per-percent: 100     # 全 tier 共通の既定（tier 側で個別上書き可）
+  # 2026-07-28 (数値のギミックyml集約): 旧 durability-exp.tiers は「上限%(50/25)をそのままtier番号として
+  # 流用する」アンチパターンだった — C-1(バニラEXP)とC-2(職業EXP)が同じ数値空間を共有していたため、
+  # tierを足すと%の意味が壊れる(例: 50+αのtierを定義するとC-1/C-2どちらのつもりかが曖昧になる)。
+  # 廃止し、feature別(vanilla-exp/job-exp)に独立した tiers表 + cap-percent へ置き換えた。
+  # tierはスキルツリーのノード value から決まる(digging-durability-vanilla-exp/job-exp は
+  # FeatureEffectParam.SCALE、DedicatedEffectsConfig#valueMaxで解決)。該当tier未満の行しか無い場合は
+  # より小さいtierの行へフォールバックし、どの行にも満たない場合は cap-percent 0(無効)として扱う。
+  # durability-per-percent は各行で個別上書き可能(省略時は上のグローバル既定値を使う)。
+  vanilla-exp:
+    tiers:
+      1: { cap-percent: 50 }
+  job-exp:
+    tiers:
+      1: { cap-percent: 25 }

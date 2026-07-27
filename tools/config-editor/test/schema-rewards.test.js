@@ -35,6 +35,16 @@ test("tf-special-rewards: titles.display は文字列必須", () => {
   assert.ok(errors.some((e) => /titles\.x\.display/.test(e)));
 });
 
+test("tf-special-rewards: prune-orphaned-grants の正常系(true/false)はエラーなし", () => {
+  assert.deepStrictEqual(validate("tf-special-rewards", { "prune-orphaned-grants": true }), []);
+  assert.deepStrictEqual(validate("tf-special-rewards", { "prune-orphaned-grants": false }), []);
+});
+
+test("tf-special-rewards: prune-orphaned-grants の型不正はエラー", () => {
+  const errors = validate("tf-special-rewards", { "prune-orphaned-grants": "yes" });
+  assert.ok(errors.some((e) => /prune-orphaned-grants/.test(e)));
+});
+
 // ---- tf-achievements ----
 
 test("tf-achievements: statistic トリガーの正常系はエラーなし", () => {
@@ -165,6 +175,28 @@ test("tf-achievements: rewards.permanent-buffs の値型不正はエラー", () 
     }
   });
   assert.ok(errors.some((e) => /rewards\.permanent-buffs\.attack-power/.test(e)));
+});
+
+test("tf-achievements: vanilla-advancements の正常系はエラーなし", () => {
+  const errors = validate("tf-achievements", {
+    "vanilla-advancements": { disabled: true, "keep-recipe-advancements": true, keep: ["minecraft:story/"] },
+    achievements: {}
+  });
+  assert.deepStrictEqual(errors, []);
+});
+
+test("tf-achievements: vanilla-advancements の型不正はエラー", () => {
+  const errors = validate("tf-achievements", {
+    "vanilla-advancements": { disabled: "yes", "keep-recipe-advancements": 1, keep: [1, "ok"] }
+  });
+  assert.ok(errors.some((e) => /vanilla-advancements\.disabled/.test(e)));
+  assert.ok(errors.some((e) => /vanilla-advancements\.keep-recipe-advancements/.test(e)));
+  assert.ok(errors.some((e) => /vanilla-advancements\.keep\[0\]/.test(e)));
+});
+
+test("tf-achievements: vanilla-advancements自体が非マップならエラー", () => {
+  const errors = validate("tf-achievements", { "vanilla-advancements": "nope" });
+  assert.ok(errors.some((e) => /vanilla-advancements:/.test(e)));
 });
 
 // ---- tf-collection ----

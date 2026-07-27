@@ -79,7 +79,9 @@ public enum StatsCategory {
             // エンチャント/ポーション品質(2026-07-25): 生産系スキルの一つとしてクラフトへ分類。
             "enchant_luck", "enchant_exp_gain_bonus", "potion_quality_bonus", "brew_speed_bonus",
             // 2026-07-26 M-stats分類: エンチャント費用・作業台/儀式の品質。いずれも生産の成果物に効く。
-            "enchant_cost_reduction", "workbench_quality_bonus", "ritual_quality_bonus");
+            "enchant_cost_reduction", "workbench_quality_bonus", "ritual_quality_bonus",
+            // 2026-07-28 (数値のギミックyml集約): feature:coating-stack-increase から降格。
+            "coating_charges_bonus");
 
     private static final Set<String> GATHERING_KEYS = Set.of(
             "mining_fortune", "fishing_luck", "fishing_bonus",

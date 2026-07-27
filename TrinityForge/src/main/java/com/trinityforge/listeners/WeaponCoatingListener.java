@@ -25,11 +25,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Source-gem weapon coating (alchemy weapon-coating-unlock / coating-stack-increase). */
+/** Source-gem weapon coating (alchemy weapon-coating-unlock / coating_charges_bonus stat). */
 public final class WeaponCoatingListener implements Listener {
 
     private static final String UNLOCK = "weapon-coating-unlock";
-    private static final String STACK_EFFECT = "coating-stack-increase";
+    // 2026-07-28(数値のギミックyml集約): feature:coating-stack-increase から通常stat coating_charges_bonus
+    // へ降格。単純加算(全保持ノード分の合算)しかしていなかったため、PlayerStatAggregator#totalOf経由の
+    // 通常ステ読み取りへ置換した(/tf stats・loreにも表示されるようになる)。
+    private static final String STACK_BONUS_KEY = StatKeys.canonical("coating-charges-bonus");
     // アイテム単体(メインハンドの武器そのもの)が持つ coating-charges ステ。防具4部位まで合算する
     // 総合ステ(PlayerCombatAggregate)ではなく、その武器固有の回数として扱うため、DerivedItemStats.resolve
     // でメインハンドの武器1点だけを解決して読む(他のアイテム単体ステ消費者と同じ経路。例:
@@ -40,15 +43,18 @@ public final class WeaponCoatingListener implements Listener {
     private final CraftingFeaturesConfig features;
     private final ItemStatsConfig itemStats;
     private final WeaponBaseFormula weaponBaseFormula;
+    private final com.trinityforge.combat.PlayerStatAggregator aggregator;
 
     public WeaponCoatingListener(DedicatedEffectsConfig dedicatedEffects,
                                  CraftingFeaturesConfig features,
                                  ItemStatsConfig itemStats,
-                                 WeaponBaseFormula weaponBaseFormula) {
+                                 WeaponBaseFormula weaponBaseFormula,
+                                 com.trinityforge.combat.PlayerStatAggregator aggregator) {
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.features = Objects.requireNonNull(features, "features");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
         this.weaponBaseFormula = Objects.requireNonNull(weaponBaseFormula, "weaponBaseFormula");
+        this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -75,11 +81,12 @@ public final class WeaponCoatingListener implements Listener {
         }
         event.setCancelled(true);
 
-        // Stricter of (base-max-stacks, material max-stacks), then the dedicated coating-stack-increase
-        // (perk-wide) PLUS the weapon's own coating-charges item stat (item-wide, see itemCoatingChargesBonus).
-        // Coating charges are no longer a native reward: the canonical alchemy unlock uses this dedicated
-        // effect, so every supported weapon class receives the same configured bonus.
-        int perkBonus = (int) dedicatedEffects.valueSum(player, STACK_EFFECT);
+        // Stricter of (base-max-stacks, material max-stacks), then the coating_charges_bonus stat
+        // (perk-wide, all sources combined via PlayerStatAggregator) PLUS the weapon's own coating-charges
+        // item stat (item-wide, see itemCoatingChargesBonus). Coating charges are no longer a native
+        // reward: the canonical alchemy unlock supplies this stat, so every supported weapon class
+        // receives the same configured bonus.
+        int perkBonus = (int) Math.max(0.0, aggregator.aggregate(player).totalOf(STACK_BONUS_KEY));
         int itemBonus = itemCoatingChargesBonus(weapon, itemStats, weaponBaseFormula);
         int maxStacks = Math.min(features.coatingBaseMaxStacks(), mat.maxStacks())
                 + Math.max(0, perkBonus) + itemBonus;

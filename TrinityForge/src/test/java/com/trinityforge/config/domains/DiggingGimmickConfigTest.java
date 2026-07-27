@@ -64,39 +64,72 @@ class DiggingGimmickConfigTest {
         assertEquals(100.0, config.durabilityPerPercent(), 1e-9);
     }
 
+    // --- 2026-07-28 数値のギミックyml集約: durability-exp.vanilla-exp/job-exp の独立tiersテーブル ---
+
     @Test
-    void tieredAccessorFallsBackToGlobalScalarWhenTiersUndefined(@TempDir File tempDir) throws IOException {
-        DiggingGimmickConfig config = loaded(tempDir, "durability-exp:\n  durability-per-percent: 80\n");
-        // 2026-07-26 tier-expand: tiers 未定義なら完全後方互換。
-        assertEquals(80.0, config.durabilityPerPercent(25), 1e-9);
-        assertEquals(80.0, config.durabilityPerPercent(50), 1e-9);
+    void vanillaAndJobExpCapPercentDefaultToZeroWhenUndefined(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, "# empty\n");
+        assertEquals(0.0, config.vanillaExpCapPercent(1), 1e-9);
+        assertEquals(0.0, config.jobExpCapPercent(1), 1e-9);
     }
 
     @Test
-    void tieredAccessorResolvesFloorEntryFromTiersTable(@TempDir File tempDir) throws IOException {
+    void vanillaAndJobExpCapPercentResolveIndependentTierTables(@TempDir File tempDir) throws IOException {
         DiggingGimmickConfig config = loaded(tempDir, """
                 durability-exp:
                   durability-per-percent: 100
-                  tiers:
-                    25: { durability-per-percent: 120 }
-                    50: { durability-per-percent: 80 }
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: 50 }
+                  job-exp:
+                    tiers:
+                      1: { cap-percent: 25 }
                 """);
-        assertEquals(100.0, config.durabilityPerPercent(10), 1e-9, "below the lowest tier -> global scalar");
-        assertEquals(120.0, config.durabilityPerPercent(25), 1e-9);
-        assertEquals(120.0, config.durabilityPerPercent(40), 1e-9, "floor resolve: 40 -> tier 25 row");
-        assertEquals(80.0, config.durabilityPerPercent(50), 1e-9);
-        assertEquals(80.0, config.durabilityPerPercent(99), 1e-9);
+        assertEquals(50.0, config.vanillaExpCapPercent(1), 1e-9);
+        assertEquals(25.0, config.jobExpCapPercent(1), 1e-9);
+        // 完全一致もフロアも無い(tier<1)なら無効(0)。
+        assertEquals(0.0, config.vanillaExpCapPercent(0), 1e-9);
+    }
+
+    @Test
+    void tierAboveHighestDefinedFloorsToTheHighestRow(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                durability-exp:
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: 50 }
+                      2: { cap-percent: 70 }
+                """);
+        assertEquals(70.0, config.vanillaExpCapPercent(2), 1e-9);
+        assertEquals(70.0, config.vanillaExpCapPercent(5), 1e-9, "floor resolve: 5 -> tier 2 row");
+        assertEquals(50.0, config.vanillaExpCapPercent(1), 1e-9);
+    }
+
+    @Test
+    void durabilityPerPercentOverrideFallsBackToGlobalWhenRowOmitsIt(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                durability-exp:
+                  durability-per-percent: 100
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: 50 }
+                  job-exp:
+                    tiers:
+                      1: { cap-percent: 25, durability-per-percent: 120 }
+                """);
+        assertEquals(100.0, config.durabilityPerPercentForVanillaExp(1), 1e-9, "row omits override -> global default");
+        assertEquals(120.0, config.durabilityPerPercentForJobExp(1), 1e-9, "row overrides the global default");
     }
 
     @Test
     void malformedTierRowIsSkippedWithoutThrowing(@TempDir File tempDir) throws IOException {
         DiggingGimmickConfig config = loaded(tempDir, """
                 durability-exp:
-                  durability-per-percent: 100
-                  tiers:
-                    25: { durability-per-percent: -5 }
-                    notanumber: { durability-per-percent: 60 }
+                  vanilla-exp:
+                    tiers:
+                      1: { cap-percent: -5 }
+                      notanumber: { cap-percent: 60 }
                 """);
-        assertEquals(100.0, config.durabilityPerPercent(25), 1e-9);
+        assertEquals(0.0, config.vanillaExpCapPercent(1), 1e-9);
     }
 }

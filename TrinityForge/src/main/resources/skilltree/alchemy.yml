@@ -65,6 +65,10 @@ nodes:
     effect-text: "武器コーティング解放・醸造速度UP・司祭解放"
     buffs:
       brew_speed_bonus: 0.05
+      # 2026-07-26 coating-charges の C→A 降格に伴い移設した feature:coating-stack-increase を、
+      # 2026-07-28(数値のギミックyml集約)でさらに通常stat coating_charges_bonus へ再移設(値3は変更なし)。
+      # 単純加算しかしない feature は stat として扱うのが素直、という方針変更による。
+      coating_charges_bonus: 3
     effects:
       - "武器コーティングを解放"
       - "醸造速度UP"
@@ -72,11 +76,6 @@ nodes:
     dedicated-effects:
       - id: "feature:weapon-coating-unlock"
       - id: "trade:CLERIC"
-      # 2026-07-26 coating-charges の C→A 降格に伴い、totalOfではなくメインハンド武器単体を
-      # DerivedItemStats.resolve で読む WeaponCoatingListener の生きた経路(coating-stack-increase)へ移設。
-      # 値(3)は変更なし。
-      - id: "feature:coating-stack-increase"
-        value: 3
   D:
     name: "統合の錬金術師"
     level: 70
@@ -104,16 +103,15 @@ nodes:
     effect-text: "交換・色変換のグリフ解放・武器コーティングのスタック数増加・品質+3"
     buffs:
       potion_quality_bonus: 3
+      # 2026-07-28(数値のギミックyml集約): feature:coating-stack-increase から移設(値10は変更なし)。
+      # C ノードと同じ coating_charges_bonus stat へ加算する(PlayerStatAggregatorが全ソース合算)。
+      coating_charges_bonus: 10
     effects:
       - "交換・色変換のグリフを解放"
       - "武器コーティングのスタック数増加"
       - "品質+3"
     dedicated-effects:
       - id: "glyph:exchange"
-      # 2026-07-26 coating-charges の C→A 降格に伴い移設(値10は変更なし)。C ノードと同じ
-      # feature:coating-stack-increase へ加算する(valueSum で累積)。
-      - id: "feature:coating-stack-increase"
-        value: 10
 
   C-1-upper:
     name: "俊敏・跳躍の調合"
@@ -250,11 +248,9 @@ nodes:
     effect-text: "品質+2・武器コーティングのスタック数増加"
     buffs:
       potion_quality_bonus: 2
+      # 2026-07-28(数値のギミックyml集約): feature:coating-stack-increase から移設(値5は変更なし)。
+      coating_charges_bonus: 5
     effects:
       - "品質+2"
       - "武器コーティングのスタック数増加"
-    dedicated-effects:
-      # 2026-07-26 coating-charges の C→A 降格に伴い移設(値5は変更なし)。
-      - id: "feature:coating-stack-increase"
-        value: 5
 

@@ -2,12 +2,20 @@ package com.trinityforge.config.domains;
 
 import org.bukkit.Statistic;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Headless parse checks for achievements.yml (2026-07-23-stat-gate-overhaul §6.2/§6.7). */
@@ -316,5 +324,97 @@ class AchievementsConfigTest {
         var buffs = result.achievements().get(0).rewards().permanentBuffs();
         assertEquals(0.20, buffs.get("penetration"));
         assertEquals(0.15, buffs.get("crit_chance"), "既にフラクションの値は変化しない");
+    }
+
+    // --- vanilla-advancements (VanillaAdvancementBlockListener 向け設定, 2026-07-28) ----------------
+
+    @Test
+    void vanillaAdvancementGateDefaultsWhenSectionAbsent() {
+        AchievementsConfig.VanillaAdvancementGate gate = AchievementsConfig.parseVanillaAdvancementGate(null);
+        assertTrue(gate.disabled());
+        assertTrue(gate.keepRecipeAdvancements());
+        assertTrue(gate.keep().isEmpty());
+    }
+
+    @Test
+    void vanillaAdvancementGateHonorsExplicitValues() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                vanilla-advancements:
+                  disabled: false
+                  keep-recipe-advancements: false
+                  keep: ["minecraft:story/"]
+                """);
+        AchievementsConfig.VanillaAdvancementGate gate = AchievementsConfig.parseVanillaAdvancementGate(
+                cfg.getConfigurationSection("vanilla-advancements"));
+        assertFalse(gate.disabled());
+        assertFalse(gate.keepRecipeAdvancements());
+        assertEquals(List.of("minecraft:story/"), gate.keep());
+    }
+
+    @Test
+    void vanillaAdvancementGateNullKeepListNormalizesToEmpty() {
+        AchievementsConfig.VanillaAdvancementGate gate =
+                new AchievementsConfig.VanillaAdvancementGate(true, true, null);
+        assertTrue(gate.keep().isEmpty());
+    }
+
+    private static AchievementsConfig loadFromString(File dir, String yaml) throws IOException {
+        File file = new File(dir, AchievementsConfig.PATH);
+        Files.createDirectories(file.getParentFile().toPath());
+        Files.writeString(file.toPath(), yaml);
+        AchievementsConfig config = new AchievementsConfig();
+        config.load(fakePlugin(dir));
+        return config;
+    }
+
+    private static Plugin fakePlugin(File dataFolder) {
+        InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
+            case "getDataFolder" -> dataFolder;
+            case "getLogger" -> LOG;
+            case "saveResource" -> null;
+            case "toString" -> "FakePlugin";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> throw new UnsupportedOperationException(method.getName());
+        };
+        return (Plugin) Proxy.newProxyInstance(
+                Plugin.class.getClassLoader(), new Class<?>[] {Plugin.class}, handler);
+    }
+
+    @Test
+    void loadAppliesVanillaAdvancementGateFromFile(@TempDir File dir) throws IOException {
+        AchievementsConfig config = loadFromString(dir, """
+                vanilla-advancements:
+                  disabled: false
+                  keep-recipe-advancements: true
+                  keep: []
+                achievements: {}
+                """);
+        assertFalse(config.vanillaAdvancements().disabled());
+    }
+
+    @Test
+    void loadDefaultsVanillaAdvancementGateWhenSectionMissing(@TempDir File dir) throws IOException {
+        AchievementsConfig config = loadFromString(dir, "achievements: {}\n");
+        assertTrue(config.vanillaAdvancements().disabled(), "既定はtrue(disabled)");
+        assertTrue(config.vanillaAdvancements().keepRecipeAdvancements());
+    }
+
+    // load() 自体は type=advancement × disabled=true でも issue扱いにはしない(警告のみ、既存の
+    // skipped件数には影響しない)ことを回帰させる。
+    @Test
+    void loadDoesNotFailWhenAdvancementTypeCoexistsWithDisabledGate(@TempDir File dir) throws IOException {
+        AchievementsConfig config = loadFromString(dir, """
+                vanilla-advancements:
+                  disabled: true
+                achievements:
+                  diamond:
+                    trigger:
+                      type: advancement
+                      advancement: "minecraft:story/mine_diamond"
+                """);
+        assertEquals(1, config.achievements().size());
+        assertEquals(1, config.advancementAchievements().size());
     }
 }

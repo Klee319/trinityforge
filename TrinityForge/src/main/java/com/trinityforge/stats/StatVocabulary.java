@@ -170,6 +170,10 @@ public final class StatVocabulary {
             // 2026-07-26 新設: エンチャント費用軽減(EnchantCostReductionListener消費)。
             // エンチャントテーブルのレベルコストと金床の修理コストの両方を割合で軽減する。
             "enchant_cost_reduction",
+            // 2026-07-28 (数値のギミックyml集約): feature:coating-stack-increase から降格。パーク由来の
+            // 武器コーティング上限追加回数(全保持ノード分を単純合算するだけで feature である必然性が
+            // 無かった)。WeaponCoatingListener が PlayerStatAggregator#totalOf 経由で読む。
+            "coating_charges_bonus",
             // 2026-07-25 害悪グリフ強化(ars_magic.yml B-3): 特定グリフのダメージ倍率ボーナス(fraction、
             // 例0.3=+30%)。harmに決め打ちしない汎用stat — フォーク側がどのグリフに適用するかを選ぶ
             // (TF static API statTotal(caster, "glyph_damage_multiplier_bonus") 経由で読む想定)。

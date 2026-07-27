@@ -83,7 +83,23 @@ public final class AchievementsConfig implements LoadableConfig {
     public record Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards) {
     }
 
+    /**
+     * サーバ側でバニラ進捗(advancement)解除を止める設定(2026-07-28)。
+     *
+     * @param disabled                true でバニラ進捗の解除自体をキャンセルする(既定 true)
+     * @param keepRecipeAdvancements  true(既定) で {@code minecraft:recipes/} 配下だけは通す
+     *                                (false にするとレシピ本の解禁が止まる)
+     * @param keep                    追加で通したい進捗キーの前方一致リスト
+     */
+    public record VanillaAdvancementGate(boolean disabled, boolean keepRecipeAdvancements, List<String> keep) {
+        public VanillaAdvancementGate {
+            keep = keep == null ? List.of() : List.copyOf(keep);
+        }
+    }
+
     private volatile List<Achievement> achievements = List.of();
+    private volatile VanillaAdvancementGate vanillaAdvancements =
+            new VanillaAdvancementGate(true, true, List.of());
 
     public List<Achievement> achievements() {
         return achievements;
@@ -102,6 +118,14 @@ public final class AchievementsConfig implements LoadableConfig {
     /** type=STATIC（図鑑登録）のアチーブメントのみ。保存形式の collection は後方互換で維持する。 */
     public List<Achievement> staticAchievements() {
         return achievements.stream().filter(a -> a.trigger().type() == TriggerType.STATIC).toList();
+    }
+
+    /**
+     * バニラ進捗解除の抑止設定 ({@code vanilla-advancements:}, 2026-07-28)。
+     * {@code VanillaAdvancementBlockListener} が判定に使う。
+     */
+    public VanillaAdvancementGate vanillaAdvancements() {
+        return vanillaAdvancements;
     }
 
     @Override
@@ -123,6 +147,22 @@ public final class AchievementsConfig implements LoadableConfig {
 
         ParseResult result = parse(yaml.getConfigurationSection("achievements"), log);
         this.achievements = result.achievements();
+        this.vanillaAdvancements = parseVanillaAdvancementGate(yaml.getConfigurationSection("vanilla-advancements"));
+
+        // 相互作用の警告(2026-07-28、「静かに壊れるより騒がしく落ちる」方針): type=advancement の
+        // TFアチーブメントは vanilla-advancements.disabled=true だと PlayerAdvancementCriterionGrantEvent
+        // 自体がキャンセルされ、バニラ側の進捗が二度と完了しなくなるため永久に発火しない。設定ミスに
+        // 気づけるよう起動/reload毎に警告する(現在の出荷achievements.ymlはtype=advancement 0件のため
+        // 既定では出ない)。
+        if (this.vanillaAdvancements.disabled()) {
+            long advancementCount = this.achievements.stream()
+                    .filter(a -> a.trigger().type() == TriggerType.ADVANCEMENT).count();
+            if (advancementCount > 0) {
+                log.warning("[" + PATH + "] vanilla-advancements.disabled=true ですが、trigger.type: advancement"
+                        + " のアチーブメントが" + advancementCount + "件定義されています。バニラ進捗の解除自体が"
+                        + "止まるため、これらのアチーブメントは永久に達成できません。");
+            }
+        }
 
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.achievements().size()
@@ -157,6 +197,17 @@ public final class AchievementsConfig implements LoadableConfig {
             }
         }
         return new ParseResult(List.copyOf(parsed), skipped);
+    }
+
+    /** Pure parse of {@code vanilla-advancements:} — unit-testable headlessly. Section may be null (未設定)。 */
+    static VanillaAdvancementGate parseVanillaAdvancementGate(ConfigurationSection section) {
+        if (section == null) {
+            return new VanillaAdvancementGate(true, true, List.of());
+        }
+        boolean disabled = section.getBoolean("disabled", true);
+        boolean keepRecipeAdvancements = section.getBoolean("keep-recipe-advancements", true);
+        List<String> keep = section.getStringList("keep");
+        return new VanillaAdvancementGate(disabled, keepRecipeAdvancements, keep);
     }
 
     private static Trigger parseTrigger(ConfigurationSection trigger, String achievementId, Logger log) {

@@ -143,6 +143,13 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     private volatile double coatingLegacyBonusPerStack = 2.0;
     private volatile Map<String, WoodRepairMaterial> woodRepairMaterials = Map.of();
     private volatile int disassemblyPercentPerLevel = 25;
+    /**
+     * {@code disassembly.tiers.<level>.percent} (2026-07-28 数値のギミックyml集約)。キーは解体レベル
+     * ({@code dismantle-unlock} の value、{@code FeatureEffectParam.LEVEL})の<b>完全一致のみ</b> —
+     * digging/smithingのtierテーブルと違い「以下で最大」フォールバックはしない({@link #disassemblyPercentFor}
+     * のjavadoc参照)。未定義キーは {@link #disassemblyPercentPerLevel} × level の線形式へ後方互換フォールバック。
+     */
+    private volatile Map<Integer, Integer> disassemblyPercentTiers = Map.of();
     /** Target-id/material wildcard → conversions. No fallback is intentionally provided. */
     private volatile Map<String, List<DisassemblyRule>> disassemblyItems = Map.of();
     private volatile int potionMergeMaxEffects = 5;
@@ -202,6 +209,22 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
     public int disassemblyPercentPerLevel() {
         return disassemblyPercentPerLevel;
+    }
+
+    /**
+     * 解体レベル {@code level} に対する戻り総%を解決する。{@code disassembly.tiers} に {@code level} と
+     * <b>完全一致</b>する行があればその {@code percent} を、無ければ {@link #disassemblyPercentPerLevel()}
+     * {@code × level}(従来の線形式)を返す。digging/smithingのtierテーブルと違い「level以下で最大の行へ
+     * フォールバック」はしない設計判断 — dismantle-unlock は既に線形式という連続的な既定を持つため、
+     * floorフォールバックを重ねると「未定義レベルの戻り率が近傍のtierへ勝手に引き寄せられる」曖昧さが
+     * 増えるだけで得るものが無い(tiersが完全に未設定なら数値は1ビットも変わらない — 既存テストで担保)。
+     */
+    public int disassemblyPercentFor(int level) {
+        Integer exact = disassemblyPercentTiers.get(level);
+        if (exact != null) {
+            return exact;
+        }
+        return disassemblyPercentPerLevel * level;
     }
 
     public Map<String, List<DisassemblyRule>> disassemblyItems() {
@@ -376,7 +399,7 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
         loadCoating(yaml);
         loadWoodRepair(yaml);
-        loadDisassembly(yaml);
+        loadDisassembly(yaml, log);
         loadPotionMerge(yaml, log);
         loadBrewUnlocks(yaml, log);
         loadOverEnchant(yaml, log);
@@ -470,12 +493,14 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         this.woodRepairMaterials = Collections.unmodifiableMap(mats);
     }
 
-    private void loadDisassembly(YamlConfiguration yaml) {
+    private void loadDisassembly(YamlConfiguration yaml, Logger log) {
         ConfigurationSection dis = yaml.getConfigurationSection("disassembly");
         if (dis == null) {
+            this.disassemblyPercentTiers = Map.of();
             return;
         }
         this.disassemblyPercentPerLevel = Math.max(0, dis.getInt("percent-per-level", 25));
+        this.disassemblyPercentTiers = parseDisassemblyPercentTiers(dis.getConfigurationSection("tiers"), log);
 
         Map<String, List<DisassemblyRule>> items = new LinkedHashMap<>();
         ConfigurationSection itemSec = dis.getConfigurationSection("items");
@@ -493,6 +518,39 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             }
         }
         this.disassemblyItems = Collections.unmodifiableMap(items);
+    }
+
+    /**
+     * {@code disassembly.tiers: {<level>: {percent: N}}} (2026-07-28)。Absent/empty section yields an
+     * empty map(＝完全後方互換、線形式のみ使われる)。level キーが正の整数でない、または {@code percent}
+     * が欠落/負値の行は警告を出して skip する(他のtierテーブルparseと同じ fail-soft 方針)。
+     */
+    private static Map<Integer, Integer> parseDisassemblyPercentTiers(ConfigurationSection section, Logger log) {
+        if (section == null) {
+            return Map.of();
+        }
+        Map<Integer, Integer> rows = new LinkedHashMap<>();
+        for (String levelKey : section.getKeys(false)) {
+            int level;
+            try {
+                level = Integer.parseInt(levelKey.trim());
+                if (level <= 0) {
+                    log.warning("[" + PATH + "] 'disassembly.tiers." + levelKey + "' key must be a positive integer; skipped");
+                    continue;
+                }
+            } catch (NumberFormatException ex) {
+                log.warning("[" + PATH + "] 'disassembly.tiers." + levelKey + "' key is not an integer; skipped");
+                continue;
+            }
+            ConfigurationSection row = section.getConfigurationSection(levelKey);
+            int percent = row == null ? -1 : row.getInt("percent", -1);
+            if (percent < 0) {
+                log.warning("[" + PATH + "] 'disassembly.tiers." + levelKey + ".percent' must be >= 0; row skipped");
+                continue;
+            }
+            rows.put(level, percent);
+        }
+        return rows.isEmpty() ? Map.of() : Collections.unmodifiableMap(rows);
     }
 
     /**

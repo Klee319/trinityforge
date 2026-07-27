@@ -1,11 +1,17 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.CoatingMaterial;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.RoleBuffsConfig;
 import com.trinityforge.config.domains.WeaponBaseFormula;
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.progression.RoleBuffResolver;
+import com.trinityforge.skilltree.runtime.PerkBuffResolver;
+import com.trinityforge.skilltree.runtime.SkillPerkStatSource;
 import org.bukkit.Material;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -54,12 +60,23 @@ class WeaponCoatingListenerTest {
         // 未スタブのfallbackFixedFor(Material,Integer)はMockitoのデフォルト空Mapを返すので、
         // このitemStatsモックはitem由来coating-chargesボーナス0(= 既存挙動と同じ)として振る舞う。
         // 個別テストでのみ特定Materialを上書きスタブしてitem由来ボーナスを検証する。
+        // 2026-07-28(数値のギミックyml集約): perk側の coating-stack-increase は通常stat
+        // coating_charges_bonus へ移設された。PlayerStatAggregator は final なのでMockitoで直接
+        // モックできない(FishingQualityListenerTestと同じ流儀で実物を組み立てる) — 対象武器の
+        // fallbackFixedFor に coating_charges_bonus を乗せることで aggregator.totalOf 経由で
+        // perk相当のボーナスとして観測できるようにする(既存の item由来 coating_charges とは別キー)。
         itemStats = mock(ItemStatsConfig.class);
-        listener = new WeaponCoatingListener(dedicatedEffects, features, itemStats, WeaponBaseFormula.disabled());
+        CombatDamageConfig combatDamage = mock(CombatDamageConfig.class);
+        when(combatDamage.weaponBaseFormula()).thenReturn(WeaponBaseFormula.disabled());
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                itemStats, combatDamage,
+                new PerkBuffResolver(SkillPerkStatSource.EMPTY, java.util.List::of),
+                new RoleBuffResolver(new RoleBuffsConfig()));
+        listener = new WeaponCoatingListener(dedicatedEffects, features, itemStats, WeaponBaseFormula.disabled(), aggregator);
 
         player = server.addPlayer();
         when(dedicatedEffects.isActive(any(), eq("weapon-coating-unlock"))).thenReturn(true);
-        when(dedicatedEffects.valueSum(any(), eq("coating-stack-increase"))).thenReturn(3.0);
+        when(itemStats.fallbackFixedFor(any(), any())).thenReturn(Map.of("coating_charges_bonus", 3.0));
         when(features.coatingMaterial(GEM_CATALOG_ID)).thenReturn(new CoatingMaterial(1.0, 0));
         when(features.coatingBaseMaxStacks()).thenReturn(0);
 
@@ -132,10 +149,12 @@ class WeaponCoatingListenerTest {
 
     @Test
     void weaponsOwnCoatingChargesStatAddsOnTopOfThePerkBonus() {
-        // The weapon's own coating-charges item stat (2) adds on top of the dedicated
-        // coating-stack-increase perk bonus (3, stubbed in setUp) -> 5 total accepted coats.
+        // The weapon's own coating-charges item stat (2) adds on top of the coating_charges_bonus
+        // perk-wide stat (3, stubbed in setUp's fallbackFixedFor default) -> 5 total accepted coats.
+        // Both keys are read from the same mainhand material via DerivedItemStats.resolve, so the
+        // override map must keep coating_charges_bonus alongside the item-specific coating_charges.
         when(itemStats.fallbackFixedFor(eq(Material.IRON_SWORD), any()))
-                .thenReturn(Map.of("coating_charges", 2.0));
+                .thenReturn(Map.of("coating_charges", 2.0, "coating_charges_bonus", 3.0));
         ItemStack sword = new ItemStack(Material.IRON_SWORD);
         int accepted = coatUpToAndCountAccepted(sword, 10);
         assertEquals(5, accepted,
@@ -145,7 +164,7 @@ class WeaponCoatingListenerTest {
     @Test
     void weaponsOwnCoatingChargesStatIsFlooredAndNeverNegative() {
         when(itemStats.fallbackFixedFor(eq(Material.IRON_SWORD), any()))
-                .thenReturn(Map.of("coating_charges", -4.0));
+                .thenReturn(Map.of("coating_charges", -4.0, "coating_charges_bonus", 3.0));
         ItemStack sword = new ItemStack(Material.IRON_SWORD);
         int accepted = coatUpToAndCountAccepted(sword, 10);
         assertEquals(3, accepted,

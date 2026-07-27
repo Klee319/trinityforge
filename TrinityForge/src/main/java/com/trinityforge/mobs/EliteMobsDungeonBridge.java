@@ -4,9 +4,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Method;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -108,6 +110,62 @@ public final class EliteMobsDungeonBridge {
                     + normalized + "'", ex);
             return false;
         }
+    }
+
+    /**
+     * インストール済み EliteMobs コンテンツパッケージのIDを、<b>TF表記(拡張子なし)</b>で列挙する
+     * (2026-07-28: {@code /tf dungeon} のサジェストに「インポート済みだが gates.yml に未登録の
+     * ダンジョン」が出てこなかった不具合の修正)。
+     *
+     * <p>索引 {@code EMPackage.getEmPackages()} のキーは {@code getFilename()} = 常に {@code .yml}
+     * 付きなので、ここで剥がして {@code gates.yml} の {@code content-package}/{@code aliases} と
+     * 同じ語彙へ揃える({@link #normalizeContentPackageId} の逆方向)。**この非対称は EM 連携で
+     * 繰り返し踏んでいる罠**なので、入口(ここ)と出口(normalize)の両方で必ず変換すること。
+     *
+     * <p>{@code isInstalled()} が false のパッケージ(ダウンロードだけして未展開)は除外する —
+     * サジェストに出しても {@link #canEnter} で弾かれるだけで役に立たないため。
+     *
+     * <p>EliteMobs 不在・クラス構成の版差など、読めなかった場合は<b>空集合</b>を返す(fail-soft)。
+     * サジェストが減るだけで、gates.yml 由来の候補と手打ちは影響を受けない。
+     */
+    public static Set<String> installedContentPackageIds() {
+        if (!isAvailable()) {
+            return Set.of();
+        }
+        try {
+            Class<?> emPackageClass = Class.forName(EM_PACKAGE_CLASS);
+            Map<?, ?> emPackages = (Map<?, ?>) emPackageClass.getMethod("getEmPackages").invoke(null);
+            if (emPackages == null || emPackages.isEmpty()) {
+                return Set.of();
+            }
+            Set<String> ids = new LinkedHashSet<>();
+            for (Map.Entry<?, ?> entry : emPackages.entrySet()) {
+                if (!(entry.getKey() instanceof String filename) || entry.getValue() == null) {
+                    continue;
+                }
+                Object emPackage = entry.getValue();
+                if (!Boolean.TRUE.equals(emPackage.getClass().getMethod("isInstalled").invoke(emPackage))) {
+                    continue;
+                }
+                ids.add(stripYamlExtension(filename));
+            }
+            return Set.copyOf(ids);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) {
+            LOG.log(Level.WARNING, "[elitemobs-dungeon-bridge] インストール済みパッケージの列挙に失敗", ex);
+            return Set.of();
+        }
+    }
+
+    /** {@link #normalizeContentPackageId} の逆: 末尾の {@code .yml}/{@code .yaml} を1つだけ剥がす。 */
+    static String stripYamlExtension(String filename) {
+        String lower = filename.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".yml")) {
+            return filename.substring(0, filename.length() - ".yml".length());
+        }
+        if (lower.endsWith(".yaml")) {
+            return filename.substring(0, filename.length() - ".yaml".length());
+        }
+        return filename;
     }
 
     /**

@@ -183,6 +183,7 @@ public final class TrinityForge extends JavaPlugin {
     private CollectionService collectionService;
     private com.trinityforge.progression.CollectionGui collectionGui;
     private com.trinityforge.progression.SpecialRewardService specialRewardService;
+    private com.trinityforge.listeners.SpecialRewardPruneListener specialRewardPruneListener;
     private com.trinityforge.progression.TitleDisplayService titleDisplayService;
     private com.trinityforge.progression.ParticleEffectService particleEffectService;
     private com.trinityforge.command.SettingsCommand settingsCommand;
@@ -566,6 +567,11 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.specialRewards(), specialRewardService, perkAttributeApplier);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.ParticleSeedListener(configManager.specialRewards()), this);
+        // special-rewards.yml から削除された報酬IDをプレイヤーPDCの保持分からも掃除する(2026-07-28)。
+        // オフラインPDCは触れないため参加時が唯一の掃除機会 + /trinityforge reload 後のオンライン全員一括。
+        this.specialRewardPruneListener = new com.trinityforge.listeners.SpecialRewardPruneListener(
+                this, new com.trinityforge.progression.SpecialRewardPruner(configManager.specialRewards()));
+        getServer().getPluginManager().registerEvents(specialRewardPruneListener, this);
 
         // アチーブメント (2026-07-23-stat-gate-overhaul §6.2): バニラ実績連動 + 統計しきい値ポーリング。
         this.achievementService = new com.trinityforge.progression.AchievementService(
@@ -573,6 +579,10 @@ public final class TrinityForge extends JavaPlugin {
                 perkAttributeApplier, collectionService);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
+        // バニラ進捗(advancement)解除のサーバ側抑止(achievements.yml vanilla-advancements, 2026-07-28)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.VanillaAdvancementBlockListener(configManager.achievements()),
+                this);
 
         // Re-syncs an item's lore/attributes against the live tables on hotbar switch, armor change,
         // and join, so a reload's effect is not stuck at "only new items see it" (item 1).
@@ -603,7 +613,7 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new WeaponCoatingListener(configManager.dedicatedEffects(),
                         configManager.craftingFeatures(), configManager.itemStats(),
-                        configManager.combatDamage().weaponBaseFormula()), this);
+                        configManager.combatDamage().weaponBaseFormula(), playerStatAggregator()), this);
         getServer().getPluginManager().registerEvents(
                 new WoodRepairListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(
@@ -1029,6 +1039,11 @@ public final class TrinityForge extends JavaPlugin {
                                         // (start() は冪等: 既存タスクを止めてから再スケジュールする)。
                                         if (afkService != null) {
                                             afkService.start();
+                                        }
+                                        // special-rewards.yml から報酬IDが削除されていたら、オンライン
+                                        // 全員のPDC保持分を即座に掃除する(安全弁はプルーナー自身が持つ)。
+                                        if (specialRewardPruneListener != null) {
+                                            specialRewardPruneListener.pruneAllOnline();
                                         }
                                         var sender = ctx.getSource().getSender();
                                         if (issues == 0) {

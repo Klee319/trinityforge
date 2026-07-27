@@ -139,6 +139,8 @@ base-stats:
   planted-crop-growth-bonus: 0
   ritual-quality-bonus: 0
   workbench-quality-bonus: 0
+  # 2026-07-28新設: 武器コーティングの実効上限スタック数への加算(全ソース合算、WeaponCoatingListener消費)。
+  coating-charges-bonus: 0
   craft-upswing-bonus: 0
   craft-downswing-reduction: 0
   craft-roll-up-bonus: 0

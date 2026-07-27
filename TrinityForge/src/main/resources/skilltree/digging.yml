@@ -172,8 +172,10 @@ nodes:
     effects:
       - 消費したシャベルの耐久値の総量に応じてバニラ経験値の取得量がアップ(最大50%)
     dedicated-effects:
+      # 2026-07-28: valueは%直書き(旧アンチパターン、同じ数値をtierとしても流用していた)からtier番号へ
+      # 変更(数値の実体は stats/digging-gimmick.yml durability-exp.vanilla-exp.tiers)。tier1=上限50%。
       - id: "feature:digging-durability-vanilla-exp"
-        value: 50
+        value: 1
   C-2:
     name: 縁の下の力持ちII
     level: 80
@@ -185,6 +187,8 @@ nodes:
     effects:
       - 消費したシャベルの耐久値の総量に応じて職業経験値の取得量がアップ(最大25%)
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更(数値の実体は stats/digging-gimmick.yml
+      # durability-exp.job-exp.tiers)。tier1=上限25%。
       - id: "feature:digging-durability-job-exp"
-        value: 25
+        value: 1
 

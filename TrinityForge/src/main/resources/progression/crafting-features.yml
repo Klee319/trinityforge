@@ -33,6 +33,13 @@ wood-repair:
 #   戻り量 = floor(材料数 × 解体Lv × percent-per-level / 100) × multiplier
 disassembly:
   percent-per-level: 25
+  # tier別設定(任意、2026-07-28): 未記載なら上の percent-per-level × レベル(既存の線形式)がそのまま
+  # 使われる(完全後方互換)。dismantle-unlock は解体レベル(FeatureEffectParam.LEVEL、値=直接レベル数)
+  # なので tiers はこのレベル値の完全一致でのみ引く — digging/smithingの「以下で最大にフォールバック」
+  # 則とは違い、フォールバックしない(既に連続的な既定式=線形計算があるため、floor解決を足すと
+  # 「未定義レベルの戻り率」の意味が二重に曖昧になるのを避けるための意図的な設計判断)。
+  # tiers:
+  #   1: { percent: 25 }   # レベル1の戻り率を線形計算(=percent-per-level×1)から個別に上書きする例
   items:
     wooden_*:
       - input: list:planks

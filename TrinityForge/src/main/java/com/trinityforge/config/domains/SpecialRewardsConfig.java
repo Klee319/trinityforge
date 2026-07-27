@@ -65,6 +65,15 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     private volatile Map<String, ParticleEffect> particles = Map.of();
     private volatile Map<String, ParticleSeed> particleSeeds = Map.of();
     private volatile double titleHeadOffsetY = DEFAULT_TITLE_HEAD_OFFSET_Y;
+    // 孤児化した付与分の自動剥奪 (SpecialRewardPruner) の安全弁。既定true。壊れたYAMLを「全部未定義」と
+    // 誤判定して全員の報酬を消し飛ばす事故を防ぐため、これがfalseの間はプルーナー自体を丸ごとスキップできる。
+    private volatile boolean pruneOrphanedGrants = true;
+    // 直近の load() 呼び出しが成功(true)だったか。SpecialRewardPruner はこれもゲート条件に含める —
+    // YAML構文エラー/エントリ破損で load() が false を返した回に、たまたま titles/particles/
+    // particleSeeds が空(または一部欠落)のまま prune を走らせて全員の報酬を消し飛ばす事故を防ぐ。
+    // 起動直後(まだ一度も load() していない状態)は「未ロードでprune不可」ではなく安全側の true とする
+    // (このクラスは load() を呼ばれて初めて意味を持つため、初期値がpruneの成否を左右することはない)。
+    private volatile boolean lastLoadOk = true;
 
     public Map<String, Title> titles() {
         return titles;
@@ -95,6 +104,20 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         return titleHeadOffsetY;
     }
 
+    /**
+     * true(既定) = このファイルから削除された報酬IDを、プレイヤーの保持分(付与リスト/装備欄)からも
+     * 自動で取り除く({@code SpecialRewardPruner})。false ならプルーナーはオンライン参加/reload の
+     * どちらでも一切走らない(安全弁)。
+     */
+    public boolean pruneOrphanedGrants() {
+        return pruneOrphanedGrants;
+    }
+
+    /** 直近の {@link #load(Plugin)} 呼び出しが成功(true)だったか。{@code SpecialRewardPruner} の安全弁。 */
+    public boolean lastLoadOk() {
+        return lastLoadOk;
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -109,6 +132,7 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         } catch (InvalidConfigurationException | IOException ex) {
             log.log(Level.SEVERE, "[" + PATH + "] YAML構文エラーのため読み込みを中止しました。"
                     + "直前の設定値を維持します: " + ex.getMessage(), ex);
+            this.lastLoadOk = false;
             return false;
         }
 
@@ -120,14 +144,17 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         // 正式な運用として許容する(称号を胸元に置く等の演出も構成できる)。
         double headOffsetY = yaml.getDouble("display.head-offset-y", DEFAULT_TITLE_HEAD_OFFSET_Y);
         this.titleHeadOffsetY = Double.isFinite(headOffsetY) ? headOffsetY : DEFAULT_TITLE_HEAD_OFFSET_Y;
+        this.pruneOrphanedGrants = yaml.getBoolean("prune-orphaned-grants", true);
 
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + (titles.size() + particles.size() + particleSeeds.size())
                     + " special reward(s), " + result.skipped() + " skipped");
+            this.lastLoadOk = false;
             return false;
         }
         log.info("[" + PATH + "] loaded " + titles.size() + " title(s), " + particles.size()
                 + " particle(s), " + particleSeeds.size() + " particle-seed(s) OK");
+        this.lastLoadOk = true;
         return true;
     }
 

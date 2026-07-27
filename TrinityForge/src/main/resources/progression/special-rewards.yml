@@ -28,17 +28,18 @@
 #   ネームタグ(プレイヤー名)に重なって名前が見えない場合はこの値を上げること。
 #   逆に称号が高すぎる/離れすぎる場合はこの値を下げること。/trinityforge reload で
 #   次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
+#
+# prune-orphaned-grants: (安全弁)
+#   true(既定) にすると、このファイルから削除した報酬IDを、プレイヤーの保持分
+#   (直接付与リスト/装備中の称号・パーティクル)からも自動で取り除く(参加時 + /trinityforge reload 時)。
+#   YAML構文エラー等でこのファイル自体の読み込みに失敗した回は「全部未定義」と誤判定して
+#   全員の報酬を消し飛ばす事故を防ぐため、読み込み失敗時は自動でプルーン処理そのものをスキップする
+#   (直前の設定値を維持する既存の挙動と同じ安全側フォールバック)。
+#   運用上どうしても自動剥奪を止めたい場合は false にすること(削除したIDが古いまま残り続ける)。
+
+prune-orphaned-grants: true
 display:
   head-offset-y: 0.75
-
-titles:
-  new_title:
-    display: <color:light_purple><b>Server Booster</b></color>
-particles:
-  new_particle:
-    particle: FIREFLY
-    count: 7
-    radius: 0.6
-    interval-ticks: 10
-    shape: aura
+titles: {}
+particles: {}
 particle-seeds: {}

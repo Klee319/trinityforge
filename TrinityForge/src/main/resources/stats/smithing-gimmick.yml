@@ -9,8 +9,29 @@
 # 減衰させる(0.0=完全無効、1.0=手動と同じ)。ホッパーが投入するたびにmanualフラグを上書きするので、
 # 「1回だけ手で触ってあとは放置」というexploitも自動的にautoへ引き戻る(既存の醸造EXPと同じ設計)。
 
-# 精錬速度/精錬ボーナスの実際の%はスキルツリー側の dedicated-effects value(feature:furnace-smelt-speed /
-# feature:furnace-smelt-bonus)がそのまま使われる(A-1/A-2/A-3等はprerequisite連結のため
-# DedicatedEffectsConfig#valueMaxが保持ノード中の最大%を自動採用する)。このファイルは
-# auto-mode-multiplierのみを持つ。
+# 精錬速度/精錬ボーナスの実際の%は下の furnace-smelt.speed/bonus.tiers で決まる(2026-07-28 数値の
+# ギミックyml集約)。スキルツリー側(feature:furnace-smelt-speed / feature:furnace-smelt-bonus、
+# smithing.yml A-1〜3/B-1〜3)は tier番号(1/2/3)だけを持ち、DedicatedEffectsConfig#valueMax が
+# 保持ノード中の最大tierを自動採用する(A-3保持者はA-1/A-2のperkも保持しているため、そのまま最大tierが
+# 引ける)。このファイルは auto-mode-multiplier に加えて furnace-smelt の tierテーブルを持つ。
+#
+# ★移行事故注意★: 配備先に旧version(value 10/20/30がそのままtierだった時代)のsmithing.ymlが残ったまま
+# 新jarが載ると、「tier以下で最大の行」規則により value 10/20/30 が全てtier3(=speed 30%)へ無言で
+# 化ける(値が大きいほど強化される事故)。SmithingGimmickConfig はtierの完全一致が取れなかった場合に
+# 一度だけWARNINGログを出す — 起動直後のログにこの警告が出たら smithing.yml が旧versionのままなので
+# 再配備すること。
 auto-mode-multiplier: 0.25
+
+furnace-smelt:
+  speed:
+    percent: 10          # tier未定義/該当なしのときのフォールバック
+    tiers:
+      1: { percent: 10 }
+      2: { percent: 20 }
+      3: { percent: 30 }
+  bonus:
+    percent: 10
+    tiers:
+      1: { percent: 10 }
+      2: { percent: 20 }
+      3: { percent: 30 }

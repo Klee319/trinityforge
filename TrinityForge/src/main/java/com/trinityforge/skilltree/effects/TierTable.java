@@ -56,4 +56,17 @@ public final class TierTable<V> {
         Map.Entry<Integer, V> entry = rows.floorEntry(tier);
         return entry == null ? Optional.empty() : Optional.of(entry.getValue());
     }
+
+    /**
+     * The defined tier key {@link #resolve(int)} actually used to answer {@code tier} (2026-07-28
+     * 移行事故防止: 呼び出し側が「完全一致だったか floor フォールバックだったか」を区別して警告を
+     * 出せるようにするための補助アクセサ)。Empty exactly when {@link #resolve(int)} is empty.
+     */
+    public Optional<Integer> resolvedKey(int tier) {
+        if (rows.isEmpty() || tier <= 0) {
+            return Optional.empty();
+        }
+        Map.Entry<Integer, V> entry = rows.floorEntry(tier);
+        return entry == null ? Optional.empty() : Optional.of(entry.getKey());
+    }
 }

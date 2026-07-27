@@ -190,4 +190,54 @@ class SpecialRewardsConfigTest {
         // never yields a non-finite value is the real regression guard here.
         assertTrue(Double.isFinite(config.titleHeadOffsetY()));
     }
+
+    // --- prune-orphaned-grants / lastLoadOk (SpecialRewardPruner の安全弁, 2026-07-28) ---------------
+
+    @Test
+    void pruneOrphanedGrantsDefaultsToTrueWhenAbsent(@TempDir File tempDir) throws IOException {
+        SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
+        assertTrue(config.pruneOrphanedGrants());
+    }
+
+    @Test
+    void pruneOrphanedGrantsHonorsExplicitFalse(@TempDir File tempDir) throws IOException {
+        SpecialRewardsConfig config = loaded(tempDir, """
+                prune-orphaned-grants: false
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertFalse(config.pruneOrphanedGrants());
+    }
+
+    @Test
+    void lastLoadOkIsTrueAfterCleanLoad(@TempDir File tempDir) throws IOException {
+        SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
+        assertTrue(config.lastLoadOk());
+    }
+
+    @Test
+    void lastLoadOkIsFalseAfterMalformedEntrySkip(@TempDir File tempDir) throws IOException {
+        // A malformed entry (title without display) makes load() return false via result.skipped() > 0,
+        // even though titles/particles/particleSeeds are still (partially) reassigned.
+        SpecialRewardsConfig config = loaded(tempDir, """
+                titles:
+                  broken: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertFalse(config.lastLoadOk());
+    }
+
+    @Test
+    void lastLoadOkIsFalseAfterYamlSyntaxError(@TempDir File tempDir) throws IOException {
+        File file = new File(tempDir, SpecialRewardsConfig.PATH);
+        Files.createDirectories(file.getParentFile().toPath());
+        Files.writeString(file.toPath(), "titles: [this is not valid yaml for a map");
+        SpecialRewardsConfig config = new SpecialRewardsConfig();
+        config.load(fakePlugin(tempDir));
+        assertFalse(config.lastLoadOk());
+        // and the safety-net default stays true even though load() itself failed.
+        assertTrue(config.pruneOrphanedGrants());
+    }
 }

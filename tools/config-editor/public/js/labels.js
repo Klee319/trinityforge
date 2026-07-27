@@ -82,6 +82,7 @@
     "haste-active-mining-cooldown-reduction": "採掘:高速破壊CT↓",
     "tree-fell-cooldown-reduction": "伐採:一括伐採CT↓",
     "coating-charges": "近接:コート回数↑",
+    "coating-charges-bonus": "生産:コート上限↑",
     "hunger-save-chance": "食事:空腹節約率↑",
     "food-save-chance": "食事:食料節約率↑",
     "food-restore-bonus": "食事:満腹回復量↑",
@@ -208,6 +209,8 @@
       + "影響しない(そちらは cooldown-reduction、または対象アクティブスキル専用の別キー)。",
     "health-regen-bonus": "自然回復で回復する体力を増やす。",
     "coating-charges": "コーティングの所持・使用回数として扱われる。",
+    "coating-charges-bonus": "武器コーティングの実効上限スタック数への加算(全ソース合算、WeaponCoatingListener消費)。"
+      + "アイテム固有の coating-charges(メインハンド武器単体)とは別枠で加算される。",
     "hunger-save-chance": "空腹度を消費しない確率。",
     "mob-drop-bonus": "モブ討伐時の追加ドロップ補正。",
     "skill-exp-bonus": "スキル経験値の獲得量を増やす。",

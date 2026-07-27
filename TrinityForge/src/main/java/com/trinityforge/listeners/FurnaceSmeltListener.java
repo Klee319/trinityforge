@@ -49,6 +49,11 @@ import java.util.concurrent.ThreadLocalRandom;
  * 速度短縮/ボーナス確率の両方を減衰させる。0にはしていない(醸造EXPのauto_multが0.25である前例に
  * 揃え、「無人放置が完全に無価値ではないが手動より明確に劣る」バランスにするため)。
  *
+ * <p><b>tier→%変換(2026-07-28)</b>: {@code dedicatedEffects.valueMax} が返すのは
+ * {@code feature:furnace-smelt-speed/bonus}(SCALE)の tier番号(1/2/3)であり、そのまま%として使えない。
+ * {@link SmithingGimmickConfig#smeltSpeedPercent(int)} / {@link SmithingGimmickConfig#smeltBonusPercent(int)}
+ * で tier→% を解決してから {@link FurnaceSmeltPolicy#effectivePercent} へ渡す。
+ *
  * <p><b>属性クリアのタイミング</b>: {@link #onSmelt}実行の1tick後、かまどの精錬物スロットが
  * 空になっていれば(=この所有者が入れた分を精錬し終えた)所有者/モードをクリアする。かまどは
  * 1回の燃料で連続して複数個を精錬するため、精錬物スロットにまだアイテムが残っている間は
@@ -121,9 +126,10 @@ public final class FurnaceSmeltListener implements Listener {
 
         OptionalDouble tier = dedicatedEffects.valueMax(owner, EFFECT_SPEED);
         if (tier.isEmpty()) return;
+        double rawPercent = gimmickConfig.smeltSpeedPercent((int) tier.getAsDouble());
         boolean automated = MODE_AUTO.equals(readMode(furnace));
         double effectivePercent = FurnaceSmeltPolicy.effectivePercent(
-                tier.getAsDouble(), automated, gimmickConfig.autoModeMultiplier());
+                rawPercent, automated, gimmickConfig.autoModeMultiplier());
         if (effectivePercent <= 0.0) return;
 
         event.setTotalCookTime(FurnaceSmeltPolicy.reducedCookTime(event.getTotalCookTime(), effectivePercent));
@@ -150,9 +156,10 @@ public final class FurnaceSmeltListener implements Listener {
         if (result == null || result.getType().isAir()) return;
         OptionalDouble tier = dedicatedEffects.valueMax(owner, EFFECT_BONUS);
         if (tier.isEmpty()) return;
+        double rawPercent = gimmickConfig.smeltBonusPercent((int) tier.getAsDouble());
         boolean automated = MODE_AUTO.equals(readMode(furnace));
         double chance = FurnaceSmeltPolicy.effectivePercent(
-                tier.getAsDouble(), automated, gimmickConfig.autoModeMultiplier());
+                rawPercent, automated, gimmickConfig.autoModeMultiplier());
         if (chance <= 0.0) return;
 
         // 1.0%超 = 保証1回 + 端数分の追加抽選(GatheringExtraDropListenerと同じ丸め方)。

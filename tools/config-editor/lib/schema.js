@@ -2146,6 +2146,11 @@ function validateTfSpecialRewards(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
 
+  if (data["prune-orphaned-grants"] !== undefined && data["prune-orphaned-grants"] !== null
+      && typeof data["prune-orphaned-grants"] !== "boolean") {
+    errors.push("prune-orphaned-grants: 真偽値である必要があります");
+  }
+
   const titles = data.titles;
   if (titles !== undefined && titles !== null) {
     if (!isPlainObject(titles)) errors.push("titles はマップである必要があります");
@@ -2261,6 +2266,31 @@ const ACHIEVEMENT_TRIGGER_TYPES = ["statistic", "advancement", "static"];
 function validateTfAchievements(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+
+  const vanillaAdv = data["vanilla-advancements"];
+  if (vanillaAdv !== undefined && vanillaAdv !== null) {
+    if (!isPlainObject(vanillaAdv)) {
+      errors.push("vanilla-advancements: マップである必要があります");
+    } else {
+      if (vanillaAdv.disabled !== undefined && vanillaAdv.disabled !== null && typeof vanillaAdv.disabled !== "boolean") {
+        errors.push("vanilla-advancements.disabled: 真偽値である必要があります");
+      }
+      if (vanillaAdv["keep-recipe-advancements"] !== undefined && vanillaAdv["keep-recipe-advancements"] !== null
+          && typeof vanillaAdv["keep-recipe-advancements"] !== "boolean") {
+        errors.push("vanilla-advancements.keep-recipe-advancements: 真偽値である必要があります");
+      }
+      if (vanillaAdv.keep !== undefined && vanillaAdv.keep !== null) {
+        if (!Array.isArray(vanillaAdv.keep)) {
+          errors.push("vanilla-advancements.keep: 配列である必要があります");
+        } else {
+          vanillaAdv.keep.forEach((v, i) => {
+            if (typeof v !== "string") errors.push(`vanilla-advancements.keep[${i}]: 文字列である必要があります`);
+          });
+        }
+      }
+    }
+  }
+
   const achievements = data.achievements;
   if (achievements === undefined || achievements === null) return;
   if (!isPlainObject(achievements)) { errors.push("achievements はマップである必要があります"); return; }

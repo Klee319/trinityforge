@@ -76,6 +76,10 @@ class LoreConfigDeclarationTest {
             "arrow-velocity", "bow-cooldown-reduction",
             "haste-active-mining-cooldown-reduction",
             "health-regen-bonus", "coating-charges",
+            // 2026-07-28: coating-stack-increase(feature)からの通常stat化で新設。姉妹キー
+            // coating-charges(アイテム固有)と同じ理由(PlayerInteractEventのコーティング適用に相当する
+            // trigger.when語彙が無い)で未宣言。
+            "coating-charges-bonus",
             // 段階4(2026-07-27)調査: 空腹減少(FoodLevelChangeEventのドレイン)に相当するtrigger.when
             // 語彙が無いため未宣言。
             "hunger-save-chance",

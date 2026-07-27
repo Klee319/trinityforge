@@ -51,26 +51,29 @@ public final class FeatureEffectRegistry {
         add(map, "potion-merge", "ポーション統合", FeatureEffectParam.SCALE);
         add(map, "wood-repair-unlock", "木材修繕", FeatureEffectParam.NONE);
         add(map, "weapon-coating-unlock", "武器コーティング解放", FeatureEffectParam.NONE);
-        // 2026-07-26 (stat-scope 境界引き直し): coating-charges を総合ステ(StatVocabulary)から
-        // アイテム固有ステへ降格したことに伴い、skilltree/alchemy.yml のパーク由来コーティング回数追加は
-        // ここ(LEVEL: ノードのvalueがそのまま加算量)経由へ移設。WeaponCoatingListener が
-        // dedicatedEffects.valueSum(player, "coating-stack-increase") で全保持ノード分を合算する。
-        add(map, "coating-stack-increase", "武器コーティング上限追加", FeatureEffectParam.LEVEL);
+        // 2026-07-28 (数値のギミックyml集約): coating-stack-increase は単純加算(全保持ノード分の合算)
+        // でしかなく、feature である必然性が無かった。通常 stat `coating_charges_bonus`(StatVocabulary)へ
+        // 移設し、ここから削除した。skilltree/alchemy.yml 側は dedicated-effects ではなく buffs: へ書く。
+        // WeaponCoatingListener は PlayerStatAggregator#totalOf 経由でこの stat を読む。
         add(map, "source-auto-consume", "ソース自動消費", FeatureEffectParam.NONE);
         add(map, "break-vanilla-exp", "破壊時バニラEXP解放", FeatureEffectParam.NONE);
-        // 2026-07-25 かまど/ゴミ食/シャベル耐久EXP 5件追加: いずれもノード側 value がそのまま domain 値
-        // (%)として使われる LEVEL param(tree-fell等の SCALE tierテーブルとは違い、間接テーブルを挟まない)。
-        // 精錬速度/精錬ボーナスは smithing.yml A-1〜3 / B-1〜3 が prerequisite 連結(A-1→A-2→A-3)のため、
-        // DedicatedEffectsConfig#valueMax がプレイヤーの保持ノード中の最大 value を自動的に採用する
-        // (A-3保持者はA-1/A-2のperkも保持しているため、tierテーブルなしでそのまま最大%が引ける)。
-        add(map, "furnace-smelt-speed", "精錬速度短縮%", FeatureEffectParam.LEVEL);
-        add(map, "furnace-smelt-bonus", "精錬ボーナス%", FeatureEffectParam.LEVEL);
+        // 2026-07-28 (数値のギミックyml集約): 精錬速度/精錬ボーナスは LEVEL(生%直書き)から SCALE(tier
+        // 番号)へ変更した。数値の実体は stats/smithing-gimmick.yml の furnace-smelt.speed/bonus.tiers に
+        // 移し、ノードは tier(1/2/3)だけを持つ。SCALEのdefaultsMissingValue()により value省略時はtier1が
+        // 自動補完されるが、既存配置は全てvalue明示済みなので後方互換上の影響はない(旧value 10/20/30を
+        // そのまま tier 1/2/3 に読み替えた — smithing.yml 側も同時に更新済み)。
+        add(map, "furnace-smelt-speed", "精錬速度短縮tier", FeatureEffectParam.SCALE);
+        add(map, "furnace-smelt-bonus", "精錬ボーナスtier", FeatureEffectParam.SCALE);
         // 農業ツリーA-alpha-2: ゴミ食のみの満腹度回復ボーナス%。同じ1ノードが「非ゴミ食のfood_restore_bonus
         // を戻す(適用しない)」動作も兼ねる(FoodBonusListener#JUNK_FOOD_RESTORE_BOOST 参照)。
         add(map, "junk-food-restore-boost", "ゴミ食回復ボーナス%", FeatureEffectParam.LEVEL);
-        // 切削C-1/C-2: 消費シャベル耐久累計に応じたバニラ/職業EXPボーナスの上限%(それぞれ独立)。
-        add(map, "digging-durability-vanilla-exp", "耐久累計→バニラEXP上限%", FeatureEffectParam.LEVEL);
-        add(map, "digging-durability-job-exp", "耐久累計→職業EXP上限%", FeatureEffectParam.LEVEL);
+        // 2026-07-28 (数値のギミックyml集約): 切削C-1/C-2も精錬と同じ理由でLEVEL(生%直書き、しかも
+        // その同じ%を裏でtier番号としても流用する二重定義だった旧実装)からSCALEへ変更。数値の実体は
+        // stats/digging-gimmick.yml の durability-exp.vanilla-exp/job-exp.tiers[tier].cap-percent。
+        // 旧value 50/25 → tier 1/2 相当が無く単一tier(1)化されたため、digging.yml側もvalue 50→1/25→1へ
+        // 変更済み(cap-percentの実値はyml側のtier1行が保持する)。
+        add(map, "digging-durability-vanilla-exp", "耐久累計→バニラEXP tier", FeatureEffectParam.SCALE);
+        add(map, "digging-durability-job-exp", "耐久累計→職業EXP tier", FeatureEffectParam.SCALE);
         return Map.copyOf(map);
     }
 

@@ -135,8 +135,10 @@ nodes:
     effects:
       - "精錬速度+10%"
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更(数値の実体は stats/smithing-gimmick.yml
+      # furnace-smelt.speed.tiers)。tier1=10%。
       - id: "feature:furnace-smelt-speed"
-        value: 10
+        value: 1
   A-2:
     name: "精錬速度II"
     level: 40
@@ -148,8 +150,9 @@ nodes:
     effects:
       - "精錬速度+20%"
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更。tier2=20%。
       - id: "feature:furnace-smelt-speed"
-        value: 20
+        value: 2
   A-3:
     name: "精錬速度III"
     level: 40
@@ -161,8 +164,9 @@ nodes:
     effects:
       - "精錬速度+30%"
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更。tier3=30%。
       - id: "feature:furnace-smelt-speed"
-        value: 30
+        value: 3
   A-4:
     name: "精錬・制作魔法の解放"
     level: 60
@@ -189,8 +193,10 @@ nodes:
     effects:
       - "鉱石の精錬ボーナス+10%"
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更(数値の実体は stats/smithing-gimmick.yml
+      # furnace-smelt.bonus.tiers)。tier1=10%。
       - id: "feature:furnace-smelt-bonus"
-        value: 10
+        value: 1
   B-2:
     name: "精錬ボーナスII"
     level: 40
@@ -202,8 +208,9 @@ nodes:
     effects:
       - "鉱石の精錬ボーナス+20%"
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更。tier2=20%。
       - id: "feature:furnace-smelt-bonus"
-        value: 20
+        value: 2
   B-3:
     name: "精錬ボーナスIII"    # 下段の派生B-3(精錬ボーナス+30%)。上段の解体解放B-3-upperとは別ノード
     level: 60
@@ -215,8 +222,9 @@ nodes:
     effects:
       - "鉱石の精錬ボーナス+30%"
     dedicated-effects:
+      # 2026-07-28: valueは%直書きからtier番号へ変更。tier3=30%。
       - id: "feature:furnace-smelt-bonus"
-        value: 30
+        value: 3
 
   B-alpha-1:
     name: "下振れ軽減I"

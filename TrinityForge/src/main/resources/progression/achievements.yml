@@ -21,6 +21,28 @@
 #   rewards:
 #     special:  special-rewards.yml の titles/particles/particle-seeds のID配列
 #     commands: コンソールから実行するコマンド配列。%player% がプレイヤー名に置換される
+#
+# vanilla-advancements: (2026-07-28)
+#   サーバ側でバニラの進捗(advancement)解除自体を止める設定。TFは独自のアチーブメント(このファイル)を
+#   持っているため、右上のトースト通知・進捗画面の達成をサーバ側で抑止したい場合に使う。
+#   対象は minecraft: 名前空間の進捗だけ — データパックや他プラグインが登録した進捗は巻き込まない。
+#
+#   disabled: true(既定) でバニラ進捗の解除を止める。
+#   keep-recipe-advancements: true(既定・推奨) で minecraft:recipes/ 配下だけは通す。
+#     バニラは minecraft:recipes/... という隠し進捗でレシピ本の解禁を配っているため、
+#     false にすると新しいレシピが一切解放されなくなる。基本的に false にしないこと。
+#   keep: 上記以外で追加で通したい進捗キーの前方一致リスト(例: "minecraft:story/")。既定は空。
+#
+#   【相互作用の注意】achievements.<id>.trigger.type: advancement (バニラ進捗の完了で発火するTF
+#   アチーブメント)は、vanilla-advancements.disabled: true にすると
+#   PlayerAdvancementCriterionGrantEvent 自体がキャンセルされて発火しなくなり、
+#   その型のTFアチーブメントは永久に達成不能になる。起動時に type: advancement の定義が
+#   1件以上あるのに disabled: true だと WARNING がコンソールに出る。
+
+vanilla-advancements:
+  disabled: true
+  keep-recipe-advancements: true
+  keep: []
 
 achievements:
   get_infinity:

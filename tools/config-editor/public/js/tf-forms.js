@@ -603,11 +603,12 @@
 
   // ============================================================
   // smithing-gimmick.yml (tf-smithing-gimmick)
-  //   唯一の値: auto-mode-multiplier (ホッパー自動投入時、手動投入と比べた精錬速度/精錬ボーナスの
-  //   減衰係数)。0.0=自動投入では効果無効、1.0=手動と同じ効果。Java側 SmithingGimmickConfig#clamp01
+  //   auto-mode-multiplier: ホッパー自動投入時、手動投入と比べた精錬速度/精錬ボーナスの減衰係数。
+  //   0.0=自動投入では効果無効、1.0=手動と同じ効果。Java側 SmithingGimmickConfig#clamp01
   //   と同じ [0,1] 範囲でクランプする (範囲外は保存時にサーバがエラーを返す)。
-  //   精錬速度/精錬ボーナスの実際の%はスキルツリー側 dedicated-effects value が権威なので、
-  //   このファイルにはそれらのtierテーブルは存在しない (SmithingGimmickConfig.java のJavaDoc参照)。
+  //   2026-07-28(数値のギミックyml集約): furnace-smelt.speed/bonus のtierテーブルもここに追加。
+  //   スキルツリー側(feature:furnace-smelt-speed/bonus)はtier番号だけを持ち、実際の%はここで解決する
+  //   (SmithingGimmickConfig.java のJavaDoc参照)。
   // ============================================================
   window.buildSmithingGimmickForm = function buildSmithingGimmickForm(data, opts) {
     const working = data && typeof data === "object" ? data : {};
@@ -666,6 +667,36 @@
       h("div", { class: "stat-row smithing-gimmick-row" }, [slider, numInput, valueLabel])
     ]));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "鍛冶ギミック (smithing-gimmick.yml)" })], [body]));
+
+    // 2026-07-28(数値のギミックyml集約): furnace-smelt-speed/bonus は SCALE化(tier番号)され、
+    // 実際の%はここ(furnace-smelt.speed/bonus)のtierテーブルへ移った。
+    ensureObj(working, "furnace-smelt");
+    const speedSection = ensureObj(working["furnace-smelt"], "speed");
+    const bonusSection = ensureObj(working["furnace-smelt"], "bonus");
+    if (speedSection.percent == null) speedSection.percent = 10;
+    if (bonusSection.percent == null) bonusSection.percent = 10;
+
+    function furnaceSmeltSection(section, title, hint) {
+      const sBody = h("div", { class: "const-body" });
+      sBody.appendChild(h("div", { class: "form-field" }, [
+        window.fieldLabelEl("percent", { label: "グローバル既定%(tier未該当時のフォールバック)", desc: hint }),
+        window.numberInput(section.percent, (v) => {
+          if (v == null) return;
+          section.percent = Math.max(0, v);
+        })
+      ]));
+      sBody.appendChild(h("div", { class: "sub-title", text: "tier別% (tiers) — 該当tier行があればこちらが優先" }));
+      sBody.appendChild(
+        typeof window.tierTableEditor === "function"
+          ? window.tierTableEditor(section, [{ key: "percent", label: "%" }])
+          : h("div", { class: "empty-hint", text: "tier表エディタ(tf-lifestyle-forms.js)が読み込まれていません。" })
+      );
+      return card([h("span", { class: "entry-key-label", text: title })], [sBody]);
+    }
+    root.appendChild(furnaceSmeltSection(speedSection, "精錬速度 (furnace-smelt.speed)",
+      "skilltree/smithing.yml A-1/A-2/A-3 の feature:furnace-smelt-speed value(tier番号)で引く。"));
+    root.appendChild(furnaceSmeltSection(bonusSection, "精錬ボーナス (furnace-smelt.bonus)",
+      "skilltree/smithing.yml B-1/B-2/B-3 の feature:furnace-smelt-bonus value(tier番号)で引く。"));
 
     if (hasCraftingFeatures) {
       root.appendChild(h("p", { class: "form-hint", text:

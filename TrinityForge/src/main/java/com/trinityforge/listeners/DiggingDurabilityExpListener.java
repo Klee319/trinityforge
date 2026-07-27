@@ -83,24 +83,28 @@ public final class DiggingDurabilityExpListener implements Listener {
 
     /** バニラEXPボーナス(fraction、C-1)。ノード未保持なら常に0。 */
     public double vanillaExpBonusFraction(Player player) {
-        return bonusFraction(player, EFFECT_VANILLA_EXP);
+        if (player == null) return 0.0;
+        OptionalDouble tier = dedicatedEffects.valueMax(player, EFFECT_VANILLA_EXP);
+        if (tier.isEmpty()) return 0.0;
+        int t = (int) tier.getAsDouble();
+        long accumulated = accumulatedDurability(player);
+        return DiggingDurabilityExpPolicy.bonusFraction(
+                accumulated, gimmickConfig.durabilityPerPercentForVanillaExp(t), gimmickConfig.vanillaExpCapPercent(t));
     }
 
     /** 職業(スキル)EXPボーナス(fraction、C-2)。ノード未保持なら常に0。 */
     public double jobExpBonusFraction(Player player) {
-        return bonusFraction(player, EFFECT_JOB_EXP);
+        if (player == null) return 0.0;
+        OptionalDouble tier = dedicatedEffects.valueMax(player, EFFECT_JOB_EXP);
+        if (tier.isEmpty()) return 0.0;
+        int t = (int) tier.getAsDouble();
+        long accumulated = accumulatedDurability(player);
+        return DiggingDurabilityExpPolicy.bonusFraction(
+                accumulated, gimmickConfig.durabilityPerPercentForJobExp(t), gimmickConfig.jobExpCapPercent(t));
     }
 
-    private double bonusFraction(Player player, String effectId) {
-        if (player == null) return 0.0;
-        OptionalDouble cap = dedicatedEffects.valueMax(player, effectId);
-        if (cap.isEmpty()) return 0.0;
-        long accumulated = player.getPersistentDataContainer()
+    private long accumulatedDurability(Player player) {
+        return player.getPersistentDataContainer()
                 .getOrDefault(PdcKeys.PLAYER_DIGGING_DURABILITY_ACCUM, PersistentDataType.LONG, 0L);
-        // 2026-07-26 tier-expand: 変換レート(durability-per-percent)をノードの上限%(=cap、C-1=50/C-2=25)
-        // をtierとして流用しoptional化。durability-exp.tiers未定義ならグローバルscalarへ完全後方互換。
-        int tier = (int) cap.getAsDouble();
-        return DiggingDurabilityExpPolicy.bonusFraction(
-                accumulated, gimmickConfig.durabilityPerPercent(tier), cap.getAsDouble());
     }
 }

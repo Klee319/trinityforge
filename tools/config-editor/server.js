@@ -557,7 +557,9 @@ app.get("/api/gate-vocabulary", (req, res) => {
 // 語彙供給。gate-vocabulary とは別エンドポイント(lib/gate-vocabulary.js は他作業者が編集中のため
 // 変更しない方針)。対象は vein-mining / haste-active-mining / tree-fell / area-harvest の4件に加え、
 // 2026-07-26 tier-expand で xp-bottle-store-unlock(fishing-gimmick) / potion-merge(crafting-features)
-// をSCALE化したのに伴い fishing / craftingFeatures バケットを追加。
+// をSCALE化したのに伴い fishing / craftingFeatures バケットを追加。2026-07-28 (数値のギミックyml集約)
+// で furnace-smelt-speed/bonus と digging-durability-vanilla-exp/job-exp をSCALE化したため
+// smithing / digging バケットを追加。
 app.get("/api/tier-vocabulary", (req, res) => {
   try {
     const gimmicks = {
@@ -565,7 +567,9 @@ app.get("/api/tier-vocabulary", (req, res) => {
       woodcutting: readEntryById("woodcutting-gimmick"),
       farming: readEntryById("farming-gimmick"),
       fishing: readEntryById("fishing-gimmick"),
-      craftingFeatures: readEntryById("crafting-features")
+      craftingFeatures: readEntryById("crafting-features"),
+      smithing: readEntryById("smithing-gimmick"),
+      digging: readEntryById("digging-gimmick")
     };
     res.json({ ok: true, tiers: buildTierVocabulary(gimmicks) });
   } catch (err) {

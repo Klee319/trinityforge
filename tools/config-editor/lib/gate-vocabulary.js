@@ -31,17 +31,18 @@ const FEATURES = Object.freeze([
   { id: "potion-merge", label: "ポーション統合", param: "scale" },
   { id: "wood-repair-unlock", label: "木材修繕", param: "none" },
   { id: "weapon-coating-unlock", label: "武器コーティング解放", param: "none" },
-  // 2026-07-26 (stat-scope 境界引き直し): coating-charges を総合ステからアイテム固有へ降格したのに伴い、
-  // パーク由来のコーティング回数追加はこの feature 経由になった。Java側 FeatureEffectRegistry と同期必須。
-  { id: "coating-stack-increase", label: "武器コーティング上限追加", param: "level" },
+  // 2026-07-28 (数値のギミックyml集約): coating-stack-increase は feature から通常stat
+  // (coating_charges_bonus)へ移設したため削除。Java側 FeatureEffectRegistry と同期必須。
   { id: "source-auto-consume", label: "ソース自動消費", param: "none" },
   { id: "break-vanilla-exp", label: "破壊時バニラEXP解放", param: "none" },
-  // 2026-07-25 かまど/ゴミ食/シャベル耐久EXP 5件追加。Java側 FeatureEffectRegistry と同期必須。
-  { id: "furnace-smelt-speed", label: "精錬速度短縮%", param: "level" },
-  { id: "furnace-smelt-bonus", label: "精錬ボーナス%", param: "level" },
+  // 2026-07-28 (数値のギミックyml集約): 精錬速度/ボーナスと切削耐久累計2件をlevel(生%直書き) ->
+  // scale(tier番号)化。実値は stats/smithing-gimmick.yml / stats/digging-gimmick.yml のtierテーブルへ
+  // 移設した。Java側 FeatureEffectRegistry と同期必須。
+  { id: "furnace-smelt-speed", label: "精錬速度短縮tier", param: "scale" },
+  { id: "furnace-smelt-bonus", label: "精錬ボーナスtier", param: "scale" },
   { id: "junk-food-restore-boost", label: "ゴミ食回復ボーナス%", param: "level" },
-  { id: "digging-durability-vanilla-exp", label: "耐久累計→バニラEXP上限%", param: "level" },
-  { id: "digging-durability-job-exp", label: "耐久累計→職業EXP上限%", param: "level" }
+  { id: "digging-durability-vanilla-exp", label: "耐久累計→バニラEXP tier", param: "scale" },
+  { id: "digging-durability-job-exp", label: "耐久累計→職業EXP tier", param: "scale" }
 ]);
 
 function isPlainObject(v) {

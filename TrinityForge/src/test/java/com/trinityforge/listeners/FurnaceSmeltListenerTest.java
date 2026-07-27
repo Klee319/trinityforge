@@ -25,6 +25,7 @@ import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -96,7 +97,9 @@ class FurnaceSmeltListenerTest {
     void manualInsertStampsInserterAsOwnerAndAppliesSpeedBonus() {
         listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
 
-        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(30.0));
+        // 2026-07-28: valueMax は tier番号(3)を返し、gimmickConfig.smeltSpeedPercent(tier) が実際の30%へ解決する。
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(30.0);
         FurnaceStartSmeltEvent event = new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 
@@ -132,7 +135,9 @@ class FurnaceSmeltListenerTest {
     @Test
     void extraDropBonusRollsWithOwnersStat() {
         listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
-        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_BONUS))).thenReturn(OptionalDouble.of(1000.0)); // >100% => guaranteed extra
+        // 2026-07-28: tier番号を返し、smeltBonusPercent(tier)側で>100%(保証抽選)を解決する。
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_BONUS))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltBonusPercent(anyInt())).thenReturn(1000.0); // >100% => guaranteed extra
 
         int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
         FurnaceSmeltEvent event = new FurnaceSmeltEvent(block, new ItemStack(Material.IRON_ORE), new ItemStack(Material.IRON_INGOT));
@@ -201,7 +206,8 @@ class FurnaceSmeltListenerTest {
         FurnaceInventory inv = furnace().getInventory();
         listener.onInventoryMoveItem(hopperInsertEvent(inv));
 
-        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(40.0));
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(4.0));
+        when(gimmickConfig.smeltSpeedPercent(anyInt())).thenReturn(40.0);
         FurnaceStartSmeltEvent event = new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 

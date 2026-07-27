@@ -633,24 +633,37 @@
       [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
       [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
     ));
+    // 2026-07-28(数値のギミックyml集約): 旧「%そのものをtierとして流用する」単一tiers表は廃止。
+    // feature別(vanilla-exp/job-exp)に独立したtiers表 + cap-percent へ置き換えた。tierは
+    // digging-durability-vanilla-exp/digging-durability-job-exp(いずれもSCALE)のノードvalueで決まる。
+    const vanillaExp = ensureObj(durabilityExp, "vanilla-exp");
+    const jobExp = ensureObj(durabilityExp, "job-exp");
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "耐久消費EXP換算 (durability-exp)" })],
       [
         grid([
           numField(durabilityExp, "durability-per-percent", {
             label: "1%ボーナスに必要な累積耐久消費量(グローバル既定値)", int: true,
-            desc: "例: 100なら、シャベルの耐久を100消費するごとに+1%(上限までクランプ)。上限%自体はスキルツリー側で決まる。"
-              + "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+            desc: "例: 100なら、シャベルの耐久を100消費するごとに+1%(上限cap-percentまでクランプ)。"
+              + "下の各tier行が durability-per-percent を個別に持つ場合はそちらが優先される。"
           })
         ]),
-        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
-        h("div", { class: "form-hint", text:
-          "tierは digging-durability-vanilla-exp(バニラEXP、上限%そのもの)/digging-durability-job-exp"
-          + "(職業EXP、上限%そのもの)それぞれのスキルツリーノードvalueをそのまま流用する"
-          + "(例: 上限50%のノード保持者はtier=50の行を参照)。" }),
-        tierTableEditor(durabilityExp, [
-          { key: "durability-per-percent", label: "1%あたり必要耐久消費量", int: true }
-        ])
+        sub("バニラEXP上限% (vanilla-exp.tiers) — digging-durability-vanilla-exp のtierで引く"),
+        tierTableEditor(vanillaExp, [
+          { key: "cap-percent", label: "上限%", int: true },
+          { key: "durability-per-percent", label: "1%あたり必要耐久消費量(任意、省略でグローバル既定値)", int: true }
+        ], {
+          emptyTitle: "tier未設定(上限0%=無効)",
+          emptyHint: "「+ tier追加」でtier1から順に上限%を設定してください(未設定のtierは無効扱い)。"
+        }),
+        sub("職業EXP上限% (job-exp.tiers) — digging-durability-job-exp のtierで引く"),
+        tierTableEditor(jobExp, [
+          { key: "cap-percent", label: "上限%", int: true },
+          { key: "durability-per-percent", label: "1%あたり必要耐久消費量(任意、省略でグローバル既定値)", int: true }
+        ], {
+          emptyTitle: "tier未設定(上限0%=無効)",
+          emptyHint: "「+ tier追加」でtier1から順に上限%を設定してください(未設定のtierは無効扱い)。"
+        })
       ]
     ));
     return { element: root, getData: () => working };

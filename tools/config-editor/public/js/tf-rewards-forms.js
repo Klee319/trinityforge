@@ -554,6 +554,17 @@
           + "次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映。")
       ])]
     ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "孤児化した付与分の自動剥奪 (prune-orphaned-grants)" })],
+      [h("div", { class: "field-grid" }, [
+        field("有効にする", window.checkboxInput(working["prune-orphaned-grants"] !== false, (v) => {
+          working["prune-orphaned-grants"] = !!v;
+        }), "true(既定)にすると、このファイルから削除した報酬IDを、プレイヤーの保持分"
+          + "(直接付与リスト/装備中の称号・パーティクル)からも参加時 + /trinityforge reload 時に自動で取り除く。"
+          + "安全弁: このファイルの読み込みに失敗した回(YAML構文エラー等)は、剥奪処理そのものを"
+          + "自動でスキップする(壊れた設定を「全部未定義」と誤判定して全員の報酬を消し飛ばす事故を防ぐため)。")
+      ])]
+    ));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "称号 (titles)" })], [titlesBody]));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクル (particles)" })], [particlesBody]));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクルシード (particle-seeds)" })], [seedsBody]));
@@ -598,6 +609,35 @@
     const root = h("div", { class: "dedicated-form achievement-form" });
     root.appendChild(formHint(
       "左の一覧からアチーブメントを選び、右側で通知有無・トリガー・報酬を設定します。"
+    ));
+
+    // vanilla-advancements (2026-07-28): サーバ側でバニラ進捗(advancement)解除自体を止める設定。
+    const vanillaAdv = ensureObj(working, "vanilla-advancements", {});
+    if (!Array.isArray(vanillaAdv.keep)) vanillaAdv.keep = [];
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "バニラ進捗の解除抑止 (vanilla-advancements)" })],
+      [h("div", { class: "field-grid" }, [
+        field("バニラ進捗解除を止める (disabled)", window.checkboxInput(vanillaAdv.disabled !== false, (v) => {
+          vanillaAdv.disabled = !!v;
+        }), "true(既定)でバニラ進捗の解除(右上トースト・進捗画面の達成)をサーバ側でキャンセルする。"
+          + "対象は minecraft: 名前空間の進捗だけで、データパック/他プラグインの進捗は巻き込まない。"),
+        field("レシピ進捗だけは通す (keep-recipe-advancements)",
+          window.checkboxInput(vanillaAdv["keep-recipe-advancements"] !== false, (v) => {
+            vanillaAdv["keep-recipe-advancements"] = !!v;
+          }), "true(既定・推奨)で minecraft:recipes/ 配下の進捗だけは解除を通す。バニラはこの隠し進捗で"
+          + "レシピ本の解禁を配っているため、false にすると新しいレシピが一切解放されなくなる。")
+      ])]
+      .concat([field("追加で通す進捗キー (keep, 前方一致)",
+        stringListEditor(vanillaAdv.keep, {
+          placeholder: "例: minecraft:story/", addLabel: "+ 追加",
+          empty: "追加の除外はありません。"
+        }),
+        "上記以外で解除を通したい進捗キーの前方一致リスト(namespace:path形式、例: \"minecraft:story/\")。")])
+    ));
+    root.appendChild(formHint(
+      "相互作用の注意: trigger.type: advancement のTFアチーブメントは、disabled=true にすると"
+      + "PlayerAdvancementCriterionGrantEvent自体がキャンセルされて永久に達成不能になる"
+      + "(type: advancementの定義が1件以上あるのにdisabled=trueだと起動時にコンソールへ警告が出る)。"
     ));
 
     const layout = h("div", { class: "achievement-layout" });
