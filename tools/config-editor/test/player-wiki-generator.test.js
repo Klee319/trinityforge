@@ -84,3 +84,15 @@ test("player wiki generator removes the legacy README entry and detects it in ch
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("player wiki generator ignores line-ending differences in check mode", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "trinityforge-wiki-test-"));
+  const pages = new Map([["Home.md", "# Home\n\n本文\n"]]);
+  try {
+    fs.writeFileSync(path.join(directory, "Home.md"), "# Home\r\n\r\n本文\r\n", "utf8");
+
+    assert.deepEqual(generator.writePages(pages, directory, true), []);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

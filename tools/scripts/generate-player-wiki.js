@@ -119,6 +119,10 @@ function plainText(value) {
     .trim();
 }
 
+function normalizeLineEndings(value) {
+  return String(value).replace(/\r\n/g, "\n");
+}
+
 function markdown(value) {
   return plainText(value).replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
 }
@@ -850,7 +854,7 @@ function writePages(pages, wikiDirectory, checkOnly) {
   for (const [fileName, content] of pages) {
     const target = path.join(wikiDirectory, fileName);
     const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : null;
-    if (current === content) continue;
+    if (current != null && normalizeLineEndings(current) === normalizeLineEndings(content)) continue;
     changed.push(fileName);
     if (!checkOnly) fs.writeFileSync(target, content, "utf8");
   }
