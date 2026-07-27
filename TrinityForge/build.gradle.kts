@@ -14,6 +14,10 @@ repositories {
     // without needing network access to JitPack.
     mavenLocal()
     maven("https://jitpack.io")
+    // packetevents(任意依存)の配布元。実サーバに入っている packetevents-spigot 2.11.1 と
+    // 同一バージョンをコンパイル時参照する(バージョン差による NoSuchMethodError を避けるため、
+    // ここのバージョンはサーバの jar と必ず一致させること)。
+    maven("https://repo.codemc.io/repository/maven-releases/")
 }
 
 dependencies {
@@ -33,6 +37,13 @@ dependencies {
     testImplementation("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
+
+    // packetevents soft-dependency (2026-07-28, damage_indicator パーティクル上限): compile-time only,
+    // never bundled/shaded。バニラの被弾パーティクル個数はどの Bukkit イベントにも乗らないため、
+    // 送信直前のパケットで個数を丸めるにはパケット層が必須。未導入なら
+    // DamageIndicatorParticleLimiter ごと無効化されるだけ(fail-open)。
+    // バージョンは実サーバの packetevents-spigot と一致させること(現在 2.11.1)。
+    compileOnly("com.github.retrooper:packetevents-api:2.11.1")
 
     // SQLite JDBC — Apache-2.0. Bundled in the shadow JAR (TrinityForge-*-all.jar) because
     // Paper server does not provide a SQLite driver on its classpath.

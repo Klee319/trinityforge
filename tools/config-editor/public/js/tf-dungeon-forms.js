@@ -662,6 +662,7 @@
     const working = data && typeof data === "object" ? data : {};
     const focusHp = ensureObj(working, "focus-hp");
     const damagePopup = ensureObj(working, "damage-popup");
+    const damageIndicator = ensureObj(working, "damage-indicator-particles");
 
     const root = h("div", { class: "dedicated-form combat-display-form" });
     root.appendChild(h("div", {
@@ -690,6 +691,17 @@
         }),
         numField(damagePopup, "duration-ticks", { label: "表示時間(tick)", int: true, desc: "20tick=1秒。短いほど軽量" }),
         numField(damagePopup, "min-damage", { label: "最小表示ダメージ", desc: "この値未満のダメージは非表示。0＝全て表示" })
+      ])]
+    ));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "被弾パーティクル上限 (damage-indicator-particles)" })],
+      [grid([
+        numField(damageIndicator, "max-count", {
+          label: "1ヒットの最大個数",
+          int: true,
+          desc: "バニラは与ダメージに比例して個数を出すためTFのダメージ帯だと画面が埋まる。0＝完全に消す／-1＝制限しない。表示のみでダメージ計算には影響しない。packetevents 導入時のみ有効"
+        })
       ])]
     ));
 

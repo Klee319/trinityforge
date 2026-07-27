@@ -164,6 +164,11 @@ public final class TrinityForge extends JavaPlugin {
     private BleedService bleedService;
     private FocusHpDisplay focusHpDisplay;
     private DamagePopupDisplay damagePopupDisplay;
+    /**
+     * packetevents リスナーの登録解除フック(任意依存)。packetevents 不在環境でもこのフィールドの
+     * 型解決が走らないよう、あえて packetevents の型ではなく {@link Runnable} で保持する。
+     */
+    private Runnable damageIndicatorUninstaller;
     private ItemFactory itemFactory;
     private CatalogRecipeRegistrar catalogRecipeRegistrar;
     private com.trinityforge.stats.VanillaRecipeRemover vanillaRecipeRemover;
@@ -875,6 +880,8 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(damagePopupDisplay, this);
         damagePopupDisplay.start();
 
+        installDamageIndicatorLimiter();
+
         // 称号頭上表示(パッセンジャーTextDisplay) + パーティクル演出の周期タスク開始。
         titleDisplayService.start();
         particleEffectService.start();
@@ -890,6 +897,29 @@ public final class TrinityForge extends JavaPlugin {
         // so anything reaching getInstance() during enable never observes a half-built plugin.
         instance = this;
         getLogger().info("TrinityForge enabled (Paper 1.21.11).");
+    }
+
+    /**
+     * バニラの被弾パーティクル({@code damage_indicator})の個数上限を有効化する(任意依存)。
+     *
+     * <p>packetevents が無い環境では {@link com.trinityforge.combat.DamageIndicatorParticleLimiter}
+     * を<b>参照してはならない</b>(packetevents の型を直接持つのでクラスロードが
+     * {@link NoClassDefFoundError} になる)。そのためプラグイン存在チェックを先に行い、
+     * それでも失敗した場合は {@link Throwable} ごと握って警告1行に留める(起動は絶対に止めない)。
+     */
+    private void installDamageIndicatorLimiter() {
+        if (getServer().getPluginManager()
+                .getPlugin(com.trinityforge.combat.DamageIndicatorParticleLimiter.PACKETEVENTS_PLUGIN) == null) {
+            getLogger().info("[display] packetevents が未導入のため damage_indicator パーティクル上限は"
+                    + "無効です(バニラそのままの個数で表示されます)。");
+            return;
+        }
+        try {
+            this.damageIndicatorUninstaller =
+                    com.trinityforge.combat.DamageIndicatorParticleLimiter.install(this, configManager.display());
+        } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
+            getLogger().warning("[display] damage_indicator パーティクル上限を有効化できませんでした: " + ex);
+        }
     }
 
     @Override
@@ -918,6 +948,15 @@ public final class TrinityForge extends JavaPlugin {
         // Cancel the focus-HP tick task and despawn every tracked TextDisplay (leak-safety).
         if (focusHpDisplay != null) {
             focusHpDisplay.shutdown();
+        }
+        // packetevents は TF の無効化でリスナーを自動的に外さないので明示的に外す(多重登録防止)。
+        if (damageIndicatorUninstaller != null) {
+            try {
+                damageIndicatorUninstaller.run();
+            } catch (Throwable ex) {
+                getLogger().warning("[display] damage_indicator パーティクル上限の登録解除に失敗しました: " + ex);
+            }
+            damageIndicatorUninstaller = null;
         }
         // DamagePopupDisplay has no shutdown(): its displays are one-shot and so short-lived (default
         // 15 ticks = 0.75s) that forced cleanup on disable is unnecessary — each already schedules its
