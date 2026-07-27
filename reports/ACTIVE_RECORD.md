@@ -501,6 +501,45 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-28 — EliteMobs / Backuper の起動時バージョン通知を止める
+
+起動のたびに出ていた「更新版があります」の通知を両方とも止めた。
+
+**EliteMobs**（フォーク側で対処。`Klee319/EliteMobs-trinityforge` の `55a38c1c`）
+
+```
+[EliteMobs] Latest public release is 10.7.3
+[EliteMobs] Your version is 10.3.0
+[EliteMobs] [EliteMobs] A newer version of this plugin is available for download!
+```
+
+**config に切る設定は無い。** `VersionChecker.checkPluginVersion()` が
+spigotmc の API を叩いて本家の最新版と比べているだけで、
+**このフォークは 10.3.0 固定＝本家に追従しない**（追従したら改変が消える）ので
+**永久に「古い」と判定され続ける**。さらに `pluginIsUpToDate = false` が残るため、
+`VersionCheckerEvents` が**管理者の参加時にも同じ案内をチャットへ送っていた**
+（コンソールだけの問題ではない）。
+
+対処: `checkPluginVersion()` を no-op にし、本家実装は
+`checkPluginVersionUpstream()` として残置。
+`serverVersionOlderThan`（1.21.x の互換分岐に多用されている）と
+`checkContentVersion`（Nightbreak のコンテンツパック）には触っていない。
+
+- 再ビルド: `gradlew.bat shadowJar --offline -Dorg.gradle.java.home="C:\Program Files\Java\jdk-21"`
+- 出力は `testbed/plugins/EliteMobs.jar`（6,839,502 bytes）。
+  **`build/libs/*-min.jar` を配ってはいけない**（MagmaCore 剥離で起動不能）
+- main / dev の `plugins\EliteMobs.jar` へ配備済み（02:31）。resource には EliteMobs 自体が無い
+- 逆アセンブルで `checkPluginVersion()` の本体が `return` のみになっていることを確認
+
+**Backuper**（`Main_Server\plugins\Backuper\config.yml`）
+
+`server.checkUpdates: true` → `false`。「Backuper is outdated」バナーが消える。
+
+> 残るもの: 起動時の `Issue tracking` バナーは Backuper 4.0.4 に切る設定が無く、
+> `onEnable` で無条件に出力される。消すには log4j のフィルタが要るので今回は手を付けていない。
+
+**どちらも反映はフル再起動から**（jar 差し替えと config 読み込みのため）。
+
 ### 2026-07-28 — LuckPerms の per-server 設定と、dev を管理者専用にする方法
 
 ユーザー依頼: **「luckperms でしておくべき設定を教えて、dev は管理者用とする」**
