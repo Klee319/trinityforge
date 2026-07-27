@@ -1,24 +1,27 @@
 @echo off
 REM =============================================================================================
-REM  Garnet (Redis 互換サーバ) の起動。HuskSync のキャッシュとして使う。
-REM  配置先: D:\game\minecraft\Garnet\garnet.cmd
+REM  Start Garnet (Redis-compatible server), used as HuskSync's cache.
+REM  Deploy to: D:\game\minecraft\Garnet\garnet.cmd
 REM
-REM  【net8.0 を使う】
-REM  この zip は自己完結ではなく .NET ランタイムを要求する。同梱されているのは
-REM    net8.0\GarnetServer.exe   -> .NET 8 ランタイムが必要（この環境には 8.0.21 がある）
-REM    net10.0\GarnetServer.exe -> .NET 10 ランタイムが必要（未導入）
-REM  なので net8.0 を指す。.NET 10 を入れたら net10.0 へ切り替えてよい。
+REM  ASCII ONLY. cmd.exe mis-parses UTF-8 batch files: multi-byte characters make it seek to the
+REM  wrong byte offset and it starts executing the middle of a line. Japanese explanations live
+REM  in ops\RUNBOOK.md step 2-2. (run-selftest.ps1 fails if non-ASCII creeps back in.)
 REM
-REM  【--memory を必ず指定する】
-REM  既定は 16g。指定しないとメインログ用に 16GB を抱えに行き、
-REM  8G + 6G の JVM とメモリを取り合う。HuskSync はスナップショットの
-REM  一時キャッシュとしてしか使わない（正本は MariaDB）ので 1g で足りる。
+REM  USE net8.0
+REM  This zip is not self-contained, it needs a .NET runtime. It ships:
+REM    net8.0\GarnetServer.exe  -> needs .NET 8  (this box has 8.0.21)
+REM    net10.0\GarnetServer.exe -> needs .NET 10 (not installed)
+REM  Hence net8.0. Switch to net10.0 only after installing .NET 10.
 REM
-REM  【--bind を必ず指定する】
-REM  既定は any。指定しないと外部から到達しうる（SECURITY.md）。
+REM  --memory IS MANDATORY
+REM  It defaults to 16g: without it Garnet reserves 16GB for its main log and fights the
+REM  8G + 6G JVMs for RAM. HuskSync only uses it as a short-lived snapshot cache
+REM  (MariaDB is the system of record), so 1g is plenty.
 REM
-REM  AOF は有効にしない。Redis 側が消えても MariaDB に正本があるため、
-REM  ディスク書き込みを増やす意味が薄い。
+REM  --bind IS MANDATORY
+REM  It defaults to "any", i.e. reachable from outside the machine (ops\SECURITY.md).
+REM
+REM  AOF stays off: MariaDB holds the system of record, so extra disk writes buy little.
 REM =============================================================================================
 
 set GARNET_HOME=D:\game\minecraft\Garnet

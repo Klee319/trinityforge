@@ -11,6 +11,7 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 | 目的 | ファイル |
 |---|---|
 | **移行作業をする** | [RUNBOOK.md](RUNBOOK.md) ← まずここ |
+| **日々の起動・停止・検査** | [launch/README.md](launch/README.md) / [launch/testkit/README.md](launch/testkit/README.md) |
 | どのプラグインをどこに置くか | [PLUGIN_MATRIX.md](PLUGIN_MATRIX.md) |
 | DDoS/DoS 対策とポート方針 | [SECURITY.md](SECURITY.md) |
 | 定期再起動と軽量化 | [PERFORMANCE.md](PERFORMANCE.md) |
@@ -51,15 +52,28 @@ gradlew test --tests "com.trinityforge.ops.*"
 | [scripts/preflight.ps1](scripts/preflight.ps1) | **起動前チェック。** MariaDB / Garnet が実際に応答しているか（ポートの開閉ではなくプロトコルで判定）、HuskSync の既定資格情報と同期設定、全バックエンドでの設定一致、forwarding secret の一致 |
 | [scripts/apply-velocity-forwarding.ps1](scripts/apply-velocity-forwarding.ps1) | `forwarding.secret` を全バックエンドの `paper-global.yml` へ反映（冪等・退避あり・secret は表示しない） |
 | [scripts/apply-husksync-config.ps1](scripts/apply-husksync-config.ps1) | HuskSync の config.yml を全バックエンドで同一内容に揃える（パスワードは実行時に入力） |
-| [scripts/setup-junction.cmd](scripts/setup-junction.cmd) | `plugins/TrinityForge` のディレクトリジャンクションを張る（1 回だけ・冪等） |
-| [scripts/server-loop.cmd](scripts/server-loop.cmd) | `stop` 後に自動で起動し直すループ。main / resource 共通 |
+| [scripts/setup-junction.cmd](scripts/setup-junction.cmd) | `plugins/TrinityForge` のディレクトリジャンクションを張る（引数=バックエンド名・冪等）。**dev にも張る** |
+| [scripts/server-loop.cmd](scripts/server-loop.cmd) | `stop` 後に自動で起動し直すループ。main / resource / dev 共通 |
 | [scripts/sync-configs.ps1](scripts/sync-configs.ps1) | ArsPaper config の SHA-256 照合コピー、同名 jar の二重配置検出、ジャンクション有無の確認 |
 | [scripts/reset-resource.ps1](scripts/reset-resource.ps1) | 週次リセット（予告 → 停止 → 削除 → 整合チェック → 起動 → 事前生成） |
 | [scripts/restart-server.ps1](scripts/restart-server.ps1) | 日次再起動（予告 → `stop`。強制終了はしない） |
+| [scripts/stop-network.ps1](scripts/stop-network.ps1) | ネットワーク全体を逆順で停止（`stop.flag` を置いてから `stop`。main は最後） |
+| [scripts/show-status.ps1](scripts/show-status.ps1) | 何が上がっているか（プロセス＋3306/6379 の素性＋`stop.flag`） |
+| [scripts/check-logs.ps1](scripts/check-logs.ps1) | **起動後に流す。** 既知の症状を拾う（特に「HuskSync が無効なのにサーバは起動している」） |
 | [scripts/backup.ps1](scripts/backup.ps1) | 進行 DB と MariaDB の日次バックアップ |
 
 設定は [ops-config.sample.psd1](ops-config.sample.psd1) を `ops-config.psd1` にコピーして編集する。
-**RCON パスワードは設定ファイルに書かず、環境変数 `TF_RCON_MAIN_PASSWORD` / `TF_RCON_RESOURCE_PASSWORD` で渡す。**
+**RCON パスワードは設定ファイルに書かず、環境変数 `TF_RCON_MAIN_PASSWORD` / `TF_RCON_RESOURCE_PASSWORD` / `TF_RCON_DEV_PASSWORD` で渡す。**
+
+### `.cmd` は ASCII だけで書く
+
+cmd.exe は UTF-8 のバッチファイルを正しく読めない。マルチバイト文字があると
+ファイル位置の計算がずれ、**行の途中から実行を始める**。実際に `server-loop.cmd` が
+日本語コメント入りだった間、引数検査も `stop.flag` 判定も素通りして
+**空回りする無限ループ**になっていた（2026-07-27 に実測）。
+
+説明は `.ps1` と `.md` に置く（PowerShell は UTF-8 で問題ない）。
+`run-selftest.ps1` が `ops` 配下の全 `.cmd` を走査して非 ASCII を落とす。
 
 ---
 

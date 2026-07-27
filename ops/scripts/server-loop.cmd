@@ -1,21 +1,26 @@
 @echo off
 setlocal enabledelayedexpansion
-chcp 65001 >nul
 
 REM =============================================================================================
-REM  Paper を「stop したら自動で起動し直す」ループで包む。main / resource 共通。
+REM  Wrap Paper in a "restart after stop" loop. Same script for main / resource / dev.
 REM
-REM  再起動プラグインを使わない理由 (ops/PERFORMANCE.md に詳述):
-REM    HuskSync は restart 系プラグインを公式に非対応としている。プロセスを生かしたまま
-REM    ワールドとプレイヤーを作り直す方式はデータ消失とアイテム複製の温床になるため、
-REM    再起動は必ず「RCON stop でクリーンに落として、プロセスごと起動し直す」で統一する。
+REM  ASCII ONLY. cmd.exe mis-parses UTF-8 batch files: multi-byte characters make it seek to the
+REM  wrong byte offset, and it starts executing the middle of a line. This file used to carry
+REM  Japanese comments and spun in a hot infinite loop that never checked stop.flag and never
+REM  started the server. Japanese explanations belong in ops\RUNBOOK.md, not in .cmd files.
+REM  (run-selftest.ps1 fails if non-ASCII creeps back into any ops .cmd file.)
 REM
-REM  使い方:
-REM    server-loop.cmd "D:\game\minecraft\PaperServer\TrinityForge"     8G paper-1.21.11-132.jar
-REM    server-loop.cmd "D:\game\minecraft\PaperServer\TrinityForge-Res" 6G paper-1.21.11-132.jar
+REM  Why no restart plugin (ops\PERFORMANCE.md has the details):
+REM    HuskSync officially does not support restart plugins. Rebuilding worlds and players while
+REM    keeping the process alive breeds data loss and item duplication, so every restart goes
+REM    through "clean RCON stop, then start the process again".
 REM
-REM  ループを抜けたいとき (メンテナンスなどで上げ直したくないとき):
-REM    サーバルートに stop.flag という空ファイルを置いてから stop する。
+REM  Usage:
+REM    server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server"     8G paper-1.21.11-132.jar
+REM    server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server" 6G paper-1.21.11-132.jar
+REM
+REM  To leave the loop (maintenance, i.e. do not bring it back up):
+REM    put an empty file named stop.flag in the server root, then stop the server.
 REM =============================================================================================
 
 set "SERVER_ROOT=%~1"
@@ -23,51 +28,53 @@ set "HEAP=%~2"
 set "PAPER_JAR=%~3"
 
 if "%SERVER_ROOT%"=="" (
-    echo [ERROR] 引数1にサーバルートを指定してください。
+    echo [ERROR] Argument 1 must be the server root.
     exit /b 1
 )
 if "%HEAP%"==""      set "HEAP=8G"
 if "%PAPER_JAR%"=="" set "PAPER_JAR=paper-1.21.11-132.jar"
 
 cd /d "%SERVER_ROOT%" || (
-    echo [ERROR] サーバルートへ移動できません: %SERVER_ROOT%
+    echo [ERROR] Cannot change into the server root: %SERVER_ROOT%
     exit /b 1
 )
 
 if not exist "%PAPER_JAR%" (
-    echo [ERROR] Paper の jar がありません: %SERVER_ROOT%\%PAPER_JAR%
+    echo [ERROR] Paper jar not found: %SERVER_ROOT%\%PAPER_JAR%
     exit /b 1
 )
 
-REM 起動し直す前に置く間隔 (秒)。クラッシュループで CPU を焼かないための保険。
+REM Pause before restarting, in seconds. Keeps a crash loop from pinning the CPU.
 set "RESTART_DELAY=10"
 
 :loop
 if exist "stop.flag" (
-    echo [INFO] stop.flag があるためループを終了します。
-    echo        再開するには stop.flag を削除してこのスクリプトを起動し直してください。
+    echo [INFO] stop.flag present, leaving the loop.
+    echo        To resume, delete stop.flag and start this script again.
     goto :eof
 )
 
 echo.
 echo ===============================================================
-echo  起動: %SERVER_ROOT%  (heap=%HEAP%)  %DATE% %TIME%
+echo  starting: %SERVER_ROOT%  (heap=%HEAP%)  %DATE% %TIME%
 echo ===============================================================
 
-REM フラグは Aikar 由来の G1 チューニング。現行 start.bat と同じ構成に揃えている。
+REM Aikar's G1 flags. Kept identical to the current start.bat.
 java -Xms%HEAP% -Xmx%HEAP% ^
  -XX:+UseG1GC -XX:+ParallelRefProcEnabled ^
  -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch ^
  -jar "%PAPER_JAR%" nogui
 
 set "EXIT_CODE=!errorlevel!"
-echo [INFO] Paper が終了しました (exit=!EXIT_CODE!) %DATE% %TIME%
+echo [INFO] Paper exited (exit=!EXIT_CODE!) %DATE% %TIME%
 
 if exist "stop.flag" (
-    echo [INFO] stop.flag を検出。再起動しません。
+    echo [INFO] stop.flag detected, not restarting.
     goto :eof
 )
 
-echo [INFO] %RESTART_DELAY% 秒後に起動し直します。中止するには Ctrl+C。
-timeout /t %RESTART_DELAY% /nobreak >nul
+echo [INFO] Restarting in %RESTART_DELAY%s. Ctrl+C to abort.
+REM Fully qualified: GNU coreutils' timeout shadows the Windows one on some PATHs and rejects
+REM this syntax, which would turn the delay into a no-op and spin a crash loop at full speed.
+%SystemRoot%\System32\timeout.exe /t %RESTART_DELAY% /nobreak >nul
 goto loop

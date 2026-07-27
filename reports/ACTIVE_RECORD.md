@@ -467,6 +467,47 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-27 — `launch` フォルダ（起動バッチ＋testkit）と **`.cmd` の UTF-8 破壊バグ**
+
+ユーザー依頼で「各種サーバと依存関係の start バッチと testkit を
+`D:\game\minecraft\PaperServer\Velocity_for_TF\launch` にまとめる」を実施。
+正本は `ops/launch/`、配置は `ops\launch\deploy.cmd`（robocopy /E・自分自身への上書きを拒否）。
+
+**構成** — `launch-config.cmd`（パス/ヒープ/jar名を 1 箇所に集約＋存在確認）/
+`start-{mariadb,garnet,main,resource,dev,velocity}.cmd` /
+`start-all.cmd`（MariaDB → Garnet → preflight → main → resource → dev → Velocity。
+**preflight が 1 件でも検出したらサーバを上げずに中断**）/ `stop-all.cmd` / `status.cmd` /
+`testkit/{check-ops-scripts,check-datastores,check-config,check-logs,check-all}.cmd`。
+新規 ps1 = `stop-network.ps1`（逆順停止・`stop.flag` を `stop` の**前**に置く・強制終了しない）/
+`check-logs.ps1`（既知症状 10 種）/ `show-status.ps1`。
+
+**最重要の発見: cmd.exe は UTF-8 のバッチファイルを正しく読めない。**
+マルチバイト文字があるとファイル位置の計算がずれ、**行の途中から実行を始める**。
+`chcp 65001` でも UTF-8 BOM でも直らない（ACP=65001 の環境で実測）。実害:
+
+- **`ops/scripts/server-loop.cmd` が完全に壊れていた。** 引数検査も jar 存在確認も
+  `stop.flag` 判定も素通りし、**遅延ゼロで空回りする無限ループ**（120 秒で 2.6MB の
+  エラー出力）。これは全バックエンドを包む再起動ループ＝**サーバが 1 台も起動しない**状態。
+  Main/Resource を一度も起動していなかったため発覚が遅れた。
+- `setup-junction.cmd`（`move` と `mklink` を実行＝誤動作すると破壊的）も同様に壊れていた。
+- `ops/templates/garnet.cmd`、`ops/templates/start-all.cmd` も同様。
+
+対応: **`ops` 配下の全 `.cmd` を ASCII 化**（説明は `.ps1` と `.md` へ移設。PowerShell は
+UTF-8 で問題ない）。`run-selftest.ps1` に**非 ASCII 検出テストを追加**して再発を防止（25/25 緑）。
+`server-loop.cmd` は修正後に「引数なし」「jar 無し」「`stop.flag` あり」の 3 経路を実測。
+`setup-junction.cmd` は引数化（`Resource_Server` / `Dev_Server`）し `Main_Server` 指定を拒否。
+`ops/templates/start-all.cmd` は `launch/` に置換されたので**失敗して案内する stub** に変更
+（`\"` エスケープをバッチが解釈しない別のバグも抱えていた）。
+
+**副次の修正**: `find` / `timeout` を `%SystemRoot%\System32\...exe` で完全修飾。
+GNU coreutils が PATH 前方にある環境では両方が乗っ取られ、Windows 構文を拒否するため
+**チェックが黙って無効化される**（`server-loop.cmd` では再起動遅延が消えてクラッシュループが全速化する）。
+
+検証: 自己テスト 25/25 / `status.cmd`・`check-datastores.cmd`・`check-logs.cmd`・
+`check-config.cmd`・`stop-network.ps1 -DryRun`・`start-garnet.cmd`・`start-mariadb.cmd` を実測。
+`check-logs.cmd` は dev の実ログから HuskSync enable 失敗を正しく検出。
+preflight は 10 件 → **5 件**（残りは全て MariaDB の DB/ユーザー未作成に起因＝ユーザー側作業）。
+
 ### 2026-07-27 — Garnet 導入と forwarding secret 反映を実施（ユーザー依頼でセットアップ代行）
 
 ユーザーの依頼で残りのセットアップを実行した。**dev は main と同一構成**という指定。

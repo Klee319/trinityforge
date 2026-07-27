@@ -586,16 +586,20 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server\  で paper を起
 
 ## 手順 8. ジャンクションを張る
 
-**両サーバを停止した状態で行う。**
+**全サーバを停止した状態で、管理者コマンドプロンプトで行う。**
+引数はバックエンドのディレクトリ名。**dev にも張る**（dev は main と同じ HuskSync DB を
+使う構成なので、張らないと「同期された図鑑と dev 独自のスキル Lv」が混ざって書き戻る）。
 
-```
-ops\scripts\setup-junction.cmd
+```bat
+ops\scripts\setup-junction.cmd Resource_Server
+ops\scripts\setup-junction.cmd Dev_Server
 ```
 
 このスクリプトは:
 
 - メイン側の実体があることを確認する
-- 資源側に実ディレクトリがあれば**削除せず退避**する（`TrinityForge.pre-junction-<日時>`）
+- `Main_Server` を指定したら拒否する（実体側をリンクにしてはならない）
+- 対象側に実ディレクトリがあれば**削除せず退避**する（`TrinityForge.pre-junction-<日時>`）
 - 既に同じリンク先のジャンクションなら何もしない（冪等）
 - `mklink /J` でリンクを張る
 
@@ -778,22 +782,31 @@ setx TF_RCON_DEV_PASSWORD      "<Dev_Server の rcon.password>"
 
 ### 11-2. スクリプトを空撃ちして確認する
 
+`launch\testkit\check-all.cmd` が下記を全部まとめて流す（[launch/testkit/README.md](launch/testkit/README.md)）。
+個別に流すなら:
+
 ```powershell
 cd <repo>\ops\scripts
-.\run-selftest.ps1                 # 削除ガードの実測。24/24 になること
+.\run-selftest.ps1                 # 削除ガードの実測。25/25 になること
 .\preflight.ps1                    # 実環境の起動前チェック。0 件になること
 .\apply-velocity-forwarding.ps1 -DryRun   # 「変更なし」が全サーバで出ること
 .\apply-husksync-config.ps1     -DryRun   # 差分と配布先を確認する
 .\sync-configs.ps1     -DryRun
 .\restart-server.ps1   -DryRun -Target both
+.\stop-network.ps1     -DryRun     # 逆順・main が最後になっていること
 .\reset-resource.ps1   -DryRun
 .\backup.ps1           -DryRun
+.\show-status.ps1                  # 何が上がっているか（launch\status.cmd と同じ）
+.\check-logs.ps1                   # 起動後に流す。既知の症状を拾う
 ```
 
 **`reset-resource.ps1 -DryRun` の出力で、削除対象の絶対パスが想定どおりか必ず目視すること。**
 `plugins\TrinityForge` が含まれていたら、そのまま実行してはいけない（スクリプトが自動で拒否するが）。
 
 ### 11-3. server-loop.cmd で起動するように切り替える
+
+`launch\start-*.cmd` が `server-loop.cmd` 経由で起動するので、**手順 13 の
+`launch\start-all.cmd` を使えばこれは満たされる**。単体で叩くなら:
 
 ```bat
 REM main
@@ -858,10 +871,11 @@ ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resou
 |---|:---:|---|
 | **MariaDB** | **自動で上がる** | Windows サービス（`Install as service`） |
 | **Garnet** | 手順 11 の起動時タスクを登録すれば自動。**未登録なら上がらない** | `garnet.cmd` は常駐プロセスであってサービスではない |
-| **Velocity / 各バックエンド** | `server-loop.cmd` を起動時タスクにしていなければ**上がらない** | `start.bat` は手動起動 |
+| **Velocity / 各バックエンド** | 13-4 の `TF Network` タスクを登録すれば自動。**未登録なら上がらない** | `launch\start-all.cmd` は手動起動 |
 | **config-editor** | 手動 | Node のプロセス |
 
-`Get-Service MariaDB` と `preflight.ps1` で「上がっているつもり」を潰せる。
+`launch\status.cmd` で「上がっているつもり」を潰せる（プロセスの有無だけでなく、
+3306 / 6379 に**何がいるか**をプロトコルで確かめる）。
 
 ### 13-2. 起動順（これを守る）
 
@@ -886,45 +900,50 @@ ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resou
 停止するときは**逆順**（Velocity → dev → resource → main → Garnet）。
 Velocity を先に落とせばプレイヤーが切断されてから保存が走る。
 
-### 13-3. Windows 再起動後の手順（自動化が未登録の場合）
+### 13-3. Windows 再起動後の手順
 
-```powershell
-# 1. データストアの確認（MariaDB は自動で上がっているはず）
-Get-Service MariaDB
+`D:\game\minecraft\PaperServer\Velocity_for_TF\launch\` に一式置いてある（正本は
+[ops/launch/](launch/)、配り直しは `ops\launch\deploy.cmd`）。**通常はこれ 1 本**:
 
-# 2. Garnet を上げる
-Start-Process cmd.exe -ArgumentList '/c','"D:\game\minecraft\Garnet\garnet.cmd"' -WindowStyle Minimized
-
-# 3. 起動前チェック（0 件になるまでサーバを上げない）
-powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\ops\scripts\preflight.ps1
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
 ```
 
-そのあと main → resource → dev → Velocity の順に `start.bat`（または `server-loop.cmd`）。
+MariaDB → Garnet → preflight → main → resource → dev → Velocity の順に待ちを挟んで起動し、
+**preflight が 1 件でも検出したらサーバを上げずに中断する**。
+
+起動したら**必ず**ログを見る（HuskSync の enable 失敗はサーバ起動を止めないため）:
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\testkit\check-logs.cmd
+```
+
+停止は `launch\stop-all.cmd`（逆順・`stop.flag` を置く）、
+現況確認は `launch\status.cmd`。詳細は [launch/README.md](launch/README.md)。
+
+> **`.cmd` に日本語を書かないこと。** cmd.exe は UTF-8 のバッチファイルを正しく読めず、
+> マルチバイト文字があるとファイル位置の計算がずれて**行の途中から実行を始める**。
+> 実際に `server-loop.cmd` が日本語コメント入りだった間、引数検査も `stop.flag` 判定も
+> 素通りして**空回りする無限ループ**になっていた（2026-07-27 に実測）。
+> 説明は `.ps1` と `.md` に置く（PowerShell は UTF-8 で問題ない）。
+> `run-selftest.ps1` が `ops` 配下の全 `.cmd` を走査して非 ASCII を落とす。
 
 ### 13-4. 手動をなくす（手順 11 とあわせて登録する）
 
 いずれも**管理者 PowerShell**で 1 回だけ。
 
 ```powershell
-# Garnet
+# Garnet 単体（バックエンドより先に上がっていれば start-all.cmd 側では何もしない）
 schtasks /create /tn "Garnet" /tr "D:\game\minecraft\Garnet\garnet.cmd" /sc onstart /ru SYSTEM /rl HIGHEST /f
-```
 
-バックエンドと Velocity も起動時タスクにできるが、**起動順を守る必要がある**ため
-`/delay` を入れるか、順番に起動する 1 本の cmd を登録する。
-
-正本は [templates/start-all.cmd](templates/start-all.cmd)。Garnet → preflight →
-main → resource → dev → Velocity の順に待ちを挟んで起動し、
-**preflight が 1 件でも検出したらサーバを上げずに中断する**。
-
-```powershell
-Copy-Item "<repo>\ops\templates\start-all.cmd" "D:\game\minecraft\PaperServer\Velocity_for_TF\"
-schtasks /create /tn "TF Network" /tr "D:\game\minecraft\PaperServer\Velocity_for_TF\start-all.cmd" ^
-  /sc onstart /ru SYSTEM /rl HIGHEST /f
+# ネットワーク一式（起動順と preflight を内包しているので /delay は不要）
+schtasks /create /tn "TF Network" /sc onstart /ru SYSTEM /rl HIGHEST /f ^
+  /tr "D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd"
 ```
 
 > **`server-loop.cmd` と併用すること。** `stop` 後に自動で起動し直す口が無いと、
-> 定期再起動（手順 11）が「落ちたまま」になる。
+> 定期再起動（手順 11）が「落ちたまま」になる。`launch\start-*.cmd` は
+> `server-loop.cmd` 経由で起動するので、そのまま使えばこの条件を満たす。
 
 ---
 

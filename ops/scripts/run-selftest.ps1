@@ -640,6 +640,29 @@ synchronization:
         Assert-True ($output -match "まだありません") "未生成の config を note にしていない"
     }
 
+    # ---- .cmd の ASCII 制約 ---------------------------------------------------------------------
+    #  cmd.exe は UTF-8 のバッチファイルを正しく読めない。マルチバイト文字があると
+    #  ファイル位置の計算がずれ、行の途中から実行を始める。実際に server-loop.cmd が
+    #  日本語コメント入りだった間、stop.flag を見ずに空回りする無限ループになっていた
+    #  (2026-07-27 に実測)。PowerShell は UTF-8 で問題ないので、説明は .ps1 と .md に置く。
+
+    Write-Host ""
+    Write-Host "=== .cmd が ASCII だけであること ===" -ForegroundColor Cyan
+
+    Test-Case "ops 配下の .cmd に非 ASCII が混ざっていない" {
+        $opsRoot = Split-Path $PSScriptRoot -Parent
+        $offenders = @()
+        foreach ($file in @(Get-ChildItem -LiteralPath $opsRoot -Recurse -Filter "*.cmd" -File)) {
+            $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+            $count = @($bytes | Where-Object { $_ -gt 0x7f }).Count
+            if ($count -gt 0) {
+                $offenders += "$($file.FullName.Substring($opsRoot.Length + 1)) ($count バイト)"
+            }
+        }
+        Assert-True ($offenders.Count -eq 0) `
+            "非 ASCII を含む .cmd がある (cmd.exe が行の途中から実行する): $($offenders -join ', ')"
+    }
+
 } finally {
     # サンドボックス自体にジャンクションが残っている可能性があるため、先にリンクを外してから消す。
     Get-ChildItem -LiteralPath $sandbox -Recurse -Force -Directory -ErrorAction SilentlyContinue |
