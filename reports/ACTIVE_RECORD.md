@@ -22,10 +22,10 @@
 | 対象 | 状態 |
 |---|---|
 | TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
-| config-editor テスト | **695 / 695 pass・fail 0**（実走・実測、`===EDITOR_EXIT=0`） |
+| config-editor テスト | **734 / 734 pass・fail 0**（実走・実測、`===EDITOR_EXIT=0`。2026-07-27 20:5x の足きり/ダンジョンコマンド/EXP バッチ後） |
 | **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
-| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **16:39** に `532bcef` で再ビルド（15,780,810 bytes）→ **未配備** |
+| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **20:52** に `42bf57e` で再ビルド（15,829,085 bytes、`TrinityForge/build/release/TrinityForge-all.jar`）→ **未配備**。16:39 の `532bcef` 版を含む上位互換 |
 | `ArsPaper-1.0.0.jar` | 2026-07-27 **16:39** に `f034b94` で再ビルド（965,072 bytes、グロブ修正 `d3a3210` を含む）→ **未配備** |
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
@@ -312,6 +312,55 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — レベル差足きり / プレイヤー用インスタンスコマンド / 繁殖モブEXP対策 / 戦闘バランス
+
+`42bf57e`。TF テスト失敗 0・スキップ 2（既知の 2 件のみ）、config-editor 734/734。**ビルド済み・未配備**。
+
+**① モブ定義のレベル差足きり（`combat/mob-overrides.yml` の `level-cutoff:`）**
+`MobLevelCutoff`（Bukkit 非依存の record）を新設。`diff = プレイヤー戦闘レベル − モブレベル` で 2 種類を独立に判定する。
+自分が格上なら `over-level-threshold` 以上の差で**経験値と TF 追加ドロップにそれぞれ別の減衰率**を掛け、`-1` は「完全に入手不可」。
+自分が格下なら `under-level-item-threshold` 以上の差で TF 追加ドロップを遮断（経験値には影響しない）。
+解決順はワールド別モブ > ワールド別スコープ > 既定スコープのモブ > 既定スコープ（**フィールド単位ではなくブロック単位のマージ**）。
+**バニラ本来のドロップには触れない**（モブトラップが完全に死んで「足きり」の域を超えるため）。config-editor から編集可。
+
+**② `/tf start` `/tf stop` `/tf quit`（プレイヤー用）**
+`/em start` `/em stop` がプレイヤーに使えないため相当コマンドを追加。EliteMobs の `MatchInstance` へ
+リフレクション委譲（`EliteMobsInstanceBridge`）。**リフレクションは具象サブクラスではなく `MatchInstance` クラス自体から
+`getMethod` する** — 具象が非 public だと `IllegalAccessException` になるため。EM 未導入でも全経路 fail-soft。
+
+**③ EM コマンド遮断を許可リスト方式へ（ユーザー未報告の既存バグ）**
+`EliteMobsCommandGateListener` がラベル単位で `/em` を全遮断しており、**既製ダンジョンのテレポーター NPC 約 40 体・
+ボスバー追跡・ステータスダイアログのテレポート・スポーン帰還が無言で死んでいた**（NPC は `performCommand` で `/em` を撃つ）。
+`start/quit/track/dungeontp/dungeontpdialog/spawntp/arena` を許可リスト化。
+`/em dungeontp` を許可しても TF のゲートは素通りしない（`DungeonGateListener` が `PlayerTeleportEvent` を HIGH で捕まえる）。
+
+**④ `/tf dungeon <id>`（管理者用・鍵なしクイック入場）**
+登録済みゲート ID をサジェスト表示。ID 解決は `gate(id)`（ワールド名のみ）ではなく **`resolve(id)`**（コンテンツパッケージの
+別名も引ける上位集合）を使う。`DungeonEntryGui` からテレポート処理を `DungeonTeleporter` へ抽出して共用した。
+
+**⑤ 繁殖・建造で無限に増やせるモブの EXP 対策**
+`mob-level-table.yml` のレベル帯から BEE / GOAT / LLAMA / TRADER_LLAMA / PANDA / WOLF / IRON_GOLEM を除外。
+加えて新設 `no-skill-exp-mobs:` により、**TF の戦闘スキル EXP（武器＝命中／防具＝被弾）を一切加算しない**。
+**バニラの EXP オーブは従来どおり落とす**（エンチャント等の用途を潰さないというユーザー判断。当初の
+「討伐 EXP を 0 にする」案は取り下げ）。戦闘スキル EXP は**命中ごと**に入るため討伐 EXP とは別経路である点が要点。
+**魔法（ARS_MAGIC）は構造的に対象外** — Ars 側の EXP は「詠唱したこと」に対して付き（`grantMagicExp` は対象 Entity を
+引数に取らない）、何を撃ったかを参照しないため EntityType で絞る余地が無い。yml / javadoc / editor UI にその旨を明記した。
+
+**⑥ 戦闘バランス（`combat/mob-types.yml`）**
+防御 7 キーの `level-coefficients` を 0.007 → 0.0025、貫通を 0.008 → 0.002、`max-health-growth` を 1.055 → 1.048、
+基準 HP を一律 ×1.0526。Lv100 の複合軽減率が 97% → 約 57% になり、表示 HP と実効 HP の乖離が約 33 倍 → 約 2.3 倍へ。
+`damage.yml` の `defense.max-mitigation-rate: 0.9` は**キー個別の上限**で、複数キーの積は止められない点が原因だった。
+`attack-power-growth` は 1.03 → **1.033**（ユーザー決定）。同帯フル装備・厳選なしでの被弾耐久が
+革 8.1 / 銅 6.6 / 鎖 7.2 / 鉄 5.5 / 金 6.2 / ダイヤ 4.8 / ネザ 4.0 発。
+**この値は 2 つの指数の引き算で決まるため極めて敏感**で、1.031 だと高帯が 6.7〜7.1 発、1.035 だと 2.7〜3.5 発まで振れる。
+**`stats/item-stats.yml` の `phys-flat-defense` を変えたら必ず再校正すること**（yml ヘッダにも明記）。
+再校正用スクリプト = `tmp/dmg-table.js`（config を直接読んで装備帯 × 敵レベルの被ダメージ表を再生成する）。
+
+**このセッションでコミットしなかった変更（並行セッションの WIP と判断）**: `ops/**`、`FoodGimmick*` 一式、
+`ResourceServerMobSimulationTest`、`tool-config.json`（配備先が `Velocity_for_TF/Dev_Server` へ変更されている）、
+`.claude/launch.json`。**`dungeon/themes.yml` と `progression/special-rewards.yml` も除外した** — 差分が
+`themes: {}` / `titles: {}` / `particles: {}` への**出荷サンプルの消去**になっており、editor 保存による事故の疑いがある（§5）。
 
 ### 2026-07-27 — アイテムステータスの幽霊枠 / 機能アイテム画面の新設 / editor 説明UIの整備
 
