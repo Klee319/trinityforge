@@ -72,6 +72,12 @@ $edits = @(
     # 【生成時の既定が危険なもの】
     #  game_mode: メインの world は creative。同期すると資源サーバでもクリエイティブになる。
     @{ Path = @("synchronization", "features", "game_mode");  Value = "false" }
+    #  flight_status: game_mode と必ず【同じ値】にする。
+    #  HuskSync 側では flight_status -> game_mode は Dependency.optional なので、
+    #  game_mode だけ false にしても flight_status は同期され続ける
+    #  (Identifier.java: FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode")))。
+    #  その結果「ゲームモードはサバイバルに戻るのに飛行状態だけ引き継ぐ」= サバイバルで飛べる状態になる。
+    @{ Path = @("synchronization", "features", "flight_status"); Value = "false" }
     #  location: true だと資源サーバで岩盤に埋まる。既定 false だが明示しておく。
     @{ Path = @("synchronization", "features", "location");   Value = "false" }
     #  TF の図鑑・称号・Ars のマナはここに乗る。落とすと進行が飛ぶ。
@@ -214,10 +220,15 @@ foreach ($server in $targets) {
 
     # 読み直して、パスワード以外が意図どおりかを確認する（値そのものは出さない）。
     $verify = @(Get-Content -LiteralPath $file)
-    $gameModeIndex = Find-YamlLineIndex -Lines $verify -Path @("synchronization", "features", "game_mode")
-    if ($gameModeIndex -lt 0 -or $verify[$gameModeIndex] -notmatch 'game_mode:\s*false') {
-        $failures.Add("[$($server.Name)] 書き込み後の確認に失敗しました: $file")
-    } else {
+    $verified = $true
+    foreach ($key in @("game_mode", "flight_status")) {
+        $index = Find-YamlLineIndex -Lines $verify -Path @("synchronization", "features", $key)
+        if ($index -lt 0 -or $verify[$index] -notmatch "$key`:\s*false") {
+            $failures.Add("[$($server.Name)] 書き込み後の確認に失敗しました ($key): $file")
+            $verified = $false
+        }
+    }
+    if ($verified) {
         Write-OpsLog "  書き込みました"
     }
 }

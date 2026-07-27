@@ -601,7 +601,8 @@ synchronization:
     inventory: true
     ender_chest: true
     location: false
-    game_mode: true
+    game_mode: false
+    flight_status: true
     persistent_data: true
     attributes: true
   attributes:
@@ -633,7 +634,9 @@ synchronization:
         }
 
         Assert-True ($output -match "pa55w0rd")      "既定パスワードを検出していない"
-        Assert-True ($output -match "game_mode")     "game_mode: true を検出していない"
+        # game_mode: false なのに flight_status だけ true という組み合わせを拾えること。
+        # HuskSync の依存は optional なので、この状態だと「サバイバルに戻ったのに飛べる」になる。
+        Assert-True ($output -match "flight_status") "flight_status: true を検出していない"
         Assert-True ($output -match "trinityforge")  "ignored_modifiers の欠落を検出していない"
         # resource 側は config.yml が無い。これは初回起動前の正常な状態なので
         # issue ではなく note として扱われていること。

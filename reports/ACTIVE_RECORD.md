@@ -467,6 +467,39 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-28 — サーバ移動で「飛行状態だけ引き継ぐ」バグ（HuskSync `flight_status`）
+
+**症状**: サーバ移動でゲームモードはサバイバルに戻るのに、飛行状態だけ維持される
+（＝サバイバルなのに飛べる）。
+
+**原因**: HuskSync の `flight_status` は `game_mode` とは**別の同期項目**で、
+依存関係が **optional** でしかない。
+
+```java
+// husksync common/data/Identifier.java
+FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode"))
+```
+
+`game_mode: false`（資源サーバでクリエイティブにしないための必須設定）にしても
+`flight_status` は既定の `true` のまま同期され続けるため、
+「ゲームモードは復元しないが飛行状態は復元する」という食い違いが起きる。
+**キー名からは読み取れない**ので、`game_mode` を落とした時点で必ず踏む。
+
+**対処**: `flight_status` は `game_mode` と**必ず同値**にする。
+
+- 実サーバ 3 台の `config.yml` を `flight_status: false` へ（退避あり）
+- `apply-husksync-config.ps1` の配布内容に追加。書き込み後の検証も
+  `game_mode` だけでなく `flight_status` も見るように変更
+- `preflight.ps1` の必須 features に追加（起動前に検出できる）
+- `ops/templates/husksync.config.yml` に理由と出典（Identifier.java の該当行）を明記
+- 自己テストのフィクスチャを `game_mode: false` + `flight_status: true` に変え、
+  **この組み合わせを preflight が名指しできること**を回帰テスト化
+
+既に飛んでいるプレイヤーは `/gamemode survival` を撃ち直せば解除される。
+
+**検証**: preflight 0 件 / `apply-husksync-config.ps1 -DryRun` が「正本に対する変更はありません」
+（スクリプトと実ファイルが一致）/ 自己テスト 25/25。
+
 ### 2026-07-27 — 3 バックエンドの構成統一（main = dev）とジャンクション敷設
 
 ユーザー指定: **データ移行は不要（1 から始める）／main と dev は同一構成／dev で問題なければ main を使う**。

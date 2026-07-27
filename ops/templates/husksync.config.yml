@@ -118,6 +118,14 @@ synchronization:
     # メインの world は creative (Multiverse の worlds.yml)。同期すると
     # 資源サーバでもクリエイティブになり、資源サーバの存在意義が消える。
     game_mode: false
+    # 【game_mode と必ず同じ値にする。生成時の既定は true】
+    # HuskSync 側では flight_status -> game_mode が Dependency.optional でしかないため、
+    # game_mode だけ false にしても飛行状態は同期され続ける
+    #   Identifier.java:
+    #     FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode"))
+    # 結果として「ゲームモードはサバイバルに戻るのに飛行状態だけ引き継ぐ」=
+    # サバイバルなのに飛べるプレイヤーができる (2026-07-28 に実機で発生)。
+    flight_status: false
 
   # -------------------------------------------------------------------------------------------
   #  属性同期 — TF の modifier を除外する
@@ -159,6 +167,7 @@ synchronization:
 #    1. メインでアイテムを持って /server resource -> 資源側のインベントリに同じものがある
 #    2. 資源側でエンダーチェストに入れて /server main -> メインでも入っている
 #    3. メインが creative の world に居ても、資源側でサバイバルのままである (game_mode: false)
+#       かつ【飛べない】(flight_status: false)。飛べてしまう場合は flight_status が true のまま
 #    4. 資源側で移動しても、メインへ戻ったときの座標が変わっていない (location: false)
 #    5. 図鑑・称号・Ars のマナがサーバをまたいで保持される (persistent_data)
 #    6. サーバを往復しても最大体力とステータス表示が変わらない (ignored_modifiers)

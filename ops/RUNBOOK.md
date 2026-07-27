@@ -991,6 +991,7 @@ schtasks /create /tn "TF Network" /sc onstart /ru SYSTEM /rl HIGHEST /f ^
 | 資源サーバでスキル Lv が 0 | ジャンクションが張れていない | `dir /al` で確認。`sync-configs.ps1` も検出する |
 | 資源サーバで岩盤に埋まる / 虚空に落ちる | HuskSync の `location: true` | `location: false` にする |
 | 資源サーバでクリエイティブになる | HuskSync の `game_mode: true` | `game_mode: false` にする |
+| **サーバ移動でゲームモードは戻るのに飛行状態だけ引き継ぐ**（サバイバルなのに飛べる） | HuskSync の `flight_status: true`。`flight_status` → `game_mode` の依存は **optional** なので、`game_mode` を false にしても飛行状態は同期され続ける（`Identifier.java`） | `flight_status: false` にする（`game_mode` と必ず同値）。`preflight.ps1` が検出する。既に飛んでいるプレイヤーは `/gamemode survival` を撃ち直せば解除される |
 | 起動時に `Ambiguous plugin name` | 同名 jar の二重配置 | `sync-configs.ps1` が検出する。古い方を退避 |
 | 資源サーバのモブが弱い | `spigot.yml` の `maxHealth.max` 未設定 | 手順 7 の記載どおりコピー |
 | リセット後に Ars アイテムが機能しない | ArsPaper config のコピー漏れ | `sync-configs.ps1` の SHA-256 照合で検出される |
