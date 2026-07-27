@@ -44,6 +44,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | J-4 | 素材タブのカテゴリバーを「そもそもスティッキーにしない」か | 変える場合 `test/split-view-sticky.test.js` の期待値を**意図的に**書き換える必要がある |
 | J-5 | モブ HP 上限 1024 の是非 | 2026-07-27 に「今回は適用しない」選択。現行は上限なし |
 | J-6 | 触媒のオフハンド運用 | 同上。`offhand-stats-apply` は既定 false でどのアイテムにも設定されていない |
+| J-8 | **2 フォークの版管理をどうするか**（K-6） | 選択肢: ①`Klee319/EliteMobs-trinityforge` を private で新設して push（GPL-3.0 なので派生の保持は可能。ArsPaper 側は既存の `Klee319/ArsPaper` へ push するだけ） ②本リポジトリの submodule として組み込む ③現状維持（バックアップ無しを許容）。**私の推奨は ①**。いずれも remote への push を伴うのでユーザー判断が要る |
 | J-7 | **K-5（ステータスのトリガー/発動制限の明示）の修正プラン、着手前の 2 点** — ①詳細の出し先を `/stats detail <key>` にするか、アイテム lore の shift 切替にするか ②戦闘系 20 キーで先行検証するか、120 キー一括で埋めるか | 私の推奨は ①`/stats detail`（統合版で hover が効かない・lore の行数制限に当たらない）②先行検証。プラン本体は §4 の K-5 直下 |
 
 ---
@@ -69,8 +70,9 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | K-1 | **同一地点EXP逓減が友好モブの養殖場を数えない** | カウンタはバニラEXP書き込み経路で回るため、レベル帯の対象外である C 群（友好モブ 39 種）の養殖場には反応しない。TT の本命ではないので現状は許容 |
 | K-2 | **ATTRIBUTE チャネルの上限は「実効値」の上限ではない** | `move-speed` / `attack-speed-bonus` / `attack-reach` / `knockback-resistance` / `max-health` の上限は「**TF が要求する寄与分**」に掛かる。Haste や他プラグインの寄与は含まれない。`PerkAttributeApplier` の「ライブ属性値を一切読まない」設計原則を守るための意図的な線引き（詳細 = `docs/config-reference/combat/stat-caps.md`） |
 | K-3 | **editor で yml 本文のコメントが保存時に消える** | `tools/config-editor/lib/yamlio.js` の仕様。対策は説明コメントを `docs/config-reference/` へ退避すること。新しく長いコメントを yml 本文に書かない |
-| K-4 | **このリポジトリは git 管理下にない** | 巻き戻し手段は `backups/` への手動バックアップだけ。ファイルを全面書き換えする作業の**最初のアクション**としてバックアップを取ること（過去に原本復元不能の事故が 1 件あった） |
+| ~~K-4~~ | ~~**このリポジトリは git 管理下にない**~~ | **解決（2026-07-27）**。`Klee319/trinityforge`（private）を作成し初回インポート済み。作業ブランチは `dev`。ただし下記 K-6 の 2 フォークは対象外なので、そちらを触る前は従来どおり `backups/` を取ること |
 | K-5 | **ステータスのトリガーと発動制限が、どこにも機械可読な形で存在しない**（2026-07-27 確認） | 説明文は自由文でエディタ専用、実装との紐付けがゼロ。結果として**説明が実装から静かにずれる**。修正プランは直下 |
+| K-6 | **2 つのフォークの作業がバックアップされていない**（2026-07-27 確認） | `fork-handoff/elitemobs/elitemobs-fork/`（branch `trinityforge-fork`）と `fork-handoff/arspaper/fork/`（branch `feat/trinityforge-fork`）にそれぞれ**未コミットの変更**が残っている。ArsPaper は `Klee319/ArsPaper` へ push すれば済むが、**EliteMobs フォークは remote が upstream の MagmaGuy/EliteMobs しか無く push 先が無い**。upstream は GPL-3.0 なので派生の公開自体は可能。対処 = J-8 |
 
 ### K-5 — 現状と修正プラン
 
@@ -141,6 +143,18 @@ editor 側はトリガー/制限を lore.yml からの自動表示へ切り替�
 
 ## 5. 恒久的な注意事項（繰り返し踏んでいるもの）
 
+git 系（2026-07-27 に導入）:
+
+- **このリポジトリは `Klee319/trinityforge`（private）で版管理されている。** 作業ブランチは `dev`。
+  `main` への push はユーザーの明示指示があるときだけ。
+- **`fork-handoff/arspaper/fork/`・`fork-handoff/elitemobs/elitemobs-fork/`・`wiki/` は対象外。**
+  それぞれ独自の `.git` を持つため `.gitignore` で除外している。
+  **ArsPaper と EliteMobs のフォークには未コミットの変更が残っている**（EliteMobs 側は remote が
+  upstream の MagmaGuy/EliteMobs しか無く、フォーク作業のバックアップが存在しない）→ K-6。
+- `backups/` と `backups.zip`（455MB）は git 導入以前の手動バックアップ。追跡しない。
+- jar は全て追跡しない（`source/` のベンダー jar、フォークの `libs/TrinityForge.jar` を含む）。
+  例外は gradle wrapper のみ。
+
 配備・ビルド系:
 
 - **EliteMobs フォークの配備は必ず `testbed/plugins/EliteMobs.jar`（全同梱 uberjar）。**
@@ -187,6 +201,23 @@ editor 側はトリガー/制限を lore.yml からの自動表示へ切り替�
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — git 導入（K-4 クローズ）
+
+`Klee319/trinityforge`（**private**）を新規作成し、初回インポートを `main` と `dev` に push。
+以後の作業ブランチは `dev`。
+
+- 追跡対象 1695 ファイル / 3.3MB。Java 381・出荷 yml 75・テスト 294・editor 140・resourcepack 522。
+- 除外の主な判断:
+  - `backups.zip` は **455MB** で GitHub の 100MB 制限に引っかかるため除外。`backups/`（38MB）も
+    git で役目が置き換わるので除外した。
+  - `fork-handoff/arspaper/fork/`・`fork-handoff/elitemobs/elitemobs-fork/`・`wiki/` は
+    **独自の `.git` を持つ**ため除外。含めると gitlink（実体の無い submodule 参照）になってしまう。
+    → 未バックアップのフォーク作業が残る問題を K-6 / J-8 として起票。
+  - jar は全て再生成物として除外（例外は gradle wrapper）。`source/` はベンダー jar だけなので空になる。
+  - `.cursor-rcon.py` は `D:\game\...` の絶対パスを含むローカル運用スクリプトなので除外。
+    RCON パスワードは `server.properties` から実行時に読む作りで、**ハードコードはされていなかった**。
+- `README.md` を新規作成（構成表 / ビルド手順 / 含まれないものの明示）。
 
 ### 2026-07-27 — 保留リストの棚卸し / 承認 4 件 / チャージ射撃解放の撤去
 
