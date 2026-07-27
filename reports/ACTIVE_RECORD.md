@@ -24,8 +24,8 @@
 | TrinityForge テスト | **2330 件 / 失敗 0 / スキップ 2**（`cleanTest test` で実走・実測。14要件バッチで 12 件追加） |
 | config-editor テスト | **614 / 614**（実走・実測） |
 | ArsPaper フォーク テスト | **全緑**（`RecipeBrowserFilterTest` 11 件を新設。`test --offline` で実走） |
-| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 13:01 ビルド → **未配備**（14要件バッチ分） |
-| `ArsPaper-1.0.0.jar` | 2026-07-27 13:04 ビルド → **未配備**（レシピGUI改修分） |
+| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 13:01 ビルド → **未配備、かつ HEAD より古い**（差分レビューの修正 `9123116` を含まない）。**配備前に再ビルドが要る** |
+| `ArsPaper-1.0.0.jar` | 2026-07-27 13:04 ビルド → **未配備、かつ HEAD より古い**（グロブ修正 `d3a3210` を含まない）。**配備前に再ビルドが要る** |
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
@@ -211,6 +211,15 @@ git 系（2026-07-27 に導入）:
   「フォーク2件の版管理を反映」に、別セッションが実装中だった `NativeAttributeBridge.java` ほか
   set-buffs 移行のソースが丸ごと入ってしまい、**コミットメッセージと中身が一致しない上に、
   中間状態でスナップショットされた**。commit は必ず自分が触ったパスを明示して stage すること。
+- **リポジトリ直下の `.gitattributes`（`*.java` / `*.js` / `*.yml` に `text eol=lf`）を消さない。**
+  2026-07-27 追加。Windows の編集ツールがファイル全体を CRLF で書き戻すため、実質数行の変更が
+  「全行が変わった」差分になってレビュー不能になっていた（`TrinityForge.java` 1477/1426 ←
+  実変更 61/10）。`text eol=lf` は**作業ツリーが CRLF でもコミットされるバイト列を常に LF に
+  そろえる**ので、ツール側の挙動に関係なく差分が実変更だけに収まる。差分が異常に膨らんだら
+  まずこのファイルが効いているか疑う。`*.json` はリソースパックの生成物が大半なので対象外。
+- **`git add --renormalize` をパス指定なしで使わない。** 上記 `git add -A` と同じ理由（worktree の
+  内容をそのままステージするので、並行セッションの作業途中の状態まで自分のコミットに入る）。
+  正しい手順は §7「差分レビューと指摘修正」の項に書いてある。
 - `backups/` と `backups.zip`（455MB）は git 導入以前の手動バックアップ。追跡しない。
 - jar は全て追跡しない（`source/` のベンダー jar、フォークの `libs/TrinityForge.jar` を含む）。
   例外は gradle wrapper のみ。
@@ -274,6 +283,75 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — 14 要件バッチの差分レビューと指摘修正（改行正規化を含む）
+
+前項の 14 要件バッチ（TF `ee374c2` / ArsPaper `e7028df`）を差分レビューし、確定した指摘を
+軽微なものまで全件修正した。コミット = TF `3744ae8`（改行正規化）+ `9123116`（修正本体）/
+ArsPaper `d3a3210`。いずれも push 済み。
+
+**確定した実害 2 件**
+
+- **AFK 解除がチャット経由だと非同期スレッドから `Player#playerListName` を呼んでいた。**
+  `AsyncChatEvent`（非同期）→ `AfkService.touch` → `clearAfk` → `applyTabSuffix` の経路。
+  Paper のこの API は async-safe でない。`applyTabSuffix` の先頭で `Bukkit.isPrimaryThread()`
+  を見てホップする形にした。**呼び出し元にホップ責任を持たせない**のが要点で、そうしないと
+  活動シグナルを1つ足すたびに同じ漏れが再発する。
+- **AFK 判定が受動的な座標変化を「活動」に数えていた。** 水流に押される・ボート/トロッコ・
+  落下は入力なしで毎tick座標が動くので、水流式・乗り物式の放置装置がそのまま素通りしていた。
+  **視点回転(yaw/pitch)は入力でしか起きないので無条件に活動、座標変化は受動搬送中でないときだけ
+  活動**、と非対称に扱う形へ変更（`AfkActivityListener#isPassivelyTransported`）。
+  エリトラ滑空とクリエイティブ飛行は「空中だが入力由来」なので除外しない（除外すると飛行中に
+  AFK 判定される）。**モブのノックバックで押され続ける形は残す** — 殴打の有無まで見ると
+  この毎tick経路が重くなるため、殴られ続ける状況自体を別途潰すべきものと判断した。
+
+**改行コードの churn（レビュー不能の原因、恒久対策）**
+
+Windows の編集ツールがファイル全体を CRLF で書き戻すため、実質数行の変更が「全行が変わった」
+差分としてコミットされていた（`TrinityForge.java` が 1477 追加 / 1426 削除 ← 実変更は 61 / 10、
+`ConfigManager.java` が 575 / 566 ← 実変更は 9 / 0）。リポジトリ直下に `.gitattributes`
+（`*.java` / `*.js` / `*.yml` に `text eol=lf`）を置き、index に残っていた 84 ファイルを正規化した。
+効果は次のコミットで確認できる（`ConfigManager.java` の差分が **1 / 1** になった）。
+`*.json` はリソースパックの生成物が大半なので対象外。
+
+- **罠**: `git add --renormalize` をパス指定なしで使うと、worktree の内容をそのまま
+  ステージするので**並行セッションが編集中のファイルの作業途中の状態まで自分のコミットに入る**
+  （実際 18 ファイル巻き込みかけた）。手順は「renormalize → `git diff --cached
+  --ignore-all-space --name-only` で改行以外の変更が出たファイルを全て `git restore --staged`
+  → 残りをコミット」。コミット後に `git show HEAD --ignore-all-space --stat` が
+  `.gitattributes` だけを出せば純粋な正規化コミットである。
+- HEAD に CRLF で残っているのは `TrinityForge.java` と `FishingGimmickConfig.java` の 2 本だけ
+  （正規化の時点で並行セッションが編集中だったため除外した）。次にそれらがコミットされる際に
+  自動で LF になる。
+
+**その他の修正**
+
+- `tab-suffix` を AFK 中に false へ切り替えて reload すると `[AFK]` が張り付いたままになる問題。
+  設定フラグではなく「**この機構が実際に付けた実績**」(`tabSuffixApplied`) で消すようにした。
+- `GiveItemCommand` が解決順序（Ars レジストリ → TF カタログ）を `giveTo` と `buildOne` に
+  二重に持っていた。`buildOne` へ一本化。**スタック不可の品は上限を 36 個**に分けた
+  （指定数がそのまま `factory.stamp` の実行回数になり、2304 指定でメインスレッドが止まる）。
+- **editor のアチーブメント図鑑トリガで、対象を増やしても閾値が 1 のままだと「どれか1つ登録で
+  達成」に静かに劣化していた**（ヒント表示しかしていなかった）。閾値を対象数へ追随させる。
+  判断は純関数 `autoCollectionThreshold` に切り出してテスト 8 件を追加。追随の条件を
+  `scope=item/mob` かつ count 判定に限るのは、Java 側 `AchievementsConfig` の「threshold 省略時は
+  targets の件数」既定と範囲をそろえるため（category/all は列挙数と候補数が一致しない）。
+  一度手で閾値を触ったらそこで追随は止まる。
+- ArsPaper の `RecipeBrowserFilter.compileGlob` をキャッシュ化（上限 256 件）し、壊れたパターンで
+  例外が出る経路を塞いだ。**TF の `GlobMatcher` と実装が重複しているのは意図的**で、この GUI は
+  TrinityForge が無くても動く必要があるため。片方だけ直すと同じ検索語で図鑑とレシピ一覧の結果が
+  食い違うので、その旨を javadoc に明記した。
+- 判定方式のセレクトを `listSelect` へ統一（raw 値表示だった）。`AfkConfig` の import 位置を移動。
+
+**テスト（実走・実測）**: TF は変更領域 **81 件緑**（`--tests '*Afk*' '*GiveItem*' '*Disassembly*'
+'*Collection*' '*Achievement*' '*PerkServiceLock*'`）、ArsPaper フォーク **BUILD SUCCESSFUL**、
+config-editor `tf-rewards-forms` **30 件緑**（新規 8 件含む）。
+全体を回すと当時 TF 2 件 / editor 18 件が失敗したが、**いずれも並行セッションの作業中コードが原因**
+（TF = `com.trinityforge.ops` の SQLite 並行テストが gradle デーモン同時実行でロック競合、
+editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言によるロード失敗）。
+
+**jar は再ビルドしていない。** 並行セッションが TF ソースを編集中で、いまビルドすると書きかけの
+コードが混ざるため。配備前に改めてビルドすること。
 
 ### 2026-07-27 — 14 要件バッチ（AFK / 図鑑 / スクラップ / スキルツリー機能アイテム / Ars レシピGUI / editor UI）
 
