@@ -22,6 +22,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
 . (Join-Path $PSScriptRoot "lib\DataStore.ps1")
+. (Join-Path $PSScriptRoot "lib\Yaml.ps1")
 
 $script:Passed = 0
 $script:Failed = 0
@@ -406,6 +407,76 @@ try {
         $mysql = Test-MysqlEndpoint -HostName "127.0.0.1" -Port $closedPort -TimeoutMs 1000
         Assert-True (-not $redis.Reachable) "閉じたポートに到達したことになっている (redis)"
         Assert-True (-not $mysql.Reachable) "閉じたポートに到達したことになっている (mysql)"
+    }
+
+    # ---- yml のキー解決 ---------------------------------------------------------------------------
+
+    Write-Host ""
+    Write-Host "=== yml のキー解決 ===" -ForegroundColor Cyan
+
+    # HuskSync の config.yml と同じ形。database と redis の両方に
+    # credentials.host / credentials.password があるのが要点。
+    $sampleYaml = @(
+        "language: en-gb"
+        "cluster_id: ''"
+        "database:"
+        "  type: MYSQL"
+        "  credentials:"
+        "    host: localhost"
+        "    port: 3306"
+        "    password: pa55w0rd"
+        "  create_tables: true"
+        "redis:"
+        "  credentials:"
+        "    host: redis-host"
+        "    port: 6379"
+        "    password: ''"
+        "synchronization:"
+        "  mode: LOCKSTEP"
+        "  # コメント行は読み飛ばす"
+        ""
+        "  features:"
+        "    location: false"
+        "    game_mode: true"
+        "  attributes:"
+        "    ignored_modifiers:"
+        "    - minecraft:effect.*"
+    )
+
+    Test-Case "同名キーを親でたどって取り違えない" {
+        $dbHost = Find-YamlLineIndex -Lines $sampleYaml -Path @("database", "credentials", "host")
+        $rdHost = Find-YamlLineIndex -Lines $sampleYaml -Path @("redis", "credentials", "host")
+        Assert-True ($sampleYaml[$dbHost] -eq "    host: localhost")  "database 側の host が違う"
+        Assert-True ($sampleYaml[$rdHost] -eq "    host: redis-host") "redis 側の host が違う"
+
+        $dbPassword = Find-YamlLineIndex -Lines $sampleYaml -Path @("database", "credentials", "password")
+        $rdPassword = Find-YamlLineIndex -Lines $sampleYaml -Path @("redis", "credentials", "password")
+        Assert-True ($sampleYaml[$dbPassword] -eq "    password: pa55w0rd") "database 側の password が違う"
+        Assert-True ($dbPassword -ne $rdPassword) "2 つの password を同じ行と見なした"
+    }
+
+    Test-Case "空行とコメントを挟んでもブロックをたどれる" {
+        $index = Find-YamlLineIndex -Lines $sampleYaml -Path @("synchronization", "features", "game_mode")
+        Assert-True ($sampleYaml[$index] -eq "    game_mode: true") "game_mode に届いていない"
+    }
+
+    Test-Case "存在しないキーと、親の外にあるキーは -1 を返す" {
+        Assert-True ((Find-YamlLineIndex -Lines $sampleYaml -Path @("database", "nosuch")) -eq -1) `
+            "無いキーで -1 を返していない"
+        # create_tables は database の直下であって credentials の下ではない。
+        Assert-True ((Find-YamlLineIndex -Lines $sampleYaml -Path @("database", "credentials", "create_tables")) -eq -1) `
+            "親の外のキーを拾った"
+        # mode は synchronization の下。トップレベルにはない。
+        Assert-True ((Find-YamlLineIndex -Lines $sampleYaml -Path @("mode")) -eq -1) `
+            "入れ子のキーをトップレベルで拾った"
+    }
+
+    Test-Case "単一引用符スカラーを往復できる" {
+        Assert-True ((ConvertFrom-YamlScalar -Raw "'ab''cd'") -eq "ab'cd")   "エスケープを戻せていない"
+        Assert-True ((ConvertFrom-YamlScalar -Raw "  plain  ") -eq "plain")  "裸の値を扱えていない"
+        Assert-True ((ConvertFrom-YamlScalar -Raw "''") -eq "")              "空文字を扱えていない"
+        $round = ConvertFrom-YamlScalar -Raw (ConvertTo-YamlSingleQuoted -Value "p'w`"d")
+        Assert-True ($round -eq "p'w`"d") "往復で壊れた: $round"
     }
 
     # ---- forwarding secret の反映 ---------------------------------------------------------------

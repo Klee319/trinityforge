@@ -26,7 +26,7 @@
 | **OneTimePack** | 無料 | — | Modrinth |
 | SetHome / WorldEdit / packetevents / Hurricane / ProtocolLib 等 | 無料 | 各種 OSS | 導入済み |
 | **MariaDB** | 無料 | GPL-2.0 | **Windows ネイティブの MSI が公式にある** |
-| **Garnet**（Redis 互換） | 無料 | MIT | Microsoft 製。**Windows ネイティブ・自己完結 zip・.NET の別途インストール不要** |
+| **Garnet**（Redis 互換） | 無料 | MIT | Microsoft 製。Windows ネイティブ。**zip は自己完結ではなく .NET ランタイムが要る**（この環境は .NET 8.0.21 導入済みなので `net8.0` 版がそのまま動く） |
 | ~~Memurai~~ | **実質有料** | 商用 | **使わない。** Developer 版は稼働 10 日上限かつ本番利用禁止 |
 | ~~tporadowski/redis~~ | 無料 | BSD-3 | 非推奨。Redis 5.0 相当で更新が止まっている |
 | WSL2 + Redis | 無料 | — | ネイティブを使わない場合の代替。Windows に同梱 |
@@ -131,7 +131,7 @@ Docker Desktop は**一定規模以上の企業利用が有料**。個人利用�
 
 | 候補 | 費用 | 判定 |
 |---|---|---|
-| **Garnet**（Microsoft・MIT） | **無料** | **採用。** ネイティブ Windows / 自己完結 zip / 活発に開発中（v2.1.0 = 2026-07-24） |
+| **Garnet**（Microsoft・MIT） | **無料** | **採用。** ネイティブ Windows / 活発に開発中（v2.1.0 = 2026-07-24）。.NET ランタイムが要るが既に入っている |
 | Memurai | Developer 版は無料だが**稼働 10 日上限・本番利用禁止**。本番は有料 | **不可。** 24/7 のゲームサーバでは要件を満たさない |
 | tporadowski/redis | 無料 | 非推奨。Redis 5.0 相当で更新が止まっている |
 | WSL2 + redis-server | 無料 | 可。ネイティブに拘らないならこれ |

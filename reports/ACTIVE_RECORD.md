@@ -460,6 +460,43 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-27 — Garnet 導入と forwarding secret 反映を実施（ユーザー依頼でセットアップ代行）
+
+ユーザーの依頼で残りのセットアップを実行した。**dev は main と同一構成**という指定。
+
+**実施済み**
+
+- **Garnet 2.1.0 を導入し稼働開始**。`D:\game\minecraft\Garnet\`（zip は
+  48,245,050 バイト / SHA-256 `b810ee55…`）。`preflight.ps1` が
+  `Garnet 2.1.0` を RESP 経由で識別。実測 RSS 57MB
+- **`apply-velocity-forwarding.ps1` を実行**。Resource と Dev の `proxies.velocity` を
+  `enabled: true` + secret 一致に更新（main は既に正しかったので無変更）。**要再起動**
+- 指摘は 11 件 → **5 件**（残りは全て dev の HuskSync config で、DB 資格情報待ち）
+
+**私の誤りを 1 件訂正**: 「Garnet の zip は自己完結なので .NET 不要」は**間違い**。
+`readytorun` は事前 JIT であって自己完結の意味ではなく、実際に `--version` が
+「.NET 10 をインストールせよ」で落ちた。**zip には `net8.0/` と `net10.0/` の 2 つが入っており、
+この環境には .NET 8.0.21 が既にあるので `net8.0` 版がそのまま動く**（追加インストール不要）。
+サイズ（48MB）から自己完結だと推測したのが原因。
+
+**Garnet の非自明な既定値**: **`--memory` の既定は 16g**。指定しないとメインログ用に
+16GB を抱えに行き 8G + 6G の JVM と取り合う。`--bind` の既定は any（外部到達しうる）。
+両方とも明示が必須。正本は `ops/templates/garnet.cmd`。
+
+**`apply-husksync-config.ps1` を新設**（3 台へ同一の config.yml を配る）。正本は
+`-BaseFrom` のサーバの**生成済み** config.yml で、テンプレートの丸写しではないので
+HuskSync の版が変わってもキーがずれない。**パスワードは引数でも環境変数でも受け取らず、
+実行時に `Read-Host -AsSecureString` で入力させる**（履歴とプロセス一覧に残さない）。
+
+そのために `lib/Yaml.ps1` を新設した。HuskSync の config には
+`database.credentials.host` と `redis.credentials.host`、同じく `password` が**同名で 2 組**あり、
+行の単純置換では別ブロックを書き換える。親をたどって探索範囲を絞る `Find-YamlLineIndex` で回避。
+
+**私が完了できない残り 2 件**（どちらも秘密情報が要るため）:
+MariaDB の DB / ユーザー作成（root パスワード）と、Garnet の起動時タスク登録（管理者権限）。
+
+`run-selftest.ps1` は **24/24**（yml のキー解決 4 本を追加）。
+
 ### 2026-07-27 — forwarding secret の一括反映スクリプトと Dev_Server の隔離方針
 
 MariaDB のネイティブ導入が完了（`preflight.ps1` がハンドシェイクから **12.3.2-MariaDB** を確認）。

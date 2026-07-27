@@ -13,11 +13,11 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 > **2026-07-27 時点の実環境**: 上の 3 バックエンドと Velocity（`velocity-4.1.0-SNAPSHOT-9.jar`）が
 > 既に作成済みで、Geyser / floodgate / Via\* はプロキシへ移設済み。Main_Server と Resource_Server の
 > plugins も配置済み（Resource_Server は [PLUGIN_MATRIX.md](PLUGIN_MATRIX.md) の推奨構成どおり）。
-> **2-1（MariaDB 12.3.2）は導入済み**（`preflight.ps1` がハンドシェイクで確認）。
-> **未実施は 2-2（Garnet）・手順6（ボーダーと paper-global）・手順8（ジャンクション）・
-> 手順9-2（HuskSync の設定）・手順11（スケジューラ）**。
-> `proxies.velocity` は Main_Server だけ設定済みで、Resource / Dev は未設定
-> （6-2 の `apply-velocity-forwarding.ps1` で揃う）。
+> **導入済み**: 2-1（MariaDB 12.3.2）／2-2（Garnet 2.1.0・稼働中）／
+> 6-2・7-2 の `proxies.velocity`（3 台とも `enabled: true` で secret 一致）。
+> **未実施**: MariaDB の DB とユーザー作成（root パスワードが要るため利用者作業）／
+> 手順6 のワールドボーダー／手順8（ジャンクション）／手順9-2（HuskSync の config 配布）／
+> 手順11（スケジューラ。Garnet の起動時登録を含む）。
 > 現状は [scripts/preflight.ps1](scripts/preflight.ps1) を実行すれば機械的に判定できる。
 
 ---
@@ -68,7 +68,7 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 | EliteMobs なしでモブのレベル推移と報酬が機能するか | **機能する。** 89 種 × Lv0〜100 で全帯埋まっている | [reports/resource-server-mob-simulation.md](reports/resource-server-mob-simulation.md) |
 | 2 プロセスから同じ SQLite を触って壊れないか | **壊れない。** ただし本体の修正が 1 件必要だった（適用済み） | [reports/shared-sqlite-concurrency.md](reports/shared-sqlite-concurrency.md) |
 | PDC が HuskSync で同期できる型か | **全て primitive 型。** 将来崩れたらテストが落ちる | `PlayerPdcPrimitiveTypeAuditTest` |
-| ジャンクション先を誤って消さないか | **削除ガードが必ず中断する。** 実際にジャンクションを作って実測 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1)（20/20） |
+| ジャンクション先を誤って消さないか | **削除ガードが必ず中断する。** 実際にジャンクションを作って実測 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1)（24/24） |
 
 **起動する前に [scripts/preflight.ps1](scripts/preflight.ps1) を流す。** 手順2・9-2・6-2 の
 やり残しを機械的に検出する（MariaDB / Garnet が実際に応答しているか、HuskSync の既定資格情報、
@@ -210,7 +210,7 @@ Restart-Service MariaDB
 
 | 候補 | 判定 |
 |---|---|
-| **Garnet**（Microsoft・MIT） | **採用。** ネイティブ Windows・自己完結 zip・無料・活発に開発中 |
+| **Garnet**（Microsoft・MIT） | **採用。** ネイティブ Windows・無料・活発に開発中（v2.1.0 = 2026-07-24） |
 | Memurai | **不可。** Developer 版は**稼働 10 日上限かつ本番利用禁止**。本番は有料 |
 | tporadowski/redis | 非推奨。Redis 5.0 相当で更新が止まっている |
 | WSL2 + Redis | 可。ネイティブに拘らないならこれ（付録） |
@@ -220,24 +220,41 @@ Restart-Service MariaDB
 いずれも Garnet の API 互換表で対応済み。pub/sub も既定で有効（`--no-pubsub` で切るオプションが
 あることが裏返しの根拠）。
 
+**2026-07-27 に導入済み。** 以下は再現手順。
+
 1. <https://github.com/microsoft/garnet/releases> から `win-x64-based-readytorun.zip` を取得
-   （v2.1.0 で約 48 MB。**自己完結なので .NET のインストールは不要**）
-2. `D:\game\minecraft\Garnet\` へ展開する
-3. 起動用の `garnet.cmd` を作る:
+   （v2.1.0 / 48,245,050 バイト / SHA-256 `b810ee55…3569c`）
+2. `D:\game\minecraft\Garnet\` へ展開する。中身は `net8.0\` と `net10.0\` の 2 つ
+3. **`net8.0` を使う。** この zip は**自己完結ではなく .NET ランタイムを要求する**
+   （`readytorun` は事前 JIT であって自己完結の意味ではない）。この環境には
+   **.NET 8.0.21 が既に入っている**ので net8.0 はそのまま動く。net10.0 は .NET 10 が要る
+4. 起動用の `garnet.cmd` を置く（正本は [templates/garnet.cmd](templates/garnet.cmd)）
 
 ```bat
 @echo off
-REM --bind で 127.0.0.1 に限定する (既定は any = 外部から到達しうる)
-REM --checkpointdir は再起動をまたぐ保存先。HuskSync のキャッシュ用途なので軽い
-"D:\game\minecraft\Garnet\GarnetServer.exe" ^
-  --bind 127.0.0.1 --port 6379 ^
-  --checkpointdir "D:\game\minecraft\Garnet\data" ^
-  --memory 1g
+set GARNET_HOME=D:\game\minecraft\Garnet
+"%GARNET_HOME%\net8.0\GarnetServer.exe" ^
+  --bind 127.0.0.1 ^
+  --port 6379 ^
+  --memory 1g ^
+  --index 64m ^
+  --checkpointdir "%GARNET_HOME%\data" ^
+  --logger-level Warning
 ```
 
-4. **タスクスケジューラで「コンピューターの起動時」に登録する**
-   （「ユーザーがログオンしているかどうかにかかわらず実行する」）。
-   手順11 で他のタスクもまとめて登録するので、そこに含めてよい
+**`--memory` を必ず指定する。既定は 16g。** 指定しないとメインログ用に 16GB を
+抱えに行き、8G + 6G の JVM とメモリを取り合う。HuskSync はスナップショットの
+一時キャッシュとしてしか使わない（正本は MariaDB）ので 1g で足りる。
+**`--bind` も必須**（既定は any = 外部から到達しうる）。
+
+5. **タスクスケジューラで「コンピューターの起動時」に登録する**（要管理者）:
+
+```powershell
+schtasks /create /tn "Garnet" /tr "D:\game\minecraft\Garnet\garnet.cmd" ^
+  /sc onstart /ru SYSTEM /rl HIGHEST /f
+```
+
+**検証**: `preflight.ps1` が `OK   Redis 互換 127.0.0.1:6379 (Garnet 2.1.0)` を出すこと。
 
 > Garnet は Redis の**再実装**であって Redis そのものではない。9 コマンドしか使わないので
 > 実害が出る見込みは薄いが、**Dev_Server で先に検証してから** Main / Resource へ広げること
@@ -676,8 +693,19 @@ synchronization:
 config から**再計算して付け直す**。スキル Lv はジャンクションで既に共有されているので
 同期する必要が無く、残すと再計算前の一瞬だけ別サーバの値が乗る。
 
-**メインと資源で完全に同じ内容にすること。** 反映後に `preflight.ps1` を流せば、
-既定値の残りと `game_mode` と除外漏れ、さらに**サーバ間の設定差分**まで機械的に検出できる。
+**メインと資源で完全に同じ内容にすること。** 手で 3 台ぶん編集すると必ずどこかずれるので、
+スクリプトで 1 つの正本から配る:
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File ops/scripts/apply-husksync-config.ps1 -DryRun
+```
+
+`-DryRun` を外すと実行する。**MariaDB のパスワードは引数で渡さず実行時に入力する**
+（コマンド履歴にもプロセス一覧にも残さないため）。正本は `-BaseFrom` のサーバの
+**生成済み** config.yml で、テンプレートの丸写しではないので版が変わってもキーがずれない。
+
+反映後に `preflight.ps1` を流せば、既定値の残りと `game_mode` と除外漏れ、
+さらに**サーバ間の設定差分**まで機械的に検出できる。
 
 ### 9-3. Dev_Server は別 DB に分ける
 
@@ -752,9 +780,10 @@ setx TF_RCON_DEV_PASSWORD      "<Dev_Server の rcon.password>"
 
 ```powershell
 cd <repo>\ops\scripts
-.\run-selftest.ps1                 # 削除ガードの実測。20/20 になること
+.\run-selftest.ps1                 # 削除ガードの実測。24/24 になること
 .\preflight.ps1                    # 実環境の起動前チェック。0 件になること
 .\apply-velocity-forwarding.ps1 -DryRun   # 「変更なし」が全サーバで出ること
+.\apply-husksync-config.ps1     -DryRun   # 差分と配布先を確認する
 .\sync-configs.ps1     -DryRun
 .\restart-server.ps1   -DryRun -Target both
 .\reset-resource.ps1   -DryRun
