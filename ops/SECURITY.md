@@ -61,7 +61,7 @@ Windows Firewall のインバウンドで、**公開するのは 2 ポートだ�
 | 25587/TCP | resource RCON | ✕ | Firewall で拒否 |
 | 25588/TCP | dev RCON | ✕ | Firewall で拒否 |
 | 3306/TCP | MariaDB | ✕ | `bind-address=127.0.0.1` |
-| 6379/TCP | Redis | ✕ | `bind 127.0.0.1` |
+| 6379/TCP | Garnet（Redis 互換） | ✕ | `--bind 127.0.0.1`（**既定は any なので必ず指定する**） |
 | 8000, 8787/TCP | config-editor | ✕ | Firewall で拒否（0-1 参照） |
 
 ### バックエンドを 127.0.0.1 に縛るのは「なりすまし対策」でもある
@@ -155,7 +155,8 @@ config の反映は `/tf reload`（TF 自身の再読込）か、サーバの再
 - [ ] 25586 / 25587 / 25588 / 3306 / 6379 / 8000 / 8787 が外部から到達できない
 - [ ] 両バックエンドの `server-ip=127.0.0.1`
 - [ ] 両バックエンドの `online-mode=false`（プロキシ側が `true`）
-- [ ] MariaDB の `bind-address=127.0.0.1`、Redis の `bind 127.0.0.1`
+- [ ] MariaDB の `bind-address=127.0.0.1`、Garnet の `--bind 127.0.0.1`
+- [ ] `preflight.ps1` が 3306 / 6379 で想定どおりのサーバを報告する
 - [ ] RCON パスワードをランダム文字列へ変更し、環境変数にも反映した
 - [ ] `CONFIG_EDITOR_PASSWORD` を設定した（推奨）
 - [ ] `forwarding.secret` が git に入っていない

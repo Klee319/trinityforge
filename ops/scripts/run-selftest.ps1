@@ -21,6 +21,7 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
+. (Join-Path $PSScriptRoot "lib\DataStore.ps1")
 
 $script:Passed = 0
 $script:Failed = 0
@@ -271,6 +272,140 @@ try {
         $threw = $false
         try { Resolve-OpsServer -Config $loaded -Target "nosuch" } catch { $threw = $true }
         Assert-True $threw "存在しないサーバ名を通した"
+    }
+
+    # ---- データストアの疎通判定 -------------------------------------------------------------------
+
+    Write-Host ""
+    Write-Host "=== データストアの疎通判定 ===" -ForegroundColor Cyan
+
+    # 本物の MariaDB / Garnet を立てずに、決め打ちの応答を返す TCP リスナーで
+    # RESP の組み立てとハンドシェイクの解釈だけを検証する。
+    function Start-FakeServer {
+        param([Parameter(Mandatory)] [scriptblock] $Responder)
+
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $port = $listener.LocalEndpoint.Port
+
+        # プローブ側は同期的に読み書きするので、応答役は別スレッドで動かす必要がある。
+        $worker = [powershell]::Create()
+        [void]$worker.AddScript({
+            param($listener, $responder)
+            $client = $listener.AcceptTcpClient()
+            try {
+                $stream = $client.GetStream()
+                $stream.ReadTimeout = 3000
+                & ([scriptblock]::Create($responder)) $stream
+            } finally {
+                $client.Close()
+                $listener.Stop()
+            }
+        }).AddArgument($listener).AddArgument($Responder.ToString())
+
+        return [pscustomobject]@{
+            Port   = $port
+            Worker = $worker
+            Handle = $worker.BeginInvoke()
+        }
+    }
+
+    function Stop-FakeServer {
+        param([Parameter(Mandatory)] $Server)
+        try { [void]$Server.Worker.EndInvoke($Server.Handle) } catch { }
+        $Server.Worker.Dispose()
+    }
+
+    Test-Case "RESP で PING/INFO を投げて Garnet を識別できる" {
+        $server = Start-FakeServer -Responder {
+            param($stream)
+            $buffer = New-Object byte[] 1024
+            # PING -> +PONG
+            [void]$stream.Read($buffer, 0, $buffer.Length)
+            $pong = [System.Text.Encoding]::UTF8.GetBytes("+PONG`r`n")
+            $stream.Write($pong, 0, $pong.Length); $stream.Flush()
+            # INFO server -> バルク文字列
+            [void]$stream.Read($buffer, 0, $buffer.Length)
+            $payload = "# Server`r`ngarnet_version:2.1.0`r`nredis_version:7.2.5`r`n"
+            $info = [System.Text.Encoding]::UTF8.GetBytes(
+                "`$$([System.Text.Encoding]::UTF8.GetByteCount($payload))`r`n$payload`r`n")
+            $stream.Write($info, 0, $info.Length); $stream.Flush()
+            Start-Sleep -Milliseconds 400
+        }
+        try {
+            $probe = Test-RedisEndpoint -HostName "127.0.0.1" -Port $server.Port
+            Assert-True $probe.SpeaksResp "RESP と判定できていない"
+            # Garnet は互換性のため redis_version も返す。先に garnet_version を見ること。
+            Assert-True ($probe.Server -eq "Garnet") "Garnet と識別できていない: $($probe.Server)"
+            Assert-True ($probe.Version -eq "2.1.0") "バージョンが取れていない: $($probe.Version)"
+        } finally { Stop-FakeServer -Server $server }
+    }
+
+    Test-Case "パスワード必須の Redis を「生きているが要認証」と判定する" {
+        $server = Start-FakeServer -Responder {
+            param($stream)
+            $buffer = New-Object byte[] 1024
+            [void]$stream.Read($buffer, 0, $buffer.Length)
+            $err = [System.Text.Encoding]::UTF8.GetBytes(
+                "-NOAUTH Authentication required.`r`n")
+            $stream.Write($err, 0, $err.Length); $stream.Flush()
+            Start-Sleep -Milliseconds 400
+        }
+        try {
+            $probe = Test-RedisEndpoint -HostName "127.0.0.1" -Port $server.Port
+            Assert-True $probe.SpeaksResp   "生存判定できていない"
+            Assert-True $probe.RequiresAuth "要認証と判定できていない"
+        } finally { Stop-FakeServer -Server $server }
+    }
+
+    Test-Case "RESP を喋らない相手を取り違えない" {
+        $server = Start-FakeServer -Responder {
+            param($stream)
+            $buffer = New-Object byte[] 1024
+            [void]$stream.Read($buffer, 0, $buffer.Length)
+            $junk = [System.Text.Encoding]::UTF8.GetBytes("HTTP/1.1 400 Bad Request`r`n`r`n")
+            $stream.Write($junk, 0, $junk.Length); $stream.Flush()
+            Start-Sleep -Milliseconds 400
+        }
+        try {
+            $probe = Test-RedisEndpoint -HostName "127.0.0.1" -Port $server.Port
+            Assert-True $probe.Reachable        "到達自体はできているはず"
+            Assert-True (-not $probe.SpeaksResp) "RESP でないものを RESP と判定した"
+        } finally { Stop-FakeServer -Server $server }
+    }
+
+    Test-Case "MySQL の初期ハンドシェイクからバージョンを読む" {
+        $server = Start-FakeServer -Responder {
+            param($stream)
+            # [3バイト長(LE)][連番][protocol=10][NUL 終端バージョン][以降は省略]
+            $version = [System.Text.Encoding]::UTF8.GetBytes("11.4.5-MariaDB")
+            $payload = @(10) + $version + @(0) + @(1, 0, 0, 0)
+            $header  = @(($payload.Count -band 0xFF),
+                         (($payload.Count -shr 8) -band 0xFF),
+                         (($payload.Count -shr 16) -band 0xFF), 0)
+            $packet = [byte[]]($header + $payload)
+            $stream.Write($packet, 0, $packet.Length); $stream.Flush()
+            Start-Sleep -Milliseconds 400
+        }
+        try {
+            $probe = Test-MysqlEndpoint -HostName "127.0.0.1" -Port $server.Port
+            Assert-True $probe.SpeaksMysql "MySQL プロトコルと判定できていない"
+            Assert-True $probe.IsMariaDb   "MariaDB と判定できていない"
+            Assert-True ($probe.Version -eq "11.4.5-MariaDB") "バージョンが違う: $($probe.Version)"
+        } finally { Stop-FakeServer -Server $server }
+    }
+
+    Test-Case "閉じているポートは Reachable=false になる" {
+        # 一度開いて即閉じたポートを使う (誰も掴んでいないことが確実)。
+        $probeListener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $probeListener.Start()
+        $closedPort = $probeListener.LocalEndpoint.Port
+        $probeListener.Stop()
+
+        $redis = Test-RedisEndpoint -HostName "127.0.0.1" -Port $closedPort -TimeoutMs 1000
+        $mysql = Test-MysqlEndpoint -HostName "127.0.0.1" -Port $closedPort -TimeoutMs 1000
+        Assert-True (-not $redis.Reachable) "閉じたポートに到達したことになっている (redis)"
+        Assert-True (-not $mysql.Reachable) "閉じたポートに到達したことになっている (mysql)"
     }
 
     # ---- preflight の HuskSync 検査 -------------------------------------------------------------

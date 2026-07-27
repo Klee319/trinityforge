@@ -2,7 +2,7 @@
 
 **結論: できる。** ただし条件が2つある。
 
-1. **Docker Desktop を使わない**（WSL2 に MariaDB / Redis を直接入れる）
+1. **Docker Desktop を使わない**（MariaDB と Garnet を Windows ネイティブで入れる）
 2. **HuskSync をソースからビルドする**（公式バイナリは有料配布。ソースは Apache-2.0）
 
 有料が必要になるのは「Bedrock 版まで含めた上流 DDoS 防御」だけで、これは今回の要件に含まれない。
@@ -25,10 +25,12 @@
 | **FallbackRouter** | 無料 | — | Hangar |
 | **OneTimePack** | 無料 | — | Modrinth |
 | SetHome / WorldEdit / packetevents / Hurricane / ProtocolLib 等 | 無料 | 各種 OSS | 導入済み |
-| **MariaDB** | 無料 | GPL-2.0 | |
-| **Redis** | 無料 | 自己ホストなら無料 | |
-| **WSL2** | 無料 | — | Windows に同梱 |
-| ~~Docker Desktop~~ | **企業利用は有料** | — | **使わない。** WSL2 直インストールで代替する |
+| **MariaDB** | 無料 | GPL-2.0 | **Windows ネイティブの MSI が公式にある** |
+| **Garnet**（Redis 互換） | 無料 | MIT | Microsoft 製。**Windows ネイティブ・自己完結 zip・.NET の別途インストール不要** |
+| ~~Memurai~~ | **実質有料** | 商用 | **使わない。** Developer 版は稼働 10 日上限かつ本番利用禁止 |
+| ~~tporadowski/redis~~ | 無料 | BSD-3 | 非推奨。Redis 5.0 相当で更新が止まっている |
+| WSL2 + Redis | 無料 | — | ネイティブを使わない場合の代替。Windows に同梱 |
+| ~~Docker Desktop~~ | **企業利用は有料** | — | **使わない。** ネイティブで代替する |
 | spark | 無料 | GPL-3.0 | **Paper 1.21 に同梱済み** |
 | 定期再起動・週次リセット | 無料 | — | PowerShell + タスクスケジューラ + RCON。プラグイン不要 |
 | TCPShield | **Free プランあり（Java のみ）** | — | 任意。Bedrock は Premium 限定 |
@@ -118,17 +120,34 @@ Docker Desktop は**一定規模以上の企業利用が有料**。個人利用�
 そもそも今回必要なのは MariaDB と Redis を 1 つずつ動かすことだけで、
 コンテナランタイムを 1 層挟む理由がない。
 
-**WSL2 に直接インストールする。** Windows に同梱されており追加費用ゼロ。
+**Windows ネイティブで入れる**（手順は [RUNBOOK.md](RUNBOOK.md) 手順2）。追加費用ゼロ。
 
-```bash
-# Ubuntu (WSL2) 上で
-sudo apt update
-sudo apt install -y mariadb-server redis-server
-```
+---
 
-`.wslconfig` でメモリ上限を切っておく（[PERFORMANCE.md](PERFORMANCE.md) 参照）。
-MariaDB は `bind-address=127.0.0.1`、Redis は `bind 127.0.0.1` にする
-（[SECURITY.md](SECURITY.md)）。
+## Redis を Windows でどうするか
+
+**Redis 本体に公式の Windows 版は無い。** ここが構成上いちばん選択肢が割れる点なので、
+判断の根拠を残す。
+
+| 候補 | 費用 | 判定 |
+|---|---|---|
+| **Garnet**（Microsoft・MIT） | **無料** | **採用。** ネイティブ Windows / 自己完結 zip / 活発に開発中（v2.1.0 = 2026-07-24） |
+| Memurai | Developer 版は無料だが**稼働 10 日上限・本番利用禁止**。本番は有料 | **不可。** 24/7 のゲームサーバでは要件を満たさない |
+| tporadowski/redis | 無料 | 非推奨。Redis 5.0 相当で更新が止まっている |
+| WSL2 + redis-server | 無料 | 可。ネイティブに拘らないならこれ |
+
+**Garnet で足りる根拠**: HuskSync が使う Redis コマンドは
+`PING` / `SET` / `SETEX` / `GET` / `DEL` / `KEYS` / `PUBLISH` / `SUBSCRIBE` / `INFO` の
+**9 つだけ**（`common/.../redis/RedisManager.java` を実読）。
+すべて Garnet の API 互換表で対応済みで、pub/sub も既定で有効。
+
+**ただし Garnet は Redis の再実装であって Redis そのものではない。**
+Dev_Server で先に確認してから Main / Resource へ広げること。
+問題が出たら WSL2 + Redis に切り替えればよく、**HuskSync 側の設定は 1 文字も変わらない**。
+
+MariaDB は `bind-address=127.0.0.1`、Garnet は `--bind 127.0.0.1` にする
+（[SECURITY.md](SECURITY.md)）。WSL2 を使う場合は `.wslconfig` でメモリ上限を切っておく
+（[PERFORMANCE.md](PERFORMANCE.md) 参照）。**切らないと 2 つの JVM とメモリを取り合う。**
 
 ---
 
@@ -150,14 +169,14 @@ Bedrock が攻撃された場合の運用手順は [SECURITY.md](SECURITY.md) �
 ```
 無料: Paper / Velocity / LuckPerms / Geyser / Floodgate / Via* / Chunky /
       Sonar / FallbackRouter / OneTimePack / SetHome / WorldEdit / spark
-無料: MariaDB / Redis （WSL2 に直インストール）
+無料: MariaDB / Garnet （Windows ネイティブ。Redis 互換サーバとして Garnet を使う）
 無料: 定期再起動・週次リセット・バックアップ （PowerShell + タスクスケジューラ + RCON）
 無料: 進行データ共有 （NTFS ディレクトリジャンクション）
 
 作業コストのみ: HuskSync をソースからビルド（Apache-2.0）
 
 任意・無料: TCPShield Free （Java 版のみ上流吸収）
-不要:      Docker Desktop
+不要:      Docker Desktop / Memurai（Developer 版は本番不可）
 ```
 
 **金銭的な支出はゼロで組める。**

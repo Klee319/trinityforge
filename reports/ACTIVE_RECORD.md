@@ -411,6 +411,42 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-27 — データストアを Windows ネイティブ構成へ（WSL2 は付録に降格）
+
+ユーザーの要望で MariaDB / Redis を **WSL2 ではなく Windows ネイティブ**にできるか検討し、
+できるので既定を差し替えた。ネイティブのほうが本構成では素直に有利:
+WSL2 は VM なのでメモリを別枠で取り 8G + 6G の JVM と取り合う／Windows サービスなら
+タスクスケジューラ運用と揃う（WSL は「ログオンしないと上がらない」事故がある）／
+`wsl --install` の UNIX アカウント作成の対話が要らない／localhost 転送の層が消える。
+
+**Redis の代替に Garnet を採用**（Microsoft・MIT・v2.1.0 = 2026-07-24・自己完結 zip で
+.NET のインストール不要）。判断の根拠:
+
+- **Redis 本体に公式の Windows 版は無い**
+- **Memurai は不可**。Developer 版は**稼働 10 日上限かつ本番利用禁止**、本番は有料
+- tporadowski/redis は Redis 5.0 相当で更新停止
+- **HuskSync が使う Redis コマンドは 9 つだけ**（`PING` / `SET` / `SETEX` / `GET` / `DEL` /
+  `KEYS` / `PUBLISH` / `SUBSCRIBE` / `INFO`。`common/.../redis/RedisManager.java` を実読）。
+  すべて Garnet の API 互換表で対応済みで pub/sub も既定 ON
+
+**ただし Garnet は Redis の再実装であって Redis ではない。** Dev_Server で先に検証してから
+Main / Resource へ広げる。駄目なら WSL2 + Redis へ戻せばよく、**HuskSync 側の設定は変わらない**。
+
+**preflight を「ポートの開閉」から「プロトコルで正体を判定」へ強化**（`lib/DataStore.ps1` 新設）。
+外部ツールに依存せず、RESP で `PING` → `INFO server` を投げて Redis / Garnet / Valkey と
+バージョンを識別し、MySQL は**認証前に平文で届く初期ハンドシェイク**からバージョン文字列を読む。
+「6379 は開いているが RESP を喋らない」「パスワード認証が有効」も区別して報告する。
+
+- `backup.ps1` をネイティブ (`mariadb-dump.exe` + `--defaults-file`) と WSL の両対応に。
+  **`MysqldumpPath` が設定されているのに見つからないときは黙って WSL へ落ちない**
+  （設定と違う経路でバックアップされているほうが事故として重い）
+- `run-selftest.ps1` に 5 本追加して **19/19**。偽サーバを別スレッドで立てて RESP と
+  ハンドシェイクの解釈を実測する。**この追加テストが実バグを 1 件検出した**:
+  PowerShell の配列スライス `$buffer[0..$n]` は `Object[]` を返すため
+  `List[byte].AddRange` に渡せず、握り潰されて「RESP を喋っていない」に化けていた
+  （`MemoryStream` へ変更）。サービス名の部分一致で `GameInputRedistService` を
+  Redis と誤検出していたのも同時に修正
+
 ### 2026-07-27 — 資源サーバ分離の追補（HuskSync 起動失敗の切り分け / `preflight.ps1` / 実レイアウト反映）
 
 ユーザーが実環境の構築に着手し、`D:\game\minecraft\PaperServer\Velocity_for_TF\` に

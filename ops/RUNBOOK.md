@@ -41,7 +41,8 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
              +----------+---------------+
                 +-------v--------+
                 | MariaDB :3306   | LuckPerms / HuskSync
-                | Redis   :6379   | HuskSync           <- 127.0.0.1 のみ / WSL2
+                | Garnet  :6379   | HuskSync (Redis 互換) <- 127.0.0.1 のみ
+                |                 | いずれも Windows ネイティブ
                 +-----------------+
 ```
 
@@ -148,22 +149,127 @@ Copy-Item "$src\config"          -Destination "$dst\config" -Recurse
 
 ---
 
-## 手順 2. WSL2 に MariaDB と Redis を入れる
+## 手順 2. MariaDB と Redis 互換サーバを用意する（Windows ネイティブ）
 
-Docker Desktop は使わない（理由は [COST_AND_LICENSE.md](COST_AND_LICENSE.md)）。
+Docker Desktop は使わない（企業利用が有料。理由は [COST_AND_LICENSE.md](COST_AND_LICENSE.md)）。
 
-**2026-07-27 時点、この環境には Linux ディストロが入っていない**
-（`wsl --list --verbose` に `docker-desktop` しか出ない）。まずディストロを入れる:
+**この構成では WSL2 ではなく Windows ネイティブを既定にする。** 理由:
+
+- WSL2 は VM なのでメモリを別枠で確保する。同じマシンで 8G + 6G の JVM が走る本構成では、
+  取り合いになる分がそのまま無駄
+- **Windows サービスとして自動起動する**ので、タスクスケジューラ運用（手順11）と揃う。
+  WSL は「誰かがログオンしないと上がらない」事故が起きうる
+- `wsl --install` の初回起動に UNIX アカウント作成の対話が挟まらない
+- localhost 転送という中間層が消えるので、切り分けが 1 段減る
+
+WSL2 でやる場合は末尾の【付録】を見ること（動作はする）。
+
+### 2-1. MariaDB（Windows ネイティブ）
+
+<https://mariadb.org/download/> から **MSI インストーラ**（Windows x86_64）を入れる。
+インストーラのウィザードで:
+
+- root パスワードを設定する
+- **`Enable networking` は有効のまま、ポート 3306**
+- **`Install as service` を有効**（サービス名は既定の `MariaDB`）
+- UTF8 を既定にするチェックがあれば入れる
+
+インストール後、DB とユーザーを作る（`MariaDB Command Prompt` から）:
+
+```sql
+CREATE DATABASE luckperms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE husksync  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'luckperms'@'127.0.0.1' IDENTIFIED BY '<パスワード1>';
+CREATE USER 'husksync'@'127.0.0.1'  IDENTIFIED BY '<パスワード2>';
+GRANT ALL ON luckperms.* TO 'luckperms'@'127.0.0.1';
+GRANT ALL ON husksync.*  TO 'husksync'@'127.0.0.1';
+FLUSH PRIVILEGES;
+```
+
+> ホスト部を `localhost` ではなく **`127.0.0.1`** にしている。Windows では JDBC が
+> `localhost` を IPv6 の `::1` として引くことがあり、`localhost` で作ったユーザーだと
+> `Access denied` になる場合がある。
+
+**127.0.0.1 のみで待ち受けさせる**（[SECURITY.md](SECURITY.md)）。
+`C:\Program Files\MariaDB <版>\data\my.ini` の `[mysqld]` に:
+
+```ini
+bind-address = 127.0.0.1
+```
+
+```powershell
+Restart-Service MariaDB
+```
+
+### 2-2. Redis 互換サーバ = Garnet（Windows ネイティブ）
+
+**Redis 本体に公式の Windows 版は無い。** 選択肢を比較した結果 **Garnet** を採る。
+
+| 候補 | 判定 |
+|---|---|
+| **Garnet**（Microsoft・MIT） | **採用。** ネイティブ Windows・自己完結 zip・無料・活発に開発中 |
+| Memurai | **不可。** Developer 版は**稼働 10 日上限かつ本番利用禁止**。本番は有料 |
+| tporadowski/redis | 非推奨。Redis 5.0 相当で更新が止まっている |
+| WSL2 + Redis | 可。ネイティブに拘らないならこれ（付録） |
+
+**HuskSync が使う Redis コマンドは `PING` / `SET` / `SETEX` / `GET` / `DEL` / `KEYS` /
+`PUBLISH` / `SUBSCRIBE` / `INFO` の 9 つだけ**（`common/.../redis/RedisManager.java` を実読）。
+いずれも Garnet の API 互換表で対応済み。pub/sub も既定で有効（`--no-pubsub` で切るオプションが
+あることが裏返しの根拠）。
+
+1. <https://github.com/microsoft/garnet/releases> から `win-x64-based-readytorun.zip` を取得
+   （v2.1.0 で約 48 MB。**自己完結なので .NET のインストールは不要**）
+2. `D:\game\minecraft\Garnet\` へ展開する
+3. 起動用の `garnet.cmd` を作る:
+
+```bat
+@echo off
+REM --bind で 127.0.0.1 に限定する (既定は any = 外部から到達しうる)
+REM --checkpointdir は再起動をまたぐ保存先。HuskSync のキャッシュ用途なので軽い
+"D:\game\minecraft\Garnet\GarnetServer.exe" ^
+  --bind 127.0.0.1 --port 6379 ^
+  --checkpointdir "D:\game\minecraft\Garnet\data" ^
+  --memory 1g
+```
+
+4. **タスクスケジューラで「コンピューターの起動時」に登録する**
+   （「ユーザーがログオンしているかどうかにかかわらず実行する」）。
+   手順11 で他のタスクもまとめて登録するので、そこに含めてよい
+
+> Garnet は Redis の**再実装**であって Redis そのものではない。9 コマンドしか使わないので
+> 実害が出る見込みは薄いが、**Dev_Server で先に検証してから** Main / Resource へ広げること
+> （3 台目が用意されているのはこういうときのため）。
+> 問題が出たら付録の WSL2 + Redis へ切り替えれば、HuskSync 側の設定は 1 文字も変わらない。
+
+### 2-3. 検証
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\ops\scripts\preflight.ps1
+```
+
+**ポートが開いているかではなく、何が応答しているかまで判定する。** 期待する出力:
+
+```
+[INFO] 外部データストアを確認します
+[INFO]   OK   MariaDB 127.0.0.1:3306 (11.x.x-MariaDB)
+[INFO]   OK   Redis 互換 127.0.0.1:6379 (Garnet 2.1.0)
+```
+
+3306 が「開いているが MySQL プロトコルで応答しない」、6379 が「開いているが RESP で
+応答しない」場合も区別して報告する（別のプロセスがポートを掴んでいるケース）。
+
+### 【付録】WSL2 で用意する場合
+
+ネイティブを使わない場合はこちら。**この環境には Linux ディストロが入っていない**
+（`wsl --list --verbose` に `docker-desktop` しか出ない）ので、まずディストロから:
 
 ```powershell
 wsl --install -d Ubuntu
 ```
 
-初回起動で **UNIX ユーザー名とパスワードの作成を求められる**。ここは対話が必要なので
-自分で入力すること。完了後に `wsl --list --verbose` で `Ubuntu` が `Running` になる。
+初回起動で **UNIX ユーザー名とパスワードの作成を求められる**（対話が必要）。
 
 ```bash
-# WSL2 (Ubuntu) 上で
 sudo apt update
 sudo apt install -y mariadb-server redis-server
 
@@ -176,8 +282,6 @@ sudo mysql -e "GRANT ALL ON husksync.*  TO 'husksync'@'localhost';"
 sudo mysql -e "FLUSH PRIVILEGES;"
 ```
 
-**127.0.0.1 のみで待ち受けさせる**（[SECURITY.md](SECURITY.md)）:
-
 - `/etc/mysql/mariadb.conf.d/50-server.cnf` → `bind-address = 127.0.0.1`
 - `/etc/redis/redis.conf` → `bind 127.0.0.1`
 
@@ -185,7 +289,7 @@ sudo mysql -e "FLUSH PRIVILEGES;"
 sudo systemctl enable --now mariadb redis-server
 ```
 
-`%USERPROFILE%\.wslconfig` でメモリ上限を切る:
+`%USERPROFILE%\.wslconfig` でメモリ上限を切る（**切らないと 2 つの JVM と取り合う**）:
 
 ```ini
 [wsl2]
@@ -193,16 +297,11 @@ memory=4GB
 processors=4
 ```
 
-**検証**（Windows 側から）:
-
-```powershell
-Test-NetConnection 127.0.0.1 -Port 3306   # TcpTestSucceeded : True
-Test-NetConnection 127.0.0.1 -Port 6379   # TcpTestSucceeded : True
-```
-
-> WSL2 は `localhost` のポートを Windows 側へ転送する。外部からは到達しない。
+WSL2 は `localhost` のポートを Windows 側へ転送する。外部からは到達しない。
+検証は 2-3 と同じ `preflight.ps1` でよい（`Redis 8.x.x` と表示される）。
 
 ---
+
 
 ## 手順 3. LuckPerms を H2 → MariaDB へ移行
 
@@ -690,7 +789,7 @@ ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resou
 
 | 症状 | 原因 | 対処 |
 |---|---|---|
-| 起動時に `Error occurred while enabling HuskSync` → `FailedToLoadException` → `ConnectException: Connection refused: getsockopt` | **MariaDB / Redis が動いていない**（手順2 が未実施、または WSL が止まっている）。jar の不具合ではない — この時点でプラグイン自体は読み込まれ、config も生成されている | 手順2 を実施する。`preflight.ps1` が 3306 / 6379 の到達性を先に判定する |
+| 起動時に `Error occurred while enabling HuskSync` → `FailedToLoadException` → `ConnectException: Connection refused: getsockopt` | **MariaDB / Garnet が動いていない**（手順2 が未実施、またはサービスが止まっている）。jar の不具合ではない — この時点でプラグイン自体は読み込まれ、config も生成されている | 手順2 を実施する。`preflight.ps1` が 3306 / 6379 の到達性を先に判定する |
 | 上と同時に `Error occurred while disabling HuskSync` → `getRedisManager()` が null | 初期化が途中で失敗したときの **HuskSync 側の shutdown 経路のバグ**。無害な副作用で、原因は 1 つ上の行 | 無視してよい。DB 接続を直せば出なくなる |
 | `HuskSync` が「無効」なのに気付かないまま運用してしまう | enable 失敗はサーバ起動自体を止めない | 起動前に必ず `preflight.ps1`。起動後は `/plugins` で HuskSync が緑か確認 |
 | 全員 `Unable to verify player details` で入れない | forwarding secret の不一致 | `velocity/forwarding.secret` と両バックエンドの `paper-global.yml` の `secret` を 1 文字ずつ照合（`preflight.ps1` が照合する） |

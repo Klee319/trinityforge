@@ -91,9 +91,22 @@
         # バックアップの出力先。世代管理はここで行う。
         Root      = "D:\game\minecraft\PaperServer\backup\ops"
         KeepDays  = 14
-        # WSL2 上の MariaDB から dump する DB 名
+        # dump する DB 名
         Databases = @("luckperms", "husksync")
-        # mysqldump を実行するコマンド。WSL 経由で叩く。
+
+        # --- MariaDB が Windows ネイティブの場合（手順2 の既定） ---
+        # MariaDB 同梱の dump コマンド。版番号はインストールしたものに合わせる。
+        MysqldumpPath     = "C:\Program Files\MariaDB 11.4\bin\mariadb-dump.exe"
+        # 認証情報を書いたファイル。【パスワードをコマンドラインに置かない】ため。
+        # 中身の例:
+        #   [mariadb-dump]
+        #   user=root
+        #   password=<root のパスワード>
+        # リポジトリの外に置き、NTFS の権限で自分だけ読めるようにすること。
+        MysqlDefaultsFile = "D:\game\minecraft\PaperServer\backup\my-dump.cnf"
+
+        # --- WSL2 構成の場合（手順2 の付録） ---
+        # MysqldumpPath を消すと、こちらが使われる。認証は WSL 側の ~/.my.cnf。
         WslDistro = "Ubuntu"
     }
 }

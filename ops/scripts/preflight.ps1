@@ -27,61 +27,73 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
+. (Join-Path $PSScriptRoot "lib\DataStore.ps1")
 
 $config = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:$false
 $issues = New-Object System.Collections.Generic.List[string]
 $notes  = New-Object System.Collections.Generic.List[string]
 
-function Test-Listening {
-    param([string] $HostName, [int] $Port, [int] $TimeoutMs = 2000)
-
-    $client = [System.Net.Sockets.TcpClient]::new()
-    try {
-        $connect = $client.ConnectAsync($HostName, $Port)
-        return $connect.Wait($TimeoutMs) -and $client.Connected
-    } catch {
-        return $false
-    } finally {
-        $client.Dispose()
-    }
-}
-
 # ---- 1. MariaDB と Redis --------------------------------------------------------------------------
+#  ポートが開いているかではなく【何が応答しているか】まで見る。
+#  Windows ネイティブ構成では Redis 本体ではなく Garnet が応答するのが正常。
 
-Write-OpsLog "外部データストアの到達性を確認します"
+Write-OpsLog "外部データストアを確認します"
 
-$stores = @(
-    @{ Name = "MariaDB"; Port = 3306 }
-    @{ Name = "Redis";   Port = 6379 }
-)
-$storeDown = $false
-foreach ($store in $stores) {
-    if (Test-Listening -HostName "127.0.0.1" -Port $store.Port) {
-        Write-OpsLog "  OK   $($store.Name) 127.0.0.1:$($store.Port)"
-    } else {
-        $storeDown = $true
-        $issues.Add("$($store.Name) (127.0.0.1:$($store.Port)) へ到達できません。" +
-                    "HuskSync は enable に失敗します（Connection refused）。")
+$mysql = Test-MysqlEndpoint -HostName "127.0.0.1" -Port 3306
+if ($mysql.SpeaksMysql) {
+    Write-OpsLog "  OK   MariaDB 127.0.0.1:3306 ($($mysql.Version))"
+    if (-not $mysql.IsMariaDb) {
+        $notes.Add("3306 で応答しているのは MariaDB ではないようです（$($mysql.Version)）。" +
+                   "HuskSync の database.type を実態に合わせてください。")
     }
+} elseif ($mysql.Reachable) {
+    $issues.Add("3306 は開いていますが MySQL プロトコルで応答しません: $($mysql.Detail)")
+} else {
+    $issues.Add("MariaDB (127.0.0.1:3306) へ到達できません。" +
+                "HuskSync は enable に失敗します（Connection refused）。")
 }
 
-if ($storeDown) {
-    # 「そもそも Linux ディストロが無い」ケースを切り分けられるようヒントを出す。
-    try {
-        $distros = @(wsl.exe --list --quiet 2>$null |
-            ForEach-Object { ($_ -replace "`0", "").Trim() } |
-            Where-Object { $_ })
-        $linux = @($distros | Where-Object { $_ -notmatch '^docker-desktop' })
-        if ($linux.Count -eq 0) {
-            $notes.Add("WSL に Linux ディストロがありません（検出: " +
-                       (($distros -join ", ") -replace '^$', 'なし') + "）。" +
-                       "`n    RUNBOOK 手順2の前に `"wsl --install -d Ubuntu`" が必要です。")
-        } else {
-            $notes.Add("WSL のディストロは検出できています（$($linux -join ', ')）。" +
-                       "`n    ディストロ内で `"sudo systemctl status mariadb redis-server`" を確認してください。")
+$redis = Test-RedisEndpoint -HostName "127.0.0.1" -Port 6379
+if ($redis.SpeaksResp) {
+    $identity = if ($redis.Version) { "$($redis.Server) $($redis.Version)" } else { $redis.Server }
+    Write-OpsLog "  OK   Redis 互換 127.0.0.1:6379 ($identity)"
+    if ($redis.RequiresAuth) {
+        $notes.Add("6379 はパスワード認証が有効です。HuskSync の redis.credentials.password を" +
+                   "設定していないと enable に失敗します。")
+    }
+} elseif ($redis.Reachable) {
+    $issues.Add("6379 は開いていますが RESP で応答しません: $($redis.Detail)")
+} else {
+    $issues.Add("Redis 互換サーバ (127.0.0.1:6379) へ到達できません。" +
+                "HuskSync は enable に失敗します（Connection refused）。")
+}
+
+if (-not $mysql.SpeaksMysql -or -not $redis.SpeaksResp) {
+    # 構成の取り違えを切り分けられるようヒントを出す。
+    # ネイティブ構成ならサービスが、WSL 構成ならディストロが見えるはず。
+    # 部分一致にすると無関係なサービスを拾う (GameInputRedistService が 'redis' に当たった)。
+    # サービス名の先頭でのみ照合する。
+    $services = @(Get-Service -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^(mariadb|mysql|garnet|memurai|redis|valkey)' })
+    if ($services.Count -gt 0) {
+        $notes.Add("Windows サービスは見つかっています: " +
+                   (($services | ForEach-Object { "$($_.Name)=$($_.Status)" }) -join ", ") +
+                   "`n    停止しているものがあれば Start-Service で起動してください。")
+    } else {
+        $notes.Add("MariaDB / Garnet 相当の Windows サービスが見つかりません。" +
+                   "`n    RUNBOOK 手順2（Windows ネイティブ）が未実施の可能性があります。")
+        try {
+            $distros = @(wsl.exe --list --quiet 2>$null |
+                ForEach-Object { ($_ -replace "`0", "").Trim() } |
+                Where-Object { $_ })
+            $linux = @($distros | Where-Object { $_ -notmatch '^docker-desktop' })
+            if ($linux.Count -gt 0) {
+                $notes.Add("WSL のディストロはあります（$($linux -join ', ')）。WSL 構成で進めるなら" +
+                           "`n    ディストロ内で `"sudo systemctl status mariadb redis-server`" を確認してください。")
+            }
+        } catch {
+            # wsl.exe が無い環境は珍しくない。ネイティブ構成では不要なので黙って進む。
         }
-    } catch {
-        $notes.Add("wsl.exe を実行できませんでした: $($_.Exception.Message)")
     }
 }
 

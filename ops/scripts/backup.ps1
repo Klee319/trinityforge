@@ -82,35 +82,74 @@ if (Test-ReparsePoint -Path $dbDir) {
 }
 
 # ---- 2. MariaDB ---------------------------------------------------------------------------------
-# WSL2 上で動かす前提。mysqldump を WSL 経由で叩き、標準出力を Windows 側のファイルへ落とす。
-# 認証は WSL 側の ~/.my.cnf に置く (コマンドラインにパスワードを書かない)。
+# ネイティブ構成 (手順2 の既定) なら MariaDB 同梱の mariadb-dump.exe を直接叩く。
+# WSL 構成なら wsl 経由で mysqldump を叩く。どちらでも
+# 【パスワードはコマンドラインに書かない】(プロセス一覧から見えるため)。
+#   ネイティブ = --defaults-file で指定した my.cnf の [mariadb-dump] セクション
+#   WSL        = WSL 側の ~/.my.cnf
 
-foreach ($database in $backup.Databases) {
+$nativeDumpPath = if ($backup.ContainsKey("MysqldumpPath")) { $backup.MysqldumpPath } else { $null }
+$useNative = $false
+$canDump = $true
+
+if ($nativeDumpPath) {
+    # 設定されているのに見つからない場合、黙って WSL へ落ちない。
+    # 「設定したのと違う経路でバックアップされていた」ほうが事故として重い。
+    if (Test-Path -LiteralPath $nativeDumpPath) {
+        $useNative = $true
+    } else {
+        $failures.Add("MysqldumpPath が存在しません: $nativeDumpPath`n" +
+                      "    MariaDB のインストール先と版番号を確認してください。" +
+                      "WSL 構成なら MysqldumpPath ごと削除してください。")
+        $canDump = $false
+    }
+} elseif (-not $backup.ContainsKey("WslDistro")) {
+    $failures.Add("MysqldumpPath も WslDistro も設定されていません。MariaDB を dump できません。")
+    $canDump = $false
+}
+
+foreach ($database in $(if ($canDump) { $backup.Databases } else { @() })) {
     $dumpPath = Join-Path $outputDir "$database.sql"
-    $wslCommand = "mysqldump --single-transaction --quick --default-character-set=utf8mb4 $database"
+    $dumpArgs = @("--single-transaction", "--quick", "--default-character-set=utf8mb4", $database)
+
+    if ($useNative) {
+        $defaultsFile = if ($backup.ContainsKey("MysqlDefaultsFile")) { $backup.MysqlDefaultsFile } else { $null }
+        if (-not $defaultsFile -or -not (Test-Path -LiteralPath $defaultsFile)) {
+            $failures.Add("MysqlDefaultsFile が見つかりません: $defaultsFile" +
+                          "（[mariadb-dump] セクションに user / password を書いたファイルが要る）")
+            continue
+        }
+        # --defaults-file は他のオプションより先に置く必要がある。
+        $exePath = $nativeDumpPath
+        $exeArgs = @("--defaults-file=$defaultsFile") + $dumpArgs
+        $shown   = "$exePath $($exeArgs -join ' ')"
+    } else {
+        $exePath = "wsl.exe"
+        $exeArgs = @("-d", $backup.WslDistro, "--", "bash", "-lc",
+                     "`"mysqldump $($dumpArgs -join ' ')`"")
+        $shown   = "wsl -d $($backup.WslDistro) -- mysqldump $($dumpArgs -join ' ')"
+    }
 
     if ($DryRun) {
-        Write-OpsLog "実行する: wsl -d $($backup.WslDistro) -- $wslCommand > $dumpPath" -Level DRYRUN
+        Write-OpsLog "実行する: $shown > $dumpPath" -Level DRYRUN
         continue
     }
 
     try {
-        # WSL の標準出力をそのままファイルへ。UTF-8 のまま落としたいので Out-File は使わない。
-        $process = Start-Process -FilePath "wsl.exe" `
-            -ArgumentList @("-d", $backup.WslDistro, "--", "bash", "-lc", "`"$wslCommand`"") `
-            -RedirectStandardOutput $dumpPath `
-            -NoNewWindow -Wait -PassThru
+        # 標準出力をそのままファイルへ。UTF-8 のまま落としたいので Out-File は使わない。
+        $process = Start-Process -FilePath $exePath -ArgumentList $exeArgs `
+            -RedirectStandardOutput $dumpPath -NoNewWindow -Wait -PassThru
 
         if ($process.ExitCode -ne 0) {
-            $failures.Add("mysqldump が失敗しました ($database, exit=$($process.ExitCode))")
+            $failures.Add("dump が失敗しました ($database, exit=$($process.ExitCode))")
         } elseif ((Get-Item -LiteralPath $dumpPath).Length -eq 0) {
-            $failures.Add("mysqldump の出力が空です ($database)")
+            $failures.Add("dump の出力が空です ($database)")
         } else {
             $sizeMb = [math]::Round((Get-Item -LiteralPath $dumpPath).Length / 1MB, 2)
             Write-OpsLog "$database を dump しました ($sizeMb MB)"
         }
     } catch {
-        $failures.Add("mysqldump を実行できません ($database): $($_.Exception.Message)")
+        $failures.Add("dump を実行できません ($database): $($_.Exception.Message)")
     }
 }
 
