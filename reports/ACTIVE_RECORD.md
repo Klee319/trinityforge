@@ -23,7 +23,7 @@
 |---|---|
 | TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
 | config-editor テスト | **758 / 758 pass・fail 0**（実走・実測、`---EXIT 0---`。2026-07-28 の「数値のギミックyml集約」バッチ後。751 + 新規 7） |
-| **配備（2026-07-28 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\deploy-k8.cmd```<br>jar 2 本（TF 02:38 / ArsPaper 01:31）と、変更した yml 11 本を `backups/deploy-20260728k8/` へ退避してから上書きする。**フル再起動が必須**（jar 差し替え＋コマンドツリーは起動時登録なので `/tf dungeon` のサジェスト変更が reload では載らない）。**`smithing.yml` と `smithing-gimmick.yml` は必ず同時に配備すること**（片方だけ古いと tier が floor 解決で最大 tier へ無言で化ける。起動ログに tier 不一致 WARNING が出たら配備漏れ）。`digging.yml` と `digging-gimmick.yml` も同じ関係 |
+| **配備（2026-07-28 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\deploy-k9.cmd```<br>**`tmp\deploy-k8.cmd` は使わないこと**（k9 が上位互換で置き換え済み。k8 は未実行のまま破棄してよい）。jar 2 本（TF 03:11 / ArsPaper 01:31）と、変更した yml 13 本を `backups/deploy-20260728k9/` へ退避してから上書きする。**フル再起動が必須**（jar 差し替え＋コマンドツリーは起動時登録なので `/tf dungeon` のサジェスト変更が reload では載らない）。**`smithing.yml` と `smithing-gimmick.yml` は必ず同時に配備すること**（片方だけ古いと tier が floor 解決で最大 tier へ無言で化ける。起動ログに tier 不一致 WARNING が出たら配備漏れ）。`digging.yml` と `digging-gimmick.yml` も同じ関係 |
 | **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
 | `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **20:52** に `42bf57e` で再ビルド（15,829,085 bytes、`TrinityForge/build/release/TrinityForge-all.jar`）→ **未配備**。16:39 の `532bcef` 版を含む上位互換 |
@@ -322,6 +322,46 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-28 — 使用可能レベル連動EXP / 採掘EXP表の穴（テラコッタ）/ 採取ツールでの戦闘EXP誤付与
+
+コミット: TF `cf5c969`（`dev` へ push 済み、13 files / +705 −6）。ArsPaper 側の変更なし。
+検証は実走・実測: TF `BUILD SUCCESSFUL`・skipped は既知の 2 件のみ・failure/error 0 /
+config-editor `tests 758 / pass 758 / fail 0`。release jar は 03:11 に再生成（15,860,881 bytes）。
+
+- **使用可能レベル連動EXP（新機能・ユーザー要望）**。鍛冶・伐採・採掘・切削の EXP 取得量を、
+  使ったツールの「使用可能レベル」で増やす。`stats/skill-exp.yml` の `use-level-scaling`。
+  - 倍率 = `1 + 使用可能レベル × per-level`（既定 0.01 → Lv100 で 2.0 倍）、`max-multiplier` で頭打ち。
+    ユーザー確認で「線形・控えめ」「鍛冶も採取3種と同じ強さ」を選択済み。
+  - 鍛冶＝**作成した装備/ツール自身**の使用可能レベル（`CraftQualityListener`、`SMITHING` のみ。
+    `ARS_SMITHING` には掛けない）。伐採/採掘/切削＝**破壊に使ったメインハンド**のツール。
+  - **農業(FARMING)は対象外**（要件どおり）。**使用可能レベル0（素手・バニラツール・item-stats に
+    プロファイル無し）は倍率1.0** なので、既存のバニラ相当プレイの取得量は1ビットも変わらない。
+  - **爆破採掘(`EntityExplodeEvent`)には掛けない**。ツールで壊していないので要件の前提を満たさず、
+    高レベルツルハシを持ったまま TNT を起爆するだけで倍率が乗る抜け道にもなるため。
+- **バグ: 採取用ツールで敵を殴ると採取スキルEXPが入っていた**（ユーザー報告「斧で敵を殴ると
+  伐採EXPが1もらえる」）。`CombatListener#maybeGrantCombatSkillExp` が
+  **メインハンドの `use-skill` が何であれ、そのスキルへ戦闘EXPを付与する**実装だった。
+  `item-stats.yml` は 2026-07-24 の対応で採取用の斧に `use-skill: WOODCUTTING` を持たせているため、
+  斧で殴ると `combat.exp-per-hit`（=1.0）ぶんの伐採EXPが入っていた。
+  **同じ穴がツルハシ(MINING)・シャベル(DIGGING)・クワ(FARMING)・釣竿(FISHING)にも開いていた**。
+  `isCombatWeaponSkill` を新設し、この経路の付与対象を `HEAVY_WEAPONS`/`LIGHT_WEAPONS`/`ARCHERY`
+  の 3 つだけに絞った。`ARS_MAGIC` は別経路（`grantMagicExp`）なので含めない。
+  **「代わりに HEAVY_WEAPONS を与える」フォールバックは意図的にしない** — 採取用の斧は道具であって
+  武器ではなく、TF には戦斧が別マテリアルの武器として存在する。
+- **バグ: テラコッタを掘っても採掘EXPが0**（ユーザー報告）。`skills/base/mining_progression.yml` の
+  `mining_break` 表が鉱石＋石系 47 行しかなく、バッドランドの地形ブロックが丸ごと抜けていた。
+  表に無いブロックは `gatheringExp` が `blockExp <= 0` で即 return するため EXP 0 になる。
+  自然生成のツルハシ採掘ブロック **42 行**を追加（テラコッタ 17 種 / 砂岩 2 / 海底神殿 4 + ドロップ 1 /
+  ネザー 3 / 構造物石材 15 / 氷 3 / 尖った鍾乳石 1）。
+  - **`exp-mode` 既定の `drop_sum` は「ドロップ品の材質名」で値を引く**ので、ブロック名の行だけでは
+    足りない。`SEA_LANTERN` のように自分と違うもの（`PRISMARINE_CRYSTALS`）を落とすブロックは
+    ドロップ側の行も必要。**この非対称は今後ブロックを足すたびに踏む**ので注意。
+  - クラフト専用の装飾ブロック（`*_GLAZED_TERRACOTTA` 等）は「置いて掘るだけの EXP 稼ぎ面」を
+    増やさないため意図的に除外し、回帰テスト（`glazedTerracottaIsIntentionallyAbsent`）で固定した。
+  - シルクタッチ無しで何も落とさないブロック（氷 3 種）は既存の `drops.isEmpty()` ガードで 0 のまま。
+- 私のレビューで見つけた抜け: 前バッチで SCALE 化した 4 feature が `tier-vocabulary.js` の
+  `SCALE_FEATURE_SECTIONS` に未登録で editor の tier セレクトが効かなくなっていた（`cf5c969` の前に修正済み）。
 
 ### 2026-07-28 — 実サーバ報告 3 件（クラフト不可 / 複製 / 被弾パーティクル過多）
 
