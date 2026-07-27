@@ -386,7 +386,7 @@
   }
 
   // set-buffs(装備部位数条件バフ)の描画。light_armor / heavy_armor ツリーのノード/プレステージ専用。
-  // 段は3部位/4部位の2枠固定(1/2/5以上は不正)。乗算モードは持たない(set-multipliersは作らない)。
+  // 段は3部位/4部位の2枠固定(1/2/5以上は不正)。乗算モード用の別キーは持たない(このスキーマに乗算モード枠は無い)。
   function setBuffsSection(obj) {
     const box = h("div", {});
     box.appendChild(h("div", {

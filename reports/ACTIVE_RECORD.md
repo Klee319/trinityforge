@@ -63,6 +63,8 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | W-3 | 採取系見直し **W2（パラメータ化）/ W3（UX）** | **設計書が実在しない**ので設計の書き起こしから。W1 基盤（`com.trinityforge.active`）は実装済み |
 | W-4 | ars_magic のマナ系 4 キーを実効化 | `hit-mana-recovery` / `damage-mana-recovery` / `mana-cost-reduction-percent` / `mana-cost-reduction-flat`。TF 側は配線済みだが **ArsPaper フォークの `TrinityForgeBridge` がメインハンドしか読まない**ためパーク由来分が乗らない |
 | W-5 | スキルツリー草案が「今回は対象外」と明記した 2 件 | 農業のゴミ食の段階化（グローバル設定の stat 化）／切削 E-β のオフハンド+スニーク破壊 |
+| W-6 | **`set-buffs` の 4 部位帯の値を決める** | 2026-07-27 の移行では**現行挙動を厳密に保存する翻訳**にしたので、`3:` と `4:` に同じ値が入っている（＝4部位でも 3部位と同じ効果）。4部位フル装備に上乗せを付けるかはバランス判断。対象 = `light_armor.yml` / `heavy_armor.yml` の C・D-1-1・D-1-2 |
+| W-7 | **軽装/重装 D ノードの説明文が実装と一致していない** | 両ツリーの D（堅守の境地 / 堅牢の境地）は `effect-text` と `effects` に「3部位でセットが成立」と書いてあるが、**`set-buffs` も `armor-set-bonus` も持たず buffs は全て無条件**。移行前からの不一致で回帰ではない。直し方は「文言を消す」か「`set-buffs` を足す」の二択（＝バランス判断なので放置している）。K-5 が扱う問題の典型例 |
 
 ---
 
@@ -78,6 +80,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | ~~K-4~~ | ~~**このリポジトリは git 管理下にない**~~ | **解決（2026-07-27）**。`Klee319/trinityforge`（private）を作成し初回インポート済み。作業ブランチは `dev`。ただし下記 K-6 の 2 フォークは対象外なので、そちらを触る前は従来どおり `backups/` を取ること |
 | K-5 | **ステータスのトリガーと発動制限が、どこにも機械可読な形で存在しない**（2026-07-27 確認） | 説明文は自由文でエディタ専用、実装との紐付けがゼロ。結果として**説明が実装から静かにずれる**。修正プランは直下 |
 | ~~K-6~~ | ~~**2 つのフォークの作業がバックアップされていない**~~ | **解決（2026-07-27）**。両フォークとも未コミット分をコミットして push 済み（ArsPaper `17c9f65` → `Klee319/ArsPaper` の `feat/trinityforge-fork` / EliteMobs `ea043d3b` → `Klee319/EliteMobs-trinityforge` の `trinityforge-fork`）|
+| K-7 | **`armor-set-bonus` はスキルツリー由来分しか増幅に効かない**（2026-07-27） | `NativeAttributeBridge.armorAttributesFor` は `perkBuffs.buffsFor(id).general()`（＝パーク由来）だけを読む。そのため `base-stats.yml` / 装備 / 永続バフ / 役職バフ に `armor-set-bonus` を置いても**セット効果の増幅には効かない**。総合ステータスとしては登録済みなので `/stats` には出る＝**装備に付けると lore に出るのに効かない**。撤去した旧4キーと全く同じ制約なので回帰ではない。正すには aggregator→bridge の循環依存を解く必要がある。editor の base-stats 画面では `NO_OP_BASE_STATS_KEYS` で非表示にしてある |
 
 ### K-5 — 現状と修正プラン
 
@@ -156,6 +159,11 @@ git 系（2026-07-27 に導入）:
   それぞれ独自の `.git` を持つため `.gitignore` で除外している。
   **ArsPaper と EliteMobs のフォークには未コミットの変更が残っている**（EliteMobs 側は remote が
   upstream の MagmaGuy/EliteMobs しか無く、フォーク作業のバックアップが存在しない）→ K-6。
+- **`git add -A` / `git commit -a` を使わない。** 並行セッションが走る運用なので、他セッションが**実装中**の
+  ファイルを巻き込む。2026-07-27 に実際に発生した: docs 名義の `63ae36a`
+  「フォーク2件の版管理を反映」に、別セッションが実装中だった `NativeAttributeBridge.java` ほか
+  set-buffs 移行のソースが丸ごと入ってしまい、**コミットメッセージと中身が一致しない上に、
+  中間状態でスナップショットされた**。commit は必ず自分が触ったパスを明示して stage すること。
 - `backups/` と `backups.zip`（455MB）は git 導入以前の手動バックアップ。追跡しない。
 - jar は全て追跡しない（`source/` のベンダー jar、フォークの `libs/TrinityForge.jar` を含む）。
   例外は gradle wrapper のみ。
@@ -210,6 +218,33 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — 防具セット効果を `set-buffs` + `armor-set-bonus` へ全面移行
+
+実測: TF **2318 件 / 失敗 0 / スキップ 2**、config-editor **590 / 590**（いずれも独立に再実行して確認）。
+
+- **新スキーマ `set-buffs`**（`light_armor` / `heavy_armor` のノードと prestige のみ）。
+  `mainhand-buffs` と同型の条件バフだが、条件は**装備部位数**。
+  段は **3 と 4 のみ**（1/2/5+ はロード時に警告して無視）。防具枠は 4 なので 3+3>4 となり、
+  **軽装セットと重装セットは機構として併用不能**。閾値 2 だと軽装2＋重装2で二重取りできてしまう。
+- **数える部位は所属ツリーで決まる**（`light_armor`→軽装 / `heavy_armor`→重装）。冗長なフィールドは足していない。
+- **段の解釈は「最大の成立段のみ」**。ただし段の選択は**ノード単位**で行ってから加算する。
+  先に全ノードを段ごとに合算してから最大段を選ぶと、片方のノードしか定義していない段が消える
+  （`PerkBuffResolverTest` にこの順序の回帰テストを置いた）。
+- **旧4キーを完全撤去**し `armor-set-bonus`（+%）1本へ統一
+  （`light/heavy-armor-set-bonus-multiplier` / `light-armor-set-dodge-chance` /
+  `heavy-armor-set-knockback-resistance`）。`*-move-speed-per-piece` は部位数比例の連続効果であって
+  セット効果ではないので**対象外・現行維持**。
+- ノードの数値は**現行挙動を厳密に保存する翻訳**（`3:` と `4:` に同値）。4部位帯の上乗せは W-6 で未決。
+- **移行のついでに直した既存の穴 2 件**（set-buffs が任意ステータスを取れるようになると露呈するもの）:
+  - `PlayerStatAggregator` が `dodge_chance` 決め打ちだった → `StatVocabulary.channelOf` で
+    ATTACK/DEFENSE/GENERAL へ振り分け。値 0 のキーを生成しないガードは維持。
+  - `PerkAttributeApplier` が bridge の戻り値を**全キー無条件**でマージしていた（すぐ下の
+    `permanentBuffResolver` は ATTRIBUTE で絞っているのに）→ 同じ絞り込みを追加。
+    絞らないと上の変更と合わせて非属性キーが二重に流れる。
+- **副次効果**: 閾値が Java のハードコード定数（`SET_BONUS_MIN_PIECES=3`）から yml の宣言値へ移り、
+  K-5 で挙げた「`labels.js` が 2 部位のまま」という stale の**発生源ごと消えた**。
+- 新規に判明した制約 = K-7、残った作業 = W-6 / W-7。
 
 ### 2026-07-27 — 実サーバへの配備（yml 42 本 + jar 3 本）
 
