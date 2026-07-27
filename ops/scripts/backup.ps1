@@ -35,7 +35,8 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
 
-$config = Get-OpsConfig -Path $ConfigPath
+# ファイルと DB をコピーするだけで RCON は使わないので、パスワードは要求しない。
+$config = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:$false
 $main   = $config.Servers.Main
 $backup = $config.Backup
 

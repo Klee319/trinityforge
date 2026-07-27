@@ -75,6 +75,32 @@ function Get-OpsConfig {
     return $config
 }
 
+function Write-MissingRconPasswordWarning {
+    <#
+    .SYNOPSIS DryRun 時に未設定の RCON パスワードを警告する。
+    .DESCRIPTION
+        DryRun では RCON を一切叩かないので、パスワード未設定でも空撃ちは通す。
+        ここで throw すると【空撃ちの本題（reset-resource の削除対象一覧など）が
+        一切表示されないまま落ちる】ため、警告に留めて続行させる。
+        実行時は Get-OpsConfig が throw するので、取り違えは起こらない。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [hashtable] $Config
+    )
+
+    $missing = @()
+    foreach ($name in @($Config.Servers.Keys)) {
+        if (-not $Config.Servers[$name].RconPassword) {
+            $missing += "TF_RCON_$($name.ToUpperInvariant())_PASSWORD"
+        }
+    }
+    if ($missing.Count -eq 0) { return }
+
+    Write-OpsLog "RCON パスワードが未設定です: $($missing -join ', ')" -Level WARN
+    Write-OpsLog "DryRun なので続行します。実際に停止するには setx で設定してください。" -Level WARN
+}
+
 function Resolve-OpsServer {
     <#
     .SYNOPSIS -Target で渡された名前から Servers のエントリを引く。

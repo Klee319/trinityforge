@@ -43,10 +43,12 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
 
-$config = Get-OpsConfig -Path $ConfigPath
+# DryRun では RCON を叩かないので、パスワード未設定でも空撃ちは通す（実行時は throw する）。
+$config = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:(-not $DryRun)
 
 if ($DryRun) {
     Write-OpsLog "=== DRY RUN: 何も停止しません ===" -Level DRYRUN
+    Write-MissingRconPasswordWarning -Config $config
 }
 
 # ---- 1. Velocity ---------------------------------------------------------------------------------

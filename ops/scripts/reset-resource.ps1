@@ -44,13 +44,16 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
 
-$config   = Get-OpsConfig -Path $ConfigPath
+# DryRun では RCON を叩かないので、パスワード未設定でも空撃ちは通す。
+# ここで落とすと【削除対象一覧が表示されないまま終わる】= 空撃ちの本題が失われる。
+$config   = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:(-not $DryRun)
 $resource = $config.Servers.Resource
 $main     = $config.Servers.Main
 $targets  = $config.ResourceResetTargets
 
 if ($DryRun) {
     Write-OpsLog "=== DRY RUN: 停止も削除も起動も行いません ===" -Level DRYRUN
+    Write-MissingRconPasswordWarning -Config $config
 }
 
 Write-OpsLog "資源サーバのリセットを開始します: $($resource.Root)"

@@ -52,7 +52,8 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
 
-$config = Get-OpsConfig -Path $ConfigPath
+# DryRun では RCON を叩かないので、パスワード未設定でも空撃ちは通す（実行時は throw する）。
+$config = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:(-not $DryRun)
 
 # 資源 -> メイン の順。資源を先に落とせば、その在席者はメインへ退避できる。
 # @() で包む: 1台だけのとき switch がスカラーを返し、StrictMode 下で .Count が落ちる。
@@ -67,6 +68,7 @@ $order = @(
 
 if ($DryRun) {
     Write-OpsLog "=== DRY RUN: 何も停止しません ===" -Level DRYRUN
+    Write-MissingRconPasswordWarning -Config $config
 }
 
 Write-OpsLog "再起動対象: $(($order | ForEach-Object { $_.Name }) -join ' -> ')"
