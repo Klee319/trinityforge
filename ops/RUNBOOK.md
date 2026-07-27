@@ -850,6 +850,84 @@ ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resou
 
 ---
 
+## 手順 13. 日々の起動と Windows 再起動後の手順
+
+### 13-1. 何が自動で上がり、何が上がらないか
+
+| コンポーネント | Windows 再起動後 | 根拠 |
+|---|:---:|---|
+| **MariaDB** | **自動で上がる** | Windows サービス（`Install as service`） |
+| **Garnet** | 手順 11 の起動時タスクを登録すれば自動。**未登録なら上がらない** | `garnet.cmd` は常駐プロセスであってサービスではない |
+| **Velocity / 各バックエンド** | `server-loop.cmd` を起動時タスクにしていなければ**上がらない** | `start.bat` は手動起動 |
+| **config-editor** | 手動 | Node のプロセス |
+
+`Get-Service MariaDB` と `preflight.ps1` で「上がっているつもり」を潰せる。
+
+### 13-2. 起動順（これを守る）
+
+```
+1. MariaDB      … 自動。Get-Service MariaDB が Running であること
+2. Garnet       … バックエンドより【先】に上げる
+3. preflight.ps1 … ここで 0 件になってから 4 へ進む
+4. main         … 最初に上げる
+5. resource     … main が起動しきってから
+6. dev          … 最後
+7. Velocity     … バックエンドが揃ってから
+```
+
+理由:
+
+- **Garnet と MariaDB がバックエンドより先**。繋ぐ先が無いと HuskSync は enable に失敗し、
+  しかも**サーバの起動は止まらない**ので、同期されないまま運用する事故になる
+- **main → resource の順**。`plugins/TrinityForge` は実体を共有しているので、
+  初回スキーママイグレーションを同時に走らせない
+- **Velocity は最後**。先に上げるとプレイヤーが「繋がるが飛べない」状態を踏む
+
+停止するときは**逆順**（Velocity → dev → resource → main → Garnet）。
+Velocity を先に落とせばプレイヤーが切断されてから保存が走る。
+
+### 13-3. Windows 再起動後の手順（自動化が未登録の場合）
+
+```powershell
+# 1. データストアの確認（MariaDB は自動で上がっているはず）
+Get-Service MariaDB
+
+# 2. Garnet を上げる
+Start-Process cmd.exe -ArgumentList '/c','"D:\game\minecraft\Garnet\garnet.cmd"' -WindowStyle Minimized
+
+# 3. 起動前チェック（0 件になるまでサーバを上げない）
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\ops\scripts\preflight.ps1
+```
+
+そのあと main → resource → dev → Velocity の順に `start.bat`（または `server-loop.cmd`）。
+
+### 13-4. 手動をなくす（手順 11 とあわせて登録する）
+
+いずれも**管理者 PowerShell**で 1 回だけ。
+
+```powershell
+# Garnet
+schtasks /create /tn "Garnet" /tr "D:\game\minecraft\Garnet\garnet.cmd" /sc onstart /ru SYSTEM /rl HIGHEST /f
+```
+
+バックエンドと Velocity も起動時タスクにできるが、**起動順を守る必要がある**ため
+`/delay` を入れるか、順番に起動する 1 本の cmd を登録する。
+
+正本は [templates/start-all.cmd](templates/start-all.cmd)。Garnet → preflight →
+main → resource → dev → Velocity の順に待ちを挟んで起動し、
+**preflight が 1 件でも検出したらサーバを上げずに中断する**。
+
+```powershell
+Copy-Item "<repo>\ops\templates\start-all.cmd" "D:\game\minecraft\PaperServer\Velocity_for_TF\"
+schtasks /create /tn "TF Network" /tr "D:\game\minecraft\PaperServer\Velocity_for_TF\start-all.cmd" ^
+  /sc onstart /ru SYSTEM /rl HIGHEST /f
+```
+
+> **`server-loop.cmd` と併用すること。** `stop` 後に自動で起動し直す口が無いと、
+> 定期再起動（手順 11）が「落ちたまま」になる。
+
+---
+
 ## 資源サーバのプレイヤー周知文（案）
 
 > **資源ワールドについて**
