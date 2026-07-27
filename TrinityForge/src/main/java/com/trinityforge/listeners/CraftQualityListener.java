@@ -169,6 +169,18 @@ public final class CraftQualityListener implements Listener {
     /**
      * クラフト結果枠に触れるドラッグをキャンセルする(ドラッグ経由でのプレビュー品取り出しを封じる保険)。
      * 通常のクラフトはドラッグを使わないため実害はない。
+     *
+     * <p><b>2026-07-28 追加(実サーバで確認された複製)</b>: 「結果枠をつかんでインベントリへ
+     * ドラッグ＆ドロップすると素材が減らずにアイテムだけ増え、再ログイン後も残る」という報告。
+     * {@link InventoryDragEvent#getRawSlots()} は<b>置き先のスロットしか持たない</b> —
+     * 引き出し元(結果枠)は入らない。そのため結果枠を起点にした quick-craft ドラッグは
+     * 上のループを素通りし、しかも {@link CraftItemEvent} を経由しないので素材も消費されない。
+     * 置き先だけを見るガードでは原理的に塞げないので、<b>カーソルの中身が今まさに結果枠に
+     * 乗っている品と同一なら、結果枠から出てきたものとみなして落とす</b>。
+     *
+     * <p>誤爆する条件は「現在のクラフト結果とまったく同じアイテムを手に持ったまま、
+     * クラフト画面でドラッグする」ときだけで、その場合もアイテムはカーソルに残るので失われない
+     * (クリックで置ける)。複製は経済が壊れる不可逆な事故なので、この非対称は意図的に厳しい側へ倒す。
      */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onCraftResultDrag(InventoryDragEvent event) {
@@ -179,6 +191,30 @@ public final class CraftQualityListener implements Listener {
                 return;
             }
         }
+        if (!draggedOutOfCraftingResult(event, view)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (event.getWhoClicked() instanceof Player player) {
+            // キャンセルしただけだとクライアント側に「持てている」残像が残るため、明示的に同期し直す。
+            plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+        }
+    }
+
+    /**
+     * カーソルの中身が、そのクラフト画面の結果枠に今乗っている品と同一か(=結果枠から出てきた疑い)。
+     * 直接ユニットテストするため package-private(このパッケージの「純粋ヘルパーは package-private」慣習に従う)。
+     */
+    static boolean draggedOutOfCraftingResult(InventoryDragEvent event, InventoryView view) {
+        if (view == null || !(view.getTopInventory() instanceof CraftingInventory crafting)) {
+            return false;
+        }
+        ItemStack cursor = event.getOldCursor();
+        if (cursor == null || cursor.getType().isAir()) {
+            return false;
+        }
+        ItemStack result = crafting.getResult();
+        return result != null && !result.getType().isAir() && result.isSimilar(cursor);
     }
 
     /** 生の作業台/インベントリ 2×2/3×3 クラフトの結果スロットか(かまど等の RESULT は対象外)。 */

@@ -221,8 +221,19 @@ public final class PlayerStatAggregator {
         // lifetime regardless of what the live item does afterward.
         AggregateCacheKey key = new AggregateCacheKey(
                 player.getUniqueId(), mainhandContributor.clone(), contributorIsOffhand);
-        return tickCache.computeIfAbsent(key,
-                k -> computeAggregate(player, mainhandContributor, contributorIsOffhand));
+        // computeIfAbsent は使えない (2026-07-28 実サーバで ConcurrentModificationException):
+        // computeAggregate は解決器を経由して同じプレイヤーの aggregate(...) を再入呼び出しすることが
+        // あり、その内側の put で HashMap が構造変更されるため、外側の computeIfAbsent が戻り際の
+        // modCount チェックで落ちる。落ちると PerkAttributeApplier#reconcileAllOnline のループが
+        // その場で中断し、以降のプレイヤーの属性が当たらないまま放置される。
+        // get→compute→put なら再入しても内側が先に入れた値を外側が同値で上書きするだけで無害。
+        PlayerCombatAggregate cached = tickCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        PlayerCombatAggregate computed = computeAggregate(player, mainhandContributor, contributorIsOffhand);
+        tickCache.put(key, computed);
+        return computed;
     }
 
     /**
