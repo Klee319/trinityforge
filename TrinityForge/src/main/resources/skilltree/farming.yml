@@ -165,14 +165,15 @@ nodes:
     group: A-greek
     icon: ROTTEN_FLESH
     cost: 1
-    effect-text: ゴミのデバフを受けない・ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量DOWN
+    effect-text: ゴミのデバフを受けない・ゴミの隠し満腹度回復量UP・ゴミ以外の隠し満腹度回復量DOWN
     effects:
       - ゴミのデバフを受けない
-      - ゴミの満腹度回復量UP
-      - ゴミ以外の満腹度回復量DOWN
+      - ゴミの隠し満腹度回復量UP
+      - ゴミ以外の隠し満腹度回復量DOWN
     dedicated-effects:
       - id: feature:junkfood-immunity
       - id: feature:junkfood-inversion
+        value: 100
   A-alpha-2:
     name: ゴミ食II
     level: 30
@@ -181,13 +182,16 @@ nodes:
     group: A-greek
     icon: ROTTEN_FLESH
     cost: 1
-    effect-text: ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量を戻す
+    effect-text: ゴミの満腹度回復量+30%・ゴミの隠し満腹度回復量UP(1.5倍)・ゴミ以外の隠し満腹度回復量DOWN(1.5倍)
     effects:
-      - ゴミの満腹度回復量UP
-      - ゴミ以外の満腹度回復量を戻す
+      - ゴミの満腹度回復量+30%
+      - ゴミの隠し満腹度回復量UP(1.5倍)
+      - ゴミ以外の隠し満腹度回復量DOWN(1.5倍)
     dedicated-effects:
       - id: "feature:junk-food-restore-boost"
         value: 30
+      - id: feature:junkfood-inversion
+        value: 150
   A-beta-2:
     name: 健康食I
     level: 30

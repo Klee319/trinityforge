@@ -53,9 +53,11 @@ public final class NativeCombatPerkListener implements Listener {
 
     /**
      * スタン継続時間の絶対上限(tick)。5秒 = 100tick。{@code stun_duration_bonus} でどれだけ延ばしても
-     * これを超えない — 上限なしにするとハメ殺し(行動不能の連続化)になるため。
+     * これを超えない — 上限なしにするとハメ殺し(行動不能の連続化)になるため。stats/lore.yml
+     * {@code stats.stun-duration-bonus.limits} から {@code java:} cap-ref で参照される
+     * (CapRefResolver 拘束テスト対象)。{@code public} でないと cap-ref から参照できない。
      */
-    static final int MAX_STUN_DURATION_TICKS = 100;
+    public static final int MAX_STUN_DURATION_TICKS = 100;
 
     /**
      * 「実際に殴った」と見なすDamageCause。{@code CombatListener} の同名の集合と意図的に同一に保つこと

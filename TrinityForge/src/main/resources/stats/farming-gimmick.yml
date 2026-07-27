@@ -1,4 +1,4 @@
-# TrinityForge - 農業/畜産ギミック(skilltree/dedicated-effects.yml のflag系consumer)チューニング
+# TrinityForge - 農業/畜産ギミック(各 skilltree/*.yml ノードの dedicated-effects: フィールドが付与する flag系consumer)チューニング
 # 対象effectId: area-harvest / animal-damage-4x / bee-no-aggro(採取時のハチ鎮静半径)
 # 養蜂の幸運確率(hive_harvest_fortune)は装備+perk合算ステータスとして別経路で持つため、
 # このファイルには含まれない。

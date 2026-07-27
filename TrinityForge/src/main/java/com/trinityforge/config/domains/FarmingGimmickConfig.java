@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 /**
  * Loader for {@code stats/farming-gimmick.yml}: tuning for the農業/畜産スキルツリーflag系
  * dedicated-effect consumers that have no existing config home ({@code area-harvest},
- * {@code animal-damage-4x}, {@code bee-no-aggro} — see {@code skilltree/dedicated-effects.yml}).
+ * {@code animal-damage-4x}, {@code bee-no-aggro} — see the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}).
  * 養蜂の幸運確率({@code hive_harvest_fortune})は装備+perk合算ステータスとして別経路
  * ({@code PlayerStatAggregator})で持つため、このconfigには含まない。Same raw-YAML loader style as
  * {@link MiningGimmickConfig}/{@link WoodcuttingGimmickConfig}。

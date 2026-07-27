@@ -1,5 +1,5 @@
 # TrinityForge - 釣りツリー B-alpha/B-beta 系flag/percent dedicated-effect consumer
-# (skilltree/dedicated-effects.yml)のチューニング + 釣り「宝/ゴミ比率＋釣り運シフト」ドロップテーブル機構
+# (各 skilltree/*.yml ノードの dedicated-effects: フィールド)のチューニング + 釣り「宝/ゴミ比率＋釣り運シフト」ドロップテーブル機構
 # (2026-07-23 stat-gate-overhaul §2.3/§4)。
 # 対象effectId: junk-to-scrap / fish-sell-toggle(#5修正により恒久no-op)
 # 数値・Material一覧は全て暫定(要調整)。

@@ -26,7 +26,7 @@ import java.util.logging.Logger;
  * Loader for {@code stats/fishing-gimmick.yml}: tuning for the釣りスキルツリーB-alpha/B-beta系
  * flag/percent dedicated-effect consumers that have no existing config home
  * ({@code junk-to-scrap}, {@code fish-sell-toggle}, {@code xp-bottle-store-unlock} — see
- * {@code skilltree/dedicated-effects.yml} / {@code skilltree/fishing.yml} /
+ * the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml} / {@code skilltree/fishing.yml} /
  * {@code skilltree/enchanting.yml}), the {@code fishing} group-ratio/drop-table mechanism
  * (2026-07-23 stat-gate-overhaul §2.3/§4 — replaces the old {@code gacha-ticket-drop} hardcoded
  * consumers), and the {@code fishing.skill-id/luck-per-level/bonus-per-level} tuning migrated off the

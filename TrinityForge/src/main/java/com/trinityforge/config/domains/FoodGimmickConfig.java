@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 /**
  * Loader for {@code stats/food-gimmick.yml}: tuning for the農業ツリーA-α/β系flag/percent
  * dedicated-effect consumers that have no existing config home ({@code junkfood-immunity},
- * {@code junkfood-inversion}, {@code satiety-buff} — see {@code skilltree/dedicated-effects.yml}), plus
+ * {@code junkfood-inversion}, {@code satiety-buff} — see the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}), plus
  * the {@code custom-foods} override table (満腹度/隠し満腹度の置き換え、圧縮食料アイテム向け)。
  * {@code no-food-consume-chance}の確率(%)は他のpercent系effectと同様、skilltree/farming.ymlのノード側
  * {@code dedicated-effects[].value}で持つため、このconfigには含まない。Same raw-YAML loader style as

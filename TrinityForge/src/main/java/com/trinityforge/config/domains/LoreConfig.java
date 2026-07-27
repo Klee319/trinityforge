@@ -4,9 +4,16 @@ import com.trinityforge.config.LoadableConfig;
 import com.trinityforge.stats.LoreColorRules;
 import com.trinityforge.stats.LoreLayout;
 import com.trinityforge.stats.LoreValueFormat;
+import com.trinityforge.stats.StatAppliesTo;
+import com.trinityforge.stats.StatBound;
 import com.trinityforge.stats.StatCategory;
 import com.trinityforge.stats.StatCategoryInference;
 import com.trinityforge.stats.StatDisplaySpec;
+import com.trinityforge.stats.StatLimits;
+import com.trinityforge.stats.StatSourceScope;
+import com.trinityforge.stats.StatStacking;
+import com.trinityforge.stats.StatTrigger;
+import com.trinityforge.stats.StatTriggerWhen;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -17,8 +24,11 @@ import org.bukkit.plugin.Plugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -104,7 +114,9 @@ public final class LoreConfig implements LoadableConfig {
                             entry.getString("unit", ""),
                             entry.contains("category")
                                     ? StatCategory.parse(entry.getString("category"))
-                                    : StatCategoryInference.infer(key)));
+                                    : StatCategoryInference.infer(key),
+                            parseTrigger(entry.getConfigurationSection("trigger")),
+                            parseLimits(entry.getConfigurationSection("limits"))));
                 } catch (IllegalArgumentException ex) {
                     log.warning("[" + PATH + "] stat '" + key + "' invalid (" + ex.getMessage() + "); skipped");
                     skipped++;
@@ -241,6 +253,71 @@ public final class LoreConfig implements LoadableConfig {
             return LoreValueFormat.FLAT;
         }
         return LoreValueFormat.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+    }
+
+    /**
+     * Parses the optional {@code stats.<key>.trigger:} block (段階1 宣言). Absent section → {@code null}
+     * (未宣言、許可リストで管理する — 必須にはしない)。An unknown enum member throws
+     * {@link IllegalArgumentException}, which the caller (the per-stat try/catch in {@link #load}) turns
+     * into a skip + warning, matching the same fail-soft-per-entry convention as the rest of this loader.
+     */
+    static StatTrigger parseTrigger(ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+        StatTriggerWhen when = StatTriggerWhen.parse(section.getString("when", ""));
+        StatSourceScope sources = StatSourceScope.parse(section.getString("sources", "ALL"));
+        List<String> appliesRaw = section.getStringList("applies-to");
+        if (appliesRaw.isEmpty()) {
+            throw new IllegalArgumentException("trigger.applies-to must not be empty");
+        }
+        Set<StatAppliesTo> appliesTo = new LinkedHashSet<>();
+        for (String raw : appliesRaw) {
+            appliesTo.add(StatAppliesTo.parse(raw));
+        }
+        return new StatTrigger(when, sources, appliesTo);
+    }
+
+    /**
+     * Parses the optional {@code stats.<key>.limits:} block (段階1 宣言). Absent section → {@code null}.
+     * Every bound field is itself optional; only {@code stacking} is validated against a closed
+     * vocabulary here (numeric fields are validated by their type, the {@code -ref} pointers are
+     * validated by {@link com.trinityforge.stats.CapRefResolver} at the constraint-test layer, not here —
+     * this loader has no plugin data-folder root to resolve a relative yml path against at parse time).
+     *
+     * <p>General rule for every bound field {@code X}: {@code X-ref} may accompany {@code X}, but
+     * {@code X-ref} alone (no {@code X}) is rejected — there would be nothing to compare it against.
+     */
+    static StatLimits parseLimits(ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+        return new StatLimits(
+                parseBound(section, "cap"),
+                parseBound(section, "floor"),
+                parseBound(section, "min-pieces"),
+                parseBound(section, "max-distance"),
+                parseBound(section, "max-duration-ticks"),
+                section.contains("stacking") ? StatStacking.parse(section.getString("stacking")) : null);
+    }
+
+    /**
+     * Parses one {@code limits.<field>} / {@code limits.<field>-ref} pair into a {@link StatBound}.
+     * {@code <field>-ref} without {@code <field>} throws — a ref with nothing to compare against is a
+     * declaration bug, not a legal "ref-only" shorthand.
+     */
+    private static StatBound parseBound(ConfigurationSection section, String field) {
+        String refField = field + "-ref";
+        boolean hasValue = section.contains(field);
+        String ref = section.contains(refField) ? section.getString(refField) : null;
+        if (!hasValue) {
+            if (ref != null) {
+                throw new IllegalArgumentException(
+                        "limits." + refField + " declared without limits." + field + " to compare it against");
+            }
+            return null;
+        }
+        return new StatBound(section.getDouble(field), ref);
     }
 
     /**

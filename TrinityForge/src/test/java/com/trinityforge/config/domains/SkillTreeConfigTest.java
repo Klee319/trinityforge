@@ -454,6 +454,61 @@ class SkillTreeConfigTest {
     }
 
     @Test
+    @DisplayName("2026-07-27 農業「ゴミ食」段階化: feature:junkfood-inversion is LEVEL(%), so a placement "
+            + "without 'value' is dropped at parse-time with a warning (load() returns false) — there is no "
+            + "SCALE-style 'defaults to 100%' fallback; the build itself enforces every placement carries a "
+            + "value (see AllSkillTreesLoadTest, which fails the whole suite on this exact warning)")
+    void junkfoodInversionFeatureRequiringValueWithoutOneIsDropped(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "dedi_junkfood.yml", """
+                skill: DEDI_JUNKFOOD
+                nodes:
+                  A:
+                    name: "a"
+                    level: 10
+                    role: main
+                    dedicated-effects:
+                      - id: feature:junkfood-inversion
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertFalse(config.load(fakePlugin(dataFolder)));
+        assertTrue(config.tree("DEDI_JUNKFOOD").orElseThrow().node("A").orElseThrow()
+                .dedicatedEffects().isEmpty());
+    }
+
+    @Test
+    @DisplayName("2026-07-27 農業「ゴミ食」段階化: an explicit 'value' on feature:junkfood-inversion is kept "
+            + "verbatim (A-alpha-1:100 / A-alpha-2:150 style placements parse cleanly)")
+    void junkfoodInversionFeatureWithExplicitValueParsesCleanly(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "dedi_junkfood_ok.yml", """
+                skill: DEDI_JUNKFOOD_OK
+                nodes:
+                  A:
+                    name: "a"
+                    level: 10
+                    role: main
+                    dedicated-effects:
+                      - id: feature:junkfood-inversion
+                        value: 100
+                  B:
+                    name: "b"
+                    level: 20
+                    role: branch
+                    parent: A
+                    dedicated-effects:
+                      - id: feature:junkfood-inversion
+                        value: 150
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertTrue(config.load(fakePlugin(dataFolder)));
+        assertEquals(100.0, config.tree("DEDI_JUNKFOOD_OK").orElseThrow().node("A").orElseThrow()
+                .dedicatedEffects().get(0).value());
+        assertEquals(150.0, config.tree("DEDI_JUNKFOOD_OK").orElseThrow().node("B").orElseThrow()
+                .dedicatedEffects().get(0).value());
+    }
+
+    @Test
     @DisplayName("2026-07-25 gather-rework-active-framework §1/§5: a SCALE feature placement (e.g. "
             + "feature:vein-mining) with no 'value' is kept and defaults to tier 1, not dropped like LEVEL")
     void scaleFeatureWithoutValueDefaultsToTierOneInsteadOfBeingDropped(@TempDir File dataFolder)

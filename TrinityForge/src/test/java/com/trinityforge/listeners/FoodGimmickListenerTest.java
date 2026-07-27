@@ -4,6 +4,11 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FoodGimmickConfig;
+import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.skilltree.DedicatedEffectEntry;
+import com.trinityforge.skilltree.SkillNode;
+import com.trinityforge.skilltree.SkillRole;
+import com.trinityforge.skilltree.SkillTree;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -12,9 +17,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
+import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -169,5 +180,108 @@ class FoodGimmickListenerTest {
 
         server.getScheduler().performTicks(2);
         org.junit.jupiter.api.Assertions.assertEquals(1.0f, player.getSaturation(), 0.01f); // min(8, 0+1.0)
+    }
+
+    // --- junkfood-inversion (LEVEL, %; 2026-07-27 農業「ゴミ食」段階化) -----------------------------------
+
+    private static FoodGimmickConfig foodGimmickConfigWithInversionDefaults() {
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+        when(foodGimmick.junkFoodMaterials()).thenReturn(Set.of(Material.ROTTEN_FLESH));
+        // stats/food-gimmick.yml の現行基準量: junkfood-inversion.junk-saturation-bonus=2.0 /
+        // non-junk-saturation-penalty=1.0
+        when(foodGimmick.junkfoodInversionJunkSaturationBonus()).thenReturn(2.0);
+        when(foodGimmick.junkfoodInversionNonJunkSaturationPenalty()).thenReturn(1.0);
+        return foodGimmick;
+    }
+
+    @Test
+    void junkfoodInversionAtValue100MatchesCurrentBaseAmountsExactly() {
+        // A-alpha-1(value:100) must reproduce the pre-段階化 behavior exactly: junk food gets the full
+        // configured bonus (+2.0), non-junk food gets the full configured penalty (-1.0).
+        PlayerMock player = server.addPlayer();
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.valueMax(player, "junkfood-inversion")).thenReturn(OptionalDouble.of(100.0));
+        when(dedicatedEffects.isActive(player, "satiety-buff")).thenReturn(false);
+        FoodGimmickConfig foodGimmick = foodGimmickConfigWithInversionDefaults();
+        FoodGimmickListener listener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, mock(PlayerStatAggregator.class));
+
+        player.setSaturation(5.0f);
+        listener.onFoodLevelChange(foodLevelChangeEvent(player, new ItemStack(Material.ROTTEN_FLESH)));
+        assertEquals(7.0f, player.getSaturation(), 0.01f, "junk food: +2.0 * (100/100) = +2.0");
+
+        player.setSaturation(5.0f);
+        listener.onFoodLevelChange(foodLevelChangeEvent(player, new ItemStack(Material.COOKED_BEEF)));
+        assertEquals(4.0f, player.getSaturation(), 0.01f, "non-junk food: -1.0 * (100/100) = -1.0");
+    }
+
+    @Test
+    void junkfoodInversionAtValue150ScalesBothAmountsByOnePointFive() {
+        // A-alpha-2(value:150): the same base amounts, multiplied by 1.5 (junk +3.0, non-junk -1.5).
+        PlayerMock player = server.addPlayer();
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.valueMax(player, "junkfood-inversion")).thenReturn(OptionalDouble.of(150.0));
+        when(dedicatedEffects.isActive(player, "satiety-buff")).thenReturn(false);
+        FoodGimmickConfig foodGimmick = foodGimmickConfigWithInversionDefaults();
+        FoodGimmickListener listener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, mock(PlayerStatAggregator.class));
+
+        player.setSaturation(5.0f);
+        listener.onFoodLevelChange(foodLevelChangeEvent(player, new ItemStack(Material.ROTTEN_FLESH)));
+        assertEquals(8.0f, player.getSaturation(), 0.01f, "junk food: +2.0 * 1.5 = +3.0");
+
+        player.setSaturation(5.0f);
+        listener.onFoodLevelChange(foodLevelChangeEvent(player, new ItemStack(Material.COOKED_BEEF)));
+        assertEquals(3.5f, player.getSaturation(), 0.01f, "non-junk food: -1.0 * 1.5 = -1.5");
+    }
+
+    private static SkillNode farmingNode(String id, String parent, List<DedicatedEffectEntry> effects) {
+        return new SkillNode(id, id, 10, SkillRole.GREEK, parent, "A-greek", "STONE", 1, "desc",
+                Map.of(), Map.of(), List.of(), List.of(), effects);
+    }
+
+    @Test
+    void holderOfBothAlphaNodesGetsMaxValueOneFiftyViaRealGateIndex() {
+        // Mirrors farming.yml A-alpha-1(value:100, prerequisite of A-alpha-2)/A-alpha-2(value:150): a
+        // player holding both perks must resolve to the higher tier's value (150), same "highest held
+        // value wins" convention as junk-food-restore-boost (FoodBonusListener).
+        Map<String, SkillNode> nodes = new LinkedHashMap<>();
+        nodes.put("A-alpha-1", farmingNode("A-alpha-1", null,
+                List.of(new DedicatedEffectEntry("feature:junkfood-inversion", 100.0))));
+        nodes.put("A-alpha-2", farmingNode("A-alpha-2", "A-alpha-1",
+                List.of(new DedicatedEffectEntry("feature:junkfood-inversion", 150.0))));
+        SkillTree tree = new SkillTree("FARMING", "農業", null, "2,10", null, nodes);
+        DedicatedEffectsConfig dedicatedEffects = new DedicatedEffectsConfig();
+        dedicatedEffects.reindex(List.of(tree));
+
+        PlayerMock player = server.addPlayer();
+        PlayerData.of(player).setHeldPerks(List.of(
+                "farming_perk_a_alpha_1", "farming_perk_a_alpha_2"));
+
+        assertEquals(OptionalDouble.of(150.0), dedicatedEffects.valueMax(player, "junkfood-inversion"));
+
+        FoodGimmickConfig foodGimmick = foodGimmickConfigWithInversionDefaults();
+        FoodGimmickListener listener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, mock(PlayerStatAggregator.class));
+        player.setSaturation(5.0f);
+        listener.onFoodLevelChange(foodLevelChangeEvent(player, new ItemStack(Material.ROTTEN_FLESH)));
+        assertEquals(8.0f, player.getSaturation(), 0.01f, "highest held value (150) wins -> +2.0 * 1.5 = +3.0");
+    }
+
+    @Test
+    void junkfoodInversionValueMaxEmptyMeansNoAdjustment() {
+        // Node not held (valueMax empty): behaves as if junkfood-inversion were entirely absent, matching
+        // every other feature's not-held behavior.
+        PlayerMock player = server.addPlayer();
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.valueMax(player, "junkfood-inversion")).thenReturn(OptionalDouble.empty());
+        when(dedicatedEffects.isActive(player, "satiety-buff")).thenReturn(false);
+        FoodGimmickConfig foodGimmick = foodGimmickConfigWithInversionDefaults();
+        FoodGimmickListener listener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, mock(PlayerStatAggregator.class));
+
+        player.setSaturation(5.0f);
+        listener.onFoodLevelChange(foodLevelChangeEvent(player, new ItemStack(Material.ROTTEN_FLESH)));
+        assertEquals(5.0f, player.getSaturation(), 0.01f);
     }
 }

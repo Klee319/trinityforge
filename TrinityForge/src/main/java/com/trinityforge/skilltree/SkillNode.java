@@ -9,7 +9,7 @@ import java.util.Map;
  * {@code native} perk-reward machinery (applied by Valhalla), plus {@code effectText} — the node's unified
  * free-text description (要件⑤: loaded from {@code description}, falling back to the legacy
  * {@code effect-text} key) — and {@code dedicatedEffects} (要件⑥: catalog-id placements against
- * {@code skilltree/dedicated-effects.yml}, schema/data only — no runtime dispatch yet).
+ * the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}, schema/data only — no runtime dispatch yet).
  *
  * <p>{@code commands}/{@code effects} are the legacy, now-unread display-tag lists (要件⑤: superseded by
  * {@code effectText}); TF's loader no longer inspects their contents, but the fields are kept so any

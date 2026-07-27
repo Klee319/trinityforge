@@ -19,7 +19,8 @@ const FEATURES = Object.freeze([
   { id: "animal-damage-4x", label: "動物特効", param: "none" },
   { id: "bee-no-aggro", label: "蜂非敵対", param: "none" },
   { id: "junkfood-immunity", label: "ゴミ食免疫", param: "none" },
-  { id: "junkfood-inversion", label: "ゴミ食反転", param: "none" },
+  // 2026-07-27 農業「ゴミ食」段階化: none -> level化(Java側 FeatureEffectRegistry と同期必須)。
+  { id: "junkfood-inversion", label: "ゴミ食反転%", param: "level" },
   { id: "satiety-buff", label: "満腹バフ", param: "none" },
   { id: "junk-to-scrap", label: "釣りゴミ→スクラップ", param: "none" },
   // 2026-07-25 経済連携(vault対応)により再導入。Java側 FeatureEffectRegistry と同期必須。

@@ -3,6 +3,15 @@
 // 保存前のスキーマ検証。エラーは配列で返す (空配列=OK)。
 // 汎用(generic)は構造自由なので最小限のチェックのみ。
 
+// lore.yml の宣言語彙。APPLIES_TO は「ステータスの適用対象(PLAYER/MOB)」で、
+// 下の APPLIES_TO(アイテム種別 weapon/armor/...)とは別物なので別名で受ける。
+const {
+  TRIGGER_WHEN,
+  SOURCE_SCOPE,
+  APPLIES_TO: STAT_APPLIES_TO,
+  STACKING,
+} = require("./lore-declaration-vocabulary");
+
 const BIND_TYPES = ["SOULBOUND", "TRADEABLE", "OWNER_BOUND"];
 const APPLIES_TO = ["weapon", "armor", "tool", "other"];
 
@@ -633,7 +642,92 @@ function validateTfLore(data, errors) {
       if (entry.unit !== undefined && entry.unit !== null && typeof entry.unit !== "string") {
         errors.push(`stats.${key}.unit: 文字列である必要があります`);
       }
+      validateLoreTrigger(entry.trigger, `stats.${key}.trigger`, errors);
+      validateLoreLimits(entry.limits, `stats.${key}.limits`, errors);
     }
+  }
+}
+
+// 段階1宣言 (trigger:/limits:)。両方とも任意(optional) — 未宣言のstatは引き続き許可される
+// (Java側 LoreConfigDeclarationTest の許可リストがラチェットを管理する)。
+function validateLoreTrigger(trigger, prefix, errors) {
+  if (trigger === undefined || trigger === null) return;
+  if (!isPlainObject(trigger)) { errors.push(`${prefix}: マップである必要があります`); return; }
+  if (trigger.when !== undefined && trigger.when !== null && !TRIGGER_WHEN.includes(trigger.when)) {
+    errors.push(`${prefix}.when: ${TRIGGER_WHEN.join(" / ")} のいずれかである必要があります`);
+  }
+  if (trigger.sources !== undefined && trigger.sources !== null && !SOURCE_SCOPE.includes(trigger.sources)) {
+    errors.push(`${prefix}.sources: ${SOURCE_SCOPE.join(" / ")} のいずれかである必要があります`);
+  }
+  const applies = trigger["applies-to"];
+  if (applies !== undefined && applies !== null) {
+    if (!Array.isArray(applies) || applies.length === 0) {
+      errors.push(`${prefix}.applies-to: 1個以上の配列である必要があります`);
+    } else {
+      for (const a of applies) {
+        if (!STAT_APPLIES_TO.includes(a)) {
+          errors.push(`${prefix}.applies-to: 不正な値 "${a}" (許可: ${STAT_APPLIES_TO.join(" / ")})`);
+        }
+      }
+    }
+  }
+}
+
+// limits: の閉じた語彙。数値上限フィールドは全て「X」+ 任意の「X-ref」の対で構成される
+// (Java側 StatLimits.declaredBounds() と同じ規則)。stacking のみ非数値フィールド。
+const LORE_LIMITS_NUMERIC_FIELDS = ["cap", "floor", "min-pieces", "max-distance", "max-duration-ticks"];
+const LORE_LIMITS_KNOWN_FIELDS = new Set([
+  ...LORE_LIMITS_NUMERIC_FIELDS,
+  ...LORE_LIMITS_NUMERIC_FIELDS.map((f) => `${f}-ref`),
+  "stacking",
+]);
+
+function validateLoreLimits(limits, prefix, errors) {
+  if (limits === undefined || limits === null) return;
+  if (!isPlainObject(limits)) { errors.push(`${prefix}: マップである必要があります`); return; }
+
+  for (const key of Object.keys(limits)) {
+    if (!LORE_LIMITS_KNOWN_FIELDS.has(key)) {
+      errors.push(`${prefix}.${key}: 不明なフィールドです (許可: ${[...LORE_LIMITS_KNOWN_FIELDS].join(" / ")})`);
+    }
+  }
+
+  for (const numKey of LORE_LIMITS_NUMERIC_FIELDS) {
+    const value = limits[numKey];
+    if (value === undefined || value === null) continue;
+    if (numKey === "min-pieces") {
+      if (!isNonNegInteger(value)) {
+        errors.push(`${prefix}.min-pieces: 0以上の整数である必要があります`);
+      }
+    } else if (!isNumber(value)) {
+      errors.push(`${prefix}.${numKey}: 数値である必要があります`);
+    }
+  }
+
+  for (const numKey of LORE_LIMITS_NUMERIC_FIELDS) {
+    const refKey = `${numKey}-ref`;
+    const ref = limits[refKey];
+    if (ref === undefined || ref === null) continue;
+    // X-ref があって X が無いのはエラー(比較対象が無い)。Java側 LoreConfig#parseLimits と同じ規則。
+    if (limits[numKey] === undefined || limits[numKey] === null) {
+      errors.push(`${prefix}.${refKey}: ${prefix}.${numKey} が無いと宣言できません(比較対象が必要です)`);
+      continue;
+    }
+    if (typeof ref !== "string" || !ref) {
+      errors.push(`${prefix}.${refKey}: 文字列である必要があります`);
+      continue;
+    }
+    // 書式のみ検証する ("<相対path>#<keypath>" または "java:<FQCN>#<CONST>")。実解決は
+    // Java側 CapRefResolver + LoreConfigDeclarationTest が担当する(editorはJVMを起動できない)。
+    const isJava = ref.startsWith("java:");
+    const body = isJava ? ref.slice("java:".length) : ref;
+    if (!body.includes("#") || body.split("#")[0] === "" || body.split("#").slice(1).join("#") === "") {
+      errors.push(`${prefix}.${refKey}: "${isJava ? "java:<FQCN>" : "<相対path>"}#<${isJava ? "CONST" : "key.path"}>" 形式である必要があります`);
+    }
+  }
+
+  if (limits.stacking !== undefined && limits.stacking !== null && !STACKING.includes(limits.stacking)) {
+    errors.push(`${prefix}.stacking: ${STACKING.join(" / ")} のいずれかである必要があります`);
   }
 }
 

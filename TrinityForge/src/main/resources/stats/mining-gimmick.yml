@@ -1,4 +1,4 @@
-# TrinityForge - 採掘ギミック(skilltree/dedicated-effects.yml のflag系consumer)チューニング
+# TrinityForge - 採掘ギミック(各 skilltree/*.yml ノードの dedicated-effects: フィールドが付与する flag系consumer)チューニング
 # 対象effectId: vein-mining / haste-active-mining
 # ドロップテーブル(drop-tables)は「鉱脈破壊」トリガー型の追加ドロップ(2026-07-23 stat-gate-overhaul §4)。
 # fortune は旧 stats/gathering.yml mining.* を統合したもの(§D廃止)。

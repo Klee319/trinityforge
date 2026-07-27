@@ -981,15 +981,22 @@ public final class CombatListener implements Listener {
     private static final String DISTANCE_DAMAGE_BONUS_KEY = StatKeys.canonical("distance-damage-bonus");
 
     /**
-     * 弓術の距離ダメージ: 16ブロックで係数1.0倍分、64ブロックで頭打ち(4.0倍分)。
-     * {@code bonus=0.2} なら 64ブロック地点で最終ダメージ×1.8。
+     * 距離ダメージ(distance-damage-bonus)の効果対象ブロック距離の絶対上限。stats/lore.yml
+     * {@code stats.distance-damage-bonus.limits} から {@code java:} cap-ref で参照される
+     * (CapRefResolver 拘束テスト対象)。{@code public static final} でないと cap-ref から参照できない。
+     */
+    public static final double MAX_DISTANCE_DAMAGE_BLOCKS = 64.0;
+
+    /**
+     * 弓術の距離ダメージ: 16ブロックで係数1.0倍分、{@link #MAX_DISTANCE_DAMAGE_BLOCKS}ブロックで頭打ち
+     * (4.0倍分)。{@code bonus=0.2} なら 64ブロック地点で最終ダメージ×1.8。
      * 純粋関数(Bukkit非依存)なのでユニットテストから直接呼べる — {@link #powerAttackDamage} と同じ流儀。
      */
     static double distanceDamage(double finalDamage, double bonus, double blocks) {
         if (bonus <= 0.0 || !Double.isFinite(bonus) || !Double.isFinite(blocks) || blocks <= 0.0) {
             return finalDamage;
         }
-        return finalDamage * (1.0 + bonus * Math.min(64.0, blocks) / 16.0);
+        return finalDamage * (1.0 + bonus * Math.min(MAX_DISTANCE_DAMAGE_BLOCKS, blocks) / 16.0);
     }
 
     static double powerAttackDamage(double finalDamage, double bonus, boolean airborne) {

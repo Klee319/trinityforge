@@ -183,6 +183,16 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): DefenseStats.defenseRate は SymmetricCombatService.component() 経路で
+    # DefenseStats.cappedMitigation(combat/damage.yml defense.max-mitigation-rate)により被弾側の
+    # 3レートと共通の上限を持つ(TrinityForge/src/main/java/com/trinityforge/combat/DefenseStats.java:123-131)。
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      cap: 0.9
+      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
   armor-strength:
     name: 防具強度
     icon: ""
@@ -192,6 +202,16 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): DefenseStats.armorStrength(会心軽減率%)は SymmetricCombatService の
+    # cappedCritReduction(combat/damage.yml defense.max-crit-reduction)で上限化される
+    # (DefenseStats.java:142-150)。ComponentDamageCalculator:63 で会心加算時に適用。
+    trigger:
+      when: ON_ANY_HIT
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      cap: 1.0
+      cap-ref: "combat/damage.yml#defense.max-crit-reduction"
   max-health:
     name: 体力増強
     icon: ""
@@ -201,6 +221,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): AttributeApplier.java:58-71 のコメントにより GENERIC_MAX_HEALTH 属性への
+    # 常時ミラー(加算)であることを確認。上限は宣言しない(config上のcap値を持たない)。
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to: [PLAYER, MOB]
   knockback-resistance:
     name: K耐性
     icon: ""
@@ -219,6 +245,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
+    # 段階1宣言(2026-07-27): AttributeApplier.java:58-71 のコメントにより MOVEMENT_SPEED 属性への
+    # 常時ミラー(加算)であることを確認。上限は宣言しない(config上のcap値を持たない)。
+    trigger:
+      when: PASSIVE_ATTRIBUTE
+      sources: ALL
+      applies-to: [PLAYER, MOB]
   durability:
     name: 耐久値
     icon: ""
@@ -237,6 +269,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): DefenseStats.resistance は defense-rate と同じ cappedMitigation
+    # (combat/damage.yml defense.max-mitigation-rate) で上限化される(DefenseStats.java:123-131)。
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      cap: 0.9
+      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
   magic-resistance:
     name: 魔法耐性
     icon: ""
@@ -246,6 +287,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): phys-resistance と同じ DefenseStats.resistance フィールド(タイプ別)を
+    # 経由するため同じ cap-ref。
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      cap: 0.9
+      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
   damage-reduction:
     name: 被ダメ軽減
     icon: ""
@@ -255,6 +305,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): DefenseStats.damageReduction も同じ cappedMitigation で上限化される
+    # (DefenseStats.java:123-131)。
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      cap: 0.9
+      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
   dodge-chance:
     name: 回避率
     icon: ""
@@ -264,6 +323,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
+    # 段階1宣言(2026-07-27): DodgeResolver が combat/damage.yml defense.max-dodge-chance を上限として
+    # 使う(DodgeResolver.java:35)。実測ずれの実証キー(labels.js:170に上限記載無し)。
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      cap: 0.9
+      cap-ref: "combat/damage.yml#defense.max-dodge-chance"
   reflect-flat:
     # 2026-07-25 課題2: 棘の鎧ステータス化。被弾時にこの固定値分だけ相手にダメージを与える。
     name: 反射率（実）
@@ -445,6 +513,18 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    # 段階1宣言(2026-07-27・4件の実証キーの1つ): CombatListener#distanceDamage が
+    # 16ブロックで係数1.0倍分・MAX_DISTANCE_DAMAGE_BLOCKS(64)ブロックで頭打ちにする
+    # (CombatListener.java 984-999)。labels.js:190は「距離に応じて増える」としか書いていない(実装ずれ)。
+    # このステータス自体(PERCENT表示)には数値上限が無い。上限があるのは効果が頭打ちになる
+    # 「ブロック距離」のほうなので max-distance/max-distance-ref で正しく宣言する(cap代用は廃止)。
+    trigger:
+      when: ON_PROJECTILE_HIT
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      max-distance: 64
+      max-distance-ref: "java:com.trinityforge.listeners.CombatListener#MAX_DISTANCE_DAMAGE_BLOCKS"
   arrow-piercing:
     name: 矢貫通
     icon: ""
@@ -510,6 +590,18 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+    # 段階1宣言(2026-07-27): NativeCombatPerkListener.stunTicks が MAX_STUN_DURATION_TICKS(100tick=5秒)
+    # を絶対上限としてクランプする(NativeCombatPerkListener.java 214-222)。
+    # このステータス自体(PERCENT表示)には数値上限が無い。上限があるのはそれによって延長される
+    # 実効スタン時間(tick)のほうなので max-duration-ticks/max-duration-ticks-ref で正しく宣言する
+    # (cap代用は廃止)。
+    trigger:
+      when: ON_MELEE_HIT
+      sources: ALL
+      applies-to: [PLAYER, MOB]
+    limits:
+      max-duration-ticks: 100
+      max-duration-ticks-ref: "java:com.trinityforge.skilltree.runtime.NativeCombatPerkListener#MAX_STUN_DURATION_TICKS"
   power-attack-damage:
     name: 空中攻撃ダメージ
     icon: ""
@@ -981,6 +1073,12 @@ stats:
     # 2026-07-27(armor-set-buffs全面移行): スキルツリーのset-buffs(装備部位3/4段の条件バフ)が
     # 採用した段の値全体に × (1 + max(0, この値)) を掛ける増幅率。軽装/重装で共通の1キー。
     # 負値は0扱い(setBonusValueの既存挙動を踏襲)。
+    # ※段階1/2タスクでの判断: この stat 自身は「増幅率」であって部位数ではなく、
+    # min-pieces に相当する閾値(3/4)は本キーの限界値ではなく skilltree/light_armor.yml・
+    # heavy_armor.yml の set-buffs: セクション(ツリーノードごとに複数の閾値段)に属する。
+    # ACTIVE_RECORD K-5 が挙げていた NativeAttributeBridge.SET_BONUS_MIN_PIECES はこの移行で
+    # 撤去済み(もう存在しない)。trigger/limits は未宣言のまま報告に留める
+    # (LoreConfigDeclarationTest.UNDECLARED_ALLOW_LIST に含まれる)。
     name: セット効果増幅
     icon: ""
     format: PERCENT

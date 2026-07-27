@@ -6,8 +6,8 @@ import java.util.Optional;
 
 /**
  * Fixed Java-defined vocabulary for {@code feature:<id>} gate placements (2026-07-23 動的ID方式改修 §3.2):
- * the "機能解放" flags that have no existing recipe/ritual/glyph gate surface to key into. Unlike the old
- * {@code dedicated-effects.yml} catalog this is not config-driven — the vocabulary is a fixed set the editor
+ * the "機能解放" flags that have no existing recipe/ritual/glyph gate surface to key into. Unlike the former
+ * {@code dedicated-effects.yml} catalog (removed 2026-07-23) this is not config-driven — the vocabulary is a fixed set the editor
  * and {@code SkillTreeConfig} both validate {@code feature:<id>} placements against, so a typo'd or removed
  * feature id is caught at load time instead of silently becoming a dead flag no consumer ever reads.
  */
@@ -30,7 +30,14 @@ public final class FeatureEffectRegistry {
         add(map, "animal-damage-4x", "動物特効", FeatureEffectParam.NONE);
         add(map, "bee-no-aggro", "蜂非敵対", FeatureEffectParam.NONE);
         add(map, "junkfood-immunity", "ゴミ食免疫", FeatureEffectParam.NONE);
-        add(map, "junkfood-inversion", "ゴミ食反転", FeatureEffectParam.NONE);
+        // 2026-07-27 農業「ゴミ食」段階化: NONE(単純on/off) -> LEVEL(%)化。ノードのvalue(%)を
+        // stats/food-gimmick.yml junkfood-inversion.junk-saturation-bonus /
+        // non-junk-saturation-penalty の倍率として掛ける(100=基準量そのまま)。LEVELはrequiresValue()な
+        // ので、valueを欠いた配置はSkillTreeConfigがparse時に破棄する(SCALEのdefaultsMissingValue()の
+        // ような「無指定→tier1」の自動補完は無い) — 既存のfarming.yml A-alpha-1にはvalue:100を必須で
+        // 明示することで後方互換を保つ(値なしでの100%フォールバックはしない。tree-fell等のSCALE化前例は
+        // ここには適用できない — 2026-07-27に一度誤って適用しようとし、訂正済み)。
+        add(map, "junkfood-inversion", "ゴミ食反転%", FeatureEffectParam.LEVEL);
         add(map, "satiety-buff", "満腹バフ", FeatureEffectParam.NONE);
         add(map, "junk-to-scrap", "釣りゴミ→スクラップ", FeatureEffectParam.NONE);
         // 2026-07-25 経済連携(vault対応)により再導入: 恒久no-op(#5 exploit fix)だった時期を終え、

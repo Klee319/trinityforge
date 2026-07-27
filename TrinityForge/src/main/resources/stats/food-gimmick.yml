@@ -1,6 +1,8 @@
-# TrinityForge - 農業ツリーA-α/β系「食事」ギミック(skilltree/dedicated-effects.yml のflag系consumer)
-# チューニング。対象effectId: junkfood-immunity / junkfood-inversion / satiety-buff
-# (skilltree/farming.yml ノード A-alpha-1 / B)。
+# TrinityForge - 農業ツリーA-α/β系「食事」ギミック(各skilltree/*.ymlノードの dedicated-effects: フィールド
+# に置かれたflag/percent系consumer。正典ファイルは実在しない — 読み込みは
+# com.trinityforge.config.domains.SkillTreeConfig#parseDedicatedEffects) チューニング。
+# 対象effectId: junkfood-immunity / junkfood-inversion / satiety-buff
+# (skilltree/farming.yml ノード A-alpha-1 / A-alpha-2 / B)。
 # no-food-consume-chance の確率(%)は他のpercent系effectと同じく skilltree/farming.yml のノード側
 # dedicated-effects[].value で持つため、このファイルには含まれない。
 # 数値・Material一覧は全て暫定(要調整)。

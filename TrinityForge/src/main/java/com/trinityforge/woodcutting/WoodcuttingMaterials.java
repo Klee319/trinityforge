@@ -5,7 +5,7 @@ import org.bukkit.Material;
 /**
  * Pure material-classification helpers backing the woodcutting skilltree flag-effect consumers
  * ({@code tree-fell} (2026-07-25 統合済み, 旧 small-tree-fell/large-tree-fell)/{@code apple-drop}/
- * {@code golden-apple-drop}/{@code crystal-apple-drop} — see {@code skilltree/dedicated-effects.yml}).
+ * {@code golden-apple-drop}/{@code crystal-apple-drop} — see the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}).
  * Classification is by
  * {@link Material} name suffix rather than an explicit config list: every vanilla log/stem/wood and
  * leaves variant (including stripped logs and future additions) is covered automatically, at the

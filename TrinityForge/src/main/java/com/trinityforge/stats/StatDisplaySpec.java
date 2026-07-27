@@ -17,7 +17,9 @@ public record StatDisplaySpec(String statKey,
                               boolean showSign,
                               boolean hideWhenZero,
                               String unit,
-                              StatCategory category) {
+                              StatCategory category,
+                              StatTrigger trigger,
+                              StatLimits limits) {
 
     public StatDisplaySpec {
         Objects.requireNonNull(statKey, "statKey");
@@ -29,20 +31,29 @@ public record StatDisplaySpec(String statKey,
         if (decimals < 0) {
             throw new IllegalArgumentException("decimals must be >= 0: " + decimals);
         }
+        // trigger/limits は任意宣言(段階1/2): 未宣言のstatはnullのまま許可される(許可リストで管理)。
+    }
+
+    /** Back-compat without trigger/limits declaration (未宣言stat)。 */
+    public StatDisplaySpec(String statKey, String displayName, String icon, LoreValueFormat format,
+                           int decimals, int order, boolean showSign, boolean hideWhenZero,
+                           String unit, StatCategory category) {
+        this(statKey, displayName, icon, format, decimals, order, showSign, hideWhenZero,
+                unit, category, null, null);
     }
 
     /** Back-compat without unit / category. */
     public StatDisplaySpec(String statKey, String displayName, String icon, LoreValueFormat format,
                            int decimals, int order, boolean showSign, boolean hideWhenZero) {
         this(statKey, displayName, icon, format, decimals, order, showSign, hideWhenZero,
-                "", StatCategory.OTHER);
+                "", StatCategory.OTHER, null, null);
     }
 
     /** Back-compat without category. */
     public StatDisplaySpec(String statKey, String displayName, String icon, LoreValueFormat format,
                            int decimals, int order, boolean showSign, boolean hideWhenZero, String unit) {
         this(statKey, displayName, icon, format, decimals, order, showSign, hideWhenZero,
-                unit, StatCategory.OTHER);
+                unit, StatCategory.OTHER, null, null);
     }
 
     /** Renders the numeric part plus optional unit (PERCENT already includes {@code %}). */

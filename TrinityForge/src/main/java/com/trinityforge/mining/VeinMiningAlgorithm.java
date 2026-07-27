@@ -11,7 +11,7 @@ import java.util.function.Predicate;
 /**
  * Pure connected-component search over an integer 3D grid (deliberately Bukkit-free so it is
  * unit-testable without a running server/World). Backs the {@code vein-mining} dedicated-effect
- * ({@code skilltree/dedicated-effects.yml}): breaking one ore block chain-breaks every same-type ore
+ * (the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}): breaking one ore block chain-breaks every same-type ore
  * block directly reachable from it.
  *
  * <p><strong>6-directional (face) adjacency, not 26 (face+edge+corner):</strong> "vein" ore

@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 /**
  * Loader for {@code stats/mining-gimmick.yml}: tuning for the採掘スキルツリーflag系dedicated-effect
  * consumers that have no existing config home ({@code vein-mining}, {@code haste-active-mining} — see
- * {@code skilltree/dedicated-effects.yml}), the {@code mining} drop-table categories (2026-07-23
+ * the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml}), the {@code mining} drop-table categories (2026-07-23
  * stat-gate-overhaul §4 — replaces the old {@code gacha-ticket-drop}/ancient-debris hardcoded consumers),
  * and the {@code fortune:} tuning migrated off the now-removed {@code stats/gathering.yml} (§D廃止).
  */

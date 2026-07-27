@@ -671,7 +671,7 @@ public final class TrinityForge extends JavaPlugin {
                 new ActivationDispatcher(activeSkillRegistry, configManager.dedicatedEffects(),
                         activeCooldownManager, activeFeedbackLayer, aggregator), this);
 
-        // 採掘スキルツリーのflag系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // 採掘スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/mining-gimmick.yml でチューニング): 鉱脈破壊/怪しいブロック復活/スポナーST回収 +
         // mining drop-table(旧ガチャ券1-3/古代のがれき個別consumerを置換、2026-07-23 §4)。
         getServer().getPluginManager().registerEvents(
@@ -681,7 +681,7 @@ public final class TrinityForge extends JavaPlugin {
                 new MiningGimmickListener(this, configManager.dedicatedEffects(), aggregator,
                         configManager.miningGimmick()), this);
 
-        // 伐採スキルツリーのflag系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // 伐採スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/woodcutting-gimmick.yml でチューニング): tree-fell(旧小木/大木一括伐採を統合) +
         // woodcutting drop-table(旧リンゴ/金リンゴ/クリスタルリンゴ個別consumerを置換、2026-07-23 §4)。
         // 2026-07-25 PRG-07: 一括伐採CTを私製Mapから汎用CooldownManager(activeCooldownManager、
@@ -717,7 +717,7 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.listeners.FurnaceSmeltListener(
                         this, configManager.dedicatedEffects(), configManager.smithingGimmick()), this);
 
-        // 農業/畜産スキルツリーのflag/percent系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // 農業/畜産スキルツリーのflag/percent系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/farming-gimmick.yml でチューニング): 植え直しと収穫同時(auto-replant)・範囲収穫
         // (area-harvest)・動物への与ダメ倍率(animal-damage-4x)・ハチ非敵対+養蜂幸運(bee-no-aggro/
         // hive-harvest-fortune)。
@@ -730,7 +730,7 @@ public final class TrinityForge extends JavaPlugin {
                 new BeekeepingListener(configManager.dedicatedEffects(), configManager.farmingGimmick(),
                         aggregator), this);
 
-        // 農業ツリーA-α/β系「食事」ギミックのflag/percent系dedicated-effect(skilltree/dedicated-effects.yml)
+        // 農業ツリーA-α/β系「食事」ギミックのflag/percent系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)
         // consumer群(stats/food-gimmick.yml でチューニング): ゴミ食免疫(junkfood-immunity)・ゴミ食/非ゴミ食の
         // 満腹度回復反転(junkfood-inversion)・食事非消費確率(no-food-consume-chance)・完全食満腹バフ
         // (satiety-buff)・カスタム食料(custom-foods: 圧縮食料等の満腹度/隠し満腹度をREPLACE方式で上書き、
