@@ -27,6 +27,14 @@
   }
   function grid(fields) { return h("div", { class: "field-grid" }, fields); }
   function sub(text) { return h("div", { class: "sub-title", text }); }
+  // カード見出し。yml キーそのまま(英語)だと読みにくいため日本語見出しをメインにし、
+  // 英字キーは fieldLabelEl と同じ流儀(小さなmonospaceバッジ)で併記する。キー自体は失わせない。
+  function sectionTitle(ja, key) {
+    return h("span", { class: "form-label with-ja" }, [
+      h("strong", { text: ja }),
+      h("span", { class: "form-label-key", text: key, title: "YAMLキー" })
+    ]);
+  }
   function banner(text) {
     return h("div", { class: "form-banner", text });
   }
@@ -220,9 +228,10 @@
     const mana = ensureObj(working, "mana");
     // mana.source-auto-consume.items は 2026-07-25 T4 で「その他のギミック」(crafting-features)画面へ
     // 移設済み。この画面では触れない(未設定キーを新規生成して往復差分を作らないよう ensureObj もしない)。
-    // 2026-07-25 T3: geyser.disable-custom-model-data は BaseCustomItem.isCustomModelDataDisabled() が
-    // 実際に参照しているため削除しない(削除前提の指示に反する実装依存を検知 → 維持して報告)。
-    const geyser = ensureObj(working, "geyser");
+    // geyser.disable-custom-model-data は 2026-07-27 に撤去した。CustomModelData は常時付与へ固定し
+    // (既定値 false = 付与する、が唯一の挙動になる。実挙動は変わらない)。BaseCustomItem.java の
+    // isCustomModelDataDisabled() も削除しコード側で無条件付与に変更済み(fork-handoff/arspaper/fork の
+    // src/main/resources/config.yml には元々このキー/geyser:セクション自体が存在しなかった)。
     const enchants = ensureObj(working, "enchantments");
     const mobDrops = ensureObj(working, "mob-drops");
     const loot = ensureObj(working, "loot");
@@ -305,43 +314,19 @@
       renderCd();
     }
 
-    root.appendChild(card(h("strong", { text: "form-cooldowns" }), [
+    root.appendChild(card(sectionTitle("フォーム別クールタイム", "form-cooldowns"), [
       h("div", { class: "form-hint", text: "形態ごとの独立CT(秒)。0/未定義=従来計算CT。" }),
       cdBox
     ]));
 
-    root.appendChild(card(h("strong", { text: "mana" }), [
-      h("div", {
-        class: "form-hint",
-        text: "初期マナ上限／初期回復量／回復間隔(tick)／recovery(戦闘・非発動)は「プレイヤー基礎ステータス」"
-          + "(base-stats.yml の mana-max-base 等)へ移設しました。編集はそちらの画面で行ってください。"
-      }),
+    root.appendChild(card(sectionTitle("マナ", "mana"), [
       grid([
         numField(mana, "per-glyph-unlock-bonus", { label: "グリフ解放ごと上限+", int: true }),
         numField(mana, "max-percent-cap", { label: "%上昇キャップ", int: true })
-      ]),
-      h("div", {
-        class: "form-hint",
-        text: "source-auto-consume.items（アイテムID → マナ/個）は「その他のギミック」(crafting-features) "
-          + "画面の「ソース自動消費」タブへ移設しました。編集はそちらの画面で行ってください。"
-      })
-    ]));
-
-    root.appendChild(card(h("strong", { text: "geyser" }), [
-      h("div", {
-        class: "form-hint",
-        text: "ars-magic の経験値設定(exp-per-cast / exp-per-mana)は「スキルEXP獲得」(skill-exp.yml の "
-          + "ars-magic:)へ統合しました。編集はそちらの画面で行ってください。"
-      }),
-      grid([
-        boolField(geyser, "disable-custom-model-data", {
-          label: "CMD無効(Geyser)",
-          desc: "統合版で透明になる場合はON。BaseCustomItem.isCustomModelDataDisabled() が実参照するため維持。"
-        })
       ])
     ]));
 
-    root.appendChild(card(h("strong", { text: "enchantments" }), [
+    root.appendChild(card(sectionTitle("エンチャント", "enchantments"), [
       numField(enchants, "max-level", { label: "最大レベル", int: true }),
       // 2026-07-25 T5: yml キー(mana-regen-per-level等)は変更せず(後方互換のため)、表示ラベルのみ
       // 日本語化。キーを変えると読み手のJava(GlyphConfig等)側の追随・後方互換読みが必要になり
@@ -352,7 +337,7 @@
       intListEditor(enchants["mana-boost-per-level"], { addLabel: "+ レベル帯を追加" })
     ]));
 
-    root.appendChild(card(h("strong", { text: "mob-drops / loot" }), [
+    root.appendChild(card(sectionTitle("モブドロップ / ルート", "mob-drops / loot"), [
       grid([
         boolField(mobDrops, "warden-echo-shard", { label: "ウォーデン→残響の欠片" }),
         numField(mobDrops, "warden-echo-shard-min", { label: "欠片 min", int: true }),

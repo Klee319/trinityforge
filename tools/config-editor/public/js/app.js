@@ -64,6 +64,15 @@
           split: { type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread" } }
       ]
     },
+    // 2026-07-27新設: 「アイテムステータス」の直後に「機能アイテム」カテゴリを配置(ユーザー指示)。
+    // TF と Ars はユーザー目線で統合されているべきという方針から、Ars の特殊アイテム/ソースリンク/
+    // ソースジャーを「魔法」カテゴリから切り出してここへ集約する。この3件は registry 由来の config
+    // (CONFIG_SECTIONS 側の section: "functional-items")なので、views ではなく configSectionKey で
+    // renderSidebar 側に「ここへ registry config を差し込め」と伝える(専用ビューは持たない)。
+    {
+      title: "機能アイテム",
+      configSectionKey: "functional-items"
+    },
     {
       title: "戦闘ツール",
       views: [
@@ -94,7 +103,7 @@
   // ファイル自体(stats/food-gimmick.yml)は不変。保存は farming-gimmick 画面の getExtraSaves 経由。
   const FARMING_GIMMICK_COMPANION_IDS = ["food-gimmick"];
   // T8 (2026-07-26): 総合ステータス上限(combat/stat-caps.yml)は「プレイヤー基礎ステータス」画面の
-  // 「上限」タブへコンパニオン表示する。加えて「最終効率の上限 (gathering-efficiency)」は設定1個
+  // 「上限」タブへコンパニオン表示する。加えて「採集効率の上限 (gathering-efficiency)」(旧称:最終効率)は設定1個
   // (max-enchant-level)のためだけの独立カテゴリだったのを畳み、同じ「上限」タブへ統合したため、
   // こちらもサイドバー単独表示をやめる(ファイル自体・保存先キーパスは不変。後方互換用に残す)。
   const BASE_STATS_COMPANION_IDS = ["stat-caps", "gathering-efficiency"];
@@ -123,7 +132,10 @@
     "alchemy-quality": "alchemyQualityData",
     "stat-caps": "statCapsData",
     "ars-config": "arsConfigData",
-    "afk": "afkData"
+    "afk": "afkData",
+    // 2026-07-27: 「特殊アイテム」(functional-items)画面が TF の skill_node_lock/skill_tree_reset
+    // (catalog.yml側の該当2件のみ)をコンパニオンとして統合表示するため。
+    "catalog": "catalogData"
   };
   // 品質定義タブへ統合表示するためサイドバー個別一覧から隠す config。
   //   craft-quality(mode/drop) は quality ビュー内に統合し、保存時に一緒に PUT する。
@@ -140,7 +152,8 @@
     ...BREW_GIMMICK_COMPANION_IDS, ...ENCHANT_GIMMICK_COMPANION_IDS, ...FARMING_GIMMICK_COMPANION_IDS,
     ...BASE_STATS_COMPANION_IDS, ...USE_REQUIREMENTS_COMPANION_IDS
   ];
-  const ALL_TOOL_VIEWS = NAV_SECTIONS.reduce((acc, s) => acc.concat(s.views), []);
+  // configSectionKey のみを持つ NAV_SECTIONS エントリ(views 無し)を reduce に混ぜても安全にする。
+  const ALL_TOOL_VIEWS = NAV_SECTIONS.reduce((acc, s) => acc.concat(s.views || []), []);
   // config をドメイン単位でまとめるセクション定義。
   // level:"main" → 青色メイン見出し / level:"sub" → 灰色小文字サブ見出し。
   // children がある main は見出しのみで、実 config は子サブへ振る。
@@ -152,8 +165,10 @@
       order: ["quality", "quality-tiers", "lore", "player-base-stats", "use-requirements"]
     },
     {
+      // 2026-07-27: functional-items / sourcelinks / sourcejars は新設の「機能アイテム」カテゴリ
+      // (NAV_SECTIONS の configSectionKey: "functional-items" 経由)へ移動したため order から外す。
       key: "recipes-magic", title: "魔法", level: "main",
-      order: ["items", "functional-items", "glyphs", "ars-config", "ban", "sourcelinks", "sourcejars"]
+      order: ["items", "glyphs", "ars-config", "ban"]
     },
     {
       key: "skilltree", title: "スキルツリー", level: "main",
@@ -193,6 +208,15 @@
     }
   ];
   const FALLBACK_SECTION_KEY = "skill-gimmicks";
+  // 2026-07-27新設: NAV_SECTIONS 側の「機能アイテム」グループ(configSectionKey: "functional-items")
+  // が差し込む registry config セクション。CONFIG_SECTIONS 本体には含めない(あちらは「専用ビューが
+  // 先に描画された後、config を並べる」ループ向けで、この3件は専用ビュー群の中に割り込ませたいため)。
+  // level: "flat" は renderConfigSection に「見出しは呼び出し元(NAV_SECTIONS側)が既に出した」と伝え、
+  // 自前の見出し描画をスキップさせる印(cfg:main / sub のどちらでもない第三の扱い)。
+  const FUNCTIONAL_ITEMS_NAV_SECTION = {
+    key: "functional-items", title: "機能アイテム", level: "flat",
+    order: ["functional-items", "sourcelinks", "sourcejars"]
+  };
 
   async function api(method, url, body) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
@@ -733,9 +757,16 @@
       case "ars-sourcejars": return window.buildSourceJarsForm(data);
       case "ars-sourcelinks": return window.buildSourceLinksForm(data);
       // 2026-07-25: 機能アイテムの表示名/lore/enchant-glow/material/recipe は
-      // functional-items.yml 単一ファイルに統合済み。他ファイル(catalog.yml/items.yml)への
-      // companion読み込みは不要(custom:候補サジェストは RECIPES_UI.ensureCustomDatalist が担う)。
-      case "ars-functional-items": return window.buildFunctionalItemsForm(data);
+      // functional-items.yml 単一ファイルに統合済み。他ファイル(items.yml)への companion読み込みは
+      // 不要(custom:候補サジェストは RECIPES_UI.ensureCustomDatalist が担う)。
+      // 2026-07-27: 画面名は「特殊アイテム」にリネーム。TF の skill_node_lock/skill_tree_reset
+      // (catalog.yml の該当2件のみ)をこの画面へ統合するため catalog.yml をコンパニオンとして読み込む
+      // (afk / crafting-features と同じ loadConfigCompanion 経由。保存は getExtraSaves でロスレスに
+      // catalog.yml 全体を書き戻す)。
+      case "ars-functional-items": {
+        const catalogData = await loadConfigCompanion("catalog", "catalogData", options);
+        return window.buildFunctionalItemsForm(data, { catalogData });
+      }
       default: return window.buildGenericEditor(data);
     }
   }
@@ -1142,22 +1173,10 @@
       return !collapsed;
     }
 
-    // 専用ビュー群 (はじめに / 戦闘ツール) をグループ表示。
-    for (const section of NAV_SECTIONS) {
-      if (!appendGroupTitle(`nav:${section.title}`, section.title)) continue;
-      for (const view of section.views) {
-        nav.appendChild(h("button", {
-          class: `nav-item ${state.current === view.id ? "active" : ""}`,
-          type: "button",
-          onclick: () => selectTool(view)
-        }, [
-          h("span", { class: "nav-item-label", text: view.label })
-        ]));
-      }
-    }
-
     // config をドメイン (CONFIG_SECTIONS) ごとにまとめて表示。
     // 「アイテム系config」ラッパーは置かず、各ドメインをメイン見出しとして並べる。
+    // NAV_SECTIONS 側の configSectionKey (「機能アイテム」グループ) からも参照するため、
+    // 専用ビュー群のループより先にバケツ分けと描画ヘルパーを用意しておく。
     const buckets = {};
     function collectSectionKeys(sections) {
       for (const section of sections) {
@@ -1166,6 +1185,7 @@
       }
     }
     collectSectionKeys(CONFIG_SECTIONS);
+    collectSectionKeys([FUNCTIONAL_ITEMS_NAV_SECTION]);
 
     for (const c of state.configs) {
       if (HIDDEN_CONFIG_IDS.includes(c.id)) continue;
@@ -1195,9 +1215,14 @@
       }
     }
 
+    // level: "flat" は見出しを自前で出さない(呼び出し元が既に nav:<title> の見出しを描画済み)。
+    // NAV_SECTIONS の configSectionKey 経由の呼び出し専用。
     function renderConfigSection(section) {
-      const isMain = section.level !== "sub";
-      if (isMain) {
+      const isFlat = section.level === "flat";
+      const isMain = !isFlat && section.level !== "sub";
+      if (isFlat) {
+        // 見出しなし・items だけ並べる。
+      } else if (isMain) {
         // メイン見出しは折りたたみ可能。折りたたみ中はサブ見出し・項目ごと隠す。
         if (!appendGroupTitle(`cfg:${section.key}`, section.title)) return;
       } else {
@@ -1210,6 +1235,27 @@
       const items = sortByOrder(buckets[section.key] || [], section.order);
       if (!items.length) return;
       appendConfigItems(items);
+    }
+
+    // 専用ビュー群 (はじめに / アイテムカタログ / アイテムステータス / 機能アイテム / 戦闘ツール /
+    // リソースパック) をグループ表示。configSectionKey を持つエントリ(「機能アイテム」)は
+    // 専用ビューを持たず、代わりに registry 由来の config (FUNCTIONAL_ITEMS_NAV_SECTION) を
+    // このグループ見出しの直下へ差し込む。
+    for (const section of NAV_SECTIONS) {
+      if (!appendGroupTitle(`nav:${section.title}`, section.title)) continue;
+      if (section.configSectionKey === "functional-items") {
+        renderConfigSection(FUNCTIONAL_ITEMS_NAV_SECTION);
+        continue;
+      }
+      for (const view of section.views) {
+        nav.appendChild(h("button", {
+          class: `nav-item ${state.current === view.id ? "active" : ""}`,
+          type: "button",
+          onclick: () => selectTool(view)
+        }, [
+          h("span", { class: "nav-item-label", text: view.label })
+        ]));
+      }
     }
 
     for (const section of CONFIG_SECTIONS) renderConfigSection(section);

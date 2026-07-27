@@ -319,11 +319,11 @@
         [subTitle("カードをクリックすると該当タブへ"), map]
       ));
       bodyEl.appendChild(card(
-        [h("span", { class: "entry-key-label", text: "他タブへ移設した項目" })],
+        [h("span", { class: "entry-key-label", text: "他タブにある項目" })],
         [formHint(
           "木材修繕は「伐採ギミック」、解体は「鍛冶ギミック」、ポーション統合と醸造解放は「醸造ギミック」、"
-          + "オーバーエンチャは「エンチャントギミック」タブへ表示移設しました。"
-          + "保存先ファイル(progression/crafting-features.yml)は変わらず、この画面から保存しても他タブの内容は保持されます。"
+          + "オーバーエンチャは「エンチャントギミック」タブにあります。"
+          + "保存先ファイル(progression/crafting-features.yml)は共通のため、この画面から保存しても他タブの内容は保持されます。"
         )]
       ));
     }

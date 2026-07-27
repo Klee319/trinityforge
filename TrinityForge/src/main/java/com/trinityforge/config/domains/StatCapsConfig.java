@@ -150,7 +150,7 @@ public final class StatCapsConfig implements LoadableConfig {
         }
         this.caps = Map.copyOf(next);
 
-        // 最終効率(gathering-efficiency)の効率強化エンチャント上限: stats/gathering-efficiency.yml の
+        // 採集効率(gathering-efficiency)の効率強化エンチャント上限: stats/gathering-efficiency.yml の
         // max-enchant-level を、こちらの1キーからも設定できるようにする後方互換ブリッジ。
         // 未設定(空欄/コメントアウト)なら null(呼び出し側が旧ファイルへフォールバックする)。
         if (yaml.isDouble(GATHERING_EFFICIENCY_OVERRIDE_KEY) || yaml.isInt(GATHERING_EFFICIENCY_OVERRIDE_KEY)

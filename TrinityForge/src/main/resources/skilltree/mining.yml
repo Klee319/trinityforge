@@ -91,7 +91,7 @@ nodes:
     parent: C
     icon: IRON_PICKAXE
     cost: 1
-    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・最終効率 永続+1
+    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・採集効率 永続+1
     buffs:
       gathering-efficiency: 1
     dedicated-effects:
@@ -104,7 +104,7 @@ nodes:
     parent: D
     icon: DIAMOND_PICKAXE
     cost: 1
-    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・最終効率 永続+1
+    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・採集効率 永続+1
     buffs:
       gathering-efficiency: 1
     dedicated-effects:

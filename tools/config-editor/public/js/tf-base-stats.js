@@ -41,11 +41,22 @@
   //  挙動ゼロの同語反復フラグと判明したため語彙ごと撤去した。この画面にフラグ系のステは無い。)
   // 将来キーを追加する際は、Java側で `.general()` 経由でしか読まれないことを確認してからここに足すこと
   // (`agg.totalOf(...)` / PlayerStatAggregator 経由で読まれるキーはここに入れてはいけない)。
+  //
+  // 2026-07-27 注記: このSetには理由が異なる2種類のキーが混在する(定数名はリネームしない —
+  // 参照箇所が増えて差分が膨らむため。この注記で代替する)。
+  //  (a) no-op系(上記4キー): base-stats.yml に書いても Java側が読まない完全な死に設定。
+  //  (b) そもそもプレイヤー総合ステでない系: tool-enchant-efficiency は「プレイヤー基礎ステータス」
+  //      (全員一律加算の総合ステ)ではなく、クラフト時にツール自身へエンチャントとして刻まれる
+  //      アイテム専用ステ(item-stats.yml 側の対象)。base-stats.yml へ書いても no-op という意味では
+  //      (a)と同じ結果になるが、原因は「対象外の画面に出ている」であって「読み出し経路が違う」では
+  //      ない。lore.yml からも2026-07-26に削除済み(gathering-efficiency へ統合、StatKeysのエイリアス
+  //      で読み替えられる)ため、この画面(基礎/上限どちらのタブ)から除外する。
   const NO_OP_BASE_STATS_KEYS = new Set([
     "glyph-slot-bonus",
     "heavy-armor-move-speed-per-piece",
     "light-armor-move-speed-per-piece",
-    "armor-set-bonus"
+    "armor-set-bonus",
+    "tool-enchant-efficiency"
   ]);
 
   function statLabel(key) {
@@ -350,6 +361,24 @@
     return wrap;
   }
 
+  // 2026-07-27: 「上限」タブの見出しを、手書きの STAT_CAPS_SECTIONS (クランプ機構の出典別)
+  // から「基礎」タブと同じ lore カテゴリ (categoryOf/CATEGORY_ORDER/CATEGORY_LABEL) 別へ変更。
+  // 表示するキー集合(= statCapsAllKeys()。実際にクランプが効くキーの許可リスト)は一切変えず、
+  // 並べ方だけを変える。STAT_CAPS_SECTIONS 自体は「キー許可リスト + クランプ機構の出典」として
+  // 削除せず残す(他から参照されている可能性があるため module.exports からも外さない)。
+  //
+  // クランプ機構の情報(旧見出し「totalOf経由」「CombatListenerが直接クランプ」等)は
+  // カテゴリ別グルーピングに変えると見出しから消えてしまう実装上重要な情報なので、
+  // 各行のラベルの title 属性(ホバー)として残す。バッジ案(行に新規DOM要素を追加)も検討したが、
+  // .stat-row は既存2列固定レイアウト(ラベル+値コントロール)で、バッジを増やすと基礎タブと
+  // 構造が乖離し .stat-row 系CSSの共有が崩れる。title 属性なら既存の「ラベルに title を持たせる」
+  // 慣習(statLabel の隣に生キーIDを title で出す既存パターン、例: renderBaseTabBody)をそのまま
+  // 踏襲でき、見た目・レイアウトへの影響がゼロなのでこちらを採用する。
+  const STAT_CAPS_SOURCE_BY_KEY = {};
+  for (const sec of STAT_CAPS_SECTIONS) {
+    for (const k of sec.keys) STAT_CAPS_SOURCE_BY_KEY[k] = sec.title;
+  }
+
   function buildStatCapsTabBody(statCapsWorking) {
     normalizeStatCapsWorking(statCapsWorking);
     const capsMap = statCapsWorking["stat-caps"];
@@ -368,14 +397,32 @@
       + "(バニラAttributeチャネル直結の move-speed / attack-speed-bonus / attack-reach / "
       + "knockback-resistance / max-health、アイテム個別ステ、*-cooldown-reduction系は"
       + "Java側の仕様上クランプが効かないため、意図的に出していません)。" }));
+    body.appendChild(h("div", { class: "field-desc", text:
+      "見出しは「基礎ステータス」タブと同じカテゴリ分類です。各行のラベルにカーソルを合わせると、"
+      + "そのキーの上限がどこで効くか(totalOf経由/CombatListenerが直接クランプ 等)を確認できます。" }));
 
-    for (const sec of STAT_CAPS_SECTIONS) {
+    const keys = statCapsAllKeys();
+    const byCat = {};
+    for (const k of keys) {
+      const c = categoryOf(k);
+      (byCat[c] = byCat[c] || []).push(k);
+    }
+    for (const c of Object.keys(byCat)) {
+      byCat[c].sort((a, b) => orderOf(a) - orderOf(b) || (a < b ? -1 : 1));
+    }
+    const cats = CATEGORY_ORDER.filter((c) => byCat[c] && byCat[c].length);
+    // CATEGORY_ORDER に無い未知カテゴリも末尾に拾う(renderBaseTabBody と同じ取りこぼし防止)。
+    for (const c of Object.keys(byCat)) if (!cats.includes(c)) cats.push(c);
+
+    for (const c of cats) {
       const section = h("div", { class: "mob-defense-block" });
-      section.appendChild(h("div", { class: "sub-title", text: sec.title }));
+      section.appendChild(h("div", { class: "sub-title", text: CATEGORY_LABEL[c] || c }));
       const rows = h("div", { class: "stat-rows" });
-      for (const k of sec.keys) {
+      for (const k of byCat[c]) {
+        const source = STAT_CAPS_SOURCE_BY_KEY[k];
+        const labelTitle = source ? k + " — クランプ機構: " + source : k;
         rows.appendChild(h("div", { class: "stat-row" }, [
-          h("span", { class: "stat-row-label", text: statLabel(k), title: k }),
+          h("span", { class: "stat-row-label", text: statLabel(k), title: labelTitle }),
           capValueControl(k, capsMap)
         ]));
       }
@@ -384,8 +431,9 @@
     }
 
     // T2 (2026-07-26): 「最終効率の上限 (gathering-efficiency)」独立カテゴリを畳んでここへ統合。
+    // 2026-07-27: gathering-efficiency の表示名を「最終効率」→「採集効率」へ改称したのに追随。
     const bookshelfSection = h("div", { class: "mob-defense-block" });
-    bookshelfSection.appendChild(h("div", { class: "sub-title", text: "最終効率 → 効率強化エンチャントの上限" }));
+    bookshelfSection.appendChild(h("div", { class: "sub-title", text: "採集効率 → 効率強化エンチャントの上限" }));
     const bsRows = h("div", { class: "stat-rows" });
     bsRows.appendChild(h("div", { class: "stat-row" }, [
       h("span", { class: "stat-row-label", text: "効率強化エンチャントの上限レベル", title: "gathering-efficiency-max-enchant-level" }),
@@ -393,7 +441,7 @@
     ]));
     bookshelfSection.appendChild(bsRows);
     bookshelfSection.appendChild(h("div", { class: "field-hint", text:
-      "gathering-efficiency(最終効率)ステを、メインハンドの道具へ実行時に「効率強化」エンチャントの"
+      "gathering-efficiency(採集効率)ステを、メインハンドの道具へ実行時に「効率強化」エンチャントの"
       + "レベルとして反映する際の上限です。旧設定 stats/gathering-efficiency.yml の max-enchant-level を"
       + "統合したもので、こちらにチェックを入れて値を保存すると旧ファイルより優先されます"
       + "(旧ファイルは後方互換のため残り続け、ここが未設定の間はそちらの値が使われます)。"

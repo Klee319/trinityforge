@@ -20,6 +20,6 @@
 
 stat-caps: {}
 
-# 最終効率(gathering-efficiency)の効率強化エンチャント上限。未記載なら
+# 採集効率(gathering-efficiency、旧称:最終効率)の効率強化エンチャント上限。未記載なら
 # stats/gathering-efficiency.yml 側の max-enchant-level が使われる(詳細は上記md)。
 # gathering-efficiency-max-enchant-level:

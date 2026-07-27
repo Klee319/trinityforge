@@ -220,7 +220,7 @@ restore は「クランプ後の最終 MAX_HEALTH」を見ることになり整�
 
 ## `gathering-efficiency-max-enchant-level`
 
-最終効率(`gathering-efficiency`)の効率強化エンチャント上限。ルート直下のキー(`stat-caps:` マップの外側)。
+採集効率(`gathering-efficiency`、旧称:最終効率)の効率強化エンチャント上限。ルート直下のキー(`stat-caps:` マップの外側)。
 
 旧来は `stats/gathering-efficiency.yml` の `max-enchant-level` だけがこの値を決めていた。
 ここに数値を書くと、そちらより優先してこの値が使われる(`stats/gathering-efficiency.yml` は

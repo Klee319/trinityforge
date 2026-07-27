@@ -307,6 +307,14 @@
     "fixed", "per-quality", "random", "durability", "offhand-stats-apply",
     "advanced", "use-skill", "use-level-requirement", "lore-default"
   ]);
+  // 「特殊アイテム」画面(機能アイテムカテゴリ)へ集約済みの TF 特殊アイテム。唯一の正典は
+  // functional-items.js の TF_SPECIAL_ITEM_IDS で、ここでは二重管理せず参照するだけにする。
+  // ※ index.html の読み込み順は forms.js(64行) → functional-items.js(67行) なので、
+  //   モジュール読み込み時点の const で受けると必ず空配列で固定される。呼び出し時に解決すること。
+  function tfSpecialItemIdsForStats() {
+    const core = window.FUNCTIONAL_ITEMS_CORE;
+    return (core && core.TF_SPECIAL_ITEM_IDS) || [];
+  }
   // カテゴリ(攻撃/守備/補助/Ars)のチェックに関わらず常に「+追加」候補へ出すステ。
   // 耐久力は装備種を問わず設定しうるためカテゴリ非依存にする(要件: 補助カテゴリから独立)。
   window.ALWAYS_SHOWN_STATS = window.ALWAYS_SHOWN_STATS || ["durability"];
@@ -377,12 +385,28 @@
     // 空エントリは既存の fixed/per-quality/fallback 解決を一切変えないため、同期だけで
     // ゲームバランスを変えず、設定対象の取りこぼしを防げる。
     for (const candidate of catalogCandidates) {
+      // 素材 (ArsPaper materials.yml 由来、tab: "material") はここでは枠を作らない。
+      // 素材はアイテムステータスを持たず materials.yml 側の別画面で管理するため、
+      // item-stats へ空エントリを生やすと「画面に出ないまま working.items だけ膨らむ
+      // 幽霊エントリ」になる (ITEM_STATS_CATEGORIES に "material" タブが存在しない)。
+      if (candidate && candidate.tab === "material") continue;
+      // TF の特殊アイテム(skill_node_lock / skill_tree_reset)も枠を作らない。
+      // 2026-07-27 ユーザー指示: この2件は「特殊アイテム」画面(機能アイテムカテゴリ)へ集約し、
+      // アイテムステータス側には出さない。
+      // 加えて実害がある — この2件は catalog.yml で custom-model-data を持たないため、
+      // ステータスキーが素の Material(AMETHYST_SHARD / ECHO_SHARD)になる。そこへステを設定すると
+      // 「バニラのアメジストの欠片/残響の欠片すべて」に効いてしまい、特殊アイテム1件を狙えない。
+      if (candidate && tfSpecialItemIdsForStats().includes(candidate.id)) continue;
       const key = candidate && candidate.material
         ? (candidate.cmd == null ? candidate.material : `${candidate.material}#${candidate.cmd}`) : "";
       if (!key || Object.prototype.hasOwnProperty.call(working.items, key)) continue;
+      // タブが決まらない候補を暗黙で「補助」へ落とすと、ユーザーには「なぜここにいるのか
+      // 分からないエントリ」として補助タブに出続けてしまう(かつ素材のようにタブ自体が
+      // 存在しない候補は画面から消す手段がない)。タブ未決定の候補は枠自体を作らずスキップする。
+      if (!candidate || !candidate.tab) continue;
       working.items[key] = {};
       if (typeof window.setItemDisplayTab === "function") {
-        window.setItemDisplayTab(working, key, candidate.tab || "other");
+        window.setItemDisplayTab(working, key, candidate.tab);
       }
     }
     for (const entry of Object.values(working.items)) normalizeRatePercentsInEntry(entry);
@@ -1489,7 +1513,7 @@
         else delete entry["offhand-stats-apply"];
       });
       grid.appendChild(h("label", { class: "form-field inline-check" }, [
-        window.fieldLabelEl("offhand-stats-apply", { label: "オフハンド合算", desc: "このアイテムをオフハンドに持ったとき、そのステータスを戦闘集計に合算するか(既定OFF)。旧グローバル設定は廃止しアイテム毎に設定します。" }),
+        window.fieldLabelEl("offhand-stats-apply", { label: "オフハンド合算", desc: "このアイテムをオフハンドに持ったとき、そのステータスを戦闘集計に合算するか(既定OFF)。" }),
         offCb
       ]));
 

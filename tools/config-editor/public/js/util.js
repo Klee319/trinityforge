@@ -870,13 +870,115 @@ window.selectLabeledInput = function selectLabeledInput(value, options, enumGrou
   });
 };
 
-// 「?」ヘルプアイコン。説明文をツールチップ(title)で表示する。desc が空なら null。
-window.helpIcon = function helpIcon(desc) {
+// 「?」ヘルプアイコン用の独自ツールチップ。
+// ブラウザ標準の title 属性だと折返し位置・書式(キー行と説明の階層)を一切制御できず、
+// labels.js には200文字超の説明も多いため長文が読めない塊になっていた(2026-07-27)。
+// CSSで見た目を制御できる自前のポップオーバーに置き換える。1つだけ開く/外側click・Escで閉じる方式は
+// colors.js の色ピッカーポップオーバーと同じ流儀。
+let helpTooltipEl = null;
+let helpTooltipAnchor = null;
+let helpTooltipPinned = false;
+
+function closeHelpTooltip() {
+  if (helpTooltipAnchor) helpTooltipAnchor.setAttribute("aria-expanded", "false");
+  if (helpTooltipEl && helpTooltipEl.parentNode) helpTooltipEl.parentNode.removeChild(helpTooltipEl);
+  helpTooltipEl = null;
+  helpTooltipAnchor = null;
+  helpTooltipPinned = false;
+  document.removeEventListener("mousedown", onHelpTooltipDocDown, true);
+  document.removeEventListener("keydown", onHelpTooltipDocKey, true);
+}
+function onHelpTooltipDocDown(e) {
+  if (helpTooltipEl && !helpTooltipEl.contains(e.target) && !(helpTooltipAnchor && helpTooltipAnchor.contains(e.target))) {
+    closeHelpTooltip();
+  }
+}
+function onHelpTooltipDocKey(e) {
+  if (e.key === "Escape") closeHelpTooltip();
+}
+
+// pinned=true はクリック/フォーカスで開いた場合(hoverが外れても閉じない、明示操作でのみ閉じる)。
+function openHelpTooltip(anchorEl, keyLabel, desc, pinned) {
+  if (helpTooltipAnchor === anchorEl) {
+    if (pinned) helpTooltipPinned = true;
+    return;
+  }
+  closeHelpTooltip();
+  const bodyChildren = [];
+  if (keyLabel) bodyChildren.push(window.h("div", { class: "help-tooltip-key", text: keyLabel }));
+  // desc 内の改行(\n)を行として反映する。テキストノードのみで組み立てる(innerHTML不使用)。
+  String(desc).split("\n").forEach((line) => {
+    bodyChildren.push(window.h("div", { class: "help-tooltip-line", text: line }));
+  });
+  const tip = window.h("div", { class: "help-tooltip", role: "tooltip" }, bodyChildren);
+  document.body.appendChild(tip);
+
+  if (!anchorEl.id) anchorEl.id = "help-icon-" + Math.random().toString(36).slice(2);
+  tip.id = anchorEl.id + "-tip";
+  anchorEl.setAttribute("aria-describedby", tip.id);
+  anchorEl.setAttribute("aria-expanded", "true");
+
+  // 画面端で切れないよう、右/下にはみ出す場合は左/上へ出方を反転する。
+  const r = anchorEl.getBoundingClientRect();
+  let left = r.left;
+  const maxLeft = window.innerWidth - tip.offsetWidth - 8;
+  if (left > maxLeft) left = Math.max(8, r.right - tip.offsetWidth);
+  tip.style.left = Math.round(left) + "px";
+  let top = r.bottom + 6;
+  if (top + tip.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - tip.offsetHeight - 6);
+  tip.style.top = Math.round(top) + "px";
+
+  helpTooltipEl = tip;
+  helpTooltipAnchor = anchorEl;
+  helpTooltipPinned = !!pinned;
+  // 直後の同一 mousedown で即閉じないよう、次tickから外側clickの購読を始める。
+  setTimeout(() => {
+    if (helpTooltipEl === tip) {
+      document.addEventListener("mousedown", onHelpTooltipDocDown, true);
+      document.addEventListener("keydown", onHelpTooltipDocKey, true);
+    }
+  }, 0);
+}
+
+// 「?」ヘルプアイコン。説明文を独自ツールチップで表示する。desc が空なら null。
+// ホバーで開く。クリック/フォーカスでも開閉できる(長文をゆっくり読める・キーボードでも到達できる)。
+// opts.keyLabel を渡すと「キー: xxx」をツールチップ内の別行(バッジ的な先頭行)として表示する
+// (fieldLabelEl から使用。呼び出し元インターフェース自体は helpIcon(desc) のまま変えない)。
+window.helpIcon = function helpIcon(desc, opts) {
   if (!desc) return null;
-  return window.h("span", { class: "help-icon", title: desc, text: "?" });
+  const keyLabel = opts && opts.keyLabel ? opts.keyLabel : "";
+  const icon = window.h("span", {
+    class: "help-icon", text: "?",
+    tabindex: "0", role: "button",
+    "aria-haspopup": "true", "aria-expanded": "false"
+  });
+  icon.addEventListener("mouseenter", () => {
+    if (helpTooltipAnchor !== icon) openHelpTooltip(icon, keyLabel, desc, false);
+  });
+  icon.addEventListener("mouseleave", () => {
+    if (helpTooltipAnchor === icon && !helpTooltipPinned) closeHelpTooltip();
+  });
+  icon.addEventListener("focus", () => {
+    if (helpTooltipAnchor !== icon) openHelpTooltip(icon, keyLabel, desc, false);
+  });
+  icon.addEventListener("blur", () => {
+    if (helpTooltipAnchor === icon && !helpTooltipPinned) closeHelpTooltip();
+  });
+  icon.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (helpTooltipAnchor === icon && helpTooltipPinned) closeHelpTooltip();
+    else openHelpTooltip(icon, keyLabel, desc, true);
+  });
+  icon.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      icon.click();
+    }
+  });
+  return icon;
 };
 
-// フィールドの日本語ラベル要素。英字キーと説明をツールチップに併記する。
+// フィールドの日本語ラベル要素。英字キーは小さく併記し、説明は「?」の独自ツールチップへ回す。
 // FIELD_LABELS に説明があればラベル横に「?」も付ける。
 // opts.label / opts.desc を渡すとグローバル辞書より優先して使う(呼び出し元の文脈固有ラベル)。
 window.fieldLabelEl = function fieldLabelEl(key, opts) {
@@ -884,11 +986,9 @@ window.fieldLabelEl = function fieldLabelEl(key, opts) {
   const L = window.LABELS;
   const ja = options.label != null ? options.label : (L ? L.fieldLabel(key) : key);
   const desc = options.desc != null ? options.desc : (L ? L.fieldDesc(key) : "");
-  const tip = options.hideKey
-    ? (desc || "")
-    : (desc ? `キー: ${key}\n${desc}` : `キー: ${key}`);
-  const children = [window.h("span", { class: "form-label-ja", text: ja + (options.required ? " *" : ""), title: tip })];
-  const help = window.helpIcon(desc);
+  const keyLabel = `キー: ${key}`;
+  const children = [window.h("span", { class: "form-label-ja", text: ja + (options.required ? " *" : ""), title: keyLabel })];
+  const help = window.helpIcon(desc, { keyLabel: options.hideKey ? "" : keyLabel });
   if (help) children.push(help);
   // 英字キーを小さく併記 (ユーザがYAMLキーを見失わないように)
   if (!options.hideKey && ja !== key) children.push(window.h("span", { class: "form-label-key", text: key, title: "YAMLキー" }));

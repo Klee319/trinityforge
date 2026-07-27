@@ -48,7 +48,7 @@ const REGISTRY = Object.freeze([
   // 重み付け(2026-07-25、かまど/エンチャント/ポーション実行者限定ステ反映)。
   { id: "alchemy-quality", label: "ポーション品質換算 (alchemy-quality)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/alchemy-quality.yml", schema: "generic" },
   { id: "enchant-luck", label: "エンチャント運 (enchant-luck)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/enchant-luck.yml", schema: "generic" },
-  // 最終効率(gathering_efficiency stat)を効率強化エンチャントのレベルへ換算する設定。
+  // 採集効率(gathering_efficiency stat。旧称:最終効率)を効率強化エンチャントのレベルへ換算する設定。
   // 2026-07-26: tool-enchant-efficiency を統合し上限を撤廃(max-enchant-level: 0 = 無制限)したため、
   // 上限を戻したい運用者が editor から触れるよう登録。
   // T8 (2026-07-26): 「設定1個のためだけの独立カテゴリ」というユーザー指摘により、サイドバー単独表示を
@@ -56,7 +56,7 @@ const REGISTRY = Object.freeze([
   // STAT_CAPS_COMPANION_IDS 経由、HIDDEN_CONFIG_IDS でサイドバーから隠す)。ファイル自体・保存先
   // キーパス(max-enchant-level)は不変。旧ファイルは combat/stat-caps.yml の
   // gathering-efficiency-max-enchant-level が未設定の間、後方互換として引き続き読み込まれる。
-  { id: "gathering-efficiency", label: "最終効率の上限 (gathering-efficiency)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/gathering-efficiency.yml", schema: "generic" },
+  { id: "gathering-efficiency", label: "採集効率の上限 (gathering-efficiency)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/gathering-efficiency.yml", schema: "generic" },
   { id: "lore", label: "ロア表示 (lore)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/lore.yml", schema: "tf-lore" },
   { id: "player-base-stats", label: "プレイヤー基礎ステータス (base-stats)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "combat/base-stats.yml", schema: "tf-base-stats" },
   // T8 (2026-07-26新設): 総合ステータス上限(combat/stat-caps.yml)。「プレイヤー基礎ステータス」画面の
@@ -130,7 +130,11 @@ const REGISTRY = Object.freeze([
   { id: "items", label: "儀式エフェクト (ritual effects)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "items.yml", schema: "ars-recipes" },
   // 機能アイテム(ワンド/コンパス/台座/儀式の核/筆記台/ウェイストーン/ソースベリー)の表示名 +
   // レシピ(items.yml/catalog.yml側の該当recipeへ配線)をまとめて編集するタブ。
-  { id: "functional-items", label: "機能アイテム (表示名/レシピ) (functional-items)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "functional-items.yml", schema: "ars-functional-items" },
+  // 2026-07-27: TF の特殊アイテム2件(skill_node_lock/skill_tree_reset, catalog.yml)も統合したため
+  // 画面名を「特殊アイテム」へリネーム(このconfig自体のid/labelキーは functional-items のまま。
+  // サイドバー表示は label 括弧部分が落ちる仕様(app.js)を利用して「特殊アイテム」に見せる)。
+  // section も「魔法」から新設の「機能アイテム」カテゴリ(functional-items)へ移動。
+  { id: "functional-items", label: "特殊アイテム (表示名/レシピ) (functional-items)", group: "ArsPaper", section: "functional-items", base: "arspaper", rel: "functional-items.yml", schema: "ars-functional-items" },
   { id: "materials", label: "中間素材 (materials)", group: "ArsPaper", section: "quality", base: "arspaper", rel: "materials.yml", schema: "ars-materials" },
   { id: "threads", label: "スレッド (threads)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "threads.yml", schema: "ars-threads" },
   { id: "glyphs", label: "グリフ (glyphs)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "glyphs.yml", schema: "ars-glyphs" },
@@ -140,8 +144,10 @@ const REGISTRY = Object.freeze([
   { id: "spellbooks", label: "魔導書ティア (spellbooks)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "spellbooks.yml", schema: "ars-spellbooks" },
   { id: "ars-config", label: "ArsPaper 全体設定 (config)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "config.yml", schema: "ars-config" },
   { id: "ban", label: "グリフBANリスト (ban)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "ban.yml", schema: "ars-ban" },
-  { id: "sourcelinks", label: "ソースリンク (sourcelinks)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "sourcelinks.yml", schema: "ars-sourcelinks" },
-  { id: "sourcejars", label: "ソースジャー (sourcejars)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "sourcejars.yml", schema: "ars-sourcejars" },
+  // 2026-07-27: section を「魔法」から新設の「機能アイテム」カテゴリ(functional-items)へ移動
+  // (TF/Ars統合の一環。特殊アイテムと合わせてサイドバーの同じグループへ集約)。
+  { id: "sourcelinks", label: "ソースリンク (sourcelinks)", group: "ArsPaper", section: "functional-items", base: "arspaper", rel: "sourcelinks.yml", schema: "ars-sourcelinks" },
+  { id: "sourcejars", label: "ソースジャー (sourcejars)", group: "ArsPaper", section: "functional-items", base: "arspaper", rel: "sourcejars.yml", schema: "ars-sourcejars" },
 
   // ---- TrinityForge スキルツリー (skilltree/*.yml) ----
   // TF独自の「単一の真実」。TFネイティブ進行とGUIが直接読み込む。

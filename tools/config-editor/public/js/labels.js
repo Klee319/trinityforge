@@ -19,7 +19,7 @@
     "crit-chance": "戦闘:会心率↑",
     "crit-damage": "戦闘:会心ダメ↑",
     "penetration": "戦闘:貫通率↑",
-    "flat-bonus-damage": "戦闘:追加ダメ(実)【廃止】",
+    "flat-bonus-damage": "戦闘:追加ダメ(実)↑",
     "percent-bonus-damage": "戦闘:追加ダメ↑",
     "damage-modifier": "戦闘:ダメ補正",
     "bleed-chance": "戦闘:出血率↑",
@@ -40,7 +40,7 @@
     "reflect-percent": "防御:反射(割)↑",
     "health-regen-bonus": "防御:自然回復↑",
     "move-speed": "移動:移動速度↑",
-    "gathering-efficiency": "採集:効率強化Lv↑",
+    "gathering-efficiency": "採集:採集効率↑",
     "mining-fortune": "採掘:採掘運↑",
     "fishing-luck": "釣り:釣り運↑",
     "fishing-bonus": "釣り:釣りボーナス↑",
@@ -170,7 +170,7 @@
     "mining-fortune": "採掘時の幸運レベル。バニラ幸運をこの値へ統合し、1レベルにつき期待ドロップ量を30%増やす。シルクタッチとは共存しない。",
     "fishing-luck": "釣りの幸運値に加算される。",
     "fishing-bonus": "釣果に対する追加ボーナス。",
-    "tool-enchant-efficiency": "このツール自身へ効率強化エンチャントとして適用される(ツールチップに表示され、譲渡しても効果が付いてくる)。プレイヤー総合ステータスには合算されない。装備中だけ効く集計ステとしての採集効率は gathering-efficiency(採集:効率強化Lv) を使う。",
+    "tool-enchant-efficiency": "このツール自身へ効率強化エンチャントとして適用される(ツールチップに表示され、譲渡しても効果が付いてくる)。プレイヤー総合ステータスには合算されない。装備中だけ効く集計ステとしての採集効率は gathering-efficiency(採集:採集効率) を使う。",
     "glyph-damage-multiplier-bonus": "特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat(フォーク側がどのグリフに適用するか選ぶ)。",
     "mana-bonus": "Ars の最大マナへ加算される。装備分は Ars 側で別途集計される。",
     "mana-regen": "Ars のマナ自然回復へ加算される。装備分は Ars 側で別途集計される。",
@@ -229,11 +229,11 @@
     "ingredient-save-chance": "素材を消費しない確率(バニラ醸造台+Arsアルケミカル素材投入の両方に適用)。",
     "source-cost-reduction": "Ars のソース消費を軽減する。"
     // ---- 2026-07-26 タスク3: lore.yml表示追加に伴うSTAT_DESCRIPTIONS未登録12キーの補完 ----
-    ,"flat-bonus-damage": "最終ダメージへ加算される固定値。item-stats.ymlでの直接記述は廃止済みだが、"
-      + "パーク/base-stats/モブ攻撃・コーティング内部経路からは引き続き供給されうる。"
+    ,"flat-bonus-damage": "最終ダメージへ加算される固定値。item-stats.ymlへ直接記述することはできず、"
+      + "パーク/base-stats/モブ攻撃・コーティング内部経路からのみ供給される。"
     ,"flat-defense": "phys-flat-defense/magic-flat-defenseに分岐する前の汎用守備力キー。"
       + "DefenseStatBridge/PlayerDefenseResolverのlegacyFlat経路で読まれる。"
-    ,"mana-max-base": "base-stats.yml専用のマナ初期値(基礎)。ArsPaperのmana.default-max等の移設先で、"
+    ,"mana-max-base": "base-stats.yml専用のマナ初期値(基礎)。ArsPaperのmana.default-max相当の値をここで設定し、"
       + "フォークはTrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
     ,"mana-regen-base": "base-stats.yml専用のマナ自然回復(基礎)。フォークはTrinityForgeBridge.manaBaseStat"
       + "経由で読む。通常アイテムには付与されない。"
@@ -467,7 +467,7 @@
     "damage-reduction": { label: "被ダメージ軽減", desc: "0.0〜1.0。" },
     "flat-defense": { label: "守備力", desc: "0以上。" },
     "attack-power": { label: "攻撃力", desc: "物理ベースダメージ。0より大きいとバニラ攻撃力を置換。" },
-    "flat-bonus-damage": { label: "固定追加ダメージ", desc: "最終ダメージに加算(モブ攻撃/コーティング内部用。アイテムステでは廃止)。" },
+    "flat-bonus-damage": { label: "固定追加ダメージ", desc: "最終ダメージに加算(モブ攻撃/コーティング内部用)。アイテムステータスには設定できません。" },
     "percent-bonus-damage": { label: "追加ダメ", desc: "0.0〜1.0。敵に与えた最終ダメージ(全防御考慮後)のこの割合を追加で与える。" },
     "penetration": { label: "貫通", desc: "0.0〜1.0。相手の防御を無視する割合。" },
     "crit-chance": { label: "クリティカル率", desc: "0.0〜1.0。" },

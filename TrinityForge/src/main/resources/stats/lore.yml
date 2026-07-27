@@ -479,7 +479,8 @@ stats:
     limits:
       floor: 0
   gathering-efficiency:
-    name: 最終効率
+    # 2026-07-27: 「最終効率」→「採集効率」に改称(採集系ステという性質が名前から分かるように)。
+    name: 採集効率
     icon: ""
     format: FLAT
     decimals: 1

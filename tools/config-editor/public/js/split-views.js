@@ -55,7 +55,27 @@
       ? { id: o.counterpartId, data: o.counterpartData, dirty: !!o.counterpartDirty } : null;
 
     if (o.type === "catalog") {
-      form = window.buildCatalogForm(data, {
+      // 2026-07-27: TF の特殊アイテム2件(skill_node_lock/skill_tree_reset)は「特殊アイテム」画面
+      // (functional-items.js)へ ID ロック付きで統合済みのため、カタログ画面(この buildCatalogForm)
+      // からは隠す。二重導線になると、こちら側では ID を変更できてしまいロックの意味が無くなる。
+      // buildCatalogForm は working=data を直接参照して破壊的に編集するため、渡す前に浅いクローンで
+      // 2件だけ取り除き、保存時(getData)に取り除いた実体をそのまま無編集で戻す(ロスレス)。
+      const tfHiddenIds = (window.FUNCTIONAL_ITEMS_CORE && window.FUNCTIONAL_ITEMS_CORE.TF_SPECIAL_ITEM_IDS) || [];
+      let tfHiddenEntries = null;
+      let catalogViewData = data;
+      if (tfHiddenIds.length && data.items && typeof data.items === "object") {
+        const present = tfHiddenIds.filter((id) => Object.prototype.hasOwnProperty.call(data.items, id));
+        if (present.length) {
+          tfHiddenEntries = {};
+          const itemsClone = { ...data.items };
+          for (const id of present) {
+            tfHiddenEntries[id] = data.items[id];
+            delete itemsClone[id];
+          }
+          catalogViewData = { ...data, items: itemsClone };
+        }
+      }
+      form = window.buildCatalogForm(catalogViewData, {
         hubMode: true,
         initialCategory: o.itemCategory || "weapon",
         editorCategoryKey: categoryKey,
@@ -74,6 +94,10 @@
           data._editor = d._editor;
         } else if (data._editor) {
           d._editor = data._editor;
+        }
+        // 隠した TF 特殊アイテムを欠落させずに戻す(この画面からは編集されていない=無加工のまま)。
+        if (tfHiddenEntries) {
+          d.items = { ...(d.items || {}), ...tfHiddenEntries };
         }
         return d;
       };

@@ -487,8 +487,7 @@
     const lootTables = ensureObj(suspiciousRespawn, "loot-tables");
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("採掘ツリー専用効果の数値。vein-mining / haste / 幸運連携 / 追加ドロップ(drop-tables)。"
-      + " 旧ガチャ券1〜3のUIは廃止(ドロップテーブルへ統合)。"));
+    root.appendChild(banner("採掘ツリー専用効果の数値。vein-mining / haste / 幸運連携 / 追加ドロップ(drop-tables)。"));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "怪しいブロックの再生成 (suspicious-block-respawn)" })],
@@ -583,9 +582,7 @@
     delete fell["large-max-extra-logs"];
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("伐採ツリー専用効果。一括伐採上限と追加ドロップ(drop-tables)。"
-      + " 旧リンゴ類(apple/golden-apple/crystal-apple)個別UIは廃止(ドロップテーブルへ統合)。"
-      + " 旧small/large 2本立てのUIは廃止(max-extra-logs 1本 + tier表へ統合済み)。"));
+    root.appendChild(banner("伐採ツリー専用効果。一括伐採上限と追加ドロップ(drop-tables)。"));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "一括伐採 (tree-fell)" })],
@@ -924,8 +921,7 @@
     ensureObj(fishSell, "prices");
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("釣りギミック。宝/ゴミの重み付きドロップテーブル + 釣り運連携比率。"
-      + " 旧ガチャ券4・5のUIは廃止(ドロップテーブルへ統合)。"));
+    root.appendChild(banner("釣りギミック。宝/ゴミの重み付きドロップテーブル + 釣り運連携比率。"));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "釣りスキル連携 (fishing)" })],

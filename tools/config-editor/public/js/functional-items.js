@@ -43,6 +43,39 @@
     return MATERIAL_EDITABLE_IDS.indexOf(id) !== -1;
   }
 
+  // ============================================================
+  // TrinityForge 側の特殊アイテム2件 (catalog.yml、この画面へ統合表示)
+  // ============================================================
+  //
+  // 2026-07-27新設: 「TF と Ars はユーザー目線では統合されているべき」というユーザー方針により、
+  // catalog.yml (TrinityForge 側) の skill_node_lock / skill_tree_reset を、この「特殊アイテム」
+  // 画面(旧名: 機能アイテム、schema: ars-functional-items)へ統合する。
+  // 定義自体は catalog.yml に残したまま(Java 側の再ビルドは不要)。
+  //
+  // ID は com.trinityforge.skilltree.runtime.SkillTreeItems が直接参照する固定値のため
+  // (catalog.yml 4346-4348行のコメント参照)、editor からは常に読み取り専用。
+  // 唯一の正典は catalog.yml 側のコメントと SkillTreeItems.java。この2件は Ars の7件と違い、
+  // material 上書き許可の概念(FunctionalItemConfig)とは無関係の別ファイル・別仕組みなので
+  // MATERIAL_EDITABLE_IDS には混ぜない。
+  const TF_SPECIAL_ITEM_IDS = Object.freeze(["skill_node_lock", "skill_tree_reset"]);
+  const TF_SPECIAL_ITEM_LABELS = Object.freeze({
+    skill_node_lock: "スキルノードの楔",
+    skill_tree_reset: "スキル再構築の書"
+  });
+
+  // catalog.yml の items.<id> のうち TF 特殊アイテム2件だけを、無ければ空オブジェクトで補完する。
+  // normalizeFunctionalItemsData と異なり catalogData を**直接**書き換える(clone しない)。
+  // この画面は catalog.yml を丸ごとコンパニオン保存する(getExtraSaves)ため、渡された参照そのものを
+  // working として使い続ける必要がある(clone すると保存時に catalog.yml の他の内容と食い違う)。
+  function ensureTfSpecialItems(catalogData) {
+    const out = catalogData && typeof catalogData === "object" ? catalogData : {};
+    if (!out.items || typeof out.items !== "object") out.items = {};
+    for (const id of TF_SPECIAL_ITEM_IDS) {
+      if (!out.items[id] || typeof out.items[id] !== "object") out.items[id] = {};
+    }
+    return out;
+  }
+
   // functional-items.yml の生データ(items.<id>)を、正典7件が(無ければ空オブジェクトで)
   // 必ず存在する形に正規化する。元データは変更しない。未知のキー(想定外のid)は温存する
   // (削除により手編集データを壊さないため)。
@@ -76,7 +109,10 @@
     MATERIAL_EDITABLE_IDS,
     isMaterialEditable,
     normalizeFunctionalItemsData,
-    serializeFunctionalItemsData
+    serializeFunctionalItemsData,
+    TF_SPECIAL_ITEM_IDS,
+    TF_SPECIAL_ITEM_LABELS,
+    ensureTfSpecialItems
   };
 
   root.FUNCTIONAL_ITEMS_CORE = CORE_LOGIC;
@@ -107,11 +143,17 @@
   };
 
   window.buildFunctionalItemsForm = function buildFunctionalItemsForm(data, opts) {
+    const options = opts && typeof opts === "object" ? opts : {};
     const working = CORE_LOGIC.normalizeFunctionalItemsData(data);
+    // 2026-07-27: TF の特殊アイテム2件(catalog.yml)をこの画面のコンパニオンとして統合する。
+    // catalogData が渡された場合のみ(未読み込み時は undefined)、下部に専用セクションを追加する。
+    const hasCatalog = options.catalogData !== undefined && options.catalogData !== null;
+    const catalogWorking = hasCatalog ? CORE_LOGIC.ensureTfSpecialItems(options.catalogData) : null;
     const root = h("div", { class: "dedicated-form functional-items-form" });
     const listBox = h("div", { class: "card-list" });
     const expandedCards = new Set();
 
+    root.appendChild(h("div", { class: "sub-title", text: "ArsPaper 機能アイテム" }));
     root.appendChild(h("div", { class: "form-hint", text:
       "内部ID (このアイテムを識別するキー) はプログラム制御のため変更できません。"
       + " 表示名・lore・エンチャント光・レシピは全アイテムで編集できます。"
@@ -225,9 +267,112 @@
 
     render();
 
+    if (hasCatalog) {
+      root.appendChild(buildTfSpecialItemsSection(catalogWorking).element);
+    }
+
     return {
       element: root,
-      getData: () => CORE_LOGIC.serializeFunctionalItemsData(working)
+      getData: () => CORE_LOGIC.serializeFunctionalItemsData(working),
+      // catalog.yml は該当2件だけを触り、それ以外はロスレスに丸ごと書き戻す(afk / crafting-features
+      // と同じコンパニオン方式)。
+      getExtraSaves: () => hasCatalog ? [{ id: "catalog", data: catalogWorking }] : []
     };
   };
+
+  // TrinityForge 特殊アイテム2件 (catalog.yml) 専用のカード群。Ars の7件のカード表示とほぼ同じ
+  // 見た目にするが、material 編集欄は出さない(このユーザー方針では言及されていないため固定のまま)。
+  function buildTfSpecialItemsSection(catalogWorking) {
+    const root = h("div", { class: "func-tf-special-section" });
+    root.appendChild(h("div", { class: "sub-title", text: "TrinityForge 特殊アイテム (catalog.yml)" }));
+    root.appendChild(h("div", { class: "form-hint", text:
+      "内部ID は com.trinityforge.skilltree.runtime.SkillTreeItems が直接参照する固定値のため変更できません。"
+      + " 表示名・CMD・エンチャント光・lore・レシピは編集できます。定義はこれまでどおり catalog.yml に残ります。"
+    }));
+    const listBox = h("div", { class: "card-list" });
+    root.appendChild(listBox);
+    const expandedCards = new Set();
+
+    function render() {
+      listBox.innerHTML = "";
+      for (const id of CORE_LOGIC.TF_SPECIAL_ITEM_IDS) listBox.appendChild(renderCard(id));
+    }
+
+    function renderCard(id) {
+      const entry = catalogWorking.items[id];
+      if (!Array.isArray(entry.lore)) entry.lore = [];
+
+      const plainDisplay = window.stripDisplayNamePlain(entry["display-name"]) || CORE_LOGIC.TF_SPECIAL_ITEM_LABELS[id] || id;
+      const head = [
+        h("div", { class: "entry-collapse-summary" }, [
+          h("span", { class: "entry-sum-name", text: plainDisplay }),
+          h("span", { class: "entry-sum-id", text: id })
+        ])
+      ];
+
+      const idChip = h("div", { class: "func-item-meta" }, [
+        h("div", {
+          class: "func-item-chip is-readonly",
+          title: "ID変更禁止: com.trinityforge.skilltree.runtime.SkillTreeItems がこのIDをハードコード参照しているため変更できません"
+        }, [
+          h("span", { class: "mini-label", text: "item id" }),
+          h("span", { class: "func-item-chip-value", text: id })
+        ])
+      ]);
+
+      const preview = window.buildTooltipPreview();
+      function refreshPreview() {
+        const nm = entry["display-name"];
+        preview.update({
+          name: (nm != null && nm !== "") ? nm : (CORE_LOGIC.TF_SPECIAL_ITEM_LABELS[id] || id),
+          nameMode: "minimessage",
+          loreLines: Array.isArray(entry.lore) ? entry.lore : [],
+          loreMode: "minimessage"
+        });
+      }
+
+      const inputChildren = [
+        fieldRow("display-name", window.richTextInput(entry["display-name"], "minimessage", (v) => {
+          setOrDelete(entry, "display-name", v);
+          refreshPreview();
+        })),
+        fieldRow("custom-model-data", window.numberInput(entry["custom-model-data"], (v) => {
+          setOrDelete(entry, "custom-model-data", v);
+        }, { int: true })),
+        fieldRow("enchant-glow", (() => {
+          const row = h("label", { class: "form-field inline-check" });
+          row.appendChild(window.checkboxInput(!!entry["enchant-glow"], (v) => {
+            if (v) entry["enchant-glow"] = true; else delete entry["enchant-glow"];
+          }));
+          row.appendChild(h("span", { class: "form-label", text: "enchant aura (オンでエンチャント光)" }));
+          return row;
+        })()),
+        h("div", { class: "sub-title", text: "フレーバー説明文 (lore)" }),
+        window.renderLoreRows(entry.lore, "minimessage", refreshPreview, () => render())
+      ];
+
+      const inputs = h("div", { class: "entry-inputs" }, [idChip].concat(inputChildren));
+      const previewCol = h("div", { class: "entry-preview" }, [
+        h("div", { class: "preview-label", text: "表示プレビュー" }),
+        preview.element,
+        h("div", { class: "preview-note", text: "品質ティア行・自動ステ行はここには表示されません。lore はその前に差し込まれるフレーバー説明文です。" })
+      ]);
+
+      refreshPreview();
+
+      // レシピ編集UIはカタログ画面と完全共通化する。itemsMap は catalog.yml の items をそのまま渡す
+      // (このアイテムのレシピ結果は自身=custom:<id> であり catalog 名前空間で解決されるため)。
+      const recipeSection = window.renderCatalogRecipeSection(entry, () => render(), catalogWorking.items, id, { allowMirror: true });
+
+      const card = window.collapsibleCard(head, [h("div", { class: "entry-2col" }, [inputs, previewCol]), recipeSection], {
+        expanded: expandedCards.has(id),
+        onToggle: (open) => { if (open) expandedCards.add(id); else expandedCards.delete(id); }
+      });
+      card.classList.add("recipe-card");
+      return card;
+    }
+
+    render();
+    return { element: root };
+  }
 })(typeof window !== "undefined" ? window : (typeof module !== "undefined" ? module.exports : this), typeof window !== "undefined" && typeof document !== "undefined");

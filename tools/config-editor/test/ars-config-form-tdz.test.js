@@ -10,9 +10,11 @@
 // 1) 静的チェック: ソース中で formOptions の宣言(1回目の出現)が、renderCd()/loadFormOptions() の
 //    呼び出し(いずれの出現よりも前)にあることを検証する。
 // 2) 実行チェック: window.h 等を最小スタブし、buildArsConfigForm(空データ)を実際に呼び出して
-//    ReferenceError なく完走し、6カード(form-cooldowns/mana/geyser/enchantments/mob-drops/loot)
+//    ReferenceError なく完走し、5カード(form-cooldowns/mana/enchantments/mob-drops/loot)
 //    がすべて描画されることを確認する(drop-table-logic.test.js / mob-forms-logic.test.js と同じ
 //    「window.h を最小スタブしてブラウザ用IIFEをNodeでrequireする」手法)。
+//    geyser カードは 2026-07-27 に撤去した(CustomModelDataを常時付与へ固定し、設定という
+//    逃げ道自体を無くしたため。既定値 false = 付与する、なので実挙動は変わらない)。
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -86,7 +88,8 @@ test("実行チェック: buildArsConfigForm が ReferenceError なく完走し�
   }, "buildArsConfigForm が例外(ReferenceError等)を投げずに完走すること");
 
   assert.ok(result && result.element, "戻り値に element が含まれること");
-  // banner + 5カード(form-cooldowns / mana / geyser / enchantments / mob-drops+loot) = 6要素以上。
-  assert.ok(result.element.children.length >= 6,
+  // banner + 4カード(form-cooldowns / mana / enchantments / mob-drops+loot) = 5要素以上。
+  // (geyser カードは 2026-07-27 に撤去。CMD常時付与へ固定したため設定という逃げ道が不要になった。)
+  assert.ok(result.element.children.length >= 5,
     `カードが描画されていません(children=${result.element.children.length})`);
 });

@@ -142,7 +142,7 @@ test("statLabel: 実物のlabels.jsをロードしても生キーではなく日
   }
 });
 
-// ---- 修正2: no-op 4キーの除外 ----
+// ---- 修正2: no-op 4キー + tool-enchant-efficiency の除外 ----
 
 const EXPECTED_NO_OP_KEYS = [
   "glyph-slot-bonus",
@@ -151,11 +151,17 @@ const EXPECTED_NO_OP_KEYS = [
   "armor-set-bonus"
 ];
 
-test("NO_OP_BASE_STATS_KEYS: 指定された4キーちょうどを含む", () => {
-  assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...EXPECTED_NO_OP_KEYS].sort());
+// 2026-07-27: tool-enchant-efficiency を追加。ただし理由は上記4キー(no-op = 読み出し経路が無い)
+// とは異なり、「プレイヤー総合ステではなくアイテム専用ステ(item-stats.yml側)なので、そもそも
+// この画面(base-stats)の対象外」。NO_OP_BASE_STATS_KEYS のコメント参照。
+const EXPECTED_NOT_PLAYER_STAT_KEYS = ["tool-enchant-efficiency"];
+const ALL_EXCLUDED_KEYS = [...EXPECTED_NO_OP_KEYS, ...EXPECTED_NOT_PLAYER_STAT_KEYS];
+
+test("NO_OP_BASE_STATS_KEYS: no-op 4キー + tool-enchant-efficiency の5キーちょうどを含む", () => {
+  assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...ALL_EXCLUDED_KEYS].sort());
 });
 
-test("allStatKeys: no-op 4キーが除外され、通常ステは残る", () => {
+test("allStatKeys: no-op 4キー + tool-enchant-efficiency が除外され、通常ステは残る", () => {
   const prevList = global.window.STAT_LIST;
   const prevFallback = global.window.FALLBACK_STATS;
   const prevHidden = global.window.HIDDEN_STATS;
@@ -164,12 +170,12 @@ test("allStatKeys: no-op 4キーが除外され、通常ステは残る", () => 
     global.window.FALLBACK_STATS = [
       "attack-power", "glyph-slot-bonus",
       "heavy-armor-move-speed-per-piece", "light-armor-move-speed-per-piece",
-      "armor-set-bonus"
+      "armor-set-bonus", "tool-enchant-efficiency"
     ];
     global.window.HIDDEN_STATS = [];
     const keys = allStatKeys();
-    for (const k of EXPECTED_NO_OP_KEYS) {
-      assert.ok(!keys.includes(k), `no-opキー "${k}" が画面に残っている`);
+    for (const k of ALL_EXCLUDED_KEYS) {
+      assert.ok(!keys.includes(k), `除外対象キー "${k}" が画面に残っている`);
     }
     assert.ok(keys.includes("attack-power"), "通常ステまで除外されてしまっている");
   } finally {
@@ -180,8 +186,10 @@ test("allStatKeys: no-op 4キーが除外され、通常ステは残る", () => 
 });
 
 // materials.js の FALLBACK_STATS (他画面=item-stats/skilltreeバフでも共有) からは
-// no-op 4キーを削除していないこと(=base-stats画面限定の除外であること)を確認する。
-test("materials.js の FALLBACK_STATS には no-op 4キーが引き続き残っている(他画面では有効なため)", () => {
+// no-op 4キー + tool-enchant-efficiency を削除していないこと(=base-stats画面限定の除外であること)
+// を確認する。tool-enchant-efficiency は item-stats では今も有効なステなので、
+// FALLBACK_STATS から消してはいけない(brief 前提5)。
+test("materials.js の FALLBACK_STATS には除外対象キーが引き続き残っている(他画面では有効なため)", () => {
   delete require.cache[require.resolve("../public/js/materials.js")];
   require("../public/js/materials.js");
   const fallback = global.window.FALLBACK_STATS;

@@ -66,7 +66,7 @@ base-stats:
   damage-reduction: 0
   dodge-chance: 0
   mining-fortune: 0
-  # 最終効率。2026-07-26 に tool-enchant-efficiency を統合したため、旧キーはここには書かないこと
+  # 採集効率(旧称:最終効率)。2026-07-26 に tool-enchant-efficiency を統合したため、旧キーはここには書かないこと
   # (StatKeys のエイリアスで gathering-efficiency に畳まれ、同一キーが2行になって片方が消える)。
   gathering-efficiency: 0
   fishing-luck: 0

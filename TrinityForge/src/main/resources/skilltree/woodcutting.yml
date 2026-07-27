@@ -71,7 +71,7 @@ nodes:
     parent: C
     icon: IRON_AXE
     cost: 1
-    effect-text: 大きな木を一括破壊 1回/10s・伐採グリフの解放・最終効率 永続+1
+    effect-text: 大きな木を一括破壊 1回/10s・伐採グリフの解放・採集効率 永続+1
     buffs:
       gathering-efficiency: 1
     effects:
@@ -88,7 +88,7 @@ nodes:
     parent: D
     icon: DIAMOND_AXE
     cost: 1
-    effect-text: 耐久値を圧縮木材で回復可能・ウッドコア解放・最終効率 永続+1
+    effect-text: 耐久値を圧縮木材で回復可能・ウッドコア解放・採集効率 永続+1
     buffs:
       gathering-efficiency: 1
     effects:
