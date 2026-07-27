@@ -17,16 +17,16 @@
 
 ---
 
-## 1. 現在の状態（2026-07-27 15:35 時点）
+## 1. 現在の状態（2026-07-27 16:39 時点）
 
 | 対象 | 状態 |
 |---|---|
 | TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
-| config-editor テスト | **全緑**（実走・実測、`===EDITOR_EXIT=0`） |
-| **配備（2026-07-27 15:35 のバッチ）** | **ビルド済み・未配備**。`TrinityForge/build/release/TrinityForge-all.jar`（15:34、15,780,723 bytes、`016ec30` までを含む）を作成済みだが、**`D:/` への書き込みが権限ゲートに拒否されたためユーザー実行が必要**。`cmd /c tmp\run-deploy-k5b.cmd` を実行すれば、既存 jar と `stats/lore.yml` / `skilltree/farming.yml` / `skilltree/ars_magic.yml` を `backups/deploy-20260727/` へ退避してから上書きし、反映を検証する。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**yml だけでなく jar も要る**点に注意（`/tf stats detail` と確率バグ修正は Java 側）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
-| ArsPaper フォーク テスト | **全緑**（`RecipeBrowserFilterTest` 11 件を新設。`test --offline` で実走） |
-| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 15:34 に `016ec30` で再ビルド済み → **未配備**（上の「配備」行が最新の手順） |
-| `ArsPaper-1.0.0.jar` | 2026-07-27 13:04 ビルド → **未配備、かつ HEAD より古い**（グロブ修正 `d3a3210` を含まない）。**配備前に再ビルドが要る** |
+| config-editor テスト | **695 / 695 pass・fail 0**（実走・実測、`===EDITOR_EXIT=0`） |
+| **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
+| ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
+| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **16:39** に `532bcef` で再ビルド（15,780,810 bytes）→ **未配備** |
+| `ArsPaper-1.0.0.jar` | 2026-07-27 **16:39** に `f034b94` で再ビルド（965,072 bytes、グロブ修正 `d3a3210` を含む）→ **未配備** |
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
@@ -270,6 +270,13 @@ git 系（2026-07-27 に導入）:
   既定値が出ない（一度これで「値が空だ」と誤診しかけた）。
 - ビルドは `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain <task> --offline`
   （`./gradlew` は使えない）。ロック時は `cleanTest test`。
+- **Gradle が `* What went wrong:` の下に Java のバージョン番号だけを吐いて落ちたら、JDK の取り違え。**
+  2026-07-27 に Java **25.0.4** が自動更新で PATH の既定 `java` を奪い、Gradle 8.10.2（TF）と
+  8.5（ArsPaper フォーク）が**両方とも `25.0.4` の一行だけを残して起動不能**になった。
+  スタックトレースも「非対応の Java」という文言も出ないので原因が読み取れない。
+  JDK 21 は `C:\Program Files\Java\jdk-21` に残っているので、
+  `-Dorg.gradle.java.home="C:\Program Files\Java\jdk-21"` を渡して回避する
+  （マシンの `JAVA_HOME` は空。環境変数側は触らない）。同じ症状は Java が更新されるたびに再発する。
 - PowerShell 5.1 は `&&` を解釈しない。コマンドは 1 行 1 コマンドで渡すこと。
 
 設計・実装系:
@@ -305,6 +312,70 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — アイテムステータスの幽霊枠 / 機能アイテム画面の新設 / editor 説明UIの整備
+
+`532bcef`（本体）＋ `f034b94`（ArsPaper フォーク）。ユーザー報告 3 バッチをまとめて処理した。
+
+**① 素材とスレッドが「補助」タブにステータス定義として並んでいた原因**（`forms.js`）。
+`buildItemStatsForm` が**カタログ候補を総なめして枠を自動生成**していた。ここに 2 つの穴があった:
+
+1. ArsPaper `materials.yml` 由来の候補（`tab: "material"`）まで枠を作っていた。
+2. `tab` が決まらない候補を `|| "other"` で**暗黙に「補助」へ落としていた**。
+
+→ 素材はスキップ、`tab` 未確定の候補は**枠自体を作らない**（暗黙のフォールバックを廃止）。
+実測で 313 → 421 件に膨らみ、うち 87 件が素材のピン留めだった。
+**ユーザーが見た状態はリポジトリにも配備先の yml にも再現しなかった**（＝保存済みデータではなく
+画面生成側の挙動）ので、症状を作る機構のほうを塞いだ。
+
+**② TF 特殊アイテム 2 件（スキル再構築の書 / スキルノードの楔）をカタログから「特殊アイテム」へ。**
+`catalog.yml` で ID を書き換えられる状態だったが、この 2 件の ID は
+`com.trinityforge.skilltree.runtime.SkillTreeItems` が直接参照する固定値。
+→ 新設した「特殊アイテム」画面へ移し、**内部 ID 欄をロック**。カタログ画面からは非表示にしつつ
+保存内容は無損失で維持する（`split-views.js` で退避 → `getData` で戻す）。
+
+**当初この 2 件をアイテムステータスの「補助」に残す判断をしたが、ユーザーの指示で撤回**して
+機能アイテム側へ寄せた。撤回して初めて分かった実害があり、こちらのほうが重い —
+**この 2 件は `catalog.yml` に `custom-model-data` を持たない**ため、ステータス枠を作ると
+キーが素の Material（`AMETHYST_SHARD` / `ECHO_SHARD`）になり、**バニラ素材全体にステータスが
+乗る**。ID ロックの話ではなく、単体でバグだった。
+
+**③ editor に「機能アイテム」カテゴリを新設**し、特殊アイテム（旧「機能アイテム」）/ ソースリンク /
+ソースジャーを集約（`registry.js` の `section` ＋ `app.js` の `configSectionKey`）。
+TF と Ars がユーザー目線で統合されている以上、プラグイン単位で分けない。
+
+**④ 採集効率の表示名**が「最終効率」のまま残っていた箇所を統一（`lore.yml` / `labels.js` /
+`skilltree/woodcutting.yml`・`mining.yml` の `effect-text` ＝**プレイヤーに見える文言**）。
+
+**⑤ 基礎ステータス / 上限設定タブ**を Lore 表示のカテゴリ順にグループ化。死にキー
+`tool-enchant-efficiency` を非表示に。上限の根拠（どこで clamp されるか）は見出しから消さず
+**行ごとの `title` へ移した**。
+
+**⑥ ArsPaper 全体設定**のカード名を日本語化し、**geyser 設定カードを撤去**。
+`disable-custom-model-data` は **`config.yml` に定義自体が存在せず**既定値 `false` が常に
+効いていた＝挙動は変わらない。無効化するとリソースパックのモデルが一切出なくなるので、
+逃げ道ごと消した（`BaseCustomItem.java`）。
+
+**⑦ `.form-hint` / `.field-desc` に CSS が 1 つも無かった**（19 ファイル 56 箇所が無指定＝本文と
+同じ白字）。1 ルール追加で全部が薄いグレー 12px になる。あわせて `helpIcon` をネイティブ
+`title` から独自ポップオーバーへ置換（hover / click / Escape / 外側クリック / 端で反転、
+テキストは全部 `h()` のテキストノード＝`innerHTML` を使わない）。
+「XXX へ移行しました」「廃止しました」系のレガシー説明を削除し、**現在の制約を説明する文**へ
+書き換えた（現行仕様を述べている「廃止」表記は消さずに書き直した）。
+
+**自分で踏んで自分で潰した罠**: `forms.js` に
+`const IDS = (window.FUNCTIONAL_ITEMS_CORE && ...) || []` と書いたが、`index.html` の読み込み順は
+`forms.js`(64 行) → `functional-items.js`(67 行) なので**モジュール読み込み時点では必ず空配列**。
+呼び出し時に解決する関数へ直し、**require 順を逆にしたテスト**を足して固定した。
+
+検証: config-editor **695 / 695 pass・fail 0**（実走）。実ブラウザで
+サイドバー順・両「補助」タブ・特殊アイテム画面の ID ロック・`.field-desc` の算出値
+（12px / `rgb(139,147,163)`）・ツールチップに `title` が無いこと・`aria-expanded` の開閉を確認。
+
+**ビルド環境の変化**: Java **25.0.4**（2026-07-21 LTS）が自動更新で PATH の既定 `java` を奪い、
+Gradle が `What went wrong: 25.0.4` だけを吐いて起動しなくなった。JDK 21 は
+`C:\Program Files\Java\jdk-21` に残っているので、ビルドスクリプトで
+`-Dorg.gradle.java.home` を明示指定して回避している（→ §5）。
 
 ### 2026-07-27 — マナ回復ステータスの表示名が実装と逆だった件（K-8）と W-12 の取り下げ
 
