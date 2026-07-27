@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "wiki": "node ../scripts/generate-player-wiki.js",
+    "wiki:check": "node ../scripts/generate-player-wiki.js --check"
   },
   "engines": {
     "node": ">=20"

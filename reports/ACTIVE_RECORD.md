@@ -17,12 +17,13 @@
 
 ---
 
-## 1. 現在の状態（2026-07-27 13:05 時点）
+## 1. 現在の状態（2026-07-27 15:20 時点）
 
 | 対象 | 状態 |
 |---|---|
-| TrinityForge テスト | **2330 件 / 失敗 0 / スキップ 2**（`cleanTest test` で実走・実測。14要件バッチで 12 件追加） |
-| config-editor テスト | **614 / 614**（実走・実測） |
+| TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ） |
+| config-editor テスト | **654 / 654**（実走・実測） |
+| **配備（2026-07-27 15:20 のバッチ）** | **ビルド済み・未配備**。`TrinityForge/build/release/TrinityForge-all.jar`（15:19、`319e459` を含む）を作成済みだが、**`D:/` への書き込みが権限ゲートに拒否されたためユーザー実行が必要**。`tmp\run-deploy-k5b.cmd` を実行すれば、既存 jar と `stats/lore.yml` / `skilltree/farming.yml` を `backups/deploy-20260727/` へ退避してから上書きし、反映を検証する。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**yml だけでなく jar も要る**点に注意（`/tf stats detail` と確率バグ修正は Java 側） |
 | ArsPaper フォーク テスト | **全緑**（`RecipeBrowserFilterTest` 11 件を新設。`test --offline` で実走） |
 | `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 13:01 ビルド → **未配備、かつ HEAD より古い**（差分レビューの修正 `9123116` を含まない）。**配備前に再ビルドが要る** |
 | `ArsPaper-1.0.0.jar` | 2026-07-27 13:04 ビルド → **未配備、かつ HEAD より古い**（グロブ修正 `d3a3210` を含まない）。**配備前に再ビルドが要る** |
