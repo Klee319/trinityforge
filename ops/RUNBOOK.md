@@ -946,7 +946,163 @@ config が生成されてからでないと触れないものを、ここにま�
 > **LuckPerms を h2 から切り替えると、h2 に入っていた権限は見えなくなる。**
 > ファイル自体は `Dev_Server\plugins\LuckPerms\luckperms-h2-v2.mv.db` に残っているので、
 > 引き継ぎたい場合は **一度 `storage-method: h2` へ戻して `/lp export perms` → `mariadb` に戻して
-> `/lp import perms`**。作り直すなら不要。
+> `/lp import perms`**。作り直すなら不要。詳しくは手順 14。
+
+---
+
+## 手順 14. LuckPerms の設定（dev = 管理者専用）
+
+### 14-1. まず `server:` を分ける — **これが無いと per-server 権限が全部 global になる**
+
+`plugins\LuckPerms\config.yml` の `server:` は、そのサーバに居るプレイヤーへ自動で付く
+`server` コンテキストの値になる。**`global` のままだとこの値が付かず**、
+`/lp user X permission set foo true server=dev` のような指定が
+「どのサーバでも一致しない」ではなく「コンテキスト無しの永続付与」として効いてしまう。
+dev だけの権限のつもりが main でも効く、という壊れ方をする。
+
+| サーバ | `config.yml` の `server:` |
+|---|---|
+| Main_Server | `main` |
+| Resource_Server | `resource` |
+| Dev_Server | `dev` |
+
+**設定済み（2026-07-28）。** 変更は再起動で反映される。
+`include-global: true` はそのままでよい（コンテキスト指定の無い権限は全サーバで効く、が期待どおり）。
+
+`messaging-service: redis` ＋ `sync-minutes: -1` も現状のままでよい。
+Redis で push されるので、どのサーバで `/lp` を叩いても即座に 3 サーバへ伝わる。
+`sync-minutes` を正の値に戻すのは、messaging が壊れているときの保険としてだけ。
+
+### 14-2. dev を管理者専用にする — **LuckPerms だけでは実現できない**
+
+Velocity の `/server` コマンドが見る権限ノードは
+**`velocity.command.server` の 1 個だけ**（`velocity-4.1.0-SNAPSHOT-9.jar` の
+`ServerCommand.class` を逆アセンブルして確認済み。行き先ごとのノードは存在しない）。
+しかも判定は `getPermissionValue(...) != Tristate.FALSE` なので、
+**UNDEFINED（＝未設定）は「許可」**として扱われる。
+
+つまり:
+
+- ノードを否定すると `/server` そのものが使えなくなる（main ⇄ resource の移動も止まる）
+- そもそも**プロキシに LuckPerms が入っていない**ので、今は全員が `/server dev` を実行できる
+
+したがって dev の入口はバックエンド側で閉じる。
+
+```properties
+# Dev_Server\server.properties
+white-list=true
+```
+
+`Dev_Server\whitelist.json` に入れた相手だけが接続できる。
+弾かれた側は「You are not white-listed on this server!」でプロキシに残るだけなので、
+main に居るプレイヤーが巻き込まれることはない。
+
+> `ops\scripts\purge-player-data.ps1` が `-KeepOps` のメンバーで
+> `whitelist.json` と `white-list=true` をまとめて書く。あとから足すときは
+> dev のコンソールで `whitelist add <MCID>`（Bedrock は先頭のドット込み）。
+
+### 14-3. グループを作る
+
+MariaDB へ切り替えた直後は `default` しか無い。dev のコンソール（またはゲーム内）で:
+
+```
+/lp creategroup admin
+/lp creategroup moderator
+
+/lp group admin setweight 100
+/lp group moderator setweight 50
+/lp group moderator parent add default
+/lp group admin parent add moderator
+```
+
+管理者へ:
+
+```
+/lp user Klee319 parent add admin
+```
+
+### 14-4. 権限を割り当てる
+
+**全サーバで効かせるもの（コンテキスト指定なし）**
+
+```
+/lp group admin permission set luckperms.* true
+/lp group admin permission set trinityforge.elitemobs.commands true
+/lp group admin permission set husksync.command.husksync true
+/lp group admin permission set bukkit.command.op false
+```
+
+- `trinityforge.elitemobs.commands` … TF 本体の `EliteMobsCommandGateListener` が
+  `/em` `/elitemobs` `/ag` を全ブロックしている。管理者だけ解禁するためのノード
+- `bukkit.command.op` を明示的に `false` にしておくと、
+  ops.json 経由の全能と LuckPerms の管理を混ぜずに済む
+
+**dev でだけ効かせるもの**
+
+```
+/lp group admin permission set minecraft.command.gamemode true server=dev
+/lp group admin permission set worldedit.* true server=dev
+```
+
+`server=dev` が効くのは 14-1 を済ませてあるからで、そこを飛ばすと全サーバに付く。
+
+**確認**
+
+```
+/lp user Klee319 info
+/lp user Klee319 permission check trinityforge.elitemobs.commands
+/lp group admin permission info
+```
+
+### 14-5. ops はできるだけ使わない
+
+`ops.json` の level 4 は LuckPerms の外側にあり、否定ノードでも止められない。
+dev の検証で `/gamemode` などが要るだけなら、14-4 の `server=dev` 付き権限で足りる。
+**op は「LuckPerms 自体が壊れたときの復旧経路」として、自分 1 人だけに残す。**
+
+### 14-6. `velocity.toml` の `try` から dev を外す
+
+```toml
+try = ["main"]
+```
+
+`try` は**接続してきたプレイヤーを最初に送る先**（と、落ちたときの避難先）の順番。
+`["main", "resource", "dev"]` のままだと、main が落ちている間に来た人が
+resource や dev に着地する。dev を管理者専用にする以上ここに置いてはいけない。
+resource も、資源集めは `/server resource` で自分から行く場所なので入れない。
+
+**設定済み（2026-07-28）。**
+
+---
+
+## 手順 15. テストプレイのデータを消す
+
+dev で試した分のインベントリ・実績・権限を消して、まっさらから始めるとき。
+
+```powershell
+cd C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\scripts
+
+# 1. まず下見（何も消さない）
+.\purge-player-data.ps1
+
+# 2. 3 バックエンドを停止してから実行
+.\purge-player-data.ps1 -Apply
+
+# 3. 出力された SQL を流す（パスワードは対話入力）
+& 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p < 'D:\game\minecraft\PaperServer\Velocity_for_TF\purge-player-data-<日時>.sql'
+```
+
+押さえておくこと:
+
+- **サーバが起動していると中断する。** 起動中に消しても、停止時に Paper が書き戻し、
+  HuskSync が MariaDB から復元するので消えない
+- **SQL を飛ばすと元に戻る。** インベントリの実体は `husksync_user_data`、
+  権限の実体は `luckperms_*` にある。ファイルを消すだけでは不十分
+- `plugins\TrinityForge\player_progression.db`（スキル Lv / SP / パーク）は
+  3 サーバでジャンクション共有している実体なので、消すと 3 サーバ全部から消える。
+  残すなら `-KeepProgression`
+- 消す前の内容は `Velocity_for_TF\_purge-backup-<日時>\` に丸ごと退避される
+- ワールドの地形・config・jar には触らない
 
 ### 13-4. 手動をなくす（手順 11 とあわせて登録する）
 

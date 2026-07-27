@@ -501,6 +501,66 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-28 — LuckPerms の per-server 設定と、dev を管理者専用にする方法
+
+ユーザー依頼: **「luckperms でしておくべき設定を教えて、dev は管理者用とする」**
+＋**「過去に dev にアクセスしていた人のデータは権限含めてすべて削除してほしい」**。
+
+作業書は [ops/RUNBOOK.md](../ops/RUNBOOK.md) の**手順 14（LuckPerms）／手順 15（データ消去）**。
+
+**実施済み（設定ファイルの書き換え）**
+
+| 対象 | 変更 | 効く条件 |
+|---|---|---|
+| 3 台の `plugins\LuckPerms\config.yml` | `server: global` → `main` / `resource` / `dev` | 再起動 |
+| `velocity.toml` | `try = ["main","resource","dev"]` → `["main"]` | 再起動 |
+
+**非自明な点（次に触るときここを忘れる）**
+
+- **`server: global` のままだと per-server 権限が「全サーバ権限」に化ける。**
+  `server=dev` を付けても、そのコンテキスト値がどこにも発生しないので
+  「一致しない」ではなく「コンテキスト無しの永続付与」として通る。
+  dev 限定のつもりの権限が main で効く、という形で気付く。
+- **Velocity は `/server` の行き先ごとの権限を持っていない。**
+  `velocity-4.1.0-SNAPSHOT-9.jar` の `ServerCommand.class` を逆アセンブルして確認：
+  参照している文字列は `velocity.command.server` の 1 個だけで、判定は
+  `getPermissionValue(...) != Tristate.FALSE`。**UNDEFINED は「許可」**。
+  さらに**プロキシに LuckPerms が入っていない**（proxy 側は Geyser / ViaVersion /
+  ViaBackwards / floodgate のみ）ので、現状は**全員が `/server dev` を実行できる**。
+  → dev の入口は `Dev_Server\server.properties` の `white-list=true` で閉じる。
+  LuckPerms では実現できない。
+- `try` に dev を残すと、main が落ちている間に来た人が dev に着地する。
+
+**新規: `ops/scripts/purge-player-data.ps1`**
+
+3 台のプレイヤーデータと権限を消す。既定は下見、消すのは `-Apply`。
+
+- **サーバ起動中は中断する。** 起動中に消しても停止時に Paper が書き戻し、
+  HuskSync が MariaDB から復元するので消えない
+- **MariaDB を消さないと元に戻る。** インベントリの実体は `husksync_user_data`、
+  権限の実体は `luckperms_*`。ファイル消去だけでは不十分なので、
+  そのまま流せる SQL を書き出して手で実行してもらう（資格情報を持たないため）
+- `player_progression.db` は 3 台でジャンクション共有している実体。消すと全台から消える
+- 消す前の内容は `_purge-backup-<日時>\` へ退避
+
+**実装中に踏んだ落とし穴 2 件**（同じ書き方をするとまた踏む）
+
+- `@(... | ConvertFrom-Json)` は **JSON 配列を「配列 1 個」として受ける**。
+  要素 6 の `ops.json` が `Count = 1`（中身は `Object[]`）になり、
+  名前の突き合わせが全部外れて **Klee319 まで削除対象に入っていた**。
+  一度変数で受けてから `@()` で均す必要がある。**要素 1 件のファイルでは再現しない**ので、
+  main（op 1 人）だけで試すと素通りする
+- `Set-Content -Encoding UTF8` は **BOM を付ける**。`ops.json` / `whitelist.json` は
+  Minecraft 側が Gson で読むため、BOM 付きだと「op が全部消えた」ように見える。
+  `[System.IO.File]::WriteAllText` + `UTF8Encoding($false)` で書く
+
+**検証**: 実データを写したフィクスチャで下見→`-Apply` を実走。
+起動中ガードが実サーバで発火すること、`ops.json` が Klee319 のみになること、
+`whitelist.json` と `white-list=true` が書かれること、
+出力 4 ファイルすべてに BOM が無く Python で JSON としてパースできることを確認。
+
+**残（ユーザー側）**: 3 台を停止 → `-Apply` → SQL 実行 → 再起動 → 手順 14-3 以降の `/lp` 実行。
+
 ### 2026-07-28 — サーバ移動で「飛行状態だけ引き継ぐ」バグ（HuskSync `flight_status`）
 
 **症状**: サーバ移動でゲームモードはサバイバルに戻るのに、飛行状態だけ維持される
