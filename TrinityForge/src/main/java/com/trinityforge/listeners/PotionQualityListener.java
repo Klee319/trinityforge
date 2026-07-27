@@ -55,8 +55,12 @@ public final class PotionQualityListener implements Listener {
     private static final String BREW_SPEED_BONUS = StatKeys.canonical("brew_speed_bonus");
     /** Vanillaが醸造開始時にセットする満タンの醸造時間(tick)。この値そのものを「開始直後」の検出に使う。 */
     private static final int VANILLA_BREW_TIME_TICKS = 400;
-    /** 速度短縮の下限(短縮しすぎて0/負のtickにならないための安全弁)。90%短縮まで。 */
-    private static final double MAX_SPEED_REDUCTION = 0.9;
+    /**
+     * 速度短縮の下限(短縮しすぎて0/負のtickにならないための安全弁)。90%短縮まで。
+     * 段階1宣言(2026-07-27): {@code stats/lore.yml} の {@code brew-speed-bonus.limits.cap-ref} が
+     * 参照する昇格済み定数(可視性のみpublicへ変更、値・挙動は不変)。
+     */
+    public static final double MAX_SPEED_REDUCTION = 0.9;
 
     private final Plugin plugin;
     private final PlayerStatAggregator aggregator;

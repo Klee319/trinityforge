@@ -4,7 +4,6 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FoodGimmickConfig;
 import com.trinityforge.food.FoodGimmickPolicy;
-import com.trinityforge.mining.MiningGimmickPolicy;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.entity.Player;
@@ -44,10 +43,15 @@ import java.util.concurrent.ThreadLocalRandom;
  *       ({@code value:100}が基準量そのもの)。{@code junk-food-restore-boost}と同じ「保持ノードの最大
  *       valueを採用する」流儀(A-alpha-1→A-alpha-2のprerequisite連結によりA-alpha-2保持者はA-alpha-1の
  *       配置も保持しているため、tierテーブル無しでそのまま最大%が引ける)。</li>
- *   <li>{@code no-food-consume-chance}(percent): 食事してもアイテムを消費しない確率。
- *       {@link PlayerItemConsumeEvent#setReplacement}で消費前の全量スタックに差し替え、
+ *   <li>{@code no-food-consume-chance}(percent, stat key {@code food-save-chance}): 食事してもアイテムを
+ *       消費しない確率。{@link PlayerItemConsumeEvent#setReplacement}で消費前の全量スタックに差し替え、
  *       満腹度回復自体は通常通り(バニラの{@link FoodLevelChangeEvent}経路)与える。
- *       {@link org.bukkit.Material#isEdible()}が真のアイテムのみ対象(ポーション等の飲食は対象外)。</li>
+ *       {@link org.bukkit.Material#isEdible()}が真のアイテムのみ対象(ポーション等の飲食は対象外)。
+ *       2026-07-27: 以前は{@link com.trinityforge.stats.PercentStatNormalize}で既にフラクションへ矯正
+ *       済みの値を、さらに0-100スケール前提の{@code MiningGimmickPolicy.percentRoll}に通していたため
+ *       実効確率が設定値の100分の1になっていた確定バグがあった
+ *       ({@link BeekeepingListener}の{@code hive-harvest-fortune}と同じバグ種)。乱数と直接比較する方式
+ *       ({@link com.trinityforge.combat.CritResolver}と同じ流儀)に修正済み。</li>
  *   <li>{@code satiety-buff}(flag): 完全食の隠し満腹度(saturation)回復量UP。
  *       {@link FoodLevelChangeEvent}でsaturationに追加加算。</li>
  *   <li><strong>カスタム食料(custom-foods, どのperk/featureにもゲートされない)</strong>: 消費したアイテムが
@@ -93,8 +97,15 @@ public final class FoodGimmickListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        double chancePercent = aggregator.aggregate(player).totalOf(FOOD_SAVE_CHANCE_KEY);
-        if (!MiningGimmickPolicy.percentRoll(chancePercent, ThreadLocalRandom.current().nextDouble())) {
+        // PercentStatNormalize.RATE_KEYS already coerces this to a [0,1] fraction at aggregation time
+        // (e.g. 20 -> 0.2). Compare the fraction directly against the roll (same idiom as CritResolver /
+        // BreedingBonusListener#BREEDING_EXTRA_CHILD_CHANCE) instead of routing it through a
+        // percentRoll-style helper that expects a 0-100 scale, which would silently divide it by 100 again.
+        double foodSaveChanceFraction = aggregator.aggregate(player).totalOf(FOOD_SAVE_CHANCE_KEY);
+        if (!Double.isFinite(foodSaveChanceFraction) || foodSaveChanceFraction <= 0.0) {
+            return;
+        }
+        if (ThreadLocalRandom.current().nextDouble() >= Math.min(1.0, foodSaveChanceFraction)) {
             return;
         }
         // Roll succeeded: keep the full pre-consume stack in hand instead of the vanilla decremented

@@ -3,7 +3,6 @@ package com.trinityforge.listeners;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.MiningGimmickConfig;
-import com.trinityforge.mining.MiningGimmickPolicy;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -33,10 +32,15 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <ul>
  *   <li>{@code suspicious-block-respawn} (percent): breaking a suspicious sand/gravel block has a
- *       {@code valueSum}% chance to respawn the same block one tick later. Paper 1.21.11 has no
- *       dedicated "brush finish" event distinct from the block actually breaking, so a fully brushed
- *       suspicious block is a normal {@link BlockBreakEvent} here too (same handler covers both the
- *       brush-completion break and a plain punch-break).</li>
+ *       {@code suspicious-respawn-chance} fraction chance to respawn the same block one tick later.
+ *       Paper 1.21.11 has no dedicated "brush finish" event distinct from the block actually breaking,
+ *       so a fully brushed suspicious block is a normal {@link BlockBreakEvent} here too (same handler
+ *       covers both the brush-completion break and a plain punch-break).
+ *       2026-07-27: this used to route the already-fraction-coerced ({@link com.trinityforge.stats.PercentStatNormalize})
+ *       value through {@code MiningGimmickPolicy.percentRoll} (which expects a 0-100 scale), dividing it
+ *       by 100 a second time and making the effective chance 1/100th of the configured value — same bug
+ *       class as {@link BeekeepingListener}'s {@code hive-harvest-fortune} fix. Now compares the fraction
+ *       directly against the roll, same idiom as {@link com.trinityforge.combat.CritResolver}.</li>
  *   <li>{@code spawner-silktouch-harvest} (flag): breaking a {@link Material#SPAWNER} with a
  *       silk-touch tool drops a plain SPAWNER item instead of vanilla's "drop nothing".
  *       <strong>Note (要調整)</strong>: the harvested spawner does NOT retain its configured
@@ -91,8 +95,15 @@ public final class MiningGimmickListener implements Listener {
     }
 
     private void handleSuspiciousRespawn(Player player, Block block, Material type) {
-        double chancePercent = aggregator.aggregate(player).totalOf(SUSPICIOUS_RESPAWN_CHANCE_KEY);
-        if (!MiningGimmickPolicy.percentRoll(chancePercent, ThreadLocalRandom.current().nextDouble())) {
+        // PercentStatNormalize.RATE_KEYS already coerces this to a [0,1] fraction at aggregation time
+        // (e.g. 20 -> 0.2). Compare the fraction directly against the roll (same idiom as CritResolver /
+        // BreedingBonusListener#BREEDING_EXTRA_CHILD_CHANCE) instead of routing it through a
+        // percentRoll-style helper that expects a 0-100 scale, which would silently divide it by 100 again.
+        double respawnChanceFraction = aggregator.aggregate(player).totalOf(SUSPICIOUS_RESPAWN_CHANCE_KEY);
+        if (!Double.isFinite(respawnChanceFraction) || respawnChanceFraction <= 0.0) {
+            return;
+        }
+        if (ThreadLocalRandom.current().nextDouble() >= Math.min(1.0, respawnChanceFraction)) {
             return;
         }
         World world = block.getWorld();

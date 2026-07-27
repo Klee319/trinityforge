@@ -71,35 +71,34 @@ class LoreConfigDeclarationTest {
      * (逆に増やすのは、新規stat追加をこの許可リストへ逃がす行為であり原則禁止)。
      */
     private static final Set<String> UNDECLARED_ALLOW_LIST = Set.of(
-            "attack-power", "attack-speed", "attack-speed-bonus", "attack-reach",
-            "aoe-radius", "aoe-max-targets", "aoe-damage-rate", "percent-bonus-damage",
-            "damage-modifier", "item-cooldown", "crit-chance", "crit-damage", "penetration",
-            "bleed-chance", "bleed-damage", "knockback-resistance", "durability",
-            "reflect-flat", "reflect-percent", "gathering-efficiency", "mining-fortune",
-            "fishing-luck", "fishing-bonus", "mana-bonus", "mana-regen", "hit-mana-recovery",
-            "damage-mana-recovery", "thread-slots", "mana-cost-reduction-flat",
-            "mana-cost-reduction-percent", "phys-flat-defense", "magic-flat-defense",
-            "fixed-damage", "bow-accuracy", "ammo-save-chance", "arrow-piercing",
-            "arrow-velocity", "bow-cooldown-reduction", "arrow-knockback", "melee-knockback",
-            "stun-chance", "power-attack-damage", "power-attack-radius", "cooldown-reduction",
-            "haste-active-mining-cooldown-reduction", "tree-fell-cooldown-reduction",
-            "health-regen-bonus", "coating-charges", "hunger-save-chance", "mob-drop-bonus",
-            "skill-exp-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus",
-            "food-save-chance", "suspicious-respawn-chance", "hive-harvest-fortune",
-            "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus", "vanilla-exp-bonus",
-            "breeding-vanilla-exp-bonus", "woodcutting-extra-drop-chance",
-            "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",
-            "breeding-extra-child-chance", "bred-animal-growth-bonus",
-            "planted-crop-growth-bonus", "ritual-quality-bonus", "workbench-quality-bonus",
-            "craft-upswing-bonus", "craft-downswing-reduction", "craft-roll-up-bonus",
-            "craft-roll-down-reduction", "craft-roll-inset", "lapis-cost-reduction",
-            "material-refund-chance", "ingredient-save-chance", "source-cost-reduction",
-            "enchant-cost-reduction", "flat-bonus-damage", "flat-defense",
-            "fish-sell-price-bonus", "disassembly-return-bonus", "ocean-fishing-bonus",
-            "ars-tier-bonus", "glyph-slot-bonus", "glyph-damage-multiplier-bonus",
-            "light-armor-move-speed-per-piece", "heavy-armor-move-speed-per-piece",
-            "armor-set-bonus", "enchant-luck", "enchant-exp-gain-bonus", "potion-quality-bonus",
-            "brew-speed-bonus", "mana-max-base", "mana-regen-base", "mana-regen-interval-ticks",
+            "bleed-chance", "bleed-damage", "durability",
+            "bow-accuracy", "ammo-save-chance", "arrow-piercing",
+            "arrow-velocity", "bow-cooldown-reduction",
+            "haste-active-mining-cooldown-reduction",
+            "health-regen-bonus", "coating-charges",
+            // 段階4(2026-07-27)調査: 空腹減少(FoodLevelChangeEventのドレイン)に相当するtrigger.when
+            // 語彙が無いため未宣言。
+            "hunger-save-chance",
+            // 段階4(2026-07-27)調査: 複数の異なる契機(釣り/アイテム入手時の汎用品質刻印スイープ)から
+            // 発動し、単一のtrigger.whenで正確に表現できないため未宣言。
+            "loot-luck",
+            // 段階4(2026-07-27)調査: PlayerInteractEvent(ガチャ券の右クリック)に相当する「プレイヤーの
+            // 任意のインタラクト時」のtrigger.when語彙が無いため未宣言。
+            "gacha-rate-bonus",
+            "hive-harvest-fortune",
+            // 段階4(2026-07-27)調査: EntityBreedEvent(繁殖時)に相当するtrigger.when語彙が無いため
+            // 未宣言(3キーとも同じ理由)。
+            "breeding-vanilla-exp-bonus", "breeding-extra-child-chance", "bred-animal-growth-bonus",
+            "enchant-cost-reduction",
+            // 段階4(2026-07-27)調査: 公開APIはあるがフォーク側のどのクラスからも呼ばれておらず、
+            // 現状は未消費(死んでいる)ため未宣言。
+            "glyph-damage-multiplier-bonus",
+            "armor-set-bonus",
+            // 段階4(2026-07-27)調査: combat/base-stats.yml専用の「全プレイヤー共通の定数」であり
+            // PlayerStatAggregatorのitem+perk合算チャネルを経由しないため、trigger.sourcesが前提とする
+            // 「合算元」の概念が当てはまらず未宣言(10キーとも同じ理由、詳細はstats/lore.ymlの
+            // mana-max-baseコメント参照)。
+            "mana-max-base", "mana-regen-base", "mana-regen-interval-ticks",
             "mana-onhit-percent", "mana-onhit-flat", "mana-onattack-percent",
             "mana-onattack-flat", "mana-idle-seconds", "mana-idle-bonus-percent",
             "mana-idle-bonus-flat");

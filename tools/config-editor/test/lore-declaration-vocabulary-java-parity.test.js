@@ -10,7 +10,16 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { TRIGGER_WHEN, SOURCE_SCOPE, APPLIES_TO, STACKING } = require("../lib/lore-declaration-vocabulary");
+const {
+  TRIGGER_WHEN,
+  TRIGGER_WHEN_LABELS,
+  SOURCE_SCOPE,
+  SOURCE_SCOPE_LABELS,
+  APPLIES_TO,
+  APPLIES_TO_LABELS,
+  STACKING,
+  STACKING_LABELS,
+} = require("../lib/lore-declaration-vocabulary");
 
 const JAVA_STATS_DIR = path.join(__dirname, "..", "..", "..", "TrinityForge", "src", "main", "java", "com", "trinityforge", "stats");
 
@@ -25,19 +34,35 @@ function parseJavaEnumConstants(javaSource) {
   return matches;
 }
 
+// label() の switch 式から "case X -> "日本語ラベル";" のペアを抽出する(段階3)。
+// enum定数の並び抽出とは別に、ファイル全体を対象に正規表現で拾う(label()はコンストール宣言の
+// 後にあるので、上の parseJavaEnumConstants の走査範囲(最初の';'まで)には含まれない)。
+function parseJavaLabels(javaSource) {
+  const labels = {};
+  const pattern = /case\s+([A-Z][A-Z0-9_]*)\s*->\s*"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = pattern.exec(javaSource)) !== null) {
+    labels[m[1]] = m[2];
+  }
+  return labels;
+}
+
+function javaSourceOf(fileName) {
+  return fs.readFileSync(path.join(JAVA_STATS_DIR, fileName), "utf8");
+}
+
 function javaEnumConstants(fileName) {
-  const javaSource = fs.readFileSync(path.join(JAVA_STATS_DIR, fileName), "utf8");
-  return parseJavaEnumConstants(javaSource);
+  return parseJavaEnumConstants(javaSourceOf(fileName));
 }
 
 const CASES = [
-  { file: "StatTriggerWhen.java", js: TRIGGER_WHEN, label: "TRIGGER_WHEN / StatTriggerWhen" },
-  { file: "StatSourceScope.java", js: SOURCE_SCOPE, label: "SOURCE_SCOPE / StatSourceScope" },
-  { file: "StatAppliesTo.java", js: APPLIES_TO, label: "APPLIES_TO / StatAppliesTo" },
-  { file: "StatStacking.java", js: STACKING, label: "STACKING / StatStacking" },
+  { file: "StatTriggerWhen.java", js: TRIGGER_WHEN, jsLabels: TRIGGER_WHEN_LABELS, label: "TRIGGER_WHEN / StatTriggerWhen" },
+  { file: "StatSourceScope.java", js: SOURCE_SCOPE, jsLabels: SOURCE_SCOPE_LABELS, label: "SOURCE_SCOPE / StatSourceScope" },
+  { file: "StatAppliesTo.java", js: APPLIES_TO, jsLabels: APPLIES_TO_LABELS, label: "APPLIES_TO / StatAppliesTo" },
+  { file: "StatStacking.java", js: STACKING, jsLabels: STACKING_LABELS, label: "STACKING / StatStacking" },
 ];
 
-for (const { file, js, label } of CASES) {
+for (const { file, js, jsLabels, label } of CASES) {
   test(`${file} が読める(パスが壊れていないこと)`, () => {
     assert.ok(fs.existsSync(path.join(JAVA_STATS_DIR, file)), `not found: ${file}`);
   });
@@ -54,5 +79,31 @@ for (const { file, js, label } of CASES) {
 
     assert.deepEqual(missingFromJs, [], `${label}: present in Java but missing from JS: ${missingFromJs.join(", ")}`);
     assert.deepEqual(missingFromJava, [], `${label}: present in JS but missing from Java: ${missingFromJava.join(", ")}`);
+  });
+
+  test(`Java ${label} の label() 文言が完全一致する(段階3: /tf stats detail)`, () => {
+    const javaLabels = parseJavaLabels(javaSourceOf(file));
+    const javaLabelKeys = Object.keys(javaLabels);
+    assert.ok(javaLabelKeys.length > 0, `regex extracted zero labels from ${file}'s label(); pattern likely stale`);
+
+    const javaConstants = new Set(javaEnumConstants(file));
+    const javaLabelSet = new Set(javaLabelKeys);
+    const jsLabelSet = new Set(Object.keys(jsLabels || {}));
+
+    const constantsMissingLabel = [...javaConstants].filter((c) => !javaLabelSet.has(c));
+    assert.deepEqual(constantsMissingLabel, [], `${label}: enum constant(s) without a label() case: ${constantsMissingLabel.join(", ")}`);
+
+    const missingFromJs = [...javaLabelSet].filter((c) => !jsLabelSet.has(c));
+    const missingFromJava = [...jsLabelSet].filter((c) => !javaLabelSet.has(c));
+    assert.deepEqual(missingFromJs, [], `${label}: label present in Java but missing from JS *_LABELS: ${missingFromJs.join(", ")}`);
+    assert.deepEqual(missingFromJava, [], `${label}: label present in JS *_LABELS but missing from Java: ${missingFromJava.join(", ")}`);
+
+    for (const constant of javaLabelSet) {
+      assert.equal(
+        jsLabels[constant],
+        javaLabels[constant],
+        `${label}: label text mismatch for ${constant} (Java='${javaLabels[constant]}' JS='${jsLabels[constant]}')`
+      );
+    }
   });
 }

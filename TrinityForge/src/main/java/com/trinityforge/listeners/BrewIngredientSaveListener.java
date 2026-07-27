@@ -63,13 +63,27 @@ import java.util.concurrent.ThreadLocalRandom;
  * の{@code RATE_KEYS}に登録済みのため、config側で{@code 15}と書いても{@code 0.15}(フラクション)へ
  * 矯正されて集計に載る。この集計フラクション値は{@link com.trinityforge.combat.CritResolver}/
  * {@code ammo_save_chance}({@link com.trinityforge.skilltree.runtime.NativeCombatPerkListener})と
- * 同じ「乱数と直接比較」で消費する — 分母100で割る{@link com.trinityforge.mining.MiningGimmickPolicy#percentRoll}
- * は使わない(そちらは既にフラクション化された値を渡すと二重に100分の1へ縮小してしまう食い違いが
- * 見つかったため、意図的に避けた。詳細はタスク報告を参照)。
+ * 同じ「乱数と直接比較」で消費する — 分母100で割る {@code MiningGimmickPolicy.percentRoll} 相当の
+ * ヘルパーは意図的に使わない(そちらは既にフラクション化された値を渡すと二重に100分の1へ縮小して
+ * しまう食い違いがあった)。2026-07-27: この{@code percentRoll}自体は同じ理由で他2箇所
+ * ({@code suspicious-respawn-chance}/{@code food-save-chance})にも実在した確定バグと判明し修正・
+ * ヘルパーごと削除された({@link com.trinityforge.mining.MiningGimmickPolicy}の
+ * クラスJavadoc参照)。ここでの「意図的に避けた」判断はその削除より前から正しかったことになる。
  */
 public final class BrewIngredientSaveListener implements Listener {
 
     private static final String INGREDIENT_SAVE_CHANCE = StatKeys.canonical("ingredient-save-chance");
+
+    /**
+     * 段階1宣言(2026-07-27): {@code ingredient-save-chance} の下限(0%)。負値は捨てる。
+     * {@code stats/lore.yml} の {@code limits.floor-ref} が参照する昇格済み定数(可視性のみpublicへ変更)。
+     */
+    public static final double MIN_INGREDIENT_SAVE_CHANCE = 0.0;
+    /**
+     * 段階1宣言(2026-07-27): {@code ingredient-save-chance} の上限(100%=1.0)。
+     * {@code stats/lore.yml} の {@code limits.cap-ref} が参照する昇格済み定数(可視性のみpublicへ変更)。
+     */
+    public static final double MAX_INGREDIENT_SAVE_CHANCE = 1.0;
 
     private final PlayerStatAggregator aggregator;
     private final BrewOwnership brewOwnership;
@@ -102,7 +116,7 @@ public final class BrewIngredientSaveListener implements Listener {
         if (owner == null) {
             return;
         }
-        double chance = Math.max(0.0, Math.min(1.0,
+        double chance = Math.max(MIN_INGREDIENT_SAVE_CHANCE, Math.min(MAX_INGREDIENT_SAVE_CHANCE,
                 aggregator.aggregate(owner).totalOf(INGREDIENT_SAVE_CHANCE)));
         if (chance <= 0.0) {
             return;

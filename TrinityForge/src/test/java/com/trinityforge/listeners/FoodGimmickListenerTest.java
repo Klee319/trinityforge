@@ -18,22 +18,30 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
+import org.mockito.MockedStatic;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * {@code no-food-consume-chance} → {@code food_save_chance} (2026-07-23 stat-gate-overhaul §2 移行B9:
- * 装備+perk合算。100%以上のstat値は {@link com.trinityforge.mining.MiningGimmickPolicy#percentRoll} が
- * 乱数に関わらず必ず成立させるため、決定的にテストできる).
+ * 装備+perk合算。100%以上のstat値は{@link FoodGimmickListener}が乱数に関わらず必ず成立させる
+ * ({@code Math.min(1.0, fraction)}でクランプするため)ので、決定的にテストできる).
+ *
+ * <p>2026-07-27: 確定バグの回帰テストを追加(旧実装は{@code totalOf}が返す既にフラクション化済みの値
+ * ({@code PercentStatNormalize.RATE_KEYS}参照)を、さらに{@code MiningGimmickPolicy.percentRoll}
+ * (0-100スケール前提)で100分割しており、実効確率が設定値の100分の1になっていた)。
  */
 class FoodGimmickListenerTest {
 
@@ -78,6 +86,83 @@ class FoodGimmickListenerTest {
 
         verify(event).setReplacement(org.mockito.ArgumentMatchers.argThat(
                 stack -> stack.getType() == Material.BREAD));
+    }
+
+    @Test
+    void fractionPointTwoSaveChanceKeepsStackAtRollPointOne() {
+        // Regression proof for the confirmed double-scaling bug: totalOf() already returns a fraction
+        // (0.2 == the "20%" a config author wrote) because food_save_chance is coerced by
+        // PercentStatNormalize.RATE_KEYS before aggregation. Under the OLD implementation
+        // (MiningGimmickPolicy.percentRoll(0.2, 0.1)) this would divide 0.2 by 100 again -> effective
+        // chance 0.2% -> roll 0.1 would MISS (item consumed normally). The fixed listener compares the
+        // fraction directly, so roll 0.1 < 0.2 must HIT (item kept).
+        Player player = mock(Player.class);
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+        PlayerStatAggregator aggregator = aggregatorReturning(player, 0.2);
+        FoodGimmickListener listener =
+                new FoodGimmickListener(MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, aggregator);
+        PlayerItemConsumeEvent event = consumeEvent(player);
+
+        try (MockedStatic<ThreadLocalRandom> rngStatic = mockStatic(ThreadLocalRandom.class)) {
+            ThreadLocalRandom rng = mock(ThreadLocalRandom.class);
+            rngStatic.when(ThreadLocalRandom::current).thenReturn(rng);
+            when(rng.nextDouble()).thenReturn(0.1);
+
+            listener.onItemConsume(event);
+        }
+
+        verify(event).setReplacement(org.mockito.ArgumentMatchers.argThat(
+                stack -> stack.getType() == Material.BREAD));
+    }
+
+    @Test
+    void fractionPointTwoSaveChanceConsumesNormallyAtRollPointThree() {
+        // Same fraction (0.2 == 20%) but roll 0.3 sits above the threshold -> must MISS (item consumed
+        // normally, no setReplacement call) under the fixed implementation (0.3 >= 0.2).
+        Player player = mock(Player.class);
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+        PlayerStatAggregator aggregator = aggregatorReturning(player, 0.2);
+        FoodGimmickListener listener =
+                new FoodGimmickListener(MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, aggregator);
+        PlayerItemConsumeEvent event = consumeEvent(player);
+
+        try (MockedStatic<ThreadLocalRandom> rngStatic = mockStatic(ThreadLocalRandom.class)) {
+            ThreadLocalRandom rng = mock(ThreadLocalRandom.class);
+            rngStatic.when(ThreadLocalRandom::current).thenReturn(rng);
+            when(rng.nextDouble()).thenReturn(0.3);
+
+            listener.onItemConsume(event);
+        }
+
+        verify(event, never()).setReplacement(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void zeroNegativeOrNonFiniteSaveChanceNeverReplacesAndNeverThrows() {
+        Player player = mock(Player.class);
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+
+        FoodGimmickListener zeroListener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, aggregatorReturning(player, 0.0));
+        PlayerItemConsumeEvent zeroEvent = consumeEvent(player);
+        zeroListener.onItemConsume(zeroEvent);
+
+        FoodGimmickListener negativeListener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, aggregatorReturning(player, -5.0));
+        PlayerItemConsumeEvent negativeEvent = consumeEvent(player);
+        negativeListener.onItemConsume(negativeEvent);
+
+        FoodGimmickListener nanListener = new FoodGimmickListener(MockBukkit.createMockPlugin(),
+                dedicatedEffects, foodGimmick, aggregatorReturning(player, Double.NaN));
+        PlayerItemConsumeEvent nanEvent = consumeEvent(player);
+        nanListener.onItemConsume(nanEvent);
+
+        verify(zeroEvent, never()).setReplacement(org.mockito.ArgumentMatchers.any());
+        verify(negativeEvent, never()).setReplacement(org.mockito.ArgumentMatchers.any());
+        verify(nanEvent, never()).setReplacement(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

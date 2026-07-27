@@ -19,4 +19,16 @@ public enum StatAppliesTo {
             throw new IllegalArgumentException("unknown trigger.applies-to '" + raw + "'", ex);
         }
     }
+
+    /**
+     * プレイヤー向け日本語ラベル。この enum が正本で、{@code tools/config-editor/lib/
+     * lore-declaration-vocabulary.js} の {@code APPLIES_TO_LABELS} はこの switch のミラー
+     * ({@link StatTriggerWhen#label()} と同じ規約)。
+     */
+    public String label() {
+        return switch (this) {
+            case PLAYER -> "プレイヤー";
+            case MOB -> "モブ";
+        };
+    }
 }

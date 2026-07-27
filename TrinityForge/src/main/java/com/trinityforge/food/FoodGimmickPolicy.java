@@ -8,10 +8,17 @@ import java.util.Set;
  * Pure helpers shared by the food/満腹スキルツリーのdedicated-effect consumer
  * ({@code FoodGimmickListener}): junk-food classification and the
  * {@code junkfood-inversion} recovery-amount adjustment. Bukkit-event-free so both are
- * unit-testable with fixed inputs. The percent-chance roll used by
- * {@code no-food-consume-chance} reuses {@link com.trinityforge.mining.MiningGimmickPolicy#percentRoll}
- * directly (same generic 0-100 percent-roll utility already shared by the farming gimmick
- * listeners; not duplicated here).
+ * unit-testable with fixed inputs.
+ *
+ * <p>The percent-chance roll used by {@code no-food-consume-chance} ({@code food-save-chance} stat
+ * key) does <b>not</b> live here or reuse a shared percent-roll helper — it is inlined in
+ * {@code FoodGimmickListener#onItemConsume} as a direct fraction comparison
+ * ({@code Double.isFinite(x) && x > 0.0 && roll < Math.min(1.0, x)}), same idiom as
+ * {@link com.trinityforge.combat.CritResolver}. 2026-07-27: it previously routed the
+ * already-{@link com.trinityforge.stats.PercentStatNormalize}-coerced fraction through
+ * {@code MiningGimmickPolicy.percentRoll} (which expected an uncoerced 0-100 scale), silently
+ * dividing it by 100 a second time and making the effective save chance 1/100th of the configured
+ * value. That helper has since been deleted.
  */
 public final class FoodGimmickPolicy {
 

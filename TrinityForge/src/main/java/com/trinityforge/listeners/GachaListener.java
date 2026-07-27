@@ -102,11 +102,15 @@ public final class GachaListener implements Listener {
             return;
         }
 
-        // gacha_rate_bonus (percent, 装備+perk合算): approximated by boosting the pool's
-        // minimum-weight ("rarest") entries' weight in a temporary copy — GachaDraw/GachaPool/GachaEntry
-        // themselves are left untouched (see GachaRateUp for the exact boost formula and rationale).
-        double rateUpPercent = aggregator.aggregate(player).totalOf(GACHA_RATE_BONUS_KEY);
-        GachaPool effectivePool = GachaRateUp.applyRateUp(pool.get(), rateUpPercent);
+        // gacha_rate_bonus (装備+perk合算): PercentStatNormalize.RATE_KEYS already coerces this to a
+        // [0,1] fraction at aggregation time (e.g. 20 -> 0.2). Pass the fraction straight through to
+        // GachaRateUp — it must NOT be divided by 100 again (that bug hit BeekeepingListener /
+        // MiningGimmickListener / FoodGimmickListener before this one; see GachaRateUp Javadoc).
+        // Approximated by boosting the pool's minimum-weight ("rarest") entries' weight in a temporary
+        // copy — GachaDraw/GachaPool/GachaEntry themselves are left untouched (see GachaRateUp for the
+        // exact boost formula and rationale).
+        double rateUpFraction = aggregator.aggregate(player).totalOf(GACHA_RATE_BONUS_KEY);
+        GachaPool effectivePool = GachaRateUp.applyRateUp(pool.get(), rateUpFraction);
 
         // 天井(pity, ITEM_ECONOMY CR-9安全弁②): 抽選はrate-upブースト済みプールで行うが、
         // 「最高レア」の定義とカウンタ判定はconfigの元プールに固定する(GachaDraw参照)。

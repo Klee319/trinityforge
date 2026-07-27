@@ -1,32 +1,28 @@
 package com.trinityforge.mining;
 
 /**
- * Pure helpers shared by the flag/percent mining-gimmick dedicated-effect listeners
- * ({@code VeinMiningListener}, {@code MiningGimmickListener}): a percent-chance roll and a
- * cooldown-elapsed check. Bukkit-free so both are unit-testable with fixed inputs instead of a live
- * clock/RNG. (2026-07-25: {@code haste-active-mining}'s cooldown moved to the shared
+ * Pure helper shared by the flag/percent mining-gimmick dedicated-effect listeners
+ * ({@code VeinMiningListener}, {@code MiningGimmickListener}): a cooldown-elapsed check. Bukkit-free
+ * so it is unit-testable with fixed inputs instead of a live clock. (2026-07-25:
+ * {@code haste-active-mining}'s cooldown moved to the shared
  * {@code com.trinityforge.active.CooldownManager} — see {@code HasteActiveSkill} — but this class'
  * {@link #cooldownReady} logic remains the reference the framework's inline equivalent follows.)
+ *
+ * <p><b>2026-07-27: {@code percentRoll} removed</b>. It expected a 0-100 percent scale, but every
+ * stat key it was fed ({@code suspicious-respawn-chance}, {@code food-save-chance}, and formerly
+ * {@code hive-harvest-fortune}) is registered in {@link com.trinityforge.stats.PercentStatNormalize}'s
+ * {@code RATE_KEYS} and therefore already coerced to a {@code [0,1]} fraction at aggregation time —
+ * feeding that fraction back into a helper that divides by 100 again silently shrank the effective
+ * chance to 1/100th of the configured value. All three sites now compare the fraction directly against
+ * the roll instead ({@link com.trinityforge.combat.CritResolver} /
+ * {@code BreedingBonusListener#BREEDING_EXTRA_CHILD_CHANCE} idiom:
+ * {@code Double.isFinite(x) && x > 0.0 && roll < Math.min(1.0, x)}). Do not reintroduce a shared
+ * "percent roll" helper without also fixing at the call site whether the input is already a fraction —
+ * that mismatch is exactly what caused this bug.
  */
 public final class MiningGimmickPolicy {
 
     private MiningGimmickPolicy() {
-    }
-
-    /**
-     * True with probability {@code percentValue}% (a {@code DedicatedEffectsConfig#valueSum} result,
-     * expressed as 0-100, not 0-1). Floor/negative-clamped: a negative or non-finite
-     * {@code percentValue} never rolls true; a value above 100 is treated as a guaranteed hit rather
-     * than throwing, since a generous config value should never crash a block-break handler.
-     *
-     * @param roll01 a uniform draw in {@code [0, 1)}, e.g. {@code ThreadLocalRandom.current().nextDouble()}
-     */
-    public static boolean percentRoll(double percentValue, double roll01) {
-        if (!Double.isFinite(percentValue) || percentValue <= 0.0) {
-            return false;
-        }
-        double clamped = Math.min(percentValue, 100.0);
-        return roll01 < (clamped / 100.0);
     }
 
     /**

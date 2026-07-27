@@ -39,4 +39,31 @@ public enum StatTriggerWhen {
             throw new IllegalArgumentException("unknown trigger.when '" + raw + "'", ex);
         }
     }
+
+    /**
+     * プレイヤー向け日本語ラベル。この enum が正本で、{@code tools/config-editor/lib/
+     * lore-declaration-vocabulary.js} の {@code TRIGGER_WHEN_LABELS} はこの switch のミラー。
+     * {@code lore-declaration-vocabulary-java-parity.test.js} が両者の一致を検証する
+     * (K-5段階3: {@code /tf stats detail} 用。二重管理を避けるため、この enum を唯一の正本とする)。
+     */
+    public String label() {
+        return switch (this) {
+            case ON_MELEE_HIT -> "近接攻撃時";
+            case ON_PROJECTILE_HIT -> "飛び道具命中時";
+            case ON_ANY_HIT -> "攻撃命中時(近接/飛び道具問わず)";
+            case ON_DAMAGE_TAKEN -> "被弾時";
+            case ON_KILL -> "撃破時";
+            case PASSIVE_ATTRIBUTE -> "常時(バニラ属性へ直接反映)";
+            case PASSIVE -> "常時(独自ロジックで常時適用)";
+            case ON_BLOCK_BREAK -> "ブロック破壊時";
+            case ON_CRAFT -> "クラフト時";
+            case ON_BREW -> "醸造時";
+            case ON_ENCHANT -> "エンチャント時";
+            case ON_FISH -> "釣り時";
+            case ON_SMELT -> "精錬時";
+            case ON_DISASSEMBLE -> "解体時";
+            case ON_CONSUME -> "飲食時";
+            case ON_SPELL_CAST -> "魔法詠唱時";
+        };
+    }
 }

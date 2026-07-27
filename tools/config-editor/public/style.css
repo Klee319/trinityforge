@@ -13,6 +13,7 @@
   --danger: #e0574a;
   --radius: 8px;
   --scrollbar-size: 8px;
+  --main-pad-top: 18px;
   --scrollbar-track: transparent;
   --scrollbar-thumb: #3a4250;
   --scrollbar-thumb-hover: #526074;
@@ -133,7 +134,9 @@ body {
    min-width:0 対応で無くす方向を優先し、ここは保険として hidden にする)。 */
 .main {
   min-width: 0; min-height: 0;
-  padding: 18px 24px;
+  /* 上端パディングは .hub-subtabs のスクロール追従が参照するので変数で共有する
+     (直値で二重に持つと片方だけ変えたときにカテゴリバーの上に隙間ができる) */
+  padding: var(--main-pad-top) 24px 18px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -242,8 +245,29 @@ select.field-input option {
   background: var(--bg);
   padding-top: 2px;
 }
+/* 2026-07-27 修正: 追従中のバーが本体から離れて見えるUI崩れ。
+   .main の上端パディング(--main-pad-top)はスクロール領域の内側なので、
+   スクロール中のカードがその帯に描画され「固定されたバーの上」に覗いていた。
+   バーの背景をその帯まで上へ伸ばして覆う。
+   ※ margin-top を負にする手は効かない(sticky の固定位置は変わらず、
+     静止時の位置だけがずれる)ので、擬似要素で塗る。 */
+.hub-subtabs::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--main-pad-top);
+  background: var(--bg);
+  pointer-events: none;
+}
 .hub-subtabs.hub-subtabs-flow {
   position: static;
+}
+/* 追従しない版(カタログ/アイテムステータス)は帯を覆う必要がない。
+   position:static だと ::before の基準が先祖になり、無関係な位置に帯が出る。 */
+.hub-subtabs.hub-subtabs-flow::before {
+  content: none;
 }
 /* 折りたたみトグル (▶/▼)。ヘッダ左端に小さく配置する。 */
 .collapse-toggle { flex: none; min-width: 26px; padding: 3px 6px; }

@@ -5,38 +5,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** {@link MiningGimmickPolicy}: percent-roll and cooldown pure helpers. */
+/**
+ * {@link MiningGimmickPolicy}: cooldown pure helper.
+ *
+ * <p>2026-07-27: {@code percentRoll} and its tests were removed here (see the class Javadoc on
+ * {@link MiningGimmickPolicy} for why) — the fraction-vs-percent double-scaling bug it caused is now
+ * covered directly at the call sites in {@code MiningGimmickListenerTest} and
+ * {@code FoodGimmickListenerTest}.
+ */
 class MiningGimmickPolicyTest {
-
-    @Test
-    void percentRollHitsWhenRollBelowThreshold() {
-        // 25% chance, roll = 0.1 -> hit.
-        assertTrue(MiningGimmickPolicy.percentRoll(25.0, 0.1));
-    }
-
-    @Test
-    void percentRollMissesWhenRollAtOrAboveThreshold() {
-        // 25% chance, roll = 0.25 -> miss (strictly less-than threshold semantics).
-        assertFalse(MiningGimmickPolicy.percentRoll(25.0, 0.25));
-        assertFalse(MiningGimmickPolicy.percentRoll(25.0, 0.9));
-    }
-
-    @Test
-    void zeroOrNegativePercentNeverHits() {
-        assertFalse(MiningGimmickPolicy.percentRoll(0.0, 0.0));
-        assertFalse(MiningGimmickPolicy.percentRoll(-10.0, 0.0));
-    }
-
-    @Test
-    void nonFinitePercentNeverHits() {
-        assertFalse(MiningGimmickPolicy.percentRoll(Double.NaN, 0.0));
-        assertFalse(MiningGimmickPolicy.percentRoll(Double.POSITIVE_INFINITY, 0.999999));
-    }
-
-    @Test
-    void percentAbove100IsTreatedAsGuaranteed() {
-        assertTrue(MiningGimmickPolicy.percentRoll(150.0, 0.999));
-    }
 
     @Test
     void cooldownReadyOnceElapsedTimeMeetsOrExceedsCooldown() {

@@ -714,8 +714,12 @@ public final class CombatListener implements Listener {
 
     private static final String ITEM_COOLDOWN_KEY = StatKeys.canonical("item-cooldown");
 
-    /** Longest cooldown TF will set (1 hour), so an absurd rolled value can't overflow the int tick count. */
-    private static final long ITEM_COOLDOWN_MAX_TICKS = 72_000L;
+    /**
+     * Longest cooldown TF will set (1 hour), so an absurd rolled value can't overflow the int tick count.
+     * 段階1宣言(2026-07-27): {@code stats/lore.yml} の {@code item-cooldown.limits.max-duration-ticks-ref}
+     * が参照する昇格済み定数(可視性のみpublicへ変更、値・挙動は不変)。
+     */
+    public static final long ITEM_COOLDOWN_MAX_TICKS = 72_000L;
 
     /**
      * アイテムCT applies to the PRIMARY melee hit only ({@code ENTITY_ATTACK}), never the sweep
