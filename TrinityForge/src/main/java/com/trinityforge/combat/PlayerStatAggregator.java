@@ -67,10 +67,16 @@ public final class PlayerStatAggregator {
      *
      * <p>Cleared wholesale whenever {@link Bukkit#getCurrentTick()} advances (checked on every call, no
      * extra scheduler task needed), so the map is bounded by "distinct keys queried in the current
-     * tick" and self-evicts every tick — never an unbounded per-UUID map. Main-thread only: every real
-     * caller found in this codebase ({@code CombatListener}, {@code NativeCombatPerkListener},
-     * {@code PlayerDefenseResolver}, {@code PerkAttributeApplier}, the ArsPaper fork bridge) calls this
-     * synchronously on the server thread, so no synchronization is used here.
+     * tick" and self-evicts every tick — never an unbounded per-UUID map.
+     *
+     * <p><b>メインスレッド専用(2026-07-28 に強制化)。</b>同期化されていない plain HashMap なので、
+     * 複数スレッドから触ると壊れる。「呼び出し側は全部メインスレッドだから安全」という当初の想定は
+     * <b>誤りだった</b> — {@code NativeExperienceDispatcher#drain}(非同期タスク)が
+     * {@code NativeProgressionService} 経由で {@code skill_exp_bonus} を引くために
+     * {@link #aggregate(Player)} を呼んでおり、実サーバで
+     * {@link java.util.ConcurrentModificationException} を起こしていた。
+     * 現在は {@link #aggregate(Player, ItemStack, boolean)} が
+     * {@link Bukkit#isPrimaryThread()} を見て、非同期呼び出しにはこのマップを触らせない。
      */
     private final Map<AggregateCacheKey, PlayerCombatAggregate> tickCache = new HashMap<>();
     private int cachedTick = Integer.MIN_VALUE;
@@ -210,6 +216,17 @@ public final class PlayerStatAggregator {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(mainhandContributor, "mainhandContributor");
 
+        // 非同期スレッドからの呼び出しは tickCache に一切触らせない (2026-07-28 実サーバの
+        // ConcurrentModificationException の真因)。
+        // NativeExperienceDispatcher#drain は非同期タスクで、そこから
+        // NativeProgressionService -> TrinityForge の skill_exp_bonus サプライヤ -> aggregate(...) と
+        // 降りてくる。そのため plain HashMap である tickCache をメインスレッドと非同期スレッドが
+        // 同時に触っていた。CME はその最も軽い症状にすぎず、無限ループやエントリ消失まで起こりうる。
+        // 非同期側はキャッシュを諦めて毎回計算する(呼び出し頻度は EXP 付与ごとで低く、実害は無い)。
+        if (!Bukkit.isPrimaryThread()) {
+            return computeAggregate(player, mainhandContributor, contributorIsOffhand);
+        }
+
         int tick = Bukkit.getCurrentTick();
         if (tick != cachedTick) {
             tickCache.clear();
@@ -221,12 +238,11 @@ public final class PlayerStatAggregator {
         // lifetime regardless of what the live item does afterward.
         AggregateCacheKey key = new AggregateCacheKey(
                 player.getUniqueId(), mainhandContributor.clone(), contributorIsOffhand);
-        // computeIfAbsent は使えない (2026-07-28 実サーバで ConcurrentModificationException):
-        // computeAggregate は解決器を経由して同じプレイヤーの aggregate(...) を再入呼び出しすることが
-        // あり、その内側の put で HashMap が構造変更されるため、外側の computeIfAbsent が戻り際の
-        // modCount チェックで落ちる。落ちると PerkAttributeApplier#reconcileAllOnline のループが
-        // その場で中断し、以降のプレイヤーの属性が当たらないまま放置される。
-        // get→compute→put なら再入しても内側が先に入れた値を外側が同値で上書きするだけで無害。
+        // computeIfAbsent は使わない: マッピング関数の実行中に同じマップが構造変更されると
+        // 戻り際の modCount チェックで CME になる。上のスレッドガードで主因は塞いだが、
+        // computeAggregate が解決器を経由して同じプレイヤーの aggregate(...) へ再入した場合にも
+        // 同じ壊れ方をするため、再入に対して無害な get→compute→put のままにしておく
+        // (再入しても内側が先に入れた値を外側が同値で上書きするだけ)。
         PlayerCombatAggregate cached = tickCache.get(key);
         if (cached != null) {
             return cached;
