@@ -740,6 +740,122 @@
     return root;
   };
 
+  // 解体ルール1件のエディタ (2026-07-27 個別指定/重み抽選/レシピなしアイテム対応)。
+  // 素材数の決め方は input(レシピから数える) と base-amount(固定数) の二択で、
+  // base-amount 側はクラフトレシピを持たないアイテム(釣りのゴミ等)を解体対象にするための唯一の手段。
+  // 返却先は output(1種類) と outputs(重み抽選・1件だけ当たる) の二択で、Java側の
+  // CraftingFeaturesConfig.parseDisassemblyRule と同じ語彙をそのまま編集する。
+  function disassemblyRuleEditor(rule, onRemove) {
+    const box = h("div", { class: "cf-mat-card" });
+    function render() {
+      box.innerHTML = "";
+      const fixedAmount = rule["base-amount"] != null;
+      const weighted = Array.isArray(rule.outputs);
+
+      const head = h("div", { class: "cf-mat-card-head" }, [
+        h("span", { class: "entry-key-label", text: "返却ルール" }),
+        h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: onRemove })
+      ]);
+      box.appendChild(head);
+
+      box.appendChild(field("素材数の決め方", window.listSelect({
+        value: fixedAmount ? "fixed" : "recipe",
+        options: [
+          { value: "recipe", primary: "レシピから数える", secondary: "input" },
+          { value: "fixed", primary: "固定数を指定", secondary: "base-amount" }
+        ],
+        onChange: (v) => {
+          if (v === "fixed") {
+            delete rule.input;
+            rule["base-amount"] = 1;
+          } else {
+            delete rule["base-amount"];
+            rule.input = rule.input || "IRON_INGOT";
+          }
+          render();
+        }
+      }), "「レシピから数える」= 対象アイテムのレシピを引いて素材の使用個数を数える / 「固定数を指定」= レシピを引かず固定数を使う（★クラフトレシピの無いアイテム＝釣りのゴミ等はこちら）"));
+
+      if (fixedAmount) {
+        box.appendChild(field("基準素材数 (base-amount)", window.numberInput(rule["base-amount"], (v) => {
+          if (v == null) return;
+          rule["base-amount"] = Math.max(0, v);
+        }), "レシピの代わりに使う素材数。釣りのゴミなら 1 程度。"));
+      } else {
+        box.appendChild(field("クラフト素材 (input)", window.materialInput(rule.input || "", "material-list", (v) => {
+          rule.input = (v || "").trim();
+        }, { allowCustom: true }), "対象アイテムのレシピ内でこの素材が何個使われているかを数える。"));
+      }
+
+      box.appendChild(field("返却先の決め方", window.listSelect({
+        value: weighted ? "weighted" : "single",
+        options: [
+          { value: "single", primary: "1種類だけ返す", secondary: "output" },
+          { value: "weighted", primary: "重み抽選(ランダム)", secondary: "outputs" }
+        ],
+        onChange: (v) => {
+          if (v === "weighted") {
+            const single = (rule.output || "").trim();
+            delete rule.output;
+            rule.outputs = [{ item: single || "IRON_INGOT", weight: 1 }];
+          } else {
+            const first = Array.isArray(rule.outputs) && rule.outputs.length ? rule.outputs[0] : null;
+            delete rule.outputs;
+            rule.output = (first && first.item) || "IRON_INGOT";
+          }
+          render();
+        }
+      }), "「1種類だけ返す」= 常に同じアイテムが返る / 「重み抽選」= 候補から重み抽選で★1件だけ★当たる"));
+
+      if (weighted) {
+        const rows = h("div", { class: "stat-rows" });
+        const total = rule.outputs.reduce((sum, o) => sum + (Number(o && o.weight) > 0 ? Number(o.weight) : 0), 0);
+        rule.outputs.forEach((out, i) => {
+          const row = h("div", { class: "stat-row" });
+          row.appendChild(h("span", { class: "range-label", text: "返却先" }));
+          row.appendChild(window.materialInput(out.item || "", "material-list", (v) => {
+            out.item = (v || "").trim();
+          }, { allowCustom: true }));
+          row.appendChild(h("span", { class: "range-label", text: "重み" }));
+          row.appendChild(window.numberInput(out.weight == null ? 1 : out.weight, (v) => {
+            if (v == null) return;
+            out.weight = Math.max(0, v);
+            render();
+          }));
+          const w = Number(out.weight) > 0 ? Number(out.weight) : 0;
+          row.appendChild(h("span", {
+            class: "range-label",
+            text: total > 0 ? `${Math.round((w / total) * 1000) / 10}%` : "—"
+          }));
+          row.appendChild(h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { rule.outputs.splice(i, 1); render(); }
+          }));
+          rows.appendChild(row);
+        });
+        rows.appendChild(h("button", {
+          class: "btn-small", type: "button", text: "+ 候補",
+          onclick: () => { rule.outputs.push({ item: "IRON_INGOT", weight: 1 }); render(); }
+        }));
+        box.appendChild(h("div", { class: "form-field" }, [
+          h("span", { class: "form-label", text: "返却先の候補 (outputs) — 重み抽選" }),
+          rows,
+          formHint("重みは合計に対する相対値。右の%は現在の当選確率。重み 0 以下の候補は抽選から外れる。")
+        ]));
+      } else {
+        box.appendChild(field("返却先 (output)", window.materialInput(rule.output || "", "material-list", (v) => {
+          rule.output = (v || "").trim();
+        }, { allowCustom: true })));
+      }
+
+      box.appendChild(field("返却倍率 (multiplier)", window.numberInput(rule.multiplier == null ? 1 : rule.multiplier, (v) => {
+        if (v != null) rule.multiplier = Math.max(0, v);
+      })));
+    }
+    render();
+    return box;
+  }
+
   // 解体 (disassembly)。返却%と対象シリーズ↔返却ルールを編集する。鍛冶ギミックタブが呼ぶ。
   window.buildCraftingFeaturesDisassemblySection = function buildDisassemblySection(dis) {
     const root = h("div", {});
@@ -749,7 +865,7 @@
       root.appendChild(card(
         [h("span", { class: "entry-key-label", text: "返却の仕組み" })],
         [
-          formHint("解放したプレイヤーが置いた金床を対象アイテムの上に落とすと、下にある複数アイテムを同時に解体します。返却数 = floor(floor(レシピ素材数 × 解体Lv × %/100) × 返却倍率)。対象・素材が未設定、または返却数が0の場合は消費されません。"),
+          formHint("解放したプレイヤーが置いた金床を対象アイテムの上に落とすと、下にある複数アイテムを同時に解体します。返却数 = floor(floor(素材数 × 解体Lv × %/100) × 返却倍率)。対象・素材が未設定、または返却数が0の場合は消費されません。素材数は「レシピから数える(input)」か「固定数(base-amount)」のどちらかで決まり、クラフトレシピを持たないアイテム(釣りのゴミ等)は必ず後者を使ってください。"),
           field("レベルあたり返却%", window.numberInput(dis["percent-per-level"], (v) => {
             if (v == null) return;
             dis["percent-per-level"] = Math.max(0, Math.floor(v));
@@ -770,7 +886,7 @@
             onclick: () => { delete items[itemMat]; render(); }
           })
         ]));
-        itemCard.appendChild(field("対象 ID（末尾 * でシリーズ指定）", window.textInput(itemMat, (v) => {
+        itemCard.appendChild(field("対象 ID（末尾 * でシリーズ指定、* なしはアイテム個別指定）", window.textInput(itemMat, (v) => {
           const next = (v || "").trim();
           if (!next || next === itemMat) return;
           if (Object.prototype.hasOwnProperty.call(items, next)) {
@@ -783,24 +899,7 @@
         }, { allowCustom: false })));
         const ingBox = h("div", { class: "stat-rows" });
         rules.forEach((rule, index) => {
-          const row = h("div", { class: "stat-row" });
-          row.appendChild(h("span", { class: "range-label", text: "クラフト素材" }));
-          row.appendChild(window.materialInput(rule.input || "", "material-list", (v) => {
-            rule.input = (v || "").trim();
-          }, { allowCustom: true }));
-          row.appendChild(h("span", { class: "range-label", text: "返却先" }));
-          row.appendChild(window.materialInput(rule.output || "", "material-list", (v) => {
-            rule.output = (v || "").trim();
-          }, { allowCustom: true }));
-          row.appendChild(h("span", { class: "range-label", text: "返却倍率" }));
-          row.appendChild(window.numberInput(rule.multiplier == null ? 1 : rule.multiplier, (v) => {
-            if (v != null) rule.multiplier = Math.max(0, v);
-          }));
-          row.appendChild(h("button", {
-            class: "btn-small danger", type: "button", text: "×",
-            onclick: () => { rules.splice(index, 1); render(); }
-          }));
-          ingBox.appendChild(row);
+          ingBox.appendChild(disassemblyRuleEditor(rule, () => { rules.splice(index, 1); render(); }));
         });
         ingBox.appendChild(h("button", {
           class: "btn-small", type: "button", text: "+ 返却項目",
@@ -810,7 +909,7 @@
           }
         }));
         itemCard.appendChild(h("div", { class: "form-field" }, [
-          h("span", { class: "form-label", text: "クラフト素材 → 返却先" }),
+          h("span", { class: "form-label", text: "返却ルール（複数書ける／それぞれ独立に適用される）" }),
           ingBox
         ]));
         list.appendChild(itemCard);
@@ -1236,9 +1335,15 @@
   // ============================================================
   // progression/use-requirements.yml
   // ============================================================
-  window.buildUseRequirementsForm = function buildUseRequirementsForm(data) {
+  window.buildUseRequirementsForm = function buildUseRequirementsForm(data, opts) {
     const working = data && typeof data === "object" ? data : {};
     if (typeof working.enforce !== "boolean") working.enforce = !!working.enforce;
+    // 2026-07-27: AFK(離席)判定(afk.yml)は独立タブを作らず、この画面内へコンパニオン表示する
+    // (ユーザー指示)。保存先ファイルは use-requirements.yml とは別のため、鍛冶/伐採ギミックの
+    // craftingFeaturesData コンパニオンと同じ形(未指定なら getExtraSaves は空配列)で扱う。
+    const afkData = opts && opts.afkData && typeof opts.afkData === "object" ? opts.afkData : undefined;
+    const hasAfk = afkData !== undefined;
+    const afkSubform = hasAfk ? window.buildAfkSection(afkData) : null;
 
     const root = h("div", { class: "dedicated-form" });
     const on = !!working.enforce;
@@ -1306,6 +1411,14 @@
       ]);
     }
 
-    return { element: root, getData: () => working };
+    if (afkSubform) {
+      root.appendChild(afkSubform.element);
+    }
+
+    return {
+      element: root,
+      getData: () => working,
+      getExtraSaves: () => hasAfk ? [{ id: "afk", data: afkSubform.getData() }] : []
+    };
   };
 })(typeof window !== "undefined" && typeof document !== "undefined");

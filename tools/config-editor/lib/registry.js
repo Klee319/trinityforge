@@ -102,6 +102,10 @@ const REGISTRY = Object.freeze([
   { id: "crafting-features", label: "その他のギミック (crafting-features)", group: "TrinityForge", section: "skill-gimmicks", base: "trinityforge", rel: "progression/crafting-features.yml", schema: "tf-crafting-features" },
   // 使用制限スイッチは「ステータス定義」(section: quality) メインカテゴリへ移動（旧「装備・制限」廃止）。
   { id: "use-requirements", label: "使用制限スイッチ (use-requirements)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "progression/use-requirements.yml", schema: "tf-use-requirements" },
+  // AFK(離席)判定(afk.yml)は独立タブを作らず「使用制限スイッチ」画面内へ AFK セクションとして
+  // コンパニオン表示する(2026-07-27新設)。app.js の USE_REQUIREMENTS_COMPANION_IDS 経由で
+  // サイドバーから隠し、use-requirements 画面の getExtraSaves で一緒に保存する。
+  { id: "afk", label: "AFK(離席)判定 (afk)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "afk.yml", schema: "tf-afk" },
   { id: "villager-trades", label: "村人取引 (villager-trades)", group: "TrinityForge", section: "skill-gimmicks", base: "trinityforge", rel: "economy/villager-trades.yml", schema: "tf-villager-trades" },
   { id: "role-buffs", label: "ロールバフ (role-buffs)", group: "TrinityForge", section: "other", base: "trinityforge", rel: "progression/role-buffs.yml", schema: "tf-role-buffs" },
   // 特殊報酬レジストリ(称号/パーティクル/パーティクルシード)。skilltree/図鑑/アチーブの3箇所から

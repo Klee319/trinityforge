@@ -98,6 +98,10 @@
   // (max-enchant-level)のためだけの独立カテゴリだったのを畳み、同じ「上限」タブへ統合したため、
   // こちらもサイドバー単独表示をやめる(ファイル自体・保存先キーパスは不変。後方互換用に残す)。
   const BASE_STATS_COMPANION_IDS = ["stat-caps", "gathering-efficiency"];
+  // T9 (2026-07-27): AFK(離席)判定(afk.yml)は独立タブを作らず「使用制限スイッチ」(use-requirements)
+  // 画面内へ AFK セクションとしてコンパニオン表示する(ユーザー指示)。ファイル自体(afk.yml)は不変。
+  // 保存は use-requirements 画面の getExtraSaves 経由(tf-crafting-features.js buildUseRequirementsForm)。
+  const USE_REQUIREMENTS_COMPANION_IDS = ["afk"];
   /**
    * コンパニオン config id → buildEditorForLoadedConfig(schema, data, opts) の opts キー。
    *
@@ -118,7 +122,8 @@
     "enchant-luck": "enchantLuckData",
     "alchemy-quality": "alchemyQualityData",
     "stat-caps": "statCapsData",
-    "ars-config": "arsConfigData"
+    "ars-config": "arsConfigData",
+    "afk": "afkData"
   };
   // 品質定義タブへ統合表示するためサイドバー個別一覧から隠す config。
   //   craft-quality(mode/drop) は quality ビュー内に統合し、保存時に一緒に PUT する。
@@ -133,7 +138,7 @@
   const HIDDEN_CONFIG_IDS = [
     QUALITY_COMPANION_ID, ...PROGRESSION_CONFIG_IDS, ...SPLIT_HIDDEN_IDS, ...GLYPH_COMPANION_IDS,
     ...BREW_GIMMICK_COMPANION_IDS, ...ENCHANT_GIMMICK_COMPANION_IDS, ...FARMING_GIMMICK_COMPANION_IDS,
-    ...BASE_STATS_COMPANION_IDS
+    ...BASE_STATS_COMPANION_IDS, ...USE_REQUIREMENTS_COMPANION_IDS
   ];
   const ALL_TOOL_VIEWS = NAV_SECTIONS.reduce((acc, s) => acc.concat(s.views), []);
   // config をドメイン単位でまとめるセクション定義。
@@ -689,7 +694,13 @@
         // 醸造ギミック/エンチャントギミックタブへ表示移設したため、このタブではもう読み込まない。
         return window.buildCraftingFeaturesForm(data, { catalogCandidates, arsConfigData });
       }
-      case "tf-use-requirements": return window.buildUseRequirementsForm(data);
+      case "tf-use-requirements": {
+        // T9 (2026-07-27): AFK(離席)判定(afk.yml)をこのタブ内へ統合表示。ファイルは別のまま。
+        // farming-gimmick が food-gimmick を読む経路(loadConfigCompanion)と完全に揃える
+        // (options 優先 → state.baseSnapshots キャッシュ → GET して rememberRevision/rememberBase)。
+        const afkData = await loadConfigCompanion("afk", "afkData", options);
+        return window.buildUseRequirementsForm(data, { afkData });
+      }
       case "tf-special-rewards": return window.buildSpecialRewardsForm(data);
       case "tf-achievements": {
         const [specialRewardIds, catalogCandidates, collectionData] = await Promise.all([

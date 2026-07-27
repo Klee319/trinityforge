@@ -24,6 +24,17 @@ const FIELD_SPECS = Object.freeze([
   // ---- combat/damage.yml ----
   { id: "physical.base-coefficient", file: "damage", path: ["physical", "base-coefficient"], kind: "number", min: 0, def: 1.0 },
   { id: "physical.min-component-damage", file: "damage", path: ["physical", "min-component-damage"], kind: "number", min: -1000000, max: 1000000, def: 1.0 },
+  // B2: バニラのチャージ攻撃(クールダウン中の連打減衰)をTFの近接プレイヤー攻撃に再導入する設定。
+  // min-multiplier/exponent は Java 側 (CombatDamageConfig#meleeChargeMinMultiplier/-Exponent) が
+  // それぞれ [0,1] / [0.01,100] にクランプする(damage.yml出荷値=0.2/2.0=バニラ相当)。
+  { id: "melee-charge.enabled", file: "damage", path: ["melee-charge", "enabled"], kind: "boolean", def: true },
+  { id: "melee-charge.min-multiplier", file: "damage", path: ["melee-charge", "min-multiplier"], kind: "number", min: 0, max: 1, def: 0.2 },
+  { id: "melee-charge.exponent", file: "damage", path: ["melee-charge", "exponent"], kind: "number", min: 0.01, max: 100, def: 2.0 },
+  // 2026-07-25: attack-speed(絶対値)+attack-speed-bonus(割合)合成後の最終実効速度クランプ関連。
+  // min-effective は Java 側 CombatDamageConfig で [0.01,4.0] にクランプ(既定0.1)。
+  // reconcile-interval-ticks は PerkAttributeApplier の装備フィンガープリント再照合周期(tick)、[1,1200]。
+  { id: "attack-speed.min-effective", file: "damage", path: ["attack-speed", "min-effective"], kind: "number", min: 0.01, max: 4.0, def: 0.1 },
+  { id: "attack-speed.reconcile-interval-ticks", file: "damage", path: ["attack-speed", "reconcile-interval-ticks"], kind: "int", min: 1, max: 1200, def: 10 },
   { id: "magical.base-coefficient", file: "damage", path: ["magical", "base-coefficient"], kind: "number", min: 0, def: 1.0 },
   { id: "magical.min-component-damage", file: "damage", path: ["magical", "min-component-damage"], kind: "number", min: -1000000, max: 1000000, def: 1.0 },
   { id: "magical.scale-with-combat-level", file: "damage", path: ["magical", "scale-with-combat-level"], kind: "boolean", def: true },
@@ -39,6 +50,13 @@ const FIELD_SPECS = Object.freeze([
   { id: "defense.max-rate", file: "damage", path: ["defense", "max-rate"], kind: "number", def: 1.0 },
   { id: "defense.min-flat", file: "damage", path: ["defense", "min-flat"], kind: "number", def: 0.0 },
   { id: "defense.max-flat", file: "damage", path: ["defense", "max-flat"], kind: "number", def: 1000000.0 },
+  // 防護エンチャント(Protection系)の再導出軽減率に掛ける倍率。既定0.5は意図的な調整値:
+  // 1.0(バニラ準拠、防護IVフルセット64%軽減)だと defense.max-mitigation-rate(0.9)の枠を
+  // このエンチャント1種だけで71%消費し、TF自前の防具ステが無意味になるため半分に絞っている
+  // (根拠: damage.yml本文コメント / DefenseEnchantmentBridge javadoc / CombatDamageConfig L242-250)。
+  // Java側スキーマは [0,10] でクランプ(CombatDamageConfig.java L125)しており max-mitigation-rate と
+  // 違い 1.0 上限ではない(バニラ超の軽減も許容する設計)ため、editor側もそれに合わせて上限10。
+  { id: "defense.enchant-protection-scale", file: "damage", path: ["defense", "enchant-protection-scale"], kind: "number", min: 0, max: 10, def: 0.5 },
   { id: "vanilla-armor.defense-rate-per-point", file: "damage", path: ["vanilla-armor", "defense-rate-per-point"], kind: "number", min: 0, def: 0.04 },
   { id: "vanilla-armor.defense-rate-max", file: "damage", path: ["vanilla-armor", "defense-rate-max"], kind: "number", min: 0, max: 1, def: 0.8 },
   { id: "vanilla-armor.armor-strength-per-point", file: "damage", path: ["vanilla-armor", "armor-strength-per-point"], kind: "number", min: 0, def: 0.0 },
@@ -188,7 +206,7 @@ function validateField(spec, value, errors) {
   }
   if (spec.min !== undefined) {
     if (spec.minExclusive ? n <= spec.min : n < spec.min) {
-      errors.push(`${spec.id}: ${spec.min}${spec.minExclusive ? "より大きい" : "以上"}値が必要です`);
+      errors.push(`${spec.id}: ${spec.min}${spec.minExclusive ? "より大きい" : "以上の"}値が必要です`);
     }
   }
   if (spec.max !== undefined && n > spec.max) {

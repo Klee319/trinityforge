@@ -27,6 +27,21 @@
       ]
     },
     {
+      title: "近接チャージ (連打減衰)",
+      fields: [
+        { id: "melee-charge.enabled", label: "有効", kind: "boolean", desc: "バニラのチャージ攻撃(クールダウン中の連打による減衰)をTFのダメージパイプラインへ再導入するか。近接プレイヤー攻撃のみに適用(弓/クロスボウ/トライデント/魔法/モブ攻撃には適用しない)。" },
+        { id: "melee-charge.min-multiplier", label: "下限倍率(t=0)", kind: "number", desc: "振った直後(未チャージ)のダメージ倍率の下限。既定0.2=バニラ相当。" },
+        { id: "melee-charge.exponent", label: "指数", kind: "number", desc: "冷却後の攻撃強度割合に掛ける指数。既定2.0=バニラ相当。" }
+      ]
+    },
+    {
+      title: "攻撃速度",
+      fields: [
+        { id: "attack-speed.min-effective", label: "実効速度下限", kind: "number", desc: "attack-speed(絶対値)とattack-speed-bonus(割合)を合成した後の最終実効速度が割り込まない下限クランプ。デバフ過多でも0/負値にならない安全弁。既定0.1。" },
+        { id: "attack-speed.reconcile-interval-ticks", label: "再照合周期(ticks)", kind: "int", desc: "装備フィンガープリントの再照合周期(サーバtick、20=1秒)。既定10tick=0.5秒。" }
+      ]
+    },
+    {
       title: "魔法",
       fields: [
         { id: "magical.base-coefficient", label: "基本係数", kind: "number", desc: "魔法(spell/触媒)基本ダメージに掛かる倍率。" },
@@ -53,7 +68,8 @@
       fields: [
         { id: "defense.max-mitigation-rate", label: "軽減率上限", kind: "number", desc: "貫通不可の耐性%/被ダメ軽減%の上限(0..1)。0.9で最低10%は通る。防御率%(貫通可)も同じ上限でキャップされる。" },
         { id: "defense.max-dodge-chance", label: "回避率上限", kind: "number", desc: "回避率の上限(0..1)。0.9で最低10%は命中する(無敵回避防止)。" },
-        { id: "defense.max-crit-reduction", label: "会心軽減率上限", kind: "number", desc: "防具強度(会心軽減率%)の上限(0..1)。既定1.0=キャップ無し(会心の増加分を最大100%軽減しうるが、相手の会心ダメージが0%未満へ反転することはない)。1.0未満で会心は必ず(1-上限)の増加を残す。" }
+        { id: "defense.max-crit-reduction", label: "会心軽減率上限", kind: "number", desc: "防具強度(会心軽減率%)の上限(0..1)。既定1.0=キャップ無し(会心の増加分を最大100%軽減しうるが、相手の会心ダメージが0%未満へ反転することはない)。1.0未満で会心は必ず(1-上限)の増加を残す。" },
+        { id: "defense.enchant-protection-scale", label: "防護エンチャント倍率", kind: "number", desc: "防護/プロジェクタイル防護エンチャントの再導出軽減率に掛ける倍率。1.0=バニラ準拠(防護IVフルセットで64%軽減)。既定0.5は意図的な調整値: 1.0だと軽減率上限(defense.max-mitigation-rate、既定0.9)の枠をこのエンチャント1種だけで71%も食い潰し、TF自前の防具ステ(守備力・耐性等)がほぼ無意味になるため半分に絞っている。" }
       ]
     },
     {

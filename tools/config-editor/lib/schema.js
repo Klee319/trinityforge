@@ -1808,6 +1808,65 @@ function validateTfUseRequirements(data, errors) {
   }
 }
 
+// ---- afk.yml (tf-afk) ----
+// AFK(離席)判定(TrinityForge/src/main/resources/afk.yml が正)。「使用制限スイッチ」タブ内へ
+// コンパニオン表示する(2026-07-27新設)。Java側(AfkConfig)は不正値を黙って丸めるが、editor側は
+// 保存時点でエラーにする(丸め後の実挙動と editor に保存した値がずれる事故を防ぐ、
+// このプロジェクトで繰り返し踏んでいる問題への対策)。
+function validateTfAfk(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && data.enabled !== null && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値(true/false)である必要があります");
+  }
+  const idleSeconds = data["idle-seconds"];
+  if (idleSeconds !== undefined && idleSeconds !== null && !(isInteger(idleSeconds) && idleSeconds >= 1)) {
+    errors.push("idle-seconds: 1以上の整数である必要があります");
+  }
+  const kickAfterSeconds = data["kick-after-seconds"];
+  if (kickAfterSeconds !== undefined && kickAfterSeconds !== null && !(isInteger(kickAfterSeconds) && kickAfterSeconds >= 0)) {
+    errors.push("kick-after-seconds: 0以上の整数である必要があります");
+  }
+  // Java側は「0以外かつ idle-seconds 未満」を idle-seconds へ黙って引き上げる。editor は
+  // 保存値と実挙動のずれを防ぐため、この組み合わせを保存時点でエラーにする。
+  if (isInteger(kickAfterSeconds) && isInteger(idleSeconds) && kickAfterSeconds !== 0 && kickAfterSeconds < idleSeconds) {
+    errors.push("kick-after-seconds: 0(キックしない)以外にする場合は idle-seconds 以上である必要があります");
+  }
+  if (data["kick-message"] !== undefined && data["kick-message"] !== null && typeof data["kick-message"] !== "string") {
+    errors.push("kick-message: 文字列である必要があります");
+  }
+  if (data.notify !== undefined && data.notify !== null && typeof data.notify !== "boolean") {
+    errors.push("notify: 真偽値(true/false)である必要があります");
+  }
+  if (data["tab-suffix"] !== undefined && data["tab-suffix"] !== null && typeof data["tab-suffix"] !== "boolean") {
+    errors.push("tab-suffix: 真偽値(true/false)である必要があります");
+  }
+  if (data["tab-suffix-text"] !== undefined && data["tab-suffix-text"] !== null && typeof data["tab-suffix-text"] !== "string") {
+    errors.push("tab-suffix-text: 文字列である必要があります");
+  }
+  // exempt-permission: 空文字は「免除無効」という意味のある値なので既定へ寄せず、型のみ検証する。
+  if (data["exempt-permission"] !== undefined && data["exempt-permission"] !== null && typeof data["exempt-permission"] !== "string") {
+    errors.push("exempt-permission: 文字列である必要があります");
+  }
+  const checkIntervalTicks = data["check-interval-ticks"];
+  if (checkIntervalTicks !== undefined && checkIntervalTicks !== null && !(isInteger(checkIntervalTicks) && checkIntervalTicks >= 20)) {
+    errors.push("check-interval-ticks: 20以上の整数である必要があります(20未満はJava側で20へ丸められるため)");
+  }
+  const suppress = data.suppress;
+  if (suppress !== undefined && suppress !== null) {
+    if (!isPlainObject(suppress)) {
+      errors.push("suppress: マップである必要があります");
+    } else {
+      for (const key of ["skill-exp", "vanilla-exp", "mob-drops", "fishing-sell"]) {
+        const value = suppress[key];
+        if (value !== undefined && value !== null && typeof value !== "boolean") {
+          errors.push(`suppress.${key}: 真偽値(true/false)である必要があります`);
+        }
+      }
+    }
+  }
+}
+
 // ---- skilltree/*.yml (tf-skilltree) ----
 function validateTfSkillTree(data, errors) {
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -2459,6 +2518,9 @@ function validate(schemaType, data) {
       break;
     case "tf-use-requirements":
       validateTfUseRequirements(data, errors);
+      break;
+    case "tf-afk":
+      validateTfAfk(data, errors);
       break;
     case "tf-material-lists":
       validateTfMaterialLists(data, errors);

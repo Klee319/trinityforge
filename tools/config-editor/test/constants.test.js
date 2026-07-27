@@ -15,22 +15,28 @@ test("出荷combat設定の数値・真偽値はすべて共通変数画面へ�
 
   assert.deepEqual(Object.fromEntries([
     "physical.base-coefficient", "physical.min-component-damage",
+    "melee-charge.enabled", "melee-charge.min-multiplier", "melee-charge.exponent",
+    "attack-speed.min-effective", "attack-speed.reconcile-interval-ticks",
     "magical.base-coefficient", "magical.min-component-damage", "magical.scale-with-combat-level",
     "weapon-base-formula.enabled", "weapon-base-formula.a", "weapon-base-formula.b",
     "level-scaling.per-level", "defense.max-mitigation-rate", "defense.max-dodge-chance",
     "defense.max-crit-reduction",
     "defense.min-rate", "defense.max-rate", "defense.min-flat", "defense.max-flat",
+    "defense.enchant-protection-scale",
     "vanilla-armor.defense-rate-per-point", "vanilla-armor.defense-rate-max",
     "vanilla-armor.armor-strength-per-point", "bleed.tick-interval-ticks", "bleed.ticks",
     "aoe.hit-players", "curve.scale", "curve.min-level", "curve.max-level", "cache.ttl-seconds"
   ].map((key) => [key, fields[key]])), {
     "physical.base-coefficient": 1, "physical.min-component-damage": 1,
+    "melee-charge.enabled": true, "melee-charge.min-multiplier": 0.2, "melee-charge.exponent": 2.0,
+    "attack-speed.min-effective": 0.1, "attack-speed.reconcile-interval-ticks": 10,
     "magical.base-coefficient": 1, "magical.min-component-damage": 1,
     "magical.scale-with-combat-level": true,
     "weapon-base-formula.enabled": false, "weapon-base-formula.a": 2, "weapon-base-formula.b": 100,
     "level-scaling.per-level": 0.01, "defense.max-mitigation-rate": 0.9, "defense.max-dodge-chance": 0.9,
     "defense.max-crit-reduction": 1,
     "defense.min-rate": 0, "defense.max-rate": 1, "defense.min-flat": 0, "defense.max-flat": 1000000,
+    "defense.enchant-protection-scale": 0.5,
     "vanilla-armor.defense-rate-per-point": 0.015, "vanilla-armor.defense-rate-max": 0.8,
     "vanilla-armor.armor-strength-per-point": 0, "bleed.tick-interval-ticks": 20, "bleed.ticks": 5,
     "aoe.hit-players": false, "curve.scale": 1, "curve.min-level": 0, "curve.max-level": 100,
@@ -63,6 +69,72 @@ test("物理・魔法の下限クランプは負値を許容して保存する",
   const updated = buildUpdatedData(payload, {}, {});
   assert.equal(updated.damage.physical["min-component-damage"], -50000);
   assert.equal(updated.damage.magical["min-component-damage"], -75000);
+});
+
+test("melee-charge/attack-speed/enchant-protection-scale を保存しても他キーはロスレスに温存される", () => {
+  const damage = {
+    pvp: { enabled: true, "damage-multiplier": 0.5, "max-damage-percent-of-max-health": 0.15 },
+    "vanilla-armor": { "defense-rate-per-point": 0.015, "defense-rate-max": 0.8, "armor-strength-per-point": 0 },
+    bleed: { "tick-interval-ticks": 20, ticks: 5 },
+    "melee-charge": { enabled: true, "min-multiplier": 0.2, exponent: 2.0 },
+    "attack-speed": { "min-effective": 0.1, "reconcile-interval-ticks": 10 },
+    defense: { "enchant-protection-scale": 0.5 }
+  };
+  const payload = { fields: {
+    "melee-charge.enabled": false,
+    "melee-charge.min-multiplier": 0.3,
+    "melee-charge.exponent": 3.0,
+    "attack-speed.min-effective": 0.2,
+    "attack-speed.reconcile-interval-ticks": 20,
+    "defense.enchant-protection-scale": 0.75
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+
+  assert.equal(updated.damage["melee-charge"].enabled, false);
+  assert.equal(updated.damage["melee-charge"]["min-multiplier"], 0.3);
+  assert.equal(updated.damage["melee-charge"].exponent, 3.0);
+  assert.equal(updated.damage["attack-speed"]["min-effective"], 0.2);
+  assert.equal(updated.damage["attack-speed"]["reconcile-interval-ticks"], 20);
+  assert.equal(updated.damage.defense["enchant-protection-scale"], 0.75);
+
+  // 他キー(pvp/vanilla-armor/bleed)はこのフォームが触れていないので温存される。
+  assert.deepEqual(updated.damage.pvp, damage.pvp);
+  assert.deepEqual(updated.damage["vanilla-armor"], damage["vanilla-armor"]);
+  assert.deepEqual(updated.damage.bleed, damage.bleed);
+});
+
+test("新設6キーのバリデーション: int小数と範囲外は弾く", () => {
+  assert.deepEqual(
+    validateConstants({ fields: { "attack-speed.reconcile-interval-ticks": 10.5 } }),
+    ["attack-speed.reconcile-interval-ticks: 整数である必要があります"]
+  );
+  assert.deepEqual(
+    validateConstants({ fields: { "melee-charge.min-multiplier": 1.5 } }),
+    ["melee-charge.min-multiplier: 1以下である必要があります"]
+  );
+  assert.deepEqual(
+    validateConstants({ fields: { "melee-charge.exponent": 0 } }),
+    ["melee-charge.exponent: 0.01以上の値が必要です"]
+  );
+  assert.deepEqual(
+    validateConstants({ fields: { "attack-speed.min-effective": 5 } }),
+    ["attack-speed.min-effective: 4以下である必要があります"]
+  );
+  assert.deepEqual(
+    validateConstants({ fields: { "attack-speed.reconcile-interval-ticks": 0 } }),
+    ["attack-speed.reconcile-interval-ticks: 1以上の値が必要です"]
+  );
+  // enchant-protection-scale は Java 側が[0,10]でクランプするだけで上限1.0ではない(バニラ超も許容)。
+  assert.deepEqual(validateConstants({ fields: { "defense.enchant-protection-scale": 2.5 } }), []);
+  assert.deepEqual(
+    validateConstants({ fields: { "defense.enchant-protection-scale": 10.1 } }),
+    ["defense.enchant-protection-scale: 10以下である必要があります"]
+  );
+  assert.deepEqual(
+    validateConstants({ fields: { "defense.enchant-protection-scale": -0.1 } }),
+    ["defense.enchant-protection-scale: 0以上の値が必要です"]
+  );
 });
 
 test("撤去した attack/defense stat-key はもう共通変数に現れない", () => {

@@ -66,8 +66,8 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | W-5 | スキルツリー草案が「今回は対象外」と明記した 2 件 | 農業のゴミ食の段階化（グローバル設定の stat 化）／切削 E-β のオフハンド+スニーク破壊 |
 | ~~W-6~~ | ~~**`set-buffs` の 4 部位帯の値を決める**~~ | **解決（2026-07-27、ユーザーからの裁量委任による）**。採用した規則 = **3 部位の値は移行前から一切動かさず、4 部位帯だけを約 1.5 倍**（既存バランスを動かさずフル装備の報酬だけを足す）。軽装 C = `dodge-chance 0.1→0.15` / D-1-1・D-1-2 = `0.05→0.08`、重装 C・D-1-1・D-1-2 = `knockback-resistance 0.1→0.15`。`effect-text` にも「4部位で強化」を明記した |
 | ~~W-7~~ | ~~**軽装/重装 D ノードの説明文が実装と一致していない**~~ | **解決（2026-07-27）**。二択のうち「文言を消す」を採用（D は `set-buffs` も `armor-set-bonus` も持たない＝バフは全て無条件なので、説明を実装に合わせるのが正）。両ツリーの D から「3部位でセットが成立」の記述と `effects` リストを削除。併せて B の同記述も削除した（B が持つ `armor-set-bonus` は**増幅率であって成立条件ではない**ため、こちらも誤りだった） |
-| W-8 | **`afk.yml` が config-editor に登録されていない** | 2026-07-27 の editor カバレッジ監査で判明。`AfkService` / `AfkConfig` / リスナー 2 本が実装済みの現役機構なのに `registry.js` に項目が無く、**12 キー（`idle-seconds` / `kick-after-seconds` / `suppress.*` 4 種 など）が editor から一切触れない**。放置報酬の抑制という exploit 対策の要なので、調整手段が yml 直編集だけなのは実害がある |
-| W-9 | **`combat/damage.yml` の 6 キーが「共通変数」画面に出ていない** | `CombatDamageConfig` のスキーマには存在するのに `tools/config-editor/lib/constants.js` の `FIELD_SPECS` に無い: `melee-charge.enabled` / `.min-multiplier` / `.exponent`、`attack-speed.min-effective` / `.reconcile-interval-ticks`、**`defense.enchant-protection-scale`**。特に最後の 1 つは「防護IVフルセットが被ダメ軽減枠の 71% を食い潰す」問題への対策として 0.5 に意図調整した値で、yml に長い根拠コメントまであるのに editor から変更できない |
+| ~~W-8~~ | ~~**`afk.yml` が config-editor に登録されていない**~~ | **解決（2026-07-27）**。ユーザー指示により独立タブは作らず、**「使用制限スイッチ (use-requirements)」画面内へコンパニオン表示**（`farming-gimmick`＋`food-gimmick` と同じ方式。`USE_REQUIREMENTS_COMPANION_IDS` → `HIDDEN_CONFIG_IDS` でサイドバーからは隠す）。描画は新規 `public/js/tf-afk-form.js` に隔離し、`tf-crafting-features.js` への変更は呼び出し 15 行のみ。**Java が黙って丸める 2 ケース（`check-interval-ticks < 20` / `kick-after-seconds` が非 0 で `idle-seconds` 未満）は editor 側では保存時エラーにした**（黙って丸めると「保存した値」と「実挙動」がずれるため）。実ブラウザで 12 キーの表示・値のロード・バリデーション 400・保存→配備ミラーまで確認済み |
+| ~~W-9~~ | ~~**`combat/damage.yml` の 6 キーが「共通変数」画面に出ていない**~~ | **解決（2026-07-27）**。`FIELD_SPECS` へ 6 件追加。`min`/`max`/`def` は全て `CombatDamageConfig.java` の `SchemaField` 宣言（L90-98 / L125）と一致させた。`enchant-protection-scale` の上限は**バニラ相当の 1.0 ではなく Java 通りの 10**（editor だけ狭いと「yml では通る値が editor で弾かれる」ズレになる）。UI は「近接チャージ」「攻撃速度」セクションを新設し、`enchant-protection-scale` は既存の「防御(安全弁)」へ |
 | W-10 | **registry のカバレッジドリフト検知テストが無い** | リポジトリ内の yml と `registry.js` の登録項目を突き合わせるテストが存在しないため、W-8 のような登録漏れが無言で発生する。除外してよいもの（`paper-plugin.yml` / DEPRECATED な `combat/mob-defaults.yml` / ArsPaper の「空を維持」前提な `usage-gate.yml`・`unlock-gate.yml`）は明示的な許可リストにする |
 | W-11 | ArsPaper の gate yml 2 本が挙げる SoT ファイル名が実在しない | `usage-gate.yml` / `unlock-gate.yml` のコメントは正本を `skilltree/dedicated-effects.yml` と書いているが、**そのファイルは存在しない**。実体は各スキルツリー yml のノード内 `dedicated-effects:` フィールド（`SkillTreeConfig#parseDedicatedEffects`）。コメントの修正だけで済む |
 
@@ -232,6 +232,31 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — editor カバレッジの穴を 2 件ふさぐ（W-8 / W-9）
+
+実測: config-editor **614 / 614**（`afk` 26 件・共通変数の新規 3 件を含む）。
+
+- **W-8 `afk.yml`**: 「使用制限スイッチ」画面内のコンパニオンとして実装。
+  **実ブラウザ（新ポートで起動し直した editor）で確認済み**:
+  サイドバーに `afk` 単独項目が出ないこと / 12 キーが描画されること /
+  出荷値（300・1800・40・免除権限・suppress 4 種）がロードされること /
+  不正値の保存が 400 で弾かれ**ファイルが書かれない**こと /
+  保存が `D:/.../plugins/TrinityForge/afk.yml` へミラーされること。
+  **サーバ側 `registry.js` は起動時に読み込まれるので、登録を足したら editor の再起動が必要**
+  （既存プロセスのままだと `/api/config/afk` が 404 になり、画面には何も出ない）。
+- **`afk.yml` の本文コメントを `docs/config-reference/afk.md` へ移設した。**
+  この画面から保存されるようになった＝**次の保存で本文コメントが全部消える**状態だったため、
+  landmine を置いたまま終わらせないよう先に移設した（§5 の規則の適用例）。
+- **W-9 `damage.yml` の 6 キー**: `FIELD_SPECS` と UI へ追加。値の正本は Java の `SchemaField` 宣言。
+- 副次: 数値下限のエラーメッセージが `0.01以上値が必要です` という壊れた日本語だったので
+  `0.01以上の値が必要です` に直した（既存テストで固定されていないことを確認済み）。
+- **未着手**: W-10（registry ドリフト検知テスト）/ W-11（gate yml の SoT 名）。
+- **版管理の注意**: `public/js/tf-crafting-features.js` には並行セッションが実装中の
+  「解体ルールエディタ」が同居しており、この環境では**ファイルの一部だけを stage できない**ため
+  一緒にコミットしている（隠さず commit message に明記した）。また **AFK 機構本体
+  （`com/trinityforge/afk/` ・ `AfkConfig.java` ・ `afk.yml`）はまだ未追跡**で、
+  そちらは並行セッションの担当。editor 側だけが先にコミットされている状態。
 
 ### 2026-07-27 — 軽装/重装ツリーを config-editor 経由で再配備 + editor カバレッジ監査
 
