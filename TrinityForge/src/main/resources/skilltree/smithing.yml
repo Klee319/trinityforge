@@ -11,7 +11,25 @@
 #     (1) 上段ギリシャ路線末端「B-3 解体解放」 → 一意id `B-3-upper` に正規化（原表記: B-3）。
 #     (2) 下段の派生「B-3 鉱石の精錬ボーナス+30%」 → id `B-3` のまま。
 #   両者は別ノード。画像通り両方を転写。
-#   主軸クラフトは「武器と装備のみクラフト制限」(左上オレンジボックス)。
+#
+# ■主軸A〜Dのティア解放ゲート撤去 (2026-07-28、ユーザー決定)
+#   草案の「主軸クラフトは武器と装備のみクラフト制限」(左上オレンジボックス)に従って、
+#   A〜D には石/鉄/金/ダイヤ/ネザライトの `recipe:` ゲートが41件置かれていた。しかし
+#   **ツール・防具側に既に「使用可能レベル」(stats/item-stats.yml)がある**ため、クラフト
+#   側でもう一段ティアゲートを掛けても、作れる頃には使えるレベルに達しているだけで
+#   進行に何も足していない — というのがデバッグで判明した(ユーザー確認済み)。
+#   よって41件のゲートを撤去し、同じノードを「クラフトの当たりを引きやすくする」実効buffへ
+#   置換した。配分の考え方:
+#     - workbench_quality_bonus は品質mode加算。mode = skillLv/10 + bonus を
+#       stats/quality.yml max-quality: 9 でクランプするため、**高レベルほど飽和して無駄になる**。
+#       → 増分は低レベル側(A/B)に寄せる。
+#     - craft_upswing_bonus / craft_roll_up_bonus は分布の上側σを広げる stat で飽和しない。
+#       → 増分は高レベル側(C/D)に寄せる。
+#   なお `recipe:` ゲートはフェイルオープン(未配置=解放)なので、撤去してもロック事故は起きない
+#   (FailCloseGateSkillTreePlacementTest の対象外である理由もこれ)。同時に、TF側カタログが
+#   `*_axe_tf` へ改名済みで解決しなくなっていた [PRG-02] 警告4件(stone/iron/golden/diamond_axe)も解消する。
+#   ※ ars_smithing / farming / mining / woodcutting 側の `recipe:` ゲート(コア・エンチャ本・
+#     圧縮食料など17件)は「ツールのティア」ではないので撤去対象外。
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/smithing.md
@@ -37,18 +55,11 @@ nodes:
     parent: null
     icon: LEATHER_CHESTPLATE
     cost: 1
-    effect-text: "木・革の品質+1・石・チェーン・銅のクラフト開放"
+    effect-text: "作業台品質+2"
     effects:
-      - "木・革の品質+1"
-      - "石・チェーン・銅のクラフトを解放"
+      - "作業台クラフトの品質基準+2"
     buffs:
-      workbench_quality_bonus: 1
-    dedicated-effects:
-      - id: "recipe:stone_sword"
-      - id: "recipe:stone_pickaxe"
-      - id: "recipe:stone_axe"
-      - id: "recipe:stone_shovel"
-      - id: "recipe:stone_hoe"
+      workbench_quality_bonus: 2   # 旧: +1 + 石ティアの recipe: ゲート5件(2026-07-28撤去、ヘッダ参照)
   B:
     name: "銅細工の鍛冶"
     level: 30
@@ -56,31 +67,13 @@ nodes:
     parent: A
     icon: CHAINMAIL_CHESTPLATE
     cost: 1
-    effect-text: "石・チェーン・銅のクラフト品質+1・鉄・金のクラフト開放"
+    effect-text: "作業台品質+2・ロール上振れ+1%"
     effects:
-      - "石・チェーン・銅のクラフト品質+1"
-      - "鉄・金のクラフトを解放"
+      - "作業台クラフトの品質基準+2"
+      - "クラフト品のランダムステータス上振れ幅+1%"
     buffs:
-      workbench_quality_bonus: 1
-    dedicated-effects:
-      - id: "recipe:iron_sword"
-      - id: "recipe:iron_pickaxe"
-      - id: "recipe:iron_axe"
-      - id: "recipe:iron_shovel"
-      - id: "recipe:iron_hoe"
-      - id: "recipe:iron_helmet"
-      - id: "recipe:iron_chestplate"
-      - id: "recipe:iron_leggings"
-      - id: "recipe:iron_boots"
-      - id: "recipe:golden_sword"
-      - id: "recipe:golden_pickaxe"
-      - id: "recipe:golden_axe"
-      - id: "recipe:golden_shovel"
-      - id: "recipe:golden_hoe"
-      - id: "recipe:golden_helmet"
-      - id: "recipe:golden_chestplate"
-      - id: "recipe:golden_leggings"
-      - id: "recipe:golden_boots"
+      workbench_quality_bonus: 2   # 旧: +1 + 鉄/金ティアの recipe: ゲート18件(2026-07-28撤去、ヘッダ参照)
+      craft_roll_up_bonus: 1
   C:
     name: "鉄金の鍛冶師"
     level: 50
@@ -88,22 +81,15 @@ nodes:
     parent: B
     icon: IRON_CHESTPLATE
     cost: 1
-    effect-text: "鉄・金のクラフト品質+1・ダイヤのクラフト開放"
+    effect-text: "作業台品質+1・上振れ拡大+0.1・ロール上振れ+2%"
     effects:
-      - "鉄・金のクラフト品質+1"
-      - "ダイヤのクラフトを解放"
+      - "作業台クラフトの品質基準+1"
+      - "クラフト品質の上振れ幅+0.1"
+      - "クラフト品のランダムステータス上振れ幅+2%"
     buffs:
       workbench_quality_bonus: 1
-    dedicated-effects:
-      - id: "recipe:diamond_sword"
-      - id: "recipe:diamond_pickaxe"
-      - id: "recipe:diamond_axe"
-      - id: "recipe:diamond_shovel"
-      - id: "recipe:diamond_hoe"
-      - id: "recipe:diamond_helmet"
-      - id: "recipe:diamond_chestplate"
-      - id: "recipe:diamond_leggings"
-      - id: "recipe:diamond_boots"
+      craft_upswing_bonus: 0.10    # 旧: ダイヤティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
+      craft_roll_up_bonus: 2
   D:
     name: "ダイヤの鍛冶匠"
     level: 70
@@ -111,22 +97,15 @@ nodes:
     parent: C
     icon: DIAMOND_CHESTPLATE
     cost: 1
-    effect-text: "ダイヤのクラフト品質+1・ネザライトのクラフト開放"
+    effect-text: "作業台品質+1・上振れ拡大+0.15・ロール上振れ+3%"
     effects:
-      - "ダイヤのクラフト品質+1"
-      - "ネザライトのクラフトを解放"
+      - "作業台クラフトの品質基準+1"
+      - "クラフト品質の上振れ幅+0.15"
+      - "クラフト品のランダムステータス上振れ幅+3%"
     buffs:
       workbench_quality_bonus: 1
-    dedicated-effects:
-      - id: "recipe:netherite_sword"
-      - id: "recipe:netherite_pickaxe"
-      - id: "recipe:netherite_axe"
-      - id: "recipe:netherite_shovel"
-      - id: "recipe:netherite_hoe"
-      - id: "recipe:netherite_helmet"
-      - id: "recipe:netherite_chestplate"
-      - id: "recipe:netherite_leggings"
-      - id: "recipe:netherite_boots"
+      craft_upswing_bonus: 0.15    # 旧: ネザライトティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
+      craft_roll_up_bonus: 3
   E:
     name: "ネザライトの鍛冶王"
     level: 90
@@ -134,9 +113,9 @@ nodes:
     parent: D
     icon: NETHERITE_CHESTPLATE
     cost: 1
-    effect-text: "ネザライトクラフト品質+1・鍛冶師解放"
+    effect-text: "作業台品質+1・鍛冶師解放"
     effects:
-      - "ネザライトクラフト品質+1"
+      - "作業台クラフトの品質基準+1"
       - "鍛冶師を解放"
     buffs:
       workbench_quality_bonus: 1

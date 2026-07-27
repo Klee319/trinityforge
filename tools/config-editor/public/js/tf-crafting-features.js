@@ -681,7 +681,10 @@
       }
       return window.textInput(value || "", onChange);
     }
-    const root = h("div", {});
+    // 2026-07-27 タスク2: このセクションはクラス無しの div にカードを複数直接追加していたため
+    // gap(余白)を作る CSS が一つも当たらずカード同士が密着していた。既存の card-list-body
+    // (CSS側は .card-list と同じ間隔で統合済み)を使う。
+    const root = h("div", { class: "card-list-body" });
     function render() {
       root.innerHTML = "";
       const mats = ensureObj(wood, "materials", {});
@@ -858,7 +861,8 @@
 
   // 解体 (disassembly)。返却%と対象シリーズ↔返却ルールを編集する。鍛冶ギミックタブが呼ぶ。
   window.buildCraftingFeaturesDisassemblySection = function buildDisassemblySection(dis) {
-    const root = h("div", {});
+    // 2026-07-27 タスク2: 同上(card-list-body で余白を確保する)。
+    const root = h("div", { class: "card-list-body" });
     function render() {
       root.innerHTML = "";
       const items = ensureObj(dis, "items", {});
@@ -886,17 +890,28 @@
             onclick: () => { delete items[itemMat]; render(); }
           })
         ]));
-        itemCard.appendChild(field("対象 ID（末尾 * でシリーズ指定、* なしはアイテム個別指定）", window.textInput(itemMat, (v) => {
-          const next = (v || "").trim();
-          if (!next || next === itemMat) return;
-          if (Object.prototype.hasOwnProperty.call(items, next)) {
-            alert("同じ対象 ID が既にあります");
+        // 2026-07-27 タスク3: 長い説明付きの見出しが1階層とコンポーネントを消費していたため、
+        // 短いラベル+「?」ツールチップ(既存の window.fieldLabelEl/helpIcon の仕組み)へ移し、
+        // 見出し行と値行を1つの form-field に統合してネストを1段減らす。説明文の情報は
+        // ツールチップへそのまま残す(消さない)。
+        itemCard.appendChild(h("div", { class: "form-field" }, [
+          window.fieldLabelEl("disassembly-target-id", {
+            label: "対象 ID",
+            desc: "末尾 * でシリーズ指定、* なしはアイテム個別指定。",
+            hideKey: true
+          }),
+          window.textInput(itemMat, (v) => {
+            const next = (v || "").trim();
+            if (!next || next === itemMat) return;
+            if (Object.prototype.hasOwnProperty.call(items, next)) {
+              alert("同じ対象 ID が既にあります");
+              render();
+              return;
+            }
+            renameKey(items, itemMat, next);
             render();
-            return;
-          }
-          renameKey(items, itemMat, next);
-          render();
-        }, { allowCustom: false })));
+          }, { allowCustom: false })
+        ]));
         const ingBox = h("div", { class: "stat-rows" });
         rules.forEach((rule, index) => {
           ingBox.appendChild(disassemblyRuleEditor(rule, () => { rules.splice(index, 1); render(); }));
@@ -909,7 +924,11 @@
           }
         }));
         itemCard.appendChild(h("div", { class: "form-field" }, [
-          h("span", { class: "form-label", text: "返却ルール（複数書ける／それぞれ独立に適用される）" }),
+          window.fieldLabelEl("disassembly-return-rules", {
+            label: "返却ルール",
+            desc: "複数書ける。それぞれ独立に適用される。",
+            hideKey: true
+          }),
           ingBox
         ]));
         list.appendChild(itemCard);
@@ -964,7 +983,8 @@
 
   // 醸造解放 (brew-unlocks)。醸造ギミックタブが呼ぶ。
   window.buildCraftingFeaturesBrewSection = function buildBrewSection(brew) {
-    const root = h("div", {});
+    // 2026-07-27 タスク2: 同上(card-list-body で余白を確保する)。
+    const root = h("div", { class: "card-list-body" });
     function render() {
       root.innerHTML = "";
       root.appendChild(card(
@@ -1084,7 +1104,8 @@
 
   // オーバーエンチャ (over-enchant)。エンチャントギミックタブが呼ぶ。
   window.buildCraftingFeaturesOverEnchantSection = function buildOverEnchantSection(oe) {
-    const root = h("div", {});
+    // 2026-07-27 タスク2: 同上(card-list-body で余白を確保する)。
+    const root = h("div", { class: "card-list-body" });
     function render() {
       root.innerHTML = "";
       root.appendChild(card(

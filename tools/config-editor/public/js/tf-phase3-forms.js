@@ -384,7 +384,13 @@
         glyphOptions.length = 0;
         if (g && typeof g === "object") {
           for (const id of Object.keys(g).sort()) {
-            glyphOptions.push({ value: "arspaper:" + id, primary: id, secondary: "arspaper:" + id });
+            // 2026-07-27 タスク4: グリフには display-name が設定されているのに、これまで primary に
+            // 生ID(id)をそのまま出していた。他画面(itemRefSelect等)と同じ流儀に合わせ、
+            // primary=表示名 / secondary=ID にする。display-name未設定のグリフはIDのままフォールバック。
+            const entry = g[id] && typeof g[id] === "object" ? g[id] : {};
+            const displayName = typeof entry["display-name"] === "string" && entry["display-name"].trim()
+              ? entry["display-name"] : id;
+            glyphOptions.push({ value: "arspaper:" + id, primary: displayName, secondary: "arspaper:" + id });
           }
         }
       } catch (_) { /* empty */ }

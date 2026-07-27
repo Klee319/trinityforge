@@ -705,7 +705,13 @@
             }
           }
           const itemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : []).map((v) => ({ value: `item:${v.id}`, primary: `アイテム: ${v.label || v.id}`, secondary: v.id }));
-          const mobCandidates = ENTITY_TYPE_CANDIDATES.map((id) => ({ value: `mob:${id}`, primary: `モブ: ${id}`, secondary: id }));
+          // 2026-07-27 タスク4横断監査: vocab-1.21.11.js の window.MOB_LABELS_JA (recipes.js/ars-p4.js の
+          // モブ選択で使われているのと同じ辞書) に和名があるのに、ここだけ生の EntityType ID をそのまま
+          // primary に出していた。既存辞書をそのまま使い、未登録の場合だけIDへフォールバックする。
+          const mobCandidates = ENTITY_TYPE_CANDIDATES.map((id) => {
+            const ja = window.MOB_LABELS_JA && window.MOB_LABELS_JA[id];
+            return { value: `mob:${id}`, primary: ja ? `モブ: ${ja}` : `モブ: ${id}`, secondary: id };
+          });
           const allOption = { value: "all", primary: "すべての図鑑カテゴリ", secondary: "ALL" };
           const allOptions = [allOption].concat(categories, itemCandidates, mobCandidates);
           const labelOf = (scope, target) => {

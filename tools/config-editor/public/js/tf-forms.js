@@ -53,15 +53,19 @@
   // ---- ネストしたスカラー群 (mode/drop/ars-smithing 等) を1セクション=1カードで描画する共通部品 ----
   // obj は {key: number|boolean|string} 想定。int判定は値ごとに Number.isInteger で行い小数も温存。
   // exp-per-craft / spread は小数を取り得るので常に小数入力にする。
-  function scalarSectionBody(obj, labelOpts) {
+  // fieldOverrides: { key: { label, desc } } — グローバル辞書(FIELD_LABELS)のキーが他画面と
+  // 意味衝突する場合(例: "mode" は items.yml では天候モード)に、この画面文脈だけラベルを上書きする。
+  function scalarSectionBody(obj, labelOpts, fieldOverrides) {
     const body = h("div", { class: "const-body" });
     for (const key of Object.keys(obj)) {
+      const override = fieldOverrides && fieldOverrides[key];
+      const opts = override ? Object.assign({}, labelOpts, override) : labelOpts;
       if (typeof obj[key] === "boolean") {
-        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, labelOpts), window.checkboxInput(obj[key], (v) => { obj[key] = v; })]));
+        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), window.checkboxInput(obj[key], (v) => { obj[key] = v; })]));
       } else if (typeof obj[key] === "number") {
-        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, labelOpts), window.numberInput(obj[key], (v) => { if (v === null || v === "") return; obj[key] = v; }, { int: Number.isInteger(obj[key]) && key !== "exp-per-craft" && key !== "spread" })]));
+        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), window.numberInput(obj[key], (v) => { if (v === null || v === "") return; obj[key] = v; }, { int: Number.isInteger(obj[key]) && key !== "exp-per-craft" && key !== "spread" })]));
       } else {
-        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, labelOpts), window.textInput(obj[key], (v) => { obj[key] = v; })]));
+        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), window.textInput(obj[key], (v) => { obj[key] = v; })]));
       }
     }
     return body;
@@ -208,6 +212,13 @@
               + "既定は true。false にすると従来どおりどこでも加算します。ars-smithing(クラフト)/採取/釣り等の非戦闘EXPは対象外です。"
           }),
           window.checkboxInput(working["dungeon-only-exp"] !== false, (v) => { working["dungeon-only-exp"] = v; })
+        ]),
+        h("div", { class: "form-field" }, [
+          window.fieldLabelEl("outside-dungeon-exp-rate", { hideKey: true }),
+          window.numberInput(working["outside-dungeon-exp-rate"], (v) => {
+            if (v === null || v === "") return;
+            working["outside-dungeon-exp-rate"] = v;
+          }, { int: false })
         ])
       ]
     ));
@@ -314,6 +325,17 @@
       ]
     ));
 
+    // "mode" 等はグローバル辞書(FIELD_LABELS)では他画面(例: items.yml の天候)向けの意味を
+    // 持つため、この画面のセクションだけ文脈固有のラベルへ上書きする(2026-07-27 タスク1)。
+    const SECTION_FIELD_OVERRIDES = {
+      combat: {
+        mode: {
+          label: "命中EXP計算方式",
+          desc: "flat(既定)=exp-per-hit/by-skillの固定値。damage_scaled=与ダメージ×damage-scaleに(1+モブレベル×mob-level-scale)を掛けた値。"
+        }
+      }
+    };
+
     const sections = Object.keys(working).filter((k) =>
       working[k] && typeof working[k] === "object" && !Array.isArray(working[k]) && !DEDICATED_SECTION_KEYS.has(k));
     if (!sections.length) {
@@ -327,7 +349,8 @@
           h("span", { class: "entry-key-label", text: skillLabel(section) }),
           h("span", { class: "cf-muted", text: section })
         ]));
-        cardEl.appendChild(h("div", { class: "entry-body" }, [scalarSectionBody(obj, { hideKey: true })]));
+        cardEl.appendChild(h("div", { class: "entry-body" },
+          [scalarSectionBody(obj, { hideKey: true }, SECTION_FIELD_OVERRIDES[section])]));
         root.appendChild(cardEl);
       }
     }

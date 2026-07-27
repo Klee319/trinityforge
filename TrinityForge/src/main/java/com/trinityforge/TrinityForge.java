@@ -179,6 +179,7 @@ public final class TrinityForge extends JavaPlugin {
     private RoleCommand roleCommand;
     private RoleBuffListener roleBuffListener;
     private CollectionCommand collectionCommand;
+    private com.trinityforge.command.RecipesCommand recipesCommand;
     private CollectionService collectionService;
     private com.trinityforge.progression.CollectionGui collectionGui;
     private com.trinityforge.progression.SpecialRewardService specialRewardService;
@@ -540,6 +541,7 @@ public final class TrinityForge extends JavaPlugin {
         this.collectionGui = new com.trinityforge.progression.CollectionGui(this, configManager.collection(),
                 collectionService, crossPluginItemResolver, configManager.itemCatalog());
         this.collectionCommand = new CollectionCommand(configManager.collection(), collectionService, collectionGui);
+        this.recipesCommand = new com.trinityforge.command.RecipesCommand();
         getServer().getPluginManager().registerEvents(collectionGui, this);
 
         // 特殊報酬(称号/パーティクル/パーティクルシード, 2026-07-23-stat-gate-overhaul §6.1):
@@ -590,8 +592,14 @@ public final class TrinityForge extends JavaPlugin {
                 new CatalogCraftGateListener(configManager.dedicatedEffects()), this);
         // PRG-02: recipe:<id> ゲートがTFカタログ品/実在バニラレシピ/既知のネザライトアップグレードの
         // いずれにも解決できない(綴り間違い等)場合は起動時に警告する(「静かに壊れるより騒がしく落ちる」方針)。
-        CatalogCraftGateListener.verifyRecipeGateIds(
-                configManager.dedicatedEffects(), configManager.itemCatalog(), getLogger());
+        //
+        // 【最初のtickまで遅延させる理由 (2026-07-28)】ArsPaper は TF に depend しているので TF より後に
+        // enable する。ここ(TFのonEnable内)で走らせると、ArsPaper が materials.yml/items.yml から登録する
+        // 作業台レシピ(tf_core_* / compressed_* / source_gem_block 等)がまだ Bukkit のレシピ一覧に無く、
+        // 実在するのに「解決できない」と誤警告していた。runTask は全プラグインの enable 完了後・最初の
+        // tick で走るため、その時点なら Bukkit.recipeIterator() に他プラグインのレシピも載っている。
+        getServer().getScheduler().runTask(this, () -> CatalogCraftGateListener.verifyRecipeGateIds(
+                configManager.dedicatedEffects(), configManager.itemCatalog(), getLogger()));
         getServer().getPluginManager().registerEvents(
                 new WeaponCoatingListener(configManager.dedicatedEffects(),
                         configManager.craftingFeatures(), configManager.itemStats(),
@@ -948,7 +956,7 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <reload|skills|start|stop|progression|give|bind|stamp|import|dungeon|stats|collection|reward|inspect>",
+                                        "用法: /tf <reload|skills|start|stop|progression|give|bind|stamp|import|dungeon|stats|collection|recipes|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
                                         "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
@@ -1196,6 +1204,7 @@ public final class TrinityForge extends JavaPlugin {
                             .then(statsCommand.node())
                             .then(roleCommand.node())
                             .then(collectionCommand.node())
+                            .then(recipesCommand.node())
                             .then(settingsCommand.node())
                             .then(specialRewardCommand.node()
                                     .requires(TrinityForge::isTfAdmin))

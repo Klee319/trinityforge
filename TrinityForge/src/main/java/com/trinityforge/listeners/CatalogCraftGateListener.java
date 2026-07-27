@@ -179,6 +179,17 @@ public final class CatalogCraftGateListener implements Listener {
      * 何か(TFカタログ品 / バニラの実在レシピ / 既知のネザライトアップグレード対応表)へ解決できるかを
      * チェックする。解決できないIDは「配置されているのに何もゲートしない」サイレント無効ゲートになる
      * ため、綴り間違い等を起動時に警告で検出する(コードは書き換えない、報告のみ)。
+     *
+     * <p><b>呼び出しタイミングの制約 (2026-07-28)</b>: {@link #hasVanillaRecipe} が
+     * {@code Bukkit.recipeIterator()} を舐めるので、<b>全プラグインの enable 完了後</b>
+     * (= {@code TrinityForge#onEnable} 内ではなく {@code runTask} の最初のtick)に呼ぶこと。
+     * ArsPaper は TF に depend しており TF より後に enable するため、onEnable 内で呼ぶと
+     * ArsPaper の作業台レシピ(tf_core_* など)が未登録で、実在するのに「解決できない」と誤警告する。
+     *
+     * <p>なお {@code ritual:} ゲートはここでは検証<b>しない</b>。儀式は Bukkit のレシピではなく
+     * ArsPaper 内部の {@code RitualRecipe} なので TF からは列挙できない。{@code recipe:}/{@code ritual:}
+     * のチャンネル取り違え(儀式アイテムを recipe: に置くと無言で常時解放になる)は、代わりに
+     * ビルド時の {@code RecipeRitualGateChannelDriftTest} が固定している。
      */
     public static void verifyRecipeGateIds(DedicatedEffectsConfig dedicatedEffects,
                                             ItemCatalogConfig itemCatalog, Logger log) {

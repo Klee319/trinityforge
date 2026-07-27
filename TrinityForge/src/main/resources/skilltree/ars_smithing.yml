@@ -124,7 +124,10 @@ nodes:
     effects:
       - "上位ソースジャー・ソースリンクを解放"
     dedicated-effects:
-      - id: "recipe:volcanic_sourcelink"
+      # 2026-07-28修正: volcanic_sourcelink は sourcelinks.yml で method: ritual。
+      # ArsPaper は儀式を ritualPerks/tfRitualGatePerks でしか照合しない(UnlockGate#hasRitualPermission)ため、
+      # recipe: 側に置いても永久に無効(=常時解放)だった。D-1 の ritual:waystone と同じ語彙へ揃える。
+      - id: "ritual:volcanic_sourcelink"
 
   D-1:
     name: "Waystoneクラフト"
@@ -152,8 +155,9 @@ nodes:
     effects:
       - "エンチャントIクラフトが可能に"
     dedicated-effects:
-      - id: "recipe:enchant_book_mana_regen_1"
-      - id: "recipe:enchant_book_mana_boost_1"
+      # 2026-07-28修正: enchant_book_* は items.yml で method: ritual(→ recipe: では無効)。
+      - id: "ritual:enchant_book_mana_regen_1"
+      - id: "ritual:enchant_book_mana_boost_1"
   B-1-2:
     name: "エンチャントII・回生"
     level: 40
@@ -166,9 +170,9 @@ nodes:
       - "エンチャントIIクラフトが可能に"
       - "回生クラフトが可能に"
     dedicated-effects:
-      - id: "recipe:enchant_book_mana_regen_2"
-      - id: "recipe:enchant_book_mana_boost_2"
-      - id: "recipe:enchant_book_soulbound"
+      - id: "ritual:enchant_book_mana_regen_2"
+      - id: "ritual:enchant_book_mana_boost_2"
+      - id: "ritual:enchant_book_soulbound"
   B-1-4:
     name: "エンチャントIII・共有"
     level: 80
@@ -181,9 +185,9 @@ nodes:
       - "エンチャントIIIクラフトが可能に"
       - "共有クラフトが可能に"
     dedicated-effects:
-      - id: "recipe:enchant_book_mana_regen_3"
-      - id: "recipe:enchant_book_mana_boost_3"
-      - id: "recipe:enchant_book_share"
+      - id: "ritual:enchant_book_mana_regen_3"
+      - id: "ritual:enchant_book_mana_boost_3"
+      - id: "ritual:enchant_book_share"
 
   B-2-1:
     name: "友好モブ召喚儀式"

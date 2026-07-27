@@ -193,8 +193,11 @@ select.field-input option {
 /* dedicated forms */
 .dedicated-form { display: flex; flex-direction: column; gap: 12px; }
 /* エントリカードを縦に並べる汎用コンテナ。カード同士が密着しないよう間隔を確保する
-   (item-catalog / skilltree / materials 等の一覧が対象。要件: カード間の余白)。 */
-.card-list, .nodes-container { display: flex; flex-direction: column; gap: 12px; }
+   (item-catalog / skilltree / materials 等の一覧が対象。要件: カード間の余白)。
+   2026-07-27 タスク2: .card-list-body は8箇所(tf-lifestyle-forms.js の村人取引/ダンジョン系フォーム等)
+   で使われているのにCSS未定義だったため、この汎用コンテナと同じ間隔で描画されていなかった
+   (根本原因: クラス名の綴り違いでルールが一つも当たっていなかった)。同じ役割なのでここへ統合する。 */
+.card-list, .nodes-container, .card-list-body { display: flex; flex-direction: column; gap: 12px; }
 .glyphs-form .glyphs-card-list,
 .glyphs-form.card-list { display: flex; flex-direction: column; gap: 14px; }
 .glyphs-form .entry-card { margin: 0; }
