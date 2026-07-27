@@ -17,15 +17,15 @@
 
 ---
 
-## 1. 現在の状態（2026-07-27 15:20 時点）
+## 1. 現在の状態（2026-07-27 15:35 時点）
 
 | 対象 | 状態 |
 |---|---|
-| TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ） |
-| config-editor テスト | **654 / 654**（実走・実測） |
-| **配備（2026-07-27 15:20 のバッチ）** | **ビルド済み・未配備**。`TrinityForge/build/release/TrinityForge-all.jar`（15:19、`319e459` を含む）を作成済みだが、**`D:/` への書き込みが権限ゲートに拒否されたためユーザー実行が必要**。`tmp\run-deploy-k5b.cmd` を実行すれば、既存 jar と `stats/lore.yml` / `skilltree/farming.yml` を `backups/deploy-20260727/` へ退避してから上書きし、反映を検証する。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**yml だけでなく jar も要る**点に注意（`/tf stats detail` と確率バグ修正は Java 側） |
+| TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
+| config-editor テスト | **全緑**（実走・実測、`===EDITOR_EXIT=0`） |
+| **配備（2026-07-27 15:35 のバッチ）** | **ビルド済み・未配備**。`TrinityForge/build/release/TrinityForge-all.jar`（15:34、15,780,723 bytes、`016ec30` までを含む）を作成済みだが、**`D:/` への書き込みが権限ゲートに拒否されたためユーザー実行が必要**。`cmd /c tmp\run-deploy-k5b.cmd` を実行すれば、既存 jar と `stats/lore.yml` / `skilltree/farming.yml` / `skilltree/ars_magic.yml` を `backups/deploy-20260727/` へ退避してから上書きし、反映を検証する。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**yml だけでなく jar も要る**点に注意（`/tf stats detail` と確率バグ修正は Java 側）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`RecipeBrowserFilterTest` 11 件を新設。`test --offline` で実走） |
-| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 13:01 ビルド → **未配備、かつ HEAD より古い**（差分レビューの修正 `9123116` を含まない）。**配備前に再ビルドが要る** |
+| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 15:34 に `016ec30` で再ビルド済み → **未配備**（上の「配備」行が最新の手順） |
 | `ArsPaper-1.0.0.jar` | 2026-07-27 13:04 ビルド → **未配備、かつ HEAD より古い**（グロブ修正 `d3a3210` を含まない）。**配備前に再ビルドが要る** |
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
@@ -305,6 +305,40 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — マナ回復ステータスの表示名が実装と逆だった件（K-8）と W-12 の取り下げ
+
+`016ec30`。**表示名だけを実装に合わせる**（キーは変えない＝プレイヤーの既存ビルドが変わらない）
+方針をユーザーが承認したので適用した。
+
+- `hit-mana-recovery` → 「被弾マナ回復」（`ArmorManaListener#onPlayerDamaged`）
+- `damage-mana-recovery` → 「攻撃マナ回復」（`#onPlayerDealDamage`、近接直撃のみ）
+
+**逆であることの根拠**は `items/catalog.yml` のスレッド 2 種が**元から実装と一致していた**こと
+（`thread_hit_mana_recovery` =「被弾マナ回復のスレッド」/ `thread_damage_mana_recovery` =
+「攻撃マナ回復のスレッド」）。つまりズレていたのは `stats/lore.yml` 側だけだった。
+
+**同じ向きの間違いが 2 箇所に波及していた**（当初は 2 キーだけの問題だと思っていた）:
+
+1. `stats/lore.yml` の `mana-onhit-percent` / `-flat` が「命中マナ回復率/(実)」。フォークの
+   `ManaRecoveryListener#onPlayerDamaged` が `onHitPercent/Flat` を使う＝**被弾側**なので逆。
+2. `skilltree/ars_magic.yml` B「マナの操り手」の `effect-text`（**プレイヤーに見える文言**）が
+   「命中時マナ回復+1」。ここが一番実害があった。
+
+editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats 説明 / 防具 stat ラベル）が
+同じ向きにずれていたので同時に修正。スキルツリー草案の参照表 2 本も直した（次の草案作成で
+同じ誤りが再生産されるため）。
+
+**W-12（エンチャント消費EXP軽減の stat が語彙に無い）は記録が古かっただけで、実装は既にあった。**
+`enchant_cost_reduction` は語彙にあり、`EnchantCostReductionListener#reducedCost`
+（`MAX_REDUCTION = 0.9` / `MIN_LEVEL_COST = 1`）が**エンチャントテーブルの消費レベルそのもの**を
+減らしている。`skilltree/enchanting.yml:24-27` も既に宣言済みで説明文も一致。
+「`enchant_exp_gain_bonus` へ読み替えてある」という記述自体が誤りだった。
+→ §5 の「死にステータスは 2 種類に分けて扱う」に**この型で起票する前に実コードで裏を取る**旨を追記。
+
+検証: config-editor 全緑（`EDITOR_EXIT=0`）/ TrinityForge `BUILD SUCCESSFUL`・失敗 0・
+スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
+jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
 ### 2026-07-27 — 資源サーバ分離の作業書とオフライン検証（`ops/` 新設）
 
