@@ -16,8 +16,17 @@ if not exist "%VELOCITY_ROOT%\%VELOCITY_JAR%" (
     exit /b 1
 )
 
-start "velocity" /D "%VELOCITY_ROOT%" java -Xms%HEAP_VELOCITY% -Xmx%HEAP_VELOCITY% ^
-  -XX:+UseG1GC -XX:+ParallelRefProcEnabled ^
-  -XX:MaxGCPauseMillis=200 -XX:+AlwaysPreTouch ^
-  -jar "%VELOCITY_JAR%"
+REM One Windows Terminal window, one tab per server (see launch-config.cmd).
+if defined USE_WT (
+    wt.exe -w %WT_WINDOW% new-tab --title velocity -d "%VELOCITY_ROOT%" ^
+      java -Xms%HEAP_VELOCITY% -Xmx%HEAP_VELOCITY% ^
+      -XX:+UseG1GC -XX:+ParallelRefProcEnabled ^
+      -XX:MaxGCPauseMillis=200 -XX:+AlwaysPreTouch ^
+      -jar "%VELOCITY_JAR%"
+) else (
+    start "velocity" /D "%VELOCITY_ROOT%" java -Xms%HEAP_VELOCITY% -Xmx%HEAP_VELOCITY% ^
+      -XX:+UseG1GC -XX:+ParallelRefProcEnabled ^
+      -XX:MaxGCPauseMillis=200 -XX:+AlwaysPreTouch ^
+      -jar "%VELOCITY_JAR%"
+)
 exit /b 0

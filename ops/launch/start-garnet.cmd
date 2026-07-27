@@ -26,14 +26,31 @@ if not exist "%GARNET_HOME%\net8.0\GarnetServer.exe" (
     exit /b 1
 )
 
-echo [INFO] Starting Garnet
-start "Garnet" /min "%GARNET_HOME%\net8.0\GarnetServer.exe" ^
-  --bind 127.0.0.1 ^
-  --port 6379 ^
-  --memory 1g ^
-  --index 64m ^
-  --checkpointdir "%GARNET_HOME%\data" ^
-  --logger-level Warning
+REM No console window: Garnet is a background dependency and nobody types into it.
+REM Its output goes to a log file instead, so it is still readable after the fact.
+REM (At --logger-level Warning this file stays tiny.)
+if not exist "%GARNET_HOME%\logs" mkdir "%GARNET_HOME%\logs"
+
+echo [INFO] Starting Garnet (background, no window)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Start-Process -FilePath '%GARNET_HOME%\net8.0\GarnetServer.exe'" ^
+  " -ArgumentList '--bind','127.0.0.1','--port','6379','--memory','1g','--index','64m','--checkpointdir','%GARNET_HOME%\data','--logger-level','Warning'" ^
+  " -WindowStyle Hidden" ^
+  " -RedirectStandardOutput '%GARNET_HOME%\logs\garnet.log'" ^
+  " -RedirectStandardError '%GARNET_HOME%\logs\garnet.err'"
+if errorlevel 1 (
+    echo [ERROR] Could not start Garnet. See %GARNET_HOME%\logs\garnet.err
+    exit /b 1
+)
 
 %SystemRoot%\System32\timeout.exe /t %WAIT_AFTER_STORE% /nobreak >nul
+
+REM Confirm it actually answers, rather than trusting that the process launched.
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  ". '%OPS_SCRIPTS%\lib\DataStore.ps1'; if ((Test-RedisEndpoint).SpeaksResp) { exit 0 } else { exit 1 }"
+if errorlevel 1 (
+    echo [ERROR] Garnet is not answering on 6379. See %GARNET_HOME%\logs\garnet.err
+    exit /b 1
+)
+echo [OK] Garnet is answering on 127.0.0.1:6379
 exit /b 0

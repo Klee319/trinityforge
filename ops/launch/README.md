@@ -24,6 +24,28 @@
 
 個別のものは、1 台だけ上げ直すときに使う。
 
+### ウィンドウの出かた
+
+**サーバ 4 台（velocity / main / resource / dev）は Windows Terminal の 1 ウィンドウに
+タブでまとまる。** ウィンドウ名は `TrinityForge`（[launch-config.cmd](launch-config.cmd) の
+`WT_WINDOW`）。あとから `start-dev.cmd` を単体で叩いても**同じウィンドウにタブが増える**だけで、
+新しいウィンドウは開かない。
+
+タブではなく画面分割にしたい場合は、各 `start-*.cmd` の `new-tab` を
+`split-pane` に変えるだけでよい。
+
+Windows Terminal が無い環境では、従来どおり 1 台 1 ウィンドウで開く（自動判定）。
+
+> タブを 1 つに**統合**することはできない。各サーバのコンソールはそれぞれ独立した stdin を
+> 持つ必要があり（コンソールにコマンドを打てなくなるため）、1 つの画面に流し込むと
+> どのサーバに入力しているのか区別できなくなる。
+
+**Garnet はウィンドウを出さない。** バックグラウンドで動き、出力は
+`D:\game\minecraft\Garnet\logs\garnet.log` / `garnet.err` に落ちる
+（`--logger-level Warning` なのでほとんど増えない）。
+起動しているかどうかは `status.cmd` で見る。
+MariaDB は元から Windows サービスなのでウィンドウを持たない。
+
 ### 起動順（`start-all.cmd` がこの順に呼ぶ）
 
 ```

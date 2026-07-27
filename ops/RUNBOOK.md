@@ -921,6 +921,10 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\testkit\check-logs.cmd
 停止は `launch\stop-all.cmd`（逆順・`stop.flag` を置く）、
 現況確認は `launch\status.cmd`。詳細は [launch/README.md](launch/README.md)。
 
+サーバ 4 台は **Windows Terminal の 1 ウィンドウにタブ**でまとまる（ウィンドウ名 `TrinityForge`）。
+あとから 1 台だけ上げ直しても同じウィンドウにタブが増える。
+**Garnet はウィンドウを出さず**、出力は `D:\game\minecraft\Garnet\logs\garnet.log` に落ちる。
+
 > **`.cmd` に日本語を書かないこと。** cmd.exe は UTF-8 のバッチファイルを正しく読めず、
 > マルチバイト文字があるとファイル位置の計算がずれて**行の途中から実行を始める**。
 > 実際に `server-loop.cmd` が日本語コメント入りだった間、引数検査も `stop.flag` 判定も

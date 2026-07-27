@@ -24,5 +24,10 @@ if exist "%SERVER_ROOT%\stop.flag" (
     del "%SERVER_ROOT%\stop.flag"
 )
 
-start "resource" cmd /c call "%OPS_SCRIPTS%\server-loop.cmd" "%SERVER_ROOT%" %HEAP_RESOURCE% %PAPER_JAR%
+REM One Windows Terminal window, one tab per server (see launch-config.cmd).
+if defined USE_WT (
+    wt.exe -w %WT_WINDOW% new-tab --title resource cmd /c call "%OPS_SCRIPTS%\server-loop.cmd" "%SERVER_ROOT%" %HEAP_RESOURCE% %PAPER_JAR%
+) else (
+    start "resource" cmd /c call "%OPS_SCRIPTS%\server-loop.cmd" "%SERVER_ROOT%" %HEAP_RESOURCE% %PAPER_JAR%
+)
 exit /b 0

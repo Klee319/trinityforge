@@ -135,12 +135,25 @@ if ($IncludeGarnet) {
     } elseif ($DryRun) {
         Write-OpsLog "Garnet を停止する (PID $(($garnet.Id) -join ', '))" -Level DRYRUN
     } else {
+        # ウィンドウ無し (start-garnet.cmd は -WindowStyle Hidden で上げる) だと
+        # CloseMainWindow は掴むウィンドウが無く false を返す。その場合だけ Stop-Process へ落とす。
+        #
+        # Minecraft サーバと違い、ここで強制終了しても壊れるものが無い:
+        # Garnet は HuskSync の一時キャッシュで、正本は MariaDB にある。
+        # しかもこの時点で全バックエンドは停止済み＝転送中のプレイヤーがいない。
         foreach ($process in $garnet) {
-            [void]$process.CloseMainWindow()
+            $closed = $false
+            if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
+                $closed = $process.CloseMainWindow()
+            }
+            if (-not $closed) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                Write-OpsLog "Garnet (PID $($process.Id)) を終了しました（ウィンドウが無いため直接終了）。"
+            }
         }
         Start-Sleep -Seconds 3
         if (@(Get-Process GarnetServer -ErrorAction SilentlyContinue).Count -gt 0) {
-            Write-OpsLog "Garnet がまだ残っています。手動で確認してください（強制終了はしません）。" -Level WARN
+            Write-OpsLog "Garnet がまだ残っています。手動で確認してください。" -Level WARN
         } else {
             Write-OpsLog "Garnet を停止しました。"
         }

@@ -39,6 +39,16 @@ set "WAIT_AFTER_STORE=5"
 set "WAIT_AFTER_MAIN=60"
 set "WAIT_AFTER_BACKEND=30"
 
+REM ---- console windows -------------------------------------------------------------------------
+REM  Four separate console windows is a lot of desktop clutter, so collect the servers as TABS of
+REM  one Windows Terminal window. "wt -w <name>" creates that window on first use and reuses it
+REM  afterwards, so starting a single server later joins the same window instead of opening a new
+REM  one. Each tab keeps its own stdin, which matters: the server console has to stay typeable.
+REM  Without Windows Terminal we fall back to the old one-window-per-server behaviour.
+set "WT_WINDOW=TrinityForge"
+set "USE_WT="
+%SystemRoot%\System32\where.exe wt.exe >nul 2>&1 && set "USE_WT=1"
+
 REM ---- sanity checks --------------------------------------------------------------------------
 REM  Finding out mid-startup that a path is wrong is painful to untangle, so fail here.
 

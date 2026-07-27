@@ -23,5 +23,10 @@ if exist "%SERVER_ROOT%\stop.flag" (
     del "%SERVER_ROOT%\stop.flag"
 )
 
-start "dev" cmd /c call "%OPS_SCRIPTS%\server-loop.cmd" "%SERVER_ROOT%" %HEAP_DEV% %PAPER_JAR%
+REM One Windows Terminal window, one tab per server (see launch-config.cmd).
+if defined USE_WT (
+    wt.exe -w %WT_WINDOW% new-tab --title dev cmd /c call "%OPS_SCRIPTS%\server-loop.cmd" "%SERVER_ROOT%" %HEAP_DEV% %PAPER_JAR%
+) else (
+    start "dev" cmd /c call "%OPS_SCRIPTS%\server-loop.cmd" "%SERVER_ROOT%" %HEAP_DEV% %PAPER_JAR%
+)
 exit /b 0
