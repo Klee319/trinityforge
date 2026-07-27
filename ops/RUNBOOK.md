@@ -13,8 +13,11 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 > **2026-07-27 時点の実環境**: 上の 3 バックエンドと Velocity（`velocity-4.1.0-SNAPSHOT-9.jar`）が
 > 既に作成済みで、Geyser / floodgate / Via\* はプロキシへ移設済み。Main_Server と Resource_Server の
 > plugins も配置済み（Resource_Server は [PLUGIN_MATRIX.md](PLUGIN_MATRIX.md) の推奨構成どおり）。
-> **未実施は手順2（MariaDB + Redis）・手順6（ボーダー）・手順8（ジャンクション）・
+> **2-1（MariaDB 12.3.2）は導入済み**（`preflight.ps1` がハンドシェイクで確認）。
+> **未実施は 2-2（Garnet）・手順6（ボーダーと paper-global）・手順8（ジャンクション）・
 > 手順9-2（HuskSync の設定）・手順11（スケジューラ）**。
+> `proxies.velocity` は Main_Server だけ設定済みで、Resource / Dev は未設定
+> （6-2 の `apply-velocity-forwarding.ps1` で揃う）。
 > 現状は [scripts/preflight.ps1](scripts/preflight.ps1) を実行すれば機械的に判定できる。
 
 ---
@@ -65,10 +68,10 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 | EliteMobs なしでモブのレベル推移と報酬が機能するか | **機能する。** 89 種 × Lv0〜100 で全帯埋まっている | [reports/resource-server-mob-simulation.md](reports/resource-server-mob-simulation.md) |
 | 2 プロセスから同じ SQLite を触って壊れないか | **壊れない。** ただし本体の修正が 1 件必要だった（適用済み） | [reports/shared-sqlite-concurrency.md](reports/shared-sqlite-concurrency.md) |
 | PDC が HuskSync で同期できる型か | **全て primitive 型。** 将来崩れたらテストが落ちる | `PlayerPdcPrimitiveTypeAuditTest` |
-| ジャンクション先を誤って消さないか | **削除ガードが必ず中断する。** 実際にジャンクションを作って実測 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1)（14/14） |
+| ジャンクション先を誤って消さないか | **削除ガードが必ず中断する。** 実際にジャンクションを作って実測 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1)（20/20） |
 
 **起動する前に [scripts/preflight.ps1](scripts/preflight.ps1) を流す。** 手順2・9-2・6-2 の
-やり残しを機械的に検出する（MariaDB / Redis の到達性、HuskSync の既定資格情報、
+やり残しを機械的に検出する（MariaDB / Garnet が実際に応答しているか、HuskSync の既定資格情報、
 `location` / `game_mode` / `persistent_data`、`trinityforge:*` の除外、
 全バックエンドでの設定一致、forwarding secret の一致）。
 **HuskSync は enable に失敗してもサーバの起動を止めない**ため、
@@ -414,6 +417,17 @@ proxies:
     secret: '<forwarding.secret の中身>'
 ```
 
+**手で貼らずにスクリプトで揃えるほうが安全。** secret が 1 文字でも違うと
+全員が `Unable to verify player details` で入れなくなるため:
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File ops/scripts/apply-velocity-forwarding.ps1 -DryRun
+```
+
+`-DryRun` を外すと反映する。`enabled` と `secret` の 2 行だけを書き換え、
+書く前に同じディレクトリへ退避を取り、**secret は画面に出さない**。
+既に一致しているサーバは 1 バイトも触らない（冪等）。**反映には再起動が必要。**
+
 ### 6-3. ワールドボーダー
 
 ```
@@ -524,6 +538,8 @@ spawn-protection=16
 ### 7-2. paper-global.yml
 
 メインと同じく `proxies.velocity` を有効化し、同じ secret を入れる。
+6-2 の `apply-velocity-forwarding.ps1` は `Servers` の全サーバをまとめて処理するので、
+資源サーバと Dev_Server も 1 回の実行で揃う。
 
 ### 7-3. プラグインをコピー
 
@@ -663,6 +679,37 @@ config から**再計算して付け直す**。スキル Lv はジャンクシ�
 **メインと資源で完全に同じ内容にすること。** 反映後に `preflight.ps1` を流せば、
 既定値の残りと `game_mode` と除外漏れ、さらに**サーバ間の設定差分**まで機械的に検出できる。
 
+### 9-3. Dev_Server は別 DB に分ける
+
+Dev_Server も HuskSync を入れるなら、**本番のプレイヤーデータを触らせないこと。**
+
+**`cluster_id` を変えるだけでは足りない。** `cluster_id` は Redis のキーと
+メッセージチャンネルにしか効かず（`RedisManager.java` を実読）、**スナップショットの
+保存先である MySQL のテーブルは同じまま**なので、dev での実験が本番の
+スナップショット履歴を書き換えてしまう。
+
+分けるなら **DB を別に作る**:
+
+```sql
+CREATE DATABASE husksync_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL ON husksync_dev.* TO 'husksync'@'127.0.0.1';
+```
+
+```yaml
+# Dev_Server/plugins/HuskSync/config.yml
+database:
+  credentials:
+    database: husksync_dev
+cluster_id: dev
+```
+
+これでも **Garnet / MariaDB / HuskSync の経路はすべて本番と同じものを通る**ので、
+互換性の検証としては十分に意味がある。
+
+逆に「3 台目のバックエンドとして本番同様に同期させたい」場合は
+main / resource と同じ DB・同じ `cluster_id`・同じ `features` にする。
+その場合 dev は本番ネットワークの一部なので、**壊す実験には使えない。**
+
 ---
 
 ## 手順 10. プロキシ用プラグインを入れる
@@ -705,8 +752,9 @@ setx TF_RCON_DEV_PASSWORD      "<Dev_Server の rcon.password>"
 
 ```powershell
 cd <repo>\ops\scripts
-.\run-selftest.ps1                 # 削除ガードの実測。14/14 になること
+.\run-selftest.ps1                 # 削除ガードの実測。20/20 になること
 .\preflight.ps1                    # 実環境の起動前チェック。0 件になること
+.\apply-velocity-forwarding.ps1 -DryRun   # 「変更なし」が全サーバで出ること
 .\sync-configs.ps1     -DryRun
 .\restart-server.ps1   -DryRun -Target both
 .\reset-resource.ps1   -DryRun

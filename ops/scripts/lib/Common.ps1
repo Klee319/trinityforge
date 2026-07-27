@@ -97,6 +97,40 @@ function Resolve-OpsServer {
     throw "サーバ '$Target' が ops-config.psd1 にありません。定義済み: $known"
 }
 
+function ConvertFrom-YamlScalar {
+    <#
+    .SYNOPSIS yml の 1 行スカラー値を素の文字列へ戻す。
+    .DESCRIPTION
+        `secret: 'ab''cd'` のような単一引用符文字列を素直に扱うために要る。
+        正規表現 "'?([^']*)'?" で済ませると【引用符を含む値でマッチに失敗し】、
+        「値が読めない」を「値が違う」と誤判定する（実際に踏んだ）。
+        必要なのは単一引用符・二重引用符・裸の 3 形だけなので、YAML パーサは持ち込まない。
+    #>
+    [CmdletBinding()]
+    param([string] $Raw)
+
+    if ($null -eq $Raw) { return $null }
+    $value = $Raw.Trim()
+    if ($value.Length -ge 2 -and $value.StartsWith("'") -and $value.EndsWith("'")) {
+        # 単一引用符内では '' が ' のエスケープ。他のエスケープは無い。
+        return $value.Substring(1, $value.Length - 2) -replace "''", "'"
+    }
+    if ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"')) {
+        return $value.Substring(1, $value.Length - 2) -replace '\\"', '"'
+    }
+    return $value
+}
+
+function ConvertTo-YamlSingleQuoted {
+    <#
+    .SYNOPSIS 文字列を yml の単一引用符スカラーへ包む。
+    #>
+    [CmdletBinding()]
+    param([string] $Value)
+
+    return "'" + ($Value -replace "'", "''") + "'"
+}
+
 function Write-OpsLog {
     [CmdletBinding()]
     param(

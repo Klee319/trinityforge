@@ -411,6 +411,28 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-27 — forwarding secret の一括反映スクリプトと Dev_Server の隔離方針
+
+MariaDB のネイティブ導入が完了（`preflight.ps1` がハンドシェイクから **12.3.2-MariaDB** を確認）。
+残った指摘のうち、`proxies.velocity` が Main_Server だけ設定済みで Resource / Dev が
+未設定という点に対し **`ops/scripts/apply-velocity-forwarding.ps1`** を新設した。
+secret が 1 文字違うと全員が `Unable to verify player details` で入れなくなるので、
+3 台ぶんを手で貼らせない。`enabled` と `secret` の 2 行だけを書き換え、書く前に同じ
+ディレクトリへ退避し、**secret は画面に出さず**、既に一致しているサーバは 1 バイトも触らない。
+
+**Dev_Server に HuskSync を入れるときの落とし穴**: `cluster_id` を変えるだけでは隔離にならない。
+`cluster_id` は **Redis のキーとメッセージチャンネルにしか効かず**（`RedisManager.java` を実読）、
+**スナップショットの保存先である MySQL のテーブルは同じまま**。テーブル名は
+`database.table_names` で別に決まる。dev で実験するなら **DB を別に作る**
+（`husksync_dev` + `cluster_id: dev`）。それでも Garnet / MariaDB / HuskSync の経路は
+本番と同じものを通るので、互換性検証としては十分。
+
+**追加テストが実バグを 1 件検出**（`run-selftest.ps1` は 20/20）。yml の単一引用符スカラーを
+`'?([^']*)'?` で剥がしていたため、**値に引用符が含まれるとマッチ自体が失敗し、
+「値が読めない」を「値が違う」と誤判定**していた（既に正しい main を無駄に書き換えた）。
+`ConvertFrom-YamlScalar` / `ConvertTo-YamlSingleQuoted` を `Common.ps1` に置き、
+`preflight.ps1` と新スクリプトの両方をそれ経由に統一。
+
 ### 2026-07-27 — データストアを Windows ネイティブ構成へ（WSL2 は付録に降格）
 
 ユーザーの要望で MariaDB / Redis を **WSL2 ではなく Windows ネイティブ**にできるか検討し、

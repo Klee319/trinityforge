@@ -408,6 +408,100 @@ try {
         Assert-True (-not $mysql.Reachable) "閉じたポートに到達したことになっている (mysql)"
     }
 
+    # ---- forwarding secret の反映 ---------------------------------------------------------------
+
+    Write-Host ""
+    Write-Host "=== forwarding secret の反映 ===" -ForegroundColor Cyan
+
+    Test-Case "enabled と secret だけを書き換え、他の行と main は触らない" {
+        $root = Join-Path $sandbox "fwd"
+        $velocity = Join-Path $root "velocity"
+        New-Item -ItemType Directory -Path $velocity -Force | Out-Null
+        # 単一引用符を含む secret でエスケープも同時に確認する。
+        $secret = "ab'cd1234"
+        Set-Content -LiteralPath (Join-Path $velocity "forwarding.secret") -Value $secret -NoNewline
+
+        # main は既に正しい / resource は未設定 という実環境と同じ状況を作る。
+        $paperGlobal = @'
+proxies:
+  bungee-cord:
+    online-mode: true
+  proxy-protocol: false
+  velocity:
+    enabled: PLACEHOLDER_ENABLED
+    online-mode: true
+    secret: PLACEHOLDER_SECRET
+scoreboards:
+  save-empty-scoreboard-teams: true
+'@
+        $roots = @{}
+        foreach ($entry in @(
+            @{ Key = "main";     Enabled = "true";  Secret = "'ab''cd1234'" }
+            @{ Key = "resource"; Enabled = "false"; Secret = "''" }
+        )) {
+            $serverRoot = Join-Path $root $entry.Key
+            New-Item -ItemType Directory -Path (Join-Path $serverRoot "config") -Force | Out-Null
+            ($paperGlobal -replace "PLACEHOLDER_ENABLED", $entry.Enabled `
+                          -replace "PLACEHOLDER_SECRET", $entry.Secret) |
+                Set-Content -LiteralPath (Join-Path $serverRoot "config\paper-global.yml") -Encoding UTF8
+            $roots[$entry.Key] = $serverRoot
+        }
+
+        $fwdConfig = Join-Path $sandbox "fwd-ops-config.psd1"
+        @"
+@{
+    VelocityRoot = "$velocity"
+    Servers = @{
+        Main     = @{ Name = "main";     Root = "$($roots['main'])";     RconHost = "127.0.0.1"; RconPort = 25586 }
+        Resource = @{ Name = "resource"; Root = "$($roots['resource'])"; RconHost = "127.0.0.1"; RconPort = 25587 }
+    }
+    ResourceResetTargets = @{ Directories = @("world"); Files = @() }
+    ArsPaperSync = @{ ExcludeFiles = @(); ExcludePatterns = @() }
+    Backup = @{ Root = "C:\nope"; KeepDays = 1; Databases = @(); WslDistro = "Ubuntu" }
+}
+"@ | Set-Content -LiteralPath $fwdConfig -Encoding UTF8
+
+        $mainFile = Join-Path $roots['main'] "config\paper-global.yml"
+        $mainBefore = Get-Content -LiteralPath $mainFile -Raw
+
+        $scriptPath = Join-Path $PSScriptRoot "apply-velocity-forwarding.ps1"
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+                -Command "& '$scriptPath' -ConfigPath '$fwdConfig'" 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+
+        Assert-True ($output -notmatch [regex]::Escape($secret)) "secret を画面に出している"
+
+        # 既に正しい main は 1 バイトも変わっていないこと (退避ファイルも作られない)。
+        Assert-True ((Get-Content -LiteralPath $mainFile -Raw) -ceq $mainBefore) "main を書き換えた"
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $roots['main'] "config") -Filter "*.bak-*").Count -eq 0) `
+            "変更がないのに退避ファイルを作った"
+
+        $resourceLines = @(Get-Content -LiteralPath (Join-Path $roots['resource'] "config\paper-global.yml"))
+        Assert-True ($resourceLines[5] -eq "    enabled: true")          "enabled が true になっていない"
+        Assert-True ($resourceLines[6] -eq "    online-mode: true")      "online-mode を巻き込んだ"
+        Assert-True ($resourceLines[7] -eq "    secret: 'ab''cd1234'")   "secret のエスケープが違う: $($resourceLines[7])"
+        Assert-True ($resourceLines[2] -eq "    online-mode: true")      "bungee-cord 側を書き換えた"
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $roots['resource'] "config") -Filter "*.bak-*").Count -eq 1) `
+            "退避ファイルが作られていない"
+
+        # 冪等性: もう一度流しても「変更なし」で退避が増えない。
+        $ErrorActionPreference = "Continue"
+        try {
+            $again = & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+                -Command "& '$scriptPath' -ConfigPath '$fwdConfig'" 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+        Assert-True ($again -match "変更なし") "2 回目で変更なしと判定していない"
+        Assert-True (@(Get-ChildItem -LiteralPath (Join-Path $roots['resource'] "config") -Filter "*.bak-*").Count -eq 1) `
+            "冪等でない (退避が増えた)"
+    }
+
     # ---- preflight の HuskSync 検査 -------------------------------------------------------------
 
     Write-Host ""

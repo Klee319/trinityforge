@@ -234,8 +234,11 @@ if ($config.ContainsKey("VelocityRoot") -and $config.VelocityRoot) {
             for ($i = $velocityStart.LineNumber; $i -lt $globalLines.Count; $i++) {
                 $line = $globalLines[$i]
                 if ($line -match '^\s{0,3}\S') { break }
-                if ($line -match "^\s{4}enabled:\s*(\S+)")   { $enabled = $Matches[1] }
-                if ($line -match "^\s{4}secret:\s*'?([^']*)'?\s*$") { $configuredSecret = $Matches[1] }
+                if ($line -match '^\s{4}enabled:\s*(\S+)') { $enabled = $Matches[1] }
+                # 引用符を含む値でも壊れないよう、正規表現で剥がさず専用のヘルパーへ渡す。
+                if ($line -match '^\s{4}secret:\s*(.*)$') {
+                    $configuredSecret = ConvertFrom-YamlScalar -Raw $Matches[1]
+                }
             }
 
             if ($enabled -ne "true") {
@@ -244,7 +247,7 @@ if ($config.ContainsKey("VelocityRoot") -and $config.VelocityRoot) {
             }
             if ([string]::IsNullOrWhiteSpace($configuredSecret)) {
                 $issues.Add("[$($server.Name)] paper-global.yml の proxies.velocity.secret が空です。")
-            } elseif ($configuredSecret.Trim() -cne $secret) {
+            } elseif ($configuredSecret -cne $secret) {
                 $issues.Add("[$($server.Name)] forwarding secret が Velocity 側と一致しません。" +
                             "全員が 'Unable to verify player details' で入れなくなります。")
             }

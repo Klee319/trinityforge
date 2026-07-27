@@ -95,8 +95,9 @@
         Databases = @("luckperms", "husksync")
 
         # --- MariaDB が Windows ネイティブの場合（手順2 の既定） ---
-        # MariaDB 同梱の dump コマンド。版番号はインストールしたものに合わせる。
-        MysqldumpPath     = "C:\Program Files\MariaDB 11.4\bin\mariadb-dump.exe"
+        # MariaDB 同梱の dump コマンド。版番号はインストールしたものに合わせる
+        # (2026-07-27 の実環境は 12.3.2)。
+        MysqldumpPath     = "C:\Program Files\MariaDB 12.3\bin\mariadb-dump.exe"
         # 認証情報を書いたファイル。【パスワードをコマンドラインに置かない】ため。
         # 中身の例:
         #   [mariadb-dump]
