@@ -81,6 +81,10 @@ public final class SkillExpConfig {
     private volatile boolean levelUpSoundEnabled = true;
     private volatile String levelUpSound = "ENTITY_PLAYER_LEVELUP";
     private volatile int titleEveryLevels = 10;
+    // --- 2026-07-28 使用可能レベル連動EXP: use-level-scaling.* ---
+    private volatile boolean useLevelScalingEnabled = true;
+    private volatile double useLevelScalingMaxMultiplier = 3.0;
+    private volatile Map<String, Double> useLevelScalingPerLevel = Map.of();
 
     /** ARS_SMITHING experience granted when a player crafts Ars gear (the custom skill's EXP source). */
     public double arsSmithingExpPerCraft() {
@@ -280,6 +284,48 @@ public final class SkillExpConfig {
         return titleEveryLevels;
     }
 
+    /** true = 使用可能レベル連動EXP機能そのものが有効(既定true)。 */
+    public boolean useLevelScalingEnabled() {
+        return useLevelScalingEnabled;
+    }
+
+    /** 使用可能レベル連動EXPの倍率上限(暴走止めの安全弁、既定3.0)。 */
+    public double useLevelScalingMaxMultiplier() {
+        return useLevelScalingMaxMultiplier;
+    }
+
+    /** スキルIDごとの per-level 係数(小文字キー)。未定義スキルは {@link #useLevelExpMultiplier} で1.0扱い。 */
+    public Map<String, Double> useLevelScalingPerLevel() {
+        return useLevelScalingPerLevel;
+    }
+
+    /**
+     * 使用可能レベル連動EXP (2026-07-28): 鍛冶(作成したツール/装備)・伐採/採掘/切削
+     * (破壊に使ったメインハンドのツール)それぞれの「使用可能レベル」に応じてEXP付与量へ掛ける倍率。
+     * 農業(FARMING)は対象外(この設定は要件どおりFARMINGを含まない)。
+     *
+     * <p>式: {@code 倍率 = 1 + 使用可能レベル × per-level}。item-stats.yml の実際の使用可能レベルは
+     * 0/10/20/30/40/55/70/85/100 の9段(既定 per-level=0.01 なら 1.0/1.1/1.2/1.3/1.4/1.55/1.7/1.85/2.0倍)。
+     *
+     * @param skillId  {@link com.trinityforge.progression.core.SkillId} の大文字定数
+     *                 (per-levelに該当行が無いスキル、例えばFARMINGは常に1.0=対象外)
+     * @param useLevel 解決済みの使用可能レベル(0以下、または未解決(素手・バニラツール・
+     *                 item-statsにプロファイル無し)なら常に1.0=現状維持)
+     */
+    public double useLevelExpMultiplier(String skillId, int useLevel) {
+        if (!useLevelScalingEnabled || useLevel <= 0 || skillId == null) {
+            return 1.0;
+        }
+        Double perLevel = useLevelScalingPerLevel.get(skillId.toLowerCase(Locale.ROOT));
+        if (perLevel == null) {
+            return 1.0;
+        }
+        double multiplier = 1.0 + useLevel * perLevel;
+        // perLevelが負値でもEXPが減る方向(1.0未満)にはしない(要件外)。
+        multiplier = Math.max(1.0, multiplier);
+        return Math.min(useLevelScalingMaxMultiplier, multiplier);
+    }
+
     /** Loads (or reloads) the config. Returns true when it parsed cleanly. */
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -365,6 +411,19 @@ public final class SkillExpConfig {
         this.levelUpSoundEnabled = yaml.getBoolean("level-up.sound-enabled", true);
         this.levelUpSound = yaml.getString("level-up.sound", "ENTITY_PLAYER_LEVELUP");
         this.titleEveryLevels = yaml.getInt("level-up.title-every-levels", 10);
+        // 使用可能レベル連動EXP (2026-07-28)
+        this.useLevelScalingEnabled = yaml.getBoolean("use-level-scaling.enabled", true);
+        // maxMultiplierが1.0未満だと「1.0を下回らない」保証が壊れるため、下限1.0でクランプする。
+        this.useLevelScalingMaxMultiplier =
+                Math.max(1.0, yaml.getDouble("use-level-scaling.max-multiplier", 3.0));
+        Map<String, Double> perLevel = new LinkedHashMap<>();
+        var perLevelSection = yaml.getConfigurationSection("use-level-scaling.per-level");
+        if (perLevelSection != null) {
+            for (String key : perLevelSection.getKeys(false)) {
+                perLevel.put(key.toLowerCase(Locale.ROOT), perLevelSection.getDouble(key, 0.0));
+            }
+        }
+        this.useLevelScalingPerLevel = Collections.unmodifiableMap(perLevel);
     }
 
     /** 未知の文字列/null/空文字は安全側で{@link GatheringExpMode#DROP_SUM}(現行挙動)にフォールバックする。 */

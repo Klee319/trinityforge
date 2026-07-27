@@ -1,5 +1,6 @@
 package com.trinityforge.config.domains;
 
+import com.trinityforge.progression.core.SkillId;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Covers {@code combat.same-target-cooldown-seconds} (武器スキルEXP無限farm fix): defaults to 10 seconds
@@ -187,5 +189,141 @@ class SkillExpConfigTest {
         assertEquals(true, config.combatExpDiminishingEnabled());
         assertEquals("1 - %level% / 200", config.expDiminishingFormula());
         assertEquals(0.05, config.expDiminishingFloor());
+    }
+
+    // ------------------------------------------------------------------
+    // 2026-07-28 使用可能レベル連動EXP: use-level-scaling.*
+    // ------------------------------------------------------------------
+
+    @Test
+    void useLevelScalingDefaultsWhenSectionAbsent(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
+        assertEquals(true, config.useLevelScalingEnabled());
+        assertEquals(3.0, config.useLevelScalingMaxMultiplier());
+        // 未設定でも既定挙動(1.0 = 影響なし)を保つ後方互換: per-levelが空でも例外にならない。
+        assertEquals(1.0, config.useLevelExpMultiplier(SkillId.SMITHING, 100));
+    }
+
+    @Test
+    void useLevelExpMultiplierDisabledAlwaysReturnsOne(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: false
+                  per-level:
+                    smithing: 0.01
+                """);
+        assertEquals(1.0, config.useLevelExpMultiplier(SkillId.SMITHING, 100));
+    }
+
+    @Test
+    void useLevelExpMultiplierZeroLevelIsAlwaysOne(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: true
+                  per-level:
+                    smithing: 0.01
+                """);
+        assertEquals(1.0, config.useLevelExpMultiplier(SkillId.SMITHING, 0));
+        assertEquals(1.0, config.useLevelExpMultiplier(SkillId.SMITHING, -10));
+    }
+
+    @Test
+    void useLevelExpMultiplierMatchesExpectedValuesForEachItemStatsLevel(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: true
+                  max-multiplier: 3.0
+                  per-level:
+                    woodcutting: 0.01
+                """);
+        // item-stats.yml の実際の使用可能レベル9段(0/10/20/30/40/55/70/85/100)。
+        assertEquals(1.00, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 0), 1e-9);
+        assertEquals(1.10, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 10), 1e-9);
+        assertEquals(1.20, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 20), 1e-9);
+        assertEquals(1.30, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 30), 1e-9);
+        assertEquals(1.40, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 40), 1e-9);
+        assertEquals(1.55, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 55), 1e-9);
+        assertEquals(1.70, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 70), 1e-9);
+        assertEquals(1.85, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 85), 1e-9);
+        assertEquals(2.00, config.useLevelExpMultiplier(SkillId.WOODCUTTING, 100), 1e-9);
+    }
+
+    @Test
+    void useLevelExpMultiplierClampsToMaxMultiplier(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: true
+                  max-multiplier: 1.5
+                  per-level:
+                    mining: 0.5
+                """);
+        // 素の式なら 1 + 100*0.5 = 51.0 だが、max-multiplierで1.5に頭打ちされる。
+        assertEquals(1.5, config.useLevelExpMultiplier(SkillId.MINING, 100));
+    }
+
+    @Test
+    void useLevelExpMultiplierIsCaseInsensitiveForSkillId(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: true
+                  per-level:
+                    digging: 0.01
+                """);
+        assertEquals(1.10, config.useLevelExpMultiplier(SkillId.DIGGING, 10), 1e-9);
+        assertEquals(1.10, config.useLevelExpMultiplier("digging", 10), 1e-9);
+    }
+
+    @Test
+    void useLevelExpMultiplierUndefinedSkillIsAlwaysOne(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: true
+                  per-level:
+                    smithing: 0.01
+                    woodcutting: 0.01
+                    mining: 0.01
+                    digging: 0.01
+                """);
+        // FARMINGは要件どおり対象外(per-levelに行が無い) — 高レベルでも常に1.0。
+        assertEquals(1.0, config.useLevelExpMultiplier(SkillId.FARMING, 100));
+    }
+
+    @Test
+    void useLevelExpMultiplierNegativePerLevelNeverDropsBelowOne(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                use-level-scaling:
+                  enabled: true
+                  per-level:
+                    mining: -0.01
+                """);
+        assertEquals(1.0, config.useLevelExpMultiplier(SkillId.MINING, 100));
+    }
+
+    /**
+     * 出荷値ドリフト検知(2026-07-28): {@code stats/skill-exp.yml} の {@code use-level-scaling} 出荷値
+     * (enabled: true / max-multiplier: 3.0 / smithing・woodcutting・mining・digging すべて0.01)が
+     * このクラスの想定既定値と食い違っていないことを固定する({@link GimmickTierYamlDriftTest} と
+     * 同じ「実クラスパスの本物のymlを本物のローダーで読む」流儀)。
+     */
+    @Test
+    void shippedSkillExpYamlMatchesExpectedUseLevelScalingDefaults() throws Exception {
+        SkillExpConfig config = new SkillExpConfig();
+        java.io.File dataFolder = java.nio.file.Files.createTempDirectory("skill-exp-drift").toFile();
+        try (java.io.InputStream in = SkillExpConfigTest.class.getClassLoader()
+                .getResourceAsStream(SkillExpConfig.PATH)) {
+            assertTrue(in != null, "bundled " + SkillExpConfig.PATH + " must be on the test classpath");
+            File file = new File(dataFolder, SkillExpConfig.PATH);
+            Files.createDirectories(file.getParentFile().toPath());
+            Files.copy(in, file.toPath());
+        }
+        assertTrue(config.load(fakePlugin(dataFolder)), SkillExpConfig.PATH + " must load OK");
+
+        assertEquals(true, config.useLevelScalingEnabled());
+        assertEquals(3.0, config.useLevelScalingMaxMultiplier());
+        assertEquals(0.01, config.useLevelScalingPerLevel().get("smithing"));
+        assertEquals(0.01, config.useLevelScalingPerLevel().get("woodcutting"));
+        assertEquals(0.01, config.useLevelScalingPerLevel().get("mining"));
+        assertEquals(0.01, config.useLevelScalingPerLevel().get("digging"));
+        assertEquals(null, config.useLevelScalingPerLevel().get("farming"));
     }
 }

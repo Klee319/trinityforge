@@ -57,4 +57,63 @@ experience:
     DEEPSLATE_EMERALD_ORE: 600
     ANCIENT_DEBRIS: 1600
     NETHERITE_SCRAP: 800
+    # 2026-07-28 追加、バッドランドのテラコッタで採掘EXPが入らない報告への対応。
+    # 自然生成されるツルハシ採掘ブロックのみを対象とし、クラフト専用の装飾ブロック(*_GLAZED_TERRACOTTA等)は
+    # 意図的に入れていない。exp-mode既定の drop_sum(ドロップ品の材質名に対する値の合計)では、
+    # 「ブロック名の行」はゲート判定(値>0か)にしか使われず、実際に付与されるEXPはドロップした
+    # アイテムの材質名に対する値の合計になる。自分自身をドロップするブロックは1行で両方を満たすが、
+    # 自分と違うものを落とすブロック(SEA_LANTERN→PRISMARINE_CRYSTALS)はドロップ側の行も必要。
+    # バッドランド: テラコッタ(自然生成17種、STONE相当8)
+    TERRACOTTA: 8
+    WHITE_TERRACOTTA: 8
+    ORANGE_TERRACOTTA: 8
+    MAGENTA_TERRACOTTA: 8
+    LIGHT_BLUE_TERRACOTTA: 8
+    YELLOW_TERRACOTTA: 8
+    LIME_TERRACOTTA: 8
+    PINK_TERRACOTTA: 8
+    GRAY_TERRACOTTA: 8
+    LIGHT_GRAY_TERRACOTTA: 8
+    CYAN_TERRACOTTA: 8
+    PURPLE_TERRACOTTA: 8
+    BLUE_TERRACOTTA: 8
+    BROWN_TERRACOTTA: 8
+    GREEN_TERRACOTTA: 8
+    RED_TERRACOTTA: 8
+    BLACK_TERRACOTTA: 8
+    # 砂漠/バッドランド: 砂岩(自然生成、STONE相当8)
+    SANDSTONE: 8
+    RED_SANDSTONE: 8
+    # 海底神殿(自然生成)。SEA_LANTERNはドロップがPRISMARINE_CRYSTALSに変わる(drop_sum対応でドロップ側も定義)。
+    PRISMARINE: 12
+    PRISMARINE_BRICKS: 12
+    DARK_PRISMARINE: 12
+    SEA_LANTERN: 24
+    PRISMARINE_CRYSTALS: 24
+    # ネザー要塞(自然生成)
+    NETHER_BRICKS: 12
+    RED_NETHER_BRICKS: 12
+    MAGMA_BLOCK: 12
+    # 要塞/古代都市/試練の間など、構造物として自然生成される石材
+    STONE_BRICKS: 8
+    CRACKED_STONE_BRICKS: 8
+    CHISELED_STONE_BRICKS: 8
+    MOSSY_STONE_BRICKS: 8
+    MOSSY_COBBLESTONE: 8
+    POLISHED_DEEPSLATE: 12
+    DEEPSLATE_BRICKS: 12
+    CRACKED_DEEPSLATE_BRICKS: 12
+    DEEPSLATE_TILES: 12
+    CRACKED_DEEPSLATE_TILES: 12
+    CHISELED_DEEPSLATE: 12
+    POLISHED_TUFF: 8
+    TUFF_BRICKS: 8
+    CHISELED_TUFF: 8
+    CHISELED_TUFF_BRICKS: 8
+    # 氷(シルクタッチ無しは何もドロップせず drops.isEmpty() ガードで既存どおりEXP0のまま)
+    ICE: 8
+    PACKED_ICE: 12
+    BLUE_ICE: 16
+    # 鍾乳石
+    POINTED_DRIPSTONE: 8
 

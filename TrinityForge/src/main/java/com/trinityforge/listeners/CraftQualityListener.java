@@ -1,6 +1,7 @@
 package com.trinityforge.listeners;
 
 import com.trinityforge.integration.ars.ArsProgressionBridge;
+import com.trinityforge.progression.UseRequirementResolver;
 import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.config.domains.CraftQualityConfig;
 import com.trinityforge.config.domains.ItemCatalogConfig;
@@ -129,7 +130,15 @@ public final class CraftQualityListener implements Listener {
             // shift-clickの一括クラフトでもCraftItemEventは1回しか飛ばない(Bukkit標準の挙動)ため、
             // exp-per-craftは作成した個数に関わらず1回分だけ付与される(ars-smithingと同じ、意図的)。
             if (candidates.contains(SkillId.SMITHING)) {
-                ArsProgressionBridge.grantSkillExp(plugin, player, SkillId.SMITHING, skillExp.smithingExpPerCraft());
+                // 使用可能レベル連動EXP (2026-07-28): 「作成したツール/装備」= 品質スタンプ済みの stamped
+                // 自身の使用可能レベルを見る。ARS_SMITHING(上のgrantSmithingExp)には掛けない —
+                // 要件は「鍛冶」であってArs鍛冶ではないため、この線引きは意図的。
+                int useLevel = UseRequirementResolver.resolve(stamped, itemStats)
+                        .map(UseRequirementResolver.Resolved::level)
+                        .orElse(0);
+                double multiplier = skillExp.useLevelExpMultiplier(SkillId.SMITHING, useLevel);
+                ArsProgressionBridge.grantSkillExp(plugin, player, SkillId.SMITHING,
+                        skillExp.smithingExpPerCraft() * multiplier);
             }
         }
         // 常に次tickでプレビュー漏れを回収 (NUMBER_KEY / shift / 結果枠空 など)。

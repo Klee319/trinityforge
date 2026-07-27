@@ -30,6 +30,7 @@ import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.progression.UseRequirementPolicy;
 import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.StatKeys;
@@ -1257,8 +1258,20 @@ public final class CombatListener implements Listener {
         if (mobLevelTable != null && victim != null && mobLevelTable.suppressesSkillExp(victim.getType())) {
             return;
         }
+        // バグ2修正(2026-07-28): メインハンドの use-skill が何であれ、この経路(近接/投射物ダメージ確定
+        // 直後の戦闘EXP)へそのまま渡していたため、採取用ツール(斧/ツルハシ/シャベル/クワ/釣竿)で敵を
+        // 殴ると WOODCUTTING 等の採取スキルへ「殴った」だけでEXPが入っていた(stats/item-stats.yml で
+        // ツールにも use-skill: <採取スキル> が付いているため)。この経路は「戦闘で武器スキルEXPを
+        // 付与する」専用であるべきで、isCombatWeaponSkill で HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY の
+        // 3つだけに絞る。ARS_MAGIC は ArsProgressionBridge.grantMagicExp 側の別経路で付与されるため
+        // ここには含めない(含めると魔法攻撃でも二重に武器EXPが入る)。防具スキルも別経路。
+        // 「代わりにHEAVY_WEAPONSへ与える」等のフォールバックはしない — 採取用の斧/ツルハシ等は道具で
+        // あって武器ではなく、TFには戦斧(別マテリアル、use-skill: HEAVY_WEAPONS)が武器として別に存在
+        // する。道具で殴っても戦闘EXPが入らないのが正しい挙動であり、道具スキル側のEXPは
+        // NativeSkillExperienceListener 側の採取専用経路が担う。
         UseRequirementResolver.resolve(weapon, itemStats)
                 .filter(UseRequirementResolver.Resolved::hasSkill)
+                .filter(req -> isCombatWeaponSkill(req.skill()))
                 .ifPresent(req -> {
                     boolean onCooldown = combatExpCooldown.isOnCooldownAndRefresh(
                             attacker.getUniqueId(), targetId, skillExp.combatSameTargetCooldownSeconds(),
@@ -1304,6 +1317,29 @@ public final class CombatListener implements Listener {
         double base = Math.max(0.0, damage) * Math.max(0.0, skillExp.combatDamageScale());
         double levelMultiplier = 1.0 + Math.max(0, mobLevel) * Math.max(0.0, skillExp.combatMobLevelScale());
         return base * levelMultiplier;
+    }
+
+    /**
+     * バグ2修正(2026-07-28): {@link #maybeGrantCombatSkillExp} が武器スキルEXPを付与してよいスキルか
+     * どうかを判定する純粋関数(テストから直接叩ける package-private static)。
+     *
+     * <p>true を返すのは戦闘の武器スキル3つ({@link SkillId#HEAVY_WEAPONS} / {@link SkillId#LIGHT_WEAPONS} /
+     * {@link SkillId#ARCHERY})だけ。{@link SkillId#ARS_MAGIC} は魔法攻撃の別経路
+     * ({@code ArsProgressionBridge.grantMagicExp})で付与されるためここには含めない。防具スキル
+     * ({@code HEAVY_ARMOR}/{@code LIGHT_ARMOR})や採取スキル({@code WOODCUTTING}/{@code MINING}/
+     * {@code DIGGING}/{@code FARMING}/{@code FISHING})、{@code SMITHING} 等も含めない —
+     * 採取用ツール(斧/ツルハシ/シャベル/クワ/釣竿)は {@code stats/item-stats.yml} で
+     * {@code use-skill: <採取スキル>} を持つが、それらで敵を殴っても武器スキルEXPは入らないのが正しい
+     * 挙動である(採取用の斧は道具であって武器ではなく、TFには戦斧という別マテリアルの武器が存在する)。
+     * 「代わりにHEAVY_WEAPONSへ与える」等のフォールバックは意図的に行わない。
+     */
+    static boolean isCombatWeaponSkill(String skill) {
+        if (skill == null || skill.isEmpty()) {
+            return false;
+        }
+        return skill.equals(SkillId.HEAVY_WEAPONS)
+                || skill.equals(SkillId.LIGHT_WEAPONS)
+                || skill.equals(SkillId.ARCHERY);
     }
 
 }

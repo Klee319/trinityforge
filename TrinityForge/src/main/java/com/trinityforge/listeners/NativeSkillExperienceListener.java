@@ -7,6 +7,7 @@ import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig.GatheringExpMode;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.RoleBuffResolver;
+import com.trinityforge.progression.UseRequirementResolver;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
@@ -125,9 +126,10 @@ public final class NativeSkillExperienceListener implements Listener {
         if (excluded(player)) return;
         Block block = event.getBlock();
         if (placedBlockTracker.clearIfPlaced(block)) return;
+        ItemStack tool = player.getInventory().getItemInMainHand();
         boolean qualifyingGatheringBreak = grantGathering(player, block,
-                block.getDrops(player.getInventory().getItemInMainHand(), player),
-                false);
+                block.getDrops(tool, player),
+                false, tool);
         if (qualifyingGatheringBreak) {
             grantBreakVanillaExp(player);
         }
@@ -157,7 +159,10 @@ public final class NativeSkillExperienceListener implements Listener {
         if (player == null || excluded(player)) return;
         for (Block block : event.blockList()) {
             if (placedBlockTracker.clearIfPlaced(block)) continue;
-            grantGathering(player, block, block.getDrops(), true);
+            // 爆破採掘には使用可能レベル連動EXPを掛けない(tool=null)。ツールで壊していないので
+            // 「使用したツールの使用可能レベル」という要件の前提を満たさないし、高レベルツルハシを
+            // 持ったままTNTを起爆するだけで倍率が乗る抜け道にもなるため。
+            grantGathering(player, block, block.getDrops(), true, null);
         }
     }
 
@@ -167,7 +172,8 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /** @return true if this break was recognized as a FARMING/WOODCUTTING/DIGGING/MINING gathering break. */
-    private boolean grantGathering(Player player, Block block, Collection<ItemStack> drops, boolean blast) {
+    private boolean grantGathering(Player player, Block block, Collection<ItemStack> drops, boolean blast,
+                                   ItemStack tool) {
         Material material = block.getType();
         String name = material.name();
         // タスク1(2026-07-26): 採取EXPの算出方式はconfig駆動(gathering.exp-mode、既定drop_sum=現行挙動)。
@@ -197,8 +203,33 @@ public final class NativeSkillExperienceListener implements Listener {
             skill = SkillId.MINING;
         }
         if (exp <= 0.0) return false;
+        // 使用可能レベル連動EXP (2026-07-28): FARMINGは対象外(要件どおり)、爆破採掘(blast=true, tool=null)
+        // にも掛からない(resolveUseLevelがtool==nullで常に0=倍率1.0を返す)。
+        if (!SkillId.FARMING.equals(skill)) {
+            exp *= useLevelExpMultiplier(skill, tool);
+        }
         grant(player, skill, exp);
         return true;
+    }
+
+    /**
+     * {@code skill}(WOODCUTTING/DIGGING/MINING/SMITHING)の使用可能レベル連動EXP倍率。
+     * {@code tool} が null(爆破採掘/未解決)、または {@link TrinityForge#getInstance()} が null
+     * (ユニットテスト環境等でプラグイン未起動)のときは常に1.0(倍率なし)を返す — 倍率の実計算は
+     * 純粋関数 {@link SkillExpConfig#useLevelExpMultiplier} 側に置いてあるので、そちらでテストできる。
+     */
+    private static double useLevelExpMultiplier(String skill, ItemStack tool) {
+        if (tool == null) {
+            return 1.0;
+        }
+        var tf = TrinityForge.getInstance();
+        if (tf == null) {
+            return 1.0;
+        }
+        int useLevel = UseRequirementResolver.resolve(tool, tf.config().itemStats())
+                .map(UseRequirementResolver.Resolved::level)
+                .orElse(0);
+        return tf.config().skillExp().useLevelExpMultiplier(skill, useLevel);
     }
 
     /**

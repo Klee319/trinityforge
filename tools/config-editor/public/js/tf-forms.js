@@ -242,9 +242,10 @@
 
     // exp-display / level-up は下の専用カードで描画するため、汎用セクションループでは
     // 二重描画しないよう除外する。
-    const DEDICATED_SECTION_KEYS = new Set(["exp-display", "level-up"]);
+    const DEDICATED_SECTION_KEYS = new Set(["exp-display", "level-up", "use-level-scaling"]);
     const expDisplay = ensureObj(working, "exp-display");
     const levelUp = ensureObj(working, "level-up");
+    const useLevelScaling = ensureObj(working, "use-level-scaling");
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "EXP獲得表示 (exp-display)" })],
@@ -324,6 +325,53 @@
         ])
       ]
     ));
+
+    // 使用可能レベル連動EXP (2026-07-28): 鍛冶(作成したツール)・伐採/採掘/切削(使用したツール)の
+    // 使用可能レベルが高いほどEXP付与量を増やす。農業は対象外(per-levelに行を作らない)。
+    (function () {
+      const perLevel = ensureObj(useLevelScaling, "per-level");
+      const PER_LEVEL_SKILLS = [
+        { key: "smithing", label: "鍛冶 (作成したツール/装備の使用可能レベル)" },
+        { key: "woodcutting", label: "伐採 (破壊に使ったツールの使用可能レベル)" },
+        { key: "mining", label: "採掘 (破壊に使ったツールの使用可能レベル)" },
+        { key: "digging", label: "切削 (破壊に使ったツールの使用可能レベル)" }
+      ];
+      const perLevelFields = PER_LEVEL_SKILLS.map(({ key, label }) =>
+        h("div", { class: "form-field" }, [
+          window.fieldLabelEl(key, { label, hideKey: true }),
+          window.numberInput(perLevel[key], (v) => {
+            if (v === null || v === "") return;
+            perLevel[key] = v;
+          }, { int: false })
+        ]));
+
+      root.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "使用可能レベル連動EXP (use-level-scaling)" })],
+        [
+          h("div", { class: "form-field" }, [
+            window.fieldLabelEl("enabled", {
+              label: "機能を有効にする",
+              desc: "使用したツールの使用可能レベル(鍛冶は作成したツール/装備の使用可能レベル)が高いほど、"
+                + "獲得EXPが増える。使用可能レベル0(素手・バニラツール・item-statsにプロファイル無し)は"
+                + "常に倍率1.0=現状維持。倍率=1+使用可能レベル×per-level。対象は鍛冶/伐採/採掘/切削の4スキルのみ、"
+                + "農業は対象外。爆破採掘(TNT等)にも掛からない。"
+            }),
+            window.checkboxInput(useLevelScaling.enabled !== false, (v) => { useLevelScaling.enabled = v; })
+          ]),
+          h("div", { class: "form-field" }, [
+            window.fieldLabelEl("max-multiplier", {
+              label: "倍率上限",
+              desc: "per-levelを大きくしたときの暴走止め(安全弁)。倍率がこの値を超えることはない。既定3.0。"
+            }),
+            window.numberInput(useLevelScaling["max-multiplier"], (v) => {
+              if (v === null || v === "") return;
+              useLevelScaling["max-multiplier"] = v;
+            }, { int: false })
+          ]),
+          ...perLevelFields
+        ]
+      ));
+    })();
 
     // "mode" 等はグローバル辞書(FIELD_LABELS)では他画面(例: items.yml の天候)向けの意味を
     // 持つため、この画面のセクションだけ文脈固有のラベルへ上書きする(2026-07-27 タスク1)。

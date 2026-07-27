@@ -777,6 +777,25 @@ function validateTfSkillExp(data, errors) {
       }
       continue;
     }
+    if (skill === "use-level-scaling") {
+      if (section.enabled !== undefined && section.enabled !== null && typeof section.enabled !== "boolean") {
+        errors.push("use-level-scaling.enabled: 真偽値である必要があります");
+      }
+      const maxMult = section["max-multiplier"];
+      if (maxMult !== undefined && maxMult !== null && (!isNumber(maxMult) || maxMult < 1)) {
+        errors.push("use-level-scaling.max-multiplier: 1以上の数値である必要があります");
+      }
+      const perLevel = section["per-level"];
+      if (perLevel !== undefined && perLevel !== null) {
+        if (!isPlainObject(perLevel)) { errors.push("use-level-scaling.per-level: マップである必要があります"); }
+        else for (const [k, v] of Object.entries(perLevel)) {
+          if (v !== undefined && v !== null && !isNumber(v)) {
+            errors.push(`use-level-scaling.per-level.${k}: 数値である必要があります`);
+          }
+        }
+      }
+      continue;
+    }
     if (skill === "level-up") {
       if (section.chat !== undefined && section.chat !== null && typeof section.chat !== "boolean") {
         errors.push("level-up.chat: 真偽値である必要があります");

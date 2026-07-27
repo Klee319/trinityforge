@@ -69,6 +69,11 @@ class CraftQualityListenerSmithingExpTest {
         skillExp = mock(SkillExpConfig.class);
         when(skillExp.smithingExpPerCraft()).thenReturn(SMITHING_EXP_PER_CRAFT);
         when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
+        // 2026-07-28 使用可能レベル連動EXP: このテストは倍率の挙動自体を検証しないので、
+        // 常に1.0(影響なし)を返すようスタブする(スタブが無いと Mockito のdouble既定値0.0が
+        // 返り、amount<=0.0 で grantSkillExp が早期returnして「呼ばれない」誤検知になる)。
+        when(skillExp.useLevelExpMultiplier(org.mockito.ArgumentMatchers.anyString(), anyInt()))
+                .thenReturn(1.0);
 
         player = server.addPlayer();
     }
