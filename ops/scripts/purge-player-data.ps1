@@ -321,6 +321,8 @@ $sqlPath = Join-Path $config.VelocityRoot "purge-player-data-$stamp.sql"
 $sql = @'
 -- LuckPerms の権限・プレイヤーと、HuskSync のインベントリを空にする。
 -- テーブル定義は残す (作り直させると型が変わる余地があるため)。
+-- 外部キーがあると TRUNCATE が弾かれるので一時的に外す。
+SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE luckperms.luckperms_user_permissions;
 TRUNCATE TABLE luckperms.luckperms_players;
 TRUNCATE TABLE luckperms.luckperms_actions;
@@ -331,6 +333,7 @@ TRUNCATE TABLE husksync.husksync_user_data;
 TRUNCATE TABLE husksync.husksync_map_data;
 TRUNCATE TABLE husksync.husksync_map_ids;
 DELETE FROM husksync.husksync_users;
+SET FOREIGN_KEY_CHECKS = 1;
 '@
 
 if ($dryRun) {
@@ -339,6 +342,8 @@ if ($dryRun) {
     Write-TextNoBom -Path $sqlPath -Text $sql
     Write-OpsLog "MariaDB 用の SQL を書き出しました: $sqlPath"
     Write-OpsLog "次のコマンドで流してください (パスワードは対話入力):"
-    Write-OpsLog "  & 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p < '$sqlPath'"
+    # PowerShell では < が使えない (「演算子 '<' は将来の使用のために予約されています」)。
+    # パイプで渡すと標準入力がパスワード入力と食い合うので、クライアント組み込みの source を使う。
+    Write-OpsLog "  & 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p -e `"source $($sqlPath -replace '\\', '/')`""
     Write-OpsLog "消す前の内容は $backup に残してあります。確認後に削除してください。"
 }

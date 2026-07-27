@@ -1089,8 +1089,12 @@ cd C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforg
 .\purge-player-data.ps1 -Apply
 
 # 3. 出力された SQL を流す（パスワードは対話入力）
-& 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p < 'D:\game\minecraft\PaperServer\Velocity_for_TF\purge-player-data-<日時>.sql'
+& 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p -e "source D:/game/minecraft/PaperServer/Velocity_for_TF/purge-player-data-<日時>.sql"
 ```
+
+> **PowerShell では `< file` が使えない**（`演算子 '<' は将来の使用のために予約されています`）。
+> `Get-Content | mariadb.exe` も標準入力がパスワード入力と食い合うので不可。
+> クライアント組み込みの `source` に渡すこと。パスは `/` 区切りで書く。
 
 押さえておくこと:
 
