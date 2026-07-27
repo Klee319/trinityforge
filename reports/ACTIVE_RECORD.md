@@ -17,16 +17,21 @@
 
 ---
 
-## 1. 現在の状態（2026-07-27 10:41 時点）
+## 1. 現在の状態（2026-07-27 11:43 時点）
 
 | 対象 | 状態 |
 |---|---|
-| TrinityForge テスト | **2309 件 / 失敗 0 / スキップ 2**（実測） |
-| config-editor テスト | **582 / 582**（実測） |
-| ArsPaper フォーク | BUILD SUCCESSFUL（2026-07-26 時点。07-27 バッチでは未変更） |
-| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | **2026-07-27 10:41** ビルド済み |
-| `ArsPaper-1.0.0.jar` | 2026-07-26 23:01 ビルド済み |
-| 実サーバへの配備 | **未確認**（配備先が CWD 外のため状態を見ていない。少なくとも 07-26 夜以降のぶんは未配備の想定） |
+| TrinityForge テスト | **2318 件 / 失敗 0 / スキップ 2**（`cleanTest test` で実走・実測） |
+| config-editor テスト | 582 / 582（2026-07-27 10:41 時点の実測） |
+| `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 11:33 ビルド → **配備済み** |
+| `ArsPaper-1.0.0.jar` | 2026-07-26 23:01 ビルド → **配備済み** |
+| `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
+| 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/` |
+| サーバ稼働 | **停止中**（配備作業の前から停止していた）。**起動すれば新しい jar と config が載る** |
+
+配備先は `D:/game/minecraft/PaperServer/TrinityForge/`（`tools/config-editor/tool-config.json` の
+`deployPaths` が正）。`combat/mob-profiles.yml` は保護対象として除外した（配備先 268KB の
+`importmobs` 生成物に対し、リポジトリ側は 2.3KB のひな形しかない）。
 
 スキップ 2 件は既知の正当なもの（`OfflineMobImportRunner` と
 `NativeProgressionStabilizationContractsTest`）。**MockBukkit の `UnimplementedOperationException` は
@@ -161,6 +166,10 @@ git 系（2026-07-27 に導入）:
   `build/libs/*-min.jar` は MagmaCore 剥離で `NoClassDefFoundError` になり起動しない。
 - **`combat/mob-profiles.yml` はリポジトリ側から上書きしない。** `importmobs` の生成物（268KB）。
 - **jar を差し替えたらフル再起動。** reload では不十分（ホットスワップは `NoClassDefFoundError` を招く）。
+- **`plugins/` に同名プラグインの jar を 2 つ置かない。** Paper は
+  `Ambiguous plugin name '<名前>'` を ERROR に吐くだけで起動を止めず、**どちらを読むかは不定**。
+  バージョン文字列が同じだとログからも判別できない。配備のたびに `ls plugins/*.jar` で重複を確認する
+  （2026-07-27 に ArsPaper で実際に踏んでいた）。
 - **新しい config キーを足したら、その yml も一緒に配備する。** jar だけ入れると editor がその項目を
   空欄／OFF で表示し、**触っていないのに既定と違う値を書き込む**（2026-07-27 の `pvp.enabled` で実際に踏んだ）。
 - **editor の `lib/` は Node プロセスにキャッシュされる。** フィールド定義を足したらサーバを再起動しないと
@@ -201,6 +210,25 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — 実サーバへの配備（yml 42 本 + jar 3 本）
+
+`cleanTest test` を実走させ **2318 件 / 失敗 0 / スキップ 2** を確認してから配備。
+バックアップは `plugins/.deploy-backups/20260727_114327/`（置換前の全 yml と全 jar）。
+
+- TrinityForge: jar（11:33 版）＋ yml 42 本。07-26 夜以降の未配備分（スキルツリー 16 本・
+  skills/base 16 本・`mob-level-table` / `mob-types` / `crafting-features` / 採取ギミック /
+  `skill-exp`）が丸ごと溜まっていた。**`combat/mob-profiles.yml` は保護して除外**。
+- ArsPaper: jar（07-26 23:01 版）＋ `materials.yml`。
+- EliteMobs: 全同梱 uberjar（`testbed/plugins/EliteMobs.jar`、07-26 16:20 版）。
+
+**発見した実害バグ**: `plugins/` に `ArsPaper.jar`（07-26 09:10）と `ArsPaper-1.0.0.jar`
+（07-26 17:33）が**両方存在**し、`latest.log` に
+`[ModernPluginLoadingStrategy] Ambiguous plugin name 'ArsPaper'` の ERROR が出ていた。
+両者は `paper-plugin.yml` の `name` も `version`（`0.1.0-SNAPSHOT`）も同一なので、
+**どちらが読まれるかは不定＝ArsPaper の配備が黙って無視されうる状態**だった。
+古い `ArsPaper.jar` を `.deploy-backups/` へ退避して解消（削除ではなく移動）。
+**今後 plugins/ に同名プラグインの jar が 2 つ無いか、配備のたびに確認すること。**
 
 ### 2026-07-27 — フォーク 2 件の版管理（K-6 の大半をクローズ）
 
