@@ -33,7 +33,8 @@
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
 | サーバ稼働 | **停止中**（配備作業の前から停止していた）。**起動すれば新しい jar と config が載る** |
 | **最優先の配備（2026-07-28 実サーバ報告 ①）** | **`skilltree/smithing.yml` が未配備なせいで、op でない人がバニラのツール/防具をほとんどクラフトできない**。配備先の同ファイルに `recipe:` ゲートが 41 件残っている（リポジトリ側は撤去済み）。yml だけなので **`/tf reload` で足りる**（jar 再起動は不要）。`D:/` への書き込みはユーザー実行が必要 |
-| **未ビルドの修正（2026-07-28）** | クラフト結果枠のドラッグ**複製**修正・属性再計算の `ConcurrentModificationException` 修正・被弾パーティクル上限（`1ce23b7` / `9293f6c`）は **jar 未再ビルド**。複製は経済が壊れるので**再ビルドと配備を優先すること**。パーティクル上限は packetevents（実サーバに 2.11.1 が導入済み）を任意依存として参照するので、`paper-plugin.yml` の更新も同時に載る＝**フル再起動が必要** |
+| **HuskSync が起動できていない（2026-07-28 のログで確認）** | 起動時に `RedisManager.terminate()` の NPE で enable に失敗し、そのまま**同期されないまま稼働している**。ログ該当行 = `Error occurred while disabling HuskSync v4.0.0-3dc619d`。Redis 未接続が原因。**サーバ起動は止まらないので気づきにくい**（→ §5）。起動前に `ops/scripts/preflight.ps1` |
+| **未ビルドの修正（2026-07-28）** | クラフト結果枠のドラッグ**複製**修正・属性再計算の `ConcurrentModificationException` 修正・被弾パーティクル上限（`1ce23b7` / `9293f6c` / `cf88bf4`）は **jar 未再ビルド**。複製は経済が壊れるので**再ビルドと配備を優先すること**。パーティクル上限は packetevents（実サーバに 2.11.1 が導入済み）を任意依存として参照するので、`paper-plugin.yml` の更新も同時に載る＝**フル再起動が必要** |
 
 配備先は `D:/game/minecraft/PaperServer/TrinityForge/`（`tools/config-editor/tool-config.json` の
 `deployPaths` が正）。`combat/mob-profiles.yml` は保護対象として除外した（配備先 268KB の
@@ -392,10 +393,17 @@ config-editor `tests 758 / pass 758 / fail 0`。release jar は 03:11 に再生�
   packetevents 未導入なら機能ごと無効化して起動ログに 1 行出すだけ（fail-open）。
   **`max-count: 0` はパケットごとキャンセルする**（個数 0 のパーティクルパケットは「消える」のではなく
   「offset を速度として 1 個だけ飛ばす」というバニラの特殊仕様になるため）。
-- **④ 実サーバログにあった `ConcurrentModificationException` を修正**（上記の調査中に発見）。
-  `PlayerStatAggregator#aggregate` の `computeIfAbsent` が、解決器経由で同じプレイヤーの
-  `aggregate` を再入呼び出しした結果 modCount チェックで落ち、`PerkAttributeApplier` の全員再計算
-  ループがその場で中断していた（＝以降のプレイヤーに属性が当たらないまま放置）。`get→compute→put` に変更。
+- **④ 実サーバログにあった `ConcurrentModificationException` を修正**（コミット `9293f6c` → 真因判明後 `cf88bf4`）。
+  `PlayerStatAggregator#tickCache`（同期化されていない `HashMap`）を**メインスレッドと非同期スレッドが
+  同時に触っていた**のが真因。`NativeExperienceDispatcher#drain` は非同期タスクで、そこから
+  `NativeProgressionService` → `TrinityForge` の `skill_exp_bonus` サプライヤ → `aggregate(...)` と
+  降りてくる。`PerkAttributeApplier#reconcileAllOnline` の全員ループがこの CME でその場で中断していた
+  （＝以降のプレイヤーに属性が当たらないまま放置）。**CME は最も軽い症状にすぎず、無限ループや
+  エントリ消失まで起こりうる状態だった**。非同期呼び出しにはキャッシュを触らせない方式に変更。
+  *（`9293f6c` の時点では「解決器経由の再入」と診断していたが、追加ログのスタックを読み直して訂正。
+  スタックの `aggregate:199 → :224` は再入ではなくオーバーロードの委譲だった。）*
+  **残る弱点**: 非同期スレッドから `player.getInventory()` / PDC を読むこと自体は解消していない
+  （Bukkit 的には非推奨）。EXP 付与を同期側へ寄せるか、ボーナス値を事前に main で取っておくのが本筋。
 - **⑤ `paper-plugin.yml` の依存宣言が実は 1 つも効いていなかったのを修正**（③の副産物）。
   paper-plugin.yml は Bukkit 形式の `softdepend:` を解釈せず**未知キーとして黙って捨てる**。
   Paper プラグインは宣言した依存以外のクラスを見られない（クラスローダ分離）ので、他プラグインの
