@@ -1,6 +1,7 @@
 package com.trinityforge.config;
 
 import com.trinityforge.config.domains.AchievementsConfig;
+import com.trinityforge.config.domains.AfkConfig;
 import com.trinityforge.config.domains.AttributeMappingConfig;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CollectionConfig;
@@ -18,7 +19,6 @@ import com.trinityforge.config.domains.EnchantLuckConfig;
 import com.trinityforge.config.domains.FarmingGimmickConfig;
 import com.trinityforge.config.domains.FishingGimmickConfig;
 import com.trinityforge.config.domains.FoodGimmickConfig;
-import com.trinityforge.config.domains.AfkConfig;
 import com.trinityforge.config.domains.GachaConfig;
 import com.trinityforge.config.domains.GatheringEfficiencyConfig;
 import com.trinityforge.config.domains.GlyphDamageBoostConfig;

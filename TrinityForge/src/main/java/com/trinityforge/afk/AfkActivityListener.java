@@ -48,10 +48,11 @@ public final class AfkActivityListener implements Listener {
         if (!config.enabled()) {
             return;
         }
-        if (!changed(event.getFrom(), event.getTo())) {
+        Player player = event.getPlayer();
+        if (!changed(event.getFrom(), event.getTo(), player)) {
             return;
         }
-        service.touch(event.getPlayer());
+        service.touch(player);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -115,15 +116,37 @@ public final class AfkActivityListener implements Listener {
         }
     }
 
-    /** 位置または視線が変化したか。{@code to} が null のイベントは変化なし扱い。 */
-    private static boolean changed(Location from, Location to) {
+    /**
+     * 活動とみなせる移動があったか。{@code to} が null のイベントは変化なし扱い。
+     *
+     * <p><b>視点回転(yaw/pitch)と座標変化は非対称に扱う。</b>回転は入力でしか起きないので無条件に
+     * 活動だが、座標は<b>入力なしでも変わる</b> — 水流に押される・ボート/トロッコに乗っている・
+     * 落下している間はプレイヤーが何もしていなくても毎tick座標が動く。座標変化を無条件に活動と
+     * 数えると、水流式や乗り物式の放置装置がそのまま素通りして AFK 対策が機能しない。
+     *
+     * <p>ここで止まらないのは「モブのノックバックで押され続ける」形の放置で、それは殴られ続ける
+     * 状況そのものを別途潰すべきものと判断した(この判定を殴打の有無まで広げると重くなる)。
+     */
+    private static boolean changed(Location from, Location to, Player player) {
         if (to == null) {
             return false;
         }
-        return from.getX() != to.getX()
+        if (from.getYaw() != to.getYaw() || from.getPitch() != to.getPitch()) {
+            return true;
+        }
+        boolean moved = from.getX() != to.getX()
                 || from.getY() != to.getY()
-                || from.getZ() != to.getZ()
-                || from.getYaw() != to.getYaw()
-                || from.getPitch() != to.getPitch();
+                || from.getZ() != to.getZ();
+        return moved && !isPassivelyTransported(player);
+    }
+
+    /**
+     * 入力なしで座標が変わりうる状態か。エリトラ滑空とクリエイティブ飛行は「空中だが入力由来」
+     * なので除外しない(除外すると飛行中のプレイヤーが AFK 判定されてしまう)。
+     */
+    private static boolean isPassivelyTransported(Player player) {
+        return player.isInsideVehicle()
+                || player.isInWater()
+                || (!player.isOnGround() && !player.isFlying() && !player.isGliding());
     }
 }

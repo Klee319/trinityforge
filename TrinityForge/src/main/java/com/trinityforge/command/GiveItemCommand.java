@@ -47,6 +47,13 @@ public final class GiveItemCommand {
      */
     private static final int MAX_AMOUNT = 2304;
 
+    /**
+     * スタックできない品(装備など)の上限。1個ずつ独立ロールで組み立てるため、指定数がそのまま
+     * {@code factory.stamp} の実行回数になる。メインスレッドで数千回まわすのは現実的でないので、
+     * 「1回のコマンドで手渡しうる量」として1インベントリ枠数ぶんに抑える。
+     */
+    private static final int MAX_UNSTACKABLE_AMOUNT = 36;
+
     private final Plugin plugin;
     private final ItemFactory factory;
     private final ItemCatalogConfig catalog;
@@ -163,43 +170,13 @@ public final class GiveItemCommand {
 
         int quality = Math.max(ItemData.MIN_QUALITY, Math.min(requestedQuality, this.quality.maxQuality()));
         int amount = Math.max(1, Math.min(requestedAmount, MAX_AMOUNT));
-        ItemStack stack;
-        String sourceLabel = "catalog";
 
-        // Resolution order preserved exactly (behaviour-unchanged refactor onto CrossPluginItemResolver):
-        // ArsPaper's registry is tried first (a give command has always favoured Ars-authored player
-        // items — spellbooks/catalysts/materials — over a same-named TF catalog entry), then the TF
-        // catalog. No vanilla-Material fallback here: an unresolvable id must still error out below,
-        // matching pre-refactor behaviour (unlike the unified CrossPluginItemResolver#create used by
-        // other callers such as GachaListener).
-        Optional<ItemStack> ars = CrossPluginItemResolver.createArs(itemId);
-        if (ars.isPresent()) {
-            stack = ars.get();
-            sourceLabel = "arspaper";
-            // Catalysts/spellbooks (isQualityStamped) and equipment-tier materials get TF quality.
-            boolean stampable = ArsItemGiveBridge.isQualityStamped(itemId)
-                    || MaterialTier.of(stack.getType()).isEquipment();
-            if (stampable) {
-                try {
-                    factory.stamp(stack, ThreadLocalRandom.current().nextLong(), quality);
-                } catch (RuntimeException ex) {
-                    plugin.getLogger().log(Level.SEVERE,
-                            "Failed to stamp Ars item '" + itemId + "' quality=" + quality, ex);
-                    sender.sendMessage(Component.text(
-                            "Item quality stamp failed; see console for details.", NamedTextColor.RED));
-                    return 0;
-                }
-            }
-        } else {
-            Optional<ItemStack> built = resolver.createCatalog(
-                    itemId, ThreadLocalRandom.current().nextLong(), quality);
-            if (built.isEmpty()) {
-                sender.sendMessage(Component.text("Unknown item id: " + itemId
-                        + " (items/catalog.yml or ArsPaper registry).", NamedTextColor.RED));
-                return 0;
-            }
-            stack = built.get();
+        Built first = buildOne(sender, itemId, quality);
+        if (first == null) {
+            return 0; // 解決/刻印の失敗はメッセージ送信済み。
         }
+        ItemStack stack = first.stack();
+        String sourceLabel = first.sourceLabel();
 
         // 2026-07-27 amount 対応。スタック不可の品(装備など)は1個ずつ組み直す — 品質/厳選ロールは
         // アイテムごとに独立していなければならず、setAmount で増やすと同一ロールの複製になってしまう。
@@ -208,13 +185,18 @@ public final class GiveItemCommand {
         List<ItemStack> toDeliver = new ArrayList<>();
         int maxStack = Math.max(1, stack.getMaxStackSize());
         if (maxStack <= 1) {
+            if (amount > MAX_UNSTACKABLE_AMOUNT) {
+                sender.sendMessage(Component.text("スタックできない品は1個ずつ生成するため、"
+                        + MAX_UNSTACKABLE_AMOUNT + " 個までに丸めました。", NamedTextColor.YELLOW));
+                amount = MAX_UNSTACKABLE_AMOUNT;
+            }
             toDeliver.add(stack);
             for (int i = 1; i < amount; i++) {
-                ItemStack extra = buildOne(sender, itemId, quality);
+                Built extra = buildOne(sender, itemId, quality);
                 if (extra == null) {
                     return 0; // 途中失敗はメッセージ済み。ここまでに作った分は配らない(全か無か)。
                 }
-                toDeliver.add(extra);
+                toDeliver.add(extra.stack());
             }
         } else {
             int remaining = amount;
@@ -251,14 +233,24 @@ public final class GiveItemCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    /** 組み立て結果。{@code sourceLabel} は完了メッセージに出す出所表示。 */
+    private record Built(ItemStack stack, String sourceLabel) {}
+
     /**
-     * {@link #giveTo} と同じ解決順序で1個だけ組み立てる(スタック不可の品を複数個配るときの2個目以降)。
+     * アイテムを1個だけ組み立てる。<b>解決経路はここ1箇所にしかない</b> — 複数個配るときの
+     * 2個目以降と1個目で解決順序がずれると、同じコマンドで別物が混ざりうるため。
      * 解決/刻印に失敗したら送信者へ通知して {@code null} を返す。
+     *
+     * <p>解決順序は Ars レジストリ→TFカタログで固定(give は昔から Ars 製のプレイヤーアイテム —
+     * 魔導書/触媒/素材 — を同名のTFカタログより優先してきた)。バニラ Material への
+     * フォールバックは<b>置かない</b>: 解決できない id はここでエラーにする必要がある
+     * (GachaListener 等が使う統合版 {@code CrossPluginItemResolver#create} とはそこが違う)。
      */
-    private ItemStack buildOne(CommandSender sender, String itemId, int quality) {
+    private Built buildOne(CommandSender sender, String itemId, int quality) {
         Optional<ItemStack> ars = CrossPluginItemResolver.createArs(itemId);
         if (ars.isPresent()) {
             ItemStack built = ars.get();
+            // Catalysts/spellbooks (isQualityStamped) and equipment-tier materials get TF quality.
             boolean stampable = ArsItemGiveBridge.isQualityStamped(itemId)
                     || MaterialTier.of(built.getType()).isEquipment();
             if (stampable) {
@@ -272,7 +264,7 @@ public final class GiveItemCommand {
                     return null;
                 }
             }
-            return built;
+            return new Built(built, "arspaper");
         }
         Optional<ItemStack> built = resolver.createCatalog(
                 itemId, ThreadLocalRandom.current().nextLong(), quality);
@@ -281,6 +273,6 @@ public final class GiveItemCommand {
                     + " (items/catalog.yml or ArsPaper registry).", NamedTextColor.RED));
             return null;
         }
-        return built.get();
+        return new Built(built.get(), "catalog");
     }
 }

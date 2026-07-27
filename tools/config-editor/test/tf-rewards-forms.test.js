@@ -156,3 +156,44 @@ test("filterRewardExtras: vanilla-expが空/未設定ならキーを削除する
   const c2 = filterRewardExtras({ "vanilla-exp": 0, items: [], "job-exp": [], "permanent-buffs": {} });
   assert.equal(c2["vanilla-exp"], 0);
 });
+
+// --- 図鑑トリガの閾値の自動追随 (2026-07-27) ---
+
+const { autoCollectionThreshold } = require("../public/js/tf-rewards-forms.js");
+
+test("autoCollectionThreshold: scope=item は対象数へ追随する", () => {
+  const c = { scope: "item", targets: ["a", "b", "c"], threshold: 1, percent: false };
+  assert.equal(autoCollectionThreshold(c, false), 3);
+});
+
+test("autoCollectionThreshold: 既に一致していれば追随不要(null)", () => {
+  const c = { scope: "mob", targets: ["ZOMBIE", "CREEPER"], threshold: 2, percent: false };
+  assert.equal(autoCollectionThreshold(c, false), null);
+});
+
+test("autoCollectionThreshold: 手で閾値を触った後は追随しない", () => {
+  const c = { scope: "item", targets: ["a", "b", "c"], threshold: 1, percent: false };
+  assert.equal(autoCollectionThreshold(c, true), null);
+});
+
+test("autoCollectionThreshold: percent 判定は百分率なので追随しない", () => {
+  const c = { scope: "item", targets: ["a", "b"], threshold: 50, percent: true };
+  assert.equal(autoCollectionThreshold(c, false), null);
+});
+
+test("autoCollectionThreshold: category/all は候補数と列挙数が一致しないので追随しない", () => {
+  assert.equal(autoCollectionThreshold(
+    { scope: "category", targets: ["weapons"], threshold: 10, percent: false }, false), null);
+  assert.equal(autoCollectionThreshold(
+    { scope: "all", targets: [], threshold: 10, percent: false }, false), null);
+});
+
+test("autoCollectionThreshold: 対象が空でも1未満にはしない", () => {
+  const c = { scope: "item", targets: [], threshold: 5, percent: false };
+  assert.equal(autoCollectionThreshold(c, false), 1);
+});
+
+test("autoCollectionThreshold: 壊れた入力でも例外を投げない", () => {
+  assert.equal(autoCollectionThreshold(null, false), null);
+  assert.equal(autoCollectionThreshold({ scope: "item", targets: null, threshold: 1 }, false), null);
+});

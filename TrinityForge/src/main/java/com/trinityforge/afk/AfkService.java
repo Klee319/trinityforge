@@ -11,6 +11,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,6 +36,12 @@ public final class AfkService {
     private final AfkConfig config;
     private final Map<UUID, Long> lastActivityMillis = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> afkFlags = new ConcurrentHashMap<>();
+    /**
+     * タブ表示サフィックスを<b>この機構が実際に付けた</b>プレイヤー。設定フラグを見て消すのではなく
+     * 「付けた実績」を見て消すためにある — {@code tab-suffix} を AFK 中に false へ切り替えて reload
+     * すると、フラグだけを見る実装では [AFK] が張り付いたまま残ってしまう。
+     */
+    private final Set<UUID> tabSuffixApplied = ConcurrentHashMap.newKeySet();
     private BukkitTask task;
 
     public AfkService(Plugin plugin, AfkConfig config) {
@@ -63,6 +70,8 @@ public final class AfkService {
     public void forget(UUID playerId) {
         lastActivityMillis.remove(playerId);
         afkFlags.remove(playerId);
+        // 再入場時は新しい Player でタブ名も既定へ戻るので、付けた実績も一緒に捨てる。
+        tabSuffixApplied.remove(playerId);
     }
 
     /**
@@ -157,9 +166,24 @@ public final class AfkService {
      * タブリスト名の付け替え。{@code playerListName(null)} で既定(スコアボードのチーム装飾等を含む
      * サーバ既定の表示名)へ戻るので、解除時は自前で名前を作り直さない — 作り直すと他プラグインが
      * 付けた装飾を踏み潰す。
+     *
+     * <p><b>必ずメインスレッドで実行する。</b>AFK 解除は {@code AsyncChatEvent}(非同期)からも
+     * 呼ばれるが、{@code Player#playerListName} は async-safe ではない。呼び出し元に判断を
+     * 委ねるとホップ漏れが再発するので、ここで一括して吸収する。
      */
     private void applyTabSuffix(Player player, boolean afk) {
-        if (!config.tabSuffix()) {
+        if (!Bukkit.isPrimaryThread()) {
+            if (plugin.isEnabled()) {
+                Bukkit.getScheduler().runTask(plugin, () -> applyTabSuffix(player, afk));
+            }
+            return;
+        }
+        UUID id = player.getUniqueId();
+        // 付けるときだけ設定を見る。外すときは「自分が付けたか」だけで判断する(上の tabSuffixApplied 参照)。
+        if (afk && !config.tabSuffix()) {
+            return;
+        }
+        if (!afk && !tabSuffixApplied.remove(id)) {
             return;
         }
         try {
@@ -169,6 +193,7 @@ public final class AfkService {
             }
             Component suffix = MiniMessage.miniMessage().deserialize(config.tabSuffixText());
             player.playerListName(Component.text(player.getName()).append(suffix));
+            tabSuffixApplied.add(id);
         } catch (RuntimeException ex) {
             // 表示の飾りでゲームループを壊さない(MiniMessage記法のtypo等)。
             plugin.getLogger().warning("[afk] tab-suffix の適用に失敗しました: " + ex.getMessage());

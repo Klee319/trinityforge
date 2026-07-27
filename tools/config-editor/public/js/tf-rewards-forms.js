@@ -68,6 +68,23 @@
     }
     return t;
   }
+  // 図鑑トリガの閾値を対象数へ追随させるべきか判断する (2026-07-27)。
+  // 追随するなら新しい閾値、しないなら null。
+  //
+  // 「複数対象そろったら達成」が複数指定の主目的なので、対象を増減したら閾値も付いていくのが既定。
+  // ヒント表示だけにすると追随し忘れて「どれか1つ登録で達成」に静かに劣化する。
+  // ただし一度でも手で閾値を触ったらユーザーの意図とみなして追随を止める(thresholdTouched)。
+  // 追随の条件を scope=item/mob かつ count 判定に限るのは、Java 側 AchievementsConfig の
+  // 「threshold 省略時は targets の件数」既定と同じ範囲にそろえるため
+  // (category/all は列挙数と候補数が一致しないので自動では決められない)。
+  function autoCollectionThreshold(collection, thresholdTouched) {
+    const c = collection && typeof collection === "object" ? collection : {};
+    if (thresholdTouched || c.percent) return null;
+    if (c.scope !== "item" && c.scope !== "mob") return null;
+    const next = Math.max(1, (Array.isArray(c.targets) ? c.targets : []).length);
+    return next === Number(c.threshold) ? null : next;
+  }
+
   // アチーブメント/図鑑報酬 共通拡張フィールド (items[]/job-exp[]/permanent-buffs{}) を実体化する。
   // vanilla-exp は任意スカラーのため実体化しない (未設定=キー無し)。
   function normalizeRewardExtras(container) {
@@ -135,6 +152,7 @@
       uniqueKey, renameKey,
       isValidRewardId, checkRewardIdAvailable,
       normalizeAchievementTrigger, normalizeAchievementRewards, normalizeRewardExtras,
+      autoCollectionThreshold,
       filterNonEmptyStrings, filterRewardItems, filterJobExp, filterPermanentBuffs, filterRewardExtras
     };
   }
@@ -713,9 +731,23 @@
             if (c.scope === "mob") return mobCandidates;
             return [];
           }
+          // 閾値の対象数への追随。判断は autoCollectionThreshold(純関数)に置いてある。
+          // 開いた時点で「対象数と閾値が一致していない」なら、それは手で決めた値とみなして追随しない。
+          let thresholdTouched = Number(c.threshold || 1) !== Math.max(1, c.targets.length);
+          const thresholdInput = window.numberInput(c.threshold, (v) => {
+            c.threshold = Math.max(1, Math.floor(Number(v) || 1));
+            thresholdTouched = true;
+          }, { int: true });
+          function syncThreshold() {
+            const next = autoCollectionThreshold(c, thresholdTouched);
+            if (next == null) return;
+            c.threshold = next;
+            thresholdInput.value = String(next);
+          }
           function syncTargets(next) {
             c.targets = next.filter((v, i, arr) => v && arr.indexOf(v) === i);
             c.target = c.targets[0] || "";
+            syncThreshold();
           }
           function renderTargets() {
             targetsBody.innerHTML = "";
@@ -767,8 +799,11 @@
             if (c.targets.length > 1) {
               targetsBody.appendChild(h("div", {
                 class: "field-hint",
-                text: "複数指定は「和」で数えます。全部そろって達成にしたいなら閾値を "
-                  + c.targets.length + " にしてください。"
+                text: thresholdTouched
+                  ? "複数指定は「和」で数えます。現在の閾値 " + c.threshold + " 件で達成になります"
+                    + "（全部そろって達成にするなら閾値を " + c.targets.length + " に）。"
+                  : "複数指定は「和」で数えます。閾値は対象数に追随中（" + c.targets.length
+                    + " 件そろったら達成）。手で変えるとそこで追随は止まります。"
               }));
             }
           }
@@ -792,8 +827,23 @@
           triggerBody.appendChild(field("対象 (collection.targets)", targetsBody,
             "複数選べます。単一だけ選べば従来どおり collection.target としても保存されます。"));
           renderTargets();
-          triggerBody.appendChild(field("閾値", window.numberInput(c.threshold, (v) => { c.threshold = Math.max(1, Math.floor(Number(v) || 1)); }, { int: true })));
-          triggerBody.appendChild(field("判定方式", window.selectInput(c.percent ? "percent" : "count", ["count", "percent"], (v) => { c.percent = v === "percent"; })));
+          triggerBody.appendChild(field("閾値", thresholdInput,
+            "登録済みが何件で達成か（判定方式が percent のときは百分率 1-100）。"));
+          triggerBody.appendChild(field("判定方式", window.listSelect({
+            value: c.percent ? "percent" : "count",
+            options: [
+              { value: "count", primary: "件数で判定", secondary: "count" },
+              { value: "percent", primary: "百分率で判定", secondary: "percent" }
+            ],
+            onCommit: (v) => {
+              const next = v === "percent";
+              if (next === c.percent) return false;
+              c.percent = next;
+              syncThreshold();
+              renderTargets();
+              return true;
+            }
+          })));
         }
       }
       renderTriggerFields();
