@@ -521,7 +521,13 @@
   // ブラウザ実行時の挙動には影響しない (window.buildMobTypesForm は従来どおり別途公開)。
   // expRampValue は下方(mob-overrides の vanilla-exp ブロック)で宣言されるが、関数宣言の巻き上げが
   // 効くのでここで公開できる(pruneEmptyMobSelections と同じ流儀)。
-  window.MOB_FORMS_LOGIC = { pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue };
+  // buildLevelCutoffBlock はDOM構築関数だが、関数宣言の巻き上げにより expRampValue と同じ形で
+  // ここから参照できる(2026-07-27 レベル差による足きり)。Nodeテストは window.h を最小スタブに
+  // 差し替えたうえでこれを直接呼び、返ってきた要素ツリーの numberInput の oninput を叩いて検証する。
+  window.MOB_FORMS_LOGIC = {
+    pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue, buildLevelCutoffBlock,
+    pruneEmptyNoSkillExpMobs
+  };
 
   // --------------------------------------------------------------------------------------------
   // combat/mob-level-table.yml (tf-mob-level-table) 専用フォーム。
@@ -672,6 +678,50 @@
     return box;
   }
 
+  // 2026-07-27 牧場対策: no-skill-exp-mobs (トップレベル、帯システムとは独立)。バニラEXPオーブは
+  // 対象外(従来どおり落ちる) — 止めるのはTrinityForgeの戦闘スキルEXP(武器命中/防具被弾)のみ。
+  // 魔法(ARS_MAGIC)は対象外: Ars側のEXPは「詠唱したこと」に対して付き、何を撃ったかを見ないため。
+  // buildAddDropMobsBox と同じ「行の配列を add/remove するボックス」の流儀を working 直下に適用する。
+  function buildNoSkillExpMobsBox(working) {
+    const entityList = ensureDatalist("entity-type-list", ENTITY_TYPE_CANDIDATES);
+    const box = h("div", { class: "mob-drops-box" });
+    function render() {
+      box.innerHTML = "";
+      const list = Array.isArray(working["no-skill-exp-mobs"]) ? working["no-skill-exp-mobs"] : [];
+      if (list.length === 0) {
+        box.appendChild(h("div", { class: "empty-guide-hint", text: "未指定(戦闘スキルEXP無効化の対象なし)。" }));
+      }
+      list.forEach((mob, idx) => {
+        const mobInput = h("input", {
+          class: "field-input", list: entityList, value: mob == null ? "" : String(mob), spellcheck: "false"
+        });
+        mobInput.addEventListener("change", (ev) => {
+          const nv = ev.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
+          list[idx] = nv;
+        });
+        box.appendChild(h("div", { class: "mob-drop-row" }, [
+          h("div", { class: "input-with-hint" }, [mobInput]),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { list.splice(idx, 1); if (list.length === 0) delete working["no-skill-exp-mobs"]; render(); }
+          })
+        ]));
+      });
+      box.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn-small", type: "button", text: "+ 対象モブを追加",
+          onclick: () => {
+            if (!Array.isArray(working["no-skill-exp-mobs"])) working["no-skill-exp-mobs"] = [];
+            working["no-skill-exp-mobs"].push("BEE");
+            render();
+          }
+        })
+      ]));
+    }
+    render();
+    return box;
+  }
+
   function buildRemoveDropsBox(tier) {
     const box = h("div", { class: "mob-drops-box" });
     function render() {
@@ -736,6 +786,18 @@
       pruneHost(tier);
       for (const drop of Array.isArray(tier["add-drops"]) ? tier["add-drops"] : []) pruneHost(drop);
     }
+  }
+
+  // 2026-07-27 牧場対策: no-skill-exp-mobs(トップレベル、tiers とは独立)の空文字/空配列刈り取り。
+  // pruneEmptyMobSelections と同じ流儀(未選択行を捨て、結果が空ならキーごと消す)だが、こちらは
+  // working 直下の単一キーが対象なのであえて共通化せず単独の純関数として置く。
+  function pruneEmptyNoSkillExpMobs(working) {
+    if (!working || typeof working !== "object") return;
+    if (!Array.isArray(working["no-skill-exp-mobs"])) return;
+    working["no-skill-exp-mobs"] = working["no-skill-exp-mobs"]
+      .map((v) => String(v == null ? "" : v).trim())
+      .filter((v) => v !== "");
+    if (working["no-skill-exp-mobs"].length === 0) delete working["no-skill-exp-mobs"];
   }
 
   window.buildMobLevelTableForm = function buildMobLevelTableForm(data) {
@@ -845,9 +907,29 @@
       return card(head, body);
     }
 
+    function renderNoSkillExpMobsCard() {
+      return card(
+        [h("span", { class: "entry-key-label", text: "戦闘スキルEXP無効化 (no-skill-exp-mobs)" })],
+        [
+          h("div", {
+            class: "field-desc",
+            style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+            text: "このモブを相手にしても、TrinityForgeの戦闘スキルEXP(武器=命中/防具=被弾)は"
+              + "一切加算されないモブの一覧です。バニラのEXPオーブ(討伐時に落ちる経験値)"
+              + "には影響しません(エンチャント等の用途を潰さないよう、従来どおり落ちます)。"
+              + "上のレベル帯(tiers)やdungeon-only設定とは独立に、常に効きます。空なら何もしません。"
+              + "※魔法(ARS_MAGIC)は対象外です — Ars側のEXPは「詠唱したこと」に対して付き、"
+              + "何を撃ったかを見ないため、モブ指定で止める手段が構造的にありません。"
+          }),
+          buildNoSkillExpMobsBox(working)
+        ]
+      );
+    }
+
     function render() {
       root.innerHTML = "";
       root.appendChild(renderDungeonOnlyCard());
+      root.appendChild(renderNoSkillExpMobsCard());
       if (tiers.length === 0) {
         root.appendChild(emptyGuide(
           "レベル帯がまだありません。",
@@ -886,6 +968,7 @@
         // mobs: [] (全削除後の空配列)は back-compat の「未指定」と等価だが、working を直接編集する
         // 方針上ここで明示的に delete しておく(保存YAMLに空配列を残さない)。
         pruneEmptyMobSelections(tiers);
+        pruneEmptyNoSkillExpMobs(working);
         return working;
       }
     };
@@ -1193,6 +1276,96 @@
     ]);
   }
 
+  // level-cutoff (レベル差による足きり、2026-07-27)。スコープ(ダンジョン)単位・モブ単位のどちらでも
+  // 構造は同じなので共通化する: level-cutoff: { over-level: {threshold, exp-rate, drop-rate},
+  // under-level: {item-threshold} }。空欄にした項目/空になったサブブロックはキーごと delete する
+  // (buildOverrideExpBlock/buildDisplayNameFieldと同じ「未保存キーは書かない」流儀)。
+  const LEVEL_CUTOFF_OVER_FIELDS = [
+    {
+      key: "threshold", label: "threshold (発動レベル差)", int: true,
+      desc: "プレイヤー戦闘Lv − モブLv がこの値以上で発動。未設定または負値 = このover-level足きりは無効。"
+    },
+    {
+      key: "exp-rate", label: "exp-rate (経験値倍率)", int: false,
+      desc: "発動時に経験値へ掛ける倍率 [0.0〜1.0]。-1 なら経験値0(完全に入手不可)。未設定なら経験値には無干渉。"
+    },
+    {
+      key: "drop-rate", label: "drop-rate (ドロップ倍率)", int: false,
+      desc: "発動時にTF追加ドロップの確率へ掛ける倍率 [0.0〜1.0]。-1 なら追加ドロップを一切付けない"
+        + "(完全に入手不可)。未設定ならドロップ確率には無干渉。"
+    }
+  ];
+
+  function buildLevelCutoffBlock(host) {
+    function currentCutoff() {
+      const cur = host["level-cutoff"];
+      return (cur && typeof cur === "object" && !Array.isArray(cur)) ? cur : null;
+    }
+    function touchCutoff() {
+      let cur = currentCutoff();
+      if (!cur) { cur = {}; host["level-cutoff"] = cur; }
+      return cur;
+    }
+    function dropCutoffIfEmpty() {
+      const cur = currentCutoff();
+      if (cur && Object.keys(cur).length === 0) delete host["level-cutoff"];
+    }
+    function currentSub(subKey) {
+      const cutoff = currentCutoff();
+      const sub = cutoff ? cutoff[subKey] : null;
+      return (sub && typeof sub === "object" && !Array.isArray(sub)) ? sub : null;
+    }
+    function touchSub(subKey) {
+      const cutoff = touchCutoff();
+      let sub = currentSub(subKey);
+      if (!sub) { sub = {}; cutoff[subKey] = sub; }
+      return sub;
+    }
+    function dropSubIfEmpty(subKey) {
+      const cutoff = currentCutoff();
+      const sub = cutoff ? cutoff[subKey] : null;
+      if (sub && typeof sub === "object" && Object.keys(sub).length === 0) delete cutoff[subKey];
+      dropCutoffIfEmpty();
+    }
+
+    const overView = currentSub("over-level") || {};
+    const overFields = LEVEL_CUTOFF_OVER_FIELDS.map(({ key, label, desc, int }) => {
+      const input = window.numberInput(overView[key], (v) => {
+        const target = touchSub("over-level");
+        if (v === null || v === "") delete target[key];
+        else target[key] = v;
+        dropSubIfEmpty("over-level");
+      }, { int });
+      return fieldRow(key, input, { label, desc });
+    });
+
+    const underView = currentSub("under-level") || {};
+    const itemThresholdInput = window.numberInput(underView["item-threshold"], (v) => {
+      const target = touchSub("under-level");
+      if (v === null || v === "") delete target["item-threshold"];
+      else target["item-threshold"] = v;
+      dropSubIfEmpty("under-level");
+    }, { int: true });
+
+    return h("div", { class: "mob-level-coeff-block" }, [
+      h("div", {
+        class: "field-desc",
+        style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+        text: "プレイヤーとモブの戦闘レベル差に応じて、経験値やTF追加ドロップ(このスコープの drops: の"
+          + "みが対象。バニラ本来のドロップには一切影響しません)を抑制します。全欄を空にすると未設定"
+          + "(足きり無し)。モブ単位の設定はスコープ単位の設定より優先されます。"
+      }),
+      subTitle("自分(プレイヤー)が敵より格上のとき (over-level)"),
+      gridRow(overFields),
+      subTitle("自分(プレイヤー)が敵より格下のとき (under-level)"),
+      fieldRow("item-threshold", itemThresholdInput, {
+        label: "item-threshold (発動レベル差)",
+        desc: "モブLv − プレイヤー戦闘Lv がこの値以上でTF追加ドロップを入手不可にします"
+          + "(経験値には影響しません)。-1または未設定 = 無効。"
+      })
+    ]);
+  }
+
   // 表示名(display-name)欄。ダンジョン(スコープ)とモブで同じ意味・同じ扱いなので共通化する。
   // 空欄で保存するとキーごと消す(未設定 = EliteMobs側の名前をそのまま使う)。
   function buildDisplayNameField(host, opts) {
@@ -1298,6 +1471,8 @@
       buildOverrideStatsBlock(mobEntry),
       subTitle("経験値の式 (vanilla-exp)"),
       buildOverrideExpBlock(mobEntry),
+      subTitle("レベル差による足きり (level-cutoff)"),
+      buildLevelCutoffBlock(mobEntry),
       h("div", { class: "mob-drops-section" }, [
         window.fieldLabelEl("drops"),
         h("div", {
@@ -1421,6 +1596,8 @@
         })
       ]));
     }
+    body.push(subTitle("レベル差による足きり (level-cutoff、このダンジョンの既定)"));
+    body.push(buildLevelCutoffBlock(scope));
     body.push(mobsBox);
     return window.collapsibleCard(head, body, {
       expanded: openOverrideScopes.has(scopeName),

@@ -191,3 +191,92 @@ test("tf-mob-overrides: display-name が文字列でなければエラー", () =
   });
   assert.ok(errs.some((e) => e.includes("display-name")));
 });
+
+// --- level-cutoff (レベル差による足きり、2026-07-27) ---
+
+test("tf-mob-overrides: level-cutoff はスコープ単位・モブ単位のどちらでも妥当な形ならエラーなし", () => {
+  const errs = validate("tf-mob-overrides", {
+    overrides: {
+      default: {
+        "level-cutoff": { "over-level": { threshold: 10, "exp-rate": 0.25, "drop-rate": -1 } },
+        mobs: {
+          goblin_chief: {
+            "level-cutoff": {
+              "over-level": { threshold: 10, "exp-rate": -1, "drop-rate": 0.5 },
+              "under-level": { "item-threshold": 20 }
+            }
+          }
+        }
+      }
+    }
+  });
+  assert.deepEqual(errs, []);
+});
+
+test("tf-mob-overrides: level-cutoff の負のthresholdは妥当(『無効』の正当な表現)", () => {
+  const errs = validate("tf-mob-overrides", {
+    overrides: {
+      default: {
+        mobs: {
+          goblin_chief: {
+            "level-cutoff": {
+              "over-level": { threshold: -1 },
+              "under-level": { "item-threshold": -1 }
+            }
+          }
+        }
+      }
+    }
+  });
+  assert.deepEqual(errs, []);
+});
+
+test("tf-mob-overrides: level-cutoff.over-level.exp-rate が範囲外(-1でも[0,1]でもない)はエラー", () => {
+  const errs = validate("tf-mob-overrides", {
+    overrides: {
+      default: { mobs: { goblin_chief: { "level-cutoff": { "over-level": { "exp-rate": 2.0 } } } } }
+    }
+  });
+  assert.ok(errs.some((e) => e.includes("level-cutoff.over-level.exp-rate")));
+});
+
+test("tf-mob-overrides: level-cutoff.over-level.drop-rate が-0.5(範囲外)はエラー", () => {
+  const errs = validate("tf-mob-overrides", {
+    overrides: {
+      default: { mobs: { goblin_chief: { "level-cutoff": { "over-level": { "drop-rate": -0.5 } } } } }
+    }
+  });
+  assert.ok(errs.some((e) => e.includes("level-cutoff.over-level.drop-rate")));
+});
+
+test("tf-mob-overrides: level-cutoff.over-level.threshold が非整数はエラー", () => {
+  const errs = validate("tf-mob-overrides", {
+    overrides: {
+      default: { mobs: { goblin_chief: { "level-cutoff": { "over-level": { threshold: 1.5 } } } } }
+    }
+  });
+  assert.ok(errs.some((e) => e.includes("level-cutoff.over-level.threshold")));
+});
+
+test("tf-mob-overrides: level-cutoff.under-level.item-threshold が非整数はエラー", () => {
+  const errs = validate("tf-mob-overrides", {
+    overrides: {
+      default: {
+        mobs: { goblin_chief: { "level-cutoff": { "under-level": { "item-threshold": "high" } } } }
+      }
+    }
+  });
+  assert.ok(errs.some((e) => e.includes("level-cutoff.under-level.item-threshold")));
+});
+
+test("tf-mob-overrides: level-cutoff / over-level / under-level が非マップはエラー", () => {
+  assert.ok(validate("tf-mob-overrides", {
+    overrides: { default: { mobs: { goblin_chief: { "level-cutoff": [] } } } }
+  }).some((e) => e.includes("level-cutoff")));
+  assert.ok(validate("tf-mob-overrides", {
+    overrides: { default: { mobs: { goblin_chief: { "level-cutoff": { "over-level": [] } } } } }
+  }).some((e) => e.includes("level-cutoff.over-level")));
+  assert.ok(validate("tf-mob-overrides", {
+    overrides: { default: { mobs: { goblin_chief: { "level-cutoff": { "under-level": [] } } } } }
+  }).some((e) => e.includes("level-cutoff.under-level")));
+});

@@ -21,6 +21,7 @@ import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.config.domains.UseRequirementsConfig;
 import com.trinityforge.pdc.ItemData;
@@ -134,6 +135,11 @@ public final class CombatListener implements Listener {
     private final CraftingFeaturesConfig craftingFeatures;
     private final RoleBuffResolver roleBuffResolver;
     private final Plugin plugin;
+    /**
+     * {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27 牧場対策)。
+     * null許容 — 未配線(旧12引数コンストラクタ経由、既存テスト互換)なら武器スキルEXP抑止は無効。
+     */
+    private final MobLevelTableConfig mobLevelTable;
 
     /**
      * #2 AoE の再入ガード。AoEスプラッシュの {@code target.damage()} が同ハンドラを同期再入した際に true で
@@ -155,12 +161,29 @@ public final class CombatListener implements Listener {
      */
     private final MeleeChargeTracker meleeChargeTracker = new MeleeChargeTracker();
 
+    /** 後方互換コンストラクタ(既存呼び出し/テスト向け)。{@code no-skill-exp-mobs} 抑止は無効(null)。 */
     public CombatListener(Plugin plugin, SymmetricCombatService combatService,
                           ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
                           SkillLevelSource skillLevelSource, BleedService bleedService,
                           PerkBuffResolver perkBuffResolver, PlayerStatAggregator aggregator,
                           UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
                           CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver) {
+        this(plugin, combatService, itemStats, damageConfig, skillLevelSource, bleedService, perkBuffResolver,
+                aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, null);
+    }
+
+    /**
+     * @param mobLevelTable {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27
+     *                      牧場対策)。武器スキルEXP付与時に victim の EntityType がここに載っていれば
+     *                      付与しない。null可(その場合は抑止しない、旧挙動)。
+     */
+    public CombatListener(Plugin plugin, SymmetricCombatService combatService,
+                          ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
+                          SkillLevelSource skillLevelSource, BleedService bleedService,
+                          PerkBuffResolver perkBuffResolver, PlayerStatAggregator aggregator,
+                          UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
+                          CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver,
+                          MobLevelTableConfig mobLevelTable) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combatService = Objects.requireNonNull(combatService, "combatService");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
@@ -173,6 +196,7 @@ public final class CombatListener implements Listener {
         this.skillExp = Objects.requireNonNull(skillExp, "skillExp");
         this.craftingFeatures = Objects.requireNonNull(craftingFeatures, "craftingFeatures");
         this.roleBuffResolver = Objects.requireNonNull(roleBuffResolver, "roleBuffResolver");
+        this.mobLevelTable = mobLevelTable;
     }
 
     @SuppressWarnings("deprecation") // DamageModifier folding; see DAMAGE_MODIFIERS TODO (M2+).
@@ -1222,9 +1246,17 @@ public final class CombatListener implements Listener {
      * タスク2(2026-07-26 EXP調整): {@code weapon} を落とした一撃に対する武器スキルEXPを付与する。
      * {@code damage} はこの一撃の最終ダメージ(=呼び出し元の {@code total})、{@code victim} はこの
      * 一撃を受けたEntity(モブレベルの参照に使う)。
+     *
+     * <p>2026-07-27 牧場対策: {@code victim} の EntityType が {@code combat/mob-level-table.yml} の
+     * {@code no-skill-exp-mobs} に載っていれば、武器スキルEXPは一切付与しない(バニラEXPオーブは
+     * このメソッドの管轄外なので影響を受けない)。{@code mobLevelTable} が null(旧コンストラクタ経由)
+     * のときは従来どおり抑止しない。
      */
     private void maybeGrantCombatSkillExp(Player attacker, ItemStack weapon, UUID targetId,
                                           double damage, Entity victim, double worldRate) {
+        if (mobLevelTable != null && victim != null && mobLevelTable.suppressesSkillExp(victim.getType())) {
+            return;
+        }
         UseRequirementResolver.resolve(weapon, itemStats)
                 .filter(UseRequirementResolver.Resolved::hasSkill)
                 .ifPresent(req -> {

@@ -153,3 +153,29 @@ test("tf-mob-level-table: mob-ids の空文字/不正文字はエラー", () => 
   });
   assert.equal(errs.filter((e) => e.includes("mob-ids")).length, 2);
 });
+
+// --- 2026-07-27 牧場対策: no-skill-exp-mobs (トップレベル、tiers とは独立) ---
+// バニラEXPオーブは対象外(従来どおり落ちる)。TrinityForgeの戦闘スキルEXP(武器命中/防具被弾/
+// 魔法詠唱)だけを止める。
+
+test("tf-mob-level-table: no-skill-exp-mobs 未指定/空配列はエラーなし(後方互換)", () => {
+  assert.deepEqual(validate("tf-mob-level-table", {}), []);
+  assert.deepEqual(validate("tf-mob-level-table", { "no-skill-exp-mobs": [] }), []);
+});
+
+test("tf-mob-level-table: no-skill-exp-mobs の正常な EntityType 一覧はエラーなし", () => {
+  const errs = validate("tf-mob-level-table", {
+    "no-skill-exp-mobs": ["BEE", "GOAT", "LLAMA", "TRADER_LLAMA", "PANDA", "WOLF", "IRON_GOLEM"]
+  });
+  assert.deepEqual(errs, []);
+});
+
+test("tf-mob-level-table: no-skill-exp-mobs が非配列はエラー", () => {
+  const errs = validate("tf-mob-level-table", { "no-skill-exp-mobs": "BEE" });
+  assert.ok(errs.some((e) => e.includes("no-skill-exp-mobs")));
+});
+
+test("tf-mob-level-table: no-skill-exp-mobs の不正な要素はエラー", () => {
+  const errs = validate("tf-mob-level-table", { "no-skill-exp-mobs": ["bee!", 123] });
+  assert.equal(errs.filter((e) => e.includes("no-skill-exp-mobs[")).length, 2);
+});

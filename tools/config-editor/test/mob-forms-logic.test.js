@@ -14,7 +14,7 @@ global.window = global.window || {};
 global.window.h = () => ({});
 require("../public/js/mob-forms.js");
 
-const { pruneEmptyScalingBlock, pruneEmptyMobSelections } = global.window.MOB_FORMS_LOGIC;
+const { pruneEmptyScalingBlock, pruneEmptyMobSelections, pruneEmptyNoSkillExpMobs } = global.window.MOB_FORMS_LOGIC;
 
 test("pruneEmptyScalingBlock: max-health/armor-strength/growth が全て未設定なら level-coefficients を削除する", () => {
   const host = { "level-coefficients": {} };
@@ -116,6 +116,34 @@ test("pruneEmptyMobSelections: 帯そのものの mobs / mob-ids も同じ規則
   pruneEmptyMobSelections(tiers);
   assert.equal("mobs" in tiers[0], false);
   assert.deepEqual(tiers[0]["mob-ids"], ["guild_boss"]);
+});
+
+// --- pruneEmptyNoSkillExpMobs: no-skill-exp-mobs (2026-07-27 牧場対策) の空行刈り取り ---
+// バニラEXPオーブは対象外。TrinityForgeの戦闘スキルEXP無効化リストの空文字/空配列を刈る純関数。
+// pruneEmptyMobSelections とは別に、working 直下のトップレベルキー1つだけを対象にする。
+
+test("pruneEmptyNoSkillExpMobs: 空文字/空白だけの行を取り除く", () => {
+  const working = { "no-skill-exp-mobs": ["BEE", "", "  ", "GOAT"] };
+  pruneEmptyNoSkillExpMobs(working);
+  assert.deepEqual(working["no-skill-exp-mobs"], ["BEE", "GOAT"]);
+});
+
+test("pruneEmptyNoSkillExpMobs: 全行が空なら working からキー自体を削除する", () => {
+  const working = { "no-skill-exp-mobs": ["", "   "] };
+  pruneEmptyNoSkillExpMobs(working);
+  assert.equal("no-skill-exp-mobs" in working, false);
+});
+
+test("pruneEmptyNoSkillExpMobs: 中身のある配列はそのまま残す", () => {
+  const working = { "no-skill-exp-mobs": ["BEE", "GOAT"] };
+  pruneEmptyNoSkillExpMobs(working);
+  assert.deepEqual(working["no-skill-exp-mobs"], ["BEE", "GOAT"]);
+});
+
+test("pruneEmptyNoSkillExpMobs: キー未指定/working が空でも例外にならない", () => {
+  assert.doesNotThrow(() => pruneEmptyNoSkillExpMobs({}));
+  assert.doesNotThrow(() => pruneEmptyNoSkillExpMobs(undefined));
+  assert.doesNotThrow(() => pruneEmptyNoSkillExpMobs({ "no-skill-exp-mobs": "BEE" }));
 });
 
 // --- expRampValue: mob-overrides の vanilla-exp プレビュー計算 (2026-07-26) ---

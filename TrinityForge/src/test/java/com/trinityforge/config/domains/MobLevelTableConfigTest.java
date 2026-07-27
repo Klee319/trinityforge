@@ -354,4 +354,56 @@ class MobLevelTableConfigTest {
         assertEquals(1, r.skipped());
         assertEquals(Set.of("the_mines_boss"), r.tiers().resolve(0).orElseThrow().targets().mobIds());
     }
+
+    // --- 2026-07-27 牧場対策: no-skill-exp-mobs (トップレベル、tiers とは独立) ---
+    // バニラEXP(オーブ)は対象外。TrinityForgeの戦闘スキルEXP(武器命中/防具被弾/魔法詠唱)だけを
+    // 止めるためのリスト — 実際の抑止判定は CombatListener/NativeSkillExperienceListener 側で行う
+    // (MobLevelTableConfigTest はパース結果だけを検証する)。
+
+    @Test
+    void noSkillExpMobsOmittedYieldsEmptySet() throws Exception {
+        ParseResult r = parse("tiers: []\n");
+        assertEquals(0, r.skipped());
+        assertTrue(r.noSkillExpMobs().isEmpty());
+    }
+
+    @Test
+    void noSkillExpMobsEmptyListYieldsEmptySet() throws Exception {
+        ParseResult r = parse("no-skill-exp-mobs: []\ntiers: []\n");
+        assertEquals(0, r.skipped());
+        assertTrue(r.noSkillExpMobs().isEmpty());
+    }
+
+    @Test
+    void noSkillExpMobsParsesToEntityTypeSet() throws Exception {
+        ParseResult r = parse("""
+                no-skill-exp-mobs:
+                  - BEE
+                  - GOAT
+                  - IRON_GOLEM
+                """);
+        assertEquals(0, r.skipped());
+        assertEquals(Set.of(EntityType.BEE, EntityType.GOAT, EntityType.IRON_GOLEM), r.noSkillExpMobs());
+    }
+
+    @Test
+    void noSkillExpMobsIsCaseInsensitive() throws Exception {
+        ParseResult r = parse("no-skill-exp-mobs: [bee, Goat]\n");
+        assertEquals(0, r.skipped());
+        assertEquals(Set.of(EntityType.BEE, EntityType.GOAT), r.noSkillExpMobs());
+    }
+
+    @Test
+    void noSkillExpMobsUnknownEntityTypeIsSkippedButOthersSurvive() throws Exception {
+        ParseResult r = parse("no-skill-exp-mobs: [NOT_A_REAL_ENTITY_TYPE, BEE]\n");
+        assertEquals(1, r.skipped());
+        assertEquals(Set.of(EntityType.BEE), r.noSkillExpMobs());
+    }
+
+    @Test
+    void noSkillExpMobsBlankEntryIsSkippedButOthersSurvive() throws Exception {
+        ParseResult r = parse("no-skill-exp-mobs: [\"\", BEE]\n");
+        assertEquals(1, r.skipped());
+        assertEquals(Set.of(EntityType.BEE), r.noSkillExpMobs());
+    }
 }

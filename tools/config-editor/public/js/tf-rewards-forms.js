@@ -247,28 +247,19 @@
     if (cur && !keys.includes(cur)) opts.unshift({ value: cur, primary: statLabelOf(cur), secondary: cur });
     return window.listSelect({ value: cur, options: opts, onChange, placeholder: "statキーを選択…" });
   }
-  // アイテムID入力: カタログ候補(渡されていれば)+バニラMaterialのdatalist付きtextInput。
-  // catalogItemSuggest/materialInput は語彙が「custom:」接頭辞前提で items.id (catalogID生値 or Material名)
-  // の書式と噛み合わないため、ここでは textInput+datalist に留める (呼び出し元にcatalogCandidates無ければ
-  // バニラMaterialのみの候補になる = 要件の「無ければ textInput+datalist」フォールバックと同一)。
-  let rewardItemDatalistSeq = 0;
+  // アイテムID入力: カタログ候補(渡されていれば)+バニラMaterialの listSelect。
+  // 表示は「表示名 (ID)」の日本語主表示、保存値は今までどおり ID文字列そのもの(catalogID生値 or
+  // Material名)。ゲート画面 (tf-dungeon-forms.js buildDungeonGatesForm) の必要鍵アイテムと同じ
+  // 選択体験を共有するため、実体は util.js の window.itemRefSelect 共通ヘルパー。
   function itemIdInput(value, onChange, catalogCandidates) {
-    const dlId = "reward-item-id-list-" + (++rewardItemDatalistSeq);
-    const dl = h("datalist", { id: dlId });
-    for (const c of (Array.isArray(catalogCandidates) ? catalogCandidates : [])) {
-      if (c && c.id) dl.appendChild(h("option", { value: c.id }));
-    }
-    for (const m of (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])) {
-      dl.appendChild(h("option", { value: m }));
-    }
-    const wrap = h("span", { class: "material-suggest reward-item-id-input" });
-    wrap.appendChild(dl);
-    wrap.appendChild(h("input", {
-      class: "field-input", value: value || "", list: dlId,
-      placeholder: "catalogID / バニラMaterial (例: diamond)",
-      oninput: (e) => onChange(e.target.value)
-    }));
-    return wrap;
+    return window.itemRefSelect({
+      value: value || "",
+      onChange,
+      catalogCandidates,
+      placeholder: "アイテムを選択…",
+      customPlaceholder: "catalogID / バニラMaterial を直接入力",
+      className: "reward-item-id-input"
+    });
   }
   // rewards.items: id+amount の行リスト。
   function itemsRewardEditor(list, catalogCandidates) {

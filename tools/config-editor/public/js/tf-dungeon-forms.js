@@ -120,7 +120,20 @@
   // ============================================================
   // dungeon/gates.yml
   // ============================================================
-  window.buildDungeonGatesForm = function buildDungeonGatesForm(data) {
+  // ゲートIDに紐づく EliteMobs パッケージ名を台帳から自動導出し、g["content-package"] へ書く。
+  // forceOverwrite=true (ID確定直後) は選び直した以上その値を信じて上書きする。
+  // forceOverwrite=false (台帳の非同期到着時の補完) は既存値を消さない — 手書きワールド名ゲートの
+  // 既存 content-package を誤って消さないため。
+  function applyContentPackageFromDungeon(g, worldId, forceOverwrite) {
+    const d = window.EM_DUNGEONS && window.EM_DUNGEONS.get(worldId);
+    if (!d || !d.package) return;
+    if (!forceOverwrite && g["content-package"]) return;
+    g["content-package"] = d.package;
+  }
+
+  window.buildDungeonGatesForm = function buildDungeonGatesForm(data, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const catalogCandidates = Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [];
     const working = data && typeof data === "object" ? data : {};
     if (!working.gates || typeof working.gates !== "object" || Array.isArray(working.gates)) {
       working.gates = {};
@@ -130,7 +143,8 @@
     const list = h("div", { class: "card-list-body" });
     root.appendChild(h("div", {
       class: "form-banner",
-      text: "ダンジョン入場条件。キーは行き先ワールド名。EliteMobs の content-package 名は aliases / content-package で紐づけます。"
+      text: "ダンジョン入場条件。キーは行き先ワールド名（＝ダンジョンの選択）。"
+        + "EliteMobs のパッケージ名はその選択から自動で紐づき、複数 blueprint を束ねたいときだけ別名を足します。"
     }));
     root.appendChild(list);
 
@@ -146,9 +160,6 @@
       for (const id of ids) {
         const g = gates[id] && typeof gates[id] === "object" ? gates[id] : (gates[id] = {});
         const aliases = Array.isArray(g.aliases) ? g.aliases : (g.aliases = []);
-        if (g["content-package"] && !aliases.includes(g["content-package"])) {
-          // 表示用に content-package も別名欄へ出す（保存時は両対応）
-        }
         // ダンジョンID(= 行き先ワールド名)は EliteMobs 同梱ダンジョンから選べるようにする。
         // 自作ダンジョンもあるので手動入力は常に可能(allowCustom)。
         // 選択済みの表示は listSelect 自身が「日本語名 (ワールド名)」で出すため、別途ラベルは足さない。
@@ -167,6 +178,7 @@
                 alert("同じワールド名が既にあります"); return false;
               }
               renameKey(gates, id, v);
+              applyContentPackageFromDungeon(gates[v], v, true);
               render();
               return true;
             }
@@ -185,37 +197,33 @@
               int: true,
               clearable: true
             }),
-            field("key-material", window.materialInput(g["key-material"] || "", "material-list", (v) => {
-              if (!v) delete g["key-material"];
-              else g["key-material"] = v;
+            field("key-item", window.itemRefSelect({
+              value: g["key-item"] != null ? g["key-item"] : (g["key-material"] != null ? g["key-material"] : ""),
+              catalogCandidates,
+              placeholder: "アイテムを選択…（空欄＝鍵なし）",
+              onChange: (v) => {
+                const nv = String(v || "").trim();
+                if (!nv) { delete g["key-item"]; delete g["key-material"]; return; }
+                g["key-item"] = nv;
+                delete g["key-material"];
+              }
             }), {
               label: "必要鍵アイテム",
-              desc: "入場時に消費する Material。空欄＝鍵なし",
-              key: "key-material"
+              desc: "入場時に消費するアイテム。カタログ品/ArsPaper品/バニラ Material のいずれも指定できます。空欄＝鍵なし",
+              key: "key-item"
             }),
             numField(g, "key-amount", {
               label: "鍵の個数",
               desc: "省略時は1",
               int: true,
               clearable: true
-            }),
-            field("content-package", window.listSelect({
-              value: g["content-package"] || "",
-              allowCustom: true,
-              customPlaceholder: "パッケージ名を直接入力",
-              placeholder: "選択…（空欄＝紐づけなし）",
-              options: () => (window.EM_DUNGEONS ? window.EM_DUNGEONS.packageOptions() : []),
-              onChange: (v) => {
-                const nv = String(v || "").trim();
-                if (!nv) delete g["content-package"];
-                else g["content-package"] = nv;
-              }
-            }), {
-              label: "EliteMobsパッケージ",
-              desc: "content_packages のファイル名（拡張子なし）",
-              key: "content-package"
             })
           ]),
+          h("div", {
+            class: "form-hint",
+            text: "EliteMobs のパッケージ名はダンジョンの選択から自動で紐づけます（content-package）。"
+              + "複数の blueprint を紐づけたい場合だけ下の別名を使ってください。"
+          }),
           sub("別名 (aliases) — EliteMobs の複数 blueprint 名"),
           aliasEditor(aliases, () => render())
         ];
@@ -254,10 +262,25 @@
       return box;
     }
 
+    // content-package が未設定の既存ゲートを台帳から補完する
+    // (既に値があるものは触らない — 手書きワールド名ゲートの既存値を消さないため)。
+    function backfillContentPackages() {
+      for (const gid of Object.keys(gates)) {
+        const g = gates[gid];
+        if (g && typeof g === "object") applyContentPackageFromDungeon(g, gid, false);
+      }
+    }
+
+    // 台帳が既に読み込み済みなら下の非同期分岐には入らないので、ここで必ず1回補完しておく。
+    // これを描画前の1回だけにすると「台帳が間に合った回だけ自動導出される」不安定な挙動になる。
+    backfillContentPackages();
     render();
     // 既定ダンジョン台帳は非同期取得。届いたらセレクト候補と日本語名を出すため描き直す。
     if (window.EM_DUNGEONS && !window.EM_DUNGEONS.isLoaded()) {
-      window.EM_DUNGEONS.load().then(() => render());
+      window.EM_DUNGEONS.load().then(() => {
+        backfillContentPackages();
+        render();
+      });
     }
     return { element: root, getData: () => working };
   };

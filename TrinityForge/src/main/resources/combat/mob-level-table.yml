@@ -72,6 +72,51 @@
 #     「AかBか」をやりたい場合はどちらか片方だけを使うこと。
 #   ・【帯レベル】に書くと、その帯の remove-drops / add-drops / vanilla-exp が丸ごと対象外のモブに
 #     適用されなくなる。【add-drops エントリ】に書くと、その1エントリだけが絞り込まれる。
+#
+# 【EXP対象モブの選定方針】 2026-07-27(2026-07-27 改訂: バニラEXP完全0化案は取り下げ)
+#   下の各帯の mobs: からは、プレイヤーが自分で無限に増やせるモブを意図的に外してある。
+#   帯の vanilla-exp はバニラEXPを丸ごと上書きする(Lv0帯でも8、Lv85帯では140)ため、
+#   繁殖・建造で増やせるモブを対象に含めると「安全な自宅の牧場を殴るだけ」が帯のEXPボーナス
+#   (8〜140)を稼げてしまい、ダンジョン/フィールド戦闘の意味が消えるため。
+#     - 外したモブ: BEE / GOAT / LLAMA / TRADER_LLAMA / PANDA / WOLF (いずれも繁殖可能)、
+#                   IRON_GOLEM (村人+鉄ブロックで無限に建造できる)
+#     - 残した中立モブ: DOLPHIN / POLAR_BEAR — どちらも繁殖手段が無く、自然スポーンに
+#                   依存するため「気軽に量産」できない。
+#     - 友好・受動モブ(C群 40種)はもともと一度も列挙していない(= バニラEXPのまま)。
+#   外したモブを討伐しても、バニラ本来のEXPオーブ(動物なら1〜3)は従来どおり落ちる
+#   (エンチャント等の用途があるため、バニラEXP自体を止める変更は行わない — ユーザー判断)。
+#   代わりに、下の no-skill-exp-mobs: によって「TrinityForgeが独自に付与する戦闘スキルEXP」
+#   (武器=命中/防具=被弾)だけを完全に止める。牧場で繁殖させた個体を殴っても
+#   スキルEXPは一切増えない(繁殖でスキルEXPを稼ぐ抜け道も、この一覧が同時に塞ぐ)。
+#
+# 【no-skill-exp-mobs: TrinityForgeの戦闘スキルEXPを完全に0にするモブ一覧】 2026-07-27
+#   このEntityTypeのモブを相手にしても、TrinityForge の戦闘スキルEXP(武器=命中/防具=被弾)は
+#   一切加算されない。バニラのEXPオーブ(討伐時にsetDroppedExpされる値)は
+#   このリストの対象外で、従来どおり落ちる — このファイルの MobLevelTableListener 自体は
+#   このリストを一切読まない(setDroppedExpを書き換える処理には触れない)。
+#   実際の抑止は CombatListener(攻撃対象が武器スキルEXPの対象かどうか)と
+#   NativeSkillExperienceListener(攻撃してきた側が防具スキルEXPの対象かどうか)の
+#   両方が、それぞれの付与直前にこのリストを読んで判定する。
+#   ⚠ 魔法(ARS_MAGIC)スキルEXPはこのリストの対象外。Ars側のEXP付与は「詠唱したこと」
+#     (ArsProgressionBridge#grantMagicExp — 引数に対象Entityが無い)に対して発生し、
+#     何を撃ったかを一切参照しないため、EntityTypeで絞る余地が構造的に無い。
+#     つまり魔法EXPは牧場動物を撃っても、何も撃たなくても同じだけ入る(マナが唯一の制約)。
+#   ・帯システム(tiers:)とは無関係の別レイヤー。tiers: の vanilla-exp はバニラEXPだけを
+#     扱うため、そもそも競合しない。
+#   ・dungeon-only: の影響を受けない。牧場は当然ダンジョン外にあるので、ダンジョン限定に
+#     すると意味がない(常に全ワールドで有効)。stats/skill-exp.yml の
+#     dungeon-only-exp/outside-dungeon-exp-rate とも独立に、常に効く。
+#   ・remove-drops/add-drops/バニラEXPオーブには一切影響しない(戦闘スキルEXPだけを対象にする)。
+#   ・省略/空リストなら何もしない(完全な後方互換)。
+#   ・未知の EntityType 名は警告してスキップし、他のエントリの読み込みは継続する。
+no-skill-exp-mobs:
+  - BEE
+  - GOAT
+  - LLAMA
+  - TRADER_LLAMA
+  - PANDA
+  - WOLF
+  - IRON_GOLEM
 # ============================================================================
 # 設定リファレンス(本文コメント移設先): docs/config-reference/combat/mob-level-table.md
 
@@ -82,7 +127,6 @@ tiers:
   - min-level: 0
     vanilla-exp: 8
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -98,15 +142,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -120,14 +160,12 @@ tiers:
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
@@ -135,7 +173,6 @@ tiers:
   - min-level: 10
     vanilla-exp: 15
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -151,15 +188,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -173,14 +206,12 @@ tiers:
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
@@ -188,7 +219,6 @@ tiers:
   - min-level: 25
     vanilla-exp: 28
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -204,15 +234,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -226,14 +252,12 @@ tiers:
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
@@ -241,7 +265,6 @@ tiers:
   - min-level: 45
     vanilla-exp: 50
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -257,15 +280,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -279,14 +298,12 @@ tiers:
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
@@ -294,7 +311,6 @@ tiers:
   - min-level: 65
     vanilla-exp: 85
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -310,15 +326,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -332,14 +344,12 @@ tiers:
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER
@@ -347,7 +357,6 @@ tiers:
   - min-level: 85
     vanilla-exp: 140
     mobs:
-      - BEE
       - BLAZE
       - BOGGED
       - BREEZE
@@ -363,15 +372,11 @@ tiers:
       - EVOKER
       - GHAST
       - GIANT
-      - GOAT
       - GUARDIAN
       - HOGLIN
       - HUSK
       - ILLUSIONER
-      - IRON_GOLEM
-      - LLAMA
       - MAGMA_CUBE
-      - PANDA
       - PARCHED
       - PHANTOM
       - PIGLIN
@@ -385,14 +390,12 @@ tiers:
       - SLIME
       - SPIDER
       - STRAY
-      - TRADER_LLAMA
       - VEX
       - VINDICATOR
       - WARDEN
       - WITCH
       - WITHER
       - WITHER_SKELETON
-      - WOLF
       - ZOGLIN
       - ZOMBIE
       - ZOMBIE_VILLAGER

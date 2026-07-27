@@ -840,6 +840,40 @@ window.listSelect = function listSelect(cfg) {
   return wrap;
 };
 
+// アイテム参照 (カタログID / バニラMaterial) の共通セレクト。
+// アチーブメント等の付与アイテム (tf-rewards-forms.js itemIdInput) と、ダンジョンゲートの
+// 必要鍵アイテム (tf-dungeon-forms.js buildDungeonGatesForm) の両方から使う共通ヘルパー。
+// 保存される値は常に ID 文字列そのもの (catalogID 生値 / バニラMaterial名)。表示だけを
+// listSelect の日本語主表示に差し替える。
+// cfg.value: 現在値
+// cfg.onChange(next): 確定時コールバック (next は素のID文字列)
+// cfg.catalogCandidates: [{ id, label, ... }] (省略時はバニラMaterialのみの候補になる)
+// cfg.placeholder / cfg.customPlaceholder: 任意
+window.itemRefSelect = function itemRefSelect(cfg) {
+  const options = [];
+  for (const c of (Array.isArray(cfg.catalogCandidates) ? cfg.catalogCandidates : [])) {
+    if (c && c.id) options.push({ value: c.id, primary: c.label || c.id, secondary: c.id });
+  }
+  for (const m of (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])) {
+    options.push({ value: m, primary: m, secondary: m });
+  }
+  const cur = cfg.value == null ? "" : String(cfg.value);
+  // 候補に無い値 (手書きID・未知のカタログID等) でも消えないよう、値そのものを先頭候補として差し込む
+  // (tf-rewards-forms.js statKeySelect と同じ流儀)。
+  if (cur && !options.some((o) => o.value === cur)) {
+    options.unshift({ value: cur, primary: cur, secondary: "" });
+  }
+  return window.listSelect({
+    value: cur,
+    options,
+    onChange: cfg.onChange,
+    allowCustom: true,
+    customPlaceholder: cfg.customPlaceholder || "catalogID / バニラMaterial を直接入力",
+    placeholder: cfg.placeholder || "アイテムを選択…",
+    className: cfg.className
+  });
+};
+
 window.selectInput = function selectInput(value, options, onInput) {
   return window.listSelect({
     value: value == null ? "" : String(value),

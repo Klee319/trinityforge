@@ -3,6 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.TrinityForge;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
+import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig.GatheringExpMode;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.RoleBuffResolver;
@@ -66,16 +67,21 @@ public final class NativeSkillExperienceListener implements Listener {
     private final DedicatedEffectsConfig dedicatedEffects;
     private final PlayerStatAggregator aggregator;
     private final BrewOwnership brewOwnership;
+    /**
+     * {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27 牧場対策)。
+     * null許容 — 未配線(以下の旧コンストラクタ経由、既存テスト互換)なら防具スキルEXP抑止は無効。
+     */
+    private final MobLevelTableConfig mobLevelTable;
 
     public NativeSkillExperienceListener(Plugin plugin, NativeExperienceDispatcher progression,
                                          NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker) {
-        this(plugin, progression, catalog, placedBlockTracker, null, null, null);
+        this(plugin, progression, catalog, placedBlockTracker, null, null, null, null);
     }
 
     public NativeSkillExperienceListener(Plugin plugin, NativeExperienceDispatcher progression,
                                          NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker,
                                          RoleBuffResolver roleBuffResolver) {
-        this(plugin, progression, catalog, placedBlockTracker, roleBuffResolver, null, null);
+        this(plugin, progression, catalog, placedBlockTracker, roleBuffResolver, null, null, null);
     }
 
     public NativeSkillExperienceListener(Plugin plugin, NativeExperienceDispatcher progression,
@@ -83,12 +89,27 @@ public final class NativeSkillExperienceListener implements Listener {
                                          RoleBuffResolver roleBuffResolver,
                                          DedicatedEffectsConfig dedicatedEffects,
                                          PlayerStatAggregator aggregator) {
+        this(plugin, progression, catalog, placedBlockTracker, roleBuffResolver, dedicatedEffects, aggregator, null);
+    }
+
+    /**
+     * @param mobLevelTable {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27
+     *                      牧場対策)。防具スキルEXP付与時に「攻撃してきた側」の EntityType がここに
+     *                      載っていれば付与しない。null可(その場合は抑止しない、旧挙動)。
+     */
+    public NativeSkillExperienceListener(Plugin plugin, NativeExperienceDispatcher progression,
+                                         NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker,
+                                         RoleBuffResolver roleBuffResolver,
+                                         DedicatedEffectsConfig dedicatedEffects,
+                                         PlayerStatAggregator aggregator,
+                                         MobLevelTableConfig mobLevelTable) {
         this.progression = progression;
         this.catalog = catalog;
         this.placedBlockTracker = placedBlockTracker;
         this.roleBuffResolver = roleBuffResolver;
         this.dedicatedEffects = dedicatedEffects;
         this.aggregator = aggregator;
+        this.mobLevelTable = mobLevelTable;
         // 醸造所有者PDCキーの定義は BrewOwnership へ一本化(二重実装防止)。書き込み側はこのクラス
         // (rememberBrewer/markAutomatedBrew/onBrew)が引き続き担うが、キー文字列そのものは共有クラスから。
         this.brewOwnership = new BrewOwnership(plugin);
@@ -369,6 +390,16 @@ public final class NativeSkillExperienceListener implements Listener {
     public void onArmorDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0.0) return;
         if (excluded(player)) return;
+        // 2026-07-27 牧場対策: 「攻撃してきた側」(飛び道具なら発射者)の EntityType が
+        // no-skill-exp-mobs に載っていれば防具スキルEXPは一切付与しない。武器スキルEXP側
+        // (CombatListener#maybeGrantCombatSkillExp)と対で塞がないと、反撃してくる牧場動物に
+        // 殴られるだけの被弾EXP farmが残ってしまう(javadoc参照)。
+        if (mobLevelTable != null) {
+            Entity attackerType = armorExpAttackerEntity(event);
+            if (attackerType != null && mobLevelTable.suppressesSkillExp(attackerType.getType())) {
+                return;
+            }
+        }
         // ワールド倍率(2026-07-26 オーバーワールドEXP開放): ダンジョン内=1.0、ダンジョン外=
         // outside-dungeon-exp-rate(dungeon-only-exp: true なら0.0で従来どおり完全遮断)。
         // TrinityForge.getInstance()経由(本クラスはSkillExpConfig未注入)。
@@ -455,6 +486,19 @@ public final class NativeSkillExperienceListener implements Listener {
             return shooter.getUniqueId();
         }
         return damager.getUniqueId();
+    }
+
+    /**
+     * 2026-07-27 牧場対策: {@code no-skill-exp-mobs} 判定用の「攻撃してきた側」Entity。
+     * {@link #armorExpAttackerId} と同じ解決規則(飛び道具なら発射者、それ以外はダメージ源そのもの)。
+     */
+    private static Entity armorExpAttackerEntity(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+        if (damager instanceof org.bukkit.entity.Projectile projectile
+                && projectile.getShooter() instanceof Entity shooter) {
+            return shooter;
+        }
+        return damager;
     }
 
     private static boolean isArmor(Material material) {

@@ -1,5 +1,6 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.MobOverridesConfig;
 import com.trinityforge.pdc.PdcKeys;
 import org.bukkit.entity.Player;
@@ -22,6 +23,9 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * {@link MobOverrideExpListener}: this listener previously had zero test coverage (2026-07-26 review
@@ -72,6 +76,14 @@ class MobOverrideExpListenerTest {
         return config;
     }
 
+    /** A {@link SymmetricCombatService} stub whose {@code combatLevelOf} always returns {@code level}
+     *  (2026-07-27 足きり新設 — 大半のテストは足きり無関係なので固定値で十分)。 */
+    private static SymmetricCombatService combatServiceAtLevel(int level) {
+        SymmetricCombatService combatService = mock(SymmetricCombatService.class);
+        when(combatService.combatLevelOf(any())).thenReturn(level);
+        return combatService;
+    }
+
     private static org.bukkit.plugin.Plugin fakePlugin(File dataFolder) {
         java.lang.reflect.InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
             case "getDataFolder" -> dataFolder;
@@ -119,7 +131,7 @@ class MobOverrideExpListenerTest {
                       goblin_chief:
                         vanilla-exp: 500
                 """);
-        MobOverrideExpListener listener = new MobOverrideExpListener(config);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, null, server.addPlayer());
@@ -137,7 +149,7 @@ class MobOverrideExpListenerTest {
                       goblin_chief:
                         vanilla-exp: 500
                 """);
-        MobOverrideExpListener listener = new MobOverrideExpListener(config);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
@@ -158,7 +170,7 @@ class MobOverrideExpListenerTest {
                       some_other_mob:
                         vanilla-exp: 500
                 """);
-        MobOverrideExpListener listener = new MobOverrideExpListener(config);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
@@ -179,7 +191,7 @@ class MobOverrideExpListenerTest {
                       goblin_chief:
                         vanilla-exp: 500
                 """);
-        MobOverrideExpListener listener = new MobOverrideExpListener(config);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", null); // no killer
@@ -201,7 +213,7 @@ class MobOverrideExpListenerTest {
                       goblin_chief.yml:
                         vanilla-exp: 500
                 """);
-        MobOverrideExpListener listener = new MobOverrideExpListener(config);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         // The fork always stamps the ALREADY-normalized (extension-stripped) id.
@@ -210,5 +222,122 @@ class MobOverrideExpListenerTest {
 
         assertEquals(500, event.getDroppedExp(),
                 "a '.yml'-suffixed config key must still resolve against the normalized stamped id");
+    }
+
+    // --- level-cutoff (2026-07-27 「レベル差による足きり」) ---
+
+    @Test
+    void overLevelExpRateMinusOneZeroesOutARampedKill(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        vanilla-exp: 500
+                        level-cutoff:
+                          over-level:
+                            threshold: 10
+                            exp-rate: -1
+                """);
+        // Player combat level 30, mob level 0 (default) -> diff=30 >= threshold 10 -> triggered.
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(30));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
+        listener.onDeath(event);
+
+        assertEquals(0, event.getDroppedExp(), "over-level exp-rate=-1 must zero out the ramped EXP");
+    }
+
+    @Test
+    void overLevelExpRateScalesTheRampedValue(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        vanilla-exp: 500
+                        level-cutoff:
+                          over-level:
+                            threshold: 10
+                            exp-rate: 0.25
+                """);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(30));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
+        listener.onDeath(event);
+
+        assertEquals(125, event.getDroppedExp(), "500 * 0.25 = 125");
+    }
+
+    @Test
+    void overLevelBelowThresholdLeavesRampedExpUnchanged(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        vanilla-exp: 500
+                        level-cutoff:
+                          over-level:
+                            threshold: 10
+                            exp-rate: -1
+                """);
+        // diff = 5 - 0 = 5, below threshold 10 -> not triggered -> ramp value applies as-is.
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(5));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
+        listener.onDeath(event);
+
+        assertEquals(500, event.getDroppedExp(), "diff below threshold must not touch the ramped value");
+    }
+
+    @Test
+    void overLevelCutoffAppliesEvenWithoutAConfiguredRamp(@TempDir File dir) throws Exception {
+        // No vanilla-exp ramp for this mob, but a cutoff IS configured -> must still act, using the kill's
+        // existing droppedExp (7, from deathEventFor) as the basis instead of a ramp.
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        level-cutoff:
+                          over-level:
+                            threshold: 10
+                            exp-rate: -1
+                """);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(30));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
+        listener.onDeath(event);
+
+        assertEquals(0, event.getDroppedExp(),
+                "a triggered cutoff must act on the event's own droppedExp even with no ramp configured");
+    }
+
+    @Test
+    void underLevelCutoffNeverAffectsExp(@TempDir File dir) throws Exception {
+        // under-level only blocks TF drops (MobOverrideDropListener); it must never touch EXP.
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        vanilla-exp: 500
+                        level-cutoff:
+                          under-level:
+                            item-threshold: 1
+                """);
+        MobOverrideExpListener listener = new MobOverrideExpListener(config, combatServiceAtLevel(1));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        zombie.getPersistentDataContainer().set(PdcKeys.MOB_LEVEL, PersistentDataType.INTEGER, 50);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", server.addPlayer());
+        listener.onDeath(event);
+
+        assertEquals(500, event.getDroppedExp(), "under-level must never affect EXP, only TF item drops");
     }
 }

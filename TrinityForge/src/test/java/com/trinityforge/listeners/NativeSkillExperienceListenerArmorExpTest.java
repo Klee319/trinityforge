@@ -3,11 +3,13 @@ package com.trinityforge.listeners;
 import com.trinityforge.TrinityForge;
 import com.trinityforge.TrinityForgeSingletonTestSupport;
 import com.trinityforge.config.ConfigManager;
+import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -15,9 +17,12 @@ import org.bukkit.inventory.PlayerInventory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -69,6 +74,14 @@ class NativeSkillExperienceListenerArmorExpTest {
     }
 
     private Wired newListener() {
+        return newListener(null);
+    }
+
+    /**
+     * @param mobLevelTable {@code combat/mob-level-table.yml} の {@code no-skill-exp-mobs}(2026-07-27
+     *                      牧場対策)。null なら旧8引数未満コンストラクタ相当(抑止なし)。
+     */
+    private Wired newListener(MobLevelTableConfig mobLevelTable) {
         NativeExperienceDispatcher dispatcher = mock(NativeExperienceDispatcher.class);
         NativeSkillCatalog catalog = mock(NativeSkillCatalog.class);
         PlacedBlockTracker tracker = mock(PlacedBlockTracker.class);
@@ -94,8 +107,30 @@ class NativeSkillExperienceListenerArmorExpTest {
                     default -> null;
                 });
         NativeSkillExperienceListener listener = new NativeSkillExperienceListener(
-                (org.bukkit.plugin.Plugin) plugin, dispatcher, catalog, tracker);
+                (org.bukkit.plugin.Plugin) plugin, dispatcher, catalog, tracker, null, null, null, mobLevelTable);
         return new Wired(listener, dispatcher);
+    }
+
+    /** Builds a real, loaded {@link MobLevelTableConfig} from inline YAML via a fake resource plugin. */
+    private static MobLevelTableConfig loadedMobLevelTable(File dataFolder, String yaml) throws Exception {
+        File file = new File(dataFolder, MobLevelTableConfig.PATH);
+        java.nio.file.Files.createDirectories(file.getParentFile().toPath());
+        java.nio.file.Files.writeString(file.toPath(), yaml);
+        java.lang.reflect.InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
+            case "getDataFolder" -> dataFolder;
+            case "getLogger" -> Logger.getLogger("NativeSkillExperienceListenerArmorExpTest");
+            case "saveResource" -> null;
+            case "toString" -> "FakePlugin";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> throw new UnsupportedOperationException(method.getName());
+        };
+        org.bukkit.plugin.Plugin plugin = (org.bukkit.plugin.Plugin) java.lang.reflect.Proxy.newProxyInstance(
+                org.bukkit.plugin.Plugin.class.getClassLoader(),
+                new Class<?>[]{org.bukkit.plugin.Plugin.class}, handler);
+        MobLevelTableConfig config = new MobLevelTableConfig();
+        config.load(plugin);
+        return config;
     }
 
     /** A player wearing a single heavy-armor (diamond) chestplate, non-creative. */
@@ -173,5 +208,53 @@ class NativeSkillExperienceListenerArmorExpTest {
 
         verify(wired.dispatcher(), org.mockito.Mockito.times(2))
                 .grant(victim.getUniqueId(), SkillId.HEAVY_ARMOR, PIECE_FLAT);
+    }
+
+    // --- 2026-07-27 牧場対策: no-skill-exp-mobs (攻撃してきた側のEntityTypeで防具スキルEXPを抑止) ---
+    // CombatListenerNoSkillExpMobsTest(武器側)と対になるテスト。バニラEXPオーブは対象外 —
+    // ここで検証するのは NativeExperienceDispatcher#grant(HEAVY_ARMOR) = TrinityForgeの戦闘スキルEXPだけ。
+
+    @Test
+    void noSkillExpMobsBlocksArmorSkillExpForAttackerType(@TempDir File dir) throws Exception {
+        MobLevelTableConfig mobLevelTable = loadedMobLevelTable(dir, "no-skill-exp-mobs: [ZOMBIE]\n");
+        Wired wired = newListener(mobLevelTable);
+        Player victim = heavyArmorPlayer();
+        LivingEntity attacker = mock(LivingEntity.class);
+        when(attacker.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(attacker.getType()).thenReturn(EntityType.ZOMBIE);
+
+        wired.listener().onArmorDamage(damageEvent(victim, attacker, 5.0));
+
+        verify(wired.dispatcher(), never()).grant(any(), eq(SkillId.HEAVY_ARMOR), anyDouble());
+    }
+
+    @Test
+    void attackerTypeNotInNoSkillExpMobsStillGrantsArmorSkillExp(@TempDir File dir) throws Exception {
+        MobLevelTableConfig mobLevelTable = loadedMobLevelTable(dir, "no-skill-exp-mobs: [ZOMBIE]\n");
+        Wired wired = newListener(mobLevelTable);
+        Player victim = heavyArmorPlayer();
+        LivingEntity attacker = mock(LivingEntity.class);
+        when(attacker.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(attacker.getType()).thenReturn(EntityType.SKELETON);
+
+        wired.listener().onArmorDamage(damageEvent(victim, attacker, 5.0));
+
+        verify(wired.dispatcher()).grant(victim.getUniqueId(), SkillId.HEAVY_ARMOR, PIECE_FLAT);
+    }
+
+    @Test
+    void backCompatConstructorsWithNullMobLevelTableNeverSuppress() {
+        // 旧4引数コンストラクタ(newListener()、mobLevelTable=null)は EntityType が何であっても
+        // 抑止しない — このクラスの他の全既存テストが getType() を一切スタブしていないこと自体が
+        // 「抑止ロジックが getType() を呼ばない(=無効)」ことの間接証拠だが、ここでは明示的に確認する。
+        Wired wired = newListener(); // mobLevelTable = null
+        Player victim = heavyArmorPlayer();
+        LivingEntity attacker = mock(LivingEntity.class);
+        when(attacker.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(attacker.getType()).thenReturn(EntityType.ZOMBIE);
+
+        wired.listener().onArmorDamage(damageEvent(victim, attacker, 5.0));
+
+        verify(wired.dispatcher()).grant(victim.getUniqueId(), SkillId.HEAVY_ARMOR, PIECE_FLAT);
     }
 }

@@ -3,6 +3,7 @@ package com.trinityforge.config.domains;
 import com.trinityforge.config.LoadableConfig;
 import com.trinityforge.mobs.ConversionPolicy.Ramp;
 import com.trinityforge.mobs.MobIdNormalizer;
+import com.trinityforge.mobs.MobLevelCutoff;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.mobs.MobOverrideEntry;
 import com.trinityforge.mobs.MobProfile;
@@ -63,6 +64,21 @@ import java.util.logging.Logger;
  * other, and neither is combined with {@code combat/mob-level-table.yml}'s own {@code add-drops}, which
  * remains an entirely separate additive table — see {@code MobOverrideDropListener} javadoc for the
  * coexistence decision).
+ *
+ * <p><b>足きり解決</b> ({@link #levelCutoffFor}, 2026-07-27
+ * 「このレベル差がある敵は少なくなる…アイテムが入手できなくなるレベル差の閾値設定も欲しい」要望):
+ * {@code level-cutoff:} は scope 直下(そのダンジョン全体の既定)と {@code mobs.<mobId>} 直下(そのモブ
+ * 個別)の両方に書ける、4段カスケードのブロック単位オーバーライド — 他のフィールドと違い項目単位マージは
+ * しない({@link MobLevelCutoff}をブロックごとまるごと採用/不採用する)。優先順位は
+ * <ol>
+ *   <li>world scope の mob 単位</li>
+ *   <li>world scope の scope 単位</li>
+ *   <li>default scope の mob 単位</li>
+ *   <li>default scope の scope 単位</li>
+ *   <li>(いずれも未設定) {@link MobLevelCutoff#NONE} — 足きり無し</li>
+ * </ol>
+ * 判定と適用の純粋ロジックは {@link MobLevelCutoff} が持つ(diffの計算・倍率・入手可否)。このクラスは
+ * どのブロックを採用するかの解決だけを担当する。
  */
 public final class MobOverridesConfig implements LoadableConfig {
 
@@ -75,6 +91,12 @@ public final class MobOverridesConfig implements LoadableConfig {
      * 表示専用のメタデータ — 戦闘パイプラインもスコープ解決も一切読まない。
      */
     private static final String DISPLAY_NAME_KEY = "display-name";
+
+    /**
+     * 「レベル差による足きり」ブロックのキー(2026-07-27)。scope直下・mob直下の両方で同じキー名を使う
+     * (class javadoc「足きり解決」参照)。
+     */
+    private static final String LEVEL_CUTOFF_KEY = "level-cutoff";
 
     /**
      * 2026-07-26 M1 レビュー指摘の実装で判明した副次バグへの対策: このファイル限定で{@code
@@ -90,6 +112,7 @@ public final class MobOverridesConfig implements LoadableConfig {
 
     private volatile Map<String, Map<String, MobOverrideEntry>> scopes = Map.of();
     private volatile Map<String, String> scopeDisplayNames = Map.of();
+    private volatile Map<String, MobLevelCutoff> scopeLevelCutoffs = Map.of();
 
     public String resourcePath() {
         return PATH;
@@ -120,6 +143,7 @@ public final class MobOverridesConfig implements LoadableConfig {
         ParseResult result = parse(yaml, log);
         this.scopes = result.scopes();
         this.scopeDisplayNames = result.scopeDisplayNames();
+        this.scopeLevelCutoffs = result.scopeLevelCutoffs();
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.mobCount() + " mob override(s), "
                     + result.skipped() + " skipped");
@@ -279,6 +303,48 @@ public final class MobOverridesConfig implements LoadableConfig {
         return Optional.ofNullable(fromWorld != null ? fromWorld : displayNameInScope(DEFAULT_SCOPE, id));
     }
 
+    /**
+     * The resolved 「レベル差による足きり」設定 for {@code (worldName, mobId)}, or
+     * {@link MobLevelCutoff#NONE} when none of the 4 cascaded slots configures one (class javadoc
+     * 「足きり解決」参照). Unlike {@link #resolve}/{@link #dropsFor}, this is a BLOCK-level pick, not a
+     * field-level merge: the winning slot's {@link MobLevelCutoff} is returned verbatim.
+     */
+    public MobLevelCutoff levelCutoffFor(String worldName, String mobId) {
+        if (mobId == null) {
+            return MobLevelCutoff.NONE;
+        }
+        String id = MobIdNormalizer.normalize(mobId);
+        String worldScope = worldScopeKey(worldName);
+        MobLevelCutoff resolved = worldScope == null ? null : mobLevelCutoffInScope(worldScope, id);
+        if (resolved != null) {
+            return resolved;
+        }
+        resolved = worldScope == null ? null : scopeLevelCutoffs.get(worldScope);
+        if (resolved != null) {
+            return resolved;
+        }
+        resolved = mobLevelCutoffInScope(DEFAULT_SCOPE, id);
+        if (resolved != null) {
+            return resolved;
+        }
+        resolved = scopeLevelCutoffs.get(DEFAULT_SCOPE);
+        return resolved != null ? resolved : MobLevelCutoff.NONE;
+    }
+
+    /** {@code null} when {@code scopeName} has no mob entry for {@code mobId}, or that entry's
+     *  level-cutoff is {@link MobLevelCutoff#isNone()} (nothing configured for this specific mob). */
+    private MobLevelCutoff mobLevelCutoffInScope(String scopeName, String mobId) {
+        Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
+        if (mobs == null) {
+            return null;
+        }
+        MobOverrideEntry entry = mobs.get(mobId);
+        if (entry == null || entry.levelCutoff().isNone()) {
+            return null;
+        }
+        return entry.levelCutoff();
+    }
+
     private String displayNameInScope(String scopeName, String mobId) {
         Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
         if (mobs == null) {
@@ -316,6 +382,7 @@ public final class MobOverridesConfig implements LoadableConfig {
             return new ParseResult(Map.of(), 0, 0);
         }
         Map<String, String> scopeDisplayNames = new LinkedHashMap<>();
+        Map<String, MobLevelCutoff> scopeLevelCutoffs = new LinkedHashMap<>();
         for (String scopeName : overridesSection.getKeys(false)) {
             ConfigurationSection scopeSection = overridesSection.getConfigurationSection(scopeName);
             if (scopeSection == null) {
@@ -330,6 +397,11 @@ public final class MobOverridesConfig implements LoadableConfig {
             String scopeDisplayName = trimToNull(scopeSection.getString(DISPLAY_NAME_KEY));
             if (scopeDisplayName != null) {
                 scopeDisplayNames.put(scopeName, scopeDisplayName);
+            }
+            LevelCutoffResult scopeCutoffResult = parseLevelCutoff(scopeSection, scopeName, "<scope>", log);
+            skipped += scopeCutoffResult.skipped();
+            if (!scopeCutoffResult.cutoff().isNone()) {
+                scopeLevelCutoffs.put(scopeName, scopeCutoffResult.cutoff());
             }
             ConfigurationSection mobsSection = scopeSection.getConfigurationSection("mobs");
             if (mobsSection == null) {
@@ -369,15 +441,18 @@ public final class MobOverridesConfig implements LoadableConfig {
                 skipped += dropsResult.skipped();
                 Ramp vanillaExp = parseVanillaExp(mobSection, scopeName, rawMobId, log);
                 String displayName = trimToNull(mobSection.getString(DISPLAY_NAME_KEY));
+                LevelCutoffResult mobCutoffResult = parseLevelCutoff(mobSection, scopeName, rawMobId, log);
+                skipped += mobCutoffResult.skipped();
                 mobs.put(mobId, new MobOverrideEntry(statsResult.stats(), dropsResult.drops(), vanillaExp,
-                        displayName));
+                        displayName, mobCutoffResult.cutoff()));
                 mobCount++;
             }
             if (!mobs.isEmpty()) {
                 scopes.put(scopeName, Map.copyOf(mobs));
             }
         }
-        return new ParseResult(Map.copyOf(scopes), Map.copyOf(scopeDisplayNames), skipped, mobCount);
+        return new ParseResult(Map.copyOf(scopes), Map.copyOf(scopeDisplayNames), Map.copyOf(scopeLevelCutoffs),
+                skipped, mobCount);
     }
 
     /** {@code null} for a null/blank string, the trimmed value otherwise. */
@@ -413,6 +488,56 @@ public final class MobOverridesConfig implements LoadableConfig {
         }
         log.warning("[" + PATH + "] " + scopeName + "." + mobId + " vanilla-exp must be a number or a "
                 + "{ base, per-level, growth, growth-interval } section; ignored");
+        return null;
+    }
+
+    /**
+     * {@code level-cutoff:} — 「レベル差による足きり」設定(2026-07-27)。{@code parent} 直下(scope単位
+     * なら scope自体のセクション、mob単位なら {@code mobs.<mobId>} のセクション)にこのキーが無ければ
+     * {@link MobLevelCutoff#NONE}(スキップ0件)。fail-soft: 不正な個々のフィールドだけを無視し、
+     * ブロック全体を巻き込まない({@code parseStats}と同じ方針)。
+     *
+     * <p>{@code threshold}/{@code item-threshold} は「未設定または負値 = その足きり無効」という仕様上の
+     * 正当な表現方法であり、負値そのものは警告対象ではない({@link MobLevelCutoff#isOverLevelActive}/
+     * {@link MobLevelCutoff#isUnderLevelActive} 側で無効として扱われる)。{@code exp-rate}/
+     * {@code drop-rate} は {@code -1}(入手不可の特別値)または {@code [0.0, 1.0]} の範囲のみ有効 —
+     * それ以外(例: {@code 2.0}, {@code -0.5})は警告のうえ無視する。
+     */
+    private static LevelCutoffResult parseLevelCutoff(ConfigurationSection parent, String scopeName, String mobId,
+                                                        Logger log) {
+        if (parent == null || !parent.isConfigurationSection(LEVEL_CUTOFF_KEY)) {
+            return new LevelCutoffResult(MobLevelCutoff.NONE, 0);
+        }
+        ConfigurationSection section = parent.getConfigurationSection(LEVEL_CUTOFF_KEY);
+        int[] skipped = {0};
+        ConfigurationSection over = section.getConfigurationSection("over-level");
+        Integer threshold = over == null ? null : nullableValidatedInt(over, "threshold", scopeName, mobId,
+                "level-cutoff.over-level.threshold", log, skipped);
+        Double expRate = over == null ? null : nullableValidatedRate(over, "exp-rate", scopeName, mobId,
+                "level-cutoff.over-level.exp-rate", log, skipped);
+        Double dropRate = over == null ? null : nullableValidatedRate(over, "drop-rate", scopeName, mobId,
+                "level-cutoff.over-level.drop-rate", log, skipped);
+        ConfigurationSection under = section.getConfigurationSection("under-level");
+        Integer itemThreshold = under == null ? null : nullableValidatedInt(under, "item-threshold", scopeName,
+                mobId, "level-cutoff.under-level.item-threshold", log, skipped);
+        return new LevelCutoffResult(new MobLevelCutoff(threshold, expRate, dropRate, itemThreshold), skipped[0]);
+    }
+
+    /**
+     * Same contract as {@link #nullableValidatedDouble}, additionally requiring the value be either
+     * exactly {@code -1.0}(「入手不可」の特別値)or within {@code [0.0, 1.0]}. Anything else (e.g.
+     * {@code 2.0} or {@code -0.5}) is warned and treated as absent, mirroring the other fail-soft
+     * field parsers in this file.
+     */
+    private static Double nullableValidatedRate(ConfigurationSection section, String key, String scopeName,
+            String mobId, String fieldLabel, Logger log, int[] skipped) {
+        Double value = nullableValidatedDouble(section, key, scopeName, mobId, fieldLabel, log, skipped);
+        if (value == null || value == -1.0 || (value >= 0.0 && value <= 1.0)) {
+            return value;
+        }
+        log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + fieldLabel
+                + " must be -1 or within [0.0, 1.0] (was " + value + "); ignored");
+        skipped[0]++;
         return null;
     }
 
@@ -650,15 +775,28 @@ public final class MobOverridesConfig implements LoadableConfig {
 
     /** Parse outcome: the immutable scope map and how many mob entries/drops were skipped. */
     record ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes,
-                       Map<String, String> scopeDisplayNames, int skipped, int mobCount) {
+                       Map<String, String> scopeDisplayNames,
+                       Map<String, MobLevelCutoff> scopeLevelCutoffs,
+                       int skipped, int mobCount) {
 
         /** Back-compat for tests written before ダンジョン表示名 (2026-07-26) existed. */
         ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, int skipped, int mobCount) {
-            this(scopes, Map.of(), skipped, mobCount);
+            this(scopes, Map.of(), Map.of(), skipped, mobCount);
+        }
+
+        /** Back-compat for callers written before the scope-level level-cutoff map (2026-07-27) existed. */
+        ParseResult(Map<String, Map<String, MobOverrideEntry>> scopes, Map<String, String> scopeDisplayNames,
+                    int skipped, int mobCount) {
+            this(scopes, scopeDisplayNames, Map.of(), skipped, mobCount);
         }
     }
 
     private record DropsResult(List<MobOverrideDropEntry> drops, int skipped) {
+    }
+
+    /** Parse outcome for one {@code level-cutoff:} block (2026-07-27): the resolved cutoff (possibly
+     *  {@link MobLevelCutoff#NONE}) plus how many of its individual fields were invalid and dropped. */
+    private record LevelCutoffResult(MobLevelCutoff cutoff, int skipped) {
     }
 
     /** Parse outcome for one mob's {@code stats:} block: the merged override plus how many of its

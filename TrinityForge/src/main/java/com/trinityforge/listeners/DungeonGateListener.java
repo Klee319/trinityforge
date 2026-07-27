@@ -83,6 +83,9 @@ public final class DungeonGateListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
         lastDenialMessageAt.remove(event.getPlayer().getUniqueId());
+        // 2026-07-27 鍵アイテムGUI入場対応: ログアウト時に一回限りの通行許可を掃除し、
+        // 期限内でも次回ログイン時に無料入場を許してしまわないようにする。
+        gateService.clearOneTimePasses(event.getPlayer().getUniqueId());
     }
 
     private static boolean sameBlock(Location from, Location to) {

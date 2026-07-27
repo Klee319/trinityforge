@@ -1,7 +1,9 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.MobOverridesConfig;
 import com.trinityforge.mobs.MobDropRoller;
+import com.trinityforge.mobs.MobLevelCutoff;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.stats.CrossPluginItemResolver;
@@ -59,6 +61,14 @@ import java.util.logging.Logger;
  * .getKiller()} must be non-null (a {@code Player}) or this listener adds nothing. Without this gate a
  * mob killed by another mob, lava, fall damage, etc. still rolled the full override drop table,
  * effectively turning any AFK/automated non-player kill loop into a free item farm.
+ *
+ * <p><b>レベル差による足きり(2026-07-27):</b> {@link MobOverridesConfig#levelCutoffFor} で解決した
+ * {@link MobLevelCutoff} をこのリスナー自身が適用する。{@code diff = プレイヤー戦闘Lv - モブLv} で
+ * under-levelが発動していれば({@code mobLevel - playerLevel} が閾値以上)TF追加ドロップを一切付けず
+ * 即return、over-levelが発動していて{@code drop-rate == -1}でも同様。それ以外でover-levelが発動して
+ * いれば各drop entryの{@code chance}に倍率を掛けてから抽選する。<b>バニラ本来のドロップ
+ * ({@code event.getDrops()}に元々入っていたもの)には一切触らない</b> — このリスナーはTF追加ドロップの
+ * roll処理にしか関与しないため、足きりの影響範囲は自然とTF追加ドロップのみに限定される。
  */
 public final class MobOverrideDropListener implements Listener {
 
@@ -66,17 +76,20 @@ public final class MobOverrideDropListener implements Listener {
 
     private final MobOverridesConfig mobOverrides;
     private final CrossPluginItemResolver itemResolver;
+    private final SymmetricCombatService combatService;
     private final SplittableRandom random;
 
-    public MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver) {
-        this(mobOverrides, itemResolver, new SplittableRandom());
+    public MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver,
+                                    SymmetricCombatService combatService) {
+        this(mobOverrides, itemResolver, combatService, new SplittableRandom());
     }
 
     /** Package-visible ctor for tests that need a deterministic random source. */
     MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver,
-                             SplittableRandom random) {
+                             SymmetricCombatService combatService, SplittableRandom random) {
         this.mobOverrides = Objects.requireNonNull(mobOverrides, "mobOverrides");
         this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
+        this.combatService = Objects.requireNonNull(combatService, "combatService");
         this.random = Objects.requireNonNull(random, "random");
     }
 
@@ -108,6 +121,15 @@ public final class MobOverrideDropListener implements Listener {
             return;
         }
         String worldName = entity.getWorld().getName();
+        int mobLevel = mobData.level();
+        int playerLevel = combatService.combatLevelOf(entity.getKiller().getUniqueId());
+        MobLevelCutoff cutoff = mobOverrides.levelCutoffFor(worldName, profileId.get());
+        if (cutoff.blocksItems(playerLevel, mobLevel)) {
+            // 2026-07-27 足きり: under-level発動、またはover-level発動でdrop-rate==-1。バニラ本来の
+            // ドロップには一切触れず、TF追加ドロップのroll処理だけをここで打ち切る。
+            return;
+        }
+        double dropMultiplier = cutoff.dropChanceMultiplier(playerLevel, mobLevel);
         List<MobOverrideDropEntry> drops = mobOverrides.dropsFor(worldName, profileId.get());
         // 2026-07-26: 解決失敗の警告に「どのモブの設定か」を載せる。モブidだけだと 396 体の生成物の
         // どれなのか運用側で追えないため、display-name があれば日本語名を併記する。
@@ -115,7 +137,7 @@ public final class MobOverrideDropListener implements Listener {
                 .map(name -> name + " (" + profileId.get() + ")")
                 .orElseGet(profileId::get);
         for (MobOverrideDropEntry drop : drops) {
-            if (!MobDropRoller.rolls(drop.chance(), random.nextDouble())) {
+            if (!MobDropRoller.rolls(drop.chance() * dropMultiplier, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());

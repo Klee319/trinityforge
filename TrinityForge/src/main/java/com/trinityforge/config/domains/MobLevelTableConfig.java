@@ -41,6 +41,17 @@ import java.util.logging.Logger;
  * <p>{@link #parse(ConfigurationSection, Logger)} は {@link #load(Plugin)} と分離し、
  * {@code Plugin} 無しでYAMLを直接テストできるようにする({@code MobTypesConfig}/{@code MobImportConfig}
  * と同じ流儀)。
+ *
+ * <p>2026-07-27 {@code no-skill-exp-mobs}(牧場対策): このトップレベルリストに載った
+ * {@link EntityType} は、TrinityForge が独自に付与する「戦闘スキルEXP」(武器=命中/防具=被弾、
+ * {@code stats/skill-exp.yml combat:} 系)を一切加算しない
+ * ({@link #suppressesSkillExp(EntityType)})。魔法(ARS_MAGIC)は対象外 — Ars側のEXPは
+ * 「詠唱したこと」に対して付く({@code ArsProgressionBridge#grantMagicExp} は対象Entityを
+ * 引数に取らない)ので、EntityTypeで絞る余地が構造的に無い。バニラの
+ * {@code org.bukkit.event.entity.EntityDeathEvent#setDroppedExp(int)}(EXPオーブ)には一切触れない —
+ * エンチャント等の用途があるバニラEXP自体は従来どおり落ちてよい、という
+ * ユーザー判断による(この config/クラス自身はEXPオーブを一切扱わない)。実際の抑止判定は
+ * {@code CombatListener}(武器)/{@code NativeSkillExperienceListener}(防具)側が呼び出す。
  */
 public final class MobLevelTableConfig implements LoadableConfig {
 
@@ -49,6 +60,7 @@ public final class MobLevelTableConfig implements LoadableConfig {
 
     private volatile boolean dungeonOnly = false;
     private volatile MobLevelBandTable<LevelTierRule> tiers = MobLevelBandTable.empty();
+    private volatile Set<EntityType> noSkillExpMobs = Set.of();
 
     /** true = このテーブルのルール全体を、ダンジョンインスタンスワールド内の討伐でのみ適用する。 */
     public boolean dungeonOnly() {
@@ -58,6 +70,24 @@ public final class MobLevelTableConfig implements LoadableConfig {
     /** レベル帯の floor lookup。{@code tiers:} 未設定/該当帯なしなら常に {@link Optional#empty()}。 */
     public Optional<LevelTierRule> resolve(int level) {
         return tiers.resolve(level);
+    }
+
+    /**
+     * {@code no-skill-exp-mobs}(2026-07-27 牧場対策)。true なら、このEntityTypeを相手にした
+     * TrinityForgeの戦闘スキルEXP(武器=命中/防具=被弾)を一切加算しない(魔法は対象外 —
+     * クラスjavadoc参照)。
+     * バニラのEXPオーブ(討伐/エンチャント等)には一切影響しない — {@code MobLevelTableListener} は
+     * この値を読まない。{@code dungeon-only-exp}/{@code outside-dungeon-exp-rate}(stats/skill-exp.yml)
+     * のゲートとは独立に、常に効く(牧場はダンジョン外にあるため、ダンジョン限定にすると意味がない)。
+     * 省略/空リストなら何もしない(完全な後方互換)。
+     */
+    public boolean suppressesSkillExp(EntityType type) {
+        return noSkillExpMobs.contains(type);
+    }
+
+    /** {@code no-skill-exp-mobs} の不変コピー(パース時点で既に不変集合)。 */
+    public Set<EntityType> noSkillExpMobs() {
+        return noSkillExpMobs;
     }
 
     public String resourcePath() {
@@ -86,6 +116,7 @@ public final class MobLevelTableConfig implements LoadableConfig {
         ParseResult result = parse(yaml, log);
         this.dungeonOnly = result.dungeonOnly();
         this.tiers = result.tiers();
+        this.noSkillExpMobs = result.noSkillExpMobs();
         if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.tierCount() + " level band(s), "
                     + result.skipped() + " skipped");
@@ -138,7 +169,44 @@ public final class MobLevelTableConfig implements LoadableConfig {
                 skipped++;
             }
         }
-        return new ParseResult(dungeonOnly, MobLevelBandTable.of(parsed), skipped, parsed.size());
+        NoSkillExpMobsResult noSkillExpResult = parseNoSkillExpMobs(root, log);
+        skipped += noSkillExpResult.skipped();
+        return new ParseResult(dungeonOnly, MobLevelBandTable.of(parsed), skipped, parsed.size(),
+                noSkillExpResult.types());
+    }
+
+    /**
+     * Parses the top-level {@code no-skill-exp-mobs} list (2026-07-27 牧場対策)。省略/未設定なら
+     * 空集合(何もしない、後方互換)。不明な {@link EntityType} は警告してスキップし、他のエントリの
+     * 読み込みは継続する({@code mobs:}/{@code remove-drops} と同じ fail-soft 方針)。大文字小文字は
+     * 正規化して受け付ける。
+     */
+    private static NoSkillExpMobsResult parseNoSkillExpMobs(ConfigurationSection root, Logger log) {
+        Set<EntityType> types = new LinkedHashSet<>();
+        if (root == null) {
+            return new NoSkillExpMobsResult(Set.of(), 0);
+        }
+        List<?> raw = root.getList("no-skill-exp-mobs");
+        if (raw == null) {
+            return new NoSkillExpMobsResult(Set.of(), 0);
+        }
+        int skipped = 0;
+        for (Object entry : raw) {
+            String name = entry == null ? null : String.valueOf(entry).trim();
+            if (name == null || name.isBlank()) {
+                log.warning("[" + PATH + "] no-skill-exp-mobs has a blank entry; skipped");
+                skipped++;
+                continue;
+            }
+            try {
+                types.add(EntityType.valueOf(name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                log.warning("[" + PATH + "] no-skill-exp-mobs entry '" + name
+                        + "' is not a valid EntityType; skipped");
+                skipped++;
+            }
+        }
+        return new NoSkillExpMobsResult(Set.copyOf(types), skipped);
     }
 
     private static RemoveDropsResult parseRemoveDrops(Object raw, int minLevel, Logger log) {
@@ -340,7 +408,8 @@ public final class MobLevelTableConfig implements LoadableConfig {
     }
 
     /** Parse outcome: dungeon-only flag, the immutable band table, and how many bands/drops were skipped. */
-    record ParseResult(boolean dungeonOnly, MobLevelBandTable<LevelTierRule> tiers, int skipped, int tierCount) {
+    record ParseResult(boolean dungeonOnly, MobLevelBandTable<LevelTierRule> tiers, int skipped, int tierCount,
+                        Set<EntityType> noSkillExpMobs) {
     }
 
     private record RemoveDropsResult(List<Material> materials, int skipped) {
@@ -350,5 +419,8 @@ public final class MobLevelTableConfig implements LoadableConfig {
     }
 
     private record MobFilterResult(MobTargetFilter targets, int skipped) {
+    }
+
+    private record NoSkillExpMobsResult(Set<EntityType> types, int skipped) {
     }
 }

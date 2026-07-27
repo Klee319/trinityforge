@@ -23,23 +23,35 @@ import java.util.List;
  *                    raw EliteMobs id (2026-07-26 「モブの表示名もGUI/簡易モードで設定可能に」), or
  *                    {@code null}/blank when none is set. Presentation metadata only — nothing in the
  *                    combat pipeline reads it, and it never affects how a mob is matched or resolved.
+ * @param levelCutoff このモブ単位の「レベル差による足きり」設定(2026-07-27)、または
+ *                    {@link MobLevelCutoff#NONE}(無効)。{@code null} は {@link MobLevelCutoff#NONE} に
+ *                    正規化される。スコープ単位のブロックとの優先順位は
+ *                    {@code MobOverridesConfig#levelCutoffFor} が解決する — このレコード自体は
+ *                    「モブ単位で何が書かれているか」だけを保持する。
  */
 public record MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
-                                String displayName) {
+                                String displayName, MobLevelCutoff levelCutoff) {
 
     public MobOverrideEntry {
         stats = stats == null ? MobStatOverride.EMPTY : stats;
         drops = drops == null ? List.of() : List.copyOf(drops);
         displayName = displayName == null || displayName.isBlank() ? null : displayName;
+        levelCutoff = levelCutoff == null ? MobLevelCutoff.NONE : levelCutoff;
+    }
+
+    /** Back-compat: an entry carrying no level-cutoff (the pre-2026-07-27 four-field shape). */
+    public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
+                             String displayName) {
+        this(stats, drops, vanillaExp, displayName, null);
     }
 
     /** Back-compat: an entry carrying no display name (the pre-2026-07-26 three-field shape). */
     public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp) {
-        this(stats, drops, vanillaExp, null);
+        this(stats, drops, vanillaExp, null, null);
     }
 
     /** Back-compat: an entry carrying no EXP ramp and no display name (the original two-field shape). */
     public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops) {
-        this(stats, drops, null, null);
+        this(stats, drops, null, null, null);
     }
 }

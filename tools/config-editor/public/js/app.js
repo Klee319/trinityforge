@@ -635,7 +635,10 @@
       case "ars-spellbooks": return window.buildSpellbooksForm(data);
       case "tf-mob-types": return window.buildMobTypesForm(data);
       case "tf-mob-level-table": return window.buildMobLevelTableForm(data);
-      case "tf-dungeon-gates": return window.buildDungeonGatesForm(data);
+      case "tf-dungeon-gates": {
+        const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        return window.buildDungeonGatesForm(data, { catalogCandidates });
+      }
       case "tf-dungeon-themes": return window.buildDungeonThemesForm(data);
       case "tf-mob-import": return window.buildMobImportForm(data);
       case "tf-mob-profiles": return window.buildMobProfilesForm(data);

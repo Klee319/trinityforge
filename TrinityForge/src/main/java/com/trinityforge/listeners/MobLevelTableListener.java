@@ -61,6 +61,13 @@ import java.util.logging.Logger;
  * (mob infighting, lava, fall damage, …) still fully applied the resolved band's drop/EXP rules,
  * effectively turning any AFK/automated non-player kill loop into a free drop+EXP farm — the exact same
  * class of bug {@link MobOverrideExpListener}/{@link MobOverrideDropListener} had.
+ *
+ * <p><b>{@code no-skill-exp-mobs} 牧場対策 (2026-07-27):</b> this listener does NOT implement that
+ * feature — {@code no-skill-exp-mobs} gates TrinityForge's own combat SKILL EXP (weapon-hit/
+ * armor-hit/spell-cast, an entirely separate pipeline), never the vanilla {@link EntityDeathEvent
+ * #setDroppedExp(int)} orb this class writes. This class intentionally never calls {@code
+ * setDroppedExp(0)} for {@code no-skill-exp-mobs} — see {@code MobLevelTableConfig#suppressesSkillExp}
+ * and its callers in {@code CombatListener}/{@code NativeSkillExperienceListener} instead.
  */
 public final class MobLevelTableListener implements Listener {
 

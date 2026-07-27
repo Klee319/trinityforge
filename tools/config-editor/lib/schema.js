@@ -1523,6 +1523,20 @@ function validateTfMobLevelTable(data, errors) {
   if (data["dungeon-only"] !== undefined && data["dungeon-only"] !== null && typeof data["dungeon-only"] !== "boolean") {
     errors.push("dungeon-only: 真偽値である必要があります");
   }
+  // 2026-07-27 牧場対策: 帯(tiers)とは独立したトップレベルの EntityType 一覧。
+  // TrinityForgeの戦闘スキルEXP(武器命中/防具被弾)だけを止める — バニラEXPオーブと魔法は対象外。
+  // mobs:/mob-ids: と同じ「EntityType名(大文字英数字/アンダースコア)」語彙を使う。
+  if (data["no-skill-exp-mobs"] !== undefined && data["no-skill-exp-mobs"] !== null) {
+    if (!Array.isArray(data["no-skill-exp-mobs"])) {
+      errors.push("no-skill-exp-mobs: 配列である必要があります");
+    } else {
+      data["no-skill-exp-mobs"].forEach((mob, k) => {
+        if (typeof mob !== "string" || !/^[A-Z0-9_]+$/.test(mob)) {
+          errors.push(`no-skill-exp-mobs[${k}]: EntityType名(大文字英数字/アンダースコア)である必要があります`);
+        }
+      });
+    }
+  }
   const tiers = data.tiers;
   if (tiers === undefined || tiers === null) return;
   if (!Array.isArray(tiers)) { errors.push("tiers: 配列である必要があります"); return; }
@@ -1676,6 +1690,45 @@ function validateDisplayName(host, prefix, errors) {
     errors.push(`${prefix}.display-name: 空でない文字列である必要があります(未設定なら行ごと削除)`);
   }
 }
+// level-cutoff: レベル差による足きり (2026-07-27新設)。scope単位・mob単位どちらも同じ形:
+// { over-level: { threshold, exp-rate, drop-rate }, under-level: { item-threshold } }。
+// Java側 MobOverridesConfig#parseLevelCutoff / nullableValidatedRate と揃える: threshold系は
+// 整数であれば負値も許容(「無効」の正当な表現)、exp-rate/drop-rateは -1 または [0.0, 1.0] のみ有効。
+function validateMobLevelCutoffRate(value, prefix, errors) {
+  if (value === undefined || value === null) return;
+  if (!isNumber(value) || !(value === -1 || (value >= 0 && value <= 1))) {
+    errors.push(`${prefix}: -1、または 0.0〜1.0 の数値である必要があります`);
+  }
+}
+function validateMobLevelCutoffThreshold(value, prefix, errors) {
+  if (value === undefined || value === null) return;
+  if (!Number.isInteger(value)) {
+    errors.push(`${prefix}: 整数である必要があります(未設定または負値で無効)`);
+  }
+}
+function validateMobLevelCutoff(cutoff, prefix, errors) {
+  if (cutoff === undefined || cutoff === null) return;
+  if (!isPlainObject(cutoff)) { errors.push(`${prefix}.level-cutoff: マップである必要があります`); return; }
+  const over = cutoff["over-level"];
+  if (over !== undefined && over !== null) {
+    if (!isPlainObject(over)) {
+      errors.push(`${prefix}.level-cutoff.over-level: マップである必要があります`);
+    } else {
+      validateMobLevelCutoffThreshold(over.threshold, `${prefix}.level-cutoff.over-level.threshold`, errors);
+      validateMobLevelCutoffRate(over["exp-rate"], `${prefix}.level-cutoff.over-level.exp-rate`, errors);
+      validateMobLevelCutoffRate(over["drop-rate"], `${prefix}.level-cutoff.over-level.drop-rate`, errors);
+    }
+  }
+  const under = cutoff["under-level"];
+  if (under !== undefined && under !== null) {
+    if (!isPlainObject(under)) {
+      errors.push(`${prefix}.level-cutoff.under-level: マップである必要があります`);
+    } else {
+      validateMobLevelCutoffThreshold(under["item-threshold"],
+        `${prefix}.level-cutoff.under-level.item-threshold`, errors);
+    }
+  }
+}
 function validateTfMobOverrides(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -1688,6 +1741,7 @@ function validateTfMobOverrides(data, errors) {
     const scopePrefix = `overrides.${scopeName}`;
     if (!isPlainObject(scope)) { errors.push(`${scopePrefix}: マップである必要があります`); continue; }
     validateDisplayName(scope, scopePrefix, errors);
+    validateMobLevelCutoff(scope["level-cutoff"], scopePrefix, errors);
     const mobs = scope.mobs;
     if (mobs === undefined || mobs === null) continue;
     if (!isPlainObject(mobs)) { errors.push(`${scopePrefix}.mobs: マップである必要があります`); continue; }
@@ -1700,6 +1754,7 @@ function validateTfMobOverrides(data, errors) {
       validateMobOverrideStats(entry.stats, prefix, errors);
       validateMobOverrideDrops(entry.drops, prefix, errors);
       validateMobOverrideVanillaExp(entry["vanilla-exp"], prefix, errors);
+      validateMobLevelCutoff(entry["level-cutoff"], prefix, errors);
     }
   }
 }

@@ -174,6 +174,7 @@ public final class TrinityForge extends JavaPlugin {
     private StampCommand stampCommand;
     private ImportMobsCommand importMobsCommand;
     private DungeonCommand dungeonCommand;
+    private com.trinityforge.command.InstanceCommand instanceCommand;
     private StatsCommand statsCommand;
     private RoleCommand roleCommand;
     private RoleBuffListener roleBuffListener;
@@ -350,7 +351,8 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new NativeSkillExperienceListener(this, experienceDispatcher, progressionCatalog,
                         placedBlockTracker, roleBuffResolver,
-                        configManager.dedicatedEffects(), aggregator), this);
+                        configManager.dedicatedEffects(), aggregator,
+                        configManager.mobLevelTable()), this);
         // かまど/エンチャント/ポーションは実行者(=スキル取得者)限定ステ反映(2026-07-25)。
         // エンチャント運(良エンチャント出現率格上げ) + オーバーエンチャント解放者の出現率追加ボーナス。
         getServer().getPluginManager().registerEvents(
@@ -435,7 +437,8 @@ public final class TrinityForge extends JavaPlugin {
                         configManager.itemStats(), configManager.combatDamage(),
                         skillLevelSource, bleedService, perkBuffResolver, aggregator,
                         configManager.useRequirements(), configManager.skillExp(),
-                        configManager.craftingFeatures(), roleBuffResolver), this);
+                        configManager.craftingFeatures(), roleBuffResolver,
+                        configManager.mobLevelTable()), this);
 
         // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and
         // a periodic sweep; the listener feeds threat and evicts on death/removal/quit/unload so
@@ -443,12 +446,6 @@ public final class TrinityForge extends JavaPlugin {
         this.hateService = new HateService(this, configManager.hate());
         getServer().getPluginManager().registerEvents(new HateListener(hateService, roleBuffResolver), this);
         hateService.start();
-
-        // Dungeon entry gate (D2, Q4): single SoT dungeon/gates.yml (world + content-package aliases).
-        this.dungeonGateService = new DungeonGateService(
-                configManager.dungeonGates(), combatService);
-        getServer().getPluginManager().registerEvents(
-                new DungeonGateListener(dungeonGateService), this);
 
         // Write-side item assembly shared by the give command, (M3) fork drop/craft flows, and the
         // refresh listener below (SELECTION_SPEC 5: a table edit must reach items already in play).
@@ -469,6 +466,28 @@ public final class TrinityForge extends JavaPlugin {
         // by every drop-table listener (mining/woodcutting/digging/fishing, 2026-07-23 stat-gate-overhaul §4).
         this.crossPluginItemResolver =
                 new com.trinityforge.stats.CrossPluginItemResolver(configManager.itemCatalog(), itemFactory);
+
+        // Dungeon entry gate (D2, Q4): single SoT dungeon/gates.yml (world + content-package aliases).
+        // 2026-07-27 カスタムアイテム鍵対応でcrossPluginItemResolverに依存するようになったため、この
+        // 生成をcrossPluginItemResolver構築後(上)へ移動した(以前はhateService直後にあった)。
+        this.dungeonGateService = new DungeonGateService(
+                configManager.dungeonGates(), combatService, crossPluginItemResolver);
+        getServer().getPluginManager().registerEvents(
+                new DungeonGateListener(dungeonGateService), this);
+        // 2026-07-27 鍵アイテムGUI入場対応: 鍵アイテム右クリック→潜入確認GUI→確定で転送。
+        // GUIとリスナーはdungeonGateService構築後(上)へ置くこと(依存順序)。
+        com.trinityforge.mobs.DungeonEntryGui dungeonEntryGui = new com.trinityforge.mobs.DungeonEntryGui(
+                this, dungeonGateService, combatService);
+        getServer().getPluginManager().registerEvents(dungeonEntryGui, this);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.DungeonKeyItemListener(
+                        configManager.dungeonGates(), dungeonGateService.keyMatcher(), dungeonEntryGui),
+                this);
+        // /tf dungeon <id> のクイック入場(2026-07-27 admin)は、鍵GUI経由の通常入場とまったく同じ
+        // 転送ロジックを共有する(DungeonTeleporter)。違いは「成功後に鍵を消費するか」だけ。
+        com.trinityforge.mobs.DungeonTeleporter dungeonTeleporter =
+                new com.trinityforge.mobs.DungeonTeleporter(dungeonGateService);
+
         // Catalog-authored crafting recipes (items/catalog.yml `recipe:`/`recipes:`): registers the
         // Bukkit recipes each catalog entry declares. Re-run on every /trinityforge reload (below)
         // AND from ArsPaper's enable hook (refreshCatalogRecipes) so Ars-built results converge.
@@ -497,7 +516,9 @@ public final class TrinityForge extends JavaPlugin {
         this.bindCommand = new BindCommand(itemFactory);
         this.importMobsCommand = new ImportMobsCommand(this, configManager.mobImport(),
                 configManager.mobProfiles(), configManager.dungeonThemes());
-        this.dungeonCommand = new DungeonCommand(configManager.dungeonThemes());
+        this.dungeonCommand = new DungeonCommand(configManager.dungeonThemes(),
+                configManager.dungeonGates(), dungeonTeleporter);
+        this.instanceCommand = new com.trinityforge.command.InstanceCommand();
         // Read-only debug command: shows the running player's aggregate combat level, skill levels,
         // and derived weapon/armor stats (rollSeed + quality), exactly as the pipeline reads them.
         this.statsCommand = new StatsCommand(combatService,
@@ -783,13 +804,16 @@ public final class TrinityForge extends JavaPlugin {
         // 2026-07-26新設)。MONITOR優先度でMobLevelTableListener(HIGH)より後に走らせ、EliteMobs自身の
         // LootTables#onDeathによるgetDrops()クリアの影響も受けない(MobOverrideDropListener Javadoc参照)。
         MobOverrideDropListener mobOverrideDropListener =
-                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver);
+                // 2026-07-27: レベル差による足きり判定に戦闘レベル(SymmetricCombatService)が要る。
+                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver,
+                        combatService);
         getServer().getPluginManager().registerEvents(mobOverrideDropListener, this);
 
         // 同じ combat/mob-overrides.yml の「モブごとのレベル依存EXP式」(2026-07-26)。同じMONITOR優先度で
         // MobLevelTableListener(HIGH)のレベル帯 vanilla-exp より後 = より具体的な指定が勝つ。
         getServer().getPluginManager().registerEvents(
-                new MobOverrideExpListener(configManager.mobOverrides()), this);
+                // 2026-07-27: 足きりの exp-rate 判定にも戦闘レベルが要る。
+                new MobOverrideExpListener(configManager.mobOverrides(), combatService), this);
 
         // AFK(離席)対策 (2026-07-27, afk.yml): 判定は AfkActivityListener が集める「人間にしか出せない
         // 入力」だけで行う。報酬停止はここで4経路へ述語を挿す —
@@ -924,7 +948,7 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <reload|skills|progression|give|bind|stamp|import|dungeon|stats|collection|reward|inspect>",
+                                        "用法: /tf <reload|skills|start|stop|progression|give|bind|stamp|import|dungeon|stats|collection|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
                                         "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
@@ -1164,6 +1188,11 @@ public final class TrinityForge extends JavaPlugin {
                                     .requires(TrinityForge::isTfAdmin))
                             .then(dungeonCommand.node()
                                     .requires(TrinityForge::isTfAdmin))
+                            // プレイヤー向け(requiresなし = trinityforge.use で誰でも)。
+                            // EliteMobs の /em start・/em quit に相当する正式なTF側入口。
+                            .then(instanceCommand.startNode())
+                            .then(instanceCommand.stopNode())
+                            .then(instanceCommand.quitNode())
                             .then(statsCommand.node())
                             .then(roleCommand.node())
                             .then(collectionCommand.node())

@@ -11,7 +11,15 @@
 #
 # Fields per gate:
 #   required-combat-level  (optional) minimum combat level (0 / omit = no level gate)
-#   key-material           (optional) Bukkit material consumed on entry
+#   key-item               (optional, 2026-07-27新設) 入場時に消費するアイテムID。
+#                          TFカタログID(items/catalog.yml) / ArsPaper登録ID(materials.yml等) /
+#                          バニラMaterial名のいずれも指定可能(解決はCrossPluginItemResolverに一本化、
+#                          優先順位はTFカタログ→ArsPaper→バニラMaterial)。
+#                          タイポ等でどれにも解決できない場合は、プレイヤーを永久に締め出さないよう
+#                          「鍵ゲート自体を無効化(通過させる)」というfail-open方針で扱われ、サーバー
+#                          ログに1回だけ警告が出る。
+#   key-material           (非推奨・後方互換) 旧フィールド名。key-itemがあればそちらが優先される。
+#                          新規追加時はkey-itemを使うこと。
 #   key-amount             (optional) count consumed (default 1)
 #   aliases / content-package  (optional) EliteMobs content-package name(s)
 #   region                 (optional) 同一ワールド内の区画ダンジョン境界 (D3)。
@@ -20,14 +28,34 @@
 #     world: <ワールド名>   (required) 区画があるワールド
 #     min: [x, y, z]        (required) 対角ブロック座標(順不同、自動正規化)
 #     max: [x, y, z]        (required)
+#   entry-location          (optional, 2026-07-27新設) 鍵アイテム右クリック→潜入確認GUIの「潜入する」
+#                          で確定したときの転送先を明示する。省略時は既定規則にフォールバックする:
+#                            ・aliases/content-packageを1つ以上持つ(EliteMobs連携ダンジョン)ゲートは
+#                              entry-locationの有無に関わらずEliteMobsの参加処理へ委譲するため不要。
+#                            ・region付きゲートは省略時、区画の中心へ転送する。
+#                            ・それ以外は省略時、行き先ワールド(このゲートのID)のスポーン地点へ転送する。
+#     world: <ワールド名>   (optional) 省略時はこのゲートのID(=行き先ワールド名)
+#     x: <数値>              (required, x/y/zの3つが揃っていないentry-locationは無視され警告が出る)
+#     y: <数値>              (required)
+#     z: <数値>              (required)
+#     yaw: <数値>            (optional, 省略時0.0)
+#     pitch: <数値>          (optional, 省略時0.0)
 #
 # Example:
 # gates:
 #   dungeon_crypt_world:
 #     required-combat-level: 40
-#     key-material: TRIPWIRE_HOOK
+#     key-item: TRIPWIRE_HOOK          # バニラMaterial名の例
 #     key-amount: 1
-#     content-package: dungeon_crypt
+#     content-package: dungeon_crypt   # EliteMobs連携ダンジョン: entry-locationは不要(EM側へ委譲)
+#   dungeon_sanctum:
+#     required-combat-level: 60
+#     key-item: tf_crypt_sigil         # TFカタログID/ArsPaper IDの例(カスタムアイテムを鍵にできる)
+#     key-amount: 1
+#     entry-location:                  # TFワールドゲート: 明示した座標へ転送
+#       x: 100.5
+#       y: 64.0
+#       z: -20.5
 #   dungeon_abyss:
 #     required-combat-level: 80
 #     aliases:

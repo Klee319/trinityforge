@@ -79,6 +79,62 @@
 #   写像後も維持している。attack-power も役割差を復元した: base はモブごとに 5.5〜6.6
 #   (HPの低いモブほど高い：骸骨系6.05 / 蜘蛛系6.325 / エンダーマン6.6)、growth 1.03 は共通。
 #   (mob-types.yml 全エントリの検算はセッションレポート参照)。
+#
+# バランス方針 (2026-07-27 v3 / 防御係数の圧縮):
+#   なぜ変えたか: 防御4種(defense-rate/resistance/damage-reduction/flat-defense、物理・魔法とも)
+#   と防具強度に一律 level-coefficients 0.007 が掛かり、レベルとともに乗算で積み上がって
+#   Lv100 で複合軽減率が 97% に達していた。combat/damage.yml の
+#   defense.max-mitigation-rate: 0.9 はキー個別の上限であり、複数キーの積を止められない。
+#   結果、表示HP 80,358 に対し実効HPが約266万まで膨らみ、同帯装備での撃破打撃数が
+#   Lv0 6.5発 → Lv100 41.1発 まで単調に膨張していた。
+#
+#   何をしたか(案2: 防御係数を圧縮して表示HPと体感を一致させる、ユーザー承認済み):
+#     - level-coefficients の防御係数(armor-strength / physical・magical の
+#       defense-rate・resistance・damage-reduction・flat-defense): 0.007 → 0.0025
+#     - level-coefficients.attack.penetration: 0.008 → 0.002
+#     - level-coefficients.max-health-growth: 1.055 → 1.048
+#     - 各エントリの基準 max-health(defaults 含む): ×1.0526(小数第1位四捨五入)
+#       例: defaults 380→400 / 323→340 / 190→200 / 2280→2400
+#     - level-coefficients.attack.attack-power-growth: 1.03 → 1.033(後述)
+#
+#   attack-power-growth を 1.03→1.033 に上げた理由(2026-07-27、ユーザー決定):
+#     被ダメージは「モブ攻撃力 − プレイヤー守備力」という2つの指数の引き算で決まる。
+#       モブ攻撃力     = 5.5   × g^L
+#       守備力(重装フル) = 2.71 × 1.0378^L
+#     g=1.03 だと守備力の伸びの方がわずかに速く、Lv95付近で追い越して被ダメージが
+#     min-component-damage の床(1.0)に張り付いていた(Lv100 のゾンビは文字通り1ダメージ=50発耐える)。
+#
+#     ▼ 各帯の「適正帯フル装備(厳選なし)で ZOMBIE 同レベルに何発耐えるか」(実測・対角線):
+#       g       革Lv0  銅Lv10  鎖Lv20  鉄Lv30  金Lv40  ダイヤLv55  ネザLv70
+#       1.03     8.1    -       -       -       -       8.5(Lv55)  8.7(Lv70)  ※Lv85で13.8/Lv100で50に発散
+#       1.031    8.1    6.9     8.0     6.2     7.6     7.1        6.7
+#       1.033    8.1    6.6     7.2     5.5     6.2     4.8        4.0   ← 採用
+#       1.035    8.1    6.4     6.5     5.0     5.2     3.5        2.7
+#     1.033 を選んだ理由: 1.031 は全帯 6.2〜8.1発でほぼ平坦だが「同帯装備でちょっと強い」には
+#     緩すぎる。1.035 は高帯(ダイヤ3.5/ネザ2.7)が事故死域まで落ちる。1.033 はLv0〜40を
+#     5.5〜8.1発に保ったまま高帯を4.0〜4.8発へ引き締める中間点。
+#
+#     ⚠️ この値は「引き算がほぼ相殺する領域」にあるため極めて敏感で、上表のとおり
+#     0.002 の差が高帯で 1.5〜2倍の被弾数差になる。**stats/item-stats.yml の
+#     phys-flat-defense(守備力)を変更したら、この値も必ず再校正すること。**
+#     再校正用のスクリプト: tmp/dmg-table.js (config を直接読んで上表を再生成する)
+#     恒久解は combat/damage.yml の pvp 節にある max-damage-percent-of-max-health と同型の
+#     「最大体力に対する割合の下限」をモブ→プレイヤー経路にも置くこと(スケールフリーで
+#     装備数値の変更に強い)だが、コード変更が要るため今回は見送っている。
+#
+#   効果: Lv100 の複合軽減率が 97% → 約57% に下がり、「表示HPと実効HPの乖離」が
+#   約33倍から約2.3倍へ縮小する。撃破打撃数は Lv0 6.8 / Lv20 12.0 / Lv55 8.1 / Lv100 7.4 と
+#   帯間で平坦化する見込み。
+#
+#   貫通係数を下げた理由: モブの貫通が高いとプレイヤーの防具値(防御率)が高レベルで
+#   無意味になり、被ダメージが「守備力の引き算」だけで決まる一本足打法になっていたため。
+#
+#   残る既知の課題:
+#     - Lv20 と Lv40 は武器ラダー側が平坦(石10→銅20 が 1.0134/Lv、鉄30→金40 が 1.0302/Lv)
+#       なため、この変更後も撃破打撃数が他帯より多めに残る。武器側(stats/item-stats.yml)の
+#       是正は別課題。
+#     - coordinate-coefficient: 0.02 なので Lv100 のモブに会うにはスポーンから
+#       5,000 ブロック必要。実際に遭遇しやすいのは Lv0〜55(0〜2,750ブロック)帯である。
 # ============================================================================
 
 max-level: 100
@@ -98,27 +154,27 @@ defaults:
     damage-reduction: 0
     flat-defense: 0
   level-coefficients:
-    armor-strength: 0.007
+    armor-strength: 0.0025
     physical:
-      defense-rate: 0.007
-      resistance: 0.007
-      damage-reduction: 0.007
-      flat-defense: 0.007
+      defense-rate: 0.0025
+      resistance: 0.0025
+      damage-reduction: 0.0025
+      flat-defense: 0.0025
     magical:
-      defense-rate: 0.007
-      resistance: 0.007
-      damage-reduction: 0.007
-      flat-defense: 0.007
+      defense-rate: 0.0025
+      resistance: 0.0025
+      damage-reduction: 0.0025
+      flat-defense: 0.0025
     max-health: 0
-    max-health-growth: 1.055
+    max-health-growth: 1.048
     max-health-growth-interval: 1.0
-  max-health: 380
+  max-health: 400
 mob-types:
   # --- A群: 敵対モブ(Paper の Enemy マーカー基準・41種) ---------------------
   BLAZE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 323
+    max-health: 340
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -141,26 +197,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -168,7 +224,7 @@ mob-types:
   BOGGED:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 304
+    max-health: 320
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -191,26 +247,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -218,7 +274,7 @@ mob-types:
   BREEZE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -241,26 +297,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -268,7 +324,7 @@ mob-types:
   CAVE_SPIDER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 266
+    max-health: 280
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -291,26 +347,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -318,7 +374,7 @@ mob-types:
   CREAKING:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -341,26 +397,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -368,7 +424,7 @@ mob-types:
   CREEPER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 285
+    max-health: 300
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -391,26 +447,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -418,7 +474,7 @@ mob-types:
   DROWNED:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -441,26 +497,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -468,7 +524,7 @@ mob-types:
   ELDER_GUARDIAN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 836
+    max-health: 880
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -491,26 +547,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -518,7 +574,7 @@ mob-types:
   ENDERMAN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 532
+    max-health: 560
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -541,26 +597,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -568,7 +624,7 @@ mob-types:
   ENDERMITE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 171
+    max-health: 180
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -591,26 +647,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -618,7 +674,7 @@ mob-types:
   ENDER_DRAGON:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 2090
+    max-health: 2200
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -641,26 +697,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -668,7 +724,7 @@ mob-types:
   EVOKER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -691,26 +747,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -718,7 +774,7 @@ mob-types:
   GHAST:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 190
+    max-health: 200
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -741,26 +797,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -768,7 +824,7 @@ mob-types:
   GIANT:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 988
+    max-health: 1040
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -791,26 +847,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -818,7 +874,7 @@ mob-types:
   GUARDIAN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -841,26 +897,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -868,7 +924,7 @@ mob-types:
   HOGLIN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 494
+    max-health: 520
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -891,26 +947,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -918,7 +974,7 @@ mob-types:
   HUSK:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -941,26 +997,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -968,7 +1024,7 @@ mob-types:
   ILLUSIONER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 399
+    max-health: 420
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -991,26 +1047,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1018,7 +1074,7 @@ mob-types:
   MAGMA_CUBE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 228
+    max-health: 240
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1041,26 +1097,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1068,7 +1124,7 @@ mob-types:
   PARCHED:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1091,26 +1147,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1118,7 +1174,7 @@ mob-types:
   PHANTOM:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 266
+    max-health: 280
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1141,26 +1197,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1168,7 +1224,7 @@ mob-types:
   PIGLIN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1191,26 +1247,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1218,7 +1274,7 @@ mob-types:
   PIGLIN_BRUTE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 570
+    max-health: 600
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1241,26 +1297,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1268,7 +1324,7 @@ mob-types:
   PILLAGER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 342
+    max-health: 360
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1291,26 +1347,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1318,7 +1374,7 @@ mob-types:
   RAVAGER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 988
+    max-health: 1040
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1341,26 +1397,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1368,7 +1424,7 @@ mob-types:
   SHULKER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 418
+    max-health: 440
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1391,26 +1447,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1418,7 +1474,7 @@ mob-types:
   SILVERFISH:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 171
+    max-health: 180
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1441,26 +1497,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1468,7 +1524,7 @@ mob-types:
   SKELETON:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 323
+    max-health: 340
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1491,26 +1547,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1518,7 +1574,7 @@ mob-types:
   SLIME:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 190
+    max-health: 200
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1541,26 +1597,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1568,7 +1624,7 @@ mob-types:
   SPIDER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 266
+    max-health: 280
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1591,26 +1647,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1618,7 +1674,7 @@ mob-types:
   STRAY:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 323
+    max-health: 340
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1641,26 +1697,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1668,7 +1724,7 @@ mob-types:
   VEX:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 152
+    max-health: 160
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1691,26 +1747,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1718,7 +1774,7 @@ mob-types:
   VINDICATOR:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 361
+    max-health: 380
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1741,26 +1797,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1768,7 +1824,7 @@ mob-types:
   WARDEN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 2280
+    max-health: 2400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1791,26 +1847,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1818,7 +1874,7 @@ mob-types:
   WITCH:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 342
+    max-health: 360
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1841,26 +1897,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1868,7 +1924,7 @@ mob-types:
   WITHER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 1900
+    max-health: 2000
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1891,26 +1947,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1918,7 +1974,7 @@ mob-types:
   WITHER_SKELETON:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 418
+    max-health: 440
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1941,26 +1997,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -1968,7 +2024,7 @@ mob-types:
   ZOGLIN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 513
+    max-health: 540
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -1991,26 +2047,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2018,7 +2074,7 @@ mob-types:
   ZOMBIE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2041,26 +2097,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2068,7 +2124,7 @@ mob-types:
   ZOMBIE_VILLAGER:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2091,26 +2147,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2118,7 +2174,7 @@ mob-types:
   ZOMBIFIED_PIGLIN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2141,26 +2197,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2170,7 +2226,7 @@ mob-types:
   BEE:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 133
+    max-health: 140
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2193,26 +2249,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2220,7 +2276,7 @@ mob-types:
   DOLPHIN:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 190
+    max-health: 200
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2243,26 +2299,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2270,7 +2326,7 @@ mob-types:
   GOAT:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 190
+    max-health: 200
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2293,26 +2349,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2320,7 +2376,7 @@ mob-types:
   IRON_GOLEM:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 912
+    max-health: 960
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2343,26 +2399,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2370,7 +2426,7 @@ mob-types:
   LLAMA:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 266
+    max-health: 280
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2393,26 +2449,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2420,7 +2476,7 @@ mob-types:
   PANDA:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 323
+    max-health: 340
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2443,26 +2499,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2470,7 +2526,7 @@ mob-types:
   POLAR_BEAR:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 380
+    max-health: 400
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2493,26 +2549,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2520,7 +2576,7 @@ mob-types:
   TRADER_LLAMA:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 266
+    max-health: 280
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2543,26 +2599,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2570,7 +2626,7 @@ mob-types:
   WOLF:
     level: 0
     coordinate-coefficient: 0.02
-    max-health: 228
+    max-health: 240
     armor-strength: 0
     physical:
       defense-rate: 0
@@ -2593,26 +2649,26 @@ mob-types:
       fixed-damage: 0
     level-coefficients:
       max-health: 0
-      max-health-growth: 1.055
+      max-health-growth: 1.048
       max-health-growth-interval: 1.0
-      armor-strength: 0.007
+      armor-strength: 0.0025
       physical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       magical:
-        defense-rate: 0.007
-        resistance: 0.007
-        damage-reduction: 0.007
-        flat-defense: 0.007
+        defense-rate: 0.0025
+        resistance: 0.0025
+        damage-reduction: 0.0025
+        flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.03
+        attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
         flat-bonus-damage: 0
         percent-bonus-damage: 0
-        penetration: 0.008
+        penetration: 0.002
         crit-chance: 0
         crit-damage: 0
         damage-modifier: 0
@@ -2621,7 +2677,14 @@ mob-types:
   # --- C群: 友好・受動モブ(40種) -------------------------------------------
   # レベルの刻印だけ行い、HP と与ダメージはバニラのまま。討伐で得られるのは
   # バニラどおりの経験値だけで、mob-level-table.yml のレベル帯 vanilla-exp は
-  # 同ファイル側の mobs: フィルタで A/B 群に限定してある。
+  # 同ファイル側の mobs: フィルタでこの群を一度も列挙していない。
+  # 【2026-07-27】B群(中立)のうち繁殖・建造で無限に増やせるもの
+  # (BEE/GOAT/LLAMA/TRADER_LLAMA/PANDA/WOLF/IRON_GOLEM)も、同じ理由で
+  # mob-level-table.yml の mobs: から外した。牧場を殴るのが最効率のEXP稼ぎに
+  # なるのを防ぐため。B群で帯EXPが乗るのは DOLPHIN / POLAR_BEAR だけ
+  # (どちらも繁殖手段が無く自然スポーン依存)。
+  # このファイル側の定義(HP/攻撃/防御)は据え置き — 反撃してくる中立モブとしての
+  # 手応えは残しつつ、報酬だけを落とすのが狙い。
   ALLAY:
     level: 0
     coordinate-coefficient: 0.02

@@ -2,16 +2,22 @@ package com.trinityforge.mobs;
 
 import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.DungeonGateConfig;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 /**
  * Shared dungeon entry evaluation for TF teleports, EliteMobs instanced-dungeon joins, and
@@ -21,12 +27,38 @@ import java.util.Optional;
  */
 public final class DungeonGateService {
 
+    private static final Logger LOG = Logger.getLogger(DungeonGateService.class.getName());
+
     private final DungeonGateConfig gateConfig;
     private final SymmetricCombatService combatService;
+    private final GateKeyMatcher keyMatcher;
 
-    public DungeonGateService(DungeonGateConfig gateConfig, SymmetricCombatService combatService) {
+    /**
+     * 2026-07-27 カスタムアイテム鍵対応: 解決不能な {@code key-item} を持つゲートについて、
+     * 1回だけ警告ログを出すためのマーカー集合(ゲート名+ワールド名で十分な粒度、ゲート単位で
+     * 二度と警告しない。毎tick評価されうる区画ゲートでログが溢れるのを防ぐ)。
+     */
+    private final Set<String> unresolvedKeyWarned = ConcurrentHashMap.newKeySet();
+
+    /**
+     * 2026-07-27 鍵アイテムGUI入場対応: GUI確定処理で既にレベル/鍵を検証・消費した直後のテレポートが、
+     * 到着時の {@code checkEntry}/{@code checkRegionEntry} で二重に判定・二重消費されるのを防ぐための
+     * 「次の1回だけ無条件で通す」使い切りパス。キーは {@code (playerId, gate.world())}、値は失効時刻
+     * (エポックミリ秒)。発行から必ず期限を持たせる(テレポートが起きなかった場合に無料入場化しないため)。
+     */
+    private static final long ONE_TIME_PASS_TTL_MILLIS = 10_000L;
+    private final Map<UUID, Map<String, Long>> oneTimePasses = new ConcurrentHashMap<>();
+
+    public DungeonGateService(DungeonGateConfig gateConfig, SymmetricCombatService combatService,
+                              CrossPluginItemResolver itemResolver) {
         this.gateConfig = Objects.requireNonNull(gateConfig, "gateConfig");
         this.combatService = Objects.requireNonNull(combatService, "combatService");
+        this.keyMatcher = new GateKeyMatcher(Objects.requireNonNull(itemResolver, "itemResolver"));
+    }
+
+    /** {@link GateKeyMatcher} の共有インスタンス({@code DungeonEntryGui} が表示用に再利用する)。 */
+    public GateKeyMatcher keyMatcher() {
+        return keyMatcher;
     }
 
     /**
@@ -90,14 +122,27 @@ public final class DungeonGateService {
     /**
      * 二相評価: まず全ゲートの通過可否を確認し(1つでも拒否なら何も消費せずfalse)、全通過が
      * 確定してからキーを消費する — 重なった区画で片方のキーだけ先に消費される事故を防ぐ。
+     *
+     * <p>2026-07-27: 有効な一回限りの通行許可({@link #grantOneTimePass}参照)を持つゲートは、
+     * このフェーズではレベル/鍵チェックを完全にスキップして無条件通過扱いにする(GUI確定処理が
+     * 直前に検証・消費済みのため)。パスの消費(remove)はフェーズ2、つまり全ゲート通過が確定した
+     * 後にのみ行う — 同時に評価された他のゲートでレベル不足等の拒否が起きた場合、このバッチ全体は
+     * falseで返り、パスは消費されず温存される(「入場が実際に許可された時」に限りパスを消費する)。
      */
     private boolean evaluateAndConsume(Player player, List<DungeonGate> gates, boolean notify) {
         int combatLevel = combatService.combatLevelOf(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        Set<DungeonGate> passGates = new HashSet<>();
         for (DungeonGate gate : gates) {
-            boolean hasKey = !gate.keyRequired()
-                    || player.getInventory().contains(gate.keyMaterial(), gate.keyAmount());
+            if (hasValidOneTimePass(playerId, gate.world())) {
+                passGates.add(gate);
+                continue;
+            }
+            boolean keyRequired = gate.keyRequired() && keyGateActuallyEnforced(gate);
+            boolean hasKey = !keyRequired
+                    || keyMatcher.count(player.getInventory(), gate.keyItem()) >= gate.keyAmount();
             switch (DungeonGatePolicy.evaluate(
-                    gate.requiredCombatLevel(), combatLevel, gate.keyRequired(), hasKey)) {
+                    gate.requiredCombatLevel(), combatLevel, keyRequired, hasKey)) {
                 case UNDER_LEVEL -> {
                     if (notify) {
                         player.sendMessage(Component.text(
@@ -109,8 +154,8 @@ public final class DungeonGateService {
                 case MISSING_KEY -> {
                     if (notify) {
                         player.sendMessage(Component.text(
-                                "入場には " + gate.keyMaterial() + " x" + gate.keyAmount() + " が必要です",
-                                NamedTextColor.RED));
+                                "入場には " + keyMatcher.displayName(gate.keyItem()) + " x" + gate.keyAmount()
+                                        + " が必要です", NamedTextColor.RED));
                     }
                     return false;
                 }
@@ -120,10 +165,117 @@ public final class DungeonGateService {
             }
         }
         for (DungeonGate gate : gates) {
-            if (gate.keyRequired()) {
-                player.getInventory().removeItem(new ItemStack(gate.keyMaterial(), gate.keyAmount()));
+            if (passGates.contains(gate)) {
+                consumeOneTimePass(playerId, gate.world());
+            } else if (gate.keyRequired() && keyGateActuallyEnforced(gate)) {
+                keyMatcher.consume(player.getInventory(), gate.keyItem(), gate.keyAmount());
             }
         }
         return true;
+    }
+
+    /**
+     * GUI確定処理向け: 副作用(消費)なしでそのゲートへの入場可否だけを判定する。GUI確定ボタン押下時、
+     * GUIを開いた時点の判定を信用せず、その場でもう一度検証するために使う。
+     */
+    public DungeonGatePolicy.Denial evaluateOnly(Player player, DungeonGate gate) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(gate, "gate");
+        int combatLevel = combatService.combatLevelOf(player.getUniqueId());
+        boolean keyRequired = gate.keyRequired() && keyGateActuallyEnforced(gate);
+        boolean hasKey = !keyRequired
+                || keyMatcher.count(player.getInventory(), gate.keyItem()) >= gate.keyAmount();
+        return DungeonGatePolicy.evaluate(gate.requiredCombatLevel(), combatLevel, keyRequired, hasKey);
+    }
+
+    /**
+     * GUI確定処理向け: 二相評価を経ない直接消費。GUI側が {@link #evaluateOnly} で検証し、転送
+     * (またはEliteMobsへの委譲呼び出し)が成功したことを確認した後にだけ呼ぶこと。
+     */
+    public void consumeKey(Player player, DungeonGate gate) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(gate, "gate");
+        if (gate.keyRequired() && keyGateActuallyEnforced(gate)) {
+            keyMatcher.consume(player.getInventory(), gate.keyItem(), gate.keyAmount());
+        }
+    }
+
+    /**
+     * GUI確定処理向け: {@code gate}への次の1回の入場判定を無条件で通す一回限りの通行許可を発行する
+     * (期限{@value #ONE_TIME_PASS_TTL_MILLIS}ms)。GUI側がテレポートを試みる直前に呼ぶこと。
+     */
+    public void grantOneTimePass(UUID playerId, String gateWorldName) {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(gateWorldName, "gateWorldName");
+        oneTimePasses.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>())
+                .put(gateWorldName, System.currentTimeMillis() + ONE_TIME_PASS_TTL_MILLIS);
+    }
+
+    private boolean hasValidOneTimePass(UUID playerId, String gateWorldName) {
+        Map<String, Long> passes = oneTimePasses.get(playerId);
+        if (passes == null) {
+            return false;
+        }
+        return isPassValid(passes.get(gateWorldName), System.currentTimeMillis());
+    }
+
+    /**
+     * 純粋な期限判定(パッケージ内テスト用に抽出): {@code expiresAt} が未発行(null)でなく、かつ
+     * {@code nowMillis} より後であれば有効。実時間で10秒待つユニットテストを避けるため、
+     * このメソッド単体を境界値でテストする。
+     */
+    static boolean isPassValid(Long expiresAt, long nowMillis) {
+        return expiresAt != null && expiresAt > nowMillis;
+    }
+
+    private void consumeOneTimePass(UUID playerId, String gateWorldName) {
+        Map<String, Long> passes = oneTimePasses.get(playerId);
+        if (passes == null) {
+            return;
+        }
+        passes.remove(gateWorldName);
+        if (passes.isEmpty()) {
+            oneTimePasses.remove(playerId);
+        }
+    }
+
+    /**
+     * 発行したパスを使わずに取り消す。転送を試みる直前にパスを発行した後、その転送自体が失敗した
+     * 場合に呼ぶこと — 取り消さないと、失敗して現地に残ったプレイヤーが期限
+     * ({@value #ONE_TIME_PASS_TTL_MILLIS}ms)の間だけ歩いて無料入場できる窓が空く。
+     */
+    public void revokeOneTimePass(UUID playerId, String gateWorldName) {
+        if (playerId == null || gateWorldName == null) {
+            return;
+        }
+        consumeOneTimePass(playerId, gateWorldName);
+    }
+
+    /** プレイヤーログアウト時のパス掃除({@code DungeonGateListener#onQuit}に相乗り)。 */
+    public void clearOneTimePasses(UUID playerId) {
+        if (playerId != null) {
+            oneTimePasses.remove(playerId);
+        }
+    }
+
+    /**
+     * 2026-07-27: {@code key-item} がタイポ等でカタログ/ArsPaper/Materialいずれにも解決できない場合、
+     * そのゲートの鍵要求は「所持なし(入場不可)」ではなく「鍵ゲート自体を無効(通過)」として扱う。
+     * タイポでプレイヤーが永久に入れなくなる方が、ゲートが一時的に緩む(通す)より有害なため。
+     * 解決不能を検知したゲートについては1回だけ warning を出す(毎回出すとログが溢れる)。
+     */
+    private boolean keyGateActuallyEnforced(DungeonGate gate) {
+        if (keyMatcher.resolves(gate.keyItem())) {
+            return true;
+        }
+        String warnKey = gate.world() + "|" + gate.keyItem();
+        if (unresolvedKeyWarned.add(warnKey)) {
+            LOG.warning(
+                    "[dungeon-gate] gate '" + gate.world() + "' has key-item '" + gate.keyItem()
+                            + "' that resolves to neither a TF catalog id, an ArsPaper id, nor a vanilla "
+                            + "Material; the key gate is disabled (players pass through) instead of "
+                            + "permanently locking them out due to a typo");
+        }
+        return false;
     }
 }
