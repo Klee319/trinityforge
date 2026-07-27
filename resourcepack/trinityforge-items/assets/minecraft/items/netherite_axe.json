@@ -1,0 +1,54 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/netherite_axe",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 83,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 139,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 140,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_axe"
+        }
+      },
+      {
+        "threshold": 141,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 191,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 200111,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

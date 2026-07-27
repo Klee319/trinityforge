@@ -1,0 +1,47 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/stone_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 2,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_dagger"
+        }
+      },
+      {
+        "threshold": 7,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_rapier"
+        }
+      },
+      {
+        "threshold": 23,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_warhammer"
+        }
+      },
+      {
+        "threshold": 29,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_greataxe"
+        }
+      },
+      {
+        "threshold": 63,
+        "model": {
+          "model": "minecraft:item/stone_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

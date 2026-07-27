@@ -1,0 +1,12 @@
+# TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
+# Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
+# Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/smithing_progression.md
+experience:
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  max_level: 100
+  durability_tools_exp_multiplier_stack: 0.01
+  durability_tools_exp_multiplier_maximum: 1000
+  durability_armors_exp_multiplier_stack: 0.005
+  durability_armors_exp_multiplier_maximum: 200
+  legacy:

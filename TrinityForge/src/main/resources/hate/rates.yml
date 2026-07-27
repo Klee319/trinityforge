@@ -1,0 +1,27 @@
+# TrinityForge - Hate / threat (aggro) subsystem (gap C5)
+# Edit and run `/trinityforge reload` to apply without restart.
+#
+# This file controls the leak-control MECHANISM only (caps, decay, sweep, TTL). The actual
+# hate-rate balance (tank / beastmaster threat coefficients, role wall behaviour) is a separate
+# design decision (R2) and is NOT encoded here. Defaults below are deliberately conservative so
+# the subsystem is balance-neutral out of the box: decay is off, caps are generous, and the TTL
+# only reclaims entries abandoned far longer than any real fight.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/hate/rates.md
+
+
+limits:
+  max-tracked-mobs: 5000
+  max-attackers-per-mob: 64
+
+decay:
+  enabled: false
+  per-second: 0.0
+
+eviction:
+  entry-ttl-seconds: 600
+
+sweep:
+  interval-ticks: 1200
+
+threat:
+  per-damage: 1.0

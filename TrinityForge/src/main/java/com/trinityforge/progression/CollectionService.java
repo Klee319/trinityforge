@@ -1,0 +1,315 @@
+package com.trinityforge.progression;
+
+import com.trinityforge.config.domains.CollectionConfig;
+import com.trinityforge.config.domains.ExpGrant;
+import com.trinityforge.config.domains.ItemGrant;
+import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
+import com.trinityforge.stats.CrossPluginItemResolver;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * コレクション図鑑 (M7): 発見済みエントリの記録と、登録数しきい値による報酬ティアの段階解放。
+ * 進捗の真実はプレイヤーPDC ({@link PlayerData#collectionEntries()} /
+ * {@link PlayerData#claimedCollectionTiers()})。報酬は 称号表示 + 任意コンソールコマンドで、
+ * 縦強化にしない運用は {@code progression/collection.yml} 側の責務 (DUNGEON_SPEC §5)。
+ *
+ * <p>エントリID規約: {@code item:<catalogId>}(カタログアイテム入手) / {@code mob:<ENTITY_TYPE>}
+ * (プレイヤー討伐)。IDの発行は呼び出し側({@code CollectionListener})が行い、本サービスは
+ * 重複排除・永続化・ティア評価のみを担う。
+ */
+public final class CollectionService {
+
+    private static final String ENTRY_PREFIX_ITEM = "item:";
+    private static final String ENTRY_PREFIX_MOB = "mob:";
+
+    private final CollectionConfig config;
+    private final Logger log;
+    private final CrossPluginItemResolver itemResolver;
+    private final NativeExperienceDispatcher experienceDispatcher;
+    private final PerkAttributeApplier perkAttributeApplier;
+
+    public CollectionService(CollectionConfig config, Logger log) {
+        this(config, log, null, null);
+    }
+
+    /**
+     * @param itemResolver         optional (may be {@code null}, e.g. existing tests that predate this
+     *                              parameter): resolves {@code rewards.items[].id} to a built
+     *                              {@link ItemStack}. {@code null} skips item rewards (fail-soft, matches
+     *                              the existing special/commands failure-isolation policy).
+     * @param experienceDispatcher optional (may be {@code null}): grants {@code rewards.job-exp[]}.
+     *                              {@code null} skips job-exp rewards.
+     */
+    public CollectionService(CollectionConfig config, Logger log, CrossPluginItemResolver itemResolver,
+                             NativeExperienceDispatcher experienceDispatcher) {
+        this(config, log, itemResolver, experienceDispatcher, null);
+    }
+
+    /**
+     * @param perkAttributeApplier optional (may be {@code null}, e.g. existing tests/call sites that
+     *                              predate this parameter): re-applies vanilla-Attribute perk buffs
+     *                              immediately after a tier unlock whose {@code rewards.permanent-buffs}
+     *                              contains an ATTRIBUTE-channel key ({@link com.trinityforge.stats.StatVocabulary})
+     *                              — see {@link AchievementService}'s matching parameter for the full
+     *                              rationale (same gap, same fix, mirrored here for collection tiers).
+     *                              {@code null} skips the re-apply (fail-soft).
+     */
+    public CollectionService(CollectionConfig config, Logger log, CrossPluginItemResolver itemResolver,
+                             NativeExperienceDispatcher experienceDispatcher,
+                             PerkAttributeApplier perkAttributeApplier) {
+        this.config = Objects.requireNonNull(config, "config");
+        this.log = Objects.requireNonNull(log, "log");
+        this.itemResolver = itemResolver;
+        this.experienceDispatcher = experienceDispatcher;
+        this.perkAttributeApplier = perkAttributeApplier;
+    }
+
+    public static String itemEntryId(String catalogId) {
+        return ENTRY_PREFIX_ITEM + catalogId;
+    }
+
+    public static String mobEntryId(String entityTypeName) {
+        return ENTRY_PREFIX_MOB + entityTypeName;
+    }
+
+    /** Returns collection progress for an achievement trigger: {@code [owned, total]}. */
+    public int[] progress(Player player, String scope, String target) {
+        String normalizedScope = scope == null ? "all" : scope;
+        Set<String> candidates = new LinkedHashSet<>();
+        if (normalizedScope.equals("item")) candidates.add(itemEntryId(target));
+        else if (normalizedScope.equals("mob")) candidates.add(mobEntryId(target));
+        else if (normalizedScope.equals("category")) {
+            for (CollectionConfig.Category category : config.itemCategories()) {
+                if (category.id().equals(target)) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+            }
+            for (CollectionConfig.Category category : config.mobCategories()) {
+                if (category.id().equals(target)) category.entries().forEach(id -> candidates.add(mobEntryId(id)));
+            }
+        } else {
+            for (CollectionConfig.Category category : config.itemCategories()) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+            for (CollectionConfig.Category category : config.mobCategories()) category.entries().forEach(id -> candidates.add(mobEntryId(id)));
+        }
+        Set<String> owned = new LinkedHashSet<>();
+        for (String raw : PlayerData.of(player).collectionEntries()) {
+            CollectionRecord record = CollectionRecord.parse(raw);
+            if (record != null) owned.add(record.id());
+        }
+        int count = (int) candidates.stream().filter(owned::contains).count();
+        return new int[]{count, candidates.size()};
+    }
+
+    /**
+     * 未発見のエントリを図鑑へ登録する(品質pt無し=0、mob討伐等quality概念のないエントリ用)。
+     *
+     * @param entryIds 記録するエントリID群(呼び出し側で規約に従い発行済み)
+     * @return 新規登録されたエントリ数
+     */
+    public int record(Player player, Collection<String> entryIds) {
+        if (entryIds.isEmpty()) {
+            return 0;
+        }
+        Map<String, Integer> withQuality = new LinkedHashMap<>();
+        for (String id : entryIds) {
+            withQuality.put(id, 0);
+        }
+        return record(player, withQuality);
+    }
+
+    /**
+     * 未発見のエントリを図鑑へ登録し、既知エントリでも品質ptが既録より高ければ更新する
+     * (2026-07-23-stat-gate-overhaul §6.3: PDCエントリ {@code id|epochMillis|maxQualityPt})。
+     * 新規登録があった場合はプレイヤーへ通知し、到達した未解放ティアを解放する。
+     *
+     * @param entryIdsWithQuality エントリID -&gt; そのアイテムの品質pt(0-100、mob討伐等は0)
+     * @return 新規登録されたエントリ数(品質pt更新のみのエントリは含まない)
+     */
+    public int record(Player player, Map<String, Integer> entryIdsWithQuality) {
+        if (!config.enabled() || entryIdsWithQuality.isEmpty()) {
+            return 0;
+        }
+        PlayerData data = PlayerData.of(player);
+        Map<String, CollectionRecord> known = new LinkedHashMap<>();
+        for (String raw : data.collectionEntries()) {
+            CollectionRecord parsed = CollectionRecord.parse(raw);
+            if (parsed != null) {
+                known.put(parsed.id(), parsed);
+            }
+        }
+        long now = System.currentTimeMillis();
+        List<String> newlyAdded = new ArrayList<>();
+        boolean changed = false;
+        for (Map.Entry<String, Integer> entry : entryIdsWithQuality.entrySet()) {
+            String id = entry.getKey();
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            int quality = entry.getValue() == null ? 0 : entry.getValue();
+            CollectionRecord existing = known.get(id);
+            if (existing == null) {
+                known.put(id, new CollectionRecord(id, now, quality));
+                newlyAdded.add(id);
+                changed = true;
+            } else if (quality > existing.maxQualityPt()) {
+                known.put(id, existing.merge(now, quality));
+                changed = true;
+            }
+        }
+        if (!changed) {
+            return 0;
+        }
+        data.setCollectionEntries(known.values().stream().map(CollectionRecord::encode).toList());
+        for (String id : newlyAdded) {
+            player.sendMessage(Component.text("図鑑に登録: ", NamedTextColor.AQUA)
+                    .append(Component.text(displayOf(id), NamedTextColor.WHITE)));
+        }
+        grantPendingTiers(player, data, known.size());
+        return newlyAdded.size();
+    }
+
+    /**
+     * 到達済みで未解放の報酬ティアを解放する。config編集で後からティアが追加された場合の
+     * 追い付き用に {@code /tf collection} 表示時にも呼ばれる(冪等)。
+     */
+    public void grantPendingTiers(Player player) {
+        if (!config.enabled()) {
+            return;
+        }
+        PlayerData data = PlayerData.of(player);
+        grantPendingTiers(player, data, data.collectionEntries().size());
+    }
+
+    /**
+     * 修正E(冪等性/at-most-once): claimed への追加+永続化を各ティアの報酬付与の"前"に行う
+     * (AchievementService#grant の markAchieved-first と同じ順序)。旧実装はループ全体の報酬付与が
+     * 終わってから最後に一括永続化していたため、複数ティアが同時到達した状態で報酬付与中に例外が
+     * 起きると、既に付与済みの先行ティアの claimed 書き込みも失われ、次回再評価で重複付与され得た。
+     * クラッシュ窓で「一度きり報酬(称号/コマンド等)が失われる」設計方針自体はAchievementServiceと
+     * 同様に踏襲する(permanent-buffsは達成/解放フラグからの都度再計算なので影響を受けない)。
+     */
+    private void grantPendingTiers(Player player, PlayerData data, int entryCount) {
+        List<String> claimed = new ArrayList<>(data.claimedCollectionTiers());
+        boolean anyChanged = false;
+        for (CollectionConfig.RewardTier tier : config.tiers()) {
+            if (entryCount < tier.threshold() || claimed.contains(tier.id())) {
+                continue;
+            }
+            claimed.add(tier.id());
+            data.setClaimedCollectionTiers(claimed);
+            anyChanged = true;
+            announce(player, tier);
+            runCommands(player, tier);
+            for (String specialId : tier.special()) {
+                data.grantSpecialReward(specialId);
+            }
+            grantItems(player, tier.items());
+            if (tier.vanillaExp() > 0) {
+                player.giveExp(tier.vanillaExp());
+            }
+            grantJobExp(player, tier.jobExp());
+        }
+        // ATTRIBUTE系永続バフ(max_health/move_speed等)は次回join/防具変更まで反映されないため、
+        // ティア解放成功後に即座に再適用する(AchievementServiceと同じ理由・同じ対策)。
+        if (anyChanged && perkAttributeApplier != null) {
+            perkAttributeApplier.apply(player);
+        }
+    }
+
+    /** プレイヤーの図鑑エントリを {@link CollectionRecord} として返す(GUI表示用)。壊れた行は無視。 */
+    public List<CollectionRecord> records(Player player) {
+        List<CollectionRecord> out = new ArrayList<>();
+        for (String raw : PlayerData.of(player).collectionEntries()) {
+            CollectionRecord parsed = CollectionRecord.parse(raw);
+            if (parsed != null) {
+                out.add(parsed);
+            }
+        }
+        return out;
+    }
+
+    private void announce(Player player, CollectionConfig.RewardTier tier) {
+        Component message = Component.text("コレクション報酬解放: ", NamedTextColor.GOLD)
+                .append(Component.text(tier.title() != null ? tier.title() : tier.id(),
+                        NamedTextColor.YELLOW))
+                .append(Component.text(" (図鑑 " + tier.threshold() + " 種到達)", NamedTextColor.GRAY));
+        if (tier.broadcast()) {
+            Bukkit.getServer().sendMessage(Component.text(player.getName() + " が", NamedTextColor.GOLD)
+                    .append(message));
+        } else {
+            player.sendMessage(message);
+        }
+    }
+
+    private void runCommands(Player player, CollectionConfig.RewardTier tier) {
+        for (String command : tier.commands()) {
+            String resolved = command.replace("%player%", player.getName());
+            try {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), resolved);
+            } catch (RuntimeException ex) {
+                // 1コマンドの失敗で残りの報酬付与やゲームループを壊さない(claimedは維持=再実行しない。
+                // 失敗コマンドの再付与はオペレーターが手動対応する前提でログに残す)。
+                log.log(Level.WARNING, "[collection] reward command failed (tier=" + tier.id()
+                        + "): " + resolved, ex);
+            }
+        }
+    }
+
+    /**
+     * {@code rewards.items[]} を付与する。{@link #itemResolver} 未注入なら何もしない(fail-soft)。
+     * インベントリが満杯ならその場にドロップする({@code GiveItemCommand} と同じパターン)。
+     */
+    private void grantItems(Player player, List<ItemGrant> items) {
+        if (itemResolver == null || items.isEmpty()) {
+            return;
+        }
+        for (ItemGrant grant : items) {
+            var built = itemResolver.create(grant.id());
+            if (built.isEmpty()) {
+                log.warning("[collection] reward item id '" + grant.id() + "' could not be resolved; skipped");
+                continue;
+            }
+            ItemStack stack = built.get();
+            stack.setAmount(grant.amount());
+            Map<Integer, ItemStack> leftover = player.getInventory().addItem(stack);
+            for (ItemStack drop : leftover.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), drop);
+            }
+        }
+    }
+
+    /** {@code rewards.job-exp[]} を付与する。{@link #experienceDispatcher} 未注入なら何もしない(fail-soft)。 */
+    private void grantJobExp(Player player, List<ExpGrant> jobExp) {
+        if (experienceDispatcher == null || jobExp.isEmpty()) {
+            return;
+        }
+        for (ExpGrant grant : jobExp) {
+            experienceDispatcher.grant(player.getUniqueId(), grant.skill(), grant.amount());
+        }
+    }
+
+    /** 表示名: item:/mob: プレフィクスを日本語ラベルに置き換える。 */
+    public static String displayOf(String entryId) {
+        if (entryId.startsWith(ENTRY_PREFIX_ITEM)) {
+            return entryId.substring(ENTRY_PREFIX_ITEM.length());
+        }
+        if (entryId.startsWith(ENTRY_PREFIX_MOB)) {
+            return entryId.substring(ENTRY_PREFIX_MOB.length()) + " 討伐";
+        }
+        return entryId;
+    }
+}

@@ -1,0 +1,255 @@
+package com.trinityforge.listeners;
+
+import com.trinityforge.combat.EnchantmentStatBridge;
+import com.trinityforge.combat.PlayerCombatAggregate;
+import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.config.domains.DedicatedEffectsConfig;
+import com.trinityforge.config.domains.FishingGimmickConfig;
+import com.trinityforge.fishing.FishingGimmickPolicy;
+import com.trinityforge.progression.SkillLevelSource;
+import com.trinityforge.stats.CrossPluginItemResolver;
+import com.trinityforge.stats.DropTableConfig;
+import com.trinityforge.stats.DropTablePolicy;
+import com.trinityforge.stats.StatKeys;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Item;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.persistence.PersistentDataType;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * 釣りの獲得物置換 (2026-07-23 stat-gate-overhaul §2.3/§4): {@code stats/fishing-gimmick.yml} の
+ * {@code fishing.groups}(treasure/junk) が非空なら、CAUGHT_FISH時の釣果を丸ごと置換する:
+ *
+ * <ol>
+ *   <li>宝率 = clamp(group-ratio.treasure-percent × (1 + luckTotal), 0.05, 95.0)。luckTotal は
+ *       ロッドの合算{@code fishing_luck}stat + {@link EnchantmentStatBridge}の宝釣りエンチャ分 +
+ *       FISHINGスキルLv×{@code luck-per-level}。</li>
+ *   <li>宝/ゴミ/魚(残り=通常の魚)のどのグループから引くかを宝率/ゴミ率でロールし、そのグループの
+ *       開放済みカテゴリ全体から重み付き抽選({@link DropTablePolicy}、{@code drop:fishing:<catId>}/
+ *       {@code drop:fishing:item:<id>}ゲート適用)で1件確定する。{@code fish}グループ(2026-07-25追加:
+ *       「通常の魚」枠の設定可能化)が未設定(空)の場合は、旧来どおり通常の魚の抽選結果だとバニラキャッチを
+ *       一切変更しない。</li>
+ *   <li>ゴミグループから引いた結果に対しては、既存の {@code junk-to-scrap} 差し替え(→{@code tf_scrap})を
+ *       そのまま適用する。{@code fish}グループから引いた結果には適用しない(通常の魚はゴミではないため)。</li>
+ * </ol>
+ *
+ * <p>テーブルが空(未設定)の場合はバニラ釣果に一切手を加えず、旧 junk/treasure マテリアルリストに基づく
+ * {@code junk-to-scrap} 動作だけをフォールバックとして維持する(design doc §4 fallback note)。
+ *
+ * <p>{@link EventPriority#LOW}で登録: {@link FishingQualityListener}({@link EventPriority#NORMAL})が
+ * 釣果の品質刻印/追加ドロップを行うより先に走らせる必要がある — 置換後のMaterialを品質刻印側が正しく
+ * 参照できるようにするため。置換したのが宝/ゴミどちらのグループだったかは、釣果エンティティのPDCに
+ * {@code treasureFlagKey} で記録し、{@link FishingQualityListener}のトレジャー複製防止ロジックに渡す。
+ */
+public final class FishingGimmickListener implements Listener {
+
+    private static final String EFFECT_JUNK_TO_SCRAP = "junk-to-scrap";
+    private static final String EFFECT_FISH_SELL_TOGGLE = "fish-sell-toggle";
+    private static final String CATALOG_SCRAP = "tf_scrap";
+    private static final String PROF_FISHING = "fishing";
+    private static final String GROUP_TREASURE = "treasure";
+    private static final String GROUP_JUNK = "junk";
+    /** 2026-07-25追加: 「通常の魚」枠の設定可能化(T1)。未設定(空)なら旧来どおりバニラ釣果を維持する。 */
+    private static final String GROUP_FISH = "fish";
+
+    private static final String FISHING_LUCK_KEY = StatKeys.canonical("fishing-luck");
+
+    private final DedicatedEffectsConfig dedicatedEffects;
+    private final FishingGimmickConfig gimmickConfig;
+    private final CrossPluginItemResolver itemResolver;
+    private final PlayerStatAggregator aggregator;
+    private final SkillLevelSource skillLevelSource;
+    private final NamespacedKey treasureFlagKey;
+
+    public FishingGimmickListener(DedicatedEffectsConfig dedicatedEffects, FishingGimmickConfig gimmickConfig,
+                                   CrossPluginItemResolver itemResolver, PlayerStatAggregator aggregator,
+                                   SkillLevelSource skillLevelSource, NamespacedKey treasureFlagKey) {
+        this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
+        this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
+        this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
+        this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.skillLevelSource = Objects.requireNonNull(skillLevelSource, "skillLevelSource");
+        this.treasureFlagKey = Objects.requireNonNull(treasureFlagKey, "treasureFlagKey");
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onFish(PlayerFishEvent event) {
+        if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH || !(event.getCaught() instanceof Item caught)) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (player == null) {
+            return;
+        }
+        ItemStack caughtStack = caught.getItemStack();
+        if (caughtStack == null || caughtStack.getType().isAir()) {
+            return;
+        }
+
+        if (gimmickConfig.dropTablesEmpty()) {
+            applyLegacyJunkToScrapFallback(player, caught, caughtStack.getType());
+            return;
+        }
+        replaceWithDropTable(player, caught);
+    }
+
+    /**
+     * New table-driven replace flow (§2.3/§4, 2026-07-23 仕様確定・三択モデル化; T1 2026-07-25で「通常の魚」枠
+     * 設定可能化): 宝% / ゴミ% / 残り=通常の魚。通常の魚が出た場合、{@code fish}グループが未設定(空)なら
+     * 何もせずバニラキャッチをそのまま維持する(宝フラグPDCも付けない、旧来どおり)。{@code fish}グループが
+     * 非空なら、宝/ゴミとまったく同じ抽選経路({@link DropTablePolicy#drawAcrossCategoriesWithExemption})で
+     * 釣果を置換する — ただし宝フラグPDCには{@code false}を書く(宝ではないため)し、{@code junk-to-scrap}の
+     * スクラップ差し替えは適用しない(魚はゴミではないため)。
+     */
+    private void replaceWithDropTable(Player player, Item caught) {
+        double luckTotal = luckTotalOf(player);
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        DropTablePolicy.FishOutcome outcome = DropTablePolicy.rollFishOutcome(
+                gimmickConfig.treasurePercent(), gimmickConfig.junkPercent(), luckTotal, rng.nextDouble());
+
+        if (outcome == DropTablePolicy.FishOutcome.NORMAL_FISH) {
+            // T1: fishグループが空なら旧来どおり何もしない(バニラキャッチ維持、宝フラグPDCも付けない)。
+            // replaceFromGroup自身もcategories空ならfail-safeで何もしないが、ここで先に判定することで
+            // luckTotal/rng消費以外の余計な処理(perk走査等)を後方互換パスでは一切増やさない。
+            if (gimmickConfig.groups().getOrDefault(GROUP_FISH, Map.of()).isEmpty()) {
+                return;
+            }
+            replaceFromGroup(player, caught, GROUP_FISH, false, rng);
+            return;
+        }
+
+        boolean treasure = outcome == DropTablePolicy.FishOutcome.TREASURE;
+        if (treasure && dedicatedEffects.isActive(player, EFFECT_FISH_SELL_TOGGLE)
+                && !gimmickConfig.groups().getOrDefault(GROUP_JUNK, Map.of()).isEmpty()) {
+            // B-alpha-1(2026-07-25経済連携): 「宝が釣れなくなりゴミが釣れる(宝の確率でゴミが釣れる)」——
+            // 宝が出るはずだった抽選結果をゴミ枠へ丸ごと差し替える。ゴミテーブルが未設定(空)の場合は
+            // 差し替え不能のため元の宝抽選を維持する(fail-safe: 何も出せなくなるより安全側に倒す)。
+            treasure = false;
+        }
+        String groupId = treasure ? GROUP_TREASURE : GROUP_JUNK;
+        replaceFromGroup(player, caught, groupId, treasure, rng);
+    }
+
+    /**
+     * {@code groupId}の開放済みカテゴリ全体から1件抽選し、{@code caught}を置換して宝フラグPDCに
+     * {@code treasureFlag}を書く。抽選対象カテゴリが無い/抽選が空(全ロック等)の場合はバニラキャッチを
+     * そのまま維持する(fail-safe)。{@code junk-to-scrap}のスクラップ差し替えは{@code groupId}が実際に
+     * {@link #GROUP_JUNK}のときだけ適用される({@code fish}グループには適用しない)。
+     */
+    private void replaceFromGroup(Player player, Item caught, String groupId, boolean treasureFlag,
+                                   ThreadLocalRandom rng) {
+        Map<String, DropTableConfig.Category> categories = gimmickConfig.groups().getOrDefault(groupId, Map.of());
+        if (categories.isEmpty()) {
+            return; // Fail-safe: nothing configured for this group -> leave the vanilla catch untouched.
+        }
+        Set<String> heldPerks = DropTableGateSupport.heldPerksOf(player);
+        Map<String, Set<String>> dropGatePerks = dedicatedEffects.dropGatePerks();
+        Optional<DropTablePolicy.DrawnEntry> drawn = DropTablePolicy.drawAcrossCategoriesWithExemption(
+                PROF_FISHING, categories, heldPerks, dropGatePerks, rng.nextDouble());
+        if (drawn.isEmpty()) {
+            // Fail-safe: everything in the chosen group is locked/unresolvable — leave the vanilla
+            // catch untouched rather than replacing it with nothing.
+            return;
+        }
+
+        DropTableConfig.Entry entry = drawn.get().entry();
+        boolean scrapExempt = drawn.get().scrapExempt();
+        boolean applyJunkToScrap = GROUP_JUNK.equals(groupId);
+        ItemStack replacement = resolveJunkToScrapOrEntry(player, applyJunkToScrap, scrapExempt, entry);
+        if (replacement == null) {
+            return;
+        }
+        caught.setItemStack(replacement);
+        caught.getPersistentDataContainer().set(treasureFlagKey, PersistentDataType.BOOLEAN, treasureFlag);
+    }
+
+    /**
+     * Junk-group draws still honor {@code junk-to-scrap} (existing scrap swap, reused verbatim) — unless
+     * the drawn entry came from a {@code scrap-exempt} category (2026-07-23 verifier指摘⑥: e.g.
+     * {@code ocean_thread}), in which case the original catch is kept so it stays obtainable for
+     * junk-to-scrap holders too. {@code applyJunkToScrap} is {@code true} only for an actual
+     * {@link #GROUP_JUNK} draw (T1 2026-07-25: the {@code fish} group must never be scrap-swapped, even
+     * though its PDC treasure flag is also {@code false} like junk).
+     */
+    private ItemStack resolveJunkToScrapOrEntry(Player player, boolean applyJunkToScrap, boolean scrapExempt,
+                                                 DropTableConfig.Entry entry) {
+        if (applyJunkToScrap && !scrapExempt && dedicatedEffects.isActive(player, EFFECT_JUNK_TO_SCRAP)) {
+            Optional<ItemStack> scrap = itemResolver.create(CATALOG_SCRAP);
+            if (scrap.isPresent()) {
+                ItemStack stack = scrap.get();
+                stack.setAmount(Math.max(1, entry.amount()));
+                return stack;
+            }
+        }
+        Optional<ItemStack> built = itemResolver.create(entry.item());
+        if (built.isEmpty()) {
+            return null;
+        }
+        ItemStack stack = built.get();
+        stack.setAmount(Math.max(1, entry.amount()));
+        return stack;
+    }
+
+    /** {@code luckTotal} for the treasure-ratio shift: rod's aggregated stat + enchant bonus + skill level. */
+    private double luckTotalOf(Player player) {
+        ItemStack rod = resolveRod(player.getInventory());
+        PlayerCombatAggregate agg = aggregator.aggregate(player, rod);
+        double statLuck = agg.totalOf(FISHING_LUCK_KEY);
+        double enchantLuck = EnchantmentStatBridge.bonuses(rod, null).fishingLuckBonus();
+        int fishingLevel = skillLevelSource.levelsOf(player.getUniqueId())
+                .getOrDefault(gimmickConfig.fishingSkillId(), 0);
+        return statLuck + enchantLuck + fishingLevel * gimmickConfig.luckPerLevel();
+    }
+
+    private static ItemStack resolveRod(PlayerInventory inventory) {
+        ItemStack mainHand = inventory.getItemInMainHand();
+        if (mainHand.getType() == Material.FISHING_ROD) {
+            return mainHand;
+        }
+        ItemStack offHand = inventory.getItemInOffHand();
+        if (offHand.getType() == Material.FISHING_ROD) {
+            return offHand;
+        }
+        return mainHand;
+    }
+
+    /**
+     * Fallback (drop tables not yet configured): the pre-2026-07-23 behavior — a junk-list catch is
+     * replaced with {@code tf_scrap} when {@code junk-to-scrap} is active. {@code fish-sell-toggle}
+     * (revived 2026-07-25 for the Vault economy bridge — see {@link FishSellListener}) has no
+     * treasure/junk ratio to redirect in this legacy fallback path (no drop tables configured yet),
+     * so only its "sell what you catch" half applies here; the "no more treasure" half only exists
+     * once {@code fishing.groups} is populated (see {@link #replaceWithDropTable}).
+     */
+    private void applyLegacyJunkToScrapFallback(Player player, Item caught, Material caughtMaterial) {
+        if (!dedicatedEffects.isActive(player, EFFECT_JUNK_TO_SCRAP)) {
+            return;
+        }
+        if (!FishingGimmickPolicy.isJunk(caughtMaterial, gimmickConfig.junkMaterials())) {
+            return;
+        }
+        Optional<ItemStack> scrap = itemResolver.create(CATALOG_SCRAP);
+        if (scrap.isEmpty()) {
+            // Fail-safe: a missing/renamed catalog entry must never throw out of a fish-catch handler.
+            return;
+        }
+        ItemStack current = caught.getItemStack();
+        int amount = current == null ? 1 : Math.max(1, current.getAmount());
+        ItemStack stack = scrap.get();
+        stack.setAmount(amount);
+        caught.setItemStack(stack);
+    }
+}

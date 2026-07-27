@@ -1,0 +1,11 @@
+﻿# TrinityForge-owned progression base for POWER (SoT for experience + SP + non-perk).
+# Perk tree runtime SoT is skilltree/power.yml (this file: curves + EXP producer rates).
+# LD-9: no attack multipliers / armor bonus / crit / bleed / oneshot in starting_perks.
+# Edit curves via ConfigEditor skill-exp (progression-power).
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/power_progression.md
+experience:
+  exp_level_curve: '(%level%/100) * 1800 + 800'
+  max_level: 160
+  exp_gain: 240
+  prestige_decay_rate: 0.5
+

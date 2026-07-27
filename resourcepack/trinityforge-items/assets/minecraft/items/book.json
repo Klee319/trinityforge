@@ -1,0 +1,40 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/book",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 100001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/spell_book_novice"
+        }
+      },
+      {
+        "threshold": 100002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/spell_book_apprentice"
+        }
+      },
+      {
+        "threshold": 100003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/spell_book_archmage"
+        }
+      },
+      {
+        "threshold": 100004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/koujien"
+        }
+      }
+    ]
+  }
+}

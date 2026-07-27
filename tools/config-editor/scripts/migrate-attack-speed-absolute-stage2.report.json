@@ -1,0 +1,827 @@
+[
+  {
+    "key": "WOODEN_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "WOODEN_SPEAR",
+    "currentValue": -2.62,
+    "newValue": 1.38
+  },
+  {
+    "key": "STONE_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "STONE_SPEAR",
+    "currentValue": -2.83,
+    "newValue": 1.17
+  },
+  {
+    "key": "COPPER_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "COPPER_SPEAR",
+    "currentValue": -2.98,
+    "newValue": 1.02
+  },
+  {
+    "key": "IRON_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "IRON_SPEAR",
+    "currentValue": -3.11,
+    "newValue": 0.89
+  },
+  {
+    "key": "GOLDEN_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "GOLDEN_SPEAR",
+    "currentValue": -3.11,
+    "newValue": 0.89
+  },
+  {
+    "key": "DIAMOND_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "DIAMOND_SPEAR",
+    "currentValue": -3.21,
+    "newValue": 0.79
+  },
+  {
+    "key": "NETHERITE_SWORD",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "NETHERITE_SPEAR",
+    "currentValue": -3.29,
+    "newValue": 0.71
+  },
+  {
+    "key": "BOW",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "TRIDENT",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "DIAMOND_SWORD#1111",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "NETHERITE_SWORD#112",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "NETHERITE_SWORD#113",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "NETHERITE_SWORD#114",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "GOLDEN_SWORD#59",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "WOODEN_SWORD#60",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "WOODEN_AXE#77",
+    "currentValue": -3.62,
+    "newValue": 0.38
+  },
+  {
+    "key": "STONE_AXE#78",
+    "currentValue": -3.62,
+    "newValue": 0.38
+  },
+  {
+    "key": "COPPER_AXE#79",
+    "currentValue": -3.62,
+    "newValue": 0.38
+  },
+  {
+    "key": "IRON_AXE#80",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "GOLDEN_AXE#81",
+    "currentValue": -3.42,
+    "newValue": 0.58
+  },
+  {
+    "key": "DIAMOND_AXE#82",
+    "currentValue": -3.42,
+    "newValue": 0.58
+  },
+  {
+    "key": "NETHERITE_AXE#83",
+    "currentValue": -3.42,
+    "newValue": 0.58
+  },
+  {
+    "key": "DIAMOND_SWORD#1114",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "NETHERITE_AXE#139",
+    "currentValue": -3.42,
+    "newValue": 0.58
+  },
+  {
+    "key": "NETHERITE_AXE#140",
+    "currentValue": -3.42,
+    "newValue": 0.58
+  },
+  {
+    "key": "NETHERITE_AXE#141",
+    "currentValue": -3.42,
+    "newValue": 0.58
+  },
+  {
+    "key": "WOODEN_SWORD#51",
+    "currentValue": -2.56,
+    "newValue": 1.44
+  },
+  {
+    "key": "DIAMOND_SPEAR#50",
+    "currentValue": -3.21,
+    "newValue": 0.79
+  },
+  {
+    "key": "NETHERITE_SPEAR#118",
+    "currentValue": -3.29,
+    "newValue": 0.71
+  },
+  {
+    "key": "NETHERITE_SPEAR#119",
+    "currentValue": -3.29,
+    "newValue": 0.71
+  },
+  {
+    "key": "NETHERITE_SPEAR#120",
+    "currentValue": -3.29,
+    "newValue": 0.71
+  },
+  {
+    "key": "NETHERITE_HOE#52",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "DIAMOND_HOE#53",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "GOLDEN_HOE#54",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "IRON_HOE#55",
+    "currentValue": -0.88,
+    "newValue": 3.12
+  },
+  {
+    "key": "COPPER_HOE#56",
+    "currentValue": -1.88,
+    "newValue": 2.12
+  },
+  {
+    "key": "STONE_HOE#57",
+    "currentValue": -1.88,
+    "newValue": 2.12
+  },
+  {
+    "key": "WOODEN_HOE#58",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "NETHERITE_HOE#1",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "DIAMOND_HOE#49",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "IRON_CHAIN#68",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "NETHERITE_HOE#124",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "NETHERITE_HOE#125",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "NETHERITE_HOE#126",
+    "currentValue": 0.12,
+    "newValue": 4.12
+  },
+  {
+    "key": "WOODEN_SWORD#16",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "STONE_SWORD#17",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "COPPER_SWORD#18",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "IRON_SWORD#19",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "GOLDEN_SWORD#20",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "DIAMOND_SWORD#1103",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "NETHERITE_SWORD#21",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "DIAMOND_SWORD#1108",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "NETHERITE_SWORD#130",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "NETHERITE_SWORD#131",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "NETHERITE_SWORD#132",
+    "currentValue": -2.72,
+    "newValue": 1.28
+  },
+  {
+    "key": "WOODEN_SWORD#22",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "STONE_SWORD#23",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "COPPER_SWORD#24",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "IRON_SWORD#25",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "GOLDEN_SWORD#26",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "DIAMOND_SWORD#1104",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "NETHERITE_SWORD#27",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "DIAMOND_SWORD#1109",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "NETHERITE_SWORD#133",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "NETHERITE_SWORD#134",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "NETHERITE_SWORD#135",
+    "currentValue": -2.82,
+    "newValue": 1.18
+  },
+  {
+    "key": "WOODEN_SWORD#11",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "STONE_SWORD#2",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "COPPER_SWORD#4",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "IRON_SWORD#5",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "GOLDEN_SWORD#12",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "DIAMOND_SWORD#1101",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "NETHERITE_SWORD#6",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "DIAMOND_SWORD#1106",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "NETHERITE_SWORD#109",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "NETHERITE_SWORD#110",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "NETHERITE_SWORD#111",
+    "currentValue": -1.95,
+    "newValue": 2.05
+  },
+  {
+    "key": "WOODEN_SWORD#13",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "STONE_SWORD#7",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "COPPER_SWORD#8",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "IRON_SWORD#9",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "GOLDEN_SWORD#14",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "DIAMOND_SWORD#1102",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "NETHERITE_SWORD#15",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "DIAMOND_SWORD#1107",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "NETHERITE_SWORD#115",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "NETHERITE_SWORD#116",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "NETHERITE_SWORD#117",
+    "currentValue": -2.22,
+    "newValue": 1.78
+  },
+  {
+    "key": "WOODEN_SWORD#28",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "STONE_SWORD#29",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "COPPER_SWORD#30",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "IRON_SWORD#31",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "GOLDEN_SWORD#32",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "DIAMOND_SWORD#1105",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "NETHERITE_SWORD#33",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "DIAMOND_SWORD#1110",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "NETHERITE_SWORD#142",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "NETHERITE_SWORD#143",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "NETHERITE_SWORD#144",
+    "currentValue": -3.02,
+    "newValue": 0.98
+  },
+  {
+    "key": "WOODEN_SWORD#62",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "STONE_SWORD#63",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "COPPER_SWORD#64",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "IRON_SWORD#65",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "GOLDEN_SWORD#66",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "DIAMOND_SWORD#1113",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "NETHERITE_SWORD#67",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "NETHERITE_SWORD#136",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "NETHERITE_SWORD#137",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "NETHERITE_SWORD#138",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "DIAMOND_SWORD#1119",
+    "currentValue": -2.88,
+    "newValue": 1.12
+  },
+  {
+    "key": "BOW#1091",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1093",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1094",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1095",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1096",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1097",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1098",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "DIAMOND_SWORD#1099",
+    "currentValue": -2.4,
+    "newValue": 1.6
+  },
+  {
+    "key": "BOW#1118",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1115",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1116",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOW#1117",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "TRIDENT#174",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#175",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#176",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#177",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#178",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#179",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#180",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#181",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#121",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#122",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "TRIDENT#123",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#167",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#168",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#169",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#170",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#171",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#172",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#173",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#182",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#127",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#128",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "MACE#129",
+    "currentValue": -3.52,
+    "newValue": 0.48
+  },
+  {
+    "key": "CROSSBOW#160",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#161",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#162",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#163",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#164",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#165",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#166",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#183",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#145",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#146",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "CROSSBOW#147",
+    "currentValue": 0,
+    "newValue": 4
+  },
+  {
+    "key": "BOOK#100004",
+    "currentValue": 0,
+    "newValue": 4
+  }
+]

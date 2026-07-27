@@ -1,0 +1,10 @@
+# TrinityForge base progression for the custom ARS_SMITHING skill (non-perk sections only).
+# The perk tree is defined in skilltree/ars_smithing.yml and consumed directly by the skilltree GUI
+# runtime (com.trinityforge.skilltree.runtime.NativeSkillTreeCanvas); it is not merged into this
+# file. EXP is granted externally via ArsBridge.grantSmithingExp (crafting Ars gear,
+# CraftQualityListener), so only the level curve + cap are needed here.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/ars_smithing_progression.md
+experience:
+  max_level: 100
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  legacy:

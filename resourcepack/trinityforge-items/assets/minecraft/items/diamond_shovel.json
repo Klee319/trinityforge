@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/diamond_shovel",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 74,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_shovel"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+name: DPSChecker-TF
+version: "${version}"
+main: com.github.klee319.dpschecker.DPSCheckerPlugin
+description: TrinityForge-integrated damage testing dummy plugin with DPS tracking
+api-version: "1.21"
+author: Klee319
+
+dependencies:
+  server:
+    TrinityForge:
+      load: BEFORE
+      required: true
+      join-classpath: true
+
+permissions:
+  dpschecker.use:
+    description: Spawn and use DPS dummies
+    default: true
+  dpschecker.admin:
+    description: Admin commands (remove others' dummies, reload)
+    default: op
+  dpschecker.*:
+    description: All DPSChecker permissions
+    default: op
+    children:
+      dpschecker.use: true
+      dpschecker.admin: true

@@ -1,0 +1,1157 @@
+# TrinityForge - Item stat lore presentation (lore-consistency concern; tune in M7).
+# Turns each item's derived stats (stats/item-stats.yml) into ValhallaMMO-styled lore lines so addon
+# items read consistently next to ValhallaMMO gear. Nothing is baked: editing here + /trinityforge reload
+# re-styles existing items.
+#
+# layout.line-template is a MiniMessage string with three placeholders resolved per stat:
+#   <icon>   the stat's icon string below (ValhallaMMO uses resource-pack PUA glyphs; paste yours)
+#   <name>   the display name below
+#   <value>  the formatted value, already colored by positive-color / negative-color
+# layout.score-line-template renders the quality score header line. Placeholders:
+#   <tier>      ティア色付きの【ティア名】 (stats/quality-tiers.yml の name/color)
+#   <tier-name> 色なしのティア名
+#   <score>     品質スコア値
+# 表示順はカテゴリ内の order（小さいほど上）。
+# category: attack/defense/craft/gathering/utility/ars/other (2026-07-23 7分類再編。旧 support は
+# utility へ改名統合。"support" 文字列は後方互換のため引き続き utility として読み込める)
+# unit: PERCENT以外の末尾単位（例: m / 秒）。PERCENTは自動で%。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/stats/lore.md
+
+
+layout:
+  line-template: <gray><icon><name>：<value></gray>
+  score-line-template: <tier><gray>:</gray>  <aqua><score>pt</aqua>
+  positive-color: white
+  negative-color: red
+  header: []
+  footer: []
+  colors:
+    fixed:
+      negative: dark_gray
+    roll: {}
+bind:
+  show-owner: true
+  owner-line: "<gray>所有者: <white><owner></white></gray>"
+  show-use-requirement: true
+  use-requirement-line: "<gray>必要Lv: <white><level></white> <gray><skill></gray>"
+stats:
+  attack-power:
+    name: 攻撃力
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 1
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  attack-speed:
+    name: 攻撃速度
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 2
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  attack-speed-bonus:
+    name: 攻撃速度加算
+    icon: ""
+    format: PERCENT
+    decimals: 1
+    order: 3
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  attack-reach:
+    name: リーチ
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 5
+    show-sign: true
+    hide-when-zero: true
+    unit: m
+    category: attack
+  aoe-radius:
+    name: ダメージ半径
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 8
+    show-sign: true
+    hide-when-zero: true
+    unit: m
+    category: attack
+  aoe-max-targets:
+    name: 対象上限
+    icon: ""
+    format: FLAT
+    decimals: 0
+    order: 9
+    show-sign: true
+    hide-when-zero: true
+    unit: 体
+    category: attack
+  aoe-damage-rate:
+    name: 範囲ダメージ
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 9
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  percent-bonus-damage:
+    name: 追加ダメ
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 11
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  damage-modifier:
+    name: ダメージ補正
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 4
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  item-cooldown:
+    name: CT
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 3
+    show-sign: true
+    hide-when-zero: true
+    unit: 秒
+    category: other
+  crit-chance:
+    name: 会心率
+    icon: ""
+    format: PERCENT
+    decimals: 1
+    order: 30
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  crit-damage:
+    name: 会心ダメージ
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 31
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  penetration:
+    name: 貫通率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 40
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  bleed-chance:
+    name: 出血率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 41
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  bleed-damage:
+    name: 出血ダメージ
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 42
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  armor-defense-rate:
+    name: 防御力
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 50
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  armor-strength:
+    name: 防具強度
+    icon: ""
+    format: PERCENT
+    decimals: 1
+    order: 51
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  max-health:
+    name: 体力増強
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 52
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  knockback-resistance:
+    name: K耐性
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 53
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  move-speed:
+    name: 移動速度
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 54
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  durability:
+    name: 耐久値
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 1000
+    show-sign: false
+    hide-when-zero: true
+    category: other
+  phys-resistance:
+    name: 物理耐性
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 60
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  magic-resistance:
+    name: 魔法耐性
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 61
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  damage-reduction:
+    name: 被ダメ軽減
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 65
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  dodge-chance:
+    name: 回避率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 66
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  reflect-flat:
+    # 2026-07-25 課題2: 棘の鎧ステータス化。被弾時にこの固定値分だけ相手にダメージを与える。
+    name: 反射率（実）
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 67
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  reflect-percent:
+    # 棘の鎧レベルL(装備全体の合計)は10%×Lをこの値へ寄与する(ReflectDamageBridge)。
+    # バニラの棘の鎧ダメージ自体は二重にならないよう抑止し、反射はこちらへ一本化する
+    # (バニラの耐久値消費は維持)。
+    name: 反射率（割）
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 68
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  gathering-efficiency:
+    name: 最終効率
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 80
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  mining-fortune:
+    name: 採掘運
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 81
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  fishing-luck:
+    name: 釣り運
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 82
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  fishing-bonus:
+    name: 釣りボーナス
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 83
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  # tool-enchant-efficiency は 2026-07-26 に gathering-efficiency(最終効率)へ統合したため削除。
+  # StatKeys のエイリアスで畳まれるので、ここに残すと同じステが2行表示される。
+  # 旧キーを書いた yml はそのまま動く(読み替えられる)。
+  mana-bonus:
+    name: 最大マナ
+    icon: ""
+    format: FLAT
+    decimals: 0
+    order: 70
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-regen:
+    name: 時間マナ回復
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 71
+    show-sign: true
+    hide-when-zero: true
+    unit: /秒
+    category: ars
+  hit-mana-recovery:
+    name: 命中マナ回復
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 72
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  damage-mana-recovery:
+    name: 被弾マナ回復
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 73
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  thread-slots:
+    name: スレッド枠
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 74
+    show-sign: false
+    hide-when-zero: true
+    unit: 枠
+    category: ars
+  mana-cost-reduction-flat:
+    name: マナ消費軽減
+    icon: ""
+    format: FLAT
+    decimals: 0
+    order: 75
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-cost-reduction-percent:
+    name: マナ消費軽減
+    icon: ""
+    format: FLAT
+    decimals: 0
+    order: 76
+    show-sign: true
+    hide-when-zero: true
+    unit: "%"
+    category: ars
+  phys-flat-defense:
+    name: 物理守備力
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 62
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  magic-flat-defense:
+    name: 魔法守備力
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 63
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  fixed-damage:
+    name: 固定ダメージ
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 13
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  bow-accuracy:
+    name: 弓精度
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 100
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  ammo-save-chance:
+    name: 矢節約率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 101
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  distance-damage-bonus:
+    name: 距離ダメージ
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 102
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  arrow-piercing:
+    name: 矢貫通
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 103
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  arrow-velocity:
+    name: 矢速度
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 104
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  bow-cooldown-reduction:
+    name: 弓CT短縮
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 105
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  arrow-knockback:
+    name: 矢ノックバック
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 106
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  melee-knockback:
+    name: 追撃ノックバック
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 107
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  stun-chance:
+    name: スタン率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 108
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  stun-duration-bonus:
+    # 2026-07-26新設。stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)の継続時間への割合加算。
+    # NativeCombatPerkListener側で絶対上限(5秒=100tick)にクランプされる。
+    name: スタン時間
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 108
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  power-attack-damage:
+    name: 空中攻撃ダメージ
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 109
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  power-attack-radius:
+    name: 空中攻撃半径
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 110
+    show-sign: true
+    hide-when-zero: true
+    unit: m
+    category: attack
+  cooldown-reduction:
+    name: アイテムCT短縮
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 111
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  haste-active-mining-cooldown-reduction:
+    name: 高速破壊CT短縮
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 112
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  tree-fell-cooldown-reduction:
+    name: 一括伐採CT短縮
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 113
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  health-regen-bonus:
+    name: 自然回復量
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 91
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  coating-charges:
+    name: コーティング回数
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 1001
+    show-sign: true
+    hide-when-zero: true
+    category: other
+  hunger-save-chance:
+    name: 空腹節約率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 120
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  mob-drop-bonus:
+    name: 討伐ドロップ増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 121
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  skill-exp-bonus:
+    name: スキル経験値増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 122
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  loot-luck:
+    name: 幸運
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 123
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  mob-drop-quality:
+    name: ドロップ品質
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 124
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  gacha-rate-bonus:
+    name: ガチャ確率UP
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 125
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  food-save-chance:
+    name: 食料節約率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 126
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  suspicious-respawn-chance:
+    name: 怪しいブロック復活
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 84
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  hive-harvest-fortune:
+    name: 養蜂幸運
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 85
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  kill-vanilla-exp-bonus:
+    name: 討伐時バニラEXP
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 127
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  break-vanilla-exp-bonus:
+    name: 破壊時バニラEXP
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 128
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  vanilla-exp-bonus:
+    name: 常時バニラEXP
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 129
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  breeding-vanilla-exp-bonus:
+    name: 繁殖時バニラEXP
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 130
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  woodcutting-extra-drop-chance:
+    name: 伐採追加ドロップ率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 131
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  harvest-extra-drop-chance:
+    name: 収穫追加ドロップ率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 132
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  food-restore-bonus:
+    name: 満腹度回復量
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 133
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  hidden-saturation-bonus:
+    name: 隠し満腹度回復量
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 134
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  breeding-extra-child-chance:
+    name: 繁殖追加子供率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 135
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  bred-animal-growth-bonus:
+    name: 動物成長速度
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 136
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  planted-crop-growth-bonus:
+    name: 作物成長速度
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 137
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  ritual-quality-bonus:
+    name: 儀式品質
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 210
+    show-sign: true
+    hide-when-zero: true
+    unit: pt
+    category: craft
+  workbench-quality-bonus:
+    name: 作業台品質
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 211
+    show-sign: true
+    hide-when-zero: true
+    unit: pt
+    category: craft
+  craft-upswing-bonus:
+    name: 上振れ拡大
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 201
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  craft-downswing-reduction:
+    name: 下振れ抑制
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 202
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  craft-roll-up-bonus:
+    name: ロール上振れ
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 203
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  craft-roll-down-reduction:
+    name: ロール下振れ抑制
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 204
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  craft-roll-inset:
+    name: ロール収束
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 205
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  lapis-cost-reduction:
+    name: ラピス消費軽減
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 207
+    show-sign: true
+    hide-when-zero: true
+    unit: 個
+    category: craft
+  material-refund-chance:
+    name: 素材返還率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 208
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  ingredient-save-chance:
+    name: 材料節約率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 209
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  source-cost-reduction:
+    name: ソース消費軽減
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 77
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  enchant-cost-reduction:
+    # 2026-07-26新設。エンチャントテーブルの提示/実消費レベルコストと金床の修理コストを軽減する
+    # (EnchantCostReductionListener消費)。ランタイム側で0..0.9にクランプ、最低1レベルは残る。
+    name: エンチャント費用軽減
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 213
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+
+  # ---- 2026-07-26 タスク3: StatVocabulary登録済みだがlore.yml未登録だった29キーを追加登録 ----
+  # (機能はしていたがアイテムに一切表示されない状態だった。表示定義追加のみで挙動は変えない)
+  flat-bonus-damage:
+    # 最終ダメージへ加算される固定値。item-stats.ymlでの直接記述は廃止済みだが、パーク/base-stats/
+    # モブ攻撃・コーティング内部経路からは引き続き供給されうるためStatVocabulary登録は維持されている。
+    name: 追加ダメ(実)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 12
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+  flat-defense:
+    # phys-flat-defense/magic-flat-defenseに分岐する前の汎用守備力キー(レガシー統合経路、
+    # DefenseStatBridge/PlayerDefenseResolverの legacyFlat 処理で読まれる)。
+    name: 守備力(汎用)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 55
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  fish-sell-price-bonus:
+    name: 釣果売却額増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 140
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  disassembly-return-bonus:
+    name: 解体戻り量増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 141
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  ocean-fishing-bonus:
+    name: 海釣り加算
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 86
+    show-sign: true
+    hide-when-zero: true
+    category: gathering
+  ars-tier-bonus:
+    name: Ars Tier追加
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 78
+    show-sign: true
+    hide-when-zero: true
+    unit: ティア
+    category: ars
+  glyph-slot-bonus:
+    name: グリフ枠追加
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 79
+    show-sign: true
+    hide-when-zero: true
+    unit: 枠
+    category: ars
+  glyph-damage-multiplier-bonus:
+    # 特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat。
+    name: グリフダメ倍率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 80
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  # 2026-07-27: charged-shot-unlocked(チャージ射撃解放)を撤去。「解放フラグ」を名乗りながら、
+  # 解放対象の効果(貫通/初速/弓CT短縮/矢ノックバック)がいずれも自分自身のステの非0判定を
+  # 個別に持っており、フラグのOR条件にも同じステが並ぶ同語反復だった＝挙動に一切影響しない
+  # 死にキーだったため。弓の「チャージ時間」を縮めるバニラのレバーは 1.21.11 に存在しない
+  # (Attribute に draw 系が無く、引き絞りはクライアント側予測)。クロスボウの装填時間だけは
+  # QUICK_CHARGE エンチャントで縮められるので、必要になったらそちらで別途新設すること。
+  light-armor-move-speed-per-piece:
+    # 値は割合(0.0-1.0)ではなく「percent-like」な直値(NativeAttributeBridge側で内部×0.01される)。
+    # 例: 0.5 → 装備部位ごとに+0.5%移動速度。PERCENT(×100表示)にすると10倍の誤表示になるためFLAT+%単位。
+    name: 軽装部位速度
+    icon: ""
+    format: FLAT
+    decimals: 2
+    order: 56
+    show-sign: true
+    hide-when-zero: true
+    unit: "%"
+    category: defense
+  heavy-armor-move-speed-per-piece:
+    name: 重装部位速度
+    icon: ""
+    format: FLAT
+    decimals: 2
+    order: 57
+    show-sign: true
+    hide-when-zero: true
+    unit: "%"
+    category: defense
+  light-armor-set-bonus-multiplier:
+    # 軽装2部位以上のセット効果(light-armor-set-dodge-chance)を増幅するfraction倍率。
+    name: 軽装セット倍率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 58
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  heavy-armor-set-bonus-multiplier:
+    # 重装2部位以上のセット効果(heavy-armor-set-knockback-resistance)を増幅するfraction倍率。
+    name: 重装セット倍率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 59
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  light-armor-set-dodge-chance:
+    # 軽装2部位以上を着たときだけdodge-chanceへ加算される基礎値。
+    name: 軽装セット回避
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 267
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  heavy-armor-set-knockback-resistance:
+    # 重装2部位以上を着たときだけknockback-resistanceへ加算される基礎値。
+    name: 重装セットKB耐性
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 268
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+  enchant-luck:
+    # エンチャントテーブル使用時、確定したエンチャントのレベルを格上げ抽選する確率(luck1.0あたり)に
+    # 使うポイント(EnchantLuckListener消費)。loot-luck等と同じ整数ポイント蓄積でありPERCENTではない。
+    name: エンチャント運
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 214
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  enchant-exp-gain-bonus:
+    # エンチャント実行時に得るENCHANTINGスキルEXPを増減する(符号付き、%)。skill-exp-bonusと同じ
+    # utilityカテゴリ(EXP系はutilityへ集約する既存の分類ルールに合わせる)。
+    name: エンチャEXP増減
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 142
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+  potion-quality-bonus:
+    # 醸造したポーションの効果時間・強度(amplifier)へ換算されるポイント(alchemy-quality.yml消費)。
+    name: 醸造品質
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 215
+    show-sign: true
+    hide-when-zero: true
+    unit: pt
+    category: craft
+  brew-speed-bonus:
+    name: 醸造速度
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 216
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+  mana-max-base:
+    # base-stats.yml専用のマナ初期値キー(ArsPaper config.yml の mana.default-max 等の移設先)。
+    # アイテムには通常付与されない基礎値だが、StatVocabulary登録キーとしてlore表示定義も揃えておく。
+    name: マナ上限(基礎)
+    icon: ""
+    format: FLAT
+    decimals: 0
+    order: 81
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-regen-base:
+    name: マナ回復(基礎)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 82
+    show-sign: true
+    hide-when-zero: true
+    unit: /秒
+    category: ars
+  mana-regen-interval-ticks:
+    name: マナ回復間隔
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 83
+    show-sign: false
+    hide-when-zero: true
+    unit: tick
+    category: ars
+  mana-onhit-percent:
+    name: 命中マナ回復率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 84
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-onhit-flat:
+    name: 命中マナ回復(実)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 87
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-onattack-percent:
+    name: 攻撃マナ回復率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 88
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-onattack-flat:
+    name: 攻撃マナ回復(実)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 89
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-idle-seconds:
+    name: 待機マナ秒数
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 90
+    show-sign: false
+    hide-when-zero: true
+    unit: 秒
+    category: ars
+  mana-idle-bonus-percent:
+    name: 待機マナ回復率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 92
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+  mana-idle-bonus-flat:
+    name: 待機マナ回復(実)
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 93
+    show-sign: true
+    hide-when-zero: true
+    category: ars
+multiplier-layers: []

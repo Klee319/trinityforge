@@ -1,0 +1,838 @@
+==============================================================================
+alchemy
+  A            Lv10   main   grp=-         醸造の見習い
+        text: 品質+1・醸造速度UP
+        buffs: potion_quality_bonus=1, brew_speed_bonus=0.05
+  B            Lv30   main   grp=-         調合の職人
+        text: 品質+1・素材消費しない確率UP
+        buffs: potion_quality_bonus=1
+  C            Lv50   main   grp=-         コーティング術士
+        text: 武器コーティング解放・醸造速度UP・司祭解放
+        buffs: brew_speed_bonus=0.05
+        feat : "feature:weapon-coating-unlock", "trade:CLERIC", "feature:coating-stack-increase"
+  D            Lv70   main   grp=-         統合の錬金術師
+        text: 品質+1・複数ポーションの統合を可能に・素材を消費しない確率UP(醸造台+アルケミカル)
+        buffs: ingredient_save_chance=0.15, potion_quality_bonus=1
+        feat : "feature:potion-merge"
+  E            Lv90   main   grp=-         変換の大錬金術師
+        text: 交換・色変換のグリフ解放・武器コーティングのスタック数増加・品質+2
+        buffs: potion_quality_bonus=2
+        feat : "glyph:exchange", "feature:coating-stack-increase"
+  C-1-upper    Lv40   branch grp=-         俊敏・跳躍の調合
+        text: 俊敏・跳躍魔法開放・醸造速度UP
+        buffs: brew_speed_bonus=0.05
+        feat : "brew:swiftness-jump"
+  C-2-upper    Lv60   branch grp=-         体力増強の調合
+        text: 体力増強と採掘速度上昇のポーションが利用可能に・泡
+        feat : "brew:healthboost-haste"
+  E-1-1        Lv80   branch grp=-         回復・体力増強の調合
+        text: 回復・体力増強魔法開放・バフの品質UP
+        feat : "glyph:heal", "glyph:journey"
+  C-1-lower    Lv40   branch grp=-         注入の術
+        text: 注入のグリフ開放・デバフの品質UP
+        feat : "glyph:infuse"
+  C-2-lower    Lv60   branch grp=-         衰弱の術
+        text: 衰弱のグリフ開放・醸造速度UP
+        buffs: brew_speed_bonus=0.05
+        feat : "glyph:wither"
+  E-2-1        Lv80   branch grp=-         呪詛の術
+        text: 呪詛開放
+        feat : "glyph:hex"
+  B-alpha-1    Lv30   greek  grp=B-greek   節約の調合I
+        text: 素材を消費しない確率UP
+  B-alpha-2    Lv50   greek  grp=B-greek   節約の調合II
+        text: 品質+1・醸造速度アップ
+        buffs: potion_quality_bonus=1, brew_speed_bonus=0.05
+  B-beta-1     Lv30   greek  grp=B-greek   残留の調合I
+        text: 残留時間UP・スプラッシュ強度UP
+        buffs: potion_quality_bonus=1
+  B-beta-2     Lv50   greek  grp=B-greek   残留の調合II
+        text: 品質+1・武器コーティングのスタック数増加
+        buffs: potion_quality_bonus=1
+        feat : "feature:coating-stack-increase"
+==============================================================================
+archery
+  A            Lv10   main   grp=-         弓引きの心得
+        text: ダメージ増加・射撃精度アップ
+        buffs: attack-power=0.1, bow_accuracy=0.05
+  B            Lv30   main   grp=-         追尾の射手
+        text: 射撃距離ボーナス・一定確率でホーミング
+        buffs: distance_damage_bonus=0.1, arrow_piercing=1
+  C            Lv50   main   grp=-         速射の型
+        text: 射撃精度アップ(バニラと同等)・射撃速度アップ
+        buffs: bow_accuracy=0.1, arrow_velocity=0.1
+  D            Lv70   main   grp=-         剛弓の境地
+        text: チャージ速度短縮・ダメージ増加
+        buffs: attack-power=0.1, bow_cooldown_reduction=0.1
+  E            Lv90   main   grp=-         極意・貫空
+        text: 2弾チャージで確定ホーミング・節約率増加
+        buffs: arrow_piercing=2, ammo_save_chance=0.1, charged-shot-unlocked=1
+  C-1-1        Lv50   branch grp=-         弾き矢
+        text: ノックバック距離増加
+        buffs: arrow_knockback=0.3
+  C-1-2        Lv70   branch grp=-         大弾き矢
+        text: ノックバック距離増加
+        buffs: arrow_knockback=0.3
+  D-1-1        Lv70   branch grp=-         貫通の矢
+        text: 矢の貫通レベル増加・節約率増加
+        buffs: arrow_piercing=1, ammo_save_chance=0.05
+  D-1-2        Lv90   branch grp=-         剛貫の矢
+        text: 矢の貫通レベル増加・節約率増加
+        buffs: arrow_piercing=1, ammo_save_chance=0.05
+  A-alpha-1    Lv10   greek  grp=A-greek   剛・弓引
+        text: ダメージ増加
+  A-beta-1     Lv10   greek  grp=A-greek   疾・弓引
+        text: 会心率増加
+  A-gamma-1    Lv10   greek  grp=A-greek   冴・弓引
+        text: 会心ダメージ増加
+  B-alpha-1    Lv30   greek  grp=B-greek   剛・追尾
+        text: ダメージ増加
+  B-beta-1     Lv30   greek  grp=B-greek   疾・追尾
+        text: 会心率増加
+  B-gamma-1    Lv30   greek  grp=B-greek   冴・追尾
+        text: 会心ダメージ増加
+  C-alpha-1    Lv50   greek  grp=C-greek   剛・速射
+        text: ダメージ増加
+  C-beta-1     Lv50   greek  grp=C-greek   疾・速射
+        text: 会心率増加
+  C-gamma-1    Lv50   greek  grp=C-greek   冴・速射
+        text: 会心ダメージ増加
+  D-alpha-1    Lv70   greek  grp=D-greek   剛・剛弓
+        text: ダメージ増加
+  D-beta-1     Lv70   greek  grp=D-greek   疾・剛弓
+        text: 会心率増加
+  D-gamma-1    Lv70   greek  grp=D-greek   冴・剛弓
+        text: 会心ダメージ増加
+  E-alpha-1    Lv90   greek  grp=E-greek   剛・貫空
+        text: ダメージ増加
+  E-beta-1     Lv90   greek  grp=E-greek   疾・貫空
+        text: 会心率増加
+  E-gamma-1    Lv90   greek  grp=E-greek   冴・貫空
+        text: 会心ダメージ増加
+==============================================================================
+ars_magic
+  A            Lv10   main   grp=-         魔法の探求者
+        text: マナ最大値+50・発動時バニラ経験値を少量獲得・利用可能なTierが+1
+        buffs: mana_bonus=50, ars-tier-bonus=1
+        feat : "ars-tier"
+  B            Lv30   main   grp=-         マナの操り手
+        text: マナ回復量+10%・グリフの配置数+1
+        buffs: mana_regen=0.1, glyph-slot-bonus=1
+  C            Lv50   main   grp=-         魔導の熟達者
+        text: マナ回復量+10%・マナ最大値+50
+        buffs: mana_regen=0.1, mana_bonus=50
+  D            Lv70   main   grp=-         秘術の使い手
+        text: グリフの配置数+1・発動時バニラ経験値を獲得
+        buffs: glyph-slot-bonus=1
+  E            Lv90   main   grp=-         大魔導師
+        text: 利用可能なTierが+1・グリフの配置数+1
+        buffs: ars-tier-bonus=1, glyph-slot-bonus=1
+        feat : "ars-tier"
+  A-1-1        Lv20   branch grp=-         騎馬召喚
+        text: 騎馬召喚グリフ解放
+        feat : "glyph:summon_steed"
+  A-1-2        Lv20   branch grp=-         滑空・疾風
+        text: 滑空・疾風グリフ解放
+        feat : "glyph:glide"
+  A-1-3        Lv40   branch grp=-         指向
+        text: 指向グリフ解放
+        feat : "glyph:speed_boost"
+  A-1-4        Lv60   branch grp=-         瞬間移動
+        text: 瞬間移動グリフ解放
+        feat : "glyph:blink"
+  A-2-1        Lv20   branch grp=-         仮想ブロック・設置
+        text: 仮想ブロック・設置グリフ解放
+        feat : "glyph:phantom_block", "glyph:place_block"
+  A-2-2        Lv20   branch grp=-         スケール
+        text: スケール解放
+        feat : "glyph:scale"
+  C-1-1        Lv40   branch grp=-         残留・伝播
+        text: 残留・伝播グリフ解放
+        feat : "glyph:linger", "glyph:propagate"
+  C-2-1        Lv60   branch grp=-         炸裂
+        text: 炸裂グリフ解放
+        feat : "glyph:burst"
+  E-1          Lv80   branch grp=-         超増強・照射
+        text: 超増強系グリフ解放・照射グリフ解放
+        feat : "glyph:beam", "glyph:super_amplify", "glyph:super_dampen", "glyph:super_accelerate", "glyph:super_decelerate", "glyph:super_split", "glyph:super_pierce", "glyph:super_aoe_radius", "glyph:super_extend_reach", "glyph:super_propagate", "glyph:super_extend_time", "glyph:super_duration_down", "glyph:super_fortune", "glyph:super_shrink_reach", "glyph:super_linger", "glyph:super_delay"
+  B-1-1        Lv40   branch grp=-         焦熱
+        text: 焦熱解放
+  B-1-2        Lv40   branch grp=-         雷撃
+        text: 雷撃解放
+  B-2-1        Lv40   branch grp=-         凍裂
+        text: 凍裂解放
+  B-2-2        Lv40   branch grp=-         拘束
+        text: 拘束解放
+  B-3          Lv60   branch grp=-         害悪強化
+        text: 害悪が強力に(ダメージ+30%)
+        buffs: glyph_damage_multiplier_bonus=0.3
+  B-3-1        Lv40   branch grp=-         烈風
+        text: 烈風解放
+  B-3-2        Lv40   branch grp=-         引寄
+        text: 引寄解放
+  C-4-1        Lv40   branch grp=-         狼召喚・生命化
+        text: 狼召喚・生命化解放
+  C-4-2        Lv60   branch grp=-         不死召喚
+        text: 不死召喚解放
+  C-4-3        Lv80   branch grp=-         囮・妖精召喚
+        text: 囮解放・妖精召喚開放
+==============================================================================
+ars_smithing
+  A            Lv10   main   grp=-         ソース細工の見習い
+        text: ソースジェム一括クラフト開放
+        feat : "recipe:source_gem_block"
+  B            Lv30   main   grp=-         魔法鍛冶の職人
+        text: 品質+1
+        buffs: workbench_quality_bonus=1
+  C            Lv50   main   grp=-         返却の魔法鍛冶
+        text: 品質+1・一定確率で素材返却
+        buffs: workbench_quality_bonus=1, material_refund_chance=0.15
+  D            Lv70   main   grp=-         スレッド織りの匠
+        text: 品質+1・クラフトスレッド開放
+        buffs: workbench_quality_bonus=1
+  E            Lv90   main   grp=-         儀式鍛冶の大匠
+        text: 作業台品質+1・儀式品質+1
+        buffs: workbench_quality_bonus=1, ritual_quality_bonus=1
+  A-1          Lv20   branch grp=-         ソース節約
+        text: ソース消費量減少
+        buffs: source_cost_reduction=0.10
+  A-2          Lv20   branch grp=-         ソースベリー活用
+        text: ソースベリーのマナ回復量UP・自動でマナの代わりに消費
+        feat : "feature:source-auto-consume"
+  A-3          Lv40   branch grp=-         上位ソースジャー・ソースリンク
+        text: 上位ソースジャー・ソースリンク(ヴォルカニック)解放
+        feat : "recipe:volcanic_sourcelink"
+  D-1          Lv60   branch grp=-         Waystoneクラフト
+        text: Waystoneクラフト可能・テレポートコンパスクラフト可能
+        feat : "ritual:waystone", "ritual:teleport_compass"
+  B-1-1        Lv40   branch grp=-         エンチャントI
+        text: エンチャントIクラフト可能
+        feat : "recipe:enchant_book_mana_regen_1", "recipe:enchant_book_mana_boost_1"
+  B-1-2        Lv40   branch grp=-         エンチャントII・回生
+        text: エンチャントIIクラフト可能・回生クラフト可能
+        feat : "recipe:enchant_book_mana_regen_2", "recipe:enchant_book_mana_boost_2", "recipe:enchant_book_soulbound"
+  B-1-4        Lv80   branch grp=-         エンチャントIII・共有
+        text: エンチャントIIIクラフト可能・共有クラフト可能
+        feat : "recipe:enchant_book_mana_regen_3", "recipe:enchant_book_mana_boost_3", "recipe:enchant_book_share"
+  B-2-1        Lv40   branch grp=-         友好モブ召喚儀式
+        text: 友好モブ(一般)召喚儀式の解放
+        feat : "ritual:animal_summon"
+  B-2-2        Lv40   branch grp=-         ネザーモブ召喚・天候儀式
+        text: ネザーモブ(一般)召喚儀式の解放・天候儀式の解放
+        feat : "ritual:mob_summon_nether", "ritual:weather_clear", "ritual:weather_rain", "ritual:weather_thunder"
+  B-2-3        Lv60   branch grp=-         修繕・飛行の儀式
+        text: 修繕・飛行の儀式解放
+        feat : "ritual:repair", "ritual:flight"
+  C-alpha-1    Lv50   greek  grp=C-greek   品質強化I
+        text: 品質+1
+        buffs: workbench_quality_bonus=1
+  C-alpha-2    Lv70   greek  grp=C-greek   品質強化II
+        text: 品質+2
+        buffs: workbench_quality_bonus=2
+  C-beta-1     Lv50   greek  grp=C-greek   儀式精度I
+        text: 儀式品質+1
+        buffs: ritual_quality_bonus=1
+  C-beta-2     Lv70   greek  grp=C-greek   儀式精度II
+        text: 儀式品質+1
+        buffs: ritual_quality_bonus=1
+  C-gamma-1    Lv60   branch grp=-         幸運の魔法鍛冶
+        text: クラフト品質の上振れ率UP
+        buffs: craft_upswing_bonus=0.5
+==============================================================================
+digging
+  A            Lv10   main   grp=-         はじまりの土木作業員
+        text: 破壊で少量のバニラEXP
+        feat : feature:break-vanilla-exp
+  B            Lv30   main   grp=-         道路工事の土木工
+        text: ガチャ券1を入手
+        feat : drop:mining:gacha_tier1
+  C            Lv50   main   grp=-         土木事務所の管理者
+        text: 破壊で少量の追加バニラEXP
+  D            Lv70   main   grp=-         国土交通省の官僚
+        text: 粉砕・自動回収グリフ解放・ガチャ券2を低確率で入手
+        feat : glyph:crush, drop:mining:gacha_tier2
+  E            Lv90   main   grp=-         国土交通大臣
+        text: 遺跡のスレッドがまれにドロップ・ガチャ券の確率がアップ
+        buffs: gacha_rate_bonus=10
+        feat : drop:digging:ruins_thread
+  A-1          Lv20   branch grp=-         高速破壊I
+        text: スキル発動で 8s/30sCDの高速破壊(採掘速度上昇III)
+        feat : feature:haste-active-mining
+  A-2          Lv40   branch grp=-         高速破壊II
+        text: スキル発動で 10s/24sCDの高速破壊(採掘速度上昇IV)
+        buffs: haste-active-mining-cooldown-reduction=0.2
+        feat : feature:haste-active-mining
+  A-3          Lv40   branch grp=-         切削速度上昇I
+        text: メインにシャベルを持つと採掘速度上昇+1
+        buffs: attack-power=0
+  B-1          Lv40   branch grp=-         考古学者I
+        text: 怪しいブロックが25%で復活・古代のがれきが一定確率で入手可能
+        buffs: suspicious_respawn_chance=25
+        feat : drop:mining:ancient_debris
+  B-2          Lv60   branch grp=-         考古学者II
+        text: 怪しいブロックが50%で復活・ガチャ券3を低確率で入手
+        buffs: suspicious_respawn_chance=50
+        feat : drop:mining:gacha_tier3
+  C-1          Lv60   branch grp=-         縁の下の力持ちI
+        text: 消費したシャベルの耐久値の総量に応じてバニラ経験値の取得量がアップ 最大50%
+        feat : "feature:digging-durability-vanilla-exp"
+  C-2          Lv80   branch grp=-         縁の下の力持ちII
+        text: 消費したシャベルの耐久値の総量に応じて職業経験値の取得量がアップ 最大25%
+        feat : "feature:digging-durability-job-exp"
+==============================================================================
+enchanting
+  A            Lv10   main   grp=-         はじまりのエンチャンター
+        text: エンチャントポイント+10・エンチャントEXPの減少
+        buffs: enchant_luck=10, enchant_exp_gain_bonus=-0.05
+  B            Lv30   main   grp=-         エンチャントの使い手
+        text: ラピスラズリの消費量減少・エンチャントポイント+20
+        buffs: lapis-cost-reduction=1
+  C            Lv50   main   grp=-         エンチャントの達人
+        text: エンチャントEXPの追加減少・エンチャントポイント+30
+        buffs: enchant_luck=30, enchant_exp_gain_bonus=-0.05
+  D            Lv70   main   grp=-         カリスマエンチャンター
+        text: 幸運・シルクタッチのグリフ解放・エンチャントポイント+40
+        buffs: loot_luck=1
+        feat : glyph:fortune, glyph:extract
+  E            Lv90   main   grp=-         エンチャントの伝道師
+        text: エンチャントポイント+50・司書取引の解放
+        feat : trade:LIBRARIAN
+  C-1          Lv40   branch grp=-         オーバーエンチャントI
+        text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系
+        feat : overenchant:lv1
+  C-2          Lv60   branch grp=-         オーバーエンチャントII
+        text: 以下のいずれかのレベルを+2(幸運は+1)：- ドロップ増加 - 耐久力 - 幸運
+        feat : overenchant:lv2
+  C-3          Lv80   branch grp=-         オーバーエンチャントIII
+        text: 以下のいずれかのレベルを+1：- ダメージ増加系 - ダメージ軽減系 - 補助系(ドロップ増加、耐久力、幸運)
+        feat : overenchant:lv3
+  B-1          Lv40   branch grp=-         EXPジェネレーター
+        text: 全バニラEXP入手量+5%・全スキルEXP入手量+5%
+        buffs: skill-exp-bonus=0.05
+  B-2          Lv40   branch grp=-         EXPクリエイター
+        text: 全バニラEXP入手量+10%・全スキルEXP入手量+10%
+        buffs: skill-exp-bonus=0.1
+  B-3          Lv60   branch grp=-         EXPフリーザー
+        text: 自身の経験値を経験値瓶に保存可能
+        feat : feature:xp-bottle-store-unlock
+  A-alpha-1    Lv10   greek  grp=A-greek   増幅の理I
+        text: エンチャントポイント+30・エンチャントEXPの増加
+        buffs: enchant_luck=30, enchant_exp_gain_bonus=0.1
+  A-alpha-2    Lv30   greek  grp=A-greek   増幅の理II
+        text: エンチャントポイント+30・エンチャントEXPの増加
+        buffs: enchant_luck=30, enchant_exp_gain_bonus=0.1
+  A-beta-1     Lv10   greek  grp=A-greek   抑制の理I
+        text: エンチャントポイント+10・エンチャントEXPの減少
+        buffs: enchant_luck=10, enchant_exp_gain_bonus=-0.05
+  A-beta-2     Lv30   greek  grp=A-greek   抑制の理II
+        text: エンチャントポイント+10・エンチャントEXPの減少
+        buffs: enchant_luck=10, enchant_exp_gain_bonus=-0.05
+==============================================================================
+farming
+  A            Lv10   main   grp=-         はじまりの百姓
+        text: うえ直しと収穫が同時に可能・バニラEXPを収穫時に獲得
+        feat : feature:auto-replant
+  B            Lv30   main   grp=-         家庭菜園の素人
+        text: 作物の成長速度UP・ご飯の圧縮を可能に・満腹時に食べた量に応じた品質と時間でバフ
+        feat : recipe:compressed_bread_1x, recipe:compressed_cooked_beef_1x, feature:satiety-buff
+  C            Lv50   main   grp=-         近所の農家
+        text: 収穫量UP・バニラEXPを追加で獲得
+  D            Lv70   main   grp=-         村の豪農
+        text: 範囲収穫・バニラEXPを追加で獲得
+        feat : feature:area-harvest
+  E            Lv90   main   grp=-         大地主
+        text: 収穫・促進グリフ解放・ベジタブルコア解放・ミートコア解放(A-4解放済みの場合)
+        feat : glyph:harvest, recipe:tf_core_vegetable, recipe:tf_core_meat
+  A-1          Lv20   branch grp=-         鶏小屋の世話係
+        text: 繁殖時低確率で2倍
+  A-2          Lv40   branch grp=-         牧場の運営者
+        text: 動物の成長速度UP・繁殖時バニラEXPを獲得
+  A-3          Lv40   branch grp=-         養蜂の達人
+        text: ハチが攻撃してこなくなる・解呪のグリフ解放・ハニカム/ハチミツが確率で増える
+        buffs: hive_harvest_fortune=20
+        feat : glyph:dispel, feature:bee-no-aggro
+  A-4          Lv60   branch grp=-         屠殺場の管理人
+        text: 屠殺時ドロップ量アップ・動物への与ダメ4倍・バニラEXPを追加で獲得
+        feat : feature:animal-damage-4x
+  A-alpha-1    Lv10   greek  grp=A-greek   ゴミ食I
+        text: ゴミのデバフを受けない・ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量DOWN
+        feat : feature:junkfood-immunity, feature:junkfood-inversion
+  A-alpha-2    Lv30   greek  grp=A-greek   ゴミ食II
+        text: ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量を戻す
+        feat : "feature:junk-food-restore-boost"
+  A-beta-2     Lv30   greek  grp=A-greek   健康食I
+        text: 満腹度回復量UP
+  A-beta-3     Lv50   greek  grp=A-greek   健康食II
+        text: 満腹度回復量UP・ご飯を一定確率で消費しない
+        buffs: food-save-chance=0.1
+  A-alphabeta-3 Lv100  greek  grp=-         完全食
+        text: 満腹グリフ解放・隠し満腹度回復量UP・前提: 農業100&どちらかのMAX・金リンゴ生活の解放
+        feat : glyph:saturation
+==============================================================================
+fishing
+  A            Lv10   main   grp=-         駆け出しの釣り人
+        text: 同時ヒット確率アップ・得られる経験値量アップ
+  B            Lv30   main   grp=-         宝釣りの心得
+        text: 宝確率アップ・運+1・吸水・水源のグリフ開放
+        buffs: loot_luck=1
+        feat : "glyph:evaporate"
+  C            Lv50   main   grp=-         熟練の釣り師
+        text: 同時ヒット確率アップ・得られる経験値量アップ
+  D            Lv70   main   grp=-         財宝ハンター
+        text: 宝確率アップ・回収グリフ解放
+        feat : "glyph:pickup"
+  E            Lv90   main   grp=-         大海の釣り王
+        text: 宝と同時ヒットの確率アップ・海洋のスレッドがまれに釣れる
+        feat : "drop:fishing:ocean_thread"
+  C-1          Lv60   branch grp=-         海釣りの心得I
+        text: 海で釣ると同時ヒット確率アップ
+        buffs: ocean_fishing_bonus=0.05
+  C-2          Lv80   branch grp=-         海釣りの心得II
+        text: 海で釣ると同時ヒット確率アップ
+        buffs: ocean_fishing_bonus=0.05
+  B-alpha-1    Lv40   greek  grp=B-greek   スクラップ経済I
+        text: 宝が釣れなくなりゴミがつれるが魚が売れるようになる（宝の確率でゴミが釣れる）
+        feat : "feature:fish-sell-toggle"
+  B-alpha-2    Lv40   greek  grp=B-greek   スクラップ経済II
+        text: 同時ヒット確率アップ・ゴミをスクラップにできる・スクラップは素材に変換可能
+        feat : "feature:junk-to-scrap"
+  B-alpha-3    Lv60   greek  grp=B-greek   スクラップ経済III
+        text: スクラップの変換効率と魚の売却価格がアップ
+        buffs: disassembly_return_bonus=0.2, fish_sell_price_bonus=0.2
+  B-beta-1     Lv40   greek  grp=B-greek   ガチャ運I
+        text: ガチャ券4が釣れる
+        feat : "drop:fishing:item:tf_gacha_ticket_4"
+  B-beta-2     Lv40   greek  grp=B-greek   宝運上昇
+        text: 宝確率アップ・釣り竿の品質に応じてさらに確率アップ
+  B-beta-3     Lv60   greek  grp=B-greek   ガチャ運II
+        text: ガチャ券5が釣れる
+        feat : "drop:fishing:item:tf_gacha_ticket_5"
+==============================================================================
+heavy_armor
+  A            Lv10   main   grp=-         重身の心得
+        text: 移動速度ペナルティ減少・空腹になりにくくなる
+        buffs: heavy-armor-move-speed-per-piece=0.5
+  B            Lv30   main   grp=-         鉄壁の装
+        text: セット効果量UP・2部位でセットが成立
+        buffs: heavy-armor-set-bonus-multiplier=0.1
+  C            Lv50   main   grp=-         剛守の型
+        text: ノックバック耐性アップ・守備力増加・憤怒発動可能
+        buffs: phys-flat-defense=0.1, magic-flat-defense=0.1, heavy-armor-set-knockback-resistance=0.1
+  D            Lv70   main   grp=-         堅牢の境地
+        text: 防御率・物理耐性UP・2部位でセットが成立
+        buffs: armor-defense-rate=0.1, phys-resistance=0.1
+  E            Lv90   main   grp=-         極意・金剛
+        text: 被ダメージ軽減上昇・憤怒発動時バフ強化
+        buffs: damage-reduction=0.1
+  C-1-1        Lv50   branch grp=-         魔除けの鎧
+        text: 魔法耐性増加
+        buffs: magic-resistance=0.1
+  C-1-2        Lv70   branch grp=-         退魔の鎧
+        text: 魔法耐性増加
+        buffs: magic-resistance=0.1
+  D-1-1        Lv70   branch grp=-         重心の構え
+        text: ノックバック耐性増加
+        buffs: heavy-armor-set-knockback-resistance=0.1
+  D-1-2        Lv90   branch grp=-         不抜の構え
+        text: ノックバック耐性増加
+        buffs: heavy-armor-set-knockback-resistance=0.1
+  A-alpha-1    Lv10   greek  grp=A-greek   堅・重身
+        text: 守備力増加
+  A-beta-1     Lv10   greek  grp=A-greek   盾・重身
+        text: 防御率増加
+  A-gamma-1    Lv10   greek  grp=A-greek   減・重身
+        text: 被ダメージ軽減増加
+  B-alpha-1    Lv30   greek  grp=B-greek   堅・鉄壁
+        text: 守備力増加
+  B-beta-1     Lv30   greek  grp=B-greek   盾・鉄壁
+        text: 防御率増加
+  B-gamma-1    Lv30   greek  grp=B-greek   減・鉄壁
+        text: 被ダメージ軽減増加
+  C-alpha-1    Lv50   greek  grp=C-greek   堅・剛守
+        text: 守備力増加
+  C-beta-1     Lv50   greek  grp=C-greek   盾・剛守
+        text: 防御率増加
+  C-gamma-1    Lv50   greek  grp=C-greek   減・剛守
+        text: 被ダメージ軽減増加
+  D-alpha-1    Lv70   greek  grp=D-greek   堅・堅牢
+        text: 守備力増加
+  D-beta-1     Lv70   greek  grp=D-greek   盾・堅牢
+        text: 防御率増加
+  D-gamma-1    Lv70   greek  grp=D-greek   減・堅牢
+        text: 被ダメージ軽減増加
+  E-alpha-1    Lv90   greek  grp=E-greek   堅・金剛
+        text: 守備力増加
+  E-beta-1     Lv90   greek  grp=E-greek   盾・金剛
+        text: 防御率増加
+  E-gamma-1    Lv90   greek  grp=E-greek   減・金剛
+        text: 被ダメージ軽減増加
+==============================================================================
+heavy_weapons
+  A            Lv10   main   grp=-         剛撃の心得
+        text: ダメージ増加・チャージアタックで一定確率でスタン
+        buffs: attack-power=0.1, stun_chance=0.1
+  B            Lv30   main   grp=-         貫きの一撃
+        text: 攻撃速度・貫通率増加
+        buffs: penetration=0.1
+  C            Lv50   main   grp=-         破砕の型
+        text: スタン確率UP・固定ダメージ増加
+        buffs: fixed-damage=2.0, stun_chance=0.1
+  D            Lv70   main   grp=-         連打の境地
+        text: 攻撃速度・スタン時間増加
+        buffs: stun_chance=0.05, attack-reach=0.25
+  E            Lv90   main   grp=-         極意・粉砕
+        text: スタン確率アップ・チャージアタックのダメージ増加
+        buffs: stun_chance=0.1, power_attack_damage=0.1
+  C-1-1        Lv50   branch grp=-         打ち崩し
+        text: ノックバック距離増加
+        buffs: melee_knockback=0.3
+  C-1-2        Lv70   branch grp=-         大打ち崩し
+        text: ノックバック距離増加
+        buffs: melee_knockback=0.3
+  D-1-1        Lv70   branch grp=-         薙ぎ払い
+        text: 攻撃範囲増加
+        buffs: power_attack_radius=1, attack-reach=0.5
+  D-1-2        Lv90   branch grp=-         大薙ぎ
+        text: 攻撃範囲増加
+        buffs: power_attack_radius=1, attack-reach=0.5
+  A-alpha-1    Lv10   greek  grp=A-greek   豪・剛撃
+        text: ダメージ増加
+  A-beta-1     Lv10   greek  grp=A-greek   穿・剛撃
+        text: 貫通率増加
+  A-gamma-1    Lv10   greek  grp=A-greek   芯・剛撃
+        text: 固定ダメージ増加
+  B-alpha-1    Lv30   greek  grp=B-greek   豪・貫き
+        text: ダメージ増加
+  B-beta-1     Lv30   greek  grp=B-greek   穿・貫き
+        text: 貫通率増加
+  B-gamma-1    Lv30   greek  grp=B-greek   芯・貫き
+        text: 固定ダメージ増加
+  C-alpha-1    Lv50   greek  grp=C-greek   豪・破砕
+        text: ダメージ増加
+  C-beta-1     Lv50   greek  grp=C-greek   穿・破砕
+        text: 貫通率増加
+  C-gamma-1    Lv50   greek  grp=C-greek   芯・破砕
+        text: 固定ダメージ増加
+  D-alpha-1    Lv70   greek  grp=D-greek   豪・連打
+        text: ダメージ増加
+  D-beta-1     Lv70   greek  grp=D-greek   穿・連打
+        text: 貫通率増加
+  D-gamma-1    Lv70   greek  grp=D-greek   芯・連打
+        text: 固定ダメージ増加
+  E-alpha-1    Lv90   greek  grp=E-greek   豪・粉砕
+        text: ダメージ増加
+  E-beta-1     Lv90   greek  grp=E-greek   穿・粉砕
+        text: 貫通率増加
+  E-gamma-1    Lv90   greek  grp=E-greek   芯・粉砕
+        text: 固定ダメージ増加
+==============================================================================
+light_armor
+  A            Lv10   main   grp=-         軽身の心得
+        text: 移動速度ペナルティ減少・空腹になりにくくなる
+        buffs: light-armor-move-speed-per-piece=0.5
+  B            Lv30   main   grp=-         連携の装
+        text: セット効果量UP・2部位でセットが成立
+        buffs: light-armor-set-bonus-multiplier=0.1
+  C            Lv50   main   grp=-         回避の型
+        text: 回避率アップ・守備力増加・アドレナリン発動可能・2部位で回避率セットボーナス成立
+        buffs: dodge-chance=0.1, phys-flat-defense=0.1, magic-flat-defense=0.1, light-armor-set-dodge-chance=0.1
+  D            Lv70   main   grp=-         堅守の境地
+        text: 防御率・物理耐性UP・2部位でセットが成立
+        buffs: armor-defense-rate=0.1, phys-resistance=0.1
+  E            Lv90   main   grp=-         極意・不動
+        text: 被ダメージ軽減上昇・アドレナリン発動時バフ強化
+        buffs: damage-reduction=0.1
+  C-1-1        Lv50   branch grp=-         魔除けの布
+        text: 魔法耐性増加
+        buffs: magic-resistance=0.1
+  C-1-2        Lv70   branch grp=-         退魔の布
+        text: 魔法耐性増加
+        buffs: magic-resistance=0.1
+  D-1-1        Lv70   branch grp=-         見切りの足捌き
+        text: 回避率増加・回避率セットボーナス強化
+        buffs: dodge-chance=0.05, light-armor-set-dodge-chance=0.05
+  D-1-2        Lv90   branch grp=-         神速の足捌き
+        text: 回避率増加・回避率セットボーナス強化
+        buffs: dodge-chance=0.05, light-armor-set-dodge-chance=0.05
+  A-alpha-1    Lv10   greek  grp=A-greek   堅・軽身
+        text: 守備力増加
+  A-beta-1     Lv10   greek  grp=A-greek   盾・軽身
+        text: 防御率増加
+  A-gamma-1    Lv10   greek  grp=A-greek   減・軽身
+        text: 被ダメージ軽減増加
+  B-alpha-1    Lv30   greek  grp=B-greek   堅・連携
+        text: 守備力増加
+  B-beta-1     Lv30   greek  grp=B-greek   盾・連携
+        text: 防御率増加
+  B-gamma-1    Lv30   greek  grp=B-greek   減・連携
+        text: 被ダメージ軽減増加
+  C-alpha-1    Lv50   greek  grp=C-greek   堅・回避
+        text: 守備力増加
+  C-beta-1     Lv50   greek  grp=C-greek   盾・回避
+        text: 防御率増加
+  C-gamma-1    Lv50   greek  grp=C-greek   減・回避
+        text: 被ダメージ軽減増加
+  D-alpha-1    Lv70   greek  grp=D-greek   堅・堅守
+        text: 守備力増加
+  D-beta-1     Lv70   greek  grp=D-greek   盾・堅守
+        text: 防御率増加
+  D-gamma-1    Lv70   greek  grp=D-greek   減・堅守
+        text: 被ダメージ軽減増加
+  E-alpha-1    Lv90   greek  grp=E-greek   堅・不動
+        text: 守備力増加
+  E-beta-1     Lv90   greek  grp=E-greek   盾・不動
+        text: 防御率増加
+  E-gamma-1    Lv90   greek  grp=E-greek   減・不動
+        text: 被ダメージ軽減増加
+==============================================================================
+light_weapons
+  A            Lv10   main   grp=-         鋭刃の心得
+        text: ダメージ増加・一定確率で出血付与
+        buffs: attack-power=0.1, bleed-chance=0.1
+  B            Lv30   main   grp=-         疾風の太刀
+        text: 攻撃速度・会心率増加
+        buffs: crit-chance=0.1
+  C            Lv50   main   grp=-         受け流しの型
+        text: 被ダメージ軽減・会心ダメージ増加・出血確率UP
+        buffs: crit-damage=0.3, bleed-chance=0.05, damage-reduction=0.05
+  D            Lv70   main   grp=-         連斬の境地
+        text: 攻撃速度・出血量増加
+        buffs: bleed-damage=2.0
+  E            Lv90   main   grp=-         極意・飛燕
+        text: クリティカル(ジャンプ斬り)で確定出血付与・被ダメージ軽減
+        buffs: bleed-damage=2.0, damage-reduction=0.03
+  C-1-1        Lv50   branch grp=-         打ち払い
+        text: ノックバック距離増加
+        buffs: melee_knockback=0.3
+  C-1-2        Lv70   branch grp=-         大打ち払い
+        text: ノックバック距離増加
+        buffs: melee_knockback=0.3
+  D-1-1        Lv70   branch grp=-         間合いの拡張
+        text: 攻撃距離増加
+        buffs: attack_reach=1
+  D-1-2        Lv90   branch grp=-         遠間の理
+        text: 攻撃距離増加
+        buffs: attack_reach=1
+  A-alpha-1    Lv10   greek  grp=A-greek   剛・鋭刃
+        text: ダメージ増加
+  A-beta-1     Lv10   greek  grp=A-greek   疾・鋭刃
+        text: 会心率増加
+  A-gamma-1    Lv10   greek  grp=A-greek   冴・鋭刃
+        text: 会心ダメージ増加
+  B-alpha-1    Lv30   greek  grp=B-greek   剛・疾風
+        text: ダメージ増加
+  B-beta-1     Lv30   greek  grp=B-greek   疾・疾風
+        text: 会心率増加
+  B-gamma-1    Lv30   greek  grp=B-greek   冴・疾風
+        text: 会心ダメージ増加
+  C-alpha-1    Lv50   greek  grp=C-greek   剛・受け流し
+        text: ダメージ増加
+  C-beta-1     Lv50   greek  grp=C-greek   疾・受け流し
+        text: 会心率増加
+  C-gamma-1    Lv50   greek  grp=C-greek   冴・受け流し
+        text: 会心ダメージ増加
+  D-alpha-1    Lv70   greek  grp=D-greek   剛・連斬
+        text: ダメージ増加
+  D-beta-1     Lv70   greek  grp=D-greek   疾・連斬
+        text: 会心率増加
+  D-gamma-1    Lv70   greek  grp=D-greek   冴・連斬
+        text: 会心ダメージ増加
+  E-alpha-1    Lv90   greek  grp=E-greek   剛・飛燕
+        text: ダメージ増加
+  E-beta-1     Lv90   greek  grp=E-greek   疾・飛燕
+        text: 会心率増加
+  E-gamma-1    Lv90   greek  grp=E-greek   冴・飛燕
+        text: 会心ダメージ増加
+==============================================================================
+mining
+  A            Lv10   main   grp=-         はじまりの鉱夫
+        feat : feature:break-vanilla-exp
+  B            Lv30   main   grp=-         洞窟の導き手
+        text: 光源グリフ解放
+        feat : glyph:light
+  C            Lv50   main   grp=-         鉱山の仕事人
+        text: 破壊で2倍のバニラEXP
+  D            Lv70   main   grp=-         露天掘りの匠
+        text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に
+        feat : glyph:break, feature:spawner-silktouch-harvest
+  E            Lv90   main   grp=-         至高の採掘王
+        text: 採掘グリフ解放・ジュエリーコアのクラフト解放
+        feat : glyph:advanced_break, recipe:tf_core_jewelry
+  A-1          Lv20   branch grp=-         高速破壊I
+        text: スキル発動で 8s/30CDの高速破壊(採掘速度上昇III)
+        feat : feature:haste-active-mining
+  A-2          Lv20   branch grp=-         高速破壊II
+        text: スキル発動で 10s/22.5CDの高速破壊(採掘速度上昇IV)
+        buffs: haste-active-mining-cooldown-reduction=0.25
+        feat : feature:haste-active-mining
+  A-3          Lv40   branch grp=-         高速破壊III
+        text: スキル発動で 12s/15CDの高速破壊(採掘速度上昇V)
+        buffs: haste-active-mining-cooldown-reduction=0.25
+        feat : feature:haste-active-mining
+  D-1          Lv70   branch grp=-         鉱脈破壊
+        text: 鉱石のみ一括で破壊
+        feat : feature:vein-mining
+  B-1          Lv40   branch grp=-         精密破壊I
+        text: 鉱石のドロップ増加+15%
+        buffs: mining-fortune=15
+  B-2          Lv40   branch grp=-         精密破壊II
+        text: 鉱石のドロップ増加+20%
+        buffs: mining-fortune=20
+  B-3          Lv60   branch grp=-         精密破壊III
+        text: 鉱石のドロップ増加+25%
+        buffs: mining-fortune=25
+==============================================================================
+power
+  A            Lv10   main   grp=-         活力の芽生え
+        text: 最大体力 +2
+        buffs: max_health=2
+  B            Lv30   main   grp=-         活力の充実
+        text: 最大体力 +3
+        buffs: max_health=3
+  C            Lv50   main   grp=-         活力の極み
+        text: 最大体力 +5
+        buffs: max_health=5
+  D            Lv70   main   grp=-         再生の息吹
+        text: 体力自然回復 +0.2
+        buffs: health_regen_bonus=0.2
+  E            Lv90   main   grp=-         不屈の体躯
+        text: 体力自然回復 +0.3・全スキルEXP +5%
+        buffs: health_regen_bonus=0.3, skill_exp_bonus=0.05
+  A-1          Lv15   branch grp=-         足元強化 I
+        text: ノックバック耐性 +0.05
+        buffs: knockback_resistance=0.05
+  A-2          Lv35   branch grp=-         足元強化 II
+        text: ノックバック耐性 +0.075
+        buffs: knockback_resistance=0.075
+  A-3          Lv55   branch grp=-         足元強化 III
+        text: ノックバック耐性 +0.125
+        buffs: knockback_resistance=0.125
+  A-4          Lv20   branch grp=-         天恵 I
+        text: 幸運 +0.2
+        buffs: loot_luck=0.2
+  A-5          Lv40   branch grp=-         天恵 II
+        text: 幸運 +0.3
+        buffs: loot_luck=0.3
+  A-6          Lv60   branch grp=-         天恵 III
+        text: 幸運 +0.5
+        buffs: loot_luck=0.5
+  B-1          Lv35   branch grp=-         持久 I
+        text: 空腹消費軽減 +5%
+        buffs: hunger_save_chance=0.05
+  B-2          Lv55   branch grp=-         持久 II
+        text: 空腹消費軽減 +7.5%
+        buffs: hunger_save_chance=0.075
+  B-3          Lv75   branch grp=-         持久 III
+        text: 空腹消費軽減 +12.5%
+        buffs: hunger_save_chance=0.125
+  C-1          Lv55   branch grp=-         回収 I
+        text: モブドロップ +20%
+        buffs: mob_drop_bonus=0.2
+  C-2          Lv75   branch grp=-         回収 II
+        text: モブドロップ +30%
+        buffs: mob_drop_bonus=0.3
+  C-3          Lv90   branch grp=-         回収 III
+        text: モブドロップ +50%
+        buffs: mob_drop_bonus=0.5
+  D-1          Lv75   branch grp=-         俊敏 I
+        text: アビリティCD短縮 +10%
+        buffs: cooldown_reduction=0.1
+  D-2          Lv85   branch grp=-         俊敏 II
+        text: アビリティCD短縮 +15%
+        buffs: cooldown_reduction=0.15
+  D-3          Lv95   branch grp=-         俊敏 III
+        text: アビリティCD短縮 +25%
+        buffs: cooldown_reduction=0.25
+==============================================================================
+smithing
+  A            Lv10   main   grp=-         駆け出しの鍛冶
+        text: 木・革の品質+1・石・チェーン・銅のクラフト開放
+        feat : "recipe:stone_sword", "recipe:stone_pickaxe", "recipe:stone_axe", "recipe:stone_shovel", "recipe:stone_hoe"
+  B            Lv30   main   grp=-         銅細工の鍛冶
+        text: 石・チェーン・銅のクラフト品質+1・鉄・金のクラフト開放
+        feat : "recipe:iron_sword", "recipe:iron_pickaxe", "recipe:iron_axe", "recipe:iron_shovel", "recipe:iron_hoe", "recipe:iron_helmet", "recipe:iron_chestplate", "recipe:iron_leggings", "recipe:iron_boots", "recipe:golden_sword", "recipe:golden_pickaxe", "recipe:golden_axe", "recipe:golden_shovel", "recipe:golden_hoe", "recipe:golden_helmet", "recipe:golden_chestplate", "recipe:golden_leggings", "recipe:golden_boots"
+  C            Lv50   main   grp=-         鉄金の鍛冶師
+        text: 鉄・金のクラフト品質+1・ダイヤのクラフト開放
+        feat : "recipe:diamond_sword", "recipe:diamond_pickaxe", "recipe:diamond_axe", "recipe:diamond_shovel", "recipe:diamond_hoe", "recipe:diamond_helmet", "recipe:diamond_chestplate", "recipe:diamond_leggings", "recipe:diamond_boots"
+  D            Lv70   main   grp=-         ダイヤの鍛冶匠
+        text: ダイヤのクラフト品質+1・ネザライトのクラフト開放
+        feat : "recipe:netherite_sword", "recipe:netherite_pickaxe", "recipe:netherite_axe", "recipe:netherite_shovel", "recipe:netherite_hoe", "recipe:netherite_helmet", "recipe:netherite_chestplate", "recipe:netherite_leggings", "recipe:netherite_boots"
+  E            Lv90   main   grp=-         ネザライトの鍛冶王
+        text: ネザライトクラフト品質+1・鍛冶師解放
+        feat : "trade:WEAPONSMITH", "trade:ARMORER", "trade:TOOLSMITH"
+  A-1          Lv20   branch grp=-         精錬速度I
+        text: 精錬速度+10%
+        feat : "feature:furnace-smelt-speed"
+  A-2          Lv40   branch grp=-         精錬速度II
+        text: 精錬速度+20%
+        feat : "feature:furnace-smelt-speed"
+  A-3          Lv40   branch grp=-         精錬速度III
+        text: 精錬速度+30%
+        feat : "feature:furnace-smelt-speed"
+  A-4          Lv60   branch grp=-         精錬・制作魔法の解放
+        text: 精錬魔法開放・制作魔法解放
+        feat : "glyph:smelt", "glyph:craft"
+  B-1          Lv40   branch grp=-         精錬ボーナスI
+        text: 鉱石の精錬ボーナス+10%
+        feat : "feature:furnace-smelt-bonus"
+  B-2          Lv40   branch grp=-         精錬ボーナスII
+        text: 鉱石の精錬ボーナス+20%
+        feat : "feature:furnace-smelt-bonus"
+  B-3          Lv60   branch grp=-         精錬ボーナスIII"    # 下段の派生B-3(精錬ボーナス+30%)。上段の解体解放B-3-upperとは別ノード
+        text: 鉱石の精錬ボーナス+30%
+        feat : "feature:furnace-smelt-bonus"
+  B-alpha-1    Lv30   greek  grp=B-greek   下振れ軽減I
+        text: ランダムステータスの品質で下振れが減少
+        buffs: craft_downswing_reduction=10
+  B-alpha-2    Lv50   greek  grp=B-greek   下振れ軽減II
+        text: ランダムステータスの品質で下振れが減少
+        buffs: craft_downswing_reduction=10
+  B-beta-1     Lv30   greek  grp=B-greek   品質上限I
+        text: クラフト品質+1
+        buffs: workbench_quality_bonus=1
+  B-beta-2     Lv50   greek  grp=B-greek   品質上限II
+        text: クラフト品質+1
+        buffs: workbench_quality_bonus=1
+  B-3-upper    Lv70   greek  grp=-         解体の術
+        text: 解体解放
+        feat : "feature:dismantle-unlock"
+==============================================================================
+woodcutting
+  A            Lv10   main   grp=-         はじまりの木こり
+        text: 破壊で少量のバニラEXP
+        feat : feature:break-vanilla-exp
+  B            Lv30   main   grp=-         斧の使い手
+        text: 小さな木を一括破壊 1回/10s
+        feat : feature:tree-fell
+  C            Lv50   main   grp=-         雑木林の管理者
+        text: 破壊で2倍のバニラEXP
+  D            Lv70   main   grp=-         植林場の経営者
+        text: 大きな木を一括破壊 1回/10s・伐採グリフの解放
+        feat : glyph:fell, feature:tree-fell
+  E            Lv90   main   grp=-         プランテーションの資本家
+        text: 耐久値を圧縮木材で回復可能・ウッドコア解放
+        feat : feature:wood-repair-unlock, recipe:tf_core_wood
+  A-1          Lv20   branch grp=-         リンゴ生活
+        text: リンゴが落ちやすくなる
+        feat : drop:woodcutting:apple
+  A-2          Lv20   branch grp=-         金リンゴ生活
+        text: 金リンゴが落ちやすくなる
+        feat : drop:woodcutting:golden_apple
+  A-4          Lv60   branch grp=-         クリスタルリンゴ生活
+        text: クリスタルリンゴが落ちやすくなる・剪定解放
+        feat : drop:woodcutting:crystal_apple, glyph:cut
+  B-1          Lv40   branch grp=-         効率破壊I
+        text: 一括破壊のcdを-3s
+        buffs: tree-fell-cooldown-reduction=0.3
+  B-2          Lv40   branch grp=-         効率破壊II
+        text: 一括破壊のcdを-3s
+        buffs: tree-fell-cooldown-reduction=0.3
+  B-3          Lv60   branch grp=-         効率破壊II
+        text: 一括破壊のcdを-3s
+        buffs: tree-fell-cooldown-reduction=0.3
+  C-1          Lv40   branch grp=-         精密製材I
+        text: 伐採時に低確率で+1
+        buffs: mining-fortune=5
+  C-2          Lv60   branch grp=-         精密製材II
+        text: 伐採時に1/2で+1
+        buffs: mining-fortune=45

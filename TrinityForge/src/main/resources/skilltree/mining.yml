@@ -1,0 +1,202 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — 採掘 (MINING)
+# ----------------------------------------------------------------------------
+# これは「TF独自の単一の真実」です。ここを編集すると、ビルド/リロード時に
+# Valhalla用 progression YAML と lang が生成されます。
+#
+# エンコード規則（スライド草案 skilltree/skilltree/スライド2.PNG 準拠）:
+#   - 主軸 A/B/C/D/E の解放レベル = 10 / 30 / 50 / 70 / 90
+#   - レベル100でプレステージ可能
+#   - 主軸の「間」ノード = 中間レベル(20/40/60/80)
+#   - 派生ノード = X-n（親から派生）
+#   - X-alpha/beta-1 = ギリシャ文字路線（group が同じものは排他＝いずれか1つのみ）
+#
+# ■生産系ツリーの方針（設計§D）:
+#   - buffs は基本なし（TF戦闘ステータスを持たない）。
+#   - 品質/速度/ドロップ/EXP等の数値 → Valhalla native命名が未確定のため effects に
+#     効果タグとして記載（値も文言に含める）。
+#   - グリフ/レシピ/コア解放 → commands（プレースホルダ `tf skilltree unlock <id>`）＋ effects。
+#
+# 各ノードのフィールド:
+#   name / level / role(main|intermediate|branch|greek) / parent / group(greekのみ)
+#   / icon / cost / description / buffs / native / dedicated-effects
+# ★数値は暫定プレースホルダ。プレイテスト後に調整してください。
+#
+# ---- 要件⑤ (自由記述description) ----
+#   description: がノードの自由記述説明の正式キーです（旧 effect-text は後方互換フォールバック
+#   として読み込まれ続けます。両方あれば description が優先）。Valhalla progression の perk
+#   description にはこの統合説明がそのまま出力されます。
+#   ★非推奨: effects[] / commands[] はもう読まれません（表示・挙動どちらにも使われない死フィールド）。
+#   新規ノードでは description のみ書いてください。既存の effects/commands は残っていても無視されます。
+#
+# ---- 要件⑥ (dedicated-effects) ----
+#   dedicated-effects: はこのノードが解放する「専用効果」を、プレフィックス付き動的IDで記述します。
+#   例: glyph:<glyphId> / recipe:<catalogId> / feature:<featureId>。
+#     dedicated-effects:
+#       - id: light-glyph-unlock       # param=none の効果は value 不要
+#       - id: lapis-cost-reduction
+#         value: 5                     # param=percent/int/level の効果は value 必須
+#   ★カタログの「実ゲーム挙動」への配線はまだ無い基盤段階です（後続タスク）。
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/mining.md
+skill: MINING
+display-name: 採掘
+icon: IRON_PICKAXE
+starting-coords: 2,10
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: 採掘王の栄光
+  effect-text: メインにツルハシを持つと採掘速度上昇 永続+1(既にある場合追加で+1)・ドロップ増加 永続+20%
+  mainhand-buffs:
+    mining-fortune: 20
+    gathering-efficiency: 1
+nodes:
+  A:
+    name: はじまりの鉱夫
+    level: 10
+    role: main
+    parent:
+    icon: WOODEN_PICKAXE
+    cost: 1
+    description: 破壊で少量のバニラEXP
+    dedicated-effects:
+      - id: feature:break-vanilla-exp
+  B:
+    name: 洞窟の導き手
+    level: 30
+    role: main
+    parent: A
+    icon: STONE_PICKAXE
+    cost: 1
+    effect-text: 光源グリフ解放
+    dedicated-effects:
+      - id: glyph:light
+  C:
+    name: 鉱山の仕事人
+    level: 50
+    role: main
+    parent: B
+    icon: GOLDEN_PICKAXE
+    cost: 1
+    effect-text: 破壊で2倍のバニラEXP
+    buffs:
+      break-vanilla-exp-bonus: 1.0
+  D:
+    name: 露天掘りの匠
+    level: 70
+    role: main
+    parent: C
+    icon: IRON_PICKAXE
+    cost: 1
+    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・最終効率 永続+1
+    buffs:
+      gathering-efficiency: 1
+    dedicated-effects:
+      - id: glyph:break
+      - id: feature:spawner-silktouch-harvest
+  E:
+    name: 至高の採掘王
+    level: 90
+    role: main
+    parent: D
+    icon: DIAMOND_PICKAXE
+    cost: 1
+    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・最終効率 永続+1
+    buffs:
+      gathering-efficiency: 1
+    dedicated-effects:
+      - id: glyph:advanced_break
+      - id: recipe:tf_core_jewelry
+  A-1:
+    name: 高速破壊I
+    level: 20
+    role: branch
+    parent: A
+    icon: REDSTONE
+    cost: 1
+    effect-text: スキル発動で 8s/30CDの高速破壊(採掘速度上昇III)
+    effects:
+      - スキル発動で8秒間/CD30秒の高速破壊(採掘速度上昇III)
+    dedicated-effects:
+      - id: feature:haste-active-mining
+        value: 1
+  A-2:
+    name: 高速破壊II
+    level: 20
+    role: branch
+    parent: A-1
+    icon: REDSTONE
+    cost: 1
+    effect-text: スキル発動で 10s/22.5CDの高速破壊(採掘速度上昇IV)
+    effects:
+      - スキル発動で10秒間/CD22.5秒の高速破壊(採掘速度上昇IV)
+    dedicated-effects:
+      - id: feature:haste-active-mining
+        value: 3
+    mainhand-buffs:
+      haste-active-mining-cooldown-reduction: 0.25
+  A-3:
+    name: 高速破壊III
+    level: 40
+    role: branch
+    parent: A-2
+    icon: REDSTONE
+    cost: 1
+    effect-text: スキル発動で 12s/15CDの高速破壊(採掘速度上昇V)
+    effects:
+      - スキル発動で12秒間/CD15秒の高速破壊(採掘速度上昇V)
+    dedicated-effects:
+      - id: feature:haste-active-mining
+        value: 5
+    mainhand-buffs:
+      haste-active-mining-cooldown-reduction: 0.25
+  D-1:
+    name: 鉱脈破壊
+    level: 70
+    role: branch
+    parent: D
+    icon: RAW_IRON
+    cost: 1
+    effect-text: 鉱石のみ一括で破壊
+    dedicated-effects:
+      - id: feature:vein-mining
+  B-1:
+    name: 精密破壊I
+    level: 40
+    role: branch
+    parent: B
+    icon: LAPIS_LAZULI
+    cost: 1
+    effect-text: 鉱石のドロップ増加+15%
+    effects:
+      - 鉱石のドロップ増加+15%
+    mainhand-buffs:
+      mining-fortune: 15
+  B-2:
+    name: 精密破壊II
+    level: 40
+    role: branch
+    parent: B-1
+    icon: LAPIS_LAZULI
+    cost: 1
+    effect-text: 鉱石のドロップ増加+20%
+    effects:
+      - 鉱石のドロップ増加+20%
+    mainhand-buffs:
+      mining-fortune: 20
+  B-3:
+    name: 精密破壊III
+    level: 60
+    role: branch
+    parent: B-2
+    icon: LAPIS_LAZULI
+    cost: 1
+    effect-text: 鉱石のドロップ増加+25%
+    effects:
+      - 鉱石のドロップ増加+25%
+    mainhand-buffs:
+      mining-fortune: 25
+

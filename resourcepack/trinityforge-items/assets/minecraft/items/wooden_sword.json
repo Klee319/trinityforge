@@ -1,0 +1,54 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/wooden_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 11,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_dagger"
+        }
+      },
+      {
+        "threshold": 13,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_rapier"
+        }
+      },
+      {
+        "threshold": 22,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_warhammer"
+        }
+      },
+      {
+        "threshold": 28,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_greataxe"
+        }
+      },
+      {
+        "threshold": 51,
+        "model": {
+          "model": "minecraft:item/wooden_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 62,
+        "model": {
+          "model": "minecraft:item/wooden_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

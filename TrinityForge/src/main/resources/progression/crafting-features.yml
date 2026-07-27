@@ -1,0 +1,172 @@
+# TrinityForge — スキルツリー動的ゲート(feature:/brew:/trade:/recipe:/overenchant: 等)の
+# 機能本体チューニング (2026-07-23 動的ID方式改修)。
+# カタログレシピ (trinityforge:catalog_<id>) のゲートは skilltree 側 `recipe:<catalogId>` の
+# 参照有無で決まる(未参照=解放済み扱い)。ここには対応するレシピ挙動チューニングのみを書く。
+
+# 武器コーティング (weapon-coating-unlock / coating-stack-increase)
+# materials: catalog id → 1スタックあたりダメージ / その素材使用時のスタック上限
+
+coating:
+  base-max-stacks: 3
+  materials:
+    source_gem:
+      bonus-damage: 2
+      max-stacks: 3
+wood-repair:
+  materials:
+    compressed_wood_1x:
+      durability: 200
+      quick-repair: true
+disassembly:
+  percent-per-level: 25
+  items:
+    wooden_*:
+      - input: list:planks
+        output: custom:plank_scrap
+        multiplier: 2
+    copper_*:
+      - input: COPPER_INGOT
+        output: custom:copper_ingot_scrap
+        multiplier: 2
+    iron_*:
+      - input: IRON_INGOT
+        output: custom:iron_ingot_scrap
+        multiplier: 2
+    golden_*:
+      - input: GOLD_INGOT
+        output: custom:gold_ingot_scrap
+        multiplier: 2
+    diamond_*:
+      - input: DIAMOND
+        output: custom:diamond_scrap
+        multiplier: 2
+    netherite_*:
+      - input: NETHERITE_INGOT
+        output: custom:netherite_ingot_scrap
+        multiplier: 2
+    leather_*:
+      - input: LEATHER
+        output: custom:leather_scrap
+        multiplier: 2
+    turtle_*:
+      - input: TURTLE_SCUTE
+        output: custom:turtle_scute_scrap
+        multiplier: 2
+potion-merge:
+  max-effects: 5
+  max-duration-seconds: 960
+  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
+  # tierはスキルツリーのノード value から決まる(feature:potion-merge は SCALE、
+  # value省略時はtier1が自動補完されるため既存の単一解放ノードは無改変で従来どおり動作する)。
+  # tiers:
+  #   1: { max-effects: 5, max-duration-seconds: 960 }
+  #   2: { max-effects: 7, max-duration-seconds: 1200 }
+brew-unlocks:
+  swiftness-jump:
+    potions:
+      - base: AWKWARD
+        ingredient: SUGAR
+        result:
+          type: SPEED
+          duration: 3600
+          amplifier: 0
+      - base: AWKWARD
+        ingredient: RABBIT_FOOT
+        result:
+          type: JUMP_BOOST
+          duration: 3600
+          amplifier: 0
+  healthboost-haste:
+    potions:
+      - base: AWKWARD
+        ingredient: GLISTERING_MELON_SLICE
+        result:
+          type: HEALTH_BOOST
+          duration: 3600
+          amplifier: 0
+      - base: AWKWARD
+        ingredient: GOLDEN_CARROT
+        result:
+          type: HASTE
+          duration: 3600
+          amplifier: 0
+over-enchant:
+  lv1:
+    enchants:
+      SHARPNESS: 6
+      SMITE: 6
+      BANE_OF_ARTHROPODS: 6
+      POWER: 6
+      IMPALING: 6
+      PROTECTION: 5
+      BLAST_PROTECTION: 5
+      PROJECTILE_PROTECTION: 5
+      FIRE_PROTECTION: 5
+      FEATHER_FALLING: 5
+      EFFICIENCY: 6
+      FORTUNE: 4
+  lv2:
+    enchants:
+      SHARPNESS: 7
+      SMITE: 7
+      BANE_OF_ARTHROPODS: 7
+      POWER: 7
+      IMPALING: 7
+      PROTECTION: 6
+      BLAST_PROTECTION: 6
+      PROJECTILE_PROTECTION: 6
+      FIRE_PROTECTION: 6
+      FEATHER_FALLING: 6
+      EFFICIENCY: 7
+      FORTUNE: 5
+  lv3:
+    enchants:
+      SHARPNESS: 8
+      SMITE: 8
+      BANE_OF_ARTHROPODS: 8
+      POWER: 8
+      IMPALING: 8
+      PROTECTION: 7
+      BLAST_PROTECTION: 7
+      PROJECTILE_PROTECTION: 7
+      FIRE_PROTECTION: 7
+      FEATHER_FALLING: 7
+      EFFICIENCY: 8
+      FORTUNE: 6
+# エンチャントテーブルの「本棚パワー」config化(2026-07-26新設)
+# バニラ仕様: エンチャントテーブル周囲の本棚(規定の配置)は最大15個までがエンチャントパワーとして
+# 有効(Bukkit/Paper API の PrepareItemEnchantEvent#getEnchantmentBonus() が返す値)。
+# バニラでは本棚15個で頭打ちになり、それ以上置いても効果は増えない。この「15」という上限と
+# 「本棚1個=パワー1」という係数を、ここで調整できるようにする。
+#
+# 既定値(max-bookshelves: 15, power-per-bookshelf: 1.0)ではバニラ実効パワーと完全に一致するため、
+# 挙動は一切変化しない(EnchantCostReductionListener が本棚パワー由来の補正倍率=1.0のときは
+# 何も書き換えずに終わる)。
+#
+# 注意: 上限を極端に上げる/係数を大きくすると、少ない本棚数でも高コスト・高レベルの提示が
+# 出やすくなり、エンチャントが簡単になりすぎる。バランス調整は慎重に。
+enchant-bookshelf-power:
+  # 考慮する本棚の最大数。バニラ既定は15(これを超えて本棚を置いても本来は無効)。
+  max-bookshelves: 15
+  # 本棚1個あたりのエンチャントパワー係数。バニラは常に1.0固定(本棚1個=パワー1)。
+  power-per-bookshelf: 1.0
+thread-slots:
+  max-by-category:
+    armor: 5
+    weapon: 0
+    tool: 0
+    other: 0
+removed-vanilla-recipes:
+  - minecraft:wooden_axe
+  - minecraft:stone_axe
+  - minecraft:copper_axe
+  - minecraft:iron_axe
+  - minecraft:golden_axe
+  - minecraft:diamond_axe
+  - minecraft:netherite_axe_smithing
+removed-vanilla-items:
+  # 2026-07-25: 修繕本の入手経路遮断だけでは、チェスト戦利品/村人取引で生成される「修繕付きの防具/
+  # 道具そのもの」(material が ENCHANTED_BOOK ではない)を見逃していた。ANY:<enchant> はワイルドカード
+  # (全material対象、enchant一致のみで判定)— 修繕付きのアイテムは種類を問わず生成/入手時点で除去される。
+  - ANY:MENDING
+gated-catalog-recipes: {}

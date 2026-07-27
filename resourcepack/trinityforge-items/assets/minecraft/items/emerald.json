@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/emerald",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5104,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/tf_core_jewelry"
+        }
+      }
+    ]
+  }
+}

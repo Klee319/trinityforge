@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/prismarine_shard",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 100011,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem"
+        }
+      },
+      {
+        "threshold": 100013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/elder_guardian_spike"
+        }
+      }
+    ]
+  }
+}

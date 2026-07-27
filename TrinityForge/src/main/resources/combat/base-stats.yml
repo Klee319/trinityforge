@@ -1,0 +1,168 @@
+# TrinityForge - プレイヤー基礎ステータス (player base stats)
+#
+# 装備・スキル・バフを一切持たない素のプレイヤーへ、全員一律で加算されるステータスの初期値。
+# ここに書いたステータスは、装備/スキルツリー/ロールバフ等の合算に「もう1レイヤ」として加わる。
+#
+# ● キーは lore.yml の stats に出るステータス名 (例: crit-chance, phys-flat-defense, max-health)。
+# ● 値の書き方は item-stats.yml と同じ (PERCENT系は「5」=5%、FLAT系はそのままの数値)。
+# ● 0 は「加算なし」= 未記載(空欄)と完全に同じ扱い(BaseStatsConfig がロード時に0値を捨てるため)。
+#   このファイルは stats/lore.yml の全ステータスキーを、0のものも含めて明示的に列挙している
+#   (2026-07-25: 「どのステが対象で今いくつか」を一覧できるようにする方針)。
+# ● 編集後は /trinityforge reload で即時反映。
+#
+# ⚠ attack-power (攻撃力) は特殊: これは「武器の基本ダメージを置き換える」ステなので、ここに基礎値を
+#    入れると全プレイヤーの素手/バニラ武器の基本ダメージが置き換わり、エンチャント(ダメージ系)も
+#    無効化されます。通常は空欄(0)のままにしてください。
+#
+# ⚠ move-speed / attack-reach / knockback-resistance / max-health (StatVocabulary の ATTRIBUTE
+#    チャネル) だけは他のキーと意味が異なり、「絶対値方式」です(2026-07-25 config editor T1)。
+#    ここに書いた値は、プレイヤーの最終的な絶対値そのものを意味します。例えば attack-reach に 6 と
+#    書けば実際のリーチが 6 ブロックになります(加算ではありません)。
+#    ● 0 および未記載(空欄)は、これまで通り「バニラのまま(何も加算しない)」を意味します。
+#      このため、この4キーに限り「バニラ既定値より小さい値」を書いた場合はその通りの絶対値になりますが、
+#      「バニラ既定値と厳密に一致する値」は 0 と区別できず「未記載」と同じ扱いになります(実質バニラの
+#      ままなので実害はありません)。
+#    ● バニラ既定値(出典: Minecraft Wiki "Attribute"): attack-reach=3.0 / max-health=20.0 /
+#      move-speed=0.1 / knockback-resistance=0.0
+#    ● 実装は読み込み時に (書いた値 - バニラ既定値) へ変換して内部保持するため、装備/スキルツリー/
+#      ロールバフ等の加算レイヤとの合算ロジックは変更していません(BaseStatsConfig 参照)。
+#
+# ⚠ attack-speed-bonus(割合・全ソース横断)は「加算レイヤ」のままです(絶対値方式ではありません)。
+#    バニラ既定が0のため、書いた値がそのまま加算量になります。装備/スキルツリー/ロールバフ/
+#    item-stats.yml側のattack-speed-bonusと合算され、PerkAttributeApplier が最終適用します。
+#
+# ⚠ attack-speed(絶対値・メインハンド専用)は 2026-07-26 の stat-scope 境界引き直しで、
+#    総合ステ(base-stats含む)から「アイテム固有ステ」へ降格しました。このファイルにはもう存在せず、
+#    武器の stats/item-stats.yml 側の attack-speed(その武器をメインハンドで持ったときにだけ効く絶対値)
+#    でのみ設定できます。プレイヤー全体へ一律の絶対値を課す欄は廃止されました
+#    (誤って1.6等バニラ武器の速度をここへ書いてしまう事故が過去にあったため、根本的に排除した設計判断)。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/combat/base-stats.md
+
+
+base-stats:
+  attack-power: 0
+  attack-speed-bonus: 0
+  attack-reach: 0
+  aoe-radius: 0
+  aoe-max-targets: 0
+  aoe-damage-rate: 0
+  percent-bonus-damage: 0
+  flat-bonus-damage: 0
+  damage-modifier: 0
+  item-cooldown: 0
+  crit-chance: 0.05
+  crit-damage: 0.5
+  penetration: 0
+  bleed-chance: 0
+  bleed-damage: 0
+  armor-defense-rate: 0
+  armor-strength: 0
+  max-health: 0
+  knockback-resistance: 0
+  move-speed: 0
+  durability: 0
+  phys-resistance: 0
+  magic-resistance: 0
+  damage-reduction: 0
+  dodge-chance: 0
+  mining-fortune: 0
+  # 最終効率。2026-07-26 に tool-enchant-efficiency を統合したため、旧キーはここには書かないこと
+  # (StatKeys のエイリアスで gathering-efficiency に畳まれ、同一キーが2行になって片方が消える)。
+  gathering-efficiency: 0
+  fishing-luck: 0
+  fishing-bonus: 0
+  # 経済連携(Vault対応): 釣りの売却額倍率 / 解体の戻り係数 / 海釣り限定fishing-bonus加算分
+  fish-sell-price-bonus: 0
+  disassembly-return-bonus: 0
+  ocean-fishing-bonus: 0
+  mana-bonus: 0
+  mana-regen: 0
+  hit-mana-recovery: 0
+  damage-mana-recovery: 0
+  thread-slots: 0
+  mana-cost-reduction-flat: 0
+  mana-cost-reduction-percent: 0
+  mana-max-base: 100
+  mana-regen-base: 5
+  mana-regen-interval-ticks: 20
+  mana-onhit-percent: 0.03
+  mana-onhit-flat: 0
+  mana-onattack-percent: 0.03
+  mana-onattack-flat: 0
+  mana-idle-seconds: 5
+  mana-idle-bonus-percent: 0.01
+  mana-idle-bonus-flat: 0
+  phys-flat-defense: 0
+  magic-flat-defense: 0
+  flat-defense: 0
+  fixed-damage: 0
+  bow-accuracy: 0
+  ammo-save-chance: 0
+  distance-damage-bonus: 0
+  arrow-piercing: 0
+  arrow-velocity: 0
+  bow-cooldown-reduction: 0
+  arrow-knockback: 0
+  melee-knockback: 0
+  stun-chance: 0
+  # 2026-07-26新設: stun-chance発動時のスタン継続時間への割合加算(絶対上限5秒=100tickでクランプ)。
+  stun-duration-bonus: 0
+  power-attack-damage: 0
+  power-attack-radius: 0
+  cooldown-reduction: 0
+  # 2026-07-25 CT設計一本化: ActiveSkill単位のCT短縮キー
+  haste-active-mining-cooldown-reduction: 0
+  tree-fell-cooldown-reduction: 0
+  health-regen-bonus: 0
+  # 2026-07-25 課題2: 棘の鎧ステータス化(反射率)。実=固定値、割=被ダメージ割合。
+  reflect-flat: 0
+  reflect-percent: 0
+  hunger-save-chance: 0
+  mob-drop-bonus: 0
+  skill-exp-bonus: 0
+  loot-luck: 0
+  mob-drop-quality: 0
+  gacha-rate-bonus: 0
+  food-save-chance: 0
+  suspicious-respawn-chance: 0
+  hive-harvest-fortune: 0
+  kill-vanilla-exp-bonus: 0
+  break-vanilla-exp-bonus: 0
+  vanilla-exp-bonus: 0
+  breeding-vanilla-exp-bonus: 0
+  woodcutting-extra-drop-chance: 0
+  harvest-extra-drop-chance: 0
+  food-restore-bonus: 0
+  hidden-saturation-bonus: 0
+  breeding-extra-child-chance: 0
+  bred-animal-growth-bonus: 0
+  planted-crop-growth-bonus: 0
+  ritual-quality-bonus: 0
+  workbench-quality-bonus: 0
+  craft-upswing-bonus: 0
+  craft-downswing-reduction: 0
+  craft-roll-up-bonus: 0
+  craft-roll-down-reduction: 0
+  craft-roll-inset: 0
+  lapis-cost-reduction: 0
+  material-refund-chance: 0
+  ingredient-save-chance: 0
+  source-cost-reduction: 0
+  # エンチャント/ポーション品質(2026-07-25、かまど・エンチャント・ポーションは実行者限定ステ)
+  enchant-luck: 0
+  enchant-exp-gain-bonus: 0
+  # 2026-07-26新設: エンチャントテーブルのレベルコストと金床の修理コストを軽減する(0..0.9)。
+  enchant-cost-reduction: 0
+  potion-quality-bonus: 0
+  brew-speed-bonus: 0
+  ars-tier-bonus: 0
+  glyph-slot-bonus: 0
+  # 2026-07-25 害悪グリフ強化(ars_magic.yml B-3): 特定グリフのダメージ倍率ボーナス(fraction)
+  glyph-damage-multiplier-bonus: 0
+  # スキルツリー由来の条件付き装備効果(NativeAttributeBridgeが装備部位数を判定して消費)
+  light-armor-move-speed-per-piece: 0
+  heavy-armor-move-speed-per-piece: 0
+  light-armor-set-bonus-multiplier: 0
+  heavy-armor-set-bonus-multiplier: 0
+  light-armor-set-dodge-chance: 0
+  heavy-armor-set-knockback-resistance: 0

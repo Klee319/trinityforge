@@ -1,0 +1,22 @@
+# ============================================================================
+# TrinityForge — エンチャント運(stat: enchant_luck)の重み付け設定
+# ----------------------------------------------------------------------------
+# エンチャントテーブルで良いエンチャント(高レベル・オーバーエンチャント上限突破結果含む)が
+# 出やすくなる度合いを、stat "enchant_luck"(スキルツリー enchanting.yml の buffs で蓄積する
+# ポイント値)から算出するための係数。バニラのエンチャント抽選自体にプレイヤー側の運パラメータは
+# 存在しない(本棚数=提示レベルとアイテム固有enchantability、重み付き抽選のみ)ため、
+# TrinityForgeは EnchantItemEvent で確定した結果に対して、この係数に基づき追加の格上げ抽選を行う。
+# ============================================================================
+
+# 1回のエンチャント抽選で、確定した各エンチャントのレベルを+1格上げできるかどうかの判定確率。
+# 実際の適用確率 = min(1.0, level-boost-chance-per-luck * enchant_luck)。
+# バニラ上限(Enchantment#getMaxLevel)に達するまでの格上げにのみ使う。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/stats/enchant-luck.md
+
+level-boost-chance-per-luck: 0.01
+
+level-boost-max-steps: 2
+
+overenchant-bonus-chance-per-luck: 0.02
+
+extra-enchant-chance-per-luck: 0.005

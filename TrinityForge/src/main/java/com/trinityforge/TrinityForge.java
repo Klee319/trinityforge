@@ -1,0 +1,1426 @@
+package com.trinityforge;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.trinityforge.active.ActivationDispatcher;
+import com.trinityforge.active.ActiveSkillCooldownKeys;
+import com.trinityforge.active.ActiveSkillRegistry;
+import com.trinityforge.active.CooldownManager;
+import com.trinityforge.active.FeedbackLayer;
+import com.trinityforge.combat.BleedService;
+import com.trinityforge.combat.PlayerDefenseResolver;
+import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.combat.SymmetricCombatService;
+import com.trinityforge.combat.WeaponAttackStatResolver;
+import com.trinityforge.command.ActiveCommand;
+import com.trinityforge.command.BindCommand;
+import com.trinityforge.command.CollectionCommand;
+import com.trinityforge.command.DungeonCommand;
+import com.trinityforge.command.GiveItemCommand;
+import com.trinityforge.command.ImportMobsCommand;
+import com.trinityforge.command.InspectCommand;
+import com.trinityforge.command.StampCommand;
+import com.trinityforge.command.StatsCommand;
+import com.trinityforge.command.RoleCommand;
+import com.trinityforge.config.ConfigManager;
+import com.trinityforge.dungeon.DungeonWorldRegistry;
+import com.trinityforge.hate.HateListener;
+import com.trinityforge.hate.HateService;
+import com.trinityforge.listeners.GrindstonePreserveListener;
+import com.trinityforge.listeners.BlacksmithBanListener;
+import com.trinityforge.listeners.BrewUnlockListener;
+import com.trinityforge.listeners.DisassemblyListener;
+import com.trinityforge.listeners.DotDamageListener;
+import com.trinityforge.listeners.OverEnchantListener;
+import com.trinityforge.listeners.PotionMergeListener;
+import com.trinityforge.listeners.RoleBuffListener;
+import com.trinityforge.listeners.VillagerTradeListener;
+import com.trinityforge.listeners.WeaponCoatingListener;
+import com.trinityforge.listeners.WoodRepairListener;
+import com.trinityforge.listeners.CatalogCraftGateListener;
+import com.trinityforge.listeners.CollectionListener;
+import com.trinityforge.listeners.AnimalDamageListener;
+import com.trinityforge.listeners.BeekeepingListener;
+import com.trinityforge.listeners.CombatListener;
+import com.trinityforge.listeners.CraftQualityListener;
+import com.trinityforge.listeners.ItemDamageClampListener;
+import com.trinityforge.listeners.CatalogAnvilListener;
+import com.trinityforge.listeners.CatalogSmithingListener;
+import com.trinityforge.listeners.FarmingHarvestListener;
+import com.trinityforge.mobs.DungeonGateService;
+import com.trinityforge.listeners.DiggingGimmickListener;
+import com.trinityforge.listeners.DungeonGateListener;
+import com.trinityforge.listeners.FishingGimmickListener;
+import com.trinityforge.listeners.EliteMobsCommandGateListener;
+import com.trinityforge.listeners.FishingQualityListener;
+import com.trinityforge.listeners.FoodGimmickListener;
+import com.trinityforge.listeners.GachaListener;
+import com.trinityforge.listeners.ItemRefreshListener;
+import com.trinityforge.listeners.MagicResistanceFoldListener;
+import com.trinityforge.listeners.MiningFortuneListener;
+import com.trinityforge.listeners.MiningGimmickListener;
+import com.trinityforge.listeners.NativeSkillExperienceListener;
+import com.trinityforge.listeners.PlacedBlockTracker;
+import com.trinityforge.listeners.ProgressionPreloadListener;
+import com.trinityforge.listeners.TreeFellingListener;
+import com.trinityforge.listeners.MobLevelTableListener;
+import com.trinityforge.listeners.MobOverrideDropListener;
+import com.trinityforge.listeners.MobOverrideExpListener;
+import com.trinityforge.listeners.MobTypeDropListener;
+import com.trinityforge.listeners.MobTypeSpawnListener;
+import com.trinityforge.listeners.PerkMirrorListener;
+import com.trinityforge.listeners.OwnerBindListener;
+import com.trinityforge.listeners.UseRequirementListener;
+import com.trinityforge.listeners.PickupQualityListener;
+import com.trinityforge.listeners.VeinMiningListener;
+import com.trinityforge.listeners.XpBottleListener;
+import com.trinityforge.mining.HasteActiveSkill;
+import com.trinityforge.mob.DamagePopupDisplay;
+import com.trinityforge.mob.FocusHpDisplay;
+import com.trinityforge.mob.MobDisplayNames;
+import com.trinityforge.listeners.ArmorUseGateListener;
+import com.trinityforge.progression.CollectionService;
+import com.trinityforge.progression.NativeProgressionAdminService;
+import com.trinityforge.progression.NativeProgressionService;
+import com.trinityforge.progression.NativeExperienceDispatcher;
+import com.trinityforge.progression.NativeSkillLevelSource;
+import com.trinityforge.progression.RoleBuffResolver;
+import com.trinityforge.progression.SkillLevelSource;
+import com.trinityforge.progression.UseRequirementService;
+import com.trinityforge.progression.catalog.NativeSkillCatalog;
+import com.trinityforge.progression.infrastructure.CachedProgressionRepository;
+import com.trinityforge.progression.infrastructure.ExecutorProgressionRepository;
+import com.trinityforge.progression.infrastructure.sqlite.SqliteProgressionRepository;
+import com.trinityforge.progression.repository.ProgressionRepository;
+import com.trinityforge.skilltree.runtime.NativeAttributeBridge;
+import com.trinityforge.skilltree.runtime.NativeCombatPerkListener;
+import com.trinityforge.skilltree.runtime.NativeSurvivalPerkListener;
+import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
+import com.trinityforge.skilltree.runtime.PerkBuffResolver;
+import com.trinityforge.skilltree.runtime.PerkMirrorService;
+import com.trinityforge.skilltree.runtime.SkillPerkStatSource;
+import com.trinityforge.skilltree.runtime.NativeSkillPerkStatSource;
+import com.trinityforge.skilltree.runtime.NativePerkService;
+import com.trinityforge.skilltree.runtime.NativeSkillTreeMenu;
+import com.trinityforge.stats.AttributeApplier;
+import com.trinityforge.stats.CatalogRitualBridge;
+import com.trinityforge.stats.CatalogRecipeRegistrar;
+import com.trinityforge.stats.CraftQualityService;
+import com.trinityforge.stats.ItemAssembler;
+import com.trinityforge.stats.ItemFactory;
+import com.trinityforge.stats.LoreComposer;
+import com.trinityforge.stats.PlayerLootLuckSource;
+import com.trinityforge.stats.PlayerMobDropBonusSource;
+import com.trinityforge.stats.TableGeneration;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.List;
+import java.io.File;
+import java.sql.SQLException;
+import java.util.Map;
+import java.util.UUID;
+import java.util.logging.Level;
+
+/**
+ * TrinityForge: MMO server core integrating EliteMobs and ArsPaper with TF-native progression.
+ * M0 scope: config-driven foundation (schema-validated load + hot reload + domain-split files).
+ * The symmetric damage pipeline, stats, hate, and selection systems build on this in M1+.
+ */
+public final class TrinityForge extends JavaPlugin {
+
+    private static volatile TrinityForge instance;
+    private ConfigManager configManager;
+    private DungeonWorldRegistry dungeonWorldRegistry;
+    private final com.trinityforge.progression.LocationExpDiminishing locationExpDiminishing =
+            new com.trinityforge.progression.LocationExpDiminishing();
+    private SymmetricCombatService combatService;
+    private WeaponAttackStatResolver weaponAttackStatResolver;
+    private PlayerStatAggregator playerStatAggregator;
+    private com.trinityforge.stats.CrossPluginItemResolver crossPluginItemResolver;
+    private SkillLevelSource skillLevelSource;
+    private NativeProgressionService progressionService;
+    private NativeProgressionAdminService progressionAdminService;
+    private NativeExperienceDispatcher experienceDispatcher;
+    private ProgressionRepository progressionRepository;
+    private NativeSkillCatalog progressionCatalog;
+    private NativePerkService nativePerkService;
+    private NativeSkillTreeMenu nativeSkillTreeMenu;
+    private CraftQualityService craftQualityService;
+    private SkillPerkStatSource skillPerkStatSource;
+    private PerkMirrorService perkMirrorService;
+    private PerkAttributeApplier perkAttributeApplier;
+    private com.trinityforge.gathering.GatheringEfficiencyEnchantApplier gatheringEfficiencyApplier;
+    private HateService hateService;
+    private DungeonGateService dungeonGateService;
+    private BleedService bleedService;
+    private FocusHpDisplay focusHpDisplay;
+    private DamagePopupDisplay damagePopupDisplay;
+    private ItemFactory itemFactory;
+    private CatalogRecipeRegistrar catalogRecipeRegistrar;
+    private com.trinityforge.stats.VanillaRecipeRemover vanillaRecipeRemover;
+    private com.trinityforge.stats.VanillaItemRemover vanillaItemRemover;
+    private com.trinityforge.listeners.VanillaItemRemovalListener vanillaItemRemovalListener;
+    private GiveItemCommand giveItemCommand;
+    private BindCommand bindCommand;
+    private StampCommand stampCommand;
+    private ImportMobsCommand importMobsCommand;
+    private DungeonCommand dungeonCommand;
+    private StatsCommand statsCommand;
+    private RoleCommand roleCommand;
+    private RoleBuffListener roleBuffListener;
+    private CollectionCommand collectionCommand;
+    private CollectionService collectionService;
+    private com.trinityforge.progression.CollectionGui collectionGui;
+    private com.trinityforge.progression.SpecialRewardService specialRewardService;
+    private com.trinityforge.progression.TitleDisplayService titleDisplayService;
+    private com.trinityforge.progression.ParticleEffectService particleEffectService;
+    private com.trinityforge.command.SettingsCommand settingsCommand;
+    private com.trinityforge.progression.AchievementService achievementService;
+    private ActiveSkillRegistry activeSkillRegistry;
+    private CooldownManager activeCooldownManager;
+    private FeedbackLayer activeFeedbackLayer;
+    private ActiveCommand activeCommand;
+    private org.bukkit.scheduler.BukkitTask achievementPollTask;
+    private UseRequirementService useRequirementService;
+    private PlayerLootLuckSource lootLuckSource;
+    private com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonusSource;
+    // Bumped on every successful reload so ItemRefreshListener knows which already-assembled items
+    // are stale (SELECTION_SPEC 5); see TableGeneration.
+    private TableGeneration tableGeneration;
+    private ItemRefreshListener itemRefreshListener;
+    private com.trinityforge.economy.EconomyBridge economyBridge;
+
+    @Override
+    public void onEnable() {
+        // Vault soft-dependency (T1): resolved once at startup, before anything else — a currency-dependent
+        // feature (fish-sell-toggle) must be able to ask economyBridge.available() from the very first
+        // tick. softdepend in paper-plugin.yml guarantees Vault (if present) is already enabled by now.
+        this.economyBridge = com.trinityforge.economy.EconomyBridge.resolve(this);
+
+        this.configManager = new ConfigManager(this);
+
+        int domainsWithIssues = configManager.loadAll();
+        if (domainsWithIssues > 0) {
+            getLogger().warning("Config loaded with issues in " + domainsWithIssues
+                    + " domain(s); defaults applied where invalid.");
+        }
+
+        this.dungeonWorldRegistry = new DungeonWorldRegistry();
+
+        getDataFolder().mkdirs();
+        try {
+            File database = new File(getDataFolder(), "player_progression.db");
+            this.progressionRepository = new CachedProgressionRepository(
+                    new ExecutorProgressionRepository(
+                            new SqliteProgressionRepository(
+                                    "jdbc:sqlite:" + database.getAbsolutePath())),
+                    () -> configManager.combatLevel().cacheTtlMillis());
+            this.progressionCatalog = NativeSkillCatalog.loadDataFolder(
+                    getDataFolder(), getClassLoader());
+            this.skillLevelSource = new NativeSkillLevelSource(progressionRepository);
+            this.skillPerkStatSource = new NativeSkillPerkStatSource(progressionRepository);
+            // Shared across both services so gameplay EXP grants/perk unlocks and admin level
+            // edits serialize on the same per-player lock instead of racing on a stale
+            // read-modify-write of the point ledger.
+            com.trinityforge.progression.PlayerLockRegistry progressionLocks =
+                    new com.trinityforge.progression.PlayerLockRegistry();
+            this.progressionService = new NativeProgressionService(
+                    progressionRepository, progressionCatalog,
+                    // power_allskillexpmultiplier_add → skill_exp_bonus (2026-07-23 stat-gate-overhaul
+                    // §2 移行B12): 装備+perk合算。呼び出し頻度が高いため専用キャッシュは追加せず、既存の
+                    // 遅延フィールド参照パターン(この時点ではaggregatorはまだ構築されていない)をそのまま踏襲。
+                    id -> {
+                        PlayerStatAggregator live = this.playerStatAggregator;
+                        if (live == null) {
+                            return 0.0;
+                        }
+                        Player online = getServer().getPlayer(id);
+                        return online == null ? 0.0
+                                : live.aggregate(online).totalOf(
+                                        com.trinityforge.stats.StatKeys.canonical("skill_exp_bonus"));
+                    },
+                    progressionLocks,
+                    // タスク3(2026-07-26 EXP調整): レベル逓減カーブ。既定はgathering/combatとも
+                    // level-diminishing.*=false なので SkillExpDiminishingCurve は常に1.0を返す
+                    // (=現行挙動を1ミリも変えない)。
+                    new com.trinityforge.progression.SkillExpDiminishingCurve(configManager.skillExp()));
+            this.progressionAdminService = new NativeProgressionAdminService(
+                    progressionRepository, progressionCatalog,
+                    () -> configManager.skillTrees().all().values(),
+                    progressionLocks);
+        } catch (SQLException ex) {
+            getLogger().log(Level.SEVERE, "Native progression database could not be opened", ex);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        this.experienceDispatcher = new NativeExperienceDispatcher(this, progressionService);
+        // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
+        com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
+                new com.trinityforge.progression.SkillExpFeedbackService(
+                this, configManager.skillExp(), progressionCatalog,
+                skillId -> {
+                    for (com.trinityforge.skilltree.SkillTree t : configManager.skillTrees().all().values()) {
+                        if (t != null && skillId != null && skillId.equalsIgnoreCase(t.skill())) {
+                            return t.displayName();
+                        }
+                    }
+                    return skillId;
+                });
+        this.experienceDispatcher.setFeedback(skillExpFeedbackService);
+        // B3(2026-07-25 バグ報告): ログアウト時に当該プレイヤーのスキル別ボスバー/タイマーを確実に
+        // 破棄するため PlayerQuitEvent を購読する(以前は Listener 未実装で未登録だった)。
+        getServer().getPluginManager().registerEvents(skillExpFeedbackService, this);
+        // Persistent per-chunk record of player-placed blocks (place+break gathering-XP farm guard).
+        PlacedBlockTracker placedBlockTracker = new PlacedBlockTracker(this);
+        getServer().getPluginManager().registerEvents(placedBlockTracker, this);
+        // NativeSkillExperienceListener の登録は aggregator/dedicatedEffects を要する
+        // 破壊時バニラEXP(S9)配線のため aggregator 生成後(下方)へ移動した。gimmick系(Digging/VeinMining/
+        // TreeFelling)より前に登録される点は変わらないので、placed-mark の消去順序は不変。
+        getServer().getPluginManager().registerEvents(
+                new ProgressionPreloadListener(this, progressionRepository), this);
+        this.nativePerkService = new NativePerkService(progressionService,
+                () -> configManager.skillTrees().all().values());
+        // Public ItemStack -> AttackStats derivation, reusing the same item-category config +
+        // stats/item-stats.yml (the SOLE per-item stat source) + attack-stat-keys mapping the
+        // CombatListener runs for a melee weapon. Exposed via weaponAttackStats() so the ArsPaper fork can
+        // feed a catalyst's real crit/penetration/... into SymmetricCombatService.magicalFinalDamage
+        // instead of AttackStats.plain(0) (COMBAT_SYSTEM_SPEC 3.1).
+        this.weaponAttackStatResolver = new WeaponAttackStatResolver(
+                configManager.itemStats(),
+                configManager.combatDamage(), configManager.combatDamage().attackStatKeys(),
+                configManager.craftingFeatures());
+
+        // Every combat, craft and use-gate level read now comes from the native SQLite repository.
+        // TF is the source and applier of both perk ownership and configured buffs.
+        PerkBuffResolver perkBuffResolver = new PerkBuffResolver(skillPerkStatSource,
+                () -> configManager.skillTrees().all().values(),
+                () -> configManager.lore().layout().multiplierLayers());
+        NativeAttributeBridge nativeAttributeBridge = new NativeAttributeBridge(perkBuffResolver);
+        // アチーブメント/図鑑報酬の永続ステータスバフ(rewards.permanent-buffs)は都度再計算方式
+        // (Java-only achievement/collection reward extension): 達成/解放集合はPDCに記録済みなので、
+        // このリゾルバは呼び出しごとにconfig+PDCを読むだけで良く、reload/達成状態変化が即反映される。
+        com.trinityforge.progression.PermanentBuffResolver permanentBuffResolver =
+                new com.trinityforge.progression.PermanentBuffResolver(
+                        configManager.achievements(), configManager.collection());
+        // #3 全ステ合算 (LD-13拡張): 攻撃側(CombatListener)と防御側(PlayerDefenseResolver)の両方が
+        // 同じ集計者を通して防具4部位 + メインハンド(または発射武器) + (設定により)オフハンド + パーク +
+        // アドオンを合算する。二重実装を避けるため単一のインスタンスを両方へ注入する。
+        // 2026-07-25: PerkAttributeApplier の attack-speed/attack-speed-bonus 計算にも必要なため、
+        // perkAttributeApplier の構築より先にここで作る(旧順序=perkAttributeApplier→aggregatorを反転)。
+        RoleBuffResolver roleBuffResolver = new RoleBuffResolver(configManager.roleBuffs());
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                configManager.itemStats(),
+                configManager.combatDamage(), perkBuffResolver, roleBuffResolver, nativeAttributeBridge,
+                permanentBuffResolver, configManager.baseStats(), configManager.statCaps());
+        this.playerStatAggregator = aggregator;
+        this.perkAttributeApplier = new PerkAttributeApplier(
+                this, perkBuffResolver, nativeAttributeBridge, permanentBuffResolver,
+                configManager.baseStats(), aggregator, configManager.combatDamage(),
+                configManager.itemStats());
+        getServer().getPluginManager().registerEvents(perkAttributeApplier, this);
+        // 装備フィンガープリント周期照合(安全網、既定10tick)を開始する。
+        this.perkAttributeApplier.startPeriodicReconciliation();
+        // 採集効率エンチャント連動方式(2026-07-25、mining-efficiency/mining-speed-bonus属性ベースの取り下げ
+        // 再設計): メインハンドの農業/採掘/伐採/切削道具へ実行時に効率強化エンチャントとして反映する。
+        this.gatheringEfficiencyApplier = new com.trinityforge.gathering.GatheringEfficiencyEnchantApplier(
+                this, aggregator, configManager.gatheringEfficiency(), configManager.statCaps());
+        getServer().getPluginManager().registerEvents(gatheringEfficiencyApplier, this);
+        // 破壊時バニラEXP(S9)を有効化するため aggregator/dedicatedEffects を渡す 7引数版で登録する。
+        // ここは placedBlockTracker(上方) 生成後かつ gimmick系リスナー登録より前なので順序不変。
+        getServer().getPluginManager().registerEvents(
+                new NativeSkillExperienceListener(this, experienceDispatcher, progressionCatalog,
+                        placedBlockTracker, roleBuffResolver,
+                        configManager.dedicatedEffects(), aggregator), this);
+        // かまど/エンチャント/ポーションは実行者(=スキル取得者)限定ステ反映(2026-07-25)。
+        // エンチャント運(良エンチャント出現率格上げ) + オーバーエンチャント解放者の出現率追加ボーナス。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.EnchantLuckListener(aggregator, configManager.enchantLuck(),
+                        configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
+        // エンチャント費用軽減(enchant_cost_reduction): エンチャントテーブルのレベルコストと
+        // 金床の修理コストの両方を軽減する(2026-07-26 新設)。同リスナーに本棚パワーconfig化
+        // (crafting-features.yml enchant-bookshelf-power、既定値ではバニラ挙動不変)も相乗り。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.EnchantCostReductionListener(aggregator,
+                        configManager.enchantBookshelf()), this);
+        // ポーション品質(時間/強度換算) + 醸造速度。所有者解決は NativeSkillExperienceListener が
+        // rememberBrewer/markAutomatedBrew で刻むPDCを BrewOwnership 経由で共有読み取りする。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.PotionQualityListener(this, aggregator,
+                        configManager.alchemyQuality(), progressionCatalog), this);
+        // 材料節約率(ingredient_save_chance)をバニラ醸造台へ配線する(2026-07-26)。所有者解決は上と同じ
+        // BrewOwnership経由・HIGH優先度。自動(ホッパー)醸造は複製防止のため完全にスキップする
+        // (品質/速度と違いauto_mult減衰すら適用しない、詳細はBrewIngredientSaveListenerのjavadoc参照)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.BrewIngredientSaveListener(this, aggregator), this);
+        // S9: 採取追加ドロップ/食事バフ/繁殖バフ/植えた作物の成長ボーナス consumer 群。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.GatheringExtraDropListener(aggregator, placedBlockTracker), this);
+        // 2026-07-25 farming.yml A-alpha-2(ゴミ食のみ強化/非ゴミ食は通常に戻す)対応の4引数版で登録する。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.FoodBonusListener(this, aggregator,
+                        configManager.dedicatedEffects(), configManager.foodGimmick()), this);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.BreedingBonusListener(aggregator), this);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.PlantedCropGrowthListener(this, aggregator), this);
+        // 数値・解放フラグはすべて buffs 経由で集計する。
+        getServer().getPluginManager().registerEvents(new NativeSurvivalPerkListener(aggregator), this);
+        getServer().getPluginManager().registerEvents(
+                new NativeCombatPerkListener(aggregator), this);
+        new com.trinityforge.integration.ars.ArsNativeBridge(perkBuffResolver,
+                permanentBuffResolver, roleBuffResolver, configManager.baseStats()).registerService(this);
+        // Held-perk PDC mirror (UNLOCK 2.1): the ArsPaper integration gates glyph use / recipe / ritual on
+        // PlayerData.of(player).heldPerks(), but nothing writes that PDC until here — so without this the
+        // whole unlock system is inert. The service mirrors the TF-native unlocked-perk set into the PDC
+        // on join, after menu changes, and on a light periodic backfill, writing only on change.
+        this.perkMirrorService = new PerkMirrorService(this, skillPerkStatSource,
+                PerkMirrorService.DEFAULT_SYNC_INTERVAL_TICKS);
+        getServer().getPluginManager().registerEvents(new PerkMirrorListener(perkMirrorService), this);
+        perkMirrorService.start();
+        this.nativeSkillTreeMenu = new NativeSkillTreeMenu(
+                this, progressionService, nativePerkService, player -> {
+                    perkAttributeApplier.apply(player);
+                    gatheringEfficiencyApplier.reconcileFull(player);
+                    perkMirrorService.sync(player);
+                });
+        getServer().getPluginManager().registerEvents(nativeSkillTreeMenu, this);
+        // Player-defender item side (LD-8 γ, LD-13): sums the TF-only defense (typed 耐性 + common
+        // 守備力/被ダメ軽減/回避) derived from the victim's equipped armor, combined by the service
+        // with the vanilla armor/toughness mirror AND the skill-tree perk addend. Shares the item
+        // category config and the perk resolver with the attacker path.
+        PlayerDefenseResolver playerDefenseResolver =
+                new PlayerDefenseResolver(configManager.combatDamage().defenseStatKeys(), aggregator);
+        this.combatService = new SymmetricCombatService(configManager.combatDamage(),
+                configManager.combatLevel(), configManager.mobTypes(), skillLevelSource,
+                playerDefenseResolver);
+        // Bleed DoT runtime (Q3 = (c)): a bounded, self-evicting active-bleed set + one repeating
+        // main-thread task, routing each tick through the pipeline (LD-9). Started/stopped with the
+        // plugin so a disable/reload leaks nothing (mirrors HateService).
+        this.bleedService = new BleedService(this, combatService, configManager.combatDamage());
+        bleedService.start();
+        // 毒・ウィザーDoTを出血と同じ「被ダメージ軽減のみ考慮」に揃える (バニラのイベント自体は残す)。
+        getServer().getPluginManager().registerEvents(new DotDamageListener(combatService), this);
+        // 課題2: ArsPaperフォークの魔法ダメージ(cause=MAGIC)はTF対称パイプラインが既にポーション
+        // RESISTANCE(Lv×10%)をTF耐性%へ織り込み済みのため、バニラのRESISTANCE modifier(Lv×20%)を
+        // 別途0化して二重軽減を防ぐ。DotDamageListenerとは対象cause/責務が異なる別リスナー
+        // (DoTはBASEダメージ自体をbleedFinalDamageFlatで再計算するが、魔法は既に確定したBASEの
+        // 後始末のみ)なので分離した(MagicResistanceFoldListenerのjavadoc参照)。
+        getServer().getPluginManager().registerEvents(new MagicResistanceFoldListener(), this);
+        // The listener bridges the attacker's mainhand weapon's stats/item-stats.yml overlay into
+        // AttackStats via the configured attack-stat-keys mapping (COMBAT 3.1), and folds only the
+        // ARMOR/RESISTANCE vanilla modifiers into the symmetric pipeline so shield blocking and
+        // absorption keep working (COMBAT_SYSTEM_SPEC 5).
+        getServer().getPluginManager().registerEvents(
+                new CombatListener(this, combatService,
+                        configManager.itemStats(), configManager.combatDamage(),
+                        skillLevelSource, bleedService, perkBuffResolver, aggregator,
+                        configManager.useRequirements(), configManager.skillExp(),
+                        configManager.craftingFeatures(), roleBuffResolver), this);
+
+        // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and
+        // a periodic sweep; the listener feeds threat and evicts on death/removal/quit/unload so
+        // the table can never leak. All knobs live in hate/rates.yml with balance-neutral defaults.
+        this.hateService = new HateService(this, configManager.hate());
+        getServer().getPluginManager().registerEvents(new HateListener(hateService, roleBuffResolver), this);
+        hateService.start();
+
+        // Dungeon entry gate (D2, Q4): single SoT dungeon/gates.yml (world + content-package aliases).
+        this.dungeonGateService = new DungeonGateService(
+                configManager.dungeonGates(), combatService);
+        getServer().getPluginManager().registerEvents(
+                new DungeonGateListener(dungeonGateService), this);
+
+        // Write-side item assembly shared by the give command, (M3) fork drop/craft flows, and the
+        // refresh listener below (SELECTION_SPEC 5: a table edit must reach items already in play).
+        this.tableGeneration = new TableGeneration();
+        ItemAssembler itemAssembler = new ItemAssembler(
+                configManager.itemStats(),
+                configManager.attributeMapping(),
+                new AttributeApplier(this),
+                configManager.lore(),
+                new LoreComposer(),
+                configManager.qualityTiers(),
+                tableGeneration,
+                configManager.itemCatalog(),
+                configManager.skillTrees(),
+                configManager.craftingFeatures());
+        this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(), configManager.craftingFeatures());
+        // Single id->ItemStack resolution seam (TF catalog -> ArsPaper registry -> vanilla Material) used
+        // by every drop-table listener (mining/woodcutting/digging/fishing, 2026-07-23 stat-gate-overhaul §4).
+        this.crossPluginItemResolver =
+                new com.trinityforge.stats.CrossPluginItemResolver(configManager.itemCatalog(), itemFactory);
+        // Catalog-authored crafting recipes (items/catalog.yml `recipe:`/`recipes:`): registers the
+        // Bukkit recipes each catalog entry declares. Re-run on every /trinityforge reload (below)
+        // AND from ArsPaper's enable hook (refreshCatalogRecipes) so Ars-built results converge.
+        this.catalogRecipeRegistrar = new CatalogRecipeRegistrar(this, configManager.itemCatalog(), itemFactory,
+                () -> configManager.craftingFeatures().addedRecipes());
+        catalogRecipeRegistrar.registerAll();
+        CatalogRitualBridge.registerAll(this, configManager.itemCatalog());
+        // crafting-features.yml removed-vanilla-recipes: バニラ/データパックレシピの無効化
+        // (editor から編集可能。reload でリストから外れたレシピは復元される)。
+        this.vanillaRecipeRemover = new com.trinityforge.stats.VanillaRecipeRemover(getLogger());
+        vanillaRecipeRemover.apply(configManager.craftingFeatures().removedVanillaRecipes());
+        // crafting-features.yml removed-vanilla-items: バニラアイテム自体の排除
+        // (入手経路の遮断 + 既存所持の掃除。editor から編集可能)。
+        this.vanillaItemRemover = new com.trinityforge.stats.VanillaItemRemover(configManager.itemCatalog());
+        vanillaItemRemover.updateTargets(configManager.craftingFeatures().removedVanillaItems(), getLogger());
+        this.vanillaItemRemovalListener =
+                new com.trinityforge.listeners.VanillaItemRemovalListener(this, vanillaItemRemover);
+        getServer().getPluginManager().registerEvents(vanillaItemRemovalListener, this);
+        // Per-slot identity check for catalog recipes with custom: ingredients (and correction of
+        // cross-recipe mismatches like compressed-stone chains sharing a material at Bukkit level).
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.CatalogWorkbenchListener(
+                        catalogRecipeRegistrar, configManager.itemCatalog()), this);
+        this.giveItemCommand = new GiveItemCommand(this, itemFactory, configManager.itemCatalog(),
+                configManager.quality());
+        this.bindCommand = new BindCommand(itemFactory);
+        this.importMobsCommand = new ImportMobsCommand(this, configManager.mobImport(),
+                configManager.mobProfiles(), configManager.dungeonThemes());
+        this.dungeonCommand = new DungeonCommand(configManager.dungeonThemes());
+        // Read-only debug command: shows the running player's aggregate combat level, skill levels,
+        // and derived weapon/armor stats (rollSeed + quality), exactly as the pipeline reads them.
+        this.statsCommand = new StatsCommand(combatService,
+                aggregator,
+                configManager.lore(),
+                skillLevelSource);
+        this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs());
+        this.roleCommand = new RoleCommand(configManager.roleBuffs(), roleBuffListener);
+
+        // コレクション図鑑 (M7): カタログアイテム入手/プレイヤー討伐を図鑑へ記録し、
+        // 登録数しきい値の報酬ティア(称号/コスメ/QoL、progression/collection.yml)を段階解放する。
+        this.collectionService = new CollectionService(configManager.collection(), getLogger(),
+                crossPluginItemResolver, experienceDispatcher, perkAttributeApplier);
+        getServer().getPluginManager().registerEvents(
+                new CollectionListener(configManager.collection(), collectionService,
+                        configManager.itemCatalog()), this);
+        this.collectionGui = new com.trinityforge.progression.CollectionGui(this, configManager.collection(),
+                collectionService, crossPluginItemResolver);
+        this.collectionCommand = new CollectionCommand(configManager.collection(), collectionService, collectionGui);
+        getServer().getPluginManager().registerEvents(collectionGui, this);
+
+        // 特殊報酬(称号/パーティクル/パーティクルシード, 2026-07-23-stat-gate-overhaul §6.1):
+        // スキルツリー reward:<id> 保有 or 達成/図鑑ティア直接付与のいずれかで解放される。
+        this.specialRewardService = new com.trinityforge.progression.SpecialRewardService(
+                configManager.specialRewards(), configManager.dedicatedEffects());
+        this.titleDisplayService = new com.trinityforge.progression.TitleDisplayService(this,
+                player -> specialRewardService.equippedTitleDisplay(player).orElse(null),
+                () -> configManager.specialRewards().titleHeadOffsetY());
+        getServer().getPluginManager().registerEvents(titleDisplayService, this);
+        this.particleEffectService = new com.trinityforge.progression.ParticleEffectService(
+                this, configManager.specialRewards());
+        getServer().getPluginManager().registerEvents(particleEffectService, this);
+        com.trinityforge.progression.SettingsGui settingsGui = new com.trinityforge.progression.SettingsGui(
+                this, configManager.specialRewards(), specialRewardService);
+        settingsGui.setOnTitleChanged(titleDisplayService::refresh);
+        settingsGui.setOnParticleChanged(particleEffectService::invalidate);
+        getServer().getPluginManager().registerEvents(settingsGui, this);
+        this.settingsCommand = new com.trinityforge.command.SettingsCommand(settingsGui);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.ParticleSeedListener(configManager.specialRewards()), this);
+
+        // アチーブメント (2026-07-23-stat-gate-overhaul §6.2): バニラ実績連動 + 統計しきい値ポーリング。
+        this.achievementService = new com.trinityforge.progression.AchievementService(
+                configManager.achievements(), getLogger(), crossPluginItemResolver, experienceDispatcher,
+                perkAttributeApplier, collectionService);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.AchievementListener(achievementService), this);
+
+        // Re-syncs an item's lore/attributes against the live tables on hotbar switch, armor change,
+        // and join, so a reload's effect is not stuck at "only new items see it" (item 1).
+        this.itemRefreshListener = new ItemRefreshListener(itemAssembler, tableGeneration);
+        getServer().getPluginManager().registerEvents(itemRefreshListener, this);
+
+        // Ownership use-gate: SOULBOUND/OWNER_BOUND with an owner deny use by non-owners (trade OK).
+        getServer().getPluginManager().registerEvents(new OwnerBindListener(), this);
+        // 鍛冶村人取引: perk-gated custom trades (economy/villager-trades.yml).
+        getServer().getPluginManager().registerEvents(
+                new VillagerTradeListener(configManager.dedicatedEffects(), configManager.villagerTrades(),
+                        configManager.itemCatalog(), itemFactory), this);
+        // バニラ鍛冶村人(防具/道具/武器)との取引を全面禁止。上のVillagerTradeListenerが提供する
+        // perk連動の専用取引に一本化するための対の実装。CLN-25: 実装済みだが未登録だったため有効化。
+        getServer().getPluginManager().registerEvents(new BlacksmithBanListener(), this);
+        getServer().getPluginManager().registerEvents(
+                new CatalogCraftGateListener(configManager.dedicatedEffects()), this);
+        // PRG-02: recipe:<id> ゲートがTFカタログ品/実在バニラレシピ/既知のネザライトアップグレードの
+        // いずれにも解決できない(綴り間違い等)場合は起動時に警告する(「静かに壊れるより騒がしく落ちる」方針)。
+        CatalogCraftGateListener.verifyRecipeGateIds(
+                configManager.dedicatedEffects(), configManager.itemCatalog(), getLogger());
+        getServer().getPluginManager().registerEvents(
+                new WeaponCoatingListener(configManager.dedicatedEffects(),
+                        configManager.craftingFeatures(), configManager.itemStats(),
+                        configManager.combatDamage().weaponBaseFormula()), this);
+        getServer().getPluginManager().registerEvents(
+                new WoodRepairListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
+        getServer().getPluginManager().registerEvents(
+                new DisassemblyListener(configManager.dedicatedEffects(), configManager.craftingFeatures(),
+                        configManager.itemCatalog(), itemFactory, aggregator), this);
+        getServer().getPluginManager().registerEvents(
+                new PotionMergeListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
+        getServer().getPluginManager().registerEvents(
+                new BrewUnlockListener(configManager.dedicatedEffects(), configManager.craftingFeatures(), this), this);
+        getServer().getPluginManager().registerEvents(
+                new OverEnchantListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
+        getServer().getPluginManager().registerEvents(roleBuffListener, this);
+        // TF装備の砥石: エンチャ除去のみ許可し PDC ステを保全。
+        getServer().getPluginManager().registerEvents(new GrindstonePreserveListener(), this);
+        // Tool use-level gate (block break) — mirrors CombatListener weapon gate.
+        getServer().getPluginManager().registerEvents(
+                new UseRequirementListener(skillLevelSource, configManager.useRequirements(),
+                        configManager.itemStats()), this);
+        // 装備使用ゲートの共有評価器: 防具装備ゲート(下)と ArsPaper フォークの触媒詠唱ゲート
+        // (useRequirementGate() 経由)が、近接/弓/ツールと同じ規則・文言で使う。
+        this.useRequirementService = new UseRequirementService(configManager.useRequirements(),
+                configManager.itemStats(), skillLevelSource);
+        // 防具の装備ゲート: 要件未達の防具は装備直後に引き剥がして返却する
+        // (PlayerArmorChangeEvent はキャンセル不可のため)。
+        getServer().getPluginManager().registerEvents(
+                new ArmorUseGateListener(this, useRequirementService), this);
+
+        // Craft/fishing quality stamp (ITEM_ECONOMY_SPEC 5.2c/5.2d): a crafted piece of equipment gets a
+        // quality from the crafter's production skill; a caught piece gets a random quality by treasure
+        // luck. Runtime-verified items (shift-click, ARS_SMITHING existence) are noted in each listener.
+        this.craftQualityService = new CraftQualityService(
+                skillLevelSource, configManager.craftQuality(), configManager.quality(),
+                aggregator, configManager.itemStats());
+        PlayerLootLuckSource lootLuck = new PlayerLootLuckSource(getLogger(), aggregator);
+        this.lootLuckSource = lootLuck;
+        // mobドロップ品質のmode+1は幸運ではなく専用stat(mob_drop_quality、装備+perk合算)が担う
+        // (幸運spec=「ドロップとクラフト以外」)。EliteMobsフォークからは mobDropBonus() で読む。
+        PlayerMobDropBonusSource mobDropBonus = new PlayerMobDropBonusSource(getLogger(), aggregator);
+        this.mobDropBonusSource = mobDropBonus;
+        getServer().getPluginManager().registerEvents(
+                new CraftQualityListener(this, itemFactory, craftQualityService, configManager.craftQuality(),
+                        configManager.skillExp(), configManager.itemCatalog(), configManager.itemStats()),
+                this);
+        // Clamp item damage after other HIGHEST-priority durability handlers have run.
+        getServer().getPluginManager().registerEvents(new ItemDamageClampListener(), this);
+        getServer().getPluginManager().registerEvents(
+                new CatalogSmithingListener(configManager.itemCatalog(), itemFactory), this);
+        getServer().getPluginManager().registerEvents(
+                new CatalogAnvilListener(this, configManager.itemCatalog(), itemFactory), this);
+        // 釣果が宝/ゴミどちらのグループから引かれたか(FishingGimmickListenerの置換フロー)を
+        // FishingQualityListenerのトレジャー複製防止ロジックへ伝える、釣果エンティティ限定のPDCフラグ。
+        org.bukkit.NamespacedKey fishingTreasureKey = new org.bukkit.NamespacedKey(this, "fishing_table_treasure");
+        getServer().getPluginManager().registerEvents(
+                new FishingQualityListener(itemFactory,
+                        configManager.quality(),
+                        configManager.fishingGimmick(), skillLevelSource, configManager.itemCatalog(), lootLuck,
+                        playerStatAggregator, configManager.itemStats(), fishingTreasureKey), this);
+        PickupQualityListener pickupQualityListener = new PickupQualityListener(
+                this, itemFactory, configManager.itemStats(),
+                configManager.qualityTiers(), configManager.quality(),
+                configManager.itemCatalog(), lootLuck);
+        getServer().getPluginManager().registerEvents(pickupQualityListener, this);
+        this.stampCommand = new StampCommand(pickupQualityListener);
+
+        // 採掘の連続処理 (mining-gimmick.yml fortune.*): ツールの mining-fortune ステ + MINING スキルLvに
+        // 応じた期待値ぶん、対象鉱石/作物ブロックのドロップを追加スポーンする。
+        getServer().getPluginManager().registerEvents(
+                new MiningFortuneListener(configManager.miningGimmick(), skillLevelSource,
+                        playerStatAggregator, placedBlockTracker), this);
+
+        // Gacha ticket right-click (gacha.yml): right-clicking a ticket item (matched by its
+        // items/catalog.yml id, not display name) draws one weighted prize and consumes the ticket.
+        getServer().getPluginManager().registerEvents(
+                new GachaListener(this, configManager.gacha(), configManager.itemCatalog(),
+                        itemFactory, configManager.quality(), aggregator), this);
+
+        // 汎用アクティブスキル基盤 (2026-07-25 gather-rework-active-framework §3 W1): haste-active-mining を
+        // 基盤上の最初のActiveSkillとして再実装(旧HasteActiveMiningListenerの私製CT Mapを置換)。
+        // 正式トリガーは「スニーク+右クリック かつ メインハンドのuse-skillが一致」の一本のみ
+        // (設計書§6 Q2の/tf active+GUIトリガーは不採用 — オーケストレータ指示で上書き)。FeedbackLayerは
+        // §3 component 5設計どおりW3の採取系フィードバック(B-1)とも共有する。
+        this.activeSkillRegistry = new ActiveSkillRegistry();
+        this.activeSkillRegistry.register(new HasteActiveSkill(configManager.miningGimmick()));
+        // 2026-07-25 CT設計一本化 §2: 登録した全ActiveSkillに対応するCT短縮ステータスキー
+        // (StatVocabulary.ATTACK_KEYS の "<id>-cooldown-reduction") が存在するか起動時に検査する。
+        // 新しいActiveSkillを追加して対応するキーの登録を忘れると、ここでIllegalStateExceptionが飛んで
+        // 起動が止まる(「静かに壊れるより騒がしく落ちる」方針、VanillaAttributeDefaultsと同じ流儀)。
+        ActiveSkillCooldownKeys.verifyRegistered(this.activeSkillRegistry);
+        this.activeCooldownManager = new CooldownManager();
+        this.activeFeedbackLayer = new FeedbackLayer();
+        this.activeCommand = new ActiveCommand(activeSkillRegistry, configManager.dedicatedEffects(),
+                activeCooldownManager, activeFeedbackLayer, aggregator);
+        getServer().getPluginManager().registerEvents(
+                new ActivationDispatcher(activeSkillRegistry, configManager.dedicatedEffects(),
+                        activeCooldownManager, activeFeedbackLayer, aggregator), this);
+
+        // 採掘スキルツリーのflag系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // (stats/mining-gimmick.yml でチューニング): 鉱脈破壊/怪しいブロック復活/スポナーST回収 +
+        // mining drop-table(旧ガチャ券1-3/古代のがれき個別consumerを置換、2026-07-23 §4)。
+        getServer().getPluginManager().registerEvents(
+                new VeinMiningListener(configManager.dedicatedEffects(), configManager.miningGimmick(),
+                        crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer), this);
+        getServer().getPluginManager().registerEvents(
+                new MiningGimmickListener(this, configManager.dedicatedEffects(), aggregator,
+                        configManager.miningGimmick()), this);
+
+        // 伐採スキルツリーのflag系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // (stats/woodcutting-gimmick.yml でチューニング): tree-fell(旧小木/大木一括伐採を統合) +
+        // woodcutting drop-table(旧リンゴ/金リンゴ/クリスタルリンゴ個別consumerを置換、2026-07-23 §4)。
+        // 2026-07-25 PRG-07: 一括伐採CTを私製Mapから汎用CooldownManager(activeCooldownManager、
+        // ActivationDispatcherと共有)へ統合し、tree-fell-cooldown-reductionステータスを読むようにした。
+        getServer().getPluginManager().registerEvents(
+                new TreeFellingListener(configManager.dedicatedEffects(), configManager.woodcuttingGimmick(),
+                        crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
+                        activeCooldownManager, aggregator), this);
+
+        // 掘削(シャベル適正ブロック破壊)ギミック: digging drop-table(2026-07-23 §4、新設リスナー)。
+        // 対象判定は NativeSkillExperienceListener.grantGathering と同じ digging_break 分類ロジックを流用する。
+        getServer().getPluginManager().registerEvents(
+                new DiggingGimmickListener(configManager.dedicatedEffects(), configManager.diggingGimmick(),
+                        progressionCatalog, placedBlockTracker, crossPluginItemResolver), this);
+
+        // 2026-07-25 切削C-1/C-2: シャベル耐久累計→バニラ/職業EXPボーナス。バニラ分は本リスナー自身が
+        // PlayerExpChangeEventで直接適用し、職業分は experienceDispatcher の任意resolverへ配線する
+        // (NativeExperienceDispatcher#grant自体はイベントではないため、この間接注入が必要)。
+        com.trinityforge.listeners.DiggingDurabilityExpListener diggingDurabilityExpListener =
+                new com.trinityforge.listeners.DiggingDurabilityExpListener(
+                        configManager.dedicatedEffects(), configManager.diggingGimmick());
+        getServer().getPluginManager().registerEvents(diggingDurabilityExpListener, this);
+        experienceDispatcher.setJobExpMultiplierResolver((playerId, skillId) -> {
+            if (!"DIGGING".equalsIgnoreCase(skillId)) return 0.0;
+            org.bukkit.entity.Player p = org.bukkit.Bukkit.getPlayer(playerId);
+            return p == null ? 0.0 : diggingDurabilityExpListener.jobExpBonusFraction(p);
+        });
+
+        // 2026-07-25 かまど精錬速度(smithing.yml A-1〜3, feature:furnace-smelt-speed)/精錬ボーナス
+        // (B-1〜3, feature:furnace-smelt-bonus): 所有者=精錬物を入れた本人のみ(FurnaceSmeltListener
+        // 参照)。ホッパー自動投入は smithing-gimmick.yml auto-mode-multiplier で減衰。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.FurnaceSmeltListener(
+                        this, configManager.dedicatedEffects(), configManager.smithingGimmick()), this);
+
+        // 農業/畜産スキルツリーのflag/percent系dedicated-effect(skilltree/dedicated-effects.yml)consumer群
+        // (stats/farming-gimmick.yml でチューニング): 植え直しと収穫同時(auto-replant)・範囲収穫
+        // (area-harvest)・動物への与ダメ倍率(animal-damage-4x)・ハチ非敵対+養蜂幸運(bee-no-aggro/
+        // hive-harvest-fortune)。
+        getServer().getPluginManager().registerEvents(
+                new FarmingHarvestListener(this, configManager.dedicatedEffects(),
+                        configManager.farmingGimmick(), activeFeedbackLayer), this);
+        getServer().getPluginManager().registerEvents(
+                new AnimalDamageListener(configManager.dedicatedEffects(), configManager.farmingGimmick()), this);
+        getServer().getPluginManager().registerEvents(
+                new BeekeepingListener(configManager.dedicatedEffects(), configManager.farmingGimmick(),
+                        aggregator), this);
+
+        // 農業ツリーA-α/β系「食事」ギミックのflag/percent系dedicated-effect(skilltree/dedicated-effects.yml)
+        // consumer群(stats/food-gimmick.yml でチューニング): ゴミ食免疫(junkfood-immunity)・ゴミ食/非ゴミ食の
+        // 満腹度回復反転(junkfood-inversion)・食事非消費確率(no-food-consume-chance)・完全食満腹バフ
+        // (satiety-buff)・カスタム食料(custom-foods: 圧縮食料等の満腹度/隠し満腹度をREPLACE方式で上書き、
+        // 解放はskilltree側のrecipe:ゲートで管理、flagゲート無しで常時有効)。
+        getServer().getPluginManager().registerEvents(
+                new FoodGimmickListener(this, configManager.dedicatedEffects(), configManager.foodGimmick(),
+                        aggregator), this);
+
+        // 釣果の宝/ゴミ置換 (2026-07-23 stat-gate-overhaul §2.3/§4): fishing.groups(treasure/junk) drop-table
+        // + fishing_luck由来の宝率シフト。テーブル未設定時は旧junk/treasureマテリアルリストの
+        // junk-to-scrapフォールバックへ自動的に切替わる(FishingGimmickConfig#dropTablesEmpty参照)。
+        // fish-sell-toggle保持時は宝抽選をゴミ抽選へ丸ごと差し替える(2026-07-25経済連携、クラスjavadoc参照)。
+        // FishingQualityListener(NORMAL)より先に走らせる必要があるため EventPriority.LOW で登録。
+        getServer().getPluginManager().registerEvents(
+                new FishingGimmickListener(configManager.dedicatedEffects(), configManager.fishingGimmick(),
+                        crossPluginItemResolver, playerStatAggregator, skillLevelSource, fishingTreasureKey),
+                this);
+
+        // fish-sell-toggle (2026-07-25 経済連携): 釣った魚を釣った瞬間に自動でVault通貨へ換金する。
+        // Vault不在時はeconomyBridge.available()==falseで静かに無効化(通常どおりアイテムとして入手)。
+        // 宝/ゴミ置換(FishingGimmickListener, LOW)・品質刻印(FishingQualityListener, NORMAL)の後、
+        // 最終確定したMaterialに対して判定する必要があるため EventPriority.MONITOR で登録。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.FishSellListener(configManager.dedicatedEffects(),
+                        configManager.fishingGimmick(), aggregator, economyBridge), this);
+
+        // enchanting.yml B-3のxp-bottle-store-unlock(flag): 経験値瓶への経験値の格納/取出(MVP)。
+        getServer().getPluginManager().registerEvents(
+                new XpBottleListener(configManager.dedicatedEffects(), configManager.fishingGimmick()), this);
+
+        // Vanilla mob-type system (combat/mob-types.yml): EntityType-keyed level/defense/coordinate
+        // scaling + extra drops, independent of the EliteMobs-keyed mob-profiles.yml system. The
+        // spawn listener stamps the PDC profile; the drop listener rolls the extra drop table.
+        getServer().getPluginManager().registerEvents(
+                new MobTypeSpawnListener(this, configManager.mobTypes()), this);
+        getServer().getPluginManager().registerEvents(
+                new MobTypeDropListener(configManager.mobTypes(), configManager.craftQuality(),
+                        configManager.quality(), itemFactory, mobDropBonusSource,
+                        configManager.itemStats()), this);
+
+        // レベル帯テーブル(combat/mob-level-table.yml): ドロップ削除/追加/バニラEXP上書き、
+        // 任意でダンジョンインスタンスワールド限定。field/dungeon両方のレベル刻印モブに適用。
+        // HIGH優先度で MobTypeDropListener(NORMAL) の後に走らせる(§report参照)。
+        getServer().getPluginManager().registerEvents(
+                new MobLevelTableListener(configManager.mobLevelTable(), dungeonWorldRegistry,
+                        crossPluginItemResolver), this);
+
+        // ダンジョン(ワールド)×モブid単位のドロップオーバーライド(combat/mob-overrides.yml、
+        // 2026-07-26新設)。MONITOR優先度でMobLevelTableListener(HIGH)より後に走らせ、EliteMobs自身の
+        // LootTables#onDeathによるgetDrops()クリアの影響も受けない(MobOverrideDropListener Javadoc参照)。
+        getServer().getPluginManager().registerEvents(
+                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver), this);
+
+        // 同じ combat/mob-overrides.yml の「モブごとのレベル依存EXP式」(2026-07-26)。同じMONITOR優先度で
+        // MobLevelTableListener(HIGH)のレベル帯 vanilla-exp より後 = より具体的な指定が勝つ。
+        getServer().getPluginManager().registerEvents(
+                new MobOverrideExpListener(configManager.mobOverrides()), this);
+
+        // TT/放置対策(同一地点の逓減)。自身はEXPを配らず、上記2リスナーと戦闘/防具EXP経路から
+        // 呼ばれる縮小係数の供給元。Listenerとして登録するのはログアウト時の履歴破棄のためだけ。
+        getServer().getPluginManager().registerEvents(locationExpDiminishing, this);
+
+        // Cosmetic focus-target HP display (TextDisplay above the targeted mob). Purely visual;
+        // no combat/config coupling beyond reading MobData for the level tag.
+        // 2026-07-26: TF側の表示に出すモブ名は combat/mob-overrides.yml の display-name を最優先にする
+        // (出荷ymlに396体ぶんの日本語名が入っている)。解決は MobDisplayNames に一元化。
+        MobDisplayNames mobDisplayNames = new MobDisplayNames(configManager.mobOverrides());
+        this.focusHpDisplay = new FocusHpDisplay(this, mobDisplayNames);
+        getServer().getPluginManager().registerEvents(focusHpDisplay, this);
+        if (configManager.display().focusHpEnabled()) {
+            focusHpDisplay.start();
+        }
+
+        // TF実ダメージのポップアップ表示(頭上に短命TextDisplayで数値のみ表示)。cosmetic、config駆動。
+        this.damagePopupDisplay = new DamagePopupDisplay(this, configManager.display());
+        getServer().getPluginManager().registerEvents(damagePopupDisplay, this);
+        damagePopupDisplay.start();
+
+        // 称号頭上表示(パッセンジャーTextDisplay) + パーティクル演出の周期タスク開始。
+        titleDisplayService.start();
+        particleEffectService.start();
+        // アチーブメント統計ポーリング(1分毎、§6.2): JUMP/WALK_ONE_CM/PLAY_ONE_MINUTE等バニラStatistic。
+        this.achievementPollTask = getServer().getScheduler().runTaskTimer(this,
+                achievementService::pollStatistics, 20L * 60, 20L * 60);
+
+        // Block player-facing /em /ag while TF owns progression (ops can bypass).
+        getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
+
+        registerCommands();
+        // Publish the singleton only after every field is initialized and registration is complete,
+        // so anything reaching getInstance() during enable never observes a half-built plugin.
+        instance = this;
+        getLogger().info("TrinityForge enabled (Paper 1.21.11).");
+    }
+
+    @Override
+    public void onDisable() {
+        // Stop the sweep task and drop all tracked threat so a disable/hot-reload leaks nothing.
+        if (hateService != null) {
+            hateService.shutdown();
+        }
+        // Stop the bleed tick task and drop all active bleeds (same leak-safety as hate).
+        if (bleedService != null) {
+            bleedService.shutdown();
+        }
+        // Stop the held-perk mirror backfill task (leak-safety, mirrors hate/bleed).
+        if (perkMirrorService != null) {
+            perkMirrorService.shutdown();
+        }
+        // 危険な点3(離脱経路)の安全網: プラグイン無効化時に全オンラインプレイヤーの採集効率エンチャント
+        // 付与分を剥がす(付与中に無効化されると焼き付いたまま残るため)。
+        if (gatheringEfficiencyApplier != null) {
+            gatheringEfficiencyApplier.stripAllOnline();
+        }
+        // Cancel the focus-HP tick task and despawn every tracked TextDisplay (leak-safety).
+        if (focusHpDisplay != null) {
+            focusHpDisplay.shutdown();
+        }
+        // DamagePopupDisplay has no shutdown(): its displays are one-shot and so short-lived (default
+        // 15 ticks = 0.75s) that forced cleanup on disable is unnecessary — each already schedules its
+        // own removal, and any left behind by a crash are swept on the next enable.
+        // Cancel the title-display/particle tick tasks and despawn every tracked TextDisplay (leak-safety).
+        if (titleDisplayService != null) {
+            titleDisplayService.shutdown();
+        }
+        if (particleEffectService != null) {
+            particleEffectService.shutdown();
+        }
+        if (achievementPollTask != null) {
+            achievementPollTask.cancel();
+            achievementPollTask = null;
+        }
+        try {
+            if (experienceDispatcher != null) {
+                experienceDispatcher.close();
+                experienceDispatcher = null;
+            }
+        } finally {
+            if (progressionRepository != null) {
+                progressionRepository.close();
+                progressionRepository = null;
+                progressionService = null;
+            }
+        }
+        // Clear the static reference so a hot-reload (PlugMan etc.) does not retain the dead plugin
+        // instance and leak its classloader, and so getInstance() never returns a disabled plugin.
+        instance = null;
+        getLogger().info("TrinityForge disabled.");
+    }
+
+    /** Admin gate: OP or explicit {@code trinityforge.admin} (LuckPerms can hide default:op from Brigadier). */
+    private static boolean isTfAdmin(CommandSourceStack src) {
+        var sender = src.getSender();
+        return sender.isOp() || sender.hasPermission("trinityforge.admin");
+    }
+
+    private void registerCommands() {
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            final Commands commands = event.registrar();
+            commands.register(
+                    Commands.literal("trinityforge")
+                            .requires(src -> isTfAdmin(src)
+                                    || src.getSender().hasPermission("trinityforge.use"))
+                            .executes(ctx -> {
+                                ctx.getSource().getSender().sendMessage(Component.text(
+                                        "用法: /tf <reload|skills|progression|give|bind|stamp|import|dungeon|stats|collection|inspect>",
+                                        NamedTextColor.YELLOW));
+                                ctx.getSource().getSender().sendMessage(Component.text(
+                                        "※ reload/progression/give/bind/stamp/import/dungeon は OP または trinityforge.admin が必要です。",
+                                        NamedTextColor.GRAY));
+                                return Command.SINGLE_SUCCESS;
+                            })
+                            .then(Commands.literal("reload")
+                                    .requires(TrinityForge::isTfAdmin)
+                                    .executes(ctx -> {
+                                        int issues = configManager.loadAll();
+                                        if (progressionCatalog != null
+                                                && !progressionCatalog.reload(getDataFolder(), getClassLoader())) {
+                                            issues++;
+                                            getLogger().warning("NativeSkillCatalog reload failed; previous curve snapshot retained");
+                                        } else if (progressionCatalog != null && progressionRepository != null) {
+                                            try {
+                                                int rewritten = new com.trinityforge.progression.ProgressionCurveReconciler(
+                                                        progressionRepository, progressionCatalog).recalculateAll();
+                                                if (rewritten > 0) {
+                                                    getLogger().info("[progression] curve/cap reconciler rewrote "
+                                                            + rewritten + " skill row(s)");
+                                                }
+                                            } catch (RuntimeException ex) {
+                                                issues++;
+                                                getLogger().log(java.util.logging.Level.WARNING,
+                                                        "[progression] curve reconciler failed; levels may lag new curves",
+                                                        ex);
+                                            }
+                                        }
+                                        // Every already-assembled item becomes stale as of this reload;
+                                        // ItemRefreshListener re-syncs them lazily as they come back into
+                                        // play (item 1).
+                                        if (tableGeneration != null) {
+                                            tableGeneration.bump();
+                                        }
+                                        if (itemRefreshListener != null) {
+                                            itemRefreshListener.refreshAllOnlinePlayers();
+                                        }
+                                        // Re-apply hate caps/decay/TTL/sweep cadence from the freshly
+                                        // loaded config (the table caches its settings snapshot).
+                                        if (hateService != null) {
+                                            hateService.applyConfig();
+                                        }
+                                        // A reload may have changed skill-tree buffs; immediately
+                                        // re-apply native perk attributes for every online player.
+                                        if (perkAttributeApplier != null) {
+                                            perkAttributeApplier.applyAllOnline();
+                                        }
+                                        // A reload may have added/edited/removed a catalog `recipe:`;
+                                        // re-derive the whole registered set (fail-soft per entry).
+                                        if (catalogRecipeRegistrar != null) {
+                                            catalogRecipeRegistrar.registerAll();
+                                            CatalogRitualBridge.registerAll(TrinityForge.this, configManager.itemCatalog());
+                                        }
+                                        // removed-vanilla-recipes の増減を反映 (外れた分は復元)。
+                                        if (vanillaRecipeRemover != null) {
+                                            vanillaRecipeRemover.apply(
+                                                    configManager.craftingFeatures().removedVanillaRecipes());
+                                        }
+                                        // removed-vanilla-items の増減を反映し、オンライン全員から即掃除。
+                                        if (vanillaItemRemover != null) {
+                                            vanillaItemRemover.updateTargets(
+                                                    configManager.craftingFeatures().removedVanillaItems(),
+                                                    getLogger());
+                                            if (vanillaItemRemovalListener != null) {
+                                                vanillaItemRemovalListener.sweepAllOnline();
+                                            }
+                                        }
+                                        var sender = ctx.getSource().getSender();
+                                        if (issues == 0) {
+                                            sender.sendMessage(Component.text(
+                                                    "TrinityForge config reloaded.", NamedTextColor.GREEN));
+                                        } else {
+                                            sender.sendMessage(Component.text(
+                                                    "Config reloaded with issues in " + issues
+                                                            + " domain(s); see console.", NamedTextColor.YELLOW));
+                                        }
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
+                            .then(Commands.literal("skills")
+                                    .executes(ctx -> {
+                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                            return 0;
+                                        }
+                                        nativeSkillTreeMenu.open(player);
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
+                            .then(Commands.literal("progression")
+                                    .requires(TrinityForge::isTfAdmin)
+                                    .then(Commands.literal("level")
+                                            .then(Commands.argument("player", StringArgumentType.word())
+                                                    .suggests((ctx, builder) -> {
+                                                        getServer().getOnlinePlayers().stream()
+                                                                .map(Player::getName)
+                                                                .filter(name -> name.toLowerCase(java.util.Locale.ROOT)
+                                                                        .startsWith(builder.getRemainingLowerCase()))
+                                                                .forEach(builder::suggest);
+                                                        return builder.buildFuture();
+                                                    })
+                                                    .then(Commands.argument("skill", StringArgumentType.word())
+                                                            .suggests((ctx, builder) -> {
+                                                                progressionCatalog.entries().keySet().stream()
+                                                                        .filter(skill -> skill.toLowerCase(
+                                                                                        java.util.Locale.ROOT)
+                                                                                .startsWith(
+                                                                                        builder.getRemainingLowerCase()))
+                                                                        .forEach(builder::suggest);
+                                                                return builder.buildFuture();
+                                                            })
+                                                            .then(Commands.argument(
+                                                                            "operation",
+                                                                            StringArgumentType.word())
+                                                                    .suggests((ctx, builder) -> {
+                                                                        for (String operation : List.of(
+                                                                                "set", "add", "subtract")) {
+                                                                            if (operation.startsWith(
+                                                                                    builder.getRemainingLowerCase())) {
+                                                                                builder.suggest(operation);
+                                                                            }
+                                                                        }
+                                                                        return builder.buildFuture();
+                                                                    })
+                                                                    .then(Commands.argument(
+                                                                                    "amount",
+                                                                                    IntegerArgumentType.integer(0))
+                                                                            .executes(ctx ->
+                                                                                    executeProgressionLevel(
+                                                                                            ctx.getSource(),
+                                                                                            StringArgumentType.getString(
+                                                                                                    ctx, "player"),
+                                                                                            StringArgumentType.getString(
+                                                                                                    ctx, "skill"),
+                                                                                            StringArgumentType.getString(
+                                                                                                    ctx, "operation"),
+                                                                                            IntegerArgumentType.getInteger(
+                                                                                                    ctx, "amount"),
+                                                                                            null))
+                                                                            .then(Commands.argument(
+                                                                                            "prestige",
+                                                                                            IntegerArgumentType.integer(0))
+                                                                                    .executes(ctx ->
+                                                                                            executeProgressionLevel(
+                                                                                                    ctx.getSource(),
+                                                                                                    StringArgumentType.getString(
+                                                                                                            ctx, "player"),
+                                                                                                    StringArgumentType.getString(
+                                                                                                            ctx, "skill"),
+                                                                                                    StringArgumentType.getString(
+                                                                                                            ctx, "operation"),
+                                                                                                    IntegerArgumentType.getInteger(
+                                                                                                            ctx, "amount"),
+                                                                                                    IntegerArgumentType.getInteger(
+                                                                                                            ctx, "prestige")))))))))
+                                    .then(Commands.literal("exp")
+                                            .then(Commands.argument("player", StringArgumentType.word())
+                                                    .then(Commands.argument("skill", StringArgumentType.word())
+                                                            .then(Commands.argument("amount",
+                                                                            DoubleArgumentType.doubleArg())
+                                                                    .executes(ctx -> {
+                                                                        String playerName = StringArgumentType.getString(
+                                                                                ctx, "player");
+                                                                        Player target = getServer().getPlayerExact(playerName);
+                                                                        if (target == null) {
+                                                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                                                    "オンラインプレイヤーが見つかりません: "
+                                                                                            + playerName,
+                                                                                    NamedTextColor.RED));
+                                                                            return 0;
+                                                                        }
+                                                                        try {
+                                                                            var result = progressionService.grantExp(
+                                                                                    target.getUniqueId(),
+                                                                                    StringArgumentType.getString(ctx, "skill"),
+                                                                                    DoubleArgumentType.getDouble(ctx, "amount"));
+                                                                            if (result.after() == null) {
+                                                                                ctx.getSource().getSender().sendMessage(Component.text(
+                                                                                        "EXP変化はありません。", NamedTextColor.YELLOW));
+                                                                                return Command.SINGLE_SUCCESS;
+                                                                            }
+                                                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                                                    result.skillId() + " Lv "
+                                                                                            + result.after().level(),
+                                                                                    NamedTextColor.GREEN));
+                                                                            return Command.SINGLE_SUCCESS;
+                                                                        } catch (IllegalArgumentException ex) {
+                                                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                                                    ex.getMessage(), NamedTextColor.RED));
+                                                                            return 0;
+                                                                        }
+                                                                    })))))
+                                    .then(Commands.literal("reset")
+                                            .then(Commands.argument("player", StringArgumentType.word())
+                                                    .executes(ctx -> {
+                                                        Player target = getServer().getPlayerExact(
+                                                                StringArgumentType.getString(ctx, "player"));
+                                                        if (target == null) return 0;
+                                                        progressionRepository.resetPlayer(target.getUniqueId());
+                                                        perkAttributeApplier.apply(target);
+                                                        perkMirrorService.sync(target);
+                                                        ctx.getSource().getSender().sendMessage(Component.text(
+                                                                "進行データを初期化しました: " + target.getName(),
+                                                                NamedTextColor.GREEN));
+                                                        return Command.SINGLE_SUCCESS;
+                                                    })))
+                                    .then(Commands.literal("save")
+                                            .executes(ctx -> {
+                                                progressionRepository.flush();
+                                                ctx.getSource().getSender().sendMessage(Component.text(
+                                                        "進行DBをcheckpointしました。", NamedTextColor.GREEN));
+                                                return Command.SINGLE_SUCCESS;
+                                            }))
+                                    .then(Commands.literal("diagnose")
+                                            .then(Commands.argument("player", StringArgumentType.word())
+                                                    .executes(ctx -> {
+                                                        Player target = getServer().getPlayerExact(
+                                                                StringArgumentType.getString(ctx, "player"));
+                                                        if (target == null) return 0;
+                                                        var snapshot = progressionService.snapshot(target.getUniqueId());
+                                                        ctx.getSource().getSender().sendMessage(Component.text(
+                                                                snapshot.toString(), NamedTextColor.GRAY));
+                                                        return Command.SINGLE_SUCCESS;
+                                                    }))))
+                            .then(giveItemCommand.node()
+                                    .requires(TrinityForge::isTfAdmin))
+                            .then(bindCommand.node()
+                                    .requires(TrinityForge::isTfAdmin))
+                            .then(stampCommand.node()
+                                    .requires(TrinityForge::isTfAdmin))
+                            .then(importMobsCommand.node()
+                                    .requires(TrinityForge::isTfAdmin))
+                            .then(dungeonCommand.node()
+                                    .requires(TrinityForge::isTfAdmin))
+                            .then(statsCommand.node())
+                            .then(roleCommand.node())
+                            .then(collectionCommand.node())
+                            .then(settingsCommand.node())
+                            .then(new InspectCommand().node())
+                            // DEBUG専用(2026-07-25 §6 Q2): /tf 用法テキスト・タブ補完のプレイヤー導線には
+                            // 出さない。正式トリガーはスニーク+右クリック(ActivationDispatcher)。
+                            .then(activeCommand.node().requires(TrinityForge::isTfAdmin))
+                            .build(),
+                    "TrinityForge admin command",
+                    List.of("tf"));
+            commands.register(
+                    Commands.literal("skills")
+                            .requires(src -> src.getSender().hasPermission("trinityforge.use"))
+                            .executes(ctx -> {
+                                if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                    ctx.getSource().getSender().sendMessage(Component.text(
+                                            "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                    return 0;
+                                }
+                                nativeSkillTreeMenu.open(player);
+                                return Command.SINGLE_SUCCESS;
+                            })
+                            .then(Commands.argument("skill", StringArgumentType.word())
+                                    .executes(ctx -> {
+                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                            return 0;
+                                        }
+                                        nativeSkillTreeMenu.open(
+                                                player, StringArgumentType.getString(ctx, "skill"));
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
+                            .build(),
+                    "Open the TrinityForge skill tree",
+                    List.of("s"));
+        });
+    }
+
+    private int executeProgressionLevel(
+            CommandSourceStack source, String playerName, String skill,
+            String rawOperation, int amount, Integer prestige) {
+        Player target = getServer().getPlayerExact(playerName);
+        if (target == null) {
+            source.getSender().sendMessage(Component.text(
+                    "オンラインプレイヤーが見つかりません: " + playerName, NamedTextColor.RED));
+            return 0;
+        }
+        NativeProgressionAdminService.EditMode mode;
+        try {
+            mode = NativeProgressionAdminService.EditMode.valueOf(
+                    rawOperation.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            source.getSender().sendMessage(Component.text(
+                    "操作は set / add / subtract のいずれかです。", NamedTextColor.RED));
+            return 0;
+        }
+        var result = progressionAdminService.edit(
+                target.getUniqueId(), skill, mode, amount, prestige);
+        if (result.status() != NativeProgressionAdminService.EditStatus.APPLIED) {
+            String message = switch (result.status()) {
+                case UNKNOWN_SKILL -> "不明なスキルです: " + result.skillId();
+                case INVALID_AMOUNT -> "値は0以上で指定してください。";
+                case LEVEL_OUT_OF_RANGE -> "変更後レベルが許容範囲外です。";
+                case PRESTIGE_DISABLED -> "このスキルではプレステージを設定できません。";
+                case PRESTIGE_OUT_OF_RANGE -> "プレステージ回数が許容範囲外です。";
+                case POINT_LEDGER_CONFLICT ->
+                        "変更後POWERでは取得済みノードの消費ポイントを維持できません。";
+                case STORAGE_FAILURE -> "進行DBの更新に失敗しました。コンソールを確認してください。";
+                case APPLIED -> throw new IllegalStateException("unreachable");
+            };
+            source.getSender().sendMessage(Component.text(message, NamedTextColor.RED));
+            return 0;
+        }
+        perkAttributeApplier.apply(target);
+        perkMirrorService.sync(target);
+        source.getSender().sendMessage(Component.text(
+                target.getName() + " の " + result.skillId() + " を Lv"
+                        + result.after().level() + " に更新しました"
+                        + (prestige == null ? "。" : "（Prestige " + prestige + "）。"),
+                NamedTextColor.GREEN));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    public static TrinityForge getInstance() {
+        return instance;
+    }
+
+    public ConfigManager config() {
+        return configManager;
+    }
+
+    public NativeProgressionService progressionService() {
+        return progressionService;
+    }
+
+    public NativeExperienceDispatcher experienceDispatcher() {
+        return experienceDispatcher;
+    }
+
+    /**
+     * The shared damage service. The Ars integration (M2) calls
+     * {@link SymmetricCombatService#magicalFinalDamage} on this to route spell damage through the
+     * symmetric pipeline. Null until {@link #onEnable} has run.
+     */
+    public SymmetricCombatService combatService() {
+        return combatService;
+    }
+
+    /**
+     * 課題1(魔法出血)の公開API。ArsPaperフォークの {@code TrinityForgeBridge} が魔法ヒット
+     * (最終ダメージ確定後)のたびに呼ぶ想定で、{@code bleed-chance}/{@code bleed-damage} の
+     * ロール判定と {@link BleedService#apply} 呼び出しの責務はここ(TF側)へ一本化する
+     * ——フォーク側に確率ロジックを持ち込ませないため。
+     *
+     * <p>{@code attackerStats} は近接の {@code agg.item()} と対称に、魔法ダメージ計算そのものが
+     * 読んだのと同じ攻撃集約(装備4部位 + (設定により)オフハンド + パーク + アドオン + 触媒自身の
+     * 解決済みステ。メインハンド武器は除外——触媒がその代わりを務めるため)であること。
+     * {@link #bleedService} が未初期化({@link #onEnable} 完了前)なら no-op。
+     *
+     * @param attackerStats 魔法ダメージが読んだのと同じ攻撃集約(canonical key -&gt; 値)
+     * @param victim        出血を負わせる対象
+     * @param attackerId    出血の帰属先(詠唱者)UUID
+     * @param finalDamage   実際に適用された(または適用予定の)最終魔法ダメージ。0以下(回復含む)は no-op
+     */
+    public void applyMagicBleed(Map<String, Double> attackerStats, LivingEntity victim,
+                                 UUID attackerId, double finalDamage) {
+        if (bleedService != null) {
+            bleedService.maybeApplyFromAggregate(attackerStats, victim, attackerId, finalDamage);
+        }
+    }
+
+    /**
+     * Shared dungeon entry gate evaluation ({@code dungeon/gates.yml}). EliteMobs instanced-dungeon
+     * joins and TF cross-world teleports both route through this service.
+     */
+    public DungeonGateService dungeonGateService() {
+        return dungeonGateService;
+    }
+
+    /**
+     * Registry of instanced dungeon world UUIDs, populated by the EliteMobs fork (softdepend on
+     * TrinityForge). The fork reads this via {@code TrinityForge.getInstance().dungeonWorldRegistry()}.
+     */
+    public DungeonWorldRegistry dungeonWorldRegistry() {
+        return dungeonWorldRegistry;
+    }
+
+    /**
+     * TT/放置対策の「同一地点の逓減」トラッカー (2026-07-26)。武器EXP・防具EXP・バニラEXPの3経路が
+     * 同じインスタンスを共有する — 経路ごとに別勘定にすると、経路を混ぜるだけで逓減を回避できるため。
+     */
+    public com.trinityforge.progression.LocationExpDiminishing locationExpDiminishing() {
+        return locationExpDiminishing;
+    }
+
+    /**
+     * The shared player stat aggregator (#3 全ステ合算, {@link PlayerStatAggregator}). Exposed so the
+     * ArsPaper fork can build a caster's "other equipment excluding mainhand" attack stats for Change 1
+     * (P10 magic aggregation, ARSPAPER_FORK_SPEC) via {@link PlayerStatAggregator#aggregateExcludingMainhand}
+     * without duplicating the armor/offhand/perk/addon accumulation logic. Null until {@link #onEnable}
+     * has run.
+     */
+    public PlayerStatAggregator playerStatAggregator() {
+        return playerStatAggregator;
+    }
+
+    /**
+     * The player's総合stat total (装備 + skill-tree perk合算, mainhand context) for {@code key} — the
+     * public read seam forks use instead of the retired perk-only native reward path (2026-07-23
+     * stat-gate-overhaul §2 移行B14: fork consumer系 {@code lapis_cost_reduction}/
+     * {@code source_cost_reduction}/{@code material_refund_chance}/{@code ingredient_save_chance}
+     * 等はこのAPI経由で読む想定。fork側の切替は別ウェーブ)。{@code 0.0} when
+     * the aggregator has not been built yet (before {@link #onEnable} completes) or {@code player} is
+     * {@code null}.
+     */
+    public double statTotal(Player player, String key) {
+        if (player == null || playerStatAggregator == null) {
+            return 0.0;
+        }
+        return playerStatAggregator.aggregate(player).totalOf(com.trinityforge.stats.StatKeys.canonical(key));
+    }
+
+    /**
+     * 装備アイテム由来を除いた、プレイヤー単位の寄与(パーク general / 役職バフ / 永続バフ /
+     * base-stats)だけの合計 — {@link #statTotal} の兄弟API(2026-07-26 マナ系ステ穴埋め)。
+     * フォークのように「装備は自前で集計済み」の消費者(ArsPaper の {@code ArmorManaListener}/
+     * {@code SpellCaster} 等)が、TF の装備集計と二重計上せずにパーク分だけを上乗せするための
+     * 読み取り口。詳細は {@link PlayerStatAggregator#nonItemStatTotal} を参照(addon非含有・
+     * multipliers非適用)。アグリゲータ未構築({@link #onEnable} 完了前)または {@code player} が
+     * {@code null} のときは {@code 0.0}。
+     */
+    public double nonItemStatTotal(Player player, String key) {
+        if (player == null || playerStatAggregator == null) {
+            return 0.0;
+        }
+        return playerStatAggregator.nonItemStatTotal(player, com.trinityforge.stats.StatKeys.canonical(key));
+    }
+
+    /**
+     * Glyph-id-keyed damage multiplier the ArsPaper fork's spell-effect classes should multiply their
+     * final damage by (2026-07-25 ars_magic.yml B-3「害悪強化」). Backed by the generic
+     * {@code glyph_damage_multiplier_bonus} stat (fraction, e.g. {@code 0.3}=+30%) — harmに決め打ちしない:
+     * which glyph ids receive the bonus is config-driven ({@code stats/glyph-damage-boost.yml
+     * boosted-glyphs}, {@link com.trinityforge.config.domains.GlyphDamageBoostConfig}), not hardcoded
+     * here. {@code caster} must be the
+     * player who cast the spell (this codebase's cross-cutting rule: only the executor's own stats ever
+     * apply — never a bystander's, never a later picker-up's). Returns {@code 1.0} (no-op multiplier)
+     * for a {@code null} caster/glyphId, before {@link #onEnable} completes, or when {@code glyphId} is
+     * not in the boosted list.
+     *
+     * <p>設計注記: フォークは {@code glyphConfig} 経由ではなく、このAPIを直接呼ぶ想定
+     * (グリフID→倍率の解決はTF側のconfigが真源であるため、フォーク側に重複した対象リストを持たせない)。
+     * 公開APIを追加したため、フォーク連携には {@code TrinityForge/libs/TrinityForge.jar}(フォークが
+     * compileOnlyで参照するAPI jar)の再生成が必要。
+     */
+    public double glyphDamageMultiplier(Player caster, String glyphId) {
+        if (caster == null || glyphId == null || playerStatAggregator == null || configManager == null) {
+            return 1.0;
+        }
+        if (!configManager.glyphDamageBoost().isBoosted(glyphId)) {
+            return 1.0;
+        }
+        double bonus = statTotal(caster, "glyph_damage_multiplier_bonus");
+        return 1.0 + Math.max(0.0, bonus);
+    }
+
+    /**
+     * Derives {@link com.trinityforge.combat.AttackStats} from a catalyst/weapon {@link
+     * org.bukkit.inventory.ItemStack}. The Ars integration (M2) calls {@code forItem(catalyst)} to
+     * obtain the real attacker stats to pass to {@link SymmetricCombatService#magicalFinalDamage},
+     * replacing the {@code AttackStats.plain(0)} placeholder. Null until {@link #onEnable} has run.
+     */
+    public WeaponAttackStatResolver weaponAttackStats() {
+        return weaponAttackStatResolver;
+    }
+
+    /**
+     * The skill-driven craft-quality roller. Exposed for the ArsPaper fork's ritual-craft path, which
+     * hands over a finished item outside a {@code CraftItemEvent} (so {@code CraftQualityListener} does
+     * not see it) and needs to stamp the same skill-driven quality as a normal craft. Null until
+     * {@link #onEnable} has run.
+     */
+    public CraftQualityService craftQualityService() {
+        return craftQualityService;
+    }
+
+    /**
+     * The write-side item builder. The give command and (M3) fork drop/craft flows use it to
+     * create catalog items so every item goes through one assembly path. Null until
+     * {@link #onEnable} has run.
+     */
+    public ItemFactory itemFactory() {
+        return itemFactory;
+    }
+
+    /**
+     * Re-registers every catalog workbench recipe. Called by the ArsPaper fork from its enable hook
+     * (alongside {@code repushCatalogRituals}) so recipe RESULTS whose catalog id is an Ars custom
+     * item are rebuilt as real Ars items (with their functional {@code arspaper:*} PDC) — at
+     * TrinityForge's own enable time Ars is not yet up and those results fall back to TF identity
+     * builds. Idempotent; safe no-op before {@link #onEnable} completes.
+     */
+    public void refreshCatalogRecipes() {
+        if (catalogRecipeRegistrar != null) {
+            catalogRecipeRegistrar.registerAll();
+        }
+    }
+
+    /**
+     * The catalog workbench recipe registrar. Exposed for the ArsPaper fork's recipe browser, which
+     * lists {@code trinityforge:catalog_*} recipes and needs the parsed spec (notably {@code custom:}
+     * ingredient tokens that a Bukkit MaterialChoice cannot express). Null until {@link #onEnable}.
+     */
+    public com.trinityforge.stats.CatalogRecipeRegistrar catalogRecipeRegistrar() {
+        return catalogRecipeRegistrar;
+    }
+
+    /**
+     * The aggro/threat service (gap C5). Owns the bounded, self-evicting hate table that the
+     * tank/beastmaster wall behaviour (R2) will read. Null until {@link #onEnable} has run.
+     */
+    public HateService hateService() {
+        return hateService;
+    }
+
+    /**
+     * 装備使用ゲートの共有評価 ({@code progression/use-requirements.yml})。ArsPaper フォークが
+     * 触媒/魔導書の詠唱ゲート(マナ消費前)に使う。Null until {@link #onEnable} has run.
+     */
+    public UseRequirementService useRequirementGate() {
+        return useRequirementService;
+    }
+
+    /**
+     * TFネイティブ運ステ({@code power_luckbonus_add})→品質mode加算の読み出し口。釣り/拾得に加え、
+     * EliteMobs フォークのドロップ品質(幸運1につきmode+1、ITEM_ECONOMY 5.2d)が使う。
+     * Null until {@link #onEnable} has run.
+     */
+    public PlayerLootLuckSource lootLuck() {
+        return lootLuckSource;
+    }
+
+    /** mobドロップ品質ボーナス(power_mobdropbonus_add)。EliteMobsフォークのドロップ品質が読む。 */
+    public com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonus() {
+        return mobDropBonusSource;
+    }
+}

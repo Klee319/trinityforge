@@ -1,0 +1,3071 @@
+# ============================================================================
+# combat/mob-overrides.yml
+# EliteMobsダンジョンインスタンス内の「カスタムモブ」ごとに、個別の「強さ」(レベル/HP/防御/攻撃)と
+# 「ドロップテーブル」を設定できるオーバーライド層。
+#
+# 【位置づけ】 combat/mob-profiles.yml (/trinityforge importmobs が生成する自動生成ファイル。手編集禁止・
+# 再importで上書きされる)は直接触らない。このファイルは mob-profiles.yml の"上に重ねる"オーバーレイで、
+# 再importが走っても手で調整した値は絶対に失われない。
+#
+# 【階層】 overrides.<ワールド名>.mobs.<モブid> の2階層。特別なキー "default" は全ダンジョン共通の
+# フォールバック(そのワールド専用の指定が無いモブに使われる)。モブidは EliteMobs のカスタムボス設定
+# ファイル名(拡張子なし) — /trinityforge importmobs が combat/mob-profiles.yml のキーに使うものと同じ。
+#
+# 【ワールド名の書き方(重要)】 インスタンスダンジョンの実ワールド名は EliteMobs が入場のたびに
+# 「<設計図ワールド名>_<連番>」(例: em_the_shattered_gate_1, _2, _3 ...)と番号を増やして作るため、
+# 実ワールド名をそのまま書いても1インスタンスにしか当たらない。ここには「設計図ワールド名」
+# (連番を除いた部分。EliteMobsのダンジョン設定 worldName: の値)を書くこと。そのダンジョンの全
+# インスタンスに当たる。実ワールド名の完全一致が優先され、無ければ設計図名として照合される
+# (複数該当する場合はより長い=より具体的なキーが勝つ)。
+#
+# 【前提】 モブが TrinityForge の管理下(スポーン時にPDCスタンプ済み)である必要がある。無料DL枠の
+# ダンジョンを新規に落とした場合も combat/mob-import.yml の unknown-mobs.synthesize: true(既定)で
+# 自動的に管理下に入るので、そのまま指定できる。false にしている場合は先に
+# /trinityforge importmobs plugins/EliteMobs/custombosses を実行すること。
+#
+# 【解決優先順位(強さ)】 次の3層を「項目単位」でマージする(書いた項目だけが上書きされ、書いていない
+# 項目は下位層の値がそのまま生きる):
+#   1. overrides.<実ワールド名>.mobs.<モブid>.stats  (最優先)
+#   2. overrides.default.mobs.<モブid>.stats
+#   3. combat/mob-profiles.yml の該当エントリ (mob-profiles.ymlが空扱いなら mob-defaults.yml)
+#
+# 【解決優先順位(ドロップ)】 マージではなく「置換」。実ワールド指定に drops: があればそれを丸ごと使い、
+# 無ければ default 指定の drops: を丸ごと使う(どちらにも無ければ何も追加しない)。このドロップは
+# combat/mob-level-table.yml の add-drops とは独立した別の追加ドロップ源として共存する(どちらか一方が
+# 他方を消すことはない。詳細は MobOverrideDropListener のJavadoc参照)。
+#
+# 【display-name (表示名)】 (省略可、2026-07-26 追加)
+#   ・overrides.<ワールド名>.display-name          … そのダンジョンの日本語名
+#   ・overrides.<ワールド名>.mobs.<モブid>.display-name … そのモブの日本語名
+#   config-editor が生のワールド名/EliteMobsモブidの代わりに表示するためだけの「表示用メタデータ」。
+#   戦闘の計算にもスコープ解決にも一切影響しない(ここを変えてもゲーム挙動は変わらない)。
+#   既定EliteMobsダンジョンのワールド名/モブidは変更するとオーバーライドが当たらなくなるため、
+#   editor 側では編集不可にしてある。名前を分かりやすくしたい場合はこの display-name を使うこと。
+#
+# 【stats の項目一覧】 (すべて省略可。省略した項目は下位層の値のまま)
+#   level           : 戦闘レベル(整数)
+#   max-health      : 最大HP
+#   armor-strength  : 防具強度(会心軽減率%、physical/magicalの両方に同じ値が適用される)
+#   physical        : 物理防御の個別項目(下記4項目、省略可)
+#   magical         : 魔法防御の個別項目(下記4項目、省略可)
+#     defense-rate     : 防御率% [0,1]
+#     resistance       : 耐性% [0,1]
+#     damage-reduction : 被ダメージ軽減% [0,1]
+#     flat-defense     : 守備力(固定値)
+#   attack          : 攻撃側の個別項目(省略可)
+#     attack-power         : 基礎ダメージ(combat/mob-profiles.yml/mob-types.ymlと同じキー名)
+#     flat-bonus-damage    : 固定追加ダメージ
+#     percent-bonus-damage : 割合追加ダメージ%
+#     crit-chance          : 会心率
+#     crit-damage          : 会心ダメージ%
+#     penetration          : 貫通率%
+#     damage-modifier      : ダメージ補正
+#     fixed-damage         : 固定ダメージ(全防御貫通)
+#
+# 【drops の項目一覧】 (このモブを倒したときに追加で出るアイテムの一覧)
+#   item   : Material名、または custom:<items/catalog.ymlのID / ArsPaper素材ID> (必須)
+#   chance : 1死亡あたりのドロップ確率 [0,1] (必須)
+#   min/max: ドロップ個数の範囲 (両方0以上、min<=max、必須)
+#
+# 【vanilla-exp (モブごとのレベル依存EXP式)】 (省略可)
+#   このモブを倒したときに落とすバニラ経験値(オーブ)を、そのモブの戦闘レベルの式で決める。
+#   式は combat/mob-import.yml のランプと完全に同じ形:
+#       exp(level) = (base + per-level * level) * growth^(level / growth-interval)
+#   結果は四捨五入して0以上に丸められる。書き方は2通り:
+#       vanilla-exp: 25                                   # レベル非依存の固定量
+#       vanilla-exp: { base: 5, per-level: 1.5, growth: 1.03, growth-interval: 1.0 }
+#   growth を省略(または 1.0)にすると線形 (base + per-level * level) になる。
+#   ※「絶対値でなく式」なのが重要: 導入済みダンジョンモブの多く(396体中265体)は level: dynamic で、
+#     プレイヤーが入場時に選んだレベルに追従する。固定値で書くとLv1でもLv100でも同じEXPになる。
+#   解決優先順位はドロップと同じ「置換」: <実ワールド> の指定があればそれ、無ければ default の指定、
+#   どちらにも無ければ何もしない(バニラ/他プラグインのEXP量がそのまま残る。0EXPにはならない)。
+#   combat/mob-level-table.yml のレベル帯単位 vanilla-exp より後に走るので、両方に該当するモブは
+#   こちらの「モブごとの式」が勝つ(帯指定は、式を書いていないモブのための広い既定として残る)。
+#
+# 【後方互換(コードの挙動)】 overrides: が空/存在しなければ、コード側(MobOverridesConfig)は一切何も
+# しない — 強さ・ドロップとも combat/mob-profiles.yml 由来の挙動を完全に維持する。これはロジックの
+# 保証であって、この出荷ファイルの中身が空という意味ではない(下記参照)。
+#
+# 【この出荷ファイルの実際の中身】 このファイルは overrides: が空のサンプルではなく、396体分の
+# モブオーバーライドが既に書き込まれた状態で出荷されている(2026-07-26時点)。サーバーの
+# plugins/TrinityForge/ 配下に combat/mob-overrides.yml がまだ存在しない初回起動時、
+# plugin.saveResource() によってこのファイルがそのままコピーされ、次のロードで即座に有効になる
+# (=「編集して初めて動く空のテンプレート」ではなく、初回起動から396体分の設定がライブで効いている)。
+# 既にファイルが存在するサーバーでは、このリソース内の変更は再配布されるだけで自動上書きはされない。
+#
+# 記入例(コメントアウト状態。使う場合はコメントを外して調整すること):
+# overrides:
+#   default:
+#     mobs:
+#       goblin_chief:
+#         stats:
+#           level: 50
+#           max-health: 1200
+#         vanilla-exp:
+#           base: 5
+#           per-level: 1.5
+#           growth: 1.03
+#           growth-interval: 1.0
+#         drops:
+#           - item: "custom:source_gem"
+#             chance: 0.25
+#             min: 1
+#             max: 3
+#   my_dungeon_world:
+#     mobs:
+#       goblin_chief:
+#         stats:
+#           max-health: 2000
+# ============================================================================
+
+overrides:
+  # 全ダンジョン共通のフォールバック(ワールド個別指定が無いモブに使われる)
+  default:
+    mobs: {}
+
+  # adventurers_guild_hub (HUB) — custombosses/adventurers_guild / 5体
+  # アリーナ「Wood League」 — custombosses/wood_league_arena / 91体
+  # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — ギルド闘技場。全ビルドの試し斬り場(計測用ダミーは無耐性のまま)
+  em_adventurers_guild:
+    display-name: "冒険者ギルド(拠点)"
+    mobs:
+      training_dummy_lv1:
+        display-name: "訓練用ダミー Lv.1"
+        # DPS計測用ダミー: 測定値が狂うため耐性は付けない。
+        # EXPは0固定(繰り返し殴れる計測器が経験値稼ぎ場になるのを防ぐ)。
+        stats: {}
+        vanilla-exp: 0
+        drops: []
+      training_dummy_lv100:
+        display-name: "訓練用ダミー Lv.100"
+        # DPS計測用ダミー: 測定値が狂うため耐性は付けない。
+        # EXPは0固定(繰り返し殴れる計測器が経験値稼ぎ場になるのを防ぐ)。
+        stats: {}
+        vanilla-exp: 0
+        drops: []
+      training_dummy_lv25:
+        display-name: "訓練用ダミー Lv.25"
+        # DPS計測用ダミー: 測定値が狂うため耐性は付けない。
+        # EXPは0固定(繰り返し殴れる計測器が経験値稼ぎ場になるのを防ぐ)。
+        stats: {}
+        vanilla-exp: 0
+        drops: []
+      training_dummy_lv50:
+        display-name: "訓練用ダミー Lv.50"
+        # DPS計測用ダミー: 測定値が狂うため耐性は付けない。
+        # EXPは0固定(繰り返し殴れる計測器が経験値稼ぎ場になるのを防ぐ)。
+        stats: {}
+        vanilla-exp: 0
+        drops: []
+      training_dummy_lv75:
+        display-name: "訓練用ダミー Lv.75"
+        # DPS計測用ダミー: 測定値が狂うため耐性は付けない。
+        # EXPは0固定(繰り返し殴れる計測器が経験値稼ぎ場になるのを防ぐ)。
+        stats: {}
+        vanilla-exp: 0
+        drops: []
+      wood_league_wave_10_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "悪い犬"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_10_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "悪い子犬 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_11_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第11波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_11_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第11波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_12_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第12波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_12_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第12波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_13_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第13波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_13_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第13波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_14_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第14波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_14_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第14波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_15_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "ブヒ氏"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_16_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ブヒ氏のファン (近接)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_16_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ブヒ氏のファン (遠隔)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_17_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第17波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_17_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第17波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_18_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "フェンシング部員"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_19_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "弓術部員"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_1_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第1波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_1_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第1波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_20_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "ゾルタン"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_21_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第21波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_21_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第21波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_22_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第22波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_22_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第22波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_23_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第23波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_23_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第23波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_24_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第24波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_24_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第24波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_25_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "アグドルアク"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_26_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第26波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_26_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第26波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_27_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第27波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_27_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第27波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_28_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第28波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_29_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第29波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_2_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第2波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_2_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第2波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_30_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "南方の毒蛇"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_31_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第31波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_31_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第31波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_32_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第32波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_32_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第32波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_33_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第33波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_33_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第33波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_34_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第34波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_34_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第34波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_35_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "道化師"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_36_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第36波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_36_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第36波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_37_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第37波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_37_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第37波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_38_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の剣士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_39_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の射手"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_3_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第3波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_3_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第3波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_40_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "呪いを運ぶ者クルーシオ"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_41_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第41波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_41_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第41波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_42_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第42波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_42_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第42波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_42_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第42波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_43_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第43波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_43_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第43波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_43_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第43波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_44_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第44波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_44_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第44波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_44_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第44波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_45_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "千の刃"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_46_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第46波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_46_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第46波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_46_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第46波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_47_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第47波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_47_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第47波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_47_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第47波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_48_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第48波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_48_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第48波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_49_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場の治癒師 (第49波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_49_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第49波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_4_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第4波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_4_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第4波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_50_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "覇者ウーサー"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_50_boss_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "覇者ウーサー (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_50_boss_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "覇者ウーサー (第3段階)"
+        stats:
+          physical: { defense-rate: 0.266, resistance: 0.285 }
+          magical:  { defense-rate: 0.266, resistance: 0.285 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_50_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ウーサー・スタン (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_5_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "奇妙な牛"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_6_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第6波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_6_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第6波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_7_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第7波)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_7_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第7波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_8_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のゾンビ (第8波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      wood_league_wave_9_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "闘技場のクロスボウ兵 (第9波)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # fireworks_lair (DYNAMIC_DUNGEON) — custombosses/the_fireworks / 5体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 火薬技師の機械仕掛け。装甲で覆われている
+  em_fireworks:
+    display-name: "花火工房"
+    mobs:
+      fireworks_level_50_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "スパーキー (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      fireworks_level_50_boss_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "スパーキー (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      fireworks_level_50_boss_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "スパーキー (第4段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      fireworks_phase_2_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ブーミ (第3段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      fireworks_phase_3_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "パーティー客 (第4段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # hallosseum_lair (DYNAMIC_DUNGEON) — custombosses/the_hallosseum / 4体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 呪われた闘技場。亡霊は魔法を通しにくい
+  em_hallosseum:
+    display-name: "ハロウィン闘技場"
+    mobs:
+      halloween_event_boss_mount:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "命知らず (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      halloween_event_boss_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "デュラハン (第1段階)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      halloween_event_boss_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "デュラハン (第2段階)"
+        stats:
+          physical: { defense-rate: 0.068, resistance: 0.204 }
+          magical:  { defense-rate: 0.374, resistance: 0.306 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      halloween_event_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "不気味なスケルトン (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # binder_of_worlds_sanctum (INSTANCED_DUNGEON) — custombosses/the_binder_of_worlds / 18体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 次元術師。魔法を吸収する
+  em_id_binder_of_worlds:
+    display-name: "世界を繋ぐ者の聖所"
+    mobs:
+      binder_of_worlds_phase_1_endermite_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を汚す者 (第2段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "世界を繋ぐ者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.068, resistance: 0.204 }
+          magical:  { defense-rate: 0.374, resistance: 0.306 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_melee_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "現実を根こそぎにする者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_melee_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を荒らす者 (第2段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_parkour_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実の先触れ (第2段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_ranged_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "現実を滅ぼす者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_ranged_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を滅ぼす者 (第2段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_status_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "現実をねじる者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_1_status_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を破る者 (第2段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "世界を繋ぐ者 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "世界を繋ぐ者 (第4段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3_enderman_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を屠る者 (第4段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3_ghast_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を切り刻む者 (第4段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3_shulker_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "現実を裂く者 (第4段階) (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3_zapper_reinforcement_hard:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "電撃の増援 (第4段階) (増援) (上級)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3_zapper_reinforcement_mythic:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "電撃の増援 (第4段階) (増援) (神話)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_3_zapper_reinforcement_normal:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "電撃の増援 (第4段階) (増援) (通常)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_binder_of_worlds_phase_4:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "世界を繋ぐ者"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_1_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_1 / 1体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題1。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_1:
+    display-name: "エンチャント試練 1"
+    mobs:
+      enchantment_boss_dark_flame:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "暗黒の炎"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_10_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_10 / 3体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題10。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_10:
+    display-name: "エンチャント試練 10"
+    mobs:
+      enchantment_boss_tricky_bones:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "厄介な骨"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      enchantment_boss_tricky_bones_summon_arrow:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "矢の射出装置 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      enchantment_boss_tricky_bones_summon_bow:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "弓の射出装置 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_2_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_2 / 1体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題2。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_2:
+    display-name: "エンチャント試練 2"
+    mobs:
+      enchantment_boss_energized_bunny:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "帯電したウサギ"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_3_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_3 / 1体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題3。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_3:
+    display-name: "エンチャント試練 3"
+    mobs:
+      enchantment_boss_jealous_block:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "嫉妬するブロック"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_4_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_4 / 3体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題4。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_4:
+    display-name: "エンチャント試練 4"
+    mobs:
+      enchantment_boss_leet_summoner:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "1337 サモナー (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      enchantment_boss_leet_summoner_eidolon_one:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "幻影エイドロン (召喚体) (1体目)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      enchantment_boss_leet_summoner_eidolon_two:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "幻影エイドロン (召喚体) (2体目)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_5_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_5 / 2体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題5。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_5:
+    display-name: "エンチャント試練 5"
+    mobs:
+      enchantment_boss_loveable_impaler:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "愛らしき串刺し公"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      enchantment_boss_loveable_impaler_trident_launcher:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "トライデント発射機"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_6_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_6 / 1体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題6。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_6:
+    display-name: "エンチャント試練 6"
+    mobs:
+      enchantment_boss_ravegarer:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "レイヴ荒らし"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_7_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_7 / 1体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題7。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_7:
+    display-name: "エンチャント試練 7"
+    mobs:
+      enchantment_boss_rock_solid_cold:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "岩のような極寒"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_8_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_8 / 1体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題8。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_8:
+    display-name: "エンチャント試練 8"
+    mobs:
+      enchantment_boss_the_firebunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "火炎装置"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # enchantment_challenge_9_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_9 / 1体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題9。課題ごとに要求ビルドが入れ替わる
+  em_id_enchantment_challenge_9:
+    display-name: "エンチャント試練 9"
+    mobs:
+      enchantment_boss_the_glass_master:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "硝子の達人"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_bridge_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_bridge / 7体
+  # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 古代守護者。構造体と術式の複合
+  em_id_the_bridge:
+    display-name: "古橋の聖所"
+    mobs:
+      the_bridge_ancient_guardian_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "古代の守護者 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_bridge_ancient_guardian_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "古代の守護者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_bridge_ancient_guardian_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "古代の守護者 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.266, resistance: 0.285 }
+          magical:  { defense-rate: 0.266, resistance: 0.285 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_bridge_corpse_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ドワーフの死骸 (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_bridge_corpse_dummy_2:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "怪物の死骸 (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_bridge_summon_drone_l:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ドローン L-2 (召喚体) (随伴機)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_bridge_summon_drone_r:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ドローン R-1 (召喚体) (随伴機)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_cave_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_cave / 5体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 熱術の坑道。魔力の霧が魔法を減衰させる
+  em_id_the_cave:
+    display-name: "灼熱の洞窟"
+    mobs:
+      the_cave_boiled_bones_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "煮られた骨 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_cave_boiler_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "煮沸炉 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_cave_boiler_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "煮沸炉 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.068, resistance: 0.204 }
+          magical:  { defense-rate: 0.374, resistance: 0.306 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_cave_boiler_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "煮沸炉 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_cave_broiled_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "焼かれた坑夫"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_city_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_city / 12体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — ドワーフの重装兵。鍛えた甲冑で物理を弾く
+  em_id_the_city:
+    display-name: "ドワーフの地下都市"
+    mobs:
+      em_id_the_city_ancient_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "古代のドワーフ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_dwarven_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ドワーフの坑夫"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_dwarven_warrior:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ドワーフの戦士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_dwarven_worker:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ドワーフの労働者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_lost_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "迷えるドワーフ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_mad_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "狂ったドワーフ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_mini_boss_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "都市の衛兵"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_mini_boss_three:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "都市の防衛兵"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_mini_boss_two:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "都市の監視者"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_royal_guard_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "王室の近衛 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_royal_guard_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "王室の近衛 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_city_royal_guard_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "王室の近衛 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_climb_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_climb / 24体
+  # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — アンデッドと獣使いが混在。骨は物理を、影は魔法を弾く
+  em_id_the_climb:
+    display-name: "登攀路"
+    mobs:
+      the_climb_bone_champion:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "村の勇者"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_bone_champion_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "村の勇者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_bone_champion_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "アンデッドのネズミ (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_flesh_starved_child:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "焼かれた村人"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_frozen_remains:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "忘れられた坑夫"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_reanimated_skeleton:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "蘇った住人"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_rotting_carcass:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "腐りゆく亡骸"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_shambling_skeleton:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "捻じれた坑夫"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_skeletal_shadow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "魂の影"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_skeletal_shadow_ghast:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ジェフリー"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_skeletal_shadow_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "魂の影 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_skeletal_shadow_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "白化した骨 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "アンデッドの村人"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "アンデッドの調獣師"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster_mount:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "アンデッドの獣 (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster_mount_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "アンデッドの獣 (第2段階) (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "アンデッドの調獣師 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "アンデッドの調獣師 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.266, resistance: 0.285 }
+          magical:  { defense-rate: 0.266, resistance: 0.285 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "アンデッドの調獣師 (第4段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_beastmaster_summon_p4:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "蘇生した獣 (第4段階) (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_bruiser:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "アンデッドの荒くれ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_guardian:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "村の守護者"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_guardian_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "村の守護者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_climb_undead_warrior:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "かつての防衛兵"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_deep_mines_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_deep_mines / 18体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 深層鉱山。地上鉱山よりさらに装甲が厚い
+  em_id_the_deep_mines:
+    display-name: "深層鉱山"
+    mobs:
+      em_id_the_deep_mines_boom_surprise_ancient_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "古代のハスク"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_boom_surprise_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "サプライズダミー"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_boss_the_pursuer_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "ネザーの魔物 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_boss_the_pursuer_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "ネザーの魔物 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_boss_the_pursuer_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "ネザーの魔物 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "熟練の坑夫"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_miniboss_corrupted_digger:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "堕落した掘削者"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_miniboss_foreman:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "現場監督"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_miniboss_greedy_miner:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "強欲な坑夫"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_miniboss_twisted_excavator:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "捻じれた掘削機"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_nether_moss:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーの苔"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_nether_shroom:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーのキノコ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_ore_transporter:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "鉱石輸送機"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_reinforcement_vex:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ネザーの精霊 (増援)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_slow_giver_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "鈍化を与える者"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_tired_excavator:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "疲弊した探鉱者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_tnt_box:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "TNT"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_deep_mines_tnt_box_purple:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "奇妙なTNT"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_mines_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_mines / 38体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 鉱山の岩石構造体。硬い外殻を物理で削るのは非効率
+  em_id_the_mines:
+    display-name: "鉱山"
+    mobs:
+      the_mines_arachnidian_construct:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "蜘蛛型構造体"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_arrow_launcher:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "矢の発射機"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_mount_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "炭化した村人 (第1段階) (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_mount_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "炭化した村人 (第2段階) (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_mount_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "炭化した村人 (第3段階) (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "注ぎ込まれた魂 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "注ぎ込まれた魂 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_boss_soulfire_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "注ぎ込まれた魂 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_crusty_bones:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "干からびた骨"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_fractured_essence:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "砕けた精髄"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_gel:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "ゲル頭の村人"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_gel_mount:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "干からびた死骸 (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_gel_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "ゲル頭の村人 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_living_slime:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "生きたスライム"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_forger:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "堕落した鍛冶師"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_tulpa:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "魂のトゥルパ"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_tulpa_reinforcements:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "凝集した思念 (増援)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_tusk:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "変成した肉"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_tusk_summon_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "忍耐の魂 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_tusk_summon_three:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "不滅の魂 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_mini_boss_tusk_summon_two:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "俊敏の魂 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_rearranged_hog:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "組み替えられた肉"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_rejected_mass:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "拒絶された肉塊"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_shifting_flesh_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "揺らめく坑夫 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_shifting_flesh_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "揺らめく坑夫 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_shifting_flesh_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "揺らめく坑夫 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_soul_mass:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "魂の塊"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_souless_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "囚われの村人"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_soulweaver_daine_p0:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "魂織りのデイン"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_soulweaver_daine_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "魂織りのデイン (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_soulweaver_daine_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "魂織りのデイン (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_soulweaver_daine_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "魂織りのデイン (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_soulweaver_reinforcements:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "魂の裂片 (増援)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_swarmling:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "群体"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_swarmling_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "下級の群体 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_swarmling_summon_weak:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "脆弱な群体 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_the_undying:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "閉じ込められた坑夫"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_mines_undead:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "アンデッド"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_nether_bell_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_nether_bell / 28体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 儀式の鐘。術式の守りが強い
+  em_id_the_nether_bell:
+    display-name: "ネザーの鐘"
+    mobs:
+      em_id_the_nether_bell_beam_boss_green_1_speed:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "光を抱く者 (俊敏)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_green_2_strength:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "光を抱く者 (剛力)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_green_3_night_vision:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "光を抱く者 (暗視)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_red_1_slow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "虚無を抱く者 (鈍足)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_red_2_hunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "虚無を抱く者 (飢餓)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_red_3_darkness:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "虚無を抱く者 (暗闇)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_1_bogged:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "悲嘆を抱く者 (沼)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_1_bogged_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "悲嘆を抱く者 (召喚体) (沼)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_2_breeze:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "悲嘆を抱く者 (ブリーズ)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_2_breeze_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "悲嘆を抱く者 (召喚体) (ブリーズ)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_3_warden:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "悲嘆を抱く者 (ウォーデン)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_3_warden_power_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "悲嘆を抱く者 (ウォーデン・出力ダミー)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_beam_boss_yellow_3_warden_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "悲嘆を抱く者 (召喚体) (ウォーデン)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_boss_void_bell_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "虚無の鐘 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_boss_void_bell_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "虚無の鐘 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.068, resistance: 0.204 }
+          magical:  { defense-rate: 0.374, resistance: 0.306 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_boss_void_bell_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "虚無の鐘 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_corpse_phase_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "腐らざる者 (第2段階) (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_corpse_phase_2:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "古代の骨 (第3段階) (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_corpse_phase_3:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "よろめくドワーフ (第4段階) (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_summon_ancient_corpse:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "古代の死骸 (召喚体) (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_summon_dwarven_corpse_knight:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ドワーフの死の騎士 (召喚体) (亡骸)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_summon_fossilized_bones:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "化石化した骨 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_world_disturbed_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "荒らされた亡骸 (近接)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_world_disturbed_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "荒らされた骨"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_world_disturbed_waker:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "荒らされた亡骸 (覚醒役)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_world_wither:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "虚無のモズ"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_world_wither_skeleton:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "虚無を歩む者"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_bell_world_wither_skeleton_sniper:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "虚無を貫く者"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_nether_wastes_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_nether_wastes / 21体
+  # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — ネザーの混成軍。装甲持ちと術者が入り混じる
+  em_id_the_nether_wastes:
+    display-name: "ネザーの荒野"
+    mobs:
+      em_id_the_nether_wastes_lesser_nether_fiend:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "下級ネザーの魔物"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_1_slow:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "重い瘴気"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_2_blind:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "濃い瘴気"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_2_summon_hard:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "呪術師 (召喚体) (上級)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_2_summon_mythical:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "呪術師 (召喚体) (神話)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_2_summon_normal:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "呪術師 (召喚体) (通常)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_3_poison:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "有毒の瘴気"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_3_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "強化された骨組み (召喚体)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_4_fire:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "致死の瘴気"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_4_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "ネザーの小悪魔 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_5_shroud_p1:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "黒曜石の帳 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_5_shroud_p2:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "黒曜石の帳 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_miniboss_5_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "黒曜石の猟犬 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.286, resistance: 0.234 }
+          magical:  { defense-rate: 0.052, resistance: 0.156 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_nether_beast:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーの獣"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_nether_feeder:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーの捕食者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_nether_moss:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーの苔"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_nether_shroom:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーのキノコ"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_nether_sporeflinger:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ネザーの胞子飛ばし"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_summon_doomball:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "破滅の球 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_summon_fireball:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "火の玉 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_nether_wastes_summon_frostball:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "氷の玉 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_palace_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_palace / 5体
+  # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 宮殿の親衛隊。前衛と後衛で耐性が違う
+  em_id_the_palace:
+    display-name: "宮殿"
+    mobs:
+      the_palace_old_stone_king_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "古き石の王 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_palace_old_stone_king_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "古き石の王 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.238, resistance: 0.255 }
+          magical:  { defense-rate: 0.238, resistance: 0.255 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_palace_old_stone_king_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "古き石の王 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.266, resistance: 0.285 }
+          magical:  { defense-rate: 0.266, resistance: 0.285 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_palace_old_stone_king_summon_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "石の守護者 (召喚体) (1体目)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_palace_old_stone_king_summon_2:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "石の守護者 (召喚体) (2体目)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # the_quarry_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_quarry / 27体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 採石場の重機械と石像。物理耐性が高い
+  em_id_the_quarry:
+    display-name: "採石場"
+    mobs:
+      LiftAirFiller:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機の送気装置"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      LiftStateFinishDungeon:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機の管理者 (最終段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      LiftStateFour:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機の管理者 (段階4)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      LiftStateOne:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機の管理者 (段階1)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      LiftStateThree:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機の管理者 (段階3)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      LiftStateTwo:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機の管理者 (段階2)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      LiftStateZero:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "昇降機 状態ゼロ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_dedicated_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "熱心な坑夫"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_lava_surprise:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "溶融の驚異"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_lift_calcium_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "石灰の坑夫"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_lift_creeper:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "魔力を帯びたクリーパー (本体)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_lift_creeper_activator:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "魔力を帯びたクリーパー (起動役)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_lift_creeper_wizard_spawner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "魔力を帯びたクリーパー (術者スポナー)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_lift_royal_archer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "王室の射手"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_light_bones:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "空虚なドワーフ"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_ore_hauler:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "鉱石運搬者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_quarry_guard:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "採石場の番人 (成体)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_quarry_guard_baby:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "採石場の番人 (幼体)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_quarry_smith:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "雷の鍛冶師"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_five:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "王室の術士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_five_unlocker_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "術式守護のトーテム (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_five_unlocker_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "術式守護のトーテム (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_five_unlocker_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "術式守護のトーテム (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_four:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "王室の速射術士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_one:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "王室の織成術士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_three:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "王室の詠唱術士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      em_id_the_quarry_royal_wizard_two:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "王室の招霊術士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # knights_castle_lair (DYNAMIC_DUNGEON) — custombosses/the_knight_castle / 12体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 騎士団。プレートアーマーの塊
+  em_knight_castle:
+    display-name: "騎士団の城"
+    mobs:
+      the_castle_arcane_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "秘術の騎士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_brave_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "勇敢な騎士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "アザルーンの治癒師"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_hellstar:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "地獄星"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_mount:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "忠実な軍馬 (騎乗体)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "シャルルマーニュ (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "シャルルマーニュ (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "シャルルマーニュ (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_charlemagne_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "シャルルマーニュ (第4段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_cowardly_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "臆病な騎士"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_ser_prancelot_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "跳ねるランスロット卿 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_castle_ser_prancelot_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "跳ねるランスロット卿 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # north_pole_minidungeon (DYNAMIC_DUNGEON) — custombosses/the_north_pole / 8体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 氷雪の魔物。氷魔法への耐性が高い
+  em_north_pole:
+    display-name: "北極ミニダンジョン"
+    mobs:
+      northpole_elf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "工房のエルフ"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_elf_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "サンタのエルフ (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_jack_frost:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "ジャックフロスト"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_krampus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "クランプス"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_mrs_claus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "クロース夫人"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_santa_claus:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "サンタクロース"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_skeleton_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "お仕置きリストの魂 (召喚体)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      northpole_snowy_wraith:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "雪の亡霊"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # sewers_minidungeon (DYNAMIC_DUNGEON) — custombosses/the_sewers / 29体
+  # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 下水の雑多な群れ。相手ごとに有効打が変わる
+  em_sewer_maze:
+    display-name: "下水道迷宮"
+    mobs:
+      sewer_tier_10:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "潜むもの"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_15:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "這うもの"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_20_dry:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "迷える放浪者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_20_gravity_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "火花"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_20_water:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "密輸業者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_20_water_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "忘れられた英雄"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_20_wither_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "萎びた死骸"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_30_ice_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "氷の亡霊"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_30_invisibility_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "影の射手"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_30_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "下水道の獣"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_30_ranged:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "霊と囁く者"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "蜃気楼"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40_darkness_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "影の支配者"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40_darkness_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "影 (増援)"
+        stats:
+          physical: { defense-rate: 0.11, resistance: 0.12 }
+          magical:  { defense-rate: 0.02, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40_fire_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "焼き場の達人"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40_fire_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "焔 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40_poison_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "有毒の庭師"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_40_poison_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "堕ちた庭師 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_5:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "下水道の作業員"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "下水道のピラニア"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50_lightning_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "ミョルニル"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50_ravager_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "下水道の異形"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50_spider_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "古代の這うもの"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50_spider_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "小蜘蛛 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50_water_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "ピラニアの王"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_50_water_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "ピラニアの王子 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_60:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "溺死せし者"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_70_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "溺死者の王"
+        stats:
+          physical: { defense-rate: 0.21, resistance: 0.225 }
+          magical:  { defense-rate: 0.21, resistance: 0.225 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      sewer_tier_70_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "溺死せし者 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # steamworks_lair (DYNAMIC_DUNGEON) — custombosses/the_steamworks / 11体
+  # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 蒸気機械。金属外装で刃が通らない
+  em_steamworks_lair:
+    display-name: "蒸気機関工房"
+    mobs:
+      the_steamworks_clk_wrx702_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "CLK-WRx702 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.33, resistance: 0.27 }
+          magical:  { defense-rate: 0.06, resistance: 0.18 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_clk_wrx702_p2:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "CLK-WRx702 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.374, resistance: 0.306 }
+          magical:  { defense-rate: 0.068, resistance: 0.204 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_clk_wrx702_p3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "CLK-WRx702 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.418, resistance: 0.342 }
+          magical:  { defense-rate: 0.076, resistance: 0.228 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_clk_wrx702_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "CLK-WRx702 (第4段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_clk_wrx702_p5:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "CLK-WRx702 (第5段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_clk_wrx702_p6:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "CLK-WRx702 (第6段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_clk_wrx702_p7:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "CLK-WRx702 (第7段階)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_gnasuran_electrohead:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "グナスラの電気頭"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_gnasuran_machinist:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "グナスラの機械技師"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_gnasuran_tinkerer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "グナスラの修理屋 (本体)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      the_steamworks_gnasuran_weather_activate:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "グナスラの修理屋 (天候起動役)"
+        stats:
+          physical: { defense-rate: 0.22, resistance: 0.18 }
+          magical:  { defense-rate: 0.04, resistance: 0.12 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+
+  # dark_cathedral_lair (DYNAMIC_DUNGEON) — custombosses/the_dark_cathedral / 13体
+  # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 呪術聖堂。魔法障壁が厚く、鋼で殴るほうが早い
+  em_the_dark_cathedral:
+    display-name: "闇の大聖堂"
+    mobs:
+      dark_cathedral_tier_75_area_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "深淵のクトゥルフ信徒 (エリア)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_boss_phase_0:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "クトゥルフの狂信者 (第1段階)"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "クトゥルフの狂信者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.068, resistance: 0.204 }
+          magical:  { defense-rate: 0.374, resistance: 0.306 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_boss_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "クトゥルフの狂信者 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_boss_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "クトゥルフの狂信者 (第4段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
+        display-name: "クトゥルフの狂信者"
+        stats:
+          physical: { defense-rate: 0.06, resistance: 0.18 }
+          magical:  { defense-rate: 0.33, resistance: 0.27 }
+        vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_bridge_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "クトゥルフの信徒"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_cathedral_folk_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
+        display-name: "クトゥルフの崇拝者 (第2段階)"
+        stats:
+          physical: { defense-rate: 0.068, resistance: 0.204 }
+          magical:  { defense-rate: 0.374, resistance: 0.306 }
+        vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_cathedral_folk_phase_2:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "クトゥルフの崇拝者 (第3段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_cathedral_folk_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
+        display-name: "クトゥルフの崇拝者 (第4段階)"
+        stats:
+          physical: { defense-rate: 0.076, resistance: 0.228 }
+          magical:  { defense-rate: 0.418, resistance: 0.342 }
+        vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_miniboss_black_philip:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
+        display-name: "黒山羊フィリップ"
+        stats:
+          physical: { defense-rate: 0.052, resistance: 0.156 }
+          magical:  { defense-rate: 0.286, resistance: 0.234 }
+        vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
+        display-name: "クトゥルフの落とし子 (増援)"
+        stats:
+          physical: { defense-rate: 0.02, resistance: 0.12 }
+          magical:  { defense-rate: 0.11, resistance: 0.12 }
+        vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        drops: []
+      dark_cathedral_tier_75_surprise_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
+        display-name: "深淵のクトゥルフ信徒 (奇襲)"
+        stats:
+          physical: { defense-rate: 0.04, resistance: 0.12 }
+          magical:  { defense-rate: 0.22, resistance: 0.18 }
+        vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
+        drops: []

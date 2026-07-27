@@ -1,0 +1,32 @@
+# DPSChecker Configuration
+
+dummy:
+  # デフォルトHP
+  default-hp: 100.0
+  # デフォルト防御力 (0-30)
+  default-defense: 0.0
+  # デフォルト防具強度 (0-20)
+  default-armor-toughness: 0.0
+  # プレイヤーあたりの最大設置数
+  max-per-player: 3
+  # ダミーの表示名フォーマット
+  name-format: "<gold>[DPS Dummy]</gold> <white><name></white>"
+  # ダミーが死亡した時に自動リスポーンするか
+  auto-respawn: true
+  # 新規ダミーをアンデッド扱いにするか
+  # true: ゾンビ本来の挙動 (治癒バフでダメージ / 毒は無効)
+  # false: 生物挙動 (治癒バフで回復 / 即時ダメージでダメージ)
+  default-undead: true
+
+bossbar:
+  # BossBarを表示するか
+  enabled: true
+  # BossBar表示範囲 (ブロック)
+  range: 30
+
+dps:
+  # DPS計算のウィンドウ秒数
+  window-seconds: 10
+
+messages:
+  max-dummies-reached: "<red>ダミーの設置上限に達しています。(<max>体)"

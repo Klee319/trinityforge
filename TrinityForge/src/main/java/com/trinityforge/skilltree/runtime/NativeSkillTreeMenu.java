@@ -1,0 +1,513 @@
+package com.trinityforge.skilltree.runtime;
+
+import com.trinityforge.progression.NativeProgressionService;
+import com.trinityforge.progression.repository.LoadResult;
+import com.trinityforge.skilltree.SkillNode;
+import com.trinityforge.skilltree.SkillTree;
+import com.trinityforge.skilltree.generator.PerkNaming;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+/** Native Valhalla-style 54-slot skill-tree canvas with two-click confirmation. */
+public final class NativeSkillTreeMenu implements Listener {
+
+    private static final Component MENU_TITLE = Component.text("\uF808\uF001", NamedTextColor.WHITE)
+            .font(Key.key("trinityforge", "skill_gui"));
+    private static final Map<Integer, String> NAVIGATION_SLOTS = Map.of(
+            0, "move-nw",
+            4, "move-n",
+            8, "move-ne",
+            18, "move-w",
+            26, "move-e",
+            36, "move-sw",
+            40, "move-s",
+            44, "move-se");
+    private static final List<String> SKILL_ORDER = List.of(
+            "POWER", "SMITHING", "ENCHANTING", "ALCHEMY",
+            "MINING", "WOODCUTTING", "DIGGING", "FARMING",
+            "LIGHT_WEAPONS", "HEAVY_WEAPONS", "FISHING", "ARCHERY",
+            "LIGHT_ARMOR", "HEAVY_ARMOR", "ARS_MAGIC", "ARS_SMITHING");
+
+    private final Plugin plugin;
+    private final NativeProgressionService progression;
+    private final NativePerkService perks;
+    private final Consumer<Player> refreshPerks;
+    private final NamespacedKey actionKey;
+    private final NamespacedKey valueKey;
+
+    public NativeSkillTreeMenu(Plugin plugin, NativeProgressionService progression,
+                               NativePerkService perks, Consumer<Player> refreshPerks) {
+        this.plugin = plugin;
+        this.progression = progression;
+        this.perks = perks;
+        this.refreshPerks = refreshPerks;
+        this.actionKey = new NamespacedKey(plugin, "skill_menu_action");
+        this.valueKey = new NamespacedKey(plugin, "skill_menu_value");
+    }
+
+    public void open(Player player) {
+        List<SkillTree> trees = orderedTrees();
+        if (trees.isEmpty()) {
+            player.sendMessage(Component.text("スキルツリー設定がありません。", NamedTextColor.RED));
+            return;
+        }
+        SkillTree tree = trees.getFirst();
+        openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null);
+    }
+
+    public void open(Player player, String rawSkillId) {
+        SkillTree tree = perks.tree(rawSkillId);
+        if (tree == null) {
+            open(player);
+            return;
+        }
+        openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null);
+    }
+
+    /**
+     * Re-renders and re-opens the menu on the next server tick. Every re-open triggered from
+     * within {@link #onClick} must go through this method rather than {@link #openInternal}
+     * directly: calling {@code player.openInventory} while still inside
+     * {@link InventoryClickEvent} dispatch is a Bukkit anti-pattern (ghost cursor / client
+     * desync), and deferring by one tick also moves the cache-miss progression/perk reload that
+     * follows an unlock or prestige mutation out of the click-handling call stack so it can no
+     * longer stall the event dispatch itself.
+     */
+    private void reopenNextTick(Player player, String skillId, NativeSkillTreeCanvas.Point center,
+                                String pendingPerkId) {
+        plugin.getServer().getScheduler().runTask(plugin,
+                () -> openInternal(player, skillId, center, pendingPerkId));
+    }
+
+    private void openInternal(Player player, String skillId, NativeSkillTreeCanvas.Point center,
+                      String pendingPerkId) {
+        List<SkillTree> trees = orderedTrees();
+        if (trees.isEmpty()) {
+            player.sendMessage(Component.text("スキルツリー設定がありません。", NamedTextColor.RED));
+            return;
+        }
+        SkillTree tree = perks.tree(skillId);
+        if (tree == null) {
+            tree = trees.getFirst();
+        }
+        NativeSkillTreeCanvas canvas;
+        try {
+            canvas = NativeSkillTreeCanvas.project(tree);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("スキルツリーを描画できません: " + tree.skill() + " - " + ex.getMessage());
+            player.sendMessage(Component.text("スキルツリー設定が不正です。", NamedTextColor.RED));
+            return;
+        }
+        NativeSkillTreeCanvas.Point safeCenter = canvas.clamp(center);
+        Session holder = new Session(tree.skill(), safeCenter, pendingPerkId);
+        Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
+        holder.inventory = inventory;
+
+        Set<String> owned = loadOwnedPerkIds(player.getUniqueId());
+        var snapshot = progression.snapshot(player.getUniqueId());
+        int level = snapshot.skillOrDefault(tree.skill(), 100).level();
+        Map<String, SkillNode> nodesByPerk = new HashMap<>();
+        for (SkillNode node : tree.nodes().values()) {
+            nodesByPerk.put(PerkNaming.perkId(tree.skill(), node.id()), node);
+        }
+
+        for (Map.Entry<Integer, NativeSkillTreeCanvas.Cell> entry
+                : canvas.viewport(safeCenter).entrySet()) {
+            if (entry.getValue() instanceof NativeSkillTreeCanvas.NodeCell nodeCell) {
+                inventory.setItem(entry.getKey(), nodeIcon(
+                        tree, nodeCell, nodesByPerk.get(nodeCell.perkId()), level,
+                        snapshot.availablePoints(), snapshot.skillOrDefault(tree.skill(), 100).prestige(),
+                        owned, pendingPerkId));
+            } else if (entry.getValue() instanceof NativeSkillTreeCanvas.ConnectorCell connector) {
+                boolean anyUnlocked = false;
+                boolean anyUnlockable = false;
+                for (String owner : connector.ownerPerkIds()) {
+                    NodeStatus ownerStatus = status(
+                            tree, owner, nodesByPerk.get(owner), level, snapshot.availablePoints(),
+                            snapshot.skillOrDefault(tree.skill(), 100).prestige(),
+                            owned, pendingPerkId);
+                    anyUnlocked |= ownerStatus.unlocked();
+                    anyUnlockable |= ownerStatus.unlockable();
+                }
+                SkillTreeGuiVisuals.ConnectorState connectorState = anyUnlocked
+                        ? SkillTreeGuiVisuals.ConnectorState.UNLOCKED
+                        : anyUnlockable
+                                ? SkillTreeGuiVisuals.ConnectorState.UNLOCKABLE
+                                : SkillTreeGuiVisuals.ConnectorState.LOCKED;
+                inventory.setItem(entry.getKey(), display(
+                        SkillTreeGuiVisuals.connector(connectorState, connector.suffix()),
+                        Component.text(" "), List.of()));
+            }
+        }
+
+        NAVIGATION_SLOTS.forEach((slot, action) -> inventory.setItem(slot,
+                button(SkillTreeGuiVisuals.control(action), action, "",
+                        Component.text(directionLabel(action), NamedTextColor.WHITE), List.of())));
+        renderSkillSelector(inventory, trees, tree.skill(), snapshot);
+        player.openInventory(inventory);
+    }
+
+    @EventHandler
+    public void onClick(InventoryClickEvent event) {
+        if (!(event.getInventory().getHolder() instanceof Session session)
+                || !(event.getWhoClicked() instanceof Player player)) return;
+        event.setCancelled(true);
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= 54) return;
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || !clicked.hasItemMeta()) {
+            return;
+        }
+        String action = clicked.getItemMeta().getPersistentDataContainer()
+                .get(actionKey, PersistentDataType.STRING);
+        String value = clicked.getItemMeta().getPersistentDataContainer()
+                .get(valueKey, PersistentDataType.STRING);
+        if (action == null) {
+            if (session.pendingPerkId != null) {
+                reopenNextTick(player, session.skillId, session.center, null);
+            }
+            return;
+        }
+        switch (action) {
+            case "move-nw", "move-n", "move-ne", "move-e",
+                    "move-se", "move-s", "move-sw", "move-w" -> move(player, session, action);
+            case "select-skill" -> {
+                SkillTree selected = perks.tree(value);
+                if (selected != null) {
+                    reopenNextTick(player, selected.skill(),
+                            NativeSkillTreeCanvas.project(selected).start(), null);
+                }
+            }
+            case "node" -> handleNode(player, session, value);
+            case "prestige" -> handlePrestige(player, session, value);
+            default -> { }
+        }
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        if (event.getInventory().getHolder() instanceof Session) {
+            event.setCancelled(true);
+        }
+    }
+
+    private void move(Player player, Session session, String action) {
+        SkillTree tree = perks.tree(session.skillId);
+        if (tree == null) return;
+        NativeSkillTreeCanvas canvas = NativeSkillTreeCanvas.project(tree);
+        NativeSkillTreeCanvas.Point moved = canvas.move(session.center, direction(action));
+        reopenNextTick(player, session.skillId, moved,
+                moved.equals(session.center) ? session.pendingPerkId : null);
+    }
+
+    private void handleNode(Player player, Session session, String nodeId) {
+        SkillTree tree = perks.tree(session.skillId);
+        if (tree == null) return;
+        SkillNode node = tree.nodes().get(nodeId);
+        if (node == null) return;
+        String perkId = PerkNaming.perkId(tree.skill(), nodeId);
+        if (!perkId.equals(session.pendingPerkId)) {
+            var snapshot = progression.snapshot(player.getUniqueId());
+            Set<String> owned = loadOwnedPerkIds(player.getUniqueId());
+            var check = NativePerkService.validateUnlock(
+                    tree, node, snapshot.skillOrDefault(tree.skill(), 100).level(),
+                    snapshot.availablePoints(), owned);
+            if (check != NativePerkService.UnlockResult.ELIGIBLE) {
+                player.sendMessage(Component.text(blockedReason(check), NamedTextColor.RED));
+                reopenNextTick(player, session.skillId, session.center, null);
+                return;
+            }
+            reopenNextTick(player, session.skillId, session.center, perkId);
+            return;
+        }
+        var result = perks.unlock(player.getUniqueId(), tree.skill(), nodeId);
+        if (result == NativePerkService.UnlockResult.UNLOCKED) {
+            refreshPerks.accept(player);
+        }
+        player.sendMessage(Component.text("Unlock: " + result,
+                result == NativePerkService.UnlockResult.UNLOCKED
+                        ? NamedTextColor.GREEN : NamedTextColor.RED));
+        reopenNextTick(player, session.skillId, session.center, null);
+    }
+
+    private void handlePrestige(Player player, Session session, String perkId) {
+        SkillTree tree = perks.tree(session.skillId);
+        if (tree == null || tree.prestige() == null) return;
+        var skill = progression.snapshot(player.getUniqueId())
+                .skillOrDefault(tree.skill(), 100);
+        int tier = prestigeTier(perkId);
+        boolean unlockable = tier == skill.prestige() + 1
+                && skill.level() >= tree.prestige().atLevel();
+        if (!unlockable) {
+            player.sendMessage(Component.text(
+                    skill.prestige() >= tier ? "このプレステージは解放済みです。"
+                            : "プレステージ条件を満たしていません。",
+                    NamedTextColor.RED));
+            reopenNextTick(player, session.skillId, session.center, null);
+            return;
+        }
+        if (!perkId.equals(session.pendingPerkId)) {
+            reopenNextTick(player, session.skillId, session.center, perkId);
+            return;
+        }
+        var result = perks.prestige(player.getUniqueId(), session.skillId);
+        if (result == NativePerkService.PrestigeResult.PRESTIGED) {
+            refreshPerks.accept(player);
+        }
+        player.sendMessage(Component.text("Prestige: " + result,
+                result == NativePerkService.PrestigeResult.PRESTIGED
+                        ? NamedTextColor.GREEN : NamedTextColor.RED));
+        reopenNextTick(player, session.skillId, NativeSkillTreeCanvas.project(tree).start(), null);
+    }
+
+    private ItemStack nodeIcon(SkillTree tree, NativeSkillTreeCanvas.NodeCell cell, SkillNode node,
+                               int level, long availablePoints, int prestige,
+                               Set<String> owned, String pendingPerkId) {
+        NodeStatus status = status(
+                tree, cell.perkId(), node, level, availablePoints, prestige, owned, pendingPerkId);
+        boolean pending = cell.perkId().equals(pendingPerkId);
+        Material icon = material(cell.perk().icon(), material(tree.icon(), Material.STONE));
+        String action = node == null
+                ? cell.perkId().contains("_perk_ng") ? "prestige" : ""
+                : "node";
+        String value = node == null ? cell.perkId() : node.id();
+        Component name = Component.text(
+                pending ? "「" + cell.perk().name() + "」を解放しますか？" : cell.perk().name(),
+                status.unlocked ? NamedTextColor.GREEN
+                        : status.unlockable ? NamedTextColor.AQUA : NamedTextColor.GRAY);
+        List<Component> lore = new ArrayList<>();
+        if (!cell.perk().description().isBlank()) {
+            // フレーバー説明文は \n で複数行に分割し、editor で付けた legacy & 色コードを解釈して表示する。
+            // 色未指定の行は既定のグレーにフォールバックし、lore 既定のイタリックは無効化する。
+            for (String descLine : cell.perk().description().split("\n", -1)) {
+                lore.add(LegacyComponentSerializer.legacyAmpersand().deserialize(descLine)
+                        .colorIfAbsent(NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+        }
+        lore.add(Component.text("────────────────", NamedTextColor.DARK_GRAY));
+        lore.add(Component.text("必要Lv: " + cell.perk().requiredLv() + " / 現在Lv: " + level,
+                level >= cell.perk().requiredLv() ? NamedTextColor.GRAY : NamedTextColor.RED));
+        lore.add(Component.text("コスト: " + cell.perk().cost() + " / 所持: " + availablePoints,
+                NamedTextColor.GRAY));
+        lore.add(Component.text(status.unlocked ? "解放済み"
+                        : pending ? "もう一度クリックして確定"
+                        : status.unlockable ? "クリックして確認" : "解放条件を満たしていません",
+                pending ? NamedTextColor.YELLOW
+                        : status.unlockable ? NamedTextColor.AQUA : NamedTextColor.DARK_GRAY));
+        SkillTreeGuiVisuals.Visual visual = action.isEmpty()
+                ? new SkillTreeGuiVisuals.Visual(icon, null)
+                : SkillTreeGuiVisuals.node(status.unlocked, status.unlockable, pending, icon);
+        return action.isEmpty()
+                ? display(visual, name, lore)
+                : button(visual, action, value, name, lore);
+    }
+
+    private NodeStatus status(SkillTree tree, String perkId, SkillNode node,
+                              int level, long availablePoints, int prestige,
+                              Set<String> owned, String pendingPerkId) {
+        if (node != null) {
+            NativePerkService.UnlockResult result = NativePerkService.validateUnlock(
+                    tree, node, level, availablePoints, owned);
+            return new NodeStatus(
+                    result == NativePerkService.UnlockResult.ALREADY_UNLOCKED,
+                    result == NativePerkService.UnlockResult.ELIGIBLE,
+                    perkId.equals(pendingPerkId));
+        }
+        if (perkId.contains("_perk_ng")) {
+            int tier = prestigeTier(perkId);
+            boolean unlocked = prestige >= tier;
+            boolean unlockable = !unlocked && tier == prestige + 1
+                    && tree.prestige() != null && level >= tree.prestige().atLevel();
+            return new NodeStatus(unlocked, unlockable, perkId.equals(pendingPerkId));
+        }
+        return new NodeStatus(true, false, false);
+    }
+
+    private void renderSkillSelector(
+            Inventory inventory, List<SkillTree> trees, String selectedSkill,
+            com.trinityforge.progression.core.PlayerProgression snapshot) {
+        int selected = 0;
+        for (int i = 0; i < trees.size(); i++) {
+            if (trees.get(i).skill().equals(selectedSkill)) {
+                selected = i;
+                break;
+            }
+        }
+        for (int offset = -4; offset <= 4; offset++) {
+            SkillTree tree = trees.get(Math.floorMod(selected + offset, trees.size()));
+            var skill = snapshot.skillOrDefault(tree.skill(), 100);
+            String suffix = skill.prestige() > 0 ? " " + roman(skill.prestige()) : "";
+            inventory.setItem(49 + offset, button(
+                    SkillTreeGuiVisuals.skill(
+                            tree.skill(), material(tree.icon(), Material.NETHER_STAR)),
+                    "select-skill", tree.skill(),
+                    Component.text(tree.displayName() + suffix,
+                            offset == 0 ? NamedTextColor.GOLD : NamedTextColor.WHITE),
+                    List.of(
+                            Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
+                            Component.text("EXP: " + Math.round(skill.residualExp()), NamedTextColor.GRAY),
+                            Component.text("スキルポイント: " + snapshot.availablePoints(),
+                                    NamedTextColor.GRAY))));
+        }
+    }
+
+    private ItemStack button(Material material, String action, String value,
+                             Component name, List<Component> lore) {
+        return button(new SkillTreeGuiVisuals.Visual(material, null), action, value, name, lore);
+    }
+
+    private ItemStack button(SkillTreeGuiVisuals.Visual visual, String action, String value,
+                             Component name, List<Component> lore) {
+        ItemStack item = display(visual, name, lore);
+        ItemMeta meta = item.getItemMeta();
+        meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, action);
+        meta.getPersistentDataContainer().set(valueKey, PersistentDataType.STRING, value);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack display(SkillTreeGuiVisuals.Visual visual,
+                              Component name, List<Component> lore) {
+        ItemStack item = new ItemStack(visual.material());
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(name);
+        meta.lore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        if (visual.itemModel() != null) {
+            meta.setItemModel(new NamespacedKey(plugin, visual.itemModel()));
+        }
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private static String blockedReason(NativePerkService.UnlockResult result) {
+        return switch (result) {
+            case LEVEL_TOO_LOW -> "レベルが不足しています";
+            case MISSING_PARENT -> "前提ノードが未解放です";
+            case EXCLUSIVE_CONFLICT -> "排他ルートを選択済みです";
+            case INSUFFICIENT_POINTS -> "スキルポイントが不足しています";
+            case ALREADY_UNLOCKED -> "解放済み";
+            default -> "現在は解放できません";
+        };
+    }
+
+    private List<SkillTree> orderedTrees() {
+        List<SkillTree> result = new ArrayList<>();
+        for (String id : SKILL_ORDER) {
+            SkillTree tree = perks.tree(id);
+            if (tree != null) result.add(tree);
+        }
+        return result;
+    }
+
+    private static NativeSkillTreeCanvas.Direction direction(String action) {
+        return switch (action) {
+            case "move-nw" -> NativeSkillTreeCanvas.Direction.NORTH_WEST;
+            case "move-n" -> NativeSkillTreeCanvas.Direction.NORTH;
+            case "move-ne" -> NativeSkillTreeCanvas.Direction.NORTH_EAST;
+            case "move-e" -> NativeSkillTreeCanvas.Direction.EAST;
+            case "move-se" -> NativeSkillTreeCanvas.Direction.SOUTH_EAST;
+            case "move-s" -> NativeSkillTreeCanvas.Direction.SOUTH;
+            case "move-sw" -> NativeSkillTreeCanvas.Direction.SOUTH_WEST;
+            case "move-w" -> NativeSkillTreeCanvas.Direction.WEST;
+            default -> throw new IllegalArgumentException("unknown direction: " + action);
+        };
+    }
+
+    private static String directionLabel(String action) {
+        return switch (action) {
+            case "move-nw" -> "左上へ移動";
+            case "move-n" -> "上へ移動";
+            case "move-ne" -> "右上へ移動";
+            case "move-e" -> "右へ移動";
+            case "move-se" -> "右下へ移動";
+            case "move-s" -> "下へ移動";
+            case "move-sw" -> "左下へ移動";
+            case "move-w" -> "左へ移動";
+            default -> "";
+        };
+    }
+
+    private static int prestigeTier(String perkId) {
+        int index = perkId.lastIndexOf("_ng");
+        if (index < 0) return 0;
+        try {
+            return Integer.parseInt(perkId.substring(index + 3));
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private static String roman(int value) {
+        return switch (value) {
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            case 4 -> "IV";
+            case 5 -> "V";
+            default -> Integer.toString(value);
+        };
+    }
+
+    private static Material material(String raw, Material fallback) {
+        if (raw == null) return fallback;
+        Material parsed = Material.matchMaterial(raw);
+        return parsed == null || parsed.isAir() ? fallback : parsed;
+    }
+
+    private Set<String> loadOwnedPerkIds(UUID playerId) {
+        LoadResult<Set<String>> result = progression.repository().loadPerkIds(playerId);
+        if (result.isFailed()) {
+            plugin.getLogger().warning("[progression] Failed to load perks for skill menu: " + playerId
+                    + " - " + result.error().getMessage());
+            return Set.of();
+        }
+        return result.orElseThrow();
+    }
+
+    private static final class Session implements InventoryHolder {
+        private final String skillId;
+        private final NativeSkillTreeCanvas.Point center;
+        private final String pendingPerkId;
+        private Inventory inventory;
+
+        private Session(String skillId, NativeSkillTreeCanvas.Point center, String pendingPerkId) {
+            this.skillId = skillId;
+            this.center = center;
+            this.pendingPerkId = pendingPerkId;
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+    }
+
+    private record NodeStatus(boolean unlocked, boolean unlockable, boolean pending) {
+    }
+}

@@ -1,0 +1,217 @@
+package com.trinityforge.command;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.trinityforge.combat.PlayerCombatAggregate;
+import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.combat.SymmetricCombatService;
+import com.trinityforge.config.domains.LoreConfig;
+import com.trinityforge.progression.SkillLevelSource;
+import com.trinityforge.stats.LoreValueFormat;
+import com.trinityforge.stats.StatDisplaySpec;
+import com.trinityforge.stats.StatKeys;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
+
+/**
+ * {@code /tf stats [attack|armor|craft|gathering|utility|ars|other|all]} — 装備・パーク・アドオン合算後の実効ステを表示する。
+ * カテゴリ省略時は {@code all}。表示名は {@code stats/lore.yml}、数値は小数第3位以下切り捨て、
+ * 単位は lore の format/unit に従う。
+ */
+public final class StatsCommand {
+
+    private final SymmetricCombatService combatService;
+    private final PlayerStatAggregator aggregator;
+    private final LoreConfig loreConfig;
+    private final SkillLevelSource skillLevelSource;
+
+    public StatsCommand(SymmetricCombatService combatService,
+                        PlayerStatAggregator aggregator,
+                        LoreConfig loreConfig,
+                        SkillLevelSource skillLevelSource) {
+        this.combatService = Objects.requireNonNull(combatService, "combatService");
+        this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.loreConfig = Objects.requireNonNull(loreConfig, "loreConfig");
+        this.skillLevelSource = Objects.requireNonNull(skillLevelSource, "skillLevelSource");
+    }
+
+    public LiteralArgumentBuilder<CommandSourceStack> node() {
+        return Commands.literal("stats")
+                .executes(ctx -> show(ctx.getSource(), StatsCategory.ALL))
+                .then(Commands.argument("category", StringArgumentType.word())
+                        .suggests((ctx, builder) -> {
+                            String rem = builder.getRemainingLowerCase();
+                            for (StatsCategory cat : StatsCategory.values()) {
+                                String id = cat.id();
+                                if (rem.isEmpty() || id.startsWith(rem)) {
+                                    builder.suggest(id);
+                                }
+                            }
+                            return builder.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            String raw = StringArgumentType.getString(ctx, "category");
+                            StatsCategory cat = StatsCategory.parse(raw);
+                            if (cat == null) {
+                                ctx.getSource().getSender().sendMessage(Component.text(
+                                        "カテゴリは attack / armor / craft / gathering / utility / ars / other"
+                                                + " / all のいずれかです。",
+                                        NamedTextColor.RED));
+                                return 0;
+                            }
+                            return show(ctx.getSource(), cat);
+                        }));
+    }
+
+    private int show(CommandSourceStack source, StatsCategory category) {
+        CommandSender sender = source.getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(Component.text("プレイヤー専用コマンドです。", NamedTextColor.RED));
+            return 0;
+        }
+
+        player.sendMessage(Component.text(
+                "=== TrinityForge Stats: " + player.getName()
+                        + " [" + category.id() + "] ===", NamedTextColor.GOLD));
+        player.sendMessage(line("戦闘レベル", Integer.toString(combatService.combatLevelOf(player.getUniqueId()))));
+
+        Map<String, Integer> skills = new TreeMap<>(skillLevelSource.levelsOf(player.getUniqueId()));
+        if (skills.isEmpty()) {
+            player.sendMessage(line("スキルLv", "(なし / ValhallaMMO未接続)"));
+        } else {
+            skills.forEach((skill, level) -> player.sendMessage(line("  " + skill, Integer.toString(level))));
+        }
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player);
+        Map<String, Double> combined = new LinkedHashMap<>(agg.item());
+        agg.perkAttack().forEach((k, v) -> combined.merge(StatKeys.canonical(k), v, Double::sum));
+        agg.perkDefense().forEach((k, v) -> combined.merge(StatKeys.canonical(k), v, Double::sum));
+        agg.addon().forEach((k, v) -> combined.merge(StatKeys.canonical(k), v, Double::sum));
+
+        player.sendMessage(Component.text("[合算ステータス]", NamedTextColor.AQUA));
+        // 乗算モード: 実際の戦闘/採集パスは全て乗算レイヤ適用後の値を使うため、表示も適用後に揃える。
+        sendFiltered(player, agg.applyMultipliers(combined), category);
+
+        if (category == StatsCategory.ALL || category == StatsCategory.ARMOR) {
+            AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
+            AttributeInstance toughness = player.getAttribute(Attribute.ARMOR_TOUGHNESS);
+            player.sendMessage(line("  バニラ防御(armor/toughness)",
+                    formatTruncated(armor != null ? armor.getValue() : 0.0)
+                            + " / "
+                            + formatTruncated(toughness != null ? toughness.getValue() : 0.0)));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void sendFiltered(Player player, Map<String, Double> stats, StatsCategory category) {
+        Map<String, StatDisplaySpec> table = loreConfig.displayTable();
+        boolean any = false;
+        for (Map.Entry<String, Double> entry : stats.entrySet().stream()
+                .sorted(Comparator
+                        .comparingInt((Map.Entry<String, Double> e) -> orderOf(e.getKey(), table))
+                        .thenComparing(e -> StatKeys.canonical(e.getKey())))
+                .toList()) {
+            String key = StatKeys.canonical(entry.getKey());
+            double value = entry.getValue();
+            if (value == 0.0 || !category.includes(key)) {
+                continue;
+            }
+            StatDisplaySpec spec = lookup(table, key);
+            String label = spec != null ? spec.displayName() : key;
+            String rendered = spec != null ? renderForStats(spec, value) : formatTruncated(value);
+            player.sendMessage(line("  " + label, rendered));
+            any = true;
+        }
+        if (!any) {
+            player.sendMessage(Component.text("  (該当カテゴリのステなし)", NamedTextColor.DARK_GRAY));
+        }
+    }
+
+    private static StatDisplaySpec lookup(Map<String, StatDisplaySpec> table, String canonicalKey) {
+        StatDisplaySpec direct = table.get(canonicalKey);
+        if (direct != null) {
+            return direct;
+        }
+        for (Map.Entry<String, StatDisplaySpec> e : table.entrySet()) {
+            if (StatKeys.canonical(e.getKey()).equals(canonicalKey)) {
+                return e.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static int orderOf(String key, Map<String, StatDisplaySpec> table) {
+        StatDisplaySpec spec = lookup(table, StatKeys.canonical(key));
+        return spec != null ? spec.order() : 10_000;
+    }
+
+    /**
+     * lore の format に合わせつつ、表示値は小数第3位以下を切り捨て（最大2桁）。
+     * PERCENT は ×100 後に切り捨てて {@code %} を付与。unit があれば末尾に付ける。
+     */
+    private static String renderForStats(StatDisplaySpec spec, double value) {
+        int decimals = Math.min(2, spec.decimals());
+        LoreValueFormat format = spec.format();
+        String text = switch (format) {
+            case PERCENT -> {
+                double shown = truncate(Math.abs(value) * 100.0, decimals);
+                yield sign(value, spec.showSign()) + formatTruncated(shown, decimals) + "%";
+            }
+            case INTEGER -> sign(value, spec.showSign())
+                    + Long.toString((long) truncate(Math.abs(value), 0));
+            case SCALAR -> "x" + formatTruncated(truncate(value, decimals), decimals);
+            case FLAT -> sign(value, spec.showSign())
+                    + formatTruncated(truncate(Math.abs(value), decimals), decimals);
+        };
+        if (!spec.unit().isBlank() && format != LoreValueFormat.PERCENT) {
+            return text + spec.unit();
+        }
+        return text;
+    }
+
+    private static String sign(double value, boolean showSign) {
+        if (value < 0) {
+            return "-";
+        }
+        return showSign ? "+" : "";
+    }
+
+    /** 小数第 {@code decimals} 位より下を切り捨て（正は floor、負は ceil＝ゼロ方向ではない、絶対値側で切り捨て）。 */
+    private static double truncate(double value, int decimals) {
+        double scale = Math.pow(10, Math.max(0, decimals));
+        return Math.floor(Math.abs(value) * scale) / scale * Math.signum(value == 0 ? 1 : value);
+    }
+
+    private static String formatTruncated(double value) {
+        return formatTruncated(truncate(value, 2), 2);
+    }
+
+    private static String formatTruncated(double value, int decimals) {
+        if (decimals <= 0 || value == Math.rint(value)) {
+            return Integer.toString((int) value);
+        }
+        return String.format(Locale.ROOT, "%." + decimals + "f", value)
+                .replaceAll("0+$", "")
+                .replaceAll("\\.$", "");
+    }
+
+    private static Component line(String label, String value) {
+        return Component.text(label + ": ", NamedTextColor.GRAY)
+                .append(Component.text(value, NamedTextColor.WHITE));
+    }
+
+}

@@ -1,0 +1,399 @@
+# ============================================================================
+# combat/mob-level-table.yml
+# モブのレベル帯(min-level以上、次の帯の手前まで)ごとに「ドロップの削除/追加」「討伐時バニラEXP」を
+# 設定するレベルテーブル。combat/mob-types.yml (フィールドモブ) と combat/mob-profiles.yml
+# (EliteMobs輸入ダンジョンモブ)のどちらにも、レベル値だけを見て横断的に適用する
+# (EntityType/由来は問わない。適用条件は「戦闘レベルが刻印されているモブ」であること)。
+#
+# 【2026-07-25 モブ別ドロップ指定】
+#   上記の「帯」自体の適用条件(レベル値のみ・EntityType/由来は問わない)は変わらない。
+#   add-drops の各エントリ「だけ」が、任意で mobs: (EntityType名の一覧) を持てるようになった。
+#     - mobs: 未指定(省略) -> 従来どおりこの帯の全モブに適用(後方互換)。
+#     - mobs: 指定あり     -> そのEntityTypeのモブへのキルだけに絞り込む(それ以外のモブでは
+#                             このエントリはロールされない。帯自体・他のadd-dropsエントリには影響しない)。
+#   EliteMobs輸入のカスタムボスも内部的には何らかのバニラEntityType(例: ZOMBIE)としてスポーンするため、
+#   EntityTypeでの絞り込みで対応できる。個別のカスタムモブID指定には対応していない(現状不要と判断)。
+#
+# 【後方互換】tiers: が空(既定)なら、このファイルは一切何もしない。ドロップ・EXPとも従来どおり。
+#
+# 【帯の解決規則(floor lookup)】
+#   キルされたモブの実効レベル L に対し、min-level <= L を満たす最大の min-level を持つ帯が適用される。
+#   例: min-level 0 と min-level 20 の2帯がある場合、L=0〜19 は帯0、L=20以降は帯20(次の帯が無ければ
+#   それ以降ずっと帯20)。L が最小の min-level 未満(通常は無い。min-level 0 を必ず置けば防げる)なら
+#   どの帯にも一致せず何もしない。
+#
+# 【ドロップ「削除」の対象(3つの出所の切り分け)】
+#   remove-drops は、このリスナーが HIGH 優先度で走る時点の event.getDrops()(死亡時の最終ドロップ
+#   リスト)から Material 名で除去する。この時点には (a) バニラの既定ドロップ と
+#   (b) combat/mob-types.yml の drops: で追加されたTF追加ドロップ の両方が既に反映済みのため、
+#   remove-drops はどちらの出所からのドロップでも削除できる。
+#   (c) EliteMobs自体の戦利品ドロップは対象外 — 現在の運用方針で EliteMobs側の戦利品ドロップ自体が
+#   意図的にOFFにされているため、通常は関係しない。もし将来ONに戻す場合、EliteMobsが
+#   EntityDeathEvent#getDrops() 経由でアイテムを積むなら同様に削除対象になるが、そうでない独自経路
+#   (例: 直接アイテムエンティティをスポーンさせる方式)なら対象外になる点に注意。
+#
+# 【経験値: バニラEXPのみを対象にした理由】
+#   「討伐時に得られる経験値」という要望文言は Bukkit の EntityDeathEvent#setDroppedExp (オーブとして
+#   出るバニラEXP、拾うとPlayerExpChangeEvent経由でTFのバフ倍率が乗る)に対応する「討伐(kill)時点」の
+#   概念そのもの。一方 stats/skill-exp.yml の武器/防具スキルEXP(combat.exp-per-hit等)は「命中/被弾の
+#   都度」加算されるヒットベースの別パイプラインであり、「討伐時」ではない。よって vanilla-exp は
+#   バニラEXPのみを対象にする。
+#   dungeon-only-exp(stats/skill-exp.yml、武器/防具スキルEXPだけをゲートする既存フラグ)とは完全に
+#   別パイプライン・別ゲートなので二重ゲートは起きない — このファイルの dungeon-only は、この
+#   ファイル自身のドロップ削除/追加/バニラEXP上書きにのみ効く独立したトグル。
+#
+# 【ダンジョン限定トグル】
+#   dungeon-only: true にすると、このファイルの全ルール(remove-drops/add-drops/vanilla-exp)は
+#   EliteMobsダンジョンのインスタンスワールド内で死亡した場合にのみ適用される(既存の
+#   DungeonWorldRegistry を再利用。新しいダンジョン判定は作らない)。false(既定)ならワールドを問わず
+#   常に適用する。
+#
+# 各tiersエントリの項目:
+#   min-level    : この帯の下限レベル(その値以上、次の帯の手前まで有効)。0以上の整数、重複不可。
+#   remove-drops : このレベル帯で除去する Material 名の一覧(省略可)。
+#   add-drops    : このレベル帯だけの追加ドロップ一覧(省略可)。各要素:
+#                    material: アイテムのMaterial名、または custom:<items/catalog.ymlのID> (必須)
+#                    chance  : 1死亡あたりのドロップ確率 [0,1] (必須)
+#                    min/max : ドロップ個数の範囲 (両方0以上、min<=max、必須)
+#                    mobs    : このエントリを適用するEntityType名の一覧 (省略可。省略時は全モブに適用)
+#                    mob-ids : このエントリを適用するEliteMobsモブidの一覧 (省略可。同上)
+#   vanilla-exp  : この帯の討伐で付与するバニラEXP(整数、0以上)。省略時はバニラ/既定の量のまま。
+#   mobs         : 【帯そのもの】の適用対象EntityType一覧 (省略可。省略時はレベルが合う全モブ)
+#   mob-ids      : 【帯そのもの】の適用対象EliteMobsモブid一覧 (省略可。同上)
+#
+# 【対象モブの絞り込み(mobs / mob-ids)】 2026-07-26 追加
+#   ・mobs    は バニラの EntityType(ZOMBIE 等)。フィールドモブ(mob-types.yml)を指定する唯一の手段。
+#   ・mob-ids は EliteMobs カスタムボスのモブid(combat/mob-profiles.yml / mob-overrides.yml と同じキー、
+#     拡張子は付けても付けなくてもよい)。ダンジョンモブは1ダンジョンまるごと同じEntityType(ZOMBIEの
+#     見た目替え等)であることが多く、EntityTypeでは個体を区別できないため、特定のダンジョンボスを
+#     狙い撃ちできるのはこちらだけ。
+#   ・どちらも省略/空なら「全モブに適用」(従来どおり。後方互換)。
+#   ・両方書いた場合は AND(EntityTypeも一致し、かつモブidも一致するモブだけ)。
+#     「AかBか」をやりたい場合はどちらか片方だけを使うこと。
+#   ・【帯レベル】に書くと、その帯の remove-drops / add-drops / vanilla-exp が丸ごと対象外のモブに
+#     適用されなくなる。【add-drops エントリ】に書くと、その1エントリだけが絞り込まれる。
+# ============================================================================
+# 設定リファレンス(本文コメント移設先): docs/config-reference/combat/mob-level-table.md
+
+
+dungeon-only: false
+
+tiers:
+  - min-level: 0
+    vanilla-exp: 8
+    mobs:
+      - BEE
+      - BLAZE
+      - BOGGED
+      - BREEZE
+      - CAVE_SPIDER
+      - CREAKING
+      - CREEPER
+      - DOLPHIN
+      - DROWNED
+      - ELDER_GUARDIAN
+      - ENDERMAN
+      - ENDERMITE
+      - ENDER_DRAGON
+      - EVOKER
+      - GHAST
+      - GIANT
+      - GOAT
+      - GUARDIAN
+      - HOGLIN
+      - HUSK
+      - ILLUSIONER
+      - IRON_GOLEM
+      - LLAMA
+      - MAGMA_CUBE
+      - PANDA
+      - PARCHED
+      - PHANTOM
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - PILLAGER
+      - POLAR_BEAR
+      - RAVAGER
+      - SHULKER
+      - SILVERFISH
+      - SKELETON
+      - SLIME
+      - SPIDER
+      - STRAY
+      - TRADER_LLAMA
+      - VEX
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER
+      - WITHER_SKELETON
+      - WOLF
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - ZOMBIFIED_PIGLIN
+  - min-level: 10
+    vanilla-exp: 15
+    mobs:
+      - BEE
+      - BLAZE
+      - BOGGED
+      - BREEZE
+      - CAVE_SPIDER
+      - CREAKING
+      - CREEPER
+      - DOLPHIN
+      - DROWNED
+      - ELDER_GUARDIAN
+      - ENDERMAN
+      - ENDERMITE
+      - ENDER_DRAGON
+      - EVOKER
+      - GHAST
+      - GIANT
+      - GOAT
+      - GUARDIAN
+      - HOGLIN
+      - HUSK
+      - ILLUSIONER
+      - IRON_GOLEM
+      - LLAMA
+      - MAGMA_CUBE
+      - PANDA
+      - PARCHED
+      - PHANTOM
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - PILLAGER
+      - POLAR_BEAR
+      - RAVAGER
+      - SHULKER
+      - SILVERFISH
+      - SKELETON
+      - SLIME
+      - SPIDER
+      - STRAY
+      - TRADER_LLAMA
+      - VEX
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER
+      - WITHER_SKELETON
+      - WOLF
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - ZOMBIFIED_PIGLIN
+  - min-level: 25
+    vanilla-exp: 28
+    mobs:
+      - BEE
+      - BLAZE
+      - BOGGED
+      - BREEZE
+      - CAVE_SPIDER
+      - CREAKING
+      - CREEPER
+      - DOLPHIN
+      - DROWNED
+      - ELDER_GUARDIAN
+      - ENDERMAN
+      - ENDERMITE
+      - ENDER_DRAGON
+      - EVOKER
+      - GHAST
+      - GIANT
+      - GOAT
+      - GUARDIAN
+      - HOGLIN
+      - HUSK
+      - ILLUSIONER
+      - IRON_GOLEM
+      - LLAMA
+      - MAGMA_CUBE
+      - PANDA
+      - PARCHED
+      - PHANTOM
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - PILLAGER
+      - POLAR_BEAR
+      - RAVAGER
+      - SHULKER
+      - SILVERFISH
+      - SKELETON
+      - SLIME
+      - SPIDER
+      - STRAY
+      - TRADER_LLAMA
+      - VEX
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER
+      - WITHER_SKELETON
+      - WOLF
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - ZOMBIFIED_PIGLIN
+  - min-level: 45
+    vanilla-exp: 50
+    mobs:
+      - BEE
+      - BLAZE
+      - BOGGED
+      - BREEZE
+      - CAVE_SPIDER
+      - CREAKING
+      - CREEPER
+      - DOLPHIN
+      - DROWNED
+      - ELDER_GUARDIAN
+      - ENDERMAN
+      - ENDERMITE
+      - ENDER_DRAGON
+      - EVOKER
+      - GHAST
+      - GIANT
+      - GOAT
+      - GUARDIAN
+      - HOGLIN
+      - HUSK
+      - ILLUSIONER
+      - IRON_GOLEM
+      - LLAMA
+      - MAGMA_CUBE
+      - PANDA
+      - PARCHED
+      - PHANTOM
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - PILLAGER
+      - POLAR_BEAR
+      - RAVAGER
+      - SHULKER
+      - SILVERFISH
+      - SKELETON
+      - SLIME
+      - SPIDER
+      - STRAY
+      - TRADER_LLAMA
+      - VEX
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER
+      - WITHER_SKELETON
+      - WOLF
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - ZOMBIFIED_PIGLIN
+  - min-level: 65
+    vanilla-exp: 85
+    mobs:
+      - BEE
+      - BLAZE
+      - BOGGED
+      - BREEZE
+      - CAVE_SPIDER
+      - CREAKING
+      - CREEPER
+      - DOLPHIN
+      - DROWNED
+      - ELDER_GUARDIAN
+      - ENDERMAN
+      - ENDERMITE
+      - ENDER_DRAGON
+      - EVOKER
+      - GHAST
+      - GIANT
+      - GOAT
+      - GUARDIAN
+      - HOGLIN
+      - HUSK
+      - ILLUSIONER
+      - IRON_GOLEM
+      - LLAMA
+      - MAGMA_CUBE
+      - PANDA
+      - PARCHED
+      - PHANTOM
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - PILLAGER
+      - POLAR_BEAR
+      - RAVAGER
+      - SHULKER
+      - SILVERFISH
+      - SKELETON
+      - SLIME
+      - SPIDER
+      - STRAY
+      - TRADER_LLAMA
+      - VEX
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER
+      - WITHER_SKELETON
+      - WOLF
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - ZOMBIFIED_PIGLIN
+  - min-level: 85
+    vanilla-exp: 140
+    mobs:
+      - BEE
+      - BLAZE
+      - BOGGED
+      - BREEZE
+      - CAVE_SPIDER
+      - CREAKING
+      - CREEPER
+      - DOLPHIN
+      - DROWNED
+      - ELDER_GUARDIAN
+      - ENDERMAN
+      - ENDERMITE
+      - ENDER_DRAGON
+      - EVOKER
+      - GHAST
+      - GIANT
+      - GOAT
+      - GUARDIAN
+      - HOGLIN
+      - HUSK
+      - ILLUSIONER
+      - IRON_GOLEM
+      - LLAMA
+      - MAGMA_CUBE
+      - PANDA
+      - PARCHED
+      - PHANTOM
+      - PIGLIN
+      - PIGLIN_BRUTE
+      - PILLAGER
+      - POLAR_BEAR
+      - RAVAGER
+      - SHULKER
+      - SILVERFISH
+      - SKELETON
+      - SLIME
+      - SPIDER
+      - STRAY
+      - TRADER_LLAMA
+      - VEX
+      - VINDICATOR
+      - WARDEN
+      - WITCH
+      - WITHER
+      - WITHER_SKELETON
+      - WOLF
+      - ZOGLIN
+      - ZOMBIE
+      - ZOMBIE_VILLAGER
+      - ZOMBIFIED_PIGLIN

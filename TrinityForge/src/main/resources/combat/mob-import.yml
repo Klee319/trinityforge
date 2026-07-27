@@ -1,0 +1,84 @@
+# TrinityForge - EliteMobs mob conversion policy (concern: bulk-convert distributed dungeon mobs).
+# `/trinityforge importmobs <folder>` reads a folder of EliteMobs custombosses files and writes
+# combat/mob-profiles.yml using the rules below. EliteMobs files carry NO defense fields, so the
+# defender profile is synthesized here. To re-tune: edit this file, then /trinityforge reload (so the
+# new policy is loaded), THEN re-run importmobs. For a one-off per-mob tweak with no reimport, edit
+# mob-profiles.yml directly and reload.
+#
+# ── 各ステの算出式(ランプ) ─────────────────────────────────────────────
+#   value(level) = (base + per-level * level) * growth^(level / growth-interval)
+#   growth を省略 or 1.0 にすると従来どおりの線形 (base + per-level * level)。
+#   growth > 1.0 で指数的に増加する。
+#
+# ── 動的スケール(重要) ────────────────────────────────────────────────
+#   EliteMobs の level: が "dynamic"(ダイナミックダンジョン)のモブは、import 時に固定で
+#   焼かず、spawn 時の実際の選択ダンジョンレベルで毎回このランプを再評価する(コンバット依存)。
+#   level: が数値のモブ(固定ダンジョン/ボス)はその固定レベルで評価する。
+#
+# ── 設計方針 (2026-07-25 改訂 v2: HPだけでなく攻撃力も指数、ただしプレイヤー守備力より急勾配) ──
+#   プレイヤーの武器 tier は木→インフィニティで約800倍の指数的伸びをする一方、プレイヤーの
+#   最大HPは仕様上 20(バニラ)→60(♡3列、防具合算込み)で頭打りにする方針が確定している。
+#   さらにプレイヤー側の校正要件が「同帯装備の厳選度で難度が決まり、帯が1つ足りない装備では
+#   基本的に勝てない」に確定した。攻撃力が準線形だと1帯下の防具でも守備力が足りてしまい
+#   (適正帯の未厳選装備より1帯下の理論値装備の方が硬いという逆転が起きる)、この要件を
+#   満たせない。そこで攻撃力も指数化し、帯間のギャップを守備力の伸びより大きくすることで
+#   「適正帯厳選済み=20発耐える／1帯下理論値=3発／無防具=0.1発」という階段を作る。
+#   一方 max-health は変更なし(growth 1.072)。プレイヤー火力の指数的伸びに追従させる側。
+#     ・max-health   : 指数(growth 1.072)。プレイヤー火力の伸びに追従させ、雑魚 ~3〜6 発を維持。
+#     ・attack-power : 指数(base 7.0 / growth 1.03、線形項なし)。Lv100で約134.5。
+#   基準: プレイヤーの武器 tier は use-level に対応(L10石/L20銅/L30鉄/L40金/L55ダイヤ/
+#   L70ネザ/L85ウィザー/L100ドラゴン・インフィニティ)。モブ level L ≒「use-level L の
+#   tier 装備で適正」になるよう設定。
+#   プレイヤー側の守備力・最大HPカーブは別作業で同時に調整される(Lv100で守備力 111→126、
+#   最大HP 50→60 の想定)。attack-power の指数はその前提と噛み合うよう校正した値。
+#   数値は全て「初期値」。実バランスは playtest で調整する前提。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/combat/mob-import.md
+
+
+level:
+  source: ELITEMOBS
+  fixed: 1
+  default: 1
+
+# 未インポートのEliteMobsカスタムボスの扱い(2026-07-26 「無料DL枠ダンジョンの敵を設定できない」修正)
+#   true (既定): combat/mob-profiles.yml に載っていないモブも、スポーン時にこのファイルのランプを
+#     実レベルで評価して自動導出する。無料DL枠のダンジョンを新たに落とした直後でも、importmobs を
+#     回す前から TrinityForge の管理下に入り、combat/mob-overrides.yml でステ/ドロップを指定できる。
+#     (converterは元のボスファイルの数値を一切読まないので、importmobs が焼く値と同一結果になる)
+#   false: 旧挙動。mob-profiles.yml に載っているモブだけが TrinityForge 駆動になり、それ以外は
+#     EliteMobs 側の素の値のまま + mob-overrides.yml も一切効かない。
+unknown-mobs:
+  synthesize: true
+
+theme:
+  default: ""
+
+physical:
+  defense-rate:     { base: 0.0,  per-level: 0.0 }
+  resistance:       { base: 0.12, per-level: 0.0 }
+  damage-reduction: { base: 0.0,  per-level: 0.0 }
+  flat-defense:     { base: 0.0,  per-level: 0.0 }
+
+magical:
+  defense-rate:     { base: 0.0,  per-level: 0.0 }
+  resistance:       { base: 0.12, per-level: 0.0 }
+  damage-reduction: { base: 0.0,  per-level: 0.0 }
+  flat-defense:     { base: 0.0,  per-level: 0.0 }
+
+armor-strength:     { base: 0.0, per-level: 0.0 }
+
+variance:
+  hp:     0.15
+  attack: 0.15
+
+max-health:         { base: 150.0, per-level: 0.0, growth: 1.072, growth-interval: 1.0 }
+
+attack:
+  attack-power:         { base: 7.0, per-level: 0.0, growth: 1.03, growth-interval: 1.0 }
+  flat-bonus-damage:    { base: 0.0, per-level: 0.0 }
+  percent-bonus-damage: { base: 0.0, per-level: 0.0 }
+  crit-chance:          { base: 0.0, per-level: 0.0 }
+  crit-damage:          { base: 0.0, per-level: 0.0 }
+  penetration:          { base: 0.0, per-level: 0.0 }
+  damage-modifier:      { base: 1.0, per-level: 0.0 }
+  fixed-damage:         { base: 0.0, per-level: 0.0 }

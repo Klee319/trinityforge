@@ -1,0 +1,43 @@
+# TrinityForge - Dungeon entry gates (DUNGEON_SPEC D2 + D3 topology).
+# Single SoT for TF cross-world teleports, EliteMobs instanced-dungeon joins,
+# and in-place 区画ダンジョン boundary crossings.
+#
+# Primary key: destination world name (teleport target)。region: を使う区画ゲートでは
+#   実在ワールド名でなくてもよい(識別ラベル)。
+# Optional alias: content-package (EliteMobs blueprint filename, e.g. my_dungeon for
+#   content_packages/my_dungeon.yml). Use aliases: [list] or content-package: single.
+#   インスタンスダンジョン(動的に採番されるクローンワールド)はこのエイリアスで
+#   ゲートされる(クローン前・参加時の両方でチェックされる)。
+#
+# Fields per gate:
+#   required-combat-level  (optional) minimum combat level (0 / omit = no level gate)
+#   key-material           (optional) Bukkit material consumed on entry
+#   key-amount             (optional) count consumed (default 1)
+#   aliases / content-package  (optional) EliteMobs content-package name(s)
+#   region                 (optional) 同一ワールド内の区画ダンジョン境界 (D3)。
+#                          外→内へ移動/テレポートした瞬間に入場評価される。
+#                          歩いて出入りするたびにキーを消費する点に注意。
+#     world: <ワールド名>   (required) 区画があるワールド
+#     min: [x, y, z]        (required) 対角ブロック座標(順不同、自動正規化)
+#     max: [x, y, z]        (required)
+#
+# Example:
+# gates:
+#   dungeon_crypt_world:
+#     required-combat-level: 40
+#     key-material: TRIPWIRE_HOOK
+#     key-amount: 1
+#     content-package: dungeon_crypt
+#   dungeon_abyss:
+#     required-combat-level: 80
+#     aliases:
+#       - dungeon_abyss
+#       - abyss_blueprint
+#   field_ruins:                     # 常設フィールド内の区画ダンジョン (in-place)
+#     required-combat-level: 25
+#     region:
+#       world: world
+#       min: [1200, 0, -300]
+#       max: [1350, 128, -150]
+
+gates: {}

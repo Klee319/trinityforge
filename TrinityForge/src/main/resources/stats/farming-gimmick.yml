@@ -1,0 +1,16 @@
+# TrinityForge - 農業/畜産ギミック(skilltree/dedicated-effects.yml のflag系consumer)チューニング
+# 対象effectId: area-harvest / animal-damage-4x / bee-no-aggro(採取時のハチ鎮静半径)
+# 養蜂の幸運確率(hive_harvest_fortune)は装備+perk合算ステータスとして別経路で持つため、
+# このファイルには含まれない。
+# 数値は全て暫定(要調整)。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/stats/farming-gimmick.md
+
+
+area-harvest:
+  radius: 1
+
+animal-damage-4x:
+  multiplier: 4.0
+
+bee-no-aggro:
+  calm-radius: 8.0

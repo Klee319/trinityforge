@@ -1,0 +1,173 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/netherite_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 6,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_dagger"
+        }
+      },
+      {
+        "threshold": 15,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_rapier"
+        }
+      },
+      {
+        "threshold": 27,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_warhammer"
+        }
+      },
+      {
+        "threshold": 33,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_greataxe"
+        }
+      },
+      {
+        "threshold": 67,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 109,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 110,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 111,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 112,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_sword"
+        }
+      },
+      {
+        "threshold": 113,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_sword"
+        }
+      },
+      {
+        "threshold": 114,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/nuclear_sword"
+        }
+      },
+      {
+        "threshold": 115,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 116,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 117,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 133,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 134,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 135,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 136,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 137,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 138,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 142,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 143,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 144,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

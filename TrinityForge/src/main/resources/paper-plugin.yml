@@ -1,0 +1,20 @@
+name: TrinityForge
+version: "${version}"
+main: com.trinityforge.TrinityForge
+description: Native progression and integration core for the EliteMobs + ArsPaper MMO server.
+api-version: "1.21"
+author: Klee319
+# Vault は完全な任意依存(soft-depend)。未導入でも起動できる — 経済連携機能(釣り売却/EconomyBridge)が
+# 静かに無効化されるだけ。誤って depend にすると Vault 不在時に起動不能になるため厳禁。
+softdepend: [Vault]
+
+permissions:
+  trinityforge.admin:
+    description: TrinityForge admin commands (reload, progression, give, bind, stamp, import, dungeon)
+    default: op
+  trinityforge.use:
+    description: Allows /tf (usage) and player-facing subcommands when exposed
+    default: true
+  trinityforge.elitemobs.commands:
+    description: Bypass EliteMobs/AdventurersGuild player-command gate (dungeon tooling)
+    default: op

@@ -1,0 +1,19 @@
+# TrinityForge - アイテム品質モデル (SELECTION_SPEC 3 / ITEM_ECONOMY_SPEC 5)。暫定(M7で調整)。
+# 品質(0..max)は、クラフト・敵ドロップ共通の「品質抽選」で決まる(スキル/敵の強さがmodeを、下記σがばらつきを決める)。
+# roll削除後、各ステは品質に対して決定的(item-stats.yml の per-quality 線形)。よってばらつきは品質レベルの抽選のみに存在する。
+
+# 品質の「段数」はconfig可変(Q=任意段階)。通常は stats/quality-tiers.yml のエントリ数で決まる
+# (そこが10ティアなら品質0..9)。この数値 max-quality は、あちらにティアが無い場合の「フォールバック」に過ぎない。
+# 範囲は [1, 100]。ItemData.MAX_QUALITY(100) は単なるPDCの保存上限であって、ゲーム上の最大値ではない。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/stats/quality.md
+
+
+max-quality: 9
+spread-up: 1.75
+spread-down: 1.75
+roll-spread-up: 0.1
+roll-spread-down: 0.1
+roll-center-inset: 0.2
+loot-base-quality: 0
+fishing-base-quality: 0
+give-default-quality: 3

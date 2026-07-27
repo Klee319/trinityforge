@@ -1,0 +1,54 @@
+# TrinityForge - Dungeon attribute themes (concern: support creating new EliteMobs dungeons).
+# A theme is a defense-bias preset (DUNGEON_SPEC: each dungeon has an attribute theme, e.g.
+# physical-heavy / magic-heavy). Authoring a new dungeon:
+#   1. Pick or define a theme below.
+#   2. /trinityforge importmobs theme <theme> <the dungeon's EliteMobs mob folder>
+#      -> the dungeon's mobs get level-scaled, themed defender profiles in combat/mob-profiles.yml
+#         and are tagged with the theme name (MOB_DUNGEON_THEME). Re-run after editing to re-tune.
+#   3. /trinityforge dungeon themes  -> list available theme names.
+#
+# Each theme overrides the synthesized defender ramps (level uses combat/mob-import.yml). Values are
+# base + per-level * level, clamped (rates to [0,1], flats >= 0). Tune freely; nothing is hardcoded.
+# defense-rate%/resistance% (penetrable vs not), damage-reduction%, flat-defense 守備力, armor-strength 防具強度.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/dungeon/themes.md
+
+
+themes:
+  physical_fortress:
+    physical:
+      defense-rate:     { base: 0.10, per-level: 0.004 }
+      resistance:       { base: 0.05, per-level: 0.002 }
+      damage-reduction: { base: 0.0,  per-level: 0.0 }
+      flat-defense:     { base: 1.0,  per-level: 0.2 }
+    magical:
+      defense-rate:     { base: 0.0,  per-level: 0.0 }
+      resistance:       { base: 0.0,  per-level: 0.0 }
+      damage-reduction: { base: 0.0,  per-level: 0.0 }
+      flat-defense:     { base: 0.0,  per-level: 0.0 }
+    armor-strength:     { base: 0.0,  per-level: 0.1 }
+
+  arcane_ward:
+    physical:
+      defense-rate:     { base: 0.0,  per-level: 0.0 }
+      resistance:       { base: 0.0,  per-level: 0.0 }
+      damage-reduction: { base: 0.0,  per-level: 0.0 }
+      flat-defense:     { base: 0.0,  per-level: 0.0 }
+    magical:
+      defense-rate:     { base: 0.10, per-level: 0.004 }
+      resistance:       { base: 0.05, per-level: 0.002 }
+      damage-reduction: { base: 0.0,  per-level: 0.0 }
+      flat-defense:     { base: 1.0,  per-level: 0.2 }
+    armor-strength:     { base: 0.0,  per-level: 0.0 }
+
+  balanced:
+    physical:
+      defense-rate:     { base: 0.05, per-level: 0.002 }
+      resistance:       { base: 0.0,  per-level: 0.0 }
+      damage-reduction: { base: 0.0,  per-level: 0.0 }
+      flat-defense:     { base: 0.5,  per-level: 0.1 }
+    magical:
+      defense-rate:     { base: 0.05, per-level: 0.002 }
+      resistance:       { base: 0.0,  per-level: 0.0 }
+      damage-reduction: { base: 0.0,  per-level: 0.0 }
+      flat-defense:     { base: 0.5,  per-level: 0.1 }
+    armor-strength:     { base: 0.0,  per-level: 0.05 }

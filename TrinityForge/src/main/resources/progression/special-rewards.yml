@@ -1,0 +1,44 @@
+# TrinityForge - 特殊報酬レジストリ (2026-07-23-stat-gate-overhaul.md §6.1/§6.7)
+#
+# 称号(titles) / パーティクル(particles) / パーティクルシード(particle-seeds) を
+# ID単位で定義する。ここで定義したIDは以下の3箇所から共通参照される:
+#   - スキルツリー: 解放効果 reward:<id> (動的ゲート)
+#   - 図鑑(collection.yml) reward-tiers.<tierId>.special: [<id>...]
+#   - アチーブメント(achievements.yml) achievements.<id>.rewards.special: [<id>...]
+#
+# titles.<id>:
+#   display: MiniMessage文字列。プレイヤー頭上に表示する称号テキスト。
+#     例: "<gradient:#ff0000:#ffff00>竜殺し</gradient>"
+#
+# particles.<id>:
+#   particle:       Bukkit Particle 名 (例: FLAME, CRIT, END_ROD)
+#   count:          1回の発生あたりのパーティクル数
+#   radius:         発生半径(ブロック)
+#   interval-ticks: 発生間隔(tick)
+#   shape:          circle(周囲に円形散布) | aura(自分の周りにまとわりつく)
+#
+# particle-seeds.<id>: (ツール/武器合成用の「種」アイテム)
+#   seed-item: 合成素材。Material名 または custom:<カタログID>
+#   particle:  Bukkit Particle 名
+#   count:     ブロック破壊/攻撃時に発生させる数
+#
+# display.head-offset-y: (バグ報告B1)
+#   称号の頭上表示(TextDisplay)をプレイヤーのパッセンジャー既定マウント点から追加で持ち上げる高さ
+#   (ブロック単位)。実サーバで目視確認できない制約下での暫定値 0.75。
+#   ネームタグ(プレイヤー名)に重なって名前が見えない場合はこの値を上げること。
+#   逆に称号が高すぎる/離れすぎる場合はこの値を下げること。/trinityforge reload で
+#   次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
+display:
+  head-offset-y: 0.75
+
+titles:
+  new_title:
+    display: <color:light_purple><b>Server Booster</b></color>
+particles:
+  new_particle:
+    particle: FIREFLY
+    count: 7
+    radius: 0.6
+    interval-ticks: 10
+    shape: aura
+particle-seeds: {}

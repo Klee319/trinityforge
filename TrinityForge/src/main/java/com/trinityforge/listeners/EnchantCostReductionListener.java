@@ -1,0 +1,238 @@
+package com.trinityforge.listeners;
+
+import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.config.domains.EnchantBookshelfConfig;
+import com.trinityforge.stats.StatKeys;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.enchantments.EnchantmentOffer;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
+import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * エンチャント費用軽減(stat: {@code enchant_cost_reduction}) + 本棚パワーconfig化(2026-07-26相乗り追加)。
+ *
+ * <p>2箇所に適用する(タスク仕様):
+ * <ol>
+ *   <li>エンチャントテーブル: {@link PrepareItemEnchantEvent}(GUIに表示される提示コスト、3ボタン分)と
+ *       {@link EnchantItemEvent}(実際にプレイヤーへ課金される経験値レベルコスト)の両方。表示と実消費が
+ *       食い違わないよう同じ軽減率を両イベントへ適用する。</li>
+ *   <li>金床: {@link PrepareAnvilEvent} の修理コスト({@link org.bukkit.inventory.AnvilInventory#getRepairCost()})。
+ *       「高すぎる！」で弾かれるケースの緩和にもなる。{@link EventPriority#HIGHEST} で動作させ、
+ *       {@code CatalogAnvilListener}/{@code WoodRepairListener}/{@code OverEnchantListener} 等の
+ *       HIGH以下の優先度で確定した最終コストへ、後から割合を掛ける(先に読むと他リスナーの上書きを
+ *       取りこぼす)。</li>
+ * </ol>
+ *
+ * <p>0.0〜{@link #MAX_REDUCTION} にクランプし、軽減後も {@link #MIN_LEVEL_COST} レベルを下回らないよう
+ * ガードする(0コストはエンチャント/修理の無限循環という経済破壊を招くため)。
+ *
+ * <p><b>本棚パワーconfig化(2026-07-26)</b>: {@link EnchantBookshelfConfig}(crafting-features.yml
+ * {@code enchant-bookshelf-power} サブツリー)で、バニラが本棚パワーとして考慮する上限
+ * ({@link EnchantBookshelfConfig#VANILLA_MAX_BOOKSHELVES} = 15、Bukkitの
+ * {@link PrepareItemEnchantEvent#getEnchantmentBonus()} が返す実際の本棚数に対して、バニラの内部式は
+ * これを超える分を切り捨てる)と、本棚1個あたりのパワー係数(バニラは暗黙に1.0固定)を調整可能にする。
+ * 既定値(15, 1.0)では実効パワーが常にバニラの実効パワーと一致するため、
+ * {@link #bookshelfRatio} は常に1.0を返し、このリスナーは一切書き換えを行わない(挙動不変)。
+ *
+ * <p>この既存の {@code enchant_cost_reduction} 適用へ相乗りした理由: 同じ2イベント
+ * ({@link PrepareItemEnchantEvent}/{@link EnchantItemEvent})に対する「オファーの数値を書き換える」処理を
+ * 専用リスナーとして別に登録すると、実行順序次第で二重適用(本棚パワー由来の倍率とコスト軽減率の
+ * 適用順序次第で結果が変わる)や食い違いのリスクが増える。ここで一箇所にまとめ、
+ * 「本棚パワー補正 → コスト軽減」の順に確定的に適用する。
+ *
+ * <p><b>本棚数と実際の付与エンチャントの整合について</b>: {@link PrepareItemEnchantEvent} は
+ * {@link EnchantItemEvent#getEnchantsToAdd()}(実際に付与される内容)とは独立にバニラが再計算するため、
+ * 本棚パワー由来の倍率は {@link PrepareItemEnchantEvent#getEnchantmentBonus()} からその場でしか取得できない
+ * ({@link EnchantItemEvent} 側には本棚数の取得手段がない)。そのためプレイヤー単位で直前の
+ * {@code onPrepare} 呼び出し時点の倍率を {@link #lastBookshelfRatioByPlayer} に一時保持し、
+ * 直後の {@code onEnchant} で消費(取り出し後に削除)する。エンチャントテーブルGUIでは
+ * アイテム挿入/変更のたびに必ず {@link PrepareItemEnchantEvent} が先に発火するため、
+ * 通常操作では常にキャッシュがフレッシュな状態で消費される。
+ */
+public final class EnchantCostReductionListener implements Listener {
+
+    /** 軽減率の上限。1.0(全額無料)は経済破壊のため意図的に頭打ちする。 */
+    static final double MAX_REDUCTION = 0.9;
+    /** 軽減後も残す最低コスト(レベル)。0まで軽減すると無限エンチャント/修理になる。 */
+    static final int MIN_LEVEL_COST = 1;
+
+    private static final String ENCHANT_COST_REDUCTION = StatKeys.canonical("enchant_cost_reduction");
+
+    private final PlayerStatAggregator aggregator;
+    /** null許容: 本棚パワーconfig未注入(テスト等)の場合は常にバニラ同一(比率1.0)として扱う。 */
+    private final EnchantBookshelfConfig bookshelfConfig;
+    /** プレイヤーUUID → 直前の {@code onPrepare} で算出した本棚パワー比率。onEnchant消費後に削除する。 */
+    private final Map<UUID, Double> lastBookshelfRatioByPlayer = new ConcurrentHashMap<>();
+
+    public EnchantCostReductionListener(PlayerStatAggregator aggregator) {
+        this(aggregator, null);
+    }
+
+    public EnchantCostReductionListener(PlayerStatAggregator aggregator, EnchantBookshelfConfig bookshelfConfig) {
+        this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.bookshelfConfig = bookshelfConfig;
+    }
+
+    /** エンチャントテーブルの提示コスト(GUIの3ボタン)を、本棚パワー補正→費用軽減の順で書き換える。 */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onPrepare(PrepareItemEnchantEvent event) {
+        Player enchanter = event.getEnchanter();
+        double ratio = bookshelfRatio(event.getEnchantmentBonus());
+        if (enchanter != null) {
+            // 比率1.0(既定config、または本棚0個)のときは意図的に何も記録しない —
+            // onEnchant側は「キャッシュ無し = 1.0」を既定とするため、記録を省いても安全であり、
+            // 前回訪問(別アイテムで比率≠1.0だった場合)の値が誤って残り続けることを防げる。
+            if (ratio == 1.0) {
+                lastBookshelfRatioByPlayer.remove(enchanter.getUniqueId());
+            } else {
+                lastBookshelfRatioByPlayer.put(enchanter.getUniqueId(), ratio);
+            }
+        }
+        double reduction = reductionOf(enchanter);
+        if (ratio == 1.0 && reduction <= 0.0) return;
+        for (EnchantmentOffer offer : event.getOffers()) {
+            if (offer == null) continue;
+            int cost = offer.getCost();
+            int level = offer.getEnchantmentLevel();
+            Enchantment ench = offer.getEnchantment();
+            if (ratio != 1.0) {
+                cost = rescaledCost(cost, ratio);
+                if (ench != null) {
+                    level = rescaledLevel(level, ratio, ench.getMaxLevel());
+                }
+            }
+            if (reduction > 0.0) {
+                cost = reducedCost(cost, reduction);
+            }
+            offer.setCost(cost);
+            if (ench != null && level != offer.getEnchantmentLevel()) {
+                offer.setEnchantmentLevel(level);
+            }
+        }
+    }
+
+    /** エンチャントテーブルで実際に消費される経験値レベルコストと付与レベルを、同じ比率で追随させる。 */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onEnchant(EnchantItemEvent event) {
+        Player enchanter = event.getEnchanter();
+        double ratio = enchanter == null ? 1.0
+                : lastBookshelfRatioByPlayer.getOrDefault(enchanter.getUniqueId(), 1.0);
+        if (enchanter != null) {
+            lastBookshelfRatioByPlayer.remove(enchanter.getUniqueId());
+        }
+        double reduction = reductionOf(enchanter);
+        if (ratio == 1.0 && reduction <= 0.0) return;
+
+        int cost = event.getExpLevelCost();
+        if (ratio != 1.0) {
+            cost = rescaledCost(cost, ratio);
+        }
+        if (reduction > 0.0) {
+            cost = reducedCost(cost, reduction);
+        }
+        event.setExpLevelCost(cost);
+
+        if (ratio != 1.0) {
+            Map<Enchantment, Integer> toAdd = event.getEnchantsToAdd();
+            toAdd.replaceAll((ench, level) -> rescaledLevel(level, ratio, ench.getMaxLevel()));
+        }
+    }
+
+    /** 金床の修理/合成コストを軽減する。他リスナーが確定させた最終コストへ後から適用する。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onAnvil(PrepareAnvilEvent event) {
+        if (!(event.getView().getPlayer() instanceof Player player)) return;
+        if (event.getResult() == null) return; // 有効な修理/リネーム/合成が確定していない
+        double reduction = reductionOf(player);
+        if (reduction <= 0.0) return;
+        int cost = event.getInventory().getRepairCost();
+        if (cost <= 0) return;
+        event.getInventory().setRepairCost(reducedCost(cost, reduction));
+    }
+
+    /**
+     * プレイヤー退出時に {@link #lastBookshelfRatioByPlayer} の残留エントリを掃除する。
+     * エンチャント台を開いて {@code onPrepare} が走った(≠1.0のときのみ記録される)あと、
+     * 実際にエンチャントせず({@code onEnchant} 未発火のまま)ログアウトした場合、
+     * このMapにそのプレイヤーのエントリが残り続けてしまう(1人あたりDouble1個で実害は小さいが、
+     * 長期稼働で単調増加する)ためのクリーンアップ。既定config(比率が常に1.0)では
+     * {@link #onPrepare} が何も記録しないため、この修正は既定挙動を変えない。
+     */
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        lastBookshelfRatioByPlayer.remove(event.getPlayer().getUniqueId());
+    }
+
+    private double reductionOf(Player player) {
+        if (player == null) return 0.0;
+        double raw = aggregator.aggregate(player).totalOf(ENCHANT_COST_REDUCTION);
+        return Math.max(0.0, Math.min(MAX_REDUCTION, raw));
+    }
+
+    /** {@code cost} を {@code reduction}(0..{@link #MAX_REDUCTION})だけ軽減し、最低{@link #MIN_LEVEL_COST}を保証する。 */
+    static int reducedCost(int cost, double reduction) {
+        if (cost <= 0) return cost;
+        int reduced = (int) Math.round(cost * (1.0 - reduction));
+        return Math.max(MIN_LEVEL_COST, reduced);
+    }
+
+    /**
+     * {@link EnchantBookshelfConfig} の設定値から、バニラ実効パワーに対する補正比率を算出する。
+     * {@code bookshelfConfig} が {@code null}(未注入)、または {@code rawBonus <= 0}(本棚0個)のときは
+     * 常に1.0(補正なし)を返す。
+     *
+     * <p>既定config(max=15, coefficient=1.0)では、{@code effective = min(rawBonus,15) * 1.0} が常に
+     * {@code vanilla = min(rawBonus,15)} と一致するため、この関数は常に1.0を返す(挙動不変の根拠)。
+     */
+    double bookshelfRatio(int rawBonus) {
+        if (bookshelfConfig == null || rawBonus <= 0) return 1.0;
+        return computeBookshelfRatio(rawBonus, bookshelfConfig.maxBookshelves(), bookshelfConfig.powerPerBookshelf());
+    }
+
+    /**
+     * 純粋関数版(config層に依存しないテスト用)。
+     * {@code vanillaPower = min(rawBonus, 15)}、{@code effectivePower = min(rawBonus, maxBookshelves) * powerPerBookshelf}
+     * とし、{@code effectivePower / vanillaPower} を返す。{@code vanillaPower <= 0} のときは1.0(補正なし)。
+     */
+    static double computeBookshelfRatio(int rawBonus, int maxBookshelves, double powerPerBookshelf) {
+        int clampedRaw = Math.max(0, rawBonus);
+        int vanillaPower = Math.min(clampedRaw, EnchantBookshelfConfig.VANILLA_MAX_BOOKSHELVES);
+        if (vanillaPower <= 0) return 1.0;
+        double effectivePower = Math.min(clampedRaw, Math.max(0, maxBookshelves)) * Math.max(0.0, powerPerBookshelf);
+        return effectivePower / vanillaPower;
+    }
+
+    /** {@code cost} を本棚パワー比率 {@code ratio} で再スケールし、最低{@link #MIN_LEVEL_COST}を保証する。 */
+    static int rescaledCost(int cost, double ratio) {
+        if (cost <= 0 || ratio == 1.0) return cost;
+        int scaled = (int) Math.round(cost * ratio);
+        return Math.max(MIN_LEVEL_COST, scaled);
+    }
+
+    /**
+     * エンチャントレベルを本棚パワー比率 {@code ratio} で再スケールする。{@code vanillaMaxLevel} で
+     * 上限をクランプし(バニラの通常上限を超えない — 上限突破は {@code OverEnchantListener} の
+     * 専管範囲であり、ここでは踏み込まない)、下限は1にクランプする。
+     */
+    static int rescaledLevel(int level, double ratio, int vanillaMaxLevel) {
+        if (level <= 0 || ratio == 1.0) return level;
+        int scaled = (int) Math.round(level * ratio);
+        scaled = Math.max(1, scaled);
+        if (vanillaMaxLevel > 0) {
+            scaled = Math.min(scaled, vanillaMaxLevel);
+        }
+        return scaled;
+    }
+}

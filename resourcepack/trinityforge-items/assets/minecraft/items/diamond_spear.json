@@ -1,0 +1,38 @@
+{
+  "swap_animation_scale": 1.95,
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "cases": [
+        {
+          "model": {
+            "model": "minecraft:item/diamond_spear",
+            "type": "minecraft:model"
+          },
+          "when": [
+            "gui",
+            "ground",
+            "fixed",
+            "on_shelf"
+          ]
+        }
+      ],
+      "fallback": {
+        "model": "minecraft:item/diamond_spear_in_hand",
+        "type": "minecraft:model"
+      },
+      "property": "minecraft:display_context",
+      "type": "minecraft:select"
+    },
+    "entries": [
+      {
+        "threshold": 50,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_spear"
+        }
+      }
+    ]
+  }
+}

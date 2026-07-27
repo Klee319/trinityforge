@@ -1,0 +1,287 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — Ars鍛冶 (ARS_SMITHING)
+# ----------------------------------------------------------------------------
+# エンコード規則（スライド草案 skilltree/skilltree/スライド11.PNG 準拠）:
+#   主軸 A/B/C/D/E = Lv10/30/50/70/90、Lv100でプレステージ、派生=X-n-m、X-alpha/beta=排他路線。
+#
+# ■このツリー固有の方針（設計§D / タスク指示）:
+#   - buffs は付けない。
+#   - 品質+1 等の数値 → native（★仮命名 arssmithing_*。実名は実装時に確定）。
+#   - クラフト/儀式/スレッド/ソース系の解放 → commands（プレースホルダ）＋ effects。
+#   - greek C-alpha(品質) / C-beta(スレッド欄) → native / effects。
+#
+# ■転写注記: B-1系(クラフト解放)が B-1-1/B-1-2/B-1-4 と番号飛び（B-1-3欠番。画像通り）。
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/ars_smithing.md
+skill: ARS_SMITHING
+display-name: "Ars鍛冶"
+icon: AMETHYST_SHARD
+starting-coords: "2,10"
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: "拡張スレッドの大匠の栄光"
+  effect-text: "品質+1・必要ソース-10%"
+  buffs:
+    workbench_quality_bonus: 1   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+    ingredient_save_chance: 0.10 # 追加: 必要ソース-10%
+
+nodes:
+  A:
+    name: "ソース細工の見習い"
+    level: 10
+    role: main
+    parent: null
+    icon: AMETHYST_SHARD
+    cost: 1
+    effect-text: "ソースジェム一括クラフト開放"
+    effects:
+      - "ソースジェム一括クラフトを解放"
+    dedicated-effects:
+      - id: "recipe:source_gem_block"
+  B:
+    name: "魔法鍛冶の職人"
+    level: 30
+    role: main
+    parent: A
+    icon: IRON_INGOT
+    cost: 1
+    effect-text: "品質+1"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+  C:
+    name: "返却の魔法鍛冶"
+    level: 50
+    role: main
+    parent: B
+    icon: GOLD_INGOT
+    cost: 1
+    effect-text: "品質+1・一定確率で素材返却"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+      material_refund_chance: 0.15   # 既定値(要調整) (旧 dedicated-effects material-refund-chance, stat化)
+    effects:
+      - "一定確率で素材返却"
+  D:
+    name: "スレッド織りの匠"
+    level: 70
+    role: main
+    parent: C
+    icon: DIAMOND
+    cost: 1
+    effect-text: "品質+1・クラフトスレッド開放"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+    effects:
+      - "クラフトスレッドを解放"
+  E:
+    name: "儀式鍛冶の大匠"
+    level: 90
+    role: main
+    parent: D
+    icon: NETHERITE_INGOT
+    cost: 1
+    effect-text: "作業台品質+1・儀式品質+1"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+      ritual_quality_bonus: 1
+
+  A-1:
+    name: "ソース節約"
+    level: 20
+    role: branch
+    parent: A        # 線不明
+    icon: GLASS_BOTTLE
+    cost: 1
+    effect-text: "ソース消費量減少"
+    effects:
+      - "ソース消費量減少"
+    buffs:
+      source_cost_reduction: 0.10   # 既定値(要調整) (旧 dedicated-effects source-cost-reduction, stat化)
+  A-2:
+    name: "ソースベリー活用"
+    level: 20
+    role: branch
+    parent: A-1      # 直列連結。線不明
+    icon: GLOW_BERRIES
+    cost: 1
+    effect-text: "ソースベリーのマナ回復量UP・自動でマナの代わりに消費"
+    effects:
+      - "ソースベリーのマナ回復量UP"
+      - "自動でマナの代わりに消費"
+    dedicated-effects:
+      - id: "feature:source-auto-consume"
+  A-3:
+    name: "上位ソースジャー・ソースリンク"
+    level: 40
+    role: branch
+    parent: A-2      # 直列連結。線不明
+    icon: DECORATED_POT
+    cost: 1
+    effect-text: "上位ソースジャー・ソースリンク(ヴォルカニック)解放"
+    effects:
+      - "上位ソースジャー・ソースリンクを解放"
+    dedicated-effects:
+      - id: "recipe:volcanic_sourcelink"
+
+  D-1:
+    name: "Waystoneクラフト"
+    level: 60
+    role: branch
+    parent: D        # 線不明
+    icon: LODESTONE
+    cost: 1
+    effect-text: "Waystoneクラフト可能・テレポートコンパスクラフト可能"
+    effects:
+      - "Waystoneクラフトが可能に"
+      - "テレポートコンパスクラフトが可能に"
+    dedicated-effects:
+      - id: "ritual:waystone"
+      - id: "ritual:teleport_compass"
+
+  B-1-1:
+    name: "エンチャントI"
+    level: 40
+    role: branch
+    parent: B        # 線不明
+    icon: ENCHANTED_BOOK
+    cost: 1
+    effect-text: "エンチャントIクラフト可能"
+    effects:
+      - "エンチャントIクラフトが可能に"
+    dedicated-effects:
+      - id: "recipe:enchant_book_mana_regen_1"
+      - id: "recipe:enchant_book_mana_boost_1"
+  B-1-2:
+    name: "エンチャントII・回生"
+    level: 40
+    role: branch
+    parent: B-1-1    # 直列連結。線不明
+    icon: ENCHANTED_BOOK
+    cost: 1
+    effect-text: "エンチャントIIクラフト可能・回生クラフト可能"
+    effects:
+      - "エンチャントIIクラフトが可能に"
+      - "回生クラフトが可能に"
+    dedicated-effects:
+      - id: "recipe:enchant_book_mana_regen_2"
+      - id: "recipe:enchant_book_mana_boost_2"
+      - id: "recipe:enchant_book_soulbound"
+  B-1-4:
+    name: "エンチャントIII・共有"
+    level: 80
+    role: branch
+    parent: B-1-2    # B-1-3欠番のためB-1-2に直列連結。線不明
+    icon: ENCHANTED_BOOK
+    cost: 1
+    effect-text: "エンチャントIIIクラフト可能・共有クラフト可能"
+    effects:
+      - "エンチャントIIIクラフトが可能に"
+      - "共有クラフトが可能に"
+    dedicated-effects:
+      - id: "recipe:enchant_book_mana_regen_3"
+      - id: "recipe:enchant_book_mana_boost_3"
+      - id: "recipe:enchant_book_share"
+
+  B-2-1:
+    name: "友好モブ召喚儀式"
+    level: 40
+    role: branch
+    parent: B        # B系サブ系列2。線不明
+    icon: WHEAT
+    cost: 1
+    effect-text: "友好モブ(一般)召喚儀式の解放"
+    effects:
+      - "友好モブ(一般)召喚儀式を解放"
+    dedicated-effects:
+      - id: "ritual:animal_summon"
+  B-2-2:
+    name: "ネザーモブ召喚・天候儀式"
+    level: 40
+    role: branch
+    parent: B-2-1    # 直列連結。線不明
+    icon: BLAZE_POWDER
+    cost: 1
+    effect-text: "ネザーモブ(一般)召喚儀式の解放・天候儀式の解放"
+    effects:
+      - "ネザーモブ(一般)召喚儀式を解放"
+      - "天候儀式を解放"
+    dedicated-effects:
+      - id: "ritual:mob_summon_nether"
+      - id: "ritual:weather_clear"
+      - id: "ritual:weather_rain"
+      - id: "ritual:weather_thunder"
+  B-2-3:
+    name: "修繕・飛行の儀式"
+    level: 60
+    role: branch
+    parent: B-2-2    # 直列連結。線不明
+    icon: PHANTOM_MEMBRANE
+    cost: 1
+    effect-text: "修繕・飛行の儀式解放"
+    effects:
+      - "修繕・飛行の儀式を解放"
+    dedicated-effects:
+      - id: "ritual:repair"
+      - id: "ritual:flight"
+
+  C-alpha-1:
+    name: "品質強化I"
+    level: 50           # 画像に明示Lvなし。親主軸C(Lv50)を採用
+    role: greek
+    parent: C
+    group: C-greek
+    icon: QUARTZ
+    cost: 1
+    effect-text: "品質+1"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+  C-alpha-2:
+    name: "品質強化II"
+    level: 70           # 画像に明示Lvなし。-2は+20と推定
+    role: greek
+    parent: C-alpha-1
+    group: C-greek
+    icon: QUARTZ
+    cost: 1
+    effect-text: "品質+2"
+    buffs:
+      workbench_quality_bonus: 2   # 旧 native arssmithing_craftqualitybonus_add (stat化)
+  C-beta-1:
+    name: "儀式精度I"
+    level: 50           # 画像に明示Lvなし。親主軸C(Lv50)を採用
+    role: greek
+    parent: C
+    group: C-greek
+    icon: STRING
+    cost: 1
+    effect-text: "儀式品質+1"
+    buffs:
+      ritual_quality_bonus: 1
+  C-beta-2:
+    name: "儀式精度II"
+    level: 70           # 画像に明示Lvなし。-2は+20と推定
+    role: greek
+    parent: C-beta-1
+    group: C-greek
+    icon: STRING
+    cost: 1
+    effect-text: "儀式品質+1"
+    buffs:
+      ritual_quality_bonus: 1
+
+  C-gamma-1:
+    name: "幸運の魔法鍛冶"
+    level: 60
+    role: branch
+    parent: C
+    icon: RABBIT_FOOT
+    cost: 1
+    effect-text: "クラフト品質の上振れ率UP"
+    buffs:
+      craft_upswing_bonus: 0.5   # 旧 native arssmithing_craftupswingbonus_add (stat化)
+    effects:
+      - "クラフト時に高品質へ上振れしやすくなる"
+

@@ -1,0 +1,299 @@
+name: EliteMobs
+version: 10.3.0
+author: MagmaGuy
+main: com.magmaguy.elitemobs.EliteMobs
+api-version: 1.21
+softdepend:
+- Multiverse-Core
+- WorldGuard
+- Vault
+- PlaceholderAPI
+- HolographicDisplays
+- DiscordSRV
+- LibsDisguises
+- ModelEngine
+- Geyser-Spigot
+- MythicMobs
+- LevelledMobs
+- InfernalMobs
+- FreeMinecraftModels
+
+commands:
+  elitemobs:
+    description: Main command
+    aliases:
+      - em
+  adventurersguild:
+    description: Main command
+    aliases:
+      - ag
+permissions:
+  elitemobs.*:
+    description: Gives access to all elitemobs commands
+    default: op
+  elitemobs.adventurersguild.command:
+    description: Allows players to open the Adventurer's Guild menu
+    default: true
+  elitemobs.adventurersguild.teleport:
+    description: Allows players to teleport to the Adventurer's Guild
+    default: true
+  elitemobs.alt:
+    description: Allows players to switch menu styles
+    default: true
+  elitemobs.arena.start:
+    description: Allows players to start an arena
+    default: true
+  elitemobs.discord.link:
+    description: Gives the link to EliteMobs' discord server
+    default: true
+  elitemobs.discord.message:
+    description: Allows sending debug messages to discord via DiscordSRV for testing purposes
+    default: op
+  elitemobs.dismiss:
+    description: Allows admins to dismiss the initial setup message
+    default: op
+  elitemobs.dungeon.tp:
+    description: Allows players to teleport to a dungeon
+    default: true
+  elitemobs.command:
+    description: Allows players to use the main command of the plugin
+    default: true
+  elitemobs.enchant.command:
+    description: Allows players to use the enchant command
+    default: true
+  elitemobs.scroll.command:
+    description: Allows players to use the scroll command
+    default: true
+  elitemobs.event.start:
+    description: Allows admins to manually launch an event
+    default: op
+  elitemobs.fireball:
+    description: Allows admins to fire an elite fireball for terrain destruction testing purposes
+    default: op
+  elitemobs.help:
+    description: Allows players to run the help command
+    default: true
+  elitemobs.kill.command:
+    description: Allows admins to run the kill commands to kill elites
+    default: op
+  elitemobs.language:
+    description: Allows admins to set the translation used server-wide for EliteMobs
+    default: op
+  elitemobs.loot.command:
+    description: Opens the loot menu for EliteMobs group looting
+    default: true
+  elitemobs.loot.debug:
+    description: Gives admins a set of gear of a specific level for testing purposes
+    default: op
+  elitemobs.loot.admin:
+    description: Lets admins give or obtain EliteMobs loot via command
+    default: op
+  elitemobs.loot.stats:
+    description: Gives the elite stats of gear, for debugging purposes
+    default: op
+  elitemobs.money.admin:
+    description: Allows admins to manually manipulate player elite currency
+    default: op
+  elitemobs.money.check.self:
+    description: Allows users to check their balance
+    default: true
+  elitemobs.money.check.others:
+    description: Allows users to check their balance
+    default: op
+  elitemobs.dungeon.package:
+    description: Allows admins to package EliteMobs content for distribution
+    default: op
+  elitemobs.money.pay:
+    description: Allows users to check their balance
+    default: true
+  elitemobs.place.admin:
+    description: Allows admins to run all commands related to placing and spawning npcs, bosses, treasure chests and more
+    default: op
+  elitemobs.quest.accept:
+    description: Allows users to accept a quest
+    default: true
+  elitemobs.quest.bypass:
+    description: Allows users to accept a quest
+    default: op
+  elitemobs.quest.complete.force:
+    description: Allows admins to force complete all pending quests
+    default: op
+  elitemobs.quest.complete:
+    description: Allows players to complete quests
+    default: true
+  elitemobs.quest.leave:
+    description: Allows users to leave a quest
+    default: true
+  elitemobs.quest.reset.all:
+    description: Allows admins to reset all quests for a specific player
+    default: op
+  elitemobs.quest.reset:
+    description: Allows admins to reset a quest for a specific player
+    default: op
+  elitemobs.quest.track:
+    description: Allows players to track the objectives of a quest
+    default: true
+  elitemobs.quest.npc:
+    description: Allows players to talk to quest npcs
+    default: true
+  elitemobs.quit:
+    description: Allows players to quit instanced content
+    default: true
+  elitemobs.rank.command:
+    description: Allows players to join open the rank menu of EliteMobs
+    default: true
+  elitemobs.rank.set:
+    description: Allows admins to set a specific EliteMobs rank for a specific player
+    default: op
+  elitemobs.reload:
+    description: Allows admins to reload EliteMobs
+    default: op
+  elitemobs.remove:
+    description: Allows admins to use the remove command
+    default: op
+  elitemobs.repair.command:
+    description: Allows users to use the repair command
+    default: true
+  elitemobs.respawn.force:
+    description: Allows admins to force respawn all regional bosses
+    default: op
+  elitemobs.scrap.command:
+    description: Allows players to use the scrap command
+    default: true
+  elitemobs.setup:
+    description: Allows admins to use the setup commands
+    default: op
+  elitemobs.shareitem:
+    description: Allows players to use the share item command
+    default: true
+  elitemobs.shop.custom:
+    description: Allows players to use custom shop command
+    default: true
+  elitemobs.shop.custom.other:
+    description: Allows admins to open the custom shop for other people
+    default: op
+  elitemobs.shop.dynamic:
+    description: Allows players to use dynamic shop command
+    default: true
+  elitemobs.shop.dynamic.other:
+    description: Allows admins to open the dynamic shop for other people
+    default: op
+  elitemobs.shop.sell.other:
+    description: Allows admins to open the sell shop for other people
+    default: op
+  elitemobs.teleport.spawn:
+    description: Allows players to use the spawn teleport command
+    default: true
+  elitemobs.instance.start:
+    description: Allows players to use the start command in instances
+    default: true
+  elitemobs.stats:
+    description: Allows admins to get stats related to EliteMobs
+    default: op
+  elitemobs.boss.track:
+    description: Allows players to track trackable bosses
+    default: true
+  elitemobs.transitiveblocks:
+    description: Allows admins to run commands related to setting up transitive blocks
+    default: op
+  elitemobs.unbind.command:
+    description: Allows players to run the unbind command (which opens the menu to unbind with a scroll)
+    default: true
+  elitemobs.unbind.force:
+    description: Allows admins to force unbind a held item via command
+    default: op
+  elitemobs.version:
+    description: Allows admins to check the plugin version of EliteMobs
+    default: op
+  elitemobs.rank.npc:
+    description: Allows players to talk to the rank npc
+    default: true
+  elitemobs.shop.dynamic.npc:
+    description: Allows players to talk to the dynamic shop npc
+    default: true
+  elitemobs.shop.custom.npc:
+    description: Allows players to talk to the custom shop npc
+    default: true
+  elitemobs.shop.sell.npc:
+    description: Allows players to talk to the sell shop npc
+    default: true
+  elitemobs.back.npc:
+    description: Allows players to talk to the back teleport npc
+    default: true
+  elitemobs.scrap.npc:
+    description: Allows players to talk to the scrap npc
+    default: true
+  elitemobs.repair.npc:
+    description: Allows players to talk to the repair npc
+    default: true
+  elitemobs.unbind.npc:
+    description: Allows players to talk to the unbind npc
+    default: true
+  elitemobs.enchant.npc:
+    description: Allows players to talk to the enchant npc
+    default: true
+  elitemobs.scroll.npc:
+    description: Allows players to talk to the elite scroll npc
+    default: true
+  elitemobs.shop.arrow.npc:
+    description: Allows players to talk to the arrow shop npc
+    default: true
+  elitemobs.gambling.npc:
+    description: Allows players to use the gambling NPCs
+    default: true
+  elitemobs.skill.npc:
+    description: Allows players to use the skill bonus NPC
+    default: true
+  elitemobs.protection.bypass:
+    description: Allows players to run the bypass command to toggle bypassing dungeon protections
+    default: op
+  elitemobs.initialize:
+    description: Allows players to run first time setup command
+    default: op
+  elitemobs.user:
+    description: All recommended permissions
+    children:
+      elitemobs.adventurersguild.command: true
+      elitemobs.adventurersguild.teleport: true
+      elitemobs.alt: true
+      elitemobs.discord.link: true
+      elitemobs.dungeon.tp: true
+      elitemobs.command: true
+      elitemobs.enchant.command: true
+      elitemobs.help: true
+      elitemobs.loot.command: true
+      elitemobs.money.check.self: true
+      elitemobs.money.pay: true
+      elitemobs.quest.accept: true
+      elitemobs.quest.complete: true
+      elitemobs.quest.leave: true
+      elitemobs.quest.track: true
+      elitemobs.quest.npc: true
+      elitemobs.quit: true
+      elitemobs.rank.command: true
+      elitemobs.repair.command: true
+      elitemobs.scrap.command: true
+      elitemobs.shareitem: true
+      elitemobs.shop.custom: true
+      elitemobs.shop.dynamic: true
+      elitemobs.teleport.spawn: true
+      elitemobs.instance.start: true
+      elitemobs.boss.track: true
+      elitemobs.unbind.command: true
+      elitemobs.rank.npc: true
+      elitemobs.shop.dynamic.npc: true
+      elitemobs.shop.custom.npc: true
+      elitemobs.shop.sell.npc: true
+      elitemobs.back.npc: true
+      elitemobs.scrap.npc: true
+      elitemobs.repair.npc: true
+      elitemobs.unbind.npc: true
+      elitemobs.enchant.npc: true
+      elitemobs.scroll.npc: true
+      elitemobs.shop.arrow.npc: true
+      elitemobs.gambling.npc: true
+      elitemobs.skill.npc: true
+    default: true
+  elitemobs.scroll.get:
+    description: Gives the player a specified number of elite scrolls at a given level
+    default: op

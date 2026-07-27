@@ -1,0 +1,23 @@
+{
+  "port": 8000,
+  "host": "127.0.0.1",
+  "external": {
+    "enabled": true,
+    "bindHost": "0.0.0.0",
+    "auth": {
+      "username": "admin",
+      "password": ""
+    }
+  },
+  "basePaths": {
+    "trinityforge": "../../TrinityForge/src/main/resources",
+    "arspaper": "../../fork-handoff/arspaper/fork/src/main/resources"
+  },
+  "packRepo": "Klee319/trinityforge-pack",
+  "backupDir": "../../backups",
+  "backupKeep": 50,
+  "deployPaths": {
+    "trinityforge": "D:/game/minecraft/PaperServer/TrinityForge/plugins/TrinityForge",
+    "arspaper": "D:/game/minecraft/PaperServer/TrinityForge/plugins/ArsPaper"
+  }
+}

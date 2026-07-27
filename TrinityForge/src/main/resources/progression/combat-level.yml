@@ -1,0 +1,43 @@
+# 戦闘レベル(combat level)写像 (DUNGEON_SPEC 2 / ADDON_INTEGRATION_SPEC 1.5 / LD-7)
+# combat level = プレイヤーのスキルツリーレベルから算出する「pillar(柱)スコアの最大値」を
+# scale 倍して [min-level, max-level] にクランプした値。装備tierに依存しない(gear非依存)、
+# EliteMobs ネイティブの item-tier 難易度入力の置き換え。
+#
+# 数値は暫定(PROVISIONAL)。正式なスキル集合・除数・カーブは数値調整フェーズで確定する。
+# skill キーは SkillLevelSource(ValhallaMMO bridge)が返す id に一致必須。未知キーは無視。
+
+# --- モデル: max-of-top-N (LD-7) ---
+# 各スキルの寄与 = |weight| * level。これを降順に並べ、各 pillar が
+#   スコア = (上位 top 個の合計) / divisor
+# を計算し、combat level = round(scale * max(全pillarのスコア)) を [min,max] でクランプする。
+# 例(下記の既定 pillars): 純特化(100)=100、2スキル均等(75,75)=150/1.5=100、
+# 3スキル均等(70,70,70)=210/2.1=100、4スキル均等(50,50,50,50)=200/2.8=71。
+# → 純特化を不利にせず、複数スキルを伸ばすビルドも評価する。
+#
+# 対象スキル (LD-7 / SKILL_TREE_SPEC section 0・4):
+#   物理柱 = 軽量武器(LIGHT_WEAPONS) / 重量武器(HEAVY_WEAPONS) / 弓術(ARCHERY)
+#   魔法柱 = Ars魔法(ARS_MAGIC, カスタムスキル)
+#   防具2種(LIGHT_ARMOR/HEAVY_ARMOR)は combat level に入れない(LD-7)。防御プロファイル
+#   C1/LD-8 へ回すため除外。
+# weight はランク付け前の各スキルの倍率(1.0 で素のレベル)。
+
+skills:
+  LIGHT_WEAPONS: 1
+  HEAVY_WEAPONS: 1
+  ARCHERY: 1
+  ARS_MAGIC: 1
+pillars:
+  - top: 1
+    divisor: 1
+  - top: 2
+    divisor: 1.5
+  - top: 3
+    divisor: 2.1
+  - top: 4
+    divisor: 2.8
+curve:
+  scale: 1
+  min-level: 0
+  max-level: 100
+cache:
+  ttl-seconds: 3

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrinityForge Config Editor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">TF</span>
+      <span class="brand-text">TrinityForge / ArsPaper Config Editor</span>
+    </div>
+    <div class="topbar-paths">
+      <button id="paths-toggle-btn" class="btn ghost paths-toggle" type="button" aria-expanded="false" title="編集元・サーバ反映先のパス">
+        パス設定
+        <span id="paths-summary" class="paths-summary"></span>
+      </button>
+      <div id="paths-panel" class="paths-panel" hidden>
+        <div id="basepaths" class="basepaths"></div>
+        <div class="paths-panel-actions">
+          <button id="save-paths-btn" class="btn primary" type="button">パス保存</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-title">メニュー</div>
+      <nav id="config-list" class="config-list"></nav>
+    </aside>
+
+    <main class="main">
+      <div class="editor-header">
+        <div>
+          <h1 id="editor-title" class="editor-title">読み込み中...</h1>
+          <div id="editor-sub" class="editor-sub"></div>
+        </div>
+        <button id="save-btn" class="btn primary" type="button" disabled>保存</button>
+      </div>
+      <section id="editor-area" class="editor-area">
+        <div class="empty">左のメニューから編集する項目を選びます。</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <datalist id="material-list"></datalist>
+  <datalist id="stat-list"></datalist>
+
+  <script src="js/materials.js"></script>
+  <script src="js/labels.js"></script>
+  <script src="js/vocab-1.21.11.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/material-lists.js"></script>
+  <script src="js/catalog-candidates.js"></script>
+  <script src="js/em-dungeons.js"></script>
+  <script src="js/colors.js"></script>
+  <script src="js/cmd-tools.js"></script>
+  <script src="js/generic.js"></script>
+  <script src="js/forms.js"></script>
+  <script src="js/external-items.js"></script>
+  <script src="js/recipes.js"></script>
+  <script src="js/functional-items.js"></script>
+  <script src="js/ars-forms.js"></script>
+  <script src="js/tf-quality-dist.js"></script>
+  <script src="js/tf-forms.js"></script>
+  <script src="js/mob-forms.js"></script>
+  <script src="js/tf-dungeon-forms.js"></script>
+  <script src="js/tf-lifestyle-forms.js"></script>
+  <script src="js/tf-phase3-forms.js"></script>
+  <script src="js/ars-source-forms.js"></script>
+  <script src="js/tf-lore.js"></script>
+  <script src="js/tf-base-stats.js"></script>
+  <script src="js/gate-effects.js"></script>
+  <script src="js/tf-skilltree.js"></script>
+  <script src="js/tf-crafting-features.js"></script>
+  <script src="js/tf-rewards-forms.js"></script>
+  <script src="js/ars-p4.js"></script>
+  <script src="js/ars-spellbooks.js"></script>
+  <script src="js/p5-forms.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/simulator.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/manual.js"></script>
+  <script src="js/editor-categories.js"></script>
+  <script src="js/split-views.js"></script>
+  <script src="js/item-stats-hub.js"></script>
+  <script src="js/merge.js"></script>
+  <script src="js/respack-view.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

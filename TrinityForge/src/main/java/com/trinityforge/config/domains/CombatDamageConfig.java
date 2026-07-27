@@ -1,0 +1,354 @@
+package com.trinityforge.config.domains;
+
+import com.trinityforge.combat.AttackStatKeys;
+import com.trinityforge.combat.DefenseClamp;
+import com.trinityforge.combat.DefenseStatKeys;
+import com.trinityforge.config.ConfigDomain;
+import com.trinityforge.config.ConfigSchema;
+import com.trinityforge.config.SchemaField;
+import com.trinityforge.config.TypedConfig;
+
+/**
+ * Typed accessor for {@code combat/damage.yml} (M1 symmetric pipeline, physical component).
+ * These are the global, tunable knobs feeding the structural 8-step pipeline
+ * (COMBAT_SYSTEM_SPEC 2.1); per-item / per-mob stats live in PDC, not here.
+ * Config-driven so balance changes never require code edits (IMPLEMENTATION_PLAN section 0).
+ */
+public final class CombatDamageConfig {
+
+    public static final String PATH = "combat/damage.yml";
+
+    private static final String MAGICAL_SCALE_WITH_COMBAT_LEVEL = "magical.scale-with-combat-level";
+
+    private static final String DEFENSE_MIN_RATE = "defense.min-rate";
+    private static final String DEFENSE_MAX_RATE = "defense.max-rate";
+    private static final String DEFENSE_MIN_FLAT = "defense.min-flat";
+    private static final String DEFENSE_MAX_FLAT = "defense.max-flat";
+
+    private static final String DEFENSE_MAX_DODGE_CHANCE = "defense.max-dodge-chance";
+    private static final String DEFENSE_MAX_CRIT_REDUCTION = "defense.max-crit-reduction";
+    private static final String DEFENSE_ENCHANT_PROTECTION_SCALE = "defense.enchant-protection-scale";
+
+    private static final String AOE_HIT_PLAYERS = "aoe.hit-players";
+
+    private static final String PVP_ENABLED = "pvp.enabled";
+    private static final String PVP_DAMAGE_MULTIPLIER = "pvp.damage-multiplier";
+    private static final String PVP_MAX_DAMAGE_PERCENT_OF_MAX_HEALTH =
+            "pvp.max-damage-percent-of-max-health";
+
+    private static final String MELEE_CHARGE_ENABLED = "melee-charge.enabled";
+    private static final String MELEE_CHARGE_MIN_MULTIPLIER = "melee-charge.min-multiplier";
+    private static final String MELEE_CHARGE_EXPONENT = "melee-charge.exponent";
+
+    // 2026-07-25: attack-speed / attack-speed-bonus 分離仕様(PerkAttributeApplier参照)。
+    private static final String ATTACK_SPEED_MIN_EFFECTIVE = "attack-speed.min-effective";
+    private static final String ATTACK_SPEED_RECONCILE_INTERVAL_TICKS =
+            "attack-speed.reconcile-interval-ticks";
+
+    private static final String WEAPON_BASE_FORMULA_ENABLED = "weapon-base-formula.enabled";
+    private static final String WEAPON_BASE_FORMULA_A = "weapon-base-formula.a";
+    private static final String WEAPON_BASE_FORMULA_B = "weapon-base-formula.b";
+
+    private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
+    private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
+    private static final String VANILLA_ARMOR_STRENGTH_PER_POINT = "vanilla-armor.armor-strength-per-point";
+
+    private final ConfigDomain domain;
+
+    public CombatDamageConfig() {
+        ConfigSchema schema = new ConfigSchema()
+                .field(SchemaField.number("physical.base-coefficient", SchemaField.Type.DOUBLE, 1.0, 0.0, 100.0))
+                // min-component-damage の下限を負まで許容: 負に設定すると最終ダメージが負(=回復)まで落ちうる。
+                // 既定 1.0 は従来通り(0未満を作らない)。負ダメは CombatListener が被弾者の回復として適用する。
+                .field(SchemaField.number("physical.min-component-damage", SchemaField.Type.DOUBLE,
+                        1.0, -1_000_000.0, 1_000_000.0))
+                .field(SchemaField.number("magical.base-coefficient", SchemaField.Type.DOUBLE, 1.0, 0.0, 100.0))
+                .field(SchemaField.number("magical.min-component-damage", SchemaField.Type.DOUBLE,
+                        1.0, -1_000_000.0, 1_000_000.0))
+                // 防御ステのクランプ境界(負クランプ対応)。既定 (0,1,0,大) は従来の [0,1]/[0,∞) と同挙動。
+                // max-rate を 1 超にすると被ダメ軽減%が全軽減を超え、x(1-軽減) が負→最終ダメージ負(回復)になりうる。
+                // min-rate/min-flat を負にすると防御ステが逆に被ダメージを増幅する。
+                .field(SchemaField.number(DEFENSE_MIN_RATE, SchemaField.Type.DOUBLE, 0.0, -100.0, 0.0))
+                .field(SchemaField.number(DEFENSE_MAX_RATE, SchemaField.Type.DOUBLE, 1.0, 0.0, 100.0))
+                .field(SchemaField.number(DEFENSE_MIN_FLAT, SchemaField.Type.DOUBLE,
+                        0.0, -1_000_000.0, 0.0))
+                .field(SchemaField.number(DEFENSE_MAX_FLAT, SchemaField.Type.DOUBLE, 1_000_000.0, 0.0, 1_000_000.0))
+                // 攻撃範囲(AoE, #2): 近接主命中時に aoe-radius/aoe-damage-rate を持つ武器等が周囲へ範囲ダメージ。
+                // hit-players を true にすると他プレイヤーも巻き込み対象にする(PvP)。既定 false=モブのみ。
+                .field(SchemaField.of(AOE_HIT_PLAYERS, SchemaField.Type.BOOLEAN, false))
+                // 2026-07-27 PvP: モブ向けに調整されたダメージ式がそのまま対人に乗っており、
+                // Lv100帯の攻撃力 約1052 に対しプレイヤー最大体力 約33 =「先に当てた方が確定で即死」
+                // だった。倍率と「最大体力に対する1発の割合上限」の2段で抑える(詳細は
+                // combat/damage.yml のコメントと combat.PvpDamagePolicy の javadoc)。
+                .field(SchemaField.of(PVP_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(PVP_DAMAGE_MULTIPLIER, SchemaField.Type.DOUBLE, 0.5, 0.0, 100.0))
+                .field(SchemaField.number(PVP_MAX_DAMAGE_PERCENT_OF_MAX_HEALTH,
+                        SchemaField.Type.DOUBLE, 0.15, 0.0, 100.0))
+                // B2: バニラのチャージ攻撃(クールダウン中の連打減衰)をTFの独自ダメージパイプラインへ
+                // 再導入する。既定はバニラ相当(下限0.2倍・指数2)。近接プレイヤー攻撃のみに適用される
+                // (CombatListener側のゲート、弓/クロスボウ/トライデント/魔法/モブ攻撃には適用しない)。
+                .field(SchemaField.of(MELEE_CHARGE_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(MELEE_CHARGE_MIN_MULTIPLIER, SchemaField.Type.DOUBLE, 0.2, 0.0, 1.0))
+                .field(SchemaField.number(MELEE_CHARGE_EXPONENT, SchemaField.Type.DOUBLE, 2.0, 0.01, 100.0))
+                // 2026-07-25: attack-speed(絶対値)+attack-speed-bonus(割合)の合成後、最終実効速度がこの値を
+                // 割らないようクランプする下限(デバフ過多でも0/負にはならない)。既定0.1。
+                .field(SchemaField.number(ATTACK_SPEED_MIN_EFFECTIVE, SchemaField.Type.DOUBLE, 0.1, 0.01, 4.0))
+                // PerkAttributeApplierの装備フィンガープリント再照合の周期(tick)。既定10tick=0.5秒。
+                .field(SchemaField.number(ATTACK_SPEED_RECONCILE_INTERVAL_TICKS, SchemaField.Type.INT,
+                        10, 1, 1200))
+                // C2 (魔法はcombatレベルbypass): false のとき魔法の基本ダメージにcombatレベル倍率を掛けない。
+                // 既定 false = bypass。true で物理と同じレベル倍率を適用する(旧挙動)。
+                .field(SchemaField.of(MAGICAL_SCALE_WITH_COMBAT_LEVEL, SchemaField.Type.BOOLEAN, true))
+                // 武器の基本火力(attack-power)を使用可能lvから算出: base = 1 + (useLevel^a / b)。
+                // item-stats/roll/material-base で attack-power を明示した武器や useLevel<=0 の武器には
+                // 適用しない(明示 > 式 > バニラ)。b は0除算回避のため厳密に正(>0)、無効値は既定へ戻す。
+                .field(SchemaField.of(WEAPON_BASE_FORMULA_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(WEAPON_BASE_FORMULA_A, SchemaField.Type.DOUBLE, 2.0, 0.0, 100.0))
+                .field(SchemaField.numberExclusiveMin(WEAPON_BASE_FORMULA_B, SchemaField.Type.DOUBLE,
+                        100.0, 0.0, 1_000_000.0))
+                .field(SchemaField.number("level-scaling.per-level", SchemaField.Type.DOUBLE, 0.01, 0.0, 10.0))
+                // Balance ceiling for the non-penetrable multiplicative mitigations (耐性% / 被ダメージ
+                // 軽減%), applied after additive armor/potion stacking so total penetration-proof immunity
+                // is structurally impossible even with a mis-tuned roll table (B3). 1.0 disables the cap.
+                .field(SchemaField.number("defense.max-mitigation-rate", SchemaField.Type.DOUBLE, 0.9, 0.0, 1.0))
+                // 回避率の上限(B3の回避版): 上限が無いと回避率が加算スタッキングで1.0(=永久回避=実質無敵)に
+                // 到達しうる。既定0.9で「必ず10%は当たる」を保証する。1.0にすると上限を実質無効化できる。
+                .field(SchemaField.number(DEFENSE_MAX_DODGE_CHANCE, SchemaField.Type.DOUBLE, 0.9, 0.0, 1.0))
+                // 防具強度(会心軽減率%)の上限(共通変数)。既定 1.0 = キャップ無し(会心の増加分を最大100%まで
+                // 軽減しうる。ただし [0,1] 構造クランプにより相手の会心ダメージが0%未満へ反転することはない)。
+                // 1.0未満に設定すると会心は必ず (1 - max-crit-reduction) 分の増加を残す(防具強度の加算スタッ
+                // キングでも会心を完全に打ち消せなくなる)。
+                .field(SchemaField.number(DEFENSE_MAX_CRIT_REDUCTION, SchemaField.Type.DOUBLE, 1.0, 0.0, 1.0))
+                // 防護エンチャント(Protection/Projectile Protection)の再導出軽減率に掛ける倍率(2026-07-25)。
+                // 既定0.5: 1.0=バニラ準拠(防護IVフルセットで64%軽減)だと defense.max-mitigation-rate(0.9)の
+                // 枠をエンチャント1種で71%も食い潰し、TF自前の防具ステが無意味になるため半分に絞っている。
+                .field(SchemaField.number(DEFENSE_ENCHANT_PROTECTION_SCALE, SchemaField.Type.DOUBLE, 0.5, 0.0, 10.0))
+                // Bleed DoT (Q3 = (c)): how often a bleed deals damage, and for how many applications.
+                .field(SchemaField.number("bleed.tick-interval-ticks", SchemaField.Type.INT, 20, 1, 1200))
+                .field(SchemaField.number("bleed.ticks", SchemaField.Type.INT, 5, 1, 200))
+                // Victim armor/toughness -> physical defense-rate% / 防具強度(会心軽減率%) fallback for
+                // targets with no addon PDC profile (COMBAT_SYSTEM_SPEC 5, VanillaArmorMapping).
+                .field(SchemaField.number(VANILLA_ARMOR_DEFENSE_RATE_PER_POINT, SchemaField.Type.DOUBLE, 0.04, 0.0, 1.0))
+                .field(SchemaField.number(VANILLA_ARMOR_DEFENSE_RATE_MAX, SchemaField.Type.DOUBLE, 0.8, 0.0, 1.0))
+                // 防具強度(会心軽減率%)/toughness点。既定 0 = バニラ防具の toughness は会心軽減に寄与しない
+                // (バニラ防具のステは後日 config で別途定義するためフォールバックのみ)。会心軽減は主に
+                // アイテム/防具/mob が付与する armor-strength ステ(DefenseStatBridge が直接読む)から得る。
+                .field(SchemaField.number(VANILLA_ARMOR_STRENGTH_PER_POINT, SchemaField.Type.DOUBLE, 0.0, 0.0, 100.0));
+        // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
+        // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
+        this.domain = new ConfigDomain(PATH, schema);
+    }
+
+    public ConfigDomain domain() {
+        return domain;
+    }
+
+    /** PvP(player→player)専用の抑制を掛けるか。{@code false} で従来どおりモブと同じ計算になる。 */
+    public boolean pvpEnabled() {
+        return domain.get().getBoolean(PVP_ENABLED);
+    }
+
+    /** PvPダメージに掛ける倍率(低レベル帯の手触り調整用。0で対人ダメージ0=実質PvP禁止)。 */
+    public double pvpDamageMultiplier() {
+        return domain.get().getDouble(PVP_DAMAGE_MULTIPLIER);
+    }
+
+    /**
+     * PvPの1発で削れる量の上限を「被弾者の最大体力に対する割合」で表したもの(0 = 上限なし)。
+     * 倍率と違い攻撃カーブのスケールに依存しないので、攻撃力が指数で伸びても
+     * 「倒すのに最低 1/この値 発かかる」が構造的に保証される。
+     */
+    public double pvpMaxDamagePercentOfMaxHealth() {
+        return domain.get().getDouble(PVP_MAX_DAMAGE_PERCENT_OF_MAX_HEALTH);
+    }
+
+    public double physicalBaseCoefficient() {
+        return domain.get().getDouble("physical.base-coefficient");
+    }
+
+    public double minComponentDamage() {
+        return domain.get().getDouble("physical.min-component-damage");
+    }
+
+    public double magicalBaseCoefficient() {
+        return domain.get().getDouble("magical.base-coefficient");
+    }
+
+    public double magicalMinComponentDamage() {
+        return domain.get().getDouble("magical.min-component-damage");
+    }
+
+    /**
+     * Whether the magical component's default damage is scaled by the attacker's combat level.
+     * Default {@code true}: magical shares the physical level curve so magic grows with combat level
+     * (server decision, overriding the C2 bypass default). {@code false} restores the C2 bypass where
+     * magic damage comes only from glyphs/catalyst and ignores combat level.
+     */
+    public boolean magicalScaleWithCombatLevel() {
+        return domain.get().getBoolean(MAGICAL_SCALE_WITH_COMBAT_LEVEL);
+    }
+
+    public double levelScalingPerLevel() {
+        return domain.get().getDouble("level-scaling.per-level");
+    }
+
+    /** Whether the weapon base attack-power formula (1 + useLevel^a / b) is applied at all. */
+    public boolean weaponBaseFormulaEnabled() {
+        return domain.get().getBoolean(WEAPON_BASE_FORMULA_ENABLED);
+    }
+
+    /** Exponent {@code a} of the weapon base formula {@code 1 + (useLevel^a / b)}. */
+    public double weaponBaseFormulaA() {
+        return domain.get().getDouble(WEAPON_BASE_FORMULA_A);
+    }
+
+    /** Divisor {@code b} of the weapon base formula {@code 1 + (useLevel^a / b)}; schema-guaranteed &gt; 0. */
+    public double weaponBaseFormulaB() {
+        return domain.get().getDouble(WEAPON_BASE_FORMULA_B);
+    }
+
+    /**
+     * The weapon base attack-power formula as a small value object ({@code 1 + useLevel^a / b}) for
+     * {@code DerivedItemStats}. The schema guarantees {@code b > 0} (invalid config already fell back to
+     * the default at load), so this never constructs an invalid {@link WeaponBaseFormula}.
+     */
+    public WeaponBaseFormula weaponBaseFormula() {
+        TypedConfig config = domain.get();
+        return new WeaponBaseFormula(
+                config.getBoolean(WEAPON_BASE_FORMULA_ENABLED),
+                config.getDouble(WEAPON_BASE_FORMULA_A),
+                config.getDouble(WEAPON_BASE_FORMULA_B));
+    }
+
+    /** Balance ceiling for 耐性%/被ダメージ軽減% (below full immunity), applied after additive stacking (B3). */
+    public double maxMitigationRate() {
+        return domain.get().getDouble("defense.max-mitigation-rate");
+    }
+
+    /** Balance ceiling for 回避率 (below permanent dodge-immunity), mirroring {@link #maxMitigationRate}. */
+    public double maxDodgeChance() {
+        return domain.get().getDouble(DEFENSE_MAX_DODGE_CHANCE);
+    }
+
+    /**
+     * Balance ceiling for 防具強度(会心軽減率%). Default {@code 1.0} = no cap below full nullification of
+     * the crit bonus; the pipeline's {@code [0,1]} floor still keeps 会心ダメージ ≥ 0% (a crit never
+     * heals). Set below 1.0 to guarantee crits always keep {@code (1 - value)} of their bonus.
+     */
+    public double maxCritReduction() {
+        return domain.get().getDouble(DEFENSE_MAX_CRIT_REDUCTION);
+    }
+
+    /**
+     * Multiplier applied to the EPF-capped vanilla Protection-family reduction
+     * ({@link com.trinityforge.combat.DefenseEnchantmentBridge}). Default {@code 0.5}: {@code 1.0}
+     * would reproduce exact vanilla behaviour (Protection IV full set = 64% reduction), but that alone
+     * consumes 71% of {@link #maxMitigationRate}'s 0.9 budget, crowding out TF's own armor stats.
+     */
+    public double enchantProtectionScale() {
+        return domain.get().getDouble(DEFENSE_ENCHANT_PROTECTION_SCALE);
+    }
+
+
+    /**
+     * The configurable clamp bounds for defender stats (負クランプ対応, #6). Defaults
+     * {@code (0,1,0,1e6)} reproduce the legacy {@code [0,1]} rate / {@code [0,∞)} flat behaviour; an
+     * operator may widen {@code max-rate} above 1 or drop {@code min-rate}/{@code min-flat} below 0 to
+     * let over-mitigation heal or negative defense amplify. Applied once at the pipeline choke
+     * ({@code SymmetricCombatService.component()}).
+     */
+    public DefenseClamp defenseClamp() {
+        TypedConfig config = domain.get();
+        return new DefenseClamp(
+                config.getDouble(DEFENSE_MIN_RATE),
+                config.getDouble(DEFENSE_MAX_RATE),
+                config.getDouble(DEFENSE_MIN_FLAT),
+                config.getDouble(DEFENSE_MAX_FLAT));
+    }
+
+    /**
+     * Whether 攻撃範囲(AoE, #2) splash may also hit other players. Default {@code false}: only non-player
+     * living entities (mobs) are caught in the splash, so friendly players are not griefed. Set {@code true}
+     * on a PvP server. The attacker and the primary victim are always excluded regardless.
+     */
+    public boolean aoeHitPlayers() {
+        return domain.get().getBoolean(AOE_HIT_PLAYERS);
+    }
+
+    /** B2: whether the vanilla melee-charge damage decay is re-applied to TF's physical pipeline output. */
+    public boolean meleeChargeEnabled() {
+        return domain.get().getBoolean(MELEE_CHARGE_ENABLED);
+    }
+
+    /** B2: the multiplier floor at {@code t=0} (just swung, no charge). Default {@code 0.2} (vanilla). */
+    public double meleeChargeMinMultiplier() {
+        return domain.get().getDouble(MELEE_CHARGE_MIN_MULTIPLIER);
+    }
+
+    /** B2: the exponent applied to the cooled-attack-strength fraction. Default {@code 2.0} (vanilla). */
+    public double meleeChargeExponent() {
+        return domain.get().getDouble(MELEE_CHARGE_EXPONENT);
+    }
+
+    /**
+     * 2026-07-25: attack-speed/attack-speed-bonus 合成後の最終実効速度の下限クランプ値。デバフ過多でも
+     * 0/負値にならないための安全弁(既定0.1)。{@code AttackSpeedResolver#resolveBonusMultiplyAmount} が使う。
+     */
+    public double attackSpeedMinEffective() {
+        return domain.get().getDouble(ATTACK_SPEED_MIN_EFFECTIVE);
+    }
+
+    /** 2026-07-25: {@code PerkAttributeApplier} の装備フィンガープリント再照合の周期(tick)。既定10。 */
+    public int attackSpeedReconcileIntervalTicks() {
+        return domain.get().getInt(ATTACK_SPEED_RECONCILE_INTERVAL_TICKS);
+    }
+
+    /** Server ticks between bleed applications (Q3 = (c) DoT). */
+    public int bleedTickIntervalTicks() {
+        return domain.get().getInt("bleed.tick-interval-ticks");
+    }
+
+    /** Number of applications a bleed lasts. */
+    public int bleedTicks() {
+        return domain.get().getInt("bleed.ticks");
+    }
+
+    /** 防御率% granted per point of the victim's vanilla armor attribute (fallback mapping). */
+    public double vanillaArmorDefenseRatePerPoint() {
+        return domain.get().getDouble(VANILLA_ARMOR_DEFENSE_RATE_PER_POINT);
+    }
+
+    /** Upper clamp for the vanilla-armor-derived 防御率% (fallback mapping). */
+    public double vanillaArmorDefenseRateMax() {
+        return domain.get().getDouble(VANILLA_ARMOR_DEFENSE_RATE_MAX);
+    }
+
+    /** 防具強度 granted per point of the victim's vanilla armor-toughness attribute (fallback mapping). */
+    public double vanillaArmorStrengthPerPoint() {
+        return domain.get().getDouble(VANILLA_ARMOR_STRENGTH_PER_POINT);
+    }
+
+    /**
+     * The fixed stat-key names feeding {@code AttackStatBridge} (COMBAT_SYSTEM_SPEC 3.1).
+     *
+     * <p>2026-07-25 (CMB-31): previously read from {@code combat/damage.yml attack-stat-keys.*}, but
+     * every key's schema default, shipped yml value, and hardcoded name were identical, and renaming
+     * one would silently break other consumers that don't follow config (see
+     * {@link AttackStatKeys} javadoc). Now returns the fixed {@link AttackStatKeys#DEFAULT} constant;
+     * the method signature is kept so existing callers (including compiled fork consumers) are
+     * unaffected.
+     */
+    public AttackStatKeys attackStatKeys() {
+        return AttackStatKeys.DEFAULT;
+    }
+
+    /**
+     * The fixed stat-key names feeding {@code DefenseStatBridge} (LD-13).
+     *
+     * <p>2026-07-25 (CMB-31): see {@link #attackStatKeys()} — same rationale, now returns the fixed
+     * {@link DefenseStatKeys#DEFAULT} constant instead of reading {@code defense-stat-keys.*}.
+     */
+    public DefenseStatKeys defenseStatKeys() {
+        return DefenseStatKeys.DEFAULT;
+    }
+}

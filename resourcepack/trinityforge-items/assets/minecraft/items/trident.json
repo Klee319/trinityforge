@@ -1,0 +1,185 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "cases": [
+        {
+          "model": {
+            "model": "minecraft:item/trident",
+            "type": "minecraft:model"
+          },
+          "when": [
+            "gui",
+            "ground",
+            "fixed",
+            "on_shelf"
+          ]
+        }
+      ],
+      "fallback": {
+        "on_false": {
+          "base": "minecraft:item/trident_in_hand",
+          "model": {
+            "type": "minecraft:trident"
+          },
+          "type": "minecraft:special"
+        },
+        "on_true": {
+          "base": "minecraft:item/trident_throwing",
+          "model": {
+            "type": "minecraft:trident"
+          },
+          "type": "minecraft:special"
+        },
+        "property": "minecraft:using_item",
+        "type": "minecraft:condition"
+      },
+      "property": "minecraft:display_context",
+      "type": "minecraft:select"
+    },
+    "entries": [
+      {
+        "threshold": 121,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_trident"
+        }
+      },
+      {
+        "threshold": 122,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/trident",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "on_false": {
+              "base": "minecraft:item/trident_in_hand",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "on_true": {
+              "base": "minecraft:item/trident_throwing",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "property": "minecraft:using_item",
+            "type": "minecraft:condition"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 123,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/trident",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "on_false": {
+              "base": "minecraft:item/trident_in_hand",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "on_true": {
+              "base": "minecraft:item/trident_throwing",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "property": "minecraft:using_item",
+            "type": "minecraft:condition"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 174,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_trident"
+        }
+      },
+      {
+        "threshold": 175,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_trident"
+        }
+      },
+      {
+        "threshold": 176,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_trident"
+        }
+      },
+      {
+        "threshold": 177,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_trident"
+        }
+      },
+      {
+        "threshold": 178,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_trident"
+        }
+      },
+      {
+        "threshold": 179,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_trident"
+        }
+      },
+      {
+        "threshold": 180,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_trident"
+        }
+      },
+      {
+        "threshold": 181,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_trident"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/golden_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 12,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_dagger"
+        }
+      },
+      {
+        "threshold": 14,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_rapier"
+        }
+      },
+      {
+        "threshold": 26,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_warhammer"
+        }
+      },
+      {
+        "threshold": 32,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_greataxe"
+        }
+      },
+      {
+        "threshold": 59,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/gold_test"
+        }
+      },
+      {
+        "threshold": 66,
+        "model": {
+          "model": "minecraft:item/golden_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

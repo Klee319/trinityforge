@@ -1,0 +1,299 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — 弓術 (ARCHERY)
+# ----------------------------------------------------------------------------
+# これは「TF独自の単一の真実」です。ここを編集すると、ビルド/リロード時に
+# Valhalla用 progression YAML と lang が生成され、実行時に buffs が適用されます。
+#
+# エンコード規則（スライド草案 skilltree/skilltree/スライド14.PNG 準拠）:
+#   - 主軸 A/B/C/D/E の解放レベル = 10 / 30 / 50 / 70 / 90
+#   - レベル100でプレステージ可能
+#   - 主軸の「間」ノード = 中間レベル(20/40/60/80)
+#   - 派生ノード = X-n-m（親から派生）
+#   - X-alpha/beta/gamma-1 = ギリシャ文字路線（group が同じものは排他＝いずれか1つのみ）
+#
+# 各ノードのフィールド:
+#   name        : 解放要素の固有名（ゲーム内表示名。生成lang へ）
+#   level       : 解放レベル
+#   role        : main | intermediate | branch | greek
+#   parent      : 前提ノードid（派生元）。根は null
+#   group       : 排他グループid（greek のみ。同 group は相互排他）
+#   icon        : スキルツリーメニューのアイコン(Material)
+#   cost        : 消費スキルポイント
+#   effect-text : 説明（wiki と生成lang の description へ）
+#   buffs       : TFが所有・適用する数値バフ（TFステ辞書のkey→値）。★Valhalla側には渡さない（二重適用回避）
+#   native      : Valhallaネイティブ機構の perk_rewards（Valhallaが適用）。射撃精度/ホーミング/射撃速度等
+#   effects     : 数値化しない効果タグ（wiki表示用の補足）。任意
+# ★数値は暫定プレースホルダ。プレイテスト後に調整してください。
+# ★ギリシャ路線: alpha=距離ダメージ(distance-damage-bonus) / beta=会心率+矢速度(crit-chance/arrow-velocity) /
+#   gamma=矢節約・矢貫通(ammo-save-chance/arrow-piercing) ※2026-07-26職業別草案準拠、
+#   旧gamma=会心ダメージ(crit-damage)はα/βと同じ火力路線に戻ってしまうため廃止
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/archery.md
+skill: ARCHERY
+display-name: "弓術"
+icon: BOW
+starting-coords: "2,10"
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: "弓聖の境地"
+  effect-text: "ダメージ・命中精度・節約率が永続で増加"
+  buffs:
+    attack-power: 0.15
+    bow_accuracy: 0.1        # 旧 archery_inaccuracy_add: -0.1 (符号反転)
+    ammo_save_chance: 0.1
+
+nodes:
+  A:
+    name: "弓引きの心得"
+    level: 10
+    role: main
+    parent: null
+    icon: BOW
+    cost: 1
+    effect-text: "ダメージ増加・射撃精度アップ"
+    buffs:
+      attack-power: 0.1
+      bow_accuracy: 0.05      # 旧 archery_inaccuracy_add: -0.05 (符号反転)
+  B:
+    name: "追尾の射手"
+    level: 30
+    role: main
+    parent: A
+    icon: SPECTRAL_ARROW
+    cost: 1
+    effect-text: "射撃距離ボーナス・一定確率でホーミング"
+    buffs:
+      distance_damage_bonus: 0.1
+      arrow_piercing: 1
+    effects:
+      - "一定確率で矢がホーミング"
+  C:
+    name: "速射の型"
+    level: 50
+    role: main
+    parent: B
+    icon: ARROW
+    cost: 1
+    effect-text: "射撃精度アップ(バニラと同等)・射撃速度アップ"
+    buffs:
+      bow_accuracy: 0.1        # 旧 archery_inaccuracy_add: -0.1 (符号反転)
+      arrow_velocity: 0.1
+  D:
+    name: "剛弓の境地"
+    level: 70
+    role: main
+    parent: C
+    icon: CROSSBOW
+    cost: 1
+    effect-text: "チャージ速度短縮・ダメージ増加"
+    buffs:
+      attack-power: 0.1
+      bow_cooldown_reduction: 0.1   # 旧 archery_chargedshotcooldown_add: -0.1 (符号反転)
+  E:
+    name: "極意・貫空"
+    level: 90
+    role: main
+    parent: D
+    icon: TIPPED_ARROW
+    cost: 1
+    effect-text: "2弾チャージで確定ホーミング・節約率増加"
+    buffs:
+      arrow_piercing: 2
+      ammo_save_chance: 0.1
+    effects:
+      - "2段チャージで確定ホーミング"
+
+  C-1-1:
+    name: "弾き矢"
+    level: 50
+    role: branch
+    parent: C
+    icon: STICK
+    cost: 1
+    effect-text: "ノックバック距離増加"
+    buffs:
+      arrow_knockback: 0.3
+  C-1-2:
+    name: "大弾き矢"
+    level: 70
+    role: branch
+    parent: C-1-1
+    icon: STICK
+    cost: 1
+    effect-text: "ノックバック距離増加"
+    buffs:
+      arrow_knockback: 0.3
+  D-1-1:
+    name: "貫通の矢"
+    level: 70
+    role: branch
+    parent: D
+    icon: SPECTRAL_ARROW
+    cost: 1
+    effect-text: "矢の貫通レベル増加・節約率増加"
+    buffs:
+      arrow_piercing: 1
+      ammo_save_chance: 0.05
+  D-1-2:
+    name: "剛貫の矢"
+    level: 90
+    role: branch
+    parent: D-1-1
+    icon: SPECTRAL_ARROW
+    cost: 1
+    effect-text: "矢の貫通レベル増加・節約率増加"
+    buffs:
+      arrow_piercing: 1
+      ammo_save_chance: 0.05
+
+  A-alpha-1:
+    name: "剛・弓引"
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: RED_DYE
+    cost: 1
+    effect-text: "距離ダメージ増加"
+    # 2026-07-26 職業別草案(戦闘)準拠: α=遠距離火力型。attack-power→distance-damage-bonus。
+    buffs: { distance-damage-bonus: 0.04 }
+  A-beta-1:
+    name: "疾・弓引"
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: YELLOW_DYE
+    cost: 1
+    effect-text: "会心率・矢速度増加"
+    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+  A-gamma-1:
+    name: "貫・弓引"
+    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「冴・弓引」を変更。中身が会心ダメージから
+    # 矢貫通・節約率に変わり、「冴(鋭さ)」より「貫(貫通)」の方が実態を表すため。
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: LIGHT_BLUE_DYE
+    cost: 1
+    effect-text: "矢節約率増加"
+    # 2026-07-26 職業別草案(戦闘)準拠: γ=貫通経済型。crit-damage(α/βと同じ火力路線に戻ってしまう)
+    # から矢節約率へ全面差し替え。
+    buffs: { ammo-save-chance: 0.02 }
+  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
+  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
+  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
+  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+  B-alpha-1:
+    name: "剛・追尾"
+    level: 30
+    role: greek
+    parent: A-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "距離ダメージ増加"
+    buffs: { distance-damage-bonus: 0.04 }
+  B-beta-1:
+    name: "疾・追尾"
+    level: 30
+    role: greek
+    parent: A-beta-1
+    icon: YELLOW_DYE
+    cost: 1
+    effect-text: "会心率・矢速度増加"
+    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+  B-gamma-1:
+    name: "貫・追尾"
+    level: 30
+    role: greek
+    parent: A-gamma-1
+    icon: LIGHT_BLUE_DYE
+    cost: 1
+    effect-text: "矢節約率増加"
+    buffs: { ammo-save-chance: 0.02 }
+  C-alpha-1:
+    name: "剛・速射"
+    level: 50
+    role: greek
+    parent: B-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "距離ダメージ増加"
+    buffs: { distance-damage-bonus: 0.04 }
+  C-beta-1:
+    name: "疾・速射"
+    level: 50
+    role: greek
+    parent: B-beta-1
+    icon: YELLOW_DYE
+    cost: 1
+    effect-text: "会心率・矢速度増加"
+    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+  C-gamma-1:
+    name: "貫・速射"
+    level: 50
+    role: greek
+    parent: B-gamma-1
+    icon: LIGHT_BLUE_DYE
+    cost: 1
+    effect-text: "矢貫通増加"
+    buffs: { arrow-piercing: 1 }
+  D-alpha-1:
+    name: "剛・剛弓"
+    level: 70
+    role: greek
+    parent: C-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "距離ダメージ増加"
+    buffs: { distance-damage-bonus: 0.04 }
+  D-beta-1:
+    name: "疾・剛弓"
+    level: 70
+    role: greek
+    parent: C-beta-1
+    icon: YELLOW_DYE
+    cost: 1
+    effect-text: "会心率・矢速度増加"
+    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+  D-gamma-1:
+    name: "貫・剛弓"
+    level: 70
+    role: greek
+    parent: C-gamma-1
+    icon: LIGHT_BLUE_DYE
+    cost: 1
+    effect-text: "矢節約率増加"
+    buffs: { ammo-save-chance: 0.03 }
+  E-alpha-1:
+    name: "剛・貫空"
+    level: 90
+    role: greek
+    parent: D-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "距離ダメージ増加"
+    buffs: { distance-damage-bonus: 0.04 }
+  E-beta-1:
+    name: "疾・貫空"
+    level: 90
+    role: greek
+    parent: D-beta-1
+    icon: YELLOW_DYE
+    cost: 1
+    effect-text: "会心率・矢速度増加"
+    buffs: { crit-chance: 0.02, arrow-velocity: 0.02 }
+  E-gamma-1:
+    name: "貫・貫空"
+    level: 90
+    role: greek
+    parent: D-gamma-1
+    icon: LIGHT_BLUE_DYE
+    cost: 1
+    effect-text: "矢貫通増加"
+    buffs: { arrow-piercing: 1 }
+

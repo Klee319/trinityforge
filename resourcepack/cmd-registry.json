@@ -1,0 +1,2753 @@
+{
+  "version": 1,
+  "allocations": [
+    {
+      "material": "DIAMOND_HELMET",
+      "cmd": 200101,
+      "id": "source_gem_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_helmet",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_CHESTPLATE",
+      "cmd": 200102,
+      "id": "source_gem_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_chestplate",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_LEGGINGS",
+      "cmd": 200103,
+      "id": "source_gem_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_leggings",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_BOOTS",
+      "cmd": 200104,
+      "id": "source_gem_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_boots",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 149,
+      "id": "dragon_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 152,
+      "id": "dragon_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 155,
+      "id": "dragon_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 158,
+      "id": "dragon_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 150,
+      "id": "wither_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 153,
+      "id": "wither_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 156,
+      "id": "wither_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 159,
+      "id": "wither_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.791Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 148,
+      "id": "infinity_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_helmet",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 151,
+      "id": "infinity_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_chestplate",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 154,
+      "id": "infinity_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_leggings",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 157,
+      "id": "infinity_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_boots",
+      "parent": "generated"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200031,
+      "id": "mage_arcane_novice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200032,
+      "id": "mage_arcane_novice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200033,
+      "id": "mage_arcane_novice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200034,
+      "id": "mage_arcane_novice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200041,
+      "id": "mage_arcane_apprentice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200042,
+      "id": "mage_arcane_apprentice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200043,
+      "id": "mage_arcane_apprentice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200044,
+      "id": "mage_arcane_apprentice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200051,
+      "id": "mage_arcane_archmage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200052,
+      "id": "mage_arcane_archmage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200053,
+      "id": "mage_arcane_archmage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200054,
+      "id": "mage_arcane_archmage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200061,
+      "id": "mage_weaver_novice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200062,
+      "id": "mage_weaver_novice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200063,
+      "id": "mage_weaver_novice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200064,
+      "id": "mage_weaver_novice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200071,
+      "id": "mage_weaver_apprentice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200072,
+      "id": "mage_weaver_apprentice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200073,
+      "id": "mage_weaver_apprentice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200074,
+      "id": "mage_weaver_apprentice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200081,
+      "id": "mage_weaver_archmage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200082,
+      "id": "mage_weaver_archmage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200083,
+      "id": "mage_weaver_archmage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200084,
+      "id": "mage_weaver_archmage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200001,
+      "id": "mage_guardian_novice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200002,
+      "id": "mage_guardian_novice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200003,
+      "id": "mage_guardian_novice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200004,
+      "id": "mage_guardian_novice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200011,
+      "id": "mage_guardian_apprentice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200012,
+      "id": "mage_guardian_apprentice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200013,
+      "id": "mage_guardian_apprentice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200014,
+      "id": "mage_guardian_apprentice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200021,
+      "id": "mage_guardian_archmage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200022,
+      "id": "mage_guardian_archmage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200023,
+      "id": "mage_guardian_archmage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200024,
+      "id": "mage_guardian_archmage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200140,
+      "id": "abyssal_scale_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200141,
+      "id": "abyssal_scale_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200142,
+      "id": "abyssal_scale_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200143,
+      "id": "abyssal_scale_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200124,
+      "id": "bone_guard_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200125,
+      "id": "bone_guard_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200126,
+      "id": "bone_guard_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200127,
+      "id": "bone_guard_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200132,
+      "id": "carapace_mail_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200133,
+      "id": "carapace_mail_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200134,
+      "id": "carapace_mail_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200135,
+      "id": "carapace_mail_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200128,
+      "id": "copper_stud_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.444Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200129,
+      "id": "copper_stud_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200130,
+      "id": "copper_stud_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200131,
+      "id": "copper_stud_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200136,
+      "id": "gilded_thread_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200137,
+      "id": "gilded_thread_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200138,
+      "id": "gilded_thread_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200139,
+      "id": "gilded_thread_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200144,
+      "id": "phantom_shroud_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200145,
+      "id": "phantom_shroud_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200146,
+      "id": "phantom_shroud_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200147,
+      "id": "phantom_shroud_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200148,
+      "id": "withered_silk_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200149,
+      "id": "withered_silk_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200150,
+      "id": "withered_silk_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.446Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200151,
+      "id": "withered_silk_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.446Z"
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 51,
+      "id": "wooden_halberd",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z"
+    },
+    {
+      "material": "BOOK",
+      "cmd": 100004,
+      "id": "koujien",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:15:42.863Z",
+      "assetName": "koujien",
+      "parent": "generated",
+      "customModel": true
+    },
+    {
+      "material": "WOODEN_HOE",
+      "cmd": 58,
+      "id": "wooden_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "wooden_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "STONE_HOE",
+      "cmd": 57,
+      "id": "stone_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "stone_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "COPPER_HOE",
+      "cmd": 56,
+      "id": "copper_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "copper_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "IRON_HOE",
+      "cmd": 55,
+      "id": "iron_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "iron_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "GOLDEN_HOE",
+      "cmd": 54,
+      "id": "golad_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "golad_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "DIAMOND_HOE",
+      "cmd": 53,
+      "id": "diamond_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "diamond_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 52,
+      "id": "nethrite_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.013Z",
+      "assetName": "nethrite_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 1,
+      "id": "Winter_Grim_Reaper",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "IRON_CHAIN",
+      "cmd": 68,
+      "id": "fnis_peccati_profundi",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:17:42.803Z",
+      "assetName": "fnis_peccati_profundi_68",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_HOE",
+      "cmd": 49,
+      "id": "source_gem_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "source_gem_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 59,
+      "id": "gold_test",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.014Z",
+      "assetName": "gold_test",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1111,
+      "id": "source_gem_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T00:56:03.014Z",
+      "assetName": "source_gem_sword",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 112,
+      "id": "infinity_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z",
+      "assetName": "infinity_sword",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 113,
+      "id": "hero_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z",
+      "assetName": "hero_sword",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 114,
+      "id": "nuclear_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z",
+      "assetName": "nuclear_sword",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1091,
+      "id": "stone_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "stone_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1093,
+      "id": "copper_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "copper_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1094,
+      "id": "iron_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "iron_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1095,
+      "id": "golden_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "golden_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1096,
+      "id": "diamond_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "diamond_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1097,
+      "id": "netherite_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "netherite_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1098,
+      "id": "nether_star_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "nether_star_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1099,
+      "id": "revolution_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "revolution_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1118,
+      "id": "source_gem_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.593Z",
+      "assetName": "source_gem_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 181,
+      "id": "source_gem_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.593Z",
+      "assetName": "source_gem_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 182,
+      "id": "source_gem_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.593Z",
+      "assetName": "source_gem_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 183,
+      "id": "source_gem_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.593Z"
+    },
+    {
+      "material": "DIAMOND_SPEAR",
+      "cmd": 50,
+      "id": "source_gem_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:39:09.417Z",
+      "assetName": "source_gem_spear",
+      "parent": "handheld"
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 11,
+      "id": "wooden_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "wooden_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "STONE_SWORD",
+      "cmd": 2,
+      "id": "stone_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "stone_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "COPPER_SWORD",
+      "cmd": 4,
+      "id": "copper_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "copper_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "IRON_SWORD",
+      "cmd": 5,
+      "id": "iron_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "iron_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 12,
+      "id": "golden_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "golden_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1101,
+      "id": "diamond_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "diamond_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 6,
+      "id": "netherite_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "netherite_dagger",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 13,
+      "id": "wooden_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "wooden_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "STONE_SWORD",
+      "cmd": 7,
+      "id": "stone_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "stone_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "COPPER_SWORD",
+      "cmd": 8,
+      "id": "copper_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "copper_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "IRON_SWORD",
+      "cmd": 9,
+      "id": "iron_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "iron_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 14,
+      "id": "golden_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "golden_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1102,
+      "id": "diamond_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.687Z",
+      "assetName": "diamond_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 15,
+      "id": "netherite_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "netherite_rapier",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 22,
+      "id": "wooden_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "wooden_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "STONE_SWORD",
+      "cmd": 23,
+      "id": "stone_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "stone_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "COPPER_SWORD",
+      "cmd": 24,
+      "id": "copper_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "copper_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "IRON_SWORD",
+      "cmd": 25,
+      "id": "iron_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "iron_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 26,
+      "id": "golden_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "golden_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1104,
+      "id": "diamond_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "diamond_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 27,
+      "id": "netherite_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "netherite_warhammer",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 28,
+      "id": "wooden_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "wooden_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "STONE_SWORD",
+      "cmd": 29,
+      "id": "stone_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "stone_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "COPPER_SWORD",
+      "cmd": 30,
+      "id": "copper_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "copper_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "IRON_SWORD",
+      "cmd": 31,
+      "id": "iron_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "iron_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 32,
+      "id": "golden_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "golden_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1105,
+      "id": "diamond_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "diamond_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 33,
+      "id": "netherite_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "netherite_greataxe",
+      "parent": "handheld",
+      "customModel": true
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1106,
+      "id": "source_gem_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1107,
+      "id": "source_gem_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1109,
+      "id": "source_gem_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1110,
+      "id": "source_gem_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1114,
+      "id": "source_gem_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:03.879Z"
+    },
+    {
+      "material": "WOODEN_AXE",
+      "cmd": 77,
+      "id": "wooden_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "STONE_AXE",
+      "cmd": 78,
+      "id": "stone_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "COPPER_AXE",
+      "cmd": 79,
+      "id": "copper_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "IRON_AXE",
+      "cmd": 80,
+      "id": "iron_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "GOLDEN_AXE",
+      "cmd": 81,
+      "id": "golden_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "DIAMOND_AXE",
+      "cmd": 82,
+      "id": "diamond_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 83,
+      "id": "netherite_axe_tf",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z"
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 62,
+      "id": "wooden_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.883Z"
+    },
+    {
+      "material": "STONE_SWORD",
+      "cmd": 63,
+      "id": "stone_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.883Z"
+    },
+    {
+      "material": "COPPER_SWORD",
+      "cmd": 64,
+      "id": "copper_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.883Z"
+    },
+    {
+      "material": "IRON_SWORD",
+      "cmd": 65,
+      "id": "iron_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.884Z"
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 66,
+      "id": "golden_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.884Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1113,
+      "id": "diamond_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.884Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 67,
+      "id": "netherite_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T05:09:06.884Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 109,
+      "id": "infinity_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 110,
+      "id": "hero_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 111,
+      "id": "nuclear_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 115,
+      "id": "infinity_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 116,
+      "id": "hero_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 117,
+      "id": "nuclear_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.788Z"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 118,
+      "id": "infinity_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "infinity_spear",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 119,
+      "id": "hero_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "hero_spear",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 120,
+      "id": "nuclear_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 121,
+      "id": "infinity_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "infinity_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 122,
+      "id": "hero_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 123,
+      "id": "nuclear_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 124,
+      "id": "infinity_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "infinity_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 125,
+      "id": "hero_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "hero_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 126,
+      "id": "nuclear_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "nuclear_scythe",
+      "parent": "handheld"
+    },
+    {
+      "material": "MACE",
+      "cmd": 127,
+      "id": "infinity_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "infinity_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 128,
+      "id": "hero_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z"
+    },
+    {
+      "material": "MACE",
+      "cmd": 129,
+      "id": "nuclear_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.789Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 133,
+      "id": "infinity_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 134,
+      "id": "hero_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 135,
+      "id": "nuclear_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 136,
+      "id": "infinity_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 137,
+      "id": "hero_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 138,
+      "id": "nuclear_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 139,
+      "id": "infinity_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 140,
+      "id": "hero_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "hero_axe",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 141,
+      "id": "nuclear_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 142,
+      "id": "infinity_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 143,
+      "id": "hero_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 144,
+      "id": "nuclear_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1115,
+      "id": "infinity_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1116,
+      "id": "hero_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "hero_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "BOW",
+      "cmd": 1117,
+      "id": "nuclear_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "nuclear_bow",
+      "parent": "handheld"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 145,
+      "id": "infinity_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 146,
+      "id": "hero_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 147,
+      "id": "nuclear_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 1119,
+      "id": "source_gem_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.594Z"
+    },
+    {
+      "material": "BOOK",
+      "cmd": 100001,
+      "id": "spell_book_novice",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "spell_book_novice",
+      "parent": "generated",
+      "customModel": true
+    },
+    {
+      "material": "BOOK",
+      "cmd": 100002,
+      "id": "spell_book_apprentice",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "spell_book_apprentice",
+      "parent": "generated",
+      "customModel": true
+    },
+    {
+      "material": "BOOK",
+      "cmd": 100003,
+      "id": "spell_book_archmage",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "spell_book_archmage",
+      "parent": "generated",
+      "customModel": true
+    },
+    {
+      "material": "WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300001,
+      "id": "thread_empty",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "TIDE_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300002,
+      "id": "thread_mana_regen",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "WARD_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300003,
+      "id": "thread_mana_boost",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "RAISER_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300004,
+      "id": "thread_speed",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300005,
+      "id": "thread_jump_boost",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "DUNE_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300006,
+      "id": "thread_night_vision",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300007,
+      "id": "thread_fire_resistance",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "COAST_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300008,
+      "id": "thread_dolphins_grace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "EYE_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300009,
+      "id": "thread_conduit_power",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "HOST_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300010,
+      "id": "thread_hero_of_the_village",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "RIB_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300011,
+      "id": "thread_health_boost",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300012,
+      "id": "thread_hit_mana_recovery",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "WILD_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300013,
+      "id": "thread_damage_mana_recovery",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "VEX_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300014,
+      "id": "thread_spell_cost_down",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300015,
+      "id": "thread_flight",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE",
+      "cmd": 300016,
+      "id": "thread_backpack",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "ENDER_EYE",
+      "cmd": 85,
+      "id": "someones_eyes",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:31:29.302Z"
+    },
+    {
+      "material": "DIAMOND_PICKAXE",
+      "cmd": 73,
+      "id": "source_gem_pickaxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.489Z",
+      "assetName": "source_gem_pickaxe",
+      "parent": "handheld"
+    },
+    {
+      "material": "GLOWSTONE",
+      "cmd": 84,
+      "id": "novus_criculus_luminis",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:19.188Z",
+      "assetName": "novus_criculus_luminis",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_SHOVEL",
+      "cmd": 74,
+      "id": "source_gem_shovel",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.489Z",
+      "assetName": "source_gem_shovel",
+      "parent": "handheld"
+    },
+    {
+      "material": "DIAMOND_AXE",
+      "cmd": 75,
+      "id": "source_gem_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.489Z",
+      "assetName": "source_gem_axe_tool",
+      "parent": "handheld"
+    },
+    {
+      "material": "DIAMOND_HOE",
+      "cmd": 76,
+      "id": "source_gem_hoe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:30:13.490Z",
+      "assetName": "source_gem_hoe",
+      "parent": "handheld"
+    },
+    {
+      "material": "WOODEN_AXE",
+      "cmd": 200105,
+      "id": "wooden_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "STONE_AXE",
+      "cmd": 200106,
+      "id": "stone_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "COPPER_AXE",
+      "cmd": 200107,
+      "id": "copper_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "IRON_AXE",
+      "cmd": 200108,
+      "id": "iron_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "GOLDEN_AXE",
+      "cmd": 200109,
+      "id": "golden_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "DIAMOND_AXE",
+      "cmd": 200110,
+      "id": "diamond_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 200111,
+      "id": "netherite_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T07:00:00.000Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400008,
+      "id": "wooden_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T06:31:29.302Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400002,
+      "id": "stone_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400003,
+      "id": "copper_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400004,
+      "id": "iron_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400005,
+      "id": "golden_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400006,
+      "id": "diamond_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400007,
+      "id": "netherite_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T22:11:18.688Z"
+    },
+    {
+      "material": "NETHERITE_PICKAXE",
+      "cmd": 185,
+      "id": "infinity_pickaxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.594Z"
+    },
+    {
+      "material": "NETHERITE_SHOVEL",
+      "cmd": 188,
+      "id": "infinity_shovel",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.594Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 191,
+      "id": "infinity_axe_tool",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.594Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 194,
+      "id": "infinity_hoe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T01:00:14.594Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 174,
+      "id": "wooden_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "wooden_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 175,
+      "id": "stone_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "stone_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 176,
+      "id": "copper_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "copper_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 177,
+      "id": "iron_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "iron_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 178,
+      "id": "golden_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "golden_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 179,
+      "id": "diamond_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "diamond_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 180,
+      "id": "netherite_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "netherite_trident",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 167,
+      "id": "wooden_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "wooden_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 168,
+      "id": "stone_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "stone_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 169,
+      "id": "copper_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "copper_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 170,
+      "id": "iron_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "iron_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 171,
+      "id": "golden_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "golden_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 172,
+      "id": "diamond_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "diamond_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "MACE",
+      "cmd": 173,
+      "id": "netherite_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z",
+      "assetName": "netherite_mace",
+      "parent": "generated"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 160,
+      "id": "stone_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.676Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 161,
+      "id": "sharpstone_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.676Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 162,
+      "id": "copper_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 163,
+      "id": "iron_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 164,
+      "id": "golden_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 165,
+      "id": "diamond_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 166,
+      "id": "netherite_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T16:30:46.677Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400012,
+      "id": "infinity_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400013,
+      "id": "dragon_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400014,
+      "id": "wither_cane",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400001,
+      "id": "BLAZE_ROD#400001",
+      "source": "item-stats",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PRISMARINE_SHARD",
+      "cmd": 100011,
+      "id": "source_gem",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "source_gem",
+      "parent": "generated"
+    },
+    {
+      "material": "PRISMARINE",
+      "cmd": 100012,
+      "id": "source_gem_block",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100021,
+      "id": "magebloom_fiber",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STONE",
+      "cmd": 100031,
+      "id": "sourcestone",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "OAK_LOG",
+      "cmd": 5201,
+      "id": "oak_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STONE",
+      "cmd": 100041,
+      "id": "stone_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STONE",
+      "cmd": 100042,
+      "id": "stone_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STONE",
+      "cmd": 100043,
+      "id": "stone_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STONE",
+      "cmd": 100044,
+      "id": "stone_4x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STONE",
+      "cmd": 100045,
+      "id": "stone_5x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "COPPER_BLOCK",
+      "cmd": 100051,
+      "id": "copper_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "COPPER_BLOCK",
+      "cmd": 100052,
+      "id": "copper_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "COPPER_BLOCK",
+      "cmd": 100053,
+      "id": "copper_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "IRON_BLOCK",
+      "cmd": 100061,
+      "id": "iron_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "IRON_BLOCK",
+      "cmd": 100062,
+      "id": "iron_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "IRON_BLOCK",
+      "cmd": 100063,
+      "id": "iron_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "GOLD_BLOCK",
+      "cmd": 100071,
+      "id": "gold_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "GOLD_BLOCK",
+      "cmd": 100072,
+      "id": "gold_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "GOLD_BLOCK",
+      "cmd": 100073,
+      "id": "gold_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "NETHERRACK",
+      "cmd": 1002,
+      "id": "netherrack_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "NETHERRACK",
+      "cmd": 1001,
+      "id": "netherrack_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "END_STONE",
+      "cmd": 999,
+      "id": "end_stone_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "END_STONE",
+      "cmd": 1000,
+      "id": "end_stone_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LAPIS_BLOCK",
+      "cmd": 100101,
+      "id": "lapis_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LAPIS_BLOCK",
+      "cmd": 100102,
+      "id": "lapis_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LAPIS_BLOCK",
+      "cmd": 100103,
+      "id": "lapis_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "EMERALD_BLOCK",
+      "cmd": 100111,
+      "id": "emerald_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "EMERALD_BLOCK",
+      "cmd": 100112,
+      "id": "emerald_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "EMERALD_BLOCK",
+      "cmd": 100113,
+      "id": "emerald_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "EMERALD_BLOCK",
+      "cmd": 100114,
+      "id": "emerald_block_4x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "NETHERITE_BLOCK",
+      "cmd": 100121,
+      "id": "netherite_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "DIAMOND_BLOCK",
+      "cmd": 100091,
+      "id": "diamond_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "DIAMOND_BLOCK",
+      "cmd": 100092,
+      "id": "diamond_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "DIAMOND_BLOCK",
+      "cmd": 100093,
+      "id": "diamond_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "COAL_BLOCK",
+      "cmd": 88,
+      "id": "coal_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "COAL_BLOCK",
+      "cmd": 89,
+      "id": "coal_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "COAL_BLOCK",
+      "cmd": 90,
+      "id": "coal_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "REDSTONE_BLOCK",
+      "cmd": 91,
+      "id": "redstone_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "REDSTONE_BLOCK",
+      "cmd": 92,
+      "id": "redstone_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "REDSTONE_BLOCK",
+      "cmd": 93,
+      "id": "redstone_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "QUARTZ_BLOCK",
+      "cmd": 94,
+      "id": "quartz_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "QUARTZ_BLOCK",
+      "cmd": 95,
+      "id": "quartz_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "QUARTZ_BLOCK",
+      "cmd": 96,
+      "id": "quartz_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "AMETHYST_BLOCK",
+      "cmd": 97,
+      "id": "amethyst_block_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "AMETHYST_BLOCK",
+      "cmd": 98,
+      "id": "amethyst_block_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "ECHO_SHARD",
+      "cmd": 100081,
+      "id": "echo_shard_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "BREAD",
+      "cmd": 5202,
+      "id": "compressed_bread_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "COOKED_BEEF",
+      "cmd": 5203,
+      "id": "compressed_cooked_beef_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "BREEZE_ROD",
+      "cmd": 99,
+      "id": "breeze_rod_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "BREEZE_ROD",
+      "cmd": 100,
+      "id": "breeze_rod_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400009,
+      "id": "blaze_rod_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400010,
+      "id": "blaze_rod_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400011,
+      "id": "blaze_rod_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "SHULKER_SHELL",
+      "cmd": 101,
+      "id": "shulker_shell_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "SHULKER_SHELL",
+      "cmd": 102,
+      "id": "shulker_shell_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "DRAGON_BREATH",
+      "cmd": 103,
+      "id": "dragon_breath_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "DRAGON_BREATH",
+      "cmd": 104,
+      "id": "dragon_breath_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "DRAGON_BREATH",
+      "cmd": 105,
+      "id": "dragon_breath_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "WITHER_ROSE",
+      "cmd": 106,
+      "id": "wither_rose_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "LEATHER",
+      "cmd": 5103,
+      "id": "tf_core_meat",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "EMERALD",
+      "cmd": 5104,
+      "id": "tf_core_jewelry",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "tf_core_jewelry",
+      "parent": "generated"
+    },
+    {
+      "material": "WHEAT",
+      "cmd": 5102,
+      "id": "tf_core_vegetable",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "STICK",
+      "cmd": 5101,
+      "id": "tf_core_wood",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "ENCHANTED_GOLDEN_APPLE",
+      "cmd": 5201,
+      "id": "tf_crystal_apple",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5001,
+      "id": "tf_gacha_ticket",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5011,
+      "id": "tf_gacha_ticket_1",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5012,
+      "id": "tf_gacha_ticket_2",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5013,
+      "id": "tf_gacha_ticket_3",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5014,
+      "id": "tf_gacha_ticket_4",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5015,
+      "id": "tf_gacha_ticket_5",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "IRON_NUGGET",
+      "cmd": 5301,
+      "id": "tf_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "OAK_PLANKS",
+      "cmd": 5311,
+      "id": "plank_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "COPPER_INGOT",
+      "cmd": 5312,
+      "id": "copper_ingot_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "IRON_INGOT",
+      "cmd": 5313,
+      "id": "iron_ingot_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "GOLD_INGOT",
+      "cmd": 5314,
+      "id": "gold_ingot_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "DIAMOND",
+      "cmd": 5315,
+      "id": "diamond_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_INGOT",
+      "cmd": 5316,
+      "id": "netherite_ingot_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER",
+      "cmd": 5317,
+      "id": "leather_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "TURTLE_SCUTE",
+      "cmd": 5318,
+      "id": "turtle_scute_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "TURTLE_SCUTE",
+      "cmd": 86,
+      "id": "dragon_scale",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.741Z",
+      "assetName": "dragon_scale",
+      "parent": "generated"
+    },
+    {
+      "material": "PRISMARINE_SHARD",
+      "cmd": 100013,
+      "id": "elder_guardian_spike",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z",
+      "assetName": "elder_guardian_spike",
+      "parent": "generated"
+    },
+    {
+      "material": "WITHER_SKELETON_SKULL",
+      "cmd": 87,
+      "id": "wither_skull_fragment",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z",
+      "assetName": "wither_skull_fragment",
+      "parent": "generated"
+    },
+    {
+      "material": "ECHO_SHARD",
+      "cmd": 100082,
+      "id": "warden_tendril",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.742Z",
+      "assetName": "warden_tendril",
+      "parent": "generated"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100022,
+      "id": "reinforced_fiber",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "IRON_INGOT",
+      "cmd": 107,
+      "id": "heavy_metal",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "NETHERITE_SCRAP",
+      "cmd": 108,
+      "id": "hard_metal",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "LEATHER",
+      "cmd": 5105,
+      "id": "reinforced_leather",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400024,
+      "id": "infinity_catalyst",
+      "source": "spellbooks:catalysts",
+      "allocatedAt": "2026-07-23T17:09:02.553Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400025,
+      "id": "dragon_catalyst",
+      "source": "spellbooks:catalysts",
+      "allocatedAt": "2026-07-23T17:09:02.553Z"
+    },
+    {
+      "material": "BLAZE_ROD",
+      "cmd": 400026,
+      "id": "wither_catalyst",
+      "source": "spellbooks:catalysts",
+      "allocatedAt": "2026-07-23T17:09:02.553Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200002,
+      "id": "source_jar",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200003,
+      "id": "creative_source_jar",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "FURNACE",
+      "cmd": 200003,
+      "id": "volcanic_sourcelink",
+      "source": "sourcelinks",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "SMOKER",
+      "cmd": 200004,
+      "id": "mycelial_sourcelink",
+      "source": "sourcelinks",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "BLAST_FURNACE",
+      "cmd": 200005,
+      "id": "alchemical_sourcelink",
+      "source": "sourcelinks",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "BARREL",
+      "cmd": 200006,
+      "id": "vitalic_sourcelink",
+      "source": "sourcelinks",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "BEEHIVE",
+      "cmd": 200007,
+      "id": "botanical_sourcelink",
+      "source": "sourcelinks",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    }
+  ]
+}

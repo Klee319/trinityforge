@@ -1,0 +1,47 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/copper_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 4,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_dagger"
+        }
+      },
+      {
+        "threshold": 8,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_rapier"
+        }
+      },
+      {
+        "threshold": 24,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_warhammer"
+        }
+      },
+      {
+        "threshold": 30,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_greataxe"
+        }
+      },
+      {
+        "threshold": 64,
+        "model": {
+          "model": "minecraft:item/copper_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

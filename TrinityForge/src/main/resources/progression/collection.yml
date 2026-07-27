@@ -1,0 +1,51 @@
+# TrinityForge - コレクション図鑑 (M7, DUNGEON_SPEC §5 / SERVER_CONTENT_SPEC §7)
+#
+# 収集記録(図鑑)→ 段階的報酬解放。報酬は 称号 / コスメ / 恒久QoL に限定し、
+# 縦強化(戦闘ステータス)にしないこと(スペック上の憲法。中身はこの config の運用で守る)。
+#
+# 記録されるエントリ:
+#   item:<catalogId>   items/catalog.yml のアイテムを入手した(取得/クラフト/釣り/ガチャ等)
+#   mob:<ENTITY_TYPE>  そのEntityTypeのモブをプレイヤーが討伐した
+#
+# 進捗はプレイヤーPDC(trinityforge:collection_entries / collection_claimed_tiers)に保持。
+# 報酬ティアは図鑑登録数(エントリ種類数)のしきい値で解放され、解放済みティアは再付与されない。
+# /tf collection で進捗と解放状況を確認できる(表示時にも未付与ティアを再評価する)。
+#
+# categories: (2026-07-23追加。図鑑GUIの表示分類。未分類エントリは自動で「その他」表示)
+#   items.<catId>: { display-name: "武器", order: 1, entries: [<catalogId>...] }
+#   mobs.<catId>:  { display-name: "ボス", order: 1, entries: [<ENTITY_TYPE|mobTypeId>...] }
+
+enabled: true
+sources:
+  catalog-items: true
+  mob-kills: true
+categories:
+  items:
+    infinity:
+      display-name: インフィニティ
+      order: 1
+      entries:
+        - infinity_axe
+        - infinity_axe_tool
+        - infinity_boots
+        - infinity_bow
+        - infinity_cane
+        - infinity_chestplate
+        - infinity_crossbow
+        - infinity_dagger
+        - infinity_grate_sword
+        - infinity_greataxe
+        - infinity_helmet
+        - infinity_hoe
+        - infinity_leggings
+        - infinity_mace
+        - infinity_pickaxe
+        - infinity_rapier
+        - infinity_scythe
+        - infinity_shovel
+        - infinity_spear
+        - infinity_sword
+        - infinity_trident
+        - infinity_warhammer
+  mobs: {}
+reward-tiers: {}

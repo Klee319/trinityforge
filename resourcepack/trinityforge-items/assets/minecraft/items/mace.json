@@ -1,0 +1,89 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/mace",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 127,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/infinity_mace"
+        }
+      },
+      {
+        "threshold": 128,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 129,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 167,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_mace"
+        }
+      },
+      {
+        "threshold": 168,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_mace"
+        }
+      },
+      {
+        "threshold": 169,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_mace"
+        }
+      },
+      {
+        "threshold": 170,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_mace"
+        }
+      },
+      {
+        "threshold": 171,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_mace"
+        }
+      },
+      {
+        "threshold": 172,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_mace"
+        }
+      },
+      {
+        "threshold": 173,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_mace"
+        }
+      },
+      {
+        "threshold": 182,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_mace"
+        }
+      }
+    ]
+  }
+}

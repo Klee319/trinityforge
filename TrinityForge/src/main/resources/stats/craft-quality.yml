@@ -1,0 +1,15 @@
+# TrinityForge - クラフトの品質導出 (ITEM_ECONOMY_SPEC 5.2d)
+# プレイヤーが装備を「クラフト」したとき、TFが rollSeed + quality を焼き付ける。
+# 品質のmode(最頻値)はクラファーの該当生産スキルLvに応じて上がり、最終品質はそのmode周辺のランダム抽選
+# (同じスキルでもばらつきが出る、CR-5)。全て暫定(M7で調整)。
+# ※釣りの品質はロッド駆動(stats/fishing-gimmick.yml fishing.*)に移行済みで、ここには存在しない。
+# ※カテゴリ->生産スキルの対応(weapon/armor/tool -> SMITHING, ars-gear -> ARS_SMITHING)は固定ゲームルール
+#   のためJava側にハードコード済み(CraftQualityConfig#categorySkill)。
+
+mode:
+  skill-levels-per-quality: 10
+  base-quality: 0
+drop:
+  enabled: true
+  strength-per-quality: 10
+  base-quality: 0

@@ -1,0 +1,37 @@
+# TrinityForge - 農業ツリーA-α/β系「食事」ギミック(skilltree/dedicated-effects.yml のflag系consumer)
+# チューニング。対象effectId: junkfood-immunity / junkfood-inversion / satiety-buff
+# (skilltree/farming.yml ノード A-alpha-1 / B)。
+# no-food-consume-chance の確率(%)は他のpercent系effectと同じく skilltree/farming.yml のノード側
+# dedicated-effects[].value で持つため、このファイルには含まれない。
+# 数値・Material一覧は全て暫定(要調整)。
+
+# junkfood-immunity / junkfood-inversion 共通: 「ゴミ食」と判定するMaterial一覧。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/stats/food-gimmick.md
+
+junk-food-materials:
+  - ROTTEN_FLESH
+  - POISONOUS_POTATO
+  - SPIDER_EYE
+  - PUFFERFISH
+  - CHICKEN
+
+junkfood-immunity:
+  cancelled-debuff-effects:
+    - HUNGER
+    - POISON
+    - NAUSEA
+
+junkfood-inversion:
+  junk-saturation-bonus: 2.0
+  non-junk-saturation-penalty: 1.0
+
+satiety-buff:
+  saturation-bonus: 4.0
+
+custom-foods:
+  compressed_bread_1x:
+    food-level: 20
+    saturation: 18.0
+  compressed_cooked_beef_1x:
+    food-level: 20
+    saturation: 20.0

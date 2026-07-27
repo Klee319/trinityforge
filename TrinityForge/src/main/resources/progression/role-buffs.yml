@@ -1,0 +1,41 @@
+# TrinityForge — ロールバフ (ROLE_SYSTEM_SPEC)
+# 獣使い(beast_tamer)はスコープ外。戦闘職 + 補助職の内部ステ注入のみ。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/progression/role-buffs.md
+
+
+combat-roles:
+  swordfighter:
+    label: 剣闘士
+    attack-buffs:
+      percent-bonus-damage: 0.12
+  mage:
+    label: 魔術師
+    attack-buffs:
+      percent-bonus-damage: 0.12
+  tank:
+    label: タンク
+    defense-buffs:
+      phys-flat-defense: 40.0
+      magic-flat-defense: 40.0
+      damage-reduction: 0.05
+    hate-threat-multiplier: 1.5
+
+support-roles:
+  scout:
+    label: 斥候
+    exp-skill: ARCHERY
+    exp-multiplier: 1.2
+    potion-buff: { type: SPEED, duration: 999999, amplifier: 0 }
+  farmer:
+    label: 農夫
+    exp-skill: FARMING
+    exp-multiplier: 1.2
+    potion-buff: { type: JUMP_BOOST, duration: 999999, amplifier: 0 }
+  miner:
+    label: 採掘夫
+    exp-skill: MINING
+    exp-multiplier: 1.2
+    potion-buff: { type: HASTE, duration: 999999, amplifier: 0 }
+
+role-change:
+  allow-command: true

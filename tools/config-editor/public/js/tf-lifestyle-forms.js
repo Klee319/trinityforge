@@ -1,0 +1,1368 @@
+"use strict";
+
+// Phase2 専用フォーム: gathering / *-gimmick / villager-trades / role-buffs
+// 往復ロスレス: working を直接編集。
+
+(function () {
+  const h = window.h;
+
+  function card(head, body) {
+    return h("div", { class: "entry-card" }, [
+      h("div", { class: "entry-head" }, Array.isArray(head) ? head : [head]),
+      h("div", { class: "entry-body" }, body)
+    ]);
+  }
+  function field(key, control, opts) {
+    const o = opts || {};
+    return h("div", { class: "form-field" }, [
+      window.fieldLabelEl(o.key || key, {
+        label: o.label || key,
+        desc: o.desc || "",
+        hideKey: o.hideKey !== false
+      }),
+      control
+    ]);
+  }
+  function grid(fields) { return h("div", { class: "field-grid" }, fields); }
+  function sub(text) { return h("div", { class: "sub-title", text }); }
+  function banner(text) {
+    return h("div", { class: "form-banner", text });
+  }
+  function emptyGuide(title, hint) {
+    return h("div", { class: "empty-guide" }, [
+      h("div", { class: "empty-guide-title", text: title }),
+      h("div", { class: "empty-guide-hint", text: hint })
+    ]);
+  }
+  function ensureObj(parent, key) {
+    if (!parent[key] || typeof parent[key] !== "object" || Array.isArray(parent[key])) parent[key] = {};
+    return parent[key];
+  }
+  function ensureArr(parent, key) {
+    if (!Array.isArray(parent[key])) parent[key] = [];
+    return parent[key];
+  }
+  function renameKey(map, oldKey, newKey) {
+    const rebuilt = {};
+    for (const k of Object.keys(map)) rebuilt[k === oldKey ? newKey : k] = map[k];
+    for (const k of Object.keys(map)) delete map[k];
+    Object.assign(map, rebuilt);
+  }
+  function numField(obj, key, opts) {
+    const o = opts || {};
+    return field(key, window.numberInput(obj[key], (v) => {
+      if (v == null || v === "") {
+        if (o.clearable) delete obj[key];
+        else obj[key] = o.fallback != null ? o.fallback : 0;
+        return;
+      }
+      obj[key] = o.int ? Math.trunc(v) : v;
+    }, o.int ? { int: true } : undefined), {
+      label: o.label || key,
+      desc: o.desc || "",
+      key
+    });
+  }
+  function textField(obj, key, opts) {
+    const o = opts || {};
+    return field(key, window.textInput(obj[key] == null ? "" : String(obj[key]), (v) => {
+      if (!v && o.clearable) delete obj[key];
+      else obj[key] = v;
+    }, o.placeholder || ""), {
+      label: o.label || key,
+      desc: o.desc || "",
+      key
+    });
+  }
+
+  // E-1 (2026-07-25): fishing.ocean-biomes は以前 textInput の自由入力のみだったため、タイポで
+  // 無効なバイオームキーを設定できてしまっていた。tf-phase3-forms.js の form-cooldowns (T1) や
+  // tf-rewards-forms.js のパーティクル/統計セレクトと同じ「listSelect(allowCustom:true)」の作法
+  // (候補から選べる + 一覧に無い値も自由入力できる) に合わせ、候補は vocab-1.21.11.js の
+  // VANILLA_BIOMES/BIOME_LABELS_JA から供給する。
+  // ⚠️ fishing-gimmick.yml のコメントが明記する通り、バニラのバイオーム追加(将来のアップデート)に
+  // 追随できるよう完全なセレクトにはしない — 一覧に無い値(将来の新バイオーム)も入力できる状態を
+  // 維持するのが目的なので、選択肢はあくまで「よく使うものの補助」に留める。
+  const BIOME_CUSTOM_VALUE = "__custom_biome__";
+  function biomeSelect(value, onChange) {
+    const cur = value == null ? "" : String(value);
+    const catalog = Array.isArray(window.VANILLA_BIOMES) ? window.VANILLA_BIOMES : [];
+    const opts = catalog.map((id) => ({
+      value: id,
+      primary: (window.BIOME_LABELS_JA && window.BIOME_LABELS_JA[id]) || id,
+      secondary: id
+    }));
+    if (cur && !opts.some((o) => o.value === cur)) {
+      opts.unshift({ value: cur, primary: cur, secondary: "(一覧外)" });
+    }
+    opts.push({ value: BIOME_CUSTOM_VALUE, primary: "＋ 自由入力…" });
+    return window.listSelect({
+      value: cur,
+      placeholder: "バイオームを選択…",
+      options: opts,
+      allowCustom: true,
+      customValue: BIOME_CUSTOM_VALUE,
+      customPlaceholder: "namespace無し・小文字 (例: ocean)",
+      onChange: (v) => { onChange(v); }
+    });
+  }
+
+  /**
+   * 自由キー文字列マップ編集 (suspicious-block-respawn.loot-tables 等)。
+   * キーは任意識別子 (renameKey で書き換え可)、値は自由文字列。
+   */
+  function stringMapEditor(map, opts) {
+    const o = opts || {};
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      const keys = Object.keys(map);
+      if (!keys.length) {
+        box.appendChild(h("div", { class: "empty-hint", text: o.empty || "まだありません。" }));
+      }
+      for (const key of keys) {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(h("input", {
+          class: "field-input entry-key-input",
+          value: key,
+          spellcheck: "false",
+          onchange: (e) => {
+            const nv = e.target.value.trim();
+            if (!nv || nv === key) { e.target.value = key; return; }
+            if (Object.prototype.hasOwnProperty.call(map, nv)) { alert("同じキーがあります"); e.target.value = key; return; }
+            renameKey(map, key, nv);
+            render();
+          }
+        }));
+        row.appendChild(window.textInput(map[key] == null ? "" : String(map[key]), (v) => { map[key] = v; }, o.valuePlaceholder || ""));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { delete map[key]; render(); }
+        }));
+        box.appendChild(row);
+      }
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: o.addLabel || "+ 追加",
+        onclick: () => {
+          let n = "new-block", i = 1;
+          while (Object.prototype.hasOwnProperty.call(map, n)) n = `new-block-${i++}`;
+          map[n] = "";
+          render();
+        }
+      }));
+    }
+    render();
+    return box;
+  }
+
+  /** Material / 文字列リスト編集 */
+  function stringListEditor(arr, opts) {
+    const o = opts || {};
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      if (!arr.length) {
+        box.appendChild(h("div", { class: "empty-hint", text: o.empty || "まだありません。" }));
+      }
+      arr.forEach((val, idx) => {
+        const row = h("div", { class: "stat-row" });
+        if (o.material) {
+          row.appendChild(window.materialInput(val || "", "material-list", (v) => { arr[idx] = v; }, { allowCustom: false }));
+        } else if (o.biome) {
+          row.appendChild(biomeSelect(val, (v) => { arr[idx] = v; }));
+        } else {
+          row.appendChild(window.textInput(val || "", (v) => { arr[idx] = v; }, o.placeholder || ""));
+        }
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { arr.splice(idx, 1); render(); }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: o.addLabel || "+ 追加",
+        onclick: () => { arr.push(o.defaultValue != null ? o.defaultValue : ""); render(); }
+      }));
+    }
+    render();
+    return box;
+  }
+
+  // ============================================================
+  // ドロップテーブル 共通UI部品 (mining/woodcutting/digging-gimmick の drop-tables、
+  // fishing-gimmick の groups.treasure/groups.junk)。
+  // 設計書 2026-07-23-stat-gate-overhaul.md §4 準拠。
+  // データ整形の純関数は window.DROP_TABLE_LOGIC としてテストからも参照する。
+  // ============================================================
+  function clampMinInt(v, min) {
+    const n = Math.trunc(Number(v));
+    if (!Number.isFinite(n) || n < min) return min;
+    return n;
+  }
+  function normalizeDropEntry(entry) {
+    const e = entry && typeof entry === "object" ? entry : {};
+    return {
+      item: e.item != null ? String(e.item) : "",
+      weight: clampMinInt(e.weight != null ? e.weight : 1, 1),
+      amount: clampMinInt(e.amount != null ? e.amount : 1, 1)
+    };
+  }
+  function normalizeDropCategory(cat, opts) {
+    const o = opts || {};
+    const c = cat && typeof cat === "object" ? cat : {};
+    const out = {
+      "display-name": c["display-name"] != null ? String(c["display-name"]) : "",
+      entries: Array.isArray(c.entries) ? c.entries.map(normalizeDropEntry) : []
+    };
+    if (o.triggerChance) {
+      out["trigger-chance-percent"] = typeof c["trigger-chance-percent"] === "number" ? c["trigger-chance-percent"] : 0;
+    }
+    return out;
+  }
+  // 指定パス直下に categories オブジェクトを持つコンテナへ working を辿る (無ければ生成)。
+  function resolveDropTableContainer(working, path) {
+    let node = working && typeof working === "object" ? working : {};
+    for (const key of path || []) node = ensureObj(node, key);
+    return node;
+  }
+
+  window.DROP_TABLE_LOGIC = {
+    clampMinInt,
+    normalizeDropEntry,
+    normalizeDropCategory,
+    resolveDropTableContainer
+  };
+
+  /**
+   * ドロップテーブル編集UI。working[...path].categories を直接編集する。
+   * @param {object} working フォームのルートデータ (working直接編集・往復ロスレス方針)
+   * @param {string[]} path categories を持つコンテナまでのキー列 (例: ["drop-tables"] / ["groups","treasure"])
+   * @param {object} [opts]
+   * @param {boolean} [opts.triggerChance] true でカテゴリごとの発動率%欄を表示する (釣りは false)
+   */
+  function dropTableEditor(working, path, opts) {
+    const o = opts || {};
+    const triggerChance = !!o.triggerChance;
+    const container = resolveDropTableContainer(working, path);
+    const categories = ensureObj(container, "categories");
+
+    const root = h("div", { class: "drop-table-editor card-list" });
+    const list = h("div", { class: "card-list-body" });
+    root.appendChild(list);
+
+    function entryRows(entries) {
+      const box = h("div", { class: "stat-rows" });
+      function renderRows() {
+        box.innerHTML = "";
+        if (!entries.length) box.appendChild(h("div", { class: "empty-hint", text: "ドロップがありません。" }));
+        entries.forEach((entryRaw, idx) => {
+          const entry = entryRaw && typeof entryRaw === "object" ? entryRaw : (entries[idx] = normalizeDropEntry(entryRaw));
+          const row = h("div", { class: "stat-row drop-entry-row" });
+          row.appendChild(window.materialInput(entry.item || "", "material-list", (v) => { entry.item = v; }, { allowCustom: true }));
+          row.appendChild(h("span", { class: "mini-label", text: "重み" }));
+          row.appendChild(window.numberInput(entry.weight == null ? 1 : entry.weight, (v) => { entry.weight = clampMinInt(v, 1); }, { int: true }));
+          row.appendChild(h("span", { class: "mini-label", text: "個数" }));
+          row.appendChild(window.numberInput(entry.amount == null ? 1 : entry.amount, (v) => { entry.amount = clampMinInt(v, 1); }, { int: true }));
+          row.appendChild(h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { entries.splice(idx, 1); renderRows(); }
+          }));
+          box.appendChild(row);
+        });
+        box.appendChild(h("button", {
+          class: "btn-small", type: "button", text: "+ ドロップ追加",
+          onclick: () => { entries.push({ item: "", weight: 10, amount: 1 }); renderRows(); }
+        }));
+      }
+      renderRows();
+      return box;
+    }
+
+    function render() {
+      list.innerHTML = "";
+      const ids = Object.keys(categories);
+      if (!ids.length) {
+        list.appendChild(emptyGuide("カテゴリがありません", "「+ カテゴリ追加」で作成します。"));
+      }
+      for (const id of ids) {
+        let cat = categories[id];
+        if (!cat || typeof cat !== "object") cat = categories[id] = {};
+        if (!Array.isArray(cat.entries)) cat.entries = [];
+        const head = [
+          h("input", {
+            class: "field-input entry-key-input", value: id, spellcheck: "false",
+            onchange: (e) => {
+              const nv = e.target.value.trim();
+              if (!nv || nv === id) { e.target.value = id; return; }
+              if (Object.prototype.hasOwnProperty.call(categories, nv)) { alert("同じIDがあります"); e.target.value = id; return; }
+              renameKey(categories, id, nv);
+              render();
+            }
+          }),
+          h("span", { class: "spacer" }),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete categories[id]; render(); }
+          })
+        ];
+        const fields = [textField(cat, "display-name", { label: "表示名" })];
+        if (triggerChance) fields.push(numField(cat, "trigger-chance-percent", { label: "発動率%", desc: "対象ブロック破壊ごとの発動率", fallback: 0 }));
+        // 釣りゴミグループ用: junk-to-scrap パークのスクラップ差し替えから除外するカテゴリ (例: 海洋の糸)
+        if (o.scrapExempt) fields.push(field("scrap-exempt", window.checkboxInput(!!cat["scrap-exempt"], (v) => {
+          if (v) cat["scrap-exempt"] = true; else delete cat["scrap-exempt"];
+        }), { label: "スクラップ差替除外", key: "scrap-exempt", desc: "ONでjunk-to-scrapパークの対象外(糸などの特殊ドロップ用)" }));
+        const body = [grid(fields), sub("ドロップ内容 (entries)"), entryRows(cat.entries)];
+        list.appendChild(window.collapsibleCard(head, body, { expanded: ids.length <= 2 }));
+      }
+      list.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn", type: "button", text: "+ カテゴリ追加",
+          onclick: () => {
+            let n = "tier1", i = 1;
+            while (Object.prototype.hasOwnProperty.call(categories, n)) n = `tier${++i}`;
+            const fresh = { "display-name": n, entries: [] };
+            if (triggerChance) fresh["trigger-chance-percent"] = 5.0;
+            categories[n] = fresh;
+            render();
+          }
+        })
+      ]));
+    }
+    render();
+    return root;
+  }
+
+  // ============================================================
+  // tier テーブル編集UI (2026-07-26 新設)。
+  // 対象は section.tiers: { "<tier番号>": { <column.key>: number, ... } } という形の
+  // オブジェクト(採取系「専用効果」がスキルツリーノードの value を集計した tier で参照する)。
+  // Java 側 (MiningGimmickConfig / WoodcuttingGimmickConfig / FarmingGimmickConfig の
+  // parse*Tiers 系) は「tiers が未定義、または該当tier未満の行しか無い場合は同セクション直下の
+  // フラット値へフォールバックする」という規則で読む。そのため tiers が空になったら
+  // 「tiers: {}」を残さずキーごと削除する(空オブジェクトを残すとフォールバック規則が
+  // 曖昧に見えるため)。
+  // dropTableEditor(195行〜、この直前)と同じ作法に合わせる: working(=section)を直接編集し、
+  // 行の追加/削除ボタン・空状態はemptyGuide・キーの改名はentry-key-input型の
+  // onchange(commit-on-blur)で行い、都度 render() し直す。
+  // ============================================================
+  function isPositiveIntegerTierKey(v) {
+    if (v == null || v === "") return false;
+    const s = String(v).trim();
+    if (!/^[0-9]+$/.test(s)) return false;
+    const n = Number(s);
+    return Number.isInteger(n) && n > 0;
+  }
+  function normalizeTierRow(row, columns) {
+    const r = row && typeof row === "object" ? row : {};
+    const out = {};
+    for (const col of columns) {
+      const raw = r[col.key];
+      const n = typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
+      out[col.key] = col.int ? Math.trunc(n) : n;
+    }
+    return out;
+  }
+  function pruneEmptyTiers(section) {
+    if (section.tiers && typeof section.tiers === "object" && !Array.isArray(section.tiers)
+        && Object.keys(section.tiers).length === 0) {
+      delete section.tiers;
+    }
+  }
+  window.TIER_TABLE_LOGIC = { isPositiveIntegerTierKey, normalizeTierRow, pruneEmptyTiers };
+
+  /**
+   * tier別パラメータ表の編集UI。section.tiers を直接編集する(working直接編集・往復ロスレス方針)。
+   * @param {object} section tiers を持つセクション (例: haste = working["haste-active-mining"])
+   * @param {Array<{key:string,label?:string,int?:boolean}>} columns tier行の列定義
+   * @param {object} [opts]
+   * @param {string} [opts.emptyTitle] 空状態の見出し
+   * @param {string} [opts.emptyHint] 空状態の補足文
+   */
+  function tierTableEditor(section, columns, opts) {
+    const o = opts || {};
+    const root = h("div", { class: "tier-table-editor card-list" });
+    const list = h("div", { class: "card-list-body" });
+    root.appendChild(list);
+
+    function tiersMap() {
+      return (section.tiers && typeof section.tiers === "object" && !Array.isArray(section.tiers))
+        ? section.tiers : null;
+    }
+
+    function render() {
+      list.innerHTML = "";
+      const map = tiersMap();
+      const ids = map ? Object.keys(map).sort((a, b) => Number(a) - Number(b)) : [];
+      if (!ids.length) {
+        list.appendChild(emptyGuide(
+          o.emptyTitle || "tier未設定(グローバル既定値のみ使用)",
+          o.emptyHint || "「+ tier追加」で段階ごとの値を設定できます。tiersが1件も無い間は、"
+            + "上のグローバル既定値がそのまま全員に使われます。"
+        ));
+      }
+      for (const id of ids) {
+        if (!map[id] || typeof map[id] !== "object") map[id] = normalizeTierRow(map[id], columns);
+        const row = map[id];
+        const line = h("div", { class: "stat-row tier-row" });
+        line.appendChild(h("span", { class: "mini-label", text: "tier" }));
+        line.appendChild(h("input", {
+          class: "field-input entry-key-input tier-key-input",
+          type: "number",
+          step: "1",
+          value: id,
+          spellcheck: "false",
+          onchange: (e) => {
+            const nv = e.target.value == null ? "" : String(e.target.value).trim();
+            if (nv === id) return;
+            if (!isPositiveIntegerTierKey(nv)) {
+              alert("tier番号は1以上の整数で入力してください。");
+              e.target.value = id;
+              return;
+            }
+            const canonical = String(Math.trunc(Number(nv)));
+            if (canonical !== id && Object.prototype.hasOwnProperty.call(map, canonical)) {
+              alert(`tier ${canonical} は既に存在します(重複不可)。`);
+              e.target.value = id;
+              return;
+            }
+            renameKey(map, id, canonical);
+            render();
+          }
+        }));
+        for (const col of columns) {
+          line.appendChild(h("span", { class: "mini-label", text: col.label || col.key }));
+          line.appendChild(window.numberInput(row[col.key] == null ? 0 : row[col.key], (v) => {
+            if (v == null || v === "") { row[col.key] = 0; return; }
+            row[col.key] = col.int ? Math.trunc(v) : v;
+          }, col.int ? { int: true } : undefined));
+        }
+        line.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => {
+            delete map[id];
+            pruneEmptyTiers(section);
+            render();
+          }
+        }));
+        list.appendChild(line);
+      }
+      list.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn-small", type: "button", text: "+ tier追加",
+          onclick: () => {
+            const target = ensureObj(section, "tiers");
+            const existingTiers = Object.keys(target).map((k) => Number(k)).filter((n) => Number.isFinite(n));
+            const next = String((existingTiers.length ? Math.max(...existingTiers) : 0) + 1);
+            target[next] = normalizeTierRow({}, columns);
+            render();
+          }
+        })
+      ]));
+    }
+    render();
+    return root;
+  }
+  // 2026-07-26 tier-expand: potion-merge(tf-crafting-features.js)/xp-bottle-store(このファイル内
+  // fishing-gimmick.yml フォーム)からも同じUIを再利用するため window に公開する(独自UI禁止の方針)。
+  window.tierTableEditor = tierTableEditor;
+
+  // ============================================================
+  // gathering.yml は廃止 (2026-07-23)。
+  // 採掘欄(fortune-*)は mining-gimmick タブの fortune: セクションへ、
+  // 釣り欄(skill-id/luck-per-level/bonus-per-level)は fishing-gimmick タブの
+  // fishing: セクションへ、それぞれ統合済み。stats/gathering.yml 自体の削除・値移行は別ウェーブ。
+  // ============================================================
+
+  // ============================================================
+  // mining-gimmick.yml
+  // ============================================================
+  window.buildMiningGimmickForm = function buildMiningGimmickForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    const vein = ensureObj(working, "vein-mining");
+    const haste = ensureObj(working, "haste-active-mining");
+    const fortune = ensureObj(working, "fortune");
+    ensureArr(vein, "ore-blocks");
+    ensureArr(fortune, "fortune-blocks");
+    const suspiciousRespawn = ensureObj(working, "suspicious-block-respawn");
+    const lootTables = ensureObj(suspiciousRespawn, "loot-tables");
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(banner("採掘ツリー専用効果の数値。vein-mining / haste / 幸運連携 / 追加ドロップ(drop-tables)。"
+      + " 旧ガチャ券1〜3のUIは廃止(ドロップテーブルへ統合)。"));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "怪しいブロックの再生成 (suspicious-block-respawn)" })],
+      [
+        h("div", { class: "form-hint", text:
+          "怪しい砂/怪しい砂利を採掘後、時間経過で再生成する際に使うバニラ考古学ルートテーブル名。"
+          + "左=ブロック種別キー(任意の識別子)、右=バニラ LootTable の名前。" }),
+        stringMapEditor(lootTables, { addLabel: "+ ブロック追加", valuePlaceholder: "例: DESERT_PYRAMID_ARCHAEOLOGY" })
+      ]
+    ));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "一括採掘 (vein-mining)" })],
+      [
+        numField(vein, "max-extra-blocks", {
+          label: "追加破壊上限(グローバル既定値)", int: true,
+          desc: "トリガー1個は含まない。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+        }),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
+        tierTableEditor(vein, [{ key: "max-extra-blocks", label: "追加破壊上限", int: true }]),
+        sub("対象鉱石"),
+        stringListEditor(vein["ore-blocks"], { material: true, addLabel: "+ 鉱石追加" })
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "採掘加速 (haste-active-mining)" })],
+      [
+        grid([
+          numField(haste, "amplifier", {
+            label: "Haste段階(グローバル既定値)", int: true,
+            desc: "0=I, 1=II。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(haste, "duration-ticks", {
+            label: "持続tick(グローバル既定値)", int: true,
+            desc: "20=1秒。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(haste, "cooldown-ticks", {
+            label: "CT(tick)", int: true,
+            desc: "tierに関わらず常にこの値(CT短縮は<id>-cooldown-reduction stat専用。tier表には含めない)。"
+          })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される (CTは含まない)"),
+        tierTableEditor(haste, [
+          { key: "amplifier", label: "Haste段階", int: true },
+          { key: "duration-ticks", label: "持続(tick)", int: true }
+        ])
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "採掘幸運 (fortune)" })],
+      [
+        grid([
+          numField(fortune, "fortune-per-level", { label: "Lvあたり幸運期待値", desc: "採掘スキルLv × この値(参照スキルはプラグイン側で MINING 固定)" })
+        ]),
+        sub("幸運対象ブロック (fortune-blocks)"),
+        stringListEditor(fortune["fortune-blocks"], { material: true, addLabel: "+ ブロック追加", empty: "対象ブロックがありません。" })
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
+      [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
+    ));
+    return { element: root, getData: () => working };
+  };
+
+  // ============================================================
+  // woodcutting-gimmick.yml
+  // ============================================================
+  window.buildWoodcuttingGimmickForm = function buildWoodcuttingGimmickForm(data, opts) {
+    const working = data && typeof data === "object" ? data : {};
+    // T6 (2026-07-26): crafting-features.yml の wood-repair(圧縮木材修繕)サブツリーをこのタブへ
+    // コンパニオン表示する。保存は getExtraSaves 経由で crafting-features へ(丸ごと読み込み・丸ごと
+    // 書き戻し、他のサブツリーは normalizeCraftingFeaturesWorking がそのまま温存する)。
+    const craftingFeaturesData = opts && opts.craftingFeaturesData && typeof opts.craftingFeaturesData === "object"
+      ? opts.craftingFeaturesData : undefined;
+    const hasCraftingFeatures = craftingFeaturesData !== undefined;
+    const craftingFeaturesWorking = hasCraftingFeatures ? craftingFeaturesData : {};
+    if (hasCraftingFeatures && typeof window.normalizeCraftingFeaturesWorking === "function") {
+      window.normalizeCraftingFeaturesWorking(craftingFeaturesWorking);
+    } else if (hasCraftingFeatures && (craftingFeaturesWorking["wood-repair"] == null || typeof craftingFeaturesWorking["wood-repair"] !== "object")) {
+      craftingFeaturesWorking["wood-repair"] = {};
+    }
+    const catalogCandidates = Array.isArray(opts && opts.catalogCandidates) ? opts.catalogCandidates : [];
+    const fell = ensureObj(working, "tree-fell");
+    // タスク3 (2026-07-26): small-max-extra-logs / large-max-extra-logs は 2026-07-25 の
+    // gather-rework-active-framework §6 Q1 で tree-fell.max-extra-logs 1本 + tiers へ統合済みで、
+    // Java (WoodcuttingGimmickConfig) はこの2キーをもう一切読まない死んだキー。editorがこれを
+    // 描画・書き込みし続けていたため、yml に紛れ込んだ場合そのまま残ってしまう。
+    // lib/cmd-removal.js の「参照専用ファイルの孤児エントリを保存前に取り除く」前例に倣い、
+    // フォーム構築時(working を直接編集するタイミング)にこのゴミキーを掃除する。
+    delete fell["small-max-extra-logs"];
+    delete fell["large-max-extra-logs"];
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(banner("伐採ツリー専用効果。一括伐採上限と追加ドロップ(drop-tables)。"
+      + " 旧リンゴ類(apple/golden-apple/crystal-apple)個別UIは廃止(ドロップテーブルへ統合)。"
+      + " 旧small/large 2本立てのUIは廃止(max-extra-logs 1本 + tier表へ統合済み)。"));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "一括伐採 (tree-fell)" })],
+      [
+        grid([
+          numField(fell, "max-extra-logs", {
+            label: "追加原木上限(グローバル既定値)", int: true,
+            desc: "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(fell, "cooldown-ticks", { label: "CT(tick)", int: true })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
+        tierTableEditor(fell, [{ key: "max-extra-logs", label: "追加原木上限", int: true }])
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
+      [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
+    ));
+
+    if (hasCraftingFeatures) {
+      root.appendChild(banner("以下の「木材修繕」は progression/crafting-features.yml のサブツリーです"
+        + "(このファイルとは別ファイル)。保存時は両方まとめて保存されます。"));
+      if (typeof window.buildCraftingFeaturesWoodRepairSection === "function") {
+        root.appendChild(window.buildCraftingFeaturesWoodRepairSection(craftingFeaturesWorking["wood-repair"], catalogCandidates));
+      } else {
+        root.appendChild(h("div", { class: "empty-hint", text: "木材修繕エディタ(tf-crafting-features.js)が読み込まれていません。" }));
+      }
+    }
+
+    return {
+      element: root,
+      getData: () => working,
+      getExtraSaves: () => hasCraftingFeatures ? [{ id: "crafting-features", data: craftingFeaturesWorking }] : []
+    };
+  };
+
+  // ============================================================
+  // digging-gimmick.yml (2026-07-23 新設)
+  // ============================================================
+  window.buildDiggingGimmickForm = function buildDiggingGimmickForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    const durabilityExp = ensureObj(working, "durability-exp");
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(banner("掘削(シャベル適正ブロック破壊)ギミック。追加ドロップ(drop-tables) + 耐久消費EXP換算。"));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
+      [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "耐久消費EXP換算 (durability-exp)" })],
+      [
+        grid([
+          numField(durabilityExp, "durability-per-percent", {
+            label: "1%ボーナスに必要な累積耐久消費量(グローバル既定値)", int: true,
+            desc: "例: 100なら、シャベルの耐久を100消費するごとに+1%(上限までクランプ)。上限%自体はスキルツリー側で決まる。"
+              + "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
+        h("div", { class: "form-hint", text:
+          "tierは digging-durability-vanilla-exp(バニラEXP、上限%そのもの)/digging-durability-job-exp"
+          + "(職業EXP、上限%そのもの)それぞれのスキルツリーノードvalueをそのまま流用する"
+          + "(例: 上限50%のノード保持者はtier=50の行を参照)。" }),
+        tierTableEditor(durabilityExp, [
+          { key: "durability-per-percent", label: "1%あたり必要耐久消費量", int: true }
+        ])
+      ]
+    ));
+    return { element: root, getData: () => working };
+  };
+
+  // ============================================================
+  // farming-gimmick.yml
+  // ============================================================
+  window.buildFarmingGimmickForm = function buildFarmingGimmickForm(data, opts) {
+    const working = data && typeof data === "object" ? data : {};
+    const area = ensureObj(working, "area-harvest");
+    const animal = ensureObj(working, "animal-damage-4x");
+    const bee = ensureObj(working, "bee-no-aggro");
+    // T6 (2026-07-26): 「食事ギミック」単独タブは廃止し、このタブの中で編集する(統合表示)。
+    // ファイル自体(stats/food-gimmick.yml)は分離したまま。保存は getExtraSaves 経由。
+    const foodGimmickData = opts && opts.foodGimmickData && typeof opts.foodGimmickData === "object"
+      ? opts.foodGimmickData : undefined;
+    const hasFoodGimmick = foodGimmickData !== undefined;
+    const foodSubform = hasFoodGimmick
+      ? window.buildFoodGimmickForm(foodGimmickData, { catalogCandidates: opts && opts.catalogCandidates })
+      : null;
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(banner("農業／畜産ギミック。範囲収穫・動物ダメ倍率・ハチ鎮静。"));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "範囲収穫 (area-harvest)" })],
+      [
+        grid([
+          numField(area, "radius", {
+            label: "範囲収穫半径(グローバル既定値)", int: true,
+            desc: "1=周囲3×3。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
+        tierTableEditor(area, [{ key: "radius", label: "半径", int: true }])
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "その他パラメータ" })],
+      [grid([
+        numField(animal, "multiplier", { label: "動物ダメ倍率" }),
+        numField(bee, "calm-radius", { label: "ハチ鎮静半径" })
+      ])]
+    ));
+
+    if (foodSubform) {
+      root.appendChild(banner("以下の「食事ギミック」は stats/food-gimmick.yml という別ファイルです"
+        + "(ここへ表示統合していますが、ファイル自体は分離したままです)。保存時は両方まとめて保存されます。"));
+      root.appendChild(foodSubform.element);
+    }
+
+    return {
+      element: root,
+      getData: () => working,
+      getExtraSaves: () => foodSubform ? [{ id: "food-gimmick", data: foodSubform.getData() }] : []
+    };
+  };
+
+  // ============================================================
+  // food-gimmick.yml
+  // ============================================================
+  window.buildFoodGimmickForm = function buildFoodGimmickForm(data, opts) {
+    const catalogCandidates = (opts && opts.catalogCandidates) || [];
+    const working = data && typeof data === "object" ? data : {};
+    ensureArr(working, "junk-food-materials");
+    const immun = ensureObj(working, "junkfood-immunity");
+    const inv = ensureObj(working, "junkfood-inversion");
+    const sat = ensureObj(working, "satiety-buff");
+    const customFoods = ensureObj(working, "custom-foods");
+    ensureArr(immun, "cancelled-debuff-effects");
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(banner("食事ギミック。ゴミ食の定義・免疫・逆転・満腹バフ・カスタム食料。"));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "ゴミ食 Material" })],
+      [stringListEditor(working["junk-food-materials"], { material: true, addLabel: "+ 食材追加" })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "免疫で打ち消すデバフ" })],
+      [
+        h("div", { class: "mini-label", text: "免疫時に自動で打ち消すデバフ効果。" }),
+        potionEffectListEditor(immun["cancelled-debuff-effects"], { addLabel: "+ 効果追加", empty: "打ち消すデバフがありません。" })
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "数値" })],
+      [grid([
+        numField(inv, "junk-saturation-bonus", { label: "ゴミ食 満腹加算" }),
+        numField(inv, "non-junk-saturation-penalty", { label: "通常食 満腹減算" }),
+        numField(sat, "saturation-bonus", { label: "満腹バフ 加算" })
+      ])]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "カスタム食料" })],
+      [
+        h("div", { class: "mini-label", text: "カタログアイテムに満腹度/隠し満腹度を割り当てる (custom-foods)。" }),
+        customFoodsEditor(customFoods, catalogCandidates)
+      ]
+    ));
+    return { element: root, getData: () => working };
+  };
+
+  /** custom-foods: { <itemId>: { "food-level": int(0-20), saturation: number(>=0) } } の編集UI */
+  function clampFoodLevel(v) {
+    const n = Math.trunc(Number(v));
+    if (!Number.isFinite(n)) return 0;
+    return Math.min(20, Math.max(0, n));
+  }
+  function clampSaturation(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return n;
+  }
+  function customFoodsEditor(map, catalogCandidates) {
+    const list = h("div", { class: "stat-rows" });
+    function render() {
+      list.innerHTML = "";
+      const ids = Object.keys(map);
+      if (!ids.length) {
+        list.appendChild(h("div", { class: "empty-hint", text: "カスタム食料がありません。" }));
+      }
+      for (const id of ids) {
+        const entry = map[id] && typeof map[id] === "object" ? map[id] : (map[id] = {});
+        const row = h("div", { class: "stat-row drop-entry-row" });
+        row.appendChild(window.catalogItemSuggest(id, catalogCandidates, (c) => {
+          const nv = c && c.id ? c.id : "";
+          if (!nv || nv === id) return;
+          if (Object.prototype.hasOwnProperty.call(map, nv)) { alert("同じIDがあります"); return; }
+          renameKey(map, id, nv);
+          render();
+        }, { placeholder: "カタログID / 表示名で検索" }));
+        row.appendChild(h("span", { class: "mini-label", text: "満腹度" }));
+        row.appendChild(window.numberInput(entry["food-level"] == null ? 0 : entry["food-level"], (v) => {
+          entry["food-level"] = clampFoodLevel(v);
+        }, { int: true }));
+        row.appendChild(h("span", { class: "mini-label", text: "隠し満腹度" }));
+        row.appendChild(window.numberInput(entry.saturation == null ? 0 : entry.saturation, (v) => {
+          entry.saturation = clampSaturation(v);
+        }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { delete map[id]; render(); }
+        }));
+        list.appendChild(row);
+      }
+      list.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 食料追加",
+        onclick: () => {
+          let n = "custom_food", i = 1;
+          while (Object.prototype.hasOwnProperty.call(map, n)) n = `custom_food_${i++}`;
+          map[n] = { "food-level": 0, saturation: 0 };
+          render();
+        }
+      }));
+    }
+    render();
+    return list;
+  }
+
+  // ============================================================
+  // fishing-gimmick.yml
+  // ============================================================
+  /**
+   * fish-sell.prices: { <Material または custom:カタログID> : <price:number> } の編集UI。
+   * T2(2026-07-25)でキーがMaterial限定でなくなり、ドロップテーブルの entries[].item と同じ
+   * トークン語彙(Material名 または custom:id)を受け付けるようになった。そのため入力部品も
+   * entries[].item と同一の window.materialInput({ allowCustom: true }) に統一する。
+   */
+  function fishSellPricesEditor(prices) {
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      const keys = Object.keys(prices);
+      if (!keys.length) box.appendChild(h("div", { class: "empty-hint", text: "売却対象がありません(未登録トークン=0円=売却対象外)。" }));
+      for (const key of keys) {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(window.materialInput(key, "material-list", (v) => {
+          const nv = String(v || "").trim();
+          if (!nv || nv === key) return;
+          if (Object.prototype.hasOwnProperty.call(prices, nv)) { alert("同じキーが存在します"); return; }
+          renameKey(prices, key, nv);
+          render();
+        }, { allowCustom: true }));
+        row.appendChild(h("span", { class: "mini-label", text: "売却額" }));
+        row.appendChild(window.numberInput(prices[key] == null ? 0 : prices[key], (v) => {
+          prices[key] = v == null || v === "" ? 0 : Math.max(0, v);
+        }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { delete prices[key]; render(); }
+        }));
+        box.appendChild(row);
+      }
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 追加",
+        onclick: () => {
+          let n = "COD", i = 1, key = n;
+          while (Object.prototype.hasOwnProperty.call(prices, key)) key = `${n}_${i++}`;
+          prices[key] = 0;
+          render();
+        }
+      }));
+    }
+    render();
+    return box;
+  }
+
+  /**
+   * fishing.groups.fish (T1 2026-07-25新設): 「通常の魚」枠の重み付きドロップテーブル。
+   * treasure/junk と完全に同一構造だが、未設定(空)＝バニラ釣果をそのまま維持、という後方互換
+   * 既定を持つ点だけが異なる。そのため treasure/junk と違い、フォームを開いただけでは
+   * fishing.groups.fish を書き込まず(dropTableEditor を呼ばない)、ユーザーが明示的に
+   * 「設定する」を押した時だけ groups.fish = { categories: {} } を生成して以降は
+   * dropTableEditor に委譲する。
+   */
+  function fishGroupEditor(fishing) {
+    const wrap = h("div", {});
+    function hasFish() {
+      return !!(fishing.groups && typeof fishing.groups === "object"
+        && Object.prototype.hasOwnProperty.call(fishing.groups, "fish"));
+    }
+    function renderEnabled() {
+      wrap.innerHTML = "";
+      wrap.appendChild(h("div", {
+        class: "mini-label",
+        text: "設定すると「通常の魚」の抽選結果がバニラ釣果からTF管理の重み付きドロップテーブルへ置き換わります。"
+      }));
+      wrap.appendChild(dropTableEditor(fishing, ["groups", "fish"], { triggerChance: false }));
+      wrap.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn-small danger", type: "button", text: "設定を解除する(バニラ釣果に戻す)",
+          onclick: () => {
+            if (fishing.groups && typeof fishing.groups === "object") delete fishing.groups.fish;
+            renderDisabled();
+          }
+        })
+      ]));
+    }
+    function renderDisabled() {
+      wrap.innerHTML = "";
+      wrap.appendChild(emptyGuide(
+        "未設定(バニラ釣果を維持)",
+        "「設定する」を押すまでは fishing.groups.fish は保存されず、通常の魚の釣果は従来どおりバニラのままです。"
+      ));
+      wrap.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 魚グループを設定する",
+        onclick: () => {
+          ensureObj(fishing, "groups").fish = { categories: {} };
+          renderEnabled();
+        }
+      }));
+    }
+    if (hasFish()) renderEnabled(); else renderDisabled();
+    return wrap;
+  }
+
+  window.buildFishingGimmickForm = function buildFishingGimmickForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    const fishing = ensureObj(working, "fishing");
+    const groupRatio = ensureObj(fishing, "group-ratio");
+    ensureArr(working, "junk-materials");
+    ensureArr(working, "treasure-materials");
+    ensureArr(fishing, "ocean-biomes");
+    const xp = ensureObj(working, "xp-bottle-store");
+    const fishSell = ensureObj(working, "fish-sell");
+    ensureObj(fishSell, "prices");
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(banner("釣りギミック。宝/ゴミの重み付きドロップテーブル + 釣り運連携比率。"
+      + " 旧ガチャ券4・5のUIは廃止(ドロップテーブルへ統合)。"));
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "釣りスキル連携 (fishing)" })],
+      [grid([
+        numField(fishing, "luck-per-level", { label: "Lvあたり釣運", desc: "装備品質mode用(参照スキルはプラグイン側で FISHING 固定)" }),
+        numField(fishing, "bonus-per-level", { label: "Lvあたり追加loot", desc: "非装備釣果の追加期待値" })
+      ])]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "宝/ゴミ/魚 比率 (group-ratio)" })],
+      [grid([
+        numField(groupRatio, "treasure-percent", { label: "宝グループ率%", desc: "釣り運statで乗算シフト(+10%=宝率×1.1)。増減分はゴミ/魚が比例で吸収" }),
+        numField(groupRatio, "junk-percent", { label: "ゴミグループ率%", desc: "残り(100−宝−ゴミ)は通常の魚(バニラ釣果のまま)" })
+      ])]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "海釣り判定バイオーム (fishing.ocean-biomes)" })],
+      [
+        h("div", { class: "mini-label", text: "釣り位置のバイオームがこの一覧に含まれる場合のみ ocean_fishing_bonus stat が加算されます。"
+          + "namespace無しの小文字表記 (例: ocean, deep_ocean)。候補から選べますが、バニラのバイオーム追加に"
+          + "追随できるよう一覧に無い値も自由入力できます(完全なセレクトにはしていません)。" }),
+        stringListEditor(fishing["ocean-biomes"], {
+          biome: true,
+          addLabel: "+ バイオーム追加",
+          empty: "対象バイオームがありません(海釣り判定なし)。"
+        })
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "釣果自動売却 (fish-sell)" })],
+      [
+        h("div", { class: "mini-label", text: "Material -> 基準売却額(Vault通貨)。未登録のMaterialは0円=売却対象外。"
+          + "fish_sell_price_bonus stat はこの基準額への倍率として乗算されます。" }),
+        fishSellPricesEditor(fishSell.prices),
+        grid([
+          numField(fishSell, "max-sells-per-minute", {
+            label: "1分あたり自動売却上限回数", int: true,
+            desc: "exploit対策(AFK釣り機/自動釣りマクロでの無限換金防止)"
+          })
+        ])
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "宝グループ (groups.treasure)" })],
+      [dropTableEditor(fishing, ["groups", "treasure"], { triggerChance: false })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "ゴミグループ (groups.junk)" })],
+      [dropTableEditor(fishing, ["groups", "junk"], { triggerChance: false, scrapExempt: true })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "魚グループ (groups.fish、既定は未設定=バニラ釣果維持)" })],
+      [fishGroupEditor(fishing)]
+    ));
+    root.appendChild(window.collapsibleCard(
+      [h("span", { class: "entry-key-label", text: "バニラ釣果フォールバック分類 (junk/treasure-materials)" })],
+      [
+        h("div", { class: "mini-label", text: "ドロップテーブル対象外(バニラ釣果)の宝/ゴミ大まかな分類。" }),
+        sub("ゴミ枠 Material"),
+        stringListEditor(working["junk-materials"], { material: true, addLabel: "+ 追加" }),
+        sub("宝枠 Material"),
+        stringListEditor(working["treasure-materials"], { material: true, addLabel: "+ 追加" })
+      ],
+      { expanded: false }
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "経験値瓶格納 (xp-bottle-store)" })],
+      [
+        grid([
+          numField(xp, "store-amount", {
+            label: "経験値瓶 格納量(グローバル既定値)", int: true,
+            desc: "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(xp, "return-rate", {
+            label: "還元率(0-1、グローバル既定値)",
+            desc: "取り出し時に返る割合(0.0〜1.0)。下のtier表に該当tier行がある場合はそちらが優先される。"
+          })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
+        tierTableEditor(xp, [
+          { key: "store-amount", label: "格納量", int: true },
+          { key: "return-rate", label: "還元率(0-1)" }
+        ])
+      ]
+    ));
+    return { element: root, getData: () => working };
+  };
+
+  // ============================================================
+  // villager-trades.yml
+  // ============================================================
+  const VILLAGER_PROFESSIONS = [
+    "WEAPONSMITH", "ARMORER", "TOOLSMITH", "CLERIC", "LIBRARIAN",
+    "FARMER", "FISHERMAN", "SHEPHERD", "BUTCHER", "CARTOGRAPHER",
+    "FLETCHER", "LEATHERWORKER", "MASON", "NITWIT", "NONE"
+  ];
+  // 内部キー(英語)は維持。表示のみ日本語化する。
+  const VILLAGER_PROFESSION_LABELS = {
+    WEAPONSMITH: "武器鍛冶", ARMORER: "防具鍛冶", TOOLSMITH: "道具鍛冶",
+    CLERIC: "聖職者", LIBRARIAN: "司書", FARMER: "農民", FISHERMAN: "漁師",
+    SHEPHERD: "羊飼い", BUTCHER: "肉屋", CARTOGRAPHER: "地図職人",
+    FLETCHER: "矢師", LEATHERWORKER: "革細工師", MASON: "石工",
+    NITWIT: "能無し", NONE: "職業なし"
+  };
+  function professionLabel(id) {
+    return VILLAGER_PROFESSION_LABELS[id] || id;
+  }
+
+  window.buildVillagerTradesForm = function buildVillagerTradesForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    if (!working.professions || typeof working.professions !== "object") working.professions = {};
+    const professions = working.professions;
+    const root = h("div", { class: "dedicated-form card-list" });
+    const list = h("div", { class: "card-list-body" });
+    root.appendChild(banner("スキル解放に連動する村人追加取引。解放は skilltree のノード効果「取引解放」"
+      + "(trade:<職業>) から参照する (このタブでは編集しない)。"));
+    root.appendChild(list);
+
+    // input/output は「Material または custom:カタログID」1本の統一入力に amount を添える形へ統一。
+    // 保存形状は既存互換を維持: custom: なら {catalog: xxx}、通常Materialなら {material: NAME}。
+    function itemAmountEditor(stack, label) {
+      if (!stack || typeof stack !== "object") stack = {};
+      const wrap = h("div", { class: "threshold-box" });
+      wrap.appendChild(sub(label));
+      const current = stack.catalog ? ("custom:" + stack.catalog) : (stack.material || "");
+      wrap.appendChild(grid([
+        field("item", window.materialInput(current, "material-list", (v) => {
+          if (!v) { delete stack.material; delete stack.catalog; return; }
+          if (/^custom:/i.test(v)) { stack.catalog = v.slice(v.indexOf(":") + 1); delete stack.material; }
+          else { stack.material = v; delete stack.catalog; }
+        }, { allowCustom: true }), { label: "アイテム", key: "item", desc: "Material名 または custom:カタログID" }),
+        numField(stack, "amount", { label: "個数", int: true, fallback: 1 })
+      ]));
+      return { el: wrap, stack };
+    }
+
+    function render() {
+      list.innerHTML = "";
+      const ids = Object.keys(professions);
+      if (!ids.length) {
+        list.appendChild(emptyGuide("職業がありません", "「+ 職業追加」で WEAPONSMITH などを追加します。"));
+      }
+      for (const id of ids) {
+        const prof = professions[id] && typeof professions[id] === "object" ? professions[id] : (professions[id] = {});
+        ensureArr(prof, "trades");
+        const head = [
+          h("strong", { text: professionLabel(id) }),
+          h("span", { class: "entry-key-label", text: id }),
+          h("span", { class: "spacer" }),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete professions[id]; render(); }
+          })
+        ];
+        const tradeBox = h("div", { class: "stat-rows" });
+        function renderTrades() {
+          tradeBox.innerHTML = "";
+          prof.trades.forEach((tr, idx) => {
+            if (!tr.input || typeof tr.input !== "object") tr.input = { material: "EMERALD", amount: 1 };
+            if (!tr.output || typeof tr.output !== "object") tr.output = { material: "DIRT", amount: 1 };
+            const block = h("div", { class: "threshold-box" });
+            block.appendChild(h("div", { class: "entry-head-row" }, [
+              h("span", { class: "mini-label", text: `取引 #${idx + 1}` }),
+              h("span", { class: "spacer" }),
+              h("button", {
+                class: "btn-small danger", type: "button", text: "×",
+                onclick: () => { prof.trades.splice(idx, 1); renderTrades(); }
+              })
+            ]));
+            block.appendChild(itemAmountEditor(tr.input, "支払い (input)").el);
+            block.appendChild(itemAmountEditor(tr.output, "受取 (output)").el);
+            block.appendChild(grid([
+              numField(tr, "max-uses", { label: "最大使用回数", int: true }),
+              numField(tr, "villager-xp", { label: "村人XP", int: true })
+            ]));
+            tradeBox.appendChild(block);
+          });
+          tradeBox.appendChild(h("button", {
+            class: "btn-small", type: "button", text: "+ 取引追加",
+            onclick: () => {
+              prof.trades.push({
+                input: { material: "EMERALD", amount: 1 },
+                output: { material: "BOOK", amount: 1 },
+                "max-uses": 8,
+                "villager-xp": 5
+              });
+              renderTrades();
+            }
+          }));
+        }
+        renderTrades();
+        const body = [
+          h("div", {
+            class: "mini-label",
+            text: `解放はスキルツリーのノード効果「取引解放」(trade:${id}) から参照します。`
+              + "どのノードからも参照されない取引は出現しません。"
+          }),
+          grid([
+            field("block-vanilla-trades", window.checkboxInput(!!prof["block-vanilla-trades"], (v) => {
+              prof["block-vanilla-trades"] = v;
+            }), { label: "バニラ取引を遮断", key: "block-vanilla-trades" })
+          ]),
+          sub("取引一覧"),
+          tradeBox
+        ];
+        list.appendChild(window.collapsibleCard(head, body, { expanded: ids.length <= 2 }));
+      }
+      list.appendChild(h("div", { class: "form-actions" }, [
+        window.listSelect({
+          value: "",
+          placeholder: "職業を選んで追加…",
+          options: VILLAGER_PROFESSIONS.filter((p) => !Object.prototype.hasOwnProperty.call(professions, p))
+            .map((p) => ({ value: p, primary: professionLabel(p), secondary: p, title: p })),
+          onChange: (v) => {
+            if (!v || Object.prototype.hasOwnProperty.call(professions, v)) return;
+            professions[v] = {
+              "unlock-effect": "",
+              "block-vanilla-trades": false,
+              trades: []
+            };
+            render();
+          }
+        })
+      ]));
+    }
+    render();
+    return { element: root, getData: () => working };
+  };
+
+  // ============================================================
+  // role-buffs.yml
+  // ============================================================
+  // 1.21現行の PotionEffectType キー。その他は自由入力(allowCustom)で許容する。
+  const POTION_EFFECT_OPTIONS = [
+    ["SPEED", "移動速度上昇"], ["SLOWNESS", "移動速度低下"], ["HASTE", "採掘速度上昇"],
+    ["MINING_FATIGUE", "採掘速度低下"], ["STRENGTH", "攻撃力上昇"], ["INSTANT_HEALTH", "即時回復"],
+    ["INSTANT_DAMAGE", "即時ダメージ"], ["JUMP_BOOST", "跳躍力上昇"], ["NAUSEA", "吐き気"],
+    ["REGENERATION", "再生能力"], ["RESISTANCE", "耐性"], ["FIRE_RESISTANCE", "火炎耐性"],
+    ["WATER_BREATHING", "水中呼吸"], ["INVISIBILITY", "透明化"], ["BLINDNESS", "盲目"],
+    ["NIGHT_VISION", "暗視"], ["HUNGER", "空腹"], ["WEAKNESS", "弱化"], ["POISON", "毒"],
+    ["WITHER", "ウィザー"], ["HEALTH_BOOST", "体力増強"], ["ABSORPTION", "衝撃吸収"],
+    ["SATURATION", "満腹度回復"], ["GLOWING", "発光"], ["LEVITATION", "浮遊"],
+    ["LUCK", "幸運"], ["UNLUCK", "不運"], ["SLOW_FALLING", "落下速度低下"],
+    ["CONDUIT_POWER", "コンジットパワー"], ["DOLPHINS_GRACE", "イルカの好意"],
+    ["BAD_OMEN", "不吉な予感"], ["HERO_OF_THE_VILLAGE", "村の英雄"]
+  ];
+  function potionEffectSelect(value, onChange) {
+    const cur = value == null ? "" : String(value);
+    const known = POTION_EFFECT_OPTIONS.some(([id]) => id === cur);
+    const CUSTOM_VALUE = "__custom_potion__";
+    return window.listSelect({
+      value: cur,
+      placeholder: "選択…",
+      allowCustom: true,
+      customPlaceholder: "その他のPotionEffectType (英字キー)",
+      customValue: CUSTOM_VALUE,
+      options: POTION_EFFECT_OPTIONS.map(([id, ja]) => ({ value: id, primary: ja, secondary: id, title: id }))
+        .concat(cur && !known ? [{ value: cur, primary: cur, secondary: "", title: cur }] : [])
+        .concat([{ value: CUSTOM_VALUE, primary: "その他(自由入力)…", secondary: "" }]),
+      onCommit: (v) => { onChange(v); return true; }
+    });
+  }
+  /** PotionEffectType 文字列リスト編集(行ごとに日本語select) */
+  function potionEffectListEditor(arr, opts) {
+    const o = opts || {};
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      if (!arr.length) {
+        box.appendChild(h("div", { class: "empty-hint", text: o.empty || "まだありません。" }));
+      }
+      arr.forEach((val, idx) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(potionEffectSelect(val || "", (v) => { arr[idx] = v; }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { arr.splice(idx, 1); render(); }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: o.addLabel || "+ 追加",
+        onclick: () => { arr.push(""); render(); }
+      }));
+    }
+    render();
+    return box;
+  }
+
+  window.buildRoleBuffsForm = function buildRoleBuffsForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    const combat = ensureObj(working, "combat-roles");
+    const support = ensureObj(working, "support-roles");
+    const change = ensureObj(working, "role-change");
+
+    const root = h("div", { class: "dedicated-form card-list" });
+    root.appendChild(banner("ロールバフ。戦闘職は攻撃／守備ステ、補助職はEXP倍率とポーション。"));
+    root.appendChild(banner(
+      "サーバ側最終クランプ(注記): flat系ステ ±400 / %系ステ ±1.0 / crit-damage・damage-modifier ±2.0 / "
+      + "ヘイト倍率 0〜15 / EXP倍率 1〜10。ここで設定した値がこの範囲を超えても保存はできるが、"
+      + "実際の効果は起動時にこの範囲へ丸められる(サーバ側が最終クランプする)。"
+    ));
+
+    function statMapEditor(map, title) {
+      const box = h("div", { class: "mob-defense-block" });
+      box.appendChild(sub(title));
+      const rows = h("div", { class: "stat-rows" });
+      function render() {
+        rows.innerHTML = "";
+        const keys = Object.keys(map);
+        if (!keys.length) rows.appendChild(h("div", { class: "empty-hint", text: "ステなし" }));
+        keys.forEach((k) => {
+          rows.appendChild(h("div", { class: "stat-row" }, [
+            window.statSelect(k, (nv) => {
+              if (!nv || nv === k) return false;
+              if (Object.prototype.hasOwnProperty.call(map, nv)) { alert("重複"); return false; }
+              renameKey(map, k, nv);
+              render();
+              return true;
+            }),
+            window.statValueControl
+              ? window.statValueControl(k, map[k], (v) => { map[k] = v; })
+              : window.numberInput(map[k], (v) => { map[k] = v == null ? 0 : v; }),
+            window.statUnitSlot ? window.statUnitSlot(k) : null,
+            h("button", {
+              class: "btn-small danger", type: "button", text: "×",
+              onclick: () => { delete map[k]; render(); }
+            })
+          ]));
+        });
+        rows.appendChild(h("button", {
+          class: "btn-small", type: "button", text: "+ ステ追加",
+          onclick: () => {
+            let n = "percent-bonus-damage", i = 1;
+            while (Object.prototype.hasOwnProperty.call(map, n)) n = `stat-${i++}`;
+            map[n] = 0;
+            render();
+          }
+        }));
+      }
+      render();
+      box.appendChild(rows);
+      return box;
+    }
+
+    function roleCards(host, kind) {
+      const list = h("div", { class: "card-list-body" });
+      function render() {
+        list.innerHTML = "";
+        const ids = Object.keys(host);
+        if (!ids.length) {
+          list.appendChild(emptyGuide("ロールがありません", "下のボタンで追加します。"));
+        }
+        for (const id of ids) {
+          const role = host[id] && typeof host[id] === "object" ? host[id] : (host[id] = {});
+          const head = [
+            h("input", {
+              class: "field-input entry-key-input",
+              value: id,
+              spellcheck: "false",
+              onchange: (e) => {
+                const nv = e.target.value.trim();
+                if (!nv || nv === id) { e.target.value = id; return; }
+                if (Object.prototype.hasOwnProperty.call(host, nv)) {
+                  alert("同じIDがあります"); e.target.value = id; return;
+                }
+                renameKey(host, id, nv);
+                render();
+              }
+            }),
+            h("span", { class: "spacer" }),
+            h("button", {
+              class: "btn-small danger", type: "button", text: "削除",
+              onclick: () => { delete host[id]; render(); }
+            })
+          ];
+          const body = [textField(role, "label", { label: "表示名" })];
+          if (kind === "combat") {
+            ensureObj(role, "attack-buffs");
+            ensureObj(role, "defense-buffs");
+            body.push(statMapEditor(role["attack-buffs"], "攻撃バフ (attack-buffs) — flat系±400/%系±1.0/crit-damage・damage-modifier±2.0でサーバ側最終クランプ"));
+            body.push(statMapEditor(role["defense-buffs"], "守備バフ (defense-buffs) — flat系±400/%系±1.0でサーバ側最終クランプ"));
+            body.push(numField(role, "hate-threat-multiplier", {
+              label: "ヘイト倍率",
+              desc: "タンク等。未設定可。サーバ側で 0〜15 に最終クランプされる。",
+              clearable: true
+            }));
+          } else {
+            body.push(grid([
+              field("exp-skill", window.skillSelect(role["exp-skill"] || "", (v) => {
+                if (v) role["exp-skill"] = v; else delete role["exp-skill"];
+              }, { allowEmpty: true }), { label: "EXP対象スキル", key: "exp-skill" }),
+              numField(role, "exp-multiplier", { label: "EXP倍率", desc: "サーバ側で 1〜10 に最終クランプされる。" })
+            ]));
+            const pot = ensureObj(role, "potion-buff");
+            body.push(sub("ポーションバフ"));
+            body.push(grid([
+              field("type", potionEffectSelect(pot.type || "", (v) => { pot.type = v; }), { label: "種類", key: "type" }),
+              numField(pot, "duration", { label: "持続tick", int: true }),
+              numField(pot, "amplifier", { label: "段階", int: true })
+            ]));
+          }
+          list.appendChild(window.collapsibleCard(head, body, { expanded: false }));
+        }
+        list.appendChild(h("div", { class: "form-actions" }, [
+          h("button", {
+            class: "btn", type: "button", text: kind === "combat" ? "+ 戦闘ロール" : "+ 補助ロール",
+            onclick: () => {
+              let n = kind === "combat" ? "new_combat" : "new_support", i = 1;
+              while (Object.prototype.hasOwnProperty.call(host, n)) n = `${n}_${i++}`;
+              host[n] = kind === "combat"
+                ? { label: n, "attack-buffs": {}, "defense-buffs": {} }
+                : { label: n, "exp-skill": "MINING", "exp-multiplier": 1.2, "potion-buff": { type: "SPEED", duration: 999999, amplifier: 0 } };
+              render();
+            }
+          })
+        ]));
+      }
+      render();
+      return list;
+    }
+
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "戦闘ロール (combat-roles)" })],
+      [roleCards(combat, "combat")]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "補助ロール (support-roles)" })],
+      [roleCards(support, "support")]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "ロール変更 (role-change)" })],
+      [field("allow-command", window.checkboxInput(!!change["allow-command"], (v) => {
+        change["allow-command"] = v;
+      }), { label: "/tf role set を許可", key: "allow-command", desc: "非戦闘時のみ" })]
+    ));
+
+    return { element: root, getData: () => working };
+  };
+})();

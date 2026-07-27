@@ -1,0 +1,209 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — 釣り (FISHING)
+# ----------------------------------------------------------------------------
+# エンコード規則（スライド草案 skilltree/skilltree/スライド9.PNG 準拠）:
+#   主軸 A/B/C/D/E = Lv10/30/50/70/90、Lv100でプレステージ、派生=X-n、X-alpha/beta=排他路線。
+#
+# ■生産系ツリーの方針（設計§D）: buffsなし。確率/経験値→effects、グリフ解放→commands+effects。
+#
+# ■このツリー固有の転写注記:
+#   Bから上段=alpha路線(ゴミ/スクラップ経済)、下段=beta路線(ガチャ券/宝)に分岐。
+#   スライド上に排他の明示ボックスは無いが、他ツリー同様 alpha/beta 排他と推定。
+#   beta路線(B-beta)は転写で「派生ノード」欄に記載されるがギリシャ命名のため greek/排他として扱う。
+#   alpha路線に明示Lvは無く、beta路線の推定Lv(40/40/60)に合わせて対称配置。
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/fishing.md
+skill: FISHING
+display-name: "釣り"
+icon: FISHING_ROD
+starting-coords: "2,10"
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: "大海の釣り王の栄光"
+  effect-text: "同時ヒット確率 永続+10・宝釣りの確率 永続+10%"
+  buffs:
+    fishing-bonus: 10
+    fishing-luck: 10
+
+nodes:
+  A:
+    name: "駆け出しの釣り人"
+    level: 10
+    role: main
+    parent: null
+    icon: FISHING_ROD
+    cost: 1
+    effect-text: "同時ヒット確率アップ・得られる経験値量アップ"
+    effects:
+      - "同時ヒット確率アップ"
+      - "得られる経験値量アップ"
+    buffs:
+      fishing-bonus: 5
+      skill-exp-bonus: 0.05
+  B:
+    name: "宝釣りの心得"
+    level: 30
+    role: main
+    parent: A
+    icon: COD
+    cost: 1
+    effect-text: "宝確率アップ・運+1・吸水・水源のグリフ開放"
+    effects:
+      - "宝確率アップ"
+      - "運+1"
+      - "吸水・水源のグリフを解放"
+    buffs:
+      loot_luck: 1   # 旧 native power_luckbonus_add (stat化)
+    dedicated-effects:
+      - id: "glyph:evaporate"
+  C:
+    name: "熟練の釣り師"
+    level: 50
+    role: main
+    parent: B
+    icon: SALMON
+    cost: 1
+    effect-text: "同時ヒット確率アップ・得られる経験値量アップ"
+    effects:
+      - "同時ヒット確率アップ"
+      - "得られる経験値量アップ"
+    buffs:
+      fishing-bonus: 10
+      skill-exp-bonus: 0.05
+  D:
+    name: "財宝ハンター"
+    level: 70
+    role: main
+    parent: C
+    icon: TROPICAL_FISH
+    cost: 1
+    effect-text: "宝確率アップ・回収グリフ解放"
+    effects:
+      - "宝確率アップ"
+      - "回収グリフを解放"
+    dedicated-effects:
+      - id: "glyph:pickup"
+  E:
+    name: "大海の釣り王"
+    level: 90
+    role: main
+    parent: D
+    icon: PUFFERFISH
+    cost: 1
+    effect-text: "宝と同時ヒットの確率アップ・海洋のスレッドがまれに釣れる"
+    effects:
+      - "宝と同時ヒットの確率アップ"
+      - "海洋のスレッドがまれに釣れる"
+    dedicated-effects:
+      - id: "drop:fishing:ocean_thread"
+
+  C-1:
+    name: "海釣りの心得I"
+    level: 60
+    role: branch
+    parent: C        # 線不明
+    icon: KELP
+    cost: 1
+    effect-text: "海で釣ると同時ヒット確率アップ"
+    effects:
+      - "海で釣ると同時ヒット確率アップ"
+    buffs:
+      ocean_fishing_bonus: 0.05
+  C-2:
+    name: "海釣りの心得II"
+    level: 80
+    role: branch
+    parent: C-1      # 直列連結。線不明
+    icon: SEAGRASS
+    cost: 1
+    effect-text: "海で釣ると同時ヒット確率アップ"
+    effects:
+      - "海で釣ると同時ヒット確率アップ"
+    buffs:
+      ocean_fishing_bonus: 0.05
+
+  B-alpha-1:
+    name: "スクラップ経済I"
+    level: 40           # alpha路線に明示Lvなし。beta路線に合わせ対称配置
+    role: greek
+    parent: B
+    group: B-greek
+    icon: ROTTEN_FLESH
+    cost: 1
+    effect-text: "宝が釣れなくなりゴミがつれるが魚が売れるようになる（宝の確率でゴミが釣れる）"
+    effects:
+      - "宝が釣れなくなりゴミが釣れるが魚が売れるようになる(宝の確率でゴミが釣れる)"
+    dedicated-effects:
+      - id: "feature:fish-sell-toggle"
+  B-alpha-2:
+    name: "スクラップ経済II"
+    level: 40
+    role: greek
+    parent: B-alpha-1
+    group: B-greek
+    icon: IRON_NUGGET
+    cost: 1
+    effect-text: "同時ヒット確率アップ・ゴミをスクラップにできる・スクラップは素材に変換可能"
+    effects:
+      - "同時ヒット確率アップ"
+      - "ゴミをスクラップにできる"
+      - "スクラップは素材に変換可能"
+    dedicated-effects:
+      - id: "feature:junk-to-scrap"
+  B-alpha-3:
+    name: "スクラップ経済III"
+    level: 60
+    role: greek
+    parent: B-alpha-2
+    group: B-greek
+    icon: IRON_INGOT
+    cost: 1
+    effect-text: "スクラップの変換効率と魚の売却価格がアップ"
+    effects:
+      - "スクラップの変換効率と魚の売却価格がアップ"
+    buffs:
+      disassembly_return_bonus: 0.2
+      fish_sell_price_bonus: 0.2
+
+  B-beta-1:
+    name: "ガチャ運I"
+    level: 40
+    role: greek
+    parent: B
+    group: B-greek
+    icon: NAUTILUS_SHELL
+    cost: 1
+    effect-text: "ガチャ券4が釣れる"
+    effects:
+      - "ガチャ券4が釣れる"
+    dedicated-effects:
+      - id: "drop:fishing:item:tf_gacha_ticket_4"
+  B-beta-2:
+    name: "宝運上昇"
+    level: 40
+    role: greek
+    parent: B-beta-1
+    group: B-greek
+    icon: HEART_OF_THE_SEA
+    cost: 1
+    effect-text: "宝確率アップ・釣り竿の品質に応じてさらに確率アップ"
+    effects:
+      - "宝確率アップ"
+      - "釣り竿の品質に応じてさらに確率アップ"
+  B-beta-3:
+    name: "ガチャ運II"
+    level: 60
+    role: greek
+    parent: B-beta-2
+    group: B-greek
+    icon: NAUTILUS_SHELL
+    cost: 1
+    effect-text: "ガチャ券5が釣れる"
+    effects:
+      - "ガチャ券5が釣れる"
+    dedicated-effects:
+      - id: "drop:fishing:item:tf_gacha_ticket_5"
+

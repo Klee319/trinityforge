@@ -1,0 +1,18 @@
+{
+  "name": "trinityforge-config-editor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TrinityForge / ArsPaper 装備・アイテム config(YAML) を編集するローカルWeb GUI",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "yaml": "^2.5.1"
+  }
+}

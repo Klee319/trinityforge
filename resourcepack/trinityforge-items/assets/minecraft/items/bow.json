@@ -1,0 +1,147 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "on_false": {
+        "model": "minecraft:item/bow",
+        "type": "minecraft:model"
+      },
+      "on_true": {
+        "entries": [
+          {
+            "model": {
+              "model": "minecraft:item/bow_pulling_1",
+              "type": "minecraft:model"
+            },
+            "threshold": 0.65
+          },
+          {
+            "model": {
+              "model": "minecraft:item/bow_pulling_2",
+              "type": "minecraft:model"
+            },
+            "threshold": 0.9
+          }
+        ],
+        "fallback": {
+          "model": "minecraft:item/bow_pulling_0",
+          "type": "minecraft:model"
+        },
+        "property": "minecraft:use_duration",
+        "scale": 0.05,
+        "type": "minecraft:range_dispatch"
+      },
+      "property": "minecraft:using_item",
+      "type": "minecraft:condition"
+    },
+    "entries": [
+      {
+        "threshold": 1091,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stone_bow"
+        }
+      },
+      {
+        "threshold": 1093,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_bow"
+        }
+      },
+      {
+        "threshold": 1094,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_bow"
+        }
+      },
+      {
+        "threshold": 1095,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/golden_bow"
+        }
+      },
+      {
+        "threshold": 1096,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_bow"
+        }
+      },
+      {
+        "threshold": 1097,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_bow"
+        }
+      },
+      {
+        "threshold": 1098,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/nether_star_bow"
+        }
+      },
+      {
+        "threshold": 1115,
+        "model": {
+          "on_false": {
+            "model": "minecraft:item/bow",
+            "type": "minecraft:model"
+          },
+          "on_true": {
+            "entries": [
+              {
+                "model": {
+                  "model": "minecraft:item/bow_pulling_1",
+                  "type": "minecraft:model"
+                },
+                "threshold": 0.65
+              },
+              {
+                "model": {
+                  "model": "minecraft:item/bow_pulling_2",
+                  "type": "minecraft:model"
+                },
+                "threshold": 0.9
+              }
+            ],
+            "fallback": {
+              "model": "minecraft:item/bow_pulling_0",
+              "type": "minecraft:model"
+            },
+            "property": "minecraft:use_duration",
+            "scale": 0.05,
+            "type": "minecraft:range_dispatch"
+          },
+          "property": "minecraft:using_item",
+          "type": "minecraft:condition"
+        }
+      },
+      {
+        "threshold": 1116,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_bow"
+        }
+      },
+      {
+        "threshold": 1117,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/nuclear_bow"
+        }
+      },
+      {
+        "threshold": 1118,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_bow"
+        }
+      }
+    ]
+  }
+}

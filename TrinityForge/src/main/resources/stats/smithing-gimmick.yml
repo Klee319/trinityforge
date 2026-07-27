@@ -1,0 +1,16 @@
+# TrinityForge - 鍛冶ツリー「精錬速度」(smithing.yml A-1/A-2/A-3)・「精錬ボーナス」(B-1/B-2/B-3) チューニング
+# ============================================================================
+# 所有者=精錬物(スロット0)を入れた本人。設置者ではない。FurnaceSmeltListenerがInventoryClickEvent
+# (手動投入)とInventoryMoveItemEvent(ホッパー自動投入)を見て、かまどのTileState PDCへ
+# 所有者UUID+モード(manual/auto)を刻む。精錬物スロットが空になった時点(=この人の投入分を
+# 精錬し終えた時点)でクリアするが、連続精錬中(投入した分がまだ残っている間)はクリアしない。
+#
+# ホッパー自動投入は「無限放置稼ぎ」を防ぐため、手動投入時の効果を auto-mode-multiplier で
+# 減衰させる(0.0=完全無効、1.0=手動と同じ)。ホッパーが投入するたびにmanualフラグを上書きするので、
+# 「1回だけ手で触ってあとは放置」というexploitも自動的にautoへ引き戻る(既存の醸造EXPと同じ設計)。
+
+# 精錬速度/精錬ボーナスの実際の%はスキルツリー側の dedicated-effects value(feature:furnace-smelt-speed /
+# feature:furnace-smelt-bonus)がそのまま使われる(A-1/A-2/A-3等はprerequisite連結のため
+# DedicatedEffectsConfig#valueMaxが保持ノード中の最大%を自動採用する)。このファイルは
+# auto-mode-multiplierのみを持つ。
+auto-mode-multiplier: 0.25

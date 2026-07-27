@@ -1,0 +1,60 @@
+# TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
+# Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
+# Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/mining_progression.md
+experience: 
+  max_level: 100 
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  exp_multiplier_mine: 1 
+  exp_multiplier_blast: 1.5 
+  exp_per_break: false
+  legacy:
+  mining_break: # Blocks mined or exploded will grant the player the amount of experience noted based on the amount of items it dropped,
+    NETHERRACK: 2
+    NETHER_QUARTZ_ORE: 40
+    QUARTZ: 20
+    NETHER_GOLD_ORE: 30
+    GOLD_NUGGET: 4
+    OBSIDIAN: 40
+    END_STONE: 12
+    COBBLESTONE: 8
+    COBBLED_DEEPSLATE: 12
+    STONE: 8
+    DEEPSLATE: 12
+    GRANITE: 8
+    ANDESITE: 8
+    DIORITE: 8
+    CALCITE: 8
+    TUFF: 8
+    DRIPSTONE_BLOCK: 12
+    AMETHYST_BLOCK: 16
+    BLACKSTONE: 12
+    BASALT: 12
+    SMOOTH_BASALT: 12
+    COAL_ORE: 40
+    COAL: 20
+    IRON_ORE: 80
+    RAW_IRON: 40
+    COPPER_ORE: 32
+    RAW_COPPER: 8
+    GOLD_ORE: 160
+    RAW_GOLD: 80
+    LAPIS_ORE: 320
+    LAPIS_LAZULI: 20
+    REDSTONE_ORE: 80
+    REDSTONE: 12
+    DIAMOND_ORE: 400
+    DIAMOND: 200
+    EMERALD_ORE: 400
+    EMERALD: 200
+    DEEPSLATE_COAL_ORE: 60
+    DEEPSLATE_IRON_ORE: 120
+    DEEPSLATE_COPPER_ORE: 84
+    DEEPSLATE_GOLD_ORE: 240
+    DEEPSLATE_LAPIS_ORE: 240
+    DEEPSLATE_REDSTONE_ORE: 120
+    DEEPSLATE_DIAMOND_ORE: 600
+    DEEPSLATE_EMERALD_ORE: 600
+    ANCIENT_DEBRIS: 1600
+    NETHERITE_SCRAP: 800
+

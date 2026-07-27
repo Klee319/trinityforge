@@ -1,0 +1,48 @@
+# ---- ビルド成果物 ----
+build/
+.gradle/
+out/
+bin/
+*.class
+# jar は全て再生成物（source/ のベンダー jar、フォークの libs/TrinityForge.jar 含む）。
+# 例外は gradle wrapper のみ（これが無いとビルドを起動できない）。
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# ---- 依存 ----
+node_modules/
+
+# ---- バックアップ（巨大・git で置き換わるもの） ----
+backups/
+backups.zip
+*.bak
+.backupdir_marker
+
+# ---- 一時ファイル・ログ ----
+tmp/
+_build_*.log
+*.log
+.DS_Store
+Thumbs.db
+
+# ---- 独自 git 管理下（このリポジトリの対象外） ----
+# 各々が独立したリポジトリなので gitlink 化を避けて除外する。
+# 詳細は fork-handoff/README.md を参照。
+fork-handoff/arspaper/fork/
+fork-handoff/elitemobs/elitemobs-fork/
+wiki/
+
+# ---- ローカル環境依存 ----
+# 絶対パス（D:\game\...）を含むローカル運用スクリプト
+.cursor-rcon.py
+
+# ---- 実サーバ由来の運用データ ----
+server.properties
+ops.json
+whitelist.json
+banned-*.json
+usercache.json
+*.jks
+*.pem
+.env
+.env.*

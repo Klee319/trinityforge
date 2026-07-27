@@ -1,0 +1,103 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/diamond_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 1099,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/revolution_bow"
+        }
+      },
+      {
+        "threshold": 1101,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_dagger"
+        }
+      },
+      {
+        "threshold": 1102,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_rapier"
+        }
+      },
+      {
+        "threshold": 1104,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_warhammer"
+        }
+      },
+      {
+        "threshold": 1105,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_greataxe"
+        }
+      },
+      {
+        "threshold": 1106,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 1107,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 1109,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 1110,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 1111,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_sword"
+        }
+      },
+      {
+        "threshold": 1113,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 1114,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 1119,
+        "model": {
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

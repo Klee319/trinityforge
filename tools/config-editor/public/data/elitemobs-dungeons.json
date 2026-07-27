@@ -1,0 +1,2045 @@
+{
+ "_comment": "EliteMobs 同梱の既定ダンジョン台帳。tools/scripts/gen-mob-overrides.py が生成する。手編集しないこと(再生成で上書きされる)。",
+ "dungeons": [
+  {
+   "world": "em_adventurers_guild",
+   "displayName": "冒険者ギルド(拠点)",
+   "mobs": [
+    {
+     "id": "training_dummy_lv1",
+     "displayName": "訓練用ダミー Lv.1"
+    },
+    {
+     "id": "training_dummy_lv100",
+     "displayName": "訓練用ダミー Lv.100"
+    },
+    {
+     "id": "training_dummy_lv25",
+     "displayName": "訓練用ダミー Lv.25"
+    },
+    {
+     "id": "training_dummy_lv50",
+     "displayName": "訓練用ダミー Lv.50"
+    },
+    {
+     "id": "training_dummy_lv75",
+     "displayName": "訓練用ダミー Lv.75"
+    },
+    {
+     "id": "wood_league_wave_10_boss",
+     "displayName": "悪い犬"
+    },
+    {
+     "id": "wood_league_wave_10_reinforcement",
+     "displayName": "悪い子犬 (増援)"
+    },
+    {
+     "id": "wood_league_wave_11_melee",
+     "displayName": "闘技場のゾンビ (第11波)"
+    },
+    {
+     "id": "wood_league_wave_11_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第11波)"
+    },
+    {
+     "id": "wood_league_wave_12_melee",
+     "displayName": "闘技場のゾンビ (第12波)"
+    },
+    {
+     "id": "wood_league_wave_12_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第12波)"
+    },
+    {
+     "id": "wood_league_wave_13_melee",
+     "displayName": "闘技場のゾンビ (第13波)"
+    },
+    {
+     "id": "wood_league_wave_13_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第13波)"
+    },
+    {
+     "id": "wood_league_wave_14_melee",
+     "displayName": "闘技場のゾンビ (第14波)"
+    },
+    {
+     "id": "wood_league_wave_14_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第14波)"
+    },
+    {
+     "id": "wood_league_wave_15_miniboss",
+     "displayName": "ブヒ氏"
+    },
+    {
+     "id": "wood_league_wave_16_melee",
+     "displayName": "ブヒ氏のファン (近接)"
+    },
+    {
+     "id": "wood_league_wave_16_ranged",
+     "displayName": "ブヒ氏のファン (遠隔)"
+    },
+    {
+     "id": "wood_league_wave_17_melee",
+     "displayName": "闘技場のゾンビ (第17波)"
+    },
+    {
+     "id": "wood_league_wave_17_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第17波)"
+    },
+    {
+     "id": "wood_league_wave_18_melee",
+     "displayName": "フェンシング部員"
+    },
+    {
+     "id": "wood_league_wave_19_ranged",
+     "displayName": "弓術部員"
+    },
+    {
+     "id": "wood_league_wave_1_melee",
+     "displayName": "闘技場のゾンビ (第1波)"
+    },
+    {
+     "id": "wood_league_wave_1_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第1波)"
+    },
+    {
+     "id": "wood_league_wave_20_boss",
+     "displayName": "ゾルタン"
+    },
+    {
+     "id": "wood_league_wave_21_melee",
+     "displayName": "闘技場のゾンビ (第21波)"
+    },
+    {
+     "id": "wood_league_wave_21_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第21波)"
+    },
+    {
+     "id": "wood_league_wave_22_melee",
+     "displayName": "闘技場のゾンビ (第22波)"
+    },
+    {
+     "id": "wood_league_wave_22_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第22波)"
+    },
+    {
+     "id": "wood_league_wave_23_melee",
+     "displayName": "闘技場のゾンビ (第23波)"
+    },
+    {
+     "id": "wood_league_wave_23_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第23波)"
+    },
+    {
+     "id": "wood_league_wave_24_melee",
+     "displayName": "闘技場のゾンビ (第24波)"
+    },
+    {
+     "id": "wood_league_wave_24_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第24波)"
+    },
+    {
+     "id": "wood_league_wave_25_miniboss",
+     "displayName": "アグドルアク"
+    },
+    {
+     "id": "wood_league_wave_26_melee",
+     "displayName": "闘技場のゾンビ (第26波)"
+    },
+    {
+     "id": "wood_league_wave_26_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第26波)"
+    },
+    {
+     "id": "wood_league_wave_27_melee",
+     "displayName": "闘技場のゾンビ (第27波)"
+    },
+    {
+     "id": "wood_league_wave_27_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第27波)"
+    },
+    {
+     "id": "wood_league_wave_28_melee",
+     "displayName": "闘技場のゾンビ (第28波)"
+    },
+    {
+     "id": "wood_league_wave_29_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第29波)"
+    },
+    {
+     "id": "wood_league_wave_2_melee",
+     "displayName": "闘技場のゾンビ (第2波)"
+    },
+    {
+     "id": "wood_league_wave_2_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第2波)"
+    },
+    {
+     "id": "wood_league_wave_30_boss",
+     "displayName": "南方の毒蛇"
+    },
+    {
+     "id": "wood_league_wave_31_melee",
+     "displayName": "闘技場のゾンビ (第31波)"
+    },
+    {
+     "id": "wood_league_wave_31_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第31波)"
+    },
+    {
+     "id": "wood_league_wave_32_melee",
+     "displayName": "闘技場のゾンビ (第32波)"
+    },
+    {
+     "id": "wood_league_wave_32_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第32波)"
+    },
+    {
+     "id": "wood_league_wave_33_melee",
+     "displayName": "闘技場のゾンビ (第33波)"
+    },
+    {
+     "id": "wood_league_wave_33_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第33波)"
+    },
+    {
+     "id": "wood_league_wave_34_melee",
+     "displayName": "闘技場のゾンビ (第34波)"
+    },
+    {
+     "id": "wood_league_wave_34_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第34波)"
+    },
+    {
+     "id": "wood_league_wave_35_miniboss",
+     "displayName": "道化師"
+    },
+    {
+     "id": "wood_league_wave_36_melee",
+     "displayName": "闘技場のゾンビ (第36波)"
+    },
+    {
+     "id": "wood_league_wave_36_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第36波)"
+    },
+    {
+     "id": "wood_league_wave_37_melee",
+     "displayName": "闘技場のゾンビ (第37波)"
+    },
+    {
+     "id": "wood_league_wave_37_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第37波)"
+    },
+    {
+     "id": "wood_league_wave_38_melee",
+     "displayName": "闘技場の剣士"
+    },
+    {
+     "id": "wood_league_wave_39_ranged",
+     "displayName": "闘技場の射手"
+    },
+    {
+     "id": "wood_league_wave_3_melee",
+     "displayName": "闘技場のゾンビ (第3波)"
+    },
+    {
+     "id": "wood_league_wave_3_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第3波)"
+    },
+    {
+     "id": "wood_league_wave_40_boss",
+     "displayName": "呪いを運ぶ者クルーシオ"
+    },
+    {
+     "id": "wood_league_wave_41_melee",
+     "displayName": "闘技場のゾンビ (第41波)"
+    },
+    {
+     "id": "wood_league_wave_41_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第41波)"
+    },
+    {
+     "id": "wood_league_wave_42_healer",
+     "displayName": "闘技場の治癒師 (第42波)"
+    },
+    {
+     "id": "wood_league_wave_42_melee",
+     "displayName": "闘技場のゾンビ (第42波)"
+    },
+    {
+     "id": "wood_league_wave_42_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第42波)"
+    },
+    {
+     "id": "wood_league_wave_43_healer",
+     "displayName": "闘技場の治癒師 (第43波)"
+    },
+    {
+     "id": "wood_league_wave_43_melee",
+     "displayName": "闘技場のゾンビ (第43波)"
+    },
+    {
+     "id": "wood_league_wave_43_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第43波)"
+    },
+    {
+     "id": "wood_league_wave_44_healer",
+     "displayName": "闘技場の治癒師 (第44波)"
+    },
+    {
+     "id": "wood_league_wave_44_melee",
+     "displayName": "闘技場のゾンビ (第44波)"
+    },
+    {
+     "id": "wood_league_wave_44_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第44波)"
+    },
+    {
+     "id": "wood_league_wave_45_miniboss",
+     "displayName": "千の刃"
+    },
+    {
+     "id": "wood_league_wave_46_healer",
+     "displayName": "闘技場の治癒師 (第46波)"
+    },
+    {
+     "id": "wood_league_wave_46_melee",
+     "displayName": "闘技場のゾンビ (第46波)"
+    },
+    {
+     "id": "wood_league_wave_46_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第46波)"
+    },
+    {
+     "id": "wood_league_wave_47_healer",
+     "displayName": "闘技場の治癒師 (第47波)"
+    },
+    {
+     "id": "wood_league_wave_47_melee",
+     "displayName": "闘技場のゾンビ (第47波)"
+    },
+    {
+     "id": "wood_league_wave_47_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第47波)"
+    },
+    {
+     "id": "wood_league_wave_48_healer",
+     "displayName": "闘技場の治癒師 (第48波)"
+    },
+    {
+     "id": "wood_league_wave_48_melee",
+     "displayName": "闘技場のゾンビ (第48波)"
+    },
+    {
+     "id": "wood_league_wave_49_healer",
+     "displayName": "闘技場の治癒師 (第49波)"
+    },
+    {
+     "id": "wood_league_wave_49_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第49波)"
+    },
+    {
+     "id": "wood_league_wave_4_melee",
+     "displayName": "闘技場のゾンビ (第4波)"
+    },
+    {
+     "id": "wood_league_wave_4_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第4波)"
+    },
+    {
+     "id": "wood_league_wave_50_boss",
+     "displayName": "覇者ウーサー"
+    },
+    {
+     "id": "wood_league_wave_50_boss_p2",
+     "displayName": "覇者ウーサー (第2段階)"
+    },
+    {
+     "id": "wood_league_wave_50_boss_p3",
+     "displayName": "覇者ウーサー (第3段階)"
+    },
+    {
+     "id": "wood_league_wave_50_reinforcement",
+     "displayName": "ウーサー・スタン (増援)"
+    },
+    {
+     "id": "wood_league_wave_5_miniboss",
+     "displayName": "奇妙な牛"
+    },
+    {
+     "id": "wood_league_wave_6_melee",
+     "displayName": "闘技場のゾンビ (第6波)"
+    },
+    {
+     "id": "wood_league_wave_6_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第6波)"
+    },
+    {
+     "id": "wood_league_wave_7_melee",
+     "displayName": "闘技場のゾンビ (第7波)"
+    },
+    {
+     "id": "wood_league_wave_7_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第7波)"
+    },
+    {
+     "id": "wood_league_wave_8_melee",
+     "displayName": "闘技場のゾンビ (第8波)"
+    },
+    {
+     "id": "wood_league_wave_9_ranged",
+     "displayName": "闘技場のクロスボウ兵 (第9波)"
+    }
+   ],
+   "package": "adventurers_guild_hub",
+   "contentType": "HUB"
+  },
+  {
+   "world": "em_beasts_sanctuary",
+   "displayName": "獣の聖域",
+   "package": "beasts_sanctuary_lair",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_dark_spire",
+   "displayName": "暗黒の尖塔",
+   "package": "the_dark_spire",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_diamond_arena",
+   "displayName": "ダイヤモンドリーグ闘技場",
+   "package": "diamond_league_arena",
+   "contentType": "OPEN_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_fireworks",
+   "displayName": "花火工房",
+   "mobs": [
+    {
+     "id": "fireworks_level_50_boss_phase_1",
+     "displayName": "スパーキー (第2段階)"
+    },
+    {
+     "id": "fireworks_level_50_boss_phase_2",
+     "displayName": "スパーキー (第3段階)"
+    },
+    {
+     "id": "fireworks_level_50_boss_phase_3",
+     "displayName": "スパーキー (第4段階)"
+    },
+    {
+     "id": "fireworks_phase_2_reinforcement",
+     "displayName": "ブーミ (第3段階) (増援)"
+    },
+    {
+     "id": "fireworks_phase_3_reinforcement",
+     "displayName": "パーティー客 (第4段階) (増援)"
+    }
+   ],
+   "package": "fireworks_lair",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_hallosseum",
+   "displayName": "ハロウィン闘技場",
+   "mobs": [
+    {
+     "id": "halloween_event_boss_mount",
+     "displayName": "命知らず (騎乗体)"
+    },
+    {
+     "id": "halloween_event_boss_p1",
+     "displayName": "デュラハン (第1段階)"
+    },
+    {
+     "id": "halloween_event_boss_p2",
+     "displayName": "デュラハン (第2段階)"
+    },
+    {
+     "id": "halloween_event_boss_reinforcement",
+     "displayName": "不気味なスケルトン (増援)"
+    }
+   ],
+   "package": "hallosseum_lair",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_binder_of_worlds",
+   "displayName": "世界を繋ぐ者の聖所",
+   "mobs": [
+    {
+     "id": "binder_of_worlds_phase_1_endermite_reinforcement",
+     "displayName": "現実を汚す者 (第2段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1",
+     "displayName": "世界を繋ぐ者 (第2段階)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_melee_miniboss",
+     "displayName": "現実を根こそぎにする者 (第2段階)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_melee_reinforcement",
+     "displayName": "現実を荒らす者 (第2段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_parkour_reinforcement",
+     "displayName": "現実の先触れ (第2段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_ranged_miniboss",
+     "displayName": "現実を滅ぼす者 (第2段階)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_ranged_reinforcement",
+     "displayName": "現実を滅ぼす者 (第2段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_status_miniboss",
+     "displayName": "現実をねじる者 (第2段階)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_1_status_reinforcement",
+     "displayName": "現実を破る者 (第2段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_2",
+     "displayName": "世界を繋ぐ者 (第3段階)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3",
+     "displayName": "世界を繋ぐ者 (第4段階)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3_enderman_reinforcement",
+     "displayName": "現実を屠る者 (第4段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3_ghast_reinforcement",
+     "displayName": "現実を切り刻む者 (第4段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3_shulker_reinforcement",
+     "displayName": "現実を裂く者 (第4段階) (増援)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3_zapper_reinforcement_hard",
+     "displayName": "電撃の増援 (第4段階) (増援) (上級)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3_zapper_reinforcement_mythic",
+     "displayName": "電撃の増援 (第4段階) (増援) (神話)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_3_zapper_reinforcement_normal",
+     "displayName": "電撃の増援 (第4段階) (増援) (通常)"
+    },
+    {
+     "id": "em_id_binder_of_worlds_phase_4",
+     "displayName": "世界を繋ぐ者"
+    }
+   ],
+   "package": "binder_of_worlds_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_bloodtemple",
+   "displayName": "プリミス 血の神殿",
+   "package": "primis_blood_temple_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_bone_monastery",
+   "displayName": "骨の修道院",
+   "package": "bone_monastery_dungeon",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_craftenmines_lab",
+   "displayName": "クラフテンマイン研究所",
+   "package": "craftenmines_lab_sanctum",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_1",
+   "displayName": "エンチャント試練 1",
+   "mobs": [
+    {
+     "id": "enchantment_boss_dark_flame",
+     "displayName": "暗黒の炎"
+    }
+   ],
+   "package": "enchantment_challenge_1_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_10",
+   "displayName": "エンチャント試練 10",
+   "mobs": [
+    {
+     "id": "enchantment_boss_tricky_bones",
+     "displayName": "厄介な骨"
+    },
+    {
+     "id": "enchantment_boss_tricky_bones_summon_arrow",
+     "displayName": "矢の射出装置 (召喚体)"
+    },
+    {
+     "id": "enchantment_boss_tricky_bones_summon_bow",
+     "displayName": "弓の射出装置 (召喚体)"
+    }
+   ],
+   "package": "enchantment_challenge_10_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_11",
+   "displayName": "エンチャント試練 11",
+   "package": "enchantment_challenge_11_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_12",
+   "displayName": "エンチャント試練 12",
+   "package": "enchantment_challenge_12_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_13",
+   "displayName": "エンチャント試練 13",
+   "package": "enchantment_challenge_13_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_14",
+   "displayName": "エンチャント試練 14",
+   "package": "enchantment_challenge_14_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_15",
+   "displayName": "エンチャント試練 15",
+   "package": "enchantment_challenge_15_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_16",
+   "displayName": "エンチャント試練 16",
+   "package": "enchantment_challenge_16_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_17",
+   "displayName": "エンチャント試練 17",
+   "package": "enchantment_challenge_17_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_18",
+   "displayName": "エンチャント試練 18",
+   "package": "enchantment_challenge_18_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_19",
+   "displayName": "エンチャント試練 19",
+   "package": "enchantment_challenge_19_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_2",
+   "displayName": "エンチャント試練 2",
+   "mobs": [
+    {
+     "id": "enchantment_boss_energized_bunny",
+     "displayName": "帯電したウサギ"
+    }
+   ],
+   "package": "enchantment_challenge_2_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_20",
+   "displayName": "エンチャント試練 20",
+   "package": "enchantment_challenge_20_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_enchantment_challenge_3",
+   "displayName": "エンチャント試練 3",
+   "mobs": [
+    {
+     "id": "enchantment_boss_jealous_block",
+     "displayName": "嫉妬するブロック"
+    }
+   ],
+   "package": "enchantment_challenge_3_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_4",
+   "displayName": "エンチャント試練 4",
+   "mobs": [
+    {
+     "id": "enchantment_boss_leet_summoner",
+     "displayName": "1337 サモナー (召喚体)"
+    },
+    {
+     "id": "enchantment_boss_leet_summoner_eidolon_one",
+     "displayName": "幻影エイドロン (召喚体) (1体目)"
+    },
+    {
+     "id": "enchantment_boss_leet_summoner_eidolon_two",
+     "displayName": "幻影エイドロン (召喚体) (2体目)"
+    }
+   ],
+   "package": "enchantment_challenge_4_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_5",
+   "displayName": "エンチャント試練 5",
+   "mobs": [
+    {
+     "id": "enchantment_boss_loveable_impaler",
+     "displayName": "愛らしき串刺し公"
+    },
+    {
+     "id": "enchantment_boss_loveable_impaler_trident_launcher",
+     "displayName": "トライデント発射機"
+    }
+   ],
+   "package": "enchantment_challenge_5_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_6",
+   "displayName": "エンチャント試練 6",
+   "mobs": [
+    {
+     "id": "enchantment_boss_ravegarer",
+     "displayName": "レイヴ荒らし"
+    }
+   ],
+   "package": "enchantment_challenge_6_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_7",
+   "displayName": "エンチャント試練 7",
+   "mobs": [
+    {
+     "id": "enchantment_boss_rock_solid_cold",
+     "displayName": "岩のような極寒"
+    }
+   ],
+   "package": "enchantment_challenge_7_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_8",
+   "displayName": "エンチャント試練 8",
+   "mobs": [
+    {
+     "id": "enchantment_boss_the_firebunger",
+     "displayName": "火炎装置"
+    }
+   ],
+   "package": "enchantment_challenge_8_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_enchantment_challenge_9",
+   "displayName": "エンチャント試練 9",
+   "mobs": [
+    {
+     "id": "enchantment_boss_the_glass_master",
+     "displayName": "硝子の達人"
+    }
+   ],
+   "package": "enchantment_challenge_9_sanctum",
+   "contentType": "INSTANCED_DUNGEON"
+  },
+  {
+   "world": "em_id_frost_palace",
+   "displayName": "氷結宮殿",
+   "package": "frost_palace_sanctum",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_oasis_pyramid",
+   "displayName": "オアシスのピラミッド",
+   "package": "oasis_pyramid_sanctum",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_primis_gladius",
+   "displayName": "プリミス グラディウス侵攻",
+   "package": "primis_gladius_invasion_dungeon",
+   "contentType": "INSTANCED_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_the_bridge",
+   "displayName": "古橋の聖所",
+   "mobs": [
+    {
+     "id": "the_bridge_ancient_guardian_p1",
+     "displayName": "古代の守護者 (第1段階)"
+    },
+    {
+     "id": "the_bridge_ancient_guardian_p2",
+     "displayName": "古代の守護者 (第2段階)"
+    },
+    {
+     "id": "the_bridge_ancient_guardian_p3",
+     "displayName": "古代の守護者 (第3段階)"
+    },
+    {
+     "id": "the_bridge_corpse_dummy",
+     "displayName": "ドワーフの死骸 (亡骸)"
+    },
+    {
+     "id": "the_bridge_corpse_dummy_2",
+     "displayName": "怪物の死骸 (亡骸)"
+    },
+    {
+     "id": "the_bridge_summon_drone_l",
+     "displayName": "ドローン L-2 (召喚体) (随伴機)"
+    },
+    {
+     "id": "the_bridge_summon_drone_r",
+     "displayName": "ドローン R-1 (召喚体) (随伴機)"
+    }
+   ],
+   "package": "the_bridge_sanctum",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_cave",
+   "displayName": "灼熱の洞窟",
+   "mobs": [
+    {
+     "id": "the_cave_boiled_bones_summon",
+     "displayName": "煮られた骨 (召喚体)"
+    },
+    {
+     "id": "the_cave_boiler_p1",
+     "displayName": "煮沸炉 (第1段階)"
+    },
+    {
+     "id": "the_cave_boiler_p2",
+     "displayName": "煮沸炉 (第2段階)"
+    },
+    {
+     "id": "the_cave_boiler_p3",
+     "displayName": "煮沸炉 (第3段階)"
+    },
+    {
+     "id": "the_cave_broiled_miner",
+     "displayName": "焼かれた坑夫"
+    }
+   ],
+   "package": "the_cave_sanctum",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_city",
+   "displayName": "ドワーフの地下都市",
+   "mobs": [
+    {
+     "id": "em_id_the_city_ancient_dwarf",
+     "displayName": "古代のドワーフ"
+    },
+    {
+     "id": "em_id_the_city_dwarven_miner",
+     "displayName": "ドワーフの坑夫"
+    },
+    {
+     "id": "em_id_the_city_dwarven_warrior",
+     "displayName": "ドワーフの戦士"
+    },
+    {
+     "id": "em_id_the_city_dwarven_worker",
+     "displayName": "ドワーフの労働者"
+    },
+    {
+     "id": "em_id_the_city_lost_dwarf",
+     "displayName": "迷えるドワーフ"
+    },
+    {
+     "id": "em_id_the_city_mad_dwarf",
+     "displayName": "狂ったドワーフ"
+    },
+    {
+     "id": "em_id_the_city_mini_boss_one",
+     "displayName": "都市の衛兵"
+    },
+    {
+     "id": "em_id_the_city_mini_boss_three",
+     "displayName": "都市の防衛兵"
+    },
+    {
+     "id": "em_id_the_city_mini_boss_two",
+     "displayName": "都市の監視者"
+    },
+    {
+     "id": "em_id_the_city_royal_guard_p1",
+     "displayName": "王室の近衛 (第1段階)"
+    },
+    {
+     "id": "em_id_the_city_royal_guard_p2",
+     "displayName": "王室の近衛 (第2段階)"
+    },
+    {
+     "id": "em_id_the_city_royal_guard_p3",
+     "displayName": "王室の近衛 (第3段階)"
+    }
+   ],
+   "package": "the_city_dungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_climb",
+   "displayName": "登攀路",
+   "mobs": [
+    {
+     "id": "the_climb_bone_champion",
+     "displayName": "村の勇者"
+    },
+    {
+     "id": "the_climb_bone_champion_p2",
+     "displayName": "村の勇者 (第2段階)"
+    },
+    {
+     "id": "the_climb_bone_champion_summon",
+     "displayName": "アンデッドのネズミ (召喚体)"
+    },
+    {
+     "id": "the_climb_flesh_starved_child",
+     "displayName": "焼かれた村人"
+    },
+    {
+     "id": "the_climb_frozen_remains",
+     "displayName": "忘れられた坑夫"
+    },
+    {
+     "id": "the_climb_reanimated_skeleton",
+     "displayName": "蘇った住人"
+    },
+    {
+     "id": "the_climb_rotting_carcass",
+     "displayName": "腐りゆく亡骸"
+    },
+    {
+     "id": "the_climb_shambling_skeleton",
+     "displayName": "捻じれた坑夫"
+    },
+    {
+     "id": "the_climb_skeletal_shadow",
+     "displayName": "魂の影"
+    },
+    {
+     "id": "the_climb_skeletal_shadow_ghast",
+     "displayName": "ジェフリー"
+    },
+    {
+     "id": "the_climb_skeletal_shadow_p2",
+     "displayName": "魂の影 (第2段階)"
+    },
+    {
+     "id": "the_climb_skeletal_shadow_summon",
+     "displayName": "白化した骨 (召喚体)"
+    },
+    {
+     "id": "the_climb_undead",
+     "displayName": "アンデッドの村人"
+    },
+    {
+     "id": "the_climb_undead_beastmaster",
+     "displayName": "アンデッドの調獣師"
+    },
+    {
+     "id": "the_climb_undead_beastmaster_mount",
+     "displayName": "アンデッドの獣 (騎乗体)"
+    },
+    {
+     "id": "the_climb_undead_beastmaster_mount_p2",
+     "displayName": "アンデッドの獣 (第2段階) (騎乗体)"
+    },
+    {
+     "id": "the_climb_undead_beastmaster_p2",
+     "displayName": "アンデッドの調獣師 (第2段階)"
+    },
+    {
+     "id": "the_climb_undead_beastmaster_p3",
+     "displayName": "アンデッドの調獣師 (第3段階)"
+    },
+    {
+     "id": "the_climb_undead_beastmaster_p4",
+     "displayName": "アンデッドの調獣師 (第4段階)"
+    },
+    {
+     "id": "the_climb_undead_beastmaster_summon_p4",
+     "displayName": "蘇生した獣 (第4段階) (召喚体)"
+    },
+    {
+     "id": "the_climb_undead_bruiser",
+     "displayName": "アンデッドの荒くれ"
+    },
+    {
+     "id": "the_climb_undead_guardian",
+     "displayName": "村の守護者"
+    },
+    {
+     "id": "the_climb_undead_guardian_p2",
+     "displayName": "村の守護者 (第2段階)"
+    },
+    {
+     "id": "the_climb_undead_warrior",
+     "displayName": "かつての防衛兵"
+    }
+   ],
+   "package": "the_climb_dungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_deep_mines",
+   "displayName": "深層鉱山",
+   "mobs": [
+    {
+     "id": "em_id_the_deep_mines_boom_surprise_ancient_husk",
+     "displayName": "古代のハスク"
+    },
+    {
+     "id": "em_id_the_deep_mines_boom_surprise_dummy",
+     "displayName": "サプライズダミー"
+    },
+    {
+     "id": "em_id_the_deep_mines_boss_the_pursuer_p1",
+     "displayName": "ネザーの魔物 (第1段階)"
+    },
+    {
+     "id": "em_id_the_deep_mines_boss_the_pursuer_p2",
+     "displayName": "ネザーの魔物 (第2段階)"
+    },
+    {
+     "id": "em_id_the_deep_mines_boss_the_pursuer_p3",
+     "displayName": "ネザーの魔物 (第3段階)"
+    },
+    {
+     "id": "em_id_the_deep_mines_experienced_miner",
+     "displayName": "熟練の坑夫"
+    },
+    {
+     "id": "em_id_the_deep_mines_miniboss_corrupted_digger",
+     "displayName": "堕落した掘削者"
+    },
+    {
+     "id": "em_id_the_deep_mines_miniboss_foreman",
+     "displayName": "現場監督"
+    },
+    {
+     "id": "em_id_the_deep_mines_miniboss_greedy_miner",
+     "displayName": "強欲な坑夫"
+    },
+    {
+     "id": "em_id_the_deep_mines_miniboss_twisted_excavator",
+     "displayName": "捻じれた掘削機"
+    },
+    {
+     "id": "em_id_the_deep_mines_nether_moss",
+     "displayName": "ネザーの苔"
+    },
+    {
+     "id": "em_id_the_deep_mines_nether_shroom",
+     "displayName": "ネザーのキノコ"
+    },
+    {
+     "id": "em_id_the_deep_mines_ore_transporter",
+     "displayName": "鉱石輸送機"
+    },
+    {
+     "id": "em_id_the_deep_mines_reinforcement_vex",
+     "displayName": "ネザーの精霊 (増援)"
+    },
+    {
+     "id": "em_id_the_deep_mines_slow_giver_dummy",
+     "displayName": "鈍化を与える者"
+    },
+    {
+     "id": "em_id_the_deep_mines_tired_excavator",
+     "displayName": "疲弊した探鉱者"
+    },
+    {
+     "id": "em_id_the_deep_mines_tnt_box",
+     "displayName": "TNT"
+    },
+    {
+     "id": "em_id_the_deep_mines_tnt_box_purple",
+     "displayName": "奇妙なTNT"
+    }
+   ],
+   "package": "the_deep_mines_dungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_hallowed_haunt",
+   "displayName": "聖域の怪異",
+   "package": "the_hallowed_haunt_dynamic_dungeon",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_id_the_mines",
+   "displayName": "鉱山",
+   "mobs": [
+    {
+     "id": "the_mines_arachnidian_construct",
+     "displayName": "蜘蛛型構造体"
+    },
+    {
+     "id": "the_mines_boss_soulfire_arrow_launcher",
+     "displayName": "矢の発射機"
+    },
+    {
+     "id": "the_mines_boss_soulfire_mount_p1",
+     "displayName": "炭化した村人 (第1段階) (騎乗体)"
+    },
+    {
+     "id": "the_mines_boss_soulfire_mount_p2",
+     "displayName": "炭化した村人 (第2段階) (騎乗体)"
+    },
+    {
+     "id": "the_mines_boss_soulfire_mount_p3",
+     "displayName": "炭化した村人 (第3段階) (騎乗体)"
+    },
+    {
+     "id": "the_mines_boss_soulfire_p1",
+     "displayName": "注ぎ込まれた魂 (第1段階)"
+    },
+    {
+     "id": "the_mines_boss_soulfire_p2",
+     "displayName": "注ぎ込まれた魂 (第2段階)"
+    },
+    {
+     "id": "the_mines_boss_soulfire_p3",
+     "displayName": "注ぎ込まれた魂 (第3段階)"
+    },
+    {
+     "id": "the_mines_crusty_bones",
+     "displayName": "干からびた骨"
+    },
+    {
+     "id": "the_mines_fractured_essence",
+     "displayName": "砕けた精髄"
+    },
+    {
+     "id": "the_mines_gel",
+     "displayName": "ゲル頭の村人"
+    },
+    {
+     "id": "the_mines_gel_mount",
+     "displayName": "干からびた死骸 (騎乗体)"
+    },
+    {
+     "id": "the_mines_gel_p2",
+     "displayName": "ゲル頭の村人 (第2段階)"
+    },
+    {
+     "id": "the_mines_living_slime",
+     "displayName": "生きたスライム"
+    },
+    {
+     "id": "the_mines_mini_boss_forger",
+     "displayName": "堕落した鍛冶師"
+    },
+    {
+     "id": "the_mines_mini_boss_tulpa",
+     "displayName": "魂のトゥルパ"
+    },
+    {
+     "id": "the_mines_mini_boss_tulpa_reinforcements",
+     "displayName": "凝集した思念 (増援)"
+    },
+    {
+     "id": "the_mines_mini_boss_tusk",
+     "displayName": "変成した肉"
+    },
+    {
+     "id": "the_mines_mini_boss_tusk_summon_one",
+     "displayName": "忍耐の魂 (召喚体)"
+    },
+    {
+     "id": "the_mines_mini_boss_tusk_summon_three",
+     "displayName": "不滅の魂 (召喚体)"
+    },
+    {
+     "id": "the_mines_mini_boss_tusk_summon_two",
+     "displayName": "俊敏の魂 (召喚体)"
+    },
+    {
+     "id": "the_mines_rearranged_hog",
+     "displayName": "組み替えられた肉"
+    },
+    {
+     "id": "the_mines_rejected_mass",
+     "displayName": "拒絶された肉塊"
+    },
+    {
+     "id": "the_mines_shifting_flesh_p1",
+     "displayName": "揺らめく坑夫 (第1段階)"
+    },
+    {
+     "id": "the_mines_shifting_flesh_p2",
+     "displayName": "揺らめく坑夫 (第2段階)"
+    },
+    {
+     "id": "the_mines_shifting_flesh_p3",
+     "displayName": "揺らめく坑夫 (第3段階)"
+    },
+    {
+     "id": "the_mines_soul_mass",
+     "displayName": "魂の塊"
+    },
+    {
+     "id": "the_mines_souless_husk",
+     "displayName": "囚われの村人"
+    },
+    {
+     "id": "the_mines_soulweaver_daine_p0",
+     "displayName": "魂織りのデイン"
+    },
+    {
+     "id": "the_mines_soulweaver_daine_p1",
+     "displayName": "魂織りのデイン (第1段階)"
+    },
+    {
+     "id": "the_mines_soulweaver_daine_p2",
+     "displayName": "魂織りのデイン (第2段階)"
+    },
+    {
+     "id": "the_mines_soulweaver_daine_p3",
+     "displayName": "魂織りのデイン (第3段階)"
+    },
+    {
+     "id": "the_mines_soulweaver_reinforcements",
+     "displayName": "魂の裂片 (増援)"
+    },
+    {
+     "id": "the_mines_swarmling",
+     "displayName": "群体"
+    },
+    {
+     "id": "the_mines_swarmling_summon",
+     "displayName": "下級の群体 (召喚体)"
+    },
+    {
+     "id": "the_mines_swarmling_summon_weak",
+     "displayName": "脆弱な群体 (召喚体)"
+    },
+    {
+     "id": "the_mines_the_undying",
+     "displayName": "閉じ込められた坑夫"
+    },
+    {
+     "id": "the_mines_undead",
+     "displayName": "アンデッド"
+    }
+   ],
+   "package": "the_mines_dungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_nether_bell",
+   "displayName": "ネザーの鐘",
+   "mobs": [
+    {
+     "id": "em_id_the_nether_bell_beam_boss_green_1_speed",
+     "displayName": "光を抱く者 (俊敏)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_green_2_strength",
+     "displayName": "光を抱く者 (剛力)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_green_3_night_vision",
+     "displayName": "光を抱く者 (暗視)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_red_1_slow",
+     "displayName": "虚無を抱く者 (鈍足)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_red_2_hunger",
+     "displayName": "虚無を抱く者 (飢餓)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_red_3_darkness",
+     "displayName": "虚無を抱く者 (暗闇)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_1_bogged",
+     "displayName": "悲嘆を抱く者 (沼)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_1_bogged_summon",
+     "displayName": "悲嘆を抱く者 (召喚体) (沼)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_2_breeze",
+     "displayName": "悲嘆を抱く者 (ブリーズ)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_2_breeze_summon",
+     "displayName": "悲嘆を抱く者 (召喚体) (ブリーズ)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_3_warden",
+     "displayName": "悲嘆を抱く者 (ウォーデン)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_3_warden_power_dummy",
+     "displayName": "悲嘆を抱く者 (ウォーデン・出力ダミー)"
+    },
+    {
+     "id": "em_id_the_nether_bell_beam_boss_yellow_3_warden_summon",
+     "displayName": "悲嘆を抱く者 (召喚体) (ウォーデン)"
+    },
+    {
+     "id": "em_id_the_nether_bell_boss_void_bell_p1",
+     "displayName": "虚無の鐘 (第1段階)"
+    },
+    {
+     "id": "em_id_the_nether_bell_boss_void_bell_p2",
+     "displayName": "虚無の鐘 (第2段階)"
+    },
+    {
+     "id": "em_id_the_nether_bell_boss_void_bell_p3",
+     "displayName": "虚無の鐘 (第3段階)"
+    },
+    {
+     "id": "em_id_the_nether_bell_corpse_phase_1",
+     "displayName": "腐らざる者 (第2段階) (亡骸)"
+    },
+    {
+     "id": "em_id_the_nether_bell_corpse_phase_2",
+     "displayName": "古代の骨 (第3段階) (亡骸)"
+    },
+    {
+     "id": "em_id_the_nether_bell_corpse_phase_3",
+     "displayName": "よろめくドワーフ (第4段階) (亡骸)"
+    },
+    {
+     "id": "em_id_the_nether_bell_summon_ancient_corpse",
+     "displayName": "古代の死骸 (召喚体) (亡骸)"
+    },
+    {
+     "id": "em_id_the_nether_bell_summon_dwarven_corpse_knight",
+     "displayName": "ドワーフの死の騎士 (召喚体) (亡骸)"
+    },
+    {
+     "id": "em_id_the_nether_bell_summon_fossilized_bones",
+     "displayName": "化石化した骨 (召喚体)"
+    },
+    {
+     "id": "em_id_the_nether_bell_world_disturbed_melee",
+     "displayName": "荒らされた亡骸 (近接)"
+    },
+    {
+     "id": "em_id_the_nether_bell_world_disturbed_ranged",
+     "displayName": "荒らされた骨"
+    },
+    {
+     "id": "em_id_the_nether_bell_world_disturbed_waker",
+     "displayName": "荒らされた亡骸 (覚醒役)"
+    },
+    {
+     "id": "em_id_the_nether_bell_world_wither",
+     "displayName": "虚無のモズ"
+    },
+    {
+     "id": "em_id_the_nether_bell_world_wither_skeleton",
+     "displayName": "虚無を歩む者"
+    },
+    {
+     "id": "em_id_the_nether_bell_world_wither_skeleton_sniper",
+     "displayName": "虚無を貫く者"
+    }
+   ],
+   "package": "the_nether_bell_sanctum",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_nether_wastes",
+   "displayName": "ネザーの荒野",
+   "mobs": [
+    {
+     "id": "em_id_the_nether_wastes_lesser_nether_fiend",
+     "displayName": "下級ネザーの魔物"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_1_slow",
+     "displayName": "重い瘴気"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_2_blind",
+     "displayName": "濃い瘴気"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_2_summon_hard",
+     "displayName": "呪術師 (召喚体) (上級)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_2_summon_mythical",
+     "displayName": "呪術師 (召喚体) (神話)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_2_summon_normal",
+     "displayName": "呪術師 (召喚体) (通常)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_3_poison",
+     "displayName": "有毒の瘴気"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_3_summon",
+     "displayName": "強化された骨組み (召喚体)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_4_fire",
+     "displayName": "致死の瘴気"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_4_summon",
+     "displayName": "ネザーの小悪魔 (召喚体)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_5_shroud_p1",
+     "displayName": "黒曜石の帳 (第1段階)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_5_shroud_p2",
+     "displayName": "黒曜石の帳 (第2段階)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_miniboss_5_summon",
+     "displayName": "黒曜石の猟犬 (召喚体)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_nether_beast",
+     "displayName": "ネザーの獣"
+    },
+    {
+     "id": "em_id_the_nether_wastes_nether_feeder",
+     "displayName": "ネザーの捕食者"
+    },
+    {
+     "id": "em_id_the_nether_wastes_nether_moss",
+     "displayName": "ネザーの苔"
+    },
+    {
+     "id": "em_id_the_nether_wastes_nether_shroom",
+     "displayName": "ネザーのキノコ"
+    },
+    {
+     "id": "em_id_the_nether_wastes_nether_sporeflinger",
+     "displayName": "ネザーの胞子飛ばし"
+    },
+    {
+     "id": "em_id_the_nether_wastes_summon_doomball",
+     "displayName": "破滅の球 (召喚体)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_summon_fireball",
+     "displayName": "火の玉 (召喚体)"
+    },
+    {
+     "id": "em_id_the_nether_wastes_summon_frostball",
+     "displayName": "氷の玉 (召喚体)"
+    }
+   ],
+   "package": "the_nether_wastes_dungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_palace",
+   "displayName": "宮殿",
+   "mobs": [
+    {
+     "id": "the_palace_old_stone_king_p1",
+     "displayName": "古き石の王 (第1段階)"
+    },
+    {
+     "id": "the_palace_old_stone_king_p2",
+     "displayName": "古き石の王 (第2段階)"
+    },
+    {
+     "id": "the_palace_old_stone_king_p3",
+     "displayName": "古き石の王 (第3段階)"
+    },
+    {
+     "id": "the_palace_old_stone_king_summon_1",
+     "displayName": "石の守護者 (召喚体) (1体目)"
+    },
+    {
+     "id": "the_palace_old_stone_king_summon_2",
+     "displayName": "石の守護者 (召喚体) (2体目)"
+    }
+   ],
+   "package": "the_palace_sanctum",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_id_the_quarry",
+   "displayName": "採石場",
+   "mobs": [
+    {
+     "id": "LiftAirFiller",
+     "displayName": "昇降機の送気装置"
+    },
+    {
+     "id": "LiftStateFinishDungeon",
+     "displayName": "昇降機の管理者 (最終段階)"
+    },
+    {
+     "id": "LiftStateFour",
+     "displayName": "昇降機の管理者 (段階4)"
+    },
+    {
+     "id": "LiftStateOne",
+     "displayName": "昇降機の管理者 (段階1)"
+    },
+    {
+     "id": "LiftStateThree",
+     "displayName": "昇降機の管理者 (段階3)"
+    },
+    {
+     "id": "LiftStateTwo",
+     "displayName": "昇降機の管理者 (段階2)"
+    },
+    {
+     "id": "LiftStateZero",
+     "displayName": "昇降機 状態ゼロ"
+    },
+    {
+     "id": "em_id_the_quarry_dedicated_miner",
+     "displayName": "熱心な坑夫"
+    },
+    {
+     "id": "em_id_the_quarry_lava_surprise",
+     "displayName": "溶融の驚異"
+    },
+    {
+     "id": "em_id_the_quarry_lift_calcium_miner",
+     "displayName": "石灰の坑夫"
+    },
+    {
+     "id": "em_id_the_quarry_lift_creeper",
+     "displayName": "魔力を帯びたクリーパー (本体)"
+    },
+    {
+     "id": "em_id_the_quarry_lift_creeper_activator",
+     "displayName": "魔力を帯びたクリーパー (起動役)"
+    },
+    {
+     "id": "em_id_the_quarry_lift_creeper_wizard_spawner",
+     "displayName": "魔力を帯びたクリーパー (術者スポナー)"
+    },
+    {
+     "id": "em_id_the_quarry_lift_royal_archer",
+     "displayName": "王室の射手"
+    },
+    {
+     "id": "em_id_the_quarry_light_bones",
+     "displayName": "空虚なドワーフ"
+    },
+    {
+     "id": "em_id_the_quarry_ore_hauler",
+     "displayName": "鉱石運搬者"
+    },
+    {
+     "id": "em_id_the_quarry_quarry_guard",
+     "displayName": "採石場の番人 (成体)"
+    },
+    {
+     "id": "em_id_the_quarry_quarry_guard_baby",
+     "displayName": "採石場の番人 (幼体)"
+    },
+    {
+     "id": "em_id_the_quarry_quarry_smith",
+     "displayName": "雷の鍛冶師"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_five",
+     "displayName": "王室の術士"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_five_unlocker_p1",
+     "displayName": "術式守護のトーテム (第1段階)"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_five_unlocker_p2",
+     "displayName": "術式守護のトーテム (第2段階)"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_five_unlocker_p3",
+     "displayName": "術式守護のトーテム (第3段階)"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_four",
+     "displayName": "王室の速射術士"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_one",
+     "displayName": "王室の織成術士"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_three",
+     "displayName": "王室の詠唱術士"
+    },
+    {
+     "id": "em_id_the_quarry_royal_wizard_two",
+     "displayName": "王室の招霊術士"
+    }
+   ],
+   "package": "the_quarry_dungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_invasion",
+   "displayName": "侵攻ミニダンジョン",
+   "package": "invasion_minidungeon",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_iron_league_arena",
+   "displayName": "アイアンリーグ闘技場",
+   "package": "iron_league_arena",
+   "contentType": "OPEN_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_knight_castle",
+   "displayName": "騎士団の城",
+   "mobs": [
+    {
+     "id": "the_castle_arcane_knight",
+     "displayName": "秘術の騎士"
+    },
+    {
+     "id": "the_castle_brave_knight",
+     "displayName": "勇敢な騎士"
+    },
+    {
+     "id": "the_castle_charlemagne_healer",
+     "displayName": "アザルーンの治癒師"
+    },
+    {
+     "id": "the_castle_charlemagne_hellstar",
+     "displayName": "地獄星"
+    },
+    {
+     "id": "the_castle_charlemagne_mount",
+     "displayName": "忠実な軍馬 (騎乗体)"
+    },
+    {
+     "id": "the_castle_charlemagne_p1",
+     "displayName": "シャルルマーニュ (第1段階)"
+    },
+    {
+     "id": "the_castle_charlemagne_p2",
+     "displayName": "シャルルマーニュ (第2段階)"
+    },
+    {
+     "id": "the_castle_charlemagne_p3",
+     "displayName": "シャルルマーニュ (第3段階)"
+    },
+    {
+     "id": "the_castle_charlemagne_p4",
+     "displayName": "シャルルマーニュ (第4段階)"
+    },
+    {
+     "id": "the_castle_cowardly_knight",
+     "displayName": "臆病な騎士"
+    },
+    {
+     "id": "the_castle_ser_prancelot_p1",
+     "displayName": "跳ねるランスロット卿 (第1段階)"
+    },
+    {
+     "id": "the_castle_ser_prancelot_p2",
+     "displayName": "跳ねるランスロット卿 (第2段階)"
+    }
+   ],
+   "package": "knights_castle_lair",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_north_pole",
+   "displayName": "北極ミニダンジョン",
+   "mobs": [
+    {
+     "id": "northpole_elf",
+     "displayName": "工房のエルフ"
+    },
+    {
+     "id": "northpole_elf_summon",
+     "displayName": "サンタのエルフ (召喚体)"
+    },
+    {
+     "id": "northpole_jack_frost",
+     "displayName": "ジャックフロスト"
+    },
+    {
+     "id": "northpole_krampus",
+     "displayName": "クランプス"
+    },
+    {
+     "id": "northpole_mrs_claus",
+     "displayName": "クロース夫人"
+    },
+    {
+     "id": "northpole_santa_claus",
+     "displayName": "サンタクロース"
+    },
+    {
+     "id": "northpole_skeleton_summon",
+     "displayName": "お仕置きリストの魂 (召喚体)"
+    },
+    {
+     "id": "northpole_snowy_wraith",
+     "displayName": "雪の亡霊"
+    }
+   ],
+   "package": "north_pole_minidungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_oasis",
+   "displayName": "オアシス",
+   "package": "oasis_adventure",
+   "contentType": "OPEN_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_primis",
+   "displayName": "プリミス",
+   "package": "primis_adventure",
+   "contentType": "OPEN_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_sewer_maze",
+   "displayName": "下水道迷宮",
+   "mobs": [
+    {
+     "id": "sewer_tier_10",
+     "displayName": "潜むもの"
+    },
+    {
+     "id": "sewer_tier_15",
+     "displayName": "這うもの"
+    },
+    {
+     "id": "sewer_tier_20_dry",
+     "displayName": "迷える放浪者"
+    },
+    {
+     "id": "sewer_tier_20_gravity_boss",
+     "displayName": "火花"
+    },
+    {
+     "id": "sewer_tier_20_water",
+     "displayName": "密輸業者"
+    },
+    {
+     "id": "sewer_tier_20_water_boss",
+     "displayName": "忘れられた英雄"
+    },
+    {
+     "id": "sewer_tier_20_wither_boss",
+     "displayName": "萎びた死骸"
+    },
+    {
+     "id": "sewer_tier_30_ice_boss",
+     "displayName": "氷の亡霊"
+    },
+    {
+     "id": "sewer_tier_30_invisibility_boss",
+     "displayName": "影の射手"
+    },
+    {
+     "id": "sewer_tier_30_melee",
+     "displayName": "下水道の獣"
+    },
+    {
+     "id": "sewer_tier_30_ranged",
+     "displayName": "霊と囁く者"
+    },
+    {
+     "id": "sewer_tier_40",
+     "displayName": "蜃気楼"
+    },
+    {
+     "id": "sewer_tier_40_darkness_boss",
+     "displayName": "影の支配者"
+    },
+    {
+     "id": "sewer_tier_40_darkness_boss_reinforcement",
+     "displayName": "影 (増援)"
+    },
+    {
+     "id": "sewer_tier_40_fire_boss",
+     "displayName": "焼き場の達人"
+    },
+    {
+     "id": "sewer_tier_40_fire_boss_reinforcement",
+     "displayName": "焔 (増援)"
+    },
+    {
+     "id": "sewer_tier_40_poison_boss",
+     "displayName": "有毒の庭師"
+    },
+    {
+     "id": "sewer_tier_40_poison_boss_reinforcement",
+     "displayName": "堕ちた庭師 (増援)"
+    },
+    {
+     "id": "sewer_tier_5",
+     "displayName": "下水道の作業員"
+    },
+    {
+     "id": "sewer_tier_50",
+     "displayName": "下水道のピラニア"
+    },
+    {
+     "id": "sewer_tier_50_lightning_boss",
+     "displayName": "ミョルニル"
+    },
+    {
+     "id": "sewer_tier_50_ravager_boss",
+     "displayName": "下水道の異形"
+    },
+    {
+     "id": "sewer_tier_50_spider_boss",
+     "displayName": "古代の這うもの"
+    },
+    {
+     "id": "sewer_tier_50_spider_boss_reinforcement",
+     "displayName": "小蜘蛛 (増援)"
+    },
+    {
+     "id": "sewer_tier_50_water_boss",
+     "displayName": "ピラニアの王"
+    },
+    {
+     "id": "sewer_tier_50_water_boss_reinforcement",
+     "displayName": "ピラニアの王子 (増援)"
+    },
+    {
+     "id": "sewer_tier_60",
+     "displayName": "溺死せし者"
+    },
+    {
+     "id": "sewer_tier_70_boss",
+     "displayName": "溺死者の王"
+    },
+    {
+     "id": "sewer_tier_70_boss_reinforcement",
+     "displayName": "溺死せし者 (増援)"
+    }
+   ],
+   "package": "sewers_minidungeon",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_steamworks_lair",
+   "displayName": "蒸気機関工房",
+   "mobs": [
+    {
+     "id": "the_steamworks_clk_wrx702_p1",
+     "displayName": "CLK-WRx702 (第1段階)"
+    },
+    {
+     "id": "the_steamworks_clk_wrx702_p2",
+     "displayName": "CLK-WRx702 (第2段階)"
+    },
+    {
+     "id": "the_steamworks_clk_wrx702_p3",
+     "displayName": "CLK-WRx702 (第3段階)"
+    },
+    {
+     "id": "the_steamworks_clk_wrx702_p4",
+     "displayName": "CLK-WRx702 (第4段階)"
+    },
+    {
+     "id": "the_steamworks_clk_wrx702_p5",
+     "displayName": "CLK-WRx702 (第5段階)"
+    },
+    {
+     "id": "the_steamworks_clk_wrx702_p6",
+     "displayName": "CLK-WRx702 (第6段階)"
+    },
+    {
+     "id": "the_steamworks_clk_wrx702_p7",
+     "displayName": "CLK-WRx702 (第7段階)"
+    },
+    {
+     "id": "the_steamworks_gnasuran_electrohead",
+     "displayName": "グナスラの電気頭"
+    },
+    {
+     "id": "the_steamworks_gnasuran_machinist",
+     "displayName": "グナスラの機械技師"
+    },
+    {
+     "id": "the_steamworks_gnasuran_tinkerer",
+     "displayName": "グナスラの修理屋 (本体)"
+    },
+    {
+     "id": "the_steamworks_gnasuran_weather_activate",
+     "displayName": "グナスラの修理屋 (天候起動役)"
+    }
+   ],
+   "package": "steamworks_lair",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_the_airship",
+   "displayName": "飛空艇",
+   "package": "the_airship",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_the_catacombs",
+   "displayName": "カタコンベ",
+   "package": "catacombs_lair",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_the_colosseum",
+   "displayName": "コロシアム",
+   "package": "the_colosseum_lair",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_the_dark_cathedral",
+   "displayName": "闇の大聖堂",
+   "mobs": [
+    {
+     "id": "dark_cathedral_tier_75_area_folk",
+     "displayName": "深淵のクトゥルフ信徒 (エリア)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_boss_phase_0",
+     "displayName": "クトゥルフの狂信者 (第1段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_boss_phase_1",
+     "displayName": "クトゥルフの狂信者 (第2段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_boss_phase_2",
+     "displayName": "クトゥルフの狂信者 (第3段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_boss_phase_3",
+     "displayName": "クトゥルフの狂信者 (第4段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_boss_phase_display",
+     "displayName": "クトゥルフの狂信者"
+    },
+    {
+     "id": "dark_cathedral_tier_75_bridge_folk",
+     "displayName": "クトゥルフの信徒"
+    },
+    {
+     "id": "dark_cathedral_tier_75_cathedral_folk_phase_1",
+     "displayName": "クトゥルフの崇拝者 (第2段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_cathedral_folk_phase_2",
+     "displayName": "クトゥルフの崇拝者 (第3段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_cathedral_folk_phase_3",
+     "displayName": "クトゥルフの崇拝者 (第4段階)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_miniboss_black_philip",
+     "displayName": "黒山羊フィリップ"
+    },
+    {
+     "id": "dark_cathedral_tier_75_reinforcement",
+     "displayName": "クトゥルフの落とし子 (増援)"
+    },
+    {
+     "id": "dark_cathedral_tier_75_surprise_folk",
+     "displayName": "深淵のクトゥルフ信徒 (奇襲)"
+    }
+   ],
+   "package": "dark_cathedral_lair",
+   "contentType": "DYNAMIC_DUNGEON"
+  },
+  {
+   "world": "em_the_pirate_ship",
+   "displayName": "海賊船",
+   "package": "pirate_ship_minidungeon",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_the_ruins",
+   "displayName": "遺跡",
+   "package": "the_ruins",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_the_vampire_manor",
+   "displayName": "吸血鬼の館",
+   "package": "vampire_manor_lair",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_under_grove",
+   "displayName": "地下樹林",
+   "package": "under_grove_lair",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  },
+  {
+   "world": "em_yggdrasil",
+   "displayName": "ユグドラシル",
+   "package": "yggdrasil_realm",
+   "contentType": "DYNAMIC_DUNGEON",
+   "mobs": []
+  }
+ ]
+}

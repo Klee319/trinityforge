@@ -1,0 +1,47 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/iron_sword",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_dagger"
+        }
+      },
+      {
+        "threshold": 9,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_rapier"
+        }
+      },
+      {
+        "threshold": 25,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_warhammer"
+        }
+      },
+      {
+        "threshold": 31,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_greataxe"
+        }
+      },
+      {
+        "threshold": 65,
+        "model": {
+          "model": "minecraft:item/iron_sword",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

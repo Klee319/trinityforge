@@ -1,0 +1,10 @@
+# TrinityForge — 使用レベル / 使用スキル制限のグローバルスイッチ。
+#
+# enforce: true  のとき、item-stats / catalog に use-level-requirement (>0) と use-skill が
+#           設定されたアイテムは、近接・弓・ツール等の使用をスキルレベルでブロックする。
+# enforce: false のとき、上記フィールドはアイテムに刻印されるがランタイムでは一切ブロックしない。
+#           use-level-requirement: 0 を明示して「制限なし」を記録できる（将来 enforce を true にした際の準備）。
+#
+# 防具・触媒（魔法）の装備/詠唱ゲートは未実装（いずれ enforce=true 時に追加予定）。
+
+enforce: true

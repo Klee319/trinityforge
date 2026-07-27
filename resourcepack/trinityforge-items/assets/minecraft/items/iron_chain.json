@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/iron_chain",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 68,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/fnis_peccati_profundi_68"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+# TrinityForge - 採集効率(効率強化エンチャント連動)上限設定
+#
+# gathering-efficiency ステータス(装備/防具/装飾品/パーク/base-stats等から通常通り合算。
+# 2026-07-26 ユーザー決定によりtool-enchant-efficiency由来のクラフト刻印値もここへ統合済み)を、
+# メインハンドの農業/採掘/伐採/切削(use-skillがFARMING/MINING/WOODCUTTING/DIGGING)いずれかの道具へ、
+# 実行時に「効率強化」エンチャントのレベルとして反映する(com.trinityforge.gathering.GatheringEfficiencyEnchantApplier)。
+#
+# バニラAttribute(mining-efficiency/mining-speed-bonus)ベースの旧実装は取り下げ済み: これらの属性は
+# Bedrock側に存在せず、Geyserの採掘時間計算にも含まれない(GeyserMC/Geyser#6266)ため、統合版プレイヤーの
+# 採掘速度が「素手に戻ってはまた戻る」「ゴーストブロック」等の症状を起こしていた。効率強化エンチャントは
+# Geyser側で正しく採掘時間へ反映されるため、この方式なら統合版でも正しく効く。
+# この制約は絶対であり、Attribute.MINING_EFFICIENCY / Attribute.BLOCK_BREAK_SPEED は今後も使用禁止。
+#
+# max-enchant-level: 反映できる効率強化レベルの上限。
+#   0(または負値) = 無制限(2026-07-26 ユーザー決定で既定値に変更。上限撤廃)。
+#   正の値を書けば、従来どおりその値が上限として機能する(後方互換)。
+#   無制限にしても、内部の安全装置として255(short範囲・NBT保護のためのハード上限、
+#   GatheringEfficiencyMath側で常に適用)は超えない。
+#
+# バランス上の注意: バニラの採掘速度は効率レベルの level^2 + 1 で伸びるため、10程度で大半のブロックが
+# 即破壊になる。無制限は意図的な選択だが、大きな値を入れる際はこの伸び方を踏まえて慎重に設定すること。
+# 変更する場合は自己責任で(/trinityforge reload で即時反映)。
+max-enchant-level: 0

@@ -1,0 +1,73 @@
+# TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
+# Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
+# Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+experience:
+  max_level: 100
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  legacy:
+  digging_break:
+    SNOW: 0.2
+    FARMLAND: 8
+    DIRT: 8
+    SAND: 8
+    RED_SAND: 8
+    COARSE_DIRT: 16
+    SNOW_BLOCK: 8
+    SOUL_SAND: 16
+    SOUL_SOIL: 16
+    GRASS_BLOCK: 16
+    DIRT_PATH: 16
+    MYCELIUM: 16
+    GRAVEL: 16
+    PODZOL: 16
+    CLAY: 24
+    CLAY_BALL: 6
+    MUD: 24
+    BONE: 25
+    STRING: 25
+    STICK: 15
+    COAL: 40
+    GUNPOWDER: 25
+    RAW_IRON: 100
+    RAW_GOLD: 100
+    RAW_COPPER: 100
+    ENDER_PEARL: 200
+    AMETHYST_SHARD: 200
+    DIAMOND: 500
+    EMERALD: 500
+    ECHO_SHARD: 2000
+    ENCHANTED_BOOK: 1000
+    NETHERITE_SCRAP: 1000
+  archaeology_brush:
+    SUSPICIOUS_STEW: 50
+    EMERALD: 100
+    GUNPOWDER: 30
+    TNT: 50
+    DIAMOND: 150
+    SNIFFER_EGG: 100
+    WHEAT: 10
+    WOODEN_HOE: 10
+    COAL: 30
+    GOLD_NUGGET: 10
+    IRON_AXE: 50
+    SHEAF_POTTERY_SHERD: 50
+    SHELTER_POTTERY_SHERD: 50
+    ANGLER_POTTERY_SHERD: 50
+    ARCHER_POTTERY_SHERD: 50
+    ARMS_UP_POTTERY_SHERD: 50
+    BLADE_POTTERY_SHERD: 50
+    BREWER_POTTERY_SHERD: 50
+    BURN_POTTERY_SHERD: 50
+    DANGER_POTTERY_SHERD: 50
+    EXPLORER_POTTERY_SHERD: 50
+    FRIEND_POTTERY_SHERD: 50
+    HEART_POTTERY_SHERD: 50
+    SNORT_POTTERY_SHERD: 50
+    SKULL_POTTERY_SHERD: 50
+    PRIZE_POTTERY_SHERD: 50
+    PLENTY_POTTERY_SHERD: 50
+    MOURNER_POTTERY_SHERD: 50
+    MINER_POTTERY_SHERD: 50
+    HOWL_POTTERY_SHERD: 50
+    HEARTBREAK_POTTERY_SHERD: 50
+

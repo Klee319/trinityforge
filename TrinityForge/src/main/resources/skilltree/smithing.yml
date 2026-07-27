@@ -1,0 +1,308 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — 鍛冶 (SMITHING)
+# ----------------------------------------------------------------------------
+# エンコード規則（スライド草案 skilltree/skilltree/スライド7.PNG 準拠）:
+#   主軸 A/B/C/D/E = Lv10/30/50/70/90、Lv100でプレステージ、派生=X-n、X-alpha/beta=排他路線。
+#
+# ■生産系ツリーの方針（設計§D）: buffsなし。品質/速度/ボーナス→effects、クラフト/魔法解放→commands。
+#
+# ■このツリー固有の転写注記（画像そのまま・重複ノード注意）:
+#   「B-3」表記が2箇所に存在する:
+#     (1) 上段ギリシャ路線末端「B-3 解体解放」 → 一意id `B-3-upper` に正規化（原表記: B-3）。
+#     (2) 下段の派生「B-3 鉱石の精錬ボーナス+30%」 → id `B-3` のまま。
+#   両者は別ノード。画像通り両方を転写。
+#   主軸クラフトは「武器と装備のみクラフト制限」(左上オレンジボックス)。
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/smithing.md
+skill: SMITHING
+display-name: "鍛冶"
+icon: SMITHING_TABLE
+starting-coords: "2,10"
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: "鍛冶王の栄光"
+  effect-text: "全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%"
+  buffs:
+    workbench_quality_bonus: 3
+    craft_upswing_bonus: 0.15
+
+nodes:
+  A:
+    name: "駆け出しの鍛冶"
+    level: 10
+    role: main
+    parent: null
+    icon: LEATHER_CHESTPLATE
+    cost: 1
+    effect-text: "木・革の品質+1・石・チェーン・銅のクラフト開放"
+    effects:
+      - "木・革の品質+1"
+      - "石・チェーン・銅のクラフトを解放"
+    buffs:
+      workbench_quality_bonus: 1
+    dedicated-effects:
+      - id: "recipe:stone_sword"
+      - id: "recipe:stone_pickaxe"
+      - id: "recipe:stone_axe"
+      - id: "recipe:stone_shovel"
+      - id: "recipe:stone_hoe"
+  B:
+    name: "銅細工の鍛冶"
+    level: 30
+    role: main
+    parent: A
+    icon: CHAINMAIL_CHESTPLATE
+    cost: 1
+    effect-text: "石・チェーン・銅のクラフト品質+1・鉄・金のクラフト開放"
+    effects:
+      - "石・チェーン・銅のクラフト品質+1"
+      - "鉄・金のクラフトを解放"
+    buffs:
+      workbench_quality_bonus: 1
+    dedicated-effects:
+      - id: "recipe:iron_sword"
+      - id: "recipe:iron_pickaxe"
+      - id: "recipe:iron_axe"
+      - id: "recipe:iron_shovel"
+      - id: "recipe:iron_hoe"
+      - id: "recipe:iron_helmet"
+      - id: "recipe:iron_chestplate"
+      - id: "recipe:iron_leggings"
+      - id: "recipe:iron_boots"
+      - id: "recipe:golden_sword"
+      - id: "recipe:golden_pickaxe"
+      - id: "recipe:golden_axe"
+      - id: "recipe:golden_shovel"
+      - id: "recipe:golden_hoe"
+      - id: "recipe:golden_helmet"
+      - id: "recipe:golden_chestplate"
+      - id: "recipe:golden_leggings"
+      - id: "recipe:golden_boots"
+  C:
+    name: "鉄金の鍛冶師"
+    level: 50
+    role: main
+    parent: B
+    icon: IRON_CHESTPLATE
+    cost: 1
+    effect-text: "鉄・金のクラフト品質+1・ダイヤのクラフト開放"
+    effects:
+      - "鉄・金のクラフト品質+1"
+      - "ダイヤのクラフトを解放"
+    buffs:
+      workbench_quality_bonus: 1
+    dedicated-effects:
+      - id: "recipe:diamond_sword"
+      - id: "recipe:diamond_pickaxe"
+      - id: "recipe:diamond_axe"
+      - id: "recipe:diamond_shovel"
+      - id: "recipe:diamond_hoe"
+      - id: "recipe:diamond_helmet"
+      - id: "recipe:diamond_chestplate"
+      - id: "recipe:diamond_leggings"
+      - id: "recipe:diamond_boots"
+  D:
+    name: "ダイヤの鍛冶匠"
+    level: 70
+    role: main
+    parent: C
+    icon: DIAMOND_CHESTPLATE
+    cost: 1
+    effect-text: "ダイヤのクラフト品質+1・ネザライトのクラフト開放"
+    effects:
+      - "ダイヤのクラフト品質+1"
+      - "ネザライトのクラフトを解放"
+    buffs:
+      workbench_quality_bonus: 1
+    dedicated-effects:
+      - id: "recipe:netherite_sword"
+      - id: "recipe:netherite_pickaxe"
+      - id: "recipe:netherite_axe"
+      - id: "recipe:netherite_shovel"
+      - id: "recipe:netherite_hoe"
+      - id: "recipe:netherite_helmet"
+      - id: "recipe:netherite_chestplate"
+      - id: "recipe:netherite_leggings"
+      - id: "recipe:netherite_boots"
+  E:
+    name: "ネザライトの鍛冶王"
+    level: 90
+    role: main
+    parent: D
+    icon: NETHERITE_CHESTPLATE
+    cost: 1
+    effect-text: "ネザライトクラフト品質+1・鍛冶師解放"
+    effects:
+      - "ネザライトクラフト品質+1"
+      - "鍛冶師を解放"
+    buffs:
+      workbench_quality_bonus: 1
+    dedicated-effects:
+      - id: "trade:WEAPONSMITH"
+      - id: "trade:ARMORER"
+      - id: "trade:TOOLSMITH"
+
+  A-1:
+    name: "精錬速度I"
+    level: 20
+    role: branch
+    parent: A        # 線不明
+    icon: FURNACE
+    cost: 1
+    effect-text: "精錬速度+10%"
+    effects:
+      - "精錬速度+10%"
+    dedicated-effects:
+      - id: "feature:furnace-smelt-speed"
+        value: 10
+  A-2:
+    name: "精錬速度II"
+    level: 40
+    role: branch
+    parent: A-1      # 直列連結。線不明
+    icon: FURNACE
+    cost: 1
+    effect-text: "精錬速度+20%"
+    effects:
+      - "精錬速度+20%"
+    dedicated-effects:
+      - id: "feature:furnace-smelt-speed"
+        value: 20
+  A-3:
+    name: "精錬速度III"
+    level: 40
+    role: branch
+    parent: A-2      # 直列連結。線不明
+    icon: BLAST_FURNACE
+    cost: 1
+    effect-text: "精錬速度+30%"
+    effects:
+      - "精錬速度+30%"
+    dedicated-effects:
+      - id: "feature:furnace-smelt-speed"
+        value: 30
+  A-4:
+    name: "精錬・制作魔法の解放"
+    level: 60
+    role: branch
+    parent: A-3      # 直列連結。線不明
+    icon: BLAST_FURNACE
+    cost: 1
+    effect-text: "精錬魔法開放・制作魔法解放"
+    effects:
+      - "精錬魔法を解放"
+      - "制作魔法を解放"
+    dedicated-effects:
+      - id: "glyph:smelt"
+      - id: "glyph:craft"
+
+  B-1:
+    name: "精錬ボーナスI"
+    level: 40
+    role: branch
+    parent: B        # 線不明
+    icon: RAW_IRON
+    cost: 1
+    effect-text: "鉱石の精錬ボーナス+10%"
+    effects:
+      - "鉱石の精錬ボーナス+10%"
+    dedicated-effects:
+      - id: "feature:furnace-smelt-bonus"
+        value: 10
+  B-2:
+    name: "精錬ボーナスII"
+    level: 40
+    role: branch
+    parent: B-1      # 直列連結。線不明
+    icon: RAW_GOLD
+    cost: 1
+    effect-text: "鉱石の精錬ボーナス+20%"
+    effects:
+      - "鉱石の精錬ボーナス+20%"
+    dedicated-effects:
+      - id: "feature:furnace-smelt-bonus"
+        value: 20
+  B-3:
+    name: "精錬ボーナスIII"    # 下段の派生B-3(精錬ボーナス+30%)。上段の解体解放B-3-upperとは別ノード
+    level: 60
+    role: branch
+    parent: B-2      # 直列連結。線不明
+    icon: RAW_GOLD
+    cost: 1
+    effect-text: "鉱石の精錬ボーナス+30%"
+    effects:
+      - "鉱石の精錬ボーナス+30%"
+    dedicated-effects:
+      - id: "feature:furnace-smelt-bonus"
+        value: 30
+
+  B-alpha-1:
+    name: "下振れ軽減I"
+    level: 30
+    role: greek
+    parent: B
+    group: B-greek
+    icon: QUARTZ
+    cost: 1
+    effect-text: "ランダムステータスの品質で下振れが減少"
+    effects:
+      - "ランダムステータスの品質で下振れが減少"
+    buffs:
+      craft_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
+  B-alpha-2:
+    name: "下振れ軽減II"
+    level: 50           # 画像に明示Lvなし。-2は+20と推定
+    role: greek
+    parent: B-alpha-1
+    group: B-greek
+    icon: QUARTZ
+    cost: 1
+    effect-text: "ランダムステータスの品質で下振れが減少"
+    effects:
+      - "ランダムステータスの品質で下振れが減少"
+    buffs:
+      craft_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
+  B-beta-1:
+    name: "品質上限I"
+    level: 30
+    role: greek
+    parent: B
+    group: B-greek
+    icon: AMETHYST_SHARD
+    cost: 1
+    effect-text: "クラフト品質+1"
+    effects:
+      - "クラフト品質+1"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native smithing_craftqualitybonus_add (stat化)
+  B-beta-2:
+    name: "品質上限II"
+    level: 50           # 画像に明示Lvなし。-2は+20と推定
+    role: greek
+    parent: B-beta-1
+    group: B-greek
+    icon: AMETHYST_SHARD
+    cost: 1
+    effect-text: "クラフト品質+1"
+    effects:
+      - "クラフト品質+1"
+    buffs:
+      workbench_quality_bonus: 1   # 旧 native smithing_craftqualitybonus_add (stat化)
+  B-3-upper:
+    name: "解体の術"
+    level: 70
+    role: greek
+    parent: B-alpha-2
+    parents-any: [B-beta-2]
+    icon: SHEARS
+    cost: 1
+    effect-text: "解体解放"
+    effects:
+      - "解体を解放"
+    dedicated-effects:
+      - id: "feature:dismantle-unlock"
+        value: 1
+

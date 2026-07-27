@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "trinityforge:item/source_gem_hoe"
+  }
+}

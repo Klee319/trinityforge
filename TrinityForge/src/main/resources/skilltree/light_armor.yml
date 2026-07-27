@@ -1,0 +1,307 @@
+﻿# ============================================================================
+# TrinityForge スキルツリー正典config — 軽装備 (LIGHT_ARMOR)
+# ----------------------------------------------------------------------------
+# これは「TF独自の単一の真実」です。ここを編集すると、ビルド/リロード時に
+# Valhalla用 progression YAML と lang が生成され、実行時に buffs が適用されます。
+#
+# エンコード規則（スライド草案 skilltree/skilltree/スライド15.PNG 準拠）:
+#   - 主軸 A/B/C/D/E の解放レベル = 10 / 30 / 50 / 70 / 90
+#   - レベル100でプレステージ可能
+#   - 主軸の「間」ノード = 中間レベル(20/40/60/80)
+#   - 派生ノード = X-n-m（親から派生）
+#   - X-alpha/beta/gamma-1 = ギリシャ文字路線（group が同じものは排他＝いずれか1つのみ）
+#
+# 各ノードのフィールド:
+#   name        : 解放要素の固有名（ゲーム内表示名。生成lang へ）
+#   level       : 解放レベル
+#   role        : main | intermediate | branch | greek
+#   parent      : 前提ノードid（派生元）。根は null
+#   group       : 排他グループid（greek のみ。同 group は相互排他）
+#   icon        : スキルツリーメニューのアイコン(Material)
+#   cost        : 消費スキルポイント
+#   effect-text : 説明（wiki と生成lang の description へ）
+#   buffs       : TFが所有・適用する数値バフ（TFステ辞書のkey→値）。★Valhalla側には渡さない（二重適用回避）
+#   native      : Valhallaネイティブ機構の perk_rewards（Valhallaが適用）。セット効果/アドレナリン等
+#   commands    : 解放時に実行するコマンド。任意
+#   effects     : 数値化しない効果タグ（wiki表示用の補足）。任意
+# ★数値は暫定プレースホルダ。プレイテスト後に調整してください。
+# ★ギリシャ路線: alpha=回避率(dodge-chance) / beta=防御率(armor-defense-rate) /
+#   gamma=被ダメージ軽減+移動速度(damage-reduction/move-speed) ※2026-07-26職業別草案準拠、
+#   旧alpha=守備力(phys-flat-defense/magic-flat-defense)は重装備側の役割に一本化するため廃止
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/light_armor.md
+skill: LIGHT_ARMOR
+display-name: "軽装備"
+icon: LEATHER_CHESTPLATE
+starting-coords: "2,10"
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: "韋駄天の境地"
+  effect-text: "守備力・防御率・被ダメージ軽減が永続で増加"
+  buffs:
+    phys-flat-defense: 0.15
+    magic-flat-defense: 0.15
+    armor-defense-rate: 0.1
+    damage-reduction: 0.1
+
+nodes:
+  A:
+    name: "軽身の心得"
+    level: 10
+    role: main
+    parent: null
+    icon: LEATHER_BOOTS
+    cost: 1
+    effect-text: "移動速度ペナルティ減少・空腹になりにくくなる"
+    buffs:
+      light-armor-move-speed-per-piece: 0.5
+    effects:
+      - "空腹になりにくくなる"
+  B:
+    name: "連携の装"
+    level: 30
+    role: main
+    parent: A
+    icon: LEATHER_LEGGINGS
+    cost: 1
+    effect-text: "セット効果量UP・3部位でセットが成立"
+    buffs:
+      light-armor-set-bonus-multiplier: 0.1
+    effects:
+      - "3部位でセット効果が成立"
+  C:
+    name: "回避の型"
+    level: 50
+    role: main
+    parent: B
+    icon: LEATHER_CHESTPLATE
+    cost: 1
+    effect-text: "回避率アップ・守備力増加・アドレナリン発動可能・3部位で回避率セットボーナス成立"
+    buffs:
+      dodge-chance: 0.1
+      phys-flat-defense: 0.1
+      magic-flat-defense: 0.1
+      light-armor-set-dodge-chance: 0.1
+    effects:
+      - "アドレナリンが発動可能になる"
+      - "軽装3部位以上で回避率セットボーナスが成立"
+  D:
+    name: "堅守の境地"
+    level: 70
+    role: main
+    parent: C
+    icon: LEATHER_HELMET
+    cost: 1
+    effect-text: "防御率・物理耐性UP・3部位でセットが成立"
+    buffs:
+      armor-defense-rate: 0.1
+      phys-resistance: 0.1
+    effects:
+      - "3部位でセット効果が成立"
+  E:
+    name: "極意・不動"
+    level: 90
+    role: main
+    parent: D
+    icon: DIAMOND_CHESTPLATE
+    cost: 1
+    effect-text: "被ダメージ軽減上昇・アドレナリン発動時バフ強化"
+    buffs:
+      damage-reduction: 0.1
+    effects:
+      - "アドレナリン発動時のバフが強化される"
+
+  C-1-1:
+    name: "魔除けの布"
+    level: 50
+    role: branch
+    parent: C
+    icon: ENDER_PEARL
+    cost: 1
+    effect-text: "魔法耐性増加"
+    buffs:
+      magic-resistance: 0.1
+  C-1-2:
+    name: "退魔の布"
+    level: 70
+    role: branch
+    parent: C-1-1
+    icon: ENDER_PEARL
+    cost: 1
+    effect-text: "魔法耐性増加"
+    buffs:
+      magic-resistance: 0.1
+  D-1-1:
+    name: "見切りの足捌き"
+    level: 70
+    role: branch
+    parent: D
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加・回避率セットボーナス強化"
+    buffs:
+      dodge-chance: 0.05
+      light-armor-set-dodge-chance: 0.05
+  D-1-2:
+    name: "神速の足捌き"
+    level: 90
+    role: branch
+    parent: D-1-1
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加・回避率セットボーナス強化"
+    buffs:
+      dodge-chance: 0.05
+      light-armor-set-dodge-chance: 0.05
+
+  A-alpha-1:
+    name: "迅・軽身"
+    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「堅・軽身」を変更。中身が守備力(硬さ)から
+    # 回避率(速さ)に変わったため。
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加"
+    # 2026-07-26 職業別草案(戦闘)準拠: α=回避型。守備力(重装備側の役割に一本化)からdodge-chanceへ。
+    buffs: { dodge-chance: 0.02 }
+  A-beta-1:
+    name: "盾・軽身"
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: SHIELD
+    cost: 1
+    effect-text: "防御率増加"
+    buffs: { armor-defense-rate: 0.02 }
+  A-gamma-1:
+    name: "減・軽身"
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: NETHERITE_SCRAP
+    cost: 1
+    effect-text: "被ダメージ軽減・移動速度増加"
+    # 2026-07-26 職業別草案(戦闘)準拠: γ=遊撃生存型。move-speedを追加し、重装備γ(会心軽減)との
+    # 性格差を作る。
+    buffs: { damage-reduction: 0.01, move-speed: 0.01 }
+  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
+  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
+  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
+  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+  B-alpha-1:
+    name: "迅・連携"
+    level: 30
+    role: greek
+    parent: A-alpha-1
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加"
+    buffs: { dodge-chance: 0.02 }
+  B-beta-1:
+    name: "盾・連携"
+    level: 30
+    role: greek
+    parent: A-beta-1
+    icon: SHIELD
+    cost: 1
+    effect-text: "防御率増加"
+    buffs: { armor-defense-rate: 0.02 }
+  B-gamma-1:
+    name: "減・連携"
+    level: 30
+    role: greek
+    parent: A-gamma-1
+    icon: NETHERITE_SCRAP
+    cost: 1
+    effect-text: "被ダメージ軽減・移動速度増加"
+    buffs: { damage-reduction: 0.01, move-speed: 0.01 }
+  C-alpha-1:
+    name: "迅・回避"
+    level: 50
+    role: greek
+    parent: B-alpha-1
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加"
+    buffs: { dodge-chance: 0.02 }
+  C-beta-1:
+    name: "盾・回避"
+    level: 50
+    role: greek
+    parent: B-beta-1
+    icon: SHIELD
+    cost: 1
+    effect-text: "防御率増加"
+    buffs: { armor-defense-rate: 0.02 }
+  C-gamma-1:
+    name: "減・回避"
+    level: 50
+    role: greek
+    parent: B-gamma-1
+    icon: NETHERITE_SCRAP
+    cost: 1
+    effect-text: "被ダメージ軽減・移動速度増加"
+    buffs: { damage-reduction: 0.01, move-speed: 0.01 }
+  D-alpha-1:
+    name: "迅・堅守"
+    level: 70
+    role: greek
+    parent: C-alpha-1
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加"
+    buffs: { dodge-chance: 0.02 }
+  D-beta-1:
+    name: "盾・堅守"
+    level: 70
+    role: greek
+    parent: C-beta-1
+    icon: SHIELD
+    cost: 1
+    effect-text: "防御率増加"
+    buffs: { armor-defense-rate: 0.02 }
+  D-gamma-1:
+    name: "減・堅守"
+    level: 70
+    role: greek
+    parent: C-gamma-1
+    icon: NETHERITE_SCRAP
+    cost: 1
+    effect-text: "被ダメージ軽減・移動速度増加"
+    buffs: { damage-reduction: 0.01, move-speed: 0.01 }
+  E-alpha-1:
+    name: "迅・不動"
+    level: 90
+    role: greek
+    parent: D-alpha-1
+    icon: FEATHER
+    cost: 1
+    effect-text: "回避率増加"
+    buffs: { dodge-chance: 0.02 }
+  E-beta-1:
+    name: "盾・不動"
+    level: 90
+    role: greek
+    parent: D-beta-1
+    icon: SHIELD
+    cost: 1
+    effect-text: "防御率増加"
+    buffs: { armor-defense-rate: 0.02 }
+  E-gamma-1:
+    name: "減・不動"
+    level: 90
+    role: greek
+    parent: D-gamma-1
+    icon: NETHERITE_SCRAP
+    cost: 1
+    effect-text: "被ダメージ軽減・移動速度増加"
+    buffs: { damage-reduction: 0.01, move-speed: 0.01 }
+

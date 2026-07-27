@@ -1,0 +1,27 @@
+# TrinityForge - 掘削(シャベル適正ブロック破壊)ギミック チューニング
+# 設計書 2026-07-23-stat-gate-overhaul.md §4 準拠。
+# 対象判定は digging_progression.yml の digging_break 表を流用する DiggingGimmickListener が担う。
+# ruins-thread ドロップは旧 fork ArsPaper loot/RuinsThreadDropListener(ruins-thread-drop dedicated-effect)
+# の挙動移植: 同リスナーがドロップするのと同じ空スレッド item id (thread_empty、Ars item registry) を使う。
+# 設定リファレンス(本文コメント移設先): docs/config-reference/stats/digging-gimmick.md
+
+drop-tables:
+  categories:
+    ruins_thread:
+      display-name: "遺跡の空スレッド"
+      trigger-chance-percent: 5.0
+      entries:
+        - item: thread_empty
+          weight: 1
+          amount: 1
+
+durability-exp:
+  durability-per-percent: 100
+  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
+  # tierはスキルツリーのノード value から決まる — ここでは digging-durability-vanilla-exp(C-1、value=50)/
+  # digging-durability-job-exp(C-2、value=25)それぞれの上限%そのものをtierとして流用する
+  # (DedicatedEffectsConfig#valueMax)。該当tier未満の行しか無い場合はより小さいtierの行へフォールバックし、
+  # どの行にも満たない場合はグローバル既定値(上のdurability-per-percent)を使う。
+  # tiers:
+  #   25: { durability-per-percent: 80 }   # C-2(職業EXP、上限25%)保持者向けに変換レートを個別調整する例
+  #   50: { durability-per-percent: 120 }  # C-1(バニラEXP、上限50%)保持者向けに変換レートを個別調整する例

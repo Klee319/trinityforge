@@ -1,0 +1,112 @@
+# ガチャ設定 (gacha.yml)
+# 「ガチャ券」アイテムを右クリックすると、景品プールから1点だけ抽選され、券が1個消費される。
+# 券の判定はitemCatalog ID (PDCタグ)で行われ、表示名では判定しない。
+
+# tickets: 券アイテムの定義。
+#   キー = 券アイテムの items/catalog.yml 上のID (表示名ではなくこのIDで判定される)
+#   pool = 参照する景品プールID (下の pools セクションのキー)
+# 設定リファレンス(本文コメント移設先): docs/config-reference/gacha.md
+
+tickets:
+  tf_gacha_ticket:
+    pool: standard
+
+  tf_gacha_ticket_1:
+    pool: tier1
+  tf_gacha_ticket_2:
+    pool: tier2
+  tf_gacha_ticket_3:
+    pool: tier3
+  tf_gacha_ticket_4:
+    pool: tier4
+  tf_gacha_ticket_5:
+    pool: tier5
+
+pools:
+  standard:
+    pity:
+      threshold: 30
+    entries:
+      - item: "example_sword"
+        weight: 10
+        amount: 1
+        quality-random: true
+      - item: "DIAMOND"
+        weight: 5
+        amount: 3
+      - item: "tf_core_wood"
+        weight: 2
+        amount: 1
+
+  tier1:
+    pity:
+      threshold: 20
+    entries:
+      - item: "GOLD_INGOT"
+        weight: 15
+        amount: 2
+      - item: "DIAMOND"
+        weight: 8
+        amount: 1
+      - item: "tf_scrap"
+        weight: 10
+        amount: 3
+  tier2:
+    pity:
+      threshold: 25
+    entries:
+      - item: "EMERALD"
+        weight: 10
+        amount: 2
+      - item: "example_sword"
+        weight: 5
+        amount: 1
+        quality-random: true
+      - item: "tf_core_wood"
+        weight: 3
+        amount: 1
+  tier3:
+    pity:
+      threshold: 25
+    entries:
+      - item: "example_bow"
+        weight: 5
+        amount: 1
+        quality-random: true
+      - item: "DIAMOND"
+        weight: 10
+        amount: 3
+      - item: "tf_core_vegetable"
+        weight: 3
+        amount: 1
+  tier4:
+    pity:
+      threshold: 20
+    entries:
+      - item: "NETHERITE_SCRAP"
+        weight: 5
+        amount: 1
+      - item: "tf_core_meat"
+        weight: 3
+        amount: 1
+      - item: "mage_guardian_novice_helmet"
+        weight: 2
+        amount: 1
+        quality-random: true
+  tier5:
+    pity:
+      threshold: 15
+    entries:
+      - item: "tf_crystal_apple"
+        weight: 3
+        amount: 1
+      - item: "tf_core_jewelry"
+        weight: 2
+        amount: 1
+      - item: "ANCIENT_DEBRIS"
+        weight: 1
+        amount: 1
+      - item: "mage_arcane_archmage_chestplate"
+        weight: 1
+        amount: 1
+        quality-random: true

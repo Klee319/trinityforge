@@ -1,0 +1,42 @@
+# TrinityForge - 品質ティア名 (ITEM_ECONOMY_SPEC 5, ValhallaMMO 品質名 踏襲)
+# 「順序付き」リスト。品質レベル1つにつき1エントリ(品質は0始まり: tier 0 = 最低)。このリストの「長さ」が
+# 品質の段数を決める(Q=任意段階/config可変): 下記は10ティアなので品質は 0..9。行を増減すれば段数が変わり、
+# 導出(QualityModel)とloreの品質行が自動的に追従する。`color` は MiniMessage タグ(色名/#hex/gradient)で
+# 【name】ラベルに適用される。編集して /trinityforge reload。名前/色は暫定。
+#
+# 注意: stats/quality.yml の give-default-quality は 0..(ティア数-1) に収めること。段数を増やすほど品質の
+# 粒度が細かくなるだけで、アイテムが自動的に強くなるわけではない(素材/rollのバランスと合わせて調整)。
+
+tiers:
+  - name: 劣悪
+    color: "#632903"
+  - name: 粗悪
+    color: gray
+  - name: 平凡
+    color: white
+  - name: 上質
+    color: aqua
+  - name: 精巧
+    color: "#57ffc7"
+  - name: 逸品
+    color: green
+  - name: 絶品
+    color: "#c4ff57"
+  - name: 名匠
+    color: yellow
+  - name: 高貴
+    color: "#ffc766"
+  - name: 至宝
+    color: gold
+  - name: 神器
+    color: "#fe7216"
+  - name: 三神
+    color: "#ff0000"
+  - name: 不滅
+    color: dark_red
+  - name: 幻想
+    color: "#a80092"
+  - name: 未踏
+    color: "#ff00ff"
+  - name: 特異点
+    color: black

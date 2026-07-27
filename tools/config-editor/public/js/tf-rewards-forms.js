@@ -1,0 +1,979 @@
+"use strict";
+
+// progression/special-rewards.yml / achievements.yml / collection.yml 専用フォーム。
+// 設計書 2026-07-23-stat-gate-overhaul.md §6.1/§6.2/§6.3/§6.7 準拠。
+// 往復ロスレス: working を直接編集。未知キー・キー順は温存する。
+
+(function (isBrowser) {
+  // ============================================================
+  // 純関数 (ブラウザ非依存・Node テストから直接 require 可能)
+  // ============================================================
+
+  function uniqueKey(map, base) {
+    if (!Object.prototype.hasOwnProperty.call(map, base)) return base;
+    let i = 1;
+    let k = base + "_" + i;
+    while (Object.prototype.hasOwnProperty.call(map, k)) k = base + "_" + (++i);
+    return k;
+  }
+  function renameKey(map, oldKey, newKey) {
+    const rebuilt = {};
+    for (const k of Object.keys(map)) rebuilt[k === oldKey ? newKey : k] = map[k];
+    for (const k of Object.keys(map)) delete map[k];
+    Object.assign(map, rebuilt);
+  }
+
+  // 特殊報酬/アチーブメント/図鑑カテゴリの共通ID規則: 半角英数字・ハイフン・アンダースコアのみ。
+  const REWARD_ID_RE = /^[a-zA-Z0-9_-]+$/;
+  function isValidRewardId(id) {
+    return typeof id === "string" && REWARD_ID_RE.test(id.trim());
+  }
+  // 変更後IDの妥当性 + (自分自身以外との)一意性を検査する。戻り値: null=OK、それ以外はエラーメッセージ。
+  function checkRewardIdAvailable(map, currentId, nextIdRaw) {
+    const next = typeof nextIdRaw === "string" ? nextIdRaw.trim() : "";
+    if (!next) return "IDを入力してください";
+    if (!isValidRewardId(next)) return "IDは半角英数字・ハイフン・アンダースコアのみ使用できます";
+    if (next !== currentId && Object.prototype.hasOwnProperty.call(map, next)) return "同じIDが既にあります";
+    return null;
+  }
+
+  // アチーブメントの trigger を正規化する (type既定=statistic、必須フィールドの実体化)。
+  function normalizeAchievementTrigger(trigger) {
+    const t = trigger && typeof trigger === "object" && !Array.isArray(trigger) ? trigger : {};
+    if (t.type === "collection") t.type = "static";
+    if (t.type !== "statistic" && t.type !== "advancement" && t.type !== "static") t.type = "statistic";
+    if (t.type === "statistic") {
+      if (typeof t.statistic !== "string") t.statistic = "";
+      if (!Number.isFinite(Number(t.threshold))) t.threshold = 1;
+    } else if (t.type === "advancement") {
+      if (typeof t.advancement !== "string") t.advancement = "";
+    } else if (t.type === "static") {
+      if (!t.collection || typeof t.collection !== "object") t.collection = {};
+      if (!["all", "category", "item", "mob"].includes(t.collection.scope)) t.collection.scope = "all";
+      if (typeof t.collection.target !== "string") t.collection.target = "";
+      if (!Number.isFinite(Number(t.collection.threshold))) t.collection.threshold = 1;
+      t.collection.percent = !!t.collection.percent;
+    }
+    return t;
+  }
+  // アチーブメント/図鑑報酬 共通拡張フィールド (items[]/job-exp[]/permanent-buffs{}) を実体化する。
+  // vanilla-exp は任意スカラーのため実体化しない (未設定=キー無し)。
+  function normalizeRewardExtras(container) {
+    const c = container && typeof container === "object" && !Array.isArray(container) ? container : {};
+    if (!Array.isArray(c.items)) c.items = [];
+    if (!Array.isArray(c["job-exp"])) c["job-exp"] = [];
+    if (c["permanent-buffs"] == null || typeof c["permanent-buffs"] !== "object" || Array.isArray(c["permanent-buffs"])) {
+      c["permanent-buffs"] = {};
+    }
+    return c;
+  }
+  // アチーブメントの rewards を正規化する (special[]/commands[]/items[]/job-exp[]/permanent-buffs{} を実体化)。
+  function normalizeAchievementRewards(rewards) {
+    const r = rewards && typeof rewards === "object" && !Array.isArray(rewards) ? rewards : {};
+    if (!Array.isArray(r.special)) r.special = [];
+    if (!Array.isArray(r.commands)) r.commands = [];
+    return normalizeRewardExtras(r);
+  }
+  // 配列から空文字列/非文字列を取り除く (保存直前フィルタ)。
+  function filterNonEmptyStrings(arr) {
+    return (Array.isArray(arr) ? arr : []).filter((v) => typeof v === "string" && v.trim());
+  }
+  // items[]: id が空の行を除去し、amount を1以上の整数に丸める (保存直前フィルタ)。
+  function filterRewardItems(arr) {
+    return (Array.isArray(arr) ? arr : [])
+      .filter((v) => v && typeof v === "object" && typeof v.id === "string" && v.id.trim())
+      .map((v) => {
+        const n = Number(v.amount);
+        return { id: v.id.trim(), amount: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1 };
+      });
+  }
+  // job-exp[]: skill が空の行を除去する (保存直前フィルタ)。
+  function filterJobExp(arr) {
+    return (Array.isArray(arr) ? arr : [])
+      .filter((v) => v && typeof v === "object" && typeof v.skill === "string" && v.skill.trim())
+      .map((v) => {
+        const n = Number(v.amount);
+        return { skill: v.skill, amount: Number.isFinite(n) ? n : 0 };
+      });
+  }
+  // permanent-buffs{}: 数値でない値を除去する (保存直前フィルタ)。
+  function filterPermanentBuffs(map) {
+    const out = {};
+    if (map && typeof map === "object") {
+      for (const [k, v] of Object.entries(map)) {
+        if (!k) continue;
+        const n = Number(v);
+        if (Number.isFinite(n)) out[k] = n;
+      }
+    }
+    return out;
+  }
+  // items/job-exp/permanent-buffs/vanilla-exp をまとめて保存直前フィルタする (container を直接書き換える)。
+  function filterRewardExtras(container) {
+    const c = container && typeof container === "object" && !Array.isArray(container) ? container : {};
+    c.items = filterRewardItems(c.items);
+    c["job-exp"] = filterJobExp(c["job-exp"]);
+    c["permanent-buffs"] = filterPermanentBuffs(c["permanent-buffs"]);
+    if (c["vanilla-exp"] == null || c["vanilla-exp"] === "") delete c["vanilla-exp"];
+    return c;
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      uniqueKey, renameKey,
+      isValidRewardId, checkRewardIdAvailable,
+      normalizeAchievementTrigger, normalizeAchievementRewards, normalizeRewardExtras,
+      filterNonEmptyStrings, filterRewardItems, filterJobExp, filterPermanentBuffs, filterRewardExtras
+    };
+  }
+  if (!isBrowser) return;
+
+  // ============================================================
+  // DOM 部品 (ブラウザ専用)
+  // ============================================================
+  const h = window.h;
+
+  function card(headChildren, bodyChildren) {
+    return h("div", { class: "entry-card" }, [
+      h("div", { class: "entry-head" }, headChildren),
+      h("div", { class: "entry-body" }, bodyChildren)
+    ]);
+  }
+  function field(label, control, hint) {
+    const kids = [h("span", { class: "form-label", text: label }), control];
+    if (hint) kids.push(h("div", { class: "field-hint", text: hint }));
+    return h("div", { class: "form-field" }, kids);
+  }
+  function formHint(text) { return h("p", { class: "form-hint", text }); }
+  function emptyHint(text) { return h("div", { class: "empty-hint", text }); }
+  function ensureObj(parent, key, fallback) {
+    if (parent[key] == null || typeof parent[key] !== "object" || Array.isArray(parent[key])) {
+      parent[key] = fallback != null ? fallback : {};
+    }
+    return parent[key];
+  }
+  function idRenameInput(map, id, onRenamed) {
+    const input = h("input", { class: "field-input", value: id, spellcheck: "false" });
+    input.addEventListener("change", () => {
+      const err = checkRewardIdAvailable(map, id, input.value);
+      if (err) { alert(err); input.value = id; return; }
+      const next = input.value.trim();
+      if (next === id) return;
+      renameKey(map, id, next);
+      onRenamed();
+    });
+    return input;
+  }
+  function stringListEditor(arr, opts) {
+    const o = opts || {};
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      if (!arr.length) box.appendChild(emptyHint(o.empty || "まだありません。"));
+      arr.forEach((val, idx) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(window.textInput(val || "", (v) => { arr[idx] = v; }, o.placeholder || ""));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { arr.splice(idx, 1); render(); }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: o.addLabel || "+ 追加",
+        onclick: () => { arr.push(""); render(); }
+      }));
+    }
+    render();
+    return box;
+  }
+
+  // ------------------------------------------------------------
+  // アチーブメント/図鑑 報酬拡張 (items/vanilla-exp/job-exp/permanent-buffs) 共通UI。
+  // Java側 SkillId 16種。日本語ラベルはこのフォーム専用に定義する。
+  // ------------------------------------------------------------
+  const JOB_EXP_SKILLS = [
+    ["ALCHEMY", "錬金"], ["ARCHERY", "弓術"], ["ARS_MAGIC", "魔法"], ["ARS_SMITHING", "魔法鍛冶"],
+    ["DIGGING", "掘削"], ["ENCHANTING", "エンチャント"], ["FARMING", "農業"], ["FISHING", "釣り"],
+    ["HEAVY_ARMOR", "重装甲"], ["HEAVY_WEAPONS", "重武器"], ["LIGHT_ARMOR", "軽装甲"],
+    ["LIGHT_WEAPONS", "軽武器"], ["MINING", "採掘"], ["POWER", "パワー"], ["SMITHING", "鍛冶"],
+    ["WOODCUTTING", "伐採"]
+  ];
+  function jobSkillSelect(value, onChange) {
+    const opts = JOB_EXP_SKILLS.map(([v, ja]) => ({ value: v, primary: ja, secondary: v }));
+    const cur = value || "";
+    if (cur && !JOB_EXP_SKILLS.some(([v]) => v === cur)) opts.unshift({ value: cur, primary: cur, secondary: "" });
+    return window.listSelect({ value: cur, options: opts, onChange, placeholder: "職業スキルを選択…" });
+  }
+  function statLabelOf(key) {
+    if (window.LABELS && typeof window.LABELS.statLabel === "function") return window.LABELS.statLabel(key);
+    return key;
+  }
+  function statKeySelect(value, onChange, optionKeys) {
+    const keys = Array.isArray(optionKeys) ? optionKeys
+      : (Array.isArray(window.STAT_LIST) ? window.STAT_LIST : []);
+    const opts = keys.map((k) => ({ value: k, primary: statLabelOf(k), secondary: k }));
+    const cur = value || "";
+    if (cur && !keys.includes(cur)) opts.unshift({ value: cur, primary: statLabelOf(cur), secondary: cur });
+    return window.listSelect({ value: cur, options: opts, onChange, placeholder: "statキーを選択…" });
+  }
+  // アイテムID入力: カタログ候補(渡されていれば)+バニラMaterialのdatalist付きtextInput。
+  // catalogItemSuggest/materialInput は語彙が「custom:」接頭辞前提で items.id (catalogID生値 or Material名)
+  // の書式と噛み合わないため、ここでは textInput+datalist に留める (呼び出し元にcatalogCandidates無ければ
+  // バニラMaterialのみの候補になる = 要件の「無ければ textInput+datalist」フォールバックと同一)。
+  let rewardItemDatalistSeq = 0;
+  function itemIdInput(value, onChange, catalogCandidates) {
+    const dlId = "reward-item-id-list-" + (++rewardItemDatalistSeq);
+    const dl = h("datalist", { id: dlId });
+    for (const c of (Array.isArray(catalogCandidates) ? catalogCandidates : [])) {
+      if (c && c.id) dl.appendChild(h("option", { value: c.id }));
+    }
+    for (const m of (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])) {
+      dl.appendChild(h("option", { value: m }));
+    }
+    const wrap = h("span", { class: "material-suggest reward-item-id-input" });
+    wrap.appendChild(dl);
+    wrap.appendChild(h("input", {
+      class: "field-input", value: value || "", list: dlId,
+      placeholder: "catalogID / バニラMaterial (例: diamond)",
+      oninput: (e) => onChange(e.target.value)
+    }));
+    return wrap;
+  }
+  // rewards.items: id+amount の行リスト。
+  function itemsRewardEditor(list, catalogCandidates) {
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      if (!list.length) box.appendChild(emptyHint("付与アイテムがありません。"));
+      list.forEach((raw, idx) => {
+        const entry = raw && typeof raw === "object" ? raw : (list[idx] = { id: "", amount: 1 });
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(itemIdInput(entry.id || "", (v) => { entry.id = v; }, catalogCandidates));
+        row.appendChild(h("span", { class: "range-label", text: "個数" }));
+        row.appendChild(window.numberInput(entry.amount == null ? 1 : entry.amount, (v) => {
+          entry.amount = v == null ? 1 : Math.max(1, Math.floor(v));
+        }, { int: true }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { list.splice(idx, 1); render(); }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ アイテム追加",
+        onclick: () => { list.push({ id: "", amount: 1 }); render(); }
+      }));
+    }
+    render();
+    return box;
+  }
+  // rewards.job-exp: skill+amount の行リスト。
+  function jobExpEditor(list) {
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      if (!list.length) box.appendChild(emptyHint("職業経験値がありません。"));
+      list.forEach((raw, idx) => {
+        const entry = raw && typeof raw === "object" ? raw : (list[idx] = { skill: "MINING", amount: 100 });
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(jobSkillSelect(entry.skill, (v) => { entry.skill = v; }));
+        row.appendChild(window.numberInput(entry.amount == null ? 0 : entry.amount, (v) => {
+          entry.amount = v == null ? 0 : v;
+        }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { list.splice(idx, 1); render(); }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 職業EXP追加",
+        onclick: () => { list.push({ skill: "MINING", amount: 100 }); render(); }
+      }));
+    }
+    render();
+    return box;
+  }
+  // rewards.permanent-buffs: statキー -> 数値 のマップ行リスト。
+  function permanentBuffsEditor(map) {
+    const box = h("div", { class: "stat-rows" });
+    function render() {
+      box.innerHTML = "";
+      const keys = Object.keys(map);
+      if (!keys.length) box.appendChild(emptyHint("永続バフがありません。"));
+      keys.forEach((key) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(statKeySelect(key, (nextKey) => {
+          if (!nextKey || nextKey === key || Object.prototype.hasOwnProperty.call(map, nextKey)) return;
+          const v = map[key];
+          delete map[key];
+          map[nextKey] = v;
+          render();
+        }));
+        row.appendChild(window.numberInput(map[key], (v) => { map[key] = v == null ? 0 : v; }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          onclick: () => { delete map[key]; render(); }
+        }));
+        box.appendChild(row);
+      });
+      const statList = Array.isArray(window.STAT_LIST) ? window.STAT_LIST : [];
+      const available = statList.filter((s) => !Object.prototype.hasOwnProperty.call(map, s));
+      if (available.length) {
+        const addRow = h("div", { class: "stat-row" });
+        addRow.appendChild(statKeySelect("", (v) => {
+          if (v && !Object.prototype.hasOwnProperty.call(map, v)) { map[v] = 0; render(); }
+        }, available));
+        box.appendChild(addRow);
+      } else if (statList.length) {
+        box.appendChild(h("div", { class: "field-hint", text: "全statキーを割り当て済みです。" }));
+      } else {
+        box.appendChild(h("div", { class: "field-hint", text: "statキー一覧が未読込です。" }));
+      }
+    }
+    render();
+    return box;
+  }
+  // rewards/tier に共通する拡張フィールド (items/vanilla-exp/job-exp/permanent-buffs) の form-field 群を返す。
+  // container は事前に normalizeRewardExtras() 済みであること。
+  function buildRewardExtrasFields(container, catalogCandidates) {
+    return [
+      h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: "付与アイテム (items)" }),
+        itemsRewardEditor(container.items, catalogCandidates)
+      ]),
+      field("バニラ経験値 (vanilla-exp)", window.numberInput(
+        container["vanilla-exp"] == null ? "" : container["vanilla-exp"],
+        (v) => {
+          if (v == null) { delete container["vanilla-exp"]; return; }
+          container["vanilla-exp"] = Math.max(0, Math.floor(v));
+        },
+        { int: true }
+      ), "空欄のまま=未設定"),
+      h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: "職業経験値 (job-exp)" }),
+        jobExpEditor(container["job-exp"])
+      ]),
+      h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: "永続ステータスバフ (permanent-buffs)" }),
+        permanentBuffsEditor(container["permanent-buffs"])
+      ])
+    ];
+  }
+
+  // ============================================================
+  // 1. special-rewards.yml
+  // ============================================================
+  // 1.21.11の全パーティクル(vocab-1.21.11.jsで定義済み)。未読込時は最小限のフォールバックを使う。
+  const PARTICLE_OPTIONS_FALLBACK = [
+    ["FLAME", "炎"], ["SOUL_FIRE_FLAME", "魂の炎"], ["HEART", "ハート"],
+    ["HAPPY_VILLAGER", "幸せ(緑キラキラ)"], ["CRIT", "クリティカル"], ["ENCHANT", "エンチャント文字"],
+    ["PORTAL", "ポータル"], ["END_ROD", "エンドロッド"], ["GLOW", "発光"], ["WAX_ON", "蝋引き"],
+    ["ELECTRIC_SPARK", "電気火花"], ["SNOWFLAKE", "雪片"], ["CHERRY_LEAVES", "桜の花びら"],
+    ["COMPOSTER", "たい肥"], ["DRIPPING_HONEY", "蜂蜜滴り"], ["FIREWORK", "花火"],
+    ["NOTE", "音符"], ["SMOKE", "煙"], ["CAMPFIRE_COSY_SMOKE", "焚き火の煙"],
+    ["WITCH", "魔女"], ["DRAGON_BREATH", "ドラゴンブレス"], ["SONIC_BOOM", "ソニックブーム"]
+  ];
+  const PARTICLE_OPTIONS = Array.isArray(window.VANILLA_PARTICLES) && window.VANILLA_PARTICLES.length
+    ? window.VANILLA_PARTICLES.map((id) => [id, (window.PARTICLE_LABELS_JA && window.PARTICLE_LABELS_JA[id]) || id])
+    : PARTICLE_OPTIONS_FALLBACK;
+  function particleSelect(value, onChange) {
+    const opts = PARTICLE_OPTIONS.map(([v, ja]) => ({ value: v, primary: ja, secondary: v }));
+    const cur = value || "";
+    if (cur && !PARTICLE_OPTIONS.some(([v]) => v === cur)) {
+      opts.unshift({ value: cur, primary: cur, secondary: "" });
+    }
+    opts.push({ value: "__custom__", primary: "＋ 自由入力…" });
+    return window.listSelect({
+      value: cur, options: opts, onChange, allowCustom: true,
+      customPlaceholder: "Bukkit Particle名を入力", placeholder: "パーティクルを選択…"
+    });
+  }
+  const SHAPE_LABELS = { circle: "円形散布 (circle)", aura: "まとわりつく (aura)" };
+
+  window.buildSpecialRewardsForm = function buildSpecialRewardsForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    ensureObj(working, "titles", {});
+    ensureObj(working, "particles", {});
+    ensureObj(working, "particle-seeds", {});
+
+    const root = h("div", { class: "dedicated-form" });
+    root.appendChild(formHint(
+      "称号/パーティクル/パーティクルシードを定義します。ここで作ったIDはスキルツリー(reward:<id>)・図鑑・"
+      + "アチーブメントの報酬から共通で参照できます。"
+    ));
+
+    function renderTitles() {
+      const titles = working.titles;
+      const list = h("div", { class: "cf-mat-list" });
+      const ids = Object.keys(titles);
+      if (!ids.length) list.appendChild(emptyHint("称号がありません。"));
+      for (const id of ids) {
+        const entry = titles[id] && typeof titles[id] === "object" ? titles[id] : (titles[id] = {});
+        const c = h("div", { class: "cf-mat-card" });
+        c.appendChild(h("div", { class: "cf-mat-card-head" }, [
+          h("span", { class: "entry-key-label", text: "称号ID" }),
+          idRenameInput(titles, id, renderTitles),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete titles[id]; renderTitles(); }
+          })
+        ]));
+        c.appendChild(field("表示名 (MiniMessage)", window.richTextInput(entry.display || "", "minimessage", (v) => {
+          entry.display = v;
+        })));
+        list.appendChild(c);
+      }
+      list.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 称号を追加",
+        onclick: () => { titles[uniqueKey(titles, "new_title")] = { display: "新しい称号" }; renderTitles(); }
+      }));
+      titlesBody.innerHTML = "";
+      titlesBody.appendChild(list);
+    }
+
+    function renderParticles() {
+      const particles = working.particles;
+      const list = h("div", { class: "cf-mat-list" });
+      const ids = Object.keys(particles);
+      if (!ids.length) list.appendChild(emptyHint("パーティクルがありません。"));
+      for (const id of ids) {
+        const entry = particles[id] && typeof particles[id] === "object" ? particles[id] : (particles[id] = {});
+        if (entry.count == null) entry.count = 8;
+        if (entry.radius == null) entry.radius = 0.6;
+        if (entry["interval-ticks"] == null) entry["interval-ticks"] = 10;
+        if (!entry.shape) entry.shape = "circle";
+        const c = h("div", { class: "cf-mat-card" });
+        c.appendChild(h("div", { class: "cf-mat-card-head" }, [
+          h("span", { class: "entry-key-label", text: "パーティクルID" }),
+          idRenameInput(particles, id, renderParticles),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete particles[id]; renderParticles(); }
+          })
+        ]));
+        c.appendChild(field("particle", particleSelect(entry.particle, (v) => { entry.particle = v; })));
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(h("span", { class: "range-label", text: "count" }));
+        row.appendChild(window.numberInput(entry.count, (v) => { if (v != null) entry.count = Math.max(0, Math.floor(v)); }, { int: true }));
+        row.appendChild(h("span", { class: "range-label", text: "radius" }));
+        row.appendChild(window.numberInput(entry.radius, (v) => { if (v != null) entry.radius = Math.max(0, v); }));
+        row.appendChild(h("span", { class: "range-label", text: "interval-ticks" }));
+        row.appendChild(window.numberInput(entry["interval-ticks"], (v) => { if (v != null) entry["interval-ticks"] = Math.max(0, Math.floor(v)); }, { int: true }));
+        c.appendChild(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "発生パラメータ" }), row]));
+        c.appendChild(field("shape", window.selectInput(SHAPE_LABELS[entry.shape] ? entry.shape : "circle", ["circle", "aura"], (v) => { entry.shape = v; })));
+        list.appendChild(c);
+      }
+      list.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ パーティクルを追加",
+        onclick: () => {
+          particles[uniqueKey(particles, "new_particle")] = {
+            particle: "FLAME", count: 8, radius: 0.6, "interval-ticks": 10, shape: "circle"
+          };
+          renderParticles();
+        }
+      }));
+      particlesBody.innerHTML = "";
+      particlesBody.appendChild(list);
+    }
+
+    function renderSeeds() {
+      const seeds = working["particle-seeds"];
+      const list = h("div", { class: "cf-mat-list" });
+      const ids = Object.keys(seeds);
+      if (!ids.length) list.appendChild(emptyHint("パーティクルシードがありません。"));
+      for (const id of ids) {
+        const entry = seeds[id] && typeof seeds[id] === "object" ? seeds[id] : (seeds[id] = {});
+        if (entry.count == null) entry.count = 4;
+        const c = h("div", { class: "cf-mat-card" });
+        c.appendChild(h("div", { class: "cf-mat-card-head" }, [
+          h("span", { class: "entry-key-label", text: "シードID" }),
+          idRenameInput(seeds, id, renderSeeds),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete seeds[id]; renderSeeds(); }
+          })
+        ]));
+        c.appendChild(field("seed-item", window.materialInput(entry["seed-item"] || "", "material-list", (v) => {
+          entry["seed-item"] = v;
+        }, { allowCustom: true })));
+        c.appendChild(field("particle", particleSelect(entry.particle, (v) => { entry.particle = v; })));
+        c.appendChild(field("count", window.numberInput(entry.count, (v) => {
+          if (v != null) entry.count = Math.max(0, Math.floor(v));
+        }, { int: true })));
+        list.appendChild(c);
+      }
+      list.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ シードを追加",
+        onclick: () => {
+          seeds[uniqueKey(seeds, "new_seed")] = { "seed-item": "", particle: "CRIT", count: 4 };
+          renderSeeds();
+        }
+      }));
+      seedsBody.innerHTML = "";
+      seedsBody.appendChild(list);
+    }
+
+    const titlesBody = h("div");
+    const particlesBody = h("div");
+    const seedsBody = h("div");
+    root.appendChild(card([h("span", { class: "entry-key-label", text: "称号 (titles)" })], [titlesBody]));
+    root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクル (particles)" })], [particlesBody]));
+    root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクルシード (particle-seeds)" })], [seedsBody]));
+
+    renderTitles();
+    renderParticles();
+    renderSeeds();
+
+    return { element: root, getData: () => working };
+  };
+
+  // ============================================================
+  // 2. achievements.yml (左: 一覧select / 右: 編集フォームの2ペイン)
+  // ============================================================
+  const STATISTIC_OPTIONS = [
+    ["JUMP", "ジャンプ回数"], ["WALK_ONE_CM", "歩行距離(cm)"], ["SPRINT_ONE_CM", "走行距離(cm)"],
+    ["SWIM_ONE_CM", "泳いだ距離(cm)"], ["FLY_ONE_CM", "飛行距離(cm)"], ["PLAY_ONE_MINUTE", "プレイ時間(tick)"],
+    ["MOB_KILLS", "モブ討伐数"], ["PLAYER_KILLS", "プレイヤー討伐数"], ["DEATHS", "死亡回数"],
+    ["FISH_CAUGHT", "釣り上げ数"], ["ANIMALS_BRED", "繁殖回数"], ["DAMAGE_DEALT", "与えたダメージ"],
+    ["DAMAGE_TAKEN", "受けたダメージ"], ["ITEM_ENCHANTED", "エンチャント回数"],
+    ["TRADED_WITH_VILLAGER", "村人取引回数"], ["SLEEP_IN_BED", "就寝回数"], ["RAID_WIN", "襲撃勝利回数"]
+  ];
+  function statisticSelect(value, onChange) {
+    const opts = STATISTIC_OPTIONS.map(([v, ja]) => ({ value: v, primary: ja, secondary: v }));
+    const cur = value || "";
+    if (cur && !STATISTIC_OPTIONS.some(([v]) => v === cur)) opts.unshift({ value: cur, primary: cur, secondary: "" });
+    opts.push({ value: "__custom__", primary: "＋ 自由入力…" });
+    return window.listSelect({
+      value: cur, options: opts, onChange, allowCustom: true,
+      customPlaceholder: "Bukkit Statistic名を入力", placeholder: "統計を選択…"
+    });
+  }
+
+  window.buildAchievementsForm = function buildAchievementsForm(data, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const specialRewardIds = Array.isArray(opts.specialRewardIds) ? opts.specialRewardIds : [];
+    const collectionData = opts.collectionData && typeof opts.collectionData === "object" ? opts.collectionData : {};
+    const working = data && typeof data === "object" ? data : {};
+    ensureObj(working, "achievements", {});
+    const achievements = working.achievements;
+
+    const root = h("div", { class: "dedicated-form achievement-form" });
+    root.appendChild(formHint(
+      "左の一覧からアチーブメントを選び、右側で通知有無・トリガー・報酬を設定します。"
+    ));
+
+    const layout = h("div", { class: "achievement-layout" });
+    const listPane = h("div", { class: "achievement-list-pane" });
+    const detailPane = h("div", { class: "achievement-detail-pane" });
+    layout.appendChild(listPane);
+    layout.appendChild(detailPane);
+    root.appendChild(layout);
+
+    let selectedId = Object.keys(achievements)[0] || null;
+
+    function renderList() {
+      listPane.innerHTML = "";
+      const ids = Object.keys(achievements);
+      if (!ids.length) listPane.appendChild(emptyHint("アチーブメントがありません。"));
+      for (const id of ids) {
+        const entry = achievements[id] || {};
+        listPane.appendChild(h("button", {
+          class: "nav-item achievement-list-item" + (id === selectedId ? " active" : ""),
+          type: "button",
+          onclick: () => { selectedId = id; renderList(); renderDetail(); }
+        }, [
+          h("span", { class: "nav-item-label", text: (entry["display-name"] || id) }),
+          h("span", { class: "nav-badge", text: id })
+        ]));
+      }
+      listPane.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ アチーブメント追加",
+        onclick: () => {
+          const id = uniqueKey(achievements, "new_achievement");
+          achievements[id] = {
+            "display-name": "新しいアチーブメント",
+            trigger: normalizeAchievementTrigger({}),
+            broadcast: false,
+            rewards: normalizeAchievementRewards({})
+          };
+          selectedId = id;
+          renderList();
+          renderDetail();
+        }
+      }));
+    }
+
+    function renderDetail() {
+      detailPane.innerHTML = "";
+      if (!selectedId || !achievements[selectedId]) {
+        detailPane.appendChild(emptyHint("左の一覧からアチーブメントを選択してください。"));
+        return;
+      }
+      const entry = achievements[selectedId] && typeof achievements[selectedId] === "object"
+        ? achievements[selectedId] : (achievements[selectedId] = {});
+      entry.trigger = normalizeAchievementTrigger(entry.trigger);
+      entry.rewards = normalizeAchievementRewards(entry.rewards);
+
+      const head = h("div", { class: "entry-head-row" }, [
+        h("span", { class: "range-label", text: "ID" }),
+        idRenameInput(achievements, selectedId, () => {
+          // renameKey 後、選択IDを追従させてから再描画
+          const ids = Object.keys(achievements);
+          selectedId = ids.find((k) => achievements[k] === entry) || selectedId;
+          renderList();
+          renderDetail();
+        }),
+        h("button", {
+          class: "btn-small danger", type: "button", text: "削除",
+          onclick: () => {
+            delete achievements[selectedId];
+            selectedId = Object.keys(achievements)[0] || null;
+            renderList();
+            renderDetail();
+          }
+        })
+      ]);
+
+      const body = [];
+      body.push(field("表示名 (display-name)", window.textInput(entry["display-name"] || "", (v) => {
+        entry["display-name"] = v;
+      }, "ジャンプ王")));
+
+      const triggerBody = h("div", { class: "form-field-group" });
+      function renderTriggerFields() {
+        triggerBody.innerHTML = "";
+        triggerBody.appendChild(field("トリガー種別", window.selectLabeledInput(entry.trigger.type, ["statistic", "advancement", "static"], "achievement-trigger", (v) => {
+          entry.trigger.type = v;
+          entry.trigger = normalizeAchievementTrigger(entry.trigger);
+          renderTriggerFields();
+        })));
+        if (entry.trigger.type === "statistic") {
+          triggerBody.appendChild(field("統計項目 (trigger.statistic)", statisticSelect(entry.trigger.statistic, (v) => {
+            entry.trigger.statistic = v;
+          })));
+          triggerBody.appendChild(field("閾値 (trigger.threshold)", window.numberInput(entry.trigger.threshold, (v) => {
+            if (v != null) entry.trigger.threshold = Math.max(0, Math.floor(v));
+          }, { int: true })));
+        } else if (entry.trigger.type === "advancement") {
+          triggerBody.appendChild(field("進捗キー (trigger.advancement)", window.textInput(entry.trigger.advancement || "", (v) => {
+            entry.trigger.advancement = v;
+          }, "minecraft:story/mine_diamond")));
+        } else {
+          const c = entry.trigger.collection;
+          const categories = [];
+          for (const kind of ["items", "mobs"]) {
+            for (const [id, value] of Object.entries((collectionData.categories || {})[kind] || {})) {
+              categories.push({ value: `category:${id}`, primary: `カテゴリ: ${(value && value["display-name"]) || id}`, secondary: id });
+            }
+          }
+          const itemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : []).map((v) => ({ value: `item:${v.id}`, primary: `アイテム: ${v.label || v.id}`, secondary: v.id }));
+          const mobCandidates = ENTITY_TYPE_CANDIDATES.map((id) => ({ value: `mob:${id}`, primary: `モブ: ${id}`, secondary: id }));
+          const value = c.scope === "all" ? "all" : `${c.scope}:${c.target}`;
+          triggerBody.appendChild(field("図鑑対象", window.listSelect({ value, options: [{ value: "all", primary: "すべての図鑑カテゴリ", secondary: "ALL" }].concat(categories, itemCandidates, mobCandidates), onCommit: (v) => {
+            const [scope, ...rest] = String(v || "all").split(":"); c.scope = scope; c.target = rest.join(":"); return true;
+          }})));
+          triggerBody.appendChild(field("閾値", window.numberInput(c.threshold, (v) => { c.threshold = Math.max(1, Math.floor(Number(v) || 1)); }, { int: true })));
+          triggerBody.appendChild(field("判定方式", window.selectInput(c.percent ? "percent" : "count", ["count", "percent"], (v) => { c.percent = v === "percent"; })));
+        }
+      }
+      renderTriggerFields();
+      body.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "トリガー" }), triggerBody]));
+
+      body.push(h("label", { class: "inline-check" }, [
+        window.checkboxInput(!!entry.broadcast, (v) => { entry.broadcast = !!v; }),
+        h("span", { text: "サーバ通知 (broadcast) — 達成時に全体通知" })
+      ]));
+
+      // rewards.special: 候補から複数選択して追加、行ごとに削除
+      const specialBox = h("div", { class: "stat-rows" });
+      function renderSpecial() {
+        specialBox.innerHTML = "";
+        const list = entry.rewards.special;
+        if (!list.length) specialBox.appendChild(emptyHint("特殊報酬が割り当てられていません。"));
+        list.forEach((id, idx) => {
+          const row = h("div", { class: "stat-row" });
+          row.appendChild(h("span", { class: "range-label", text: id }));
+          row.appendChild(h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { list.splice(idx, 1); renderSpecial(); }
+          }));
+          specialBox.appendChild(row);
+        });
+        const available = specialRewardIds.filter((id) => !list.includes(id));
+        if (available.length) {
+          const addRow = h("div", { class: "stat-row" });
+          addRow.appendChild(window.selectInput("", available, (v) => {
+            if (v && !list.includes(v)) { list.push(v); renderSpecial(); }
+          }));
+          specialBox.appendChild(addRow);
+        } else if (specialRewardIds.length) {
+          specialBox.appendChild(h("div", { class: "field-hint", text: "定義済みの特殊報酬をすべて割り当て済みです。" }));
+        } else {
+          specialBox.appendChild(h("div", { class: "field-hint", text: "特殊報酬タブ (special-rewards) でIDを作成すると候補に出ます。" }));
+        }
+      }
+      renderSpecial();
+      body.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "特殊報酬 (rewards.special)" }), specialBox]));
+
+      body.push(h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: "コンソールコマンド (rewards.commands)" }),
+        stringListEditor(entry.rewards.commands, { addLabel: "+ コマンド追加", placeholder: "give %player% diamond 1", empty: "コマンドがありません。" })
+      ]));
+
+      for (const el of buildRewardExtrasFields(entry.rewards, opts.catalogCandidates)) body.push(el);
+
+      detailPane.appendChild(card([head], body));
+    }
+
+    renderList();
+    renderDetail();
+
+    return {
+      element: root,
+      getData: () => {
+        for (const entry of Object.values(achievements)) {
+          if (!entry || typeof entry !== "object") continue;
+          if (entry.rewards && typeof entry.rewards === "object") {
+            entry.rewards.commands = filterNonEmptyStrings(entry.rewards.commands);
+            filterRewardExtras(entry.rewards);
+          }
+        }
+        return working;
+      }
+    };
+  };
+
+  // ============================================================
+  // 3. collection.yml (カテゴリのみ。報酬はアチーブメントの collection トリガーへ移管)
+  // ============================================================
+  // E-2 (2026-07-25): mob-forms.js と重複していた37種+ENDER_DRAGON を vocab-1.21.11.js の
+  // VANILLA_MOBS(paper-api javap抽出、召喚可能な生物83種、ENDER_DRAGON含む)へ集約する。
+  // ⚠️ 旧配列にあった "WITHER_BOSS" は集約時に含めていない — paper-api 1.21.11 の
+  // org.bukkit.entity.EntityType には存在しない値であることを class バイト列で確認済み
+  // (有効な EntityType 名は "WITHER" のみ)。無効な値を候補に残すと選択時に壊れたデータを
+  // 作ってしまうため、他の36種+ENDER_DRAGONは全て含めた上でこの1件のみ除外している。要ユーザー確認。
+  const ENTITY_TYPE_CANDIDATES = Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : [];
+
+  const COLLECTION_SECTIONS = [
+    { id: "overview", label: "概要" },
+    { id: "categories-items", label: "カテゴリ: アイテム" },
+    { id: "categories-mobs", label: "カテゴリ: モブ" }
+  ];
+
+  window.buildCollectionForm = function buildCollectionForm(data, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const catalogCandidates = Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [];
+    const working = data && typeof data === "object" ? data : {};
+    if (typeof working.enabled !== "boolean") working.enabled = true;
+    ensureObj(working, "sources", { "catalog-items": true, "mob-kills": true });
+    ensureObj(working, "categories", {});
+    ensureObj(working.categories, "items", {});
+    ensureObj(working.categories, "mobs", {});
+
+    function catalogEntryControl(value, onChange) {
+      if (typeof window.catalogItemSuggest === "function" && catalogCandidates.length) {
+        return window.catalogItemSuggest(value || "", catalogCandidates, (c) => {
+          onChange(c && c.id ? c.id : "");
+        }, { placeholder: "カタログID / 表示名で検索" });
+      }
+      return window.textInput(value || "", onChange, "カタログID");
+    }
+    function mobEntryControl(value, onChange) {
+      const dlId = "collection-entity-type-list";
+      if (!document.getElementById(dlId)) {
+        const dl = h("datalist", { id: dlId });
+        for (const t of ENTITY_TYPE_CANDIDATES) dl.appendChild(h("option", { value: t }));
+        document.body.appendChild(dl);
+      }
+      return h("input", {
+        class: "field-input", value: value || "", list: dlId,
+        placeholder: "ZOMBIE / mob-types.ymlのmobTypeId",
+        oninput: (e) => onChange(e.target.value)
+      });
+    }
+
+    let active = "overview";
+    const root = h("div", { class: "dedicated-form cf-form" });
+    const tabsEl = h("div", { class: "recipe-tabs cf-tabs", role: "tablist" });
+    const bodyEl = h("div", { class: "cf-body" });
+    root.appendChild(tabsEl);
+    root.appendChild(bodyEl);
+
+    function setActive(id) { active = id; renderTabs(); renderBody(); }
+    function renderTabs() {
+      tabsEl.innerHTML = "";
+      for (const sec of COLLECTION_SECTIONS) {
+        tabsEl.appendChild(h("button", {
+          class: "recipe-tab" + (active === sec.id ? " active" : ""),
+          type: "button", role: "tab", "aria-selected": active === sec.id ? "true" : "false",
+          onclick: () => setActive(sec.id)
+        }, [h("span", { text: sec.label })]));
+      }
+    }
+
+    function renderOverview() {
+      bodyEl.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "有効化" })],
+        [
+          h("label", { class: "inline-check" }, [
+            window.checkboxInput(!!working.enabled, (v) => { working.enabled = !!v; }),
+            h("span", { text: "enabled (図鑑機能を有効化)" })
+          ]),
+          h("label", { class: "inline-check" }, [
+            window.checkboxInput(!!working.sources["catalog-items"], (v) => { working.sources["catalog-items"] = !!v; }),
+            h("span", { text: "sources.catalog-items (アイテム入手を記録)" })
+          ]),
+          h("label", { class: "inline-check" }, [
+            window.checkboxInput(!!working.sources["mob-kills"], (v) => { working.sources["mob-kills"] = !!v; }),
+            h("span", { text: "sources.mob-kills (モブ討伐を記録)" })
+          ])
+        ]
+      ));
+    }
+
+    function renderCategoryGroup(groupKey, entryControl, addPlaceholderId) {
+      const group = working.categories[groupKey];
+      const ids = Object.keys(group);
+      if (!ids.length) bodyEl.appendChild(emptyHint("カテゴリがありません。"));
+      for (const catId of ids) {
+        const entry = group[catId] && typeof group[catId] === "object" ? group[catId] : (group[catId] = {});
+        if (!Array.isArray(entry.entries)) entry.entries = [];
+        const c = h("div", { class: "cf-mat-card" });
+        c.appendChild(h("div", { class: "cf-mat-card-head" }, [
+          h("span", { class: "entry-key-label", text: "カテゴリID" }),
+          idRenameInput(group, catId, renderBody),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete group[catId]; renderBody(); }
+          })
+        ]));
+        c.appendChild(field("表示名 (display-name)", window.textInput(entry["display-name"] || "", (v) => {
+          entry["display-name"] = v;
+        })));
+        c.appendChild(field("表示順 (order)", window.numberInput(entry.order == null ? 1 : entry.order, (v) => {
+          if (v != null) entry.order = Math.floor(v);
+        }, { int: true })));
+        const entriesBox = h("div", { class: "stat-rows" });
+        entry.entries.forEach((val, idx) => {
+          const row = h("div", { class: "stat-row" });
+          row.appendChild(entryControl(val, (v) => { entry.entries[idx] = v; }));
+          row.appendChild(h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { entry.entries.splice(idx, 1); renderBody(); }
+          }));
+          entriesBox.appendChild(row);
+        });
+        entriesBox.appendChild(h("button", {
+          class: "btn-small", type: "button", text: "+ 追加",
+          onclick: () => { entry.entries.push(""); renderBody(); }
+        }));
+        const bulkInput = h("input", { class: "field-input", placeholder: "sword_* / ZOMBIE, SKELETON（*可）" });
+        entriesBox.appendChild(h("div", { class: "stat-row" }, [bulkInput, h("button", {
+          class: "btn-small", type: "button", text: "一括追加",
+          onclick: () => {
+            const patterns = bulkInput.value.split(",").map((v) => v.trim()).filter(Boolean);
+            const candidates = groupKey === "items" ? catalogCandidates.map((v) => v.id) : ENTITY_TYPE_CANDIDATES;
+            const added = [];
+            for (const pattern of patterns) {
+              const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+              const re = new RegExp("^" + escaped.replace(/\*/g, ".*") + "$", "i");
+              candidates.filter((id) => re.test(id)).forEach((id) => { if (!entry.entries.includes(id) && !added.includes(id)) added.push(id); });
+            }
+            entry.entries.push(...added); renderBody();
+          }
+        })]));
+        c.appendChild(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "登録アイテム/モブ (entries)" }), entriesBox]));
+        bodyEl.appendChild(c);
+      }
+      bodyEl.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ カテゴリを追加",
+        onclick: () => { group[uniqueKey(group, addPlaceholderId)] = { "display-name": "新しいカテゴリ", order: ids.length + 1, entries: [] }; renderBody(); }
+      }));
+    }
+
+    function renderRewardTiers() {
+      const tiers = working["reward-tiers"];
+      const ids = Object.keys(tiers);
+      if (!ids.length) bodyEl.appendChild(emptyHint("報酬ティアがありません。"));
+      for (const tid of ids) {
+        const entry = tiers[tid] && typeof tiers[tid] === "object" ? tiers[tid] : (tiers[tid] = {});
+        if (!Array.isArray(entry.commands)) entry.commands = [];
+        if (!Array.isArray(entry.special)) entry.special = [];
+        normalizeRewardExtras(entry);
+        const c = h("div", { class: "cf-mat-card" });
+        c.appendChild(h("div", { class: "cf-mat-card-head" }, [
+          h("span", { class: "entry-key-label", text: "ティアID" }),
+          idRenameInput(tiers, tid, renderBody),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete tiers[tid]; renderBody(); }
+          })
+        ]));
+        c.appendChild(field("閾値 (threshold)", window.numberInput(entry.threshold == null ? 10 : entry.threshold, (v) => {
+          if (v != null) entry.threshold = Math.max(0, Math.floor(v));
+        }, { int: true })));
+        c.appendChild(field("表示タイトル (title)", window.textInput(entry.title || "", (v) => { entry.title = v; })));
+        c.appendChild(h("label", { class: "inline-check" }, [
+          window.checkboxInput(!!entry.broadcast, (v) => { entry.broadcast = !!v; }),
+          h("span", { text: "サーバ通知 (broadcast)" })
+        ]));
+        c.appendChild(h("div", { class: "form-field" }, [
+          h("span", { class: "form-label", text: "コンソールコマンド (commands)" }),
+          stringListEditor(entry.commands, { addLabel: "+ コマンド追加" })
+        ]));
+        const specialBox = h("div", { class: "stat-rows" });
+        entry.special.forEach((id, idx) => {
+          const row = h("div", { class: "stat-row" });
+          row.appendChild(h("span", { class: "range-label", text: id }));
+          row.appendChild(h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { entry.special.splice(idx, 1); renderBody(); }
+          }));
+          specialBox.appendChild(row);
+        });
+        const availableSpecial = specialRewardIds.filter((id) => !entry.special.includes(id));
+        if (availableSpecial.length) {
+          const addRow = h("div", { class: "stat-row" });
+          addRow.appendChild(window.selectInput("", availableSpecial, (v) => {
+            if (v && !entry.special.includes(v)) { entry.special.push(v); renderBody(); }
+          }));
+          specialBox.appendChild(addRow);
+        }
+        c.appendChild(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "特殊報酬 (special)" }), specialBox]));
+        for (const el of buildRewardExtrasFields(entry, catalogCandidates)) c.appendChild(el);
+        bodyEl.appendChild(c);
+      }
+      bodyEl.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ ティアを追加",
+        onclick: () => {
+          tiers[uniqueKey(tiers, "tier")] = normalizeRewardExtras({
+            threshold: 10, title: "", broadcast: false, commands: [], special: []
+          });
+          renderBody();
+        }
+      }));
+    }
+
+    function renderBody() {
+      bodyEl.innerHTML = "";
+      switch (active) {
+        case "overview": renderOverview(); break;
+        case "categories-items": renderCategoryGroup("items", catalogEntryControl, "weapons"); break;
+        case "categories-mobs": renderCategoryGroup("mobs", mobEntryControl, "bosses"); break;
+        default: renderOverview();
+      }
+    }
+
+    renderTabs();
+    renderBody();
+
+    return {
+      element: root,
+      getData: () => {
+        return working;
+      }
+    };
+  };
+})(typeof window !== "undefined" && typeof document !== "undefined");

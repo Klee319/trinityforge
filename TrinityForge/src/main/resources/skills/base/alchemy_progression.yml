@@ -1,0 +1,12 @@
+# TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
+# Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
+# Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/alchemy_progression.md
+experience:
+  max_level: 100
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  alchemy_brew_exp: 25
+  exp_multiplier_quality: 0.00334 # Reserved for quality-stamped brew path (future)
+  multiplier_automated: 0.25
+  multiplier_manual: 2
+  legacy:

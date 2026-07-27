@@ -1,0 +1,232 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — 農業 (FARMING)
+# ----------------------------------------------------------------------------
+# エンコード規則（スライド草案 skilltree/skilltree/スライド4.PNG 準拠）:
+#   主軸 A/B/C/D/E = Lv10/30/50/70/90、Lv100でプレステージ、派生=X-n、X-alpha/beta=排他路線。
+#
+# ■生産系ツリーの方針（設計§D）: buffsなし。数値→effects、解放→commands+effects。
+#
+# ■このツリー固有の合流構造（重要・転写そのまま）:
+#   ギリシャ路線が2系統（alpha=ゴミ食 / beta=健康食）に分岐し、末端の「完全食」で合流する。
+#   画像表記「A-α/β-3」は alpha・beta どちらの路線からでも到達し得る最終ノード。
+#   → 一意id `A-alphabeta-3` に正規化（原表記: A-α/β-3）。parentは alpha 側終端に接続し、
+#     コメントで beta 側(A-beta-3)からも到達し得る合流である旨を明記。合流ノードは
+#     排他group自体には含めない（どちらの路線からでも解放可能な共通末端のため）。
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/farming.md
+skill: FARMING
+display-name: 農業
+icon: IRON_HOE
+starting-coords: 2,10
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: 大地主の栄光
+  effect-text: 満腹度回復量 永続+10%・経験値獲得 永続+10%
+  buffs:
+    food-restore-bonus: 0.10
+    vanilla-exp-bonus: 0.10
+nodes:
+  A:
+    name: はじまりの百姓
+    level: 10
+    role: main
+    parent:
+    icon: WOODEN_HOE
+    cost: 1
+    effect-text: うえ直しと収穫が同時に可能・バニラEXPを収穫時に獲得
+    effects:
+      - 植え直しと収穫が同時に可能
+      - 収穫時にバニラEXPを獲得
+    dedicated-effects:
+      - id: feature:auto-replant
+      - id: feature:break-vanilla-exp
+  B:
+    name: 家庭菜園の素人
+    level: 30
+    role: main
+    parent: A
+    icon: STONE_HOE
+    cost: 1
+    effect-text: 作物の成長速度UP・ご飯の圧縮を可能に・満腹時に食べた量に応じた品質と時間でバフ
+    effects:
+      - 作物の成長速度UP
+      - ご飯の圧縮を可能に
+      - 満腹時に食べた量に応じた品質と時間でバフ
+    dedicated-effects:
+      - id: recipe:compressed_bread_1x
+      - id: recipe:compressed_cooked_beef_1x
+      - id: feature:satiety-buff
+  C:
+    name: 近所の農家
+    level: 50
+    role: main
+    parent: B
+    icon: GOLDEN_HOE
+    cost: 1
+    effect-text: 収穫量UP・バニラEXPを追加で獲得
+    effects:
+      - 収穫量UP
+      - バニラEXPを追加で獲得
+    buffs:
+      harvest-extra-drop-chance: 0.15
+      break-vanilla-exp-bonus: 0.50
+  D:
+    name: 村の豪農
+    level: 70
+    role: main
+    parent: C
+    icon: IRON_HOE
+    cost: 1
+    effect-text: 範囲収穫・バニラEXPを追加で獲得
+    effects:
+      - 範囲収穫
+      - バニラEXPを追加で獲得
+    buffs:
+      harvest-extra-drop-chance: 0.10
+      break-vanilla-exp-bonus: 0.50
+    dedicated-effects:
+      - id: feature:area-harvest
+  E:
+    name: 大地主
+    level: 90
+    role: main
+    parent: D
+    icon: DIAMOND_HOE
+    cost: 1
+    effect-text: 収穫・促進グリフ解放・ベジタブルコア解放・ミートコア解放(A-4解放済みの場合)
+    effects:
+      - 収穫・促進グリフを解放
+      - ベジタブルコアを解放
+      - ミートコアを解放(A-4解放済みの場合)
+    dedicated-effects:
+      - id: glyph:harvest
+      - id: recipe:tf_core_vegetable
+      - id: recipe:tf_core_meat
+  A-1:
+    name: 鶏小屋の世話係
+    level: 20
+    role: branch
+    parent: A
+    icon: EGG
+    cost: 1
+    effect-text: 繁殖時低確率で2倍
+    effects:
+      - 繁殖時低確率で2倍
+  A-2:
+    name: 牧場の運営者
+    level: 40
+    role: branch
+    parent: A-1
+    icon: WHEAT
+    cost: 1
+    effect-text: 動物の成長速度UP・繁殖時バニラEXPを獲得
+    effects:
+      - 動物の成長速度UP
+      - 繁殖時バニラEXPを獲得
+  A-3:
+    name: 養蜂の達人
+    level: 40
+    role: branch
+    parent: A-2
+    icon: HONEYCOMB
+    cost: 1
+    effect-text: ハチが攻撃してこなくなる・解呪のグリフ解放・ハニカム/ハチミツが確率で増える
+    effects:
+      - ハチが攻撃してこなくなる
+      - 解呪のグリフを解放
+      - ハニカム・ハチミツが確率で増える
+    buffs:
+      hive_harvest_fortune: 20
+    dedicated-effects:
+      - id: glyph:dispel
+      - id: feature:bee-no-aggro
+  A-4:
+    name: 屠殺場の管理人
+    level: 60
+    role: branch
+    parent: A-3
+    icon: BEEF
+    cost: 1
+    effect-text: 屠殺時ドロップ量アップ・動物への与ダメ4倍・バニラEXPを追加で獲得
+    effects:
+      - 屠殺時ドロップ量アップ
+      - 動物への与ダメージ4倍
+      - バニラEXPを追加で獲得
+    dedicated-effects:
+      - id: feature:animal-damage-4x
+  A-alpha-1:
+    name: ゴミ食I
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: ROTTEN_FLESH
+    cost: 1
+    effect-text: ゴミのデバフを受けない・ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量DOWN
+    effects:
+      - ゴミのデバフを受けない
+      - ゴミの満腹度回復量UP
+      - ゴミ以外の満腹度回復量DOWN
+    dedicated-effects:
+      - id: feature:junkfood-immunity
+      - id: feature:junkfood-inversion
+  A-alpha-2:
+    name: ゴミ食II
+    level: 30
+    role: greek
+    parent: A-alpha-1
+    group: A-greek
+    icon: ROTTEN_FLESH
+    cost: 1
+    effect-text: ゴミの満腹度回復量UP・ゴミ以外の満腹度回復量を戻す
+    effects:
+      - ゴミの満腹度回復量UP
+      - ゴミ以外の満腹度回復量を戻す
+    dedicated-effects:
+      - id: "feature:junk-food-restore-boost"
+        value: 30
+  A-beta-2:
+    name: 健康食I
+    level: 30
+    role: greek
+    parent: A
+    group: A-greek
+    icon: BREAD
+    cost: 1
+    effect-text: 満腹度回復量UP
+    effects:
+      - 満腹度回復量UP
+  A-beta-3:
+    name: 健康食II
+    level: 50
+    role: greek
+    parent: A-beta-2
+    group: A-greek
+    icon: COOKED_BEEF
+    cost: 1
+    effect-text: 満腹度回復量UP・ご飯を一定確率で消費しない
+    effects:
+      - 満腹度回復量UP
+      - ご飯を一定確率で消費しない
+    buffs:
+      food-save-chance: 0.1
+  A-alphabeta-3:
+    name: 完全食
+    level: 100
+    role: greek
+    parent: A-alpha-2
+    parents-any:
+      - A-beta-3
+    icon: GOLDEN_CARROT
+    cost: 1
+    effect-text: "満腹グリフ解放・隠し満腹度回復量UP・前提: 農業100&どちらかのMAX・金リンゴ生活の解放"
+    effects:
+      - 満腹グリフを解放
+      - 隠し満腹度回復量UP
+      - "前提: 農業レベル100 & alpha/betaどちらかのMAX & 金リンゴ生活(伐採A-2)の解放"
+    dedicated-effects:
+      - id: glyph:saturation
+

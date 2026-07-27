@@ -1,0 +1,34 @@
+# TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
+# Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
+# Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/fishing_progression.md
+experience:
+  max_level: 100
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  fishing_catch_exp: 20
+  legacy:
+  fishing_catch:
+    COD: 200
+    SALMON: 250
+    PUFFERFISH: 500
+    TROPICAL_FISH: 800
+    BOW: 600
+    ENCHANTED_BOOK: 600
+    FISHING_ROD: 600
+    NAME_TAG: 500
+    NAUTILUS_SHELL: 500
+    SADDLE: 500
+    LILY_PAD: 150
+    BOWL: 150
+    LEATHER: 150
+    LEATHER_BOOTS: 150
+    ROTTEN_FLESH: 100
+    STICK: 100
+    STRING: 100
+    POTION: 150 # water bottle
+    BONE: 100
+    INK_SAC: 100
+    TRIPWIRE_HOOK: 100
+    BAMBOO: 150
+
+

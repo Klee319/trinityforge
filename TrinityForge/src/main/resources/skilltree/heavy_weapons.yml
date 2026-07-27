@@ -1,0 +1,317 @@
+# ============================================================================
+# TrinityForge スキルツリー正典config — 重量武器 (HEAVY_WEAPONS)
+# ----------------------------------------------------------------------------
+# これは「TF独自の単一の真実」です。ここを編集すると、ビルド/リロード時に
+# Valhalla用 progression YAML と lang が生成され、実行時に buffs が適用されます。
+#
+# エンコード規則（スライド草案 skilltree/skilltree/スライド13.PNG 準拠）:
+#   - 主軸 A/B/C/D/E の解放レベル = 10 / 30 / 50 / 70 / 90
+#   - レベル100でプレステージ可能
+#   - 主軸の「間」ノード = 中間レベル(20/40/60/80)
+#   - 派生ノード = X-n-m（親から派生）
+#   - X-alpha/beta/gamma-1 = ギリシャ文字路線（group が同じものは排他＝いずれか1つのみ）
+#
+# 各ノードのフィールド:
+#   name        : 解放要素の固有名（ゲーム内表示名。生成lang へ）
+#   level       : 解放レベル
+#   role        : main | intermediate | branch | greek
+#   parent      : 前提ノードid（派生元）。根は null
+#   group       : 排他グループid（greek のみ。同 group は相互排他）
+#   icon        : スキルツリーメニューのアイコン(Material)
+#   cost        : 消費スキルポイント
+#   effect-text : 説明（wiki と生成lang の description へ）
+#   buffs       : TFが所有・適用する数値バフ（TFステ辞書のkey→値）。★Valhalla側には渡さない（二重適用回避）
+#   native      : Valhallaネイティブ機構の perk_rewards（Valhallaが適用）。攻撃速度/ノックバック/スタン等
+#   commands    : 解放時に実行するコマンド（グリフ/レシピ解放ゲート等）。任意
+#   effects     : 数値化しない効果タグ（wiki表示用の補足）。任意
+# ★数値は暫定プレースホルダ。プレイテスト後に調整してください。
+# ★ギリシャ路線: alpha=追加ダメージ(percent-bonus-damage) / beta=貫通率(penetration) /
+#   gamma=範囲攻撃+スタン(aoe-radius/aoe-damage-rate/stun-chance) ※2026-07-26職業別草案準拠、
+#   旧gamma=固定ダメージ(fixed-damage)は防御貫通が壊れやすいため廃止
+# ============================================================================
+
+# 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/heavy_weapons.md
+skill: HEAVY_WEAPONS
+display-name: "重量武器"
+icon: NETHERITE_AXE
+starting-coords: "2,10"
+prestige:
+  enabled: true
+  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  at-level: 100
+  name: "覇王の境地"
+  effect-text: "ダメージ・貫通率・固定ダメージが永続で増加"
+  buffs:
+    attack-power: 0.15
+    penetration: 0.1
+    fixed-damage: 2.0
+
+nodes:
+  A:
+    name: "剛撃の心得"
+    level: 10
+    role: main
+    parent: null
+    icon: WOODEN_AXE
+    cost: 1
+    effect-text: "ダメージ増加・チャージアタックで一定確率でスタン"
+    buffs:
+      attack-power: 0.1
+      stun_chance: 0.1
+    effects:
+      - "チャージアタックで一定確率でスタンを付与"
+  B:
+    name: "貫きの一撃"
+    level: 30
+    role: main
+    parent: A
+    icon: STONE_AXE
+    cost: 1
+    effect-text: "攻撃速度・貫通率増加"
+    buffs:
+      penetration: 0.1
+      # 2026-07-26 stat-scope 境界引き直し §2 (C→A 降格): attack_speed(絶対値)はStatVocabularyから
+      # 外れ、perkのbuffsからは付与できなくなった(元々2026-07-25のattack-speed/attack-speed-bonus
+      # 分離仕様の時点でPerkAttributeApplierが汎用attrs経路から明示的に除外しており、実際には
+      # 既に効果が出ていなかった死にバフ)。
+      # 表示だけ残して効果が無い状態を避けるため、生きている割合キーへ置き換える。
+      # 重量武器は「遅く重い」が持ち味なので、軽量武器(0.08)より控えめにする。
+      attack-speed-bonus: 0.04
+  C:
+    name: "破砕の型"
+    level: 50
+    role: main
+    parent: B
+    icon: GOLDEN_AXE
+    cost: 1
+    effect-text: "スタン確率UP・固定ダメージ増加"
+    buffs:
+      fixed-damage: 2.0
+      stun_chance: 0.1
+    effects:
+      - "スタン確率アップ"
+  D:
+    name: "連打の境地"
+    level: 70
+    role: main
+    parent: C
+    icon: IRON_AXE
+    cost: 1
+    effect-text: "攻撃速度・スタン時間増加"
+    buffs:
+      # 2026-07-26: 上記Bノードと同じ理由でattack_speedをattack-speed-bonusへ置換。
+      attack-speed-bonus: 0.04
+      stun_chance: 0.05
+      attack-reach: 0.25
+      # 2026-07-26新設: stun_duration_bonusが実装されるまでeffect-textが「スタン時間増加」と
+      # 書きながら実体を伴わなかった(stun-duration相当のキーが存在しなかった)。他ノードの刻み
+      # (stun_chance 0.05〜0.1、attack-speed-bonus 0.04)に合わせ控えめに配線する。
+      stun_duration_bonus: 0.2
+    effects:
+      - "スタン時間増加"
+  E:
+    name: "極意・粉砕"
+    level: 90
+    role: main
+    parent: D
+    icon: NETHERITE_AXE
+    cost: 1
+    effect-text: "スタン確率アップ・チャージアタックのダメージ増加"
+    buffs:
+      stun_chance: 0.1
+      power_attack_damage: 0.1
+    effects:
+      - "スタン確率アップ"
+      - "チャージアタックのダメージ増加"
+
+  C-1-1:
+    name: "打ち崩し"
+    level: 50
+    role: branch
+    parent: C
+    icon: STICK
+    cost: 1
+    effect-text: "ノックバック距離増加"
+    buffs:
+      melee_knockback: 0.3
+  C-1-2:
+    name: "大打ち崩し"
+    level: 70
+    role: branch
+    parent: C-1-1
+    icon: STICK
+    cost: 1
+    effect-text: "ノックバック距離増加"
+    buffs:
+      melee_knockback: 0.3
+  D-1-1:
+    name: "薙ぎ払い"
+    level: 70
+    role: branch
+    parent: D
+    icon: BLAZE_ROD
+    cost: 1
+    effect-text: "攻撃範囲増加"
+    buffs:
+      power_attack_radius: 1
+      attack-reach: 0.5
+  D-1-2:
+    name: "大薙ぎ"
+    level: 90
+    role: branch
+    parent: D-1-1
+    icon: BLAZE_ROD
+    cost: 1
+    effect-text: "攻撃範囲増加"
+    buffs:
+      power_attack_radius: 1
+      attack-reach: 0.5
+
+  A-alpha-1:
+    name: "豪・剛撃"
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: RED_DYE
+    cost: 1
+    effect-text: "追加ダメージ増加"
+    # 2026-07-26 職業別草案(戦闘)準拠: 3路線の性格分化(α=火力型)。attack-power→percent-bonus-damage。
+    buffs: { percent-bonus-damage: 0.04 }
+  A-beta-1:
+    name: "穿・剛撃"
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: LIME_DYE
+    cost: 1
+    effect-text: "貫通率増加"
+    buffs: { penetration: 0.04 }
+  A-gamma-1:
+    name: "崩・剛撃"
+    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「芯・剛撃」を変更。中身が固定ダメージ(一点集中)から
+    # 範囲攻撃+スタン(なぎ払う制圧)に変わり、「芯(核心を突く)」という名称と実態が逆方向になったため。
+    level: 10
+    role: greek
+    parent: A
+    group: A-greek
+    icon: ORANGE_DYE
+    cost: 1
+    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
+    # 2026-07-26 職業別草案(戦闘)準拠: γ=制圧特化型。fixed-damage(防御貫通で壊れやすい)を廃止し、
+    # 2026-07-26にツリーから配れるようになったAoE3キー+スタン率へ全面差し替え。
+    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
+  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
+  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
+  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+  B-alpha-1:
+    name: "豪・貫き"
+    level: 30
+    role: greek
+    parent: A-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "追加ダメージ増加"
+    buffs: { percent-bonus-damage: 0.04 }
+  B-beta-1:
+    name: "穿・貫き"
+    level: 30
+    role: greek
+    parent: A-beta-1
+    icon: LIME_DYE
+    cost: 1
+    effect-text: "貫通率増加"
+    buffs: { penetration: 0.04 }
+  B-gamma-1:
+    name: "崩・貫き"
+    level: 30
+    role: greek
+    parent: A-gamma-1
+    icon: ORANGE_DYE
+    cost: 1
+    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
+    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+  C-alpha-1:
+    name: "豪・破砕"
+    level: 50
+    role: greek
+    parent: B-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "追加ダメージ増加"
+    buffs: { percent-bonus-damage: 0.04 }
+  C-beta-1:
+    name: "穿・破砕"
+    level: 50
+    role: greek
+    parent: B-beta-1
+    icon: LIME_DYE
+    cost: 1
+    effect-text: "貫通率増加"
+    buffs: { penetration: 0.04 }
+  C-gamma-1:
+    name: "崩・破砕"
+    level: 50
+    role: greek
+    parent: B-gamma-1
+    icon: ORANGE_DYE
+    cost: 1
+    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
+    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+  D-alpha-1:
+    name: "豪・連打"
+    level: 70
+    role: greek
+    parent: C-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "追加ダメージ増加"
+    buffs: { percent-bonus-damage: 0.04 }
+  D-beta-1:
+    name: "穿・連打"
+    level: 70
+    role: greek
+    parent: C-beta-1
+    icon: LIME_DYE
+    cost: 1
+    effect-text: "貫通率増加"
+    buffs: { penetration: 0.04 }
+  D-gamma-1:
+    name: "崩・連打"
+    level: 70
+    role: greek
+    parent: C-gamma-1
+    icon: ORANGE_DYE
+    cost: 1
+    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
+    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+  E-alpha-1:
+    name: "豪・粉砕"
+    level: 90
+    role: greek
+    parent: D-alpha-1
+    icon: RED_DYE
+    cost: 1
+    effect-text: "追加ダメージ増加"
+    buffs: { percent-bonus-damage: 0.04 }
+  E-beta-1:
+    name: "穿・粉砕"
+    level: 90
+    role: greek
+    parent: D-beta-1
+    icon: LIME_DYE
+    cost: 1
+    effect-text: "貫通率増加"
+    buffs: { penetration: 0.04 }
+  E-gamma-1:
+    name: "崩・粉砕"
+    level: 90
+    role: greek
+    parent: D-gamma-1
+    icon: ORANGE_DYE
+    cost: 1
+    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
+    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+

@@ -1,0 +1,82 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const YAML = require("yaml");
+const { buildUpdatedData, extractConstants, validateConstants } = require("../lib/constants");
+
+test("出荷combat設定の数値・真偽値はすべて共通変数画面へ出る", () => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
+  const combatLevel = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/progression/combat-level.yml"), "utf8"));
+  const { fields, pillars } = extractConstants(damage, combatLevel);
+
+  assert.deepEqual(Object.fromEntries([
+    "physical.base-coefficient", "physical.min-component-damage",
+    "magical.base-coefficient", "magical.min-component-damage", "magical.scale-with-combat-level",
+    "weapon-base-formula.enabled", "weapon-base-formula.a", "weapon-base-formula.b",
+    "level-scaling.per-level", "defense.max-mitigation-rate", "defense.max-dodge-chance",
+    "defense.max-crit-reduction",
+    "defense.min-rate", "defense.max-rate", "defense.min-flat", "defense.max-flat",
+    "vanilla-armor.defense-rate-per-point", "vanilla-armor.defense-rate-max",
+    "vanilla-armor.armor-strength-per-point", "bleed.tick-interval-ticks", "bleed.ticks",
+    "aoe.hit-players", "curve.scale", "curve.min-level", "curve.max-level", "cache.ttl-seconds"
+  ].map((key) => [key, fields[key]])), {
+    "physical.base-coefficient": 1, "physical.min-component-damage": 1,
+    "magical.base-coefficient": 1, "magical.min-component-damage": 1,
+    "magical.scale-with-combat-level": true,
+    "weapon-base-formula.enabled": false, "weapon-base-formula.a": 2, "weapon-base-formula.b": 100,
+    "level-scaling.per-level": 0.01, "defense.max-mitigation-rate": 0.9, "defense.max-dodge-chance": 0.9,
+    "defense.max-crit-reduction": 1,
+    "defense.min-rate": 0, "defense.max-rate": 1, "defense.min-flat": 0, "defense.max-flat": 1000000,
+    "vanilla-armor.defense-rate-per-point": 0.015, "vanilla-armor.defense-rate-max": 0.8,
+    "vanilla-armor.armor-strength-per-point": 0, "bleed.tick-interval-ticks": 20, "bleed.ticks": 5,
+    "aoe.hit-players": false, "curve.scale": 1, "curve.min-level": 0, "curve.max-level": 100,
+    "cache.ttl-seconds": 3
+  });
+  assert.deepEqual(pillars, [
+    { top: 1, divisor: 1 }, { top: 2, divisor: 1.5 },
+    { top: 3, divisor: 2.1 }, { top: 4, divisor: 2.8 }
+  ]);
+});
+
+test("defense.max-dodge-chance is retained and persisted", () => {
+  const updated = buildUpdatedData(
+    { fields: { "defense.max-dodge-chance": 0.25 } },
+    { defense: { "max-dodge-chance": 0.9 } },
+    {}
+  );
+  assert.equal(updated.damage.defense["max-dodge-chance"], 0.25);
+  assert.equal(extractConstants(updated.damage, {}).fields["defense.max-dodge-chance"], 0.25);
+  assert.deepEqual(validateConstants({ fields: { "defense.max-dodge-chance": 1.1 } }),
+    ["defense.max-dodge-chance: 1以下である必要があります"]);
+});
+
+test("物理・魔法の下限クランプは負値を許容して保存する", () => {
+  const payload = { fields: {
+    "physical.min-component-damage": -50000,
+    "magical.min-component-damage": -75000
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, {}, {});
+  assert.equal(updated.damage.physical["min-component-damage"], -50000);
+  assert.equal(updated.damage.magical["min-component-damage"], -75000);
+});
+
+test("撤去した attack/defense stat-key はもう共通変数に現れない", () => {
+  // 恒等マップのためハードコード化(2026-07-24)。editor の FIELD_SPECS から除外済みで、
+  // extractConstants は該当キーを surface せず、既存 damage.yml の値は保存時に温存される。
+  const damage = {
+    "attack-stat-keys": { "crit-chance": "crit-chance" },
+    "defense-stat-keys": { "phys-flat-defense": "phys-flat-defense" }
+  };
+  const { fields } = extractConstants(damage, {});
+  assert.equal("attack-stat-keys.crit-chance" in fields, false);
+  assert.equal("defense-stat-keys.phys-flat-defense" in fields, false);
+  // 他の定数を保存しても damage.yml の stat-key セクションは deep clone で温存される。
+  const updated = buildUpdatedData({ fields: { "defense.max-dodge-chance": 0.5 } }, damage, {});
+  assert.equal(updated.damage["attack-stat-keys"]["crit-chance"], "crit-chance");
+  assert.equal(updated.damage["defense-stat-keys"]["phys-flat-defense"], "phys-flat-defense");
+});

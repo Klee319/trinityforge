@@ -1,0 +1,12 @@
+# TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
+# Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
+# Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+experience: 
+  max_level: 100 
+  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
+  exp_damage_piece: 0.25 # TF: flat EXP per worn light-armor piece per hit
+  exp_damage_piece_min_damage: 1.0 # TF: この値未満の最終ダメージ(矢の掠り等)では防具EXPを付与しない(semi-AFK farm対策)
+  exp_damage_piece_cooldown_seconds: 10 # TF: 同一攻撃者からの被弾EXPは(被害者,攻撃者)単位でこの秒数に1回まで
+  exp_second_piece: 5 # Legacy (combat-tick EXP; not consumed by TF)
+  exp_multiplier_point: 0.05 # TF: EXP = finalDamage * this rate
+  legacy:

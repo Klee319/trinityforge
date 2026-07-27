@@ -1,0 +1,407 @@
+package com.trinityforge.config.domains;
+
+import com.trinityforge.config.domains.MobTypesConfig.DefaultDefenseResult;
+import com.trinityforge.mobs.MobTypeDefinition;
+import org.bukkit.Material;
+import com.trinityforge.config.domains.MobTypesConfig.ParseResult;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
+import org.junit.jupiter.api.Test;
+
+import java.util.logging.Logger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class MobTypesConfigTest {
+
+    private static final Logger LOG = Logger.getLogger("MobTypesConfigTest");
+    private static final double DELTA = 1.0e-9;
+
+    private static ParseResult parse(String yaml) throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString(yaml);
+        return MobTypesConfig.parse(cfg.getConfigurationSection("mob-types"), LOG);
+    }
+
+    @Test
+    void emptyMobTypesYieldsNone() throws Exception {
+        ParseResult r = parse("mob-types: {}\n");
+        assertEquals(0, r.skipped());
+        assertTrue(r.definitions().isEmpty());
+    }
+
+    @Test
+    void parsesFullDefinitionWithDrops() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 3
+                    coordinate-coefficient: 0.5
+                    max-health: 40
+                    armor-strength: 2.0
+                    physical: { defense-rate: 0.2, resistance: 0.1, damage-reduction: 0.0, flat-defense: 1.0 }
+                    magical:  { defense-rate: 0.0, resistance: 0.0, damage-reduction: 0.0, flat-defense: 0.0 }
+                    level-coefficients:
+                      max-health: 2.0
+                      armor-strength: 0.1
+                      physical: { defense-rate: 0.01, flat-defense: 0.5 }
+                      magical:  { resistance: 0.02 }
+                    drops:
+                      - { material: ROTTEN_FLESH, chance: 0.1, min: 1, max: 2 }
+                      - { material: IRON_SWORD, chance: 0.05, min: 1, max: 1, quality: 3 }
+                """);
+        assertEquals(0, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(3, def.level());
+        assertEquals(0.5, def.coordinateCoefficient(), DELTA);
+        assertEquals(40.0, def.maxHealth(), DELTA);
+        assertEquals(2.0, def.physical().armorStrength(), DELTA);
+        assertEquals(0.2, def.physical().defenseRate(), DELTA);
+        assertEquals(2.0, def.levelCoefficients().maxHealth(), DELTA);
+        assertEquals(0.1, def.levelCoefficients().armorStrength(), DELTA);
+        assertEquals(0.01, def.levelCoefficients().physical().defenseRate(), DELTA);
+        assertEquals(0.5, def.levelCoefficients().physical().flatDefense(), DELTA);
+        assertEquals(0.02, def.levelCoefficients().magical().resistance(), DELTA);
+        assertEquals(2, def.drops().size());
+        assertEquals(Material.ROTTEN_FLESH, def.drops().get(0).material());
+        assertEquals(3, def.drops().get(1).quality());
+    }
+
+    @Test
+    void missingMaxHealthAndLevelCoefficientsDefaultSafely() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(null, def.maxHealth());
+        assertEquals(0.0, def.levelCoefficients().maxHealth(), DELTA);
+        assertEquals(0.0, def.levelCoefficients().physical().defenseRate(), DELTA);
+    }
+
+    @Test
+    void nonPositiveMaxHealthSkipsEntry() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    max-health: 0
+                  SKELETON:
+                    level: 2
+                    max-health: 20
+                """);
+        assertEquals(1, r.skipped());
+        assertEquals(1, r.definitions().size());
+        assertTrue(r.definitions().containsKey(EntityType.SKELETON));
+        assertEquals(20.0, r.definitions().get(EntityType.SKELETON).maxHealth(), DELTA);
+    }
+
+    @Test
+    void invalidEntityTypeKeyIsSkippedButOthersLoad() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  NOT_A_REAL_MOB:
+                    level: 1
+                  ZOMBIE:
+                    level: 2
+                """);
+        assertEquals(1, r.skipped());
+        assertEquals(1, r.definitions().size());
+        assertTrue(r.definitions().containsKey(EntityType.ZOMBIE));
+    }
+
+    @Test
+    void invalidDropMaterialIsSkippedButEntryStillLoads() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    drops:
+                      - { material: NOT_A_REAL_MATERIAL, chance: 0.1, min: 1, max: 1 }
+                      - { material: ROTTEN_FLESH, chance: 0.1, min: 1, max: 1 }
+                """);
+        // The invalid-material drop is skipped AND counted (bad drop config must not report a
+        // clean load), but the ZOMBIE entry itself still loads with the one valid drop.
+        assertEquals(1, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1, def.drops().size());
+        assertEquals(Material.ROTTEN_FLESH, def.drops().get(0).material());
+    }
+
+    @Test
+    void dropMissingRequiredFieldIsSkippedAndCounted() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    drops:
+                      - { material: ROTTEN_FLESH, chance: 0.1, min: 1 }
+                      - { material: IRON_SWORD, chance: 0.1, min: 1, max: 1 }
+                """);
+        assertEquals(1, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1, def.drops().size());
+        assertEquals(Material.IRON_SWORD, def.drops().get(0).material());
+    }
+
+    @Test
+    void dropWithNonNumericChanceIsSkippedAndCounted() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    drops:
+                      - { material: ROTTEN_FLESH, chance: "not-a-number", min: 1, max: 1 }
+                """);
+        assertEquals(1, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertTrue(def.drops().isEmpty());
+    }
+
+    @Test
+    void missingDefenseSectionsDefaultToZero() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(0.0, def.physical().defenseRate(), DELTA);
+        assertEquals(0.0, def.coordinateCoefficient(), DELTA);
+        assertTrue(def.drops().isEmpty());
+    }
+
+    @Test
+    void defenseRateAboveOneRemainsRawUntilCombatClamp() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    physical: { defense-rate: 5.0 }
+                """);
+        assertEquals(5.0, r.definitions().get(EntityType.ZOMBIE).physical().defenseRate(), DELTA);
+    }
+
+    @Test
+    void signedAttackAndNeutralDamageModifierDefaultsArePreserved() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    attack:
+                      attack-power: -12
+                      penetration: -0.5
+                    level-coefficients:
+                      attack:
+                        attack-power: -2
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertEquals(-12.0, def.attack().defaultDamage(), DELTA);
+        assertEquals(-0.5, def.attack().penetration(), DELTA);
+        assertEquals(1.0, def.attack().damageModifier(), DELTA);
+        assertEquals(-2.0, def.levelCoefficients().attack().attackPower(), DELTA);
+        assertEquals(0.0, def.levelCoefficients().attack().damageModifier(), DELTA);
+    }
+
+    @Test
+    void missingGrowthKeysDefaultToLinearBackCompat() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    level-coefficients:
+                      max-health: 55
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1.0, def.levelCoefficients().maxHealthGrowth(), DELTA);
+        assertEquals(1.0, def.levelCoefficients().maxHealthGrowthInterval(), DELTA);
+        assertEquals(55.0, def.levelCoefficients().maxHealth(), DELTA);
+    }
+
+    @Test
+    void parsesMaxHealthGrowthKeys() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    max-health: 380
+                    level-coefficients:
+                      max-health: 0
+                      max-health-growth: 1.055
+                      max-health-growth-interval: 1.0
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1.055, def.levelCoefficients().maxHealthGrowth(), DELTA);
+        assertEquals(1.0, def.levelCoefficients().maxHealthGrowthInterval(), DELTA);
+    }
+
+    @Test
+    void missingAttackPowerGrowthKeysDefaultToLinearBackCompat() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    level-coefficients:
+                      attack:
+                        attack-power: 0.6
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1.0, def.levelCoefficients().attack().attackPowerGrowth(), DELTA);
+        assertEquals(1.0, def.levelCoefficients().attack().attackPowerGrowthInterval(), DELTA);
+        assertEquals(0.6, def.levelCoefficients().attack().attackPower(), DELTA);
+    }
+
+    @Test
+    void parsesAttackPowerGrowthKeys() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    attack:
+                      attack-power: 5.5
+                    level-coefficients:
+                      attack:
+                        attack-power: 0
+                        attack-power-growth: 1.03
+                        attack-power-growth-interval: 1.0
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1.03, def.levelCoefficients().attack().attackPowerGrowth(), DELTA);
+        assertEquals(1.0, def.levelCoefficients().attack().attackPowerGrowthInterval(), DELTA);
+    }
+
+    @Test
+    void negativeLevelEntryIsSkipped() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: -1
+                  SKELETON:
+                    level: 2
+                """);
+        assertEquals(1, r.skipped());
+        assertEquals(1, r.definitions().size());
+        assertTrue(r.definitions().containsKey(EntityType.SKELETON));
+    }
+
+    @Test
+    void nonSectionEntryIsSkippedButKeepsRest() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE: 5
+                  SKELETON:
+                    level: 2
+                """);
+        assertEquals(1, r.skipped());
+        assertEquals(1, r.definitions().size());
+        assertTrue(r.definitions().containsKey(EntityType.SKELETON));
+    }
+
+    @Test
+    void parsesDefaultsSection() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                defaults:
+                  max-health: 30
+                  armor-strength: 3.0
+                  physical: { defense-rate: 0.1, resistance: 0.2, damage-reduction: 0.3, flat-defense: 4.0 }
+                  magical:  { defense-rate: 0.5, resistance: 0.0, damage-reduction: 0.0, flat-defense: 0.0 }
+                  level-coefficients:
+                    max-health: 1.5
+                    physical: { flat-defense: 0.25 }
+                """);
+        DefaultDefenseResult defaults = MobTypesConfig.parseDefaults(cfg.getConfigurationSection("defaults"), LOG);
+        assertEquals(0.1, defaults.physical().defenseRate(), DELTA);
+        assertEquals(0.2, defaults.physical().resistance(), DELTA);
+        assertEquals(3.0, defaults.physical().armorStrength(), DELTA);
+        assertEquals(0.5, defaults.magical().defenseRate(), DELTA);
+        assertEquals(30.0, defaults.maxHealth(), DELTA);
+        assertEquals(1.5, defaults.levelCoefficients().maxHealth(), DELTA);
+        assertEquals(0.25, defaults.levelCoefficients().physical().flatDefense(), DELTA);
+        assertEquals(0, defaults.level());
+        assertEquals(0.0, defaults.coordinateCoefficient(), DELTA);
+    }
+
+    @Test
+    void parsesDefaultsLevelAndCoordinateCoefficient() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                defaults:
+                  level: 5
+                  coordinate-coefficient: 0.02
+                  armor-strength: 0.0
+                """);
+        DefaultDefenseResult defaults = MobTypesConfig.parseDefaults(cfg.getConfigurationSection("defaults"), LOG);
+        assertEquals(5, defaults.level());
+        assertEquals(0.02, defaults.coordinateCoefficient(), DELTA);
+    }
+
+    @Test
+    void parsesDefaultsFromStandaloneRootYaml() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                physical: { defense-rate: 0.15 }
+                magical:  { flat-defense: 2.0 }
+                armor-strength: 1.5
+                """);
+        DefaultDefenseResult defaults = MobTypesConfig.parseDefaultsFromRoot(cfg);
+        assertEquals(0.15, defaults.physical().defenseRate(), DELTA);
+        assertEquals(2.0, defaults.magical().flatDefense(), DELTA);
+        assertEquals(1.5, defaults.physical().armorStrength(), DELTA);
+    }
+
+    @Test
+    void missingDefaultsSectionYieldsZeroBaseline() {
+        DefaultDefenseResult defaults = MobTypesConfig.parseDefaults(null, LOG);
+        assertEquals(0.0, defaults.physical().defenseRate(), DELTA);
+        assertEquals(0.0, defaults.magical().flatDefense(), DELTA);
+        assertEquals(null, defaults.maxHealth());
+        assertEquals(0.0, defaults.levelCoefficients().maxHealth(), DELTA);
+        assertEquals(0, defaults.level());
+        assertEquals(0.0, defaults.coordinateCoefficient(), DELTA);
+    }
+
+    // --- CMB-21: max-level (距離由来モブレベルの上限) ---
+
+    @Test
+    void missingMaxLevelDefaultsToOneHundred() {
+        YamlConfiguration cfg = new YamlConfiguration();
+        assertEquals(100, MobTypesConfig.parseMaxLevel(cfg, LOG));
+    }
+
+    @Test
+    void nullRootDefaultsToOneHundred() {
+        assertEquals(100, MobTypesConfig.parseMaxLevel(null, LOG));
+    }
+
+    @Test
+    void explicitMaxLevelIsHonored() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("max-level: 250\n");
+        assertEquals(250, MobTypesConfig.parseMaxLevel(cfg, LOG));
+    }
+
+    @Test
+    void zeroOrNegativeMaxLevelFallsBackToDefault() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("max-level: -5\n");
+        assertEquals(100, MobTypesConfig.parseMaxLevel(cfg, LOG));
+
+        YamlConfiguration zeroCfg = new YamlConfiguration();
+        zeroCfg.loadFromString("max-level: 0\n");
+        assertEquals(100, MobTypesConfig.parseMaxLevel(zeroCfg, LOG));
+    }
+}

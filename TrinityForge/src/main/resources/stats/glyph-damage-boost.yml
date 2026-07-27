@@ -1,0 +1,8 @@
+# TrinityForge - 特定グリフのダメージ倍率ボーナス(glyph_damage_multiplier_bonus stat)の適用対象一覧
+# ============================================================================
+# ars_magic.yml B-3「害悪強化」が glyph_damage_multiplier_bonus(fraction, 0.3=+30%)を付与するが、
+# 「どのグリフのダメージに乗るか」はこの一覧で決める(harmに決め打ちしない汎用設計)。
+# 将来別のグリフを対象に加えたい場合は、ここへグリフIDを追記するだけでよい
+# (フォーク側は TrinityForge#glyphDamageMultiplier(caster, glyphId) を呼ぶだけで済む)。
+boosted-glyphs:
+  - harm

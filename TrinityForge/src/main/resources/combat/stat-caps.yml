@@ -1,0 +1,25 @@
+# TrinityForge - 総合ステータス上限 (stat caps)
+#
+# プレイヤーの「最終合算値」— 装備 + スキルツリーパーク + 永続バフ + base-stats + 乗算レイヤを
+# すべて適用し終えた後の値 — に上限(上側だけ)をかける任意設定。
+#
+# ● 既定は「上限なし」= 現在の挙動と完全に同一。何も書かなければ何も変わらない。
+# ● 「上限なし」と「上限0」の区別: キーを未記載のままなら「上限なし」。明示的に数値(0を含む)を
+#   書いた場合だけ「上限0」として機能する(base-stats.yml とは逆の規約 — あちらは0=未設定)。
+# ● 編集後は /trinityforge reload で即時反映。
+#
+# ⚠ 設定できるキーの全一覧・適用点(totalOf / CombatListener / PlayerDefenseResolver)・
+#   「まだ効かないキー」「そもそも書いても効かないキー」の理由は、すべて下記に移設済み:
+#     docs/config-reference/combat/stat-caps.md
+#
+#   2026-07-26: 元はこのファイル本文に約170行のコメントで書いていたが、config-editor で
+#   この画面を一度保存すると本文コメントが復元されず丸ごと消える(tools/config-editor/lib/yamlio.js)。
+#   他の出荷config と同じく docs/config-reference/ へ退避した。キーを増減するときは
+#   UI(STAT_CAPS_SECTIONS) / Java(StatCapsConfig) / 上記mdの3点セットで揃えること
+#   (tools/config-editor/test/tf-stat-caps-registry.test.js が機械的に照合している)。
+
+stat-caps: {}
+
+# 最終効率(gathering-efficiency)の効率強化エンチャント上限。未記載なら
+# stats/gathering-efficiency.yml 側の max-enchant-level が使われる(詳細は上記md)。
+# gathering-efficiency-max-enchant-level:

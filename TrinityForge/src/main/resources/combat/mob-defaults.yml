@@ -1,0 +1,27 @@
+# DEPRECATED: 未タグ付けモブの既定防御は combat/mob-types.yml の `defaults:` へ移行しました。
+# このファイルは後方互換のためランタイムで引き続き読み込まれます。編集は mob-types.yml を正としてください。
+#
+# TrinityForge - Default mob defender profile (COMBAT_SYSTEM_SPEC section 6).
+#
+# Mobs that carry no addon profile (plain vanilla mobs) use these values so the symmetric pipeline
+# applies uniformly to every mob. EliteMobs / dungeon mobs override this with their own PDC profile.
+#
+# Defaults are the vanilla baseline: zero mitigation (only level matters). Raise any value to make
+# untagged mobs tougher with no code change; run `/trinityforge reload` to apply.
+# All numbers are provisional (IMPLEMENTATION_PLAN M7). Rates are fractions in [0,1].
+# 設定リファレンス(本文コメント移設先): docs/config-reference/combat/mob-defaults.md
+
+
+physical:
+  defense-rate: 0.0
+  resistance: 0.0
+  damage-reduction: 0.0
+  flat-defense: 0.0
+
+magical:
+  defense-rate: 0.0
+  resistance: 0.0
+  damage-reduction: 0.0
+  flat-defense: 0.0
+
+armor-strength: 0.0
