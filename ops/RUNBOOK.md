@@ -452,27 +452,42 @@ dir /al "D:\game\minecraft\PaperServer\TrinityForge-Res\plugins"
 
 ## 手順 9. HuskSync を導入
 
-### 9-1. ビルド
+### 9-1. ビルド — **済み**
 
-**現行の Paper 1.21.11 に対応した公式リリースは存在しない。** 詳細は
+**現行の Paper 1.21.11 に対応した公式リリースは存在しない**（3.8.7 は ≤1.21.8、3.9.0 は 26.1.2 のみ）。
+`bukkit/1.21.11/` アダプタを持つのは master（4.0.0・未リリース）だけ。詳細は
 [COST_AND_LICENSE.md](COST_AND_LICENSE.md) の「HuskSync」節。
 
-**推奨: master（4.0.0-dev）を特定コミットに固定してビルドする。**
-`bukkit/1.21.11/` アダプタが公式に存在する。
+**2026-07-27 にビルド済み。** そのまま使える。
+
+| 項目 | 値 |
+|---|---|
+| 成果物 | `tmp/husksync-dist/HuskSync-Bukkit-4.0.0-3dc619d+mc.1.21.11.jar` |
+| サイズ | 3,247,291 バイト |
+| SHA-256 | `4E047339EFD25DD1DC776CF3E8D9F8AA007C54E35B77534367C8479274E82466` |
+| 元コミット | `3dc619d5f641ee909004925dbbda2d507b7127c2`（master、2026-07-23） |
+| プラグイン版 | `4.0.0-3dc619d` / `api-version: 1.21` / `folia-supported: true` |
+| コンパイル対象 | `io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT`（解決を実測確認） |
+| ビルド JDK | **21 で通る**（ルートの `javaVersion=25` はこのバリアントには効かない。`bukkit/1.21.11/gradle.properties` が `java_version=21`） |
+
+**jar は git に入れていない**（このリポジトリは public。`tmp/` は `.gitignore` 対象）。
+両バックエンドの `plugins/` へコピーして使う。
+
+再現手順:
 
 ```bash
 git clone https://github.com/WiIIiam278/HuskSync.git
 cd HuskSync
-git checkout <コミットハッシュを固定>
-./gradlew clean build
-# bukkit/build/libs/ に jar ができる
+git checkout 3dc619d5f641ee909004925dbbda2d507b7127c2
+./gradlew :bukkit:1.21.11:shadowJar
+# target/HuskSync-Bukkit-4.0.0-3dc619d+mc.1.21.11.jar
 ```
 
-ビルドしたコミットハッシュを必ず記録に残すこと（未リリースブランチのため）。
+`./gradlew build` だと 26.1.2 / 26.2 バリアントと Fabric も巻き込んで JDK 25 が要る。
+**`:bukkit:1.21.11:shadowJar` だけを指定すること。**
 
-**先に試す価値のある代替**: 3.8.7 の配布 jar をそのまま入れてみる。
-HuskSync は NMS を使っておらず Paper API のみでビルドされているため、動く可能性はある。
-ただし**公式サポート範囲外**なので、**本番データでは試さない**。捨ててよいテスト環境で確認すること。
+> **未リリースブランチである点は理解して使うこと。** 上げ直すときは必ず新しいコミットハッシュを
+> 記録し、[COST_AND_LICENSE.md](COST_AND_LICENSE.md) の表と本節を更新する。
 
 ### 9-2. 設定
 
