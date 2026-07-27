@@ -46,3 +46,6 @@ usercache.json
 *.pem
 .env
 .env.*
+
+# ops スクリプトのローカル設定（絶対パスを含む）。ops-config.sample.psd1 だけを版管理する。
+ops/ops-config.psd1

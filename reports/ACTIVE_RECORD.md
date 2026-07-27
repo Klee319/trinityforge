@@ -51,6 +51,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | J-4 | 素材タブのカテゴリバーを「そもそもスティッキーにしない」か | 変える場合 `test/split-view-sticky.test.js` の期待値を**意図的に**書き換える必要がある |
 | J-5 | モブ HP 上限 1024 の是非 | 2026-07-27 に「今回は適用しない」選択。現行は上限なし |
 | J-6 | 触媒のオフハンド運用 | 同上。`offhand-stats-apply` は既定 false でどのアイテムにも設定されていない |
+| J-10 | **資源サーバ分離を実際に配備するか、およびネザーのボーダー値** | 作業書とオフライン検証は完了（`ops/RUNBOOK.md`、2026-07-27）。**配備はユーザー作業**。あわせて未決 3 点: ①ネザーを一律 5000 のままにするか 625 にするか（`ops/RUNBOOK.md` 手順 6-3 に計算表）②Velocity 側でホワイトリスト運用にするか（25 人規模では無料で最も強力な DDoS 対策）③資源サーバの `max-homes`（推奨 3） |
 | J-9 | **農業「ゴミ食II」を上位ノードとして成立させるか** | 段階化（W-5 ①）は倍率 1 個で実装したため、上位ノードの `value: 150` は**ゴミ食の恩恵と非ゴミ食のペナルティを両方 1.5 倍**にする。「ゴミ食専門家になるほど普通の飯が体に合わなくなる」という筋は通るが、**上位ノードを取ると普通の食事が今より不利になる**ので、スキルとしては取得を躊躇させる。元の草案テキストは「ゴミ以外の満腹度回復量を**戻す**」＝**欠点が消える**方向で、実装と正反対だった（2026-07-27 に発見、テキスト側を実装に合わせて修正済み）。草案の意図を採るなら**恩恵側とペナルティ側で別パラメータが要る**（`junkfood-inversion` を 2 値化）。現状は「両方 1.5 倍」で出荷される |
 | ~~J-8~~ | ~~**ArsPaper フォークの push 先**~~ | **解決（2026-07-27）**。ユーザー判断により**3 リポジトリすべて PUBLIC**。`Klee319/ArsPaper` の `feat/trinityforge-fork` を再 push し、`trinityforge` と `EliteMobs-trinityforge` も public 化した |
 | ~~J-7~~ | ~~**K-5（ステータスのトリガー/発動制限の明示）の修正プラン、着手前の 2 点**~~ | **解決（2026-07-27、ユーザー判断）**。①詳細の出し先 = **`/stats detail <key>` サブコマンド**（統合版で hover が効かない・lore の行数制限に当たらないため）。②着手範囲 = **120 キーを一括で埋める**（私の推奨は戦闘系 20 キーでの先行検証だったが、ユーザーが一括を選択。途中状態を残さない方を優先）。プラン本体は §4 の K-5 直下 |
@@ -279,10 +280,105 @@ git 系（2026-07-27 に導入）:
 | config の各キーの意味・適用点 | `docs/config-reference/` 以下（yml 本文コメントは editor 保存で消えるためこちらが正） |
 | 設計判断の経緯 | `docs/design/` |
 | 過去の作業記録 | `reports/` の日付入りファイル（**残タスクの一次情報ではない**） |
+| 資源サーバ分離（Velocity 2 バックエンド化）の作業書 | `ops/RUNBOOK.md`。周辺は `ops/README.md` から辿る |
 
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — 資源サーバ分離の作業書とオフライン検証（`ops/` 新設）
+
+メインサーバを Velocity プロキシ + メイン + 資源サーバの 2 バックエンド構成へ移行するための
+**作業書と、サーバを立てずに前提を潰す検証**を用意した。**配備はしていない**（ユーザーが
+`ops/RUNBOOK.md` に沿って自分で実行する前提）。成果物はすべて `ops/` 配下。
+
+**確定した構成**（データ同期は 3 層。新規に書いた Java の本番コードはゼロ）
+
+| 層 | 中身 | 手段 |
+|---|---|---|
+| A | インベントリ / EC / 経験値 / 体力 / 効果 | HuskSync |
+| B | プレイヤー PDC（図鑑・実績・称号・天井・採取トグル・Ars のマナとグリフ解放） | HuskSync の `persistent_data` |
+| C | スキル Lv / ポイント / パーク（SQLite） | `plugins/TrinityForge` の**ディレクトリジャンクション** |
+
+C がこの設計の肝。`plugins/TrinityForge` の中身は yml と SQLite とバックアップだけで
+**サーバ固有の実行時状態が無い**こと、SQLite が既に WAL + `busy_timeout` で開かれていること、
+`CachedProgressionRepository.evict()` が既に `PlayerQuitEvent` で呼ばれていることから、
+NTFS ジャンクションで実体を共有すれば**進行データ共有と config パリティが同時に、
+コード変更ゼロで成立する**。MariaDB 実装（1〜2 日規模）を回避できた。
+
+**検出して修正した本体のバグ 1 件（重要）**
+
+`SqliteProgressionRepository` のトランザクション 5 箇所（`unlockPerk` / `prestige` /
+`saveProgressionTransition` / `saveAdminProgressionEdit` / `resetPlayer`）は全て
+check-then-act だが、JDBC 既定の `setAutoCommit(false)` は `BEGIN DEFERRED` を発行する。
+読み取りとして始まり最初の UPDATE で書き込みロックへ昇格するため、その間に別コネクションが
+コミットしていると **`SQLITE_BUSY_SNAPSHOT` で失敗する。しかもこのエラーには
+`busy_timeout` が効かない**（古いスナップショットは待っても直らないので SQLite が busy
+ハンドラを呼ばない）。さらに `unlockPerk` は `SQLException` を握り潰して `false` を返すので、
+**プレイヤーには「ポイント不足」と区別がつかない形でパーク解放が失われる**。
+
+接続時に `transaction_mode=IMMEDIATE` を指定して解消した
+（`SqliteProgressionRepository#immediateTransactionProperties`）。
+**単一コネクション運用では挙動が変わらない**ので現行のシングルサーバへの影響はない。
+2 つ目のコネクションが同じファイルを触った瞬間に初めて顕在化する種類のバグで、
+資源サーバ分離はまさにその条件を作る。サーバを立てる前に潰せた。
+
+**サーバなしで実証したこと**
+
+| 検証 | 結果 |
+|---|---|
+| **EliteMobs 無しでモブのレベル推移と報酬テーブルが機能するか** | **機能する。** 89 種 × Lv0〜100 で全帯埋まる。`mob-overrides.yml` だけが EliteMobs 刻印付き個体にしか反応しないことも明示的にアサート。→ `ops/reports/resource-server-mob-simulation.md` |
+| 2 プロセスから同じ進行 DB を触って壊れないか | **壊れない**（上記修正後）。子 JVM を 2 つ起動し、同一パーク 60 件を昇順/降順から奪い合わせて 30/30・合計ちょうど 60 件・SQL 例外 0 件。→ `ops/reports/shared-sqlite-concurrency.md` |
+| PDC が HuskSync で同期できる型か | 全て primitive 型。`PlayerPdcPrimitiveTypeAuditTest` が将来の逸脱を検出する |
+| ジャンクション先の誤削除が止まるか | 実際にジャンクションを作って実測。`ops/scripts/run-selftest.ps1` が 10/10 |
+
+**シミュレーションで判明した配備上の要注意点**: Lv100 で **50 種のモブが最大体力 1024 を超える**
+（最大は WARDEN の 482148）。新規サーバに `spigot.yml` の
+`settings.attribute.maxHealth.max` をコピーし忘れると、**資源サーバだけモブが弱くなる**。
+RUNBOOK の手順 7 に明記した。
+
+**HuskSync のバージョン対応（調査結果・要注意）**
+
+現行は Paper 1.21.11 だが、**対応する公式リリースが存在しない**。
+3.8.7 は 1.21.8 まで、3.9.0 は 26.1.2 のみ（1.21.x アダプタを全削除・Java 25 前提）。
+一方 **master（4.0.0 未リリース）に `bukkit/1.21.11/` アダプタが存在する**
+（`minecraft_version_range=>=1.21.11 <=1.21.11`、`java_version=21`、直近コミット 2026-07-23）。
+→ **master を特定コミットに固定してビルドするのが本線。** Apache-2.0 なので無料。
+なお HuskSync は paperweight/NMS を使わず `compileOnly paper-api` のみなので、
+3.8.7 の配布 jar が 1.21.11 でそのまま動く可能性もある（**本番データでは試さないこと**）。
+
+**その他の判明事項**
+
+- `tools/config-editor/tool-config.json` が `external.enabled: true` / `bindHost: 0.0.0.0` /
+  **パスワード空**。ただしこれは 2026-07-26 にユーザーが明示的に選んだ状態で、`server.js` の
+  fail-safe を撤去した経緯がコメントに残っている。よって対策は「設定を戻す」ではなく
+  **ファイアウォールで到達経路を塞ぐ**＋環境変数 `CONFIG_EDITOR_PASSWORD` での認証付与。
+  → `ops/SECURITY.md` §0
+- ネザーを一律 5000 にすると、**ポータル移動として意味があるのはネザー ±312 まで**
+  （地上 ±2500 ÷ 8）。それより外のポータルは出口が全部ボーダー際へクランプされる。
+  面積比で全体の約 1.5%。ネザーだけ 625 にする選択肢を計算表付きで RUNBOOK に載せた（ユーザー判断）
+- 資源サーバの `pause-when-empty-seconds` は魅力的だが **Chunky の事前生成も止める**ので既定は無効
+- 週次リセットの削除対象に `plugins/SetHome/homes.yml` を入れた（消えた地形の home 座標を残さない）。
+  資源サーバの `max-homes` は 3 程度への引き下げを推奨
+
+**成果物**
+
+- ドキュメント: `ops/README.md` / `RUNBOOK.md` / `PLUGIN_MATRIX.md` / `SECURITY.md` /
+  `PERFORMANCE.md` / `COST_AND_LICENSE.md`
+- テンプレート: `ops/templates/` に velocity.toml / server.properties 差分 ×2 /
+  paper-global.yml 差分 / husksync / sonar。HuskSync と Sonar は**生成された config へ差分適用**
+  する方式にした（丸ごと差し替えるとバージョン差でキーが黙って既定値へ戻るため）
+- スクリプト: `ops/scripts/` に RCON クライアント（外部バイナリ依存なし）/ 削除ガード /
+  setup-junction / server-loop / sync-configs / reset-resource / restart-server / backup /
+  run-selftest。**全て `-DryRun` で空撃ち済み**
+- テスト: `com.trinityforge.ops.*` に 13 件追加
+
+**自己テストが実バグを 2 件検出した**（いずれも修正済み）:
+`Get-DirectorySizeMB` が空ディレクトリで `Measure-Object` の `Sum` 参照に失敗、
+子プロセスの stderr が親の `ErrorActionPreference=Stop` で終了エラー化していた。
+
+テストは TF **2374 件 / 失敗 0 / スキップ 2**、config-editor **651 / 651**（いずれも実走・実測）。
+コミット = `188bdad`（本体修正＋検証テスト）/ `fd32b3d`（スクリプトとテンプレート）＋ドキュメント。
 
 ### 2026-07-27 — 14 要件バッチの差分レビューと指摘修正（改行正規化を含む）
 
