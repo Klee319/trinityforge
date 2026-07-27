@@ -132,9 +132,11 @@ foreach ($name in $config.Servers.Keys) {
     $lines = Get-Content -LiteralPath $configFile
 
     # --- 既定の資格情報が残っていないか ---
+    #  -cmatch (大文字小文字を区別) で比べる。既定は 'HuskSync' で実際の DB 名は 'husksync' なので、
+    #  既定の -match だと同一視されて「変更していない」と誤検出する。
     foreach ($key in $defaultCredentials.Keys) {
         $pattern = "^\s{4}$key`:\s*$([regex]::Escape($defaultCredentials[$key]))\s*$"
-        if ($lines | Where-Object { $_ -match $pattern }) {
+        if ($lines | Where-Object { $_ -cmatch $pattern }) {
             $issues.Add("[$($server.Name)] HuskSync の $key が生成時の既定値 " +
                         "'$($defaultCredentials[$key])' のままです。RUNBOOK 手順2で作った値に変更してください。")
         }

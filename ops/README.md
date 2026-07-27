@@ -52,6 +52,7 @@ gradlew test --tests "com.trinityforge.ops.*"
 | [scripts/preflight.ps1](scripts/preflight.ps1) | **起動前チェック。** MariaDB / Garnet が実際に応答しているか（ポートの開閉ではなくプロトコルで判定）、HuskSync の既定資格情報と同期設定、全バックエンドでの設定一致、forwarding secret の一致 |
 | [scripts/apply-velocity-forwarding.ps1](scripts/apply-velocity-forwarding.ps1) | `forwarding.secret` を全バックエンドの `paper-global.yml` へ反映（冪等・退避あり・secret は表示しない） |
 | [scripts/apply-husksync-config.ps1](scripts/apply-husksync-config.ps1) | HuskSync の config.yml を全バックエンドで同一内容に揃える（パスワードは実行時に入力） |
+| [scripts/seed-backend-configs.ps1](scripts/seed-backend-configs.ps1) | 正本サーバのプラグイン config を他バックエンドへ初期配布（**データは配らない**・資源除外は PLUGIN_MATRIX 準拠） |
 | [scripts/setup-junction.cmd](scripts/setup-junction.cmd) | `plugins/TrinityForge` のディレクトリジャンクションを張る（引数=バックエンド名・冪等）。**dev にも張る** |
 | [scripts/server-loop.cmd](scripts/server-loop.cmd) | `stop` 後に自動で起動し直すループ。main / resource / dev 共通 |
 | [scripts/sync-configs.ps1](scripts/sync-configs.ps1) | ArsPaper config の SHA-256 照合コピー、同名 jar の二重配置検出、ジャンクション有無の確認 |

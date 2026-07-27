@@ -467,6 +467,44 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-27 — 3 バックエンドの構成統一（main = dev）とジャンクション敷設
+
+ユーザー指定: **データ移行は不要（1 から始める）／main と dev は同一構成／dev で問題なければ main を使う**。
+確認事項の回答: dev と main は**個別にも同時にも起動する**／dev の world は残し **config だけ引き継ぐ**。
+
+**実施**
+
+- **`seed-backend-configs.ps1` を新設**して dev → main / resource へプラグイン config を配布（30 件）。
+  **データは配らない**（`EliteMobs/data`・`CommandBinderGUI/playerdata`・`SetHome/homes.yml`・
+  `WorldGuard/worlds`・`Multiverse-Core/worlds.yml`・LuckPerms の h2・`ArsPaper/ranking_cache.json` ほか）。
+  `.paper-remapped` は Paper の再マップキャッシュなので除外（配ると数百 MB の無駄）。
+  資源サーバの除外は PLUGIN_MATRIX.md 準拠（EliteMobs / DiscordSRV / Multiverse / WorldGuard / BlueMap / Backuper）。
+- **`plugins/TrinityForge` の実体を Main_Server へ移し**、resource と dev からジャンクション。
+  **進行 DB は `player_progression.db*.dev-<日時>` へ退避**して新規生成させた（config だけ引き継ぐ指定のため）。
+- **jar を統一**。main と dev は**差分ゼロ**。resource へ Chunky と WorldEdit を追加。
+  プロキシへ移設済みの `ViaVersion` / `ViaBackwards` / `geyserExtra` は
+  バックエンドから `plugins/_moved-to-proxy/` へ退避（削除しない）。孤児 config も同様。
+- **LuckPerms を `storage-method: h2` → `mariadb`、`messaging-service: auto` → `redis`** に変更（3 台）。
+- **preflight の誤検出を修正**。既定値判定が大文字小文字を区別しておらず、
+  実際の DB 名 `husksync` を既定値 `HuskSync` と同一視して 3 件の偽陽性を出していた（`-cmatch` へ）。
+- `check-logs.ps1` に `Address already in use` / `BindException` を追加。
+  **dev と main を同時に上げると BlueMap の Web ポート 8100 が衝突する**ため。
+
+**発見して直した実害**
+
+- **Floodgate の `key.pem` がプロキシとバックエンドで違っていた。**
+  プロキシ側は floodgate-velocity が初回起動時に生成した別の鍵で、このままだと
+  **Bedrock プレイヤーが全員別人扱い**になる。バックエンド側（旧サーバから引き継いだ鍵）へ揃え、
+  プロキシの生成鍵は `key.pem.generated-<日時>` に退避。
+
+**検証**: preflight **0 件** / `sync-configs.ps1 -DryRun` 問題なし（ジャンクション検出・ArsPaper 13 件一致・jar 重複なし）/
+自己テスト 25/25 / main と dev の jar・config ディレクトリの差分は `bStats` のみ（サーバ固有 ID なので正しい）。
+
+**残（初回起動後でないとできない）**: BlueMap の dev 側ポートを 8101 へ／3 ワールドの
+`/worldborder set 5000`／LuckPerms の権限を h2 から引き継ぐなら `/lp export` → `/lp import`。
+**残（要管理者）**: `schtasks` 登録。**残（要判断）**: `velocity.toml` の `try` が
+`["dev","main","resource"]` のままなので、本番移行時は main を先頭へ。
+
 ### 2026-07-27 — `launch` フォルダ（起動バッチ＋testkit）と **`.cmd` の UTF-8 破壊バグ**
 
 ユーザー依頼で「各種サーバと依存関係の start バッチと testkit を

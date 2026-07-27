@@ -82,6 +82,14 @@ $script:Symptoms = @(
         Action   = "起動順が main -> resource になっているか確認する"
     }
     @{
+        # dev と main を同時に上げると、BlueMap の Web ポート 8100 のように
+        # 「サーバごとに 1 つしか持てないポート」が衝突する。
+        Pattern  = 'Address already in use|BindException'
+        Severity = "ERROR"
+        Meaning  = "ポートが他のプロセスに取られている。同時起動しているサーバ同士の衝突が疑わしい"
+        Action   = "BlueMap なら plugins/BlueMap/webserver.conf の port を片方だけ変える (8100 -> 8101)"
+    }
+    @{
         Pattern  = 'Could not pass event'
         Severity = "WARN"
         Meaning  = "リスナーが例外を投げている"

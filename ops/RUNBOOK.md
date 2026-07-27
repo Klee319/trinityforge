@@ -928,6 +928,22 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\testkit\check-logs.cmd
 > 説明は `.ps1` と `.md` に置く（PowerShell は UTF-8 で問題ない）。
 > `run-selftest.ps1` が `ops` 配下の全 `.cmd` を走査して非 ASCII を落とす。
 
+### 13-3b. 初回起動の【あと】でないとできないこと
+
+config が生成されてからでないと触れないものを、ここにまとめる。
+どれも `launch\testkit\check-logs.cmd` が症状として拾うので、起動後に必ず流す。
+
+| やること | いつ | 中身 |
+|---|---|---|
+| **BlueMap の Web ポート** | main と dev の**両方を初めて上げた直後** | 既定は両方 8100 で、後から上げた方が `Address already in use` で失敗する。dev 側の `plugins\BlueMap\webserver.conf` の `port` を **8101** に変える |
+| **ワールドボーダー** | 各ワールドが生成された直後 | 3 ワールドで `/worldborder center 0 0` → `/worldborder set 5000`。resource は毎週再生成されるので、リセット後にも必要（`reset-resource.ps1` の起動後コマンドに入れてある） |
+| **LuckPerms の権限** | `storage-method: mariadb` へ切替後 | 下記 |
+
+> **LuckPerms を h2 から切り替えると、h2 に入っていた権限は見えなくなる。**
+> ファイル自体は `Dev_Server\plugins\LuckPerms\luckperms-h2-v2.mv.db` に残っているので、
+> 引き継ぎたい場合は **一度 `storage-method: h2` へ戻して `/lp export perms` → `mariadb` に戻して
+> `/lp import perms`**。作り直すなら不要。
+
 ### 13-4. 手動をなくす（手順 11 とあわせて登録する）
 
 いずれも**管理者 PowerShell**で 1 回だけ。
