@@ -22,7 +22,7 @@
 | 対象 | 状態 |
 |---|---|
 | TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
-| config-editor テスト | **734 / 734 pass・fail 0**（実走・実測、`===EDITOR_EXIT=0`。2026-07-27 20:5x の足きり/ダンジョンコマンド/EXP バッチ後） |
+| config-editor テスト | **751 / 751 pass・fail 0**（実走・実測、`===EDITOR_EXIT=0`。2026-07-28 の editor UI 4 件バッチ後。734 + 新規 17） |
 | **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
 | `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **20:52** に `42bf57e` で再ビルド（15,829,085 bytes、`TrinityForge/build/release/TrinityForge-all.jar`）→ **未配備**。16:39 の `532bcef` 版を含む上位互換 |
@@ -319,6 +319,40 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-28 — 9 要件バッチ（鍛冶ティアゲート撤去 / recipe⇔ritual チャンネル / レシピGUI素材表示 / editor UI 4 件）
+
+コミット: TF `592d1c8`（`dev` へ push 済み） / ArsPaper `98569af`（`feat/trinityforge-fork` へ push 済み）。
+両 jar 再ビルド済み（`TrinityForge-all.jar` 15,833,272 bytes 01:27 / `ArsPaper-1.0.0.jar` 965,695 bytes 01:31）→ **未配備・要フル再起動**。
+
+- **鍛冶主軸 A〜D の `recipe:` ティアゲート 41 件を撤去**（ユーザー決定「ツールにも使用可能レベルがあるのでゲートを付けるだけ無駄」）。
+  代わりに 1（作業台品質の段階増）と 3（上振れ拡大 / ロール上振れ）をバランスさせた buff へ置換:
+  A=品質+2 / B=品質+2・ロール上振れ+1% / C=品質+1・上振れ+0.10・ロール上振れ+2% / D=品質+1・上振れ+0.15・ロール上振れ+3%。
+  **配分の根拠**: `workbench_quality_bonus` は `max-quality: 9` で飽和するので増分は低レベル側（A/B）へ、
+  飽和しない σ 拡大系は高レベル側（C/D）へ寄せた。理由と再発防止の注記は `skilltree/smithing.yml` ヘッダに常駐。
+  副次的に、`removed-vanilla-recipes` で消えた `minecraft:*_axe` を指していた **[PRG-02] 実害警告 4 件も解消**。
+- **`recipe:` / `ritual:` チャンネル取り違えを修正（実バグ）**。`enchant_book_*` 8 件と `volcanic_sourcelink` は
+  ArsPaper 側で `method: ritual` なのに `recipe:` に置かれていた。ArsPaper は儀式を `ritualPerks` /
+  `tfRitualGatePerks` でしか照合しない（`UnlockGate#hasRitualPermission`）ため、**このゲートは無言で常時解放だった**。
+- **[PRG-02] 起動時検証を最初の tick へ遅延**。ArsPaper は TF に depend していて後から enable するので、
+  TF の `onEnable` 内では ArsPaper の作業台レシピ（`tf_core_*` / `compressed_*` / `source_gem_block`）が
+  まだ Bukkit に登録されておらず、実在するのに「解決できない」と誤警告していた（残り 16 件の正体）。
+- **ビルド時ドリフト検知を新設**: `RecipeRitualGateChannelDriftTest`（3 テスト）。
+  `recipe:` ゲート id の集合完全一致 + 儀式 id が `recipe:` 側に混ざっていないこと + `ritual:` 側に揃っていること。
+  ティアゲートの再混入もチャンネル取り違えも、次からはビルドで落ちる。
+- **`/ars recipes` を撤去し `/tf recipes` へ一本化**。TF は ArsPaper にコンパイル依存できないので
+  `ArsRecipeBrowserBridge` のリフレクション委譲（**`RecipeBrowserGui` のコンストラクタと `open()` の
+  シグネチャを変えると TF 側が無言で fail-soft に落ちる**）。並べ替えボタンの Lore は `CollectionGui` 準拠へ。
+- **レシピ詳細の素材表示バグを修正**（ジュエリーコアが「圧縮ブロックでない」件）。
+  `RecipeManager#resolveIngredient` は `custom:` / `list:` を**意図的に** `MaterialChoice` へ倒している
+  （`ExactChoice` だと PDC 付きの実物と `isSimilar` 不一致でクラフトが無言失敗するため）。その結果
+  `describeChoice` が**先頭 Material しか復元できず**、`custom:coal_block_3x` が素の `COAL_BLOCK` に見えていた。
+  `forwardRecipeData(key)` の元 config トークンで `ingredientMap` と `shape` を**セットで**上書きして解決。
+- **config-editor 4 件**: skill-exp のラベルID混入（`mode` が items.yml の「天候」と衝突 → セクション単位の
+  ラベル上書きで解決、`outside-dungeon-exp-rate` の入力欄欠落も追加）/ ギミック 5 画面のカード余白
+  （**根本原因は `.card-list-body` に CSS ルールが 1 つも無かったこと**＋4 セクションの root が class 無しの div だったこと）/
+  解体対象シリーズのネスト削減（長い見出し → 短いラベル + `?` ツールチップ）/ グリフ BAN リストと
+  達成記録の対象モブを表示名表記へ。テスト 734 → **751**。
 
 ### 2026-07-27 — レベル差足きり / プレイヤー用インスタンスコマンド / 繁殖モブEXP対策 / 戦闘バランス
 
