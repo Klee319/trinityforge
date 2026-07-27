@@ -23,7 +23,7 @@
 |---|---|
 | TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
 | config-editor テスト | **758 / 758 pass・fail 0**（実走・実測、`---EXIT 0---`。2026-07-28 の「数値のギミックyml集約」バッチ後。751 + 新規 7） |
-| **配備（2026-07-28 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\deploy-k9.cmd```<br>**`tmp\deploy-k8.cmd` は使わないこと**（k9 が上位互換で置き換え済み。k8 は未実行のまま破棄してよい）。jar 2 本（TF 03:11 / ArsPaper 01:31）と、変更した yml 13 本を `backups/deploy-20260728k9/` へ退避してから上書きする。**フル再起動が必須**（jar 差し替え＋コマンドツリーは起動時登録なので `/tf dungeon` のサジェスト変更が reload では載らない）。**`smithing.yml` と `smithing-gimmick.yml` は必ず同時に配備すること**（片方だけ古いと tier が floor 解決で最大 tier へ無言で化ける。起動ログに tier 不一致 WARNING が出たら配備漏れ）。`digging.yml` と `digging-gimmick.yml` も同じ関係 |
+| **配備（2026-07-28 のバッチ）** | **配備完了**（2026-07-28 03:5x、`tmp\deploy-v1.cmd` をユーザーが実行、全 copy 成功をログで実測）。jar 2 本（TF 03:11 / 15,860,881 bytes・ArsPaper 01:31 / 965,695 bytes）を **3 バックエンド全部**へ、yml 13 本を Main へ（Resource/Dev はジャンクション共有なので 1 回）。旧版は `backups/deploy-20260728v1/`。**`tmp\deploy-k8.cmd` / `deploy-k9.cmd` は消えたパス `PaperServer\TrinityForge` を指しており使用不可**（破棄してよい）。**フル再起動が必須**（jar 差し替え＋コマンドツリーは起動時登録なので `/tf dungeon` のサジェスト変更が reload では載らない）。**`smithing.yml` と `smithing-gimmick.yml` は必ず同時に配備すること**（片方だけ古いと tier が floor 解決で最大 tier へ無言で化ける。起動ログに tier 不一致 WARNING が出たら配備漏れ）。`digging.yml` と `digging-gimmick.yml` も同じ関係 |
 | **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
 | `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **20:52** に `42bf57e` で再ビルド（15,829,085 bytes、`TrinityForge/build/release/TrinityForge-all.jar`）→ **未配備**。16:39 の `532bcef` 版を含む上位互換 |
@@ -36,8 +36,19 @@
 | **HuskSync が起動できていない（2026-07-28 のログで確認）** | 起動時に `RedisManager.terminate()` の NPE で enable に失敗し、そのまま**同期されないまま稼働している**。ログ該当行 = `Error occurred while disabling HuskSync v4.0.0-3dc619d`。Redis 未接続が原因。**サーバ起動は止まらないので気づきにくい**（→ §5）。起動前に `ops/scripts/preflight.ps1` |
 | **未ビルドの修正（2026-07-28）** | クラフト結果枠のドラッグ**複製**修正・属性再計算の `ConcurrentModificationException` 修正・被弾パーティクル上限（`1ce23b7` / `9293f6c` / `cf88bf4`）は **jar 未再ビルド**。複製は経済が壊れるので**再ビルドと配備を優先すること**。パーティクル上限は packetevents（実サーバに 2.11.1 が導入済み）を任意依存として参照するので、`paper-plugin.yml` の更新も同時に載る＝**フル再起動が必要** |
 
-配備先は `D:/game/minecraft/PaperServer/TrinityForge/`（`tools/config-editor/tool-config.json` の
-`deployPaths` が正）。`combat/mob-profiles.yml` は保護対象として除外した（配備先 268KB の
+**配備先の構成が変わった（2026-07-28 実測）。旧 `D:/game/minecraft/PaperServer/TrinityForge/` は存在しない。**
+現在は `D:/game/minecraft/PaperServer/Velocity_for_TF/{Main_Server, Resource_Server, Dev_Server}/` の
+3 バックエンド構成。**`Resource_Server` と `Dev_Server` の `plugins\TrinityForge` は
+`Main_Server\plugins\TrinityForge` への NTFS ジャンクション**なので、TF の yml は Main へ 1 回
+コピーすれば 3 台に反映される（3 回コピーしても同じ実体を上書きするだけ）。**jar は 3 台とも実体
+ファイルなので 3 回コピーが要る。`plugins\ArsPaper` も 3 台それぞれ実体ディレクトリ**なので
+`unlock-gate.yml` は 3 回。配備スクリプトの現行版は `tmp\deploy-v1.cmd`。
+
+`tools/config-editor/tool-config.json` の `deployPaths` は `Dev_Server` を指している。TF 側は
+ジャンクション経由で 3 台に効くが、**`arspaper` は Dev_Server の実体ディレクトリなので editor 保存が
+Main / Resource に届かない**（ArsPaper の yml を editor で編集したら 3 台へ手動コピーが要る）。
+
+`combat/mob-profiles.yml` は保護対象として除外した（配備先 268KB の
 `importmobs` 生成物に対し、リポジトリ側は 2.3KB のひな形しかない）。
 
 スキップ 2 件は既知の正当なもの（`OfflineMobImportRunner` と
@@ -323,6 +334,21 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-28 03:5x — 3 バックエンドへの配備（`tmp\deploy-v1.cmd`）
+
+`Velocity_for_TF` 構成へ配備。TF jar / ArsPaper jar を Main・Resource・Dev の 3 台へ、
+TF の yml 13 本を Main へ（ジャンクション共有）、`unlock-gate.yml` を 3 台へ。全 copy 成功をログで確認。
+Resource / Dev 側から `use-level-scaling` が読めることを検証してジャンクションの生存も確認済み。
+`EliteMobs.jar`（07-28 02:31、他セッションが配備）と `combat/mob-profiles.yml` には触れていない。
+
+**この日の事故（再発防止）**: 起動中のサーバの jar を上書きしたため、`LoadResult` /
+`TrainingDummies` / `PlayerData` が `NoClassDefFoundError` になった。JVM は未ロードのクラスを
+実行時に jar から読むので、稼働中の jar 差し替えはコードのバグではなく**必ずこうなる**。
+`/tf reload` では直らず JVM 再起動が唯一の復旧手段。発生箇所が
+`ExecutorProgressionRepository.loadPerkIds` だったため、その間は進行データの保存が落ちていた。
+→ `tmp\deploy-v1.cmd` は jar のコピーを最初に行い、1 本でも失敗したら
+`ABORTED_JAR_LOCKED` で中断して yml に一切触れない（jar と config がちぐはぐにならない）。
 
 ### 2026-07-28 — 使用可能レベル連動EXP / 採掘EXP表の穴（テラコッタ）/ 採取ツールでの戦闘EXP誤付与
 
