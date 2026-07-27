@@ -1861,6 +1861,27 @@ function validateSkillBuffOwner(owner, prefix, errors) {
       }
     }
   }
+  // set-buffs(装備部位数条件バフ、armor-set-buffs全面移行§1): 段キーは3・4のみ。値はstat→数値。
+  // light_armor/heavy_armor以外のツリーでの使用可否はJava側(SkillTreeConfig)が警告して無視するので、
+  // ここではデータ形状だけを検証する(ツリー種別のスコープ判定はしない)。
+  if (owner["set-buffs"] !== undefined && owner["set-buffs"] !== null) {
+    if (!isPlainObject(owner["set-buffs"])) {
+      errors.push(`${prefix}.set-buffs: 段(3/4)→ステータス→数値のマップである必要があります`);
+    } else {
+      for (const [tier, stats] of Object.entries(owner["set-buffs"])) {
+        if (tier !== "3" && tier !== "4") {
+          errors.push(`${prefix}.set-buffs.${tier}: 段は3または4である必要があります`);
+        }
+        if (!isPlainObject(stats)) {
+          errors.push(`${prefix}.set-buffs.${tier}: ステータス→数値のマップである必要があります`);
+          continue;
+        }
+        for (const [stat, value] of Object.entries(stats)) {
+          if (!isNumber(value)) errors.push(`${prefix}.set-buffs.${tier}.${stat}: 数値である必要があります`);
+        }
+      }
+    }
+  }
 }
 
 // ---- items/material-lists.yml (tf-material-lists) ----

@@ -28,13 +28,15 @@
   //  - glyph-slot-bonus:
   //    TrinityForge/src/main/java/com/trinityforge/integration/ars/ArsNativeBridge.java:65
   //    (perkBuffResolver.buffsFor(playerId).general().getOrDefault(GLYPH_SLOT_BONUS, 0.0))
-  //  - heavy-armor-move-speed-per-piece / heavy-armor-set-bonus-multiplier /
-  //    heavy-armor-set-knockback-resistance / light-armor-move-speed-per-piece /
-  //    light-armor-set-bonus-multiplier / light-armor-set-dodge-chance:
-  //    TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java:49
+  //  - heavy-armor-move-speed-per-piece / light-armor-move-speed-per-piece / armor-set-bonus:
+  //    TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java
   //    (Map<String, Double> general = perkBuffs.buffsFor(id).general(); armorAttributesFor() 全体が
-  //    この general マップからしか読まない)。加えて防具セット系6キーは装備2枚未満で0になる
-  //    (装備枚数依存)ため、プレイヤー基礎ステとしての意味も持たない。
+  //    この general マップからしか読まない = スキルツリーの buffs: 由来分だけで、base-stats.yml は
+  //    perkBuffs.general() に一切合流しない)。2026-07-27(armor-set-buffs全面移行)で旧4キー
+  //    (light/heavy-armor-set-bonus-multiplier, light-armor-set-dodge-chance,
+  //    heavy-armor-set-knockback-resistance)を armor-set-bonus 1本へ統一したが、この制約自体は
+  //    引き継がれる — armor-set-bonus はステ辞書としては全ソース合算の総合ステ(/tf stats 等)だが、
+  //    NativeAttributeBridge の増幅計算にはスキルツリー由来分しか効かない。
   // (2026-07-27: 以前ここに「charged-shot-unlocked だけは例外」と書いていたが、当のキーが
   //  挙動ゼロの同語反復フラグと判明したため語彙ごと撤去した。この画面にフラグ系のステは無い。)
   // 将来キーを追加する際は、Java側で `.general()` 経由でしか読まれないことを確認してからここに足すこと
@@ -42,11 +44,8 @@
   const NO_OP_BASE_STATS_KEYS = new Set([
     "glyph-slot-bonus",
     "heavy-armor-move-speed-per-piece",
-    "heavy-armor-set-bonus-multiplier",
-    "heavy-armor-set-knockback-resistance",
     "light-armor-move-speed-per-piece",
-    "light-armor-set-bonus-multiplier",
-    "light-armor-set-dodge-chance"
+    "armor-set-bonus"
   ]);
 
   function statLabel(key) {

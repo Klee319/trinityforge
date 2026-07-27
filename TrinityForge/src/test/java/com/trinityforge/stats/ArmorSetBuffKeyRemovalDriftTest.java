@@ -41,7 +41,10 @@ class ArmorSetBuffKeyRemovalDriftTest {
 
     @Test
     void removedKeysAreNotClassifiedByStatsCategory() {
-        for (StatsCategory category : StatsCategory.values()) {
+        // OTHER/ALL は「他のどのカテゴリにも属さないキー」の受け皿なので、未登録キーに対して
+        // includes()==true を返すのが正しい仕様(StatsCategoryCoverageTestと同じ除外)。
+        for (StatsCategory category : java.util.EnumSet.complementOf(
+                java.util.EnumSet.of(StatsCategory.ALL, StatsCategory.OTHER))) {
             for (String key : REMOVED_KEYS) {
                 assertFalse(category.includes(key), key + " が StatsCategory." + category + " に復活している");
             }

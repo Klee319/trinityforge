@@ -44,7 +44,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | J-4 | 素材タブのカテゴリバーを「そもそもスティッキーにしない」か | 変える場合 `test/split-view-sticky.test.js` の期待値を**意図的に**書き換える必要がある |
 | J-5 | モブ HP 上限 1024 の是非 | 2026-07-27 に「今回は適用しない」選択。現行は上限なし |
 | J-6 | 触媒のオフハンド運用 | 同上。`offhand-stats-apply` は既定 false でどのアイテムにも設定されていない |
-| J-8 | **ArsPaper フォークの push 先**（K-6 の残り） | **`Klee319/ArsPaper` は PUBLIC**。一度 `feat/trinityforge-fork` を push したが、`libs/TrinityForge.jar`（TF 本体のコンパイル済み jar、master には存在しない）が public になるため**即座に remote ブランチを削除して差し戻した**（ローカルの `17c9f65` は無傷）。選択肢: ①ArsPaper を private 化して push ②`libs/*.jar` をブランチから除いて public へ push ③EliteMobs と同様に private リポジトリを新設して push |
+| ~~J-8~~ | ~~**ArsPaper フォークの push 先**~~ | **解決（2026-07-27）**。ユーザー判断により**3 リポジトリすべて PUBLIC**。`Klee319/ArsPaper` の `feat/trinityforge-fork` を再 push し、`trinityforge` と `EliteMobs-trinityforge` も public 化した |
 | J-7 | **K-5（ステータスのトリガー/発動制限の明示）の修正プラン、着手前の 2 点** — ①詳細の出し先を `/stats detail <key>` にするか、アイテム lore の shift 切替にするか ②戦闘系 20 キーで先行検証するか、120 キー一括で埋めるか | 私の推奨は ①`/stats detail`（統合版で hover が効かない・lore の行数制限に当たらない）②先行検証。プラン本体は §4 の K-5 直下 |
 
 ---
@@ -72,7 +72,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | K-3 | **editor で yml 本文のコメントが保存時に消える** | `tools/config-editor/lib/yamlio.js` の仕様。対策は説明コメントを `docs/config-reference/` へ退避すること。新しく長いコメントを yml 本文に書かない |
 | ~~K-4~~ | ~~**このリポジトリは git 管理下にない**~~ | **解決（2026-07-27）**。`Klee319/trinityforge`（private）を作成し初回インポート済み。作業ブランチは `dev`。ただし下記 K-6 の 2 フォークは対象外なので、そちらを触る前は従来どおり `backups/` を取ること |
 | K-5 | **ステータスのトリガーと発動制限が、どこにも機械可読な形で存在しない**（2026-07-27 確認） | 説明文は自由文でエディタ専用、実装との紐付けがゼロ。結果として**説明が実装から静かにずれる**。修正プランは直下 |
-| ~~K-6~~ | ~~**2 つのフォークの作業がバックアップされていない**~~ | **半分解決（2026-07-27）**。両フォークとも未コミット分をコミット済み（ArsPaper 117 ファイル `17c9f65` / EliteMobs 52 ファイル `ea043d3b`）。EliteMobs は `Klee319/EliteMobs-trinityforge`（**private**、default branch `trinityforge-fork`）へ push 完了。**ArsPaper だけ push 先が未確定** → J-8 |
+| ~~K-6~~ | ~~**2 つのフォークの作業がバックアップされていない**~~ | **解決（2026-07-27）**。両フォークとも未コミット分をコミットして push 済み（ArsPaper `17c9f65` → `Klee319/ArsPaper` の `feat/trinityforge-fork` / EliteMobs `ea043d3b` → `Klee319/EliteMobs-trinityforge` の `trinityforge-fork`）|
 
 ### K-5 — 現状と修正プラン
 
@@ -213,11 +213,20 @@ git 系（2026-07-27 に導入）:
   → **`Klee319/EliteMobs-trinityforge`（private）を新設して push 済み**。
   upstream は GPL-3.0 なので派生を保持すること自体に問題はない。
 
-**踏んだ事故**: `Klee319/ArsPaper` は **PUBLIC** だった。可視性を確認せずに push した結果、
-`libs/TrinityForge.jar`（TF 本体のコンパイル済み jar、1.4MB。**master には存在しない**）が
-public リポジトリに載った。気付いた時点で remote ブランチを削除して差し戻した
-（露出時間は数分、ローカルの `17c9f65` は無傷）。**push 前に `gh repo view --json visibility` で
-可視性を確認すること。** 残りの判断は J-8。
+**最終的に 3 リポジトリすべて PUBLIC**（ユーザー判断）。公開前に追跡済み全ファイルを走査し、
+資格情報・外部 IP・サーバーアドレス・ローカル絶対パスの混入がゼロであることを確認済み。
+
+| リポジトリ | 可視性 | 既定ブランチ | 内容 |
+|---|---|---|---|
+| `Klee319/trinityforge` | PUBLIC | `main`（作業は `dev`）| TF 本体・editor・resourcepack・docs |
+| `Klee319/ArsPaper` | PUBLIC | `master` | ArsPaper 本体。TF 連携は `feat/trinityforge-fork` |
+| `Klee319/EliteMobs-trinityforge` | PUBLIC | `trinityforge-fork` | EliteMobs フォーク（upstream GPL-3.0）|
+
+**途中で踏んだ事故**: `Klee319/ArsPaper` の可視性を確認せずに push し、`libs/TrinityForge.jar`
+（TF 本体のコンパイル済み jar、1.4MB。**master には存在しない**）を意図せず公開した。
+気付いた時点で remote ブランチを削除して差し戻し、判断を仰いだうえで再 push している。
+**push 先の可視性は `gh repo view <repo> --json visibility` で毎回確認すること**
+（同じ持ち主でも public/private が混在している）。
 
 ### 2026-07-27 — git 導入（K-4 クローズ）
 

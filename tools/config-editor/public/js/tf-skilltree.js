@@ -46,10 +46,12 @@
     arsmagic_glyphslots_add: "glyph-slot-bonus",
     lightarmor_movementspeedperpiece_add: "light-armor-move-speed-per-piece",
     heavyarmor_movementspeedperpiece_add: "heavy-armor-move-speed-per-piece",
-    lightarmor_setamount_add: "light-armor-set-bonus-multiplier",
-    heavyarmor_setamount_add: "heavy-armor-set-bonus-multiplier",
-    lightarmor_setdodgechance_add: "light-armor-set-dodge-chance",
-    heavyarmor_setknockbackresistance_add: "heavy-armor-set-knockback-resistance"
+    // 2026-07-27(armor-set-buffs全面移行): 旧 setamount(セット効果の増幅率)は armor-set-bonus
+    // 1本へ統一されたのでそのまま横流しできる。旧 setdodgechance/setknockbackresistance は
+    // 装備部位数条件の set-buffs スキーマへ移行しないと意味を保てない(平坦な buffs には対応先が無い)ため、
+    // ここでは移行せず native に残す(「未対応キーは消さず残す」既定方針どおり)。
+    lightarmor_setamount_add: "armor-set-bonus",
+    heavyarmor_setamount_add: "armor-set-bonus"
   };
   function migrateLegacyNative(obj) {
     if (!obj || !obj.native || typeof obj.native !== "object" || Array.isArray(obj.native)) return;
@@ -380,6 +382,95 @@
         }
       })
     ]));
+    return box;
+  }
+
+  // set-buffs(装備部位数条件バフ)の描画。light_armor / heavy_armor ツリーのノード/プレステージ専用。
+  // 段は3部位/4部位の2枠固定(1/2/5以上は不正)。乗算モードは持たない(set-multipliersは作らない)。
+  function setBuffsSection(obj) {
+    const box = h("div", {});
+    box.appendChild(h("div", {
+      class: "sub-title",
+      text: "セット条件バフ (set-buffs)",
+      title: "所属ツリーの防具を指定部位数以上装備している間だけ加算。成立している最大の段だけが採用される"
+        + "(3と4の両方は加算されない)。"
+    }));
+
+    function tierMap(tier, create) {
+      if (!obj["set-buffs"] || typeof obj["set-buffs"] !== "object") {
+        if (!create) return null;
+        obj["set-buffs"] = {};
+      }
+      if (!obj["set-buffs"][tier] || typeof obj["set-buffs"][tier] !== "object") {
+        if (!create) return null;
+        obj["set-buffs"][tier] = {};
+      }
+      return obj["set-buffs"][tier];
+    }
+    function cleanupTier(tier) {
+      const m = tierMap(tier, false);
+      if (m && Object.keys(m).length === 0) delete obj["set-buffs"][tier];
+      if (obj["set-buffs"] && Object.keys(obj["set-buffs"]).length === 0) delete obj["set-buffs"];
+    }
+    function firstUnusedSetBuffKey(map) {
+      for (const k of buffStatList()) if (!Object.prototype.hasOwnProperty.call(map, k)) return k;
+      return "dodge-chance";
+    }
+
+    for (const tier of [3, 4]) {
+      const tierBox = h("div", { class: "set-buffs-tier" });
+      tierBox.appendChild(h("div", { class: "mini-label", text: `${tier}部位以上` }));
+      const rows = h("div", { class: "stat-rows" });
+      tierBox.appendChild(rows);
+
+      function render() {
+        rows.innerHTML = "";
+        const m = tierMap(tier, false);
+        const keys = m ? Object.keys(m) : [];
+        if (keys.length === 0) {
+          rows.appendChild(emptyGuide(`${tier}部位段は未設定です。`, "「+ バフ追加」で追加できます。"));
+        }
+        for (const key of keys) {
+          const keySel = window.statSelect(key, (nv) => {
+            if (!nv || nv === key) return false;
+            const mm = tierMap(tier, true);
+            if (Object.prototype.hasOwnProperty.call(mm, nv)) {
+              alert("この段には同じステータスを重複して登録できません。");
+              return false;
+            }
+            renameKey(mm, key, nv);
+            render();
+            return true;
+          });
+          const mm = tierMap(tier, true);
+          const valCtl = window.statValueControl
+            ? window.statValueControl(key, mm[key], (v) => { mm[key] = v == null ? 0 : v; })
+            : window.numberInput(mm[key], (v) => { mm[key] = v == null ? 0 : v; });
+          rows.appendChild(h("div", { class: "stat-row" }, [
+            keySel, valCtl,
+            window.statUnitSlot ? window.statUnitSlot(key) : null,
+            h("button", {
+              class: "btn-small danger", type: "button", text: "×",
+              onclick: () => { delete mm[key]; cleanupTier(tier); render(); }
+            })
+          ]));
+        }
+      }
+
+      render();
+      tierBox.appendChild(h("div", { class: "skilltree-add-row" }, [
+        h("button", {
+          class: "btn-small", type: "button", text: "+ バフ追加",
+          onclick: () => {
+            const mm = tierMap(tier, true);
+            const nk = firstUnusedSetBuffKey(mm);
+            mm[nk] = 0;
+            render();
+          }
+        })
+      ]));
+      box.appendChild(tierBox);
+    }
     return box;
   }
 
@@ -1061,10 +1152,14 @@
 
   window.buildSkillTreeForm = async function buildSkillTreeForm(data) {
     const MAINHAND_BUFF_SKILLS = new Set(["light_weapons", "heavy_weapons", "archery", "ars_magic", "mining", "woodcutting", "digging", "fishing"]);
+    // set-buffs(装備部位数条件バフ)は light_armor / heavy_armor ツリーのみ有効。他ツリーに書かれていたら
+    // Java側(SkillTreeConfig)が警告して無視するので、editorも同じ2ツリーだけに描画を出す。
+    const SET_BUFF_SKILLS = new Set(["light_armor", "heavy_armor"]);
     const [vocabulary, featureTiers] = await Promise.all([fetchGateVocabulary(), fetchTierVocabulary()]);
     vocabulary.featureTiers = featureTiers;
     const working = data && typeof data === "object" ? data : {};
     const supportsMainhandBuffs = MAINHAND_BUFF_SKILLS.has(String(working.skill || "").toLowerCase());
+    const supportsSetBuffs = SET_BUFF_SKILLS.has(String(working.skill || "").toLowerCase());
     migrateLegacyNative(working.prestige);
     if (working.nodes && typeof working.nodes === "object") {
       Object.values(working.nodes).forEach(migrateLegacyNative);
@@ -1110,6 +1205,7 @@
       pBody.appendChild(buffsSection(P, "buffs"));
       if (supportsMainhandBuffs) pBody.appendChild(buffsSection(P, "mainhand-buffs", "メインハンド条件バフ (mainhand-buffs)",
         "このツリーに対応する武器/ツールをメインハンドに持つ間だけ加算されます。プレステージでは、習得済み段階ごとに加算されます。"));
+      if (supportsSetBuffs) pBody.appendChild(setBuffsSection(P));
       root.appendChild(card([h("span", { class: "entry-key-label", text: "プレステージ (prestige)" })], [pBody]));
     }
 
@@ -1222,6 +1318,7 @@
         bodyChildren.push(buffsSection(node, "buffs"));
         if (supportsMainhandBuffs) bodyChildren.push(buffsSection(node, "mainhand-buffs", "メインハンド条件バフ (mainhand-buffs)",
           "このツリーに対応する武器/ツールをメインハンドに持つ間だけ加算されます。"));
+        if (supportsSetBuffs) bodyChildren.push(setBuffsSection(node));
         bodyChildren.push(unlockEffectsSection(node, () => window.GATE_EFFECTS.computeDuplicateGateEffectIds(nodes), vocabulary));
 
         // 表示順の上下入替 (working.nodes のキー順を入替。parent参照はid基準なので不変)。

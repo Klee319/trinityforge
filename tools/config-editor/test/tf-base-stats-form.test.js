@@ -4,10 +4,13 @@
 //
 // 修正1: window.labelForStat という未定義関数を呼んでいたため日本語ラベルが出ず生キーが表示される
 //        バグ。正しいAPIは window.LABELS.statLabel (public/js/labels.js)。
-// 修正2: base-stats.yml に書いても no-op な7キー(glyph-slot-bonus / heavy-armor-* / light-armor-*)を
-//        画面から除外する。除外は表示のみで、既存データのロスレス往復は壊さないこと。
+// 修正2: base-stats.yml に書いても no-op な4キー(glyph-slot-bonus / heavy-armor-move-speed-per-piece /
+//        light-armor-move-speed-per-piece / armor-set-bonus)を画面から除外する。除外は表示のみで、
+//        既存データのロスレス往復は壊さないこと。
 //        (2026-07-27: 唯一の例外だった charged-shot-unlocked は挙動ゼロの同語反復フラグと判明し、
-//         ステ語彙ごと撤去された。この画面にフラグ系のステはもう存在しない。)
+//         ステ語彙ごと撤去された。この画面にフラグ系のステはもう存在しない。armor-set-buffs全面移行で
+//         旧4キー(light/heavy-armor-set-bonus-multiplier, light-armor-set-dodge-chance,
+//         heavy-armor-set-knockback-resistance)は armor-set-bonus 1本へ統一され、同じno-op制約を引き継ぐ。)
 // 修正3: バニラ既定値バッジの文言を「絶対値・既定X」→「バニラ:X」へ変更。JS側の
 //        VANILLA_ATTRIBUTE_DEFAULTS が Java 側の正典 VanillaAttributeDefaults.java とキー集合・値
 //        ともに一致していること(ドリフト検知)。
@@ -139,23 +142,20 @@ test("statLabel: 実物のlabels.jsをロードしても生キーではなく日
   }
 });
 
-// ---- 修正2: no-op 7キーの除外 ----
+// ---- 修正2: no-op 4キーの除外 ----
 
 const EXPECTED_NO_OP_KEYS = [
   "glyph-slot-bonus",
   "heavy-armor-move-speed-per-piece",
-  "heavy-armor-set-bonus-multiplier",
-  "heavy-armor-set-knockback-resistance",
   "light-armor-move-speed-per-piece",
-  "light-armor-set-bonus-multiplier",
-  "light-armor-set-dodge-chance"
+  "armor-set-bonus"
 ];
 
-test("NO_OP_BASE_STATS_KEYS: 指定された7キーちょうどを含む", () => {
+test("NO_OP_BASE_STATS_KEYS: 指定された4キーちょうどを含む", () => {
   assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...EXPECTED_NO_OP_KEYS].sort());
 });
 
-test("allStatKeys: no-op 7キーが除外され、通常ステは残る", () => {
+test("allStatKeys: no-op 4キーが除外され、通常ステは残る", () => {
   const prevList = global.window.STAT_LIST;
   const prevFallback = global.window.FALLBACK_STATS;
   const prevHidden = global.window.HIDDEN_STATS;
@@ -163,9 +163,8 @@ test("allStatKeys: no-op 7キーが除外され、通常ステは残る", () => 
     global.window.STAT_LIST = [];
     global.window.FALLBACK_STATS = [
       "attack-power", "glyph-slot-bonus",
-      "heavy-armor-move-speed-per-piece", "heavy-armor-set-bonus-multiplier",
-      "heavy-armor-set-knockback-resistance", "light-armor-move-speed-per-piece",
-      "light-armor-set-bonus-multiplier", "light-armor-set-dodge-chance"
+      "heavy-armor-move-speed-per-piece", "light-armor-move-speed-per-piece",
+      "armor-set-bonus"
     ];
     global.window.HIDDEN_STATS = [];
     const keys = allStatKeys();
@@ -181,8 +180,8 @@ test("allStatKeys: no-op 7キーが除外され、通常ステは残る", () => 
 });
 
 // materials.js の FALLBACK_STATS (他画面=item-stats/skilltreeバフでも共有) からは
-// no-op 7キーを削除していないこと(=base-stats画面限定の除外であること)を確認する。
-test("materials.js の FALLBACK_STATS には no-op 7キーが引き続き残っている(他画面では有効なため)", () => {
+// no-op 4キーを削除していないこと(=base-stats画面限定の除外であること)を確認する。
+test("materials.js の FALLBACK_STATS には no-op 4キーが引き続き残っている(他画面では有効なため)", () => {
   delete require.cache[require.resolve("../public/js/materials.js")];
   require("../public/js/materials.js");
   const fallback = global.window.FALLBACK_STATS;
@@ -254,9 +253,7 @@ function withDomStubs(fn) {
   };
   global.window.STAT_LIST = ["attack-power", "crit-chance", "max-health", "attack-speed-bonus",
     "arrow-piercing", "glyph-slot-bonus",
-    "heavy-armor-move-speed-per-piece", "heavy-armor-set-bonus-multiplier",
-    "heavy-armor-set-knockback-resistance", "light-armor-move-speed-per-piece",
-    "light-armor-set-bonus-multiplier", "light-armor-set-dodge-chance"];
+    "heavy-armor-move-speed-per-piece", "light-armor-move-speed-per-piece", "armor-set-bonus"];
   global.window.FALLBACK_STATS = [];
   global.window.HIDDEN_STATS = [];
   global.window.STAT_META = {
@@ -267,11 +264,8 @@ function withDomStubs(fn) {
     "arrow-piercing": { name: "矢貫通", category: "attack", order: 3 },
     "glyph-slot-bonus": { name: "グリフ枠", category: "ars", order: 1 },
     "heavy-armor-move-speed-per-piece": { name: "重鎧移動", category: "defense", order: 1 },
-    "heavy-armor-set-bonus-multiplier": { name: "重鎧倍率", category: "defense", order: 2 },
-    "heavy-armor-set-knockback-resistance": { name: "重鎧ノックバック耐性", category: "defense", order: 3 },
     "light-armor-move-speed-per-piece": { name: "軽鎧移動", category: "defense", order: 4 },
-    "light-armor-set-bonus-multiplier": { name: "軽鎧倍率", category: "defense", order: 5 },
-    "light-armor-set-dodge-chance": { name: "軽鎧回避", category: "defense", order: 6 }
+    "armor-set-bonus": { name: "セット効果増幅", category: "defense", order: 5 }
   };
   global.window.STAT_FORMATS = { "arrow-piercing": "INTEGER" };
   global.window.LABELS = { statLabel: (k) => k };
@@ -284,7 +278,7 @@ function withDomStubs(fn) {
   }
 }
 
-test("buildBaseStatsForm: no-op 7キーの行が描画されず、通常ステの行は描画される", () => {
+test("buildBaseStatsForm: no-op 4キーの行が描画されず、通常ステの行は描画される", () => {
   withDomStubs(() => {
     const result = global.window.buildBaseStatsForm({});
     const labelTexts = [];
@@ -413,7 +407,7 @@ test("ロスレス: no-op除外キーに既存値がある場合、buildBaseStat
     const existing = {
       "glyph-slot-bonus": 3,
       "heavy-armor-move-speed-per-piece": 0.5,
-      "light-armor-set-dodge-chance": 0.02,
+      "armor-set-bonus": 0.02,
       "attack-power": 10
     };
     const data = { "base-stats": { ...existing } };

@@ -33,9 +33,11 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ```
   # ---- 主軸 A〜E ----
-    # 軽装セット効果=回避率(重装のノックバック耐性セットのミラー)。lightarmor_setamount_add(node B)が
-    # このセット合計を増幅する。他候補(魔法耐性/満腹/クリ耐性/スタン耐性、旧light_armor_progression.yml
-    # 準拠)は今回不採用・将来拡張の余地として残す。
+    # 軽装セット効果=回避率(重装のノックバック耐性セットのミラー)。2026-07-27(armor-set-buffs全面移行)
+    # 以降は set-buffs スキーマ(装備部位3/4段の条件バフ)で表現し、node B の armor-set-bonus が
+    # 採用された段の値全体を増幅する(旧 light-armor-set-bonus-multiplier / light-armor-set-dodge-chance
+    # から統一)。他候補(魔法耐性/満腹/クリ耐性/スタン耐性、旧light_armor_progression.yml準拠)は
+    # 今回不採用・将来拡張の余地として残す。
   # ---- 派生ノード（上段：魔法耐性/回避率） ----
   # ---- ギリシャ文字路線（各主軸の下・alpha=守備力 / beta=防御率 / gamma=被ダメージ軽減・列ごとに排他） ----
 ```

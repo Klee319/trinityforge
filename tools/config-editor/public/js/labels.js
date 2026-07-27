@@ -118,10 +118,7 @@
     "planted-crop-growth-bonus": "繁殖:作物成長↑",
     "light-armor-move-speed-per-piece": "装備:軽装部位速度↑",
     "heavy-armor-move-speed-per-piece": "装備:重装部位速度↑",
-    "light-armor-set-bonus-multiplier": "装備:軽装セット倍率↑",
-    "heavy-armor-set-bonus-multiplier": "装備:重装セット倍率↑",
-    "light-armor-set-dodge-chance": "装備:軽装セット回避↑",
-    "heavy-armor-set-knockback-resistance": "装備:重装セットKB耐性↑",
+    "armor-set-bonus": "装備:セット効果↑",
     "enchant-luck": "エンチャ:運↑",
     "enchant-exp-gain-bonus": "エンチャ:EXP↑",
     "enchant-cost-reduction": "エンチャ:費用↓",
@@ -266,10 +263,9 @@
     ,"glyph-slot-bonus": "Ars のグリフ配置可能数を増やす。"
     ,"light-armor-move-speed-per-piece": "革・チェーンの装備部位数ごとに移動速度を加算する。"
     ,"heavy-armor-move-speed-per-piece": "革・チェーン以外の防具部位数ごとに移動速度を加算する。"
-    ,"light-armor-set-bonus-multiplier": "軽装を2部位以上着たときの軽装セット効果を倍率で強化する。"
-    ,"heavy-armor-set-bonus-multiplier": "重装を2部位以上着たときの重装セット効果を倍率で強化する。"
-    ,"light-armor-set-dodge-chance": "軽装を2部位以上着たときだけ回避率へ加算される。"
-    ,"heavy-armor-set-knockback-resistance": "重装を2部位以上着たときだけノックバック耐性へ加算される。"
+    ,"armor-set-bonus": "スキルツリーのset-buffs(装備部位3/4段の条件バフ)で宣言した段の値全体に" +
+        " ×(1+この値) を掛ける。負値は0扱い。段は3と4のみで、成立している最大の段だけが採用される" +
+        "(3と4の両方が同時に加算されることはない)。軽装/重装で共通の1キー。"
     // ---- 経済連携 (2026-07-25、Vault対応: T3/T4新規3キー) ----
     ,"fish-sell-price-bonus": "fish-sell-toggle保持者が釣った魚を自動売却する際の基準売却額に乗る倍率(%)。"
     ,"disassembly-return-bonus": "装備解体(dismantle-unlock)の戻り量に乗る追加倍率(%)。既存のグローバル設定値(解体%/ルール倍率)の上に乗算で加算される。"
@@ -580,9 +576,7 @@
     "heavyweapons_coatingcharges_add": { label: "重量武器: コーティング回数+", unit: "回" },
     "heavyweapons_coatingunlocked_toggle": { label: "重量武器: コーティング解放", unit: "0/1" },
     // 軽装/重装
-    "lightarmor_seteffectmultiplier_add": { label: "軽装: セット効果倍率+", unit: "割合(0〜1)" },
     "lightarmor_movespeedpenalty_reduce": { label: "軽装: 移動速度ペナルティ軽減", unit: "割合(0〜1)" },
-    "heavyarmor_seteffectmultiplier_add": { label: "重装: セット効果倍率+", unit: "割合(0〜1)" },
     "heavyarmor_knockbackresistance_add": { label: "重装: ノックバック耐性+", unit: "割合(0〜1)" },
     "heavyarmor_movespeedpenalty_reduce": { label: "重装: 移動速度ペナルティ軽減", unit: "割合(0〜1)" },
     // 弓術
@@ -615,12 +609,11 @@
     "power_allskillexpmultiplier_add": { label: "総合: 全スキルEXP倍率+", unit: "割合(0〜1)" },
     "power_entitydropmultiplier_add": { label: "総合: エンティティドロップ倍率+", unit: "割合(0〜1)" },
     // 軽装(light_armor) 本日新設含む
-    "lightarmor_setdodgechance_add": { label: "軽装: セット回避率+ (2部位以上)", unit: "割合(0〜1)" },
-    "lightarmor_setamount_add": { label: "軽装: セット効果増幅+", unit: "割合" },
+    // 2026-07-27(armor-set-buffs全面移行): lightarmor_setdodgechance_add/lightarmor_setamount_add は
+    // スキルツリーのset-buffsスキーマ(装備部位3/4段の条件バフ)+ armor-set-bonus(共通増幅率)へ統一され廃止。
     "lightarmor_movementspeedperpiece_add": { label: "軽装: 装備部位ごとの移動速度+", unit: "割合(0〜1)" },
     // 重装(heavy_armor)
-    "heavyarmor_setknockbackresistance_add": { label: "重装: セットノックバック耐性+", unit: "割合(0〜1)" },
-    "heavyarmor_setamount_add": { label: "重装: セット効果増幅+", unit: "割合" },
+    // 2026-07-27: heavyarmor_setknockbackresistance_add/heavyarmor_setamount_add も同様に廃止。
     "heavyarmor_movementspeedperpiece_add": { label: "重装: 装備部位ごとの移動速度+", unit: "割合(0〜1)" }
   };
 

@@ -53,7 +53,7 @@ class NativeAttributeBridgeTest {
     }
 
     private static SkillNode plainBuffsNode(String id, Map<String, Double> buffs) {
-        return new SkillNode(id, "name-" + id, 10, SkillRole.MAIN, null, "STONE", 1,
+        return new SkillNode(id, "name-" + id, 10, SkillRole.MAIN, null, null, "STONE", 1,
                 "effect", buffs, Map.of(), List.of(), List.of(), List.of());
     }
 

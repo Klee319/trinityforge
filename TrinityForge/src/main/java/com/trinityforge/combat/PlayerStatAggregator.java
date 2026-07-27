@@ -415,6 +415,9 @@ public final class PlayerStatAggregator {
         Map<String, Double> defense = new LinkedHashMap<>();
         Map<String, Double> general = new LinkedHashMap<>();
         source.forEach((key, value) -> {
+            if (value == null || value == 0.0 || !Double.isFinite(value)) {
+                return; // zero/absent: never fabricate a key (mirrors the pre-generalization dodge_chance gate)
+            }
             String canonicalKey = StatKeys.canonical(key);
             switch (com.trinityforge.stats.StatVocabulary.channelOf(canonicalKey)) {
                 case ATTACK -> attack.merge(canonicalKey, value, Double::sum);

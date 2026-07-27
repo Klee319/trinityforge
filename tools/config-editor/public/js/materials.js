@@ -49,8 +49,7 @@ window.FALLBACK_STATS = [
   // スキルツリー専用の条件付き/解放バフ。アイテムステには通常設定しないが、同じバフUIから選択できる。
   "ars-tier-bonus", "glyph-slot-bonus",
   "light-armor-move-speed-per-piece", "heavy-armor-move-speed-per-piece",
-  "light-armor-set-bonus-multiplier", "heavy-armor-set-bonus-multiplier",
-  "light-armor-set-dodge-chance", "heavy-armor-set-knockback-resistance"
+  "armor-set-bonus"
 ];
 
 // 各statの既定表示フォーマット (lore.yml が読めない/キー欠落時のフォールバック)。
