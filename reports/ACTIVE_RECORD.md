@@ -32,6 +32,8 @@
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
 | サーバ稼働 | **停止中**（配備作業の前から停止していた）。**起動すれば新しい jar と config が載る** |
+| **最優先の配備（2026-07-28 実サーバ報告 ①）** | **`skilltree/smithing.yml` が未配備なせいで、op でない人がバニラのツール/防具をほとんどクラフトできない**。配備先の同ファイルに `recipe:` ゲートが 41 件残っている（リポジトリ側は撤去済み）。yml だけなので **`/tf reload` で足りる**（jar 再起動は不要）。`D:/` への書き込みはユーザー実行が必要 |
+| **未ビルドの修正（2026-07-28）** | クラフト結果枠のドラッグ**複製**修正・属性再計算の `ConcurrentModificationException` 修正・被弾パーティクル上限（`1ce23b7` / `9293f6c`）は **jar 未再ビルド**。複製は経済が壊れるので**再ビルドと配備を優先すること**。パーティクル上限は packetevents（実サーバに 2.11.1 が導入済み）を任意依存として参照するので、`paper-plugin.yml` の更新も同時に載る＝**フル再起動が必要** |
 
 配備先は `D:/game/minecraft/PaperServer/TrinityForge/`（`tools/config-editor/tool-config.json` の
 `deployPaths` が正）。`combat/mob-profiles.yml` は保護対象として除外した（配備先 268KB の
@@ -320,6 +322,44 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-28 — 実サーバ報告 3 件（クラフト不可 / 複製 / 被弾パーティクル過多）
+
+コミット: TF `9293f6c`（複製 + CME）、`1ce23b7`（パーティクル上限）。いずれも `dev` へ push 済み。
+検証は実走・実測: TF `tests 2559 / fail 0 / skip 2`、config-editor `tests 758 / pass 758 / fail 0`。
+
+- **①「op でない人が作業台などほとんどクラフトできない」= 配備漏れ（コード修正は不要）**。
+  実サーバの `plugins/TrinityForge/skilltree/smithing.yml` に **`recipe:` ゲートが 41 件残っている**
+  （石/鉄/金/ダイヤ/ネザライトのツール全種と鉄/金/ダイヤ/ネザライトの防具）。リポジトリ側は
+  2026-07-28 にこのゲートを撤去済みだが、その yml が配備されていない。`removed-vanilla-recipes` が
+  斧 6 種＋ネザライト斧の鍛冶を消しているぶんと合わさって「ほとんど作れない」状態になっていた。
+  **op 権限とは無関係**（クラフト経路に `isOp()`/`hasPermission` 分岐は 1 つも無い。op が作れて見えたのは
+  クリエイティブだったため）。ユーザー報告の「戦斧と槍は使える」がこの診断の裏付け＝どちらも
+  ゲートの無い TF カタログ品。**`crafting_table` 自体はどの配備 config にもゲートが無く、単独では未説明のまま**。
+  → 対処は `skilltree/smithing.yml` の配備と `/tf reload`（`D:/` への書き込みなのでユーザー実行）。
+- **②「リザルトからドラッグで回収するとアイテムが消えず無限に増える」= 本物のサーバ側複製を修正**。
+  `InventoryDragEvent#getRawSlots()` は**置き先スロットしか持たない**（引き出し元は入らない）ため、
+  結果枠を起点にしたドラッグは置き先だけを見ていた旧ガードを素通りし、しかも `CraftItemEvent` を
+  経由しないので素材が消費されない。さらに次 tick の `restampPreviewCrafts` がプレビュー品を
+  本物の品質付きアイテムへ昇格させるので再ログイン後も残っていた。
+  カーソルの中身が結果枠の中身と同一なら結果枠由来とみなして落とす方式に変更
+  （`CraftQualityListener#draggedOutOfCraftingResult`、回帰テスト 8 本）。
+- **③ 被弾時のハート型パーティクルが多すぎる件に上限を新設**（ユーザー選択「上限を掛けて減らす」）。
+  バニラは与ダメージに比例した個数の `damage_indicator` を `sendParticles` で直接ブロードキャストしており、
+  **対応する Bukkit イベントが存在しない**ためパケット層以外に手を入れる方法が無い。
+  `combat/display.yml` に `damage-indicator-particles.max-count` を新設（既定 4 / `0`=完全に消す /
+  `-1`=制限しない）、packetevents 経由で送信直前に個数だけを丸める。表示のみでダメージ計算には無影響。
+  packetevents 未導入なら機能ごと無効化して起動ログに 1 行出すだけ（fail-open）。
+  **`max-count: 0` はパケットごとキャンセルする**（個数 0 のパーティクルパケットは「消える」のではなく
+  「offset を速度として 1 個だけ飛ばす」というバニラの特殊仕様になるため）。
+- **④ 実サーバログにあった `ConcurrentModificationException` を修正**（上記の調査中に発見）。
+  `PlayerStatAggregator#aggregate` の `computeIfAbsent` が、解決器経由で同じプレイヤーの
+  `aggregate` を再入呼び出しした結果 modCount チェックで落ち、`PerkAttributeApplier` の全員再計算
+  ループがその場で中断していた（＝以降のプレイヤーに属性が当たらないまま放置）。`get→compute→put` に変更。
+- **⑤ `paper-plugin.yml` の依存宣言が実は 1 つも効いていなかったのを修正**（③の副産物）。
+  paper-plugin.yml は Bukkit 形式の `softdepend:` を解釈せず**未知キーとして黙って捨てる**。
+  Paper プラグインは宣言した依存以外のクラスを見られない（クラスローダ分離）ので、他プラグインの
+  API を触るには `dependencies: server: {...}` 形式が必須。Vault の宣言もこれまで無効だった。
 
 ### 2026-07-28 — 数値のギミックyml集約（C〜D）/ `/tf dungeon` サジェスト / 特殊報酬の孤児掃除 / バニラ進捗の解除抑止
 
