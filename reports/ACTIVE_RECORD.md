@@ -22,7 +22,8 @@
 | 対象 | 状態 |
 |---|---|
 | TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
-| config-editor テスト | **751 / 751 pass・fail 0**（実走・実測、`===EDITOR_EXIT=0`。2026-07-28 の editor UI 4 件バッチ後。734 + 新規 17） |
+| config-editor テスト | **758 / 758 pass・fail 0**（実走・実測、`---EXIT 0---`。2026-07-28 の「数値のギミックyml集約」バッチ後。751 + 新規 7） |
+| **配備（2026-07-28 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\deploy-k8.cmd```<br>jar 2 本（TF 02:38 / ArsPaper 01:31）と、変更した yml 11 本を `backups/deploy-20260728k8/` へ退避してから上書きする。**フル再起動が必須**（jar 差し替え＋コマンドツリーは起動時登録なので `/tf dungeon` のサジェスト変更が reload では載らない）。**`smithing.yml` と `smithing-gimmick.yml` は必ず同時に配備すること**（片方だけ古いと tier が floor 解決で最大 tier へ無言で化ける。起動ログに tier 不一致 WARNING が出たら配備漏れ）。`digging.yml` と `digging-gimmick.yml` も同じ関係 |
 | **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
 | `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 **20:52** に `42bf57e` で再ビルド（15,829,085 bytes、`TrinityForge/build/release/TrinityForge-all.jar`）→ **未配備**。16:39 の `532bcef` 版を含む上位互換 |
@@ -319,6 +320,60 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-28 — 数値のギミックyml集約（C〜D）/ `/tf dungeon` サジェスト / 特殊報酬の孤児掃除 / バニラ進捗の解除抑止
+
+コミット: TF `b164678`（`dev` へ push 済み、50 files / +1973 −221）。ArsPaper 側の変更なし（jar は `98569af` のまま）。
+検証は実走・実測: TF `BUILD SUCCESSFUL`・skipped は既知の 2 件のみ・failure 0 / config-editor `tests 758 / pass 758 / fail 0`。
+
+- **`/tf dungeon` にインポート済み EliteMobs ダンジョンが出てこない件を修正**。サジェスト源が `gates.yml` の
+  id/alias だけだった。`EliteMobsDungeonBridge#installedContentPackageIds` を新設して EM 側の
+  インストール済みコンテンツパッケージを合流させ、`gates.yml` 未登録 ID でも EM へ直接入場する
+  フォールバック（`quickEnterEliteMobs`）を足した。
+  **`EMPackage.getEmPackages()` のキーは常に `.yml` 付き**なので `stripYamlExtension` で正規化している
+  （この非対称は過去に「ドロップ指定が全不発」を起こした再発ポイント）。
+- **生 % をスキルツリーから剥がして stats 側のギミック yml へ集約**（ユーザー承認 C〜D）。
+  - `feature:furnace-smelt-speed` / `-bonus`、`feature:digging-durability-vanilla-exp` / `-job-exp` を
+    `LEVEL`（生 %）→ `SCALE`（tier 番号）へ。実値は `stats/smithing-gimmick.yml` の
+    `furnace-smelt.speed/bonus.tiers` と `stats/digging-gimmick.yml` の
+    `durability-exp.vanilla-exp/job-exp.tiers[tier].cap-percent` に移した。
+    切削側の旧実装は**同じ数値を「上限 %」と「tier 番号」の両方として使う二重定義**だった。
+  - `feature:coating-stack-increase` を削除し、通常 stat `coating_charges_bonus` へ降格
+    （単純加算しかしておらず feature である必然性がなかった）。`WeaponCoatingListener` は
+    `PlayerStatAggregator#totalOf` で読む。
+  - `dismantle-unlock` は `LEVEL` のまま据え置き。値は元から「レベル」で % は
+    `crafting-features.yml` 側にあったため（**私が一度「生 % 直書き」と誤分類したのを訂正した**）。
+    任意の `disassembly.tiers` を足したが、**レベル完全一致でのみ引き floor フォールバックしない**
+    ——既に線形式という連続的な既定があるので floor を重ねると意味が二重に曖昧になるだけ。
+  - **移行事故対策**: 配備先に旧 value（10/20/30）のままの skilltree yml が残って新 jar が載ると、
+    「tier 以下で最大の行」規則で全部が最大 tier へ**無言で化ける**。tier 完全一致が取れなかった場合に
+    一度だけ WARNING を出すようにし、`GimmickTierYamlDriftTest` でドリフトを検知する。
+- **特殊報酬を config から消しても、プレイヤーが保持している分が残り続けていた件を修正**。
+  `SpecialRewardPruner` / `SpecialRewardPruneListener` を新設し、参加時（オフライン PDC に触れる唯一の機会）と
+  `/tf reload` 後のオンライン全員で掃除する。
+  - 安全弁は**プルーナー自身**が持つ: `prune-orphaned-grants`（既定 true）と `lastLoadOk` の
+    **両方**が true のときだけ走る。壊れた YAML を「全部未定義」と誤読して**全員の報酬を消し飛ばす**のを
+    塞ぐため。`load()` は構文エラーだけでなく**エントリが 1 件でも skip された回**も false にする。
+  - `PlayerData#revokeSpecialReward` は付与リストにある ID しか見ないので、
+    **スキルツリーの `reward:<id>` perk 経由で装備しただけの ID**（付与リストに一度も入らない）は
+    装備欄を別経路で個別に掃除する必要がある。
+- **バニラ進捗の解除をサーバ側で抑止**（`achievements.yml` の `vanilla-advancements`、既定 `disabled: true`）。
+  - 使えるイベントは **`com.destroystokyo.paper.event.player.PlayerAdvancementCriterionGrantEvent`**
+    （`io.papermc.paper...` ではない。`javap` で実クラスを確認した）。既存の
+    `PlayerAdvancementDoneEvent` は**キャンセル不可**なので使えない。
+  - 対象は `minecraft:` 名前空間のみ（データパック・他プラグインの進捗は巻き込まない）。
+    `minecraft:recipes/` を通す既定なのは、**バニラがレシピ本の解禁をこの隠し進捗で配っている**ため。
+    ここを塞ぐと新しいレシピが一切解放されなくなる。
+  - `trigger.type: advancement` の TF アチーブメントは**永久に達成不能**になる。定義が 1 件以上あって
+    `disabled: true` なら起動/reload 毎に WARNING を出す（出荷 yml は 0 件なので既定では出ない）。
+- config-editor: 新設キーの編集 UI・バリデータ・ラベルを追加。
+  **私のレビューで見つけた抜け**として、SCALE 化した 4 feature が `tier-vocabulary.js` の
+  `SCALE_FEATURE_SECTIONS` に未登録で tier セレクトが効かなくなっていたのを追加登録した
+  （この 4 件だけ tiers が 1 段ネスト下にあるので key をドット区切りパス解決へ拡張）。
+  以後は `gate-vocabulary.js` の `param:"scale"` 全件との**集合一致をテストで強制**する。
+- **やっていないこと**: `junkfood-inversion`（C）と `junk-food-restore-boost`（D）は、
+  対象ファイル（`FoodGimmickListener.java` / `FoodBonusListener.java` / `stats/food-gimmick.yml`）が
+  **並行セッションの作業中**だったため手を付けていない。
 
 ### 2026-07-28 — 9 要件バッチ（鍛冶ティアゲート撤去 / recipe⇔ritual チャンネル / レシピGUI素材表示 / editor UI 4 件）
 
