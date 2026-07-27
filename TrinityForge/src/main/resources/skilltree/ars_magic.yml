@@ -54,7 +54,8 @@ nodes:
     parent: A
     icon: LAPIS_LAZULI
     cost: 1
-    effect-text: "時間マナ回復+5%・命中時マナ回復+1・グリフの配置数+1"
+    # 2026-07-27: hit-mana-recovery は実装上「被弾時」なので効果テキストを修正(旧「命中時マナ回復」)。
+    effect-text: "時間マナ回復+5%・被弾時マナ回復+1・グリフの配置数+1"
     buffs:
       mana_regen: 0.05
       hit-mana-recovery: 1

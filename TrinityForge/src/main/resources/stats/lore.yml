@@ -591,7 +591,7 @@ stats:
       sources: ALL
       applies-to: [PLAYER]
   hit-mana-recovery:
-    name: 命中マナ回復
+    name: 被弾マナ回復
     icon: ""
     format: FLAT
     decimals: 1
@@ -599,18 +599,19 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 段階4宣言(2026-07-27・実装ずれの疑いあり): 名称は「命中(=攻撃を当てた)時」を示唆するが、実装は
-    # ArmorManaListener#onPlayerDamaged(EntityDamageByEntityEvent、プレイヤーが「被弾」した側)で
-    # ARMOR_HIT_MANA_RECOVERY(=hit_mana_recovery装備分)を消費している(java 105-118)。非装備分は
+    # 実装: ArmorManaListener#onPlayerDamaged(EntityDamageByEntityEvent、プレイヤーが「被弾」した側)で
+    # ARMOR_HIT_MANA_RECOVERY(=hit_mana_recovery装備分)を消費する(java 105-118)。非装備分は
     # 同ファイル279-280でtfNonItemStatTotal(player,"hit_mana_recovery")として被弾時に合算される。
-    # 表示名と実装の対応が damage-mana-recovery と入れ替わっているように読める(下記参照)。
-    # ここでは実装(被弾時に発動)に忠実にON_DAMAGE_TAKENを宣言する。
+    # 2026-07-27: 表示名が damage-mana-recovery と入れ替わっていたのを修正(旧「命中マナ回復」)。
+    # キー名 hit- は「被弾(hit を受ける)」の意で、対応するスレッド thread_hit_mana_recovery の
+    # 表示名「被弾マナ回復のスレッド」は元から実装と一致していた＝lore.yml 側だけが逆だった。
+    # キーは configs/装備データが参照するため変更しない(表示名のみを実装へ合わせる)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
       applies-to: [PLAYER]
   damage-mana-recovery:
-    name: 被弾マナ回復
+    name: 攻撃マナ回復
     icon: ""
     format: FLAT
     decimals: 1
@@ -618,13 +619,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 段階4宣言(2026-07-27・実装ずれの疑いあり): 名称は「被弾時」を示唆するが、実装は
-    # ArmorManaListener#onPlayerDealDamage(EntityDamageByEntityEvent、プレイヤーが「与ダメ」した側、
+    # 実装: ArmorManaListener#onPlayerDealDamage(EntityDamageByEntityEvent、プレイヤーが「与ダメ」した側、
     # ENTITY_ATTACK/ENTITY_SWEEP_ATTACK限定の近接直接攻撃のみ)でARMOR_DAMAGE_MANA_RECOVERYを消費
-    # している(java 124-140)。非装備分は同ファイル281-282でtfNonItemStatTotal(player,
-    # "damage_mana_recovery")として近接与ダメ時に合算される。hit-mana-recoveryと表示名/実装が
-    # 入れ替わっているように見える点は要確認として報告する。ここでは実装(近接で与ダメした時に発動)に
-    # 忠実にON_MELEE_HITを宣言する。
+    # する(java 124-140)。非装備分は同ファイル281-282でtfNonItemStatTotal(player,
+    # "damage_mana_recovery")として近接与ダメ時に合算される。
+    # 2026-07-27: 表示名が hit-mana-recovery と入れ替わっていたのを修正(旧「被弾マナ回復」)。
+    # キー名 damage- は「与ダメージ」の意で、対応するスレッド thread_damage_mana_recovery の
+    # 表示名「攻撃マナ回復のスレッド」は元から実装と一致していた＝lore.yml 側だけが逆だった。
+    # ※射撃/魔法では発動しない(近接直撃のみ)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
@@ -1861,8 +1863,11 @@ stats:
     hide-when-zero: true
     unit: tick
     category: ars
+  # 2026-07-27: mana-onhit-* の表示名を実装へ合わせて修正(旧「命中マナ回復率/(実)」)。
+  # フォーク ManaRecoveryListener#onPlayerDamaged が onHitPercent/onHitFlat を使う＝「被弾」側。
+  # 攻撃側は下の mana-onattack-* で、こちらは元から実装と一致している。
   mana-onhit-percent:
-    name: 命中マナ回復率
+    name: 被弾マナ回復率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1871,7 +1876,7 @@ stats:
     hide-when-zero: true
     category: ars
   mana-onhit-flat:
-    name: 命中マナ回復(実)
+    name: 被弾マナ回復(実)
     icon: ""
     format: FLAT
     decimals: 1

@@ -49,15 +49,15 @@
     "disassembly-return-bonus": "解体:戻り量↑",
     "mana-bonus": "Ars:最大マナ↑",
     "mana-regen": "Ars:マナ回復↑",
-    "hit-mana-recovery": "Ars:命中マナ回復↑",
-    "damage-mana-recovery": "Ars:被弾マナ回復↑",
+    "hit-mana-recovery": "Ars:被弾マナ回復↑",
+    "damage-mana-recovery": "Ars:攻撃マナ回復↑",
     "mana-cost-reduction-flat": "Ars:マナ消費↓",
     "mana-cost-reduction-percent": "Ars:マナ消費↓",
     "mana-max-base": "Ars:マナ上限(基礎)",
     "mana-regen-base": "Ars:マナ回復(基礎)",
     "mana-regen-interval-ticks": "Ars:マナ回復間隔",
-    "mana-onhit-percent": "Ars:命中マナ%↑",
-    "mana-onhit-flat": "Ars:命中マナ(実)↑",
+    "mana-onhit-percent": "Ars:被弾マナ%↑",
+    "mana-onhit-flat": "Ars:被弾マナ(実)↑",
     "mana-onattack-percent": "Ars:攻撃マナ%↑",
     "mana-onattack-flat": "Ars:攻撃マナ(実)↑",
     "mana-idle-seconds": "Ars:待機マナ秒数",
@@ -174,8 +174,8 @@
     "glyph-damage-multiplier-bonus": "特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat(フォーク側がどのグリフに適用するか選ぶ)。",
     "mana-bonus": "Ars の最大マナへ加算される。装備分は Ars 側で別途集計される。",
     "mana-regen": "Ars のマナ自然回復へ加算される。装備分は Ars 側で別途集計される。",
-    "hit-mana-recovery": "この装備で攻撃を命中させたときのマナ回復量。",
-    "damage-mana-recovery": "この装備の所持者が被弾したときのマナ回復量。",
+    "hit-mana-recovery": "この装備の所持者が被弾したときのマナ回復量。キー名 hit- は「hit を受ける=被弾」の意。",
+    "damage-mana-recovery": "この装備で近接攻撃を命中させたときのマナ回復量。射撃/魔法では発動しない。",
     "thread-slots": "このアイテムにだけ設定されるスレッド装着枠数。プレイヤー総合ステータスには合算されない。",
     "mana-cost-reduction-flat": "Ars の消費マナを固定値で減らす。",
     "mana-cost-reduction-percent": "Ars の消費マナを割合で減らす。",
@@ -239,8 +239,8 @@
       + "経由で読む。通常アイテムには付与されない。"
     ,"mana-regen-interval-ticks": "base-stats.yml専用のマナ自然回復の間隔(tick)。フォークは"
       + "TrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
-    ,"mana-onhit-percent": "命中時マナ回復量への割合ボーナス(%)。ManaBaseStats.onHitPercent経由でフォークが読む。"
-    ,"mana-onhit-flat": "命中時マナ回復量への固定ボーナス。ManaBaseStats.onHitFlat経由でフォークが読む。"
+    ,"mana-onhit-percent": "被弾時マナ回復量への割合ボーナス(%)。ManaBaseStats.onHitPercent経由でフォークが読む。"
+    ,"mana-onhit-flat": "被弾時マナ回復量への固定ボーナス。ManaBaseStats.onHitFlat経由でフォークが読む。"
     ,"mana-onattack-percent": "攻撃時マナ回復量への割合ボーナス(%)。ManaBaseStats.onAttackPercent経由でフォークが読む。"
     ,"mana-onattack-flat": "攻撃時マナ回復量への固定ボーナス。ManaBaseStats.onAttackFlat経由でフォークが読む。"
     ,"mana-idle-seconds": "待機(未行動)何秒でマナ回復ボーナスが発生するかの秒数。"
@@ -299,8 +299,8 @@
     "custom_model_data_base": { label: "CMD基準値", desc: "部位ごとのCMDの基準になる整数。0以上。" },
     "mana_bonus": { label: "マナ上限ボーナス", desc: "最大マナへの加算。" },
     "mana_regen": { label: "マナ自然回復", desc: "時間経過によるマナ回復量。" },
-    "hit_mana_recovery": { label: "命中時マナ回復", desc: "攻撃を当てたときのマナ回復量。" },
-    "damage_mana_recovery": { label: "被弾時マナ回復", desc: "ダメージを受けたときのマナ回復量。" },
+    "hit_mana_recovery": { label: "被弾時マナ回復", desc: "ダメージを受けたときのマナ回復量。" },
+    "damage_mana_recovery": { label: "攻撃時マナ回復", desc: "近接攻撃を当てたときのマナ回復量。" },
     "thread_slots": { label: "スレッド枠数", desc: "装着できるスレッドの数。0以上の整数。" },
     "durability": { label: "耐久値", desc: "防具の耐久。0以上の整数。" },
     "enchantable": { label: "エンチャント可", desc: "エンチャントできるか。" },
