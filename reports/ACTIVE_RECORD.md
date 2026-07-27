@@ -31,10 +31,10 @@
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
-| サーバ稼働 | **停止中**（配備作業の前から停止していた）。**起動すれば新しい jar と config が載る** |
-| **最優先の配備（2026-07-28 実サーバ報告 ①）** | **`skilltree/smithing.yml` が未配備なせいで、op でない人がバニラのツール/防具をほとんどクラフトできない**。配備先の同ファイルに `recipe:` ゲートが 41 件残っている（リポジトリ側は撤去済み）。yml だけなので **`/tf reload` で足りる**（jar 再起動は不要）。`D:/` への書き込みはユーザー実行が必要 |
-| **HuskSync が起動できていない（2026-07-28 のログで確認）** | 起動時に `RedisManager.terminate()` の NPE で enable に失敗し、そのまま**同期されないまま稼働している**。ログ該当行 = `Error occurred while disabling HuskSync v4.0.0-3dc619d`。Redis 未接続が原因。**サーバ起動は止まらないので気づきにくい**（→ §5）。起動前に `ops/scripts/preflight.ps1` |
-| **未ビルドの修正（2026-07-28）** | クラフト結果枠のドラッグ**複製**修正・属性再計算の `ConcurrentModificationException` 修正・被弾パーティクル上限（`1ce23b7` / `9293f6c` / `cf88bf4`）は **jar 未再ビルド**。複製は経済が壊れるので**再ビルドと配備を優先すること**。パーティクル上限は packetevents（実サーバに 2.11.1 が導入済み）を任意依存として参照するので、`paper-plugin.yml` の更新も同時に載る＝**フル再起動が必要** |
+| サーバ稼働 | **2026-07-28 03:40 に起動して稼働していた**（`latest.log` 実測。03:40 時点の jar = 03:11 ビルド）。**04:14 に jar を再ビルドしたので、次の差し替えは必ずサーバを止めてから**（稼働中の jar 上書きは `NoClassDefFoundError` 直行） |
+| ~~**最優先の配備（2026-07-28 実サーバ報告 ①）** `skilltree/smithing.yml` の `recipe:` ゲート 41 件が未配備~~ | **解決（2026-07-28 04:0x 確認）**。配備先 `Main_Server/plugins/TrinityForge/skilltree/smithing.yml` を grep したところ `recipe:` ゲートは 0 件（残っているのは撤去を説明するコメントのみ）。**なお「作業台が作れない」はこのゲートとは無関係だった**（真因は ArsPaper の `plank_scrap` レシピ、→ §7 の 2026-07-28 エントリ） |
+| **HuskSync が起動できていない（2026-07-28 03:40 のログで真因確定）** | **真因は MariaDB の認証失敗**: `1045-28000: Access denied for user 'husksync'@'localhost' (using password: YES)` → `Failed to initialize MariaDB database connection`。**Redis は原因ではない**（同じ起動で LuckPerms が `storage provider [MARIADB]` と `messaging service [REDIS]` の両方に接続成功しており、MariaDB も Garnet も生きている）。`RedisManager.terminate()` の NPE は初期化途中で落ちたときの shutdown 経路の副作用にすぎない（RUNBOOK §トラブルシュートにも「無視してよい」とある）。**以前の記録の「Redis 未接続が原因」は誤り**。`husksync` アカウントが未作成か、`plugins/HuskSync/config.yml` の password が GRANT 時の値と違うかのどちらか。**サーバ起動は止まらないので気づきにくい**（→ §5）。**`preflight.ps1` はこれを検出できない** — TCP 到達性と「生成時の既定値のままでないか」しか見ておらず、実際に認証を試さないため素通りする |
+| **最優先の配備（2026-07-28 04:14 ビルド）** | **クラフト複製の真因修正**（`CraftQualityListener` がカーソルを書き換えていたせいで素材が消費されず、リザルトから無限に取れていた）と**「作業台が作れない」の修正**（フォーク/カタログレシピがバニラレシピを無言で潰していた）。**TF `TrinityForge-0.1.0-SNAPSHOT-all.jar`（04:14）と ArsPaper `ArsPaper-1.0.0.jar`（04:14）の 2 本セットで配備**（片方だけでは作業台が直らない）。**複製は経済が壊れるので最優先**。**サーバを停止してから jar を差し替え、フル再起動**（→ §7 の 2026-07-28 エントリ） |
 
 **配備先の構成が変わった（2026-07-28 実測）。旧 `D:/game/minecraft/PaperServer/TrinityForge/` は存在しない。**
 現在は `D:/game/minecraft/PaperServer/Velocity_for_TF/{Main_Server, Resource_Server, Dev_Server}/` の
@@ -334,6 +334,67 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-28 04:1x — クラフト複製の**真因**修正 ／「作業台が作れない」の真因判明
+
+ユーザー報告 3 件（①リザルトの品を取ろうとするとちらつく ②ドラッグ＆ドロップで無限に回収できる
+（カスタムアイテムで確認）③なぜか作業台がクラフトできない）。
+検証は実走・実測: TF `tests 2613 / fail 0 / skip 2`（既知の 2 件のみ）、ArsPaper フォーク
+`BUILD SUCCESSFUL`・`tests 54 / fail 0`。jar は TF / ArsPaper とも 04:14 に再ビルド。
+
+- **①②は同一の真因。前回（`9293f6c`）の「ドラッグが原因」という診断は誤りだった。**
+  真因は `CraftQualityListener#onCraft` の `player.setItemOnCursor(stamped)`。
+  CraftBukkit の `handleContainerClick` は**イベント発火 → バニラの
+  `AbstractContainerMenu.clicked(...)`** の順で走るので、`CraftItemEvent` ハンドラ内でカーソルを
+  書き換えると、バニラは「カーソルが空 → 結果枠を取る」ではなく
+  **「カーソルに同じ品がある → マージする」**経路に入る:
+  ```java
+  } else if (slot.mayPlace(carried)) {        // 結果枠(ResultSlot)は常に false
+  } else if (isSameItemSameComponents(slotItem, carried)) {
+      slot.tryRemove(carried.getCount(), carried.getMaxStackSize() - carried.getCount(), player)
+          .ifPresent(taken -> { carried.grow(...); slot.onTake(player, taken); });
+  }
+  ```
+  装備・道具は**最大スタック 1** なので取得上限が `1 - 1 = 0`、`tryRemove` は空 Optional を返し
+  **`ResultSlot#onTake` が一度も呼ばれない = 素材が一切消費されない**。それでいてプレイヤーの手には
+  リスナーが載せた完成品が残るので、盤面も結果枠もそのままで**いくらでも増える**。
+  クライアントは「素材が減って結果を取った」と予測して描画しているため、直後のサーバ同期で盤面が
+  巻き戻る — これが**「ちらつき」の正体**でもある。
+  （Paper 1.21.11 の `AbstractContainerMenu` / `Slot` / `ServerGamePacketListenerImpl` を
+  `javap -c` して実際の分岐順とバイトコードで確認済み。推測ではない。）
+  → 結果枠だけを差し替える（`setCurrentItem` / `setResult`）ように修正。バニラが正規の
+  「カーソルが空 → `tryRemove(count, MAX_VALUE)` → `onTake`（素材消費）→ カーソルへ」を実行する。
+- **前回入れたドラッグ・ヒューリスティック（カーソル == 結果枠なら落とす）は撤去した。**
+  バニラの quick-craft は**カーソルの中身をスロットへ配るだけ**で、スロットから取り出す処理を
+  一切持たない。かつ配布先の条件は `slot.mayPlace(carried)` で、結果枠はこれが常に false。
+  **ドラッグ経路では原理的に複製できない**。一方このヒューリスティックは「作ったばかりの品を
+  手に持ったまま盤面でドラッグする」という普通の操作を必ず巻き込み（直後は カーソル == 結果枠 が
+  成立する）、キャンセル＋`updateInventory()` で**ちらつきを自分で生んでいた**。
+  置き先に結果枠を含むドラッグを弾く元のループだけ残した。
+- **③「作業台がクラフトできない」= ArsPaper の `plank_scrap` がバニラの作業台レシピを潰していた。**
+  `materials.yml` の `plank_scrap`（`base_material: OAK_PLANKS`）は「`custom:plank_scrap` を 2×2 →
+  板材 1 枚」という戻しレシピを持つ。**`custom:` 素材は `RecipeChoice.MaterialChoice`（材質のみ照合）
+  として登録される**ので、Bukkit から見るとこれは「板材 2×2」であり
+  **`minecraft:crafting_table` と完全に重なる**。Bukkit は一致レシピを 1 つしか返さないため、
+  そこでフォークレシピが選ばれると**バニラの作業台レシピは選択肢ごと消える**。そのあと
+  `CustomIngredientCraftGuardListener` の per-slot 検証が「custom id が違う」と正しく弾き、
+  兄弟にも合わないので `setResult(null)` → **結果枠が空のまま = 作業台が作れない**。
+  ログは `Level.FINE` なので何も出ず、config にもゲートが無いため原因に辿り着けなかった
+  （前回「単独では未説明のまま」と書いた項目の答え）。
+  → **フォークレシピを弾いた盤面にカスタムアイテムが 1 つも無い場合に限り**、フォーク前進レシピを
+  除外して `Bukkit.recipeIterator()` を再照合し、本来選ばれるはずだったレシピの結果を戻す
+  （`CustomIngredientCraftGuardListener#shadowedVanillaResult`）。カスタムアイテムが混ざる盤面は
+  従来どおりクラフト不可 — 圧縮ブロックの tier 誤爆（over-match）を再び開けないため、この非対称は意図的。
+- **同じ穴が TF 側 `CatalogWorkbenchListener` にも開いていたので同時に塞いだ。**
+  TF も `CatalogRecipeRegistrar` で `custom:`/`list:` を MaterialChoice 登録しているため原理は同一
+  （例: `custom:blaze_rod_2x` 1 個の shapeless カタログレシピがあれば `minecraft:blaze_powder` が死ぬ）。
+  `shadowedVanillaResult` を同じ方針で追加（回帰テスト 5 本）。
+  **これは「今どのバニラレシピが死んでいるか」を数え上げずに塞げる形にしてある** — カタログ/フォークの
+  yml を編集するたびに新しい衝突が生まれうるので、個別対処ではなく経路ごと塞ぐのが正しい。
+- 副産物: フォークの shape 配置探索を `placeableAnywhere`（純関数 + `CellPredicate`）へ切り出し、
+  フォークレシピ照合とバニラレシピ照合で共通化した（片方だけ直して挙動がズレる事故の予防）。
+  フォークはテスト環境に MockBukkit が無く `ItemStack` を生成できないため、疑似グリッド文字列で
+  配置・鏡像・空セル判定を検証している（既存の shape テストと同じ方針）。
 
 ### 2026-07-28 03:5x — 3 バックエンドへの配備（`tmp\deploy-v1.cmd`）
 

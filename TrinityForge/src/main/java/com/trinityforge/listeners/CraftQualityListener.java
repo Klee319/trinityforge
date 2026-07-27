@@ -99,6 +99,32 @@ public final class CraftQualityListener implements Listener {
         inventory.setResult(stamped);
     }
 
+    /**
+     * <b>複製バグ修正 (2026-07-28 その2 — 実サーバで確認された本命)</b>:
+     * ここで {@code player.setItemOnCursor(...)} を呼んではいけない。
+     *
+     * <p>CraftBukkit の {@code handleContainerClick} は<b>イベントを発火してから</b>
+     * {@code AbstractContainerMenu.clicked(...)}(=バニラの実処理)を走らせる。つまりこのハンドラ
+     * (MONITOR)でカーソルを書き換えると、バニラは「カーソルが空 → 結果枠を取る」経路ではなく
+     * 「カーソルに既に同じ品がある → マージする」経路に入る:
+     * <pre>
+     *   } else if (slot.mayPlace(carried)) {       // 結果枠は常に false
+     *   } else if (isSameItemSameComponents(slotItem, carried)) {
+     *       slot.tryRemove(carried.getCount(), carried.getMaxStackSize() - carried.getCount(), player)
+     *           .ifPresent(taken -&gt; { carried.grow(...); slot.onTake(player, taken); });
+     *   }
+     * </pre>
+     * 装備・道具は最大スタック 1 なので上限は {@code 1 - 1 = 0}、{@code tryRemove} は空 Optional を
+     * 返し <b>{@code ResultSlot#onTake} が一度も呼ばれない</b> = <b>素材が消費されない</b>。
+     * それでいてプレイヤーの手にはこちらが載せた完成品が残るため、盤面はそのまま・結果枠もそのままで
+     * いくらでもアイテムが増える(=報告された「リザルトから無限に回収できる」複製)。
+     * クライアントは「素材が減って結果を取った」と予測しているので、直後のサーバ同期で盤面が
+     * 巻き戻り、これが「取ろうとするとちらつく」の正体でもある。
+     *
+     * <p>結果枠({@link CraftItemEvent#setCurrentItem})だけを差し替えれば、バニラが正規の
+     * 「カーソルが空 → {@code tryRemove(count, MAX_VALUE)} → {@code onTake}(素材消費) → カーソルへ」
+     * を実行し、刻印済みの完成品がそのまま手に渡る。
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCraft(CraftItemEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
@@ -117,11 +143,9 @@ public final class CraftQualityListener implements Listener {
             CraftRollMods mods = craftQualityService.craftRollMods(player);
             itemFactory.stamp(stamped, ThreadLocalRandom.current().nextLong(), rolled, mods);
             stampSoulboundOwnerOnCraft(stamped, player);
+            // 結果枠だけを差し替える。カーソルには絶対に触らないこと(理由は下記)。
             event.getInventory().setResult(stamped.clone());
             event.setCurrentItem(stamped.clone());
-            if (!event.isShiftClick()) {
-                player.setItemOnCursor(stamped.clone());
-            }
             if (candidates.contains(ArsProgressionBridge.ARS_SMITHING)) {
                 ArsProgressionBridge.grantSmithingExp(plugin, player, skillExp.arsSmithingExpPerCraft());
             }
@@ -176,20 +200,22 @@ public final class CraftQualityListener implements Listener {
     }
 
     /**
-     * クラフト結果枠に触れるドラッグをキャンセルする(ドラッグ経由でのプレビュー品取り出しを封じる保険)。
-     * 通常のクラフトはドラッグを使わないため実害はない。
+     * クラフト結果枠を置き先に含むドラッグをキャンセルする(不変条件の明示。通常のクラフトはドラッグを
+     * 使わないため実害はない)。
      *
-     * <p><b>2026-07-28 追加(実サーバで確認された複製)</b>: 「結果枠をつかんでインベントリへ
-     * ドラッグ＆ドロップすると素材が減らずにアイテムだけ増え、再ログイン後も残る」という報告。
-     * {@link InventoryDragEvent#getRawSlots()} は<b>置き先のスロットしか持たない</b> —
-     * 引き出し元(結果枠)は入らない。そのため結果枠を起点にした quick-craft ドラッグは
-     * 上のループを素通りし、しかも {@link CraftItemEvent} を経由しないので素材も消費されない。
-     * 置き先だけを見るガードでは原理的に塞げないので、<b>カーソルの中身が今まさに結果枠に
-     * 乗っている品と同一なら、結果枠から出てきたものとみなして落とす</b>。
-     *
-     * <p>誤爆する条件は「現在のクラフト結果とまったく同じアイテムを手に持ったまま、
-     * クラフト画面でドラッグする」ときだけで、その場合もアイテムはカーソルに残るので失われない
-     * (クリックで置ける)。複製は経済が壊れる不可逆な事故なので、この非対称は意図的に厳しい側へ倒す。
+     * <p><b>2026-07-28: 「カーソルの中身 == 結果枠の中身なら落とす」ヒューリスティックを撤去した。</b>
+     * 当初これを「結果枠を起点にしたドラッグ複製」の対策として入れたが、真因は
+     * {@link #onCraft} のカーソル書き換え(そちらの javadoc 参照)であり、ドラッグ経路では複製は
+     * 原理的に起こらない:
+     * <ul>
+     *   <li>バニラの quick-craft({@code ClickType.QUICK_CRAFT})は<b>カーソルの中身をスロットへ
+     *       配るだけ</b>で、スロットから取り出す処理を一切持たない。</li>
+     *   <li>配布先に採用される条件は {@code slot.mayPlace(carried)} であり、クラフト結果枠
+     *       ({@code ResultSlot})はこれが常に false。つまり結果枠はドラッグの置き先にも起点にもならない。</li>
+     * </ul>
+     * 一方でこのヒューリスティックは「作ったばかりの品を手に持ったまま盤面でドラッグする」という
+     * ごく普通の操作を必ず巻き込み(直後は カーソル == 結果枠 が成立する)、キャンセル＋
+     * {@code updateInventory()} による<b>画面のちらつきを自分で生んでいた</b>。
      */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onCraftResultDrag(InventoryDragEvent event) {
@@ -200,30 +226,6 @@ public final class CraftQualityListener implements Listener {
                 return;
             }
         }
-        if (!draggedOutOfCraftingResult(event, view)) {
-            return;
-        }
-        event.setCancelled(true);
-        if (event.getWhoClicked() instanceof Player player) {
-            // キャンセルしただけだとクライアント側に「持てている」残像が残るため、明示的に同期し直す。
-            plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
-        }
-    }
-
-    /**
-     * カーソルの中身が、そのクラフト画面の結果枠に今乗っている品と同一か(=結果枠から出てきた疑い)。
-     * 直接ユニットテストするため package-private(このパッケージの「純粋ヘルパーは package-private」慣習に従う)。
-     */
-    static boolean draggedOutOfCraftingResult(InventoryDragEvent event, InventoryView view) {
-        if (view == null || !(view.getTopInventory() instanceof CraftingInventory crafting)) {
-            return false;
-        }
-        ItemStack cursor = event.getOldCursor();
-        if (cursor == null || cursor.getType().isAir()) {
-            return false;
-        }
-        ItemStack result = crafting.getResult();
-        return result != null && !result.getType().isAir() && result.isSimilar(cursor);
     }
 
     /** 生の作業台/インベントリ 2×2/3×3 クラフトの結果スロットか(かまど等の RESULT は対象外)。 */
