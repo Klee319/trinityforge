@@ -18,7 +18,6 @@ const YAML = editorRequire("yaml");
 
 const PAGE_NAMES = [
   "Home.md",
-  "README.md",
   "サーバーの概要.md",
   "職業スキルとスキルツリー.md",
   "モブとダンジョン.md",
@@ -27,6 +26,8 @@ const PAGE_NAMES = [
   "追加アイテム.md",
   "その他の追加機能とコマンド.md"
 ];
+
+const LEGACY_GENERATED_PAGE_NAMES = ["README.md"];
 
 const CATEGORY_NAMES = {
   attack: "攻撃",
@@ -834,7 +835,6 @@ function generatePages(root = PROJECT_ROOT) {
   const home = buildHome(data);
   const pages = new Map();
   pages.set("Home.md", home);
-  pages.set("README.md", home);
   pages.set("サーバーの概要.md", buildOverview(data));
   pages.set("職業スキルとスキルツリー.md", buildSkillPage(data));
   pages.set("モブとダンジョン.md", buildDungeonPage(data, names));
@@ -853,6 +853,13 @@ function writePages(pages, wikiDirectory, checkOnly) {
     if (current === content) continue;
     changed.push(fileName);
     if (!checkOnly) fs.writeFileSync(target, content, "utf8");
+  }
+  for (const fileName of LEGACY_GENERATED_PAGE_NAMES) {
+    if (pages.has(fileName)) continue;
+    const target = path.join(wikiDirectory, fileName);
+    if (!fs.existsSync(target)) continue;
+    changed.push(fileName);
+    if (!checkOnly) fs.unlinkSync(target);
   }
   return changed;
 }

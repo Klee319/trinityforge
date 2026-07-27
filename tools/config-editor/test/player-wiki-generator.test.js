@@ -1,6 +1,8 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -12,6 +14,7 @@ test("player wiki generator creates the planned pages from the shipped settings"
   const pages = generator.generatePages(ROOT);
 
   assert.deepEqual([...pages.keys()], generator.PAGE_NAMES);
+  assert.equal(pages.has("README.md"), false);
   assert.match(pages.get("Home.md"), /TrinityForge へようこそ/);
   assert.match(pages.get("職業スキルとスキルツリー.md"), /軽量武器/);
   assert.match(pages.get("追加アイテム.md"), /ソースジェム/);
@@ -64,4 +67,20 @@ test("player wiki generator renders tiered gathering limits when they are config
   }, "max-extra-blocks", "ブロック");
 
   assert.equal(summary, "段階2: 追加で最大 24ブロック");
+});
+
+test("player wiki generator removes the legacy README entry and detects it in check mode", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "trinityforge-wiki-test-"));
+  const pages = new Map([["Home.md", "# Home\n"]]);
+  try {
+    fs.writeFileSync(path.join(directory, "Home.md"), "# Home\n", "utf8");
+    fs.writeFileSync(path.join(directory, "README.md"), "# Home\n", "utf8");
+
+    assert.deepEqual(generator.writePages(pages, directory, true), ["README.md"]);
+    assert.deepEqual(generator.writePages(pages, directory, false), ["README.md"]);
+    assert.equal(fs.existsSync(path.join(directory, "README.md")), false);
+    assert.deepEqual(generator.writePages(pages, directory, true), []);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
