@@ -31,10 +31,10 @@
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
-| サーバ稼働 | **2026-07-28 03:40 に起動して稼働していた**（`latest.log` 実測。03:40 時点の jar = 03:11 ビルド）。**04:14 に jar を再ビルドしたので、次の差し替えは必ずサーバを止めてから**（稼働中の jar 上書きは `NoClassDefFoundError` 直行） |
+| サーバ稼働 | **稼働中（2026-07-28 04:28 起動、04:14 ビルドの jar が載っている）**。3 台とも `Done`・TF/ArsPaper 起因のエラー 0・プレイヤー 2 名が再接続済み。**HuskSync もこの起動では enable 成功**（MariaDB 認証が直っている） |
 | ~~**最優先の配備（2026-07-28 実サーバ報告 ①）** `skilltree/smithing.yml` の `recipe:` ゲート 41 件が未配備~~ | **解決（2026-07-28 04:0x 確認）**。配備先 `Main_Server/plugins/TrinityForge/skilltree/smithing.yml` を grep したところ `recipe:` ゲートは 0 件（残っているのは撤去を説明するコメントのみ）。**なお「作業台が作れない」はこのゲートとは無関係だった**（真因は ArsPaper の `plank_scrap` レシピ、→ §7 の 2026-07-28 エントリ） |
 | **HuskSync が起動できていない（2026-07-28 03:40 のログで真因確定）** | **真因は MariaDB の認証失敗**: `1045-28000: Access denied for user 'husksync'@'localhost' (using password: YES)` → `Failed to initialize MariaDB database connection`。**Redis は原因ではない**（同じ起動で LuckPerms が `storage provider [MARIADB]` と `messaging service [REDIS]` の両方に接続成功しており、MariaDB も Garnet も生きている）。`RedisManager.terminate()` の NPE は初期化途中で落ちたときの shutdown 経路の副作用にすぎない（RUNBOOK §トラブルシュートにも「無視してよい」とある）。**以前の記録の「Redis 未接続が原因」は誤り**。`husksync` アカウントが未作成か、`plugins/HuskSync/config.yml` の password が GRANT 時の値と違うかのどちらか。**サーバ起動は止まらないので気づきにくい**（→ §5）。**`preflight.ps1` はこれを検出できない** — TCP 到達性と「生成時の既定値のままでないか」しか見ておらず、実際に認証を試さないため素通りする |
-| **最優先の配備（2026-07-28 04:14 ビルド）** | **クラフト複製の真因修正**（`CraftQualityListener` がカーソルを書き換えていたせいで素材が消費されず、リザルトから無限に取れていた）と**「作業台が作れない」の修正**（フォーク/カタログレシピがバニラレシピを無言で潰していた）。**TF `TrinityForge-0.1.0-SNAPSHOT-all.jar`（04:14）と ArsPaper `ArsPaper-1.0.0.jar`（04:14）の 2 本セットで配備**（片方だけでは作業台が直らない）。**複製は経済が壊れるので最優先**。**サーバを停止してから jar を差し替え、フル再起動**（→ §7 の 2026-07-28 エントリ） |
+| ~~**最優先の配備（2026-07-28 04:14 ビルド）** クラフト複製の真因修正と「作業台が作れない」の修正~~ | **配備完了（2026-07-28 04:26、`tmp\deploy-20260728-craftfix.cmd`）**。TF / ArsPaper の jar を 3 バックエンドへ、計 6 本すべて **MD5 一致で検証済み**。04:28 に `launch\start-all.cmd` で起動し全台 `Done`。旧版は `Main_Server\plugins\.deploy-backups\20260728_craftfix\`。**実ゲームでの動作確認だけ未実施**（リザルトから取っても素材が減ること／板材 2×2 で作業台が出ること） |
 
 **配備先の構成が変わった（2026-07-28 実測）。旧 `D:/game/minecraft/PaperServer/TrinityForge/` は存在しない。**
 現在は `D:/game/minecraft/PaperServer/Velocity_for_TF/{Main_Server, Resource_Server, Dev_Server}/` の
@@ -391,6 +391,16 @@ git 系（2026-07-27 に導入）:
   `shadowedVanillaResult` を同じ方針で追加（回帰テスト 5 本）。
   **これは「今どのバニラレシピが死んでいるか」を数え上げずに塞げる形にしてある** — カタログ/フォークの
   yml を編集するたびに新しい衝突が生まれうるので、個別対処ではなく経路ごと塞ぐのが正しい。
+- **配備（04:26〜04:28）**: `tmp\deploy-20260728-craftfix.cmd`（**jar 専用**。他セッションが yml を編集中なので
+  yml には一切触らない）。TF / ArsPaper を 3 バックエンドへ、計 6 本を MD5 一致で検証。
+  `launch\start-all.cmd` で起動し 3 台とも `Done`、TF/ArsPaper 起因のエラー 0。
+  - **`launch\start-all.cmd` は非対話シェルから実行すると待機がスキップされる**。中の Windows
+    `timeout` が `ERROR: Input redirection is not supported` で即抜けるため、
+    「main を 60 秒待ってから resource/dev」という起動順の間隔が効かず**3 台がほぼ同時に上がる**。
+    今回は既存 DB なので実害なし（スキーマ移行は初回のみ）だが、**初回起動でこれをやると
+    共有 SQLite の移行が同時実行される**。初回は必ず対話コンソールから実行すること。
+  - 停止したつもりでも `server-loop.cmd` の再起動ループで上がってくることがある
+    （今回も一度 04:24 に起動しかけた）。**配備前に必ず java プロセスの実在を確認**すること。
 - 副産物: フォークの shape 配置探索を `placeableAnywhere`（純関数 + `CellPredicate`）へ切り出し、
   フォークレシピ照合とバニラレシピ照合で共通化した（片方だけ直して挙動がズレる事故の予防）。
   フォークはテスト環境に MockBukkit が無く `ItemStack` を生成できないため、疑似グリッド文字列で
