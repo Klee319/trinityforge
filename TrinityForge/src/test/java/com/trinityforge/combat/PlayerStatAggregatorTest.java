@@ -244,20 +244,52 @@ class PlayerStatAggregatorTest {
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
         assertEquals(0.15, agg.perkDefense().getOrDefault(DODGE_CHANCE, 0.0), 1e-9,
-                "軽装2部位以上のset dodge-chance(NativeAttributeBridge)はperkDefenseへ合算される");
+                "NativeAttributeBridge由来のdodge-chance(set-buffsのDEFENSEチャネル)はperkDefenseへ合算される");
     }
 
     @Test
     void nativeAttributeBridgeZeroDodgeChance_addsNoKey(@TempDir File dir) throws IOException {
-        // Mirrors NativeAttributeBridge's own gate: below 2 matching light pieces it reports 0 (no key
-        // emitted by armorAttributesFor's add()), which must not fabricate a dodge_chance entry here.
+        // NativeAttributeBridge#armorAttributesFor's own add() never emits a zero-valued key, which must
+        // not fabricate a dodge_chance entry here.
         PlayerStatAggregator aggregator = aggregatorWithNativeBridge(dir, 0.0);
         Player player = server.addPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
         assertFalse(agg.perkDefense().containsKey(DODGE_CHANCE),
-                "1部位(セット未成立)相当=bridgeがdodge_chance非報告のときはキー自体を追加しない");
+                "bridgeがdodge_chanceを非報告のときはキー自体を追加しない");
+    }
+
+    /**
+     * 2026-07-27(armor-set-buffs全面移行 §6汎化): set-buffsは任意のステキーを宣言できるため、
+     * NativeAttributeBridgeの出力はDEFENSE以外(ATTACK/GENERAL)のチャネルも取りうる。
+     * {@code nativeArmorSetContribution} がStatVocabulary.channelOfで判定し、それぞれの合流先
+     * (attack / item(GENERAL) / perkDefense)へ正しく振り分けることを検証する。
+     */
+    @Test
+    void nativeAttributeBridgeNonDefenseChannels_routeToAttackAndItemRespectively(@TempDir File dir)
+            throws IOException {
+        writeItemStats(dir, false);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        NativeAttributeBridge bridge = mock(NativeAttributeBridge.class);
+        when(bridge.armorAttributesFor(any())).thenReturn(Map.of(
+                "crit_chance", 0.05,          // ATTACK channel
+                "mining_fortune", 0.2,        // GENERAL channel
+                "phys_flat_defense", 0.3));   // DEFENSE channel
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()), bridge);
+        Player player = server.addPlayer();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player);
+
+        assertEquals(0.05, agg.perkAttack().getOrDefault(StatKeys.canonical("crit-chance"), 0.0), 1e-9,
+                "ATTACKチャネルのset-buffsはattack()へ合流するべき");
+        assertEquals(0.2, agg.item().getOrDefault(StatKeys.canonical("mining-fortune"), 0.0), 1e-9,
+                "GENERALチャネルのset-buffsはitem()へ合流するべき");
+        assertEquals(0.3, agg.perkDefense().getOrDefault(PHYS_FLAT_DEFENSE, 0.0), 1e-9,
+                "DEFENSEチャネルのset-buffsはperkDefense()へ合流するべき");
     }
 
     // --- PermanentBuffResolver wiring (アチーブメント/図鑑報酬の永続ステータスバフ, Java-only拡張) ---
@@ -550,7 +582,7 @@ class PlayerStatAggregatorTest {
      * そもそも {@code perkBuffs.general()} ではなく {@code perkBuffs.defense()} へ振り分ける
      * (= {@link #nonItemContribution} が触る前の、perkBuffs 生成時点で既に分離済み)。
      * よって {@code perkBuffs.defense()} は {@code computeAggregate} で直接 {@code perkDefense} 経路
-     * (via {@link PlayerStatAggregator#perkDefenseWithNativeArmorSets})に渡り、item() には現れない
+     * (via {@code PlayerStatAggregator#nativeArmorSetContribution})に渡り、item() には現れない
      * — これは切り出し前から変わらない挙動であり、{@code extraArmorDefenseRate} の特別振り分け
      * (permanentBuffResolver/baseStats専用)とは別経路であることを確認する。
      */

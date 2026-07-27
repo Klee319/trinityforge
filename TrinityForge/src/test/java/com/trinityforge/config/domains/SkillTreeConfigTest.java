@@ -532,4 +532,89 @@ class SkillTreeConfigTest {
         assertTrue(config.tree("MINI").isPresent());
         assertTrue(config.tree("LIGHT_WEAPONS").isPresent());
     }
+
+    // --- set-buffs (armor-set-buffs migration §1) ---
+
+    @Test
+    void setBuffsTiersThreeAndFourAreParsedOnLightArmorTree(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "light_armor.yml", """
+                skill: LIGHT_ARMOR
+                nodes:
+                  C:
+                    name: "c"
+                    level: 50
+                    role: main
+                    set-buffs:
+                      3: { dodge-chance: 0.1 }
+                      4: { dodge-chance: 0.15 }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertTrue(config.load(fakePlugin(dataFolder)));
+        SkillNode c = config.tree("LIGHT_ARMOR").orElseThrow().node("C").orElseThrow();
+        assertEquals(0.1, c.setBuffs().get(3).get("dodge_chance"), 0.0);
+        assertEquals(0.15, c.setBuffs().get(4).get("dodge_chance"), 0.0);
+    }
+
+    @Test
+    void setBuffsTiersOtherThanThreeOrFourAreDroppedWithWarning(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "heavy_armor.yml", """
+                skill: HEAVY_ARMOR
+                nodes:
+                  C:
+                    name: "c"
+                    level: 50
+                    role: main
+                    set-buffs:
+                      1: { dodge-chance: 0.1 }
+                      2: { dodge-chance: 0.1 }
+                      5: { dodge-chance: 0.1 }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertFalse(config.load(fakePlugin(dataFolder)));
+        SkillNode c = config.tree("HEAVY_ARMOR").orElseThrow().node("C").orElseThrow();
+        assertTrue(c.setBuffs().isEmpty(), "1/2/5 は不正な段なので全て無視されるべき");
+    }
+
+    @Test
+    void setBuffsOnNonArmorTreeIsIgnoredWithWarningNodeKept(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "not_armor.yml", """
+                skill: LIGHT_WEAPONS
+                nodes:
+                  C:
+                    name: "c"
+                    level: 50
+                    role: main
+                    set-buffs:
+                      3: { dodge-chance: 0.1 }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertFalse(config.load(fakePlugin(dataFolder)));
+        SkillNode c = config.tree("LIGHT_WEAPONS").orElseThrow().node("C").orElseThrow();
+        assertTrue(c.setBuffs().isEmpty(), "light_armor/heavy_armor以外のツリーではset-buffsは無視されるべき");
+        assertEquals("c", c.name(), "ノード自体は維持されるべき");
+    }
+
+    @Test
+    void setBuffsOnPrestigeIsParsedOnHeavyArmorTree(@TempDir File dataFolder) throws IOException {
+        writeTree(dataFolder, "heavy_armor_prestige.yml", """
+                skill: HEAVY_ARMOR
+                prestige:
+                  enabled: true
+                  at-level: 100
+                  set-buffs:
+                    3: { knockback-resistance: 0.1 }
+                    4: { knockback-resistance: 0.2 }
+                nodes:
+                  A: { name: "a", level: 10, role: main }
+                """);
+        SkillTreeConfig config = new SkillTreeConfig();
+
+        assertTrue(config.load(fakePlugin(dataFolder)));
+        Prestige prestige = config.tree("HEAVY_ARMOR").orElseThrow().prestige();
+        assertEquals(0.1, prestige.setBuffs().get(3).get("knockback_resistance"), 0.0);
+        assertEquals(0.2, prestige.setBuffs().get(4).get("knockback_resistance"), 0.0);
+    }
 }

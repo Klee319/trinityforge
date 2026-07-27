@@ -322,4 +322,51 @@ class PerkBuffResolverTest {
             return item;
         }
     }
+
+    @Nested
+    @DisplayName("setBuffsFor (armor-set-buffs migration §1)")
+    class SetBuffsFor {
+
+        private static SkillNode setBuffNode(String id, Map<Integer, Map<String, Double>> setBuffs) {
+            return new SkillNode(id, "name-" + id, 10, SkillRole.MAIN, null, List.of(), null, "STONE", 1,
+                    "effect", Map.of(), Map.of(), Map.of(), Map.of(), setBuffs, Map.of(), List.of(), List.of(),
+                    List.of());
+        }
+
+        @Test
+        @DisplayName("node-level tier selection happens before summing across nodes: a node defining only "
+                + "tier 4 and a node defining only tier 3 both still contribute at 4 worn pieces")
+        void perNodeTierSelection_thenSummedAcrossNodes() {
+            SkillNode nodeFourOnly = setBuffNode("X", Map.of(4, Map.of("dodge-chance", 0.2)));
+            SkillNode nodeThreeOnly = setBuffNode("Y", Map.of(3, Map.of("dodge-chance", 0.1)));
+            SkillTree t = tree(Map.of("X", nodeFourOnly, "Y", nodeThreeOnly), null);
+            PerkBuffResolver resolver = new PerkBuffResolver(
+                    id -> Set.of(perk("X"), perk("Y")), () -> List.of(t));
+
+            Map<String, Double> result = resolver.setBuffsFor(PLAYER, SKILL, 4);
+
+            assertEquals(0.3, result.get("dodge_chance"), EPS,
+                    "選択を全ノード合算後にやると、Yの唯一の定義(段3)が段4選択で消えてしまう");
+        }
+
+        @Test
+        @DisplayName("only the unlocked node's set-buffs contribute")
+        void onlyUnlockedNodesContribute() {
+            SkillNode locked = setBuffNode("X", Map.of(3, Map.of("dodge-chance", 0.2)));
+            SkillTree t = tree(Map.of("X", locked), null);
+            PerkBuffResolver resolver = new PerkBuffResolver(id -> Set.of(), () -> List.of(t));
+
+            assertTrue(resolver.setBuffsFor(PLAYER, SKILL, 4).isEmpty());
+        }
+
+        @Test
+        @DisplayName("a skill with no matching tree yields empty")
+        void noMatchingTree_isEmpty() {
+            SkillNode node = setBuffNode("X", Map.of(3, Map.of("dodge-chance", 0.2)));
+            SkillTree t = tree(Map.of("X", node), null);
+            PerkBuffResolver resolver = new PerkBuffResolver(id -> Set.of(perk("X")), () -> List.of(t));
+
+            assertTrue(resolver.setBuffsFor(PLAYER, "HEAVY_ARMOR", 4).isEmpty());
+        }
+    }
 }

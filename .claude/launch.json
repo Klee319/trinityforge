@@ -6,6 +6,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "tools/config-editor", "start"],
       "port": 8787
+    },
+    {
+      "name": "tf-compile",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-tf-compile.cmd"],
+      "port": 18801
+    },
+    {
+      "name": "setbuffs-verify",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-setbuffs-verify.cmd"],
+      "port": 18802
     }
   ]
 }

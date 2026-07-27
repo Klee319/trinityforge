@@ -271,14 +271,30 @@ public final class PlayerStatAggregator {
         NonItemContribution nonItem = nonItemContribution(player, perkBuffs);
         nonItem.item().forEach((key, value) -> item.merge(key, value, Double::sum));
 
-        Map<String, Double> perkDefense = perkDefenseWithNativeArmorSets(player, perkBuffs);
+        NativeArmorSetContribution nativeSets = nativeArmorSetContribution(player);
+        Map<String, Double> attack = perkBuffs.attack();
+        if (!nativeSets.attack().isEmpty()) {
+            Map<String, Double> merged = new LinkedHashMap<>(attack);
+            nativeSets.attack().forEach((key, value) -> merged.merge(key, value, Double::sum));
+            attack = merged;
+        }
+        if (!nativeSets.general().isEmpty()) {
+            nativeSets.general().forEach((key, value) -> item.merge(key, value, Double::sum));
+        }
+
+        Map<String, Double> perkDefense = perkBuffs.defense();
+        if (!nativeSets.defense().isEmpty()) {
+            Map<String, Double> merged = new LinkedHashMap<>(perkDefense);
+            nativeSets.defense().forEach((key, value) -> merged.merge(key, value, Double::sum));
+            perkDefense = merged;
+        }
         if (nonItem.extraArmorDefenseRate() != 0.0) {
             Map<String, Double> merged = new LinkedHashMap<>(perkDefense);
             merged.merge(ARMOR_DEFENSE_RATE_KEY, nonItem.extraArmorDefenseRate(), Double::sum);
             perkDefense = merged;
         }
 
-        return new PlayerCombatAggregate(item, mainhand, perkBuffs.attack(), perkDefense, addon, multipliers,
+        return new PlayerCombatAggregate(item, mainhand, attack, perkDefense, addon, multipliers,
                 statCaps);
     }
 
@@ -373,26 +389,41 @@ public final class PlayerStatAggregator {
         return contribution.item().getOrDefault(canonicalKey, 0.0);
     }
 
+    /** {@link #nativeArmorSetContribution} 戻り値: チャネル別に振り分け済みの armor-set-buffs 加算分。 */
+    private record NativeArmorSetContribution(Map<String, Double> attack, Map<String, Double> defense,
+                                               Map<String, Double> general) {
+        private static final NativeArmorSetContribution EMPTY =
+                new NativeArmorSetContribution(Map.of(), Map.of(), Map.of());
+    }
+
     /**
-     * {@link PerkBuffs#defense()} plus the {@code native:}-owned armor-set dodge-chance bonus (SKILL_TREE
-     * MEDIUM audit finding): {@link PerkBuffResolver} only ever reads a node's {@code buffs:} map, never its
-     * {@code native:} map (see {@code NativePerkRewardResolver#value}, a fully separate read path keyed off
-     * the same unlocked-perk-id set), so light armor's set bonus — gated on >= 2 matching pieces, unlike the
-     * node's own unconditional {@code buffs: dodge-chance} — never reached the combat pipeline without this.
-     * No double count: the two systems read disjoint YAML sections for disjoint keys.
+     * {@link NativeAttributeBridge#armorAttributesFor} が返す装備部位数依存の加算分(set-buffs 由来。
+     * ATTACK/DEFENSE/GENERAL の任意チャネルを取り得る、SKILL_TREE armor-set-buffs migration §1)を
+     * {@link com.trinityforge.stats.StatVocabulary#channelOf} で判定し、それぞれの合流先へ振り分ける。
+     * ATTRIBUTE チャネルのキー(move_speed 等)は {@link com.trinityforge.skilltree.runtime.PerkAttributeApplier}
+     * 側で別途適用されるためここでは無視する(二重計上防止)。
      */
-    private Map<String, Double> perkDefenseWithNativeArmorSets(Player player, PerkBuffs perkBuffs) {
+    private NativeArmorSetContribution nativeArmorSetContribution(Player player) {
         if (nativeAttributeBridge == null) {
-            return perkBuffs.defense();
+            return NativeArmorSetContribution.EMPTY;
         }
-        double nativeDodge = nativeAttributeBridge.armorAttributesFor(player)
-                .getOrDefault("dodge_chance", 0.0);
-        if (nativeDodge == 0.0) {
-            return perkBuffs.defense();
+        Map<String, Double> source = nativeAttributeBridge.armorAttributesFor(player);
+        if (source.isEmpty()) {
+            return NativeArmorSetContribution.EMPTY;
         }
-        Map<String, Double> merged = new LinkedHashMap<>(perkBuffs.defense());
-        merged.merge(StatKeys.canonical("dodge-chance"), nativeDodge, Double::sum);
-        return merged;
+        Map<String, Double> attack = new LinkedHashMap<>();
+        Map<String, Double> defense = new LinkedHashMap<>();
+        Map<String, Double> general = new LinkedHashMap<>();
+        source.forEach((key, value) -> {
+            String canonicalKey = StatKeys.canonical(key);
+            switch (com.trinityforge.stats.StatVocabulary.channelOf(canonicalKey)) {
+                case ATTACK -> attack.merge(canonicalKey, value, Double::sum);
+                case DEFENSE -> defense.merge(canonicalKey, value, Double::sum);
+                case GENERAL -> general.merge(canonicalKey, value, Double::sum);
+                default -> { /* ATTRIBUTE: applied by PerkAttributeApplier; NONE: dropped defensively */ }
+            }
+        });
+        return new NativeArmorSetContribution(attack, defense, general);
     }
 
     /** Armor pieces only contribute while worn; holding them in hand must not double-dip TF stats. */

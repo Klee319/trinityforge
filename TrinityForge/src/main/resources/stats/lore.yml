@@ -977,43 +977,15 @@ stats:
     hide-when-zero: true
     unit: "%"
     category: defense
-  light-armor-set-bonus-multiplier:
-    # 軽装2部位以上のセット効果(light-armor-set-dodge-chance)を増幅するfraction倍率。
-    name: 軽装セット倍率
+  armor-set-bonus:
+    # 2026-07-27(armor-set-buffs全面移行): スキルツリーのset-buffs(装備部位3/4段の条件バフ)が
+    # 採用した段の値全体に × (1 + max(0, この値)) を掛ける増幅率。軽装/重装で共通の1キー。
+    # 負値は0扱い(setBonusValueの既存挙動を踏襲)。
+    name: セット効果増幅
     icon: ""
     format: PERCENT
     decimals: 0
     order: 58
-    show-sign: true
-    hide-when-zero: true
-    category: defense
-  heavy-armor-set-bonus-multiplier:
-    # 重装2部位以上のセット効果(heavy-armor-set-knockback-resistance)を増幅するfraction倍率。
-    name: 重装セット倍率
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 59
-    show-sign: true
-    hide-when-zero: true
-    category: defense
-  light-armor-set-dodge-chance:
-    # 軽装2部位以上を着たときだけdodge-chanceへ加算される基礎値。
-    name: 軽装セット回避
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 267
-    show-sign: true
-    hide-when-zero: true
-    category: defense
-  heavy-armor-set-knockback-resistance:
-    # 重装2部位以上を着たときだけknockback-resistanceへ加算される基礎値。
-    name: 重装セットKB耐性
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 268
     show-sign: true
     hide-when-zero: true
     category: defense

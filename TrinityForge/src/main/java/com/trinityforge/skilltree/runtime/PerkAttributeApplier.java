@@ -222,8 +222,15 @@ public final class PerkAttributeApplier implements Listener {
         if (nativeBridge != null) {
             // max_health/knockback_resistance/attack_reach 統合分は削除済み
             // (stat-gate-overhaul §2 移行B13): buffs: 変換後は resolver.buffsFor(...).attributes() が拾う。
-            nativeBridge.armorAttributesFor(player)
-                    .forEach((k, v) -> attrs.merge(k, v, Double::sum));
+            // 2026-07-27 (armor-set-buffs 全面移行 §7): set-buffs は任意の統計キーを宣言できるようになった
+            // (NativeAttributeBridge の戻り値は ATTACK/DEFENSE/GENERAL も混ざりうる)ため、直下の
+            // permanentBuffResolver と同じく ATTRIBUTE チャネルのキーだけをここへ合流させる。絞らないと
+            // PlayerStatAggregator 側の nativeArmorSetContribution と非属性キーが二重に流れてしまう。
+            nativeBridge.armorAttributesFor(player).forEach((k, v) -> {
+                if (StatVocabulary.channelOf(k) == StatVocabulary.Channel.ATTRIBUTE) {
+                    attrs.merge(k, v, Double::sum);
+                }
+            });
         }
         if (permanentBuffResolver != null) {
             permanentBuffResolver.buffsFor(player).forEach((k, v) -> {

@@ -153,8 +153,11 @@ public final class StatVocabulary {
             // 解放対象の効果(貫通/初速/弓CT短縮/矢ノックバック)がいずれも自分自身のステの非0判定を
             // 個別に持っており、フラグのOR条件にも同じステが並ぶ同語反復だった(挙動ゼロ)。
             "light_armor_move_speed_per_piece", "heavy_armor_move_speed_per_piece",
-            "light_armor_set_bonus_multiplier", "heavy_armor_set_bonus_multiplier",
-            "light_armor_set_dodge_chance", "heavy_armor_set_knockback_resistance",
+            // 2026-07-27 (armor-set-buffs 全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
+            // light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を廃止し、
+            // set-buffs スキーマ(段3/4条件バフ)+ このキー1本(軽装/重装共通の増幅率)へ統一。
+            // NativeAttributeBridge が PerkBuffResolver#setBuffsFor の結果へ × (1 + max(0, この値)) を掛ける。
+            "armor_set_bonus",
             // fork consumer系 (fork は TF static API statTotal(player, key) 経由で読む)
             "lapis_cost_reduction", "source_cost_reduction", "material_refund_chance",
             "ingredient_save_chance",

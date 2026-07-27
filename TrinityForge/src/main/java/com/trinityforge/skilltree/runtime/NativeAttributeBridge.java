@@ -12,17 +12,18 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Resolves conditional armor-set buff stats. Flat stats are handled directly by {@link PerkBuffResolver};
- * this bridge only exists because these effects depend on the number/type of worn armor pieces.
+ * Resolves conditional armor-set buff stats. Flat per-piece move-speed is handled directly here from the
+ * {@code general} perk buffs; the {@code set-buffs} schema (SKILL_TREE armor-set-buffs migration §1) is
+ * resolved by {@link PerkBuffResolver#setBuffsFor} and amplified here by the {@code armor-set-bonus}
+ * total stat. This bridge only exists because both effects depend on the number/type of worn armor pieces.
  */
 public final class NativeAttributeBridge {
 
     private static final String LIGHT_MOVE_PER_PIECE = "light_armor_move_speed_per_piece";
     private static final String HEAVY_MOVE_PER_PIECE = "heavy_armor_move_speed_per_piece";
-    private static final String LIGHT_SET_MULTIPLIER = "light_armor_set_bonus_multiplier";
-    private static final String HEAVY_SET_MULTIPLIER = "heavy_armor_set_bonus_multiplier";
-    private static final String LIGHT_SET_DODGE = "light_armor_set_dodge_chance";
-    private static final String HEAVY_SET_KNOCKBACK = "heavy_armor_set_knockback_resistance";
+    private static final String ARMOR_SET_BONUS = "armor_set_bonus";
+    private static final String LIGHT_ARMOR_SKILL = "LIGHT_ARMOR";
+    private static final String HEAVY_ARMOR_SKILL = "HEAVY_ARMOR";
 
     private final PerkBuffResolver perkBuffs;
 
@@ -32,17 +33,16 @@ public final class NativeAttributeBridge {
 
     /**
      * Movement from armor-piece natives: {@code perpiece * worn matching pieces * 0.01}
-     * (YAML values are percent-like; 0.5 → +0.5% per piece).
+     * (YAML values are percent-like; 0.5 → +0.5% per piece), plus the {@code set-buffs} contribution of
+     * both the {@code light_armor} and {@code heavy_armor} trees (SKILL_TREE armor-set-buffs migration
+     * §1), each amplified by {@code 1 + max(0, armor-set-bonus)} (§2). Because the set-buff threshold
+     * tiers are 3 and 4 out of 4 armor slots, a light set and a heavy set can never both be active at once
+     * (3 + 3 &gt; 4).
      *
-     * <p><b>{@code dodge_chance} consumption path:</b> keys emitted here are consumed on two routes.
-     * Vanilla-attribute-shaped keys go through {@link PerkAttributeApplier} /
-     * {@link com.trinityforge.stats.AttributeProjection#defaults()}, which has no entry for
-     * {@code dodge_chance} (no vanilla attribute exists for it) and skips it. The {@code dodge_chance}
-     * key is instead merged by {@code combat.PlayerStatAggregator} into its perk-defense addend, so it
-     * reaches the live combat dodge roll ({@code combat.PlayerDefenseResolver} /
-     * {@code combat.DodgeResolver}) alongside — never duplicating — {@link PerkBuffResolver}'s
-     * {@code dodge_chance} defender buff (that resolver reads only {@code buffs:} sections, this bridge
-     * reads only {@code native:} rewards; the sources are disjoint).
+     * <p>Keys returned here span multiple channels ({@code move_speed}/{@code knockback_resistance} are
+     * ATTRIBUTE; a {@code set-buffs} author may declare ATTACK/DEFENSE/GENERAL keys too) — callers must
+     * route each key through {@link com.trinityforge.stats.StatVocabulary#channelOf} rather than assuming
+     * a fixed shape.
      */
     public Map<String, Double> armorAttributesFor(Player player) {
         if (player == null) return Map.of();
@@ -68,45 +68,15 @@ public final class NativeAttributeBridge {
         double heavyMove = general.getOrDefault(HEAVY_MOVE_PER_PIECE, 0.0) * heavy * 0.01;
         add(out, "move_speed", lightMove + heavyMove);
 
-        // Set knockback (heavy): requires >= 2 matching heavy pieces; heavyarmor_setamount_add amplifies
-        // its own build's bonus only (previously this used Math.max(heavyAmt, lightAmt), letting a
-        // light-armor amount perk cross-contaminate a heavy set bonus the wearer never earned).
-        double heavyKb = setBonusValue(heavy,
-                general.getOrDefault(HEAVY_SET_KNOCKBACK, 0.0),
-                general.getOrDefault(HEAVY_SET_MULTIPLIER, 0.0));
-        add(out, "knockback_resistance", heavyKb);
-
-        // Set dodge chance (light): mirrors the heavy set-knockback wiring above — requires >= 2 matching
-        // light pieces, amplified by lightarmor_setamount_add. Without this, lightarmor_setamount_add had
-        // no light-owned base value to amplify and was a dead perk for pure light-armor builds.
-        double lightDodge = setBonusValue(light,
-                general.getOrDefault(LIGHT_SET_DODGE, 0.0),
-                general.getOrDefault(LIGHT_SET_MULTIPLIER, 0.0));
-        add(out, "dodge_chance", lightDodge);
+        double amplifier = 1.0 + Math.max(0.0, general.getOrDefault(ARMOR_SET_BONUS, 0.0));
+        mergeSetBuffs(out, perkBuffs.setBuffsFor(id, LIGHT_ARMOR_SKILL, light), amplifier);
+        mergeSetBuffs(out, perkBuffs.setBuffsFor(id, HEAVY_ARMOR_SKILL, heavy), amplifier);
 
         return out.isEmpty() ? Map.of() : Map.copyOf(out);
     }
 
-    /**
-     * セット成立に必要な同系統の防具部位数。
-     *
-     * <p><b>2026-07-26 に 2 → 3 へ引き上げ</b>: 防具枠は4つしかないので、閾値2だと
-     * <b>軽装2部位＋重装2部位で light>=2 と heavy>=2 が同時に成立し、軽装セット(回避)と
-     * 重装セット(ノックバック耐性)の両方が乗る</b>ハイブリッド二重取りが可能だった。
-     * 3にすると 3+3&gt;4 となり、<b>数学的に併用不能</b>になる(片方が3部位ならもう片方は最大1部位)。
-     * 「どちらの系統に寄せるか選ばせる」というスキルツリー側の設計意図とも一致する。
-     */
-    static final int SET_BONUS_MIN_PIECES = 3;
-
-    /**
-     * One armor-set bonus: {@code baseValue} applies only once at least
-     * {@link #SET_BONUS_MIN_PIECES} matching pieces are worn, scaled up by {@code amplifier}
-     * (e.g. a {@code setamount} perk), never down (a negative amplifier floors at 0, matching the
-     * existing heavy-set behaviour). Pure/Bukkit-free for unit testing.
-     */
-    static double setBonusValue(int wornPieces, double baseValue, double amplifier) {
-        if (wornPieces < SET_BONUS_MIN_PIECES || baseValue == 0.0) return 0.0;
-        return baseValue * (1.0 + Math.max(0.0, amplifier));
+    private static void mergeSetBuffs(Map<String, Double> out, Map<String, Double> setBuffs, double amplifier) {
+        setBuffs.forEach((key, value) -> add(out, key, value * amplifier));
     }
 
     private static boolean isArmor(Material material) {

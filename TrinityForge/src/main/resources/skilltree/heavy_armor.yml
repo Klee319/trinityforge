@@ -70,7 +70,7 @@ nodes:
     cost: 1
     effect-text: "セット効果量UP・3部位でセットが成立"
     buffs:
-      heavy-armor-set-bonus-multiplier: 0.1
+      armor-set-bonus: 0.1
     effects:
       - "3部位でセット効果が成立"
   C:
@@ -84,7 +84,9 @@ nodes:
     buffs:
       phys-flat-defense: 0.1
       magic-flat-defense: 0.1
-      heavy-armor-set-knockback-resistance: 0.1
+    set-buffs:
+      3: { knockback-resistance: 0.1 }
+      4: { knockback-resistance: 0.1 }
     effects:
       - "憤怒(Rage)が発動可能になる"
   D:
@@ -141,8 +143,9 @@ nodes:
     icon: ANVIL
     cost: 1
     effect-text: "ノックバック耐性増加"
-    buffs:
-      heavy-armor-set-knockback-resistance: 0.1
+    set-buffs:
+      3: { knockback-resistance: 0.1 }
+      4: { knockback-resistance: 0.1 }
   D-1-2:
     name: "不抜の構え"
     level: 90
@@ -151,8 +154,9 @@ nodes:
     icon: ANVIL
     cost: 1
     effect-text: "ノックバック耐性増加"
-    buffs:
-      heavy-armor-set-knockback-resistance: 0.1
+    set-buffs:
+      3: { knockback-resistance: 0.1 }
+      4: { knockback-resistance: 0.1 }
 
   A-alpha-1:
     name: "堅・重身"

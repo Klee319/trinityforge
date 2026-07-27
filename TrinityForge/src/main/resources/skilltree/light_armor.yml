@@ -69,7 +69,7 @@ nodes:
     cost: 1
     effect-text: "セット効果量UP・3部位でセットが成立"
     buffs:
-      light-armor-set-bonus-multiplier: 0.1
+      armor-set-bonus: 0.1
     effects:
       - "3部位でセット効果が成立"
   C:
@@ -84,7 +84,9 @@ nodes:
       dodge-chance: 0.1
       phys-flat-defense: 0.1
       magic-flat-defense: 0.1
-      light-armor-set-dodge-chance: 0.1
+    set-buffs:
+      3: { dodge-chance: 0.1 }
+      4: { dodge-chance: 0.1 }
     effects:
       - "アドレナリンが発動可能になる"
       - "軽装3部位以上で回避率セットボーナスが成立"
@@ -144,7 +146,9 @@ nodes:
     effect-text: "回避率増加・回避率セットボーナス強化"
     buffs:
       dodge-chance: 0.05
-      light-armor-set-dodge-chance: 0.05
+    set-buffs:
+      3: { dodge-chance: 0.05 }
+      4: { dodge-chance: 0.05 }
   D-1-2:
     name: "神速の足捌き"
     level: 90
@@ -155,7 +159,9 @@ nodes:
     effect-text: "回避率増加・回避率セットボーナス強化"
     buffs:
       dodge-chance: 0.05
-      light-armor-set-dodge-chance: 0.05
+    set-buffs:
+      3: { dodge-chance: 0.05 }
+      4: { dodge-chance: 0.05 }
 
   A-alpha-1:
     name: "迅・軽身"

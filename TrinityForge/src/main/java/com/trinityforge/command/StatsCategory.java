@@ -63,10 +63,11 @@ public enum StatsCategory {
             "reflect_flat", "reflect_percent",
             // 2026-07-26 M-stats分類: 軽装/重装のセット効果。移動速度・回避に効くが「防具を着ることで
             // 得られる効果」なので UTILITY ではなく ARMOR に置く(lore.yml の防具カテゴリと揃える)。
-            "heavy_armor_move_speed_per_piece", "heavy_armor_set_bonus_multiplier",
-            "heavy_armor_set_knockback_resistance",
-            "light_armor_move_speed_per_piece", "light_armor_set_bonus_multiplier",
-            "light_armor_set_dodge_chance");
+            "heavy_armor_move_speed_per_piece", "light_armor_move_speed_per_piece",
+            // 2026-07-27 (armor-set-buffs 全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
+            // light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を armor-set-bonus
+            // 1本(軽装/重装共通の増幅率)へ統一。
+            "armor_set_bonus");
 
     private static final Set<String> CRAFT_KEYS = Set.of(
             "craft_upswing_bonus", "craft_downswing_reduction",

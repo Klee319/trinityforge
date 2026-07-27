@@ -156,6 +156,75 @@ public final class PerkBuffResolver {
         return !tagged.isBlank() && expected.equals(tagged);
     }
 
+    /**
+     * Resolves the {@code set-buffs} contribution for one skill's tree given the player's currently worn
+     * piece count for that armor family (SKILL_TREE armor-set-buffs migration §1). Only unlocked nodes
+     * (and unlocked prestige NG tiers, cumulative like {@code buffsFor}) of the matching tree are
+     * considered. Per node/prestige, the highest <em>defined</em> tier at or below {@code wornPieces} is
+     * selected (never both 3 and 4) — the selection happens per-node <em>before</em> summing across nodes,
+     * so one node defining only tier 4 and another defining only tier 3 both still contribute at 4 worn
+     * pieces. Returns an empty map when the skill has no matching tree, nothing is unlocked, or no tier
+     * qualifies.
+     */
+    public Map<String, Double> setBuffsFor(UUID playerId, String skill, int wornPieces) {
+        if (playerId == null || skill == null) {
+            return Map.of();
+        }
+        Set<String> unlocked = source.unlockedPerkIds(playerId);
+        if (unlocked.isEmpty()) {
+            return Map.of();
+        }
+        SkillTree tree = null;
+        for (SkillTree candidate : trees.get()) {
+            if (candidate != null && skill.equalsIgnoreCase(candidate.skill())) {
+                tree = candidate;
+                break;
+            }
+        }
+        if (tree == null) {
+            return Map.of();
+        }
+        Map<String, Double> result = new LinkedHashMap<>();
+        for (SkillNode node : tree.nodes().values()) {
+            if (unlocked.contains(PerkNaming.perkId(tree.skill(), node.id()))) {
+                accumulateSetBuffs(node.setBuffs(), wornPieces, result);
+            }
+        }
+        Prestige prestige = tree.prestige();
+        if (prestige != null && prestige.enabled()) {
+            for (int tier = 1; tier <= prestige.maxTimes(); tier++) {
+                if (unlocked.contains(PerkNaming.prestigePerkId(tree.skill(), tier))) {
+                    accumulateSetBuffs(prestige.setBuffs(), wornPieces, result);
+                }
+            }
+        }
+        return result.isEmpty() ? Map.of() : Map.copyOf(result);
+    }
+
+    /** Selects the single highest defined tier {@code <= wornPieces} and merges its values into target. */
+    private static void accumulateSetBuffs(Map<Integer, Map<String, Double>> tiers, int wornPieces,
+                                           Map<String, Double> target) {
+        if (tiers == null || tiers.isEmpty()) {
+            return;
+        }
+        Integer selected = null;
+        for (Integer tier : tiers.keySet()) {
+            if (tier != null && tier <= wornPieces && (selected == null || tier > selected)) {
+                selected = tier;
+            }
+        }
+        if (selected == null) {
+            return;
+        }
+        for (Map.Entry<String, Double> entry : tiers.get(selected).entrySet()) {
+            Double value = entry.getValue();
+            if (value == null || !Double.isFinite(value)) {
+                continue;
+            }
+            target.merge(StatKeys.canonical(entry.getKey()), value, Double::sum);
+        }
+    }
+
     /** The player's attacker-side canonical buff map (empty when nothing is unlocked). */
     public Map<String, Double> attackerBuffs(UUID playerId) {
         return buffsFor(playerId).attack();

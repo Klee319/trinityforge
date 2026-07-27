@@ -162,7 +162,7 @@ base-stats:
   # スキルツリー由来の条件付き装備効果(NativeAttributeBridgeが装備部位数を判定して消費)
   light-armor-move-speed-per-piece: 0
   heavy-armor-move-speed-per-piece: 0
-  light-armor-set-bonus-multiplier: 0
-  heavy-armor-set-bonus-multiplier: 0
-  light-armor-set-dodge-chance: 0
-  heavy-armor-set-knockback-resistance: 0
+  # 2026-07-27(armor-set-buffs全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
+  # light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を廃止し、
+  # スキルツリーのset-buffsスキーマ(装備部位3/4段の条件バフ)+ この1キー(軽装/重装共通の増幅率)へ統一。
+  armor-set-bonus: 0
