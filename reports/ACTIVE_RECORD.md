@@ -411,6 +411,58 @@ editor 側 `labels.js` も 4 系統（短縮ラベル / stat 説明 / base-stats
 スキップは既知の 2 件のみ（テスト結果 XML の `skipped=` を直接数えて確認）。
 jar は 15:34 に再ビルド（15,780,723 bytes）。**配備は未実施**（§1 参照）。
 
+### 2026-07-27 — 資源サーバ分離の追補（HuskSync 起動失敗の切り分け / `preflight.ps1` / 実レイアウト反映）
+
+ユーザーが実環境の構築に着手し、`D:\game\minecraft\PaperServer\Velocity_for_TF\` に
+**Velocity（`velocity-4.1.0-SNAPSHOT-9.jar`）+ Main_Server + Resource_Server + Dev_Server の
+3 バックエンド**を作成済み（Geyser / floodgate / Via\* はプロキシへ移設済み、
+Resource_Server の plugins は `PLUGIN_MATRIX.md` の推奨構成どおり）。作業書が想定していた
+2 バックエンド・`TrinityForge-Res` 命名・RCON 25575/25576 とは食い違っていたので、実態へ合わせた。
+
+**HuskSync の起動失敗（ユーザー報告）の原因**
+
+`FailedToLoadException` → `ConnectException: Connection refused: getsockopt` は
+**ビルドした jar の問題ではない**。この時点でプラグインは読み込まれ、config.yml も生成され、
+shade された依存も解決できている。落ちているのは DB 接続だけで、実測すると
+**3306 も 6379 も待ち受けておらず、WSL には Linux ディストロ自体が入っていない**
+（`wsl --list --verbose` に `docker-desktop` のみ）＝ RUNBOOK 手順2 が未実施だった。
+同時に出る `getRedisManager()` が null の `NullPointerException` は、初期化が途中で失敗した
+ときの **HuskSync 側 shutdown 経路のバグ**で無害。
+
+**重要な落とし穴**: HuskSync の enable 失敗は**サーバの起動を止めない**。
+ログを読まないと「同期されていないまま運用する」事故になる。
+
+**`ops/scripts/preflight.ps1` を新設**（起動前チェック。実環境で 11 件検出した）
+
+3306 / 6379 の到達性、HuskSync の**生成時既定値の残り**（`root` / `pa55w0rd` / DB 名 `HuskSync`）、
+`location: false` / `game_mode: false` / `persistent_data: true`、`ignored_modifiers` の
+`trinityforge:*`、**全バックエンドでの `features` 一致**、`forwarding.secret` と各
+`paper-global.yml` の一致を検査する。実際に検出したのは
+「WSL ディストロなし」「Dev_Server の HuskSync が全て既定値・`game_mode: true`」
+「Resource_Server と Dev_Server の `proxies.velocity` が `enabled: false` かつ secret 空」。
+
+**`husksync.config.yml` テンプレートを実生成物から書き直した**。想定していたキー名が複数違っていた
+（`redis.credentials.*` の入れ子、`connection_pool.*` の名前、存在しない `features.max_health` /
+`features.locked_maps`、`save_on_death` はブロックでブール値でない）。あわせて 2 点:
+
+- **`game_mode` の生成時既定は `true`。必ず `false` に変える**（メインの `world` は creative）
+- **`ignored_modifiers` に `trinityforge:*` と `arspaper:*` を追記**する。TF はステータスを
+  `trinityforge:perk_attr_<stat>`（`PerkAttributeApplier`）と `trinityforge:statmod.<name>`
+  （`AttributeApplier`）という `AttributeModifier` で付与し、join と装備変更のたびに
+  config から**再計算して付け直す**。スキル Lv はジャンクションで既に共有されているので
+  同期は不要で、残すと再計算前の一瞬だけ別サーバの値が乗る
+
+**スクリプト側の変更**
+
+- `Get-OpsConfig` を `Servers` の**キー一覧を走査する**形に一般化（`Main`/`Resource` 決め打ちを撤去）。
+  環境変数名はキー名から決まる（`Dev` → `TF_RCON_DEV_PASSWORD`）。`-RequireRconPasswords:$false` で
+  RCON を使わない preflight からも読める
+- `Resolve-OpsServer` を追加し、`restart-server.ps1 -Target dev` を可能にした（`ValidateSet` を撤去）
+- **既定の設定ファイルパスが 1 階層ずれていたバグを修正**。`lib/Common.ps1` 内の `$PSScriptRoot` は
+  `ops/scripts/lib` を指すため、`-ConfigPath` を省略すると `ops/scripts/ops-config.psd1` を探していた
+  （全スクリプトが明示指定でしか動かなかった）
+- `run-selftest.ps1` に 4 本追加して **14/14**（設定読み込み 3 本 + preflight の HuskSync 検査 1 本）
+
 ### 2026-07-27 — 資源サーバ分離の作業書とオフライン検証（`ops/` 新設）
 
 メインサーバを Velocity プロキシ + メイン + 資源サーバの 2 バックエンド構成へ移行するための

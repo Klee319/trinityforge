@@ -14,8 +14,10 @@
     SQLite をフラッシュ途中で殺すと、全プレイヤーの進行データを壊しうる。
 
 .PARAMETER Target
-    main / resource / both。both のときは resource -> main の順に、間隔を空けて実行する
-    (同時に落として両方から追い出さないため)。
+    both、または ops-config.psd1 の Servers にあるサーバ名 (main / resource / dev)。
+    both のときは resource -> main の順に、間隔を空けて実行する
+    (同時に落として両方から追い出さないため)。dev は both に含めない
+    (検証用サーバなので定期再起動の対象外)。
 
 .PARAMETER DryRun
     RCON へ何も送らず、実行予定の手順だけを出力する。
@@ -28,10 +30,14 @@
 
 .EXAMPLE
     .\restart-server.ps1 -Target resource -WarnMinutes @(1)
+
+.EXAMPLE
+    .\restart-server.ps1 -Target dev -WarnMinutes @()
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet("main", "resource", "both")]
+    # ValidateSet は使わない。ops-config.psd1 にサーバを足したら
+    # スクリプトを触らずに -Target で指せるようにする (名前の検証は Resolve-OpsServer 側)。
     [string] $Target = "both",
     [string] $ConfigPath,
     [int[]]  $WarnMinutes = @(10, 5, 1),
@@ -50,11 +56,14 @@ $config = Get-OpsConfig -Path $ConfigPath
 
 # 資源 -> メイン の順。資源を先に落とせば、その在席者はメインへ退避できる。
 # @() で包む: 1台だけのとき switch がスカラーを返し、StrictMode 下で .Count が落ちる。
-$order = @(switch ($Target) {
-    "main"     { $config.Servers.Main }
-    "resource" { $config.Servers.Resource }
-    "both"     { $config.Servers.Resource; $config.Servers.Main }
-})
+$order = @(
+    if ($Target -ieq "both") {
+        $config.Servers.Resource
+        $config.Servers.Main
+    } else {
+        Resolve-OpsServer -Config $config -Target $Target
+    }
+)
 
 if ($DryRun) {
     Write-OpsLog "=== DRY RUN: 何も停止しません ===" -Level DRYRUN

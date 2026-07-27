@@ -18,14 +18,23 @@ function Get-OpsConfig {
     <#
     .SYNOPSIS ops-config.psd1 を読み、RCON パスワードを環境変数から埋めて返す。
     .DESCRIPTION
-        パスワードは設定ファイルに書かせない。環境変数 TF_RCON_MAIN_PASSWORD /
-        TF_RCON_RESOURCE_PASSWORD から読む (RUNBOOK の「タスクスケジューラの登録」を参照)。
+        パスワードは設定ファイルに書かせない。Servers に書かれたキーごとに
+        環境変数 TF_RCON_<キー名>_PASSWORD から読む (Main -> TF_RCON_MAIN_PASSWORD)。
+        キーを固定しないので、ops-config.psd1 に Dev を足せばそれだけで扱える。
+    .PARAMETER RequireRconPasswords
+        既定で必須。RCON を使わないスクリプト (preflight など) は
+        -RequireRconPasswords:$false を渡して、パスワード未設定でも読めるようにする。
     #>
     [CmdletBinding()]
-    param([string] $Path)
+    param(
+        [string] $Path,
+        [switch] $RequireRconPasswords = $true
+    )
 
     if (-not $Path) {
-        $Path = Join-Path (Split-Path $PSScriptRoot -Parent) "ops-config.psd1"
+        # $PSScriptRoot はこのファイルがある ops/scripts/lib を指す。ops/ まで2つ上がる。
+        $opsRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+        $Path = Join-Path $opsRoot "ops-config.psd1"
     }
     if (-not (Test-Path -LiteralPath $Path)) {
         throw "設定ファイルがありません: $Path`n" +
@@ -34,19 +43,58 @@ function Get-OpsConfig {
 
     $config = Import-PowerShellDataFile -LiteralPath $Path
 
-    foreach ($name in @("Main", "Resource")) {
-        if (-not $config.Servers.ContainsKey($name)) {
-            throw "$Path に Servers.$name の定義がありません。"
+    if (-not $config.ContainsKey("Servers") -or $config.Servers.Count -eq 0) {
+        throw "$Path に Servers の定義がありません。"
+    }
+    # main と resource はこの構成の前提。名前を間違えたまま気付かない事故を防ぐ。
+    foreach ($required in @("Main", "Resource")) {
+        if (-not $config.Servers.ContainsKey($required)) {
+            throw "$Path に Servers.$required の定義がありません。"
         }
+    }
+
+    foreach ($name in @($config.Servers.Keys)) {
+        $server = $config.Servers[$name]
+        foreach ($key in @("Name", "Root", "RconHost", "RconPort")) {
+            if (-not $server.ContainsKey($key)) {
+                throw "$Path の Servers.$name に $key がありません。"
+            }
+        }
+
         $envName = "TF_RCON_$($name.ToUpperInvariant())_PASSWORD"
         $password = [Environment]::GetEnvironmentVariable($envName)
         if ([string]::IsNullOrWhiteSpace($password)) {
-            throw "環境変数 $envName が未設定です。$name サーバの RCON パスワードを設定してください。"
+            if ($RequireRconPasswords) {
+                throw "環境変数 $envName が未設定です。$name サーバの RCON パスワードを設定してください。"
+            }
+            $password = $null
         }
-        $config.Servers[$name].RconPassword = $password
+        $server.RconPassword = $password
     }
 
     return $config
+}
+
+function Resolve-OpsServer {
+    <#
+    .SYNOPSIS -Target で渡された名前から Servers のエントリを引く。
+    .DESCRIPTION
+        大文字小文字とキー名/Name のどちらでも引けるようにする
+        (ops-config.psd1 のキーは Main だが、利用者が打つのは main)。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [hashtable] $Config,
+        [Parameter(Mandatory)] [string]    $Target
+    )
+
+    foreach ($name in @($Config.Servers.Keys)) {
+        $server = $Config.Servers[$name]
+        if ($name -ieq $Target -or $server.Name -ieq $Target) { return $server }
+    }
+
+    $known = (@($Config.Servers.Keys) | Sort-Object) -join ", "
+    throw "サーバ '$Target' が ops-config.psd1 にありません。定義済み: $known"
 }
 
 function Write-OpsLog {

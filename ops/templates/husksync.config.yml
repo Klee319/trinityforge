@@ -1,44 +1,66 @@
 # =================================================================================================
-#  HuskSync — 両バックエンド共通 (plugins/HuskSync/config.yml)
+#  HuskSync — 全バックエンド共通 (plugins/HuskSync/config.yml)
 #
 #  【この YAML をそのまま上書きしない】
-#  HuskSync は初回起動で自前のコメント付き config.yml を生成する。バージョンによってキーの
-#  綴りや階層が変わるため、丸ごと差し替えると黙って既定値へ戻るキーが出る。
+#  HuskSync は初回起動で自前のコメント付き config.yml を生成する。
 #  初回起動 -> 生成された config.yml を開く -> ここに挙げた項目だけを書き換える、の順で進めること。
 #
-#  メインと資源で【完全に同じ内容】にする。片方だけ同期対象が違うと、
+#  キー名は 2026-07-27 に 4.0.0-3dc619d が実際に生成した config.yml から採ったもの。
+#  バージョンを上げたら生成物と突き合わせて確認する。
+#
+#  全バックエンドで【完全に同じ内容】にする。片方だけ同期対象が違うと、
 #  サーバを跨いだ瞬間にその項目が消えたように見える。
 # =================================================================================================
 
-# 同じネットワークのサーバは同じ cluster_id を共有する。既定のままでよい。
-cluster_id: ''
-
-debug_logging: false
+language: en-gb
 check_for_updates: true
 
+# 同じネットワークのサーバは同じ cluster_id を共有する。既定の '' のままでよい。
+cluster_id: ''
+debug_logging: false
+
+# ---------------------------------------------------------------------------------------------
+#  データベース (MariaDB)
+# ---------------------------------------------------------------------------------------------
+#  【既定値のままでは起動しない】生成直後は host: localhost / database: HuskSync /
+#  username: root / password: pa55w0rd という届かない既定値が入っている。
+#  MariaDB と Redis が動いていないと "Connection refused" で plugin が enable に失敗する。
+#  起動前に ops/scripts/preflight.ps1 で到達性を確認すること。
 database:
-  type: MYSQL
+  # MARIADB を選ぶと parameters が MariaDB ドライバ向けに解釈される。
+  type: MARIADB
   credentials:
-    # WSL2 上の MariaDB。127.0.0.1 のみで待ち受ける。
     host: 127.0.0.1
     port: 3306
+    # RUNBOOK 手順2で作る DB 名（小文字）に合わせる。既定の 'HuskSync' ではない。
     database: husksync
     username: husksync
     password: '<MariaDB で作った husksync ユーザーのパスワード>'
+    parameters: ?autoReconnect=true&useSSL=false&useUnicode=true&characterEncoding=UTF-8
   connection_pool:
-    size: 10
-    idle: 10
-    lifetime: 1800000
-    keepalive: 30000
-    timeout: 20000
+    maximum_pool_size: 10
+    minimum_idle: 10
+    maximum_lifetime: 1800000
+    keepalive_time: 0
+    connection_timeout: 5000
+  create_tables: true
 
+# ---------------------------------------------------------------------------------------------
+#  Redis
+# ---------------------------------------------------------------------------------------------
+#  credentials の下に入る点に注意（トップレベルに host を書いても効かない）。
 redis:
-  # 切替時のロック管理とキャッシュに使う。同一マシンなので TCP は 127.0.0.1。
-  host: 127.0.0.1
-  port: 6379
-  password: ''
-  use_ssl: false
+  credentials:
+    host: 127.0.0.1
+    port: 6379
+    database: 0
+    user: ''
+    password: ''
+    use_ssl: false
 
+# ---------------------------------------------------------------------------------------------
+#  同期設定
+# ---------------------------------------------------------------------------------------------
 synchronization:
   # LOCKSTEP: 移動先サーバは「移動元の保存が完了した」ことを確認してから読み込む。
   # DELAY より遅いが、切替時のアイテム消失/複製が起きない。25人規模なら体感差はない。
@@ -46,14 +68,20 @@ synchronization:
 
   # クラッシュ時に巻き戻せるスナップショット。経済破壊の唯一の保険なので必ず残す。
   max_user_data_snapshots: 16
+  snapshot_backup_frequency: 4
   save_on_world_save: true
-  save_on_death: false
-
   compress_data: true
+  persist_locked_maps: true
+  notification_display_slot: ACTION_BAR
 
-  # ---------------------------------------------------------------------------------------------
+  # save_on_death は真偽値ではなくブロック。既定の無効のままでよい
+  # （TF は死亡時ドロップを独自に扱わないので、有効にしても得るものが少ない）。
+  save_on_death:
+    enabled: false
+
+  # -------------------------------------------------------------------------------------------
   #  同期する項目。ここが本構成の心臓部。
-  # ---------------------------------------------------------------------------------------------
+  # -------------------------------------------------------------------------------------------
   features:
     # --- 要件そのもの (アイテムを持って行ける) ---
     inventory: true
@@ -61,13 +89,15 @@ synchronization:
 
     # --- プレイヤーの状態 ---
     health: true
-    max_health: true
     hunger: true
     experience: true
     potion_effects: true
     advancements: true
     statistics: true
     flight_status: true
+
+    # 最大体力・吸収・luck などは features.max_health ではなく attributes 側で扱う（下記参照）。
+    attributes: true
 
     # --- TrinityForge / ArsPaper のデータ本体 ---
     # 図鑑・実績・称号・ガチャ天井・採取トグル・Ars のマナ・解放済みグリフは
@@ -79,15 +109,49 @@ synchronization:
     # そちらは plugins/TrinityForge のディレクトリジャンクションで共有する。
     persistent_data: true
 
-    # --- 【必ず false にするもの】 ---
+    # --- 【必ず false に変えるもの】 ---
     # 座標を同期すると、資源サーバへ移動した瞬間にメインでの座標へ飛ばされる。
     # 週次リセットで地形が変わる資源サーバでは、岩盤の中や虚空に湧く。
+    # （生成時点で既に false。変えないこと。）
     location: false
+    # 【生成時の既定は true なので必ず false へ変更する】
     # メインの world は creative (Multiverse の worlds.yml)。同期すると
     # 資源サーバでもクリエイティブになり、資源サーバの存在意義が消える。
     game_mode: false
 
-    locked_maps: false
+  # -------------------------------------------------------------------------------------------
+  #  属性同期 — TF の modifier を除外する
+  # -------------------------------------------------------------------------------------------
+  #  TrinityForge はステータスを Bukkit の AttributeModifier として付与する。名前空間とキーは
+  #    trinityforge:perk_attr_<statKey>   (PerkAttributeApplier — スキルツリー由来)
+  #    trinityforge:statmod.<name>        (AttributeApplier — 装備のアイテムステータス由来)
+  #
+  #  これらは【同期する必要がない】。スキルLvは既にジャンクションで共有されており、
+  #  TF は join / 装備変更のたびに config から再計算して付け直す。
+  #  同期対象に残すと、TF の再計算が走る前の一瞬だけ別サーバの値が乗った状態になり、
+  #  リスナーの実行順に依存する切り分けの難しい不具合を生む。
+  #
+  #  よって ignored_modifiers に trinityforge / arspaper を追加する。
+  #  既定の 2 行 (minecraft:effect.* / minecraft:creative_mode_*) は消さないこと。
+  attributes:
+    synced_attributes:
+    - minecraft:generic.max_health
+    - minecraft:max_health
+    - minecraft:generic.max_absorption
+    - minecraft:max_absorption
+    - minecraft:generic.luck
+    - minecraft:luck
+    - minecraft:generic.scale
+    - minecraft:scale
+    - minecraft:generic.step_height
+    - minecraft:step_height
+    - minecraft:generic.gravity
+    - minecraft:gravity
+    ignored_modifiers:
+    - minecraft:effect.*
+    - minecraft:creative_mode_*
+    - trinityforge:*
+    - arspaper:*
 
 # =================================================================================================
 #  設定後の確認 (RUNBOOK の受け入れ確認と対応)
@@ -97,8 +161,10 @@ synchronization:
 #    3. メインが creative の world に居ても、資源側でサバイバルのままである (game_mode: false)
 #    4. 資源側で移動しても、メインへ戻ったときの座標が変わっていない (location: false)
 #    5. 図鑑・称号・Ars のマナがサーバをまたいで保持される (persistent_data)
+#    6. サーバを往復しても最大体力とステータス表示が変わらない (ignored_modifiers)
 #
 #  4 が崩れている場合は location が true に戻っている。
 #  5 が崩れている場合は、TF 側で非 primitive 型の PDC が追加された可能性がある
 #  (PlayerPdcPrimitiveTypeAuditTest が失敗しているはず)。
+#  6 が崩れている場合は ignored_modifiers に trinityforge:* が入っていない。
 # =================================================================================================

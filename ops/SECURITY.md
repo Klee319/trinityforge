@@ -39,7 +39,7 @@ fail-safe があり、それを撤去した経緯がコメントに残ってい�
 `server.properties` の `rcon.password=tf-local-rcon-2026` と `.rcon.env` に同じ値が平文で入っている。
 RCON プロトコル自体もパスワードを平文で流す。
 
-- **25575 / 25576 のインバウンドを Windows Firewall で拒否する**（ループバックは影響を受けない）
+- **25586 / 25587 / 25588 のインバウンドを Windows Firewall で拒否する**（ループバックは影響を受けない）
 - 移行を機にパスワードを長いランダム文字列へ変更する
 - ops スクリプトは環境変数 `TF_RCON_MAIN_PASSWORD` / `TF_RCON_RESOURCE_PASSWORD` から読む。
   スクリプトにも `ops-config.psd1` にも書かない
@@ -56,8 +56,10 @@ Windows Firewall のインバウンドで、**公開するのは 2 ポートだ�
 | 19132/UDP | Geyser（Bedrock 版） | **公開** | `0.0.0.0` |
 | 25566/TCP | main バックエンド | ✕ | `server-ip=127.0.0.1` |
 | 25567/TCP | resource バックエンド | ✕ | `server-ip=127.0.0.1` |
-| 25575/TCP | main RCON | ✕ | Firewall で拒否 |
-| 25576/TCP | resource RCON | ✕ | Firewall で拒否 |
+| 25568/TCP | dev バックエンド（検証用） | ✕ | `server-ip=127.0.0.1` |
+| 25586/TCP | main RCON | ✕ | Firewall で拒否 |
+| 25587/TCP | resource RCON | ✕ | Firewall で拒否 |
+| 25588/TCP | dev RCON | ✕ | Firewall で拒否 |
 | 3306/TCP | MariaDB | ✕ | `bind-address=127.0.0.1` |
 | 6379/TCP | Redis | ✕ | `bind 127.0.0.1` |
 | 8000, 8787/TCP | config-editor | ✕ | Firewall で拒否（0-1 参照） |
@@ -150,7 +152,7 @@ config の反映は `/tf reload`（TF 自身の再読込）か、サーバの再
 配備時に上から順に確認する。
 
 - [ ] Windows Firewall のインバウンドで公開しているのが 25565/TCP と 19132/UDP だけである
-- [ ] 25575 / 25576 / 3306 / 6379 / 8000 / 8787 が外部から到達できない
+- [ ] 25586 / 25587 / 25588 / 3306 / 6379 / 8000 / 8787 が外部から到達できない
 - [ ] 両バックエンドの `server-ip=127.0.0.1`
 - [ ] 両バックエンドの `online-mode=false`（プロキシ側が `true`）
 - [ ] MariaDB の `bind-address=127.0.0.1`、Redis の `bind 127.0.0.1`

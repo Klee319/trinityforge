@@ -48,6 +48,7 @@ gradlew test --tests "com.trinityforge.ops.*"
 | スクリプト | 用途 |
 |---|---|
 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1) | **削除ガードの実測。** 実際にジャンクションを作り、誤削除が止まることを確認する |
+| [scripts/preflight.ps1](scripts/preflight.ps1) | **起動前チェック。** MariaDB / Redis の到達性、HuskSync の既定資格情報と同期設定、全バックエンドでの設定一致、forwarding secret の一致 |
 | [scripts/setup-junction.cmd](scripts/setup-junction.cmd) | `plugins/TrinityForge` のディレクトリジャンクションを張る（1 回だけ・冪等） |
 | [scripts/server-loop.cmd](scripts/server-loop.cmd) | `stop` 後に自動で起動し直すループ。main / resource 共通 |
 | [scripts/sync-configs.ps1](scripts/sync-configs.ps1) | ArsPaper config の SHA-256 照合コピー、同名 jar の二重配置検出、ジャンクション有無の確認 |

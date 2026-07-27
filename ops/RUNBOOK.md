@@ -3,9 +3,19 @@
 Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエンド構成へ移行する手順。
 **この作業書はユーザーが自分で実行する前提で書いてある。** 各手順に検証コマンドと期待される出力を付けた。
 
-- 対象: `D:\game\minecraft\PaperServer\TrinityForge`（Paper 1.21.11）
-- 追加: `D:\game\minecraft\PaperServer\TrinityForge-Res`（新規）
+- 移行元: `D:\game\minecraft\PaperServer\TrinityForge`（Paper 1.21.11・現行の単体サーバ）
+- 移行先: `D:\game\minecraft\PaperServer\Velocity_for_TF\`
+  - `Main_Server`（25566 / RCON 25586）
+  - `Resource_Server`（25567 / RCON 25587）
+  - `Dev_Server`（25568 / RCON 25588）— 検証用。定期再起動と週次リセットの対象外
 - 前提の裏取り: [COST_AND_LICENSE.md](COST_AND_LICENSE.md) / [SECURITY.md](SECURITY.md) / [PERFORMANCE.md](PERFORMANCE.md) / [PLUGIN_MATRIX.md](PLUGIN_MATRIX.md)
+
+> **2026-07-27 時点の実環境**: 上の 3 バックエンドと Velocity（`velocity-4.1.0-SNAPSHOT-9.jar`）が
+> 既に作成済みで、Geyser / floodgate / Via\* はプロキシへ移設済み。Main_Server と Resource_Server の
+> plugins も配置済み（Resource_Server は [PLUGIN_MATRIX.md](PLUGIN_MATRIX.md) の推奨構成どおり）。
+> **未実施は手順2（MariaDB + Redis）・手順6（ボーダー）・手順8（ジャンクション）・
+> 手順9-2（HuskSync の設定）・手順11（スケジューラ）**。
+> 現状は [scripts/preflight.ps1](scripts/preflight.ps1) を実行すれば機械的に判定できる。
 
 ---
 
@@ -16,15 +26,16 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 ```
               [外部] TCP 25565 のみ / UDP 19132 のみ
                         |
-              +---------v---------------------+
-              |  Velocity 3.5.x  (1G)         |  Geyser + floodgate + Via*
+              +-------------------------------+
+              |  Velocity 4.1.0-SNAPSHOT (1G) |  Geyser + floodgate + Via*
               |  modern forwarding            |  Sonar / FallbackRouter / OneTimePack
               |  /server main | /server resource |  LuckPerms-Velocity
               +----+---------------------+----+
-        127.0.0.1:25566            127.0.0.1:25567
+        127.0.0.1:25566            127.0.0.1:25567      (+ dev 25568)
    +---------v---------+      +----------v-----------+
-   | main (既存) 8G     |      | resource (新規) 6G    |
+   | Main_Server 8G     |      | Resource_Server 6G    |
    | 全ワールド 5000x5000|      | 週次で world 全削除    |
+   | RCON 25586         |      | RCON 25587            |
    +---------+---------+      +----------+-----------+
              |  plugins/TrinityForge <-- ディレクトリジャンクション（実体共有）
              +----------+---------------+
@@ -53,7 +64,14 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 | EliteMobs なしでモブのレベル推移と報酬が機能するか | **機能する。** 89 種 × Lv0〜100 で全帯埋まっている | [reports/resource-server-mob-simulation.md](reports/resource-server-mob-simulation.md) |
 | 2 プロセスから同じ SQLite を触って壊れないか | **壊れない。** ただし本体の修正が 1 件必要だった（適用済み） | [reports/shared-sqlite-concurrency.md](reports/shared-sqlite-concurrency.md) |
 | PDC が HuskSync で同期できる型か | **全て primitive 型。** 将来崩れたらテストが落ちる | `PlayerPdcPrimitiveTypeAuditTest` |
-| ジャンクション先を誤って消さないか | **削除ガードが必ず中断する。** 実際にジャンクションを作って実測 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1) |
+| ジャンクション先を誤って消さないか | **削除ガードが必ず中断する。** 実際にジャンクションを作って実測 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1)（14/14） |
+
+**起動する前に [scripts/preflight.ps1](scripts/preflight.ps1) を流す。** 手順2・9-2・6-2 の
+やり残しを機械的に検出する（MariaDB / Redis の到達性、HuskSync の既定資格情報、
+`location` / `game_mode` / `persistent_data`、`trinityforge:*` の除外、
+全バックエンドでの設定一致、forwarding secret の一致）。
+**HuskSync は enable に失敗してもサーバの起動を止めない**ため、
+ログを読まないと「同期されていないことに気付かないまま運用する」事故が起きる。
 
 ### 0-3. 【最重要】ジャンクションの取り扱い
 
@@ -91,7 +109,7 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 # 管理者 PowerShell
 New-NetFirewallRule -DisplayName "Block config-editor 8000" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Block
 New-NetFirewallRule -DisplayName "Block config-editor 8787" -Direction Inbound -LocalPort 8787 -Protocol TCP -Action Block
-New-NetFirewallRule -DisplayName "Block RCON 25575-25576" -Direction Inbound -LocalPort 25575-25576 -Protocol TCP -Action Block
+New-NetFirewallRule -DisplayName "Block RCON 25586-25588" -Direction Inbound -LocalPort 25586-25588 -Protocol TCP -Action Block
 ```
 
 あわせて config-editor に Basic 認証を付ける（config ファイルは変更しない）:
@@ -133,6 +151,16 @@ Copy-Item "$src\config"          -Destination "$dst\config" -Recurse
 ## 手順 2. WSL2 に MariaDB と Redis を入れる
 
 Docker Desktop は使わない（理由は [COST_AND_LICENSE.md](COST_AND_LICENSE.md)）。
+
+**2026-07-27 時点、この環境には Linux ディストロが入っていない**
+（`wsl --list --verbose` に `docker-desktop` しか出ない）。まずディストロを入れる:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+初回起動で **UNIX ユーザー名とパスワードの作成を求められる**。ここは対話が必要なので
+自分で入力すること。完了後に `wsl --list --verbose` で `Ubuntu` が `Running` になる。
 
 ```bash
 # WSL2 (Ubuntu) 上で
@@ -213,18 +241,18 @@ lp import luckperms-backup
 
 ## 手順 4. Velocity を導入
 
-1. `D:\game\minecraft\Velocity\` を作り、`velocity-3.5.x.jar` を置く
+1. `D:\game\minecraft\PaperServer\Velocity_for_TF\` を作り、`velocity-4.1.0-SNAPSHOT-9.jar` を置く
 2. 一度起動して `velocity.toml` と `forwarding.secret` を生成させ、停止する
 3. [templates/velocity.toml](templates/velocity.toml) の内容を反映する
    （`config-version` は生成された値を使う）
 4. `forwarding.secret` の中身を控える（次の手順で使う）
 
-起動スクリプト `D:\game\minecraft\Velocity\start.bat`:
+起動スクリプト `D:\game\minecraft\PaperServer\Velocity_for_TF\start.bat`:
 
 ```bat
 @echo off
 cd /d "%~dp0"
-java -Xms1G -Xmx1G -XX:+UseG1GC -jar velocity-3.5.x.jar
+java -Xms1G -Xmx1G -XX:+UseG1GC -jar velocity-4.1.0-SNAPSHOT-9.jar
 pause
 ```
 
@@ -290,12 +318,12 @@ proxies:
 ### 6-3. ワールドボーダー
 
 ```
-/execute in minecraft:overworld  run worldborder center 0 0
-/execute in minecraft:overworld  run worldborder set 5000
-/execute in minecraft:the_nether run worldborder center 0 0
-/execute in minecraft:the_nether run worldborder set 5000
-/execute in minecraft:the_end    run worldborder center 0 0
-/execute in minecraft:the_end    run worldborder set 5000
+execute in minecraft:overworld  run worldborder center 0 0
+execute in minecraft:overworld  run worldborder set 10000
+execute in minecraft:the_nether run worldborder center 0 0
+execute in minecraft:the_nether run worldborder set 5000
+execute in minecraft:the_end    run worldborder center 0 0
+execute in minecraft:the_end    run worldborder set 5000
 ```
 
 `level.dat` に永続化されるので 1 回でよい。`em_adventurers_guild` は対象外。
@@ -357,7 +385,7 @@ proxies:
 
 ```powershell
 $main = "D:\game\minecraft\PaperServer\TrinityForge"
-$res  = "D:\game\minecraft\PaperServer\TrinityForge-Res"
+$res  = "D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server"
 New-Item -ItemType Directory -Path $res -Force
 
 # Paper 本体（メインと完全に同一ビルド）
@@ -389,7 +417,7 @@ settings:
 server-ip=127.0.0.1
 server-port=25567
 online-mode=false
-rcon.port=25576
+rcon.port=25587
 level-seed=
 spawn-protection=16
 ```
@@ -417,7 +445,7 @@ Remove-Item "$res\plugins\EliteMobs.jar","$res\plugins\bluemap-*.jar",`
 ### 7-4. 一度だけ起動して plugins ディレクトリを作らせる
 
 ```
-D:\game\minecraft\PaperServer\TrinityForge-Res\  で paper を起動 → 起動しきったら stop
+D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server\  で paper を起動 → 起動しきったら stop
 ```
 
 **この時点では TrinityForge の config が資源サーバ側に独自生成される。次の手順で捨てる。**
@@ -442,7 +470,7 @@ ops\scripts\setup-junction.cmd
 **検証**:
 
 ```cmd
-dir /al "D:\game\minecraft\PaperServer\TrinityForge-Res\plugins"
+dir /al "D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server\plugins"
 ```
 
 `<JUNCTION>  TrinityForge [D:\game\minecraft\PaperServer\TrinityForge\plugins\TrinityForge]`
@@ -491,11 +519,27 @@ git checkout 3dc619d5f641ee909004925dbbda2d507b7127c2
 
 ### 9-2. 設定
 
-両バックエンドの `plugins/HuskSync/` に jar を入れ、一度起動して `config.yml` を生成させる。
+**手順2（MariaDB + Redis）を先に終わらせること。** 繋ぐ先が無い状態で起動すると
+`FailedToLoadException` → `Connection refused` で enable に失敗する
+（それでもサーバ自体は起動してしまうので気付きにくい）。
+
+両バックエンドの `plugins/` に jar を入れ、一度起動して `config.yml` を生成させる。
 生成されたファイルに対して [templates/husksync.config.yml](templates/husksync.config.yml) の
 項目を反映する（**丸ごと上書きしない**。バージョンでキー名が変わるため）。
 
-特に重要な 3 つ:
+生成直後の既定値は**必ず接続に失敗する**ので、まず資格情報を直す:
+
+```yaml
+database:
+  type: MARIADB               # 既定は MYSQL
+  credentials:
+    host: 127.0.0.1           # 既定は localhost
+    database: husksync        # 既定は HuskSync
+    username: husksync        # 既定は root
+    password: '<手順2 で作ったパスワード>'   # 既定は pa55w0rd
+```
+
+同期設定で特に重要な 4 つ:
 
 ```yaml
 synchronization:
@@ -503,10 +547,22 @@ synchronization:
   features:
     persistent_data: true    # TF の図鑑・称号・Ars のマナ。これが層 B
     location: false          # 必ず false。true だと資源側で岩盤に埋まる
-    game_mode: false         # 必ず false。メインの world は creative
+    game_mode: false         # 【生成時の既定は true】必ず false。メインの world は creative
+  attributes:
+    ignored_modifiers:
+    - minecraft:effect.*
+    - minecraft:creative_mode_*
+    - trinityforge:*         # 追記。TF が付け直す modifier を同期させない
+    - arspaper:*             # 追記
 ```
 
-**メインと資源で完全に同じ内容にすること。**
+`trinityforge:*` を追記する理由: TF はステータスを `trinityforge:perk_attr_<stat>` と
+`trinityforge:statmod.<name>` という `AttributeModifier` として付与し、join と装備変更のたびに
+config から**再計算して付け直す**。スキル Lv はジャンクションで既に共有されているので
+同期する必要が無く、残すと再計算前の一瞬だけ別サーバの値が乗る。
+
+**メインと資源で完全に同じ内容にすること。** 反映後に `preflight.ps1` を流せば、
+既定値の残りと `game_mode` と除外漏れ、さらに**サーバ間の設定差分**まで機械的に検出できる。
 
 ---
 
@@ -534,18 +590,24 @@ Copy-Item "<repo>\ops\ops-config.sample.psd1" "<repo>\ops\ops-config.psd1"
 # パスとポートを実環境に合わせる
 ```
 
-RCON パスワードは**環境変数で渡す**（設定ファイルに書かない）:
+RCON パスワードは**環境変数で渡す**（設定ファイルに書かない）。
+変数名は `Servers` のキー名から決まる:
 
 ```powershell
-setx TF_RCON_MAIN_PASSWORD     "<main の rcon.password>"
-setx TF_RCON_RESOURCE_PASSWORD "<resource の rcon.password>"
+setx TF_RCON_MAIN_PASSWORD     "<Main_Server の rcon.password>"
+setx TF_RCON_RESOURCE_PASSWORD "<Resource_Server の rcon.password>"
+setx TF_RCON_DEV_PASSWORD      "<Dev_Server の rcon.password>"
 ```
+
+`Servers` にサーバを足せばスクリプト側の変更は不要
+（`restart-server.ps1 -Target dev` のように名前で指せる）。
 
 ### 11-2. スクリプトを空撃ちして確認する
 
 ```powershell
 cd <repo>\ops\scripts
-.\run-selftest.ps1                 # 削除ガードの実測。10/10 になること
+.\run-selftest.ps1                 # 削除ガードの実測。14/14 になること
+.\preflight.ps1                    # 実環境の起動前チェック。0 件になること
 .\sync-configs.ps1     -DryRun
 .\restart-server.ps1   -DryRun -Target both
 .\reset-resource.ps1   -DryRun
@@ -559,10 +621,10 @@ cd <repo>\ops\scripts
 
 ```bat
 REM main
-ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\TrinityForge"     8G paper-1.21.11-132.jar
+ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server"     8G paper-1.21.11-132.jar
 
 REM resource
-ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\TrinityForge-Res" 6G paper-1.21.11-132.jar
+ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server" 6G paper-1.21.11-132.jar
 ```
 
 **起動順は main → resource。**
@@ -628,7 +690,10 @@ ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\TrinityForge-Res" 6G 
 
 | 症状 | 原因 | 対処 |
 |---|---|---|
-| 全員 `Unable to verify player details` で入れない | forwarding secret の不一致 | `velocity/forwarding.secret` と両バックエンドの `paper-global.yml` の `secret` を 1 文字ずつ照合 |
+| 起動時に `Error occurred while enabling HuskSync` → `FailedToLoadException` → `ConnectException: Connection refused: getsockopt` | **MariaDB / Redis が動いていない**（手順2 が未実施、または WSL が止まっている）。jar の不具合ではない — この時点でプラグイン自体は読み込まれ、config も生成されている | 手順2 を実施する。`preflight.ps1` が 3306 / 6379 の到達性を先に判定する |
+| 上と同時に `Error occurred while disabling HuskSync` → `getRedisManager()` が null | 初期化が途中で失敗したときの **HuskSync 側の shutdown 経路のバグ**。無害な副作用で、原因は 1 つ上の行 | 無視してよい。DB 接続を直せば出なくなる |
+| `HuskSync` が「無効」なのに気付かないまま運用してしまう | enable 失敗はサーバ起動自体を止めない | 起動前に必ず `preflight.ps1`。起動後は `/plugins` で HuskSync が緑か確認 |
+| 全員 `Unable to verify player details` で入れない | forwarding secret の不一致 | `velocity/forwarding.secret` と両バックエンドの `paper-global.yml` の `secret` を 1 文字ずつ照合（`preflight.ps1` が照合する） |
 | サーバ移動でインベントリが消える / 増える | HuskSync の設定不一致、または `mode` が LOCKSTEP でない | 両サーバの `config.yml` を照合。`/reload` を使っていないか確認 |
 | 資源サーバでスキル Lv が 0 | ジャンクションが張れていない | `dir /al` で確認。`sync-configs.ps1` も検出する |
 | 資源サーバで岩盤に埋まる / 虚空に落ちる | HuskSync の `location: true` | `location: false` にする |

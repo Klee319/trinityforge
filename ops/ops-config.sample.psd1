@@ -1,32 +1,52 @@
-﻿#
+#
 # ops スクリプト共通の設定サンプル。
 #
 # 使い方:
 #   1. このファイルを同じディレクトリへ ops-config.psd1 という名前でコピーする
 #   2. パスとポートを実環境に合わせる
-#   3. RCON パスワードは【ここに書かない】。環境変数で渡す:
-#         setx TF_RCON_MAIN_PASSWORD     "<main の rcon.password>"
-#         setx TF_RCON_RESOURCE_PASSWORD "<resource の rcon.password>"
+#   3. RCON パスワードは【ここに書かない】。環境変数で渡す。
+#      変数名は Servers のキー名から決まる (Main -> TF_RCON_MAIN_PASSWORD):
+#         setx TF_RCON_MAIN_PASSWORD     "<Main_Server の rcon.password>"
+#         setx TF_RCON_RESOURCE_PASSWORD "<Resource_Server の rcon.password>"
+#         setx TF_RCON_DEV_PASSWORD      "<Dev_Server の rcon.password>"
 #
 # ops-config.psd1 は .gitignore 対象。サンプルであるこのファイルだけを版管理する。
 #
+# 下の値は 2026-07-27 時点の実環境
+# (D:\game\minecraft\PaperServer\Velocity_for_TF\) に合わせてある。
+#
 @{
+    # Velocity のルート (velocity.toml と forwarding.secret がある場所)。
+    # preflight.ps1 が forwarding secret の一致確認に使う。
+    VelocityRoot = "D:\game\minecraft\PaperServer\Velocity_for_TF"
+
+    # Main と Resource は必須。それ以外のキーは足すだけで各スクリプトが扱える。
     Servers = @{
 
         Main = @{
+            # velocity.toml の [servers] に書いた名前と揃えること
             Name       = "main"
             # サーバのルート (paper jar と server.properties がある場所)
-            Root       = "D:\game\minecraft\PaperServer\TrinityForge"
+            Root       = "D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server"
             RconHost   = "127.0.0.1"
-            RconPort   = 25575
+            RconPort   = 25586
             # RconPassword は Get-OpsConfig が環境変数から埋める
         }
 
         Resource = @{
             Name       = "resource"
-            Root       = "D:\game\minecraft\PaperServer\TrinityForge-Res"
+            Root       = "D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_Server"
             RconHost   = "127.0.0.1"
-            RconPort   = 25576
+            RconPort   = 25587
+        }
+
+        # 検証用。restart-server.ps1 -Target dev で個別に再起動できる。
+        # 週次リセットの対象ではない (ResourceResetTargets は Resource にしか適用しない)。
+        Dev = @{
+            Name       = "dev"
+            Root       = "D:\game\minecraft\PaperServer\Velocity_for_TF\Dev_Server"
+            RconHost   = "127.0.0.1"
+            RconPort   = 25588
         }
     }
 

@@ -211,6 +211,135 @@ try {
         Assert-True ($output -match "中断") "中断していない"
     }
 
+    # ---- 設定の読み込み ------------------------------------------------------------------------
+
+    Write-Host ""
+    Write-Host "=== 設定の読み込み ===" -ForegroundColor Cyan
+
+    # Main / Resource 以外のサーバ (Dev) を足しても扱えることを確認する。
+    $threeServerConfig = Join-Path $sandbox "three-ops-config.psd1"
+    @'
+@{
+    VelocityRoot = "C:\nope\velocity"
+    Servers = @{
+        Main     = @{ Name = "main";     Root = "C:\nope\main";     RconHost = "127.0.0.1"; RconPort = 25586 }
+        Resource = @{ Name = "resource"; Root = "C:\nope\resource"; RconHost = "127.0.0.1"; RconPort = 25587 }
+        Dev      = @{ Name = "dev";      Root = "C:\nope\dev";      RconHost = "127.0.0.1"; RconPort = 25588 }
+    }
+    ResourceResetTargets = @{ Directories = @("world"); Files = @() }
+    ArsPaperSync = @{ ExcludeFiles = @(); ExcludePatterns = @() }
+    Backup = @{ Root = "C:\nope\backup"; KeepDays = 1; Databases = @(); WslDistro = "Ubuntu" }
+}
+'@ | Set-Content -LiteralPath $threeServerConfig -Encoding UTF8
+
+    Test-Case "Servers のキーごとに RCON パスワードの環境変数を読む" {
+        $env:TF_RCON_MAIN_PASSWORD     = "m"
+        $env:TF_RCON_RESOURCE_PASSWORD = "r"
+        $env:TF_RCON_DEV_PASSWORD      = "d"
+        try {
+            $loaded = Get-OpsConfig -Path $threeServerConfig
+            Assert-True ($loaded.Servers.Main.RconPassword -eq "m")     "main のパスワードが入らない"
+            Assert-True ($loaded.Servers.Dev.RconPassword  -eq "d")     "dev のパスワードが入らない"
+        } finally {
+            Remove-Item Env:\TF_RCON_MAIN_PASSWORD, Env:\TF_RCON_RESOURCE_PASSWORD,
+                Env:\TF_RCON_DEV_PASSWORD -ErrorAction SilentlyContinue
+        }
+    }
+
+    Test-Case "追加サーバのパスワード未設定も既定では失敗させる" {
+        $env:TF_RCON_MAIN_PASSWORD     = "m"
+        $env:TF_RCON_RESOURCE_PASSWORD = "r"
+        try {
+            $threw = $false
+            try { Get-OpsConfig -Path $threeServerConfig } catch { $threw = $true }
+            Assert-True $threw "TF_RCON_DEV_PASSWORD 未設定を見逃した"
+
+            # RCON を使わないスクリプト (preflight) は通す。
+            $loaded = Get-OpsConfig -Path $threeServerConfig -RequireRconPasswords:$false
+            Assert-True ($null -eq $loaded.Servers.Dev.RconPassword) "未設定が null になっていない"
+        } finally {
+            Remove-Item Env:\TF_RCON_MAIN_PASSWORD, Env:\TF_RCON_RESOURCE_PASSWORD `
+                -ErrorAction SilentlyContinue
+        }
+    }
+
+    Test-Case "Resolve-OpsServer はキー名と Name のどちらでも引ける" {
+        $loaded = Get-OpsConfig -Path $threeServerConfig -RequireRconPasswords:$false
+        Assert-True ((Resolve-OpsServer -Config $loaded -Target "dev").RconPort  -eq 25588) "dev が引けない"
+        Assert-True ((Resolve-OpsServer -Config $loaded -Target "Main").RconPort -eq 25586) "Main が引けない"
+
+        $threw = $false
+        try { Resolve-OpsServer -Config $loaded -Target "nosuch" } catch { $threw = $true }
+        Assert-True $threw "存在しないサーバ名を通した"
+    }
+
+    # ---- preflight の HuskSync 検査 -------------------------------------------------------------
+
+    Write-Host ""
+    Write-Host "=== preflight の HuskSync 検査 ===" -ForegroundColor Cyan
+
+    Test-Case "既定資格情報と危険な features を preflight が名指しで挙げる" {
+        # 生成直後の HuskSync config そのままの状態 (既定パスワード / game_mode: true /
+        # trinityforge:* 除外なし) を作り、全部拾えるかを確認する。
+        $main = Join-Path $sandbox "pf\main"
+        $resource = Join-Path $sandbox "pf\resource"
+        foreach ($root in @($main, $resource)) {
+            New-Item -ItemType Directory -Path (Join-Path $root "plugins\HuskSync") -Force | Out-Null
+        }
+        @'
+database:
+  type: MYSQL
+  credentials:
+    host: localhost
+    port: 3306
+    database: HuskSync
+    username: root
+    password: pa55w0rd
+synchronization:
+  mode: LOCKSTEP
+  features:
+    inventory: true
+    ender_chest: true
+    location: false
+    game_mode: true
+    persistent_data: true
+    attributes: true
+  attributes:
+    ignored_modifiers:
+    - minecraft:effect.*
+'@ | Set-Content -LiteralPath (Join-Path $main "plugins\HuskSync\config.yml") -Encoding UTF8
+
+        $preflightPath = Join-Path $PSScriptRoot "preflight.ps1"
+        $pfConfig = Join-Path $sandbox "pf-ops-config.psd1"
+        @"
+@{
+    Servers = @{
+        Main     = @{ Name = "main";     Root = "$main";     RconHost = "127.0.0.1"; RconPort = 25586 }
+        Resource = @{ Name = "resource"; Root = "$resource"; RconHost = "127.0.0.1"; RconPort = 25587 }
+    }
+    ResourceResetTargets = @{ Directories = @("world"); Files = @() }
+    ArsPaperSync = @{ ExcludeFiles = @(); ExcludePatterns = @() }
+    Backup = @{ Root = "C:\nope\backup"; KeepDays = 1; Databases = @(); WslDistro = "Ubuntu" }
+}
+"@ | Set-Content -LiteralPath $pfConfig -Encoding UTF8
+
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+                -Command "& '$preflightPath' -ConfigPath '$pfConfig'" 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+
+        Assert-True ($output -match "pa55w0rd")      "既定パスワードを検出していない"
+        Assert-True ($output -match "game_mode")     "game_mode: true を検出していない"
+        Assert-True ($output -match "trinityforge")  "ignored_modifiers の欠落を検出していない"
+        # resource 側は config.yml が無い。これは初回起動前の正常な状態なので
+        # issue ではなく note として扱われていること。
+        Assert-True ($output -match "まだありません") "未生成の config を note にしていない"
+    }
+
 } finally {
     # サンドボックス自体にジャンクションが残っている可能性があるため、先にリンクを外してから消す。
     Get-ChildItem -LiteralPath $sandbox -Recurse -Force -Directory -ErrorAction SilentlyContinue |
