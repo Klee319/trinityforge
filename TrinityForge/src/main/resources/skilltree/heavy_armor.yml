@@ -68,11 +68,14 @@ nodes:
     parent: A
     icon: IRON_LEGGINGS
     cost: 1
-    effect-text: "セット効果量UP・3部位でセットが成立"
+    # 2026-07-27: このノードは armor-set-bonus(セット効果の増幅率)だけを持ち、セットの「成立条件」は
+    # 持たない。旧文言の「3部位でセットが成立」は誤りだったので削除した。成立条件は各ノードの
+    # set-buffs の段(3/4)が持つ。
+    effect-text: "セット効果量UP(3・4部位のセット効果がまとめて強化される)"
     buffs:
       armor-set-bonus: 0.1
     effects:
-      - "3部位でセット効果が成立"
+      - "セット効果の効果量が増加する"
   C:
     name: "剛守の型"
     level: 50
@@ -80,15 +83,18 @@ nodes:
     parent: B
     icon: IRON_CHESTPLATE
     cost: 1
-    effect-text: "ノックバック耐性アップ・守備力増加・憤怒発動可能"
+    effect-text: "ノックバック耐性アップ・守備力増加・憤怒発動可能・重装3部位でKB耐性セットボーナス成立(4部位で強化)"
     buffs:
       phys-flat-defense: 0.1
       magic-flat-defense: 0.1
+    # 2026-07-27: 4部位帯は3部位帯の約1.5倍。3部位の値は移行前と同一のまま据え置いて、
+    # フル装備の報酬としてだけ上乗せしている(既存バランスを動かさないため)。
     set-buffs:
       3: { knockback-resistance: 0.1 }
-      4: { knockback-resistance: 0.1 }
+      4: { knockback-resistance: 0.15 }
     effects:
       - "憤怒(Rage)が発動可能になる"
+      - "重装3部位以上でノックバック耐性セットボーナスが成立し、4部位で更に強化される"
   D:
     name: "堅牢の境地"
     level: 70
@@ -96,12 +102,12 @@ nodes:
     parent: C
     icon: IRON_HELMET
     cost: 1
-    effect-text: "防御率・物理耐性UP・3部位でセットが成立"
+    # 2026-07-27: このノードのバフはどちらも無条件で、set-buffs を持たない。
+    # 旧文言の「3部位でセットが成立」は実装と一致していなかったので削除した。
+    effect-text: "防御率・物理耐性UP"
     buffs:
       armor-defense-rate: 0.1
       phys-resistance: 0.1
-    effects:
-      - "3部位でセット効果が成立"
   E:
     name: "極意・金剛"
     level: 90
@@ -142,10 +148,10 @@ nodes:
     parent: D
     icon: ANVIL
     cost: 1
-    effect-text: "ノックバック耐性増加"
+    effect-text: "ノックバック耐性セットボーナス強化(重装3部位以上・4部位で更に強化)"
     set-buffs:
       3: { knockback-resistance: 0.1 }
-      4: { knockback-resistance: 0.1 }
+      4: { knockback-resistance: 0.15 }
   D-1-2:
     name: "不抜の構え"
     level: 90
@@ -153,10 +159,10 @@ nodes:
     parent: D-1-1
     icon: ANVIL
     cost: 1
-    effect-text: "ノックバック耐性増加"
+    effect-text: "ノックバック耐性セットボーナス強化(重装3部位以上・4部位で更に強化)"
     set-buffs:
       3: { knockback-resistance: 0.1 }
-      4: { knockback-resistance: 0.1 }
+      4: { knockback-resistance: 0.15 }
 
   A-alpha-1:
     name: "堅・重身"
