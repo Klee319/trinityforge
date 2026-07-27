@@ -53,6 +53,12 @@ public final class NativeSkillTreeMenu implements Listener {
             "LIGHT_WEAPONS", "HEAVY_WEAPONS", "FISHING", "ARCHERY",
             "LIGHT_ARMOR", "HEAVY_ARMOR", "ARS_MAGIC", "ARS_SMITHING");
 
+    /**
+     * ツリーリセット確認中を表す pendingPerkId のプレフィックス。
+     * perk ID は {@code <skill>_perk_<node>} 形式なのでこの値と衝突せず、ノード描画にも影響しない。
+     */
+    private static final String RESET_PENDING_PREFIX = "reset:";
+
     private final Plugin plugin;
     private final NativeProgressionService progression;
     private final NativePerkService perks;
@@ -129,6 +135,7 @@ public final class NativeSkillTreeMenu implements Listener {
         holder.inventory = inventory;
 
         Set<String> owned = loadOwnedPerkIds(player.getUniqueId());
+        Set<String> locked = Set.copyOf(com.trinityforge.pdc.PlayerData.of(player).lockedPerks());
         var snapshot = progression.snapshot(player.getUniqueId());
         int level = snapshot.skillOrDefault(tree.skill(), 100).level();
         Map<String, SkillNode> nodesByPerk = new HashMap<>();
@@ -142,7 +149,7 @@ public final class NativeSkillTreeMenu implements Listener {
                 inventory.setItem(entry.getKey(), nodeIcon(
                         tree, nodeCell, nodesByPerk.get(nodeCell.perkId()), level,
                         snapshot.availablePoints(), snapshot.skillOrDefault(tree.skill(), 100).prestige(),
-                        owned, pendingPerkId));
+                        owned, locked, pendingPerkId));
             } else if (entry.getValue() instanceof NativeSkillTreeCanvas.ConnectorCell connector) {
                 boolean anyUnlocked = false;
                 boolean anyUnlockable = false;
@@ -230,6 +237,19 @@ public final class NativeSkillTreeMenu implements Listener {
         SkillNode node = tree.nodes().get(nodeId);
         if (node == null) return;
         String perkId = PerkNaming.perkId(tree.skill(), nodeId);
+
+        // 機能アイテム(2026-07-27): メインハンドに持った状態でノードをクリックすると発動する。
+        // 通常の解放フローより先に判定する — 持っている間は解放操作にならない。
+        String function = heldFunction(player);
+        if (SkillTreeItems.NODE_LOCK.equals(function)) {
+            applyNodeLock(player, session, tree, perkId);
+            return;
+        }
+        if (SkillTreeItems.TREE_RESET.equals(function)) {
+            applyTreeReset(player, session, tree);
+            return;
+        }
+
         if (!perkId.equals(session.pendingPerkId)) {
             var snapshot = progression.snapshot(player.getUniqueId());
             Set<String> owned = loadOwnedPerkIds(player.getUniqueId());
@@ -252,6 +272,73 @@ public final class NativeSkillTreeMenu implements Listener {
                 result == NativePerkService.UnlockResult.UNLOCKED
                         ? NamedTextColor.GREEN : NamedTextColor.RED));
         reopenNextTick(player, session.skillId, session.center, null);
+    }
+
+    /**
+     * スキルノードロック: 解放済みノードのロックを反転する。ロックを「付ける」ときだけアイテムを1個消費し、
+     * 「外す」ときは消費しない(外すのにコストを取ると、掛け直せなくなって詰む)。
+     */
+    private void applyNodeLock(Player player, Session session, SkillTree tree, String perkId) {
+        if (!loadOwnedPerkIds(player.getUniqueId()).contains(perkId)) {
+            player.sendMessage(Component.text("未解放のノードはロックできません。", NamedTextColor.RED));
+            reopenNextTick(player, session.skillId, session.center, null);
+            return;
+        }
+        var data = com.trinityforge.pdc.PlayerData.of(player);
+        boolean nowLocked = data.lockedPerks().contains(perkId);
+        if (nowLocked) {
+            data.toggleLockedPerk(perkId);
+            player.sendMessage(Component.text("ノードのロックを解除しました。", NamedTextColor.YELLOW));
+        } else {
+            data.toggleLockedPerk(perkId);
+            consumeHeldItem(player);
+            player.sendMessage(Component.text(
+                    "ノードをロックしました（プレステージしても解放が維持されます）。", NamedTextColor.GREEN));
+        }
+        reopenNextTick(player, session.skillId, session.center, null);
+    }
+
+    /**
+     * スキルツリーリセット: レベルとプレステージ段を維持したまま、このツリーのノードを全解除してSPを返却する。
+     * 誤爆が致命的なので2クリック確認を挟む(通常の解放/プレステージと同じ作法)。
+     */
+    private void applyTreeReset(Player player, Session session, SkillTree tree) {
+        String pendingToken = RESET_PENDING_PREFIX + tree.skill();
+        if (!pendingToken.equals(session.pendingPerkId)) {
+            player.sendMessage(Component.text(
+                    "「" + tree.displayName() + "」をリセットします。もう一度ノードをクリックして確定してください。",
+                    NamedTextColor.YELLOW));
+            reopenNextTick(player, session.skillId, session.center, pendingToken);
+            return;
+        }
+        var result = perks.resetTree(player.getUniqueId(), tree.skill());
+        switch (result) {
+            case RESET -> {
+                consumeHeldItem(player);
+                refreshPerks.accept(player);
+                player.sendMessage(Component.text(
+                        "スキルツリーをリセットしました（レベルは維持、SPを返却）。", NamedTextColor.GREEN));
+            }
+            case NOTHING_TO_RESET -> player.sendMessage(
+                    Component.text("解除できるノードがありません。", NamedTextColor.RED));
+            default -> player.sendMessage(
+                    Component.text("スキルツリーをリセットできませんでした。", NamedTextColor.RED));
+        }
+        reopenNextTick(player, session.skillId, session.center, null);
+    }
+
+    /** メインハンドのTFカタログアイテムが機能アイテムなら、その機能IDを返す(それ以外は null)。 */
+    private static String heldFunction(Player player) {
+        ItemStack held = player.getInventory().getItemInMainHand();
+        return SkillTreeItems.functionOf(held);
+    }
+
+    /** メインハンドのアイテムを1個消費する。 */
+    private static void consumeHeldItem(Player player) {
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held == null || held.getType().isAir()) return;
+        held.setAmount(held.getAmount() - 1);
+        player.getInventory().setItemInMainHand(held.getAmount() <= 0 ? null : held);
     }
 
     private void handlePrestige(Player player, Session session, String perkId) {
@@ -286,7 +373,7 @@ public final class NativeSkillTreeMenu implements Listener {
 
     private ItemStack nodeIcon(SkillTree tree, NativeSkillTreeCanvas.NodeCell cell, SkillNode node,
                                int level, long availablePoints, int prestige,
-                               Set<String> owned, String pendingPerkId) {
+                               Set<String> owned, Set<String> lockedPerks, String pendingPerkId) {
         NodeStatus status = status(
                 tree, cell.perkId(), node, level, availablePoints, prestige, owned, pendingPerkId);
         boolean pending = cell.perkId().equals(pendingPerkId);
@@ -319,6 +406,10 @@ public final class NativeSkillTreeMenu implements Listener {
                         : status.unlockable ? "クリックして確認" : "解放条件を満たしていません",
                 pending ? NamedTextColor.YELLOW
                         : status.unlockable ? NamedTextColor.AQUA : NamedTextColor.DARK_GRAY));
+        if (lockedPerks.contains(cell.perkId())) {
+            lore.add(Component.text("🔒 ロック中（プレステージしても維持）", NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
         SkillTreeGuiVisuals.Visual visual = action.isEmpty()
                 ? new SkillTreeGuiVisuals.Visual(icon, null)
                 : SkillTreeGuiVisuals.node(status.unlocked, status.unlockable, pending, icon);

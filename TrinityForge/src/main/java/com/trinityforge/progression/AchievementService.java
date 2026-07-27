@@ -103,7 +103,8 @@ public final class AchievementService {
 
     private boolean collectionReached(Player player, AchievementsConfig.Achievement achievement) {
         if (collectionService == null) return false;
-        int[] progress = collectionService.progress(player, achievement.trigger().collectionScope(), achievement.trigger().collectionTarget());
+        int[] progress = collectionService.progress(player, achievement.trigger().collectionScope(),
+                achievement.trigger().collectionTargets());
         if (achievement.trigger().collectionPercent()) {
             return progress[1] > 0 && progress[0] * 100L >= achievement.trigger().threshold() * progress[1];
         }

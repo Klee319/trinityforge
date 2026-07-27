@@ -18,6 +18,7 @@ import com.trinityforge.config.domains.EnchantLuckConfig;
 import com.trinityforge.config.domains.FarmingGimmickConfig;
 import com.trinityforge.config.domains.FishingGimmickConfig;
 import com.trinityforge.config.domains.FoodGimmickConfig;
+import com.trinityforge.config.domains.AfkConfig;
 import com.trinityforge.config.domains.GachaConfig;
 import com.trinityforge.config.domains.GatheringEfficiencyConfig;
 import com.trinityforge.config.domains.GlyphDamageBoostConfig;
@@ -106,6 +107,8 @@ public final class ConfigManager {
     private final DedicatedEffectsConfig dedicatedEffects = new DedicatedEffectsConfig();
     private final SkillTreeConfig skillTrees = new SkillTreeConfig();
     private final GachaConfig gacha = new GachaConfig();
+    // AFK(離席)判定と、その間の報酬停止/自動キック(afk.yml, 2026-07-27)。
+    private final AfkConfig afk = new AfkConfig();
     // 採掘ギミックflag系consumer(vein-mining/haste-active-mining) + mining drop-table + fortune連続処理
     // (旧 gathering.yml mining.* 統合、2026-07-23 stat-gate-overhaul §D)のチューニング。
     private final MiningGimmickConfig miningGimmick = new MiningGimmickConfig();
@@ -194,6 +197,8 @@ public final class ConfigManager {
         // Gacha ticket prize tables (gacha.yml): config-driven, so tickets/pools/prizes are all
         // editable without a code change or restart (/trinityforge reload picks up edits live).
         register(gacha);
+        // AFK対策(afk.yml): 判定タイマーの再スケジュールは TrinityForge#reload 側が行う。
+        register(afk);
         register(miningGimmick::load);
         register(woodcuttingGimmick::load);
         register(diggingGimmick::load);
@@ -332,6 +337,10 @@ public final class ConfigManager {
 
     public GachaConfig gacha() {
         return gacha;
+    }
+
+    public AfkConfig afk() {
+        return afk;
     }
 
     public MiningGimmickConfig miningGimmick() {

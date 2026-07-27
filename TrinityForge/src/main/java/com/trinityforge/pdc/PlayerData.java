@@ -54,6 +54,40 @@ public final class PlayerData {
         writeJoined(PdcKeys.PLAYER_HELD_PERKS, perks, "perk id");
     }
 
+    /**
+     * スキルノードロック (2026-07-27): プレステージしても維持するノードの perk ID 一覧。
+     * 未指定なら空。ロック自体は「所持しているか」とは独立した保護指定なので、
+     * 所持していない perk がロックされていても無害(プレステージ時に無視される)。
+     */
+    public List<String> lockedPerks() {
+        return readJoined(PdcKeys.PLAYER_LOCKED_PERKS);
+    }
+
+    public void setLockedPerks(List<String> perks) {
+        writeJoined(PdcKeys.PLAYER_LOCKED_PERKS, perks, "perk id");
+    }
+
+    /**
+     * ロック状態を反転する。
+     *
+     * @return 反転後にロックされていれば {@code true}(=ロックを付けた)、外したなら {@code false}
+     */
+    public boolean toggleLockedPerk(String perkId) {
+        if (perkId == null || perkId.isBlank()) {
+            throw new IllegalArgumentException("perk id must not be blank");
+        }
+        List<String> current = new java.util.ArrayList<>(lockedPerks());
+        boolean added;
+        if (current.remove(perkId)) {
+            added = false;
+        } else {
+            current.add(perkId);
+            added = true;
+        }
+        writeJoined(PdcKeys.PLAYER_LOCKED_PERKS, current, "perk id");
+        return added;
+    }
+
     /** コレクション図鑑 (M7): 発見済みエントリID一覧。未記録なら空。 */
     public List<String> collectionEntries() {
         return readJoined(PdcKeys.PLAYER_COLLECTION_ENTRIES);
@@ -112,6 +146,35 @@ public final class PlayerData {
             current.add(id);
             writeJoined(PdcKeys.PLAYER_UNLOCKED_SPECIAL_REWARDS, current, "special reward id");
         }
+    }
+
+    /**
+     * {@code id} の直接付与を取り消す (2026-07-27、{@code /tf reward revoke} 用)。
+     * 未保有なら何もしない。
+     *
+     * <p>取り消せるのは<b>直接付与された分だけ</b>。スキルツリーの {@code reward:<id>} perk 由来の保有は
+     * perk 側が真実なので、ここを消しても {@code SpecialRewardService#isUnlocked} は true のままになる
+     * (perk を剥がすのは prestige/リセット側の責務)。
+     *
+     * @return 実際に取り消したら {@code true}
+     */
+    public boolean revokeSpecialReward(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        List<String> current = new java.util.ArrayList<>(unlockedSpecialRewards());
+        if (!current.remove(id)) {
+            return false;
+        }
+        writeJoined(PdcKeys.PLAYER_UNLOCKED_SPECIAL_REWARDS, current, "special reward id");
+        // 取り消した報酬を装備したままだと、以後ずっと未保有の称号/パーティクルが出続ける。
+        if (equippedTitle().filter(id::equals).isPresent()) {
+            setEquippedTitle(null);
+        }
+        if (equippedParticle().filter(id::equals).isPresent()) {
+            setEquippedParticle(null);
+        }
+        return true;
     }
 
     public Optional<String> equippedTitle() {

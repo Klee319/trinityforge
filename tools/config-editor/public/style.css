@@ -612,6 +612,28 @@ select.field-input option {
 /* レシピゲート行内のワイルドカード一括追加パターン入力。行内の他入力と高さを揃えつつ幅は控えめに。 */
 .skilltree-form .stat-row > .gate-bulk-pattern { flex: 0 1 150px; min-width: 0; }
 
+/* ワイルドカード一括追加モーダル (2026-07-27)。追加前に一致結果を確認・取捨選択する。 */
+.gate-bulk-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gate-bulk-controls .gate-bulk-pattern { flex: 1 1 200px; min-width: 0; }
+.gate-bulk-summary { font-size: 12px; color: var(--muted); }
+.gate-bulk-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 280px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
+  background: var(--panel-2);
+}
+.gate-bulk-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; border-radius: 4px; font-size: 12px; cursor: pointer;
+}
+.gate-bulk-row:hover { background: var(--panel); }
+.gate-bulk-row.is-existing { color: var(--muted); cursor: default; }
+.gate-bulk-id { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gate-bulk-tag {
+  font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted); flex: 0 0 auto;
+}
+
 /* tf-skilltree: 読み取り専用ブロック (effect-text/effects/commands) とノード名見出し */
 .ro-block { border-top: 1px solid var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .ro-row { color: var(--muted); font-size: 12px; line-height: 1.5; }
@@ -1440,6 +1462,28 @@ select.field-input option {
    .btn-small + ファイル名ラベルのトーンに揃える。 */
 .cmd-file-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cmd-file-row .cmd-tex-filename { max-width: 260px; }
+
+/* ファイルのドラッグ&ドロップ枠 (2026-07-27)。
+   「ボタン + 未選択ラベル」の羅列だと何を入れる欄か分からなかったため、
+   点線枠でドロップ先だと分かる形にした。フォーカスリングはキーボード操作用。 */
+.cmd-dropzone {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--radius);
+  background: var(--panel); cursor: pointer; transition: border-color .12s, background .12s;
+}
+.cmd-dropzone:hover { border-color: var(--accent); background: var(--panel-2); }
+.cmd-dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cmd-dropzone.is-over { border-color: var(--accent); background: var(--accent-soft); border-style: solid; }
+.cmd-dropzone-icon { font-size: 16px; color: var(--muted); width: 22px; text-align: center; flex: 0 0 auto; }
+.cmd-dropzone-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.cmd-dropzone-label { font-size: 12px; color: var(--text); }
+.cmd-dropzone-hint { font-size: 11px; color: var(--muted); }
+.cmd-dropzone-file {
+  font-size: 11px; color: var(--muted); max-width: 220px; flex: 0 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cmd-dropzone-file.has-file { color: var(--ok); }
+.cmd-upload-btn { align-self: flex-start; margin-top: 2px; }
 .cmd-model-info { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 20px; }
 .cmd-model-meta { font-size: 11px; color: var(--muted); }
 .cmd-preview-broken { font-size: 11px; color: var(--warn); white-space: nowrap; }

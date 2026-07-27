@@ -117,13 +117,24 @@ public final class DisassemblyListener implements Listener {
 
         List<ItemStack> returns = new ArrayList<>();
         for (DisassemblyRule rule : rules) {
-            double ingredientCount = template == null ? vanillaIngredientCount(stack, rule.input())
-                    : ingredientCount(template.recipes(), rule.input());
-            long amount = returnAmount(ingredientCount, level, features.disassemblyPercentPerLevel(), rule.multiplier(),
-                    buffMultiplier);
+            // 2026-07-27: base-amount を書いたルールはレシピを一切引かない。クラフトレシピを持たない
+            // アイテム(釣りのゴミ等)はレシピ由来の材料数が必ず 0 になり、従来は永久に戻りが出なかった。
+            double ingredientCount;
+            if (rule.hasBaseAmount()) {
+                ingredientCount = rule.baseAmount();
+            } else {
+                ingredientCount = template == null ? vanillaIngredientCount(stack, rule.input())
+                        : ingredientCount(template.recipes(), rule.input());
+            }
+            // 2026-07-27: 戻り先が複数あるルールは weight で1件だけ当てる(全部は出さない)。
+            CraftingFeaturesConfig.DisassemblyOutput chosen =
+                    rule.pick(ThreadLocalRandom.current().nextDouble());
+            if (chosen == null) continue; // 有効な戻り先が無いルールは何もしない(素材も消費しない)。
+            long amount = returnAmount(ingredientCount, level, features.disassemblyPercentPerLevel(),
+                    chosen.multiplier(), buffMultiplier);
             if (amount < 0) return; // malformed or excessive config must never consume the source item.
             if (amount == 0) continue;
-            List<ItemStack> returned = resolveReturnStacks(rule.output(), amount);
+            List<ItemStack> returned = resolveReturnStacks(chosen.item(), amount);
             if (returned == null) return;
             returns.addAll(returned);
         }

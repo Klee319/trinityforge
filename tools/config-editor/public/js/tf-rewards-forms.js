@@ -51,6 +51,18 @@
       if (!t.collection || typeof t.collection !== "object") t.collection = {};
       if (!["all", "category", "item", "mob"].includes(t.collection.scope)) t.collection.scope = "all";
       if (typeof t.collection.target !== "string") t.collection.target = "";
+      // 2026-07-27: 複数対象 (collection.targets)。単数 target は後方互換で残し、常に targets[0] と
+      // 同じ値に保つ。統合の順序は Java 側 parseCollectionTargets と厳密に同じ
+      // (targets を並べ、単数 target がそこに無ければ先頭へ足す)。逆にすると
+      // 「targets: [] と target: x が両方ある」既存ファイルで x を取りこぼす。
+      const single = t.collection.target.trim();
+      let targets = (Array.isArray(t.collection.targets) ? t.collection.targets : [])
+        .filter((v) => typeof v === "string" && v.trim() !== "")
+        .map((v) => v.trim())
+        .filter((v, i, arr) => arr.indexOf(v) === i);
+      if (single && !targets.includes(single)) targets = [single].concat(targets);
+      t.collection.targets = targets;
+      t.collection.target = targets[0] || "";
       if (!Number.isFinite(Number(t.collection.threshold))) t.collection.threshold = 1;
       t.collection.percent = !!t.collection.percent;
     }
@@ -518,6 +530,21 @@
     const titlesBody = h("div");
     const particlesBody = h("div");
     const seedsBody = h("div");
+    // 2026-07-27: display.head-offset-y だけが専用GUIから漏れていて、yml を直接触るしかなかった。
+    // 値を触らないまま保存しても消えはしない(working をそのまま返す往復ロスレス方式)が、
+    // 「GUIから編集できない設定」が1つ残るのでここへ出す。
+    const display = ensureObj(working, "display", {});
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "称号の頭上表示 (display)" })],
+      [h("div", { class: "field-grid" }, [
+        field("頭上オフセットY (ブロック)", window.numberInput(
+          display["head-offset-y"] == null ? 0.75 : display["head-offset-y"],
+          (v) => { display["head-offset-y"] = v == null ? 0 : v; }
+        ), "称号のTextDisplayを既定のマウント点からさらに持ち上げる高さ。"
+          + "プレイヤー名と重なるなら上げ、離れすぎるなら下げる。/trinityforge reload 後、"
+          + "次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映。")
+      ])]
+    ));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "称号 (titles)" })], [titlesBody]));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクル (particles)" })], [particlesBody]));
     root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクルシード (particle-seeds)" })], [seedsBody]));
@@ -670,10 +697,101 @@
           }
           const itemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : []).map((v) => ({ value: `item:${v.id}`, primary: `アイテム: ${v.label || v.id}`, secondary: v.id }));
           const mobCandidates = ENTITY_TYPE_CANDIDATES.map((id) => ({ value: `mob:${id}`, primary: `モブ: ${id}`, secondary: id }));
-          const value = c.scope === "all" ? "all" : `${c.scope}:${c.target}`;
-          triggerBody.appendChild(field("図鑑対象", window.listSelect({ value, options: [{ value: "all", primary: "すべての図鑑カテゴリ", secondary: "ALL" }].concat(categories, itemCandidates, mobCandidates), onCommit: (v) => {
-            const [scope, ...rest] = String(v || "all").split(":"); c.scope = scope; c.target = rest.join(":"); return true;
-          }})));
+          const allOption = { value: "all", primary: "すべての図鑑カテゴリ", secondary: "ALL" };
+          const allOptions = [allOption].concat(categories, itemCandidates, mobCandidates);
+          const labelOf = (scope, target) => {
+            const hit = allOptions.find((o) => o.value === `${scope}:${target}`);
+            return hit ? hit.primary : `${scope}: ${target}`;
+          };
+          // 対象は複数持てる (collection.targets)。scope は全対象で共通なので、行を足すときは
+          // 現在の scope と同じ種類の候補だけを出す — scope 混在は Java 側の候補集合の作り方
+          // (scope で prefix を決める) と噛み合わないため、UI の段階で作れないようにしておく。
+          const targetsBody = h("div", { class: "stat-rows" });
+          function candidatesForScope() {
+            if (c.scope === "category") return categories;
+            if (c.scope === "item") return itemCandidates;
+            if (c.scope === "mob") return mobCandidates;
+            return [];
+          }
+          function syncTargets(next) {
+            c.targets = next.filter((v, i, arr) => v && arr.indexOf(v) === i);
+            c.target = c.targets[0] || "";
+          }
+          function renderTargets() {
+            targetsBody.innerHTML = "";
+            if (c.scope === "all") {
+              targetsBody.appendChild(h("div", {
+                class: "field-hint",
+                text: "「すべての図鑑カテゴリ」は対象指定を取りません（図鑑全体の登録数で判定します）。"
+              }));
+              return;
+            }
+            if (!c.targets.length) targetsBody.appendChild(emptyHint("対象が選ばれていません。"));
+            c.targets.forEach((target, idx) => {
+              const row = h("div", { class: "stat-row" });
+              row.appendChild(window.listSelect({
+                value: `${c.scope}:${target}`,
+                options: candidatesForScope(),
+                onCommit: (v) => {
+                  const rest = String(v || "").split(":").slice(1).join(":");
+                  if (!rest) return false;
+                  const next = c.targets.slice();
+                  next[idx] = rest;
+                  syncTargets(next);
+                  renderTargets();
+                  return true;
+                }
+              }));
+              row.appendChild(h("button", {
+                class: "btn-small danger", type: "button", text: "×",
+                title: "この対象を外す",
+                onclick: () => { const next = c.targets.slice(); next.splice(idx, 1); syncTargets(next); renderTargets(); }
+              }));
+              targetsBody.appendChild(row);
+            });
+            const pool = candidatesForScope().filter((o) => !c.targets.includes(o.value.split(":").slice(1).join(":")));
+            if (pool.length) {
+              const addRow = h("div", { class: "stat-row" });
+              addRow.appendChild(window.listSelect({
+                value: "", options: pool, placeholder: "＋ 対象を追加…",
+                onCommit: (v) => {
+                  const rest = String(v || "").split(":").slice(1).join(":");
+                  if (!rest) return false;
+                  syncTargets(c.targets.concat(rest));
+                  renderTargets();
+                  return true;
+                }
+              }));
+              targetsBody.appendChild(addRow);
+            }
+            if (c.targets.length > 1) {
+              targetsBody.appendChild(h("div", {
+                class: "field-hint",
+                text: "複数指定は「和」で数えます。全部そろって達成にしたいなら閾値を "
+                  + c.targets.length + " にしてください。"
+              }));
+            }
+          }
+          triggerBody.appendChild(field("図鑑対象の種類", window.listSelect({
+            value: c.scope === "all" ? "all" : c.scope,
+            options: [
+              allOption,
+              { value: "category", primary: "カテゴリ", secondary: "category" },
+              { value: "item", primary: "アイテム", secondary: "item" },
+              { value: "mob", primary: "モブ", secondary: "mob" }
+            ],
+            onCommit: (v) => {
+              const next = String(v || "all");
+              if (next === c.scope) return false;
+              c.scope = next;
+              syncTargets([]); // 種類が変わると旧IDは別名前空間になるので持ち越さない。
+              renderTargets();
+              return true;
+            }
+          }), c.targets.length ? "現在: " + c.targets.map((t) => labelOf(c.scope, t)).join(" / ") : ""));
+          triggerBody.appendChild(field("対象 (collection.targets)", targetsBody,
+            "複数選べます。単一だけ選べば従来どおり collection.target としても保存されます。"));
+          renderTargets();
           triggerBody.appendChild(field("閾値", window.numberInput(c.threshold, (v) => { c.threshold = Math.max(1, Math.floor(Number(v) || 1)); }, { int: true })));
           triggerBody.appendChild(field("判定方式", window.selectInput(c.percent ? "percent" : "count", ["count", "percent"], (v) => { c.percent = v === "percent"; })));
         }
@@ -831,6 +949,89 @@
           ])
         ]
       ));
+      // 2026-07-27: 図鑑GUIの見た目。未発見エントリの錠前アイコンを差し替えられるようにする。
+      const gui = ensureObj(working, "gui", {});
+      bodyEl.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "図鑑GUI (gui)" })],
+        [h("div", { class: "field-grid" }, [
+          field("未発見アイコン (locked-icon)",
+            window.materialInput(gui["locked-icon"] || "BARRIER", "collection-locked-icon-list",
+              (v) => { gui["locked-icon"] = v || "BARRIER"; }),
+            "未発見エントリに使う「錠前」アイコンのMaterial。解決できない名前は BARRIER へ自動で戻ります。")
+        ])]
+      ));
+      // 表示名の上書き。既定は空でよい (アイテムは display-name、モブは翻訳キーで正しく出る)。
+      // モブだけは検索/並べ替えがサーバー側で英名基準になるため、日本語で引きたいものをここへ書く。
+      const displayNames = ensureObj(working, "display-names", {});
+      ensureObj(displayNames, "items", {});
+      ensureObj(displayNames, "mobs", {});
+      bodyEl.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "表示名の上書き (display-names)" })],
+        [
+          h("div", {
+            class: "field-hint",
+            text: "省略可。アイテムはカタログの display-name が、モブはバニラの翻訳名がそのまま出ます。"
+              + "ここへ書くと図鑑の表示名だけでなく、名前検索・名前ソートの基準もその名前になります"
+              + "（モブを日本語で検索したいときに使います）。"
+          }),
+          h("div", { class: "sub-title", text: "アイテム (display-names.items)" }),
+          keyValueEditor(displayNames.items, {
+            keyControl: (value, onChange) => catalogEntryControl(value, onChange),
+            keyPlaceholder: "カタログID",
+            valuePlaceholder: "表示名",
+            addLabel: "+ アイテム表示名を追加",
+            empty: "上書きはありません（通常はこのままで問題ありません）。",
+            newKey: "new_item"
+          }),
+          h("div", { class: "sub-title", text: "モブ (display-names.mobs)" }),
+          keyValueEditor(displayNames.mobs, {
+            keyControl: (value, onChange) => mobEntryControl(value, onChange),
+            keyPlaceholder: "ENTITY_TYPE",
+            valuePlaceholder: "表示名",
+            addLabel: "+ モブ表示名を追加",
+            empty: "上書きはありません（通常はこのままで問題ありません）。",
+            newKey: "ZOMBIE"
+          })
+        ]
+      ));
+    }
+
+    /**
+     * 単純な「キー→文字列」マップの編集UI。キー欄のコントロールは呼び出し側が差し込む
+     * (アイテムはカタログサジェスト、モブはEntityType候補)。
+     */
+    function keyValueEditor(map, cfg) {
+      const box = h("div", { class: "stat-rows" });
+      function render() {
+        box.innerHTML = "";
+        const keys = Object.keys(map);
+        if (!keys.length) box.appendChild(emptyHint(cfg.empty));
+        for (const key of keys) {
+          const row = h("div", { class: "stat-row" });
+          row.appendChild(cfg.keyControl(key, (next) => {
+            const trimmed = String(next || "").trim();
+            if (!trimmed || trimmed === key) return;
+            if (Object.prototype.hasOwnProperty.call(map, trimmed)) return;
+            const value = map[key];
+            delete map[key];
+            map[trimmed] = value;
+            render();
+          }));
+          row.appendChild(window.textInput(map[key] == null ? "" : String(map[key]),
+            (v) => { map[key] = v; }, cfg.valuePlaceholder));
+          row.appendChild(h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { delete map[key]; render(); }
+          }));
+          box.appendChild(row);
+        }
+        box.appendChild(h("button", {
+          class: "btn-small", type: "button", text: cfg.addLabel,
+          onclick: () => { map[uniqueKey(map, cfg.newKey)] = ""; render(); }
+        }));
+      }
+      render();
+      return box;
     }
 
     function renderCategoryGroup(groupKey, entryControl, addPlaceholderId) {

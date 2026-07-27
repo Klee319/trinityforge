@@ -19,6 +19,19 @@ enabled: true
 sources:
   catalog-items: true
   mob-kills: true
+# gui: (2026-07-27追加) 図鑑GUIの見た目。
+#   locked-icon: 未発見エントリに使う「錠前」アイコンのMaterial名(既定 BARRIER)。
+#                解決できない名前を書いた場合は既定へ自動フォールバックする。
+gui:
+  locked-icon: BARRIER
+# display-names: (2026-07-27追加、任意) 図鑑での表示名の明示上書き。既定は空でよい。
+#   items.<catalogId>: アイテムは通常 display-name がそのまま出るので、書く必要はほぼ無い。
+#   mobs.<ENTITY_TYPE>: モブは翻訳キー(entity.minecraft.*)で表示するため画面には日本語が出るが、
+#                       サーバー側は日本語名を知らないので「名前検索/名前ソート」は英名基準になる。
+#                       日本語で検索・整列させたいモブだけここへ書く。
+display-names:
+  items: {}
+  mobs: {}
 categories:
   items:
     infinity:

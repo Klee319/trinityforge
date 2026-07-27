@@ -4343,6 +4343,32 @@ items:
       source: 15000
       type: shapeless
       ingredients: []
+  # --- スキルツリー機能アイテム (2026-07-27) ---
+  # この2つのIDは com.trinityforge.skilltree.runtime.SkillTreeItems が特別扱いする。
+  # ID を変えると機能しなくなるので、変えたい場合は SkillTreeItems.java 側も直すこと。
+  # 使い方: メインハンドに持って /tf skills のスキルツリーGUIを開き、対象ノードをクリックする。
+  # レシピは未設定 — 現状は /tf give または特殊報酬/実績配布で渡す想定。エディタでレシピを付けてもよい。
+  skill_node_lock:
+    material: AMETHYST_SHARD
+    display-name: <color:gold>スキルノードの楔</color>
+    enchant-glow: true
+    lore:
+      - "<gray><italic>解放した一点を、時の巻き戻しから守る楔。</italic></gray>"
+      - ""
+      - "<yellow>スキルツリーGUIで解放済みノードをクリック</yellow>"
+      - "<gray>ロックしたノードはプレステージしても解放が維持されます。</gray>"
+      - "<gray>ロックを外すときは消費しません（もう一度クリック）。</gray>"
+      - "<dark_gray>※ツリーリセットは保護しません（リセットは全ノードが対象）。</dark_gray>"
+  skill_tree_reset:
+    material: ECHO_SHARD
+    display-name: <color:aqua>スキル再構築の書</color>
+    enchant-glow: true
+    lore:
+      - "<gray><italic>積み上げた選択だけを解き、歩んだ距離は残す。</italic></gray>"
+      - ""
+      - "<yellow>スキルツリーGUIでノードをクリック（2回目で確定）</yellow>"
+      - "<gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>"
+      - "<gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>"
 _editor:
   categories:
     weapon:

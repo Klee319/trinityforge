@@ -32,13 +32,25 @@ public final class AchievementsConfig implements LoadableConfig {
     public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC }
 
     /**
-     * @param type        STATISTIC | ADVANCEMENT | STATIC（図鑑登録）
-     * @param statistic   type=STATISTIC のとき参照する Bukkit Statistic(それ以外は null)
-     * @param threshold   type=STATISTIC のとき到達判定するしきい値
-     * @param advancement type=ADVANCEMENT のとき対象の進捗キー(それ以外は null)
+     * @param type              STATISTIC | ADVANCEMENT | STATIC（図鑑登録）
+     * @param statistic         type=STATISTIC のとき参照する Bukkit Statistic(それ以外は null)
+     * @param threshold         type=STATISTIC のとき到達判定するしきい値
+     * @param advancement       type=ADVANCEMENT のとき対象の進捗キー(それ以外は null)
+     * @param collectionTargets type=STATIC の対象ID群。2026-07-27 に単数 {@code collection.target} から
+     *                          複数 {@code collection.targets} へ拡張した(「複数アイテムの図鑑登録が
+     *                          全部そろったら達成」を表現できるようにするため)。単数キーは
+     *                          後方互換として読み続け、要素1件のリストとして正規化される。
      */
     public record Trigger(TriggerType type, Statistic statistic, long threshold, String advancement,
-                          String collectionScope, String collectionTarget, boolean collectionPercent) {
+                          String collectionScope, List<String> collectionTargets, boolean collectionPercent) {
+        public Trigger {
+            collectionTargets = collectionTargets == null ? List.of() : List.copyOf(collectionTargets);
+        }
+
+        /** 単一ターゲット時代の互換アクセサ。未指定なら空文字。 */
+        public String collectionTarget() {
+            return collectionTargets.isEmpty() ? "" : collectionTargets.get(0);
+        }
     }
 
     /**
@@ -182,7 +194,7 @@ public final class AchievementsConfig implements LoadableConfig {
                         + "' has missing/invalid trigger.threshold (>=1); skipped");
                 return null;
             }
-            return new Trigger(TriggerType.STATISTIC, statistic, threshold, null, null, null, false);
+            return new Trigger(TriggerType.STATISTIC, statistic, threshold, null, null, List.of(), false);
         }
         if (type == TriggerType.STATIC) {
             String scope = trigger.getString("collection.scope", "all").trim().toLowerCase(Locale.ROOT);
@@ -190,18 +202,24 @@ public final class AchievementsConfig implements LoadableConfig {
                 log.warning("[" + PATH + "] achievement '" + achievementId + "' has invalid collection scope; skipped");
                 return null;
             }
-            String target = trigger.getString("collection.target", "").trim();
-            if (!scope.equals("all") && target.isBlank()) {
-                log.warning("[" + PATH + "] achievement '" + achievementId + "' needs collection.target; skipped");
+            List<String> targets = parseCollectionTargets(trigger);
+            if (!scope.equals("all") && targets.isEmpty()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' needs collection.target or collection.targets; skipped");
                 return null;
             }
-            long threshold = trigger.getLong("collection.threshold", -1);
             boolean percent = trigger.getBoolean("collection.percent", false);
+            // 2026-07-27: targets を並べた「全部そろったら」を最短で書けるように、item/mob スコープで
+            // threshold 未指定なら「列挙した件数」を既定にする(単数targetなら従来どおり 1)。
+            // category/all は列挙数と候補数が一致しないため、従来どおり threshold を必須のままにする。
+            long defaultThreshold = (!percent && (scope.equals("item") || scope.equals("mob")))
+                    ? targets.size() : -1;
+            long threshold = trigger.getLong("collection.threshold", defaultThreshold);
             if (threshold < 1 || (percent && threshold > 100)) {
                 log.warning("[" + PATH + "] achievement '" + achievementId + "' has invalid collection threshold; skipped");
                 return null;
             }
-            return new Trigger(TriggerType.STATIC, null, threshold, null, scope, target, percent);
+            return new Trigger(TriggerType.STATIC, null, threshold, null, scope, targets, percent);
         }
         String advancement = trigger.getString("advancement");
         if (advancement == null || advancement.isBlank()) {
@@ -209,7 +227,26 @@ public final class AchievementsConfig implements LoadableConfig {
                     + "' has missing trigger.advancement; skipped");
             return null;
         }
-        return new Trigger(TriggerType.ADVANCEMENT, null, 0, advancement.trim(), null, null, false);
+        return new Trigger(TriggerType.ADVANCEMENT, null, 0, advancement.trim(), null, List.of(), false);
+    }
+
+    /**
+     * {@code collection.targets}(複数) と {@code collection.target}(単数) を1つのリストへ正規化する。
+     * 両方書かれていた場合は複数キーを正とし、単数キーがそこに含まれていなければ先頭へ足す
+     * (どちらか一方だけを黙って捨てて「書いたのに効かない」状態を作らないため)。重複は畳む。
+     */
+    private static List<String> parseCollectionTargets(ConfigurationSection trigger) {
+        List<String> targets = new ArrayList<>();
+        for (String raw : trigger.getStringList("collection.targets")) {
+            if (raw != null && !raw.isBlank() && !targets.contains(raw.trim())) {
+                targets.add(raw.trim());
+            }
+        }
+        String single = trigger.getString("collection.target", "");
+        if (single != null && !single.isBlank() && !targets.contains(single.trim())) {
+            targets.add(0, single.trim());
+        }
+        return List.copyOf(targets);
     }
 
     private static TriggerType parseTriggerType(String raw) {

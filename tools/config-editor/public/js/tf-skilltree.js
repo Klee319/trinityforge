@@ -820,46 +820,136 @@
     // まとめて dedicated-effects へ追加する。既存IDはスキップ。kind = "recipe" | "ritual"。
     // 注記: recipe: ゲートは items/catalog.yml のワークベンチレシピ(カタログ出力ID)のみが対象。
     //       バニラレシピはこのゲート機構の対象外(語彙 vocab.recipes に含まれない)。
-    function bulkAddByWildcard(kind, pattern) {
+    /**
+     * ワイルドカード一括追加モーダル (2026-07-27 UI改善)。
+     *
+     * <p>旧UIは「行内の細い入力欄 + 一括追加ボタン」で、押すまで何件どれが入るのか分からず、
+     * 結果は alert で事後報告されるだけだった。入力しながら一致結果を出し、
+     * 追加するものを個別に外せる形へ変えた(追加済みは選べないよう固定表示)。
+     */
+    function openWildcardModal(kind) {
       const kindLabel = kind === "ritual" ? "儀式エフェクト" : "クラフトレシピ";
-      const source = kind === "ritual" ? vocab.rituals : vocab.recipes;
+      const source = (kind === "ritual" ? vocab.rituals : vocab.recipes) || [];
       if (!Array.isArray(source) || source.length === 0) {
         alert(`${kindLabel}が定義されていません。`);
         return;
       }
-      let re;
-      try { re = globToRegex(pattern); }
-      catch (_) { alert("ワイルドカードのパターンを入力してください(例: *  または  great_* )。"); return; }
-      const matches = source.map(String).filter((id) => re.test(id));
-      if (matches.length === 0) { alert(`「${String(pattern).trim()}」に一致する${kindLabel}がありません。`); return; }
       if (!Array.isArray(node["dedicated-effects"])) node["dedicated-effects"] = [];
       const existing = new Set(node["dedicated-effects"].map((p) => String(p && p.id)));
-      let added = 0, skipped = 0;
-      for (const id of matches) {
-        const gateId = `${kind}:${id}`;
-        if (existing.has(gateId)) { skipped++; continue; }
-        node["dedicated-effects"].push({ id: gateId });
-        existing.add(gateId);
-        added++;
+      const ids = source.map(String);
+      /** チェックを外したID(既定は全選択なので、外したものだけ覚える)。 */
+      const deselected = new Set();
+
+      const overlay = h("div", { class: "modal-overlay" });
+      const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+      const summary = h("div", { class: "gate-bulk-summary" });
+      const list = h("div", { class: "gate-bulk-list" });
+      const addBtn = h("button", { class: "btn primary", type: "button", text: "追加" });
+
+      let pattern = "*";
+      const patInput = window.textInput("*", (v) => { pattern = v; renderMatches(); },
+        "* / great_* / *_sword");
+      patInput.classList.add("gate-bulk-pattern");
+
+      function matchedIds() {
+        let re;
+        try { re = globToRegex(pattern); } catch (_) { return null; }
+        return ids.filter((id) => re.test(id));
       }
-      render();
-      alert(`一括追加(${kindLabel}): ${added}件追加`
-        + (skipped ? ` / ${skipped}件は既存のためスキップ` : "")
-        + `  (一致 ${matches.length}件)`);
+
+      function selectedIds() {
+        const matches = matchedIds() || [];
+        return matches.filter((id) => !existing.has(`${kind}:${id}`) && !deselected.has(id));
+      }
+
+      function renderMatches() {
+        list.textContent = "";
+        const matches = matchedIds();
+        if (matches === null) {
+          summary.textContent = "パターンを入力してください（* = 任意の文字列, ? = 1文字）。";
+          addBtn.disabled = true;
+          return;
+        }
+        const already = matches.filter((id) => existing.has(`${kind}:${id}`));
+        const selectable = matches.length - already.length;
+        summary.textContent = `一致 ${matches.length}件 / 追加できる ${selectable}件`
+          + (already.length ? ` / 追加済み ${already.length}件` : "");
+        if (matches.length === 0) {
+          list.appendChild(h("div", { class: "empty-hint", text: "一致するIDがありません。" }));
+          addBtn.disabled = true;
+          return;
+        }
+        for (const id of matches) {
+          const isExisting = existing.has(`${kind}:${id}`);
+          const row = h("label", { class: "gate-bulk-row" + (isExisting ? " is-existing" : "") });
+          const box = h("input", { type: "checkbox" });
+          box.checked = !isExisting && !deselected.has(id);
+          box.disabled = isExisting;
+          box.addEventListener("change", () => {
+            if (box.checked) deselected.delete(id); else deselected.add(id);
+            updateAddButton();
+          });
+          row.appendChild(box);
+          row.appendChild(h("span", { class: "gate-bulk-id", text: id }));
+          if (isExisting) {
+            row.appendChild(h("span", { class: "gate-bulk-tag", text: "追加済み" }));
+          }
+          list.appendChild(row);
+        }
+        updateAddButton();
+      }
+
+      function updateAddButton() {
+        const count = selectedIds().length;
+        addBtn.disabled = count === 0;
+        addBtn.textContent = count > 0 ? `${count}件を追加` : "追加";
+      }
+
+      addBtn.addEventListener("click", () => {
+        const picked = selectedIds();
+        for (const id of picked) {
+          const gateId = `${kind}:${id}`;
+          node["dedicated-effects"].push({ id: gateId });
+          existing.add(gateId);
+        }
+        close();
+        render();
+      });
+
+      const box = h("div", { class: "modal-box modal-box-wide" }, [
+        h("div", { class: "modal-title", text: `一括追加: ${kindLabel}` }),
+        h("div", { class: "modal-text", text:
+          "パターンに一致するIDを解放効果へまとめて追加します。* = 任意の文字列 / ? = 1文字。"
+          + (kind === "ritual" ? "" : " バニラレシピは対象外です（カタログのワークベンチレシピのみ）。") }),
+        h("div", { class: "gate-bulk-controls" }, [
+          patInput,
+          h("button", { class: "btn-small", type: "button", text: "すべて選択",
+            onclick: () => { deselected.clear(); renderMatches(); } }),
+          h("button", { class: "btn-small", type: "button", text: "すべて解除",
+            onclick: () => { for (const id of matchedIds() || []) deselected.add(id); renderMatches(); } })
+        ]),
+        summary,
+        list,
+        h("div", { class: "modal-actions" }, [
+          addBtn,
+          h("button", { class: "btn-small", type: "button", text: "キャンセル", onclick: close })
+        ])
+      ]);
+      overlay.appendChild(box);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      document.body.appendChild(overlay);
+      renderMatches();
+      patInput.focus();
     }
 
-    // レシピゲート行内に出す「ワイルドカード一括追加」コントロール(パターン入力 + ボタン)。
+    // レシピゲート行内に出す「ワイルドカード一括追加」の起動ボタン。
     function wildcardControls(kind) {
-      let pattern = "";
-      const patInput = window.textInput("", (v) => { pattern = v; }, "一括: *  /  great_*");
-      patInput.classList.add("gate-bulk-pattern");
-      const btn = h("button", {
-        class: "btn-small", type: "button", text: "一括追加",
+      return [h("button", {
+        class: "btn-small", type: "button", text: "一括追加…",
         title: "パターンに一致する" + (kind === "ritual" ? "儀式エフェクト" : "クラフトレシピ")
-          + "をまとめて解放効果に追加します。* = 任意, ? = 1文字。バニラレシピは対象外です。",
-        onclick: () => bulkAddByWildcard(kind, pattern)
-      });
-      return [patInput, btn];
+          + "をまとめて解放効果に追加します（追加前に一致結果を確認できます）。",
+        onclick: () => openWildcardModal(kind)
+      })];
     }
 
     function renderRecipeGateRow(prefix, target, onIdChange) {

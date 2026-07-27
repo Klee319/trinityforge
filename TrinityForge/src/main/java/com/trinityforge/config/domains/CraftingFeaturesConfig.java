@@ -36,8 +36,89 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
     public record WoodRepairMaterial(int durability, boolean quickRepair) {}
 
-    /** A single return conversion for a disassembly target series. */
-    public record DisassemblyRule(String input, String output, double multiplier) {}
+    /**
+     * 解体の戻り先候補1件 (2026-07-27)。{@code weight} は同一ルール内の相対重みで、
+     * 1ルールにつき<b>1件だけ</b>当たる(全部が出るのではない)。
+     *
+     * @param item       戻すアイテム({@code Material} 名 または {@code custom:<カタログID>})
+     * @param weight     抽選の相対重み(0以下は候補から外れる)
+     * @param multiplier この候補が当たったときの戻り量倍率
+     */
+    public record DisassemblyOutput(String item, double weight, double multiplier) {}
+
+    /**
+     * A single return conversion for a disassembly target series.
+     *
+     * @param input      戻り量の基準にする「レシピ上の材料」({@code Material} / {@code list:<id>} /
+     *                   {@code custom:<id>})。{@code baseAmount} を指定した場合は参照されない。
+     * @param outputs    戻り先候補。1件なら従来どおり確定、複数なら {@code weight} で1件を抽選する。
+     * @param multiplier ルール既定の戻り量倍率(候補側が {@code multiplier} を持たない場合に使う)。
+     * @param baseAmount レシピを引かずに材料数を直接与える (2026-07-27)。{@code null} なら従来どおり
+     *                   レシピから数える。<b>クラフトレシピを持たないアイテム</b>(釣りのゴミ等)は
+     *                   レシピ由来の材料数が必ず 0 になり戻りが発生しないので、この指定が唯一の手段。
+     */
+    public record DisassemblyRule(String input, List<DisassemblyOutput> outputs, double multiplier,
+                                  Double baseAmount) {
+
+        public DisassemblyRule {
+            outputs = outputs == null ? List.of() : List.copyOf(outputs);
+        }
+
+        /** 旧2値コンストラクタ相当(単一 output・レシピ由来の材料数)。既存の呼び出し/テスト用。 */
+        public DisassemblyRule(String input, String output, double multiplier) {
+            this(input, List.of(new DisassemblyOutput(output, 1.0, multiplier)), multiplier, null);
+        }
+
+        /** 単一候補時代の互換アクセサ。候補が無ければ {@code null}。 */
+        public String output() {
+            return outputs.isEmpty() ? null : outputs.get(0).item();
+        }
+
+        /** {@code baseAmount} が指定されているか(＝レシピを引かない)。 */
+        public boolean hasBaseAmount() {
+            return baseAmount != null;
+        }
+
+        /**
+         * {@code roll} (0.0以上1.0未満) で候補を1件選ぶ。候補が1件ならその候補、
+         * 空なら {@code null}。重みの合計が0以下(全候補が無効重み)の場合も {@code null}
+         * — 呼び出し側は「戻りなし」として扱い、素材を消費してはいけない。
+         */
+        public DisassemblyOutput pick(double roll) {
+            if (outputs.isEmpty()) {
+                return null;
+            }
+            if (outputs.size() == 1) {
+                return outputs.get(0).weight() > 0.0 ? outputs.get(0) : null;
+            }
+            double total = 0.0;
+            for (DisassemblyOutput candidate : outputs) {
+                if (candidate.weight() > 0.0) {
+                    total += candidate.weight();
+                }
+            }
+            if (total <= 0.0) {
+                return null;
+            }
+            double cursor = Math.max(0.0, Math.min(roll, 1.0)) * total;
+            for (DisassemblyOutput candidate : outputs) {
+                if (candidate.weight() <= 0.0) {
+                    continue;
+                }
+                cursor -= candidate.weight();
+                if (cursor <= 0.0) {
+                    return candidate;
+                }
+            }
+            // 浮動小数の丸めで cursor が僅かに残った場合の保険(最後の有効候補)。
+            for (int i = outputs.size() - 1; i >= 0; i--) {
+                if (outputs.get(i).weight() > 0.0) {
+                    return outputs.get(i);
+                }
+            }
+            return null;
+        }
+    }
 
     public record BrewPotionSpec(String base, String ingredient, PotionEffectType type, int durationTicks, int amplifier) {}
 
@@ -403,21 +484,90 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
                 List<Map<?, ?>> rawRules = itemSec.getMapList(target);
                 List<DisassemblyRule> rules = new ArrayList<>();
                 for (Map<?, ?> raw : rawRules) {
-                    Object inputRaw = raw.get("input");
-                    Object outputRaw = raw.get("output");
-                    if (!(inputRaw instanceof String input) || input.isBlank()
-                            || !(outputRaw instanceof String output) || output.isBlank()) {
-                        continue;
-                    }
-                    double multiplier = raw.get("multiplier") instanceof Number n ? n.doubleValue() : 1.0;
-                    if (Double.isFinite(multiplier) && multiplier > 0.0) {
-                        rules.add(new DisassemblyRule(input.trim(), output.trim(), multiplier));
+                    DisassemblyRule rule = parseDisassemblyRule(raw);
+                    if (rule != null) {
+                        rules.add(rule);
                     }
                 }
                 if (!rules.isEmpty()) items.put(target, List.copyOf(rules));
             }
         }
         this.disassemblyItems = Collections.unmodifiableMap(items);
+    }
+
+    /**
+     * 解体ルール1件のパース (2026-07-27 拡張)。壊れた行は {@code null} を返して黙って捨てる
+     * (この節の従来からの fail-soft 方針を維持)。
+     *
+     * <p>受け付ける形:
+     * <pre>
+     *   - input: IRON_INGOT          # 従来形。レシピからこの材料の個数を数える
+     *     output: custom:iron_scrap
+     *     multiplier: 2
+     *
+     *   - base-amount: 1             # レシピを引かない(レシピの無いアイテム用)
+     *     outputs:                   # 重み付きで1件だけ当たる
+     *       - item: custom:plank_scrap
+     *         weight: 3
+     *       - item: custom:iron_ingot_scrap
+     *         weight: 1
+     *         multiplier: 0.5        # 省略時はルールの multiplier
+     * </pre>
+     * {@code input} と {@code base-amount} の両方が無い行は、戻り量を決める術が無いので捨てる。
+     */
+    private static DisassemblyRule parseDisassemblyRule(Map<?, ?> raw) {
+        double multiplier = raw.get("multiplier") instanceof Number n ? n.doubleValue() : 1.0;
+        if (!Double.isFinite(multiplier) || multiplier <= 0.0) {
+            return null;
+        }
+
+        Double baseAmount = null;
+        if (raw.get("base-amount") instanceof Number n) {
+            double value = n.doubleValue();
+            if (Double.isFinite(value) && value > 0.0) {
+                baseAmount = value;
+            }
+        }
+
+        String input = raw.get("input") instanceof String s && !s.isBlank() ? s.trim() : null;
+        if (input == null && baseAmount == null) {
+            return null; // 戻り量の基準が無い。
+        }
+
+        List<DisassemblyOutput> outputs = new ArrayList<>();
+        Object outputsRaw = raw.get("outputs");
+        if (outputsRaw instanceof List<?> list) {
+            for (Object element : list) {
+                if (!(element instanceof Map<?, ?> entry)) {
+                    continue;
+                }
+                if (!(entry.get("item") instanceof String item) || item.isBlank()) {
+                    continue;
+                }
+                double weight = entry.get("weight") instanceof Number w ? w.doubleValue() : 1.0;
+                if (!Double.isFinite(weight) || weight <= 0.0) {
+                    continue;
+                }
+                double entryMultiplier = entry.get("multiplier") instanceof Number m
+                        ? m.doubleValue() : multiplier;
+                if (!Double.isFinite(entryMultiplier) || entryMultiplier <= 0.0) {
+                    entryMultiplier = multiplier;
+                }
+                outputs.add(new DisassemblyOutput(item.trim(), weight, entryMultiplier));
+            }
+        }
+        // 単一 output は従来形。outputs と併記された場合は outputs を正とし、単一側は候補として足す。
+        if (raw.get("output") instanceof String output && !output.isBlank()) {
+            String trimmed = output.trim();
+            boolean alreadyListed = outputs.stream().anyMatch(o -> o.item().equals(trimmed));
+            if (!alreadyListed) {
+                outputs.add(new DisassemblyOutput(trimmed, 1.0, multiplier));
+            }
+        }
+        if (outputs.isEmpty()) {
+            return null;
+        }
+        return new DisassemblyRule(input, List.copyOf(outputs), multiplier, baseAmount);
     }
 
     private void loadPotionMerge(YamlConfiguration yaml, Logger log) {

@@ -96,6 +96,15 @@ public final class PdcKeys {
     // --- Player (PROGRESSION / UNLOCK / ROLE): perks, prestige, role are the unlock truth. ---
     public static final NamespacedKey PLAYER_PRESTIGE_COUNT = key("prestige_count");
     public static final NamespacedKey PLAYER_HELD_PERKS = key("held_perks");
+    /**
+     * スキルノードロック (2026-07-27): プレステージしても解放を維持するノードの perk ID 集合。
+     * {@link #PLAYER_HELD_PERKS} と同じ 0x1F 結合 STRING コーデック。
+     *
+     * <p>進行DB(SQLite)ではなくプレイヤーPDCに置くのは、ロックが「所持している解放状態」ではなく
+     * 「プレイヤーが選んだ保護指定」であり、DBスキーマ変更なしで足せるため。プレステージ時に
+     * {@code NativePerkService} が「ロック ∩ 所持中」だけを無償で再付与する。
+     */
+    public static final NamespacedKey PLAYER_LOCKED_PERKS = key("locked_perks");
     public static final NamespacedKey PLAYER_ROLE_PRIMARY = key("role_primary");
     public static final NamespacedKey PLAYER_ROLE_SUPPORT = key("role_support");
     /**

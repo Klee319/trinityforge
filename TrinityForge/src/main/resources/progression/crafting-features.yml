@@ -17,6 +17,20 @@ wood-repair:
     compressed_wood_1x:
       durability: 200
       quick-repair: true
+# 解体(スクラップ化): アンビルを落として下敷きのアイテムを素材へ戻す。
+#   items.<対象>: 対象は カタログID / Material名。末尾 * で前方一致(例: wooden_*)、* なしは完全一致
+#                 (= アイテム個別指定)。より長い前方一致が勝ち、完全一致が最優先。
+#   各ルール:
+#     input       : 戻り量の基準にする「レシピ上の材料」。そのアイテムのレシピを引き、
+#                   材料が何個使われているかを数える。
+#     base-amount : (2026-07-27追加) レシピを引かず材料数を直接指定する。
+#                   ★クラフトレシピを持たないアイテム(釣りのゴミ等)は input では必ず 0 個になるため、
+#                     こちらを使う。input と base-amount の両方が無いルールは無視される。
+#     output      : 戻すアイテム1種(従来形)。
+#     outputs     : (2026-07-27追加) 戻り先候補の重み付き抽選。1ルールにつき★1件だけ★当たる。
+#                   - item: 戻すアイテム / weight: 相対重み / multiplier: 省略時はルールの multiplier
+#     multiplier  : 戻り量の倍率。
+#   戻り量 = floor(材料数 × 解体Lv × percent-per-level / 100) × multiplier
 disassembly:
   percent-per-level: 25
   items:
@@ -52,6 +66,84 @@ disassembly:
       - input: TURTLE_SCUTE
         output: custom:turtle_scute_scrap
         multiplier: 2
+    # --- 釣りのゴミ → ランダムなスクラップ (2026-07-27) ---
+    # いずれもクラフトレシピを持たない(あるいは持っていても意味のある材料が拾えない)ので
+    # base-amount で材料数を与え、outputs の重み抽選で「何が出るか分からない」戻りにする。
+    # 重みは合計に対する相対値なので、木くずが出やすく金属くずは滅多に出ない配分になっている。
+    ROTTEN_FLESH:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:leather_scrap
+            weight: 6
+          - item: custom:plank_scrap
+            weight: 3
+          - item: custom:iron_ingot_scrap
+            weight: 1
+    STICK:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:plank_scrap
+            weight: 9
+          - item: custom:copper_ingot_scrap
+            weight: 1
+    STRING:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:leather_scrap
+            weight: 7
+          - item: custom:plank_scrap
+            weight: 3
+    BONE:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:leather_scrap
+            weight: 5
+          - item: custom:turtle_scute_scrap
+            weight: 4
+          - item: custom:iron_ingot_scrap
+            weight: 1
+    INK_SAC:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:leather_scrap
+            weight: 8
+          - item: custom:copper_ingot_scrap
+            weight: 2
+    LILY_PAD:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:plank_scrap
+            weight: 10
+    BOWL:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:plank_scrap
+            weight: 10
+    TRIPWIRE_HOOK:
+      - base-amount: 1
+        multiplier: 1
+        outputs:
+          - item: custom:iron_ingot_scrap
+            weight: 6
+          - item: custom:plank_scrap
+            weight: 4
+    FISHING_ROD:
+      - base-amount: 2
+        multiplier: 1
+        outputs:
+          - item: custom:plank_scrap
+            weight: 6
+          - item: custom:leather_scrap
+            weight: 3
+          - item: custom:copper_ingot_scrap
+            weight: 1
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960

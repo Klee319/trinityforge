@@ -80,11 +80,26 @@ public final class MobOverrideDropListener implements Listener {
         this.random = Objects.requireNonNull(random, "random");
     }
 
+    /**
+     * TF追加ドロップを止める述語 (2026-07-27、AFK対策)。{@code true} を返したキル者には
+     * 追加ドロップを付けない。バニラ本来のドロップには一切触らない — そこまで止めると
+     * モブトラップが完全に死んで「AFK対策」の域を超えるため。未配線(null)なら抑止なし。
+     */
+    private volatile java.util.function.Predicate<org.bukkit.entity.Player> dropGate;
+
+    /** 追加ドロップの抑止述語を設定する(2026-07-27、AFK対策)。null で無効化。 */
+    public void setDropGate(java.util.function.Predicate<org.bukkit.entity.Player> gate) {
+        this.dropGate = gate;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
         if (entity.getKiller() == null) {
             // 2026-07-26 H2: プレイヤーがキルした場合のみ適用する(class javadoc「Player-kill gate」参照)。
+            return;
+        }
+        if (isGated(entity.getKiller())) {
             return;
         }
         MobData mobData = MobData.of(entity);
@@ -135,5 +150,18 @@ public final class MobOverrideDropListener implements Listener {
         ItemStack stack = resolved.get();
         stack.setAmount(count);
         return stack;
+    }
+
+    /** 述語の例外でドロップ処理を落とさない(抑止は付加機能なので、失敗したら従来どおり付与する)。 */
+    private boolean isGated(org.bukkit.entity.Player killer) {
+        java.util.function.Predicate<org.bukkit.entity.Player> gate = this.dropGate;
+        if (gate == null || killer == null) {
+            return false;
+        }
+        try {
+            return gate.test(killer);
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 }

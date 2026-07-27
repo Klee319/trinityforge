@@ -3,11 +3,13 @@ package com.trinityforge.progression;
 import com.trinityforge.config.domains.CollectionConfig;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Pure (Bukkit-free) grouping/paging logic for the {@code /tf collection} GUI
@@ -82,6 +84,116 @@ public final class CollectionGuiModel {
             }
         }
         return result;
+    }
+
+    /**
+     * 並べ替え軸 (2026-07-27)。{@code DEFAULT} は config の宣言順(=カテゴリの {@code entries} 順)で、
+     * 従来の唯一の並びと完全に一致する。
+     *
+     * <p>{@code KIND}/{@code LEVEL} は「ステータス(items/catalog.yml)に設定された使用スキル種別」と
+     * 「使用可能レベル」を見る。どちらも持たないエントリ(素の Material のカタログ品・モブ)は
+     * それぞれ「素材(Material)名」「レベル0」として扱い、同値の中では名前順で決着させる
+     * (完全な決定性を持たせ、ページ送りで並びが揺れないようにするため)。
+     */
+    public enum SortMode {
+        DEFAULT("既定(カテゴリ順)"),
+        NAME("名前順"),
+        KIND("種別順(スキル→素材)"),
+        LEVEL("使用可能レベル順");
+
+        private final String label;
+
+        SortMode(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public SortMode next() {
+            SortMode[] all = values();
+            return all[(ordinal() + 1) % all.length];
+        }
+    }
+
+    /** 解放状態の絞り込み (2026-07-27)。図鑑では「解放済み=発見済み」。 */
+    public enum FilterMode {
+        ALL("すべて"),
+        DISCOVERED("発見済みのみ"),
+        UNDISCOVERED("未発見のみ");
+
+        private final String label;
+
+        FilterMode(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public FilterMode next() {
+            FilterMode[] all = values();
+            return all[(ordinal() + 1) % all.length];
+        }
+    }
+
+    /**
+     * 1エントリの並べ替えキー。
+     *
+     * @param name  表示名のプレーンテキスト(小文字化済みを想定)
+     * @param kind  種別ラベル。items/catalog.yml の {@code use-skill}、無ければ Material 名
+     * @param level 使用可能レベル({@code use-level-requirement}、無指定/非対象は 0)
+     */
+    public record EntrySortKey(String name, String kind, int level) {
+        public EntrySortKey {
+            name = name == null ? "" : name;
+            kind = kind == null ? "" : kind;
+        }
+    }
+
+    /** ワイルドカード検索と並べ替え・絞り込みをまとめて適用する。 */
+    public static List<GuiEntry> arrange(List<GuiEntry> entries, SortMode sort, FilterMode filter,
+                                          String namePattern, Function<String, EntrySortKey> keys) {
+        Function<String, EntrySortKey> keyOf = keys == null
+                ? id -> new EntrySortKey(id, "", 0)
+                : keys;
+        List<GuiEntry> working = new ArrayList<>();
+        for (GuiEntry entry : entries) {
+            if (filter == FilterMode.DISCOVERED && !entry.discovered()) continue;
+            if (filter == FilterMode.UNDISCOVERED && entry.discovered()) continue;
+            // 未発見エントリは名前を伏せている(？？？)ため、検索で当てられると図鑑の意味が壊れる。
+            // 検索の対象は発見済みエントリだけに限る。
+            if (!matchesSearch(entry, namePattern, keyOf)) continue;
+            working.add(entry);
+        }
+        if (sort == null || sort == SortMode.DEFAULT) {
+            return List.copyOf(working);
+        }
+        Comparator<GuiEntry> comparator = switch (sort) {
+            case NAME -> Comparator.comparing(e -> keyOf.apply(e.entryId()).name());
+            case KIND -> Comparator.<GuiEntry, String>comparing(e -> keyOf.apply(e.entryId()).kind())
+                    .thenComparing(e -> keyOf.apply(e.entryId()).name());
+            case LEVEL -> Comparator.<GuiEntry>comparingInt(e -> keyOf.apply(e.entryId()).level())
+                    .thenComparing(e -> keyOf.apply(e.entryId()).name());
+            case DEFAULT -> null;
+        };
+        if (comparator != null) {
+            working.sort(comparator.thenComparing(GuiEntry::entryId));
+        }
+        return List.copyOf(working);
+    }
+
+    private static boolean matchesSearch(GuiEntry entry, String namePattern,
+                                          Function<String, EntrySortKey> keyOf) {
+        if (namePattern == null || namePattern.isBlank()) {
+            return true;
+        }
+        if (!entry.discovered()) {
+            return false;
+        }
+        return GlobMatcher.matches(namePattern, keyOf.apply(entry.entryId()).name());
     }
 
     /** Splits {@code entries} into pages of at most {@code pageSize} (a non-positive size yields one page). */

@@ -7,7 +7,16 @@
 #     statistic: type=statistic のとき参照する Bukkit Statistic 名 (例: JUMP, MOB_KILLS)
 #     threshold: type=statistic のとき到達判定するしきい値
 #     advancement: type=advancement のとき対象の進捗キー (例: "minecraft:story/mine_diamond")
-#     collection: type=static のとき scope(all/category/item/mob)、target、threshold、percent を指定
+#     collection: type=static のとき scope(all/category/item/mob)、target/targets、threshold、percent を指定
+#       target  : 単一の対象ID(従来キー。後方互換のため読み続ける)
+#       targets : 複数の対象ID配列(2026-07-27追加)。候補は列挙した全対象の「和」になる。
+#                 scope=item/mob かつ percent:false のとき threshold を省略すると
+#                 「列挙した件数」が既定になる = 全部そろったら達成。
+#                 例) 3種そろったら達成:
+#                   collection:
+#                     scope: item
+#                     targets: [infinity_sword, infinity_bow, infinity_mace]
+#       threshold: 到達に必要な登録数 (percent:true のときは百分率 1-100)
 #   broadcast: true でサーバー全体へ達成をアナウンス
 #   rewards:
 #     special:  special-rewards.yml の titles/particles/particle-seeds のID配列
@@ -24,6 +33,7 @@ achievements:
       collection:
         scope: item
         target: infinity_sword
+        targets: []
         threshold: 1
         percent: false
     broadcast: true

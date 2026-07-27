@@ -361,22 +361,66 @@
     return wrap;
   };
 
+  /**
+   * 隠した <input type="file"> を包むドラッグ&ドロップ枠 (2026-07-27)。
+   * クリック / Enter / Space でファイル選択ダイアログを開き、ファイルを落とすと input に流し込んで
+   * change を発火させる — 呼び出し側は input の change ハンドラだけ書けばよく、
+   * 「ボタン経由」と「ドロップ経由」で処理が分岐しない。
+   */
+  function fileDropZone({ input, icon, label, hint, status }) {
+    const zone = h("div", { class: "cmd-dropzone", tabindex: "0", role: "button" }, [
+      input,
+      h("span", { class: "cmd-dropzone-icon", text: icon }),
+      h("div", { class: "cmd-dropzone-text" }, [
+        h("span", { class: "cmd-dropzone-label", text: label }),
+        h("span", { class: "cmd-dropzone-hint", text: hint })
+      ]),
+      status
+    ]);
+    const open = () => input.click();
+    zone.addEventListener("click", (e) => {
+      // input 自身のクリックを拾って無限ループにしない
+      if (e.target !== input) open();
+    });
+    zone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+    for (const type of ["dragenter", "dragover"]) {
+      zone.addEventListener(type, (e) => {
+        e.preventDefault();
+        zone.classList.add("is-over");
+      });
+    }
+    zone.addEventListener("dragleave", () => zone.classList.remove("is-over"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("is-over");
+      const dropped = e.dataTransfer && e.dataTransfer.files;
+      if (!dropped || !dropped.length) return;
+      input.files = dropped;
+      input.dispatchEvent(new Event("change"));
+    });
+    return zone;
+  }
+
   // B: 折りたたみ「上級: カスタムモデルJSON」欄。modelJsonファイル+テクスチャPNG複数選択+アップロード。
   function buildAdvancedCustomModelSection(options, chip, refreshWiredPreview) {
     const details = h("details", { class: "cmd-advanced-model" });
     details.appendChild(h("summary", { text: "上級: カスタムモデルJSON" }));
 
-    // 素のファイル入力は隠し、テクスチャ登録欄と同じ .btn-small トーンのボタンへ委譲する
-    // (上級欄だけ生の <input type="file"> が露出していたのを解消)。
+    // 素のファイル入力は隠し、ドロップゾーンへ委譲する
+    // (2026-07-27: 「.btn-small + 未選択ラベル」が羅列されるだけで何を入れる欄か分かりづらかったため、
+    //  ドラッグ&ドロップ対応の枠に置き換えた。クリック/Enter/Space でも従来どおりファイル選択が開く)。
     const modelFileInput = h("input", { type: "file", accept: "application/json,.json,.bbmodel", class: "cmd-tex-file-hidden" });
     const texFilesInput = h("input", { type: "file", accept: "image/png", multiple: true, class: "cmd-tex-file-hidden" });
-    const modelSelectBtn = h("button", { class: "btn-small", type: "button", text: "モデルJSONを選択..." });
-    const texSelectBtn = h("button", { class: "btn-small", type: "button", text: "テクスチャPNGを選択..." });
-    const modelNameLabel = h("span", { class: "cmd-tex-filename", text: "未選択" });
-    const texNameLabel = h("span", { class: "cmd-tex-filename", text: "未選択" });
+    const modelNameLabel = h("span", { class: "cmd-dropzone-file", text: "未選択" });
+    const texNameLabel = h("span", { class: "cmd-dropzone-file", text: "未選択" });
     const modelInfo = h("div", { class: "cmd-model-info" });
     const texThumbs = h("div", { class: "cmd-preview-thumbs" });
-    const uploadBtn = h("button", { class: "btn-small", type: "button", text: "カスタムモデルを登録" });
+    const uploadBtn = h("button", { class: "btn primary cmd-upload-btn", type: "button", text: "カスタムモデルを登録" });
 
     const body = h("div", { class: "cmd-advanced-model-body" });
     body.appendChild(h("div", {
@@ -385,15 +429,24 @@
         + "Blockbenchのプロジェクトファイル(.bbmodel形式)を選ぶと、Java版アイテムモデルへ自動変換し、"
         + "埋め込み画像もPNGとして取り出します。v1制約: この経路のテクスチャにアニメーション指定はできません。"
     }));
-    body.appendChild(h("div", { class: "cmd-file-row" }, [modelFileInput, modelSelectBtn, modelNameLabel]));
+    body.appendChild(fileDropZone({
+      input: modelFileInput,
+      icon: "{ }",
+      label: "モデルJSON / .bbmodel をドロップ",
+      hint: "クリックでファイル選択",
+      status: modelNameLabel
+    }));
     body.appendChild(modelInfo);
-    body.appendChild(h("div", { class: "cmd-file-row" }, [texFilesInput, texSelectBtn, texNameLabel]));
+    body.appendChild(fileDropZone({
+      input: texFilesInput,
+      icon: "🖼",
+      label: "テクスチャPNG をドロップ（複数可）",
+      hint: "クリックでファイル選択",
+      status: texNameLabel
+    }));
     body.appendChild(texThumbs);
     body.appendChild(uploadBtn);
     details.appendChild(body);
-
-    modelSelectBtn.addEventListener("click", () => modelFileInput.click());
-    texSelectBtn.addEventListener("click", () => texFilesInput.click());
 
     // 選択したモデルJSONをその場で解析し、形式と規模を出す。登録前に「これはプロジェクト
     // ファイルだ」と分かるようにするのが目的(送信して初めて気づく状況をなくす)。
@@ -401,6 +454,7 @@
       modelInfo.innerHTML = "";
       const file = modelFileInput.files && modelFileInput.files[0];
       modelNameLabel.textContent = file ? file.name : "未選択";
+      modelNameLabel.classList.toggle("has-file", !!file);
       if (!file) return;
       let json;
       try {
@@ -438,6 +492,7 @@
       texThumbs.innerHTML = "";
       const files = texFilesInput.files ? Array.from(texFilesInput.files) : [];
       texNameLabel.textContent = files.length ? `${files.length} 枚選択` : "未選択";
+      texNameLabel.classList.toggle("has-file", files.length > 0);
       for (const file of files.slice(0, 6)) {
         const img = h("img", { class: "cmd-preview-img", alt: file.name, title: file.name });
         const reader = new FileReader();

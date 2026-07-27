@@ -43,6 +43,7 @@ public final class CollectionService {
     private final CrossPluginItemResolver itemResolver;
     private final NativeExperienceDispatcher experienceDispatcher;
     private final PerkAttributeApplier perkAttributeApplier;
+    private final CollectionEntryNames entryNames;
 
     public CollectionService(CollectionConfig config, Logger log) {
         this(config, log, null, null);
@@ -78,6 +79,28 @@ public final class CollectionService {
         this.itemResolver = itemResolver;
         this.experienceDispatcher = experienceDispatcher;
         this.perkAttributeApplier = perkAttributeApplier;
+        this.entryNames = new CollectionEntryNames(itemResolver);
+    }
+
+    /**
+     * 図鑑エントリの表示名 (2026-07-27)。{@code display-names.*} の明示上書きが最優先で、
+     * 無ければアイテムの display-name / モブの翻訳キーへ落ちる。どちらも解決できないときだけ
+     * 生ID({@link #displayOf(String)} と同じ文字列)になる。
+     */
+    public Component displayComponent(String entryId) {
+        if (entryId == null || entryId.isBlank()) {
+            return Component.empty();
+        }
+        String override = null;
+        if (entryId.startsWith(ENTRY_PREFIX_ITEM)) {
+            override = config.itemDisplayNames().get(entryId.substring(ENTRY_PREFIX_ITEM.length()));
+        } else if (entryId.startsWith(ENTRY_PREFIX_MOB)) {
+            override = config.mobDisplayNames().get(entryId.substring(ENTRY_PREFIX_MOB.length()));
+        }
+        if (override != null && !override.isBlank()) {
+            return Component.text(override);
+        }
+        return entryNames.display(entryId);
     }
 
     public static String itemEntryId(String catalogId) {
@@ -90,16 +113,33 @@ public final class CollectionService {
 
     /** Returns collection progress for an achievement trigger: {@code [owned, total]}. */
     public int[] progress(Player player, String scope, String target) {
+        return progress(player, scope, target == null || target.isBlank() ? List.of() : List.of(target));
+    }
+
+    /**
+     * 複数ターゲット版 (2026-07-27): 候補集合は列挙した各ターゲットの<b>和</b>。
+     * {@code scope=item/mob} なら「列挙したアイテム/モブのうち何種類を登録済みか」、
+     * {@code scope=category} なら「列挙したカテゴリの全エントリのうち何種類か」になる。
+     * これにより「アイテムA・B・Cが全部そろったら達成」を1つのアチーブメントで書ける。
+     */
+    public int[] progress(Player player, String scope, List<String> targets) {
         String normalizedScope = scope == null ? "all" : scope;
+        List<String> normalizedTargets = targets == null ? List.of() : targets;
         Set<String> candidates = new LinkedHashSet<>();
-        if (normalizedScope.equals("item")) candidates.add(itemEntryId(target));
-        else if (normalizedScope.equals("mob")) candidates.add(mobEntryId(target));
-        else if (normalizedScope.equals("category")) {
+        if (normalizedScope.equals("item")) {
+            normalizedTargets.forEach(target -> candidates.add(itemEntryId(target)));
+        } else if (normalizedScope.equals("mob")) {
+            normalizedTargets.forEach(target -> candidates.add(mobEntryId(target)));
+        } else if (normalizedScope.equals("category")) {
             for (CollectionConfig.Category category : config.itemCategories()) {
-                if (category.id().equals(target)) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+                if (normalizedTargets.contains(category.id())) {
+                    category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+                }
             }
             for (CollectionConfig.Category category : config.mobCategories()) {
-                if (category.id().equals(target)) category.entries().forEach(id -> candidates.add(mobEntryId(id)));
+                if (normalizedTargets.contains(category.id())) {
+                    category.entries().forEach(id -> candidates.add(mobEntryId(id)));
+                }
             }
         } else {
             for (CollectionConfig.Category category : config.itemCategories()) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
@@ -176,7 +216,7 @@ public final class CollectionService {
         data.setCollectionEntries(known.values().stream().map(CollectionRecord::encode).toList());
         for (String id : newlyAdded) {
             player.sendMessage(Component.text("図鑑に登録: ", NamedTextColor.AQUA)
-                    .append(Component.text(displayOf(id), NamedTextColor.WHITE)));
+                    .append(displayComponent(id).colorIfAbsent(NamedTextColor.WHITE)));
         }
         grantPendingTiers(player, data, known.size());
         return newlyAdded.size();

@@ -92,6 +92,30 @@ public final class MobLevelTableListener implements Listener {
         this.random = Objects.requireNonNull(random, "random");
     }
 
+    /**
+     * 追加ドロップ(add-drops)を止める述語 (2026-07-27、AFK対策)。未配線(null)なら抑止なし。
+     * 削除(remove-drops)とバニラEXPには効かない — 理由は onDeath 内のコメント参照。
+     */
+    private volatile java.util.function.Predicate<org.bukkit.entity.Player> dropGate;
+
+    /** 追加ドロップの抑止述語を設定する(2026-07-27、AFK対策)。null で無効化。 */
+    public void setDropGate(java.util.function.Predicate<org.bukkit.entity.Player> gate) {
+        this.dropGate = gate;
+    }
+
+    /** 述語の例外でドロップ処理を落とさない(失敗したら従来どおり付与する)。 */
+    private boolean isGated(org.bukkit.entity.Player killer) {
+        java.util.function.Predicate<org.bukkit.entity.Player> gate = this.dropGate;
+        if (gate == null || killer == null) {
+            return false;
+        }
+        try {
+            return gate.test(killer);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
@@ -126,7 +150,10 @@ public final class MobLevelTableListener implements Listener {
             event.getDrops().removeIf(stack -> rule.removeDrops().contains(stack.getType()));
         }
 
-        List<LevelTierDropEntry> addDrops = rule.addDrops();
+        // 2026-07-27 AFK対策: 抑止対象なら「追加ドロップ」だけ飛ばす。remove-drops(削除)と
+        // vanilla-exp は通す — 削除は報酬ではないし、バニラEXPはオーブ回収時の
+        // PlayerExpChangeEvent 側(AfkSuppressionListener)で 0 にされるので、ここで二重に止めない。
+        List<LevelTierDropEntry> addDrops = isGated(entity.getKiller()) ? List.of() : rule.addDrops();
         for (LevelTierDropEntry drop : addDrops) {
             // 2026-07-25 レベルテーブルのモブ別ドロップ指定拡張(§2-A) + 2026-07-26 mob-ids 追加:
             // 未指定(空)なら従来どおり全モブに適用、指定時はそのEntityType/モブidのキルだけに絞り込む。
