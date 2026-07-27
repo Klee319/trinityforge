@@ -17,7 +17,7 @@ MariaDB 実装へ切り替える判断材料になる。
 |---|---|
 | Java | 21.0.9 (Oracle Corporation) |
 | OS | Windows 11 10.0 / amd64 |
-| DB ファイル | C:\Users\T-319\AppData\Local\Temp\junit-11065860241306192737\player_progression.db |
+| DB ファイル | C:\Users\T-319\AppData\Local\Temp\junit-12053465667085503732\player_progression.db |
 | SQLite PRAGMA | journal_mode=WAL, busy_timeout=5000, synchronous=NORMAL（SqliteProgressionRepository が接続時に適用） |
 
 ## 3. 別プロセス競合の実測
@@ -38,7 +38,7 @@ MariaDB 実装へ切り替える判断材料になる。
 | **付与合計** | **60** |
 | 握り潰された SQL 例外 | 0 |
 | 試行間ウェイト | 3 ms |
-| 所要時間 | 3366 ms（3000 ms の開始バリアを含む） |
+| 所要時間 | 3326 ms（3000 ms の開始バリアを含む） |
 
 ## 4. 判定
 

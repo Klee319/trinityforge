@@ -1,0 +1,34 @@
+# =================================================================================================
+#  両バックエンドの config/paper-global.yml に対する変更点。
+#  メイン・資源とも同じ内容にする。
+# =================================================================================================
+
+proxies:
+  bungee-cord:
+    online-mode: true
+  velocity:
+    # ここを true にして初めて Paper が Velocity の modern forwarding を受け付ける。
+-   enabled: false
++   enabled: true
+    # プロキシから渡ってくるプレイヤー情報を Mojang 認証済みとして扱う。
+    online-mode: true
+    # velocity/forwarding.secret と【完全に同じ文字列】。
+    # 1文字でも違うと "Unable to verify player details" で全員入れなくなる。
+    # このファイルは git に入れない。
+-   secret: ''
++   secret: '<velocity/forwarding.secret の中身>'
+
+
+# --- 以下は必須ではないが、2サーバ構成で見ておくとよい箇所 -----------------------------------------
+
+# 資源サーバは新規チャンク生成が主な負荷になる。
+# Chunky で事前生成しておけばプレイ中の生成はほぼ消えるので、まずはそちらを優先する。
+# 数値を下げるのは spark でボトルネックを特定してからにすること (ops/PERFORMANCE.md)。
+
+# 参考: よく触られるが、測らずに下げても効果が薄いもの
+#   chunk-loading-advanced.player-max-concurrent-chunk-generates
+#   chunk-system.io-threads / worker-threads
+#
+# 参考: 2サーバ構成で明確に意味があるもの
+#   両サーバで同じ設定にしておくこと。片方だけ湧き数やアイテム despawn が違うと、
+#   「資源サーバのほうが効率がいい」という形でプレイヤーの行動が歪む。

@@ -1,6 +1,6 @@
 # 資源サーバ モブシミュレーション（EliteMobs 非搭載時）
 
-- 生成: 2026-07-27 14:01（`ResourceServerMobSimulationTest` が自動生成。手編集しないこと）
+- 生成: 2026-07-27 14:08（`ResourceServerMobSimulationTest` が自動生成。手編集しないこと）
 - 入力: 出荷 `combat/mob-types.yml` / `combat/mob-level-table.yml` / `combat/mob-overrides.yml`
 - 目的: **EliteMobs を載せない資源サーバでも、敵のレベル推移と報酬テーブルが機能すること**の確認
 

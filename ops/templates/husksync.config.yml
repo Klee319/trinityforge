@@ -1,0 +1,104 @@
+# =================================================================================================
+#  HuskSync — 両バックエンド共通 (plugins/HuskSync/config.yml)
+#
+#  【この YAML をそのまま上書きしない】
+#  HuskSync は初回起動で自前のコメント付き config.yml を生成する。バージョンによってキーの
+#  綴りや階層が変わるため、丸ごと差し替えると黙って既定値へ戻るキーが出る。
+#  初回起動 -> 生成された config.yml を開く -> ここに挙げた項目だけを書き換える、の順で進めること。
+#
+#  メインと資源で【完全に同じ内容】にする。片方だけ同期対象が違うと、
+#  サーバを跨いだ瞬間にその項目が消えたように見える。
+# =================================================================================================
+
+# 同じネットワークのサーバは同じ cluster_id を共有する。既定のままでよい。
+cluster_id: ''
+
+debug_logging: false
+check_for_updates: true
+
+database:
+  type: MYSQL
+  credentials:
+    # WSL2 上の MariaDB。127.0.0.1 のみで待ち受ける。
+    host: 127.0.0.1
+    port: 3306
+    database: husksync
+    username: husksync
+    password: '<MariaDB で作った husksync ユーザーのパスワード>'
+  connection_pool:
+    size: 10
+    idle: 10
+    lifetime: 1800000
+    keepalive: 30000
+    timeout: 20000
+
+redis:
+  # 切替時のロック管理とキャッシュに使う。同一マシンなので TCP は 127.0.0.1。
+  host: 127.0.0.1
+  port: 6379
+  password: ''
+  use_ssl: false
+
+synchronization:
+  # LOCKSTEP: 移動先サーバは「移動元の保存が完了した」ことを確認してから読み込む。
+  # DELAY より遅いが、切替時のアイテム消失/複製が起きない。25人規模なら体感差はない。
+  mode: LOCKSTEP
+
+  # クラッシュ時に巻き戻せるスナップショット。経済破壊の唯一の保険なので必ず残す。
+  max_user_data_snapshots: 16
+  save_on_world_save: true
+  save_on_death: false
+
+  compress_data: true
+
+  # ---------------------------------------------------------------------------------------------
+  #  同期する項目。ここが本構成の心臓部。
+  # ---------------------------------------------------------------------------------------------
+  features:
+    # --- 要件そのもの (アイテムを持って行ける) ---
+    inventory: true
+    ender_chest: true
+
+    # --- プレイヤーの状態 ---
+    health: true
+    max_health: true
+    hunger: true
+    experience: true
+    potion_effects: true
+    advancements: true
+    statistics: true
+    flight_status: true
+
+    # --- TrinityForge / ArsPaper のデータ本体 ---
+    # 図鑑・実績・称号・ガチャ天井・採取トグル・Ars のマナ・解放済みグリフは
+    # すべてプレイヤーの PersistentDataContainer に入っている。
+    # HuskSync が同期できるのは primitive 型だけなので、TF 側にその制約を守らせる
+    # 監査テストを置いてある: PlayerPdcPrimitiveTypeAuditTest
+    #
+    # なお、スキルLv / ポイント / パークはここではなく SQLite にある。
+    # そちらは plugins/TrinityForge のディレクトリジャンクションで共有する。
+    persistent_data: true
+
+    # --- 【必ず false にするもの】 ---
+    # 座標を同期すると、資源サーバへ移動した瞬間にメインでの座標へ飛ばされる。
+    # 週次リセットで地形が変わる資源サーバでは、岩盤の中や虚空に湧く。
+    location: false
+    # メインの world は creative (Multiverse の worlds.yml)。同期すると
+    # 資源サーバでもクリエイティブになり、資源サーバの存在意義が消える。
+    game_mode: false
+
+    locked_maps: false
+
+# =================================================================================================
+#  設定後の確認 (RUNBOOK の受け入れ確認と対応)
+#
+#    1. メインでアイテムを持って /server resource -> 資源側のインベントリに同じものがある
+#    2. 資源側でエンダーチェストに入れて /server main -> メインでも入っている
+#    3. メインが creative の world に居ても、資源側でサバイバルのままである (game_mode: false)
+#    4. 資源側で移動しても、メインへ戻ったときの座標が変わっていない (location: false)
+#    5. 図鑑・称号・Ars のマナがサーバをまたいで保持される (persistent_data)
+#
+#  4 が崩れている場合は location が true に戻っている。
+#  5 が崩れている場合は、TF 側で非 primitive 型の PDC が追加された可能性がある
+#  (PlayerPdcPrimitiveTypeAuditTest が失敗しているはず)。
+# =================================================================================================
