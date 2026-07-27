@@ -25,6 +25,20 @@ test("player wiki generator creates the planned pages from the shipped settings"
   assert.match(pages.get("その他の追加機能とコマンド.md"), /`\/tf role`/);
 });
 
+test("player wiki generator presents each item with a recipe grid and scannable sections", () => {
+  const items = generator.generatePages(ROOT).get("追加アイテム.md");
+  const start = items.indexOf("<summary><strong>ソースジェムのヘルメット</strong></summary>");
+  const helmet = items.slice(start, items.indexOf("</details>", start));
+
+  assert.notEqual(start, -1);
+  assert.match(helmet, /### 作り方\n\n\*\*作業台\*\*\n\n\| A \| A \| A \|\n\| :---: \| :---: \| :---: \|\n\| A \| ・ \| A \|\n\| ・ \| ・ \| ・ \|\n\n\*\*材料\*\*　A：ソースジェム　・：空欄/);
+  assert.match(helmet, /### 使用条件\n\n\*\*軽装備 Lv\.30\*\*/);
+  assert.match(helmet, /### 性能\n\n\| 性能 \| 数値 \|/);
+  assert.match(helmet, /### 品質による変化/);
+  assert.match(helmet, /### 説明\n\n> 魔力を帯びた外殻/);
+  assert.doesNotMatch(helmet, /主な補正:|作り方:|使うための条件:/);
+});
+
 test("player wiki generator keeps internal item references out of published text", () => {
   const output = [...generator.generatePages(ROOT).values()].join("\n");
 

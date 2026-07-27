@@ -223,31 +223,72 @@ function ingredientSummary(recipe, names) {
   return result.join("、");
 }
 
-function recipeDescription(recipe, names) {
+function recipeResultAmount(recipe) {
+  const amount = Number(recipe.amount || 1);
+  return amount > 1 ? `（できあがり ${amount}個）` : "";
+}
+
+function craftingGrid(recipe, names, size) {
+  if (!Array.isArray(recipe.shape) || !recipe.ingredients || typeof recipe.ingredients !== "object") return null;
+  const symbols = [];
+  for (const row of recipe.shape) {
+    for (const symbol of String(row)) {
+      if (symbol !== " " && !symbols.includes(symbol)) symbols.push(symbol);
+    }
+  }
+  if (!symbols.length) return null;
+
+  const labels = new Map(symbols.map((symbol, index) => [symbol, String.fromCharCode("A".charCodeAt(0) + index)]));
+  const rows = Array.from({ length: size }, (_, rowIndex) => {
+    const row = String(recipe.shape[rowIndex] || "").padEnd(size, " ").slice(0, size);
+    return [...row].map((symbol) => labels.get(symbol) || "・");
+  });
+  const table = [
+    `| ${rows[0].join(" | ")} |`,
+    `| ${rows[0].map(() => ":---:").join(" | ")} |`,
+    ...rows.slice(1).map((row) => `| ${row.join(" | ")} |`)
+  ].join("\n");
+  const legend = symbols.map((symbol) => {
+    const ingredient = names.itemName(recipe.ingredients[symbol]) || "設定された材料";
+    return `${labels.get(symbol)}：${markdown(ingredient)}`;
+  }).concat("・：空欄").join("　");
+  return `${table}\n\n**材料**　${legend}`;
+}
+
+function recipeMarkup(recipe, names) {
   if (!recipe || typeof recipe !== "object") return null;
   const method = recipe.method || "workbench";
-  const amount = Number(recipe.amount || 1);
-  const resultAmount = amount > 1 ? `（できあがり ${amount}個）` : "";
+  const resultAmount = recipeResultAmount(recipe);
   if (method === "ritual") {
     const center = names.itemName(recipe["core-item"]);
     const pedestals = (recipe["pedestal-items"] || []).map(names.itemName).filter(Boolean).join("、");
-    const parts = [center && `中央: ${center}`, pedestals && `台座: ${pedestals}`, recipe.source != null && `必要な魔力: ${formatNumber(recipe.source)}`]
+    const parts = [
+      center && `- 中央に置く: **${markdown(center)}**`,
+      pedestals && `- 台座に置く: ${markdown(pedestals)}`,
+      recipe.source != null && `- 必要な魔力: ${formatNumber(recipe.source)}`
+    ]
       .filter(Boolean)
-      .join("／");
-    return `儀式で作成${resultAmount}${parts ? `（${parts}）` : ""}`;
+      .join("\n");
+    return `**儀式**${resultAmount}${parts ? `\n\n${parts}` : ""}`;
   }
   if (method === "combine") {
     const first = names.itemName(recipe["source-item"]);
     const second = names.itemName(recipe["addition-item"]);
-    return first && second ? `金床で ${first} と ${second} を合成${resultAmount}` : "金床で合成";
+    const parts = [
+      first && `- 合成する品: **${markdown(first)}**`,
+      second && `- 加える品: **${markdown(second)}**`
+    ].filter(Boolean).join("\n");
+    return `**金床**${resultAmount}${parts ? `\n\n${parts}` : ""}`;
   }
   if (method === "netherite") {
     const source = names.itemName(recipe["source-item"]);
-    return source ? `鍛冶台で ${source} をネザライト化${resultAmount}` : "鍛冶台でネザライト化";
+    return `**鍛冶台**${resultAmount}${source ? `\n\n- 変化させる品: **${markdown(source)}**` : ""}`;
   }
   const place = method === "inventory" ? "手元のクラフト欄" : "作業台";
   const ingredients = ingredientSummary(recipe, names);
-  return `${place}で作成${resultAmount}${ingredients ? `（材料: ${ingredients}）` : ""}`;
+  const grid = craftingGrid(recipe, names, method === "inventory" ? 2 : 3);
+  if (grid) return `**${place}**${resultAmount}\n\n${grid}`;
+  return `**${place}**${resultAmount}${ingredients ? `\n\n**材料**　${markdown(ingredients)}` : ""}`;
 }
 
 function entryRecipes(entry) {
@@ -307,24 +348,47 @@ function matchingStats(entry, itemStats) {
   return (withModel && itemStats.items && itemStats.items[withModel]) || (itemStats.items && itemStats.items[entry.material]) || {};
 }
 
-function statSummary(profile, lore) {
-  const sections = [
-    ["fixed", ""],
-    ["per-quality", "品質が1段上がるごとに "],
-    ["random", "品質によって変わる範囲: "]
-  ];
-  const values = [];
-  for (const [section, prefix] of sections) {
-    for (const [key, raw] of Object.entries(profile[section] || {})) {
-      const definition = (lore.stats || {})[key];
-      if (!definition || !definition.name) continue;
-      const value = section === "random" && raw && typeof raw === "object"
-        ? `${formatStatValue(key, raw.min, lore)} 〜 ${formatStatValue(key, raw.max, lore)}`
-        : formatStatValue(key, raw, lore);
-      values.push(`${prefix}${plainText(definition.name)} ${value}`);
-    }
-  }
-  return values.join("、");
+function statRows(profile, section, lore) {
+  return Object.entries(profile[section] || {})
+    .map(([key, raw]) => ({ key, raw, definition: (lore.stats || {})[key] }))
+    .filter(({ definition }) => definition && definition.name)
+    .sort((left, right) => {
+      const leftOrder = Number.isFinite(Number(left.definition.order)) ? Number(left.definition.order) : Number.MAX_SAFE_INTEGER;
+      const rightOrder = Number.isFinite(Number(right.definition.order)) ? Number(right.definition.order) : Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder || plainText(left.definition.name).localeCompare(plainText(right.definition.name), "ja");
+    });
+}
+
+function signedStatValue(key, value, lore) {
+  const numeric = Number(value);
+  const formatted = formatStatValue(key, value, lore);
+  return Number.isFinite(numeric) && numeric > 0 ? `+${formatted}` : formatted;
+}
+
+function statTable(headers, rows) {
+  return `| ${headers.join(" | ")} |\n| ${headers.map(() => "---").join(" | ")} |\n${rows.map((row) => `| ${row.join(" | ")} |`).join("\n")}`;
+}
+
+function statMarkup(profile, lore) {
+  const fixed = statRows(profile, "fixed", lore).map(({ key, raw, definition }) => [
+    markdown(definition.name),
+    markdown(formatStatValue(key, raw, lore))
+  ]);
+  const perQuality = statRows(profile, "per-quality", lore).map(({ key, raw, definition }) => [
+    markdown(definition.name),
+    `品質が1段上がるごとに ${markdown(signedStatValue(key, raw, lore))}`
+  ]);
+  const random = statRows(profile, "random", lore).map(({ key, raw, definition }) => {
+    const isRange = raw && typeof raw === "object";
+    const value = isRange
+      ? `${markdown(formatStatValue(key, raw.min, lore))} 〜 ${markdown(formatStatValue(key, raw.max, lore))}`
+      : markdown(formatStatValue(key, raw, lore));
+    return [markdown(definition.name), value];
+  });
+  const sections = [];
+  if (fixed.length) sections.push(`### 性能\n\n${statTable(["性能", "数値"], fixed)}`);
+  if (perQuality.length || random.length) sections.push(`### 品質による変化\n\n${statTable(["性能", "変化"], [...perQuality, ...random])}`);
+  return sections.join("\n\n");
 }
 
 function requirementSummary(entry, profile, skillNames) {
@@ -696,21 +760,21 @@ function buildItemsPage(data, names) {
     const details = visible.map(({ id, entry, preferredName }) => {
       const name = plainText(preferredName || entry["display-name"] || entry.display_name || names.baseName(id));
       if (!name) return null;
-      const recipes = entryRecipes(entry).map((recipe) => recipeDescription(recipe, names)).filter(Boolean);
+      const recipes = entryRecipes(entry).map((recipe) => recipeMarkup(recipe, names)).filter(Boolean);
       const profile = matchingStats(entry, data.itemStats);
-      const stats = statSummary(profile, data.lore);
+      const stats = statMarkup(profile, data.lore);
       const requirement = requirementSummary(entry, profile, skillNames);
       const acquisition = acquisitions.get(name);
-      const lore = (entry.lore || []).map(plainText).filter(Boolean).join(" ");
-      const lines = [
-        lore && `- 説明: ${markdown(lore)}`,
-        recipes.length ? `- 作り方: ${recipes.map(markdown).join("<br>")}` : null,
-        !recipes.length && acquisition && `- 入手先: ${[...acquisition].map(markdown).join("、")}`,
-        !recipes.length && !acquisition && "- 入手先: 個別の入手方法は設定されていません",
-        requirement !== "なし" && `- 使うための条件: ${markdown(requirement)}`,
-        stats && `- 主な補正: ${markdown(stats)}`
-      ].filter(Boolean).join("\n");
-      return `<details>\n<summary>${markdown(name)}</summary>\n\n${lines}\n\n</details>`;
+      const lore = (entry.lore || []).map(plainText).filter(Boolean);
+      const sections = [
+        recipes.length && `### 作り方\n\n${recipes.join("\n\n---\n\n")}`,
+        !recipes.length && acquisition && `### 入手方法\n\n${[...acquisition].map(markdown).join("、")}`,
+        !recipes.length && !acquisition && "### 入手方法\n\n個別の入手方法は設定されていません。",
+        requirement !== "なし" && `### 使用条件\n\n**${markdown(requirement)}**`,
+        stats,
+        lore.length && `### 説明\n\n> ${lore.map(markdown).join("<br>\n> ")}`
+      ].filter(Boolean).join("\n\n");
+      return `<details>\n<summary><strong>${markdown(name)}</strong></summary>\n\n${sections}\n\n</details>`;
     }).filter(Boolean).join("\n\n");
     return `## ${title}（${visible.length}種類）\n\n${details || "現在、表示できる品はありません。"}`;
   }).join("\n\n");
