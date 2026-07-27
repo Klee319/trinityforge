@@ -32,286 +32,295 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/heavy_armor.md
+
 skill: HEAVY_ARMOR
-display-name: "重装備"
+display-name: 重装備
 icon: IRON_CHESTPLATE
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 1
   at-level: 100
-  name: "鉄壁の境地"
-  effect-text: "守備力・防御率・被ダメージ軽減が永続で増加"
+  name: 鉄壁の境地
+  effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
     phys-flat-defense: 0.15
     magic-flat-defense: 0.15
     armor-defense-rate: 0.1
     damage-reduction: 0.1
-
 nodes:
   A:
-    name: "重身の心得"
+    name: 重身の心得
     level: 10
     role: main
-    parent: null
+    parent:
     icon: IRON_BOOTS
     cost: 1
-    effect-text: "移動速度ペナルティ減少・空腹になりにくくなる"
+    effect-text: 移動速度ペナルティ減少・空腹になりにくくなる
     buffs:
       heavy-armor-move-speed-per-piece: 0.5
     effects:
-      - "空腹になりにくくなる"
+      - 空腹になりにくくなる
   B:
-    name: "鉄壁の装"
+    name: 鉄壁の装
     level: 30
     role: main
     parent: A
     icon: IRON_LEGGINGS
     cost: 1
-    # 2026-07-27: このノードは armor-set-bonus(セット効果の増幅率)だけを持ち、セットの「成立条件」は
-    # 持たない。旧文言の「3部位でセットが成立」は誤りだったので削除した。成立条件は各ノードの
-    # set-buffs の段(3/4)が持つ。
-    effect-text: "セット効果量UP(3・4部位のセット効果がまとめて強化される)"
+    effect-text: セット効果量UP(3・4部位のセット効果がまとめて強化される)
     buffs:
       armor-set-bonus: 0.1
     effects:
-      - "セット効果の効果量が増加する"
+      - セット効果の効果量が増加する
   C:
-    name: "剛守の型"
+    name: 剛守の型
     level: 50
     role: main
     parent: B
     icon: IRON_CHESTPLATE
     cost: 1
-    effect-text: "ノックバック耐性アップ・守備力増加・憤怒発動可能・重装3部位でKB耐性セットボーナス成立(4部位で強化)"
+    effect-text: ノックバック耐性アップ・守備力増加・憤怒発動可能・重装3部位でKB耐性セットボーナス成立(4部位で強化)
     buffs:
       phys-flat-defense: 0.1
       magic-flat-defense: 0.1
-    # 2026-07-27: 4部位帯は3部位帯の約1.5倍。3部位の値は移行前と同一のまま据え置いて、
-    # フル装備の報酬としてだけ上乗せしている(既存バランスを動かさないため)。
     set-buffs:
-      3: { knockback-resistance: 0.1 }
-      4: { knockback-resistance: 0.15 }
+      "3":
+        knockback-resistance: 0.1
+      "4":
+        knockback-resistance: 0.15
     effects:
-      - "憤怒(Rage)が発動可能になる"
-      - "重装3部位以上でノックバック耐性セットボーナスが成立し、4部位で更に強化される"
+      - 憤怒(Rage)が発動可能になる
+      - 重装3部位以上でノックバック耐性セットボーナスが成立し、4部位で更に強化される
   D:
-    name: "堅牢の境地"
+    name: 堅牢の境地
     level: 70
     role: main
     parent: C
     icon: IRON_HELMET
     cost: 1
-    # 2026-07-27: このノードのバフはどちらも無条件で、set-buffs を持たない。
-    # 旧文言の「3部位でセットが成立」は実装と一致していなかったので削除した。
-    effect-text: "防御率・物理耐性UP"
+    effect-text: 防御率・物理耐性UP
     buffs:
       armor-defense-rate: 0.1
       phys-resistance: 0.1
   E:
-    name: "極意・金剛"
+    name: 極意・金剛
     level: 90
     role: main
     parent: D
     icon: NETHERITE_CHESTPLATE
     cost: 1
-    effect-text: "被ダメージ軽減上昇・憤怒発動時バフ強化"
+    effect-text: 被ダメージ軽減上昇・憤怒発動時バフ強化
     buffs:
       damage-reduction: 0.1
     effects:
-      - "憤怒発動時のバフが強化される"
-
+      - 憤怒発動時のバフが強化される
   C-1-1:
-    name: "魔除けの鎧"
+    name: 魔除けの鎧
     level: 50
     role: branch
     parent: C
     icon: ENDER_PEARL
     cost: 1
-    effect-text: "魔法耐性増加"
+    effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.1
   C-1-2:
-    name: "退魔の鎧"
+    name: 退魔の鎧
     level: 70
     role: branch
     parent: C-1-1
     icon: ENDER_PEARL
     cost: 1
-    effect-text: "魔法耐性増加"
+    effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.1
   D-1-1:
-    name: "重心の構え"
+    name: 重心の構え
     level: 70
     role: branch
     parent: D
     icon: ANVIL
     cost: 1
-    effect-text: "ノックバック耐性セットボーナス強化(重装3部位以上・4部位で更に強化)"
+    effect-text: ノックバック耐性セットボーナス強化(重装3部位以上・4部位で更に強化)
     set-buffs:
-      3: { knockback-resistance: 0.1 }
-      4: { knockback-resistance: 0.15 }
+      "3":
+        knockback-resistance: 0.1
+      "4":
+        knockback-resistance: 0.15
   D-1-2:
-    name: "不抜の構え"
+    name: 不抜の構え
     level: 90
     role: branch
     parent: D-1-1
     icon: ANVIL
     cost: 1
-    effect-text: "ノックバック耐性セットボーナス強化(重装3部位以上・4部位で更に強化)"
+    effect-text: ノックバック耐性セットボーナス強化(重装3部位以上・4部位で更に強化)
     set-buffs:
-      3: { knockback-resistance: 0.1 }
-      4: { knockback-resistance: 0.15 }
-
+      "3":
+        knockback-resistance: 0.1
+      "4":
+        knockback-resistance: 0.15
   A-alpha-1:
-    name: "堅・重身"
+    name: 堅・重身
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: IRON_INGOT
     cost: 1
-    effect-text: "守備力増加"
-    buffs: { phys-flat-defense: 0.05, magic-flat-defense: 0.05 }
+    effect-text: 守備力増加
+    buffs:
+      phys-flat-defense: 0.05
+      magic-flat-defense: 0.05
   A-beta-1:
-    name: "魔・重身"
-    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「盾・重身」を変更。防御率(盾=シールドの比喩)から
-    # 魔法耐性へ中身が変わったため。
+    name: 魔・重身
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "魔法耐性増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: β=耐魔型。防御率(主軸D/軽装備と役割が被る)から
-    # magic-resistanceへ全面差し替え。既存branch(魔除けの鎧)とも親和性が高い。
-    buffs: { magic-resistance: 0.02 }
+    effect-text: 魔法耐性増加
+    buffs:
+      magic-resistance: 0.02
   A-gamma-1:
-    name: "巌・重身"
-    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「減・重身」を変更。被ダメージ軽減(減)から
-    # 会心軽減+ノックバック耐性(岩のような不動)へ中身が変わったため。
+    name: 巌・重身
     level: 10
     role: greek
     parent: A
     group: A-greek
     icon: NETHERITE_SCRAP
     cost: 1
-    effect-text: "防具強度・ノックバック耐性増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: γ=不動型。被ダメージ軽減(軽装備γと役割重複)から
-    # armor-strength(会心軽減率)+knockback-resistanceへ全面差し替え。
-    buffs: { armor-strength: 0.01, knockback-resistance: 0.01 }
-  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
-  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
-  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
-  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+    effect-text: 防具強度・ノックバック耐性増加
+    buffs:
+      armor-strength: 0.01
+      knockback-resistance: 0.01
   B-alpha-1:
-    name: "堅・鉄壁"
+    name: 堅・鉄壁
     level: 30
     role: greek
     parent: A-alpha-1
     icon: IRON_INGOT
     cost: 1
-    effect-text: "守備力増加"
-    buffs: { phys-flat-defense: 0.05, magic-flat-defense: 0.05 }
+    effect-text: 守備力増加
+    buffs:
+      phys-flat-defense: 0.05
+      magic-flat-defense: 0.05
   B-beta-1:
-    name: "魔・鉄壁"
+    name: 魔・鉄壁
     level: 30
     role: greek
     parent: A-beta-1
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "魔法耐性増加"
-    buffs: { magic-resistance: 0.02 }
+    effect-text: 魔法耐性増加
+    buffs:
+      magic-resistance: 0.02
   B-gamma-1:
-    name: "巌・鉄壁"
+    name: 巌・鉄壁
     level: 30
     role: greek
     parent: A-gamma-1
     icon: NETHERITE_SCRAP
     cost: 1
-    effect-text: "防具強度・ノックバック耐性増加"
-    buffs: { armor-strength: 0.01, knockback-resistance: 0.01 }
+    effect-text: 防具強度・ノックバック耐性増加
+    buffs:
+      armor-strength: 0.01
+      knockback-resistance: 0.01
   C-alpha-1:
-    name: "堅・剛守"
+    name: 堅・剛守
     level: 50
     role: greek
     parent: B-alpha-1
     icon: IRON_INGOT
     cost: 1
-    effect-text: "守備力増加"
-    buffs: { phys-flat-defense: 0.05, magic-flat-defense: 0.05 }
+    effect-text: 守備力増加
+    buffs:
+      phys-flat-defense: 0.05
+      magic-flat-defense: 0.05
   C-beta-1:
-    name: "魔・剛守"
+    name: 魔・剛守
     level: 50
     role: greek
     parent: B-beta-1
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "魔法耐性増加"
-    buffs: { magic-resistance: 0.02 }
+    effect-text: 魔法耐性増加
+    buffs:
+      magic-resistance: 0.02
   C-gamma-1:
-    name: "巌・剛守"
+    name: 巌・剛守
     level: 50
     role: greek
     parent: B-gamma-1
     icon: NETHERITE_SCRAP
     cost: 1
-    effect-text: "防具強度・ノックバック耐性増加"
-    buffs: { armor-strength: 0.01, knockback-resistance: 0.01 }
+    effect-text: 防具強度・ノックバック耐性増加
+    buffs:
+      armor-strength: 0.01
+      knockback-resistance: 0.01
   D-alpha-1:
-    name: "堅・堅牢"
+    name: 堅・堅牢
     level: 70
     role: greek
     parent: C-alpha-1
     icon: IRON_INGOT
     cost: 1
-    effect-text: "守備力増加"
-    buffs: { phys-flat-defense: 0.05, magic-flat-defense: 0.05 }
+    effect-text: 守備力増加
+    buffs:
+      phys-flat-defense: 0.05
+      magic-flat-defense: 0.05
   D-beta-1:
-    name: "魔・堅牢"
+    name: 魔・堅牢
     level: 70
     role: greek
     parent: C-beta-1
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "魔法耐性増加"
-    buffs: { magic-resistance: 0.02 }
+    effect-text: 魔法耐性増加
+    buffs:
+      magic-resistance: 0.02
   D-gamma-1:
-    name: "巌・堅牢"
+    name: 巌・堅牢
     level: 70
     role: greek
     parent: C-gamma-1
     icon: NETHERITE_SCRAP
     cost: 1
-    effect-text: "防具強度・ノックバック耐性増加"
-    buffs: { armor-strength: 0.01, knockback-resistance: 0.01 }
+    effect-text: 防具強度・ノックバック耐性増加
+    buffs:
+      armor-strength: 0.01
+      knockback-resistance: 0.01
   E-alpha-1:
-    name: "堅・金剛"
+    name: 堅・金剛
     level: 90
     role: greek
     parent: D-alpha-1
     icon: IRON_INGOT
     cost: 1
-    effect-text: "守備力増加"
-    buffs: { phys-flat-defense: 0.05, magic-flat-defense: 0.05 }
+    effect-text: 守備力増加
+    buffs:
+      phys-flat-defense: 0.05
+      magic-flat-defense: 0.05
   E-beta-1:
-    name: "魔・金剛"
+    name: 魔・金剛
     level: 90
     role: greek
     parent: D-beta-1
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "魔法耐性増加"
-    buffs: { magic-resistance: 0.02 }
+    effect-text: 魔法耐性増加
+    buffs:
+      magic-resistance: 0.02
   E-gamma-1:
-    name: "巌・金剛"
+    name: 巌・金剛
     level: 90
     role: greek
     parent: D-gamma-1
     icon: NETHERITE_SCRAP
     cost: 1
-    effect-text: "防具強度・ノックバック耐性増加"
-    buffs: { armor-strength: 0.01, knockback-resistance: 0.01 }
-
+    effect-text: 防具強度・ノックバック耐性増加
+    buffs:
+      armor-strength: 0.01
+      knockback-resistance: 0.01

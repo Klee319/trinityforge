@@ -26,7 +26,8 @@
 | `TrinityForge-0.1.0-SNAPSHOT-all.jar` | 2026-07-27 11:33 ビルド → **配備済み** |
 | `ArsPaper-1.0.0.jar` | 2026-07-26 23:01 ビルド → **配備済み** |
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
-| 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。**ただし配備後に `skilltree/light_armor.yml` と `heavy_armor.yml` を変更した**（W-6 / W-7 の解決）ので、この 2 本は配備先が古い＝**再配備が必要** |
+| 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
+| 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
 | サーバ稼働 | **停止中**（配備作業の前から停止していた）。**起動すれば新しい jar と config が載る** |
 
 配備先は `D:/game/minecraft/PaperServer/TrinityForge/`（`tools/config-editor/tool-config.json` の
@@ -65,6 +66,10 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | W-5 | スキルツリー草案が「今回は対象外」と明記した 2 件 | 農業のゴミ食の段階化（グローバル設定の stat 化）／切削 E-β のオフハンド+スニーク破壊 |
 | ~~W-6~~ | ~~**`set-buffs` の 4 部位帯の値を決める**~~ | **解決（2026-07-27、ユーザーからの裁量委任による）**。採用した規則 = **3 部位の値は移行前から一切動かさず、4 部位帯だけを約 1.5 倍**（既存バランスを動かさずフル装備の報酬だけを足す）。軽装 C = `dodge-chance 0.1→0.15` / D-1-1・D-1-2 = `0.05→0.08`、重装 C・D-1-1・D-1-2 = `knockback-resistance 0.1→0.15`。`effect-text` にも「4部位で強化」を明記した |
 | ~~W-7~~ | ~~**軽装/重装 D ノードの説明文が実装と一致していない**~~ | **解決（2026-07-27）**。二択のうち「文言を消す」を採用（D は `set-buffs` も `armor-set-bonus` も持たない＝バフは全て無条件なので、説明を実装に合わせるのが正）。両ツリーの D から「3部位でセットが成立」の記述と `effects` リストを削除。併せて B の同記述も削除した（B が持つ `armor-set-bonus` は**増幅率であって成立条件ではない**ため、こちらも誤りだった） |
+| W-8 | **`afk.yml` が config-editor に登録されていない** | 2026-07-27 の editor カバレッジ監査で判明。`AfkService` / `AfkConfig` / リスナー 2 本が実装済みの現役機構なのに `registry.js` に項目が無く、**12 キー（`idle-seconds` / `kick-after-seconds` / `suppress.*` 4 種 など）が editor から一切触れない**。放置報酬の抑制という exploit 対策の要なので、調整手段が yml 直編集だけなのは実害がある |
+| W-9 | **`combat/damage.yml` の 6 キーが「共通変数」画面に出ていない** | `CombatDamageConfig` のスキーマには存在するのに `tools/config-editor/lib/constants.js` の `FIELD_SPECS` に無い: `melee-charge.enabled` / `.min-multiplier` / `.exponent`、`attack-speed.min-effective` / `.reconcile-interval-ticks`、**`defense.enchant-protection-scale`**。特に最後の 1 つは「防護IVフルセットが被ダメ軽減枠の 71% を食い潰す」問題への対策として 0.5 に意図調整した値で、yml に長い根拠コメントまであるのに editor から変更できない |
+| W-10 | **registry のカバレッジドリフト検知テストが無い** | リポジトリ内の yml と `registry.js` の登録項目を突き合わせるテストが存在しないため、W-8 のような登録漏れが無言で発生する。除外してよいもの（`paper-plugin.yml` / DEPRECATED な `combat/mob-defaults.yml` / ArsPaper の「空を維持」前提な `usage-gate.yml`・`unlock-gate.yml`）は明示的な許可リストにする |
+| W-11 | ArsPaper の gate yml 2 本が挙げる SoT ファイル名が実在しない | `usage-gate.yml` / `unlock-gate.yml` のコメントは正本を `skilltree/dedicated-effects.yml` と書いているが、**そのファイルは存在しない**。実体は各スキルツリー yml のノード内 `dedicated-effects:` フィールド（`SkillTreeConfig#parseDedicatedEffects`）。コメントの修正だけで済む |
 
 ---
 
@@ -170,6 +175,15 @@ git 系（2026-07-27 に導入）:
 
 配備・ビルド系:
 
+- **yml だけの配備は config-editor 経由でできる。** editor の保存（`PUT /api/config/:id`）は
+  `server.js#mirrorToDeploy` が `tool-config.json#deployPaths` へ同じ内容を書くので、
+  **SoT と配備先が同時に更新される**。`D:/` への直接書き込みが権限で止まる状況でもこの経路は通る。
+  ただし保存は yml を**再シリアライズ**するため、
+  **先頭ヘッダ以外の本文コメントが消える**（`lib/yamlio.js#serializeConfig`。K-3 と同じ仕様）。
+  **本文コメントが残っているファイルを editor 経由で保存する前に、
+  必ず `docs/config-reference/` へ移設すること。** 2026-07-27 に軽装/重装スキルツリーで実施した際、
+  移設していなければ「路線固定(lane-lock)」の警告コメント（group を B〜E に置くと no-op になる件）が
+  無言で消えるところだった。
 - **EliteMobs フォークの配備は必ず `testbed/plugins/EliteMobs.jar`（全同梱 uberjar）。**
   `build/libs/*-min.jar` は MagmaCore 剥離で `NoClassDefFoundError` になり起動しない。
 - **`combat/mob-profiles.yml` はリポジトリ側から上書きしない。** `importmobs` の生成物（268KB）。
@@ -218,6 +232,26 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-27 — 軽装/重装ツリーを config-editor 経由で再配備 + editor カバレッジ監査
+
+- **配備**: `PUT /api/config/skilltree-light-armor` / `skilltree-heavy-armor` を実行し、
+  `D:/game/minecraft/PaperServer/TrinityForge/plugins/TrinityForge/skilltree/*.yml` へミラー成功
+  （`deploy: {"ok":true}` を確認、SoT 側は `backups/` に自動退避）。
+  editor の保存経路が配備も兼ねることを §5 に恒久メモとして記載した。
+- **事前に本文コメントを移設**: editor 保存で本文コメントが消えるため、両 yml のコメントを
+  `docs/config-reference/skilltree/{light,heavy}_armor.md` へ退避（light 8 件 / heavy 9 件、
+  うち docs に無かった新規が 7 / 8 件）。移設漏れがあれば **lane-lock の警告コメントが消えていた**。
+  差分は全てコメント行のみで、値の変更は `max-times: 1` の行末コメント除去だけであることを
+  `git diff -U0` で確認済み。
+- **editor カバレッジ監査**（「editor にあるべきなのに反映されていない設定」の洗い出し）:
+  → 新規に W-8（`afk.yml` 未登録）/ W-9（`damage.yml` の 6 キーが共通変数画面に無い）/
+  W-10（registry ドリフト検知テストが無い）/ W-11（gate yml の SoT 名が実在しない）を起票。
+  なお `progression/combat-level.yml` の `skills` / `pillars` は `FIELD_SPECS` には無いが
+  `extractConstants` が別途拾っており露出済み（＝漏れではない）。
+- **検証**: TF **2318 件 / 失敗 0 / スキップ 2**。config-editor は **34 失敗**だが、
+  全て `public/js/tf-crafting-features.js:808` の `SyntaxError: Unexpected token ')'` に起因する
+  **並行セッションの実装中コード**が原因で、本作業とは無関係（set-buffs 系 7 件は全て緑）。
 
 ### 2026-07-27 — 防具セット効果を `set-buffs` + `armor-set-bonus` へ全面移行
 
