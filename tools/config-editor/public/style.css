@@ -192,6 +192,9 @@ select.field-input option {
 
 /* dedicated forms */
 .dedicated-form { display: flex; flex-direction: column; gap: 12px; }
+/* 使用制限スイッチ画面に差し込む AFK サブフォーム。素の div のままだと中の entry-card が
+   隙間なく積み上がってカード同士がつながって見えるため、.dedicated-form と同じ間隔にする。 */
+.afk-section { display: flex; flex-direction: column; gap: 12px; }
 /* エントリカードを縦に並べる汎用コンテナ。カード同士が密着しないよう間隔を確保する
    (item-catalog / skilltree / materials 等の一覧が対象。要件: カード間の余白)。
    2026-07-27 タスク2: .card-list-body は8箇所(tf-lifestyle-forms.js の村人取引/ダンジョン系フォーム等)
@@ -314,7 +317,7 @@ select.field-input option {
   color: var(--muted);
 }
 .editor-tab-select:disabled { opacity: 0.55; cursor: not-allowed; }
-.entry-key-label { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.entry-key-label { font-size: 11px; color: var(--muted); }
 /* 変更不可のキー(EliteMobs同梱ダンジョン/モブのid)。入力欄に見えないよう code 表示にする。 */
 .entry-key-fixed {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -515,6 +518,22 @@ select.field-input option {
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   color: var(--text);
+  box-sizing: border-box;
+}
+/* listSelect のドロップダウン先頭に常設する絞り込み欄。スクロールしても隠れないよう sticky。 */
+.list-select-filter-row {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  margin: -6px -6px 4px;
+  padding: 6px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+}
+.list-select-filter {
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 .material-suggest-item {
@@ -1418,6 +1437,18 @@ select.field-input option {
 }
 .se-skill-card > summary::-webkit-details-marker { display: none; }
 .se-skill-summary .cf-muted { margin-left: auto; }
+.se-nested-section {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.se-nested-section > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  background: var(--panel-2);
+}
+.se-nested-section > .const-body { padding: 10px 12px; }
 
 .ur-status {
   display: flex; align-items: flex-start; gap: 12px;

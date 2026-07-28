@@ -80,18 +80,68 @@
 
   const POTION_TYPES = [
     "SPEED", "SLOWNESS", "HASTE", "MINING_FATIGUE", "STRENGTH", "INSTANT_HEALTH",
-    "INSTANT_DAMAGE", "JUMP", "NAUSEA", "REGENERATION", "RESISTANCE", "FIRE_RESISTANCE",
+    "INSTANT_DAMAGE", "JUMP_BOOST", "NAUSEA", "REGENERATION", "RESISTANCE", "FIRE_RESISTANCE",
     "WATER_BREATHING", "INVISIBILITY", "BLINDNESS", "NIGHT_VISION", "HUNGER", "WEAKNESS",
     "POISON", "WITHER", "HEALTH_BOOST", "ABSORPTION", "SATURATION", "GLOWING",
     "LEVITATION", "LUCK", "UNLUCK", "SLOW_FALLING", "CONDUIT_POWER", "DOLPHINS_GRACE",
     "BAD_OMEN", "HERO_OF_THE_VILLAGE", "DARKNESS", "TRIAL_OMEN", "RAID_OMEN",
-    "WIND_CHARGED", "WEAVING", "OOZING", "INFESTED", "FAST_DIGGING", "HASTE"
+    "WIND_CHARGED", "WEAVING", "OOZING", "INFESTED"
   ];
+  // 2026-07-28: 候補は Registry.EFFECT の現行キー(TF側 PotionEffectTypes.resolve が第一に引く名前)
+  // に揃える。旧 pre-1.20.5 名(JUMP / FAST_DIGGING)は resolve のエイリアスで今も動くので、
+  // 既存 yml にそれらが書かれていれば labeledIdSelect が現在値として先頭に足す(下の LABELS に
+  // レガシー名も残してあるので日本語で出る)。候補側に重複して並べる必要は無い。
 
   const BREW_BASES = ["AWKWARD", "MUNDANE", "THICK", "WATER", "NIGHT_VISION", "INVISIBILITY",
     "LEAPING", "FIRE_RESISTANCE", "SWIFTNESS", "SLOWNESS", "WATER_BREATHING", "HEALING",
     "HARMING", "POISON", "REGENERATION", "STRENGTH", "WEAKNESS", "LUCK", "TURTLE_MASTER",
     "SLOW_FALLING"];
+
+  // 2026-07-28: 醸造ギミックの「ベース」「効果」が生ID(AWKWARD / SPEED)のプルダウンだったため、
+  // 日本語名 + ID併記の絞り込みセレクトへ差し替える。保存値は英字IDのまま(表示だけ日本語化)。
+  const POTION_TYPE_LABELS = {
+    SPEED: "移動速度上昇", SLOWNESS: "移動速度低下", HASTE: "採掘速度上昇", FAST_DIGGING: "採掘速度上昇(旧名)",
+    MINING_FATIGUE: "採掘速度低下", STRENGTH: "攻撃力上昇", INSTANT_HEALTH: "即時回復",
+    INSTANT_DAMAGE: "即時ダメージ", JUMP_BOOST: "跳躍力上昇", JUMP: "跳躍力上昇(旧名)",
+    NAUSEA: "吐き気", REGENERATION: "再生能力",
+    RESISTANCE: "耐性", FIRE_RESISTANCE: "火炎耐性", WATER_BREATHING: "水中呼吸", INVISIBILITY: "透明化",
+    BLINDNESS: "盲目", NIGHT_VISION: "暗視", HUNGER: "空腹", WEAKNESS: "弱化", POISON: "毒",
+    WITHER: "ウィザー", HEALTH_BOOST: "体力増強", ABSORPTION: "衝撃吸収", SATURATION: "満腹度回復",
+    GLOWING: "発光", LEVITATION: "浮遊", LUCK: "幸運", UNLUCK: "不運", SLOW_FALLING: "落下速度低下",
+    CONDUIT_POWER: "コンジットパワー", DOLPHINS_GRACE: "イルカの好意", BAD_OMEN: "不吉な予感",
+    HERO_OF_THE_VILLAGE: "村の英雄", DARKNESS: "暗闇", TRIAL_OMEN: "不吉な試練",
+    RAID_OMEN: "襲撃の予感", WIND_CHARGED: "ウィンドチャージ", WEAVING: "細工", OOZING: "滲出",
+    INFESTED: "蟲の巣",
+    // pre-1.20.5 のレガシー名。TF側 PotionEffectTypes.resolve が今もエイリアス解決するため、
+    // 既存 yml に残っていることがある。候補には出さないが、現在値として表示されたときに
+    // 生IDのまま見えないようラベルだけ用意しておく。
+    SLOW: "移動速度低下(旧名)", SLOW_DIGGING: "採掘速度低下(旧名)", CONFUSION: "吐き気(旧名)",
+    DAMAGE_RESISTANCE: "耐性(旧名)", INCREASE_DAMAGE: "攻撃力上昇(旧名)",
+    HEAL: "即時回復(旧名)", HARM: "即時ダメージ(旧名)"
+  };
+  // ベース(PotionType)の日本語辞書は labels.js が唯一の持ち主。スキルEXPの「醸造結果EXP表」も
+  // 同じ語彙を引くので、ここでは参照するだけにする(labels.js は先に読み込まれる)。
+  const BREW_BASE_LABELS = (window.LABELS && window.LABELS.POTION_TYPE_LABELS_JA) || {};
+
+  /** 生IDの配列を「日本語名 (ID)」の絞り込みセレクトにする共通ヘルパー。 */
+  function labeledIdSelect(value, ids, labelMap, onChange, placeholder) {
+    const cur = value == null ? "" : String(value);
+    const list = ids.slice();
+    if (cur && !list.includes(cur)) list.unshift(cur);
+    const seen = new Set();
+    const options = [];
+    for (const id of list) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      options.push({ value: id, primary: labelMap[id] || id, secondary: id, title: id });
+    }
+    return window.listSelect({
+      value: cur,
+      options,
+      placeholder: placeholder || "選択…",
+      onChange
+    });
+  }
 
   function card(headChildren, bodyChildren) {
     return h("div", { class: "entry-card" }, [
@@ -555,22 +605,65 @@
       ));
     }
 
+    // バニラレシピキーの製法サフィックス。キーは「成果物 + 製法」で作られているので、
+    // 剥がして成果物名を日本語で出し、製法は括弧で添える。
+    const RECIPE_METHOD_SUFFIXES = [
+      ["_smithing", "鍛冶台"],
+      ["_from_smelting", "かまど"],
+      ["_from_blasting", "溶鉱炉"],
+      ["_from_smoking", "燻製器"],
+      ["_from_campfire_cooking", "焚き火"],
+      ["_stonecutting", "石切台"]
+    ];
+
+    /** バニラ/データパックのレシピキーの表示名。分からなければキーをそのまま返す。 */
+    function vanillaRecipeKeyLabel(key) {
+      const raw = String(key || "").trim();
+      if (!raw) return "";
+      const labelOf = (materialLike) => (window.LABELS && typeof window.LABELS.materialLabel === "function"
+        ? window.LABELS.materialLabel(String(materialLike).toUpperCase()) : "");
+      const id = raw.includes(":") ? raw.slice(raw.indexOf(":") + 1) : raw;
+      const direct = labelOf(id);
+      if (direct && direct.toUpperCase() !== id.toUpperCase()) return direct;
+      for (const [suffix, method] of RECIPE_METHOD_SUFFIXES) {
+        if (!id.endsWith(suffix)) continue;
+        const base = id.slice(0, -suffix.length);
+        const ja = labelOf(base);
+        if (ja && ja.toUpperCase() !== base.toUpperCase()) return `${ja} (${method})`;
+      }
+      return raw;
+    }
+
     // バニラ/データパックレシピの無効化リスト (removed-vanilla-recipes)。
     // キーは基本「成果物のアイテムID」(例: minecraft:iron_sword)。TF反映は再起動 or /trinityforge reload。
     function renderVanillaRemove() {
       const list = working["removed-vanilla-recipes"];
       // 補完: Material名の小文字がほぼそのままバニラレシピキーになる。
       // customID/material と同じサジェスト形式(listSelect)。データパックの任意キーは自由入力(allowCustom)。
+      // 2026-07-28: 候補が minecraft:iron_sword の生キーだけで何のレシピか分からなかったため、
+      // 主表示を日本語のアイテム名にしてキーは副表示へ回す(絞り込みは日本語/キーどちらでも効く)。
       const recipeKeyOptions = Array.isArray(window.MATERIALS)
-        ? window.MATERIALS.map((m) => { const v = "minecraft:" + String(m).toLowerCase(); return { value: v, primary: v }; })
+        ? window.MATERIALS.map((m) => {
+          const v = "minecraft:" + String(m).toLowerCase();
+          const ja = window.LABELS && typeof window.LABELS.materialLabel === "function"
+            ? window.LABELS.materialLabel(m) : "";
+          return { value: v, primary: ja || v, secondary: v };
+        })
         : [];
       const box = h("div", { class: "cf-mat-list" });
       if (!list.length) box.appendChild(emptyHint("削除対象がありません。「+ 追加」でバニラレシピのキーを登録します。"));
       list.forEach((value, i) => {
         const rowCard = h("div", { class: "cf-mat-card" });
+        // 候補(=Material そのままのキー)に無い現在値は、そのままだと生キー表示になる。
+        // バニラは <アイテム>_smithing / <アイテム>_from_blasting のように「成果物 + 製法」の
+        // キーが多いので、製法サフィックスを剥がして成果物名で引き直したうえで先頭に足す。
+        const cur = String(value || "").trim();
+        const rowOptions = cur && !recipeKeyOptions.some((o) => o.value === cur)
+          ? [{ value: cur, primary: vanillaRecipeKeyLabel(cur), secondary: cur, title: cur }].concat(recipeKeyOptions)
+          : recipeKeyOptions;
         const input = window.listSelect({
           value: value || "",
-          options: recipeKeyOptions,
+          options: rowOptions,
           allowCustom: true,
           placeholder: "minecraft:iron_sword",
           customPlaceholder: "minecraft:iron_sword / データパックのキー",
@@ -609,15 +702,43 @@
       // 補完: Material名そのもの (minecraft: プレフィックスなし)。Material:enchant_id も手入力可。
       // customID/material と同じサジェスト形式(listSelect)。Material:enchant_id 等は自由入力(allowCustom)。
       const itemMaterialOptions = Array.isArray(window.MATERIALS)
-        ? window.MATERIALS.map((m) => { const v = String(m); return { value: v, primary: v }; })
+        ? window.MATERIALS.map((m) => {
+          const v = String(m);
+          const ja = window.LABELS && typeof window.LABELS.materialLabel === "function"
+            ? window.LABELS.materialLabel(v) : "";
+          return { value: v, primary: ja || v, secondary: v };
+        })
         : [];
       const box = h("div", { class: "cf-mat-list" });
       if (!items.length) box.appendChild(emptyHint("削除対象がありません。「+ 追加」でアイテムを登録します。"));
+      // Material:enchant_id (例 ANY:MENDING / ENCHANTED_BOOK:mending) は候補に無いので
+      // そのままだと生ID表示になる。両側をそれぞれ日本語に直して先頭に足す。
+      const removedItemLabel = (raw) => {
+        const s = String(raw || "").trim();
+        if (!s) return "";
+        const matLabel = (m) => {
+          const key = String(m).toUpperCase();
+          if (key === "ANY") return "全アイテム";
+          const ja = window.LABELS && typeof window.LABELS.materialLabel === "function"
+            ? window.LABELS.materialLabel(key) : "";
+          return ja && ja.toUpperCase() !== key ? ja : key;
+        };
+        if (!s.includes(":")) return matLabel(s);
+        const mat = s.slice(0, s.indexOf(":"));
+        const ench = s.slice(s.indexOf(":") + 1);
+        const enchJa = window.LABELS && typeof window.LABELS.enchantLabel === "function"
+          ? window.LABELS.enchantLabel(ench) : "";
+        return `${matLabel(mat)}:${enchJa || ench}`;
+      };
       items.forEach((value, i) => {
         const rowCard = h("div", { class: "cf-mat-card" });
+        const cur = String(value || "").trim();
+        const rowOptions = cur && !itemMaterialOptions.some((o) => o.value === cur)
+          ? [{ value: cur, primary: removedItemLabel(cur), secondary: cur, title: cur }].concat(itemMaterialOptions)
+          : itemMaterialOptions;
         const input = window.listSelect({
           value: value || "",
-          options: itemMaterialOptions,
+          options: rowOptions,
           allowCustom: true,
           placeholder: "IRON_PICKAXE",
           customPlaceholder: "IRON_PICKAXE / enchanted_book:mending",
@@ -1049,9 +1170,9 @@
             pot.result = { type: "SPEED", duration: 3600, amplifier: 0 };
           }
           const row = h("div", { class: "cf-mat-card cf-brew-card" });
-          row.appendChild(field("ベース", window.selectInput(pot.base || "AWKWARD", BREW_BASES, (v) => {
+          row.appendChild(field("ベース", labeledIdSelect(pot.base || "AWKWARD", BREW_BASES, BREW_BASE_LABELS, (v) => {
             pot.base = v;
-          })));
+          }, "ベースポーションを選択…")));
           // タスク8 (2026-07-26): 材料IDが Material の生ID(例: NETHER_WART)のままで日本語表示が
           // 無かったため、他タブと同じ materialHintEl 相当の日本語ヒントを追加する。保存値は
           // pot.ingredient の生ID文字列のまま変えない(表示だけ日本語化。ロスレス性は維持)。
@@ -1071,11 +1192,8 @@
             }, { allowCustom: true }),
             ingredientHint
           ])));
-          const types = POTION_TYPES.slice();
-          if (pot.result.type && !types.includes(pot.result.type)) types.unshift(pot.result.type);
-          row.appendChild(field("効果", window.selectInput(pot.result.type || "SPEED", types, (v) => {
-            pot.result.type = v;
-          })));
+          row.appendChild(field("効果", labeledIdSelect(pot.result.type || "SPEED", POTION_TYPES,
+            POTION_TYPE_LABELS, (v) => { pot.result.type = v; }, "効果を選択…")));
           const nums = h("div", { class: "stat-row" });
           nums.appendChild(h("span", { class: "range-label", text: "tick" }));
           nums.appendChild(window.numberInput(pot.result.duration, (v) => {
@@ -1165,15 +1283,31 @@
         const box = h("div", { class: "stat-rows" });
         for (const name of Object.keys(enchants)) {
           const row = h("div", { class: "stat-row" });
-          const opts = enchList.slice();
-          if (name && !opts.includes(name)) opts.unshift(name);
-          row.appendChild(window.selectInput(name, opts.length ? opts : [name || "SHARPNESS"], (v) => {
-            const next = String(v || "").toUpperCase();
-            if (!next || next === name) return;
-            const cap = enchants[name];
-            delete enchants[name];
-            enchants[next] = cap;
-            render();
+          // 2026-07-28: 生ID(SHARPNESS)のプルダウンだったので日本語名+ID併記の絞り込みセレクトへ。
+          const ids = enchList.slice();
+          if (name && !ids.includes(name)) ids.unshift(name);
+          row.appendChild(window.listSelect({
+            value: name,
+            options: (ids.length ? ids : [name || "SHARPNESS"]).map((id) => ({
+              value: id,
+              primary: (window.LABELS && typeof window.LABELS.enchantLabelWithFallback === "function"
+                ? window.LABELS.enchantLabelWithFallback(id) : id),
+              secondary: id
+            })),
+            placeholder: "エンチャントを選択…",
+            onCommit: (v) => {
+              const next = String(v || "").trim().toUpperCase();
+              if (!next || next === name) return true;
+              if (Object.prototype.hasOwnProperty.call(enchants, next)) {
+                alert("同じエンチャントが既にあります");
+                return false;
+              }
+              const cap = enchants[name];
+              delete enchants[name];
+              enchants[next] = cap;
+              render();
+              return true;
+            }
           }));
           row.appendChild(h("span", { class: "range-label", text: "上限Lv" }));
           row.appendChild(window.numberInput(enchants[name], (v) => {

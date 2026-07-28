@@ -8,6 +8,7 @@ import com.trinityforge.config.domains.SkillExpConfig.GatheringExpMode;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.catalog.ItemExpLookup;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
@@ -18,28 +19,44 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.block.data.type.Beehive;
+import org.bukkit.block.data.type.CaveVinesPlant;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityBreedEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerShearEntityEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -60,7 +77,9 @@ public final class NativeSkillExperienceListener implements Listener {
     private static final String BREAK_VANILLA_EXP_BONUS = StatKeys.canonical("break_vanilla_exp_bonus");
     /** enchanting.yml A/C/A-alpha/A-beta の「エンチャントEXPの増加/減少」用、プレイヤー単位の新規stat。 */
     private static final String ENCHANT_EXP_GAIN_BONUS = StatKeys.canonical("enchant_exp_gain_bonus");
+    private static final String POTION_QUALITY_BONUS = StatKeys.canonical("potion_quality_bonus");
 
+    private final Plugin plugin;
     private final NativeExperienceDispatcher progression;
     private final NativeSkillCatalog catalog;
     private final PlacedBlockTracker placedBlockTracker;
@@ -104,6 +123,7 @@ public final class NativeSkillExperienceListener implements Listener {
                                          DedicatedEffectsConfig dedicatedEffects,
                                          PlayerStatAggregator aggregator,
                                          MobLevelTableConfig mobLevelTable) {
+        this.plugin = plugin;
         this.progression = progression;
         this.catalog = catalog;
         this.placedBlockTracker = placedBlockTracker;
@@ -169,6 +189,116 @@ public final class NativeSkillExperienceListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
         // Bed/respawn-anchor style; no reliable player — skip attribution.
+    }
+
+    /**
+     * Valhalla {@code woodcutting_strip}: right-clicking a natural log/wood with an axe rewards the
+     * configured value of the resulting {@code STRIPPED_*} material. The source-to-result mapping is
+     * derived from the Bukkit material name; every numeric value remains in the progression YAML.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onWoodStrip(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getHand() != EquipmentSlot.HAND
+                || event.getClickedBlock() == null) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (excluded(player)) return;
+        ItemStack tool = event.getItem();
+        if (tool == null || !tool.getType().name().endsWith("_AXE")) return;
+        Block source = event.getClickedBlock();
+        if (placedBlockTracker.isPlaced(source)) return;
+
+        double exp = woodStripExp(catalog.get(SkillId.WOODCUTTING), source.getType());
+        if (exp <= 0.0) return;
+        grant(player, SkillId.WOODCUTTING,
+                exp * useLevelExpMultiplier(SkillId.WOODCUTTING, tool));
+    }
+
+    /**
+     * Valhalla {@code farming.block_interact}: mature berry/vine harvests and full-honey hive
+     * harvests use the configured block value. Eligibility is gameplay state; the EXP amount itself
+     * is always read from the editable action table.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmingInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getHand() != EquipmentSlot.HAND
+                || event.getClickedBlock() == null) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (excluded(player)) return;
+        Block block = event.getClickedBlock();
+        if (!isHarvestableFarmingInteraction(block, event.getItem())) return;
+        SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
+        double exp = farming == null ? 0.0
+                : farming.expFor("block_interact", block.getType().name());
+        if (exp > 0.0) {
+            grant(player, SkillId.FARMING, exp);
+        }
+    }
+
+    /** Valhalla {@code farming.entity_breed}: species-specific configured EXP. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmingBreed(EntityBreedEvent event) {
+        if (!(event.getBreeder() instanceof Player breeder) || excluded(breeder)) return;
+        SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
+        double exp = farming == null ? 0.0
+                : farming.expFor("entity_breed", event.getEntity().getType().name());
+        if (exp > 0.0) {
+            grant(breeder, SkillId.FARMING, exp);
+        }
+    }
+
+    /** Valhalla {@code farming.entity_shear}: entity-kind-specific configured EXP. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmingShear(PlayerShearEntityEvent event) {
+        Player player = event.getPlayer();
+        if (excluded(player)) return;
+        SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
+        double exp = farming == null ? 0.0
+                : farming.expFor("entity_shear", event.getEntity().getType().name());
+        if (exp > 0.0) {
+            grant(player, SkillId.FARMING, exp);
+        }
+    }
+
+    /**
+     * Valhalla {@code farming.entity_drops}: only species listed by the editable breed table are
+     * farming mobs; their configured drop values are multiplied by actual stack amounts.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFarmingMobDeath(EntityDeathEvent event) {
+        Player killer = event.getEntity().getKiller();
+        if (killer == null || excluded(killer)) return;
+        SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
+        if (farming == null
+                || farming.expFor("entity_breed", event.getEntityType().name()) <= 0.0) {
+            return;
+        }
+        double exp = dropActionExp(farming, "entity_drops", event.getDrops());
+        if (exp > 0.0) {
+            grant(killer, SkillId.FARMING, exp);
+        }
+    }
+
+    /**
+     * Valhalla {@code digging.archaeology_brush}: Paper exposes completed brush loot through the
+     * block-drop event. Suspicious block type is the trigger; each resulting material and amount is
+     * valued by the editable table.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onArchaeologyDrop(BlockDropItemEvent event) {
+        Material source = event.getBlockState().getType();
+        if (source != Material.SUSPICIOUS_SAND && source != Material.SUSPICIOUS_GRAVEL) return;
+        Player player = event.getPlayer();
+        if (excluded(player)) return;
+        SkillCatalogEntry digging = catalog.get(SkillId.DIGGING);
+        double exp = dropActionExp(digging, "archaeology_brush",
+                event.getItems().stream().map(Item::getItemStack).toList());
+        if (exp > 0.0) {
+            grant(player, SkillId.DIGGING, exp);
+        }
     }
 
     /** @return true if this break was recognized as a FARMING/WOODCUTTING/DIGGING/MINING gathering break. */
@@ -263,9 +393,9 @@ public final class NativeSkillExperienceListener implements Listener {
         double dropExp = 0.0;
         for (ItemStack drop : drops) {
             if (drop == null || drop.getType().isAir()) continue;
-            String mat = drop.getType().name();
-            if (!seen.add(mat)) continue;
-            double per = entry.expFor(action, mat);
+            // 2026-07-28: 重複判定もカスタムID込みで行う(土台Materialが同じ別アイテムを潰さない)。
+            if (!seen.add(ItemExpLookup.dedupeKey(drop))) continue;
+            double per = ItemExpLookup.expFor(entry, action, drop);
             if (per > 0.0) dropExp += per;
         }
         GatheringExpMode effectiveMode = mode == null ? GatheringExpMode.DROP_SUM : mode;
@@ -299,7 +429,8 @@ public final class NativeSkillExperienceListener implements Listener {
         SkillCatalogEntry fishing = catalog.get(SkillId.FISHING);
         double exp = 0.0;
         if (event.getCaught() instanceof org.bukkit.entity.Item item) {
-            exp = fishing.expFor("fishing_catch", item.getItemStack().getType().name());
+            // 2026-07-28: カスタム釣果(custom:<id>)の行を優先。未設定ならバニラ Material 行。
+            exp = ItemExpLookup.expFor(fishing, "fishing_catch", item.getItemStack());
         }
         if (exp <= 0.0) {
             double fallback = fishing.rate("fishing.catch", 20.0);
@@ -314,21 +445,119 @@ public final class NativeSkillExperienceListener implements Listener {
         Player enchanter = event.getEnchanter();
         if (excluded(enchanter)) return;
         SkillCatalogEntry entry = catalog.get(SkillId.ENCHANTING);
-        // Catalog maps YAML exp_gain.experience_spent_conversion onto the internal rate key
-        // "enchant.level_cost_multiplier" (see NativeSkillCatalog#load), so read that (default 0.5).
-        double mult = entry.rate("enchant.level_cost_multiplier", 0.5);
-        // Slot button 0/1/2 spends 1/2/3 levels regardless of the displayed level requirement
-        // (getExpLevelCost()), which overstated true spend by up to ~10x.
         int spentLevels = event.whichButton() + 1;
-        double amount = Math.max(1.0, spentLevels * mult);
+        Map<String, Integer> enchants = new java.util.LinkedHashMap<>();
+        Map<Enchantment, Integer> added = event.getEnchantsToAdd();
+        if (added != null) {
+            for (Map.Entry<Enchantment, Integer> enchant : added.entrySet()) {
+                enchants.put(enchant.getKey().getKey().getKey().toLowerCase(Locale.ROOT),
+                        enchant.getValue());
+            }
+        }
+        ItemStack enchantedItem = event.getItem();
+        double amount = enchantingExp(entry, enchants,
+                enchantedItem == null ? null : enchantedItem.getType(), spentLevels);
         // enchant_exp_gain_bonus (enchanting.yml A/C/A-alpha/A-beta の「エンチャントEXPの増加/減少」):
-        // 既存の enchant.level_cost_multiplier はグローバル設定値でプレイヤー差が無いため、その上に
-        // プレイヤー単位で乗る新規stat。正=増加, 負=減少。合計が0を下回らないようクランプする。
+        // Valhalla式の設定表評価後にプレイヤー単位で乗算する。正=増加, 負=減少。
         if (aggregator != null) {
             double bonus = aggregator.aggregate(enchanter).totalOf(ENCHANT_EXP_GAIN_BONUS);
             amount = Math.max(0.0, amount * (1.0 + bonus));
         }
         grant(enchanter, SkillId.ENCHANTING, amount);
+    }
+
+    static double enchantingExp(SkillCatalogEntry entry, Map<String, Integer> enchants,
+                                 Material material, int spentLevels) {
+        if (entry == null) return 0.0;
+        double typeMultiplier = configuredMultiplier(entry,
+                "exp_gain.enchantment_type_multiplier", enchantMaterialType(material));
+        double itemMultiplier = configuredMultiplier(entry,
+                "exp_gain.enchantment_item_multiplier", enchantItemType(material));
+        double amount = 0.0;
+        if (enchants != null) {
+            for (Map.Entry<String, Integer> enchant : enchants.entrySet()) {
+                if (enchant.getKey() == null || enchant.getValue() == null || enchant.getValue() <= 0) continue;
+                double base = entry.expFor("exp_gain.enchantment_base",
+                        enchant.getKey().toLowerCase(Locale.ROOT));
+                if (base <= 0.0) continue;
+                double levelMultiplier = configuredMultiplier(entry,
+                        "exp_gain.enchantment_level_multiplier", Integer.toString(enchant.getValue()));
+                amount += base * levelMultiplier * typeMultiplier * itemMultiplier;
+            }
+        }
+        double spentConversion = Math.max(0.0,
+                entry.rate("enchant.level_cost_multiplier", 0.0));
+        double total = Math.max(0.0, amount + Math.max(0, spentLevels) * spentConversion);
+        // Preserve the previous fractional-sink guard for unusually small operator values. The
+        // Valhalla tables are normally hundreds of EXP, so this only affects the spent-level-only
+        // fallback (or deliberately tiny custom tables).
+        return total > 0.0 ? Math.max(1.0, total) : 0.0;
+    }
+
+    static double dropActionExp(SkillCatalogEntry entry, String action, Collection<ItemStack> drops) {
+        if (entry == null || action == null || drops == null) return 0.0;
+        double total = 0.0;
+        for (ItemStack drop : drops) {
+            if (drop == null || drop.getType().isAir() || drop.getAmount() <= 0) continue;
+            // 2026-07-28: カスタムアイテム(custom:<id>)の行を優先して引く。未設定ならバニラ行。
+            double perItem = ItemExpLookup.expFor(entry, action, drop);
+            if (perItem > 0.0) {
+                total += perItem * drop.getAmount();
+            }
+        }
+        return total;
+    }
+
+    static double woodStripExp(SkillCatalogEntry entry, Material source) {
+        if (entry == null || source == null) return 0.0;
+        Material result = Material.matchMaterial("STRIPPED_" + source.name());
+        return result == null ? 0.0 : entry.expFor("woodcutting_strip", result.name());
+    }
+
+    private static double configuredMultiplier(SkillCatalogEntry entry, String action, String key) {
+        if (key == null) return 1.0;
+        double configured = entry.expFor(action, key);
+        return configured > 0.0 ? configured : 1.0;
+    }
+
+    private static String enchantMaterialType(Material material) {
+        if (material == null) return null;
+        String name = material.name();
+        if ("BOW".equals(name) || "CROSSBOW".equals(name)) return name;
+        if (name.startsWith("WOODEN_")) return "WOOD";
+        if (name.startsWith("GOLDEN_")) return "GOLD";
+        int separator = name.indexOf('_');
+        return separator > 0 ? name.substring(0, separator) : name;
+    }
+
+    private static String enchantItemType(Material material) {
+        if (material == null) return null;
+        String name = material.name();
+        if ("FISHING_ROD".equals(name) || "CROSSBOW".equals(name) || "BOW".equals(name)) return name;
+        int separator = name.lastIndexOf('_');
+        return separator >= 0 ? name.substring(separator + 1) : name;
+    }
+
+    static boolean isHarvestableFarmingInteraction(Block block, ItemStack usedItem) {
+        Material type = block.getType();
+        // Bone meal right-clicks the same mature blocks but performs growth/fertilization rather
+        // than harvesting. Treating that click as a harvest would allow repeated EXP without
+        // consuming the crop.
+        if (usedItem != null && usedItem.getType() == Material.BONE_MEAL) return false;
+        if (type == Material.SWEET_BERRY_BUSH && block.getBlockData() instanceof Ageable ageable) {
+            return ageable.getAge() > 1;
+        }
+        if ((type == Material.CAVE_VINES || type == Material.CAVE_VINES_PLANT)
+                && block.getBlockData() instanceof CaveVinesPlant vines) {
+            return vines.hasBerries();
+        }
+        if ((type == Material.BEEHIVE || type == Material.BEE_NEST)
+                && block.getBlockData() instanceof Beehive hive && usedItem != null) {
+            Material item = usedItem.getType();
+            return hive.getHoneyLevel() >= hive.getMaximumHoneyLevel()
+                    && (item == Material.GLASS_BOTTLE || item == Material.SHEARS);
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -386,16 +615,76 @@ public final class NativeSkillExperienceListener implements Listener {
         stand.update();
         if (ownerId.isEmpty()) return;
         SkillCatalogEntry alchemy = catalog.get(SkillId.ALCHEMY);
-        double brew = alchemy.rate("alchemy.brew", 25.0);
-        if (brew <= 0.0) {
-            Double legacy = alchemy.actionExp().get("alchemy.brew");
-            brew = legacy == null || legacy <= 0.0 ? 25.0 : legacy;
+        ItemStack ingredient = brewIngredient(event);
+        List<String> potionTypes = new ArrayList<>();
+        for (ItemStack result : event.getResults()) {
+            if (result != null && result.getItemMeta() instanceof PotionMeta potion
+                    && potion.hasBasePotionType()) {
+                potionTypes.add(potion.getBasePotionType().name());
+            }
+        }
+        double brew = alchemyBrewExpForIngredient(alchemy, ingredient, potionTypes);
+        Player owner = plugin.getServer().getPlayer(ownerId.get());
+        if (aggregator != null && owner != null) {
+            double quality = Math.max(0.0,
+                    aggregator.aggregate(owner).totalOf(POTION_QUALITY_BONUS));
+            brew *= 1.0 + quality * Math.max(0.0,
+                    alchemy.rate("alchemy.quality_mult", 0.0));
         }
         double mult = automated
                 ? alchemy.rate("alchemy.auto_mult", 0.25)
                 : alchemy.rate("alchemy.manual_mult", 2.0);
         if (mult <= 0.0) mult = automated ? 0.25 : 1.0;
         progression.grant(ownerId.get(), SkillId.ALCHEMY, brew * mult);
+    }
+
+    /**
+     * Paper returns {@code null}/AIR when the ingredient was consumed, while MockBukkit can throw
+     * {@link IllegalStateException} for the same empty post-brew slot. Both mean "no ingredient
+     * stage available", so fall back to the result table/base brew value. Attribution PDC is
+     * intentionally cleared before this helper is called and therefore remains one-shot even if a
+     * third-party inventory implementation rejects the read.
+     */
+    private static ItemStack brewIngredient(BrewEvent event) {
+        try {
+            ItemStack ingredient = event.getContents().getIngredient();
+            return ingredient == null || ingredient.getType().isAir() ? null : ingredient;
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * 2026-07-28: 醸造素材はカスタムアイテム({@code custom:<id>})でも設定できる。
+     * {@link ItemExpLookup} が custom 行 → バニラ Material 行の順で解決する。
+     */
+    static double alchemyBrewExpForIngredient(SkillCatalogEntry entry, ItemStack ingredient,
+                                              Collection<String> resultPotionTypes) {
+        return alchemyBrewExpFrom(entry,
+                ItemExpLookup.expFor(entry, "brew_ingredient", ingredient), resultPotionTypes);
+    }
+
+    static double alchemyBrewExp(SkillCatalogEntry entry, String ingredient,
+                                 Collection<String> resultPotionTypes) {
+        double ingredientExp = (entry == null || ingredient == null)
+                ? 0.0 : entry.expFor("brew_ingredient", ingredient);
+        return alchemyBrewExpFrom(entry, ingredientExp, resultPotionTypes);
+    }
+
+    private static double alchemyBrewExpFrom(SkillCatalogEntry entry, double ingredientExp,
+                                             Collection<String> resultPotionTypes) {
+        if (entry == null) return 0.0;
+        if (ingredientExp > 0.0) return ingredientExp;
+        double resultExp = 0.0;
+        if (resultPotionTypes != null) {
+            for (String potionType : resultPotionTypes) {
+                if (potionType != null) {
+                    resultExp = Math.max(resultExp, entry.expFor("brew_result", potionType));
+                }
+            }
+        }
+        if (resultExp > 0.0) return resultExp;
+        return Math.max(0.0, entry.rate("alchemy.brew", 0.0));
     }
 
     // 2026-07-25 ユーザー判断: SMITHING EXP は耐久消耗ベースの付与を全廃し、武器/防具/ツールのクラフト時
@@ -412,10 +701,12 @@ public final class NativeSkillExperienceListener implements Listener {
     // そのまま(EXP付与経路が変わるだけでリセットしない)。
 
     /**
-     * Exploit fix (semi-AFK 防具EXP farm): per-(victim,attacker) cooldown for the piece-flat armor EXP
-     * grant below. Shared pure-Java tracker ({@link AttackerTargetCooldown}) — see its Javadoc.
+     * Exploit fix (semi-AFK 防具EXP farm): per-(victim,attacker) cooldowns for armor-hit EXP.
+     * Separate trackers are required because a mixed set legitimately awards both Valhalla armor
+     * skills; one skill must not consume the other skill's cooldown.
      */
-    private final AttackerTargetCooldown armorExpCooldown = new AttackerTargetCooldown();
+    private final AttackerTargetCooldown heavyArmorExpCooldown = new AttackerTargetCooldown();
+    private final AttackerTargetCooldown lightArmorExpCooldown = new AttackerTargetCooldown();
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onArmorDamage(EntityDamageByEntityEvent event) {
@@ -445,29 +736,9 @@ public final class NativeSkillExperienceListener implements Listener {
             else if (isArmor(armor.getType())) heavy++;
         }
         if (light == 0 && heavy == 0) return;
-        boolean useHeavy = heavy >= light;
-        String skill = useHeavy ? SkillId.HEAVY_ARMOR : SkillId.LIGHT_ARMOR;
-        SkillCatalogEntry entry = catalog.get(skill);
-        double rate = entry.rate("armor.damage_exp_rate", 0.05);
-        int pieces = useHeavy ? heavy : light;
-        // Flat addend per worn piece (YAML should use small TF values, e.g. 0.25 — not Valhalla's 10).
-        // Exploit fix: a near-zero final hit (grazing arrow etc.) below the configured threshold, or a
-        // repeat hit from the SAME attacker within the configured cooldown, grants no piece-flat EXP —
-        // closing the semi-AFK passive-farm loophole. The damage-proportional `rate` component is
-        // unaffected (it already scales down to ~0 on a near-zero hit).
-        double pieceFlat = Math.max(0.0, entry.rate("armor.exp_damage_piece", 0.0)) * pieces;
-        if (pieceFlat > 0.0) {
-            double minDamage = Math.max(0.0, entry.rate("armor.exp_damage_piece_min_damage", 1.0));
-            double cooldownSeconds = Math.max(0.0, entry.rate("armor.exp_damage_piece_cooldown_seconds", 10.0));
-            UUID attackerId = armorExpAttackerId(event);
-            if (event.getFinalDamage() < minDamage
-                    || (attackerId != null && armorExpCooldown.isOnCooldownAndRefresh(
-                            player.getUniqueId(), attackerId, cooldownSeconds, System.currentTimeMillis()))) {
-                pieceFlat = 0.0;
-            }
-        }
-        double total = event.getFinalDamage() * Math.max(0.0, rate) + pieceFlat;
-        if (total <= 0.0) return; // 0 EXPをdispatcherへ流さない(閾値/CD棄却時のキュー無駄を防ぐ)
+        Entity attacker = armorExpAttackerEntity(event);
+        UUID attackerId = attacker == null ? null : attacker.getUniqueId();
+        boolean pvp = attacker instanceof Player;
         // TT/放置対策: 防具EXPは「被弾」で入るため、TTに立って殴られ続けるだけで無限に稼げる経路に
         // なりうる。撃破EXPと同じカウンタで同一地点の逓減を掛ける(判定地点はプレイヤー自身の位置)。
         var tf = TrinityForge.getInstance();
@@ -479,7 +750,106 @@ public final class NativeSkillExperienceListener implements Listener {
                     tf.config().skillExp(),
                     tf.dungeonWorldRegistry().isDungeonWorld(player.getWorld().getUID()));
         }
-        grant(player, skill, total * worldRate * spot);
+        long now = System.currentTimeMillis();
+        if (heavy > 0) {
+            grantArmorHit(player, SkillId.HEAVY_ARMOR, heavy, armorPoints(player, true),
+                    attacker, attackerId, pvp,
+                    event, heavyArmorExpCooldown, worldRate, spot, now);
+        }
+        if (light > 0) {
+            grantArmorHit(player, SkillId.LIGHT_ARMOR, light, armorPoints(player, false),
+                    attacker, attackerId, pvp,
+                    event, lightArmorExpCooldown, worldRate, spot, now);
+        }
+    }
+
+    private void grantArmorHit(Player player, String skill, int pieces, double armorPoints,
+                               Entity attacker, UUID attackerId, boolean pvp,
+                               EntityDamageByEntityEvent event, AttackerTargetCooldown cooldown,
+                               double worldMultiplier, double locationMultiplier, long nowMillis) {
+        SkillCatalogEntry entry = catalog.get(skill);
+        double minDamage = Math.max(0.0, entry.rate("armor.exp_damage_piece_min_damage", 1.0));
+        double cooldownSeconds = Math.max(
+                0.0, entry.rate("armor.exp_damage_piece_cooldown_seconds", 10.0));
+        // TF's anti-farm guard applies to the complete Valhalla formula. Letting only one addend be
+        // cooled down would still permit the original damage-rate path to award every mob hit.
+        if (event.getFinalDamage() < minDamage
+                || (attackerId != null && cooldown.isOnCooldownAndRefresh(
+                        player.getUniqueId(), attackerId, cooldownSeconds, nowMillis))) {
+            return;
+        }
+        double entityMultiplier = 1.0;
+        if (attacker != null && attacker.getType() != null) {
+            entityMultiplier = entry.actionExp().getOrDefault(
+                    "entity_exp_multipliers." + attacker.getType().name(), 1.0);
+        }
+        double pvpMultiplier = pvp
+                ? Math.max(0.0, entry.rate("armor.pvp_multiplier", 0.1))
+                : 1.0;
+        double pvpExponent = pvp
+                ? Math.max(0.0, entry.rate("armor.pvp_multiplier_exponent", 1.0))
+                : 1.0;
+        double total = armorHitExp(
+                event.getDamage(),
+                pieces,
+                entry.rate("armor.exp_per_damage_piece", 10.0),
+                armorPoints,
+                entry.rate("armor.exp_armor_point_multiplier", 0.05),
+                entityMultiplier,
+                pvpMultiplier,
+                pvpExponent);
+        if (total > 0.0) {
+            double spot = entry.rate("armor.location_diminishing_enabled", 1.0) > 0.0
+                    ? locationMultiplier
+                    : 1.0;
+            grant(player, skill, total * worldMultiplier * spot);
+        }
+    }
+
+    /**
+     * ValhallaMMO 1.9.3 armor-hit formula. Its heavy-armor bytecode applies the PvP multiplier
+     * twice while light armor applies it once, so the exponent is data-driven rather than hidden in
+     * this method ({@code heavy=2}, {@code light=1} in the shipped progression files).
+     */
+    static double armorHitExp(double rawDamage, int wornPieces, double expPerDamagePiece,
+                              double totalArmorPoints, double armorPointMultiplier,
+                              double entityMultiplier, double pvpMultiplier,
+                              double pvpMultiplierExponent) {
+        if (!Double.isFinite(rawDamage) || rawDamage <= 0.0 || rawDamage > 1_000_000.0
+                || wornPieces <= 0) {
+            return 0.0;
+        }
+        double perDamage = nonNegativeFinite(expPerDamagePiece);
+        double armorPoints = nonNegativeFinite(totalArmorPoints);
+        double pointMultiplier = nonNegativeFinite(armorPointMultiplier);
+        double entity = nonNegativeFinite(entityMultiplier);
+        double pvp = nonNegativeFinite(pvpMultiplier);
+        double exponent = nonNegativeFinite(pvpMultiplierExponent);
+        double result = perDamage * rawDamage * wornPieces
+                * (1.0 + armorPoints * pointMultiplier)
+                * entity
+                * Math.pow(pvp, exponent);
+        return Double.isFinite(result) && result > 0.0 ? result : 0.0;
+    }
+
+    private double armorPoints(Player player, boolean heavy) {
+        if (aggregator == null) {
+            return 0.0;
+        }
+        try {
+            return nonNegativeFinite(
+                    aggregator.equippedArmorStatTotal(player, "armor-defense-rate", stack ->
+                            heavy ? isArmor(stack.getType()) && !isLightArmor(stack.getType())
+                                    : isLightArmor(stack.getType())));
+        } catch (RuntimeException ignored) {
+            // Invalid/unresolved equipment must not break the damage event. The base Valhalla
+            // multiplier remains 1.0, so the hit can still award its configured base EXP.
+            return 0.0;
+        }
+    }
+
+    private static double nonNegativeFinite(double value) {
+        return Double.isFinite(value) && value > 0.0 ? value : 0.0;
     }
 
     /** Applies the selected support-role multiplier to every player-attributed native EXP grant. */
@@ -536,6 +906,11 @@ public final class NativeSkillExperienceListener implements Listener {
         String n = material.name();
         return n.endsWith("_HELMET") || n.endsWith("_CHESTPLATE")
                 || n.endsWith("_LEGGINGS") || n.endsWith("_BOOTS");
+    }
+
+    private static boolean isLightArmor(Material material) {
+        String name = material.name();
+        return isArmor(material) && (name.startsWith("LEATHER_") || name.startsWith("CHAINMAIL_"));
     }
 
     private static boolean excluded(Player p) {

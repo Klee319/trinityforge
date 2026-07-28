@@ -51,6 +51,12 @@ public final class PercentStatNormalize {
             StatKeys.canonical("material-refund-chance"),
             StatKeys.canonical("ingredient-save-chance"),
             StatKeys.canonical("fishing-luck"),
+            // 2026-07-28: mining-fortune はここに登録漏れしていた(fishing-luck だけが入っていた)。
+            // skilltree の各ノードは effect-text「ドロップ増加+15%」に合わせて mining-fortune: 15 と
+            // パーセントポイントで書かれているが、矯正されないと 15(=1500%) のまま
+            // MiningFortuneListener へ渡り、1ブロックあたり数個の追加ドロップになっていた
+            // (精密破壊I だけでドロップ約6倍)。
+            StatKeys.canonical("mining-fortune"),
             // 2026-07-24 S9: 確率系(0-1)の新規stat。管理者が 20(=20%のつもり)と入力しても 0.2 へ矯正する。
             // 倍率系(vanilla-exp-bonus / food-restore-bonus 等、1超が正当)は意図的に除外し確率3種のみ追加。
             StatKeys.canonical("woodcutting-extra-drop-chance"),

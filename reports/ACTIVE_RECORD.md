@@ -335,6 +335,52 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-28 21:xx — editor UI 8 件＋採掘運の 6 倍ドロップ（実サーバ報告 10 件バッチ）
+
+検証は実走・実測: TF `2681 tests / fail 0`（`gradlew test --offline`）、config-editor `780 / 780 pass`、
+UI は port 8794 の検証用インスタンスで DOM 実測（本番 8000 は触っていない）。**jar は未再ビルド・未配備**。
+
+**① 採掘運でドロップが約 6 倍になっていた（最重要・ゲーム挙動のバグ）**
+真因は 2 つが重なっていた。
+- `PercentStatNormalize.RATE_KEYS` に `mining-fortune` が **登録漏れ**（`fishing-luck` だけ入っていた）。
+  skilltree は effect-text「ドロップ増加+15%」に合わせて `mining-fortune: 15` とパーセントポイントで
+  書いているので、矯正されないまま **15（＝1500%）** が `MiningFortuneListener` に渡っていた。
+- そのうえで `expectedExtraRate` が内部で **`× 0.30` という未文書の係数**を掛けていたため、
+  ノードの表示値と実効値の対応が誰にも追えない状態だった。
+
+修正は「表示どおりに効く」方向へ寄せた: `RATE_KEYS` に `mining-fortune` を追加し、`× 0.30` を撤去。
+レベル由来分のバランスは変えないよう `fortune-per-level` を同じ比率で下げた（既定 `0.02 → 0.006`、
+出荷 yml `0.01 → 0.003`）。**Lv100 の寄与は前後とも +30% で不変**。
+`lore.yml` の `mining-fortune` は `FLAT → PERCENT`（`fishing-luck` は元から PERCENT で、こちらだけ
+取り残されていた）。editor 側のミラー（`forms.js` の RATE_KEYS / `materials.js` の FORMAT）も同時更新。
+
+**② カスタムアイテムが素材セレクトに出ない（醸造ほか）**
+- Java: `ItemExpLookup`（新規）を追加し、EXP テーブルを **`custom:<id>` → バニラ Material 名**の順で
+  引くようにした（`NativeSkillExperienceListener` のドロップ／採取／釣り／醸造の 4 経路）。
+  カスタム行が未設定なら従来どおりバニラ行に落ちるので既存設定の挙動は不変。
+  PDC 読み取りは `Bukkit.getItemFactory()` を触るため、サーバ非起動の単体テスト文脈では例外になる。
+  `customIdOf()` で握り潰して「カスタムIDが分からない＝バニラ名で引く」へ縮退させている。
+- editor: 候補を積んでいたのは `fetchCatalogCandidatesWithMaterials()` を明示的に呼ぶ一部画面だけで、
+  醸造ギミック等を直接開くと `window.CUSTOM_ITEM_CANDIDATES` が空だった。**画面種別ごとに足すと必ず
+  漏れる**ので、エディタ構築の共通入口（`buildEditorForLoadedConfig`）で一度だけ読むようにした。
+
+**③ セレクトが絞り込み入力にならない** — `window.listSelect` にフィルタ行を追加（日本語名／ID の
+どちらでも引ける・候補 8 件超で表示・最大 200 件描画＋「他 N 件」）。
+
+**④〜⑧ ID 表記の日本語化**（実測で残 ID ゼロを確認）
+- エンチャント EXP 設定・醸造結果 EXP 表・繁殖 EXP 表・考古学ブラシ EXP 表
+- モブ定義カードの折り畳み時表示名（`ブレイズ` `洞窟グモ` …）
+- バニラレシピ削除／アイテム自体を削除（`ネザライトの斧 (鍛冶台)` `全アイテム:修繕` まで解決）
+- PotionType の日本語辞書は `labels.js` に一本化し、醸造ギミックのベースセレクトもそこを引く
+
+旧 ID のまま出荷 yml に残っているキー（`sweeping` / `MUSHROOM_COW` / `JUMP`）は、TF 側リゾルバが
+今もエイリアス解決するので **候補には出さず表示辞書だけ別名を持たせた**（候補に並べると新旧が二重に出る）。
+
+**⑨ 使用制限スイッチのカードが隙間なく繋がっていた** — `.afk-section` を `flex` + `gap:12px` に。
+
+**未実施**: この 8 件は **jar 未ビルド・未配備**。ゲーム挙動が変わるのは ①（採掘運）と ②（Java 側）で、
+反映にはビルド＋配備＋再起動が必要。
+
 ### 2026-07-28 19:0x — 要望 6 件（グリフ素材GUI／儀式プレビュー／ロールUI／日光炎上／序盤火力）
 
 ユーザー要望 6 件をまとめて実装。検証は実走・実測: TF `BUILD SUCCESSFUL`・`fail 0 / skip 2`（既知の

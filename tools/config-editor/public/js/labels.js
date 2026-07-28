@@ -168,7 +168,7 @@
     "dodge-chance": "被弾時にダメージを回避する確率。",
     "reflect-flat": "被弾時にこの固定値分だけ攻撃者へダメージを反射する。棘の鎧の代替(バニラの棘の鎧ダメージは抑止され、耐久消費のみ維持)。",
     "reflect-percent": "被弾時に受けたダメージの割合を攻撃者へ反射する。棘の鎧レベル(装備合計)は1Lvにつき10%をこの値へ寄与する。",
-    "mining-fortune": "採掘時の幸運レベル。バニラ幸運をこの値へ統合し、1レベルにつき期待ドロップ量を30%増やす。シルクタッチとは共存しない。",
+    "mining-fortune": "対象鉱石(採掘ギミックの fortune-blocks)を壊したときの追加ドロップの増加率。+15% なら1ブロックあたり期待値+0.15個(整数部は確定、小数部はその確率で+1個)。MINING Lv による増加分と合算する。シルクタッチとは共存しない。",
     "fishing-luck": "釣りの幸運値に加算される。",
     "fishing-bonus": "釣果に対する追加ボーナス。",
     "tool-enchant-efficiency": "このツール自身へ効率強化エンチャントとして適用される(ツールチップに表示され、譲渡しても効果が付いてくる)。プレイヤー総合ステータスには合算されない。装備中だけ効く集計ステとしての採集効率は gathering-efficiency(採集:採集効率) を使う。",
@@ -351,32 +351,65 @@
     "group": { label: "グループ", desc: "召喚モブのグループ。" },
     // skill-exp.yml / skills/base/*_progression.yml
     "exp-per-craft": { label: "クラフト1回EXP", desc: "Ars装備などを1回クラフトしたときに付与する ARS_SMITHING 経験値。" },
-    "exp-per-cast": { label: "詠唱1回EXP", desc: "詠唱成功1回あたりの基礎 EXP。権威は TF stats/skill-exp.yml (ArsPaper config.yml は TF 未ロード時のフォールバック)。" },
-    "exp-per-mana": { label: "消費マナあたりEXP", desc: "その詠唱で消費したマナ1あたりの追加 EXP。権威は TF stats/skill-exp.yml (ArsPaper config.yml は TF 未ロード時のフォールバック)。" },
+    "kill-exp": { label: "討伐EXP設定", desc: "敵の種類・レベル・最大体力に応じて討伐時に付与するスキルEXP。" },
+    "block-break-exp": { label: "ブロック破壊EXP設定", desc: "魔法でブロックを破壊したときに採取系の素材EXPを参照して付与する設定。" },
+    "base": { label: "基礎値", desc: "計算式へ最初に加える基礎値。マップの場合はスキル等の種類別に指定する。" },
+    "per-mob-level": { label: "モブレベル1あたりEXP", desc: "討伐対象のモブレベル1につき加算するEXP。" },
+    "per-max-health": { label: "最大体力1あたりEXP", desc: "討伐対象の最大体力1につき加算するEXP。" },
+    "entity-type-multipliers": { label: "敵種類別EXP倍率", desc: "EntityTypeごとに討伐EXPへ掛ける倍率。未指定の種類は1倍。" },
+    "source-multiplier": { label: "採取EXP換算倍率", desc: "採掘・伐採・掘削・農業の素材EXPを魔法EXPへ換算するときの倍率。" },
+    "HEAVY_WEAPONS": { label: "重量武器", desc: "重量武器スキルの討伐EXP基礎値。" },
+    "LIGHT_WEAPONS": { label: "軽量武器", desc: "軽量武器スキルの討伐EXP基礎値。" },
     "exp_level_curve": { label: "レベル曲線式", desc: "TF数式形式。%level% が現在Lv。^ は累乗。例: (%level% + 75 * 2^(%level%/7.6)) + 300" },
     "max_level": { label: "最大レベル", desc: "このスキルのレベル上限。1以上。" },
-    "daily_limit": { label: "日間EXP上限", desc: "24時間あたりの基準EXP上限。-1で無制限(減衰も無効)。日間減衰率>0のとき、累計がこの値の倍数に達するたび獲得量が減衰する。0かつ減衰率0なら旧仕様の打ち切り上限。" },
-    "daily_limit_decay_percent": { label: "日間減衰率(%)", desc: "24時間累計が日間上限の倍数に達するたび、獲得量がこの%ずつ減少(加算的)。0なら旧仕様の打ち切り上限。-1上限時は無効。" },
-    "exp_per_damage": { label: "与ダメあたりEXP", desc: "戦闘スキル: 与えたダメージ量に比例する獲得EXP係数。" },
+    "alchemy_brew_exp": { label: "醸造EXP基礎値", desc: "醸造結果・素材別EXP表に一致しないポーションを作ったときの基礎EXP。" },
+    "fishing_catch_exp": { label: "釣果EXP基礎値", desc: "釣果別EXP表に一致しないアイテムを釣り上げたときの基礎EXP。" },
     "bow_exp_base": { label: "弓EXP基礎", desc: "弓射撃1回あたりの基礎EXP。" },
     "crossbow_exp_base": { label: "クロスボウEXP基礎", desc: "クロスボウ射撃1回あたりの基礎EXP。" },
+    "damage_exp_bonus": { label: "与ダメージEXP加算率", desc: "弓・クロスボウの与ダメージ1点ごとに加算するEXP倍率。" },
+    "distance_exp_multiplier_base": { label: "距離EXP基礎倍率", desc: "至近距離で命中したときの弓術EXP倍率。" },
+    "distance_exp_multiplier": { label: "遠距離EXP加算倍率", desc: "射手と対象の距離10ブロックごとに加算する弓術EXP倍率。" },
+    "distance_limit": { label: "距離EXP計算上限", desc: "遠距離ボーナスの計算へ使用する最大距離（ブロック）。" },
+    "infinity_multiplier": { label: "無限エンチャントEXP倍率", desc: "無限エンチャント付きの弓で獲得する弓術EXPの倍率。" },
+    "spawner_spawned_multiplier": { label: "スポナー産EXP倍率", desc: "スポナー由来の敵から獲得する弓術EXPの倍率。" },
+    "max_health_limitation": { label: "最大体力によるEXP制限", desc: "対象の最大体力を基準に弓術EXPを制限するか。" },
+    "pvp_multiplier": { label: "PvP EXP倍率", desc: "プレイヤーを対象にしたときの獲得EXP倍率。" },
+    "is_chunk_nerfed": { label: "同一地点EXP逓減", desc: "同じ場所で繰り返し獲得する防具EXPへ地点ベースの逓減を適用するか。" },
     "exp_damage_piece": { label: "被ダメEXP(1部位)", desc: "防具スキル: ダメージを受けたときのEXP。" },
     "exp_damage_piece_min_damage": { label: "被ダメEXP 最低ダメージ", desc: "この値未満の最終ダメージ(矢の掠り等)では防具EXPを付与しない(semi-AFK farm対策)。" },
     "exp_damage_piece_cooldown_seconds": { label: "被ダメEXP CD(秒)", desc: "同一攻撃者からの被弾EXPは(被害者,攻撃者)単位でこの秒数に1回まで。" },
-    "exp_second_piece": { label: "被ダメEXP(追加部位)", desc: "複数部位装備時の追加EXP係数。" },
+    "exp_multiplier_point": { label: "防具値1点あたりEXP倍率", desc: "装備中の防具値1点ごとに被弾EXPへ加算する倍率。" },
+    "pvp_multiplier_exponent": { label: "PvP EXP倍率指数", desc: "プレイヤーから被弾した際のPvP倍率を何乗して防具EXPへ適用するか。1はそのまま、2は倍率の2乗。" },
+    "entity_exp_multipliers": { label: "敵種類別EXP倍率表", desc: "攻撃元のEntityTypeごとに防具EXPへ掛ける倍率。未指定の種類は既定倍率を使う。" },
     "exp_multiplier_mine": { label: "採掘EXP倍率", desc: "通常採掘でのEXP倍率。" },
     "exp_multiplier_blast": { label: "爆破採掘EXP倍率", desc: "爆発経由の採掘でのEXP倍率。" },
     "exp_multiplier_quality": { label: "品質EXP倍率", desc: "錬金など: 品質1あたりのEXP加算倍率。" },
     "multiplier_manual": { label: "手動倍率", desc: "手動行動のEXP倍率。" },
     "multiplier_automated": { label: "自動倍率", desc: "自動装置経由のEXP倍率。" },
-    "exp-per-hit": { label: "命中1回EXP", desc: "武器の use-skill に紐づくTF戦闘スキルEXP(命中1回あたり)。combat.mode: flat のときのみ使われる後方互換キー。" },
-    "same-target-cooldown-seconds": { label: "同一target連続命中CD(秒)", desc: "同一(攻撃者,対象)ペアへのEXP付与クールダウン。死なないmob等を殴り続ける武器スキルEXP無限farmを防ぐ。このCD中は同一targetへの命中EXPを0にする。" },
-    "by-skill": { label: "スキル別上書き", desc: "use-skillごとのexp-per-hit上書き(省略時は共通値)。" },
+    "brew_result": { label: "醸造結果EXP表", desc: "完成したポーション等の種類ごとの錬金術EXP。" },
+    "brew_ingredient": { label: "醸造素材EXP表", desc: "醸造に使用した素材の種類ごとの錬金術EXP。" },
+    "mining_break": { label: "採掘時EXP表", desc: "破壊したブロックまたは得た素材ごとの採掘EXP。" },
+    "digging_break": { label: "掘削時EXP表", desc: "破壊したブロックまたは得た素材ごとの掘削EXP。" },
+    "archaeology_brush": { label: "考古学ブラシEXP表", desc: "ブラシで発掘したアイテムごとの掘削EXP。" },
+    "woodcutting_break": { label: "伐採時EXP表", desc: "破壊した原木・木材ごとの伐採EXP。" },
+    "woodcutting_strip": { label: "樹皮剥ぎEXP表", desc: "斧で樹皮を剥いだ結果ブロックごとの伐採EXP。" },
+    "block_interact": { label: "ブロック操作EXP表", desc: "収穫など、ブロックを操作したときの農業EXP。" },
+    "block_drops": { label: "ブロック収穫EXP表", desc: "農作物などのブロック・ドロップ素材ごとの農業EXP。" },
+    "entity_breed": { label: "繁殖EXP表", desc: "繁殖させた動物の種類ごとの農業EXP。" },
+    "entity_kill": { label: "家畜討伐EXP表", desc: "討伐した動物の種類ごとの農業EXP。" },
+    "entity_drops": { label: "家畜ドロップEXP表", desc: "家畜から得た素材ごとの農業EXP。" },
+    "entity_shear": { label: "毛刈りEXP表", desc: "毛刈りした動物の種類ごとの農業EXP。" },
+    "fishing_catch": { label: "釣果EXP表", desc: "釣り上げたアイテムごとの釣りEXP。" },
+    "exp_gain": { label: "エンチャントEXP設定", desc: "消費EXP換算と、エンチャント・レベル・種類・対象アイテム別の倍率表。" },
+    "experience_spent_conversion": { label: "消費EXP換算率", desc: "エンチャントで消費したバニラEXPをスキルEXPへ換算する倍率。" },
+    "enchantment_base": { label: "エンチャント基礎EXP表", desc: "エンチャント種類ごとの基礎EXP。" },
+    "enchantment_level_multiplier": { label: "エンチャントレベル倍率表", desc: "付与レベルごとのEXP倍率。" },
+    "enchantment_type_multiplier": { label: "素材種別倍率表", desc: "装備素材の種類ごとのEXP倍率。" },
+    "enchantment_item_multiplier": { label: "アイテム種別倍率表", desc: "武器・道具・防具部位などの種類ごとのEXP倍率。" },
+    "prestige_decay_rate": { label: "プレステージ減衰率", desc: "プレステージ後の総合スキル進行へ適用する減衰率。" },
     // skill-exp.yml 直下スカラー・追加セクション (2026-07-27 タスク1: ID表示バグ修正)
-    "outside-dungeon-exp-rate": { label: "ダンジョン外EXP倍率", desc: "dungeon-only-exp: false のとき、ダンジョン外(オーバーワールド等)で得る戦闘スキルEXP(武器=命中/防具=被弾/魔法=詠唱)に掛かる倍率。ダンジョン内は常に1.0。1.0=ダンジョンと同率、0.25(既定)=ダンジョンの1/4、0.0=完全遮断。dungeon-only-exp: true のときは参照されない。" },
+    "outside-dungeon-exp-rate": { label: "ダンジョン外EXP倍率", desc: "dungeon-only-exp: false のとき、ダンジョン外で得る戦闘スキルEXP(武器・魔法=討伐、防具=被弾、弓術=命中)に掛かる倍率。ダンジョン内は常に1.0。1.0=ダンジョンと同率、0.25(既定)=ダンジョンの1/4、0.0=完全遮断。dungeon-only-exp: true のときは参照されない。" },
     "exp-mode": { label: "採取EXP算出方式", desc: "MINING/FARMING/WOODCUTTING/DIGGING共通。drop_sum(既定)=ドロップ品(素材側)の値の合計。block_value=ブロックそのものの値をそのまま使う。max=両者の大きい方。" },
-    "damage-scale": { label: "与ダメEXP係数", desc: "combat.mode: damage_scaled のときのみ使用。1ヒットのEXP=(与ダメージ×この値)×(1+モブレベル×mob-level-scale)。" },
-    "mob-level-scale": { label: "モブレベルEXP係数", desc: "combat.mode: damage_scaled のときのみ使用。モブレベル1につき倍率へ+この値(例: 0.02ならレベル50で+100%/レベル100で+200%)。レベル情報を持たないモブは0扱い(倍率1.0)。" },
     "radius": { label: "同一地点判定半径", desc: "spot-diminishing: 直近window-seconds秒のあいだにこの半径(ブロック)以内で得たEXP回数を数える。" },
     "window-seconds": { label: "判定時間窓(秒)", desc: "spot-diminishing: この秒数のあいだの獲得回数を同一地点判定に使う。" },
     "threshold": { label: "逓減開始回数", desc: "spot-diminishing: 判定時間窓のあいだにこの回数を超えた分から、1回ごとにdecay-per-killずつ倍率を下げる。" },
@@ -424,7 +457,7 @@
     "loot-base-quality": { label: "ルート基準品質", desc: "拾得・ルート装備の品質mode基準値。幸運とアイテム個別の品質基準値に加算され、品質分布で抽選される。" },
     "fishing-base-quality": { label: "釣り基準品質", desc: "釣りで得る装備の品質mode基準値。釣りスキル・幸運とアイテム個別の品質基準値に加算され、品質分布で抽選される。" },
     "strength-per-quality": { label: "敵の強さ1段あたり", desc: "敵レベルがこの数上がるごとに期待品質(mode)+1。0以下でmode固定。" },
-    "enabled": { label: "有効", desc: "この機能をON/OFFする。OFFなら敵の強さを無視し一様ランダムで品質を刻む。" },
+    "enabled": { label: "有効", desc: "この設定機能をON/OFFする。" },
     "ars-gear": { label: "Ars装備スキル", desc: "Ars魔法装備の品質を駆動するスキル (ARS_SMITHING等)。" },
     // ---- P4: quality.yml (tf-quality) ----
     "max-quality": { label: "最大品質(フォールバック)", desc: "品質ティアが無い場合の最大品質。範囲[1,100]。" },
@@ -702,6 +735,55 @@
     const key = String(mat);
     return window.MATERIAL_LABELS[key] || key;
   }
+  // 2026-07-28: エンチャントIDの日本語名。vocab-1.21.11.js の ENCHANT_LABELS_JA は
+  // 小文字キー(sharpness)だが、config 側は大文字(SHARPNESS)や `minecraft:sharpness` の形でも
+  // 現れるため、ここで表記ゆれを吸収する。辞書は増やさず既存のものを引くだけ。
+  // 1.21.2 でレジストリIDが改名されたエンチャント。TF の出荷 yml は旧IDと新IDの両方に
+  // 同じ値を書いて互換を取っているので(enchanting_progression.yml の sweeping / sweeping_edge)、
+  // 旧IDのほうも生IDのまま表示されないようここで新IDへ寄せる。
+  const ENCHANT_ID_ALIASES = { sweeping: "sweeping_edge" };
+  function enchantLabel(id) {
+    if (!id) return "";
+    const raw = String(id).trim();
+    const key = (raw.includes(":") ? raw.slice(raw.indexOf(":") + 1) : raw).toLowerCase();
+    const map = window.ENCHANT_LABELS_JA;
+    if (!map) return "";
+    return map[key] || map[ENCHANT_ID_ALIASES[key]] || "";
+  }
+  /** 辞書に無ければ生IDへフォールバックする版(セレクトの主表示用)。 */
+  function enchantLabelWithFallback(id) {
+    if (!id) return "";
+    return enchantLabel(id) || String(id);
+  }
+
+  // ---- PotionType(醸造のベース/結果) id -> 日本語 ----
+  // 2026-07-28: 「醸造結果EXP表」の行見出しが AWKWARD / SWIFTNESS の生IDのままだったため追加。
+  // 醸造ギミックの「ベース」セレクト(tf-crafting-features.js)と同じ語彙なので、こちらを唯一の
+  // 辞書にして両方から引く。
+  const POTION_TYPE_LABELS_JA = {
+    AWKWARD: "奇妙なポーション", MUNDANE: "ありふれたポーション", THICK: "濃厚なポーション",
+    WATER: "水入り瓶", NIGHT_VISION: "暗視", INVISIBILITY: "透明化", LEAPING: "跳躍",
+    FIRE_RESISTANCE: "耐火", SWIFTNESS: "俊敏", SLOWNESS: "鈍足", WATER_BREATHING: "水中呼吸",
+    HEALING: "治癒", HARMING: "負傷", POISON: "毒", REGENERATION: "再生", STRENGTH: "力",
+    WEAKNESS: "弱化", LUCK: "幸運", TURTLE_MASTER: "鈍足耐性(タートルマスター)",
+    SLOW_FALLING: "落下耐性", INFESTED: "蟲の巣", OOZING: "滲出", WEAVING: "細工",
+    WIND_CHARGED: "ウィンドチャージ"
+  };
+  /**
+   * PotionType の日本語名。LONG_/STRONG_ 接頭辞つき(延長/強化ポーション)も接尾で表す。
+   * 辞書に無ければ空文字を返す(呼び出し側で生IDへフォールバックする)。
+   */
+  function potionTypeLabel(id) {
+    if (!id) return "";
+    const key = String(id).trim().toUpperCase();
+    if (POTION_TYPE_LABELS_JA[key]) return POTION_TYPE_LABELS_JA[key];
+    const m = /^(LONG|STRONG)_(.+)$/.exec(key);
+    if (m && POTION_TYPE_LABELS_JA[m[2]]) {
+      return `${POTION_TYPE_LABELS_JA[m[2]]}(${m[1] === "LONG" ? "延長" : "強化"})`;
+    }
+    return "";
+  }
+
   // 「日本語 (英字)」の併記文字列を作る。日本語が無ければ英字のみ。
   function withKey(jaLabel, key) {
     if (!jaLabel || jaLabel === key) return key;
@@ -806,6 +888,8 @@
     AUGMENT_LABELS, MAX_STAT_LABEL_LENGTH,
     statLabel, statDescription, nativePerkLabel, nativePerkUnit,
     fieldLabel, fieldDesc, enumLabel, materialLabel, materialLabelWithFallback, withKey,
+    enchantLabel, enchantLabelWithFallback,
+    POTION_TYPE_LABELS_JA, potionTypeLabel,
     augmentLabel, glyphParamHint, normalizeStatKey
   };
 })();

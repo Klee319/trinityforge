@@ -86,9 +86,12 @@ window.FALLBACK_STAT_FORMATS = {
   "dodge-chance": "PERCENT",
   // 補助系: 最大耐久力(整数。小数点以下は切り捨て)
   "durability": "INTEGER",
-  // 採集ステ (期待値方式の生値。閾値やパーセントではなく数値をそのまま扱う)
-  "mining-fortune": "FLAT",
-  "fishing-luck": "FLAT",
+  // 採集ステ。採掘運/釣り運は「追加ドロップ期待値・宝率の増加率」なので割合(PERCENT)。
+  // 釣りボーナスだけは追加ドロップの期待個数そのもの(生値)なので FLAT のまま。
+  // ※ 権威は lore.yml。ここは lore.yml が読めないときのフォールバックなので値を一致させる
+  //   (2026-07-28 まで mining-fortune / fishing-luck が FLAT のままズレていた)。
+  "mining-fortune": "PERCENT",
+  "fishing-luck": "PERCENT",
   "fishing-bonus": "FLAT",
   // Ars装備ステ (加算値)
   "mana-bonus": "FLAT",

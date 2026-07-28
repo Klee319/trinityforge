@@ -133,6 +133,9 @@
     "stat-caps": "statCapsData",
     "ars-config": "arsConfigData",
     "afk": "afkData",
+    // 2026-07-28: 「怪しいブロックの再生成」を掘削ギミック画面へ移設したため、
+    // mining-gimmick.yml が掘削画面のコンパニオンになった。
+    "mining-gimmick": "miningGimmickData",
     // 2026-07-27: 「特殊アイテム」(functional-items)画面が TF の skill_node_lock/skill_tree_reset
     // (catalog.yml側の該当2件のみ)をコンパニオンとして統合表示するため。
     "catalog": "catalogData"
@@ -271,9 +274,34 @@
       const mr = await api("GET", "/api/config/materials");
       if (mr && mr.data) materialsData = mr.data;
     } catch (_) { /* optional */ }
-    return typeof window.buildCatalogCandidates === "function"
+    const candidates = typeof window.buildCatalogCandidates === "function"
       ? window.buildCatalogCandidates(catalogData || {}, materialsData || {})
       : [];
+    // 取得したついでに custom: 候補としても共有登録しておく。materialInput は
+    // window.CUSTOM_ITEM_CANDIDATES をフォールバック候補源にしているので、
+    // ここで積んでおけば同一セッション内の他画面でもカスタムアイテムが選べる。
+    if (candidates.length && typeof window.setCustomItemCandidates === "function") {
+      window.setCustomItemCandidates(candidates, { replace: false });
+    }
+    return candidates;
+  }
+
+  /**
+   * 2026-07-28: 「醸造などカスタムアイテムも適用できるべき箇所でカスタムアイテムが
+   * セレクトメニューにない」への対処。materialInput({allowCustom:true}) はカスタム候補を
+   * グローバル window.CUSTOM_ITEM_CANDIDATES から引くが、これを積むのは
+   * fetchCatalogCandidatesWithMaterials を明示的に呼ぶ一部の画面だけだった。そのため
+   * 醸造ギミック(醸造解放の材料)やエンチャントギミック等を直接開くと候補が空のままで、
+   * 「custom:<ID> を手入力しないと設定できない」状態になっていた。
+   * 画面種別ごとに呼び出しを足すと必ず漏れるので、エディタ構築の共通入口で一度だけ読む。
+   * 取得失敗・カタログ空でもバニラ素材だけで編集は続行できるので、常に握り潰す。
+   */
+  let customItemCandidatePromise = null;
+  function ensureCustomItemCandidates() {
+    if (!customItemCandidatePromise) {
+      customItemCandidatePromise = fetchCatalogCandidatesWithMaterials().catch(() => []);
+    }
+    return customItemCandidatePromise;
   }
 
   /**
@@ -568,6 +596,8 @@
   /** selectConfig と同じスキーマ分岐でエディタを組み立てる（マージ再適用用）。 */
   async function buildEditorForLoadedConfig(schema, data, opts) {
     const options = opts || {};
+    // どの画面でも materialInput のカスタム候補が空にならないよう、共通入口で一度だけ読む。
+    await ensureCustomItemCandidates();
     switch (schema) {
       case "item-stats": {
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
@@ -600,6 +630,8 @@
       }
       case "tf-quality-tiers": return window.buildQualityTiersForm(data);
       case "tf-skill-exp": {
+        // 2026-07-28: EXP テーブルの素材セレクトにカスタムアイテム(catalog.yml / materials.yml)を
+        // 出すための候補は、上の ensureCustomItemCandidates() で共通に読み込み済み。
         const progression = options.progression || {};
         if (!options.progression) {
           for (const skillId of PROGRESSION_SKILL_IDS) {
@@ -662,7 +694,12 @@
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
         return window.buildWoodcuttingGimmickForm(data, { craftingFeaturesData, catalogCandidates });
       }
-      case "tf-digging-gimmick": return window.buildDiggingGimmickForm(data);
+      case "tf-digging-gimmick": {
+        // 2026-07-28: 「怪しいブロックの再生成」(考古学=ブラシ)を採掘タブからここへ移設。
+        // 保存先ファイルは stats/mining-gimmick.yml のままなのでコンパニオンとして読み込む。
+        const miningGimmickData = await loadConfigCompanion("mining-gimmick", "miningGimmickData", options);
+        return window.buildDiggingGimmickForm(data, { miningGimmickData });
+      }
       case "tf-farming-gimmick": {
         // T6 (2026-07-26): 食事ギミック(food-gimmick.yml)をこのタブ内へ統合表示。ファイルは別のまま。
         const foodGimmickData = await loadConfigCompanion("food-gimmick", "foodGimmickData", options);
@@ -1486,8 +1523,11 @@
     rememberRevision(id, r.revision);
 
     const meta = state.configs.find((c) => c.id === id) || {};
-    document.getElementById("editor-title").textContent = meta.label || id;
-    document.getElementById("editor-sub").textContent = `${r.exists ? "" : "(未作成: 保存で新規作成)"} schema: ${r.schema}`;
+    document.getElementById("editor-title").textContent =
+      String(meta.label || id).replace(/\s*\([^)]*\)\s*$/, "");
+    document.getElementById("editor-sub").textContent = r.exists
+      ? "設定ファイルを編集中"
+      : "未作成（保存すると新規作成されます）";
 
     const data = r.data && typeof r.data === "object" ? r.data : {};
     rememberBase(id, data);

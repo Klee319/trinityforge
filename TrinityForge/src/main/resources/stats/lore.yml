@@ -503,8 +503,11 @@ stats:
   mining-fortune:
     name: 採掘運
     icon: ""
-    format: FLAT
-    decimals: 1
+    # 【2026-07-28】FLAT から PERCENT へ変更。採掘運は「追加ドロップ期待値の増加率」であり、
+    # skilltree も effect-text「ドロップ増加+15%」に対して mining-fortune: 15 と書いている。
+    # 釣り運(fishing-luck)は最初から PERCENT で、こちらだけ取り残されていた。
+    format: PERCENT
+    decimals: 0
     order: 81
     show-sign: true
     hide-when-zero: true
@@ -1827,6 +1830,22 @@ stats:
       floor: 0
       cap: 0.9
       cap-ref: "java:com.trinityforge.listeners.PotionQualityListener#MAX_SPEED_REDUCTION"
+  coating-charges-bonus:
+    # 2026-07-28新設(数値のギミックyml集約): feature:coating-stack-increase から降格した通常stat。
+    # WeaponCoatingListener#onInteract(java)がPlayerStatAggregator#totalOfで全ソース合算を読み、
+    # 実効上限スタック数 = min(基本最大スタック, 素材固有max-stacks) + このボーナス + アイテム固有
+    # coating-charges(mainhandのみ、こちらは総合ステとは別枠)。負値はMath.maxで0へ床上げして加算。
+    # PlayerInteractEvent(オフハンド素材+メインハンド武器の右クリック)発火であり、既存の
+    # StatTriggerWhen語彙に完全一致する値が無いため trigger は付与しない(隣接する
+    # coating-charges エントリと同じ扱い)。
+    name: コート上限追加
+    icon: ""
+    format: INTEGER
+    decimals: 0
+    order: 217
+    show-sign: true
+    hide-when-zero: true
+    category: craft
   mana-max-base:
     # base-stats.yml専用のマナ初期値キー(ArsPaper config.yml の mana.default-max 等の移設先)。
     # アイテムには通常付与されない基礎値だが、StatVocabulary登録キーとしてlore表示定義も揃えておく。

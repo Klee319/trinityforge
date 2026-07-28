@@ -604,9 +604,50 @@ window.listSelect = function listSelect(cfg) {
   });
   custom.style.display = "none";
 
+  // 2026-07-28: 候補が数百件あるセレクト(素材/敵種類/エンチャント等)で目的の項目まで
+  // スクロールするしかなかったため、ドロップダウン先頭に絞り込み入力を常設する。
+  // 日本語名・ID のどちらでも引ける (材質サジェスト materialInput と同じ流儀)。
+  const MAX_RENDERED = 200;
+  let query = "";
+  let renderedOptions = [];
+  const filterInput = h("input", {
+    class: "field-input list-select-filter",
+    type: "text",
+    spellcheck: "false",
+    autocomplete: "off",
+    placeholder: cfg.filterPlaceholder || "絞り込み (日本語名 / ID)"
+  });
+  const filterRow = h("li", { class: "list-select-filter-row" }, [filterInput]);
+
   function resolveOptions() {
     const raw = typeof cfg.options === "function" ? cfg.options() : (cfg.options || []);
     return Array.isArray(raw) ? raw.slice() : [];
+  }
+
+  function normalizeQuery(raw) {
+    return String(raw == null ? "" : raw).trim().toLowerCase().replace(/\s+/g, "");
+  }
+
+  // 前方一致 > 部分一致 の順に並べ替える。同スコア内は元の並び順(=呼び出し側が意図した順)を保つ。
+  function filterOptions(options, rawQuery) {
+    const q = normalizeQuery(rawQuery);
+    if (!q) return options;
+    const scored = [];
+    options.forEach((opt, idx) => {
+      const value = String(opt.value == null ? "" : opt.value).toLowerCase();
+      const primary = normalizeQuery(opt.primary);
+      const secondary = String(opt.secondary == null ? "" : opt.secondary).toLowerCase();
+      const compact = value.replace(/_/g, "");
+      let score = 0;
+      if (value === q || primary === q || compact === q) score = 3;
+      else if (value.startsWith(q) || primary.startsWith(q) || compact.startsWith(q)
+        || secondary.startsWith(q)) score = 2;
+      else if (value.includes(q) || primary.includes(q) || compact.includes(q)
+        || secondary.includes(q)) score = 1;
+      if (score > 0) scored.push({ opt, score, idx });
+    });
+    scored.sort((a, b) => (b.score - a.score) || (a.idx - b.idx));
+    return scored.map((s) => s.opt);
   }
 
   function findOption(value, options) {
@@ -719,13 +760,27 @@ window.listSelect = function listSelect(cfg) {
   }
 
   function renderList() {
-    const options = resolveOptions();
-    list.innerHTML = "";
+    const all = resolveOptions();
+    const matched = filterOptions(all, query);
+    const options = matched.slice(0, MAX_RENDERED);
+    renderedOptions = options;
+    if (activeIndex >= options.length) activeIndex = options.length ? options.length - 1 : -1;
+    // 絞り込み欄だけは作り直さない: innerHTML を空にすると入力中のフォーカスとカーソル位置が
+    // 飛んでしまい、1文字打つごとに入力が中断される。
+    for (const child of [...list.children]) {
+      if (child !== filterRow) list.removeChild(child);
+    }
     if (!list.parentNode) document.body.appendChild(list);
+    // 絞り込み欄は候補が少ないときには邪魔なので、一定件数を超えるときだけ出す。
+    if (all.length > 8) {
+      if (filterRow.parentNode !== list) list.appendChild(filterRow);
+    } else if (filterRow.parentNode === list) {
+      list.removeChild(filterRow);
+    }
     if (!options.length) {
       list.appendChild(h("li", {
         class: "material-suggest-empty",
-        text: "選択肢がありません"
+        text: all.length ? "一致する候補がありません" : "選択肢がありません"
       }));
     } else {
       options.forEach((opt, idx) => {
@@ -750,6 +805,12 @@ window.listSelect = function listSelect(cfg) {
         });
         list.appendChild(li);
       });
+      if (matched.length > options.length) {
+        list.appendChild(h("li", {
+          class: "material-suggest-empty",
+          text: `他 ${matched.length - options.length} 件。絞り込んでください。`
+        }));
+      }
     }
     positionList();
     list.style.display = "";
@@ -764,12 +825,55 @@ window.listSelect = function listSelect(cfg) {
   function openList() {
     if (disabled) return;
     custom.style.display = "none";
+    query = "";
+    filterInput.value = "";
     activeIndex = -1;
     const options = resolveOptions();
     const idx = options.findIndex((o) => String(o.value) === String(current));
     activeIndex = idx >= 0 ? idx : 0;
     renderList();
-    trigger.focus();
+    // 絞り込み欄があるときはそこへフォーカスする(開いた直後から打てる)。
+    if (filterRow.parentNode) filterInput.focus();
+    else trigger.focus();
+  }
+
+  /** ↑↓/Enter/Escape の共通処理。trigger と絞り込み入力の両方から呼ぶ。 */
+  function handleNavKey(e) {
+    if (disabled) return false;
+    const items = [...list.querySelectorAll(".material-suggest-item")];
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) { openList(); return true; }
+      activeIndex = Math.min(items.length - 1, activeIndex + 1);
+      items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
+      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
+      return true;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) return true;
+      activeIndex = Math.max(0, activeIndex - 1);
+      items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
+      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
+      return true;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (!open) { openList(); return true; }
+      if (activeIndex >= 0 && items[activeIndex]) {
+        pick(items[activeIndex].getAttribute("data-value"));
+      }
+      return true;
+    }
+    if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        closeList();
+        trigger.focus();
+      }
+      return true;
+    }
+    return false;
   }
 
   trigger.addEventListener("click", (e) => {
@@ -780,35 +884,25 @@ window.listSelect = function listSelect(cfg) {
 
   trigger.addEventListener("keydown", (e) => {
     if (disabled) return;
-    const items = [...list.querySelectorAll(".material-suggest-item")];
-    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+    if (e.key === " ") {
       e.preventDefault();
-      if (!open) {
-        openList();
-        return;
-      }
-      if (e.key === "Enter" || e.key === " ") {
-        if (activeIndex >= 0 && items[activeIndex]) {
-          pick(items[activeIndex].getAttribute("data-value"));
-        }
-        return;
-      }
-      activeIndex = Math.min(items.length - 1, activeIndex + 1);
-      items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (!open) return;
-      activeIndex = Math.max(0, activeIndex - 1);
-      items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
-    } else if (e.key === "Escape") {
-      if (open) {
-        e.preventDefault();
-        closeList();
-      }
+      if (!open) openList();
+      return;
     }
+    handleNavKey(e);
   });
+
+  filterInput.addEventListener("keydown", (e) => {
+    // スペースは絞り込み文字として入力させる(trigger 側の「開く」ショートカットと衝突させない)。
+    handleNavKey(e);
+  });
+  filterInput.addEventListener("input", () => {
+    query = filterInput.value;
+    activeIndex = 0;
+    renderList();
+  });
+  // ドロップダウン内のクリックでトリガーへフォーカスが戻らないようにする。
+  filterRow.addEventListener("mousedown", (e) => { e.stopPropagation(); });
 
   custom.addEventListener("change", () => {
     const nv = custom.value.trim();

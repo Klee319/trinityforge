@@ -382,7 +382,11 @@
         render();
       });
 
+      // 2026-07-28: カードを閉じたときに EntityType の生ID しか見えず、どのモブの定義か
+      // 分からなかったため、先頭に日本語名を出す(オーバーライド側カードと同じ流儀)。
+      const jaName = (window.MOB_LABELS_JA && window.MOB_LABELS_JA[entityType]) || "";
       const head = [
+        h("span", { class: "entry-key-label", text: jaName || entityType }),
         h("span", { class: "entry-key-label", text: "EntityType" }), typeInput,
         mobTypeSummary(entry),
         h("div", { class: "spacer" }),

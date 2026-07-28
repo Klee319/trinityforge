@@ -483,21 +483,12 @@
     const fortune = ensureObj(working, "fortune");
     ensureArr(vein, "ore-blocks");
     ensureArr(fortune, "fortune-blocks");
-    const suspiciousRespawn = ensureObj(working, "suspicious-block-respawn");
-    const lootTables = ensureObj(suspiciousRespawn, "loot-tables");
 
     const root = h("div", { class: "dedicated-form" });
     root.appendChild(banner("採掘ツリー専用効果の数値。vein-mining / haste / 幸運連携 / 追加ドロップ(drop-tables)。"));
 
-    root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "怪しいブロックの再生成 (suspicious-block-respawn)" })],
-      [
-        h("div", { class: "form-hint", text:
-          "怪しい砂/怪しい砂利を採掘後、時間経過で再生成する際に使うバニラ考古学ルートテーブル名。"
-          + "左=ブロック種別キー(任意の識別子)、右=バニラ LootTable の名前。" }),
-        stringMapEditor(lootTables, { addLabel: "+ ブロック追加", valuePlaceholder: "例: DESERT_PYRAMID_ARCHAEOLOGY" })
-      ]
-    ));
+    // 2026-07-28: 「怪しいブロックの再生成」は考古学(ブラシ=DIGGING)の設定なので掘削ギミックタブへ移設。
+    // 保存先ファイルは stats/mining-gimmick.yml のままで、掘削タブがコンパニオンとして編集する。
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "一括採掘 (vein-mining)" })],
@@ -623,12 +614,77 @@
   // ============================================================
   // digging-gimmick.yml (2026-07-23 新設)
   // ============================================================
-  window.buildDiggingGimmickForm = function buildDiggingGimmickForm(data) {
+  // 怪しい砂/砂利の再生成に使うバニラ考古学ルートテーブル(BrushableBlock が受け付けるもの)。
+  // Java 側は org.bukkit.loot.LootTables の定数名として解決し、未知の名前は警告して既定値へ落とす。
+  const ARCHAEOLOGY_LOOT_TABLES = [
+    { value: "DESERT_PYRAMID_ARCHAEOLOGY", primary: "砂漠のピラミッド" },
+    { value: "DESERT_WELL_ARCHAEOLOGY", primary: "砂漠の井戸" },
+    { value: "TRAIL_RUINS_ARCHAEOLOGY_COMMON", primary: "遺跡歩道(通常)" },
+    { value: "TRAIL_RUINS_ARCHAEOLOGY_RARE", primary: "遺跡歩道(レア)" },
+    { value: "OCEAN_RUIN_COLD_ARCHAEOLOGY", primary: "海底遺跡(寒冷)" },
+    { value: "OCEAN_RUIN_WARM_ARCHAEOLOGY", primary: "海底遺跡(温暖)" }
+  ];
+
+  // 2026-07-28: 以前は自由キー×自由文字列のマップエディタで、行の見出しも値も生ID
+  // (suspicious-sand / DESERT_PYRAMID_ARCHAEOLOGY)のままだった。キーは Java 側が
+  // suspicious-sand / suspicious-gravel の2つしか読まないので、固定2行 + 選択式にする。
+  function suspiciousRespawnRows(lootTables) {
+    const ROWS = [
+      { key: "suspicious-sand", label: "怪しい砂", fallback: "DESERT_PYRAMID_ARCHAEOLOGY" },
+      { key: "suspicious-gravel", label: "怪しい砂利", fallback: "TRAIL_RUINS_ARCHAEOLOGY_COMMON" }
+    ];
+    const box = h("div", { class: "stat-rows" });
+    for (const row of ROWS) {
+      const options = ARCHAEOLOGY_LOOT_TABLES.map((o) => ({ value: o.value, primary: o.primary, secondary: o.value }));
+      const current = lootTables[row.key] == null ? "" : String(lootTables[row.key]);
+      if (current && !options.some((o) => o.value === current)) {
+        options.unshift({ value: current, primary: current, secondary: "" });
+      }
+      box.appendChild(h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: row.label }),
+        window.listSelect({
+          value: current,
+          options,
+          placeholder: `未設定 (既定: ${row.fallback})`,
+          allowCustom: true,
+          customPlaceholder: "LootTables 定数名を直接入力",
+          onChange: (v) => {
+            if (!v) delete lootTables[row.key];
+            else lootTables[row.key] = String(v).trim().toUpperCase();
+          }
+        })
+      ]));
+    }
+    return box;
+  }
+
+  window.buildDiggingGimmickForm = function buildDiggingGimmickForm(data, opts) {
     const working = data && typeof data === "object" ? data : {};
     const durabilityExp = ensureObj(working, "durability-exp");
+    // 2026-07-28: 「怪しいブロックの再生成」は考古学(ブラシ=DIGGING)の設定なので採掘タブから
+    // ここへ移設した。保存先ファイルは stats/mining-gimmick.yml のままなので、コンパニオンとして
+    // 読み込み getExtraSaves で一緒に保存する(farming-gimmick の食事ギミックと同じ方式)。
+    const miningGimmickData = opts && opts.miningGimmickData && typeof opts.miningGimmickData === "object"
+      ? opts.miningGimmickData : undefined;
+    const hasMiningGimmick = miningGimmickData !== undefined;
 
     const root = h("div", { class: "dedicated-form" });
     root.appendChild(banner("掘削(シャベル適正ブロック破壊)ギミック。追加ドロップ(drop-tables) + 耐久消費EXP換算。"));
+    if (hasMiningGimmick) {
+      const suspiciousRespawn = ensureObj(miningGimmickData, "suspicious-block-respawn");
+      const lootTables = ensureObj(suspiciousRespawn, "loot-tables");
+      root.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "怪しいブロックの再生成" })],
+        [
+          h("div", { class: "form-hint", text:
+            "怪しい砂/怪しい砂利を壊したあと再生成させたとき、ブラシで掘り出せる中身をどの"
+            + "バニラ考古学ルートテーブルから抽選するか。再生成そのものの発生率はステータス"
+            + "「怪しいブロック再生成率」で決まります。" }),
+          suspiciousRespawnRows(lootTables),
+          h("div", { class: "field-hint", text: "保存先: stats/mining-gimmick.yml の suspicious-block-respawn" })
+        ]
+      ));
+    }
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
       [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
@@ -666,7 +722,11 @@
         })
       ]
     ));
-    return { element: root, getData: () => working };
+    return {
+      element: root,
+      getData: () => working,
+      getExtraSaves: () => hasMiningGimmick ? [{ id: "mining-gimmick", data: miningGimmickData }] : []
+    };
   };
 
   // ============================================================

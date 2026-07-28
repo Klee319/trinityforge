@@ -69,6 +69,10 @@
     "dodge-chance", "phys-resistance", "magic-resistance", "damage-reduction"
     , "armor-strength"
     // armor-defense-rate はバニラ防具ポイント(INTEGER)。÷100しない。
+    // 2026-07-28: 採集の率系2キー。Java 側 PercentStatNormalize.RATE_KEYS と対になる
+    // (mining-fortune はそちらでも登録漏れしていて、15 が 1500% として効いていた)。
+    // fishing-bonus は追加ドロップの期待個数(生値)なので対象外。
+    , "mining-fortune", "fishing-luck"
   ]);
   function coerceRatePercent(key, value) {
     if (!RATE_PERCENT_KEYS.has(key) || value == null || !Number.isFinite(Number(value))) return value;

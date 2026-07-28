@@ -50,22 +50,265 @@
     return parent[key];
   }
 
+  const MOB_EXP_MAP_KEYS = new Set([
+    "entity-type-multipliers", "entity_exp_multipliers",
+    "entity_breed", "entity_kill", "entity_shear"
+  ]);
+  const MATERIAL_EXP_MAP_KEYS = new Set([
+    "brew_ingredient", "mining_break", "digging_break", "archaeology_brush",
+    "woodcutting_break", "woodcutting_strip", "block_interact", "block_drops",
+    "entity_drops", "fishing_catch"
+  ]);
+
+  function expMapKind(key) {
+    if (MOB_EXP_MAP_KEYS.has(key)) return "mob";
+    if (MATERIAL_EXP_MAP_KEYS.has(key)) return "material";
+    return null;
+  }
+
+  // ------------------------------------------------------------------
+  // 2026-07-28: エンチャントEXP設定 (skills/base/enchanting_progression.yml の
+  // experience.exp_gain) の行見出しが生ID のままだった。
+  //   enchantment_base            : エンチャントID (sharpness ...)
+  //   enchantment_type_multiplier : 装備の素材/種別 (WOOD, IRON, BOW ...)
+  //   enchantment_item_multiplier : 装備の部位 (SWORD, HELMET ...)
+  //   enchantment_level_multiplier: エンチャントのレベル (1..10)
+  // どれも Material でも EntityType でもないので既存の辞書では引けない。
+  // ここでは行の「見出し」だけを日本語にする(キー文字列自体は保存値のまま)。
+  // ------------------------------------------------------------------
+  const ENCHANT_TYPE_LABELS = {
+    BOW: "弓", CROSSBOW: "クロスボウ", WOOD: "木", LEATHER: "革", STONE: "石",
+    CHAINMAIL: "チェーン", IRON: "鉄", GOLD: "金", DIAMOND: "ダイヤモンド",
+    NETHERITE: "ネザライト", PRISMARINE: "プリズマリン(カメの甲羅)", MEMBRANE: "ファントムの皮膜(エリトラ)"
+  };
+  const ENCHANT_ITEM_LABELS = {
+    SWORD: "剣", PICKAXE: "ツルハシ", AXE: "斧", SHOVEL: "シャベル", HOE: "クワ",
+    BOOTS: "ブーツ", LEGGINGS: "レギンス", CHESTPLATE: "チェストプレート", HELMET: "ヘルメット",
+    SHEARS: "ハサミ", TRIDENT: "トライデント", CROSSBOW: "クロスボウ", BOW: "弓",
+    FISHING_ROD: "釣竿"
+  };
+
+  /** 表(オブジェクト)のキーから行見出しを作る関数を返す。対象外の表なら null。 */
+  function keyedTableLabeler(sectionKey) {
+    if (sectionKey === "enchantment_base") {
+      return (key) => {
+        const ja = window.LABELS && typeof window.LABELS.enchantLabel === "function"
+          ? window.LABELS.enchantLabel(key) : "";
+        return ja ? `${ja} (${key})` : key;
+      };
+    }
+    if (sectionKey === "enchantment_type_multiplier") {
+      return (key) => (ENCHANT_TYPE_LABELS[key] ? `${ENCHANT_TYPE_LABELS[key]} (${key})` : key);
+    }
+    if (sectionKey === "enchantment_item_multiplier") {
+      return (key) => (ENCHANT_ITEM_LABELS[key] ? `${ENCHANT_ITEM_LABELS[key]} (${key})` : key);
+    }
+    if (sectionKey === "brew_result") {
+      // 2026-07-28: 醸造結果EXP表の行見出しが PotionType の生ID(AWKWARD 等)のままだった。
+      return (key) => {
+        const ja = window.LABELS && typeof window.LABELS.potionTypeLabel === "function"
+          ? window.LABELS.potionTypeLabel(key) : "";
+        return ja ? `${ja} (${key})` : key;
+      };
+    }
+    if (sectionKey === "enchantment_level_multiplier") {
+      return (key) => `エンチャントLv ${key}`;
+    }
+    return null;
+  }
+
+  function renameMapKey(map, oldKey, newKey) {
+    const entries = Object.entries(map);
+    for (const key of Object.keys(map)) delete map[key];
+    for (const [key, value] of entries) map[key === oldKey ? newKey : key] = value;
+  }
+
+  // 2026-07-28: カスタムアイテム(custom:<id>)も素材として設定できる。EXPテーブルは Java 側
+  // (ItemExpLookup)が custom行 → バニラMaterial行 の順で引くため、両方を候補に出す。
+  // custom: キーは大文字化してはいけない(IDが別物になる)ので add() では触らない。
+  function isCustomExpKey(key) {
+    return /^custom:/i.test(String(key == null ? "" : key));
+  }
+
+  function customExpCandidates() {
+    const raw = Array.isArray(window.CUSTOM_ITEM_CANDIDATES) ? window.CUSTOM_ITEM_CANDIDATES : [];
+    const out = [];
+    const seen = new Set();
+    for (const entry of raw) {
+      if (entry == null || entry === "") continue;
+      const s = String(entry);
+      const key = "custom:" + (isCustomExpKey(s) ? s.slice(s.indexOf(":") + 1) : s);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(key);
+    }
+    return out;
+  }
+
+  function customExpLabel(key) {
+    const labels = window.CUSTOM_ITEM_LABELS && typeof window.CUSTOM_ITEM_LABELS === "object"
+      ? window.CUSTOM_ITEM_LABELS : {};
+    const id = String(key).slice(String(key).indexOf(":") + 1);
+    const label = labels[key] || labels[String(key).toLowerCase()] || labels[id] || "";
+    return label && label !== id ? label : `カスタム: ${id}`;
+  }
+
+  function expMapOptions(kind, map) {
+    const ids = [];
+    const seen = new Set();
+    function add(raw) {
+      const src = String(raw == null ? "" : raw).trim();
+      // custom:<id> は大小を保つ。バニラ Material / EntityType 名だけ大文字へ寄せる。
+      const id = isCustomExpKey(src) ? src : src.toUpperCase();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      ids.push(id);
+    }
+    if (kind === "mob") {
+      for (const id of (Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : [])) add(id);
+    } else {
+      for (const id of customExpCandidates()) add(id);
+      for (const id of (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])) add(id);
+      const blocks = window.BLOCK_MATERIALS;
+      if (blocks && typeof blocks[Symbol.iterator] === "function") {
+        for (const id of blocks) add(id);
+      }
+    }
+    for (const id of Object.keys(map)) add(id);
+    return ids.map((id) => {
+      if (isCustomExpKey(id)) {
+        return { value: id, primary: customExpLabel(id), secondary: id };
+      }
+      // 既知のモブ/素材は英字IDを併記しない(この画面の既存方針。絞り込みはIDでも効く)。
+      const primary = kind === "mob"
+        ? ((window.MOB_LABELS_JA && window.MOB_LABELS_JA[id]) || id)
+        : (window.LABELS && typeof window.LABELS.materialLabelWithFallback === "function"
+          ? window.LABELS.materialLabelWithFallback(id) : id);
+      return { value: id, primary };
+    });
+  }
+
+  /** セレクトで確定した値の正規化。custom:<id> は大小を保ち、それ以外は大文字へ寄せる。 */
+  function normalizeExpMapKey(raw) {
+    const s = String(raw == null ? "" : raw).trim();
+    return isCustomExpKey(s) ? "custom:" + s.slice(s.indexOf(":") + 1) : s.toUpperCase();
+  }
+
+  function expMapEditor(map, kind, renderOptions) {
+    const body = h("div", { class: "stat-rows se-exp-map-rows" });
+    function render() {
+      body.innerHTML = "";
+      const keys = Object.keys(map);
+      if (!keys.length) {
+        body.appendChild(h("div", { class: "empty-hint", text:
+          kind === "mob" ? "敵種類別のEXP倍率は未設定です。" : "素材別の獲得EXPは未設定です。" }));
+      }
+      for (const key of keys) {
+        const selector = window.listSelect({
+          value: key,
+          options: expMapOptions(kind, map),
+          expMapKind: kind,
+          onCommit: (raw) => {
+            const next = normalizeExpMapKey(raw);
+            if (!next) return false;
+            if (next === key) return true;
+            if (Object.prototype.hasOwnProperty.call(map, next)) {
+              if (typeof alert === "function") alert(`「${next}」は既に設定されています`);
+              return false;
+            }
+            renameMapKey(map, key, next);
+            render();
+            return true;
+          }
+        });
+        const amount = window.numberInput(map[key], (value) => {
+          if (value === null || value === "") return;
+          map[key] = value;
+        }, { int: false });
+        body.appendChild(h("div", { class: "stat-row se-exp-map-row" }, [
+          selector,
+          h("span", { class: "mini-label", text: kind === "mob" ? "倍率" : "EXP" }),
+          amount,
+          h("button", {
+            class: "btn-small danger",
+            type: "button",
+            text: "×",
+            title: "この設定を削除",
+            onclick: () => { delete map[key]; render(); }
+          })
+        ]));
+      }
+      const available = expMapOptions(kind, map)
+        .filter((option) => !Object.prototype.hasOwnProperty.call(map, option.value));
+      if (available.length) {
+        body.appendChild(window.listSelect({
+          value: "",
+          options: available,
+          placeholder: kind === "mob" ? "＋ 敵種類を追加…" : "＋ 素材を追加…",
+          expMapKind: kind,
+          onCommit: (raw) => {
+            const next = normalizeExpMapKey(raw);
+            if (!next || Object.prototype.hasOwnProperty.call(map, next)) return false;
+            map[next] = 0;
+            render();
+            return true;
+          }
+        }));
+      }
+    }
+    render();
+    return body;
+  }
+
   // ---- ネストしたスカラー群 (mode/drop/ars-smithing 等) を1セクション=1カードで描画する共通部品 ----
   // obj は {key: number|boolean|string} 想定。int判定は値ごとに Number.isInteger で行い小数も温存。
   // exp-per-craft / spread は小数を取り得るので常に小数入力にする。
   // fieldOverrides: { key: { label, desc } } — グローバル辞書(FIELD_LABELS)のキーが他画面と
   // 意味衝突する場合(例: "mode" は items.yml では天候モード)に、この画面文脈だけラベルを上書きする。
-  function scalarSectionBody(obj, labelOpts, fieldOverrides) {
+  function scalarSectionBody(obj, labelOpts, fieldOverrides, excludedKeys, renderOptions) {
     const body = h("div", { class: "const-body" });
     for (const key of Object.keys(obj)) {
+      if (excludedKeys && excludedKeys.has(key)) continue;
       const override = fieldOverrides && fieldOverrides[key];
       const opts = override ? Object.assign({}, labelOpts, override) : labelOpts;
-      if (typeof obj[key] === "boolean") {
-        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), window.checkboxInput(obj[key], (v) => { obj[key] = v; })]));
+      // 行見出し: 親が「エンチャントID → 値」等の表なら専用のラベル関数を使う。
+      const keyLabeler = renderOptions && typeof renderOptions.keyLabeler === "function"
+        ? renderOptions.keyLabeler : null;
+      const labelEl = () => (keyLabeler
+        ? h("span", { class: "form-label", text: keyLabeler(key), title: key })
+        : window.fieldLabelEl(key, opts));
+      if (obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) {
+        const mapKind = expMapKind(key);
+        const nestedLabeler = keyedTableLabeler(key);
+        const nestedOptions = nestedLabeler
+          ? Object.assign({}, renderOptions, { keyLabeler: nestedLabeler })
+          // 表を抜けたら継承しない(孫の見出しまで親の辞書で引かれるのを防ぐ)。
+          : Object.assign({}, renderOptions, { keyLabeler: null });
+        body.appendChild(h("details", { class: "se-nested-section" }, [
+          h("summary", { class: "entry-key-label", text: window.LABELS.fieldLabel(key) }),
+          mapKind
+            ? expMapEditor(obj[key], mapKind, renderOptions)
+            : scalarSectionBody(obj[key], labelOpts, null, null, nestedOptions)
+        ]));
+      } else if (typeof obj[key] === "boolean") {
+        body.appendChild(h("div", { class: "form-field" }, [labelEl(), window.checkboxInput(obj[key], (v) => { obj[key] = v; })]));
       } else if (typeof obj[key] === "number") {
-        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), window.numberInput(obj[key], (v) => { if (v === null || v === "") return; obj[key] = v; }, { int: Number.isInteger(obj[key]) && key !== "exp-per-craft" && key !== "spread" })]));
-      } else {
-        body.appendChild(h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), window.textInput(obj[key], (v) => { obj[key] = v; })]));
+        const intInput = !(renderOptions && renderOptions.forceFloat)
+          && Number.isInteger(obj[key]) && key !== "exp-per-craft" && key !== "spread";
+        body.appendChild(h("div", { class: "form-field" }, [labelEl(), window.numberInput(obj[key], (v) => { if (v === null || v === "") return; obj[key] = v; }, { int: intInput })]));
+      } else if (typeof obj[key] === "string") {
+        const control = key === "exp-mode"
+          ? window.listSelect({
+              value: obj[key],
+              options: [
+                { value: "drop_sum", primary: "ドロップ合計" },
+                { value: "block_value", primary: "破壊ブロック基準" },
+                { value: "max", primary: "大きい方を採用" }
+              ],
+              onChange: (v) => { obj[key] = v; }
+            })
+          : window.textInput(obj[key], (v) => { obj[key] = v; });
+        body.appendChild(h("div", { class: "form-field" }, [labelEl(), control]));
       }
     }
     return body;
@@ -171,10 +414,47 @@
     const curves = progressionData && typeof progressionData === "object" ? progressionData : {};
     const root = h("div", { class: "dedicated-form" });
 
+    // 旧producer由来の設定は現行実装から参照されない。表示から隠すだけでは再保存時に
+    // 復活するため、フォーム構築時に移行対象を明示的に取り除く。
+    const legacySkillExpKeys = {
+      "ars-magic": ["exp-per-cast", "exp-per-mana"],
+      combat: [
+        "exp-per-hit", "mode", "damage-scale", "mob-level-scale",
+        "same-target-cooldown-seconds", "by-skill"
+      ]
+    };
+    for (const [section, keys] of Object.entries(legacySkillExpKeys)) {
+      const target = working[section];
+      if (!target || typeof target !== "object" || Array.isArray(target)) continue;
+      for (const key of keys) delete target[key];
+    }
+    const legacyProgressionKeys = {
+      archery: ["daily_limit", "is_chunk_nerfed"],
+      heavy_armor: ["exp_second_piece", "daily_limit"],
+      light_armor: ["exp_second_piece", "daily_limit"],
+      heavy_weapons: ["exp_per_damage", "exp_enemies_nerfed"],
+      light_weapons: ["exp_per_damage", "exp_enemies_nerfed"],
+      mining: ["exp_per_break"],
+      smithing: [
+        "durability_tools_exp_multiplier_stack",
+        "durability_tools_exp_multiplier_maximum",
+        "durability_armors_exp_multiplier_stack",
+        "durability_armors_exp_multiplier_maximum"
+      ]
+    };
+    for (const [skillId, progression] of Object.entries(curves)) {
+      const exp = progression && progression.experience;
+      if (!exp || typeof exp !== "object" || Array.isArray(exp)) continue;
+      delete exp.legacy;
+      delete exp.daily_limit;
+      delete exp.daily_limit_decay_percent;
+      for (const key of legacyProgressionKeys[skillId] || []) delete exp[key];
+    }
+
     const SKILL_LABELS = {
       "ars-smithing": "Ars鍛冶",
       "ars-magic": "Ars魔法",
-      combat: "戦闘 (TF付与分)",
+      combat: "戦闘（TrinityForge付与分）",
       alchemy: "錬金術",
       archery: "弓術",
       digging: "掘削",
@@ -186,30 +466,34 @@
       light_armor: "軽装防具",
       light_weapons: "軽武器",
       mining: "採掘",
-      power: "総合 (Power)",
+      power: "総合",
       smithing: "鍛冶",
       woodcutting: "伐採",
-      ars_magic: "Ars魔法 (曲線)",
-      ars_smithing: "Ars鍛冶 (曲線)"
+      ars_magic: "Ars魔法の曲線",
+      ars_smithing: "Ars鍛冶の曲線",
+      "spot-diminishing": "同一地点での連続獲得逓減",
+      "gathering": "採取EXP算出",
+      "level-diminishing": "スキルレベルによるEXP逓減"
     };
     function skillLabel(id) {
       return SKILL_LABELS[id] || id;
     }
 
-    root.appendChild(h("div", { class: "sub-title", text: "行動あたりの獲得EXP (skill-exp.yml)" }));
+    root.appendChild(h("div", { class: "sub-title", text: "行動あたりの獲得EXP" }));
     root.appendChild(h("div", { class: "empty-hint", text:
-      "ここは TF/Ars が付与するレートです。各職業の曲線は下の職業カード（skills/base/*_progression.yml）で編集します。" }));
+      "ここはTrinityForgeとArsPaperが付与するレートです。各職業の曲線は下の職業カードで編集します。" }));
 
     // dungeon-only-exp: 戦闘6スキル(重武器/軽武器/弓術/重装甲/軽装甲/ARS_MAGIC)のEXPをダンジョン限定にするか。
     root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "ダンジョン限定EXP (dungeon-only-exp)" })],
+      [h("span", { class: "entry-key-label", text: "ダンジョン限定EXP" })],
       [
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("dungeon-only-exp", {
             label: "戦闘6スキルのEXPをダンジョン限定にする",
-            desc: "6スキル(重武器/軽武器/弓術/重装甲/軽装甲/ARS_MAGIC)のEXPを EliteMobs ダンジョンのインスタンスワールド内に限定します。"
-              + "オーバーワールド等では加算されません(トリガ自体は従来どおり: 武器=命中/防具=被弾/魔法=詠唱。範囲だけをゲートします)。"
-              + "既定は true。false にすると従来どおりどこでも加算します。ars-smithing(クラフト)/採取/釣り等の非戦闘EXPは対象外です。"
+            desc: "重武器・軽武器・弓術・重装防具・軽装防具・Ars魔法のEXPを、EliteMobsダンジョン内だけに限定します。"
+              + "通常ワールド等では加算されません。無効にするとダンジョン外では「ダンジョン外EXP倍率」が適用されます。"
+              + "Ars鍛冶・採取・釣りなどの非戦闘EXPは対象外です。",
+            hideKey: true
           }),
           window.checkboxInput(working["dungeon-only-exp"] !== false, (v) => { working["dungeon-only-exp"] = v; })
         ]),
@@ -226,7 +510,7 @@
     // 曲線式のプレースホルダ / 演算子ヘルプ
     root.appendChild(h("div", { class: "entry-card se-help-card" }, [
       h("div", { class: "entry-head" }, [
-        h("span", { class: "entry-key-label", text: "曲線式の書き方 (exp_level_curve)" })
+        h("span", { class: "entry-key-label", text: "曲線式の書き方" })
       ]),
       h("div", { class: "entry-body" }, [
         h("p", { class: "form-hint", text: "TF進行数式です。レベル到達に必要なEXPを %level% で参照します。" }),
@@ -248,19 +532,20 @@
     const useLevelScaling = ensureObj(working, "use-level-scaling");
 
     root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "EXP獲得表示 (exp-display)" })],
+      [h("span", { class: "entry-key-label", text: "EXP獲得表示" })],
       [
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("mode", {
             label: "表示モード",
-            desc: "bossbar(既定)＝Lv・現EXP/次Lv必要EXP・獲得量をボスバーに表示。"
-              + "actionbar＝獲得量のみをアクションバーに表示。"
+            desc: "ボスバー表示では、レベル・現在EXP・次レベルまでの必要EXP・獲得量を表示します。"
+              + "アクションバー表示では、獲得量だけを表示します。",
+            hideKey: true
           }),
           window.listSelect({
             value: expDisplay.mode || "bossbar",
             options: [
-              { value: "bossbar", primary: "ボスバー表示", secondary: "bossbar" },
-              { value: "actionbar", primary: "アクションバー表示", secondary: "actionbar" }
+              { value: "bossbar", primary: "ボスバー表示" },
+              { value: "actionbar", primary: "アクションバー表示" }
             ],
             onChange: (v) => { expDisplay.mode = v; }
           })
@@ -268,7 +553,8 @@
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("bossbar-seconds", {
             label: "ボスバー表示秒数",
-            desc: "bossbar時、この秒数後に自動で隠す。"
+            desc: "ボスバーを表示してから自動で隠すまでの秒数です。",
+            hideKey: true
           }),
           window.numberInput(expDisplay["bossbar-seconds"], (v) => {
             if (v === null || v === "") return;
@@ -278,7 +564,8 @@
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("max-concurrent-bossbars", {
             label: "同時表示ボスバー数上限",
-            desc: "複数スキルのEXPが同tickで入っても、この数を超えて重ねてボスバーを表示しない。"
+            desc: "複数スキルのEXPを同時に獲得しても、この数を超えてボスバーを重ねません。",
+            hideKey: true
           }),
           window.numberInput(expDisplay["max-concurrent-bossbars"], (v) => {
             if (v === null || v === "") return;
@@ -289,19 +576,21 @@
     ));
 
     root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "レベルアップ通知 (level-up)" })],
+      [h("span", { class: "entry-key-label", text: "レベルアップ通知" })],
       [
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("chat", {
             label: "チャット通知",
-            desc: "レベルアップ時にチャットへ通知するか。"
+            desc: "レベルアップ時にチャットへ通知します。",
+            hideKey: true
           }),
           window.checkboxInput(levelUp.chat !== false, (v) => { levelUp.chat = v; })
         ]),
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("sound-enabled", {
             label: "効果音を鳴らす",
-            desc: "レベルアップ時に効果音を再生するか。"
+            desc: "レベルアップ時に効果音を再生します。",
+            hideKey: true
           }),
           window.checkboxInput(levelUp["sound-enabled"] !== false, (v) => { levelUp["sound-enabled"] = v; })
         ]),
@@ -309,14 +598,16 @@
           window.fieldLabelEl("sound", {
             label: "効果音 (Bukkit Sound)",
             desc: "Bukkit の Sound 列挙値の名前 (例: ENTITY_PLAYER_LEVELUP)。"
-              + "専用の音選択UIはこのエディタに存在しないためテキスト入力。"
+              + "専用の音選択UIはこのエディタに存在しないためテキスト入力。",
+            hideKey: true
           }),
           window.textInput(levelUp.sound, (v) => { levelUp.sound = v; })
         ]),
         h("div", { class: "form-field" }, [
           window.fieldLabelEl("title-every-levels", {
             label: "タイトル表示間隔(レベル数)",
-            desc: "このレベル数の倍数に到達したとき、通常のチャット/効果音に加えて画面タイトルでも通知する。"
+            desc: "このレベル数の倍数に到達したとき、通常のチャット・効果音に加えて画面タイトルでも通知します。",
+            hideKey: true
           }),
           window.numberInput(levelUp["title-every-levels"], (v) => {
             if (v === null || v === "") return;
@@ -326,19 +617,23 @@
       ]
     ));
 
-    // 使用可能レベル連動EXP (2026-07-28): 鍛冶(作成したツール)・伐採/採掘/切削(使用したツール)の
-    // 使用可能レベルが高いほどEXP付与量を増やす。農業は対象外(per-levelに行を作らない)。
+    // 使用可能レベル連動EXP: per-level に定義されたスキルはすべて表示する。
+    // producer追加のたびにUI側の許可リスト更新を要求しないことで、設定だけ編集不能になるのを防ぐ。
     (function () {
       const perLevel = ensureObj(useLevelScaling, "per-level");
-      const PER_LEVEL_SKILLS = [
-        { key: "smithing", label: "鍛冶 (作成したツール/装備の使用可能レベル)" },
-        { key: "woodcutting", label: "伐採 (破壊に使ったツールの使用可能レベル)" },
-        { key: "mining", label: "採掘 (破壊に使ったツールの使用可能レベル)" },
-        { key: "digging", label: "切削 (破壊に使ったツールの使用可能レベル)" }
-      ];
-      const perLevelFields = PER_LEVEL_SKILLS.map(({ key, label }) =>
+      const PER_LEVEL_CONTEXT = {
+        smithing: "鍛冶 (作成したツール/装備の使用可能レベル)",
+        "ars-smithing": "Ars鍛冶 (作成したArs装備の使用可能レベル)",
+        woodcutting: "伐採 (破壊に使ったツールの使用可能レベル)",
+        mining: "採掘 (破壊に使ったツールの使用可能レベル)",
+        digging: "切削 (破壊に使ったツールの使用可能レベル)"
+      };
+      const perLevelFields = Object.keys(perLevel).map((key) =>
         h("div", { class: "form-field" }, [
-          window.fieldLabelEl(key, { label, hideKey: true }),
+          window.fieldLabelEl(key, {
+            label: PER_LEVEL_CONTEXT[key] || `${skillLabel(key)} (使用可能レベル)`,
+            hideKey: true
+          }),
           window.numberInput(perLevel[key], (v) => {
             if (v === null || v === "") return;
             perLevel[key] = v;
@@ -346,22 +641,24 @@
         ]));
 
       root.appendChild(card(
-        [h("span", { class: "entry-key-label", text: "使用可能レベル連動EXP (use-level-scaling)" })],
+        [h("span", { class: "entry-key-label", text: "使用可能レベル連動EXP" })],
         [
           h("div", { class: "form-field" }, [
             window.fieldLabelEl("enabled", {
               label: "機能を有効にする",
               desc: "使用したツールの使用可能レベル(鍛冶は作成したツール/装備の使用可能レベル)が高いほど、"
                 + "獲得EXPが増える。使用可能レベル0(素手・バニラツール・item-statsにプロファイル無し)は"
-                + "常に倍率1.0=現状維持。倍率=1+使用可能レベル×per-level。対象は鍛冶/伐採/採掘/切削の4スキルのみ、"
-                + "農業は対象外。爆破採掘(TNT等)にも掛からない。"
+                + "常に倍率1.0=現状維持。倍率=1+使用可能レベル×per-level。対象はper-levelに設定されたスキルのみ、"
+                + "農業は対象外。爆破採掘(TNT等)にも掛からない。",
+              hideKey: true
             }),
             window.checkboxInput(useLevelScaling.enabled !== false, (v) => { useLevelScaling.enabled = v; })
           ]),
           h("div", { class: "form-field" }, [
             window.fieldLabelEl("max-multiplier", {
               label: "倍率上限",
-              desc: "per-levelを大きくしたときの暴走止め(安全弁)。倍率がこの値を超えることはない。既定3.0。"
+              desc: "レベルごとの加算量を大きくしたときの安全上限です。倍率はこの値を超えません。既定は3.0です。",
+              hideKey: true
             }),
             window.numberInput(useLevelScaling["max-multiplier"], (v) => {
               if (v === null || v === "") return;
@@ -373,17 +670,6 @@
       ));
     })();
 
-    // "mode" 等はグローバル辞書(FIELD_LABELS)では他画面(例: items.yml の天候)向けの意味を
-    // 持つため、この画面のセクションだけ文脈固有のラベルへ上書きする(2026-07-27 タスク1)。
-    const SECTION_FIELD_OVERRIDES = {
-      combat: {
-        mode: {
-          label: "命中EXP計算方式",
-          desc: "flat(既定)=exp-per-hit/by-skillの固定値。damage_scaled=与ダメージ×damage-scaleに(1+モブレベル×mob-level-scale)を掛けた値。"
-        }
-      }
-    };
-
     const sections = Object.keys(working).filter((k) =>
       working[k] && typeof working[k] === "object" && !Array.isArray(working[k]) && !DEDICATED_SECTION_KEYS.has(k));
     if (!sections.length) {
@@ -394,38 +680,30 @@
         const obj = working[section];
         const cardEl = h("details", { class: "entry-card se-skill-card", open: true });
         cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
-          h("span", { class: "entry-key-label", text: skillLabel(section) }),
-          h("span", { class: "cf-muted", text: section })
+          h("span", { class: "entry-key-label", text: skillLabel(section) })
         ]));
         cardEl.appendChild(h("div", { class: "entry-body" },
-          [scalarSectionBody(obj, { hideKey: true }, SECTION_FIELD_OVERRIDES[section])]));
+          [scalarSectionBody(obj, { hideKey: true })]));
         root.appendChild(cardEl);
       }
     }
 
-    // レベル曲線 + TFが実際に消費するスカラーレートのみ編集可。
-    // daily_limit / is_chunk_nerfed / 戦闘行動表などは Valhalla 遺産で TF 未配線のため出さない。
-    const RATE_KEYS = [
-      "alchemy_brew_exp", "fishing_catch_exp", "exp_gain",
-      "exp_damage_piece", "exp_damage_piece_min_damage", "exp_damage_piece_cooldown_seconds",
-      "exp_multiplier_point",
-      "durability_tools_exp_multiplier_stack", "durability_armors_exp_multiplier_stack",
-      "exp_multiplier_mine", "exp_multiplier_blast",
-      "exp_multiplier_quality", "multiplier_manual", "multiplier_automated",
-      "prestige_decay_rate"
-    ];
+    // レベル曲線 + experience 配下のEXP生産レート/行動テーブルを編集する。
+    // producer追加時にUI側の許可リスト更新を要求すると設定だけ編集不能になるため、
+    // max_level / exp_level_curve 以外を再帰描画する。配列とnullは値を温存するが、
+    // 数値表ではないため入力欄にはしない。
+    const PROGRESSION_DEDICATED_KEYS = new Set(["max_level", "exp_level_curve"]);
     const curveKeys = Object.keys(curves).filter((k) => curves[k] && curves[k].experience);
     if (curveKeys.length) {
-      root.appendChild(h("div", { class: "sub-title", text: "レベル曲線・獲得レート (skills/base/*_progression.yml)" }));
+      root.appendChild(h("div", { class: "sub-title", text: "レベル曲線・獲得レート" }));
       root.appendChild(h("div", { class: "empty-hint", text:
-        "戦闘武器の行動EXPは上の skill-exp.yml（combat.*）が権威です。ここは曲線・採取/防具/鍛冶/錬金等。" }));
+        "戦闘武器の行動EXPは上の戦闘設定が基準です。ここではレベル曲線と、採取・防具・鍛冶・錬金などを編集します。" }));
       for (const skillId of curveKeys) {
         if (!curves[skillId].experience) curves[skillId].experience = {};
         const exp = curves[skillId].experience;
         const cardEl = h("details", { class: "entry-card se-skill-card", open: false });
         cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
-          h("span", { class: "entry-key-label", text: skillLabel(skillId) }),
-          h("span", { class: "cf-muted", text: skillId })
+          h("span", { class: "entry-key-label", text: skillLabel(skillId) })
         ]));
         const body = h("div", { class: "entry-body" });
         const curveInput = window.textInput(exp.exp_level_curve || "", (v) => {
@@ -438,19 +716,13 @@
         }, { int: true });
         body.appendChild(fieldRow("exp_level_curve", curveInput));
         body.appendChild(fieldRow("max_level", maxInput));
-        for (const rk of RATE_KEYS) {
-          if (exp[rk] === undefined || exp[rk] === null) continue;
-          if (typeof exp[rk] === "object") continue;
-          body.appendChild(fieldRow(rk, window.numberInput(exp[rk], (v) => { exp[rk] = v; })));
-        }
-        // Enchanting nested conversion rate
-        if (exp.exp_gain && typeof exp.exp_gain === "object"
-            && exp.exp_gain.experience_spent_conversion != null) {
-          body.appendChild(fieldRow("exp_gain.experience_spent_conversion",
-            window.numberInput(exp.exp_gain.experience_spent_conversion, (v) => {
-              exp.exp_gain.experience_spent_conversion = v;
-            })));
-        }
+        body.appendChild(scalarSectionBody(
+          exp,
+          { hideKey: true },
+          null,
+          PROGRESSION_DEDICATED_KEYS,
+          { forceFloat: true }
+        ));
         const chart = h("div", { class: "qd-chart" });
         body.appendChild(chart);
         function redrawChart() {

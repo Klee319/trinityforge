@@ -356,6 +356,10 @@
   window.ENCHANT_LABELS_JA = toMap(ENCHANTS);
   window.VANILLA_MOBS = MOBS.map((p) => p[0]);
   window.MOB_LABELS_JA = toMap(MOBS);
+  // 旧 Bukkit EntityType 名。出荷 yml には新旧どちらのキーも書かれている行があり
+  // (skill-exp.yml の繁殖EXP表など)、旧名だけ生IDのまま表示されていた。
+  // 候補リスト(VANILLA_MOBS)には足さず、表示辞書だけに別名を持たせる。
+  window.MOB_LABELS_JA.MUSHROOM_COW = window.MOB_LABELS_JA.MOOSHROOM;
   window.VANILLA_BIOMES = BIOMES.map((p) => p[0]);
   window.BIOME_LABELS_JA = toMap(BIOMES);
 })();
