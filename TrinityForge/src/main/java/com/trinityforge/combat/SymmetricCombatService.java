@@ -50,6 +50,18 @@ public final class SymmetricCombatService {
         this.playerDefenseResolver = Objects.requireNonNull(playerDefenseResolver, "playerDefenseResolver");
     }
 
+    /**
+     * 序盤(低レベル帯)モブの火力緩和倍率。式と無効化条件は
+     * {@link EarlyLevelAttackSoftening#multiplier(boolean, int, double, int)} を参照。
+     */
+    double earlyLevelAttackMultiplier(int mobLevel) {
+        return EarlyLevelAttackSoftening.multiplier(
+                damageConfig.earlyLevelAttackEnabled(),
+                damageConfig.earlyLevelAttackUntilLevel(),
+                damageConfig.earlyLevelAttackLevel0Multiplier(),
+                mobLevel);
+    }
+
     /** The attacker's gear-independent combat level (ADDON_INTEGRATION_SPEC 1.5). */
     public int combatLevelOf(UUID attackerId) {
         return combatLevelConfig.model().compute(skillLevelSource.levelsOf(attackerId));
@@ -107,7 +119,7 @@ public final class SymmetricCombatService {
         int mobLevel = MobData.of(mobAttacker).level();
         double base = resolver().physicalDefaultDamage(vanillaBaseDamage, mobLevel);
         double itemAttackPower = attack.defaultDamage();
-        double baseDamage = itemAttackPower != 0 ? itemAttackPower : base;
+        double baseDamage = (itemAttackPower != 0 ? itemAttackPower : base) * earlyLevelAttackMultiplier(mobLevel);
         // Mob melee never reaches CombatListener's projectile branch (resolveMobAttacker only matches
         // MELEE_CAUSES), so Projectile Protection never applies here — only general Protection.
         return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
@@ -142,7 +154,7 @@ public final class SymmetricCombatService {
         int mobLevel = MobData.of(mobAttacker).level();
         double base = resolver().magicalDefaultDamage(abilityBaseDamage, mobLevel);
         double itemAttackPower = attack.defaultDamage();
-        double baseDamage = itemAttackPower != 0 ? itemAttackPower : base;
+        double baseDamage = (itemAttackPower != 0 ? itemAttackPower : base) * earlyLevelAttackMultiplier(mobLevel);
         return componentResult(DamageType.MAGICAL, victim, attack.withDefaultDamage(baseDamage),
                 damageConfig.magicalMinComponentDamage());
     }
@@ -323,7 +335,14 @@ public final class SymmetricCombatService {
         }
         if (victim instanceof Player player) {
             DefenderProfile itemSide = playerDefenseResolver.resolve(player, type);
-            DefenseStats combined = vanillaArmorDefense(player).combine(itemSide.stats());
+            // PlayerArmorChangeEvent cannot be cancelled and the gate removes rejected armor one
+            // tick later. During that window, suppress the vanilla armor/toughness mirror as well as
+            // the already-filtered TF item stats. Suppressing the whole vanilla armor addend is
+            // intentionally conservative for this transient invalid loadout: it cannot grant a
+            // partial benefit from the denied piece.
+            DefenseStats vanilla = playerDefenseResolver.hasDeniedArmor(player)
+                    ? DefenseStats.NONE : vanillaArmorDefense(player);
+            DefenseStats combined = vanilla.combine(itemSide.stats());
             return new DefenderProfile(combined, itemSide.dodgeChance());
         }
         if (victim instanceof LivingEntity living) {
@@ -363,6 +382,11 @@ public final class SymmetricCombatService {
      */
     private DefenseStats vanillaProtectionDefense(PersistentDataHolder victim, boolean projectileHit) {
         if (!(victim instanceof LivingEntity living)) {
+            return DefenseStats.NONE;
+        }
+        if (living instanceof Player player && playerDefenseResolver.hasDeniedArmor(player)) {
+            // Same deferred-removal window as resolveBaseDefender: a rejected enchanted piece must
+            // not contribute Protection/Projectile Protection for one hit.
             return DefenseStats.NONE;
         }
         return DefenseEnchantmentBridge.toDefense(living, projectileHit, damageConfig.enchantProtectionScale());

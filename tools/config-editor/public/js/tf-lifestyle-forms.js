@@ -1311,7 +1311,21 @@
               onclick: () => { delete host[id]; render(); }
             })
           ];
-          const body = [textField(role, "label", { label: "表示名" })];
+          // icon / description は 2026-07-28 追加の表示専用項目(/tf role set のGUIと /tf role の
+          // チャット表示に使う)。効果には一切影響しない。icon が空/不正なら既定アイコンへ倒れる。
+          const body = [
+            textField(role, "label", { label: "表示名" }),
+            textField(role, "icon", {
+              label: "GUIアイコン",
+              desc: "/tf role set のGUIで使うMaterial名(例: IRON_SWORD)。空なら既定アイコン。",
+              clearable: true
+            }),
+            textField(role, "description", {
+              label: "説明(1行)",
+              desc: "GUIと /tf role のチャット表示に添える1行説明。空なら省略。",
+              clearable: true
+            })
+          ];
           if (kind === "combat") {
             ensureObj(role, "attack-buffs");
             ensureObj(role, "defense-buffs");

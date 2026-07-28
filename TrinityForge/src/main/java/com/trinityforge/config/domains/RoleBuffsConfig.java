@@ -49,12 +49,28 @@ public final class RoleBuffsConfig implements LoadableConfig {
     public record PotionBuffSpec(PotionEffectType type, int durationTicks, int amplifier) {
     }
 
+    /**
+     * @param icon        {@code /tf role set} のGUIで使うアイコンMaterial名(空なら既定アイコン)
+     * @param description GUIに1行で添える説明(空なら省略)
+     */
     public record CombatRoleSpec(String id, String label, Map<String, Double> attackBuffs,
-                                 Map<String, Double> defenseBuffs, double hateThreatMultiplier) {
+                                 Map<String, Double> defenseBuffs, double hateThreatMultiplier,
+                                 String icon, String description) {
+        /** Back-compat: icon/description 未指定(既存テスト・呼び出し用)。 */
+        public CombatRoleSpec(String id, String label, Map<String, Double> attackBuffs,
+                              Map<String, Double> defenseBuffs, double hateThreatMultiplier) {
+            this(id, label, attackBuffs, defenseBuffs, hateThreatMultiplier, "", "");
+        }
     }
 
+    /** @param icon/description は {@link CombatRoleSpec} と同じ意味。 */
     public record SupportRoleSpec(String id, String label, String expSkill, double expMultiplier,
-                                  PotionBuffSpec potionBuff) {
+                                  PotionBuffSpec potionBuff, String icon, String description) {
+        /** Back-compat: icon/description 未指定(既存テスト・呼び出し用)。 */
+        public SupportRoleSpec(String id, String label, String expSkill, double expMultiplier,
+                               PotionBuffSpec potionBuff) {
+            this(id, label, expSkill, expMultiplier, potionBuff, "", "");
+        }
     }
 
     private volatile Map<String, CombatRoleSpec> combatRoles = Map.of();
@@ -115,7 +131,9 @@ public final class RoleBuffsConfig implements LoadableConfig {
                         readDoubleMap(sec.getConfigurationSection("defense-buffs")),
                         // Bounded on BOTH sides: an upper cap alone still lets a huge negative through.
                         Math.max(0.0, Math.min(MAX_HATE_THREAT_MULTIPLIER,
-                                sec.getDouble("hate-threat-multiplier", 1.0)))));
+                                sec.getDouble("hate-threat-multiplier", 1.0))),
+                        sec.getString("icon", ""),
+                        sec.getString("description", "")));
             }
         }
         this.combatRoles = Collections.unmodifiableMap(combat);
@@ -147,7 +165,9 @@ public final class RoleBuffsConfig implements LoadableConfig {
                         sec.getString("label", id),
                         sec.getString("exp-skill", ""),
                         Math.max(1.0, Math.min(MAX_EXP_MULTIPLIER, sec.getDouble("exp-multiplier", 1.2))),
-                        potion));
+                        potion,
+                        sec.getString("icon", ""),
+                        sec.getString("description", "")));
             }
         }
         this.supportRoles = Collections.unmodifiableMap(support);

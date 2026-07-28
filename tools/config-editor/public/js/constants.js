@@ -110,6 +110,21 @@
         { id: "pvp.max-damage-percent-of-max-health", label: "1発の上限(最大体力比)", kind: "number", desc: "1発で削れる量を被弾者の最大体力の何割までにするか。既定0.15=倒すのに最低7発かかる。倍率だけに頼らずこれを置いているのは、攻撃力が指数で伸びてもプレイヤーの体力はほぼ一定という構造が根本原因だから — 割合上限はスケールフリーなので攻撃カーブを触っても調整し直しが要らない。0で上限なし。" }
       ]
     },
+    {
+      title: "日光による炎上ダメージ (2026-07-28)",
+      fields: [
+        { id: "sunlight-burn.enabled", label: "最大HP割合へ置き換える", kind: "boolean", desc: "OFFでバニラ挙動(1発1.0固定)に戻る。TFのモブ最大HPはLv0のゾンビでも400あるため、バニラのままだと朝になっても敵が炎上で死なない(400秒以上燃え続ける)。" },
+        { id: "sunlight-burn.damage-percent-of-max-health", label: "1発のダメージ(最大HP比)", kind: "number", desc: "日光で燃えている間の1発を被弾モブの最大HPの何割にするか。既定0.10=バニラの炎上は1秒に1回なので約10秒で焼き切れる。算出値がバニラより小さい場合はバニラ値のまま(下げる方向には働かない)。対象EntityTypeの一覧は damage.yml の sunlight-burn.mobs を直接編集する(既定は日光焼却される種別のみ。空にすると火属性エンチャントで着火しただけのボスまで溶ける)。" }
+      ]
+    },
+    {
+      title: "序盤モブの火力緩和 (2026-07-28)",
+      fields: [
+        { id: "early-level-attack.enabled", label: "緩和を有効にする", kind: "boolean", desc: "モブ→プレイヤーの基本ダメージに後掛けする倍率。mob-types.yml の attack-power 指数カーブ自体は触らないので、baseを下げたときのように中盤以降の校正がやり直しにならない。" },
+        { id: "early-level-attack.until-level", label: "緩和が解けるレベル", kind: "int", desc: "このモブレベル以上は等倍(=従来どおり)。既定10。" },
+        { id: "early-level-attack.level-0-multiplier", label: "Lv0の火力倍率", kind: "number", desc: "レベル0のモブに掛かる倍率。ここから「緩和が解けるレベル」に向かって線形に1.0へ戻る。既定0.7(Lv0で0.7倍、Lv5で0.85倍)。1.0で緩和なし。" }
+      ]
+    },
     // 攻撃ステキー対応 / 防御ステキー対応 の欄は撤去(2026-07-24)。2026-07-26 に Java 側の
     // config 経路も撤去され(CMB-31)、キー名は AttackStatKeys / DefenseStatKeys の定数が単一の真実。
     // config からは改名できないので、editor に欄を戻してはいけない。

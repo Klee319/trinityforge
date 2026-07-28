@@ -8,6 +8,8 @@ import com.trinityforge.config.ConfigSchema;
 import com.trinityforge.config.SchemaField;
 import com.trinityforge.config.TypedConfig;
 
+import java.util.List;
+
 /**
  * Typed accessor for {@code combat/damage.yml} (M1 symmetric pipeline, physical component).
  * These are the global, tunable knobs feeding the structural 8-step pipeline
@@ -48,6 +50,17 @@ public final class CombatDamageConfig {
     private static final String WEAPON_BASE_FORMULA_ENABLED = "weapon-base-formula.enabled";
     private static final String WEAPON_BASE_FORMULA_A = "weapon-base-formula.a";
     private static final String WEAPON_BASE_FORMULA_B = "weapon-base-formula.b";
+
+    // 2026-07-28 日光炎上: バニラの炎上ダメージ(1発1.0固定)はTFのモブ最大HP(Lv0で400〜)に対して
+    // 無意味で、「朝になっても敵が炎上で死なない」状態だった。最大HP割合へ置き換える。
+    private static final String SUNLIGHT_BURN_ENABLED = "sunlight-burn.enabled";
+    private static final String SUNLIGHT_BURN_DAMAGE_PERCENT = "sunlight-burn.damage-percent-of-max-health";
+    private static final String SUNLIGHT_BURN_MOBS = "sunlight-burn.mobs";
+
+    // 2026-07-28 序盤(低レベル帯)のモブ火力緩和。
+    private static final String EARLY_LEVEL_ATTACK_ENABLED = "early-level-attack.enabled";
+    private static final String EARLY_LEVEL_ATTACK_UNTIL_LEVEL = "early-level-attack.until-level";
+    private static final String EARLY_LEVEL_ATTACK_LEVEL0_MULTIPLIER = "early-level-attack.level-0-multiplier";
 
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
@@ -133,7 +146,24 @@ public final class CombatDamageConfig {
                 // 防具強度(会心軽減率%)/toughness点。既定 0 = バニラ防具の toughness は会心軽減に寄与しない
                 // (バニラ防具のステは後日 config で別途定義するためフォールバックのみ)。会心軽減は主に
                 // アイテム/防具/mob が付与する armor-strength ステ(DefenseStatBridge が直接読む)から得る。
-                .field(SchemaField.number(VANILLA_ARMOR_STRENGTH_PER_POINT, SchemaField.Type.DOUBLE, 0.0, 0.0, 100.0));
+                .field(SchemaField.number(VANILLA_ARMOR_STRENGTH_PER_POINT, SchemaField.Type.DOUBLE, 0.0, 0.0, 100.0))
+                // 日光炎上(2026-07-28): 対象EntityTypeが日光で燃えている間の1発を「最大HP×割合」へ置き換える
+                // (バニラ値の方が大きい場合はバニラのまま = 下げる方向には決して働かない)。
+                // mobs: を空にすると全モブが対象になり、火属性エンチャントが野外昼間で%HPダメージ化する
+                // (＝強力すぎる)ため、既定は「バニラで日光焼却される種別」だけを列挙する。
+                .field(SchemaField.of(SUNLIGHT_BURN_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(SUNLIGHT_BURN_DAMAGE_PERCENT, SchemaField.Type.DOUBLE, 0.10, 0.0, 1.0))
+                .field(SchemaField.of(SUNLIGHT_BURN_MOBS, SchemaField.Type.STRING_LIST, List.of(
+                        "ZOMBIE", "ZOMBIE_VILLAGER", "DROWNED", "GIANT",
+                        "SKELETON", "STRAY", "BOGGED", "PHANTOM",
+                        "ZOMBIE_HORSE", "SKELETON_HORSE")))
+                // 序盤モブ火力の緩和(2026-07-28): モブ→プレイヤーの基本ダメージに
+                //   multiplier(L) = L >= until-level ? 1.0 : m0 + (1 - m0) * L / until-level
+                // を掛ける。Lv0で m0 倍、until-level で等倍へ線形に戻るので、中盤以降の校正値は動かない。
+                .field(SchemaField.of(EARLY_LEVEL_ATTACK_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(EARLY_LEVEL_ATTACK_UNTIL_LEVEL, SchemaField.Type.INT, 10, 0, 1000))
+                .field(SchemaField.number(EARLY_LEVEL_ATTACK_LEVEL0_MULTIPLIER,
+                        SchemaField.Type.DOUBLE, 0.7, 0.0, 1.0));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -160,6 +190,36 @@ public final class CombatDamageConfig {
      */
     public double pvpMaxDamagePercentOfMaxHealth() {
         return domain.get().getDouble(PVP_MAX_DAMAGE_PERCENT_OF_MAX_HEALTH);
+    }
+
+    /** 日光炎上ダメージの最大HP割合への置換を行うか(2026-07-28)。 */
+    public boolean sunlightBurnEnabled() {
+        return domain.get().getBoolean(SUNLIGHT_BURN_ENABLED);
+    }
+
+    /** 日光炎上1発あたりのダメージ(被弾モブの最大HPに対する割合)。0で無効。 */
+    public double sunlightBurnDamagePercentOfMaxHealth() {
+        return domain.get().getDouble(SUNLIGHT_BURN_DAMAGE_PERCENT);
+    }
+
+    /** 日光炎上の置換対象EntityType名の一覧(空なら全モブ)。 */
+    public List<String> sunlightBurnMobs() {
+        return domain.get().getStringList(SUNLIGHT_BURN_MOBS);
+    }
+
+    /** 序盤(低レベル帯)モブの火力緩和を行うか(2026-07-28)。 */
+    public boolean earlyLevelAttackEnabled() {
+        return domain.get().getBoolean(EARLY_LEVEL_ATTACK_ENABLED);
+    }
+
+    /** 緩和が完全に解ける(等倍へ戻る)モブレベル。0以下で緩和は無効。 */
+    public int earlyLevelAttackUntilLevel() {
+        return domain.get().getInt(EARLY_LEVEL_ATTACK_UNTIL_LEVEL);
+    }
+
+    /** レベル0のモブに掛かる火力倍率(1.0で緩和なし)。 */
+    public double earlyLevelAttackLevel0Multiplier() {
+        return domain.get().getDouble(EARLY_LEVEL_ATTACK_LEVEL0_MULTIPLIER);
     }
 
     public double physicalBaseCoefficient() {

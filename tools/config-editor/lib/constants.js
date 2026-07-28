@@ -69,6 +69,16 @@ const FIELD_SPECS = Object.freeze([
   { id: "pvp.enabled", file: "damage", path: ["pvp", "enabled"], kind: "boolean", def: true },
   { id: "pvp.damage-multiplier", file: "damage", path: ["pvp", "damage-multiplier"], kind: "number", min: 0, def: 0.5 },
   { id: "pvp.max-damage-percent-of-max-health", file: "damage", path: ["pvp", "max-damage-percent-of-max-health"], kind: "number", min: 0, def: 0.15 },
+  // 2026-07-28 日光炎上: バニラの1.0固定ではTFのモブHP(Lv0で400)に対して無意味だったので、
+  // 日光で燃えている間の1発だけを最大HP割合へ置き換える。
+  // 対象EntityType一覧(sunlight-burn.mobs)はリスト型のためeditorには出していない
+  // (未宣言キーは buildUpdatedData の deep clone で温存されるので、保存で消えることはない)。
+  { id: "sunlight-burn.enabled", file: "damage", path: ["sunlight-burn", "enabled"], kind: "boolean", def: true },
+  { id: "sunlight-burn.damage-percent-of-max-health", file: "damage", path: ["sunlight-burn", "damage-percent-of-max-health"], kind: "number", min: 0, max: 1, def: 0.10 },
+  // 2026-07-28 序盤モブ火力の緩和(mob-types の attack-power 指数カーブには触らない後掛け倍率)。
+  { id: "early-level-attack.enabled", file: "damage", path: ["early-level-attack", "enabled"], kind: "boolean", def: true },
+  { id: "early-level-attack.until-level", file: "damage", path: ["early-level-attack", "until-level"], kind: "int", min: 0, max: 1000, def: 10 },
+  { id: "early-level-attack.level-0-multiplier", file: "damage", path: ["early-level-attack", "level-0-multiplier"], kind: "number", min: 0, max: 1, def: 0.7 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。

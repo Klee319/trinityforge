@@ -1,19 +1,31 @@
 # TrinityForge — ロールバフ (ROLE_SYSTEM_SPEC)
 # 獣使い(beast_tamer)はスコープ外。戦闘職 + 補助職の内部ステ注入のみ。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/progression/role-buffs.md
+#
+# 【2026-07-28 追加】icon / description
+#   icon        : /tf role set のGUIでこのロールを表すアイテム(Material名)。
+#                 省略・不正な名前のときは既定アイコン(戦闘職=鉄の剣 / 補助職=本)へフォールバックする。
+#   description : GUIと /tf role のチャット表示に添える1行説明。省略可。
+#   どちらもロールの効果には一切影響しない表示専用の項目。
 
 
 combat-roles:
   swordfighter:
     label: 剣闘士
+    icon: IRON_SWORD
+    description: 与ダメージを底上げする近接特化
     attack-buffs:
       percent-bonus-damage: 0.12
   mage:
     label: 魔術師
+    icon: BLAZE_ROD
+    description: 魔法・遠隔の火力に寄せた職
     attack-buffs:
       percent-bonus-damage: 0.12
   tank:
     label: タンク
+    icon: SHIELD
+    description: 守備力とヘイトを上げ、敵を引き受ける
     defense-buffs:
       phys-flat-defense: 40.0
       magic-flat-defense: 40.0
@@ -23,16 +35,22 @@ combat-roles:
 support-roles:
   scout:
     label: 斥候
+    icon: BOW
+    description: 弓術EXPと移動速度に補正
     exp-skill: ARCHERY
     exp-multiplier: 1.2
     potion-buff: { type: SPEED, duration: 999999, amplifier: 0 }
   farmer:
     label: 農夫
+    icon: IRON_HOE
+    description: 農業EXPと跳躍力に補正
     exp-skill: FARMING
     exp-multiplier: 1.2
     potion-buff: { type: JUMP_BOOST, duration: 999999, amplifier: 0 }
   miner:
     label: 採掘夫
+    icon: IRON_PICKAXE
+    description: 採掘EXPと採掘速度に補正
     exp-skill: MINING
     exp-multiplier: 1.2
     potion-buff: { type: HASTE, duration: 999999, amplifier: 0 }

@@ -335,6 +335,50 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-28 19:0x — 要望 6 件（グリフ素材GUI／儀式プレビュー／ロールUI／日光炎上／序盤火力）
+
+ユーザー要望 6 件をまとめて実装。検証は実走・実測: TF `BUILD SUCCESSFUL`・`fail 0 / skip 2`（既知の
+2 件のみ）、config-editor `780 / 780 pass`、ArsPaper フォーク `BUILD SUCCESSFUL`。
+jar は TF / ArsPaper とも 19:0x に再ビルド済み → **未配備**（フル再起動が要る）。
+
+- **①`/tf glyphs` 新設（グリフ解放素材の閲覧GUI）** — ArsPaper 側に `GlyphBrowserGui` を新設し、
+  TF 側は `ArsGlyphBrowserBridge` + `GlyphsCommand` でリフレクション委譲（`/tf recipes` と同じ形）。
+  一覧（種別→ティア順・未解放/解放済みの絞り込み）→ クリックで詳細（**解放素材を実アイテムで並べ、
+  各素材に「必要 N 個 / 所持 M 個」**、必要経験値レベルと現在レベル）。
+  **読み取り専用**にしてある — 解放は従来どおり筆記台。ここから解放できるようにすると、演出と
+  TOCTOU 再検証（アニメーション後の XP 再検査・素材返還）を持つ筆記台の手順を二重に持つことになる。
+  リフレクションの実体は `ArsGuiBridgeSupport` へ切り出し、レシピ側ブリッジもそこへ寄せた（重複解消）。
+- **②儀式レシピの詳細画面（`RecipeBrowserGui`）** — 以前は一覧で儀式をクリックしても
+  **何も起きなかった**（`if (clicked != null && !clicked.isRitual)` で弾いていた）ため、素材は lore の
+  名前だけで実アイテムを確認できなかった。中央=コア・周囲 8 マス=ペデスタル素材（同一素材は集約して
+  スタック数で表現）を実アイテムで並べる詳細画面を追加。素材⇔レシピの相互ジャンプも作業台と同じに揃え、
+  「生産レシピが 1 件なら直接その詳細へ」の分岐からも儀式の除外を外した。
+  **スロット→素材トークンの対応は描画時に `detailSlotTokens` へ記録し、クリック判定はそれだけを見る**
+  ように変えた（描画とクリック判定でスロット計算を二重に持つと、配置ルールの違う画面を足した時点で
+  必ずズレるため）。
+- **③`/tf role` がロールIDを 1 行返すだけだったのを、ロール名 + **効果の内訳**表示に変更** —
+  ステ名と数値書式は `stats/lore.yml`（`LoreConfig#displayTable`）を正にしたので `/tf stats` と語彙が
+  ズレない。共通ロジックは `progression/RoleDescriptions`（チャットとGUIの両方が同じ説明文を使う）。
+- **④`/tf role set`（引数なし）でロール選択GUI** — `progression/RoleSelectGui`。アイテム 1 個 = 1 ロールで
+  表示名に職業名、lore に効果。引数版 `set <combat> [support]` と**同じゲート**を通すため
+  `progression/RoleChangeService` に可否判定（`allow-command` / 近くに敵モブ）と適用を集約した。
+  `progression/role-buffs.yml` に表示専用の `icon:` / `description:` を追加（未指定・不正なら既定アイコン）。
+  config-editor にも両欄を追加。
+- **⑤日光炎上ダメージ = 最大HPの10%（`combat/damage.yml` の `sunlight-burn`）** — バニラの炎上は
+  1 発 1.0 固定で、TF のモブ最大HP（Lv0 のゾンビでも 400）に対して無意味だった＝「朝になっても
+  敵が炎上で死なない」。`SunlightBurnListener` が `FIRE_TICK` を最大HP割合へ置き換える（既定 0.10 →
+  約 10 秒で焼き切れる）。**バニラ値の方が大きい場合はバニラのまま**（上げる方向にだけ働く）。
+  **対象 EntityType を `sunlight-burn.mobs` で絞ってあるのが肝** — `FIRE_TICK` は「日光炎上」と
+  「火属性エンチャントでの着火」を区別できないので、全モブ対象にすると野外・昼間に着火しただけで
+  ボスが毎秒 10% ずつ溶ける（火属性が最強の攻撃手段に化ける）。適用条件は通常世界/昼/晴れ/空が
+  見えている（バニラの焼却条件と同じ）。
+- **⑥序盤（〜Lv10）のモブ火力を緩和（`combat/damage.yml` の `early-level-attack`）** —
+  `mob-types.yml` の attack-power 指数カーブ（base × 1.033^Lv）**自体は触らない後掛け倍率**として
+  実装（`EarlyLevelAttackSoftening`、`SymmetricCombatService` のモブ→プレイヤー物理/魔法の 2 経路に適用）。
+  base を直接下げると全レベル帯が下がり、「同帯装備で約 10 発耐える」中盤以降の校正がやり直しになる。
+  既定は Lv0 で 0.7 倍・Lv5 で 0.85 倍・**Lv10 以上は等倍**（従来の校正値は一切動かない）。
+  EliteMobs が最終ダメージを直接渡してくる経路（`physical/magicalFinalDamageFlat`）には掛からない。
+
 ### 2026-07-28 04:1x — クラフト複製の**真因**修正 ／「作業台が作れない」の真因判明
 
 ユーザー報告 3 件（①リザルトの品を取ろうとするとちらつく ②ドラッグ＆ドロップで無限に回収できる
