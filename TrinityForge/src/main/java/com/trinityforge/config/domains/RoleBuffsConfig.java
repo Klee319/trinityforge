@@ -11,8 +11,10 @@ import org.bukkit.potion.PotionEffectType;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -55,21 +57,44 @@ public final class RoleBuffsConfig implements LoadableConfig {
      */
     public record CombatRoleSpec(String id, String label, Map<String, Double> attackBuffs,
                                  Map<String, Double> defenseBuffs, double hateThreatMultiplier,
-                                 String icon, String description) {
+                                 String icon, List<String> description) {
         /** Back-compat: icon/description 未指定(既存テスト・呼び出し用)。 */
         public CombatRoleSpec(String id, String label, Map<String, Double> attackBuffs,
                               Map<String, Double> defenseBuffs, double hateThreatMultiplier) {
-            this(id, label, attackBuffs, defenseBuffs, hateThreatMultiplier, "", "");
+            this(id, label, attackBuffs, defenseBuffs, hateThreatMultiplier, "", List.of());
         }
+    }
+
+    /**
+     * {@code description} は 1 行の文字列でも、行のリストでも書ける。
+     * 2026-07-29 に複数行(lore)化したが、既存の 1 行表記も黙って読めるようにしてある
+     * (アイテムカタログの lore と入力UIを揃えるための変更で、設定の書き直しを強いる話ではない)。
+     */
+    private static List<String> readDescription(ConfigurationSection sec) {
+        Object raw = sec.get("description");
+        if (raw == null) {
+            return List.of();
+        }
+        if (raw instanceof List<?> list) {
+            List<String> lines = new ArrayList<>(list.size());
+            for (Object line : list) {
+                if (line != null) {
+                    lines.add(String.valueOf(line));
+                }
+            }
+            return List.copyOf(lines);
+        }
+        String single = String.valueOf(raw);
+        return single.isBlank() ? List.of() : List.of(single);
     }
 
     /** @param icon/description は {@link CombatRoleSpec} と同じ意味。 */
     public record SupportRoleSpec(String id, String label, String expSkill, double expMultiplier,
-                                  PotionBuffSpec potionBuff, String icon, String description) {
+                                  PotionBuffSpec potionBuff, String icon, List<String> description) {
         /** Back-compat: icon/description 未指定(既存テスト・呼び出し用)。 */
         public SupportRoleSpec(String id, String label, String expSkill, double expMultiplier,
                                PotionBuffSpec potionBuff) {
-            this(id, label, expSkill, expMultiplier, potionBuff, "", "");
+            this(id, label, expSkill, expMultiplier, potionBuff, "", List.of());
         }
     }
 
@@ -133,7 +158,7 @@ public final class RoleBuffsConfig implements LoadableConfig {
                         Math.max(0.0, Math.min(MAX_HATE_THREAT_MULTIPLIER,
                                 sec.getDouble("hate-threat-multiplier", 1.0))),
                         sec.getString("icon", ""),
-                        sec.getString("description", "")));
+                        readDescription(sec)));
             }
         }
         this.combatRoles = Collections.unmodifiableMap(combat);
@@ -167,7 +192,7 @@ public final class RoleBuffsConfig implements LoadableConfig {
                         Math.max(1.0, Math.min(MAX_EXP_MULTIPLIER, sec.getDouble("exp-multiplier", 1.2))),
                         potion,
                         sec.getString("icon", ""),
-                        sec.getString("description", "")));
+                        readDescription(sec)));
             }
         }
         this.supportRoles = Collections.unmodifiableMap(support);

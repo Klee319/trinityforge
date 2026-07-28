@@ -2,58 +2,90 @@
 # 獣使い(beast_tamer)はスコープ外。戦闘職 + 補助職の内部ステ注入のみ。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/progression/role-buffs.md
 #
-# 【2026-07-28 追加】icon / description
+# 【2026-07-28 追加 / 2026-07-29 更新】label / icon / description
+#   label       : GUIとチャットに出す職業名。MiniMessage 記法(<gold>等)が使える。
 #   icon        : /tf role set のGUIでこのロールを表すアイテム(Material名)。
 #                 省略・不正な名前のときは既定アイコン(戦闘職=鉄の剣 / 補助職=本)へフォールバックする。
-#   description : GUIと /tf role のチャット表示に添える1行説明。省略可。
-#   どちらもロールの効果には一切影響しない表示専用の項目。
-
+#   description : GUIと /tf role のチャット表示に添える説明。アイテムカタログの lore と同じく
+#                 複数行で書けて、各行に MiniMessage 記法が使える。省略可。
+#                 1行の文字列で書いた既存の書き方もそのまま読める(1行の lore として扱う)。
+#                   description:
+#                     - "<gray>物理ダメージが敵の防御力を20%貫通する</gray>"
+#   label / icon / description はロールの効果には一切影響しない表示専用の項目。
 
 combat-roles:
   swordfighter:
     label: 剣闘士
     icon: IRON_SWORD
-    description: 与ダメージを底上げする近接特化
     attack-buffs:
-      percent-bonus-damage: 0.12
+      penetration: 0.2
+    defense-buffs: {}
+    description: 物理ダメージが敵の防御力を20%貫通する
   mage:
     label: 魔術師
     icon: BLAZE_ROD
-    description: 魔法・遠隔の火力に寄せた職
     attack-buffs:
-      percent-bonus-damage: 0.12
+      percent-bonus-damage: 0.3
+    defense-buffs: {}
+    description: 魔法ダメージに30%の追加ダメージ
   tank:
-    label: タンク
+    label: 守衛
     icon: SHIELD
     description: 守備力とヘイトを上げ、敵を引き受ける
     defense-buffs:
-      phys-flat-defense: 40.0
-      magic-flat-defense: 40.0
-      damage-reduction: 0.05
+      damage-reduction: 0.1
     hate-threat-multiplier: 1.5
-
+    attack-buffs: {}
 support-roles:
-  scout:
-    label: 斥候
-    icon: BOW
-    description: 弓術EXPと移動速度に補正
-    exp-skill: ARCHERY
-    exp-multiplier: 1.2
-    potion-buff: { type: SPEED, duration: 999999, amplifier: 0 }
   farmer:
-    label: 農夫
-    icon: IRON_HOE
-    description: 農業EXPと跳躍力に補正
+    label: 農家
+    description: 農業EXPと取引価格に補正
     exp-skill: FARMING
     exp-multiplier: 1.2
-    potion-buff: { type: JUMP_BOOST, duration: 999999, amplifier: 0 }
+    potion-buff:
+      type: HERO_OF_THE_VILLAGE
+      duration: 999999
+      amplifier: 0
+    icon: IRON_HOE
+  fisher:
+    label: 漁師
+    description: 釣りEXPと運に補正
+    exp-skill: FARMING
+    exp-multiplier: 1.2
+    potion-buff:
+      type: LUCK
+      duration: 999999
+      amplifier: 0
+    icon: FISHING_ROD
   miner:
-    label: 採掘夫
+    label: 鉱夫
     icon: IRON_PICKAXE
     description: 採掘EXPと採掘速度に補正
     exp-skill: MINING
     exp-multiplier: 1.2
-    potion-buff: { type: HASTE, duration: 999999, amplifier: 0 }
-
+    potion-buff:
+      type: HASTE
+      duration: 999999
+      amplifier: 0
+  digger:
+    label: 土工
+    exp-skill: DIGGING
+    exp-multiplier: 1.2
+    potion-buff:
+      type: SPEED
+      duration: 999999
+      amplifier: 0
+    icon: IRON_SHOVEL
+    description: 切削EXPと移動速度に補正
+  woodcutter:
+    label: きこり
+    exp-skill: WOODCUTTING
+    exp-multiplier: 1.2
+    potion-buff:
+      type: FIRE_RESISTANCE
+      duration: 999999
+      amplifier: 0
+    icon: IRON_AXE
+    description: 伐採EXPと炎に補正
 role-change:
   allow-command: true

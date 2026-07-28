@@ -6,6 +6,7 @@ import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.progression.CollectionService;
 import com.trinityforge.skilltree.runtime.SkillTreeGuiVisuals;
 import com.trinityforge.stats.CrossPluginItemResolver;
+import com.trinityforge.text.MiniText;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -211,7 +212,9 @@ public final class AchievementGui implements Listener {
         }
         NamedTextColor nameColor = done ? NamedTextColor.GREEN
                 : (gateOpen ? NamedTextColor.YELLOW : NamedTextColor.DARK_GRAY);
-        meta.displayName(plain(achievement.displayName(), nameColor));
+        // 表示名は MiniMessage 可 (アイテムカタログの display-name と同じ記法)。
+        // 色を書いていない表示名だけ、達成状態の色(達成=緑/挑戦中=黄/前提未達=灰)を当てる。
+        meta.displayName(MiniText.render(achievement.displayName(), nameColor));
 
         List<Component> lore = new ArrayList<>();
         lore.add(plain(done ? "✔ 達成済み" : (gateOpen ? "… 挑戦中" : "✖ 前提未達成"), nameColor));
@@ -267,10 +270,11 @@ public final class AchievementGui implements Listener {
         return material == null || material.isAir() ? DEFAULT_ICON : material;
     }
 
+    /** 「前提: A(済) / B(未)」の1行へ連結するので、MiniMessage タグは落として返す。 */
     private String displayNameOf(String achievementId) {
         for (Achievement achievement : config.achievements()) {
             if (achievement.id().equals(achievementId)) {
-                return achievement.displayName();
+                return MiniText.plain(achievement.displayName());
             }
         }
         return achievementId;

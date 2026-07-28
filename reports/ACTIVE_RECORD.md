@@ -335,6 +335,55 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-29 06:xx — editor 7件バッチ（EXP画面/エンチャント網羅/ロールバフ・アチブUI/バニラアイテム条件）
+
+ユーザー提示の7件。全件完了。**config 3本は配備済み、jar は未配備**（下記）。
+
+| # | 内容 | 結果 |
+|---|---|---|
+| 1 | Ars鍛冶/鍛冶/Ars魔法のEXPカードを「レベル曲線・獲得レート」内へ | 曲線を持つスキルは曲線カードへ統合し、曲線を持たないものだけ別枠に残す構造へ変更 |
+| 2 | 鍛冶と Ars鍛冶の `exp-per-craft` 説明が両方 Ars 用だった | `SECTION_FIELD_OVERRIDES` を新設。鍛冶＝作業台通常クラフト／Ars鍛冶＝儀式＋Ars装備の作業台クラフト |
+| 3 | 精錬ボーナス/精錬速度カードの余白・改行が汚い | 真因は下記 |
+| 4 | 1.21.11 の新エンチャントが表に無い | 真因は下記。`density`/`breach`/`wind_burst`/`swift_sneak`/呪い2種を追加、死にキー `sweeping` を削除 |
+| 5 | ロールバフのアイコンがセレクトでない | `materialInput(..., {allowCustom:false})` へ |
+| 6 | ロールバフ/アチブの表示名・Lore がカタログ風GUIでない | 表示名→`richTextInput`、説明→`renderLoreRows`。**Java 側も description を `List<String>` 化** |
+| 7 | アチブのアイテム条件にバニラアイテムを追加できない | 候補追加だけでなく**記録側も未実装**だった（下記） |
+
+**非自明だった点**
+
+- **#3 の真因は余白ではなくグリッド**: `.const-body` は `grid-template-columns: 427px 427px` なので
+  子3つが2列に流れ、sub-title が % 入力の**横**に、「+ tier追加」がテーブルの横に並んでいた。
+  さらに `.form-label` の固定 190px で長いラベルが折り返していた。
+  `.const-body.fs-tier-body`（column flex）を足して全子要素を 873px の縦積みへ。
+- **#4 は UI の穴ではなく機能の穴**: `enchantment_base` に無いキーは
+  `if (base <= 0.0) continue;` で**EXP が 0**。つまり重撃/防具貫通/風の爆発でエンチャントEXPが
+  一切入らなかった。倍率表（type/item）の方は未定義でも 1.0 既定なので、そちらは表示上の問題のみ。
+- **#7 は「候補に無い」ではなく「記録されない」**: 図鑑は `item:<catalogId>` しか記録しておらず、
+  バニラ Material を条件に書いても進捗は**永久に 0** だった。`CollectionListener` に
+  `item:<MATERIAL>` の記録を追加。ただし拾得物を無条件に記録すると PDC が全 Material 分まで
+  膨らむので、**config から参照されている Material だけ**を対象にする
+  （`collection.yml` の categories.entries ＋ `achievements.yml` の `collection.scope: item`）。
+  reload で差し替わるためこの集合はキャッシュしない。
+- **表示名の MiniMessage 対応で共通クラス `text/MiniText` を新設**。GUI/チャットの両方で
+  同じ整形になるようにし、パース失敗時はプレーン文字列へフォールバックする。
+  ソート・検索用には `MiniText.plain()`（タグを剥がした素の文字列）を使う。
+- `role-buffs.yml` の釣り人アイコンが `FIDHING_LOD`（タイポ）で既定アイコンへ落ちていたのを修正。
+
+**検証**: TF 2749 tests 実行。fail 5 は**すべて並行セッションの未コミット yml**
+（`stats/enchant-luck.yml` 0.01→0.02 / `stats/skill-exp.yml` / `skills/base/mining_progression.yml` /
+`progression/crafting-features.yml`）由来で、本作業のファイルとは無関係。
+本作業の範囲（Enchant/Collection/Achievement/Role 系 208 tests）は enchant-luck の1件を除き green。
+editor 側は実ブラウザで7件すべて目視確認（#7 は 対象セレクトに「バニラ: ダイヤモンド (DIAMOND)」等が
+出ることを確認）。
+
+**配備状況**: `progression/role-buffs.yml` / `progression/collection.yml` /
+`skills/base/enchanting_progression.yml` は Main_Server へ反映済み（ジャンクション共有で3台とも）。
+**`TrinityForge-all.jar` はビルド済みだが未配備** — 3バックエンド + Velocity が**稼働中**のため。
+稼働中の jar 差し替えは確実に `NoClassDefFoundError` を起こすので、停止してから
+3台の `plugins/` へコピーすること。
+
+---
+
 ### 2026-07-29 03:5x — editor UI 10件バッチ（重複ステ統廃合を含む）
 
 ユーザー提示の10件。全件完了（配備は jar のみ未実行、下記）。

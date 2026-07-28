@@ -1009,9 +1009,13 @@
 
       // 節ごとの中身。表示は活性な節だけ(肥大化対策)だが、生成は全節ぶん行う。
       const sections = { basic: [], trigger: [], gate: [], rewards: [] };
-      sections.basic.push(field("表示名 (display-name)", window.textInput(entry["display-name"] || "", (v) => {
-        entry["display-name"] = v;
-      }, "ジャンプ王")));
+      // 2026-07-29: 表示名も lore と同じくアイテムカタログ相当のリッチテキスト欄にした
+      // (以前は表示名だけ素のテキスト欄で、同じカードの中で入力UIが揃っていなかった)。
+      sections.basic.push(field("表示名 (display-name)",
+        window.richTextInput(entry["display-name"] || "", "minimessage", (v) => {
+          entry["display-name"] = v;
+        }),
+        "MiniMessage記法で色を付けられます。GUIでは色を書かなかったときだけ達成状況の色が付きます。"));
 
       // アイコン (2026-07-29): /achievement のGUIに出すアイテム。カタログID・custom:・バニラ
       // Material のどれでも書ける。空欄なら紙(PAPER)。報酬アイテム欄と同じセレクトを使う。
@@ -1035,7 +1039,11 @@
         })
       ]));
 
-      const triggerBody = h("div", { class: "form-field-group" });
+      // 2026-07-29: 以前はここを form-field-group(枠線+内側パディング)で囲み、さらに
+      // それを「トリガー」ラベル付きの form-field で包んでいた。だが「達成条件」タブの中身は
+      // このトリガー設定しかないので、ラベルも枠も同じことを 3 回言っているだけで、
+      // 枠の分だけ左右に余白が積まれて読みづらくなっていた。素の縦積みへ 2 段フラット化する。
+      const triggerBody = h("div", { class: "ach-trigger-fields" });
       function renderTriggerFields() {
         triggerBody.innerHTML = "";
         triggerBody.appendChild(field("トリガー種別", window.selectLabeledInput(entry.trigger.type, ["statistic", "advancement", "static"], "achievement-trigger", (v) => {
@@ -1066,11 +1074,21 @@
           // ため「アイテム: infinity_sword」のようにIDが主表示になっていた (2026-07-29)。
           const plainName = (raw) => (typeof window.stripDisplayNamePlain === "function"
             ? window.stripDisplayNamePlain(raw) : String(raw == null ? "" : raw));
-          const itemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [])
+          const catalogItemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [])
             .map((v) => {
               const name = plainName(v.label != null && v.label !== "" ? v.label : v.displayName);
               return { value: `item:${v.id}`, primary: `アイテム: ${name || v.id}`, secondary: v.id };
             });
+          // 2026-07-29: カタログ品しか候補に出ておらず、「ダイヤモンドを入手」のような
+          // バニラアイテム条件が作れなかった。図鑑側(CollectionListener)がここに書かれた
+          // Material を記録するようになったので、バニラMaterialも候補に載せる。
+          const vanillaItemCandidates = (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])
+            .map((mat) => {
+              const ja = window.LABELS && typeof window.LABELS.materialLabel === "function"
+                ? window.LABELS.materialLabel(mat) : "";
+              return { value: `item:${mat}`, primary: `バニラ: ${ja || mat}`, secondary: mat };
+            });
+          const itemCandidates = catalogItemCandidates.concat(vanillaItemCandidates);
           // 2026-07-27 タスク4横断監査: vocab-1.21.11.js の window.MOB_LABELS_JA (recipes.js/ars-p4.js の
           // モブ選択で使われているのと同じ辞書) に和名があるのに、ここだけ生の EntityType ID をそのまま
           // primary に出していた。既存辞書をそのまま使い、未登録の場合だけIDへフォールバックする。
@@ -1210,7 +1228,7 @@
         }
       }
       renderTriggerFields();
-      sections.trigger.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "トリガー" }), triggerBody]));
+      sections.trigger.push(triggerBody);
 
       sections.basic.push(h("label", { class: "inline-check" }, [
         window.checkboxInput(!!entry.broadcast, (v) => { entry.broadcast = !!v; }),

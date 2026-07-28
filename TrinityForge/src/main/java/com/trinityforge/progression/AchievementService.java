@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.ItemGrant;
 import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
 import com.trinityforge.stats.CrossPluginItemResolver;
+import com.trinityforge.text.MiniText;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -205,7 +206,7 @@ public final class AchievementService {
             return false; // 別経路で同tick中に既に達成済み扱いになっていた(冪等)。
         }
         Component message = Component.text("アチーブメント達成: ", NamedTextColor.GOLD)
-                .append(Component.text(achievement.displayName(), NamedTextColor.YELLOW));
+                .append(MiniText.render(achievement.displayName(), NamedTextColor.YELLOW));
         if (achievement.broadcast()) {
             Bukkit.getServer().sendMessage(Component.text(player.getName() + " が", NamedTextColor.GOLD)
                     .append(message));

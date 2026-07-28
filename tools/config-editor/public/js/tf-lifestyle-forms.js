@@ -1368,20 +1368,36 @@
               onclick: () => { delete host[id]; render(); }
             })
           ];
-          // icon / description は 2026-07-28 追加の表示専用項目(/tf role set のGUIと /tf role の
-          // チャット表示に使う)。効果には一切影響しない。icon が空/不正なら既定アイコンへ倒れる。
+          // label / icon / description は表示専用項目(/tf role set のGUIと /tf role のチャット
+          // 表示に使う)。効果には一切影響しない。icon が空/不正なら既定アイコンへ倒れる。
+          // 2026-07-29: 入力UIをアイテムカタログへ揃えた。
+          //   表示名 = リッチテキスト欄(MiniMessage) / 説明 = 複数行 lore / アイコン = Materialセレクト
+          //   (以前は3つとも素のテキスト欄で、アイコンはタイポ(FIDHING_LOD)がそのまま保存できた)
+          if (!Array.isArray(role.description)) {
+            role.description = role.description == null || String(role.description) === ""
+              ? []
+              : [String(role.description)];
+          }
           const body = [
-            textField(role, "label", { label: "表示名" }),
-            textField(role, "icon", {
-              label: "GUIアイコン",
-              desc: "/tf role set のGUIで使うMaterial名(例: IRON_SWORD)。空なら既定アイコン。",
-              clearable: true
+            field("label", window.richTextInput(role.label == null ? "" : String(role.label),
+              "minimessage", (v) => { role.label = v; }), {
+              label: "表示名",
+              desc: "GUIとチャットに出す職業名。MiniMessage記法で色を付けられます。"
             }),
-            textField(role, "description", {
-              label: "説明(1行)",
-              desc: "GUIと /tf role のチャット表示に添える1行説明。空なら省略。",
-              clearable: true
-            })
+            field("icon", window.materialInput(role.icon || "", "role-icon-list", (v) => {
+              if (v) role.icon = v; else delete role.icon;
+            }, { allowCustom: false }), {
+              label: "GUIアイコン",
+              desc: "/tf role set のGUIで使うMaterial。空なら既定アイコン(戦闘職=鉄の剣 / 補助職=本)。"
+            }),
+            h("div", { class: "form-field" }, [
+              window.fieldLabelEl("description", {
+                label: "説明Lore (description)",
+                desc: "GUIと /tf role のチャット表示に添える説明。行ごとにMiniMessage記法が使えます。",
+                hideKey: true
+              }),
+              window.renderLoreRows(role.description, "minimessage", () => {}, () => render())
+            ])
           ];
           if (kind === "combat") {
             ensureObj(role, "attack-buffs");
@@ -1443,6 +1459,24 @@
       }), { label: "/tf role set を許可", key: "allow-command", desc: "非戦闘時のみ" })]
     ));
 
-    return { element: root, getData: () => working };
+    // 画面を開いただけで description: [] が生えるのを防ぐ(編集で配列化しているため)。
+    function pruneEmptyDescriptions(host) {
+      for (const role of Object.values(host || {})) {
+        if (!role || typeof role !== "object") continue;
+        if (Array.isArray(role.description)) {
+          const lines = role.description.filter((line) => String(line == null ? "" : line) !== "");
+          if (lines.length) role.description = lines; else delete role.description;
+        }
+      }
+    }
+
+    return {
+      element: root,
+      getData: () => {
+        pruneEmptyDescriptions(combat);
+        pruneEmptyDescriptions(support);
+        return working;
+      }
+    };
   };
 })();

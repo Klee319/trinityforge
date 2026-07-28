@@ -10,6 +10,7 @@ import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.progression.RoleChangeService;
 import com.trinityforge.progression.RoleDescriptions;
 import com.trinityforge.progression.RoleSelectGui;
+import com.trinityforge.text.MiniText;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.text.Component;
@@ -92,26 +93,31 @@ public final class RoleCommand {
 
         player.sendMessage(Component.text("=== ロール: " + player.getName() + " ===", NamedTextColor.GOLD));
         sendRole(player, "戦闘職", combat == null ? null : combat.label(),
-                combat == null ? null : combat.description(),
+                combat == null ? List.<String>of() : combat.description(),
                 combat == null ? List.of() : descriptions.describeCombat(combat));
         sendRole(player, "補助職", support == null ? null : support.label(),
-                support == null ? null : support.description(),
+                support == null ? List.<String>of() : support.description(),
                 support == null ? List.of() : descriptions.describeSupport(support));
         player.sendMessage(Component.text("変更: /tf role set (GUI) / 解除: /tf role clear",
                 NamedTextColor.DARK_GRAY));
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void sendRole(Player player, String heading, String label, String description,
-                                 List<Component> effects) {
+    private static void sendRole(Player player, String heading, String label,
+                                 List<String> description, List<Component> effects) {
+        // label / description は MiniMessage 可 (アイテムカタログの display-name / lore と同じ記法)。
         player.sendMessage(Component.text(heading + ": ", NamedTextColor.AQUA)
-                .append(Component.text(label == null ? "(なし)" : label,
-                        label == null ? NamedTextColor.GRAY : NamedTextColor.WHITE)));
+                .append(label == null
+                        ? Component.text("(なし)", NamedTextColor.GRAY)
+                        : MiniText.render(label, NamedTextColor.WHITE)));
         if (label == null) {
             return;
         }
-        if (description != null && !description.isBlank()) {
-            player.sendMessage(Component.text("  " + description, NamedTextColor.DARK_GRAY));
+        for (String line : description) {
+            if (line != null && !line.isBlank()) {
+                player.sendMessage(Component.text("  ", NamedTextColor.DARK_GRAY)
+                        .append(MiniText.render(line, NamedTextColor.DARK_GRAY)));
+            }
         }
         if (effects.isEmpty()) {
             player.sendMessage(Component.text("  (効果なし)", NamedTextColor.DARK_GRAY));
@@ -169,8 +175,9 @@ public final class RoleCommand {
         if (support != null) {
             roleChangeService.setSupport(player, supportRaw);
         }
-        String supportLabel = support == null ? null : support.label();
-        String combatLabel = combat.label();
+        // チャット1行へ連結するので MiniMessage タグは落とす。
+        String supportLabel = support == null ? null : MiniText.plain(support.label());
+        String combatLabel = MiniText.plain(combat.label());
         player.sendMessage(Component.text(
                 "ロールを設定しました: 戦闘=" + combatLabel
                         + (supportLabel != null ? " / 補助=" + supportLabel : ""),

@@ -744,6 +744,11 @@ select.field-input option {
 .const-label { font-size: 13px; color: var(--text); }
 .const-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
 .kv-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; grid-column: 1 / -1; }
+/* 「説明 → 既定値 → tier表」と縦に読ませるカード (精錬速度/精錬ボーナス等)。
+   const-body の2列グリッドのままだと小見出しや追加ボタンが入力の右隣へ回り込む。 */
+.const-body.fs-tier-body { display: flex; flex-direction: column; gap: 8px; }
+.const-body.fs-tier-body > .form-hint { margin: 0 0 2px; }
+.const-body.fs-tier-body > .sub-title { margin: 8px 0 0; }
 
 /* 火力シミュレータ */
 .sim-view { display: flex; flex-direction: column; gap: 12px; }

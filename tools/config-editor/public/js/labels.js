@@ -346,7 +346,9 @@
     "count": { label: "召喚数", desc: "召喚するモブ/動物の数。" },
     "group": { label: "グループ", desc: "召喚モブのグループ。" },
     // skill-exp.yml / skills/base/*_progression.yml
-    "exp-per-craft": { label: "クラフト1回EXP", desc: "Ars装備などを1回クラフトしたときに付与する ARS_SMITHING 経験値。" },
+    // 鍛冶 / Ars鍛冶 で意味が違うため、EXP設定画面ではスキルごとの説明で上書きしている
+    // (tf-forms.js SECTION_FIELD_OVERRIDES)。ここは他画面用の中立な説明。
+    "exp-per-craft": { label: "クラフト1回EXP", desc: "アイテムを1回クラフトしたときに付与する経験値。個数に関わらず1クラフトにつき1回分。" },
     "kill-exp": { label: "討伐EXP設定", desc: "敵の種類・レベル・最大体力に応じて討伐時に付与するスキルEXP。" },
     "block-break-exp": { label: "ブロック破壊EXP設定", desc: "魔法でブロックを破壊したときに採取系の素材EXPを参照して付与する設定。" },
     "base": { label: "基礎値", desc: "計算式へ最初に加える基礎値。マップの場合はスキル等の種類別に指定する。" },

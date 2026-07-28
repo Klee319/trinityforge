@@ -5,6 +5,10 @@
 #
 # 記録されるエントリ:
 #   item:<catalogId>   items/catalog.yml のアイテムを入手した(取得/クラフト/釣り/ガチャ等)
+#   item:<MATERIAL>    バニラアイテムを入手した(2026-07-29追加)。ただし記録されるのは
+#                      「下の categories.items.*.entries に書いたMaterial」か
+#                      「achievements.yml のアイテム条件(collection.scope: item)に書いたMaterial」
+#                      だけ。参照されていないバニラ品は記録しない(全Material分までPDCが膨らむため)。
 #   mob:<ENTITY_TYPE>  そのEntityTypeのモブをプレイヤーが討伐した
 #
 # 進捗はプレイヤーPDC(trinityforge:collection_entries / collection_claimed_tiers)に保持。

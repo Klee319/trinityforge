@@ -3,6 +3,7 @@ package com.trinityforge.progression;
 import com.trinityforge.config.domains.RoleBuffsConfig.CombatRoleSpec;
 import com.trinityforge.config.domains.RoleBuffsConfig.SupportRoleSpec;
 import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.text.MiniText;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -104,8 +105,10 @@ public final class RoleSelectGui implements Listener {
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text(title, NamedTextColor.GOLD)
                 .decoration(TextDecoration.ITALIC, false));
+        // label は MiniMessage 可なので、文字列連結に混ぜる前にタグを落とす。
         meta.lore(List.of(Component.text("現在: "
-                        + (currentId == null ? "(なし)" : (currentLabel == null ? currentId : currentLabel)),
+                        + (currentId == null ? "(なし)"
+                                : (currentLabel == null ? currentId : MiniText.plain(currentLabel))),
                         NamedTextColor.GRAY)
                 .decoration(TextDecoration.ITALIC, false)));
         stack.setItemMeta(meta);
@@ -114,9 +117,8 @@ public final class RoleSelectGui implements Listener {
 
     private ItemStack combatButton(CombatRoleSpec spec, boolean selected) {
         List<Component> lore = new ArrayList<>();
-        if (!spec.description().isBlank()) {
-            lore.add(Component.text(spec.description(), NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false));
+        for (String line : spec.description()) {
+            lore.add(MiniText.render(line, NamedTextColor.GRAY));
         }
         lore.add(Component.text("[効果]", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
         List<Component> effects = descriptions.describeCombat(spec);
@@ -130,9 +132,8 @@ public final class RoleSelectGui implements Listener {
 
     private ItemStack supportButton(SupportRoleSpec spec, boolean selected) {
         List<Component> lore = new ArrayList<>();
-        if (!spec.description().isBlank()) {
-            lore.add(Component.text(spec.description(), NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false));
+        for (String line : spec.description()) {
+            lore.add(MiniText.render(line, NamedTextColor.GRAY));
         }
         lore.add(Component.text("[効果]", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
         List<Component> effects = descriptions.describeSupport(spec);
@@ -149,9 +150,11 @@ public final class RoleSelectGui implements Listener {
                                  NamespacedKey key, String roleId) {
         ItemStack stack = new ItemStack(resolveIcon(iconName, fallbackIcon));
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(Component.text((selected ? "▶ " : "") + label,
+        // label は MiniMessage 可。色を書いていない label だけ、選択状態の色(緑/白)を当てる。
+        meta.displayName(Component.text(selected ? "▶ " : "",
                         selected ? NamedTextColor.GREEN : NamedTextColor.WHITE)
-                .decoration(TextDecoration.ITALIC, false));
+                .decoration(TextDecoration.ITALIC, false)
+                .append(MiniText.render(label, selected ? NamedTextColor.GREEN : NamedTextColor.WHITE)));
         List<Component> full = new ArrayList<>(lore);
         full.add(Component.empty());
         full.add(Component.text(selected ? "選択中" : "クリックで選択",
@@ -231,14 +234,15 @@ public final class RoleSelectGui implements Listener {
         open(player);
     }
 
+    // チャット1行への文字列連結に使うので、MiniMessage タグは落としてから返す。
     private String labelOfCombat(String id) {
         CombatRoleSpec spec = roleChangeService.config().combatRole(id);
-        return spec == null ? id : spec.label();
+        return spec == null ? id : MiniText.plain(spec.label());
     }
 
     private String labelOfSupport(String id) {
         SupportRoleSpec spec = roleChangeService.config().supportRole(id);
-        return spec == null ? id : spec.label();
+        return spec == null ? id : MiniText.plain(spec.label());
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = false)

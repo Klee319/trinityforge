@@ -31,18 +31,26 @@
   }
   function gridRow(fields) { return h("div", { class: "field-grid" }, fields); }
 
-  // recipes.js の enchant_book (effect-params.enchantment) 候補 datalist から参照される
-  // バニラエンチャント名の一覧 (tool-enchants フォーム廃止後もこの一覧は外部で再利用される)。
-  const ENCHANT_KEYS = [
-    "efficiency", "unbreaking", "fortune", "luck_of_the_sea", "lure", "silk_touch",
-    "sharpness", "smite", "bane_of_arthropods", "knockback", "fire_aspect", "looting",
-    "sweeping_edge", "power", "punch", "flame", "infinity", "protection",
-    "fire_protection", "blast_protection", "projectile_protection", "thorns",
-    "respiration", "aqua_affinity", "depth_strider", "frost_walker", "feather_falling",
-    "mending", "vanishing_curse", "binding_curse",
-    // ArsPaper 追加エンチャント
-    "mana_regen", "mana_boost", "soulbound", "share"
-  ];
+  // recipes.js の enchant_book (effect-params.enchantment) 候補 datalist や
+  // オーバーエンチャ設定から参照されるエンチャント名の一覧。
+  // 一覧の実体は vocab-1.21.11.js (VANILLA_ENCHANTS) 側に一本化した。ここで独自に列挙していた頃は
+  // トライデント/クロスボウ/メイス系 (loyalty, riptide, multishot, density, breach, wind_burst 等) が
+  // まるごと抜けており、新しいエンチャントが追加されるたび2箇所を直す必要があった。
+  const ENCHANT_KEYS = Array.isArray(window.VANILLA_ENCHANTS) && window.VANILLA_ENCHANTS.length
+    ? window.VANILLA_ENCHANTS.slice()
+    : [
+      // vocab-1.21.11.js が読み込まれていない場合のフォールバック (順序も同じ)。
+      "protection", "fire_protection", "feather_falling", "blast_protection",
+      "projectile_protection", "respiration", "aqua_affinity", "thorns", "depth_strider",
+      "frost_walker", "binding_curse", "sharpness", "smite", "bane_of_arthropods",
+      "knockback", "fire_aspect", "looting", "sweeping_edge", "efficiency", "silk_touch",
+      "unbreaking", "fortune", "power", "punch", "flame", "infinity", "luck_of_the_sea",
+      "lure", "loyalty", "impaling", "riptide", "channeling", "multishot", "quick_charge",
+      "piercing", "density", "breach", "wind_burst", "mending", "vanishing_curse",
+      "soul_speed", "swift_sneak", "lunge",
+      // ArsPaper 追加エンチャント
+      "mana_regen", "mana_boost", "soulbound", "share"
+    ];
   window.ENCHANT_KEYS = ENCHANT_KEYS;
 
   function ensureObj(parent, key) {
@@ -79,13 +87,14 @@
   const ENCHANT_TYPE_LABELS = {
     BOW: "弓", CROSSBOW: "クロスボウ", WOOD: "木", LEATHER: "革", STONE: "石",
     CHAINMAIL: "チェーン", IRON: "鉄", GOLD: "金", DIAMOND: "ダイヤモンド",
-    NETHERITE: "ネザライト", PRISMARINE: "プリズマリン(カメの甲羅)", MEMBRANE: "ファントムの皮膜(エリトラ)"
+    NETHERITE: "ネザライト", PRISMARINE: "プリズマリン(カメの甲羅)", MEMBRANE: "ファントムの皮膜(エリトラ)",
+    MACE: "メイス", TRIDENT: "トライデント", SHEARS: "ハサミ"
   };
   const ENCHANT_ITEM_LABELS = {
     SWORD: "剣", PICKAXE: "ツルハシ", AXE: "斧", SHOVEL: "シャベル", HOE: "クワ",
     BOOTS: "ブーツ", LEGGINGS: "レギンス", CHESTPLATE: "チェストプレート", HELMET: "ヘルメット",
     SHEARS: "ハサミ", TRIDENT: "トライデント", CROSSBOW: "クロスボウ", BOW: "弓",
-    FISHING_ROD: "釣竿"
+    FISHING_ROD: "釣竿", MACE: "メイス"
   };
 
   /** 表(オブジェクト)のキーから行見出しを作る関数を返す。対象外の表なら null。 */
@@ -469,8 +478,10 @@
       power: "総合",
       smithing: "鍛冶",
       woodcutting: "伐採",
-      ars_magic: "Ars魔法の曲線",
-      ars_smithing: "Ars鍛冶の曲線",
+      // 2026-07-29: 「〜の曲線」を外した。曲線カードは獲得EXPカードへ統合され、
+      // 同じスキルが 2 つの別名で 2 箇所に出る状態が解消されたため。
+      ars_magic: "Ars魔法",
+      ars_smithing: "Ars鍛冶",
       "spot-diminishing": "同一地点での連続獲得逓減",
       "gathering": "採取EXP算出",
       "level-diminishing": "スキルレベルによるEXP逓減"
@@ -481,7 +492,8 @@
 
     root.appendChild(h("div", { class: "sub-title", text: "行動あたりの獲得EXP" }));
     root.appendChild(h("div", { class: "empty-hint", text:
-      "ここはTrinityForgeとArsPaperが付与するレートです。各職業の曲線は下の職業カードで編集します。" }));
+      "ここはTrinityForgeとArsPaperが付与するレートです。"
+      + "各職業のEXPとレベル曲線は下の「レベル曲線・獲得レート」で編集します。" }));
 
     // dungeon-only-exp: 戦闘6スキル(重武器/軽武器/弓術/重装甲/軽装甲/ARS_MAGIC)のEXPをダンジョン限定にするか。
     root.appendChild(card(
@@ -670,71 +682,142 @@
       ));
     })();
 
-    const sections = Object.keys(working).filter((k) =>
-      working[k] && typeof working[k] === "object" && !Array.isArray(working[k]) && !DEDICATED_SECTION_KEYS.has(k));
-    if (!sections.length) {
-      root.appendChild(emptyGuide("スキルEXP設定がまだありません。",
-        "skill-exp.yml に ars-smithing.exp-per-craft などを定義すると、ここで編集できます。"));
-    } else {
-      for (const section of sections) {
-        const obj = working[section];
-        const cardEl = h("details", { class: "entry-card se-skill-card", open: true });
-        cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
-          h("span", { class: "entry-key-label", text: skillLabel(section) })
-        ]));
-        cardEl.appendChild(h("div", { class: "entry-body" },
-          [scalarSectionBody(obj, { hideKey: true })]));
-        root.appendChild(cardEl);
-      }
-    }
-
     // レベル曲線 + experience 配下のEXP生産レート/行動テーブルを編集する。
     // producer追加時にUI側の許可リスト更新を要求すると設定だけ編集不能になるため、
     // max_level / exp_level_curve 以外を再帰描画する。配列とnullは値を温存するが、
     // 数値表ではないため入力欄にはしない。
+    // (buildCurveBody がスキルカードの描画中にこれを読むので、宣言はループより前に置く)
     const PROGRESSION_DEDICATED_KEYS = new Set(["max_level", "exp_level_curve"]);
+
+    const sections = Object.keys(working).filter((k) =>
+      working[k] && typeof working[k] === "object" && !Array.isArray(working[k]) && !DEDICATED_SECTION_KEYS.has(k));
+
+    // 2026-07-29: 同じスキルの設定が「行動あたりの獲得EXP」カードと
+    // 「レベル曲線」カードに分かれていた (Ars 魔法 / Ars 鍛冶 / 鍛冶の 3 スキルが該当)。
+    // skill-exp.yml はハイフン id (ars-magic)、progression/*.yml はアンダースコア id
+    // (ars_magic) というファイル都合で別キーになっていただけで、編集者から見れば同じスキル。
+    // 1 スキル 1 カードにまとめ、中を小見出しで 2 ブロックに分ける。
+    const normalizeSkillId = (id) => String(id).replace(/-/g, "_");
+    const curveBySkill = new Map();
+    for (const k of Object.keys(curves)) {
+      if (curves[k] && curves[k].experience) curveBySkill.set(normalizeSkillId(k), k);
+    }
+
+    /** カード内の小見出し (1 カードに 2 ブロック入るときだけ付ける)。 */
+    function subHeading(text) {
+      return h("div", { class: "se-card-subhead", text });
+    }
+
+    // クラフト系の exp-per-craft は skill-exp.yml 上ではキー名が同じでも意味が違う。
+    // 鍛冶 = 作業台での通常クラフト / Ars鍛冶 = Ars装備(儀式クラフト含む)。
+    // 説明文を1本にすると必ずどちらかが嘘になるのでスキルごとに差し替える。
+    const SECTION_FIELD_OVERRIDES = {
+      smithing: {
+        "exp-per-craft": {
+          label: "クラフト1回EXP",
+          desc: "作業台での通常クラフト1回につき付与する 鍛冶(SMITHING) 経験値。"
+            + "対象は武器/防具/道具カテゴリのアイテムで、Ars装備は含まない(そちらはArs鍛冶に入る)。"
+            + "シフトクリックの一括クラフトでも1回分だけ付く。"
+        }
+      },
+      "ars-smithing": {
+        "exp-per-craft": {
+          label: "クラフト1回EXP",
+          desc: "Ars装備(Ars鍛冶カテゴリのアイテム)を1回作成したときに付与する Ars鍛冶(ARS_SMITHING) 経験値。"
+            + "儀式による作成と、Ars装備を作業台で作った場合の両方が対象。"
+            + "シフトクリックの一括クラフトでも1回分だけ付く。"
+        }
+      }
+    };
+
+    // 2026-07-29: 曲線を持つスキルのカードは「レベル曲線・獲得レート」の中へ入れる。
+    // 曲線を持たない設定 (spot-diminishing / gathering / combat など) だけが上に残る。
+    const sectionsWithoutCurve = sections.filter((s) => !curveBySkill.has(normalizeSkillId(s)));
+    const sectionBySkill = new Map();
+    for (const s of sections) {
+      const curveKey = curveBySkill.get(normalizeSkillId(s));
+      if (curveKey) sectionBySkill.set(curveKey, s);
+    }
+
+    if (!sections.length && !curveBySkill.size) {
+      root.appendChild(emptyGuide("スキルEXP設定がまだありません。",
+        "skill-exp.yml に ars-smithing.exp-per-craft などを定義すると、ここで編集できます。"));
+    } else {
+      for (const section of sectionsWithoutCurve) {
+        const cardEl = h("details", { class: "entry-card se-skill-card", open: true });
+        cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
+          h("span", { class: "entry-key-label", text: skillLabel(section) })
+        ]));
+        cardEl.appendChild(h("div", { class: "entry-body" }, [
+          scalarSectionBody(working[section], { hideKey: true }, SECTION_FIELD_OVERRIDES[section])
+        ]));
+        root.appendChild(cardEl);
+      }
+    }
+
     const curveKeys = Object.keys(curves).filter((k) => curves[k] && curves[k].experience);
     if (curveKeys.length) {
       root.appendChild(h("div", { class: "sub-title", text: "レベル曲線・獲得レート" }));
       root.appendChild(h("div", { class: "empty-hint", text:
         "戦闘武器の行動EXPは上の戦闘設定が基準です。ここではレベル曲線と、採取・防具・鍛冶・錬金などを編集します。" }));
       for (const skillId of curveKeys) {
-        if (!curves[skillId].experience) curves[skillId].experience = {};
-        const exp = curves[skillId].experience;
+        const section = sectionBySkill.get(skillId);
         const cardEl = h("details", { class: "entry-card se-skill-card", open: false });
         cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
-          h("span", { class: "entry-key-label", text: skillLabel(skillId) })
+          h("span", { class: "entry-key-label", text: skillLabel(section || skillId) })
         ]));
-        const body = h("div", { class: "entry-body" });
-        const curveInput = window.textInput(exp.exp_level_curve || "", (v) => {
-          exp.exp_level_curve = v;
-          redrawChart();
-        });
-        const maxInput = window.numberInput(exp.max_level, (v) => {
-          exp.max_level = v == null ? 100 : v;
-          redrawChart();
-        }, { int: true });
-        body.appendChild(fieldRow("exp_level_curve", curveInput));
-        body.appendChild(fieldRow("max_level", maxInput));
-        body.appendChild(scalarSectionBody(
-          exp,
-          { hideKey: true },
-          null,
-          PROGRESSION_DEDICATED_KEYS,
-          { forceFloat: true }
-        ));
-        const chart = h("div", { class: "qd-chart" });
-        body.appendChild(chart);
-        function redrawChart() {
-          chart.innerHTML = "";
-          const svg = renderExpCurveSvg(exp.exp_level_curve || "", exp.max_level || 100);
-          if (svg) chart.appendChild(svg);
-          else chart.appendChild(h("div", { class: "empty-hint", text: "曲線式を評価できません" }));
+        if (section) {
+          // 行動あたりの獲得EXP (skill-exp.yml) と曲線 (progression/*.yml) は別ファイルだが
+          // 編集者から見れば同じスキルなので 1 カードに小見出しで 2 ブロック入れる。
+          const body = h("div", { class: "entry-body" });
+          body.appendChild(subHeading("行動あたりの獲得EXP"));
+          body.appendChild(scalarSectionBody(working[section], { hideKey: true },
+            SECTION_FIELD_OVERRIDES[section]));
+          body.appendChild(subHeading("レベル曲線・獲得レート"));
+          body.appendChild(buildCurveBody(skillId));
+          cardEl.appendChild(body);
+        } else {
+          cardEl.appendChild(buildCurveBody(skillId));
         }
-        redrawChart();
-        cardEl.appendChild(body);
         root.appendChild(cardEl);
       }
+    }
+
+    /**
+     * 1 スキル分のレベル曲線ブロック。単独カードと、獲得EXPカードへの合流の
+     * 両方から呼ぶ (分かれていた 2 カードを 1 つにするための共通化)。
+     */
+    function buildCurveBody(skillId) {
+      if (!curves[skillId].experience) curves[skillId].experience = {};
+      const exp = curves[skillId].experience;
+      const body = h("div", { class: "entry-body se-curve-body" });
+      const chart = h("div", { class: "qd-chart" });
+      function redrawChart() {
+        chart.innerHTML = "";
+        const svg = renderExpCurveSvg(exp.exp_level_curve || "", exp.max_level || 100);
+        if (svg) chart.appendChild(svg);
+        else chart.appendChild(h("div", { class: "empty-hint", text: "曲線式を評価できません" }));
+      }
+      const curveInput = window.textInput(exp.exp_level_curve || "", (v) => {
+        exp.exp_level_curve = v;
+        redrawChart();
+      });
+      const maxInput = window.numberInput(exp.max_level, (v) => {
+        exp.max_level = v == null ? 100 : v;
+        redrawChart();
+      }, { int: true });
+      body.appendChild(fieldRow("exp_level_curve", curveInput));
+      body.appendChild(fieldRow("max_level", maxInput));
+      body.appendChild(scalarSectionBody(
+        exp,
+        { hideKey: true },
+        null,
+        PROGRESSION_DEDICATED_KEYS,
+        { forceFloat: true }
+      ));
+      body.appendChild(chart);
+      redrawChart();
+      return body;
     }
 
     function fieldRow(key, control) {
@@ -996,16 +1079,24 @@
     if (speedSection.percent == null) speedSection.percent = 10;
     if (bonusSection.percent == null) bonusSection.percent = 10;
 
+    // .const-body は 2 列グリッドなので、そのまま入れると「%入力の右隣に小見出し」
+    // 「tier表の右隣に追加ボタン」という並びになり、右半分が空いたまま改行が崩れる。
+    // このカードは 1 列で積むレイアウト (.fs-tier-body) を使う。
     function furnaceSmeltSection(section, title, hint) {
-      const sBody = h("div", { class: "const-body" });
+      const sBody = h("div", { class: "const-body fs-tier-body" });
+      sBody.appendChild(h("p", { class: "form-hint", text: hint }));
       sBody.appendChild(h("div", { class: "form-field" }, [
-        window.fieldLabelEl("percent", { label: "グローバル既定%(tier未該当時のフォールバック)", desc: hint }),
+        window.fieldLabelEl("percent", {
+          label: "既定%",
+          desc: "tier表に該当する行が無いときのフォールバック値(%)。",
+          hideKey: true
+        }),
         window.numberInput(section.percent, (v) => {
           if (v == null) return;
           section.percent = Math.max(0, v);
         })
       ]));
-      sBody.appendChild(h("div", { class: "sub-title", text: "tier別% (tiers) — 該当tier行があればこちらが優先" }));
+      sBody.appendChild(h("div", { class: "sub-title", text: "tier別%(該当tier行があればこちらを優先)" }));
       sBody.appendChild(
         typeof window.tierTableEditor === "function"
           ? window.tierTableEditor(section, [{ key: "percent", label: "%" }])
