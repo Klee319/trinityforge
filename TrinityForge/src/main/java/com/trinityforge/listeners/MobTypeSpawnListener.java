@@ -5,6 +5,7 @@ import com.trinityforge.combat.DamageType;
 import com.trinityforge.combat.DefenseStats;
 import com.trinityforge.config.domains.MobTypesConfig;
 import com.trinityforge.mobs.MobLevelCoefficients;
+import com.trinityforge.mobs.MobTransformCarryOver;
 import com.trinityforge.mobs.MobLevelScaling;
 import com.trinityforge.mobs.MobStatScaling;
 import com.trinityforge.mobs.MobTypeDefinition;
@@ -70,6 +71,11 @@ public final class MobTypeSpawnListener implements Listener {
         MobData data = MobData.of(entity);
         Optional<MobTypeDefinition> maybeDef = mobTypesConfig.definition(entity.getType());
 
+        // 2026-07-29: 変身(ゾンビ→ドラウンド等)由来のスポーンなら、変身前のHP割合を引き継ぐ。
+        // 未記録(通常のスポーン)なら 1.0 = 従来どおり満タン。早期returnする経路でも
+        // 必ず consume するため、ここで先に取り出しておく(保留マップに滞留させない)。
+        double healthRatio = MobTransformCarryOver.consumeHealthRatio(entity.getUniqueId());
+
         if (maybeDef.isPresent()) {
             if (data.dungeonTheme().isPresent()) {
                 return;
@@ -77,17 +83,18 @@ public final class MobTypeSpawnListener implements Listener {
             MobTypeDefinition def = maybeDef.get();
             applyScaledProfile(entity, def.level(), def.coordinateCoefficient(),
                     def.physical(), def.magical(), def.maxHealth(),
-                    def.attack(), def.levelCoefficients(), "mob-types." + entity.getType().name());
+                    def.attack(), def.levelCoefficients(), "mob-types." + entity.getType().name(),
+                    healthRatio);
             return;
         }
 
         if (data.hasProfile()) {
             return;
         }
-        applyUntaggedDefaults(entity);
+        applyUntaggedDefaults(entity, healthRatio);
     }
 
-    private void applyUntaggedDefaults(LivingEntity entity) {
+    private void applyUntaggedDefaults(LivingEntity entity, double healthRatio) {
         int baseLevel = mobTypesConfig.defaultLevel();
         double coordinateCoefficient = mobTypesConfig.defaultCoordinateCoefficient();
         DefenseStats physicalBase = mobTypesConfig.defaultDefense(DamageType.PHYSICAL);
@@ -104,7 +111,7 @@ public final class MobTypeSpawnListener implements Listener {
         }
         applyScaledProfile(entity, baseLevel, coordinateCoefficient,
                 physicalBase, magicalBase, maxHealthBase,
-                mobTypesConfig.defaultAttack(), coeffs, "defaults");
+                mobTypesConfig.defaultAttack(), coeffs, "defaults", healthRatio);
     }
 
     private void applyScaledProfile(LivingEntity entity, int baseLevel, double coordinateCoefficient,
@@ -112,7 +119,8 @@ public final class MobTypeSpawnListener implements Listener {
                                     Double maxHealthBase,
                                     AttackStats attackBase,
                                     MobLevelCoefficients coeffs,
-                                    String source) {
+                                    String source,
+                                    double healthRatio) {
         double distance = distanceFromWorldSpawn(entity);
         // CMB-21: clamp to mob-types.yml's configured max-level (default 100) so distant mobs cannot
         // scale to an unbounded level (which saturates penetration and makes defense stats moot).
@@ -135,8 +143,8 @@ public final class MobTypeSpawnListener implements Listener {
             appliedMaxHealth = MobStatScaling.scaleMaxHealth(
                     maxHealthBase, coeffs.maxHealth(),
                     coeffs.maxHealthGrowth(), coeffs.maxHealthGrowthInterval(), level);
-            applyMaxHealth(entity, appliedMaxHealth);
-            scheduleHealthReassert(entity, appliedMaxHealth, physical.armorStrength());
+            applyMaxHealth(entity, appliedMaxHealth, healthRatio);
+            scheduleHealthReassert(entity, appliedMaxHealth, healthRatio, physical.armorStrength());
         }
 
         String msg = "[mob-types] spawn "
@@ -157,12 +165,13 @@ public final class MobTypeSpawnListener implements Listener {
      * Other plugins often adjust MAX_HEALTH on the same spawn tick. Re-assert next tick so the
      * configured value wins and current HP stays full.
      */
-    private void scheduleHealthReassert(LivingEntity entity, double maxHealth, double armorStrength) {
+    private void scheduleHealthReassert(LivingEntity entity, double maxHealth, double healthRatio,
+                                        double armorStrength) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
                 return;
             }
-            applyMaxHealth(entity, maxHealth);
+            applyMaxHealth(entity, maxHealth, healthRatio);
             syncVanillaArmorIcons(entity, armorStrength);
         });
     }
@@ -191,6 +200,15 @@ public final class MobTypeSpawnListener implements Listener {
 
     /** パッケージプライベート(CMB-20テスト用: 他プラグイン相当のmodifierが残ることを直接検証する)。 */
     void applyMaxHealth(LivingEntity entity, double maxHealth) {
+        applyMaxHealth(entity, maxHealth, 1.0);
+    }
+
+    /**
+     * {@code healthRatio} は「最大HPのうちどれだけ現在HPとして入れるか」[0,1]。
+     * 通常スポーンは 1.0(満タン)。変身由来のスポーンだけが変身前の割合を持ち込む —
+     * 削ったゾンビを水に落とすだけで全回復させないため(2026-07-29)。
+     */
+    void applyMaxHealth(LivingEntity entity, double maxHealth, double healthRatio) {
         AttributeInstance attr = entity.getAttribute(Attribute.MAX_HEALTH);
         if (attr == null) {
             return;
@@ -208,8 +226,10 @@ public final class MobTypeSpawnListener implements Listener {
         }
         attr.setBaseValue(value);
         // Always fill to the intended max. Never clamp to a stale getValue() (was vanilla 20 etc.).
+        // 変身由来のスポーンのときだけ healthRatio < 1 になり、削られた分を引き継ぐ。
+        double target = Math.max(1.0, Math.min(value, value * clampRatio(healthRatio)));
         try {
-            entity.setHealth(value);
+            entity.setHealth(target);
         } catch (IllegalArgumentException ex) {
             // entity.setHealth(value) rejected value because attr.getValue() (the server-enforced
             // ceiling, e.g. spigot.yml settings.attribute.maxHealth.max) is lower than the requested
@@ -218,8 +238,16 @@ public final class MobTypeSpawnListener implements Listener {
             // collapsing to the ceiling with no other symptom, which is why we warn (rate-limited).
             double ceiling = attr.getValue();
             warnHealthCeilingClamp(value, ceiling);
-            entity.setHealth(Math.max(1.0, Math.min(value, ceiling)));
+            entity.setHealth(Math.max(1.0, Math.min(target, ceiling)));
         }
+    }
+
+    /** 不正値(NaN/負/1超)を [0,1] へ丸める。未指定相当の値は安全側(満タン)へ。 */
+    private static double clampRatio(double ratio) {
+        if (!Double.isFinite(ratio)) {
+            return 1.0;
+        }
+        return Math.max(0.0, Math.min(1.0, ratio));
     }
 
     /**

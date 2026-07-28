@@ -69,6 +69,7 @@ import com.trinityforge.listeners.MobLevelTableListener;
 import com.trinityforge.listeners.MobOverrideDropListener;
 import com.trinityforge.listeners.MobOverrideExpListener;
 import com.trinityforge.listeners.MobTypeDropListener;
+import com.trinityforge.listeners.MobTransformListener;
 import com.trinityforge.listeners.MobTypeSpawnListener;
 import com.trinityforge.listeners.PerkMirrorListener;
 import com.trinityforge.listeners.OwnerBindListener;
@@ -580,7 +581,7 @@ public final class TrinityForge extends JavaPlugin {
                 crossPluginItemResolver, experienceDispatcher, perkAttributeApplier);
         getServer().getPluginManager().registerEvents(
                 new CollectionListener(configManager.collection(), collectionService,
-                        configManager.itemCatalog()), this);
+                        configManager.itemCatalog(), configManager.achievements()), this);
         // itemCatalog は「種別順(use-skill)/使用可能レベル順」の並べ替えキーを引くために渡す
         // (2026-07-27。未指定でも名前順・絞り込み・検索は動く)。
         this.collectionGui = new com.trinityforge.progression.CollectionGui(this, configManager.collection(),
@@ -859,6 +860,10 @@ public final class TrinityForge extends JavaPlugin {
         // spawn listener stamps the PDC profile; the drop listener rolls the extra drop table.
         getServer().getPluginManager().registerEvents(
                 new MobTypeSpawnListener(this, configManager.mobTypes()), this);
+        // 変身(ゾンビ→ドラウンド等)で PDC と MAX_HEALTH が完全に消えるのを埋める。
+        // MobTypeSpawnListener より先(EntityTransformEvent は CreatureSpawnEvent の前)に走るので、
+        // 引き継いだダンジョンテーマ等を同リスナーが見られる。
+        getServer().getPluginManager().registerEvents(new MobTransformListener(), this);
         MobTypeDropListener mobTypeDropListener =
                 new MobTypeDropListener(configManager.mobTypes(), configManager.craftQuality(),
                         configManager.quality(), itemFactory, mobDropBonusSource,

@@ -231,6 +231,16 @@ public final class PdcKeys {
     public static final NamespacedKey MOB_ATTACK_CRIT_DAMAGE = key("mob_attack_crit_damage");
     public static final NamespacedKey MOB_ATTACK_DAMAGE_MODIFIER = key("mob_attack_damage_modifier");
     public static final NamespacedKey MOB_ATTACK_FIXED_DAMAGE = key("mob_attack_fixed_damage");
+    /**
+     * Marker (BYTE=1) written by {@code CombatListener#onCreatureSpawn} for a mob that came out of a
+     * monster spawner, so {@code ArcheryExperiencePolicy} can apply the spawner EXP multiplier.
+     *
+     * <p>2026-07-29: moved here from a listener-local {@code new NamespacedKey(plugin, ...)} (same
+     * resulting key — the plugin namespace IS {@link #NAMESPACE}) so {@code MobTransformCarryOver}
+     * can carry it across a transformation. Before that, drowning a spawner zombie produced a
+     * Drowned with no spawner origin, silently bypassing the spawner EXP nerf.
+     */
+    public static final NamespacedKey MOB_SPAWNER_SPAWNED = key("combat_exp_spawner_spawned");
 
     // --- Villager (economy/villager-trades.yml): perk-gated custom trades. ---
     /**

@@ -26,10 +26,13 @@ import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.config.domains.UseRequirementsConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.pdc.MobData;
+import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.progression.UseRequirementPolicy;
 import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.catalog.NativeSkillCatalog;
+import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.stats.DerivedItemStats;
@@ -38,6 +41,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import com.trinityforge.TrinityForge;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -52,7 +56,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.event.player.PlayerAnimationEvent;
@@ -61,6 +67,8 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
 
@@ -141,6 +149,9 @@ public final class CombatListener implements Listener {
      * null許容 — 未配線(旧12引数コンストラクタ経由、既存テスト互換)なら武器スキルEXP抑止は無効。
      */
     private final MobLevelTableConfig mobLevelTable;
+    /** Optional live catalog used for the Valhalla-compatible ARCHERY action formula. */
+    private final NativeSkillCatalog progressionCatalog;
+    private final CombatKillCreditTracker combatKillCredits = new CombatKillCreditTracker();
 
     /**
      * #2 AoE の再入ガード。AoEスプラッシュの {@code target.damage()} が同ハンドラを同期再入した際に true で
@@ -170,7 +181,7 @@ public final class CombatListener implements Listener {
                           UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
                           CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver) {
         this(plugin, combatService, itemStats, damageConfig, skillLevelSource, bleedService, perkBuffResolver,
-                aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, null);
+                aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, null, null);
     }
 
     /**
@@ -185,6 +196,17 @@ public final class CombatListener implements Listener {
                           UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
                           CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver,
                           MobLevelTableConfig mobLevelTable) {
+        this(plugin, combatService, itemStats, damageConfig, skillLevelSource, bleedService, perkBuffResolver,
+                aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, mobLevelTable, null);
+    }
+
+    public CombatListener(Plugin plugin, SymmetricCombatService combatService,
+                          ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
+                          SkillLevelSource skillLevelSource, BleedService bleedService,
+                          PerkBuffResolver perkBuffResolver, PlayerStatAggregator aggregator,
+                          UseRequirementsConfig useRequirements, SkillExpConfig skillExp,
+                          CraftingFeaturesConfig craftingFeatures, RoleBuffResolver roleBuffResolver,
+                          MobLevelTableConfig mobLevelTable, NativeSkillCatalog progressionCatalog) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combatService = Objects.requireNonNull(combatService, "combatService");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
@@ -198,6 +220,7 @@ public final class CombatListener implements Listener {
         this.craftingFeatures = Objects.requireNonNull(craftingFeatures, "craftingFeatures");
         this.roleBuffResolver = Objects.requireNonNull(roleBuffResolver, "roleBuffResolver");
         this.mobLevelTable = mobLevelTable;
+        this.progressionCatalog = progressionCatalog;
     }
 
     @SuppressWarnings("deprecation") // DamageModifier folding; see DAMAGE_MODIFIERS TODO (M2+).
@@ -545,7 +568,58 @@ public final class CombatListener implements Listener {
     /** ログアウトしたプレイヤーの近接チャージ記録を破棄する(メモリリーク防止, B2レビュー修正)。 */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        meleeChargeTracker.forget(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        meleeChargeTracker.forget(playerId);
+        combatKillCredits.forgetAttacker(playerId);
+    }
+
+    /**
+     * Stamps spawner origin once so the editable Valhalla archery spawner multiplier can be honored.
+     *
+     * <p>2026-07-29: キーを {@link PdcKeys#MOB_SPAWNER_SPAWNED} へ移した(値は同一 —
+     * プラグイン名由来の namespace が {@code trinityforge} なので完全に互換)。
+     * {@code MobTransformCarryOver} が変身時にこの印を引き継ぐためで、
+     * 以前はスポナーのゾンビを水没させるだけでスポナーEXP抑制を回避できた。
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER) {
+            event.getEntity().getPersistentDataContainer()
+                    .set(PdcKeys.MOB_SPAWNER_SPAWNED, PersistentDataType.BYTE, (byte) 1);
+        }
+    }
+
+    /**
+     * HEAVY_WEAPONS/LIGHT_WEAPONS pay exactly once on a confirmed death. Requiring the last damage
+     * event to resolve to the credited player prevents an old tag followed by lava/fall death from paying.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCombatKill(EntityDeathEvent event) {
+        LivingEntity dead = event.getEntity();
+        Player killer = dead.getKiller();
+        var credit = combatKillCredits.consume(dead.getUniqueId(),
+                killer == null ? null : killer.getUniqueId());
+        if (credit.isEmpty() || killer == null) return;
+        EntityDamageEvent last = dead.getLastDamageCause();
+        if (!(last instanceof EntityDamageByEntityEvent byEntity)) {
+            return;
+        }
+        Player lastAttacker = resolveAttacker(byEntity);
+        if (lastAttacker == null
+                || !killer.getUniqueId().equals(lastAttacker.getUniqueId())) {
+            return;
+        }
+        String skill = credit.get().skill();
+        double amount = skillExp.combatKillExp(
+                skill, dead.getType().name(), Math.max(0, MobData.of(dead).level()), maxHealth(dead));
+        if (amount <= 0.0) return;
+        double worldRate = worldExpRate(dead.getWorld());
+        if (worldRate <= 0.0) return;
+        double role = roleBuffResolver.expMultiplierForSkill(killer, skill).orElse(1.0);
+        TrinityForge tf = TrinityForge.getInstance();
+        double spot = tf == null ? 1.0
+                : tf.locationExpDiminishing().multiplierForKillSpot(killer, dead, skillExp,
+                        tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
+        ArsProgressionBridge.grantSkillExp(plugin, killer, skill, amount * role * worldRate * spot);
     }
 
     private static final String REFLECT_FLAT_KEY = StatKeys.canonical("reflect-flat");
@@ -735,6 +809,11 @@ public final class CombatListener implements Listener {
             newHealth = Math.min(newHealth, maxHealth.getValue());
         }
         lv.setHealth(Math.max(0.0, newHealth));
+    }
+
+    private static double maxHealth(LivingEntity entity) {
+        AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
+        return maxHealth == null ? Math.max(0.0, entity.getHealth()) : Math.max(0.0, maxHealth.getValue());
     }
 
     private static final String ITEM_COOLDOWN_KEY = StatKeys.canonical("item-cooldown");
@@ -1218,18 +1297,6 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * Exploit fix (武器スキルEXP無限farm): per-(attacker,target) cooldown gating the combat skill EXP
-     * grant below. Shared pure-Java tracker ({@link AttackerTargetCooldown}) — see its Javadoc.
-     */
-    private final AttackerTargetCooldown combatExpCooldown = new AttackerTargetCooldown();
-
-    /**
-     * Grants Valhalla EXP to the weapon's use-skill after a landed hit (stats/skill-exp.yml combat.*).
-     * Exploit fix: hitting the SAME {@code targetId} again within {@link SkillExpConfig
-     * #combatSameTargetCooldownSeconds()} grants no EXP (a mob that doesn't die, or arrows fired at the
-     * same target repeatedly, previously farmed unbounded EXP); a fresh target is never blocked.
-     */
-    /**
      * true = 武器スキルEXPを付与してよいワールド(dungeon-only-exp=falseなら常にtrue、trueなら
      * ダンジョンワールド({@link com.trinityforge.dungeon.DungeonWorldRegistry})限定)。
      */
@@ -1255,6 +1322,10 @@ public final class CombatListener implements Listener {
      */
     private void maybeGrantCombatSkillExp(Player attacker, ItemStack weapon, UUID targetId,
                                           double damage, Entity victim, double worldRate) {
+        // Every new physical hit replaces the prior attribution. If this hit is not a heavy/light
+        // weapon, an older qualifying hit must not survive and receive credit for a later bare-hand,
+        // archery, or unrelated-tool finishing blow.
+        combatKillCredits.clear(targetId);
         if (mobLevelTable != null && victim != null && mobLevelTable.suppressesSkillExp(victim.getType())) {
             return;
         }
@@ -1263,7 +1334,7 @@ public final class CombatListener implements Listener {
         // 殴ると WOODCUTTING 等の採取スキルへ「殴った」だけでEXPが入っていた(stats/item-stats.yml で
         // ツールにも use-skill: <採取スキル> が付いているため)。この経路は「戦闘で武器スキルEXPを
         // 付与する」専用であるべきで、isCombatWeaponSkill で HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY の
-        // 3つだけに絞る。ARS_MAGIC は ArsProgressionBridge.grantMagicExp 側の別経路で付与されるため
+        // 3つだけに絞る。ARS_MAGIC は ArsMagicExperienceListener の別経路で付与されるため
         // ここには含めない(含めると魔法攻撃でも二重に武器EXPが入る)。防具スキルも別経路。
         // 「代わりにHEAVY_WEAPONSへ与える」等のフォールバックはしない — 採取用の斧/ツルハシ等は道具で
         // あって武器ではなく、TFには戦斧(別マテリアル、use-skill: HEAVY_WEAPONS)が武器として別に存在
@@ -1273,13 +1344,16 @@ public final class CombatListener implements Listener {
                 .filter(UseRequirementResolver.Resolved::hasSkill)
                 .filter(req -> isCombatWeaponSkill(req.skill()))
                 .ifPresent(req -> {
-                    boolean onCooldown = combatExpCooldown.isOnCooldownAndRefresh(
-                            attacker.getUniqueId(), targetId, skillExp.combatSameTargetCooldownSeconds(),
-                            System.currentTimeMillis());
-                    if (onCooldown) {
+                    if (isKillBasedCombatWeaponSkill(req.skill())) {
+                        combatKillCredits.record(targetId, attacker.getUniqueId(), req.skill());
                         return;
                     }
-                    double exp = combatSkillExpAmount(req.skill(), damage, victim);
+                    if (!SkillId.ARCHERY.equals(req.skill())
+                            || !(victim instanceof LivingEntity living)) {
+                        return;
+                    }
+                    double exp = archeryExpAmount(weapon, damage, attacker, living);
+                    if (exp <= 0.0) return;
                     double mult = roleBuffResolver.expMultiplierForSkill(attacker, req.skill()).orElse(1.0);
                     // TT/放置対策(同一地点の逓減)はワールド倍率とは独立に掛かる。両者とも [0,1] の
                     // 縮小係数なので順序に依存しない。
@@ -1293,30 +1367,20 @@ public final class CombatListener implements Listener {
                 });
     }
 
-    /**
-     * タスク2: モブレベルを{@link MobData#level()}(EliteMobs/dungeon連携と同じ手段)で読み、
-     * PDCにレベルが無い/{@code victim}がnullの場合は0として扱う。実際の金額計算は
-     * {@link #combatSkillExpAmount(SkillExpConfig, String, double, int)}(純粋関数・パッケージ非公開
-     * テスト対象)へ委譲する。
-     */
-    private double combatSkillExpAmount(String skill, double damage, Entity victim) {
-        int mobLevel = victim == null ? 0 : Math.max(0, MobData.of(victim).level());
-        return combatSkillExpAmount(skillExp, skill, damage, mobLevel);
-    }
-
-    /**
-     * タスク2(2026-07-26 EXP調整): {@code skillExp.combatDamageScaledMode()} が既定のfalseなら、
-     * 従来どおり{@link SkillExpConfig#combatExpForSkill(String)}の固定値をそのまま返す
-     * (現行挙動と完全一致)。trueのときだけ「与ダメージ×damage-scale」に
-     * 「1 + モブレベル×mob-level-scale」を掛けた値になる。
-     */
-    static double combatSkillExpAmount(SkillExpConfig skillExp, String skill, double damage, int mobLevel) {
-        if (!skillExp.combatDamageScaledMode()) {
-            return skillExp.combatExpForSkill(skill);
+    private double archeryExpAmount(ItemStack weapon, double damage, Player attacker, LivingEntity victim) {
+        SkillCatalogEntry archery = progressionCatalog == null
+                ? null : progressionCatalog.get(SkillId.ARCHERY);
+        if (archery == null) {
+            // Missing catalog wiring must never revive the removed per-hit EXP runtime.
+            return 0.0;
         }
-        double base = Math.max(0.0, damage) * Math.max(0.0, skillExp.combatDamageScale());
-        double levelMultiplier = 1.0 + Math.max(0, mobLevel) * Math.max(0.0, skillExp.combatMobLevelScale());
-        return base * levelMultiplier;
+        double distance = attacker.getWorld().equals(victim.getWorld())
+                ? attacker.getLocation().distance(victim.getLocation()) : 0.0;
+        boolean infinity = weapon.containsEnchantment(Enchantment.INFINITY);
+        boolean spawner = victim.getPersistentDataContainer()
+                .has(PdcKeys.MOB_SPAWNER_SPAWNED, PersistentDataType.BYTE);
+        return ArcheryExperiencePolicy.calculate(archery, weapon.getType(), damage, distance,
+                maxHealth(victim), victim.getType().name(), infinity, spawner, victim instanceof Player);
     }
 
     /**
@@ -1325,7 +1389,7 @@ public final class CombatListener implements Listener {
      *
      * <p>true を返すのは戦闘の武器スキル3つ({@link SkillId#HEAVY_WEAPONS} / {@link SkillId#LIGHT_WEAPONS} /
      * {@link SkillId#ARCHERY})だけ。{@link SkillId#ARS_MAGIC} は魔法攻撃の別経路
-     * ({@code ArsProgressionBridge.grantMagicExp})で付与されるためここには含めない。防具スキル
+     * ({@link ArsMagicExperienceListener})で付与されるためここには含めない。防具スキル
      * ({@code HEAVY_ARMOR}/{@code LIGHT_ARMOR})や採取スキル({@code WOODCUTTING}/{@code MINING}/
      * {@code DIGGING}/{@code FARMING}/{@code FISHING})、{@code SMITHING} 等も含めない —
      * 採取用ツール(斧/ツルハシ/シャベル/クワ/釣竿)は {@code stats/item-stats.yml} で
@@ -1340,6 +1404,10 @@ public final class CombatListener implements Listener {
         return skill.equals(SkillId.HEAVY_WEAPONS)
                 || skill.equals(SkillId.LIGHT_WEAPONS)
                 || skill.equals(SkillId.ARCHERY);
+    }
+
+    static boolean isKillBasedCombatWeaponSkill(String skill) {
+        return SkillId.HEAVY_WEAPONS.equals(skill) || SkillId.LIGHT_WEAPONS.equals(skill);
     }
 
 }
