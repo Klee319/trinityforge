@@ -378,9 +378,11 @@ editor 側は実ブラウザで7件すべて目視確認（#7 は 対象セレ�
 
 **配備状況**: `progression/role-buffs.yml` / `progression/collection.yml` /
 `skills/base/enchanting_progression.yml` は Main_Server へ反映済み（ジャンクション共有で3台とも）。
-**`TrinityForge-all.jar` はビルド済みだが未配備** — 3バックエンド + Velocity が**稼働中**のため。
-稼働中の jar 差し替えは確実に `NoClassDefFoundError` を起こすので、停止してから
-3台の `plugins/` へコピーすること。
+**`TrinityForge-all.jar` はビルド済みだが未配備** — 3バックエンド + Velocity が**稼働中**で、
+**ユーザー判断で「今は config だけ」**としたため。稼働中の jar 差し替えは確実に
+`NoClassDefFoundError` を起こすので、停止してから3台の `plugins/` へコピーすること。
+jar が入るまで効かないもの: エンチャントEXPの新キー（重撃/防具貫通/風の爆発 等）、
+アチーブメントのバニラアイテム条件の進捗記録、ロール/アチブ表示名・説明の MiniMessage 整形。
 
 ---
 
