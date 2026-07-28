@@ -52,6 +52,16 @@ public final class CooldownManager {
         return Math.max(0L, cooldownMillis - elapsed);
     }
 
+    /**
+     * そのプレイヤーが {@code skillId} を一度でも使ったか(=CTが走っている可能性があるか)。
+     * 常時表示({@link ActiveCooldownDisplay})が、未使用のスキルに対して重いステータス集計を
+     * 走らせないための軽量な事前判定。
+     */
+    public boolean hasRecord(UUID playerId, String skillId) {
+        Map<String, Long> perSkill = lastUseMillisByPlayer.get(playerId);
+        return perSkill != null && perSkill.containsKey(skillId);
+    }
+
     /** Drops every cooldown entry for {@code playerId} (call on {@code PlayerQuitEvent}, unbounded-map guard). */
     public void clear(UUID playerId) {
         lastUseMillisByPlayer.remove(playerId);

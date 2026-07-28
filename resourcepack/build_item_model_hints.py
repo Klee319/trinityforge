@@ -54,9 +54,11 @@ CONNECTION_BASE_ITEMS = {
 }
 
 # SkillTreeGuiVisuals.SKILL_MODELS の値 → そのスキルツリーの icon:。
-# landscaping だけは WOODCUTTING と DIGGING の 2 スキルが共有するので
-# ベースアイテムが 2 つある (ヒントは (baseItem, item_model) 単位なので
-# 同じモデルを 2 回宣言できる)。
+# 2026-07-28: landscaping は以前 WOODCUTTING と DIGGING で共有していたが、
+# スキル選択GUIで伐採と切削のアイコンが同じになるため DIGGING を
+# SKILL_MODELS から外した (専用モデルが無いので digging.yml の
+# icon: IRON_SHOVEL をそのまま出す)。よって iron_shovel の宣言も外す —
+# 残すと使われないモデルのためにカスタムアイテム枠を 1 つ無駄にする。
 SKILL_BASE_ITEMS = {
     "power": ["minecraft:armor_stand"],
     "mining": ["minecraft:iron_pickaxe"],
@@ -66,7 +68,7 @@ SKILL_BASE_ITEMS = {
     "heavyweapons": ["minecraft:netherite_axe"],
     "lightarmor": ["minecraft:leather_chestplate"],
     "heavyarmor": ["minecraft:iron_chestplate"],
-    "landscaping": ["minecraft:iron_axe", "minecraft:iron_shovel"],
+    "landscaping": ["minecraft:iron_axe"],
 }
 
 DISPLAY_NAMES = {

@@ -43,6 +43,11 @@ public final class HasteActiveSkill implements ActiveSkill {
     }
 
     @Override
+    public String displayName() {
+        return "採掘速度上昇";
+    }
+
+    @Override
     public String gateEffectId() {
         return ID;
     }

@@ -269,10 +269,6 @@
     {
       "item_model": "trinityforge:gui/skill/landscaping",
       "base_item": "minecraft:iron_axe"
-    },
-    {
-      "item_model": "trinityforge:gui/skill/landscaping",
-      "base_item": "minecraft:iron_shovel"
     }
   ]
 }

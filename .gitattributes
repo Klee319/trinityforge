@@ -16,6 +16,9 @@
 *.yml   text eol=lf
 *.yaml  text eol=lf
 *.gradle text eol=lf
+# 2026-07-28: .py が漏れていて、Windows 側の書き戻しで全行差分が出た
+# (build_item_model_hints.py が 296 行変更 ← 実際は 10 行)。
+*.py    text eol=lf
 
 # バイナリは変換の対象外であることを明示しておく。
 *.jar   binary

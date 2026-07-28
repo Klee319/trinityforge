@@ -745,6 +745,11 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ActivationDispatcher(activeSkillRegistry, configManager.dedicatedEffects(),
                         activeCooldownManager, activeFeedbackLayer, aggregator), this);
+        // 2026-07-28 ユーザー要望: CT中は残り秒をアクションバーに出し続ける(押してみないと分からない
+        // 状態の解消)。対象アイテムを持っている間だけ表示するので、他のフィードバックは潰さない。
+        new com.trinityforge.active.ActiveCooldownDisplay(this, activeSkillRegistry,
+                configManager.dedicatedEffects(), activeCooldownManager, activeFeedbackLayer,
+                aggregator).start();
 
         // 採掘スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/mining-gimmick.yml でチューニング): 鉱脈破壊/怪しいブロック復活/スポナーST回収 +

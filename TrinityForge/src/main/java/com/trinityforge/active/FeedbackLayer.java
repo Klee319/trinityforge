@@ -30,6 +30,17 @@ public final class FeedbackLayer {
                 "クールダウン中 (残り " + remainingSeconds + "s)", NamedTextColor.YELLOW));
     }
 
+    /**
+     * CT進行中の常時表示(2026-07-28 ユーザー要望)。発動を試みた瞬間だけ出る {@link #onCooldown}
+     * と違い、{@link ActiveCooldownDisplay} が0.5秒ごとに更新する。0.1秒刻みにしているのは、
+     * 秒単位の切り上げだと「1s」のまま止まって見える時間が長く、解禁が近いのかどうか分からないため。
+     */
+    public void cooldownTicking(Player player, String skillName, long remainingMillis) {
+        String seconds = String.format(java.util.Locale.ROOT, "%.1f", Math.max(0L, remainingMillis) / 1000.0);
+        player.sendActionBar(Component.text(
+                skillName + " クールダウン 残り " + seconds + "s", NamedTextColor.GOLD));
+    }
+
     /** Any other message the dispatcher/gathering listeners want in the same subtle actionbar style. */
     public void subtle(Player player, String message) {
         player.sendActionBar(Component.text(message, NamedTextColor.GRAY));

@@ -46,6 +46,14 @@ public interface ActiveSkill {
     String id();
 
     /**
+     * プレイヤーに見せる名前(CT残り表示など)。既定は {@link #id()} — 新しいアクティブスキルを
+     * 足すときは必ず日本語名で上書きすること(既定のままだと生IDがアクションバーに出る)。
+     */
+    default String displayName() {
+        return id();
+    }
+
+    /**
      * The {@code feature:<id>} (bare, no prefix) this skill's unlock/tier is gated on, queried via
      * {@code DedicatedEffectsConfig#valueMax(player, gateEffectId())}.
      */

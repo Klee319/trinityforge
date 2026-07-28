@@ -47,6 +47,11 @@
     let form;
     let getData;
     let extraGets = [];
+    // カテゴリタブの状態(activeByHost の WeakMap キー)は、フォームが実際に読む host と
+    // 同一オブジェクトでなければならない。catalog は TF 特殊アイテムを隠すために浅いクローンを
+    // 渡すことがあり、そこで data と working が別オブジェクトになる(2026-07-28 のバグ:
+    // カテゴリを切り替えても一覧が絞り込まれない)。
+    let categoryHost = data;
 
     // ファイル跨ぎ移動 (catalog⇄materials): 相手ファイルのデータを受け取っていれば
     // フォームへ渡し、移動が発生した保存時だけ extraGets 経由で相手ファイルも書き込む。
@@ -73,6 +78,8 @@
             delete itemsClone[id];
           }
           catalogViewData = { ...data, items: itemsClone };
+          // フォームが読む host はこのクローン。カテゴリバーにも同じ参照を渡すこと。
+          categoryHost = catalogViewData;
         }
       }
       form = window.buildCatalogForm(catalogViewData, {
@@ -218,7 +225,7 @@
       getData = () => data;
     }
 
-    const host = data;
+    const host = categoryHost;
     const flowCategoryBar = ["catalog", "item-stats"].includes(o.type);
     const root = withCategoryBar(host, categoryKey, form.element, form, flowCategoryBar);
     const wrapGet = (fn) => () => {
@@ -226,6 +233,9 @@
       if (typeof window.pruneEditorUiState === "function") window.pruneEditorUiState(d);
       // ensureEditor で _editorActive を host から削除済みでも、スプレッド残骸を落とす
       if (host && Object.prototype.hasOwnProperty.call(host, "_editorActive")) delete host._editorActive;
+      if (data !== host && Object.prototype.hasOwnProperty.call(data, "_editorActive")) {
+        delete data._editorActive;
+      }
       return d;
     };
     return {
