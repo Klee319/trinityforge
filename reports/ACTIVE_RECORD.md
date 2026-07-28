@@ -335,6 +335,50 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-29 03:5x — editor UI 10件バッチ（重複ステ統廃合を含む）
+
+ユーザー提示の10件。全件完了（配備は jar のみ未実行、下記）。
+
+| # | 内容 | 結果 |
+|---|---|---|
+| 1 | AFK メッセージ欄を Lore 風 GUI へ | `richTextInput`（着色パレット）へ置換 |
+| 2 | 重複ステの統廃合（挙動変更あり） | 下記別項 |
+| 3 | セレクト行の余白崩れ | `flex-basis` の px が column flex で高さになっていた→`width` へ |
+| 4 | アイテムリスト消滅・タブ複製 | merge 時の clear-without-append と 非同期 nav の二重 mount（nav トークンで閉じた） |
+| 5 | Ars の曲線/個別カード分裂 | 1カードに統合（スキルid の `-`/`_` を正規化して照合） |
+| 6 | ギミックページの可読性 | 説明文を行幅全体へ（150px→900px弱）、解体対象シリーズ17件を折りたたみ化 |
+| 7 | 達成条件の「トリガー」ネスト | タブ名・ラベル・枠の3重冗長を解消 |
+| 8 | レベルテーブルの折りたたみ | 帯/適用範囲/EXP無効モブを `collapsibleCard` へ（閉じたまま読める要約付） |
+| 9 | アイテム/material 参照欄の統一 | `materialInput` / `catalogItemSuggest` の中身を `listSelect` へ書き換え、全40以上の呼び出し側は無修正で統一 |
+| 10 | ステセレクトの確定表示から (id) を除去 | `listSelect` のトリガーは日本語名のみ（ID は title へ） |
+
+**重複ステの統廃合（#2、ユーザー選択：挙動変更あり）**
+
+- 廃止2キー: `mana-onhit-flat` → `hit-mana-recovery` / `mana-onattack-flat` → `damage-mana-recovery`。
+  どちらも「被弾/与ダメ時に固定量マナ回復」で、fork の `ArmorManaListener` と `ManaRecoveryListener` が
+  **同じイベントで別々に加算**していた。hit-/damage- 側は装備・パーク・base-stats の全経路を
+  `tfNonItemStatTotal` で拾うので上位互換。%系（`mana-onhit-percent` 等）は「最大マナの何%」で
+  意味が違うので存続。
+- editor 画面から除外2キー: `mana-bonus` / `mana-regen`。全員一律値としては `mana-max-base` /
+  `mana-regen-base` に足されるだけで意味が重複。yml の行自体は StatVocabulary 網羅テストのため残す
+  （アイテム/パークステとしては引き続き有効）。
+- 表示名の衝突解消（lore.yml）: 「マナ消費軽減」が flat/percent で**完全に同名**だった他、
+  反射「率（実）」のような矛盾名を一掃（実数/率 の対を後置で揃えた）。
+
+**検証**: TF Java 2734 tests green / ArsPaper fork ビルド成功 / editor 823 tests（fail 6 は並行セッションの
+`catalog.yml`/`item-stats.yml` 未コミット変更による既存失敗で、本作業とは無関係）。
+
+**配備状況**: `combat/base-stats.yml` と `stats/lore.yml` は Main_Server へ反映済み
+（TF config はジャンクション共有なので 3台とも反映、Dev_Server で確認済み）。
+**jar 2本（TrinityForge-all / ArsPaper-1.0.0）はビルド済みだが未配備** — jar のコピーが
+権限ゲートで止まったため。`tmp/deploy-statmerge.cmd` をサーバ停止下で実行すれば完了する。
+
+**既知の未同期**: 本件とは別に、実サーバの TF config は 29 ファイルがリポジトリより古い
+（`mob-*.yml` / `skills/base/*_progression.yml` 等）。並行セッションの作業中分を巻き込むため
+本セッションでは触っていない。
+
+---
+
 ### 2026-07-29 02:5x — 装備の使用可能レベルを素材別の新テーブルへ全面改定
 
 ユーザー指定の素材別テーブルへ `stats/item-stats.yml` の `use-level-requirement` を振り直し。
