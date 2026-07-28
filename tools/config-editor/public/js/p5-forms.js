@@ -48,11 +48,37 @@
   //   tickets: { <ticketCatalogId>: { pool: <poolId> } }
   //   pools:   { <poolId>: { entries: [ { item, weight, amount, quality-random } ] } }
   // ============================================================
-  window.buildGachaForm = function buildGachaForm(data) {
+  window.buildGachaForm = function buildGachaForm(data, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const catalogCandidates = Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [];
     const working = data && typeof data === "object" ? data : {};
     if (working.tickets == null || typeof working.tickets !== "object") working.tickets = {};
     if (working.pools == null || typeof working.pools !== "object") working.pools = {};
     const root = h("div", { class: "dedicated-form" });
+
+    // 券IDは items/catalog.yml のカタログIDそのもの (PDCタグで判定するのでバニラ Material は
+    // 券になれない)。2026-07-29 まで素の文字入力で、存在しないIDを書いても無警告だった。
+    // カタログ品だけを候補にしたセレクトへ置き換える (自由入力は残す)。
+    function ticketIdSelect(value, onCommit) {
+      const plain = (raw) => (typeof window.stripDisplayNamePlain === "function"
+        ? window.stripDisplayNamePlain(raw) : String(raw == null ? "" : raw));
+      const list = catalogCandidates.map((c) => ({
+        value: c.id,
+        primary: plain(c.label != null && c.label !== "" ? c.label : c.displayName) || c.id,
+        secondary: c.id
+      }));
+      const cur = value == null ? "" : String(value);
+      if (cur && !list.some((o) => o.value === cur)) {
+        list.unshift({ value: cur, primary: cur, secondary: "カタログ未登録" });
+      }
+      list.push({ value: "__custom__", primary: "＋ 自由入力…" });
+      return window.listSelect({
+        value: cur, options: list, allowCustom: true,
+        customPlaceholder: "カタログID (items/catalog.yml)",
+        placeholder: "券アイテムを選択…",
+        onCommit
+      });
+    }
 
     function render() {
       root.innerHTML = "";
@@ -66,13 +92,34 @@
         const entry = working.tickets[tid] && typeof working.tickets[tid] === "object" ? working.tickets[tid] : (working.tickets[tid] = {});
         const row = h("div", { class: "stat-row" });
         row.appendChild(h("span", { class: "range-label", text: "券ID" }));
-        row.appendChild(keyInput(working.tickets, tid, render));
+        row.appendChild(ticketIdSelect(tid, (v) => {
+          const next = String(v || "").trim();
+          if (!next || next === tid) return false;
+          if (Object.prototype.hasOwnProperty.call(working.tickets, next)) {
+            alert("同じ券IDが既にあります");
+            return false;
+          }
+          renameKey(working.tickets, tid, next);
+          render();
+          return true;
+        }));
         row.appendChild(h("span", { class: "range-label", text: "→ プール" }));
         // プールは既存プールから選ぶ。未定義プールを指していてもロスレス表示のため候補に補う。
-        const opts = poolIds().slice();
-        if (entry.pool && !opts.includes(entry.pool)) opts.push(entry.pool);
-        if (!opts.length) opts.push("");
-        row.appendChild(window.selectInput(entry.pool == null ? "" : entry.pool, opts, (v) => { entry.pool = v; }));
+        // プールIDは運用側の任意名なので和訳できない。代わりに景品件数を副表示に出す。
+        const poolOpts = poolIds().map((id) => {
+          const p = working.pools[id];
+          const n = p && Array.isArray(p.entries) ? p.entries.length : 0;
+          return { value: id, primary: id, secondary: `景品${n}件` };
+        });
+        if (entry.pool && !poolOpts.some((o) => o.value === entry.pool)) {
+          poolOpts.push({ value: entry.pool, primary: entry.pool, secondary: "未定義プール" });
+        }
+        row.appendChild(window.listSelect({
+          value: entry.pool == null ? "" : entry.pool,
+          options: poolOpts,
+          placeholder: "プールを選択…",
+          onChange: (v) => { entry.pool = v; }
+        }));
         row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { delete working.tickets[tid]; render(); } }));
         ticketBody.appendChild(row);
       }

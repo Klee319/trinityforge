@@ -12,6 +12,16 @@
   // 深さ2以降のコレクションは初期状態で閉じる (トップとその直下だけ開く)。
   const COLLAPSE_FROM_DEPTH = 2;
 
+  // 型セレクトの日本語表示 (2026-07-29)。キー順がそのままセレクトの並び順になる。
+  const TYPE_LABELS = {
+    string: "文字列",
+    number: "数値",
+    boolean: "真偽値 (true/false)",
+    null: "空 (null)",
+    map: "マップ (キー: 値)",
+    array: "配列 (リスト)"
+  };
+
   function valueType(v) {
     if (v === null) return "null";
     if (Array.isArray(v)) return "array";
@@ -36,7 +46,11 @@
   // 既定は非表示。ボタンで開閉し、型を選ぶと onPick(type) を呼ぶ。
   function typeMenu(currentType, onPick) {
     const menu = window.h("div", { class: "gen-type-menu" });
-    const sel = window.selectInput(currentType, ["string", "number", "boolean", "null", "map", "array"], (t) => onPick(t));
+    const sel = window.listSelect({
+      value: currentType,
+      options: Object.entries(TYPE_LABELS).map(([v, ja]) => ({ value: v, primary: ja, secondary: v })),
+      onChange: (t) => onPick(t)
+    });
     sel.classList.add("gen-type");
     const panel = window.h("div", { class: "gen-type-panel" }, [
       window.h("span", { class: "mini-label", text: "型" }), sel

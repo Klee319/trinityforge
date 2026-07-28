@@ -1092,15 +1092,12 @@
     "FLETCHER", "LEATHERWORKER", "MASON", "NITWIT", "NONE"
   ];
   // 内部キー(英語)は維持。表示のみ日本語化する。
-  const VILLAGER_PROFESSION_LABELS = {
-    WEAPONSMITH: "武器鍛冶", ARMORER: "防具鍛冶", TOOLSMITH: "道具鍛冶",
-    CLERIC: "聖職者", LIBRARIAN: "司書", FARMER: "農民", FISHERMAN: "漁師",
-    SHEPHERD: "羊飼い", BUTCHER: "肉屋", CARTOGRAPHER: "地図職人",
-    FLETCHER: "矢師", LEATHERWORKER: "革細工師", MASON: "石工",
-    NITWIT: "能無し", NONE: "職業なし"
-  };
+  // 2026-07-29: 辞書は labels.js へ一本化した (スキルツリーの trade: ゲートからも同じ名前で
+  // 引けるようにするため)。ここでは参照するだけで、自前の辞書は持たない。
   function professionLabel(id) {
-    return VILLAGER_PROFESSION_LABELS[id] || id;
+    return window.LABELS && typeof window.LABELS.professionLabel === "function"
+      ? window.LABELS.professionLabel(id)
+      : (id || "");
   }
 
   window.buildVillagerTradesForm = function buildVillagerTradesForm(data) {

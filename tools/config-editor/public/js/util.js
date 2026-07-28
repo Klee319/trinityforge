@@ -945,11 +945,23 @@ window.listSelect = function listSelect(cfg) {
 // cfg.placeholder / cfg.customPlaceholder: 任意
 window.itemRefSelect = function itemRefSelect(cfg) {
   const options = [];
+  // 2026-07-29: 主表示を c.label だけから引いていたが、候補を作る唯一の生成器
+  // (catalog-candidates.js buildCatalogCandidates) が返すキーは displayName で、label は
+  // 誰も入れていなかった。結果 || c.id へ落ちて、報酬アイテム・ダンジョンの必要鍵アイテムの
+  // セレクトが全部カタログIDの羅列になっていた。両方のキーを見る。
+  // display-name は MiniMessage/&色コード入りなので素の文字へ落として並べる。
+  const plain = (raw) => (typeof window.stripDisplayNamePlain === "function"
+    ? window.stripDisplayNamePlain(raw) : String(raw == null ? "" : raw));
   for (const c of (Array.isArray(cfg.catalogCandidates) ? cfg.catalogCandidates : [])) {
-    if (c && c.id) options.push({ value: c.id, primary: c.label || c.id, secondary: c.id });
+    if (!c || !c.id) continue;
+    const name = plain(c.label != null && c.label !== "" ? c.label : c.displayName);
+    options.push({ value: c.id, primary: name || c.id, secondary: c.id });
   }
+  // バニラ Material も英字IDのままだったので、素材辞書(日本語名)を主表示にする。
+  const materialLabel = (m) => (window.LABELS && typeof window.LABELS.materialLabelWithFallback === "function"
+    ? window.LABELS.materialLabelWithFallback(m) : m);
   for (const m of (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])) {
-    options.push({ value: m, primary: m, secondary: m });
+    options.push({ value: m, primary: materialLabel(m) || m, secondary: m });
   }
   const cur = cfg.value == null ? "" : String(cfg.value);
   // 候補に無い値 (手書きID・未知のカタログID等) でも消えないよう、値そのものを先頭候補として差し込む
@@ -968,16 +980,47 @@ window.itemRefSelect = function itemRefSelect(cfg) {
   });
 };
 
-window.selectInput = function selectInput(value, options, onInput) {
-  return window.listSelect({
-    value: value == null ? "" : String(value),
-    options: (options || []).map((opt) => ({
-      value: String(opt),
-      primary: String(opt)
-    })),
-    onChange: onInput
-  });
+/**
+ * EntityType セレクト (2026-07-29)。
+ *
+ * モブ指定欄は各所で「datalist 付きの素の text 入力」だったため、候補は英字 EntityType の
+ * 羅列で日本語では引けず、タイポも保存できてしまっていた。日本語名を主表示にした
+ * listSelect へ統一する。保存値は従来どおり EntityType 名そのもの。
+ *
+ * @param {string} value 現在値
+ * @param {function(string): void} onChange 確定時 (opts.onCommit があればそちらが優先)
+ * @param {object} [opts] { allowCustom, customPlaceholder, placeholder, unknownNote,
+ *                          onCommit: false を返すと選択を却下 (キー重複チェック等) }
+ */
+window.mobTypeSelect = function mobTypeSelect(value, onChange, opts) {
+  const o = opts && typeof opts === "object" ? opts : {};
+  const ids = Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : [];
+  const ja = window.MOB_LABELS_JA || {};
+  const options = ids.map((id) => ({ value: id, primary: ja[id] || id, secondary: id }));
+  const cur = value == null ? "" : String(value);
+  if (cur && !ids.includes(cur)) {
+    options.unshift({ value: cur, primary: ja[cur] || cur, secondary: o.unknownNote || "候補外" });
+  }
+  const allowCustom = o.allowCustom !== false;
+  if (allowCustom) options.push({ value: "__custom__", primary: "＋ 自由入力…" });
+  const cfg = {
+    value: cur,
+    options,
+    allowCustom,
+    customPlaceholder: o.customPlaceholder || "EntityType名 (例: ZOMBIE)",
+    placeholder: o.placeholder || "モブを選択…",
+    className: o.className
+  };
+  if (typeof o.onCommit === "function") cfg.onCommit = o.onCommit;
+  else cfg.onChange = onChange;
+  return window.listSelect(cfg);
 };
+
+// 2026-07-29: 「値の配列をそのまま並べる」window.selectInput は削除した。
+// primary に生の値を入れる作りなので、使うだけでセレクトが英字ID表示になり、
+// 実際に特殊報酬・親ノード・パーティクル形状・型選択が全てID表示になっていた。
+// 代わりに、日本語主表示を明示する window.listSelect({options:[{value,primary,secondary}]}) か、
+// 語彙グループを持つ列挙なら window.selectLabeledInput を使うこと。
 
 // 列挙値セレクト。表示は日本語ラベル、value は元の英字キーのまま (保存値は不変)。
 // enumGroup は window.LABELS.ENUM_LABELS のグループ名 ("bind-type" 等)。

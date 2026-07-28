@@ -605,7 +605,11 @@
       }
       case "catalog": return window.buildCatalogForm(data);
       case "external-items": return window.buildExternalItemsForm(data);
-      case "tf-gacha": return window.buildGachaForm(data);
+      case "tf-gacha": {
+        // 券IDはカタログ品だけが有効なので、候補を渡してセレクトにする。
+        const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        return window.buildGachaForm(data, { catalogCandidates });
+      }
       case "ars-thread-sets": return window.buildThreadSetsForm(data);
       case "ars-recipes": return window.buildRecipesForm(data, { onlyEffects: true });
       case "ars-materials": return window.buildMaterialsForm(data);
@@ -767,8 +771,8 @@
       }
       case "tf-special-rewards": return window.buildSpecialRewardsForm(data);
       case "tf-achievements": {
-        const [specialRewardIds, catalogCandidates, collectionData] = await Promise.all([
-          loadSpecialRewardIds(),
+        const [specialRewards, catalogCandidates, collectionData] = await Promise.all([
+          loadSpecialRewards(),
           (async () => {
             try {
               const cr = await api("GET", "/api/config/catalog");
@@ -783,16 +787,25 @@
           })(),
           (async () => { try { const r = await api("GET", "/api/config/collection"); return r && r.data ? r.data : {}; } catch (_) { return {}; } })()
         ]);
-        return window.buildAchievementsForm(data, { specialRewardIds, catalogCandidates, collectionData });
+        return window.buildAchievementsForm(data, {
+          specialRewardIds: specialRewards.ids,
+          specialRewardLabels: specialRewards.labels,
+          catalogCandidates,
+          collectionData
+        });
       }
       case "tf-collection": {
         // categories-items は catalogEntryControl (catalogItemSuggest) 経由。
         // ArsPaper materials.yml も収集物として自然に選べるべきなので共通ヘルパーを使う。
-        const [specialRewardIds, catalogCandidates] = await Promise.all([
-          loadSpecialRewardIds(),
+        const [specialRewards, catalogCandidates] = await Promise.all([
+          loadSpecialRewards(),
           fetchCatalogCandidatesWithMaterials()
         ]);
-        return window.buildCollectionForm(data, { specialRewardIds, catalogCandidates });
+        return window.buildCollectionForm(data, {
+          specialRewardIds: specialRewards.ids,
+          specialRewardLabels: specialRewards.labels,
+          catalogCandidates
+        });
       }
       case "ars-sourcejars": return window.buildSourceJarsForm(data);
       case "ars-sourcelinks": return window.buildSourceLinksForm(data);
@@ -950,20 +963,49 @@
 
   // アチーブメント/図鑑の rewards.special 候補として、special-rewards.yml の
   // titles/particles/particle-seeds キーを和集合で取得する (未作成なら空配列)。
-  async function loadSpecialRewardIds() {
+  //
+  // 2026-07-29: ID だけを返していたため、報酬セレクトが new_title / new_particle のような
+  // 生IDの羅列になっていた(ユーザー報告「セレクトメニューの名称が全てID形式」)。
+  // 種別(称号/パーティクル)と表示名をラベル辞書として一緒に返し、セレクト側で
+  // primary=日本語 / secondary=ID に出し分ける。
+  const SPECIAL_REWARD_GROUPS = [
+    ["titles", "称号"],
+    ["particles", "パーティクル"],
+    ["particle-seeds", "パーティクルシード"]
+  ];
+  function specialRewardName(group, raw) {
+    const entry = raw && typeof raw === "object" ? raw : {};
+    if (group === "titles") {
+      // 称号の display は MiniMessage。タグを落としたプレーン文字を主表示にする。
+      return typeof window.stripDisplayNamePlain === "function"
+        ? window.stripDisplayNamePlain(entry.display || "")
+        : String(entry.display || "");
+    }
+    const particle = entry.particle ? String(entry.particle) : "";
+    if (!particle) return "";
+    return (window.PARTICLE_LABELS_JA && window.PARTICLE_LABELS_JA[particle]) || particle;
+  }
+  async function loadSpecialRewards() {
     try {
       const r = await api("GET", "/api/config/special-rewards");
       rememberRevision("special-rewards", r.revision);
       const d = (r.data && typeof r.data === "object") ? r.data : {};
       rememberBase("special-rewards", d);
-      const ids = new Set();
-      for (const group of ["titles", "particles", "particle-seeds"]) {
+      const ids = [];
+      const labels = {};
+      for (const [group, kind] of SPECIAL_REWARD_GROUPS) {
         const map = d[group];
-        if (map && typeof map === "object") for (const k of Object.keys(map)) ids.add(k);
+        if (!map || typeof map !== "object") continue;
+        for (const [id, raw] of Object.entries(map)) {
+          if (Object.prototype.hasOwnProperty.call(labels, id)) continue;
+          ids.push(id);
+          labels[id] = { kind, name: specialRewardName(group, raw) };
+        }
       }
-      return [...ids].sort();
+      ids.sort();
+      return { ids, labels };
     } catch (_) {
-      return [];
+      return { ids: [], labels: {} };
     }
   }
 

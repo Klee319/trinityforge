@@ -14,7 +14,11 @@
 // 関数だが、他のフォーム同様 window.h を最小スタブへ差し替えれば document 無しで検証できる
 // (tf-dungeon-gates-key-item.test.js / tab-restructure-2026-07-26.test.js と同じ手法)。
 // tiers: [] のまま検証すれば、renderTierCard 側が使う window.materialInput/numberInput/
-// listSelect を一切スタブせずに済む(no-skill-exp-mobs ボックスは生の <input> のみを使う)。
+// listSelect を一切スタブせずに済む。
+//
+// 2026-07-29: モブ欄は datalist 付きの生 <input> から共通の window.mobTypeSelect
+// (日本語名で引けるセレクト)へ置き換わった。ここでは mobTypeSelect をスタブして
+// onChange を直接叩くことで、正規化と行の増減の契約を従来どおり検証する。
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -59,9 +63,22 @@ function setupDom() {
     return el;
   };
   global.window.fieldLabelEl = (key) => makeEl("label", { text: key });
+  // 共通のモブセレクト。テストからは el.props.mobValue で行を特定し、
+  // el.props.mobOnChange(値) で選択確定を再現する。
+  global.window.mobTypeSelect = (value, onChange, opts) => makeEl("span", {
+    class: "mob-type-select",
+    mobValue: value == null ? "" : String(value),
+    mobOnChange: onChange,
+    mobOpts: opts || {}
+  });
 
   delete require.cache[require.resolve("../public/js/mob-forms.js")];
   require("../public/js/mob-forms.js");
+}
+
+/** no-skill-exp-mobs 行のモブセレクトを列挙する。 */
+function mobSelects(root) {
+  return findAll(root, (el) => el.props && el.props.class === "mob-type-select");
 }
 
 function findAll(el, pred, out) {
@@ -101,10 +118,10 @@ test("no-skill-exp-mobs: 入力変更で大文字化・非英数字除去の正�
   const data = { "no-skill-exp-mobs": ["BEE"] };
   const result = global.window.buildMobLevelTableForm(data);
 
-  const inputs = findAll(result.element, (el) => el.tag === "input"
-    && el.props && el.props.list === "entity-type-list");
-  assert.equal(inputs.length, 1, "モブ入力欄が1件のはず");
-  inputs[0].dispatch("change", { target: { value: " goat! " } });
+  const selects = mobSelects(result.element);
+  assert.equal(selects.length, 1, "モブセレクトが1件のはず");
+  assert.equal(selects[0].props.mobValue, "BEE");
+  selects[0].props.mobOnChange(" goat! ");
 
   assert.deepEqual(data["no-skill-exp-mobs"], ["GOAT"]);
 });

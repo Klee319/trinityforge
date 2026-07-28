@@ -810,9 +810,17 @@
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`brew:${v}`); return true; }
       })];
     }
+    // 2026-07-29: 職業は WEAPONSMITH 等の英字 enum が保存値なので、表示だけ labels.js の
+    // 和名へ差し替える (村人取引タブのセレクトと同じ辞書)。
     function renderTradeRow(target, onIdChange) {
+      const opts = plainOptions(vocab.trades, target).map((o) => {
+        // plainOptions は語彙外の現在値に「(語彙外)」を付ける。その注記は消さない。
+        if (o.primary !== o.value) return o;
+        const ja = window.LABELS ? window.LABELS.professionLabel(o.value) : o.value;
+        return { value: o.value, primary: ja, secondary: o.value };
+      });
       return [window.listSelect({
-        value: target, options: plainOptions(vocab.trades, target), placeholder: "職業を選択…",
+        value: target, options: opts, placeholder: "職業を選択…",
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`trade:${v}`); return true; }
       })];
     }
@@ -1041,9 +1049,16 @@
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`overenchant:${v}`); return true; }
       })];
     }
+    // 2026-07-29: 特殊報酬IDは機械名なので、gate-vocabulary が返すラベル
+    // (「称号: 見習い」形式)を主表示にする。ラベルが無いIDは従来どおりIDのまま。
     function renderRewardRow(target, onIdChange) {
+      const labels = (vocab && vocab.specialRewardLabels) || {};
+      const opts = plainOptions(vocab.specialRewards, target).map((o) => {
+        if (o.primary !== o.value || !labels[o.value]) return o;
+        return { value: o.value, primary: labels[o.value], secondary: o.value };
+      });
       return [window.listSelect({
-        value: target, options: plainOptions(vocab.specialRewards, target), placeholder: "特殊報酬を選択…",
+        value: target, options: opts, placeholder: "特殊報酬を選択…",
         onCommit: (v) => { if (!v || v === target) return false; onIdChange(`reward:${v}`); return true; }
       })];
     }
@@ -1316,6 +1331,23 @@
         nodesContainer.appendChild(emptyGuide("ノードがありません。", "下の「+ ノード追加」ボタンで新しいノードを作成できます。"));
       }
 
+      // 2026-07-29: 親ノード/代替親/排他グループが「生ノードIDのセレクト」「カンマ区切りの
+      // 自由入力」「素の自由入力」で、日本語のノード名では選べずタイポも素通りしていた。
+      // ノード名を主表示・IDを副表示にしたセレクトへ統一する。
+      const ROOT_VALUE = "(root)";
+      const nodeLabelOf = (nid) => {
+        const n = nodes && nodes[nid];
+        const name = n && typeof n === "object" && typeof n.name === "string" ? n.name.trim() : "";
+        return name || nid;
+      };
+      const nodeOptionsExcept = (selfId) => nodeIds
+        .filter((nid) => nid !== selfId)
+        .map((nid) => ({ value: nid, primary: nodeLabelOf(nid), secondary: nid }));
+      // 既に使われている排他グループ名。名前は運用側が決める任意文字列なので和訳はしない。
+      const usedGroupNames = [...new Set(nodeIds
+        .map((nid) => nodes[nid] && nodes[nid].group)
+        .filter((g) => typeof g === "string" && g.trim() !== ""))];
+
       for (const id of nodeIds) {
         const node = nodes[id] && typeof nodes[id] === "object" ? nodes[id] : (nodes[id] = {});
         const nameInput = window.textInput(node.name, (v) => { node.name = v; });
@@ -1380,21 +1412,92 @@
         grid.appendChild(field("role", window.selectLabeledInput(node.role, ["main", "intermediate", "branch", "greek"], "skill-role", (v) => { node.role = v; }),
           { label: "役割", desc: "main=主軸(縦幹)/intermediate=中間/branch=左右分岐/greek=排他分岐。レイアウトと配置に影響。" }));
 
-        const parentOptions = ["(root)"].concat(nodeIds.filter((nid) => nid !== id));
-        const parentVal = node.parent == null ? "(root)" : String(node.parent);
-        grid.appendChild(field("parent", window.selectInput(parentVal, parentOptions, (v) => { node.parent = v === "(root)" ? null : v; }),
-          { label: "親ノード", desc: "接続元ノード。(root)で起点。ツリーの枝を定義する。" }));
+        const siblingOptions = nodeOptionsExcept(id);
+        const parentVal = node.parent == null ? ROOT_VALUE : String(node.parent);
+        const parentOptions = [{ value: ROOT_VALUE, primary: "起点 (親なし)", secondary: "root" }]
+          .concat(siblingOptions);
+        // 消えたノードを指したまま保存されている場合も、値を落とさず候補へ補う。
+        if (parentVal !== ROOT_VALUE && !siblingOptions.some((o) => o.value === parentVal)) {
+          parentOptions.push({ value: parentVal, primary: parentVal, secondary: "存在しないノード" });
+        }
+        grid.appendChild(field("parent", window.listSelect({
+          value: parentVal,
+          options: parentOptions,
+          onChange: (v) => { node.parent = v === ROOT_VALUE ? null : v; }
+        }), { label: "親ノード", desc: "接続元ノード。「起点 (親なし)」でツリーの起点になる。ツリーの枝を定義する。" }));
 
-        const anyParents = Array.isArray(node["parents-any"]) ? node["parents-any"].join(", ") : "";
-        grid.appendChild(field("parents-any", window.textInput(anyParents, (v) => {
-          const values = String(v).split(",").map((value) => value.trim())
-            .filter((value, index, all) => value && value !== id && all.indexOf(value) === index);
+        const anyParentsBox = h("div", { class: "stat-rows" });
+        const anyParentsOf = () => (Array.isArray(node["parents-any"]) ? node["parents-any"] : []);
+        function setAnyParents(next) {
+          const values = next.filter((v, i, all) => v && v !== id && all.indexOf(v) === i);
           if (values.length === 0) delete node["parents-any"];
           else node["parents-any"] = values;
-        }), { label: "代替親ノード", desc: "カンマ区切り。親ノードまたはこの一覧のどれか1つを解放していれば合流ノードを取得可能。" }));
+        }
+        function renderAnyParents() {
+          anyParentsBox.innerHTML = "";
+          const list = anyParentsOf();
+          if (!list.length) {
+            anyParentsBox.appendChild(h("div", { class: "empty-hint", text: "代替親はありません。" }));
+          }
+          list.forEach((pid, idx) => {
+            const opts = siblingOptions.slice();
+            if (!opts.some((o) => o.value === pid)) {
+              opts.unshift({ value: pid, primary: pid, secondary: "存在しないノード" });
+            }
+            anyParentsBox.appendChild(h("div", { class: "stat-row" }, [
+              window.listSelect({
+                value: pid,
+                options: opts,
+                onChange: (v) => {
+                  if (!v) return;
+                  const next = anyParentsOf().slice();
+                  next[idx] = v;
+                  setAnyParents(next);
+                  renderAnyParents();
+                }
+              }),
+              h("button", {
+                class: "btn-small danger", type: "button", text: "×",
+                onclick: () => {
+                  const next = anyParentsOf().slice();
+                  next.splice(idx, 1);
+                  setAnyParents(next);
+                  renderAnyParents();
+                }
+              })
+            ]));
+          });
+          const pool = siblingOptions.filter((o) => !anyParentsOf().includes(o.value));
+          if (pool.length) {
+            anyParentsBox.appendChild(h("div", { class: "stat-row" }, [
+              window.listSelect({
+                value: "", options: pool, placeholder: "＋ 代替親を追加…",
+                onChange: (v) => {
+                  if (!v) return;
+                  setAnyParents(anyParentsOf().concat(v));
+                  renderAnyParents();
+                }
+              })
+            ]));
+          }
+        }
+        renderAnyParents();
+        grid.appendChild(field("parents-any", anyParentsBox,
+          { label: "代替親ノード", desc: "親ノードまたはこの一覧のどれか1つを解放していれば合流ノードを取得可能。" }));
 
-        grid.appendChild(field("group", window.textInput(node.group, (v) => { if (v === "") delete node.group; else node.group = v; }),
-          { label: "排他グループ", desc: "同じ親かつ同じグループ名の兄弟だけが相互排他。親が異なる同名グループは同じ選択ルートの続きとして取得可能。" }));
+        const groupOptions = [{ value: "", primary: "(排他なし)" }]
+          .concat(usedGroupNames.map((g) => ({ value: g, primary: g })));
+        if (node.group && !usedGroupNames.includes(node.group)) {
+          groupOptions.push({ value: String(node.group), primary: String(node.group) });
+        }
+        groupOptions.push({ value: "__custom__", primary: "＋ 新しいグループ名…" });
+        grid.appendChild(field("group", window.listSelect({
+          value: node.group == null ? "" : String(node.group),
+          options: groupOptions,
+          allowCustom: true,
+          customPlaceholder: "グループ名 (半角英数)",
+          onChange: (v) => { if (!v) delete node.group; else node.group = v; }
+        }), { label: "排他グループ", desc: "同じ親かつ同じグループ名の兄弟だけが相互排他。親が異なる同名グループは同じ選択ルートの続きとして取得可能。" }));
 
         const nodeIconHint = window.materialHintEl(node.icon);
         const nodeIconInput = window.materialInput(node.icon, "material-list", (v) => { node.icon = v; nodeIconHint.update(v); });

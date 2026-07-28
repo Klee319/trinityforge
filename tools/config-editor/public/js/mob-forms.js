@@ -38,15 +38,6 @@
     Object.assign(map, rebuilt);
   }
 
-  function ensureDatalist(id, values) {
-    let dl = document.getElementById(id);
-    if (!dl) { dl = h("datalist", { id }); document.body.appendChild(dl); }
-    if (dl._filled) return id;
-    dl._filled = true;
-    for (const v of values) dl.appendChild(h("option", { value: v }));
-    return id;
-  }
-
   function ensureObject(parent, key) {
     if (!parent[key] || typeof parent[key] !== "object" || Array.isArray(parent[key])) parent[key] = {};
     return parent[key];
@@ -267,7 +258,6 @@
       working["mob-types"] = {};
     }
     const mobTypes = working["mob-types"];
-    const entityList = ensureDatalist("entity-type-list", ENTITY_TYPE_CANDIDATES);
     const root = h("div", { class: "dedicated-form" });
 
     function renderDefaultsCard() {
@@ -369,17 +359,20 @@
         ? mobTypes[entityType]
         : (mobTypes[entityType] = {});
 
-      const typeInput = h("input", { class: "field-input", list: entityList, value: entityType, spellcheck: "false" });
-      typeInput.addEventListener("change", (ev) => {
-        const nv = ev.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-        if (!nv || nv === entityType) { ev.target.value = entityType; return; }
-        if (Object.prototype.hasOwnProperty.call(mobTypes, nv)) {
-          alert("同じ EntityType が既に存在します");
-          ev.target.value = entityType;
-          return;
+      // 2026-07-29: datalist 付きの素の text 入力を、日本語名で引けるセレクトへ置換。
+      // キー重複は onCommit で却下する (従来の change ハンドラと同じ判定)。
+      const typeInput = window.mobTypeSelect(entityType, null, {
+        onCommit: (raw) => {
+          const nv = String(raw || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
+          if (!nv || nv === entityType) return false;
+          if (Object.prototype.hasOwnProperty.call(mobTypes, nv)) {
+            alert("同じ EntityType が既に存在します");
+            return false;
+          }
+          renameKey(mobTypes, entityType, nv);
+          render();
+          return true;
         }
-        renameKey(mobTypes, entityType, nv);
-        render();
       });
 
       // 2026-07-28: カードを閉じたときに EntityType の生ID しか見えず、どのモブの定義か
@@ -643,7 +636,6 @@
   // buildRemoveDropsBox と同じ「行の配列を add/remove するボックス」の流儀を踏襲し、
   // 候補は window.VANILLA_MOBS(entity-type-list datalist、mob-types.yml と共有)から出す。
   function buildAddDropMobsBox(drop) {
-    const entityList = ensureDatalist("entity-type-list", ENTITY_TYPE_CANDIDATES);
     const box = h("div", { class: "mob-drops-box" });
     function render() {
       box.innerHTML = "";
@@ -652,12 +644,8 @@
         box.appendChild(h("div", { class: "empty-guide-hint", text: "未指定(全モブに適用)。" }));
       }
       list.forEach((mob, idx) => {
-        const mobInput = h("input", {
-          class: "field-input", list: entityList, value: mob == null ? "" : String(mob), spellcheck: "false"
-        });
-        mobInput.addEventListener("change", (ev) => {
-          const nv = ev.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-          list[idx] = nv;
+        const mobInput = window.mobTypeSelect(mob, (v) => {
+          list[idx] = String(v || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
         });
         box.appendChild(h("div", { class: "mob-drop-row" }, [
           h("div", { class: "input-with-hint" }, [mobInput]),
@@ -687,7 +675,6 @@
   // 魔法(ARS_MAGIC)は対象外: Ars側のEXPは「詠唱したこと」に対して付き、何を撃ったかを見ないため。
   // buildAddDropMobsBox と同じ「行の配列を add/remove するボックス」の流儀を working 直下に適用する。
   function buildNoSkillExpMobsBox(working) {
-    const entityList = ensureDatalist("entity-type-list", ENTITY_TYPE_CANDIDATES);
     const box = h("div", { class: "mob-drops-box" });
     function render() {
       box.innerHTML = "";
@@ -696,12 +683,8 @@
         box.appendChild(h("div", { class: "empty-guide-hint", text: "未指定(戦闘スキルEXP無効化の対象なし)。" }));
       }
       list.forEach((mob, idx) => {
-        const mobInput = h("input", {
-          class: "field-input", list: entityList, value: mob == null ? "" : String(mob), spellcheck: "false"
-        });
-        mobInput.addEventListener("change", (ev) => {
-          const nv = ev.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-          list[idx] = nv;
+        const mobInput = window.mobTypeSelect(mob, (v) => {
+          list[idx] = String(v || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
         });
         box.appendChild(h("div", { class: "mob-drop-row" }, [
           h("div", { class: "input-with-hint" }, [mobInput]),

@@ -267,36 +267,13 @@
       return h("span", { class: "input-with-hint" }, [wrap, hint]);
     }
 
+    // 2026-07-29: datalist 付きの素の text 入力(候補は英字ID、和名は横の hint だけ)を、
+    // 日本語名で引けるセレクトへ置換。候補外の値は「候補外」注記つきで残す(誤字検知は
+    // 従来の field-invalid ではなく副表示で行う)。
     function entityField(value, onChange) {
-      const listId = window.ensureDatalist("entity-type-list-glyphs",
-        Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : []);
-      const hint = h("span", { class: "mat-hint" });
-      function updateHint(v) {
-        const ja = window.MOB_LABELS_JA && window.MOB_LABELS_JA[v];
-        hint.textContent = ja || "";
-        hint.title = ja ? `${ja} (${v})` : "";
-      }
-      const input = h("input", {
-        class: "field-input", list: listId, value: value == null ? "" : String(value), spellcheck: "false"
-      });
-      function updateErr() {
-        const list = Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : [];
-        const v = input.value.trim().toUpperCase();
-        const ok = !v || !list.length || list.includes(v);
-        input.classList.toggle("field-invalid", !ok);
-        input.title = ok ? "" : `未知のEntityTypeです（召喚可能な生物一覧に見つかりません。保存は可能ですが誤字の可能性があります）: ${v}`;
-      }
-      input.addEventListener("input", () => { updateHint(input.value.trim().toUpperCase()); updateErr(); });
-      input.addEventListener("change", (e) => {
-        const nv = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-        input.value = nv;
-        updateHint(nv);
-        updateErr();
-        onChange(nv);
-      });
-      updateHint(value);
-      updateErr();
-      return h("span", { class: "input-with-hint" }, [input, hint]);
+      return window.mobTypeSelect(value, (v) => {
+        onChange(String(v || "").trim().toUpperCase().replace(/[^A-Z0-9_]/g, ""));
+      }, { unknownNote: "候補外(誤字の可能性)" });
     }
 
     // ---- 交換グリフ: ブロック変換ティア (exchange_tiers) ----

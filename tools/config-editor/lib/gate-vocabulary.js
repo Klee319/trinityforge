@@ -134,16 +134,50 @@ function extractDrops(gimmicks) {
 }
 
 // progression/special-rewards.yml: titles/particles/particle-seeds キー(和集合)
+const SPECIAL_REWARD_GROUPS = [
+  ["titles", "称号"],
+  ["particles", "パーティクル"],
+  ["particle-seeds", "パーティクルシード"]
+];
 function extractSpecialRewards(specialRewards) {
   if (!isPlainObject(specialRewards)) return [];
   const ids = new Set();
-  for (const group of ["titles", "particles", "particle-seeds"]) {
+  for (const [group] of SPECIAL_REWARD_GROUPS) {
     const map = specialRewards[group];
     if (isPlainObject(map)) {
       for (const k of Object.keys(map)) ids.add(k);
     }
   }
   return [...ids].sort();
+}
+
+// 2026-07-29: 特殊報酬IDは new_title / new_particle のような機械名なので、スキルツリーの
+// reward: ゲートのセレクトが読めない ID の羅列になっていた。表示用の日本語ラベルを別キーで
+// 添える (specialRewards の配列そのものは互換のためID配列のまま)。
+// 称号の display は MiniMessage なのでタグを落としたプレーン文字にする。
+function stripMiniMessage(raw) {
+  return String(raw == null ? "" : raw)
+    .replace(/<[^>]+>/g, "")
+    .replace(/[§&][0-9a-fk-or]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function extractSpecialRewardLabels(specialRewards) {
+  const out = {};
+  if (!isPlainObject(specialRewards)) return out;
+  for (const [group, kind] of SPECIAL_REWARD_GROUPS) {
+    const map = specialRewards[group];
+    if (!isPlainObject(map)) continue;
+    for (const [id, raw] of Object.entries(map)) {
+      if (Object.prototype.hasOwnProperty.call(out, id)) continue;
+      const entry = isPlainObject(raw) ? raw : {};
+      const name = group === "titles"
+        ? stripMiniMessage(entry.display)
+        : String(entry.particle == null ? "" : entry.particle);
+      out[id] = name ? `${kind}: ${name}` : `${kind}: ${id}`;
+    }
+  }
+  return out;
 }
 
 // items/catalog.yml: items.<id>.recipe.method から、実際にゲートできる出力IDを抽出する。
@@ -188,6 +222,7 @@ function buildGateVocabulary(sources) {
     overenchants: extractOverenchants(s.craftingFeatures),
     drops: extractDrops(s.gimmicks),
     specialRewards: extractSpecialRewards(s.specialRewards),
+    specialRewardLabels: extractSpecialRewardLabels(s.specialRewards),
     recipes: catalogTargets.recipes,
     rituals: extractRitualEffects(s.items)
   };

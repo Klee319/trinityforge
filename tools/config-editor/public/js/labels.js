@@ -721,6 +721,19 @@
     const g = ENUM_LABELS[group];
     return (g && g[value]) || value;
   }
+  // 2026-07-29: 村人職業の日本語名。tf-lifestyle-forms.js が持っていたものを、
+  // スキルツリーの trade: ゲート(職業セレクトが英字 enum のままだった)からも引けるよう
+  // labels.js へ一本化する。内部キー(英語)は保存値なので変えない。
+  const VILLAGER_PROFESSION_LABELS_JA = {
+    WEAPONSMITH: "武器鍛冶", ARMORER: "防具鍛冶", TOOLSMITH: "道具鍛冶",
+    CLERIC: "聖職者", LIBRARIAN: "司書", FARMER: "農民", FISHERMAN: "漁師",
+    SHEPHERD: "羊飼い", BUTCHER: "肉屋", CARTOGRAPHER: "地図職人",
+    FLETCHER: "矢師", LEATHERWORKER: "革細工師", MASON: "石工",
+    NITWIT: "能無し", NONE: "職業なし"
+  };
+  function professionLabel(id) {
+    return VILLAGER_PROFESSION_LABELS_JA[id] || id || "";
+  }
   function materialLabel(mat) {
     if (!mat) return "";
     return window.MATERIAL_LABELS[mat] || "";
@@ -890,6 +903,7 @@
     fieldLabel, fieldDesc, enumLabel, materialLabel, materialLabelWithFallback, withKey,
     enchantLabel, enchantLabelWithFallback,
     POTION_TYPE_LABELS_JA, potionTypeLabel,
+    VILLAGER_PROFESSION_LABELS_JA, professionLabel,
     augmentLabel, glyphParamHint, normalizeStatKey
   };
 })();

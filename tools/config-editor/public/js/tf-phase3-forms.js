@@ -144,9 +144,12 @@
     render();
     return box;
   }
+  // options は ["ID", ...] か [["ID", "日本語"], ...]。後者なら primary=日本語 / secondary=ID。
   function selectField(obj, key, options, opts) {
     const o = opts || {};
-    const optsList = options.map((v) => ({ value: v, primary: v }));
+    const optsList = options.map((v) => (Array.isArray(v)
+      ? { value: v[0], primary: v[1], secondary: v[0] }
+      : { value: v, primary: v }));
     return field(key, window.listSelect({
       value: obj[key] == null ? "" : String(obj[key]),
       placeholder: o.placeholder || "選択…",
@@ -216,8 +219,16 @@
     return box;
   };
 
-  const LEVELBAR_COLORS = ["BLUE", "YELLOW", "GREEN", "PINK", "PURPLE", "RED", "WHITE"];
-  const LEVELBAR_STYLES = ["SEGMENTED_6", "SEGMENTED_10", "SEGMENTED_12", "SEGMENTED_20", "SOLID"];
+  // BossBar の色/分割スタイル。保存値は Bukkit の enum 名のままで、表示だけ日本語にする
+  // (2026-07-29: セレクトが BLUE / SEGMENTED_6 の英字そのままだった)。
+  const LEVELBAR_COLORS = [
+    ["BLUE", "青"], ["YELLOW", "黄"], ["GREEN", "緑"], ["PINK", "桃"],
+    ["PURPLE", "紫"], ["RED", "赤"], ["WHITE", "白"]
+  ];
+  const LEVELBAR_STYLES = [
+    ["SEGMENTED_6", "6分割"], ["SEGMENTED_10", "10分割"], ["SEGMENTED_12", "12分割"],
+    ["SEGMENTED_20", "20分割"], ["SOLID", "分割なし(1本)"]
+  ];
 
   // ============================================================
   // ArsPaper config.yml

@@ -411,7 +411,48 @@
       customPlaceholder: "Bukkit Particle名を入力", placeholder: "パーティクルを選択…"
     });
   }
-  const SHAPE_LABELS = { circle: "円形散布 (circle)", aura: "まとわりつく (aura)" };
+  const SHAPE_LABELS = { circle: "円形散布", aura: "まとわりつく" };
+  function shapeSelect(value, onChange) {
+    return window.listSelect({
+      value: SHAPE_LABELS[value] ? value : "circle",
+      options: Object.entries(SHAPE_LABELS).map(([v, ja]) => ({ value: v, primary: ja, secondary: v })),
+      onChange
+    });
+  }
+
+  // ------------------------------------------------------------
+  // rewards.special の候補表示 (2026-07-29)。
+  // special-rewards.yml のIDは new_title / new_particle のような機械名なので、
+  // 生IDのまま並べると何を選んでいるのか読めなかった。app.js の loadSpecialRewards が作る
+  // ラベル辞書 { id: {kind, name} } を使って「称号: 見習い」の形で日本語表示する。
+  // 辞書が無い(単体テスト等)場合は従来どおりIDを出す。
+  // ------------------------------------------------------------
+  function specialRewardLabelOf(labels, id) {
+    const meta = labels && typeof labels === "object" ? labels[id] : null;
+    if (!meta) return id;
+    const name = meta.name == null ? "" : String(meta.name).trim();
+    if (!meta.kind) return name || id;
+    return name ? meta.kind + ": " + name : meta.kind + ": " + id;
+  }
+  // 割り当て済み1件分の行 (日本語ラベル + 小さくID)。
+  function specialRewardAssignedRow(labels, id, onRemove) {
+    return h("div", { class: "stat-row" }, [
+      h("span", { class: "range-label", text: specialRewardLabelOf(labels, id), title: id }),
+      h("span", { class: "field-hint", text: id }),
+      h("button", { class: "btn-small danger", type: "button", text: "×", onclick: onRemove })
+    ]);
+  }
+  // 追加用セレクト (未割り当てのIDだけを日本語表示で並べる)。
+  function specialRewardAddSelect(available, labels, onPick) {
+    return window.listSelect({
+      value: "",
+      options: available.map((id) => ({
+        value: id, primary: specialRewardLabelOf(labels, id), secondary: id
+      })),
+      placeholder: "＋ 特殊報酬を追加…",
+      onChange: (v) => { if (v) onPick(v); }
+    });
+  }
 
   window.buildSpecialRewardsForm = function buildSpecialRewardsForm(data) {
     const working = data && typeof data === "object" ? data : {};
@@ -483,7 +524,7 @@
         row.appendChild(h("span", { class: "range-label", text: "interval-ticks" }));
         row.appendChild(window.numberInput(entry["interval-ticks"], (v) => { if (v != null) entry["interval-ticks"] = Math.max(0, Math.floor(v)); }, { int: true }));
         c.appendChild(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "発生パラメータ" }), row]));
-        c.appendChild(field("shape", window.selectInput(SHAPE_LABELS[entry.shape] ? entry.shape : "circle", ["circle", "aura"], (v) => { entry.shape = v; })));
+        c.appendChild(field("形状 (shape)", shapeSelect(entry.shape, (v) => { entry.shape = v; })));
         list.appendChild(c);
       }
       list.appendChild(h("button", {
@@ -587,6 +628,22 @@
     ["DAMAGE_TAKEN", "受けたダメージ"], ["ITEM_ENCHANTED", "エンチャント回数"],
     ["TRADED_WITH_VILLAGER", "村人取引回数"], ["SLEEP_IN_BED", "就寝回数"], ["RAID_WIN", "襲撃勝利回数"]
   ];
+  // バニラ進捗キーのセレクト (2026-07-29)。従来は自由入力だけで、タイポすると
+  // 永久に達成できない定義が無警告で作れた。候補は vocab-1.21.11.js の主要進捗。
+  // 網羅ではないので allowCustom は残す (データパック進捗も書けるようにするため)。
+  function advancementSelect(value, onChange) {
+    const ids = Array.isArray(window.VANILLA_ADVANCEMENTS) ? window.VANILLA_ADVANCEMENTS : [];
+    const ja = window.ADVANCEMENT_LABELS_JA || {};
+    const opts = ids.map((id) => ({ value: id, primary: ja[id] || id, secondary: id }));
+    const cur = value || "";
+    if (cur && !ids.includes(cur)) opts.unshift({ value: cur, primary: cur, secondary: "候補外" });
+    opts.push({ value: "__custom__", primary: "＋ 自由入力…" });
+    return window.listSelect({
+      value: cur, options: opts, onChange, allowCustom: true,
+      customPlaceholder: "minecraft:story/mine_diamond",
+      placeholder: "進捗を選択…"
+    });
+  }
   function statisticSelect(value, onChange) {
     const opts = STATISTIC_OPTIONS.map(([v, ja]) => ({ value: v, primary: ja, secondary: v }));
     const cur = value || "";
@@ -601,6 +658,8 @@
   window.buildAchievementsForm = function buildAchievementsForm(data, options) {
     const opts = options && typeof options === "object" ? options : {};
     const specialRewardIds = Array.isArray(opts.specialRewardIds) ? opts.specialRewardIds : [];
+    const specialRewardLabels = opts.specialRewardLabels && typeof opts.specialRewardLabels === "object"
+      ? opts.specialRewardLabels : {};
     const collectionData = opts.collectionData && typeof opts.collectionData === "object" ? opts.collectionData : {};
     const working = data && typeof data === "object" ? data : {};
     ensureObj(working, "achievements", {});
@@ -733,9 +792,9 @@
             if (v != null) entry.trigger.threshold = Math.max(0, Math.floor(v));
           }, { int: true })));
         } else if (entry.trigger.type === "advancement") {
-          triggerBody.appendChild(field("進捗キー (trigger.advancement)", window.textInput(entry.trigger.advancement || "", (v) => {
+          triggerBody.appendChild(field("進捗キー (trigger.advancement)", advancementSelect(entry.trigger.advancement, (v) => {
             entry.trigger.advancement = v;
-          }, "minecraft:story/mine_diamond")));
+          }), "一覧にないデータパック進捗は「＋ 自由入力…」から namespace:path で書けます。"));
         } else {
           const c = entry.trigger.collection;
           const categories = [];
@@ -744,7 +803,15 @@
               categories.push({ value: `category:${id}`, primary: `カテゴリ: ${(value && value["display-name"]) || id}`, secondary: id });
             }
           }
-          const itemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : []).map((v) => ({ value: `item:${v.id}`, primary: `アイテム: ${v.label || v.id}`, secondary: v.id }));
+          // 候補生成器 (catalog-candidates.js) が返すキーは displayName。label しか見ていなかった
+          // ため「アイテム: infinity_sword」のようにIDが主表示になっていた (2026-07-29)。
+          const plainName = (raw) => (typeof window.stripDisplayNamePlain === "function"
+            ? window.stripDisplayNamePlain(raw) : String(raw == null ? "" : raw));
+          const itemCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [])
+            .map((v) => {
+              const name = plainName(v.label != null && v.label !== "" ? v.label : v.displayName);
+              return { value: `item:${v.id}`, primary: `アイテム: ${name || v.id}`, secondary: v.id };
+            });
           // 2026-07-27 タスク4横断監査: vocab-1.21.11.js の window.MOB_LABELS_JA (recipes.js/ars-p4.js の
           // モブ選択で使われているのと同じ辞書) に和名があるのに、ここだけ生の EntityType ID をそのまま
           // primary に出していた。既存辞書をそのまま使い、未登録の場合だけIDへフォールバックする。
@@ -898,19 +965,16 @@
         const list = entry.rewards.special;
         if (!list.length) specialBox.appendChild(emptyHint("特殊報酬が割り当てられていません。"));
         list.forEach((id, idx) => {
-          const row = h("div", { class: "stat-row" });
-          row.appendChild(h("span", { class: "range-label", text: id }));
-          row.appendChild(h("button", {
-            class: "btn-small danger", type: "button", text: "×",
-            onclick: () => { list.splice(idx, 1); renderSpecial(); }
+          specialBox.appendChild(specialRewardAssignedRow(specialRewardLabels, id, () => {
+            list.splice(idx, 1);
+            renderSpecial();
           }));
-          specialBox.appendChild(row);
         });
         const available = specialRewardIds.filter((id) => !list.includes(id));
         if (available.length) {
           const addRow = h("div", { class: "stat-row" });
-          addRow.appendChild(window.selectInput("", available, (v) => {
-            if (v && !list.includes(v)) { list.push(v); renderSpecial(); }
+          addRow.appendChild(specialRewardAddSelect(available, specialRewardLabels, (v) => {
+            if (!list.includes(v)) { list.push(v); renderSpecial(); }
           }));
           specialBox.appendChild(addRow);
         } else if (specialRewardIds.length) {
@@ -985,17 +1049,14 @@
       }
       return window.textInput(value || "", onChange, "カタログID");
     }
+    // 2026-07-29: datalist 付きの素の text 入力だったため、候補は英字 EntityType の羅列で
+    // 日本語では引けず、タイポも素通りしていた。他画面と同じ listSelect (primary=和名 /
+    // secondary=ID、絞り込み入力つき) へ統一する。mob-types.yml の独自 mobTypeId も
+    // 書けるよう自由入力は残す。
     function mobEntryControl(value, onChange) {
-      const dlId = "collection-entity-type-list";
-      if (!document.getElementById(dlId)) {
-        const dl = h("datalist", { id: dlId });
-        for (const t of ENTITY_TYPE_CANDIDATES) dl.appendChild(h("option", { value: t }));
-        document.body.appendChild(dl);
-      }
-      return h("input", {
-        class: "field-input", value: value || "", list: dlId,
-        placeholder: "ZOMBIE / mob-types.ymlのmobTypeId",
-        oninput: (e) => onChange(e.target.value)
+      return window.mobTypeSelect(value, onChange, {
+        unknownNote: "mob-types.yml",
+        customPlaceholder: "ZOMBIE / mob-types.yml の mobTypeId"
       });
     }
 
@@ -1181,68 +1242,11 @@
       }));
     }
 
-    function renderRewardTiers() {
-      const tiers = working["reward-tiers"];
-      const ids = Object.keys(tiers);
-      if (!ids.length) bodyEl.appendChild(emptyHint("報酬ティアがありません。"));
-      for (const tid of ids) {
-        const entry = tiers[tid] && typeof tiers[tid] === "object" ? tiers[tid] : (tiers[tid] = {});
-        if (!Array.isArray(entry.commands)) entry.commands = [];
-        if (!Array.isArray(entry.special)) entry.special = [];
-        normalizeRewardExtras(entry);
-        const c = h("div", { class: "cf-mat-card" });
-        c.appendChild(h("div", { class: "cf-mat-card-head" }, [
-          h("span", { class: "entry-key-label", text: "ティアID" }),
-          idRenameInput(tiers, tid, renderBody),
-          h("button", {
-            class: "btn-small danger", type: "button", text: "削除",
-            onclick: () => { delete tiers[tid]; renderBody(); }
-          })
-        ]));
-        c.appendChild(field("閾値 (threshold)", window.numberInput(entry.threshold == null ? 10 : entry.threshold, (v) => {
-          if (v != null) entry.threshold = Math.max(0, Math.floor(v));
-        }, { int: true })));
-        c.appendChild(field("表示タイトル (title)", window.textInput(entry.title || "", (v) => { entry.title = v; })));
-        c.appendChild(h("label", { class: "inline-check" }, [
-          window.checkboxInput(!!entry.broadcast, (v) => { entry.broadcast = !!v; }),
-          h("span", { text: "サーバ通知 (broadcast)" })
-        ]));
-        c.appendChild(h("div", { class: "form-field" }, [
-          h("span", { class: "form-label", text: "コンソールコマンド (commands)" }),
-          stringListEditor(entry.commands, { addLabel: "+ コマンド追加" })
-        ]));
-        const specialBox = h("div", { class: "stat-rows" });
-        entry.special.forEach((id, idx) => {
-          const row = h("div", { class: "stat-row" });
-          row.appendChild(h("span", { class: "range-label", text: id }));
-          row.appendChild(h("button", {
-            class: "btn-small danger", type: "button", text: "×",
-            onclick: () => { entry.special.splice(idx, 1); renderBody(); }
-          }));
-          specialBox.appendChild(row);
-        });
-        const availableSpecial = specialRewardIds.filter((id) => !entry.special.includes(id));
-        if (availableSpecial.length) {
-          const addRow = h("div", { class: "stat-row" });
-          addRow.appendChild(window.selectInput("", availableSpecial, (v) => {
-            if (v && !entry.special.includes(v)) { entry.special.push(v); renderBody(); }
-          }));
-          specialBox.appendChild(addRow);
-        }
-        c.appendChild(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "特殊報酬 (special)" }), specialBox]));
-        for (const el of buildRewardExtrasFields(entry, catalogCandidates)) c.appendChild(el);
-        bodyEl.appendChild(c);
-      }
-      bodyEl.appendChild(h("button", {
-        class: "btn-small", type: "button", text: "+ ティアを追加",
-        onclick: () => {
-          tiers[uniqueKey(tiers, "tier")] = normalizeRewardExtras({
-            threshold: 10, title: "", broadcast: false, commands: [], special: []
-          });
-          renderBody();
-        }
-      }));
-    }
+    // 注: collection.yml の reward-tiers 用フォームはここにあったが、報酬はアチーブメントの
+    // 図鑑トリガー(trigger.type: static)へ移管済みでタブからは到達不能な死にコードだった
+    // (しかも buildCollectionForm のスコープに無い specialRewardIds を参照しており、
+    // 呼ばれれば必ず ReferenceError になる)。2026-07-29 のセレクト日本語化監査で削除。
+    // 既存ファイルの reward-tiers 値そのものは working をそのまま返す往復ロスレス方式で温存される。
 
     function renderBody() {
       bodyEl.innerHTML = "";
