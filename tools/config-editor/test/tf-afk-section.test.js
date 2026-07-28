@@ -186,6 +186,14 @@ function setupAfkFormStubs() {
     el.__onInput = onInput;
     return el;
   };
+  // 2026-07-29: MiniMessage を書く欄(kick-message / tab-suffix-text)を Lore/表示名と同じ
+  // 着色パレット付き入力(colors.js の richTextInput)へ寄せた。colors.js はここでは
+  // 読み込まないので、値と onInput を保持するだけのスタブを置く。
+  global.window.richTextInput = (value, mode, onInput) => {
+    const el = makeEl("span", { class: "rich-host", mode, value });
+    el.__onInput = onInput;
+    return el;
+  };
   global.window.fieldLabelEl = (key, opts) => makeEl("label", { text: (opts && opts.label) || key });
   delete require.cache[require.resolve("../public/js/tf-afk-form.js")];
   require("../public/js/tf-afk-form.js");
@@ -245,4 +253,30 @@ test("buildAfkSection: チェックボックス操作で enabled が反映され
   assert.ok(cb, "checkbox が描画されていない");
   cb.__onInput(true);
   assert.equal(result.getData().enabled, true, "checkbox操作が working へ反映されていない");
+});
+
+// 2026-07-29 ユーザー要望「使用制限スイッチの AFK メッセージ設定が Lore 設定のような GUI でない」の回帰テスト。
+// メッセージ欄は素の <input> ではなく、着色パレット付きの共通 richTextInput を使う。
+// exempt-permission は権限ノードで色を付けられないので従来どおり textInput のまま。
+test("buildAfkSection: メッセージ欄は richTextInput(minimessage) を使う", () => {
+  setupAfkFormStubs();
+  const result = window.buildAfkSection({
+    "kick-message": "<yellow>bye",
+    "tab-suffix-text": " <gray>[AFK]"
+  });
+
+  const riches = [];
+  (function walk(el) {
+    if (!el) return;
+    if (el.props && el.props.class === "rich-host") riches.push(el);
+    (el.children || []).forEach(walk);
+  })(result.element);
+
+  assert.equal(riches.length, 2, "kick-message / tab-suffix-text の2件がリッチ入力でない");
+  for (const r of riches) assert.equal(r.props.mode, "minimessage");
+  assert.deepEqual(riches.map((r) => r.props.value), ["<yellow>bye", " <gray>[AFK]"]);
+
+  // 編集が working へ戻ることまで確かめる(差し替えで保存経路を壊していない)。
+  riches[0].__onInput("<red>changed");
+  assert.equal(result.getData()["kick-message"], "<red>changed");
 });

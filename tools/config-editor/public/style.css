@@ -318,6 +318,17 @@ select.field-input option {
 }
 .editor-tab-select:disabled { opacity: 0.55; cursor: not-allowed; }
 .entry-key-label { font-size: 11px; color: var(--muted); }
+/* 折りたたみカードのヘッダに出す要約 (畳んだままでも中身の見当がつくように)。 */
+.entry-summary {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
 /* 変更不可のキー(EliteMobs同梱ダンジョン/モブのid)。入力欄に見えないよう code 表示にする。 */
 .entry-key-fixed {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -405,13 +416,20 @@ select.field-input option {
 .threshold-box { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; margin: 6px 0; background: var(--bg); }
 .stat-rows.indented { margin-left: 16px; padding-left: 8px; border-left: 2px solid var(--border); }
 .inline-check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted, #888); }
-/* listSelect / material-suggest: トリガー幅は固定寄り。開閉で行高さが変わらない */
+/* listSelect / material-suggest: トリガー幅は固定寄り。開閉で行高さが変わらない。
+   2026-07-29: flex-basis を px で直接指定していたため、縦積みの flex コンテナ
+   (.stat-rows は flex-direction:column) に直接置かれたセレクトでは basis が「高さ」として
+   効き、37px のトリガーの周りに 240〜280px の空白ができていた
+   (「＋ 敵種類を追加…」等の追加セレクトが該当)。basis は auto にして幅は width で与える —
+   横並びの行では width が使用 basis になるので見た目は従来どおりで、縦積みでは
+   高さが内容なりになる。 */
 .stat-select,
 .list-select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: 0 1 240px;
+  flex: 0 1 auto;
+  width: 240px;
   min-width: 180px;
   max-width: 100%;
   position: relative;
@@ -488,11 +506,13 @@ select.field-input option {
 .material-select { flex: 1 1 260px; min-width: 200px; }
 .material-select > select { max-width: 100%; }
 
-/* Material 部分一致サジェスト (モダンなコンボボックス) */
+/* Material / アイテム参照セレクト (listSelect ベース)。
+   flex-basis を px にしない理由は .list-select の注記と同じ (縦積みで高さに化ける)。 */
 .material-suggest {
   position: relative;
   display: inline-flex;
-  flex: 1 1 280px;
+  flex: 1 1 auto;
+  width: 280px;
   min-width: 220px;
   max-width: 100%;
   vertical-align: top;
@@ -1298,7 +1318,13 @@ select.field-input option {
 .cf-tabs { margin-bottom: 4px; }
 .cf-body { display: flex; flex-direction: column; gap: 12px; }
 .cf-muted { font-size: 11px; color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
-.field-hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+/* 2026-07-29: 説明文が「ラベル(190px)+入力欄」の残り幅(2列レイアウトだと約150px)へ
+   押し込まれ、40字程度の一文が3〜4行に折り返されて行の高さもバラバラになっていた
+   (スキルギミック各ページ / エンチャント運・本棚パワー等)。説明を持つ行だけ2段組にして、
+   説明はカラム幅いっぱいを使わせる。 */
+.form-field:has(> .field-hint) { flex-wrap: wrap; }
+.form-field > .field-hint { flex: 1 0 100%; }
+.field-hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 
 .cf-flow {
   display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px;
@@ -1406,6 +1432,23 @@ select.field-input option {
 .cf-mat-card-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
+/* 2026-07-29: 解体の対象シリーズカードを折りたたみ式にした。
+   <details> に display:flex を掛けるとブラウザによって閉じても中身が消えないので
+   block のまま残し、間隔は子要素の margin で作る。 */
+.cf-mat-card-collapsible { display: block; }
+.cf-mat-card-collapsible > summary {
+  cursor: pointer; list-style: none; user-select: none;
+}
+.cf-mat-card-collapsible > summary::-webkit-details-marker { display: none; }
+/* 開閉マークは transform ではなく content の差し替えで出す
+   (summary::before への rotate はブラウザによって効かない)。 */
+.cf-mat-card-collapsible > summary::before {
+  content: "\25B6"; font-size: 10px; color: var(--muted); margin-right: 2px;
+}
+.cf-mat-card-collapsible[open] > summary::before { content: "\25BC"; }
+.cf-mat-card-collapsible > summary > .entry-key-label { flex: 0 0 auto; }
+.cf-mat-card-collapsible > summary > .entry-summary { flex: 1 1 auto; }
+.cf-mat-card-collapsible > *:not(summary) { margin-top: 10px; }
 .cf-brew-card { margin-top: 4px; }
 .achievement-layout { display: flex; gap: 16px; align-items: flex-start; }
 .achievement-list-pane {
@@ -1425,10 +1468,24 @@ select.field-input option {
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
   background: color-mix(in srgb, var(--panel, #161a22) 96%, transparent);
 }
+/* アチーブメント「達成条件」タブ: 枠もラベルも付けず素直に縦積みする
+   (タブ名がそのまま見出しなので、中で「トリガー」ともう一度言わない)。 */
+.ach-trigger-fields { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 860px) {
   .achievement-layout { flex-direction: column; }
   .achievement-list-pane { flex: none; max-height: 240px; }
 }
+/* 1 カード内に「行動あたりの獲得EXP」「レベル曲線・獲得レート」の2ブロックを
+   入れるときの小見出し (Ars魔法/Ars鍛冶/鍛冶のカード統合)。 */
+.se-card-subhead {
+  font-size: 12px; font-weight: 600; color: var(--text);
+  padding-bottom: 4px; margin-top: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.se-card-subhead:first-child { margin-top: 0; }
+/* 統合時は入れ子の entry-body になるので、外側のパディングを二重に掛けない。 */
+.entry-body > .se-curve-body { padding: 0; }
+
 .se-help-card { margin-bottom: 8px; }
 .se-help-list {
   margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.55; color: var(--text);

@@ -63,6 +63,24 @@
       key
     });
   }
+  // 2026-07-29: MiniMessage を書く欄が素の <input> のままで、Lore/表示名の欄(richTextInput)と
+  // 体裁も編集手段も揃っていなかった。着色パレット付きの共通リッチ入力へ寄せる。
+  // richTextInput は GUI(着色パレット) と 簡易(タグ生編集) をいつでも切り替えられるので、
+  // 従来どおりタグを直接書きたい場合も潰れない。
+  function messageField(obj, key, opts) {
+    const o = opts || {};
+    const control = typeof window.richTextInput === "function"
+      ? window.richTextInput(obj[key] == null ? "" : String(obj[key]), "minimessage", (v) => {
+          if (!v && o.clearable) delete obj[key];
+          else obj[key] = v;
+        })
+      : window.textInput(obj[key] == null ? "" : String(obj[key]), (v) => { obj[key] = v; }, o.placeholder || "");
+    return field(key, control, {
+      label: o.label || key,
+      desc: o.desc || "",
+      key
+    });
+  }
   function boolField(obj, key, opts) {
     const o = opts || {};
     return field(key, window.checkboxInput(!!obj[key], (v) => { obj[key] = v; }), {
@@ -110,9 +128,9 @@
               + "(Java側は小さい値を idle-seconds へ黙って引き上げますが、editor は保存時点でエラーにします)。"
           })
         ]),
-        textField(working, "kick-message", {
+        messageField(working, "kick-message", {
           label: "キックメッセージ (kick-message)",
-          desc: "キック時に表示するメッセージ(MiniMessage記法)。"
+          desc: "キック時に表示するメッセージ。色・装飾はパレットから選べます(内部は MiniMessage 記法)。"
         }),
         grid([
           boolField(working, "notify", {
@@ -124,9 +142,10 @@
             desc: "true でタブリストの名前に接尾辞を付けます(誰が放置中か他プレイヤーからも分かる)。"
           })
         ]),
-        textField(working, "tab-suffix-text", {
+        messageField(working, "tab-suffix-text", {
           label: "タブリスト接尾辞テキスト (tab-suffix-text)",
-          desc: "接尾辞のテキスト(MiniMessage記法)。tab-suffix が false のときは使われません。"
+          desc: "接尾辞のテキスト。色・装飾はパレットから選べます(内部は MiniMessage 記法)。"
+            + "tab-suffix が false のときは使われません。"
         }),
         textField(working, "exempt-permission", {
           label: "免除権限 (exempt-permission)",

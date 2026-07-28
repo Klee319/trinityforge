@@ -984,6 +984,9 @@
   window.buildCraftingFeaturesDisassemblySection = function buildDisassemblySection(dis) {
     // 2026-07-27 タスク2: 同上(card-list-body で余白を確保する)。
     const root = h("div", { class: "card-list-body" });
+    // 対象シリーズカードの開閉状態。render() で DOM を作り直すため外に持たないと
+    // 1項目触るたびに全部畳まれてしまう。
+    const openDisassemblyItems = new Set();
     function render() {
       root.innerHTML = "";
       const items = ensureObj(dis, "items", {});
@@ -1020,12 +1023,21 @@
       if (!itemKeys.length) list.appendChild(emptyHint("対象シリーズの返却設定がありません。"));
       for (const itemMat of itemKeys) {
         const rules = Array.isArray(items[itemMat]) ? items[itemMat] : (items[itemMat] = []);
-        const itemCard = h("div", { class: "cf-mat-card" });
-        itemCard.appendChild(h("div", { class: "cf-mat-card-head" }, [
-          h("span", { class: "entry-key-label", text: "解体対象シリーズ" }),
+        // 2026-07-29: 対象シリーズが 15 件以上あり、全部展開したまま縦に積まれていたため
+        // 「どこに何があるか」が見えなかった。details で折りたためる (既定は閉じる)。
+        // 見出しには対象 ID と返却ルール件数を出し、閉じたまま一覧として読めるようにする。
+        const itemCard = h("details", { class: "cf-mat-card cf-mat-card-collapsible" });
+        if (openDisassemblyItems.has(itemMat)) itemCard.setAttribute("open", "");
+        itemCard.addEventListener("toggle", () => {
+          if (itemCard.open) openDisassemblyItems.add(itemMat);
+          else openDisassemblyItems.delete(itemMat);
+        });
+        itemCard.appendChild(h("summary", { class: "cf-mat-card-head" }, [
+          h("span", { class: "entry-key-label", text: itemMat }),
+          h("span", { class: "entry-summary", text: `返却ルール ${rules.length} 件` }),
           h("button", {
             class: "btn-small danger", type: "button", text: "削除",
-            onclick: () => { delete items[itemMat]; render(); }
+            onclick: (e) => { e.preventDefault(); delete items[itemMat]; render(); }
           })
         ]));
         // 2026-07-27 タスク3: 長い説明付きの見出しが1階層とコンポーネントを消費していたため、
@@ -1035,9 +1047,12 @@
         itemCard.appendChild(h("div", { class: "form-field" }, [
           window.fieldLabelEl("disassembly-target-id", {
             label: "対象 ID",
-            desc: "末尾 * でシリーズ指定、* なしはアイテム個別指定。",
+            desc: "末尾 * でシリーズ指定 (例: wooden_*)、* なしはアイテム個別指定 (例: ROTTEN_FLESH)。"
+              + "ワイルドカードを取るパターン欄なのでアイテムセレクトではなく自由入力。",
             hideKey: true
           }),
+          // textInput の第3引数は placeholder。以前は { allowCustom: false } を渡していて
+          // placeholder="[object Object]" になっていた。
           window.textInput(itemMat, (v) => {
             const next = (v || "").trim();
             if (!next || next === itemMat) return;
@@ -1047,8 +1062,10 @@
               return;
             }
             renameKey(items, itemMat, next);
+            // 開閉状態は ID をキーにしているのでリネームに追随させる。
+            if (openDisassemblyItems.delete(itemMat)) openDisassemblyItems.add(next);
             render();
-          }, { allowCustom: false })
+          }, "例: wooden_* / ROTTEN_FLESH")
         ]));
         const ingBox = h("div", { class: "stat-rows" });
         rules.forEach((rule, index) => {
@@ -1078,6 +1095,8 @@
           let key = "series_1_*";
           while (Object.prototype.hasOwnProperty.call(items, key)) key = `series_${++number}_*`;
           items[key] = [{ input: "IRON_INGOT", output: "IRON_INGOT", multiplier: 1 }];
+          // 追加直後は編集したいので開いた状態で描く。
+          openDisassemblyItems.add(key);
           render();
         }
       }));
