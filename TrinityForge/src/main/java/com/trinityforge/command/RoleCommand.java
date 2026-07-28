@@ -152,21 +152,25 @@ public final class RoleCommand {
             return 0;
         }
         Player player = (Player) source.getSender();
-        if (!roleChangeService.setCombat(player, combatRaw)) {
+        // 両方を先に検証してから適用する: 補助職のIDだけ打ち間違えたときに戦闘職だけ書き換わって
+        // 終わる(部分適用)のを防ぐ。
+        CombatRoleSpec combat = roleBuffs().combatRole(combatRaw);
+        if (combat == null) {
             player.sendMessage(Component.text("未知の戦闘職: " + combatRaw, NamedTextColor.RED));
             return 0;
         }
-        String supportLabel = null;
-        if (supportRaw != null && !supportRaw.isBlank()) {
-            if (!roleChangeService.setSupport(player, supportRaw)) {
-                player.sendMessage(Component.text("未知の補助職: " + supportRaw, NamedTextColor.RED));
-                return 0;
-            }
-            SupportRoleSpec support = roleBuffs().supportRole(supportRaw);
-            supportLabel = support == null ? supportRaw : support.label();
+        boolean hasSupport = supportRaw != null && !supportRaw.isBlank();
+        SupportRoleSpec support = hasSupport ? roleBuffs().supportRole(supportRaw) : null;
+        if (hasSupport && support == null) {
+            player.sendMessage(Component.text("未知の補助職: " + supportRaw, NamedTextColor.RED));
+            return 0;
         }
-        CombatRoleSpec combat = roleBuffs().combatRole(combatRaw);
-        String combatLabel = combat == null ? combatRaw : combat.label();
+        roleChangeService.setCombat(player, combatRaw);
+        if (support != null) {
+            roleChangeService.setSupport(player, supportRaw);
+        }
+        String supportLabel = support == null ? null : support.label();
+        String combatLabel = combat.label();
         player.sendMessage(Component.text(
                 "ロールを設定しました: 戦闘=" + combatLabel
                         + (supportLabel != null ? " / 補助=" + supportLabel : ""),
