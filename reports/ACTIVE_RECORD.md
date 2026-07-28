@@ -335,6 +335,38 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-28 23:xx — モブ定義にないモブは EXP なし／切削アイコン（実サーバ報告 9 件バッチの一部）
+
+検証は実走・実測: TF `2684 tests / fail 0 / error 0`（`gradlew test --offline`、結果 XML の
+`tests/failures/errors` を直接集計）。**jar は未再ビルド・未配備**。
+
+**① モブ定義にないモブは経験値なし（ユーザー要望）**
+これまでは「表に行が無いモブ＝倍率 1.0（満額）」というフォールバックだった。3 経路すべてを 0.0 既定に反転。
+- `SkillExpConfig#combatKillExp` / `#arsMagicKillExp` — 新キー
+  `combat.kill-exp.unlisted-entity-multiplier` / `ars-magic.kill-exp.unlisted-entity-multiplier`（既定 `0.0`）。
+  **EntityType が取れない（null/空）ケースも「定義に無い」と同じ扱い**にした。種別不明のまま満額を出すのは
+  この設定の目的と真逆のため。`1.0` を書けば旧挙動に戻せる（`stats/skill-exp.yml` に日本語コメント付きで明記）。
+- `NativeSkillExperienceListener#grantArmorHit` — 防具被弾 EXP も
+  `entity_exp_multipliers.<TYPE>` に行が無ければ 0 で早期 return。
+- **2026-07-26 の per-mob EXP ramp では「未設定は 0 EXP でなく無干渉(=1.0)」と逆の判断をしていた**
+  （メモリ `mob-per-mob-exp-ramp-2026-07-26`）。運用してみると装飾用・イベント用・外部プラグイン由来の
+  モブまで満額 EXP を出すため、ユーザー要望で既定を反転した。**この記録が新しい**。
+- 実挙動の注意: 出荷 `skill-exp.yml` の `entity-type-multipliers` は敵性モブ中心で、
+  **CHICKEN/COW/PIG/SHEEP など受動モブは行が無い＝討伐 EXP 0 になる**。意図どおりだが、
+  受動モブから EXP を出したくなったら行を足すこと。
+
+**② 切削（DIGGING）のスキル選択アイコンが伐採と同じだった**
+`SkillTreeGuiVisuals.SKILL_MODELS` が DIGGING に WOODCUTTING と同じ `landscaping` モデルを
+固定していたため、`skilltree/digging.yml` の `icon:` が無視されていた。DIGGING をこの表から外し、
+config のアイコン（鉄のシャベル＝ユーザー指定）を出すようにした。**専用モデルが無いスキルはこの表に
+載せない**のが正しい（載せると config 側のアイコン設定が無言で死ぬ）。
+
+**テストの更新（旧契約を書いていたもの 8 件）**
+`NativeSkillExperienceListenerArmorExpTest`（攻撃者 mock の `getType()` 未スタブ＝新既定 0.0 で全滅）、
+`SkillExpConfigTest`（未知モブ 1.0 フォールバックを assert）、`CombatListenerNoSkillExpMobsTest`
+（victim が CHICKEN で「no-skill-exp-mobs に無いから EXP が入る」を assert）、`SkillTreeGuiVisualsTest`
+（DIGGING = landscaping を assert）。いずれも新契約へ更新し、**新契約側の回帰テストを 3 件追加**した。
+
 ### 2026-07-28 21:xx — editor UI 8 件＋採掘運の 6 倍ドロップ（実サーバ報告 10 件バッチ）
 
 検証は実走・実測: TF `2681 tests / fail 0`（`gradlew test --offline`）、config-editor `780 / 780 pass`、

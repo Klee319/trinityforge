@@ -15,11 +15,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Covers {@code combat.same-target-cooldown-seconds} (武器スキルEXP無限farm fix): defaults to 10 seconds
- * when absent, honors an explicit override, and never goes negative on a misconfigured value. Uses the
- * same reflective fake {@link Plugin} pattern as {@link CombatDamageConfigTest}.
- */
+/** Covers the editable active EXP formulas and their validation boundaries. */
 class SkillExpConfigTest {
 
     private static Plugin fakePlugin(File dataFolder) {
@@ -46,32 +42,6 @@ class SkillExpConfigTest {
         return config;
     }
 
-    @Test
-    void sameTargetCooldownDefaultsToTenSecondsWhenAbsent(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
-        assertEquals(10.0, config.combatSameTargetCooldownSeconds());
-    }
-
-    @Test
-    void sameTargetCooldownHonorsExplicitValue(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, """
-                combat:
-                  exp-per-hit: 1.0
-                  same-target-cooldown-seconds: 25
-                """);
-        assertEquals(25.0, config.combatSameTargetCooldownSeconds());
-    }
-
-    @Test
-    void sameTargetCooldownClampsNegativeToZero(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, """
-                combat:
-                  exp-per-hit: 1.0
-                  same-target-cooldown-seconds: -5
-                """);
-        assertEquals(0.0, config.combatSameTargetCooldownSeconds());
-    }
-
     /**
      * PRG-13 (2026-07-25): SMITHING EXP moved from durability-consumption to crafting
      * (weapon/armor/tool via {@code CraftQualityListener}). Mirrors the ars-smithing.exp-per-craft
@@ -79,7 +49,7 @@ class SkillExpConfigTest {
      */
     @Test
     void smithingExpPerCraftDefaultsToFifteenWhenAbsent(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
+        SkillExpConfig config = loaded(tempDir, "{}\n");
         assertEquals(15.0, config.smithingExpPerCraft());
     }
 
@@ -107,7 +77,7 @@ class SkillExpConfigTest {
 
     @Test
     void gatheringExpModeDefaultsToDropSumWhenAbsent(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
+        SkillExpConfig config = loaded(tempDir, "{}\n");
         assertEquals(SkillExpConfig.GatheringExpMode.DROP_SUM, config.gatheringExpMode());
     }
 
@@ -138,29 +108,104 @@ class SkillExpConfigTest {
         assertEquals(SkillExpConfig.GatheringExpMode.DROP_SUM, config.gatheringExpMode());
     }
 
-    // ------------------------------------------------------------------
-    // 2026-07-26 EXP調整タスク2: combat.mode / damage-scale / mob-level-scale
-    // ------------------------------------------------------------------
-
     @Test
-    void combatDamageScaledModeDefaultsToFalseWhenAbsent(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
-        assertEquals(false, config.combatDamageScaledMode());
-        assertEquals(0.1, config.combatDamageScale());
-        assertEquals(0.02, config.combatMobLevelScale());
+    void weaponKillExpUsesSkillBaseMobLevelHealthAndEntityType(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                combat:
+                  kill-exp:
+                    base:
+                      HEAVY_WEAPONS: 30
+                      LIGHT_WEAPONS: 20
+                    per-mob-level: 2
+                    per-max-health: 0.5
+                    entity-type-multipliers:
+                      ZOMBIE: 1.5
+                """);
+
+        // (heavy base 30 + level 10*2 + maxHealth 20*0.5) * zombie 1.5 = 90
+        assertEquals(90.0,
+                config.combatKillExp(SkillId.HEAVY_WEAPONS, "zombie", 10, 20.0), 1e-9);
+        // 2026-07-28 ユーザー要望: entity-type-multipliers に行が無いモブは討伐EXPを一切生まない
+        // (unlisted-entity-multiplier の既定 0.0)。旧挙動は 1.0 フォールバックだった。
+        assertEquals(0.0,
+                config.combatKillExp(SkillId.LIGHT_WEAPONS, "unknown_future_mob", 10, 20.0), 1e-9);
     }
 
     @Test
-    void combatDamageScaledModeHonorsExplicitValues(@TempDir File tempDir) throws IOException {
+    void unlistedEntityMultiplierCanRestoreTheOldNeutralFallback(@TempDir File tempDir) throws IOException {
         SkillExpConfig config = loaded(tempDir, """
                 combat:
-                  mode: damage_scaled
-                  damage-scale: 0.5
-                  mob-level-scale: 0.1
+                  kill-exp:
+                    base:
+                      LIGHT_WEAPONS: 20
+                    per-mob-level: 2
+                    per-max-health: 0.5
+                    unlisted-entity-multiplier: 1.0
+                    entity-type-multipliers:
+                      ZOMBIE: 1.5
+                ars-magic:
+                  kill-exp:
+                    base: 15
+                    per-mob-level: 3
+                    per-max-health: 0.25
+                    unlisted-entity-multiplier: 1.0
+                    entity-type-multipliers:
+                      WITHER: 4
                 """);
-        assertEquals(true, config.combatDamageScaledMode());
-        assertEquals(0.5, config.combatDamageScale());
-        assertEquals(0.1, config.combatMobLevelScale());
+
+        // (20 + 10*2 + 20*0.5) * 1.0 = 50
+        assertEquals(50.0,
+                config.combatKillExp(SkillId.LIGHT_WEAPONS, "unknown_future_mob", 10, 20.0), 1e-9);
+        // (15 + 5*3 + 100*0.25) * 1.0 = 55
+        assertEquals(55.0, config.arsMagicKillExp("unknown_future_mob", 5, 100.0), 1e-9);
+    }
+
+    @Test
+    void arsMagicKillAndBlockExpSettingsAreConfigDriven(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                ars-magic:
+                  kill-exp:
+                    enabled: true
+                    base: 15
+                    per-mob-level: 3
+                    per-max-health: 0.25
+                    entity-type-multipliers:
+                      WITHER: 4
+                  block-break-exp:
+                    enabled: true
+                    source-multiplier: 1.75
+                """);
+
+        // (15 + level 5*3 + maxHealth 100*0.25) * wither 4 = 220
+        assertEquals(220.0, config.arsMagicKillExp("wither", 5, 100.0), 1e-9);
+        assertEquals(true, config.arsMagicKillExpEnabled());
+        assertEquals(true, config.arsMagicBlockBreakExpEnabled());
+        assertEquals(1.75, config.arsMagicBlockBreakSourceMultiplier(), 1e-9);
+    }
+
+    @Test
+    void expFormulasClampMalformedNegativeInputs(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                combat:
+                  kill-exp:
+                    base:
+                      HEAVY_WEAPONS: -10
+                    per-mob-level: -2
+                    per-max-health: -1
+                    entity-type-multipliers:
+                      ZOMBIE: -3
+                ars-magic:
+                  kill-exp:
+                    base: -1
+                    per-mob-level: -2
+                    per-max-health: -3
+                  block-break-exp:
+                    source-multiplier: -4
+                """);
+
+        assertEquals(0.0, config.combatKillExp(SkillId.HEAVY_WEAPONS, "ZOMBIE", -5, -20.0));
+        assertEquals(0.0, config.arsMagicKillExp("ZOMBIE", -5, -20.0));
+        assertEquals(0.0, config.arsMagicBlockBreakSourceMultiplier());
     }
 
     // ------------------------------------------------------------------
@@ -169,7 +214,7 @@ class SkillExpConfigTest {
 
     @Test
     void levelDiminishingDefaultsToDisabledWhenAbsent(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
+        SkillExpConfig config = loaded(tempDir, "{}\n");
         assertEquals(false, config.gatheringExpDiminishingEnabled());
         assertEquals(false, config.combatExpDiminishingEnabled());
         assertEquals("1 / (1 + %level% / 50)", config.expDiminishingFormula());
@@ -197,7 +242,7 @@ class SkillExpConfigTest {
 
     @Test
     void useLevelScalingDefaultsWhenSectionAbsent(@TempDir File tempDir) throws IOException {
-        SkillExpConfig config = loaded(tempDir, "combat:\n  exp-per-hit: 1.0\n");
+        SkillExpConfig config = loaded(tempDir, "{}\n");
         assertEquals(true, config.useLevelScalingEnabled());
         assertEquals(3.0, config.useLevelScalingMaxMultiplier());
         // 未設定でも既定挙動(1.0 = 影響なし)を保つ後方互換: per-levelが空でも例外にならない。
@@ -320,6 +365,7 @@ class SkillExpConfigTest {
 
         assertEquals(true, config.useLevelScalingEnabled());
         assertEquals(3.0, config.useLevelScalingMaxMultiplier());
+        assertEquals(0.01, config.useLevelScalingPerLevel().get("ars-smithing"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("smithing"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("woodcutting"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("mining"));

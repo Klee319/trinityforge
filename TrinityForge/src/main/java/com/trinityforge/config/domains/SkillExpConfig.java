@@ -14,8 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Loader for {@code stats/skill-exp.yml}: per-skill EXP gain rates for TrinityForge custom skills
- * (ARS_SMITHING craft EXP, ARS_MAGIC cast/mana EXP; future skills append here).
+ * Loader for {@code stats/skill-exp.yml}: per-skill EXP gain rates for TrinityForge custom skills.
  */
 public final class SkillExpConfig {
 
@@ -34,11 +33,13 @@ public final class SkillExpConfig {
     // 「装備1個クラフト = ツール1本を使い切った程度」として据えた暫定値。実プレイでの体感ペースを見て
     // 要調整。
     private volatile double smithingExpPerCraft = 15.0;
-    private volatile double arsMagicExpPerCast = 2.0;
-    private volatile double arsMagicExpPerMana = 0.1;
-    private volatile double combatExpPerHit = 1.0;
-    private volatile Map<String, Double> combatExpBySkill = Map.of();
-    private volatile double combatSameTargetCooldownSeconds = 10.0;
+    private volatile boolean arsMagicKillExpEnabled = true;
+    private volatile double arsMagicKillExpBase = 20.0;
+    private volatile double arsMagicKillExpPerMobLevel = 1.5;
+    private volatile double arsMagicKillExpPerMaxHealth = 0.25;
+    private volatile Map<String, Double> arsMagicKillEntityTypeMultipliers = Map.of();
+    private volatile boolean arsMagicBlockBreakExpEnabled = true;
+    private volatile double arsMagicBlockBreakSourceMultiplier = 1.0;
     private volatile boolean dungeonOnlyExp = true;
     // --- 2026-07-26 オーバーワールドEXP開放: ダンジョン外の戦闘スキルEXP倍率 ---
     // dungeon-only-exp を false にした上で、ダンジョン外(オーバーワールド等)で得られる戦闘スキルEXPを
@@ -59,12 +60,22 @@ public final class SkillExpConfig {
     //                 深層岩バリアント等、ドロップ品が同じでもブロック側の値が違うケースに反映される。
     // max           : ドロップ合計とブロック値の大きい方。
     private volatile GatheringExpMode gatheringExpMode = GatheringExpMode.DROP_SUM;
-    // --- 2026-07-26 EXP調整タスク2: 戦闘EXPの算出方式 ---
-    // false(既定): 従来どおり combat.exp-per-hit / combat.by-skill の固定値(現行挙動と完全一致)。
-    // true        : 与ダメージ×damage-scale に、モブレベル×mob-level-scale ぶんの倍率を掛けた値。
-    private volatile boolean combatDamageScaledMode = false;
-    private volatile double combatDamageScale = 0.1;
-    private volatile double combatMobLevelScale = 0.02;
+    private volatile Map<String, Double> combatKillExpBase = Map.of(
+            "HEAVY_WEAPONS", 30.0,
+            "LIGHT_WEAPONS", 25.0);
+    private volatile double combatKillExpPerMobLevel = 2.0;
+    private volatile double combatKillExpPerMaxHealth = 0.25;
+    private volatile Map<String, Double> combatKillEntityTypeMultipliers = Map.of();
+    /**
+     * 2026-07-28 ユーザー要望「モブ定義にないモブは経験値なし」: {@code entity-type-multipliers} に
+     * 行が無いモブへ適用する倍率。既定 0.0 = 未定義のモブは討伐EXPを一切生まない。
+     *
+     * <p>2026-07-26 の per-mob EXP ramp では「未設定は0EXPでなく無干渉(=1.0)」という逆の判断を
+     * していた。運用してみると、定義していないモブ(装飾用・イベント用・外部プラグイン由来など)まで
+     * フル EXP を出してしまうため、既定を反転した。1.0 に戻せば旧挙動。
+     */
+    private volatile double combatKillUnlistedEntityMultiplier = 0.0;
+    private volatile double arsMagicKillUnlistedEntityMultiplier = 0.0;
     // --- 2026-07-26 EXP調整タスク3: レベル逓減カーブ(既定OFF) ---
     private volatile boolean gatheringExpDiminishingEnabled = false;
     private volatile boolean combatExpDiminishingEnabled = false;
@@ -99,35 +110,27 @@ public final class SkillExpConfig {
         return smithingExpPerCraft;
     }
 
-    /** ARS_MAGIC base EXP granted per successful spell cast. */
-    public double arsMagicExpPerCast() {
-        return arsMagicExpPerCast;
+    public boolean arsMagicKillExpEnabled() {
+        return arsMagicKillExpEnabled;
     }
 
-    /** ARS_MAGIC additional EXP per point of mana consumed on cast. */
-    public double arsMagicExpPerMana() {
-        return arsMagicExpPerMana;
+    public boolean arsMagicBlockBreakExpEnabled() {
+        return arsMagicBlockBreakExpEnabled;
     }
 
-    /** Default weapon-skill EXP granted per successful player attack hit. */
-    public double combatExpPerHit() {
-        return combatExpPerHit;
-    }
-
-    /** EXP for a weapon hit when the weapon's use-skill is {@code skillType}; falls back to {@link #combatExpPerHit()}. */
-    public double combatExpForSkill(String skillType) {
-        if (skillType == null || skillType.isBlank()) {
-            return 0.0;
-        }
-        return combatExpBySkill.getOrDefault(skillType, combatExpPerHit);
+    public double arsMagicBlockBreakSourceMultiplier() {
+        return arsMagicBlockBreakSourceMultiplier;
     }
 
     /**
-     * Exploit fix (武器スキルEXP無限farm): per-(attacker,target) cooldown, in seconds, during which a
-     * landed hit on the SAME target grants no combat skill EXP (a fresh target always grants normally).
+     * 魔法で敵を倒したときのEXP。敵種・TFモブレベル・最大体力のすべてを設定値だけで合成する。
      */
-    public double combatSameTargetCooldownSeconds() {
-        return combatSameTargetCooldownSeconds;
+    public double arsMagicKillExp(String entityType, int mobLevel, double maxHealth) {
+        double base = arsMagicKillExpBase
+                + Math.max(0, mobLevel) * arsMagicKillExpPerMobLevel
+                + Math.max(0.0, maxHealth) * arsMagicKillExpPerMaxHealth;
+        return Math.max(0.0, base) * entityMultiplier(arsMagicKillEntityTypeMultipliers, entityType,
+                arsMagicKillUnlistedEntityMultiplier);
     }
 
     /**
@@ -206,19 +209,16 @@ public final class SkillExpConfig {
         return gatheringExpMode;
     }
 
-    /** タスク2: true = 戦闘EXPを与ダメージ比例+モブレベル係数で算出する(既定false=固定値のまま)。 */
-    public boolean combatDamageScaledMode() {
-        return combatDamageScaledMode;
-    }
-
-    /** タスク2: damage_scaledモード時、与ダメージ1あたりのEXP係数。 */
-    public double combatDamageScale() {
-        return combatDamageScale;
-    }
-
-    /** タスク2: damage_scaledモード時、モブレベル1につき加算される倍率(倍率 = 1 + level * この値)。 */
-    public double combatMobLevelScale() {
-        return combatMobLevelScale;
+    /**
+     * 軽/重武器の討伐EXP。命中ダメージではなく、倒した敵の種類・TFモブレベル・最大体力で決める。
+     */
+    public double combatKillExp(String skillId, String entityType, int mobLevel, double maxHealth) {
+        String skill = skillId == null ? "" : skillId.trim().toUpperCase(Locale.ROOT);
+        double base = combatKillExpBase.getOrDefault(skill, 0.0)
+                + Math.max(0, mobLevel) * combatKillExpPerMobLevel
+                + Math.max(0.0, maxHealth) * combatKillExpPerMaxHealth;
+        return Math.max(0.0, base) * entityMultiplier(combatKillEntityTypeMultipliers, entityType,
+                combatKillUnlistedEntityMultiplier);
     }
 
     /** タスク3: 採取スキル(MINING/FARMING/WOODCUTTING/DIGGING)へレベル逓減カーブを適用するか(既定false)。 */
@@ -357,19 +357,18 @@ public final class SkillExpConfig {
     void applyFrom(org.bukkit.configuration.ConfigurationSection yaml, Logger log) {
         this.arsSmithingExpPerCraft = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-craft", 10.0));
         this.smithingExpPerCraft = Math.max(0.0, yaml.getDouble("smithing.exp-per-craft", 15.0));
-        this.arsMagicExpPerCast = Math.max(0.0, yaml.getDouble("ars-magic.exp-per-cast", 2.0));
-        this.arsMagicExpPerMana = Math.max(0.0, yaml.getDouble("ars-magic.exp-per-mana", 0.1));
-        this.combatExpPerHit = Math.max(0.0, yaml.getDouble("combat.exp-per-hit", 1.0));
-        Map<String, Double> bySkill = new LinkedHashMap<>();
-        var bySkillSection = yaml.getConfigurationSection("combat.by-skill");
-        if (bySkillSection != null) {
-            for (String key : bySkillSection.getKeys(false)) {
-                bySkill.put(key, Math.max(0.0, bySkillSection.getDouble(key, combatExpPerHit)));
-            }
-        }
-        this.combatExpBySkill = Collections.unmodifiableMap(bySkill);
-        this.combatSameTargetCooldownSeconds =
-                Math.max(0.0, yaml.getDouble("combat.same-target-cooldown-seconds", 10.0));
+        this.arsMagicKillExpEnabled = yaml.getBoolean("ars-magic.kill-exp.enabled", true);
+        this.arsMagicKillExpBase = Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.base", 20.0));
+        this.arsMagicKillExpPerMobLevel =
+                Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.per-mob-level", 1.5));
+        this.arsMagicKillExpPerMaxHealth =
+                Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.per-max-health", 0.25));
+        this.arsMagicKillEntityTypeMultipliers =
+                readNonNegativeMap(yaml, "ars-magic.kill-exp.entity-type-multipliers", true);
+        this.arsMagicBlockBreakExpEnabled =
+                yaml.getBoolean("ars-magic.block-break-exp.enabled", true);
+        this.arsMagicBlockBreakSourceMultiplier =
+                Math.max(0.0, yaml.getDouble("ars-magic.block-break-exp.source-multiplier", 1.0));
         this.dungeonOnlyExp = yaml.getBoolean("dungeon-only-exp", true);
         this.outsideDungeonExpRate = Math.max(0.0, Math.min(1.0,
                 yaml.getDouble("outside-dungeon-exp-rate", 0.25)));
@@ -386,12 +385,21 @@ public final class SkillExpConfig {
                 yaml.getBoolean("spot-diminishing.exempt-dungeon-worlds", true);
         // タスク1: 採取EXPの算出方式。未知の値/キー欠落は安全側でdrop_sum(現行挙動)にフォールバックする。
         this.gatheringExpMode = parseGatheringExpMode(yaml.getString("gathering.exp-mode", "drop_sum"));
-        // タスク2: 戦闘EXPの算出方式。既定はflat(=現行のexp-per-hit固定値方式のまま)。
-        String combatMode = yaml.getString("combat.mode", "flat");
-        this.combatDamageScaledMode = "damage_scaled".equalsIgnoreCase(
-                combatMode == null ? "" : combatMode.trim());
-        this.combatDamageScale = Math.max(0.0, yaml.getDouble("combat.damage-scale", 0.1));
-        this.combatMobLevelScale = Math.max(0.0, yaml.getDouble("combat.mob-level-scale", 0.02));
+        Map<String, Double> killBases = readNonNegativeMap(yaml, "combat.kill-exp.base", true);
+        if (killBases.isEmpty()) {
+            killBases = Map.of("HEAVY_WEAPONS", 30.0, "LIGHT_WEAPONS", 25.0);
+        }
+        this.combatKillExpBase = killBases;
+        this.combatKillExpPerMobLevel =
+                Math.max(0.0, yaml.getDouble("combat.kill-exp.per-mob-level", 2.0));
+        this.combatKillExpPerMaxHealth =
+                Math.max(0.0, yaml.getDouble("combat.kill-exp.per-max-health", 0.25));
+        this.combatKillEntityTypeMultipliers =
+                readNonNegativeMap(yaml, "combat.kill-exp.entity-type-multipliers", true);
+        this.combatKillUnlistedEntityMultiplier = Math.max(0.0,
+                yaml.getDouble("combat.kill-exp.unlisted-entity-multiplier", 0.0));
+        this.arsMagicKillUnlistedEntityMultiplier = Math.max(0.0,
+                yaml.getDouble("ars-magic.kill-exp.unlisted-entity-multiplier", 0.0));
         // タスク3: レベル逓減カーブ。既定はgathering/combatともfalse(=常に倍率1.0、現行挙動と完全一致)。
         this.gatheringExpDiminishingEnabled =
                 yaml.getBoolean("level-diminishing.gathering-enabled", false);
@@ -434,5 +442,29 @@ public final class SkillExpConfig {
             case "max" -> GatheringExpMode.MAX;
             default -> GatheringExpMode.DROP_SUM;
         };
+    }
+
+    private static Map<String, Double> readNonNegativeMap(
+            org.bukkit.configuration.ConfigurationSection yaml, String path, boolean uppercaseKeys) {
+        var section = yaml.getConfigurationSection(path);
+        if (section == null) return Map.of();
+        Map<String, Double> values = new LinkedHashMap<>();
+        for (String key : section.getKeys(false)) {
+            String normalized = uppercaseKeys ? key.toUpperCase(Locale.ROOT) : key;
+            values.put(normalized, Math.max(0.0, section.getDouble(key, 0.0)));
+        }
+        return Collections.unmodifiableMap(values);
+    }
+
+    /**
+     * @param unlistedMultiplier 表に行が無いモブへ適用する倍率(既定 0.0 = EXPなし)。EntityType が
+     *                           取れないケース(null/空)も「定義に載っていない」と同じ扱いにする —
+     *                           種別が分からないまま満額を出すのは、この設定の目的(未定義モブを
+     *                           EXP源にしない)と真っ向から反するため。
+     */
+    private static double entityMultiplier(Map<String, Double> multipliers, String entityType,
+                                           double unlistedMultiplier) {
+        if (entityType == null || entityType.isBlank()) return unlistedMultiplier;
+        return multipliers.getOrDefault(entityType.trim().toUpperCase(Locale.ROOT), unlistedMultiplier);
     }
 }

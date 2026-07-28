@@ -21,9 +21,11 @@ import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
@@ -32,11 +34,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.LivingEntityMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -44,19 +48,22 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * {@link CombatListener#maybeGrantCombatSkillExp}: 2026-07-27 牧場対策の
+ * {@link CombatListener}: 2026-07-27 牧場対策の
  * {@code combat/mob-level-table.yml} {@code no-skill-exp-mobs} 抑止(武器スキルEXP側)。
  *
  * <p>バニラEXPオーブは対象外(このテストが検証するのは {@link NativeExperienceDispatcher#grant}
  * = TrinityForgeの戦闘スキルEXPだけ)。武器は {@code use-skill: HEAVY_WEAPONS} を持つ
  * {@code DIAMOND_SWORD} を使い、victim の EntityType が {@code no-skill-exp-mobs} に載っていれば
- * 命中してもEXPが一切付与されないこと、載っていないモブには従来どおり付与されることを確認する。
+ * 討伐してもEXPが一切付与されないこと、載っていないモブには命中時ではなく討伐確定時に一度だけ
+ * 付与されることを確認する。
  */
 @SuppressWarnings("removal") // deprecated-for-removal event ctors are the only test-constructable ones.
 class CombatListenerNoSkillExpMobsTest {
@@ -135,12 +142,24 @@ class CombatListenerNoSkillExpMobsTest {
                         new RoleBuffResolver(cm.roleBuffs()));
     }
 
-    private static void strike(CombatListener listener, Player attacker, LivingEntity victim) {
+    private static EntityDamageByEntityEvent strike(
+            CombatListener listener, Player attacker, LivingEntity victim) {
         DamageSource source = DamageSource.builder(DamageType.PLAYER_ATTACK)
                 .withCausingEntity(attacker).withDirectEntity(attacker).build();
         EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
                 attacker, victim, EntityDamageEvent.DamageCause.ENTITY_ATTACK, source, 6.0);
         listener.onEntityDamageByEntity(event);
+        return event;
+    }
+
+    private static void kill(
+            CombatListener listener, Player attacker, LivingEntity victim,
+            EntityDamageByEntityEvent finalHit) {
+        ((LivingEntityMock) victim).setKiller(attacker);
+        victim.setLastDamageCause(finalHit);
+        DamageSource source = DamageSource.builder(DamageType.GENERIC_KILL)
+                .withCausingEntity(attacker).withDirectEntity(attacker).build();
+        listener.onCombatKill(new EntityDeathEvent(victim, source, new ArrayList<>()));
     }
 
     @Test
@@ -151,7 +170,8 @@ class CombatListenerNoSkillExpMobsTest {
         attacker.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
         Zombie victim = world.spawn(world.getSpawnLocation(), Zombie.class);
 
-        strike(listener, attacker, victim);
+        EntityDamageByEntityEvent finalHit = strike(listener, attacker, victim);
+        kill(listener, attacker, victim, finalHit);
 
         verify(dispatcher, never()).grant(any(), anyString(), anyDouble());
     }
@@ -162,11 +182,34 @@ class CombatListenerNoSkillExpMobsTest {
         CombatListener listener = listener(dir, true);
         Player attacker = server.addPlayer();
         attacker.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        // 2026-07-28 以降、EXPが入るのは skill-exp.yml の entity-type-multipliers に行があるモブだけ
+        // なので、「no-skill-exp-mobs に無い」ことを見るには載っているモブ(SKELETON)を使う。
+        Skeleton victim = world.spawn(world.getSpawnLocation(), Skeleton.class);
+
+        EntityDamageByEntityEvent finalHit = strike(listener, attacker, victim);
+        verify(dispatcher, never()).grant(any(), anyString(), anyDouble());
+
+        kill(listener, attacker, victim, finalHit);
+        kill(listener, attacker, victim, finalHit);
+
+        verify(dispatcher, times(1))
+                .grant(eq(attacker.getUniqueId()), eq("HEAVY_WEAPONS"), anyDouble());
+    }
+
+    @Test
+    void mobsMissingFromEntityTypeMultipliersGrantNoWeaponSkillExp(@TempDir File dir) throws IOException {
+        // 2026-07-28 ユーザー要望「モブ定義にないモブは経験値なし」。CHICKEN は skill-exp.yml の
+        // entity-type-multipliers に行が無い = unlisted-entity-multiplier(既定0.0)が効く。
+        writeMobLevelTable(dir, "no-skill-exp-mobs: [ZOMBIE]\n");
+        CombatListener listener = listener(dir, true);
+        Player attacker = server.addPlayer();
+        attacker.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
         Chicken victim = world.spawn(world.getSpawnLocation(), Chicken.class);
 
-        strike(listener, attacker, victim);
+        EntityDamageByEntityEvent finalHit = strike(listener, attacker, victim);
+        kill(listener, attacker, victim, finalHit);
 
-        verify(dispatcher).grant(eq(attacker.getUniqueId()), eq("HEAVY_WEAPONS"), anyDouble());
+        verify(dispatcher, never()).grant(any(), anyString(), anyDouble());
     }
 
     @Test
@@ -178,8 +221,27 @@ class CombatListenerNoSkillExpMobsTest {
         attacker.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
         Zombie victim = world.spawn(world.getSpawnLocation(), Zombie.class);
 
-        strike(listener, attacker, victim);
+        EntityDamageByEntityEvent finalHit = strike(listener, attacker, victim);
+        verify(dispatcher, never()).grant(any(), anyString(), anyDouble());
+
+        kill(listener, attacker, victim, finalHit);
 
         verify(dispatcher).grant(eq(attacker.getUniqueId()), eq("HEAVY_WEAPONS"), anyDouble());
+    }
+
+    @Test
+    void missingProgressionCatalogFailsSafeWithoutLegacyPerHitExp(@TempDir File dir) throws Exception {
+        CombatListener listener = listener(dir, false);
+        Player attacker = server.addPlayer();
+        Chicken victim = world.spawn(world.getSpawnLocation(), Chicken.class);
+        var method = CombatListener.class.getDeclaredMethod(
+                "archeryExpAmount", ItemStack.class, double.class, Player.class, LivingEntity.class);
+        method.setAccessible(true);
+
+        double amount = (double) method.invoke(
+                listener, new ItemStack(Material.BOW), 100.0, attacker, victim);
+
+        assertEquals(0.0, amount,
+                "catalog未配線時に削除済みのper-hit EXPへフォールバックしてはならない");
     }
 }

@@ -778,10 +778,17 @@ public final class NativeSkillExperienceListener implements Listener {
                         player.getUniqueId(), attackerId, cooldownSeconds, nowMillis))) {
             return;
         }
-        double entityMultiplier = 1.0;
+        // 2026-07-28 ユーザー要望「モブ定義にないモブは経験値なし」: entity_exp_multipliers に行が
+        // 無いモブ(および攻撃者の EntityType が取れないケース)は倍率0 = 防具EXPを付与しない。
+        // 討伐EXP側(SkillExpConfig#entityMultiplier)と同じ規則に揃えている。旧挙動(未定義=満額)に
+        // 戻したい場合は各 *_armor_progression.yml の entity_exp_multipliers に行を足す。
+        double entityMultiplier = 0.0;
         if (attacker != null && attacker.getType() != null) {
             entityMultiplier = entry.actionExp().getOrDefault(
-                    "entity_exp_multipliers." + attacker.getType().name(), 1.0);
+                    "entity_exp_multipliers." + attacker.getType().name(), 0.0);
+        }
+        if (entityMultiplier <= 0.0) {
+            return;
         }
         double pvpMultiplier = pvp
                 ? Math.max(0.0, entry.rate("armor.pvp_multiplier", 0.1))

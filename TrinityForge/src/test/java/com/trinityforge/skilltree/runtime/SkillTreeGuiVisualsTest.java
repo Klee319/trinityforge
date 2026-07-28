@@ -72,8 +72,12 @@ class SkillTreeGuiVisualsTest {
                 SkillTreeGuiVisuals.skill("POWER", Material.ARMOR_STAND).itemModel());
         assertEquals("gui/skill/landscaping",
                 SkillTreeGuiVisuals.skill("WOODCUTTING", Material.IRON_AXE).itemModel());
-        assertEquals("gui/skill/landscaping",
-                SkillTreeGuiVisuals.skill("DIGGING", Material.IRON_SHOVEL).itemModel());
+        // 2026-07-28: DIGGING は WOODCUTTING と同じ landscaping モデルを共有していたため、スキル選択
+        // GUIで伐採と切削が同じアイコンになっていた。専用モデルが無いスキルはモデル未指定にして、
+        // digging.yml の icon(鉄のシャベル)をそのまま出す。
+        assertNull(SkillTreeGuiVisuals.skill("DIGGING", Material.IRON_SHOVEL).itemModel());
+        assertEquals(Material.IRON_SHOVEL,
+                SkillTreeGuiVisuals.skill("DIGGING", Material.IRON_SHOVEL).material());
         assertEquals(Material.BREWING_STAND,
                 SkillTreeGuiVisuals.skill("ALCHEMY", Material.BREWING_STAND).material());
         assertNull(SkillTreeGuiVisuals.skill("ALCHEMY", Material.BREWING_STAND).itemModel());

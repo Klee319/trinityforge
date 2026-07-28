@@ -44,8 +44,10 @@ final class SkillTreeGuiVisuals {
             Map.entry("HEAVY_WEAPONS", "heavyweapons"),
             Map.entry("LIGHT_ARMOR", "lightarmor"),
             Map.entry("HEAVY_ARMOR", "heavyarmor"),
-            Map.entry("WOODCUTTING", "landscaping"),
-            Map.entry("DIGGING", "landscaping"));
+            // 2026-07-28: DIGGING は WOODCUTTING と同じ landscaping モデルに固定されていたため、
+            // スキル選択GUIで伐採と切削が同じアイコンになり、digging.yml の icon: IRON_SHOVEL が
+            // 無視されていた。専用モデルが無いスキルはここに載せず、config のアイコンを使わせる。
+            Map.entry("WOODCUTTING", "landscaping"));
 
     private SkillTreeGuiVisuals() {
     }
