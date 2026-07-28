@@ -187,6 +187,7 @@ public final class TrinityForge extends JavaPlugin {
     private DungeonCommand dungeonCommand;
     private com.trinityforge.command.InstanceCommand instanceCommand;
     private StatsCommand statsCommand;
+    private com.trinityforge.stats.status.StatusGui statusGui;
     private RoleCommand roleCommand;
     private RoleBuffListener roleBuffListener;
     private CollectionCommand collectionCommand;
@@ -556,6 +557,11 @@ public final class TrinityForge extends JavaPlugin {
                 aggregator,
                 configManager.lore(),
                 skillLevelSource);
+        // /tf status: 同じ数値をGUIで見るための画面 (2026-07-29)。合算は combined()、整形は
+        // StatValueRenderer と、チャット版 (/tf stats) と同じ経路を通す。
+        this.statusGui = new com.trinityforge.stats.status.StatusGui(this, combatService, aggregator,
+                configManager.lore(), skillLevelSource, nativePerkService);
+        getServer().getPluginManager().registerEvents(statusGui, this);
         this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs());
         // 2026-07-28: /tf role はロールとバフの内訳をチャットへ、/tf role set はアイテム表示の
         // 選択GUIを開く。コマンド版とGUI版が同じゲート(RoleChangeService)を通るよう分離してある。
@@ -1063,7 +1069,7 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <reload|skills|start|stop|progression|give|bind|stamp|import|dungeon|stats|role|collection|recipes|glyphs|settings|reward|inspect>",
+                                        "用法: /tf <reload|skills|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
                                         "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
@@ -1313,6 +1319,17 @@ public final class TrinityForge extends JavaPlugin {
                             .then(instanceCommand.stopNode())
                             .then(instanceCommand.quitNode())
                             .then(statsCommand.node())
+                            // /tf status: ステータス確認GUI (2026-07-29)。/tf stats と同じ値。
+                            .then(Commands.literal("status")
+                                    .executes(ctx -> {
+                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                            return 0;
+                                        }
+                                        statusGui.open(player);
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
                             .then(roleCommand.node())
                             .then(collectionCommand.node())
                             .then(recipesCommand.node())

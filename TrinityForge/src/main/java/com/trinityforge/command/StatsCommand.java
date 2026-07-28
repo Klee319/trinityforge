@@ -8,7 +8,6 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.LoreConfig;
 import com.trinityforge.progression.SkillLevelSource;
-import com.trinityforge.stats.LoreValueFormat;
 import com.trinityforge.stats.StatAppliesTo;
 import com.trinityforge.stats.StatBound;
 import com.trinityforge.stats.StatDisplaySpec;
@@ -156,12 +155,8 @@ public final class StatsCommand {
      * ための共通ヘルパー(段階3: 表示経路の重複を作らない)。
      */
     private Map<String, Double> combinedStats(Player player) {
-        PlayerCombatAggregate agg = aggregator.aggregate(player);
-        Map<String, Double> combined = new LinkedHashMap<>(agg.item());
-        agg.perkAttack().forEach((k, v) -> combined.merge(StatKeys.canonical(k), v, Double::sum));
-        agg.perkDefense().forEach((k, v) -> combined.merge(StatKeys.canonical(k), v, Double::sum));
-        agg.addon().forEach((k, v) -> combined.merge(StatKeys.canonical(k), v, Double::sum));
-        return agg.applyMultipliers(combined);
+        // 2026-07-29: 実体は PlayerCombatAggregate#combined() へ移した(/tf status のGUIと同じ経路)。
+        return aggregator.aggregate(player).combined();
     }
 
     /**
@@ -309,54 +304,14 @@ public final class StatsCommand {
         return spec != null ? spec.order() : 10_000;
     }
 
-    /**
-     * lore の format に合わせつつ、表示値は小数第3位以下を切り捨て（最大2桁）。
-     * PERCENT は ×100 後に切り捨てて {@code %} を付与。unit があれば末尾に付ける。
-     */
+    // 2026-07-29: 実体は StatValueRenderer へ集約した(/tf status のGUIと同じ数値を出すため)。
+    // ここに残すのは呼び出しの薄いラッパーだけ。整形規約を変えるときは StatValueRenderer を直す。
     private static String renderForStats(StatDisplaySpec spec, double value) {
-        int decimals = Math.min(2, spec.decimals());
-        LoreValueFormat format = spec.format();
-        String text = switch (format) {
-            case PERCENT -> {
-                double shown = truncate(Math.abs(value) * 100.0, decimals);
-                yield sign(value, spec.showSign()) + formatTruncated(shown, decimals) + "%";
-            }
-            case INTEGER -> sign(value, spec.showSign())
-                    + Long.toString((long) truncate(Math.abs(value), 0));
-            case SCALAR -> "x" + formatTruncated(truncate(value, decimals), decimals);
-            case FLAT -> sign(value, spec.showSign())
-                    + formatTruncated(truncate(Math.abs(value), decimals), decimals);
-        };
-        if (!spec.unit().isBlank() && format != LoreValueFormat.PERCENT) {
-            return text + spec.unit();
-        }
-        return text;
-    }
-
-    private static String sign(double value, boolean showSign) {
-        if (value < 0) {
-            return "-";
-        }
-        return showSign ? "+" : "";
-    }
-
-    /** 小数第 {@code decimals} 位より下を切り捨て（正は floor、負は ceil＝ゼロ方向ではない、絶対値側で切り捨て）。 */
-    private static double truncate(double value, int decimals) {
-        double scale = Math.pow(10, Math.max(0, decimals));
-        return Math.floor(Math.abs(value) * scale) / scale * Math.signum(value == 0 ? 1 : value);
+        return com.trinityforge.stats.StatValueRenderer.render(spec, value);
     }
 
     private static String formatTruncated(double value) {
-        return formatTruncated(truncate(value, 2), 2);
-    }
-
-    private static String formatTruncated(double value, int decimals) {
-        if (decimals <= 0 || value == Math.rint(value)) {
-            return Integer.toString((int) value);
-        }
-        return String.format(Locale.ROOT, "%." + decimals + "f", value)
-                .replaceAll("0+$", "")
-                .replaceAll("\\.$", "");
+        return com.trinityforge.stats.StatValueRenderer.plain(value);
     }
 
     private static Component line(String label, String value) {

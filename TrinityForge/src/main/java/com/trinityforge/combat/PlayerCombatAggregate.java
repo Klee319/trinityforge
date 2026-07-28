@@ -115,6 +115,22 @@ public record PlayerCombatAggregate(
     }
 
     /**
+     * 表示用の合算ステマップ: item + パーク(攻撃/防御) + アドオンを加算し、乗算レイヤを適用した結果
+     * (2026-07-29 に {@code StatsCommand#combinedStats} から抽出)。
+     *
+     * <p>{@code /tf stats} のチャット出力と {@code /tf status} のGUIが<b>同じ経路</b>を通るようにする
+     * ためだけの共通化なので、{@link #totalOf} と違い stat-cap のクランプは掛けない
+     * (掛けると表示だけが実効値と食い違う。クランプは各消費側の最終値算出でかかる)。
+     */
+    public Map<String, Double> combined() {
+        Map<String, Double> merged = new LinkedHashMap<>(item);
+        perkAttack.forEach((k, v) -> merged.merge(com.trinityforge.stats.StatKeys.canonical(k), v, Double::sum));
+        perkDefense.forEach((k, v) -> merged.merge(com.trinityforge.stats.StatKeys.canonical(k), v, Double::sum));
+        addon.forEach((k, v) -> merged.merge(com.trinityforge.stats.StatKeys.canonical(k), v, Double::sum));
+        return applyMultipliers(merged);
+    }
+
+    /**
      * 合算済みステマップに乗算レイヤを適用した新しいマップを返す(引数は変更しない)。
      * 「加算合算 → 総合値に乗算」の消費側契約をここに一元化する。
      */
