@@ -187,19 +187,25 @@ items:
       durability: 35
     per-quality:
       durability: 6
+    use-level-requirement: 0
     use-skill: MINING
+    quality-mode-offset: 0
   WOODEN_SHOVEL:
     fixed:
       durability: 35
     per-quality:
       durability: 6
+    use-level-requirement: 0
     use-skill: DIGGING
+    quality-mode-offset: 0
   WOODEN_HOE:
     fixed:
       durability: 35
     per-quality:
       durability: 6
+    use-level-requirement: 0
     use-skill: FARMING
+    quality-mode-offset: 0
   STONE_SWORD:
     fixed:
       attack-power: 105
@@ -216,7 +222,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
@@ -246,7 +252,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
@@ -264,19 +270,25 @@ items:
       durability: 78
     per-quality:
       durability: 13
+    use-level-requirement: 5
     use-skill: MINING
+    quality-mode-offset: 0
   STONE_SHOVEL:
     fixed:
       durability: 78
     per-quality:
       durability: 13
+    use-level-requirement: 5
     use-skill: DIGGING
+    quality-mode-offset: 0
   STONE_HOE:
     fixed:
       durability: 78
     per-quality:
       durability: 13
+    use-level-requirement: 5
     use-skill: FARMING
+    quality-mode-offset: 0
   COPPER_SWORD:
     fixed:
       attack-power: 120
@@ -293,7 +305,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
@@ -323,7 +335,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
@@ -341,19 +353,25 @@ items:
       durability: 114
     per-quality:
       durability: 19
+    use-level-requirement: 15
     use-skill: MINING
+    quality-mode-offset: -1
   COPPER_SHOVEL:
     fixed:
       durability: 114
     per-quality:
       durability: 19
+    use-level-requirement: 15
     use-skill: DIGGING
+    quality-mode-offset: -1
   COPPER_HOE:
     fixed:
       durability: 114
     per-quality:
       durability: 19
+    use-level-requirement: 15
     use-skill: FARMING
+    quality-mode-offset: -1
   IRON_SWORD:
     fixed:
       attack-power: 294
@@ -370,7 +388,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
@@ -400,7 +418,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
@@ -418,19 +436,25 @@ items:
       durability: 150
     per-quality:
       durability: 25
+    use-level-requirement: 25
     use-skill: MINING
+    quality-mode-offset: -2
   IRON_SHOVEL:
     fixed:
       durability: 150
     per-quality:
       durability: 25
+    use-level-requirement: 25
     use-skill: DIGGING
+    quality-mode-offset: -2
   IRON_HOE:
     fixed:
       durability: 150
     per-quality:
       durability: 25
+    use-level-requirement: 25
     use-skill: FARMING
+    quality-mode-offset: -2
   GOLDEN_SWORD:
     fixed:
       attack-power: 396
@@ -447,7 +471,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
@@ -483,7 +507,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
@@ -511,7 +535,9 @@ items:
       durability:
         min: -15
         max: 15
+    use-level-requirement: 35
     use-skill: MINING
+    quality-mode-offset: -2
   GOLDEN_SHOVEL:
     fixed:
       durability: 19
@@ -521,7 +547,9 @@ items:
       durability:
         min: -8
         max: 16
+    use-level-requirement: 35
     use-skill: DIGGING
+    quality-mode-offset: -2
   GOLDEN_HOE:
     fixed:
       durability: 19
@@ -531,7 +559,9 @@ items:
       durability:
         min: -8
         max: 16
+    use-level-requirement: 35
     use-skill: FARMING
+    quality-mode-offset: -2
   DIAMOND_SWORD:
     fixed:
       attack-power: 1260
@@ -548,7 +578,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
@@ -578,7 +608,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
@@ -596,19 +626,25 @@ items:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 45
     use-skill: MINING
+    quality-mode-offset: -4
   DIAMOND_SHOVEL:
     fixed:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 45
     use-skill: DIGGING
+    quality-mode-offset: -4
   DIAMOND_HOE:
     fixed:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 45
     use-skill: FARMING
+    quality-mode-offset: -4
   NETHERITE_SWORD:
     fixed:
       attack-power: 3780
@@ -625,7 +661,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
@@ -655,7 +691,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
@@ -673,19 +709,25 @@ items:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 60
     use-skill: MINING
+    quality-mode-offset: -6
   NETHERITE_SHOVEL:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 60
     use-skill: DIGGING
+    quality-mode-offset: -6
   NETHERITE_HOE:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 60
     use-skill: FARMING
+    quality-mode-offset: -6
   BOW:
     fixed:
       attack-power: 69
@@ -741,7 +783,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: ARCHERY
     quality-mode-offset: -3
     random:
@@ -772,7 +814,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: ARCHERY
     quality-mode-offset: -5
     random:
@@ -802,7 +844,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
@@ -904,7 +946,7 @@ items:
       max-health: 0.9
     per-quality:
       durability: 17
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -2
     random:
@@ -924,7 +966,7 @@ items:
       max-health: 2.4
     per-quality:
       durability: 24
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -2
     random:
@@ -944,7 +986,7 @@ items:
       max-health: 1.8
     per-quality:
       durability: 23
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -2
     random:
@@ -965,7 +1007,7 @@ items:
       max-health: 0.9
     per-quality:
       durability: 20
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -2
     random:
@@ -986,7 +1028,7 @@ items:
       max-health: 0.45
     per-quality:
       durability: 18
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -1
     random:
@@ -1006,7 +1048,7 @@ items:
       max-health: 1.2
     per-quality:
       durability: 26
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -1
     random:
@@ -1026,7 +1068,7 @@ items:
       max-health: 0.9
     per-quality:
       durability: 24
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -1
     random:
@@ -1047,7 +1089,7 @@ items:
       max-health: 0.45
     per-quality:
       durability: 21
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -1
     random:
@@ -1068,7 +1110,7 @@ items:
       max-health: 1.5
     per-quality:
       durability: 17
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -3
     random:
@@ -1088,7 +1130,7 @@ items:
       max-health: 4
     per-quality:
       durability: 24
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -3
     random:
@@ -1108,7 +1150,7 @@ items:
       max-health: 3
     per-quality:
       durability: 23
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -3
     random:
@@ -1129,7 +1171,7 @@ items:
       max-health: 1.5
     per-quality:
       durability: 20
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -3
     random:
@@ -1149,7 +1191,7 @@ items:
       max-health: 2.1
     per-quality:
       durability: 8
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -4
     random:
@@ -1168,7 +1210,7 @@ items:
       max-health: 5.6
     per-quality:
       durability: 11
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -4
     random:
@@ -1188,7 +1230,7 @@ items:
       max-health: 4.2
     per-quality:
       durability: 11
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -4
     random:
@@ -1209,7 +1251,7 @@ items:
       max-health: 2.1
     per-quality:
       durability: 9
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -4
     random:
@@ -1229,7 +1271,7 @@ items:
       max-health: 2.7
     per-quality:
       durability: 36
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -1248,7 +1290,7 @@ items:
       max-health: 7.2
     per-quality:
       durability: 53
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -1268,7 +1310,7 @@ items:
       max-health: 5.4
     per-quality:
       durability: 50
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -1289,7 +1331,7 @@ items:
       max-health: 2.7
     per-quality:
       durability: 43
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -1310,7 +1352,7 @@ items:
       max-health: 3.45
     per-quality:
       durability: 41
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -6
     random:
@@ -1330,7 +1372,7 @@ items:
       max-health: 9.2
     per-quality:
       durability: 59
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -6
     random:
@@ -1350,7 +1392,7 @@ items:
       max-health: 6.9
     per-quality:
       durability: 56
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -6
     random:
@@ -1371,7 +1413,7 @@ items:
       max-health: 3.45
     per-quality:
       durability: 48
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -6
     random:
@@ -1391,7 +1433,7 @@ items:
       dodge-chance: 0.072
     per-quality:
       durability: 17
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -2
     random:
@@ -1409,7 +1451,7 @@ items:
       max-health: 0.45
     per-quality:
       durability: 15
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -1
     random:
@@ -1429,7 +1471,7 @@ items:
       max-health: 1.2
     per-quality:
       durability: 22
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -1
     random:
@@ -1449,7 +1491,7 @@ items:
       max-health: 0.9
     per-quality:
       durability: 20
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -1
     random:
@@ -1470,7 +1512,7 @@ items:
       max-health: 0.45
     per-quality:
       durability: 18
-    use-level-requirement: 10
+    use-level-requirement: 0
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -1
     random:
@@ -1491,7 +1533,7 @@ items:
       max-health: 0.9
     per-quality:
       durability: 14
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -2
     random:
@@ -1511,7 +1553,7 @@ items:
       max-health: 2.4
     per-quality:
       durability: 20
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -2
     random:
@@ -1531,7 +1573,7 @@ items:
       max-health: 1.8
     per-quality:
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -2
     random:
@@ -1552,7 +1594,7 @@ items:
       max-health: 0.9
     per-quality:
       durability: 17
-    use-level-requirement: 20
+    use-level-requirement: 10
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -2
     random:
@@ -1573,7 +1615,7 @@ items:
       max-health: 1.5
     per-quality:
       durability: 14
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -1593,7 +1635,7 @@ items:
       max-health: 4
     per-quality:
       durability: 20
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -1613,7 +1655,7 @@ items:
       max-health: 3
     per-quality:
       durability: 19
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -1634,7 +1676,7 @@ items:
       max-health: 1.5
     per-quality:
       durability: 17
-    use-level-requirement: 30
+    use-level-requirement: 15
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -1655,7 +1697,7 @@ items:
       max-health: 2.1
     per-quality:
       durability: 7
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -4
     random:
@@ -1675,7 +1717,7 @@ items:
       max-health: 5.6
     per-quality:
       durability: 10
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -4
     random:
@@ -1695,7 +1737,7 @@ items:
       max-health: 4.2
     per-quality:
       durability: 9
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -4
     random:
@@ -1716,7 +1758,7 @@ items:
       max-health: 2.1
     per-quality:
       durability: 8
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -4
     random:
@@ -1737,7 +1779,7 @@ items:
       max-health: 2.7
     per-quality:
       durability: 31
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -1757,7 +1799,7 @@ items:
       max-health: 7.2
     per-quality:
       durability: 45
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -1777,7 +1819,7 @@ items:
       max-health: 5.4
     per-quality:
       durability: 42
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -1798,7 +1840,7 @@ items:
       max-health: 2.7
     per-quality:
       durability: 36
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -1819,7 +1861,7 @@ items:
       max-health: 3.45
     per-quality:
       durability: 35
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -6
     random:
@@ -1839,7 +1881,7 @@ items:
       max-health: 9.2
     per-quality:
       durability: 50
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -6
     random:
@@ -1859,7 +1901,7 @@ items:
       max-health: 6.9
     per-quality:
       durability: 47
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -6
     random:
@@ -1880,7 +1922,7 @@ items:
       max-health: 3.45
     per-quality:
       durability: 41
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -6
     random:
@@ -1901,7 +1943,7 @@ items:
       max-health: 3.9
     per-quality:
       durability: 49
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -1921,7 +1963,7 @@ items:
       max-health: 10.4
     per-quality:
       durability: 71
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -1941,7 +1983,7 @@ items:
       max-health: 7.8
     per-quality:
       durability: 67
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -1962,7 +2004,7 @@ items:
       max-health: 3.9
     per-quality:
       durability: 58
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -2080,7 +2122,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
@@ -2109,7 +2151,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
@@ -2173,7 +2215,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
@@ -2202,7 +2244,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
@@ -2231,7 +2273,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
@@ -2260,7 +2302,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
@@ -2295,7 +2337,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
@@ -2324,7 +2366,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
@@ -2445,7 +2487,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
@@ -2600,7 +2642,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
@@ -2631,7 +2673,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
@@ -2662,7 +2704,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
@@ -2693,7 +2735,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
@@ -2730,7 +2772,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
@@ -2761,7 +2803,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
@@ -2792,7 +2834,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
@@ -2857,7 +2899,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
@@ -3018,7 +3060,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
@@ -3078,7 +3120,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
@@ -3108,7 +3150,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
@@ -3138,7 +3180,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
@@ -3168,7 +3210,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
@@ -3204,7 +3246,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
@@ -3234,7 +3276,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
@@ -3359,7 +3401,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
@@ -3417,7 +3459,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
@@ -3446,7 +3488,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
@@ -3475,7 +3517,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
@@ -3504,7 +3546,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
@@ -3539,7 +3581,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
@@ -3568,7 +3610,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
@@ -3689,7 +3731,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
@@ -3747,7 +3789,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
@@ -3776,7 +3818,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
@@ -3805,7 +3847,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
@@ -3834,7 +3876,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
@@ -3869,7 +3911,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
@@ -3898,7 +3940,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
@@ -4019,7 +4061,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
@@ -4077,7 +4119,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
@@ -4106,7 +4148,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
@@ -4135,7 +4177,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
@@ -4164,7 +4206,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
@@ -4199,7 +4241,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
@@ -4228,7 +4270,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
@@ -4349,7 +4391,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
@@ -4407,7 +4449,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
@@ -4436,7 +4478,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
@@ -4465,7 +4507,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
@@ -4494,7 +4536,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
@@ -4529,7 +4571,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
@@ -4558,7 +4600,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
@@ -4649,7 +4691,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
@@ -4713,7 +4755,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: ARCHERY
     quality-mode-offset: -1
     random:
@@ -4747,7 +4789,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: ARCHERY
     quality-mode-offset: -2
     random:
@@ -4781,7 +4823,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: ARCHERY
     quality-mode-offset: -3
     random:
@@ -4815,7 +4857,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: ARCHERY
     quality-mode-offset: -4
     random:
@@ -4855,7 +4897,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: ARCHERY
     quality-mode-offset: -5
     random:
@@ -4889,7 +4931,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: ARCHERY
     quality-mode-offset: -6
     random:
@@ -4923,7 +4965,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: ARCHERY
     quality-mode-offset: -6
     random:
@@ -4957,7 +4999,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: ARCHERY
     quality-mode-offset: -5
     random:
@@ -5097,7 +5139,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: ARCHERY
     quality-mode-offset: -7
     random:
@@ -5159,7 +5201,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: ARCHERY
     quality-mode-offset: -1
     random:
@@ -5190,7 +5232,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: ARCHERY
     quality-mode-offset: -2
     random:
@@ -5221,7 +5263,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: ARCHERY
     quality-mode-offset: -3
     random:
@@ -5252,7 +5294,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: ARCHERY
     quality-mode-offset: -4
     random:
@@ -5289,7 +5331,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: ARCHERY
     quality-mode-offset: -5
     random:
@@ -5320,7 +5362,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: ARCHERY
     quality-mode-offset: -6
     random:
@@ -5449,7 +5491,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: ARCHERY
     quality-mode-offset: -7
     random:
@@ -5509,7 +5551,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
@@ -5539,7 +5581,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
@@ -5569,7 +5611,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
@@ -5599,7 +5641,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
@@ -5635,7 +5677,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
@@ -5665,7 +5707,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
@@ -5790,7 +5832,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
@@ -5824,7 +5866,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: ARCHERY
     quality-mode-offset: -1
     random:
@@ -5858,7 +5900,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 13
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: ARCHERY
     quality-mode-offset: -1
     random:
@@ -5892,7 +5934,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 19
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: ARCHERY
     quality-mode-offset: -2
     random:
@@ -5926,7 +5968,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 25
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: ARCHERY
     quality-mode-offset: -3
     random:
@@ -5960,7 +6002,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 3
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: ARCHERY
     quality-mode-offset: -4
     random:
@@ -6000,7 +6042,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 156
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: ARCHERY
     quality-mode-offset: -5
     random:
@@ -6034,7 +6076,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: ARCHERY
     quality-mode-offset: -6
     random:
@@ -6174,7 +6216,7 @@ items:
       crit-damage: 0.02
       penetration: 0.004
       durability: 203
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: ARCHERY
     quality-mode-offset: -7
     random:
@@ -6237,7 +6279,7 @@ items:
     per-quality:
       attack-power: 1.2
       mana-bonus: 1
-    use-level-requirement: 10
+    use-level-requirement: 5
     use-skill: ARS_MAGIC
     quality-mode-offset: -1
   BLAZE_ROD#400003:
@@ -6250,7 +6292,7 @@ items:
     per-quality:
       attack-power: 2
       mana-bonus: 1
-    use-level-requirement: 20
+    use-level-requirement: 15
     use-skill: ARS_MAGIC
     quality-mode-offset: -2
   BLAZE_ROD#400004:
@@ -6263,7 +6305,7 @@ items:
     per-quality:
       attack-power: 3.4
       mana-bonus: 1
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: ARS_MAGIC
     quality-mode-offset: -3
   BLAZE_ROD#400005:
@@ -6276,7 +6318,7 @@ items:
     per-quality:
       attack-power: 5.4
       mana-bonus: 1
-    use-level-requirement: 40
+    use-level-requirement: 35
     use-skill: ARS_MAGIC
     quality-mode-offset: -4
   BLAZE_ROD#400006:
@@ -6289,7 +6331,7 @@ items:
     per-quality:
       attack-power: 14.7
       mana-bonus: 3
-    use-level-requirement: 55
+    use-level-requirement: 45
     use-skill: ARS_MAGIC
     quality-mode-offset: -5
   BLAZE_ROD#400007:
@@ -6302,7 +6344,7 @@ items:
     per-quality:
       attack-power: 44.1
       mana-bonus: 10
-    use-level-requirement: 70
+    use-level-requirement: 60
     use-skill: ARS_MAGIC
     quality-mode-offset: -6
   BLAZE_ROD#400012:
@@ -6341,7 +6383,7 @@ items:
     per-quality:
       attack-power: 147
       mana-bonus: 33
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: ARS_MAGIC
     quality-mode-offset: -7
   BLAZE_ROD#400001:
@@ -6375,37 +6417,49 @@ items:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 30
     use-skill: MINING
+    quality-mode-offset: -3
   NETHERITE_PICKAXE#185:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 100
     use-skill: MINING
+    quality-mode-offset: -8
   WOODEN_AXE#200105:
     fixed:
       durability: 35
     per-quality:
       durability: 6
+    use-level-requirement: 0
     use-skill: WOODCUTTING
+    quality-mode-offset: 0
   STONE_AXE#200106:
     fixed:
       durability: 78
     per-quality:
       durability: 13
+    use-level-requirement: 5
     use-skill: WOODCUTTING
+    quality-mode-offset: 0
   COPPER_AXE#200107:
     fixed:
       durability: 114
     per-quality:
       durability: 19
+    use-level-requirement: 15
     use-skill: WOODCUTTING
+    quality-mode-offset: -1
   IRON_AXE#200108:
     fixed:
       durability: 150
     per-quality:
       durability: 25
+    use-level-requirement: 25
     use-skill: WOODCUTTING
+    quality-mode-offset: -2
   GOLDEN_AXE#200109:
     fixed:
       durability: 19
@@ -6415,55 +6469,73 @@ items:
       durability:
         min: -8
         max: 16
+    use-level-requirement: 35
     use-skill: WOODCUTTING
+    quality-mode-offset: -2
   DIAMOND_AXE#200110:
     fixed:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 45
     use-skill: WOODCUTTING
+    quality-mode-offset: -4
   NETHERITE_AXE#200111:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 60
     use-skill: WOODCUTTING
+    quality-mode-offset: -6
   DIAMOND_AXE#75:
     fixed:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 30
     use-skill: WOODCUTTING
+    quality-mode-offset: -3
   NETHERITE_AXE#191:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 100
     use-skill: WOODCUTTING
+    quality-mode-offset: -8
   DIAMOND_SHOVEL#74:
     fixed:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 30
     use-skill: DIGGING
+    quality-mode-offset: -3
   NETHERITE_SHOVEL#188:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 100
     use-skill: DIGGING
+    quality-mode-offset: -8
   DIAMOND_HOE#76:
     fixed:
       durability: 936
     per-quality:
       durability: 156
+    use-level-requirement: 30
     use-skill: FARMING
+    quality-mode-offset: -3
   NETHERITE_HOE#194:
     fixed:
       durability: 1218
     per-quality:
       durability: 203
+    use-level-requirement: 100
     use-skill: FARMING
+    quality-mode-offset: -8
   DIAMOND_HELMET#200101:
     fixed:
       armor-defense-rate: 1
@@ -6476,7 +6548,7 @@ items:
       max-health: 1.5
     per-quality:
       durability: 36
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -6499,7 +6571,7 @@ items:
       max-health: 3.9
     per-quality:
       durability: 58
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -6562,7 +6634,7 @@ items:
       max-health: 4
     per-quality:
       durability: 53
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -6584,7 +6656,7 @@ items:
       max-health: 10.4
     per-quality:
       durability: 84
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -6645,7 +6717,7 @@ items:
       max-health: 3
     per-quality:
       durability: 50
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -6666,7 +6738,7 @@ items:
       max-health: 7.8
     per-quality:
       durability: 79
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -6729,7 +6801,7 @@ items:
       max-health: 1.5
     per-quality:
       durability: 43
-    use-level-requirement: 30
+    use-level-requirement: 25
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -3
     random:
@@ -6751,7 +6823,7 @@ items:
       max-health: 3.9
     per-quality:
       durability: 68
-    use-level-requirement: 85
+    use-level-requirement: 80
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -6907,7 +6979,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 30
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -6929,7 +7001,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 44
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -6951,7 +7023,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 41
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -6974,7 +7046,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 35
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -5
     random:
@@ -6997,7 +7069,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 48
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -7019,7 +7091,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 70
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -7041,7 +7113,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 66
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -7064,7 +7136,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 56
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: HEAVY_ARMOR
     quality-mode-offset: -7
     random:
@@ -7177,7 +7249,7 @@ items:
       mana-regen: 4
     per-quality:
       durability: 30
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7199,7 +7271,7 @@ items:
       mana-regen: 4
     per-quality:
       durability: 44
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7221,7 +7293,7 @@ items:
       mana-regen: 4
     per-quality:
       durability: 41
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7244,7 +7316,7 @@ items:
       mana-regen: 4
     per-quality:
       durability: 35
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7267,7 +7339,7 @@ items:
       mana-regen: 6
     per-quality:
       durability: 48
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7289,7 +7361,7 @@ items:
       mana-regen: 6
     per-quality:
       durability: 70
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7311,7 +7383,7 @@ items:
       mana-regen: 6
     per-quality:
       durability: 66
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7334,7 +7406,7 @@ items:
       mana-regen: 6
     per-quality:
       durability: 56
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7447,7 +7519,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 30
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7469,7 +7541,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 44
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7491,7 +7563,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 41
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7514,7 +7586,7 @@ items:
       mana-regen: 2.4
     per-quality:
       durability: 35
-    use-level-requirement: 50
+    use-level-requirement: 40
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -5
     random:
@@ -7537,7 +7609,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 48
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7559,7 +7631,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 70
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7581,7 +7653,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 66
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7604,7 +7676,7 @@ items:
       mana-regen: 3.6
     per-quality:
       durability: 56
-    use-level-requirement: 80
+    use-level-requirement: 60
     use-skill: LIGHT_ARMOR
     quality-mode-offset: -7
     random:
@@ -7628,7 +7700,6 @@ _editor:
           - NETHERITE_SWORD#112
           - NETHERITE_SWORD#113
           - NETHERITE_SWORD#114
-          - GOLDEN_SWORD#59
           - WOODEN_SWORD
           - STONE_SWORD
           - COPPER_SWORD
