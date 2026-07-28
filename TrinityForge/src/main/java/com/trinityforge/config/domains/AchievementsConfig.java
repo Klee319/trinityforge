@@ -79,8 +79,35 @@ public final class AchievementsConfig implements LoadableConfig {
      * @param trigger     達成条件
      * @param broadcast   true でサーバー全体へ達成をアナウンス
      * @param rewards     達成時に付与する報酬
+     * @param icon        {@code /achievement} GUI のアイコン。バニラ Material 名 / カタログID /
+     *                    {@code custom:<ArsのID>} のいずれか。空欄なら GUI 側の既定アイコン。
+     * @param lore        GUI に出す説明文(MiniMessage 可)。空リストなら説明なし。
+     * @param coords      GUI 上のノード座標 {@code "x,y"}。空欄なら読み込み順に自動配置する。
+     * @param parent      前提アチーブメントID(null=起点)。<b>達成そのものを縛る</b>:
+     *                    前提未達成の間は条件を満たしても達成にならない(2026-07-29 ユーザー確定)。
+     * @param parentsAny  代替前提。{@code parent} かこの一覧のどれか1つを達成していれば前提を満たす
+     *                    (スキルツリーの {@code parents-any} と同じ意味)。
      */
-    public record Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards) {
+    public record Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards,
+                              String icon, List<String> lore, String coords,
+                              String parent, List<String> parentsAny) {
+        public Achievement {
+            icon = icon == null ? "" : icon.trim();
+            lore = lore == null ? List.of() : List.copyOf(lore);
+            coords = coords == null ? "" : coords.trim();
+            parent = parent == null || parent.isBlank() ? null : parent.trim();
+            parentsAny = parentsAny == null ? List.of() : List.copyOf(parentsAny);
+        }
+
+        /** 旧シグネチャ互換(既存テスト/呼び出し用): ノード表示系のフィールドを全て未設定にする。 */
+        public Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards) {
+            this(id, displayName, trigger, broadcast, rewards, "", List.of(), "", null, List.of());
+        }
+
+        /** 前提を1つも持たない(=ツリーの起点)か。 */
+        public boolean isRoot() {
+            return parent == null && parentsAny.isEmpty();
+        }
     }
 
     /**
@@ -193,10 +220,107 @@ public final class AchievementsConfig implements LoadableConfig {
                 }
                 boolean broadcast = entry.getBoolean("broadcast", false);
                 Rewards rewards = parseRewards(entry.getConfigurationSection("rewards"), id, log);
-                parsed.add(new Achievement(id, displayName, trigger, broadcast, rewards));
+                parsed.add(new Achievement(id, displayName, trigger, broadcast, rewards,
+                        entry.getString("icon", ""),
+                        entry.getStringList("lore"),
+                        entry.getString("coords", ""),
+                        entry.getString("parent"),
+                        cleanIdList(entry.getStringList("parents-any"), id)));
             }
         }
-        return new ParseResult(List.copyOf(parsed), skipped);
+        List<Achievement> result = List.copyOf(parsed);
+        warnUnreachablePrerequisites(result, log);
+        return new ParseResult(result, skipped);
+    }
+
+    /** 空要素・自己参照・重複を落とした前提IDリスト。 */
+    private static List<String> cleanIdList(List<String> raw, String selfId) {
+        List<String> out = new ArrayList<>();
+        for (String value : raw) {
+            if (value == null) {
+                continue;
+            }
+            String trimmed = value.trim();
+            if (trimmed.isEmpty() || trimmed.equals(selfId) || out.contains(trimmed)) {
+                continue;
+            }
+            out.add(trimmed);
+        }
+        return List.copyOf(out);
+    }
+
+    /**
+     * 前提が「存在しないID」や「循環」を指していると、そのアチーブメントは条件を満たしても
+     * 永久に達成できない({@link #prerequisitesMet} が常に false になる)。静かに死ぬのを避けるため
+     * 読み込み時に1回だけ警告する({@code vanilla-advancements} の相互作用警告と同じ方針)。
+     */
+    static void warnUnreachablePrerequisites(List<Achievement> achievements, Logger log) {
+        java.util.Set<String> known = new java.util.LinkedHashSet<>();
+        for (Achievement achievement : achievements) {
+            known.add(achievement.id());
+        }
+        Map<String, Achievement> byId = new java.util.LinkedHashMap<>();
+        for (Achievement achievement : achievements) {
+            byId.put(achievement.id(), achievement);
+        }
+        for (Achievement achievement : achievements) {
+            List<String> missing = new ArrayList<>();
+            if (achievement.parent() != null && !known.contains(achievement.parent())) {
+                missing.add(achievement.parent());
+            }
+            for (String any : achievement.parentsAny()) {
+                if (!known.contains(any)) {
+                    missing.add(any);
+                }
+            }
+            if (!missing.isEmpty()) {
+                log.warning("[" + PATH + "] achievement '" + achievement.id() + "' references unknown"
+                        + " prerequisite(s) " + missing + "; 前提が存在しないため、条件を満たしても"
+                        + "達成になりません。");
+            }
+            if (hasPrerequisiteCycle(achievement, byId)) {
+                log.warning("[" + PATH + "] achievement '" + achievement.id() + "' の前提(parent)が"
+                        + "循環しています。循環に含まれるアチーブメントは永久に達成できません。");
+            }
+        }
+    }
+
+    /** {@code parent} 鎖をたどって自分自身へ戻るか(parents-any は OR なので循環判定には使わない)。 */
+    private static boolean hasPrerequisiteCycle(Achievement start, Map<String, Achievement> byId) {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        seen.add(start.id());
+        Achievement cursor = start;
+        while (cursor != null && cursor.parent() != null) {
+            if (!seen.add(cursor.parent())) {
+                return true;
+            }
+            cursor = byId.get(cursor.parent());
+        }
+        return false;
+    }
+
+    /**
+     * 前提を満たしているか。{@code parent} かつ/または {@code parents-any} の「どれか1つ」を
+     * 達成していれば true(スキルツリーの合流ノードと同じ意味)。前提が無ければ常に true。
+     *
+     * <p>2026-07-29 ユーザー確定「達成そのものを縛る」に基づき、これが false の間は
+     * {@code AchievementService} が達成扱いにしない(報酬も出ない)。
+     *
+     * @param achievedIds そのプレイヤーが達成済みのアチーブメントID
+     */
+    public static boolean prerequisitesMet(Achievement achievement, java.util.Collection<String> achievedIds) {
+        if (achievement.isRoot()) {
+            return true;
+        }
+        if (achievement.parent() != null && achievedIds.contains(achievement.parent())) {
+            return true;
+        }
+        for (String any : achievement.parentsAny()) {
+            if (achievedIds.contains(any)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Pure parse of {@code vanilla-advancements:} — unit-testable headlessly. Section may be null (未設定)。 */

@@ -142,41 +142,11 @@ public final class SkillTreeLayout {
 
     /** Returns a deterministic Manhattan route including both endpoint nodes and avoiding other nodes. */
     public List<Coord> route(Coord from, Coord to) {
-        if (from.equals(to)) return List.of(from);
-        int minX = occupied.stream().mapToInt(Coord::x).min().orElse(startX) - 8;
-        int maxX = occupied.stream().mapToInt(Coord::x).max().orElse(startX) + 8;
-        int minY = occupied.stream().mapToInt(Coord::y).min().orElse(centerY) - 8;
-        int maxY = occupied.stream().mapToInt(Coord::y).max().orElse(centerY) + 8;
-        ArrayDeque<Coord> queue = new ArrayDeque<>();
-        Map<Coord, Coord> previous = new HashMap<>();
-        Set<Coord> seen = new HashSet<>();
-        queue.add(from);
-        seen.add(from);
-        int[][] directions = {{0, -1}, {-1, 0}, {1, 0}, {0, 1}};
-        while (!queue.isEmpty()) {
-            Coord current = queue.removeFirst();
-            if (current.equals(to)) break;
-            for (int[] direction : directions) {
-                Coord next = new Coord(current.x() + direction[0], current.y() + direction[1]);
-                if (next.x() < minX || next.x() > maxX || next.y() < minY || next.y() > maxY) continue;
-                boolean blockedNode = (occupied.contains(next) || rootCoord().equals(next))
-                        && !next.equals(from) && !next.equals(to);
-                if (blockedNode || !seen.add(next)) continue;
-                previous.put(next, current);
-                queue.addLast(next);
-            }
-        }
-        if (!seen.contains(to)) {
-            throw new IllegalStateException(
-                    "no connector route from " + from.format() + " to " + to.format());
-        }
-        List<Coord> reversed = new ArrayList<>();
-        for (Coord cursor = to; cursor != null; cursor = previous.get(cursor)) {
-            reversed.add(cursor);
-            if (cursor.equals(from)) break;
-        }
-        Collections.reverse(reversed);
-        return List.copyOf(reversed);
+        // 2026-07-29: 探索そのものは GridConnectorRouting へ集約した(アチーブメントGUIと共有)。
+        // ここは「何を障害物とみなすか」= 配置済みノード + ルートノード だけを決める。
+        Set<Coord> blocked = new HashSet<>(occupied);
+        blocked.add(rootCoord());
+        return GridConnectorRouting.route(from, to, blocked, 8);
     }
 
     public Coord coordOf(String id) {

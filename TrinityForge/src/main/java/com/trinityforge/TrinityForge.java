@@ -202,6 +202,7 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.command.SpecialRewardCommand specialRewardCommand;
     private com.trinityforge.afk.AfkService afkService;
     private com.trinityforge.progression.AchievementService achievementService;
+    private com.trinityforge.progression.achievement.AchievementGui achievementGui;
     private ActiveSkillRegistry activeSkillRegistry;
     private CooldownManager activeCooldownManager;
     private FeedbackLayer activeFeedbackLayer;
@@ -618,6 +619,10 @@ public final class TrinityForge extends JavaPlugin {
                 perkAttributeApplier, collectionService);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
+        // /achievement の進捗GUI(2026-07-29)。スキルツリーGUIと同じコネクタ/移動ボタンを再利用する。
+        this.achievementGui = new com.trinityforge.progression.achievement.AchievementGui(
+                this, configManager.achievements(), crossPluginItemResolver, collectionService);
+        getServer().getPluginManager().registerEvents(achievementGui, this);
         // バニラ進捗(advancement)解除のサーバ側抑止(achievements.yml vanilla-advancements, 2026-07-28)。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.VanillaAdvancementBlockListener(configManager.achievements()),
@@ -1348,6 +1353,33 @@ public final class TrinityForge extends JavaPlugin {
                             .build(),
                     "Open the TrinityForge skill tree",
                     List.of("s"));
+            // アチーブメント進捗GUI(2026-07-29)。スキルツリーと同じ操作感にそろえてある。
+            commands.register(
+                    Commands.literal("achievement")
+                            .requires(src -> src.getSender().hasPermission("trinityforge.use"))
+                            .executes(ctx -> {
+                                if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                    ctx.getSource().getSender().sendMessage(Component.text(
+                                            "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                    return 0;
+                                }
+                                achievementGui.open(player);
+                                return Command.SINGLE_SUCCESS;
+                            })
+                            .then(Commands.argument("id", StringArgumentType.word())
+                                    .executes(ctx -> {
+                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                            return 0;
+                                        }
+                                        achievementGui.open(
+                                                player, StringArgumentType.getString(ctx, "id"));
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
+                            .build(),
+                    "Open the TrinityForge achievement progress GUI",
+                    List.of("achievements", "ach"));
         });
     }
 

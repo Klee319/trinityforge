@@ -9,9 +9,12 @@ import com.trinityforge.stats.CrossPluginItemResolver;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
+import org.bukkit.advancement.Advancement;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -82,22 +85,72 @@ public final class AchievementService {
     public void pollStatistics() {
         List<AchievementsConfig.Achievement> targets = config.statisticAchievements();
         List<AchievementsConfig.Achievement> collectionTargets = config.staticAchievements();
-        if (targets.isEmpty() && collectionTargets.isEmpty()) {
+        List<AchievementsConfig.Achievement> advancementTargets = config.advancementAchievements();
+        if (targets.isEmpty() && collectionTargets.isEmpty() && advancementTargets.isEmpty()) {
             return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
-            List<String> done = PlayerData.of(player).achievedIds();
-            for (AchievementsConfig.Achievement achievement : targets) {
-                if (done.contains(achievement.id())) {
-                    continue;
+            // 1周の中で連鎖的に前提が解けるよう、達成済み集合はローカルで持ち回す
+            // (「親を達成した同じ周で子も達成できる」= 直感どおりに動かすため)。
+            List<String> done = new ArrayList<>(PlayerData.of(player).achievedIds());
+            boolean progressed = true;
+            while (progressed) {
+                progressed = false;
+                for (AchievementsConfig.Achievement achievement : targets) {
+                    if (!done.contains(achievement.id()) && gateOpen(achievement, done)
+                            && statisticReached(player, achievement) && grant(player, achievement)) {
+                        done.add(achievement.id());
+                        progressed = true;
+                    }
                 }
-                if (statisticReached(player, achievement)) {
-                    grant(player, achievement);
+                for (AchievementsConfig.Achievement achievement : collectionTargets) {
+                    if (!done.contains(achievement.id()) && gateOpen(achievement, done)
+                            && collectionReached(player, achievement) && grant(player, achievement)) {
+                        done.add(achievement.id());
+                        progressed = true;
+                    }
+                }
+                // advancement 型の取りこぼし回収 (2026-07-29): 前提未達成の時点でバニラ進捗を
+                // 完了していると PlayerAdvancementDoneEvent は二度と飛ばないため、イベントだけに
+                // 頼ると「前提を後から満たしても永久に達成できない」状態になる。
+                // 進捗の完了状態はバニラ側に永続化されているので、ここで読み直して追いつく。
+                for (AchievementsConfig.Achievement achievement : advancementTargets) {
+                    if (!done.contains(achievement.id()) && gateOpen(achievement, done)
+                            && advancementDone(player, achievement.trigger().advancement())
+                            && grant(player, achievement)) {
+                        done.add(achievement.id());
+                        progressed = true;
+                    }
                 }
             }
-            for (AchievementsConfig.Achievement achievement : collectionTargets) {
-                if (!done.contains(achievement.id()) && collectionReached(player, achievement)) grant(player, achievement);
-            }
+        }
+    }
+
+    /**
+     * 前提アチーブメントを満たしているか。<b>達成そのものを縛る</b>(2026-07-29 ユーザー確定)ので、
+     * ここが false の間はトリガー条件を満たしていても達成にしない(報酬も出ない)。
+     */
+    private static boolean gateOpen(AchievementsConfig.Achievement achievement, List<String> achievedIds) {
+        return AchievementsConfig.prerequisitesMet(achievement, achievedIds);
+    }
+
+    /** バニラ進捗が完了済みか。キーが解決できない(未知/データパック未導入)場合は false。 */
+    private boolean advancementDone(Player player, String advancementKey) {
+        if (advancementKey == null || advancementKey.isBlank()) {
+            return false;
+        }
+        NamespacedKey key = NamespacedKey.fromString(advancementKey);
+        if (key == null) {
+            return false;
+        }
+        try {
+            Advancement advancement = Bukkit.getAdvancement(key);
+            // 2026-07-29: getAdvancement 自体が投げる実装(MockBukkit)があるので try の内側に置く。
+            // 外に出すとテストが「失敗」ではなく「中断」になり、静かに素通りする。
+            return advancement != null && player.getAdvancementProgress(advancement).isDone();
+        } catch (RuntimeException ex) {
+            // 進捗APIが未実装/未登録キーの環境では静かに「未達成」扱いにする(fail-soft)。
+            return false;
         }
     }
 
@@ -136,15 +189,20 @@ public final class AchievementService {
                 continue;
             }
             if (advancementKey.equals(achievement.trigger().advancement())) {
-                grant(player, achievement);
+                // 前提未達成ならここでは何もしない。前提が後から満たされた分は
+                // pollStatistics() の advancement 回収パスが拾う(イベントは二度と飛ばないため)。
+                if (gateOpen(achievement, done)) {
+                    grant(player, achievement);
+                }
             }
         }
     }
 
-    private void grant(Player player, AchievementsConfig.Achievement achievement) {
+    /** @return 実際に達成扱いになったら true(既に達成済みなら false)。 */
+    private boolean grant(Player player, AchievementsConfig.Achievement achievement) {
         PlayerData data = PlayerData.of(player);
         if (!data.markAchieved(achievement.id())) {
-            return; // 別経路で同tick中に既に達成済み扱いになっていた(冪等)。
+            return false; // 別経路で同tick中に既に達成済み扱いになっていた(冪等)。
         }
         Component message = Component.text("アチーブメント達成: ", NamedTextColor.GOLD)
                 .append(Component.text(achievement.displayName(), NamedTextColor.YELLOW));
@@ -178,6 +236,7 @@ public final class AchievementService {
         if (perkAttributeApplier != null) {
             perkAttributeApplier.apply(player);
         }
+        return true;
     }
 
     /**

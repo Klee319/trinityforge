@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Selects dependency-free item models for the native skill-tree GUI. */
-final class SkillTreeGuiVisuals {
+public final class SkillTreeGuiVisuals {
 
     private static final Map<String, Visual> CONTROLS = Map.of(
             "move-nw", new Visual(Material.ARROW, "gui/skilltree_nw"),
@@ -52,7 +52,7 @@ final class SkillTreeGuiVisuals {
     private SkillTreeGuiVisuals() {
     }
 
-    static Visual node(boolean unlocked, boolean unlockable, boolean pending, Material configuredIcon) {
+    public static Visual node(boolean unlocked, boolean unlockable, boolean pending, Material configuredIcon) {
         Objects.requireNonNull(configuredIcon, "configuredIcon");
         if (unlocked) {
             // 解放済みノードは共通モデル(gui/node_unlocked)ではなく、editorで指定されたperkアイコンを
@@ -68,7 +68,7 @@ final class SkillTreeGuiVisuals {
         return new Visual(configuredIcon, null);
     }
 
-    static Visual control(String action) {
+    public static Visual control(String action) {
         Visual visual = CONTROLS.get(action);
         if (visual == null) {
             throw new IllegalArgumentException("unknown skill-tree control: " + action);
@@ -76,7 +76,7 @@ final class SkillTreeGuiVisuals {
         return visual;
     }
 
-    static Visual connector(ConnectorState state, String suffix) {
+    public static Visual connector(ConnectorState state, String suffix) {
         Objects.requireNonNull(state, "state");
         String shape = CONNECTOR_SHAPES.get(suffix);
         if (shape == null) {
@@ -90,14 +90,14 @@ final class SkillTreeGuiVisuals {
         return new Visual(material, "gui/connection/" + state.path + "_" + shape);
     }
 
-    static Visual skill(String skillId, Material fallback) {
+    public static Visual skill(String skillId, Material fallback) {
         Objects.requireNonNull(skillId, "skillId");
         Objects.requireNonNull(fallback, "fallback");
         String model = SKILL_MODELS.get(skillId);
         return new Visual(fallback, model == null ? null : "gui/skill/" + model);
     }
 
-    enum ConnectorState {
+    public enum ConnectorState {
         LOCKED("locked"),
         UNLOCKABLE("unlockable"),
         UNLOCKED("unlocked");
@@ -109,8 +109,8 @@ final class SkillTreeGuiVisuals {
         }
     }
 
-    record Visual(Material material, String itemModel) {
-        Visual {
+    public record Visual(Material material, String itemModel) {
+        public Visual {
             Objects.requireNonNull(material, "material");
         }
     }
