@@ -335,6 +335,57 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-29 1x:xx — アチーブメントのノード化（前提・分岐 / アイコン・Lore / `/achievement` GUI）
+
+ユーザー要望「アチーブメントと特殊報酬の設定欄UIが肥大化していて見にくい」「アイコン（カスタム
+アイテム含む）とアイテムカタログと同じUIで説明Loreを追加」「`/achievement` で進捗をGUI確認」
+「スキルツリーと同じ流儀のゲーム内GUI・設定欄UIで前提ノードと分岐を設定」への対応。
+TF `2715 / fail 0 / error 0 / skipped 2`（新規 21 本）、config-editor `819 / 819 pass`（新規 17 本）。
+
+**確定した仕様（ユーザー回答）**: 前提は表示順ではなく **「達成そのものを縛る」**。
+前提未達成の間はトリガー条件を満たしても達成にならず、報酬も出ない。
+
+**非自明だった点**
+
+- **`PlayerAdvancementDoneEvent` は1回しか飛ばない。** 前提未達成のときにイベントで弾いたきりに
+  すると、`type: advancement` のアチーブメントは**永久に取れなくなる**。ポーリング側で
+  `getAdvancementProgress(...).isDone()` を読み直す回収パスを足して塞いだ
+  （バニラ側が完了状態を永続化しているのでこれが唯一の後追い手段）。
+- **ポーリングは `while (progressed)` で回す必要がある。** 1パスだと親が解けた周期で子が判定
+  済みになり、子は次の1分を待たされる。親→子の連鎖を同じ周期で解く。
+- **`Bukkit.getAdvancement()` 自体が投げる実装がある**（MockBukkit）。try の外に置いていたため
+  テストが「失敗」ではなく **「中断」** になり、静かに素通りしていた（リポジトリの
+  unintended-skip ガードが検出）。try の内側へ移した。
+- **コネクタ経路探索を2つ持たない。** スキルツリー側の実装を `GridConnectorRouting` へ抽出し、
+  `SkillTreeLayout` / `SkillTreeProgressionGenerator` / `NativeSkillTreeCanvas` は委譲だけに
+  した（既存 2694 本のテストが変化しないことで等価性を担保）。アチーブメントGUIは
+  `gui/connection/*` をそのまま使うので**新規テクスチャは不要**。
+- **editor 側でID改名/削除したとき、他ノードの `parent` / `parents-any` を張り替えないと
+  「存在しない前提」になり、その枝が丸ごと達成不能になる。** 改名は追随、削除は参照落としを実装。
+  自己参照と循環は `listSelect` の `onCommit` が `false` を返して拒否する。
+- 往復ロスレスのため、表示用に実体化した空の `icon` / `lore` / `coords` / `parent` /
+  `parents-any` は保存時に落とす（開いて保存しただけで空キーが生えるのを防ぐ）。
+  ただし **lore の空行は「区切り」として意図的に置かれる**ので中身は間引かない
+  （アイテムカタログ側 `functional-items.js` と同じ扱い）。
+
+**実装**
+
+- `AchievementsConfig.Achievement` に `icon` / `lore` / `coords` / `parent` / `parents-any`。
+  `prerequisitesMet()` を public static にして GUI とサービスで同じ判定を共有。読み込み時に
+  不明ID・循環を警告。`parent` と `parents-any` はどちらも「いずれか1つ」（OR）。
+- `AchievementCanvas`（Bukkit非依存）: `coords` 明示が最優先、残りは `parent` 鎖から自動配置
+  （子を中央に寄せ、衝突は横へずらす）。不明な前提・循環・座標重複でも全ノードを描く。
+- `AchievementGui` + `/achievement`（別名 `achievements` / `ach`）: 9x5ビューポート、外周8方向の
+  移動ボタン、ノードクリックでその位置へ視点を寄せる。lore に達成状況・条件・進捗・前提の可否・
+  報酬要約を出す。
+- editor: アチーブメントを上段タブ（アチーブメント / バニラ進捗の抑止）、詳細ペインを節タブ
+  （基本 / 達成条件 / 前提・分岐 / 報酬）に分割。特殊報酬も4タブ（称号 / パーティクル /
+  パーティクルシード / 全体設定）へ。一覧は前提の深さぶん字下げして親子関係が読めるようにした。
+- `lib/schema.js`: `icon` / `lore` / `coords`(`"x,y"`) / `parent` / `parents-any` を検証。
+  存在しない前提IDと自己参照はエラー。
+
+**未配備**: TF jar は未再ビルド・未配備。
+
 ### 2026-07-29 0x:xx — editor のセレクトを全面的に日本語表示へ（ID/英語表記の一掃）
 
 ユーザー報告「アチブの設定でセレクトメニューの名称が全てID形式」「editor内のセレクトを確認し、

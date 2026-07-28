@@ -1414,6 +1414,12 @@ select.field-input option {
 }
 .achievement-list-item { text-align: left; justify-content: space-between; }
 .achievement-detail-pane { flex: 1 1 auto; min-width: 0; }
+/* 詳細ペインの節タブ (2026-07-29): 基本/達成条件/前提・分岐/報酬 の切替。 */
+.achievement-section-tabs { margin: 4px 0 10px; }
+/* 一覧の字下げ(前提の深さ)を潰さないよう、ラベルは折り返さず省略表示にする。 */
+.achievement-list-item .nav-item-label {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
 .form-field-group {
   display: flex; flex-direction: column; gap: 8px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;

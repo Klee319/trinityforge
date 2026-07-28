@@ -757,12 +757,84 @@ function validateTfCraftQuality(data, errors) {
 // ---- skill-exp.yml (tf-skill-exp) ----
 // スキルEXP獲得設定。各セクション(ars-smithing 等)はスカラー値のマップ。
 // exp-per-craft は 0以上の数値。将来のスキル追加に備え未知セクションは緩く許容する。
+function validateNonNegativeExpNumber(value, path, errors) {
+  if (value !== undefined && value !== null && (!isNumber(value) || value < 0)) {
+    errors.push(`${path}: 0以上の数値である必要があります`);
+  }
+}
+
+function validateNonNegativeExpMap(value, path, errors) {
+  if (value === undefined || value === null) return;
+  if (!isPlainObject(value)) {
+    errors.push(`${path}: マップである必要があります`);
+    return;
+  }
+  for (const [key, amount] of Object.entries(value)) {
+    validateNonNegativeExpNumber(amount, `${path}.${key}`, errors);
+  }
+}
+
+function validateKillExp(section, path, baseIsMap, errors) {
+  if (section === undefined || section === null) return;
+  if (!isPlainObject(section)) {
+    errors.push(`${path}: マップである必要があります`);
+    return;
+  }
+  if (section.enabled !== undefined && section.enabled !== null
+      && typeof section.enabled !== "boolean") {
+    errors.push(`${path}.enabled: 真偽値である必要があります`);
+  }
+  if (baseIsMap) validateNonNegativeExpMap(section.base, `${path}.base`, errors);
+  else validateNonNegativeExpNumber(section.base, `${path}.base`, errors);
+  validateNonNegativeExpNumber(section["per-mob-level"], `${path}.per-mob-level`, errors);
+  validateNonNegativeExpNumber(section["per-max-health"], `${path}.per-max-health`, errors);
+  validateNonNegativeExpMap(
+    section["entity-type-multipliers"],
+    `${path}.entity-type-multipliers`,
+    errors
+  );
+}
+
 function validateTfSkillExp(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  const removedKeys = {
+    "ars-magic": ["exp-per-cast", "exp-per-mana"],
+    combat: [
+      "exp-per-hit", "mode", "damage-scale", "mob-level-scale",
+      "same-target-cooldown-seconds", "by-skill"
+    ]
+  };
   for (const [skill, section] of Object.entries(data)) {
     if (section === undefined || section === null) continue;
+    // skill-exp.yml 直下にはスキル別マップだけでなく、戦闘EXP全体へ適用する
+    // スカラー設定もある。マップ判定より先に既知スカラーを検証しないと、
+    // エディタで正しい実ファイルをそのまま保存しても拒否してしまう。
+    if (skill === "dungeon-only-exp") {
+      if (typeof section !== "boolean") {
+        errors.push("dungeon-only-exp: 真偽値(true/false)である必要があります");
+      }
+      continue;
+    }
+    if (skill === "outside-dungeon-exp-rate") {
+      if (!isNumber(section) || section < 0) {
+        errors.push("outside-dungeon-exp-rate: 0以上の数値である必要があります");
+      }
+      continue;
+    }
     if (!isPlainObject(section)) { errors.push(`${skill}: マップである必要があります`); continue; }
+    if (skill === "gathering") {
+      const mode = section["exp-mode"];
+      if (mode !== undefined && mode !== null
+          && !["drop_sum", "block_value", "max"].includes(mode)) {
+        errors.push("gathering.exp-mode: ドロップ合計・破壊ブロック基準・大きい方を採用から選択してください");
+      }
+    }
+    for (const key of removedKeys[skill] || []) {
+      if (Object.prototype.hasOwnProperty.call(section, key)) {
+        errors.push(`${skill}.${key}: 廃止された設定キーです。現行のEXP設定へ移行してください`);
+      }
+    }
     if (skill === "exp-display") {
       if (section.mode !== undefined && section.mode !== null && typeof section.mode !== "string") {
         errors.push("exp-display.mode: 文字列である必要があります");
@@ -816,24 +888,27 @@ function validateTfSkillExp(data, errors) {
     if (exp !== undefined && exp !== null && (!isNumber(exp) || exp < 0)) {
       errors.push(`${skill}.exp-per-craft: 0以上の数値である必要があります`);
     }
-    if (skill === "combat") {
-      if (section["exp-per-hit"] !== undefined && section["exp-per-hit"] !== null
-        && (!isNumber(section["exp-per-hit"]) || section["exp-per-hit"] < 0)) {
-        errors.push("combat.exp-per-hit: 0以上の数値である必要があります");
-      }
-      if (section["same-target-cooldown-seconds"] !== undefined && section["same-target-cooldown-seconds"] !== null
-        && (!isNumber(section["same-target-cooldown-seconds"]) || section["same-target-cooldown-seconds"] < 0)) {
-        errors.push("combat.same-target-cooldown-seconds: 0以上の数値である必要があります");
-      }
-      const bySkill = section["by-skill"];
-      if (bySkill !== undefined && bySkill !== null) {
-        if (!isPlainObject(bySkill)) errors.push("combat.by-skill: マップである必要があります");
-        else for (const [k, v] of Object.entries(bySkill)) {
-          if (v !== undefined && v !== null && (!isNumber(v) || v < 0)) {
-            errors.push(`combat.by-skill.${k}: 0以上の数値である必要があります`);
+    if (skill === "ars-magic") {
+      validateKillExp(section["kill-exp"], "ars-magic.kill-exp", false, errors);
+      const blockBreak = section["block-break-exp"];
+      if (blockBreak !== undefined && blockBreak !== null) {
+        if (!isPlainObject(blockBreak)) {
+          errors.push("ars-magic.block-break-exp: マップである必要があります");
+        } else {
+          if (blockBreak.enabled !== undefined && blockBreak.enabled !== null
+              && typeof blockBreak.enabled !== "boolean") {
+            errors.push("ars-magic.block-break-exp.enabled: 真偽値である必要があります");
           }
+          validateNonNegativeExpNumber(
+            blockBreak["source-multiplier"],
+            "ars-magic.block-break-exp.source-multiplier",
+            errors
+          );
         }
       }
+    }
+    if (skill === "combat") {
+      validateKillExp(section["kill-exp"], "combat.kill-exp", true, errors);
     }
   }
 }
@@ -2321,6 +2396,53 @@ function validateTfAchievements(data, errors) {
     }
     if (entry.broadcast !== undefined && entry.broadcast !== null && typeof entry.broadcast !== "boolean") {
       errors.push(`${prefix}.broadcast: 真偽値である必要があります`);
+    }
+    // アイコン/説明Lore/前提・配置 (2026-07-29)。前提は「達成そのものを縛る」ので、
+    // 不明IDや自己参照をここで止めないと「条件を満たしても永久に取れない」定義が通ってしまう。
+    if (entry.icon !== undefined && entry.icon !== null && typeof entry.icon !== "string") {
+      errors.push(`${prefix}.icon: 文字列(カタログID / custom:ID / Material名)である必要があります`);
+    }
+    if (entry.lore !== undefined && entry.lore !== null) {
+      if (!Array.isArray(entry.lore)) errors.push(`${prefix}.lore: 配列である必要があります`);
+      else entry.lore.forEach((v, i) => {
+        if (typeof v !== "string") errors.push(`${prefix}.lore[${i}]: 文字列である必要があります`);
+      });
+    }
+    if (entry.coords !== undefined && entry.coords !== null) {
+      if (typeof entry.coords !== "string") {
+        errors.push(`${prefix}.coords: "x,y" 形式の文字列である必要があります`);
+      } else if (entry.coords.trim() !== "" && !/^-?\d+\s*,\s*-?\d+$/.test(entry.coords.trim())) {
+        errors.push(`${prefix}.coords: "x,y" 形式(整数2つ)である必要があります: ${entry.coords}`);
+      }
+    }
+    if (entry.parent !== undefined && entry.parent !== null) {
+      if (typeof entry.parent !== "string") {
+        errors.push(`${prefix}.parent: アチーブメントID(文字列)である必要があります`);
+      } else if (entry.parent.trim() !== "") {
+        const parent = entry.parent.trim();
+        if (parent === id) errors.push(`${prefix}.parent: 自分自身を前提にはできません`);
+        else if (!Object.prototype.hasOwnProperty.call(achievements, parent)) {
+          errors.push(`${prefix}.parent: 存在しないアチーブメントIDです: ${parent}`);
+        }
+      }
+    }
+    const parentsAny = entry["parents-any"];
+    if (parentsAny !== undefined && parentsAny !== null) {
+      if (!Array.isArray(parentsAny)) {
+        errors.push(`${prefix}.parents-any: 配列である必要があります`);
+      } else {
+        parentsAny.forEach((v, i) => {
+          if (typeof v !== "string" || !v.trim()) {
+            errors.push(`${prefix}.parents-any[${i}]: アチーブメントID(文字列)である必要があります`);
+            return;
+          }
+          const ref = v.trim();
+          if (ref === id) errors.push(`${prefix}.parents-any[${i}]: 自分自身を前提にはできません`);
+          else if (!Object.prototype.hasOwnProperty.call(achievements, ref)) {
+            errors.push(`${prefix}.parents-any[${i}]: 存在しないアチーブメントIDです: ${ref}`);
+          }
+        });
+      }
     }
     const trigger = entry.trigger;
     if (trigger === undefined || trigger === null) {

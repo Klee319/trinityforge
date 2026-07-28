@@ -190,7 +190,9 @@
       const next = input.value.trim();
       if (next === id) return;
       renameKey(map, id, next);
-      onRenamed();
+      // 2026-07-29: 参照(アチーブメントの parent / parents-any)を追随させたい呼び元のため、
+      // 新旧IDを渡す。既存の呼び元は引数を無視するだけなので影響しない。
+      onRenamed(next, id);
     });
     return input;
   }
@@ -584,7 +586,13 @@
     // 値を触らないまま保存しても消えはしない(working をそのまま返す往復ロスレス方式)が、
     // 「GUIから編集できない設定」が1つ残るのでここへ出す。
     const display = ensureObj(working, "display", {});
-    root.appendChild(card(
+    // 2026-07-29: 全体設定2枚 + 称号/パーティクル/シードの一覧3枚が縦積みで、下のシードを
+    // 直すたびに全部スクロールしていた。タブに割って1画面1関心にする。
+    const generalPane = h("div");
+    const titlesPane = h("div");
+    const particlesPane = h("div");
+    const seedsPane = h("div");
+    generalPane.appendChild(card(
       [h("span", { class: "entry-key-label", text: "称号の頭上表示 (display)" })],
       [h("div", { class: "field-grid" }, [
         field("頭上オフセットY (ブロック)", window.numberInput(
@@ -595,7 +603,7 @@
           + "次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映。")
       ])]
     ));
-    root.appendChild(card(
+    generalPane.appendChild(card(
       [h("span", { class: "entry-key-label", text: "孤児化した付与分の自動剥奪 (prune-orphaned-grants)" })],
       [h("div", { class: "field-grid" }, [
         field("有効にする", window.checkboxInput(working["prune-orphaned-grants"] !== false, (v) => {
@@ -606,13 +614,42 @@
           + "自動でスキップする(壊れた設定を「全部未定義」と誤判定して全員の報酬を消し飛ばす事故を防ぐため)。")
       ])]
     ));
-    root.appendChild(card([h("span", { class: "entry-key-label", text: "称号 (titles)" })], [titlesBody]));
-    root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクル (particles)" })], [particlesBody]));
-    root.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクルシード (particle-seeds)" })], [seedsBody]));
+    titlesPane.appendChild(card([h("span", { class: "entry-key-label", text: "称号 (titles)" })], [titlesBody]));
+    particlesPane.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクル (particles)" })], [particlesBody]));
+    seedsPane.appendChild(card([h("span", { class: "entry-key-label", text: "パーティクルシード (particle-seeds)" })], [seedsBody]));
 
     renderTitles();
     renderParticles();
     renderSeeds();
+
+    const SPECIAL_TABS = [
+      { id: "titles", label: "称号", pane: titlesPane },
+      { id: "particles", label: "パーティクル", pane: particlesPane },
+      { id: "seeds", label: "パーティクルシード", pane: seedsPane },
+      { id: "general", label: "全体設定", pane: generalPane }
+    ];
+    let activeSpecialTab = "titles";
+    const specialTabs = h("div", { class: "recipe-tabs cf-tabs", role: "tablist" });
+    const specialBody = h("div", { class: "cf-body" });
+    root.appendChild(specialTabs);
+    root.appendChild(specialBody);
+    function renderSpecialTabs() {
+      specialTabs.innerHTML = "";
+      for (const tab of SPECIAL_TABS) {
+        specialTabs.appendChild(h("button", {
+          class: "recipe-tab" + (activeSpecialTab === tab.id ? " active" : ""),
+          type: "button", role: "tab", "aria-selected": activeSpecialTab === tab.id ? "true" : "false",
+          onclick: () => { activeSpecialTab = tab.id; renderSpecialTabs(); renderSpecialBody(); }
+        }, [h("span", { text: tab.label })]));
+      }
+    }
+    function renderSpecialBody() {
+      specialBody.innerHTML = "";
+      const tab = SPECIAL_TABS.find((t) => t.id === activeSpecialTab) || SPECIAL_TABS[0];
+      specialBody.appendChild(tab.pane);
+    }
+    renderSpecialTabs();
+    renderSpecialBody();
 
     return { element: root, getData: () => working };
   };
@@ -655,6 +692,155 @@
     });
   }
 
+  // ---- 前提・分岐 (2026-07-29) ----------------------------------------------
+  // achievements.yml の parent / parents-any / coords をスキルツリーと同じ感覚で編集する。
+  // 前提は「達成そのものを縛る」(ユーザー確定方針)ので、ここを間違えると永久に取れない
+  // 定義ができる。自分自身の指定と循環はUIの段階で拒否する。
+  function achievementNodeLabel(achievements, id) {
+    const entry = achievements[id];
+    const name = entry && typeof entry === "object" ? entry["display-name"] : null;
+    return name && String(name).trim() ? String(name) : id;
+  }
+  /** from から parent 鎖をたどって target に到達するか(循環検出)。 */
+  function reachesViaParent(achievements, from, target) {
+    const seen = new Set();
+    let cur = from;
+    while (cur && !seen.has(cur)) {
+      if (cur === target) return true;
+      seen.add(cur);
+      const entry = achievements[cur];
+      cur = entry && typeof entry === "object" && typeof entry.parent === "string"
+        ? entry.parent.trim() : null;
+    }
+    return false;
+  }
+  /** parent 鎖の深さ(起点=0)。循環・不明IDは 0 扱いで止める(一覧描画を落とさない)。 */
+  function prerequisiteDepth(achievements, id) {
+    const seen = new Set();
+    let depth = 0;
+    let cur = id;
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      const entry = achievements[cur];
+      const parent = entry && typeof entry === "object" && typeof entry.parent === "string"
+        ? entry.parent.trim() : "";
+      if (!parent || !achievements[parent]) return depth;
+      depth += 1;
+      cur = parent;
+    }
+    return depth;
+  }
+  const GATE_NONE = "__none__";
+  // ヘッドレステスト(window スタブ)では alert が無いので握りつぶす。拒否そのものは戻り値で行う。
+  function gateAlert(message) {
+    if (typeof window !== "undefined" && typeof window.alert === "function") window.alert(message);
+  }
+  /** ID改名/削除に前提参照を追随させる。newId=null なら参照を落とす。純関数ではなく in-place。 */
+  function remapPrerequisiteIds(achievements, oldId, newId) {
+    if (!oldId) return;
+    for (const entry of Object.values(achievements)) {
+      if (!entry || typeof entry !== "object") continue;
+      if (typeof entry.parent === "string" && entry.parent.trim() === oldId) {
+        if (newId) entry.parent = newId; else delete entry.parent;
+      }
+      if (Array.isArray(entry["parents-any"])) {
+        entry["parents-any"] = entry["parents-any"]
+          .map((v) => (typeof v === "string" && v.trim() === oldId ? newId : v))
+          .filter((v) => typeof v === "string" && v.trim() !== "");
+      }
+    }
+  }
+  function buildGateFields(entry, achievements, selfId, rerender) {
+    const out = [];
+    const others = Object.keys(achievements).filter((id) => id !== selfId);
+    const optionOf = (id) => ({ value: id, primary: achievementNodeLabel(achievements, id), secondary: id });
+
+    const parent = typeof entry.parent === "string" ? entry.parent.trim() : "";
+    const parentOptions = [{ value: GATE_NONE, primary: "(前提なし・起点にする)", secondary: "" }]
+      .concat(others.map(optionOf));
+    if (parent && !others.includes(parent)) {
+      parentOptions.push({ value: parent, primary: parent, secondary: "存在しないID" });
+    }
+    out.push(field("前提アチーブメント (parent)", window.listSelect({
+      value: parent || GATE_NONE,
+      options: parentOptions,
+      placeholder: "前提を選択…",
+      onCommit: (v) => {
+        const next = v === GATE_NONE ? "" : String(v || "");
+        if (next && reachesViaParent(achievements, next, selfId)) {
+          gateAlert("循環しています: " + achievementNodeLabel(achievements, next)
+            + " は(親をたどると)このアチーブメント自身に戻ります。");
+          return false;
+        }
+        if (next) entry.parent = next; else delete entry.parent;
+        rerender();
+        return true;
+      }
+    }), "これを達成するまで、条件を満たしてもこのアチーブメントは達成になりません(報酬も出ません)。"));
+
+    if (!Array.isArray(entry["parents-any"])) {
+      if (entry["parents-any"] == null) entry["parents-any"] = [];
+      else entry["parents-any"] = [];
+    }
+    const anyList = entry["parents-any"];
+    const anyBox = h("div", { class: "stat-rows" });
+    function renderAny() {
+      anyBox.innerHTML = "";
+      if (!anyList.length) anyBox.appendChild(emptyHint("分岐前提はありません。"));
+      anyList.forEach((id, idx) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(h("span", {
+          class: "range-label",
+          text: achievementNodeLabel(achievements, id) + (achievements[id] ? "" : "(存在しないID)")
+        }));
+        row.appendChild(h("span", { class: "nav-badge", text: id }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×", title: "この前提を外す",
+          onclick: () => { anyList.splice(idx, 1); renderAny(); }
+        }));
+        anyBox.appendChild(row);
+      });
+      const pool = others.filter((id) => !anyList.includes(id));
+      if (pool.length) {
+        const addRow = h("div", { class: "stat-row" });
+        addRow.appendChild(window.listSelect({
+          value: "", options: pool.map(optionOf), placeholder: "＋ 分岐前提を追加…",
+          onCommit: (v) => {
+            const next = String(v || "");
+            if (!next || anyList.includes(next)) return false;
+            if (reachesViaParent(achievements, next, selfId)) {
+              gateAlert("循環しています: " + achievementNodeLabel(achievements, next)
+                + " は(親をたどると)このアチーブメント自身に戻ります。");
+              return false;
+            }
+            anyList.push(next);
+            renderAny();
+            return true;
+          }
+        }));
+        anyBox.appendChild(addRow);
+      }
+    }
+    renderAny();
+    out.push(h("div", { class: "form-field" }, [
+      h("span", { class: "form-label", text: "分岐前提 (parents-any)" }),
+      anyBox,
+      h("div", {
+        class: "field-hint",
+        text: "「いずれか1つを達成していれば挑戦できる」合流点を作ります。parent と併記した場合も"
+          + "「どれか1つ」で開きます(AND ではありません)。"
+      })
+    ]));
+
+    if (typeof entry.coords !== "string") entry.coords = "";
+    out.push(field("GUI座標 (coords)", window.textInput(entry.coords, (v) => {
+      entry.coords = typeof v === "string" ? v.trim() : "";
+    }, "例: 4,2"), "/achievement のGUIでの位置を \"x,y\" で固定します(yは下向きに増加)。"
+      + "空欄なら parent の関係から自動配置します。まずは空欄のままで構いません。"));
+
+    return out;
+  }
+
   window.buildAchievementsForm = function buildAchievementsForm(data, options) {
     const opts = options && typeof options === "object" ? options : {};
     const specialRewardIds = Array.isArray(opts.specialRewardIds) ? opts.specialRewardIds : [];
@@ -666,14 +852,12 @@
     const achievements = working.achievements;
 
     const root = h("div", { class: "dedicated-form achievement-form" });
-    root.appendChild(formHint(
-      "左の一覧からアチーブメントを選び、右側で通知有無・トリガー・報酬を設定します。"
-    ));
 
     // vanilla-advancements (2026-07-28): サーバ側でバニラ進捗(advancement)解除自体を止める設定。
     const vanillaAdv = ensureObj(working, "vanilla-advancements", {});
     if (!Array.isArray(vanillaAdv.keep)) vanillaAdv.keep = [];
-    root.appendChild(card(
+    const vanillaPane = h("div");
+    vanillaPane.appendChild(card(
       [h("span", { class: "entry-key-label", text: "バニラ進捗の解除抑止 (vanilla-advancements)" })],
       [h("div", { class: "field-grid" }, [
         field("バニラ進捗解除を止める (disabled)", window.checkboxInput(vanillaAdv.disabled !== false, (v) => {
@@ -693,7 +877,7 @@
         }),
         "上記以外で解除を通したい進捗キーの前方一致リスト(namespace:path形式、例: \"minecraft:story/\")。")])
     ));
-    root.appendChild(formHint(
+    vanillaPane.appendChild(formHint(
       "相互作用の注意: trigger.type: advancement のTFアチーブメントは、disabled=true にすると"
       + "PlayerAdvancementCriterionGrantEvent自体がキャンセルされて永久に達成不能になる"
       + "(type: advancementの定義が1件以上あるのにdisabled=trueだと起動時にコンソールへ警告が出る)。"
@@ -704,9 +888,48 @@
     const detailPane = h("div", { class: "achievement-detail-pane" });
     layout.appendChild(listPane);
     layout.appendChild(detailPane);
-    root.appendChild(layout);
+
+    // 2026-07-29: 1画面に「バニラ進捗の抑止」「一覧」「1件の全設定」が縦積みで、アチーブメントを
+    // 1つ直すたびに長距離スクロールしていた。上段タブで別画面に割り、詳細側も節タブに割る。
+    const listTop = h("div");
+    listTop.appendChild(formHint(
+      "左の一覧からアチーブメントを選び、右側のタブで基本情報・条件・前提・報酬を設定します。"
+    ));
+    listTop.appendChild(layout);
+    const ACHIEVEMENT_TABS = [
+      { id: "list", label: "アチーブメント", pane: listTop },
+      { id: "vanilla", label: "バニラ進捗の抑止", pane: vanillaPane }
+    ];
+    let activeTab = "list";
+    const tabsEl = h("div", { class: "recipe-tabs cf-tabs", role: "tablist" });
+    const tabBody = h("div", { class: "cf-body" });
+    root.appendChild(tabsEl);
+    root.appendChild(tabBody);
+    function renderTabs() {
+      tabsEl.innerHTML = "";
+      for (const tab of ACHIEVEMENT_TABS) {
+        tabsEl.appendChild(h("button", {
+          class: "recipe-tab" + (activeTab === tab.id ? " active" : ""),
+          type: "button", role: "tab", "aria-selected": activeTab === tab.id ? "true" : "false",
+          onclick: () => { activeTab = tab.id; renderTabs(); renderTabBody(); }
+        }, [h("span", { text: tab.label })]));
+      }
+    }
+    function renderTabBody() {
+      tabBody.innerHTML = "";
+      const tab = ACHIEVEMENT_TABS.find((t) => t.id === activeTab) || ACHIEVEMENT_TABS[0];
+      tabBody.appendChild(tab.pane);
+    }
 
     let selectedId = Object.keys(achievements)[0] || null;
+    // 詳細ペインの節タブ。選択IDを跨いでも保つ(同じ節を続けて直したいことが多いため)。
+    const DETAIL_SECTIONS = [
+      { id: "basic", label: "基本" },
+      { id: "trigger", label: "達成条件" },
+      { id: "gate", label: "前提・分岐" },
+      { id: "rewards", label: "報酬" }
+    ];
+    let activeSection = "basic";
 
     function renderList() {
       listPane.innerHTML = "";
@@ -714,12 +937,19 @@
       if (!ids.length) listPane.appendChild(emptyHint("アチーブメントがありません。"));
       for (const id of ids) {
         const entry = achievements[id] || {};
+        // 前提の深さぶん字下げして、一覧のままノードの親子関係が読めるようにする(2026-07-29)。
+        const depth = prerequisiteDepth(achievements, id);
+        const branches = Array.isArray(entry["parents-any"]) ? entry["parents-any"].length : 0;
         listPane.appendChild(h("button", {
           class: "nav-item achievement-list-item" + (id === selectedId ? " active" : ""),
           type: "button",
           onclick: () => { selectedId = id; renderList(); renderDetail(); }
         }, [
-          h("span", { class: "nav-item-label", text: (entry["display-name"] || id) }),
+          h("span", {
+            class: "nav-item-label",
+            text: (depth > 0 ? "　".repeat(depth) + "└ " : "") + (entry["display-name"] || id)
+              + (branches ? " (分岐" + branches + ")" : "")
+          }),
           h("span", { class: "nav-badge", text: id })
         ]));
       }
@@ -753,17 +983,23 @@
 
       const head = h("div", { class: "entry-head-row" }, [
         h("span", { class: "range-label", text: "ID" }),
-        idRenameInput(achievements, selectedId, () => {
+        idRenameInput(achievements, selectedId, (nextId, oldId) => {
           // renameKey 後、選択IDを追従させてから再描画
           const ids = Object.keys(achievements);
           selectedId = ids.find((k) => achievements[k] === entry) || selectedId;
+          // 前提として自分を指している他ノードの参照も張り替える。放置すると
+          // 「存在しない前提」になり、その枝が丸ごと永久に達成不能になる。
+          remapPrerequisiteIds(achievements, oldId, nextId);
           renderList();
           renderDetail();
         }),
         h("button", {
           class: "btn-small danger", type: "button", text: "削除",
           onclick: () => {
+            const removed = selectedId;
             delete achievements[selectedId];
+            // 削除したIDを前提に持つノードから参照を落とす(残すと達成不能になる)。
+            remapPrerequisiteIds(achievements, removed, null);
             selectedId = Object.keys(achievements)[0] || null;
             renderList();
             renderDetail();
@@ -771,10 +1007,33 @@
         })
       ]);
 
-      const body = [];
-      body.push(field("表示名 (display-name)", window.textInput(entry["display-name"] || "", (v) => {
+      // 節ごとの中身。表示は活性な節だけ(肥大化対策)だが、生成は全節ぶん行う。
+      const sections = { basic: [], trigger: [], gate: [], rewards: [] };
+      sections.basic.push(field("表示名 (display-name)", window.textInput(entry["display-name"] || "", (v) => {
         entry["display-name"] = v;
       }, "ジャンプ王")));
+
+      // アイコン (2026-07-29): /achievement のGUIに出すアイテム。カタログID・custom:・バニラ
+      // Material のどれでも書ける。空欄なら紙(PAPER)。報酬アイテム欄と同じセレクトを使う。
+      if (typeof entry.icon !== "string") entry.icon = "";
+      sections.basic.push(field("アイコン (icon)", window.itemRefSelect({
+        value: entry.icon,
+        catalogCandidates: opts.catalogCandidates,
+        onChange: (v) => { entry.icon = v || ""; },
+        placeholder: "アイコンを選択…(空欄=紙)"
+      }), "/achievement のGUIでこのアチーブメントに使うアイテム。カタログの独自アイテムも選べます。"
+        + "空欄のままなら PAPER が使われます。"));
+
+      // 説明Lore (2026-07-29): アイテムカタログと同じ複数行エディタ(MiniMessage)。
+      if (!Array.isArray(entry.lore)) entry.lore = [];
+      sections.basic.push(h("div", { class: "form-field" }, [
+        h("span", { class: "form-label", text: "説明Lore (lore)" }),
+        window.renderLoreRows(entry.lore, "minimessage", () => {}, () => renderDetail()),
+        h("div", {
+          class: "field-hint",
+          text: "GUIのアイテム説明に達成状況・条件行と一緒に並びます。MiniMessage記法が使えます。"
+        })
+      ]));
 
       const triggerBody = h("div", { class: "form-field-group" });
       function renderTriggerFields() {
@@ -951,12 +1210,19 @@
         }
       }
       renderTriggerFields();
-      body.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "トリガー" }), triggerBody]));
+      sections.trigger.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "トリガー" }), triggerBody]));
 
-      body.push(h("label", { class: "inline-check" }, [
+      sections.basic.push(h("label", { class: "inline-check" }, [
         window.checkboxInput(!!entry.broadcast, (v) => { entry.broadcast = !!v; }),
         h("span", { text: "サーバ通知 (broadcast) — 達成時に全体通知" })
       ]));
+
+      // ---- 前提・分岐 (2026-07-29): スキルツリーと同じ「親→子」でノードをつなぐ ----
+      // parent は単一の必須前提、parents-any は「いずれか1つ」。両方書いた場合は
+      // Java 側 prerequisitesMet() と同じく OR (どれか1つ満たせば開く)。
+      for (const el of buildGateFields(entry, achievements, selectedId, renderDetail)) {
+        sections.gate.push(el);
+      }
 
       // rewards.special: 候補から複数選択して追加、行ごとに削除
       const specialBox = h("div", { class: "stat-rows" });
@@ -984,20 +1250,31 @@
         }
       }
       renderSpecial();
-      body.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "特殊報酬 (rewards.special)" }), specialBox]));
+      sections.rewards.push(h("div", { class: "form-field" }, [h("span", { class: "form-label", text: "特殊報酬 (rewards.special)" }), specialBox]));
 
-      body.push(h("div", { class: "form-field" }, [
+      sections.rewards.push(h("div", { class: "form-field" }, [
         h("span", { class: "form-label", text: "コンソールコマンド (rewards.commands)" }),
         stringListEditor(entry.rewards.commands, { addLabel: "+ コマンド追加", placeholder: "give %player% diamond 1", empty: "コマンドがありません。" })
       ]));
 
-      for (const el of buildRewardExtrasFields(entry.rewards, opts.catalogCandidates)) body.push(el);
+      for (const el of buildRewardExtrasFields(entry.rewards, opts.catalogCandidates)) sections.rewards.push(el);
 
-      detailPane.appendChild(card([head], body));
+      const sectionTabs = h("div", { class: "recipe-tabs cf-tabs achievement-section-tabs", role: "tablist" });
+      for (const sec of DETAIL_SECTIONS) {
+        sectionTabs.appendChild(h("button", {
+          class: "recipe-tab" + (activeSection === sec.id ? " active" : ""),
+          type: "button", role: "tab", "aria-selected": activeSection === sec.id ? "true" : "false",
+          onclick: () => { activeSection = sec.id; renderDetail(); }
+        }, [h("span", { text: sec.label })]));
+      }
+      const active = sections[activeSection] || sections.basic;
+      detailPane.appendChild(card([head], [sectionTabs].concat(active)));
     }
 
     renderList();
     renderDetail();
+    renderTabs();
+    renderTabBody();
 
     return {
       element: root,
@@ -1007,6 +1284,18 @@
           if (entry.rewards && typeof entry.rewards === "object") {
             entry.rewards.commands = filterNonEmptyStrings(entry.rewards.commands);
             filterRewardExtras(entry.rewards);
+          }
+          // 2026-07-29: 表示用に実体化した空欄をYAMLへ書き出さない(既存ファイルを
+          // 開いて保存しただけで icon: "" / lore: [] が生えるのを避ける)。
+          if (typeof entry.icon === "string" && entry.icon.trim() === "") delete entry.icon;
+          // lore の空行は「区切り」として意図的に置かれるので中身は間引かない
+          // (アイテムカタログ側 functional-items.js と同じ扱い)。空配列だけ落とす。
+          if (Array.isArray(entry.lore) && entry.lore.length === 0) delete entry.lore;
+          if (typeof entry.coords === "string" && entry.coords.trim() === "") delete entry.coords;
+          if (typeof entry.parent === "string" && entry.parent.trim() === "") delete entry.parent;
+          if (Array.isArray(entry["parents-any"])) {
+            entry["parents-any"] = filterNonEmptyStrings(entry["parents-any"]);
+            if (!entry["parents-any"].length) delete entry["parents-any"];
           }
         }
         return working;

@@ -63,6 +63,9 @@ function setupDom() {
   };
 
   global.window.MATERIALS = ["DIAMOND", "IRON_INGOT"];
+  // 2026-07-29: アチーブメントの「基本」節に説明Lore(forms.js の共通lore行エディタ)が入った。
+  // forms.js は document を直接触るのでここでは読み込まず、行数だけ数えられるスタブにする。
+  global.window.renderLoreRows = (arr) => makeEl("div", { class: "lore-rows", loreLength: arr.length });
 
   delete require.cache[require.resolve("../public/js/tf-rewards-forms.js")];
   require("../public/js/tf-rewards-forms.js");
