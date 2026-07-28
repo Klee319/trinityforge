@@ -31,7 +31,7 @@
 | `EliteMobs.jar`（全同梱 uberjar）| 2026-07-26 16:20 ビルド → **配備済み** |
 | 実サーバへの配備 | **完了**（yml 42 本＋jar 3 本）。バックアップ = `plugins/.deploy-backups/20260727_114327/`。W-6 / W-7 で変更した `skilltree/light_armor.yml` / `heavy_armor.yml` は **12:37 に config-editor 経由で再配備済み**（下記「配備手段」参照） |
 | 配備手段 | **config-editor の保存が `deployPaths` へ自動ミラーする**（`server.js#mirrorToDeploy`）。`D:/` への直接書き込みが権限で止まる場合でも、editor の `PUT /api/config/:id` で保存すれば SoT と配備先の両方が同時に更新される。**ただし保存は yml を再シリアライズするので本文コメントが消える**（→ §5） |
-| サーバ稼働 | **稼働中（2026-07-28 04:28 起動、04:14 ビルドの jar が載っている）**。3 台とも `Done`・TF/ArsPaper 起因のエラー 0・プレイヤー 2 名が再接続済み。**HuskSync もこの起動では enable 成功**（MariaDB 認証が直っている） |
+| サーバ稼働 | **全台停止中（2026-07-28 20:0x 実測）**。java.exe は Gradle デーモン 2 本のみ・25565/25566/25567/25577/25580 いずれも LISTEN なし。**19:20 ビルドの TF / ArsPaper jar は 3 台とも配備済み**（→ §7 の 19:0x エントリ）。次に `launch\start-all.cmd` で起動すれば新版が載る。（前回起動は 04:28、そのときは 3 台とも `Done`・HuskSync も enable 成功） |
 | ~~**最優先の配備（2026-07-28 実サーバ報告 ①）** `skilltree/smithing.yml` の `recipe:` ゲート 41 件が未配備~~ | **解決（2026-07-28 04:0x 確認）**。配備先 `Main_Server/plugins/TrinityForge/skilltree/smithing.yml` を grep したところ `recipe:` ゲートは 0 件（残っているのは撤去を説明するコメントのみ）。**なお「作業台が作れない」はこのゲートとは無関係だった**（真因は ArsPaper の `plank_scrap` レシピ、→ §7 の 2026-07-28 エントリ） |
 | **HuskSync が起動できていない（2026-07-28 03:40 のログで真因確定）** | **真因は MariaDB の認証失敗**: `1045-28000: Access denied for user 'husksync'@'localhost' (using password: YES)` → `Failed to initialize MariaDB database connection`。**Redis は原因ではない**（同じ起動で LuckPerms が `storage provider [MARIADB]` と `messaging service [REDIS]` の両方に接続成功しており、MariaDB も Garnet も生きている）。`RedisManager.terminate()` の NPE は初期化途中で落ちたときの shutdown 経路の副作用にすぎない（RUNBOOK §トラブルシュートにも「無視してよい」とある）。**以前の記録の「Redis 未接続が原因」は誤り**。`husksync` アカウントが未作成か、`plugins/HuskSync/config.yml` の password が GRANT 時の値と違うかのどちらか。**サーバ起動は止まらないので気づきにくい**（→ §5）。**`preflight.ps1` はこれを検出できない** — TCP 到達性と「生成時の既定値のままでないか」しか見ておらず、実際に認証を試さないため素通りする |
 | ~~**最優先の配備（2026-07-28 04:14 ビルド）** クラフト複製の真因修正と「作業台が作れない」の修正~~ | **配備完了（2026-07-28 04:26、`tmp\deploy-20260728-craftfix.cmd`）**。TF / ArsPaper の jar を 3 バックエンドへ、計 6 本すべて **MD5 一致で検証済み**。04:28 に `launch\start-all.cmd` で起動し全台 `Done`。旧版は `Main_Server\plugins\.deploy-backups\20260728_craftfix\`。**実ゲームでの動作確認だけ未実施**（リザルトから取っても素材が減ること／板材 2×2 で作業台が出ること） |
@@ -339,7 +339,22 @@ git 系（2026-07-27 に導入）:
 
 ユーザー要望 6 件をまとめて実装。検証は実走・実測: TF `BUILD SUCCESSFUL`・`fail 0 / skip 2`（既知の
 2 件のみ）、config-editor `780 / 780 pass`、ArsPaper フォーク `BUILD SUCCESSFUL`。
-jar は TF / ArsPaper とも 19:0x に再ビルド済み → **未配備**（フル再起動が要る）。
+jar は TF / ArsPaper とも 19:20 に再ビルド済み → **配備完了（2026-07-28 20:0x）**。
+
+**配備（`tmp\deploy-20260728-2000.cmd`、全 copy 成功・MD5 一致で実測）**
+- TF jar `TrinityForge-0.1.0-SNAPSHOT-all.jar`（15,916,311 bytes / MD5 `2f9c5cae932e0f8f0be062a81211eb44`）と
+  ArsPaper jar `ArsPaper-1.0.0.jar`（979,266 bytes / MD5 `cbfe0f36b9eb2181aa436f0ccff5c933`）を
+  **Main / Resource / Dev の 3 バックエンド全部**へ。6 本すべて MD5 一致を確認。
+- yml は `combat/damage.yml` と `progression/role-buffs.yml` の 2 本を **Main へ 1 回だけ**
+  （Resource/Dev の `plugins\TrinityForge` はジャンクション共有。3 台から読んで同一 MD5 を実測）。
+  配備前に repo↔配備先を diff し、**差分が今回の追記だけ**であることを確認してから上書きした。
+- **EliteMobs は更新なしのため触っていない** — ソースは git clean、`clean shadowJar --offline` が
+  `shadowJar UP-TO-DATE`、`jar tf` のエントリ一覧がローカル/配備先とも 4174 件で `diff` 空。
+- 旧版のバックアップは `Main_Server\plugins\.deploy-backups\20260728_2000\`（jar 6 本 + yml 2 本）。
+- **配備時点でサーバは全台停止していた**（java.exe は Gradle デーモン 2 本のみ・25565/25566/25567/25577/25580
+  いずれも LISTEN なし）ため、稼働中 jar 差し替えの `NoClassDefFoundError` は発生していない。
+  **起動は未実施** — `launch\start-all.cmd` で起動すること（コマンドツリーは起動時登録なので
+  `/tf glyphs` は reload では生えない）。実ゲームでの動作確認も未実施。
 
 - **①`/tf glyphs` 新設（グリフ解放素材の閲覧GUI）** — ArsPaper 側に `GlyphBrowserGui` を新設し、
   TF 側は `ArsGlyphBrowserBridge` + `GlyphsCommand` でリフレクション委譲（`/tf recipes` と同じ形）。
