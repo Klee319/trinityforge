@@ -75,6 +75,11 @@ base-stats:
   fish-sell-price-bonus: 0
   disassembly-return-bonus: 0
   ocean-fishing-bonus: 0
+  # 2026-07-29(重複ステ間引き): mana-bonus / mana-regen は config editor の
+  # 「プレイヤー基礎ステータス」画面から隠した。全員一律値としては「マナ上限への加算」
+  # 「マナ回復量への加算」にしかならず、下の mana-max-base / mana-regen-base に足されるだけで
+  # 意味が完全に重複するため。行自体は StatVocabulary 網羅テストのために残す(アイテム/
+  # パーク側のステとしては引き続き有効で、ここに値を入れれば従来どおり効く)。
   mana-bonus: 0
   mana-regen: 0
   hit-mana-recovery: 0
@@ -85,10 +90,13 @@ base-stats:
   mana-max-base: 100
   mana-regen-base: 5
   mana-regen-interval-ticks: 20
+  # 2026-07-29(重複ステ間引き): mana-onhit-flat / mana-onattack-flat を廃止した。
+  # 「被弾/与ダメ時に固定量マナ回復」は上の hit-mana-recovery / damage-mana-recovery と
+  # 完全に同じ効果で、fork 側の2リスナーが同じイベントで別々に加算していた。
+  # hit-/damage-mana-recovery 側は装備・パーク・本ファイルの全経路を拾うので上位互換。
+  # ここに残る %系は「最大マナの何%」で意味が違うため統合しない。
   mana-onhit-percent: 0.03
-  mana-onhit-flat: 0
   mana-onattack-percent: 0.03
-  mana-onattack-flat: 0
   mana-idle-seconds: 5
   mana-idle-bonus-percent: 0.01
   mana-idle-bonus-flat: 0

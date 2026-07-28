@@ -100,11 +100,12 @@ class LoreConfigDeclarationTest {
             "armor-set-bonus",
             // 段階4(2026-07-27)調査: combat/base-stats.yml専用の「全プレイヤー共通の定数」であり
             // PlayerStatAggregatorのitem+perk合算チャネルを経由しないため、trigger.sourcesが前提とする
-            // 「合算元」の概念が当てはまらず未宣言(10キーとも同じ理由、詳細はstats/lore.ymlの
+            // 「合算元」の概念が当てはまらず未宣言(8キーとも同じ理由、詳細はstats/lore.ymlの
             // mana-max-baseコメント参照)。
+            // 2026-07-29(重複ステ間引き): mana-onhit-flat / mana-onattack-flat を廃止し、8キーへ。
             "mana-max-base", "mana-regen-base", "mana-regen-interval-ticks",
-            "mana-onhit-percent", "mana-onhit-flat", "mana-onattack-percent",
-            "mana-onattack-flat", "mana-idle-seconds", "mana-idle-bonus-percent",
+            "mana-onhit-percent", "mana-onattack-percent",
+            "mana-idle-seconds", "mana-idle-bonus-percent",
             "mana-idle-bonus-flat");
 
     // --- fixtures ------------------------------------------------------------------------------

@@ -111,7 +111,9 @@ public enum StatsCategory {
             "glyph_damage_multiplier_bonus",
             // 2026-07-25 (config editor T2): base-stats.yml 専用のマナ初期値キー(lore.yml未登録)。
             "mana_max_base", "mana_regen_base", "mana_regen_interval_ticks",
-            "mana_onhit_percent", "mana_onhit_flat", "mana_onattack_percent", "mana_onattack_flat",
+            // 2026-07-29(重複ステ間引き): mana_onhit_flat / mana_onattack_flat を廃止し、
+            // hit_mana_recovery / damage_mana_recovery へ一本化した(同じ効果の2経路だった)。
+            "mana_onhit_percent", "mana_onattack_percent",
             "mana_idle_seconds", "mana_idle_bonus_percent", "mana_idle_bonus_flat",
             // 2026-07-26 M-stats分類: Ars のティア/グリフ枠。魔導書まわりなので ARS。
             "ars_tier_bonus", "glyph_slot_bonus");

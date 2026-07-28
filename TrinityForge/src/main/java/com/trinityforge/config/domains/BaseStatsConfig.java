@@ -49,9 +49,8 @@ import java.util.logging.Logger;
  * (the percentage-bonus counterpart) is unaffected and remains a normal addend-layer key here.
  *
  * <p>2026-07-25 (config editor T2): also holds the {@code mana-max-base} / {@code mana-regen-base} /
- * {@code mana-regen-interval-ticks} / {@code mana-onhit-percent} / {@code mana-onhit-flat} /
- * {@code mana-onattack-percent} / {@code mana-onattack-flat} / {@code mana-idle-seconds} /
- * {@code mana-idle-bonus-percent} / {@code mana-idle-bonus-flat} keys — ArsPaper mana defaults
+ * {@code mana-regen-interval-ticks} / {@code mana-onhit-percent} / {@code mana-onattack-percent} /
+ * {@code mana-idle-seconds} / {@code mana-idle-bonus-percent} / {@code mana-idle-bonus-flat} keys — ArsPaper mana defaults
  * relocated here from ArsPaper's own {@code config.yml}. They are registered in
  * {@link StatVocabulary} (GENERAL channel) and {@link PercentStatNormalize} for the 3 percent keys,
  * but deliberately <b>not</b> in {@code stats/lore.yml}: lore.yml entries require a hand-maintained

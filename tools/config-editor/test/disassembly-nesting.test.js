@@ -118,18 +118,35 @@ test("説明文の情報(末尾*の意味/複数書ける)は消えておらず�
   assert.match(returnRulesCall.opts.desc, /独立に適用/, "「それぞれ独立に適用される」の説明が消えている");
 });
 
+// 2026-07-29: 対象シリーズカードを <details> の折りたたみへ変えたので、クラスは
+// "cf-mat-card cf-mat-card-collapsible" になる(返却ルールカードは従来どおり "cf-mat-card" 単体)。
+// ネストが1段減っていること(見出しと値入力がカード直下の form-field に並ぶ)は引き続き検証する。
 test("ネストが1段減っている: 見出しと値入力が itemCard 直下の同じ form-field 行にまとまっている", () => {
   setupDom();
   const result = window.buildCraftingFeaturesDisassemblySection(sampleDis());
-  // disassemblyRuleEditor (返却ルール1件ごとのエディタ)自身も同じ "cf-mat-card" クラスを使うため、
-  // 素朴な findByClass だと系列カードとルールカードの両方(2件)が見つかる。先頭要素(pre-order DFSで
-  // 最初に見つかる=一番外側)が解体対象シリーズ本体のカード。
-  const itemCards = findByClass(result, "cf-mat-card");
-  assert.equal(itemCards.length, 2,
-    `cf-mat-card は「対象シリーズ本体」1件+「返却ルール」1件の計2件見つかるはず(サンプルは返却ルール1件)。実際: ${itemCards.length}`);
+  const itemCards = findByClass(result, "cf-mat-card cf-mat-card-collapsible");
+  assert.equal(itemCards.length, 1,
+    `対象シリーズ本体のカードが1件見つかるはず。実際: ${itemCards.length}`);
+  assert.equal(itemCards[0].tag, "details", "対象シリーズカードは折りたためる <details> であること");
+  // 返却ルール1件ごとのエディタは従来どおり素の cf-mat-card。
+  assert.equal(findByClass(result, "cf-mat-card").length, 1, "返却ルールカードは1件(サンプルのルール数)");
 
   const directFormFields = itemCards[0].children.filter((c) => c && c.props && c.props.class === "form-field");
   assert.equal(directFormFields.length, 2,
     `itemCard の直接の子に form-field(対象ID行・返却ルール行)が2つあるはず。` +
     `実際の直接の子クラス: ${itemCards[0].children.map((c) => c && c.props && c.props.class).join(", ")}`);
+});
+
+// 閉じたまま一覧として読めること(対象 ID と返却ルール件数が見出しに出る)の回帰テスト。
+// 旧実装は見出しが全件「解体対象シリーズ」という同じ固定文字列で、展開しないと区別できなかった。
+test("折りたたみ見出しに対象 ID と返却ルール件数が出る", () => {
+  setupDom();
+  const result = window.buildCraftingFeaturesDisassemblySection(sampleDis());
+  const card = findByClass(result, "cf-mat-card cf-mat-card-collapsible")[0];
+  const summary = card.children.find((c) => c && c.tag === "summary");
+  assert.ok(summary, "summary(クリックで開閉する見出し)が無い");
+  const texts = summary.children.map((c) => c && c.props && c.props.text);
+  assert.ok(texts.includes("copper_*"), `見出しに対象 ID が出ていない: ${JSON.stringify(texts)}`);
+  assert.ok(texts.some((t) => typeof t === "string" && t.includes("1 件")),
+    `見出しに返却ルール件数が出ていない: ${JSON.stringify(texts)}`);
 });

@@ -19,8 +19,8 @@
     "crit-chance": "戦闘:会心率↑",
     "crit-damage": "戦闘:会心ダメ↑",
     "penetration": "戦闘:貫通率↑",
-    "flat-bonus-damage": "戦闘:追加ダメ(実)↑",
-    "percent-bonus-damage": "戦闘:追加ダメ↑",
+    "flat-bonus-damage": "戦闘:追加ダメ(実数)↑",
+    "percent-bonus-damage": "戦闘:追加ダメ率↑",
     "damage-modifier": "戦闘:ダメ補正",
     "bleed-chance": "戦闘:出血率↑",
     "bleed-damage": "戦闘:出血ダメ↑",
@@ -36,8 +36,8 @@
     "magic-flat-defense": "防御:魔法守備↑",
     "damage-reduction": "防御:被ダメ↓",
     "dodge-chance": "防御:回避率↑",
-    "reflect-flat": "防御:反射(実)↑",
-    "reflect-percent": "防御:反射(割)↑",
+    "reflect-flat": "防御:反射ダメ(実数)↑",
+    "reflect-percent": "防御:反射ダメ率↑",
     "health-regen-bonus": "防御:自然回復↑",
     "move-speed": "移動:移動速度↑",
     "gathering-efficiency": "採集:採集効率↑",
@@ -47,22 +47,20 @@
     "fish-sell-price-bonus": "釣り:売却額↑",
     "ocean-fishing-bonus": "釣り:海釣り加算↑",
     "disassembly-return-bonus": "解体:戻り量↑",
-    "mana-bonus": "Ars:最大マナ↑",
-    "mana-regen": "Ars:マナ回復↑",
-    "hit-mana-recovery": "Ars:被弾マナ回復↑",
-    "damage-mana-recovery": "Ars:攻撃マナ回復↑",
-    "mana-cost-reduction-flat": "Ars:マナ消費↓",
-    "mana-cost-reduction-percent": "Ars:マナ消費↓",
+    "mana-bonus": "Ars:最大マナ加算↑",
+    "mana-regen": "Ars:時間マナ回復加算↑",
+    "hit-mana-recovery": "Ars:被弾マナ回復(実)↑",
+    "damage-mana-recovery": "Ars:攻撃マナ回復(実)↑",
+    "mana-cost-reduction-flat": "Ars:マナ消費(実)↓",
+    "mana-cost-reduction-percent": "Ars:マナ消費率↓",
     "mana-max-base": "Ars:マナ上限(基礎)",
     "mana-regen-base": "Ars:マナ回復(基礎)",
     "mana-regen-interval-ticks": "Ars:マナ回復間隔",
     "mana-onhit-percent": "Ars:被弾マナ%↑",
-    "mana-onhit-flat": "Ars:被弾マナ(実)↑",
     "mana-onattack-percent": "Ars:攻撃マナ%↑",
-    "mana-onattack-flat": "Ars:攻撃マナ(実)↑",
     "mana-idle-seconds": "Ars:待機マナ秒数",
     "mana-idle-bonus-percent": "Ars:待機マナ%↑",
-    "mana-idle-bonus-flat": "Ars:待機マナ(実)↑",
+    "mana-idle-bonus-flat": "Ars:待機マナ(実数)↑",
     "ars-tier-bonus": "Ars:Tier追加↑",
     "glyph-slot-bonus": "Ars:グリフ枠↑",
     "glyph-damage-multiplier-bonus": "Ars:グリフ倍率↑",
@@ -173,8 +171,8 @@
     "fishing-bonus": "釣果に対する追加ボーナス。",
     "tool-enchant-efficiency": "このツール自身へ効率強化エンチャントとして適用される(ツールチップに表示され、譲渡しても効果が付いてくる)。プレイヤー総合ステータスには合算されない。装備中だけ効く集計ステとしての採集効率は gathering-efficiency(採集:採集効率) を使う。",
     "glyph-damage-multiplier-bonus": "特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat(フォーク側がどのグリフに適用するか選ぶ)。",
-    "mana-bonus": "Ars の最大マナへ加算される。装備分は Ars 側で別途集計される。",
-    "mana-regen": "Ars のマナ自然回復へ加算される。装備分は Ars 側で別途集計される。",
+    "mana-bonus": "Ars の最大マナへ加算される。装備分は Ars 側で別途集計される。全員一律の初期値は「マナ上限(基礎)」で設定する(プレイヤー基礎ステ画面には出ない)。",
+    "mana-regen": "Ars のマナ自然回復へ加算される。装備分は Ars 側で別途集計される。全員一律の初期値は「マナ回復(基礎)」で設定する(プレイヤー基礎ステ画面には出ない)。",
     "hit-mana-recovery": "この装備の所持者が被弾したときのマナ回復量。キー名 hit- は「hit を受ける=被弾」の意。",
     "damage-mana-recovery": "この装備で近接攻撃を命中させたときのマナ回復量。射撃/魔法では発動しない。",
     "thread-slots": "このアイテムにだけ設定されるスレッド装着枠数。プレイヤー総合ステータスには合算されない。",
@@ -243,9 +241,7 @@
     ,"mana-regen-interval-ticks": "base-stats.yml専用のマナ自然回復の間隔(tick)。フォークは"
       + "TrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
     ,"mana-onhit-percent": "被弾時マナ回復量への割合ボーナス(%)。ManaBaseStats.onHitPercent経由でフォークが読む。"
-    ,"mana-onhit-flat": "被弾時マナ回復量への固定ボーナス。ManaBaseStats.onHitFlat経由でフォークが読む。"
     ,"mana-onattack-percent": "攻撃時マナ回復量への割合ボーナス(%)。ManaBaseStats.onAttackPercent経由でフォークが読む。"
-    ,"mana-onattack-flat": "攻撃時マナ回復量への固定ボーナス。ManaBaseStats.onAttackFlat経由でフォークが読む。"
     ,"mana-idle-seconds": "待機(未行動)何秒でマナ回復ボーナスが発生するかの秒数。"
       + "ManaBaseStats.idleSeconds経由でフォークが読む。"
     ,"mana-idle-bonus-percent": "待機マナ回復ボーナスの割合分(%)。ManaBaseStats.idleBonusPercent経由でフォークが読む。"

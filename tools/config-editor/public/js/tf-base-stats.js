@@ -56,7 +56,14 @@
     "heavy-armor-move-speed-per-piece",
     "light-armor-move-speed-per-piece",
     "armor-set-bonus",
-    "tool-enchant-efficiency"
+    "tool-enchant-efficiency",
+    // 2026-07-29(重複ステ間引き) 理由(c): 同じ画面の別キーと完全に同じ意味になるキー。
+    // mana-bonus は「マナ上限への加算」、mana-regen は「マナ回復量への加算」で、
+    // 全員一律値としては mana-max-base / mana-regen-base に足されるだけだったため、
+    // この画面では基礎値側の2キーだけを見せる。アイテム/パークステとしては引き続き有効なので
+    // 語彙(StatVocabulary)からは消さない。既存値は保存でロスレスに温存される。
+    "mana-bonus",
+    "mana-regen"
   ]);
 
   function statLabel(key) {
@@ -119,7 +126,7 @@
   }
 
   // lore 表示の全ステキー (STAT_LIST 優先, フォールバック補完, 非表示ステ除外)。forms.js statList と同趣旨。
-  // 修正2: base-stats.yml では no-op な7キー (NO_OP_BASE_STATS_KEYS) もここで除外する。除外は表示のみで
+  // 修正2: base-stats.yml で no-op / 重複なキー (NO_OP_BASE_STATS_KEYS) もここで除外する。除外は表示のみで
   // working["base-stats"] マップ自体には触れない(既存値がある場合でも保存でロスレス温存される)。
   function allStatKeys() {
     const primary = (window.STAT_LIST && window.STAT_LIST.length) ? window.STAT_LIST : [];

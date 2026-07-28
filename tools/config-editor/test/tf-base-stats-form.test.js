@@ -155,13 +155,19 @@ const EXPECTED_NO_OP_KEYS = [
 // とは異なり、「プレイヤー総合ステではなくアイテム専用ステ(item-stats.yml側)なので、そもそも
 // この画面(base-stats)の対象外」。NO_OP_BASE_STATS_KEYS のコメント参照。
 const EXPECTED_NOT_PLAYER_STAT_KEYS = ["tool-enchant-efficiency"];
-const ALL_EXCLUDED_KEYS = [...EXPECTED_NO_OP_KEYS, ...EXPECTED_NOT_PLAYER_STAT_KEYS];
+// 2026-07-29(重複ステ間引き): さらに理由(c)として「同じ画面の別キーと意味が重複」を追加。
+// mana-bonus / mana-regen は全員一律値としては mana-max-base / mana-regen-base に足されるだけで、
+// プレイヤー基礎ステ画面に2組並べる意味がない(アイテム/パークステとしては存続)。
+const EXPECTED_REDUNDANT_KEYS = ["mana-bonus", "mana-regen"];
+const ALL_EXCLUDED_KEYS = [
+  ...EXPECTED_NO_OP_KEYS, ...EXPECTED_NOT_PLAYER_STAT_KEYS, ...EXPECTED_REDUNDANT_KEYS
+];
 
-test("NO_OP_BASE_STATS_KEYS: no-op 4キー + tool-enchant-efficiency の5キーちょうどを含む", () => {
+test("NO_OP_BASE_STATS_KEYS: no-op 4キー + アイテム専用1キー + 重複2キーちょうどを含む", () => {
   assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...ALL_EXCLUDED_KEYS].sort());
 });
 
-test("allStatKeys: no-op 4キー + tool-enchant-efficiency が除外され、通常ステは残る", () => {
+test("allStatKeys: 除外キー(no-op/アイテム専用/重複)が落ち、通常ステは残る", () => {
   const prevList = global.window.STAT_LIST;
   const prevFallback = global.window.FALLBACK_STATS;
   const prevHidden = global.window.HIDDEN_STATS;
@@ -170,7 +176,7 @@ test("allStatKeys: no-op 4キー + tool-enchant-efficiency が除外され、通
     global.window.FALLBACK_STATS = [
       "attack-power", "glyph-slot-bonus",
       "heavy-armor-move-speed-per-piece", "light-armor-move-speed-per-piece",
-      "armor-set-bonus", "tool-enchant-efficiency"
+      "armor-set-bonus", "tool-enchant-efficiency", "mana-bonus", "mana-regen"
     ];
     global.window.HIDDEN_STATS = [];
     const keys = allStatKeys();

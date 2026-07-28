@@ -146,7 +146,11 @@ public final class StatVocabulary {
             // 未登録(config editor の labels.js 全stat必須説明テストと衝突するため)。フォークは
             // TrinityForgeBridge.manaBaseStat 経由で BaseStatsConfig.stats() を直接読む。
             "mana_max_base", "mana_regen_base", "mana_regen_interval_ticks",
-            "mana_onhit_percent", "mana_onhit_flat", "mana_onattack_percent", "mana_onattack_flat",
+            // 2026-07-29(重複ステ間引き): mana_onhit_flat / mana_onattack_flat を廃止。
+            // 「被弾/与ダメ時に固定量回復」は hit_mana_recovery / damage_mana_recovery と完全に同じで、
+            // fork 側の ArmorManaListener と ManaRecoveryListener が同じイベントで別々に加算していた。
+            // 残す %系は「最大マナの何%」で意味が違うので統合対象外。
+            "mana_onhit_percent", "mana_onattack_percent",
             "mana_idle_seconds", "mana_idle_bonus_percent", "mana_idle_bonus_flat",
             // スキルツリー由来の条件付き装備効果。NativeAttributeBridge が装備部位数を判定して消費する。
             // 2026-07-27: charged_shot_unlocked をここから削除。「解放フラグ」を名乗りながら、

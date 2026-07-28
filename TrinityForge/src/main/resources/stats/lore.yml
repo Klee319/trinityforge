@@ -151,7 +151,7 @@ stats:
       sources: ALL
       applies-to: [PLAYER]
   percent-bonus-damage:
-    name: 追加ダメ
+    name: 追加ダメージ率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -440,7 +440,7 @@ stats:
       cap-ref: "combat/damage.yml#defense.max-dodge-chance"
   reflect-flat:
     # 2026-07-25 課題2: 棘の鎧ステータス化。被弾時にこの固定値分だけ相手にダメージを与える。
-    name: 反射率（実）
+    name: 反射ダメージ(実数)
     icon: ""
     format: FLAT
     decimals: 1
@@ -462,7 +462,7 @@ stats:
     # 棘の鎧レベルL(装備全体の合計)は10%×Lをこの値へ寄与する(ReflectDamageBridge)。
     # バニラの棘の鎧ダメージ自体は二重にならないよう抑止し、反射はこちらへ一本化する
     # (バニラの耐久値消費は維持)。
-    name: 反射率（割）
+    name: 反射ダメージ率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -561,7 +561,7 @@ stats:
   # StatKeys のエイリアスで畳まれるので、ここに残すと同じステが2行表示される。
   # 旧キーを書いた yml はそのまま動く(読み替えられる)。
   mana-bonus:
-    name: 最大マナ
+    name: 最大マナ加算
     icon: ""
     format: FLAT
     decimals: 0
@@ -579,7 +579,7 @@ stats:
       sources: ALL
       applies-to: [PLAYER]
   mana-regen:
-    name: 時間マナ回復
+    name: 時間マナ回復加算
     icon: ""
     format: FLAT
     decimals: 1
@@ -595,7 +595,7 @@ stats:
       sources: ALL
       applies-to: [PLAYER]
   hit-mana-recovery:
-    name: 被弾マナ回復
+    name: 被弾マナ回復(実数)
     icon: ""
     format: FLAT
     decimals: 1
@@ -615,7 +615,7 @@ stats:
       sources: ALL
       applies-to: [PLAYER]
   damage-mana-recovery:
-    name: 攻撃マナ回復
+    name: 攻撃マナ回復(実数)
     icon: ""
     format: FLAT
     decimals: 1
@@ -656,7 +656,7 @@ stats:
       sources: WORN_ARMOR_ONLY
       applies-to: [PLAYER]
   mana-cost-reduction-flat:
-    name: マナ消費軽減
+    name: マナ消費軽減(実数)
     icon: ""
     format: FLAT
     decimals: 0
@@ -672,7 +672,7 @@ stats:
       sources: ALL
       applies-to: [PLAYER]
   mana-cost-reduction-percent:
-    name: マナ消費軽減
+    name: マナ消費軽減率
     icon: ""
     format: FLAT
     decimals: 0
@@ -1538,7 +1538,7 @@ stats:
   flat-bonus-damage:
     # 最終ダメージへ加算される固定値。item-stats.ymlでの直接記述は廃止済みだが、パーク/base-stats/
     # モブ攻撃・コーティング内部経路からは引き続き供給されうるためStatVocabulary登録は維持されている。
-    name: 追加ダメ(実)
+    name: 追加ダメージ(実数)
     icon: ""
     format: FLAT
     decimals: 1
@@ -1895,30 +1895,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-  mana-onhit-flat:
-    name: 被弾マナ回復(実)
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 87
-    show-sign: true
-    hide-when-zero: true
-    category: ars
   mana-onattack-percent:
     name: 攻撃マナ回復率
     icon: ""
     format: PERCENT
     decimals: 0
     order: 88
-    show-sign: true
-    hide-when-zero: true
-    category: ars
-  mana-onattack-flat:
-    name: 攻撃マナ回復(実)
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 89
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -1942,7 +1924,7 @@ stats:
     hide-when-zero: true
     category: ars
   mana-idle-bonus-flat:
-    name: 待機マナ回復(実)
+    name: 待機マナ回復(実数)
     icon: ""
     format: FLAT
     decimals: 1
