@@ -6,6 +6,8 @@ import com.trinityforge.active.FeedbackLayer;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.WoodcuttingGimmickConfig;
+import com.trinityforge.gathering.ChainBreakExpGrant;
+import com.trinityforge.gathering.ChainBreakSupport;
 import com.trinityforge.gathering.GatheringToolMatcher;
 import com.trinityforge.mining.VeinMiningAlgorithm;
 import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
@@ -72,10 +74,25 @@ public final class TreeFellingListener implements Listener {
     private final FeedbackLayer feedback;
     private final CooldownManager cooldowns;
     private final PlayerStatAggregator aggregator;
+    /** 連鎖伐採分の採取EXP付与口(2026-07-28)。null 可 — 旧7引数コンストラクタ経由では EXP のみ入らない。 */
+    private final ChainBreakExpGrant chainBreakExp;
 
+    /** @deprecated 連鎖伐採分のEXPが入らない旧配線。{@link #TreeFellingListener(DedicatedEffectsConfig,
+     * WoodcuttingGimmickConfig, CrossPluginItemResolver, PlacedBlockTracker, FeedbackLayer,
+     * CooldownManager, PlayerStatAggregator, ChainBreakExpGrant)} を使うこと。 */
+    @Deprecated
     public TreeFellingListener(DedicatedEffectsConfig dedicatedEffects, WoodcuttingGimmickConfig gimmickConfig,
                                 CrossPluginItemResolver itemResolver, PlacedBlockTracker placedBlockTracker,
                                 FeedbackLayer feedback, CooldownManager cooldowns, PlayerStatAggregator aggregator) {
+        this(dedicatedEffects, gimmickConfig, itemResolver, placedBlockTracker, feedback, cooldowns,
+                aggregator, null);
+    }
+
+    public TreeFellingListener(DedicatedEffectsConfig dedicatedEffects, WoodcuttingGimmickConfig gimmickConfig,
+                                CrossPluginItemResolver itemResolver, PlacedBlockTracker placedBlockTracker,
+                                FeedbackLayer feedback, CooldownManager cooldowns, PlayerStatAggregator aggregator,
+                                ChainBreakExpGrant chainBreakExp) {
+        this.chainBreakExp = chainBreakExp;
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
         this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
@@ -182,16 +199,9 @@ public final class TreeFellingListener implements Listener {
                 pos -> world.getBlockAt(pos.x(), pos.y(), pos.z()).getType() == type,
                 maxExtra);
 
-        int broken = 0;
-        for (BlockPos pos : extra) {
-            Block target = world.getBlockAt(pos.x(), pos.y(), pos.z());
-            // Re-check: a same-tick chain reaction may have already changed this block since the
-            // flood-fill snapshot was taken.
-            if (target.getType() == type) {
-                target.breakNaturally(tool);
-                broken++;
-            }
-        }
+        // 2026-07-28: 連鎖分の採取EXPと道具耐久は ChainBreakSupport が担う(旧実装は breakNaturally
+        // だけで、EXPも耐久も一切処理されていなかった)。
+        int broken = ChainBreakSupport.breakChain(player, world, extra, type, tool, chainBreakExp);
         if (broken > 0) {
             // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar)。
             feedback.subtle(player, "一括伐採 x" + broken);

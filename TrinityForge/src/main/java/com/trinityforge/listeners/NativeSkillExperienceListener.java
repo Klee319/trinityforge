@@ -156,6 +156,25 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /**
+     * 一括伐採/一括破壊/範囲収穫の <em>連鎖破壊分</em> に採取スキルEXPを付与する
+     * ({@link com.trinityforge.gathering.ChainBreakExpGrant} の実装)。
+     *
+     * <p>2026-07-28: 連鎖分は {@code Block#breakNaturally} で壊されており {@link BlockBreakEvent} が
+     * 飛ばないため、{@link #onBlockBreak} が一度も走らず <strong>起点1ブロック分のEXPしか入って
+     * いなかった</strong>。爆破採掘({@link #onEntityExplode})と同じく「イベントの無い破壊」なので、
+     * そちらと同じ形で {@link #grantGathering} を直接呼ぶ。
+     *
+     * <p>破壊時バニラEXP({@code break-vanilla-exp})は意図的に付けない — 起点1回分のままにする
+     * (連鎖ぶんまでバニラEXPオーブを配ると、一括破壊がそのままバニラEXP増殖装置になる)。
+     */
+    public void grantChainBreak(Player player, Block block, Collection<ItemStack> drops, ItemStack tool) {
+        if (player == null || block == null || excluded(player)) return;
+        // 設置ブロックの連鎖破壊はEXP対象外(起点と同じ規則)。
+        if (placedBlockTracker.clearIfPlaced(block)) return;
+        grantGathering(player, block, drops, false, tool);
+    }
+
+    /**
      * 破壊時バニラEXP解放({@code break-vanilla-exp}, dedicated-effect機能フラグ)。既存の
      * FARMING/WOODCUTTING/DIGGING/MINING分類(={@link #grantGathering}が採取扱いと判定したブロック)
      * かつ非設置ブロックに限って、バニラEXPオーブを{@code BASE_BREAK_EXP}を基準に上乗せする。

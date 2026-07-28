@@ -159,6 +159,12 @@ public final class TrinityForge extends JavaPlugin {
     private PerkMirrorService perkMirrorService;
     private PerkAttributeApplier perkAttributeApplier;
     private com.trinityforge.gathering.GatheringEfficiencyEnchantApplier gatheringEfficiencyApplier;
+    /**
+     * 一括伐採/一括破壊/範囲収穫の連鎖分へ採取EXPを渡す口(2026-07-28)。
+     * {@code NativeSkillExperienceListener} の生成箇所と、それを使うギミックリスナーの登録箇所が
+     * 数百行離れているためフィールドで受け渡す。
+     */
+    private com.trinityforge.gathering.ChainBreakExpGrant chainBreakExpGrant;
     private HateService hateService;
     private DungeonGateService dungeonGateService;
     private BleedService bleedService;
@@ -360,11 +366,15 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(gatheringEfficiencyApplier, this);
         // 破壊時バニラEXP(S9)を有効化するため aggregator/dedicatedEffects を渡す 7引数版で登録する。
         // ここは placedBlockTracker(上方) 生成後かつ gimmick系リスナー登録より前なので順序不変。
-        getServer().getPluginManager().registerEvents(
-                new NativeSkillExperienceListener(this, experienceDispatcher, progressionCatalog,
-                        placedBlockTracker, roleBuffResolver,
-                        configManager.dedicatedEffects(), aggregator,
-                        configManager.mobLevelTable()), this);
+        // 2026-07-28: 一括伐採/一括破壊/範囲収穫の連鎖分EXPを付与させるため、ローカルに保持して
+        // 下の3リスナーへ ChainBreakExpGrant として渡す(それらは登録順の都合でここより後に作られる)。
+        NativeSkillExperienceListener nativeSkillExperienceListener = new NativeSkillExperienceListener(
+                this, experienceDispatcher, progressionCatalog,
+                placedBlockTracker, roleBuffResolver,
+                configManager.dedicatedEffects(), aggregator,
+                configManager.mobLevelTable());
+        this.chainBreakExpGrant = nativeSkillExperienceListener::grantChainBreak;
+        getServer().getPluginManager().registerEvents(nativeSkillExperienceListener, this);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.ArsMagicExperienceListener(
                         this, configManager.skillExp(), progressionCatalog, placedBlockTracker,
@@ -741,7 +751,8 @@ public final class TrinityForge extends JavaPlugin {
         // mining drop-table(旧ガチャ券1-3/古代のがれき個別consumerを置換、2026-07-23 §4)。
         getServer().getPluginManager().registerEvents(
                 new VeinMiningListener(configManager.dedicatedEffects(), configManager.miningGimmick(),
-                        crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer), this);
+                        crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
+                        chainBreakExpGrant), this);
         getServer().getPluginManager().registerEvents(
                 new MiningGimmickListener(this, configManager.dedicatedEffects(), aggregator,
                         configManager.miningGimmick()), this);
@@ -754,7 +765,7 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new TreeFellingListener(configManager.dedicatedEffects(), configManager.woodcuttingGimmick(),
                         crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
-                        activeCooldownManager, aggregator), this);
+                        activeCooldownManager, aggregator, chainBreakExpGrant), this);
 
         // 掘削(シャベル適正ブロック破壊)ギミック: digging drop-table(2026-07-23 §4、新設リスナー)。
         // 対象判定は NativeSkillExperienceListener.grantGathering と同じ digging_break 分類ロジックを流用する。
@@ -788,7 +799,7 @@ public final class TrinityForge extends JavaPlugin {
         // hive-harvest-fortune)。
         getServer().getPluginManager().registerEvents(
                 new FarmingHarvestListener(this, configManager.dedicatedEffects(),
-                        configManager.farmingGimmick(), activeFeedbackLayer), this);
+                        configManager.farmingGimmick(), activeFeedbackLayer, chainBreakExpGrant), this);
         getServer().getPluginManager().registerEvents(
                 new AnimalDamageListener(configManager.dedicatedEffects(), configManager.farmingGimmick()), this);
         getServer().getPluginManager().registerEvents(

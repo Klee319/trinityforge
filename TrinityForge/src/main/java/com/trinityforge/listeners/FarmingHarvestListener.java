@@ -8,6 +8,8 @@ import com.trinityforge.farming.AreaHarvestPolicy.Offset;
 import com.trinityforge.farming.DropAdjustment;
 import com.trinityforge.farming.DropAdjustment.DropStack;
 import com.trinityforge.farming.FarmingCropCatalog;
+import com.trinityforge.gathering.ChainBreakExpGrant;
+import com.trinityforge.gathering.ChainBreakSupport;
 import com.trinityforge.gathering.GatheringToolMatcher;
 import com.trinityforge.pdc.PlayerData;
 import org.bukkit.Bukkit;
@@ -64,8 +66,20 @@ public final class FarmingHarvestListener implements Listener {
      */
     private boolean processingAreaHarvest = false;
 
+    /** 範囲収穫分の採取EXP付与口(2026-07-28)。null 可 — 旧4引数コンストラクタ経由では EXP のみ入らない。 */
+    private final ChainBreakExpGrant chainBreakExp;
+
+    /** @deprecated 範囲収穫分のEXPが入らない旧配線。5引数版を使うこと。 */
+    @Deprecated
     public FarmingHarvestListener(Plugin plugin, DedicatedEffectsConfig dedicatedEffects,
                                    FarmingGimmickConfig gimmickConfig, FeedbackLayer feedback) {
+        this(plugin, dedicatedEffects, gimmickConfig, feedback, null);
+    }
+
+    public FarmingHarvestListener(Plugin plugin, DedicatedEffectsConfig dedicatedEffects,
+                                   FarmingGimmickConfig gimmickConfig, FeedbackLayer feedback,
+                                   ChainBreakExpGrant chainBreakExp) {
+        this.chainBreakExp = chainBreakExp;
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
@@ -137,6 +151,10 @@ public final class FarmingHarvestListener implements Listener {
                 if (!FarmingCropCatalog.isCrop(neighborType) || !isMature(neighbor)) {
                     continue;
                 }
+                // 2026-07-28: 範囲収穫分も BlockBreakEvent が飛ばないため農業EXPが入っていなかった
+                // (一括伐採/一括破壊と同じ欠落)。破壊前に付与すること。作物は硬度0なのでバニラでも
+                // 鍬の耐久は減らない — ここで耐久を消費しないのは意図的。
+                ChainBreakSupport.grantExpFor(chainBreakExp, player, neighbor, tool);
                 harvestNeighbor(neighbor, neighborType, tool, replantActive);
                 harvested++;
             }

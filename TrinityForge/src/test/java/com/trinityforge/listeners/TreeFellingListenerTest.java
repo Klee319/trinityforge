@@ -81,8 +81,12 @@ class TreeFellingListenerTest {
     }
 
     private TreeFellingListener listener() {
+        return listener(null);
+    }
+
+    private TreeFellingListener listener(com.trinityforge.gathering.ChainBreakExpGrant chainBreakExp) {
         return new TreeFellingListener(dedicatedEffects, gimmickConfig, itemResolver, placedBlockTracker,
-                new FeedbackLayer(), cooldowns, aggregator);
+                new FeedbackLayer(), cooldowns, aggregator, chainBreakExp);
     }
 
     private BlockBreakEvent breakEvent(Block block) {
@@ -176,5 +180,50 @@ class TreeFellingListenerTest {
         listener().onBlockBreak(breakEvent(origin));
 
         assertEquals(Material.AIR, neighbor.getType(), "toggle ON + unlocked must chain-fell the neighbor");
+    }
+
+    // --- 2026-07-28 実サーバ報告「一括伐採で経験値が入らない / 耐久も減っていない」 ---
+
+    @Test
+    void chainFelledLogsGrantGatheringExpForEachBrokenBlock() {
+        player.getInventory().setItemInMainHand(new ItemStack(Material.IRON_AXE));
+        when(dedicatedEffects.valueMax(any(), eq("tree-fell"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.treeFellMaxExtraLogs(1)).thenReturn(8);
+        when(gimmickConfig.treeFellCooldownTicks()).thenReturn(200);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.OAK_LOG);
+        for (int y = 65; y <= 67; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        List<Material> granted = new java.util.ArrayList<>();
+        listener((p, block, drops, tool) -> granted.add(block.getType()))
+                .onBlockBreak(breakEvent(origin));
+
+        // 起点はイベント本体(NativeSkillExperienceListener#onBlockBreak)が処理するのでここには来ない。
+        // 連鎖分3本ぶんが「破壊前のマテリアル」で渡ること。
+        assertEquals(List.of(Material.OAK_LOG, Material.OAK_LOG, Material.OAK_LOG), granted);
+    }
+
+    @Test
+    void chainFelledLogsConsumeOneDurabilityPerBlock() {
+        ItemStack axe = new ItemStack(Material.IRON_AXE);
+        player.getInventory().setItemInMainHand(axe);
+        when(dedicatedEffects.valueMax(any(), eq("tree-fell"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.treeFellMaxExtraLogs(1)).thenReturn(8);
+        when(gimmickConfig.treeFellCooldownTicks()).thenReturn(200);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        origin.setType(Material.OAK_LOG);
+        for (int y = 65; y <= 66; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(origin));
+
+        ItemStack held = player.getInventory().getItemInMainHand();
+        int damage = held.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable d ? d.getDamage() : 0;
+        assertEquals(2, damage, "連鎖破壊した2ブロックぶんの耐久が減ること(旧実装は0のままだった)");
     }
 }
