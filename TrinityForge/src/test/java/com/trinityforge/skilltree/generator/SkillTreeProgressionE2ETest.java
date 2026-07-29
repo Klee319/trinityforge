@@ -69,8 +69,10 @@ class SkillTreeProgressionE2ETest {
 
         GeneratedProgression gen = SkillTreeProgressionGenerator.generate(tree);
 
-        // 24 nodes (5 main + 15 greek + 4 branch) + 1 root + 1 prestige perk.
-        assertEquals(26, gen.perks().size());
+        // 24 nodes (5 main + 15 greek + 4 branch) + 1 root + prestige tier perk × max-times(3)。
+        // 2026-07-30: 「プレステージは1個」という前提で26を期待していたが、生成側は prestige.max-times
+        // 回数分のtierを鎖状に生成する(SkillTreeProgressionGenerator参照)ので実際は28。
+        assertEquals(28, gen.perks().size());
         assertEquals("2,10", gen.startingCoordinates());
         assertNotNull(gen.perks().get("lightweapons_perk_root"));
         assertEquals(List.of("lightweapons_perk_root"),

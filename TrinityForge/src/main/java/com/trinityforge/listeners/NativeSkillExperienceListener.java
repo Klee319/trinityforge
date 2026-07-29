@@ -592,13 +592,23 @@ public final class NativeSkillExperienceListener implements Listener {
         // inventory, or withdrawing a finished potion) — a single stray click must not flip a
         // hopper-fed automated brewer to the 8x manual rate forever.
         int rawSlot = event.getRawSlot();
-        boolean intoStandSlot = rawSlot >= 0 && rawSlot < event.getView().getTopInventory().getSize()
-                && event.getCurrentItem() != null && !event.getCurrentItem().getType().isAir()
-                && (event.getAction() == org.bukkit.event.inventory.InventoryAction.PLACE_ALL
-                        || event.getAction() == org.bukkit.event.inventory.InventoryAction.PLACE_ONE
-                        || event.getAction() == org.bukkit.event.inventory.InventoryAction.PLACE_SOME
-                        || event.getAction() == org.bukkit.event.inventory.InventoryAction.SWAP_WITH_CURSOR
-                        || event.getAction() == org.bukkit.event.inventory.InventoryAction.HOTBAR_SWAP);
+        boolean directPlacement = switch (event.getAction()) {
+            // InventoryClickEvent exposes the pre-click state. For placement into an empty brewing
+            // slot currentItem is null; the item being inserted is still on the cursor.
+            case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR ->
+                    event.getCursor() != null && !event.getCursor().getType().isAir();
+            case HOTBAR_SWAP -> {
+                int hotbarButton = event.getHotbarButton();
+                ItemStack inserted = hotbarButton >= 0
+                        ? player.getInventory().getItem(hotbarButton)
+                        : player.getInventory().getItemInOffHand();
+                yield inserted != null && !inserted.getType().isAir();
+            }
+            default -> false;
+        };
+        boolean intoStandSlot = rawSlot >= 0
+                && rawSlot < event.getView().getTopInventory().getSize()
+                && directPlacement;
         if (!intoStandSlot) return;
         stand.getPersistentDataContainer().set(
                 brewOwnership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
@@ -730,6 +740,12 @@ public final class NativeSkillExperienceListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onArmorDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0.0) return;
+        // 2026-07-30 デスルーラー対策: 致死ダメージの一撃では防具スキルEXPを付与しない。
+        // 「死ぬまで殴られる」がEXP稼ぎとして成立していた(EMダンジョン内では特に悪質 —
+        // MatchInstance が致死ダメージを MONITOR でキャンセルして「ダウン」扱いにするため、
+        // TF(先に登録されるので先に走る)はEXPを配りきった後で死亡そのものが取り消され、
+        // 蘇生してまた殴られる、を無限に繰り返せる)。
+        if (lethalHit(event.getFinalDamage(), player.getHealth())) return;
         if (excluded(player)) return;
         // 2026-07-27 牧場対策: 「攻撃してきた側」(飛び道具なら発射者)の EntityType が
         // no-skill-exp-mobs に載っていれば防具スキルEXPは一切付与しない。武器スキルEXP側
@@ -830,6 +846,23 @@ public final class NativeSkillExperienceListener implements Listener {
                     : 1.0;
             grant(player, skill, total * worldMultiplier * spot);
         }
+    }
+
+    /**
+     * この一撃が致死かどうか(2026-07-30、デスルーラー対策)。{@link EntityDamageByEntityEvent} は
+     * ダメージ適用<em>前</em>に発火するので {@code health} はまだ削られていない値であり、
+     * {@code finalDamage >= health} なら「この一撃で死ぬ」= 防具EXPを与えない。
+     *
+     * <p>不死のトーテムで生き残るケースもこの判定では致死扱いになる(=EXPが入らない)。
+     * これは意図的: トーテムを持って死に続ける farm も同じ抜け道になるため、
+     * 「生き延びたかどうか」ではなく「致死量を受けたかどうか」で切る方が塞ぎ方として堅い。
+     * 純関数なのでユニットテストから直接叩ける。
+     */
+    static boolean lethalHit(double finalDamage, double health) {
+        if (!Double.isFinite(finalDamage) || !Double.isFinite(health)) {
+            return false;
+        }
+        return finalDamage >= health;
     }
 
     /**

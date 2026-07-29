@@ -87,6 +87,10 @@ class CraftQualityListenerResultDupeTest {
         when(event.getInventory()).thenReturn(inventory);
         when(event.getCurrentItem()).thenReturn(result);
         when(event.getRecipe()).thenReturn(null);
+        // 2026-07-30: 素材を消費する取り出しであることを明示する(空カーソルでの左クリック)。
+        // これを立てないと CraftQualityListener#producesCraftedItem が「クラフトではない」と判定する。
+        when(event.getAction()).thenReturn(org.bukkit.event.inventory.InventoryAction.PICKUP_ALL);
+        when(event.getCursor()).thenReturn(new ItemStack(Material.AIR));
         return event;
     }
 

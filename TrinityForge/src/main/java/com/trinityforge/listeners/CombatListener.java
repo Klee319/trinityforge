@@ -57,6 +57,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
@@ -580,6 +581,7 @@ public final class CombatListener implements Listener {
      * プラグイン名由来の namespace が {@code trinityforge} なので完全に互換)。
      * {@code MobTransformCarryOver} が変身時にこの印を引き継ぐためで、
      * 以前はスポナーのゾンビを水没させるだけでスポナーEXP抑制を回避できた。
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
         if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER) {
@@ -588,38 +590,45 @@ public final class CombatListener implements Listener {
         }
     }
 
-    /**
-     * HEAVY_WEAPONS/LIGHT_WEAPONS pay exactly once on a confirmed death. Requiring the last damage
-     * event to resolve to the credited player prevents an old tag followed by lava/fall death from paying.
-     */
+    /** HEAVY_WEAPONS/LIGHT_WEAPONS pay each attacker's proportional contribution on confirmed death. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCombatKill(EntityDeathEvent event) {
         LivingEntity dead = event.getEntity();
-        Player killer = dead.getKiller();
-        var credit = combatKillCredits.consume(dead.getUniqueId(),
-                killer == null ? null : killer.getUniqueId());
-        if (credit.isEmpty() || killer == null) return;
-        EntityDamageEvent last = dead.getLastDamageCause();
-        if (!(last instanceof EntityDamageByEntityEvent byEntity)) {
-            return;
-        }
-        Player lastAttacker = resolveAttacker(byEntity);
-        if (lastAttacker == null
-                || !killer.getUniqueId().equals(lastAttacker.getUniqueId())) {
-            return;
-        }
-        String skill = credit.get().skill();
-        double amount = skillExp.combatKillExp(
-                skill, dead.getType().name(), Math.max(0, MobData.of(dead).level()), maxHealth(dead));
-        if (amount <= 0.0) return;
+        double maxHealth = maxHealth(dead);
+        var credits = combatKillCredits.consume(dead.getUniqueId(), maxHealth);
+        if (credits.isEmpty()) return;
+        // getKiller() は直前のプレイヤー攻撃を保持する場合があり、溶岩・落下などで止めを
+        // 刺したEXPファームを確実には除外できない。死亡イベント自身のDamageSourceで、
+        // 致死ダメージの起因者がプレイヤーだった場合だけ比例配分する。
+        if (!(event.getDamageSource().getCausingEntity() instanceof Player)) return;
+        if (mobLevelTable != null && mobLevelTable.suppressesSkillExp(dead.getType())) return;
         double worldRate = worldExpRate(dead.getWorld());
         if (worldRate <= 0.0) return;
-        double role = roleBuffResolver.expMultiplierForSkill(killer, skill).orElse(1.0);
         TrinityForge tf = TrinityForge.getInstance();
-        double spot = tf == null ? 1.0
-                : tf.locationExpDiminishing().multiplierForKillSpot(killer, dead, skillExp,
-                        tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
-        ArsProgressionBridge.grantSkillExp(plugin, killer, skill, amount * role * worldRate * spot);
+        for (CombatKillCreditTracker.Credit credit : credits) {
+            Player contributor = Bukkit.getPlayer(credit.attackerId());
+            if (contributor == null || !contributor.isOnline()) continue;
+            String skill = credit.skill();
+            double amount = skillExp.combatKillExp(
+                    skill, dead.getType().name(), Math.max(0, MobData.of(dead).level()), maxHealth);
+            if (amount <= 0.0) continue;
+            double role = roleBuffResolver.expMultiplierForSkill(contributor, skill).orElse(1.0);
+            double spot = tf == null ? 1.0
+                    : tf.locationExpDiminishing().multiplierForKillSpot(contributor, dead, skillExp,
+                            tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
+            ArsProgressionBridge.grantSkillExp(plugin, contributor, skill,
+                    amount * credit.share() * role * worldRate * spot);
+        }
+    }
+
+    /** Drops contribution state when an entity unloads, despawns, or is otherwise invalidated. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCombatTrackedEntityRemoved(EntityRemoveEvent event) {
+        // EntityDeathEvent owns death consumption; do not depend on the relative dispatch order of
+        // the two events. Every non-death removal can only invalidate the pending ledger.
+        if (event.getCause() != EntityRemoveEvent.Cause.DEATH) {
+            combatKillCredits.clear(event.getEntity().getUniqueId());
+        }
     }
 
     private static final String REFLECT_FLAT_KEY = StatKeys.canonical("reflect-flat");
@@ -1211,11 +1220,28 @@ public final class CombatListener implements Listener {
         return null;
     }
 
-    private static LivingEntity resolveMobAttacker(EntityDamageByEntityEvent event) {
+    /**
+     * モブ側の攻撃者を解決する。近接({@link #MELEE_CAUSES})はダメージャー自身、
+     * 飛び道具({@code PROJECTILE})は<b>その発射者</b>。
+     *
+     * <p><b>2026-07-30 バグ修正</b>: 以前は近接だけを見ていたため、スケルトンの矢・ブレイズの
+     * 火球・ウィッチの瓶など<b>モブの飛び道具ダメージにTFスケール(モブレベル・attack-power・
+     * プレイヤーの守備/回避)が一切乗っていなかった</b>(このリスナーは
+     * {@code resolveMobAttacker}=null → {@code resolveAttacker}=null(発射者がプレイヤーでない)で
+     * 素通りし、バニラのダメージがそのまま通っていた)。ディスペンサー等の非生物発射源
+     * ({@code BlockProjectileSource})は {@link LivingEntity} でないので従来どおり対象外。
+     */
+    static LivingEntity resolveMobAttacker(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
         if (damager instanceof LivingEntity living && !(damager instanceof Player)
                 && MELEE_CAUSES.contains(event.getCause())) {
             return living;
+        }
+        if (event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE
+                && damager instanceof Projectile projectile
+                && projectile.getShooter() instanceof LivingEntity shooter
+                && !(shooter instanceof Player)) {
+            return shooter;
         }
         return null;
     }
@@ -1236,8 +1262,11 @@ public final class CombatListener implements Listener {
             return;
         }
         AttackStats attack = MobData.of(mob).attackStats();
+        // 2026-07-30: 飛び道具なら被害者の飛び道具耐性(Projectile Protection)も再導出させる
+        // (TFは MAGIC modifier を常時0化するため、渡さないとバニラのエンチャ軽減が消える)。
+        boolean projectileHit = event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE;
         CombatHitResult hit = combatService.physicalFinalDamageFromMobResult(
-                mob, victim, vanillaBaseDamage, attack);
+                mob, victim, vanillaBaseDamage, attack, projectileHit);
         double total = hit.damage();
         if (hit.crit()) {
             CritFlash.play(victim);
@@ -1322,11 +1351,8 @@ public final class CombatListener implements Listener {
      */
     private void maybeGrantCombatSkillExp(Player attacker, ItemStack weapon, UUID targetId,
                                           double damage, Entity victim, double worldRate) {
-        // Every new physical hit replaces the prior attribution. If this hit is not a heavy/light
-        // weapon, an older qualifying hit must not survive and receive credit for a later bare-hand,
-        // archery, or unrelated-tool finishing blow.
-        combatKillCredits.clear(targetId);
         if (mobLevelTable != null && victim != null && mobLevelTable.suppressesSkillExp(victim.getType())) {
+            combatKillCredits.clear(targetId);
             return;
         }
         // バグ2修正(2026-07-28): メインハンドの use-skill が何であれ、この経路(近接/投射物ダメージ確定
@@ -1345,7 +1371,10 @@ public final class CombatListener implements Listener {
                 .filter(req -> isCombatWeaponSkill(req.skill()))
                 .ifPresent(req -> {
                     if (isKillBasedCombatWeaponSkill(req.skill())) {
-                        combatKillCredits.record(targetId, attacker.getUniqueId(), req.skill());
+                        if (victim instanceof LivingEntity living) {
+                            combatKillCredits.record(targetId, attacker.getUniqueId(), req.skill(),
+                                    damage, living.getHealth());
+                        }
                         return;
                     }
                     if (!SkillId.ARCHERY.equals(req.skill())

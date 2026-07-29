@@ -90,6 +90,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | ~~W-8~~ | ~~**`afk.yml` が config-editor に登録されていない**~~ | **解決（2026-07-27）**。ユーザー指示により独立タブは作らず、**「使用制限スイッチ (use-requirements)」画面内へコンパニオン表示**（`farming-gimmick`＋`food-gimmick` と同じ方式。`USE_REQUIREMENTS_COMPANION_IDS` → `HIDDEN_CONFIG_IDS` でサイドバーからは隠す）。描画は新規 `public/js/tf-afk-form.js` に隔離し、`tf-crafting-features.js` への変更は呼び出し 15 行のみ。**Java が黙って丸める 2 ケース（`check-interval-ticks < 20` / `kick-after-seconds` が非 0 で `idle-seconds` 未満）は editor 側では保存時エラーにした**（黙って丸めると「保存した値」と「実挙動」がずれるため）。実ブラウザで 12 キーの表示・値のロード・バリデーション 400・保存→配備ミラーまで確認済み |
 | ~~W-9~~ | ~~**`combat/damage.yml` の 6 キーが「共通変数」画面に出ていない**~~ | **解決（2026-07-27）**。`FIELD_SPECS` へ 6 件追加。`min`/`max`/`def` は全て `CombatDamageConfig.java` の `SchemaField` 宣言（L90-98 / L125）と一致させた。`enchant-protection-scale` の上限は**バニラ相当の 1.0 ではなく Java 通りの 10**（editor だけ狭いと「yml では通る値が editor で弾かれる」ズレになる）。UI は「近接チャージ」「攻撃速度」セクションを新設し、`enchant-protection-scale` は既存の「防御(安全弁)」へ |
 | ~~W-10~~ | ~~**registry のカバレッジドリフト検知テストが無い**~~ | **解決（2026-07-27、テスト実走待ち）**。`tools/config-editor/test/registry-coverage.test.js` を新設（3 本）。①`basePaths` 配下の全 yml が `registry.js` か `CONSTANT_SOURCES`（共通変数ビューは registry を通らないため正当なカバレッジ源として扱う）に載っているか、②許可リストの各行に実ファイルがあるか（死んだ許可リスト行の検知）、③registry の各エントリに実ファイルがあるか（typo/削除で editor が 404 になる事故の検知）の**双方向**。許可リストは 5 件で、「減る一方であるべき」旨をコメントに明記した |
+| W-14 | **カタログレシピ 1 件が起動時に無言で登録失敗している**（2026-07-30 発見） | `logs/latest.log` に `IllegalArgumentException: custom list member 'iron_axe_tool' is unknown`（`CatalogRecipeRegistrar.choiceFor:335`）。`list:` の定義側にこのメンバー名が無いか、綴りが実 ID と食い違っている。**該当レシピはレシピ帳にも出ないまま**なので、`items/catalog.yml` の互換リスト定義と参照側の突き合わせが必要 |
 | ~~W-11~~ | ~~ArsPaper の gate yml 2 本が挙げる SoT ファイル名が実在しない~~ | **解決（2026-07-27）。ただし調査で範囲が大幅に広がった。** `skilltree/dedicated-effects.yml` は 2026-07-23 の stat-gate 改修で**削除済み**なのに、これを「正本」として指す記述が**リポジトリ全体で 21 箇所**残っていた（gate yml 2 本のほか、`stats/*-gimmick.yml` 4 本、`TrinityForge.java` 4 箇所、各 `*GimmickConfig.java`、`SkillNode.java`、`VeinMiningAlgorithm.java` 等）。実体は各 `skilltree/*.yml` ノード内の `dedicated-effects:` フィールド。**全て参照先の記述を実体へ修正**。歴史的記録として残すもの（`docs/design/2026-07-23-stat-gate-overhaul.md`＝廃止を決めた設計書、`GREENFIELD-REMAINING-TODO.md`）と、コメントでなく実コードのファイル名フィルタ（`NativeRewardRegistryContractTest.java:28`）は意図的に除外 |
 
 ---
@@ -334,6 +335,97 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-30 08:xx — 実サーバ報告 8 件（クラフトEXP水増し/飛び道具/耐久ペナルティ/スキルツリー描画/1ダメージ）
+
+ユーザー提示の 8 件。**コード修正が必要な 6 件は完了。残り 2 件はコードのバグではなかった**（下記）。
+
+| # | 内容 | 結果 |
+|---|---|---|
+| 1 | クラフト結果枠に別アイテムを持って左クリックするだけで鍛冶EXPが入る | `CraftQualityListener` に「素材を消費する取り出しか」ゲートを追加 |
+| 2 | 軽武器/重武器で排他ノードと通常分岐が干渉してノードがずれる/消える/くっつく | `SkillTreeLayout` を config 無変更で改修（グループ単位のレーン確保＋主軸列予約＋隣接禁止） |
+| 3 | スケルトン等の飛び道具ダメージに TF スケールが乗らない | `resolveMobAttacker` が飛び道具の発射者も解決するようにした（fork 側のゲートも同時に拡張） |
+| 4 | EMダンジョンで死亡時の耐久ペナルティが無い | 新設 `durability.on-death`（最大耐久の10%・防具4部位＋両手）。fork の `playerDeath` から TF を呼ぶ |
+| 5 | EMダンジョンで被弾時の耐久が減らない | 新設 `durability.on-hit`（最大耐久の0.1%・最低1・防具4部位＋オフハンド）。バニラ消費に上乗せ |
+| 6 | 致死ダメージでも防具スキルEXPが入る（デスルーラーでレベル上げ可能） | `onArmorDamage` に致死判定ガード |
+| 7 | EMダンジョンで敵に 1 ダメージしか入らない（設定ミス？） | **設定ミスではない。配備済み `EliteMobs.jar` が stale**（下記） |
+| 8 | ロールセットで予期せぬエラー | **コードのバグではない。稼働中に jar を差し替えた後遺症**（下記） |
+
+**非自明だった点**
+
+- **#1 の真因は `CraftItemEvent` の発火条件**: このイベントは結果枠をクリックしただけで飛ぶ。
+  カーソルに別アイテムを持っている場合 Paper は `InventoryAction.NOTHING` を入れ、バニラは
+  何もクラフトしないが、TF は EXP を与え品質を振り直していた。ゲートは
+  `producesCraftedItem(action, cursor)`（純関数）で「素材を消費する取り出し」だけを通す。
+  `DROP_*_SLOT` はカーソルが空のときだけクラフトが成立する点に注意。
+- **#3 は「素通り」だった**: 以前は近接 cause だけを見ていたため、モブ攻撃者=null →
+  プレイヤー攻撃者=null（発射者がモブ）で**リスナーを抜け、バニラのダメージがそのまま通っていた**。
+  同時に、TF が `MAGIC` modifier を無条件で 0 化する関係で
+  **飛び道具の場合は飛び道具耐性(Projectile Protection)を明示的に再導出しないと軽減が消える**ため、
+  `physicalFinalDamageFromMobResult` に `projectileHit` 引数を足した。
+  fork 側の flat 委譲ガードも `isTrunkAttachment` ではなく **cause で判定する形へ拡張**
+  （PROJECTILE も TF 所有になったので、放置すると同じ一撃に守備/回避が二重に掛かる）。
+- **#4/#5 の真因は EliteMobs のダウン処理**: `MatchInstance.MatchInstanceEvents.onPlayerDamage` が
+  **致死ダメージをキャンセル**してダウンへ移すので、ダンジョン内では `PlayerDeathEvent` が
+  **一度も発火しない**。EliteMobs 自前の `AlternativeDurabilityLoss` は EliteMobs 製アイテムしか
+  対象にしないため、TF 装備は死んでも無傷だった。さらにキャンセルされた一撃分の
+  バニラ防具耐久消費も消える。→ 被弾側は TF の `EntityDamageByEntityEvent`(MONITOR,
+  ignoreCancelled=true) で上乗せし、**キャンセルされる致死の一撃は死亡ペナルティ側で回収**する
+  という役割分担にした（二重取りにならない）。fork からは
+  `TrinityForge#applyDeathDurabilityPenalty` を **スペクテイター化される前に**呼ぶ
+  （TF はクリエイティブ/スペクテイターを除外するため、順番を間違えると無効化される）。
+- **耐久操作に `damageItemStack` は使わない**: MockBukkit 未実装で、呼ぶとテストが
+  **失敗ではなく SKIPPED** になる既知の罠。`ChainBreakSupport#damageHeldTool` と同じく
+  `Damageable` メタを直接操作する。UNBREAKING は「減少量を 1/(Lv+1) に縮め端数は確率で切り上げ」
+  （決定的に切り捨てると耐久力IIIが被弾ペナルティを完全無効化してしまう）。
+- **#6 はダンジョンだと無限ループになる**: TF のリスナーは EliteMobs より前に走るので、
+  「致死 → EXP付与 → EM がキャンセル → ダウン → 復活」で防具EXPを永久に稼げた。
+- **#2 は座標が全部 Java 側で決まる**ので config を触らずに直せる。旧実装の崩れ方は 2 系統:
+  ① 兄弟を並び順で左右交互に振っていたため**排他グループが主軸や通常分岐を挟んで左右に散る**
+  （light/heavy weapons の C 直下＝分岐と排他3兄弟が左・右・左2・右2）。
+  ② 空きセル探索が同じ行を横にしか探さないため、4セル横へ飛ぶか**主軸列へ着地**する
+  （`D-1-2` が `2,-2` に入り、後から置かれるプレステージが 1 セル隣に来て「くっついて見える」）。
+  改修は (a) グループ単位のバケットで片側の連続レーンを占有、(b) 主軸列は MAIN/プレステージ専用に予約、
+  (c) 同コストなら横迂回より 1 段上を優先、(d) 8近傍にノードがあるセルを避ける（コネクタ1セル確保）。
+  条件は「隣接禁止 → 主軸列予約」の順に緩めるので、置けずに例外になる経路は増えていない。
+  **GUI は起動時に `NativeSkillTreeCanvas` が毎回レイアウトを再生成する**ので、jar だけで反映される
+  （`skills/base/*_progression.yml` は EXP 曲線であって座標ではない＝再生成不要）。
+- **#7 の真因は stale jar**: 配備済み `EliteMobs.jar`（07-28 02:31）には
+  `EliteCombatDelegation.mark()` が**まだ入っていた**（deployed jar を javap で確認）。
+  mark が立つと TF は EliteMobs 側の「装備を無効化した数値」をそのまま採用し、EM の式
+  （`skillAdjustment = 2^((weaponSkillLevel - mobLevel)/7.5)` の後に `max(formulaDamage, 1)`）は
+  ダンジョン帯のレベル差で下限 1 に潰れる。**config 側ではない**（モブ 818 体すべて defense 0 を実測）。
+  07-28 22:54 のソースでは mark は削除済み → **再ビルドして配備すれば直る**。今回のビルドで
+  `mark` 参照ゼロを javap で確認済み。
+- **#8 は live jar swap の後遺症**: `logs/latest.log` の 00:23 に `NoClassDefFoundError` が 338 件
+  （`RoleSelectGui$Session` / `StatusGui$Session` / `SettingsGui$Session` / `OwnerBindPolicy` /
+  `GatheringPolicy`）。00:16 に**稼働中の TF jar を上書き**したため未ロードクラスが読めなくなった。
+  コードのバグではなく、**JVM 再起動が唯一の復旧手段**（`/tf reload` では直らない）。
+- ついでに発見（未修正）: 起動時に
+  `IllegalArgumentException: custom list member 'iron_axe_tool' is unknown`（`CatalogRecipeRegistrar.choiceFor:335`）
+  でレシピ 1 件が無言で登録失敗している。→ §3 の W-14 として残タスクに追加。
+
+**新設した config**: `combat/damage.yml` の `durability:` 節（`dungeon-only: true` /
+`respect-unbreaking` / `prevent-break` / `on-hit.*` / `on-death.*`）。既定はダンジョン限定。
+
+**検証**: TF 2832 tests / fail 7 / skipped 2。**fail 7 はすべて並行セッションの未コミット yml**
+（`stats/enchant-luck.yml` / `stats/skill-exp.yml` / `skilltree/light_weapons.yml` /
+`progression/crafting-features.yml` / `skills/base/mining_progression.yml` 由来）で、本作業とは無関係
+（07-29 の記録と同じ 5 本＋mining 2 件）。本作業で追加したテストは
+`DurabilityPenaltyTest`(8) / `EquipmentDurabilityServiceTest`(7) /
+`CombatListenerMobProjectileAttackerTest`(5) / 防具EXP致死ガード(2) /
+`AllSkillTreesProgressionTest` のレイアウト不変条件(2) で全 green。
+**レイアウトの 2 本は旧実装で実際に落ちることを確認**（排他グループ 19 件の分断＋主軸列squat 3 件を検出）。
+なお `SkillTreeProgressionE2ETest` の perk 数期待値は**元から stale**（プレステージは
+`max-times` 回数分生成されるので 26 ではなく 28）だったため 28 へ修正した。
+
+**配備**: `tmp\deploy-20260730-bugfix.cmd` を書いた（未実行。ASCII のみ・marker で冪等・
+jar が 1 本でもロックされていたら config に触らず中断）。内容は
+TF jar × 3 台 ／ `EliteMobs.jar` → 既に置いてあるサーバのみ（資源サーバには意図的に無い）／
+`combat/damage.yml` → Main（ジャンクション共有）。**全サーバ停止後に実行**すること。
+#8 の復旧と #7 の反映は、この再起動で同時に済む。
+
+---
 
 ### 2026-07-29 06:xx — editor 7件バッチ（EXP画面/エンチャント網羅/ロールバフ・アチブUI/バニラアイテム条件）
 

@@ -130,6 +130,43 @@ early-level-attack:
   enabled: true
   until-level: 10
   level-0-multiplier: 0.7
+# ---------------------------------------------------------------------------
+# 【2026-07-30】TF独自の装備耐久ペナルティ
+# ---------------------------------------------------------------------------
+# EliteMobs のインスタンスダンジョンでは、致死ダメージが EliteMobs 側でキャンセルされ
+# 「ダウン状態」へ移行するため PlayerDeathEvent が一度も発火しない。その結果、
+#   ・死亡時の耐久ペナルティが一切かからない(EliteMobs 自前のペナルティは EliteMobs 製
+#     アイテムにしか効かないので TF 装備は無傷)
+#   ・キャンセルされた致死の一撃分のバニラ防具耐久消費も消える
+# という状態だった。この節はそれを TF 側で明示的に補うためのもの。
+#
+# on-hit: 被弾1回ごとに「最大耐久 × percent-of-max(最低 min-damage)」を防具4部位から追加で
+#   減らす。バニラの防具耐久消費は消さずに上乗せする(致死でキャンセルされた一撃は
+#   キャンセル済みイベントを無視するため対象外 = 死亡ペナルティ側で回収する)。
+# on-death: 死亡(ダンジョンのダウンを含む)時に「最大耐久 × percent-of-max」を防具4部位
+#   ＋両手(include-hands)から減らす。
+#
+# dungeon-only: true = インスタンスダンジョンワールドの中でのみ適用(既定)。false で全ワールド。
+# respect-unbreaking: 耐久力(UNBREAKING)エンチャントを尊重する。減少量を 1/(Lv+1) に縮め、
+#   端数は確率で切り上げる(バニラと同じ期待値。Lv3・減少量1なら25%の確率で1減る)。
+# prevent-break: true = この耐久ペナルティでは装備を壊さない(残耐久1で止まる)。false にすると
+#   ペナルティだけで装備が消滅しうる。バニラの通常使用による破壊はこの設定に影響されない。
+durability:
+  dungeon-only: true
+  respect-unbreaking: true
+  prevent-break: true
+  on-hit:
+    enabled: true
+    percent-of-max: 0.001
+    min-damage: 1
+    # オフハンド(盾など)も被弾時の対象に含めるか。
+    include-offhand: true
+  on-death:
+    enabled: true
+    percent-of-max: 0.1
+    min-damage: 1
+    # メインハンド/オフハンドの装備も死亡ペナルティの対象に含めるか。
+    include-hands: true
 # 2026-07-25 (CMB-31): attack-stat-keys / defense-stat-keys ブロックは削除した。
 # 14個すべてが「スキーマ既定値 == 出荷yml値 == ハードコード名」で一致しており、
 # StatCategoryInference/PercentStatNormalize/StatVocabulary/editorがキー名変更に追随しないため

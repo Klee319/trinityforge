@@ -25,6 +25,8 @@ import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
@@ -148,6 +150,9 @@ class NativeSkillExperienceListenerArmorExpTest {
         UUID id = UUID.randomUUID();
         when(player.getUniqueId()).thenReturn(id);
         when(player.getGameMode()).thenReturn(org.bukkit.GameMode.SURVIVAL);
+        // 2026-07-30: 致死ダメージでは防具EXPを与えない(デスルーラー封じ)ので、体力を明示する。
+        // 未スタブだと Mockito の既定 0.0 = どんな一撃も致死扱いになり、全ケースが無効化される。
+        when(player.getHealth()).thenReturn(20.0);
         PlayerInventory inv = mock(PlayerInventory.class);
         org.bukkit.inventory.ItemStack chestplate = mock(org.bukkit.inventory.ItemStack.class);
         when(chestplate.getType()).thenReturn(org.bukkit.Material.DIAMOND_CHESTPLATE);
@@ -187,6 +192,33 @@ class NativeSkillExperienceListenerArmorExpTest {
                 Double.NaN, 4, 10.0, 20.0, 0.05, 1.0, 1.0, 1.0), 0.0);
         assertEquals(0.0, NativeSkillExperienceListener.armorHitExp(
                 5.0, 0, 10.0, 20.0, 0.05, 1.0, 1.0, 1.0), 0.0);
+    }
+
+    /**
+     * 2026-07-30 (デスルーラー封じ): 致死ダメージでは防具EXPを与えない。EliteMobsのダンジョンでは
+     * 致死の一撃が EliteMobs 側でキャンセルされて「ダウン」になるだけなので、放置すると
+     * 「わざと死にかける → 復活 → また死にかける」で防具スキルを無限に伸ばせてしまう。
+     */
+    @Test
+    void lethalHitGrantsNoArmorExp() {
+        Wired wired = newListener();
+        Player victim = heavyArmorPlayer();
+        when(victim.getHealth()).thenReturn(4.0); // 残り4.0に対して5.0の一撃 = 致死
+        LivingEntity attacker = mock(LivingEntity.class);
+        when(attacker.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(attacker.getType()).thenReturn(EntityType.ZOMBIE);
+
+        wired.listener().onArmorDamage(damageEvent(victim, attacker, 5.0));
+
+        verify(wired.dispatcher(), never()).grant(any(), eq(SkillId.HEAVY_ARMOR), anyDouble());
+    }
+
+    @Test
+    void lethalHitPredicateIsExactlyDamageAtOrAboveRemainingHealth() {
+        assertTrue(NativeSkillExperienceListener.lethalHit(5.0, 5.0), "残り体力ちょうど = 致死");
+        assertTrue(NativeSkillExperienceListener.lethalHit(5.1, 5.0));
+        assertFalse(NativeSkillExperienceListener.lethalHit(4.9, 5.0), "生き残る一撃はEXP対象");
+        assertFalse(NativeSkillExperienceListener.lethalHit(Double.NaN, 5.0), "不正値は抑止しない");
     }
 
     @Test

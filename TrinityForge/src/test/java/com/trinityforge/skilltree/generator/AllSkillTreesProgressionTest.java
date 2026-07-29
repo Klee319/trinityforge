@@ -177,6 +177,117 @@ class AllSkillTreesProgressionTest {
                         + String.join("\n  ", problems));
     }
 
+    /**
+     * 2026-07-30 (排他ノードと通常分岐の干渉): 「UIのノードがずれる/消える/くっつく」の再発防止。
+     *
+     * <ul>
+     *   <li>どのノードも8近傍に他のノードを持たない = 必ずコネクタ1セル分の隙間がある
+     *       (くっついて1つのノードのように見える/コネクタが引けないのを防ぐ)</li>
+     *   <li>主軸の列は MAIN/プレステージ専用 = 分岐/排他ノードが主軸列へ着地しない
+     *       (D-1-2 がプレステージの真下に張り付いていた実例への対応)</li>
+     * </ul>
+     */
+    @Test
+    @DisplayName("no perk touches another perk (8近傍) and branches never land on the trunk column")
+    void perksKeepAConnectorGapAndLeaveTheTrunkColumnToMains(@TempDir File dataFolder) throws IOException {
+        List<String> problems = new ArrayList<>();
+
+        for (SkillTree tree : loadAll(dataFolder)) {
+            String skill = tree.skill();
+            SkillTreeLayout layout = new SkillTreeLayout(tree);
+            Map<String, String> nodeAt = new HashMap<>();
+            for (SkillNode node : tree.nodes().values()) {
+                nodeAt.put(layout.coordOf(node.id()).format(), node.id());
+            }
+
+            for (SkillNode node : tree.nodes().values()) {
+                Coord coord = layout.coordOf(node.id());
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dy = -1; dy <= 1; dy++) {
+                        if (dx == 0 && dy == 0) {
+                            continue;
+                        }
+                        String neighbour = nodeAt.get(new Coord(coord.x() + dx, coord.y() + dy).format());
+                        if (neighbour != null) {
+                            problems.add(skill + ": " + node.id() + " at " + coord.format()
+                                    + " touches " + neighbour);
+                        }
+                    }
+                }
+                boolean trunkRole = node.role() == com.trinityforge.skilltree.SkillRole.MAIN
+                        || node.role() == com.trinityforge.skilltree.SkillRole.INTERMEDIATE;
+                if (!trunkRole && coord.x() == layout.startX()) {
+                    problems.add(skill + ": " + node.id() + " (" + node.role()
+                            + ") occupies the trunk column at " + coord.format());
+                }
+            }
+        }
+
+        assertTrue(problems.isEmpty(),
+                "node adjacency / trunk-column violations:\n  " + String.join("\n  ", problems));
+    }
+
+    /**
+     * 2026-07-30: 排他グループ({@code group})のメンバーは<b>同じ側の連続レーンにまとまる</b>こと。
+     * 以前は兄弟を並び順で左右交互に振っていたため、排他3兄弟が主軸や通常分岐を挟んで左右に散り、
+     * 「どれとどれが排他なのか」がGUIから読めなくなっていた(light_weapons の C 直下が実例)。
+     */
+    @Test
+    @DisplayName("exclusive group members occupy contiguous lanes on one side of their parent")
+    void exclusiveGroupsFormContiguousLanes(@TempDir File dataFolder) throws IOException {
+        List<String> problems = new ArrayList<>();
+
+        for (SkillTree tree : loadAll(dataFolder)) {
+            String skill = tree.skill();
+            SkillTreeLayout layout = new SkillTreeLayout(tree);
+            // 同じ親 + 同じ group のメンバーだけが排他の単位(兄弟排他)。
+            Map<String, List<SkillNode>> groups = new TreeMap<>();
+            for (SkillNode node : tree.nodes().values()) {
+                if (node.group() != null && !node.group().isBlank() && node.parent() != null) {
+                    groups.computeIfAbsent(node.parent() + "/" + node.group(), k -> new ArrayList<>())
+                            .add(node);
+                }
+            }
+
+            for (Map.Entry<String, List<SkillNode>> entry : groups.entrySet()) {
+                List<SkillNode> members = entry.getValue();
+                if (members.size() < 2) {
+                    continue;
+                }
+                String parentId = members.get(0).parent();
+                Coord parent = layout.coordOf(parentId);
+                List<Integer> lanes = new ArrayList<>();
+                boolean sameRow = true;
+                boolean sameSide = true;
+                for (SkillNode member : members) {
+                    Coord coord = layout.coordOf(member.id());
+                    sameRow &= coord.y() == parent.y() - SkillTreeLayout.TRUNK_STEP;
+                    int delta = coord.x() - parent.x();
+                    sameSide &= Integer.signum(delta) == Integer.signum(lanes.isEmpty()
+                            ? delta : lanes.get(0));
+                    lanes.add(delta);
+                }
+                if (!sameRow || !sameSide) {
+                    problems.add(skill + " group '" + entry.getKey() + "': members not on one side of "
+                            + parentId + " in the same row -> "
+                            + members.stream().map(m -> m.id() + layout.coordOf(m.id()).format()).toList());
+                    continue;
+                }
+                List<Integer> sorted = lanes.stream().map(Math::abs).sorted().toList();
+                for (int i = 1; i < sorted.size(); i++) {
+                    if (sorted.get(i) - sorted.get(i - 1) != SkillTreeLayout.SIDE_STEP) {
+                        problems.add(skill + " group '" + entry.getKey() + "': lanes are not contiguous "
+                                + sorted + " (他の分岐が排他グループの間に割り込んでいる)");
+                        break;
+                    }
+                }
+            }
+        }
+
+        assertTrue(problems.isEmpty(),
+                "exclusive-group layout violations:\n  " + String.join("\n  ", problems));
+    }
+
     @Test
     @DisplayName("connector routes never pass through an unrelated perk node")
     void connectorsDoNotCrossNodes(@TempDir File dataFolder) throws IOException {

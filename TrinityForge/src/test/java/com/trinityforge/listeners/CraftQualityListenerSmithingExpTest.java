@@ -2,20 +2,28 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.TrinityForge;
 import com.trinityforge.TrinityForgeSingletonTestSupport;
+import com.trinityforge.config.ConfigManager;
 import com.trinityforge.config.domains.CraftQualityConfig;
 import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.core.SkillId;
+import com.trinityforge.stats.ArsItemGiveBridge;
 import com.trinityforge.stats.CraftQualityService;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemStatProfile;
+import com.trinityforge.stats.ItemUseRequirement;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
+import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,11 +33,15 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,11 +74,15 @@ class CraftQualityListenerSmithingExpTest {
         dispatcher = mock(NativeExperienceDispatcher.class);
         TrinityForge tf = mock(TrinityForge.class);
         when(tf.experienceDispatcher()).thenReturn(dispatcher);
-        TrinityForgeSingletonTestSupport.set(tf);
 
         craftQualityConfig = new CraftQualityConfig(); // real: fixed categorySkill map (weapon/armor/tool -> SMITHING)
         itemStats = mock(ItemStatsConfig.class);
         skillExp = mock(SkillExpConfig.class);
+        ConfigManager config = mock(ConfigManager.class);
+        when(config.skillExp()).thenReturn(skillExp);
+        when(config.itemStats()).thenReturn(itemStats);
+        when(tf.config()).thenReturn(config);
+        TrinityForgeSingletonTestSupport.set(tf);
         when(skillExp.smithingExpPerCraft()).thenReturn(SMITHING_EXP_PER_CRAFT);
         when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
         // 2026-07-28 使用可能レベル連動EXP: このテストは倍率の挙動自体を検証しないので、
@@ -87,6 +103,10 @@ class CraftQualityListenerSmithingExpTest {
     private CraftQualityListener listener() {
         org.bukkit.plugin.Plugin plugin = MockBukkit.createMockPlugin();
         ItemFactory itemFactory = mock(ItemFactory.class);
+        return listener(plugin, itemFactory);
+    }
+
+    private CraftQualityListener listener(org.bukkit.plugin.Plugin plugin, ItemFactory itemFactory) {
         CraftQualityService craftQualityService = mock(CraftQualityService.class);
         when(craftQualityService.rollQuality(any(), any(), anyInt())).thenReturn(0);
         ItemCatalogConfig itemCatalog = mock(ItemCatalogConfig.class);
@@ -108,7 +128,20 @@ class CraftQualityListenerSmithingExpTest {
         when(event.getCurrentItem()).thenReturn(result);
         when(event.getRecipe()).thenReturn(mock(Recipe.class));
         when(event.isShiftClick()).thenReturn(shiftClick);
+        stubRealCraftClick(event, shiftClick);
         return event;
+    }
+
+    /**
+     * 2026-07-30: 「素材を消費して実際に作られるクリック」であることを明示する。
+     * {@link CraftQualityListener#producesCraftedItem} が {@code getAction()} を見るようになったため、
+     * これを立てないと(Mockito既定の null)クラフト扱いされない。
+     */
+    private static void stubRealCraftClick(CraftItemEvent event, boolean shiftClick) {
+        when(event.getAction()).thenReturn(shiftClick
+                ? org.bukkit.event.inventory.InventoryAction.MOVE_TO_OTHER_INVENTORY
+                : org.bukkit.event.inventory.InventoryAction.PICKUP_ALL);
+        when(event.getCursor()).thenReturn(new ItemStack(Material.AIR));
     }
 
     @Test
@@ -133,20 +166,235 @@ class CraftQualityListenerSmithingExpTest {
     }
 
     @Test
-    void shiftClickBulkCraftStillGrantsExactlyOneCraftsWorthOfExp() {
-        // CraftItemEvent fires ONCE per shift-click action regardless of how many copies vanilla
-        // fills the inventory with — this listener must not scale the grant by crafted amount.
-        listener().onCraft(craftEvent(Material.DIAMOND_SWORD, true));
+    void craftingArsQualityGearUsesArsSmithingAndFinishedItemUseLevel() {
+        ItemStack result = new ItemStack(Material.BLAZE_ROD);
+        ItemMeta meta = result.getItemMeta();
+        meta.setCustomModelData(400006);
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "custom_item_id"),
+                PersistentDataType.STRING, "catalyst_test");
+        result.setItemMeta(meta);
+        when(itemStats.profileFor(eq(Material.BLAZE_ROD), eq(400006)))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.BLAZE_ROD), eq(400006))).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.BLAZE_ROD), eq(400006)))
+                .thenReturn(Optional.of(new ItemUseRequirement(55, SkillId.ARS_MAGIC)));
+        when(skillExp.useLevelExpMultiplier(SkillId.ARS_SMITHING, 55)).thenReturn(1.55);
 
-        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, SMITHING_EXP_PER_CRAFT);
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(event, false);
+
+        try (var ars = mockStatic(ArsItemGiveBridge.class)) {
+            ars.when(() -> ArsItemGiveBridge.isQualityStamped("catalyst_test")).thenReturn(true);
+            listener().onCraft(event);
+        }
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 155.0);
+        verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
+    }
+
+    @Test
+    void craftingArsQualityItemWithoutTfStatsProfileStillGrantsBaseArsSmithingExp() {
+        ItemStack result = new ItemStack(Material.BOOK);
+        ItemMeta meta = result.getItemMeta();
+        meta.setCustomModelData(100001);
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "custom_item_id"),
+                PersistentDataType.STRING, "spell_book_novice");
+        result.setItemMeta(meta);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(event, false);
+
+        try (var ars = mockStatic(ArsItemGiveBridge.class)) {
+            ars.when(() -> ArsItemGiveBridge.isQualityStamped("spell_book_novice")).thenReturn(true);
+            listener().onCraft(event);
+        }
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
+    }
+
+    @Test
+    void shiftClickBulkCraftUsesMatrixAndDestinationCapacity() {
+        ItemStack result = new ItemStack(Material.DIAMOND_SWORD);
+        when(itemStats.profileFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.DIAMOND_SWORD), any())).thenReturn(0);
+        fillPlayerStorageExcept(2);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{
+                new ItemStack(Material.DIAMOND, 3),
+                new ItemStack(Material.DIAMOND, 3),
+                new ItemStack(Material.STICK, 3)
+        });
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.isShiftClick()).thenReturn(true);
+        stubRealCraftClick(event, true);
+
+        listener().onCraft(event);
+
+        // Matrix permits 3 operations, but two empty equipment slots permit only 2.
+        verify(dispatcher).grant(
+                player.getUniqueId(), SkillId.SMITHING, SMITHING_EXP_PER_CRAFT * 2);
+    }
+
+    @Test
+    void shiftClickBulkArsCraftMultipliesArsSmithingExpByOperations() {
+        ItemStack result = new ItemStack(Material.BOOK);
+        ItemMeta meta = result.getItemMeta();
+        meta.setCustomModelData(100001);
+        meta.getPersistentDataContainer().set(
+                new NamespacedKey("arspaper", "custom_item_id"),
+                PersistentDataType.STRING, "spell_book_novice");
+        result.setItemMeta(meta);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{
+                new ItemStack(Material.BOOK, 3),
+                new ItemStack(Material.AMETHYST_SHARD, 3)
+        });
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.isShiftClick()).thenReturn(true);
+        stubRealCraftClick(event, true);
+
+        try (var ars = mockStatic(ArsItemGiveBridge.class)) {
+            ars.when(() -> ArsItemGiveBridge.isQualityStamped("spell_book_novice")).thenReturn(true);
+            listener().onCraft(event);
+        }
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 300.0);
     }
 
     @Test
     void craftingNonEquipmentGrantsNoSmithingExp() {
-        // DIRT is not tiered equipment (MaterialTier.of(DIRT) == NONE), so isStampableEquipment()
+        // DIRT is neither tiered equipment nor Ars quality gear, so isStampableCraftResult()
         // rejects it before candidatesFor() is ever consulted.
         listener().onCraft(craftEvent(Material.DIRT, false));
 
+        verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
+    }
+
+    @Test
+    void missingCraftResultDoesNotStampOrGrantFromCurrentItemOrCursor() {
+        ItemStack unrelatedCurrentItem = new ItemStack(Material.DIAMOND_SWORD);
+        ItemStack unrelatedCursor = new ItemStack(Material.DIAMOND_PICKAXE);
+        when(itemStats.profileFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.profileFor(eq(Material.DIAMOND_PICKAXE), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        player.setItemOnCursor(unrelatedCursor);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(null);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(unrelatedCurrentItem);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(event, false);
+
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        listener(MockBukkit.createMockPlugin(), itemFactory).onCraft(event);
+
+        verify(itemFactory, never()).stamp(
+                any(ItemStack.class), org.mockito.ArgumentMatchers.anyLong(), anyInt(), any());
+        verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
+    }
+
+    @Test
+    void vanillaSameItemRepairIsNeverStampedOrAwarded() {
+        ItemStack first = damaged(Material.WOODEN_SWORD, 50);
+        ItemStack second = damaged(Material.WOODEN_SWORD, 50);
+        ItemStack repairResult = damaged(Material.WOODEN_SWORD, 39);
+        when(itemStats.profileFor(eq(Material.WOODEN_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(repairResult);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{first, second});
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        CraftQualityListener listener = listener(MockBukkit.createMockPlugin(), itemFactory);
+
+        PrepareItemCraftEvent prepare = mock(PrepareItemCraftEvent.class);
+        when(prepare.getViewers()).thenReturn(java.util.List.of(player));
+        when(prepare.getInventory()).thenReturn(inventory);
+        when(prepare.isRepair()).thenReturn(true);
+        listener.onPrepareCraft(prepare);
+
+        CraftItemEvent craft = mock(CraftItemEvent.class);
+        when(craft.getWhoClicked()).thenReturn(player);
+        when(craft.getInventory()).thenReturn(inventory);
+        when(craft.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(craft, false);
+        listener.onCraft(craft);
+
+        verify(itemFactory, never()).stamp(
+                any(ItemStack.class), org.mockito.ArgumentMatchers.anyLong(), anyInt(), any());
+        verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
+    }
+
+    @Test
+    void sameTypeInputsWithWrongResultDamageAreNotClassifiedAsVanillaRepair() {
+        ItemStack first = damaged(Material.WOODEN_SWORD, 50);
+        ItemStack second = damaged(Material.WOODEN_SWORD, 50);
+
+        assertTrue(CraftQualityListener.isVanillaSameItemRepair(
+                new ItemStack[]{first, second}, damaged(Material.WOODEN_SWORD, 39)));
+        assertFalse(CraftQualityListener.isVanillaSameItemRepair(
+                new ItemStack[]{first, second}, damaged(Material.WOODEN_SWORD, 38)));
+    }
+
+    @Test
+    void customMaxDamageSameItemRepairIsNeverStampedOrAwarded() {
+        ItemStack first = damaged(Material.WOODEN_SWORD, 30, 40);
+        ItemStack second = damaged(Material.WOODEN_SWORD, 30, 40);
+        ItemStack repairResult = damaged(Material.WOODEN_SWORD, 18, 40);
+        Damageable firstMeta = (Damageable) first.getItemMeta();
+        assertTrue(firstMeta.hasMaxDamage());
+        assertEquals(40, firstMeta.getMaxDamage());
+        assertEquals(30, firstMeta.getDamage());
+        assertTrue(CraftQualityListener.isVanillaSameItemRepair(
+                new ItemStack[]{first, second}, repairResult));
+        when(itemStats.profileFor(eq(Material.WOODEN_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(repairResult);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{first, second});
+        CraftItemEvent craft = mock(CraftItemEvent.class);
+        when(craft.getWhoClicked()).thenReturn(player);
+        when(craft.getInventory()).thenReturn(inventory);
+        when(craft.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(craft, false);
+        ItemFactory itemFactory = mock(ItemFactory.class);
+
+        listener(MockBukkit.createMockPlugin(), itemFactory).onCraft(craft);
+
+        verify(itemFactory, never()).stamp(
+                any(ItemStack.class), org.mockito.ArgumentMatchers.anyLong(), anyInt(), any());
         verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
     }
 
@@ -160,5 +408,94 @@ class CraftQualityListenerSmithingExpTest {
                 .anyMatch(m -> m.getName().equals("onItemDamage"));
         org.junit.jupiter.api.Assertions.assertFalse(methodStillExists,
                 "onItemDamage must be fully removed, not merely disabled");
+    }
+
+    // ------------------------------------------------------------------
+    // 2026-07-30: 「クラフトしていないのにクリックごとに鍛冶EXPが入る」不具合の回帰テスト。
+    // 別アイテムをカーソルに持って結果枠を左クリックすると、バニラは何もしないが
+    // CraftItemEvent は発火する(action = NOTHING)。EXPも品質の振り直しも起きてはいけない。
+    // ------------------------------------------------------------------
+
+    @Test
+    void clickingResultSlotWhileHoldingAnotherItemGrantsNoExpAndDoesNotRestamp() {
+        ItemStack result = new ItemStack(Material.DIAMOND_SWORD);
+        when(itemStats.profileFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.DIAMOND_SWORD), any())).thenReturn(0);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        // 別アイテムを持って結果枠をクリックしたときに Paper が立てる値。
+        when(event.getAction()).thenReturn(org.bukkit.event.inventory.InventoryAction.NOTHING);
+        when(event.getCursor()).thenReturn(new ItemStack(Material.DIRT));
+
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        listener(MockBukkit.createMockPlugin(), itemFactory).onCraft(event);
+
+        verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
+        verify(itemFactory, never()).stamp(
+                any(ItemStack.class), org.mockito.ArgumentMatchers.anyLong(), anyInt(), any());
+        verify(event, never()).setCurrentItem(any(ItemStack.class));
+    }
+
+    @Test
+    void producesCraftedItemAcceptsOnlyClicksThatConsumeIngredients() {
+        ItemStack empty = new ItemStack(Material.AIR);
+        ItemStack held = new ItemStack(Material.DIRT);
+
+        // 取り出しが確定する経路
+        assertTrue(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.PICKUP_ALL, empty));
+        assertTrue(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.PICKUP_HALF, empty));
+        // 同一アイテムでスタックに収まるときだけ PICKUP_* が立つので、カーソルに何か持っていてもよい
+        assertTrue(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.PICKUP_ALL, held));
+        assertTrue(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.MOVE_TO_OTHER_INVENTORY, empty));
+        assertTrue(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.HOTBAR_SWAP, empty));
+        // Qドロップはカーソルが空のときだけバニラが処理する
+        assertTrue(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.DROP_ALL_SLOT, empty));
+        assertFalse(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.DROP_ALL_SLOT, held));
+
+        // クラフトを伴わない経路
+        assertFalse(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.NOTHING, held));
+        assertFalse(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.CLONE_STACK, empty));
+        assertFalse(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.COLLECT_TO_CURSOR, held));
+        assertFalse(CraftQualityListener.producesCraftedItem(
+                org.bukkit.event.inventory.InventoryAction.UNKNOWN, empty));
+        assertFalse(CraftQualityListener.producesCraftedItem(null, empty));
+    }
+
+    private void fillPlayerStorageExcept(int emptySlots) {
+        ItemStack[] storage = new ItemStack[player.getInventory().getStorageContents().length];
+        for (int slot = emptySlots; slot < storage.length; slot++) {
+            storage[slot] = new ItemStack(Material.DIRT, Material.DIRT.getMaxStackSize());
+        }
+        player.getInventory().setStorageContents(storage);
+    }
+
+    private static ItemStack damaged(Material material, int damage) {
+        return damaged(material, damage, null);
+    }
+
+    private static ItemStack damaged(Material material, int damage, Integer maxDamage) {
+        ItemStack item = new ItemStack(material);
+        Damageable meta = (Damageable) item.getItemMeta();
+        meta.setMaxDamage(maxDamage);
+        meta.setDamage(damage);
+        item.setItemMeta(meta);
+        return item;
     }
 }

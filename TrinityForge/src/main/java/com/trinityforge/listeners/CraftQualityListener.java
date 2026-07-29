@@ -14,6 +14,8 @@ import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.CraftQualityPolicy;
 import com.trinityforge.stats.CraftQualityService;
 import com.trinityforge.stats.CraftRollMods;
+import com.trinityforge.stats.ArsItemGiveBridge;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.EquipmentSlotResolver;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.MaterialTier;
@@ -34,6 +36,7 @@ import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
@@ -84,7 +87,10 @@ public final class CraftQualityListener implements Listener {
         }
         CraftingInventory inventory = event.getInventory();
         ItemStack result = inventory.getResult();
-        if (!isStampableEquipment(result) || !hasStatsProfile(result)) {
+        if (event.isRepair()
+                || isVanillaSameItemRepair(inventory.getMatrix(), result)
+                || !isStampableCraftResult(result)
+                || (!hasStatsProfile(result) && !isArsQualityStamped(result))) {
             return;
         }
         Set<String> candidates = candidatesFor(result);
@@ -130,12 +136,14 @@ public final class CraftQualityListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        // MONITOR では結果枠が既に空のことがある — CurrentItem / Cursor も候補にする。
-        ItemStack source = firstStampable(
-                event.getInventory().getResult(),
-                event.getCurrentItem(),
-                player.getItemOnCursor());
-        if (source != null && hasStatsProfile(source)) {
+        // Only the crafting inventory result proves that this event produced an item. CurrentItem
+        // and cursor may contain unrelated equipment when another listener has already cleared the
+        // result, and must never be treated as the crafted output.
+        ItemStack source = event.getInventory().getResult();
+        if (producesCraftedItem(event.getAction(), event.getCursor())
+                && isStampableCraftResult(source)
+                && !isVanillaSameItemRepair(event.getInventory().getMatrix(), source)
+                && (hasStatsProfile(source) || isArsQualityStamped(source))) {
             Set<String> candidates = candidatesFor(source);
             int rolled = craftQualityService.rollQuality(player, candidates, qualityModeOffsetFor(source));
             ItemStack stamped = source.clone();
@@ -146,13 +154,24 @@ public final class CraftQualityListener implements Listener {
             // 結果枠だけを差し替える。カーソルには絶対に触らないこと(理由は下記)。
             event.getInventory().setResult(stamped.clone());
             event.setCurrentItem(stamped.clone());
+            int craftOperations = event.isShiftClick()
+                    ? craftOperationCount(
+                            true,
+                            event.getInventory().getMatrix(),
+                            player.getInventory().getStorageContents(),
+                            stamped)
+                    : 1;
             if (candidates.contains(ArsProgressionBridge.ARS_SMITHING)) {
-                ArsProgressionBridge.grantSmithingExp(plugin, player, skillExp.arsSmithingExpPerCraft());
+                ArsProgressionBridge.grantSmithingExpForResult(
+                        plugin,
+                        player,
+                        stamped,
+                        skillExp.arsSmithingExpPerCraft() * craftOperations);
             }
             // PRG-13 (2026-07-25): SMITHING EXPの唯一のソース。categorySkill(weapon/armor/tool -> SMITHING,
             // CraftQualityConfig)で線引き済みなのでバニラの土ブロック等クラフトでは発生しない。
-            // shift-clickの一括クラフトでもCraftItemEventは1回しか飛ばない(Bukkit標準の挙動)ため、
-            // exp-per-craftは作成した個数に関わらず1回分だけ付与される(ars-smithingと同じ、意図的)。
+            // shift-clickはイベントが1回でも複数回クラフトされるため、素材数と収納容量の安全側の
+            // 下限で実操作回数を求める。通常クリックは常に1回。
             if (candidates.contains(SkillId.SMITHING)) {
                 // 使用可能レベル連動EXP (2026-07-28): 「作成したツール/装備」= 品質スタンプ済みの stamped
                 // 自身の使用可能レベルを見る。ARS_SMITHING(上のgrantSmithingExp)には掛けない —
@@ -162,11 +181,49 @@ public final class CraftQualityListener implements Listener {
                         .orElse(0);
                 double multiplier = skillExp.useLevelExpMultiplier(SkillId.SMITHING, useLevel);
                 ArsProgressionBridge.grantSkillExp(plugin, player, SkillId.SMITHING,
-                        skillExp.smithingExpPerCraft() * multiplier);
+                        skillExp.smithingExpPerCraft() * multiplier * craftOperations);
             }
         }
         // 常に次tickでプレビュー漏れを回収 (NUMBER_KEY / shift / 結果枠空 など)。
         plugin.getServer().getScheduler().runTask(plugin, () -> restampPreviewCrafts(player));
+    }
+
+    /**
+     * <b>鍛冶EXP誤付与の修正 (2026-07-30)</b>: このクリックが本当に<em>素材を消費してアイテムを
+     * 作り出す</em>かどうか。{@link CraftItemEvent} は「クラフト結果枠がクリックされた」だけで発火し、
+     * <b>バニラが実際にクラフトを行うかどうかは一切見ていない</b>ため、これを見ずにEXPを付与すると
+     * 「関係ないアイテムをカーソルに持って結果枠を左クリック」するだけでクリック回数ぶん鍛冶EXPが
+     * 入っていた(報告された不具合。品質の振り直しも同時に起きていた)。
+     *
+     * <p>判定は Paper の {@code ServerGamePacketListenerImpl#handleContainerClick} が
+     * {@link InventoryAction} を決める規則と、バニラ {@code AbstractContainerMenu#clicked} が実際に
+     * 取り出す条件を突き合わせたもの(1.21.11 のソースで確認):
+     * <ul>
+     *   <li>{@code PICKUP_*} — 結果枠は {@code mayPlace} が常に false なので、カーソルが空か
+     *       「同一アイテムでスタック上限に収まる」ときしか発生しない = 必ず取り出しが起きる。
+     *       逆に<b>別アイテムを持っている/スタックが満杯なら action は {@code NOTHING} になる</b>
+     *       (これが今回の穴)。</li>
+     *   <li>{@code MOVE_TO_OTHER_INVENTORY}(shift) — 枠に品があれば必ず立つ。移動先が満杯で
+     *       実際には作られない場合は {@link #craftOperationCount} が 0 を返すのでEXPも0になる。</li>
+     *   <li>{@code HOTBAR_SWAP}(数字キー/F) — 結果枠では「対象のホットバー枠が空」のときだけ立つ
+     *       (埋まっていれば {@code mayPlace} が false なので {@code NOTHING})ので、必ず取り出しが起きる。</li>
+     *   <li>{@code DROP_*_SLOT}(Q) — action 自体はカーソルの中身に関係なく立つが、バニラ側は
+     *       {@code ClickType.THROW && carried.isEmpty()} でしか処理しない。カーソルが空のときだけ許可する。</li>
+     *   <li>それ以外({@code NOTHING} / {@code CLONE_STACK} / {@code COLLECT_TO_CURSOR} /
+     *       {@code UNKNOWN} / バンドル系 …)はクラフトを伴わないので false。</li>
+     * </ul>
+     * 純関数なのでユニットテストから直接叩ける。
+     */
+    static boolean producesCraftedItem(InventoryAction action, ItemStack cursor) {
+        if (action == null) {
+            return false;
+        }
+        return switch (action) {
+            case PICKUP_ALL, PICKUP_SOME, PICKUP_HALF, PICKUP_ONE,
+                 MOVE_TO_OTHER_INVENTORY, HOTBAR_SWAP -> true;
+            case DROP_ALL_SLOT, DROP_ONE_SLOT -> cursor == null || cursor.getType().isAir();
+            default -> false;
+        };
     }
 
     /**
@@ -258,7 +315,7 @@ public final class CraftQualityListener implements Listener {
     }
 
     private boolean restampIfPreview(ItemStack stack, Player player) {
-        if (!isStampableEquipment(stack)) {
+        if (!isStampableCraftResult(stack)) {
             return false;
         }
         ItemMeta meta = stack.getItemMeta();
@@ -270,9 +327,8 @@ public final class CraftQualityListener implements Listener {
         if (seed.isEmpty() || seed.get() != PreviewRollSeeds.CRAFT) {
             return false;
         }
-        // ステータス未設定(item-stats プロファイル無し)のアイテムには品質を付けない。
-        // 通常は onPrepareCraft 側で弾かれるが、万一プレビュー刻印が残っていたらここでも保険をかける。
-        if (!hasStatsProfile(stack)) {
+        // TFステータス未設定でも、Ars側が品質対象と宣言する魔導書/触媒は同じロールを確定する。
+        if (!hasStatsProfile(stack) && !isArsQualityStamped(stack)) {
             return false;
         }
         Set<String> candidates = candidatesFor(stack);
@@ -324,23 +380,109 @@ public final class CraftQualityListener implements Listener {
         stamped.setItemMeta(meta);
     }
 
-    private static ItemStack firstStampable(ItemStack... stacks) {
-        for (ItemStack stack : stacks) {
-            if (isStampableEquipment(stack)) {
-                return stack;
-            }
-        }
-        return null;
-    }
-
-    private static boolean isStampableEquipment(ItemStack result) {
+    private boolean isStampableCraftResult(ItemStack result) {
         return result != null && !result.getType().isAir()
-                && MaterialTier.of(result.getType()).isEquipment();
+                && (MaterialTier.of(result.getType()).isEquipment() || isArsQualityStamped(result));
     }
 
     private Set<String> candidatesFor(ItemStack result) {
+        if (isArsQualityStamped(result)) {
+            return Set.of(ArsProgressionBridge.ARS_SMITHING);
+        }
         Set<String> categories = EquipmentSlotResolver.statCategories(result.getType());
         return CraftQualityPolicy.candidateSkills(categories, config.categorySkill());
+    }
+
+    private boolean isArsQualityStamped(ItemStack result) {
+        return CrossPluginItemResolver.idOf(result)
+                .map(ArsItemGiveBridge::isQualityStamped)
+                .orElse(false);
+    }
+
+    static boolean isVanillaSameItemRepair(ItemStack[] matrix, ItemStack result) {
+        if (matrix == null || result == null || result.getAmount() != 1 || result.getType().isAir()) {
+            return false;
+        }
+        ItemStack first = null;
+        ItemStack second = null;
+        for (ItemStack ingredient : matrix) {
+            if (ingredient == null || ingredient.getType().isAir()) {
+                continue;
+            }
+            if (ingredient.getAmount() != 1 || second != null) {
+                return false;
+            }
+            if (first == null) {
+                first = ingredient;
+            } else {
+                second = ingredient;
+            }
+        }
+        if (first == null || second == null
+                || first.getType() != second.getType()
+                || result.getType() != first.getType()) {
+            return false;
+        }
+        if (!(first.getItemMeta() instanceof Damageable firstMeta)
+                || !(second.getItemMeta() instanceof Damageable secondMeta)
+                || !(result.getItemMeta() instanceof Damageable resultMeta)) {
+            return false;
+        }
+        int maxDamage = effectiveMaxDamage(first, firstMeta);
+        if (maxDamage <= 0
+                || effectiveMaxDamage(second, secondMeta) != maxDamage
+                || effectiveMaxDamage(result, resultMeta) != maxDamage) {
+            return false;
+        }
+        int firstRemaining = remainingDurability(maxDamage, firstMeta.getDamage());
+        int secondRemaining = remainingDurability(maxDamage, secondMeta.getDamage());
+        int repairBonus = maxDamage * 5 / 100;
+        int expectedDamage = Math.max(
+                0, maxDamage - Math.min(maxDamage, firstRemaining + secondRemaining + repairBonus));
+        return resultMeta.getDamage() == expectedDamage;
+    }
+
+    static int craftOperationCount(boolean shiftClick, ItemStack[] matrix,
+                                   ItemStack[] destinationStorage, ItemStack result) {
+        if (!shiftClick) {
+            return 1;
+        }
+        if (matrix == null || destinationStorage == null || result == null
+                || result.getType().isAir() || result.getAmount() <= 0) {
+            return 0;
+        }
+        int ingredientLimit = Integer.MAX_VALUE;
+        boolean hasIngredient = false;
+        for (ItemStack ingredient : matrix) {
+            if (ingredient == null || ingredient.getType().isAir() || ingredient.getAmount() <= 0) {
+                continue;
+            }
+            hasIngredient = true;
+            ingredientLimit = Math.min(ingredientLimit, ingredient.getAmount());
+        }
+        if (!hasIngredient) {
+            return 0;
+        }
+
+        long itemCapacity = 0L;
+        int resultStackLimit = result.getMaxStackSize();
+        for (ItemStack destination : destinationStorage) {
+            if (destination == null || destination.getType().isAir()) {
+                itemCapacity += resultStackLimit;
+            } else if (destination.isSimilar(result)) {
+                itemCapacity += Math.max(0, resultStackLimit - destination.getAmount());
+            }
+        }
+        long destinationLimit = itemCapacity / result.getAmount();
+        return (int) Math.min(ingredientLimit, Math.min(destinationLimit, Integer.MAX_VALUE));
+    }
+
+    private static int remainingDurability(int maxDamage, int damage) {
+        return maxDamage - Math.min(maxDamage, Math.max(0, damage));
+    }
+
+    private static int effectiveMaxDamage(ItemStack item, Damageable meta) {
+        return meta.hasMaxDamage() ? meta.getMaxDamage() : item.getType().getMaxDurability();
     }
 
     /**

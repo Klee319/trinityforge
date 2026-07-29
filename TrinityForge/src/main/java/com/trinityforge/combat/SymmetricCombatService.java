@@ -114,16 +114,30 @@ public final class SymmetricCombatService {
      */
     public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
                                                             double vanillaBaseDamage, AttackStats attack) {
+        return physicalFinalDamageFromMobResult(mobAttacker, victim, vanillaBaseDamage, attack, false);
+    }
+
+    /**
+     * Same as {@link #physicalFinalDamageFromMobResult(LivingEntity, Player, double, AttackStats)} but
+     * lets the caller flag a projectile hit.
+     *
+     * <p><b>2026-07-30</b>: {@code CombatListener#resolveMobAttacker} now also owns a mob's
+     * <em>projectile</em> damage (skeleton arrows etc. previously bypassed the TF pipeline entirely),
+     * so the victim's Projectile Protection must be re-derived for those hits — TF zeroes the vanilla
+     * {@code MAGIC} modifier unconditionally, and a re-derivation that is not asked for silently
+     * deletes the enchantment's mitigation.
+     */
+    public CombatHitResult physicalFinalDamageFromMobResult(LivingEntity mobAttacker, Player victim,
+                                                            double vanillaBaseDamage, AttackStats attack,
+                                                            boolean projectileHit) {
         Objects.requireNonNull(mobAttacker, "mobAttacker");
         Objects.requireNonNull(victim, "victim");
         int mobLevel = MobData.of(mobAttacker).level();
         double base = resolver().physicalDefaultDamage(vanillaBaseDamage, mobLevel);
         double itemAttackPower = attack.defaultDamage();
         double baseDamage = (itemAttackPower != 0 ? itemAttackPower : base) * earlyLevelAttackMultiplier(mobLevel);
-        // Mob melee never reaches CombatListener's projectile branch (resolveMobAttacker only matches
-        // MELEE_CAUSES), so Projectile Protection never applies here — only general Protection.
         return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
-                damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, false));
+                damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, projectileHit));
     }
 
     /**

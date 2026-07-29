@@ -7,6 +7,7 @@ import com.trinityforge.config.ConfigDomain;
 import com.trinityforge.config.ConfigSchema;
 import com.trinityforge.config.SchemaField;
 import com.trinityforge.config.TypedConfig;
+import com.trinityforge.durability.DurabilityPenaltySettings;
 
 import java.util.List;
 
@@ -61,6 +62,19 @@ public final class CombatDamageConfig {
     private static final String EARLY_LEVEL_ATTACK_ENABLED = "early-level-attack.enabled";
     private static final String EARLY_LEVEL_ATTACK_UNTIL_LEVEL = "early-level-attack.until-level";
     private static final String EARLY_LEVEL_ATTACK_LEVEL0_MULTIPLIER = "early-level-attack.level-0-multiplier";
+
+    // 2026-07-30 装備耐久ペナルティ(EliteMobsダンジョンでのダウンは PlayerDeathEvent を出さない)。
+    private static final String DURABILITY_DUNGEON_ONLY = "durability.dungeon-only";
+    private static final String DURABILITY_RESPECT_UNBREAKING = "durability.respect-unbreaking";
+    private static final String DURABILITY_PREVENT_BREAK = "durability.prevent-break";
+    private static final String DURABILITY_ON_HIT_ENABLED = "durability.on-hit.enabled";
+    private static final String DURABILITY_ON_HIT_PERCENT = "durability.on-hit.percent-of-max";
+    private static final String DURABILITY_ON_HIT_MIN_DAMAGE = "durability.on-hit.min-damage";
+    private static final String DURABILITY_ON_HIT_INCLUDE_OFFHAND = "durability.on-hit.include-offhand";
+    private static final String DURABILITY_ON_DEATH_ENABLED = "durability.on-death.enabled";
+    private static final String DURABILITY_ON_DEATH_PERCENT = "durability.on-death.percent-of-max";
+    private static final String DURABILITY_ON_DEATH_MIN_DAMAGE = "durability.on-death.min-damage";
+    private static final String DURABILITY_ON_DEATH_INCLUDE_HANDS = "durability.on-death.include-hands";
 
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
@@ -163,7 +177,22 @@ public final class CombatDamageConfig {
                 .field(SchemaField.of(EARLY_LEVEL_ATTACK_ENABLED, SchemaField.Type.BOOLEAN, true))
                 .field(SchemaField.number(EARLY_LEVEL_ATTACK_UNTIL_LEVEL, SchemaField.Type.INT, 10, 0, 1000))
                 .field(SchemaField.number(EARLY_LEVEL_ATTACK_LEVEL0_MULTIPLIER,
-                        SchemaField.Type.DOUBLE, 0.7, 0.0, 1.0));
+                        SchemaField.Type.DOUBLE, 0.7, 0.0, 1.0))
+                // 装備耐久ペナルティ(2026-07-30): EliteMobsのインスタンスダンジョンは致死ダメージを
+                // キャンセルしてダウンへ移すため PlayerDeathEvent が発火せず、死亡ペナルティも
+                // キャンセルされた一撃分の防具耐久消費も両方失われていた。TF側で明示的に補う。
+                // 既定は dungeon-only=true(ダンジョン内のみ)。詳細は combat/damage.yml のコメント参照。
+                .field(SchemaField.of(DURABILITY_DUNGEON_ONLY, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.of(DURABILITY_RESPECT_UNBREAKING, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.of(DURABILITY_PREVENT_BREAK, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.of(DURABILITY_ON_HIT_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(DURABILITY_ON_HIT_PERCENT, SchemaField.Type.DOUBLE, 0.001, 0.0, 1.0))
+                .field(SchemaField.number(DURABILITY_ON_HIT_MIN_DAMAGE, SchemaField.Type.INT, 1, 0, 10_000))
+                .field(SchemaField.of(DURABILITY_ON_HIT_INCLUDE_OFFHAND, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.of(DURABILITY_ON_DEATH_ENABLED, SchemaField.Type.BOOLEAN, true))
+                .field(SchemaField.number(DURABILITY_ON_DEATH_PERCENT, SchemaField.Type.DOUBLE, 0.1, 0.0, 1.0))
+                .field(SchemaField.number(DURABILITY_ON_DEATH_MIN_DAMAGE, SchemaField.Type.INT, 1, 0, 10_000))
+                .field(SchemaField.of(DURABILITY_ON_DEATH_INCLUDE_HANDS, SchemaField.Type.BOOLEAN, true));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -371,6 +400,27 @@ public final class CombatDamageConfig {
     /** Number of applications a bleed lasts. */
     public int bleedTicks() {
         return domain.get().getInt("bleed.ticks");
+    }
+
+    /**
+     * TF独自の装備耐久ペナルティ設定(2026-07-30)。EliteMobsのインスタンスダンジョンでは致死ダメージが
+     * キャンセルされ {@code PlayerDeathEvent} が発火しないため、死亡ペナルティとキャンセルされた一撃分の
+     * 防具耐久消費が両方失われていた。既定はダンジョン限定・被弾0.1%・死亡10%。
+     */
+    public DurabilityPenaltySettings durabilityPenalty() {
+        TypedConfig config = domain.get();
+        return new DurabilityPenaltySettings(
+                config.getBoolean(DURABILITY_DUNGEON_ONLY),
+                config.getBoolean(DURABILITY_RESPECT_UNBREAKING),
+                config.getBoolean(DURABILITY_PREVENT_BREAK),
+                config.getBoolean(DURABILITY_ON_HIT_ENABLED),
+                config.getDouble(DURABILITY_ON_HIT_PERCENT),
+                config.getInt(DURABILITY_ON_HIT_MIN_DAMAGE),
+                config.getBoolean(DURABILITY_ON_HIT_INCLUDE_OFFHAND),
+                config.getBoolean(DURABILITY_ON_DEATH_ENABLED),
+                config.getDouble(DURABILITY_ON_DEATH_PERCENT),
+                config.getInt(DURABILITY_ON_DEATH_MIN_DAMAGE),
+                config.getBoolean(DURABILITY_ON_DEATH_INCLUDE_HANDS));
     }
 
     /** 防御率% granted per point of the victim's vanilla armor attribute (fallback mapping). */

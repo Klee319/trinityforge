@@ -48,6 +48,7 @@ import com.trinityforge.listeners.CraftQualityListener;
 import com.trinityforge.listeners.ItemDamageClampListener;
 import com.trinityforge.listeners.CatalogAnvilListener;
 import com.trinityforge.listeners.CatalogSmithingListener;
+import com.trinityforge.listeners.CatalogVanillaOperationGuardListener;
 import com.trinityforge.listeners.FarmingHarvestListener;
 import com.trinityforge.mobs.DungeonGateService;
 import com.trinityforge.listeners.DiggingGimmickListener;
@@ -141,6 +142,8 @@ public final class TrinityForge extends JavaPlugin {
     private static volatile TrinityForge instance;
     private ConfigManager configManager;
     private DungeonWorldRegistry dungeonWorldRegistry;
+    /** 2026-07-30: 被弾/死亡の装備耐久ペナルティ。EliteMobsフォークが死亡側を直接呼ぶ。 */
+    private com.trinityforge.durability.EquipmentDurabilityService equipmentDurabilityService;
     private final com.trinityforge.progression.LocationExpDiminishing locationExpDiminishing =
             new com.trinityforge.progression.LocationExpDiminishing();
     private SymmetricCombatService combatService;
@@ -461,6 +464,15 @@ public final class TrinityForge extends JavaPlugin {
         // 対して無意味で「朝になっても敵が炎上で死なない」ため。combat/damage.yml の sunlight-burn。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.SunlightBurnListener(configManager.combatDamage()), this);
+        // 装備耐久ペナルティ(2026-07-30): EliteMobsのインスタンスダンジョンは致死ダメージをキャンセルして
+        // 「ダウン」へ移すため PlayerDeathEvent が発火せず、死亡ペナルティもキャンセルされた一撃分の
+        // 防具耐久消費も両方失われていた。被弾側はここで、死亡側はフォークが
+        // applyDeathDurabilityPenalty() を呼ぶことで補う。設定は combat/damage.yml の durability。
+        this.equipmentDurabilityService = new com.trinityforge.durability.EquipmentDurabilityService(
+                configManager.combatDamage()::durabilityPenalty,
+                player -> dungeonWorldRegistry.isDungeonWorld(player.getWorld().getUID()));
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.EquipmentDurabilityListener(equipmentDurabilityService), this);
         // The listener bridges the attacker's mainhand weapon's stats/item-stats.yml overlay into
         // AttackStats via the configured attack-stat-keys mapping (COMBAT 3.1), and folds only the
         // ARMOR/RESISTANCE vanilla modifiers into the symmetric pipeline so shield blocking and
@@ -642,6 +654,12 @@ public final class TrinityForge extends JavaPlugin {
 
         // Ownership use-gate: SOULBOUND/OWNER_BOUND with an owner deny use by non-owners (trade OK).
         getServer().getPluginManager().registerEvents(new OwnerBindListener(), this);
+        // Catalog identity must never fall through to consuming/transforming vanilla Material
+        // behaviour (placement, fuel/cooking, default workstations). Dedicated TF recipes remain
+        // whitelisted by their own declared recipe specs.
+        getServer().getPluginManager().registerEvents(
+                new CatalogVanillaOperationGuardListener(
+                        configManager.itemCatalog(), configManager.craftingFeatures()), this);
         // 鍛冶村人取引: perk-gated custom trades (economy/villager-trades.yml).
         getServer().getPluginManager().registerEvents(
                 new VillagerTradeListener(configManager.dedicatedEffects(), configManager.villagerTrades(),
@@ -757,12 +775,6 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ActivationDispatcher(activeSkillRegistry, configManager.dedicatedEffects(),
                         activeCooldownManager, activeFeedbackLayer, aggregator), this);
-        // 2026-07-28 ユーザー要望: CT中は残り秒をアクションバーに出し続ける(押してみないと分からない
-        // 状態の解消)。対象アイテムを持っている間だけ表示するので、他のフィードバックは潰さない。
-        new com.trinityforge.active.ActiveCooldownDisplay(this, activeSkillRegistry,
-                configManager.dedicatedEffects(), activeCooldownManager, activeFeedbackLayer,
-                aggregator).start();
-
         // 採掘スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/mining-gimmick.yml でチューニング): 鉱脈破壊/怪しいブロック復活/スポナーST回収 +
         // mining drop-table(旧ガチャ券1-3/古代のがれき個別consumerを置換、2026-07-23 §4)。
@@ -772,17 +784,23 @@ public final class TrinityForge extends JavaPlugin {
                         chainBreakExpGrant), this);
         getServer().getPluginManager().registerEvents(
                 new MiningGimmickListener(this, configManager.dedicatedEffects(), aggregator,
-                        configManager.miningGimmick()), this);
+                        configManager.miningGimmick(), placedBlockTracker), this);
 
         // 伐採スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/woodcutting-gimmick.yml でチューニング): tree-fell(旧小木/大木一括伐採を統合) +
         // woodcutting drop-table(旧リンゴ/金リンゴ/クリスタルリンゴ個別consumerを置換、2026-07-23 §4)。
         // 2026-07-25 PRG-07: 一括伐採CTを私製Mapから汎用CooldownManager(activeCooldownManager、
         // ActivationDispatcherと共有)へ統合し、tree-fell-cooldown-reductionステータスを読むようにした。
-        getServer().getPluginManager().registerEvents(
+        TreeFellingListener treeFellingListener =
                 new TreeFellingListener(configManager.dedicatedEffects(), configManager.woodcuttingGimmick(),
                         crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
-                        activeCooldownManager, aggregator, chainBreakExpGrant), this);
+                        activeCooldownManager, aggregator, chainBreakExpGrant);
+        getServer().getPluginManager().registerEvents(treeFellingListener, this);
+        // 通常アクティブと半アクティブを同じ0.5秒タスクで表示し、同tickでの二重上書きを避ける。
+        // 一括伐採の適格条件/CT計算は発動リスナー自身へ委譲し、表示との仕様ずれを防ぐ。
+        new com.trinityforge.active.ActiveCooldownDisplay(this, activeSkillRegistry,
+                configManager.dedicatedEffects(), activeCooldownManager, activeFeedbackLayer,
+                aggregator, List.of(treeFellingListener)).start();
 
         // 掘削(シャベル適正ブロック破壊)ギミック: digging drop-table(2026-07-23 §4、新設リスナー)。
         // 対象判定は NativeSkillExperienceListener.grantGathering と同じ digging_break 分類ロジックを流用する。
@@ -1512,6 +1530,23 @@ public final class TrinityForge extends JavaPlugin {
      */
     public DungeonWorldRegistry dungeonWorldRegistry() {
         return dungeonWorldRegistry;
+    }
+
+    /**
+     * 死亡時の装備耐久ペナルティ({@code combat/damage.yml durability.on-death})を適用する。
+     *
+     * <p>EliteMobs のインスタンスダンジョンは致死ダメージをキャンセルして「ダウン」状態へ移すため
+     * {@code PlayerDeathEvent} が発火せず、TF の死亡ペナルティが一切走らなかった(EliteMobs 自前の
+     * {@code AlternativeDurabilityLoss} は EliteMobs 製アイテムしか対象にしない)。フォークの
+     * {@code InstancePlayerManager#playerDeath} からこれを直接呼ぶことで穴を埋める。
+     *
+     * <p>{@code onEnable} 前や設定で無効化されている場合は何もしない。適用条件(クリエイティブ除外・
+     * {@code dungeon-only})の判定はサービス側が持つので、呼び出し側は無条件に呼んでよい。
+     */
+    public void applyDeathDurabilityPenalty(org.bukkit.entity.Player player) {
+        if (equipmentDurabilityService != null && player != null) {
+            equipmentDurabilityService.applyOnDeath(player);
+        }
     }
 
     /**
