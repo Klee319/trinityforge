@@ -48,6 +48,39 @@ test("出荷combat設定の数値・真偽値はすべて共通変数画面へ�
   ]);
 });
 
+test("2026-07-30 装備耐久ペナルティ: 出荷値が共通変数に出て、編集値がロスレスに保存される", () => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
+  const { fields } = extractConstants(damage, {});
+
+  // 出荷既定: ダンジョン限定 / 被弾0.1%(最低1) / 死亡10%
+  assert.equal(fields["durability.dungeon-only"], true);
+  assert.equal(fields["durability.on-hit.percent-of-max"], 0.001);
+  assert.equal(fields["durability.on-hit.min-damage"], 1);
+  assert.equal(fields["durability.on-death.percent-of-max"], 0.1);
+  assert.equal(fields["durability.on-death.include-hands"], true);
+
+  const payload = { fields: {
+    "durability.dungeon-only": false,
+    "durability.on-death.percent-of-max": 0.25,
+    "durability.on-hit.include-offhand": false
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage.durability["dungeon-only"], false);
+  assert.equal(updated.damage.durability["on-death"]["percent-of-max"], 0.25);
+  assert.equal(updated.damage.durability["on-hit"]["include-offhand"], false);
+  // 触っていない同節のキーは温存される。
+  assert.equal(updated.damage.durability["on-hit"]["percent-of-max"], 0.001);
+  assert.equal(updated.damage.durability["prevent-break"], true);
+
+  // 範囲外は弾く(割合は 0..1、下限量は整数)。
+  assert.deepEqual(validateConstants({ fields: { "durability.on-death.percent-of-max": 1.5 } }),
+    ["durability.on-death.percent-of-max: 1以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "durability.on-hit.min-damage": 1.5 } }),
+    ["durability.on-hit.min-damage: 整数である必要があります"]);
+});
+
 test("defense.max-dodge-chance is retained and persisted", () => {
   const updated = buildUpdatedData(
     { fields: { "defense.max-dodge-chance": 0.25 } },

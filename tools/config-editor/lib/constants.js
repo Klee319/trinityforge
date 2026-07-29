@@ -79,6 +79,20 @@ const FIELD_SPECS = Object.freeze([
   { id: "early-level-attack.enabled", file: "damage", path: ["early-level-attack", "enabled"], kind: "boolean", def: true },
   { id: "early-level-attack.until-level", file: "damage", path: ["early-level-attack", "until-level"], kind: "int", min: 0, max: 1000, def: 10 },
   { id: "early-level-attack.level-0-multiplier", file: "damage", path: ["early-level-attack", "level-0-multiplier"], kind: "number", min: 0, max: 1, def: 0.7 },
+  // 2026-07-30 装備の耐久ペナルティ。EliteMobsのダンジョンは致死ダメージをキャンセルして
+  // 「ダウン」へ移すため PlayerDeathEvent が発火せず、死亡ペナルティも致死の一撃分の
+  // バニラ防具耐久消費も両方失われていた。min/max/def は CombatDamageConfig の SchemaField と一致。
+  { id: "durability.dungeon-only", file: "damage", path: ["durability", "dungeon-only"], kind: "boolean", def: true },
+  { id: "durability.respect-unbreaking", file: "damage", path: ["durability", "respect-unbreaking"], kind: "boolean", def: true },
+  { id: "durability.prevent-break", file: "damage", path: ["durability", "prevent-break"], kind: "boolean", def: true },
+  { id: "durability.on-hit.enabled", file: "damage", path: ["durability", "on-hit", "enabled"], kind: "boolean", def: true },
+  { id: "durability.on-hit.percent-of-max", file: "damage", path: ["durability", "on-hit", "percent-of-max"], kind: "number", min: 0, max: 1, def: 0.001 },
+  { id: "durability.on-hit.min-damage", file: "damage", path: ["durability", "on-hit", "min-damage"], kind: "int", min: 0, max: 10000, def: 1 },
+  { id: "durability.on-hit.include-offhand", file: "damage", path: ["durability", "on-hit", "include-offhand"], kind: "boolean", def: true },
+  { id: "durability.on-death.enabled", file: "damage", path: ["durability", "on-death", "enabled"], kind: "boolean", def: true },
+  { id: "durability.on-death.percent-of-max", file: "damage", path: ["durability", "on-death", "percent-of-max"], kind: "number", min: 0, max: 1, def: 0.1 },
+  { id: "durability.on-death.min-damage", file: "damage", path: ["durability", "on-death", "min-damage"], kind: "int", min: 0, max: 10000, def: 1 },
+  { id: "durability.on-death.include-hands", file: "damage", path: ["durability", "on-death", "include-hands"], kind: "boolean", def: true },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。

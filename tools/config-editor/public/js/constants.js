@@ -125,6 +125,22 @@
         { id: "early-level-attack.level-0-multiplier", label: "Lv0の火力倍率", kind: "number", desc: "レベル0のモブに掛かる倍率。ここから「緩和が解けるレベル」に向かって線形に1.0へ戻る。既定0.7(Lv0で0.7倍、Lv5で0.85倍)。1.0で緩和なし。" }
       ]
     },
+    {
+      title: "装備の耐久ペナルティ (2026-07-30)",
+      fields: [
+        { id: "durability.dungeon-only", label: "ダンジョン内だけ適用", kind: "boolean", desc: "既定ON=EliteMobsのインスタンスダンジョンの中だけで効く。OFFにすると全ワールドで効く。ダンジョンは致死ダメージをEliteMobs側でキャンセルして「ダウン」へ移すためPlayerDeathEventが一度も発火せず、死亡ペナルティも致死の一撃分のバニラ防具耐久消費も両方失われていた — この節はそれを補うもの。" },
+        { id: "durability.respect-unbreaking", label: "耐久力エンチャントを尊重する", kind: "boolean", desc: "ONで減少量を 1/(Lv+1) に縮める(端数は確率で切り上げ=バニラと同じ期待値)。OFFにすると耐久力エンチャントを無視して常に満額減る。" },
+        { id: "durability.prevent-break", label: "このペナルティでは壊さない", kind: "boolean", desc: "既定ON=残耐久1で止まる(ペナルティだけで装備が消滅しない)。OFFにするとペナルティで装備が壊れる。バニラの通常使用による破壊はこの設定と無関係。" },
+        { id: "durability.on-hit.enabled", label: "被弾時の上乗せを有効にする", kind: "boolean", desc: "被弾1回ごとに防具4部位(＋オフハンド)の耐久を追加で減らす。バニラの消費を置き換えるのではなく上乗せする。キャンセルされる致死の一撃はここでは減らさず、死亡ペナルティ側で回収する(二重取りにしない)。" },
+        { id: "durability.on-hit.percent-of-max", label: "被弾1回の減少量(最大耐久比)", kind: "number", desc: "既定0.001=0.1%。ダイヤ胸当て(528)なら0.528→切り捨て0なので、実際は下の下限が効いて1減る。" },
+        { id: "durability.on-hit.min-damage", label: "被弾1回の減少量の下限", kind: "int", desc: "割合が端数で0になる装備でも最低これだけ減らす。既定1。0にすると「割合が1点に届かない装備は減らない」設定になる。" },
+        { id: "durability.on-hit.include-offhand", label: "被弾時にオフハンドも対象", kind: "boolean", desc: "既定ON(盾など)。メインハンドの武器は被弾では減らさない。" },
+        { id: "durability.on-death.enabled", label: "死亡ペナルティを有効にする", kind: "boolean", desc: "死亡(ダンジョンのダウンを含む)時に防具4部位＋両手の耐久を減らす。EliteMobs自前のペナルティはEliteMobs製アイテムしか対象にしないため、これがOFFだとTF装備は死んでも無傷。" },
+        { id: "durability.on-death.percent-of-max", label: "死亡1回の減少量(最大耐久比)", kind: "number", desc: "既定0.1=10%。ダイヤ胸当て(528)なら52減る=10回死ぬと壊れる手前まで行く。" },
+        { id: "durability.on-death.min-damage", label: "死亡1回の減少量の下限", kind: "int", desc: "既定1。最大耐久が小さい装備で割合が0になる場合の保険。" },
+        { id: "durability.on-death.include-hands", label: "死亡時に両手も対象", kind: "boolean", desc: "既定ON=メインハンドの武器とオフハンドも減る。OFFにすると防具4部位だけになる。" }
+      ]
+    },
     // 攻撃ステキー対応 / 防御ステキー対応 の欄は撤去(2026-07-24)。2026-07-26 に Java 側の
     // config 経路も撤去され(CMB-31)、キー名は AttackStatKeys / DefenseStatKeys の定数が単一の真実。
     // config からは改名できないので、editor に欄を戻してはいけない。
