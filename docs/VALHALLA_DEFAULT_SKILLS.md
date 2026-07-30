@@ -1,24 +1,14 @@
 # ValhallaMMO バニラ・デフォルト 戦闘スキルツリー転写
 
-ValhallaMMO バニラ・デフォルトのスキルツリー転写（戦闘職5種）。出典: Athlaeos/ValhallaMMO master core/src/main/resources/skills/。本書は無改変の転写であり、バランス調整は別途。
-
-> **⚠️ 2026-07-27 追記 — 本書に出てくる次のキーは TF にはもう存在しません。**
-> `daily_limit` / `daily_limit_decay_percent` / `daily_limit_warning` / `pvp_multiplier` /
-> `is_chunk_nerfed` / `spawner_spawned_multiplier` / `max_health_limitation` /
-> `durability_chunk_limit` / `diminishing_returns` / `mace_exp_multiplier` / `infinity_multiplier`
-> の11種は、TF 側で読む実装が一つも無い死にデータだったため 2026-07-26 に
-> `skills/base/*_progression.yml` から**物理的に除去**しました（66件/15ファイル）。
-> 本書は「ValhallaMMO 上流の無改変転写」という性格上そのまま残していますが、
-> **TF の現行挙動の説明として読まないでください**。TF の実挙動は
-> `docs/config-reference/` 以下と各 yml のコメントが一次情報です。
-> なお PvP のダメージ抑制は、Valhalla の `pvp_multiplier`（EXP倍率）とはまったく別物として
-> `combat/damage.yml` の `pvp:` に新設されています（2026-07-27）。
+ValhallaMMO バニラ・デフォルトのスキルツリーを基礎資料として転写したものです。
+パーク構成は上流の参考情報ですが、EXP獲得欄は誤設定を防ぐため現行TrinityForgeの経路へ
+更新しています。実設定の一次情報は `docs/config-reference/` と各YAMLです。
 
 表記メモ:
 - 表示名/説明は `languages/en-us.json`（en-us）で解決。Minecraftのカラーコード（`&7` 等）は除去して転写。
 - `*_add` は加算的なステータス補正、`*_toggle` は機能のON、`recipes_unlock` はレシピ解放、`add_immune_effect` はポーション効果耐性付与。
 - `cost` はスキルポイント消費数、`required_lv` は必要スキルレベル、`requires` は前提パーク（ツリー接続）。
-- 全スキル共通: `max_level: 100`、`exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300`、`pvp_multiplier: 0.1`、`is_chunk_nerfed: true`、`daily_limit: -1`（無制限）、`spawner_spawned_multiplier: 0.7`（該当スキル）。
+- 基本曲線: `max_level: 100`、`exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300`。
 - `starting_perks` = レベル0時点で課されるベースのハンディキャップ（マイナス補正）。`leveling_perks` = レベルごとに自動加算される補正。
 - `coords` はツリー画面上の座標（依存構造の把握用に併記）。NG（New Game+）パークは `hidden: true`、`cost: 0`、レベル100到達でスキルをリセットして恒久ボーナスを得る転生パーク。
 
@@ -30,7 +20,8 @@ ValhallaMMO バニラ・デフォルトのスキルツリー転写（戦闘職5�
 - 表示名: `Light Weapons` / アイコン: `IRON_SWORD` (icon_data 3510001)
 - 説明: 重装甲には効きにくいが攻撃が速く、熟練すれば攻撃を受け流せる。
 - レベルバー: 色 `YELLOW` / スタイル `SEGMENTED_6`
-- EXP獲得: 軽量武器による近接ダメージ1ポイントあたり `exp_per_damage: 7`。メイス使用時 `mace_exp_multiplier: 0.1`、スポナー湧き `0.7`、PvP `0.1`。
+- EXP獲得: 軽武器で敵を討伐した時に1回。`stats/skill-exp.yml` の `combat.kill-exp` にある
+  軽武器基礎値、敵レベル、最大体力、敵種倍率で算出。
 - 武器コーティング可能アイテム（base yml）: POTION / SPLASH_POTION / LINGERING_POTION / SNOWBALL
 - starting_perks（ベース handicap）: damagemultiplier -0.3、knockbackmultiplier -0.3、immunityreductionfraction +0.2
 - leveling_perks（毎レベル）: attackspeedmultiplier +0.005、damagemultiplier +0.005
@@ -62,7 +53,8 @@ ValhallaMMO バニラ・デフォルトのスキルツリー転写（戦闘職5�
 - 表示名: `Heavy Weapons` / アイコン: `IRON_AXE` (icon_data 3510001)
 - 説明: 攻撃を受け流すのは苦手だが一撃が重く、装甲に強い。
 - レベルバー: 色 `RED` / スタイル `SEGMENTED_6`
-- EXP獲得: 重量武器による近接ダメージ1ポイントあたり `exp_per_damage: 10`。メイス `0.1`、スポナー `0.7`、PvP `0.1`。
+- EXP獲得: 重武器で敵を討伐した時に1回。`stats/skill-exp.yml` の `combat.kill-exp` にある
+  重武器基礎値、敵レベル、最大体力、敵種倍率で算出。
 - コーティング可能アイテム: POTION / SPLASH_POTION / LINGERING_POTION / SNOWBALL
 - starting_perks: attackspeedmultiplier -0.3、damagemultiplier -0.3
 - leveling_perks（毎レベル）: attackspeedmultiplier +0.005、damagemultiplier +0.005
@@ -122,7 +114,8 @@ ValhallaMMO バニラ・デフォルトのスキルツリー転写（戦闘職5�
 - 表示名: `Light Armor` / アイコン: `LEATHER_CHESTPLATE` (icon_data 3510001)
 - 説明: 回避を高め、機動力を犠牲にせず防御。
 - レベルバー: 色 `YELLOW` / スタイル `SEGMENTED_6`
-- EXP獲得: 与ダメージ1点ごと `exp_damage_piece: 10`、戦闘中は軽装甲1部位×1秒ごと `exp_second_piece: 5`。`exp_multiplier_point: 0.05`（防具ポイント1点ごとにEXP倍率+5%／40ポイントで+200%）。PvP `0.1`。
+- EXP獲得: 被ダメージ時に `exp_damage_piece: 10` と
+  `exp_multiplier_point: 0.05`（軽防具ポイント1点ごとにEXP倍率+5%）を使って算出。
 - Adrenaline効果（base yml、EFFECT;AMP;DURATION;AMP/Lv;DURATION/Lv）: SPEED;1;200;0.5;50 / JUMP;1;200;0.5;50 / REGENERATION;1;200;0.5;50 / DAMAGE_RESISTANCE;0;200;0.25;50
 - starting_perks: lightarmormultiplier -0.3、movementspeedperpiece -0.025、hungersavechanceperpiece -0.0625、healingbonusperpiece -0.0625、dodgechanceperpiece +0.025
 - leveling_perks（毎レベル）: lightarmormultiplier +0.005
@@ -152,7 +145,8 @@ ValhallaMMO バニラ・デフォルトのスキルツリー転写（戦闘職5�
 - 表示名: `Heavy Armor` / アイコン: `IRON_CHESTPLATE` (icon_data 3510001)
 - 説明: 被ダメを大幅に減らし不屈の存在になるが、機動力を多少犠牲にする。
 - レベルバー: 色 `RED` / スタイル `SEGMENTED_6`
-- EXP獲得: 与ダメージ1点ごと `exp_damage_piece: 10`、戦闘中は重装甲1部位×1秒ごと `exp_second_piece: 5`。`exp_multiplier_point: 0.05`（防具ポイント1点ごと+5%）。PvP `0.1`。
+- EXP獲得: 被ダメージ時に `exp_damage_piece: 10` と
+  `exp_multiplier_point: 0.05`（重防具ポイント1点ごとにEXP倍率+5%）を使って算出。
 - Rage効果（base yml、EFFECT;AMP;DURATION;AMP/Lv;DURATION/Lv）: INCREASE_DAMAGE;1;200;0.5;50 / FAST_DIGGING;1;200;0.5;50 / ABSORPTION;1;200;0.5;50 / DAMAGE_RESISTANCE;0;200;0.25;50
 - starting_perks: heavyarmormultiplier -0.3、movementspeedperpiece -0.05、hungersavechanceperpiece -0.125、healingbonusperpiece -0.125、archery_inaccuracy +3（弓の命中にペナルティ）
 - leveling_perks（毎レベル）: heavyarmormultiplier +0.005
@@ -229,7 +223,13 @@ Power は**自前の独立パークツリーを持つ**（他スキルの派生�
 
 ### Overview
 - 表示名: `Mining` / アイコン: `IRON_PICKAXE` / レベルバー色 `RED` / `SEGMENTED_6`
-- EXP獲得: `mining_break` リストのブロック破壊時（設置ブロックは無効）。`exp_multiplier_mine: 1`、`exp_multiplier_blast: 1.5`（爆破採掘1.5倍）、`exp_per_break: false`（ドロップ数基準）、`daily_limit: -1`。主要値（抜粋）: 石/丸石 8、深層岩 12、石炭鉱石40・深層60、鉄鉱石80・深層120、銅32・深層84、金160・深層240、ラピス320・深層240、レッドストーン80・深層120、ダイヤ鉱石400・深層600、エメラルド鉱石400・深層600、古代の残骸1600、ネザライトの欠片800、黒曜石40。
+- EXP獲得: `mining_break` リストのブロック破壊時（設置ブロックは無効）。
+  `exp_multiplier_mine: 1`、`exp_multiplier_blast: 1.5`（爆破採掘1.5倍）と、
+  `stats/skill-exp.yml` の `gathering.exp-mode` でブロック値・ドロップ値の採用方法を選ぶ。
+  主要値（抜粋）: 石/丸石 8、深層岩 12、石炭鉱石40・深層60、鉄鉱石80・深層120、
+  銅32・深層84、金160・深層240、ラピス320・深層240、レッドストーン80・深層120、
+  ダイヤ鉱石400・深層600、エメラルド鉱石400・深層600、古代の残骸1600、
+  ネザライトの欠片800、黒曜石40。
 - その他設定（base yml）: `vein_mining_instant: false`、`break_limit_vein_mining: 64`、ドリルアビリティ関連音、`forgiving_multipliers: true`、`remove_tnt_chaining: true`。
 - starting_perks: mining_miningdrops_add -0.3
 - leveling_perks（毎レベル）: mining_miningdrops_add +0.01、mining_blastingdrops_add +0.01
@@ -341,7 +341,7 @@ Power は**自前の独立パークツリーを持つ**（他スキルの派生�
 
 ### Overview
 - 表示名: `Fishing` / アイコン: `STRING`/魚系 / レベルバー色 `BLUE`（&b/&9）/ `SEGMENTED_6`
-- EXP獲得: `fishing_catch`（釣果ごと）。タラ200、サケ250、フグ500、熱帯魚800、弓/エンチャント本/釣竿600、名札/オウムガイの殻/鞍500、革/睡蓮/ボウル/革ブーツ150、腐肉/棒/糸/骨/イカスミ/トリップワイヤーフック/水入り瓶100、竹150。`is_chunk_nerfed: true`。
+- EXP獲得: `fishing_catch`（釣果ごと）。タラ200、サケ250、フグ500、熱帯魚800、弓/エンチャント本/釣竿600、名札/オウムガイの殻/鞍500、革/睡蓮/ボウル/革ブーツ150、腐肉/棒/糸/骨/イカスミ/トリップワイヤーフック/水入り瓶100、竹150。
 - starting_perks: なし
 - leveling_perks（毎レベル）: fishing_fishingspeedbonus_add +0.02、fishing_fishingdrops_add +0.02
 
@@ -366,7 +366,8 @@ Power は**自前の独立パークツリーを持つ**（他スキルの派生�
 
 ### Overview
 - 表示名: `Smithing` / アイコン: `OAK_PLANKS`系 / レベルバー色（&e）/ `SEGMENTED_6`
-- EXP獲得: アイテムに耐久ダメージが入るたびに素材種ごとの tally カウンタが増え、次回その素材で Smithing EXP を得る際に倍率がかかる。`durability_tools_exp_multiplier_stack: 0.01`（道具: 1スタックで+1%、最大1000スタック=+1000%）、`durability_armors_exp_multiplier_stack: 0.005`（防具: +0.5%、最大200スタック=+100%）、`durability_chunk_limit: 50`（同一チャンク・同一素材で最大50スタックまで）。
+- EXP獲得: 武器・防具・道具の完成時に
+  `stats/skill-exp.yml` の `smithing.exp-per-craft` を1回付与。耐久消耗では増えない。
 - starting_perks（素材別EXP倍率ハンディ）: stone/chain/copper -0.5、gold/iron -0.75、diamond -0.90、netherite -1（ネザライトは初期0%）。
 - special_perks（レベル進行で素材別EXP倍率が段階シフト＝低Tier素材は減衰、高Tier素材が解放）: **Lv20**で wood/leather -0.75・stone系 +0.5・gold/iron +0.25・diamond +0.15・netherite +0.1、**Lv40**で wood/leather -0.2・stone系 -0.75・gold/iron +0.50・diamond +0.25・netherite +0.15、**Lv60**で wood/leather -0.05・stone系 -0.2・gold/iron -0.75・diamond +0.5・netherite +0.25、**Lv80**で stone系 -0.05・gold/iron -0.2・netherite +0.5。
 - leveling_perks（毎レベル）: smithing_genericcraftingskill_add +1.5
@@ -396,7 +397,7 @@ Power は**自前の独立パークツリーを持つ**（他スキルの派生�
 
 ### Overview
 - 表示名: `Enchanting` / アイコン: `PAPER`/本系 / レベルバー色 `BLUE`（&b/&9）/ `SEGMENTED_6`
-- EXP獲得: `exp_gain`。エンチャント実施時、消費した経験値の `experience_spent_conversion: 0.5`（50%）がスキルEXPに変換＋エンチャント種別ごとの `enchantment_base`（例: power/efficiency/sharpness/protection 180〜200、fortune/looting/lure 450、mending/flame 750、silk_touch/infinity/channeling 1000 等）×`enchantment_level_multiplier`（I=1.0、II=2.2、III=3.4…X=11.8）。`enchantment_type/item_multiplier` は全1.0。`diminishing_returns`（同一モブ20体killごとに以降のエンチャEXPを×0.1へ減衰）。`is_chunk_nerfed: true`。
+- EXP獲得: `exp_gain`。エンチャント実施時、消費した経験値の `experience_spent_conversion: 0.5`（50%）がスキルEXPに変換＋エンチャント種別ごとの `enchantment_base`（例: power/efficiency/sharpness/protection 180〜200、fortune/looting/lure 450、mending/flame 750、silk_touch/infinity/channeling 1000 等）×`enchantment_level_multiplier`（I=1.0、II=2.2、III=3.4…X=11.8）。`enchantment_type/item_multiplier` は全1.0。
 - starting_perks: enchanting_essencemultiplier -0.3、essencerefundchance +1、enchantmentamplificationchance +1
 - leveling_perks（毎レベル）: enchanting_enchantingskill_add +1、enchanting_anvilskill_add +1
 

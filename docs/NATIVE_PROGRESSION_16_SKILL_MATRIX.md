@@ -5,17 +5,10 @@ Each row freezes the observable contracts for one Valhalla skill: who produces E
 reads the level, what native Valhalla rewards survive LD-9, which TF subsystems consume
 the skill, and the migration disposition.
 
-> **⚠️ Status (2026-07-27追記):** 各行の「EXP Owner」欄に出てくる `pvp_multiplier` /
-> `spawner_spawned_multiplier` / `durability_chunk_limit` / `mace_exp_multiplier` /
-> `infinity_multiplier` / `daily_limit*` / `is_chunk_nerfed` / `diminishing_returns` /
-> `max_health_limitation` の各キーは、**2026-07-26 に `skills/base/*_progression.yml` から
-> 物理的に除去済み**です（TF 側に消費者ゼロの死にデータだったため。66件/15ファイル）。
-> 本書は切離し前の characterization を凍結した履歴資料なので記述はそのまま残していますが、
-> 現行の TF 挙動としては存在しません。
->
 > **Status (2026-07-22):** Valhalla切離し前のcharacterizationを記録した履歴資料です。
 > `ValhallaSkillLevelSource`等の名称は旧構成の証跡であり、現行ランタイムは
-> `NativeProgressionService`＋SQLiteを権威とします。POWER欄は切替後の特殊仕様も併記します。
+> `NativeProgressionService`＋SQLiteを権威とします。EXP Producer / Owner欄は誤設定を防ぐため
+> 現行TFの付与経路に更新しています。
 
 **Evidence sources:**
 - `TrinityForge/src/main/resources/skills/base/<skill>_progression.yml` — level curve, EXP config
@@ -52,8 +45,8 @@ the skill, and the migration disposition.
 | Field | Value |
 |---|---|
 | **Skill Key** | `LIGHT_WEAPONS` |
-| **EXP Producer** | Melee hits with light weapons (swords, axes flagged light) |
-| **EXP Owner** | **Valhalla** (`exp_per_damage: 7`; `pvp_multiplier: 0.1`; `spawner_spawned_multiplier: 0.7`) |
+| **EXP Producer** | Confirmed enemy kill attributed to a light weapon |
+| **EXP Owner** | **TF** (`stats/skill-exp.yml` → `combat.kill-exp`; base + mob level + max health, then entity multiplier) |
 | **Level Source** | `ValhallaSkillLevelSource` (configured in `combat-level.yml`, weight 1) |
 | **Combat Pillar (LD-7)** | ✅ Yes — weight 1, `max-of-top-N` pillar |
 | **Native Valhalla Rewards** | `lightweapons_attackspeedmultiplier_add` (leveling_perks +0.005/lv); parry parameters (`parryeffectiveduration`, `parryvulnerableduration`, `parrycooldown`, `parryenemydebuffduration`, `parryselfdebuffduration`, `parrydamagereduction`, `parrycooldownsuccessreduction`); `lightweapons_knockbackmultiplier_add`; `lightweapons_immunityreductionfraction_add`; `lightweapons_bleedchance_add`; `lightweapons_coatingunlocked_toggle`; `lightweapons_attackreachbonus_add`; prestige permanently-unlocked stats |
@@ -67,8 +60,8 @@ the skill, and the migration disposition.
 | Field | Value |
 |---|---|
 | **Skill Key** | `HEAVY_WEAPONS` |
-| **EXP Producer** | Melee hits with heavy weapons (two-handed swords, hammers) |
-| **EXP Owner** | **Valhalla** (`exp_per_damage: 10`; `pvp_multiplier: 0.1`; `spawner_spawned_multiplier: 0.7`) |
+| **EXP Producer** | Confirmed enemy kill attributed to a heavy weapon |
+| **EXP Owner** | **TF** (`stats/skill-exp.yml` → `combat.kill-exp`; base + mob level + max health, then entity multiplier) |
 | **Level Source** | `ValhallaSkillLevelSource` (weight 1) |
 | **Combat Pillar (LD-7)** | ✅ Yes |
 | **Native Valhalla Rewards** | `heavyweapons_attackspeedmultiplier_add` (starting_perks −0.3; leveling_perks); stagger/cleave parameters; knockback; bleed; parry variants |
@@ -97,13 +90,13 @@ the skill, and the migration disposition.
 | Field | Value |
 |---|---|
 | **Skill Key** | `ARS_MAGIC` (constant: `ArsBridge.ARS_MAGIC`) |
-| **EXP Producer** | ArsPaper spell casts (`SpellCaster` → `ArsBridge.grantMagicExp`) |
-| **EXP Owner** | **TF** (2.0 EXP/cast + 0.1 EXP/mana consumed; config: `stats/skill-exp.yml`) |
+| **EXP Producer** | Enemy killed by Ars magic + block broken by an Ars spell |
+| **EXP Owner** | **TF** (`ars-magic.kill-exp` + `ars-magic.block-break-exp` in `stats/skill-exp.yml`) |
 | **Level Source** | `ValhallaSkillLevelSource` (weight 1); registered by `ArsBridge.registerArsMagic` |
 | **Combat Pillar (LD-7)** | ✅ Yes — custom Valhalla skill, not a vanilla Valhalla skill |
 | **Native Valhalla Rewards** | None — `starting_perks: {}`, `leveling_perks: {}` in `ars_magic_progression.yml` (all stats via TF `buffs`) |
 | **TF Consumers** | `CombatLevelModel`, `PerkBuffResolver` (magic attack/damage/crit nodes from `skilltree/ars_magic.yml`), `ArsMagicProfile` (mana bonus, mana regen, glyph slots) |
-| **Migration Disposition** | **Reimplement** — EXP grant path requires ArsPaper `SpellCaster` hook; registration timing (after ValhallaMMO loads) requires live-server smoke test (documented ⚠ in `ArsBridge` Javadoc) |
+| **Migration Disposition** | **Reimplement** — ArsPaper reports magic kill attribution and spell-driven block breaks to TF |
 
 ---
 
@@ -162,7 +155,7 @@ the skill, and the migration disposition.
 |---|---|
 | **Skill Key** | `MINING` |
 | **EXP Producer** | Breaking ore/stone blocks (per-block table in `mining_progression.yml`) |
-| **EXP Owner** | **Valhalla** (`exp_multiplier_mine: 1`; `exp_multiplier_blast: 1.5`; `exp_per_break: false`; per-block table e.g. DIAMOND_ORE 400, ANCIENT_DEBRIS 1600) |
+| **EXP Owner** | **TF native** (`exp_multiplier_mine`, `exp_multiplier_blast`, editable block/drop tables and `gathering.exp-mode`) |
 | **Level Source** | NOT a combat pillar |
 | **Combat Pillar (LD-7)** | ❌ No |
 | **Native Valhalla Rewards** | `mining_miningspeedbonus_add`; `mining_miningdrops_add`; `mining_miningluck_add`; `mining_tntblastradius_add`; `mining_drillingunlocked_toggle`; `mining_veinminingunlocked_toggle`; `mining_blastfortunelevel_set`; `power_cookingspeedbonus_add` (cross-skill) |
@@ -206,8 +199,8 @@ the skill, and the migration disposition.
 | Field | Value |
 |---|---|
 | **Skill Key** | `SMITHING` |
-| **EXP Producer** | Using / repairing gear (durability damage) |
-| **EXP Owner** | **Valhalla** (`durability_tools_exp_multiplier_stack: 0.01`; `durability_armors_exp_multiplier_stack: 0.005`; `durability_chunk_limit: 50`) |
+| **EXP Producer** | Completing an equipment craft |
+| **EXP Owner** | **TF** (`stats/skill-exp.yml` → `smithing.exp-per-craft`) |
 | **Level Source** | NOT a combat pillar |
 | **Combat Pillar (LD-7)** | ❌ No |
 | **Native Valhalla Rewards** | Craft quality; upswing/downswing modifiers; `SmithingCraftProfile` stats (`craftQuality`, `upswingModifier`, `downswingModifier`) |
@@ -312,7 +305,7 @@ next server-side smoke-test session:
 
 | Item | Description |
 |---|---|
-| **ARS_MAGIC EXP path** | ArsPaper `SpellCaster` → `ArsBridge.grantMagicExp` must fire on successful cast; verify level increases with gameplay |
+| **ARS_MAGIC EXP path** | Verify Ars kill attribution and spell-driven block breaks each grant exactly one configured award |
 | **ARS_SMITHING EXP path** | `CraftQualityListener` → `ArsBridge.grantSmithingExp` must fire per Ars-gear craft |
 | **ArsBridge registration timing** | `ArsBridge.registerAll` must run AFTER ValhallaMMO has loaded its own skills (`load: BEFORE` in `paper-plugin.yml`); verify no `NoSuchElementException` from `SkillRegistry` |
 | **PowerProfile perk-id spelling** | Actual perk-ids persisted to disk by Valhalla for a deployed `power.yml` tree must match `PerkNaming.perkId(skill, nodeId)` output |

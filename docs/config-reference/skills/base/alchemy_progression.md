@@ -9,5 +9,4 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ```
   # TF-native brew EXP (per BrewEvent). Valhalla quality/auto multipliers also apply as rates.
-  # Historical Valhalla-only knobs (not consumed by TF runtime):
 ```

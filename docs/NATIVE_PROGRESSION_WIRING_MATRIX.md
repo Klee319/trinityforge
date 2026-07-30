@@ -7,7 +7,7 @@
 | Domain | Authority | Reload |
 |---|---|---|
 | Curves / caps / gathering tables / armor·smith·enchant·alchemy·fishing scalars | `plugins/TrinityForge/skills/base/*_progression.yml` | `/tf reload` atomic |
-| Combat weapon hit EXP + Ars craft/cast EXP | `stats/skill-exp.yml` | `/tf reload` |
+| Light/heavy weapon kill EXP + Ars craft/magic event EXP | `stats/skill-exp.yml` | `/tf reload` |
 | Skill trees / buffs / native maps | `skilltree/*.yml` | `/tf reload` (abort if skill lost) |
 | Persistence | SQLite via `Cached → Executor → Sqlite` | — |
 
@@ -15,23 +15,22 @@
 
 | Skill | Source | Config keys |
 |---|---|---|
-| LIGHT/HEAVY/ARCHERY | CombatListener | `combat.exp-per-hit` / `combat.by-skill` |
-| LIGHT/HEAVY_ARMOR | damage taken | `exp_multiplier_point`, `exp_damage_piece` |
+| LIGHT/HEAVY | confirmed mob kill | `combat.kill-exp.*` |
+| ARCHERY | projectile damage | `bow_exp_base`, `crossbow_exp_base`, damage/distance/entity/PvP scalars |
+| LIGHT/HEAVY_ARMOR | damage taken | `exp_damage_piece`, `exp_multiplier_point`, entity/PvP scalars |
 | POWER | other skill level-ups | `experience.exp_gain` |
 | MINING/DIGGING/WOODCUTTING/FARMING | block break | tables; mining `exp_multiplier_mine`; **block listed + drop material listed**; Fortune stack size ignored (unique mats) |
 | MINING (blast) | TNT explode (player-sourced) | same tables × `exp_multiplier_blast` |
-| ALCHEMY | brew | `alchemy_brew_exp` × manual/auto (`InventoryClick` vs hopper move) |
+| FARMING | harvest/breed/entity drops/shear | matching editable action table |
+| WOODCUTTING | log stripping | `woodcutting_strip` |
+| ALCHEMY | brew | recipe/result/ingredient table × manual/auto × quality |
 | FISHING | catch | `fishing_catch.*` / `fishing_catch_exp` |
-| SMITHING | item durability loss | `durability_tools/armors_exp_multiplier_stack` |
-| ENCHANTING | enchant table | `exp_gain.experience_spent_conversion` |
-| ALCHEMY | brew | `alchemy_brew_exp` × `multiplier_manual` |
-| ARS_* | ArsPaper / craft | `skill-exp.yml` ars-* |
+| SMITHING | completed equipment craft | `smithing.exp-per-craft` |
+| ENCHANTING | enchant table | nested `exp_gain` base/level/material/item tables + spent-level conversion |
+| ARS_SMITHING | completed Ars equipment craft | `ars-smithing.exp-per-craft` + use-level scaling |
+| ARS_MAGIC | magic kill + magic block break | `ars-magic.kill-exp`, `ars-magic.block-break-exp` |
 
 All grants × `(1 + power_allskillexpmultiplier_add)`.
-
-**Removed (2026-07-26):** `daily_limit*`, `daily_limit_decay_percent`, `daily_limit_warning`, `pvp_multiplier`, `is_chunk_nerfed`, `spawner_spawned_multiplier`, `max_health_limitation`, `durability_chunk_limit`, `diminishing_returns`, `mace_exp_multiplier`, `infinity_multiplier` — これら11種は ValhallaMMO 時代の名残で TF 側に消費者が1つも無く（`SkillCatalogEntry.rate()` の呼び出しは全て文字列リテラルなので literal grep 0件＝到達不能と断定できる）、`skills/base/*_progression.yml` から物理的に除去済み（66件/15ファイル、`tools/scripts/strip-dead-progression-keys.py`）。名前の似た `prestige_decay_rate` は消費者2件で**生きている**ので混同しないこと。
-
-**Not consumed (legacy / historical):** weapon base combat tables inside `skills/base` (combat uses skill-exp only). Editor hides these.
 
 ## Native rewards
 

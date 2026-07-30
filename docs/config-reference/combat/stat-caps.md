@@ -68,6 +68,10 @@ arrow-piercing
 arrow-velocity
 ```
 
+`stun-duration-bonus` は割合ではなく tick の加算値です。初期値は
+`combat/base-stats.yml` で設定し、装備・パークの値を加算します。最終値は
+`NativeCombatPerkListener.MAX_STUN_DURATION_TICKS`（既定100tick）で制限されます。
+
 ### ATTACK チャネル (2026-07-26 拡大 — CombatListener が attackerStats / baseDamage 算出点で直接クランプ)
 
 暴走しがちな近接/弓の本命ステ。詳細は `CombatListener#onEntityDamageByEntity` のコメント参照。

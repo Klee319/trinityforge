@@ -17,7 +17,7 @@ MariaDB 実装へ切り替える判断材料になる。
 |---|---|
 | Java | 21.0.9 (Oracle Corporation) |
 | OS | Windows 11 10.0 / amd64 |
-| DB ファイル | C:\Users\T-319\AppData\Local\Temp\junit-9111556715262396859\player_progression.db |
+| DB ファイル | C:\Users\T-319\AppData\Local\Temp\junit-16564995088759771986\player_progression.db |
 | SQLite PRAGMA | journal_mode=WAL, busy_timeout=5000, synchronous=NORMAL（SqliteProgressionRepository が接続時に適用） |
 
 ## 3. 別プロセス競合の実測
@@ -33,12 +33,12 @@ MariaDB 実装へ切り替える判断材料になる。
 | 競合パーク数（＝配ったポイント数） | 60 |
 | プロセス数 | 2（親を含めると3） |
 | 総試行回数 | 120 |
-| プロセス1の付与件数 | 34 |
-| プロセス2の付与件数 | 26 |
+| プロセス1の付与件数 | 36 |
+| プロセス2の付与件数 | 24 |
 | **付与合計** | **60** |
 | 握り潰された SQL 例外 | 0 |
 | 試行間ウェイト | 3 ms |
-| 所要時間 | 3346 ms（3000 ms の開始バリアを含む） |
+| 所要時間 | 4564 ms（3000 ms の開始バリアを含む） |
 
 ## 4. 判定
 
