@@ -63,6 +63,29 @@ function setupDom() {
     return el;
   };
   global.window.fieldLabelEl = (key) => makeEl("label", { text: key });
+  // 2026-07-29: レベルテーブルのカードが折りたたみ式(util.js の collapsibleCard)になった。
+  // util.js はこのテストでは読み込まないので、head/body を素直に積むだけのスタブを置く
+  // (findAll が body の中まで辿れれば従来の検証がそのまま通る)。
+  global.window.collapsibleCard = (headChildren, bodyChildren) => {
+    const card = makeEl("div", { class: "entry-card" });
+    card.appendChild(global.window.h("div", { class: "entry-head" }, headChildren));
+    card.appendChild(global.window.h("div", { class: "entry-body" }, bodyChildren));
+    return card;
+  };
+  // 帯カード(renderTierCard)まで描く検証のための入力部品スタブ。
+  // 既存の検証は tiers: [] でこれらを避けていたが、折りたたみの回帰テストは帯を必要とする。
+  global.window.numberInput = (value, onInput) => makeEl("input", { value, numOnInput: onInput });
+  global.window.textInput = (value, onInput) => makeEl("input", { value, textOnInput: onInput });
+  global.window.materialInput = (value, listId, onInput, opts) => makeEl("span", {
+    class: "material-suggest", matValue: value, matOnInput: onInput, matOpts: opts || {}
+  });
+  global.window.listSelect = (cfg) => makeEl("span", { class: "list-select", selCfg: cfg || {} });
+  global.window.checkboxInput = (value, onInput) => makeEl("input", { value, checkOnInput: onInput });
+  global.window.materialHintEl = () => {
+    const el = makeEl("span", { class: "mat-hint" });
+    el.update = () => {};
+    return el;
+  };
   // 共通のモブセレクト。テストからは el.props.mobValue で行を特定し、
   // el.props.mobOnChange(値) で選択確定を再現する。
   global.window.mobTypeSelect = (value, onChange, opts) => makeEl("span", {
@@ -156,4 +179,48 @@ test("getData: 全行が空文字なら no-skill-exp-mobs キーごと消える"
 
   const saved = result.getData();
   assert.equal("no-skill-exp-mobs" in saved, false);
+});
+
+// 2026-07-29 ユーザー要望「レベルテーブル設定のカードを折りたためるようにして」の回帰テスト。
+// 帯が増えると縦に延々と積まれて全体像が掴めなくなるため、全カードを collapsibleCard で作る。
+test("レベルテーブルのカードは全て折りたたみ式で作られる", () => {
+  setupDom();
+  const calls = [];
+  const realCollapsible = global.window.collapsibleCard;
+  global.window.collapsibleCard = (headChildren, bodyChildren, opts) => {
+    calls.push({ headChildren, opts });
+    return realCollapsible(headChildren, bodyChildren, opts);
+  };
+
+  const data = {
+    "dungeon-only": false,
+    "no-skill-exp-mobs": ["BEE"],
+    tiers: [{ "min-level": 0, "vanilla-exp": 5 }, { "min-level": 20 }]
+  };
+  global.window.buildMobLevelTableForm(data);
+
+  // 適用範囲 / 戦闘スキルEXP無効化 / 帯 ×2 = 4 カード。
+  assert.equal(calls.length, 4, "全カードが collapsibleCard で作られること");
+});
+
+test("折りたたみ中のヘッダに帯の要約が出る (畳んだままでも中身が分かる)", () => {
+  setupDom();
+  const data = {
+    tiers: [{
+      "min-level": 30,
+      "vanilla-exp": 12,
+      "remove-drops": ["ROTTEN_FLESH"],
+      "add-drops": [{ material: "BONE", chance: 0.1, min: 1, max: 1 }]
+    }]
+  };
+  const result = global.window.buildMobLevelTableForm(data);
+
+  const summaries = findAll(result.element,
+    (el) => el.props && el.props.class === "entry-summary").map((el) => el.props.text);
+  assert.ok(summaries.some((t) => t.includes("EXP 12") && t.includes("削除 1") && t.includes("追加 1")),
+    `帯の要約が出ること: ${JSON.stringify(summaries)}`);
+
+  const keyLabels = findAll(result.element,
+    (el) => el.props && el.props.class === "entry-key-label").map((el) => el.props.text);
+  assert.ok(keyLabels.some((t) => t.includes("Lv30")), `帯の見出しに下限レベルが出ること: ${JSON.stringify(keyLabels)}`);
 });

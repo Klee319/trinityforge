@@ -26,6 +26,18 @@ const tiers = {
   INFINITY:  { level: 100, offset: -8, power: 45000, threads: 0 }
 };
 
+// Gathering tools deliberately progress earlier than weapons. The quality offset follows the same
+// ten-level baseline convention, while named special tiers keep their shared tier values.
+const gatheringToolTiers = {
+  WOOD:      { level: 0,  offset:  0 },
+  STONE:     { level: 0,  offset:  0 },
+  COPPER:    { level: 10, offset: -1 },
+  IRON:      { level: 20, offset: -2 },
+  GOLD:      { level: 20, offset: -2 },
+  DIAMOND:   { level: 40, offset: -4 },
+  NETHERITE: { level: 60, offset: -6 }
+};
+
 const family = {
   "剣":         { power: 1.00, speed:  0.00, reach: 0.0, crit: .08, critDamage: .50, pen: .05, modifier: 1.00 },
   "短剣":       { power: 0.68, speed:  0.45, reach: -.45, crit: .12, critDamage: .55, pen: .04, modifier: .95 },
@@ -226,8 +238,14 @@ function toolEntry(durability, tierName = "", skill = null) {
       durability: { min: -Math.floor(durability * .25), max: Math.ceil(durability * .5) }
     };
   }
-  // Explicit gathering skill so the tool row is registered (use-level omitted => no use gate lock).
-  if (skill) result["use-skill"] = skill;
+  if (skill) {
+    const tier = gatheringToolTiers[tierName] || tiers[tierName];
+    if (tier) {
+      result["use-level-requirement"] = tier.level;
+      result["quality-mode-offset"] = tier.offset;
+    }
+    result["use-skill"] = skill;
+  }
   return result;
 }
 function armorEntry(config, slotName, magic = null, health = 0, physical = true, mana = 0) {

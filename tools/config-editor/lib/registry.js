@@ -24,7 +24,7 @@ const REGISTRY = Object.freeze([
   //   品質定義(quality)ビュー内で mode/drop を編集し、保存時に app.js が一緒に PUT する。
   //   ars-smithing EXP は skill-exp.yml (下) へ分離済み。
   { id: "craft-quality", label: "品質定義（クラフト/ドロップ） (craft-quality)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/craft-quality.yml", schema: "tf-craft-quality" },
-  { id: "skill-exp", label: "スキルEXP獲得 (skill-exp)", group: "TrinityForge", section: "skill-gimmicks", base: "trinityforge", rel: "stats/skill-exp.yml", schema: "tf-skill-exp" },
+  { id: "skill-exp", label: "スキルEXP獲得", group: "TrinityForge", section: "skill-gimmicks", base: "trinityforge", rel: "stats/skill-exp.yml", schema: "tf-skill-exp" },
   // Progression curve SoT (skills/base/*_progression.yml). Hidden from sidebar; edited as companions
   // on the skill-exp screen (gain rates + curves). These are TF's native progression source.
   { id: "progression-alchemy", label: "曲線: alchemy", group: "TrinityForge", section: "skilltree", base: "trinityforge", rel: "skills/base/alchemy_progression.yml", schema: "generic" },

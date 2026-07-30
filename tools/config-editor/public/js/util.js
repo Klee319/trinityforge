@@ -36,38 +36,26 @@ window.h = function h(tag, attrs, children) {
   return el;
 };
 
-// Material サジェスト入力 (部分一致・日本語/英字)。
-// 候補は window.MATERIALS (1.21.11 カタログ。起動時に /api/material-labels で差し替え)。
-// opts.allowCustom: true のとき "custom:" 入力でカタログ等の追加アイテム候補を出す。
+// Material / アイテム参照の共通セレクト。
+//
+// 2026-07-29: それまでは「テキスト入力 + 独自サジェスト」で、editor 内の他のセレクト
+// (アイテムカタログの表示タブ等 = listSelect) と見た目も操作も揃っていなかった。
+// 呼び出し側 30 箇所超を個別に書き換える代わりに、この関数の中身だけを listSelect へ
+// 差し替えて「アイテム/Material を引数に取る欄」の DOM を 1 つに統一する。
+//   - 主表示 = 日本語アイテム名 / 副表示 = 薄字の ID (listSelect の既定描画)
+//   - ドロップダウン先頭の絞り込み欄で ID・日本語表示名のどちらの部分一致でも引ける
+//   - opts.allowCustom: true でカタログのカスタムアイテム(custom:<id>)を候補の先頭に含める
+//     (false の箇所 = ゲーム仕様上バニラ Material しか置けない欄)
+//   - 候補に無い ID も「＋ 直接入力…」から入れられる (未知 Material / 手書きトークンの救済)
+//
+// 引数と戻り値の契約は据え置き: 戻り値は .value の get/set と change リスナを持つ span。
 // listId は後方互換のため受け取るが未使用。
-// 戻り値は span.material-suggest。互換のため .value と change リスナをサポートする。
 window.materialInput = function materialInput(value, listId, onInput, opts) {
-  const h = window.h;
   const options = opts && typeof opts === "object" ? opts : {};
   const allowCustom = !!options.allowCustom;
-  const MAX_SUGGEST = 60;
-  let current = value == null ? "" : String(value);
-  let activeIndex = -1;
-  let open = false;
-
-  const wrap = h("span", { class: "material-suggest" + (options.className ? " " + options.className : "") });
-  const input = h("input", {
-    class: "field-input material-suggest-input",
-    type: "text",
-    spellcheck: "false",
-    autocomplete: "off",
-    placeholder: allowCustom
-      ? "例: 表示名 / custom:id / IRON_INGOT"
-      : "例: 銅の剣 / copper / SPEAR / オウムガイ"
-  });
-  // body 直下に出して entry-card の overflow にクリップされないようにする。
-  const list = h("ul", {
-    class: "material-suggest-list",
-    role: "listbox",
-    style: "display:none;"
-  });
-
+  const FREE_INPUT = "__material_free__";
   const changeListeners = [];
+  let current = value == null ? "" : String(value);
 
   function isCustomKey(key) {
     return /^custom:/i.test(String(key || ""));
@@ -77,38 +65,6 @@ window.materialInput = function materialInput(value, listId, onInput, opts) {
     const labels = window.CUSTOM_ITEM_LABELS && typeof window.CUSTOM_ITEM_LABELS === "object"
       ? window.CUSTOM_ITEM_LABELS : {};
     return labels[key] || labels[String(key).toLowerCase()] || "";
-  }
-
-  function optionParts(key) {
-    if (!key) return { primary: "", secondary: "" };
-    if (isCustomKey(key)) {
-      const id = String(key).slice(String(key).indexOf(":") + 1);
-      const label = customLabelOf(key);
-      if (label && label !== id) {
-        return { primary: label, secondary: key };
-      }
-      return { primary: `カスタム: ${id}`, secondary: key };
-    }
-    const ja = (window.LABELS && typeof window.LABELS.materialLabel === "function")
-      ? window.LABELS.materialLabel(key) : (window.MATERIAL_LABELS && window.MATERIAL_LABELS[key]) || "";
-    return {
-      primary: ja || key,
-      secondary: ja ? key : ""
-    };
-  }
-
-  function optionText(key) {
-    const parts = optionParts(key);
-    if (!parts.primary) return "";
-    return parts.secondary ? `${parts.primary} (${parts.secondary})` : parts.primary;
-  }
-
-  function normalizeQuery(q) {
-    return String(q || "").trim().toLowerCase().replace(/\s+/g, "");
-  }
-
-  function materialCatalog() {
-    return Array.isArray(window.MATERIALS) ? window.MATERIALS : [];
   }
 
   function customCatalog() {
@@ -133,191 +89,52 @@ window.materialInput = function materialInput(value, listId, onInput, opts) {
     return out;
   }
 
-  function scoreMatch(key, q, jaText) {
-    if (!q) return 0;
-    const id = key.toLowerCase();
-    const ja = String(jaText || "").toLowerCase().replace(/\s+/g, "");
-    const idCompact = id.replace(/_/g, "").replace(/^custom:/, "");
-    if (id === q || ja === q || idCompact === q) return 100;
-    if (id.startsWith(q) || idCompact.startsWith(q) || ja.startsWith(q)) return 80;
-    if (id.includes(q) || idCompact.includes(q) || ja.includes(q)) return 50;
-    const tokens = q.split(/[_\s:/]+/).filter(Boolean);
-    if (tokens.length > 1 && tokens.every((t) => id.includes(t) || ja.includes(t) || idCompact.includes(t))) return 40;
-    return 0;
+  function materialOption(key) {
+    const ja = (window.LABELS && typeof window.LABELS.materialLabel === "function")
+      ? window.LABELS.materialLabel(key)
+      : ((window.MATERIAL_LABELS && window.MATERIAL_LABELS[key]) || "");
+    return { value: key, primary: ja || key, secondary: key };
   }
 
-  function wantsCustomSuggest(rawQuery) {
-    if (!allowCustom) return false;
-    const lower = String(rawQuery || "").trim().toLowerCase();
-    return lower === "c" || lower === "cu" || lower === "cus" || lower === "cust"
-      || lower === "custo" || lower === "custom" || lower.startsWith("custom:");
+  function customOption(key) {
+    const id = String(key).slice(String(key).indexOf(":") + 1);
+    const label = customLabelOf(key);
+    return {
+      value: key,
+      primary: label && label !== id ? label : `カスタム: ${id}`,
+      secondary: key
+    };
   }
 
-  function filterCandidates(rawQuery) {
-    const raw = String(rawQuery || "");
-    if (wantsCustomSuggest(raw)) {
-      const after = raw.toLowerCase().startsWith("custom:") ? raw.slice(raw.indexOf(":") + 1) : "";
-      const q = normalizeQuery(after);
-      const customs = customCatalog();
-      const scored = [];
-      for (const k of customs) {
-        const id = k.slice("custom:".length);
-        const label = customLabelOf(k);
-        const s = q ? Math.max(scoreMatch(k, q, id), scoreMatch(k, q, label)) : 10;
-        if (!q || s > 0) scored.push({ k, s: s || 10 });
-      }
-      scored.sort((a, b) => b.s - a.s || a.k.localeCompare(b.k));
-      return scored.slice(0, MAX_SUGGEST).map((x) => x.k);
-    }
+  // 候補一覧に載らない現在値の見せ方。素材互換リスト(list:<id>)は解体設定などで実際に
+  // 保存されている正規のトークンなので、「候補外」ではなく中身の分かる表示にする。
+  function currentFallbackOption(key) {
+    if (isCustomKey(key)) return customOption(key);
+    const m = String(key).match(/^list:(.*)$/i);
+    if (m) return { value: key, primary: `互換リスト: ${m[1]}`, secondary: key };
+    return { value: key, primary: key, secondary: "候補外" };
+  }
 
-    const q = normalizeQuery(raw);
-    const keys = materialCatalog();
-    const customs = allowCustom ? customCatalog() : [];
-    if (!q) {
-      const seed = [];
-      if (current) {
-        if (isCustomKey(current) && allowCustom) seed.push(current);
-        else if (keys.includes(current)) seed.push(current);
-      }
-      // カタログ/素材タブの custom: を空クエリでも先頭付近に出す（儀式・レシピで探しやすくする）
-      for (const k of customs) {
-        if (seed.length >= 24) break;
-        if (!seed.includes(k)) seed.push(k);
-      }
-      for (const k of keys) {
-        if (seed.length >= 28) break;
-        if (seed.includes(k)) continue;
-        if (/_(SWORD|AXE|PICKAXE|SHOVEL|HOE|SPEAR|HELMET|CHESTPLATE|LEGGINGS|BOOTS|NAUTILUS_ARMOR)$/.test(k)
-            || k === "BOW" || k === "CROSSBOW" || k === "TRIDENT" || k === "MACE"
-            || k === "IRON_INGOT" || k === "GOLD_INGOT" || k === "DIAMOND" || k === "EMERALD"
-            || k === "STICK" || k === "STRING" || k === "LEATHER" || k === "PAPER") {
-          seed.push(k);
-        }
-      }
-      return seed;
-    }
-    const scored = [];
-    for (const k of keys) {
-      const ja = (window.MATERIAL_LABELS && window.MATERIAL_LABELS[k]) || "";
-      const s = scoreMatch(k, q, ja);
-      if (s > 0) scored.push({ k, s });
-    }
-    // allowCustom: 表示名・id でカタログ素材を通常検索に混ぜる（custom: 前置不要）
-    if (allowCustom) {
-      for (const k of customs) {
-        const id = k.slice("custom:".length);
-        const label = customLabelOf(k);
-        const s = Math.max(scoreMatch(k, q, id), scoreMatch(k, q, label));
-        if (s > 0) scored.push({ k, s: Math.max(s, 55) });
-      }
-    }
-    scored.sort((a, b) => b.s - a.s || a.k.localeCompare(b.k));
-    const seen = new Set();
+  function resolveOptions() {
     const out = [];
-    for (const x of scored) {
-      if (seen.has(x.k)) continue;
-      seen.add(x.k);
-      out.push(x.k);
-      if (out.length >= MAX_SUGGEST) break;
+    // 「＋ 直接入力…」は先頭に置く。候補は 1700 件近くあり listSelect の描画上限(200件)で
+    // 打ち切られるため、末尾に置くと絞り込まない限り永久に見えない。
+    out.push({ value: FREE_INPUT, primary: "＋ 直接入力…", title: "候補に無い ID を直接入力します" });
+    if (allowCustom) {
+      for (const k of customCatalog()) out.push(customOption(k));
+    }
+    for (const k of (Array.isArray(window.MATERIALS) ? window.MATERIALS : [])) {
+      out.push(materialOption(k));
+    }
+    // 候補に無い現在値(未知 Material・手書きトークン)でも表示が消えないように差し込む。
+    if (current && !out.some((o) => o.value === current)) {
+      out.splice(1, 0, currentFallbackOption(current));
     }
     return out;
   }
 
-  function positionList() {
-    const rect = input.getBoundingClientRect();
-    const gutter = 8;
-    const preferredW = Math.max(rect.width, 280);
-    const maxW = Math.max(180, window.innerWidth - gutter * 2);
-    const width = Math.min(preferredW, maxW);
-    let left = Math.min(Math.max(gutter, rect.left), window.innerWidth - width - gutter);
-    const spaceBelow = window.innerHeight - rect.bottom - gutter;
-    const spaceAbove = rect.top - gutter;
-    const preferBelow = spaceBelow >= 140 || spaceBelow >= spaceAbove;
-    const maxH = Math.min(320, Math.max(120, preferBelow ? spaceBelow : spaceAbove));
-
-    list.style.position = "fixed";
-    list.style.left = left + "px";
-    list.style.width = width + "px";
-    list.style.maxWidth = maxW + "px";
-    list.style.maxHeight = maxH + "px";
-    list.style.zIndex = "10000";
-    list.style.overflowX = "hidden";
-    list.style.overflowY = "auto";
-    list.style.right = "auto";
-
-    if (preferBelow) {
-      list.style.top = (rect.bottom + 4) + "px";
-      list.style.bottom = "auto";
-    } else {
-      list.style.top = "auto";
-      list.style.bottom = (window.innerHeight - rect.top + 4) + "px";
-    }
-  }
-
-  function closeList() {
-    open = false;
-    activeIndex = -1;
-    list.style.display = "none";
-    list.innerHTML = "";
-    if (list.parentNode) list.parentNode.removeChild(list);
-  }
-
-  function renderList(candidates) {
-    list.innerHTML = "";
-    if (!list.parentNode) document.body.appendChild(list);
-    if (!candidates.length) {
-      list.appendChild(h("li", {
-        class: "material-suggest-empty",
-        text: allowCustom
-          ? "一致なし — Enter で確定 (custom:id 可)"
-          : "一致なし — Enter で入力値を確定"
-      }));
-    } else {
-      candidates.forEach((key, idx) => {
-        const parts = optionParts(key);
-        const children = [
-          h("span", { class: "material-suggest-primary", text: parts.primary })
-        ];
-        if (parts.secondary) {
-          children.push(h("span", { class: "material-suggest-secondary", text: parts.secondary }));
-        }
-        const li = h("li", {
-          class: "material-suggest-item" + (key === current ? " is-current" : ""),
-          role: "option",
-          "data-key": key,
-          title: optionText(key)
-        }, children);
-        li.addEventListener("mousedown", (e) => {
-          e.preventDefault();
-          pick(key);
-        });
-        if (idx === activeIndex) li.classList.add("is-active");
-        list.appendChild(li);
-      });
-    }
-    positionList();
-    list.style.display = "";
-    open = true;
-  }
-
-  function openSuggest(query) {
-    renderList(filterCandidates(query));
-    // 候補ロード未完了なら完了後に再描画（glyphs 等で初回 custom: 入力が空になるのを防ぐ）
-    if (allowCustom && !window._customItemCandidatesLoaded
-        && window.RECIPES_UI && typeof window.RECIPES_UI.ensureCustomDatalist === "function") {
-      window.RECIPES_UI.ensureCustomDatalist().then(() => {
-        if (document.activeElement === input && open) {
-          renderList(filterCandidates(input.value));
-        }
-      }).catch(() => {});
-    }
-  }
-
-  function syncInputDisplay() {
-    input.value = current ? optionText(current) : "";
-    input.dataset.materialId = current || "";
-  }
-
+  // 自由入力の正規化。custom: は allowCustom の欄でだけ特別扱いし、list: (素材互換リスト)は
+  // どの欄でも保持する — 大文字化で潰すと "list:cobblestone" が黙って別トークンに化けるため。
   function normalizeCommitValue(nv) {
     const raw = nv == null ? "" : String(nv).trim();
     if (!raw) return "";
@@ -325,167 +142,61 @@ window.materialInput = function materialInput(value, listId, onInput, opts) {
       const id = raw.slice(raw.indexOf(":") + 1).trim();
       return id ? ("custom:" + id) : "custom:";
     }
+    if (/^list:/i.test(raw)) {
+      const id = raw.slice(raw.indexOf(":") + 1).trim();
+      return id ? ("list:" + id) : "list:";
+    }
     return raw.toUpperCase().replace(/[^A-Z0-9_]/g, "");
   }
 
-  function commit(nv) {
-    const next = normalizeCommitValue(nv);
-    current = next;
-    syncInputDisplay();
-    if (typeof onInput === "function") onInput(next);
-    const ev = { type: "change", target: { value: next }, currentTarget: wrap };
-    for (const fn of changeListeners) {
-      try { fn(ev); } catch (_) { /* listener error は他リスナを止めない */ }
-    }
-  }
-
-  function pick(key) {
-    commit(key);
-    closeList();
-    input.blur();
-  }
-
-  function commitTyped() {
-    const raw = input.value.trim();
-    // 空入力はクリア確定（seed 候補の先頭を誤ピックしない）
-    if (!raw) {
-      commit("");
-      closeList();
-      return;
-    }
-    const parenCustom = raw.match(/\((custom:[^)]+)\)\s*$/i);
-    if (parenCustom) {
-      pick(parenCustom[1]);
-      return;
-    }
-    const paren = raw.match(/\(([A-Z][A-Z0-9_]*)\)\s*$/);
-    if (paren) {
-      pick(paren[1]);
-      return;
-    }
-    if (allowCustom && /^custom:/i.test(raw)) {
-      pick(raw);
-      return;
-    }
-    const asId = raw.toUpperCase().replace(/[^A-Z0-9_]/g, "");
-    if (!asId) {
-      // 日本語のみ等: 一致がちょうど1件のときだけ確定。複数は一覧を開いたままにする。
-      const hits = filterCandidates(raw);
-      if (hits.length === 1) {
-        pick(hits[0]);
-        return;
+  const el = window.listSelect({
+    value: current,
+    options: resolveOptions,
+    allowCustom: true,
+    customValue: FREE_INPUT,
+    customPlaceholder: allowCustom
+      ? "Material名 / custom:<カタログID>"
+      : "Material名 (例: IRON_INGOT)",
+    placeholder: options.placeholder || "アイテムを選択…",
+    filterPlaceholder: "絞り込み (アイテム名 / ID)",
+    // listSelect の基底クラスに material-suggest が既に入っているので、ここでは足さない。
+    className: options.className,
+    onCommit: (nv) => {
+      const next = normalizeCommitValue(nv);
+      current = next;
+      if (typeof onInput === "function") onInput(next);
+      const ev = { type: "change", target: { value: next }, currentTarget: el };
+      for (const fn of changeListeners) {
+        try { fn(ev); } catch (_) { /* listener error は他リスナを止めない */ }
       }
-      if (hits.length > 1) {
-        openSuggest(raw);
-        activeIndex = 0;
-        const items = list.querySelectorAll(".material-suggest-item");
-        items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-        return;
-      }
-      syncInputDisplay();
-      closeList();
-      return;
-    }
-    const exact = materialCatalog().find((k) => k === asId);
-    if (exact) {
-      pick(exact);
-      return;
-    }
-    const hits = filterCandidates(raw);
-    if (hits.length === 1) {
-      pick(hits[0]);
-      return;
-    }
-    commit(asId);
-    closeList();
-  }
-
-  function onScrollOrResize() {
-    if (open) positionList();
-  }
-
-  input.addEventListener("focus", () => {
-    input.value = current || "";
-    input.select();
-    openSuggest(current || "");
-  });
-
-  input.addEventListener("input", () => {
-    openSuggest(input.value);
-    activeIndex = 0;
-    const items = list.querySelectorAll(".material-suggest-item");
-    items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-  });
-
-  input.addEventListener("keydown", (e) => {
-    const items = [...list.querySelectorAll(".material-suggest-item")];
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (!open) openSuggest(input.value);
-      else {
-        activeIndex = Math.min(items.length - 1, activeIndex + 1);
-        items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-        if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
-      }
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      activeIndex = Math.max(0, activeIndex - 1);
-      items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (open && activeIndex >= 0 && items[activeIndex]) {
-        pick(items[activeIndex].getAttribute("data-key"));
-      } else {
-        commitTyped();
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      syncInputDisplay();
-      closeList();
-      input.blur();
+      // 正規化後の値を listSelect 側の確定値としても採用させる。
+      return next;
     }
   });
 
-  input.addEventListener("blur", () => {
-    setTimeout(() => {
-      if (!wrap.contains(document.activeElement) && !list.contains(document.activeElement)) {
-        if (open) commitTyped();
-        else syncInputDisplay();
-        closeList();
-      }
-    }, 120);
-  });
-
-  window.addEventListener("scroll", onScrollOrResize, true);
-  window.addEventListener("resize", onScrollOrResize);
-
-  Object.defineProperty(wrap, "value", {
+  Object.defineProperty(el, "value", {
     get() { return current; },
     set(v) {
       current = v == null ? "" : String(v);
-      syncInputDisplay();
+      el.setValue(current);
     },
     configurable: true
   });
 
-  const nativeAdd = wrap.addEventListener.bind(wrap);
-  wrap.addEventListener = function (type, listener, options) {
+  const nativeAdd = el.addEventListener.bind(el);
+  el.addEventListener = function (type, listener, opts2) {
     if (type === "change" && typeof listener === "function") {
       changeListeners.push(listener);
       return;
     }
-    return nativeAdd(type, listener, options);
+    return nativeAdd(type, listener, opts2);
   };
 
-  wrap._rebuildSuggestIndex = function () {
-    syncInputDisplay();
-  };
-  wrap._rebuildMaterialOptions = wrap._rebuildSuggestIndex;
+  // /api/material-labels の到着後に日本語表示へ差し替えるためのフック (app.js から呼ばれる)。
+  el._rebuildSuggestIndex = function () { el.refresh(); };
+  el._rebuildMaterialOptions = el._rebuildSuggestIndex;
 
-  wrap.appendChild(input);
-  syncInputDisplay();
-  return wrap;
+  return el;
 };
 
 // catalog / recipes / materials などから custom: 候補を共有登録する。
@@ -661,11 +372,20 @@ window.listSelect = function listSelect(cfg) {
     return opt.primary || String(opt.value);
   }
 
+  // 2026-07-29: 確定後のトリガー表示は主表示(日本語名)だけにする。
+  // ID は「編集者が既に知っている情報」で、選び終わったあとの欄では冗長なため
+  // (候補一覧では薄字の secondary 行として出るので、引きたいときはそちらで確認できる)。
+  // 情報自体は title 属性に残すので hover では読める。
+  function triggerLabel(opt) {
+    if (!opt) return "";
+    return opt.primary || String(opt.value);
+  }
+
   function syncTrigger() {
     const options = resolveOptions();
     const opt = findOption(current, options);
     if (opt) {
-      trigger.textContent = optionLabel(opt);
+      trigger.textContent = triggerLabel(opt);
       trigger.title = opt.title || optionLabel(opt);
       trigger.classList.remove("is-placeholder");
     } else if (current) {
@@ -730,12 +450,16 @@ window.listSelect = function listSelect(cfg) {
   }
 
   function tryCommit(nv) {
-    const next = nv == null ? "" : String(nv);
+    let next = nv == null ? "" : String(nv);
     if (typeof cfg.onCommit === "function") {
-      if (cfg.onCommit(next) === false) {
+      const result = cfg.onCommit(next);
+      if (result === false) {
         syncTrigger();
         return false;
       }
+      // 文字列を返したら「正規化後の確定値」として採用する。自由入力を呼び出し側が
+      // 整形する欄(materialInput の大文字化など)で、トリガー表示と保存値がずれないようにする。
+      if (typeof result === "string") next = result;
     } else if (typeof cfg.onChange === "function") {
       cfg.onChange(next);
     }
@@ -1329,200 +1053,77 @@ window.stripDisplayNamePlain = function stripDisplayNamePlain(raw) {
 };
 
 /**
- * カタログ候補サジェスト。candidates: [{ id, displayName, material, cmd, tab }]
+ * カタログ候補セレクト。candidates: [{ id, displayName, material, cmd, tab }]
+ *
+ * 2026-07-29: materialInput と同じく listSelect ベースへ移行し、「アイテムを引数に取る欄」の
+ * DOM を統一する(以前はここだけ独自のテキスト入力+サジェストだった)。
+ * 主表示 = カタログの表示名(日本語)、副表示 = 薄字の catalogID。確定後は主表示のみ。
+ *
+ * @param {string} valueId 現在の catalogID
+ * @param {Array} candidates 候補
+ * @param {function(object|null): void} onPick 確定時。候補オブジェクト(未選択なら null)を渡す
+ * @param {object} [opts] { placeholder, className, disabled, filterCandidate }
  */
 window.catalogItemSuggest = function catalogItemSuggest(valueId, candidates, onPick, opts) {
-  const h = window.h;
   const options = opts && typeof opts === "object" ? opts : {};
-  const MAX = 40;
+  const all = Array.isArray(candidates) ? candidates.slice() : [];
   let currentId = valueId == null ? "" : String(valueId);
-  let activeIndex = -1;
-  let open = false;
-  const list = Array.isArray(candidates) ? candidates.slice() : [];
-
-  const wrap = h("span", { class: "material-suggest catalog-id-suggest" + (options.className ? " " + options.className : "") });
-  const input = h("input", {
-    class: "field-input material-suggest-input",
-    type: "text",
-    spellcheck: "false",
-    autocomplete: "off",
-    placeholder: options.placeholder || "カタログID / 表示名で検索",
-    disabled: !!options.disabled
-  });
-  const drop = h("ul", { class: "material-suggest-list", role: "listbox", style: "display:none;" });
 
   function findById(id) {
-    return list.find((c) => c && c.id === id) || null;
+    return all.find((c) => c && c.id === id) || null;
   }
 
-  function labelOf(c) {
-    if (!c) return "";
+  function optionOf(c) {
     const dn = window.stripDisplayNamePlain(c.displayName || "") || c.id;
-    return dn === c.id ? c.id : `${dn} (${c.id})`;
+    // 表示名を持たない候補は、せめて材質(+CMD)を副表示にして見分けられるようにする。
+    let secondary = c.id;
+    if (dn === c.id) {
+      secondary = c.material
+        ? (c.cmd != null && c.cmd !== "" ? `${c.material}#${c.cmd}` : String(c.material))
+        : "";
+    }
+    return { value: c.id, primary: dn, secondary };
   }
 
-  function syncDisplay() {
-    const c = findById(currentId);
-    input.value = c ? labelOf(c) : (currentId || "");
-  }
-
-  function filter(qRaw) {
-    const q = String(qRaw || "").trim().toLowerCase().replace(/\s+/g, "");
-    const scored = [];
-    for (const c of list) {
+  function resolveOptions() {
+    // テキスト入力だった頃は「空にして Enter」で解除できたので、その経路を選択肢として残す。
+    const out = [{ value: "", primary: "(未選択)", title: "選択を解除します" }];
+    for (const c of all) {
       if (!c || !c.id) continue;
       if (typeof options.filterCandidate === "function" && !options.filterCandidate(c)) continue;
-      const id = String(c.id).toLowerCase();
-      const dn = window.stripDisplayNamePlain(c.displayName || "").toLowerCase().replace(/\s+/g, "");
-      if (!q) {
-        scored.push({ c, s: 1 });
-        continue;
-      }
-      let s = 0;
-      if (id === q || dn === q) s = 100;
-      else if (id.startsWith(q) || dn.startsWith(q)) s = 80;
-      else if (id.includes(q) || dn.includes(q)) s = 50;
-      if (s > 0) scored.push({ c, s });
+      out.push(optionOf(c));
     }
-    scored.sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id));
-    return scored.slice(0, MAX).map((x) => x.c);
-  }
-
-  function positionList() {
-    const rect = input.getBoundingClientRect();
-    const gutter = 8;
-    const preferredW = Math.max(rect.width, 280);
-    const maxW = Math.max(180, window.innerWidth - gutter * 2);
-    const width = Math.min(preferredW, maxW);
-    const left = Math.min(Math.max(gutter, rect.left), window.innerWidth - width - gutter);
-    const spaceBelow = window.innerHeight - rect.bottom - gutter;
-    const spaceAbove = rect.top - gutter;
-    const preferBelow = spaceBelow >= 140 || spaceBelow >= spaceAbove;
-    const maxH = Math.min(320, Math.max(120, preferBelow ? spaceBelow : spaceAbove));
-    drop.style.position = "fixed";
-    drop.style.left = left + "px";
-    drop.style.width = width + "px";
-    drop.style.maxWidth = maxW + "px";
-    drop.style.maxHeight = maxH + "px";
-    drop.style.zIndex = "10000";
-    drop.style.overflowX = "hidden";
-    drop.style.overflowY = "auto";
-    if (preferBelow) {
-      drop.style.top = (rect.bottom + 4) + "px";
-      drop.style.bottom = "auto";
-    } else {
-      drop.style.top = "auto";
-      drop.style.bottom = (window.innerHeight - rect.top + 4) + "px";
+    // 候補に無い ID(絞り込みで除外された・カタログから消えた)でも表示が消えないようにする。
+    if (currentId && !out.some((o) => o.value === currentId)) {
+      const known = findById(currentId);
+      out.splice(1, 0, known ? optionOf(known) : { value: currentId, primary: currentId, secondary: "候補外" });
     }
+    return out;
   }
 
-  function closeList() {
-    open = false;
-    activeIndex = -1;
-    drop.style.display = "none";
-    drop.innerHTML = "";
-    if (drop.parentNode) drop.parentNode.removeChild(drop);
-  }
-
-  function pick(c) {
-    currentId = c ? c.id : "";
-    syncDisplay();
-    closeList();
-    if (typeof onPick === "function") onPick(c);
-    input.blur();
-  }
-
-  function renderList(cands) {
-    drop.innerHTML = "";
-    if (!drop.parentNode) document.body.appendChild(drop);
-    if (!cands.length) {
-      drop.appendChild(h("li", { class: "material-suggest-empty", text: "一致するカタログアイテムがありません" }));
-    } else {
-      cands.forEach((c, idx) => {
-        const dn = window.stripDisplayNamePlain(c.displayName || "") || c.id;
-        const children = [h("span", { class: "material-suggest-primary", text: dn })];
-        if (dn !== c.id) {
-          children.push(h("span", { class: "material-suggest-secondary", text: c.id }));
-        } else if (c.material) {
-          const keyHint = c.cmd != null && c.cmd !== "" ? `${c.material}#${c.cmd}` : c.material;
-          children.push(h("span", { class: "material-suggest-secondary", text: keyHint }));
-        }
-        const li = h("li", {
-          class: "material-suggest-item" + (c.id === currentId ? " is-current" : ""),
-          role: "option",
-          "data-id": c.id
-        }, children);
-        li.addEventListener("mousedown", (e) => { e.preventDefault(); pick(c); });
-        if (idx === activeIndex) li.classList.add("is-active");
-        drop.appendChild(li);
-      });
-    }
-    positionList();
-    drop.style.display = "";
-    open = true;
-  }
-
-  input.addEventListener("focus", () => {
-    if (options.disabled) return;
-    input.value = currentId || "";
-    input.select();
-    renderList(filter(currentId || ""));
-  });
-  input.addEventListener("input", () => {
-    if (options.disabled) return;
-    renderList(filter(input.value));
-    activeIndex = 0;
-  });
-  input.addEventListener("keydown", (e) => {
-    const items = [...drop.querySelectorAll(".material-suggest-item")];
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (!open) renderList(filter(input.value));
-      else {
-        activeIndex = Math.min(items.length - 1, activeIndex + 1);
-        items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-      }
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      activeIndex = Math.max(0, activeIndex - 1);
-      items.forEach((el, i) => el.classList.toggle("is-active", i === activeIndex));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (open && activeIndex >= 0 && items[activeIndex]) {
-        pick(findById(items[activeIndex].getAttribute("data-id")));
-      } else {
-        const hits = filter(input.value);
-        if (hits.length === 1) pick(hits[0]);
-        else if (!input.value.trim()) pick(null);
-        else renderList(hits);
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      syncDisplay();
-      closeList();
-      input.blur();
+  const el = window.listSelect({
+    value: currentId,
+    options: resolveOptions,
+    disabled: !!options.disabled,
+    placeholder: options.placeholder || "カタログアイテムを選択…",
+    filterPlaceholder: "絞り込み (表示名 / カタログID)",
+    className: "catalog-id-suggest" + (options.className ? " " + options.className : ""),
+    onChange: (nv) => {
+      currentId = nv == null ? "" : String(nv);
+      if (typeof onPick === "function") onPick(findById(currentId));
     }
   });
-  input.addEventListener("blur", () => {
-    setTimeout(() => {
-      if (!wrap.contains(document.activeElement) && !drop.contains(document.activeElement)) {
-        syncDisplay();
-        closeList();
-      }
-    }, 120);
-  });
-  window.addEventListener("scroll", () => { if (open) positionList(); }, true);
-  window.addEventListener("resize", () => { if (open) positionList(); });
 
-  Object.defineProperty(wrap, "value", {
+  Object.defineProperty(el, "value", {
     get() { return currentId; },
-    set(v) { currentId = v == null ? "" : String(v); syncDisplay(); },
+    set(v) {
+      currentId = v == null ? "" : String(v);
+      el.setValue(currentId);
+    },
     configurable: true
   });
 
-  wrap.appendChild(input);
-  syncDisplay();
-  return wrap;
+  return el;
 };
 
 /**

@@ -455,7 +455,10 @@
       const view = ALL_TOOL_VIEWS.find((v) => v.id === state.current);
       if (!view || !view.split) return;
       const sp = view.split;
-      main.innerHTML = "";
+      // 2026-07-29: ここで main を空にしてから下の else で return する経路があり、
+      // 「今開いている画面(catalog/item-stats)とは別の config がマージされた」ときに
+      // アイテム一覧が丸ごと消えて白紙になっていた(state.editor は生きているので実害なし=
+      // ユーザー報告どおり)。クリアは差し替え直前だけ行う。
       if (sp.type === "thread-bundle") {
         const threadsData = configId === "threads" ? mergedData
           : (typeof state.editor.getData === "function" ? state.editor.getData() : (state.baseSnapshots.threads || {}));
@@ -516,8 +519,10 @@
           counterpartDirty
         });
       } else {
+        // 表示中の config ではないものがマージされた: 画面は触らない(消さない)。
         return;
       }
+      main.innerHTML = "";
       main.appendChild(state.editor.element);
       document.getElementById("save-btn").disabled = false;
       // マージ後は「ディスク未保存」として残すため syncBase しない
@@ -1401,6 +1406,24 @@
     return true;
   }
 
+  // 2026-07-29: 画面切替の競合ガード。
+  // selectTool / selectConfig は「main を空にする → await で config を取得 → 追記」という
+  // 順で動くため、取得中にもう一度切り替えると 2 つの呼び出しが両方とも最後の追記まで
+  // 走り、同じ main に 2 つのビューが並ぶ(= カテゴリタブから下がページ内に複製される)。
+  // アイテムカタログ/アイテムステータスは 1 画面で 3 本 API を叩くので特に踏みやすい。
+  // 切替のたびに世代番号を進め、追記直前に「自分が最新か」を確かめる。
+  let navSeq = 0;
+  function beginNav() { return ++navSeq; }
+  /** 追記直前の共通処理。古い呼び出しなら false を返して何も描かない。 */
+  function mountMain(token, el) {
+    if (token !== navSeq) return false;
+    const main = document.getElementById("editor-area");
+    if (!main) return false;
+    main.innerHTML = "";
+    main.appendChild(el);
+    return true;
+  }
+
   /** タブ(サイドメニュー)切替時はスクロールを最上部へ戻す (前タブの位置を引き継がない)。 */
   function resetMainScroll() {
     const mainPane = document.querySelector(".main");
@@ -1410,6 +1433,7 @@
   // 専用ビュー(ホーム / 使い方 / 共通変数 / シミュレータ)へ切り替える。
   async function selectTool(view) {
     if (!(await confirmLeaveIfDirty(view.id))) return;
+    const navToken = beginNav();
     state.current = view.id;
     state.kind = view.kind;
     state.editor = null;
@@ -1503,10 +1527,10 @@
           });
           syncBaseFromEditor(sp.configId);
         }
-        main.appendChild(state.editor.element);
+        if (!mountMain(navToken, state.editor.element)) return;
         saveBtn.disabled = false;
       } catch (err) {
-        main.appendChild(h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
+        if (!mountMain(navToken, h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }))) return;
         saveBtn.disabled = true;
       }
       return;
@@ -1522,10 +1546,10 @@
           ? window.cloneData(r.constants) : JSON.parse(JSON.stringify(r.constants || {}));
         state.editor = window.buildConstantsView(r.constants);
         syncBaseFromEditor();
-        main.appendChild(state.editor.element);
+        if (!mountMain(navToken, state.editor.element)) return;
         saveBtn.disabled = false;
       } catch (err) {
-        main.appendChild(h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
+        if (!mountMain(navToken, h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }))) return;
         saveBtn.disabled = true;
       }
       return;
@@ -1542,11 +1566,12 @@
     } catch (_) { /* 定数が読めなくてもフォーム既定値で動作する */ }
     const view2 = window.buildSimulatorView(defaults);
     state.editor = view2;
-    main.appendChild(view2.element);
+    mountMain(navToken, view2.element);
   }
 
   async function selectConfig(id) {
     if (!(await confirmLeaveIfDirty(id))) return;
+    const navToken = beginNav();
     state.current = id;
     state.kind = "config";
     renderSidebar();
@@ -1559,9 +1584,10 @@
     try {
       r = await api("GET", `/api/config/${id}`);
     } catch (err) {
-      main.appendChild(h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
+      mountMain(navToken, h("div", { class: "empty", text: `読み込み失敗: ${err.message}` }));
       return;
     }
+    if (navToken !== navSeq) return;
     rememberRevision(id, r.revision);
 
     const meta = state.configs.find((c) => c.id === id) || {};
@@ -1576,7 +1602,7 @@
     const editor = await buildEditorForLoadedConfig(r.schema, data);
     state.editor = editor;
     syncBaseFromEditor(id);
-    main.appendChild(editor.element);
+    if (!mountMain(navToken, editor.element)) return;
     document.getElementById("save-btn").disabled = false;
   }
 

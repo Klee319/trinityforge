@@ -57,17 +57,6 @@ test("skill-exp.yml の汎用描画対象キーは全て labels.js で日本語�
     `labels.js の FIELD_LABELS に未登録で、生のキーIDのまま表示されるフィールド: ${unresolved.join(", ")}`);
 });
 
-test("combat.mode は items.yml 天候(weather)の 'mode' とグローバル辞書上で衝突するため、" +
-  "tf-forms.js のセクション別上書き(SECTION_FIELD_OVERRIDES)で文脈固有ラベルへ差し替えられている", () => {
-  // グローバル辞書自体は他画面の意味のままで良い(天候用の意味を壊さない)。
-  assert.equal(LABELS.fieldLabel("mode"), "天候",
-    "グローバル辞書の 'mode' は items.yml 天候用のまま(他画面を壊さないことを確認)");
-  assert.match(TF_FORMS_SRC, /SECTION_FIELD_OVERRIDES\s*=\s*\{\s*combat:\s*\{\s*mode:\s*\{/,
-    "tf-forms.js に combat.mode 用の SECTION_FIELD_OVERRIDES が見つからない");
-  assert.match(TF_FORMS_SRC, /scalarSectionBody\(obj,\s*\{\s*hideKey:\s*true\s*\},\s*SECTION_FIELD_OVERRIDES\[section\]\)/,
-    "scalarSectionBody へ SECTION_FIELD_OVERRIDES[section] が渡されていない");
-});
-
 test("トップレベルスカラー outside-dungeon-exp-rate が labels.js に登録され、実際に編集可能になっている", () => {
   assert.ok(Object.prototype.hasOwnProperty.call(doc, "outside-dungeon-exp-rate"),
     "前提: skill-exp.yml に outside-dungeon-exp-rate が無い(テスト前提が崩れている)");

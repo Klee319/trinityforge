@@ -154,7 +154,7 @@
       if (!ids.length) {
         list.appendChild(emptyGuide(
           "ゲートがまだありません",
-          "「+ ゲート追加」でワールドごとの入場条件を作ります。空のままなら入場制限はかかりません（fail-open）。"
+          "「+ ゲート追加」で入場条件を作ってください。空のままでは一般ユーザーはEliteMobsダンジョンへ入場できません。"
         ));
       }
       for (const id of ids) {

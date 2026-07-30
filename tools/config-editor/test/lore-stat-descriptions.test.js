@@ -19,3 +19,15 @@ test("every Lore-displayed stat has an implementation-backed help description", 
     assert.ok(description && !description.includes("未登録"), `${key} needs a help description`);
   }
 });
+
+test("stun duration editor metadata consistently uses additive ticks", () => {
+  const root = path.resolve(__dirname, "../../..");
+  const source = fs.readFileSync(path.join(root, "tools/config-editor/public/js/labels.js"), "utf8");
+  const context = { window: {} };
+  vm.runInNewContext(source, context, { filename: "labels.js" });
+
+  const description = context.window.LABELS.statDescription("stun-duration-bonus");
+  assert.match(description, /初期値は25tick/);
+  assert.doesNotMatch(description, /25〜45|stun-chanceに応じて|割合加算/);
+  assert.equal(context.window.LABELS.NATIVE_PERK_META.heavyweapons_stunduration_add.unit, "tick");
+});

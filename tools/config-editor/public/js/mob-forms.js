@@ -794,12 +794,50 @@
     const tiers = working.tiers;
     const root = h("div", { class: "dedicated-form" });
 
+    // 2026-07-29: 帯が増えると縦に延々と積まれて全体像が掴めなかったため、全カードを
+    // 折りたたみ式にする。再描画をまたいで開閉状態を保つ (collapsibleCard の推奨パターン)。
+    // 帯カードのキーは配列 index ではなく min-level — 帯を削除/追加すると index がずれて
+    // 別の帯の開閉状態を引き継いでしまうため。
+    const expandedCards = new Set();
+    function collapsible(cardKey, headChildren, bodyChildren, defaultOpen) {
+      if (defaultOpen && !expandedCards.has(cardKey) && !expandedCards.has("!" + cardKey)) {
+        expandedCards.add(cardKey);
+      }
+      return window.collapsibleCard(headChildren, bodyChildren, {
+        expanded: expandedCards.has(cardKey),
+        onToggle: (open) => {
+          if (open) { expandedCards.add(cardKey); expandedCards.delete("!" + cardKey); }
+          else { expandedCards.delete(cardKey); expandedCards.add("!" + cardKey); }
+        }
+      });
+    }
+
+    /** 折りたたみ中でも中身が想像できるよう、ヘッダに要約を出す。 */
+    function tierSummary(tier) {
+      const parts = [];
+      const removes = Array.isArray(tier["remove-drops"]) ? tier["remove-drops"].length : 0;
+      const adds = Array.isArray(tier["add-drops"]) ? tier["add-drops"].length : 0;
+      if (tier["vanilla-exp"] != null) parts.push(`EXP ${tier["vanilla-exp"]}`);
+      if (removes) parts.push(`削除 ${removes}`);
+      if (adds) parts.push(`追加 ${adds}`);
+      const mobs = Array.isArray(tier.mobs) ? tier.mobs.length : 0;
+      if (mobs) parts.push(`対象 ${mobs} 種`);
+      return parts.length ? parts.join(" / ") : "設定なし";
+    }
+
     function renderDungeonOnlyCard() {
       const toggle = h("input", { type: "checkbox" });
       toggle.checked = !!working["dungeon-only"];
       toggle.addEventListener("change", () => { working["dungeon-only"] = toggle.checked; });
-      return card(
-        [h("span", { class: "entry-key-label", text: "適用範囲" })],
+      return collapsible(
+        "dungeon-only",
+        [
+          h("span", { class: "entry-key-label", text: "適用範囲" }),
+          h("span", {
+            class: "entry-summary",
+            text: working["dungeon-only"] ? "ダンジョン内のみ" : "全ワールド"
+          })
+        ],
         [
           h("div", {
             class: "field-desc",
@@ -826,7 +864,8 @@
       }, { int: true });
 
       const head = [
-        h("span", { class: "entry-key-label", text: `帯 #${idx + 1}` }),
+        h("span", { class: "entry-key-label", text: `帯 #${idx + 1} (Lv${tier["min-level"] == null ? 0 : tier["min-level"]}～)` }),
+        h("span", { class: "entry-summary", text: tierSummary(tier) }),
         h("div", { class: "spacer" }),
         h("button", {
           class: "btn-small danger", type: "button", text: "削除",
@@ -891,12 +930,17 @@
           addDropsBox
         ])
       ];
-      return card(head, body);
+      return collapsible(`tier:${tier["min-level"] == null ? idx : tier["min-level"]}`, head, body);
     }
 
     function renderNoSkillExpMobsCard() {
-      return card(
-        [h("span", { class: "entry-key-label", text: "戦闘スキルEXP無効化 (no-skill-exp-mobs)" })],
+      const list = Array.isArray(working["no-skill-exp-mobs"]) ? working["no-skill-exp-mobs"] : [];
+      return collapsible(
+        "no-skill-exp-mobs",
+        [
+          h("span", { class: "entry-key-label", text: "戦闘スキルEXP無効化 (no-skill-exp-mobs)" }),
+          h("span", { class: "entry-summary", text: list.length ? `${list.length} 種` : "未設定" })
+        ],
         [
           h("div", {
             class: "field-desc",

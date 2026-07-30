@@ -73,7 +73,7 @@
     "arrow-knockback": "弓:矢KB↑",
     "melee-knockback": "近接:追撃KB↑",
     "stun-chance": "近接:スタン率↑",
-    "stun-duration-bonus": "近接:スタン時間↑",
+    "stun-duration-bonus": "近接:スタン時間(tick)",
     "power-attack-damage": "近接:空中ダメ↑",
     "power-attack-radius": "近接:空中半径↑",
     "cooldown-reduction": "戦闘:アイテムCT↓",
@@ -190,9 +190,8 @@
     "arrow-knockback": "高速のチャージ射撃が対象に与えるノックバック量。",
     "melee-knockback": "近接攻撃時に追加で与えるノックバック量。",
     "stun-chance": "近接攻撃時にスタンを付与する確率。",
-    "stun-duration-bonus": "stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)継続時間への割合加算(負値も可)。"
-      + "基準は25〜45tick(stun-chanceに応じて変動)。加算後は5秒(100tick)を絶対上限としてクランプされる"
-      + "(ハメ殺し防止)。",
+    "stun-duration-bonus": "stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)継続時間。base-statsの初期tickへ装備・パーク値を加算します。"
+      + "初期値は25tick、加算後は5秒(100tick)を絶対上限としてクランプされます。",
     "power-attack-damage": "空中での近接攻撃ダメージを増やす割合。",
     "power-attack-radius": "空中近接攻撃の追加範囲ダメージ半径。",
     "cooldown-reduction": "CombatListener.startItemCooldown が扱う武器の物理CT(item-cooldownの秒数)を"
@@ -616,7 +615,7 @@
     "lightweapons_coatingunlocked_toggle": { label: "軽量武器: コーティング解放", unit: "0/1" },
     // 重量武器
     "heavyweapons_stunchance_add": { label: "重量武器: スタン確率+", unit: "割合(0〜1)" },
-    "heavyweapons_stunduration_add": { label: "重量武器: スタン時間+", unit: "秒相当(0〜1可)" },
+    "heavyweapons_stunduration_add": { label: "重量武器: スタン時間+", unit: "tick" },
     "heavyweapons_attackspeedmultiplier_add": { label: "重量武器: 攻撃速度倍率+", unit: "割合(0〜1)" },
     "heavyweapons_chargeattackdamage_add": { label: "重量武器: チャージ攻撃ダメージ+", unit: "割合(0〜1)" },
     "heavyweapons_knockbackmultiplier_add": { label: "重量武器: ノックバック倍率+", unit: "割合(0〜1)" },
