@@ -1,9 +1,11 @@
 package com.trinityforge.config.domains;
 
 import com.trinityforge.config.PotionEffectTypes;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import org.bukkit.Material;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
 
@@ -33,6 +35,10 @@ public final class FoodGimmickConfig {
 
     public static final String PATH = "stats/food-gimmick.yml";
 
+    /** {@code custom:<id>} トークンの接頭辞。{@code RecipeIngredient}/{@code MobOverrideDropEntry}と
+     *  同じ既存語彙(2026-07-27 ゴミ食のカスタムアイテム対応)。 */
+    private static final String CUSTOM_PREFIX = "custom:";
+
     private static final double DEFAULT_JUNK_SATURATION_BONUS = 2.0;
     private static final double DEFAULT_NON_JUNK_SATURATION_PENALTY = 1.0;
     private static final double DEFAULT_SATIETY_BUFF_SATURATION_BONUS = 4.0;
@@ -48,15 +54,41 @@ public final class FoodGimmickConfig {
     }
 
     private volatile Set<Material> junkFoodMaterials = Set.of();
+    /** {@code custom:<id>} トークンで指定されたゴミ食のTFカタログ/ArsPaper ID集合(2026-07-27新設)。 */
+    private volatile Set<String> junkFoodCatalogIds = Set.of();
     private volatile Set<PotionEffectType> junkfoodImmunityCancelledEffects = Set.of();
     private volatile double junkfoodInversionJunkSaturationBonus = DEFAULT_JUNK_SATURATION_BONUS;
     private volatile double junkfoodInversionNonJunkSaturationPenalty = DEFAULT_NON_JUNK_SATURATION_PENALTY;
     private volatile double satietyBuffSaturationBonus = DEFAULT_SATIETY_BUFF_SATURATION_BONUS;
     private volatile Map<String, CustomFood> customFoods = Map.of();
 
-    /** 「ゴミ食」と判定するMaterial一覧({@code junkfood-immunity}/{@code junkfood-inversion}で共有)。 */
+    /** 「ゴミ食」と判定するMaterial一覧({@code junkfood-immunity}/{@code junkfood-inversion}で共有)。
+     *  互換のためMaterial集合のみを返す({@code custom:}指定分は含まない) — カスタム品も含めた判定は
+     *  {@link #isJunkFood(ItemStack)} を使うこと。 */
     public Set<Material> junkFoodMaterials() {
         return junkFoodMaterials;
+    }
+
+    /** {@code custom:<id>}で指定されたゴミ食のTFカタログ/ArsPaper ID一覧。 */
+    public Set<String> junkFoodCatalogIds() {
+        return junkFoodCatalogIds;
+    }
+
+    /**
+     * {@code stack} が「ゴミ食」として設定されているか(2026-07-27新設、カスタム食料対応)。
+     * {@link CrossPluginItemResolver#idOf(ItemStack)} でカスタムID(TFカタログ/ArsPaper)が読めれば
+     * それを {@link #junkFoodCatalogIds()} と照合し、読めなければ(バニラ品)従来通り
+     * {@link #junkFoodMaterials()} とMaterialを照合する。
+     */
+    public boolean isJunkFood(ItemStack stack) {
+        if (stack == null) {
+            return false;
+        }
+        Optional<String> customId = CrossPluginItemResolver.idOf(stack);
+        if (customId.isPresent()) {
+            return junkFoodCatalogIds.contains(customId.get());
+        }
+        return junkFoodMaterials.contains(stack.getType());
     }
 
     /** {@code junkfood-immunity} 有効時、ゴミ食後に打ち消すデバフ系ポーション効果の種類。 */
@@ -106,7 +138,9 @@ public final class FoodGimmickConfig {
             return false;
         }
 
-        this.junkFoodMaterials = parseMaterials(yaml.getStringList("junk-food-materials"), log);
+        JunkFoodTokens junkFoodTokens = parseJunkFoodTokens(yaml.getStringList("junk-food-materials"), log);
+        this.junkFoodMaterials = junkFoodTokens.materials();
+        this.junkFoodCatalogIds = junkFoodTokens.catalogIds();
         this.junkfoodImmunityCancelledEffects = parsePotionEffectTypes(
                 yaml.getStringList("junkfood-immunity.cancelled-debuff-effects"), log);
         this.junkfoodInversionJunkSaturationBonus = clampNonNegativeDouble(
@@ -125,20 +159,41 @@ public final class FoodGimmickConfig {
         return true;
     }
 
-    private static Set<Material> parseMaterials(List<String> names, Logger log) {
-        Set<Material> parsed = new LinkedHashSet<>();
+    /** {@code junk-food-materials} の1トークンをMaterial集合とカスタムID集合に振り分けた結果。 */
+    private record JunkFoodTokens(Set<Material> materials, Set<String> catalogIds) {
+    }
+
+    /**
+     * {@code junk-food-materials} の各トークンを解析する: {@code custom:<id>} なら TFカタログ/ArsPaper
+     * のカスタムIDとして {@code catalogIds} へ、それ以外はバニラ {@link Material} 名として
+     * {@code materials} へ振り分ける({@code RecipeIngredient}/{@code MobOverrideDropEntry} と同じ
+     * {@code custom:} 接頭辞の語彙)。
+     */
+    private static JunkFoodTokens parseJunkFoodTokens(List<String> names, Logger log) {
+        Set<Material> materials = new LinkedHashSet<>();
+        Set<String> catalogIds = new LinkedHashSet<>();
         for (String name : names) {
             if (name == null || name.isBlank()) {
                 continue;
             }
-            Material material = Material.matchMaterial(name.trim());
+            String token = name.trim();
+            if (token.regionMatches(true, 0, CUSTOM_PREFIX, 0, CUSTOM_PREFIX.length())) {
+                String id = token.substring(CUSTOM_PREFIX.length()).trim();
+                if (id.isEmpty()) {
+                    log.warning("[" + PATH + "] '" + name + "' has a blank custom item id; skipped");
+                    continue;
+                }
+                catalogIds.add(id);
+                continue;
+            }
+            Material material = Material.matchMaterial(token);
             if (material == null) {
                 log.warning("[" + PATH + "] '" + name + "' is not a valid Material; skipped");
                 continue;
             }
-            parsed.add(material);
+            materials.add(material);
         }
-        return Set.copyOf(parsed);
+        return new JunkFoodTokens(Set.copyOf(materials), Set.copyOf(catalogIds));
     }
 
     private static Set<PotionEffectType> parsePotionEffectTypes(List<String> names, Logger log) {

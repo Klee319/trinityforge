@@ -6,6 +6,8 @@ import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.progression.PermanentBuffResolver;
 import com.trinityforge.progression.RoleBuffResolver;
+import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.UseRequirementService;
 import com.trinityforge.skilltree.SkillNode;
 import com.trinityforge.skilltree.SkillRole;
 import com.trinityforge.skilltree.SkillTree;
@@ -32,6 +34,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -127,6 +130,38 @@ class PlayerStatAggregatorTest {
     }
 
     @Test
+    void equippedArmorStatTotalSeparatesHeavyAndLightArmor(@TempDir File dir) throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  DIAMOND_CHESTPLATE:
+                    fixed: { armor-defense-rate: 8.0 }
+                  CHAINMAIL_BOOTS:
+                    fixed: { armor-defense-rate: 2.0 }
+                """);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> List.of());
+        PlayerStatAggregator aggregator =
+                new PlayerStatAggregator(cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()));
+        Player player = equippedPlayer();
+        player.getInventory().setBoots(new ItemStack(Material.CHAINMAIL_BOOTS));
+
+        double heavy = aggregator.equippedArmorStatTotal(
+                player, "armor-defense-rate",
+                item -> item.getType() == Material.DIAMOND_CHESTPLATE);
+        double light = aggregator.equippedArmorStatTotal(
+                player, "armor-defense-rate",
+                item -> item.getType() == Material.CHAINMAIL_BOOTS);
+
+        assertEquals(8.0, heavy, 1e-9,
+                "heavy total must not include the chainmail piece or held/offhand items");
+        assertEquals(2.0, light, 1e-9,
+                "light total must not include the diamond piece or held/offhand items");
+    }
+
+    @Test
     void mainhandMap_excludesArmorAndOffhand(@TempDir File dir) throws IOException {
         PlayerStatAggregator aggregator = aggregator(dir, true);
         Player player = equippedPlayer();
@@ -150,6 +185,31 @@ class PlayerStatAggregatorTest {
                 "item()は防具由来のflat-defenseを常に含む(offhandの有無に関わらず)");
         assertTrue(agg.item().getOrDefault(ATTACK_POWER, 0.0) > 0.0,
                 "item()はメインハンド由来のattack-powerを常に含む");
+    }
+
+    @Test
+    void armorThatFailsUseRequirementDoesNotContributeWhileAwaitingRemoval(@TempDir File dir)
+            throws IOException {
+        writeItemStats(dir, false);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> List.of());
+        UseRequirementService gate = mock(UseRequirementService.class);
+        when(gate.denialFor(any(Player.class), any(ItemStack.class)))
+                .thenReturn(Optional.of(new UseRequirementResolver.Resolved("HEAVY_ARMOR", 50)));
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()), null, null,
+                null, null, gate);
+        Player player = server.addPlayer();
+        player.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+
+        PlayerCombatAggregate aggregate = aggregator.aggregate(player);
+
+        assertEquals(0.0, aggregate.item().getOrDefault(FLAT_DEFENSE, 0.0), 1e-9,
+                "要件未達防具は次tickの剥離前でも装備ステータスへ寄与してはならない");
+        assertEquals(10.0, aggregate.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "防具ゲートはメインハンドの集計まで誤って除外してはならない");
     }
 
     /**

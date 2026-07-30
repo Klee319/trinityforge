@@ -72,6 +72,1669 @@
 #                               source-item: diamond_blade
 
 items:
+  wooden_halberd:
+    material: WOODEN_SWORD
+    display-name: 木の<b>ハルバード</b>
+    custom-model-data: 51
+  koujien:
+    material: BOOK
+    lore:
+      - 岩波書店から出版されている日本を代表する代表的な国語辞典・百科事典
+      - ""
+      - <color:dark_purple>脅威は平等に裁かれる</color>
+    display-name: <b>広辞苑</b>
+    enchant-glow: true
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - "b "
+        - "  "
+      ingredients:
+        b: BOOK
+    custom-model-data: 100004
+  wooden_scythe:
+    material: WOODEN_HOE
+    display-name: 木の鎌
+    custom-model-data: 58
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: list:planks
+        s: STICK
+      amount: 1
+  stone_scythe:
+    material: STONE_HOE
+    display-name: 石の鎌
+    custom-model-data: 57
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: list:cobblestone
+        s: STICK
+      amount: 1
+  copper_scythe:
+    material: COPPER_HOE
+    display-name: 銅の鎌
+    custom-model-data: 56
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: COPPER_INGOT
+        s: STICK
+      amount: 1
+  iron_scythe:
+    material: IRON_HOE
+    display-name: 鉄の鎌
+    custom-model-data: 55
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: IRON_INGOT
+        s: STICK
+      amount: 1
+  golad_scythe:
+    material: GOLDEN_HOE
+    display-name: 金の鎌
+    custom-model-data: 54
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: GOLD_INGOT
+        s: STICK
+      amount: 1
+  diamond_scythe:
+    material: DIAMOND_HOE
+    display-name: ダイヤモンドの鎌
+    custom-model-data: 53
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: DIAMOND
+        s: STICK
+      amount: 1
+  nethrite_scythe:
+    material: NETHERITE_HOE
+    display-name: ネザライトの鎌
+    recipe:
+      method: netherite
+      source-item: custom:diamond_scythe
+    custom-model-data: 52
+  Winter_Grim_Reaper:
+    material: NETHERITE_HOE
+    lore:
+      - ただの鍬です。
+      - ""
+      - <color:dark_purple>weappon=false</color>
+    display-name: <color:aqua><b><i>冬の死神</i></b></color>
+    bind-type: SOULBOUND
+    custom-model-data: 1
+  fnis_peccati_profundi:
+    material: IRON_CHAIN
+    lore:
+      - ""
+      - <color:blue>鐘の音が遥か彼方より響き、全ての罪人は沈黙した。</color>
+    display-name: <color:dark_purple>深罪</color><color:gray>の</color><color:dark_red>終幕</color>
+    custom-model-data: 68
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " cs"
+        - wnc
+        - "nc "
+      ingredients:
+        n: NETHERITE_INGOT
+        s: CALIBRATED_SCULK_SENSOR
+        c: IRON_CHAIN
+        w: WITHER_ROSE
+  source_gem_scythe:
+    material: DIAMOND_HOE
+    display-name: ソースジェムの鎌
+    custom-model-data: 49
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - "s  "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+  gold_test:
+    material: GOLDEN_SWORD
+    lore:
+      - テスト用やで
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "   "
+        - " g "
+        - "   "
+      ingredients:
+        g: GOLD_INGOT
+    custom-model-data: 59
+  source_gem_sword:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムの剣
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " i "
+        - " i "
+        - " s "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+    custom-model-data: 1111
+  infinity_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#7df9ff>インフィニティの剣</color>
+    custom-model-data: 112
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " J "
+        - " A "
+        - " R "
+      ingredients:
+        J: custom:tf_core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+  hero_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_purple>守護者の剣</color>
+    custom-model-data: 113
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x2
+        - custom:dragon_breath_3x x2
+        - custom:elder_guardian_spike x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は護るために</color>
+  nuclear_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#696969><b>星枢の剣</b></color>
+    custom-model-data: 114
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x2
+        - custom:wither_rose_1x x2
+        - custom:hard_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き剣</color>
+  stone_bow:
+    material: BOW
+    display-name: <color:#716a6a><b><i>石の弓</i></b></color>
+    custom-model-data: 1091
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " AB"
+        - A B
+        - " AB"
+      ingredients:
+        A: list:cobblestone
+        B: STRING
+  copper_bow:
+    material: BOW
+    display-name: <color:gold><b><i>銅の弓</i></b></color>
+    custom-model-data: 1093
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " AB"
+        - A B
+        - " AB"
+      ingredients:
+        A: COPPER_INGOT
+        B: STRING
+  iron_bow:
+    material: BOW
+    display-name: <color:gray><b><i>鉄の弓</i></b></color>
+    custom-model-data: 1094
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " AB"
+        - A B
+        - " AB"
+      ingredients:
+        B: STRING
+        A: IRON_INGOT
+  golden_bow:
+    material: BOW
+    display-name: <color:yellow><b><i>金の弓</i></b></color>
+    custom-model-data: 1095
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " AB"
+        - A B
+        - " AB"
+      ingredients:
+        A: GOLD_INGOT
+        B: STRING
+  diamond_bow:
+    material: BOW
+    display-name: <color:aqua><b><i>ダイヤモンドの弓</i></b></color>
+    custom-model-data: 1096
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " AB"
+        - A B
+        - " AB"
+      ingredients:
+        A: DIAMOND
+        B: STRING
+  netherite_bow:
+    material: BOW
+    display-name: <color:#483737><b><i>ネザライトの弓</i></b></color>
+    custom-model-data: 1097
+    recipe:
+      method: netherite
+      source-item: custom:diamond_bow
+  nether_star_bow:
+    material: BOW
+    display-name: <color:#dbf9ff><b><i>ネザースターの弓</i></b></color>
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " B "
+        - BAB
+        - " B "
+      ingredients:
+        B: NETHER_STAR
+        A: custom:netherite_bow
+    custom-model-data: 1098
+  revolution_bow:
+    material: DIAMOND_SWORD
+    display-name: <color:dark_red><b><i><u>R</u></i></b></color><color:gold><b><i><u>e</u></i></b></color><color:yellow><b><i><u>v</u></i></b></color><color:#80ff8e><b><i><u>o</u></i></b></color><color:#00ff91><b><i><u>l</u></i></b></color><color:aqua><b><i><u>u</u></i></b></color><color:dark_blue><b><i><u>t</u></i></b></color><color:#8000ff><b><i><u>i</u></i></b></color><color:dark_purple><b><i><u>o</u></i></b></color><color:white><b><i><u>n</u></i></b></color>
+    custom-model-data: 1099
+    lore:
+      - <color:dark_gray><i><st>1.80e308!!</st></i></color>
+      - ""
+      - <color:dark_purple>無限を掌に</color>
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - ADG
+        - BEH
+        - CFI
+      ingredients:
+        E: custom:nether_star_bow
+        B: LAVA_BUCKET
+        H: WATER_BUCKET
+        D: COOKIE
+        F: POWDER_SNOW_BUCKET
+        A: custom:stone_2x
+        G: custom:netherrack_2x
+        C: custom:end_stone_2x
+        I: MUSIC_DISC_CAT
+  source_gem_bow:
+    material: BOW
+    display-name: ソースジェムの弓
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " is"
+        - i s
+        - " is"
+      ingredients:
+        i: custom:source_gem
+        s: custom:magebloom_fiber
+    custom-model-data: 1118
+  source_gem_trident:
+    material: TRIDENT
+    display-name: ソースジェムのトライデント
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " s "
+        - " s "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+    custom-model-data: 181
+  source_gem_mace:
+    material: MACE
+    display-name: ソースジェムのメイス
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " i "
+        - " i "
+        - " r "
+      ingredients:
+        i: custom:source_gem
+        r: BREEZE_ROD
+    custom-model-data: 182
+  source_gem_crossbow:
+    material: CROSSBOW
+    display-name: ソースジェムのクロスボウ
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - sis
+        - " i "
+        - " s "
+      ingredients:
+        i: custom:source_gem
+        s: custom:magebloom_fiber
+    custom-model-data: 183
+  source_gem_spear:
+    material: DIAMOND_SPEAR
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " s "
+        - "s  "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+    display-name: ソースジェムの槍
+    custom-model-data: 50
+  wooden_dagger:
+    material: WOODEN_SWORD
+    display-name: 木の短剣
+    custom-model-data: 11
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: list:planks
+        s: STICK
+      amount: 1
+  stone_dagger:
+    material: STONE_SWORD
+    display-name: 石の短剣
+    custom-model-data: 2
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: list:cobblestone
+        s: STICK
+      amount: 1
+  copper_dagger:
+    material: COPPER_SWORD
+    display-name: 銅の短剣
+    custom-model-data: 4
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: COPPER_INGOT
+        s: STICK
+      amount: 1
+  iron_dagger:
+    material: IRON_SWORD
+    display-name: 鉄の短剣
+    custom-model-data: 5
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: IRON_INGOT
+        s: STICK
+      amount: 1
+  golden_dagger:
+    material: GOLDEN_SWORD
+    display-name: 金の短剣
+    custom-model-data: 12
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: GOLD_INGOT
+        s: STICK
+      amount: 1
+  diamond_dagger:
+    material: DIAMOND_SWORD
+    display-name: ダイヤモンドの短剣
+    custom-model-data: 1101
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: DIAMOND
+        s: STICK
+      amount: 1
+  netherite_dagger:
+    material: NETHERITE_SWORD
+    display-name: ネザライトの短剣
+    recipe:
+      method: netherite
+      source-item: custom:diamond_dagger
+    custom-model-data: 6
+  wooden_rapier:
+    material: WOODEN_SWORD
+    display-name: 木のレイピア
+    custom-model-data: 13
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: list:planks
+        s: STICK
+      amount: 1
+  stone_rapier:
+    material: STONE_SWORD
+    display-name: 石のレイピア
+    custom-model-data: 7
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: list:cobblestone
+        s: STICK
+      amount: 1
+  copper_rapier:
+    material: COPPER_SWORD
+    display-name: 銅のレイピア
+    custom-model-data: 8
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: COPPER_INGOT
+        s: STICK
+      amount: 1
+  iron_rapier:
+    material: IRON_SWORD
+    display-name: 鉄のレイピア
+    custom-model-data: 9
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: IRON_INGOT
+        s: STICK
+      amount: 1
+  golden_rapier:
+    material: GOLDEN_SWORD
+    display-name: 金のレイピア
+    custom-model-data: 14
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: GOLD_INGOT
+        s: STICK
+      amount: 1
+  diamond_rapier:
+    material: DIAMOND_SWORD
+    display-name: ダイヤモンドのレイピア
+    custom-model-data: 1102
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: DIAMOND
+        s: STICK
+      amount: 1
+  netherite_rapier:
+    material: NETHERITE_SWORD
+    display-name: ネザライトのレイピア
+    recipe:
+      method: netherite
+      source-item: custom:diamond_rapier
+    custom-model-data: 15
+  wooden_warhammer:
+    material: WOODEN_SWORD
+    display-name: 木のウォーハンマー
+    custom-model-data: 22
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: list:planks
+        s: STICK
+      amount: 1
+  stone_warhammer:
+    material: STONE_SWORD
+    display-name: 石のウォーハンマー
+    custom-model-data: 23
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: list:cobblestone
+        s: STICK
+      amount: 1
+  copper_warhammer:
+    material: COPPER_SWORD
+    display-name: 銅のウォーハンマー
+    custom-model-data: 24
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: COPPER_INGOT
+        s: STICK
+      amount: 1
+  iron_warhammer:
+    material: IRON_SWORD
+    display-name: 鉄のウォーハンマー
+    custom-model-data: 25
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: IRON_INGOT
+        s: STICK
+      amount: 1
+  golden_warhammer:
+    material: GOLDEN_SWORD
+    display-name: 金のウォーハンマー
+    custom-model-data: 26
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: GOLD_INGOT
+        s: STICK
+      amount: 1
+  diamond_warhammer:
+    material: DIAMOND_SWORD
+    display-name: ダイヤモンドのウォーハンマー
+    custom-model-data: 1104
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: DIAMOND
+        s: STICK
+      amount: 1
+  netherite_warhammer:
+    material: NETHERITE_SWORD
+    display-name: ネザライトのウォーハンマー
+    recipe:
+      method: netherite
+      source-item: custom:diamond_warhammer
+    custom-model-data: 27
+  wooden_greataxe:
+    material: WOODEN_SWORD
+    display-name: 木の大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: list:planks
+        s: STICK
+      amount: 1
+    custom-model-data: 28
+  stone_greataxe:
+    material: STONE_SWORD
+    display-name: 石の大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: list:cobblestone
+        s: STICK
+      amount: 1
+    custom-model-data: 29
+  copper_greataxe:
+    material: COPPER_SWORD
+    display-name: 銅の大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: COPPER_INGOT
+        s: STICK
+      amount: 1
+    custom-model-data: 30
+  iron_greataxe:
+    material: IRON_SWORD
+    display-name: 鉄の大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: IRON_INGOT
+        s: STICK
+      amount: 1
+    custom-model-data: 31
+  golden_greataxe:
+    material: GOLDEN_SWORD
+    display-name: 金の大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: GOLD_INGOT
+        s: STICK
+      amount: 1
+    custom-model-data: 32
+  diamond_greataxe:
+    material: DIAMOND_SWORD
+    display-name: ダイヤモンドの大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: DIAMOND
+        s: STICK
+      amount: 1
+    custom-model-data: 1105
+  netherite_greataxe:
+    material: NETHERITE_SWORD
+    display-name: ネザライトの大斧
+    recipe:
+      method: netherite
+      source-item: custom:diamond_greataxe
+    custom-model-data: 33
+  source_gem_dagger:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムの短剣
+    custom-model-data: 1106
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " i"
+        - "s "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+  source_gem_rapier:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムのレイピア
+    custom-model-data: 1107
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  i"
+        - " i "
+        - "s  "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+  source_gem_warhammer:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムのウォーハンマー
+    custom-model-data: 1109
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - iii
+        - " si"
+        - "s  "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+  source_gem_greataxe:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムの大斧
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - i i
+        - isi
+        - " s "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+      amount: 1
+    custom-model-data: 1110
+  source_gem_axe:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムの戦斧
+    custom-model-data: 1114
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " is"
+        - " is"
+        - " i "
+      ingredients:
+        s: custom:source_gem
+        i: STICK
+  wooden_axe_tf:
+    material: WOODEN_AXE
+    display-name: 木の戦斧
+    custom-model-data: 77
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "is "
+        - "is "
+        - " s "
+      ingredients:
+        s: STICK
+        i: list:planks
+  stone_axe_tf:
+    material: STONE_AXE
+    display-name: 石の戦斧
+    custom-model-data: 78
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "is "
+        - "is "
+        - " s "
+      ingredients:
+        s: STICK
+        i: list:cobblestone
+  copper_axe_tf:
+    material: COPPER_AXE
+    display-name: 銅の戦斧
+    custom-model-data: 79
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "is "
+        - "is "
+        - " s "
+      ingredients:
+        s: STICK
+        i: COPPER_INGOT
+  iron_axe_tf:
+    material: IRON_AXE
+    display-name: 鉄の戦斧
+    custom-model-data: 80
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "is "
+        - "is "
+        - " s "
+      ingredients:
+        s: STICK
+        i: IRON_INGOT
+  golden_axe_tf:
+    material: GOLDEN_AXE
+    display-name: 金の戦斧
+    custom-model-data: 81
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "is "
+        - "is "
+        - " s "
+      ingredients:
+        s: STICK
+        i: GOLD_INGOT
+  diamond_axe_tf:
+    material: DIAMOND_AXE
+    display-name: ダイヤモンドの戦斧
+    custom-model-data: 82
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "is "
+        - "is "
+        - " s "
+      ingredients:
+        s: STICK
+        i: DIAMOND
+  netherite_axe_tf:
+    material: NETHERITE_AXE
+    display-name: ネザライトの戦斧
+    recipe:
+      method: netherite
+      source-item: custom:diamond_axe_tf
+    custom-model-data: 83
+  infinity_axe:
+    material: NETHERITE_AXE
+    display-name: <color:#7df9ff>インフィニティの戦斧</color>
+    custom-model-data: 139
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " RJ"
+        - " RA"
+        - " R "
+      ingredients:
+        R: custom:breeze_rod_2x
+        J: custom:tf_core_jewelry
+        A: custom:amethyst_block_2x
+  hero_axe:
+    material: NETHERITE_AXE
+    display-name: <color:dark_purple>破壊者の戦斧</color>
+    custom-model-data: 140
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x2
+        - custom:dragon_breath_3x x2
+        - custom:wither_skull_fragment x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は壊すために</color>
+  nuclear_axe:
+    material: NETHERITE_AXE
+    display-name: <color:#696969>星枢の戦斧</color>
+    custom-model-data: 141
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x2
+        - custom:wither_rose_1x x2
+        - custom:heavy_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き刃</color>
+  wooden_grate_sword:
+    material: WOODEN_SWORD
+    display-name: 木の大剣
+    custom-model-data: 62
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: list:planks
+        s: STICK
+  stone_grate_sword:
+    material: STONE_SWORD
+    display-name: 石の大剣
+    custom-model-data: 63
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: list:cobblestone
+        s: STICK
+  copper_grate_sword:
+    material: COPPER_SWORD
+    display-name: 銅の大剣
+    custom-model-data: 64
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: COPPER_INGOT
+        s: STICK
+  iron_grate_sword:
+    material: IRON_SWORD
+    display-name: 鉄の大剣
+    custom-model-data: 65
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: IRON_INGOT
+        s: STICK
+  golden_grate_sword:
+    material: GOLDEN_SWORD
+    display-name: 金の大剣
+    custom-model-data: 66
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: GOLD_INGOT
+        s: STICK
+  diamond_grate_sword:
+    material: DIAMOND_SWORD
+    display-name: ダイヤモンドの大剣
+    custom-model-data: 1113
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: DIAMOND
+        s: STICK
+  netherite_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: ネザライトの大剣
+    recipe:
+      method: netherite
+      source-item: custom:diamond_grate_sword
+    custom-model-data: 67
+  infinity_dagger:
+    material: NETHERITE_SWORD
+    display-name: <color:#7df9ff>インフィニティの短剣</color>
+    custom-model-data: 109
+    recipe:
+      method: inventory
+      type: shaped
+      shape:
+        - " J"
+        - "R "
+      ingredients:
+        J: custom:tf_core_jewelry
+        R: custom:breeze_rod_2x
+  hero_dagger:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_purple>守護者の短剣</color>
+    custom-model-data: 110
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x1
+        - custom:dragon_breath_3x x1
+        - custom:elder_guardian_spike x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は護るために</color>
+  nuclear_dagger:
+    material: NETHERITE_SWORD
+    display-name: <color:#696969>星枢の短剣</color>
+    custom-model-data: 111
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x1
+        - custom:wither_rose_1x x1
+        - custom:hard_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き暗器</color>
+  infinity_rapier:
+    material: NETHERITE_SWORD
+    display-name: <color:#7df9ff>インフィニティのレイピア</color>
+    custom-model-data: 115
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  J"
+        - " A "
+        - "R  "
+      ingredients:
+        J: custom:tf_core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+  hero_rapier:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_purple>守護者のレイピア</color>
+    custom-model-data: 116
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x2
+        - custom:dragon_breath_3x x2
+        - custom:elder_guardian_spike x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は護るために</color>
+  nuclear_rapier:
+    material: NETHERITE_SWORD
+    display-name: <color:#696969>星枢のレイピア</color>
+    custom-model-data: 117
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x2
+        - custom:wither_rose_1x x2
+        - custom:hard_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き技巧</color>
+  infinity_spear:
+    material: NETHERITE_SPEAR
+    display-name: <color:#7df9ff>インフィニティの槍</color>
+    custom-model-data: 118
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - "  J"
+        - " R "
+        - "R  "
+      ingredients:
+        J: custom:tf_core_jewelry
+        R: custom:breeze_rod_2x
+  hero_spear:
+    material: NETHERITE_SPEAR
+    display-name: <color:dark_purple>守護者の槍</color>
+    custom-model-data: 119
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x1
+        - custom:dragon_breath_3x x1
+        - custom:elder_guardian_spike x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は護るために</color>
+  nuclear_spear:
+    material: NETHERITE_SPEAR
+    display-name: <color:dark_gray>星枢の槍</color>
+    custom-model-data: 120
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x1
+        - custom:wither_rose_1x x1
+        - custom:hard_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き尖頭</color>
+  infinity_trident:
+    material: TRIDENT
+    display-name: <color:#7df9ff>インフィニティのトライデント</color>
+    custom-model-data: 121
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " J "
+        - " RA"
+        - "R  "
+      ingredients:
+        J: custom:tf_core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+  hero_trident:
+    material: TRIDENT
+    display-name: <color:dark_purple>守護者のトライデント</color>
+    custom-model-data: 122
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x2
+        - custom:dragon_breath_3x x2
+        - custom:elder_guardian_spike x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は護るために</color>
+  nuclear_trident:
+    material: TRIDENT
+    display-name: <color:#696969>星枢のトライデント</color>
+    custom-model-data: 123
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x2
+        - custom:wither_rose_1x x2
+        - custom:hard_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き矛</color>
+  infinity_scythe:
+    material: NETHERITE_HOE
+    display-name: <color:#7df9ff>インフィニティの鎌</color>
+    custom-model-data: 124
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - AJA
+        - " R "
+        - "R  "
+      ingredients:
+        A: custom:amethyst_block_2x
+        J: custom:tf_core_jewelry
+        R: custom:breeze_rod_2x
+  hero_scythe:
+    material: NETHERITE_HOE
+    display-name: <color:dark_purple>守護者の鎌</color>
+    custom-model-data: 125
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x3
+        - custom:dragon_breath_3x x3
+        - custom:elder_guardian_spike x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は護るために</color>
+  nuclear_scythe:
+    material: NETHERITE_HOE
+    display-name: <color:#696969>星枢の鎌</color>
+    custom-model-data: 126
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x3
+        - custom:wither_rose_1x x3
+        - custom:hard_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き歪</color>
+  infinity_mace:
+    material: MACE
+    display-name: <color:#7df9ff>インフィニティのメイス</color>
+    custom-model-data: 127
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - AJA
+        - ARA
+        - " R "
+      ingredients:
+        A: custom:amethyst_block_2x
+        J: custom:tf_core_jewelry
+        R: custom:breeze_rod_2x
+  hero_mace:
+    material: MACE
+    display-name: <color:dark_purple>破壊者のメイス</color>
+    custom-model-data: 128
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x5
+        - custom:dragon_breath_3x x5
+        - custom:wither_skull_fragment x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は壊すために</color>
+  nuclear_mace:
+    material: MACE
+    display-name: <color:#696969>星枢のメイス</color>
+    custom-model-data: 129
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x5
+        - custom:wither_rose_1x x5
+        - custom:heavy_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き暴風</color>
+  infinity_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <color:#7df9ff>インフィニティのウォーハンマー</color>
+    custom-model-data: 133
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - AJA
+        - " RA"
+        - "R  "
+      ingredients:
+        A: custom:amethyst_block_2x
+        J: custom:tf_core_jewelry
+        R: custom:breeze_rod_2x
+  hero_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_purple>破壊者のウォーハンマー</color>
+    custom-model-data: 134
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x4
+        - custom:dragon_breath_3x x4
+        - custom:wither_skull_fragment x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は壊すために</color>
+  nuclear_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <color:#696969>星枢のウォーハンマー</color>
+    custom-model-data: 135
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x4
+        - custom:wither_rose_1x x4
+        - custom:heavy_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き戦槌</color>
+  infinity_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#7df9ff>インフィニティの大剣</color>
+    custom-model-data: 136
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " JA"
+        - ARA
+        - "RA "
+      ingredients:
+        J: custom:tf_core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+  hero_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_purple>破壊者の大剣</color>
+    custom-model-data: 137
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x5
+        - custom:dragon_breath_3x x5
+        - custom:wither_skull_fragment x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は壊すために</color>
+  nuclear_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#696969>星枢の大剣</color>
+    custom-model-data: 138
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x5
+        - custom:wither_rose_1x x5
+        - custom:heavy_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き大剣</color>
+  infinity_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:#7df9ff>インフィニティの大斧</color>
+    custom-model-data: 142
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - J A
+        - ARA
+        - " R "
+      ingredients:
+        J: custom:tf_core_jewelry
+        A: custom:amethyst_block_2x
+        R: custom:breeze_rod_2x
+  hero_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_purple>破壊者の大斧</color>
+    custom-model-data: 143
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x4
+        - custom:dragon_breath_3x x4
+        - custom:wither_skull_fragment x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は壊すために</color>
+  nuclear_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:dark_gray>星枢の大斧</color>
+    custom-model-data: 144
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x4
+        - custom:wither_rose_1x x4
+        - custom:heavy_metal x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き大刃</color>
+  infinity_bow:
+    material: BOW
+    display-name: <color:#7df9ff>インフィニティの弓</color>
+    custom-model-data: 1115
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " AB"
+        - J B
+        - " AB"
+      ingredients:
+        A: custom:amethyst_block_2x
+        B: STRING
+        J: custom:tf_core_jewelry
+  hero_bow:
+    material: BOW
+    display-name: <color:dark_purple>暗殺者の弓</color>
+    custom-model-data: 1116
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x3
+        - custom:dragon_breath_3x x3
+        - custom:warden_tendril x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は屠るために</color>
+  nuclear_bow:
+    material: BOW
+    display-name: <color:#696969>星枢の弓</color>
+    custom-model-data: 1117
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x3
+        - custom:wither_rose_1x x3
+        - custom:reinforced_fiber x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き衝動</color>
+  infinity_crossbow:
+    material: CROSSBOW
+    display-name: <color:#7df9ff>インフィニティのクロスボウ</color>
+    custom-model-data: 145
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - RJR
+        - BCB
+        - " R "
+      ingredients:
+        R: custom:breeze_rod_2x
+        J: custom:tf_core_jewelry
+        B: STRING
+        C: TRIPWIRE_HOOK
+  hero_crossbow:
+    material: CROSSBOW
+    display-name: <color:dark_purple>暗殺者のクロスボウ</color>
+    custom-model-data: 146
+    recipe:
+      method: ritual
+      core-item: DRAGON_EGG
+      pedestal-items:
+        - custom:blaze_rod_3x x1
+        - custom:dragon_breath_3x x1
+        - custom:warden_tendril x2
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>この力は屠るために</color>
+  nuclear_crossbow:
+    material: CROSSBOW
+    display-name: <color:dark_gray>星枢のクロスボウ</color>
+    custom-model-data: 147
+    recipe:
+      method: ritual
+      core-item: NETHER_STAR
+      pedestal-items:
+        - custom:blaze_rod_2x x1
+        - custom:wither_rose_1x x1
+        - custom:reinforced_fiber x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <color:dark_purple>儀式にて産まれる黒き悪意</color>
+  source_gem_grate_sword:
+    material: DIAMOND_SWORD
+    display-name: ソースジェムの大剣
+    recipe:
+      method: workbench
+      type: shaped
+      shape:
+        - " ii"
+        - isi
+        - "si "
+      ingredients:
+        i: custom:source_gem
+        s: STICK
+    custom-model-data: 1119
   source_gem_helmet:
     material: DIAMOND_HELMET
     display-name: <aqua>ソースジェムのヘルメット</aqua>
@@ -1640,1669 +3303,6 @@ items:
       - <gray><italic>ウィザースケルトンの頭蓋を縫い込んだ、蝕みの絹。</italic></gray>
       - ""
       - <color:dark_purple>ネザー要塞の深部でのみ揃う、稀少な素材の結晶。</color>
-  wooden_halberd:
-    material: WOODEN_SWORD
-    display-name: 木の<b>ハルバード</b>
-    custom-model-data: 51
-  koujien:
-    material: BOOK
-    lore:
-      - 岩波書店から出版されている日本を代表する代表的な国語辞典・百科事典
-      - ""
-      - <color:dark_purple>脅威は平等に裁かれる</color>
-    display-name: <b>広辞苑</b>
-    enchant-glow: true
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - "b "
-        - "  "
-      ingredients:
-        b: BOOK
-    custom-model-data: 100004
-  wooden_scythe:
-    material: WOODEN_HOE
-    display-name: 木の鎌
-    custom-model-data: 58
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: list:planks
-        s: STICK
-      amount: 1
-  stone_scythe:
-    material: STONE_HOE
-    display-name: 石の鎌
-    custom-model-data: 57
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: list:cobblestone
-        s: STICK
-      amount: 1
-  copper_scythe:
-    material: COPPER_HOE
-    display-name: 銅の鎌
-    custom-model-data: 56
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: COPPER_INGOT
-        s: STICK
-      amount: 1
-  iron_scythe:
-    material: IRON_HOE
-    display-name: 鉄の鎌
-    custom-model-data: 55
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: IRON_INGOT
-        s: STICK
-      amount: 1
-  golad_scythe:
-    material: GOLDEN_HOE
-    display-name: 金の鎌
-    custom-model-data: 54
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: GOLD_INGOT
-        s: STICK
-      amount: 1
-  diamond_scythe:
-    material: DIAMOND_HOE
-    display-name: ダイヤモンドの鎌
-    custom-model-data: 53
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: DIAMOND
-        s: STICK
-      amount: 1
-  nethrite_scythe:
-    material: NETHERITE_HOE
-    display-name: ネザライトの鎌
-    recipe:
-      method: netherite
-      source-item: custom:diamond_scythe
-    custom-model-data: 52
-  Winter_Grim_Reaper:
-    material: NETHERITE_HOE
-    lore:
-      - ただの鍬です。
-      - ""
-      - <color:dark_purple>weappon=false</color>
-    display-name: <color:aqua><b><i>冬の死神</i></b></color>
-    bind-type: SOULBOUND
-    custom-model-data: 1
-  fnis_peccati_profundi:
-    material: IRON_CHAIN
-    lore:
-      - ""
-      - <color:blue>鐘の音が遥か彼方より響き、全ての罪人は沈黙した。</color>
-    display-name: <color:dark_purple>深罪</color><color:gray>の</color><color:dark_red>終幕</color>
-    custom-model-data: 68
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " cs"
-        - wnc
-        - "nc "
-      ingredients:
-        n: NETHERITE_INGOT
-        s: CALIBRATED_SCULK_SENSOR
-        c: IRON_CHAIN
-        w: WITHER_ROSE
-  source_gem_scythe:
-    material: DIAMOND_HOE
-    display-name: ソースジェムの鎌
-    custom-model-data: 49
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - "s  "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-  gold_test:
-    material: GOLDEN_SWORD
-    lore:
-      - テスト用やで
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "   "
-        - " g "
-        - "   "
-      ingredients:
-        g: GOLD_INGOT
-    custom-model-data: 59
-  source_gem_sword:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムの剣
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " i "
-        - " i "
-        - " s "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-    custom-model-data: 1111
-  infinity_sword:
-    material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティの剣</color>
-    custom-model-data: 112
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " J "
-        - " A "
-        - " R "
-      ingredients:
-        J: custom:tf_core_jewelry
-        A: custom:amethyst_block_2x
-        R: custom:breeze_rod_2x
-  hero_sword:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_purple>守護者の剣</color>
-    custom-model-data: 113
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x2
-        - custom:dragon_breath_3x x2
-        - custom:elder_guardian_spike x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は護るために</color>
-  nuclear_sword:
-    material: NETHERITE_SWORD
-    display-name: <color:#696969><b>星枢の剣</b></color>
-    custom-model-data: 114
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x2
-        - custom:wither_rose_1x x2
-        - custom:sharp_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き剣</color>
-  stone_bow:
-    material: BOW
-    display-name: <color:#716a6a><b><i>石の弓</i></b></color>
-    custom-model-data: 1091
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " AB"
-        - A B
-        - " AB"
-      ingredients:
-        A: list:cobblestone
-        B: STRING
-  copper_bow:
-    material: BOW
-    display-name: <color:gold><b><i>銅の弓</i></b></color>
-    custom-model-data: 1093
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " AB"
-        - A B
-        - " AB"
-      ingredients:
-        A: COPPER_INGOT
-        B: STRING
-  iron_bow:
-    material: BOW
-    display-name: <color:gray><b><i>鉄の弓</i></b></color>
-    custom-model-data: 1094
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " AB"
-        - A B
-        - " AB"
-      ingredients:
-        B: STRING
-        A: IRON_INGOT
-  golden_bow:
-    material: BOW
-    display-name: <color:yellow><b><i>金の弓</i></b></color>
-    custom-model-data: 1095
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " AB"
-        - A B
-        - " AB"
-      ingredients:
-        A: GOLD_INGOT
-        B: STRING
-  diamond_bow:
-    material: BOW
-    display-name: <color:aqua><b><i>ダイヤモンドの弓</i></b></color>
-    custom-model-data: 1096
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " AB"
-        - A B
-        - " AB"
-      ingredients:
-        A: DIAMOND
-        B: STRING
-  netherite_bow:
-    material: BOW
-    display-name: <color:#483737><b><i>ネザライトの弓</i></b></color>
-    custom-model-data: 1097
-    recipe:
-      method: netherite
-      source-item: custom:diamond_bow
-  nether_star_bow:
-    material: BOW
-    display-name: <color:#dbf9ff><b><i>ネザースターの弓</i></b></color>
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " B "
-        - BAB
-        - " B "
-      ingredients:
-        B: NETHER_STAR
-        A: custom:netherite_bow
-    custom-model-data: 1098
-  revolution_bow:
-    material: DIAMOND_SWORD
-    display-name: <color:dark_red><b><i><u>R</u></i></b></color><color:gold><b><i><u>e</u></i></b></color><color:yellow><b><i><u>v</u></i></b></color><color:#80ff8e><b><i><u>o</u></i></b></color><color:#00ff91><b><i><u>l</u></i></b></color><color:aqua><b><i><u>u</u></i></b></color><color:dark_blue><b><i><u>t</u></i></b></color><color:#8000ff><b><i><u>i</u></i></b></color><color:dark_purple><b><i><u>o</u></i></b></color><color:white><b><i><u>n</u></i></b></color>
-    custom-model-data: 1099
-    lore:
-      - <color:dark_gray><i><st>1.80e308!!</st></i></color>
-      - ""
-      - <color:dark_purple>無限を掌に</color>
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - ADG
-        - BEH
-        - CFI
-      ingredients:
-        E: custom:nether_star_bow
-        B: LAVA_BUCKET
-        H: WATER_BUCKET
-        D: COOKIE
-        F: POWDER_SNOW_BUCKET
-        A: custom:stone_2x
-        G: custom:netherrack_2x
-        C: custom:end_stone_2x
-        I: MUSIC_DISC_CAT
-  source_gem_bow:
-    material: BOW
-    display-name: ソースジェムの弓
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " is"
-        - i s
-        - " is"
-      ingredients:
-        i: custom:source_gem
-        s: custom:magebloom_fiber
-    custom-model-data: 1118
-  source_gem_trident:
-    material: TRIDENT
-    display-name: ソースジェムのトライデント
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " s "
-        - " s "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-    custom-model-data: 181
-  source_gem_mace:
-    material: MACE
-    display-name: ソースジェムのメイス
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " i "
-        - " i "
-        - " r "
-      ingredients:
-        i: custom:source_gem
-        r: BREEZE_ROD
-    custom-model-data: 182
-  source_gem_crossbow:
-    material: CROSSBOW
-    display-name: ソースジェムのクロスボウ
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - sis
-        - " i "
-        - " s "
-      ingredients:
-        i: custom:source_gem
-        s: custom:magebloom_fiber
-    custom-model-data: 183
-  source_gem_spear:
-    material: DIAMOND_SPEAR
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " s "
-        - "s  "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-    display-name: ソースジェムの槍
-    custom-model-data: 50
-  wooden_dagger:
-    material: WOODEN_SWORD
-    display-name: 木の短剣
-    custom-model-data: 11
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: list:planks
-        s: STICK
-      amount: 1
-  stone_dagger:
-    material: STONE_SWORD
-    display-name: 石の短剣
-    custom-model-data: 2
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: list:cobblestone
-        s: STICK
-      amount: 1
-  copper_dagger:
-    material: COPPER_SWORD
-    display-name: 銅の短剣
-    custom-model-data: 4
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: COPPER_INGOT
-        s: STICK
-      amount: 1
-  iron_dagger:
-    material: IRON_SWORD
-    display-name: 鉄の短剣
-    custom-model-data: 5
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: IRON_INGOT
-        s: STICK
-      amount: 1
-  golden_dagger:
-    material: GOLDEN_SWORD
-    display-name: 金の短剣
-    custom-model-data: 12
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: GOLD_INGOT
-        s: STICK
-      amount: 1
-  diamond_dagger:
-    material: DIAMOND_SWORD
-    display-name: ダイヤモンドの短剣
-    custom-model-data: 1101
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: DIAMOND
-        s: STICK
-      amount: 1
-  netherite_dagger:
-    material: NETHERITE_SWORD
-    display-name: ネザライトの短剣
-    recipe:
-      method: netherite
-      source-item: custom:diamond_dagger
-    custom-model-data: 6
-  wooden_rapier:
-    material: WOODEN_SWORD
-    display-name: 木のレイピア
-    custom-model-data: 13
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: list:planks
-        s: STICK
-      amount: 1
-  stone_rapier:
-    material: STONE_SWORD
-    display-name: 石のレイピア
-    custom-model-data: 7
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: list:cobblestone
-        s: STICK
-      amount: 1
-  copper_rapier:
-    material: COPPER_SWORD
-    display-name: 銅のレイピア
-    custom-model-data: 8
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: COPPER_INGOT
-        s: STICK
-      amount: 1
-  iron_rapier:
-    material: IRON_SWORD
-    display-name: 鉄のレイピア
-    custom-model-data: 9
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: IRON_INGOT
-        s: STICK
-      amount: 1
-  golden_rapier:
-    material: GOLDEN_SWORD
-    display-name: 金のレイピア
-    custom-model-data: 14
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: GOLD_INGOT
-        s: STICK
-      amount: 1
-  diamond_rapier:
-    material: DIAMOND_SWORD
-    display-name: ダイヤモンドのレイピア
-    custom-model-data: 1102
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: DIAMOND
-        s: STICK
-      amount: 1
-  netherite_rapier:
-    material: NETHERITE_SWORD
-    display-name: ネザライトのレイピア
-    recipe:
-      method: netherite
-      source-item: custom:diamond_rapier
-    custom-model-data: 15
-  wooden_warhammer:
-    material: WOODEN_SWORD
-    display-name: 木のウォーハンマー
-    custom-model-data: 22
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: list:planks
-        s: STICK
-      amount: 1
-  stone_warhammer:
-    material: STONE_SWORD
-    display-name: 石のウォーハンマー
-    custom-model-data: 23
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: list:cobblestone
-        s: STICK
-      amount: 1
-  copper_warhammer:
-    material: COPPER_SWORD
-    display-name: 銅のウォーハンマー
-    custom-model-data: 24
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: COPPER_INGOT
-        s: STICK
-      amount: 1
-  iron_warhammer:
-    material: IRON_SWORD
-    display-name: 鉄のウォーハンマー
-    custom-model-data: 25
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: IRON_INGOT
-        s: STICK
-      amount: 1
-  golden_warhammer:
-    material: GOLDEN_SWORD
-    display-name: 金のウォーハンマー
-    custom-model-data: 26
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: GOLD_INGOT
-        s: STICK
-      amount: 1
-  diamond_warhammer:
-    material: DIAMOND_SWORD
-    display-name: ダイヤモンドのウォーハンマー
-    custom-model-data: 1104
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: DIAMOND
-        s: STICK
-      amount: 1
-  netherite_warhammer:
-    material: NETHERITE_SWORD
-    display-name: ネザライトのウォーハンマー
-    recipe:
-      method: netherite
-      source-item: custom:diamond_warhammer
-    custom-model-data: 27
-  wooden_greataxe:
-    material: WOODEN_SWORD
-    display-name: 木の大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: list:planks
-        s: STICK
-      amount: 1
-    custom-model-data: 28
-  stone_greataxe:
-    material: STONE_SWORD
-    display-name: 石の大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: list:cobblestone
-        s: STICK
-      amount: 1
-    custom-model-data: 29
-  copper_greataxe:
-    material: COPPER_SWORD
-    display-name: 銅の大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: COPPER_INGOT
-        s: STICK
-      amount: 1
-    custom-model-data: 30
-  iron_greataxe:
-    material: IRON_SWORD
-    display-name: 鉄の大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: IRON_INGOT
-        s: STICK
-      amount: 1
-    custom-model-data: 31
-  golden_greataxe:
-    material: GOLDEN_SWORD
-    display-name: 金の大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: GOLD_INGOT
-        s: STICK
-      amount: 1
-    custom-model-data: 32
-  diamond_greataxe:
-    material: DIAMOND_SWORD
-    display-name: ダイヤモンドの大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: DIAMOND
-        s: STICK
-      amount: 1
-    custom-model-data: 1105
-  netherite_greataxe:
-    material: NETHERITE_SWORD
-    display-name: ネザライトの大斧
-    recipe:
-      method: netherite
-      source-item: custom:diamond_greataxe
-    custom-model-data: 33
-  source_gem_dagger:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムの短剣
-    custom-model-data: 1106
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " i"
-        - "s "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-  source_gem_rapier:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムのレイピア
-    custom-model-data: 1107
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  i"
-        - " i "
-        - "s  "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-  source_gem_warhammer:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムのウォーハンマー
-    custom-model-data: 1109
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - iii
-        - " si"
-        - "s  "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-  source_gem_greataxe:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムの大斧
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - i i
-        - isi
-        - " s "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-      amount: 1
-    custom-model-data: 1110
-  source_gem_axe:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムの戦斧
-    custom-model-data: 1114
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ss"
-        - " is"
-        - " i "
-      ingredients:
-        s: custom:source_gem
-        i: STICK
-  wooden_axe_tf:
-    material: WOODEN_AXE
-    display-name: 木の戦斧
-    custom-model-data: 77
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "ii "
-        - "is "
-        - " s "
-      ingredients:
-        s: STICK
-        i: list:planks
-  stone_axe_tf:
-    material: STONE_AXE
-    display-name: 石の戦斧
-    custom-model-data: 78
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "ii "
-        - "is "
-        - " s "
-      ingredients:
-        s: STICK
-        i: list:cobblestone
-  copper_axe_tf:
-    material: COPPER_AXE
-    display-name: 銅の戦斧
-    custom-model-data: 79
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "ii "
-        - "is "
-        - " s "
-      ingredients:
-        s: STICK
-        i: COPPER_INGOT
-  iron_axe_tf:
-    material: IRON_AXE
-    display-name: 鉄の戦斧
-    custom-model-data: 80
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "ii "
-        - "is "
-        - " s "
-      ingredients:
-        s: STICK
-        i: IRON_INGOT
-  golden_axe_tf:
-    material: GOLDEN_AXE
-    display-name: 金の戦斧
-    custom-model-data: 81
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "ii "
-        - "is "
-        - " s "
-      ingredients:
-        s: STICK
-        i: GOLD_INGOT
-  diamond_axe_tf:
-    material: DIAMOND_AXE
-    display-name: ダイヤモンドの戦斧
-    custom-model-data: 82
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "ii "
-        - "is "
-        - " s "
-      ingredients:
-        s: STICK
-        i: DIAMOND
-  netherite_axe_tf:
-    material: NETHERITE_AXE
-    display-name: ネザライトの戦斧
-    recipe:
-      method: netherite
-      source-item: custom:diamond_axe_tf
-    custom-model-data: 83
-  wooden_grate_sword:
-    material: WOODEN_SWORD
-    display-name: 木の大剣
-    custom-model-data: 62
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: list:planks
-        s: STICK
-  stone_grate_sword:
-    material: STONE_SWORD
-    display-name: 石の大剣
-    custom-model-data: 63
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: list:cobblestone
-        s: STICK
-  copper_grate_sword:
-    material: COPPER_SWORD
-    display-name: 銅の大剣
-    custom-model-data: 64
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: COPPER_INGOT
-        s: STICK
-  iron_grate_sword:
-    material: IRON_SWORD
-    display-name: 鉄の大剣
-    custom-model-data: 65
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: IRON_INGOT
-        s: STICK
-  golden_grate_sword:
-    material: GOLDEN_SWORD
-    display-name: 金の大剣
-    custom-model-data: 66
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: GOLD_INGOT
-        s: STICK
-  diamond_grate_sword:
-    material: DIAMOND_SWORD
-    display-name: ダイヤモンドの大剣
-    custom-model-data: 1113
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: DIAMOND
-        s: STICK
-  netherite_grate_sword:
-    material: NETHERITE_SWORD
-    display-name: ネザライトの大剣
-    recipe:
-      method: netherite
-      source-item: custom:diamond_grate_sword
-    custom-model-data: 67
-  infinity_dagger:
-    material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティの短剣</color>
-    custom-model-data: 109
-    recipe:
-      method: inventory
-      type: shaped
-      shape:
-        - " J"
-        - "R "
-      ingredients:
-        J: custom:tf_core_jewelry
-        R: custom:breeze_rod_2x
-  hero_dagger:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_purple>守護者の短剣</color>
-    custom-model-data: 110
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x1
-        - custom:dragon_breath_3x x1
-        - custom:elder_guardian_spike x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は護るために</color>
-  nuclear_dagger:
-    material: NETHERITE_SWORD
-    display-name: <color:#696969>星枢の短剣</color>
-    custom-model-data: 111
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x1
-        - custom:wither_rose_1x x1
-        - custom:sharp_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き暗器</color>
-  infinity_rapier:
-    material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティのレイピア</color>
-    custom-model-data: 115
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  J"
-        - " A "
-        - "R  "
-      ingredients:
-        J: custom:tf_core_jewelry
-        A: custom:amethyst_block_2x
-        R: custom:breeze_rod_2x
-  hero_rapier:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_purple>守護者のレイピア</color>
-    custom-model-data: 116
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x2
-        - custom:dragon_breath_3x x2
-        - custom:elder_guardian_spike x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は護るために</color>
-  nuclear_rapier:
-    material: NETHERITE_SWORD
-    display-name: <color:#696969>星枢のレイピア</color>
-    custom-model-data: 117
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x2
-        - custom:wither_rose_1x x2
-        - custom:sharp_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き技巧</color>
-  infinity_spear:
-    material: NETHERITE_SPEAR
-    display-name: <color:#7df9ff>インフィニティの槍</color>
-    custom-model-data: 118
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "  J"
-        - " R "
-        - "R  "
-      ingredients:
-        J: custom:tf_core_jewelry
-        R: custom:breeze_rod_2x
-  hero_spear:
-    material: NETHERITE_SPEAR
-    display-name: <color:dark_purple>守護者の槍</color>
-    custom-model-data: 119
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x1
-        - custom:dragon_breath_3x x1
-        - custom:elder_guardian_spike x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は護るために</color>
-  nuclear_spear:
-    material: NETHERITE_SPEAR
-    display-name: <color:dark_gray>星枢の槍</color>
-    custom-model-data: 120
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x1
-        - custom:wither_rose_1x x1
-        - custom:sharp_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き尖頭</color>
-  infinity_trident:
-    material: TRIDENT
-    display-name: <color:#7df9ff>インフィニティのトライデント</color>
-    custom-model-data: 121
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " J "
-        - " RA"
-        - "R  "
-      ingredients:
-        J: custom:tf_core_jewelry
-        A: custom:amethyst_block_2x
-        R: custom:breeze_rod_2x
-  hero_trident:
-    material: TRIDENT
-    display-name: <color:dark_purple>守護者のトライデント</color>
-    custom-model-data: 122
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x2
-        - custom:dragon_breath_3x x2
-        - custom:elder_guardian_spike x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は護るために</color>
-  nuclear_trident:
-    material: TRIDENT
-    display-name: <color:#696969>星枢のトライデント</color>
-    custom-model-data: 123
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x2
-        - custom:wither_rose_1x x2
-        - custom:sharp_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き矛</color>
-  infinity_scythe:
-    material: NETHERITE_HOE
-    display-name: <color:#7df9ff>インフィニティの鎌</color>
-    custom-model-data: 124
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - AJA
-        - " R "
-        - "R  "
-      ingredients:
-        A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
-        R: custom:breeze_rod_2x
-  hero_scythe:
-    material: NETHERITE_HOE
-    display-name: <color:dark_purple>守護者の鎌</color>
-    custom-model-data: 125
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x3
-        - custom:dragon_breath_3x x3
-        - custom:elder_guardian_spike x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は護るために</color>
-  nuclear_scythe:
-    material: NETHERITE_HOE
-    display-name: <color:#696969>星枢の鎌</color>
-    custom-model-data: 126
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x3
-        - custom:wither_rose_1x x3
-        - custom:sharp_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き歪</color>
-  infinity_mace:
-    material: MACE
-    display-name: <color:#7df9ff>インフィニティのメイス</color>
-    custom-model-data: 127
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - AJA
-        - ARA
-        - " R "
-      ingredients:
-        A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
-        R: custom:breeze_rod_2x
-  hero_mace:
-    material: MACE
-    display-name: <color:dark_purple>破壊者のメイス</color>
-    custom-model-data: 128
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x5
-        - custom:dragon_breath_3x x5
-        - custom:wither_skull_fragment x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は壊すために</color>
-  nuclear_mace:
-    material: MACE
-    display-name: <color:#696969>星枢のメイス</color>
-    custom-model-data: 129
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x5
-        - custom:wither_rose_1x x5
-        - custom:heavy_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き暴風</color>
-  infinity_warhammer:
-    material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティのウォーハンマー</color>
-    custom-model-data: 133
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - AJA
-        - " RA"
-        - "R  "
-      ingredients:
-        A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
-        R: custom:breeze_rod_2x
-  hero_warhammer:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_purple>破壊者のウォーハンマー</color>
-    custom-model-data: 134
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x4
-        - custom:dragon_breath_3x x4
-        - custom:wither_skull_fragment x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は壊すために</color>
-  nuclear_warhammer:
-    material: NETHERITE_SWORD
-    display-name: <color:#696969>星枢のウォーハンマー</color>
-    custom-model-data: 135
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x4
-        - custom:wither_rose_1x x4
-        - custom:heavy_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き戦槌</color>
-  infinity_grate_sword:
-    material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティの大剣</color>
-    custom-model-data: 136
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " JA"
-        - ARA
-        - "RA "
-      ingredients:
-        J: custom:tf_core_jewelry
-        A: custom:amethyst_block_2x
-        R: custom:breeze_rod_2x
-  hero_grate_sword:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_purple>破壊者の大剣</color>
-    custom-model-data: 137
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x5
-        - custom:dragon_breath_3x x5
-        - custom:wither_skull_fragment x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は壊すために</color>
-  nuclear_grate_sword:
-    material: NETHERITE_SWORD
-    display-name: <color:#696969>星枢の大剣</color>
-    custom-model-data: 138
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x5
-        - custom:wither_rose_1x x5
-        - custom:heavy_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き大剣</color>
-  infinity_axe:
-    material: NETHERITE_AXE
-    display-name: <color:#7df9ff>インフィニティの戦斧</color>
-    custom-model-data: 139
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " RJ"
-        - " RA"
-        - " R "
-      ingredients:
-        R: custom:breeze_rod_2x
-        J: custom:tf_core_jewelry
-        A: custom:amethyst_block_2x
-  hero_axe:
-    material: NETHERITE_AXE
-    display-name: <color:dark_purple>破壊者の戦斧</color>
-    custom-model-data: 140
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x2
-        - custom:dragon_breath_3x x2
-        - custom:wither_skull_fragment x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は壊すために</color>
-  nuclear_axe:
-    material: NETHERITE_AXE
-    display-name: <color:#696969>星枢の戦斧</color>
-    custom-model-data: 141
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x2
-        - custom:wither_rose_1x x2
-        - custom:heavy_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き刃</color>
-  infinity_greataxe:
-    material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティの大斧</color>
-    custom-model-data: 142
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - J A
-        - ARA
-        - " R "
-      ingredients:
-        J: custom:tf_core_jewelry
-        A: custom:amethyst_block_2x
-        R: custom:breeze_rod_2x
-  hero_greataxe:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_purple>破壊者の大斧</color>
-    custom-model-data: 143
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x4
-        - custom:dragon_breath_3x x4
-        - custom:wither_skull_fragment x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は壊すために</color>
-  nuclear_greataxe:
-    material: NETHERITE_SWORD
-    display-name: <color:dark_gray>星枢の大斧</color>
-    custom-model-data: 144
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x4
-        - custom:wither_rose_1x x4
-        - custom:heavy_blade x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き大刃</color>
-  infinity_bow:
-    material: BOW
-    display-name: <color:#7df9ff>インフィニティの弓</color>
-    custom-model-data: 1115
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " AB"
-        - J B
-        - " AB"
-      ingredients:
-        A: custom:amethyst_block_2x
-        B: STRING
-        J: custom:tf_core_jewelry
-  hero_bow:
-    material: BOW
-    display-name: <color:dark_purple>暗殺者の弓</color>
-    custom-model-data: 1116
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x3
-        - custom:dragon_breath_3x x3
-        - custom:warden_tendril x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は屠るために</color>
-  nuclear_bow:
-    material: BOW
-    display-name: <color:#696969>星枢の弓</color>
-    custom-model-data: 1117
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x3
-        - custom:wither_rose_1x x3
-        - custom:reinforced_fiber x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き衝動</color>
-  infinity_crossbow:
-    material: CROSSBOW
-    display-name: <color:#7df9ff>インフィニティのクロスボウ</color>
-    custom-model-data: 145
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - RJR
-        - BCB
-        - " R "
-      ingredients:
-        R: custom:breeze_rod_2x
-        J: custom:tf_core_jewelry
-        B: STRING
-        C: TRIPWIRE_HOOK
-  hero_crossbow:
-    material: CROSSBOW
-    display-name: <color:dark_purple>暗殺者のクロスボウ</color>
-    custom-model-data: 146
-    recipe:
-      method: ritual
-      core-item: DRAGON_EGG
-      pedestal-items:
-        - custom:blaze_rod_3x x1
-        - custom:dragon_breath_3x x1
-        - custom:warden_tendril x2
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>この力は屠るために</color>
-  nuclear_crossbow:
-    material: CROSSBOW
-    display-name: <color:dark_gray>星枢のクロスボウ</color>
-    custom-model-data: 147
-    recipe:
-      method: ritual
-      core-item: NETHER_STAR
-      pedestal-items:
-        - custom:blaze_rod_2x x1
-        - custom:wither_rose_1x x1
-        - custom:reinforced_fiber x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-      - ""
-      - <color:dark_purple>儀式にて産まれる黒き悪意</color>
-  source_gem_grate_sword:
-    material: DIAMOND_SWORD
-    display-name: ソースジェムの大剣
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " ii"
-        - isi
-        - "si "
-      ingredients:
-        i: custom:source_gem
-        s: STICK
-    custom-model-data: 1119
   spell_book_novice:
     material: BOOK
     display-name: <#D4A0FF>見習いの魔法書</#D4A0FF>
@@ -3313,10 +3313,10 @@ items:
       type: shapeless
       ingredients:
         - BOOK
-        - IRON_SWORD
         - IRON_SHOVEL
-        - IRON_AXE
         - IRON_PICKAXE
+        - IRON_AXE
+        - IRON_SWORD
       amount: 1
   spell_book_apprentice:
     material: BOOK
@@ -3776,7 +3776,7 @@ items:
       method: workbench
       type: shaped
       shape:
-        - " si"
+        - " ii"
         - " si"
         - " s "
       ingredients:
@@ -3797,111 +3797,6 @@ items:
       ingredients:
         s: STICK
         i: custom:source_gem
-      amount: 1
-  wooden_axe_tool:
-    material: WOODEN_AXE
-    display-name: 木の斧
-    custom-model-data: 200105
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: list:planks
-      amount: 1
-  stone_axe_tool:
-    material: STONE_AXE
-    display-name: 石の斧
-    custom-model-data: 200106
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: list:cobblestone
-      amount: 1
-  copper_axe_tool:
-    material: COPPER_AXE
-    display-name: 銅の斧
-    custom-model-data: 200107
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: COPPER_INGOT
-      amount: 1
-  iron_axe_tool:
-    material: IRON_AXE
-    display-name: 鉄の斧
-    custom-model-data: 200108
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: IRON_INGOT
-      amount: 1
-  golden_axe_tool:
-    material: GOLDEN_AXE
-    display-name: 金の斧
-    custom-model-data: 200109
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: GOLD_INGOT
-      amount: 1
-  diamond_axe_tool:
-    material: DIAMOND_AXE
-    display-name: ダイヤモンドの斧
-    custom-model-data: 200110
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: DIAMOND
-      amount: 1
-  netherite_axe_tool:
-    material: NETHERITE_AXE
-    display-name: ネザライトの斧
-    custom-model-data: 200111
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " si"
-        - " si"
-        - " s "
-      ingredients:
-        s: STICK
-        i: NETHERITE_INGOT
       amount: 1
   wooden_cane:
     material: BLAZE_ROD
@@ -4343,32 +4238,29 @@ items:
       source: 15000
       type: shapeless
       ingredients: []
-  # --- スキルツリー機能アイテム (2026-07-27) ---
-  # この2つのIDは com.trinityforge.skilltree.runtime.SkillTreeItems が特別扱いする。
-  # ID を変えると機能しなくなるので、変えたい場合は SkillTreeItems.java 側も直すこと。
-  # 使い方: メインハンドに持って /tf skills のスキルツリーGUIを開き、対象ノードをクリックする。
-  # レシピは未設定 — 現状は /tf give または特殊報酬/実績配布で渡す想定。エディタでレシピを付けてもよい。
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>
     enchant-glow: true
     lore:
-      - "<gray><italic>解放した一点を、時の巻き戻しから守る楔。</italic></gray>"
+      - <gray><italic>解放した一点を、時の巻き戻しから守る楔。</italic></gray>
       - ""
-      - "<yellow>スキルツリーGUIで解放済みノードをクリック</yellow>"
-      - "<gray>ロックしたノードはプレステージしても解放が維持されます。</gray>"
-      - "<gray>ロックを外すときは消費しません（もう一度クリック）。</gray>"
-      - "<dark_gray>※ツリーリセットは保護しません（リセットは全ノードが対象）。</dark_gray>"
+      - <yellow>スキルツリーGUIで解放済みノードをクリック</yellow>
+      - <gray>ロックしたノードはプレステージしても解放が維持されます。</gray>
+      - <gray>ロックを外すときは消費しません（もう一度クリック）。</gray>
+      - <dark_gray>※ツリーリセットは保護しません（リセットは全ノードが対象）。</dark_gray>
+    custom-model-data: 3
   skill_tree_reset:
     material: ECHO_SHARD
     display-name: <color:aqua>スキル再構築の書</color>
     enchant-glow: true
     lore:
-      - "<gray><italic>積み上げた選択だけを解き、歩んだ距離は残す。</italic></gray>"
+      - <gray><italic>積み上げた選択だけを解き、歩んだ距離は残す。</italic></gray>
       - ""
-      - "<yellow>スキルツリーGUIでノードをクリック（2回目で確定）</yellow>"
-      - "<gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>"
-      - "<gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>"
+      - <yellow>スキルツリーGUIでノードをクリック（2回目で確定）</yellow>
+      - <gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>
+      - <gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>
+    custom-model-data: 100083
 _editor:
   categories:
     weapon:
@@ -4379,7 +4271,6 @@ _editor:
           - infinity_sword
           - hero_sword
           - nuclear_sword
-          - gold_test
       - id: cat_1784732080645
         label: 戦斧
         itemIds:
@@ -4576,13 +4467,6 @@ _editor:
       - id: cat_1784781037585
         label: 斧
         itemIds:
-          - wooden_axe_tool
-          - stone_axe_tool
-          - copper_axe_tool
-          - iron_axe_tool
-          - golden_axe_tool
-          - diamond_axe_tool
-          - netherite_axe_tool
           - source_gem_axe_tool
           - infinity_axe_tool
       - id: cat_1784781033520
@@ -4806,6 +4690,9 @@ _editor:
       - golden_axe_tf
       - diamond_axe_tf
       - netherite_axe_tf
+      - infinity_axe
+      - hero_axe
+      - nuclear_axe
       - wooden_grate_sword
       - stone_grate_sword
       - copper_grate_sword
@@ -4837,9 +4724,6 @@ _editor:
       - infinity_grate_sword
       - hero_grate_sword
       - nuclear_grate_sword
-      - infinity_axe
-      - hero_axe
-      - nuclear_axe
       - infinity_greataxe
       - hero_greataxe
       - nuclear_greataxe
@@ -4865,13 +4749,6 @@ _editor:
     tool:
       - source_gem_pickaxe
       - source_gem_shovel
-      - wooden_axe_tool
-      - stone_axe_tool
-      - copper_axe_tool
-      - iron_axe_tool
-      - golden_axe_tool
-      - diamond_axe_tool
-      - netherite_axe_tool
       - source_gem_axe_tool
       - source_gem_hoe
       - infinity_pickaxe
@@ -5014,13 +4891,6 @@ _editor:
     infinity_shovel: tool
     source_gem_hoe: tool
     infinity_hoe: tool
-    wooden_axe_tool: tool
-    stone_axe_tool: tool
-    copper_axe_tool: tool
-    iron_axe_tool: tool
-    golden_axe_tool: tool
-    diamond_axe_tool: tool
-    netherite_axe_tool: tool
     source_gem_sword: weapon
     wooden_cane: catalyst
     wooden_dagger: weapon

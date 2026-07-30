@@ -39,8 +39,8 @@ import java.util.Optional;
  * {@code false} for every player, so no explicit "unreferenced -&gt; open" branch is needed here.
  *
  * <ul>
- *   <li>Ingredient matching a configured recipe requires the group's gate id; otherwise
- *       {@link BrewEvent} is cancelled (vanilla free-craft of the same ingredient is also blocked).</li>
+ *   <li>Ingredient and at least one bottle base matching a configured recipe require the group's
+ *       gate id; unrelated vanilla recipes that happen to share the ingredient remain usable.</li>
  *   <li>{@code custom:&lt;catalogId&gt;} ingredients are not vanilla brew fuels — this listener starts
  *       the brewing stand timer when a matching unlocked recipe is present.</li>
  * </ul>
@@ -70,28 +70,47 @@ public final class BrewUnlockListener implements Listener {
             return;
         }
 
-        List<MatchedSpec> matched = matchSpecs(ingredient);
+        List<ItemStack> results = event.getResults();
+        List<MatchedSpec> matched = matchSpecs(ingredient).stream()
+                .filter(match -> hasMatchingBottleBase(inv, results, match.spec().base()))
+                .toList();
         if (matched.isEmpty()) {
             return; // not a gated TF brew recipe
         }
 
-        if (!anyPlayerHasAnyEffect(inv, matched)) {
-            event.setCancelled(true);
-            return;
+        // スタンド全体で「どれか1つの解放」を見ると、同じ材料を使う別baseの未解放瓶を
+        // 混ぜるだけでゲートを迂回できる。各瓶について、そのbaseに一致するspecの少なくとも
+        // 1つを解放していることを要求する。BrewEventは瓶単位でcancelできないため、1本でも
+        // 未解放ならスタンド全体を止める。
+        for (int slot = 0; slot < 3; slot++) {
+            PotionMeta probe = potionMetaForSlot(inv, results, slot);
+            if (probe == null) {
+                continue;
+            }
+            boolean hasGatedMatch = false;
+            boolean hasUnlockedMatch = false;
+            for (MatchedSpec m : matched) {
+                if (!baseMatches(probe, m.spec().base())) {
+                    continue;
+                }
+                hasGatedMatch = true;
+                if (playerHasEffectNear(inv, m.effectId())) {
+                    hasUnlockedMatch = true;
+                    break;
+                }
+            }
+            if (hasGatedMatch && !hasUnlockedMatch) {
+                event.setCancelled(true);
+                return;
+            }
         }
 
-        List<ItemStack> results = event.getResults();
         for (int slot = 0; slot < 3; slot++) {
             ItemStack bottle = inv.getItem(slot);
             if (bottle == null || bottle.getType().isAir()) {
                 continue;
             }
-            PotionMeta bottleMeta = bottle.getItemMeta() instanceof PotionMeta pm ? pm : null;
-            PotionMeta probe = bottleMeta;
-            if (probe == null && slot < results.size() && results.get(slot) != null
-                    && results.get(slot).getItemMeta() instanceof PotionMeta rm) {
-                probe = rm;
-            }
+            PotionMeta probe = potionMetaForSlot(inv, results, slot);
             if (probe == null) {
                 continue;
             }
@@ -242,13 +261,34 @@ public final class BrewUnlockListener implements Listener {
         return out;
     }
 
-    private boolean anyPlayerHasAnyEffect(BrewerInventory inv, List<MatchedSpec> matched) {
-        for (MatchedSpec m : matched) {
-            if (playerHasEffectNear(inv, m.effectId())) {
+    private static boolean hasMatchingBottleBase(BrewerInventory inv, List<ItemStack> results,
+                                                 String baseName) {
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack bottle = inv.getItem(slot);
+            PotionMeta probe = bottle != null && bottle.getItemMeta() instanceof PotionMeta pm ? pm : null;
+            if (probe == null && slot < results.size() && results.get(slot) != null
+                    && results.get(slot).getItemMeta() instanceof PotionMeta rm) {
+                probe = rm;
+            }
+            if (probe != null && baseMatches(probe, baseName)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static PotionMeta potionMetaForSlot(BrewerInventory inv, List<ItemStack> results, int slot) {
+        ItemStack bottle = inv.getItem(slot);
+        if (bottle != null && bottle.getItemMeta() instanceof PotionMeta meta) {
+            return meta;
+        }
+        if (slot < results.size()) {
+            ItemStack result = results.get(slot);
+            if (result != null && result.getItemMeta() instanceof PotionMeta meta) {
+                return meta;
+            }
+        }
+        return null;
     }
 
     private boolean playerHasEffectNear(BrewerInventory inv, String effectId) {

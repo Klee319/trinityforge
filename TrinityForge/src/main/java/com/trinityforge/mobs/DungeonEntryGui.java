@@ -40,6 +40,9 @@ public final class DungeonEntryGui implements Listener {
     private static final int CONFIRM_SLOT = 11;
     private static final int CANCEL_SLOT = 15;
     private static final int SELECTION_START_SLOT = 10;
+    private static final int SELECTION_PAGE_SIZE = 15;
+    private static final int PREVIOUS_PAGE_SLOT = 0;
+    private static final int NEXT_PAGE_SLOT = 8;
 
     private final Plugin plugin;
     private final DungeonGateService gateService;
@@ -48,6 +51,7 @@ public final class DungeonEntryGui implements Listener {
     private final NamespacedKey confirmKey;
     private final NamespacedKey cancelKey;
     private final NamespacedKey selectionKey;
+    private final NamespacedKey navigationKey;
 
     public DungeonEntryGui(Plugin plugin, DungeonGateService gateService, SymmetricCombatService combatService) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -57,17 +61,34 @@ public final class DungeonEntryGui implements Listener {
         this.confirmKey = new NamespacedKey(plugin, "dungeon_entry_gui_confirm");
         this.cancelKey = new NamespacedKey(plugin, "dungeon_entry_gui_cancel");
         this.selectionKey = new NamespacedKey(plugin, "dungeon_entry_gui_selection");
+        this.navigationKey = new NamespacedKey(plugin, "dungeon_entry_gui_navigation");
     }
 
     /** 候補ゲートが複数あるとき、どれに入るか選ばせる画面。 */
     public void openSelection(Player player, List<DungeonGate> candidates) {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(candidates, "candidates");
-        SelectionSession session = new SelectionSession(List.copyOf(candidates));
-        Inventory inventory = Bukkit.createInventory(session, SIZE, Component.text("入場先を選択"));
+        openSelection(player, List.copyOf(candidates), 0);
+    }
+
+    private void openSelection(Player player, List<DungeonGate> candidates, int requestedPage) {
+        int pageCount = Math.max(1, (candidates.size() + SELECTION_PAGE_SIZE - 1) / SELECTION_PAGE_SIZE);
+        int page = Math.max(0, Math.min(requestedPage, pageCount - 1));
+        SelectionSession session = new SelectionSession(candidates, page);
+        Inventory inventory = Bukkit.createInventory(session, SIZE,
+                Component.text("入場先を選択 (" + (page + 1) + "/" + pageCount + ")"));
         session.inventory = inventory;
-        for (int i = 0; i < candidates.size() && SELECTION_START_SLOT + i < SIZE - 2; i++) {
-            inventory.setItem(SELECTION_START_SLOT + i, selectionIcon(candidates.get(i)));
+        int firstCandidate = page * SELECTION_PAGE_SIZE;
+        int lastCandidate = Math.min(firstCandidate + SELECTION_PAGE_SIZE, candidates.size());
+        for (int index = firstCandidate; index < lastCandidate; index++) {
+            inventory.setItem(SELECTION_START_SLOT + index - firstCandidate,
+                    selectionIcon(candidates.get(index), index));
+        }
+        if (page > 0) {
+            inventory.setItem(PREVIOUS_PAGE_SLOT, navigationIcon("« 前のページ", -1));
+        }
+        if (page < pageCount - 1) {
+            inventory.setItem(NEXT_PAGE_SLOT, navigationIcon("次のページ »", 1));
         }
         player.openInventory(inventory);
     }
@@ -87,14 +108,24 @@ public final class DungeonEntryGui implements Listener {
         player.openInventory(inventory);
     }
 
-    private ItemStack selectionIcon(DungeonGate gate) {
+    private ItemStack selectionIcon(DungeonGate gate, int candidateIndex) {
         ItemStack stack = new ItemStack(Material.MAP);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text(gate.world(), NamedTextColor.AQUA)
                 .decoration(TextDecoration.ITALIC, false));
         meta.lore(List.of(Component.text("クリックで選択", NamedTextColor.GRAY)
                 .decoration(TextDecoration.ITALIC, false)));
-        meta.getPersistentDataContainer().set(selectionKey, PersistentDataType.STRING, gate.world());
+        meta.getPersistentDataContainer().set(selectionKey, PersistentDataType.INTEGER, candidateIndex);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    private ItemStack navigationIcon(String label, int delta) {
+        ItemStack stack = new ItemStack(delta < 0 ? Material.ARROW : Material.SPECTRAL_ARROW);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(Component.text(label, NamedTextColor.AQUA)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.getPersistentDataContainer().set(navigationKey, PersistentDataType.INTEGER, delta);
         stack.setItemMeta(meta);
         return stack;
     }
@@ -183,15 +214,18 @@ public final class DungeonEntryGui implements Listener {
         if (clicked == null || !clicked.hasItemMeta()) {
             return;
         }
-        String selectedWorld = clicked.getItemMeta().getPersistentDataContainer()
-                .get(selectionKey, PersistentDataType.STRING);
-        if (selectedWorld == null) {
+        ItemMeta meta = clicked.getItemMeta();
+        Integer pageDelta = meta.getPersistentDataContainer().get(navigationKey, PersistentDataType.INTEGER);
+        if (pageDelta != null) {
+            openSelection(player, session.candidates, session.page + pageDelta);
             return;
         }
-        session.candidates.stream()
-                .filter(gate -> gate.world().equals(selectedWorld))
-                .findFirst()
-                .ifPresent(gate -> openConfirm(player, gate));
+        Integer selectedIndex = meta.getPersistentDataContainer()
+                .get(selectionKey, PersistentDataType.INTEGER);
+        if (selectedIndex == null || selectedIndex < 0 || selectedIndex >= session.candidates.size()) {
+            return;
+        }
+        openConfirm(player, session.candidates.get(selectedIndex));
     }
 
     /**
@@ -235,10 +269,12 @@ public final class DungeonEntryGui implements Listener {
 
     private static final class SelectionSession implements InventoryHolder {
         private final List<DungeonGate> candidates;
+        private final int page;
         private Inventory inventory;
 
-        private SelectionSession(List<DungeonGate> candidates) {
+        private SelectionSession(List<DungeonGate> candidates, int page) {
             this.candidates = candidates;
+            this.page = page;
         }
 
         @Override

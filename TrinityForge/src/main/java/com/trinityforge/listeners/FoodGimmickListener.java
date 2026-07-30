@@ -29,7 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * 非保有/config未設定時はバニラ挙動据え置き(no-op gate)。
  *
  * <ul>
- *   <li>{@code junkfood-immunity}(flag): ゴミ食({@link FoodGimmickConfig#junkFoodMaterials()})を
+ *   <li>{@code junkfood-immunity}(flag): ゴミ食({@link FoodGimmickConfig#isJunkFood(ItemStack)})を
  *       食べた際にバニラが付与するデバフ系ポーション効果を打ち消す。{@link EntityPotionEffectEvent}の
  *       {@code Cause.FOOD}を使い、{@link FoodGimmickConfig#junkfoodImmunityCancelledEffects()}の
  *       許可リストに載っている種類のみキャンセルする(金リンゴ/金人参のバフ効果もCause.FOODで発火する
@@ -134,7 +134,7 @@ public final class FoodGimmickListener implements Listener {
         Optional<FoodGimmickConfig.CustomFood> customFood = CrossPluginItemResolver.idOf(item)
                 .flatMap(foodGimmick::customFood);
         if (customFood.isPresent()) {
-            applyCustomFood(event, player, customFood.get());
+            applyCustomFood(event, player, item, customFood.get());
             return; // カスタム食料は独自のREPLACE適用(下記メソッド内でjunkfood-inversion/satiety-buffの
                      // 追加補正も一緒に次tickへ折り込む)ので、この先の汎用加算経路には進まない。
         }
@@ -142,7 +142,7 @@ public final class FoodGimmickListener implements Listener {
         double saturationAdjustment = 0.0;
         OptionalDouble inversionPercent = dedicatedEffects.valueMax(player, EFFECT_JUNKFOOD_INVERSION);
         if (inversionPercent.isPresent()) {
-            boolean junk = FoodGimmickPolicy.isJunkFood(item.getType(), foodGimmick.junkFoodMaterials());
+            boolean junk = foodGimmick.isJunkFood(item);
             double multiplier = inversionMultiplier(inversionPercent.getAsDouble());
             saturationAdjustment += FoodGimmickPolicy.inversionSaturationAdjustment(junk,
                     foodGimmick.junkfoodInversionJunkSaturationBonus() * multiplier,
@@ -164,7 +164,8 @@ public final class FoodGimmickListener implements Listener {
      * 確定値へ再設定する。{@code junkfood-inversion}/{@code satiety-buff}を保有しているプレイヤーは
      * その追加補正もこの確定値に折り込む(「further-adjust」= 加算的に上乗せする想定)。
      */
-    private void applyCustomFood(FoodLevelChangeEvent event, Player player, FoodGimmickConfig.CustomFood customFood) {
+    private void applyCustomFood(FoodLevelChangeEvent event, Player player, ItemStack item,
+                                 FoodGimmickConfig.CustomFood customFood) {
         int preFood = player.getFoodLevel();
         double preSaturation = player.getSaturation();
 
@@ -174,9 +175,9 @@ public final class FoodGimmickListener implements Listener {
         double perkAdjustment = 0.0;
         OptionalDouble inversionPercent = dedicatedEffects.valueMax(player, EFFECT_JUNKFOOD_INVERSION);
         if (inversionPercent.isPresent()) {
-            // custom-food is never in the junk-food material list by construction; treat as non-junk.
+            boolean junk = foodGimmick.isJunkFood(item);
             double multiplier = inversionMultiplier(inversionPercent.getAsDouble());
-            perkAdjustment += FoodGimmickPolicy.inversionSaturationAdjustment(false,
+            perkAdjustment += FoodGimmickPolicy.inversionSaturationAdjustment(junk,
                     foodGimmick.junkfoodInversionJunkSaturationBonus() * multiplier,
                     foodGimmick.junkfoodInversionNonJunkSaturationPenalty() * multiplier);
         }

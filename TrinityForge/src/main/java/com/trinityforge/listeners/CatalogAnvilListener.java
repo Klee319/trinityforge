@@ -88,7 +88,8 @@ public final class CatalogAnvilListener implements Listener {
                 () -> restampAnvilPreviews(player, match.resultTemplate(), quality));
 
         if (match.recipe().combineExp() > 0) {
-            ArsProgressionBridge.grantSmithingExp(plugin, player, match.recipe().combineExp());
+            ArsProgressionBridge.grantSmithingExpForResult(
+                    plugin, player, stamped, match.recipe().combineExp());
         }
     }
 

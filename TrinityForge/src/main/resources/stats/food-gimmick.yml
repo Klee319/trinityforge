@@ -7,7 +7,9 @@
 # dedicated-effects[].value で持つため、このファイルには含まれない。
 # 数値・Material一覧は全て暫定(要調整)。
 
-# junkfood-immunity / junkfood-inversion 共通: 「ゴミ食」と判定するMaterial一覧。
+# junkfood-immunity / junkfood-inversion 共通: 「ゴミ食」と判定するアイテム一覧。
+# バニラMaterial名に加え、2026-07-27より custom:<id> トークン(TFカタログID/ArsPaper ID)も指定できる
+# (RecipeIngredient/MobOverrideDropEntryと同じcustom:接頭辞の語彙)。例: custom:tf_rotten_ration
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/food-gimmick.md
 
 junk-food-materials:
@@ -16,24 +18,23 @@ junk-food-materials:
   - SPIDER_EYE
   - PUFFERFISH
   - CHICKEN
-
 junkfood-immunity:
   cancelled-debuff-effects:
     - HUNGER
     - POISON
     - NAUSEA
-
+    - BLINDNESS
+    - WEAKNESS
+    - WITHER
 junkfood-inversion:
-  junk-saturation-bonus: 2.0
-  non-junk-saturation-penalty: 1.0
-
+  junk-saturation-bonus: 2
+  non-junk-saturation-penalty: 2
 satiety-buff:
-  saturation-bonus: 4.0
-
+  saturation-bonus: 4
 custom-foods:
   compressed_bread_1x:
     food-level: 20
-    saturation: 18.0
+    saturation: 18
   compressed_cooked_beef_1x:
     food-level: 20
-    saturation: 20.0
+    saturation: 20

@@ -14,7 +14,7 @@ import java.util.Objects;
  * @param formulaString the raw formula string from {@code experience.exp_level_curve}
  * @param curve         evaluable EXP cost function built from {@code formulaString}
  * @param actionExp     nested material tables as {@code action.MATERIAL → amount}
- * @param rates         scalar producer rates ({@code durability_tools_exp_multiplier_stack}, …)
+ * @param rates         scalar producer rates (for example {@code armor.exp_per_damage_piece})
  */
 public record SkillCatalogEntry(
         String skillId,

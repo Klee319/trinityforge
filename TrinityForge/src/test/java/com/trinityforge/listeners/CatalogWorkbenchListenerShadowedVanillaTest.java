@@ -7,9 +7,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -118,16 +121,45 @@ class CatalogWorkbenchListenerShadowedVanillaTest {
     }
 
     @Test
-    @DisplayName("盤面にカタログ品が混ざる場合は復元しない(圧縮ブロックの tier 誤爆を再び開けないため)")
+    @DisplayName("盤面にCMD付きカタログ品が混ざる場合は復元しない(圧縮ブロックの tier 誤爆を再び開けないため)")
     void catalogItemInGridBlocksTheFallback() {
         registerCraftingTableRecipe();
 
         ItemStack[] matrix = grid(Material.OAK_PLANKS, Material.OAK_PLANKS,
                 Material.OAK_PLANKS, Material.OAK_PLANKS);
         ItemMeta meta = matrix[0].getItemMeta();
+        meta.setCustomModelData(999);
         ItemData.of(meta).setCatalogId("plank_scrap");
         matrix[0].setItemMeta(meta);
 
         assertNull(listener.shadowedVanillaResult(matrix, 2));
+    }
+
+    @Test
+    @DisplayName("カタログ品を通常のバニラ素材として消費するレシピは結果を消す")
+    void catalogItemCannotBeConsumedByAnUnrelatedVanillaRecipe() {
+        CatalogRecipeRegistrar registrar = mock(CatalogRecipeRegistrar.class);
+        when(registrar.registered(any())).thenReturn(Optional.empty());
+        when(registrar.allRegistered()).thenReturn(java.util.List.of());
+        listener = new CatalogWorkbenchListener(registrar, mock(ItemCatalogConfig.class));
+
+        ShapelessRecipe vanilla = new ShapelessRecipe(
+                new NamespacedKey("minecraft", "glowstone_dust"), new ItemStack(Material.GLOWSTONE_DUST, 4));
+        vanilla.addIngredient(Material.GLOWSTONE);
+        ItemStack halo = new ItemStack(Material.GLOWSTONE);
+        ItemMeta meta = halo.getItemMeta();
+        meta.setCustomModelData(84);
+        ItemData.of(meta).setCatalogId("novus_criculus_luminis");
+        halo.setItemMeta(meta);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[] {halo, null, null, null});
+        PrepareItemCraftEvent event = mock(PrepareItemCraftEvent.class);
+        when(event.getRecipe()).thenReturn(vanilla);
+        when(event.getInventory()).thenReturn(inventory);
+
+        listener.onPrepareCraft(event);
+
+        verify(inventory).setResult(null);
     }
 }

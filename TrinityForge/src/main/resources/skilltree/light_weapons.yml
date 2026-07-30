@@ -28,277 +28,331 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/light_weapons.md
+
 skill: LIGHT_WEAPONS
-display-name: "軽量武器"
+display-name: 軽量武器
 icon: DIAMOND_SWORD
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 3
   at-level: 100
-  name: "剣聖の境地"
-  effect-text: "ダメージ・会心率・会心ダメージが永続で増加"
-  buffs:
-    attack-power: 0.15
+  name: 剣聖の境地
+  effect-text: ダメージ・会心率・会心ダメージが永続で増加
+  mainhand-buffs:
     crit-chance: 0.1
-    crit-damage: 0.3
-
+    crit-damage: 0.2
+  mainhand-multipliers:
+    layer_1:
+      attack-power: 1.15
+  description: |-
+    攻撃力x1.15(永続)
+    会心率+10%(永続)
+    会心ダメージ+20%(永続)
 nodes:
   A:
-    name: "鋭刃の心得"
+    name: 鋭刃の心得
     level: 10
     role: main
-    parent: null
+    parent:
     icon: WOODEN_SWORD
     cost: 1
-    effect-text: "ダメージ増加・一定確率で出血付与"
-    buffs:
-      attack-power: 0.1
-      bleed-chance: 0.1
+    effect-text: ダメージ増加・一定確率で出血付与
+    mainhand-multipliers:
+      layer_1:
+        attack-power: 1.1
+    mainhand-buffs:
+      crit-chance: 0.05
+    description: |-
+      攻撃力x1.1
+      会心率+5%
   B:
-    name: "疾風の太刀"
+    name: 疾風の太刀
     level: 30
     role: main
     parent: A
     icon: STONE_SWORD
     cost: 1
-    effect-text: "攻撃速度・会心率増加"
-    buffs:
-      crit-chance: 0.1
-      # 2026-07-26 stat-scope 境界引き直し §2 (C→A 降格): attack_speed(絶対値)はStatVocabularyから
-      # 外れ、perkのbuffsからは付与できなくなった(元々2026-07-25のattack-speed/attack-speed-bonus
-      # 分離仕様の時点でPerkAttributeApplierが汎用attrs経路から明示的に除外しており、実際には
-      # 既に効果が出ていなかった死にバフ)。
-      # effect-textが「攻撃速度」と表示している以上、表示だけ残して効果が無いのは
-      # 「無言で何も起きない」事故そのものなので、生きている割合キーへ置き換える。
-      attack-speed-bonus: 0.08
+    effect-text: 攻撃速度・会心率増加
+    mainhand-buffs:
+      crit-damage: 0.1
+      bleed-chance: 0.1
+    description: |-
+      会心ダメージ+10%
+      出血率+10%
   C:
-    name: "受け流しの型"
+    name: 受け流しの型
     level: 50
     role: main
     parent: B
     icon: GOLDEN_SWORD
     cost: 1
-    effect-text: "被ダメージ軽減・会心ダメージ増加・出血確率UP"
-    buffs:
-      crit-damage: 0.3
-      bleed-chance: 0.05
-      damage-reduction: 0.05
+    effect-text: 被ダメージ軽減・会心ダメージ増加・出血確率UP
+    description: |-
+      会心ダメージ+20%
+      出血ダメージ+50
+    mainhand-buffs:
+      crit-damage: 0.2
+      bleed-damage: 50
   D:
-    name: "連斬の境地"
+    name: 連斬の境地
     level: 70
     role: main
     parent: C
     icon: IRON_SWORD
     cost: 1
-    effect-text: "攻撃速度・出血量増加"
-    buffs:
-      bleed-damage: 2.0
-      # 2026-07-26: 上記Bノードと同じ理由でattack_speedをattack-speed-bonusへ置換。
-      attack-speed-bonus: 0.08
+    effect-text: 攻撃速度・出血量増加
+    description: |-
+      攻撃速度+10%
+      ダメージ補正+5%
+    mainhand-buffs:
+      attack-speed-bonus: 0.1
+      damage-modifier: 0.05
   E:
-    name: "極意・飛燕"
+    name: 極意・飛燕
     level: 90
     role: main
     parent: D
     icon: DIAMOND_SWORD
     cost: 1
-    effect-text: "クリティカル(ジャンプ斬り)で確定出血付与・被ダメージ軽減"
-    buffs:
-      bleed-damage: 2.0
-      damage-reduction: 0.03
+    effect-text: クリティカル(ジャンプ斬り)で確定出血付与・被ダメージ軽減
     effects:
-      - "ジャンプ斬りのクリティカルで確定出血"
-
+      - ジャンプ斬りのクリティカルで確定出血
+    mainhand-buffs:
+      penetration: 0.1
+      crit-chance: 0.1
+    description: |-
+      貫通率+10%
+      会心率+10%
   C-1-1:
-    name: "打ち払い"
-    level: 50
+    name: 斬り
+    level: 60
     role: branch
     parent: C
     icon: STICK
     cost: 1
-    effect-text: "ノックバック距離増加"
-    buffs:
-      melee_knockback: 0.3
+    effect-text: ノックバック距離増加
+    description: |-
+      出血率+5%
+      出血ダメージ+10
+    mainhand-buffs:
+      bleed-chance: 0.05
+      bleed-damage: 10
   C-1-2:
-    name: "大打ち払い"
-    level: 70
+    name: 刺し
+    level: 80
     role: branch
     parent: C-1-1
     icon: STICK
     cost: 1
-    effect-text: "ノックバック距離増加"
-    buffs:
-      melee_knockback: 0.3
+    effect-text: ノックバック距離増加
+    description: |-
+      出血率+10%
+      出血ダメージx1.2
+    mainhand-buffs:
+      bleed-chance: 0.1
+    mainhand-multipliers:
+      layer_2:
+        bleed-damage: 1.2
   D-1-1:
-    name: "間合いの拡張"
-    level: 70
+    name: 間合いの拡張
+    level: 80
     role: branch
     parent: D
     icon: BLAZE_ROD
     cost: 1
-    effect-text: "攻撃距離増加"
-    buffs:
-      attack_reach: 1
+    effect-text: 攻撃距離増加
+    description: 攻撃距離増加Ⅰ
+    mainhand-buffs:
+      attack-reach: 0.5
   D-1-2:
-    name: "遠間の理"
-    level: 90
+    name: 遠間の理
+    level: 100
     role: branch
     parent: D-1-1
     icon: BLAZE_ROD
     cost: 1
-    effect-text: "攻撃距離増加"
-    buffs:
-      attack_reach: 1
-
+    effect-text: 攻撃距離増加
+    description: 攻撃距離増加Ⅱ
+    mainhand-buffs:
+      attack-reach: 1
   A-alpha-1:
-    name: "剛・鋭刃"
-    level: 10
+    name: 剛・鋭刃
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: 3路線の性格分化(α=火力型)。attack-power(乗算)から
-    # percent-bonus-damage(加算防御貫通)へ差し替え。既存キーのまま据え置くと火力3種の
-    # 「同じ物の3段階」になってしまうため。
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    description: 追加ダメージ+3%
+    mainhand-buffs:
+      percent-bonus-damage: 0.03
   A-beta-1:
-    name: "疾・鋭刃"
-    level: 10
+    name: 疾・鋭刃
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・攻撃速度増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: β=技巧型。crit-chance単体から攻撃速度も加えた複合へ。
-    buffs: { crit-chance: 0.02, attack-speed-bonus: 0.01 }
+    effect-text: 会心率・攻撃速度増加
+    description: 会心率+3%
+    mainhand-buffs:
+      crit-chance: 0.03
   A-gamma-1:
-    name: "冴・鋭刃"
-    level: 10
+    name: 冴・鋭刃
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "出血率・出血ダメージ増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: γ=出血特化型。crit-damage(火力路線)から
-    # 軽量武器の持ち味である出血系(bleed-chance/bleed-damage)へ全面差し替え。
-    buffs: { bleed-chance: 0.02, bleed-damage: 0.4 }
-  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
-  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
-  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
-  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+    effect-text: 出血率・出血ダメージ増加
+    description: 会心ダメージ+6%
+    mainhand-buffs:
+      crit-damage: 0.06
   B-alpha-1:
-    name: "剛・疾風"
-    level: 30
+    name: 剛・疾風
+    level: 40
     role: greek
-    parent: A-alpha-1
+    parent: B
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    description: 追加ダメージ+6%
+    mainhand-buffs:
+      percent-bonus-damage: 0.06
+    group: B-greek
   B-beta-1:
-    name: "疾・疾風"
-    level: 30
+    name: 疾・疾風
+    level: 40
     role: greek
-    parent: A-beta-1
+    parent: B
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・攻撃速度増加"
-    buffs: { crit-chance: 0.02, attack-speed-bonus: 0.01 }
+    effect-text: 会心率・攻撃速度増加
+    group: B-greek
+    description: 会心率+6%
+    mainhand-buffs:
+      crit-chance: 0.06
   B-gamma-1:
-    name: "冴・疾風"
-    level: 30
+    name: 冴・疾風
+    level: 40
     role: greek
-    parent: A-gamma-1
+    parent: B
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "出血率・出血ダメージ増加"
-    buffs: { bleed-chance: 0.02, bleed-damage: 0.4 }
+    effect-text: 出血率・出血ダメージ増加
+    group: B-greek
+    description: 会心ダメージ+12%
+    mainhand-buffs:
+      crit-damage: 0.12
   C-alpha-1:
-    name: "剛・捌き"
-    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「剛・受け流し」を変更。受け流し(parry)は廃止され
-    # damage-reduction に統合済みのため、名称と実態が乖離していた。
-    level: 50
+    name: 剛・捌き
+    level: 60
     role: greek
-    parent: B-alpha-1
+    parent: C
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    group: C-greek
+    description: 追加ダメージ+9%
+    mainhand-buffs:
+      percent-bonus-damage: 0.09
   C-beta-1:
-    name: "疾・捌き"
-    level: 50
+    name: 疾・捌き
+    level: 60
     role: greek
-    parent: B-beta-1
+    parent: C
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・攻撃速度増加"
-    buffs: { crit-chance: 0.02, attack-speed-bonus: 0.01 }
+    effect-text: 会心率・攻撃速度増加
+    group: C-greek
+    description: 会心率+9%
+    mainhand-buffs:
+      crit-chance: 0.09
   C-gamma-1:
-    name: "冴・捌き"
-    level: 50
+    name: 冴・捌き
+    level: 60
     role: greek
-    parent: B-gamma-1
+    parent: C
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "出血率・出血ダメージ増加"
-    buffs: { bleed-chance: 0.02, bleed-damage: 0.4 }
+    effect-text: 出血率・出血ダメージ増加
+    group: C-greek
+    description: 会心ダメージ+18%
+    mainhand-buffs:
+      crit-damage: 0.18
   D-alpha-1:
-    name: "剛・連斬"
-    level: 70
+    name: 剛・連斬
+    level: 80
     role: greek
-    parent: C-alpha-1
+    parent: D
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    group: D-greek
+    description: 追加ダメージ+12%
+    mainhand-buffs:
+      percent-bonus-damage: 0.12
   D-beta-1:
-    name: "疾・連斬"
-    level: 70
+    name: 疾・連斬
+    level: 80
     role: greek
-    parent: C-beta-1
+    parent: D
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・攻撃速度増加"
-    buffs: { crit-chance: 0.02, attack-speed-bonus: 0.01 }
+    effect-text: 会心率・攻撃速度増加
+    group: D-greek
+    description: 会心率+12%
+    mainhand-buffs:
+      crit-chance: 0.12
   D-gamma-1:
-    name: "冴・連斬"
-    level: 70
+    name: 冴・連斬
+    level: 80
     role: greek
-    parent: C-gamma-1
+    parent: D
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "出血率・出血ダメージ増加"
-    buffs: { bleed-chance: 0.02, bleed-damage: 0.4 }
+    effect-text: 出血率・出血ダメージ増加
+    group: D-greek
+    description: 会心ダメージ+24%
+    mainhand-buffs:
+      crit-damage: 0.24
   E-alpha-1:
-    name: "剛・飛燕"
-    level: 90
+    name: 剛・飛燕
+    level: 100
     role: greek
-    parent: D-alpha-1
+    parent: E
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    group: E-greek
+    description: 追加ダメージ+15%
+    mainhand-buffs:
+      percent-bonus-damage: 0.15
   E-beta-1:
-    name: "疾・飛燕"
-    level: 90
+    name: 疾・飛燕
+    level: 100
     role: greek
-    parent: D-beta-1
+    parent: E
     icon: YELLOW_DYE
     cost: 1
-    effect-text: "会心率・攻撃速度増加"
-    buffs: { crit-chance: 0.02, attack-speed-bonus: 0.01 }
+    effect-text: 会心率・攻撃速度増加
+    group: E-greek
+    mainhand-buffs:
+      crit-chance: 0.15
+    description: 会心率+15%
   E-gamma-1:
-    name: "冴・飛燕"
-    level: 90
+    name: 冴・飛燕
+    level: 100
     role: greek
-    parent: D-gamma-1
+    parent: E
     icon: LIGHT_BLUE_DYE
     cost: 1
-    effect-text: "出血率・出血ダメージ増加"
-    buffs: { bleed-chance: 0.02, bleed-damage: 0.4 }
-
+    effect-text: 出血率・出血ダメージ増加
+    group: E-greek
+    description: 会心ダメージ+30%
+    mainhand-buffs:
+      crit-damage: 0.3

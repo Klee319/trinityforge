@@ -113,8 +113,8 @@ base-stats:
   arrow-knockback: 0
   melee-knockback: 0
   stun-chance: 0
-  # 2026-07-26新設: stun-chance発動時のスタン継続時間への割合加算(絶対上限5秒=100tickでクランプ)。
-  stun-duration-bonus: 0
+  # stun-chance発動時の初期スタン時間(tick)。装備・パークの同名値を加算し、100tickでクランプ。
+  stun-duration-bonus: 25
   power-attack-damage: 0
   power-attack-radius: 0
   cooldown-reduction: 0

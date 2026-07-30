@@ -118,9 +118,10 @@ public final class NativePerkService {
         if (tree == null) return PrestigeResult.UNKNOWN_SKILL;
         Prestige config = tree.prestige();
         if (config == null || !config.enabled()) return PrestigeResult.DISABLED;
-        // The owned-perk/stored-cost reads and the repository.prestige() write must be one atomic
+        // The owned-perk/stored-cost reads and the repository.prestige() write must be one serialized
         // span: a concurrent unlockPerk landing between the read and the wipe would be deleted
-        // without refund. Serialize on the same per-player lock as grantExp/unlockPerk/admin edit.
+        // without refund. The repository then commits reset, refund, retained rows and prestige perk
+        // in one DB transaction.
         return progression.playerLocks().withLock(playerId, () -> prestigeUnderLock(playerId, tree, config));
     }
 
@@ -170,23 +171,9 @@ public final class NativePerkService {
                 0, 0.0, 0.0, tier, current.maxAllowedLevel());
         String prefix = PerkNaming.compact(tree.skill()) + "_perk_";
         if (!repository.prestige(playerId, tree.skill(), prefix,
-                PerkNaming.prestigePerkId(tree.skill(), tier), reset, refund)) {
+                PerkNaming.prestigePerkId(tree.skill(), tier), reset, refund,
+                Set.copyOf(retained))) {
             return PrestigeResult.FAILED;
-        }
-        // 維持対象を無償(cost 0)で再付与する。既に同じ per-player ロック内なので、
-        // 他スレッドの unlockPerk が割り込んで二重計上することはない。
-        for (String perkId : retained) {
-            Long stored = storedCosts.get(perkId);
-            // 支払い済みコストも一緒に復元する(次のプレステージで正しく返却されるように)。
-            if (!repository.unlockPerk(playerId, perkId, 0L)) {
-                LOG.log(Level.WARNING, "[progression] Failed to retain locked perk " + perkId
-                        + " for " + playerId + " (prestige already committed)");
-                continue;
-            }
-            if (stored != null && stored > 0L) {
-                LOG.log(Level.FINE, () -> "[progression] Retained locked perk " + perkId
-                        + " (original cost " + stored + " kept as spent)");
-            }
         }
         return PrestigeResult.PRESTIGED;
     }

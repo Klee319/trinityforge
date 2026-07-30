@@ -14,7 +14,6 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
-import java.util.Set;
 import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,7 +46,10 @@ class FoodBonusListenerTest {
         stats = mock(com.trinityforge.combat.PlayerCombatAggregate.class);
         dedicatedEffects = mock(DedicatedEffectsConfig.class);
         foodGimmickConfig = mock(FoodGimmickConfig.class);
-        when(foodGimmickConfig.junkFoodMaterials()).thenReturn(Set.of(Material.ROTTEN_FLESH));
+        when(foodGimmickConfig.isJunkFood(any())).thenAnswer(invocation -> {
+            ItemStack stack = invocation.getArgument(0);
+            return stack != null && stack.getType() == Material.ROTTEN_FLESH;
+        });
         player = server.addPlayer();
         when(aggregator.aggregate(player)).thenReturn(stats);
         when(stats.totalOf(FOOD_RESTORE_BONUS)).thenReturn(0.2); // generic +20%
@@ -110,6 +112,56 @@ class FoodBonusListenerTest {
 
         // node active + non-junk -> food_restore_bonus reverted to 0 -> gained stays 5 -> 10+5=15
         assertEquals(15, event.getFoodLevel());
+    }
+
+    @Test
+    void nonIncreasingFoodEventConsumesPendingItemInsteadOfLeakingItToNextIncrease() {
+        FoodBonusListener listener = listenerWithBoost();
+        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_JUNK_BOOST))).thenReturn(OptionalDouble.of(30.0));
+        consume(listener, Material.ROTTEN_FLESH);
+
+        player.setFoodLevel(10);
+        listener.onFoodChange(new FoodLevelChangeEvent(player, 10));
+
+        FoodLevelChangeEvent unrelatedIncrease = new FoodLevelChangeEvent(player, 15);
+        listener.onFoodChange(unrelatedIncrease);
+
+        assertEquals(15, unrelatedIncrease.getFoodLevel(),
+                "a non-increasing event must still consume the pending food identity");
+    }
+
+    @Test
+    void pendingItemExpiresAfterTheConsumeTickWhenNoFoodEventArrives() {
+        FoodBonusListener listener = listenerWithBoost();
+        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_JUNK_BOOST))).thenReturn(OptionalDouble.of(30.0));
+        consume(listener, Material.ROTTEN_FLESH);
+
+        server.getScheduler().performTicks(2);
+
+        player.setFoodLevel(10);
+        FoodLevelChangeEvent unrelatedIncrease = new FoodLevelChangeEvent(player, 15);
+        listener.onFoodChange(unrelatedIncrease);
+
+        assertEquals(15, unrelatedIncrease.getFoodLevel(),
+                "cancelled or non-food consumption must not leave an identity beyond the consume tick");
+    }
+
+    @Test
+    void laterCancelledConsumeDropsPendingItemAtMonitor() {
+        FoodBonusListener listener = listenerWithBoost();
+        when(dedicatedEffects.valueMax(eq(player), eq(EFFECT_JUNK_BOOST))).thenReturn(OptionalDouble.of(30.0));
+        PlayerItemConsumeEvent consume =
+                new PlayerItemConsumeEvent(player, new ItemStack(Material.ROTTEN_FLESH));
+        listener.onConsumeTrackItem(consume);
+        consume.setCancelled(true);
+        listener.onConsumeFinished(consume);
+
+        player.setFoodLevel(10);
+        FoodLevelChangeEvent unrelatedIncrease = new FoodLevelChangeEvent(player, 15);
+        listener.onFoodChange(unrelatedIncrease);
+
+        assertEquals(15, unrelatedIncrease.getFoodLevel(),
+                "a cancellation after HIGH must be visible and cleared at MONITOR");
     }
 
     @Test

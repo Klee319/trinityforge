@@ -36,9 +36,8 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 釣果品質の刻印: FISHING スキルLvだけに応じて釣果「装備」の品質modeを決め(2026-07-23
- * stat-gate-overhaul §2.3 により fishing_luck は比率専用化され、品質modeからは除去済み)、
- * split-normalでランダム抽選して刻印する(ITEM_ECONOMY_SPEC 5.2d)。品質基準値(quality-mode-offset,
+ * 釣果品質の刻印: 宝運({@code loot_luck})に応じて釣果「装備」の品質modeを決め、
+ * split-normalでランダム抽選して刻印する(ITEM_ECONOMY_SPEC 5.2d/5.2h)。品質基準値(quality-mode-offset,
  * §6.6適用拡大)をアイテム単位で加算する。ロッドの fishing-bonus ステ + FISHING スキルLvに応じた期待値
  * ぶん、釣果が「非装備」のときだけ追加ドロップをスポーンする(装備の複製を避けるため)。
  *
@@ -109,7 +108,7 @@ public final class FishingQualityListener implements Listener {
         boolean alreadyStamped = caughtStack.hasItemMeta() && ItemData.of(caughtStack.getItemMeta()).hasRollSeed();
 
         if (isEquipment && !alreadyStamped) {
-            stampCaughtEquipment(caught, caughtStack, fishingLevel, player);
+            stampCaughtEquipment(caught, caughtStack, player);
         }
 
         if (!isEquipment) {
@@ -117,13 +116,13 @@ public final class FishingQualityListener implements Listener {
         }
     }
 
-    private void stampCaughtEquipment(Item caught, ItemStack caughtStack, int fishingLevel, Player fisher) {
-        // 品質基準は FISHING スキルLvのみ (2026-07-23 §2.3: fishing_luck は比率専用化され品質modeから除去)。
-        int level = fishingLevel;
-        level += lootLuck.qualityModeBonus(fisher, ThreadLocalRandom.current());
+    private void stampCaughtEquipment(Item caught, ItemStack caughtStack, Player fisher) {
         Integer cmd = caughtStack.hasItemMeta()
                 ? DerivedItemStats.customModelDataOf(caughtStack.getItemMeta()) : null;
-        int mode = CraftQualityPolicy.modeFromLevel(level, 1, quality.fishingBaseQuality())
+        // Canonical fishing.luck-per-quality was 1. PlayerLootLuckSource preserves that +1 mode per
+        // whole loot-luck point and applies the existing expected-value roll to a fractional remainder.
+        int mode = quality.fishingBaseQuality()
+                + lootLuck.qualityModeBonus(fisher, ThreadLocalRandom.current())
                 + itemStats.qualityModeOffsetFor(caughtStack.getType(), cmd);
         int rolled = CraftQualityPolicy.resolveQualityNormal(mode, ThreadLocalRandom.current().nextGaussian(),
                 quality.spreadUp(), quality.spreadDown(), quality.maxQuality());

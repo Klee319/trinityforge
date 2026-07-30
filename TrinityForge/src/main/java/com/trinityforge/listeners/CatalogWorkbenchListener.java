@@ -16,6 +16,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.RecipeChoice;
@@ -42,9 +43,10 @@ import java.util.Optional;
  *   <li>a catalog-item grid can select a sibling recipe that wanted plain materials (9 compressed
  *       {@code stone_1x} selecting the {@code stone_1x} recipe again).</li>
  * </ul>
- * This listener re-validates the selected catalog recipe against the actual grid (catalog identity
- * per slot: PDC {@code catalogId} first, material+CustomModelData fallback; plain-material cells
- * must NOT hold a catalog item). On mismatch it re-matches the grid across all registered catalog
+ * This listener re-validates the selected catalog recipe against the actual grid. A stack without
+ * CustomModelData is always treated as vanilla; otherwise catalog identity uses PDC
+ * {@code catalogId} first and material+CustomModelData as fallback. Plain-material cells must NOT
+ * hold a catalog item. On mismatch it re-matches the grid across all registered catalog
  * workbench recipes and swaps in the correct result, or clears the preview when nothing fits.
  */
 public final class CatalogWorkbenchListener implements Listener {
@@ -65,13 +67,15 @@ public final class CatalogWorkbenchListener implements Listener {
         boolean gridHasCatalogItem = gridHasCatalogItem(matrix);
 
         if (ours.isEmpty()) {
-            // Not our recipe. Only intervene when NO recipe matched but catalog items sit in the
-            // grid — a catalog recipe may still fit (vanilla matching can miss nothing here since
-            // we register material choices, but stay defensive for other plugins clearing it).
-            if (selected != null || !gridHasCatalogItem) {
+            if (!gridHasCatalogItem) {
                 return;
             }
-            rematch(event, matrix);
+            // A catalog stack may only be consumed by a recipe that explicitly opted into its
+            // identity. Try our registered recipes first; otherwise clear a vanilla/plugin result
+            // that matched only because the stack shares its base Material.
+            if (!rematch(event, matrix)) {
+                event.getInventory().setResult(null);
+            }
             return;
         }
 
@@ -105,9 +109,6 @@ public final class CatalogWorkbenchListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCrafterCraft(org.bukkit.event.block.CrafterCraftEvent event) {
         Optional<CatalogRecipeRegistrar.RegisteredRecipe> ours = registeredOf(event.getRecipe());
-        if (ours.isEmpty()) {
-            return; // バニラ/他プラグインのレシピには介入しない (Prepare経路と同方針)
-        }
         ItemStack[] matrix;
         try {
             if (!(event.getBlock().getState() instanceof org.bukkit.block.Crafter crafter)) {
@@ -116,6 +117,19 @@ public final class CatalogWorkbenchListener implements Listener {
             matrix = crafter.getInventory().getContents();
         } catch (RuntimeException ex) {
             return; // 盤面を取得できない場合は介入しない (バニラ挙動へフォールバック)
+        }
+        if (ours.isEmpty()) {
+            if (!gridHasCatalogItem(matrix)) {
+                return;
+            }
+            for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
+                if (matches(matrix, 3, candidate.spec())) {
+                    event.setResult(registrarResult(candidate.template(), candidate.spec()));
+                    return;
+                }
+            }
+            event.setCancelled(true);
+            return;
         }
         CatalogRecipeRegistrar.RegisteredRecipe registered = ours.get();
         if (!registered.spec().hasCustomIngredient() && !gridHasCatalogItem(matrix)
@@ -135,6 +149,25 @@ public final class CatalogWorkbenchListener implements Listener {
         if (vanilla != null) {
             event.setResult(vanilla);
             return;
+        }
+        event.setCancelled(true);
+    }
+
+    /** Defensive take-result gate in case another plugin restores a vanilla preview after prepare. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onCraftItem(CraftItemEvent event) {
+        if (registeredOf(event.getRecipe()).isPresent()) {
+            return;
+        }
+        ItemStack[] matrix = event.getInventory().getMatrix();
+        if (!gridHasCatalogItem(matrix)) {
+            return;
+        }
+        int gridWidth = matrix.length == 4 ? 2 : 3;
+        for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
+            if (matches(matrix, gridWidth, candidate.spec())) {
+                return;
+            }
         }
         event.setCancelled(true);
     }
@@ -433,10 +466,10 @@ public final class CatalogWorkbenchListener implements Listener {
     }
 
     /**
-     * One slot vs one ingredient. Catalog references match by catalog identity (stamped PDC id
-     * first, material+CMD fallback so freshly Ars-built items match too); plain materials
-     * additionally require the item NOT to be a catalog item (a compressed stone must never satisfy
-     * a plain STONE cell).
+     * One slot vs one ingredient. Items without CMD are vanilla regardless of residual PDC.
+     * Otherwise catalog references match by catalog identity (stamped PDC id first, material+CMD
+     * fallback so freshly Ars-built items match too); plain materials additionally require the item
+     * NOT to be a catalog item (a compressed stone must never satisfy a plain STONE cell).
      */
     private boolean matchesIngredient(ItemStack item, RecipeIngredient required) {
         if (item == null || item.getType().isAir()) {
@@ -461,19 +494,19 @@ public final class CatalogWorkbenchListener implements Listener {
         return required.acceptsMaterial(item.getType()) && identity.isEmpty();
     }
 
-    /** The catalog id this stack is identified as, if any (PDC first, material+CMD fallback). */
+    /** The catalog id this stack is identified as, if any (CMD required; PDC first thereafter). */
     private Optional<String> catalogIdentityOf(ItemStack item) {
         if (!item.hasItemMeta()) {
             return Optional.empty();
         }
         ItemMeta meta = item.getItemMeta();
-        Optional<String> stamped = ItemData.of(meta).catalogId();
-        if (stamped.isPresent()) {
-            return stamped;
-        }
         Integer cmd = DerivedItemStats.customModelDataOf(meta);
         if (cmd == null) {
             return Optional.empty();
+        }
+        Optional<String> stamped = ItemData.of(meta).catalogId();
+        if (stamped.isPresent()) {
+            return stamped;
         }
         Optional<String> catalogId = CatalogIdentity.find(catalog, item.getType(), cmd).map(ItemTemplate::id);
         if (catalogId.isPresent()) return catalogId;

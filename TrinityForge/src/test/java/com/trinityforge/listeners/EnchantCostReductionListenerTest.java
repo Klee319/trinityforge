@@ -1,7 +1,17 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.config.domains.EnchantBookshelfConfig;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.enchantments.EnchantmentOffer;
+import org.bukkit.event.enchantment.EnchantItemEvent;
+import org.bukkit.event.enchantment.PrepareItemEnchantEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.InventoryView;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +20,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -17,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Coverage for {@link EnchantCostReductionListener#reducedCost(int, double)}: the shared cost-shrink
@@ -197,5 +209,88 @@ class EnchantCostReductionListenerTest {
         listener.onQuit(new PlayerQuitEvent(player, "quit"));
 
         assertTrue(cache.isEmpty());
+    }
+
+    @Test
+    void reducedOfferCostKeepsDisplayedHintInActualEnchantments() {
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        PlayerCombatAggregate aggregate = mock(PlayerCombatAggregate.class);
+        when(aggregator.aggregate(org.mockito.ArgumentMatchers.any())).thenReturn(aggregate);
+        when(aggregate.totalOf("enchant_cost_reduction")).thenReturn(0.5);
+        EnchantCostReductionListener listener = new EnchantCostReductionListener(aggregator, null);
+        PlayerMock player = server.addPlayer();
+
+        InventoryView view = player.openInventory(
+                server.createInventory(player, org.bukkit.event.inventory.InventoryType.ENCHANTING));
+        Block block = player.getWorld().getBlockAt(0, 64, 0);
+        ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
+        EnchantmentOffer[] offers = {
+                null,
+                null,
+                new EnchantmentOffer(Enchantment.SHARPNESS, 2, 30)
+        };
+        PrepareItemEnchantEvent prepare = mock(PrepareItemEnchantEvent.class);
+        when(prepare.getEnchanter()).thenReturn(player);
+        when(prepare.getEnchantmentBonus()).thenReturn(15);
+        when(prepare.getOffers()).thenReturn(offers);
+        listener.onPrepare(prepare);
+        assertEquals(15, offers[2].getCost(), "test setup must change the offer cost");
+
+        Map<Enchantment, Integer> actual = new HashMap<>();
+        // Paper recalculates this map from the offer cost changed during PrepareItemEnchantEvent.
+        // The displayed clue remains SHARPNESS II, while the recalculation can instead yield SMITE II.
+        actual.put(Enchantment.SMITE, 2);
+        EnchantItemEvent event = new EnchantItemEvent(player, view, block, item, 15, actual,
+                Enchantment.SHARPNESS, 2, 2);
+
+        listener.onEnchantHint(event);
+        listener.onEnchant(event);
+
+        assertEquals(2, event.getEnchantsToAdd().get(Enchantment.SHARPNESS),
+                "the displayed enchantment hint must be present in the actual result");
+        assertFalse(event.getEnchantsToAdd().containsKey(Enchantment.SMITE),
+                "an enchantment conflicting with the displayed hint must not survive");
+    }
+
+    @Test
+    void bookshelfRatioDoesNotScaleDisplayedHintLevelTwice() {
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        PlayerCombatAggregate aggregate = mock(PlayerCombatAggregate.class);
+        when(aggregator.aggregate(org.mockito.ArgumentMatchers.any())).thenReturn(aggregate);
+        when(aggregate.totalOf("enchant_cost_reduction")).thenReturn(0.0);
+        EnchantBookshelfConfig bookshelf = mock(EnchantBookshelfConfig.class);
+        when(bookshelf.maxBookshelves()).thenReturn(15);
+        when(bookshelf.powerPerBookshelf()).thenReturn(0.5);
+        EnchantCostReductionListener listener = new EnchantCostReductionListener(aggregator, bookshelf);
+        PlayerMock player = server.addPlayer();
+
+        InventoryView view = player.openInventory(
+                server.createInventory(player, org.bukkit.event.inventory.InventoryType.ENCHANTING));
+        Block block = player.getWorld().getBlockAt(0, 64, 0);
+        ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
+        EnchantmentOffer[] offers = {
+                null,
+                null,
+                new EnchantmentOffer(Enchantment.SHARPNESS, 4, 30)
+        };
+        PrepareItemEnchantEvent prepare = mock(PrepareItemEnchantEvent.class);
+        when(prepare.getEnchanter()).thenReturn(player);
+        when(prepare.getEnchantmentBonus()).thenReturn(15);
+        when(prepare.getOffers()).thenReturn(offers);
+        listener.onPrepare(prepare);
+        assertEquals(2, offers[2].getEnchantmentLevel(),
+                "ratio 0.5 changes the displayed hint from IV to II");
+
+        Map<Enchantment, Integer> actual = new HashMap<>();
+        actual.put(Enchantment.SMITE, 4);
+        EnchantItemEvent event = new EnchantItemEvent(player, view, block, item, 15, actual,
+                Enchantment.SHARPNESS, 2, 2);
+
+        listener.onEnchantHint(event);
+        listener.onEnchant(event);
+
+        assertEquals(2, event.getEnchantsToAdd().get(Enchantment.SHARPNESS),
+                "the displayed Sharpness II hint must not be scaled a second time to level I");
+        assertFalse(event.getEnchantsToAdd().containsKey(Enchantment.SMITE));
     }
 }

@@ -112,6 +112,15 @@ public final class PlayerDefenseResolver {
         return new DefenderProfile(capped, dodgeTotal);
     }
 
+    /**
+     * Whether the player currently wears armor rejected by the shared use-requirement gate.
+     * Exposed to the symmetric combat service so its separate vanilla armor/enchantment mirror can
+     * honor the same deferred-removal safety boundary as the item-stat aggregate.
+     */
+    public boolean hasDeniedArmor(Player player) {
+        return aggregator.hasDeniedArmor(Objects.requireNonNull(player, "player"));
+    }
+
     private static final String DODGE_CHANCE_KEY = StatKeys.canonical("dodge-chance");
 
     /**

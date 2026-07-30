@@ -91,11 +91,9 @@ public final class PercentStatNormalize {
             // は[0,1]の割合ではない(半径/対象数/マナ回復量/整数軽減量)ため対象外。
             StatKeys.canonical("aoe-damage-rate"),
             StatKeys.canonical("mana-cost-reduction-percent"),
-            // 2026-07-26 新設: エンチャント費用軽減率とスタン時間の割合加算(いずれも[0,1]の率系)。
-            // enchant-cost-reductionは0..0.9にランタイム側でもクランプ、stun-duration-bonusは
-            // NativeCombatPerkListener側でticksの上限クランプを行う。
-            StatKeys.canonical("enchant-cost-reduction"),
-            StatKeys.canonical("stun-duration-bonus"));
+            // enchant-cost-reductionは0..0.9にランタイム側でもクランプする割合系。
+            // stun-duration-bonus は2026-07-29に割合からtick加算へ移行したため対象外。
+            StatKeys.canonical("enchant-cost-reduction"));
             // gathering-efficiency(採集効率、エンチャント連動方式)は「合算値をfloorしてエンチャント
             // レベルへ変換する」加算値であり、[0,1]の割合ではないため対象外(mining-efficiencyと同じ扱い)。
             // armor-defense-rate is NOT a [0,1] rate — it is vanilla Attribute.ARMOR points
@@ -115,6 +113,9 @@ public final class PercentStatNormalize {
      * ({@code |v| > 1} and {@code |v| <= 100}), returns {@code value / 100}; otherwise {@code value}.
      */
     public static double coerce(String canonicalKey, double value) {
+        if (StunDurationStatNormalize.KEY.equals(StatKeys.canonical(canonicalKey))) {
+            return StunDurationStatNormalize.normalizeAddend(canonicalKey, value);
+        }
         if (!Double.isFinite(value) || !isRateKey(canonicalKey)) {
             return value;
         }

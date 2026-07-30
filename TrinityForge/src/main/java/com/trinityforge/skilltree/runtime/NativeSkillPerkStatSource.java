@@ -32,13 +32,21 @@ public final class NativeSkillPerkStatSource implements SkillPerkStatSource {
 
     @Override
     public Set<String> unlockedPerkIds(UUID playerId) {
-        if (playerId == null) return Set.of();
+        LoadResult<Set<String>> result = loadUnlockedPerkIds(playerId);
+        if (result.isFailed()) {
+            return Set.of();
+        }
+        return result.orElseGet(Set::of);
+    }
+
+    @Override
+    public LoadResult<Set<String>> loadUnlockedPerkIds(UUID playerId) {
+        if (playerId == null) return LoadResult.found(Set.of());
         LoadResult<Set<String>> result = repository.loadPerkIds(playerId);
         if (result.isFailed()) {
             LOG.log(Level.WARNING, "[progression] Failed to load perk stats for " + playerId,
                     result.error());
-            return Set.of();
         }
-        return result.orElseThrow();
+        return result;
     }
 }

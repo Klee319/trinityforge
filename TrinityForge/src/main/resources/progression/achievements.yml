@@ -43,28 +43,29 @@ vanilla-advancements:
   disabled: true
   keep-recipe-advancements: true
   keep: []
-
 achievements:
-  get_infinity:
-    display-name: インフィニティ
+  main:
+    display-name: 初めの一歩
     trigger:
-      type: static
+      type: advancement
       statistic: JUMP
       threshold: 1
-      advancement: ""
+      advancement: minecraft:story/mine_stone
       collection:
         scope: item
         target: infinity_sword
-        targets: []
+        targets:
+          - infinity_sword
         threshold: 1
         percent: false
-    broadcast: true
+    broadcast: false
     rewards:
-      special:
-        - new_particle
-        - new_title
+      special: []
       commands: []
       items: []
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
+    icon: WOODEN_PICKAXE
+    lore:
+      - 石を掘る

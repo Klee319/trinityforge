@@ -13,6 +13,7 @@ import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.skilltree.runtime.SkillPerkStatSource;
 import org.bukkit.Material;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -20,6 +21,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -30,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -88,9 +93,14 @@ class WeaponCoatingListenerTest {
     }
 
     private PlayerInteractEvent interactEvent() {
+        return interactEvent(Action.RIGHT_CLICK_AIR);
+    }
+
+    private PlayerInteractEvent interactEvent(Action action) {
         PlayerInteractEvent event = mock(PlayerInteractEvent.class);
         when(event.getPlayer()).thenReturn(player);
         when(event.getHand()).thenReturn(EquipmentSlot.HAND);
+        when(event.getAction()).thenReturn(action);
         return event;
     }
 
@@ -169,5 +179,37 @@ class WeaponCoatingListenerTest {
         int accepted = coatUpToAndCountAccepted(sword, 10);
         assertEquals(3, accepted,
                 "a negative item coating-charges stat clamps to 0 rather than reducing capacity");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Action.class, names = {"LEFT_CLICK_AIR", "LEFT_CLICK_BLOCK", "PHYSICAL"})
+    void nonRightClickNeverConsumesGemOrCoatsWeapon(Action action) {
+        ItemStack sword = new ItemStack(Material.IRON_SWORD);
+        ItemStack gem = freshGem();
+        gem.setAmount(2);
+        player.getInventory().setItemInMainHand(sword);
+        player.getInventory().setItemInOffHand(gem);
+        PlayerInteractEvent event = interactEvent(action);
+
+        listener.onInteract(event);
+
+        ItemStack currentWeapon = player.getInventory().getItemInMainHand();
+        assertEquals(0, ItemData.of(currentWeapon.getItemMeta()).coatingStacks(),
+                "non-right-click interaction must not add a coating stack");
+        assertEquals(2, player.getInventory().getItemInOffHand().getAmount(),
+                "non-right-click interaction must not consume the offhand coating material");
+        verify(event, never()).setCancelled(true);
+    }
+
+    @Test
+    void rightClickBlockCoatsWeapon() {
+        player.getInventory().setItemInMainHand(new ItemStack(Material.IRON_SWORD));
+        player.getInventory().setItemInOffHand(freshGem());
+
+        listener.onInteract(interactEvent(Action.RIGHT_CLICK_BLOCK));
+
+        ItemStack currentWeapon = player.getInventory().getItemInMainHand();
+        assertEquals(1, ItemData.of(currentWeapon.getItemMeta()).coatingStacks());
+        assertEquals(0, player.getInventory().getItemInOffHand().getAmount());
     }
 }

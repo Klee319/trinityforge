@@ -17,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -75,6 +76,8 @@ public final class EnchantCostReductionListener implements Listener {
     private final EnchantBookshelfConfig bookshelfConfig;
     /** プレイヤーUUID → 直前の {@code onPrepare} で算出した本棚パワー比率。onEnchant消費後に削除する。 */
     private final Map<UUID, Double> lastBookshelfRatioByPlayer = new ConcurrentHashMap<>();
+    /** 直前のprepareで提示costまたはhint levelを変更したプレイヤー。クリック時のhint整合判定に使う。 */
+    private final Set<UUID> adjustedOfferPlayers = ConcurrentHashMap.newKeySet();
 
     public EnchantCostReductionListener(PlayerStatAggregator aggregator) {
         this(aggregator, null);
@@ -101,11 +104,19 @@ public final class EnchantCostReductionListener implements Listener {
             }
         }
         double reduction = reductionOf(enchanter);
-        if (ratio == 1.0 && reduction <= 0.0) return;
+        if (ratio == 1.0 && reduction <= 0.0) {
+            if (enchanter != null) {
+                adjustedOfferPlayers.remove(enchanter.getUniqueId());
+            }
+            return;
+        }
+        boolean adjusted = false;
         for (EnchantmentOffer offer : event.getOffers()) {
             if (offer == null) continue;
             int cost = offer.getCost();
             int level = offer.getEnchantmentLevel();
+            int originalCost = cost;
+            int originalLevel = level;
             Enchantment ench = offer.getEnchantment();
             if (ratio != 1.0) {
                 cost = rescaledCost(cost, ratio);
@@ -120,7 +131,29 @@ public final class EnchantCostReductionListener implements Listener {
             if (ench != null && level != offer.getEnchantmentLevel()) {
                 offer.setEnchantmentLevel(level);
             }
+            adjusted |= cost != originalCost || level != originalLevel;
         }
+        if (enchanter != null) {
+            if (adjusted) {
+                adjustedOfferPlayers.add(enchanter.getUniqueId());
+            } else {
+                adjustedOfferPlayers.remove(enchanter.getUniqueId());
+            }
+        }
+    }
+
+    /**
+     * {@link PrepareItemEnchantEvent} で offer cost を変更すると、Paper はクリック時に変更後costで
+     * 付与一覧を再抽選する一方、GUIに送った hint は prepare 時のまま保持する。その再抽選結果から
+     * hint が外れた場合、表示と実付与が食い違うため、他の付与補正より先にhintを実付与集合へ戻す。
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onEnchantHint(EnchantItemEvent event) {
+        Player enchanter = event.getEnchanter();
+        if (enchanter == null || !adjustedOfferPlayers.contains(enchanter.getUniqueId())) {
+            return;
+        }
+        alignDisplayedHint(event.getEnchantsToAdd(), event.getEnchantmentHint(), event.getLevelHint());
     }
 
     /** エンチャントテーブルで実際に消費される経験値レベルコストと付与レベルを、同じ比率で追随させる。 */
@@ -131,6 +164,7 @@ public final class EnchantCostReductionListener implements Listener {
                 : lastBookshelfRatioByPlayer.getOrDefault(enchanter.getUniqueId(), 1.0);
         if (enchanter != null) {
             lastBookshelfRatioByPlayer.remove(enchanter.getUniqueId());
+            adjustedOfferPlayers.remove(enchanter.getUniqueId());
         }
         double reduction = reductionOf(enchanter);
         if (ratio == 1.0 && reduction <= 0.0) return;
@@ -147,7 +181,25 @@ public final class EnchantCostReductionListener implements Listener {
         if (ratio != 1.0) {
             Map<Enchantment, Integer> toAdd = event.getEnchantsToAdd();
             toAdd.replaceAll((ench, level) -> rescaledLevel(level, ratio, ench.getMaxLevel()));
+            // onPrepareで既に表示hint levelもratio補正済み。再抽選Mapの全要素へratioを掛けた後、
+            // 表示済みhintまで二重補正で下がらないよう、最終集合でも表示levelを最低保証する。
+            alignDisplayedHint(toAdd, event.getEnchantmentHint(), event.getLevelHint());
         }
+    }
+
+    /**
+     * Paperが変更後offer costから再抽選した付与集合を、プレイヤーへ表示済みのhintと整合させる。
+     * hintと競合する再抽選エンチャントを残すと、通常は成立しない競合組合せを生成するため除去する。
+     */
+    static void alignDisplayedHint(Map<Enchantment, Integer> enchants,
+                                   Enchantment displayedHint, int displayedLevel) {
+        if (enchants == null || displayedHint == null || displayedLevel <= 0) {
+            return;
+        }
+        enchants.keySet().removeIf(existing -> existing != null
+                && !existing.equals(displayedHint)
+                && (existing.conflictsWith(displayedHint) || displayedHint.conflictsWith(existing)));
+        enchants.merge(displayedHint, displayedLevel, Math::max);
     }
 
     /** 金床の修理/合成コストを軽減する。他リスナーが確定させた最終コストへ後から適用する。 */
@@ -173,6 +225,7 @@ public final class EnchantCostReductionListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         lastBookshelfRatioByPlayer.remove(event.getPlayer().getUniqueId());
+        adjustedOfferPlayers.remove(event.getPlayer().getUniqueId());
     }
 
     private double reductionOf(Player player) {

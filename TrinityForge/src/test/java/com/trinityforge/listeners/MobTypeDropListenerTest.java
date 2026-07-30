@@ -1,0 +1,120 @@
+package com.trinityforge.listeners;
+
+import com.trinityforge.combat.AttackStats;
+import com.trinityforge.combat.DefenseStats;
+import com.trinityforge.config.domains.CraftQualityConfig;
+import com.trinityforge.config.domains.MobTypesConfig;
+import com.trinityforge.config.domains.QualityConfig;
+import com.trinityforge.mobs.MobDropEntry;
+import com.trinityforge.mobs.MobLevelCoefficients;
+import com.trinityforge.mobs.MobTypeDefinition;
+import com.trinityforge.pdc.MobData;
+import com.trinityforge.stats.ItemFactory;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Zombie;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.world.WorldMock;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.SplittableRandom;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+/** Player-kill and AFK gates for {@link MobTypeDropListener}'s additive drop table. */
+class MobTypeDropListenerTest {
+
+    private ServerMock server;
+    private WorldMock world;
+    private MobTypeDropListener listener;
+
+    @BeforeEach
+    void setUp() {
+        server = MockBukkit.mock();
+        world = server.addSimpleWorld("world");
+
+        MobTypesConfig mobTypes = mock(MobTypesConfig.class);
+        MobTypeDefinition zombieDefinition = new MobTypeDefinition(
+                org.bukkit.entity.EntityType.ZOMBIE,
+                1,
+                0.0,
+                null,
+                DefenseStats.NONE,
+                DefenseStats.NONE,
+                AttackStats.plain(0),
+                MobLevelCoefficients.ZERO,
+                List.of(new MobDropEntry(Material.DIAMOND, 1.0, 1, 1, null)));
+        when(mobTypes.definition(org.bukkit.entity.EntityType.ZOMBIE))
+                .thenReturn(Optional.of(zombieDefinition));
+
+        listener = new MobTypeDropListener(
+                mobTypes,
+                mock(CraftQualityConfig.class),
+                mock(QualityConfig.class),
+                mock(ItemFactory.class),
+                null,
+                null,
+                new SplittableRandom(0));
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
+    }
+
+    private EntityDeathEvent deathEvent(Player killer) {
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        MobData.stampMobType(zombie, 1, DefenseStats.NONE, DefenseStats.NONE);
+        if (killer != null) {
+            ((org.mockbukkit.mockbukkit.entity.LivingEntityMock) zombie).setKiller(killer);
+        }
+        org.bukkit.damage.DamageSource source = org.bukkit.damage.DamageSource
+                .builder(org.bukkit.damage.DamageType.GENERIC_KILL).build();
+        return new EntityDeathEvent(zombie, source, new ArrayList<ItemStack>());
+    }
+
+    @Test
+    void nonPlayerKillNeverRollsMobTypeDrops() {
+        EntityDeathEvent event = deathEvent(null);
+
+        listener.onDeath(event);
+
+        assertTrue(event.getDrops().isEmpty(),
+                "lava, fall damage, and mob-infighting kills must not produce mob-types bonus drops");
+    }
+
+    @Test
+    void afkDropGateSuppressesOnlyTheBonusDrop() {
+        listener.setDropGate(player -> true);
+        EntityDeathEvent event = deathEvent(server.addPlayer());
+        event.getDrops().add(new ItemStack(Material.ROTTEN_FLESH));
+
+        listener.onDeath(event);
+
+        assertEquals(1, event.getDrops().size(),
+                "AFK gating must preserve the vanilla drop list while suppressing the TF bonus");
+        assertEquals(Material.ROTTEN_FLESH, event.getDrops().get(0).getType());
+    }
+
+    @Test
+    void activePlayerKillStillReceivesMobTypeDrop() {
+        listener.setDropGate(player -> false);
+        EntityDeathEvent event = deathEvent(server.addPlayer());
+
+        listener.onDeath(event);
+
+        assertEquals(1, event.getDrops().size());
+        assertEquals(Material.DIAMOND, event.getDrops().get(0).getType());
+    }
+}

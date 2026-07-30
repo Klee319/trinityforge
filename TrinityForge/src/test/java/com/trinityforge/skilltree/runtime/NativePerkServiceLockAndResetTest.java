@@ -34,7 +34,7 @@ class NativePerkServiceLockAndResetTest {
     }
 
     private static SkillTree miningTree() {
-        Prestige prestige = new Prestige(true, 10, "P", "", Map.of(), Map.of(), 1);
+        Prestige prestige = new Prestige(true, 10, "P", "", Map.of(), Map.of(), 2);
         return new SkillTree(SkillId.MINING, "Mining", "IRON_PICKAXE", "2,10", prestige,
                 Map.of("A", node("A", 2), "B", node("B", 3)));
     }
@@ -74,6 +74,61 @@ class NativePerkServiceLockAndResetTest {
             assertEquals(2L, after.spentPoints());
             assertEquals(0, after.skills().get(SkillId.MINING).level(), "プレステージはレベルを0に戻す");
             assertEquals(1, after.skills().get(SkillId.MINING).prestige());
+        }
+    }
+
+    @Test
+    @DisplayName("プレステージで維持したノードは購入額を保持し、後のリセットで全額返却される")
+    void retainedPerkKeepsPurchaseCostForLaterReset() throws Exception {
+        NativeSkillCatalog catalog = NativeSkillCatalog.load(getClass().getClassLoader());
+        try (SqliteProgressionRepository repository =
+                     new SqliteProgressionRepository("jdbc:sqlite::memory:")) {
+            NativeProgressionService progression = new NativeProgressionService(repository, catalog);
+            NativePerkService perks = new NativePerkService(progression, () -> List.of(miningTree()));
+            perks.setLockedPerkSupplier(id -> Set.of("mining_perk_a"));
+            UUID player = UUID.randomUUID();
+            seed(repository, player);
+
+            assertEquals(NativePerkService.PrestigeResult.PRESTIGED,
+                    perks.prestige(player, SkillId.MINING));
+            assertEquals(2L, repository.loadPerkCosts(player).orElseThrow()
+                    .get("mining_perk_a"), "維持したノードのpurchase_costは失われてはいけない");
+
+            assertEquals(NativePerkService.ResetResult.RESET,
+                    perks.resetTree(player, SkillId.MINING));
+
+            PlayerProgression after = repository.load(player).orElseThrow();
+            assertEquals(10L, after.availablePoints(), "維持したノードに支払った2SPも返却される");
+            assertEquals(0L, after.spentPoints());
+            assertFalse(repository.loadPerkIds(player).orElseThrow().contains("mining_perk_a"));
+        }
+    }
+
+    @Test
+    @DisplayName("プレステージで維持したノードは、次回非ロック時に元の購入額を返却する")
+    void retainedPerkRefundsOriginalCostOnLaterUnlockedPrestige() throws Exception {
+        NativeSkillCatalog catalog = NativeSkillCatalog.load(getClass().getClassLoader());
+        try (SqliteProgressionRepository repository =
+                     new SqliteProgressionRepository("jdbc:sqlite::memory:")) {
+            NativeProgressionService progression = new NativeProgressionService(repository, catalog);
+            NativePerkService perks = new NativePerkService(progression, () -> List.of(miningTree()));
+            UUID player = UUID.randomUUID();
+            seed(repository, player);
+
+            perks.setLockedPerkSupplier(id -> Set.of("mining_perk_a"));
+            assertEquals(NativePerkService.PrestigeResult.PRESTIGED,
+                    perks.prestige(player, SkillId.MINING));
+
+            repository.saveSkillProgress(player, SkillId.MINING,
+                    new SkillProgress(10, 0.0, 1000.0, 1, 100));
+            perks.setLockedPerkSupplier(id -> Set.of());
+            assertEquals(NativePerkService.PrestigeResult.PRESTIGED,
+                    perks.prestige(player, SkillId.MINING));
+
+            PlayerProgression after = repository.load(player).orElseThrow();
+            assertEquals(10L, after.availablePoints(), "次回は維持していたAの2SPも返却される");
+            assertEquals(0L, after.spentPoints());
+            assertFalse(repository.loadPerkIds(player).orElseThrow().contains("mining_perk_a"));
         }
     }
 

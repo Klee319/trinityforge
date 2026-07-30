@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.Crafter;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -88,6 +89,13 @@ public final class CatalogCraftGateListener implements Listener {
             return;
         }
         CraftingInventory inv = event.getInventory();
+        if (event.isRepair()) {
+            if (!dedicatedEffects.isActive(player, "feature:wood-repair-unlock")) {
+                inv.setResult(null);
+                player.sendActionBar(GATE_MESSAGE);
+            }
+            return;
+        }
         String gateId = resolveGateId(inv.getRecipe());
         if (isBlocked(gateId, player)) {
             inv.setResult(new ItemStack(Material.AIR));
@@ -97,6 +105,13 @@ public final class CatalogCraftGateListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCrafterCraft(CrafterCraftEvent event) {
+        // バニラの同種修理にはKeyedレシピがないため、通常のrecipe gate判定だけでは
+        // 自動作業台がwood-repair-unlockの迂回経路になる。Crafterには解放状態を
+        // 帰属できるプレイヤーがいないので、同種修理は常に安全側で停止する。
+        if (isCrafterRepair(event)) {
+            event.setCancelled(true);
+            return;
+        }
         String gateId = resolveGateId(event.getRecipe());
         // Crafterはプレイヤー操作を伴わない(レッドストーン駆動)ため個々の解放状態を判定できない。
         // ゲート対象(=いずれかのスキルツリーノードが実際に配置しているID)である限り、安全側に倒して
@@ -104,6 +119,14 @@ public final class CatalogCraftGateListener implements Listener {
         if (gateId != null && dedicatedEffects.recipeGatePerks().containsKey(gateId)) {
             event.setCancelled(true);
         }
+    }
+
+    static boolean isCrafterRepair(CrafterCraftEvent event) {
+        if (event.getBlock().getState() instanceof Crafter crafter) {
+            return CraftQualityListener.isVanillaSameItemRepair(
+                    crafter.getInventory().getContents(), event.getResult());
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

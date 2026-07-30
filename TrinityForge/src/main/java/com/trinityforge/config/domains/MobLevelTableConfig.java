@@ -43,15 +43,13 @@ import java.util.logging.Logger;
  * と同じ流儀)。
  *
  * <p>2026-07-27 {@code no-skill-exp-mobs}(牧場対策): このトップレベルリストに載った
- * {@link EntityType} は、TrinityForge が独自に付与する「戦闘スキルEXP」(武器=命中/防具=被弾、
- * {@code stats/skill-exp.yml combat:} 系)を一切加算しない
- * ({@link #suppressesSkillExp(EntityType)})。魔法(ARS_MAGIC)は対象外 — Ars側のEXPは
- * 「詠唱したこと」に対して付く({@code ArsProgressionBridge#grantMagicExp} は対象Entityを
- * 引数に取らない)ので、EntityTypeで絞る余地が構造的に無い。バニラの
+ * {@link EntityType} は、TrinityForge が独自に付与する戦闘スキルEXP(武器・魔法=討伐、
+ * 弓術=命中、防具=被弾)を一切加算しない({@link #suppressesSkillExp(EntityType)})。バニラの
  * {@code org.bukkit.event.entity.EntityDeathEvent#setDroppedExp(int)}(EXPオーブ)には一切触れない —
  * エンチャント等の用途があるバニラEXP自体は従来どおり落ちてよい、という
  * ユーザー判断による(この config/クラス自身はEXPオーブを一切扱わない)。実際の抑止判定は
- * {@code CombatListener}(武器)/{@code NativeSkillExperienceListener}(防具)側が呼び出す。
+ * {@code CombatListener}(武器・弓術)/{@code NativeSkillExperienceListener}(防具)/
+ * {@code ArsMagicExperienceListener}(魔法)側が呼び出す。
  */
 public final class MobLevelTableConfig implements LoadableConfig {
 
@@ -74,8 +72,8 @@ public final class MobLevelTableConfig implements LoadableConfig {
 
     /**
      * {@code no-skill-exp-mobs}(2026-07-27 牧場対策)。true なら、このEntityTypeを相手にした
-     * TrinityForgeの戦闘スキルEXP(武器=命中/防具=被弾)を一切加算しない(魔法は対象外 —
-     * クラスjavadoc参照)。
+     * TrinityForgeの戦闘スキルEXP(軽・重武器/魔法=討伐、弓術=命中、防具=被弾)を
+     * 一切加算しない。
      * バニラのEXPオーブ(討伐/エンチャント等)には一切影響しない — {@code MobLevelTableListener} は
      * この値を読まない。{@code dungeon-only-exp}/{@code outside-dungeon-exp-rate}(stats/skill-exp.yml)
      * のゲートとは独立に、常に効く(牧場はダンジョン外にあるため、ダンジョン限定にすると意味がない)。

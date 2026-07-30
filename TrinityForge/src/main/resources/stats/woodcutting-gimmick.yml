@@ -5,32 +5,36 @@
 # 数値は全て暫定(要調整)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/woodcutting-gimmick.md
 
-
 tree-fell:
   max-extra-logs: 8
   cooldown-ticks: 200
   tiers:
-    1: { max-extra-logs: 8 }
-    3: { max-extra-logs: 64 }
-
+    "1":
+      max-extra-logs: 8
+    "2":
+      max-extra-logs: 16
+    "3":
+      max-extra-logs: 32
+    "4":
+      max-extra-logs: 64
 drop-tables:
   categories:
     apple:
-      display-name: "リンゴ"
-      trigger-chance-percent: 5.0
+      display-name: リンゴ
+      trigger-chance-percent: 5
       entries:
         - item: APPLE
           weight: 1
           amount: 1
     golden_apple:
-      display-name: "金のリンゴ"
-      trigger-chance-percent: 1.0
+      display-name: 金のリンゴ
+      trigger-chance-percent: 1
       entries:
         - item: GOLDEN_APPLE
           weight: 1
           amount: 1
     crystal_apple:
-      display-name: "クリスタルリンゴ"
+      display-name: クリスタルリンゴ
       trigger-chance-percent: 0.5
       entries:
         - item: tf_crystal_apple

@@ -24,6 +24,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
@@ -36,15 +39,16 @@ import java.util.OptionalDouble;
  * 農業スキルツリーのflag系dedicated-effect consumer群({@code stats/farming-gimmick.yml}でチューニング):
  *
  * <ul>
- *   <li>{@code auto-replant}(flag): 成熟作物を破壊した際、drop計算から種/苗1個分を差し引いた上で
- *       同ブロックをage0で1tick後に再設置する(=「植え直しと収穫が同時」)。</li>
+ *   <li>{@code auto-replant}(flag): 成熟作物を破壊または右クリックした際、drop計算から種/苗1個分を
+ *       差し引いた上で同ブロックをage0で再設置する(=「植え直しと収穫が同時」)。</li>
  *   <li>{@code area-harvest}(flag): 起点の周囲({@code area-harvest.radius}、既定3x3)の成熟作物も
  *       一括収穫する。{@code auto-replant}も保有していれば同様に植え直す。</li>
  * </ul>
  *
- * <p>両方とも同じ「成熟作物のBlockBreakEvent」をトリガーとする「1リスナーに複数flag effectをまとめる」
- * 様式({@link TreeFellingListener}と同様)。周囲ブロックの処理は{@link Block#breakNaturally}/
- * {@link Block#setType}を直接呼ぶだけで{@link BlockBreakEvent}を再発火しないため、area-harvestが
+ * <p>破壊時は成熟作物の{@link BlockBreakEvent}をトリガーとする「1リスナーに複数flag effectを
+ * まとめる」様式({@link TreeFellingListener}と同様)。右クリック収穫も保護・drop・EXP互換のため
+ * 認可用BlockBreakEventを発火する。周囲ブロックの処理は{@link Block#breakNaturally}/
+ * {@link Block#setType}を直接呼ぶだけでBlockBreakEventを再発火しないため、area-harvestが
  * area-harvestを連鎖的に再誘発することはない(加えて{@link #processingAreaHarvest}で多重ガード)。
  */
 public final class FarmingHarvestListener implements Listener {
@@ -65,6 +69,9 @@ public final class FarmingHarvestListener implements Listener {
      * 単純booleanで十分。
      */
     private boolean processingAreaHarvest = false;
+
+    /** 右クリック収穫の認可用に合成したBlockBreakEventを、自身で通常破壊として二重処理しないためのガード。 */
+    private boolean authorizingRightClickHarvest = false;
 
     /** 範囲収穫分の採取EXP付与口(2026-07-28)。null 可 — 旧4引数コンストラクタ経由では EXP のみ入らない。 */
     private final ChainBreakExpGrant chainBreakExp;
@@ -88,7 +95,7 @@ public final class FarmingHarvestListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        if (processingAreaHarvest) {
+        if (processingAreaHarvest || authorizingRightClickHarvest) {
             return;
         }
         if (SpellBreakGuard.isSpellBreak(event.getBlock())) {
@@ -122,6 +129,58 @@ public final class FarmingHarvestListener implements Listener {
                 harvestArea(player, block, replantActive, (int) areaHarvestTier.getAsDouble());
             }
         }
+    }
+
+    /**
+     * {@code auto-replant}: 成熟作物への右クリックを、その場での収穫＋age0への再植栽として処理する。
+     *
+     * <p>保護・追加drop・通常破壊EXPとの互換性を保つため、直接worldを変更する前に認可用の
+     * {@link BlockBreakEvent} を発火する。自身のblock-break handlerだけはガードで飛ばし、他の
+     * リスナーがキャンセルしなかった場合に限って基本dropと再植栽をここで完了する。元の
+     * {@link PlayerInteractEvent} はキャンセルするため、
+     * {@link NativeSkillExperienceListener#onFarmingInteract(PlayerInteractEvent)} の
+     * {@code MONITOR + ignoreCancelled} 経路とのEXP二重付与も起きない。
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK
+                || event.getHand() != EquipmentSlot.HAND
+                || event.getClickedBlock() == null) {
+            return;
+        }
+        Block block = event.getClickedBlock();
+        Material type = block.getType();
+        if (!FarmingCropCatalog.isCrop(type) || !isMature(block)) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (!PlayerData.of(player).autoReplantEnabled()
+                || !dedicatedEffects.isActive(player, EFFECT_AUTO_REPLANT)) {
+            return;
+        }
+
+        event.setCancelled(true);
+        BlockBreakEvent harvestEvent = new BlockBreakEvent(block, player);
+        authorizingRightClickHarvest = true;
+        try {
+            Bukkit.getPluginManager().callEvent(harvestEvent);
+        } finally {
+            authorizingRightClickHarvest = false;
+        }
+        if (harvestEvent.isCancelled() || block.getType() != type || !isMature(block)) {
+            return;
+        }
+
+        ItemStack tool = player.getInventory().getItemInMainHand();
+        if (harvestEvent.isDropItems()) {
+            List<DropStack> drops = readDrops(block, tool);
+            List<DropStack> adjusted = DropAdjustment.subtractOne(
+                    drops, FarmingCropCatalog.seedMaterial(type));
+            dropAll(block.getWorld(), block.getLocation(), adjusted);
+        }
+        Ageable replanted = (Ageable) block.getBlockData();
+        replanted.setAge(0);
+        block.setBlockData(replanted);
     }
 
     /** 起点ブロック: バニラdropを止め、種1個分を差し引いたdropを自前で撒いてからage0で再設置予約する。 */

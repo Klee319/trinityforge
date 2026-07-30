@@ -1,6 +1,7 @@
 package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.ItemCatalogConfig;
+import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogRecipeRegistrar;
 import com.trinityforge.stats.ExternalItemRegistry;
 import com.trinityforge.stats.ItemAssembler;
@@ -275,5 +276,69 @@ class CatalogWorkbenchListenerTest {
         wrongCmd[0] = withCustomModelData(Material.PRISMARINE_SHARD, 1);
         assertFalse(listener.matches(wrongCmd, 3, spec),
                 "a mismatched CustomModelData on the same material must NOT satisfy custom:source_gem");
+    }
+
+    @Test
+    void plainIronToolIngredientStillAcceptsQualityStampedVanillaTool(@TempDir File tempDir)
+            throws IOException {
+        CatalogWorkbenchListener listener = listener(tempDir);
+        RecipeSpec spec = RecipeSpec.shapeless(
+                List.of(RecipeIngredient.ofMaterial(Material.IRON_SWORD)), 1);
+        ItemStack sword = new ItemStack(Material.IRON_SWORD);
+        ItemMeta meta = sword.getItemMeta();
+        ItemData data = ItemData.of(meta);
+        data.setRollSeed(42L);
+        data.setQuality(7);
+        sword.setItemMeta(meta);
+        ItemStack[] matrix = new ItemStack[9];
+        matrix[0] = sword;
+
+        assertTrue(listener.matches(matrix, 3, spec),
+                "quality PDC alone must not make a vanilla iron sword fail a material ingredient");
+    }
+
+    @Test
+    void explicitIronToolListAcceptsCatalogIdentityWithoutWeakeningPlainMaterialRules(
+            @TempDir File tempDir) throws IOException {
+        MaterialLists.update(
+                Map.of("spellbook_iron_swords", Set.of(Material.IRON_SWORD)),
+                Map.of("spellbook_iron_swords", Set.of("iron_dagger")),
+                Map.of());
+        CatalogWorkbenchListener listener = listener(tempDir);
+        RecipeSpec listSpec = RecipeSpec.shapeless(
+                List.of(RecipeIngredient.ofList("spellbook_iron_swords")), 1);
+        RecipeSpec plainSpec = RecipeSpec.shapeless(
+                List.of(RecipeIngredient.ofMaterial(Material.IRON_SWORD)), 1);
+        ItemStack dagger = withCustomModelData(Material.IRON_SWORD, 5);
+        ItemMeta meta = dagger.getItemMeta();
+        ItemData.of(meta).setCatalogId("iron_dagger");
+        dagger.setItemMeta(meta);
+        ItemStack[] matrix = new ItemStack[9];
+        matrix[0] = dagger;
+
+        assertTrue(listener.matches(matrix, 3, listSpec));
+        assertFalse(listener.matches(matrix, 3, plainSpec),
+                "plain material identity guard remains closed for recipes that did not opt in");
+    }
+
+    @Test
+    void catalogPdcWithoutCustomModelDataIsTreatedAsVanilla(
+            @TempDir File tempDir) throws IOException {
+        CatalogWorkbenchListener listener = listener(tempDir);
+        RecipeSpec plainSpec = RecipeSpec.shapeless(
+                List.of(RecipeIngredient.ofMaterial(Material.IRON_SWORD)), 1);
+        RecipeSpec customSpec = RecipeSpec.shapeless(
+                List.of(RecipeIngredient.ofCatalog("iron_dagger")), 1);
+        ItemStack sword = new ItemStack(Material.IRON_SWORD);
+        ItemMeta meta = sword.getItemMeta();
+        ItemData.of(meta).setCatalogId("iron_dagger");
+        sword.setItemMeta(meta);
+        ItemStack[] matrix = new ItemStack[9];
+        matrix[0] = sword;
+
+        assertTrue(listener.matches(matrix, 3, plainSpec),
+                "an item without CustomModelData must be treated as vanilla even if catalogId PDC remains");
+        assertFalse(listener.matches(matrix, 3, customSpec),
+                "catalogId PDC alone must not satisfy a custom ingredient without CustomModelData");
     }
 }

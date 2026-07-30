@@ -1,20 +1,23 @@
 # TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
+
 experience:
   max_level: 100
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  legacy:
+  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
   block_interact:
     BEEHIVE: 400
     BEE_NEST: 400
     SWEET_BERRY_BUSH: 40
-    SWEET_BERRIES: 10
-    CAVE_VINES_PLANT: 48
-    CAVE_VINES: 80
-    GLOW_BERRIES: 20
-    HONEY_BOTTLE: 400
-  block_drops: # for functionality sake, the blocks dropping the items themselves *must* also be included in the list.
+    CAVE_VINES: 0
+    CAVE_VINES_PLANT: 0
+    PUMPKIN: 0
+    KELP: 0
+    TWISTING_VINES_PLANT: 0
+    TWISTING_VINES: 0
+    WEEPING_VINES: 0
+    WEEPING_VINES_PLANT: 0
+  block_drops:
     TORCHFLOWER_CROP: 100
     TORCHFLOWER: 100
     PITCHER_CROP: 100
@@ -111,10 +114,24 @@ experience:
     CHICKEN: 40
     RABBIT: 100
     MUTTON: 60
-    LEATHER: 40
+    LEATHER: 60
     FEATHER: 14
     WHITE_WOOL: 40
+    BLACK_WOOL: 40
+    BLUE_WOOL: 40
+    BROWN_WOOL: 40
+    CYAN_WOOL: 40
+    GRAY_WOOL: 40
+    GREEN_WOOL: 40
+    LIGHT_BLUE_WOOL: 40
+    LIGHT_GRAY_WOOL: 40
+    LIME_WOOL: 40
+    MAGENTA_WOOL: 40
+    ORANGE_WOOL: 40
+    PINK_WOOL: 40
+    PURPLE_WOOL: 40
+    RED_WOOL: 40
+    YELLOW_WOOL: 40
   entity_shear:
     SHEEP: 200
     MUSHROOM_COW: 1000
-

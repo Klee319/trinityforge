@@ -11,6 +11,7 @@ import com.trinityforge.skilltree.SkillRole;
 import com.trinityforge.skilltree.SkillTree;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
@@ -267,11 +268,45 @@ class FoodGimmickListenerTest {
         org.junit.jupiter.api.Assertions.assertEquals(1.0f, player.getSaturation(), 0.01f); // min(8, 0+1.0)
     }
 
+    @Test
+    void customFoodConfiguredAsJunkGetsInversionBonusInsteadOfNonJunkPenalty() {
+        PlayerMock player = server.addPlayer();
+        player.setFoodLevel(5);
+        player.setSaturation(2.0f);
+
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.valueMax(player, "junkfood-inversion")).thenReturn(OptionalDouble.of(100.0));
+        when(dedicatedEffects.isActive(player, "satiety-buff")).thenReturn(false);
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+        when(foodGimmick.customFood("tf_rotten_ration")).thenReturn(
+                java.util.Optional.of(new FoodGimmickConfig.CustomFood(5, 1.0)));
+        when(foodGimmick.junkfoodInversionJunkSaturationBonus()).thenReturn(2.0);
+        when(foodGimmick.junkfoodInversionNonJunkSaturationPenalty()).thenReturn(1.0);
+        ItemStack item = stampArsCustomItemId(Material.BREAD, "tf_rotten_ration");
+        when(foodGimmick.isJunkFood(item)).thenReturn(true);
+        FoodGimmickListener listener = new FoodGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, mock(PlayerStatAggregator.class));
+
+        FoodLevelChangeEvent event = foodLevelChangeEvent(player, item);
+        listener.onFoodLevelChange(event);
+        player.setFoodLevel(10);
+        server.getScheduler().performTicks(2);
+
+        assertEquals(5.0f, player.getSaturation(), 0.01f,
+                "2 pre + 1 custom + 2 junk inversion; old custom path treated it as non-junk (=2)");
+    }
+
     // --- junkfood-inversion (LEVEL, %; 2026-07-27 農業「ゴミ食」段階化) -----------------------------------
 
     private static FoodGimmickConfig foodGimmickConfigWithInversionDefaults() {
         FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
         when(foodGimmick.junkFoodMaterials()).thenReturn(Set.of(Material.ROTTEN_FLESH));
+        // 2026-07-27: FoodGimmickListener は junkFoodMaterials() ではなく isJunkFood(ItemStack) を呼ぶ
+        // ようになったため、こちらも同じ判定(ROTTEN_FLESHのみゴミ食)をスタブする。
+        when(foodGimmick.isJunkFood(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+            ItemStack stack = invocation.getArgument(0);
+            return stack != null && stack.getType() == Material.ROTTEN_FLESH;
+        });
         // stats/food-gimmick.yml の現行基準量: junkfood-inversion.junk-saturation-bonus=2.0 /
         // non-junk-saturation-penalty=1.0
         when(foodGimmick.junkfoodInversionJunkSaturationBonus()).thenReturn(2.0);

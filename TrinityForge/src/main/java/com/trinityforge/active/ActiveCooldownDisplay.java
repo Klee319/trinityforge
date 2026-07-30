@@ -5,6 +5,7 @@ import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.OptionalDouble;
 
@@ -35,16 +36,26 @@ public final class ActiveCooldownDisplay implements Runnable {
     private final CooldownManager cooldowns;
     private final FeedbackLayer feedback;
     private final PlayerStatAggregator aggregator;
+    private final List<SemiActiveCooldown> semiActiveCooldowns;
 
     public ActiveCooldownDisplay(Plugin plugin, ActiveSkillRegistry registry,
                                  DedicatedEffectsConfig dedicatedEffects, CooldownManager cooldowns,
                                  FeedbackLayer feedback, PlayerStatAggregator aggregator) {
+        this(plugin, registry, dedicatedEffects, cooldowns, feedback, aggregator, List.of());
+    }
+
+    public ActiveCooldownDisplay(Plugin plugin, ActiveSkillRegistry registry,
+                                 DedicatedEffectsConfig dedicatedEffects, CooldownManager cooldowns,
+                                 FeedbackLayer feedback, PlayerStatAggregator aggregator,
+                                 List<SemiActiveCooldown> semiActiveCooldowns) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.cooldowns = Objects.requireNonNull(cooldowns, "cooldowns");
         this.feedback = Objects.requireNonNull(feedback, "feedback");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.semiActiveCooldowns = List.copyOf(
+                Objects.requireNonNull(semiActiveCooldowns, "semiActiveCooldowns"));
     }
 
     public void start() {
@@ -61,25 +72,36 @@ public final class ActiveCooldownDisplay implements Runnable {
 
     private void showFor(Player player, long now) {
         String useSkill = ActivationDispatcher.mainHandUseSkill(player.getInventory().getItemInMainHand());
-        if (useSkill == null) {
-            return;
-        }
-        for (ActiveSkill skill : registry.forTargetSkill(useSkill)) {
-            if (!cooldowns.hasRecord(player.getUniqueId(), skill.id())) {
-                continue; // 一度も使っていない = CTは走っていない(重い集計を避ける)
+        if (useSkill != null) {
+            for (ActiveSkill skill : registry.forTargetSkill(useSkill)) {
+                if (!cooldowns.hasRecord(player.getUniqueId(), skill.id())) {
+                    continue; // 一度も使っていない = CTは走っていない(重い集計を避ける)
+                }
+                OptionalDouble tier = dedicatedEffects.valueMax(player, skill.gateEffectId());
+                if (tier.isEmpty()) {
+                    continue;
+                }
+                // 発動側(ActivationDispatcher)と同じ短縮後の長さで計算しないと、表示と実際の解禁時刻がずれる。
+                double reduction = aggregator.aggregate(player)
+                        .totalOf(ActiveSkillCooldownKeys.forSkill(skill.id()));
+                long cooldownMillis = CooldownManager.applyReduction(
+                        skill.cooldownMillis((int) tier.getAsDouble()), reduction);
+                long remaining = cooldowns.remainingMillis(player.getUniqueId(), skill.id(), cooldownMillis, now);
+                if (remaining > 0L) {
+                    // アクションバーは1行しか出せないので、最初に見つかった1件だけ表示する。
+                    feedback.cooldownTicking(player, skill.displayName(), remaining);
+                    return;
+                }
             }
-            OptionalDouble tier = dedicatedEffects.valueMax(player, skill.gateEffectId());
-            if (tier.isEmpty()) {
+        }
+
+        for (SemiActiveCooldown skill : semiActiveCooldowns) {
+            if (!cooldowns.hasRecord(player.getUniqueId(), skill.id()) || !skill.isEligible(player)) {
                 continue;
             }
-            // 発動側(ActivationDispatcher)と同じ短縮後の長さで計算しないと、表示と実際の解禁時刻がずれる。
-            double reduction = aggregator.aggregate(player)
-                    .totalOf(ActiveSkillCooldownKeys.forSkill(skill.id()));
-            long cooldownMillis = CooldownManager.applyReduction(
-                    skill.cooldownMillis((int) tier.getAsDouble()), reduction);
-            long remaining = cooldowns.remainingMillis(player.getUniqueId(), skill.id(), cooldownMillis, now);
+            long remaining = cooldowns.remainingMillis(
+                    player.getUniqueId(), skill.id(), skill.cooldownMillis(player), now);
             if (remaining > 0L) {
-                // アクションバーは1行しか出せないので、最初に見つかった1件だけ表示する。
                 feedback.cooldownTicking(player, skill.displayName(), remaining);
                 return;
             }

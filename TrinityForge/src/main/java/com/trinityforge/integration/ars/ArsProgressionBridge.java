@@ -1,7 +1,10 @@
 package com.trinityforge.integration.ars;
 
 import com.trinityforge.TrinityForge;
+import com.trinityforge.progression.UseRequirementResolver;
+import com.trinityforge.progression.core.SkillId;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /** Public integration facade used by TrinityForge and the ArsPaper fork to grant native EXP. */
@@ -33,26 +36,64 @@ public final class ArsProgressionBridge {
     }
 
     /**
-     * 詠唱による ARS_MAGIC EXP。<b>ここでワールド倍率を掛ける</b>のがこのメソッドの存在意義で、
-     * 素の {@link #grantSkillExp} を直接呼ぶのとは意味が違う。
+     * Ars gear creation EXP, calculated from the finished item's live use requirement.
      *
-     * <p>{@code stats/skill-exp.yml} の記述は当初から「重武器/軽武器/弓術/重装甲/軽装甲/ARS_MAGIC を
-     * ゲートする」だったが、実装は武器(命中)と防具(被弾)しか通しておらず、魔法だけ素通りしていた
-     * (2026-07-26 のレビューで発覚)。オーバーワールドEXPを {@code outside-dungeon-exp-rate} で
-     * 絞った以上、ここだけ無傷だと<b>魔法が他の戦闘スキルの4倍速で伸びる</b>ため、実装を記述側の
-     * 意図へ合わせる。
+     * <p>The base amount and the per-use-level multiplier both live in {@code stats/skill-exp.yml};
+     * the ArsPaper ritual path and Bukkit workbench path call this same method so neither can drift
+     * back to a fixed hard-coded grant.
+     */
+    public static void grantSmithingCraftExp(Plugin plugin, Player player, ItemStack result) {
+        TrinityForge tf = TrinityForge.getInstance();
+        if (tf == null || tf.config() == null) {
+            return;
+        }
+        grantSmithingExpForResult(
+                plugin, player, result, tf.config().skillExp().arsSmithingExpPerCraft());
+    }
+
+    /**
+     * Variant for production recipes that author their own base EXP (for example catalog anvil
+     * combines). The finished-item use-level multiplier is still the shared {@code ars-smithing}
+     * setting, so a custom base does not bypass tier scaling.
+     */
+    public static void grantSmithingExpForResult(
+            Plugin plugin, Player player, ItemStack result, double baseAmount) {
+        if (player == null || result == null || result.getType().isAir()
+                || !Double.isFinite(baseAmount) || baseAmount <= 0.0) {
+            return;
+        }
+        TrinityForge tf = TrinityForge.getInstance();
+        if (tf == null || tf.config() == null) {
+            return;
+        }
+        try {
+            int useLevel = UseRequirementResolver.resolve(result, tf.config().itemStats())
+                    .map(UseRequirementResolver.Resolved::level)
+                    .orElse(0);
+            double multiplier = tf.config().skillExp()
+                    .useLevelExpMultiplier(SkillId.ARS_SMITHING, useLevel);
+            double amount = baseAmount * multiplier;
+            if (Double.isFinite(amount) && amount > 0.0) {
+                grantSmithingExp(plugin, player, amount);
+            }
+        } catch (RuntimeException ex) {
+            java.util.logging.Logger logger =
+                    plugin != null ? plugin.getLogger() : org.bukkit.Bukkit.getLogger();
+            logger.warning("Failed to calculate ARS_SMITHING craft EXP: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Ars由来の討伐・ブロック破壊EXPへ戦闘ワールド倍率を適用して付与する。
      *
-     * <p>倍率適用を {@link #grantSkillExp} 側に置かないのは、武器EXP({@code CombatListener})が
-     * 既に自分で倍率を掛けてからそちらを呼んでいるため — 共通側に置くと二重に縮む。
+     * <p>倍率適用を {@link #grantSkillExp} 側に置かないのは、他の戦闘EXP経路が既に自分で倍率を
+     * 掛けてからそちらを呼ぶため。共通側に置くと二重適用になる。
      */
     public static void grantMagicExp(Plugin plugin, Player player, double amount) {
         grantSkillExp(plugin, player, ARS_MAGIC, amount * worldExpRate(player));
     }
 
-    /**
-     * 詠唱したワールドの戦闘スキルEXP倍率。プラグイン未起動やワールド不明のときは 1.0
-     * (ゲートを掛けない) — 他のEXP経路が同じ状況で採る挙動と揃えてある。
-     */
+    /** 対象ワールドの戦闘スキルEXP倍率。プラグイン未起動やワールド不明のときは1.0。 */
     private static double worldExpRate(Player player) {
         TrinityForge tf = TrinityForge.getInstance();
         if (tf == null || player == null || player.getWorld() == null) {

@@ -317,8 +317,18 @@ public final class SqliteProgressionRepository implements ProgressionRepository 
 
     @Override
     public synchronized boolean prestige(UUID playerId, String skillId, String ordinaryPerkPrefix,
-                            String prestigePerkId, SkillProgress resetProgress, long refundPoints) {
+                             String prestigePerkId, SkillProgress resetProgress, long refundPoints) {
+        return prestige(playerId, skillId, ordinaryPerkPrefix, prestigePerkId,
+                resetProgress, refundPoints, Set.of());
+    }
+
+    @Override
+    public synchronized boolean prestige(UUID playerId, String skillId, String ordinaryPerkPrefix,
+                             String prestigePerkId, SkillProgress resetProgress, long refundPoints,
+                             Set<String> retainedOrdinaryPerkIds) {
         String pid = playerId.toString();
+        Set<String> retained = retainedOrdinaryPerkIds == null
+                ? Set.of() : Set.copyOf(retainedOrdinaryPerkIds);
         try {
             conn.setAutoCommit(false);
             try {
@@ -339,12 +349,22 @@ public final class SqliteProgressionRepository implements ProgressionRepository 
                 stmtUpsertSkill.setInt(7, resetProgress.maxAllowedLevel());
                 stmtUpsertSkill.setLong(8, System.currentTimeMillis());
                 stmtUpsertSkill.executeUpdate();
+                String retainedPlaceholders = retained.isEmpty() ? ""
+                        : " AND perk_id NOT IN ("
+                                + String.join(",", java.util.Collections.nCopies(
+                                        retained.size(), "?"))
+                                + ")";
                 try (PreparedStatement delete = conn.prepareStatement(
                         "DELETE FROM player_perk_states WHERE player_id = ?"
-                                + " AND perk_id LIKE ? AND perk_id NOT LIKE ?")) {
+                                + " AND perk_id LIKE ? AND perk_id NOT LIKE ?"
+                                + retainedPlaceholders)) {
                     delete.setString(1, pid);
                     delete.setString(2, ordinaryPerkPrefix + "%");
                     delete.setString(3, ordinaryPerkPrefix + "ng%");
+                    int parameter = 4;
+                    for (String retainedPerkId : retained) {
+                        delete.setString(parameter++, retainedPerkId);
+                    }
                     delete.executeUpdate();
                 }
                 try (PreparedStatement refund = conn.prepareStatement(

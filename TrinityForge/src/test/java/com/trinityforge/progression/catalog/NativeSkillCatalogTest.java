@@ -130,6 +130,34 @@ class NativeSkillCatalogTest {
                 CATALOG.get(SkillId.MINING).expFor("mining_break", "GLASS"));
     }
 
+    @Test
+    void nestedValhallaEnchantingTablesAreLoaded() {
+        SkillCatalogEntry enchanting = CATALOG.get(SkillId.ENCHANTING);
+
+        assertEquals(180.0,
+                enchanting.expFor("exp_gain.enchantment_base", "sharpness"));
+        assertEquals(3.4,
+                enchanting.expFor("exp_gain.enchantment_level_multiplier", "3"));
+        assertEquals(1.0,
+                enchanting.expFor("exp_gain.enchantment_type_multiplier", "DIAMOND"));
+        assertEquals(1.0,
+                enchanting.expFor("exp_gain.enchantment_item_multiplier", "SWORD"));
+    }
+
+    @Test
+    void allValhallaNonCombatActionTablesAreLoaded() {
+        assertEquals(160.0,
+                CATALOG.get(SkillId.FARMING).expFor("entity_breed", "FROG"));
+        assertEquals(60.0,
+                CATALOG.get(SkillId.FARMING).expFor("entity_drops", "BEEF"));
+        assertEquals(200.0,
+                CATALOG.get(SkillId.FARMING).expFor("entity_shear", "SHEEP"));
+        assertEquals(20.0,
+                CATALOG.get(SkillId.WOODCUTTING).expFor("woodcutting_strip", "STRIPPED_OAK_LOG"));
+        assertEquals(150.0,
+                CATALOG.get(SkillId.DIGGING).expFor("archaeology_brush", "DIAMOND"));
+    }
+
     // ---- entries() view ----
 
     @Test

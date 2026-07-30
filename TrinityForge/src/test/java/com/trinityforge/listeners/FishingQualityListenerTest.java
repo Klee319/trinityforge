@@ -1,5 +1,6 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.FishingGimmickConfig;
@@ -47,8 +48,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * {@link FishingQualityListener} の FISHINGスキルLv駆動品質刻印(装備釣果、2026-07-23 stat-gate-overhaul
- * §2.3で fishing_luck は比率専用化され品質modeから除去済み) + fishing-bonus追加ドロップ(非装備釣果)を検証
+ * {@link FishingQualityListener} の宝運駆動品質刻印(装備釣果、ITEM_ECONOMY_SPEC 5.2d/5.2h) +
+ * fishing-bonus追加ドロップ(非装備釣果)を検証
  * する。{@link ItemFactory}/{@link ItemStatsConfig}/{@link CombatDamageConfig}/{@link QualityConfig}/
  * {@link FishingGimmickConfig} はMockitoでモック、{@link Player}/{@link ItemStack}は
  * MockBukkitの{@code ServerMock}で作る実物(PDC読み書きが本物どおり動く必要があるため)。{@link PlayerFishEvent}/
@@ -64,6 +65,8 @@ class FishingQualityListenerTest {
     private QualityConfig quality;
     private FishingGimmickConfig fishingGimmick;
     private NamespacedKey treasureFlagKey;
+    private ItemCatalogConfig itemCatalog;
+    private PlayerStatAggregator aggregator;
     private FishingQualityListener listener;
 
     @BeforeEach
@@ -87,20 +90,18 @@ class FishingQualityListenerTest {
         when(fishingGimmick.bonusPerLevel()).thenReturn(0.0);
         when(fishingGimmick.treasureMaterials()).thenReturn(java.util.Set.of());
 
-        ItemCatalogConfig itemCatalog = mock(ItemCatalogConfig.class);
+        itemCatalog = mock(ItemCatalogConfig.class);
         when(itemCatalog.all()).thenReturn(Map.of());
 
         PlayerLootLuckSource lootLuck = new PlayerLootLuckSource(
                 java.util.logging.Logger.getLogger("test"), null);
         // 総合ステータス化(2026-07): fishing-bonus は PlayerStatAggregator 経由で防具・パーク等も合算する。
         // テストではロッドのみ装備なので値は従来どおり。
-        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+        aggregator = new PlayerStatAggregator(
                 itemStats, combatDamage,
                 new PerkBuffResolver(SkillPerkStatSource.EMPTY, java.util.List::of),
                 new RoleBuffResolver(new RoleBuffsConfig()));
-        listener = new FishingQualityListener(itemFactory,
-                quality, fishingGimmick, SkillLevelSource.EMPTY, itemCatalog, lootLuck, aggregator,
-                itemStats, treasureFlagKey);
+        listener = newListener(SkillLevelSource.EMPTY, lootLuck);
     }
 
     @AfterEach
@@ -129,6 +130,19 @@ class FishingQualityListenerTest {
         return event;
     }
 
+    private FishingQualityListener newListener(SkillLevelSource skillLevels, PlayerLootLuckSource lootLuck) {
+        return new FishingQualityListener(itemFactory,
+                quality, fishingGimmick, skillLevels, itemCatalog, lootLuck, aggregator,
+                itemStats, treasureFlagKey);
+    }
+
+    private PlayerLootLuckSource lootLuck(PlayerMock player, double totalLuck) {
+        PlayerStatAggregator luckAggregator = mock(PlayerStatAggregator.class);
+        when(luckAggregator.aggregate(player)).thenReturn(new PlayerCombatAggregate(
+                Map.of("loot_luck", totalLuck), Map.of(), Map.of(), Map.of(), Map.of()));
+        return new PlayerLootLuckSource(java.util.logging.Logger.getLogger("test"), luckAggregator);
+    }
+
     @Test
     void stateNotCaughtFishDoesNothing() {
         PlayerMock player = server.addPlayer();
@@ -155,6 +169,49 @@ class FishingQualityListenerTest {
 
         verify(itemFactory, times(1)).stamp(any(ItemStack.class), anyLong(), anyInt());
         verify(caughtItem, times(1)).setItemStack(any(ItemStack.class));
+    }
+
+    @Test
+    void highFishingSkillAloneDoesNotForceMaximumQuality() {
+        when(quality.fishingBaseQuality()).thenReturn(2);
+        when(quality.spreadUp()).thenReturn(0.0);
+        when(quality.spreadDown()).thenReturn(0.0);
+        when(quality.maxQuality()).thenReturn(15);
+
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        listener = newListener(ignored -> Map.of("FISHING", 100),
+                new PlayerLootLuckSource(java.util.logging.Logger.getLogger("test"), null));
+
+        Item caughtItem = mockCaughtItem(new ItemStack(Material.BOW));
+        listener.onFish(fishEvent(player, caughtItem));
+
+        verify(itemFactory).stamp(any(ItemStack.class), anyLong(),
+                org.mockito.ArgumentMatchers.eq(2));
+    }
+
+    @Test
+    void higherLootLuckRaisesFishingQualityMode() {
+        when(quality.fishingBaseQuality()).thenReturn(1);
+        when(quality.spreadUp()).thenReturn(0.0);
+        when(quality.spreadDown()).thenReturn(0.0);
+        when(quality.maxQuality()).thenReturn(15);
+
+        PlayerMock noLuckPlayer = server.addPlayer();
+        noLuckPlayer.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        newListener(SkillLevelSource.EMPTY, lootLuck(noLuckPlayer, 0.0))
+                .onFish(fishEvent(noLuckPlayer, mockCaughtItem(new ItemStack(Material.BOW))));
+
+        PlayerMock luckyPlayer = server.addPlayer();
+        luckyPlayer.getInventory().setItemInMainHand(new ItemStack(Material.FISHING_ROD));
+        newListener(SkillLevelSource.EMPTY, lootLuck(luckyPlayer, 4.0))
+                .onFish(fishEvent(luckyPlayer, mockCaughtItem(new ItemStack(Material.BOW))));
+
+        org.mockito.ArgumentCaptor<Integer> qualities =
+                org.mockito.ArgumentCaptor.forClass(Integer.class);
+        verify(itemFactory, times(2)).stamp(any(ItemStack.class), anyLong(), qualities.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(1, 5), qualities.getAllValues(),
+                "loot luck 0->4 should raise the fishing quality mode by four tiers");
     }
 
     @Test

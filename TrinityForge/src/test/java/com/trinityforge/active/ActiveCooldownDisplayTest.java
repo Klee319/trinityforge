@@ -15,6 +15,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -129,5 +130,36 @@ class ActiveCooldownDisplayTest {
         display.run();
 
         verify(feedback, never()).cooldownTicking(any(), anyString(), anyLong());
+    }
+
+    @Test
+    void showsSemiActiveCooldownWhileItsActivationToolIsHeld() {
+        SemiActiveCooldown semiActive = mock(SemiActiveCooldown.class);
+        when(semiActive.id()).thenReturn("tree-fell");
+        when(semiActive.displayName()).thenReturn("一括伐採");
+        when(semiActive.isEligible(player)).thenReturn(true);
+        when(semiActive.cooldownMillis(player)).thenReturn(10_000L);
+        display = new ActiveCooldownDisplay(MockBukkit.createMockPlugin(), registry, dedicatedEffects,
+                cooldowns, feedback, aggregator, List.of(semiActive));
+        cooldowns.tryConsume(player.getUniqueId(), "tree-fell", 10_000L, System.currentTimeMillis());
+
+        display.run();
+
+        verify(feedback).cooldownTicking(eq(player), eq("一括伐採"), anyLong());
+    }
+
+    @Test
+    void staysSilentForSemiActiveCooldownWhileItsActivationToolIsNotHeld() {
+        SemiActiveCooldown semiActive = mock(SemiActiveCooldown.class);
+        when(semiActive.id()).thenReturn("tree-fell");
+        when(semiActive.isEligible(player)).thenReturn(false);
+        display = new ActiveCooldownDisplay(MockBukkit.createMockPlugin(), registry, dedicatedEffects,
+                cooldowns, feedback, aggregator, List.of(semiActive));
+        cooldowns.tryConsume(player.getUniqueId(), "tree-fell", 10_000L, System.currentTimeMillis());
+
+        display.run();
+
+        verify(feedback, never()).cooldownTicking(any(), anyString(), anyLong());
+        verify(semiActive, never()).cooldownMillis(any());
     }
 }

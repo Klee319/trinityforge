@@ -7,6 +7,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Furnace;
 import org.bukkit.event.inventory.FurnaceSmeltEvent;
 import org.bukkit.event.inventory.FurnaceStartSmeltEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
@@ -71,16 +72,23 @@ class FurnaceSmeltListenerTest {
     }
 
     private InventoryClickEvent manualInsertEvent(Furnace furnace, PlayerMock player, ItemStack item, int rawSlot) {
+        return manualInsertEvent(furnace, player, null, item, rawSlot, InventoryAction.PLACE_ALL);
+    }
+
+    private InventoryClickEvent manualInsertEvent(Furnace furnace, PlayerMock player, ItemStack currentItem,
+                                                   ItemStack cursor, int rawSlot, InventoryAction action) {
         InventoryClickEvent event = mock(InventoryClickEvent.class);
         InventoryView view = mock(InventoryView.class);
         Inventory top = mock(Inventory.class);
         when(top.getHolder()).thenReturn(furnace);
+        when(top.getSize()).thenReturn(3);
         when(view.getTopInventory()).thenReturn(top);
         when(event.getView()).thenReturn(view);
         when(event.getWhoClicked()).thenReturn(player);
         when(event.getRawSlot()).thenReturn(rawSlot);
-        when(event.getCurrentItem()).thenReturn(item);
-        when(event.getAction()).thenReturn(InventoryAction.PLACE_ALL);
+        when(event.getCurrentItem()).thenReturn(currentItem);
+        when(event.getCursor()).thenReturn(cursor);
+        when(event.getAction()).thenReturn(action);
         return event;
     }
 
@@ -104,6 +112,46 @@ class FurnaceSmeltListenerTest {
         listener.onStartSmelt(event);
 
         assertEquals(140, event.getTotalCookTime(), "owner's 30% speed bonus must reduce 200 -> 140 ticks");
+    }
+
+    @Test
+    void placingCursorIntoEmptySmeltingSlotStampsInserter() {
+        InventoryClickEvent insert = manualInsertEvent(furnace(), owner, null,
+                new ItemStack(Material.IRON_ORE), 0, InventoryAction.PLACE_ALL);
+        listener.onInventoryClick(insert);
+
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(30.0);
+        FurnaceStartSmeltEvent event =
+                new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
+        listener.onStartSmelt(event);
+
+        assertEquals(140, event.getTotalCookTime(),
+                "an empty destination has no currentItem; the non-empty cursor is the inserted stack");
+    }
+
+    @Test
+    void shiftClickingSmeltableItemFromPlayerInventoryStampsInserter() {
+        Furnace mockFurnace = mock(Furnace.class);
+        FurnaceInventory inventory = mock(FurnaceInventory.class);
+        org.bukkit.persistence.PersistentDataContainer pdc =
+                mock(org.bukkit.persistence.PersistentDataContainer.class);
+        ItemStack ironOre = new ItemStack(Material.IRON_ORE);
+        when(mockFurnace.getInventory()).thenReturn(inventory);
+        when(mockFurnace.getPersistentDataContainer()).thenReturn(pdc);
+        when(inventory.canSmelt(ironOre)).thenReturn(true);
+        when(inventory.getSmelting()).thenReturn(null);
+        int playerInventoryRawSlot = 3;
+        InventoryClickEvent insert = manualInsertEvent(mockFurnace, owner,
+                ironOre, new ItemStack(Material.AIR),
+                playerInventoryRawSlot, InventoryAction.MOVE_TO_OTHER_INVENTORY);
+        when(insert.getClick()).thenReturn(ClickType.SHIFT_LEFT);
+        listener.onInventoryClick(insert);
+
+        org.mockito.Mockito.verify(pdc).set(any(), eq(org.bukkit.persistence.PersistentDataType.STRING),
+                eq(owner.getUniqueId().toString()));
+        org.mockito.Mockito.verify(pdc).set(any(), eq(org.bukkit.persistence.PersistentDataType.STRING), eq("manual"));
+        org.mockito.Mockito.verify(mockFurnace).update();
     }
 
     @Test

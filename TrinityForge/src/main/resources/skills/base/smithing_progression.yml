@@ -5,8 +5,3 @@
 experience:
   exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
   max_level: 100
-  durability_tools_exp_multiplier_stack: 0.01
-  durability_tools_exp_multiplier_maximum: 1000
-  durability_armors_exp_multiplier_stack: 0.005
-  durability_armors_exp_multiplier_maximum: 200
-  legacy:

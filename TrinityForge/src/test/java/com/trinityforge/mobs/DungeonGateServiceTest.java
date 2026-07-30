@@ -144,6 +144,78 @@ class DungeonGateServiceTest {
     }
 
     @Test
+    void requiredEliteMobsEntryFailsClosedWhenNoGateIsConfigured() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("gates: {}\n");
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(50);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock player = server.addPlayer();
+
+        assertFalse(service.checkRequiredEntry(player, "unconfigured_content_package"));
+    }
+
+    @Test
+    void requiredEliteMobsEntryAllowsAdminWithoutConfiguredGate() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("gates: {}\n");
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(50);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock admin = server.addPlayer();
+        admin.setOp(true);
+
+        assertTrue(service.checkRequiredEntry(admin, "unconfigured_content_package"));
+    }
+
+    @Test
+    void gatePresenceCheckResolvesWorldAndContentPackageWithoutConsuming() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("""
+                gates:
+                  dungeon_sanctum:
+                    content-package: sanctum_package.yml
+                    required-combat-level: 0
+                    key-item: tf_crypt_sigil
+                    key-amount: 1
+                """);
+        resolvableAsCatalogItem("tf_crypt_sigil");
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, stampedCatalogItem(Material.LEATHER, "tf_crypt_sigil"));
+
+        assertTrue(service.hasEntryGate("dungeon_sanctum"));
+        assertTrue(service.hasEntryGate("SANCTUM_PACKAGE.YML"));
+        assertFalse(service.hasEntryGate("unconfigured_package.yml"));
+        assertTrue(hasAnyCatalogKey(player, "tf_crypt_sigil"));
+    }
+
+    @Test
+    void requiredEntryPreviewDoesNotConsumeUntilCommittedEntryCheck() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("""
+                gates:
+                  dungeon_sanctum:
+                    content-package: sanctum_package.yml
+                    required-combat-level: 0
+                    key-item: tf_crypt_sigil
+                    key-amount: 1
+                """);
+        resolvableAsCatalogItem("tf_crypt_sigil");
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(50);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, stampedCatalogItem(Material.LEATHER, "tf_crypt_sigil"));
+
+        assertTrue(service.previewRequiredEntry(player, "sanctum_package.yml"));
+        assertTrue(hasAnyCatalogKey(player, "tf_crypt_sigil"), "事前確認で鍵を消費している");
+        assertTrue(service.checkRequiredEntry(player, "sanctum_package.yml"));
+        assertFalse(hasAnyCatalogKey(player, "tf_crypt_sigil"), "確定入場で鍵を消費していない");
+    }
+
+    @Test
     void vanillaMaterialKeyDoesNotConsumeCustomItemOfSameMaterial() throws Exception {
         // 鍵がバニラMaterial(AMETHYST_SHARD)のとき、同じMaterialのカスタム品(PDCあり)を巻き込んで
         // 消費してはいけない。カスタム品しか持っていない場合は「所持なし」で拒否される。

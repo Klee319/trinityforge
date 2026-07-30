@@ -1,5 +1,7 @@
 package com.trinityforge.skilltree.runtime;
 
+import com.trinityforge.progression.repository.LoadResult;
+
 import java.util.Set;
 import java.util.UUID;
 
@@ -24,6 +26,18 @@ public interface SkillPerkStatSource {
      * player is offline, or a read fails.
      */
     Set<String> unlockedPerkIds(UUID playerId);
+
+    /**
+     * Loads unlocked perk IDs while preserving whether the source read failed.
+     *
+     * <p>Existing non-persistent sources can keep implementing {@link #unlockedPerkIds(UUID)};
+     * their reads are treated as successful. Persistent sources should override this method so
+     * callers that maintain a last-known-good mirror do not confuse a storage failure with a
+     * successful empty result.
+     */
+    default LoadResult<Set<String>> loadUnlockedPerkIds(UUID playerId) {
+        return LoadResult.found(unlockedPerkIds(playerId));
+    }
 
     /** No-op source: used when ValhallaMMO is absent so perk buffs contribute nothing (full backward compat). */
     SkillPerkStatSource EMPTY = playerId -> Set.of();

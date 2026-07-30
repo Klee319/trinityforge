@@ -22,10 +22,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
-import java.util.EnumSet;
 import java.util.Objects;
 import java.util.OptionalDouble;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -63,10 +61,6 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class FurnaceSmeltListener implements Listener {
 
-    private static final Set<InventoryAction> MANUAL_INSERT_ACTIONS = EnumSet.of(
-            InventoryAction.PLACE_ALL, InventoryAction.PLACE_ONE, InventoryAction.PLACE_SOME,
-            InventoryAction.SWAP_WITH_CURSOR, InventoryAction.HOTBAR_SWAP,
-            InventoryAction.MOVE_TO_OTHER_INVENTORY);
     private static final int SMELTING_SLOT = 0;
     private static final String MODE_MANUAL = "manual";
     private static final String MODE_AUTO = "auto";
@@ -98,12 +92,56 @@ public final class FurnaceSmeltListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         InventoryHolder holder = event.getView().getTopInventory().getHolder();
         if (!(holder instanceof Furnace furnace)) return;
-        int rawSlot = event.getRawSlot();
-        if (rawSlot != SMELTING_SLOT) return;
-        if (event.getCurrentItem() == null || event.getCurrentItem().getType().isAir()) return;
-        if (!MANUAL_INSERT_ACTIONS.contains(event.getAction())) return;
+        ItemStack inserted = manualInsertionCandidate(event, player);
+        boolean shiftedFromPlayer = event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY;
+        if (!canEnterSmeltingSlot(furnace, inserted, shiftedFromPlayer)) return;
 
         stamp(furnace, player.getUniqueId(), MODE_MANUAL);
+    }
+
+    /**
+     * InventoryClickEvent exposes the pre-click state. Direct placement therefore comes from the cursor
+     * (not currentItem), while shift-click comes from the clicked player-inventory slot.
+     */
+    private ItemStack manualInsertionCandidate(InventoryClickEvent event, Player player) {
+        InventoryAction action = event.getAction();
+        int rawSlot = event.getRawSlot();
+        if (rawSlot == SMELTING_SLOT) {
+            return switch (action) {
+                case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR -> event.getCursor();
+                case HOTBAR_SWAP -> {
+                    int hotbarButton = event.getHotbarButton();
+                    yield hotbarButton >= 0
+                            ? player.getInventory().getItem(hotbarButton)
+                            : player.getInventory().getItemInOffHand();
+                }
+                default -> null;
+            };
+        }
+        int topSize = event.getView().getTopInventory().getSize();
+        if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY && rawSlot >= topSize) {
+            return event.getCurrentItem();
+        }
+        return null;
+    }
+
+    /** Rejects fuel/non-smeltable shift-clicks and clicks that cannot add to the current input stack. */
+    private boolean canEnterSmeltingSlot(Furnace furnace, ItemStack inserted, boolean verifySmeltable) {
+        if (inserted == null || inserted.getType().isAir()) {
+            return false;
+        }
+        // A direct PLACE_* action already names the furnace input as its accepted destination. A
+        // shift-click originates in the player inventory and could instead target the fuel slot, so
+        // only that ambiguous path needs the recipe-aware canSmelt check.
+        if (!verifySmeltable) {
+            return true;
+        }
+        if (!furnace.getInventory().canSmelt(inserted)) {
+            return false;
+        }
+        ItemStack current = furnace.getInventory().getSmelting();
+        return current == null || current.getType().isAir()
+                || (current.isSimilar(inserted) && current.getAmount() < current.getMaxStackSize());
     }
 
     /** ホッパー等の自動投入先がかまどなら、投入先スロットに関わらずモードをautoへ上書きする。 */

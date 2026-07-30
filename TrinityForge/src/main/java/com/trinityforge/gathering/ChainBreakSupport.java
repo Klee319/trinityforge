@@ -106,8 +106,7 @@ public final class ChainBreakSupport {
     private static boolean damageHeldTool(Player player) {
         PlayerInventory inventory = player.getInventory();
         ItemStack held = inventory.getItemInMainHand();
-        short maxDurability = held == null ? 0 : held.getType().getMaxDurability();
-        if (maxDurability <= 0) {
+        if (held == null) {
             return false;
         }
         int unbreaking = held.getEnchantmentLevel(Enchantment.UNBREAKING);
@@ -117,6 +116,12 @@ public final class ChainBreakSupport {
         ItemMeta meta = held.getItemMeta();
         if (!(meta instanceof Damageable damageable)) {
             return true;
+        }
+        int maxDurability = damageable.hasMaxDamage()
+                ? damageable.getMaxDamage()
+                : held.getType().getMaxDurability();
+        if (maxDurability <= 0) {
+            return false;
         }
         int next = damageable.getDamage() + 1;
         if (next >= maxDurability) {

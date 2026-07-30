@@ -12,13 +12,16 @@ import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrushableBlock;
+import org.bukkit.block.CreatureSpawner;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.loot.LootTables;
 import org.bukkit.plugin.Plugin;
@@ -42,11 +45,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *       class as {@link BeekeepingListener}'s {@code hive-harvest-fortune} fix. Now compares the fraction
  *       directly against the roll, same idiom as {@link com.trinityforge.combat.CritResolver}.</li>
  *   <li>{@code spawner-silktouch-harvest} (flag): breaking a {@link Material#SPAWNER} with a
- *       silk-touch tool drops a plain SPAWNER item instead of vanilla's "drop nothing".
- *       <strong>Note (要調整)</strong>: the harvested spawner does NOT retain its configured
- *       {@code EntityType} — reproducing that would need custom NBT/PDC round-tripping through the
- *       drop item that nothing else in this codebase currently does, so it is deliberately left as a
- *       plain (pig-spawner-equivalent) SPAWNER item rather than guessed at.</li>
+ *       silk-touch tool drops a SPAWNER item whose {@link CreatureSpawner#getSpawnedType()} is copied
+ *       through {@link BlockStateMeta}. Player-placed spawners are excluded to prevent place/break
+ *       item and experience loops.</li>
  * </ul>
  */
 public final class MiningGimmickListener implements Listener {
@@ -59,19 +60,28 @@ public final class MiningGimmickListener implements Listener {
     private final DedicatedEffectsConfig dedicatedEffects;
     private final PlayerStatAggregator aggregator;
     private final MiningGimmickConfig miningGimmick;
+    private final PlacedBlockTracker placedBlocks;
     private final Enchantment silkTouch;
 
     public MiningGimmickListener(Plugin plugin, DedicatedEffectsConfig dedicatedEffects,
                                  PlayerStatAggregator aggregator) {
-        this(plugin, dedicatedEffects, aggregator, new MiningGimmickConfig());
+        this(plugin, dedicatedEffects, aggregator, new MiningGimmickConfig(),
+                new PlacedBlockTracker(plugin));
     }
 
     public MiningGimmickListener(Plugin plugin, DedicatedEffectsConfig dedicatedEffects,
                                  PlayerStatAggregator aggregator, MiningGimmickConfig miningGimmick) {
+        this(plugin, dedicatedEffects, aggregator, miningGimmick, new PlacedBlockTracker(plugin));
+    }
+
+    public MiningGimmickListener(Plugin plugin, DedicatedEffectsConfig dedicatedEffects,
+                                 PlayerStatAggregator aggregator, MiningGimmickConfig miningGimmick,
+                                 PlacedBlockTracker placedBlocks) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
         this.miningGimmick = Objects.requireNonNull(miningGimmick, "miningGimmick");
+        this.placedBlocks = Objects.requireNonNull(placedBlocks, "placedBlocks");
         this.silkTouch = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("silk_touch"));
     }
 
@@ -131,6 +141,13 @@ public final class MiningGimmickListener implements Listener {
 
     private void handleSpawnerHarvest(BlockBreakEvent event) {
         Player player = event.getPlayer();
+        Block block = event.getBlock();
+        if (placedBlocks.isPlaced(block)) {
+            // Vanilla spawners award experience independently of item drops. Suppress that too:
+            // otherwise any harvested spawner that was placed again would still yield free EXP.
+            event.setExpToDrop(0);
+            return;
+        }
         if (!dedicatedEffects.isActive(player, EFFECT_SPAWNER_HARVEST)) {
             return;
         }
@@ -138,9 +155,32 @@ public final class MiningGimmickListener implements Listener {
         if (!hasSilkTouch(tool)) {
             return;
         }
+        if (!(block.getState() instanceof CreatureSpawner source)) {
+            return;
+        }
+        ItemStack drop = spawnerItem(source.getSpawnedType());
+        if (drop == null) {
+            return;
+        }
         event.setDropItems(false);
-        event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(),
-                new ItemStack(Material.SPAWNER, 1));
+        event.setExpToDrop(0);
+        block.getWorld().dropItemNaturally(block.getLocation(), drop);
+    }
+
+    /**
+     * Creates the item-state copy required by Paper/Bukkit: {@code getBlockState()} returns a copy,
+     * so both {@code setBlockState()} and {@code setItemMeta()} are required to retain the entity type.
+     */
+    private static ItemStack spawnerItem(EntityType spawnedType) {
+        ItemStack item = new ItemStack(Material.SPAWNER, 1);
+        if (!(item.getItemMeta() instanceof BlockStateMeta meta)
+                || !(meta.getBlockState() instanceof CreatureSpawner itemSpawner)) {
+            return null;
+        }
+        itemSpawner.setSpawnedType(spawnedType);
+        meta.setBlockState(itemSpawner);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private boolean hasSilkTouch(ItemStack tool) {

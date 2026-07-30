@@ -45,8 +45,8 @@ public final class StatVocabulary {
             "arrow_velocity", "bow_cooldown_reduction", "arrow_knockback",
             // 近接系 (NativeCombatPerkListener → totalOf(attacker, weapon))
             "melee_knockback", "stun_chance", "power_attack_damage", "power_attack_radius",
-            // 2026-07-26 新設: スタン時間(stun_chance発動時のticksへの割合加算)。stun_chanceと対の
-            // キーだがチャネルは同じATTACK(NativeCombatPerkListener.onMelee消費、上限クランプあり)。
+            // スタン時間のtick加算値。base-statsの初期tick、装備、パークを合算し、
+            // NativeCombatPerkListener.onMeleeで上限クランプして消費する。
             "stun_duration_bonus",
             // 2026-07-26 stat-scope 境界引き直し §3 (B→C 昇格): 攻撃範囲(AoE)3キー。従来は
             // CombatListener が agg.item() のみを直接読んでおり、スキルツリーパーク由来の分が

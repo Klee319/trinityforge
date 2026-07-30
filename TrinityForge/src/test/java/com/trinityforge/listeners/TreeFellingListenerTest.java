@@ -14,6 +14,8 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -225,5 +227,67 @@ class TreeFellingListenerTest {
         ItemStack held = player.getInventory().getItemInMainHand();
         int damage = held.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable d ? d.getDamage() : 0;
         assertEquals(2, damage, "連鎖破壊した2ブロックぶんの耐久が減ること(旧実装は0のままだった)");
+    }
+
+    @Test
+    void tierOneDoesNotPadSevenLogTreeToEightBrokenBlocks() {
+        player.getInventory().setItemInMainHand(new ItemStack(Material.IRON_AXE));
+        when(dedicatedEffects.valueMax(any(), eq("tree-fell"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.treeFellMaxExtraLogs(1)).thenReturn(8);
+        when(gimmickConfig.treeFellCooldownTicks()).thenReturn(200);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        for (int y = 64; y < 71; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        List<Block> chainBreaks = new java.util.ArrayList<>();
+        listener((p, block, drops, tool) -> chainBreaks.add(block))
+                .onBlockBreak(breakEvent(origin));
+
+        long logsAfterChain = java.util.stream.IntStream.range(64, 71)
+                .filter(y -> player.getWorld().getBlockAt(0, y, 0).getType() == Material.OAK_LOG)
+                .count();
+        assertEquals(6, chainBreaks.size(),
+                "A seven-log tree has only six additional logs; the Tier 1 ceiling must not pad it to eight");
+        assertEquals(1, logsAfterChain,
+                "only the event origin must remain for the original vanilla break");
+
+        // MockBukkit does not perform the original event's vanilla break, so finish that one break
+        // explicitly after the listener has chain-felled the six connected neighbors.
+        origin.breakNaturally(player.getInventory().getItemInMainHand());
+        long logsAfterOriginalBreak = java.util.stream.IntStream.range(64, 71)
+                .filter(y -> player.getWorld().getBlockAt(0, y, 0).getType() == Material.OAK_LOG)
+                .count();
+        assertEquals(0, logsAfterOriginalBreak,
+                "the complete operation must remove exactly the seven blocks that existed");
+    }
+
+    @Test
+    void chainFellingBreaksToolAtCustomMaxDamageWithoutExceedingIt() {
+        ItemStack axe = new ItemStack(Material.IRON_AXE);
+        ItemMeta meta = axe.getItemMeta();
+        Damageable damageable = (Damageable) meta;
+        damageable.setMaxDamage(2);
+        damageable.setDamage(1);
+        axe.setItemMeta(meta);
+        player.getInventory().setItemInMainHand(axe);
+        when(dedicatedEffects.valueMax(any(), eq("tree-fell"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.treeFellMaxExtraLogs(1)).thenReturn(8);
+        when(gimmickConfig.treeFellCooldownTicks()).thenReturn(200);
+
+        Block origin = player.getWorld().getBlockAt(0, 64, 0);
+        Block firstNeighbor = player.getWorld().getBlockAt(0, 65, 0);
+        Block secondNeighbor = player.getWorld().getBlockAt(0, 66, 0);
+        origin.setType(Material.OAK_LOG);
+        firstNeighbor.setType(Material.OAK_LOG);
+        secondNeighbor.setType(Material.OAK_LOG);
+
+        listener().onBlockBreak(breakEvent(origin));
+
+        assertEquals(Material.AIR, player.getInventory().getItemInMainHand().getType(),
+                "custom max damage must break the tool before Damageable#setDamage exceeds its limit");
+        assertEquals(Material.OAK_LOG, secondNeighbor.getType(),
+                "chain felling must stop as soon as the custom-durability tool breaks");
     }
 }

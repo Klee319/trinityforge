@@ -5,12 +5,18 @@
 # 数値は全て暫定(要調整)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/farming-gimmick.md
 
-
 area-harvest:
   radius: 1
-
+  tiers:
+    "1":
+      radius: 1
+    "2":
+      radius: 2
+    "3":
+      radius: 3
+    "4":
+      radius: 4
 animal-damage-4x:
-  multiplier: 4.0
-
+  multiplier: 4
 bee-no-aggro:
-  calm-radius: 8.0
+  calm-radius: 8

@@ -13,86 +13,28 @@
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/skill-exp.md
 
 dungeon-only-exp: false
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 オーバーワールドEXP開放】ダンジョン外の戦闘スキルEXP倍率
-# ---------------------------------------------------------------------------
-# dungeon-only-exp: false のとき、ダンジョンワールドの「外」で得られる戦闘スキルEXP
-# (軽・重武器と魔法=討伐 / 弓術=命中 / 防具=被弾)に掛かる倍率。ダンジョン内は常に 1.0 のまま。
-#   1.0 = ダンジョンと同率(オーバーワールドで育て切れてしまうので非推奨)
-#   0.25(既定) = ダンジョンの1/4。オーバーワールドでも育つが、4倍速いダンジョンが主戦場になる
-#   0.0 = dungeon-only-exp: true と同じ完全遮断
-# ※dungeon-only-exp: true のときはそちらが優先され、この値は参照されない。
-# ※採取/釣り/クラフト等の非戦闘EXPは元々このゲートの対象外なので、ここの影響も受けない。
 outside-dungeon-exp-rate: 0.25
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 TT・放置対策】同一地点の逓減
-# ---------------------------------------------------------------------------
-# 「直近 window-seconds 秒のあいだに、半径 radius ブロック以内で何回EXPを得たか」を数え、
-# threshold 回を超えたぶんだけ1回あたり decay-per-kill ずつ倍率を下げる(floor で下げ止まり)。
-# 武器・魔法EXP(討伐)・弓術EXP(命中)・防具EXP(被弾)が同じカウンタを共有する
-# — 経路ごとに別勘定にすると、経路を混ぜるだけで逓減を回避できてしまうため。
-#
-# 狙いはTTを「潰す」ことではなく「割に合わなくする」こと。floor を0にしないのはそのため。
-# 既定値(threshold 30 / decay 0.05 / floor 0.1)の意味:
-#   同じ場所で5分以内に30回まではフルEXP。31回目から5%ずつ落ち、48回目で下限10%に到達する。
-#   探索しながら戦う普通のプレイでは1箇所に30回も留まらないので、まず引っかからない。
-#
-# exempt-dungeon-worlds: true(既定) = ダンジョン内では逓減しない。ダンジョンは湧き潰しではなく
-#   有限のスポーンを消化する場所で、アリーナ型だと1箇所に留まって戦うのが正常な遊び方なので、
-#   ここで逓減させると本来推奨したい遊び方を罰することになる。
 spot-diminishing:
   enabled: true
-  radius: 24.0
-  window-seconds: 300.0
+  radius: 16
+  window-seconds: 300
   threshold: 30
   decay-per-kill: 0.05
   floor: 0.1
   exempt-dungeon-worlds: true
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 EXP調整タスク1】採取EXPの算出方式
-# ---------------------------------------------------------------------------
-# 鉱石側の値(skills/base/mining_progression.yml の experience.mining_break、47種類)は元々
-# 存在するが、旧実装は「ブロックが対象として登録されているか」の判定だけに使い、実際に付与する量は
-# 常に「ドロップ品(素材側)の値の合計」だった。そのため DIAMOND_ORE(ブロック側400) も
-# DEEPSLATE_DIAMOND_ORE(ブロック側600) も、ドロップが同じ DIAMOND(素材側200) なのでどちらも
-# 200になり、「深層岩バリアントは掘るのが大変な分EXPが高い」という設計が死んでいた。
-# exp-mode でこれを選べるようにする(採取全スキル=MINING/FARMING/WOODCUTTING/DIGGING 共通)。
-#   drop_sum(既定)   : 従来どおりドロップ品の値の合計。現行の実サーバ挙動と完全に同じ結果になる。
-#   block_value       : ブロックそのものに設定された値をそのまま使う(DEEPSLATE系が高くなる等、
-#                        ブロック側の意図がそのまま反映される)。
-#   max               : ドロップ合計とブロック値の大きい方。
-# どのモードでも次の2点は変わらない(壊さないこと、という制約どおり):
-#   ・同一素材のドロップは1回だけ加算(スタック数は無視=幸運エンチャで増殖しない)
-#   ・素手等、要求ツールを満たさずドロップが空になった破壊はEXP 0
 gathering:
-  exp-mode: drop_sum
-
+  exp-mode: block_value
 ars-smithing:
   exp-per-craft: 100
-
-# SMITHING (2026-07-25 PRG-13): 耐久消耗による付与を廃止し、武器/防具/ツールをクラフトした瞬間に
-# exp-per-craft を1回だけ付与する方式に一本化した(ars-smithingと同じ仕組み)。耐久消耗ベースだと
-# 「壊れる寸前まで使って修理」を繰り返すだけで実質無限にEXPを稼げてしまうため。
-# シフトクリックでの一括クラフトでも、クラフトイベント1回につき exp-per-craft ぶんのみ付与される
-# (作成した個数には比例しない — ars-smithingと同じ挙動)。
 smithing:
   exp-per-craft: 15
-
 ars-magic:
-  # 魔法で倒した敵の強さに応じるEXP:
-  # (base + mobLevel*per-mob-level + 最大体力*per-max-health) * entity-type倍率
   kill-exp:
     enabled: true
-    base: 20.0
+    base: 20
     per-mob-level: 1.5
     per-max-health: 0.25
-    # 【2026-07-28】entity-type-multipliers に行が無いモブへ適用する倍率。
-    # 0.0(既定) = モブ定義に載っていないモブは討伐EXPを一切生まない。
-    # 1.0 にすると旧挙動(未定義モブも満額)に戻る。
-    unlisted-entity-multiplier: 0.0
+    unlisted-entity-multiplier: 0
     entity-type-multipliers:
       BLAZE: 1.7
       BOGGED: 1.2
@@ -100,72 +42,52 @@ ars-magic:
       CAVE_SPIDER: 1.2
       CREAKING: 1.5
       CREEPER: 1.3
-      DOLPHIN: 1.0
       DROWNED: 1.2
-      ELDER_GUARDIAN: 3.0
+      ELDER_GUARDIAN: 3
       ENDERMAN: 1.5
       ENDERMITE: 1.1
-      ENDER_DRAGON: 8.0
-      EVOKER: 2.0
+      ENDER_DRAGON: 8
+      EVOKER: 2
       GHAST: 1.8
-      GIANT: 4.0
+      GIANT: 4
       GUARDIAN: 1.4
       HOGLIN: 1.5
       HUSK: 1.1
-      ILLUSIONER: 2.0
+      ILLUSIONER: 2
       MAGMA_CUBE: 1.3
       PARCHED: 1.2
       PHANTOM: 1.3
       PIGLIN: 1.1
       PIGLIN_BRUTE: 1.8
       PILLAGER: 1.2
-      POLAR_BEAR: 1.3
       RAVAGER: 2.5
       SHULKER: 1.5
-      SILVERFISH: 1.0
+      SILVERFISH: 1
       SKELETON: 1.1
-      SLIME: 1.0
-      SPIDER: 1.0
+      SLIME: 1
+      SPIDER: 1
       STRAY: 1.3
       VEX: 1.4
       VINDICATOR: 1.4
-      WARDEN: 7.0
+      WARDEN: 7
       WITCH: 1.5
-      WITHER: 6.0
+      WITHER: 6
       WITHER_SKELETON: 1.8
       ZOGLIN: 1.8
-      ZOMBIE: 1.0
-      ZOMBIE_VILLAGER: 1.0
+      ZOMBIE: 1
+      ZOMBIE_VILLAGER: 1
       ZOMBIFIED_PIGLIN: 1.2
-      # mob-level-table.yml の no-skill-exp-mobs。明示的な0でEditor上も抑止を可視化する。
-      BEE: 0.0
-      GOAT: 0.0
-      LLAMA: 0.0
-      TRADER_LLAMA: 0.0
-      PANDA: 0.0
-      WOLF: 0.0
-      IRON_GOLEM: 0.0
-  # 魔法破壊されたブロックを farming/woodcutting/digging/mining progression の
-  # 編集可能な素材EXPへ照合し、最大の一致値にこの倍率を掛けてARS_MAGICへ付与する。
   block-break-exp:
     enabled: true
-    source-multiplier: 1.0
-
-
-# 軽武器/重武器は命中EXPを廃止し、討伐確定時のEXPへ一本化。
+    source-multiplier: 1
 combat:
-  # HEAVY_WEAPONS/LIGHT_WEAPONS専用。命中時には付与せず、敵の死亡が確定した時に1回だけ付与。
-  # (skill別base + mobLevel*per-mob-level + 最大体力*per-max-health) * entity-type倍率
   kill-exp:
     base:
-      HEAVY_WEAPONS: 30.0
-      LIGHT_WEAPONS: 25.0
-    per-mob-level: 2.0
+      HEAVY_WEAPONS: 30
+      LIGHT_WEAPONS: 20
+    per-mob-level: 2
     per-max-health: 0.25
-    # 【2026-07-28】entity-type-multipliers に行が無いモブへ適用する倍率。
-    # 0.0(既定) = モブ定義に載っていないモブは討伐EXPを一切生まない。
-    # 1.0 にすると旧挙動(未定義モブも満額)に戻る。
-    unlisted-entity-multiplier: 0.0
+    unlisted-entity-multiplier: 0
     entity-type-multipliers:
       BLAZE: 1.7
       BOGGED: 1.2
@@ -173,128 +95,61 @@ combat:
       CAVE_SPIDER: 1.2
       CREAKING: 1.5
       CREEPER: 1.3
-      DOLPHIN: 1.0
       DROWNED: 1.2
-      ELDER_GUARDIAN: 3.0
+      ELDER_GUARDIAN: 3
       ENDERMAN: 1.5
       ENDERMITE: 1.1
-      ENDER_DRAGON: 8.0
-      EVOKER: 2.0
+      ENDER_DRAGON: 8
+      EVOKER: 2
       GHAST: 1.8
-      GIANT: 4.0
+      GIANT: 4
       GUARDIAN: 1.4
       HOGLIN: 1.5
       HUSK: 1.1
-      ILLUSIONER: 2.0
+      ILLUSIONER: 2
       MAGMA_CUBE: 1.3
       PARCHED: 1.2
       PHANTOM: 1.3
       PIGLIN: 1.1
       PIGLIN_BRUTE: 1.8
       PILLAGER: 1.2
-      POLAR_BEAR: 1.3
       RAVAGER: 2.5
       SHULKER: 1.5
-      SILVERFISH: 1.0
+      SILVERFISH: 1
       SKELETON: 1.1
-      SLIME: 1.0
-      SPIDER: 1.0
+      SLIME: 1
+      SPIDER: 1
       STRAY: 1.3
       VEX: 1.4
       VINDICATOR: 1.4
-      WARDEN: 7.0
+      WARDEN: 7
       WITCH: 1.5
-      WITHER: 6.0
+      WITHER: 6
       WITHER_SKELETON: 1.8
       ZOGLIN: 1.8
-      ZOMBIE: 1.0
-      ZOMBIE_VILLAGER: 1.0
+      ZOMBIE: 1
+      ZOMBIE_VILLAGER: 1
       ZOMBIFIED_PIGLIN: 1.2
-      BEE: 0.0
-      GOAT: 0.0
-      LLAMA: 0.0
-      TRADER_LLAMA: 0.0
-      PANDA: 0.0
-      WOLF: 0.0
-      IRON_GOLEM: 0.0
-
-# ---------------------------------------------------------------------------
-# 【2026-07-26 EXP調整タスク3】後半ヌルゲー化への栓: スキルレベル逓減カーブ(既定OFF)
-# ---------------------------------------------------------------------------
-# レベルが上がるほど1回あたりのEXP取得量を減らしたい場合に使う。既定は gathering-enabled/
-# combat-enabled とも false = 常に倍率1.0(現行挙動そのまま)。「使うかどうかはユーザーが決める」
-# 方針でオプトインにしてある。有効にすると "後半の伸びが鈍る"(同じ作業を繰り返しても
-# 得られるEXPが徐々に減っていく)効果になる — 後半ヌルゲー化対策として使うことを想定している。
-#   gathering-enabled : MINING/FARMING/WOODCUTTING/DIGGING(タスク1の採取系)へ適用するか。
-#   combat-enabled    : HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY/HEAVY_ARMOR/LIGHT_ARMOR/ARS_MAGIC
-#                        (武器/魔法の討伐、弓命中、防具被弾)へ適用するか。
-#                        どちらか片方だけ有効化することもできる。
-#   formula           : exp_level_curve と同じ書式(%level% が現在レベルに置き換わる四則演算/べき乗式)。
-#                        評価結果がそのまま倍率になる(1.0=減衰なし)。既定は
-#                        "1 / (1 + %level% / 50)" — レベル0で1.0、レベル50で0.5、レベル150で0.25と、
-#                        なだらかに減っていく緩やかな逓減カーブ。急に0まで落ちない設計。
-#   floor             : 倍率の下限(これ未満には下がらない)。既定0.2 = どれだけレベルが上がっても
-#                        最低20%のEXPは入り続ける(完全に稼げなくなることを防ぐ安全弁)。
 level-diminishing:
   gathering-enabled: false
   combat-enabled: false
-  formula: '1 / (1 + %level% / 50)'
+  formula: 1 / (1 + %level% / 50)
   floor: 0.2
-
 exp-display:
   mode: bossbar
-  bossbar-seconds: 4.0
+  bossbar-seconds: 4
   max-concurrent-bossbars: 4
-
 level-up:
   chat: true
   sound-enabled: true
   sound: ENTITY_PLAYER_LEVELUP
   title-every-levels: 10
-
-# ---------------------------------------------------------------------------
-# 【2026-07-28】使用可能レベル連動EXP(Ars鍛冶・鍛冶・伐採・採掘・切削)
-# ---------------------------------------------------------------------------
-# 「使用したツールの使用可能レベル(鍛冶は作成したツール/装備の使用可能レベル)が高いほど、
-# そのぶん得られるEXPも増える」ための倍率設定。式は単純な線形:
-#   倍率 = 1 + 使用可能レベル × per-level
-# item-stats.yml で実際に使われている使用可能レベルは 0/10/20/30/40/55/70/85/100 の9段のみで、
-# per-level の既定値 0.01 のときの倍率は次のとおり:
-#   Lv0(素手・バニラツール・item-statsにプロファイル無し) = 1.00倍(＝現状維持)
-#   Lv10 = 1.10倍 / Lv20 = 1.20倍 / Lv30 = 1.30倍 / Lv40 = 1.40倍
-#   Lv55 = 1.55倍 / Lv70 = 1.70倍 / Lv85 = 1.85倍 / Lv100 = 2.00倍
-#
-# 【使用可能レベル0＝倍率1.0の意味】
-# 素手・バニラの無印ツール・item-stats.ymlに使用制限プロファイルが無いアイテムは、すべて
-# 使用可能レベル0として扱われ、倍率は常に1.0になる。つまりこの機能を有効にしても、
-# 従来どおりバニラ相当の道具でプレイしている限りEXP取得量は1ビットも変わらない。
-#
-# 【鍛冶と採取3種の違い】
-#   ars-smithing: Ars作業台/儀式で完成した装備・触媒そのものの使用可能レベルを見る。
-#   smithing    : 「クラフトして完成した」ツール/装備そのものの使用可能レベルを見る。
-#   woodcutting/mining/digging : 「ブロックの破壊に使ったメインハンドのアイテム」の
-#                 使用可能レベルを見る(そのブロックの採取分類とツールのuse-skillが
-#                 一致している必要はない。例: シャベルでDIGGING扱いのブロックを掘った場合)。
-#
-# 【農業(FARMING)は対象外】
-# per-levelにfarmingの行が無いため、FARMINGへ付与されるEXPはこの機能の影響を一切受けない
-# (ユーザー要件どおり、農業は今回のスコープ外)。
-#
-# 【爆破採掘(EntityExplodeEvent経由)には掛からない】
-# TNT等での爆破破壊は「ツールで壊した」わけではないため、この倍率は掛からない(常に1.0)。
-# ツルハシを持ったままTNTを起爆するだけで倍率が乗る抜け道を防ぐ意図もある。
-#
-# enabled: false でこの機能自体を無効化できる(既定true)。
-# max-multiplier: per-levelを大きくした際の暴走止め(既定3.0)。倍率がこの値を超えることはない。
-# per-level: スキルごとの係数。行が無いスキル(farming等)は常に1.0(未対象)。
-#   後から鍛冶だけ・採取系だけ個別に強さを変えられるようキーを分けてあるが、
-#   要件どおり初期値はすべて同じ強さ(0.01)にしてある。
 use-level-scaling:
   enabled: true
-  max-multiplier: 3.0
+  max-multiplier: 100
   per-level:
-    ars-smithing: 0.01
-    smithing: 0.01
+    ars-smithing: 0.1
+    smithing: 1.3
     woodcutting: 0.01
     mining: 0.01
     digging: 0.01

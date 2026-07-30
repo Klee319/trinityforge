@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -346,5 +347,28 @@ class FishingGimmickConfigTest {
                 """);
         assertTrue(config.oceanBiomeKeys().isEmpty());
         assertFalse(config.isOceanBiome(Biome.OCEAN));
+    }
+
+    @Test
+    void bundledDropTablesDoNotCreateMetadataLessBooksOrPotions(@TempDir File tempDir) throws IOException {
+        String bundled;
+        try (var input = FishingGimmickConfigTest.class.getResourceAsStream("/stats/fishing-gimmick.yml")) {
+            if (input == null) {
+                throw new AssertionError("missing bundled stats/fishing-gimmick.yml");
+            }
+            bundled = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        FishingGimmickConfig config = loaded(tempDir, bundled);
+
+        List<String> itemIds = config.groups().values().stream()
+                .flatMap(categories -> categories.values().stream())
+                .flatMap(category -> category.entries().stream())
+                .map(DropTableConfig.Entry::item)
+                .toList();
+
+        assertFalse(itemIds.contains("ENCHANTED_BOOK"),
+                "a bare material fallback creates an enchanted book with no stored enchantments");
+        assertFalse(itemIds.contains("POTION"),
+                "a bare material fallback creates an ordinary water bottle with no potion effect");
     }
 }

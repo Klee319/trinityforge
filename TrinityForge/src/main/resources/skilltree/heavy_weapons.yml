@@ -31,287 +31,341 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/heavy_weapons.md
+
 skill: HEAVY_WEAPONS
-display-name: "重量武器"
+display-name: 重量武器
 icon: NETHERITE_AXE
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 3
   at-level: 100
-  name: "覇王の境地"
-  effect-text: "ダメージ・貫通率・固定ダメージが永続で増加"
-  buffs:
-    attack-power: 0.15
-    penetration: 0.1
-    fixed-damage: 2.0
-
+  name: 覇王の境地
+  effect-text: ダメージ・貫通率・固定ダメージが永続で増加
+  mainhand-multipliers:
+    layer_1:
+      attack-power: 1.15
+  mainhand-buffs:
+    crit-chance: 0.1
+    crit-damage: 0.2
+  description: |-
+    攻撃力x1.15(永続)
+    会心率+10%(永続)
+    会心ダメージ+20%(永続)
 nodes:
   A:
-    name: "剛撃の心得"
+    name: 剛撃の心得
     level: 10
     role: main
-    parent: null
+    parent:
     icon: WOODEN_AXE
     cost: 1
-    effect-text: "ダメージ増加・チャージアタックで一定確率でスタン"
-    buffs:
-      attack-power: 0.1
-      stun_chance: 0.1
+    effect-text: ダメージ増加・チャージアタックで一定確率でスタン
     effects:
-      - "チャージアタックで一定確率でスタンを付与"
+      - チャージアタックで一定確率でスタンを付与
+    mainhand-multipliers:
+      layer_1:
+        attack-power: 1.1
+    mainhand-buffs:
+      crit-chance: 0.05
+    description: |-
+      会心率+5%
+      攻撃力x1.1
   B:
-    name: "貫きの一撃"
+    name: 貫きの一撃
     level: 30
     role: main
     parent: A
     icon: STONE_AXE
     cost: 1
-    effect-text: "攻撃速度・貫通率増加"
-    buffs:
-      penetration: 0.1
-      # 2026-07-26 stat-scope 境界引き直し §2 (C→A 降格): attack_speed(絶対値)はStatVocabularyから
-      # 外れ、perkのbuffsからは付与できなくなった(元々2026-07-25のattack-speed/attack-speed-bonus
-      # 分離仕様の時点でPerkAttributeApplierが汎用attrs経路から明示的に除外しており、実際には
-      # 既に効果が出ていなかった死にバフ)。
-      # 表示だけ残して効果が無い状態を避けるため、生きている割合キーへ置き換える。
-      # 重量武器は「遅く重い」が持ち味なので、軽量武器(0.08)より控えめにする。
-      attack-speed-bonus: 0.04
+    effect-text: 攻撃速度・貫通率増加
+    mainhand-buffs:
+      crit-damage: 0.1
+      stun-chance: 0.1
+    description: |-
+      会心ダメージ+10%
+      スタン率+10%
   C:
-    name: "破砕の型"
+    name: 破砕の型
     level: 50
     role: main
     parent: B
     icon: GOLDEN_AXE
     cost: 1
-    effect-text: "スタン確率UP・固定ダメージ増加"
-    buffs:
-      fixed-damage: 2.0
-      stun_chance: 0.1
+    effect-text: スタン確率UP・固定ダメージ増加
     effects:
-      - "スタン確率アップ"
+      - スタン確率アップ
+    mainhand-buffs:
+      crit-damage: 0.2
+      stun-duration-bonus: 5
+    description: |-
+      会心ダメージ+20%
+      スタン時間+5tick
   D:
-    name: "連打の境地"
+    name: 連打の境地
     level: 70
     role: main
     parent: C
     icon: IRON_AXE
     cost: 1
-    effect-text: "攻撃速度・スタン時間増加"
-    buffs:
-      # 2026-07-26: 上記Bノードと同じ理由でattack_speedをattack-speed-bonusへ置換。
-      attack-speed-bonus: 0.04
-      stun_chance: 0.05
-      attack-reach: 0.25
-      # 2026-07-26新設: stun_duration_bonusが実装されるまでeffect-textが「スタン時間増加」と
-      # 書きながら実体を伴わなかった(stun-duration相当のキーが存在しなかった)。他ノードの刻み
-      # (stun_chance 0.05〜0.1、attack-speed-bonus 0.04)に合わせ控えめに配線する。
-      stun_duration_bonus: 0.2
+    effect-text: 攻撃速度・スタン時間増加
     effects:
-      - "スタン時間増加"
+      - スタン時間増加
+    mainhand-buffs:
+      attack-speed-bonus: 0.05
+      damage-modifier: 0.1
+    description: |-
+      攻撃速度+5%
+      ダメージ補正+10%
   E:
-    name: "極意・粉砕"
+    name: 極意・粉砕
     level: 90
     role: main
     parent: D
     icon: NETHERITE_AXE
     cost: 1
-    effect-text: "スタン確率アップ・チャージアタックのダメージ増加"
-    buffs:
-      stun_chance: 0.1
-      power_attack_damage: 0.1
+    effect-text: スタン確率アップ・チャージアタックのダメージ増加
     effects:
-      - "スタン確率アップ"
-      - "チャージアタックのダメージ増加"
-
+      - スタン確率アップ
+      - チャージアタックのダメージ増加
+    mainhand-buffs:
+      penetration: 0.1
+      crit-chance: 0.1
+    description: |
+      スタン確率アップ・チャージアタックのダメージ増加
   C-1-1:
-    name: "打ち崩し"
-    level: 50
+    name: 薙ぎ払い
+    level: 60
     role: branch
     parent: C
     icon: STICK
     cost: 1
-    effect-text: "ノックバック距離増加"
-    buffs:
-      melee_knockback: 0.3
+    effect-text: ノックバック距離増加
+    mainhand-buffs:
+      aoe-damage-rate: 0.15
+      aoe-radius: 1
+    description: |-
+      範囲ダメージ+15%
+      ダメージ半径+1
   C-1-2:
-    name: "大打ち崩し"
-    level: 70
+    name: 大薙ぎ払い
+    level: 80
     role: branch
     parent: C-1-1
     icon: STICK
     cost: 1
-    effect-text: "ノックバック距離増加"
-    buffs:
-      melee_knockback: 0.3
+    effect-text: ノックバック距離増加
+    mainhand-buffs:
+      aoe-damage-rate: 0.3
+      aoe-radius: 2
+    description: |-
+      範囲ダメージ+30%
+      ダメージ半径+2
   D-1-1:
-    name: "薙ぎ払い"
-    level: 70
+    name: 打ち崩し
+    level: 80
     role: branch
     parent: D
     icon: BLAZE_ROD
     cost: 1
-    effect-text: "攻撃範囲増加"
-    buffs:
-      power_attack_radius: 1
-      attack-reach: 0.5
+    effect-text: 攻撃範囲増加
+    mainhand-buffs:
+      stun-chance: 0.05
+      stun-duration-bonus: 3
+    description: |-
+      スタン率+5%
+      スタン時間+3tick
   D-1-2:
-    name: "大薙ぎ"
-    level: 90
+    name: 大打ち崩し
+    level: 100
     role: branch
     parent: D-1-1
     icon: BLAZE_ROD
     cost: 1
-    effect-text: "攻撃範囲増加"
-    buffs:
-      power_attack_radius: 1
-      attack-reach: 0.5
-
+    effect-text: 攻撃範囲増加
+    mainhand-buffs:
+      stun-chance: 0.1
+      stun-duration-bonus: 5
+    description: |-
+      スタン率+10%
+      スタン時間+5tick
   A-alpha-1:
-    name: "豪・剛撃"
-    level: 10
+    name: 豪・剛撃
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: 3路線の性格分化(α=火力型)。attack-power→percent-bonus-damage。
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    description: 追加ダメージ+3%
+    mainhand-buffs:
+      percent-bonus-damage: 0.03
   A-beta-1:
-    name: "穿・剛撃"
-    level: 10
+    name: 穿・剛撃
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: LIME_DYE
     cost: 1
-    effect-text: "貫通率増加"
-    buffs: { penetration: 0.04 }
+    effect-text: 貫通率増加
+    mainhand-buffs:
+      crit-chance: 0.03
+    description: 会心率+3%
   A-gamma-1:
-    name: "崩・剛撃"
-    # 2026-07-26 職業別草案(戦闘)準拠: 旧名称「芯・剛撃」を変更。中身が固定ダメージ(一点集中)から
-    # 範囲攻撃+スタン(なぎ払う制圧)に変わり、「芯(核心を突く)」という名称と実態が逆方向になったため。
-    level: 10
+    name: 崩・剛撃
+    level: 20
     role: greek
     parent: A
     group: A-greek
     icon: ORANGE_DYE
     cost: 1
-    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
-    # 2026-07-26 職業別草案(戦闘)準拠: γ=制圧特化型。fixed-damage(防御貫通で壊れやすい)を廃止し、
-    # 2026-07-26にツリーから配れるようになったAoE3キー+スタン率へ全面差し替え。
-    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
-  # 2026-07-26 路線固定(lane-lock): B〜E のギリシャノードは parent を「同じ路線の1つ前」に向ける。
-  # 排他は『同じ親を持つ同group兄弟』にしか効かない仕様(NativePerkService / SkillTreeProgressionGenerator)
-  # なので、親が路線ごとに分かれる B〜E に group を書いても no-op になり、AllSkillTreesLoadTest が
-  # 警告で落ちる。路線の固定は parent 連鎖だけで担保し、group は A 段(同じ親A)にのみ置く。
+    effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
+    description: 会心ダメージ+6%
+    mainhand-buffs:
+      crit-damage: 0.06
   B-alpha-1:
-    name: "豪・貫き"
-    level: 30
+    name: 豪・貫き
+    level: 40
     role: greek
-    parent: A-alpha-1
+    parent: B
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    mainhand-buffs:
+      percent-bonus-damage: 0.06
+    group: B-greek
+    description: 追加ダメージ+6%
   B-beta-1:
-    name: "穿・貫き"
-    level: 30
+    name: 穿・貫き
+    level: 40
     role: greek
-    parent: A-beta-1
+    parent: B
     icon: LIME_DYE
     cost: 1
-    effect-text: "貫通率増加"
-    buffs: { penetration: 0.04 }
+    effect-text: 貫通率増加
+    mainhand-buffs:
+      crit-chance: 0.06
+    group: B-greek
+    description: 会心率+6%
   B-gamma-1:
-    name: "崩・貫き"
-    level: 30
+    name: 崩・貫き
+    level: 40
     role: greek
-    parent: A-gamma-1
+    parent: B
     icon: ORANGE_DYE
     cost: 1
-    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
-    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+    effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
+    group: B-greek
+    mainhand-buffs:
+      crit-damage: 0.12
+    description: 会心ダメージ+12%
   C-alpha-1:
-    name: "豪・破砕"
-    level: 50
+    name: 豪・破砕
+    level: 60
     role: greek
-    parent: B-alpha-1
+    parent: C
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    mainhand-buffs:
+      percent-bonus-damage: 0.09
+    group: C-greek
+    description: 追加ダメージ+9%
   C-beta-1:
-    name: "穿・破砕"
-    level: 50
+    name: 穿・破砕
+    level: 60
     role: greek
-    parent: B-beta-1
+    parent: C
     icon: LIME_DYE
     cost: 1
-    effect-text: "貫通率増加"
-    buffs: { penetration: 0.04 }
+    effect-text: 貫通率増加
+    mainhand-buffs:
+      crit-chance: 0.09
+    group: C-greek
+    description: 会心率+9%
   C-gamma-1:
-    name: "崩・破砕"
-    level: 50
+    name: 崩・破砕
+    level: 60
     role: greek
-    parent: B-gamma-1
+    parent: C
     icon: ORANGE_DYE
     cost: 1
-    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
-    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+    effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
+    group: C-greek
+    description: 会心ダメージ+18%
+    mainhand-buffs:
+      crit-damage: 0.18
   D-alpha-1:
-    name: "豪・連打"
-    level: 70
+    name: 豪・連打
+    level: 80
     role: greek
-    parent: C-alpha-1
+    parent: D
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    mainhand-buffs:
+      percent-bonus-damage: 0.12
+    group: D-greek
+    description: 追加ダメージ+12%
   D-beta-1:
-    name: "穿・連打"
-    level: 70
+    name: 穿・連打
+    level: 80
     role: greek
-    parent: C-beta-1
+    parent: D
     icon: LIME_DYE
     cost: 1
-    effect-text: "貫通率増加"
-    buffs: { penetration: 0.04 }
+    effect-text: 貫通率増加
+    mainhand-buffs:
+      crit-chance: 0.12
+    description: 会心率+12%
+    group: D-greek
   D-gamma-1:
-    name: "崩・連打"
-    level: 70
+    name: 崩・連打
+    level: 80
     role: greek
-    parent: C-gamma-1
+    parent: D
     icon: ORANGE_DYE
     cost: 1
-    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
-    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
+    effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
+    group: D-greek
+    description: 会心ダメージ+24%
+    mainhand-buffs:
+      crit-damage: 0.24
   E-alpha-1:
-    name: "豪・粉砕"
-    level: 90
+    name: 豪・粉砕
+    level: 100
     role: greek
-    parent: D-alpha-1
+    parent: E
     icon: RED_DYE
     cost: 1
-    effect-text: "追加ダメージ増加"
-    buffs: { percent-bonus-damage: 0.04 }
+    effect-text: 追加ダメージ増加
+    mainhand-buffs:
+      percent-bonus-damage: 0.15
+    group: E-greek
+    description: 追加ダメージ+15%
   E-beta-1:
-    name: "穿・粉砕"
-    level: 90
+    name: 穿・粉砕
+    level: 100
     role: greek
-    parent: D-beta-1
+    parent: E
     icon: LIME_DYE
     cost: 1
-    effect-text: "貫通率増加"
-    buffs: { penetration: 0.04 }
+    effect-text: 貫通率増加
+    mainhand-buffs:
+      crit-chance: 0.15
+    group: E-greek
+    description: 会心率+15%
   E-gamma-1:
-    name: "崩・粉砕"
-    level: 90
+    name: 崩・粉砕
+    level: 100
     role: greek
-    parent: D-gamma-1
+    parent: E
     icon: ORANGE_DYE
     cost: 1
-    effect-text: "範囲ダメージ半径・範囲ダメージ・スタン率増加"
-    buffs: { aoe-radius: 0.3, aoe-damage-rate: 0.08, stun-chance: 0.01 }
-
+    effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
+    mainhand-buffs:
+      crit-damage: 0.3
+    group: E-greek
+    description: 会心ダメージ+30%

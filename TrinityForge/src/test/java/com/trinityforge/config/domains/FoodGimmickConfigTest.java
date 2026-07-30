@@ -1,10 +1,16 @@
 package com.trinityforge.config.domains;
 
+import com.trinityforge.pdc.ItemData;
 import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockbukkit.mockbukkit.MockBukkit;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,6 +30,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ({@link FarmingGimmickConfigTest}参照)。
  */
 class FoodGimmickConfigTest {
+
+    @BeforeEach
+    void setUp() {
+        MockBukkit.mock();
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
+    }
 
     private static Plugin fakePlugin(File dataFolder) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
@@ -145,5 +161,52 @@ class FoodGimmickConfigTest {
         FoodGimmickConfig.CustomFood overCap = config.customFood("over-cap").orElseThrow();
         assertEquals(20, overCap.foodLevel());
         assertEquals(5.0, overCap.saturation(), 0.0);
+    }
+
+    // --- 2026-07-27 カスタムアイテムのゴミ食対応 ------------------------------------------------
+
+    private static ItemStack stampedCatalogItem(Material material, String catalogId) {
+        ItemStack stack = new ItemStack(material);
+        ItemMeta meta = stack.getItemMeta();
+        ItemData.of(meta).setCatalogId(catalogId);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    @Test
+    void customPrefixTokenParsesAsCatalogIdNotMaterial(@TempDir File tempDir) throws IOException {
+        FoodGimmickConfig config = loaded(tempDir, """
+                junk-food-materials:
+                  - ROTTEN_FLESH
+                  - custom:tf_rotten_ration
+                """);
+        assertEquals(Set.of(Material.ROTTEN_FLESH), config.junkFoodMaterials());
+        assertEquals(Set.of("tf_rotten_ration"), config.junkFoodCatalogIds());
+    }
+
+    @Test
+    void isJunkFoodMatchesCustomCatalogIdViaPdcStamp(@TempDir File tempDir) throws IOException {
+        FoodGimmickConfig config = loaded(tempDir, """
+                junk-food-materials:
+                  - ROTTEN_FLESH
+                  - custom:tf_rotten_ration
+                """);
+        ItemStack customJunk = stampedCatalogItem(Material.BREAD, "tf_rotten_ration");
+        assertTrue(config.isJunkFood(customJunk));
+
+        // Same base Material as a legitimate non-junk custom item -> must NOT match by Material fallback.
+        ItemStack customNonJunk = stampedCatalogItem(Material.BREAD, "tf_fresh_bread");
+        assertFalse(config.isJunkFood(customNonJunk));
+    }
+
+    @Test
+    void isJunkFoodMatchesPlainVanillaMaterial(@TempDir File tempDir) throws IOException {
+        FoodGimmickConfig config = loaded(tempDir, """
+                junk-food-materials:
+                  - ROTTEN_FLESH
+                """);
+        assertTrue(config.isJunkFood(new ItemStack(Material.ROTTEN_FLESH)));
+        assertFalse(config.isJunkFood(new ItemStack(Material.COOKED_BEEF)));
+        assertFalse(config.isJunkFood(null));
     }
 }

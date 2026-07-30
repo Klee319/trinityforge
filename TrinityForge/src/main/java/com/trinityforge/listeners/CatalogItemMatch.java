@@ -26,9 +26,13 @@ final class CatalogItemMatch {
             return false;
         }
         if (!stack.hasItemMeta()) {
-            return stack.getType() == template.material() && template.customModelData() == null;
+            return false;
         }
         ItemMeta meta = stack.getItemMeta();
+        Integer cmd = com.trinityforge.stats.DerivedItemStats.customModelDataOf(meta);
+        if (cmd == null) {
+            return false;
+        }
         ItemData data = ItemData.of(meta);
         Optional<String> catalogId = data.catalogId();
         if (catalogId.isPresent()) {
@@ -37,7 +41,6 @@ final class CatalogItemMatch {
         if (stack.getType() != template.material()) {
             return false;
         }
-        Integer cmd = meta.hasCustomModelData() ? meta.getCustomModelData() : null;
         return Objects.equals(cmd, template.customModelData());
     }
 }

@@ -17,7 +17,6 @@
 # unit: PERCENT以外の末尾単位（例: m / 秒）。PERCENTは自動で%。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/lore.md
 
-
 layout:
   line-template: <gray><icon><name>：<value></gray>
   score-line-template: <tier><gray>:</gray>  <aqua><score>pt</aqua>
@@ -44,15 +43,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): バニラ attack_damage へは写像しない(AttributeProjection.java:71-72)。
-    # CombatListener#onEntityDamageByEntity がitem+perk+addonを合算しTFパイプラインの物理基本ダメージへ
-    # 代入する(CombatListener.java 233-336)。近接/弓/クロスボウ/トライデントいずれも同一経路。
-    # モブ攻撃者はMobData.attackStats()由来の別経路(handleMobToPlayerDamage)を使いこのチャネルを
-    # 消費しないため applies-to は PLAYER のみ。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   attack-speed:
     name: 攻撃速度
     icon: ""
@@ -62,14 +57,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): item-levelのAttribute.ATTACK_SPEEDは常に除外され(AttributeApplier.java
-    # 62-71,86-91)、PerkAttributeApplier#applyAttackSpeed がメインハンド武器自身の値だけを
-    # DerivedItemStats#resolve で直接解決してADD_NUMBERで適用する(PerkAttributeApplier.java 313-358,
-    # 406-414)。プレイヤー限定(同クラスはPlayerにしか反応しない)。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: MAINHAND_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   attack-speed-bonus:
     name: 攻撃速度加算
     icon: ""
@@ -79,13 +71,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): 装備+パーク+アドオン+native armor-setを合算しAttribute.ATTACK_SPEEDへ
-    # MULTIPLY_SCALAR_1で適用する(PerkAttributeApplier.collectAttackSpeedBonus 382-395、
-    # AttributeProjection.java 90-101)。プレイヤー限定。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   attack-reach:
     name: リーチ
     icon: ""
@@ -96,13 +86,12 @@ stats:
     hide-when-zero: true
     unit: m
     category: attack
-    # 段階1宣言(2026-07-27): entity_interaction_range属性へADD_NUMBERで常時ミラー(AttributeProjection.java
-    # 102-104)。max-health/move-speed/knockback-resistanceと同じ「加算ステ」群でAttributeApplier.java
-    # 56-60が同一の適用規則(材質既定と両立)を明言している。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   aoe-radius:
     name: ダメージ半径
     icon: ""
@@ -113,12 +102,11 @@ stats:
     hide-when-zero: true
     unit: m
     category: attack
-    # 段階1宣言(2026-07-27): 近接主命中(ENTITY_ATTACK)限定でmaybeApplyAreaDamageへ渡される
-    # (CombatListener.java 468-484, 1007-1069)。プレイヤー攻撃者限定。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   aoe-max-targets:
     name: 対象上限
     icon: ""
@@ -129,12 +117,11 @@ stats:
     hide-when-zero: true
     unit: 体
     category: attack
-    # 段階1宣言(2026-07-27): aoe-radiusと同じ近接主命中(ENTITY_ATTACK)ゲート内でmaxTargetsとして消費
-    # (CombatListener.java 468-479, 1045-1050)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   aoe-damage-rate:
     name: 範囲ダメージ
     icon: ""
@@ -144,12 +131,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): aoe-radiusと同じ近接主命中(ENTITY_ATTACK)ゲート内でsplash=primaryDamage×rate
-    # として消費(CombatListener.java 468-479, 1020-1029)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   percent-bonus-damage:
     name: 追加ダメージ率
     icon: ""
@@ -159,13 +145,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): AttackStatsの一員としてComponentDamageCalculator step1(ComponentDamageCalculator.java
-    # 34-40)を通る。物理/弓/トライデント/モブ攻撃(MobData#attackStats)いずれも同一の共有8段パイプラインを
-    # 通るためON_ANY_HIT。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   damage-modifier:
     name: ダメージ補正
     icon: ""
@@ -175,13 +160,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): ComponentDamageCalculator step6(rollDamageModifierMultiplier、
-    # ComponentDamageCalculator.java 72-73,86-103)。armor-strength(段階1既存宣言)と同じ共有パイプライン
-    # 経由でON_ANY_HIT。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   item-cooldown:
     name: CT
     icon: ""
@@ -192,19 +176,14 @@ stats:
     hide-when-zero: true
     unit: 秒
     category: other
-    # 段階1宣言(2026-07-27): CombatListener#startItemCooldown(java 772-799)が近接主命中(ENTITY_ATTACK
-    # 限定、ITEM_CT_CAUSES)の後にagg.mainhand()(メインハンド単体マップ、防具/オフハンドは混ぜない —
-    # java 464-466のコメント参照)からitem-cooldownを読み、cooldown-reductionで短縮した秒数を
-    # Player#setCooldownへ変換する。attack-speedと同じ「メインハンド単体」sources規約。
-    # ITEM_COOLDOWN_MAX_TICKS(72000tick=1時間)は変換後のtick数の絶対上限であり、item-cooldown
-    # 自身の秒数の上限ではないため cap ではなく max-duration-ticks で宣言する。
     trigger:
       when: ON_MELEE_HIT
       sources: MAINHAND_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       max-duration-ticks: 72000
-      max-duration-ticks-ref: "java:com.trinityforge.listeners.CombatListener#ITEM_COOLDOWN_MAX_TICKS"
+      max-duration-ticks-ref: java:com.trinityforge.listeners.CombatListener#ITEM_COOLDOWN_MAX_TICKS
   crit-chance:
     name: 会心率
     icon: ""
@@ -214,16 +193,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): AttackStatsのコンパクトコンストラクタでcapAtOne(1.0)により上限化される
-    # (AttackStats.java:41)。ComponentDamageCalculator step3(59-64)で会心加算に使用、共有パイプライン
-    # 経由でPLAYER/MOB双方(MobData#attackStats)。public定数化されたマジックナンバーではないため
-    # cap-refは付けない。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
-      cap: 1.0
+      cap: 1
   crit-damage:
     name: 会心ダメージ
     icon: ""
@@ -233,12 +210,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): ComponentDamageCalculator step3(59-64)。crit-chanceと同じ共有パイプライン。
-    # このステ自体に実装上の上限は無い(finiteOrZeroのみ、AttackStats.java:42)。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   penetration:
     name: 貫通率
     icon: ""
@@ -248,14 +225,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): AttackStatsのコンパクトコンストラクタでcapAtOne(1.0)により上限化される
-    # (AttackStats.java:43)。ComponentDamageCalculator step4(67)で防御率貫通に使用。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
-      cap: 1.0
+      cap: 1
   bleed-chance:
     name: 出血率
     icon: ""
@@ -283,16 +260,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): DefenseStats.defenseRate は SymmetricCombatService.component() 経路で
-    # DefenseStats.cappedMitigation(combat/damage.yml defense.max-mitigation-rate)により被弾側の
-    # 3レートと共通の上限を持つ(TrinityForge/src/main/java/com/trinityforge/combat/DefenseStats.java:123-131)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       cap: 0.9
-      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   armor-strength:
     name: 防具強度
     icon: ""
@@ -302,16 +278,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): DefenseStats.armorStrength(会心軽減率%)は SymmetricCombatService の
-    # cappedCritReduction(combat/damage.yml defense.max-crit-reduction)で上限化される
-    # (DefenseStats.java:142-150)。ComponentDamageCalculator:63 で会心加算時に適用。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
-      cap: 1.0
-      cap-ref: "combat/damage.yml#defense.max-crit-reduction"
+      cap: 1
+      cap-ref: combat/damage.yml#defense.max-crit-reduction
   max-health:
     name: 体力増強
     icon: ""
@@ -321,12 +296,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): AttributeApplier.java:58-71 のコメントにより GENERIC_MAX_HEALTH 属性への
-    # 常時ミラー(加算)であることを確認。上限は宣言しない(config上のcap値を持たない)。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   knockback-resistance:
     name: K耐性
     icon: ""
@@ -336,12 +311,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): knockback_resistance属性へADD_NUMBERで常時ミラー(AttributeProjection.java
-    # 73-74)。max-health/move-speedと同じ「加算ステ」群(AttributeApplier.java 56-60)。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   move-speed:
     name: 移動速度
     icon: ""
@@ -351,12 +326,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階1宣言(2026-07-27): AttributeApplier.java:58-71 のコメントにより MOVEMENT_SPEED 属性への
-    # 常時ミラー(加算)であることを確認。上限は宣言しない(config上のcap値を持たない)。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   durability:
     name: 耐久値
     icon: ""
@@ -375,15 +350,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): DefenseStats.resistance は defense-rate と同じ cappedMitigation
-    # (combat/damage.yml defense.max-mitigation-rate) で上限化される(DefenseStats.java:123-131)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       cap: 0.9
-      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   magic-resistance:
     name: 魔法耐性
     icon: ""
@@ -393,15 +368,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): phys-resistance と同じ DefenseStats.resistance フィールド(タイプ別)を
-    # 経由するため同じ cap-ref。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       cap: 0.9
-      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   damage-reduction:
     name: 被ダメ軽減
     icon: ""
@@ -411,15 +386,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): DefenseStats.damageReduction も同じ cappedMitigation で上限化される
-    # (DefenseStats.java:123-131)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       cap: 0.9
-      cap-ref: "combat/damage.yml#defense.max-mitigation-rate"
+      cap-ref: combat/damage.yml#defense.max-mitigation-rate
   dodge-chance:
     name: 回避率
     icon: ""
@@ -429,17 +404,16 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): DodgeResolver が combat/damage.yml defense.max-dodge-chance を上限として
-    # 使う(DodgeResolver.java:35)。実測ずれの実証キー(labels.js:170に上限記載無し)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       cap: 0.9
-      cap-ref: "combat/damage.yml#defense.max-dodge-chance"
+      cap-ref: combat/damage.yml#defense.max-dodge-chance
   reflect-flat:
-    # 2026-07-25 課題2: 棘の鎧ステータス化。被弾時にこの固定値分だけ相手にダメージを与える。
     name: 反射ダメージ(実数)
     icon: ""
     format: FLAT
@@ -448,20 +422,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): CombatListener#onReflectDamage(MONITOR、victimがPlayerのときだけ発動)が
-    # 被弾ダメージ確定後に読み、反射ダメージ量へ充填する(CombatListener.java 566-596)。
-    # Math.max(0.0, ...)で負値は0へ床上げされる(line 583、publicなマジックナンバーではないため
-    # floor-refは付けない)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   reflect-percent:
-    # 棘の鎧レベルL(装備全体の合計)は10%×Lをこの値へ寄与する(ReflectDamageBridge)。
-    # バニラの棘の鎧ダメージ自体は二重にならないよう抑止し、反射はこちらへ一本化する
-    # (バニラの耐久値消費は維持)。
     name: 反射ダメージ率
     icon: ""
     format: PERCENT
@@ -470,16 +438,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): reflect-flatと同じCombatListener#onReflectDamageで消費、被弾ダメージの
-    # 割合分を反射(CombatListener.java 566-596)。同じくMath.max(0.0, ...)で床上げ(line 584-585)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   gathering-efficiency:
-    # 2026-07-27: 「最終効率」→「採集効率」に改称(採集系ステという性質が名前から分かるように)。
     name: 採集効率
     icon: ""
     format: FLAT
@@ -488,39 +454,25 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): GatheringEfficiencyEnchantApplier#desiredLevelFor(java 229-244)が
-    # aggregator.aggregate(player, mainhand)(全ソース合算)を読み、メインハンドの use-skill が
-    # FARMING/MINING/WOODCUTTING/DIGGINGのときだけバニラEfficiencyエンチャントレベルへ常時ミラーする
-    # (装備変更のたびに再計算・再適用、EntityEquipmentChangedEvent等)。バニラAttributeへの投影ではない
-    # 独自ロジックの常時適用のためPASSIVE_ATTRIBUTEではなくPASSIVE。上限はstats/gathering-efficiency.yml
-    # のmax-enchant-levelとcombat/stat-caps.ymlの上書きのどちらが効くか動的に決まり(統合参照先が
-    # 1本に定まらない)、GatheringEfficiencyMath.HARD_CAP(255)も別途あるため、単一の-refで正しく
-    # 表現できない。limitsは省略する。
     trigger:
       when: PASSIVE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   mining-fortune:
     name: 採掘運
     icon: ""
-    # 【2026-07-28】FLAT から PERCENT へ変更。採掘運は「追加ドロップ期待値の増加率」であり、
-    # skilltree も effect-text「ドロップ増加+15%」に対して mining-fortune: 15 と書いている。
-    # 釣り運(fishing-luck)は最初から PERCENT で、こちらだけ取り残されていた。
     format: PERCENT
     decimals: 0
     order: 81
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): MiningFortuneListener#onBlockDropItem(java 104-170)がBlockBreakEventの
-    # 対になるBlockDropItemEvent(SURVIVALのPlayerのみ)でaggregator.aggregate(player, tool)(全ソース合算)
-    # を読み、MININGスキルLvと合成した期待値ぶん追加ドロップをスポーンする。GatheringPolicy.MAX_EXTRAは
-    # 「追加ドロップの個数」の上限でありmining-fortune自身の値の上限ではないため、limitsは省略する
-    # (このステータス自体に数値上限は無い)。
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   fishing-luck:
     name: 釣り運
     icon: ""
@@ -530,15 +482,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): FishingGimmickListener#luckTotalOf(java 206-215)がCAUGHT_FISH時に
-    # aggregator.aggregate(player, rod)(全ソース合算)+ EnchantmentStatBridge宝釣り分 +
-    # FISHINGスキルLv×係数を合成し宝/ゴミ抽選の比率シフトへ使う。プレイヤー限定。宝率自体は
-    # [0.05, 95.0]にクランプされるが、それはfishing-luckの値そのものの上限ではなく派生値(宝%)の
-    # 上限のため、limitsは省略する。
     trigger:
       when: ON_FISH
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   fishing-bonus:
     name: 釣りボーナス
     icon: ""
@@ -548,18 +496,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): FishingQualityListener#dropFishingBonus(java 165-188)がCAUGHT_FISH時に
-    # aggregator.aggregate(player, rod, rodFromOffhand)(全ソース合算)+ FISHINGスキルLv×係数を
-    # 期待値化し、釣果が非装備のときだけ追加ドロップをスポーンする(装備は対象外、複製防止)。
-    # プレイヤー限定。GatheringPolicy.MAX_EXTRAは追加ドロップ個数の上限でありこのステ自体の上限
-    # ではないため、limitsは省略する。
     trigger:
       when: ON_FISH
       sources: ALL
-      applies-to: [PLAYER]
-  # tool-enchant-efficiency は 2026-07-26 に gathering-efficiency(最終効率)へ統合したため削除。
-  # StatKeys のエイリアスで畳まれるので、ここに残すと同じステが2行表示される。
-  # 旧キーを書いた yml はそのまま動く(読み替えられる)。
+      applies-to:
+        - PLAYER
   mana-bonus:
     name: 最大マナ加算
     icon: ""
@@ -569,15 +510,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 段階4宣言(2026-07-27): ArmorManaListener#recalculateArmorBonus(防具4部位+メインハンド+オフハンド
-    # opt-inのTF item-stats "mana_bonus"走査、fork java 163-269)と、ArsNativeBridge#maxManaBonus
-    # (パーク general+永続バフ+役職バフ+base-stats の非装備4ソース合算、ArsNativeBridge.java 88-90,
-    # 100-108、TrinityForgeBridge.java 1536-1538経由でfork側から呼ばれる)の合計。装備変更のたびに
-    # PDCへ再計算・書き込みされる常時値(バニラAttributeのミラーではない独自ロジック)のためPASSIVE。
     trigger:
       when: PASSIVE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   mana-regen:
     name: 時間マナ回復加算
     icon: ""
@@ -588,12 +525,11 @@ stats:
     hide-when-zero: true
     unit: /秒
     category: ars
-    # 段階4宣言(2026-07-27): mana-bonusと同じ経路(ArmorManaListener装備走査 + ArsNativeBridge#
-    # manaRegenBonus非装備4ソース合算)。同じくPASSIVE常時値。
     trigger:
       when: PASSIVE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   hit-mana-recovery:
     name: 被弾マナ回復(実数)
     icon: ""
@@ -603,17 +539,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 実装: ArmorManaListener#onPlayerDamaged(EntityDamageByEntityEvent、プレイヤーが「被弾」した側)で
-    # ARMOR_HIT_MANA_RECOVERY(=hit_mana_recovery装備分)を消費する(java 105-118)。非装備分は
-    # 同ファイル279-280でtfNonItemStatTotal(player,"hit_mana_recovery")として被弾時に合算される。
-    # 2026-07-27: 表示名が damage-mana-recovery と入れ替わっていたのを修正(旧「命中マナ回復」)。
-    # キー名 hit- は「被弾(hit を受ける)」の意で、対応するスレッド thread_hit_mana_recovery の
-    # 表示名「被弾マナ回復のスレッド」は元から実装と一致していた＝lore.yml 側だけが逆だった。
-    # キーは configs/装備データが参照するため変更しない(表示名のみを実装へ合わせる)。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   damage-mana-recovery:
     name: 攻撃マナ回復(実数)
     icon: ""
@@ -623,18 +553,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 実装: ArmorManaListener#onPlayerDealDamage(EntityDamageByEntityEvent、プレイヤーが「与ダメ」した側、
-    # ENTITY_ATTACK/ENTITY_SWEEP_ATTACK限定の近接直接攻撃のみ)でARMOR_DAMAGE_MANA_RECOVERYを消費
-    # する(java 124-140)。非装備分は同ファイル281-282でtfNonItemStatTotal(player,
-    # "damage_mana_recovery")として近接与ダメ時に合算される。
-    # 2026-07-27: 表示名が hit-mana-recovery と入れ替わっていたのを修正(旧「被弾マナ回復」)。
-    # キー名 damage- は「与ダメージ」の意で、対応するスレッド thread_damage_mana_recovery の
-    # 表示名「攻撃マナ回復のスレッド」は元から実装と一致していた＝lore.yml 側だけが逆だった。
-    # ※射撃/魔法では発動しない(近接直撃のみ)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   thread-slots:
     name: スレッド枠
     icon: ""
@@ -645,16 +568,11 @@ stats:
     hide-when-zero: true
     unit: 枠
     category: ars
-    # 段階4宣言(2026-07-27): ThreadSlotPolicy(TF)がクラフト時に上限クランプしてアイテムへ焼き込む値。
-    # 消費側はArmorManaListener#recalculateArmorBonusが防具1着ごとにTrinityForgeBridge.
-    # tfEffectiveThreadSlotCap(その防具単体のitem-stats)を読む(fork java 220-222、
-    # TrinityForgeBridge.java 1595-1596)。防具スロット限定・アイテム単体基準(合算ではない)ため
-    # WORN_ARMOR_ONLY。上限はprogression/crafting-features.ymlのカテゴリ別maxByCategoryで素材ごとに
-    # 動的に決まり単一の-refで表現できないため、limitsは省略する。
     trigger:
       when: PASSIVE
       sources: WORN_ARMOR_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   mana-cost-reduction-flat:
     name: マナ消費軽減(実数)
     icon: ""
@@ -664,13 +582,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 段階4宣言(2026-07-27): SpellCaster#tryCast(fork java 275-310)が呪文詠唱コスト計算時に触媒アイテム
-    # 由来(resolveCatalystManaReduction)+非アイテム由来(tfNonItemStatTotal)の両方を合算消費する
-    # (java 289-292, 307-308)。このFLAT側には数値クランプが見当たらないためlimitsは省略する。
     trigger:
       when: ON_SPELL_CAST
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   mana-cost-reduction-percent:
     name: マナ消費軽減率
     icon: ""
@@ -681,18 +597,13 @@ stats:
     hide-when-zero: true
     unit: "%"
     category: ars
-    # 段階4宣言(2026-07-27): mana-cost-reduction-flatと同じSpellCaster#tryCast経路。非アイテム由来分は
-    # clampReductionFractionで[0,0.95]へ個別クランプされてから加算されるが(java 300-306)、触媒アイテム
-    # 由来分は別クランプ(Math.min(100,...)、java 282,291)を経て最終的に全体がMath.min(100,...)で
-    # 100%(1.0)頭打ちになる(java 305-306)。実効上限は「合算後の100%」であり、0.95は非アイテム分だけの
-    # 中間安全弁のため cap には使わない。100はSpellCaster(フォーク)側のインラインリテラルで、
-    # フォークJavaは編集対象外のため -ref は付けない。
     trigger:
       when: ON_SPELL_CAST
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
-      cap: 1.0
+      cap: 1
   phys-flat-defense:
     name: 物理守備力
     icon: ""
@@ -702,19 +613,17 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): DamageType.PHYSICALのときDefenseStatBridgeがphysFlatDefenseを読み
-    # DefenseStats.flatDefenseへ充填する(DefenseStatBridge.java 33-61)。SymmetricCombatService.
-    # clampedDefense(275-279)でdamageConfig.defenseClamp()(combat/damage.yml defense.min-flat/max-flat)
-    # により上限化される、物理/魔法いずれも通る共通チョークポイント。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       floor: 0
-      floor-ref: "combat/damage.yml#defense.min-flat"
+      floor-ref: combat/damage.yml#defense.min-flat
       cap: 1000000
-      cap-ref: "combat/damage.yml#defense.max-flat"
+      cap-ref: combat/damage.yml#defense.max-flat
   magic-flat-defense:
     name: 魔法守備力
     icon: ""
@@ -724,17 +633,17 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): phys-flat-defenseと対の魔法版。DamageType.MAGICALのときDefenseStatBridgeが
-    # magicFlatDefenseを読む(DefenseStatBridge.java 33-61)。同じdefense.min-flat/max-flatクランプ。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       floor: 0
-      floor-ref: "combat/damage.yml#defense.min-flat"
+      floor-ref: combat/damage.yml#defense.min-flat
       cap: 1000000
-      cap-ref: "combat/damage.yml#defense.max-flat"
+      cap-ref: combat/damage.yml#defense.max-flat
   fixed-damage:
     name: 固定ダメージ
     icon: ""
@@ -744,12 +653,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): ComponentDamageCalculator step8(79-82)、全防御ステータス貫通の純加算。
-    # PLAYER/MOB双方の共有パイプライン。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   bow-accuracy:
     name: 弓精度
     icon: ""
@@ -777,18 +686,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27・4件の実証キーの1つ): CombatListener#distanceDamage が
-    # 16ブロックで係数1.0倍分・MAX_DISTANCE_DAMAGE_BLOCKS(64)ブロックで頭打ちにする
-    # (CombatListener.java 984-999)。labels.js:190は「距離に応じて増える」としか書いていない(実装ずれ)。
-    # このステータス自体(PERCENT表示)には数値上限が無い。上限があるのは効果が頭打ちになる
-    # 「ブロック距離」のほうなので max-distance/max-distance-ref で正しく宣言する(cap代用は廃止)。
     trigger:
       when: ON_PROJECTILE_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       max-distance: 64
-      max-distance-ref: "java:com.trinityforge.listeners.CombatListener#MAX_DISTANCE_DAMAGE_BLOCKS"
+      max-distance-ref: java:com.trinityforge.listeners.CombatListener#MAX_DISTANCE_DAMAGE_BLOCKS
   arrow-piercing:
     name: 矢貫通
     icon: ""
@@ -825,12 +731,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): NativeCombatPerkListener#onProjectileDamage(EntityDamageByEntityEvent,
-    # 発射者=Player限定)で着弾時に消費(NativeCombatPerkListener.java 114-146)。
     trigger:
       when: ON_PROJECTILE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   melee-knockback:
     name: 追撃ノックバック
     icon: ""
@@ -840,12 +745,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): NativeCombatPerkListener#onMelee(MELEE_CAUSES限定、Player攻撃者限定)で消費
-    # (NativeCombatPerkListener.java 87-102)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   stun-chance:
     name: スタン率
     icon: ""
@@ -855,38 +759,32 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): NativeCombatPerkListener#onMelee(87-110)。ロール確率がMath.min(0.75,
-    # stunChance)で75%に頭打ちされる(NativeCombatPerkListener.java:105、publicなマジックナンバーでは
-    # ないためcap-refは付けない)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       cap: 0.75
   stun-duration-bonus:
-    # 2026-07-26新設。stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)の継続時間への割合加算。
-    # NativeCombatPerkListener側で絶対上限(5秒=100tick)にクランプされる。
     name: スタン時間
     icon: ""
-    format: PERCENT
+    format: FLAT
+    unit: tick
     decimals: 0
     order: 108
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): NativeCombatPerkListener.stunTicks が MAX_STUN_DURATION_TICKS(100tick=5秒)
-    # を絶対上限としてクランプする(NativeCombatPerkListener.java 214-222)。
-    # このステータス自体(PERCENT表示)には数値上限が無い。上限があるのはそれによって延長される
-    # 実効スタン時間(tick)のほうなので max-duration-ticks/max-duration-ticks-ref で正しく宣言する
-    # (cap代用は廃止)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       max-duration-ticks: 100
-      max-duration-ticks-ref: "java:com.trinityforge.skilltree.runtime.NativeCombatPerkListener#MAX_STUN_DURATION_TICKS"
+      max-duration-ticks-ref: java:com.trinityforge.skilltree.runtime.NativeCombatPerkListener#MAX_STUN_DURATION_TICKS
   power-attack-damage:
     name: 空中攻撃ダメージ
     icon: ""
@@ -896,12 +794,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): 近接主命中(ENTITY_ATTACK)かつ非接地時のみ乗算される(CombatListener.java
-    # 391-397, 1002-1005)。プレイヤー攻撃者限定。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   power-attack-radius:
     name: 空中攻撃半径
     icon: ""
@@ -912,12 +809,11 @@ stats:
     hide-when-zero: true
     unit: m
     category: attack
-    # 段階1宣言(2026-07-27): power-attack-damageと同じ非接地・近接主命中ゲート内でAoE半径として消費
-    # (CombatListener.java 391-397, 480-484)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   cooldown-reduction:
     name: アイテムCT短縮
     icon: ""
@@ -927,13 +823,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): 近接主命中(ITEM_CT_CAUSES=ENTITY_ATTACK限定)後にstartItemCooldownで
-    # アイテムCT長へ乗算(CombatListener.java 727-728, 770-788)。Math.min(0.9, reduction)で90%頭打ち
-    # (line 787、publicなマジックナンバーではないためcap-refは付けない)。
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       cap: 0.9
   haste-active-mining-cooldown-reduction:
@@ -954,14 +848,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): ブロック破壊起点の一括伐採ギミック(TreeFellingListener#handleTreeFelling)
-    # 内でCooldownManager.applyReduction経由でCT長へ適用(TreeFellingListener.java 66,168-170、
-    # CooldownManager.java:77でMath.min(0.9,...)により90%頭打ち、publicなマジックナンバーではないため
-    # cap-refは付けない)。
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       cap: 0.9
   health-regen-bonus:
@@ -1000,19 +891,13 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): NativeSurvivalPerkListener#onDeathDrops(EntityDeathEvent、MONITOR、
-    # killer=Player限定)がaggregator.aggregate(killer)(全ソース合算)から読み、ドロップ量倍率
-    # dropFactor=1+maxDropMultBonusとして乗算する(java 58-81)。killer視点のstatのためapplies-toは
-    # PLAYERのみ(被殺エンティティ自身がプレイヤーかモブかは無関係)。dropFactorはMath.min(3.0,...)で
-    # 頭打ちされる(java 69)ため、このstat自身の実効寄与は(3.0-1.0)=2.0(200%)が上限になる。
-    # ただし裸のリテラルは「dropFactor」の上限(3.0)でありmob-drop-bonus自身の値(2.0)とは1ずれるため、
-    # -refを付けると値の不一致でテストが落ちる。フィールド名だけ揃えて-refは付けない。
     trigger:
       when: ON_KILL
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
-      cap: 2.0
+      cap: 2
   skill-exp-bonus:
     name: スキル経験値増加
     icon: ""
@@ -1022,14 +907,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): NativeProgressionServiceのEXP付与コールバック(TrinityForge.java 238-252)が
-    # 全スキル(採取/戦闘/エンチャント等)のEXP付与のたびにplayerStatAggregator.aggregate(全ソース合算)
-    # から読み、倍率として乗せる。特定の1イベントに紐づかない汎用乗数(独自ロジックの常時適用)のため
-    # PASSIVE。
     trigger:
       when: PASSIVE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   loot-luck:
     name: 幸運
     icon: ""
@@ -1039,13 +921,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4調査(2026-07-27): PlayerLootLuckSource(装備+perk全合算+バニラLUCKポーション効果)が
-    # 複数の異なる経路から呼ばれる: FishingQualityListener(ON_FISH相当)と、PickupQualityListener
-    # (アイテム未刻印時の初回品質ロール — pickup/inventory click/drag/creative/slot変化/コンテナ close
-    # のいずれでも起動しうる汎用「入手時」スイープ、単一イベントに固定できない)。現行のtrigger.whenは
-    # 単一値しか持てず、「複数の異なる契機で発動するが、うち1つは既存のON_FISH等とも重ならない汎用
-    # 入手時」という実態を表せる語彙が無いため、誤解を招く単一値の断定を避けて意図的に未宣言のまま残す。
-    # 必要な語彙: 「アイテム入手/初回品質刻印時」の専用trigger、または複数when値の併記サポート。
   mob-drop-quality:
     name: ドロップ品質
     icon: ""
@@ -1055,13 +930,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): PlayerMobDropBonusSource#totalBonus(Math.max(0.0,aggregator.aggregate
-    # (killer)の全ソース合算))を、MobTypeDropListener#onDeath(EntityDeathEvent、mob-types独自ドロップ
-    # テーブルの品質modeボーナスとして)が読む(java 90-94)。killer視点のstatのためapplies-toはPLAYERのみ。
     trigger:
       when: ON_KILL
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   gacha-rate-bonus:
     name: ガチャ確率UP
     icon: ""
@@ -1071,12 +944,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4調査(2026-07-27): GachaListener#onInteract(PlayerInteractEvent、ガチャ券右クリック)が
-    # aggregator.aggregate(player)(全ソース合算)から読みGachaRateUpの重み補正へ使う(java 67-109)。
-    # PlayerInteractEventは「プレイヤーの任意のインタラクト時」に相当し、既知の語彙穴(戦闘/採取/
-    # クラフト/醸造/エンチャント/釣り/精錬/解体/飲食/魔法詠唱のいずれにも当てはまらない汎用
-    # インタラクト起点)に該当するため、誤った既存語彙の転用を避けて意図的に未宣言のまま残す。
-    # 必要な語彙: ON_INTERACT(プレイヤーの任意のインタラクト時)相当のtrigger.when。
   food-save-chance:
     name: 食料節約率
     icon: ""
@@ -1086,17 +953,13 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): FoodGimmickListener#onItemConsume(PlayerItemConsumeEvent、HIGH、
-    # Material#isEdible()限定)がaggregator.aggregate(player)(全ソース合算)から読み、
-    # PercentStatNormalizeで既に[0,1]フラクション化済みの値をMath.min(1.0,...)で頭打ちして乱数比較する
-    # (java 90-113)。1.0は確率の自明な上限(名前付き定数ではない)であり、crit-chance等の既存宣言と同じ
-    # 慣例でcap-refは付けない。
     trigger:
       when: ON_CONSUME
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
-      cap: 1.0
+      cap: 1
   suspicious-respawn-chance:
     name: 怪しいブロック復活
     icon: ""
@@ -1106,19 +969,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): MiningGimmickListener#handleSuspiciousRespawnがSUSPICIOUS_SAND/GRAVELの
-    # BlockBreakEventでaggregator.aggregate(player)(全ソース合算)を読んで再抽選し、1tick後に同ブロックを
-    # 復活させる。プレイヤー限定。上限は実装に無いため宣言しない。
-    # 2026-07-27: 宣言作業中に「実効確率が設定値の100分の1になる」確定バグを発見し修正済み。
-    # このキーはPercentStatNormalize.RATE_KEYSに含まれるため集計値は既に[0,1]フラクションだが、
-    # 旧実装は0-100スケール前提のMiningGimmickPolicy.percentRoll(内部で100除算)へ渡していた。
-    # 現在は乱数と直接比較する方式(crit-chance等と同じ)。同型のバグは養蜂/食料節約/ガチャでも
-    # 見つかっており、原因となったpercentRoll自体を削除した。再発検知は
-    # RateKeyDoubleShrinkGuardTest が担う。
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   hive-harvest-fortune:
     name: 養蜂幸運
     icon: ""
@@ -1137,13 +992,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): NativeSurvivalPerkListener#onDeathDrops(EntityDeathEvent、MONITOR、
-    # killer=Player限定)がtotals.totalOf(KILL_VANILLA_EXP_BONUS)(全ソース合算)からドロップXPオーブ量
-    # へ乗せる(java 85-89)。killer視点のためapplies-toはPLAYERのみ。上限クランプは無くlimitsは省略。
     trigger:
       when: ON_KILL
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   break-vanilla-exp-bonus:
     name: 破壊時バニラEXP
     icon: ""
@@ -1153,15 +1006,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): NativeSkillExperienceListener#grantBreakVanillaExp(java 122-131)が
-    # break-vanilla-exp機能フラグ有効時、採取扱い(FARMING/WOODCUTTING/DIGGING/MINING)のブロック破壊で
-    # totals.totalOf(BREAK_VANILLA_EXP_BONUS)(全ソース合算、vanilla-exp-bonusと合算)からバニラEXP
-    # オーブを上乗せする。floorのMath.max(0.0,...)はvanilla-exp-bonusとの合算値に対して行われ、
-    # このstat単体の上限ではないためlimitsは省略する。
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   vanilla-exp-bonus:
     name: 常時バニラEXP
     icon: ""
@@ -1171,14 +1020,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): NativeSurvivalPerkListener#onVanillaExpGain(PlayerExpChangeEvent、HIGH)が
-    # オーブ回収/精錬/釣り/取引/エンチャント瓶などバニラEXP増加の全経路を一点で捕捉し、
-    # aggregator.aggregate(全ソース合算)から読んだ倍率を常時乗せる(java 100-107)。単一のBukkit
-    # イベント種別に紐づかない汎用の常時ブースト(独自ロジック)のためPASSIVE。
     trigger:
       when: PASSIVE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   breeding-vanilla-exp-bonus:
     name: 繁殖時バニラEXP
     icon: ""
@@ -1188,10 +1034,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4調査(2026-07-27): BreedingBonusListener#onBreed(EntityBreedEvent、MONITOR)がbreeder
-    # (繁殖させたプレイヤー)のaggregator.aggregate(全ソース合算)から読む(java 41-54)。
-    # EntityBreedEvent(繁殖時)に相当するtrigger.whenの語彙メンバーが無いため、意図的に未宣言のまま残す。
-    # 必要な語彙: ON_BREED(繁殖時)相当のtrigger.when。
   woodcutting-extra-drop-chance:
     name: 伐採追加ドロップ率
     icon: ""
@@ -1201,14 +1043,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): GatheringExtraDropListener#onBlockBreak(BlockBreakEvent、HIGH、原木/木材
-    # Tag.LOGS限定、設置ブロック除外)がaggregator.aggregate(全ソース合算)から読み、フラクション値を
-    # 確率としてそのまま追加ドロップ抽選に使う(java 44-87)。1.0超は保証+端数抽選という設計のため
-    # 上限クランプが無く、limitsは省略する。
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   harvest-extra-drop-chance:
     name: 収穫追加ドロップ率
     icon: ""
@@ -1218,13 +1057,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): woodcutting-extra-drop-chanceと同じGatheringExtraDropListener#
-    # onBlockBreak経路。成熟作物(Ageable.getAge()==getMaximumAge())限定で分岐する(java 58-66)。
-    # 同じく上限クランプが無くlimitsは省略する。
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   food-restore-bonus:
     name: 満腹度回復量
     icon: ""
@@ -1234,15 +1071,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): FoodBonusListener#onFoodChange(FoodLevelChangeEvent、HIGH、増加方向のみ、
-    # PlayerItemConsumeEventで橋渡しした「何を食べたか」と対応)がaggregator.aggregate(全ソース合算)
-    # から読み満腹度回復量を割増する(java 71-106)。実質的には飲食(消費)に紐づくためON_CONSUMEを
-    # 宣言する。最終値はMath.min(20,...)で満腹度上限にクランプされるがこれは満腹度自体の上限であり
-    # stat自身の上限ではないためlimitsは省略する。
     trigger:
       when: ON_CONSUME
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   hidden-saturation-bonus:
     name: 隠し満腹度回復量
     icon: ""
@@ -1252,14 +1085,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): FoodBonusListener#onConsume(PlayerItemConsumeEvent、MONITOR)が
-    # aggregator.aggregate(全ソース合算)から読み、1tick後に飽和度(saturation)を割増する(java 108-120)。
-    # 最終値はMath.min(cap=食料値,...)でクランプされるがこれは飽和度自体の上限でありstat自身の上限
-    # ではないためlimitsは省略する。
     trigger:
       when: ON_CONSUME
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   breeding-extra-child-chance:
     name: 繁殖追加子供率
     icon: ""
@@ -1269,9 +1099,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4調査(2026-07-27): breeding-vanilla-exp-bonusと同じBreedingBonusListener#onBreed経由
-    # (java 56-60)。同じくEntityBreedEvent相当のtrigger.when語彙が無いため未宣言のまま残す
-    # (必要な語彙: ON_BREED)。
   bred-animal-growth-bonus:
     name: 動物成長速度
     icon: ""
@@ -1281,9 +1108,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4調査(2026-07-27): breeding-vanilla-exp-bonusと同じBreedingBonusListener#onBreed経由
-    # (applyGrowthBonus, java 63-74)。同じくEntityBreedEvent相当のtrigger.when語彙が無いため
-    # 未宣言のまま残す(必要な語彙: ON_BREED)。
   planted-crop-growth-bonus:
     name: 作物成長速度
     icon: ""
@@ -1293,16 +1117,13 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): PlantedCropGrowthListener(java全体)は単一のBukkitイベントではなく、
-    # 40tickごとの定期タスク(tickOwnedCrops)がプレイヤーが植えた作物を確率的に追加成長させる
-    # 独自の常時ロジック(java 46-90)。aggregator.aggregate(全ソース合算)から読み、
-    # Math.min(1.0,bonus)で確率頭打ちする(java 87、名前付き定数ではないためcap-refは付けない)。
     trigger:
       when: PASSIVE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
-      cap: 1.0
+      cap: 1
   ritual-quality-bonus:
     name: 儀式品質
     icon: ""
@@ -1313,15 +1134,11 @@ stats:
     hide-when-zero: true
     unit: pt
     category: craft
-    # 段階1宣言(2026-07-27): CraftQualityService#ritualQualityBonus(java 178-181)がaggregator.
-    # aggregate(player)(全ソース合算)から読み、ArsPaperフォークの儀式クラフト経路(rollArsSmithingQuality、
-    # CraftItemEventを一切発火しない)の品質mode加算へ使う。プレイヤー限定。最終ロールは
-    # [0, quality.maxQuality()]へクランプされるが、それは合成後の品質スコアの上限でありこのステ自体の
-    # 上限ではないため limits は省略する。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   workbench-quality-bonus:
     name: 作業台品質
     icon: ""
@@ -1332,13 +1149,11 @@ stats:
     hide-when-zero: true
     unit: pt
     category: craft
-    # 段階1宣言(2026-07-27): CraftQualityService#workbenchQualityBonus(java 174-176)がaggregator.
-    # aggregate(player)(全ソース合算)から読み、CraftQualityListener#onCraft(CraftItemEvent)経由の
-    # 品質mode加算へ使う。プレイヤー限定。ritual-quality-bonusと同じ理由でlimitsは省略する。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   craft-upswing-bonus:
     name: 上振れ拡大
     icon: ""
@@ -1348,14 +1163,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): CraftQualityService#craftUpswingBonus/rollQualityWithBonus(java 90,183-185)が
-    # aggregator.aggregate(player)から読み、Math.max(0.0, ...)で負値を0へ床上げした上でspreadUpへ加算する
-    # (CraftItemEvent経由のworkbenchロール、儀式ロール双方から呼ばれる共有ロジック)。プレイヤー限定。
-    # floor 0 はインラインのMath.max(0.0,...)で名前付き定数ではないため -ref は付けない。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   craft-downswing-reduction:
@@ -1367,14 +1179,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): CraftQualityService#craftDownswingBonus/rollQualityWithBonus(java 91,187-189)が
-    # aggregator.aggregate(player)から読み、Math.max(0.0, ...)で負値を0へ床上げした上でspreadDownを
-    # 減算する。プレイヤー限定。floor 0 はインラインのMath.max(0.0,...)で名前付き定数ではないため
-    # -ref は付けない。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   craft-roll-up-bonus:
@@ -1386,15 +1195,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): CraftQualityService#craftRollMods/pctFraction(java 191-196,209-211)が
-    # aggregator.aggregate(player)から読み、負値/非有限値を0へ落としたうえで/100してCraftRollModsへ
-    # 詰める(CraftQualityListener#onPrepareCraft/onCraft/restampIfPreviewで消費、DerivedItemStats経由の
-    # ロール分布へ反映)。プレイヤー限定。floor 0 はpctFraction内のインライン判定で名前付き定数ではない
-    # ため -ref は付けない。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   craft-roll-down-reduction:
@@ -1406,11 +1211,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): craft-roll-up-bonusと同じCraftQualityService#craftRollMods/pctFraction経由。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   craft-roll-inset:
@@ -1422,11 +1227,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): craft-roll-up-bonusと同じCraftQualityService#craftRollMods/pctFraction経由。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   lapis-cost-reduction:
@@ -1439,18 +1244,11 @@ stats:
     hide-when-zero: true
     unit: 個
     category: craft
-    # 段階1宣言(2026-07-27): 消費側はTrinityForge本体ではなくArsPaperフォーク
-    # (fork-handoff/arspaper/fork/src/main/java/com/arspaper/enchant/LapisCostReductionListener.java
-    # 29-58)。EnchantItemEvent(MONITOR)でTrinityForgeBridge.tfStatTotal(=playerStatAggregator.
-    # aggregate(player).totalOf、全ソース合算)を読み、Math.max(0.0,...)で負値を0へ床上げしたうえで
-    # 「軽減するラピス個数」のFLAT値として返却する(上限クランプは意図的に無し、コスト超過分は
-    # actualCost=1〜3で自然に頭打ちされるとコメントされている)。プレイヤー(enchanter)限定。
-    # floor 0 はフォーク側のインラインMath.max(0.0,...)であり、フォークのJavaソースはこのタスクの
-    # 編集許可範囲外のため定数昇格・-ref付与はしない。
     trigger:
       when: ON_ENCHANT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   material-refund-chance:
@@ -1462,21 +1260,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): 消費側はArsPaperフォーク(fork-handoff/arspaper/fork/src/main/java/com/
-    # arspaper/integration/TrinityForgeBridge.java 1571-1583 tfMaterialRefundChanceFraction、
-    # fork-handoff/arspaper/fork/src/main/java/com/arspaper/ritual/RitualManager.java:522で消費)。
-    # 儀式のペデスタル素材返却確率として、儀式クラフト完了時に判定される(儀式クラフトはCraftItemEvent
-    # を発火しないritual-quality-bonusと同じ経路のため ON_CRAFT を採る)。TrinityForgeBridge.
-    # clampChanceFraction(java 1428-1433)がMath.max(0.0, Math.min(1.0, frac))で[0,1]にクランプする。
-    # プレイヤー限定。floor/capの0.0/1.0はフォーク側のインラインリテラルであり、フォークのJavaソースは
-    # このタスクの編集許可範囲外のため定数昇格・-ref付与はしない。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
-      cap: 1.0
+      cap: 1
   ingredient-save-chance:
     name: 材料節約率
     icon: ""
@@ -1486,19 +1277,16 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): BrewIngredientSaveListener#onBrew(TrinityForge/src/main/java/com/
-    # trinityforge/listeners/BrewIngredientSaveListener.java 88-121)がBrewEvent(HIGHEST、手動醸造限定・
-    # ホッパー自動醸造は対象外)でaggregator.aggregate(owner)(全ソース合算)から読み、
-    # MIN/MAX_INGREDIENT_SAVE_CHANCE([0,1])へクランプした確率で材料消費を相殺する。プレイヤー限定。
     trigger:
       when: ON_BREW
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
-      floor-ref: "java:com.trinityforge.listeners.BrewIngredientSaveListener#MIN_INGREDIENT_SAVE_CHANCE"
-      cap: 1.0
-      cap-ref: "java:com.trinityforge.listeners.BrewIngredientSaveListener#MAX_INGREDIENT_SAVE_CHANCE"
+      floor-ref: java:com.trinityforge.listeners.BrewIngredientSaveListener#MIN_INGREDIENT_SAVE_CHANCE
+      cap: 1
+      cap-ref: java:com.trinityforge.listeners.BrewIngredientSaveListener#MAX_INGREDIENT_SAVE_CHANCE
   source-cost-reduction:
     name: ソース消費軽減
     icon: ""
@@ -1508,22 +1296,15 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-    # 段階4宣言(2026-07-27): RitualManager#(儀式実行、fork java 100-138)が儀式実行者(プレイヤーが
-    # 特定できる経路限定)のTrinityForgeBridge.tfStatTotal(装備+perk全合算)を読み、
-    # clampReductionFractionで[0,0.95]へクランプしてからSource消費量を割合減する(java 123-126)。
-    # ritual-quality-bonus/material-refund-chanceと同じ「儀式=ON_CRAFT」経路。0.95はフォーク側の
-    # インラインリテラル(TrinityForgeBridge.java 1437-1446)でフォークJavaは編集対象外のため-refは
-    # 付けない。
     trigger:
       when: ON_CRAFT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
       cap: 0.95
   enchant-cost-reduction:
-    # 2026-07-26新設。エンチャントテーブルの提示/実消費レベルコストと金床の修理コストを軽減する
-    # (EnchantCostReductionListener消費)。ランタイム側で0..0.9にクランプ、最低1レベルは残る。
     name: エンチャント費用軽減
     icon: ""
     format: PERCENT
@@ -1532,12 +1313,7 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-
-  # ---- 2026-07-26 タスク3: StatVocabulary登録済みだがlore.yml未登録だった29キーを追加登録 ----
-  # (機能はしていたがアイテムに一切表示されない状態だった。表示定義追加のみで挙動は変えない)
   flat-bonus-damage:
-    # 最終ダメージへ加算される固定値。item-stats.ymlでの直接記述は廃止済みだが、パーク/base-stats/
-    # モブ攻撃・コーティング内部経路からは引き続き供給されうるためStatVocabulary登録は維持されている。
     name: 追加ダメージ(実数)
     icon: ""
     format: FLAT
@@ -1546,15 +1322,13 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-    # 段階1宣言(2026-07-27): ComponentDamageCalculator step1(ComponentDamageCalculator.java 34-40)、
-    # AttackStatKeys.FLAT_BONUS_DAMAGE。percent-bonus-damageと同じ共有パイプライン経由でPLAYER/MOB双方。
     trigger:
       when: ON_ANY_HIT
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
   flat-defense:
-    # phys-flat-defense/magic-flat-defenseに分岐する前の汎用守備力キー(レガシー統合経路、
-    # DefenseStatBridge/PlayerDefenseResolverの legacyFlat 処理で読まれる)。
     name: 守備力(汎用)
     icon: ""
     format: FLAT
@@ -1563,18 +1337,17 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: defense
-    # 段階1宣言(2026-07-27): 型別キー(phys-flat-defense/magic-flat-defense)が未指定のときのフォールバック
-    # (DefenseStatBridge.java 44-54)。同じdefense.min-flat/max-flatクランプ(SymmetricCombatService.java
-    # 275-279)を経由する。
     trigger:
       when: ON_DAMAGE_TAKEN
       sources: ALL
-      applies-to: [PLAYER, MOB]
+      applies-to:
+        - PLAYER
+        - MOB
     limits:
       floor: 0
-      floor-ref: "combat/damage.yml#defense.min-flat"
+      floor-ref: combat/damage.yml#defense.min-flat
       cap: 1000000
-      cap-ref: "combat/damage.yml#defense.max-flat"
+      cap-ref: combat/damage.yml#defense.max-flat
   fish-sell-price-bonus:
     name: 釣果売却額増加
     icon: ""
@@ -1584,14 +1357,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): FishSellListener#onFish(java 93-132)がCAUGHT_FISH時に
-    # aggregator.aggregate(player)(全ソース合算)から読み、Math.max(0.0, ...)で負値を0へ床上げした後
-    # 売却額へ(1+bonus)倍で乗せる(java:124)。プレイヤー限定(fish-sell-toggle保有者のみ)。
-    # floor 0 は同メソッド内のインライン Math.max(0.0, ...) であり名前付き定数ではないため -ref は付けない。
     trigger:
       when: ON_FISH
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   disassembly-return-bonus:
@@ -1603,15 +1373,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): DisassemblyListener#onAnvilLand(EntityChangeBlockEvent、HIGH、金床落下
-    # 着弾=解体実行の瞬間)がowner(アンビルを設置したプレイヤー)のaggregator.aggregate(全ソース合算)
-    # からMath.max(0.0,...)で負値を0へ床上げして読み、戻り量への追加乗算項として適用する
-    # (java 90-107, 265-284)。floor 0 はインラインのMath.max(0.0,...)で名前付き定数ではないため
-    # -refは付けない。上位のcapは無くlimitsはfloorのみ。
     trigger:
       when: ON_DISASSEMBLE
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   ocean-fishing-bonus:
@@ -1623,14 +1389,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: gathering
-    # 段階1宣言(2026-07-27): FishingQualityListener#dropFishingBonus(java 172-178)がfishing-bonusと
-    # 同じCAUGHT_FISHハンドラ内で、釣り位置が海洋系バイオーム(fishing-gimmick.yml
-    # fishing.ocean-biomes)のときだけagg.totalOf(全ソース合算)を追加加算する。プレイヤー限定。
-    # このステ自体に数値上限は無いため limits は省略する。
     trigger:
       when: ON_FISH
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   ars-tier-bonus:
     name: Ars Tier追加
     icon: ""
@@ -1641,19 +1404,11 @@ stats:
     hide-when-zero: true
     unit: ティア
     category: ars
-    # 段階4宣言(2026-07-27・実装ずれの疑いあり): SpellBook/SpellWand(fork)がGUI/杖の最大グリフtierを
-    # 描画するたびにTrinityForgeBridge.tfArsTierUnlockBonus(player)を呼ぶ(SpellSettingsGui.java:257,
-    # SpellWand.java:93, SpellBook.java:159-163)。中身はperkのdedicated-effect合計(tfEffectValue,
-    # "ars-tier")+ArsNativeBridge#unlockedTier(perk general+永続バフ+役職バフ+base-statsの非装備
-    # 4ソース合算)であり、いずれも装備アイテムのitem-statsを一切走査しない(fork全体をgrepしても
-    # "ars_tier_bonus"の直接消費は無い)。ArsNativeBridgeクラスdocの「item-statsパスがこの4キーの
-    # 装備寄与を別途処理する」という記述は、実際にはmana-bonus/mana-regenの2キーのみに該当し、
-    # ars-tier-bonus/glyph-slot-bonusには当てはまらない(doc記述とコードの不一致、要確認)。
-    # よってsourcesはNON_ITEM_ONLYと断定する。GUI描画のたびに再計算される常時値のためPASSIVE。
     trigger:
       when: PASSIVE
       sources: NON_ITEM_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   glyph-slot-bonus:
     name: グリフ枠追加
     icon: ""
@@ -1664,19 +1419,12 @@ stats:
     hide-when-zero: true
     unit: 枠
     category: ars
-    # 段階4宣言(2026-07-27・実装ずれの疑いあり): ars-tier-bonusと対の枠版。SpellBook/CustomItemListener
-    # がグリフ配置枠を描画/検証するたびにTrinityForgeBridge.tfGlyphSlotBonus(player)を呼ぶ
-    # (CustomItemListener.java:120, SpellBook.java:229-231)。中身はtfEffectValue(EFFECT_GLYPH_SLOT_PLUS
-    # ="glyph-slot-plus")+ArsNativeBridge#glyphSlots(非装備4ソース合算)。ただしEFFECT_GLYPH_SLOT_PLUS
-    # 自体はTrinityForgeBridge.java 1273-1283のSTOPコメントにより「変換先ゲート型が無いため常に0を返す
-    # 死にコード」と明記されている。したがって実質的な供給源はArsNativeBridge#glyphSlots
-    # (非装備4ソース合算)のみで、ars-tier-bonusと同じくsourcesはNON_ITEM_ONLYと断定する。
     trigger:
       when: PASSIVE
       sources: NON_ITEM_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   glyph-damage-multiplier-bonus:
-    # 特定グリフ(現状: 害悪)のダメージに乗るfraction倍率ボーナス。harmに決め打ちしない汎用stat。
     name: グリフダメ倍率
     icon: ""
     format: PERCENT
@@ -1685,15 +1433,7 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-  # 2026-07-27: charged-shot-unlocked(チャージ射撃解放)を撤去。「解放フラグ」を名乗りながら、
-  # 解放対象の効果(貫通/初速/弓CT短縮/矢ノックバック)がいずれも自分自身のステの非0判定を
-  # 個別に持っており、フラグのOR条件にも同じステが並ぶ同語反復だった＝挙動に一切影響しない
-  # 死にキーだったため。弓の「チャージ時間」を縮めるバニラのレバーは 1.21.11 に存在しない
-  # (Attribute に draw 系が無く、引き絞りはクライアント側予測)。クロスボウの装填時間だけは
-  # QUICK_CHARGE エンチャントで縮められるので、必要になったらそちらで別途新設すること。
   light-armor-move-speed-per-piece:
-    # 値は割合(0.0-1.0)ではなく「percent-like」な直値(NativeAttributeBridge側で内部×0.01される)。
-    # 例: 0.5 → 装備部位ごとに+0.5%移動速度。PERCENT(×100表示)にすると10倍の誤表示になるためFLAT+%単位。
     name: 軽装部位速度
     icon: ""
     format: FLAT
@@ -1703,13 +1443,11 @@ stats:
     hide-when-zero: true
     unit: "%"
     category: defense
-    # 段階1宣言(2026-07-27): NativeAttributeBridge#armorAttributesForがperkBuffs.buffsFor(id).general()
-    # だけを読み(アイテム由来ではない)、装備中の軽装部位数×0.01を掛けてmove_speedへ合流する
-    # (NativeAttributeBridge.java 22-23, 47-69)。呼び出し元PerkAttributeApplierはPlayer限定。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: NON_ITEM_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   heavy-armor-move-speed-per-piece:
     name: 重装部位速度
     icon: ""
@@ -1720,22 +1458,12 @@ stats:
     hide-when-zero: true
     unit: "%"
     category: defense
-    # 段階1宣言(2026-07-27): light-armor-move-speed-per-pieceと対の重装版。同じNativeAttributeBridge
-    # (22-23, 47-69)で装備中の重装部位数×0.01を掛ける。
     trigger:
       when: PASSIVE_ATTRIBUTE
       sources: NON_ITEM_ONLY
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   armor-set-bonus:
-    # 2026-07-27(armor-set-buffs全面移行): スキルツリーのset-buffs(装備部位3/4段の条件バフ)が
-    # 採用した段の値全体に × (1 + max(0, この値)) を掛ける増幅率。軽装/重装で共通の1キー。
-    # 負値は0扱い(setBonusValueの既存挙動を踏襲)。
-    # ※段階1/2タスクでの判断: この stat 自身は「増幅率」であって部位数ではなく、
-    # min-pieces に相当する閾値(3/4)は本キーの限界値ではなく skilltree/light_armor.yml・
-    # heavy_armor.yml の set-buffs: セクション(ツリーノードごとに複数の閾値段)に属する。
-    # ACTIVE_RECORD K-5 が挙げていた NativeAttributeBridge.SET_BONUS_MIN_PIECES はこの移行で
-    # 撤去済み(もう存在しない)。trigger/limits は未宣言のまま報告に留める
-    # (LoreConfigDeclarationTest.UNDECLARED_ALLOW_LIST に含まれる)。
     name: セット効果増幅
     icon: ""
     format: PERCENT
@@ -1745,8 +1473,6 @@ stats:
     hide-when-zero: true
     category: defense
   enchant-luck:
-    # エンチャントテーブル使用時、確定したエンチャントのレベルを格上げ抽選する確率(luck1.0あたり)に
-    # 使うポイント(EnchantLuckListener消費)。loot-luck等と同じ整数ポイント蓄積でありPERCENTではない。
     name: エンチャント運
     icon: ""
     format: FLAT
@@ -1755,21 +1481,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): EnchantLuckListener#onEnchant(java 74-115)がEnchantItemEvent(LOW)で
-    # aggregator.aggregate(enchanter)(全ソース合算)からMath.max(0.0,...)で負値を0へ床上げして読み、
-    # config駆動の係数(levelBoostChancePerLuck等)と掛けてレベル格上げ/追加エンチャ抽選の確率へ変換する。
-    # プレイヤー(enchanter)限定。各派生確率はMath.min(1.0,...)でクランプされるが、それはenchant-luck
-    # 自身の値の上限ではなく派生チャンス値の上限のため、capは宣言しない。floor 0 はインラインの
-    # Math.max(0.0,...)で名前付き定数ではないため -ref は付けない。
     trigger:
       when: ON_ENCHANT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   enchant-exp-gain-bonus:
-    # エンチャント実行時に得るENCHANTINGスキルEXPを増減する(符号付き、%)。skill-exp-bonusと同じ
-    # utilityカテゴリ(EXP系はutilityへ集約する既存の分類ルールに合わせる)。
     name: エンチャEXP増減
     icon: ""
     format: PERCENT
@@ -1778,17 +1497,12 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
-    # 段階4宣言(2026-07-27): NativeSkillExperienceListener#onEnchant(EnchantItemEvent、MONITOR)が
-    # aggregator.aggregate(enchanter)(全ソース合算)からENCHANT_EXP_GAIN_BONUSを読み、エンチャント
-    # 実行時のENCHANTINGスキルEXP付与量に掛ける(正=増加、負=減少、Math.max(0.0,...)で合計が0未満に
-    # ならないようクランプ、java 260-280)。floorはこのstat単体ではなく計算結果全体に対する床上げの
-    # ためlimitsは省略する。
     trigger:
       when: ON_ENCHANT
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
   potion-quality-bonus:
-    # 醸造したポーションの効果時間・強度(amplifier)へ換算されるポイント(alchemy-quality.yml消費)。
     name: 醸造品質
     icon: ""
     format: FLAT
@@ -1798,15 +1512,11 @@ stats:
     hide-when-zero: true
     unit: pt
     category: craft
-    # 段階1宣言(2026-07-27): PotionQualityListener#onBrew(java 76-102)がBrewEvent(HIGH)で
-    # aggregator.aggregate(owner)(全ソース合算)からMath.max(0.0,...)で負値を0へ床上げして読み、
-    # ホッパー自動醸造時はautoMult(既定0.25)で減衰させたうえで効果時間/amplifierへ換算する。
-    # プレイヤー(醸造台の所有者)限定。floor 0 はインラインのMath.max(0.0,...)で名前付き定数ではない
-    # ため -ref は付けない。このステ自体に数値上限は無い。
     trigger:
       when: ON_BREW
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
   brew-speed-bonus:
@@ -1818,26 +1528,16 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-    # 段階1宣言(2026-07-27): PotionQualityListener#applySpeed(java 178-203)がBrewEvent開始tick検出時
-    # (InventoryClickEvent等でスケジュール)にaggregator.aggregate(owner)(全ソース合算)から
-    # Math.max(0.0,...)で負値を0へ床上げして読み、ホッパー自動醸造時はautoMultで減衰させたうえで
-    # MAX_SPEED_REDUCTION(90%)を上限に醸造時間を短縮する。プレイヤー(醸造台の所有者)限定。
     trigger:
       when: ON_BREW
       sources: ALL
-      applies-to: [PLAYER]
+      applies-to:
+        - PLAYER
     limits:
       floor: 0
       cap: 0.9
-      cap-ref: "java:com.trinityforge.listeners.PotionQualityListener#MAX_SPEED_REDUCTION"
+      cap-ref: java:com.trinityforge.listeners.PotionQualityListener#MAX_SPEED_REDUCTION
   coating-charges-bonus:
-    # 2026-07-28新設(数値のギミックyml集約): feature:coating-stack-increase から降格した通常stat。
-    # WeaponCoatingListener#onInteract(java)がPlayerStatAggregator#totalOfで全ソース合算を読み、
-    # 実効上限スタック数 = min(基本最大スタック, 素材固有max-stacks) + このボーナス + アイテム固有
-    # coating-charges(mainhandのみ、こちらは総合ステとは別枠)。負値はMath.maxで0へ床上げして加算。
-    # PlayerInteractEvent(オフハンド素材+メインハンド武器の右クリック)発火であり、既存の
-    # StatTriggerWhen語彙に完全一致する値が無いため trigger は付与しない(隣接する
-    # coating-charges エントリと同じ扱い)。
     name: コート上限追加
     icon: ""
     format: INTEGER
@@ -1847,14 +1547,6 @@ stats:
     hide-when-zero: true
     category: craft
   mana-max-base:
-    # base-stats.yml専用のマナ初期値キー(ArsPaper config.yml の mana.default-max 等の移設先)。
-    # アイテムには通常付与されない基礎値だが、StatVocabulary登録キーとしてlore表示定義も揃えておく。
-    # 段階4調査(2026-07-27): mana-max-base〜mana-idle-bonus-flat(この10キー)は全てArsPaperフォークの
-    # ManaBaseStats(fork java, TrinityForgeBridge#manaBaseStat経由)がcombat/base-stats.ymlから
-    # 1回読む「全プレイヤー共通の定数」であり、PlayerStatAggregatorのitem+perk合算チャネルを一切
-    # 経由しない(装備/perkごとの積み上げが存在しない)。trigger.sourcesが前提とする「合算元」の概念
-    # そのものが当てはまらず、既存の語彙で誤解なく表現できないため意図的に未宣言のまま残す
-    # (LoreConfigDeclarationTest.UNDECLARED_ALLOW_LIST)。
     name: マナ上限(基礎)
     icon: ""
     format: FLAT
@@ -1883,9 +1575,6 @@ stats:
     hide-when-zero: true
     unit: tick
     category: ars
-  # 2026-07-27: mana-onhit-* の表示名を実装へ合わせて修正(旧「命中マナ回復率/(実)」)。
-  # フォーク ManaRecoveryListener#onPlayerDamaged が onHitPercent/onHitFlat を使う＝「被弾」側。
-  # 攻撃側は下の mana-onattack-* で、こちらは元から実装と一致している。
   mana-onhit-percent:
     name: 被弾マナ回復率
     icon: ""
@@ -1932,4 +1621,13 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-multiplier-layers: []
+multiplier-layers:
+  - id: layer_1
+    name: 攻撃力％
+    stat: attack-power
+  - id: layer_2
+    name: 出血ダメージ%
+    stat: bleed-damage
+  - id: layer_3
+    name: 固定ダメージ%
+    stat: fixed-damage

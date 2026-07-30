@@ -815,7 +815,7 @@ items:
       penetration: 0.004
       durability: 156
     use-level-requirement: 45
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
@@ -5171,7 +5171,7 @@ items:
       penetration: 0.004
       durability: 6
     use-level-requirement: 0
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
@@ -5202,7 +5202,7 @@ items:
       penetration: 0.004
       durability: 13
     use-level-requirement: 5
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
@@ -5233,7 +5233,7 @@ items:
       penetration: 0.004
       durability: 19
     use-level-requirement: 15
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
@@ -5264,7 +5264,7 @@ items:
       penetration: 0.004
       durability: 25
     use-level-requirement: 25
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
@@ -5295,7 +5295,7 @@ items:
       penetration: 0.004
       durability: 3
     use-level-requirement: 35
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
@@ -5332,7 +5332,7 @@ items:
       penetration: 0.004
       durability: 156
     use-level-requirement: 45
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
@@ -5363,7 +5363,7 @@ items:
       penetration: 0.004
       durability: 203
     use-level-requirement: 60
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
@@ -5395,7 +5395,7 @@ items:
       penetration: 0.004
       durability: 156
     use-level-requirement: 30
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
@@ -5426,7 +5426,7 @@ items:
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
@@ -5458,7 +5458,7 @@ items:
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
@@ -5492,7 +5492,7 @@ items:
       penetration: 0.004
       durability: 203
     use-level-requirement: 80
-    use-skill: ARCHERY
+    use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
@@ -6428,7 +6428,7 @@ items:
     use-level-requirement: 100
     use-skill: MINING
     quality-mode-offset: -8
-  WOODEN_AXE#200105:
+  WOODEN_AXE:
     fixed:
       durability: 35
     per-quality:
@@ -6436,7 +6436,7 @@ items:
     use-level-requirement: 0
     use-skill: WOODCUTTING
     quality-mode-offset: 0
-  STONE_AXE#200106:
+  STONE_AXE:
     fixed:
       durability: 78
     per-quality:
@@ -6444,7 +6444,7 @@ items:
     use-level-requirement: 5
     use-skill: WOODCUTTING
     quality-mode-offset: 0
-  COPPER_AXE#200107:
+  COPPER_AXE:
     fixed:
       durability: 114
     per-quality:
@@ -6452,7 +6452,7 @@ items:
     use-level-requirement: 15
     use-skill: WOODCUTTING
     quality-mode-offset: -1
-  IRON_AXE#200108:
+  IRON_AXE:
     fixed:
       durability: 150
     per-quality:
@@ -6460,7 +6460,7 @@ items:
     use-level-requirement: 25
     use-skill: WOODCUTTING
     quality-mode-offset: -2
-  GOLDEN_AXE#200109:
+  GOLDEN_AXE:
     fixed:
       durability: 19
     per-quality:
@@ -6472,7 +6472,7 @@ items:
     use-level-requirement: 35
     use-skill: WOODCUTTING
     quality-mode-offset: -2
-  DIAMOND_AXE#200110:
+  DIAMOND_AXE:
     fixed:
       durability: 936
     per-quality:
@@ -6480,7 +6480,7 @@ items:
     use-level-requirement: 45
     use-skill: WOODCUTTING
     quality-mode-offset: -4
-  NETHERITE_AXE#200111:
+  NETHERITE_AXE:
     fixed:
       durability: 1218
     per-quality:
@@ -7923,13 +7923,13 @@ _editor:
       - id: cat_1784781037585
         label: 斧
         itemIds:
-          - WOODEN_AXE#200105
-          - STONE_AXE#200106
-          - COPPER_AXE#200107
-          - IRON_AXE#200108
-          - GOLDEN_AXE#200109
-          - DIAMOND_AXE#200110
-          - NETHERITE_AXE#200111
+          - WOODEN_AXE
+          - STONE_AXE
+          - COPPER_AXE
+          - IRON_AXE
+          - GOLDEN_AXE
+          - DIAMOND_AXE
+          - NETHERITE_AXE
           - DIAMOND_AXE#75
           - NETHERITE_AXE#191
       - id: cat_1784781033520
@@ -8322,13 +8322,6 @@ _editor:
     GOLDEN_PICKAXE: tool
     DIAMOND_PICKAXE: tool
     NETHERITE_PICKAXE: tool
-    WOODEN_AXE#200105: tool
-    STONE_AXE#200106: tool
-    COPPER_AXE#200107: tool
-    IRON_AXE#200108: tool
-    GOLDEN_AXE#200109: tool
-    DIAMOND_AXE#200110: tool
-    NETHERITE_AXE#200111: tool
     DIAMOND_AXE#75: tool
     NETHERITE_AXE#191: tool
     DIAMOND_SHOVEL#74: tool
@@ -8461,6 +8454,13 @@ _editor:
     LEATHER_LEGGINGS#200150: armor
     LEATHER_BOOTS#200151: armor
     GLOWSTONE#84: other
+    DIAMOND_AXE: tool
+    GOLDEN_AXE: tool
+    IRON_AXE: tool
+    COPPER_AXE: tool
+    STONE_AXE: tool
+    WOODEN_AXE: tool
+    NETHERITE_AXE: tool
   orders:
     weapon:
       - DIAMOND_SWORD#1111
@@ -8639,13 +8639,13 @@ _editor:
       - GOLDEN_PICKAXE
       - DIAMOND_PICKAXE
       - NETHERITE_PICKAXE
-      - WOODEN_AXE#200105
-      - STONE_AXE#200106
-      - COPPER_AXE#200107
-      - IRON_AXE#200108
-      - GOLDEN_AXE#200109
-      - DIAMOND_AXE#200110
-      - NETHERITE_AXE#200111
+      - WOODEN_AXE
+      - STONE_AXE
+      - COPPER_AXE
+      - IRON_AXE
+      - GOLDEN_AXE
+      - DIAMOND_AXE
+      - NETHERITE_AXE
       - DIAMOND_AXE#75
       - NETHERITE_AXE#191
       - DIAMOND_SHOVEL#74

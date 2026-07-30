@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.StatCapsConfig;
 import com.trinityforge.progression.PermanentBuffResolver;
 import com.trinityforge.progression.RoleBuffResolver;
+import com.trinityforge.progression.UseRequirementService;
 import com.trinityforge.skilltree.runtime.NativeAttributeBridge;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.skilltree.runtime.PerkBuffs;
@@ -21,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * プレイヤー戦闘スタットの単一集計者(#3 全ステ合算)。攻撃側({@code CombatListener})・防御側
@@ -45,6 +47,7 @@ public final class PlayerStatAggregator {
     private final PermanentBuffResolver permanentBuffResolver;
     private final BaseStatsConfig baseStats;
     private final StatCapsConfig statCaps;
+    private final UseRequirementService useRequirementService;
 
     /**
      * Per-tick memo cache (2026-07-25, CMB-30): {@link #aggregate} re-runs 4 armor pieces + mainhand +
@@ -53,9 +56,11 @@ public final class PlayerStatAggregator {
      * on every call — 3-6x per single hit in practice ({@code CombatListener},
      * {@code NativeCombatPerkListener}, and {@code PerkAttributeApplier}'s 10-tick poll all call this
      * for the same player, often within the same server tick). Memoizing the result per
-     * {@code (player, mainhand-contributor item, offhand-exclusion flag)} for the lifetime of ONE tick
-     * means every consumer within a single damage event observes an identical snapshot, while
-     * equipment/perk changes are still visible on the very next tick.
+     * {@code (player, mainhand-contributor item, armor/offhand snapshot, offhand-exclusion flag)} for
+     * the lifetime of ONE tick means every consumer within a single damage event observes an identical
+     * snapshot. The equipment snapshot is part of the key because a non-cancellable armor-change event
+     * may replace armor mid-tick; a rejected piece must not reuse a pre-change aggregate while awaiting
+     * deferred removal.
      *
      * <p><b>RollHash correctness note (verified 2026-07-25):</b> {@link com.trinityforge.stats.RollHash
      * #standardNormal} seeds a fresh {@link java.util.SplittableRandom} from the item's PDC
@@ -81,7 +86,15 @@ public final class PlayerStatAggregator {
     private final Map<AggregateCacheKey, PlayerCombatAggregate> tickCache = new HashMap<>();
     private int cachedTick = Integer.MIN_VALUE;
 
-    private record AggregateCacheKey(UUID playerId, ItemStack mainhandContributor, boolean contributorIsOffhand) {
+    private record AggregateCacheKey(
+            UUID playerId,
+            ItemStack mainhandContributor,
+            boolean contributorIsOffhand,
+            ItemStack helmet,
+            ItemStack chestplate,
+            ItemStack leggings,
+            ItemStack boots,
+            ItemStack offhand) {
     }
 
     public PlayerStatAggregator(ItemStatsConfig itemStats,
@@ -168,6 +181,25 @@ public final class PlayerStatAggregator {
                                 PermanentBuffResolver permanentBuffResolver,
                                 BaseStatsConfig baseStats,
                                 StatCapsConfig statCaps) {
+        this(itemStats, combatDamage, perkBuffResolver, roleBuffResolver, nativeAttributeBridge,
+                permanentBuffResolver, baseStats, statCaps, null);
+    }
+
+    /**
+     * @param useRequirementService optional use-level gate. When present, armor that the player may
+     *                              not use is excluded from every equipment-stat and multiplier path
+     *                              immediately, including the non-cancellable armor-change event's
+     *                              one-tick deferred-removal window.
+     */
+    public PlayerStatAggregator(ItemStatsConfig itemStats,
+                                CombatDamageConfig combatDamage,
+                                PerkBuffResolver perkBuffResolver,
+                                RoleBuffResolver roleBuffResolver,
+                                NativeAttributeBridge nativeAttributeBridge,
+                                PermanentBuffResolver permanentBuffResolver,
+                                BaseStatsConfig baseStats,
+                                StatCapsConfig statCaps,
+                                UseRequirementService useRequirementService) {
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
         this.combatDamage = Objects.requireNonNull(combatDamage, "combatDamage");
         this.perkBuffResolver = Objects.requireNonNull(perkBuffResolver, "perkBuffResolver");
@@ -176,6 +208,7 @@ public final class PlayerStatAggregator {
         this.permanentBuffResolver = permanentBuffResolver;
         this.baseStats = baseStats;
         this.statCaps = statCaps;
+        this.useRequirementService = useRequirementService;
     }
 
     /**
@@ -237,7 +270,12 @@ public final class PlayerStatAggregator {
         // already-cached key's identity, and so the key's equals/hashCode are stable for the map's
         // lifetime regardless of what the live item does afterward.
         AggregateCacheKey key = new AggregateCacheKey(
-                player.getUniqueId(), mainhandContributor.clone(), contributorIsOffhand);
+                player.getUniqueId(), mainhandContributor.clone(), contributorIsOffhand,
+                cloneOrNull(player.getInventory().getHelmet()),
+                cloneOrNull(player.getInventory().getChestplate()),
+                cloneOrNull(player.getInventory().getLeggings()),
+                cloneOrNull(player.getInventory().getBoots()),
+                cloneOrNull(player.getInventory().getItemInOffHand()));
         // computeIfAbsent は使わない: マッピング関数の実行中に同じマップが構造変更されると
         // 戻り際の modCount チェックで CME になる。上のスレッドガードで主因は塞いだが、
         // computeAggregate が解決器を経由して同じプレイヤーの aggregate(...) へ再入した場合にも
@@ -271,9 +309,10 @@ public final class PlayerStatAggregator {
 
     private PlayerCombatAggregate computeAggregate(Player player, ItemStack mainhandContributor,
                                                     boolean contributorIsOffhand) {
-        Map<String, Double> item = armorAndOffhandStats(player, contributorIsOffhand);
+        ItemStack[] usableArmor = usableArmorContents(player);
+        Map<String, Double> item = armorAndOffhandStats(player, usableArmor, contributorIsOffhand);
         Map<String, Map<String, Double>> multipliers =
-                armorAndOffhandMultipliers(player, contributorIsOffhand);
+                armorAndOffhandMultipliers(player, usableArmor, contributorIsOffhand);
 
         // mainhand はメインハンド(または発射武器)単体のマップとして保持する — armor/offhandは絶対に
         // 混ぜない。アイテムCTがこのマップだけを読むことで、防具/オフハンドのアイテムCTスタットが誤って
@@ -434,6 +473,12 @@ public final class PlayerStatAggregator {
         if (nativeAttributeBridge == null) {
             return NativeArmorSetContribution.EMPTY;
         }
+        // Native armor-set bonuses are computed from the live equipped-piece count. If even one
+        // piece is unusable, do not let that piece complete a 3/4-piece set during deferred removal.
+        // Returning EMPTY is deliberately conservative for this one-tick invalid state.
+        if (hasDeniedArmor(player)) {
+            return NativeArmorSetContribution.EMPTY;
+        }
         Map<String, Double> source = nativeAttributeBridge.armorAttributesFor(player);
         if (source.isEmpty()) {
             return NativeArmorSetContribution.EMPTY;
@@ -486,7 +531,8 @@ public final class PlayerStatAggregator {
      */
     public Map<String, Double> aggregateExcludingMainhandWith(Player player, ItemStack extraContributor) {
         Objects.requireNonNull(player, "player");
-        Map<String, Double> combined = armorAndOffhandStats(player, false);
+        ItemStack[] usableArmor = usableArmorContents(player);
+        Map<String, Double> combined = armorAndOffhandStats(player, usableArmor, false);
         PerkBuffs perkBuffs = perkBuffResolver.buffsFor(player.getUniqueId(), player.getInventory().getItemInMainHand());
         perkBuffs.attack().forEach((key, value) -> combined.merge(StatKeys.canonical(key), value, Double::sum));
         perkBuffs.defense().forEach((key, value) -> combined.merge(StatKeys.canonical(key), value, Double::sum));
@@ -506,7 +552,8 @@ public final class PlayerStatAggregator {
         }
         AddonCombatStats.read(player)
                 .forEach((key, value) -> combined.merge(StatKeys.canonical(key), value, Double::sum));
-        Map<String, Map<String, Double>> multipliers = armorAndOffhandMultipliers(player, false);
+        Map<String, Map<String, Double>> multipliers =
+                armorAndOffhandMultipliers(player, usableArmor, false);
         mergeMultipliers(multipliers, perkBuffs.multipliers());
         if (extraContributor != null && !extraContributor.getType().isAir()) {
             DerivedItemStats.resolve(extraContributor, itemStats, combatDamage.weaponBaseFormula())
@@ -526,9 +573,10 @@ public final class PlayerStatAggregator {
      * (mainhandContributor がオフハンドの釣竿等であるときの二重計上防止。スロット単位 — 参照/equals
      * 比較はライブサーバーのミラー実装や同一設定の別アイテムで誤動作するため使わない)。
      */
-    private Map<String, Double> armorAndOffhandStats(Player player, boolean excludeOffhand) {
+    private Map<String, Double> armorAndOffhandStats(Player player, ItemStack[] usableArmor,
+                                                     boolean excludeOffhand) {
         Map<String, Double> item = new LinkedHashMap<>();
-        for (ItemStack piece : player.getInventory().getArmorContents()) {
+        for (ItemStack piece : usableArmor) {
             // stats/item-stats.yml は装備中の各部位に毎回ライブ適用される(PDC無し・素のMATERIALでもOK)。
             // 防具はweaponカテゴリではないため、武器基礎式は発火しない(DerivedItemStatsのガード)。
             DerivedItemStats.resolve(piece, itemStats, combatDamage.weaponBaseFormula())
@@ -547,9 +595,10 @@ public final class PlayerStatAggregator {
     }
 
     /** 防具4部位 + (設定により)オフハンドの乗算レイヤ収集({@link #armorAndOffhandStats} と対)。 */
-    private Map<String, Map<String, Double>> armorAndOffhandMultipliers(Player player, boolean excludeOffhand) {
+    private Map<String, Map<String, Double>> armorAndOffhandMultipliers(
+            Player player, ItemStack[] usableArmor, boolean excludeOffhand) {
         Map<String, Map<String, Double>> multipliers = new LinkedHashMap<>();
-        for (ItemStack piece : player.getInventory().getArmorContents()) {
+        for (ItemStack piece : usableArmor) {
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(piece, itemStats));
         }
         ItemStack offhand = player.getInventory().getItemInOffHand();
@@ -557,6 +606,77 @@ public final class PlayerStatAggregator {
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(offhand, itemStats));
         }
         return multipliers;
+    }
+
+    /**
+     * Resolves one configured stat from only the equipped armor pieces accepted by {@code filter}.
+     * Unlike {@link #aggregate(Player)}, this deliberately excludes main/offhand items and every
+     * player-wide perk/addon source. It is used where an upstream formula distinguishes light and
+     * heavy armor totals (Valhalla's TOTAL_LIGHT_ARMOR/TOTAL_HEAVY_ARMOR) rather than asking for the
+     * player's combined defense value.
+     *
+     * <p>The same use-requirement gate, {@link DerivedItemStats} resolver, canonical key handling,
+     * and item multiplier layers as normal combat aggregation are retained, so editor-authored
+     * custom armor points remain the source of truth.
+     */
+    public double equippedArmorStatTotal(Player player, String statKey, Predicate<ItemStack> filter) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(statKey, "statKey");
+        Objects.requireNonNull(filter, "filter");
+        String canonicalKey = StatKeys.canonical(statKey);
+        Map<String, Double> item = new LinkedHashMap<>();
+        Map<String, Map<String, Double>> multipliers = new LinkedHashMap<>();
+        for (ItemStack piece : usableArmorContents(player)) {
+            if (piece == null || piece.getType().isAir() || !filter.test(piece)) {
+                continue;
+            }
+            DerivedItemStats.resolve(piece, itemStats, combatDamage.weaponBaseFormula())
+                    .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
+            mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(piece, itemStats));
+        }
+        return new PlayerCombatAggregate(
+                item, Map.of(), Map.of(), Map.of(), Map.of(), multipliers, statCaps)
+                .totalOf(canonicalKey);
+    }
+
+    /**
+     * True while at least one equipped armor piece fails the same use gate as
+     * {@code ArmorUseGateListener}. Combat uses this to suppress vanilla armor/protection until the
+     * non-cancellable armor-change event's deferred removal completes.
+     */
+    public boolean hasDeniedArmor(Player player) {
+        Objects.requireNonNull(player, "player");
+        if (useRequirementService == null) {
+            return false;
+        }
+        for (ItemStack piece : player.getInventory().getArmorContents()) {
+            if (piece != null && !piece.getType().isAir()
+                    && useRequirementService.denialFor(player, piece).isPresent()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Returns the live armor snapshot with denied pieces replaced by AIR. */
+    private ItemStack[] usableArmorContents(Player player) {
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        if (useRequirementService == null) {
+            return armor;
+        }
+        ItemStack[] usable = armor.clone();
+        for (int i = 0; i < usable.length; i++) {
+            ItemStack piece = usable[i];
+            if (piece != null && !piece.getType().isAir()
+                    && useRequirementService.denialFor(player, piece).isPresent()) {
+                usable[i] = null;
+            }
+        }
+        return usable;
+    }
+
+    private static ItemStack cloneOrNull(ItemStack stack) {
+        return stack == null ? null : stack.clone();
     }
 
     /** レイヤ→ステ→Σ(v-1) を加算マージする(同一レイヤは足し合わせてから乗算、の「足し合わせ」部分)。 */

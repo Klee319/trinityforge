@@ -3,6 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.active.ActiveSkillCooldownKeys;
 import com.trinityforge.active.CooldownManager;
 import com.trinityforge.active.FeedbackLayer;
+import com.trinityforge.active.SemiActiveCooldown;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.WoodcuttingGimmickConfig;
@@ -53,7 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>{@link com.trinityforge.listeners.VeinMiningListener}と同じ「1リスナーに複数consumerをまとめる」様式:
  * すべて同じ「原木 or 葉の破壊」トリガーを共有するため。
  */
-public final class TreeFellingListener implements Listener {
+public final class TreeFellingListener implements Listener, SemiActiveCooldown {
 
     private static final String EFFECT_TREE_FELL = "tree-fell";
     private static final String PROF_WOODCUTTING = "woodcutting";
@@ -161,30 +162,13 @@ public final class TreeFellingListener implements Listener {
      * (数値0.3は変更していない、キーのみ移行)。基準CTは従来通り{@code gimmickConfig.treeFellCooldownTicks()}。
      */
     private void handleTreeFelling(Player player, Block origin, Material type) {
-        if (!GatheringToolMatcher.matches(player.getInventory().getItemInMainHand(),
-                GatheringToolMatcher.WOODCUTTING)) {
-            // 2026-07-27: 旧判定は WoodcuttingMaterials.isAxe(マテリアル) で、TFが別ラインで出荷している
-            // **戦闘用の斧(use-skill: HEAVY_WEAPONS)でも一括伐採が発動していた**。use-skill タグを
-            // 優先し、タグの無い素のバニラの斧はマテリアル推論で従来どおり許可する。
-            return;
-        }
-        if (!PlayerData.of(player).treeFellEnabled()) {
-            // 2026-07-25 §2 B-2: プレイヤートグルOFF(特定の木だけ伐りたい場面向け)。
-            return;
-        }
-
-        OptionalDouble tier = dedicatedEffects.valueMax(player, EFFECT_TREE_FELL);
+        OptionalDouble tier = eligibleTier(player);
         if (tier.isEmpty()) {
             return;
         }
         int maxExtra = gimmickConfig.treeFellMaxExtraLogs((int) tier.getAsDouble());
-        if (maxExtra <= 0) {
-            return;
-        }
 
-        long baseCooldownMillis = gimmickConfig.treeFellCooldownTicks() * 50L;
-        double reduction = aggregator.aggregate(player).totalOf(COOLDOWN_REDUCTION_KEY);
-        long cooldownMillis = CooldownManager.applyReduction(baseCooldownMillis, reduction);
+        long cooldownMillis = cooldownMillis(player);
         long now = System.currentTimeMillis();
         if (!cooldowns.tryConsume(player.getUniqueId(), COOLDOWN_SKILL_ID, cooldownMillis, now)) {
             return;
@@ -206,6 +190,45 @@ public final class TreeFellingListener implements Listener {
             // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar)。
             feedback.subtle(player, "一括伐採 x" + broken);
         }
+    }
+
+    @Override
+    public String id() {
+        return COOLDOWN_SKILL_ID;
+    }
+
+    @Override
+    public String displayName() {
+        return "一括伐採";
+    }
+
+    @Override
+    public boolean isEligible(Player player) {
+        return eligibleTier(player).isPresent();
+    }
+
+    @Override
+    public long cooldownMillis(Player player) {
+        long baseCooldownMillis = gimmickConfig.treeFellCooldownTicks() * 50L;
+        double reduction = aggregator.aggregate(player).totalOf(COOLDOWN_REDUCTION_KEY);
+        return CooldownManager.applyReduction(baseCooldownMillis, reduction);
+    }
+
+    private OptionalDouble eligibleTier(Player player) {
+        if (!GatheringToolMatcher.matches(player.getInventory().getItemInMainHand(),
+                GatheringToolMatcher.WOODCUTTING)) {
+            // use-skillタグを優先し、戦闘斧は拒否、タグのないバニラ斧は許可する。
+            return OptionalDouble.empty();
+        }
+        if (!PlayerData.of(player).treeFellEnabled()) {
+            return OptionalDouble.empty();
+        }
+        OptionalDouble tier = dedicatedEffects.valueMax(player, EFFECT_TREE_FELL);
+        if (tier.isEmpty()
+                || gimmickConfig.treeFellMaxExtraLogs((int) tier.getAsDouble()) <= 0) {
+            return OptionalDouble.empty();
+        }
+        return tier;
     }
 
     /** Evaluates every {@code woodcutting} drop-table category independently (§4). */

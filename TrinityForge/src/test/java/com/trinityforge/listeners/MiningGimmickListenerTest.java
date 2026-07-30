@@ -8,8 +8,14 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrushableBlock;
+import org.bukkit.block.CreatureSpawner;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.loot.LootTable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +27,8 @@ import org.mockito.MockedStatic;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
@@ -222,5 +230,69 @@ class MiningGimmickListenerTest {
         server.getScheduler().performTicks(2);
 
         verify(fixture.current(), never()).setType(any());
+    }
+
+    @Test
+    void harvestedSpawnerItemPreservesSpawnedEntityTypeAndSuppressesVanillaExp() {
+        Player player = server.addPlayer();
+        ItemStack tool = new ItemStack(Material.DIAMOND_PICKAXE);
+        Enchantment silkTouch = org.bukkit.Registry.ENCHANTMENT.get(
+                org.bukkit.NamespacedKey.minecraft("silk_touch"));
+        tool.addUnsafeEnchantment(silkTouch, 1);
+        player.getInventory().setItemInMainHand(tool);
+
+        Block block = player.getWorld().getBlockAt(8, 64, 8);
+        block.setType(Material.SPAWNER);
+        CreatureSpawner source = assertInstanceOf(CreatureSpawner.class, block.getState());
+        source.setSpawnedType(EntityType.ZOMBIE);
+        source.update(true);
+
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.isActive(player, "spawner-silktouch-harvest")).thenReturn(true);
+        PlacedBlockTracker placedBlocks = new PlacedBlockTracker(MockBukkit.createMockPlugin());
+        MiningGimmickListener listener = new MiningGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, mock(PlayerStatAggregator.class),
+                new MiningGimmickConfig(), placedBlocks);
+        BlockBreakEvent event = mock(BlockBreakEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getBlock()).thenReturn(block);
+
+        listener.onBlockBreak(event);
+
+        Item dropped = player.getWorld().getEntitiesByClass(Item.class).iterator().next();
+        BlockStateMeta meta = assertInstanceOf(BlockStateMeta.class, dropped.getItemStack().getItemMeta());
+        CreatureSpawner droppedState = assertInstanceOf(CreatureSpawner.class, meta.getBlockState());
+        assertEquals(EntityType.ZOMBIE, droppedState.getSpawnedType());
+        verify(event).setDropItems(false);
+        verify(event).setExpToDrop(0);
+    }
+
+    @Test
+    void playerPlacedSpawnerCannotBeHarvestedAgainAndDropsNoSpawnerExp() {
+        Player player = server.addPlayer();
+        ItemStack tool = new ItemStack(Material.DIAMOND_PICKAXE);
+        Enchantment silkTouch = org.bukkit.Registry.ENCHANTMENT.get(
+                org.bukkit.NamespacedKey.minecraft("silk_touch"));
+        tool.addUnsafeEnchantment(silkTouch, 1);
+        player.getInventory().setItemInMainHand(tool);
+
+        Block block = player.getWorld().getBlockAt(8, 64, 8);
+        block.setType(Material.SPAWNER);
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.isActive(player, "spawner-silktouch-harvest")).thenReturn(true);
+        PlacedBlockTracker placedBlocks = new PlacedBlockTracker(MockBukkit.createMockPlugin());
+        placedBlocks.markPlaced(block);
+        MiningGimmickListener listener = new MiningGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, mock(PlayerStatAggregator.class),
+                new MiningGimmickConfig(), placedBlocks);
+        BlockBreakEvent event = mock(BlockBreakEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getBlock()).thenReturn(block);
+
+        listener.onBlockBreak(event);
+
+        assertEquals(0, player.getWorld().getEntitiesByClass(Item.class).size());
+        verify(event, never()).setDropItems(false);
+        verify(event).setExpToDrop(0);
     }
 }

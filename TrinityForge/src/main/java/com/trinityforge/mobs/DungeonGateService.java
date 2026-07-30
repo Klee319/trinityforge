@@ -28,6 +28,11 @@ import java.util.logging.Logger;
 public final class DungeonGateService {
 
     private static final Logger LOG = Logger.getLogger(DungeonGateService.class.getName());
+    private static final String ADMIN_PERMISSION = "trinityforge.admin";
+    private static final String ELITEMOBS_TOOLING_PERMISSION = "trinityforge.elitemobs.commands";
+    private static final Component UNCONFIGURED_GATE = Component.text(
+            "このダンジョンは入場ゲートが設定されていないため入場できません。",
+            NamedTextColor.RED);
 
     private final DungeonGateConfig gateConfig;
     private final SymmetricCombatService combatService;
@@ -75,7 +80,71 @@ public final class DungeonGateService {
         if (gateOpt.isEmpty()) {
             return true;
         }
-        return evaluateAndConsume(player, List.of(gateOpt.get()), true);
+        return evaluate(player, List.of(gateOpt.get()), true, true);
+    }
+
+    /**
+     * Returns whether a world/content-package has an entry gate, without evaluating requirements or
+     * consuming a key. EliteMobs uses this before opening a dungeon browser so an unconfigured public
+     * {@code /em dungeontp} route can be rejected while ordinary EliteMobs teleports remain unaffected.
+     */
+    public boolean hasEntryGate(String lookupKey) {
+        return lookupKey != null
+                && !lookupKey.isBlank()
+                && gateConfig.resolve(lookupKey).isPresent();
+    }
+
+    /**
+     * Preflights a required EliteMobs dungeon entry without consuming its key. The committed join
+     * must still call {@link #checkRequiredEntry(Player, String)} so level/inventory changes between
+     * browser selection and instance creation are checked again.
+     */
+    public boolean previewRequiredEntry(Player player, String lookupKey) {
+        if (player == null) {
+            return false;
+        }
+        if (player.hasPermission(ADMIN_PERMISSION)
+                || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION)) {
+            return true;
+        }
+        if (lookupKey == null || lookupKey.isBlank()) {
+            player.sendMessage(UNCONFIGURED_GATE);
+            return false;
+        }
+        Optional<DungeonGate> gateOpt = gateConfig.resolve(lookupKey);
+        if (gateOpt.isEmpty()) {
+            player.sendMessage(UNCONFIGURED_GATE);
+            return false;
+        }
+        return evaluate(player, List.of(gateOpt.get()), true, false);
+    }
+
+    /**
+     * EliteMobs のダンジョン作成・参加経路向けの必須ゲート判定。
+     *
+     * <p>通常のワールド移動用 {@link #checkEntry(Player, String)} は未設定ワールドを許可するが、
+     * EliteMobs の公開コマンド/NPC導線では、対応するゲートが無い状態を一般ユーザーに許可すると
+     * {@code /em dungeontp} から無制限に入場できる。そのため、この入口だけは設定漏れを拒否する。
+     * 管理・復旧作業用の権限保持者はゲート未設定でも通過できる。</p>
+     */
+    public boolean checkRequiredEntry(Player player, String lookupKey) {
+        if (player == null) {
+            return false;
+        }
+        if (player.hasPermission(ADMIN_PERMISSION)
+                || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION)) {
+            return true;
+        }
+        if (lookupKey == null || lookupKey.isBlank()) {
+            player.sendMessage(UNCONFIGURED_GATE);
+            return false;
+        }
+        Optional<DungeonGate> gateOpt = gateConfig.resolve(lookupKey);
+        if (gateOpt.isEmpty()) {
+            player.sendMessage(UNCONFIGURED_GATE);
+            return false;
+        }
+        return evaluate(player, List.of(gateOpt.get()), true, true);
     }
 
     /** 区画ゲートが1つでも設定されているか(移動イベントの早期リターン用)。 */
@@ -116,12 +185,13 @@ public final class DungeonGateService {
         if (entered.isEmpty()) {
             return true;
         }
-        return evaluateAndConsume(player, entered, notify);
+        return evaluate(player, entered, notify, true);
     }
 
     /**
-     * 二相評価: まず全ゲートの通過可否を確認し(1つでも拒否なら何も消費せずfalse)、全通過が
-     * 確定してからキーを消費する — 重なった区画で片方のキーだけ先に消費される事故を防ぐ。
+     * 二相評価: まず全ゲートの通過可否を確認し(1つでも拒否なら何も消費せずfalse)、
+     * {@code consume} が真なら全通過確定後にキーを消費する — 重なった区画で片方のキーだけ
+     * 先に消費される事故を防ぐ。事前確認では同じ評価を行い、消費フェーズだけを省略する。
      *
      * <p>2026-07-27: 有効な一回限りの通行許可({@link #grantOneTimePass}参照)を持つゲートは、
      * このフェーズではレベル/鍵チェックを完全にスキップして無条件通過扱いにする(GUI確定処理が
@@ -129,7 +199,7 @@ public final class DungeonGateService {
      * 後にのみ行う — 同時に評価された他のゲートでレベル不足等の拒否が起きた場合、このバッチ全体は
      * falseで返り、パスは消費されず温存される(「入場が実際に許可された時」に限りパスを消費する)。
      */
-    private boolean evaluateAndConsume(Player player, List<DungeonGate> gates, boolean notify) {
+    private boolean evaluate(Player player, List<DungeonGate> gates, boolean notify, boolean consume) {
         int combatLevel = combatService.combatLevelOf(player.getUniqueId());
         UUID playerId = player.getUniqueId();
         Set<DungeonGate> passGates = new HashSet<>();
@@ -164,11 +234,13 @@ public final class DungeonGateService {
                 }
             }
         }
-        for (DungeonGate gate : gates) {
-            if (passGates.contains(gate)) {
-                consumeOneTimePass(playerId, gate.world());
-            } else if (gate.keyRequired() && keyGateActuallyEnforced(gate)) {
-                keyMatcher.consume(player.getInventory(), gate.keyItem(), gate.keyAmount());
+        if (consume) {
+            for (DungeonGate gate : gates) {
+                if (passGates.contains(gate)) {
+                    consumeOneTimePass(playerId, gate.world());
+                } else if (gate.keyRequired() && keyGateActuallyEnforced(gate)) {
+                    keyMatcher.consume(player.getInventory(), gate.keyItem(), gate.keyAmount());
+                }
             }
         }
         return true;

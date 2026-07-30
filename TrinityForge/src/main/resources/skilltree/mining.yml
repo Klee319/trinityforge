@@ -40,13 +40,14 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/mining.md
+
 skill: MINING
 display-name: 採掘
 icon: IRON_PICKAXE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 1
   at-level: 100
   name: 採掘王の栄光
   effect-text: メインにツルハシを持つと採掘速度上昇 永続+1(既にある場合追加で+1)・ドロップ増加 永続+20%
@@ -83,7 +84,7 @@ nodes:
     cost: 1
     effect-text: 破壊で2倍のバニラEXP
     buffs:
-      break-vanilla-exp-bonus: 1.0
+      break-vanilla-exp-bonus: 1
   D:
     name: 露天掘りの匠
     level: 70
@@ -174,7 +175,7 @@ nodes:
     effects:
       - 鉱石のドロップ増加+15%
     mainhand-buffs:
-      mining-fortune: 15
+      mining-fortune: 0.15
   B-2:
     name: 精密破壊II
     level: 40
@@ -186,7 +187,7 @@ nodes:
     effects:
       - 鉱石のドロップ増加+20%
     mainhand-buffs:
-      mining-fortune: 20
+      mining-fortune: 0.2
   B-3:
     name: 精密破壊III
     level: 60
@@ -198,5 +199,4 @@ nodes:
     effects:
       - 鉱石のドロップ増加+25%
     mainhand-buffs:
-      mining-fortune: 25
-
+      mining-fortune: 0.29

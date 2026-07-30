@@ -5,12 +5,10 @@
 # 数値は全て暫定(要調整)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/mining-gimmick.md
 
-
 suspicious-block-respawn:
   loot-tables:
     suspicious-sand: DESERT_PYRAMID_ARCHAEOLOGY
     suspicious-gravel: TRAIL_RUINS_ARCHAEOLOGY_COMMON
-
 vein-mining:
   ore-blocks:
     - COAL_ORE
@@ -38,9 +36,15 @@ haste-active-mining:
   duration-ticks: 200
   cooldown-ticks: 600
   tiers:
-    1: { amplifier: 3, duration-ticks: 160 }
-    3: { amplifier: 4, duration-ticks: 200 }
-    5: { amplifier: 5, duration-ticks: 240 }
+    "1":
+      amplifier: 3
+      duration-ticks: 100
+    "2":
+      amplifier: 4
+      duration-ticks: 200
+    "3":
+      amplifier: 5
+      duration-ticks: 300
 drop-tables:
   categories:
     gacha_tier1:
@@ -72,13 +76,7 @@ drop-tables:
           weight: 1
           amount: 1
 fortune:
-  # 追加ドロップの期待個数 = 採掘運(mining-fortune、割合。0.15 = 「ドロップ増加+15%」)
-  #                        + MINING Lv × fortune-per-level
-  # 整数部は確定ドロップ、小数部はその確率で+1個(期待値方式)。
-  # 【2026-07-28】以前は上式全体に × 0.30 が掛かっており、skilltree の「ドロップ増加+15%」が
-  #   実際には +4.5% にしかならなかった。係数を撤去したぶん、レベル項の増加量を従来と同じに
-  #   保つため 0.01 → 0.003 (= 0.01 × 0.30) へ下げてある。Lv100 で +30% 相当。
-  fortune-per-level: 0.003
+  fortune-per-level: 0
   fortune-blocks:
     - COAL_ORE
     - DEEPSLATE_COAL_ORE
@@ -108,3 +106,5 @@ fortune:
     - BEETROOTS
     - MELON
     - PUMPKIN
+    - SEA_LANTERN
+    - COCOA

@@ -10,36 +10,15 @@ coating:
   base-max-stacks: 3
   materials:
     source_gem:
-      bonus-damage: 2
-      max-stacks: 3
+      bonus-damage: 5
+      max-stacks: 10
 wood-repair:
   materials:
     compressed_wood_1x:
       durability: 200
       quick-repair: true
-# 解体(スクラップ化): アンビルを落として下敷きのアイテムを素材へ戻す。
-#   items.<対象>: 対象は カタログID / Material名。末尾 * で前方一致(例: wooden_*)、* なしは完全一致
-#                 (= アイテム個別指定)。より長い前方一致が勝ち、完全一致が最優先。
-#   各ルール:
-#     input       : 戻り量の基準にする「レシピ上の材料」。そのアイテムのレシピを引き、
-#                   材料が何個使われているかを数える。
-#     base-amount : (2026-07-27追加) レシピを引かず材料数を直接指定する。
-#                   ★クラフトレシピを持たないアイテム(釣りのゴミ等)は input では必ず 0 個になるため、
-#                     こちらを使う。input と base-amount の両方が無いルールは無視される。
-#     output      : 戻すアイテム1種(従来形)。
-#     outputs     : (2026-07-27追加) 戻り先候補の重み付き抽選。1ルールにつき★1件だけ★当たる。
-#                   - item: 戻すアイテム / weight: 相対重み / multiplier: 省略時はルールの multiplier
-#     multiplier  : 戻り量の倍率。
-#   戻り量 = floor(材料数 × 解体Lv × percent-per-level / 100) × multiplier
 disassembly:
   percent-per-level: 25
-  # tier別設定(任意、2026-07-28): 未記載なら上の percent-per-level × レベル(既存の線形式)がそのまま
-  # 使われる(完全後方互換)。dismantle-unlock は解体レベル(FeatureEffectParam.LEVEL、値=直接レベル数)
-  # なので tiers はこのレベル値の完全一致でのみ引く — digging/smithingの「以下で最大にフォールバック」
-  # 則とは違い、フォールバックしない(既に連続的な既定式=線形計算があるため、floor解決を足すと
-  # 「未定義レベルの戻り率」の意味が二重に曖昧になるのを避けるための意図的な設計判断)。
-  # tiers:
-  #   1: { percent: 25 }   # レベル1の戻り率を線形計算(=percent-per-level×1)から個別に上書きする例
   items:
     wooden_*:
       - input: list:planks
@@ -73,10 +52,6 @@ disassembly:
       - input: TURTLE_SCUTE
         output: custom:turtle_scute_scrap
         multiplier: 2
-    # --- 釣りのゴミ → ランダムなスクラップ (2026-07-27) ---
-    # いずれもクラフトレシピを持たない(あるいは持っていても意味のある材料が拾えない)ので
-    # base-amount で材料数を与え、outputs の重み抽選で「何が出るか分からない」戻りにする。
-    # 重みは合計に対する相対値なので、木くずが出やすく金属くずは滅多に出ない配分になっている。
     ROTTEN_FLESH:
       - base-amount: 1
         multiplier: 1
@@ -154,27 +129,7 @@ disassembly:
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960
-  # tier別設定(任意、2026-07-26): 未記載なら上のグローバル既定値がそのまま全員に使われる(完全後方互換)。
-  # tierはスキルツリーのノード value から決まる(feature:potion-merge は SCALE、
-  # value省略時はtier1が自動補完されるため既存の単一解放ノードは無改変で従来どおり動作する)。
-  # tiers:
-  #   1: { max-effects: 5, max-duration-seconds: 960 }
-  #   2: { max-effects: 7, max-duration-seconds: 1200 }
 brew-unlocks:
-  swiftness-jump:
-    potions:
-      - base: AWKWARD
-        ingredient: SUGAR
-        result:
-          type: SPEED
-          duration: 3600
-          amplifier: 0
-      - base: AWKWARD
-        ingredient: RABBIT_FOOT
-        result:
-          type: JUMP_BOOST
-          duration: 3600
-          amplifier: 0
   healthboost-haste:
     potions:
       - base: AWKWARD
@@ -183,14 +138,41 @@ brew-unlocks:
           type: HEALTH_BOOST
           duration: 3600
           amplifier: 0
-      - base: AWKWARD
+      - base: THICK
         ingredient: GOLDEN_CARROT
         result:
           type: HASTE
           duration: 3600
           amplifier: 0
+      - base: AWKWARD
+        ingredient: GOLDEN_APPLE
+        result:
+          type: LUCK
+          duration: 3600
+          amplifier: 0
+  healthboost-haste-2:
+    effect: ""
+    potions:
+      - base: THICK
+        ingredient: GLISTERING_MELON_SLICE
+        result:
+          type: HEALTH_BOOST
+          duration: 3600
+          amplifier: 1
+      - base: THICK
+        ingredient: GOLDEN_CARROT
+        result:
+          type: HASTE
+          duration: 3600
+          amplifier: 1
+      - base: AWKWARD
+        ingredient: GOLDEN_APPLE
+        result:
+          type: LUCK
+          duration: 3600
+          amplifier: 1
 over-enchant:
-  lv1:
+  attack_1:
     enchants:
       SHARPNESS: 6
       SMITE: 6
@@ -202,70 +184,36 @@ over-enchant:
       PROJECTILE_PROTECTION: 5
       FIRE_PROTECTION: 5
       FEATHER_FALLING: 5
-      EFFICIENCY: 6
-      FORTUNE: 4
-  lv2:
+  attack_2:
     enchants:
       SHARPNESS: 7
       SMITE: 7
       BANE_OF_ARTHROPODS: 7
       POWER: 7
       IMPALING: 7
-      PROTECTION: 6
+      PROTECTION: 3
       BLAST_PROTECTION: 6
       PROJECTILE_PROTECTION: 6
       FIRE_PROTECTION: 6
       FEATHER_FALLING: 6
-      EFFICIENCY: 7
-      FORTUNE: 5
-  lv3:
+  util_lv1:
     enchants:
-      SHARPNESS: 8
-      SMITE: 8
-      BANE_OF_ARTHROPODS: 8
-      POWER: 8
-      IMPALING: 8
-      PROTECTION: 7
-      BLAST_PROTECTION: 7
-      PROJECTILE_PROTECTION: 7
-      FIRE_PROTECTION: 7
-      FEATHER_FALLING: 7
-      EFFICIENCY: 8
-      FORTUNE: 6
-# エンチャントテーブルの「本棚パワー」config化(2026-07-26新設)
-# バニラ仕様: エンチャントテーブル周囲の本棚(規定の配置)は最大15個までがエンチャントパワーとして
-# 有効(Bukkit/Paper API の PrepareItemEnchantEvent#getEnchantmentBonus() が返す値)。
-# バニラでは本棚15個で頭打ちになり、それ以上置いても効果は増えない。この「15」という上限と
-# 「本棚1個=パワー1」という係数を、ここで調整できるようにする。
-#
-# 既定値(max-bookshelves: 15, power-per-bookshelf: 1.0)ではバニラ実効パワーと完全に一致するため、
-# 挙動は一切変化しない(EnchantCostReductionListener が本棚パワー由来の補正倍率=1.0のときは
-# 何も書き換えずに終わる)。
-#
-# 注意: 上限を極端に上げる/係数を大きくすると、少ない本棚数でも高コスト・高レベルの提示が
-# 出やすくなり、エンチャントが簡単になりすぎる。バランス調整は慎重に。
+      EFFICIENCY: 6
+      FORTUNE: 4
+      UNBREAKING: 4
+      LOOTING: 4
+      LUCK_OF_THE_SEA: 4
+      LURE: 4
 enchant-bookshelf-power:
-  # 考慮する本棚の最大数。バニラ既定は15(これを超えて本棚を置いても本来は無効)。
   max-bookshelves: 15
-  # 本棚1個あたりのエンチャントパワー係数。バニラは常に1.0固定(本棚1個=パワー1)。
-  power-per-bookshelf: 1.0
+  power-per-bookshelf: 0.3
 thread-slots:
   max-by-category:
     armor: 5
     weapon: 0
     tool: 0
     other: 0
-removed-vanilla-recipes:
-  - minecraft:wooden_axe
-  - minecraft:stone_axe
-  - minecraft:copper_axe
-  - minecraft:iron_axe
-  - minecraft:golden_axe
-  - minecraft:diamond_axe
-  - minecraft:netherite_axe_smithing
+removed-vanilla-recipes: []
 removed-vanilla-items:
-  # 2026-07-25: 修繕本の入手経路遮断だけでは、チェスト戦利品/村人取引で生成される「修繕付きの防具/
-  # 道具そのもの」(material が ENCHANTED_BOOK ではない)を見逃していた。ANY:<enchant> はワイルドカード
-  # (全material対象、enchant一致のみで判定)— 修繕付きのアイテムは種類を問わず生成/入手時点で除去される。
   - ANY:MENDING
 gated-catalog-recipes: {}

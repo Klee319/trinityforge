@@ -1,10 +1,10 @@
 # TrinityForge-owned Valhalla progression base (SoT for experience curve + non-perk sections).
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
-experience: # Everything about leveling and experience progression for Landscaping
-  max_level: 100 # Max level for landscaping, players can still gain exp after reaching 200
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  legacy:
+
+experience:
+  max_level: 100
+  exp_level_curve: (%level% + 75 * 2^(%level%/8)) + 300
   woodcutting_strip:
     STRIPPED_OAK_LOG: 20
     STRIPPED_SPRUCE_LOG: 20
@@ -14,20 +14,9 @@ experience: # Everything about leveling and experience progression for Landscapi
     STRIPPED_DARK_OAK_LOG: 20
     STRIPPED_MANGROVE_LOG: 20
     STRIPPED_CHERRY_LOG: 20
-    STRIPPED_PALE_OAK_LOG: 20
-    STRIPPED_WARPED_STEM: 30
-    STRIPPED_CRIMSON_STEM: 30
-    STRIPPED_OAK_WOOD: 30
-    STRIPPED_SPRUCE_WOOD: 30
-    STRIPPED_BIRCH_WOOD: 30
-    STRIPPED_JUNGLE_WOOD: 30
-    STRIPPED_ACACIA_WOOD: 30
-    STRIPPED_DARK_OAK_WOOD: 30
-    STRIPPED_MANGROVE_WOOD: 30
-    STRIPPED_PALE_OAK_WOOD: 30
-    STRIPPED_CHERRY_WOOD: 30
-    STRIPPED_WARPED_HYPHAE: 40
-    STRIPPED_CRIMSON_HYPHAE: 40
+    STRIPPED_PALE_OAK_LOG: 0
+    STRIPPED_WARPED_STEM: 0
+    STRIPPED_CRIMSON_STEM: 0
   woodcutting_break:
     OAK_LOG: 40
     SPRUCE_LOG: 40
@@ -39,17 +28,4 @@ experience: # Everything about leveling and experience progression for Landscapi
     CHERRY_LOG: 40
     PALE_OAK_LOG: 40
     WARPED_STEM: 60
-    CRIMSON_STEM: 60
-    OAK_WOOD: 60
-    SPRUCE_WOOD: 60
-    BIRCH_WOOD: 60
-    JUNGLE_WOOD: 60
-    ACACIA_WOOD: 60
-    DARK_OAK_WOOD: 60
-    MANGROVE_ROOTS: 60
-    PALE_OAK_WOOD: 60
-    CHERRY_WOOD: 60
-    MANGROVE_WOOD: 60
-    WARPED_HYPHAE: 80
-    CRIMSON_HYPHAE: 80
-
+    CRIMSON_STEM: 0

@@ -16,6 +16,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -114,13 +115,7 @@ public final class OwnerBindListener implements Listener {
         boolean armorRaw = raw >= 5 && raw <= 8;
         boolean armorInv = event.getSlot() >= 36 && event.getSlot() <= 39;
         if (armorRaw || armorInv) {
-            ItemStack moving = event.getCursor();
-            if (moving == null || moving.getType().isAir()) {
-                moving = event.getCurrentItem();
-            }
-            if (event.isShiftClick()) {
-                moving = event.getCurrentItem();
-            }
+            ItemStack moving = itemEnteringArmorSlot(event, player);
             if (denyIfNotOwner(player, moving)) {
                 event.setCancelled(true);
                 return;
@@ -131,6 +126,27 @@ public final class OwnerBindListener implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    /**
+     * Resolves the item the inventory action will move into the clicked armor slot.
+     * NUMBER_KEY and SWAP_OFFHAND do not use the cursor, so reading only cursor/current item lets a
+     * bound hotbar/offhand item bypass the ownership gate.
+     */
+    private static ItemStack itemEnteringArmorSlot(InventoryClickEvent event, Player player) {
+        ClickType click = event.getClick();
+        if (click == ClickType.NUMBER_KEY) {
+            int button = event.getHotbarButton();
+            return button >= 0 && button <= 8 ? player.getInventory().getItem(button) : null;
+        }
+        if (click == ClickType.SWAP_OFFHAND) {
+            return player.getInventory().getItemInOffHand();
+        }
+        if (event.isShiftClick()) {
+            return event.getCurrentItem();
+        }
+        ItemStack cursor = event.getCursor();
+        return cursor == null || cursor.getType().isAir() ? event.getCurrentItem() : cursor;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

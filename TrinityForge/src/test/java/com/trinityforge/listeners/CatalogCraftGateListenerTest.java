@@ -4,8 +4,17 @@ import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.Block;
+import org.bukkit.block.Crafter;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.CrafterCraftEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.inventory.CraftingInventory;
+import org.bukkit.inventory.CrafterInventory;
+import org.bukkit.inventory.InventoryView;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
+import org.bukkit.inventory.meta.Damageable;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -16,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -107,5 +118,76 @@ class CatalogCraftGateListenerTest {
         when(dedicatedEffects.recipeGatePerks()).thenReturn(Map.of());
         CatalogCraftGateListener listener = new CatalogCraftGateListener(dedicatedEffects);
         assertFalse(listener.isBlocked(null, mock(Player.class)));
+    }
+
+    @Test
+    void sameItemRepairIsBlockedUntilWoodRepairFeatureIsUnlocked() {
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        Player player = mock(Player.class);
+        when(dedicatedEffects.isActive(player, "feature:wood-repair-unlock")).thenReturn(false);
+        CatalogCraftGateListener listener = new CatalogCraftGateListener(dedicatedEffects);
+        PrepareItemCraftEvent event = repairEvent(player);
+
+        listener.onPrepareCraft(event);
+
+        verify(event.getInventory()).setResult(null);
+    }
+
+    @Test
+    void sameItemRepairRemainsAvailableAfterWoodRepairFeatureIsUnlocked() {
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        Player player = mock(Player.class);
+        when(dedicatedEffects.isActive(player, "feature:wood-repair-unlock")).thenReturn(true);
+        CatalogCraftGateListener listener = new CatalogCraftGateListener(dedicatedEffects);
+        PrepareItemCraftEvent event = repairEvent(player);
+
+        listener.onPrepareCraft(event);
+
+        verify(event.getInventory(), never()).setResult(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void automaticCrafterCannotBypassSameItemRepairGate() {
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        CatalogCraftGateListener listener = new CatalogCraftGateListener(dedicatedEffects);
+        CrafterCraftEvent event = mock(CrafterCraftEvent.class);
+        Block block = mock(Block.class);
+        Crafter crafter = mock(Crafter.class);
+        CrafterInventory inventory = mock(CrafterInventory.class);
+        ItemStack first = damaged(Material.WOODEN_SWORD, 50);
+        ItemStack second = damaged(Material.WOODEN_SWORD, 50);
+        ItemStack result = damaged(Material.WOODEN_SWORD, 39);
+        when(event.getBlock()).thenReturn(block);
+        when(block.getState()).thenReturn(crafter);
+        when(crafter.getInventory()).thenReturn(inventory);
+        when(inventory.getContents()).thenReturn(new ItemStack[]{first, second});
+        when(event.getResult()).thenReturn(result);
+
+        listener.onCrafterCraft(event);
+
+        verify(event).setCancelled(true);
+    }
+
+    private static PrepareItemCraftEvent repairEvent(Player player) {
+        PrepareItemCraftEvent event = mock(PrepareItemCraftEvent.class);
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        InventoryView view = mock(InventoryView.class);
+        when(event.isRepair()).thenReturn(true);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getView()).thenReturn(view);
+        when(view.getPlayer()).thenReturn(player);
+        return event;
+    }
+
+    private static ItemStack damaged(Material material, int damage) {
+        ItemStack item = mock(ItemStack.class);
+        Damageable meta = mock(Damageable.class);
+        when(item.getType()).thenReturn(material);
+        when(item.getAmount()).thenReturn(1);
+        when(item.getItemMeta()).thenReturn(meta);
+        when(meta.hasMaxDamage()).thenReturn(true);
+        when(meta.getMaxDamage()).thenReturn(59);
+        when(meta.getDamage()).thenReturn(damage);
+        return item;
     }
 }

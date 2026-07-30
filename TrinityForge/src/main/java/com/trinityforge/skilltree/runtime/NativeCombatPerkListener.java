@@ -4,6 +4,7 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.ProjectileWeapon;
 import com.trinityforge.stats.StatKeys;
+import com.trinityforge.stats.StunDurationStatNormalize;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -52,7 +53,7 @@ public final class NativeCombatPerkListener implements Listener {
     // 撤去しても挙動は一切変わらない(挙動の変化を伴わないキー削除)。
 
     /**
-     * スタン継続時間の絶対上限(tick)。5秒 = 100tick。{@code stun_duration_bonus} でどれだけ延ばしても
+     * スタン継続時間の絶対上限(tick)。5秒 = 100tick。{@code stun_duration_bonus} を加算しても
      * これを超えない — 上限なしにするとハメ殺し(行動不能の連続化)になるため。stats/lore.yml
      * {@code stats.stun-duration-bonus.limits} から {@code java:} cap-ref で参照される
      * (CapRefResolver 拘束テスト対象)。{@code public} でないと cap-ref から参照できない。
@@ -103,7 +104,7 @@ public final class NativeCombatPerkListener implements Listener {
 
         double stunChance = agg.totalOf(STUN_CHANCE);
         if (stunChance > 0.0 && rng.nextDouble() < Math.min(0.75, stunChance)) {
-            int ticks = stunTicks(stunChance, agg.totalOf(STUN_DURATION_BONUS));
+            int ticks = stunTicks(agg.totalOf(STUN_DURATION_BONUS));
             victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, false, true, true));
             victim.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, ticks, 2, false, true, true));
             victim.setFreezeTicks(Math.max(victim.getFreezeTicks(), ticks));
@@ -212,16 +213,16 @@ public final class NativeCombatPerkListener implements Listener {
     }
 
     /**
-     * スタン継続時間(tick)。基準値は従来どおり {@code stunChance} だけで決まる 25〜45tick
-     * (25 + 20×min(1, stunChance))。{@code stun_duration_bonus}(割合加算、負値も許容)をその基準へ
-     * 乗算したうえで、{@link #MAX_STUN_DURATION_TICKS} を超えないようクランプする(ハメ殺し防止の絶対上限)。
-     * 最低でも1tickは残す(0tick以下のPotionEffectは無効なため)。
+     * スタン継続時間(tick)。{@code combat/base-stats.yml} の初期値、装備、パークを
+     * {@code stun_duration_bonus} として加算した総tick数を直接使う。発動確率
+     * ({@code stun_chance})は継続時間へ影響しない。{@link #MAX_STUN_DURATION_TICKS} を超えないよう
+     * クランプし、最低でも1tickは残す(0tick以下のPotionEffectは無効なため)。
      */
-    static int stunTicks(double stunChance, double durationBonus) {
-        int base = 25 + (int) Math.round(20 * Math.min(1.0, Math.max(0.0, stunChance)));
-        double bonus = Double.isFinite(durationBonus) ? durationBonus : 0.0;
-        int scaled = (int) Math.round(base * (1.0 + bonus));
-        return Math.max(1, Math.min(MAX_STUN_DURATION_TICKS, scaled));
+    static int stunTicks(double durationTicks) {
+        double finiteTicks = Double.isNaN(durationTicks)
+                ? StunDurationStatNormalize.DEFAULT_TICKS : durationTicks;
+        double clamped = Math.max(1.0, Math.min(MAX_STUN_DURATION_TICKS, finiteTicks));
+        return (int) Math.round(clamped);
     }
 
     /** The firing bow/crossbow/trident retained on {@code projectile} at launch, falling back to mainhand. */

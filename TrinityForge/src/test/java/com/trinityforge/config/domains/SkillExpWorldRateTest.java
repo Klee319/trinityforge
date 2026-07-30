@@ -60,7 +60,7 @@ class SkillExpWorldRateTest {
     void shippedDefaultsOpenTheOverworldAtAQuarterRate(@TempDir Path dir) throws Exception {
         // キー未記載(=出荷前の古いymlをそのまま使っているサーバ)では dungeon-only-exp の既定 true が
         // 効き、挙動は従来のまま変わらない。開放は出荷yml側で false を書くことで行う。
-        SkillExpConfig config = loaded(dir, "combat:\n  exp-per-hit: 1.0\n");
+        SkillExpConfig config = loaded(dir, "{}\n");
         assertEquals(0.0, config.worldExpRate(false));
     }
 }

@@ -35,9 +35,9 @@
 # 【経験値: バニラEXPのみを対象にした理由】
 #   「討伐時に得られる経験値」という要望文言は Bukkit の EntityDeathEvent#setDroppedExp (オーブとして
 #   出るバニラEXP、拾うとPlayerExpChangeEvent経由でTFのバフ倍率が乗る)に対応する「討伐(kill)時点」の
-#   概念そのもの。一方 stats/skill-exp.yml の武器/防具スキルEXP(combat.exp-per-hit等)は「命中/被弾の
-#   都度」加算されるヒットベースの別パイプラインであり、「討伐時」ではない。よって vanilla-exp は
-#   バニラEXPのみを対象にする。
+#   概念そのもの。一方 stats/skill-exp.yml の武器/魔法スキルEXPは、敵レベル・最大体力・
+#   EntityType倍率を使う独立した討伐EXPパイプラインであり、vanilla-expとは別管理。防具EXPも
+#   被弾時の独立パイプラインなので、ここで設定するvanilla-expはバニラEXPのみを対象にする。
 #   dungeon-only-exp(stats/skill-exp.yml、武器/防具スキルEXPだけをゲートする既存フラグ)とは完全に
 #   別パイプライン・別ゲートなので二重ゲートは起きない — このファイルの dungeon-only は、この
 #   ファイル自身のドロップ削除/追加/バニラEXP上書きにのみ効く独立したトグル。
@@ -86,21 +86,20 @@
 #   外したモブを討伐しても、バニラ本来のEXPオーブ(動物なら1〜3)は従来どおり落ちる
 #   (エンチャント等の用途があるため、バニラEXP自体を止める変更は行わない — ユーザー判断)。
 #   代わりに、下の no-skill-exp-mobs: によって「TrinityForgeが独自に付与する戦闘スキルEXP」
-#   (武器=命中/防具=被弾)だけを完全に止める。牧場で繁殖させた個体を殴っても
+#   (武器/魔法=討伐、防具=被弾)だけを完全に止める。牧場で繁殖させた個体を倒しても
 #   スキルEXPは一切増えない(繁殖でスキルEXPを稼ぐ抜け道も、この一覧が同時に塞ぐ)。
 #
 # 【no-skill-exp-mobs: TrinityForgeの戦闘スキルEXPを完全に0にするモブ一覧】 2026-07-27
-#   このEntityTypeのモブを相手にしても、TrinityForge の戦闘スキルEXP(武器=命中/防具=被弾)は
+#   このEntityTypeのモブを相手にしても、TrinityForge の戦闘スキルEXP
+#   (軽・重武器/魔法=討伐、弓術=命中、防具=被弾)は
 #   一切加算されない。バニラのEXPオーブ(討伐時にsetDroppedExpされる値)は
 #   このリストの対象外で、従来どおり落ちる — このファイルの MobLevelTableListener 自体は
 #   このリストを一切読まない(setDroppedExpを書き換える処理には触れない)。
-#   実際の抑止は CombatListener(攻撃対象が武器スキルEXPの対象かどうか)と
+#   実際の抑止は CombatListener(武器・弓術)、ArsMagicExperienceListener(魔法)と
 #   NativeSkillExperienceListener(攻撃してきた側が防具スキルEXPの対象かどうか)の
-#   両方が、それぞれの付与直前にこのリストを読んで判定する。
-#   ⚠ 魔法(ARS_MAGIC)スキルEXPはこのリストの対象外。Ars側のEXP付与は「詠唱したこと」
-#     (ArsProgressionBridge#grantMagicExp — 引数に対象Entityが無い)に対して発生し、
-#     何を撃ったかを一切参照しないため、EntityTypeで絞る余地が構造的に無い。
-#     つまり魔法EXPは牧場動物を撃っても、何も撃たなくても同じだけ入る(マナが唯一の制約)。
+#   各リスナーが、それぞれの付与直前にこのリストを読んで判定する。
+#   ・魔法(ARS_MAGIC)の討伐EXPも同じ一覧を参照する。旧「詠唱/消費マナEXP」は廃止済みなので、
+#     空撃ちや牧場対象から魔法EXPを得る経路はない。
 #   ・帯システム(tiers:)とは無関係の別レイヤー。tiers: の vanilla-exp はバニラEXPだけを
 #     扱うため、そもそも競合しない。
 #   ・dungeon-only: の影響を受けない。牧場は当然ダンジョン外にあるので、ダンジョン限定に

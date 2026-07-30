@@ -2,51 +2,38 @@
 # Perk tree runtime SoT is skilltree/<skill>.yml (this file: curves + EXP producer rates).
 # Source: vendored from ValhallaMMO jar defaults; edit curves via ConfigEditor skill-exp screen.
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skills/base/mining_progression.md
-experience: 
-  max_level: 100 
-  exp_level_curve: '(%level% + 75 * 2^(%level%/7.6)) + 300'
-  exp_multiplier_mine: 1 
-  exp_multiplier_blast: 1.5 
-  exp_per_break: false
-  legacy:
-  mining_break: # Blocks mined or exploded will grant the player the amount of experience noted based on the amount of items it dropped,
+
+experience:
+  max_level: 100
+  exp_level_curve: (%level% + 75 * 2^(%level%/7.6)) + 300
+  exp_multiplier_mine: 1
+  exp_multiplier_blast: 1.5
+  mining_break:
     NETHERRACK: 2
     NETHER_QUARTZ_ORE: 40
-    QUARTZ: 20
-    NETHER_GOLD_ORE: 30
-    GOLD_NUGGET: 4
+    NETHER_GOLD_ORE: 40
     OBSIDIAN: 40
-    END_STONE: 12
-    COBBLESTONE: 8
-    COBBLED_DEEPSLATE: 12
-    STONE: 8
-    DEEPSLATE: 12
+    END_STONE: 6
+    STONE: 4
+    DEEPSLATE: 6
     GRANITE: 8
     ANDESITE: 8
     DIORITE: 8
-    CALCITE: 8
+    CALCITE: 16
     TUFF: 8
     DRIPSTONE_BLOCK: 12
-    AMETHYST_BLOCK: 16
-    BLACKSTONE: 12
-    BASALT: 12
-    SMOOTH_BASALT: 12
+    AMETHYST_BLOCK: 32
+    BLACKSTONE: 8
+    BASALT: 8
+    SMOOTH_BASALT: 8
     COAL_ORE: 40
-    COAL: 20
     IRON_ORE: 80
-    RAW_IRON: 40
     COPPER_ORE: 32
-    RAW_COPPER: 8
     GOLD_ORE: 160
-    RAW_GOLD: 80
     LAPIS_ORE: 320
-    LAPIS_LAZULI: 20
     REDSTONE_ORE: 80
-    REDSTONE: 12
     DIAMOND_ORE: 400
-    DIAMOND: 200
     EMERALD_ORE: 400
-    EMERALD: 200
     DEEPSLATE_COAL_ORE: 60
     DEEPSLATE_IRON_ORE: 120
     DEEPSLATE_COPPER_ORE: 84
@@ -54,16 +41,8 @@ experience:
     DEEPSLATE_LAPIS_ORE: 240
     DEEPSLATE_REDSTONE_ORE: 120
     DEEPSLATE_DIAMOND_ORE: 600
-    DEEPSLATE_EMERALD_ORE: 600
+    DEEPSLATE_EMERALD_ORE: 1600
     ANCIENT_DEBRIS: 1600
-    NETHERITE_SCRAP: 800
-    # 2026-07-28 追加、バッドランドのテラコッタで採掘EXPが入らない報告への対応。
-    # 自然生成されるツルハシ採掘ブロックのみを対象とし、クラフト専用の装飾ブロック(*_GLAZED_TERRACOTTA等)は
-    # 意図的に入れていない。exp-mode既定の drop_sum(ドロップ品の材質名に対する値の合計)では、
-    # 「ブロック名の行」はゲート判定(値>0か)にしか使われず、実際に付与されるEXPはドロップした
-    # アイテムの材質名に対する値の合計になる。自分自身をドロップするブロックは1行で両方を満たすが、
-    # 自分と違うものを落とすブロック(SEA_LANTERN→PRISMARINE_CRYSTALS)はドロップ側の行も必要。
-    # バッドランド: テラコッタ(自然生成17種、STONE相当8)
     TERRACOTTA: 8
     WHITE_TERRACOTTA: 8
     ORANGE_TERRACOTTA: 8
@@ -81,20 +60,14 @@ experience:
     GREEN_TERRACOTTA: 8
     RED_TERRACOTTA: 8
     BLACK_TERRACOTTA: 8
-    # 砂漠/バッドランド: 砂岩(自然生成、STONE相当8)
-    SANDSTONE: 8
-    RED_SANDSTONE: 8
-    # 海底神殿(自然生成)。SEA_LANTERNはドロップがPRISMARINE_CRYSTALSに変わる(drop_sum対応でドロップ側も定義)。
-    PRISMARINE: 12
-    PRISMARINE_BRICKS: 12
-    DARK_PRISMARINE: 12
+    SANDSTONE: 4
+    RED_SANDSTONE: 4
+    PRISMARINE_BRICKS: 8
+    DARK_PRISMARINE: 8
     SEA_LANTERN: 24
-    PRISMARINE_CRYSTALS: 24
-    # ネザー要塞(自然生成)
-    NETHER_BRICKS: 12
-    RED_NETHER_BRICKS: 12
-    MAGMA_BLOCK: 12
-    # 要塞/古代都市/試練の間など、構造物として自然生成される石材
+    NETHER_BRICKS: 8
+    RED_NETHER_BRICKS: 8
+    MAGMA_BLOCK: 8
     STONE_BRICKS: 8
     CRACKED_STONE_BRICKS: 8
     CHISELED_STONE_BRICKS: 8
@@ -110,10 +83,8 @@ experience:
     TUFF_BRICKS: 8
     CHISELED_TUFF: 8
     CHISELED_TUFF_BRICKS: 8
-    # 氷(シルクタッチ無しは何もドロップせず drops.isEmpty() ガードで既存どおりEXP0のまま)
     ICE: 8
     PACKED_ICE: 12
     BLUE_ICE: 16
-    # 鍾乳石
     POINTED_DRIPSTONE: 8
-
+    GLOWSTONE: 16

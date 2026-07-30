@@ -9,7 +9,11 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.BrewEvent;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.BrewerInventory;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -38,7 +42,8 @@ import static org.mockito.Mockito.when;
 class NativeSkillExperienceListenerBrewTest {
 
     private static final SkillCatalogEntry ALCHEMY_ENTRY = new SkillCatalogEntry(
-            "ALCHEMY", 100, "1", level -> 1L, Map.of(),
+            "ALCHEMY", 100, "1", level -> 1L,
+            Map.of("brew_ingredient.REDSTONE", 100.0),
             Map.of("alchemy.brew", 25.0, "alchemy.manual_mult", 2.0, "alchemy.auto_mult", 0.25));
 
     private ServerMock server;
@@ -121,6 +126,50 @@ class NativeSkillExperienceListenerBrewTest {
         listener.onBrew(brewEvent());
 
         org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(stand).isEmpty());
+        org.junit.jupiter.api.Assertions.assertFalse(ownership.isAutomated(stand));
+    }
+
+    @Test
+    void configuredIngredientStageOverridesFlatFallback() {
+        stand.getPersistentDataContainer().set(
+                ownership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
+        stand.getPersistentDataContainer().set(
+                ownership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_MANUAL);
+        stand.update();
+        BrewerInventory contents = mock(BrewerInventory.class);
+        ItemStack ingredient = mock(ItemStack.class);
+        when(ingredient.getType()).thenReturn(Material.REDSTONE);
+        when(contents.getIngredient()).thenReturn(ingredient);
+        BrewEvent event = mock(BrewEvent.class);
+        when(event.getBlock()).thenReturn(stand.getBlock());
+        when(event.getContents()).thenReturn(contents);
+        when(event.getResults()).thenReturn(List.of());
+
+        listener.onBrew(event);
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ALCHEMY, 200.0); // 100 * manual 2.0
+        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(stand).isEmpty());
+    }
+
+    @Test
+    void placingCursorIntoEmptyBrewingSlotRemembersBrewer() {
+        InventoryClickEvent event = mock(InventoryClickEvent.class);
+        InventoryView view = mock(InventoryView.class);
+        Inventory top = mock(Inventory.class);
+        when(top.getHolder()).thenReturn(stand);
+        when(top.getSize()).thenReturn(5);
+        when(view.getTopInventory()).thenReturn(top);
+        when(event.getView()).thenReturn(view);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getRawSlot()).thenReturn(3);
+        when(event.getCurrentItem()).thenReturn(null);
+        when(event.getCursor()).thenReturn(new ItemStack(Material.REDSTONE));
+        when(event.getAction()).thenReturn(InventoryAction.PLACE_ALL);
+
+        listener.rememberBrewer(event);
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Optional.of(player.getUniqueId()), ownership.ownerOf(stand));
         org.junit.jupiter.api.Assertions.assertFalse(ownership.isAutomated(stand));
     }
 }

@@ -59,12 +59,17 @@ class PercentStatNormalizeTest {
     }
 
     @Test
-    @DisplayName("2026-07-26 新設: enchant-cost-reduction / stun-duration-bonus are rate keys")
-    void newlyAddedKeysAreRateKeys() {
+    @DisplayName("enchant-cost-reduction is a rate; stun-duration-bonus is a flat tick count")
+    void stunDurationUsesTicksInsteadOfPercentNormalization() {
         assertTrue(PercentStatNormalize.isRateKey("enchant-cost-reduction"));
         assertEquals(0.75, PercentStatNormalize.coerce("enchant-cost-reduction", 75.0), 1e-9);
-        assertTrue(PercentStatNormalize.isRateKey("stun-duration-bonus"));
-        assertEquals(0.5, PercentStatNormalize.coerce("stun-duration-bonus", 50.0), 1e-9);
+        assertFalse(PercentStatNormalize.isRateKey("stun-duration-bonus"));
+        assertEquals(50.0, PercentStatNormalize.coerce("stun-duration-bonus", 50.0), 1e-9);
+        assertEquals(5.0, PercentStatNormalize.coerce("stun-duration-bonus", 0.2), 1e-9,
+                "legacy addends must be converted before different sources are aggregated");
+        assertEquals(1.0, PercentStatNormalize.coerce("stun-duration-bonus", 1.0), 1e-9,
+                "one tick is a valid value in the new unit and must not be treated as legacy 100%");
+        assertEquals(-1.0, PercentStatNormalize.coerce("stun-duration-bonus", -1.0), 1e-9);
     }
 
     @Test

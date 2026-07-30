@@ -67,6 +67,8 @@ class SymmetricCombatServiceMobMagicalTest {
                   scale-with-combat-level: false
                 level-scaling:
                   per-level: 0.05
+                early-level-attack:
+                  enabled: false
                 """);
         PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
         PlayerStatAggregator aggregator = new PlayerStatAggregator(

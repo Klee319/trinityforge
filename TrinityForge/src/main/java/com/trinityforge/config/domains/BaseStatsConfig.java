@@ -4,6 +4,7 @@ import com.trinityforge.config.LoadableConfig;
 import com.trinityforge.stats.PercentStatNormalize;
 import com.trinityforge.stats.StatKeys;
 import com.trinityforge.stats.StatVocabulary;
+import com.trinityforge.stats.StunDurationStatNormalize;
 import com.trinityforge.stats.VanillaAttributeDefaults;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
@@ -27,7 +28,8 @@ import java.util.logging.Logger;
  * {@code max-health}). Values follow the same raw convention as {@code stats/item-stats.yml}:
  * PERCENT-family stats may be written as whole percent points ({@code 5} = 5%) and are normalised to
  * fractions here via {@link PercentStatNormalize#coerce} exactly like item stats. A key absent from
- * the file means "vanilla" — nothing is added for that stat.
+ * the file means "vanilla" — nothing is added for that stat, except {@code stun-duration-bonus}:
+ * the former implicit 25tick baseline is inserted when absent and can be overridden as a tick value.
  *
  * <p>2026-07-25 (config editor T1): the {@link StatVocabulary.Channel#ATTRIBUTE} keys
  * ({@code attack-reach} / {@code max-health} / {@code move-speed} / {@code knockback-resistance};
@@ -65,10 +67,11 @@ public final class BaseStatsConfig implements LoadableConfig {
     private static final String SECTION = "base-stats";
     private static final String ATTACK_POWER_KEY = StatKeys.canonical("attack-power");
 
-    // Canonical stat-key -> normalised value. Empty by default (all vanilla).
+    // Canonical stat-key -> normalised value. Before load it is empty; load injects the migrated
+    // 25tick stun baseline even when an older file does not contain that key.
     private volatile Map<String, Double> stats = Map.of();
 
-    /** Canonical-keyed base stat values (already percent-normalised). Never null. */
+    /** Canonical-keyed base stat values (already unit-normalised). Never null. */
     public Map<String, Double> stats() {
         return stats;
     }
@@ -113,6 +116,10 @@ public final class BaseStatsConfig implements LoadableConfig {
                 }
                 String canonicalKey = StatKeys.canonical(key);
                 double raw = sec.getDouble(key);
+                if (StunDurationStatNormalize.KEY.equals(canonicalKey)) {
+                    next.put(canonicalKey, StunDurationStatNormalize.normalizeBase(raw));
+                    continue;
+                }
                 // 0 は「加算なし」= バニラと実質同じなので保持しても無害だが、明示的に落として
                 // aggregate/attribute のループを無駄に回さない。
                 if (raw == 0.0) {
@@ -132,6 +139,9 @@ public final class BaseStatsConfig implements LoadableConfig {
                 next.put(canonicalKey, PercentStatNormalize.coerce(canonicalKey, effective));
             }
         }
+        // 旧配備ファイルにはこのキーが無いこともある。暗黙の旧基準25tickを明示的な
+        // base statへ移行し、設定ファイルの部分更新でも1tickへ退行しないようにする。
+        next.putIfAbsent(StunDurationStatNormalize.KEY, StunDurationStatNormalize.DEFAULT_TICKS);
         this.stats = Map.copyOf(next);
 
         // attack-power をベース値に入れると CombatListener のベース置換規則が全ヒットで発火し、

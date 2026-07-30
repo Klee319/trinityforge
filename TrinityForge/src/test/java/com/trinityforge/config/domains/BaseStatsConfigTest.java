@@ -22,10 +22,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link BaseStatsConfig} load coverage: keys are canonicalised, PERCENT-family values are coerced to
- * fractions exactly like item stats, 0 / non-numeric / absent entries drop out (= vanilla).
+ * fractions exactly like item stats, and ordinary 0 / non-numeric / absent entries drop out
+ * (= vanilla). Stun duration is the documented exception: old 0/absent state migrates to 25tick.
  * Uses the same reflective fake {@link Plugin} pattern as {@code RoleBuffsConfigTest}.
  */
 class BaseStatsConfigTest {
+
+    @Test
+    void stunDurationBaselineIsConfigurableAsTicks(@TempDir File tempDir) throws IOException {
+        BaseStatsConfig config = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 25
+                """);
+
+        assertEquals(25.0, config.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+    }
+
+    @Test
+    void legacyStunDurationBaseIsMigratedBeforeAggregation(@TempDir File tempDir) throws IOException {
+        BaseStatsConfig legacyZero = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 0
+                """);
+        assertEquals(25.0, legacyZero.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+
+        BaseStatsConfig legacyBonus = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 0.2
+                """);
+        assertEquals(30.0, legacyBonus.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+
+        BaseStatsConfig oneTick = loaded(tempDir, """
+                base-stats:
+                  stun-duration-bonus: 1
+                """);
+        assertEquals(1.0, oneTick.statOrDefault("stun-duration-bonus", 0.0), 1e-9);
+    }
 
     private ServerMock server;
 
@@ -114,10 +146,9 @@ class BaseStatsConfigTest {
     }
 
     @Test
-    void missingSectionYieldsEmptyMap(@TempDir File tempDir) throws IOException {
+    void missingSectionInjectsOnlyTheLegacyStunBaseline(@TempDir File tempDir) throws IOException {
         BaseStatsConfig config = loaded(tempDir, "base-stats: {}\n");
-        assertTrue(config.stats().isEmpty());
-        assertEquals(Map.of(), config.stats());
+        assertEquals(Map.of("stun_duration_bonus", 25.0), config.stats());
     }
 
     // 2026-07-25 (config editor T2): ArsPaper mana.default-max 等の移設先。
