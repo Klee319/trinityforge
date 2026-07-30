@@ -15,6 +15,25 @@
 - `git add --renormalize` も同じ理由でパス指定なしに使わない（`.gitattributes` 正規化目的でも glob を必ず指定し、
   `git diff --cached --ignore-all-space --name-only` で改行以外の差分が出たファイルは `git restore --staged` する）。
 
+### ⚠️ パス指定の `git add` でも「同じファイル内の他人の編集」は防げない — HEAD が壊れる主因
+上の対策は**ファイル単位**でしか効かない。`TrinityForge.java` のような choke file は
+**1 つのファイルの中に複数セッションの編集が同居する**ので、自分の行だけを add することはできない。
+結果として起きるのが「**呼び出し側だけ commit されて、実体（新規ファイル）は未追跡のまま残る**」状態。
+作業ツリーはコンパイルできるので**誰も気付かない**が、**HEAD は壊れている** — クローンも CI も
+git worktree も使えない（過去に 2 日・11 コミットにわたって HEAD がコンパイル不能だったことがある）。
+
+- **新規ファイルを含む変更を commit したら、その場でクリーンな worktree にチェックアウトして
+  `compileJava` を通すこと。** これが唯一の検出手段:
+  ```bash
+  git worktree add tmp/wt-check --detach HEAD
+  cd tmp/wt-check/TrinityForge && ./gradlew compileJava --offline "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-21"
+  cd ../../.. && git worktree remove --force tmp/wt-check
+  ```
+- choke file を触ったときは、**その commit に必要な新規ファイルを `git status --porcelain | grep '^??'` で
+  確認してから** add する。参照だけ入って実体が入らない事故はここで止まる。
+- 壊れた後に「混入分だけ剥がす」のは**ほぼ不可能**。同じ文の中で編集が交ざるので、
+  ハンク単位でも分離できない（実例あり）。**壊す前に検出するしかない。**
+
 ### ⚠️ `.gitattributes`（`text eol=lf`）を消さない
 Windows 上の編集ツールがファイル全体を CRLF で書き戻すことがあり、実質数行の変更が「全行変更」の差分になって
 レビュー不能かつ並行セッションと衝突しやすくなる。`*.java` / `*.js` / `*.yml` / `*.py` に `text eol=lf` を
