@@ -96,9 +96,9 @@ class AchievementsConfigTest {
     }
 
     @Test
-    @org.junit.jupiter.api.DisplayName("2026-07-23 verifier指摘⑨: qualifier(Material/EntityType)必須のStatistic "
-            + "(MINE_BLOCK等) はロード時に警告+スキップ(毎分ポーリングの警告スパムを未然に防ぐ)")
-    void qualifierRequiringStatisticIsSkippedAtLoadTime() throws Exception {
+    @org.junit.jupiter.api.DisplayName("qualifier必須のStatistic(MINE_BLOCK等)は statistic-qualifier が "
+            + "無いままだとロード時に警告+スキップ(毎分ポーリングの警告スパムを未然に防ぐ)")
+    void qualifierRequiringStatisticIsSkippedWhenQualifierMissing() throws Exception {
         AchievementsConfig.ParseResult result = parse("""
                 achievements:
                   digger:
@@ -109,6 +109,79 @@ class AchievementsConfigTest {
                 """);
         assertEquals(1, result.skipped());
         assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: BLOCK型の統計は statistic-qualifier に Material を書けば読める")
+    void blockStatisticWithQualifierIsAccepted() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  digger:
+                    trigger:
+                      type: statistic
+                      statistic: MINE_BLOCK
+                      statistic-qualifier: DIAMOND_ORE
+                      threshold: 64
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Trigger trigger = result.achievements().get(0).trigger();
+        assertEquals(Statistic.MINE_BLOCK, trigger.statistic());
+        assertEquals(org.bukkit.Material.DIAMOND_ORE, trigger.statisticQualifier().material());
+        assertEquals("DIAMOND_ORE", trigger.statisticQualifier().label());
+        assertEquals(64, trigger.threshold());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: ENTITY型の統計は EntityType を受け付ける")
+    void entityStatisticWithQualifierIsAccepted() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  dragon:
+                    trigger:
+                      type: statistic
+                      statistic: KILL_ENTITY
+                      statistic-qualifier: ender_dragon
+                      threshold: 1
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Trigger trigger = result.achievements().get(0).trigger();
+        assertEquals(org.bukkit.entity.EntityType.ENDER_DRAGON, trigger.statisticQualifier().entityType());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: BLOCK型にブロックでないMaterialを書いたら実行時に投げる前に "
+            + "ロードでスキップする")
+    void blockStatisticRejectsNonBlockMaterial() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  broken:
+                    trigger:
+                      type: statistic
+                      statistic: MINE_BLOCK
+                      statistic-qualifier: DIAMOND_SWORD
+                      threshold: 1
+                """);
+        assertEquals(1, result.skipped());
+        assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("2026-07-30: UNTYPED統計に statistic-qualifier を書いても無視されるだけで "
+            + "スキップにはならない(後方互換)")
+    void untypedStatisticIgnoresQualifier() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  jumper:
+                    trigger:
+                      type: statistic
+                      statistic: JUMP
+                      statistic-qualifier: STONE
+                      threshold: 10
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Trigger trigger = result.achievements().get(0).trigger();
+        assertEquals(AchievementsConfig.StatisticQualifier.NONE, trigger.statisticQualifier());
+        assertEquals("", trigger.statisticQualifier().label());
     }
 
     @Test

@@ -294,8 +294,13 @@ public final class AchievementGui implements Listener {
     /** 達成条件の1行要約。 */
     static String conditionText(Achievement achievement) {
         return switch (achievement.trigger().type()) {
-            case STATISTIC -> statisticLabel(achievement.trigger().statistic())
-                    + " を " + achievement.trigger().threshold();
+            case STATISTIC -> {
+                // 修飾子付き統計(MINE_BLOCK: DIAMOND_ORE 等)は「何を」まで書かないと条件が読めない。
+                String qualifier = achievement.trigger().statisticQualifier().label();
+                yield statisticLabel(achievement.trigger().statistic())
+                        + (qualifier.isEmpty() ? "" : "(" + qualifier + ")")
+                        + " を " + achievement.trigger().threshold();
+            }
             case ADVANCEMENT -> "バニラ進捗「" + achievement.trigger().advancement() + "」";
             case STATIC -> {
                 String scope = switch (achievement.trigger().collectionScope()) {
@@ -319,7 +324,8 @@ public final class AchievementGui implements Listener {
                     return null;
                 }
                 try {
-                    return player.getStatistic(statistic) + " / " + achievement.trigger().threshold();
+                    return achievement.trigger().statisticQualifier().read(player, statistic)
+                            + " / " + achievement.trigger().threshold();
                 } catch (RuntimeException ex) {
                     return null;
                 }

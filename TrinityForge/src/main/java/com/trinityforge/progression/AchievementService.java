@@ -167,7 +167,8 @@ public final class AchievementService {
 
     private boolean statisticReached(Player player, AchievementsConfig.Achievement achievement) {
         try {
-            long value = player.getStatistic(achievement.trigger().statistic());
+            long value = achievement.trigger().statisticQualifier()
+                    .read(player, achievement.trigger().statistic());
             return value >= achievement.trigger().threshold();
         } catch (IllegalArgumentException ex) {
             // 対象Statisticがqualifier(Material/EntityType)必須の型だった場合の設定ミス。

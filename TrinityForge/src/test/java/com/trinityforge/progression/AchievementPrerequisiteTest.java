@@ -188,7 +188,8 @@ class AchievementPrerequisiteTest {
     @Test
     void prerequisitesMetIsPureAndUsableFromTheGui() throws Exception {
         AchievementsConfig.Trigger trigger = new AchievementsConfig.Trigger(
-                AchievementsConfig.TriggerType.STATISTIC, Statistic.JUMP, 1, null, null, List.of(), false);
+                AchievementsConfig.TriggerType.STATISTIC, Statistic.JUMP,
+                AchievementsConfig.StatisticQualifier.NONE, 1, null, null, List.of(), false);
         AchievementsConfig.Rewards rewards = new AchievementsConfig.Rewards(
                 List.of(), List.of(), List.of(), 0, List.of(), java.util.Map.of());
 

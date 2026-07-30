@@ -5,6 +5,20 @@
 #   trigger:
 #     type:      statistic(バニラ統計を周期ポーリング) | advancement(バニラ進捗達成イベント) | static(図鑑登録)
 #     statistic: type=statistic のとき参照する Bukkit Statistic 名 (例: JUMP, MOB_KILLS)
+#     statistic-qualifier: (2026-07-30 追加) 修飾子が必要な統計に添える「何を」。
+#       Bukkit の統計は 4 種類あり、UNTYPED 以外は修飾子を書かないと読めない(書かないとスキップされる):
+#         UNTYPED … JUMP / MOB_KILLS / FISH_CAUGHT / DAMAGE_DEALT など。修飾子を書かない(書いても無視)。
+#         BLOCK   … MINE_BLOCK。ブロックの Material 名を書く (例: DIAMOND_ORE)
+#         ITEM    … CRAFT_ITEM / USE_ITEM / BREAK_ITEM / PICKUP / DROP。アイテムの Material 名を書く
+#         ENTITY  … KILL_ENTITY / ENTITY_KILLED_BY。EntityType 名を書く (例: ENDER_DRAGON)
+#       例) ダイヤ鉱石を 64 個掘る:
+#         trigger:
+#           type: statistic
+#           statistic: MINE_BLOCK
+#           statistic-qualifier: DIAMOND_ORE
+#           threshold: 64
+#       Material がブロック/アイテムとして不正な場合(例: MINE_BLOCK に DIAMOND_SWORD)は、起動時に
+#       警告を出してそのアチーブメントだけをスキップする。実行時に毎分例外を出し続けないための安全側。
 #     threshold: type=statistic のとき到達判定するしきい値
 #     advancement: type=advancement のとき対象の進捗キー (例: "minecraft:story/mine_diamond")
 #     collection: type=static のとき scope(all/category/item/mob)、target/targets、threshold、percent を指定

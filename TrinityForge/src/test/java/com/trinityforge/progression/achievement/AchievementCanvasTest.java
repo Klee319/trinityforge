@@ -2,6 +2,7 @@ package com.trinityforge.progression.achievement;
 
 import com.trinityforge.config.domains.AchievementsConfig.Achievement;
 import com.trinityforge.config.domains.AchievementsConfig.Rewards;
+import com.trinityforge.config.domains.AchievementsConfig.StatisticQualifier;
 import com.trinityforge.config.domains.AchievementsConfig.Trigger;
 import com.trinityforge.config.domains.AchievementsConfig.TriggerType;
 import com.trinityforge.skilltree.generator.Coord;
@@ -27,7 +28,8 @@ class AchievementCanvasTest {
     private static final Rewards NO_REWARDS =
             new Rewards(List.of(), List.of(), List.of(), 0, List.of(), Map.of());
     private static final Trigger TRIGGER =
-            new Trigger(TriggerType.ADVANCEMENT, null, 0, "minecraft:story/mine_diamond", null, List.of(), false);
+            new Trigger(TriggerType.ADVANCEMENT, null, StatisticQualifier.NONE, 0,
+                    "minecraft:story/mine_diamond", null, List.of(), false);
 
     private static Achievement achievement(String id, String coords, String parent, List<String> parentsAny) {
         return new Achievement(id, id, TRIGGER, false, NO_REWARDS, "", List.of(), coords, parent, parentsAny);

@@ -1,10 +1,13 @@
 package com.trinityforge.config.domains;
 
 import com.trinityforge.config.LoadableConfig;
+import org.bukkit.Material;
 import org.bukkit.Statistic;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
@@ -32,8 +35,46 @@ public final class AchievementsConfig implements LoadableConfig {
     public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC }
 
     /**
+     * type=STATISTIC の修飾子(qualifier)。Bukkit の統計には {@code MINE_BLOCK}(BLOCK) /
+     * {@code CRAFT_ITEM}(ITEM) / {@code KILL_ENTITY}(ENTITY) のように「何を」を指定しないと読めない型があり、
+     * {@code Player#getStatistic(Statistic)} 単体で呼ぶと必ず {@link IllegalArgumentException} になる。
+     * 2026-07-30 以前はその型のアチーブメントを読み込み時に丸ごと skip していた(＝書けなかった)。
+     *
+     * <p>{@code UNTYPED} の統計では {@link #NONE} を使う(両フィールドとも null)。
+     *
+     * @param material   BLOCK / ITEM 型の統計で参照する Material(それ以外は null)
+     * @param entityType ENTITY 型の統計で参照する EntityType(それ以外は null)
+     */
+    public record StatisticQualifier(Material material, EntityType entityType) {
+
+        /** UNTYPED 統計用の「修飾子なし」。 */
+        public static final StatisticQualifier NONE = new StatisticQualifier(null, null);
+
+        /** この修飾子で {@code statistic} を読む。UNTYPED なら修飾子なしの読み出しになる。 */
+        public long read(Player player, Statistic statistic) {
+            if (material != null) {
+                return player.getStatistic(statistic, material);
+            }
+            if (entityType != null) {
+                return player.getStatistic(statistic, entityType);
+            }
+            return player.getStatistic(statistic);
+        }
+
+        /** GUI 表示用の修飾子名。修飾子なしなら空文字。 */
+        public String label() {
+            if (material != null) {
+                return material.name();
+            }
+            return entityType == null ? "" : entityType.name();
+        }
+    }
+
+    /**
      * @param type              STATISTIC | ADVANCEMENT | STATIC（図鑑登録）
      * @param statistic         type=STATISTIC のとき参照する Bukkit Statistic(それ以外は null)
+     * @param statisticQualifier type=STATISTIC のとき統計に添える Material/EntityType
+     *                          (UNTYPED 統計と他の型では {@link StatisticQualifier#NONE})
      * @param threshold         type=STATISTIC のとき到達判定するしきい値
      * @param advancement       type=ADVANCEMENT のとき対象の進捗キー(それ以外は null)
      * @param collectionTargets type=STATIC の対象ID群。2026-07-27 に単数 {@code collection.target} から
@@ -41,10 +82,12 @@ public final class AchievementsConfig implements LoadableConfig {
      *                          全部そろったら達成」を表現できるようにするため)。単数キーは
      *                          後方互換として読み続け、要素1件のリストとして正規化される。
      */
-    public record Trigger(TriggerType type, Statistic statistic, long threshold, String advancement,
+    public record Trigger(TriggerType type, Statistic statistic, StatisticQualifier statisticQualifier,
+                          long threshold, String advancement,
                           String collectionScope, List<String> collectionTargets, boolean collectionPercent) {
         public Trigger {
             collectionTargets = collectionTargets == null ? List.of() : List.copyOf(collectionTargets);
+            statisticQualifier = statisticQualifier == null ? StatisticQualifier.NONE : statisticQualifier;
         }
 
         /** 単一ターゲット時代の互換アクセサ。未指定なら空文字。 */
@@ -353,14 +396,14 @@ public final class AchievementsConfig implements LoadableConfig {
                         + "' has invalid/missing trigger.statistic; skipped");
                 return null;
             }
-            // 2026-07-23 verifier指摘⑨: qualifier(Material/EntityType)必須のStatistic(MINE_BLOCK等)は
-            // 本スキーマがqualifierを持たないため Player#getStatistic(Statistic) 単体呼び出しが必ず
-            // IllegalArgumentExceptionになる。毎分のポーリングで警告をスパムする代わりに、ロード時に
-            // 1回だけ警告してこのアチーブメントをスキップする。
-            if (statistic.getType() != Statistic.Type.UNTYPED) {
-                log.warning("[" + PATH + "] achievement '" + achievementId + "' trigger.statistic '"
-                        + statistic + "' requires a qualifier (Material/EntityType) that this schema does not"
-                        + " support yet; skipped");
+            // 2026-07-30: qualifier(Material/EntityType)必須のStatistic(MINE_BLOCK/CRAFT_ITEM/KILL_ENTITY等)を
+            // trigger.statistic-qualifier で書けるようにした。以前はこの型を丸ごとスキップしていた
+            // (Player#getStatistic(Statistic) 単体呼び出しが必ず IllegalArgumentException になるため)。
+            // 解決に失敗した場合は従来どおりロード時に1回だけ警告してスキップする — 毎分のポーリングで
+            // 例外を出し続けるより安全side。
+            StatisticQualifier qualifier =
+                    parseStatisticQualifier(trigger, achievementId, statistic, log);
+            if (qualifier == null) {
                 return null;
             }
             long threshold = trigger.getLong("threshold", -1);
@@ -369,7 +412,8 @@ public final class AchievementsConfig implements LoadableConfig {
                         + "' has missing/invalid trigger.threshold (>=1); skipped");
                 return null;
             }
-            return new Trigger(TriggerType.STATISTIC, statistic, threshold, null, null, List.of(), false);
+            return new Trigger(TriggerType.STATISTIC, statistic, qualifier, threshold,
+                    null, null, List.of(), false);
         }
         if (type == TriggerType.STATIC) {
             String scope = trigger.getString("collection.scope", "all").trim().toLowerCase(Locale.ROOT);
@@ -394,7 +438,8 @@ public final class AchievementsConfig implements LoadableConfig {
                 log.warning("[" + PATH + "] achievement '" + achievementId + "' has invalid collection threshold; skipped");
                 return null;
             }
-            return new Trigger(TriggerType.STATIC, null, threshold, null, scope, targets, percent);
+            return new Trigger(TriggerType.STATIC, null, StatisticQualifier.NONE, threshold,
+                    null, scope, targets, percent);
         }
         String advancement = trigger.getString("advancement");
         if (advancement == null || advancement.isBlank()) {
@@ -402,7 +447,8 @@ public final class AchievementsConfig implements LoadableConfig {
                     + "' has missing trigger.advancement; skipped");
             return null;
         }
-        return new Trigger(TriggerType.ADVANCEMENT, null, 0, advancement.trim(), null, List.of(), false);
+        return new Trigger(TriggerType.ADVANCEMENT, null, StatisticQualifier.NONE, 0,
+                advancement.trim(), null, List.of(), false);
     }
 
     /**
@@ -447,6 +493,67 @@ public final class AchievementsConfig implements LoadableConfig {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    /**
+     * {@code trigger.statistic-qualifier} を解決する。解決できない/型と噛み合わない場合は警告を出して
+     * {@code null}(＝このアチーブメントをスキップ)を返す。
+     *
+     * <p>Bukkit の {@code Statistic.Type} は UNTYPED / BLOCK / ITEM / ENTITY の4種。BLOCK と ITEM は
+     * Material を、ENTITY は EntityType を要求する。ここで Material の {@code isBlock()}/{@code isItem()}
+     * まで見ておかないと、読み込みは通るのに実行時の {@code getStatistic} が投げる(＝ポーリングのたびに
+     * 警告が出る)状態になる。
+     */
+    private static StatisticQualifier parseStatisticQualifier(ConfigurationSection trigger,
+                                                              String achievementId, Statistic statistic,
+                                                              Logger log) {
+        String raw = trigger.getString("statistic-qualifier", "");
+        raw = raw == null ? "" : raw.trim();
+        Statistic.Type type = statistic.getType();
+        if (type == Statistic.Type.UNTYPED) {
+            if (!raw.isEmpty()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId + "' trigger.statistic '"
+                        + statistic + "' is UNTYPED; statistic-qualifier '" + raw + "' is ignored");
+            }
+            return StatisticQualifier.NONE;
+        }
+        if (raw.isEmpty()) {
+            log.warning("[" + PATH + "] achievement '" + achievementId + "' trigger.statistic '"
+                    + statistic + "' needs trigger.statistic-qualifier ("
+                    + (type == Statistic.Type.ENTITY ? "EntityType" : "Material") + "); skipped");
+            return null;
+        }
+        String token = raw.toUpperCase(Locale.ROOT);
+        if (type == Statistic.Type.ENTITY) {
+            EntityType entityType;
+            try {
+                entityType = EntityType.valueOf(token);
+            } catch (IllegalArgumentException ex) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' trigger.statistic-qualifier '" + raw + "' is not an EntityType; skipped");
+                return null;
+            }
+            return new StatisticQualifier(null, entityType);
+        }
+        Material material;
+        try {
+            material = Material.valueOf(token);
+        } catch (IllegalArgumentException ex) {
+            log.warning("[" + PATH + "] achievement '" + achievementId
+                    + "' trigger.statistic-qualifier '" + raw + "' is not a Material; skipped");
+            return null;
+        }
+        if (type == Statistic.Type.BLOCK && !material.isBlock()) {
+            log.warning("[" + PATH + "] achievement '" + achievementId + "' trigger.statistic '" + statistic
+                    + "' needs a block Material but got '" + raw + "'; skipped");
+            return null;
+        }
+        if (type == Statistic.Type.ITEM && !material.isItem()) {
+            log.warning("[" + PATH + "] achievement '" + achievementId + "' trigger.statistic '" + statistic
+                    + "' needs an item Material but got '" + raw + "'; skipped");
+            return null;
+        }
+        return new StatisticQualifier(material, null);
     }
 
     private static Rewards parseRewards(ConfigurationSection rewards, String achievementId, Logger log) {
