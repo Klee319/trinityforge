@@ -4,7 +4,7 @@ import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewPotionSpec;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewUnlockGroup;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
-import com.trinityforge.stats.CatalogIdentity;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.BrewingStand;
@@ -328,18 +328,27 @@ public final class BrewUnlockListener implements Listener {
         return out;
     }
 
+    /**
+     * 醸造素材の照合。{@code custom:<id>} は TF カタログID と ArsPaper の
+     * {@code arspaper:custom_item_id} の<b>両方</b>を見る。
+     *
+     * <p>2026-07-31: 以前は {@code CatalogIdentity.catalogIdOf}(TF の PDC だけ)を見ていたため、
+     * ArsPaper の materials.yml 側で定義した素材(モブドロップ素材・圧縮素材・ソース階梯など)を
+     * 醸造素材に書いても<b>永久に一致せず、レシピが無言で成立しない</b>状態だった。
+     * 共有シームである {@link CrossPluginItemResolver#idOf} へ寄せて、
+     * config 側は「どちらのプラグインで定義したか」を意識しなくてよいようにする。
+     */
     private static boolean ingredientMatches(ItemStack ingredient, String expected) {
         if (expected == null || expected.isBlank()) {
             return false;
         }
         String raw = expected.trim();
         if (isCustomKey(raw)) {
-            String catalogId = raw.substring(raw.indexOf(':') + 1).trim();
-            if (catalogId.isEmpty() || !ingredient.hasItemMeta()) {
+            String customId = raw.substring(raw.indexOf(':') + 1).trim();
+            if (customId.isEmpty()) {
                 return false;
             }
-            Optional<String> id = CatalogIdentity.catalogIdOf(ingredient.getItemMeta());
-            return id.filter(catalogId::equals).isPresent();
+            return CrossPluginItemResolver.idOf(ingredient).filter(customId::equals).isPresent();
         }
         Material mat = Material.matchMaterial(raw);
         return mat != null && ingredient.getType() == mat;

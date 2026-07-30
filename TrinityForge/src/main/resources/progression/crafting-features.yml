@@ -198,6 +198,101 @@ brew-unlocks:
           type: LUCK
           duration: 3600
           amplifier: 1
+  # ===========================================================================
+  # 討伐素材を使う調合 (2026-07-31 追加)
+  # ---------------------------------------------------------------------------
+  # 高レベル帯の特定モブだけが落とす素材(combat/mob-level-table.yml の add-drops)を
+  # 醸造の入口にする。「素材を集める理由」と「その素材でしか作れない効果」を1対1で結ぶのが狙いで、
+  # どれもバニラのポーションでは作れない効果に寄せている(既存の調合を置き換えない)。
+  #
+  # 【custom: が効く前提】ingredient の custom:<id> は 2026-07-31 に
+  # CrossPluginItemResolver.idOf へ寄せた。それまでは TF カタログの PDC だけを見ていたため、
+  # ArsPaper の materials.yml 側で定義した素材を書いても永久に一致しなかった。
+  #
+  # 【base の選び方】バニラが同じ (base, ingredient) から何かを作る組み合わせは避ける。
+  # 重なるとバニラ側のレシピが先に成立して、こちらの結果で上書きする形になり挙動が読みにくい。
+  # THICK は「バニラでは何も生まない」ので、独自効果の置き場として一番安全。
+  # ---------------------------------------------------------------------------
+  # skilltree/alchemy.yml C-2-lower「衰弱の術」(Lv60) — 妨害寄りの調合
+  hunter-hex:
+    potions:
+      # ウィッチの秘薬: 魔女しか落とさない小瓶。バニラでは作れない強さの弱体化。
+      - base: THICK
+        ingredient: custom:witch_elixir
+        result:
+          type: WEAKNESS
+          duration: 3600
+          amplifier: 2
+      # エンダーマイトの煤: 次元の隙間の粉。視界を奪う。
+      - base: THICK
+        ingredient: custom:endermite_soot
+        result:
+          type: BLINDNESS
+          duration: 1200
+          amplifier: 0
+      # ストレイの布片: 凍てついた布。移動を止める。
+      - base: THICK
+        ingredient: custom:stray_cloth
+        result:
+          type: SLOWNESS
+          duration: 1800
+          amplifier: 2
+  # skilltree/alchemy.yml E-2-1「呪詛の術」(Lv80) — 生存寄りの調合
+  survivor-brew:
+    potions:
+      # ガーディアンの棘: 海底神殿の番人。水中呼吸と暗視をまとめて長時間。
+      - base: THICK
+        ingredient: custom:guardian_spine
+        result:
+          type: CONDUIT_POWER
+          duration: 6000
+          amplifier: 0
+      # ラヴェジャーの革: 分厚い皮。被ダメージ軽減(バニラのポーションには無い効果)。
+      - base: THICK
+        ingredient: custom:ravager_hide
+        result:
+          type: RESISTANCE
+          duration: 2400
+          amplifier: 1
+      # ハスクの布片: 渇きに晒された衣。空腹の進行を止める。
+      - base: THICK
+        ingredient: custom:husk_cloth
+        result:
+          type: SATURATION
+          duration: 200
+          amplifier: 0
+  # skilltree/alchemy.yml E「変換の大錬金術師」(Lv90) — 攻めの調合(最上位)
+  apex-brew:
+    potions:
+      # ホグリンの牙: 折れてなお鋭い。攻撃力上昇の最上位。
+      - base: THICK
+        ingredient: custom:hoglin_tusk
+        result:
+          type: STRENGTH
+          duration: 3600
+          amplifier: 2
+      # ピグリンブルートの鎧片: 砦の守り手の黄金。ダメージ耐性と引き換えの重さ(遅鈍込み)ではなく
+      # 純粋な体力増強にして、装備で殴り合う型の受け皿にする。
+      - base: THICK
+        ingredient: custom:piglin_brute_plate
+        result:
+          type: HEALTH_BOOST
+          duration: 3600
+          amplifier: 3
+      # ボグドの苔むした骨: 沼の骨。再生の最上位。
+      - base: THICK
+        ingredient: custom:bogged_mossy_bone
+        result:
+          type: REGENERATION
+          duration: 1200
+          amplifier: 2
+      # 砂まみれの骨: 乾き切った骨。跳躍の最上位(移動系ビルドの受け皿)。
+      - base: THICK
+        ingredient: custom:parched_sandy_bone
+        result:
+          type: JUMP_BOOST
+          duration: 3600
+          amplifier: 3
 # オーバーエンチャント (overenchant:<プロファイルID>)
 # 【重要】ここのキーがそのままゲートIDになる。skilltree 側の
 # dedicated-effects `overenchant:<id>` と綴りが一致していないと、

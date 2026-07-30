@@ -110,8 +110,12 @@ nodes:
       - "交換・色変換のグリフを解放"
       - "武器コーティングのスタック数増加"
       - "品質+3"
+      - "極致の調合を解放"
     dedicated-effects:
       - id: "glyph:exchange"
+      # 2026-07-31: 討伐素材(ホグリンの牙/ピグリンブルートの鎧片/ボグドの苔むした骨/砂まみれの骨)を
+      # 使う最上位の調合。強化系の上限をここへ集約し、ツリー終端に「まだ先がある」感を残す。
+      - id: "brew:apex-brew"
 
   C-1-upper:
     name: "俊敏・跳躍の調合"
@@ -189,6 +193,9 @@ nodes:
       brew_speed_bonus: 0.05
     dedicated-effects:
       - id: "glyph:wither"
+      # 2026-07-31: 討伐素材(ウィッチの秘薬/エンダーマイトの煤/ストレイの布片)を使う妨害系の調合。
+      # 素材は Lv45 以上のフィールドモブ限定ドロップなので、実質「遠くまで狩りに出る」が前提になる。
+      - id: "brew:hunter-hex"
   E-2-1:
     name: "呪詛の術"
     level: 80
@@ -196,11 +203,15 @@ nodes:
     parent: E        # 下段E系派生。線不明
     icon: DRAGON_BREATH
     cost: 1
-    effect-text: "呪詛開放"
+    effect-text: "呪詛開放・生存の調合"
     effects:
       - "呪詛を解放"
+      - "生存の調合を解放"
     dedicated-effects:
       - id: "glyph:hex"
+      # 2026-07-31: 討伐素材(ガーディアンの棘/ラヴェジャーの革/ハスクの布片)を使う生存系の調合。
+      # RESISTANCE と CONDUIT_POWER はバニラのポーションでは作れない。
+      - id: "brew:survivor-brew"
 
   B-alpha-1:
     name: "節約の調合I"

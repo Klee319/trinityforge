@@ -20,18 +20,33 @@ combat-roles:
     attack-buffs:
       penetration: 0.2
     defense-buffs: {}
-    description: 物理ダメージが敵の防御力を20%貫通する
+    description:
+      - "<gray>物理ダメージが敵の防御率を 20% 貫通する。</gray>"
+      - "<white>守りの厚い敵ほど恩恵が大きい。</white>"
+      - "<white>「世界を繋ぐ者」第2段階は物理寄りの壁なので、ここが一番楽になる。</white>"
+      - ""
+      - "<yellow>向く武器: 重量武器・軽量武器</yellow>"
   mage:
     label: 魔術師
     icon: BLAZE_ROD
     attack-buffs:
       percent-bonus-damage: 0.3
     defense-buffs: {}
-    description: 魔法ダメージに30%の追加ダメージ
+    description:
+      - "<gray>魔法ダメージに 30% の割合追加ダメージが乗る。</gray>"
+      - "<white>敵の最大体力に比例するので、体力の多いボスに強い。</white>"
+      - "<white>「世界を繋ぐ者」第3段階は魔法寄りの壁なので、ここが一番楽になる。</white>"
+      - ""
+      - "<yellow>向く武器: 魔導書(Ars魔法)</yellow>"
   tank:
     label: 守衛
     icon: SHIELD
-    description: 守備力とヘイトを上げ、敵を引き受ける
+    description:
+      - "<gray>被ダメージを 10% 軽減し、ヘイトが 1.5 倍になる。</gray>"
+      - "<white>敵の狙いを自分へ集めるので、複数人なら味方の生存率がそのまま上がる。</white>"
+      - "<white>「世界を繋ぐ者」第4段階は増援が同時に湧くので、ここが一番効く。</white>"
+      - ""
+      - "<yellow>向く装備: 重装・盾</yellow>"
     defense-buffs:
       damage-reduction: 0.1
     hate-threat-multiplier: 1.5
@@ -39,9 +54,17 @@ combat-roles:
 support-roles:
   farmer:
     label: 農家
-    description: 農業EXPと取引価格に補正
+    description:
+      - "<gray>農業EXP +25% / 村人との取引価格が常時有利になる。</gray>"
+      - "<white>コア系(ベジタブル/ミート)の素材は畑と牧場からしか出ない。</white>"
+      - ""
+      - "<yellow>次: /tf skill farming</yellow>"
     exp-skill: FARMING
-    exp-multiplier: 1.2
+    # 2026-07-31: 補助職の exp-multiplier を 1.15 / 1.25 / 1.35 の3段へ散らした。
+    # 全職 1.2 の横並びでは「どれを選んでも同じ」で選択に意味が無かった。
+    # 段の根拠は「その系統のEXPが単位時間あたりどれだけ稼げるか」の逆数:
+    #   稼ぎやすい(採掘/伐採) = 1.15 / 中間(農業) = 1.25 / 稼ぎにくい(釣り/切削) = 1.35
+    exp-multiplier: 1.25
     potion-buff:
       type: HERO_OF_THE_VILLAGE
       duration: 999999
@@ -49,11 +72,16 @@ support-roles:
     icon: IRON_HOE
   fisher:
     label: 漁師
-    description: 釣りEXPと運に補正
+    description:
+      - "<gray>釣りEXP +35% / 常時 幸運。</gray>"
+      - "<white>釣りは待ち時間で稼ぎが決まるので倍率を最も高くしている。</white>"
+      - "<white>ガチャ券(特級・極級)は釣りギミックからしか出ない。</white>"
+      - ""
+      - "<yellow>次: /tf skill fishing</yellow>"
     # 2026-07-30 修正: FARMING になっていたため釣りEXPには何も乗らず、
     # 農業EXPが farmer と二重に優遇されていた(expMultiplierForSkill は完全一致比較)。
     exp-skill: FISHING
-    exp-multiplier: 1.2
+    exp-multiplier: 1.35
     potion-buff:
       type: LUCK
       duration: 999999
@@ -62,32 +90,47 @@ support-roles:
   miner:
     label: 鉱夫
     icon: IRON_PICKAXE
-    description: 採掘EXPと採掘速度に補正
+    description:
+      - "<gray>採掘EXP +15% / 常時 採掘速度上昇。</gray>"
+      - "<white>採掘は単位時間の稼ぎが最も大きいので倍率は控えめ。</white>"
+      - "<white>ガチャ券(初級〜上級)とジュエリーコアは採掘から。</white>"
+      - ""
+      - "<yellow>次: /tf skill mining</yellow>"
     exp-skill: MINING
-    exp-multiplier: 1.2
+    exp-multiplier: 1.15
     potion-buff:
       type: HASTE
       duration: 999999
       amplifier: 0
   digger:
     label: 土工
+    description:
+      - "<gray>切削EXP +35% / 常時 移動速度上昇。</gray>"
+      - "<white>掘った土そのものに使い道が少ないぶん倍率を高くしている。</white>"
+      - "<white>遺跡のスレッドとダートコアは切削から。</white>"
+      - ""
+      - "<yellow>次: /tf skill digging</yellow>"
     exp-skill: DIGGING
-    exp-multiplier: 1.2
+    exp-multiplier: 1.35
     potion-buff:
       type: SPEED
       duration: 999999
       amplifier: 0
     icon: IRON_SHOVEL
-    description: 切削EXPと移動速度に補正
   woodcutter:
     label: きこり
+    description:
+      - "<gray>伐採EXP +15% / 常時 火炎耐性。</gray>"
+      - "<white>一括伐採が乗ると稼ぎが跳ねるので倍率は控えめ。</white>"
+      - "<white>ウッドコアと圧縮木材(耐久回復)は伐採から。</white>"
+      - ""
+      - "<yellow>次: /tf skill woodcutting</yellow>"
     exp-skill: WOODCUTTING
-    exp-multiplier: 1.2
+    exp-multiplier: 1.15
     potion-buff:
       type: FIRE_RESISTANCE
       duration: 999999
       amplifier: 0
     icon: IRON_AXE
-    description: 伐採EXPと炎に補正
 role-change:
   allow-command: true

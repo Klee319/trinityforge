@@ -39,7 +39,9 @@ display-names:
 categories:
   items:
     infinity:
-      display-name: インフィニティ
+      # 2026-07-31: インフィニティ専用タブだったが、深淵(abyss_*)/束縛者(binder_*)を足して
+      # 「最上位装備」タブに広げた。GUIは自動ページ送りなので件数上限は無い。
+      display-name: 最上位装備
       order: 1
       entries:
         - infinity_axe
@@ -64,5 +66,205 @@ categories:
         - infinity_sword
         - infinity_trident
         - infinity_warhammer
-  mobs: {}
-reward-tiers: {}
+        - abyss_sword
+        - abyss_dagger
+        - abyss_rapier
+        - abyss_spear
+        - abyss_trident
+        - abyss_scythe
+        - abyss_mace
+        - abyss_warhammer
+        - abyss_grate_sword
+        - abyss_axe
+        - abyss_greataxe
+        - abyss_bow
+        - abyss_crossbow
+        - binder_sword
+        - binder_dagger
+        - binder_rapier
+        - binder_spear
+        - binder_trident
+        - binder_scythe
+        - binder_mace
+        - binder_warhammer
+        - binder_grate_sword
+        - binder_axe
+        - binder_greataxe
+        - binder_bow
+        - binder_crossbow
+        - binder_helmet
+        - binder_chestplate
+        - binder_leggings
+        - binder_boots
+    # 2026-07-31 追加。GUIのタブ枠は9個までで、items/mobs それぞれに自動の「その他」タブが
+    # 1個ずつ付くので、書けるカテゴリは合計7個が上限(超えた分は無言で表示されない)。
+    # 現在: items 5 + mobs 2 = 7 + その他2 = ちょうど9。増やすときは必ずどれかを畳むこと。
+    dungeon:
+      display-name: 踏破の証
+      order: 2
+      entries:
+        # ダンジョンごとの最終ボスが100%落とす印。「どこを踏破したか」の一覧になる。
+        - dungeon_seal_mines
+        - dungeon_seal_deep_mines
+        - dungeon_seal_quarry
+        - dungeon_seal_cave
+        - dungeon_seal_bridge
+        - dungeon_seal_city
+        - dungeon_seal_climb
+        - dungeon_seal_palace
+        - dungeon_seal_knight_castle
+        - dungeon_seal_sewer_maze
+        - dungeon_seal_steamworks
+        - dungeon_seal_nether_bell
+        - dungeon_seal_nether_wastes
+        - dungeon_seal_dark_cathedral
+        - dungeon_seal_enchant_trial
+        - dungeon_seal_fireworks
+        - dungeon_seal_hallosseum
+        - dungeon_seal_north_pole
+        - dungeon_seal_binder
+        # ダンジョン限定素材(ダンジョン外では絶対に手に入らない3種)
+        - binder_fragment
+        - reality_thread_core
+        - abyssal_ingot
+    source:
+      display-name: ソースの階梯
+      order: 3
+      entries:
+        # 「1億ソース」への9段。最後の infinity_source_core が到達証明。
+        - source_shard
+        - source_jar_ii
+        - source_crystal
+        - source_jar_iii
+        - source_condenser
+        - source_reservoir
+        - source_engine
+        - source_singularity_jar
+        - infinity_source_core
+    mob_parts:
+      display-name: 討伐素材
+      order: 4
+      entries:
+        # 高レベル帯の特定モブだけが落とす素材。コア/醸造/儀式の材料。
+        - ravager_hide
+        - piglin_brute_plate
+        - pillager_plate
+        - witch_elixir
+        - piglin_ear
+        - stray_cloth
+        - skeleton_horse_bone
+        - endermite_soot
+        - hoglin_tusk
+        - guardian_spine
+        - husk_cloth
+        - bogged_mossy_bone
+        - parched_sandy_bone
+        - dragon_scale
+        - elder_guardian_spike
+        - wither_skull_fragment
+        - warden_tendril
+    structure:
+      display-name: 遺物
+      order: 5
+      entries:
+        # ここに書いたバニラMaterialは「参照されている」ので図鑑に記録されるようになる。
+        # 構造物のルートチェストへ独自アイテムを注入する機構は今は無いため、
+        # 「バニラ戦利品を図鑑エントリへ昇格させる」ことで漁る旨みを作る。
+        # 後日 Dungeons and Taverns を入れたら、その固有品をここへ足すだけで拡張できる。
+        - ECHO_SHARD
+        - HEART_OF_THE_SEA
+        - NETHERITE_UPGRADE_SMITHING_TEMPLATE
+        - TRIAL_KEY
+        - OMINOUS_TRIAL_KEY
+        - MUSIC_DISC_OTHERSIDE
+        - MUSIC_DISC_PIGSTEP
+        - MUSIC_DISC_CREATOR
+        - ENCHANTED_GOLDEN_APPLE
+        - DRAGON_EGG
+        - ELYTRA
+        - TOTEM_OF_UNDYING
+        - RECOVERY_COMPASS
+        - SNIFFER_EGG
+        - GUSTER_BANNER_PATTERN
+        - FLOW_BANNER_PATTERN
+  mobs:
+    undead:
+      display-name: 不死者
+      order: 1
+      entries:
+        - ZOMBIE
+        - ZOMBIE_VILLAGER
+        - HUSK
+        - DROWNED
+        - SKELETON
+        - STRAY
+        - BOGGED
+        - PARCHED
+        - WITHER_SKELETON
+        - SKELETON_HORSE
+        - ZOMBIFIED_PIGLIN
+        - ZOGLIN
+        - PHANTOM
+    apex:
+      display-name: 強敵
+      order: 2
+      entries:
+        - ENDER_DRAGON
+        - WITHER
+        - WARDEN
+        - ELDER_GUARDIAN
+        - EVOKER
+        - ILLUSIONER
+        - RAVAGER
+        - GIANT
+        - PIGLIN_BRUTE
+        - BREEZE
+        - CREAKING
+# reward-tiers: (2026-07-31 設定) 図鑑の登録エントリ数がしきい値に達したとき一度だけ解放される。
+#
+# 【憲法】報酬は 称号 / コスメ / 恒久QoL に限定し、縦強化(戦闘ステータス)にしない。
+#   items / job-exp / permanent-buffs / vanilla-exp も受け付けるが意図的に使わない
+#   ("図鑑を埋めないと戦えない"を作らないため。図鑑は横の楽しみに留める)。
+#
+# 【前提】special に書くIDは progression/special-rewards.yml の titles / particles に
+#   定義されていないと無言で何も配らない。さらに special-rewards.yml は
+#   prune-orphaned-grants: true なので、後からIDを消すと保持している全員から剥奪される。
+#
+# 【しきい値の根拠】記録対象は下の categories だけではない。sources の通りカタログ品(286種)と
+#   モブ討伐(敵性EntityTypeほぼ全部)が自動で記録され、バニラ品は「どこかで参照されているものだけ」が
+#   記録される。合計の母数は概ね 360 前後。素材を集めるだけでも 50 前後には自然に届く。
+#   t4(120) は「複数系統を並行して埋めた」水準、t5(200) は母数の 5 割超 =「万象」の名に見合う水準。
+#   2026-07-31: 深淵/束縛者の30種を足して母数が増えたので t4/t5 を 100/150 から引き上げた。
+reward-tiers:
+  t1:
+    threshold: 10
+    title: "<gray>収集家</gray>"
+    special:
+      - title_collector
+  t2:
+    threshold: 30
+    title: "<white>探究者</white>"
+    special:
+      - title_seeker
+      - particle_sparkle
+  t3:
+    threshold: 60
+    title: "<aqua>記録者</aqua>"
+    broadcast: true
+    special:
+      - title_archivist
+      - particle_ember_aura
+  t4:
+    threshold: 120
+    title: "<gradient:#7f5af0:#2cb67d>世界渡り</gradient>"
+    broadcast: true
+    special:
+      - title_worldwalker
+      - particle_void_aura
+  t5:
+    threshold: 200
+    title: "<gradient:#ffd700:#ff8c00:#ffd700>万象を知る者</gradient>"
+    broadcast: true
+    special:
+      - title_completionist
+      - particle_dragon_aura

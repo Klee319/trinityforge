@@ -2982,6 +2982,370 @@
       "id": "source_singularity_jar",
       "source": "sourcejars",
       "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5461,
+      "id": "dungeon_seal_mines",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5462,
+      "id": "dungeon_seal_deep_mines",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5463,
+      "id": "dungeon_seal_quarry",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5464,
+      "id": "dungeon_seal_cave",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5465,
+      "id": "dungeon_seal_bridge",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5466,
+      "id": "dungeon_seal_city",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5467,
+      "id": "dungeon_seal_climb",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5468,
+      "id": "dungeon_seal_palace",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5469,
+      "id": "dungeon_seal_knight_castle",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5470,
+      "id": "dungeon_seal_sewer_maze",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5471,
+      "id": "dungeon_seal_steamworks",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5472,
+      "id": "dungeon_seal_nether_bell",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5473,
+      "id": "dungeon_seal_nether_wastes",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5474,
+      "id": "dungeon_seal_dark_cathedral",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5475,
+      "id": "dungeon_seal_enchant_trial",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5476,
+      "id": "dungeon_seal_fireworks",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5477,
+      "id": "dungeon_seal_hallosseum",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5478,
+      "id": "dungeon_seal_north_pole",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5479,
+      "id": "dungeon_seal_binder",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SCRAP",
+      "cmd": 5451,
+      "id": "binder_fragment",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "ECHO_SHARD",
+      "cmd": 5452,
+      "id": "reality_thread_core",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_INGOT",
+      "cmd": 5453,
+      "id": "abyssal_ingot",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T10:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5600,
+      "id": "abyss_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5601,
+      "id": "abyss_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5602,
+      "id": "abyss_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 5602,
+      "id": "abyss_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 5602,
+      "id": "abyss_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 5602,
+      "id": "abyss_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "MACE",
+      "cmd": 5602,
+      "id": "abyss_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5603,
+      "id": "abyss_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5604,
+      "id": "abyss_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 5604,
+      "id": "abyss_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5605,
+      "id": "abyss_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "BOW",
+      "cmd": 5605,
+      "id": "abyss_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 5605,
+      "id": "abyss_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5606,
+      "id": "binder_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5607,
+      "id": "binder_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5608,
+      "id": "binder_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 5608,
+      "id": "binder_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 5608,
+      "id": "binder_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 5608,
+      "id": "binder_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "MACE",
+      "cmd": 5608,
+      "id": "binder_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5609,
+      "id": "binder_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5610,
+      "id": "binder_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 5610,
+      "id": "binder_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5611,
+      "id": "binder_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "BOW",
+      "cmd": 5611,
+      "id": "binder_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 5611,
+      "id": "binder_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 5611,
+      "id": "binder_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 5611,
+      "id": "binder_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 5611,
+      "id": "binder_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 5611,
+      "id": "binder_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-31T12:00:00.000Z"
     }
   ]
 }

@@ -546,3 +546,56 @@ reward-tiers:
    `reward-tiers` に `permanent-buffs` を入れると図鑑が実質必須コンテンツになる。
 3. **`infinity_source_core` の使い回しを許容するか**（§3.4）。報酬が称号／コスメに限られる以上、
    許容が推奨。
+
+---
+
+## 11. 資源鯖デタパ用「ルートテーブル追加案」（本番でデタパを入れるときの持ち込み表）
+
+> ユーザー制約: 「本番は資源鯖にバイオームと構造生成のデタパを含めるので、**こちらのルート
+> テーブルに追加する用のアイテム案やコンテンツを別途記録しておくこと**」。
+> ここはその記録専用。TF 側の実装状態とは独立に読めるように書く。
+
+### 11.1 先に確定させる技術制約（ここを誤ると全部空振りする）
+
+| 事項 | 結論 | 根拠 |
+|---|---|---|
+| デタパのルートテーブルから TF/Ars のカスタム品を直接出せるか | **安全な既定は「出せない」扱い。** バニラ品だけを出す | TF のアイテム同一性は PDC (`trinityforge:catalog_id`) と `MATERIAL#CMD` の組。デタパは `minecraft:custom_data` を書けるので理屈上は catalog_id を載せられるが、**厳選値（`rollSeed` / `quality`）は生成時に焼き込まれる**ため、デタパ産は「ステの振れ幅ゼロの個体」になる。混ぜると同名アイテムに 2 系統の個体が並ぶ |
+| ではどう「独自アイテムを漁らせる」か | **引換方式**。ルートテーブルはバニラ品を出し、TF 側の儀式／交換で独自品に化けさせる | §6-2 と同じ手。追加コードが 0 で済み、厳選も TF 側の生成経路を通るので個体差が正しく付く |
+| 例外 | **図鑑エントリ**はバニラ品のままでも成立する | `collection.yml` の `categories.items.*.entries` に書いた Material は記録対象になる（§6-1） |
+
+→ **デタパ側に書くのは「バニラ品の重み付け」だけ。独自品は TF 側で受ける。** この分担を崩さない。
+
+### 11.2 デタパのルートテーブルへ足すもの（構造物別）
+
+「漁る旨み」= *TF の上位素材へ直結するバニラ品が、その構造物にしか湧かない* こと。
+
+| 構造物（想定 Dungeons and Taverns 系） | 足すバニラ品 | TF 側での出口 |
+|---|---|---|
+| 鉱山系（Mines / Deep Mines） | `AMETHYST_SHARD`（多め）, `RAW_COPPER_BLOCK` | `source_shard` の儀式コア。ソース階梯の入口を鉱山に寄せる |
+| 水没系（Sunken Ship / Ocean Ruin 拡張） | `HEART_OF_THE_SEA`, `PRISMARINE_CRYSTALS` | `source_condenser` / `source_crystal` の触媒 |
+| ネザー系（Nether Keep / Bastion 拡張） | `NETHERITE_SCRAP`, `BLAZE_ROD` | `abyssal_ingot` の代替入手（EM ダンジョン以外の細い経路） |
+| エンド系（End City 拡張） | `ECHO_SHARD`, `SHULKER_SHELL` | `reality_thread_core` の下位互換素材、`echo_shard_2x` |
+| 村・砦系（Village / Pillager 拡張） | `EMERALD_BLOCK`, 各 `*_ARMOR_TRIM_SMITHING_TEMPLATE` | **トリム材はスレッドのベース Material**（`300001-300016`）。厳選スレッドの引換素材にちょうど乗る |
+| 遺跡・図書館系 | `ENCHANTED_BOOK`(高レベル), `MUSIC_DISC_*` | 図鑑エントリ（`categories.items.structure`）。コスメ／収集目的 |
+| 試練系（Trial Chamber 拡張） | `TRIAL_KEY`, `OMINOUS_TRIAL_KEY`, `BREEZE_ROD` | `breeze_rod_2x/3x`。既存の圧縮階梯へそのまま流れる |
+
+**重み付けの方針**: 上表の品は「その構造物なら 1 回の探索で 1〜3 個」。
+ソース階梯は `result-amount: 4` の儀式で増やす設計（§3）なので、**素材側を渋くしても詰まらない**。
+
+### 11.3 デタパ導入時に TF 側へ足す受け口（editor で完結する）
+
+1. **図鑑**: `collection.yml` → `categories.items.structure.entries` に 11.2 のバニラ品を追記。
+   これだけで「拾った＝記録」になり、報酬ティア（10/30/60/120/200）にも効く。
+2. **儀式**: ArsPaper `materials.yml` の該当素材の `recipe` に、上表のバニラ品をペデスタルとして足す。
+3. **交換**: `economy/villager-trades.yml` に「構造物固有バニラ品 → ソース系素材」のレートを置く。
+4. **厳選スレッドの配布**: トリム材を集めて回す儀式を 1 本置き、**結果を「ランダム主ステのスレッド」にする**
+   （Wave 2 の J9 グラントプールが入ったら、その抽選テーブルをここへ繋ぐ）。
+
+### 11.4 まだ「案」でしかないもの（実装前に判断が必要）
+
+- **バイオーム限定素材**: デタパでバイオームが増えるなら「そのバイオームでしか湧かない作物／鉱石」を
+  TF の採取 EXP 表（`stats/skill-exp.yml` の `drop_sum`）へ足すのが一番安い。
+  ただし**ブロック行はゲート専用で、実量はドロップ材質の行から引く**ので両方書く必要がある。
+- **構造物のスポナー**: EM モブを構造物へ湧かせるなら EM 側の設定であり、デタパのルートテーブルとは別系統。
+- **独自品の直接注入**: どうしてもやるなら `minecraft:custom_data` に `trinityforge:catalog_id` を書く
+  経路を**先に実機で検証**する（厳選値ゼロ個体が生まれる問題の扱いを決めるまで採用しない）。

@@ -7690,6 +7690,909 @@ items:
     fixed:
       move-speed: 0.5
       mob-drop-bonus: 0.25
+  # ---- 2026-07-31 追加: 深淵(abyss_*) / 束縛者(binder_*) 装備のステータス ----
+  # infinity 同型のブロックから量キー(attack-power / fixed-damage / 守備力 / max-health)だけを
+  # 倍率でずらして作っている。率(crit / penetration / resistance)と耐久・攻撃速度は据え置き。
+  NETHERITE_SWORD#5600:
+    fixed:
+      attack-power: 30240.0
+      attack-speed: 1.6
+      attack-reach: 0
+      crit-chance: 0.08
+      crit-damage: 0.5
+      penetration: 0.11
+      damage-modifier: 0.65
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1440.0
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -4838.4
+        max: 6048.0
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_SWORD#5601:
+    fixed:
+      attack-power: 20563.2
+      attack-speed: 2.05
+      attack-reach: -0.45
+      crit-chance: 0.12
+      crit-damage: 0.55
+      penetration: 0.1
+      damage-modifier: 0.5
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 979.2
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -3290.08
+        max: 4112.64
+      crit-chance:
+        min: -0.05
+        max: 0.07
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SWORD#5602:
+    fixed:
+      attack-power: 23587.2
+      attack-speed: 1.78
+      attack-reach: 0.1
+      crit-chance: 0.07
+      crit-damage: 0.45
+      penetration: 0.26
+      damage-modifier: 0.56
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1123.2
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -3773.92
+        max: 4717.44
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SPEAR#5602:
+    fixed:
+      attack-power: 21077.28
+      attack-speed: 0.71
+      attack-reach: 1
+      crit-chance: 0.05
+      crit-damage: 0.48
+      penetration: 0.3
+      damage-modifier: 0.59
+      durability: 1218
+      fixed-damage: 16.14
+      thread-slots: 3
+    per-quality:
+      attack-power: 1003.68
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -3372.39
+        max: 4215.46
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  TRIDENT#5602:
+    fixed:
+      attack-power: 27216.0
+      attack-speed: 0.48
+      attack-reach: 0.5
+      crit-chance: 0.06
+      crit-damage: 0.5
+      penetration: 0.26
+      damage-modifier: 0.62
+      bleed-chance: 0.16
+      bleed-damage: 3240
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1296.0
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -4354.56
+        max: 5443.2
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_HOE#5602:
+    fixed:
+      attack-power: 22982.4
+      attack-speed: 4.12
+      attack-reach: 0.1
+      crit-chance: 0.06
+      crit-damage: 0.45
+      penetration: 0.12
+      damage-modifier: 0.53
+      bleed-chance: 0.16
+      bleed-damage: 2736
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1094.4
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -3677.2
+        max: 4596.48
+      bleed-chance:
+        min: -0.07
+        max: 0.11
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  MACE#5602:
+    fixed:
+      attack-power: 30240.0
+      attack-speed: 0.48
+      attack-reach: 0
+      crit-chance: 0.06
+      crit-damage: 0.55
+      penetration: 0.14
+      damage-modifier: 0.65
+      power-attack-damage: 0.35
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1440.0
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -4838.4
+        max: 6048.0
+      power-attack-damage:
+        min: -0.12
+        max: 0.18
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SWORD#5603:
+    fixed:
+      attack-power: 37195.2
+      attack-speed: 1.18
+      attack-reach: 0.22
+      crit-chance: 0.05
+      crit-damage: 0.7
+      penetration: 0.16
+      damage-modifier: 0.84
+      fixed-damage: 2214.0
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1771.2
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -5951.2
+        max: 7439.04
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_SWORD#5604:
+    fixed:
+      attack-power: 33868.8
+      attack-speed: 1.12
+      attack-reach: 0.25
+      crit-chance: 0.05
+      crit-damage: 0.58
+      penetration: 0.12
+      damage-modifier: 0.72
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1612.8
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -5419.04
+        max: 6773.76
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_AXE#5604:
+    fixed:
+      attack-power: 35985.6
+      attack-speed: 0.58
+      attack-reach: 0.05
+      crit-chance: 0.06
+      crit-damage: 0.6
+      penetration: 0.14
+      damage-modifier: 0.81
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1713.6
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -5757.68
+        max: 7197.12
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_SWORD#5605:
+    fixed:
+      attack-power: 41126.4
+      attack-speed: 0.98
+      attack-reach: 0.28
+      crit-chance: 0.04
+      crit-damage: 0.72
+      penetration: 0.14
+      damage-modifier: 0.9
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1958.4
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -6580.24
+        max: 8225.28
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  BOW#5605:
+    fixed:
+      attack-power: 33134.4
+      attack-speed: 4
+      attack-reach: 0
+      crit-chance: 0.18
+      crit-damage: 0.72
+      penetration: 0.16
+      damage-modifier: 0.65
+      bow-accuracy: 0.07
+      arrow-velocity: 0.06
+      distance-damage-bonus: 0.15
+      ammo-save-chance: 0.08
+      move-speed: 0.015
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1263.6
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: ARCHERY
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -5301.52
+        max: 6626.88
+      crit-chance:
+        min: -0.05
+        max: 0.07
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  CROSSBOW#5605:
+    fixed:
+      attack-power: 27820.8
+      attack-speed: 4
+      attack-reach: 0
+      crit-chance: 0.11
+      crit-damage: 0.85
+      penetration: 0.19
+      damage-modifier: 0.72
+      bow-accuracy: 0.04
+      arrow-velocity: 0.12
+      distance-damage-bonus: 0.08
+      ammo-save-chance: 0.04
+      move-speed: 0.008
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2152.8
+      crit-chance: 0.012
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: ARCHERY
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -4451.36
+        max: 5564.16
+      crit-chance:
+        min: -0.05
+        max: 0.07
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SWORD#5606:
+    fixed:
+      attack-power: 43470.0
+      attack-speed: 1.6
+      attack-reach: 0
+      crit-chance: 0.08
+      crit-damage: 0.5
+      penetration: 0.05
+      damage-modifier: 0.65
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2070.0
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -6955.2
+        max: 8694.0
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_SWORD#5607:
+    fixed:
+      attack-power: 29559.6
+      attack-speed: 2.05
+      attack-reach: -0.45
+      crit-chance: 0.12
+      crit-damage: 0.55
+      penetration: 0.04
+      damage-modifier: 0.5
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1407.6
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -4729.49
+        max: 5911.92
+      crit-chance:
+        min: -0.05
+        max: 0.07
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SWORD#5608:
+    fixed:
+      attack-power: 33906.6
+      attack-speed: 1.78
+      attack-reach: 0.1
+      crit-chance: 0.07
+      crit-damage: 0.45
+      penetration: 0.2
+      damage-modifier: 0.56
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1614.6
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -5425.01
+        max: 6781.32
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SPEAR#5608:
+    fixed:
+      attack-power: 30298.59
+      attack-speed: 0.71
+      attack-reach: 1
+      crit-chance: 0.05
+      crit-damage: 0.48
+      penetration: 0.24
+      damage-modifier: 0.59
+      durability: 1218
+      fixed-damage: 23.21
+      thread-slots: 3
+    per-quality:
+      attack-power: 1442.79
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -4847.81
+        max: 6059.72
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  TRIDENT#5608:
+    fixed:
+      attack-power: 39123.0
+      attack-speed: 0.48
+      attack-reach: 0.5
+      crit-chance: 0.06
+      crit-damage: 0.5
+      penetration: 0.2
+      damage-modifier: 0.62
+      bleed-chance: 0.16
+      bleed-damage: 3240
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1863.0
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -6259.68
+        max: 7824.6
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_HOE#5608:
+    fixed:
+      attack-power: 33037.2
+      attack-speed: 4.12
+      attack-reach: 0.1
+      crit-chance: 0.06
+      crit-damage: 0.45
+      penetration: 0.06
+      damage-modifier: 0.53
+      bleed-chance: 0.16
+      bleed-damage: 2736
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1573.2
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -5285.97
+        max: 6607.44
+      bleed-chance:
+        min: -0.07
+        max: 0.11
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  MACE#5608:
+    fixed:
+      attack-power: 43470.0
+      attack-speed: 0.48
+      attack-reach: 0
+      crit-chance: 0.06
+      crit-damage: 0.55
+      penetration: 0.08
+      damage-modifier: 0.65
+      power-attack-damage: 0.35
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2070.0
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -6955.2
+        max: 8694.0
+      power-attack-damage:
+        min: -0.12
+        max: 0.18
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_SWORD#5609:
+    fixed:
+      attack-power: 53468.1
+      attack-speed: 1.18
+      attack-reach: 0.22
+      crit-chance: 0.05
+      crit-damage: 0.7
+      penetration: 0.1
+      damage-modifier: 0.84
+      fixed-damage: 3182.62
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2546.1
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -8554.85
+        max: 10693.62
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_SWORD#5610:
+    fixed:
+      attack-power: 48686.4
+      attack-speed: 1.12
+      attack-reach: 0.25
+      crit-chance: 0.05
+      crit-damage: 0.58
+      penetration: 0.06
+      damage-modifier: 0.72
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2318.4
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -7789.87
+        max: 9737.28
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_AXE#5610:
+    fixed:
+      attack-power: 51729.3
+      attack-speed: 0.58
+      attack-reach: 0.05
+      crit-chance: 0.06
+      crit-damage: 0.6
+      penetration: 0.08
+      damage-modifier: 0.81
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2463.3
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -8276.66
+        max: 10345.86
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_SWORD#5611:
+    fixed:
+      attack-power: 59119.2
+      attack-speed: 0.98
+      attack-reach: 0.28
+      crit-chance: 0.04
+      crit-damage: 0.72
+      penetration: 0.08
+      damage-modifier: 0.9
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 2815.2
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -9459.09
+        max: 11823.84
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  BOW#5611:
+    fixed:
+      attack-power: 47630.7
+      attack-speed: 4
+      attack-reach: 0
+      crit-chance: 0.18
+      crit-damage: 0.72
+      penetration: 0.1
+      damage-modifier: 0.65
+      bow-accuracy: 0.07
+      arrow-velocity: 0.06
+      distance-damage-bonus: 0.15
+      ammo-save-chance: 0.08
+      move-speed: 0.015
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 1816.42
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: ARCHERY
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -7620.93
+        max: 9526.14
+      crit-chance:
+        min: -0.05
+        max: 0.07
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  CROSSBOW#5611:
+    fixed:
+      attack-power: 39992.4
+      attack-speed: 4
+      attack-reach: 0
+      crit-chance: 0.11
+      crit-damage: 0.85
+      penetration: 0.13
+      damage-modifier: 0.72
+      bow-accuracy: 0.04
+      arrow-velocity: 0.12
+      distance-damage-bonus: 0.08
+      ammo-save-chance: 0.04
+      move-speed: 0.008
+      durability: 1218
+      thread-slots: 3
+    per-quality:
+      attack-power: 3094.65
+      crit-chance: 0.012
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 203
+    use-level-requirement: 100
+    use-skill: ARCHERY
+    quality-mode-offset: -8
+    random:
+      attack-power:
+        min: -6398.83
+        max: 7998.48
+      crit-chance:
+        min: -0.05
+        max: 0.07
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_HELMET#5611:
+    fixed:
+      armor-defense-rate: 3
+      durability: 540
+      phys-resistance: 0.0161
+      phys-flat-defense: 19.18
+      armor-strength: 0.27
+      max-health: 5.17
+      damage-reduction: 0.03
+    per-quality:
+      durability: 90
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -8
+    random:
+      phys-flat-defense:
+        min: 0.0
+        max: 2.56
+      max-health:
+        min: 0.0
+        max: 1.72
+  NETHERITE_CHESTPLATE#5611:
+    fixed:
+      armor-defense-rate: 8
+      durability: 780
+      phys-resistance: 0.043
+      phys-flat-defense: 51.15
+      max-health: 13.8
+      damage-reduction: 0.03
+      armor-strength: 0.06
+    per-quality:
+      durability: 130
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -8
+    random:
+      phys-flat-defense:
+        min: 0.0
+        max: 6.85
+      max-health:
+        min: 0.0
+        max: 4.6
+  NETHERITE_LEGGINGS#5611:
+    fixed:
+      armor-defense-rate: 6
+      durability: 732
+      phys-resistance: 0.0323
+      phys-flat-defense: 38.36
+      move-speed: -0.02
+      max-health: 10.35
+      damage-reduction: 0.03
+      armor-strength: 0.06
+    per-quality:
+      durability: 122
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -8
+    random:
+      phys-flat-defense:
+        min: 0.0
+        max: 5.14
+      max-health:
+        min: 0.0
+        max: 3.45
+  NETHERITE_BOOTS#5611:
+    fixed:
+      armor-defense-rate: 3
+      durability: 630
+      phys-resistance: 0.0161
+      phys-flat-defense: 19.18
+      armor-strength: 0.27
+      move-speed: -0.008
+      max-health: 5.17
+      damage-reduction: 0.03
+    per-quality:
+      durability: 105
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -8
+    random:
+      phys-flat-defense:
+        min: 0.0
+        max: 2.56
+      max-health:
+        min: 0.0
+        max: 1.72
 _editor:
   categories:
     weapon:
@@ -7888,6 +8791,35 @@ _editor:
         itemIds:
           - BOOK#100004
           - WOODEN_SWORD#51
+      - id: cat_abyss_binder_weapon
+        label: 深淵・束縛者
+        itemIds:
+          - NETHERITE_SWORD#5600
+          - NETHERITE_SWORD#5601
+          - NETHERITE_SWORD#5602
+          - NETHERITE_SPEAR#5602
+          - TRIDENT#5602
+          - NETHERITE_HOE#5602
+          - MACE#5602
+          - NETHERITE_SWORD#5603
+          - NETHERITE_SWORD#5604
+          - NETHERITE_AXE#5604
+          - NETHERITE_SWORD#5605
+          - BOW#5605
+          - CROSSBOW#5605
+          - NETHERITE_SWORD#5606
+          - NETHERITE_SWORD#5607
+          - NETHERITE_SWORD#5608
+          - NETHERITE_SPEAR#5608
+          - TRIDENT#5608
+          - NETHERITE_HOE#5608
+          - MACE#5608
+          - NETHERITE_SWORD#5609
+          - NETHERITE_SWORD#5610
+          - NETHERITE_AXE#5610
+          - NETHERITE_SWORD#5611
+          - BOW#5611
+          - CROSSBOW#5611
     catalyst:
       - id: cat_1784733677892
         label: バニラ
@@ -8145,6 +9077,13 @@ _editor:
           - LEATHER_CHESTPLATE#200149
           - LEATHER_LEGGINGS#200150
           - LEATHER_BOOTS#200151
+      - id: cat_abyss_binder_armor
+        label: 束縛者の装束
+        itemIds:
+          - NETHERITE_HELMET#5611
+          - NETHERITE_CHESTPLATE#5611
+          - NETHERITE_LEGGINGS#5611
+          - NETHERITE_BOOTS#5611
     spellbook: []
     thread: []
   itemTabs:
@@ -8461,6 +9400,36 @@ _editor:
     STONE_AXE: tool
     WOODEN_AXE: tool
     NETHERITE_AXE: tool
+    NETHERITE_SWORD#5600: weapon
+    NETHERITE_SWORD#5601: weapon
+    NETHERITE_SWORD#5602: weapon
+    NETHERITE_SPEAR#5602: weapon
+    TRIDENT#5602: weapon
+    NETHERITE_HOE#5602: weapon
+    MACE#5602: weapon
+    NETHERITE_SWORD#5603: weapon
+    NETHERITE_SWORD#5604: weapon
+    NETHERITE_AXE#5604: weapon
+    NETHERITE_SWORD#5605: weapon
+    BOW#5605: weapon
+    CROSSBOW#5605: weapon
+    NETHERITE_SWORD#5606: weapon
+    NETHERITE_SWORD#5607: weapon
+    NETHERITE_SWORD#5608: weapon
+    NETHERITE_SPEAR#5608: weapon
+    TRIDENT#5608: weapon
+    NETHERITE_HOE#5608: weapon
+    MACE#5608: weapon
+    NETHERITE_SWORD#5609: weapon
+    NETHERITE_SWORD#5610: weapon
+    NETHERITE_AXE#5610: weapon
+    NETHERITE_SWORD#5611: weapon
+    BOW#5611: weapon
+    CROSSBOW#5611: weapon
+    NETHERITE_HELMET#5611: armor
+    NETHERITE_CHESTPLATE#5611: armor
+    NETHERITE_LEGGINGS#5611: armor
+    NETHERITE_BOOTS#5611: armor
   orders:
     weapon:
       - DIAMOND_SWORD#1111
@@ -8616,6 +9585,32 @@ _editor:
       - CROSSBOW#147
       - CROSSBOW
       - BOOK#100004
+      - NETHERITE_SWORD#5600
+      - NETHERITE_SWORD#5601
+      - NETHERITE_SWORD#5602
+      - NETHERITE_SPEAR#5602
+      - TRIDENT#5602
+      - NETHERITE_HOE#5602
+      - MACE#5602
+      - NETHERITE_SWORD#5603
+      - NETHERITE_SWORD#5604
+      - NETHERITE_AXE#5604
+      - NETHERITE_SWORD#5605
+      - BOW#5605
+      - CROSSBOW#5605
+      - NETHERITE_SWORD#5606
+      - NETHERITE_SWORD#5607
+      - NETHERITE_SWORD#5608
+      - NETHERITE_SPEAR#5608
+      - TRIDENT#5608
+      - NETHERITE_HOE#5608
+      - MACE#5608
+      - NETHERITE_SWORD#5609
+      - NETHERITE_SWORD#5610
+      - NETHERITE_AXE#5610
+      - NETHERITE_SWORD#5611
+      - BOW#5611
+      - CROSSBOW#5611
     catalyst:
       - BLAZE_ROD#400008
       - BLAZE_ROD#400002
@@ -8780,5 +9775,9 @@ _editor:
       - LEATHER_CHESTPLATE#200149
       - LEATHER_LEGGINGS#200150
       - LEATHER_BOOTS#200151
+      - NETHERITE_HELMET#5611
+      - NETHERITE_CHESTPLATE#5611
+      - NETHERITE_LEGGINGS#5611
+      - NETHERITE_BOOTS#5611
     spellbook: []
     thread: []

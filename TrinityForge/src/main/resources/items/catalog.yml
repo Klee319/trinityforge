@@ -4261,6 +4261,581 @@ items:
       - <gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>
       - <gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>
     custom-model-data: 100083
+  # ---- 2026-07-31 追加: EM ダンジョン限定素材を使う装備 ----
+  # 深淵(abyss_*): 全ダンジョンの最終ボスが 10% で落とす abyssal_ingot が主材。
+  #   攻撃力はインフィニティの 80% だが、貫通 +0.06 とスレッド枠 3 を持つ。
+  #   「火力の総和」ではなく「厳選で伸ばす型」を選べるようにするための横の選択肢。
+  # 束縛者(binder_*): 束縛者しか落とさない binder_fragment / dungeon_seal_binder が主材。
+  #   ユーザー確定方針「束縛者だけ縦強化」に沿う唯一の上位帯(攻撃力 115%)。
+  #   防具は armor-defense-rate を上げず damage-reduction / armor-strength で上位を表現する
+  #   (防御率はバニラ防具分へ加算されるので、盛ると物理無効化に届いてしまう)。
+  # テクスチャは未作成なので、当面はベース Material の見た目で出る(CMD だけ確保済み)。
+  abyss_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の剣</color>
+    custom-model-data: 5600
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_dagger:
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の短剣</color>
+    custom-model-data: 5601
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_rapier:
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵のレイピア</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_spear:
+    material: NETHERITE_SPEAR
+    display-name: <color:#3b1f5e>深淵の槍</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_trident:
+    material: TRIDENT
+    display-name: <color:#3b1f5e>深淵のトライデント</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_scythe:
+    material: NETHERITE_HOE
+    display-name: <color:#3b1f5e>深淵の鎌</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_mace:
+    material: MACE
+    display-name: <color:#3b1f5e>深淵のメイス</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵のウォーハンマー</color>
+    custom-model-data: 5603
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の大剣</color>
+    custom-model-data: 5604
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_axe:
+    material: NETHERITE_AXE
+    display-name: <color:#3b1f5e>深淵の戦斧</color>
+    custom-model-data: 5604
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の大斧</color>
+    custom-model-data: 5605
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_bow:
+    material: BOW
+    display-name: <color:#3b1f5e>深淵の弓</color>
+    custom-model-data: 5605
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_crossbow:
+    material: CROSSBOW
+    display-name: <color:#3b1f5e>深淵のクロスボウ</color>
+    custom-model-data: 5605
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+      - custom:abyssal_ingot x3
+      - custom:hard_metal x2
+      - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  binder_sword:
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ剣</gradient>
+    custom-model-data: 5606
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_dagger:
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ短剣</gradient>
+    custom-model-data: 5607
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_rapier:
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレイピア</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_spear:
+    material: NETHERITE_SPEAR
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ槍</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_trident:
+    material: TRIDENT
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐトライデント</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_scythe:
+    material: NETHERITE_HOE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ鎌</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_mace:
+    material: MACE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐメイス</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐウォーハンマー</gradient>
+    custom-model-data: 5609
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大剣</gradient>
+    custom-model-data: 5610
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_axe:
+    material: NETHERITE_AXE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ戦斧</gradient>
+    custom-model-data: 5610
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大斧</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_bow:
+    material: BOW
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ弓</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_crossbow:
+    material: CROSSBOW
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐクロスボウ</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:dungeon_seal_binder x1
+      - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_helmet:
+    material: NETHERITE_HELMET
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐヘルメット</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:hard_metal x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_chestplate:
+    material: NETHERITE_CHESTPLATE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐチェストプレート</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:hard_metal x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_leggings:
+    material: NETHERITE_LEGGINGS
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレギンス</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:hard_metal x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_boots:
+    material: NETHERITE_BOOTS
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐブーツ</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+      - custom:binder_fragment x3
+      - custom:abyssal_ingot x2
+      - custom:hard_metal x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
 _editor:
   categories:
     weapon:
@@ -4440,6 +5015,35 @@ _editor:
         itemIds:
           - koujien
           - wooden_halberd
+      - id: cat_abyss_binder_weapon
+        label: 深淵・束縛者
+        itemIds:
+          - abyss_sword
+          - abyss_dagger
+          - abyss_rapier
+          - abyss_spear
+          - abyss_trident
+          - abyss_scythe
+          - abyss_mace
+          - abyss_warhammer
+          - abyss_grate_sword
+          - abyss_axe
+          - abyss_greataxe
+          - abyss_bow
+          - abyss_crossbow
+          - binder_sword
+          - binder_dagger
+          - binder_rapier
+          - binder_spear
+          - binder_trident
+          - binder_scythe
+          - binder_mace
+          - binder_warhammer
+          - binder_grate_sword
+          - binder_axe
+          - binder_greataxe
+          - binder_bow
+          - binder_crossbow
     catalyst:
       - id: cat_1784733677892
         label: バニラ
@@ -4616,6 +5220,13 @@ _editor:
           - withered_silk_chestplate
           - withered_silk_helmet
           - withered_silk_leggings
+      - id: cat_abyss_binder_armor
+        label: 束縛者の装束
+        itemIds:
+          - binder_helmet
+          - binder_chestplate
+          - binder_leggings
+          - binder_boots
     spellbook: []
     thread: []
   orders:
@@ -4734,6 +5345,32 @@ _editor:
       - hero_crossbow
       - nuclear_crossbow
       - source_gem_grate_sword
+      - abyss_sword
+      - abyss_dagger
+      - abyss_rapier
+      - abyss_spear
+      - abyss_trident
+      - abyss_scythe
+      - abyss_mace
+      - abyss_warhammer
+      - abyss_grate_sword
+      - abyss_axe
+      - abyss_greataxe
+      - abyss_bow
+      - abyss_crossbow
+      - binder_sword
+      - binder_dagger
+      - binder_rapier
+      - binder_spear
+      - binder_trident
+      - binder_scythe
+      - binder_mace
+      - binder_warhammer
+      - binder_grate_sword
+      - binder_axe
+      - binder_greataxe
+      - binder_bow
+      - binder_crossbow
     catalyst:
       - someones_eyes
       - wooden_cane
@@ -4838,6 +5475,10 @@ _editor:
       - withered_silk_chestplate
       - withered_silk_leggings
       - withered_silk_boots
+      - binder_helmet
+      - binder_chestplate
+      - binder_leggings
+      - binder_boots
     spellbook:
       - spell_book_novice
       - spell_book_apprentice
@@ -4995,3 +5636,33 @@ _editor:
     hero_greataxe: weapon
     hero_bow: weapon
     hero_crossbow: weapon
+    abyss_sword: weapon
+    abyss_dagger: weapon
+    abyss_rapier: weapon
+    abyss_spear: weapon
+    abyss_trident: weapon
+    abyss_scythe: weapon
+    abyss_mace: weapon
+    abyss_warhammer: weapon
+    abyss_grate_sword: weapon
+    abyss_axe: weapon
+    abyss_greataxe: weapon
+    abyss_bow: weapon
+    abyss_crossbow: weapon
+    binder_sword: weapon
+    binder_dagger: weapon
+    binder_rapier: weapon
+    binder_spear: weapon
+    binder_trident: weapon
+    binder_scythe: weapon
+    binder_mace: weapon
+    binder_warhammer: weapon
+    binder_grate_sword: weapon
+    binder_axe: weapon
+    binder_greataxe: weapon
+    binder_bow: weapon
+    binder_crossbow: weapon
+    binder_helmet: armor
+    binder_chestplate: armor
+    binder_leggings: armor
+    binder_boots: armor
