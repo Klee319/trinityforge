@@ -172,7 +172,7 @@ defaults:
 mob-types:
   # --- A群: 敵対モブ(Paper の Enemy マーカー基準・41種) ---------------------
   BLAZE:
-    level: 0
+    level: 35
     coordinate-coefficient: 0.02
     max-health: 340
     armor-strength: 0
@@ -672,7 +672,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ENDER_DRAGON:
-    level: 0
+    level: 60
     coordinate-coefficient: 0.02
     max-health: 2200
     armor-strength: 0
@@ -772,7 +772,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   GHAST:
-    level: 0
+    level: 35
     coordinate-coefficient: 0.02
     max-health: 200
     armor-strength: 0
@@ -922,7 +922,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   HOGLIN:
-    level: 0
+    level: 35
     coordinate-coefficient: 0.02
     max-health: 520
     armor-strength: 0
@@ -1072,7 +1072,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   MAGMA_CUBE:
-    level: 0
+    level: 25
     coordinate-coefficient: 0.02
     max-health: 240
     armor-strength: 0
@@ -1222,7 +1222,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   PIGLIN:
-    level: 0
+    level: 25
     coordinate-coefficient: 0.02
     max-health: 400
     armor-strength: 0
@@ -1272,7 +1272,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   PIGLIN_BRUTE:
-    level: 0
+    level: 40
     coordinate-coefficient: 0.02
     max-health: 600
     armor-strength: 0
@@ -1422,7 +1422,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   SHULKER:
-    level: 0
+    level: 45
     coordinate-coefficient: 0.02
     max-health: 440
     armor-strength: 0
@@ -1922,7 +1922,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   WITHER:
-    level: 0
+    level: 55
     coordinate-coefficient: 0.02
     max-health: 2000
     armor-strength: 0
@@ -1972,7 +1972,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   WITHER_SKELETON:
-    level: 0
+    level: 35
     coordinate-coefficient: 0.02
     max-health: 440
     armor-strength: 0
@@ -2022,7 +2022,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ZOGLIN:
-    level: 0
+    level: 35
     coordinate-coefficient: 0.02
     max-health: 540
     armor-strength: 0
@@ -2172,7 +2172,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ZOMBIFIED_PIGLIN:
-    level: 0
+    level: 25
     coordinate-coefficient: 0.02
     max-health: 400
     armor-strength: 0
