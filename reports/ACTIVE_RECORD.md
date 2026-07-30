@@ -21,8 +21,8 @@
 
 | 対象 | 状態 |
 |---|---|
-| TrinityForge テスト | **失敗 0 / スキップ 2**（実走・実測。スキップは既知の正当な 2 件のみ＝`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`。テスト結果 XML の `skipped=` を直接数えて確認済み） |
-| config-editor テスト | **758 / 758 pass・fail 0**（実走・実測、`---EXIT 0---`。2026-07-28 の「数値のギミックyml集約」バッチ後。751 + 新規 7） |
+| TrinityForge テスト | **2026-07-30 10:xx 実測（クリーンな worktree）: 2832 tests / 10 failed / 2 skipped。** 失敗のうち 3 件（`LegacyValhallaRuntimeContentTest` / `SpellBreakMarkerDriftTest` ×2）は**フォークのソースを直接読むため worktree では必ず落ちる**（メインのワークツリーでは PASS）。残り 7 件は進行中バッチ由来の既存失敗＝`EnchantLuckConfigTest` / `FailCloseGateSkillTreePlacementTest` / `SkillExpConfigTest` / `SkillTreeConfigTest` / `MiningProgressionBadlandsDriftTest` ×2 / `NativeSkillCatalogRatesTest`。**「失敗 0」は 2026-07-27 時点の記録で、現在は成立しない** |
+| config-editor テスト | **2026-07-30 10:xx 実測: 825 tests / 797 pass / 28 fail。** 進行中バッチが未完成であることによる失敗（英雄武器のランダムロール／魔法防御の対象／player wiki generator／討伐EXP倍率50種／付与アイテムのセレクト／mining-gimmick のロスレス保存 など）。**「758/758 pass」は 2026-07-28 時点の記録で、現在は成立しない** |
 | **配備（2026-07-28 のバッチ）** | **配備完了**（2026-07-28 03:5x、`tmp\deploy-v1.cmd` をユーザーが実行、全 copy 成功をログで実測）。jar 2 本（TF 03:11 / 15,860,881 bytes・ArsPaper 01:31 / 965,695 bytes）を **3 バックエンド全部**へ、yml 13 本を Main へ（Resource/Dev はジャンクション共有なので 1 回）。旧版は `backups/deploy-20260728v1/`。**`tmp\deploy-k8.cmd` / `deploy-k9.cmd` は消えたパス `PaperServer\TrinityForge` を指しており使用不可**（破棄してよい）。**フル再起動が必須**（jar 差し替え＋コマンドツリーは起動時登録なので `/tf dungeon` のサジェスト変更が reload では載らない）。**`smithing.yml` と `smithing-gimmick.yml` は必ず同時に配備すること**（片方だけ古いと tier が floor 解決で最大 tier へ無言で化ける。起動ログに tier 不一致 WARNING が出たら配備漏れ）。`digging.yml` と `digging-gimmick.yml` も同じ関係 |
 | **配備（2026-07-27 16:39 のバッチ）** | **ビルド済み・未配備**。**`D:/` への書き込みが権限ゲートに拒否されるのでユーザー実行が必要**: <br>```cmd /c tmp\run-deploy-e.cmd```<br>これは `tmp\run-deploy-k5b.cmd`（15:35 分、**実行済み**）の**続き**。再ビルドした jar 2 本と、その後に変わった `stats/lore.yml` / `skilltree/woodcutting.yml` / `skilltree/mining.yml` / `combat/base-stats.yml` / `combat/stat-caps.yml` を `backups/deploy-20260727b/` へ退避してから上書きする。k5b で配備済みの `skilltree/farming.yml` / `ars_magic.yml` / gimmick 5 本は触らない。**jar を差し替えるのでフル再起動が要る**（reload では不可）。**この配備に config-editor の保存ミラー（下記「配備手段」）を使ってはいけない** — `lore.yml` の説明コメントが全部消えるため（§5 / K-3） |
 | ArsPaper フォーク テスト | **全緑**（`BUILD SUCCESSFUL`、`test --offline` で実走） |
@@ -359,6 +359,15 @@ git 系（2026-07-27 に導入）:
 （メインのワークツリーでは PASS を実測）。残り 7 件は 2026-07-30 朝の実測と同じ既存の失敗
 （`EnchantLuckConfigTest` / `FailCloseGateSkillTreePlacementTest` / `SkillExpConfigTest` /
 `SkillTreeConfigTest` / `MiningProgressionBadlandsDriftTest` ×2 / `NativeSkillCatalogRatesTest`）。
+
+**残り全部の取り込み（ユーザー判断で実施）**: 上記に続けて、作業ツリーに残っていた**全域**を取り込み、
+`git status` を空にした。`176c5e4` resourcepack（新規29＝hero_* 系と強化素材の model+texture、変更13＝
+`dist/TrinityForge-Pack.zip` 再生成 390KB→428KB を含む）／`8e2f9cf` config-editor（変更13＋新規3、
+`tool-config.json` の `deployPaths` を現行 `Velocity_for_TF\Dev_Server` へ更新）／`fc17d21` docs・ops/reports 12本／
+`5e1807b` `.claude/launch.json`（tmp の使い捨てエントリ744行。指す先の `.cmd` は gitignore 除外かつ大半が不在＝
+実質死んだ設定。**いずれ整理か gitignore へ移すべき**）。**いずれも内容は複数セッションの進行中バッチであり、
+これらのコミットは作業ツリーの状態を固定しただけ。** push 前に機密・絶対パス・jar の混入を走査済み
+（追跡下の jar は gradle wrapper 2 本のみ）。
 
 **再発防止**: `docs/agent-context/ops-build-deploy.md` に「新規ファイルを含む commit の直後に
 クリーンな worktree で `compileJava` を通す」手順を唯一の検出手段として明記。
