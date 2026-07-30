@@ -156,6 +156,16 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
 無限複製になる。一般則として、こうした「consume-cancel の `+1` ミラー」は
 **全キャンセラより後の優先度**（例: `HIGHEST`）で登録すること。
 
+### ⚠️ ガチャの天井とレートアップの確定排出先は「そのプールで weight が最小のエントリ」
+
+`gacha.yml` に「これがジャックポット」と宣言する項目は無い。天井（`pity.threshold`）到達時に必ず出るものと
+レートアップ（`gacha_rate_bonus`）の対象は、どちらも**最小 weight のエントリ**として暗黙に決まる。
+同値タイがあると天井がその中でランダムに割れる（tier5 で `ANCIENT_DEBRIS` と防具が同 weight 1 だったため
+天井の約半分が古代の残骸になっていた）。**各プールのジャックポットは必ず単独最小 weight にすること。**
+
+なお `gacha.yml` の `entries[].item` には **`custom:` を付けない**（`mob-overrides` の drops や
+レシピ素材とは逆の規約）。詳細は上記「アイテムID解決」節。
+
 ### モブ死亡ドロップに割り込むリスナーは `MONITOR` でないと消える
 外部プラグイン（EliteMobs等）のルート処理が `NORMAL` の `EntityDeathEvent` の中で
 `getDrops()` を丸ごとクリアすることがある。ドロップを上乗せ/上書きするリスナーは
@@ -164,6 +174,47 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
 ### 属性(Attribute)の付与・削除はスコープを自プラグインの名前空間に限定する
 モブスポーン時などに他プラグインが付けた attribute modifier まで一緒に消してしまう
 実装ミスが起きやすい。削除対象は必ず自分（TF）が付与した namespace のものだけに絞ること。
+
+## アイテムID解決（TFカタログ ↔ ArsPaper）の罠
+
+### ⚠️ アイテムIDの `custom:` 接頭辞は「共有 seam でも」剥がさないといけない
+
+config-editor は custom アイテムの選択を**必ず `custom:<id>` へ正規化して保存する**
+（`public/js/util.js` の `materialInput`）。一方 Java 側は `MobOverridesConfig` /
+`MobLevelTableConfig` / `RecipeIngredient` / `FoodGimmickConfig` など **10 個のドメインが
+各自ローカルで剥がしている**。この非対称のせいで、共有リゾルバ
+（`CrossPluginItemResolver`）だけが剥がし忘れていても他が動くので気づきにくい。
+
+2026-07-31 まで実際に剥がしておらず、**editor から書いたガチャ景品 / アチーブメント報酬アイテム /
+ドロップ表が全部解決失敗**していた。`create()` と `exists()` の両方に必要。
+`custom:` 明示トークンはバニラ Material へフォールバックさせないこと
+（`custom:DIAMOND` が黙ってダイヤになる）。
+
+**症状が「エラー」で出ないので特に危険**: `GachaListener` は「景品が解決できない券は消費しない」
+fail-safe を持つため、解決失敗は**「当たるまで無料で引き直せる」**という形で現れる。
+無料引き直しを見たら、まず景品IDの解決を疑うこと。
+
+### ⚠️ カスタムアイテムidは Ars と TF の 2 つの PDC キーに分かれている
+
+同じ id 空間を 2 プラグインで分担している。id で照合する箇所は**必ず両方読む**こと。
+
+| 実体 | PDCキー |
+|---|---|
+| ArsPaper `materials.yml` の品 | `arspaper:custom_item_id` |
+| TF `items/catalog.yml` の品 | `trinityforge:catalog_id`（`PdcKeys.ITEM_CATALOG_ID`） |
+
+**どちらにあるかは直感に反する**: `thread_empty` と `mage_*` 防具 28 種は
+（Ars の機構で使うのに）**TF カタログ側**にある。逆にガチャ券・コア類・`tf_scrap` は
+**Ars の `materials.yml` 側**にある。「Ars の機能で使うから Ars 側だろう」は成り立たない。
+
+Ars 側だけを読んでいたため、**TFカタログ由来の儀式 39 件（`mage_*` 昇格 24 + スレッド 15）が
+全て成立しなかった**事故がある（`Pedestal`/`RitualCore` の `saveStoredItem`）。
+フォーク側は `PdcHelper.getCrossPluginItemId` に一本化済み。
+
+**キー名を手書きしないこと。** ArsPaper は `paper-plugin.yml` で TF を
+`required: true` + `join-classpath: true` のハード依存にしているので `PdcKeys` を直接参照できる。
+手書きしていた `SourceAutoConsume` が `trinityforge:item_catalog_id`（実在しない名前）を持っていて
+無言で外れていた。
 
 ## config-editor（フロントエンド）の罠
 

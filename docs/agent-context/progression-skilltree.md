@@ -54,6 +54,23 @@ BRANCH（右半平面, +SIDE_STEP）とGREEK（左半平面, -SIDE_STEP）は完
 
 config-editorのskilltree UIには専用フォーム（`buildSkillTreeForm`, `public/js/tf-skilltree.js`）があり、位置/構造/buffs数値/native/名前は編集可能だが、`effect-text`/`effects`/`commands`は読取専用（ノード増減不可）。
 
+### ⚠️ `dedicated-effects` の解放ゲートIDは「参照される側」と必ず突き合わせる
+
+`dedicated-effects` の `id:` は自由文字列で、**存在しない先を指していても起動時に何も言わない**。
+逆方向も同じで、**どのノードからも参照されていない解放グループは永久ロックになる**
+（`BrewUnlockListener` は未参照グループを解放しない仕様）。片側だけ改名すると機構が丸ごと死ぬ。
+
+実際に踏んだ例（いずれも 2026-07-31 まで死んでいた）:
+
+| ゲートID | 参照される側 | 何が起きていたか |
+|---|---|---|
+| `overenchant:lv1`/`lv2`/`lv3` | `crafting-features.yml` の `over-enchant` プロファイルキーが `attack_1`/`attack_2`/`util_lv1` | 過剰エンチャント機構が全レベルで無効 |
+| `brew:swiftness-jump` | `crafting-features.yml` に該当グループが**存在しなかった** | 錬金 C-1-upper(Lv40) が空振り |
+| （なし） | `brew:healthboost-haste-2` グループがどのノードからも未参照 | 体力増強II 系が永久ロック |
+
+**yml を触ったら両側を grep して突き合わせること。** `FailCloseGateSkillTreePlacementTest` が
+一部を守っているが、網羅ではない。
+
 ### スライドが唯一の一次specである点への注意
 
 `trinityforge/skilltree/スライド1-12.JPG`が採取・エンチャント・鍛冶・錬金・Ars等の「green-field効果」の唯一の設計原本。多くの値は「落ちやすく/低確率/まれに」など曖昧な表現＝config値は設計段階の暫定値であり、実装時に調整が必要という前提がある。実装オーナーの分担は、TFが直接ドロップ/ギミックを処理するもの（採取・ガチャ券・リンゴ・食料・over-enchant等）と、`TrinityForgeBridge.tfEffect*`経由でforkが処理するもの（遺跡/海洋スレッド、武器コーティング、ポーション統合等）に分かれる。
@@ -114,6 +131,14 @@ HP/攻撃の指数成長率は「同帯装備なら所要時間がほぼ一定�
 ### ⚠️ `Bukkit.getAdvancement()`自体が例外を投げる実装がある（MockBukkit）
 
 try節の外に置くとテストが「失敗」ではなく「中断（SKIPPED）」になり静かに素通りする。MockBukkitのSKIPPED素通りは他の箇所（`damageItemStack`未実装等）でも再発する既知の罠なので、テストを書くときは必ず結果が実際にPASSしているか（SKIPPEDでないか）を確認すること。
+
+### ⚠️ `type: advancement` は `vanilla-advancements.disabled: true` と同時には成立しない
+
+`disabled: true`（既定）だと `PlayerAdvancementCriterionGrantEvent` がキャンセルされるので、
+`type: advancement` のアチーブメントは**永久に達成不能**になる。起動時に WARNING は出るが
+それだけで、達成不能な定義がそのまま生き残る。バニラ進捗を抑止する運用では
+**`type: statistic` + `statistic-qualifier` で書き直す**のが正解
+（例: `minecraft:story/mine_stone` → `statistic: MINE_BLOCK` / `statistic-qualifier: STONE`）。
 
 ### アチーブメントの確定仕様
 

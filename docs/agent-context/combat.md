@@ -46,6 +46,17 @@ flat-defense は type 別（`phys-flat-defense` / `magic-flat-defense`）に分�
 
 出血（bleed）は被ダメージ軽減以外の手段では軽減できない。貫通は防御率だけを下げる。この2つの意味論を混ぜて実装すると軽減の二重適用や無効化が起きる。
 
+### ⚠️ `bleed-damage` は率ではなく「出血1tickあたりの実ダメージ（flat）」
+
+`combat/damage.yml` の `bleed.ticks`（既定 5）回、`bleed.tick-interval-ticks`（既定 20 = 1秒）
+ごとに適用される。つまり**1回の出血発動の総ダメージ = `bleed-damage` × `bleed.ticks`**。
+
+`0.4` のような小数を書くと総 2 ダメージで実質無効、`50` なら総 250 ダメージになる。
+`bleed-chance` は [0,1] の率なので**同じブロックに率と flat が並ぶ**点に注意
+（`PercentStatNormalize` の対象は `bleed-chance` だけ）。
+yml の値をレビューするときは単位を必ず突き合わせること
+（軽量武器ツリーには 0.4 系と 50 系の両方が歴史的に混在していた）。
+
 ### 負ダメージは物理・魔法どちらも回復扱い
 
 `total < 0` になった場合、物理は `CombatListener` が BASE=0 とし victim を回復させる（`setDamage` はキャンセルしない）。魔法は Ars 連携側の `SpellContext.dealSpellDamage` + `TrinityForgeBridge.healEntity` が対応する。

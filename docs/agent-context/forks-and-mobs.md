@@ -77,6 +77,30 @@ MagmaCore `CustomConfigFields(String,boolean)` のコンストラクタが「`.y
   ランプを実レベルで評価して自動導出する。converter は元ボスファイルの数値を読まず
   レベルだけを見るため、importmobs が焼く値と結果が同一になる。
 
+### ⚠️ 「EM のモブか」を判定するマーカーは `MOB_PROFILE_ID` 一択（テーマや `MOB_LEVEL` では判定できない）
+
+fork の `TrinityForgeSpawnListener#stamp` が刻むキーの性質が全部違う。
+
+| キー | いつ刻まれるか | 所有者マーカーとして使えるか |
+|---|---|---|
+| `MOB_PROFILE_ID` | CustomBoss なら**必ず**（プロファイル未登録で早期 return する経路でも刻む） | ✅ **これを使う** |
+| `MOB_DUNGEON_THEME` | `theme != null && !theme.isBlank()` のときだけ | ❌ `mob-import.yml` の `theme.default` は空文字なので**取り込んだモブのほぼ全部に付かない** |
+| `MOB_LEVEL` | EM も刻むが `MobTypeSpawnListener` も刻む | ❌ mob-types 由来と区別できない |
+
+`MobTypeSpawnListener` が除外条件を `dungeonTheme` の有無だけにしていたため、**テーマ未設定の
+EM モブが除外を通り抜けて mob-types のプロファイルで上書きされ、`setBaseValue` なので
+EliteMobs 側の HP がそのまま消えていた**（2026-07-31 修正）。
+
+### ⚠️ `CreatureSpawnEvent` は `EliteMobSpawnEvent` より先に飛ぶ — 遅延再適用は必ず再チェックする
+
+EliteMobs はエンティティを普通にスポーンさせた**後**にエリート化するので、
+`CreatureSpawnEvent`（TF の mob-types）→ `EliteMobSpawnEvent`（fork のスタンプ）の順になる。
+つまり**スポーン時点では EM のマーカーがまだ無い**。
+
+`MobTypeSpawnListener#scheduleHealthReassert` のような「他プラグインに負けないよう1tick後に
+再適用する」処理は、この1tickの間に所有権が EM へ移るため、**再適用の直前にもう一度
+`MOB_PROFILE_ID` を見て降りる**必要がある。見ないとエリート化直後の個体の HP が毎回潰れる。
+
 ### ⚠️ mob-overrides の絶対値指定はレベル追従を破壊する
 
 導入済み396体のうち265体が `level: dynamic`（入場時にプレイヤーが選んだレベルへ追従）である。
