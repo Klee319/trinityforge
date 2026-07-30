@@ -345,10 +345,13 @@ class SkillExpConfigTest {
     }
 
     /**
-     * 出荷値ドリフト検知(2026-07-28): {@code stats/skill-exp.yml} の {@code use-level-scaling} 出荷値
-     * (enabled: true / max-multiplier: 3.0 / smithing・woodcutting・mining・digging すべて0.01)が
+     * 出荷値ドリフト検知(2026-07-28): {@code stats/skill-exp.yml} の {@code use-level-scaling} 出荷値が
      * このクラスの想定既定値と食い違っていないことを固定する({@link GimmickTierYamlDriftTest} と
      * 同じ「実クラスパスの本物のymlを本物のローダーで読む」流儀)。
+     *
+     * <p>2026-07-30 の再調整で {@code smithing} の per-level が 0.01 -> 1.3、{@code ars-smithing} が
+     * 0.01 -> 0.1 に上がり、それに合わせて {@code max-multiplier} が 3.0 -> 100 になった
+     * (per-level 1.3 では使用可能レベル 2 で 3.0 に張り付いてしまい、上限が実質的な打ち切りになるため)。
      */
     @Test
     void shippedSkillExpYamlMatchesExpectedUseLevelScalingDefaults() throws Exception {
@@ -364,9 +367,9 @@ class SkillExpConfigTest {
         assertTrue(config.load(fakePlugin(dataFolder)), SkillExpConfig.PATH + " must load OK");
 
         assertEquals(true, config.useLevelScalingEnabled());
-        assertEquals(3.0, config.useLevelScalingMaxMultiplier());
-        assertEquals(0.01, config.useLevelScalingPerLevel().get("ars-smithing"));
-        assertEquals(0.01, config.useLevelScalingPerLevel().get("smithing"));
+        assertEquals(100.0, config.useLevelScalingMaxMultiplier());
+        assertEquals(0.1, config.useLevelScalingPerLevel().get("ars-smithing"));
+        assertEquals(1.3, config.useLevelScalingPerLevel().get("smithing"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("woodcutting"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("mining"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("digging"));

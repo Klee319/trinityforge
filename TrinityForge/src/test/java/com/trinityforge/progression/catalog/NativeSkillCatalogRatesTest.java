@@ -30,7 +30,8 @@ class NativeSkillCatalogRatesTest {
         assertEquals(30.0, catalog.get("ARCHERY").rate("archery.bow_base", -1), 0.001);
         assertEquals(40.0, catalog.get("ARCHERY").rate("archery.crossbow_base", -1), 0.001);
         assertEquals(0.1, catalog.get("ARCHERY").rate("archery.damage_bonus", -1), 0.001);
-        assertEquals(0.75, catalog.get("ARCHERY").rate("archery.distance_per_10", -1), 0.001);
+        // 2026-07-30 の再調整で distance_exp_multiplier が 0.75 -> 0.5(base も 1 -> 0.5)。
+        assertEquals(0.5, catalog.get("ARCHERY").rate("archery.distance_per_10", -1), 0.001);
         assertEquals(0.7, catalog.get("ARCHERY").rate("archery.infinity_multiplier", -1), 0.001);
         assertEquals(0.1, catalog.get("ARCHERY").rate("archery.pvp_multiplier", -1), 0.001);
         assertTrue(catalog.get("MINING").expFor("mining_break", "DIAMOND_ORE") > 0.0);

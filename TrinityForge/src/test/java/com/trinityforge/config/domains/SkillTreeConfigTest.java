@@ -96,8 +96,10 @@ class SkillTreeConfigTest {
         assertEquals("A", tree.node("B").orElseThrow().parent());
 
         // buffs are canonicalized to snake_case and allow-listed.
-        assertEquals(0.1, a.buffs().get("attack_power"), 0.0);
-        assertEquals(0.1, a.buffs().get("bleed_chance"), 0.0);
+        // 2026-07-30 の軽量武器ツリー改修で、A は全身加算(buffs)ではなく
+        // メインハンド限定(mainhand-multipliers / mainhand-buffs)へ移された。
+        assertEquals(1.1, a.mainhandMultipliers().get("layer_1").get("attack_power"), 0.0);
+        assertEquals(0.05, a.mainhandBuffs().get("crit_chance"), 0.0);
         // 2026-07-26 職業別草案(戦闘)適用: γ路線は「会心ダメージ」から「出血」へ性格を変えた
         // (α=火力/β=会心・手数 と役割が被っていたため)。crit_damage は載らなくなった。
         SkillNode aGamma = tree.node("A-gamma-1").orElseThrow();

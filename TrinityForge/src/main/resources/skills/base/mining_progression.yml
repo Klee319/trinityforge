@@ -62,9 +62,14 @@ experience:
     BLACK_TERRACOTTA: 8
     SANDSTONE: 4
     RED_SANDSTONE: 4
+    # 海底神殿。SEA_LANTERN はドロップが PRISMARINE_CRYSTALS に変わるので、
+    # ゲート用のブロック行だけでなくドロップ側の行も必要(drop_sum は実際に落ちた材質の行から
+    # 加算するため、ドロップ側が無いと SEA_LANTERN を掘っても EXP が 0 のままになる)。
+    PRISMARINE: 8
     PRISMARINE_BRICKS: 8
     DARK_PRISMARINE: 8
     SEA_LANTERN: 24
+    PRISMARINE_CRYSTALS: 24
     NETHER_BRICKS: 8
     RED_NETHER_BRICKS: 8
     MAGMA_BLOCK: 8
