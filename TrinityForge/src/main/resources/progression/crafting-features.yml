@@ -129,7 +129,34 @@ disassembly:
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960
+# 醸造アンロック (brew:<グループID>)
+# 【重要】グループを「どのノードからも参照しない」と永久ロックになる
+# (BrewUnlockListener は未参照グループを開放扱いしない)。逆に skilltree 側が
+# 存在しないグループIDを指しているとそのノードは完全な無効果になる。
+# 2026-07-30 修正: skilltree/alchemy.yml C-1-upper の brew:swiftness-jump に
+# 対応するグループが無く、healthboost-haste-2 は逆に未参照で永久ロックだった。
+#
+# base はビン(AWKWARD/THICK/MUNDANE/WATER)、ingredient は醸造素材。
+# バニラで既に成立する組み合わせを書くとバニラのレシピを上書きしてしまうので、
+# 「バニラでは何も出ない組み合わせ」に割り当てること。
 brew-unlocks:
+  # skilltree/alchemy.yml C-1-upper「俊敏・跳躍の調合」(Lv40)
+  # THICK ベースはバニラでは何も生まないので、グロウストーン無しで II 相当を作れる枠にした。
+  swiftness-jump:
+    potions:
+      - base: THICK
+        ingredient: SUGAR
+        result:
+          type: SPEED
+          duration: 3600
+          amplifier: 1
+      - base: THICK
+        ingredient: RABBIT_FOOT
+        result:
+          type: JUMP_BOOST
+          duration: 3600
+          amplifier: 1
+  # skilltree/alchemy.yml C-2-upper「体力増強の調合」(Lv60)
   healthboost-haste:
     potions:
       - base: AWKWARD
@@ -150,8 +177,8 @@ brew-unlocks:
           type: LUCK
           duration: 3600
           amplifier: 0
+  # skilltree/alchemy.yml E-1-1「回復・体力増強の調合」(Lv80)
   healthboost-haste-2:
-    effect: ""
     potions:
       - base: THICK
         ingredient: GLISTERING_MELON_SLICE
@@ -171,8 +198,17 @@ brew-unlocks:
           type: LUCK
           duration: 3600
           amplifier: 1
+# オーバーエンチャント (overenchant:<プロファイルID>)
+# 【重要】ここのキーがそのままゲートIDになる。skilltree 側の
+# dedicated-effects `overenchant:<id>` と綴りが一致していないと、
+# OverEnchantListener / EnchantLuckListener の該当経路が丸ごと無効になる
+# (2026-07-30 修正: 旧 attack_1 / util_lv1 / attack_2 が
+#  skilltree の overenchant:lv1 / lv2 / lv3 と食い違い機構全体が死んでいた)。
+# 複数プロファイルを同時に持つ場合、各エンチャントの上限は
+# プロファイル横断の Math.max で合成される(格下げは起きない)。
 over-enchant:
-  attack_1:
+  # skilltree/enchanting.yml C-1「オーバーエンチャントI」(Lv40)
+  lv1:
     enchants:
       SHARPNESS: 6
       SMITE: 6
@@ -184,7 +220,10 @@ over-enchant:
       PROJECTILE_PROTECTION: 5
       FIRE_PROTECTION: 5
       FEATHER_FALLING: 5
-  attack_2:
+  # skilltree/enchanting.yml C-3「オーバーエンチャントIII」(Lv80)
+  # 攻撃系をさらに+1する段。軽減系は lv1 の方が高い値を持つが、
+  # 上限はプロファイル横断の Math.max なので lv1 の 5 が維持される。
+  lv3:
     enchants:
       SHARPNESS: 7
       SMITE: 7
@@ -196,7 +235,8 @@ over-enchant:
       PROJECTILE_PROTECTION: 6
       FIRE_PROTECTION: 6
       FEATHER_FALLING: 6
-  util_lv1:
+  # skilltree/enchanting.yml C-2「オーバーエンチャントII」(Lv60)
+  lv2:
     enchants:
       EFFICIENCY: 6
       FORTUNE: 4
@@ -206,13 +246,13 @@ over-enchant:
       LURE: 4
 enchant-bookshelf-power:
   max-bookshelves: 15
-  power-per-bookshelf: 0.3
+  power-per-bookshelf: 0.8
 thread-slots:
   max-by-category:
     armor: 5
-    weapon: 0
-    tool: 0
-    other: 0
+    weapon: 5
+    tool: 5
+    other: 5
 removed-vanilla-recipes: []
 removed-vanilla-items:
   - ANY:MENDING

@@ -34,22 +34,35 @@ fish-sell:
     TROPICAL_FISH: 6
     PUFFERFISH: 4
   max-sells-per-minute: 10
+# 経験値瓶への経験値格納 (feature:xp-bottle-store-unlock)
+# return-rate は「取り出し時に返る割合」で、単位は 0.0〜1.0 の分数。
+# 1.0 = 目減りなし。範囲外の値を書くとその段だけ起動時に警告つきでスキップされる。
+#
+# 【2026-07-30 修正】段の return-rate が 50/60/70/80 と % 表記で書かれていたため
+# 検証([0,1])に落ちて 4段すべてがスキップされ、全プレイヤーがグローバル値の
+# return-rate: 1(目減りゼロ)で運用されていた。
+# skilltree/enchanting.yml B-3 の設計メモに「経験値増殖の観点からデバフ必須」と
+# 明記されているので、グローバル値も目減りありへ揃えている。
+# 段は上がるほど改善する(格下げが起きないようグローバル値 = 段1 にしてある)。
+#
+# tier は feature:xp-bottle-store-unlock の value。SCALE 化済みで value 省略 = tier 1。
+# 段2〜4 は value: 2/3/4 を持つノードを置いたときに初めて到達する。
 xp-bottle-store:
   store-amount: 100
-  return-rate: 1
+  return-rate: 0.5
   tiers:
     "1":
       store-amount: 100
-      return-rate: 50
+      return-rate: 0.5
     "2":
       store-amount: 200
-      return-rate: 60
+      return-rate: 0.6
     "3":
       store-amount: 300
-      return-rate: 70
+      return-rate: 0.7
     "4":
       store-amount: 400
-      return-rate: 80
+      return-rate: 0.8
 fishing:
   luck-per-level: 0.005
   bonus-per-level: 0.02

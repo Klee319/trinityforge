@@ -336,6 +336,96 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-31 0x:xx — コンテンツ拡充バッチ Wave 0（「書いても効かない」元栓 12 件）
+
+コンテンツ追加（束縛者 / 1億ソース / 図鑑）の前段。**先に「editor から書いた設定が実行時に効かない」
+経路を全部塞ぐ**ためのウェーブ。実装ではなく既存機構の無言死の修理が中心。
+**配備はまだ**（サーバ稼働中なので jar 差し替え不可。yml のみ reload 可）。
+
+TF 本体:
+
+- **`custom:` 接頭辞を共有リゾルバだけが剥がしていなかった**（`CrossPluginItemResolver`）。
+  editor は custom アイテムの選択を必ず `custom:<id>` へ正規化する（`public/js/util.js` の
+  `materialInput`）のに、他 10 ドメインが各自ローカルで剥がしていたためこの共有 seam だけ素通しで、
+  **editor から書いたガチャ景品 / アチーブメント報酬アイテム / ドロップ表が全部解決失敗**していた。
+  さらに `GachaListener` は「景品が解決できない券は消費しない」fail-safe なので、
+  症状はエラーではなく**当たるまで無料で引き直せる**という形で出ていた。
+  `create()` と `exists()` の両方を修正。`custom:` 明示トークンはバニラ Material へは落とさない
+  （`custom:DIAMOND` が黙ってダイヤになるのを防ぐ）。
+- **ガチャの景品 ID 3 件が実在しなかった**（`example_sword`×2 / `example_bow`）。
+  上記 fail-safe と合わさって standard 59% / tier2 28% / tier3 28% が「無料引き直し」だった。
+  `gacha.yml` を全面書き直し。**各プールのジャックポットを単独最小 weight に統一**
+  （天井の確定排出先とレートアップ対象が「最小 weight のエントリ」なので、同値タイがあると割れる。
+  tier5 は ANCIENT_DEBRIS と防具が同 weight 1 で天井の約半分が古代の残骸になっていた）。
+  厳選の入口として `thread_empty` を全プールへ、ソース経済の導線として `source_gem` を tier2 以上へ。
+- **過剰エンチャントの解放ゲートIDが全部噛み合っていなかった**（`crafting-features.yml` の
+  `over-enchant` プロファイルキーが `attack_1`/`attack_2`/`util_lv1`、ゲートは `lv1`/`lv2`/`lv3`）。
+  → プロファイルキーを `lv1`/`lv2`/`lv3` へ改名。`overEnchantMaxLevel` は全プロファイルの
+  `Math.max` なので格下げは起きない。
+- **`brew:swiftness-jump` に対応する醸造グループが存在しなかった**（錬金 C-1-upper Lv40 が空振り）
+  ＋ **`healthboost-haste-2` がどのノードからも参照されておらず永久ロック**だった
+  （`BrewUnlockListener` は未参照グループを解放しない）。前者は `THICK` ベースの新グループを追加、
+  後者は体力増強系の最上位 E-1-1(Lv80) へ配置。これが `FailCloseGateSkillTreePlacementTest` の
+  失敗原因でもあった。
+- **漁師ロールの `exp-skill` が `FARMING`** だった → 釣りEXPには何も乗らず、農業EXPが farmer と
+  二重に優遇されていた（`expMultiplierForSkill` は完全一致比較）。`FISHING` へ修正。
+- **経験値瓶の格納が全段スキップされ、目減りゼロで運用されていた**（`fishing-gimmick.yml`）。
+  `return-rate` は 0.0〜1.0 の分数なのに段が `50/60/70/80` と % で書かれており、範囲検証に落ちて
+  **4 段すべてスキップ→グローバル値 `return-rate: 1`（無損失）**で動いていた。
+  `enchanting.yml` B-3 の設計メモに「経験値増殖の観点からデバフ必須」とあるのでグローバル値も
+  目減りありへ揃えた（格下げが起きないよう グローバル値 = 段1）。
+- **唯一のアチーブメント `main` が永久達成不能**だった（`type: advancement` ×
+  `vanilla-advancements.disabled: true` で進捗解除イベント自体がキャンセルされる）。
+  同じ「石を掘る」を `statistic: MINE_BLOCK` + `statistic-qualifier: STONE` で表現し直した。
+- **mob-types が EliteMobs モブを上書きしていた**（`MobTypeSpawnListener`）。除外条件が
+  `dungeonTheme` の有無だけで、フォークは `theme` が空のとき `MOB_DUNGEON_THEME` を刻まず、
+  `mob-import.yml` の `theme.default` は空文字なので**テーマ未設定の EM モブ（取り込んだモブのほぼ全部）
+  が除外を通り抜けて** mob-types のプロファイル（`setBaseValue`）で HP ごと潰されていた。
+  → 除外を `MOB_PROFILE_ID`（EM だけが刻む・プロファイル未登録の早期 return 経路でも刻む）との or に。
+  **1tick 後の HP 再適用も同じ条件で降りる**ようにした（`CreatureSpawnEvent` の後に
+  `EliteMobSpawnEvent` が飛ぶので、再チェック無しだとエリート化直後の個体が毎回潰れる）。
+- **軽量武器 γ 路線の regression を修正**。`889de32`（"dev HEAD がコンパイルできない状態を解消する"）が
+  **`effect-text: 出血率・出血ダメージ増加` を残したまま buffs だけ crit-damage へ巻き戻して**おり、
+  γ が β と同じ会心軸の二重化になっていた（2026-07-26 職業別草案の「α=火力 / β=会心・手数 / γ=出血」
+  に反する）。5 段すべてを `mainhand-buffs` の `bleed-chance`/`bleed-damage` へ戻した
+  （β の会心率 0.03→0.15 と対称。`bleed-damage` は出血1tickあたりの実ダメージで `bleed.ticks: 5` 回適用）。
+  `SkillTreeConfigTest` の期待値も `buffs` → `mainhandBuffs` へ追随（このツリーは 889de32 で
+  全体がメインハンド限定へ移っており、テストだけが旧スコープを見ていた）。
+
+ArsPaper フォーク:
+
+- **`config.yml` が壊れていた**（fork commit `17c9f65` 以降・**稼働中サーバでも壊れたまま**）。
+  `6b9e66a` を基準に復元したが、**丸ごと revert はしていない**: TF 側へ移管済みのキー
+  （`mana.default-max` / `default-regen-rate` / `regen-interval-ticks` / `recovery.*` /
+  `ars-magic:` / `geyser:`）は復元すると「editor から設定できるのに効かない死にキー」になるので除外し、
+  実際に読まれているキーだけを戻した。
+- **儀式が TF カタログ品を素材として認識できなかった**（`Pedestal` / `RitualCore` の
+  `saveStoredItem` が Ars の `arspaper:custom_item_id` しか読まない）。TF カタログ品は
+  `trinityforge:catalog_id` を持つので「カスタムIDを持たない普通の防具」として記録され、
+  `RitualIngredient.ofCustom(<catalog id>)` と一致しない。
+  → **TF カタログ由来の儀式 39 件（`mage_*` 昇格 24 + スレッド 15）が全て成立していなかった。**
+  `PdcHelper.getCrossPluginItemId`（Ars → TF の順に解決）へ一本化。
+  **旧 jar で既に設置済みの台座/コアも救済**（旧キー欠落時はシリアライズ済み実体から解決し直す）。
+  `resolveFromLegacy` も Ars レジストリ → TF カタログのフォールバックへ。
+- **`SourceAutoConsume` の TF キー名が実在しないものだった**（`trinityforge:item_catalog_id`、
+  実在は `trinityforge:catalog_id`）→ TF カタログ品は一切マナ変換されていなかった（Ars 素材だけ効く）。
+  上記ヘルパへ寄せ、キー名の手書きをやめて `PdcKeys.ITEM_CATALOG_ID` 参照にした（ドリフト再発防止）。
+
+テスト実走（実測値）:
+
+- TF: `2842 tests / 0 failures / 0 errors / skipped 2`。スキップ 2 件はどちらも意図的
+  （`OfflineMobImportRunner` = 実 custombosses ツリーが必要な env ゲート、
+  `NativeProgressionStabilizationContractsTest#prestigeRefundUsesLiveYamlCost` = `@Disabled` 明示）。
+  **MockBukkit 由来の「未実装APIが SKIPPED に化けた」ものは無い。**
+- ArsPaper フォーク: `compileJava` BUILD SUCCESSFUL。
+- editor: `825 tests / 795 pass / 30 fail`。**clean HEAD でも 36 fail** なので全て先行破損。
+  切り分けのため `git worktree` で HEAD を実走して比較した（比較後に破棄）。
+  内 4 件（`item-stat-coverage` / `disassembly-defaults`）は**並行セッションが進行中の
+  `catalog.yml` / `item-stats.yml` の WIP 由来**（`fnis_peccati_profundi` = 鎌/NETHERITE_HOE#68 が
+  カタログにあって item-stats に無い、`source_gem_helmet` の必要Lv 30→25）。当方は両ファイルに触れていない。
+  残りの主因は `public/js/tf-rewards-forms.js` が `window.richTextInput` を呼ぶのに
+  テストのスタブが未定義（アチーブメント editor UI 系 12 件＋報酬アイテムセレクト 3 件）。
+
 ### 2026-07-30 1x:xx — 実サーバ報告 15 件バッチ（スキルツリー配置 / 精錬 / 鍛冶EXP / レシピGUI ほか）
 
 ユーザー報告 13 件＋追記 2 件。**配備はまだ**（jar もリソパも未反映）。

@@ -30,12 +30,26 @@ import java.util.logging.Logger;
  * PDC tag first, then the ArsPaper {@code arspaper:custom_item_id} PDC tag directly (no ArsPaper class
  * dependency needed — {@link NamespacedKey} + {@link org.bukkit.persistence.PersistentDataContainer} are
  * core Bukkit API), so a ticket/prize identified purely by its Ars PDC tag is still recognized.
+ *
+ * <p><b>{@code custom:} prefix</b> (2026-07-30): an explicit {@code custom:<id>} token resolves as a
+ * custom item only — TF catalog then Ars registry, <b>never</b> the vanilla {@link Material} fallback,
+ * so {@code custom:DIAMOND} cannot silently become a diamond. Accepting the prefix here matters because
+ * the config editor normalizes every custom pick to {@code custom:<id>}
+ * ({@code public/js/util.js} {@code materialInput}), while ten other domains
+ * ({@code MobOverridesConfig}, {@code MobLevelTableConfig}, {@code RecipeIngredient},
+ * {@code FoodGimmickConfig}, …) strip it locally before they get here. This shared seam did not, so
+ * every gacha prize / achievement reward item / drop-table entry written from the editor resolved to
+ * nothing at runtime — and because {@code GachaListener} treats an unresolvable prize as "do not consume
+ * the ticket", that failure surfaced as free, unlimited re-rolls rather than as an error.
  */
 public final class CrossPluginItemResolver {
 
     /** Ars {@code ItemKeys.CUSTOM_ITEM_ID} — duplicated here (not a compile dependency) since TF only
      *  soft-depends on ArsPaper; the key shape (namespace + name) is a stable cross-plugin contract. */
     private static final NamespacedKey ARS_CUSTOM_ITEM_ID = new NamespacedKey("arspaper", "custom_item_id");
+
+    /** Editor-normalized custom item token prefix, e.g. {@code custom:tf_gacha_ticket_5}. */
+    private static final String CUSTOM_PREFIX = "custom:";
 
     private static final Logger LOG = Logger.getLogger(CrossPluginItemResolver.class.getName());
 
@@ -65,15 +79,34 @@ public final class CrossPluginItemResolver {
         if (id == null || id.isBlank()) {
             return Optional.empty();
         }
-        Optional<ItemStack> catalog = createCatalog(id, rollSeed, quality);
+        String bare = stripCustomPrefix(id);
+        if (bare == null || bare.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<ItemStack> catalog = createCatalog(bare, rollSeed, quality);
         if (catalog.isPresent()) {
             return catalog;
         }
-        Optional<ItemStack> ars = createArs(id);
+        Optional<ItemStack> ars = createArs(bare);
         if (ars.isPresent()) {
             return ars;
         }
-        return createMaterial(id);
+        // An explicit custom: token must never fall through to a vanilla Material.
+        return isCustomToken(id) ? Optional.empty() : createMaterial(bare);
+    }
+
+    /**
+     * Drops a leading {@code custom:} (case-insensitive) and trims. Ids without the prefix are returned
+     * unchanged, so callers that already stripped it locally are unaffected (the operation is idempotent).
+     */
+    private static String stripCustomPrefix(String id) {
+        String trimmed = id.trim();
+        return isCustomToken(trimmed) ? trimmed.substring(CUSTOM_PREFIX.length()).trim() : trimmed;
+    }
+
+    private static boolean isCustomToken(String id) {
+        return id != null
+                && id.trim().regionMatches(true, 0, CUSTOM_PREFIX, 0, CUSTOM_PREFIX.length());
     }
 
     /**
@@ -86,6 +119,7 @@ public final class CrossPluginItemResolver {
         if (id == null || id.isBlank()) {
             return Optional.empty();
         }
+        id = stripCustomPrefix(id);
         Optional<ItemTemplate> template = itemCatalog.template(id);
         if (template.isEmpty()) {
             return Optional.empty();
@@ -100,6 +134,10 @@ public final class CrossPluginItemResolver {
 
     /** ArsPaper registry resolution only (no catalog/Material fallback). Public: see {@link #createCatalog}. */
     public static Optional<ItemStack> createArs(String id) {
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        id = stripCustomPrefix(id);
         try {
             return ArsItemGiveBridge.create(id);
         } catch (LinkageError | RuntimeException ex) {
@@ -125,17 +163,25 @@ public final class CrossPluginItemResolver {
         if (id == null || id.isBlank()) {
             return false;
         }
-        if (itemCatalog.template(id).isPresent()) {
+        String bare = stripCustomPrefix(id);
+        if (bare.isBlank()) {
+            return false;
+        }
+        if (itemCatalog.template(bare).isPresent()) {
             return true;
         }
         try {
-            if (ArsItemGiveBridge.create(id).isPresent()) {
+            if (ArsItemGiveBridge.create(bare).isPresent()) {
                 return true;
             }
         } catch (LinkageError | RuntimeException ex) {
-            LOG.log(Level.FINE, "[cross-plugin-item] Ars bridge unavailable for '" + id + "'", ex);
+            LOG.log(Level.FINE, "[cross-plugin-item] Ars bridge unavailable for '" + bare + "'", ex);
         }
-        Material material = Material.matchMaterial(id);
+        if (isCustomToken(id)) {
+            // Mirrors create(): custom: never means a vanilla Material.
+            return false;
+        }
+        Material material = Material.matchMaterial(bare);
         return material != null && !isAir(material);
     }
 

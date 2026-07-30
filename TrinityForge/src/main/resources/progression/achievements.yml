@@ -58,20 +58,17 @@ vanilla-advancements:
   keep-recipe-advancements: true
   keep: []
 achievements:
+  # 2026-07-30 修正: type: advancement だったため、上の vanilla-advancements.disabled: true と
+  # 噛み合って永久に達成不能だった(進捗解除イベント自体がキャンセルされる)。
+  # 同じ「石を掘る」を statistic(MINE_BLOCK + STONE) で表現し直した。
+  # 併記されていた statistic/collection の他型フィールドは type: advancement 時代の残骸なので削除。
   main:
     display-name: 初めの一歩
     trigger:
-      type: advancement
-      statistic: JUMP
+      type: statistic
+      statistic: MINE_BLOCK
+      statistic-qualifier: STONE
       threshold: 1
-      advancement: minecraft:story/mine_stone
-      collection:
-        scope: item
-        target: infinity_sword
-        targets:
-          - infinity_sword
-        threshold: 1
-        percent: false
     broadcast: false
     rewards:
       special: []

@@ -102,10 +102,13 @@ class SkillTreeConfigTest {
         assertEquals(0.05, a.mainhandBuffs().get("crit_chance"), 0.0);
         // 2026-07-26 職業別草案(戦闘)適用: γ路線は「会心ダメージ」から「出血」へ性格を変えた
         // (α=火力/β=会心・手数 と役割が被っていたため)。crit_damage は載らなくなった。
+        // 2026-07-31: 出血系も A と同じくメインハンド限定(mainhand-buffs)へ移動。
+        // bleed_damage は「出血1tickあたりの実ダメージ(flat)」なので、旧 buffs 時代の 0.4 とは単位が違う。
         SkillNode aGamma = tree.node("A-gamma-1").orElseThrow();
-        assertEquals(0.02, aGamma.buffs().get("bleed_chance"), 0.0);
-        assertEquals(0.4, aGamma.buffs().get("bleed_damage"), 0.0);
-        assertNull(aGamma.buffs().get("crit_damage"));
+        assertEquals(0.03, aGamma.mainhandBuffs().get("bleed_chance"), 0.0);
+        assertEquals(6.0, aGamma.mainhandBuffs().get("bleed_damage"), 0.0);
+        assertNull(aGamma.mainhandBuffs().get("crit_damage"));
+        assertNull(aGamma.buffs().get("bleed_chance"));
 
         // greek exclusivity: all three A-* share the same group.
         assertEquals("A-greek", tree.node("A-alpha-1").orElseThrow().group());
@@ -125,9 +128,12 @@ class SkillTreeConfigTest {
         Prestige prestige = tree.prestige();
         assertTrue(prestige.enabled());
         assertEquals(100, prestige.atLevel());
-        assertEquals(0.15, prestige.buffs().get("attack_power"), 0.0);
-        assertEquals(0.1, prestige.buffs().get("crit_chance"), 0.0);
-        assertEquals(0.3, prestige.buffs().get("crit_damage"), 0.0);
+        // 2026-07-30 の軽量武器ツリー改修で、プレステージ報酬もノードと同じくメインハンド限定へ移された
+        // (全身加算の attack_power 永続+15% ではなく、メインハンド攻撃力の x1.15 倍率)。
+        assertEquals(1.15, prestige.mainhandMultipliers().get("layer_1").get("attack_power"), 0.0);
+        assertEquals(0.1, prestige.mainhandBuffs().get("crit_chance"), 0.0);
+        assertEquals(0.2, prestige.mainhandBuffs().get("crit_damage"), 0.0);
+        assertTrue(prestige.buffs().isEmpty());
     }
 
     @Test

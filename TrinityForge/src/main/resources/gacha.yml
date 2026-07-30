@@ -1,10 +1,31 @@
 # ガチャ設定 (gacha.yml)
 # 「ガチャ券」アイテムを右クリックすると、景品プールから1点だけ抽選され、券が1個消費される。
 # 券の判定はitemCatalog ID (PDCタグ)で行われ、表示名では判定しない。
-
+#
 # tickets: 券アイテムの定義。
-#   キー = 券アイテムの items/catalog.yml 上のID (表示名ではなくこのIDで判定される)
+#   キー = 券アイテムのID。TFカタログID または ArsPaper materials.yml のID
+#          (現行の券6種は materials.yml 側に定義されている)。表示名では判定されない。
 #   pool = 参照する景品プールID (下の pools セクションのキー)
+#
+# 【重要・item の書き方】このファイルの entries[].item には custom: を付けない。
+#   CrossPluginItemResolver が「TFカタログ → ArsPaper registry → バニラMaterial」の順に
+#   素のIDで解決するため。custom: を付けると3経路すべてを外して解決失敗する。
+#   (mob-overrides の drops やレシピ素材とは逆の規約なので注意)
+#
+# 【重要・解決失敗は券を消費しない】景品IDが解決できないと券が減らずに終わる fail-safe のため、
+#   存在しないIDを書くと「当たるまで無料で引き直せる」状態になる。
+#   2026-07-30 修正: example_sword ×2 / example_bow ×1 が実在せず、
+#   standard 59% / tier2 28% / tier3 28% がこの状態だった。
+#
+# 【重要・天井(pity)の確定排出先】天井到達時に必ず出るのは「そのプールで weight が最小のエントリ」。
+#   同値タイがあると天井がその中でランダムに割れる。
+#   2026-07-30 修正: tier5 は ANCIENT_DEBRIS と防具が同 weight 1 で、天井の約半分が
+#   古代の残骸になっていた。各プールのジャックポットは必ず単独最小 weight にすること。
+#   レートアップ(gacha_rate_bonus)の対象も同じ「最小 weight のエントリ」。
+#
+# quality-random: true は TFカタログ品にだけ効く(0〜最大品質をランダム付与)。
+#   ArsPaper 素材やバニラMaterialに書いても無視される。
+#
 # 設定リファレンス(本文コメント移設先): docs/config-reference/gacha.md
 
 tickets:
@@ -23,19 +44,35 @@ tickets:
     pool: tier5
 
 pools:
+  # 序盤の汎用プール。素材寄りで、装備は「その帯で自作できる物」に留める
+  # (ガチャを縦強化のショートカットにしないため)。
   standard:
     pity:
       threshold: 30
     entries:
-      - item: "example_sword"
-        weight: 10
+      - item: "tf_scrap"
+        weight: 20
+        amount: 4
+      - item: "COAL"
+        weight: 18
+        amount: 8
+      - item: "IRON_INGOT"
+        weight: 14
+        amount: 4
+      - item: "iron_dagger"
+        weight: 8
         amount: 1
         quality-random: true
-      - item: "DIAMOND"
+      # 空のスレッド = 厳選コンテンツへの入口
+      - item: "thread_empty"
         weight: 5
-        amount: 3
+        amount: 1
+      - item: "tf_gacha_ticket_1"
+        weight: 3
+        amount: 1
+      # ジャックポット(単独最小 weight = 天井の確定排出先)
       - item: "tf_core_wood"
-        weight: 2
+        weight: 1
         amount: 1
 
   tier1:
@@ -45,68 +82,153 @@ pools:
       - item: "GOLD_INGOT"
         weight: 15
         amount: 2
+      - item: "tf_scrap"
+        weight: 14
+        amount: 6
       - item: "DIAMOND"
         weight: 8
         amount: 1
-      - item: "tf_scrap"
-        weight: 10
-        amount: 3
+      - item: "copper_stud_helmet"
+        weight: 6
+        amount: 1
+        quality-random: true
+      - item: "thread_empty"
+        weight: 4
+        amount: 1
+      - item: "tf_core_vegetable"
+        weight: 1
+        amount: 1
+
   tier2:
     pity:
       threshold: 25
     entries:
       - item: "EMERALD"
+        weight: 12
+        amount: 3
+      - item: "tf_scrap"
         weight: 10
-        amount: 2
-      - item: "example_sword"
+        amount: 8
+      # ソース経済(第2目標)への導線
+      - item: "source_gem"
+        weight: 8
+        amount: 1
+      - item: "iron_bow"
+        weight: 6
+        amount: 1
+        quality-random: true
+      - item: "carapace_mail_helmet"
         weight: 5
         amount: 1
         quality-random: true
-      - item: "tf_core_wood"
-        weight: 3
+      - item: "thread_empty"
+        weight: 4
+        amount: 2
+      - item: "tf_core_meat"
+        weight: 1
         amount: 1
+
   tier3:
     pity:
       threshold: 25
     entries:
-      - item: "example_bow"
+      - item: "DIAMOND"
+        weight: 12
+        amount: 3
+      - item: "source_gem"
+        weight: 10
+        amount: 2
+      - item: "magebloom_fiber"
+        weight: 8
+        amount: 4
+      - item: "diamond_dagger"
+        weight: 6
+        amount: 1
+        quality-random: true
+      - item: "diamond_bow"
+        weight: 6
+        amount: 1
+        quality-random: true
+      - item: "abyssal_scale_helmet"
         weight: 5
         amount: 1
         quality-random: true
-      - item: "DIAMOND"
-        weight: 10
+      - item: "thread_empty"
+        weight: 4
         amount: 3
-      - item: "tf_core_vegetable"
-        weight: 3
+      - item: "tf_gacha_ticket_4"
+        weight: 2
         amount: 1
+      - item: "tf_core_jewelry"
+        weight: 1
+        amount: 1
+
   tier4:
     pity:
       threshold: 20
     entries:
+      - item: "source_gem"
+        weight: 10
+        amount: 4
       - item: "NETHERITE_SCRAP"
+        weight: 10
+        amount: 1
+      - item: "thread_empty"
+        weight: 6
+        amount: 4
+      - item: "netherite_dagger"
         weight: 5
         amount: 1
-      - item: "tf_core_meat"
-        weight: 3
-        amount: 1
-      - item: "mage_guardian_novice_helmet"
-        weight: 2
+        quality-random: true
+      - item: "phantom_shroud_helmet"
+        weight: 5
         amount: 1
         quality-random: true
+      - item: "mage_guardian_novice_helmet"
+        weight: 4
+        amount: 1
+        quality-random: true
+      - item: "tf_crystal_apple"
+        weight: 3
+        amount: 1
+      - item: "tf_gacha_ticket_5"
+        weight: 2
+        amount: 1
+      - item: "dragon_scale"
+        weight: 1
+        amount: 1
+
   tier5:
     pity:
       threshold: 15
     entries:
-      - item: "tf_crystal_apple"
-        weight: 3
-        amount: 1
-      - item: "tf_core_jewelry"
-        weight: 2
-        amount: 1
+      - item: "source_gem"
+        weight: 10
+        amount: 8
       - item: "ANCIENT_DEBRIS"
-        weight: 1
-        amount: 1
-      - item: "mage_arcane_archmage_chestplate"
-        weight: 1
+        weight: 8
+        amount: 2
+      - item: "thread_empty"
+        weight: 6
+        amount: 6
+      - item: "tf_crystal_apple"
+        weight: 4
+        amount: 2
+      - item: "nuclear_sword"
+        weight: 4
         amount: 1
         quality-random: true
+      - item: "withered_silk_helmet"
+        weight: 4
+        amount: 1
+        quality-random: true
+      - item: "mage_arcane_archmage_chestplate"
+        weight: 3
+        amount: 1
+        quality-random: true
+      - item: "elder_guardian_spike"
+        weight: 2
+        amount: 1
+      - item: "wither_skull_fragment"
+        weight: 1
+        amount: 1

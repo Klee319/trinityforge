@@ -50,7 +50,9 @@ support-roles:
   fisher:
     label: 漁師
     description: 釣りEXPと運に補正
-    exp-skill: FARMING
+    # 2026-07-30 修正: FARMING になっていたため釣りEXPには何も乗らず、
+    # 農業EXPが farmer と二重に優遇されていた(expMultiplierForSkill は完全一致比較)。
+    exp-skill: FISHING
     exp-multiplier: 1.2
     potion-buff:
       type: LUCK

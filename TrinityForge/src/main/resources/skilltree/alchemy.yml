@@ -148,13 +148,18 @@ nodes:
     parent: E        # 上段E系派生。線不明
     icon: GLISTERING_MELON_SLICE
     cost: 1
-    effect-text: "回復・体力増強魔法開放・バフの品質UP"
+    effect-text: "回復・体力増強魔法開放・体力増強IIの調合・バフの品質UP"
     effects:
       - "回復・体力増強魔法を解放"
+      - "体力増強II / 採掘速度上昇II / 幸運II のポーションが利用可能に"
       - "バフの品質UP"
     dedicated-effects:
       - id: "glyph:heal"
       - id: "glyph:journey"
+      # C-2-upper の healthboost-haste の上位段(amplifier 1)。
+      # 未参照のままだと BrewUnlockListener の仕様で永久ロックになるため、
+      # 体力増強系の最上位ノードであるここへ配置している(2026-07-30)。
+      - id: "brew:healthboost-haste-2"
 
   C-1-lower:
     name: "注入の術"

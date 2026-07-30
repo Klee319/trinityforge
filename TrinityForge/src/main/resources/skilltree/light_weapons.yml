@@ -200,6 +200,12 @@ nodes:
     description: 会心率+3%
     mainhand-buffs:
       crit-chance: 0.03
+  # 【2026-07-31 修正】γ路線5段すべてが effect-text「出血率・出血ダメージ増加」のまま
+  # crit-damage を配っていた(= β路線と同じ会心軸の二重化)。2026-07-26 職業別草案(戦闘)の
+  # 「α=火力 / β=会心・手数 / γ=出血」という役割分けへ戻す。
+  # bleed-damage の単位は「出血1tickあたりの実ダメージ(flat)」で、damage.yml の
+  # bleed.ticks: 5 回適用される(被ダメージ軽減以外の防御は全部貫通する)。
+  # 数値はβ路線(会心率 0.03→0.15)と対称にした暫定値。実機校正の対象。
   A-gamma-1:
     name: 冴・鋭刃
     level: 20
@@ -209,9 +215,12 @@ nodes:
     icon: LIGHT_BLUE_DYE
     cost: 1
     effect-text: 出血率・出血ダメージ増加
-    description: 会心ダメージ+6%
+    description: |-
+      出血率+3%
+      出血ダメージ+6
     mainhand-buffs:
-      crit-damage: 0.06
+      bleed-chance: 0.03
+      bleed-damage: 6
   B-alpha-1:
     name: 剛・疾風
     level: 40
@@ -245,9 +254,12 @@ nodes:
     cost: 1
     effect-text: 出血率・出血ダメージ増加
     group: B-greek
-    description: 会心ダメージ+12%
+    description: |-
+      出血率+6%
+      出血ダメージ+12
     mainhand-buffs:
-      crit-damage: 0.12
+      bleed-chance: 0.06
+      bleed-damage: 12
   C-alpha-1:
     name: 剛・捌き
     level: 60
@@ -281,9 +293,12 @@ nodes:
     cost: 1
     effect-text: 出血率・出血ダメージ増加
     group: C-greek
-    description: 会心ダメージ+18%
+    description: |-
+      出血率+9%
+      出血ダメージ+18
     mainhand-buffs:
-      crit-damage: 0.18
+      bleed-chance: 0.09
+      bleed-damage: 18
   D-alpha-1:
     name: 剛・連斬
     level: 80
@@ -317,9 +332,12 @@ nodes:
     cost: 1
     effect-text: 出血率・出血ダメージ増加
     group: D-greek
-    description: 会心ダメージ+24%
+    description: |-
+      出血率+12%
+      出血ダメージ+24
     mainhand-buffs:
-      crit-damage: 0.24
+      bleed-chance: 0.12
+      bleed-damage: 24
   E-alpha-1:
     name: 剛・飛燕
     level: 100
@@ -353,6 +371,9 @@ nodes:
     cost: 1
     effect-text: 出血率・出血ダメージ増加
     group: E-greek
-    description: 会心ダメージ+30%
+    description: |-
+      出血率+15%
+      出血ダメージ+30
     mainhand-buffs:
-      crit-damage: 0.3
+      bleed-chance: 0.15
+      bleed-damage: 30

@@ -62,7 +62,7 @@ public final class MobTypeSpawnListener implements Listener {
 
     /**
      * MONITOR: 他プラグインのスポーン後処理のあとに適用する。
-     * 個別 EntityType 定義がある場合はダンジョンtheme付きを除き必ず適用する
+     * 個別 EntityType 定義がある場合は EliteMobs 由来を除き必ず適用する
      * （先に MOB_LEVEL だけ付いたケースで defaults や他プラグインHPに負けるのを防ぐ）。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -77,7 +77,7 @@ public final class MobTypeSpawnListener implements Listener {
         double healthRatio = MobTransformCarryOver.consumeHealthRatio(entity.getUniqueId());
 
         if (maybeDef.isPresent()) {
-            if (data.dungeonTheme().isPresent()) {
+            if (isEliteMobsOwned(data)) {
                 return;
             }
             MobTypeDefinition def = maybeDef.get();
@@ -92,6 +92,25 @@ public final class MobTypeSpawnListener implements Listener {
             return;
         }
         applyUntaggedDefaults(entity, healthRatio);
+    }
+
+    /**
+     * この個体が EliteMobs（フォークの {@code TrinityForgeSpawnListener}）に所有されているか。
+     *
+     * <p>判定は {@code MOB_PROFILE_ID} と {@code MOB_DUNGEON_THEME} の or。
+     * {@link MobData#hasProfile()}（= {@code MOB_LEVEL}）は使えない — このリスナー自身も
+     * {@code MOB_LEVEL} を刻むため、mob-types 由来と EliteMobs 由来を区別できない。
+     *
+     * <p>【2026-07-30 修正】以前は {@code dungeonTheme} だけを見ていた。フォーク側は
+     * {@code theme != null && !theme.isBlank()} のときしか {@code MOB_DUNGEON_THEME} を刻まず、
+     * {@code combat/mob-import.yml} の {@code theme.default} は空文字なので、
+     * <b>テーマ未設定の EliteMobs モブ（＝取り込んだモブのほぼ全部）がこの除外を通り抜けて</b>
+     * mob-types のプロファイルで上書きされていた（{@code setBaseValue} なので EliteMobs 側の
+     * HP がそのまま消える）。{@code MOB_PROFILE_ID} はフォークが CustomBoss へ必ず刻む
+     * （プロファイル未登録で早期 return する経路でも刻む）ため、これが正しい所有者マーカー。
+     */
+    private static boolean isEliteMobsOwned(MobData data) {
+        return data.profileId().isPresent() || data.dungeonTheme().isPresent();
     }
 
     private void applyUntaggedDefaults(LivingEntity entity, double healthRatio) {
@@ -164,11 +183,19 @@ public final class MobTypeSpawnListener implements Listener {
     /**
      * Other plugins often adjust MAX_HEALTH on the same spawn tick. Re-assert next tick so the
      * configured value wins and current HP stays full.
+     *
+     * <p>ただし EliteMobs はこの1tickの間に所有権を主張しうる：{@code CreatureSpawnEvent}（このリスナー）
+     * のあとに {@code EliteMobSpawnEvent} が飛び、フォークがそこで初めて {@code MOB_PROFILE_ID} と
+     * EliteMobs 側の HP を刻む。再適用は {@code setBaseValue} で無条件に上書きするため、
+     * 再チェックせずに走らせるとエリート化直後の個体の HP が毎回 mob-types 値へ潰れる（2026-07-30）。
      */
     private void scheduleHealthReassert(LivingEntity entity, double maxHealth, double healthRatio,
                                         double armorStrength) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!entity.isValid() || entity.isDead()) {
+                return;
+            }
+            if (isEliteMobsOwned(MobData.of(entity))) {
                 return;
             }
             applyMaxHealth(entity, maxHealth, healthRatio);
