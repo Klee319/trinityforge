@@ -336,6 +336,53 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-31 1x:xx — コンテンツ拡充バッチ Wave 1（EM 限定装備 / セット効果 / ロール / 醸造）
+
+Wave 0 で「書いても効かない」元栓を塞いだので、Wave 1 は**実際のコンテンツ追加**。
+commit: TF `d09721d`（前半）/ `1c70839`（後半）、ArsPaper `519312f` / `d85319f`。両方 push 済み。
+**配備はまだ**（jar を含むので稼働中の差し替えは不可）。
+
+「実装済みなのに設定が 0 件で機能そのものが存在しなかった」ものを潰した:
+
+| 対象 | 状態だったもの | 対応 |
+|---|---|---|
+| `special-rewards.yml` | `titles: {}` / `particles: {}` で図鑑報酬とアチーブ報酬の付与先が皆無 | 称号 12 / パーティクル 8 / 種 6 を定義。`SpecialRewardsConfig` に **`getDataType() != Void.class` の Particle を弾くロード時ガード**を追加（Paper 1.21.11 の `FLASH` で戦闘が全断した前例と同型の事故を予防） |
+| `thread-sets.yml`（fork） | 全 16 種 `thresholds: {}` で「セット効果」機構が 1 件も存在しない | 種ごとに軸を変えて設定（会心/回避/受け/出血）。**しきい値は到達可能性から決めた** — `threads.yml` の `max` は**防具 1 部位あたり**なので上限は `max × 4`、さらに `thread-slots` 合計（1 式 9 枠）が実際の天井。`armor-defense-rate` は**意図的に未使用**（バニラ防具の防御率へ加算され、貫通 0 相手からの物理を無効化できてしまう） |
+| `role-buffs.yml` | 補助職 5 種の `exp-multiplier` が**全部 1.2 の横並び**＝選択に意味が無い | 稼ぎやすさの逆数で 1.15（採掘/伐採）/ 1.25（農業）/ 1.35（釣り/切削）の 3 段へ。`description` を職業紹介ページ相当に拡張（表示専用なので安全） |
+| `tf_gacha_ticket` | **入手経路が 1 つも無く** `standard` プールごと到達不能 | `mob-level-table.yml` の全 6 tier へ配線（0.005〜0.025）。上位券 3 種は Lv45/65/85 帯限定 |
+| `tf_core_dirt` | スキルツリーの解放先が無く**永久にクラフト不可** | 切削ツリー E ノードへ `recipe:tf_core_dirt`（他 3 コアと同じ「その素材を集めるスキルの最終ノード」へ揃えた） |
+| 上位ソースジャー | ブロック登録が無く**構造的に作れない**＋容量が static 1 個 | fork を yml 駆動化（`SourceJar.isSourceJarId` / `maxSource(tileState)` / `registerCustomSourceJars`）。`sourcejars.yml` に 4 段追加（最大 5,000 万）。儀式のソース合算を `int`→`long` へ（5,000 万を 16 個で `int` 溢れ） |
+| `BrewUnlockListener` の `custom:` | TF の PDC だけを見ていたため、**ArsPaper 側で定義した素材を醸造素材に書いても永久に一致しない** | `CrossPluginItemResolver.idOf` の両読みへ。討伐素材を使う醸造 3 系統（`hunter-hex` / `survivor-brew` / `apex-brew`）を追加して alchemy ツリーへ配線 |
+| 討伐 EXP 倍率表 | 5 本すべてで 9 EntityType が欠落 → `unlisted-entity-multiplier: 0` で **DOLPHIN / POLAR_BEAR のスキル EXP が無言でゼロ** | 5 表を 51 種へ。editor テストの期待値も 50→51 に更新（このテストは**元から赤**で、私の変更が原因ではなかった） |
+
+追加したコンテンツ:
+
+- **ダンジョン限定素材 22 種**（fork `materials.yml`）: 踏破の印 19（各ダンジョン最終ボスが 1.0）＋
+  `binder_fragment` / `reality_thread_core` / `abyssal_ingot`。`mob-overrides.yml` で 18 ボス＋束縛者 4 フェーズへ配線。
+- **EM 限定装備 30 種**（`catalog.yml` / `item-stats.yml`）: 深淵 `abyss_*` 13 種（攻撃力は infinity の 80% だが
+  貫通 +0.06 とスレッド枠 3 =「厳選で伸ばす型」）＋束縛者 `binder_*` 武器 13 + 防具 4（115%、
+  ユーザー確定方針「束縛者だけ縦強化」に沿う唯一の上位帯）。**既存 4 系統と同じ 13 武器種を揃えた**
+  （剣だけにすると「大斧使いには報酬が無い」＝武器種ガチャに化ける）。
+  防具は `armor-defense-rate` を上げず `damage-reduction` / `armor-strength` で上位を表現。
+- **ソースの階梯 9 段**: 触媒 5 種（`result-amount: 4` が要の調整レバー）＋ジャー 4 段。累積 1 億ソース到達。
+- **図鑑 7 カテゴリ / 140 エントリ**＋報酬ティア 5 段（10/30/60/120/200）。
+  **タブ枠は 9 個で items/mobs に自動の「その他」が 1 個ずつ付くので、書けるカテゴリは合計 7 が上限。**
+- **`docs/design/2026-07-30-content-guidance-draft.md` §11**: 資源鯖デタパのルートテーブル追加案を記録
+  （ユーザー制約「別途記録」）。**デタパはバニラ品だけ出し、独自品は TF 側の引換で受ける**分担を確定
+  （デタパ産は `rollSeed`/`quality` が焼かれないので厳選ゼロ個体が混ざる）。
+
+未解決 / 引き継ぎ:
+
+- **`tools/scripts/gen-mob-overrides.py` を封印した。** `overrides:` 以下を全部再生成するので、
+  ドロップ配線の手編集を無言で消す。`--overwrite-hand-edits` を付けない限り中断するようにした。
+- 図鑑の `reward-tiers` に **editor フォームが無い**（2026-07-29 に削除された）。yml は効くが editor で編集できない。
+- 深淵 / 束縛者の 30 種は**テクスチャ未作成**。CMD は台帳へ確保済みで、モデルが無い CMD は
+  ベース Material の見た目で出るため実害は無い（Wave 4 で PNG を作る。ユーザー指示により**配線はしない**）。
+- 実測: TF `2842 tests / 0 failures / 0 errors / 2 skipped`、ArsPaper `compileJava BUILD SUCCESSFUL`、
+  editor `853 中 27 失敗`（**全件が並行セッションの `catalog.yml` / `item-stats.yml` WIP と
+  achievement フォームの既知スタブ不足に由来**。`gold_test` のカテゴリ未割当 /
+  `fnis_peccati_profundi` の `NETHERITE_HOE#68` にステが無い / `source_gem_helmet` の必要 Lv 25 vs 30）。
+
 ### 2026-07-31 0x:xx — コンテンツ拡充バッチ Wave 0（「書いても効かない」元栓 12 件）
 
 コンテンツ追加（束縛者 / 1億ソース / 図鑑）の前段。**先に「editor から書いた設定が実行時に効かない」
