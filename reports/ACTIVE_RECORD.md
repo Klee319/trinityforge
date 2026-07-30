@@ -336,6 +336,37 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-30 09:xx — エージェント運用基盤（恒久知識のリポジトリ内移設 / サブエージェント / ワークフロー）
+
+コミット `7e5595b`（`dev` へ push 済み）。**コード変更なし・ドキュメントと設定のみ。**
+
+これまで「触る前に知らないと黙って壊す知識」が開発マシンのローカルにしか無く、
+クローンした人・別セッションのエージェントが毎回同じ落とし穴を再発見していた。これを版管理下へ移した。
+
+- **`CLAUDE.md`（新規・リポジトリルート）** — 作業の入口。読む順番／絶対に守ること／ビルドコマンド／地図
+- **`docs/agent-context/`（新規 8 本）** — `README.md`（索引）／`combat.md`／`progression-skilltree.md`／
+  `forks-and-mobs.md`／`config-editor.md`／`ops-build-deploy.md`／`common-traps.md`／`bedrock-geyser.md`／
+  `parallel-worktrees.md`。**作業履歴は載せず、落とし穴・不変条件・確定仕様だけ**を置く。
+  **残タスクの一次情報はこれまでどおりこのファイル（ACTIVE_RECORD）だけ**という線引きを README に明記した。
+- **`.claude/agents/`（新規 6 本）** — `tf-combat` / `tf-progression` / `tf-editor` /
+  `fork-elitemobs` / `fork-arspaper` / `tf-ops`。各定義に「着手前に読む文書」「その領域の不変条件」
+  「禁止事項（`git add -A`・`D:/` 書き込み・稼働中 jar 差し替え・fork の `origin` push）」を内蔵。
+- **`.claude/workflows/`（新規 3 本）** — `triage-reports`（報告→担当振り分け→根本原因→反証）／
+  `audit-drift`（二重管理のズレ検出 7 観点）／`verify-diff`（差分レビュー→反証）。3 本とも構文検証済み。
+
+検証: 文書内で言及している TF のクラス名・ファイルパス・yml キー・相互リンクを機械的に実在確認
+（リンク切れ 0、存在しない yml 参照 0、未解決は `path/to/File.java` 等のテンプレート文字列のみ）。
+
+**worktree 並列化についての結論**（詳細 `docs/agent-context/parallel-worktrees.md`）:
+worktree は「同一ワークツリーを複数セッションが共有する事故」を構造的に消すが、**マージ衝突は消さない**。
+衝突回避は**ファイル所有権の分割**で行う。1 波に 1 人しか触れない choke file =
+`reports/ACTIVE_RECORD.md` / `TrinityForge.java` の配線 / `config/domains/*Config.java` /
+`config-editor` の `constants.js` 2 本 / yml はファイル単位。
+**フォークは `.gitignore` 除外なので worktree に存在せず並列化できない**（メインのワークツリーで直列）。
+さらに ⚠️ **worktree で `releaseAssembly` を打つと、`target.mkdirs()` のせいで
+`fork-handoff/…/libs` を空で作ってそこへ jar を置くだけになり、本物のフォークに compileOnly jar が届かない**
+（エラーも警告も出ない）。TF の public API を変えたらメインのワークツリーで打ち直すこと。
+
 ### 2026-07-30 08:xx — 実サーバ報告 8 件（クラフトEXP水増し/飛び道具/耐久ペナルティ/スキルツリー描画/1ダメージ）
 
 ユーザー提示の 8 件。**コード修正が必要な 6 件は完了。残り 2 件はコードのバグではなかった**（下記）。
