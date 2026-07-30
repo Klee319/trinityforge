@@ -44,6 +44,10 @@
     if (t.type !== "statistic" && t.type !== "advancement" && t.type !== "static") t.type = "statistic";
     if (t.type === "statistic") {
       if (typeof t.statistic !== "string") t.statistic = "";
+      // 2026-07-30: 修飾子必須の統計 (MINE_BLOCK / CRAFT_ITEM / KILL_ENTITY 等) 用。
+      // 修飾子不要の統計では Java 側が無視するだけなので、ここでは値を消さずそのまま保持する
+      // (統計を一時的に切り替えても書きかけの対象が消えないため)。
+      if (typeof t["statistic-qualifier"] !== "string") t["statistic-qualifier"] = "";
       if (!Number.isFinite(Number(t.threshold))) t.threshold = 1;
     } else if (t.type === "advancement") {
       if (typeof t.advancement !== "string") t.advancement = "";
@@ -665,6 +669,25 @@
     ["DAMAGE_TAKEN", "受けたダメージ"], ["ITEM_ENCHANTED", "エンチャント回数"],
     ["TRADED_WITH_VILLAGER", "村人取引回数"], ["SLEEP_IN_BED", "就寝回数"], ["RAID_WIN", "襲撃勝利回数"]
   ];
+  // 2026-07-30: 修飾子(qualifier)が必要な統計。Bukkit の Statistic.Type が UNTYPED 以外のものは
+  // Player#getStatistic(Statistic) 単体では読めず、Material / EntityType を添える必要がある。
+  // Java 側は trigger.statistic-qualifier で受ける (AchievementsConfig.StatisticQualifier)。
+  // 3 番目の要素は必要な修飾子の種類 (block = ブロックMaterial / item = アイテムMaterial / entity = EntityType)。
+  const QUALIFIED_STATISTIC_OPTIONS = [
+    ["MINE_BLOCK", "指定ブロックの採掘数", "block"],
+    ["CRAFT_ITEM", "指定アイテムのクラフト数", "item"],
+    ["USE_ITEM", "指定アイテムの使用回数", "item"],
+    ["BREAK_ITEM", "指定アイテムの破損回数", "item"],
+    ["PICKUP", "指定アイテムの拾得数", "item"],
+    ["DROP", "指定アイテムの投棄数", "item"],
+    ["KILL_ENTITY", "指定モブの討伐数", "entity"],
+    ["ENTITY_KILLED_BY", "指定モブに倒された回数", "entity"]
+  ];
+  /** その統計が要求する修飾子の種類。UNTYPED(修飾子不要)なら空文字。 */
+  function statisticQualifierKind(statistic) {
+    const hit = QUALIFIED_STATISTIC_OPTIONS.find(([v]) => v === statistic);
+    return hit ? hit[2] : "";
+  }
   // バニラ進捗キーのセレクト (2026-07-29)。従来は自由入力だけで、タイポすると
   // 永久に達成できない定義が無警告で作れた。候補は vocab-1.21.11.js の主要進捗。
   // 網羅ではないので allowCustom は残す (データパック進捗も書けるようにするため)。
@@ -683,12 +706,46 @@
   }
   function statisticSelect(value, onChange) {
     const opts = STATISTIC_OPTIONS.map(([v, ja]) => ({ value: v, primary: ja, secondary: v }));
+    // 修飾子必須の統計も候補に出す(2026-07-30 に Java 側が対応したので書けるようになった)。
+    // secondary に「要・対象指定」と添えて、選ぶと下に対象欄が増えることを示す。
+    for (const [v, ja] of QUALIFIED_STATISTIC_OPTIONS) {
+      opts.push({ value: v, primary: ja, secondary: v + " (要・対象指定)" });
+    }
     const cur = value || "";
-    if (cur && !STATISTIC_OPTIONS.some(([v]) => v === cur)) opts.unshift({ value: cur, primary: cur, secondary: "" });
+    const known = STATISTIC_OPTIONS.some(([v]) => v === cur) || QUALIFIED_STATISTIC_OPTIONS.some(([v]) => v === cur);
+    if (cur && !known) opts.unshift({ value: cur, primary: cur, secondary: "" });
     opts.push({ value: "__custom__", primary: "＋ 自由入力…" });
     return window.listSelect({
       value: cur, options: opts, onChange, allowCustom: true,
       customPlaceholder: "Bukkit Statistic名を入力", placeholder: "統計を選択…"
+    });
+  }
+  /**
+   * statistic-qualifier の選択欄。kind に応じて候補の語彙を切り替える。
+   * block/item は Material、entity は EntityType。Java 側は BLOCK 型に非ブロック Material を
+   * 書くとそのアチーブメントごと skip するので、種類を混ぜないことが重要。
+   */
+  function statisticQualifierSelect(kind, value, onChange) {
+    const cur = value || "";
+    let opts;
+    if (kind === "entity") {
+      opts = ENTITY_TYPE_CANDIDATES.map((id) => ({
+        value: id, primary: (window.MOB_LABELS_JA && window.MOB_LABELS_JA[id]) || id, secondary: id
+      }));
+    } else {
+      const materials = Array.isArray(window.MATERIALS) ? window.MATERIALS : [];
+      opts = materials.map((mat) => {
+        const ja = window.LABELS && typeof window.LABELS.materialLabel === "function"
+          ? window.LABELS.materialLabel(mat) : "";
+        return { value: mat, primary: ja || mat, secondary: mat };
+      });
+    }
+    if (cur && !opts.some((o) => o.value === cur)) opts.unshift({ value: cur, primary: cur, secondary: "候補外" });
+    opts.push({ value: "__custom__", primary: "＋ 自由入力…" });
+    return window.listSelect({
+      value: cur, options: opts, onChange, allowCustom: true,
+      customPlaceholder: kind === "entity" ? "EntityType名を入力" : "Material名を入力",
+      placeholder: kind === "entity" ? "モブを選択…" : "アイテム/ブロックを選択…"
     });
   }
 
@@ -1053,8 +1110,26 @@
         })));
         if (entry.trigger.type === "statistic") {
           triggerBody.appendChild(field("統計項目 (trigger.statistic)", statisticSelect(entry.trigger.statistic, (v) => {
+            const before = statisticQualifierKind(entry.trigger.statistic);
             entry.trigger.statistic = v;
+            // 修飾子の種類が変わったら前の値は無意味(ブロック名がモブ欄に残る等)なので捨てる。
+            if (statisticQualifierKind(v) !== before) entry.trigger["statistic-qualifier"] = "";
+            renderTriggerFields();
           })));
+          const qualifierKind = statisticQualifierKind(entry.trigger.statistic);
+          if (qualifierKind) {
+            triggerBody.appendChild(field(
+              "対象 (trigger.statistic-qualifier)",
+              statisticQualifierSelect(qualifierKind, entry.trigger["statistic-qualifier"], (v) => {
+                entry.trigger["statistic-qualifier"] = v;
+              }),
+              qualifierKind === "entity"
+                ? "この統計は対象モブの指定が必須です。空欄だと起動時に警告が出てこのアチーブメントごと読み込まれません。"
+                : (qualifierKind === "block"
+                  ? "この統計は対象ブロックの指定が必須です。ブロックでない Material を指定すると読み込まれません。"
+                  : "この統計は対象アイテムの指定が必須です。空欄だと起動時に警告が出て読み込まれません。")
+            ));
+          }
           triggerBody.appendChild(field("閾値 (trigger.threshold)", window.numberInput(entry.trigger.threshold, (v) => {
             if (v != null) entry.trigger.threshold = Math.max(0, Math.floor(v));
           }, { int: true })));

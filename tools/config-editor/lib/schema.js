@@ -2370,6 +2370,12 @@ function validateRewardExtras(rewards, prefix, errors) {
 
 // ---- progression/achievements.yml (tf-achievements) ----
 const ACHIEVEMENT_TRIGGER_TYPES = ["statistic", "advancement", "static"];
+// 2026-07-30: Bukkit の Statistic.Type が UNTYPED でないもの = 修飾子(Material/EntityType)必須。
+// public/js/tf-rewards-forms.js の QUALIFIED_STATISTIC_OPTIONS と同じ集合を保つこと。
+const QUALIFIED_STATISTICS = [
+  "MINE_BLOCK", "CRAFT_ITEM", "USE_ITEM", "BREAK_ITEM", "PICKUP", "DROP",
+  "KILL_ENTITY", "ENTITY_KILLED_BY"
+];
 
 function validateTfAchievements(data, errors) {
   if (data === null) return;
@@ -2469,6 +2475,16 @@ function validateTfAchievements(data, errors) {
       } else if (trigger.type === "statistic") {
         if (typeof trigger.statistic !== "string" || !trigger.statistic) {
           errors.push(`${prefix}.trigger.statistic: 必須の文字列(Bukkit Statistic名)です`);
+        }
+        // 2026-07-30: 修飾子(Material/EntityType)が必要な統計。Java 側は空欄だと
+        // そのアチーブメントごと skip する(AchievementsConfig#parseStatisticQualifier)ので、
+        // 保存前にここで落として「無言で消える定義」を作らせない。
+        if (QUALIFIED_STATISTICS.includes(trigger.statistic)
+            && (typeof trigger["statistic-qualifier"] !== "string" || !trigger["statistic-qualifier"].trim())) {
+          errors.push(`${prefix}.trigger.statistic-qualifier: ${trigger.statistic} は対象(Material/EntityType)の指定が必須です`);
+        }
+        if (trigger["statistic-qualifier"] !== undefined && typeof trigger["statistic-qualifier"] !== "string") {
+          errors.push(`${prefix}.trigger.statistic-qualifier: 文字列である必要があります`);
         }
         if (!isNonNegInteger(trigger.threshold)) {
           errors.push(`${prefix}.trigger.threshold: 0以上の整数である必要があります`);
