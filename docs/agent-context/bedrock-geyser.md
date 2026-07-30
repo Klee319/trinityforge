@@ -1,0 +1,172 @@
+# 統合版（Bedrock / Geyser）の恒久知識
+
+Geyser経由でBedrock（統合版）プレイヤーを受け入れているサーバー特有の、Java版だけを見ていると
+気づけない恒久的な制約・変換原理をまとめる。作業履歴・完了報告は含めない。
+統合版対応（採掘速度、カスタムアイテム、リソースパック変換）に触る前に必ず目を通すこと。
+
+## サーバー機能の実装可否
+
+### ⚠️ 採掘速度をバニラ属性で実装してはいけない（Geyserが解釈できない）
+`Attribute.MINING_EFFICIENCY` / `Attribute.BLOCK_BREAK_SPEED` はBedrock側に存在しない属性で、
+Geyserが統合版クライアントへ送る採掘時間の自前計算にも含まれない。実装すると
+サーバー判定とクライアント表示がずれ、「素手速度に戻ってはまた通常に戻る」「ゴーストブロック」に
+なる（GeyserMC/Geyser#6266・#3113で報告済みの既知不具合）。
+**「バニラの機構だから安全」という判断は誤り** — バニラ機構であることとGeyserが翻訳できることは別問題。
+→ 唯一の互換手段は**効率強化(efficiency)エンチャントのレベル操作**。Geyserの採掘時間計算に
+効率強化は含まれているため統合版でも正しく効く。ただし**効率強化6以上は既知不具合
+（#5843: 統合版が連打で異常に速く掘れる）**を踏むため上限は5を既定にすること。
+実行時にレベルを加算する実装は「アイテムを実際に書き換える」ため、付与量のPDC記録・
+インベントリを開いた瞬間の剥がし（金床への焼き付き防止）・ログイン時の復旧走査が必須になる。
+なお、クラフト時にツールへ効率強化を刻む既存の `tool-enchant-efficiency` は統合版でも
+正常動作するため、これはそのまま残してよい。
+
+## コマンド名の衝突
+
+### ⚠️ 非修飾コマンド名は先に enable したプラグインが総取りする
+Bukkitの非修飾コマンド名（例: `/menu`）は先に enable したプラグインが登録を取り、後から
+登録した側は `plugin:command`（例: `/geyserextra:menu`）でしか呼べなくなる。
+GeyserExtraは `loadbefore: [Geyser-Spigot]` の都合で早くenableするため、他プラグインの
+`/menu` `/ga` のようなコマンドを奪っていた実例がある。症状は「特定のコマンドだけ効かない、
+または別プラグインの機能が出てくる」で、ログに `/<奪った側>:<command>` が残るのが手がかり。
+**「特定コマンドだけ効かない」報告を見たら、まず `plugin.yml`/`paper-plugin.yml` の
+commands節を全プラグイン横断で突き合わせること。**
+汎用的な動詞コマンドはサーバー運営者向けに空けておくのが望ましい。現状まだ汎用名のまま
+残っているもの（新規プラグイン導入時に同種の事故が起き得る）: `offhand`/`oh`, `tooltip`/`tt`,
+`advancements`/`adv`, `stats`, `gamerules`/`gr`, `settings`/`ds`。
+
+## カスタムアイテムの統合版登録
+
+### ⚠️ `item_model` データコンポーネント方式は実行時discovery頼みで、パックを読むだけでは統合版に出ない
+`minecraft:item_model` でモデルを差し替えたアイテム（TFのスキルツリーGUIなど）は
+`assets/<ns>/items/*.json` が「どのバニラアイテムに乗るか」の情報を持たないため、
+パックを生成するだけではGeyser側に登録できない。GeyserExtra拡張は実行時に実際のItemStackを
+観測して `(baseItem, item_model)` を拾う経路しか持たず、これは**GUIを開いた人がいて、
+かつその後サーバーを再起動するまで反映されない**。ログの
+`[ItemModel] Discovered ... will activate after restart` が「観測はしたが未反映」のサイン。
+→ 正解は `<Geyser>/extensions/geyserextra/item_model_hints/*.json` に
+`{"entries":[{"item_model":"ns:path","base_item":"minecraft:xxx"}]}` を事前に置くこと。
+起動時のパック生成前にpre-registerされるため初回から乗る。TF側の生成器は
+`resourcepack/build_item_model_hints.py`（ベースアイテムの出どころは `SkillTreeGuiVisuals` と
+各 `skilltree/*.yml` の `icon:`）。
+デバッグ手順: 「統合版だけテクスチャが出ない」場合、まず `custom_items.json` に該当
+`item_model` があるか、次に生成済みパックの `textures/items/` に出ているかを見る。
+前者だけあって後者に無ければdiscoveryとパック生成の順序問題。
+
+### ⚠️ `custom_items.json` は再生成できない永続台帳。消すと再観測するまで戻らない
+`<Geyser>/extensions/geyserextra/custom_items.json` は生成物ではなく永続レジストリで、
+PDC経路のエントリは**liveなItemStackを観測したときにしか作られない**。一度消すと
+「そのアイテムを誰かが再び手に持つ/触る」まで戻らない。バックアップ機構も無い
+（登録処理は上書き保存のみ）。**このファイルを消す/絞る変更は事実上のデータ削除として扱うこと。**
+反映は必ず2段階: (1) Paperが観測して `custom_items.json` に書く → (2) **プロキシを再起動**
+して拡張がファイルを読み直しGeyserに登録する。Paperだけ再起動しても登録数は変わらない。
+ログの `Registered NNN custom items` が期待値と違うときは、この2段階のどちらで止まっているかを見る。
+
+### ⚠️ カスタムアイテム名はパックの `texts/*.lang` からしか出ない
+Geyserのカスタムアイテムは新規のBedrockアイテム `geyserextra:<name>` として登録され、
+Bedrockクライアントはその名前を**パックの `texts/*.lang` から引く**しか手段がない。
+エントリが無いと識別子そのものが名前として表示される。サーバー側の `custom_items.json` に
+`display_name` が正しく入っていても無関係（データは正しいのにパック側の `texts/` が
+無いだけ、というケースがある。生成パックを実際に展開して確認するのが決め手で、
+JSONを眺めるだけでは分からない）。
+- キーの形は `item.geyserextra:<name>` と `item.geyserextra:<name>.name` の両方を書く
+  （Bedrockのバージョンで揺れがあるため）。
+- 識別子のサニタイズ規則は両側（パック生成側とハンドラ側）で一致させる必要がある
+  （`[^a-z0-9_\-./]` → `_` のような変換が片方だけずれると、lang キーが不一致になり
+  無言でID表示に戻る）。
+
+### ⚠️ 「未登録にすれば直る」は誤り — 名前・手持ちポーズ・オフハンド可否は三者トレードオフではなく個別に直す
+PDCだけで登録される（`customModelData=0`/`iconPath=null`）マッピングは描画を一切変えられないが、
+それでも登録するとそのアイテムはバニラBedrockアイテムでなくなり、クライアントが無料で
+提供していた2つを失う: (1) ローカライズ名（素材由来の英語推測名）、(2) 手持ちポーズ
+（バニラのattachableが与える斜め持ち等）。
+「登録をやめれば直る」と考えて未登録化すると、**統合版でオフハンドに置けなくなる**
+（下記の通りオフハンド可否は「カスタムアイテムとして登録されたか」で決まるため）。
+三者は個別の手段で直すのが正解:
+- オフハンド可否 → 登録し続ける（`allow_offhand`）
+- 手持ちポーズ → `CustomItemBedrockOptions.displayHandheld(true)` を明示する
+  （Bedrockは `hand_equipped` で斜め持ちを決め、カスタムアイテムはバニラのそれを継承しない。
+  ベースアイテムの接尾辞 `_sword`/`_pickaxe`等から判定する）
+- 名前 → 未解決。恒久解は bedrock-samples の `texts/ja_JP.lang` をビルド時に取得して
+  バニラ名表を生成すること。
+
+### 統合版でオフハンドに置けるかは「Bedrockカスタムアイテムとして登録されたか」で決まる
+登録済みアイテムには `allow_offhand: true` が付く。**未登録アイテムはバニラのベースアイテム扱いになり、
+Bedrockのオフハンド許可はバニラのごく一部（盾/トーテム/地図/矢等）に限られる**ため置けない。
+「統合版だけオフハンドに置けない」報告を見たら、コードでなくリソースパック/登録側の不備
+（モデルはあるのに未登録、モデル自体が無い等）を疑うこと。直し方はリソースパックの
+補完・再生成・再配備であり、コード側の修正ではないことが多い。
+
+## Java→Bedrock ジオメトリ・アニメーション変換の原理
+
+### ⚠️ Bedrockは左腕アタッチャブルをミラーしない（オフハンドもX反転が必要）
+Bedrock側にはJavaのようなミラー機構が無いため、オフハンド（左腕）も本手と同じくXを反転する
+（`mirrorX=true` 固定）。「Javaの-1とBedrockのXミラー-1が相殺するので宣言値そのまま」という
+判断は誤り。X=0付近（三人称root）ではミラー不変で症状が隠れ、Xの大きいモデルで初めて
+「オフハンドが実質2倍右にずれる」形で表面化する。**一人称のroot姿勢は左右非対称
+（`[90,60,-40]`等）なので、必ず手動でミラー処理（rotation `(x,-y,-z)` / position `(-x,y,z)`）を
+適用する必要がある**（三人称が正しく見えても一人称の対称性は保証されない）。
+
+### Javaの左手則（`ItemTransform#apply`時のleftHand反転）は無条件で働く
+`*_lefthand` の宣言があってもなくても、バニラは leftHand=true のとき rotation Y/Z を反転し
+translation X の符号を反転する（`*_lefthand` 未宣言時は右手のtransformオブジェクトを
+そのまま代入するため、反転処理自体は必ず通る）。「`*_lefthand` が宣言されているから
+反転しない」という前提は誤り。パック作者が左手スロットに事前補正済みの値
+（右手 `+90` に対し左手 `-90` 等）を書いているのは、この無条件反転を見越しているため。
+
+### geometry format 1.21.0（per-face uv_rotation）を使うなら manifestの `min_engine_version` も揃える
+per-faceの `uv_rotation` を出力すると geometry は `format_version 1.21.0` になる。この時
+パックの `manifest.json` の `min_engine_version` も `[1,21,0]` に上げないと、クライアントが
+古い解釈で読んでper-face UVが壊れ、**3Dモデルのテクスチャだけ総崩れになる**
+（flatモデルは無傷なので「3Dだけ全部おかしい」という症状で出る）。
+
+### ⚠️ Bedrockは親boneのscaleが子boneのpositionにも掛かる（Javaは掛からない）
+Javaの `ItemTransform#apply` は手座標系で「平行移動→回転→モデルをscale」の順なので、
+平行移動はscaleの影響を受けない。しかしBedrockは親boneのscaleが子bone位置にも掛かる構造のため、
+root scaleをそのまま持ち込むとJavaのdisplay平行移動が数倍に膨らみ、大型武器のモデルが
+画面外へ飛ぶ。
+**正しい規則**: 子boneのposition = 変換後平行移動 ÷ root scale。root base poseは全アイテム
+共通の固定値とし、アイテムごとの差はJava側のdisplay.scaleだけに持たせる（root補正に
+display.scaleを持ち込むと同じ情報の二重計上になる）。
+
+### 一人称translationは軸ごとの符号反転だけでは足りない（frame変換が必要）
+per-axisの符号反転が厳密に正しいのはroot回転が座標軸に揃っている場合だけ
+（三人称root `[90,0,0]` は揃っているので単純な符号反転で正しい）。一人称root
+`[90,60,-40]` のように揃っていない場合、Javaの1軸の移動がBedrock側では複数軸に分散する。
+誤差はtranslationの大きさに比例するため、translationがほぼ0のアイテムでは症状が出ず、
+大型武器（Zが飛び抜けて大きい等）でだけ表面化する。実装は三人称の実測出力から一意に
+逆算した写像行列（`firstPersonTranslationFrame`、実機確認済みの値は `zxy`）を使うこと。
+合成順序は理論だけでは決まらないため、**必ず実機で1回振って符号・順序を確定させる**。
+
+### 一人称のY軸は三人称・headと逆向き（実機確認必須、類推禁止）
+一人称rootのposition Yは、減らすと画面上（手から離れる）方向へ動き、増やすと手に近づく。
+三人称は「上げると上に見える」ため、そこから類推すると符号が逆になる。
+root回転が軸に揃っていないため見た目のズレをピクセル換算で符号決定することもできない。
+**教訓: 一人称アームフレームの軸の向きは他フレームから導出できない。必ず実機で1回振って
+符号を確定させること。**
+
+### ⚠️ Blockbenchの自由回転`{x,y,z}`を単軸`angle`/`axis`前提のコードが無言で無視する
+Blockbenchは要素回転を単軸 `{angle, axis, origin}` だけでなく自由回転 `{x, y, z, origin}` でも
+出力する。`angle`/`axis` を前提にしたコードは自由回転時に `angle==0 && axis==null` を
+「回転なし」と誤読し、**例外も警告も出さずに回転ゼロとして通す**。
+これにより「モデルは正しいのにテクスチャだけずれる」（geometry変換側）と
+「インベントリアイコンが縞模様になる」（icon描画側）という、一見無関係な2つの症状が
+同時に発生し得る。`[-180, θ, 180]` のような合成可能な自由回転は単軸 `Ry(-180-θ)` に
+畳めるため、Bedrockへ渡す前に単軸へ還元するのが正解（行列距離で一致を探す）。
+**要素回転を読むコードを書くときは必ず `euler()` 分岐を先に書き、`angle()==0` を
+無条件で「回転なし」と読まないこと。**
+
+### Java→Bedrock変換の一次情報源は2つあり、食い違う箇所がある
+- GeyserMC Rainbow（公式・現行）: `rainbow/.../mapping/{geometry/GeometryMapper,animation/AnimationMapper}.java`
+- Kas-tle java2bedrock.sh（単一ファイル `converter.sh`。GeyserExtraはここから移植した経緯がある）
+
+一致点: cube originはXミラー、Zは`-8`シフト、Yはそのまま。up/down面のUVはpoint mirror。
+UVスケールは `PNG幅/16`。
+食い違い（実機検証が必要）: cube回転のY符号（j2bは`-angle`、Rainbowは`+angle`。Rainbowが新しい）、
+cube boneのpivot（RainbowはAABB中心、Java準拠実装は`[0,8,0]`）、一人称の構造
+（Rainbowは単boneと軸置換、j2bはroot付き多段bone）。
+罠ではないと判明済みの誤仮説: Blockbenchの `"texture_size":[32,32]` があってもface `uv`実値は
+0..16レンジに正規化されているため、`texture_size`で追加補正してはいけない。
+
+## 関連
+- [./config-editor.md](./config-editor.md)
+- [./common-traps.md](./common-traps.md)
