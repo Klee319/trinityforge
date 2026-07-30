@@ -65,7 +65,7 @@ cd tools/config-editor && npm test
 | `reports/ACTIVE_RECORD.md` | 残タスクの一次情報 |
 | `docs/agent-context/` | 恒久知識ベース |
 | `.claude/agents/` | ドメイン別サブエージェント定義 |
-| `.claude/workflows/` | 反復ワークフロー（`triage-reports` / `audit-drift` / `verify-diff`） |
+| `.claude/workflows/` | 反復ワークフロー（`triage-reports` / `audit-drift` / `verify-diff` / `parallel-implement`） |
 
 ## 並列作業
 
@@ -73,6 +73,8 @@ cd tools/config-editor && npm test
 要点だけ: **worktree はワークツリー衝突を消すがマージ衝突は消さない**（避けるのはファイル所有権の分割）。
 `reports/ACTIVE_RECORD.md` / `TrinityForge.java` の配線 / `config-editor` の `constants.js` 2 本は
 **1 波に 1 人しか触れない**。**フォークは `.gitignore` 除外なので worktree には存在せず、並列化できない。**
+この割り当てを自動でやるのが `.claude/workflows/parallel-implement.js`
+（触るファイルを先に調べ、交わるタスクを同じレーンへ落としてから worktree で並列実装する）。
 
 ## 進め方の型
 

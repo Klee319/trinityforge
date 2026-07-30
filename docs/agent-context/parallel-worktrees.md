@@ -19,11 +19,17 @@
   除外された**別リポジトリ**なので、**新しい worktree には存在しない**。
   → フォーク作業は**メインのワークツリーで、直列に**行う。
 - **配備・運用（`ops/`, `tmp/*.cmd` の実行）。** 配備先は 1 セットしかない。並列化する意味が無く、危険。
-- ⚠️ **worktree で `releaseAssembly` を走らせると、フォーク用の compileOnly jar が本物のフォークに届かない。**
+- ⚠️ **worktree で `releaseAssembly` を走らせても、フォーク用の compileOnly jar は本物のフォークに届かない。**
   `TrinityForge/build.gradle.kts` の `releaseAssembly` は `rootProject.projectDir.resolve("../fork-handoff/…/libs")`
-  へコピーし、その直前に `target.mkdirs()` する。worktree では**空の `fork-handoff/…/libs/` を新規作成して
-  そこへ置くだけ**で、エラーも警告も出ない。TF の public API を変えたら**メインのワークツリーで
-  `releaseAssembly` を打ち直す**こと。
+  へコピーする。worktree にフォークは存在しないので、当然そこへは配れない。
+  **TF の public API を変えたら、メインのワークツリーで `releaseAssembly` を打ち直すこと。**
+  （かつては直前に無条件 `target.mkdirs()` していたため、**空の `fork-handoff/…/libs/` を新規作成して
+  そこへ jar を置くだけ**という無言の失敗になっていた。現在は「フォークが実在するときだけ配る」に修正し、
+  配れなかった場合は警告を出す。worktree だと検出できたときは「メインのワークツリーで打ち直せ」も併記される。）
+- ⚠️ **`dev` の HEAD が単体でコンパイルできる状態でないと、worktree は使えない。**
+  worktree は `dev` から切るので、メインのワークツリーの**未コミット変更に依存してビルドが通っている**状態だと、
+  切った瞬間にコンパイルエラーになる（呼び出し側だけ commit されて新規ファイルが `git add` されていない、が典型）。
+  並列化を始める前に `git worktree add` して `compileJava` が通るかを 1 回確かめること。
 
 ## choke file（所有者を 1 人に固定するもの）
 
@@ -83,6 +89,26 @@ git worktree remove ../tf-wt-combat && git branch -d work/combat
 2. リストが重なったタスクは**同じ worktree に入れる**（＝直列にする）。
 3. choke file に触るタスクは**1 波に 1 つだけ**通す。
 4. フォークを触るタスクは worktree に出さない。
+
+## 自動化: `parallel-implement` ワークフロー
+
+上の 1〜4 を自動でやるのが `.claude/workflows/parallel-implement.js`。タスク説明の配列を渡すと:
+
+1. **Scout** — タスクごとに読み取り専用エージェントが「触るファイル」を調べる（実装はしない）。
+2. **分割** — ファイル集合の**連結成分**でレーンを決める。ここは**モデルに判断させず JS でやる**
+   （union-find。交わるタスクは同じレーンへ落ちる＝自動的に直列化される）。
+   `fork-handoff/` `ops/` に当たるタスクは実装せず「直列送り」として差し戻す。
+3. **Implement** — レーンごとに worktree を切って並列実装し、`work/wave-N` ブランチへコミットする。
+   各エージェントには**自分が所有するファイルのリスト**を渡し、それ以外を触らせない。
+   リスト外を触る必要が出たら、変更せず報告させる。
+4. **Verify** — レーンごとに差分を反証レビューする。
+
+返ってくるのは `mergeOrder`（マージすべきブランチの順序）と、各レーンの `wiringNeeded`（`TrinityForge.java`
+の配線として統合役が書くべき内容）。**マージと `ACTIVE_RECORD.md` への追記は自動化していない** —
+choke file を機械に触らせないための意図的な設計。
+
+3 タスクが全部 `TrinityForge.java` を触るなら 1 レーンにまとまる。つまり
+**「並列化しても無駄」であること自体が結果として出てくる**（無理に 3 本走らせて衝突させない）。
 
 ## 現実的な効き方（誇張しないこと）
 
