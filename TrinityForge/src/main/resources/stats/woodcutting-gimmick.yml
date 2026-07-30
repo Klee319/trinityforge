@@ -8,6 +8,11 @@
 tree-fell:
   max-extra-logs: 8
   cooldown-ticks: 200
+  # 幹に繋がる葉も一緒に壊すか(2026-07-30)。false にすると原木だけ消えて葉が空中に残る。
+  break-leaves: true
+  # 巻き込む葉の上限 = 実際に伐った原木の本数 × この値。原木側のtier表へ自動追従する。
+  # 葉は「伐採のおまけの片付け」なので道具の耐久は消費しない(TreeFellingListener 参照)。
+  leaves-per-log: 6
   tiers:
     "1":
       max-extra-logs: 8

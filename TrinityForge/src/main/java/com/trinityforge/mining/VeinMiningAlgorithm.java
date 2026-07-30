@@ -61,15 +61,30 @@ public final class VeinMiningAlgorithm {
      */
     public static List<BlockPos> collect(BlockPos start, Predicate<BlockPos> isTarget, int maxExtra) {
         Objects.requireNonNull(start, "start");
+        return collectFrom(List.of(start), isTarget, maxExtra);
+    }
+
+    /**
+     * Multi-source variant of {@link #collect}: the search starts from the face-neighbors of
+     * <em>every</em> position in {@code sources}, and none of the sources themselves can appear in the
+     * result. Used by 一括伐採の葉の巻き込み (the felled trunk is many blocks, and the canopy touches it
+     * at many different points — a single-source search from the originally broken log would stop as
+     * soon as the trunk was already gone).
+     */
+    public static List<BlockPos> collectFrom(java.util.Collection<BlockPos> sources,
+                                             Predicate<BlockPos> isTarget, int maxExtra) {
+        Objects.requireNonNull(sources, "sources");
         Objects.requireNonNull(isTarget, "isTarget");
         List<BlockPos> result = new ArrayList<>();
-        if (maxExtra <= 0) {
+        if (maxExtra <= 0 || sources.isEmpty()) {
             return result;
         }
 
-        Set<BlockPos> visited = new LinkedHashSet<>();
-        visited.add(start);
-        ArrayDeque<BlockPos> queue = new ArrayDeque<>(start.faceNeighbors());
+        Set<BlockPos> visited = new LinkedHashSet<>(sources);
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        for (BlockPos source : sources) {
+            queue.addAll(source.faceNeighbors());
+        }
         // Seed neighbors are enqueued once; mark them visited only when dequeued/accepted below so a
         // position reachable via two different paths is not enqueued twice from this first ring... but
         // to keep the guard simple and correct we mark on enqueue instead (see loop).

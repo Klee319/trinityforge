@@ -57,6 +57,28 @@ public final class EliteMobsDungeonBridge {
     private EliteMobsDungeonBridge() {
     }
 
+    /**
+     * EliteMobs のクラスを EliteMobs 自身のクラスローダから引く(2026-07-30 修正)。
+     *
+     * <p><b>素の {@code Class.forName(name)} では引けない。</b> TF は Paper プラグイン
+     * ({@code paper-plugin.yml})なのでクラスローダが分離されており、{@code dependencies:} に宣言して
+     * いないプラグインのクラスは見えない。EliteMobs は自身の {@code plugin.yml} で TrinityForge を
+     * softdepend しているため、TF 側から {@code load: BEFORE} を宣言すると依存が循環してしまう —
+     * したがって宣言ではなく<b>相手のクラスローダを明示して解決する</b>のが唯一の手段
+     * ({@code CatalogRitualBridge} が ArsPaper に対して行っているのと同じ形)。
+     *
+     * <p>これが効いていなかったため {@link #installedContentPackageIds()} が常に
+     * {@code ClassNotFoundException} → 空集合になり、{@code /tf dungeon} のサジェストに
+     * インストール済みダンジョン(ダークカテドラル等)が1件も出てこなかった。
+     */
+    private static Class<?> emClass(String name) throws ClassNotFoundException {
+        org.bukkit.plugin.Plugin em = Bukkit.getPluginManager().getPlugin(PLUGIN_NAME);
+        if (em == null) {
+            throw new ClassNotFoundException(name);
+        }
+        return Class.forName(name, true, em.getClass().getClassLoader());
+    }
+
     public static boolean isAvailable() {
         return Bukkit.getPluginManager().getPlugin(PLUGIN_NAME) != null;
     }
@@ -88,7 +110,7 @@ public final class EliteMobsDungeonBridge {
         }
         String normalized = normalizeContentPackageId(contentPackageId);
         try {
-            Class<?> emPackageClass = Class.forName(EM_PACKAGE_CLASS);
+            Class<?> emPackageClass = emClass(EM_PACKAGE_CLASS);
             Map<?, ?> emPackages = (Map<?, ?>) emPackageClass.getMethod("getEmPackages").invoke(null);
             Object emPackage = emPackages.get(normalized);
             if (emPackage == null) {
@@ -98,7 +120,7 @@ public final class EliteMobsDungeonBridge {
             if (!installed) {
                 return false;
             }
-            Class<?> matchInstanceClass = Class.forName(MATCH_INSTANCE_CLASS);
+            Class<?> matchInstanceClass = emClass(MATCH_INSTANCE_CLASS);
             Method getAnyPlayerInstance = matchInstanceClass.getMethod("getAnyPlayerInstance", Player.class);
             Object existingInstance = getAnyPlayerInstance.invoke(null, player);
             if (existingInstance != null) {
@@ -133,7 +155,7 @@ public final class EliteMobsDungeonBridge {
             return Set.of();
         }
         try {
-            Class<?> emPackageClass = Class.forName(EM_PACKAGE_CLASS);
+            Class<?> emPackageClass = emClass(EM_PACKAGE_CLASS);
             Map<?, ?> emPackages = (Map<?, ?>) emPackageClass.getMethod("getEmPackages").invoke(null);
             if (emPackages == null || emPackages.isEmpty()) {
                 return Set.of();
@@ -181,7 +203,7 @@ public final class EliteMobsDungeonBridge {
     private static boolean hasUsableTeleportTarget(Object emPackage) {
         try {
             for (String browserBackedClass : BROWSER_BACKED_PACKAGE_CLASSES) {
-                if (Class.forName(browserBackedClass).isInstance(emPackage)) {
+                if (emClass(browserBackedClass).isInstance(emPackage)) {
                     return true;
                 }
             }
@@ -212,7 +234,7 @@ public final class EliteMobsDungeonBridge {
         }
         String normalized = normalizeContentPackageId(contentPackageId);
         try {
-            Class<?> clazz = Class.forName(DUNGEON_COMMANDS_CLASS);
+            Class<?> clazz = emClass(DUNGEON_COMMANDS_CLASS);
             Method method = clazz.getMethod("teleport", Player.class, String.class);
             method.invoke(null, player, normalized);
             return true;

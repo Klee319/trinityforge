@@ -186,10 +186,49 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
         // 2026-07-28: 連鎖分の採取EXPと道具耐久は ChainBreakSupport が担う(旧実装は breakNaturally
         // だけで、EXPも耐久も一切処理されていなかった)。
         int broken = ChainBreakSupport.breakChain(player, world, extra, type, tool, chainBreakExp);
+        int leaves = fellLeaves(player, world, start, extra, broken, tool);
         if (broken > 0) {
             // 2026-07-25 §2 B-1: 発動フィードバック(控えめなactionbar)。
-            feedback.subtle(player, "一括伐採 x" + broken);
+            feedback.subtle(player, leaves > 0
+                    ? "一括伐採 x" + broken + " (葉 x" + leaves + ")"
+                    : "一括伐採 x" + broken);
         }
+    }
+
+    /**
+     * 伐り倒した幹に繋がる葉も一緒に壊す(2026-07-30 実サーバ要望「一括伐採時に葉っぱも一括破壊されて
+     * ほしい」)。
+     *
+     * <p><b>多点起点で探索する理由</b>: この時点で幹はすでに AIR になっているため、元の1ブロックから
+     * 単純に flood-fill すると葉に辿り着けない。実際に壊した原木の座標<em>全部</em>を起点にして、
+     * そこから面隣接で繋がる葉だけを拾う。上限は「壊した原木の本数 × {@code leaves-per-log}」なので、
+     * 原木側のtier表がそのまま葉の量にも効く。
+     *
+     * <p>道具の耐久は消費しない({@link ChainBreakSupport#breakChain} の {@code consumeDurability=false})
+     * — 葉は硬度0.2でバニラなら耐久を減らすが、原木1本で数十枚が巻き込まれるため、そのまま取ると
+     * 「一括伐採を解放した途端に斧が即壊れる」になる。採取EXPは原木と同じく設定次第
+     * ({@code woodcutting_progression.yml} に葉の行が無ければ0)。
+     *
+     * @return 実際に壊した葉の枚数
+     */
+    private int fellLeaves(Player player, World world, BlockPos origin, List<BlockPos> fellLogs,
+                           int brokenLogs, ItemStack tool) {
+        if (!gimmickConfig.treeFellBreakLeaves() || brokenLogs <= 0) {
+            return 0;
+        }
+        int maxLeaves = brokenLogs * gimmickConfig.treeFellLeavesPerLog();
+        if (maxLeaves <= 0) {
+            return 0;
+        }
+        List<BlockPos> sources = new java.util.ArrayList<>(fellLogs.size() + 1);
+        sources.add(origin);
+        sources.addAll(fellLogs);
+        List<BlockPos> canopy = VeinMiningAlgorithm.collectFrom(
+                sources,
+                pos -> WoodcuttingMaterials.isLeaves(world.getBlockAt(pos.x(), pos.y(), pos.z()).getType()),
+                maxLeaves);
+        return ChainBreakSupport.breakChain(player, world, canopy, WoodcuttingMaterials::isLeaves,
+                tool, chainBreakExp, false);
     }
 
     @Override

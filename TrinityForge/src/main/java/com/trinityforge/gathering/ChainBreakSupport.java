@@ -50,12 +50,29 @@ public final class ChainBreakSupport {
      */
     public static int breakChain(Player player, World world, List<BlockPos> positions, Material type,
                                  ItemStack tool, ChainBreakExpGrant expGrant) {
+        return breakChain(player, world, positions, material -> material == type, tool, expGrant, true);
+    }
+
+    /**
+     * {@link #breakChain(Player, World, List, Material, ItemStack, ChainBreakExpGrant)} の一般形。
+     *
+     * @param accepts           破壊してよい材質の述語(一括伐採の葉のように「材質が一定でない連鎖」用)。
+     * @param consumeDurability {@code false} なら道具の耐久を減らさず、道具の破損による打ち切りも
+     *                          行わない。一括伐採の葉の巻き込みで使う — 葉は硬度0.2なのでバニラなら
+     *                          耐久を消費するが、原木1本の伐採で数十〜数百枚が巻き込まれるため、
+     *                          そのまま消費させると「一括伐採を解放した途端に斧が即壊れる」になる。
+     *                          <b>葉は「原木伐採のおまけの片付け」であって収穫ではない</b>という
+     *                          位置づけなので耐久は取らない。
+     */
+    public static int breakChain(Player player, World world, List<BlockPos> positions,
+                                 java.util.function.Predicate<Material> accepts, ItemStack tool,
+                                 ChainBreakExpGrant expGrant, boolean consumeDurability) {
         int broken = 0;
-        boolean damageTool = consumesDurability(player, tool);
+        boolean damageTool = consumeDurability && consumesDurability(player, tool);
         Material toolType = tool == null ? null : tool.getType();
         for (BlockPos pos : positions) {
             Block target = world.getBlockAt(pos.x(), pos.y(), pos.z());
-            if (target.getType() != type) {
+            if (!accepts.test(target.getType())) {
                 continue;
             }
             if (damageTool && player.getInventory().getItemInMainHand().getType() != toolType) {

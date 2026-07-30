@@ -37,10 +37,14 @@ public final class WoodcuttingGimmickConfig {
 
     private static final int DEFAULT_MAX_EXTRA_LOGS = 8;
     private static final int DEFAULT_COOLDOWN_TICKS = 200;
+    /** 原木1本あたり巻き込む葉の枚数の既定倍率(2026-07-30 一括伐採の葉巻き込み)。 */
+    private static final int DEFAULT_LEAVES_PER_LOG = 6;
 
     private volatile int treeFellMaxExtraLogs = DEFAULT_MAX_EXTRA_LOGS;
     private volatile int treeFellCooldownTicks = DEFAULT_COOLDOWN_TICKS;
     private volatile TierTable<Integer> treeFellTiers = TierTable.empty();
+    private volatile boolean treeFellBreakLeaves = true;
+    private volatile int treeFellLeavesPerLog = DEFAULT_LEAVES_PER_LOG;
     private volatile Map<String, DropTableConfig.Category> dropTables = Map.of();
 
     /** {@code tree-fell} の一括伐採上限本数(トリガー原木を含まない)。tiers未定義時のグローバル既定値。 */
@@ -60,6 +64,23 @@ public final class WoodcuttingGimmickConfig {
     /** 一括伐採のプレイヤー毎クールダウン(tick)。 */
     public int treeFellCooldownTicks() {
         return treeFellCooldownTicks;
+    }
+
+    /**
+     * 一括伐採で、伐り倒した幹に繋がる葉も一緒に壊すか({@code tree-fell.break-leaves}, 2026-07-30)。
+     * 幹だけ消えて葉が空中に浮いたまま残るのを避けるための設定。
+     */
+    public boolean treeFellBreakLeaves() {
+        return treeFellBreakLeaves;
+    }
+
+    /**
+     * 巻き込む葉の上限枚数を「実際に伐った原木の本数 × この値」で決める
+     * ({@code tree-fell.leaves-per-log})。tier表を葉のぶんだけ二重に持たずに、原木の上限tierへ
+     * 自動追従させるための係数。
+     */
+    public int treeFellLeavesPerLog() {
+        return treeFellLeavesPerLog;
     }
 
     /** {@code drop-tables.categories} (2026-07-23 §4): カテゴリid -&gt; 定義。ゲート/抽選は {@code DropTablePolicy} が担う。 */
@@ -91,6 +112,10 @@ public final class WoodcuttingGimmickConfig {
                 yaml.getInt("tree-fell.cooldown-ticks", DEFAULT_COOLDOWN_TICKS),
                 "tree-fell.cooldown-ticks", DEFAULT_COOLDOWN_TICKS, log);
         this.treeFellTiers = parseTreeFellTiers(yaml.getConfigurationSection("tree-fell.tiers"), log);
+        this.treeFellBreakLeaves = yaml.getBoolean("tree-fell.break-leaves", true);
+        this.treeFellLeavesPerLog = clampPositiveInt(
+                yaml.getInt("tree-fell.leaves-per-log", DEFAULT_LEAVES_PER_LOG),
+                "tree-fell.leaves-per-log", DEFAULT_LEAVES_PER_LOG, log);
         this.dropTables = DropTableConfig.parseCategories(
                 yaml.getConfigurationSection("drop-tables.categories"), true, PATH, log);
 

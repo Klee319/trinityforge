@@ -47,12 +47,21 @@ public final class SkillTreeLayout {
     private final Map<String, Coord> memo = new HashMap<>();
     private final Map<Integer, Coord> prestigeCoords = new HashMap<>();
     private final Set<Coord> occupied = new HashSet<>();
+    /**
+     * このツリーに排他路線(GREEK)が存在するか(2026-07-30)。存在するなら
+     * <b>GREEK は必ず左半平面 / BRANCH は必ず右半平面</b>へ分ける({@link #placeSiblingLayer})。
+     * GREEK が1つも無いツリー(ars_magic 等)では従来どおり左右交互に振る — 片側だけに寄せると
+     * 画面の半分が空くため。
+     */
+    private final boolean halfPlaneByRole;
 
     public SkillTreeLayout(SkillTree tree) {
         this.nodes = tree.nodes();
         int[] start = parseCoords(tree.startingCoords());
         this.startX = start[0];
         this.centerY = start[1];
+        this.halfPlaneByRole = tree.nodes().values().stream()
+                .anyMatch(node -> node.role() == SkillRole.GREEK);
         this.mainsSorted = nodes.values().stream()
                 .filter(n -> n.role() == SkillRole.MAIN)
                 .sorted(Comparator.comparingInt(SkillNode::level).thenComparing(SkillNode::id))
@@ -210,28 +219,46 @@ public final class SkillTreeLayout {
      *
      * <p>兄弟が1つだけの場合は従来どおり(主軸の子は {@code trunkFanOrdinal} で左右交互、
      * それ以外は真上)。
+     *
+     * <p><b>2026-07-30 追加改修(排他×分岐の干渉)</b>: バケットの側を「並び順」で決めていたため、
+     * 排他グループの側が<em>その主軸に分岐の子が居るかどうか</em>で入れ替わっていた
+     * (light/heavy_weapons: C・D は分岐がバケット0=左を取るので排他が右、分岐を持たない E は
+     * 排他がバケット0=左)。その結果 lv90〜100 帯で分岐チェーンの列(x=0)と E の排他が同じ列に来て、
+     * 分岐のコネクタが排他グループの行を横切っていた。排他を持つツリーでは
+     * <b>GREEK=左 / BRANCH=右</b>に固定して半平面を分離する({@code docs/agent-context/
+     * progression-skilltree.md} が元々「BRANCH は右半平面・GREEK は左半平面」と書いていた設計意図)。
      */
     private void placeSiblingLayer(List<SkillNode> siblings, Coord parent,
                                    boolean trunkParent, int trunkFanOrdinal) {
         int y = parent.y() - TRUNK_STEP;
         if (siblings.size() == 1) {
-            int offset = trunkParent
-                    ? (trunkFanOrdinal % 2 == 0 ? SIDE_STEP : -SIDE_STEP)
-                    : 0;
-            put(siblings.get(0).id(), findFreeInLayer(new Coord(parent.x() + offset, y), parent));
+            SkillNode only = siblings.get(0);
+            int offset;
+            if (halfPlaneByRole && trunkParent) {
+                offset = sideSign(only) * SIDE_STEP;
+            } else {
+                offset = trunkParent ? (trunkFanOrdinal % 2 == 0 ? SIDE_STEP : -SIDE_STEP) : 0;
+            }
+            put(only.id(), findFreeInLayer(new Coord(parent.x() + offset, y), parent));
             return;
         }
         List<List<SkillNode>> buckets = groupBuckets(siblings);
         int[] lanesPerSide = new int[2]; // 0 = 左(-X), 1 = 右(+X)
         for (int bucketIndex = 0; bucketIndex < buckets.size(); bucketIndex++) {
-            int side = bucketIndex % 2;
-            int sign = side == 0 ? -1 : 1;
-            for (SkillNode member : buckets.get(bucketIndex)) {
+            List<SkillNode> bucket = buckets.get(bucketIndex);
+            int sign = halfPlaneByRole ? sideSign(bucket.get(0)) : (bucketIndex % 2 == 0 ? -1 : 1);
+            int side = sign < 0 ? 0 : 1;
+            for (SkillNode member : bucket) {
                 int lane = ++lanesPerSide[side];
                 Coord preferred = new Coord(parent.x() + sign * lane * SIDE_STEP, y);
                 put(member.id(), findFreeInLayer(preferred, parent));
             }
         }
+    }
+
+    /** 半平面分離の向き: GREEK(排他路線)は左(-1)、それ以外(BRANCH)は右(+1)。 */
+    private static int sideSign(SkillNode node) {
+        return node.role() == SkillRole.GREEK ? -1 : 1;
     }
 
     /**
@@ -265,46 +292,77 @@ public final class SkillTreeLayout {
      * </ul>
      * を満たす最初のセルを返す。
      *
-     * <p>どうしても見つからない場合は隣接禁止 → 主軸列予約の順に条件を緩めるので、
-     * 「配置できずに例外」という結果が改修前より増えることはない。
+     * <p>どうしても見つからない場合は「迂回なしコネクタ」→ 隣接禁止 → 主軸列予約の順に条件を
+     * 緩めるので、「配置できずに例外」という結果が改修前より増えることはない。
      */
     private Coord findFreeInLayer(Coord preferred, Coord parent) {
-        Coord strict = search(preferred, parent, true, true);
+        Coord strict = search(preferred, parent, true, true, true);
         if (strict != null) return strict;
-        Coord relaxedAdjacency = search(preferred, parent, false, true);
+        Coord relaxedRoute = search(preferred, parent, true, true, false);
+        if (relaxedRoute != null) return relaxedRoute;
+        Coord relaxedAdjacency = search(preferred, parent, false, true, false);
         if (relaxedAdjacency != null) return relaxedAdjacency;
-        Coord anyFree = search(preferred, parent, false, false);
+        Coord anyFree = search(preferred, parent, false, false, false);
         if (anyFree != null) return anyFree;
         throw new IllegalStateException("no free branch coordinate near " + preferred.format());
     }
 
-    private Coord search(Coord preferred, Coord parent, boolean requireGap, boolean avoidTrunkColumn) {
+    private Coord search(Coord preferred, Coord parent, boolean requireGap, boolean avoidTrunkColumn,
+                         boolean requireDirectRoute) {
         for (int cost = 0; cost <= MAX_DETOUR; cost++) {
             for (int depth = Math.min(cost, MAX_DEEPER_ROWS); depth >= 0; depth--) {
                 int ring = cost - depth;
                 int y = preferred.y() - depth * TRUNK_STEP;
                 if (ring == 0) {
                     Coord center = new Coord(preferred.x(), y);
-                    if (fits(center, parent, requireGap, avoidTrunkColumn)) return center;
+                    if (fits(center, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return center;
                     continue;
                 }
                 Coord left = new Coord(preferred.x() - ring * SIDE_STEP, y);
-                if (fits(left, parent, requireGap, avoidTrunkColumn)) return left;
+                if (fits(left, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return left;
                 Coord right = new Coord(preferred.x() + ring * SIDE_STEP, y);
-                if (fits(right, parent, requireGap, avoidTrunkColumn)) return right;
+                if (fits(right, parent, requireGap, avoidTrunkColumn, requireDirectRoute)) return right;
             }
         }
         return null;
     }
 
-    private boolean fits(Coord candidate, Coord parent, boolean requireGap, boolean avoidTrunkColumn) {
+    private boolean fits(Coord candidate, Coord parent, boolean requireGap, boolean avoidTrunkColumn,
+                         boolean requireDirectRoute) {
         if (occupied.contains(candidate) || candidate.equals(parent) || candidate.equals(rootCoord())) {
             return false;
         }
         if (avoidTrunkColumn && candidate.x() == startX) {
             return false;
         }
-        return !requireGap || !touchesPlacedNode(candidate);
+        if (requireGap && touchesPlacedNode(candidate)) {
+            return false;
+        }
+        return !requireDirectRoute || hasDirectRoute(parent, candidate);
+    }
+
+    /**
+     * 親からこのセルまで<b>迂回なし</b>でコネクタを引けるか(2026-07-30)。
+     *
+     * <p>空きセル判定だけでは「親との間に別のノードが挟まっている」座標を弾けない。実例:
+     * light_weapons / heavy_weapons の lv100 で {@code D-1-2} が親 {@code D-1-1(0,0)} の真上2段
+     * {@code (0,-4)} に置かれ、その間の {@code (0,-2)} に排他ノード {@code E-alpha-1} が居た。
+     * 空きセルとしては合格するがコネクタは通れず、{@link #route} が排他グループの行を大きく
+     * 横切る迂回路を引いて「排他と分岐が干渉している」状態になっていた。
+     *
+     * <p>{@link GridConnectorRouting#route} は BFS なので、障害物が無ければ経路長は必ず
+     * マンハッタン距離に一致する。<b>経路長 &gt; マンハッタン距離 = 迂回が必要</b>なので、
+     * これを候補の足切りに使う(階段状の経路は迂回ではないので通る)。
+     */
+    private boolean hasDirectRoute(Coord parent, Coord candidate) {
+        int manhattan = Math.abs(parent.x() - candidate.x()) + Math.abs(parent.y() - candidate.y());
+        Set<Coord> blocked = new HashSet<>(occupied);
+        blocked.add(rootCoord());
+        try {
+            return GridConnectorRouting.route(parent, candidate, blocked, 2).size() - 1 == manhattan;
+        } catch (IllegalStateException unreachable) {
+            return false;
+        }
     }
 
     /** 8近傍(斜めを含む)に配置済みノードがあるか = コネクタ用の隙間が無いか。 */

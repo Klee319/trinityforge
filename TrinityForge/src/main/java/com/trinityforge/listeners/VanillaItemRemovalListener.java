@@ -58,6 +58,32 @@ public final class VanillaItemRemovalListener implements Listener {
         this.remover = Objects.requireNonNull(remover, "remover");
     }
 
+    /**
+     * 1スタックを無害化し、「アイテムごと消すべきか」を返す(2026-07-30)。
+     *
+     * <p>{@code removed-vanilla-items} のエンチャント指定({@code ANY:MENDING} 等)は
+     * <b>アイテムを消さずに該当エンチャントだけ剥がす</b>方針になったため、全経路がこの1点を通る。
+     * 元の {@link VanillaItemRemover#shouldRemove} は「一致するか」を返す純関数のまま残してある
+     * (既存テストと、状態を書き換えたくない照会用)。
+     *
+     * <p>{@link org.bukkit.entity.Item} の中身を直す場合は、剥がした結果を必ず
+     * {@code setItemStack} で書き戻すこと — 実装によっては {@code getItemStack()} が
+     * ライブミラーではなくコピーを返し、その場での編集が黙って捨てられる。
+     */
+    private boolean sanitizeAndShouldRemove(ItemStack stack) {
+        return remover.sanitize(stack) == VanillaItemRemover.Verdict.REMOVE;
+    }
+
+    /** {@link Item} エンティティ版: 剥がした結果の書き戻しまで面倒を見る。 */
+    private boolean sanitizeAndShouldRemove(Item item) {
+        ItemStack stack = item.getItemStack();
+        VanillaItemRemover.Verdict verdict = remover.sanitize(stack);
+        if (verdict == VanillaItemRemover.Verdict.STRIPPED) {
+            item.setItemStack(stack);
+        }
+        return verdict == VanillaItemRemover.Verdict.REMOVE;
+    }
+
     // --- 入手経路の遮断 ---
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -65,7 +91,7 @@ public final class VanillaItemRemovalListener implements Listener {
         if (!remover.hasTargets()) {
             return;
         }
-        event.getLoot().removeIf(remover::shouldRemove);
+        event.getLoot().removeIf(this::sanitizeAndShouldRemove);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -74,7 +100,7 @@ public final class VanillaItemRemovalListener implements Listener {
             return;
         }
         List<ItemStack> drops = new ArrayList<>(event.getDrops());
-        if (drops.removeIf(remover::shouldRemove)) {
+        if (drops.removeIf(this::sanitizeAndShouldRemove)) {
             event.getDrops().clear();
             event.getDrops().addAll(drops);
         }
@@ -91,7 +117,7 @@ public final class VanillaItemRemovalListener implements Listener {
         // entity itself must be removed too.
         List<Item> items = new ArrayList<>(event.getItems());
         for (Item item : items) {
-            if (remover.shouldRemove(item.getItemStack())) {
+            if (sanitizeAndShouldRemove(item)) {
                 event.getItems().remove(item);
                 item.remove();
             }
@@ -113,7 +139,7 @@ public final class VanillaItemRemovalListener implements Listener {
         if (!remover.hasTargets()) {
             return;
         }
-        if (remover.shouldRemove(event.getEntity().getItemStack())) {
+        if (sanitizeAndShouldRemove(event.getEntity())) {
             event.setCancelled(true);
         }
     }
@@ -126,7 +152,7 @@ public final class VanillaItemRemovalListener implements Listener {
         if (!(event.getCaught() instanceof Item caught)) {
             return;
         }
-        if (remover.shouldRemove(caught.getItemStack())) {
+        if (sanitizeAndShouldRemove(caught)) {
             event.setCancelled(true);
         }
     }
@@ -159,6 +185,8 @@ public final class VanillaItemRemovalListener implements Listener {
         List<MerchantRecipe> filtered = new ArrayList<>(recipes.size());
         boolean changed = false;
         for (MerchantRecipe recipe : recipes) {
+            // 取引だけは剥がしでなく従来どおり「その取引ごと除外」。MerchantRecipe#getResult() は
+            // コピーを返すため、その場で剥がしても取引には反映されない(無言で素通りする)。
             if (remover.shouldRemove(recipe.getResult())) {
                 changed = true;
                 continue;
@@ -195,7 +223,7 @@ public final class VanillaItemRemovalListener implements Listener {
             return;
         }
         Item item = event.getItem();
-        if (remover.shouldRemove(item.getItemStack())) {
+        if (sanitizeAndShouldRemove(item)) {
             event.setCancelled(true);
             item.remove();
         }
@@ -241,16 +269,20 @@ public final class VanillaItemRemovalListener implements Listener {
         PlayerInventory inv = player.getInventory();
         ItemStack[] contents = inv.getContents();
         for (int slot = 0; slot < contents.length; slot++) {
-            if (remover.shouldRemove(contents[slot])) {
-                inv.setItem(slot, null);
+            switch (remover.sanitize(contents[slot])) {
+                case REMOVE -> inv.setItem(slot, null);
+                case STRIPPED -> inv.setItem(slot, contents[slot]);
+                case KEEP -> { }
             }
         }
         // 修正7: getContents() はカーソル(GUI操作中に掴んでいるアイテム)を含まないため別途走査する
         // (PickupQualityListener.sweepInventory と同じパターン)。クラフトグリッドは open な作業台
         // インベントリ側の一時状態のためここでは対象外とする(brief の任意範囲)。
         ItemStack cursor = player.getItemOnCursor();
-        if (remover.shouldRemove(cursor)) {
-            player.setItemOnCursor(null);
+        switch (remover.sanitize(cursor)) {
+            case REMOVE -> player.setItemOnCursor(null);
+            case STRIPPED -> player.setItemOnCursor(cursor);
+            case KEEP -> { }
         }
         // 2026-07-28: エンダーチェストは getContents() に含まれない別インベントリなので、恒久保管の
         // 抜け道になっていた(参加時スイープを潜り抜けて永久に残る)。ここで併せて掃く。
@@ -264,8 +296,10 @@ public final class VanillaItemRemovalListener implements Listener {
         }
         ItemStack[] contents = inventory.getContents();
         for (int slot = 0; slot < contents.length; slot++) {
-            if (remover.shouldRemove(contents[slot])) {
-                inventory.setItem(slot, null);
+            switch (remover.sanitize(contents[slot])) {
+                case REMOVE -> inventory.setItem(slot, null);
+                case STRIPPED -> inventory.setItem(slot, contents[slot]);
+                case KEEP -> { }
             }
         }
     }

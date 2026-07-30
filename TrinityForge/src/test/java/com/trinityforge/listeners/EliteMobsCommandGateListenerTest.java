@@ -13,14 +13,25 @@ class EliteMobsCommandGateListenerTest {
 
     @Test
     void allowsListedEmSubcommands() {
-        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "start"));
         assertFalse(EliteMobsCommandGateListener.isBlocked("em", "quit"));
         assertFalse(EliteMobsCommandGateListener.isBlocked("em", "track"));
-        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "dungeontp"));
-        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "dungeontpdialog"));
-        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "spawntp"));
-        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "arena"));
-        assertFalse(EliteMobsCommandGateListener.isBlocked("elitemobs", "start"));
+        assertFalse(EliteMobsCommandGateListener.isBlocked("elitemobs", "quit"));
+        assertFalse(EliteMobsCommandGateListener.isBlocked("elitemobs", "track"));
+    }
+
+    /**
+     * 2026-07-30(ユーザー確定): 権限なしプレイヤーが EliteMobs コマンドを使えてしまう問題への対応で
+     * 許可リストを {@code quit}/{@code track} まで縮小した。とくに {@code dungeontp} は TF の
+     * 鍵/戦闘レベルゲートを迂回してダンジョンへ入れるため、必ず塞がっていること。
+     */
+    @Test
+    void blocksInstanceAndTeleportSubcommandsForUnprivilegedPlayers() {
+        assertTrue(EliteMobsCommandGateListener.isBlocked("em", "start"));
+        assertTrue(EliteMobsCommandGateListener.isBlocked("em", "dungeontp"));
+        assertTrue(EliteMobsCommandGateListener.isBlocked("em", "dungeontpdialog"));
+        assertTrue(EliteMobsCommandGateListener.isBlocked("em", "spawntp"));
+        assertTrue(EliteMobsCommandGateListener.isBlocked("em", "arena"));
+        assertTrue(EliteMobsCommandGateListener.isBlocked("elitemobs", "start"));
     }
 
     @Test
@@ -48,7 +59,11 @@ class EliteMobsCommandGateListenerTest {
     void parsesRawMessageIncludingNamespaceCaseAndSpacing() {
         // 名前空間付き・大文字・余分な空白でもラベル/サブコマンドを正しく取り出せること。
         assertFalse(EliteMobsCommandGateListener.isBlockedCommand("/minecraft:elitemobs track boss abc"));
-        assertFalse(EliteMobsCommandGateListener.isBlockedCommand("/EM   Start"));
+        // 2026-07-30: 許可は quit/track だけになったので、start はここでもブロック側に回る
+        // (このテストが見ているのは「大文字・余分な空白でもラベル/サブコマンドを取り出せるか」なので、
+        //  許可判定そのものは blocksInstanceAndTeleportSubcommandsForUnprivilegedPlayers が担当する)。
+        assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/EM   Start"));
+        assertFalse(EliteMobsCommandGateListener.isBlockedCommand("/EM   Quit"));
         assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/minecraft:em"));
         assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/em  shop"));
         assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/AG"));

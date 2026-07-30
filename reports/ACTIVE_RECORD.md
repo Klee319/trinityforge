@@ -336,6 +336,71 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-30 1x:xx — 実サーバ報告 15 件バッチ（スキルツリー配置 / 精錬 / 鍛冶EXP / レシピGUI ほか）
+
+ユーザー報告 13 件＋追記 2 件。**配備はまだ**（jar もリソパも未反映）。
+
+- **スキルツリー Lv100 付近で排他と分岐が干渉**（`SkillTreeLayout`）。真因は
+  「排他(GREEK)と分岐(BRANCH)を左右交互に振っていた」こと。**GREEK を必ず左半平面 / BRANCH を必ず
+  右半平面**へ分離し、`findFreeInLayer` を 4 段階の緩和（直行経路→経路緩和→隣接緩和→空きのみ）に。
+  全 16 ツリーに対する恒久回帰テスト `AllSkillTreesLayoutIntegrityTest` を新設
+  （迂回コネクタ 0 / 8 近傍隣接 0 / 半平面分離）。
+- **精錬ボーナス分がかまどから吐き出される** → 結果スロットへ積むように変更（`FurnaceSmeltListener#depositExtra`）。
+  **次tickへ回すのが必須**: `FurnaceSmeltEvent` の時点ではバニラがまだ本来の 1 個を入れていないため、
+  先に積むとバニラ側のマージで上限超過分が黙って消える。収まらない分だけ従来どおり地面へ落とす。
+- **メイス/トライデント等が「アイテム持ち」** → カスタムモデル 23 本を
+  `minecraft:item/generated` → `minecraft:item/handheld` へ。併せて **存在しない親モデル
+  `item/generic_sword` を参照していた 14 本**（greataxe/warhammer）から parent を除去
+  （どれも elements と display を自前で完備しているので親は不要）。
+- **鍛冶のレベルが上がりにくい** → `smithing.exp-per-material`（素材トークン→EXP）を新設し、
+  **クラフト盤面の素材の合計**を鍛冶EXPの素点にした。**完成品に使用可能レベルが無ければ EXP は 0**
+  （解体で素材へ戻せる装備を作り直し続ける無限EXP経路への対策、ユーザー確定）。
+  表が空なら従来の定額 `exp-per-craft` にフォールバック（yml 未更新のサーバで鍛冶EXPが全滅しないため）。
+- **一括伐採で葉も一括破壊**（`tree-fell.break-leaves` / `leaves-per-log`、既定 true / 6）。
+  伐採した原木<b>全部</b>を起点にした多源BFS（`VeinMiningAlgorithm.collectFrom`）で樹冠を拾う。
+  葉は耐久を消費しない（`ChainBreakSupport#breakChain` に `consumeDurability` 引数を追加）。
+- **`/tf dungeon` のサジェストに EM 既定ダンジョンが出ない** → 真因は Paper のクラスローダ分離。
+  `paper-plugin.yml` は EliteMobs を宣言していないので `Class.forName` が常に失敗していた。
+  `EliteMobsDungeonBridge#emClass` で **EM 自身のクラスローダ経由**に変更（`load: BEFORE` は
+  EM が TF を softdepend しているため循環になり採れない）。
+- **op でないプレイヤーが em 系コマンドを使える** → 許可を **`quit` と `track` だけ**に絞った（ユーザー確定）。
+- **`/tf achievement`** を追加（`/achievement` 単体も従来どおり残す）。
+- **アチーブメントUIの本アイコンを上下ボタンの間（49番）へ**。移動ボタンは 45-53 で左右対称に。
+- **釣りで無エンチャの本が釣れる** → `CrossPluginItemResolver.create("ENCHANTED_BOOK")` が素の本を返す。
+  `FishingGimmickListener#rollBookEnchantIfBare` でランダムに 1 種付与（削除対象エンチャは除外）。
+- **釣り/ルートチェスト産に修繕が付く** → `VanillaItemRemover.sanitize` を新設し、**修繕エンチャだけを剥がす**
+  （ユーザー確定。アイテムごと消さない）。剥がしモードは TF アイテム保護を無視するので、
+  「TF の PDC が先に押されていると守られてしまう」イベント順序依存が消えた。
+  村人取引だけは `MerchantRecipe#getResult()` が**コピーを返す**ため従来どおり取引ごと削除。
+- **レシピGUI: 解放済み/未解放ボタン → 作業台/儀式の切替**（`RecipeBrowserFilter.KindMode`）。
+- **儀式レシピのアイコンが全部エンチャント本** → 真因は `CatalogRitualRegistrar` の結果IDが
+  `tfcatalog:<id>` で **ArsPaper の itemRegistry には存在しない**こと。
+  `applyCatalogRitualIdentity` で TF カタログの identity アイテムを引き直し、アイコン・表示名・
+  ソートキーを結果アイテム由来に。併せて `resultToken` も `custom:tfcatalog:<id>`（存在しない語彙）から
+  `custom:<id>` へ修正 — 素材⇔レシピの相互ジャンプが無言で外れていた。
+- **ソート既定を名前順に、登録順を最後へ**（`SortMode` の宣言順＝巡回順＝既定）。
+- **ソースベリーがセレクトメニューに出ない** → editor の候補源が `catalog.yml` + `materials.yml` の
+  2 本だけで、**ArsPaper の特殊アイテム（functional-items.yml）/ ソースジャー / 触媒が構造的に
+  入らなかった**。`buildCatalogCandidates` に第3引数を足して 3 本を追加。
+  なお `sourcejars.yml` の `custom:source_berry` 自体は静的解析では正しく解決される
+  （`source_berry` は itemRegistry 登録済み → ExternalItemRegistry にも載る）ので、
+  「クラフトできない」の再現条件は要追加確認。
+
+**テスト実測**: TF `./gradlew test` = **2838 tests / 2 failed / 2 skipped**（失敗 2 件は
+`FailCloseGateSkillTreePlacementTest` と `SkillTreeConfigTest.loadsLightWeaponsCanonicalTree` で
+**このバッチ以前からの既存失敗**）。ArsPaper フォーク `./gradlew test` = BUILD SUCCESSFUL。
+config-editor `npm test` = **795 pass / 61 fail**（`window.richTextInput is not a function` 等の
+テストハーネスのスタブ欠落と、出荷 yml の実値と食い違う古い期待値。**いずれもこのバッチ以前からの既存失敗**）。
+
+**未解決（要追加情報）**: 「ARS の魔法で与えたダメージに TF ステータスが乗らない（攻撃力 10000 の
+触媒で火力が伸びない）」。静的解析では `SpellContext#dealSpellDamage` → `magicalFinalDamage` の
+経路は触媒の `attack-power` を加算しており正しい。一方で確実な迂回路が 3 つある:
+**`SolarEffect`/`LunarEffect` は `setHealth` で直接HPを減らす「防御無視ダメージ」**、
+**`ExplosionEffect` はバニラの `createExplosion`**。加えて **`SpellBindListener` は
+ArsPaper の `catalysts:` 登録品しか触媒と見なさない**ため、TF カタログの武器にスペルをバインドした
+場合はそのアイテムのステが渡らない（`resolveMagicAttackStats` はメインハンドを意図的に除外する）。
+どのアイテム種別・どのスペルで再現したかの確認待ち。
+
 ### 2026-07-30 11:xx — 配備の確認 / launch.json 整理 / テスト失敗の切り分け
 
 **配備（`tmp\deploy-20260730-bugfix.cmd`、ユーザーが 08:27 に実行）**: 成功をログで実測。

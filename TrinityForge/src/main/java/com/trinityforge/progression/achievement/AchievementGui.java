@@ -50,10 +50,21 @@ public final class AchievementGui implements Listener {
 
     private static final Component MENU_TITLE = Component.text("", NamedTextColor.WHITE)
             .font(Key.key("trinityforge", "skill_gui"));
-    /** スキルツリーGUIと同じ移動ボタン配置。 */
+    /**
+     * 移動ボタン配置(2026-07-30 左右対称化)。最下段9枠を、中央の達成状況アイコン(48→49)を軸に
+     * 左右対称へ組み替えた。上(北)と下(南)がその本アイコンを挟む形になる。
+     *
+     * <pre>
+     *   45   46   47   48   49   50   51   52   53
+     *   ↖    ←    ↙    ↑   [本]   ↓    ↘    →    ↗
+     * </pre>
+     * 水平の鏡像対: 45↔53(↖↗) / 46↔52(←→) / 47↔51(↙↘)、48↔50 が上下ペア。
+     * 以前は 48 に本、49 が↑、50 が↓ で、本が中央から1枠ずれて左右非対称になっていた。
+     */
+    private static final int SUMMARY_SLOT = 49;
     private static final Map<Integer, int[]> NAVIGATION = Map.of(
             45, new int[]{-1, -1},
-            49, new int[]{0, -1},
+            48, new int[]{0, -1},
             53, new int[]{1, -1},
             46, new int[]{-1, 0},
             52, new int[]{1, 0},
@@ -62,7 +73,7 @@ public final class AchievementGui implements Listener {
             51, new int[]{1, 1});
     private static final Map<Integer, String> NAVIGATION_MODELS = Map.of(
             45, "move-nw",
-            49, "move-n",
+            48, "move-n",
             53, "move-ne",
             46, "move-w",
             52, "move-e",
@@ -130,7 +141,7 @@ public final class AchievementGui implements Listener {
         for (Map.Entry<Integer, int[]> nav : NAVIGATION.entrySet()) {
             inventory.setItem(nav.getKey(), navButton(nav.getKey(), nav.getValue()));
         }
-        inventory.setItem(48, summaryIcon(achieved, canvas));
+        inventory.setItem(SUMMARY_SLOT, summaryIcon(achieved, canvas));
         player.openInventory(inventory);
     }
 

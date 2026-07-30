@@ -73,6 +73,11 @@ public final class FishingGimmickListener implements Listener {
     private final PlayerStatAggregator aggregator;
     private final SkillLevelSource skillLevelSource;
     private final NamespacedKey treasureFlagKey;
+    /**
+     * {@code removed-vanilla-items} の参照口(任意注入・null可)。エンチャント本の中身を抽選するときに
+     * 「サーバから消してあるエンチャント(既定は修繕)」を候補から外すために使う。
+     */
+    private volatile com.trinityforge.stats.VanillaItemRemover vanillaItemRemover;
 
     public FishingGimmickListener(DedicatedEffectsConfig dedicatedEffects, FishingGimmickConfig gimmickConfig,
                                    CrossPluginItemResolver itemResolver, PlayerStatAggregator aggregator,
@@ -200,7 +205,71 @@ public final class FishingGimmickListener implements Listener {
         }
         ItemStack stack = built.get();
         stack.setAmount(Math.max(1, entry.amount()));
+        return rollBookEnchantIfBare(stack);
+    }
+
+    /**
+     * 任意注入(2026-07-30): {@code removed-vanilla-items} をエンチャント本の抽選候補から外すために使う。
+     * 未注入でも動作する(その場合は候補を絞らない)。既存テストのコンストラクタ呼び出しを壊さないため
+     * セッター注入にしてある(このリポジトリの横断ゲート追加の定石)。
+     */
+    public void setVanillaItemRemover(com.trinityforge.stats.VanillaItemRemover remover) {
+        this.vanillaItemRemover = remover;
+    }
+
+    /**
+     * ドロップテーブルの {@code item: ENCHANTED_BOOK} を、<b>中身のあるエンチャント本</b>にする
+     * (2026-07-30 実サーバ報告「釣りでエンチャントのついていないエンチャント本がつれる」)。
+     *
+     * <p>原因: {@code CrossPluginItemResolver#create("ENCHANTED_BOOK")} は素の Material から
+     * {@link ItemStack} を作るだけなので、収録エンチャントが空のエンチャント本になる。
+     * バニラの釣り宝は loot table の {@code enchant_randomly} で必ず中身が付くため、
+     * 「空のエンチャント本」はバニラには存在しない状態で、金床でも何にも使えない。
+     *
+     * <p>候補からは {@code progression/crafting-features.yml removed-vanilla-items} で消してある
+     * エンチャント(既定 {@code ANY:MENDING})を除く — ここで修繕本を作ってしまうと、後段の
+     * {@code VanillaItemRemovalListener} が剥がして結局また空の本に戻る。
+     *
+     * <p>既に中身がある本(カタログ品/他プラグイン製)には一切触らない。
+     */
+    private ItemStack rollBookEnchantIfBare(ItemStack stack) {
+        if (stack == null || stack.getType() != Material.ENCHANTED_BOOK) {
+            return stack;
+        }
+        if (!(stack.getItemMeta() instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta storage)
+                || storage.hasStoredEnchants()) {
+            return stack;
+        }
+        java.util.List<org.bukkit.enchantments.Enchantment> pool = new java.util.ArrayList<>();
+        for (org.bukkit.enchantments.Enchantment candidate : org.bukkit.Registry.ENCHANTMENT) {
+            if (isRemovedEnchant(candidate)) {
+                continue;
+            }
+            pool.add(candidate);
+        }
+        if (pool.isEmpty()) {
+            return stack;
+        }
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        org.bukkit.enchantments.Enchantment chosen = pool.get(rng.nextInt(pool.size()));
+        int max = Math.max(1, chosen.getMaxLevel());
+        storage.addStoredEnchant(chosen, max == 1 ? 1 : rng.nextInt(1, max + 1), true);
+        stack.setItemMeta(storage);
         return stack;
+    }
+
+    private boolean isRemovedEnchant(org.bukkit.enchantments.Enchantment candidate) {
+        com.trinityforge.stats.VanillaItemRemover remover = this.vanillaItemRemover;
+        if (remover == null || !remover.hasTargets()) {
+            return false;
+        }
+        ItemStack probe = new ItemStack(Material.ENCHANTED_BOOK);
+        if (!(probe.getItemMeta() instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta probeMeta)) {
+            return false;
+        }
+        probeMeta.addStoredEnchant(candidate, 1, true);
+        probe.setItemMeta(probeMeta);
+        return remover.shouldRemove(probe);
     }
 
     /** {@code luckTotal} for the treasure-ratio shift: rod's aggregated stat + enchant bonus + skill level. */

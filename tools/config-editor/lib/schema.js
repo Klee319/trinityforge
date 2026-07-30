@@ -888,6 +888,20 @@ function validateTfSkillExp(data, errors) {
     if (exp !== undefined && exp !== null && (!isNumber(exp) || exp < 0)) {
       errors.push(`${skill}.exp-per-craft: 0以上の数値である必要があります`);
     }
+    // 2026-07-30: 素材別クラフトEXP (smithing.exp-per-material)。
+    // キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
+    const perMaterial = section["exp-per-material"];
+    if (perMaterial !== undefined && perMaterial !== null) {
+      if (!isPlainObject(perMaterial)) {
+        errors.push(`${skill}.exp-per-material: マップである必要があります`);
+      } else {
+        for (const [material, value] of Object.entries(perMaterial)) {
+          if (!isNumber(value) || value < 0) {
+            errors.push(`${skill}.exp-per-material.${material}: 0以上の数値である必要があります`);
+          }
+        }
+      }
+    }
     if (skill === "ars-magic") {
       validateKillExp(section["kill-exp"], "ars-magic.kill-exp", false, errors);
       const blockBreak = section["block-break-exp"];

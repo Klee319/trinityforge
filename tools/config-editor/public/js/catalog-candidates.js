@@ -28,7 +28,29 @@
     return Number.isInteger(n) && n >= 0 ? n : null;
   }
 
-  function buildCatalogCandidates(catalogData, materialsData) {
+  // 2026-07-30: 「ソースベリーがセレクトメニューから参照できない」への対処。
+  // 候補源が catalog.yml + materials.yml の2本しかなく、ArsPaper の特殊アイテム
+  // (functional-items.yml: ソースベリー/ウェイストーン/儀式の核 …)、ソースジャー
+  // (sourcejars.yml)、触媒 (spellbooks.yml catalysts:) が構造的に候補へ入らなかった。
+  // どれも catalog.yml のレシピから custom:<id> 素材として参照されうるので、
+  // 「id → material/CMD/表示名」が yml から取れるものは全部ここへ足す。
+  //
+  // スレッド (threads.yml) と魔導書 (spellbooks.yml spell-books:) は yml に base material が
+  // 無く、素材が Java 側 (ThreadType / SpellBook) にしか無いため、ここでは扱えない。
+  // 素材を推測で埋めると候補UIのアイコンが黙って化けるので、あえて除外している。
+  const EXTRA_SOURCES = Object.freeze([
+    { key: "functionalItems", root: "items", tab: "other" },
+    { key: "sourcejars", root: "jars", tab: "other" },
+    { key: "catalysts", root: "catalysts", tab: "other" }
+  ]);
+
+  /**
+   * @param catalogData   items/catalog.yml
+   * @param materialsData ArsPaper materials.yml
+   * @param extraData     {functionalItems, sourcejars, catalysts} — 省略可。
+   *                      catalysts は spellbooks.yml をそのまま渡してよい(catalysts: 節だけ見る)。
+   */
+  function buildCatalogCandidates(catalogData, materialsData, extraData) {
     const host = catalogData && typeof catalogData === "object" ? catalogData : {};
     const items = host.items && typeof host.items === "object" ? host.items : {};
     const out = [];
@@ -74,6 +96,31 @@
         tab: "material"
       });
       seen.add(id);
+    }
+
+    // ArsPaper の特殊アイテム/ソースジャー/触媒。キー綴りは catalog.yml と同じ kebab-case
+    // (display-name / custom-model-data)。materials.yml だけが snake_case なので、
+    // 上のループとは別扱いにしてある。
+    const extras = extraData && typeof extraData === "object" ? extraData : {};
+    for (const source of EXTRA_SOURCES) {
+      const host = extras[source.key];
+      if (!host || typeof host !== "object") continue;
+      const entries = host[source.root];
+      if (!entries || typeof entries !== "object" || Array.isArray(entries)) continue;
+      for (const [id, entry] of Object.entries(entries)) {
+        if (seen.has(id)) continue; // catalog.yml / materials.yml が先勝ち
+        if (!entry || typeof entry !== "object") continue;
+        const material = normalizeMaterial(entry.material);
+        if (!material) continue;
+        out.push({
+          id,
+          displayName: entry["display-name"] == null ? "" : String(entry["display-name"]),
+          material,
+          cmd: normalizeCmd(entry["custom-model-data"]),
+          tab: source.tab
+        });
+        seen.add(id);
+      }
     }
 
     return out;

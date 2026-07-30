@@ -179,13 +179,58 @@ public final class CraftQualityListener implements Listener {
                 int useLevel = UseRequirementResolver.resolve(stamped, itemStats)
                         .map(UseRequirementResolver.Resolved::level)
                         .orElse(0);
-                double multiplier = skillExp.useLevelExpMultiplier(SkillId.SMITHING, useLevel);
-                ArsProgressionBridge.grantSkillExp(plugin, player, SkillId.SMITHING,
-                        skillExp.smithingExpPerCraft() * multiplier * craftOperations);
+                // 素材ベースEXP (2026-07-30): 完成品に使用可能レベルが無いものは EXP を一切出さない。
+                // 解体で素材へ戻せる装備を作り直し続ける無限EXP経路(unzipサイクル)を塞ぐため、
+                // 「素材の合計」方式に切り替えるのと同時に導入した必須のゲート。
+                if (useLevel > 0) {
+                    double multiplier = skillExp.useLevelExpMultiplier(SkillId.SMITHING, useLevel);
+                    double base = smithingBaseExp(event.getInventory().getMatrix());
+                    ArsProgressionBridge.grantSkillExp(plugin, player, SkillId.SMITHING,
+                            base * multiplier * craftOperations);
+                }
             }
         }
         // 常に次tickでプレビュー漏れを回収 (NUMBER_KEY / shift / 結果枠空 など)。
         plugin.getServer().getScheduler().runTask(plugin, () -> restampPreviewCrafts(player));
+    }
+
+    /**
+     * 1回のクラフト操作で得る鍛冶EXPの素点。クラフト盤面に置かれた素材<b>1個ずつ</b>に
+     * {@code smithing.exp-per-material} の値を掛けて合計する(2026-07-30「鍛冶のレベルが上がりにくい」対応)。
+     *
+     * <p>表が空のサーバ(yml未更新)では従来の定額 {@code smithing.exp-per-craft} に落とす。
+     * 表に無い素材は 0 として扱う — 「未設定の素材は無報酬」が設計意図なので、
+     * ここで暗黙の既定値を出してはいけない。
+     */
+    private double smithingBaseExp(ItemStack[] matrix) {
+        var perMaterial = skillExp.smithingExpPerMaterial();
+        if (perMaterial.isEmpty() || matrix == null) {
+            return skillExp.smithingExpPerCraft();
+        }
+        double total = 0.0;
+        for (ItemStack ingredient : matrix) {
+            if (ingredient == null || ingredient.getType().isAir()) continue;
+            Double value = perMaterial.get(materialToken(ingredient));
+            if (value != null) {
+                total += value * ingredient.getAmount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 素材トークン: TFカタログ品は {@code custom:<catalogId>}、それ以外は Material 名。
+     * カタログIDは PDC にしか無いので、同じ Material の通常品と作り分けるにはここを通す必要がある。
+     */
+    private static String materialToken(ItemStack stack) {
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            Optional<String> catalogId = ItemData.of(meta).catalogId();
+            if (catalogId.isPresent() && !catalogId.get().isBlank()) {
+                return SkillExpConfig.normalizeMaterialToken("custom:" + catalogId.get());
+            }
+        }
+        return stack.getType().name();
     }
 
     /**

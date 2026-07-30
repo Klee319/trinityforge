@@ -173,7 +173,7 @@ public final class FurnaceSmeltListener implements Listener {
         event.setTotalCookTime(FurnaceSmeltPolicy.reducedCookTime(event.getTotalCookTime(), effectivePercent));
     }
 
-    /** 精錬ボーナス: 確率で追加の結果アイテムをかまど上へ落とす(GatheringExtraDropListenerと同型)。 */
+    /** 精錬ボーナス: 確率で追加の結果アイテムをかまどの結果スロットへ積む(入り切らない分だけ地面へ)。 */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSmelt(FurnaceSmeltEvent event) {
         Block block = event.getBlock();
@@ -210,8 +210,48 @@ public final class FurnaceSmeltListener implements Listener {
         }
         if (extraCopies <= 0) return;
 
-        for (int i = 0; i < extraCopies; i++) {
-            block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 1.0, 0.5), result.clone());
+        // 2026-07-30 実サーバ報告「精錬ボーナスで増えた分がかまどから吐き出される」への対応。
+        // 以前は無条件に dropItemNaturally していたため、ボーナス分だけが地面に散らばり、
+        // ホッパー回収の構成では取りこぼしになっていた。結果スロットへ積むのが本来の挙動。
+        //
+        // 次tickに回すのは、この時点(FurnaceSmeltEvent)ではバニラがまだ本来の1個を結果スロットへ
+        // 入れていないため。ここで先に積むと、バニラ側のマージでスタック上限を超えた分が
+        // 黙って消える(かまどの結果スロットは上限を超えた投入を単純に切り捨てる)。
+        ItemStack bonus = result.clone();
+        final int copies = extraCopies;
+        plugin.getServer().getScheduler().runTask(plugin, () -> depositExtra(block, bonus, copies));
+    }
+
+    /**
+     * ボーナス分をかまどの結果スロットへ積む。スタック上限に収まらない分だけ、従来どおり
+     * かまどの上へ落とす(結果スロットが別アイテムで埋まっている場合も同様に地面へ)。
+     *
+     * <p>package-private なのはテストのため。{@link #onSmelt} からは次tickのスケジューラ越しに
+     * 呼ばれるので、MockBukkit のスケジューラ進行に依存せずこの分岐だけを直接検証できるようにしてある
+     * ({@link #clearIfIdle(org.bukkit.block.Furnace)} と同じ理由・同じ方針)。
+     */
+    void depositExtra(Block block, ItemStack bonus, int extraCopies) {
+        int remaining = extraCopies;
+        if (block.getState() instanceof Furnace furnace) {
+            ItemStack current = furnace.getInventory().getResult();
+            if (current == null || current.getType().isAir()) {
+                int accepted = Math.min(remaining, bonus.getMaxStackSize());
+                ItemStack placed = bonus.clone();
+                placed.setAmount(accepted);
+                furnace.getInventory().setResult(placed);
+                remaining -= accepted;
+            } else if (current.isSimilar(bonus)) {
+                int room = Math.max(0, current.getMaxStackSize() - current.getAmount());
+                int accepted = Math.min(remaining, room);
+                if (accepted > 0) {
+                    current.setAmount(current.getAmount() + accepted);
+                    furnace.getInventory().setResult(current);
+                    remaining -= accepted;
+                }
+            }
+        }
+        for (int i = 0; i < remaining; i++) {
+            block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 1.0, 0.5), bonus.clone());
         }
     }
 

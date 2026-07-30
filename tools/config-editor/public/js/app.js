@@ -274,8 +274,22 @@
       const mr = await api("GET", "/api/config/materials");
       if (mr && mr.data) materialsData = mr.data;
     } catch (_) { /* optional */ }
+    // 2026-07-30: 特殊アイテム(ソースベリー等)/ソースジャー/触媒も候補に載せる。
+    // どれか1本でも取得に失敗しても候補作りは続行する(欠けるのはその1本分だけ)。
+    const extraData = {};
+    const EXTRA_CONFIGS = [
+      ["functionalItems", "functional-items"],
+      ["sourcejars", "sourcejars"],
+      ["catalysts", "spellbooks"]
+    ];
+    await Promise.all(EXTRA_CONFIGS.map(async ([key, configId]) => {
+      try {
+        const r = await api("GET", "/api/config/" + configId);
+        if (r && r.data) extraData[key] = r.data;
+      } catch (_) { /* optional */ }
+    }));
     const candidates = typeof window.buildCatalogCandidates === "function"
-      ? window.buildCatalogCandidates(catalogData || {}, materialsData || {})
+      ? window.buildCatalogCandidates(catalogData || {}, materialsData || {}, extraData)
       : [];
     // 取得したついでに custom: 候補としても共有登録しておく。materialInput は
     // window.CUSTOM_ITEM_CANDIDATES をフォールバック候補源にしているので、

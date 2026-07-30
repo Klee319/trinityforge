@@ -35,12 +35,28 @@ public final class EliteMobsCommandGateListener implements Listener {
     private static final String BYPASS = "trinityforge.elitemobs.commands";
 
     /**
-     * {@code /em}・{@code /elitemobs} のうち、テレポーターNPC/ボスバークリック/ステータス画面
-     * ダイアログなど EliteMobs 自身の内部導線から {@code performCommand}/{@code ClickEvent} 経由で
-     * 発火する、あるいはプレイヤーが直接使う必要があるサブコマンド。
+     * {@code /em}・{@code /elitemobs} のうち、権限を持たないプレイヤーにも通すサブコマンド。
+     *
+     * <p><b>2026-07-30 縮小(ユーザー確定)</b>: 以前は {@code start}/{@code dungeontp}/
+     * {@code dungeontpdialog}/{@code spawntp}/{@code arena} も全員に通していたが、これは
+     * <b>OP でないプレイヤーが EliteMobs のコマンドをそのまま打てる</b>状態だった。とくに
+     * {@code dungeontp} は TF 側の鍵チェック・戦闘レベルチェック({@code DungeonGate} /
+     * {@code DungeonEntryGui})を丸ごと迂回してダンジョンへ入れてしまう。
+     * {@link org.bukkit.event.player.PlayerCommandPreprocessEvent} からは
+     * 「プレイヤーが打った」のか「EliteMobs のチャット {@code ClickEvent} 由来か」を区別できないため、
+     * 許可リストを絞る以外に塞ぐ手段が無い。
+     *
+     * <ul>
+     *   <li>{@code quit} — インスタンスからの脱出。塞ぐとダンジョンに閉じ込められうるので必須。</li>
+     *   <li>{@code track} — ボスバーのクリック({@code elitemobs track boss <uuid>})。
+     *       表示専用で進行を動かさない。</li>
+     * </ul>
+     *
+     * <p>これで塞がれる導線の TF 側の代替: 入場は {@code /tf dungeon}(管理者)と
+     * {@code DungeonEntryGui}(鍵アイテム)、インスタンスの開始/終了は {@code /tf start} /
+     * {@code /tf stop} / {@code /tf quit}({@code InstanceCommand})。
      */
-    private static final List<String> ALLOWED_EM_SUBCOMMANDS = List.of(
-            "start", "quit", "track", "dungeontp", "dungeontpdialog", "spawntp", "arena");
+    private static final List<String> ALLOWED_EM_SUBCOMMANDS = List.of("quit", "track");
 
     public EliteMobsCommandGateListener() {
     }

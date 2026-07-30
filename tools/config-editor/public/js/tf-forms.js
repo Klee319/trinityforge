@@ -65,7 +65,9 @@
   const MATERIAL_EXP_MAP_KEYS = new Set([
     "brew_ingredient", "mining_break", "digging_break", "archaeology_brush",
     "woodcutting_break", "woodcutting_strip", "block_interact", "block_drops",
-    "entity_drops", "fishing_catch"
+    // 2026-07-30 追加: skill-exp.yml の smithing.exp-per-material
+    // (クラフト盤面に置いた素材1個あたりの鍛冶EXP)。custom:<カタログID> も選べる。
+    "entity_drops", "fishing_catch", "exp-per-material"
   ]);
 
   function expMapKind(key) {

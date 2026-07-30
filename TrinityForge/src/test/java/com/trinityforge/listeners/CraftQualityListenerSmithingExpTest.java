@@ -84,6 +84,9 @@ class CraftQualityListenerSmithingExpTest {
         when(tf.config()).thenReturn(config);
         TrinityForgeSingletonTestSupport.set(tf);
         when(skillExp.smithingExpPerCraft()).thenReturn(SMITHING_EXP_PER_CRAFT);
+        // 2026-07-30: 素材別EXP表が空 = 従来の定額 exp-per-craft へフォールバックする既定。
+        // 素材合計の挙動は smithingExpIsTheSumOfTheMaterialsOnTheGrid が別途検証する。
+        when(skillExp.smithingExpPerMaterial()).thenReturn(java.util.Map.of());
         when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
         // 2026-07-28 使用可能レベル連動EXP: このテストは倍率の挙動自体を検証しないので、
         // 常に1.0(影響なし)を返すようスタブする(スタブが無いと Mockito のdouble既定値0.0が
@@ -118,6 +121,11 @@ class CraftQualityListenerSmithingExpTest {
         ItemStack result = new ItemStack(resultMaterial);
         when(itemStats.profileFor(eq(resultMaterial), any())).thenReturn(Optional.of(mock(ItemStatProfile.class)));
         when(itemStats.qualityModeOffsetFor(eq(resultMaterial), any())).thenReturn(0);
+        // 2026-07-30: 完成品に「使用可能レベル」が無いものには鍛冶EXPを出さないゲートが入ったので、
+        // このヘルパで作る完成品には常に使用可能レベルを持たせる(=EXPが出る前提の既存テスト群を維持)。
+        // ゲート自体は craftingWithoutUseLevelGrantsNoSmithingExp が別途検証する。
+        when(itemStats.useRequirementFor(eq(resultMaterial), any()))
+                .thenReturn(Optional.of(new com.trinityforge.stats.ItemUseRequirement(10, SkillId.SMITHING)));
 
         CraftingInventory inventory = mock(CraftingInventory.class);
         when(inventory.getResult()).thenReturn(result);
@@ -232,6 +240,8 @@ class CraftQualityListenerSmithingExpTest {
         when(itemStats.profileFor(eq(Material.DIAMOND_SWORD), any()))
                 .thenReturn(Optional.of(mock(ItemStatProfile.class)));
         when(itemStats.qualityModeOffsetFor(eq(Material.DIAMOND_SWORD), any())).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(new com.trinityforge.stats.ItemUseRequirement(10, SkillId.SMITHING)));
         fillPlayerStorageExcept(2);
 
         CraftingInventory inventory = mock(CraftingInventory.class);
@@ -254,6 +264,71 @@ class CraftQualityListenerSmithingExpTest {
         // Matrix permits 3 operations, but two empty equipment slots permit only 2.
         verify(dispatcher).grant(
                 player.getUniqueId(), SkillId.SMITHING, SMITHING_EXP_PER_CRAFT * 2);
+    }
+
+    /**
+     * 2026-07-30「鍛冶のレベルが上がりにくい」への対応: 素材別EXP表が設定されていれば、
+     * 鍛冶EXPは<b>盤面に置いた素材の個数分の合計</b>になる(定額 exp-per-craft は使わない)。
+     * 表に無い素材は 0 として扱う。
+     */
+    @Test
+    void smithingExpIsTheSumOfTheMaterialsOnTheGrid() {
+        when(skillExp.smithingExpPerMaterial())
+                .thenReturn(java.util.Map.of("DIAMOND", 25.0, "STICK", 0.5));
+
+        ItemStack result = new ItemStack(Material.DIAMOND_SWORD);
+        when(itemStats.profileFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.DIAMOND_SWORD), any())).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(new com.trinityforge.stats.ItemUseRequirement(10, SkillId.SMITHING)));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{
+                new ItemStack(Material.DIAMOND, 2),
+                new ItemStack(Material.STICK, 1),
+                new ItemStack(Material.GOLD_INGOT, 5) // 表に無い素材 = 0
+        });
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.isShiftClick()).thenReturn(false);
+        stubRealCraftClick(event, false);
+
+        listener().onCraft(event);
+
+        // ダイヤ2個(25×2) + 棒1本(0.5) + 表に無い金インゴット(0) = 50.5
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, 50.5);
+    }
+
+    /**
+     * 2026-07-30 unzipサイクル対策: 完成品に使用可能レベルが設定されていなければ、鍛冶EXPは
+     * 一切付与しない(解体で素材へ戻せる装備を作り直し続ける無限EXP経路を塞ぐ)。
+     */
+    @Test
+    void craftingWithoutUseLevelGrantsNoSmithingExp() {
+        ItemStack result = new ItemStack(Material.DIAMOND_SWORD);
+        when(itemStats.profileFor(eq(Material.DIAMOND_SWORD), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.DIAMOND_SWORD), any())).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.DIAMOND_SWORD), any())).thenReturn(Optional.empty());
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.isShiftClick()).thenReturn(false);
+        stubRealCraftClick(event, false);
+
+        listener().onCraft(event);
+
+        verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
     }
 
     @Test

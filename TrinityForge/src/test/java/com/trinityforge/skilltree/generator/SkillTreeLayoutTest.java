@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SkillTreeLayoutTest {
@@ -58,7 +59,7 @@ class SkillTreeLayoutTest {
     }
 
     @Test
-    @DisplayName("trunk children form distinct branches above their parent")
+    @DisplayName("trunk children form distinct branches above their parent (greek stays left)")
     void trunkChildrenFormDistinctBranchesAboveParent() {
         Map<String, SkillNode> nodes = new LinkedHashMap<>();
         nodes.put("M", node("M", 10, SkillRole.MAIN, null));
@@ -70,8 +71,13 @@ class SkillTreeLayoutTest {
         assertEquals(new Coord(2, 8), layout.coordOf("M"));
         assertTrue(layout.coordOf("G1").y() < layout.coordOf("M").y());
         assertTrue(layout.coordOf("G2").y() < layout.coordOf("M").y());
+        // 2026-07-30: 排他路線(GREEK)を持つツリーでは GREEK=左半平面 / BRANCH=右半平面 に固定した
+        // (以前は「並び順で左右交互」だったため、排他の側が主軸ごとに入れ替わり lv100 帯で分岐
+        // チェーンと同じ列に入り込んでコネクタが排他の行を横切っていた)。左右に散らすのではなく
+        // 「別セルであること」がこのテストの本旨なので、そちらを検証する。
         assertTrue(layout.coordOf("G1").x() < layout.startX());
-        assertTrue(layout.coordOf("G2").x() > layout.startX());
+        assertTrue(layout.coordOf("G2").x() < layout.startX());
+        assertNotEquals(layout.coordOf("G1"), layout.coordOf("G2"));
     }
 
     @Test

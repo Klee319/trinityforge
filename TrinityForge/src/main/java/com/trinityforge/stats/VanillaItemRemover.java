@@ -158,6 +158,76 @@ public final class VanillaItemRemover {
         return !targets.isEmpty();
     }
 
+    /** {@link #sanitize} の判定結果。 */
+    public enum Verdict {
+        /** 対象外。そのまま。 */
+        KEEP,
+        /** 指定エンチャントだけ剥がした(アイテム自体は残す)。 */
+        STRIPPED,
+        /** アイテムごと消す。 */
+        REMOVE
+    }
+
+    /**
+     * {@code stack} を {@code removed-vanilla-items} に従って<b>その場で無害化</b>し、
+     * 呼び出し側が取るべき処置を返す(2026-07-30 ユーザー確定仕様)。
+     *
+     * <ul>
+     *   <li>材質だけの指定({@code DIAMOND_SWORD} 等) → {@link Verdict#REMOVE}(従来どおり)。</li>
+     *   <li>エンチャント指定({@code ANY:MENDING} / {@code ENCHANTED_BOOK:MENDING}) →
+     *       <b>そのエンチャントだけを剥がして {@link Verdict#STRIPPED}</b>。装備を丸ごと消すのは
+     *       ルートチェストの当たり装備が無言で消滅するのと同義で、体験として悪すぎる。</li>
+     *   <li>ただしエンチャント本({@code ENCHANTED_BOOK})を剥がした結果、収録エンチャントが
+     *       0 になった場合は {@link Verdict#REMOVE} — バニラに存在しない「エンチャントの付いていない
+     *       エンチャント本」を世界に残さないため。</li>
+     * </ul>
+     *
+     * <p><b>TF品保護({@link #isTfCatalogItem})はアイテムごと消す判定にだけ効く。</b>
+     * エンチャントを剥がすだけなら TF品でも安全に適用できる — むしろ「TFの品質PDCが先に刻まれた
+     * 釣果は削除対象から外れる」という順序依存で修繕付きアイテムが素通りしていたのが実バグの原因
+     * ({@code FishingQualityListener}(NORMAL) が {@code VanillaItemRemovalListener}(HIGH) より先に
+     * 走るため)。剥がす側に保護を掛けないことでこの順序依存そのものが消える。
+     */
+    public Verdict sanitize(ItemStack stack) {
+        if (stack == null || stack.getType().isAir() || targets.isEmpty()) {
+            return Verdict.KEEP;
+        }
+        boolean tfItem = isTfCatalogItem(stack);
+        Set<Enchantment> toStrip = new LinkedHashSet<>();
+        for (ItemMatcher matcher : targets) {
+            if (matcher.material() != null && matcher.material() != stack.getType()) {
+                continue;
+            }
+            if (matcher.enchant() == null) {
+                // 材質そのものの禁止。TF品は誤消去防止のため従来どおり除外する。
+                if (!tfItem) {
+                    return Verdict.REMOVE;
+                }
+                continue;
+            }
+            if (hasEnchant(stack, matcher.enchant())) {
+                toStrip.add(matcher.enchant());
+            }
+        }
+        if (toStrip.isEmpty()) {
+            return Verdict.KEEP;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return Verdict.KEEP;
+        }
+        for (Enchantment enchant : toStrip) {
+            if (meta instanceof EnchantmentStorageMeta storage) {
+                storage.removeStoredEnchant(enchant);
+            }
+            meta.removeEnchant(enchant);
+        }
+        stack.setItemMeta(meta);
+        boolean emptyBook = stack.getType() == Material.ENCHANTED_BOOK
+                && (!(meta instanceof EnchantmentStorageMeta storage) || !storage.hasStoredEnchants());
+        return emptyBook && !tfItem ? Verdict.REMOVE : Verdict.STRIPPED;
+    }
+
     /** True when {@code stack} matches a configured removal target and is not a TF catalog item. */
     public boolean shouldRemove(ItemStack stack) {
         if (stack == null || stack.getType().isAir() || targets.isEmpty()) {

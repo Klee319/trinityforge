@@ -33,6 +33,11 @@ public final class SkillExpConfig {
     // 「装備1個クラフト = ツール1本を使い切った程度」として据えた暫定値。実プレイでの体感ペースを見て
     // 要調整。
     private volatile double smithingExpPerCraft = 15.0;
+    // 2026-07-30 「鍛冶のレベルが上がりにくい」への対応: 定額ではなく「クラフト盤面に置いた素材の合計」で
+    // EXPを決める。キーは Material 名 または custom:<catalogId>。表に無い素材は0(=無報酬)。
+    // 表が空のときだけ上の定額 smithingExpPerCraft にフォールバックする(yml未更新のサーバで鍛冶EXPが
+    // 丸ごと0になるのを避けるため)。
+    private volatile Map<String, Double> smithingExpPerMaterial = Map.of();
     private volatile boolean arsMagicKillExpEnabled = true;
     private volatile double arsMagicKillExpBase = 20.0;
     private volatile double arsMagicKillExpPerMobLevel = 1.5;
@@ -105,9 +110,28 @@ public final class SkillExpConfig {
     /**
      * SMITHING experience granted when a player crafts weapon/armor/tool equipment (PRG-13: the sole
      * SMITHING EXP source since the durability-based grant was removed).
+     *
+     * <p>2026-07-30 以降は {@link #smithingExpPerMaterial()} が非空ならそちらが優先され、この定額は
+     * <b>素材表が未設定のときのフォールバック</b>としてのみ使われる(jar だけ更新して yml を
+     * 書いていないサーバで鍛冶EXPが丸ごと0になるのを防ぐため)。
      */
     public double smithingExpPerCraft() {
         return smithingExpPerCraft;
+    }
+
+    /**
+     * {@code smithing.exp-per-material}: クラフト盤面に置いた素材<b>1個あたり</b>の鍛冶EXP
+     * (2026-07-30 ユーザー確定「鍛冶のレベルが上がりにくい」への対応)。
+     *
+     * <p>キーは素材トークン: バニラは Material 名({@code IRON_INGOT})、TFカタログ品は
+     * {@code custom:<catalogId>}。<b>表に無い素材は 0</b>(未設定=無報酬)。
+     * 表が空の場合だけ従来の定額 {@link #smithingExpPerCraft()} にフォールバックする。
+     *
+     * <p>付与は「完成品に使用可能レベルが設定されているとき」に限る({@code CraftQualityListener})
+     * — 解体で素材へ戻せるアイテムを延々と作り直す EXP 稼ぎを塞ぐため。
+     */
+    public Map<String, Double> smithingExpPerMaterial() {
+        return smithingExpPerMaterial;
     }
 
     public boolean arsMagicKillExpEnabled() {
@@ -357,6 +381,7 @@ public final class SkillExpConfig {
     void applyFrom(org.bukkit.configuration.ConfigurationSection yaml, Logger log) {
         this.arsSmithingExpPerCraft = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-craft", 10.0));
         this.smithingExpPerCraft = Math.max(0.0, yaml.getDouble("smithing.exp-per-craft", 15.0));
+        this.smithingExpPerMaterial = readMaterialTokenMap(yaml, "smithing.exp-per-material");
         this.arsMagicKillExpEnabled = yaml.getBoolean("ars-magic.kill-exp.enabled", true);
         this.arsMagicKillExpBase = Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.base", 20.0));
         this.arsMagicKillExpPerMobLevel =
@@ -442,6 +467,36 @@ public final class SkillExpConfig {
             case "max" -> GatheringExpMode.MAX;
             default -> GatheringExpMode.DROP_SUM;
         };
+    }
+
+    /**
+     * 素材トークン → 数値の表を読む。キーは {@code IRON_INGOT} のような Material 名と
+     * {@code custom:<catalogId>} が混在しうるので、{@link #normalizeMaterialToken(String)} で
+     * 「バニラだけ大文字化・custom は原文維持」に正規化してから積む。
+     */
+    private static Map<String, Double> readMaterialTokenMap(
+            org.bukkit.configuration.ConfigurationSection yaml, String path) {
+        var section = yaml.getConfigurationSection(path);
+        if (section == null) return Map.of();
+        Map<String, Double> values = new LinkedHashMap<>();
+        for (String key : section.getKeys(false)) {
+            values.put(normalizeMaterialToken(key), Math.max(0.0, section.getDouble(key, 0.0)));
+        }
+        return Collections.unmodifiableMap(values);
+    }
+
+    /**
+     * 素材トークンの正規化。{@code custom:} 接頭辞付き(TFカタログ品)は catalogId の大小を潰さず
+     * そのまま残し、それ以外は Bukkit の {@code Material} 名として大文字化する。
+     * カタログIDは yml のキーと PDC の値が一致していなければならないため、大文字化してはならない。
+     */
+    public static String normalizeMaterialToken(String raw) {
+        if (raw == null) return "";
+        String trimmed = raw.trim();
+        if (trimmed.regionMatches(true, 0, "custom:", 0, "custom:".length())) {
+            return "custom:" + trimmed.substring("custom:".length());
+        }
+        return trimmed.toUpperCase(Locale.ROOT);
     }
 
     private static Map<String, Double> readNonNegativeMap(

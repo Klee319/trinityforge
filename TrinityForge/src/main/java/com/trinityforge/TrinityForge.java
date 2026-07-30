@@ -855,10 +855,13 @@ public final class TrinityForge extends JavaPlugin {
         // junk-to-scrapフォールバックへ自動的に切替わる(FishingGimmickConfig#dropTablesEmpty参照)。
         // fish-sell-toggle保持時は宝抽選をゴミ抽選へ丸ごと差し替える(2026-07-25経済連携、クラスjavadoc参照)。
         // FishingQualityListener(NORMAL)より先に走らせる必要があるため EventPriority.LOW で登録。
-        getServer().getPluginManager().registerEvents(
-                new FishingGimmickListener(configManager.dedicatedEffects(), configManager.fishingGimmick(),
-                        crossPluginItemResolver, playerStatAggregator, skillLevelSource, fishingTreasureKey),
-                this);
+        FishingGimmickListener fishingGimmickListener = new FishingGimmickListener(
+                configManager.dedicatedEffects(), configManager.fishingGimmick(),
+                crossPluginItemResolver, playerStatAggregator, skillLevelSource, fishingTreasureKey);
+        // ENCHANTED_BOOK の釣果に中身のエンチャントを抽選するとき、サーバから消してあるエンチャント
+        // (removed-vanilla-items、既定は修繕)を候補から外すために参照する(2026-07-30)。
+        fishingGimmickListener.setVanillaItemRemover(vanillaItemRemover);
+        getServer().getPluginManager().registerEvents(fishingGimmickListener, this);
 
         // fish-sell-toggle (2026-07-25 経済連携): 釣った魚を釣った瞬間に自動でVault通貨へ換金する。
         // Vault不在時はeconomyBridge.available()==falseで静かに無効化(通常どおりアイテムとして入手)。
@@ -1092,7 +1095,7 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <reload|skills|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
+                                        "用法: /tf <reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
                                         "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
@@ -1353,6 +1356,8 @@ public final class TrinityForge extends JavaPlugin {
                                         statusGui.open(player);
                                         return Command.SINGLE_SUCCESS;
                                     }))
+                            // /tf achievement: 単独の /achievement と同じGUI(2026-07-30)。
+                            .then(achievementNode())
                             .then(roleCommand.node())
                             .then(collectionCommand.node())
                             .then(recipesCommand.node())
@@ -1394,33 +1399,43 @@ public final class TrinityForge extends JavaPlugin {
                     "Open the TrinityForge skill tree",
                     List.of("s"));
             // アチーブメント進捗GUI(2026-07-29)。スキルツリーと同じ操作感にそろえてある。
+            // 2026-07-30: /tf のサブコマンドにも同じノードを生やした(/skills と /tf skills が
+            // 併存しているのと同じ形)。ノード定義は achievementNode() の1本だけで、
+            // 単独コマンドと /tf achievement のどちらからも同じものを組み立てる。
             commands.register(
-                    Commands.literal("achievement")
+                    achievementNode()
                             .requires(src -> src.getSender().hasPermission("trinityforge.use"))
-                            .executes(ctx -> {
-                                if (!(ctx.getSource().getSender() instanceof Player player)) {
-                                    ctx.getSource().getSender().sendMessage(Component.text(
-                                            "プレイヤーのみ実行できます。", NamedTextColor.RED));
-                                    return 0;
-                                }
-                                achievementGui.open(player);
-                                return Command.SINGLE_SUCCESS;
-                            })
-                            .then(Commands.argument("id", StringArgumentType.word())
-                                    .executes(ctx -> {
-                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
-                                            ctx.getSource().getSender().sendMessage(Component.text(
-                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
-                                            return 0;
-                                        }
-                                        achievementGui.open(
-                                                player, StringArgumentType.getString(ctx, "id"));
-                                        return Command.SINGLE_SUCCESS;
-                                    }))
                             .build(),
                     "Open the TrinityForge achievement progress GUI",
                     List.of("achievements", "ach"));
         });
+    }
+
+    /**
+     * {@code achievement} サブツリー。単独コマンド {@code /achievement} と {@code /tf achievement} の
+     * 両方から使う(Brigadier のノードは1つのツリーにしか繋げないため、builder を都度組み立てる)。
+     */
+    private com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> achievementNode() {
+        return Commands.literal("achievement")
+                .executes(ctx -> {
+                    if (!(ctx.getSource().getSender() instanceof Player player)) {
+                        ctx.getSource().getSender().sendMessage(Component.text(
+                                "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                        return 0;
+                    }
+                    achievementGui.open(player);
+                    return Command.SINGLE_SUCCESS;
+                })
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(Component.text(
+                                        "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                return 0;
+                            }
+                            achievementGui.open(player, StringArgumentType.getString(ctx, "id"));
+                            return Command.SINGLE_SUCCESS;
+                        }));
     }
 
     private int executeProgressionLevel(

@@ -187,12 +187,44 @@ class FurnaceSmeltListenerTest {
         when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_BONUS))).thenReturn(OptionalDouble.of(3.0));
         when(gimmickConfig.smeltBonusPercent(anyInt())).thenReturn(1000.0); // >100% => guaranteed extra
 
-        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
         FurnaceSmeltEvent event = new FurnaceSmeltEvent(block, new ItemStack(Material.IRON_ORE), new ItemStack(Material.IRON_INGOT));
         listener.onSmelt(event);
+
+        // 付与そのものは次tickの depositExtra に回るので、ここではスケジュールされたことだけを見る
+        // (実際の積み先は下の2テストが depositExtra を直接叩いて検証する)。
+        assertEquals(true, server.getScheduler().getPendingTasks().size() > 0,
+                "a guaranteed (>100%) bonus chance must schedule the deposit of at least one extra ingot");
+    }
+
+    /**
+     * 2026-07-30「精錬速度ボーナスで増えた分がかまどから吐き出される」の修正: 結果スロットに
+     * 空きがあるならボーナスは<b>地面へ落とさず結果スロットへ積む</b>。
+     */
+    @Test
+    void bonusGoesIntoResultSlotWhenThereIsRoom() {
+        FurnaceInventory inv = furnace().getInventory();
+        inv.setResult(new ItemStack(Material.IRON_INGOT, 1));
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
         int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
 
-        assertEquals(true, after > before, "a guaranteed (>100%) bonus chance must drop at least one extra ingot");
+        assertEquals(3, furnace().getInventory().getResult().getAmount(),
+                "bonus ingots must be merged into the furnace result slot");
+        assertEquals(before, after, "nothing may be dropped while the result slot still has room");
+    }
+
+    /** 結果スロットが満杯なら、収まらない分だけ従来どおり地面へ落とす(消滅させない)。 */
+    @Test
+    void bonusOverflowStillDropsOnTheGround() {
+        FurnaceInventory inv = furnace().getInventory();
+        inv.setResult(new ItemStack(Material.IRON_INGOT, 64));
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
+        int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+
+        assertEquals(before + 2, after, "ingots that do not fit must fall on the ground, never vanish");
     }
 
     // NOTE: MockBukkit's FurnaceInventoryMock does not round-trip setSmelting() contents back through

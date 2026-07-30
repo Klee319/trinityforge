@@ -27,7 +27,80 @@ gathering:
 ars-smithing:
   exp-per-craft: 100
 smithing:
+  # 素材表(exp-per-material)が空のときだけ使われる定額フォールバック。
+  # 表に1行でも書いてあれば、この値は無視され「盤面の素材の合計」で決まる。
   exp-per-craft: 15
+  # クラフト盤面に置いた素材 1 個あたりの鍛冶EXP。3x3 の全マスを合計し、
+  # さらに完成品の使用可能レベル倍率(use-level-exp-multipliers)と同時クラフト回数を掛ける。
+  # キーは Material 名(大文字)、TFカタログ品は custom:<カタログID>。
+  # ここに無い素材は 0(=無報酬)。
+  # 【重要】完成品に「使用可能レベル」が設定されていないアイテムには EXP を一切付与しない。
+  # 解体で素材へ戻せるアイテムを作り直し続ける無限EXP経路(unzipサイクル)を塞ぐため。
+  exp-per-material:
+    # --- 木材・繊維 ---
+    STICK: 0.5
+    OAK_PLANKS: 1
+    SPRUCE_PLANKS: 1
+    BIRCH_PLANKS: 1
+    JUNGLE_PLANKS: 1
+    ACACIA_PLANKS: 1
+    DARK_OAK_PLANKS: 1
+    MANGROVE_PLANKS: 1
+    CHERRY_PLANKS: 1
+    PALE_OAK_PLANKS: 1
+    BAMBOO_PLANKS: 1
+    CRIMSON_PLANKS: 1
+    WARPED_PLANKS: 1
+    STRING: 1
+    LEATHER: 3
+    # --- 石材 ---
+    COBBLESTONE: 1.5
+    STONE: 1.5
+    COBBLED_DEEPSLATE: 2
+    DEEPSLATE: 2
+    BLACKSTONE: 2
+    # --- 金属・宝石 ---
+    COPPER_INGOT: 4
+    IRON_INGOT: 8
+    GOLD_INGOT: 8
+    AMETHYST_SHARD: 6
+    DIAMOND: 25
+    NETHERITE_SCRAP: 30
+    NETHERITE_INGOT: 120
+    # --- モブ素材 ---
+    BLAZE_ROD: 8
+    BREEZE_ROD: 20
+    PHANTOM_MEMBRANE: 6
+    PRISMARINE_SHARD: 4
+    PRISMARINE_CRYSTALS: 5
+    SHULKER_SHELL: 20
+    ECHO_SHARD: 30
+    HEART_OF_THE_SEA: 60
+    NETHER_STAR: 200
+    # --- TFカタログ素材 ---
+    custom:stone_2x: 3
+    custom:netherrack_2x: 2
+    custom:thread_empty: 4
+    custom:magebloom_fiber: 8
+    custom:reinforced_fiber: 10
+    custom:wither_rose_1x: 10
+    custom:amethyst_block_2x: 12
+    custom:reinforced_leather: 12
+    custom:blaze_rod_2x: 16
+    custom:source_gem: 20
+    custom:shulker_shell_1x: 20
+    custom:blaze_rod_3x: 24
+    custom:dragon_breath_3x: 30
+    custom:breeze_rod_2x: 40
+    custom:shulker_shell_2x: 40
+    custom:hard_metal: 40
+    custom:heavy_metal: 40
+    custom:elder_guardian_spike: 40
+    custom:wither_skull_fragment: 40
+    custom:tf_core_jewelry: 60
+    custom:dragon_scale: 80
+    custom:warden_tendril: 90
+    custom:source_gem_block: 180
 ars-magic:
   kill-exp:
     enabled: true
