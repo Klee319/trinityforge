@@ -3,22 +3,22 @@
     "type": "minecraft:range_dispatch",
     "property": "minecraft:custom_model_data",
     "fallback": {
-      "model": "minecraft:item/diamond_axe",
+      "model": "minecraft:item/string",
       "type": "minecraft:model"
     },
     "entries": [
       {
-        "threshold": 75,
+        "threshold": 100021,
         "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/source_gem_axe_tool"
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
         }
       },
       {
-        "threshold": 82,
+        "threshold": 100022,
         "model": {
-          "model": "minecraft:item/diamond_axe",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/reinforced_fiber"
         }
       }
     ]

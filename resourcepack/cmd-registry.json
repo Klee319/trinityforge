@@ -2,582 +2,6 @@
   "version": 1,
   "allocations": [
     {
-      "material": "DIAMOND_HELMET",
-      "cmd": 200101,
-      "id": "source_gem_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T00:00:00.000Z",
-      "assetName": "source_gem_helmet",
-      "parent": "generated"
-    },
-    {
-      "material": "DIAMOND_CHESTPLATE",
-      "cmd": 200102,
-      "id": "source_gem_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T00:00:00.000Z",
-      "assetName": "source_gem_chestplate",
-      "parent": "generated"
-    },
-    {
-      "material": "DIAMOND_LEGGINGS",
-      "cmd": 200103,
-      "id": "source_gem_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T00:00:00.000Z",
-      "assetName": "source_gem_leggings",
-      "parent": "generated"
-    },
-    {
-      "material": "DIAMOND_BOOTS",
-      "cmd": 200104,
-      "id": "source_gem_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T00:00:00.000Z",
-      "assetName": "source_gem_boots",
-      "parent": "generated"
-    },
-    {
-      "material": "NETHERITE_HELMET",
-      "cmd": 149,
-      "id": "dragon_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_CHESTPLATE",
-      "cmd": 152,
-      "id": "dragon_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_LEGGINGS",
-      "cmd": 155,
-      "id": "dragon_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_BOOTS",
-      "cmd": 158,
-      "id": "dragon_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_HELMET",
-      "cmd": 150,
-      "id": "wither_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_CHESTPLATE",
-      "cmd": 153,
-      "id": "wither_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_LEGGINGS",
-      "cmd": 156,
-      "id": "wither_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_BOOTS",
-      "cmd": 159,
-      "id": "wither_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.791Z"
-    },
-    {
-      "material": "NETHERITE_HELMET",
-      "cmd": 148,
-      "id": "infinity_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z",
-      "assetName": "infinity_helmet",
-      "parent": "generated"
-    },
-    {
-      "material": "NETHERITE_CHESTPLATE",
-      "cmd": 151,
-      "id": "infinity_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z",
-      "assetName": "infinity_chestplate",
-      "parent": "generated"
-    },
-    {
-      "material": "NETHERITE_LEGGINGS",
-      "cmd": 154,
-      "id": "infinity_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z",
-      "assetName": "infinity_leggings",
-      "parent": "generated"
-    },
-    {
-      "material": "NETHERITE_BOOTS",
-      "cmd": 157,
-      "id": "infinity_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z",
-      "assetName": "infinity_boots",
-      "parent": "generated"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200031,
-      "id": "mage_arcane_novice_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200032,
-      "id": "mage_arcane_novice_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200033,
-      "id": "mage_arcane_novice_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200034,
-      "id": "mage_arcane_novice_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200041,
-      "id": "mage_arcane_apprentice_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200042,
-      "id": "mage_arcane_apprentice_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200043,
-      "id": "mage_arcane_apprentice_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200044,
-      "id": "mage_arcane_apprentice_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200051,
-      "id": "mage_arcane_archmage_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200052,
-      "id": "mage_arcane_archmage_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200053,
-      "id": "mage_arcane_archmage_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200054,
-      "id": "mage_arcane_archmage_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200061,
-      "id": "mage_weaver_novice_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200062,
-      "id": "mage_weaver_novice_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200063,
-      "id": "mage_weaver_novice_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200064,
-      "id": "mage_weaver_novice_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200071,
-      "id": "mage_weaver_apprentice_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200072,
-      "id": "mage_weaver_apprentice_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200073,
-      "id": "mage_weaver_apprentice_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200074,
-      "id": "mage_weaver_apprentice_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200081,
-      "id": "mage_weaver_archmage_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200082,
-      "id": "mage_weaver_archmage_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200083,
-      "id": "mage_weaver_archmage_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200084,
-      "id": "mage_weaver_archmage_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200001,
-      "id": "mage_guardian_novice_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200002,
-      "id": "mage_guardian_novice_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200003,
-      "id": "mage_guardian_novice_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200004,
-      "id": "mage_guardian_novice_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200011,
-      "id": "mage_guardian_apprentice_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200012,
-      "id": "mage_guardian_apprentice_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200013,
-      "id": "mage_guardian_apprentice_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200014,
-      "id": "mage_guardian_apprentice_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200021,
-      "id": "mage_guardian_archmage_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200022,
-      "id": "mage_guardian_archmage_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200023,
-      "id": "mage_guardian_archmage_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200024,
-      "id": "mage_guardian_archmage_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200140,
-      "id": "abyssal_scale_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200141,
-      "id": "abyssal_scale_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200142,
-      "id": "abyssal_scale_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200143,
-      "id": "abyssal_scale_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200124,
-      "id": "bone_guard_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.443Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200125,
-      "id": "bone_guard_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.443Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200126,
-      "id": "bone_guard_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.443Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200127,
-      "id": "bone_guard_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.443Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200132,
-      "id": "carapace_mail_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200133,
-      "id": "carapace_mail_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200134,
-      "id": "carapace_mail_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200135,
-      "id": "carapace_mail_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200128,
-      "id": "copper_stud_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.444Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200129,
-      "id": "copper_stud_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200130,
-      "id": "copper_stud_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200131,
-      "id": "copper_stud_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200136,
-      "id": "gilded_thread_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200137,
-      "id": "gilded_thread_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200138,
-      "id": "gilded_thread_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200139,
-      "id": "gilded_thread_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200144,
-      "id": "phantom_shroud_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200145,
-      "id": "phantom_shroud_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200146,
-      "id": "phantom_shroud_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200147,
-      "id": "phantom_shroud_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200148,
-      "id": "withered_silk_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200149,
-      "id": "withered_silk_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.445Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200150,
-      "id": "withered_silk_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.446Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200151,
-      "id": "withered_silk_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-07-25T04:26:30.446Z"
-    },
-    {
       "material": "WOODEN_SWORD",
       "cmd": 51,
       "id": "wooden_halberd",
@@ -1208,6 +632,29 @@
       "allocatedAt": "2026-07-23T06:30:13.490Z"
     },
     {
+      "material": "NETHERITE_AXE",
+      "cmd": 139,
+      "id": "infinity_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 140,
+      "id": "hero_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "hero_axe",
+      "parent": "handheld"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 141,
+      "id": "nuclear_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
       "material": "WOODEN_SWORD",
       "cmd": 62,
       "id": "wooden_grate_sword",
@@ -1268,7 +715,9 @@
       "cmd": 110,
       "id": "hero_dagger",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.788Z"
+      "allocatedAt": "2026-07-23T13:30:59.788Z",
+      "assetName": "hero_dagger",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -1289,7 +738,9 @@
       "cmd": 116,
       "id": "hero_rapier",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.788Z"
+      "allocatedAt": "2026-07-23T13:30:59.788Z",
+      "assetName": "hero_rapier",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -1337,7 +788,9 @@
       "cmd": 122,
       "id": "hero_trident",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.789Z"
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "hero_trident",
+      "parent": "generated"
     },
     {
       "material": "TRIDENT",
@@ -1387,7 +840,9 @@
       "cmd": 128,
       "id": "hero_mace",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.789Z"
+      "allocatedAt": "2026-07-23T13:30:59.789Z",
+      "assetName": "hero_mace",
+      "parent": "generated"
     },
     {
       "material": "MACE",
@@ -1408,7 +863,9 @@
       "cmd": 134,
       "id": "hero_warhammer",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "hero_warhammer",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -1429,35 +886,14 @@
       "cmd": 137,
       "id": "hero_grate_sword",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "hero_grate_sword",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
       "cmd": 138,
       "id": "nuclear_grate_sword",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_AXE",
-      "cmd": 139,
-      "id": "infinity_axe",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
-    },
-    {
-      "material": "NETHERITE_AXE",
-      "cmd": 140,
-      "id": "hero_axe",
-      "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z",
-      "assetName": "hero_axe",
-      "parent": "handheld"
-    },
-    {
-      "material": "NETHERITE_AXE",
-      "cmd": 141,
-      "id": "nuclear_axe",
       "source": "catalog",
       "allocatedAt": "2026-07-23T13:30:59.790Z"
     },
@@ -1473,7 +909,9 @@
       "cmd": 143,
       "id": "hero_greataxe",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T13:30:59.790Z"
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "hero_greataxe",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
@@ -1534,6 +972,582 @@
       "id": "source_gem_grate_sword",
       "source": "catalog",
       "allocatedAt": "2026-07-24T01:00:14.594Z"
+    },
+    {
+      "material": "DIAMOND_HELMET",
+      "cmd": 200101,
+      "id": "source_gem_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_helmet",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_CHESTPLATE",
+      "cmd": 200102,
+      "id": "source_gem_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_chestplate",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_LEGGINGS",
+      "cmd": 200103,
+      "id": "source_gem_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_leggings",
+      "parent": "generated"
+    },
+    {
+      "material": "DIAMOND_BOOTS",
+      "cmd": 200104,
+      "id": "source_gem_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-24T00:00:00.000Z",
+      "assetName": "source_gem_boots",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 149,
+      "id": "dragon_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 152,
+      "id": "dragon_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 155,
+      "id": "dragon_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 158,
+      "id": "dragon_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 150,
+      "id": "wither_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 153,
+      "id": "wither_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 156,
+      "id": "wither_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 159,
+      "id": "wither_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.791Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 148,
+      "id": "infinity_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_helmet",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 151,
+      "id": "infinity_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_chestplate",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 154,
+      "id": "infinity_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_leggings",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 157,
+      "id": "infinity_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-23T13:30:59.790Z",
+      "assetName": "infinity_boots",
+      "parent": "generated"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200031,
+      "id": "mage_arcane_novice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200032,
+      "id": "mage_arcane_novice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200033,
+      "id": "mage_arcane_novice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200034,
+      "id": "mage_arcane_novice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200041,
+      "id": "mage_arcane_apprentice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200042,
+      "id": "mage_arcane_apprentice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200043,
+      "id": "mage_arcane_apprentice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200044,
+      "id": "mage_arcane_apprentice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200051,
+      "id": "mage_arcane_archmage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200052,
+      "id": "mage_arcane_archmage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200053,
+      "id": "mage_arcane_archmage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200054,
+      "id": "mage_arcane_archmage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200061,
+      "id": "mage_weaver_novice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200062,
+      "id": "mage_weaver_novice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200063,
+      "id": "mage_weaver_novice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200064,
+      "id": "mage_weaver_novice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200071,
+      "id": "mage_weaver_apprentice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200072,
+      "id": "mage_weaver_apprentice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200073,
+      "id": "mage_weaver_apprentice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200074,
+      "id": "mage_weaver_apprentice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200081,
+      "id": "mage_weaver_archmage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200082,
+      "id": "mage_weaver_archmage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200083,
+      "id": "mage_weaver_archmage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200084,
+      "id": "mage_weaver_archmage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200001,
+      "id": "mage_guardian_novice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200002,
+      "id": "mage_guardian_novice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200003,
+      "id": "mage_guardian_novice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200004,
+      "id": "mage_guardian_novice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200011,
+      "id": "mage_guardian_apprentice_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200012,
+      "id": "mage_guardian_apprentice_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200013,
+      "id": "mage_guardian_apprentice_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200014,
+      "id": "mage_guardian_apprentice_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200021,
+      "id": "mage_guardian_archmage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200022,
+      "id": "mage_guardian_archmage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200023,
+      "id": "mage_guardian_archmage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200024,
+      "id": "mage_guardian_archmage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200140,
+      "id": "abyssal_scale_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200141,
+      "id": "abyssal_scale_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200142,
+      "id": "abyssal_scale_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200143,
+      "id": "abyssal_scale_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200124,
+      "id": "bone_guard_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200125,
+      "id": "bone_guard_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200126,
+      "id": "bone_guard_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200127,
+      "id": "bone_guard_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.443Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200132,
+      "id": "carapace_mail_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200133,
+      "id": "carapace_mail_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200134,
+      "id": "carapace_mail_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200135,
+      "id": "carapace_mail_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200128,
+      "id": "copper_stud_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.444Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200129,
+      "id": "copper_stud_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200130,
+      "id": "copper_stud_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200131,
+      "id": "copper_stud_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200136,
+      "id": "gilded_thread_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200137,
+      "id": "gilded_thread_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200138,
+      "id": "gilded_thread_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200139,
+      "id": "gilded_thread_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200144,
+      "id": "phantom_shroud_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200145,
+      "id": "phantom_shroud_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200146,
+      "id": "phantom_shroud_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200147,
+      "id": "phantom_shroud_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200148,
+      "id": "withered_silk_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200149,
+      "id": "withered_silk_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.445Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200150,
+      "id": "withered_silk_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.446Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200151,
+      "id": "withered_silk_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-07-25T04:26:30.446Z"
     },
     {
       "material": "BOOK",
@@ -1728,55 +1742,6 @@
       "allocatedAt": "2026-07-23T06:30:13.490Z",
       "assetName": "source_gem_hoe",
       "parent": "handheld"
-    },
-    {
-      "material": "WOODEN_AXE",
-      "cmd": 200105,
-      "id": "wooden_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
-    },
-    {
-      "material": "STONE_AXE",
-      "cmd": 200106,
-      "id": "stone_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
-    },
-    {
-      "material": "COPPER_AXE",
-      "cmd": 200107,
-      "id": "copper_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
-    },
-    {
-      "material": "IRON_AXE",
-      "cmd": 200108,
-      "id": "iron_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
-    },
-    {
-      "material": "GOLDEN_AXE",
-      "cmd": 200109,
-      "id": "golden_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
-    },
-    {
-      "material": "DIAMOND_AXE",
-      "cmd": 200110,
-      "id": "diamond_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
-    },
-    {
-      "material": "NETHERITE_AXE",
-      "cmd": 200111,
-      "id": "netherite_axe_tool",
-      "source": "catalog",
-      "allocatedAt": "2026-07-24T07:00:00.000Z"
     },
     {
       "material": "BLAZE_ROD",
@@ -2050,6 +2015,20 @@
       "id": "wither_cane",
       "source": "catalog",
       "allocatedAt": "2026-07-23T13:30:59.790Z"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 3,
+      "id": "skill_node_lock",
+      "source": "catalog",
+      "allocatedAt": "2026-07-27T15:19:10.831Z"
+    },
+    {
+      "material": "ECHO_SHARD",
+      "cmd": 100083,
+      "id": "skill_tree_reset",
+      "source": "catalog",
+      "allocatedAt": "2026-07-27T15:19:10.831Z"
     },
     {
       "material": "BLAZE_ROD",
@@ -2501,7 +2480,9 @@
       "cmd": 5101,
       "id": "tf_core_wood",
       "source": "materials",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
+      "allocatedAt": "2026-07-22T21:56:36.875Z",
+      "assetName": "tf_core_wood",
+      "parent": "generated"
     },
     {
       "material": "ENCHANTED_GOLDEN_APPLE",
@@ -2560,46 +2541,39 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "OAK_PLANKS",
-      "cmd": 5311,
-      "id": "plank_scrap",
-      "source": "materials",
-      "allocatedAt": "2026-07-24T00:00:00.000Z"
-    },
-    {
-      "material": "COPPER_INGOT",
+      "material": "COPPER_NUGGET",
       "cmd": 5312,
       "id": "copper_ingot_scrap",
       "source": "materials",
-      "allocatedAt": "2026-07-24T00:00:00.000Z"
+      "allocatedAt": "2026-07-28T17:06:01.795Z"
     },
     {
-      "material": "IRON_INGOT",
+      "material": "IRON_NUGGET",
       "cmd": 5313,
       "id": "iron_ingot_scrap",
       "source": "materials",
-      "allocatedAt": "2026-07-24T00:00:00.000Z"
+      "allocatedAt": "2026-07-28T17:06:01.795Z"
     },
     {
-      "material": "GOLD_INGOT",
+      "material": "GOLD_NUGGET",
       "cmd": 5314,
       "id": "gold_ingot_scrap",
       "source": "materials",
-      "allocatedAt": "2026-07-24T00:00:00.000Z"
+      "allocatedAt": "2026-07-28T17:06:01.795Z"
     },
     {
-      "material": "DIAMOND",
+      "material": "COPPER_NUGGET",
       "cmd": 5315,
       "id": "diamond_scrap",
       "source": "materials",
-      "allocatedAt": "2026-07-24T00:00:00.000Z"
+      "allocatedAt": "2026-07-28T17:06:01.795Z"
     },
     {
-      "material": "NETHERITE_INGOT",
+      "material": "NETHERITE_SCRAP",
       "cmd": 5316,
       "id": "netherite_ingot_scrap",
       "source": "materials",
-      "allocatedAt": "2026-07-24T00:00:00.000Z"
+      "allocatedAt": "2026-07-28T17:06:01.795Z"
     },
     {
       "material": "LEATHER",
@@ -2614,6 +2588,42 @@
       "id": "turtle_scute_scrap",
       "source": "materials",
       "allocatedAt": "2026-07-24T00:00:00.000Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100022,
+      "id": "reinforced_fiber",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z",
+      "assetName": "reinforced_fiber",
+      "parent": "generated"
+    },
+    {
+      "material": "IRON_INGOT",
+      "cmd": 107,
+      "id": "heavy_metal",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z",
+      "assetName": "heavy_metal",
+      "parent": "generated"
+    },
+    {
+      "material": "NETHERITE_SCRAP",
+      "cmd": 108,
+      "id": "hard_metal",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z",
+      "assetName": "hard_metal",
+      "parent": "generated"
+    },
+    {
+      "material": "LEATHER",
+      "cmd": 5105,
+      "id": "reinforced_leather",
+      "source": "materials",
+      "allocatedAt": "2026-07-23T13:30:59.743Z",
+      "assetName": "reinforced_leather",
+      "parent": "generated"
     },
     {
       "material": "TURTLE_SCUTE",
@@ -2650,34 +2660,6 @@
       "allocatedAt": "2026-07-23T13:30:59.742Z",
       "assetName": "warden_tendril",
       "parent": "generated"
-    },
-    {
-      "material": "STRING",
-      "cmd": 100022,
-      "id": "reinforced_fiber",
-      "source": "materials",
-      "allocatedAt": "2026-07-23T13:30:59.743Z"
-    },
-    {
-      "material": "IRON_INGOT",
-      "cmd": 107,
-      "id": "heavy_metal",
-      "source": "materials",
-      "allocatedAt": "2026-07-23T13:30:59.743Z"
-    },
-    {
-      "material": "NETHERITE_SCRAP",
-      "cmd": 108,
-      "id": "hard_metal",
-      "source": "materials",
-      "allocatedAt": "2026-07-23T13:30:59.743Z"
-    },
-    {
-      "material": "LEATHER",
-      "cmd": 5105,
-      "id": "reinforced_leather",
-      "source": "materials",
-      "allocatedAt": "2026-07-23T13:30:59.743Z"
     },
     {
       "material": "BLAZE_ROD",

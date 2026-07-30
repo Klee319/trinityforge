@@ -17,8 +17,8 @@
       {
         "threshold": 128,
         "model": {
-          "model": "minecraft:item/mace",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_mace"
         }
       },
       {

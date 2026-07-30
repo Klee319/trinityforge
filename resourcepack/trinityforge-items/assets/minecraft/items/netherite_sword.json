@@ -52,8 +52,8 @@
       {
         "threshold": 110,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_dagger"
         }
       },
       {
@@ -94,8 +94,8 @@
       {
         "threshold": 116,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_rapier"
         }
       },
       {
@@ -115,8 +115,8 @@
       {
         "threshold": 134,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_warhammer"
         }
       },
       {
@@ -136,8 +136,8 @@
       {
         "threshold": 137,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_grate_sword"
         }
       },
       {
@@ -157,8 +157,8 @@
       {
         "threshold": 143,
         "model": {
-          "model": "minecraft:item/netherite_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/hero_greataxe"
         }
       },
       {

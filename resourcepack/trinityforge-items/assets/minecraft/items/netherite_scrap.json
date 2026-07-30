@@ -3,21 +3,21 @@
     "type": "minecraft:range_dispatch",
     "property": "minecraft:custom_model_data",
     "fallback": {
-      "model": "minecraft:item/diamond_axe",
+      "model": "minecraft:item/netherite_scrap",
       "type": "minecraft:model"
     },
     "entries": [
       {
-        "threshold": 75,
+        "threshold": 108,
         "model": {
           "type": "minecraft:model",
-          "model": "trinityforge:item/source_gem_axe_tool"
+          "model": "trinityforge:item/hard_metal"
         }
       },
       {
-        "threshold": 82,
+        "threshold": 5316,
         "model": {
-          "model": "minecraft:item/diamond_axe",
+          "model": "minecraft:item/netherite_scrap",
           "type": "minecraft:model"
         }
       }

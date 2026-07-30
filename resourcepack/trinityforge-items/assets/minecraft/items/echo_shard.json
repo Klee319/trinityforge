@@ -20,6 +20,13 @@
           "type": "minecraft:model",
           "model": "trinityforge:item/warden_tendril"
         }
+      },
+      {
+        "threshold": 100083,
+        "model": {
+          "model": "minecraft:item/echo_shard",
+          "type": "minecraft:model"
+        }
       }
     ]
   }
