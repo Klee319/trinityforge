@@ -127,6 +127,7 @@ const REGISTRY = Object.freeze([
 
   // ---- ArsPaper ----
   { id: "thread-sets", label: "スレッドセット効果 (thread-sets)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "thread-sets.yml", schema: "ars-thread-sets" },
+  { id: "thread-rolls", label: "スレッド厳選 (thread-rolls)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "thread-rolls.yml", schema: "ars-thread-rolls" },
   { id: "items", label: "儀式エフェクト (ritual effects)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "items.yml", schema: "ars-recipes" },
   // 機能アイテム(ワンド/コンパス/台座/儀式の核/筆記台/ウェイストーン/ソースベリー)の表示名 +
   // レシピ(items.yml/catalog.yml側の該当recipeへ配線)をまとめて編集するタブ。

@@ -31,6 +31,11 @@ function isNonNegInteger(value) {
   return isInteger(value) && value >= 0;
 }
 
+/** 1以上の整数（抽選の weight 用。0 を許すと「候補にあるのに絶対に出ない」設定が黙って通る）。 */
+function isPositiveInt(value) {
+  return Number.isInteger(value) && value >= 1;
+}
+
 // item-stats のキーは Material名 (英大文字/数字/アンダースコア) + 任意の整数CMD。
 // CMD は 1〜7桁 (0〜9999999) に制限し、巨大値や Number.isSafeInteger を超える桁を弾く。
 const ITEM_STATS_KEY_RE = /^[A-Z0-9_]+(#\d{1,7})?$/;
@@ -358,7 +363,12 @@ function validateCatalogRecipe(recipe, prefix, errors) {
 const CATALOG_RECIPE_METHODS = ["workbench", "ritual", "combine", "netherite", "inventory"];
 const RECIPE_METHODS = ["workbench", "ritual"];
 const RECIPE_TYPES = ["shaped", "shapeless"];
-const EFFECT_TYPES = ["craft", "weather", "thread", "flight", "moonfall", "sunrise", "repair", "animal_summon", "mob_summon", "enchant_book"];
+// Java 側 RitualEffectRegistry の登録キーと1対1で対応させる(ArsPaper#onEnable)。ここに無い値は
+// 保存時に弾かれるので、Java へ新しい効果を追加したらこの配列にも足すこと。
+// 2026-07-31 修正: thread_slot_expand が抜けていて「実装済みの効果を書くと保存できない」状態だった。
+// 廃止済みの "thread"(スレッド付与の儀式)は 2026-07-25 に Java から消えているので外した。
+const EFFECT_TYPES = ["craft", "weather", "flight", "moonfall", "sunrise", "repair",
+  "animal_summon", "mob_summon", "enchant_book", "thread_slot_expand", "thread_reroll"];
 const PEDESTAL_RE = /^(custom:)?[A-Za-z_][A-Za-z0-9_]*( x[1-9]\d*)?$/;
 // 儀式コア周囲の台座リング(チェビシェフ距離2の外周)は物理16台。
 // "NAME xN" は台座N台分に展開されるため、合計台数で判定する。
@@ -1057,6 +1067,60 @@ function validateTfGacha(data, errors) {
         if (e.amount !== undefined && e.amount !== null && (!isInteger(e.amount) || e.amount < 1)) errors.push(`pools.${pid}.entries[${i}].amount: 1以上の整数である必要があります`);
         if (e["quality-random"] !== undefined && e["quality-random"] !== null && typeof e["quality-random"] !== "boolean") errors.push(`pools.${pid}.entries[${i}].quality-random: 真偽値である必要があります`);
       });
+    }
+  }
+}
+
+// ---- thread-rolls.yml (ars-thread-rolls) ----
+// スレッド1個ごとの厳選(主ステ1つ + サブステ0〜4つ)の抽選テーブル。
+// Java 側 ThreadRollConfig は「壊れている候補だけ捨てて残りで抽選する」fail-open なので、
+// ここでは「その設定のまま保存すると抽選が意図と変わる」ものだけをエラーにする。
+function validateArsThreadRolls(data, errors) {
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  const rarities = data.rarities;
+  if (rarities !== undefined) {
+    if (!isPlainObject(rarities)) { errors.push("rarities はマップである必要があります"); }
+    else {
+      for (const [id, node] of Object.entries(rarities)) {
+        if (!isPlainObject(node)) { errors.push(`rarities.${id}: マップである必要があります`); continue; }
+        if (!isPositiveInt(node.weight)) errors.push(`rarities.${id}.weight: 1以上の整数である必要があります`);
+        if (node.multiplier !== undefined && (!isNumber(node.multiplier) || node.multiplier <= 0)) {
+          errors.push(`rarities.${id}.multiplier: 0より大きい数値である必要があります`);
+        }
+      }
+    }
+  }
+  for (const section of ["main-stats", "sub-stats"]) {
+    const pool = data[section];
+    if (pool === undefined) continue;
+    if (!isPlainObject(pool)) { errors.push(`${section} はマップである必要があります`); continue; }
+    for (const [stat, node] of Object.entries(pool)) {
+      if (!isPlainObject(node)) { errors.push(`${section}.${stat}: マップである必要があります`); continue; }
+      if (!isPositiveInt(node.weight)) errors.push(`${section}.${stat}.weight: 1以上の整数である必要があります`);
+      if (!isNumber(node.min)) errors.push(`${section}.${stat}.min: 数値である必要があります`);
+      if (!isNumber(node.max)) errors.push(`${section}.${stat}.max: 数値である必要があります`);
+      if (isNumber(node.min) && isNumber(node.max) && node.max < node.min) {
+        errors.push(`${section}.${stat}: max は min 以上である必要があります`);
+      }
+      if (isNumber(node.min) && isNumber(node.max) && node.min === 0 && node.max === 0) {
+        errors.push(`${section}.${stat}: min/max が両方0だとこの候補は抽選対象から外れます`);
+      }
+      if (node.percent !== undefined && typeof node.percent !== "boolean") {
+        errors.push(`${section}.${stat}.percent: 真偽値である必要があります`);
+      }
+    }
+  }
+  const subCount = data["sub-count"];
+  if (subCount !== undefined) {
+    if (!isPlainObject(subCount)) { errors.push("sub-count はマップである必要があります"); }
+    else {
+      for (const [count, weight] of Object.entries(subCount)) {
+        if (!/^\d+$/.test(String(count))) errors.push(`sub-count: 本数キー "${count}" は0以上の整数である必要があります`);
+        if (!isPositiveInt(weight)) errors.push(`sub-count.${count}: 1以上の整数である必要があります`);
+      }
     }
   }
 }
@@ -2829,6 +2893,9 @@ function validate(schemaType, data) {
       break;
     case "ars-thread-sets":
       validateArsThreadSets(data, errors);
+      break;
+    case "ars-thread-rolls":
+      validateArsThreadRolls(data, errors);
       break;
     case "tf-attribute-map":
       validateTfAttributeMap(data, errors);

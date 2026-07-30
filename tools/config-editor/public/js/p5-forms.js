@@ -311,4 +311,177 @@
     render();
     return { element: root, getData: () => working };
   };
+
+  // ============================================================
+  // thread-rolls.yml (ars-thread-rolls)
+  //   enabled / rarities / main-stats / sub-count / sub-stats
+  //   スレッド1個ごとの厳選(主ステ1つ + サブステ0〜4つ)の抽選テーブル。
+  //   weight は相対値で、0 や未指定は「候補から外れる」= 抽選されない。
+  // ============================================================
+  const RARITY_COLORS = [
+    "GRAY", "DARK_GRAY", "WHITE", "AQUA", "DARK_AQUA", "BLUE", "DARK_BLUE",
+    "GREEN", "DARK_GREEN", "YELLOW", "GOLD", "RED", "DARK_RED",
+    "LIGHT_PURPLE", "DARK_PURPLE", "BLACK"
+  ];
+
+  window.buildThreadRollsForm = function buildThreadRollsForm(data) {
+    const working = data && typeof data === "object" ? data : {};
+    if (typeof working.enabled !== "boolean") working.enabled = true;
+    for (const key of ["rarities", "main-stats", "sub-stats", "sub-count"]) {
+      if (working[key] == null || typeof working[key] !== "object") working[key] = {};
+    }
+    const root = h("div", { class: "dedicated-form" });
+
+    function statOptions() {
+      return (window.STAT_LIST && window.STAT_LIST.length ? window.STAT_LIST : window.FALLBACK_STATS) || [];
+    }
+    function pickNewStat(target) {
+      for (const c of statOptions()) if (!Object.prototype.hasOwnProperty.call(target, c)) return c;
+      return "new-stat";
+    }
+    function num(value, setter, step) {
+      const inp = h("input", {
+        class: "field-input num", type: "number", step: step || "any",
+        value: value == null ? "" : String(value)
+      });
+      inp.addEventListener("change", () => {
+        const v = inp.value === "" ? null : Number(inp.value);
+        setter(v == null || Number.isNaN(v) ? null : v);
+      });
+      return inp;
+    }
+
+    function statPoolSection(sectionKey, title, hint) {
+      const pool = working[sectionKey];
+      const box = h("div", { class: "stat-rows" });
+      const keys = Object.keys(pool);
+      if (!keys.length) box.appendChild(emptyHint("候補がありません。「+ 候補追加」で追加します。"));
+      for (const stat of keys) {
+        const node = pool[stat] && typeof pool[stat] === "object" ? pool[stat] : (pool[stat] = {});
+        const row = h("div", { class: "stat-row" }, [
+          window.statSelect(stat, (nv) => {
+            if (!nv || nv === stat) return false;
+            if (Object.prototype.hasOwnProperty.call(pool, nv)) { alert("同じステータスが既にあります"); return false; }
+            renameKey(pool, stat, nv); render(); return true;
+          }),
+          h("span", { class: "range-label", text: "weight" }),
+          num(node.weight, (v) => { if (v == null) delete node.weight; else node.weight = Math.max(1, Math.round(v)); }, "1"),
+          h("span", { class: "range-label", text: "min" }),
+          num(node.min, (v) => { if (v == null) delete node.min; else node.min = v; }),
+          h("span", { class: "range-label", text: "max" }),
+          num(node.max, (v) => { if (v == null) delete node.max; else node.max = v; }),
+          h("span", { class: "range-label", text: "%表示" }),
+          window.checkboxInput(node.percent, (v) => { if (v) node.percent = true; else delete node.percent; }),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { delete pool[stat]; render(); }
+          })
+        ]);
+        box.appendChild(row);
+      }
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 候補追加",
+        onclick: () => { pool[pickNewStat(pool)] = { weight: 5, min: 0, max: 0 }; render(); }
+      }));
+      return card([subTitle(title, hint)], [box]);
+    }
+
+    function raritiesSection() {
+      const rarities = working.rarities;
+      const box = h("div", { class: "stat-rows" });
+      const keys = Object.keys(rarities);
+      if (!keys.length) box.appendChild(emptyHint("レア度がありません。1つ以上ないと厳選が無効になります。"));
+      for (const id of keys) {
+        const node = rarities[id] && typeof rarities[id] === "object" ? rarities[id] : (rarities[id] = {});
+        box.appendChild(h("div", { class: "stat-row" }, [
+          h("span", { class: "range-label", text: "ID" }),
+          keyInput(rarities, id, render),
+          h("span", { class: "range-label", text: "weight" }),
+          num(node.weight, (v) => { if (v == null) delete node.weight; else node.weight = Math.max(1, Math.round(v)); }, "1"),
+          h("span", { class: "range-label", text: "主ステ倍率" }),
+          num(node.multiplier, (v) => { if (v == null) delete node.multiplier; else node.multiplier = v; }),
+          h("span", { class: "range-label", text: "表示名" }),
+          h("input", {
+            class: "field-input", value: node.label == null ? "" : String(node.label),
+            oninput: (e) => { const v = e.target.value; if (v === "") delete node.label; else node.label = v; }
+          }),
+          h("span", { class: "range-label", text: "色" }),
+          window.selectLabeledInput
+            ? window.selectLabeledInput(node.color || "GRAY", RARITY_COLORS, (v) => { node.color = v; })
+            : (() => {
+                const sel = h("select", { class: "field-input" });
+                for (const c of RARITY_COLORS) {
+                  sel.appendChild(h("option", { value: c, text: c, selected: (node.color || "GRAY") === c }));
+                }
+                sel.addEventListener("change", () => { node.color = sel.value; });
+                return sel;
+              })(),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { delete rarities[id]; render(); }
+          })
+        ]));
+      }
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ レア度追加",
+        onclick: () => { rarities[uniqueKey(rarities, "rarity")] = { weight: 10, multiplier: 1.0, label: "並", color: "GRAY" }; render(); }
+      }));
+      return card([subTitle("レア度 (rarities)", "weight で抽選。multiplier は主ステの値だけに掛かる(サブには掛からない)")], [box]);
+    }
+
+    function subCountSection() {
+      const counts = working["sub-count"];
+      const box = h("div", { class: "stat-rows" });
+      const keys = Object.keys(counts);
+      if (!keys.length) box.appendChild(emptyHint("本数の重みがありません(= サブステは常に0本)。"));
+      for (const n of keys) {
+        box.appendChild(h("div", { class: "stat-row" }, [
+          h("span", { class: "range-label", text: "サブ" }),
+          (() => {
+            const inp = h("input", { class: "field-input num", type: "number", step: "1", value: n });
+            inp.addEventListener("change", () => {
+              const nv = inp.value === "" ? "" : String(Math.max(0, Math.round(Number(inp.value))));
+              if (!nv || nv === n) { inp.value = n; return; }
+              if (Object.prototype.hasOwnProperty.call(counts, nv)) { alert("同じ本数が既にあります"); inp.value = n; return; }
+              renameKey(counts, n, nv); render();
+            });
+            return inp;
+          })(),
+          h("span", { class: "range-label", text: "本 / weight" }),
+          num(counts[n], (v) => { if (v == null) delete counts[n]; else counts[n] = Math.max(1, Math.round(v)); }, "1"),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "×",
+            onclick: () => { delete counts[n]; render(); }
+          })
+        ]));
+      }
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 本数追加",
+        onclick: () => {
+          let n = 0;
+          while (Object.prototype.hasOwnProperty.call(counts, String(n))) n++;
+          counts[String(n)] = 10; render();
+        }
+      }));
+      return card([subTitle("サブステの本数 (sub-count)", "0 を残すと「外れ個体」が出る。厳選の下限を作るための枠")], [box]);
+    }
+
+    function render() {
+      root.innerHTML = "";
+      const head = h("div", { class: "stat-row" }, [
+        h("span", { class: "range-label", text: "厳選を有効化 (enabled)" }),
+        window.checkboxInput(working.enabled, (v) => { working.enabled = v; })
+      ]);
+      root.appendChild(card([subTitle("全体", "無効にすると新しく作るスレッドに個体差が付かなくなる(既存個体の値は消えない)")], [head]));
+      root.appendChild(raritiesSection());
+      root.appendChild(statPoolSection("main-stats", "主ステータス (main-stats)",
+        "必ず1つ付く。値は min..max の一様乱数 x レア度の multiplier"));
+      root.appendChild(subCountSection());
+      root.appendChild(statPoolSection("sub-stats", "サブステータス (sub-stats)",
+        "主ステと重複しないよう排他で引く。multiplier は掛からない"));
+    }
+
+    render();
+    return { element: root, getData: () => working };
+  };
 })();

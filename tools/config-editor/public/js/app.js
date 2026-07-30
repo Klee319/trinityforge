@@ -630,6 +630,7 @@
         return window.buildGachaForm(data, { catalogCandidates });
       }
       case "ars-thread-sets": return window.buildThreadSetsForm(data);
+      case "ars-thread-rolls": return window.buildThreadRollsForm(data);
       case "ars-recipes": return window.buildRecipesForm(data, { onlyEffects: true });
       case "ars-materials": return window.buildMaterialsForm(data);
       case "ars-threads": return window.buildThreadsForm(data);
@@ -1629,7 +1630,7 @@
     // spellbooks.yml はティアごとに区切りコメントが多い。
     "ars-spellbooks",
     // gacha.yml / thread-sets.yml はヘッダ解説コメントが多い。
-    "tf-gacha", "ars-thread-sets",
+    "tf-gacha", "ars-thread-sets", "ars-thread-rolls",
     // skilltree/*.yml はヘッダ+ノードごとの区切りコメントが非常に多い (汎用エディタで編集)。
     "tf-skilltree",
     // crafting-features / use-requirements はヘッダ解説コメントが多い。

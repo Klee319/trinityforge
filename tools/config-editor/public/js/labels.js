@@ -563,7 +563,8 @@
       "craft": "アイテム生成", "weather": "天候操作", "thread": "スレッド付与", "flight": "飛行",
       "moonfall": "月落とし(夜へ)", "sunrise": "日の出(朝へ)", "repair": "修復",
       "animal_summon": "動物召喚", "mob_summon": "敵モブ召喚", "enchant_book": "エンチャント本",
-      "thread_slot_expand": "スレッド枠付与"
+      "thread_slot_expand": "スレッド枠付与",
+      "thread_reroll": "スレッド厳選の振り直し"
     },
     "weather-mode": { "clear": "晴れ", "rain": "雨", "thunder": "雷雨" },
     "mob-group": { "default": "通常", "raid": "襲撃", "nether": "ネザー", "variant": "変異" },
