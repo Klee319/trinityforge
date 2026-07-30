@@ -336,6 +336,41 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-30 11:xx — 配備の確認 / launch.json 整理 / テスト失敗の切り分け
+
+**配備（`tmp\deploy-20260730-bugfix.cmd`、ユーザーが 08:27 に実行）**: 成功をログで実測。
+TF jar（15,990,565 bytes / 08:13）を 3 バックエンド全部、`EliteMobs.jar`（6,839,128 bytes / 08:14）を
+Main と Dev（Resource には元から無い）、`combat/damage.yml` を Main へ。バックアップ 6 本。
+**3 サーバとも 08:46〜08:47 に再起動済みで `NoClassDefFoundError` はゼロ** → **W-8（ロールセットの予期せぬエラー）は解消**。
+`iron_axe_tool is unknown`（W-14）も現行ログには出ていない。
+なお現行ログに残る TF 警告は 2 種類: `stats/fishing-gimmick.yml` の
+`xp-bottle-store.tiers.N must have positive store-amount`（4 tier × 3 サーバ）と、
+`progression/achievements.yml` の `vanilla-advancements.disabled=true ですが trigger …`。
+
+**`.claude/launch.json` 整理（`6b2d085`）**: 126 エントリ（744 行）のうち 125 本は `tmp/*.cmd` を指す
+使い捨てで、`tmp/` は `.gitignore` 除外のため**クローンした環境では 1 つも動かない**。
+`config-editor` の 1 本だけ残した。ルールは `docs/agent-context/ops-build-deploy.md` に明記。
+※「参照先の .cmd が既に存在しない」と一度報告したが誤りで、このマシンには全部残っていた（除外はしていない）。
+
+**テスト失敗の切り分け（`23da6de`）**: TF 側 **7 件 → 2 件**（実測 2832 tests / 2 failed / 2 skipped）。
+7 件すべての原因は `889de32` で取り込んだ進行中バッチの内容変更だった。
+- 直したもの: `mining_progression.yml` で **`PRISMARINE_CRYSTALS`（ドロップ側）の行が落ちて
+  `SEA_LANTERN` の採掘 EXP が 0 になる内部矛盾**（ゲート用の `SEA_LANTERN: 24` は残っていた）を復旧。
+  出荷値ドリフト 3 件（enchant-luck 0.01→0.02 / use-level-scaling smithing 0.01→1.3・上限 3.0→100 /
+  archery distance 0.75→0.5）はいずれも意図的な再調整と判断し、テスト側を追随させた。
+- **残り 2 件は進行中の再設計に属するので手を付けていない**:
+  - `FailCloseGateSkillTreePlacementTest` — **`brew:healthboost-haste-2`（`crafting-features.yml` に
+    新規追加された醸造アンロック）がどのスキルツリーにも配置されていない**。フェイルクローズなので
+    **このままだと恒久ロック＝永久に入手不可**。どのツリーのどのノードに置くかは設計判断。
+  - `SkillTreeConfigTest#loadsLightWeaponsCanonicalTree` — `skilltree/light_weapons.yml` が
+    全面改修中（205 行追加 / 151 行削除）。ノード A は `buffs` から
+    `mainhand-multipliers`/`mainhand-buffs` へ移行済みなのでそこは追随させたが、
+    A-gamma-1 以降の期待値も設計が固まってから直す必要がある。
+
+**config-editor テストの 28 失敗も同じバッチ由来**（英雄武器のランダムロール／魔法防御の対象／
+player wiki generator／討伐EXP倍率50種／付与アイテムのセレクト／mining-gimmick のロスレス保存／
+槍の素材別ステータス）。**バッチが完成していない段階でテストを追随させても作り直しになる**ため未着手。
+
 ### 2026-07-30 10:xx — dev HEAD がコンパイルできない状態を解消（約2日・11コミット壊れていた）
 
 **症状**: `dev` の HEAD をクリーンな worktree にチェックアウトすると `compileJava` が通らない。
