@@ -392,14 +392,33 @@ git 系（2026-07-27 に導入）:
 config-editor `npm test` = **795 pass / 61 fail**（`window.richTextInput is not a function` 等の
 テストハーネスのスタブ欠落と、出荷 yml の実値と食い違う古い期待値。**いずれもこのバッチ以前からの既存失敗**）。
 
-**未解決（要追加情報）**: 「ARS の魔法で与えたダメージに TF ステータスが乗らない（攻撃力 10000 の
-触媒で火力が伸びない）」。静的解析では `SpellContext#dealSpellDamage` → `magicalFinalDamage` の
-経路は触媒の `attack-power` を加算しており正しい。一方で確実な迂回路が 3 つある:
-**`SolarEffect`/`LunarEffect` は `setHealth` で直接HPを減らす「防御無視ダメージ」**、
-**`ExplosionEffect` はバニラの `createExplosion`**。加えて **`SpellBindListener` は
-ArsPaper の `catalysts:` 登録品しか触媒と見なさない**ため、TF カタログの武器にスペルをバインドした
-場合はそのアイテムのステが渡らない（`resolveMagicAttackStats` はメインハンドを意図的に除外する）。
-どのアイテム種別・どのスペルで再現したかの確認待ち。
+**「ARS の魔法に TF ステが乗らない」（インフィニティの触媒 / 害悪 / マナ系は反映済み）— 有力原因を特定**:
+
+コード経路は端から端まで追ったが**正しい**。触媒バインド詠唱は `SpellBindListener` が
+`catalystArg = 手持ちアイテム`（`catalysts:` 登録品なので `heldCatalyst != null`）を渡し、
+`SpellContext#dealSpellDamage` → `TrinityForgeBridge#magicalFinalDamage` で
+`effectiveBase = spellBase + catalystAttackPowerAddend(catalyst)` を計算している。
+`SpellContext` のコピーコンストラクタも catalyst を引き継ぐ。害悪(`HarmEffect`)は
+`dealSpellDamage` 経由。`ItemStatProfile` のコンパクトコンストラクタがキーを canonical 化するので
+`attack-power` → `attack_power` の取り違えも起きない。`item-stats.yml` に `BLAZE_ROD#400024` は
+無いので config が動的登録を上書きしてもいない。
+
+→ **残る差分は配備**。`plugins\TrinityForge` は Resource/Dev が Main へのジャンクションなので
+TF の yml は 1 回のコピーで 3 台に届くが、**`plugins\ArsPaper` は 3 台とも実体ディレクトリ**で、
+かつ **config-editor の `deployPaths.arspaper` は Dev_Server だけを指している**
+（`docs/agent-context/ops-build-deploy.md` に既述）。つまり**触媒タブの編集は Dev にしか届かず、
+Main では出荷既定の `attack-power: 0`（"要調整: ステータス未設定のプレースホルダ"）のまま**。
+マナ最大値/回復量は TF 側 config 由来なのでジャンクションで 3 台に効く — **この非対称が
+「マナ系だけ反映されている」の説明そのもの**。
+反映には ArsPaper の再起動も要る（`registerCatalystStatsWithTrinityForge()` は enable と
+catalyst reload フックでしか走らない）。
+→ 同期スクリプト `tmp\sync-arspaper-config.cmd` を用意（ユーザー実行。全サーバ停止が前提）。
+
+**併せて見つけた恒久的な迂回路（TFステが構造的に乗らない経路）**:
+`SolarEffect`/`LunarEffect` は `setHealth` で直接HPを引く「防御無視ダメージ」、
+`ExplosionEffect` はバニラの `createExplosion`。また `SpellBindListener` は
+ArsPaper の `catalysts:` 登録品しか触媒と見なさないので、**TF カタログの武器にスペルをバインドすると
+その武器のステは魔法へ渡らない**（`resolveMagicAttackStats` はメインハンドを意図的に除外する設計）。
 
 ### 2026-07-30 11:xx — 配備の確認 / launch.json 整理 / テスト失敗の切り分け
 
