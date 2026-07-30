@@ -49,13 +49,19 @@ test("EXP設定から今回廃止したlegacyキーがすべて消えている",
   }
 });
 
-test("敵別討伐EXP倍率はmob-level-table記載50種を漏れなく持つ", () => {
+// 2026-07-31: 50 -> 51。SKELETON_HORSE を Lv45/65/85 帯の mobs: へ追加した
+// (骸馬の骨ドロップを配線するため。帯の mobs: がゲートなので、居ないと add-drops が空振りする)。
+// このテストは同時に「実は9種が5つの倍率表すべてから欠けていた」ことも掘り出した
+// (BEE/GOAT/LLAMA/TRADER_LLAMA/PANDA/WOLF/IRON_GOLEM = no-skill-exp-mobs なのに 0 が書かれておらず、
+//  DOLPHIN/POLAR_BEAR は帯に居るのに倍率が無く unlisted-entity-multiplier: 0 で無言の0扱い)。
+// 全表を埋めて解消済み。
+test("敵別討伐EXP倍率はmob-level-table記載51種を漏れなく持つ", () => {
   const table = load(path.join("combat", "mob-level-table.yml"));
   const expected = new Set(table["no-skill-exp-mobs"] || []);
   for (const tier of table.tiers || []) {
     for (const mob of tier.mobs || []) expected.add(mob);
   }
-  assert.equal(expected.size, 50, "正典mob-level-tableの対象数が変わった場合は倍率表も再確認する");
+  assert.equal(expected.size, 51, "正典mob-level-tableの対象数が変わった場合は倍率表も再確認する");
 
   const skillExp = load(path.join("stats", "skill-exp.yml"));
   for (const section of ["combat", "ars-magic"]) {

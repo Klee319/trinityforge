@@ -81,14 +81,19 @@ nodes:
     parent: D
     icon: DIAMOND_SHOVEL
     cost: 1
-    effect-text: 遺跡のスレッドがまれにドロップ・ガチャ券の確率がアップ
+    effect-text: 遺跡のスレッドがまれにドロップ・ガチャ券の確率がアップ・ダートコア解放
     effects:
       - 遺跡のスレッドがまれにドロップ
       - ガチャ券の確率がアップ
+      - ダートコアを解放
     buffs:
       gacha_rate_bonus: 10
     dedicated-effects:
       - id: drop:digging:ruins_thread
+      # 2026-07-31 追加: コア4種の解放先を「その素材を集めるスキル」の最終ノードへ揃えた。
+      # 伐採=ウッドコア / 農業=ベジタブル+ミートコア / 採掘=ジュエリーコア に対し
+      # 切削だけダートコアの解放先が無く、素材(圧縮土)が作れても永久にコアが作れなかった。
+      - id: recipe:tf_core_dirt
   A-1:
     name: 高速破壊I
     level: 20

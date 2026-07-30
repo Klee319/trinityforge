@@ -1,5 +1,8 @@
 """combat/mob-overrides.yml をコンセプト付きで生成する。
 
+【警告】overrides: 以下を全消し再生成するので手編集は消える。実行には
+--overwrite-hand-edits が必須(2026-07-31 に封印)。詳細は main() 冒頭のコメント。
+
 【なぜ防御の"率"だけを書くのか】
 mob-overrides の値は絶対値であり、396体中265体は EliteMobs の `level: dynamic`
 (入場時に選んだレベルへ追従する)。ここで max-health / attack-power / flat-defense を
@@ -383,6 +386,18 @@ def write_manifest(dungeons, packages, arenas):
 
 
 def main():
+    # 2026-07-31 封印: このスクリプトは overrides: 以下を「全部作り直して上書き」する。
+    # 以降 mob-overrides.yml には手編集(ドロップ配線・ボス個別の演出など)が入るため、
+    # 何も知らずに再実行すると手編集が黙って消える。実行するなら
+    #   1. git diff で mob-overrides.yml が clean であることを確認
+    #   2. 消えて困る手編集をこのスクリプト側の生成ロジックへ移す
+    #   3. 下のフラグを付けて実行
+    # の順で行うこと。フラグは「知っていて壊す」という宣言なので短縮しない。
+    if "--overwrite-hand-edits" not in sys.argv:
+        print("中断: このスクリプトは mob-overrides.yml の overrides: 以下を全て再生成し、")
+        print("      手編集(ドロップ配線など)を消します。意図している場合のみ")
+        print("      --overwrite-hand-edits を付けて実行してください。")
+        raise SystemExit(2)
     packages, arenas = package_index(), arena_index()
     root = os.path.join(EM, "custombosses")
     folders = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)))

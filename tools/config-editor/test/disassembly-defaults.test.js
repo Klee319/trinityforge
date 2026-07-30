@@ -36,16 +36,26 @@ test("バニラ装備の解体は素材別スクラップへ返し、チェー�
   assert.equal(rules["stone_*"], undefined);
 });
 
+// 2026-07-31: base_material(見た目のベースアイテム)と recipe.result(4個で戻る素材)は別物。
+// スクラップは「インゴットより小さい欠片」に見せるため base は NUGGET 系で、戻るのはインゴット。
+// 以前は1つの表で両方を検証していたため、見た目を NUGGET へ変えた時点でこのテストが落ちていた。
+// 2列に分けて、どちらの方向のドリフトも落ちるようにする。
+const SCRAP_RETURNS = {
+  plank_scrap: "OAK_PLANKS", copper_ingot_scrap: "COPPER_INGOT",
+  iron_ingot_scrap: "IRON_INGOT", gold_ingot_scrap: "GOLD_INGOT", diamond_scrap: "DIAMOND",
+  netherite_ingot_scrap: "NETHERITE_INGOT", leather_scrap: "LEATHER", turtle_scute_scrap: "TURTLE_SCUTE"
+};
+const SCRAP_BASE_LOOK = {
+  plank_scrap: "OAK_PLANKS", copper_ingot_scrap: "COPPER_NUGGET",
+  iron_ingot_scrap: "IRON_NUGGET", gold_ingot_scrap: "GOLD_NUGGET", diamond_scrap: "COPPER_NUGGET",
+  netherite_ingot_scrap: "NETHERITE_SCRAP", leather_scrap: "LEATHER", turtle_scute_scrap: "TURTLE_SCUTE"
+};
+
 test("各素材スクラップ4個はプレイヤーの2×2クラフトで元の素材1個に戻せる", () => {
-  const expected = {
-    plank_scrap: "OAK_PLANKS", copper_ingot_scrap: "COPPER_INGOT",
-    iron_ingot_scrap: "IRON_INGOT", gold_ingot_scrap: "GOLD_INGOT", diamond_scrap: "DIAMOND",
-    netherite_ingot_scrap: "NETHERITE_INGOT", leather_scrap: "LEATHER", turtle_scute_scrap: "TURTLE_SCUTE"
-  };
-  for (const [id, material] of Object.entries(expected)) {
+  for (const [id, material] of Object.entries(SCRAP_RETURNS)) {
     const entry = materials.materials[id];
     assert.ok(entry, `${id} が素材カタログに未定義`);
-    assert.equal(entry.base_material, material, `${id} の返却素材`);
+    assert.equal(entry.base_material, SCRAP_BASE_LOOK[id], `${id} の見た目ベース`);
     assert.deepEqual(entry.recipe?.shape, ["ii", "ii"], `${id} の2×2形状`);
     assert.equal(entry.recipe?.method, "inventory", `${id} はインベントリクラフト`);
     assert.equal(entry.recipe?.ingredients?.i, `custom:${id}`, `${id} の素材`);

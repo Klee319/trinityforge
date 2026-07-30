@@ -231,12 +231,24 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         return new ParseResult(Map.copyOf(titles), Map.copyOf(particles), Map.copyOf(seeds), skipped);
     }
 
+    /**
+     * Particle 名を解決する。実在する名前でも、<b>追加データを必須とする種類は受け付けない</b>。
+     *
+     * <p>2026-07-31 追加のガード。演出側({@code ParticleEffectService} / {@code ParticleSeedListener})は
+     * {@code spawnParticle(particle, loc, count, ...)} をデータ引数なしで呼ぶため、{@code getDataType()}
+     * が {@code Void} でない種類(FLASH/DUST/BLOCK/ITEM/ENTITY_EFFECT/SHRIEK/SCULK_CHARGE/VIBRATION 等)を
+     * 設定すると発生の瞬間に {@code IllegalArgumentException} が飛ぶ。パーティクルは常時 tick で回る
+     * ので、1件の設定ミスがログを埋め尽くし、同じリスナーに乗っている処理も道連れにする。
+     * Paper 1.21.11 で {@code FLASH} が Color 必須になったとき、会心演出が落ちて戦闘処理が
+     * 丸ごと止まった実績があるので、設定を読む時点で弾いて WARNING に落とす。
+     */
     private static Particle parseParticle(String name) {
         if (name == null || name.isBlank()) {
             return null;
         }
         try {
-            return Particle.valueOf(name.trim().toUpperCase(Locale.ROOT));
+            Particle particle = Particle.valueOf(name.trim().toUpperCase(Locale.ROOT));
+            return particle.getDataType() == Void.class ? particle : null;
         } catch (IllegalArgumentException ex) {
             return null;
         }

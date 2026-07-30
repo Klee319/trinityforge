@@ -17,12 +17,14 @@ experience:
   max_health_limitation: false
   pvp_multiplier: 0.1
   entity_exp_multipliers:
+    BEE: 0
     BLAZE: 1.7
     BOGGED: 1.2
     BREEZE: 1.6
     CAVE_SPIDER: 1.2
     CREAKING: 1.5
     CREEPER: 1.3
+    DOLPHIN: 1
     DROWNED: 1.2
     ELDER_GUARDIAN: 3
     ENDERMAN: 1.5
@@ -31,29 +33,37 @@ experience:
     EVOKER: 2
     GHAST: 1.8
     GIANT: 4
+    GOAT: 0
     GUARDIAN: 1.4
     HOGLIN: 1.5
     HUSK: 1.1
     ILLUSIONER: 2
+    IRON_GOLEM: 0
+    LLAMA: 0
     MAGMA_CUBE: 1.3
+    PANDA: 0
     PARCHED: 1.2
     PHANTOM: 1.3
     PIGLIN: 1.1
     PIGLIN_BRUTE: 1.8
     PILLAGER: 1.2
+    POLAR_BEAR: 1.4
     RAVAGER: 2.5
     SHULKER: 1.5
     SILVERFISH: 1
     SKELETON: 1.1
+    SKELETON_HORSE: 1
     SLIME: 1
     SPIDER: 1
     STRAY: 1.3
+    TRADER_LLAMA: 0
     VEX: 1.4
     VINDICATOR: 1.4
     WARDEN: 7
     WITCH: 1.5
     WITHER: 6
     WITHER_SKELETON: 1.8
+    WOLF: 0
     ZOGLIN: 1.8
     ZOMBIE: 1
     ZOMBIE_VILLAGER: 1

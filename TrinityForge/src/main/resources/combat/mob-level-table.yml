@@ -125,6 +125,16 @@ dungeon-only: false
 tiers:
   - min-level: 0
     vanilla-exp: 8
+    add-drops:
+    # 【ガチャ券ドロップ】 2026-07-31 追加
+    # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
+    # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
+    # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
+    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
+      - material: custom:tf_gacha_ticket
+        chance: 0.005
+        min: 1
+        max: 1
     mobs:
       - BLAZE
       - BOGGED
@@ -171,6 +181,16 @@ tiers:
       - ZOMBIFIED_PIGLIN
   - min-level: 10
     vanilla-exp: 15
+    add-drops:
+    # 【ガチャ券ドロップ】 2026-07-31 追加
+    # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
+    # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
+    # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
+    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
+      - material: custom:tf_gacha_ticket
+        chance: 0.008
+        min: 1
+        max: 1
     mobs:
       - BLAZE
       - BOGGED
@@ -217,6 +237,16 @@ tiers:
       - ZOMBIFIED_PIGLIN
   - min-level: 25
     vanilla-exp: 28
+    add-drops:
+    # 【ガチャ券ドロップ】 2026-07-31 追加
+    # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
+    # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
+    # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
+    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
+      - material: custom:tf_gacha_ticket
+        chance: 0.012
+        min: 1
+        max: 1
     mobs:
       - BLAZE
       - BOGGED
@@ -263,6 +293,110 @@ tiers:
       - ZOMBIFIED_PIGLIN
   - min-level: 45
     vanilla-exp: 50
+    # 【モブ別素材ドロップ】 2026-07-31 追加
+    # 「どの敵を狩るか」に意味を持たせるための帯限定ドロップ。materials.yml 側には recipe が
+    # 無いので、この帯とEMボス個別ドロップ(combat/mob-overrides.yml)だけが唯一の入手経路。
+    # 必ず custom:<id> で書く — 素のidはバニラMaterial扱いになり解決に失敗して無言で消える。
+    # 帯が上がるほど確率が上がる(Lv45 2% -> Lv65 5% -> Lv85 10%)。フィールドモブのレベルは
+    # ワールド原点からの距離で決まる(coordinate-coefficient 0.02 = 50ブロックで+1)ため、
+    # 実質「原点から2250ブロック以上離れて狩る」ことが下限条件になる。近場で無限に湧かせる
+    # 稼ぎ方を潰しつつ、資源サーバの遠方バイオームへ出る動機を作るのが狙い。
+    # EMダンジョンのモブは見た目替えのZOMBIE等なのでEntityTypeでは狙い撃ちできない。
+    # ダンジョン限定の素材/武器は mob-overrides.yml の drops: 側で配線している。
+    add-drops:
+    # 【ガチャ券ドロップ】 2026-07-31 追加
+    # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
+    # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
+    # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
+    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
+      - material: custom:tf_gacha_ticket
+        chance: 0.016
+        min: 1
+        max: 1
+      - material: custom:tf_gacha_ticket_2
+        chance: 0.004
+        min: 1
+        max: 1
+      - material: custom:ravager_hide
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - RAVAGER
+      - material: custom:piglin_brute_plate
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - PIGLIN_BRUTE
+      - material: custom:pillager_plate
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - PILLAGER
+      - material: custom:witch_elixir
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - WITCH
+      - material: custom:piglin_ear
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - PIGLIN
+      - material: custom:stray_cloth
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - STRAY
+      - material: custom:skeleton_horse_bone
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - SKELETON_HORSE
+      - material: custom:endermite_soot
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - ENDERMITE
+      - material: custom:hoglin_tusk
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - HOGLIN
+          - ZOGLIN
+      - material: custom:guardian_spine
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - GUARDIAN
+          - ELDER_GUARDIAN
+      - material: custom:husk_cloth
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - HUSK
+      - material: custom:bogged_mossy_bone
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - BOGGED
+      - material: custom:parched_sandy_bone
+        chance: 0.02
+        min: 1
+        max: 1
+        mobs:
+          - PARCHED
     mobs:
       - BLAZE
       - BOGGED
@@ -294,6 +428,7 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
@@ -309,6 +444,110 @@ tiers:
       - ZOMBIFIED_PIGLIN
   - min-level: 65
     vanilla-exp: 85
+    # 【モブ別素材ドロップ】 2026-07-31 追加
+    # 「どの敵を狩るか」に意味を持たせるための帯限定ドロップ。materials.yml 側には recipe が
+    # 無いので、この帯とEMボス個別ドロップ(combat/mob-overrides.yml)だけが唯一の入手経路。
+    # 必ず custom:<id> で書く — 素のidはバニラMaterial扱いになり解決に失敗して無言で消える。
+    # 帯が上がるほど確率が上がる(Lv45 2% -> Lv65 5% -> Lv85 10%)。フィールドモブのレベルは
+    # ワールド原点からの距離で決まる(coordinate-coefficient 0.02 = 50ブロックで+1)ため、
+    # 実質「原点から2250ブロック以上離れて狩る」ことが下限条件になる。近場で無限に湧かせる
+    # 稼ぎ方を潰しつつ、資源サーバの遠方バイオームへ出る動機を作るのが狙い。
+    # EMダンジョンのモブは見た目替えのZOMBIE等なのでEntityTypeでは狙い撃ちできない。
+    # ダンジョン限定の素材/武器は mob-overrides.yml の drops: 側で配線している。
+    add-drops:
+    # 【ガチャ券ドロップ】 2026-07-31 追加
+    # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
+    # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
+    # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
+    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
+      - material: custom:tf_gacha_ticket
+        chance: 0.02
+        min: 1
+        max: 1
+      - material: custom:tf_gacha_ticket_3
+        chance: 0.004
+        min: 1
+        max: 1
+      - material: custom:ravager_hide
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - RAVAGER
+      - material: custom:piglin_brute_plate
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - PIGLIN_BRUTE
+      - material: custom:pillager_plate
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - PILLAGER
+      - material: custom:witch_elixir
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - WITCH
+      - material: custom:piglin_ear
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - PIGLIN
+      - material: custom:stray_cloth
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - STRAY
+      - material: custom:skeleton_horse_bone
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - SKELETON_HORSE
+      - material: custom:endermite_soot
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - ENDERMITE
+      - material: custom:hoglin_tusk
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - HOGLIN
+          - ZOGLIN
+      - material: custom:guardian_spine
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - GUARDIAN
+          - ELDER_GUARDIAN
+      - material: custom:husk_cloth
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - HUSK
+      - material: custom:bogged_mossy_bone
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - BOGGED
+      - material: custom:parched_sandy_bone
+        chance: 0.05
+        min: 1
+        max: 1
+        mobs:
+          - PARCHED
     mobs:
       - BLAZE
       - BOGGED
@@ -340,6 +579,7 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY
@@ -355,6 +595,110 @@ tiers:
       - ZOMBIFIED_PIGLIN
   - min-level: 85
     vanilla-exp: 140
+    # 【モブ別素材ドロップ】 2026-07-31 追加
+    # 「どの敵を狩るか」に意味を持たせるための帯限定ドロップ。materials.yml 側には recipe が
+    # 無いので、この帯とEMボス個別ドロップ(combat/mob-overrides.yml)だけが唯一の入手経路。
+    # 必ず custom:<id> で書く — 素のidはバニラMaterial扱いになり解決に失敗して無言で消える。
+    # 帯が上がるほど確率が上がる(Lv45 2% -> Lv65 5% -> Lv85 10%)。フィールドモブのレベルは
+    # ワールド原点からの距離で決まる(coordinate-coefficient 0.02 = 50ブロックで+1)ため、
+    # 実質「原点から2250ブロック以上離れて狩る」ことが下限条件になる。近場で無限に湧かせる
+    # 稼ぎ方を潰しつつ、資源サーバの遠方バイオームへ出る動機を作るのが狙い。
+    # EMダンジョンのモブは見た目替えのZOMBIE等なのでEntityTypeでは狙い撃ちできない。
+    # ダンジョン限定の素材/武器は mob-overrides.yml の drops: 側で配線している。
+    add-drops:
+    # 【ガチャ券ドロップ】 2026-07-31 追加
+    # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
+    # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
+    # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
+    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
+      - material: custom:tf_gacha_ticket
+        chance: 0.025
+        min: 1
+        max: 1
+      - material: custom:tf_gacha_ticket_4
+        chance: 0.004
+        min: 1
+        max: 1
+      - material: custom:ravager_hide
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - RAVAGER
+      - material: custom:piglin_brute_plate
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - PIGLIN_BRUTE
+      - material: custom:pillager_plate
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - PILLAGER
+      - material: custom:witch_elixir
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - WITCH
+      - material: custom:piglin_ear
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - PIGLIN
+      - material: custom:stray_cloth
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - STRAY
+      - material: custom:skeleton_horse_bone
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - SKELETON_HORSE
+      - material: custom:endermite_soot
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - ENDERMITE
+      - material: custom:hoglin_tusk
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - HOGLIN
+          - ZOGLIN
+      - material: custom:guardian_spine
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - GUARDIAN
+          - ELDER_GUARDIAN
+      - material: custom:husk_cloth
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - HUSK
+      - material: custom:bogged_mossy_bone
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - BOGGED
+      - material: custom:parched_sandy_bone
+        chance: 0.1
+        min: 1
+        max: 2
+        mobs:
+          - PARCHED
     mobs:
       - BLAZE
       - BOGGED
@@ -386,6 +730,7 @@ tiers:
       - SHULKER
       - SILVERFISH
       - SKELETON
+      - SKELETON_HORSE
       - SLIME
       - SPIDER
       - STRAY

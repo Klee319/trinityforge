@@ -37,9 +37,132 @@
 #   (直前の設定値を維持する既存の挙動と同じ安全側フォールバック)。
 #   運用上どうしても自動剥奪を止めたい場合は false にすること(削除したIDが古いまま残り続ける)。
 
+# 【パーティクル名の制約】 2026-07-31
+#   ここに書けるのは「追加データを要らない種類」だけ。演出側はデータ引数なしで spawnParticle を
+#   呼ぶので、FLASH / DUST / DUST_COLOR_TRANSITION / BLOCK / ITEM / ENTITY_EFFECT / SHRIEK /
+#   SCULK_CHARGE / VIBRATION / TRAIL のようにデータ必須の種類は指定しても弾かれる(WARNING)。
+#   実在する名前でも読み込み時に落ちるので、起動ログの
+#   「particle '<id>' has invalid/missing particle name」を必ず確認すること。
+#   Paper 1.21.11 で FLASH が Color 必須化したとき戦闘処理ごと落ちた実績があるため、
+#   SpecialRewardsConfig 側で設定を読む時点で弾いている。
+#
+# 【付与の憲法】 2026-07-31
+#   称号/パーティクルは「縦強化にしない報酬」の受け皿。図鑑(collection.yml reward-tiers)と
+#   アチーブメントの報酬をここへ集約し、戦闘ステータスは一切配らない。
+#   ⚠ prune-orphaned-grants: true なので、ここからIDを消すと保持している全員から剥奪される。
+#   一度出荷したIDは名前を変えず、要らなくなっても display を差し替えるだけにすること。
+
 prune-orphaned-grants: true
 display:
   head-offset-y: 0.75
-titles: {}
-particles: {}
-particle-seeds: {}
+
+titles:
+  # --- 図鑑(collection.yml reward-tiers)の段階報酬 ---
+  title_collector:
+    display: "<gray>収集家</gray>"
+  title_seeker:
+    display: "<white>探究者</white>"
+  title_archivist:
+    display: "<aqua>記録者</aqua>"
+  title_worldwalker:
+    display: "<gradient:#7f5af0:#2cb67d>世界渡り</gradient>"
+  # --- 指南(achievements.yml)の章クリア報酬 ---
+  title_first_step:
+    display: "<gray>はじまりの者</gray>"
+  title_gatherer:
+    display: "<green>糧を得る者</green>"
+  title_sourcewright:
+    display: "<blue>ソースの職人</blue>"
+  title_delver:
+    display: "<dark_aqua>深層に潜る者</dark_aqua>"
+  title_refiner:
+    display: "<gold>厳選者</gold>"
+  # --- 最終目標3種(束縛者 / 1億ソース / 図鑑コンプ) ---
+  title_worldbinder_slayer:
+    display: "<gradient:#ff4d4d:#ffd166>世界を解いた者</gradient>"
+  title_infinite_source:
+    display: "<gradient:#00c2ff:#7f5af0>無限の器</gradient>"
+  title_completionist:
+    display: "<gradient:#ffd700:#ff8c00:#ffd700>万象を知る者</gradient>"
+
+particles:
+  # radius は「発生半径(ブロック)」。aura は自分の周りにまとわりつき、circle は円周上へ等間隔で配置する
+  # (circle は count がそのまま円周上の点数になるので、count を上げすぎると視界が潰れる)。
+  # interval-ticks は 20 = 1秒。常時演出なので 10 未満にはしない(描画負荷と視界の両方が壊れる)。
+  particle_sparkle:
+    particle: END_ROD
+    count: 6
+    radius: 0.8
+    interval-ticks: 15
+    shape: aura
+  particle_ember_aura:
+    particle: FLAME
+    count: 8
+    radius: 0.9
+    interval-ticks: 12
+    shape: aura
+  particle_void_aura:
+    particle: PORTAL
+    count: 12
+    radius: 1.0
+    interval-ticks: 10
+    shape: aura
+  particle_soul_ring:
+    particle: SOUL_FIRE_FLAME
+    count: 10
+    radius: 1.2
+    interval-ticks: 14
+    shape: circle
+  particle_snow_ring:
+    particle: SNOWFLAKE
+    count: 12
+    radius: 1.1
+    interval-ticks: 14
+    shape: circle
+  particle_petal_ring:
+    particle: CHERRY_LEAVES
+    count: 10
+    radius: 1.2
+    interval-ticks: 16
+    shape: circle
+  particle_spark_ring:
+    particle: ELECTRIC_SPARK
+    count: 14
+    radius: 1.0
+    interval-ticks: 12
+    shape: circle
+  particle_dragon_aura:
+    particle: DRAGON_BREATH
+    count: 10
+    radius: 1.0
+    interval-ticks: 12
+    shape: aura
+
+particle-seeds:
+  # 「種」を武器/道具に合成すると、その道具での攻撃/破壊時にパーティクルが出るようになる。
+  # seed-item は Material名 または custom:<カタログID>。ここでは新規テクスチャを要らない
+  # バニラ素材だけを使い、入手経路は儀式/ガチャ/ドロップ側で与える。
+  seed_flame:
+    seed-item: BLAZE_POWDER
+    particle: FLAME
+    count: 6
+  seed_frost:
+    seed-item: BLUE_ICE
+    particle: SNOWFLAKE
+    count: 6
+  seed_soul:
+    seed-item: SOUL_SAND
+    particle: SOUL
+    count: 6
+  seed_spark:
+    seed-item: COPPER_INGOT
+    particle: ELECTRIC_SPARK
+    count: 8
+  seed_void:
+    seed-item: ENDER_EYE
+    particle: PORTAL
+    count: 10
+  seed_bloom:
+    seed-item: PINK_PETALS
+    particle: CHERRY_LEAVES
+    count: 6

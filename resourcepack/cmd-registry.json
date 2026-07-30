@@ -2730,6 +2730,258 @@
       "id": "botanical_sourcelink",
       "source": "sourcelinks",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "OAK_PLANKS",
+      "cmd": 5311,
+      "id": "plank_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:30:00.000Z"
+    },
+    {
+      "material": "BREEZE_ROD",
+      "cmd": 130,
+      "id": "breeze_rod_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5106,
+      "id": "tf_core_dirt",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "ECHO_SHARD",
+      "cmd": 100084,
+      "id": "echo_shard_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "WITHER_ROSE",
+      "cmd": 5430,
+      "id": "wither_rose_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "LEATHER",
+      "cmd": 5401,
+      "id": "ravager_hide",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "GOLD_INGOT",
+      "cmd": 5402,
+      "id": "piglin_brute_plate",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "IRON_INGOT",
+      "cmd": 5403,
+      "id": "pillager_plate",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "GLASS_BOTTLE",
+      "cmd": 5404,
+      "id": "witch_elixir",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "RABBIT_HIDE",
+      "cmd": 5405,
+      "id": "piglin_ear",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 5406,
+      "id": "stray_cloth",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BONE",
+      "cmd": 5407,
+      "id": "skeleton_horse_bone",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "GUNPOWDER",
+      "cmd": 5408,
+      "id": "endermite_soot",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BONE",
+      "cmd": 5409,
+      "id": "hoglin_tusk",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "PRISMARINE_SHARD",
+      "cmd": 5410,
+      "id": "guardian_spine",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 5411,
+      "id": "husk_cloth",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BONE",
+      "cmd": 5412,
+      "id": "bogged_mossy_bone",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BONE",
+      "cmd": 5413,
+      "id": "parched_sandy_bone",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "OAK_LOG",
+      "cmd": 5421,
+      "id": "oak_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "OAK_LOG",
+      "cmd": 5422,
+      "id": "oak_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BREAD",
+      "cmd": 5423,
+      "id": "compressed_bread_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BREAD",
+      "cmd": 5424,
+      "id": "compressed_bread_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "COOKED_BEEF",
+      "cmd": 5425,
+      "id": "compressed_cooked_beef_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "COOKED_BEEF",
+      "cmd": 5426,
+      "id": "compressed_cooked_beef_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5427,
+      "id": "dirt_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5428,
+      "id": "dirt_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5429,
+      "id": "dirt_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5441,
+      "id": "source_shard",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "PRISMARINE_CRYSTALS",
+      "cmd": 5442,
+      "id": "source_crystal",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "HEART_OF_THE_SEA",
+      "cmd": 5443,
+      "id": "source_condenser",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "CONDUIT",
+      "cmd": 5444,
+      "id": "source_engine",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "NETHER_STAR",
+      "cmd": 5445,
+      "id": "infinity_source_core",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200004,
+      "id": "source_jar_ii",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200005,
+      "id": "source_jar_iii",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200006,
+      "id": "source_reservoir",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200007,
+      "id": "source_singularity_jar",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
     }
   ]
 }

@@ -64,6 +64,9 @@ class RecipeRitualGateChannelDriftTest {
     private static final Set<String> EXPECTED_RECIPE_GATE_IDS = Set.of(
             "source_gem_block",
             "tf_core_wood",
+            // 2026-07-31 追加: 切削(digging.yml) の主軸E からダートコアを解放する。
+            // コア4種のうちダートコアだけ解放先が無く、素材(圧縮土)が作れてもコアが作れなかった。
+            "tf_core_dirt",
             "tf_core_jewelry",
             "tf_core_vegetable",
             "tf_core_meat",
