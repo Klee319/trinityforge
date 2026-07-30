@@ -1,5 +1,8 @@
 # ---- ビルド成果物 ----
 build/
+# buildDir を変えて走らせたときの生成物（resources/main・test-results・reports が入る）。
+# 除外されていないと `git add TrinityForge` で生成物 87 本を巻き込む事故になる。
+build-*/
 .gradle/
 out/
 bin/

@@ -26,6 +26,11 @@
   （かつては直前に無条件 `target.mkdirs()` していたため、**空の `fork-handoff/…/libs/` を新規作成して
   そこへ jar を置くだけ**という無言の失敗になっていた。現在は「フォークが実在するときだけ配る」に修正し、
   配れなかった場合は警告を出す。worktree だと検出できたときは「メインのワークツリーで打ち直せ」も併記される。）
+- ⚠️ **worktree では 3 つのテストが必ず落ちる（フォークのソースを直接読んでいるため）。**
+  `LegacyValhallaRuntimeContentTest`（`../fork-handoff/arspaper/fork/src/main/resources/materials.yml` を読む）と
+  `SpellBreakMarkerDriftTest` の 2 件。**worktree で作業するエージェントに「テストを全緑にせよ」と
+  指示してはいけない** — 直せない失敗を直そうとしてテストを壊す。
+  ベースラインを先に取り、この 3 件は除外して比較すること。
 - ⚠️ **`dev` の HEAD が単体でコンパイルできる状態でないと、worktree は使えない。**
   worktree は `dev` から切るので、メインのワークツリーの**未コミット変更に依存してビルドが通っている**状態だと、
   切った瞬間にコンパイルエラーになる（呼び出し側だけ commit されて新規ファイルが `git add` されていない、が典型）。

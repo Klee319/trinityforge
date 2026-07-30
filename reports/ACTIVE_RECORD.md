@@ -336,6 +336,34 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-30 10:xx — dev HEAD がコンパイルできない状態を解消（約2日・11コミット壊れていた）
+
+**症状**: `dev` の HEAD をクリーンな worktree にチェックアウトすると `compileJava` が通らない。
+作業ツリーではビルドできるので**誰も気付いていなかった**。壊れていたのはクローン / CI / git worktree。
+
+**いつから（各コミットを実測）**: `afa2a04`（07-28）までは通る。**`26a6070`（2026-07-28 19:10）から不通**。
+以後 `5dcd0dc` → `68b47e5` → `934fa62` と悪化（エラー行 7 → 10 → 14）。
+
+**原因**: 「**呼び出し側だけが commit され、参照している新規ファイルが未追跡のまま作業ツリーに残る**」。
+`TrinityForge.java` のような choke file は 1 ファイルに複数セッションの編集が同居するため、
+**パス指定の `git add` でも自分の行だけを分離できない**（`git add` はファイル単位）。
+
+**対応**: `TrinityForge/src` 配下の未コミット分（main 40変更+8新規、resources 32変更、test 31変更+21新規+1削除）を
+`889de32` でまとめて取り込み、HEAD をビルド可能な状態へ戻した。**内容は複数セッションの進行中バッチであり、
+このコミットは作業ツリーの状態をそのまま固定しただけ**。`TrinityForge/build-spawner-agent/`（Gradle 生成物 87 本）は
+除外し、`.gitignore` に `build-*/` を追加した。
+
+**検証（クリーンな worktree で実測）**: `compileJava` / `compileTestJava` → `BUILD SUCCESSFUL`。
+`test` → **2832 tests / 10 failed / 2 skipped**。うち 3 件（`LegacyValhallaRuntimeContentTest`,
+`SpellBreakMarkerDriftTest` ×2）は**フォークのソースを直接読んでいるため worktree では必ず落ちる**
+（メインのワークツリーでは PASS を実測）。残り 7 件は 2026-07-30 朝の実測と同じ既存の失敗
+（`EnchantLuckConfigTest` / `FailCloseGateSkillTreePlacementTest` / `SkillExpConfigTest` /
+`SkillTreeConfigTest` / `MiningProgressionBadlandsDriftTest` ×2 / `NativeSkillCatalogRatesTest`）。
+
+**再発防止**: `docs/agent-context/ops-build-deploy.md` に「新規ファイルを含む commit の直後に
+クリーンな worktree で `compileJava` を通す」手順を唯一の検出手段として明記。
+壊れた後に混入分だけ剥がすのは**同じ文の中で編集が交ざるため不可能**（実際に試して 14→9 までしか減らなかった）。
+
 ### 2026-07-30 09:xx — エージェント運用基盤（恒久知識のリポジトリ内移設 / サブエージェント / ワークフロー）
 
 コミット `7e5595b`（`dev` へ push 済み）。**コード変更なし・ドキュメントと設定のみ。**
