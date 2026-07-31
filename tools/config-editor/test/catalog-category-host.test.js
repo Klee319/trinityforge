@@ -209,19 +209,35 @@ test("3-way マージの識別キーが id に決まる (カテゴリ配列が�
     "相手のカテゴリ編集が丸ごと消えている");
 });
 
-test("出荷 yml の _editor.categories は全要素が id を持つ", (t) => {
-  const targets = [
-    ["catalog.yml", path.join(REPO, "TrinityForge", "src", "main", "resources", "items", "catalog.yml")],
-    ["item-stats.yml", path.join(REPO, "TrinityForge", "src", "main", "resources", "stats", "item-stats.yml")],
-    // fork は .gitignore 除外なので clone/worktree に存在しないことがある。
-    ["materials.yml", path.join(REPO, "fork-handoff", "arspaper", "fork", "src", "main", "resources", "materials.yml")]
-  ];
-  let checked = 0;
-  for (const [name, file] of targets) {
-    if (!fs.existsSync(file)) continue;
+// ⚠️ このテストは元々「3ファイル合計で1件も見なかったときだけ skip」だったため、
+// catalog.yml(40要素) と item-stats.yml(47要素) が合計 87 件を提供する分で常に「pass」になり、
+// **本命の materials.yml が1行も検査されていなくても緑**だった(fork は .gitignore 除外なので
+// clone/worktree には存在しない = 実際にほぼ毎回無検査)。このリポジトリで繰り返し踏んでいる
+// 「SKIPPED 素通り」と同型。検査できたか否かは**ファイル単位で見える形**にすること。
+/**
+ * 各 target の `_editor.categories` 全要素に id があることを検査する。
+ * 「検査できなかった」ファイルは件数で埋め合わせず、**ファイル単位で** diagnostic に出し、
+ * required なものが1件でも検査できなかったら失敗させる。
+ *
+ * @param targets `{ name, file, required }` の配列
+ * @param diagnostic 1行ずつ受け取るシンク (node:test の `t.diagnostic`)
+ */
+function assertEditorCategoryIds(targets, diagnostic) {
+  const uninspected = [];
+  for (const { name, file } of targets) {
+    if (!fs.existsSync(file)) {
+      diagnostic(`${name}: 未検査 — ファイルが存在しない (${file})`);
+      uninspected.push(name);
+      continue;
+    }
     const data = YAML.parse(fs.readFileSync(file, "utf8"));
     const categories = data && data._editor && data._editor.categories;
-    if (!categories || typeof categories !== "object") continue;
+    if (!categories || typeof categories !== "object") {
+      diagnostic(`${name}: 未検査 — _editor.categories が無い`);
+      uninspected.push(name);
+      continue;
+    }
+    let checked = 0;
     for (const [tabKey, list] of Object.entries(categories)) {
       if (!Array.isArray(list)) continue;
       list.forEach((cat, i) => {
@@ -230,6 +246,53 @@ test("出荷 yml の _editor.categories は全要素が id を持つ", (t) => {
           `${name} の _editor.categories.${tabKey}[${i}] (label=${cat && cat.label}) に id: が無い`);
       });
     }
+    if (!checked) {
+      diagnostic(`${name}: 未検査 — _editor.categories に配列要素が無い`);
+      uninspected.push(name);
+      continue;
+    }
+    diagnostic(`${name}: ${checked} 要素を検査`);
   }
-  if (!checked) t.skip("検証対象の yml が見つからないためスキップ");
+  // 他ファイルの件数で埋め合わせて「pass」に化けないよう、required の未検査は失敗にする。
+  const missingRequired = uninspected.filter(
+    (name) => targets.find((tg) => tg.name === name).required);
+  assert.deepEqual(missingRequired, [],
+    `検査できなかった必須ファイルがある: ${missingRequired.join(", ")}`);
+  if (uninspected.length) {
+    diagnostic(`未検査のファイル: ${uninspected.join(", ")} (fork 未取得なら正常)`);
+  }
+}
+
+const EDITOR_CATEGORY_TARGETS = [
+  // required: リポジトリに必ずある = 検査0件なら「見落とし」なのでテスト失敗にする。
+  { name: "catalog.yml", required: true,
+    file: path.join(REPO, "TrinityForge", "src", "main", "resources", "items", "catalog.yml") },
+  { name: "item-stats.yml", required: true,
+    file: path.join(REPO, "TrinityForge", "src", "main", "resources", "stats", "item-stats.yml") },
+  // fork は .gitignore 除外なので clone/worktree に存在しないことがある。存在しないこと自体は
+  // 正常だが、「検査できなかった」ことは必ず出力に残す。
+  { name: "materials.yml", required: false,
+    file: path.join(REPO, "fork-handoff", "arspaper", "fork", "src", "main", "resources", "materials.yml") }
+];
+
+test("出荷 yml の _editor.categories は全要素が id を持つ", (t) => {
+  assertEditorCategoryIds(EDITOR_CATEGORY_TARGETS, (line) => t.diagnostic(line));
+});
+
+test("検査できなかったファイルは他ファイルの件数で埋め合わせない", () => {
+  // ⚠️ 元の実装は「3ファイル合計で1件も見なかったときだけ skip」だったため、
+  // catalog.yml(40要素) と item-stats.yml(47要素) の合計 87 件で常に「pass」になり、
+  // **本命の materials.yml が1行も検査されていなくても緑**だった(fork は .gitignore 除外なので
+  // clone/worktree には存在しない = 実際にほぼ毎回無検査)。このリポジトリで繰り返し踏んでいる
+  // 「SKIPPED 素通り」と同型なので、その形へ戻らないことをここで固定する。
+  const lines = [];
+  const present = EDITOR_CATEGORY_TARGETS.find((tg) => tg.name === "catalog.yml");
+  const missing = { name: "__absent__.yml", required: true, file: path.join(REPO, "__no_such_file__.yml") };
+
+  assert.throws(() => assertEditorCategoryIds([present, missing], (l) => lines.push(l)),
+    /検査できなかった必須ファイルがある: __absent__\.yml/,
+    "検査できたファイルの件数で必須ファイルの未検査が隠れている");
+  // 何が検査され、何が検査できなかったかがファイル単位で出ていること。
+  assert.ok(lines.some((l) => /^catalog\.yml: \d+ 要素を検査$/.test(l)), lines.join(" / "));
+  assert.ok(lines.some((l) => l.startsWith("__absent__.yml: 未検査")), lines.join(" / "));
 });
