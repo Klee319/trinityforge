@@ -43,10 +43,69 @@
     return host._editor;
   }
 
+  // ---- id 欠落カテゴリの救済 ----
+  // `_editor.categories[].id` は**唯一の同定子**で、label は表示専用。手書きで yml に
+  // カテゴリを足すときに id を省くと、editor は「黙って」以下の4つの形で壊れる:
+  //   1. タブを押しても am[tabKey] に undefined が入り、activeEditorCategory が null(=すべて)
+  //      に化けるので絞り込みが起きない
+  //   2. getItemEditorCategory が undefined を返し、カードの「カテゴリ」欄が (未設定) になる
+  //   3. itemInEditorCategory の __unset__ 分岐が真になり、所属済みの品が「未設定」タブに並ぶ
+  //   4. カード上のカテゴリセレクトを操作すると所属が剥がれる / merge.js の identityKeyOf が
+  //      配列全体を識別不能と判定して同時編集で相手のカテゴリ編集が丸ごと消える
+  // どれもエラーを出さないので、id を補いつつ**警告も出す**（無言で落とさないのが要点）。
+  const warnedMissingId = new Set();
+
+  // 日本語ラベルは slug 化できず全部空になるので、ラベルから決定的なハッシュを作る。
+  // 配列の並び順に依存させない（並べ替えただけで id が変わると itemIds の同定が揺れる）。
+  function labelHash(label) {
+    let hash = 0x811c9dc5; // FNV-1a 32bit の offset basis
+    const s = String(label == null ? "" : label);
+    for (let i = 0; i < s.length; i++) {
+      hash ^= s.charCodeAt(i);
+      // Math.imul でないと 32bit の積が 2^53 を超えて丸められる(倍精度の桁落ち)。
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(36);
+  }
+
+  function derivedCategoryId(tabKey, label, index) {
+    const slug = String(label == null ? "" : label).trim().toLowerCase()
+      .replace(/[^a-z0-9_\-]+/g, "_").replace(/^_+|_+$/g, "");
+    if (slug) return "cat_auto_" + slug;
+    const raw = String(label == null ? "" : label).trim();
+    if (raw) return "cat_auto_" + tabKey + "_" + labelHash(raw);
+    return "cat_auto_" + tabKey + "_" + index;
+  }
+
+  /** id を持たないカテゴリへ、label 由来の安定 id を補う。補ったら警告する。 */
+  function backfillCategoryIds(cats, tabKey) {
+    const used = new Set();
+    for (const cat of cats) {
+      if (cat && typeof cat === "object" && cat.id) used.add(String(cat.id));
+    }
+    cats.forEach((cat, index) => {
+      if (!cat || typeof cat !== "object" || cat.id) return;
+      let id = derivedCategoryId(tabKey, cat.label, index);
+      let suffix = 2;
+      while (used.has(id)) id = derivedCategoryId(tabKey, cat.label, index) + "_" + suffix++;
+      cat.id = id;
+      used.add(id);
+      const warnKey = tabKey + "/" + id;
+      if (!warnedMissingId.has(warnKey)) {
+        warnedMissingId.add(warnKey);
+        const label = cat.label == null ? "(ラベルなし)" : String(cat.label);
+        // eslint-disable-next-line no-console
+        console.warn(`[editor-categories] _editor.categories.${tabKey} のカテゴリ「${label}」に id: が`
+          + ` 無いため ${id} を補いました。yml へ id: を書いてください(次の保存で書き戻されます)。`);
+      }
+    });
+    return cats;
+  }
+
   function listCategories(host, tabKey) {
     const ed = ensureEditor(host);
     if (!Array.isArray(ed.categories[tabKey])) ed.categories[tabKey] = [];
-    return ed.categories[tabKey];
+    return backfillCategoryIds(ed.categories[tabKey], tabKey);
   }
 
   /**
@@ -469,9 +528,9 @@
         cats.map((cat) => ({
           value: cat.id,
           primary: cat.label || cat.id,
-          // 日本語カテゴリ名などslug化できず "cat_<timestamp>" で自動採番されたidは
-          // ユーザーに意味が無いので副表記に出さない。
-          secondary: cat.id !== (cat.label || "") && !/^cat_\d+(_\d+)?$/.test(cat.id) ? cat.id : ""
+          // 日本語カテゴリ名などslug化できず "cat_<timestamp>" で自動採番されたidや、
+          // id 欠落を救済した "cat_auto_*" はユーザーに意味が無いので副表記に出さない。
+          secondary: cat.id !== (cat.label || "") && !/^cat_(\d+(_\d+)?|auto_.*)$/.test(cat.id) ? cat.id : ""
         }))
       ),
       onChange: (v) => {

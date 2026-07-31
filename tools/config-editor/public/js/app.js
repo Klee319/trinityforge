@@ -851,20 +851,16 @@
       }
       case "tf-special-rewards": return window.buildSpecialRewardsForm(data);
       case "tf-achievements": {
+        // 2026-07-31: ここだけ候補を catalog.yml 単体から作っていたため、ArsPaper materials.yml
+        // 由来の品(ダンジョンの印/次元の破片/ガチャ券…)が構造的に候補へ入らず、図鑑対象・付与
+        // アイテムのセレクトが生ID表示になっていた(実測 55 件中 31 件)。兄弟の tf-collection は
+        // 同じファイル内で fetchCatalogCandidatesWithMaterials() を使っており、画面ごとに流儀が
+        // 違うことがこのバグの温床だったので、共通の候補源へ揃える。
+        // ensureCustomItemCandidates() は buildEditorForLoadedConfig の入口で既に await 済みの
+        // メモ化 promise なので、追加 GET は発生しない。
         const [specialRewards, catalogCandidates, collectionData] = await Promise.all([
           loadSpecialRewards(),
-          (async () => {
-            try {
-              const cr = await api("GET", "/api/config/catalog");
-              if (cr && cr.data) {
-                rememberRevision("catalog", cr.revision);
-                rememberBase("catalog", cr.data);
-                return typeof window.buildCatalogCandidates === "function"
-                  ? window.buildCatalogCandidates(cr.data) : [];
-              }
-            } catch (_) { /* optional */ }
-            return [];
-          })(),
+          ensureCustomItemCandidates(),
           (async () => { try { const r = await api("GET", "/api/config/collection"); return r && r.data ? r.data : {}; } catch (_) { return {}; } })()
         ]);
         return window.buildAchievementsForm(data, {

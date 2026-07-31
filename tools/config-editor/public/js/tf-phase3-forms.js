@@ -245,7 +245,13 @@
     // src/main/resources/config.yml には元々このキー/geyser:セクション自体が存在しなかった)。
     const enchants = ensureObj(working, "enchantments");
     const mobDrops = ensureObj(working, "mob-drops");
-    const loot = ensureObj(working, "loot");
+    // 2026-07-31 (K-21): 旧 `loot.*`(enabled / enchant-book-chance /
+    // enchanted-golden-apple-chance)はこの画面から撤去した。ルートチェストの追加抽選は
+    // loot-tables.yml へ移っており、fork の config.yml はこのブロックを**もう読まない**ので
+    // 「ルートチェストONを off にしても止まらない・出現率を変えても何も変わらない」欄だった。
+    // さらに ensureObj で生やしていたため、ars-config を保存するだけで config.yml に
+    // 無効な `loot:` ブロックが復活していた。ensureObj もしない(往復ロスレス: 既存ファイルに
+    // 残っている loot: の値は working をそのまま返す方式で温存され、勝手に消えも生えもしない)。
     if (!Array.isArray(enchants["mana-regen-per-level"])) enchants["mana-regen-per-level"] = [0, 1, 3, 6];
     if (!Array.isArray(enchants["mana-boost-per-level"])) enchants["mana-boost-per-level"] = [0, 15, 30, 50];
 
@@ -348,15 +354,13 @@
       intListEditor(enchants["mana-boost-per-level"], { addLabel: "+ レベル帯を追加" })
     ]));
 
-    root.appendChild(card(sectionTitle("モブドロップ / ルート", "mob-drops / loot"), [
+    root.appendChild(card(sectionTitle("モブドロップ", "mob-drops"), [
       grid([
         boolField(mobDrops, "warden-echo-shard", { label: "ウォーデン→残響の欠片" }),
         numField(mobDrops, "warden-echo-shard-min", { label: "欠片 min", int: true }),
-        numField(mobDrops, "warden-echo-shard-max", { label: "欠片 max", int: true }),
-        boolField(loot, "enabled", { label: "ルートチェストON" }),
-        numField(loot, "enchant-book-chance", { label: "エンチャ本出現率" }),
-        numField(loot, "enchanted-golden-apple-chance", { label: "金リンゴ出現率" })
-      ])
+        numField(mobDrops, "warden-echo-shard-max", { label: "欠片 max", int: true })
+      ]),
+      sub("ルートチェストの追加抽選は「構造物ルート抽選 (loot-tables)」画面で設定します。")
     ]));
 
     return { element: root, getData: () => working };

@@ -690,8 +690,20 @@ window.itemRefSelect = function itemRefSelect(cfg) {
   const cur = cfg.value == null ? "" : String(cfg.value);
   // 候補に無い値 (手書きID・未知のカタログID等) でも消えないよう、値そのものを先頭候補として差し込む
   // (tf-rewards-forms.js statKeySelect と同じ流儀)。
+  //
+  // 2026-07-31: 出荷 achievements.yml の rewards.items[].id は全て `custom:<id>` 形式なのに、
+  // 候補の value は素のカタログID(上のループ)なので照合が必ず外れ、生トークンが主表示に
+  // なっていた(「custom:tf_gacha_ticket_5」がそのまま欄に出る)。接頭辞を剥がした形で
+  // 候補を引き直し、**表示だけ**候補のラベルへ寄せる。
+  // 保存値は `custom:` 付きのまま (verbatim)。剥がして書き戻すと「開いて保存しただけ」で
+  // yml に無関係な差分が出る。Java 側 (CrossPluginItemResolver#stripCustomPrefix) は
+  // どちらの形でも解けるので、保存値を触る理由が無い。
   if (cur && !options.some((o) => o.value === cur)) {
-    options.unshift({ value: cur, primary: cur, secondary: "" });
+    const bare = /^custom:/i.test(cur) ? cur.slice(cur.indexOf(":") + 1).trim() : "";
+    const hit = bare ? options.find((o) => o.value === bare) : null;
+    options.unshift(hit
+      ? { value: cur, primary: hit.primary, secondary: cur }
+      : { value: cur, primary: cur, secondary: "" });
   }
   return window.listSelect({
     value: cur,
