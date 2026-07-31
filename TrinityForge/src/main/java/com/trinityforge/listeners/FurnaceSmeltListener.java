@@ -223,8 +223,17 @@ public final class FurnaceSmeltListener implements Listener {
     }
 
     /**
-     * ボーナス分をかまどの結果スロットへ積む。スタック上限に収まらない分だけ、従来どおり
-     * かまどの上へ落とす(結果スロットが別アイテムで埋まっている場合も同様に地面へ)。
+     * ボーナス分をかまどの結果スロットへ積む。
+     *
+     * <p>2026-08-01「かまどが満杯になってもアイテムを吐き出す」への対応:
+     * <b>かまどが健在なら、収まらなかった分は地面へ落とさず破棄する。</b>
+     * バニラは満杯のかまどでは精錬自体を止める({@code AbstractFurnaceBlockEntity#canBurn} が
+     * 結果スロットの上限到達で false)ため、破棄されるのは「上限に達したちょうどその1回」の
+     * 最大1個だけで、ホッパー回収の構成では散らばりの方が実害が大きい。
+     * 2026-07-30 の「消滅させない」方針をここで反転させている。
+     *
+     * <p>ただし次tickまでにかまどが壊された/別ブロックになった場合は、既に付与が確定した分を
+     * 消さないために従来どおり全数を地面へ落とす。
      *
      * <p>package-private なのはテストのため。{@link #onSmelt} からは次tickのスケジューラ越しに
      * 呼ばれるので、MockBukkit のスケジューラ進行に依存せずこの分岐だけを直接検証できるようにしてある
@@ -249,6 +258,7 @@ public final class FurnaceSmeltListener implements Listener {
                     remaining -= accepted;
                 }
             }
+            return; // かまどが健在なら溢れた分は吐き出さない(地面に散らばらせない)。
         }
         for (int i = 0; i < remaining; i++) {
             block.getWorld().dropItemNaturally(block.getLocation().add(0.5, 1.0, 0.5), bonus.clone());

@@ -214,9 +214,13 @@ class FurnaceSmeltListenerTest {
         assertEquals(before, after, "nothing may be dropped while the result slot still has room");
     }
 
-    /** 結果スロットが満杯なら、収まらない分だけ従来どおり地面へ落とす(消滅させない)。 */
+    /**
+     * 2026-08-01「かまどが満杯になってもアイテムを吐き出す」の修正: 結果スロットが満杯なら
+     * <b>収まらない分は地面へ落とさない</b>(2026-07-30 の「消滅させない」方針をここで反転)。
+     * バニラは満杯のかまどでは精錬自体を止めるので、破棄されるのは上限到達のその1回だけ。
+     */
     @Test
-    void bonusOverflowStillDropsOnTheGround() {
+    void bonusOverflowIsDiscardedInsteadOfDroppedWhileTheFurnaceIsIntact() {
         FurnaceInventory inv = furnace().getInventory();
         inv.setResult(new ItemStack(Material.IRON_INGOT, 64));
 
@@ -224,7 +228,24 @@ class FurnaceSmeltListenerTest {
         listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
         int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
 
-        assertEquals(before + 2, after, "ingots that do not fit must fall on the ground, never vanish");
+        assertEquals(before, after, "満杯のかまどからボーナスを吐き出してはならない");
+        assertEquals(64, furnace().getInventory().getResult().getAmount(),
+                "既に入っている精錬結果を書き換えてはならない");
+    }
+
+    /**
+     * 次tickまでにかまどが壊された/別ブロックになった場合だけは、既に付与が確定した分を消さないため
+     * 従来どおり全数を地面へ落とす。
+     */
+    @Test
+    void bonusFallsOnTheGroundWhenTheFurnaceIsGone() {
+        block.setType(Material.AIR);
+
+        int before = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+        listener.depositExtra(block, new ItemStack(Material.IRON_INGOT), 2);
+        int after = block.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
+
+        assertEquals(before + 2, after, "かまどが無くなっていたら付与分を消さずに地面へ落とす");
     }
 
     // NOTE: MockBukkit's FurnaceInventoryMock does not round-trip setSmelting() contents back through
