@@ -26,6 +26,7 @@ class ExternalItemRegistryTest {
         // Reset both layers so tests never leak state into each other or into other test classes.
         ExternalItemRegistry.update(Map.of());
         ExternalItemRegistry.updateExternalPlugin("arspaper", Map.of());
+        ExternalItemRegistry.updateExternalPlugin("otherplugin", Map.of());
     }
 
     private static ExternalItemRegistry.Definition def(String id, Material material, int cmd) {
@@ -110,5 +111,46 @@ class ExternalItemRegistryTest {
         assertEquals(Material.PRISMARINE, resolved.material(),
                 "an explicit external-items.yml entry must win an id collision with a plugin layer");
         assertEquals(999, resolved.customModelData());
+    }
+
+    // ------------------------------------------------------------------
+    // pluginSourceOf — 「この material+CMD はどのプラグインの所有物か」 (D5)
+    // ------------------------------------------------------------------
+
+    @Test
+    void pluginSourceOfNamesTheLayerThatClaimsTheMaterialAndCmd() {
+        ExternalItemRegistry.updateExternalPlugin("arspaper",
+                Map.of("source_berry", def("source_berry", Material.GLOW_BERRIES, 100010)));
+        ExternalItemRegistry.updateExternalPlugin("otherplugin",
+                Map.of("moon_dust", def("moon_dust", Material.SUGAR, 500)));
+
+        assertEquals("arspaper",
+                ExternalItemRegistry.pluginSourceOf(Material.GLOW_BERRIES, 100010).orElse(null));
+        assertEquals("otherplugin",
+                ExternalItemRegistry.pluginSourceOf(Material.SUGAR, 500).orElse(null));
+    }
+
+    @Test
+    void pluginSourceOfIsEmptyForVanillaStacksAndUnknownCmds() {
+        ExternalItemRegistry.updateExternalPlugin("arspaper",
+                Map.of("source_berry", def("source_berry", Material.GLOW_BERRIES, 100010)));
+
+        assertFalse(ExternalItemRegistry.pluginSourceOf(Material.GLOW_BERRIES, null).isPresent(),
+                "CMD の無いスタックは誰の所有物でもない");
+        assertFalse(ExternalItemRegistry.pluginSourceOf(Material.GLOW_BERRIES, 1).isPresent());
+        assertFalse(ExternalItemRegistry.pluginSourceOf(null, 100010).isPresent());
+    }
+
+    @Test
+    void pluginSourceOfIgnoresTheLocalExternalItemsLayer() {
+        // external-items.yml は「TF が外部品を認識するため」の記述であって所有宣言ではないので、
+        // ここに書いた品は「どのプラグインの所有物でもない」= 委譲の対象外でなければならない。
+        ExternalItemRegistry.update(
+                Map.of("some_addon_item", def("some_addon_item", Material.NETHER_STAR, 42)));
+
+        assertTrue(ExternalItemRegistry.find(Material.NETHER_STAR, 42).isPresent(),
+                "local layer は find では引ける");
+        assertFalse(ExternalItemRegistry.pluginSourceOf(Material.NETHER_STAR, 42).isPresent(),
+                "local layer は所有プラグインを持たない");
     }
 }
