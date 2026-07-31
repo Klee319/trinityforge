@@ -23,6 +23,11 @@
     Object.assign(map, rebuilt);
   }
 
+  // 累計カウンタID (trigger.type: counter)。lib/schema.js の ACHIEVEMENT_COUNTER_IDS と 1:1。
+  // 実際に加算実装があるものだけを並べる ── 存在しないIDを書けるようにすると
+  // 「条件を満たしようがないアチーブメント」が静かにできあがる。
+  const ACHIEVEMENT_COUNTER_IDS = ["source_spent"];
+
   // 特殊報酬/アチーブメント/図鑑カテゴリの共通ID規則: 半角英数字・ハイフン・アンダースコアのみ。
   const REWARD_ID_RE = /^[a-zA-Z0-9_-]+$/;
   function isValidRewardId(id) {
@@ -41,7 +46,7 @@
   function normalizeAchievementTrigger(trigger) {
     const t = trigger && typeof trigger === "object" && !Array.isArray(trigger) ? trigger : {};
     if (t.type === "collection") t.type = "static";
-    if (t.type !== "statistic" && t.type !== "advancement" && t.type !== "static") t.type = "statistic";
+    if (!["statistic", "advancement", "static", "counter"].includes(t.type)) t.type = "statistic";
     if (t.type === "statistic") {
       if (typeof t.statistic !== "string") t.statistic = "";
       // 2026-07-30: 修飾子必須の統計 (MINE_BLOCK / CRAFT_ITEM / KILL_ENTITY 等) 用。
@@ -51,6 +56,11 @@
       if (!Number.isFinite(Number(t.threshold))) t.threshold = 1;
     } else if (t.type === "advancement") {
       if (typeof t.advancement !== "string") t.advancement = "";
+    } else if (t.type === "counter") {
+      // 2026-07-31: 累計カウンタ型。空欄のまま保存すると Java 側がこのアチーブメントごと skip する
+      // (= 書いたのに存在しない) ので、既定値を入れておく。
+      if (!ACHIEVEMENT_COUNTER_IDS.includes(t.counter)) t.counter = ACHIEVEMENT_COUNTER_IDS[0];
+      if (!Number.isFinite(Number(t.threshold)) || Number(t.threshold) < 1) t.threshold = 1;
     } else if (t.type === "static") {
       if (!t.collection || typeof t.collection !== "object") t.collection = {};
       if (!["all", "category", "item", "mob"].includes(t.collection.scope)) t.collection.scope = "all";
@@ -1103,7 +1113,7 @@
       const triggerBody = h("div", { class: "ach-trigger-fields" });
       function renderTriggerFields() {
         triggerBody.innerHTML = "";
-        triggerBody.appendChild(field("トリガー種別", window.selectLabeledInput(entry.trigger.type, ["statistic", "advancement", "static"], "achievement-trigger", (v) => {
+        triggerBody.appendChild(field("トリガー種別", window.selectLabeledInput(entry.trigger.type, ["statistic", "advancement", "static", "counter"], "achievement-trigger", (v) => {
           entry.trigger.type = v;
           entry.trigger = normalizeAchievementTrigger(entry.trigger);
           renderTriggerFields();
@@ -1137,6 +1147,15 @@
           triggerBody.appendChild(field("進捗キー (trigger.advancement)", advancementSelect(entry.trigger.advancement, (v) => {
             entry.trigger.advancement = v;
           }), "一覧にないデータパック進捗は「＋ 自由入力…」から namespace:path で書けます。"));
+        } else if (entry.trigger.type === "counter") {
+          triggerBody.appendChild(field("カウンタ (trigger.counter)",
+            window.selectLabeledInput(entry.trigger.counter, ACHIEVEMENT_COUNTER_IDS, "achievement-counter", (v) => {
+              entry.trigger.counter = v;
+            }),
+            "バニラ統計に無い累計値。儀式でソースを消費したときに加算されるので、第2目標「累計1億ソース」はこれで書きます。"));
+          triggerBody.appendChild(field("閾値 (trigger.threshold)", window.numberInput(entry.trigger.threshold, (v) => {
+            if (v != null) entry.trigger.threshold = Math.max(1, Math.floor(v));
+          }, { int: true }), "1以上。0や空欄だと読み込み時にこのアチーブメントごと捨てられます。"));
         } else {
           const c = entry.trigger.collection;
           const categories = [];

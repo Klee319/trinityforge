@@ -72,6 +72,52 @@ class AchievementsConfigTest {
     }
 
     @Test
+    void parsesCounterAchievement() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  source-tycoon:
+                    display-name: "ソースの支配者"
+                    trigger:
+                      type: counter
+                      counter: SOURCE_SPENT
+                      threshold: 100000000
+                """);
+        assertEquals(0, result.skipped());
+        AchievementsConfig.Achievement achievement = result.achievements().get(0);
+        assertEquals(AchievementsConfig.TriggerType.COUNTER, achievement.trigger().type());
+        // カウンタIDは小文字へ正規化する(PDCキーの一部になるので大小揺れを持ち込ませない)。
+        assertEquals("source_spent", achievement.trigger().counter());
+        assertEquals(100_000_000L, achievement.trigger().threshold());
+    }
+
+    @Test
+    void counterWithoutIdIsSkipped() throws Exception {
+        // カウンタID未指定を通すと「誰も達成できないアチーブメント」が静かにできる。
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  broken:
+                    trigger:
+                      type: counter
+                      threshold: 100
+                """);
+        assertEquals(1, result.skipped());
+        assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
+    void counterWithoutThresholdIsSkipped() throws Exception {
+        AchievementsConfig.ParseResult result = parse("""
+                achievements:
+                  broken:
+                    trigger:
+                      type: counter
+                      counter: source_spent
+                """);
+        assertEquals(1, result.skipped());
+        assertTrue(result.achievements().isEmpty());
+    }
+
+    @Test
     void missingTriggerIsSkipped() throws Exception {
         AchievementsConfig.ParseResult result = parse("""
                 achievements:

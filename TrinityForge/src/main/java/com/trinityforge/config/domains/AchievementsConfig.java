@@ -32,7 +32,12 @@ public final class AchievementsConfig implements LoadableConfig {
 
     public static final String PATH = "progression/achievements.yml";
 
-    public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC }
+    /**
+     * {@code COUNTER} は 2026-07-31 追加。バニラ {@code Statistic} に存在しない TF/Ars 独自の累計値
+     * ({@code source_spent} = 儀式で消費した累計ソース など)をしきい値判定する。第2目標「1億ソース」を
+     * 表現するために置いた ── 統計にも図鑑にも進捗にも乗らない量だったため。
+     */
+    public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC, COUNTER }
 
     /**
      * type=STATISTIC の修飾子(qualifier)。Bukkit の統計には {@code MINE_BLOCK}(BLOCK) /
@@ -77,6 +82,8 @@ public final class AchievementsConfig implements LoadableConfig {
      *                          (UNTYPED 統計と他の型では {@link StatisticQualifier#NONE})
      * @param threshold         type=STATISTIC のとき到達判定するしきい値
      * @param advancement       type=ADVANCEMENT のとき対象の進捗キー(それ以外は null)
+     * @param counter           type=COUNTER のとき参照する累計カウンタID(小文字に正規化。それ以外は空文字)。
+     *                          {@code com.trinityforge.pdc.PlayerData#lifetimeCounter(String)} が読む器。
      * @param collectionTargets type=STATIC の対象ID群。2026-07-27 に単数 {@code collection.target} から
      *                          複数 {@code collection.targets} へ拡張した(「複数アイテムの図鑑登録が
      *                          全部そろったら達成」を表現できるようにするため)。単数キーは
@@ -84,10 +91,23 @@ public final class AchievementsConfig implements LoadableConfig {
      */
     public record Trigger(TriggerType type, Statistic statistic, StatisticQualifier statisticQualifier,
                           long threshold, String advancement,
-                          String collectionScope, List<String> collectionTargets, boolean collectionPercent) {
+                          String collectionScope, List<String> collectionTargets, boolean collectionPercent,
+                          String counter) {
         public Trigger {
             collectionTargets = collectionTargets == null ? List.of() : List.copyOf(collectionTargets);
             statisticQualifier = statisticQualifier == null ? StatisticQualifier.NONE : statisticQualifier;
+            counter = counter == null ? "" : counter.trim().toLowerCase(Locale.ROOT);
+        }
+
+        /**
+         * {@code counter} 追加前(2026-07-31 以前)の引数順互換。counter 型以外はこちらで足りる。
+         * 既存の呼び出し側とテストを一斉に書き換えずに済ませるために残す。
+         */
+        public Trigger(TriggerType type, Statistic statistic, StatisticQualifier statisticQualifier,
+                       long threshold, String advancement,
+                       String collectionScope, List<String> collectionTargets, boolean collectionPercent) {
+            this(type, statistic, statisticQualifier, threshold, advancement,
+                    collectionScope, collectionTargets, collectionPercent, "");
         }
 
         /** 単一ターゲット時代の互換アクセサ。未指定なら空文字。 */
@@ -188,6 +208,11 @@ public final class AchievementsConfig implements LoadableConfig {
     /** type=STATIC（図鑑登録）のアチーブメントのみ。保存形式の collection は後方互換で維持する。 */
     public List<Achievement> staticAchievements() {
         return achievements.stream().filter(a -> a.trigger().type() == TriggerType.STATIC).toList();
+    }
+
+    /** type=COUNTER のアチーブメントのみ(周期ポーリング対象、2026-07-31)。 */
+    public List<Achievement> counterAchievements() {
+        return achievements.stream().filter(a -> a.trigger().type() == TriggerType.COUNTER).toList();
     }
 
     /**
@@ -386,7 +411,7 @@ public final class AchievementsConfig implements LoadableConfig {
         TriggerType type = parseTriggerType(rawType);
         if (type == null) {
             log.warning("[" + PATH + "] achievement '" + achievementId
-                    + "' has invalid trigger.type (statistic|advancement|static); skipped");
+                    + "' has invalid trigger.type (statistic|advancement|static|counter); skipped");
             return null;
         }
         if (type == TriggerType.STATISTIC) {
@@ -414,6 +439,25 @@ public final class AchievementsConfig implements LoadableConfig {
             }
             return new Trigger(TriggerType.STATISTIC, statistic, qualifier, threshold,
                     null, null, List.of(), false);
+        }
+        if (type == TriggerType.COUNTER) {
+            // 2026-07-31: 累計カウンタ型。カウンタIDは自由文字列(PDCキーの一部になる)なので、
+            // 空欄をここで弾く ── 通すと全プレイヤー共通の "trinityforge:counter_" を読む
+            // 「誰も達成できないアチーブメント」が静かにできあがる。
+            String counter = trigger.getString("counter", "");
+            if (counter == null || counter.isBlank()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has missing trigger.counter; skipped");
+                return null;
+            }
+            long threshold = trigger.getLong("threshold", -1);
+            if (threshold < 1) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has missing/invalid trigger.threshold (>=1); skipped");
+                return null;
+            }
+            return new Trigger(TriggerType.COUNTER, null, StatisticQualifier.NONE, threshold,
+                    null, null, List.of(), false, counter);
         }
         if (type == TriggerType.STATIC) {
             String scope = trigger.getString("collection.scope", "all").trim().toLowerCase(Locale.ROOT);

@@ -291,6 +291,22 @@ public final class AchievementGui implements Listener {
         return achievementId;
     }
 
+    /**
+     * 累計カウンタIDの表示名。未知のIDはそのまま返す(config でカウンタを増やせるようにしてあるので、
+     * ここに無いIDが来るのは異常ではない)。
+     */
+    static String counterLabel(String counterId) {
+        return switch (counterId) {
+            case "source_spent" -> "儀式で消費した累計ソース";
+            default -> counterId;
+        };
+    }
+
+    /** 1億のような大きな数を読めるように3桁区切りにする。 */
+    static String formatCount(long value) {
+        return String.format(java.util.Locale.ROOT, "%,d", value);
+    }
+
     /** 達成条件の1行要約。 */
     static String conditionText(Achievement achievement) {
         return switch (achievement.trigger().type()) {
@@ -302,6 +318,9 @@ public final class AchievementGui implements Listener {
                         + " を " + achievement.trigger().threshold();
             }
             case ADVANCEMENT -> "バニラ進捗「" + achievement.trigger().advancement() + "」";
+            // カウンタIDはそのまま出すと "source_spent" のような内部語になるので日本語へ寄せる。
+            case COUNTER -> counterLabel(achievement.trigger().counter())
+                    + " を " + formatCount(achievement.trigger().threshold());
             case STATIC -> {
                 String scope = switch (achievement.trigger().collectionScope()) {
                     case "category" -> "図鑑カテゴリ";
@@ -329,6 +348,14 @@ public final class AchievementGui implements Listener {
                 } catch (RuntimeException ex) {
                     return null;
                 }
+            }
+            case COUNTER -> {
+                String counter = achievement.trigger().counter();
+                if (counter.isEmpty()) {
+                    return null;
+                }
+                return formatCount(com.trinityforge.pdc.PlayerData.of(player).lifetimeCounter(counter))
+                        + " / " + formatCount(achievement.trigger().threshold());
             }
             case STATIC -> {
                 if (collectionService == null) {

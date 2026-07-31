@@ -2433,7 +2433,12 @@ function validateRewardExtras(rewards, prefix, errors) {
 }
 
 // ---- progression/achievements.yml (tf-achievements) ----
-const ACHIEVEMENT_TRIGGER_TYPES = ["statistic", "advancement", "static"];
+// 2026-07-31: counter を追加(AchievementsConfig.TriggerType と 1:1)。累計カウンタ型は
+// バニラ統計に無い総量(儀式で消費した累計ソース等)をしきい値判定する。
+const ACHIEVEMENT_TRIGGER_TYPES = ["statistic", "advancement", "static", "counter"];
+
+/** trigger.type: counter で選べる累計カウンタID。Java/フォーク側が実際に加算しているものだけ。 */
+const ACHIEVEMENT_COUNTER_IDS = ["source_spent"];
 // 2026-07-30: Bukkit の Statistic.Type が UNTYPED でないもの = 修飾子(Material/EntityType)必須。
 // public/js/tf-rewards-forms.js の QUALIFIED_STATISTIC_OPTIONS と同じ集合を保つこと。
 const QUALIFIED_STATISTICS = [
@@ -2556,6 +2561,15 @@ function validateTfAchievements(data, errors) {
       } else if (trigger.type === "advancement") {
         if (typeof trigger.advancement !== "string" || !trigger.advancement) {
           errors.push(`${prefix}.trigger.advancement: 必須の文字列(進捗キー)です`);
+        }
+      } else if (trigger.type === "counter") {
+        // カウンタIDは自由文字列だと「誰も達成できない定義」を静かに作れてしまうので、
+        // 実際に加算されている既知のIDだけを通す(増やすときは Java 側の加算実装と同時に)。
+        if (!ACHIEVEMENT_COUNTER_IDS.includes(trigger.counter)) {
+          errors.push(`${prefix}.trigger.counter: ${ACHIEVEMENT_COUNTER_IDS.join(" / ")} のいずれかである必要があります`);
+        }
+        if (!isPositiveInt(trigger.threshold)) {
+          errors.push(`${prefix}.trigger.threshold: 1以上の整数である必要があります`);
         }
       } else if (trigger.type === "static") {
         const c = trigger.collection;

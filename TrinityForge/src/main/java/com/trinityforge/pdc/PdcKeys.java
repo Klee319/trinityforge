@@ -172,6 +172,27 @@ public final class PdcKeys {
         return key(GACHA_PITY_PREFIX + java.util.Objects.requireNonNull(poolId, "poolId"));
     }
 
+    /** 累計カウンタキーの接頭辞。{@link #lifetimeCounterKey(String)} 経由でのみ使う。 */
+    private static final String LIFETIME_COUNTER_PREFIX = "counter_";
+
+    /**
+     * 「一生分の累計値」を数えるカウンタキー(2026-07-31)。バニラ {@code Statistic} では表現できない
+     * TF/Ars 独自の総量(累計消費ソースなど)を、アチーブメントの {@code trigger.type: counter} から
+     * 参照できるようにするために置いた汎用の器。
+     *
+     * <p>{@link #gachaPityKey(String)} と同じ動的導出パターン。カウンタは減らさない前提なので
+     * 型は {@code LONG}(1億を超えても溢れない)。
+     *
+     * <p><b>ArsPaper フォークもこのキーへ直接書く</b>({@code TrinityForgeBridge#recordSourceSpent})。
+     * あちらは TF API の jar を差し替えずにビルドできるよう {@code "trinityforge:counter_<id>"} を
+     * 文字列で組むので、ここの命名を変えると静かに別カウンタになる。
+     * {@code PdcKeysCounterTest} がその文字列を固定している。
+     */
+    public static NamespacedKey lifetimeCounterKey(String counterId) {
+        return key(LIFETIME_COUNTER_PREFIX + java.util.Objects.requireNonNull(counterId, "counterId")
+                .trim().toLowerCase(java.util.Locale.ROOT));
+    }
+
     // --- Mob (COMBAT 6 / DUNGEON): defender stat profile + level + dungeon theme. ---
     public static final NamespacedKey MOB_LEVEL = key("mob_level");
     public static final NamespacedKey MOB_DUNGEON_THEME = key("mob_dungeon_theme");

@@ -579,7 +579,9 @@
     "glyph-tier": { "1": "T1 (Novice)", "2": "T2 (Apprentice)", "3": "T3 (Archmage)" },
     // skilltree.yml node role (レイアウト・配置に影響)
     "skill-role": { "main": "主軸", "intermediate": "中間", "branch": "分岐", "greek": "排他(ギリシャ)" },
-    "achievement-trigger": { "statistic": "統計", "advancement": "進捗", "static": "図鑑登録" }
+    "achievement-trigger": { "statistic": "統計", "advancement": "進捗", "static": "図鑑登録", "counter": "累計カウンタ" },
+    // 累計カウンタID(trigger.counter)。Java/フォーク側が実際に加算しているものだけを並べる。
+    "achievement-counter": { "source_spent": "儀式で消費した累計ソース" }
     // dedicated-effect-category / dedicated-effect-param (専用効果カタログUI) は廃止(2026-07-23)。
     // 解放効果の種別ラベルは window.GATE_EFFECTS.gateEffectTypeLabel(type) を使う (gate-effects.js)。
   };

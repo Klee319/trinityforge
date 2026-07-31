@@ -87,7 +87,9 @@ public final class AchievementService {
         List<AchievementsConfig.Achievement> targets = config.statisticAchievements();
         List<AchievementsConfig.Achievement> collectionTargets = config.staticAchievements();
         List<AchievementsConfig.Achievement> advancementTargets = config.advancementAchievements();
-        if (targets.isEmpty() && collectionTargets.isEmpty() && advancementTargets.isEmpty()) {
+        List<AchievementsConfig.Achievement> counterTargets = config.counterAchievements();
+        if (targets.isEmpty() && collectionTargets.isEmpty() && advancementTargets.isEmpty()
+                && counterTargets.isEmpty()) {
             return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -107,6 +109,16 @@ public final class AchievementService {
                 for (AchievementsConfig.Achievement achievement : collectionTargets) {
                     if (!done.contains(achievement.id()) && gateOpen(achievement, done)
                             && collectionReached(player, achievement) && grant(player, achievement)) {
+                        done.add(achievement.id());
+                        progressed = true;
+                    }
+                }
+                // 累計カウンタ型(2026-07-31)。イベント駆動にしていないのは、加算元が
+                // ArsPaper フォーク(儀式のソース消費)側にあり、TF はそこへフックを持たないため。
+                // statistic 型と同じ周期ポーリングで拾う。
+                for (AchievementsConfig.Achievement achievement : counterTargets) {
+                    if (!done.contains(achievement.id()) && gateOpen(achievement, done)
+                            && counterReached(player, achievement) && grant(player, achievement)) {
                         done.add(achievement.id());
                         progressed = true;
                     }
@@ -163,6 +175,15 @@ public final class AchievementService {
             return progress[1] > 0 && progress[0] * 100L >= achievement.trigger().threshold() * progress[1];
         }
         return progress[0] >= achievement.trigger().threshold();
+    }
+
+    /** 累計カウンタ(PDC)がしきい値に届いたか。カウンタID未指定は常に false(読み込み時に弾いている)。 */
+    private boolean counterReached(Player player, AchievementsConfig.Achievement achievement) {
+        String counter = achievement.trigger().counter();
+        if (counter.isEmpty()) {
+            return false;
+        }
+        return PlayerData.of(player).lifetimeCounter(counter) >= achievement.trigger().threshold();
     }
 
     private boolean statisticReached(Player player, AchievementsConfig.Achievement achievement) {

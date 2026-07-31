@@ -328,4 +328,34 @@ public final class PlayerData {
     public void setGachaPityCount(String poolId, int count) {
         container.set(PdcKeys.gachaPityKey(poolId), PersistentDataType.INTEGER, Math.max(0, count));
     }
+
+    /**
+     * 累計カウンタの現在値(2026-07-31)。未記録なら 0。
+     *
+     * <p>バニラ {@code Statistic} に無い総量(累計消費ソースなど)を数える汎用の器で、
+     * {@code achievements.yml} の {@code trigger.type: counter} が参照する。
+     */
+    public long lifetimeCounter(String counterId) {
+        return container.getOrDefault(PdcKeys.lifetimeCounterKey(counterId), PersistentDataType.LONG, 0L);
+    }
+
+    /**
+     * 累計カウンタを加算して加算後の値を返す。
+     *
+     * <p>{@code delta <= 0} は何もしない ── 累計は単調増加でなければ「1億到達」の意味が壊れるため、
+     * 減算を通す口をそもそも作らない(返却・キャンセル処理が誤ってマイナスを渡しても安全)。
+     * オーバーフローは飽和させる(1億の目標に対して {@code Long.MAX_VALUE} は事実上の無限)。
+     */
+    public long addLifetimeCounter(String counterId, long delta) {
+        long current = lifetimeCounter(counterId);
+        if (delta <= 0L) {
+            return current;
+        }
+        long updated = current + delta;
+        if (updated < current) {
+            updated = Long.MAX_VALUE;
+        }
+        container.set(PdcKeys.lifetimeCounterKey(counterId), PersistentDataType.LONG, updated);
+        return updated;
+    }
 }
