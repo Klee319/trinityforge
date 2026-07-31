@@ -163,9 +163,12 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     /** dedicated-effect id → enchant → absolute max level */
     private volatile Map<String, Map<Enchantment, Integer>> overEnchantProfiles = Map.of();
     /**
-     * {@code thread-slots.max-by-category} の既定値。<b>出荷 yml
-     * ({@code progression/crafting-features.yml})と一致させること</b> —
-     * {@link #DEFAULT_THREAD_SLOT_CAP} の javadoc に drift 事故の経緯がある。
+     * {@code thread-slots.max-by-category} の既定値。
+     *
+     * <p>この初期値が実際に使われるのは <b>{@code thread-slots} セクションが無い/読めない config
+     * だけ</b>である(セクションがあれば {@link #loadThreadSlots} が seed 後に上書きする)。
+     * 出荷 yml は 4 キーすべてを明示しているので、稼働サーバではこの値は効かない。
+     * 詳しい経緯は {@link #DEFAULT_THREAD_SLOT_CAP} の javadoc。
      */
     private volatile Map<String, Integer> threadSlotMaxByCategory =
             Collections.unmodifiableMap(defaultThreadSlotCaps());
@@ -811,19 +814,45 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     }
 
     /**
-     * 全カテゴリ共通のスレッド枠上限の既定値。
+     * {@code thread-slots} セクションを持つ config で、{@code max-by-category} に
+     * <b>書かれていないカテゴリ</b>へ敷く既定の枠上限。
      *
-     * <p><b>2026-07-31 の drift 修復</b>: ここは長らく {@code armor:5 / weapon:0 / tool:0 / other:0}
-     * だった一方、出荷 yml は commit {@code 7dca432} で weapon/tool/other を 5 にしていた。
-     * {@link com.trinityforge.stats.ThreadSlotPolicy#applyCategoryCap} は
+     * <h2>「武器・触媒のスレッド枠が機能しない」(2026-07-31 F2)の正しい因果</h2>
+     * <ol>
+     *   <li>出荷 yml の cap を 0→5 にしたのは本バッチ前段(Wave 0 / commit {@code 7dca432})の
+     *       変更で、これにより {@code ItemAssembler} が lore へ「スレッド枠 N枠」を焼くようになった。</li>
+     *   <li>しかし ArsPaper フォーク側の装着 GUI の入口が<b>防具限定</b>で、スレッドのステ収集も
+     *       {@code getArmorContents()} 限定だったため、非防具では枠が<b>飾り</b>だった。
+     *       <b>これが真因</b>(フォークの commit {@code 331b0c2} で {@code /ars thread} と
+     *       メイン/オフハンド収集を入れて解消)。</li>
+     *   <li>この定数を 0 から 5 へ揃えたのは<b>無害な防御的整合</b>であって、症状の原因ではない。
+     *       {@link #loadThreadSlots} は {@code thread-slots} セクションがあれば既定値を seed した上で
+     *       {@code max-by-category} で上書きするので、4 キーが揃っている出荷 yml では実行時の cap は
+     *       変更前も後も 5 ——<b>Java 側のフィールド既定値 0 は稼働サーバで一度も効いていない</b>。</li>
+     * </ol>
+     * ⚠ commit {@code 4c60833} の message には「Java 既定値の drift が症状の原因」という
+     * 誤った因果が残っているが、正はこの javadoc の 1〜3。
+     *
+     * <p>なお {@link com.trinityforge.stats.ThreadSlotPolicy#applyCategoryCap} は
      * <b>cap&le;0 のとき {@code thread-slots} をマップから削除する</b>設計なので、
-     * 0 の間は「非防具に枠は存在しない」として矛盾が表に出ず、5 にした瞬間に
-     * {@code ItemAssembler} が lore を焼いて<b>「スレッド枠 N枠」と出るだけの飾り</b>が
-     * 78 件生まれた(F2 のユーザー報告の実体)。既定値と出荷 yml をずらすと
-     * 同じ形の drift がまた黙って通るため、両者は必ず一致させる
-     * ({@code ShippedThreadSlotCapDriftTest} が機械的に突き合わせる)。
+     * 0 のカテゴリでは lore にも枠が出ない(=スレッド機構ごと無効)。カテゴリ別に違う値を
+     * 置くのは正当な調整であり、{@code ShippedThreadSlotCapDriftTest} が禁じるのは
+     * 「0 以下」と「Java が知らないカテゴリキー」だけである。
      */
     static final int DEFAULT_THREAD_SLOT_CAP = 5;
+
+    /**
+     * Java が知っているスレッド枠カテゴリのキー集合。
+     *
+     * <p>config に<b>綴りの違うキー</b>({@code weapons} など)を書いても
+     * {@link #loadThreadSlots} は素通しでマップへ入れるだけで、
+     * どの材質も解決されないので<b>無言で何も起きない</b>(本来直したかった側は既定値のまま)。
+     * これが実際に検出したい drift なので、{@code ShippedThreadSlotCapDriftTest} が
+     * 出荷 yml のキーをここへ突き合わせる。
+     */
+    static java.util.Set<String> knownThreadSlotCategories() {
+        return defaultThreadSlotCaps().keySet();
+    }
 
     /** {@link #DEFAULT_THREAD_SLOT_CAP} を全カテゴリへ敷いた既定マップ。 */
     private static Map<String, Integer> defaultThreadSlotCaps() {

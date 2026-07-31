@@ -14,9 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * <b>引数として与えて</b>固定する純粋テスト。
  *
  * <p>⚠ ここに書く上限マップは「機構の入力例」でしかなく、出荷 yml の実値ではない。
- * 出荷値との一致は {@code ShippedThreadSlotCapDriftTest} が実際に yml を読んで検証する
+ * 出荷値の健全性(0 以下のカテゴリが無い/未知のキーが無い)は
+ * {@code ShippedThreadSlotCapDriftTest} が実際に yml を読んで検証する
  * ── 2026-07-31 まで<b>このファイルの定数が出荷 yml とずれていても誰も気づけなかった</b>
  * (Java 既定 weapon=0 / 出荷 yml weapon=5)ため、責務を分けてある。
+ * なお<b>この Java 既定値のずれ自体は稼働時の cap を変えていない</b>
+ * (出荷 yml が 4 キーを明示しているので seed は必ず上書きされる)。F2「武器・触媒の
+ * スレッド枠が機能しない」の因果は
+ * {@code CraftingFeaturesConfig#DEFAULT_THREAD_SLOT_CAP} の javadoc を参照。
  */
 class ThreadSlotPolicyTest {
 
