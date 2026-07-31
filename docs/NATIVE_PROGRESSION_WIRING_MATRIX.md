@@ -7,7 +7,7 @@
 | Domain | Authority | Reload |
 |---|---|---|
 | Curves / caps / gathering tables / armor·smith·enchant·alchemy·fishing scalars | `plugins/TrinityForge/skills/base/*_progression.yml` | `/tf reload` atomic |
-| Light/heavy weapon kill EXP + Ars craft/magic event EXP | `stats/skill-exp.yml` | `/tf reload` |
+| Light/heavy/archery weapon kill EXP + Ars craft/magic event EXP | `stats/skill-exp.yml` | `/tf reload` |
 | Skill trees / buffs / native maps | `skilltree/*.yml` | `/tf reload` (abort if skill lost) |
 | Persistence | SQLite via `Cached → Executor → Sqlite` | — |
 
@@ -15,8 +15,7 @@
 
 | Skill | Source | Config keys |
 |---|---|---|
-| LIGHT/HEAVY | confirmed mob kill | `combat.kill-exp.*` |
-| ARCHERY | projectile damage | `bow_exp_base`, `crossbow_exp_base`, damage/distance/entity/PvP scalars |
+| LIGHT/HEAVY/ARCHERY | confirmed mob kill | `combat.kill-exp.*`（N5 / 2026-07-31: ARCHERY も命中トリガから討伐トリガへ統一。旧 `bow_exp_base` 等の per-hit 係数は削除済み） |
 | LIGHT/HEAVY_ARMOR | damage taken | `exp_damage_piece`, `exp_multiplier_point`, entity/PvP scalars |
 | POWER | other skill level-ups | `experience.exp_gain` |
 | MINING/DIGGING/WOODCUTTING/FARMING | block break | tables; mining `exp_multiplier_mine`; **block listed + drop material listed**; Fortune stack size ignored (unique mats) |

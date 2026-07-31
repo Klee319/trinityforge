@@ -72,9 +72,17 @@ public final class SkillExpConfig {
     //                 深層岩バリアント等、ドロップ品が同じでもブロック側の値が違うケースに反映される。
     // max           : ドロップ合計とブロック値の大きい方。
     private volatile GatheringExpMode gatheringExpMode = GatheringExpMode.DROP_SUM;
+    /**
+     * 討伐時ベースの武器スキルEXP基礎値。N5(2026-07-31)で {@code ARCHERY} を追加した(弓術も軽・重武器と
+     * 同じ討伐時ベースへ統一)。同時に {@code LIGHT_WEAPONS} の 25.0 を出荷 yml の 20 へ揃えた
+     * (既定値だけ 25 で出荷 yml が 20 という drift があり、yml を消した環境だけ挙動が変わっていた)。
+     * <b>この既定値と {@code stats/skill-exp.yml} の値は必ず一致させること</b>
+     * ({@code SkillExpConfigTest} の出荷値ドリフト検知が両方を突き合わせている)。
+     */
     private volatile Map<String, Double> combatKillExpBase = Map.of(
             "HEAVY_WEAPONS", 30.0,
-            "LIGHT_WEAPONS", 25.0);
+            "LIGHT_WEAPONS", 20.0,
+            "ARCHERY", 25.0);
     private volatile double combatKillExpPerMobLevel = 2.0;
     private volatile double combatKillExpPerMaxHealth = 0.25;
     private volatile Map<String, Double> combatKillEntityTypeMultipliers = Map.of();
@@ -246,7 +254,12 @@ public final class SkillExpConfig {
     }
 
     /**
-     * 軽/重武器の討伐EXP。命中ダメージではなく、倒した敵の種類・TFモブレベル・最大体力で決める。
+     * 軽武器/重武器/弓術の討伐EXP。命中ダメージではなく、倒した敵の種類・TFモブレベル・最大体力で決める。
+     *
+     * <p>N5(2026-07-31): 弓術({@code ARCHERY})もこの式へ統一した。{@code base} マップに行が無いスキルは
+     * {@code getOrDefault(skill, 0.0)} で基礎値0になるだけで例外もログも出ないため、
+     * <b>スキルを追加したら必ず {@code combat.kill-exp.base} にも行を足す</b>
+     * (行の存在自体は {@code SkillExpConfigTest} が固定している)。
      */
     public double combatKillExp(String skillId, String entityType, int mobLevel, double maxHealth) {
         String skill = skillId == null ? "" : skillId.trim().toUpperCase(Locale.ROOT);
@@ -434,7 +447,7 @@ public final class SkillExpConfig {
         this.gatheringExpMode = parseGatheringExpMode(yaml.getString("gathering.exp-mode", "drop_sum"));
         Map<String, Double> killBases = readNonNegativeMap(yaml, "combat.kill-exp.base", true);
         if (killBases.isEmpty()) {
-            killBases = Map.of("HEAVY_WEAPONS", 30.0, "LIGHT_WEAPONS", 25.0);
+            killBases = Map.of("HEAVY_WEAPONS", 30.0, "LIGHT_WEAPONS", 20.0, "ARCHERY", 25.0);
         }
         this.combatKillExpBase = killBases;
         this.combatKillExpPerMobLevel =

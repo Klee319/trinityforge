@@ -7,7 +7,13 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Main-thread damage-contribution ledger for kill-based HEAVY_WEAPONS/LIGHT_WEAPONS EXP.
+ * Main-thread damage-contribution ledger for kill-based HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY EXP.
+ *
+ * <p>N5(2026-07-31): ARCHERY も台帳経由になった。矢の命中は
+ * {@code CombatListener.maybeRecordCombatSkillDamage} から近接と同じ形で {@link #record} される
+ * (発射者と発射武器は着弾時に解決済み)ので、このクラス自体に弓術専用の分岐は無い。
+ * マルチショット/貫通で1発射が複数命中しても、被弾前HPでクランプされた damage が足されるだけで
+ * 重複支払いにはならない。
  *
  * <p>Damage is accumulated independently for each attacker and weapon skill. Recording clamps each hit
  * to the victim health that remained before the hit, so overkill cannot increase EXP. Consumption turns

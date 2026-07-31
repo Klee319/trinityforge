@@ -84,7 +84,9 @@ ValhallaMMO バニラ・デフォルトのスキルツリーを基礎資料と�
 - 表示名: `Archery` / アイコン: `BOW` (icon_data 3510001)
 - 説明: 遠隔ダメージ・命中を伸ばし、安全圏から確実にキル。習得は長いが戦闘スキル中最強格。
 - レベルバー: 色 `YELLOW` / スタイル `SEGMENTED_6`
-- EXP獲得: 弓ヒット基礎 `bow_exp_base: 30`、クロスボウ `crossbow_exp_base: 40`。`damage_exp_bonus: 0.1`（ダメージ1点ごと+10%）、距離倍率 base `1` + `0.75`/10ブロック（上限 `distance_limit: 100`）、Infinity使用時 `infinity_multiplier: 0.7`、スポナー `0.7`、PvP `0.1`。
+- EXP獲得: **討伐時ベース**（N5 / 2026-07-31 に上流Valhallaの命中トリガ式から切り替えた）。
+  `stats/skill-exp.yml` の `combat.kill-exp` を軽・重武器と共有し、基礎値は `base.ARCHERY: 25`。
+  上流にあった距離ボーナス・Infinity減額・スポナー産減額・弓/クロスボウ差・PvP倍率は**廃止**。
 - ダメージ式（base yml）: 通常 `sqrt(%velocity%) * %basedamage% * (1 + (0.25 * %power%))`、クリティカル `%normaldamage% * 1.3`、貫通減衰 `damage_piercing_reduction: 0.2`、距離ダメ上限 `distance_limit: 50`、収穫逓減 `diminishing_returns_limit: 30` / `multiplier: 0.2`。
 - starting_perks: inaccuracy +5、bowdamagemultiplier -0.2、distancedamagebase -0.2、distancedamagebonus +0.1、infinitydamagemultiplier -0.3
 - leveling_perks（毎レベル）: bowdamagemultiplier +0.004

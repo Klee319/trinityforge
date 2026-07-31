@@ -75,8 +75,8 @@ the skill, and the migration disposition.
 | Field | Value |
 |---|---|
 | **Skill Key** | `ARCHERY` |
-| **EXP Producer** | Arrow hits with bow / crossbow |
-| **EXP Owner** | **Valhalla** (`bow_exp_base: 30`; `crossbow_exp_base: 40`; distance multiplier +0.75/10 blocks; `damage_exp_bonus: 0.1`; `pvp_multiplier: 0.1`) |
+| **EXP Producer** | Confirmed mob kill (弓/クロスボウで与えたダメージ寄与比で按分) |
+| **EXP Owner** | **TF** `stats/skill-exp.yml` の `combat.kill-exp`（`base.ARCHERY: 25`／per-mob-level／per-max-health／entity-type-multipliers を軽・重武器と共有）。N5 / 2026-07-31 に命中トリガの per-hit 式（`bow_exp_base` 等）を削除して討伐時ベースへ統一した |
 | **Level Source** | `ValhallaSkillLevelSource` (weight 1) |
 | **Combat Pillar (LD-7)** | ✅ Yes |
 | **Native Valhalla Rewards** | `archery_inaccuracy_add` (starting_perks +5); `archery_distancedamagebase_add` (−0.2 default); `archery_distancedamagebonus_add` (+0.1 default); arrow speed; multi-shot; crit; bleed-on-crit; piercing |

@@ -32,7 +32,6 @@ import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.progression.UseRequirementPolicy;
 import com.trinityforge.progression.UseRequirementResolver;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
-import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.stats.DerivedItemStats;
@@ -68,7 +67,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffectType;
@@ -150,8 +148,6 @@ public final class CombatListener implements Listener {
      * null許容 — 未配線(旧12引数コンストラクタ経由、既存テスト互換)なら武器スキルEXP抑止は無効。
      */
     private final MobLevelTableConfig mobLevelTable;
-    /** Optional live catalog used for the Valhalla-compatible ARCHERY action formula. */
-    private final NativeSkillCatalog progressionCatalog;
     private final CombatKillCreditTracker combatKillCredits = new CombatKillCreditTracker();
 
     /**
@@ -201,6 +197,14 @@ public final class CombatListener implements Listener {
                 aggregator, useRequirements, skillExp, craftingFeatures, roleBuffResolver, mobLevelTable, null);
     }
 
+    /**
+     * @param progressionCatalog <b>このリスナーはもう参照しない。</b>N5(2026-07-31)で弓術EXPを
+     *                           討伐時ベースへ統一し、{@code skills/base/archery_progression.yml}
+     *                           の per-hit 係数を読む唯一の経路({@code archeryExpAmount})を削除した
+     *                           ため。引数を残しているのは {@code TrinityForge.java} の配線を
+     *                           「1波に1人しか触らない」運用規約のせいで、次にそこを触る担当が
+     *                           この引数ごと落として構わない。null 可。
+     */
     public CombatListener(Plugin plugin, SymmetricCombatService combatService,
                           ItemStatsConfig itemStats, CombatDamageConfig damageConfig,
                           SkillLevelSource skillLevelSource, BleedService bleedService,
@@ -221,7 +225,6 @@ public final class CombatListener implements Listener {
         this.craftingFeatures = Objects.requireNonNull(craftingFeatures, "craftingFeatures");
         this.roleBuffResolver = Objects.requireNonNull(roleBuffResolver, "roleBuffResolver");
         this.mobLevelTable = mobLevelTable;
-        this.progressionCatalog = progressionCatalog;
     }
 
     @SuppressWarnings("deprecation") // DamageModifier folding; see DAMAGE_MODIFIERS TODO (M2+).
@@ -504,8 +507,8 @@ public final class CombatListener implements Listener {
         if (total > 0 && !TrainingDummies.isTrainingDummy(victim)) {
             double worldRate = worldExpRate(victim.getWorld());
             if (worldRate > 0.0) {
-                maybeGrantCombatSkillExp(attacker, mainhandContributor, victim.getUniqueId(), total,
-                        victim, worldRate);
+                maybeRecordCombatSkillDamage(attacker, mainhandContributor, victim.getUniqueId(),
+                        total, victim);
             }
         }
 
@@ -575,12 +578,18 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * Stamps spawner origin once so the editable Valhalla archery spawner multiplier can be honored.
+     * スポナー由来のモブへ「スポナー産」の印を一度だけ押す。
      *
      * <p>2026-07-29: キーを {@link PdcKeys#MOB_SPAWNER_SPAWNED} へ移した(値は同一 —
      * プラグイン名由来の namespace が {@code trinityforge} なので完全に互換)。
      * {@code MobTransformCarryOver} が変身時にこの印を引き継ぐためで、
      * 以前はスポナーのゾンビを水没させるだけでスポナーEXP抑制を回避できた。
+     *
+     * <p><b>N5(2026-07-31) 以降、この印を読んでEXPを減額する経路は無い。</b>読んでいたのは弓術の
+     * per-hit EXP 式(スポナー産 0.7 倍)だけで、弓術を討伐時ベースへ統一した際に式ごと削除した。
+     * 近接は元からスポナー減額を持たないので、これで3スキルが対称になっている。
+     * 印そのものは「スポナー産かどうか」を後から判定できる唯一の手段(変身を跨いで引き継がれる)
+     * なので、減額を再導入する余地を残して押し続ける。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
@@ -590,7 +599,10 @@ public final class CombatListener implements Listener {
         }
     }
 
-    /** HEAVY_WEAPONS/LIGHT_WEAPONS pay each attacker's proportional contribution on confirmed death. */
+    /**
+     * HEAVY_WEAPONS / LIGHT_WEAPONS / ARCHERY はいずれも、討伐が確定した時点で各攻撃者の
+     * ダメージ寄与比に応じた分だけEXPを受け取る(N5 で弓術もこの経路へ統一)。
+     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCombatKill(EntityDeathEvent event) {
         LivingEntity dead = event.getEntity();
@@ -1340,17 +1352,22 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * タスク2(2026-07-26 EXP調整): {@code weapon} を落とした一撃に対する武器スキルEXPを付与する。
-     * {@code damage} はこの一撃の最終ダメージ(=呼び出し元の {@code total})、{@code victim} はこの
-     * 一撃を受けたEntity(モブレベルの参照に使う)。
+     * {@code weapon} を落とした一撃のダメージを、武器スキルEXPの討伐時按分台帳
+     * ({@link CombatKillCreditTracker})へ記録する。<b>この経路はEXPを付与しない</b> — 支払いは
+     * {@link #onCombatKill} が討伐確定時に一度だけ行う。{@code damage} はこの一撃の最終ダメージ
+     * (=呼び出し元の {@code total})、{@code victim} はこの一撃を受けたEntity。
+     *
+     * <p>N5(2026-07-31): 以前は弓術だけがここで per-hit にEXPを付与しており(与ダメージ比例・CT無し)、
+     * 「倒さずに撃ち続けるだけで無制限に稼げる」状態だった。3スキルすべてを台帳経由へ寄せたので、
+     * このメソッドから {@code grantSkillExp} を呼ぶ経路は存在しない。
      *
      * <p>2026-07-27 牧場対策: {@code victim} の EntityType が {@code combat/mob-level-table.yml} の
-     * {@code no-skill-exp-mobs} に載っていれば、武器スキルEXPは一切付与しない(バニラEXPオーブは
+     * {@code no-skill-exp-mobs} に載っていれば、台帳へ記録せず既存の記録も破棄する(バニラEXPオーブは
      * このメソッドの管轄外なので影響を受けない)。{@code mobLevelTable} が null(旧コンストラクタ経由)
      * のときは従来どおり抑止しない。
      */
-    private void maybeGrantCombatSkillExp(Player attacker, ItemStack weapon, UUID targetId,
-                                          double damage, Entity victim, double worldRate) {
+    private void maybeRecordCombatSkillDamage(Player attacker, ItemStack weapon, UUID targetId,
+                                              double damage, Entity victim) {
         if (mobLevelTable != null && victim != null && mobLevelTable.suppressesSkillExp(victim.getType())) {
             combatKillCredits.clear(targetId);
             return;
@@ -1370,50 +1387,24 @@ public final class CombatListener implements Listener {
                 .filter(UseRequirementResolver.Resolved::hasSkill)
                 .filter(req -> isCombatWeaponSkill(req.skill()))
                 .ifPresent(req -> {
-                    if (isKillBasedCombatWeaponSkill(req.skill())) {
-                        if (victim instanceof LivingEntity living) {
-                            combatKillCredits.record(targetId, attacker.getUniqueId(), req.skill(),
-                                    damage, living.getHealth());
-                        }
+                    // N5(2026-07-31): 戦闘の武器スキル3つは**すべて討伐時ベース**。命中では台帳へ
+                    // ダメージを記録するだけで、支払いは onCombatKill(EntityDeathEvent) が行う。
+                    // ここで per-hit 付与を行う分岐は存在しない(弓術だけが per-hit だった経路は削除)。
+                    // isKillBasedCombatWeaponSkill が false を返すのは「isCombatWeaponSkill には
+                    // 通したが討伐時ベースの宣言を忘れた新スキルを足した」場合だけで、そのときは
+                    // 何も付与せずに落とす(fail-closed)。per-hit へ暗黙にフォールバックさせない。
+                    if (!isKillBasedCombatWeaponSkill(req.skill())) {
                         return;
                     }
-                    if (!SkillId.ARCHERY.equals(req.skill())
-                            || !(victim instanceof LivingEntity living)) {
-                        return;
+                    if (victim instanceof LivingEntity living) {
+                        combatKillCredits.record(targetId, attacker.getUniqueId(), req.skill(),
+                                damage, living.getHealth());
                     }
-                    double exp = archeryExpAmount(weapon, damage, attacker, living);
-                    if (exp <= 0.0) return;
-                    double mult = roleBuffResolver.expMultiplierForSkill(attacker, req.skill()).orElse(1.0);
-                    // TT/放置対策(同一地点の逓減)はワールド倍率とは独立に掛かる。両者とも [0,1] の
-                    // 縮小係数なので順序に依存しない。
-                    var tf = TrinityForge.getInstance();
-                    double spot = tf == null || victim.getWorld() == null ? 1.0
-                            : tf.locationExpDiminishing().multiplierForKillSpot(attacker, victim,
-                                    skillExp,
-                                    tf.dungeonWorldRegistry().isDungeonWorld(victim.getWorld().getUID()));
-                    ArsProgressionBridge.grantSkillExp(plugin, attacker, req.skill(),
-                            exp * mult * worldRate * spot);
                 });
     }
 
-    private double archeryExpAmount(ItemStack weapon, double damage, Player attacker, LivingEntity victim) {
-        SkillCatalogEntry archery = progressionCatalog == null
-                ? null : progressionCatalog.get(SkillId.ARCHERY);
-        if (archery == null) {
-            // Missing catalog wiring must never revive the removed per-hit EXP runtime.
-            return 0.0;
-        }
-        double distance = attacker.getWorld().equals(victim.getWorld())
-                ? attacker.getLocation().distance(victim.getLocation()) : 0.0;
-        boolean infinity = weapon.containsEnchantment(Enchantment.INFINITY);
-        boolean spawner = victim.getPersistentDataContainer()
-                .has(PdcKeys.MOB_SPAWNER_SPAWNED, PersistentDataType.BYTE);
-        return ArcheryExperiencePolicy.calculate(archery, weapon.getType(), damage, distance,
-                maxHealth(victim), victim.getType().name(), infinity, spawner, victim instanceof Player);
-    }
-
     /**
-     * バグ2修正(2026-07-28): {@link #maybeGrantCombatSkillExp} が武器スキルEXPを付与してよいスキルか
+     * バグ2修正(2026-07-28): {@link #maybeRecordCombatSkillDamage} が武器スキルEXPを付与してよいスキルか
      * どうかを判定する純粋関数(テストから直接叩ける package-private static)。
      *
      * <p>true を返すのは戦闘の武器スキル3つ({@link SkillId#HEAVY_WEAPONS} / {@link SkillId#LIGHT_WEAPONS} /
@@ -1435,8 +1426,29 @@ public final class CombatListener implements Listener {
                 || skill.equals(SkillId.ARCHERY);
     }
 
+    /**
+     * N5(2026-07-31 ユーザー報告「弓術のスキルだけ経験値が討伐時ベースではなくダメージベース」):
+     * その武器スキルEXPを「討伐確定時に一括で払う」かどうか。{@link #isCombatWeaponSkill} が通す
+     * 3スキル({@link SkillId#HEAVY_WEAPONS} / {@link SkillId#LIGHT_WEAPONS} /
+     * {@link SkillId#ARCHERY})はすべて討伐時ベースなので、常に {@code true} になる。
+     *
+     * <p>以前は {@link SkillId#ARCHERY} だけがここから漏れており、弓術だけが
+     * {@code EntityDamageByEntityEvent}(命中)の中で与ダメージ比例のEXPを即時付与していた。
+     * per-(攻撃者,対象)のクールダウンが 2026-07-29 の近接討伐時ベース化で削除された際に弓術へ
+     * 代替ゲートが入らなかったため、<b>倒さずに矢を撃ち続けるだけで弓術EXPが無制限に入る</b>状態に
+     * なっていた。討伐時ベースへ寄せると「キル1回分をダメージ寄与比で按分」という近接と同じ
+     * 上限が効く。
+     *
+     * <p>{@link #isCombatWeaponSkill} と集合が一致していること(=per-hit の武器スキルEXP経路が
+     * 存在しないこと)は {@code CombatListenerCombatWeaponSkillTest} が固定している。
+     * 新しい戦闘武器スキルを {@link #isCombatWeaponSkill} へ足すときは、ここへも足すか、
+     * 討伐時ベース以外の付与経路を別リスナーとして用意すること(ここへ足さないと
+     * {@link #maybeRecordCombatSkillDamage} が fail-closed で何も付与しない)。
+     */
     static boolean isKillBasedCombatWeaponSkill(String skill) {
-        return SkillId.HEAVY_WEAPONS.equals(skill) || SkillId.LIGHT_WEAPONS.equals(skill);
+        return SkillId.HEAVY_WEAPONS.equals(skill)
+                || SkillId.LIGHT_WEAPONS.equals(skill)
+                || SkillId.ARCHERY.equals(skill);
     }
 
 }

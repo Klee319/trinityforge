@@ -116,6 +116,7 @@ class SkillExpConfigTest {
                     base:
                       HEAVY_WEAPONS: 30
                       LIGHT_WEAPONS: 20
+                      ARCHERY: 25
                     per-mob-level: 2
                     per-max-health: 0.5
                     entity-type-multipliers:
@@ -125,6 +126,9 @@ class SkillExpConfigTest {
         // (heavy base 30 + level 10*2 + maxHealth 20*0.5) * zombie 1.5 = 90
         assertEquals(90.0,
                 config.combatKillExp(SkillId.HEAVY_WEAPONS, "zombie", 10, 20.0), 1e-9);
+        // N5(2026-07-31): 弓術も同じ式(base だけ違う)。(25 + 10*2 + 20*0.5) * 1.5 = 82.5
+        assertEquals(82.5,
+                config.combatKillExp(SkillId.ARCHERY, "zombie", 10, 20.0), 1e-9);
         // 2026-07-28 ユーザー要望: entity-type-multipliers に行が無いモブは討伐EXPを一切生まない
         // (unlisted-entity-multiplier の既定 0.0)。旧挙動は 1.0 フォールバックだった。
         assertEquals(0.0,
@@ -374,5 +378,65 @@ class SkillExpConfigTest {
         assertEquals(0.01, config.useLevelScalingPerLevel().get("mining"));
         assertEquals(0.01, config.useLevelScalingPerLevel().get("digging"));
         assertEquals(null, config.useLevelScalingPerLevel().get("farming"));
+    }
+
+    /**
+     * N5(2026-07-31): 弓術を討伐時ベースへ統一したので、出荷 {@code stats/skill-exp.yml} の
+     * {@code combat.kill-exp.base} に <b>ARCHERY 行が実在すること</b>を固定する。
+     *
+     * <p>行が無くても {@code combatKillExp} は {@code getOrDefault(skill, 0.0)} で基礎値0のまま計算を
+     * 続けるだけで、例外もログも出ない(=「モブレベル分と最大体力分だけ入る中途半端な値」で
+     * 静かに出荷される)。だから値を突き合わせるテストが必須。
+     *
+     * <p>{@code shippedSkillExpYamlMatchesExpectedUseLevelScalingDefaults} と同じ
+     * 「実クラスパスの本物のymlを本物のローダーで読む」流儀。
+     */
+    @Test
+    void shippedSkillExpYamlDeclaresKillExpBaseForAllThreeCombatWeaponSkills() throws Exception {
+        SkillExpConfig config = new SkillExpConfig();
+        File dataFolder = Files.createTempDirectory("skill-exp-kill-base").toFile();
+        try (java.io.InputStream in = SkillExpConfigTest.class.getClassLoader()
+                .getResourceAsStream(SkillExpConfig.PATH)) {
+            assertTrue(in != null, "bundled " + SkillExpConfig.PATH + " must be on the test classpath");
+            File file = new File(dataFolder, SkillExpConfig.PATH);
+            Files.createDirectories(file.getParentFile().toPath());
+            Files.copy(in, file.toPath());
+        }
+        assertTrue(config.load(fakePlugin(dataFolder)), SkillExpConfig.PATH + " must load OK");
+
+        // ZOMBIE は出荷 entity-type-multipliers で 1 倍。モブレベル0/最大体力0なら基礎値がそのまま出る。
+        assertEquals(30.0, config.combatKillExp(SkillId.HEAVY_WEAPONS, "ZOMBIE", 0, 0.0), 1e-9,
+                "combat.kill-exp.base.HEAVY_WEAPONS が出荷値30から変わっている");
+        assertEquals(20.0, config.combatKillExp(SkillId.LIGHT_WEAPONS, "ZOMBIE", 0, 0.0), 1e-9,
+                "combat.kill-exp.base.LIGHT_WEAPONS が出荷値20から変わっている");
+        assertEquals(25.0, config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0), 1e-9,
+                "combat.kill-exp.base.ARCHERY の行が無い(または25でない)。弓術の討伐EXPが"
+                        + "基礎値0の中途半端な値になる");
+        // 意図の固定: 弓術は軽武器より上・重武器より下(遠距離で安全な代わりに手数と弾薬コストがある)。
+        assertTrue(config.combatKillExp(SkillId.LIGHT_WEAPONS, "ZOMBIE", 0, 0.0)
+                        < config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0)
+                        && config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0)
+                        < config.combatKillExp(SkillId.HEAVY_WEAPONS, "ZOMBIE", 0, 0.0),
+                "弓術の基礎値は 軽武器 < 弓術 < 重武器 に収める");
+    }
+
+    /**
+     * yml を消した(または {@code combat.kill-exp.base} を空にした)環境で使われる Java 側フォールバックも
+     * 3スキルを持つこと。ここに ARCHERY が無いと「ymlがある環境だけ弓術EXPが入る」になる。
+     */
+    @Test
+    void emptyKillExpBaseFallsBackToAllThreeCombatWeaponSkills(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                combat:
+                  kill-exp:
+                    per-mob-level: 0
+                    per-max-health: 0
+                    entity-type-multipliers:
+                      ZOMBIE: 1
+                """);
+
+        assertEquals(30.0, config.combatKillExp(SkillId.HEAVY_WEAPONS, "ZOMBIE", 0, 0.0), 1e-9);
+        assertEquals(20.0, config.combatKillExp(SkillId.LIGHT_WEAPONS, "ZOMBIE", 0, 0.0), 1e-9);
+        assertEquals(25.0, config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0), 1e-9);
     }
 }

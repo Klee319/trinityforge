@@ -358,19 +358,20 @@
     "source-multiplier": { label: "採取EXP換算倍率", desc: "採掘・伐採・掘削・農業の素材EXPを魔法EXPへ換算するときの倍率。" },
     "HEAVY_WEAPONS": { label: "重量武器", desc: "重量武器スキルの討伐EXP基礎値。" },
     "LIGHT_WEAPONS": { label: "軽量武器", desc: "軽量武器スキルの討伐EXP基礎値。" },
+    // N5(2026-07-31): 弓術も討伐時ベースへ統一したので、ここが弓術EXPの基礎値になった
+    // (以前は skills/base/archery_progression.yml の per-hit 係数が権威だった)。
+    "ARCHERY": { label: "弓術", desc: "弓術スキルの討伐EXP基礎値。矢で削った分もダメージ寄与比で按分される。" },
     "exp_level_curve": { label: "レベル曲線式", desc: "TF数式形式。%level% が現在Lv。^ は累乗。例: (%level% + 75 * 2^(%level%/7.6)) + 300" },
     "max_level": { label: "最大レベル", desc: "このスキルのレベル上限。1以上。" },
     "alchemy_brew_exp": { label: "醸造EXP基礎値", desc: "醸造結果・素材別EXP表に一致しないポーションを作ったときの基礎EXP。" },
     "fishing_catch_exp": { label: "釣果EXP基礎値", desc: "釣果別EXP表に一致しないアイテムを釣り上げたときの基礎EXP。" },
-    "bow_exp_base": { label: "弓EXP基礎", desc: "弓射撃1回あたりの基礎EXP。" },
-    "crossbow_exp_base": { label: "クロスボウEXP基礎", desc: "クロスボウ射撃1回あたりの基礎EXP。" },
-    "damage_exp_bonus": { label: "与ダメージEXP加算率", desc: "弓・クロスボウの与ダメージ1点ごとに加算するEXP倍率。" },
-    "distance_exp_multiplier_base": { label: "距離EXP基礎倍率", desc: "至近距離で命中したときの弓術EXP倍率。" },
-    "distance_exp_multiplier": { label: "遠距離EXP加算倍率", desc: "射手と対象の距離10ブロックごとに加算する弓術EXP倍率。" },
-    "distance_limit": { label: "距離EXP計算上限", desc: "遠距離ボーナスの計算へ使用する最大距離（ブロック）。" },
-    "infinity_multiplier": { label: "無限エンチャントEXP倍率", desc: "無限エンチャント付きの弓で獲得する弓術EXPの倍率。" },
-    "spawner_spawned_multiplier": { label: "スポナー産EXP倍率", desc: "スポナー由来の敵から獲得する弓術EXPの倍率。" },
-    "max_health_limitation": { label: "最大体力によるEXP制限", desc: "対象の最大体力を基準に弓術EXPを制限するか。" },
+    // N5(2026-07-31): 弓術の per-hit 係数(bow_exp_base / crossbow_exp_base / damage_exp_bonus /
+    // distance_exp_multiplier_base / distance_exp_multiplier / distance_limit /
+    // infinity_multiplier / spawner_spawned_multiplier / max_health_limitation)のラベルを削除した。
+    // 出荷 archery_progression.yml からキー自体が消え(弓術EXPは skill-exp.yml の combat.kill-exp へ統一)、
+    // 旧yml側の残骸は tf-forms.js の legacyProgressionKeys.archery が保存時に落とすため、
+    // ラベルだけ残すと「実在しないキーの日本語名」になる。
+    // pvp_multiplier は軽装/重装防具の progression が現役で使っているので残す。
     "pvp_multiplier": { label: "PvP EXP倍率", desc: "プレイヤーを対象にしたときの獲得EXP倍率。" },
     "is_chunk_nerfed": { label: "同一地点EXP逓減", desc: "同じ場所で繰り返し獲得する防具EXPへ地点ベースの逓減を適用するか。" },
     "exp_damage_piece": { label: "被ダメEXP(1部位)", desc: "防具スキル: ダメージを受けたときのEXP。" },

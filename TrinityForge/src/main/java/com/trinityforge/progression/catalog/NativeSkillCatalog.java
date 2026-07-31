@@ -229,34 +229,14 @@ public final class NativeSkillCatalog {
                                 expMap.get("exp_multiplier_mine"));
                         putScalarRate(rates, "mining.blast_mult",
                                 expMap.get("exp_multiplier_blast"));
-                        // Valhalla-compatible ARCHERY action EXP. CombatListener consumes these
-                        // directly; keeping them in the skill progression file makes every balance
-                        // coefficient editable without duplicating values in stats/skill-exp.yml.
-                        putScalarRate(rates, "archery.bow_base", expMap.get("bow_exp_base"));
-                        putScalarRate(rates, "archery.crossbow_base", expMap.get("crossbow_exp_base"));
-                        putScalarRate(rates, "archery.damage_bonus", expMap.get("damage_exp_bonus"));
-                        putScalarRate(rates, "archery.distance_base",
-                                expMap.get("distance_exp_multiplier_base"));
-                        putScalarRate(rates, "archery.distance_per_10",
-                                expMap.get("distance_exp_multiplier"));
-                        putScalarRate(rates, "archery.distance_limit", expMap.get("distance_limit"));
-                        putScalarRate(rates, "archery.infinity_multiplier",
-                                expMap.get("infinity_multiplier"));
-                        putScalarRate(rates, "archery.spawner_multiplier",
-                                expMap.get("spawner_spawned_multiplier"));
-                        putScalarRate(rates, "archery.pvp_multiplier", expMap.get("pvp_multiplier"));
-                        if (expMap.get("max_health_limitation") instanceof Boolean limit) {
-                            rates.put("archery.max_health_limitation", limit ? 1.0 : 0.0);
-                        }
-                        if (expMap.get("entity_exp_multipliers") instanceof Map<?, ?> entityMultipliers) {
-                            for (Map.Entry<?, ?> entity : entityMultipliers.entrySet()) {
-                                if (entity.getKey() instanceof String type
-                                        && entity.getValue() instanceof Number multiplier) {
-                                    rates.put("archery.entity." + type.toUpperCase(java.util.Locale.ROOT),
-                                            Math.max(0.0, multiplier.doubleValue()));
-                                }
-                            }
-                        }
+                        // N5(2026-07-31): 弓術の per-hit EXP 係数(archery.bow_base / crossbow_base /
+                        // damage_bonus / distance_* / infinity_multiplier / spawner_multiplier /
+                        // pvp_multiplier / max_health_limitation / entity.*)の変換をここから削除した。
+                        // 弓術EXPは討伐時ベース(stats/skill-exp.yml の combat.kill-exp)へ統一され、
+                        // これらを読む唯一の利用者(CombatListener の per-hit 式)が消えたため。
+                        // 変換だけ残すと「editor から編集できるのに効かないキー」になる。
+                        // ※防具の pvp_multiplier / entity_exp_multipliers は別キー(armor.pvp_multiplier /
+                        //   actionExp の entity_exp_multipliers.*)で生きているので影響しない。
                         Object expGain = expMap.get("exp_gain");
                         if (expGain instanceof Map<?, ?> gainMap) {
                             putScalarRate(rates, "enchant.level_cost_multiplier",
