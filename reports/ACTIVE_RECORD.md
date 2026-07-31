@@ -90,7 +90,7 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 | ~~W-8~~ | ~~**`afk.yml` が config-editor に登録されていない**~~ | **解決（2026-07-27）**。ユーザー指示により独立タブは作らず、**「使用制限スイッチ (use-requirements)」画面内へコンパニオン表示**（`farming-gimmick`＋`food-gimmick` と同じ方式。`USE_REQUIREMENTS_COMPANION_IDS` → `HIDDEN_CONFIG_IDS` でサイドバーからは隠す）。描画は新規 `public/js/tf-afk-form.js` に隔離し、`tf-crafting-features.js` への変更は呼び出し 15 行のみ。**Java が黙って丸める 2 ケース（`check-interval-ticks < 20` / `kick-after-seconds` が非 0 で `idle-seconds` 未満）は editor 側では保存時エラーにした**（黙って丸めると「保存した値」と「実挙動」がずれるため）。実ブラウザで 12 キーの表示・値のロード・バリデーション 400・保存→配備ミラーまで確認済み |
 | ~~W-9~~ | ~~**`combat/damage.yml` の 6 キーが「共通変数」画面に出ていない**~~ | **解決（2026-07-27）**。`FIELD_SPECS` へ 6 件追加。`min`/`max`/`def` は全て `CombatDamageConfig.java` の `SchemaField` 宣言（L90-98 / L125）と一致させた。`enchant-protection-scale` の上限は**バニラ相当の 1.0 ではなく Java 通りの 10**（editor だけ狭いと「yml では通る値が editor で弾かれる」ズレになる）。UI は「近接チャージ」「攻撃速度」セクションを新設し、`enchant-protection-scale` は既存の「防御(安全弁)」へ |
 | ~~W-10~~ | ~~**registry のカバレッジドリフト検知テストが無い**~~ | **解決（2026-07-27、テスト実走待ち）**。`tools/config-editor/test/registry-coverage.test.js` を新設（3 本）。①`basePaths` 配下の全 yml が `registry.js` か `CONSTANT_SOURCES`（共通変数ビューは registry を通らないため正当なカバレッジ源として扱う）に載っているか、②許可リストの各行に実ファイルがあるか（死んだ許可リスト行の検知）、③registry の各エントリに実ファイルがあるか（typo/削除で editor が 404 になる事故の検知）の**双方向**。許可リストは 5 件で、「減る一方であるべき」旨をコメントに明記した |
-| W-14 | **カタログレシピ 1 件が起動時に無言で登録失敗している**（2026-07-30 発見） | `logs/latest.log` に `IllegalArgumentException: custom list member 'iron_axe_tool' is unknown`（`CatalogRecipeRegistrar.choiceFor:335`）。`list:` の定義側にこのメンバー名が無いか、綴りが実 ID と食い違っている。**該当レシピはレシピ帳にも出ないまま**なので、`items/catalog.yml` の互換リスト定義と参照側の突き合わせが必要 |
+| W-14 | **カタログレシピ 1 件が起動時に無言で登録失敗している**（2026-07-30 発見 / **2026-07-31 に原因を特定、ここからは直せない**） | `logs/latest.log` に `IllegalArgumentException: custom list member 'iron_axe_tool' is unknown`（`CatalogRecipeRegistrar.choiceFor:335`）。**2026-07-31 調査の結論: これはリポジトリ側の不具合ではなく配備先 config の問題。** `iron_axe_tool` はリポジトリ全体（`items/catalog.yml` / `items/material-lists.yml` / フォーク `materials.yml`）に**1 件も存在しない**。出荷 `material-lists.yml` の互換リストは `planks` と `cobblestone` の 2 本だけで、**どちらにも custom メンバーが 1 つも無い**。つまり `list:` にこのメンバーを書いたのは**サーバ上で作られた（editor で編集された）互換リスト**。**綴り違いの可能性が高く、意図された ID はおそらく `iron_axe_tf`**（`items/catalog.yml:998`）。`D:/game/...` はエージェントの権限ゲートで書けないので、修正は配備先 `Main_Server/plugins/TrinityForge/items/material-lists.yml` を editor から開いて該当メンバーを直すユーザー作業。**リポジトリ側に追加すべき変更は無い** |
 | ~~W-11~~ | ~~ArsPaper の gate yml 2 本が挙げる SoT ファイル名が実在しない~~ | **解決（2026-07-27）。ただし調査で範囲が大幅に広がった。** `skilltree/dedicated-effects.yml` は 2026-07-23 の stat-gate 改修で**削除済み**なのに、これを「正本」として指す記述が**リポジトリ全体で 21 箇所**残っていた（gate yml 2 本のほか、`stats/*-gimmick.yml` 4 本、`TrinityForge.java` 4 箇所、各 `*GimmickConfig.java`、`SkillNode.java`、`VeinMiningAlgorithm.java` 等）。実体は各 `skilltree/*.yml` ノード内の `dedicated-effects:` フィールド。**全て参照先の記述を実体へ修正**。歴史的記録として残すもの（`docs/design/2026-07-23-stat-gate-overhaul.md`＝廃止を決めた設計書、`GREENFIELD-REMAINING-TODO.md`）と、コメントでなく実コードのファイル名フィルタ（`NativeRewardRegistryContractTest.java:28`）は意図的に除外 |
 
 ---
@@ -335,6 +335,42 @@ git 系（2026-07-27 に導入）:
 ---
 
 ## 7. 作業履歴（新しいものを上に追記）
+
+### 2026-07-31 2x:xx — コンテンツ拡充バッチ Wave 3（敵の特殊攻撃 / 構造物ルート / ロール / 図鑑）
+
+commit: TF `e0e2645`（敵の特殊攻撃）/ `b0c5989`（editor: 構造物ルート抽選）/ `8bf50e2`（ロール
+クールダウン）/ `906fd05`（図鑑の Ars アイテム）、ArsPaper `7bf893c`（構造物ルート抽選）。
+全部 `dev` / `feat/trinityforge-fork` へ push 済み。**配備はまだ**（jar を含むので稼働中の差し替えは不可）。
+
+実測: TF **2884 tests / 0 failed / 2 skipped**（skip 2 件は既知の正当なもの）。
+ArsPaper フォーク **79 tests / 0 failed / 0 skipped**。config-editor は 28 fail で
+**着手前と 1 件も違わない**（全て並行セッションの `catalog.yml` / `item-stats.yml` WIP 由来）。
+
+| 対象 | 状態だったもの | 対応 |
+|---|---|---|
+| 敵の攻撃バリエーション | `mob-overrides.yml` に**攻撃演出の項目が存在しなかった**（`stats`/`drops`/`vanilla-exp`/`display-name` だけ）。EM の powers はサーバの `plugins/EliteMobs/custombosses` 側にしかなく、EM フォークのソースはこのワークツリーに無い | TF 側に config 駆動の特殊攻撃系を新設（`combat/mob-abilities.yml` + `MobAbilityTask`/`Executor`/`Cooldowns`）。7 型 × 11 テンプレートを出荷し、バニラ 9 種と束縛者 7 段階へ割り当て。editor に専用画面（`mob-abilities`）を追加 |
+| 構造物ルートチェスト | ArsPaper の `LootTableListener` が**対象 15 件と中身 2 品を Java にハードコード**。後日入れる構造物データパック（Dungeons and Taverns 等）のチェストには**何も入らない**状態 | `loot-tables.yml` へ全部出した。対象は「パスの最後の要素」「`namespace:path` 完全一致」「`namespace:*`」の 3 通りで書ける。**データパックの個々のテーブル名を事前に知る必要がない**のが要点。中身は厳選スレッド中心（`custom:thread_*` を書くと `ThreadItem` 側の個体差がそのまま乗る） |
+| ロールシステム | 変更が**無制限・即時**。採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば全系統に最大倍率（+15〜35%）が乗り、補助職の選択そのものが意味を失っていた | `role-change.cooldown-minutes`（既定 120）を追加。戦闘職・補助職は別カウント。**`/tf role clear` でも刻む**（刻まないと「解除→即再選択」が完全な迂回路）。刻印は `PLAYER_*` PDC なので HuskSync で同期される（同期しないと資源サーバへ渡って戻るだけでリセットできる） |
+| 図鑑（コレクション） | `CollectionListener` が TF の catalog PDC しか読んでおらず、**ArsPaper 側で定義したアイテムが永久に記録されなかった**。`collection.yml` のカテゴリに書いた 116 件のうち **48 件が「絶対に埋まらない枠」**（モブドロップ素材 17 / ダンジョン踏破の証 22 / ソースの階梯 9） | `arspaper:custom_item_id` も読むようにした。ただしバニラ Material と同じく**設定から参照されている ID だけ**に絞る（Ars の登録アイテムはグリフ 120 件を含めて 300 件超あり、無条件に記録すると PDC が膨らみ、報酬ティア 10/30/60/120/200 件の重みが黙って変わる） |
+| 極級ガチャ券 | `tf_gacha_ticket_5` の入手経路が**釣りギミックだけ**だった（釣りをしない人は極級プールに触れない） | ダンジョン踏破ボス 19 体へ配線（束縛者最終段階は確定 1 枚、他 18 体は 6%）。ガチャ報酬は称号／コスメ／素材なので縦強化にはならない |
+
+**資源サーバのデータパック（Dungeons and Taverns 等）用のルートテーブル案** — ユーザー要望により別途記録:
+
+- 配線先は ArsPaper `loot-tables.yml` の `datapack_structure_threads` プール。**すでに
+  `dungeons_and_taverns:*` と `dungeons_and_taverns_stronghold_overhaul:*` を対象に書いてある**ので、
+  データパックを入れた時点で自動で効き始める（導入前は該当テーブルが生成されないだけで警告も出ない）。
+- namespace が別名だった場合は `tables:` を書き換えるだけ。確認方法は
+  `datapacks/<pack>/data/<namespace>/loot_table/...` のディレクトリ名。
+- 現在の中身: カスタムエンチャント本 5% / 厳選スレッド 5 種 各 4% / ソースの欠片 12%（1〜3 個）/
+  現実の芯 3%。**構造物は「厳選スレッドの入手経路」として設計しており、ステータス上限を上げる
+  縦強化はここに置かない**（縦は束縛者だけ）。
+- 追加候補（データパック導入後に検討する案。まだ書いていない）:
+  - 構造物固有の**印**（`dungeon_seal_*` と同型の踏破記録アイテム）を構造物ごとに 1 種。図鑑の
+    エントリが増えるので、報酬ティアのしきい値もあわせて見直す。
+  - **限定素材**は既存の `abyssal_ingot` / `binder_fragment` を配らない方針を維持（高位ダンジョン主の
+    体内から出る、という設定を壊さないため）。構造物側には別 ID の新素材を足す。
+  - 村・トライアルチャンバー・難破船のような**無限／大量にあるチェストは対象外**を維持（無限湧きの
+    構造物を対象にすると経済が壊れる）。
 
 ### 2026-07-31 1x:xx — コンテンツ拡充バッチ Wave 1（EM 限定装備 / セット効果 / ロール / 醸造）
 
