@@ -2537,3 +2537,162 @@ editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言による�
 - 魔法（Ars）の破壊グリフが合成する `BlockBreakEvent` を `SpellBreakGuard` で遮断
   （農業 × 破壊グリフの永久機関、採掘の鉱石消失を封じた）。
 - `skills/base/*_progression.yml` から ValhallaMMO 時代の死にキー **66 件 / 15 ファイル**を除去。
+
+---
+
+# 2026-07-31 深夜 — 進行中バッチの引き継ぎ（セッション跨ぎ用）
+
+**このセクションが 2026-07-31 バッチの唯一の引き継ぎです。** セッション上限（Asia/Tokyo 03:20 リセット）で
+中断したので、次のセッションはここから読み始めてください。
+
+## 0. 参照ファイル（このワークツリーにしか無い。`tmp/` は `.gitignore` 対象）
+
+| パス | 中身 |
+|---|---|
+| `tmp/decisions.md` | **確定方針の唯一の一覧。** ユーザー確定分11件＋オーケストレータ決定（D1〜D13 / N1〜N6 / N2追記） |
+| `tmp/findings/*.md` | 事前調査（D1〜D13 / N1〜N6）とレビュー指摘（F1/F2/F3/F4/L5/L6/L7/G1〜G4 の round1・round2） |
+| `tmp/findings/urgent/*.md` | **2026-07-31 割り込み報告 18件の根本原因調査**（U1〜U18 と質問 Q1/Q2） |
+| `tmp/workflows/*.js` | 再投入用のワークフロー本体（`round3-rejects.js` は**未実行**） |
+| `tmp/dist/ArsPaper-clean-9c7dcec.jar` | **古い。配備してはいけない**（→ 第4節） |
+
+**これらが消えたら復元できません。** 次セッションで最初に生存を確認してください。
+
+## 1. ブランチの棚卸しとマージ順
+
+`dev` = `022f008`。以下がすでに `dev` に入っている:
+`5dba4fb`(魔法TF) → `b305c6a`(作業台) → `6ce316b`(図鑑K-11) → `b1486b8`(role) → `763e64d`(editorセレクト)
+→ `4c60833`/`3b2c9ee`/`909ce4d`(スレッド枠 F2/F3) → `9904d3b`/`2246cda`(魔法 F4) → `022f008`(deploy.cmd)
+
+**未マージのブランチ（マージ順はこの表の上から）:**
+
+| ブランチ | 先端 | 中身 | 状態 |
+|---|---|---|---|
+| `work/w3d-gathering-fix2` | 未作成 | 伐採 round2 の MEDIUM 6件 | **未着手**（X3） |
+| `work/w3c-gathering-fix-g1` | `865f216` | 伐採 round1 指摘14件の修正 | ACCEPT_WITH_NOTES |
+| `work/w3-gathering` | `0ea754a` | **N1 伐採の破壊面依存 + N2 葉の掃除** | 上記に含まれる |
+| `work/w2c-collection-fix2` | 未作成 | 図鑑 round2 の HIGH 1件 + MEDIUM 2件 | **未着手**（X2） |
+| `work/w2b-collection-fix-g2` | `ee68246` | 図鑑 round1 指摘4件の修正 | ACCEPT_WITH_NOTES（HIGH あり） |
+| `work/w2-fixups-l5` | `0ccc15e` | **L5 図鑑ガード**（editor 変更を含む） | 上記に含まれる |
+| `work/w2c-brew-fix2` | 未作成 | 醸造 round2 の MEDIUM 2件 | **未着手**（X4） |
+| `work/w2b-recipe-brew-fix-g3` | `44d509e` | 醸造 round1 指摘4件の修正 | ACCEPT_WITH_NOTES |
+| `worktree-wf_d786342c-39a-2` | `076b8d1` | **L6 レシピ帳解禁 + カスタム醸造**（`TrinityForge.java` の配線を含む） | 上記に含まれる |
+| `work/w2b-stat-vocab-fix-g4` | `03287fc` | 語彙 round1 指摘5件の修正 | ACCEPT_WITH_NOTES |
+| `work/w2-stat-vocab-d13` | `3378c0c` | **L7 editor 語彙7件 / D13** | 上記に含まれる |
+| `work/w3b-archery-exp` | `d48a30e` | **N5 弓術EXPを討伐時ベースへ** | ACCEPT_WITH_NOTES |
+
+**`work/w2-fixups` / `work/w2-recipe-brew` / `work/w2-stat-vocab` / `work/w2b-*-fix`（`-g2/-g3/-g4` 無し）
+/ `work/w3c-gathering-fix` はコミット0件の残骸。** worktree ごと破棄してよい。
+
+**マージの落とし穴（必読）:**
+
+- **`work/w2-stat-vocab-d13` 系は `stats/lore.yml` と `stats/item-stats.yml` を触る。**
+  この2ファイルは**他セッションが未コミットで編集中**なので**ファイル単位で衝突する。最後にマージし、手で解決する。**
+- **`worktree-wf_d786342c-39a-2`（L6）だけが `TrinityForge.java` を触る。** 他レーンは触っていないので、
+  このブランチを先にマージしてから第3節の配線を足すのが安全。
+- フォークは `feat/trinityforge-fork` に直接コミットしてある（`9c7dcec` が先端）。ブランチ運用ではない。
+
+## 2. 未処置のレビュー指摘（**REJECT 2件を含む。ここが最優先**）
+
+`tmp/workflows/round3-rejects.js` に4レーン分の指示が**すでに書いてある。**
+セッション上限で0進捗だったので、**そのまま `Workflow({scriptPath: "tmp/workflows/round3-rejects.js"})` で投げ直せる。**
+
+| レーン | 対象 | 重大度 | 内容 |
+|---|---|---|---|
+| **X1 前半（F5）** | 魔法（**`dev` に入った回帰**） | **HIGH** | `onMagicPipelineDamageByEntity` が **BASE modifier だけ**を書き換えるので、バニラの MAGIC（防護エンチャント）/ ABSORPTION が抑制前 BASE 由来の絶対値のまま残り、**最終ダメージが 0 以下になる＝魔法が当たっても0ダメージ**。他 MEDIUM 2件（追跡下に置いたガードテストが他セッションの未コミット編集に依存しクリーンチェックアウトで必ず落ちる／1詠唱累計上限で `split=0` だと召喚の残り時間が全部不発になり、回復対象が恒久的に無敵になる）。詳細 `tmp/findings/F4-round2-review.md`（8件） |
+| **X1 後半（F6）** | スレッド枠 | **HIGH×2** | (a) `/ars thread` に `getAmount()==1` ガードが無いので**スタックに装着すると事故になる**。(b) **配備予定 jar が F3 より前**なので、配備すると F2 のフォーク側バグ3件が未修正のまま出荷される。詳細 `tmp/findings/F3-round2-review.md`（7件） |
+| **X2** | 図鑑 | **HIGH** | 正当に入手したアイテムにも `creative_origin` が誤って刻まれ、**剥がす手段が無いので図鑑登録が永久に不能になる**（無言・エラーなし）。詳細 `tmp/findings/G2-round2-review.md`（7件） |
+| **X3** | 伐採 | MEDIUM×6 | `isPlaced` が毎回チャンクPDCの `long[]` を丸ごとコピーする／`dropItemNaturally` が `doTileDrops` を見ない／範囲収穫（`FarmingHarvestListener`）に二重抽選が残る 等。詳細 `tmp/findings/G1-round2-review.md`（12件） |
+| **X4** | 醸造＋語彙 | MEDIUM×3 | 醸造台の所有者 PDC を**二重実装**した（既存 `BrewOwnership` の javadoc が明示的に禁じている）／唯一の本番実装 `blockPdc()` にテストが1件も無い／桁を誤らせるコメントが `base-stats.yml` と `item-stats.yml` に残る。詳細 `tmp/findings/G3-round2-review.md`・`G4-round2-review.md` |
+
+そのほか **N5（弓術）の MEDIUM 2件**が未処置: **稼働中サーバの既存 `stats/skill-exp.yml` には `ARCHERY` 行が
+追加されないので、config を配備しないと実機で弓術の討伐EXPが 0 のまま静かに出荷される**（テストは同梱リソース
+しか見ない）／表に無い EntityType と PvP の弓術EXPが無言で 0 になる旨がどこにも書かれていない。
+詳細 `tmp/findings/N5-round2-review.md`。
+
+## 3. 未処置の配線（`TrinityForge.java` は「1波に1人」の choke file）
+
+- `treeFellingListener.setPlugin(this);` — 入れないと段階破壊の plugin 解決が `getProvidingPlugin` 一本足になる
+  （失敗時は WARNING を出して同tick破壊へ縮退するので致命ではない）。`tmp/findings/N1N2-wiring-followup.md`
+- `CollectionListener` の5引数化（`TrinityForge.java:608`）— 文字列でのプラグイン引きをやめる。X2 が指示書を書く。
+
+## 4. 配備（**このバッチはまだ1つも配備していない**）
+
+- **`ops/launch/deploy.cmd` は差分ビルド＋3台配備のバッチに書き換え済み**（`022f008`）。
+  従来の「launch フォルダを D: へコピー」は `ops/launch/deploy-launch.cmd` へ分離。
+  **初回だけ** `ops\launch\deploy-launch.cmd` を実行して配置先の `deploy.cmd` を入れ替える必要がある。
+  以後は `D:\...\launch\deploy.cmd --dry-run` → 本番。手順は `ops/RUNBOOK.md` 手順 13-5。
+- **`tmp/dist/ArsPaper-clean-9c7dcec.jar` は古い。配備してはいけない**（F3 より前）。X1 後半で作り直す。
+- **jar だけ配備しても直らない修正がある**（yml 同時配備が必須）:
+  - 伐採の `max-extra-logs` 16/32/64/128（`stats/woodcutting-gimmick.yml`）— **100% yml 側だけの修正**
+  - 弓術の `ARCHERY: 25`（`stats/skill-exp.yml`）— 無いと弓術EXPが 0
+- **`--config` は既定 off。** `plugins/ArsPaper/sourcejars.yml` と `sourcelinks.yml` は**稼働中サーバが書く実状態**
+  なので無条件に配ると実ワールドに無いブロックを指すようになる（`--config` を付けてもこの2本と
+  `paper-plugin.yml` は除外される）。
+- **既存バグを発見**: `launch\status.cmd`（`show-status.ps1`）は3台稼働中でも「停止」と表示する。
+  原因は `java.exe` のコマンドライン照合で、`server-loop.cmd` が `cd` してから `java -jar` を叩くため
+  コマンドラインにサーバ名も Root も現れない。`purge-player-data.ps1` にも同じ死んだ照合があるが、
+  RCON ポート判定が前段にあるので実害は出ていない。
+
+## 5. 2026-07-31 割り込み報告 18件 — 根本原因（**修正は未着手**）
+
+全文は `tmp/findings/urgent/<id>.md`。**15件が confirmed_bug、1件が inconclusive、2件は未調査。**
+
+### アイテム複製（最優先）
+
+| id | 症状 | 根本原因 |
+|---|---|---|
+| **U15** | player kill で被害者のインベントリがドロップ増加ステで増える | `NativeSurvivalPerkListener.java:58-62` の `onDeathDrops` に **Player 除外ガードが無い**。**アイテム複製** |
+| **U11** | モブに持たせた／モブが拾ったアイテムにドロップボーナスが乗る | 同 `:59-81`。`EntityDeathEvent` の `drops` **全体**に掛けており、装備欄由来・拾得由来を区別していない |
+| **U14** | 騎馬召喚の馬から鞍が取れる | ArsPaper のグリフ `summon_steed`（`SummonSteedEffect.java`）。入口は `skilltree/ars_magic.yml:101-113` のノード `A-1-1`。**複製あり** |
+
+### 確定バグ
+
+| id | 症状 | 根本原因 |
+|---|---|---|
+| **U12** | ドロップ増加50%が確定2倍（期待値なら1.5倍） | `NativeSurvivalPerkListener.java:76-78` が `Math.round(amount * dropFactor)` で**丸めている**。整数部は確定・小数部は乱数で+1にする |
+| **U9** | サトウキビで農業EXPが入らない | `SUGAR_CANE` の BlockData が **`Ageable`（最大 age 15）**なので、作物の未成熟ガード `NativeSkillExperienceListener.java:334-336` に当たって常に `return false`。バニラEXPも不発 |
+| **U10** | 防具立て等でレベリングできる | 対象判定が `victim instanceof LivingEntity`。**`ArmorStand` / `Mannequin` は `LivingEntity` を実装する**ので素通り。弓術のみ現行 dev で稼げる（近接は別の理由で偶然0）。**`work/w3b-archery-exp` のマージで弓術は副作用として閉じるが、`tmp/decisions.md` N3 の「`unlisted-entity-multiplier` を 0→1.0」を入れると3スキル全部で再開する** |
+| **U4** | カスタム装備のエンチャントがはがせない | `CatalogVanillaOperationGuardListener.java:168-173` が `PrepareGrindstoneEvent` を **HIGHEST で意図的にキャンセル**している。PDC の副作用ではない |
+| **U7** | ダイヤ以外のネザライト化ができない | 原因が独立に2つ。うち1つは `items/catalog.yml:383-397` の `netherite_bow` が `material: BOW` で、**存在しない Material を素材に指定している** |
+| **U8** | 16倍圧縮以降が作れない／unzip 未定義 | **本体は配備漏れ**（コードのバグではない）。圧縮系は全部 ArsPaper の `materials.yml` にあり、TF の `catalog.yml` には1件も無い（全67エントリ・24ファミリ） |
+| **U17** | 修繕などバニラで出ないエンチャントが出る | 付与元は **TF の `EnchantLuckListener.java:122-142`**（ArsPaper でも EliteMobs でもない）。抽選候補にテーブル外エンチャントが入っている |
+| **U2** | かまど満杯でもアイテムが吐き出される | **(a) 地面に落ちるが起きている。(b) 精錬結果が消えることは無い＝反証済み。** 落としているのは TF 自身で `FurnaceSmeltListener.java:253-255` の `depositExtra` 末尾のフォールバックループ |
+| **U13** | editor のモブ定義でカスタムアイテムをセレクトできない | 対象は `lib/registry.js:118` の `mob-types`。editor 側は確定バグだが**完全な修正には Java 側の追加が必須** |
+| **U16** | クラフト不可のポーションが釣れる | **出荷 yml と稼働 config がずれていて、出荷 yml だけ見ると「もう直っている」ように見えるのが罠。** 実データは稼働側 `Main_Server/plugins/TrinityForge/stats/fishing-gimmick.yml:113` の `junk` |
+| **U1** | Ars鍛冶EXPを素材ごと config 駆動に | 真源は `stats/skill-exp.yml:37-86` の `smithing.exp-per-material`（空のときだけ `exp-per-craft: 15` へ落ちる）。**作業台側の per-material 機構に実バグが2件あり、儀式へ「そのまま」移植すると症状が再現する。** N6 既定値との矛盾は2点だけ |
+| **U5** | 重武器がCTに対して火力低い | 調査済み（`tmp/findings/urgent/B-U5.md`）。**決定: 一撃の重さで差を付け、実効DPSは軽武器と同等〜+15%** |
+| **U6** | 近接想定外の品で近接レベリングできる | 調査済み（`B-U6.md`）。**決定: 攻撃速度を最低値に**。トライデントの `use-skill: LIGHT_WEAPONS` とは別軸 |
+
+### 未確定・未調査
+
+- **U3（ドリリングでツルハシのモーションが消える）= inconclusive。** 機構は EliteMobs フォークの
+  カスタムエンチャント `DRILLING`（`DrillingEnchantment.java`、配備先 `plugins/EliteMobs/enchantments/drilling.yml`
+  で `isEnabled: true` / `maxLevelV2: 4`）と同定済み。**禁止実装（MINING_EFFICIENCY / BLOCK_BREAK_SPEED 属性）は
+  反証済み。** 「モーション」が指す描画事象はクライアント側なのでリポジトリ内では確定できない。
+- **U18（敵の攻撃に魔法攻撃は設定されているか）= 未調査。** 調査レーンがセッション上限で落ちた。
+
+## 6. 質問への回答（`tmp/findings/urgent/A-Q1.md` / `A-Q2.md`）
+
+**総合の経験値** = `SkillId.POWER`。**ゲームプレイイベントからは1つも入らない。**
+供給点は `NativeProgressionService.java:173-195` の1箇所だけで、**他スキルが1レベル上がった瞬間**に
+`power.exp_per_skill_level`（既定 100、実効 240）が入る。曲線は `power_progression.yml`、上限 160。
+
+**スキルポイント** = `利用可能SP = 3 + 総合(POWER)レベル − 使用済みSP`（`NativeProgressionService.java:197-198`）。
+同じ式が3箇所（ゲームプレイ／管理編集／曲線変更後の整合化）にある。**SPが1増える＝POWERレベルが1上がると完全に同義。**
+上限は SP 163。プレステージは `spent` を戻すだけで**純増0**だが、スキルが Lv0 に戻るので
+同じレベルを登り直す過程で POWER が `0.5^tier` 倍で再度入る＝間接的な SP 源。
+
+## 7. 次にやること（優先度順）
+
+1. **`Workflow({scriptPath: "tmp/workflows/round3-rejects.js"})` を投げ直す**（X1〜X4。REJECT 2件と HIGH 2件）
+2. **U15 / U11 / U14 のアイテム複製3件を塞ぐ**（`NativeSurvivalPerkListener` と `SummonSteedEffect`）
+3. U12 / U9 / U10 / U4 / U7 / U8 / U17 / U2 / U13 / U16 / U1 / U5 / U6 の修正
+4. U18 の調査（レーン B の未完分）
+5. 未マージ12ブランチのマージ（第1節の順。`lore.yml` / `item-stats.yml` の衝突を手で解決）
+6. 第3節の配線2件
+7. 全テスト実走（TF / フォーク / editor）＋ この ACTIVE_RECORD への追記＋ commit / push（`dev`）
+8. **配備**（クリーン jar を作り直してから。yml 同時配備が必須なものが2件ある）
+9. 未着手の要望: K-16 / K-17（スレッド40種）/ ドロップ素材と武器の editor 対応 / 倒すメリット / テクスチャ /
+   N3 ダンジョンEXP / N4 レシピソート＋劣悪品質の最低ステ表示 / N6 儀式EXP /
+   ダンジョンの鍵 / スキルレベル到達アチーブメント / 新設セレクトの日本語化（再発防止まで）/
+   `daily-diminishing` のラベル日本語化
