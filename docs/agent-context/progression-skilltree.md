@@ -147,6 +147,49 @@ try節の外に置くとテストが「失敗」ではなく「中断（SKIPPED�
 - `PlayerData#revokeSpecialReward`は直接付与リストにあるIDしか見ない。スキルツリーの`reward:<id>`perk経由で装備しただけの報酬（`equippedTitle`/`equippedParticle`等）は付与リストに入らないため、剥奪処理は**別経路で個別に掃除**しないと残り続ける（＝孤児化）。
 - 壊れたYAMLを「全部未定義」と誤読して全員の報酬を消す事故を防ぐため、`load()`はエントリが1件でもskipされた回を失敗扱いにする安全弁がある。
 
+### ⚠️ `collection.scope: all` の母数と `reward-tiers` のしきい値は**別の数**を数えている
+
+同じ「図鑑の進捗」に見えるが集計元が違う。混同すると「50%で達成」と書いたつもりが実際には
+まったく違う地点になる。
+
+| 経路 | 数えているもの | 現在の母数 |
+|---|---|---|
+| アチーブメント `type: static` / `scope: all`（`CollectionService#progress`） | `collection.yml` の `categories` に**明記されたエントリだけ**の和 | 140 |
+| `collection.yml` の `reward-tiers`（`grantPendingTiers`） | プレイヤーPDCの**登録総数**（カタログ品286種・敵性EntityTypeの討伐・参照されたバニラ品を含む） | 約360 |
+
+`scope: category` のしきい値は**そのカテゴリの `entries` 件数以下**でなければ永久に未達成になる
+（分母を超えても警告は出ない）。`scope: item` / `mob` は `threshold` を省略すると「列挙した件数」
+＝全部そろったら達成が既定。`scope: category` / `all` はこの既定が効かないので必ず書く。
+
+### ⚠️ `scope: item` に書いたIDは「図鑑に記録される対象」を増やす副作用がある
+
+`CollectionListener#watchedConfigIds` は図鑑カテゴリだけでなく**アチーブメントの
+`collection.scope: item` の対象IDも監視集合に入れる**。つまりカテゴリに載せていない
+ArsPaper 側アイテム（スレッド `thread_*` など）でも、アチーブメントから参照するだけで
+記録が始まる。便利だが、記録が増えると `reward-tiers` の登録総数も動く点は意識しておく。
+
+### アチーブメントの整合性は `ShippedAchievementTreeTest` が機械で縛っている
+
+このファイルの間違いは**どれも起動時の警告1行で済み、ゲーム内では「そのノードが無いだけ」に
+見える**。34ノードを目視で確かめ続けるのは無理なので、出荷 yml を実際に `parse` に通して
+固定してある（skip 0件 / 前提の全解決と非循環 / 起点1つ / `rewards.special` のIDが
+`special-rewards.yml` に実在 / `category` のしきい値が候補数以下 / `item` の対象が実在ID /
+`counter` は加算実装のあるIDだけ / `type: advancement` を1件も使わない）。
+**`permanent-buffs` を持つノードが `goal_worldbinder` ただ1つ**であることも固定している
+（2026-07-31 ユーザー確定「束縛者だけ縦強化、他は称号/コスメ」。ここが緩むと格差吸収に
+選んだ3本＝24h EXP減衰／指数コスト／横の選択肢が全部意味を失う）。
+
+### `counter` トリガは加算側が別プラグインにある
+
+`trigger.type: counter` は `PlayerData#lifetimeCounter` を読むだけで、**加算するコードは
+TF 本体に無い**。現在唯一の実装 `source_spent` は ArsPaper フォークの `RitualManager` が
+`TrinityForgeBridge.recordSourceSpent` 経由で `trinityforge:counter_source_spent` PDC へ直接
+加算している（TF のクラスを参照しないよう**キーを文字列で組んでいる**ので、TF 側は
+`LifetimeCounterKeyTest` でその綴りを固定している）。カウンタIDを増やすときは
+加算側・`AchievementsConfig` の許可・editor の `ACHIEVEMENT_COUNTER_IDS`（`lib/schema.js` と
+`public/js/tf-rewards-forms.js` の2本）を同時に足すこと。1つでも欠けると
+「条件を満たしようがないアチーブメント」が静かにできる。
+
 ### ステータス表示（`/tf stats` / `/tf status`）は1経路に集約する
 
 表示整形をGUI側で独自に書き直すとチャット表示と食い違う。合算は`PlayerCombatAggregate#combined()`、整形は`StatValueRenderer`の1経路に集約してある。丸めは切り捨て（負値も絶対値側）。四捨五入にすると表示が実効値より有利側へ振れるので使わない。`StatsCategory#includes`は排他ではないため、同じキーが複数カテゴリに一致しうる＝最初に一致した1つだけに載せないと合計が合わなくなる。GUIのカテゴリ枠は入力で数を変えない（値0のステは落としてよいが、セクション数が変わるとスロット配置が崩れる）。
