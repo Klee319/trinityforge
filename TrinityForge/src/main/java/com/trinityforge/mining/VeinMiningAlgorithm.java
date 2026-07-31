@@ -70,6 +70,13 @@ public final class VeinMiningAlgorithm {
      * result. Used by 一括伐採の葉の巻き込み (the felled trunk is many blocks, and the canopy touches it
      * at many different points — a single-source search from the originally broken log would stop as
      * soon as the trunk was already gone).
+     *
+     * <p><b>2026-07-31 N1:</b> the seed ring is marked visited <em>on enqueue</em>, exactly like every
+     * later ring. The previous shape enqueued every source's six face-neighbors unconditionally and only
+     * then bulk-marked them, so two sources that share a face-neighbor (any 2×2 trunk — dark oak/jungle —
+     * or any two diagonally adjacent logs) enqueued the same position twice and it could be
+     * <em>returned twice</em>, silently consuming the caller's budget with duplicates. Single-source
+     * {@link #collect} is unaffected (its six neighbors are always distinct).
      */
     public static List<BlockPos> collectFrom(java.util.Collection<BlockPos> sources,
                                              Predicate<BlockPos> isTarget, int maxExtra) {
@@ -80,15 +87,17 @@ public final class VeinMiningAlgorithm {
             return result;
         }
 
+        // LinkedHashSet keeps the traversal (and therefore the result) order a pure function of the
+        // source order, so the same tree always yields the same set regardless of hash iteration order.
         Set<BlockPos> visited = new LinkedHashSet<>(sources);
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         for (BlockPos source : sources) {
-            queue.addAll(source.faceNeighbors());
+            for (BlockPos neighbor : source.faceNeighbors()) {
+                if (visited.add(neighbor)) {
+                    queue.add(neighbor);
+                }
+            }
         }
-        // Seed neighbors are enqueued once; mark them visited only when dequeued/accepted below so a
-        // position reachable via two different paths is not enqueued twice from this first ring... but
-        // to keep the guard simple and correct we mark on enqueue instead (see loop).
-        visited.addAll(queue);
 
         while (!queue.isEmpty() && result.size() < maxExtra) {
             BlockPos pos = queue.poll();

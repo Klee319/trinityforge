@@ -1,0 +1,113 @@
+package com.trinityforge.woodcutting;
+
+import com.trinityforge.mining.VeinMiningAlgorithm;
+import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+
+/**
+ * 一括伐採の走査範囲を「叩いたブロック」ではなく<b>木そのもの</b>に錨づけるための純関数
+ * (2026-07-31 N1)。Bukkit 非依存なので {@link VeinMiningAlgorithm} と同じくサーバ無しで単体テストできる。
+ *
+ * <p><b>直した不具合</b>: 以前は {@code BlockBreakEvent} の対象ブロックをそのまま BFS の起点にしていた。
+ * BFS は起点相対に等方展開するので、幹の本数が上限を超える木では<b>「どこを叩いたか」で伐れる範囲が
+ * 変わっていた</b>(実サーバ報告「底面と側面から壊したときと真上から壊したときとで壊れる範囲が違う」)。
+ * 上面を叩けば起点は幹の最上段になり上限に達した時点で根元が伐り残って切り株が浮き、側面/底面を叩けば
+ * 根元から上へ伐れる、という具合に結果が起点依存だった。
+ *
+ * <p><b>直し方</b>: {@link #trunkBase} で幹の最下段まで降りてから走査を始め、伐る本数は
+ * {@link #BOTTOM_UP}({@code y→x→z} の全順序)で決定的に選ぶ。これで {@code (木, 上限)} の純関数になり、
+ * 叩いた面・叩いた高さに関係なく同じ集合が伐れる。上限に当たったときに残るのは常に<b>樹冠側</b>
+ * (=y が大きい方)。
+ */
+public final class TreeScan {
+
+    /**
+     * {@link #trunkBase} が真下へ降りる最大段数。幹が異常に長い(あるいは述語が常に true を返す)
+     * ケースでメインスレッドが無限に降り続けないための暴走防止ガード。バニラの最長樹木でも
+     * 30 段程度なので実用上当たらない。
+     */
+    public static final int TRUNK_BASE_MAX_DESCENT = 64;
+
+    /**
+     * 「木全体」を把握するときの走査上限(本数)。<b>伐る本数の上限({@code max-extra-logs})とは別枠</b>で
+     * 持つ — 上限で伐り残した幹も葉の走査の種に含める必要があるため(N2)。メインスレッドで最大この回数の
+     * ブロック読みが走るので、大きくしすぎないこと。
+     */
+    public static final int TREE_SCAN_LIMIT = 512;
+
+    /**
+     * 決定的な全順序: {@code y} 昇順 → {@code x} 昇順 → {@code z} 昇順。「根元から上へ伐る」ための順で、
+     * かつ {@code HashSet} の反復順に結果が依存しないようにするためのタイブレークでもある。
+     */
+    public static final Comparator<BlockPos> BOTTOM_UP = Comparator
+            .comparingInt(BlockPos::y)
+            .thenComparingInt(BlockPos::x)
+            .thenComparingInt(BlockPos::z);
+
+    private TreeScan() {
+    }
+
+    /**
+     * {@code origin} と同じ幹柱の最下段を返す。{@code y-1} が {@code isTrunk} を満たす限り真下へ降りる
+     * ので、同じ幹柱のどのブロックから呼んでも同じ座標が返る(=面依存が消える一点)。
+     *
+     * @param isTrunk 幹として扱う位置の述語(本番では「破壊されたブロックと同じ Material か」)
+     */
+    public static BlockPos trunkBase(BlockPos origin, Predicate<BlockPos> isTrunk) {
+        Objects.requireNonNull(origin, "origin");
+        Objects.requireNonNull(isTrunk, "isTrunk");
+        BlockPos base = origin;
+        for (int descended = 0; descended < TRUNK_BASE_MAX_DESCENT; descended++) {
+            BlockPos below = new BlockPos(base.x(), base.y() - 1, base.z());
+            if (!isTrunk.test(below)) {
+                return base;
+            }
+            base = below;
+        }
+        return base;
+    }
+
+    /**
+     * {@code base} から面隣接で繋がる幹を最大 {@code scanLimit} 本まで集め、{@link #BOTTOM_UP} 順に
+     * 並べて返す。{@code base} 自身を含む。
+     *
+     * @param scanLimit {@code base} を含めた本数の上限。0以下なら空を返す。
+     */
+    public static List<BlockPos> wholeTree(BlockPos base, Predicate<BlockPos> isTrunk, int scanLimit) {
+        Objects.requireNonNull(base, "base");
+        Objects.requireNonNull(isTrunk, "isTrunk");
+        if (scanLimit <= 0) {
+            return List.of();
+        }
+        List<BlockPos> tree = new ArrayList<>();
+        tree.add(base);
+        tree.addAll(VeinMiningAlgorithm.collect(base, isTrunk, scanLimit - 1));
+        tree.sort(BOTTOM_UP);
+        return List.copyOf(tree);
+    }
+
+    /**
+     * 実際に連鎖伐採する幹を選ぶ。{@code tree} から {@code origin}(=イベント本体が壊す1本)を除き、
+     * {@link #BOTTOM_UP} 順に先頭から {@code maxExtra} 本を採る。
+     *
+     * <p>これが「常に根元から上へ伐る／残るのは樹冠側」の実装。{@code tree} の並びに依存しないよう
+     * ここでも並べ直す(呼び出し側が {@link #wholeTree} 以外を渡してもよいようにするため)。
+     */
+    public static List<BlockPos> selectFelled(List<BlockPos> tree, BlockPos origin, int maxExtra) {
+        Objects.requireNonNull(tree, "tree");
+        Objects.requireNonNull(origin, "origin");
+        if (maxExtra <= 0 || tree.isEmpty()) {
+            return List.of();
+        }
+        return tree.stream()
+                .filter(pos -> !pos.equals(origin))
+                .sorted(BOTTOM_UP)
+                .limit(maxExtra)
+                .toList();
+    }
+}

@@ -10,18 +10,34 @@ tree-fell:
   cooldown-ticks: 200
   # 幹に繋がる葉も一緒に壊すか(2026-07-30)。false にすると原木だけ消えて葉が空中に残る。
   break-leaves: true
-  # 巻き込む葉の上限 = 実際に伐った原木の本数 × この値。原木側のtier表へ自動追従する。
-  # 葉は「伐採のおまけの片付け」なので道具の耐久は消費しない(TreeFellingListener 参照)。
+  # 1回の伐採で壊す葉の絶対上限(2026-07-31 N2)。tiers 側に leaves-max があればそちらが優先。
+  # 0以下にすると旧挙動(leaves-per-log × 実際に伐った原木の本数)へ戻る。
+  leaves-max: 512
+  # 旧キー(2026-07-30)。leaves-max を0以下にしたときだけ「伐った原木の本数 × この値」として使う。
+  # 葉は「伐採のおまけの片付け」なので道具の耐久も採取EXPも取らない(TreeFellingListener 参照)。
   leaves-per-log: 6
+  # 1tickあたりに壊す葉の枚数(2026-07-31 N2)。512枚なら約11tick=0.55秒で樹冠が消える
+  # (バニラのランダムティック崩壊は平均68秒、simulation-distance の外では止まる)。
+  # 0以下なら同tickで全部壊す — チャンク更新とライティング更新が集中するので非推奨。
+  leaves-per-tick: 48
+  # true なら「バニラなら崩壊する葉」だけを壊す(2026-07-31 N2)。
+  # = 設置された葉(persistent、装飾の葉壁)は壊さず、残った原木から距離6以内で支えられた葉も残す。
+  # 上限を桁で上げたので、false にすると樹冠が癒着したジャングル/ダークオークで
+  # 「1本伐ると林冠が連鎖消滅する」。既定 true を崩さないこと。
+  leaves-decay-only: true
   tiers:
     "1":
       max-extra-logs: 8
+      leaves-max: 128
     "2":
       max-extra-logs: 16
+      leaves-max: 256
     "3":
       max-extra-logs: 32
+      leaves-max: 512
     "4":
       max-extra-logs: 64
+      leaves-max: 1024
 drop-tables:
   categories:
     apple:

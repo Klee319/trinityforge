@@ -39,12 +39,28 @@ public final class WoodcuttingGimmickConfig {
     private static final int DEFAULT_COOLDOWN_TICKS = 200;
     /** 原木1本あたり巻き込む葉の枚数の既定倍率(2026-07-30 一括伐採の葉巻き込み)。 */
     private static final int DEFAULT_LEAVES_PER_LOG = 6;
+    /** 1回の伐採で壊す葉の絶対上限の既定値(2026-07-31 N2)。tier表に leaves-max が無いときのフォールバック。 */
+    private static final int DEFAULT_LEAVES_MAX = 512;
+    /** 1tickあたりに壊す葉の枚数の既定値(2026-07-31 N2)。512枚なら約11tick=0.55秒で樹冠が消える。 */
+    private static final int DEFAULT_LEAVES_PER_TICK = 48;
+
+    /**
+     * {@code tree-fell.tiers.<tier>} の1行 (2026-07-31 N2 で {@code leaves-max} 列を追加)。
+     *
+     * @param maxExtraLogs 連鎖伐採する原木の上限本数(トリガー原木を含まない)。
+     * @param leavesMax    その tier での葉の絶対上限。0 なら未指定(グローバルへフォールバック)。
+     */
+    public record TreeFellTier(int maxExtraLogs, int leavesMax) {
+    }
 
     private volatile int treeFellMaxExtraLogs = DEFAULT_MAX_EXTRA_LOGS;
     private volatile int treeFellCooldownTicks = DEFAULT_COOLDOWN_TICKS;
-    private volatile TierTable<Integer> treeFellTiers = TierTable.empty();
+    private volatile TierTable<TreeFellTier> treeFellTiers = TierTable.empty();
     private volatile boolean treeFellBreakLeaves = true;
     private volatile int treeFellLeavesPerLog = DEFAULT_LEAVES_PER_LOG;
+    private volatile int treeFellLeavesMax = DEFAULT_LEAVES_MAX;
+    private volatile int treeFellLeavesPerTick = DEFAULT_LEAVES_PER_TICK;
+    private volatile boolean treeFellLeavesDecayOnly = true;
     private volatile Map<String, DropTableConfig.Category> dropTables = Map.of();
 
     /** {@code tree-fell} の一括伐採上限本数(トリガー原木を含まない)。tiers未定義時のグローバル既定値。 */
@@ -58,7 +74,7 @@ public final class WoodcuttingGimmickConfig {
      * {@link #treeFellMaxExtraLogs()}(グローバルscalar)へフォールバックする。
      */
     public int treeFellMaxExtraLogs(int tier) {
-        return treeFellTiers.resolve(tier).orElse(treeFellMaxExtraLogs);
+        return treeFellTiers.resolve(tier).map(TreeFellTier::maxExtraLogs).orElse(treeFellMaxExtraLogs);
     }
 
     /** 一括伐採のプレイヤー毎クールダウン(tick)。 */
@@ -75,12 +91,61 @@ public final class WoodcuttingGimmickConfig {
     }
 
     /**
-     * 巻き込む葉の上限枚数を「実際に伐った原木の本数 × この値」で決める
-     * ({@code tree-fell.leaves-per-log})。tier表を葉のぶんだけ二重に持たずに、原木の上限tierへ
-     * 自動追従させるための係数。
+     * <b>旧キー</b>({@code tree-fell.leaves-per-log}, 2026-07-30)。巻き込む葉の上限枚数を「実際に伐った
+     * 原木の本数 × この値」で決めていた係数。2026-07-31 N2 で絶対枚数の {@code leaves-max} が主役に
+     * なったため、{@code leaves-max} を 0 以下にしたときの旧挙動フォールバックとしてのみ効く
+     * ({@link #treeFellMaxLeaves(int, int)} 参照)。
      */
     public int treeFellLeavesPerLog() {
         return treeFellLeavesPerLog;
+    }
+
+    /**
+     * {@code tree-fell.leaves-max}(グローバル)。tier表に {@code leaves-max} が無いときのフォールバック。
+     * 0 以下なら「旧挙動({@code leaves-per-log} × 伐った本数)を使う」の意味になる。
+     */
+    public int treeFellLeavesMax() {
+        return treeFellLeavesMax;
+    }
+
+    /**
+     * 1回の伐採で壊す葉の上限枚数を解決する (2026-07-31 N2)。
+     *
+     * <p>解決順: {@code tree-fell.tiers.<tier>.leaves-max} → グローバル {@code tree-fell.leaves-max}
+     * → 旧挙動 {@code brokenLogs × leaves-per-log}。tier1=128 / tier2=256 / tier3=512 / tier4=1024 が
+     * 出荷値で、要望「バニラより大幅に速く」に対して樹冠が1回で消え切る水準に置いている。
+     *
+     * @param tier       プレイヤーの解放済み最高tier
+     * @param brokenLogs 実際に連鎖伐採した原木の本数(旧挙動フォールバックでのみ使う)
+     */
+    public int treeFellMaxLeaves(int tier, int brokenLogs) {
+        int tierMax = treeFellTiers.resolve(tier).map(TreeFellTier::leavesMax).orElse(0);
+        if (tierMax > 0) {
+            return tierMax;
+        }
+        if (treeFellLeavesMax > 0) {
+            return treeFellLeavesMax;
+        }
+        return Math.max(0, brokenLogs) * treeFellLeavesPerLog;
+    }
+
+    /**
+     * 1tickあたりに壊す葉の枚数({@code tree-fell.leaves-per-tick})。0 以下なら同tickで全部壊す
+     * (チャンク更新とライティング更新が集中するので非推奨)。
+     */
+    public int treeFellLeavesPerTick() {
+        return treeFellLeavesPerTick;
+    }
+
+    /**
+     * {@code tree-fell.leaves-decay-only}(既定 true)。true なら「バニラなら崩壊する葉」だけを壊す —
+     * 設置された葉({@code persistent})は壊さず、残った原木から距離6以内で支えられた葉も残す。
+     *
+     * <p><b>既定 true を崩さないこと</b>: 葉の上限を桁で上げたので、これを false にすると
+     * 樹冠が癒着したジャングル/ダークオークで「1本伐ると林冠が連鎖消滅する」。
+     */
+    public boolean treeFellLeavesDecayOnly() {
+        return treeFellLeavesDecayOnly;
     }
 
     /** {@code drop-tables.categories} (2026-07-23 §4): カテゴリid -&gt; 定義。ゲート/抽選は {@code DropTablePolicy} が担う。 */
@@ -116,6 +181,11 @@ public final class WoodcuttingGimmickConfig {
         this.treeFellLeavesPerLog = clampPositiveInt(
                 yaml.getInt("tree-fell.leaves-per-log", DEFAULT_LEAVES_PER_LOG),
                 "tree-fell.leaves-per-log", DEFAULT_LEAVES_PER_LOG, log);
+        // leaves-max / leaves-per-tick は「0以下 = 別の意味を持つ」ので clampPositiveInt は通さない
+        // (leaves-max<=0 は旧挙動フォールバック、leaves-per-tick<=0 は同tickで全部)。
+        this.treeFellLeavesMax = yaml.getInt("tree-fell.leaves-max", DEFAULT_LEAVES_MAX);
+        this.treeFellLeavesPerTick = yaml.getInt("tree-fell.leaves-per-tick", DEFAULT_LEAVES_PER_TICK);
+        this.treeFellLeavesDecayOnly = yaml.getBoolean("tree-fell.leaves-decay-only", true);
         this.dropTables = DropTableConfig.parseCategories(
                 yaml.getConfigurationSection("drop-tables.categories"), true, PATH, log);
 
@@ -133,15 +203,17 @@ public final class WoodcuttingGimmickConfig {
     }
 
     /**
-     * {@code tree-fell.tiers: {<tier>: {max-extra-logs: N}}} (2026-07-25 §1/§6 Q1). Absent/empty section
-     * yields {@link TierTable#empty()}. A tier key that is not a positive integer, or a row missing/with a
-     * non-positive {@code max-extra-logs}, is skipped with a warning.
+     * {@code tree-fell.tiers: {<tier>: {max-extra-logs: N, leaves-max: M}}} (2026-07-25 §1/§6 Q1、
+     * {@code leaves-max} は 2026-07-31 N2 追加). Absent/empty section yields {@link TierTable#empty()}.
+     * A tier key that is not a positive integer, or a row missing/with a non-positive
+     * {@code max-extra-logs}, is skipped with a warning — <b>行スキップ条件は据え置き</b>(変えると既存 yml の
+     * 意味が変わる)。{@code leaves-max} の省略/非正値は 0(グローバルへフォールバック)として扱い、警告も出さない。
      */
-    private static TierTable<Integer> parseTreeFellTiers(ConfigurationSection section, Logger log) {
+    private static TierTable<TreeFellTier> parseTreeFellTiers(ConfigurationSection section, Logger log) {
         if (section == null) {
             return TierTable.empty();
         }
-        Map<Integer, Integer> rows = new LinkedHashMap<>();
+        Map<Integer, TreeFellTier> rows = new LinkedHashMap<>();
         for (String tierKey : section.getKeys(false)) {
             int tier;
             try {
@@ -160,7 +232,8 @@ public final class WoodcuttingGimmickConfig {
                 log.warning("[" + PATH + "] 'tree-fell.tiers." + tierKey + ".max-extra-logs' must be > 0; row skipped");
                 continue;
             }
-            rows.put(tier, maxExtraLogs);
+            int leavesMax = Math.max(0, row.getInt("leaves-max", 0));
+            rows.put(tier, new TreeFellTier(maxExtraLogs, leavesMax));
         }
         return TierTable.of(rows);
     }

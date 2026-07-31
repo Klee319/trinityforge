@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -82,5 +83,91 @@ class WoodcuttingGimmickConfigTest {
                 """);
         assertEquals(8, config.treeFellMaxExtraLogs());
         assertEquals(200, config.treeFellCooldownTicks());
+    }
+
+    // --- 2026-07-31 N2 葉の枚数上限/段階破壊/崩壊判定 ---
+
+    @Test
+    void leafDefaultsWhenNoLeafKeysArePresent(@TempDir File tempDir) throws IOException {
+        // 配備先ymlが古くて葉のキーが1つも無いサーバでも、Java既定で「速い」側に倒れること。
+        WoodcuttingGimmickConfig config = loaded(tempDir, "tree-fell:\n  max-extra-logs: 8\n");
+
+        assertTrue(config.treeFellBreakLeaves());
+        assertEquals(512, config.treeFellLeavesMax());
+        assertEquals(48, config.treeFellLeavesPerTick());
+        assertTrue(config.treeFellLeavesDecayOnly());
+        assertEquals(512, config.treeFellMaxLeaves(1, 3), "tiers未定義ならグローバルへフォールバック");
+    }
+
+    @Test
+    void tierLeavesMaxWinsOverTheGlobalValue(@TempDir File tempDir) throws IOException {
+        WoodcuttingGimmickConfig config = loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  leaves-max: 512
+                  tiers:
+                    1: { max-extra-logs: 8, leaves-max: 128 }
+                    3: { max-extra-logs: 32 }
+                """);
+
+        assertEquals(128, config.treeFellMaxLeaves(1, 3), "tier行の leaves-max が最優先");
+        assertEquals(128, config.treeFellMaxLeaves(2, 3), "floor解決なのでtier2はtier1行を引く");
+        assertEquals(512, config.treeFellMaxLeaves(3, 3),
+                "leaves-max を書いていないtier行はグローバルへフォールバック");
+    }
+
+    @Test
+    void nonPositiveGlobalLeavesMaxFallsBackToTheLegacyPerLogBehaviour(@TempDir File tempDir)
+            throws IOException {
+        // 旧キー leaves-per-log は「leaves-max を0以下にしたときだけ効く」後方互換の逃げ道。
+        WoodcuttingGimmickConfig config = loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  leaves-max: 0
+                  leaves-per-log: 6
+                """);
+
+        assertEquals(0, config.treeFellLeavesMax());
+        assertEquals(6, config.treeFellLeavesPerLog());
+        assertEquals(18, config.treeFellMaxLeaves(1, 3), "伐った原木3本 × 6 = 18枚(旧挙動)");
+        assertEquals(0, config.treeFellMaxLeaves(1, 0), "伐った本数0なら0枚");
+    }
+
+    @Test
+    void leavesPerTickAndDecayOnlyCanBeTurnedOffFromYaml(@TempDir File tempDir) throws IOException {
+        WoodcuttingGimmickConfig config = loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  leaves-per-tick: 0
+                  leaves-decay-only: false
+                """);
+
+        assertEquals(0, config.treeFellLeavesPerTick(), "0以下は「同tickで全部壊す」の意味なので保つこと");
+        assertFalse(config.treeFellLeavesDecayOnly());
+    }
+
+    @Test
+    void shippedYamlCarriesTheTierLeafCapsAndPerTickBudget(@TempDir File tempDir) throws IOException {
+        // ハードコードした既定値ではなく出荷ymlの実バイトを読む(既定値を検証するテストは
+        // 出荷値のドリフトを捕まえられない)。
+        File source = new File("src/main/resources/" + WoodcuttingGimmickConfig.PATH);
+        File dest = new File(tempDir, WoodcuttingGimmickConfig.PATH);
+        Files.createDirectories(dest.getParentFile().toPath());
+        Files.copy(source.toPath(), dest.toPath());
+        WoodcuttingGimmickConfig config = new WoodcuttingGimmickConfig();
+        config.load(fakePlugin(tempDir));
+
+        assertEquals(128, config.treeFellMaxLeaves(1, 0), "tier1 = 128枚");
+        assertEquals(256, config.treeFellMaxLeaves(2, 0), "tier2 = 256枚");
+        assertEquals(512, config.treeFellMaxLeaves(3, 0), "tier3 = 512枚");
+        assertEquals(1024, config.treeFellMaxLeaves(4, 0), "tier4 = 1024枚");
+        assertEquals(48, config.treeFellLeavesPerTick(), "1tickあたり48枚");
+        assertTrue(config.treeFellLeavesDecayOnly(), "既定でバニラの崩壊判定に従うこと");
+        assertTrue(config.treeFellBreakLeaves());
+        // 原木側のtier表が壊れていないこと(leaves-max 列を足した回帰確認)。
+        assertEquals(8, config.treeFellMaxExtraLogs(1));
+        assertEquals(16, config.treeFellMaxExtraLogs(2));
+        assertEquals(32, config.treeFellMaxExtraLogs(3));
+        assertEquals(64, config.treeFellMaxExtraLogs(4));
     }
 }
