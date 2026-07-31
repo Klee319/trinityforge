@@ -371,16 +371,50 @@ public final class MobAbilityExecutor {
     }
 
     /**
-     * {@code Sound} は 1.21 系で enum ではなく {@code Keyed} なので {@code valueOf} は使わず
-     * Registry から引く。未知の名前は無音に落とす（設定ミスで戦闘が止まるより静かな方がまし）。
+     * yml に書いた効果音名（enum 定数名の綴り）→ {@code Sound} の対応表。
+     *
+     * <p><b>なぜ表を作るのか</b>（2026-07-31 修正）: {@code Sound} は 1.21 系で enum ではなく
+     * {@code Keyed} になったため {@code valueOf} が使えない。しかし
+     * <b>enum 定数名とレジストリキーは機械的に変換できない</b>:
+     * <ul>
+     *   <li>{@code ENTITY_GENERIC_EXPLODE} ⇔ {@code entity.generic.explode}（区切りが {@code .}）</li>
+     *   <li>{@code ENTITY_IRON_GOLEM_ATTACK} ⇔ {@code entity.iron_golem.attack}
+     *       （<b>モブ名の中の {@code _} は残る</b>ので、全部 {@code .} に置換すると壊れる）</li>
+     * </ul>
+     * 当初の実装はアンダースコアのままキーを組んでいたため
+     * <b>出荷11テンプレート全部が無音</b>（{@code get} が null を返すだけで例外もログも出ない）。
+     * 素朴に {@code _}→{@code .} 変換しても {@code ENTITY_IRON_GOLEM_ATTACK} と
+     * {@code ENTITY_ZOMBIE_VILLAGER_CONVERTED} の2件が解けない。
+     *
+     * <p>そこでレジストリを1回だけ走査して「キーの {@code .} を {@code _} に直して大文字化」を
+     * 索引にする。これは enum 定数名の綴りとちょうど一致するので、変換規則を推測せずに済む。
+     * {@code minecraft:} 名前空間のフルキー表記（{@code entity.generic.explode}）でも引ける。
      */
+    private static volatile java.util.Map<String, Sound> soundIndex;
+
+    private static java.util.Map<String, Sound> soundIndex() {
+        java.util.Map<String, Sound> cached = soundIndex;
+        if (cached != null) {
+            return cached;
+        }
+        java.util.Map<String, Sound> built = new java.util.HashMap<>();
+        for (Sound sound : org.bukkit.Registry.SOUNDS) {
+            String key = sound.getKey().getKey();
+            built.put(key.toUpperCase(Locale.ROOT).replace('.', '_'), sound);
+            built.put(key.toUpperCase(Locale.ROOT), sound);
+        }
+        java.util.Map<String, Sound> immutable = java.util.Map.copyOf(built);
+        soundIndex = immutable;
+        return immutable;
+    }
+
+    /** 未知の名前は無音に落とす（設定ミスで戦闘が止まるより静かな方がまし）。 */
     private static Sound sound(String name) {
         if (name == null || name.isBlank()) {
             return null;
         }
         try {
-            return org.bukkit.Registry.SOUNDS.get(
-                    org.bukkit.NamespacedKey.minecraft(name.trim().toLowerCase(Locale.ROOT)));
+            return soundIndex().get(name.trim().toUpperCase(Locale.ROOT));
         } catch (RuntimeException ex) {
             return null;
         }
