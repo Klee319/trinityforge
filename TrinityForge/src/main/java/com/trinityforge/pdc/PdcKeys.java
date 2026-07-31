@@ -133,6 +133,17 @@ public final class PdcKeys {
     public static final NamespacedKey PLAYER_COLLECTION_ENTRIES = key("collection_entries");
     /** コレクション図鑑: 解放済み報酬ティアID集合(再付与防止)。0x1F 結合 STRING。 */
     public static final NamespacedKey PLAYER_COLLECTION_CLAIMED_TIERS = key("collection_claimed_tiers");
+    /**
+     * コレクション図鑑 (2026-07-31, K-11): 参加時の全スロット走査を「遡り登録」として
+     * 静かに1回済ませたかどうか。1 = 済み。
+     *
+     * <p>K-11 の修正で、既にインベントリへ入っている素のバニラ品が一斉に記録可能になる。
+     * 通知したままだと最大16行のチャットと {@code broadcast: true} の報酬ティア告知が
+     * 連続発火して事故に見えるため、プレイヤーごとに初回の走査だけ通知を抑止する。
+     * 未設定(=既存プレイヤー全員)が「まだ遡り登録していない」を意味するので、
+     * 追加のマイグレーションは要らない。
+     */
+    public static final NamespacedKey PLAYER_COLLECTION_BACKFILL_DONE = key("collection_backfill_done");
 
     // --- 特殊報酬レジストリ (2026-07-23-stat-gate-overhaul §6.1) ---
     /** 達成/図鑑ティア経由で直接付与された特殊報酬ID集合(スキルツリー経由の reward:&lt;id&gt; とは別枠)。

@@ -248,4 +248,88 @@ class CollectionServiceTest {
 
         org.mockito.Mockito.verifyNoInteractions(applier);
     }
+
+    /**
+     * 遡り登録 (2026-07-31, K-11): {@code announce=false} では 1件ごとの「図鑑に登録」チャットも、
+     * {@code broadcast: true} のサーバー全体告知も出さない。報酬(claimed への記録)は通常どおり行う。
+     *
+     * <p>K-11(素のバニラ品が1件も記録されていなかった)の修正で、既存プレイヤーの参加時に
+     * 最大16件が一括登録される。通知したままだと t3(60)/t4(120)/t5(200) を跨いだ人数分の
+     * 全体告知が連続発火して事故に見えるため、遡り分だけ黙らせる口を入れた。
+     *
+     * <p><b>全体告知に落ちていないことをどう確かめているか</b>: MockBukkit の
+     * {@code Bukkit.getServer().sendMessage(Component)} は<b>未実装</b>で
+     * {@code UnimplementedOperationException} を投げる(このテストを書く過程で実測)。つまり
+     * 抑止が壊れて broadcast 経路へ入った瞬間にテストは例外で中断し、
+     * {@code UnintendedSkipGuardListener} がそれをビルド失敗に変える。加えて本人通知
+     * ({@code player.sendMessage}) は else 側にしか無いので、「本人が受け取っている」こと自体が
+     * 非broadcast経路を通った証拠になる。逆向き(broadcast: true が実際に全体告知になること)は
+     * MockBukkit では実行できないため、ここでは固定できない。
+     */
+    @Test
+    void retroactiveRecordSuppressesEntryChatAndTierBroadcast(@TempDir File dir) throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                reward-tiers:
+                  bronze:
+                    threshold: 1
+                    title: "駆け出し収集家"
+                    broadcast: true
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        Player player = server.addPlayer();
+        drainMessages(player);
+
+        assertEquals(1, service.record(player,
+                java.util.Map.of(CollectionService.itemEntryId("core_ember"), 0), false));
+
+        assertEquals(List.of("bronze"), PlayerData.of(player).claimedCollectionTiers(),
+                "通知を抑止しても報酬ティアの解放そのものは通常どおり行う");
+        List<String> messages = allMessages(player);
+        assertTrue(messages.stream().noneMatch(m -> m.contains("図鑑に登録")),
+                "遡り登録では1件ごとのチャットを出さない(最大16行流れる)");
+        assertTrue(messages.stream().anyMatch(m -> m.contains("コレクション報酬解放")),
+                "報酬が付与された事実は本人にだけ伝える(黙って称号が増えると理由が分からない)");
+        assertTrue(messages.stream().noneMatch(m -> m.contains(player.getName())),
+                "全体告知フォーマット(\"<name> が...\")が本人の受信箱にも来ていないこと");
+    }
+
+    @Test
+    void normalRecordStillAnnouncesEachNewEntry(@TempDir File dir) throws IOException {
+        // 遡りでない通常経路(拾得・インベントリ操作)は従来どおり通知する。
+        // broadcast は書かない(既定 false): MockBukkit は Server#sendMessage(Component) が
+        // 未実装なので、全体告知そのものはテストから実行できない。
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                reward-tiers:
+                  bronze:
+                    threshold: 1
+                    title: "駆け出し収集家"
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        Player player = server.addPlayer();
+        drainMessages(player);
+
+        assertEquals(1, service.record(player, Set.of(CollectionService.itemEntryId("core_ember"))));
+
+        List<String> messages = allMessages(player);
+        assertTrue(messages.stream().anyMatch(m -> m.contains("図鑑に登録")),
+                "通常の新規登録は1件ごとに通知する");
+        assertTrue(messages.stream().anyMatch(m -> m.contains("コレクション報酬解放")),
+                "ティア解放も通常どおり通知する");
+    }
+
+    private static void drainMessages(Player player) {
+        allMessages(player);
+    }
+
+    /** PlayerMock の受信箱を空になるまで読み切る。 */
+    private static List<String> allMessages(Player player) {
+        List<String> out = new java.util.ArrayList<>();
+        String message;
+        while ((message = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextMessage()) != null) {
+            out.add(message);
+        }
+        return out;
+    }
 }

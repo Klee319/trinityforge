@@ -4,11 +4,16 @@ import com.trinityforge.config.domains.AchievementsConfig;
 import com.trinityforge.config.domains.CollectionConfig;
 import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.progression.CollectionService;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -91,6 +96,48 @@ class CollectionArsItemRecordingTest {
         listener().onInventoryClose(new InventoryCloseEvent(player.getOpenInventory()));
     }
 
+    /**
+     * 実機で {@code hasItemMeta()} が false になる「素のバニラ品」(データコンポーネントの
+     * patch が空)を作る。MockBukkit の {@code ItemStackMock} はコンストラクタで {@code itemMeta} を
+     * 無条件に代入するため素のスタックでも {@code hasItemMeta()} が true になり、
+     * <b>本番条件をそのままでは表現できない</b>ので偽装する。
+     */
+    private static ItemStack bareVanilla(Material material) {
+        return new ItemStack(material) {
+            @Override
+            public boolean hasItemMeta() {
+                return false;
+            }
+        };
+    }
+
+    /**
+     * 偽装スタックを拾得経路へ<b>直接</b>渡す。{@code Inventory#setItem}/{@code addItem} や
+     * {@code ItemMock} はすべて {@code ItemStack.clone()}(= {@code craftDelegate.clone()})を
+     * 通すのでラッパのクラスが消え、{@code getContents()} は {@code ItemStackMirror} で包み直す。
+     * 一方 {@code Item} は interface なので Mockito のモックは {@code getItemStack()} で
+     * <b>参照をそのまま返す</b> — これが偽装をコードへ届ける唯一の経路。
+     */
+    private static void pickup(Player player, ItemStack stack) {
+        Item drop = mock(Item.class);
+        when(drop.getItemStack()).thenReturn(stack);
+        listener().onPickup(new EntityPickupItemEvent(player, drop, 0));
+    }
+
+    private static void join(Player player) {
+        listener().onJoin(new PlayerJoinEvent(player, Component.empty()));
+    }
+
+    /** PlayerMock の受信箱を空になるまで読み切る。 */
+    private static List<String> drainMessages(Player player) {
+        List<String> out = new java.util.ArrayList<>();
+        String message;
+        while ((message = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextMessage()) != null) {
+            out.add(message);
+        }
+        return out;
+    }
+
     /** PDC は {@code id|epochMillis|maxQualityPt} で入るので、ID だけを取り出して比べる。 */
     private static boolean recorded(Player player, String entryId) {
         return PlayerData.of(player).collectionEntries().stream()
@@ -139,8 +186,54 @@ class CollectionArsItemRecordingTest {
     }
 
     @Test
+    @DisplayName("図鑑に載っている Material を base に持つ Ars 品はカスタムIDで記録される(順序回帰)")
+    void arsItemOnAWatchedVanillaMaterialResolvesToItsCustomId() {
+        // 実配置と同じ衝突: materials.yml の warden_tendril / reality_thread_core は
+        // base_material: ECHO_SHARD、source_condenser は HEART_OF_THE_SEA で、
+        // どちらの Material も collection.yml の items.structure に載っている。
+        // K-11 を「Material 判定を meta ゲートより前へ出す」だけで直すとこの3件が潰れる。
+        Player player = server.addPlayer();
+        player.getInventory().addItem(arsItem(Material.DIAMOND, "ravager_hide"));
+
+        scan(player);
+
+        assertTrue(recorded(player, "ravager_hide"));
+        assertFalse(recorded(player, "DIAMOND"),
+                "PDC 判定より先に Material を見ると、ECHO_SHARD 系のカスタム3件が"
+                        + "item:ECHO_SHARD に潰れて新たに到達不能になる");
+    }
+
+    @Test
+    @DisplayName("K-11: メタを持たない素のバニラ品も拾得で記録される")
+    void bareVanillaStackWithoutItemMetaIsRecordedOnPickup() {
+        Player player = server.addPlayer();
+
+        pickup(player, bareVanilla(Material.DIAMOND));
+
+        assertTrue(recorded(player, "DIAMOND"),
+                "ルートチェストから出た無傷のバニラ品は実機で hasItemMeta() が false になる。"
+                        + "ここで落とすと collection.yml の items.structure 16件が永久に埋まらず、"
+                        + "goal_completionist(percent: 100) が構造的に達成不能になる");
+    }
+
+    @Test
+    @DisplayName("K-11: メタ無しでも監視外の Material は記録しない")
+    void bareVanillaStackOutsideWatchedSetIsIgnoredOnPickup() {
+        Player player = server.addPlayer();
+
+        pickup(player, bareVanilla(Material.DIRT));
+
+        assertFalse(recorded(player, "DIRT"));
+    }
+
+    @Test
     @DisplayName("バニラ Material の監視は従来どおり効く")
     void watchedVanillaMaterialStillRecorded() {
+        // ⚠️ このテストは K-11(素のバニラ品が1件も記録されない)が生きている間も緑だった
+        // ＝「偽の緑」だった。MockBukkit の ItemStackMock はコンストラクタで itemMeta を
+        // 無条件に代入するので new ItemStack(DIAMOND).hasItemMeta() が true になり、
+        // 実機で落ちる meta ゲートをこの経路では踏まないため。実機条件を踏む版は
+        // bareVanillaStackWithoutItemMetaIsRecordedOnPickup / CollectionEntryResolutionTest。
         Player player = server.addPlayer();
         player.getInventory().addItem(new ItemStack(Material.DIAMOND));
 
@@ -158,5 +251,70 @@ class CollectionArsItemRecordingTest {
         scan(player);
 
         assertFalse(recorded(player, "DIRT"));
+    }
+
+    /**
+     * MockBukkit の盲点を明文化する characterization test。
+     *
+     * <p>ここが赤くなったら MockBukkit 側が本番と同じ挙動になったということなので、
+     * {@link #bareVanilla} の偽装は不要になる(そのとき初めて素のスタックを
+     * インベントリ経路へ流すテストが本番条件になる)。K-11 が「緑なのに実機では死んでいる」
+     * 状態で長期間生き残れた原因そのものなので、消さずに残す。
+     */
+    @Test
+    @DisplayName("【MockBukkitの盲点】素のスタックでも hasItemMeta() が true になる")
+    void mockBukkitReportsItemMetaOnBareStacks() {
+        assertTrue(new ItemStack(Material.DIAMOND).hasItemMeta(),
+                "実機の CraftItemStack#hasItemMeta() は getComponentsPatch().isEmpty() を見るので"
+                        + "無傷のバニラ品では false。ここが false に変わったら bareVanilla() の偽装は外せる");
+    }
+
+    // --- 遡り登録の通知抑止 (K-11 の副作用対策) ---
+
+    @Test
+    @DisplayName("初回参加の走査は遡り登録として静かに行い、フラグを立てる")
+    void firstJoinScanIsSilentAndMarksBackfillDone() {
+        Player player = server.addPlayer();
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND));
+        drainMessages(player);
+
+        join(player);
+
+        assertTrue(recorded(player, "DIAMOND"), "静かに行うだけで、記録そのものは通常どおり行う");
+        assertTrue(drainMessages(player).stream().noneMatch(m -> m.contains("図鑑に登録")),
+                "修正で一斉に記録可能になった分が最大16行のチャットとして流れると事故に見える");
+        assertTrue(PlayerData.of(player).collectionBackfillDone());
+    }
+
+    @Test
+    @DisplayName("2回目以降の参加で見つかった新規登録は従来どおり通知する")
+    void laterJoinsAnnounceNewDiscoveries() {
+        Player player = server.addPlayer();
+        join(player); // 空のインベントリで遡り登録を消費する
+        assertTrue(PlayerData.of(player).collectionBackfillDone());
+
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND));
+        drainMessages(player);
+
+        join(player);
+
+        assertTrue(recorded(player, "DIAMOND"));
+        assertTrue(drainMessages(player).stream().anyMatch(m -> m.contains("図鑑に登録")),
+                "抑止は遡り分の1回だけ。以後の新規登録は通知する");
+    }
+
+    @Test
+    @DisplayName("インベントリを閉じた走査は遡り扱いにしない")
+    void inventoryCloseScanAlwaysAnnounces() {
+        Player player = server.addPlayer();
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND));
+        drainMessages(player);
+
+        scan(player);
+
+        assertTrue(drainMessages(player).stream().anyMatch(m -> m.contains("図鑑に登録")),
+                "ダンジョンloot直入れ・ガチャ・取引はこの経路で入ってくる新規入手なので通知する");
+        assertFalse(PlayerData.of(player).collectionBackfillDone(),
+                "遡り登録のフラグは参加時の走査だけが消費する");
     }
 }

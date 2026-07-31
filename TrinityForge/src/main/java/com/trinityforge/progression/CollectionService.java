@@ -180,6 +180,21 @@ public final class CollectionService {
      * @return 新規登録されたエントリ数(品質pt更新のみのエントリは含まない)
      */
     public int record(Player player, Map<String, Integer> entryIdsWithQuality) {
+        return record(player, entryIdsWithQuality, true);
+    }
+
+    /**
+     * @param announce {@code false} = <b>遡り登録</b>(バグ修正やconfig追加で「既に持っていた物」が
+     *                 後から一斉に記録可能になる場合)。1件ごとの「図鑑に登録」チャットと、
+     *                 到達した報酬ティアの<b>サーバー全体ブロードキャスト</b>を抑止する。
+     *                 報酬そのもの(称号/アイテム/EXP/コマンド)は通常どおり付与し、ティア解放は
+     *                 プレイヤー本人にだけ知らせる — 付与されたのに何も表示されないと、
+     *                 称号が増えた理由が分からなくなるため。
+     *                 <p>2026-07-31 (K-11): 素のバニラ品が1件も記録されていなかった不具合を直した
+     *                 結果、既存プレイヤーの参加時に最大16件が一括登録され、t3(60)/t4(120)/t5(200)
+     *                 を跨いだ人数分の全体告知が連続発火する。これが事故に見えるため入れた口。
+     */
+    public int record(Player player, Map<String, Integer> entryIdsWithQuality, boolean announce) {
         if (!config.enabled() || entryIdsWithQuality.isEmpty()) {
             return 0;
         }
@@ -214,11 +229,13 @@ public final class CollectionService {
             return 0;
         }
         data.setCollectionEntries(known.values().stream().map(CollectionRecord::encode).toList());
-        for (String id : newlyAdded) {
-            player.sendMessage(Component.text("図鑑に登録: ", NamedTextColor.AQUA)
-                    .append(displayComponent(id).colorIfAbsent(NamedTextColor.WHITE)));
+        if (announce) {
+            for (String id : newlyAdded) {
+                player.sendMessage(Component.text("図鑑に登録: ", NamedTextColor.AQUA)
+                        .append(displayComponent(id).colorIfAbsent(NamedTextColor.WHITE)));
+            }
         }
-        grantPendingTiers(player, data, known.size());
+        grantPendingTiers(player, data, known.size(), announce);
         return newlyAdded.size();
     }
 
@@ -231,7 +248,7 @@ public final class CollectionService {
             return;
         }
         PlayerData data = PlayerData.of(player);
-        grantPendingTiers(player, data, data.collectionEntries().size());
+        grantPendingTiers(player, data, data.collectionEntries().size(), true);
     }
 
     /**
@@ -242,7 +259,7 @@ public final class CollectionService {
      * クラッシュ窓で「一度きり報酬(称号/コマンド等)が失われる」設計方針自体はAchievementServiceと
      * 同様に踏襲する(permanent-buffsは達成/解放フラグからの都度再計算なので影響を受けない)。
      */
-    private void grantPendingTiers(Player player, PlayerData data, int entryCount) {
+    private void grantPendingTiers(Player player, PlayerData data, int entryCount, boolean broadcastAllowed) {
         List<String> claimed = new ArrayList<>(data.claimedCollectionTiers());
         boolean anyChanged = false;
         for (CollectionConfig.RewardTier tier : config.tiers()) {
@@ -252,7 +269,7 @@ public final class CollectionService {
             claimed.add(tier.id());
             data.setClaimedCollectionTiers(claimed);
             anyChanged = true;
-            announce(player, tier);
+            announce(player, tier, broadcastAllowed);
             runCommands(player, tier);
             for (String specialId : tier.special()) {
                 data.grantSpecialReward(specialId);
@@ -282,12 +299,16 @@ public final class CollectionService {
         return out;
     }
 
-    private void announce(Player player, CollectionConfig.RewardTier tier) {
+    /**
+     * @param broadcastAllowed false のときは {@code tier.broadcast()} が true でも本人通知に落とす
+     *                         (遡り登録。{@link #record(Player, Map, boolean)} の javadoc 参照)
+     */
+    private void announce(Player player, CollectionConfig.RewardTier tier, boolean broadcastAllowed) {
         Component message = Component.text("コレクション報酬解放: ", NamedTextColor.GOLD)
                 .append(Component.text(tier.title() != null ? tier.title() : tier.id(),
                         NamedTextColor.YELLOW))
                 .append(Component.text(" (図鑑 " + tier.threshold() + " 種到達)", NamedTextColor.GRAY));
-        if (tier.broadcast()) {
+        if (tier.broadcast() && broadcastAllowed) {
             Bukkit.getServer().sendMessage(Component.text(player.getName() + " が", NamedTextColor.GOLD)
                     .append(message));
         } else {
