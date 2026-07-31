@@ -109,9 +109,14 @@ class StatCategoryInferenceTest {
         assertEquals(StatCategory.ATTACK, StatCategoryInference.infer("haste-active-mining-cooldown-reduction"));
     }
 
+    /** 2026-07-31: bow-cooldown-reduction は廃止。分割後のクラフト系キーが CRAFT に落ちることを固定する。 */
     @Test
-    void bowCooldownReductionIsAttack() {
-        assertEquals(StatCategory.ATTACK, StatCategoryInference.infer("bow-cooldown-reduction"));
+    void splitCraftQualityKeysAreCraft() {
+        for (String key : new String[]{"workbench-upswing-bonus", "ritual-upswing-bonus",
+                "workbench-downswing-reduction", "ritual-downswing-reduction",
+                "workbench-quality-bonus", "ritual-quality-bonus"}) {
+            assertEquals(StatCategory.CRAFT, StatCategoryInference.infer(key), key);
+        }
     }
 
     @Test

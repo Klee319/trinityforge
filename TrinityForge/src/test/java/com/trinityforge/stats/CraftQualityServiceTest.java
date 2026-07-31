@@ -96,13 +96,13 @@ class CraftQualityServiceTest {
 
     @Test
     void minimumQualityCollapsesToModeWhenSpreadDownFullyReducedByPerk() {
-        // craft_downswing_reduction perk can push the effective spread-down to (clamped) 0, in which
+        // workbench_downswing_reduction perk can push the effective spread-down to (clamped) 0, in which
         // case the guaranteed floor becomes the mode itself (no downward spread left at all).
         Player player = mock(Player.class);
         QualityConfig quality = new QualityConfig();
         PlayerStatAggregator aggregator = aggregatorReturning(player, Map.of(
                 "workbench_quality_bonus", 4.0,
-                "craft_downswing_reduction", 999.0));
+                "workbench_downswing_reduction", 999.0));
         CraftQualityService service = new CraftQualityService(
                 SkillLevelSource.EMPTY, new CraftQualityConfig(), quality, aggregator, null);
 

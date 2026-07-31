@@ -37,7 +37,7 @@ class PercentStatNormalizeTest {
     void newPercentKeysAreRateKeys() {
         String[] newPercentKeys = {
                 "bow-accuracy", "ammo-save-chance", "distance-damage-bonus", "arrow-velocity",
-                "bow-cooldown-reduction", "melee-knockback", "stun-chance", "power-attack-damage",
+                "stun-chance", "power-attack-damage",
                 "health-regen-bonus", "hunger-save-chance", "mob-drop-bonus",
                 "skill-exp-bonus", "cooldown-reduction", "haste-active-mining-cooldown-reduction",
                 "gacha-rate-bonus", "suspicious-respawn-chance",
@@ -56,6 +56,10 @@ class PercentStatNormalizeTest {
     void newNonPercentKeysAreNotRateKeys() {
         assertFalse(PercentStatNormalize.isRateKey("arrow-piercing"));
         assertFalse(PercentStatNormalize.isRateKey("craft-roll-inset"));
+        // 2026-07-31: melee-knockback は arrow-knockback と単位系を揃えて FLAT + 単位 m にしたので
+        // rate キーから外した(残すと 2(=2m) が 0.02 へ矯正される)。
+        assertFalse(PercentStatNormalize.isRateKey("melee-knockback"));
+        assertEquals(2.0, PercentStatNormalize.coerce("melee-knockback", 2.0), 1e-9);
     }
 
     @Test

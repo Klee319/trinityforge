@@ -26,7 +26,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * ({@link CraftQualityPolicy#resolveQuality}); the final quality is a split-normal (bell) draw around the
  * mode with the up/down σ from {@code quality.yml spread-up}/{@code spread-down}
  * ({@link CraftQualityPolicy#resolveQualityNormal}) — the same model as mob drops, except a craft widens
- * the UP side by the crafter's {@code craftUpswingBonus} perk (上振れパーク). Bounded to
+ * the UP side by the crafter's 上振れパーク. Bounded to
  * {@code [0, quality.maxQuality()]}. Purely the quality roll — it
  * grants NO EXP (the {@code CraftItemEvent} listener keeps its own ARS_SMITHING EXP grant), so a caller
  * can roll quality without side effects. Bukkit reads → main-thread only.
@@ -76,19 +76,39 @@ public final class CraftQualityService {
      * 0=クラフトユーザの品質ポイント通り)。
      */
     public int rollQuality(Player crafter, Set<String> candidateSkills, int modeOffset) {
-        return rollQualityWithBonus(crafter, candidateSkills, modeOffset, workbenchQualityBonus(crafter));
+        return rollQualityForPath(crafter, candidateSkills, modeOffset, CraftPath.WORKBENCH);
     }
 
     /**
-     * 品質mode加算ボーナスを明示指定するロール本体。作業台経路は {@code workbench_quality_bonus}、
-     * 儀式経路は {@code ritual_quality_bonus} を渡す(S7 分割)。
+     * どのクラフト経路の品質を引いているか。読むステキーがこれで分岐する
+     * (2026-07-31 L7-6 分割: 旧 {@code craft_upswing_bonus}/{@code craft_downswing_reduction} は
+     * 両経路で共有されており、鍛冶ツリーのパークが儀式クラフトにも、魔法鍛冶ツリーのパークが
+     * 作業台クラフトにも漏れていた)。
      */
-    private int rollQualityWithBonus(Player crafter, Set<String> candidateSkills, int modeOffset,
-                                     int qualityBonus) {
+    private enum CraftPath {
+        /** 作業台(バニラ/ValhallaMMO/ArsPaper の {@code CraftItemEvent})経路。 */
+        WORKBENCH("workbench_quality_bonus", "workbench_upswing_bonus", "workbench_downswing_reduction"),
+        /** 儀式クラフト(ArsPaper fork。{@code CraftItemEvent} を発火しない)経路。 */
+        RITUAL("ritual_quality_bonus", "ritual_upswing_bonus", "ritual_downswing_reduction");
+
+        private final String qualityBonusKey;
+        private final String upswingKey;
+        private final String downswingKey;
+
+        CraftPath(String qualityBonusKey, String upswingKey, String downswingKey) {
+            this.qualityBonusKey = qualityBonusKey;
+            this.upswingKey = upswingKey;
+            this.downswingKey = downswingKey;
+        }
+    }
+
+    /** 経路ごとのステキーでロールする本体。 */
+    private int rollQualityForPath(Player crafter, Set<String> candidateSkills, int modeOffset,
+                                   CraftPath path) {
         Objects.requireNonNull(crafter, "crafter");
-        int mode = qualityModeWithBonus(crafter, candidateSkills, modeOffset, qualityBonus);
-        double spreadUp = quality.spreadUp() + Math.max(0.0, craftUpswingBonus(crafter));
-        double spreadDown = Math.max(0.0, quality.spreadDown() - Math.max(0.0, craftDownswingBonus(crafter)));
+        int mode = qualityModeForPath(crafter, candidateSkills, modeOffset, path);
+        double spreadUp = quality.spreadUp() + Math.max(0.0, upswingBonus(crafter, path));
+        double spreadDown = Math.max(0.0, quality.spreadDown() - Math.max(0.0, downswingBonus(crafter, path)));
         return CraftQualityPolicy.resolveQualityNormal(
                 mode, ThreadLocalRandom.current().nextGaussian(), spreadUp, spreadDown, quality.maxQuality());
     }
@@ -103,12 +123,12 @@ public final class CraftQualityService {
 
     /** {@link #qualityMode(Player, Set)} + 品質基準値オフセット (結果は [0, maxQuality] へクランプ)。 */
     public int qualityMode(Player crafter, Set<String> candidateSkills, int modeOffset) {
-        return qualityModeWithBonus(crafter, candidateSkills, modeOffset, workbenchQualityBonus(crafter));
+        return qualityModeForPath(crafter, candidateSkills, modeOffset, CraftPath.WORKBENCH);
     }
 
     /**
      * The GUARANTEED-MINIMUM quality for a workbench preview (task: "プレビューは常に「最低でもこれは出る」を
-     * 示すべき"): same mode/spreadDown計算(craftDownswingBonus 込み)as {@link #rollQualityWithBonus} for the
+     * 示すべき"): same mode/spreadDown計算(作業台の下振れ抑制込み)as {@link #rollQualityForPath} for the
      * workbench path, run through {@link CraftQualityPolicy#minimumQuality}. Unlike {@link #qualityMode},
      * this reflects the TRUE floor the actual (Gaussian) craft roll can reach — never a mode/peak value
      * that the roll could still undercut.
@@ -120,14 +140,15 @@ public final class CraftQualityService {
     /** {@link #minimumQuality(Player, Set)} + 品質基準値オフセット。 */
     public int minimumQuality(Player crafter, Set<String> candidateSkills, int modeOffset) {
         Objects.requireNonNull(crafter, "crafter");
-        int mode = qualityModeWithBonus(crafter, candidateSkills, modeOffset, workbenchQualityBonus(crafter));
-        double spreadDown = Math.max(0.0, quality.spreadDown() - Math.max(0.0, craftDownswingBonus(crafter)));
+        int mode = qualityModeForPath(crafter, candidateSkills, modeOffset, CraftPath.WORKBENCH);
+        double spreadDown = Math.max(0.0,
+                quality.spreadDown() - Math.max(0.0, downswingBonus(crafter, CraftPath.WORKBENCH)));
         return CraftQualityPolicy.minimumQuality(mode, spreadDown, quality.maxQuality());
     }
 
-    /** {@link #qualityMode(Player, Set, int)} の品質mode加算ボーナス明示版(S7 作業台/儀式分割)。 */
-    private int qualityModeWithBonus(Player crafter, Set<String> candidateSkills, int modeOffset,
-                                     int qualityBonus) {
+    /** {@link #qualityMode(Player, Set, int)} の経路別版(S7 作業台/儀式分割)。 */
+    private int qualityModeForPath(Player crafter, Set<String> candidateSkills, int modeOffset,
+                                  CraftPath path) {
         Objects.requireNonNull(crafter, "crafter");
         Map<String, Integer> levels = skillLevelSource.levelsOf(crafter.getUniqueId());
         int bestLevel = 0;
@@ -135,6 +156,7 @@ public final class CraftQualityService {
             bestLevel = Math.max(bestLevel, levels.getOrDefault(skill, 0));
         }
         int mode = CraftQualityPolicy.modeFromLevel(bestLevel, config.skillLevelsPerQuality(), config.baseQuality());
+        int qualityBonus = readIntStat(crafter, path.qualityBonusKey);
         return CraftQualityPolicy.resolveQuality(mode, qualityBonus + modeOffset, quality.maxQuality());
     }
 
@@ -144,8 +166,7 @@ public final class CraftQualityService {
      * {@code CraftItemEvent} and so is not covered by {@code CraftQualityListener}.
      */
     public int rollArsSmithingQuality(Player crafter) {
-        return rollQualityWithBonus(crafter, Set.of(ArsProgressionBridge.ARS_SMITHING), 0,
-                ritualQualityBonus(crafter));
+        return rollQualityForPath(crafter, Set.of(ArsProgressionBridge.ARS_SMITHING), 0, CraftPath.RITUAL);
     }
 
     /**
@@ -155,8 +176,8 @@ public final class CraftQualityService {
      * itemStats未配線 / result null なら従来通りオフセット0。
      */
     public int rollArsSmithingQuality(Player crafter, ItemStack result) {
-        return rollQualityWithBonus(crafter, Set.of(ArsProgressionBridge.ARS_SMITHING),
-                qualityModeOffsetFor(result), ritualQualityBonus(crafter));
+        return rollQualityForPath(crafter, Set.of(ArsProgressionBridge.ARS_SMITHING),
+                qualityModeOffsetFor(result), CraftPath.RITUAL);
     }
 
     /** 成果物の品質基準値を引く (itemStats未配線・meta無しは0)。 */
@@ -168,26 +189,21 @@ public final class CraftQualityService {
         return itemStats.qualityModeOffsetFor(result.getType(), cmd);
     }
 
+    /** 品質分布の上側σを広げるパーク(上振れ拡大)。作業台と儀式で別キー。 */
+    private double upswingBonus(Player player, CraftPath path) {
+        return readDoubleStat(player, path.upswingKey);
+    }
+
+    /** 品質分布の下側σを削るパーク(下振れ抑制)。作業台と儀式で別キー。 */
+    private double downswingBonus(Player player, CraftPath path) {
+        return readDoubleStat(player, path.downswingKey);
+    }
+
     /**
-     * 作業台クラフト品質の mode 加算(S7 分割)。{@code workbench_quality_bonus}(作業台品質)を加算する。
+     * ランダムステータスのロール補正(上振れ/下振れ抑制/収束)。<b>作業台と儀式で共有のまま</b>にしている:
+     * この3キーは {@code PdcKeys} でアイテム PDC に焼かれており、キー名を分けると
+     * 流通済みアイテムのロール補正が読めなくなる(ステータスが変わる)。
      */
-    private int workbenchQualityBonus(Player player) {
-        return readIntStat(player, "workbench_quality_bonus");
-    }
-
-    /** 儀式クラフト品質の mode 加算(S7 分割)。儀式は新 {@code ritual_quality_bonus} のみ。 */
-    private int ritualQualityBonus(Player player) {
-        return readIntStat(player, "ritual_quality_bonus");
-    }
-
-    private double craftUpswingBonus(Player player) {
-        return readDoubleStat(player, "craft_upswing_bonus");
-    }
-
-    private double craftDownswingBonus(Player player) {
-        return readDoubleStat(player, "craft_downswing_reduction");
-    }
-
     public CraftRollMods craftRollMods(Player player) {
         return new CraftRollMods(
                 pctFraction(readDoubleStat(player, "craft_roll_up_bonus")),

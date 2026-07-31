@@ -100,9 +100,11 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 
 // 87 → 92: 2026-07-27 に ATTRIBUTE チャネル5キー(move-speed / attack-speed-bonus /
 // attack-reach / knockback-resistance / max-health)が上限対応してUIへ加わった。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく92件ちょうど", () => {
+// 92 → 94: 2026-07-31 に craft-upswing-bonus / craft-downswing-reduction の2キーを
+// workbench-* / ritual-* の4キーへ分割した(作業台と儀式で同じパークが共有されていた)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく94件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 92, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 94, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 

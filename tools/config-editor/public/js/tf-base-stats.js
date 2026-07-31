@@ -28,7 +28,8 @@
   //  - glyph-slot-bonus:
   //    TrinityForge/src/main/java/com/trinityforge/integration/ars/ArsNativeBridge.java:65
   //    (perkBuffResolver.buffsFor(playerId).general().getOrDefault(GLYPH_SLOT_BONUS, 0.0))
-  //  - heavy-armor-move-speed-per-piece / light-armor-move-speed-per-piece / armor-set-bonus:
+  //  - armor-set-bonus (2026-07-31 まで並んでいた heavy-/light-armor-move-speed-per-piece は
+  //    語彙ごと廃止され、set-buffs の move-speed へ統合された):
   //    TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java
   //    (Map<String, Double> general = perkBuffs.buffsFor(id).general(); armorAttributesFor() 全体が
   //    この general マップからしか読まない = スキルツリーの buffs: 由来分だけで、base-stats.yml は
@@ -53,8 +54,6 @@
   //      で読み替えられる)ため、この画面(基礎/上限どちらのタブ)から除外する。
   const NO_OP_BASE_STATS_KEYS = new Set([
     "glyph-slot-bonus",
-    "heavy-armor-move-speed-per-piece",
-    "light-armor-move-speed-per-piece",
     "armor-set-bonus",
     "tool-enchant-efficiency",
     // 2026-07-29(重複ステ間引き) 理由(c): 同じ画面の別キーと完全に同じ意味になるキー。
@@ -206,7 +205,10 @@
         "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "loot-luck",
         "mob-drop-quality", "gacha-rate-bonus", "suspicious-respawn-chance",
         "hive-harvest-fortune", "food-save-chance", "workbench-quality-bonus",
-        "ritual-quality-bonus", "craft-upswing-bonus", "craft-downswing-reduction",
+        "ritual-quality-bonus",
+        // 2026-07-31: 旧 craft-upswing-bonus / craft-downswing-reduction を作業台/儀式の2組へ分割。
+        "workbench-upswing-bonus", "workbench-downswing-reduction",
+        "ritual-upswing-bonus", "ritual-downswing-reduction",
         "craft-roll-up-bonus", "craft-roll-down-reduction", "craft-roll-inset",
         "vanilla-exp-bonus", "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus",
         "breeding-vanilla-exp-bonus", "woodcutting-extra-drop-chance",

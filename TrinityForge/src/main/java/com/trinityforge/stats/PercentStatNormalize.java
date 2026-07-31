@@ -32,8 +32,9 @@ public final class PercentStatNormalize {
             StatKeys.canonical("ammo-save-chance"),
             StatKeys.canonical("distance-damage-bonus"),
             StatKeys.canonical("arrow-velocity"),
-            StatKeys.canonical("bow-cooldown-reduction"),
-            StatKeys.canonical("melee-knockback"),
+            // 2026-07-31: bow-cooldown-reduction は語彙ごと廃止(アイテムCT短縮へ一本化)。
+            // melee-knockback も除外した — 矢ノックバック(arrow-knockback)と単位系を揃えて
+            // FLAT + 単位 m にしたため、ここに残すと「2(=2m)」が 0.02 へ黙って矯正される。
             StatKeys.canonical("stun-chance"),
             StatKeys.canonical("power-attack-damage"),
             StatKeys.canonical("health-regen-bonus"),

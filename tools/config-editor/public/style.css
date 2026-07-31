@@ -343,7 +343,8 @@ select.field-input option {
 
 .form-field { display: flex; align-items: center; gap: 10px; }
 /* label 全体クリックで select が開かないよう、制御は入力部品のみに限定する。
-   ? ヘルプだけはホバーで title を出せるよう pointer-events を戻す。 */
+   ? ヘルプはホバー/クリック/フォーカスで独自ツールチップ(.help-tooltip)を開くので、
+   そこだけ pointer-events を戻す(2026-07-27 に title 属性方式から移行済み)。 */
 .form-field > .form-label { pointer-events: none; }
 .form-field > .form-label .help-icon { pointer-events: auto; }
 .form-field > select.field-input,

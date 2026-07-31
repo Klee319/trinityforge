@@ -72,6 +72,12 @@ arrow-velocity
 `combat/base-stats.yml` で設定し、装備・パークの値を加算します。最終値は
 `NativeCombatPerkListener.MAX_STUN_DURATION_TICKS`（既定100tick）で制限されます。
 
+`melee-knockback` / `arrow-knockback` は 2026-07-31 に単位を揃えました（どちらも `FLAT` +
+単位 `m`）。実体は対象の velocity への加算（近接は係数0.35、矢は0.4）なので厳密にはブロック/tick
+ですが、両者で同じ単位系なので表記も揃えています。**割合ではないので上限値も生値で書きます**
+（`melee-knockback` は同日 `PercentStatNormalize.RATE_KEYS` から外しました。残していると
+`2`（=2m のつもり）が `0.02` へ黙って矯正されます）。
+
 ### ATTACK チャネル (2026-07-26 拡大 — CombatListener が attackerStats / baseDamage 算出点で直接クランプ)
 
 暴走しがちな近接/弓の本命ステ。詳細は `CombatListener#onEntityDamageByEntity` のコメント参照。
@@ -131,8 +137,10 @@ hive-harvest-fortune
 food-save-chance
 workbench-quality-bonus
 ritual-quality-bonus
-craft-upswing-bonus
-craft-downswing-reduction
+workbench-upswing-bonus
+workbench-downswing-reduction
+ritual-upswing-bonus
+ritual-downswing-reduction
 craft-roll-up-bonus
 craft-roll-down-reduction
 craft-roll-inset

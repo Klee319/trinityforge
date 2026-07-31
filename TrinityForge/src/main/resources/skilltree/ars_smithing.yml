@@ -285,7 +285,7 @@ nodes:
     cost: 1
     effect-text: "クラフト品質の上振れ率UP"
     buffs:
-      craft_upswing_bonus: 0.5   # 旧 native arssmithing_craftupswingbonus_add (stat化)
+      ritual_upswing_bonus: 0.5   # 旧 native arssmithing_craftupswingbonus_add (stat化)
     effects:
       - "クラフト時に高品質へ上振れしやすくなる"
 

@@ -42,7 +42,8 @@ public enum StatsCategory {
             "bleed_chance", "bleed_damage",
             // 弓系・近接系・cooldown_reduction (stat-gate-overhaul §2.1)
             "bow_accuracy", "ammo_save_chance", "distance_damage_bonus", "arrow_piercing",
-            "arrow_velocity", "bow_cooldown_reduction", "arrow_knockback",
+            // 2026-07-31: bow_cooldown_reduction を撤去(アイテムCT短縮へ一本化。StatVocabulary 参照)。
+            "arrow_velocity", "arrow_knockback",
             "melee_knockback", "stun_chance", "power_attack_damage", "power_attack_radius",
             "cooldown_reduction",
             // 2026-07-26 M-stats分類: OTHER落ちしていた登録済みキーの回収。スタン時間は近接の
@@ -63,14 +64,17 @@ public enum StatsCategory {
             "reflect_flat", "reflect_percent",
             // 2026-07-26 M-stats分類: 軽装/重装のセット効果。移動速度・回避に効くが「防具を着ることで
             // 得られる効果」なので UTILITY ではなく ARMOR に置く(lore.yml の防具カテゴリと揃える)。
-            "heavy_armor_move_speed_per_piece", "light_armor_move_speed_per_piece",
+            // 2026-07-31: heavy/light_armor_move_speed_per_piece は語彙ごと撤去(set-buffs の
+            // move-speed へ統合)。armor_set_bonus だけがこの分類に残る。
             // 2026-07-27 (armor-set-buffs 全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
             // light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を armor-set-bonus
             // 1本(軽装/重装共通の増幅率)へ統一。
             "armor_set_bonus");
 
     private static final Set<String> CRAFT_KEYS = Set.of(
-            "craft_upswing_bonus", "craft_downswing_reduction",
+            // 2026-07-31: 旧 craft_upswing_bonus / craft_downswing_reduction を作業台/儀式の2組へ分割。
+            "workbench_upswing_bonus", "ritual_upswing_bonus",
+            "workbench_downswing_reduction", "ritual_downswing_reduction",
             "craft_roll_up_bonus", "craft_roll_down_reduction", "craft_roll_inset",
             "lapis_cost_reduction", "material_refund_chance",
             "ingredient_save_chance",

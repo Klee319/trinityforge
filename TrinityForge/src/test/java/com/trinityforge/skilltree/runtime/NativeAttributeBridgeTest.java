@@ -217,17 +217,39 @@ class NativeAttributeBridgeTest {
         assertFalse(attrs.containsKey("knockback_resistance"), "金装備が重装セットを成立させてはいけない");
     }
 
-    // --- move-speed-per-piece: unaffected by the set-buffs migration ---
+    // --- move-speed: 2026-07-31 に「部位数比例の平坦バフ」から set-buffs へ移行 ---
 
+    /**
+     * 旧 {@code light-/heavy-armor-move-speed-per-piece} は撤去され、移動速度は
+     * {@code set-buffs} の {@code move-speed}(段3/4)から来る。閾値未満では一切効かない
+     * (これが移行で変わった唯一の挙動)。
+     */
     @Test
-    void moveSpeedPerPieceStillAppliesUnconditionally() {
+    void moveSpeedNowComesFromSetBuffsAndRespectsTheThreshold() {
+        SkillNode a = node("A", Map.of(3, Map.of("move-speed", 0.015), 4, Map.of("move-speed", 0.02)));
+        SkillTree lightTree = tree(LIGHT, Map.of("A", a));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree), Set.of(perk(LIGHT, "A")));
+
+        wearLight(2);
+        assertFalse(bridge.armorAttributesFor(player).containsKey("move_speed"),
+                "2部位では段3が成立しないので移動速度は付かない");
+
+        wearLight(3);
+        assertEquals(0.015, bridge.armorAttributesFor(player).get("move_speed"), EPS);
+
+        wearLight(4);
+        assertEquals(0.02, bridge.armorAttributesFor(player).get("move_speed"), EPS);
+    }
+
+    /** 撤去した旧キーを平坦 buffs に書いても、もう move_speed には一切ならないこと。 */
+    @Test
+    void retiredPerPieceKeysNoLongerProduceMoveSpeed() {
         SkillNode a = plainBuffsNode("A", Map.of("light-armor-move-speed-per-piece", 0.5));
         SkillTree lightTree = tree(LIGHT, Map.of("A", a));
         NativeAttributeBridge bridge = bridgeFor(List.of(lightTree), Set.of(perk(LIGHT, "A")));
-        wearLight(2);
+        wearLight(4);
 
-        Map<String, Double> attrs = bridge.armorAttributesFor(player);
-
-        assertEquals(0.5 * 2 * 0.01, attrs.get("move_speed"), EPS);
+        assertFalse(bridge.armorAttributesFor(player).containsKey("move_speed"),
+                "撤去した per-piece キーが move_speed を生んでいる");
     }
 }

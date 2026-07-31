@@ -25,7 +25,9 @@ prestige:
   effect-text: "全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%"
   buffs:
     potion_quality_bonus: 3
-    craft_upswing_bonus: 0.15
+    # 2026-07-31: 旧 craft_upswing_bonus(作業台+儀式の両方に効いていた)を作業台側へ寄せた。
+    # 儀式クラフトの品質は魔法鍛冶(ars_smithing)ツリーの担当なので錬金からは効かせない。
+    workbench_upswing_bonus: 0.15
 
 nodes:
   A:

@@ -55,9 +55,14 @@ nodes:
     parent:
     icon: LEATHER_BOOTS
     cost: 1
-    effect-text: 移動速度ペナルティ減少・空腹になりにくくなる
-    buffs:
-      light-armor-move-speed-per-piece: 0.5
+    effect-text: 軽装3部位で移動速度アップ(4部位で強化)・空腹になりにくくなる
+    # 2026-07-31: 旧 light-armor-move-speed-per-piece: 0.5(部位数×0.5%)を廃止し、
+    # セット効果(set-buffs)の move-speed へ移した。4部位時の +2% は据え置き、3部位で +1.5%。
+    set-buffs:
+      "3":
+        move-speed: 0.015
+      "4":
+        move-speed: 0.02
     effects:
       - 空腹になりにくくなる
   B:

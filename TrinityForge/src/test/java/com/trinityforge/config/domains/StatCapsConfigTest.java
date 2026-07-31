@@ -103,13 +103,12 @@ class StatCapsConfigTest {
         StatCapsConfig config = loaded(tempDir, """
                 stat-caps:
                   cooldown-reduction: 5
-                  bow-cooldown-reduction: 5
                   haste-active-mining-cooldown-reduction: 5
                   tree-fell-cooldown-reduction: 5
                 """);
         assertTrue(config.caps().isEmpty(), "CT短縮系キーはCooldownManagerが既にクランプ済みのため登録されない");
         assertEquals(999.0, config.clamp("cooldown_reduction", 999.0), 1e-9);
-        assertEquals(999.0, config.clamp("bow_cooldown_reduction", 999.0), 1e-9);
+        assertEquals(999.0, config.clamp("haste_active_mining_cooldown_reduction", 999.0), 1e-9);
     }
 
     @Test

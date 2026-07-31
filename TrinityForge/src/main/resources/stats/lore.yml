@@ -713,19 +713,11 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-  bow-cooldown-reduction:
-    name: 弓CT短縮
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 105
-    show-sign: true
-    hide-when-zero: true
-    category: attack
   arrow-knockback:
     name: 矢ノックバック
     icon: ""
     format: FLAT
+    unit: m
     decimals: 1
     order: 106
     show-sign: true
@@ -739,8 +731,9 @@ stats:
   melee-knockback:
     name: 追撃ノックバック
     icon: ""
-    format: PERCENT
-    decimals: 0
+    format: FLAT
+    unit: m
+    decimals: 1
     order: 107
     show-sign: true
     hide-when-zero: true
@@ -1154,8 +1147,8 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
-  craft-upswing-bonus:
-    name: 上振れ拡大
+  workbench-upswing-bonus:
+    name: 作業台上振れ拡大
     icon: ""
     format: FLAT
     decimals: 1
@@ -1170,8 +1163,40 @@ stats:
         - PLAYER
     limits:
       floor: 0
-  craft-downswing-reduction:
-    name: 下振れ抑制
+  workbench-downswing-reduction:
+    name: 作業台下振れ抑制
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 202
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  ritual-upswing-bonus:
+    name: 儀式上振れ拡大
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 201
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  ritual-downswing-reduction:
+    name: 儀式下振れ抑制
     icon: ""
     format: FLAT
     decimals: 1
@@ -1433,36 +1458,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-  light-armor-move-speed-per-piece:
-    name: 軽装部位速度
-    icon: ""
-    format: FLAT
-    decimals: 2
-    order: 56
-    show-sign: true
-    hide-when-zero: true
-    unit: "%"
-    category: defense
-    trigger:
-      when: PASSIVE_ATTRIBUTE
-      sources: NON_ITEM_ONLY
-      applies-to:
-        - PLAYER
-  heavy-armor-move-speed-per-piece:
-    name: 重装部位速度
-    icon: ""
-    format: FLAT
-    decimals: 2
-    order: 57
-    show-sign: true
-    hide-when-zero: true
-    unit: "%"
-    category: defense
-    trigger:
-      when: PASSIVE_ATTRIBUTE
-      sources: NON_ITEM_ONLY
-      applies-to:
-        - PLAYER
   armor-set-bonus:
     name: セット効果増幅
     icon: ""

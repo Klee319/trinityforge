@@ -109,7 +109,7 @@ base-stats:
   distance-damage-bonus: 0
   arrow-piercing: 0
   arrow-velocity: 0
-  bow-cooldown-reduction: 0
+  # 矢/近接のノックバック押し出し量。単位はブロック(m)相当の速度加算で、両者で同じ単位系。
   arrow-knockback: 0
   melee-knockback: 0
   stun-chance: 0
@@ -149,8 +149,12 @@ base-stats:
   workbench-quality-bonus: 0
   # 2026-07-28新設: 武器コーティングの実効上限スタック数への加算(全ソース合算、WeaponCoatingListener消費)。
   coating-charges-bonus: 0
-  craft-upswing-bonus: 0
-  craft-downswing-reduction: 0
+  # 2026-07-31: 旧 craft-upswing-bonus / craft-downswing-reduction を作業台用と儀式用に分割。
+  # 旧キーは両経路で共有されており、鍛冶ツリーのパークが儀式クラフトにも漏れていた。
+  workbench-upswing-bonus: 0
+  workbench-downswing-reduction: 0
+  ritual-upswing-bonus: 0
+  ritual-downswing-reduction: 0
   craft-roll-up-bonus: 0
   craft-roll-down-reduction: 0
   craft-roll-inset: 0
@@ -169,9 +173,8 @@ base-stats:
   glyph-slot-bonus: 0
   # 2026-07-25 害悪グリフ強化(ars_magic.yml B-3): 特定グリフのダメージ倍率ボーナス(fraction)
   glyph-damage-multiplier-bonus: 0
-  # スキルツリー由来の条件付き装備効果(NativeAttributeBridgeが装備部位数を判定して消費)
-  light-armor-move-speed-per-piece: 0
-  heavy-armor-move-speed-per-piece: 0
+  # 2026-07-31: light/heavy-armor-move-speed-per-piece を廃止。装備部位数比例の専用経路を持つだけの
+  # キーで、同じ効果はスキルツリーの set-buffs(段3/4条件バフ)の move-speed で表現できるため統合した。
   # 2026-07-27(armor-set-buffs全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
   # light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を廃止し、
   # スキルツリーのset-buffsスキーマ(装備部位3/4段の条件バフ)+ この1キー(軽装/重装共通の増幅率)へ統一。

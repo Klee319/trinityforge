@@ -44,8 +44,10 @@
     // 未対応キーは消さずそのまま残す方針なので黙って壊れることはない。
     arsmagic_unlockedtier_add: "ars-tier-bonus",
     arsmagic_glyphslots_add: "glyph-slot-bonus",
-    lightarmor_movementspeedperpiece_add: "light-armor-move-speed-per-piece",
-    heavyarmor_movementspeedperpiece_add: "heavy-armor-move-speed-per-piece",
+    // 2026-07-31: lightarmor_/heavyarmor_movementspeedperpiece_add の移行先
+    // (light-/heavy-armor-move-speed-per-piece) を語彙ごと廃止した。存在しないステキーへ横流しすると
+    // 開いて保存した瞬間に channel NONE で無言ドロップされるため、ここからは外して native に残す
+    // (「未対応キーは消さず残す」既定方針どおり)。移動速度は set-buffs の move-speed で書き直す。
     // 2026-07-27(armor-set-buffs全面移行): 旧 setamount(セット効果の増幅率)は armor-set-bonus
     // 1本へ統一されたのでそのまま横流しできる。旧 setdodgechance/setknockbackresistance は
     // 装備部位数条件の set-buffs スキーマへ移行しないと意味を保てない(平坦な buffs には対応先が無い)ため、

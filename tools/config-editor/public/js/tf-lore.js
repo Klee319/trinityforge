@@ -42,7 +42,8 @@
     // entry.category が優先されるため、これは新規statや category 未設定時のフォールバックに過ぎない。
     // CT(item-cooldown) と 効率強化増幅(tool-enchant-*) は「その他」。
     if (s.includes("item-cooldown") || s.startsWith("tool-enchant")) return "other";
-    if (s.startsWith("craft-") || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance", "ritual-quality-bonus", "workbench-quality-bonus"].includes(s)) return "craft";
+    if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")
+      || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance"].includes(s)) return "craft";
     if (["mining-fortune", "fishing-luck", "fishing-bonus", "suspicious-respawn-chance", "hive-harvest-fortune"].includes(s)) return "gathering";
     if (["mana", "spell", "glyph", "thread", "slot", "arcane", "source-cost-reduction"].some((k) => s.includes(k))) return "ars";
     if ([
@@ -191,10 +192,14 @@
       const label = (window.LABELS && window.LABELS.statLabel) ? window.LABELS.statLabel(key) : key;
       const statDesc = (window.LABELS && typeof window.LABELS.statDescription === "function")
         ? window.LABELS.statDescription(key) : "このステータスの実装上の説明は未登録です。";
-      const keyLabel = h("span", { class: "lore-stat-key", title: key }, [
+      // 2026-07-31: 親 span の title 属性を撤去した。HTML の title は子孫にも効くため、
+      // helpIcon の独自ポップオーバーとブラウザ標準ツールチップが同時に出ていた
+      // (説明文の MiniMessage プレースホルダがそのまま見える症状)。キー名は helpIcon の
+      // keyLabel(ツールチップ先頭行)と隣の mini-label で見せる。
+      const keyLabel = h("span", { class: "lore-stat-key" }, [
         h("span", { class: "drag-handle", text: "⠿", title: "ドラッグで表示順を入れ替え" }),
         h("span", { text: label && label !== key ? label : key }),
-        window.helpIcon(statDesc),
+        window.helpIcon(statDesc, { keyLabel: "キー: " + key }),
         label && label !== key ? h("span", { class: "mini-label", text: " " + key }) : null
       ]);
 
@@ -350,7 +355,7 @@
           window.checkboxInput(B["show-owner"] !== false, (v) => { B["show-owner"] = v; }),
           h("span", { text: "所有者行を表示 (show-owner)" })
         ]),
-        h("div", { class: "sub-title", text: "所有者行テンプレート (owner-line)", title: ownerDesc }, [
+        h("div", { class: "sub-title", text: "所有者行テンプレート (owner-line)" }, [
           window.helpIcon(ownerDesc)
         ]),
         window.richTextInput(B["owner-line"] || "", "minimessage", (v) => { B["owner-line"] = v; })
@@ -363,7 +368,7 @@
           window.checkboxInput(B["show-use-requirement"] !== false, (v) => { B["show-use-requirement"] = v; }),
           h("span", { text: "使用制限行を表示 (show-use-requirement)" })
         ]),
-        h("div", { class: "sub-title", text: "使用制限行テンプレート (use-requirement-line)", title: reqDesc }, [
+        h("div", { class: "sub-title", text: "使用制限行テンプレート (use-requirement-line)" }, [
           window.helpIcon(reqDesc)
         ]),
         window.richTextInput(B["use-requirement-line"] || "", "minimessage", (v) => { B["use-requirement-line"] = v; })
@@ -382,7 +387,7 @@
         + "<icon>=アイコン文字列 / <name>=ステ表示名 / <value>=符号・単位・色つきの値。"
         + "例: <gray><icon><name>：<value></gray>";
       body.appendChild(h("div", { class: "lore-layout-section" }, [
-        h("div", { class: "sub-title", text: "ステータス表示テンプレート (line-template)", title: templateDesc }, [
+        h("div", { class: "sub-title", text: "ステータス表示テンプレート (line-template)" }, [
           window.helpIcon(templateDesc)
         ]),
         window.richTextInput(L["line-template"] || "", "minimessage", (v) => { L["line-template"] = v; })
@@ -395,7 +400,7 @@
         + "<tier>=ティア色付きの【ティア名】 / <tier-name>=色なしのティア名 / <score>=品質スコア値。"
         + "例: " + scoreTemplateDefault;
       body.appendChild(h("div", { class: "lore-layout-section" }, [
-        h("div", { class: "sub-title", text: "スコア表示テンプレート (score-line-template)", title: scoreTemplateDesc }, [
+        h("div", { class: "sub-title", text: "スコア表示テンプレート (score-line-template)" }, [
           window.helpIcon(scoreTemplateDesc)
         ]),
         window.richTextInput(L["score-line-template"] || scoreTemplateDefault, "minimessage",
@@ -474,7 +479,7 @@
       renderAdv(hasAdv);
 
       return h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: title, title: desc }),
+        h("div", { class: "sub-title", text: title }, [window.helpIcon(desc)]),
         boxBody,
         advBox
       ]);
