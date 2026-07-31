@@ -58,6 +58,10 @@ public final class NativeSurvivalPerkListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeathDrops(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
+        // プレイヤーの死亡(PlayerDeathEventはEntityDeathEventのサブクラスなのでここにも来る)を
+        // 倍率対象にすると、被害者の持ち物がそのまま増える=アイテム複製になる。
+        // mob_drop_bonus/kill_vanilla_exp_bonus はモブ討伐報酬なのでPvPでは一切効かせない。
+        if (entity instanceof Player) return;
         Player killer = entity.getKiller();
         if (killer == null) return;
         var totals = aggregator.aggregate(killer);
@@ -68,14 +72,20 @@ public final class NativeSurvivalPerkListener implements Listener {
         double dropMultAdd = totals.totalOf(MOB_DROP_BONUS);
         double dropFactor = Math.min(3.0, 1.0 + Math.max(0.0, dropMultAdd));
         if (dropFactor > 1.0) {
+            // モブの装備欄由来(プレイヤーが持たせた/モブが拾った)のスタックは戦利品ではないので
+            // 倍率から除外する。ゾンビ等の拾得アイテムも装備スロットに入るため、装備欄の突合せで両方賄える。
+            List<ItemStack> exclusions = equipmentExclusions(entity);
             List<ItemStack> drops = new ArrayList<>(event.getDrops());
             event.getDrops().clear();
             for (ItemStack drop : drops) {
                 if (drop == null || drop.getType().isAir()) continue;
+                if (consumeExclusion(exclusions, drop)) {
+                    event.getDrops().add(drop);
+                    continue;
+                }
                 ItemStack copy = drop.clone();
-                int amount = Math.min(copy.getMaxStackSize() * 8,
-                        Math.max(1, (int) Math.round(copy.getAmount() * dropFactor)));
-                copy.setAmount(amount);
+                copy.setAmount(scaleAmount(copy.getAmount(), dropFactor,
+                        copy.getMaxStackSize(), ThreadLocalRandom.current().nextDouble()));
                 event.getDrops().add(copy);
             }
         }
@@ -87,6 +97,61 @@ public final class NativeSurvivalPerkListener implements Listener {
         if (expFactor > 1.0) {
             event.setDroppedExp((int) Math.round(event.getDroppedExp() * expFactor));
         }
+    }
+
+    /**
+     * ドロップ倍率を「期待値どおり」に整数化する。
+     *
+     * <p>旧実装は {@code Math.round(amount * factor)} だったので、+50% が1個ドロップに対して
+     * <b>常に</b>2個(切り上げ)＝実質+100%になっていた。整数部は確定で与え、小数部だけ確率で+1する
+     * ことで期待値を倍率に一致させる(1個 × 1.5 → 50%で2個 / 50%で1個)。
+     *
+     * @param roll 0.0以上1.0未満の乱数。テストのために引数化している。
+     */
+    static int scaleAmount(int baseAmount, double dropFactor, int maxStackSize, double roll) {
+        double scaled = Math.max(0.0, baseAmount) * Math.max(0.0, dropFactor);
+        int whole = (int) Math.floor(scaled);
+        double fraction = scaled - whole;
+        int amount = whole + (fraction > 0.0 && roll < fraction ? 1 : 0);
+        int cap = Math.max(1, maxStackSize) * 8;
+        return Math.min(cap, Math.max(1, amount));
+    }
+
+    /**
+     * 装備スロットの中身(手・オフハンド・防具)を倍率除外リストとして返す。
+     *
+     * <p>プレイヤーが持たせたアイテムも、モブが地面から拾ったアイテムも、Bukkit上では装備スロットに入る。
+     * これらは {@code EntityDeathEvent#getDrops()} に戦利品と混ざって現れるため、突合せて除外しないと
+     * 「渡した装備が倍率で増える」＝アイテム複製になる。
+     */
+    static List<ItemStack> equipmentExclusions(LivingEntity entity) {
+        List<ItemStack> exclusions = new ArrayList<>();
+        var equipment = entity.getEquipment();
+        if (equipment == null) return exclusions;
+        for (ItemStack item : new ItemStack[]{
+                equipment.getItemInMainHand(), equipment.getItemInOffHand(),
+                equipment.getHelmet(), equipment.getChestplate(),
+                equipment.getLeggings(), equipment.getBoots()}) {
+            if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
+        }
+        return exclusions;
+    }
+
+    /**
+     * {@code drop} が除外リストに載っていれば1件だけ消費して true を返す。
+     *
+     * <p>1件ずつ消費するのは、同じ材質が「装備1個＋戦利品1個」で落ちるとき
+     * (骨を落とすスケルトンが弓を装備している等)に、戦利品側まで除外しないため。
+     */
+    private static boolean consumeExclusion(List<ItemStack> exclusions, ItemStack drop) {
+        for (int i = 0; i < exclusions.size(); i++) {
+            ItemStack candidate = exclusions.get(i);
+            if (candidate.isSimilar(drop) && candidate.getAmount() == drop.getAmount()) {
+                exclusions.remove(i);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
