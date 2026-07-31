@@ -48,6 +48,11 @@ import java.util.Optional;
  * {@code catalogId} first and material+CustomModelData as fallback. Plain-material cells must NOT
  * hold a catalog item. On mismatch it re-matches the grid across all registered catalog
  * workbench recipes and swaps in the correct result, or clears the preview when nothing fits.
+ *
+ * <p><strong>Foreign-plugin recipes are exempt</strong> — see
+ * {@link #foreignRecipeOwnsGridItems}. That rule may only be applied to identities TF owns; a stack
+ * that is only "known" through {@link ExternalItemRegistry} belongs to the plugin that registered
+ * it, and that plugin's own per-slot guard is authoritative for its own recipes.
  */
 public final class CatalogWorkbenchListener implements Listener {
 
@@ -68,6 +73,11 @@ public final class CatalogWorkbenchListener implements Listener {
 
         if (ours.isEmpty()) {
             if (!gridHasCatalogItem) {
+                return;
+            }
+            // 選択レシピの所有プラグイン自身のカスタム品しか乗っていないなら、そのプラグインの
+            // per-slot ガードへ委譲する (D5)。詳細は foreignRecipeOwnsGridItems の javadoc。
+            if (foreignRecipeOwnsGridItems(selected, matrix)) {
                 return;
             }
             // A catalog stack may only be consumed by a recipe that explicitly opted into its
@@ -122,6 +132,10 @@ public final class CatalogWorkbenchListener implements Listener {
             if (!gridHasCatalogItem(matrix)) {
                 return;
             }
+            // 作業台と同じ委譲 (D5)。3箇所を揃えないと「手ではできるが Crafter では止まる」になる。
+            if (foreignRecipeOwnsGridItems(event.getRecipe(), matrix)) {
+                return;
+            }
             for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
                 if (matches(matrix, 3, candidate.spec())) {
                     event.setResult(registrarResult(candidate.template(), candidate.spec()));
@@ -156,11 +170,16 @@ public final class CatalogWorkbenchListener implements Listener {
     /** Defensive take-result gate in case another plugin restores a vanilla preview after prepare. */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onCraftItem(CraftItemEvent event) {
-        if (registeredOf(event.getRecipe()).isPresent()) {
+        Recipe selected = event.getRecipe();
+        if (registeredOf(selected).isPresent()) {
             return;
         }
         ItemStack[] matrix = event.getInventory().getMatrix();
         if (!gridHasCatalogItem(matrix)) {
+            return;
+        }
+        // onPrepareCraft と同じ委譲 (D5)。ここを直し忘れると「結果枠は出るが取り出せない」になる。
+        if (foreignRecipeOwnsGridItems(selected, matrix)) {
             return;
         }
         int gridWidth = matrix.length == 4 ? 2 : 3;
@@ -520,6 +539,84 @@ public final class CatalogWorkbenchListener implements Listener {
             }
         }
         return false;
+    }
+
+    // ------------------------------------------------------------------
+    // 他プラグイン所有レシピへの委譲 (D5, 2026-07-31)
+    // ------------------------------------------------------------------
+
+    /**
+     * TF が<b>所有する</b>カタログ identity か。{@link #catalogIdentityOf} の3段目
+     * ({@link ExternalItemRegistry}) を意図的に見ない版。
+     *
+     * <p>{@code ExternalItemRegistry} は「TF が外部プラグインの品を<em>認識</em>するため」の
+     * レジストリで、「TF がその品を<em>所有</em>する」宣言ではない。両者を混同すると下の
+     * {@link #foreignRecipeOwnsGridItems} が成立しなくなる。
+     */
+    private boolean isTfOwnedCatalogItem(ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        Integer cmd = DerivedItemStats.customModelDataOf(meta);
+        if (cmd == null) {
+            return false; // CMD の無いスタックは常にバニラ扱い (既存規約)
+        }
+        if (ItemData.of(meta).catalogId().isPresent()) {
+            return true;
+        }
+        return CatalogIdentity.find(catalog, item.getType(), cmd).isPresent();
+    }
+
+    /**
+     * <b>「ArsPaper 自身のレシピの結果枠が TF に消される」バグの修正 (D5, 2026-07-31)</b>。
+     *
+     * <p>{@link #catalogIdentityOf} は PDC → {@code catalog.yml} → {@link ExternalItemRegistry} の
+     * 3段で解決するので、ArsPaper が自分の全カスタム品を登録した結果<b>他プラグインの品まで
+     * 「カタログ品」に化ける</b>。すると「カタログ品を消費できるのはオプトインした TF レシピだけ」
+     * という規則が ArsPaper 自身のレシピにも当たり、{@code ours.isEmpty()} → rematch 失敗 →
+     * {@code setResult(null)} で結果枠が毎回空になっていた
+     * (ソースジャー / 台座 / 写字台が作れず Ars 進行が丸ごと立ち上がらない状態)。
+     *
+     * <p>そこで<b>盤面のカスタム品がすべて選択レシピの所有プラグインのものである</b>場合に限り、
+     * TF は介入せずそのプラグイン自身の per-slot ガード
+     * ({@code ArsPaper CustomIngredientCraftGuardListener}) に委譲する。所有の判定は
+     * 「レシピキーの namespace == {@link ExternalItemRegistry#pluginSourceOf} の layer 名」。
+     *
+     * <p><b>namespace 一致を要求するのが要点</b>で、「外部品が乗っていれば常に見送る」まで緩めると
+     * {@code minecraft:*} のバニラレシピが ArsPaper の圧縮品を素材として食えるようになる
+     * (圧縮鉄ブロックがバニラの分解レシピで鉄9個に溶ける)。TF 所有のカタログ品が1つでも
+     * 混ざっていれば従来どおり TF が守る (圧縮ブロックの tier 誤爆防止)。
+     *
+     * @return 盤面に外部品が1つ以上あり、そのすべてが選択レシピの所有プラグインのものなら true
+     */
+    private boolean foreignRecipeOwnsGridItems(Recipe selected, ItemStack[] matrix) {
+        if (!(selected instanceof Keyed keyed)) {
+            return false;
+        }
+        String namespace = keyed.getKey().getNamespace();
+        boolean sawForeign = false;
+        for (ItemStack item : matrix) {
+            if (item == null || item.getType().isAir()) {
+                continue;
+            }
+            if (isTfOwnedCatalogItem(item)) {
+                return false; // TF 所有品は従来どおり TF が守る
+            }
+            if (catalogIdentityOf(item).isEmpty()) {
+                continue; // 素のバニラ素材 — 誰の所有物でもない
+            }
+            Integer cmd = DerivedItemStats.customModelDataOf(item.getItemMeta());
+            boolean ownedBySelectedRecipesPlugin = ExternalItemRegistry
+                    .pluginSourceOf(item.getType(), cmd)
+                    .filter(source -> source.equalsIgnoreCase(namespace))
+                    .isPresent();
+            if (!ownedBySelectedRecipesPlugin) {
+                return false; // 別プラグインの品 / バニラレシピが食おうとしている → 保護継続
+            }
+            sawForeign = true;
+        }
+        return sawForeign;
     }
 
     /** Trims a recipe shape to its non-space bounding box (padded to equal-width rows). */
