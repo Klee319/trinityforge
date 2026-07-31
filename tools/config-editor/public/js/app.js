@@ -205,8 +205,8 @@
     {
       key: "mobs-dungeon", title: "モブダンジョン", level: "main",
       order: [
-        "mob-types", "mob-profiles", "mob-import", "hate-rates",
-        "dungeon-gates", "dungeon-themes"
+        "mob-types", "mob-profiles", "mob-import", "mob-abilities", "hate-rates",
+        "dungeon-gates", "dungeon-themes", "loot-tables"
       ]
     }
   ];
@@ -280,6 +280,32 @@
       }
     } catch (_) { /* optional */ }
     return [];
+  }
+
+  /**
+   * threads.yml のスレッドを custom: 候補へ積む（2026-07-31）。
+   *
+   * <p>スレッドアイテムのIDは {@code thread_<threads.yml のキー>} で、catalog.yml にも
+   * materials.yml にも載っていない。そのため buildCatalogCandidates だけでは
+   * <b>厳選スレッドを候補から選べない</b>（構造物ルート抽選の主役なのに選べない）。
+   * ここも読み取り専用の候補源なので loadConfigCompanion ではなく直接 GET する
+   * （COMPANION_OPTION_KEYS に載せると保存時のマージ対象になってしまう。
+   * gathering-efficiency と同じ理由）。
+   */
+  async function addThreadCustomCandidates() {
+    try {
+      const r = await api("GET", "/api/config/threads");
+      const threads = r && r.data && r.data.threads;
+      if (!threads || typeof threads !== "object" || Array.isArray(threads)) return;
+      const entries = Object.entries(threads).map(([id, entry]) => ({
+        id: "thread_" + id,
+        label: entry && typeof entry === "object" && entry.display_name
+          ? String(entry.display_name) : ("thread_" + id)
+      }));
+      if (entries.length && typeof window.setCustomItemCandidates === "function") {
+        window.setCustomItemCandidates(entries, { replace: false });
+      }
+    } catch (_) { /* optional */ }
   }
 
   async function fetchCatalogCandidatesWithMaterials() {
@@ -722,6 +748,14 @@
       case "tf-mob-import": return window.buildMobImportForm(data);
       case "tf-mob-profiles": return window.buildMobProfilesForm(data);
       case "tf-mob-abilities": return window.buildMobAbilitiesForm(data);
+      case "ars-loot-tables": {
+        // entries[].item は Material / custom:<ID> の両方を取る。custom: の候補源は
+        // カタログ + 中間素材 + スレッド。スレッドは catalog/materials のどちらにも
+        // 載っていないので threads.yml から別途積む(積まないと厳選スレッドを選べない)。
+        await fetchCatalogCandidatesWithMaterials();
+        await addThreadCustomCandidates();
+        return window.buildLootTablesForm(data);
+      }
       case "tf-mob-overrides": {
         // drops の item は Material 名だけでなく custom:<カタログID> も取れるので、
         // カタログ候補を渡してセレクトメニューから選べるようにする (2026-07-26)。

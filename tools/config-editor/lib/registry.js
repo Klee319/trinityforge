@@ -150,6 +150,10 @@ const REGISTRY = Object.freeze([
   // (TF/Ars統合の一環。特殊アイテムと合わせてサイドバーの同じグループへ集約)。
   { id: "sourcelinks", label: "ソースリンク (sourcelinks)", group: "ArsPaper", section: "functional-items", base: "arspaper", rel: "sourcelinks.yml", schema: "ars-sourcelinks" },
   { id: "sourcejars", label: "ソースジャー (sourcejars)", group: "ArsPaper", section: "functional-items", base: "arspaper", rel: "sourcejars.yml", schema: "ars-sourcejars" },
+  // 2026-07-31新設: 構造物ルートチェストへの追加抽選。ダンジョン/構造物の話なので section は
+  // モブダンジョン側へ置く(base は arspaper)。データパック(Dungeons and Taverns 等)の
+  // ルートテーブルを namespace ワイルドカードで対象にできる。
+  { id: "loot-tables", label: "構造物ルート抽選 (loot-tables)", group: "ArsPaper", section: "mobs-dungeon", base: "arspaper", rel: "loot-tables.yml", schema: "ars-loot-tables" },
 
   // ---- TrinityForge スキルツリー (skilltree/*.yml) ----
   // TF独自の「単一の真実」。TFネイティブ進行とGUIが直接読み込む。

@@ -2044,6 +2044,71 @@ function validateTfMobAbilities(data, errors) {
   }
 }
 
+// ---- loot-tables.yml (ars-loot-tables) ----
+// 構造物ルートチェストへの追加抽選。Java 側(LootTableConfig)の丸めと同じ範囲を張る。
+const LOOT_ENTRY_TYPES = ["item", "enchant-book"];
+
+function validateArsLootTables(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  const pools = data.pools;
+  if (pools === undefined || pools === null) return;
+  if (!isPlainObject(pools)) { errors.push("pools: マップである必要があります"); return; }
+  for (const [id, pool] of Object.entries(pools)) {
+    const prefix = `pools.${id}`;
+    if (!/^[a-zA-Z0-9_]+$/.test(id)) {
+      errors.push(`${prefix}: IDは半角英数字とアンダースコアのみ使用できます`);
+    }
+    if (!isPlainObject(pool)) { errors.push(`${prefix}: マップである必要があります`); continue; }
+    // tables: が空だと「書いたのに永久に出ない」プールになる。Java 側は警告するだけなので
+    // ここでエラーにして保存前に気づけるようにする。
+    if (!Array.isArray(pool.tables) || !pool.tables.length) {
+      errors.push(`${prefix}.tables: 対象ルートテーブルを1件以上指定してください (空だと永久に発動しません)`);
+    } else {
+      pool.tables.forEach((table, i) => {
+        if (typeof table !== "string" || !table.trim()) {
+          errors.push(`${prefix}.tables[${i}]: 文字列である必要があります`);
+        }
+      });
+    }
+    if (pool.rolls !== undefined && pool.rolls !== null
+        && (!Number.isInteger(pool.rolls) || pool.rolls < 1 || pool.rolls > 16)) {
+      errors.push(`${prefix}.rolls: 1〜16 の整数である必要があります (Java 側もこの範囲に丸めます)`);
+    }
+    if (!Array.isArray(pool.entries) || !pool.entries.length) {
+      errors.push(`${prefix}.entries: 候補を1件以上指定してください`);
+      continue;
+    }
+    pool.entries.forEach((entry, i) => {
+      const ep = `${prefix}.entries[${i}]`;
+      if (!isPlainObject(entry)) { errors.push(`${ep}: マップである必要があります`); return; }
+      const type = entry.type === undefined || entry.type === null ? "item" : String(entry.type);
+      if (!LOOT_ENTRY_TYPES.includes(type)) {
+        errors.push(`${ep}.type: ${LOOT_ENTRY_TYPES.join(" / ")} のいずれかである必要があります`);
+      }
+      if (type !== "enchant-book" && !String(entry.item || "").trim()) {
+        errors.push(`${ep}.item: Material名 または custom:<ID> の指定が必須です`);
+      }
+      if (entry.chance !== undefined && entry.chance !== null
+          && (typeof entry.chance !== "number" || !(entry.chance >= 0) || entry.chance > 1)) {
+        errors.push(`${ep}.chance: 0〜1 の数値である必要があります`);
+      }
+      for (const key of ["min", "max"]) {
+        if (entry[key] !== undefined && entry[key] !== null
+            && (!Number.isInteger(entry[key]) || entry[key] < 1 || entry[key] > 64)) {
+          errors.push(`${ep}.${key}: 1〜64 の整数である必要があります`);
+        }
+      }
+      if (Number.isInteger(entry.min) && Number.isInteger(entry.max) && entry.min > entry.max) {
+        errors.push(`${ep}: min が max を超えています`);
+      }
+    });
+  }
+}
+
 function validateGeneric(data, errors) {
   // 汎用: ルートがマップまたは配列であればOK (スカラー単体は想定しない)。
   if (data === null) return;
@@ -3050,6 +3115,9 @@ function validate(schemaType, data) {
       break;
     case "ars-sourcejars":
       validateArsSourceJars(data, errors);
+      break;
+    case "ars-loot-tables":
+      validateArsLootTables(data, errors);
       break;
     case "ars-sourcelinks":
       validateArsSourceLinks(data, errors);
