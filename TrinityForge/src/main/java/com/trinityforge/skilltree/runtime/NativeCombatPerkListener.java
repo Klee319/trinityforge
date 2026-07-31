@@ -64,6 +64,28 @@ public final class NativeCombatPerkListener implements Listener {
     public static final int MAX_STUN_DURATION_TICKS = 100;
 
     /**
+     * ノックバック内部値1あたりの初速(blocks/tick)。近接と矢で係数が違う。
+     *
+     * <p>2026-07-31 レビュー指摘4: {@code stats/lore.yml} の単位は {@code m} だが内部値は
+     * <b>距離ではなく velocity への加算</b>なので、表示側で
+     * {@code display-scale} を掛けて桁を合わせている。空中の水平減衰 0.91/tick を等比級数で
+     * 積むと総移動距離は初速の {@link #VELOCITY_TO_BLOCKS} 倍なので、
+     * lore の {@code display-scale} は「この係数 × {@link #VELOCITY_TO_BLOCKS}」で決めること
+     * (整合は {@code KnockbackDisplayScaleDriftTest} が機械照合する)。接地中は摩擦が強い
+     * (0.6×0.91)ため実距離は表示より短くなる概算値である点は docs/config-reference に明記済み。
+     */
+    public static final double MELEE_KNOCKBACK_VELOCITY_PER_UNIT = 0.35;
+
+    /** 矢ノックバック内部値1あたりの初速(blocks/tick)。{@link #MELEE_KNOCKBACK_VELOCITY_PER_UNIT} 参照。 */
+    public static final double ARROW_KNOCKBACK_VELOCITY_PER_UNIT = 0.4;
+
+    /**
+     * 初速(blocks/tick)→総移動距離(blocks)の換算係数。バニラの空中水平減衰 0.91/tick を
+     * 等比級数で積んだ {@code 1/(1-0.91)}。
+     */
+    public static final double VELOCITY_TO_BLOCKS = 1.0 / (1.0 - 0.91);
+
+    /**
      * 「実際に殴った」と見なすDamageCause。{@code CombatListener} の同名の集合と意図的に同一に保つこと
      * (片方だけ広げると、近接専用ステが魔法/反射などへ漏れる)。
      */
@@ -101,7 +123,8 @@ public final class NativeCombatPerkListener implements Listener {
         double knock = agg.totalOf(MELEE_KNOCKBACK);
         if (knock > 0.0) {
             Vector vel = victim.getVelocity();
-            Vector push = attacker.getLocation().getDirection().normalize().multiply(0.35 * knock);
+            Vector push = attacker.getLocation().getDirection().normalize()
+                    .multiply(MELEE_KNOCKBACK_VELOCITY_PER_UNIT * knock);
             victim.setVelocity(vel.add(push));
         }
 
@@ -145,7 +168,8 @@ public final class NativeCombatPerkListener implements Listener {
         // 効いていた(=フラグはあってもなくても挙動が変わらない死にキーだった)。
         double chargedKb = agg.totalOf(ARROW_KNOCKBACK);
         if (chargedKb > 0.0 && projectile.getVelocity().lengthSquared() > 1.0) {
-            Vector push = projectile.getVelocity().normalize().multiply(0.4 * chargedKb);
+            Vector push = projectile.getVelocity().normalize()
+                    .multiply(ARROW_KNOCKBACK_VELOCITY_PER_UNIT * chargedKb);
             event.getEntity().setVelocity(event.getEntity().getVelocity().add(push));
         }
     }

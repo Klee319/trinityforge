@@ -22,6 +22,13 @@ import java.util.UUID;
  * 専用の読み出し経路(perk buffs の {@code general} のみ)を持つだけのキーで、同じ効果は
  * {@code set-buffs} の {@code move-speed}(段3/4条件)で表現できるため統合した
  * (light_armor.yml / heavy_armor.yml のノードAが移行先)。
+ *
+ * <p><b>移行で変わった点は2つ</b>(どちらも意図どおり):
+ * (1) 1〜2部位では効かなくなった(閾値が段3のため)、
+ * (2) <b>{@code armor-set-bonus} で増幅されるようになった</b> — 旧 per-piece 経路は
+ * {@code general} から直読みしていたので増幅されなかったが、move-speed だけを増幅の例外に
+ * するとノードB「セット効果量UP」の宣言(3・4部位のセット効果をまとめて強化)と食い違う。
+ * 実効値は {@code NativeAttributeBridgeTest#moveSpeedFromSetBuffsIsAmplifiedByArmorSetBonus} が固定。
  */
 public final class NativeAttributeBridge {
 

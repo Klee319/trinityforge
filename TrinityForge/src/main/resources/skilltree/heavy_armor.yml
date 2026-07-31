@@ -58,7 +58,12 @@ nodes:
     cost: 1
     effect-text: 重装3部位で移動速度アップ(4部位で強化)・空腹になりにくくなる
     # 2026-07-31: 旧 heavy-armor-move-speed-per-piece: 0.5(部位数×0.5%)を廃止し、
-    # セット効果(set-buffs)の move-speed へ移した。4部位時の +2% は据え置き、3部位で +1.5%。
+    # セット効果(set-buffs)の move-speed へ移した。宣言値は 4部位 +2% / 3部位 +1.5%
+    # (1〜2部位では効かなくなったのが移行で変わった点)。
+    # ⚠ set-buffs はどのキーも armor-set-bonus で増幅される(1 + armor-set-bonus 倍)。
+    # 旧 per-piece 経路は増幅されなかったが、ノードB「鉄壁の装」(armor-set-bonus: 0.1)は
+    # 「3・4部位のセット効果をまとめて強化する」宣言なので move-speed も例外にしない。
+    # 実効値: B 取得後は 4部位 +2.2% / 3部位 +1.65%。armor-set-bonus を伸ばすほど乖離が広がる。
     set-buffs:
       "3":
         move-speed: 0.015

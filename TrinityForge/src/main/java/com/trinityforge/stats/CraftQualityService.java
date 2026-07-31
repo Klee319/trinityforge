@@ -9,6 +9,7 @@ import com.trinityforge.progression.SkillLevelSource;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -84,8 +85,14 @@ public final class CraftQualityService {
      * (2026-07-31 L7-6 分割: 旧 {@code craft_upswing_bonus}/{@code craft_downswing_reduction} は
      * 両経路で共有されており、鍛冶ツリーのパークが儀式クラフトにも、魔法鍛冶ツリーのパークが
      * 作業台クラフトにも漏れていた)。
+     *
+     * <p><b>package-private にしている理由</b>: ここに書いたキー文字列は
+     * {@link #readDoubleStat} が未知キーを 0.0 として黙って返すため、1文字打ち間違えると
+     * 例外も警告も出さずにパークが恒久的に死ぬ。{@code CraftQualityPathSplitTest} が
+     * {@link #statKeysRead()} 経由で {@link StatVocabulary} / 出荷 yml と機械照合するので、
+     * リフレクション無しで照合できるようこのスコープを保つこと。
      */
-    private enum CraftPath {
+    enum CraftPath {
         /** 作業台(バニラ/ValhallaMMO/ArsPaper の {@code CraftItemEvent})経路。 */
         WORKBENCH("workbench_quality_bonus", "workbench_upswing_bonus", "workbench_downswing_reduction"),
         /** 儀式クラフト(ArsPaper fork。{@code CraftItemEvent} を発火しない)経路。 */
@@ -100,6 +107,42 @@ public final class CraftQualityService {
             this.upswingKey = upswingKey;
             this.downswingKey = downswingKey;
         }
+
+        String qualityBonusKey() {
+            return qualityBonusKey;
+        }
+
+        String upswingKey() {
+            return upswingKey;
+        }
+
+        String downswingKey() {
+            return downswingKey;
+        }
+    }
+
+    // ランダムステータスのロール補正3キー。作業台と儀式で共有(下の craftRollMods の javadoc 参照)。
+    static final String ROLL_UP_BONUS_KEY = "craft_roll_up_bonus";
+    static final String ROLL_DOWN_REDUCTION_KEY = "craft_roll_down_reduction";
+    static final String ROLL_INSET_KEY = "craft_roll_inset";
+
+    /**
+     * このサービスが {@link PlayerStatAggregator} から読む全ステキー(canonical snake_case)。
+     * ドリフト検知テストが {@link StatVocabulary} と機械照合するための唯一の一覧なので、
+     * 新しいキーを読み始めたらここにも足すこと(足し忘れは照合が空振りするのではなく
+     * 「キーを読んでいるのに語彙照合されていない」形になるため、経路ごとに個別に検証している)。
+     */
+    static Set<String> statKeysRead() {
+        Set<String> keys = new LinkedHashSet<>();
+        for (CraftPath path : CraftPath.values()) {
+            keys.add(path.qualityBonusKey());
+            keys.add(path.upswingKey());
+            keys.add(path.downswingKey());
+        }
+        keys.add(ROLL_UP_BONUS_KEY);
+        keys.add(ROLL_DOWN_REDUCTION_KEY);
+        keys.add(ROLL_INSET_KEY);
+        return Set.copyOf(keys);
     }
 
     /** 経路ごとのステキーでロールする本体。 */
@@ -156,7 +199,7 @@ public final class CraftQualityService {
             bestLevel = Math.max(bestLevel, levels.getOrDefault(skill, 0));
         }
         int mode = CraftQualityPolicy.modeFromLevel(bestLevel, config.skillLevelsPerQuality(), config.baseQuality());
-        int qualityBonus = readIntStat(crafter, path.qualityBonusKey);
+        int qualityBonus = readIntStat(crafter, path.qualityBonusKey());
         return CraftQualityPolicy.resolveQuality(mode, qualityBonus + modeOffset, quality.maxQuality());
     }
 
@@ -191,12 +234,12 @@ public final class CraftQualityService {
 
     /** 品質分布の上側σを広げるパーク(上振れ拡大)。作業台と儀式で別キー。 */
     private double upswingBonus(Player player, CraftPath path) {
-        return readDoubleStat(player, path.upswingKey);
+        return readDoubleStat(player, path.upswingKey());
     }
 
     /** 品質分布の下側σを削るパーク(下振れ抑制)。作業台と儀式で別キー。 */
     private double downswingBonus(Player player, CraftPath path) {
-        return readDoubleStat(player, path.downswingKey);
+        return readDoubleStat(player, path.downswingKey());
     }
 
     /**
@@ -206,9 +249,9 @@ public final class CraftQualityService {
      */
     public CraftRollMods craftRollMods(Player player) {
         return new CraftRollMods(
-                pctFraction(readDoubleStat(player, "craft_roll_up_bonus")),
-                pctFraction(readDoubleStat(player, "craft_roll_down_reduction")),
-                pctFraction(readDoubleStat(player, "craft_roll_inset")));
+                pctFraction(readDoubleStat(player, ROLL_UP_BONUS_KEY)),
+                pctFraction(readDoubleStat(player, ROLL_DOWN_REDUCTION_KEY)),
+                pctFraction(readDoubleStat(player, ROLL_INSET_KEY)));
     }
 
     private int readIntStat(Player player, String key) {
