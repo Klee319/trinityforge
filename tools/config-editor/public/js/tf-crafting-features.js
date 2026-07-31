@@ -71,12 +71,24 @@
   ];
 
   // item-stats タブと同一キー (EquipmentSlotResolver が認識するカテゴリ)
+  // 既定値は Java 側 CraftingFeaturesConfig#DEFAULT_THREAD_SLOT_CAP(=5、全カテゴリ)のミラー。
+  // ⚠ ここを Java とずらすと「開いて保存しただけ」で武器・触媒のスレッド枠が消える:
+  //   上限 0 のカテゴリは ThreadSlotPolicy#applyCategoryCap が thread-slots をキーごと削除するため、
+  //   lore に「スレッド枠 N枠」と出るのに装着 GUI も効果も無い状態になる(2026-07-31 F2 の実体)。
+  const THREAD_SLOT_CAP_DEFAULT = 5;
   const THREAD_CATEGORIES = [
-    { key: "armor", label: "防具", blurb: "item-stats「防具」タブ。ヘルメット〜ブーツ。", recommended: 5 },
-    { key: "weapon", label: "武器", blurb: "item-stats「武器」タブ。剣・斧・弓など。", recommended: 0 },
-    { key: "tool", label: "ツール", blurb: "item-stats「ツール」タブ。ツルハシ等。", recommended: 0 },
-    { key: "other", label: "補助", blurb: "item-stats「補助」タブ。上記以外。", recommended: 0 }
+    { key: "armor", label: "防具", blurb: "item-stats「防具」タブ。ヘルメット〜ブーツ。", recommended: THREAD_SLOT_CAP_DEFAULT },
+    { key: "weapon", label: "武器", blurb: "item-stats「武器」タブ。剣・斧・弓など。", recommended: THREAD_SLOT_CAP_DEFAULT },
+    { key: "tool", label: "ツール", blurb: "item-stats「ツール」タブ。ツルハシ等。", recommended: THREAD_SLOT_CAP_DEFAULT },
+    { key: "other", label: "補助", blurb: "item-stats「補助」タブ。触媒(杖)など上記以外。", recommended: THREAD_SLOT_CAP_DEFAULT }
   ];
+
+  /** THREAD_CATEGORIES と同じ既定値の max-by-category マップを作る(ensureObj の初期値用)。 */
+  function defaultThreadSlotCaps() {
+    const caps = {};
+    for (const cat of THREAD_CATEGORIES) caps[cat.key] = cat.recommended;
+    return caps;
+  }
 
   const POTION_TYPES = [
     "SPEED", "SLOWNESS", "HASTE", "MINING_FATIGUE", "STRENGTH", "INSTANT_HEALTH",
@@ -269,8 +281,8 @@
         || !Number.isFinite(Number(working["enchant-bookshelf-power"]["power-per-bookshelf"]))) {
       working["enchant-bookshelf-power"]["power-per-bookshelf"] = 1.0;
     }
-    ensureObj(working, "thread-slots", { "max-by-category": { armor: 5, weapon: 0, tool: 0, other: 0 } });
-    ensureObj(working["thread-slots"], "max-by-category", { armor: 5, weapon: 0, tool: 0, other: 0 });
+    ensureObj(working, "thread-slots", { "max-by-category": defaultThreadSlotCaps() });
+    ensureObj(working["thread-slots"], "max-by-category", defaultThreadSlotCaps());
     if (!Array.isArray(working["removed-vanilla-recipes"])) working["removed-vanilla-recipes"] = [];
     if (!Array.isArray(working["removed-vanilla-items"])) working["removed-vanilla-items"] = [];
     if (working["added-recipes"] != null && !Array.isArray(working["added-recipes"])) delete working["added-recipes"];
