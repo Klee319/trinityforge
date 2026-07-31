@@ -21,6 +21,13 @@ magical:
   base-coefficient: 1
   min-component-damage: 1
   scale-with-combat-level: true
+  # 【2026-07-31】杖(触媒)の攻撃力を魔法の基礎ダメージへ何倍で加算するか。
+  # 魔法基礎ダメージ = グリフ基礎ダメージ + 杖の attack-power × この係数。
+  # 1.0 = 仕様どおり100%加算(近接と対等。MAGIC_BALANCE_SPEC / COMBAT_SYSTEM_SPEC 準拠の既定値)。
+  # 0.0 にすると杖の攻撃力は魔法に一切乗らない(この機能を実質オフにできる)。
+  # 魔法は範囲/伝播/残留で1詠唱から複数回ダメージが出るため、近接と火力が釣り合わない場合は
+  # 杖の attack-power(item-stats.yml)を触らずにこの係数だけで一括調整できる。範囲は 0.0〜10.0。
+  attack-power-scale: 1
 weapon-base-formula:
   enabled: false
   a: 2

@@ -170,6 +170,29 @@ test("新設6キーのバリデーション: int小数と範囲外は弾く", ()
   );
 });
 
+test("2026-07-31 D6: magical.attack-power-scale が共通変数に出て、0も保存できる", () => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
+
+  // 出荷既定 = 1(仕様どおり100%加算)。ここが editor 側の def とずれると
+  // 「開いて保存しただけで杖の攻撃力が魔法から消える/倍になる」事故になる。
+  assert.equal(extractConstants(damage, {}).fields["magical.attack-power-scale"], 1);
+
+  // 0 は「杖の攻撃力を魔法から外す」正当な設定値なので通ること。
+  assert.deepEqual(validateConstants({ fields: { "magical.attack-power-scale": 0 } }), []);
+  const updated = buildUpdatedData({ fields: { "magical.attack-power-scale": 0 } }, damage, {});
+  assert.equal(updated.damage.magical["attack-power-scale"], 0);
+  // 同節の他キーは温存される。
+  assert.equal(updated.damage.magical["scale-with-combat-level"], true);
+  assert.equal(updated.damage.magical["base-coefficient"], 1);
+
+  // Java 側スキーマ [0,10] と同じ範囲で弾く。
+  assert.deepEqual(validateConstants({ fields: { "magical.attack-power-scale": 10.1 } }),
+    ["magical.attack-power-scale: 10以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "magical.attack-power-scale": -0.1 } }),
+    ["magical.attack-power-scale: 0以上の値が必要です"]);
+});
+
 test("撤去した attack/defense stat-key はもう共通変数に現れない", () => {
   // 恒等マップのためハードコード化(2026-07-24)。editor の FIELD_SPECS から除外済みで、
   // extractConstants は該当キーを surface せず、既存 damage.yml の値は保存時に温存される。

@@ -38,6 +38,10 @@ const FIELD_SPECS = Object.freeze([
   { id: "magical.base-coefficient", file: "damage", path: ["magical", "base-coefficient"], kind: "number", min: 0, def: 1.0 },
   { id: "magical.min-component-damage", file: "damage", path: ["magical", "min-component-damage"], kind: "number", min: -1000000, max: 1000000, def: 1.0 },
   { id: "magical.scale-with-combat-level", file: "damage", path: ["magical", "scale-with-combat-level"], kind: "boolean", def: true },
+  // 2026-07-31 D6(魔法ダメージに杖の攻撃力が乗らない): 杖(触媒)の attack-power を魔法の
+  // 基礎ダメージへ加算するときの係数。Java 側 CombatDamageConfig#magicalAttackPowerScale が
+  // [0,10] にクランプする(既定 1.0 = 仕様どおり100%加算。0 で杖の攻撃力を魔法から外せる)。
+  { id: "magical.attack-power-scale", file: "damage", path: ["magical", "attack-power-scale"], kind: "number", min: 0, max: 10, def: 1.0 },
   { id: "weapon-base-formula.enabled", file: "damage", path: ["weapon-base-formula", "enabled"], kind: "boolean", def: true },
   { id: "weapon-base-formula.a", file: "damage", path: ["weapon-base-formula", "a"], kind: "number", min: 0, def: 2.0 },
   { id: "weapon-base-formula.b", file: "damage", path: ["weapon-base-formula", "b"], kind: "number", min: 0, minExclusive: true, def: 100.0 },

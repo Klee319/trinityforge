@@ -22,6 +22,11 @@ public final class CombatDamageConfig {
     public static final String PATH = "combat/damage.yml";
 
     private static final String MAGICAL_SCALE_WITH_COMBAT_LEVEL = "magical.scale-with-combat-level";
+    // 2026-07-31: 杖(触媒)の attack-power を魔法の基礎ダメージへ加算するときの係数。
+    // 既定 1.0 = 仕様どおり100%加算(MAGIC_BALANCE_SPEC / COMBAT_SYSTEM_SPEC の
+    // 「デフォルト魔法ダメージ = Arsスペル攻撃力 + 触媒の攻撃力ステータス」)。
+    // 0 にすると杖の攻撃力は魔法へ一切乗らない。読むのは ArsPaper フォークの TrinityForgeBridge。
+    private static final String MAGICAL_ATTACK_POWER_SCALE = "magical.attack-power-scale";
 
     private static final String DEFENSE_MIN_RATE = "defense.min-rate";
     private static final String DEFENSE_MAX_RATE = "defense.max-rate";
@@ -126,6 +131,10 @@ public final class CombatDamageConfig {
                 // C2 (魔法はcombatレベルbypass): false のとき魔法の基本ダメージにcombatレベル倍率を掛けない。
                 // 既定 false = bypass。true で物理と同じレベル倍率を適用する(旧挙動)。
                 .field(SchemaField.of(MAGICAL_SCALE_WITH_COMBAT_LEVEL, SchemaField.Type.BOOLEAN, true))
+                // 2026-07-31 D6(魔法ダメージに杖の攻撃力が乗らない)の係数。既定1.0=100%加算。
+                // 上限10.0は「杖の attack-power を10倍まで盛れる」逃げ道として置いてある(通常は1.0)。
+                .field(SchemaField.number(MAGICAL_ATTACK_POWER_SCALE, SchemaField.Type.DOUBLE,
+                        1.0, 0.0, 10.0))
                 // 武器の基本火力(attack-power)を使用可能lvから算出: base = 1 + (useLevel^a / b)。
                 // item-stats/roll/material-base で attack-power を明示した武器や useLevel<=0 の武器には
                 // 適用しない(明示 > 式 > バニラ)。b は0除算回避のため厳密に正(>0)、無効値は既定へ戻す。
@@ -275,6 +284,21 @@ public final class CombatDamageConfig {
      */
     public boolean magicalScaleWithCombatLevel() {
         return domain.get().getBoolean(MAGICAL_SCALE_WITH_COMBAT_LEVEL);
+    }
+
+    /**
+     * Multiplier applied to a catalyst/wand's {@code attack-power} before it is added to the spell's
+     * base damage (2026-07-31 D6: 「魔法ダメージに杖の攻撃力が乗らない」). {@code 1.0} (default) is the
+     * spec'd 100% additive behaviour — MAGIC_BALANCE_SPEC / COMBAT_SYSTEM_SPEC define the default
+     * magical damage as {@code Ars spell power + catalyst attack-power}, symmetric with melee.
+     * {@code 0.0} disables the contribution entirely.
+     *
+     * <p>Consumed by the ArsPaper fork ({@code TrinityForgeBridge#magicalFinalDamage}) rather than by
+     * TF itself: the additive base is assembled on the fork side before it is handed to
+     * {@link com.trinityforge.combat.SymmetricCombatService}. Clamped to {@code [0, 10]} by the schema.
+     */
+    public double magicalAttackPowerScale() {
+        return domain.get().getDouble(MAGICAL_ATTACK_POWER_SCALE);
     }
 
     public double levelScalingPerLevel() {

@@ -64,9 +64,12 @@
 | 攻撃源 | デフォルトダメージ |
 |---|---|
 | 物理（武器・ツール） | **バニラ与ダメージ基準**（attackDamage、mob levelスケール反映） |
-| 魔法（触媒・スペル） | **Arsスペル攻撃力(Ars config値) + 触媒の攻撃力ステータス** |
+| 魔法（触媒・スペル） | **Arsスペル攻撃力(Ars config値) + 杖/触媒の攻撃力ステータス × `magical.attack-power-scale`** |
 
 - 攻撃タイプ（物理/魔法）は**攻撃源で確定**: 武器=物理、触媒/スペル=魔法
+- 魔法側の「杖/触媒」は `use-skill: ARS_MAGIC` を持つ実使用アイテム（または `catalysts.yml` 登録品）。
+  係数 `magical.attack-power-scale`（`combat/damage.yml`、既定 1.0 = 100%加算）で一括調整できる。
+  詳細は `docs/MAGIC_BALANCE_SPEC.md` §2.3
 - ハイブリッド攻撃（物理武器＋魔法エンチャ等）のタイプ判定は未定（§8）
 
 ### 2.3 固定ダメージの性質

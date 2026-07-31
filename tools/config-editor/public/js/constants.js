@@ -46,7 +46,8 @@
       fields: [
         { id: "magical.base-coefficient", label: "基本係数", kind: "number", desc: "魔法(spell/触媒)基本ダメージに掛かる倍率。" },
         { id: "magical.min-component-damage", label: "下限クランプ", kind: "number", desc: "魔法コンポーネントの step7 下限。負値なら最終的に敵を回復し得ます。" },
-        { id: "magical.scale-with-combat-level", label: "combatレベル倍率を適用", kind: "boolean", desc: "true: 魔法もレベル倍率で伸びる。false: bypass(グリフ/触媒のみ)。" }
+        { id: "magical.scale-with-combat-level", label: "combatレベル倍率を適用", kind: "boolean", desc: "true: 魔法もレベル倍率で伸びる。false: bypass(グリフ/触媒のみ)。" },
+        { id: "magical.attack-power-scale", label: "杖の攻撃力の加算係数", kind: "number", desc: "杖(触媒)の攻撃力を魔法の基礎ダメージへ何倍で加算するか。魔法基礎 = グリフ基礎ダメージ + 杖のattack-power×この係数。1.0=仕様どおり100%加算(近接と対等)。0で杖の攻撃力は魔法に一切乗らない。範囲0〜10。" }
       ]
     },
     {

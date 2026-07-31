@@ -199,4 +199,55 @@ class CombatDamageConfigTest {
                 """);
         assertEquals(0.5, config.maxDodgeChance(), 0.0);
     }
+
+    // --- 2026-07-31 D6: magical.attack-power-scale (杖の攻撃力を魔法へ加算する係数) ---
+
+    @Test
+    void magicalAttackPowerScaleDefaultsToOne(@TempDir File tempDir) throws IOException {
+        // キー不在 -> スキーマ既定 1.0 = 仕様どおり100%加算(MAGIC_BALANCE_SPEC / COMBAT_SYSTEM_SPEC)。
+        // ここが 0 に化けると「杖の攻撃力が魔法に乗らない」D6 の症状へ静かに戻るので固定する。
+        CombatDamageConfig config = loaded(tempDir, "physical:\n  base-coefficient: 1.0\n");
+        assertEquals(1.0, config.magicalAttackPowerScale(), 0.0);
+    }
+
+    @Test
+    void magicalAttackPowerScaleHonorsZero(@TempDir File tempDir) throws IOException {
+        // 0 は「この機能を完全にオフにする」正当な設定値なので、既定へ戻さずそのまま採用されること。
+        CombatDamageConfig config = loaded(tempDir, """
+                magical:
+                  attack-power-scale: 0.0
+                """);
+        assertEquals(0.0, config.magicalAttackPowerScale(), 0.0);
+    }
+
+    @Test
+    void magicalAttackPowerScaleHonorsFractionalAndAboveOne(@TempDir File tempDir) throws IOException {
+        assertEquals(0.25, loaded(tempDir, """
+                magical:
+                  attack-power-scale: 0.25
+                """).magicalAttackPowerScale(), 0.0);
+    }
+
+    @Test
+    void magicalAttackPowerScaleOutOfRangeFallsBackToDefault(@TempDir File tempDir) throws IOException {
+        // スキーマ範囲は [0,10]。範囲外は(警告付きで)既定 1.0 に戻る。
+        assertEquals(1.0, loaded(tempDir, """
+                magical:
+                  attack-power-scale: 10.5
+                """).magicalAttackPowerScale(), 0.0);
+        assertEquals(1.0, loaded(tempDir, """
+                magical:
+                  attack-power-scale: -1.0
+                """).magicalAttackPowerScale(), 0.0);
+    }
+
+    @Test
+    void shippedDamageYamlDeclaresMagicalAttackPowerScale() throws IOException {
+        // 出荷 yml が真源。スキーマ既定と出荷値が食い違うと「editor で開いて保存しただけで意味が変わる」
+        // 事故になるため、出荷ファイルに明示的に 1 が書かれていることを固定する。
+        String yaml = Files.readString(
+                new File("src/main/resources/" + CombatDamageConfig.PATH).toPath());
+        assertTrue(yaml.contains("attack-power-scale: 1"),
+                "combat/damage.yml の magical: 節に attack-power-scale: 1 が必要");
+    }
 }
