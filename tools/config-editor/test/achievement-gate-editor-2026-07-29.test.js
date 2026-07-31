@@ -66,6 +66,15 @@ function setup() {
   };
   global.window.MATERIALS = ["DIAMOND"];
   global.window.renderLoreRows = (arr) => makeEl("div", { class: "lore-rows", loreLength: arr.length });
+  // 2026-07-31: 表示名欄が colors.js の richTextInput(着色パレット付き入力)へ移った。
+  // colors.js は document を直接触るのでここでは読み込まない。スタブが無いと
+  // buildAchievementsForm が renderDetail の1行目で TypeError を投げ、この下の
+  // アサーションが**1つも実行されないまま**テストが赤くなる(=回帰検知が死ぬ)。
+  global.window.richTextInput = (value, mode, onInput) => {
+    const el = makeEl("span", { class: "rich-host", mode, value });
+    el.__onInput = onInput;
+    return el;
+  };
   global.window.alert = () => {};
 
   delete require.cache[require.resolve("../public/js/tf-rewards-forms.js")];

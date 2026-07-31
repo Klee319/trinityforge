@@ -202,3 +202,60 @@ test("ガチャの券IDはカタログ品セレクト、プールは景品件数
   assert.match(src, /secondary: `景品\$\{n\}件`/);
   assert.match(JS("app.js"), /window\.buildGachaForm\(data, \{ catalogCandidates \}\)/);
 });
+
+// ============================================================
+// 2026-07-31: 「セレクトメニューが id 表記のまま日本語にならない」の再発防止。
+// yml 側は無罪で、editor の**候補源とラベル解決**が3か所で壊れていた。
+// 個別の表示は tf-rewards-forms-item-select.test.js が振る舞いで固定しているので、
+// ここでは「画面ごとに流儀が食い違う」形へ戻らないことを契約として固定する。
+// ============================================================
+
+test("アイテム候補源は画面ごとにバラバラにしない (achievements も共通の候補源を使う)", () => {
+  const app = JS("app.js");
+  const achievements = /case "tf-achievements": \{[\s\S]*?\n      \}/.exec(app);
+  assert.ok(achievements, "case \"tf-achievements\" が見つからない");
+  const body = achievements[0];
+  // catalog.yml 単体から候補を作ると materials.yml / functional-items / sourcejars /
+  // catalysts / threads 由来の品が構造的に候補へ入らない(=生ID表示に戻る)。
+  assert.ok(!/buildCatalogCandidates\(/.test(body),
+    "achievements が候補を自前で組み直している(共通の候補源を使うこと)");
+  assert.match(body, /ensureCustomItemCandidates\(\)|fetchCatalogCandidatesWithMaterials\(\)/,
+    "achievements が共通の候補源を通っていない");
+  // 兄弟の図鑑画面も同じ共通ヘルパーであること。
+  assert.match(/case "tf-collection": \{[\s\S]*?\n      \}/.exec(app)[0],
+    /fetchCatalogCandidatesWithMaterials\(\)|ensureCustomItemCandidates\(\)/);
+});
+
+test("itemRefSelect は custom: 付きの現在値を候補と照合できる (保存値は verbatim)", () => {
+  const util = JS("util.js");
+  // 照合の緩和は custom: 接頭辞が付いているときだけ。素のIDやバニラ Material の挙動は不変。
+  assert.match(util, /\/\^custom:\/i\.test\(cur\)/);
+  // 保存値(value)は現在値そのまま。剥がして書き戻すと「開いて保存しただけ」で差分が出る。
+  assert.match(util, /options\.unshift\(hit[\s\S]{0,200}?\{ value: cur, primary: hit\.primary, secondary: cur \}/);
+});
+
+test("図鑑のアイテム欄はバニラ Material も候補に持つ (アチーブメント画面と同じ流儀)", () => {
+  const rewards = JS("tf-rewards-forms.js");
+  const control = /function catalogEntryControl\(value, onChange\) \{[\s\S]*?\n    \}/.exec(rewards);
+  assert.ok(control, "catalogEntryControl が見つからない");
+  assert.match(control[0], /window\.itemRefSelect\(/,
+    "catalogItemSuggest 単体はバニラ Material を候補に持たないので「候補外」表示に戻る");
+});
+
+test("醸造ギミックの材料ヒントは custom: を解ける共通ヘルパーを使う", () => {
+  const src = JS("tf-crafting-features.js");
+  assert.match(src, /const ingredientHint = window\.materialHintEl\(pot\.ingredient\)/);
+  // materialLabelWithFallback は MATERIAL_LABELS[key] || key なので custom:<id> を生返しする。
+  // (コメントには経緯として名前が残るので、呼び出しの構文で判定する。)
+  assert.ok(!/materialLabelWithFallback\(/.test(src),
+    "custom: を解けない自前ヒント実装に戻っている");
+
+  // 共通ヘルパー側が実際に custom: を日本語へ解けること (辞書は CUSTOM_ITEM_LABELS)。
+  const { win } = loadUtilWithCapturedListSelect();
+  win.CUSTOM_ITEM_LABELS = { "custom:witch_elixir": "魔女の霊薬" };
+  const hint = win.materialHintEl("custom:witch_elixir");
+  assert.equal(hint.textContent, "魔女の霊薬");
+  // 辞書に無い custom: でも生トークンをそのまま出さない。
+  const unknown = win.materialHintEl("custom:no_such");
+  assert.equal(unknown.textContent, "カスタム:no_such");
+});

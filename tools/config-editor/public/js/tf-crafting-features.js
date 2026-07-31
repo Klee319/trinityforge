@@ -1193,21 +1193,17 @@
             pot.base = v;
           }, "ベースポーションを選択…")));
           // タスク8 (2026-07-26): 材料IDが Material の生ID(例: NETHER_WART)のままで日本語表示が
-          // 無かったため、他タブと同じ materialHintEl 相当の日本語ヒントを追加する。保存値は
-          // pot.ingredient の生ID文字列のまま変えない(表示だけ日本語化。ロスレス性は維持)。
-          const ingredientHint = h("span", { class: "mat-hint" });
-          const updateIngredientHint = (v) => {
-            const label = window.LABELS && typeof window.LABELS.materialLabelWithFallback === "function"
-              ? window.LABELS.materialLabelWithFallback(v) : (v || "");
-            const raw = v == null ? "" : String(v);
-            ingredientHint.textContent = raw ? label : "";
-            ingredientHint.title = raw && label !== raw ? `${label} (${raw})` : "";
-          };
-          updateIngredientHint(pot.ingredient);
+          // 無かったため、日本語ヒントを追加した。保存値は pot.ingredient の生ID文字列のまま
+          // 変えない(表示だけ日本語化。ロスレス性は維持)。
+          // 2026-07-31: 自前実装が LABELS の素材ラベル関数 = `MATERIAL_LABELS[key] || key`
+          // を直呼びしていたため `custom:witch_elixir` が生返しになり、セレクト本体は日本語なのに
+          // 横のヒントだけIDという状態だった。`custom:` を CUSTOM_ITEM_LABELS で解く実装は
+          // 共通ヘルパー util.js の materialHintEl に既にあるので、そちらへ寄せる。
+          const ingredientHint = window.materialHintEl(pot.ingredient);
           row.appendChild(field("材料 (Material / custom:id)", h("span", { class: "input-with-hint" }, [
             window.materialInput(pot.ingredient || "", "material-list", (v) => {
               pot.ingredient = v;
-              updateIngredientHint(v);
+              ingredientHint.update(v);
             }, { allowCustom: true }),
             ingredientHint
           ])));

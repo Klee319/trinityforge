@@ -1452,11 +1452,21 @@
     ensureObj(working.categories, "items", {});
     ensureObj(working.categories, "mobs", {});
 
+    // 2026-07-31: ここは catalogItemSuggest しか使っておらず**バニラ Material を候補に持たない**
+    // ため、collection.yml の「遺物」カテゴリ(16件すべてバニラ Material)が
+    // 「primary=生ID / secondary=候補外」で表示されていた。日本語名は素材辞書に全件あるので、
+    // 辞書ではなく候補集合の欠落。アチーブメント画面の図鑑対象欄は既にバニラも載せており
+    // 画面間で流儀が食い違っていたので、共通ヘルパー itemRefSelect(カタログ品→バニラの順に
+    // 並ぶ)へ揃える。保存値は今までどおりID文字列そのもの。
     function catalogEntryControl(value, onChange) {
-      if (typeof window.catalogItemSuggest === "function" && catalogCandidates.length) {
-        return window.catalogItemSuggest(value || "", catalogCandidates, (c) => {
-          onChange(c && c.id ? c.id : "");
-        }, { placeholder: "カタログID / 表示名で検索" });
+      if (typeof window.itemRefSelect === "function") {
+        return window.itemRefSelect({
+          value: value || "",
+          onChange,
+          catalogCandidates,
+          placeholder: "カタログID / バニラMaterial を選択…",
+          customPlaceholder: "カタログID / バニラMaterial を直接入力"
+        });
       }
       return window.textInput(value || "", onChange, "カタログID");
     }
