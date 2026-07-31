@@ -296,6 +296,16 @@ public final class CombatDamageConfig {
      * <p>Consumed by the ArsPaper fork ({@code TrinityForgeBridge#magicalFinalDamage}) rather than by
      * TF itself: the additive base is assembled on the fork side before it is handed to
      * {@link com.trinityforge.combat.SymmetricCombatService}. Clamped to {@code [0, 10]} by the schema.
+     *
+     * <p><b>2026-07-31 (F4 指摘4)</b>: 掛ける相手の {@code attack-power} は
+     * {@link com.trinityforge.combat.WeaponAttackStatResolver#attackPowerOf} が
+     * {@code combat/stat-caps.yml} の上限を適用した値になった。以前は近接だけが
+     * {@code PlayerCombatAggregate#clamp} を通り魔法は素通りしていたため、
+     * ここに書いてある「物理と対称の加算」が clamp の有無で破れていた。
+     *
+     * <p>この係数と {@code attack-power} は<b>防御無視ダメージ</b>(日輪/月輪の直接HP減少)には
+     * 一切乗らない — あちらは {@code EntityDamageEvent} を出さず守備力・耐性・トーテム・
+     * {@link com.trinityforge.combat.PvpDamagePolicy} のどれも通らないため、対等性の対象外。
      */
     public double magicalAttackPowerScale() {
         return domain.get().getDouble(MAGICAL_ATTACK_POWER_SCALE);

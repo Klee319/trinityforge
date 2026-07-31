@@ -10,6 +10,7 @@ import com.trinityforge.combat.BleedService;
 import com.trinityforge.combat.CombatHitResult;
 import com.trinityforge.combat.CritFlash;
 import com.trinityforge.combat.MaceSmashDamage;
+import com.trinityforge.combat.MagicPipelineDamage;
 import com.trinityforge.combat.MeleeChargeMultiplier;
 import com.trinityforge.combat.MeleeChargeTracker;
 import com.trinityforge.combat.PvpDamagePolicy;
@@ -532,6 +533,63 @@ public final class CombatListener implements Listener {
                         AOE_DAMAGE_RATE_KEY, 0.35), total);
             }
         }
+    }
+
+    /**
+     * 魔法ダメージ(ArsPaperフォークがTF対称パイプライン経由で撃つヒット)に<b>PvP抑制だけ</b>を掛ける
+     * (2026-07-31 F4 指摘2)。
+     *
+     * <p><b>なぜ別ハンドラが必要か</b>: {@link #onEntityDamageByEntity} の
+     * {@link #resolveAttacker} は {@link #MELEE_CAUSES} と {@code PROJECTILE} しか受け付けないので、
+     * フォークの {@code applyMagicDamage}({@code DamageType.MAGIC})は必ず早期returnしていた。
+     * つまり {@link PvpDamagePolicy} が<b>構造的に魔法へ届かず</b>、
+     * 「攻撃カーブがどれだけ伸びても対人は最低◯発かかる」という既存の安全弁が魔法だけ無効だった
+     * (Lv100帯の基礎21222が pvp.damage-multiplier も pvp.max-damage-percent-of-max-health も
+     * 通らずに飛んでいた)。{@code magical.attack-power-scale} を下げるとPvEも同時に下がるため、
+     * この一点だけを塞ぐ手段が他に無い。
+     *
+     * <p><b>意図的にPvP抑制"だけ"を掛ける(他のステ処理は一切通さない)</b>: 会心・貫通・守備力・
+     * 耐性・出血・レベル倍率はフォークの {@code TrinityForgeBridge#magicalFinalDamage} が
+     * <b>すでに</b> {@code SymmetricCombatService} を通して算出済みで、その最終値が BASE に載っている。
+     * ここで再びパイプラインへ流すと同じステが二重計上になる。
+     *
+     * <p><b>ゲートに {@link MagicPipelineDamage} を要求する理由</b>は
+     * {@link MagicResistanceFoldListener} と同じ: {@code DamageCause.MAGIC} はTF/Arsの専有ではなく
+     * バニラの負傷ポーションや {@code /damage} も同じcauseで届くため、causeだけを見るとTFパイプライン
+     * 外のダメージまで書き換えてしまう。
+     */
+    @SuppressWarnings("deprecation") // DamageModifier.BASE の読み書き。CombatListener 全体と同じ扱い。
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onMagicPipelineDamageByEntity(EntityDamageByEntityEvent event) {
+        if (!magicPvpSuppressionApplies(event.getCause(), MagicPipelineDamage.isActive(),
+                event.getDamager(), event.getEntity())) {
+            return;
+        }
+        if (!event.isApplicable(EntityDamageEvent.DamageModifier.BASE)) {
+            return;
+        }
+        LivingEntity victim = (LivingEntity) event.getEntity();
+        double base = event.getDamage(EntityDamageEvent.DamageModifier.BASE);
+        double suppressed = PvpDamagePolicy.apply(base, PvpDamagePolicy.maxHealthOf(victim),
+                damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
+                damageConfig.pvpMaxDamagePercentOfMaxHealth());
+        if (suppressed != base) {
+            event.setDamage(EntityDamageEvent.DamageModifier.BASE, Math.max(0.0, suppressed));
+        }
+    }
+
+    /**
+     * 魔法ヒットへPvP抑制を掛ける対象かの純粋判定(Bukkit実体を要求しないので単体テスト可能)。
+     * TFパイプラインを通った {@code MAGIC} で、かつ<b>攻撃者も被害者もプレイヤー</b>のときだけ真。
+     * モブへの魔法(PvEの大多数)と、TFパイプライン外の {@code MAGIC}(バニラ負傷ポーション等)は対象外。
+     */
+    static boolean magicPvpSuppressionApplies(EntityDamageEvent.DamageCause cause,
+                                              boolean magicPipelineActive,
+                                              Entity damager, Entity victim) {
+        return cause == EntityDamageEvent.DamageCause.MAGIC
+                && magicPipelineActive
+                && damager instanceof Player
+                && PvpDamagePolicy.isPvp(victim);
     }
 
     /**

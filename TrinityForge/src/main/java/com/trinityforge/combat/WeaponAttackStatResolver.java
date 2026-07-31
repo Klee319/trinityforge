@@ -3,6 +3,7 @@ package com.trinityforge.combat;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.StatCapsConfig;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Material;
@@ -33,14 +34,32 @@ public final class WeaponAttackStatResolver {
     private final CombatDamageConfig combatDamage;
     private final AttackStatKeys attackStatKeys;
     private final CraftingFeaturesConfig craftingFeatures;
+    /**
+     * {@code combat/stat-caps.yml}(任意・{@code null}可)。{@code null} のときは
+     * {@link #activeStatCaps()} が実行中のプラグインから解決する。理由は
+     * {@link #attackPowerOf} の javadoc 参照。
+     */
+    private final StatCapsConfig statCaps;
 
     public WeaponAttackStatResolver(ItemStatsConfig itemStats,
                                     CombatDamageConfig combatDamage, AttackStatKeys attackStatKeys,
                                     CraftingFeaturesConfig craftingFeatures) {
+        this(itemStats, combatDamage, attackStatKeys, craftingFeatures, null);
+    }
+
+    /**
+     * {@code statCaps} を明示注入する版(2026-07-31)。テストが「プラグイン実体なしで上限を効かせる」
+     * ために使う。本番の配線は4引数版のままで、{@link #attackPowerOf} が実行中のプラグインから
+     * {@code stat-caps.yml} を解決する。
+     */
+    public WeaponAttackStatResolver(ItemStatsConfig itemStats,
+                                    CombatDamageConfig combatDamage, AttackStatKeys attackStatKeys,
+                                    CraftingFeaturesConfig craftingFeatures, StatCapsConfig statCaps) {
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
         this.combatDamage = Objects.requireNonNull(combatDamage, "combatDamage");
         this.attackStatKeys = Objects.requireNonNull(attackStatKeys, "attackStatKeys");
         this.craftingFeatures = Objects.requireNonNull(craftingFeatures, "craftingFeatures");
+        this.statCaps = statCaps;
     }
 
     /**
@@ -70,6 +89,18 @@ public final class WeaponAttackStatResolver {
      * the value matches what {@code CombatListener} would use as the melee base. Exposed for the ArsPaper
      * magic-hybrid path, which needs a catalyst/weapon's attack-power to fold into a spell's base damage.
      * Must be called on the server main thread (Bukkit item reads are synchronous).
+     *
+     * <p><b>2026-07-31 (F4 指摘4): {@code combat/stat-caps.yml} の {@code attack-power} 上限を掛ける。</b>
+     * 近接は {@code CombatListener} が {@code PlayerCombatAggregate#clamp} を通す一方、魔法経路
+     * (ArsPaperフォーク → このメソッド)は上限を一切通っていなかった。出荷は {@code stat-caps: {}} で
+     * no-op なので実害は無かったが、運用者がインフレを抑えようとして {@code attack-power: 3000} と
+     * 書くと<b>近接だけが従い魔法だけ素通りする</b>という無言のドリフトになる
+     * ({@code CombatDamageConfig#magicalAttackPowerScale} の javadoc が謳う「物理と対称の加算」が
+     * clamp の有無で破れている状態)。
+     *
+     * <p>上限の解決順は「コンストラクタで注入された {@code statCaps} → 実行中プラグインの
+     * {@code config().statCaps()}」。本番の配線(4引数コンストラクタ)を変えずに上限を効かせるための
+     * 二段構えで、プラグイン未起動(単体テスト)では素通し=従来挙動になる。
      */
     public double attackPowerOf(ItemStack item) {
         if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
@@ -79,9 +110,38 @@ public final class WeaponAttackStatResolver {
             Map<String, Double> derived = DerivedItemStats.resolve(
                     item, itemStats, combatDamage.weaponBaseFormula(),
                     craftingFeatures.threadSlotMaxByCategory());
-            return derived.getOrDefault(StatKeys.canonical("attack-power"), 0.0);
+            return cappedAttackPower(derived.getOrDefault(ATTACK_POWER_KEY, 0.0));
         } catch (RuntimeException malformedItem) {
             return 0.0;
+        }
+    }
+
+    private static final String ATTACK_POWER_KEY = StatKeys.canonical("attack-power");
+
+    /**
+     * {@code raw} に {@code stat-caps.yml} の {@code attack-power} 上限を適用した値。
+     * 上限未設定 / caps自体が解決できない場合は {@code raw} をそのまま返す
+     * ({@link StatCapsConfig#clamp} と同じ「上側だけ・未設定はno-op」の意味論)。
+     */
+    private double cappedAttackPower(double raw) {
+        StatCapsConfig caps = statCaps != null ? statCaps : activeStatCaps();
+        return caps == null ? raw : caps.clamp(ATTACK_POWER_KEY, raw);
+    }
+
+    /**
+     * 実行中のプラグインが読み込んだ {@code combat/stat-caps.yml}。プラグイン未起動/未初期化/例外時は
+     * {@code null}(=上限なし)。{@code TrinityForge.getInstance()} 経由の遅延解決は
+     * {@code NativeSkillExperienceListener} 等の既存コードと同じ流儀。
+     */
+    private static StatCapsConfig activeStatCaps() {
+        try {
+            com.trinityforge.TrinityForge plugin = com.trinityforge.TrinityForge.getInstance();
+            if (plugin == null || plugin.config() == null) {
+                return null;
+            }
+            return plugin.config().statCaps();
+        } catch (RuntimeException | NoClassDefFoundError unavailable) {
+            return null;
         }
     }
 
