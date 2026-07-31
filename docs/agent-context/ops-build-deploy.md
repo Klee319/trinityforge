@@ -91,6 +91,33 @@ UTF-8 BOM でも直らない。小さいファイルだと再現しないこと�
   同名コマンドに乗っ取られ、Windows 構文を拒否して**チェックが黙って無効化される**。
 - `echo` の中に `(` `)` を書くと `if (...)` ブロックが早期に閉じるバグを踏むことがある。
 
+### ⚠️ `goto` / `call :label` を使う `.cmd` は CRLF でなければラベルが見つからない
+LF のみの改行で書くと cmd.exe がラベルを解決できず
+`The system cannot find the batch label specified - <name>` で落ちる（2026-07-31 実測。
+`ops/launch/deploy.cmd` を LF で書いて踏んだ）。**`.gitattributes` は `*.cmd` を `text eol=lf` の
+対象にしていない**ので、CRLF のままコミットされる（＝直した状態を保てる）。ラベルを使わない
+`.cmd` は LF でも動くため、`ops` 配下は LF と CRLF が混在している。この混在は事故ではなく、
+「ラベルを使う 2 本（`server-loop.cmd` / `deploy.cmd`）だけが CRLF」という状態が正しい。
+既存 `.cmd` に `goto` を足すときは、同時に CRLF へ変換すること。
+
+### ⚠️ `.cmd` の `shift` は `%0` もずらす — その後の `%~dp0` はスクリプトの場所ではない
+オプション解析ループで `shift` を使うと `%0` が消費した引数に置き換わり、以降の `%~dp0` は
+「その引数文字列をカレントディレクトリ基準で解決したパス」になる。結果、
+`call "%~dp0stop-all.cmd"` のような兄弟スクリプト呼び出しが**引数を 1 つ渡した瞬間に壊れる**
+（引数なしでは動くので気付きにくい）。対策は 2 つとも入れる: 先頭で `set "SELF=%~dp0"` を取る、
+`shift` ではなく `shift /1` を使う。
+
+### ⚠️ java.exe のコマンドラインでは「どのバックエンドが動いているか」を判定できない
+`server-loop.cmd` は `cd /d <server root>` してから `java -jar "paper-....jar" nogui` を実行するため、
+プロセスのコマンドラインにサーバ Root もディレクトリ名も現れない。したがって
+`show-status.ps1` / `purge-player-data.ps1` のコマンドライン照合は当たらず、
+**`launch\status.cmd` の main / resource / dev は稼働中でも「停止」と表示する**
+（2026-07-31 実測。RCON ポートと `session.lock` では 3 台とも稼働中だった）。
+稼働判定は `ops/scripts/check-servers-stopped.ps1` の 2 系統
+（RCON ポートの LISTEN ／ `world\session.lock` の排他ロック）を使う。
+「java.exe があるか」で判定するのも不可 — Gradle デーモンも java.exe なので、
+ビルドを走らせた直後は永久に配備できなくなる。
+
 ## 配備レイアウト
 
 ### ⚠️ 稼働中の jar 差し替えは必ず `NoClassDefFoundError` になる
@@ -113,6 +140,16 @@ JVM は未ロードのクラスを実行時に jar から読みに行くため�
   実体ディレクトリなので、こちらの config（例: `unlock-gate.yml`）も3回コピーが必要。
 - `tools/config-editor/tool-config.json` の `deployPaths` は Dev_Server 向き。TF はジャンクション経由で3台に
   効くが、**ArsPaper（`arspaper` 側）は Dev にしか届かない**ことに注意。
+- ビルドから配備までを 1 本にしたのが `ops/launch/deploy.cmd`（更新のあるものだけビルド →
+  稼働チェック → jar を配る）。詳細と更新判定の限界は `ops/RUNBOOK.md` 手順 13-5。
+  `launch` フォルダ自体を配置先へコピーするのは別スクリプト `ops/launch/deploy-launch.cmd`。
+- **配備先のファイル名は「今入っている名前」に合わせる。** ステージされる成果物は
+  `TrinityForge-all.jar` だが実機は `TrinityForge-0.1.0-SNAPSHOT-all.jar`。成果物名でコピーすると
+  同一プラグインの jar が 2 つ並び、Paper が `Ambiguous plugin name` で起動不能になる。
+- **EliteMobs は Resource_Server には入れない**（`ops/PLUGIN_MATRIX.md`）。配備は
+  「既にその jar があるバックエンドだけ上書きする」方式にして、新規インストールはしない。
+- jar を置き換えたら `plugins/.paper-remapped/<同名>` を消す。EliteMobs は remap 対象で、
+  `paper-plugin.yml` 方式の TF / ArsPaper はそこに現れない。
 - ジャンクションに対して `rmdir /s` や `Remove-Item -Recurse` を実行すると**実体そのものが消える**。これが
   この構成で最も重大な事故ポイントなので、ディレクトリ削除は必ずジャンクション判定を行うヘルパー経由にする。
 

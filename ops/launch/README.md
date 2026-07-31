@@ -1,7 +1,11 @@
 # launch — 起動・停止・検査の入口
 
 配置先は `D:\game\minecraft\PaperServer\Velocity_for_TF\launch\`。
-**正本はリポジトリの `ops/launch/`** で、`deploy.cmd` で配置先へ丸ごと配り直せる。
+**正本はリポジトリの `ops/launch/`** で、`deploy-launch.cmd` で配置先へ丸ごと配り直せる。
+
+> **`deploy.cmd` と `deploy-launch.cmd` は別物。**
+> `deploy.cmd` = **プラグイン（jar）** をビルドして 3 バックエンドへ配る。
+> `deploy-launch.cmd` = **この launch フォルダ自体**（起動スクリプト）を配置先へコピーする。
 
 パスとヒープと jar 名は **[launch-config.cmd](launch-config.cmd) の 1 箇所だけ**に書いてある。
 リポジトリを移動したりバージョンを上げたらそこを直す。
@@ -13,6 +17,7 @@
 | ファイル | 用途 |
 |---|---|
 | **[start-all.cmd](start-all.cmd)** | **通常はこれ 1 本。** 正しい順序で全部起動する |
+| **[deploy.cmd](deploy.cmd)** | **ソースに変更があればビルドして** 3 バックエンドへ jar を配る（[../RUNBOOK.md](../RUNBOOK.md) 手順 13-5） |
 | [stop-all.cmd](stop-all.cmd) | 逆順で安全に停止する（`stop.flag` を置く） |
 | [status.cmd](status.cmd) | 何が上がっているか一覧する |
 | [start-mariadb.cmd](start-mariadb.cmd) | 依存: MariaDB（サービス。通常は自動で上がっている） |
@@ -107,14 +112,31 @@ HuskSync の enable 失敗、`Connection refused`、`Access denied`、
 
 ## 配置し直す
 
+### 起動スクリプト（この launch フォルダ）を配り直す
+
 リポジトリ側を直したら:
 
 ```bat
-ops\launch\deploy.cmd
+ops\launch\deploy-launch.cmd
 ```
 
 配置先の `launch\` を上書きする。`launch-config.cmd` も上書きされるので、
 配置先だけで書き換えた値は消える。**設定はリポジトリ側で直すこと。**
+
+配置先の `launch\` は**ジャンクションではなく実体のコピー**なので、
+リポジトリ側を直しただけでは配置先に反映されない。`deploy.cmd` を配置先から実行したときは、
+リポジトリ側の `ops/launch/` が新しければ末尾で `[NOTE]` を出して知らせる。
+
+### プラグイン（jar）をビルドして配る
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd
+```
+
+TF 本体・ArsPaper・EliteMobs の 3 つを、**前回ビルド以降にソースが変わったものだけ**ビルドして
+3 バックエンドへ配る。**サーバが 1 台でも動いていたら何もせず中断する**
+（稼働中の jar 差し替えは `NoClassDefFoundError` になり、JVM 再起動以外に復旧手段が無い）。
+オプションと更新判定の限界は [../RUNBOOK.md](../RUNBOOK.md) 手順 13-5。
 
 関連: [../RUNBOOK.md](../RUNBOOK.md) 手順 13（起動と再起動）／
 [../PERFORMANCE.md](../PERFORMANCE.md)（ヒープの決め方）／

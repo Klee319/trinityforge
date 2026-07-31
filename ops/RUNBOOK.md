@@ -903,7 +903,7 @@ Velocity を先に落とせばプレイヤーが切断されてから保存が�
 ### 13-3. Windows 再起動後の手順
 
 `D:\game\minecraft\PaperServer\Velocity_for_TF\launch\` に一式置いてある（正本は
-[ops/launch/](launch/)、配り直しは `ops\launch\deploy.cmd`）。**通常はこれ 1 本**:
+[ops/launch/](launch/)、配り直しは `ops\launch\deploy-launch.cmd`）。**通常はこれ 1 本**:
 
 ```bat
 D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
@@ -947,6 +947,184 @@ config が生成されてからでないと触れないものを、ここにま�
 > ファイル自体は `Dev_Server\plugins\LuckPerms\luckperms-h2-v2.mv.db` に残っているので、
 > 引き継ぎたい場合は **一度 `storage-method: h2` へ戻して `/lp export perms` → `mariadb` に戻して
 > `/lp import perms`**。作り直すなら不要。詳しくは手順 14。
+
+### 13-5. ソースを変えたときの配備（ビルド → 3 バックエンドへ jar を配る）
+
+`launch\deploy.cmd` 1 本で、**TF 本体 / ArsPaper フォーク / EliteMobs フォークのうち
+「前回ビルド以降にソースが変わったもの」だけをビルドして、3 バックエンドへ jar を配る**。
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd
+```
+
+**まず `--dry-run` で計画を見るのを勧める**（ビルドもコピーも削除も一切しない）。
+
+| オプション | 何をするか |
+|---|---|
+| なし | 変わったものをビルド → jar を配る。**サーバが動いていたら何もせず中断** |
+| `--dry-run` | 何をビルドし、どこへ何を上書きするかだけを出す。**書き込みゼロ** |
+| `--build-only` | ビルドまで。サーバ側のファイルには一切触らない |
+| `--config` | jar のあとにリポジトリの yml も配る（既定は配らない。理由は後述） |
+| `--restart` | `stop-all` → 全台の停止を待つ → 配備 → `start-all` を一括で行う |
+| `--force` | **稼働中でも配る。** 原則使わない（後述の警告） |
+
+正本はリポジトリの `ops/launch/deploy.cmd`。配置先の `launch\` は
+**ジャンクションではなく実体のコピー**（`dir /al` に出ない普通のディレクトリ）なので、
+**リポジトリ側を直したら `ops\launch\deploy-launch.cmd` で配り直す**
+（`deploy.cmd` = プラグイン jar、`deploy-launch.cmd` = 起動スクリプト。別物）。
+
+##### 初回だけ: `D:` 側へ持っていく
+
+`D:\...\launch\deploy.cmd` は 2026-07-31 まで「launch フォルダを配るスクリプト」だった。
+新しい `deploy.cmd`（プラグインをビルドして配る方）を置くには、**リポジトリ側から 1 回だけ**
+これを実行する（エージェントは `D:` 配下へ書けないので、ここはユーザーが実行する）:
+
+```bat
+C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\launch\deploy-launch.cmd
+```
+
+以後は配置先の `D:\...\launch\deploy.cmd` を叩けばよい。まずは書き込みゼロの下見から:
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd --dry-run
+```
+
+#### 何をどこへ配るか（ジャンクションの都合で回数が違う）
+
+| もの | ビルド | 成果物 | 配り先 | 回数 |
+|---|---|---|---|---|
+| TF 本体 | `gradlew releaseAssembly --offline` | `TrinityForge\build\release\TrinityForge-all.jar` | 各 `<backend>\plugins` | **3 回**（実体ファイル） |
+| ArsPaper | `gradlew jar --offline` | `fork-handoff\arspaper\fork\build\libs\ArsPaper-1.0.0.jar` | 各 `<backend>\plugins` | **3 回** |
+| EliteMobs | `gradlew shadowJar --offline` | `fork-handoff\elitemobs\elitemobs-fork\testbed\plugins\EliteMobs.jar` | main / dev | **2 回**（後述） |
+| TF の yml（`--config`） | — | `TrinityForge\src\main\resources\**\*.yml` | `Main_Server\plugins\TrinityForge` | **1 回**（ジャンクション共有） |
+| ArsPaper の yml（`--config`） | — | `fork-handoff\arspaper\fork\src\main\resources\*.yml` | 各 `<backend>\plugins\ArsPaper` | **3 回**（実体ディレクトリ） |
+
+- **TF の yml は 1 回だけ。** `Resource_Server` と `Dev_Server` の `plugins\TrinityForge` は
+  `Main_Server` 側への NTFS ディレクトリジャンクションなので、main へ置けば 3 台に効く
+  （実測: `dir /al` でリンクとして見える）。**jar は 3 台とも実体ファイル**なので 3 回必要。
+- **ArsPaper の yml は 3 回。** `plugins\ArsPaper` はどの台も実体ディレクトリ
+  （だから `sync-configs.ps1` が main → resource のコピー同期を持っている）。
+- **EliteMobs は Resource_Server に入れない。** `ops/PLUGIN_MATRIX.md` の方針どおり実機にも
+  置かれていないので、`deploy.cmd` は `[SKIP] Resource_Server: EliteMobs is not installed here`
+  と出して**新規インストールはしない**。配備先は「既にその jar があるバックエンド」だけ。
+- **上書き先のファイル名は「今入っている名前」を使う。** ステージされる成果物は
+  `TrinityForge-all.jar` だが実機に入っているのは `TrinityForge-0.1.0-SNAPSHOT-all.jar`。
+  成果物名でコピーすると同じプラグインの jar が 2 つ並び、Paper が
+  `Ambiguous plugin name` で起動不能になる（ArsPaper で実際に起きた事故）。
+  同じパターンに 2 つ以上一致したら、配らずにエラーで止める。
+- **EliteMobs の配布 jar は必ず `testbed/plugins/EliteMobs.jar`（全同梱 uberjar）。**
+  `build/libs/EliteMobs-*-min.jar` は MagmaCore が剥がされていて
+  `NoClassDefFoundError: com/magmaguy/magmacore/location/DungeonLocator` で起動不能。
+  `deploy.cmd` は `shadowJar` を叩き、成果物として uberjar 側だけを見る。
+- jar を置き換えたら `plugins\.paper-remapped\<同名>` を消す（あれば）。Paper が古い
+  remap キャッシュを再利用しないようにするため。EliteMobs は remap 対象、
+  `paper-plugin.yml` 方式の TF / ArsPaper はそこに現れないので何もしない。
+
+#### 更新判定の方式と、その限界
+
+判定は**タイムスタンプ 1 本**。「監視パス配下の**最新更新時刻** > 成果物 jar の更新時刻」なら
+ビルドし、そうでなければスキップして理由を表示する（内容ハッシュも依存グラフも見ない）。
+
+監視パス:
+
+| 対象 | 監視するもの |
+|---|---|
+| TF 本体 | `TrinityForge\src\main` / `build.gradle.kts` / `gradle.properties` |
+| ArsPaper | `fork\src\main` / `build.gradle.kts` / `gradle.properties` / **`fork\libs\TrinityForge.jar`** |
+| EliteMobs | `elitemobs-fork\src\main` / `build.gradle` / **`elitemobs-fork\libs\TrinityForge.jar`** |
+
+- **`src\test` は見ない。** `releaseAssembly` はテストを走らせないので、テストだけを直しても
+  配備物は変わらない。テストを流すのは `gradlew test` の仕事で、配備の仕事ではない。
+- **`libs\TrinityForge.jar` を監視対象に入れているのは意図的。** これはフォークが
+  `compileOnly` で参照する TF の ABI なので、これが新しくなったらフォークは必ず再ビルドが要る。
+- **限界 1: 「古いファイルに戻す」変更は検出できない。** `git checkout` で**更新時刻ごと古い内容に
+  戻した**ような場合、最新更新時刻が jar より古くなり「変更なし」と判定する。
+  こういうときは成果物 jar を消してから実行する（`deploy.cmd` は jar が無ければ必ずビルドする）。
+- **限界 2: 時計が巻き戻ると同じことが起きる。** 判定は UTC の更新時刻で行う。
+- **限界 3: 余分なビルドは起きうる（無害）。** ファイルを開いて保存し直しただけでもビルドする。
+  Gradle 自身の up-to-date 判定が効くので数秒で終わる。**危ないのは「スキップしすぎ」だけ**で、
+  それが起きるのは上の限界 1 / 2 のときだけ。
+- **TF を再ビルドすると 2 フォークも必ず再ビルドされる。**
+  `releaseAssembly` が両フォークの `libs/TrinityForge.jar` を毎回書き直すので、
+  監視対象の更新時刻が必ず進む。ABI が実際に変わったかまでは見ていない（意図的に安全側）。
+- TF をビルドしなかった場合だけ、`libs/TrinityForge.jar` を**内容ハッシュ**で TF の thin jar と
+  比べて、違っていれば差し替えてからフォークをビルドする（誰かが `gradlew jar` だけを
+  叩いた後に、フォークが古い TF ABI に対してコンパイルされるのを防ぐ）。
+  タイムスタンプで比べない理由は「`releaseAssembly` が毎回書き直すので必ず差が出て意味を持たない」。
+
+> **`fork-handoff/*/libs/TrinityForge.jar` は tracked（版管理下）。** `deploy.cmd` が差し替えても
+> **commit してはいけない**。このリポジトリは public なので、TF 本体の jar を公開する事故になる。
+
+#### 稼働中の jar 差し替えは禁止（このスクリプトが止める）
+
+**稼働中サーバの jar を上書きすると必ず `NoClassDefFoundError` になる。**
+JVM は未ロードのクラスを実行時に jar から読みに行くので、上書きした瞬間ではなく
+「次にその新クラスへ到達したとき」に落ちる。**`/reload` では直らず、JVM の完全な stop → start が
+唯一の復旧手段**。落ちた場所が進行データの保存経路だと、その間の保存が丸ごと失われる。
+
+`deploy.cmd` は配備の前に `ops\scripts\check-servers-stopped.ps1` を通し、
+1 台でも動いていたら**ビルドもコピーもせずに中断**する。判定は 2 系統:
+
+1. RCON ポート（25586 / 25587 / 25588）が LISTEN しているか
+2. `<backend>\world\session.lock` が排他ロックされているか
+
+> **java.exe のコマンドラインでは判定できない。** `server-loop.cmd` は
+> `cd /d <root>` してから `java -jar "paper-....jar" nogui` を叩くので、コマンドラインに
+> サーバ名も Root も現れない。**同じ理由で `launch\status.cmd`（`show-status.ps1`）の
+> main / resource / dev の行は、実際には稼働中でも「停止」と出る**（2026-07-31 実測）。
+> 起動の有無は `check-servers-stopped.ps1` で見ること。
+
+`--force` を付けると稼働中でも配る。**通常は使わない。** 使った場合は警告が出て、
+**3 台すべてを完全に停止 → 起動し直すまで、サーバは壊れた状態のまま**になる。
+
+停止 → 配備 → 起動を一括でやりたいときは `--restart`:
+
+```bat
+launch\deploy.cmd --restart
+```
+
+`stop-all.cmd`（RCON。`TF_RCON_MAIN_PASSWORD` などの環境変数が必要）→ 全台が落ちるのを
+最大 300 秒待つ → 配備 → `start-all.cmd`。**停止しきらなければ何も配らずに中断する。**
+既定は「停止しない（＝停止していなければ中断）」のままにしてある。
+
+失敗したら**その時点で止まり、非ゼロで終了する**。jar → yml の順に処理するので、
+jar が 1 本でも失敗したら yml には触らない（config だけ新しい状態を作らない）。
+
+#### なぜ `--config` は既定で off なのか
+
+- `fork-handoff/arspaper/fork/src/main/resources/` の **`sourcejars.yml` / `sourcelinks.yml` は、
+  稼働中のサーバが書き込む実状態**（ソースジャー・ソースリンクのブロック座標）。
+  リポジトリ側の値で上書きすると、**実ワールドに無いブロックを指す**ようになる。
+  `--config` を付けてもこの 2 本と `paper-plugin.yml` は必ず除外する
+  （`ops-config.psd1` の `ArsPaperSync.ExcludeFiles` と同じ方針）。
+- yml の配布はもともと **config-editor が保存時にミラー**する仕組みを持っている
+  （`tools/config-editor/tool-config.json` の `deployPaths`。ただし向き先は Dev_Server だけ）。
+- コピーは**上書きのみで削除はしない**ので、プラグインが自分で生成した yml
+  （`armors.yml` / `world_settings.yml` など）は残る。
+- yml を配った後は各サーバで `/tf reload`（ArsPaper は `/ars reload`）が必要。
+  ファイルは共有でも**メモリ上の config は共有されない**。
+
+> ⚠️ **配備される ArsPaper jar には、他セッションの未コミット作業が焼き込まれることがある。**
+> ビルドは常に**作業ツリー**から行う（そうでないと自分の変更が配備されない）。
+> しかも `fork-handoff/arspaper/fork/` は `.gitignore` 除外なので、**フォークの変更は
+> このリポジトリの commit に一切残らない**。同一ワークツリーで並行セッションが動く運用なので、
+> 「配備した jar の中身 = 直前の commit」とは限らない。配備前に
+> `git status`（TF 本体側）と、ArsPaper については**誰が何を編集中かの確認**をすること。
+> `deploy.cmd` の挙動としてはこれで正しいので、スクリプト側では何も変えていない。
+
+#### `.cmd` を編集するときの追加ルール（ASCII だけでは足りない）
+
+- **非 ASCII を書かない**（13-3 の枠のとおり）。
+- **`goto` / `call :label` を使う `.cmd` は改行コードを CRLF にする。**
+  LF のみだと cmd.exe がラベルを見つけられず
+  `The system cannot find the batch label specified - <name>` で落ちる（2026-07-31 実測。
+  `deploy.cmd` を LF で書いて実際に踏んだ）。`.gitattributes` は `*.cmd` を
+  `text eol=lf` の対象に**していない**ので、CRLF のままコミットされる。
+  実際 `ops` 配下で `goto` を使っているのは `server-loop.cmd` と `deploy.cmd` の 2 本だけで、
+  どちらも CRLF になっている。
+- **`shift` は `%0` も一緒にずらす。** オプション解析で `shift` を使うと、その後の `%~dp0` は
+  スクリプトの場所ではなく「消費した引数の文字列をカレントディレクトリ基準で解いたもの」になる。
+  `deploy.cmd` は先頭で `set "SELF=%~dp0"` を取り、`shift /1` を使っている。
 
 ---
 

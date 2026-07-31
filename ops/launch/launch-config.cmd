@@ -12,7 +12,7 @@ REM  else with GNU coreutils ahead on PATH) shadows both, and the GNU versions r
 REM  Windows syntax -- the checks silently stop working. findstr has no GNU twin, so it is used
 REM  in place of find.
 REM
-REM  The repository copy (ops\launch\) is authoritative; deploy.cmd copies it to
+REM  The repository copy (ops\launch\) is authoritative; deploy-launch.cmd copies it to
 REM  D:\...\Velocity_for_TF\launch. See README.md.
 REM =============================================================================================
 
@@ -27,6 +27,22 @@ set "OPS_SCRIPTS=%TF_REPO%\ops\scripts"
 REM jar file names. Update here when you swap a build in.
 set "PAPER_JAR=paper-1.21.11-132.jar"
 set "VELOCITY_JAR=velocity-4.1.0-SNAPSHOT-9.jar"
+
+REM ---- backends (deploy.cmd walks this list) ---------------------------------------------------
+REM  Backend directory names under VELOCITY_ROOT, in start order. Adding a fourth backend here is
+REM  enough for deploy.cmd; it never hard-codes a server name.
+set "TF_BACKENDS=Main_Server Resource_Server Dev_Server"
+
+REM  The backend that owns the REAL plugins\TrinityForge directory. On the other backends that path
+REM  is an NTFS directory junction to this one (ops\scripts\setup-junction.cmd), so TF yml is copied
+REM  HERE ONCE and all three see it. jar files are separate real files on every backend, so those
+REM  are copied once per backend. plugins\ArsPaper is a real directory everywhere -- three copies.
+set "TF_CONFIG_HOST=Main_Server"
+
+REM  JDK that builds TrinityForge and both forks. Java's auto-update makes a newer JDK the default
+REM  on PATH, and Gradle 8.x cannot run on it: the build dies printing the version number and
+REM  nothing else ("* What went wrong:" / "25.0.4"). A bare version number is that symptom.
+set "JDK21_HOME=C:\Program Files\Java\jdk-21"
 
 REM Heap sizes. Keep the total below physical RAM (64GB box) -- see ops\PERFORMANCE.md.
 set "HEAP_MAIN=8G"

@@ -5,7 +5,7 @@ REM  instead of running a stale, broken copy.
 REM
 REM  The real thing is ops\launch\, deployed to
 REM    D:\game\minecraft\PaperServer\Velocity_for_TF\launch\
-REM  by running ops\launch\deploy.cmd from the repository. See ops\launch\README.md
+REM  by running ops\launch\deploy-launch.cmd from the repository. See ops\launch\README.md
 REM  and ops\RUNBOOK.md step 13.
 REM
 REM  Why this file was retired:
@@ -18,7 +18,7 @@ REM ============================================================================
 
 echo [ERROR] This script is superseded. Use the launch folder instead:
 echo           D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
-echo         If that folder is missing, run ops\launch\deploy.cmd from the repository.
+echo         If that folder is missing, run ops\launch\deploy-launch.cmd from the repository.
 echo.
 echo         If a scheduled task points here, re-register it:
 echo           schtasks /create /tn "TF Network" /f /sc onstart /ru SYSTEM /rl HIGHEST ^
