@@ -154,6 +154,7 @@ class PlayerPdcPrimitiveTypeAuditTest {
         assertEquals(3, restored.prestigeCount(), "プレステージ回数が往復で失われた");
         assertEquals(List.of("perk.a", "perk.b"), restored.heldPerks(), "所持パークが往復で失われた");
         assertEquals(List.of("item:sword"), restored.collectionEntries(), "図鑑エントリが往復で失われた");
+        assertTrue(restored.collectionBackfillDone(), "図鑑の遡り登録フラグが往復で失われた");
         assertEquals(List.of("ach.first_kill"), restored.achievedIds(), "実績が往復で失われた");
         assertEquals(7, restored.gachaPityCount(SAMPLE_GACHA_POOL), "ガチャ天井カウンタが往復で失われた");
         assertFalse(restored.veinMiningEnabled(), "採取トグル(OFF)が往復で失われた");
@@ -196,6 +197,9 @@ class PlayerPdcPrimitiveTypeAuditTest {
         data.setRoleSupportChangedAt(1_700_000_000_000L);
         data.setCollectionEntries(List.of("item:sword"));
         data.setClaimedCollectionTiers(List.of("tier.1"));
+        // 図鑑の遡り登録フラグ(2026-07-31, K-11)。同期されないとサーバを移るたびに
+        // 「初回走査」が復活する(通知が黙るだけなので無害だが、判定はサーバ間で揃えたい)。
+        data.markCollectionBackfillDone();
         data.grantSpecialReward("reward.banner");
         data.setEquippedTitle("title.veteran");
         data.setEquippedParticle("particle.flame");

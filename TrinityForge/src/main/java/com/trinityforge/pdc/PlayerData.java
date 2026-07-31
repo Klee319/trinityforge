@@ -106,6 +106,20 @@ public final class PlayerData {
         writeJoined(PdcKeys.PLAYER_COLLECTION_CLAIMED_TIERS, tiers, "collection tier id");
     }
 
+    /**
+     * コレクション図鑑 (2026-07-31, K-11): 参加時の全スロット走査を「遡り登録」として
+     * 静かに1回済ませたか。未設定なら false = まだ済んでいない(既存プレイヤー全員が該当)。
+     */
+    public boolean collectionBackfillDone() {
+        return container.getOrDefault(
+                PdcKeys.PLAYER_COLLECTION_BACKFILL_DONE, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** 遡り登録を済ませたことを記録する(一方向。戻す用途は無い)。 */
+    public void markCollectionBackfillDone() {
+        container.set(PdcKeys.PLAYER_COLLECTION_BACKFILL_DONE, PersistentDataType.BYTE, (byte) 1);
+    }
+
     private List<String> readJoined(org.bukkit.NamespacedKey key) {
         String raw = container.get(key, PersistentDataType.STRING);
         if (raw == null || raw.isBlank()) {
