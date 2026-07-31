@@ -79,6 +79,43 @@ test("tf-achievements: static（図鑑登録）トリガーの正常系はエラ
   } } }), []);
 });
 
+// 2026-07-31: Java 側は 2026-07-27 に collection.targets(複数)へ拡張済みだったのに、
+// このスキーマは単数 target 必須のままだった。そのため「Java では正しく動く定義」が
+// エディタでは常に検証エラーになり、複数対象アチーブメントを GUI で作れなかった。
+test("tf-achievements: collection.targets(複数)だけでも通り、threshold は省略できる", () => {
+  assert.deepStrictEqual(validate("tf-achievements", { achievements: { relics: {
+    trigger: { type: "static", collection: {
+      scope: "item", targets: ["binder_fragment", "reality_thread_core", "abyssal_ingot"]
+    } }
+  } } }), []);
+});
+
+test("tf-achievements: threshold 省略が許されるのは scope=item/mob かつ percent でないときだけ", () => {
+  const category = validate("tf-achievements", { achievements: { a: {
+    trigger: { type: "static", collection: { scope: "category", targets: ["dungeon"] } }
+  } } });
+  assert.ok(category.some((e) => /collection\.threshold/.test(e)), "category は候補数と列挙数が一致しないので必須");
+
+  const percent = validate("tf-achievements", { achievements: { b: {
+    trigger: { type: "static", collection: { scope: "item", targets: ["x", "y"], percent: true } }
+  } } });
+  assert.ok(percent.some((e) => /collection\.threshold/.test(e)), "percent は百分率なので件数を既定にできない");
+});
+
+test("tf-achievements: target も targets も無ければエラー(scope!=all)", () => {
+  const errors = validate("tf-achievements", { achievements: { a: {
+    trigger: { type: "static", collection: { scope: "item", threshold: 1 } }
+  } } });
+  assert.ok(errors.some((e) => /collection\.target \/ targets/.test(e)));
+});
+
+test("tf-achievements: collection.targets の型不正はエラー", () => {
+  const errors = validate("tf-achievements", { achievements: { a: {
+    trigger: { type: "static", collection: { scope: "item", targets: ["ok", 3, " "] } }
+  } } });
+  assert.ok(errors.some((e) => /collection\.targets/.test(e)));
+});
+
 test("tf-achievements: trigger欠落・type不正はエラー", () => {
   const errors = validate("tf-achievements", {
     achievements: { a: {}, b: { trigger: { type: "bogus" } } }

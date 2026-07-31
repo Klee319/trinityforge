@@ -1,0 +1,303 @@
+package com.trinityforge.config.domains;
+
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * 出荷 {@code progression/achievements.yml}(指南ツリー)の整合性を固定する(2026-07-31)。
+ *
+ * <p><b>なぜ必要か</b>: このファイルの間違いはどれも<b>起動時の警告1行で済んでしまい、
+ * ゲーム内では「そのアチーブメントが存在しないだけ」に見える</b>。具体的には:
+ * <ul>
+ *   <li>{@code statistic-qualifier} に非ブロックの Material を書く → そのノードだけ丸ごと skip</li>
+ *   <li>{@code parent} のIDを打ち間違える → 条件を満たしても永久に達成にならない</li>
+ *   <li>{@code rewards.special} に未定義IDを書く → 達成しても称号が<b>無言で</b>配られない</li>
+ *   <li>{@code collection.scope: category} に無いカテゴリIDを書く → 分母0で永久に未達成</li>
+ * </ul>
+ * 35ノードを目視で確かめ続けるのは無理なので、機械で固定する。
+ *
+ * <p>{@code permanent-buffs} の本数まで見ているのは 2026-07-31 のユーザー確定
+ * 「束縛者だけ縦強化、他は称号/コスメ」を config のドリフトから守るため。ここが緩むと、
+ * 格差の吸収に選んだ3本(24時間EXP減衰 / 指数コスト / 横の選択肢)が全部意味を失う。
+ */
+class ShippedAchievementTreeTest {
+
+    private static final String ACHIEVEMENTS = "src/main/resources/" + AchievementsConfig.PATH;
+    private static final String SPECIAL_REWARDS = "src/main/resources/progression/special-rewards.yml";
+    private static final String COLLECTION = "src/main/resources/progression/collection.yml";
+
+    /** 実装のある累計カウンタID。増やすときは加算側(ArsPaper RitualManager 等)も必ず用意する。 */
+    private static final Set<String> IMPLEMENTED_COUNTERS = Set.of("source_spent");
+
+    private List<AchievementsConfig.Achievement> achievements;
+    private List<String> warnings;
+
+    @BeforeEach
+    void setUp() {
+        MockBukkit.mock();
+        Logger log = Logger.getLogger("ShippedAchievementTreeTest");
+        log.setUseParentHandlers(false);
+        List<String> captured = new ArrayList<>();
+        log.addHandler(new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getLevel().intValue() >= Level.WARNING.intValue()) {
+                    captured.add(record.getMessage());
+                }
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        });
+        this.warnings = captured;
+        ConfigurationSection root = YamlConfiguration
+                .loadConfiguration(new File(ACHIEVEMENTS))
+                .getConfigurationSection("achievements");
+        AchievementsConfig.ParseResult result = AchievementsConfig.parse(root, log);
+        this.achievements = result.achievements();
+        // parse は skip 件数を返すだけなので、テスト側で件数と警告本文の両方を見る。
+        assertEquals(0, result.skipped(),
+                "出荷 achievements.yml に読み込みでスキップされる定義がある: " + captured);
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
+    }
+
+    @Test
+    @DisplayName("読み込み時に警告が1件も出ない(=全ノードが有効)")
+    void loadsWithoutAnyWarning() {
+        assertTrue(warnings.isEmpty(), "警告が出ている: " + warnings);
+        assertFalse(achievements.isEmpty(), "1件も読み込めていない");
+    }
+
+    @Test
+    @DisplayName("前提(parent / parents-any)は全て存在し、循環しない")
+    void prerequisitesResolve() {
+        Set<String> known = new LinkedHashSet<>();
+        achievements.forEach(a -> known.add(a.id()));
+        for (AchievementsConfig.Achievement achievement : achievements) {
+            if (achievement.parent() != null) {
+                assertTrue(known.contains(achievement.parent()),
+                        achievement.id() + " の parent '" + achievement.parent() + "' が存在しない"
+                                + "(条件を満たしても永久に達成にならない)");
+            }
+            for (String any : achievement.parentsAny()) {
+                assertTrue(known.contains(any),
+                        achievement.id() + " の parents-any '" + any + "' が存在しない");
+            }
+            // parent 鎖をたどって自分へ戻らないこと。
+            Set<String> seen = new HashSet<>();
+            seen.add(achievement.id());
+            String cursor = achievement.parent();
+            while (cursor != null) {
+                assertTrue(seen.add(cursor), achievement.id() + " の parent 鎖が循環している");
+                String next = null;
+                for (AchievementsConfig.Achievement candidate : achievements) {
+                    if (candidate.id().equals(cursor)) {
+                        next = candidate.parent();
+                        break;
+                    }
+                }
+                cursor = next;
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("起点は1つだけ(=GUIが1本の木として開ける)")
+    void exactlyOneRoot() {
+        List<String> roots = achievements.stream()
+                .filter(AchievementsConfig.Achievement::isRoot)
+                .map(AchievementsConfig.Achievement::id)
+                .toList();
+        assertEquals(List.of("main"), roots, "起点が main 以外にもある: " + roots);
+    }
+
+    @Test
+    @DisplayName("rewards.special のIDは special-rewards.yml に定義されている")
+    void specialRewardIdsExist() {
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new File(SPECIAL_REWARDS));
+        Set<String> defined = new LinkedHashSet<>();
+        for (String group : List.of("titles", "particles", "particle-seeds")) {
+            ConfigurationSection section = yaml.getConfigurationSection(group);
+            if (section != null) {
+                defined.addAll(section.getKeys(false));
+            }
+        }
+        assertFalse(defined.isEmpty(), "special-rewards.yml から1件も読めていない");
+        for (AchievementsConfig.Achievement achievement : achievements) {
+            for (String id : achievement.rewards().special()) {
+                assertTrue(defined.contains(id),
+                        achievement.id() + " の rewards.special '" + id + "' が special-rewards.yml に無い"
+                                + "(達成しても無言で何も配られない)");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("collection.scope: category の対象は collection.yml のカテゴリIDである")
+    void collectionCategoryTargetsExist() {
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new File(COLLECTION));
+        Set<String> categories = new LinkedHashSet<>();
+        for (String kind : List.of("items", "mobs")) {
+            ConfigurationSection section = yaml.getConfigurationSection("categories." + kind);
+            if (section != null) {
+                categories.addAll(section.getKeys(false));
+            }
+        }
+        assertFalse(categories.isEmpty(), "collection.yml からカテゴリを1件も読めていない");
+        for (AchievementsConfig.Achievement achievement : achievements) {
+            AchievementsConfig.Trigger trigger = achievement.trigger();
+            if (!"category".equals(trigger.collectionScope())) {
+                continue;
+            }
+            for (String target : trigger.collectionTargets()) {
+                assertTrue(categories.contains(target),
+                        achievement.id() + " の collection.targets '" + target
+                                + "' は collection.yml のカテゴリIDに無い(分母0で永久に未達成)");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("category スコープのしきい値はそのカテゴリの件数以下")
+    void collectionCategoryThresholdIsReachable() {
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new File(COLLECTION));
+        for (AchievementsConfig.Achievement achievement : achievements) {
+            AchievementsConfig.Trigger trigger = achievement.trigger();
+            if (!"category".equals(trigger.collectionScope()) || trigger.collectionPercent()) {
+                continue;
+            }
+            int available = 0;
+            for (String target : trigger.collectionTargets()) {
+                for (String kind : List.of("items", "mobs")) {
+                    List<String> entries = yaml.getStringList("categories." + kind + "." + target + ".entries");
+                    available += entries.size();
+                }
+            }
+            assertTrue(trigger.threshold() <= available,
+                    achievement.id() + " のしきい値 " + trigger.threshold()
+                            + " が候補数 " + available + " を超えている(永久に未達成)");
+        }
+    }
+
+    /**
+     * {@code scope: item} の対象IDのタイプミスを拾う。
+     *
+     * <p>照合先は「collection.yml のカテゴリに載っているID」＋「thread_all ノードが列挙したスレッド16種」。
+     * ArsPaper 側の登録一覧そのもの({@code materials.yml} 等)とは突き合わせられない ──
+     * フォークのソースは {@code .gitignore} で除外されておりクローンには存在しないため、
+     * そこへ依存させるとクローン先でこのテストが落ちる(または無言でスキップされる)。
+     *
+     * <p>それでも十分に効く: {@code thread_variety} だけ {@code thread_manaregen} と綴ってしまう類の
+     * 「1ノードだけ永久に未達成」が、他ノードとの綴り不一致として現れる。
+     */
+    @Test
+    @DisplayName("collection.scope: item の対象IDは図鑑エントリかスレッド16種のいずれか")
+    void collectionItemTargetsAreKnownIds() {
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new File(COLLECTION));
+        Set<String> known = new LinkedHashSet<>();
+        for (String kind : List.of("items", "mobs")) {
+            ConfigurationSection section = yaml.getConfigurationSection("categories." + kind);
+            if (section == null) {
+                continue;
+            }
+            for (String category : section.getKeys(false)) {
+                known.addAll(yaml.getStringList("categories." + kind + "." + category + ".entries"));
+            }
+        }
+        AchievementsConfig.Achievement threadAll = achievements.stream()
+                .filter(a -> a.id().equals("thread_all")).findFirst().orElseThrow(
+                        () -> new AssertionError("thread_all ノードが無い(スレッドIDの基準表が失われている)"));
+        assertEquals(16, threadAll.trigger().collectionTargets().size(),
+                "スレッドは threads.yml に16種。増減したらこのノードも合わせる");
+        known.addAll(threadAll.trigger().collectionTargets());
+
+        for (AchievementsConfig.Achievement achievement : achievements) {
+            if (!"item".equals(achievement.trigger().collectionScope())) {
+                continue;
+            }
+            for (String target : achievement.trigger().collectionTargets()) {
+                assertTrue(known.contains(target),
+                        achievement.id() + " の collection.targets '" + target
+                                + "' は図鑑エントリにもスレッド16種にも無い(綴り違いなら永久に未達成)");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("counter トリガは加算実装のあるIDだけを参照する")
+    void counterIdsAreImplemented() {
+        for (AchievementsConfig.Achievement achievement : achievements) {
+            AchievementsConfig.Trigger trigger = achievement.trigger();
+            if (trigger.type() != AchievementsConfig.TriggerType.COUNTER) {
+                continue;
+            }
+            assertTrue(IMPLEMENTED_COUNTERS.contains(trigger.counter()),
+                    achievement.id() + " の counter '" + trigger.counter()
+                            + "' に加算実装が無い(条件を満たしようがない)");
+        }
+    }
+
+    @Test
+    @DisplayName("type: advancement は使わない(バニラ進捗の抑止と噛み合って達成不能になる)")
+    void noAdvancementTriggers() {
+        List<String> offenders = achievements.stream()
+                .filter(a -> a.trigger().type() == AchievementsConfig.TriggerType.ADVANCEMENT)
+                .map(AchievementsConfig.Achievement::id)
+                .toList();
+        assertEquals(List.of(), offenders,
+                "vanilla-advancements.disabled: true のため、これらは永久に達成できない: " + offenders);
+    }
+
+    @Test
+    @DisplayName("縦強化(permanent-buffs)を配るのは束縛者討伐だけ")
+    void onlyTheWorldbinderGrantsPermanentBuffs() {
+        List<String> withBuffs = achievements.stream()
+                .filter(a -> !a.rewards().permanentBuffs().isEmpty())
+                .map(AchievementsConfig.Achievement::id)
+                .toList();
+        assertEquals(List.of("goal_worldbinder"), withBuffs,
+                "2026-07-31 ユーザー確定「束縛者だけ縦強化、他は称号/コスメ」に反している: " + withBuffs);
+    }
+
+    @Test
+    @DisplayName("最終目標3種が揃っている")
+    void allThreeGoalsPresent() {
+        Set<String> ids = new LinkedHashSet<>();
+        achievements.forEach(a -> ids.add(a.id()));
+        for (String goal : List.of("goal_worldbinder", "goal_infinite_source", "goal_completionist")) {
+            assertTrue(ids.contains(goal), goal + " が無い");
+        }
+        AchievementsConfig.Achievement source = achievements.stream()
+                .filter(a -> a.id().equals("goal_infinite_source")).findFirst().orElseThrow();
+        assertEquals(100_000_000L, source.trigger().threshold(), "第2目標は累計1億ソース");
+    }
+}

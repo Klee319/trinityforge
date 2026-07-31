@@ -77,7 +77,17 @@
       if (single && !targets.includes(single)) targets = [single].concat(targets);
       t.collection.targets = targets;
       t.collection.target = targets[0] || "";
-      if (!Number.isFinite(Number(t.collection.threshold))) t.collection.threshold = 1;
+      // 2026-07-31: threshold 未指定の既定を Java 側 (AchievementsConfig.parseTrigger) に合わせる。
+      // 以前は常に 1 を入れていたため、「targets を3つ並べて threshold を省略した = 3種そろったら達成」と
+      // 書いた yml をエディタで開いて保存し直すだけで threshold: 1 が書き込まれ、
+      // 「どれか1つ登録で達成」へ<b>無言で格下げ</b>されていた(条件が緩む方向なので気づきにくい)。
+      // scope=item/mob かつ percent でないときだけ「列挙した件数」を既定にする ──
+      // category/all は列挙数と候補数が一致しないので 1 のままにする。
+      if (!Number.isFinite(Number(t.collection.threshold))) {
+        const countable = !t.collection.percent
+          && (t.collection.scope === "item" || t.collection.scope === "mob");
+        t.collection.threshold = countable ? Math.max(1, targets.length) : 1;
+      }
       t.collection.percent = !!t.collection.percent;
     }
     return t;

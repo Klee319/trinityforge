@@ -2754,8 +2754,31 @@ function validateTfAchievements(data, errors) {
         if (!isPlainObject(c)) errors.push(`${prefix}.trigger.collection: マップである必要があります`);
         else {
           if (!["all", "category", "item", "mob"].includes(c.scope)) errors.push(`${prefix}.trigger.collection.scope: all / category / item / mob のいずれかである必要があります`);
-          if (c.scope !== "all" && (typeof c.target !== "string" || !c.target)) errors.push(`${prefix}.trigger.collection.target: scopeがall以外では必須です`);
-          if (!isNonNegInteger(c.threshold) || c.threshold < 1) errors.push(`${prefix}.trigger.collection.threshold: 1以上の整数である必要があります`);
+          // 2026-07-31: 複数対象 targets を通す。Java 側は 2026-07-27 に単数 target から
+          // 複数 targets へ拡張済みだったのに、ここは単数キー必須のままだった ── そのため
+          // 「Java では正しく動く定義」がエディタでは保存できず、複数対象アチーブメントを
+          // GUI で作れなかった(手書き yml を開くと必ず検証エラーになる状態)。
+          const targets = c.targets;
+          if (targets !== undefined && targets !== null) {
+            if (!Array.isArray(targets) || targets.some((t) => typeof t !== "string" || !t.trim())) {
+              errors.push(`${prefix}.trigger.collection.targets: 空でない文字列の配列である必要があります`);
+            }
+          }
+          const hasTarget = typeof c.target === "string" && c.target;
+          const hasTargets = Array.isArray(targets) && targets.some((t) => typeof t === "string" && t.trim());
+          if (c.scope !== "all" && !hasTarget && !hasTargets) {
+            errors.push(`${prefix}.trigger.collection.target / targets: scopeがall以外ではどちらかが必須です`);
+          }
+          // scope=item/mob かつ percent でないときは threshold 省略可(既定=列挙した件数)。
+          // Java 側 AchievementsConfig.parseTrigger と同じ既定値規則。category/all は候補数と
+          // 列挙数が一致しないので従来どおり必須。
+          const thresholdOptional = hasTargets && c.percent !== true
+            && (c.scope === "item" || c.scope === "mob");
+          if (!(thresholdOptional && (c.threshold === undefined || c.threshold === null))
+              && (!isNonNegInteger(c.threshold) || c.threshold < 1)) {
+            errors.push(`${prefix}.trigger.collection.threshold: 1以上の整数である必要があります`
+              + `(scope=item/mob で targets を列挙した場合のみ省略可)`);
+          }
           if (c.percent !== undefined && typeof c.percent !== "boolean") errors.push(`${prefix}.trigger.collection.percent: 真偽値である必要があります`);
         }
       }

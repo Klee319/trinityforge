@@ -336,6 +336,61 @@ git 系（2026-07-27 に導入）:
 
 ## 7. 作業履歴（新しいものを上に追記）
 
+### 2026-07-31 4x:xx — コンテンツ拡充バッチ Wave 5（マイルストーン＝指南ツリー 34 ノード）
+
+commit: TF `<この節と同じコミット>`。`dev` へ push 済み。**配備はまだ**（jar を含む）。
+
+実測: TF **2895 tests / 0 failed / 0 errors / 2 skipped**（+11 = 新設した
+`ShippedAchievementTreeTest`。skip 2 件は既知の正当なもの: `OfflineMobImportRunner` と
+`NativeProgressionStabilizationContractsTest`）。config-editor は **805 pass / 28 fail** で、
+**fail の集合は着手前と 1 行も違わない**（全て並行セッション由来の既存失敗。うち achievements 関連の
+12 件は `window.richTextInput is not a function` = テスト側 window スタブの穴で、yml とは無関係）。
+
+**マイルストーンを最後に敷いたのは意図的**。先に置くと、集める対象が未確定のまま達成条件を書くことに
+なり、後から図鑑エントリを増やすたびに「条件が指すもの」がずれる。
+
+| 対象 | 状態だったもの | 対応 |
+|---|---|---|
+| マイルストーン | `achievements.yml` に**アチーブメントが 1 件だけ**（`main` = 石を掘る）。目標が無いので何をすればいいか分からない | 起点 1 + 5 章 = **34 ノード**を敷いた。`main` から 5 本が並列に下りる形（糧 6 / 戦 6 / 深層 6 / ソース 7 / 収集 8）。5 本が並列なのは「目標への複数経路」を作るため。章の中は直列なので次の一手は常に 1 つに定まる |
+| 第1目標（束縛者） | 未設定 | `goal_worldbinder`。判定は `dungeon_seal_binder` の図鑑登録 — **束縛者以外からは絶対に落ちない印**なので `KILL_ENTITY ENDER_DRAGON`（バニラのエンドラも数える）より厳密 |
+| 第2目標（1億ソース） | `counter` トリガの器と `source_spent` の加算は Wave 前半で用意済みだが、**それを読むアチーブメントが存在しなかった**（＝機構だけあって目標が無い） | `goal_infinite_source`（累計 1 億）。手前を 1 万 → 100 万 → 1000 万と一桁刻みで置いた。「あと一桁」の瞬間を 3 回作るため |
+| 第3目標（図鑑コンプ） | 未設定 | `goal_completionist`（`scope: all` / `percent: 100`）。母数は `collection.yml` の categories だけで **140 件**。プレイヤー PDC に溜まる登録総数（約 360）とは別物なので、`reward-tiers` の 10/30/60/120/200 と直接比較してはいけない |
+| 縦強化の歯止め | 「束縛者だけ縦強化」というユーザー確定が config 側では何にも守られていなかった | `ShippedAchievementTreeTest` で **`permanent-buffs` を持つノードが `goal_worldbinder` ただ 1 つ**であることを固定。ここが緩むと格差吸収に選んだ 3 本（24h EXP 減衰 / 指数コスト / 横の選択肢）が全部意味を失う |
+| **editor で保存できなかった** | `lib/schema.js` が `collection.targets`（複数形。Java 側は 2026-07-27 に対応済み）を知らず、単数 `target` と `threshold` を必須にしていた。**Java では正しく動く定義がエディタでは必ず検証エラー**になり、複数対象アチーブメントを GUI で作れなかった | `targets` を通し、`scope: item/mob` かつ percent でないときは `threshold` 省略可（既定＝列挙件数）にした。Java の `parseTrigger` と同じ規則 |
+| **開いて保存すると条件が緩んだ** | `normalizeAchievementTrigger` の `threshold` 既定が常に `1`。「targets を 3 つ並べて threshold 省略＝3 種そろったら達成」と書いた yml を**エディタで開いて保存し直すだけで `threshold: 1` が書かれ**、「どれか 1 つで達成」へ無言で格下げされていた（条件が緩む方向なので気づけない） | 既定を Java と同じ「列挙件数」にそろえた。category / percent は候補数と列挙数が一致しないので従来どおり `1` |
+
+`ShippedAchievementTreeTest`（11 件）が固定している不変条件 — このファイルの間違いは
+**どれも起動時の警告 1 行で済み、ゲーム内では「そのノードが無いだけ」に見える**ので機械で縛った:
+
+- 読み込みで skip される定義が 0 件（`statistic-qualifier` の Material 種別違いなどを全部拾う）
+- `parent` / `parents-any` が全部存在し、循環しない / 起点は `main` 1 つだけ
+- `rewards.special` の ID が `special-rewards.yml` にある（無いと**無言で称号が配られない**）
+- `collection.scope: category` の対象が実在し、しきい値が候補数以下（超えると永久に未達成）
+- `collection.scope: item` の対象が図鑑エントリかスレッド 16 種のいずれか（綴り違い検出）
+- `counter` は加算実装のある ID だけ（現在 `source_spent` のみ）
+- **`type: advancement` を 1 件も使わない** — `vanilla-advancements.disabled: true` と噛み合って
+  進捗解除イベント自体がキャンセルされ、その型は永久に達成不能になる
+
+### 2026-07-31 3x:xx — コンテンツ拡充バッチ Wave 4（不足テクスチャ 27 件。配線はしない）
+
+commit: TF `2adcf16`。`dev` へ push 済み。
+
+Wave 3 までに追加したアイテムは config 上は存在するのに**テクスチャが無く**、実ゲームでは全部が
+ベースのバニラ見た目（`BRICK` / `AMETHYST_SHARD` …）で並んでいた。「19 個の印を集める」コンテンツ
+なのにインベントリ上で 1 つも見分けが付かない状態。
+
+- 生成物: `resourcepack/trinityforge-items/assets/trinityforge/textures/item/` へ 27 件
+  （`dungeon_seal_*` 19 / ソースの階梯 5 / 束縛者素材 3）。**16x16 RGBA / 半透明ピクセル 0** を全件検証済み
+  （統合版は半透明を扱えない）。
+- 生成器は `resourcepack/generate_material_sprites.py`。アスキーアート＋パレット表なので、色や紋章の
+  差し替えは表を直して `--force` で再生成できる。
+- **配線は意図的にしていない**（ユーザー指示: 目視確認を先にしたい）。未実施なのは
+  `assets/minecraft/items/*.json` / `cmd-registry.json` / モデル JSON の 3 点。
+  **統合版向けの `texts/*.lang` も配線と同時に必要**（パックの lang に無いと識別子がそのまま名前として出る）。
+- 目視の一次判定で 3 件を作り直した: `abyssal_ingot`（塊に見えたので台形の鋳造物へ）/
+  `binder_fragment`（棒に見えたので幅と割れ目を入れた）/ 鉱山系 3 種（色も紋章もほぼ同じで判別不能だった
+  ので茶・青灰・白灰へ離した）。
+
 ### 2026-07-31 2x:xx — コンテンツ拡充バッチ Wave 3（敵の特殊攻撃 / 構造物ルート / ロール / 図鑑）
 
 commit: TF `e0e2645`（敵の特殊攻撃）/ `b0c5989`（editor: 構造物ルート抽選）/ `8bf50e2`（ロール
