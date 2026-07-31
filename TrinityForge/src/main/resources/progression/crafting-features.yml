@@ -150,10 +150,19 @@ potion-merge:
 #
 # 【バニラのレシピを潰さないこと】customMixes はバニラより先に評価されるので、
 # バニラで既に成立する (base, ingredient) を書くと、そのバニラレシピが
-# サーバ全体で作れなくなる。該当ペアは起動時に WARNING を出して登録から外すが、
-# 未解放プレイヤーは BrewEvent 側のゲートでそのビンごと止められるため、
-# 「バニラのポーションも作れない」状態は残る。新しい組み合わせは
-# THICK / MUNDANE のような「バニラが出発点にしないベース」へ寄せること。
+# サーバ全体で作れなくなる。該当ペアは起動時に WARNING を出して登録から外す。
+# 2026-07-31 修正: ゲート(投入拒否・完成時キャンセル)も「登録された組」だけに掛かるので、
+# 登録から外れた組は普通にバニラのポーションとして作れる(以前は登録されないのにゲートだけ
+# 残っていて、そのバニラのポーションまで作れなかった)。THICK / MUNDANE のような
+# 「バニラが出発点にしないベース」へ寄せれば、そのままTF独自レシピとして成立する。
+# なお REDSTONE / GLOWSTONE_DUST / FERMENTED_SPIDER_EYE は「延長/強化/反転」なので
+# WATER と効果付きポーションのベースでだけ衝突する(THICK / MUNDANE では衝突しない)。
+# GUNPOWDER / DRAGON_BREATH は容器mix(スプラッシュ化/残留化)なのでどのベースでも衝突する。
+#
+# 【重複を書かないこと】同じ (base, ingredient) を2グループが宣言すると、
+# 要求レベル(brew:<ID> を置いているノードのレベル)が高い側だけが登録され、
+# 低い側のグループはそのポーションを永久に作れなくなる(起動時に WARNING)。
+# 段を分けたいときはベースか素材を変えること(下の healthboost-haste 参照)。
 brew-unlocks:
   # skilltree/alchemy.yml C-1-upper「俊敏・跳躍の調合」(Lv40)
   # THICK ベースはバニラが出発点にしないので、グロウストーン無しで II 相当を作れる枠にした。
@@ -171,15 +180,22 @@ brew-unlocks:
           type: JUMP_BOOST
           duration: 3600
           amplifier: 1
-  # skilltree/alchemy.yml C-2-upper「体力増強の調合」(Lv60)
+  # skilltree/alchemy.yml C-2-upper「体力増強の調合」(Lv60) = 下位段(amplifier 0)。THICK ベース。
+  #
+  # 【2026-07-31 レビュー指摘#2 の修正】以前は下位段(Lv60)と上位段(Lv80)が
+  # THICK+金のニンジン / AWKWARD+金のリンゴ を「同じ組み合わせで」宣言していた。
+  # 同じ (base, ingredient) が2つあると Paper も TF も「先に一致した1件」で確定するため、
+  # yml 順で先の Lv60 側が常に勝ち、Lv80 の amplifier 1 は絶対に出なかった。
+  # 現在は起動時に重複を検出して要求レベルが高い側だけを登録する(敗者は WARNING)ので、
+  # 重複を書くと下位段が丸ごと死ぬ。段ごとにベースを分けて両方成立させる:
+  #   下位段(Lv60) = THICK ベース / 上位段(Lv80) = MUNDANE ベース
+  # どちらもバニラが出発点にしないベースなのでバニラレシピを潰さない。
+  # また旧 AWKWARD+グリスタリングメロンは「バニラの治癒のポーション」と同じ組で
+  # customMixes に登録できず(登録するとサーバ全体で治癒が作れなくなる)、
+  # Lv60 の体力増強が事実上作れなかったので THICK 側へ寄せた。
   healthboost-haste:
     potions:
-      # ⚠️ AWKWARD + グリスタリングメロンは「バニラの治癒のポーション」と同じ組み合わせ。
-      #   customMixes には登録されない(登録するとサーバ全体で治癒が作れなくなるため、
-      #   起動時に WARNING を出してスキップする)。加えて未解放プレイヤーは
-      #   このビンを入れると醸造ごと止まるので、治癒も作れない状態が残る。
-      #   直すなら base を THICK 側へ寄せること(Java 側の変更は不要)。
-      - base: AWKWARD
+      - base: THICK
         ingredient: GLISTERING_MELON_SLICE
         result:
           type: HEALTH_BOOST
@@ -191,28 +207,29 @@ brew-unlocks:
           type: HASTE
           duration: 3600
           amplifier: 0
-      - base: AWKWARD
+      - base: THICK
         ingredient: GOLDEN_APPLE
         result:
           type: LUCK
           duration: 3600
           amplifier: 0
-  # skilltree/alchemy.yml E-1-1「回復・体力増強の調合」(Lv80)
+  # skilltree/alchemy.yml E-1-1「回復・体力増強の調合」(Lv80) = 上位段(amplifier 1)。MUNDANE ベース。
+  # 素材は下位段と同じで、ベース(濃厚 → ありふれた)の作り分けで段を選ぶ。
   healthboost-haste-2:
     potions:
-      - base: THICK
+      - base: MUNDANE
         ingredient: GLISTERING_MELON_SLICE
         result:
           type: HEALTH_BOOST
           duration: 3600
           amplifier: 1
-      - base: THICK
+      - base: MUNDANE
         ingredient: GOLDEN_CARROT
         result:
           type: HASTE
           duration: 3600
           amplifier: 1
-      - base: AWKWARD
+      - base: MUNDANE
         ingredient: GOLDEN_APPLE
         result:
           type: LUCK

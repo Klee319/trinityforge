@@ -2,6 +2,9 @@ package com.trinityforge.stats;
 
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewPotionSpec;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewUnlockGroup;
+import com.trinityforge.skilltree.DedicatedEffectEntry;
+import com.trinityforge.skilltree.SkillNode;
+import com.trinityforge.skilltree.SkillTree;
 import io.papermc.paper.potion.PotionMix;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -12,6 +15,8 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -73,14 +78,36 @@ public final class BrewPotionMixRegistrar {
 
     public static final String NAMESPACE = "trinityforge";
     private static final String KEY_PREFIX = "brew_";
+    /** skilltree 側の gate id 接頭辞({@code BrewUnlockListener} と同じ規約)。 */
+    private static final String GATE_PREFIX = "brew:";
 
     /**
-     * バニラが「どのポーションからでも」変換する素材。ベースに関係なく必ず衝突する
-     * (延長 / 強化 / 反転 / スプラッシュ化 / 残留化)。
+     * バニラの<b>容器 mix</b>(スプラッシュ化 / 残留化)の素材。{@code addContainerRecipe} は
+     * 「どのポーションからでも」成立するので、ベースに関係なく必ず衝突する。
      */
-    private static final Set<Material> ANY_BASE_VANILLA_INGREDIENTS = Set.of(
-            Material.REDSTONE, Material.GLOWSTONE_DUST, Material.FERMENTED_SPIDER_EYE,
+    private static final Set<Material> CONTAINER_VANILLA_INGREDIENTS = Set.of(
             Material.GUNPOWDER, Material.DRAGON_BREATH);
+
+    /**
+     * 延長({@code REDSTONE}) / 強化({@code GLOWSTONE_DUST}) / 反転({@code FERMENTED_SPIDER_EYE})。
+     *
+     * <p><b>ベース非依存ではない</b> (2026-07-31 D10 レビュー指摘#3 の修正): バニラはこの3種を
+     * 「{@code WATER}」と「効果付きポーション」を出発点にする mix としてしか定義していない
+     * ({@code WATER + REDSTONE → MUNDANE} / {@code WATER + GLOWSTONE_DUST → THICK} /
+     * {@code WATER + FERMENTED_SPIDER_EYE → WEAKNESS}、あとは各 PotionType の延長・強化・反転)。
+     * {@code THICK} / {@code MUNDANE} / {@code AWKWARD} を出発点にする mix は<b>1件も無い</b>ので、
+     * 以前のようにベースを見ずに衝突扱いすると<b>実在しないバニラレシピを守るために登録を拒否する</b>
+     * (= 運営者が editor で書いた組が「無言で成立しない」= K-13 と同じ症状の再発)。
+     */
+    private static final Set<Material> POTION_MODIFIER_VANILLA_INGREDIENTS = Set.of(
+            Material.REDSTONE, Material.GLOWSTONE_DUST, Material.FERMENTED_SPIDER_EYE);
+
+    /**
+     * バニラに「これを出発点にする mix」が1件も無いベース。TF 独自の醸造の置き場所。
+     * ({@code THICK} は {@code WATER + グロウストーン}、{@code MUNDANE} は {@code WATER + 各種素材} の
+     * <b>行き先</b>としてだけ現れる。)
+     */
+    private static final Set<String> VANILLA_DEAD_END_BASES = Set.of("THICK", "MUNDANE");
 
     /** {@code AWKWARD} を出発点とするバニラの mix 素材(1.21.11 の {@code addVanillaMixes} 相当)。 */
     private static final Set<Material> AWKWARD_VANILLA_INGREDIENTS = Set.of(
@@ -97,18 +124,28 @@ public final class BrewPotionMixRegistrar {
         void remove(NamespacedKey key);
     }
 
-    /** 1件の登録計画(Bukkit サーバ不要な純データ)。 */
-    public record MixPlan(NamespacedKey key, String groupId, BrewPotionSpec spec) {}
+    /**
+     * 1件の登録計画(Bukkit サーバ不要な純データ)。
+     *
+     * @param requirementLevel {@code brew:<groupId>} を置いているノードの最小レベル。
+     *                         重複した {@code (base, ingredient)} の勝敗と、
+     *                         {@code BrewUnlockListener} が「どの段の効果を出すか」の判断に使う。
+     */
+    public record MixPlan(NamespacedKey key, String groupId, BrewPotionSpec spec, int requirementLevel) {}
 
     private final Plugin plugin;
     private final Supplier<Map<String, BrewUnlockGroup>> brewUnlocks;
+    private final Supplier<Map<String, Integer>> requirementLevels;
     private final MixSink sink;
     private final Function<BrewPotionSpec, ItemStack> resultFactory;
     private final Set<NamespacedKey> registered = new LinkedHashSet<>();
+    /** 最後に実際に登録できた計画。{@code BrewUnlockListener} のゲート/差し替えが参照する唯一の一覧。 */
+    private volatile List<MixPlan> livePlans = List.of();
 
     public BrewPotionMixRegistrar(Plugin plugin, Supplier<Map<String, BrewUnlockGroup>> brewUnlocks,
-                                  MixSink sink) {
-        this(plugin, brewUnlocks, sink, spec -> BrewRecipeSupport.customPotion(Material.POTION, spec));
+                                  Supplier<Map<String, Integer>> requirementLevels, MixSink sink) {
+        this(plugin, brewUnlocks, requirementLevels, sink,
+                spec -> BrewRecipeSupport.customPotion(Material.POTION, spec));
     }
 
     /**
@@ -118,11 +155,50 @@ public final class BrewPotionMixRegistrar {
      *                      {@code BrewUnlockListener} の per-slot 差し替えが担う。
      */
     BrewPotionMixRegistrar(Plugin plugin, Supplier<Map<String, BrewUnlockGroup>> brewUnlocks,
+                           Supplier<Map<String, Integer>> requirementLevels,
                            MixSink sink, Function<BrewPotionSpec, ItemStack> resultFactory) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.brewUnlocks = Objects.requireNonNull(brewUnlocks, "brewUnlocks");
+        this.requirementLevels = Objects.requireNonNull(requirementLevels, "requirementLevels");
         this.sink = Objects.requireNonNull(sink, "sink");
         this.resultFactory = Objects.requireNonNull(resultFactory, "resultFactory");
+    }
+
+    /**
+     * {@code brew:<groupId>} を置いているノードの<b>最小</b>レベル(= そのグループが到達可能になる
+     * スキルレベル)。同じ {@code (base, ingredient)} を複数グループが宣言したときの勝敗判定に使う。
+     *
+     * <p>最小を採るのは、プレイヤーは「その gate を置いているノードのどれか1つ」を取れば解放されるため
+     * (複数ノードが同じ gate を置いていれば、最初に届くノードのレベルが実際の要求レベル)。
+     * 未参照グループは {@code 0}(= 永久ロックなので優先度も最下位)。
+     */
+    public static Map<String, Integer> requirementLevels(Collection<SkillTree> trees) {
+        Map<String, Integer> out = new LinkedHashMap<>();
+        if (trees == null) {
+            return out;
+        }
+        for (SkillTree tree : trees) {
+            if (tree == null) {
+                continue;
+            }
+            for (SkillNode node : tree.nodes().values()) {
+                if (node == null) {
+                    continue;
+                }
+                for (DedicatedEffectEntry entry : node.dedicatedEffects()) {
+                    String id = entry == null ? null : entry.id();
+                    if (id == null || !id.trim().startsWith(GATE_PREFIX)) {
+                        continue;
+                    }
+                    String groupId = id.trim().substring(GATE_PREFIX.length()).trim();
+                    if (groupId.isEmpty()) {
+                        continue;
+                    }
+                    out.merge(groupId, node.level(), Math::min);
+                }
+            }
+        }
+        return out;
     }
 
     /** 本番の登録先。{@code Bukkit.getPotionBrewer()} は呼び出しごとに遅延解決する。 */
@@ -155,21 +231,22 @@ public final class BrewPotionMixRegistrar {
         }
         registered.clear();
 
-        int ok = 0;
-        for (MixPlan mixPlan : plan(brewUnlocks.get(), plugin.getLogger())) {
+        List<MixPlan> live = new ArrayList<>();
+        for (MixPlan mixPlan : plan(brewUnlocks.get(), requirementLevels.get(), plugin.getLogger())) {
             try {
                 sink.add(new PotionMix(mixPlan.key(), resultFactory.apply(mixPlan.spec()),
                         inputChoice(mixPlan.spec().base()), ingredientChoice(mixPlan.spec().ingredient())));
                 registered.add(mixPlan.key());
-                ok++;
+                live.add(mixPlan);
             } catch (RuntimeException ex) {
                 plugin.getLogger().log(Level.WARNING, "[progression/crafting-features.yml] brew-unlocks."
                         + mixPlan.groupId() + ": failed to register potion mix " + mixPlan.key()
                         + "; skipped", ex);
             }
         }
+        this.livePlans = List.copyOf(live);
         plugin.getLogger().info("[progression/crafting-features.yml] brew-unlocks: registered "
-                + ok + " custom potion mix(es)");
+                + live.size() + " custom potion mix(es)");
     }
 
     /** 現在登録しているキー(reload の対称性テスト用)。 */
@@ -178,19 +255,40 @@ public final class BrewPotionMixRegistrar {
     }
 
     /**
+     * 実際に mix として登録できた計画の一覧。<b>{@code BrewUnlockListener} のゲート判定と結果差し替えは
+     * これだけを見る</b> (2026-07-31 D10 レビュー指摘#1/#3)。
+     *
+     * <p><b>なぜ生の {@code brewUnlocks()} を見せないのか</b>: 登録されなかった組
+     * (バニラ衝突・素材名の綴り間違い・重複の敗者)は<b>そもそも醸造が始まらない</b>か
+     * <b>バニラのレシピとして成立する</b>ので、ゲートを掛けると
+     * 「バニラの俊敏のポーションが作れない」型の誤爆になるだけで、守るものが無い。
+     * 生の config を見ていた実装では実際にこの誤爆が残っていた。
+     */
+    public List<MixPlan> livePlans() {
+        return livePlans;
+    }
+
+    /**
      * 登録計画を組む純関数。キーは {@code trinityforge:brew_<groupId>_<n>}
      * ({@code addPotionMix} は<b>同一キーで {@code IllegalArgumentException}</b> を投げるので、
      * グループ内連番で必ず一意にする。groupId のハイフンは NamespacedKey に使えないため {@code _} へ倒す)。
      *
-     * <p>同じ {@code (base, ingredient)} を持つ spec が複数グループにあっても<b>それぞれ登録する</b>
-     * (mix の結果は {@code BrewUnlockListener} が per-slot で上書きするので、どれが先に一致しても
-     * 最終結果は「そのプレイヤーが解放している spec」になる。1件でも登録されていれば醸造は始まる)。
+     * <p><b>同じ {@code (base, ingredient)} は1件だけ残す</b> (2026-07-31 D10 レビュー指摘#2)。
+     * 重複していると「yml で先に書いた側」が常に勝ってしまい、上位段(高レベルノードの amplifier+1)が
+     * <b>絶対に出ない</b>。勝者は {@code requirementLevels} が高い方(= より深いノードが解放するもの)で、
+     * 同値なら yml 順の先頭。敗者は WARNING に「どちらを勝たせたか」を出して登録しない。
      */
     static List<MixPlan> plan(Map<String, BrewUnlockGroup> groups, Logger log) {
+        return plan(groups, Map.of(), log);
+    }
+
+    static List<MixPlan> plan(Map<String, BrewUnlockGroup> groups,
+                              Map<String, Integer> requirementLevels, Logger log) {
         List<MixPlan> plans = new ArrayList<>();
         if (groups == null) {
             return plans;
         }
+        Map<String, Integer> levels = requirementLevels == null ? Map.of() : requirementLevels;
         for (Map.Entry<String, BrewUnlockGroup> entry : groups.entrySet()) {
             String groupId = entry.getKey();
             int index = 0;
@@ -219,10 +317,48 @@ public final class BrewPotionMixRegistrar {
                             + "never brews from (THICK / MUNDANE) if it should become a TF-only recipe.");
                     continue;
                 }
-                plans.add(new MixPlan(key(groupId, index), groupId, spec));
+                plans.add(new MixPlan(key(groupId, index), groupId, spec,
+                        levels.getOrDefault(groupId, 0)));
             }
         }
-        return List.copyOf(plans);
+        return List.copyOf(dropDuplicatePairs(plans, log));
+    }
+
+    /**
+     * 同じ {@code (base, ingredient)} を宣言している計画から<b>要求レベルが最も高い1件だけ</b>を残す
+     * (2026-07-31 D10 レビュー指摘#2)。
+     *
+     * <p>残さないと、Paper は最初に一致した mix で醸造を成立させ、{@code BrewUnlockListener} も
+     * 一致した先頭の spec で結果を確定するため、<b>上位段は永久に出ない</b>
+     * (実害: Lv80「回復・体力増強の調合」の amplifier 1 が Lv60 の amplifier 0 に食われていた)。
+     * 同値のときは yml 順の先頭を残す(順序を変えたら結果が変わる、を避けるため決定的にする)。
+     */
+    private static List<MixPlan> dropDuplicatePairs(List<MixPlan> plans, Logger log) {
+        Map<String, MixPlan> winners = new LinkedHashMap<>();
+        List<String> order = new ArrayList<>();
+        for (MixPlan candidate : plans) {
+            String pair = BrewRecipeSupport.pairKey(candidate.spec().base(), candidate.spec().ingredient());
+            MixPlan current = winners.get(pair);
+            if (current == null) {
+                winners.put(pair, candidate);
+                order.add(pair);
+                continue;
+            }
+            MixPlan winner = candidate.requirementLevel() > current.requirementLevel() ? candidate : current;
+            MixPlan loser = winner == candidate ? current : candidate;
+            winners.put(pair, winner);
+            log.warning("[progression/crafting-features.yml] brew-unlocks: duplicate pair '" + pair
+                    + "' declared by both '" + current.groupId() + "' (required level "
+                    + current.requirementLevel() + ") and '" + candidate.groupId() + "' (required level "
+                    + candidate.requirementLevel() + "); keeping '" + winner.groupId()
+                    + "' and dropping '" + loser.groupId() + "' (a duplicated pair means the other group's"
+                    + " potion can never be brewed — give each group its own base/ingredient instead)");
+        }
+        List<MixPlan> out = new ArrayList<>(order.size());
+        for (String pair : order) {
+            out.add(winners.get(pair));
+        }
+        return out;
     }
 
     private static NamespacedKey key(String groupId, int index) {
@@ -255,24 +391,39 @@ public final class BrewPotionMixRegistrar {
         if (mat == null) {
             return null; // 未知素材は plan() 側で別途スキップ済み
         }
-        if (ANY_BASE_VANILLA_INGREDIENTS.contains(mat)) {
-            return "'" + mat + "' はバニラが「どのポーションでも」変換する素材(延長/強化/反転/"
-                    + "スプラッシュ化/残留化)なので、どのベースに割り当てても衝突する";
+        if (CONTAINER_VANILLA_INGREDIENTS.contains(mat)) {
+            return "'" + mat + "' はバニラの容器 mix(スプラッシュ化/残留化)の素材で、"
+                    + "どのポーションからでも成立するのでどのベースに割り当てても衝突する";
         }
         String normalized = base == null ? "" : base.trim().toUpperCase(Locale.ROOT);
-        boolean vanillaIngredient = AWKWARD_VANILLA_INGREDIENTS.contains(mat)
-                || mat == Material.NETHER_WART;
-        if (normalized.isEmpty() && vanillaIngredient) {
-            return "base 未指定は「任意のビン」を意味するため、バニラの醸造素材 '" + mat
-                    + "' と必ず衝突する";
+        boolean startsAWKWARD = AWKWARD_VANILLA_INGREDIENTS.contains(mat);
+        boolean modifier = POTION_MODIFIER_VANILLA_INGREDIENTS.contains(mat);
+        boolean waterIngredient = startsAWKWARD || modifier || mat == Material.NETHER_WART;
+        if (normalized.isEmpty()) {
+            return waterIngredient
+                    ? "base 未指定は「任意のビン」を意味するため、バニラの醸造素材 '" + mat
+                            + "' と必ず衝突する"
+                    : null;
         }
-        if ("WATER".equals(normalized) && vanillaIngredient) {
-            return "WATER + '" + mat + "' はバニラが MUNDANE / AWKWARD を作る組み合わせ";
+        if (VANILLA_DEAD_END_BASES.contains(normalized)) {
+            // THICK / MUNDANE を from とする mix はバニラに1件も無い(容器 mix だけが上で弾かれる)。
+            return null;
         }
-        if ("AWKWARD".equals(normalized) && AWKWARD_VANILLA_INGREDIENTS.contains(mat)) {
-            return "AWKWARD + '" + mat + "' はバニラのポーションを作る組み合わせ";
+        if ("WATER".equals(normalized)) {
+            return waterIngredient
+                    ? "WATER + '" + mat + "' はバニラが MUNDANE / THICK / AWKWARD / 弱化 を作る組み合わせ"
+                    : null;
         }
-        return null;
+        if ("AWKWARD".equals(normalized)) {
+            return startsAWKWARD
+                    ? "AWKWARD + '" + mat + "' はバニラのポーションを作る組み合わせ"
+                    : null;
+        }
+        // 効果付きポーションをベースにする場合、延長/強化/反転はそのまま当たる。
+        return modifier
+                ? "'" + mat + "' はバニラが効果付きポーションを延長/強化/反転する素材なので、"
+                        + normalized + " ベースでは衝突する"
+                : null;
     }
 
     /**

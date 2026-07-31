@@ -71,6 +71,28 @@ public final class BrewRecipeSupport {
     }
 
     /**
+     * {@code (base, ingredient)} の正規化キー。<b>重複検出と dedup の唯一の基準</b>
+     * (2026-07-31 D10 レビュー指摘#2: 同じ組を2グループが宣言すると先勝ちで上位版が到達不能になる)。
+     *
+     * <p>base 空欄は「任意のビン」なので {@code *} へ倒す。素材は {@code custom:<id>} を小文字化、
+     * バニラ材質は {@link Material#name()} へ正規化する({@code sugar} と {@code SUGAR} を別物にしない)。
+     */
+    public static String pairKey(String base, String ingredient) {
+        String normalizedBase = base == null || base.isBlank()
+                ? "*" : base.trim().toUpperCase(Locale.ROOT);
+        String normalizedIngredient;
+        if (isCustomKey(ingredient)) {
+            String id = customId(ingredient);
+            normalizedIngredient = "custom:" + (id == null ? "" : id.toLowerCase(Locale.ROOT));
+        } else {
+            Material mat = ingredient == null ? null : Material.matchMaterial(ingredient.trim());
+            normalizedIngredient = mat != null ? mat.name()
+                    : String.valueOf(ingredient).trim().toUpperCase(Locale.ROOT);
+        }
+        return normalizedBase + " + " + normalizedIngredient;
+    }
+
+    /**
      * ビンのベース照合。{@code baseName} が空欄なら「任意のベース」を意味する(true)。
      * 未知の {@link PotionType} 名は false(綴り間違いで全ビンに一致させない)。
      */

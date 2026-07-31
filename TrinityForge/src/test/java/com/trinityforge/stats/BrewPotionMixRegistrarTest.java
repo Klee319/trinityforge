@@ -97,10 +97,9 @@ class BrewPotionMixRegistrarTest {
                 "AWKWARD + グリスタリングメロン = バニラの治癒");
         assertNotNull(BrewPotionMixRegistrar.vanillaCollision("AWKWARD", "GOLDEN_CARROT"),
                 "AWKWARD + 金のニンジン = バニラの暗視");
-        assertNotNull(BrewPotionMixRegistrar.vanillaCollision("THICK", "REDSTONE"),
-                "レッドストーン/グロウストーン/発酵した蜘蛛の目/火薬/ドラゴンブレスは"
-                        + "「どのポーションでも」変換するのでベースに関係なく衝突する");
-        assertNotNull(BrewPotionMixRegistrar.vanillaCollision("THICK", "GUNPOWDER"));
+        assertNotNull(BrewPotionMixRegistrar.vanillaCollision("THICK", "GUNPOWDER"),
+                "火薬/ドラゴンブレスは容器mix(スプラッシュ化/残留化)なのでどのベースからでも成立する");
+        assertNotNull(BrewPotionMixRegistrar.vanillaCollision("THICK", "DRAGON_BREATH"));
         assertNotNull(BrewPotionMixRegistrar.vanillaCollision("WATER", "NETHER_WART"),
                 "WATER + ネザーウォート = バニラの awkward");
 
@@ -111,6 +110,118 @@ class BrewPotionMixRegistrarTest {
                 "金のリンゴはバニラの醸造素材ではない");
         assertNull(BrewPotionMixRegistrar.vanillaCollision("THICK", "custom:endermite_soot"),
                 "custom: 素材は述語照合(PDC一致)なので素の火薬には当たらず、バニラを潰さない");
+    }
+
+    @Test
+    void extendUpgradeInvertIngredientsOnlyCollideWhereVanillaActuallyBrewsThem() {
+        // 2026-07-31 レビュー指摘#3: 延長/強化/反転はバニラでは「WATER」と「効果付きポーション」を
+        // 出発点にする mix しか無い。THICK / MUNDANE を from とする mix は1件も無いので、
+        // ベースを見ずに衝突扱いすると実在しないバニラレシピを守るために登録を拒否してしまう
+        // (= 運営者が editor で書いた組が無言で成立しない = K-13 と同じ症状の再発)。
+        for (String ingredient : java.util.List.of("REDSTONE", "GLOWSTONE_DUST", "FERMENTED_SPIDER_EYE")) {
+            assertNull(BrewPotionMixRegistrar.vanillaCollision("THICK", ingredient),
+                    "THICK + " + ingredient + " はバニラに存在しない組み合わせ");
+            assertNull(BrewPotionMixRegistrar.vanillaCollision("MUNDANE", ingredient),
+                    "MUNDANE + " + ingredient + " はバニラに存在しない組み合わせ");
+            assertNotNull(BrewPotionMixRegistrar.vanillaCollision("WATER", ingredient),
+                    "WATER + " + ingredient + " はバニラが MUNDANE / THICK / 弱化 を作る");
+            assertNotNull(BrewPotionMixRegistrar.vanillaCollision("SWIFTNESS", ingredient),
+                    "効果付きポーション + " + ingredient + " は延長/強化/反転そのもの");
+        }
+        assertNull(BrewPotionMixRegistrar.vanillaCollision("AWKWARD", "REDSTONE"),
+                "AWKWARD + レッドストーンもバニラには無い(延長できる効果を持っていないため)");
+    }
+
+    @Test
+    void deadEndBasesStillRefuseContainerIngredients() {
+        // 容器mix だけは THICK / MUNDANE でも衝突する(スプラッシュ化はどのポーションからでも成立する)。
+        Map<String, BrewUnlockGroup> groups = Map.of("g", new BrewUnlockGroup(List.of(
+                spec("MUNDANE", "GUNPOWDER"), spec("MUNDANE", "REDSTONE"))));
+
+        List<BrewPotionMixRegistrar.MixPlan> plans = BrewPotionMixRegistrar.plan(groups, log());
+
+        assertEquals(List.of("REDSTONE"), plans.stream()
+                        .map(p -> p.spec().ingredient()).toList(),
+                "火薬だけが衝突として外れ、レッドストーンは登録される");
+    }
+
+    // ---- 重複した (base, ingredient) の解決 (レビュー指摘#2) ----
+
+    @Test
+    void duplicatePairsKeepOnlyTheHigherRequirementLevel() {
+        // 実害だった形: Lv60 と Lv80 が THICK+GOLDEN_CARROT を重複宣言 → yml 順で Lv60 が先に一致し、
+        // Lv80 の amplifier 1 が永久に出なかった。
+        Map<String, BrewUnlockGroup> groups = new LinkedHashMap<>();
+        groups.put("healthboost-haste", new BrewUnlockGroup(List.of(spec("THICK", "GOLDEN_CARROT"))));
+        groups.put("healthboost-haste-2", new BrewUnlockGroup(List.of(spec("THICK", "GOLDEN_CARROT"))));
+        Map<String, Integer> levels = Map.of("healthboost-haste", 60, "healthboost-haste-2", 80);
+
+        List<BrewPotionMixRegistrar.MixPlan> plans =
+                BrewPotionMixRegistrar.plan(groups, levels, log());
+
+        assertEquals(1, plans.size(), "同じ (base, ingredient) は1件しか登録しない");
+        assertEquals("healthboost-haste-2", plans.get(0).groupId(),
+                "要求レベルが高い側(上位段)が勝つ");
+        assertEquals(80, plans.get(0).requirementLevel());
+    }
+
+    @Test
+    void duplicatePairsAreResolvedDeterministicallyWhenLevelsTie() {
+        Map<String, BrewUnlockGroup> groups = new LinkedHashMap<>();
+        groups.put("first", new BrewUnlockGroup(List.of(spec("THICK", "custom:hoglin_tusk"))));
+        groups.put("second", new BrewUnlockGroup(List.of(spec("THICK", "custom:hoglin_tusk"))));
+
+        List<BrewPotionMixRegistrar.MixPlan> plans = BrewPotionMixRegistrar.plan(groups, log());
+
+        assertEquals(1, plans.size());
+        assertEquals("first", plans.get(0).groupId(), "同値なら yml 順の先頭(順序で結果が揺れない)");
+    }
+
+    @Test
+    void differentBasesForTheSameIngredientAreBothRegistered() {
+        // 出荷 config が採った段の分け方(下位段 THICK / 上位段 MUNDANE)が重複扱いされないこと。
+        Map<String, BrewUnlockGroup> groups = new LinkedHashMap<>();
+        groups.put("lower", new BrewUnlockGroup(List.of(spec("THICK", "GOLDEN_CARROT"))));
+        groups.put("upper", new BrewUnlockGroup(List.of(spec("MUNDANE", "GOLDEN_CARROT"))));
+
+        assertEquals(2, BrewPotionMixRegistrar.plan(groups, log()).size());
+    }
+
+    @Test
+    void pairKeyNormalizesCaseAndAliasesSoDuplicatesCannotHideBehindSpelling() {
+        assertEquals(BrewRecipeSupport.pairKey("THICK", "SUGAR"),
+                BrewRecipeSupport.pairKey(" thick ", "minecraft:sugar"));
+        assertEquals(BrewRecipeSupport.pairKey("", "SUGAR"),
+                BrewRecipeSupport.pairKey(null, "SUGAR"),
+                "base 空欄と未指定は同じ「任意のビン」");
+        assertEquals(BrewRecipeSupport.pairKey("THICK", "custom:Hoglin_Tusk"),
+                BrewRecipeSupport.pairKey("THICK", "custom:hoglin_tusk"));
+    }
+
+    // ---- 要求レベルの解決 ----
+
+    @Test
+    void requirementLevelsTakeTheLowestNodeThatPlacesTheGate() {
+        com.trinityforge.skilltree.SkillTree tree = new com.trinityforge.skilltree.SkillTree(
+                "ALCHEMY", "錬金", "BREWING_STAND", "0,0", null,
+                Map.of(
+                        "C-2-upper", node("C-2-upper", 60, "brew:healthboost-haste"),
+                        "E-1-1", node("E-1-1", 80, "brew:healthboost-haste-2"),
+                        "E-1-2", node("E-1-2", 70, "brew:healthboost-haste-2")));
+
+        Map<String, Integer> levels = BrewPotionMixRegistrar.requirementLevels(List.of(tree));
+
+        assertEquals(60, levels.get("healthboost-haste"));
+        assertEquals(70, levels.get("healthboost-haste-2"),
+                "同じ gate を複数ノードが置いているなら、最初に届くノードのレベルが実際の要求レベル");
+        assertNull(levels.get("apex-brew"), "未参照グループは記録しない(既定 0 扱い)");
+    }
+
+    private static com.trinityforge.skilltree.SkillNode node(String id, int level, String gateId) {
+        return new com.trinityforge.skilltree.SkillNode(id, id, level,
+                com.trinityforge.skilltree.SkillRole.BRANCH, null, null, null, 1, null,
+                Map.of(), Map.of(), List.of(), List.of(),
+                List.of(new com.trinityforge.skilltree.DedicatedEffectEntry(gateId, null)));
     }
 
     @Test
@@ -176,7 +287,7 @@ class BrewPotionMixRegistrarTest {
                 spec("THICK", "custom:hoglin_tusk"))));
 
         BrewPotionMixRegistrar registrar = new BrewPotionMixRegistrar(
-                fakePlugin(), () -> groups, sink, spec -> mock(ItemStack.class));
+                fakePlugin(), () -> groups, Map::of, sink, spec -> mock(ItemStack.class));
 
         registrar.registerAll();
         assertEquals(List.of(new NamespacedKey("trinityforge", "brew_apex_brew_1")), sink.added);
@@ -187,6 +298,25 @@ class BrewPotionMixRegistrarTest {
                 "2回目は先に自分のキーを外す (addPotionMix は同一キーで IllegalArgumentException を投げる)");
         assertEquals(2, sink.added.size());
         assertEquals(1, registrar.registeredKeys().size());
+    }
+
+    @Test
+    void livePlansExposeExactlyWhatWasRegisteredSoTheGateCannotDivergeFromTheMixes() {
+        // BrewUnlockListener はこの一覧だけを見る。登録されなかった組(バニラ衝突など)が混じると
+        // 「登録されていないのにゲートだけ掛かる」= バニラのポーションが作れない誤爆になる。
+        RecordingSink sink = new RecordingSink();
+        Map<String, BrewUnlockGroup> groups = Map.of("healthboost-haste", new BrewUnlockGroup(List.of(
+                spec("AWKWARD", "GLISTERING_MELON_SLICE"), spec("THICK", "GOLDEN_CARROT"))));
+
+        BrewPotionMixRegistrar registrar = new BrewPotionMixRegistrar(
+                fakePlugin(), () -> groups, Map::of, sink, spec -> mock(ItemStack.class));
+        assertTrue(registrar.livePlans().isEmpty(), "registerAll 前は空(ゲートも掛からない)");
+
+        registrar.registerAll();
+
+        assertEquals(List.of("GOLDEN_CARROT"), registrar.livePlans().stream()
+                        .map(p -> p.spec().ingredient()).toList(),
+                "バニラ衝突で登録から外れた組は livePlans にも入らない");
     }
 
     @Test

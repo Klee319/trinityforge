@@ -1,20 +1,18 @@
 package com.trinityforge.listeners;
 
-import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewPotionSpec;
-import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewUnlockGroup;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
+import com.trinityforge.stats.BrewPotionMixRegistrar.MixPlan;
 import com.trinityforge.stats.BrewRecipeSupport;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Location;
-import org.bukkit.block.BrewingStand;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BrewingStartEvent;
 import org.bukkit.event.inventory.BrewEvent;
+import org.bukkit.event.inventory.BrewingStandFuelEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -27,8 +25,9 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Gated custom brew results ({@code brew-unlocks} in crafting-features.yml), gated by
@@ -47,29 +46,45 @@ import java.util.Objects;
  *   <li><b>このリスナーは「解放判定」と「結果の差し替え」だけを担う。</b></li>
  * </ul>
  *
- * <h2>未解放プレイヤーの扱い: 投入自体を弾く</h2>
+ * <h2>ゲート対象は「実際に登録された mix」だけ</h2>
+ * 判定に使うのは生の {@code brewUnlocks()} ではなく
+ * {@link com.trinityforge.stats.BrewPotionMixRegistrar#livePlans()}。登録されなかった組
+ * (バニラ衝突・素材名の誤り・重複の敗者)は<b>そもそも醸造が始まらない</b>か<b>バニラのレシピとして
+ * 成立する</b>ので、ゲートを掛けても守るものが無く「バニラの俊敏のポーションが作れない」型の
+ * 誤爆になるだけ。両者が同じ一覧を見ることで「素材は置けるのに結果が差し替わらない(逆も)」という
+ * <b>片方だけ直したときに静かに壊れる</b>食い違いも構造的に起きなくなる。
+ *
+ * <h2>未解放プレイヤーの扱い: 燃料と時間が動く前に止める</h2>
  * mix を登録すると素材は<b>誰でも</b>上段に置けて醸造も始まる。完成時に {@code BrewEvent} を
  * キャンセルするだけだと、{@code doBrew} は素材を {@code shrink} せず即 return し、
  * {@code brewTime} は既に 0 なので次tickで {@code brewable && fuel>0} から再開する
- * → <b>20秒ごとにブレイズパウダーを1個燃やし続ける</b>({@code BrewingStartEvent} は
- * {@code Cancellable} ではないのでイベントで止められない)。そこで
- * {@link #onBrewerClick} / {@link #onBrewerDrag} / {@link #onHopperMove} で<b>投入自体をキャンセル</b>する。
+ * → <b>20秒ごとに燃料を1つ燃やし続ける</b>。{@code BrewingStartEvent} は {@code Cancellable} ではない
+ * (1.21.11 で確認済み)ので、開始イベントで止めることもできない。そこで3段で塞ぐ:
+ * <ol>
+ *   <li>{@link #onBrewerClick} / {@link #onBrewerDrag} / {@link #onHopperMove} —
+ *       <b>組み合わせが成立する投入を弾く</b>。素材側・ビン側の<b>両方</b>を見るので
+ *       「素材→ビン」「ビン→素材」どちらの順序でも抜けない
+ *       (素材だけを見ていた旧実装は、砂糖を先に入れてから THICK ビンを入れると素通りしていた)。</li>
+ *   <li>{@link #onBrewingStandFuel} — 未解放の組み合わせが載っているスタンドは
+ *       <b>燃料を受け付けない</b>({@code BrewingStandFuelEvent} はキャンセル可能で、
+ *       キャンセルするとブレイズパウダーも消費されない)。これが「開始そのものを弾く」本体。</li>
+ *   <li>{@link #onBrewingStart} — 既に燃料を持っていたスタンドが走り出した場合は
+ *       <b>燃料を 0 にして周回を1回で終わらせる</b>(2 のおかげで補給もされない)。</li>
+ * </ol>
  *
- * <p><b>⚠️ ホッパー自動化への影響</b>: 未解放(または近くに解放者が居ない)状態でホッパーが
- * ゲート付き素材を送り込もうとすると<b>投入が拒否され、素材はスタンド手前で詰まる</b>
- * (ホッパーに残り続ける)。燃料が無言で溶けるより事故が少ないという判断
+ * <h2>解放判定は「スタンドに記録された所有者」</h2>
+ * {@link BrewStandOwners} 参照。閲覧者や半径8ブロックのプレイヤーで判定していた旧実装は、
+ * <b>解放者が醸造中(20秒)に8ブロック歩くだけで</b>未解放扱いへ落ちて上記の燃料ループに入っていた。
+ * 所有者は「ゲート対象の組み合わせを正当に(=解放済みの状態で)組み立てたプレイヤー」として
+ * 投入時にブロックの PDC へ記録する。
+ *
+ * <p><b>⚠️ ホッパー自動化への影響</b>: ホッパーには操作者がいないので、判定は
+ * <b>スタンドに記録された所有者</b>だけで行う。したがって
+ * 「所有者が未記録」「所有者がオフライン」「所有者がその組み合わせを解放していない」のいずれでも
+ * <b>投入が拒否され、素材はホッパーに残って詰まる</b>。自動化するなら
+ * <b>解放済みのプレイヤーが一度手で同じ組み合わせを組み立てて所有者になり、かつオンラインである</b>
+ * 必要がある(醸造台を壊すと所有者の記録も消える)。燃料が無言で溶けるより事故が少ないという判断
  * (オーケストレータ決定 2026-07-31)。
- *
- * <p><b>弾く条件を絞っている理由</b>: 素材だけを見て一律に弾くと、たとえば
- * {@code THICK + SUGAR} をゲートしているために<b>バニラの俊敏のポーション(AWKWARD + SUGAR)まで
- * 作れなくなる</b>。そのため「{@code custom:} 素材(バニラの醸造素材ではないので弾いて損が無い)」か
- * 「ゲート対象 spec の base に一致するビンが既にスタンドへ入っている」場合だけ弾く。
- *
- * <p>残る副作用として、<b>ゲート対象 spec が base をバニラと共有している場合</b>
- * (出荷 config では {@code AWKWARD + GLISTERING_MELON_SLICE})は、未解放プレイヤーがそのビンを
- * 入れた状態では素材を投入できない。これは修正前から {@code onBrew} 側のキャンセルで
- * 「そのバニラポーションも作れない」状態だった<b>config 側の設計問題</b>で、直すなら
- * yml で base を {@code THICK} 側へ寄せる(Java 側の変更は不要)。
  */
 public final class BrewUnlockListener implements Listener {
 
@@ -78,14 +93,17 @@ public final class BrewUnlockListener implements Listener {
             "この醸造素材を使うにはスキルツリーで解放する必要があります", NamedTextColor.RED);
 
     private final DedicatedEffectsConfig dedicatedEffects;
-    private final CraftingFeaturesConfig features;
+    private final Supplier<List<MixPlan>> gatedMixes;
+    private final BrewStandOwners owners;
     private final Plugin plugin;
 
     public BrewUnlockListener(DedicatedEffectsConfig dedicatedEffects,
-                              CraftingFeaturesConfig features,
+                              Supplier<List<MixPlan>> gatedMixes,
+                              BrewStandOwners owners,
                               Plugin plugin) {
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
-        this.features = Objects.requireNonNull(features, "features");
+        this.gatedMixes = Objects.requireNonNull(gatedMixes, "gatedMixes");
+        this.owners = Objects.requireNonNull(owners, "owners");
         this.plugin = Objects.requireNonNull(plugin, "plugin");
     }
 
@@ -111,12 +129,17 @@ public final class BrewUnlockListener implements Listener {
         }
 
         List<ItemStack> results = event.getResults();
-        List<MatchedSpec> matched = matchSpecs(ingredient).stream()
-                .filter(match -> hasMatchingBottleBase(inv, results, match.spec().base()))
-                .toList();
+        List<MixPlan> matched = new ArrayList<>();
+        for (MixPlan plan : gatedMixes.get()) {
+            if (BrewRecipeSupport.matchesIngredient(ingredient, plan.spec().ingredient())
+                    && hasMatchingBottleBase(inv, results, plan.spec().base())) {
+                matched.add(plan);
+            }
+        }
         if (matched.isEmpty()) {
             return; // not a gated TF brew recipe
         }
+        Player owner = resolveOwner(inv);
 
         // スタンド全体で「どれか1つの解放」を見ると、同じ材料を使う別baseの未解放瓶を
         // 混ぜるだけでゲートを迂回できる。各瓶について、そのbaseに一致するspecの少なくとも
@@ -129,12 +152,12 @@ public final class BrewUnlockListener implements Listener {
             }
             boolean hasGatedMatch = false;
             boolean hasUnlockedMatch = false;
-            for (MatchedSpec m : matched) {
-                if (!BrewRecipeSupport.matchesBase(probe, m.spec().base())) {
+            for (MixPlan plan : matched) {
+                if (!BrewRecipeSupport.matchesBase(probe, plan.spec().base())) {
                     continue;
                 }
                 hasGatedMatch = true;
-                if (playerHasEffectNear(inv, m.effectId())) {
+                if (holdsUnlock(owner, plan)) {
                     hasUnlockedMatch = true;
                     break;
                 }
@@ -154,25 +177,69 @@ public final class BrewUnlockListener implements Listener {
             if (probe == null) {
                 continue;
             }
-
-            for (MatchedSpec m : matched) {
-                if (!playerHasEffectNear(inv, m.effectId())) {
+            // 万一同じ (base, ingredient) が複数残っていても、要求レベルが最も高い段を出す
+            // (登録側の dedup と同じ勝敗規則。上位段が下位段に食われないための二重の保険)。
+            MixPlan best = null;
+            for (MixPlan plan : matched) {
+                if (!holdsUnlock(owner, plan)
+                        || !BrewRecipeSupport.matchesBase(probe, plan.spec().base())) {
                     continue;
                 }
-                if (!BrewRecipeSupport.matchesBase(probe, m.spec().base())) {
-                    continue;
+                if (best == null || plan.requirementLevel() > best.requirementLevel()) {
+                    best = plan;
                 }
-                ItemStack custom = BrewRecipeSupport.customPotion(bottle.getType(), m.spec());
-                while (results.size() <= slot) {
-                    results.add(null);
-                }
-                results.set(slot, custom);
-                break;
             }
+            if (best == null) {
+                continue;
+            }
+            ItemStack custom = BrewRecipeSupport.customPotion(bottle.getType(), best.spec());
+            while (results.size() <= slot) {
+                results.add(null);
+            }
+            results.set(slot, custom);
         }
     }
 
-    /** 未解放プレイヤーによる素材投入をクリック経路で弾く(クラスjavadoc「投入自体を弾く」参照)。 */
+    /**
+     * 燃料の取得段でゲートを掛ける(= 醸造の開始そのものを止める本体)。
+     *
+     * <p>{@code BrewingStandFuelEvent} はキャンセル可能で、キャンセルすると
+     * <b>燃料スロットのブレイズパウダーも消費されない</b>(CraftBukkit はイベント判定の後に
+     * {@code fuel = getFuelPower()} と {@code shrink(1)} を行う)。燃料が 0 のままなら
+     * {@code brewable && fuel > 0} が成立せず、醸造は1tickも進まない。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBrewingStandFuel(BrewingStandFuelEvent event) {
+        BrewerInventory brew = BrewStandOwners.inventoryOf(event.getBlock());
+        if (brew == null || !isLockedBrew(brew)) {
+            return;
+        }
+        event.setCancelled(true);
+        plugin.getLogger().log(java.util.logging.Level.FINE,
+                () -> "[brew-unlocks] refused to fuel a brewing stand holding a locked gated brew");
+    }
+
+    /**
+     * 既に燃料を持っていたスタンドが未解放の組み合わせで走り出した場合の後始末
+     * (所有者がログアウトした・ノードを振り直した・他プラグインが素材を差し込んだ等)。
+     *
+     * <p>{@code BrewingStartEvent} は {@code Cancellable} ではないので開始自体は止められない。
+     * 燃料を 0 にして<b>次の周回が始まらない</b>ようにする({@link #onBrewingStandFuel} が補給も拒否する
+     * ので、解放条件が満たされるまで再開しない)。この1周分の燃料1つは、イベント発火前に
+     * バニラが既に減らしているため取り返せない。
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onBrewingStart(BrewingStartEvent event) {
+        BrewerInventory brew = BrewStandOwners.inventoryOf(event.getBlock());
+        if (brew == null || !isLockedBrew(brew)) {
+            return;
+        }
+        BrewStandOwners.drainFuel(event.getBlock());
+        plugin.getLogger().log(java.util.logging.Level.FINE,
+                () -> "[brew-unlocks] drained the fuel of a brewing stand that started a locked gated brew");
+    }
+
+    /** 未解放プレイヤーによる投入をクリック経路で弾く(クラスjavadoc「投入自体を弾く」参照)。 */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBrewerClick(InventoryClickEvent event) {
         if (!(event.getInventory() instanceof BrewerInventory brew)) {
@@ -211,8 +278,8 @@ public final class BrewUnlockListener implements Listener {
     }
 
     /**
-     * ホッパー経由の投入。プレイヤーがいないので「スタンドを見ている / 8ブロック以内の解放者」で
-     * 判定する({@link #playerHasEffectNear} と同じ規約)。
+     * ホッパー経由の投入。操作者がいないので、判定は<b>スタンドに記録された所有者</b>だけで行う
+     * (クラスjavadocの「ホッパー自動化への影響」参照)。所有者が未記録/オフラインなら弾く。
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHopperMove(InventoryMoveItemEvent event) {
@@ -228,7 +295,7 @@ public final class BrewUnlockListener implements Listener {
         // 「ホッパーが動かない」の原因を運営が追えるようにする(クラスjavadoc の詰まり挙動)。
         plugin.getLogger().log(java.util.logging.Level.FINE,
                 () -> "[brew-unlocks] refused hopper insertion of " + moving.getType()
-                        + " into a brewing stand: no nearby player holds the unlock");
+                        + " into a brewing stand: its recorded owner does not hold the unlock");
     }
 
     /**
@@ -256,39 +323,98 @@ public final class BrewUnlockListener implements Listener {
     }
 
     /**
-     * この投入を弾くべきか。「ゲート対象 spec に一致する素材」かつ「一致する spec を1つも解放して
-     * いない」ことに加え、<b>誤爆を避けるため</b>次のどちらかを要求する(クラスjavadoc参照)。
+     * この投入を弾くべきか。判定は<b>「この投入でゲート対象の組み合わせが成立してしまうか」</b>
+     * (2026-07-31 D10 レビュー指摘#1(a)):
      * <ul>
-     *   <li>{@code custom:} 素材である(バニラの醸造素材ではないので弾いて失うものが無い)</li>
-     *   <li>ゲート対象 spec の base に一致するビンが既にスタンドへ入っている</li>
+     *   <li>入れるものがポーション瓶なら、上段に載っている素材と組んで成立するかを見る
+     *       (<b>「素材 → ビン」の順序で抜けていた穴</b>)。</li>
+     *   <li>入れるものが素材なら、下段に載っているビンと組んで成立するかを見る。</li>
      * </ul>
+     * こうすると「{@code THICK + SUGAR} をゲートしているためにバニラの俊敏のポーション
+     * ({@code AWKWARD + SUGAR})まで作れない」という誤爆も起きない — ベースが違えば成立しないため。
+     *
+     * <p>成立してしまう組み合わせのうち<b>1つでも解放している</b>なら投入を許し、その操作者を
+     * スタンドの所有者として記録する(以降の完成時判定とホッパー投入はこの所有者で行う)。
+     *
+     * @param actor クリック/ドラッグの操作者。ホッパー経路は {@code null}(記録済み所有者で判定する)。
      */
-    private boolean isLockedInsertion(BrewerInventory brew, Player player, ItemStack stack) {
+    private boolean isLockedInsertion(BrewerInventory brew, Player actor, ItemStack stack) {
         if (stack == null || stack.getType().isAir()) {
             return false;
         }
-        List<MatchedSpec> matched = matchSpecs(stack);
-        if (matched.isEmpty()) {
+        List<MixPlan> completed = completedGates(brew, stack);
+        if (completed.isEmpty()) {
             return false;
         }
-        boolean anyCustom = false;
-        boolean anyBottleBaseMatch = false;
-        for (MatchedSpec m : matched) {
-            if (hasEffect(player, brew, m.effectId())) {
+        Player judged = actor != null ? actor : resolveOwner(brew);
+        for (MixPlan plan : completed) {
+            if (holdsUnlock(judged, plan)) {
+                if (actor != null) {
+                    owners.remember(brew, actor);
+                }
                 return false; // 解放済み: 通常どおり投入できる
             }
-            if (BrewRecipeSupport.isCustomKey(m.spec().ingredient())) {
-                anyCustom = true;
-            }
-            if (bottleBaseLoaded(brew, m.spec().base())) {
-                anyBottleBaseMatch = true;
+        }
+        return true;
+    }
+
+    /**
+     * {@code stack} を入れたあとのスタンドで成立してしまうゲート対象 spec。
+     * 素材側とビン側の<b>両方</b>を見るので投入順序に依存しない。
+     */
+    private List<MixPlan> completedGates(BrewerInventory brew, ItemStack stack) {
+        List<MixPlan> out = new ArrayList<>();
+        boolean incomingIsBottle = BrewRecipeSupport.isPotionContainer(stack.getType());
+        PotionMeta incomingMeta = incomingIsBottle && stack.getItemMeta() instanceof PotionMeta meta
+                ? meta : null;
+        ItemStack loadedIngredient = brew == null ? null : brew.getIngredient();
+        for (MixPlan plan : gatedMixes.get()) {
+            BrewPotionSpec spec = plan.spec();
+            // ビンとして入る解釈(上段の素材と組む)
+            boolean asBottle = incomingMeta != null
+                    && BrewRecipeSupport.matchesBase(incomingMeta, spec.base())
+                    && loadedIngredient != null
+                    && BrewRecipeSupport.matchesIngredient(loadedIngredient, spec.ingredient());
+            // 素材として入る解釈(下段のビンと組む)。両方を見るのは、素材にポーションを指定した
+            // config でも取りこぼさないため(通常の config では一方しか成立しない)。
+            boolean asIngredient = BrewRecipeSupport.matchesIngredient(stack, spec.ingredient())
+                    && bottleBaseLoaded(brew, spec.base());
+            if (asBottle || asIngredient) {
+                out.add(plan);
             }
         }
-        return anyCustom || anyBottleBaseMatch;
+        return out;
+    }
+
+    /**
+     * このスタンドに<b>今載っている</b>組み合わせが「ゲート対象なのに所有者が解放していない」状態か
+     * ({@link #onBrewingStandFuel} / {@link #onBrewingStart} の判定)。
+     */
+    private boolean isLockedBrew(BrewerInventory brew) {
+        ItemStack ingredient = brew.getIngredient();
+        if (ingredient == null || ingredient.getType().isAir()) {
+            return false;
+        }
+        Player owner = resolveOwner(brew);
+        boolean gated = false;
+        for (MixPlan plan : gatedMixes.get()) {
+            if (!BrewRecipeSupport.matchesIngredient(ingredient, plan.spec().ingredient())
+                    || !bottleBaseLoaded(brew, plan.spec().base())) {
+                continue;
+            }
+            gated = true;
+            if (holdsUnlock(owner, plan)) {
+                return false;
+            }
+        }
+        return gated;
     }
 
     /** 指定 base のビンがスタンドの下段(0..2)に入っているか。 */
     private static boolean bottleBaseLoaded(BrewerInventory brew, String baseName) {
+        if (brew == null) {
+            return false;
+        }
         for (int slot = 0; slot < 3; slot++) {
             ItemStack bottle = brew.getItem(slot);
             if (bottle != null && bottle.getItemMeta() instanceof PotionMeta meta
@@ -299,24 +425,14 @@ public final class BrewUnlockListener implements Listener {
         return false;
     }
 
-    private boolean hasEffect(Player hint, BrewerInventory brew, String effectId) {
-        if (hint != null && dedicatedEffects.isActive(hint, effectId)) {
-            return true;
-        }
-        return playerHasEffectNear(brew, effectId);
+    /** スタンドに記録された所有者のうち<b>オンラインのもの</b>。未記録/オフラインなら {@code null}。 */
+    private Player resolveOwner(BrewerInventory brew) {
+        UUID uuid = owners.ownerOf(brew).orElse(null);
+        return uuid == null ? null : owners.online(uuid);
     }
 
-    private List<MatchedSpec> matchSpecs(ItemStack ingredient) {
-        List<MatchedSpec> out = new ArrayList<>();
-        for (Map.Entry<String, BrewUnlockGroup> entry : features.brewUnlocks().entrySet()) {
-            String effectId = GATE_PREFIX + entry.getKey();
-            for (BrewPotionSpec spec : entry.getValue().potions()) {
-                if (BrewRecipeSupport.matchesIngredient(ingredient, spec.ingredient())) {
-                    out.add(new MatchedSpec(effectId, spec));
-                }
-            }
-        }
-        return out;
+    private boolean holdsUnlock(Player player, MixPlan plan) {
+        return player != null && dedicatedEffects.isActive(player, GATE_PREFIX + plan.groupId());
     }
 
     private static boolean hasMatchingBottleBase(BrewerInventory inv, List<ItemStack> results,
@@ -348,28 +464,4 @@ public final class BrewUnlockListener implements Listener {
         }
         return null;
     }
-
-    private boolean playerHasEffectNear(BrewerInventory inv, String effectId) {
-        for (HumanEntity viewer : inv.getViewers()) {
-            if (viewer instanceof Player player && dedicatedEffects.isActive(player, effectId)) {
-                return true;
-            }
-        }
-        if (!(inv.getHolder() instanceof BrewingStand stand)) {
-            return false;
-        }
-        Location loc = stand.getLocation();
-        if (loc == null || loc.getWorld() == null) {
-            return false;
-        }
-        for (Player player : loc.getWorld().getPlayers()) {
-            if (player.getLocation().distanceSquared(loc) <= 64.0 // 8 blocks
-                    && dedicatedEffects.isActive(player, effectId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private record MatchedSpec(String effectId, BrewPotionSpec spec) {}
 }

@@ -174,6 +174,12 @@ test("醸造解放セクション: 強制開始ではなく「投入を弾く」
     "D10 で醸造タイマーの強制開始は削除された(PotionMix 登録方式へ移行)ので、説明文が stale");
   assert.ok(texts.some((t) => t.includes("投入")), "投入自体が弾かれるという説明が無い");
   assert.ok(texts.some((t) => t.includes("ホッパー")), "ホッパーで詰まるという注意書きが無い");
+  // D10 レビュー指摘#1(b) (2026-07-31): 判定は「近くのプレイヤー」ではなくスタンドの所有者。
+  // ホッパー自動化の成立条件が変わったので、注意書きも新しい条件を書いていること。
+  assert.ok(texts.some((t) => t.includes("所有者")),
+    "ホッパー経由の判定が「醸造台に記録された所有者」であるという説明が無い");
+  assert.ok(texts.some((t) => t.includes("同じ (ベース, 材料)")),
+    "同じ組を2グループに書くと片方が永久に作れないという注意書きが無い");
 });
 
 // ---- スキーマ ----
@@ -193,6 +199,43 @@ test("tf-crafting-features: recipe-book の非boolean/未知キー/非マップ�
     "recipe-book": { "reveal-plugin-recipe": true }
   }).length, 1);
   assert.equal(validate("tf-crafting-features", { "recipe-book": [] }).length, 1);
+});
+
+// ---- brew-unlocks の重複した (ベース, 材料) — D10 レビュー指摘#2 (2026-07-31) ----
+// 重複を書くと Paper の customMixes も Java 側リスナーも「先に一致した1件」で確定するので、
+// もう一方のグループのポーションは永久に作れない(実害: Lv80 の上位段が Lv60 に食われていた)。
+// Java 側は起動時に要求レベルの高い方を残して WARNING を出すが、起動ログを見ないと気づけない。
+
+test("tf-crafting-features: 同じ (ベース, 材料) を2グループに書くとエラー", () => {
+  const errors = validate("tf-crafting-features", {
+    "brew-unlocks": {
+      "healthboost-haste": { potions: [{ base: "THICK", ingredient: "GOLDEN_CARROT", result: {} }] },
+      "healthboost-haste-2": { potions: [{ base: "THICK", ingredient: "GOLDEN_CARROT", result: {} }] }
+    }
+  });
+  assert.equal(errors.length, 1, `重複が検出されていない: ${JSON.stringify(errors)}`);
+  assert.ok(errors[0].includes("healthboost-haste"), errors[0]);
+});
+
+test("tf-crafting-features: ベースが違えば同じ材料でもエラーにならない(段の正しい分け方)", () => {
+  assert.deepEqual(validate("tf-crafting-features", {
+    "brew-unlocks": {
+      lower: { potions: [{ base: "THICK", ingredient: "GOLDEN_CARROT", result: {} }] },
+      upper: { potions: [{ base: "MUNDANE", ingredient: "GOLDEN_CARROT", result: {} }] }
+    }
+  }), []);
+});
+
+test("tf-crafting-features: 重複判定は綴りの揺れ(大小/minecraft:/custom:)を吸収する", () => {
+  const errors = validate("tf-crafting-features", {
+    "brew-unlocks": {
+      a: { potions: [{ base: "THICK", ingredient: "SUGAR", result: {} }] },
+      b: { potions: [{ base: " thick ", ingredient: "minecraft:sugar", result: {} }] },
+      c: { potions: [{ base: "THICK", ingredient: "custom:Hoglin_Tusk", result: {} }] },
+      d: { potions: [{ base: "THICK", ingredient: "custom:hoglin_tusk", result: {} }] }
+    }
+  });
+  assert.equal(errors.length, 2, `綴り違いの重複を見逃している: ${JSON.stringify(errors)}`);
 });
 
 test("出荷 crafting-features.yml: recipe-book を宣言し、スキーマ検証を通る", (t) => {

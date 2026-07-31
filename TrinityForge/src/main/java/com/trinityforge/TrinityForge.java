@@ -572,8 +572,12 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(recipeDiscoveryListener, this);
         // D10 (K-13): brew-unlocks を Paper の醸造 customMixes へ登録する。これが無いと
         // CMD 付きの討伐素材は上段スロットに置けず、THICK ベースは醸造自体が始まらない。
+        // 要求レベル(brew:<id> を置いているノードの最小レベル)は、同じ (base, ingredient) を
+        // 複数グループが宣言したときに「上位段を勝たせる」ために渡す(レビュー指摘#2)。
         this.brewPotionMixRegistrar = new com.trinityforge.stats.BrewPotionMixRegistrar(
                 this, () -> configManager.craftingFeatures().brewUnlocks(),
+                () -> com.trinityforge.stats.BrewPotionMixRegistrar.requirementLevels(
+                        configManager.skillTrees().all().values()),
                 com.trinityforge.stats.BrewPotionMixRegistrar.serverSink());
         brewPotionMixRegistrar.registerAll();
         // /minecraft:reload は PotionBrewing を作り直すので customMixes が全消滅する。
@@ -731,8 +735,14 @@ public final class TrinityForge extends JavaPlugin {
                         configManager.itemCatalog(), itemFactory, aggregator), this);
         getServer().getPluginManager().registerEvents(
                 new PotionMergeListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
+        // ゲート判定は「実際に登録された customMix」だけを見る (2026-07-31 D10 レビュー指摘#1/#3)。
+        // フィールド参照のラムダなのは、登録器がこの行より後で組まれるため(ラムダは呼ばれた時点の値を読む)。
         getServer().getPluginManager().registerEvents(
-                new BrewUnlockListener(configManager.dedicatedEffects(), configManager.craftingFeatures(), this), this);
+                new BrewUnlockListener(configManager.dedicatedEffects(),
+                        () -> brewPotionMixRegistrar == null
+                                ? java.util.List.<com.trinityforge.stats.BrewPotionMixRegistrar.MixPlan>of()
+                                : brewPotionMixRegistrar.livePlans(),
+                        com.trinityforge.listeners.BrewStandOwners.blockPdc(this), this), this);
         getServer().getPluginManager().registerEvents(
                 new OverEnchantListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(roleBuffListener, this);

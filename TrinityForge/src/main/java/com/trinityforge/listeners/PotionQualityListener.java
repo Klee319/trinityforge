@@ -130,7 +130,8 @@ public final class PotionQualityListener implements Listener {
             boosted.add(updated);
         }
         // 段階の異なる効果を一意に確定させるため、baseはWATERへ倒して全てcustom effectsで表現する
-        // (BrewUnlockListener#makeCustomPotion と同じ既存パターン)。
+        // (BrewRecipeSupport#customPotion と同じ既存パターン。2026-07-31 に
+        //  BrewUnlockListener#makeCustomPotion からそちらへ移設された)。
         meta.setBasePotionType(PotionType.WATER);
         meta.clearCustomEffects();
         for (PotionEffect effect : boosted) {
@@ -150,8 +151,9 @@ public final class PotionQualityListener implements Listener {
     }
 
     // ---- 醸造速度(brew_speed_bonus): バニラが醸造を開始した直後(getBrewingTime()==満タン)を検出し、
-    //      所有者のstatに応じて残り時間を短縮する。BrewUnlockListenerのカスタム強制開始と同じく、
-    //      クリック/ドラッグ/ホッパー投入の直後を1tick遅延で確認する。 ----
+    //      所有者のstatに応じて残り時間を短縮する。クリック/ドラッグ/ホッパー投入の直後を
+    //      1tick遅延で確認する(2026-07-31: かつてここにあった「BrewUnlockListenerのカスタム強制開始と
+    //      同じ方式」という記述は、その強制開始が PotionMix 登録方式へ置き換わって消えたため削除)。 ----
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBrewerClick(InventoryClickEvent event) {
