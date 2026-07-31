@@ -2,6 +2,7 @@ package com.trinityforge.gathering;
 
 import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -12,6 +13,7 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -31,6 +33,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p><strong>あえて {@code BlockBreakEvent} を合成しない。</strong> 発火させると採掘運/各ギミック/
  * ドロップテーブル/設置ブロック追跡など 10 以上のリスナーが連鎖分にも走り、一括破壊の収穫量が
  * 跳ね上がる(＝要望の範囲を超えた大幅なバランス変更になる)。ここで補うのは <em>EXP と耐久だけ</em>。
+ *
+ * <p>2026-07-31(G1 レビュー指摘5): 破壊そのものは {@code breakNaturally} をやめ
+ * {@link #breakOnce} が「1回だけ引いた抽選結果」を自分で撒く形にした。{@code BlockBreakEvent} を
+ * 発火しない点は変わらない(上の据え置き方針そのまま)。
  */
 public final class ChainBreakSupport {
 
@@ -79,11 +85,7 @@ public final class ChainBreakSupport {
                 // 道具が壊れた/持ち替わった。
                 break;
             }
-            if (expGrant != null) {
-                // 破壊前に呼ぶこと(壊した後は AIR になりドロップも取れない)。
-                expGrant.grant(player, target, target.getDrops(tool, player), tool);
-            }
-            target.breakNaturally(tool);
+            breakOnce(player, target, tool, expGrant);
             broken++;
             if (damageTool && !damageHeldTool(player)) {
                 // 道具が壊れた。
@@ -91,6 +93,48 @@ public final class ChainBreakSupport {
             }
         }
         return broken;
+    }
+
+    /**
+     * 1ブロックを壊し、<b>ルートテーブルの抽選を1回だけ</b>行う(2026-07-31 G1 レビュー指摘5)。
+     *
+     * <p><b>直した不具合</b>: 以前は {@code getDrops(tool, player)} で1回引いて EXP 側に渡し、その直後の
+     * {@code breakNaturally(tool)} が<em>同じテーブルをもう1回</em>引いて実際のドロップを撒いていた。
+     * つまり
+     * <ul>
+     *   <li>採取EXP({@code exp-mode: drop_sum})が<b>実際に落ちた物とは別の抽選</b>で計算されていた
+     *       (葉のリンゴ/苗木のように確率ドロップだと EXP と手に入る物が食い違う)</li>
+     *   <li>抽選コストが常に2倍。一括伐採の葉は1回で最大1024枚なので、そのままメインスレッドの
+     *       tick に乗っていた(レビュー指摘3の主犯)</li>
+     * </ul>
+     * が起きていた。今は「1回引いた結果」を EXP にも渡し、そのまま自分で撒く。
+     *
+     * <p><b>{@code breakNaturally} を使わなくなった点の等価性</b>: {@code Block#breakNaturally(ItemStack)}
+     * は Paper では {@code triggerEffect=false} / {@code dropExperience=false} の縮退呼び出しなので、
+     * 破壊エフェクトもXPオーブも元から出ていない。したがって
+     * 「{@code setType(AIR)} + 引いた結果を {@code dropItemNaturally}」で挙動は等価
+     * (近傍更新も {@code setType} の既定で走る)。<b>{@code BlockBreakEvent} は依然として発火しない</b> —
+     * 合成して代用すると採掘運/ドロップテーブル/設置追跡など10以上のリスナーが連鎖分にも反応して
+     * 収穫量が跳ね上がるので、これは意図的に据え置き(クラス javadoc 参照)。
+     *
+     * <p><b>残余</b>: コンテナ(チェスト等)の中身は {@code getDrops} に含まれないので、連鎖対象に
+     * コンテナを入れると中身が消える。現在の呼び出し元は原木/葉/鉱石/作物だけなので該当しないが、
+     * 連鎖対象を広げるときはここを見ること。
+     */
+    private static void breakOnce(Player player, Block target, ItemStack tool, ChainBreakExpGrant expGrant) {
+        // 抽選はこの1回だけ。破壊前に読むこと(壊した後は AIR になりドロップが取れない)。
+        Collection<ItemStack> drops = target.getDrops(tool, player);
+        if (expGrant != null) {
+            expGrant.grant(player, target, drops, tool);
+        }
+        Location dropAt = target.getLocation();
+        World world = target.getWorld();
+        target.setType(Material.AIR);
+        for (ItemStack drop : drops) {
+            if (drop != null && drop.getType() != Material.AIR && drop.getAmount() > 0) {
+                world.dropItemNaturally(dropAt, drop);
+            }
+        }
     }
 
     /**

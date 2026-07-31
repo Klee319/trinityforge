@@ -10,6 +10,7 @@ import com.trinityforge.config.domains.WoodcuttingGimmickConfig;
 import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.DropTableConfig;
+import com.trinityforge.woodcutting.TreeScan;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -64,6 +66,9 @@ class TreeFellingListenerTest {
         aggregator = mock(PlayerStatAggregator.class);
         stubCooldownReduction(0.0);
         when(dedicatedEffects.dropGatePerks()).thenReturn(Map.of());
+        // 2026-07-31 G1 指摘6b: 走査上限は config 由来になった。Mockito 既定の 0 だと
+        // 「木が1本も見えない」ので機構ごと死ぬ。Java の既定値と同じ値を全テストの土台に置く。
+        when(gimmickConfig.treeFellScanLimit()).thenReturn(TreeScan.TREE_SCAN_LIMIT);
         player = server.addPlayer();
     }
 
@@ -364,20 +369,172 @@ class TreeFellingListenerTest {
                 "根元から8本 + 叩いた1本が消え、残るのは樹冠側(8,9,10)であること");
     }
 
+    /** CTの残りms(基準10秒)。0なら未消費。 */
+    private long remainingCooldownMillis() {
+        return cooldowns.remainingMillis(player.getUniqueId(), "tree-fell", 10_000L,
+                System.currentTimeMillis());
+    }
+
     @Test
     void cooldownIsNotConsumedWhenThereIsNothingToFell() {
         // 旧実装は走査より前にCTを消費していたので、1本も伐れない破壊でも10秒のCTを取られ、
         // 面を変えて試した2回目が無言で不発になっていた。
+        // 2026-07-31 G1 指摘4: 旧テストは treeFellBreakLeaves() をスタブせず Mockito 既定の false で
+        // 通っていた = 出荷され得ない設定でしか検証していなかった。出荷既定(true)で固定する。
         stubTreeFell(8);
+        stubLeaves(512, true);
         Block lonely = player.getWorld().getBlockAt(0, 64, 0);
         lonely.setType(Material.OAK_LOG);
 
         listener().onBlockBreak(breakEvent(lonely));
 
-        assertEquals(0L, cooldowns.remainingMillis(player.getUniqueId(), "tree-fell", 10_000L,
-                        System.currentTimeMillis()),
-                "連鎖対象0本ならCTを消費しないこと");
+        assertEquals(0L, remainingCooldownMillis(),
+                "連鎖0本かつ葉の計画0枚ならCTを消費しないこと(break-leaves: true でも)");
     }
+
+    @Test
+    void cooldownIsConsumedWhenOnlyTheLeafCleanupHasWorkToDo() {
+        // 「葉の計画が0枚のときだけ消費しない」であって「原木0本なら消費しない」ではない。
+        // 1本木の最後の1本を叩いて葉だけが掃除されるケースでは仕事があるのでCTを取る。
+        stubTreeFell(8);
+        stubLeaves(512, true);
+        Block lonely = player.getWorld().getBlockAt(0, 64, 0);
+        lonely.setType(Material.OAK_LOG);
+        Block leaf = player.getWorld().getBlockAt(1, 64, 0);
+        leaf.setType(Material.OAK_LEAVES);
+
+        listener().onBlockBreak(breakEvent(lonely));
+
+        assertEquals(Material.AIR, leaf.getType(), "支えが消える葉は掃除されること");
+        assertTrue(remainingCooldownMillis() > 0L, "葉の掃除が走ったのでCTを消費すること");
+    }
+
+    @Test
+    void breakingWhileOnCooldownDoesNotScanTheTreeAtAll() {
+        // 2026-07-31 G1 指摘3: 旧実装はCT判定を走査の後ろへ移した副作用で、CT中の空振り破壊でも
+        // 毎回フルスキャン(最大512本 + 近傍の getBlockAt 約3000回)の代金を払っていた。
+        // treeFellScanLimit() は走査の入り口でしか呼ばれないので、「呼ばれていない = 走査していない」。
+        stubTreeFell(8);
+        stubLeaves(512, true);
+        for (int y = 64; y <= 70; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+        for (int y = 64; y <= 70; y++) {
+            player.getWorld().getBlockAt(20, y, 0).setType(Material.OAK_LOG);
+        }
+        TreeFellingListener listener = listener();
+
+        listener.onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+        assertTrue(remainingCooldownMillis() > 0L, "1本目でCTを消費している(前提の確認)");
+
+        org.mockito.Mockito.clearInvocations(gimmickConfig);
+        listener.onBlockBreak(breakEvent(player.getWorld().getBlockAt(20, 64, 0)));
+
+        org.mockito.Mockito.verify(gimmickConfig, org.mockito.Mockito.never()).treeFellScanLimit();
+        assertEquals(Material.OAK_LOG, player.getWorld().getBlockAt(20, 65, 0).getType(),
+                "CT中なので2本目の木は伐れないこと");
+    }
+
+    @Test
+    void scanLimitCapsHowMuchOfTheTreeIsSeen() {
+        // 2026-07-31 G1 指摘6b: 走査上限が config レバーとして効くこと。3本しか見えなければ
+        // 上限8本でも連鎖は2本(base+2 のうち origin を除いた分)で止まる。
+        stubTreeFell(8);
+        when(gimmickConfig.treeFellScanLimit()).thenReturn(3);
+        for (int y = 64; y <= 73; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+
+        long remaining = java.util.stream.IntStream.rangeClosed(64, 73)
+                .filter(y -> player.getWorld().getBlockAt(0, y, 0).getType() == Material.OAK_LOG)
+                .count();
+        assertEquals(8, remaining, "scan-limit=3 なら見えるのは3本、連鎖対象はそのうち2本だけ");
+    }
+
+    // --- 2026-07-31 G1 レビュー指摘1 丸太建築(設置された丸太)を木として扱わない ---
+
+    /** {@code positions} の各座標に OAK_LOG を置き、設置済みとして記録する。 */
+    private java.util.List<Block> placedLogs(int[][] positions) {
+        java.util.List<Block> blocks = new java.util.ArrayList<>();
+        for (int[] xyz : positions) {
+            Block block = player.getWorld().getBlockAt(xyz[0], xyz[1], xyz[2]);
+            block.setType(Material.OAK_LOG);
+            placedBlockTracker.markPlaced(block);
+            blocks.add(block);
+        }
+        return blocks;
+    }
+
+    @Test
+    void aPlayerBuiltLogWallIsNotATreeSoStrikingItsTopLeavesTheRestAlone() {
+        // OAK_LOG で組んだ壁(柱 y=64..70 + 最下段の横一列 x=0..5)の上端を叩く。
+        // 「常に根元から伐る」を素で適用すると、クリック位置から水平に離れた y=64 の行が消えていた。
+        stubTreeFell(64);
+        stubLeaves(512, true);
+        java.util.List<int[]> wall = new java.util.ArrayList<>();
+        for (int y = 64; y <= 70; y++) {
+            wall.add(new int[] {0, y, 0});
+        }
+        for (int x = 1; x <= 5; x++) {
+            wall.add(new int[] {x, 64, 0});
+        }
+        java.util.List<Block> blocks = placedLogs(wall.toArray(new int[0][]));
+        Block top = player.getWorld().getBlockAt(0, 70, 0);
+
+        listener().onBlockBreak(breakEvent(top));
+
+        for (Block block : blocks) {
+            assertEquals(Material.OAK_LOG, block.getType(),
+                    "設置された丸太は木ではないので1本も連鎖破壊しないこと: " + block.getLocation());
+        }
+        assertEquals(0L, remainingCooldownMillis(), "仕事が無いのでCTも取らないこと");
+    }
+
+    @Test
+    void placedLogsStackedOnANaturalTreeStopTheScanInsteadOfExtendingIt() {
+        // 自然木(y=64..68)の上にプレイヤーが丸太を積んだ(y=69..70)状況。走査は設置分で止まり、
+        // 自然木だけが伐れること。
+        stubTreeFell(64);
+        stubLeaves(512, true);
+        for (int y = 64; y <= 68; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+        java.util.List<Block> placed = placedLogs(new int[][] {{0, 69, 0}, {0, 70, 0}});
+
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+
+        for (int y = 65; y <= 68; y++) {
+            assertEquals(Material.AIR, player.getWorld().getBlockAt(0, y, 0).getType(),
+                    "自然木の部分は伐れること y=" + y);
+        }
+        for (Block block : placed) {
+            assertEquals(Material.OAK_LOG, block.getType(), "設置分は残ること");
+        }
+    }
+
+    @Test
+    void aNaturalTreeIsStillFullyFelledWhenNothingIsMarkedAsPlaced() {
+        // 指摘1の対処で自然木が退行していないことの確認(PlacedBlockTracker は空)。
+        stubTreeFell(8);
+        stubLeaves(512, true);
+        for (int y = 64; y <= 70; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+
+        for (int y = 65; y <= 70; y++) {
+            assertEquals(Material.AIR, player.getWorld().getBlockAt(0, y, 0).getType(),
+                    "自然木は従来どおり全部倒れること y=" + y);
+        }
+    }
+
+    // 2026-07-31 G1 レビュー指摘5(ルートテーブルの抽選を1回だけにする)の回帰ガードは
+    // com.trinityforge.gathering.ChainBreakSupportSingleRollTest にある。MockBukkit の
+    // Block#getDrops(tool, player) は<b>無言で空コレクションを返す</b>ので、この実ワールド上の
+    // テストでは抽選も落下物も観測できない(数えても常に0になる)。
 
     // --- 2026-07-31 N2 実サーバ要望「一括伐採時の葉の自動破壊がバニラより大幅に速くなるように」 ---
 
@@ -529,20 +686,87 @@ class TreeFellingListenerTest {
     }
 
     @Test
+    void staggeredLeafBreakingWarnsOnceWhenTheSchedulerOwnerCannotBeResolved() {
+        // 2026-07-31 G1 指摘7: setPlugin 未注入 + getProvidingPlugin 解決失敗のとき、旧実装は無言で
+        // 「同tickに最大1024枚破壊」(yml 自身が非推奨と書く挙動)へ落ちて観測手段が無かった。
+        stubTreeFell(8);
+        when(gimmickConfig.treeFellBreakLeaves()).thenReturn(true);
+        when(gimmickConfig.treeFellMaxLeaves(org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(512);
+        when(gimmickConfig.treeFellLeavesDecayOnly()).thenReturn(true);
+        when(gimmickConfig.treeFellLeavesPerTick()).thenReturn(2);
+        for (int y = 64; y <= 66; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+        for (int x = 1; x <= 5; x++) {
+            player.getWorld().getBlockAt(x, 66, 0).setType(Material.OAK_LEAVES);
+        }
+
+        java.util.List<java.util.logging.LogRecord> warnings = new java.util.ArrayList<>();
+        java.util.logging.Logger log =
+                java.util.logging.Logger.getLogger(TreeFellingListener.class.getName());
+        java.util.logging.Handler capture = new java.util.logging.Handler() {
+            @Override
+            public void publish(java.util.logging.LogRecord record) {
+                if (record.getLevel() == java.util.logging.Level.WARNING) {
+                    warnings.add(record);
+                }
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        log.addHandler(capture);
+        try {
+            // setPlugin を呼ばない = MockBukkit のクラスローダでは getProvidingPlugin が解決に失敗する。
+            listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+        } finally {
+            log.removeHandler(capture);
+        }
+
+        long brokenSameTick = java.util.stream.IntStream.rangeClosed(1, 5)
+                .filter(x -> player.getWorld().getBlockAt(x, 66, 0).getType() == Material.AIR)
+                .count();
+        assertEquals(5, brokenSameTick, "縮退として同tickで全部壊すこと(機能自体は失わない)");
+        assertEquals(1, warnings.size(), "縮退したことを WARNING で1回だけ知らせること");
+        assertTrue(warnings.get(0).getMessage().contains("段階破壊"),
+                "何が縮退したか分かるメッセージであること: " + warnings.get(0).getMessage());
+    }
+
+    @Test
     void shippedWoodcuttingProgressionGrantsNoExpForLeaves() {
         // 葉の採取EXPは0のまま据え置き(1回で最大1024枚壊すので、行を足すと桁で効く)。
-        // ハードコードした既定値ではなく出荷ymlの実バイトを見る。
-        String progression;
-        try {
-            progression = java.nio.file.Files.readString(
-                    java.nio.file.Path.of("src/main/resources/skills/base/woodcutting_progression.yml"));
-        } catch (java.io.IOException ex) {
-            throw new AssertionError("出荷ymlが読めない: " + ex.getMessage(), ex);
-        }
-        for (String forbidden : List.of("_LEAVES", "SAPLING", "APPLE", "STICK")) {
-            org.junit.jupiter.api.Assertions.assertFalse(progression.contains(forbidden),
-                    "woodcutting_progression.yml に " + forbidden
-                            + " の行があると連鎖破壊した葉に採取EXPが入る(据え置き方針に反する)");
+        // 2026-07-31 G1 指摘8: 旧実装は yml の生文字列 contains 判定だったので、日本語コメントに
+        // 「リンゴ(APPLE)」と書いた瞬間に無関係な失敗になった。yml をパースして実データだけを見る。
+        org.bukkit.configuration.file.YamlConfiguration progression =
+                org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+                        new java.io.File("src/main/resources/skills/base/woodcutting_progression.yml"));
+        org.bukkit.configuration.ConfigurationSection experience =
+                progression.getConfigurationSection("experience");
+        org.junit.jupiter.api.Assertions.assertNotNull(experience,
+                "出荷ymlの experience セクションが読めない(パスかスキーマが変わった)");
+
+        List<String> forbidden = List.of("_LEAVES", "SAPLING", "APPLE", "STICK");
+        for (String action : experience.getKeys(false)) {
+            org.bukkit.configuration.ConfigurationSection table =
+                    experience.getConfigurationSection(action);
+            if (table == null) {
+                continue; // max_level / exp_level_curve のようなスカラー行。
+            }
+            for (String material : table.getKeys(false)) {
+                String upper = material.toUpperCase(java.util.Locale.ROOT);
+                for (String banned : forbidden) {
+                    org.junit.jupiter.api.Assertions.assertFalse(upper.contains(banned),
+                            "woodcutting_progression.yml の experience." + action + " に " + material
+                                    + " の行があると連鎖破壊した葉/苗木/リンゴ/棒に採取EXPが入る"
+                                    + "(据え置き方針に反する)");
+                }
+            }
         }
     }
 }

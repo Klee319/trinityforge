@@ -36,7 +36,7 @@ class LeafDecayPlannerTest {
         }
         List<BlockPos> trunk = List.of(new BlockPos(0, 4, 0));
 
-        List<BlockPos> doomed = LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, 512, true);
+        List<BlockPos> doomed = LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, 512, true).doomed();
 
         assertEquals(leaves.size(), doomed.size(), "樹冠25枚すべてが崩壊対象");
         assertEquals(leaves, Set.copyOf(doomed));
@@ -53,7 +53,7 @@ class LeafDecayPlannerTest {
         List<BlockPos> felledTrunk = List.of(new BlockPos(0, 4, 0));
 
         List<BlockPos> doomed = LeafDecayPlanner.plan(felledTrunk, memberOf(leaves),
-                memberOf(Set.of(neighbourTrunk)), 512, true);
+                memberOf(Set.of(neighbourTrunk)), 512, true).doomed();
 
         assertFalse(doomed.contains(new BlockPos(3, 5, 0)),
                 "隣の木の幹の真上の葉(距離1)は残す");
@@ -73,7 +73,7 @@ class LeafDecayPlannerTest {
         List<BlockPos> felledTrunk = List.of(new BlockPos(8, 5, 0));
 
         List<BlockPos> doomed = LeafDecayPlanner.plan(felledTrunk, memberOf(leaves),
-                memberOf(Set.of(supportLog)), 512, true);
+                memberOf(Set.of(supportLog)), 512, true).doomed();
 
         assertEquals(List.of(new BlockPos(7, 5, 0)), doomed,
                 "距離7(=原木から葉7枚目)だけが崩壊し、距離6までは支えられて残ること");
@@ -89,7 +89,7 @@ class LeafDecayPlannerTest {
 
         List<BlockPos> doomed = LeafDecayPlanner.plan(trunk,
                 pos -> naturalLeaves.contains(pos) && !persistentLeaves.contains(pos),
-                NO_SUPPORT, 512, true);
+                NO_SUPPORT, 512, true).doomed();
 
         assertEquals(naturalLeaves, Set.copyOf(doomed));
         assertFalse(doomed.contains(new BlockPos(2, 5, 0)), "設置された葉は壊さない");
@@ -106,6 +106,8 @@ class LeafDecayPlannerTest {
         assertEquals(10, LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, 10, true).size());
         assertTrue(LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, 0, true).isEmpty());
         assertTrue(LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, -3, true).isEmpty());
+        assertFalse(LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, 10, true).budgetExhausted(),
+                "1本の種から辿る密な葉列は予算に当たらない");
     }
 
     @Test
@@ -115,7 +117,7 @@ class LeafDecayPlannerTest {
         List<BlockPos> trunk = List.of(new BlockPos(0, 5, 0));
 
         List<BlockPos> doomed = LeafDecayPlanner.plan(trunk, memberOf(leaves),
-                memberOf(Set.of(supportLog)), 512, false);
+                memberOf(Set.of(supportLog)), 512, false).doomed();
 
         assertEquals(leaves, Set.copyOf(doomed),
                 "decayOnly=false は 2026-07-30 の旧挙動(支持を見ずに全部壊す)");
@@ -137,7 +139,48 @@ class LeafDecayPlannerTest {
         assertTrue(LeafDecayPlanner.plan(felledOnly, memberOf(leaves), NO_SUPPORT, 512, false).isEmpty(),
                 "伐った丸太だけを種にすると樹冠へ到達できない(旧実装の欠陥)");
         assertEquals(leaves, Set.copyOf(
-                        LeafDecayPlanner.plan(wholeTree, memberOf(leaves), NO_SUPPORT, 512, false)),
+                        LeafDecayPlanner.plan(wholeTree, memberOf(leaves), NO_SUPPORT, 512, false).doomed()),
                 "木全体を種にすれば伐り残した幹の樹冠も候補に入ること");
+    }
+
+    // --- 2026-07-31 G1 レビュー指摘6a: 候補収集の明示的な予算 ---
+
+    @Test
+    void probeBudgetStopsCandidateCollectionWhenMostProbedPositionsAreRejected() {
+        // 高い幹(種100本) + 小さい leaves-max。collectFrom は「受理した数」でしか止まらないので、
+        // 種の面隣接リング(6 x 100 = 600件)を全部読むまで走る余地があった。予算(8 x maxLeaves)で
+        // 打ち切ることを固定する。
+        List<BlockPos> trunk = new java.util.ArrayList<>();
+        for (int y = 0; y < 100; y++) {
+            trunk.add(new BlockPos(0, y, 0));
+        }
+        Set<BlockPos> unreachableLeaves = Set.of(new BlockPos(5, 50, 0));
+
+        LeafDecayPlanner.Plan plan =
+                LeafDecayPlanner.plan(trunk, memberOf(unreachableLeaves), NO_SUPPORT, 5, true);
+
+        assertTrue(plan.budgetExhausted(), "予算に当たったことを呼び出し側へ知らせること(WARNINGの根拠)");
+        assertEquals(5 * LeafDecayPlanner.PROBE_BUDGET_FACTOR, plan.probes(),
+                "予算ぴったりで世界読みを止めること");
+        assertTrue(plan.doomed().isEmpty(), "届かない葉は計画に入らない");
+    }
+
+    @Test
+    void aDenseCanopyNeverHitsTheProbeBudget() {
+        // 実樹冠(葉が密)では受理率が高いので予算に当たらないこと = 正常系を殺していないことの確認。
+        Set<BlockPos> leaves = new HashSet<>();
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                for (int y = 5; y <= 7; y++) {
+                    leaves.add(new BlockPos(x, y, z));
+                }
+            }
+        }
+        List<BlockPos> trunk = List.of(new BlockPos(0, 4, 0));
+
+        LeafDecayPlanner.Plan plan = LeafDecayPlanner.plan(trunk, memberOf(leaves), NO_SUPPORT, 512, true);
+
+        assertFalse(plan.budgetExhausted(), "密な樹冠は予算に当たらないこと");
+        assertEquals(leaves.size(), plan.size(), "7x7x3=147枚すべてが崩壊対象");
     }
 }

@@ -23,6 +23,23 @@ import java.util.function.Predicate;
  * {@link #BOTTOM_UP}({@code y→x→z} の全順序)で決定的に選ぶ。これで {@code (木, 上限)} の純関数になり、
  * 叩いた面・叩いた高さに関係なく同じ集合が伐れる。上限に当たったときに残るのは常に<b>樹冠側</b>
  * (=y が大きい方)。
+ *
+ * <p><b>残余(2026-07-31 G1 レビュー指摘7/8 — 原理的に直せない/直さないもの)</b>
+ * <ul>
+ *   <li><b>伐採窓(根元から {@code maxExtra + 1} 段)より上を叩くと、消えるブロックの集合が1つ増える。</b>
+ *       {@link #selectFelled} が返す<em>連鎖対象</em>は常に「根元から {@code maxExtra} 本」で起点に
+ *       依存しないが、叩いた1本は {@code BlockBreakEvent} 本体が壊すので TF には止められない。
+ *       結果 y=11 を叩くと y8..y10 が浮いたまま y11 だけ抜けた見た目になる。したがって
+ *       <b>{@code extra} は {@code (木, 上限)} の純関数だが、「実際に消える集合」は起点が窓の内か外かで
+ *       1ブロック変わる</b>(実装者の以前の説明はここが厳密でなかった)。</li>
+ *   <li><b>連結原木が {@code scanLimit} を超える塊では面依存が残る。</b> {@link #trunkBase} は
+ *       「同一列を真下へ」なので 2×2 幹や壁では叩いた列ごとに異なる base を返し、{@link #wholeTree} は
+ *       base 起点の BFS を {@code scanLimit} 本で打ち切る。連結成分が上限を超えると収集される部分集合が
+ *       base 依存になり {@link #selectFelled} の結果も叩いた列に依存する。バニラ樹木(最大でも百数十本)
+ *       では到達しないが、丸太建築や {@link #TRUNK_BASE_MAX_DESCENT} 段を超える巨大構造では復活する。
+ *       丸太建築側は {@code PlacedBlockTracker} で走査を止める(呼び出し側の
+ *       {@code TreeFellingListener} 参照)ことで実害を潰してある。</li>
+ * </ul>
  */
 public final class TreeScan {
 
@@ -34,9 +51,13 @@ public final class TreeScan {
     public static final int TRUNK_BASE_MAX_DESCENT = 64;
 
     /**
-     * 「木全体」を把握するときの走査上限(本数)。<b>伐る本数の上限({@code max-extra-logs})とは別枠</b>で
-     * 持つ — 上限で伐り残した幹も葉の走査の種に含める必要があるため(N2)。メインスレッドで最大この回数の
-     * ブロック読みが走るので、大きくしすぎないこと。
+     * 「木全体」を把握するときの走査上限(本数)の<b>既定値</b>。<b>伐る本数の上限
+     * ({@code max-extra-logs})とは別枠</b>で持つ — 上限で伐り残した幹も葉の走査の種に含める必要が
+     * あるため(N2)。メインスレッドで最大この回数のブロック読みが走るので、大きくしすぎないこと。
+     *
+     * <p>2026-07-31 G1 レビュー指摘6b で {@code tree-fell.scan-limit} として yml へ出したので、
+     * 本番の値は {@code WoodcuttingGimmickConfig#treeFellScanLimit()} が持つ。ここはその既定値と
+     * 「config を読めない純関数テスト」用の定数。<b>片方だけ変えるとドリフトする。</b>
      */
     public static final int TREE_SCAN_LIMIT = 512;
 

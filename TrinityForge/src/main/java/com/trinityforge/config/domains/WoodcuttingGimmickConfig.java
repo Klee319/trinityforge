@@ -43,6 +43,12 @@ public final class WoodcuttingGimmickConfig {
     private static final int DEFAULT_LEAVES_MAX = 512;
     /** 1tickあたりに壊す葉の枚数の既定値(2026-07-31 N2)。512枚なら約11tick=0.55秒で樹冠が消える。 */
     private static final int DEFAULT_LEAVES_PER_TICK = 48;
+    /**
+     * 「木全体」を把握する走査の上限本数の既定値(2026-07-31 G1 レビュー指摘6b)。
+     * {@link com.trinityforge.woodcutting.TreeScan#TREE_SCAN_LIMIT} と同じ値。
+     * <b>Java 側の既定値をここで変えると出荷 yml とドリフトする</b>ので、変えるなら両方を同時に直すこと。
+     */
+    private static final int DEFAULT_SCAN_LIMIT = 512;
 
     /**
      * {@code tree-fell.tiers.<tier>} の1行 (2026-07-31 N2 で {@code leaves-max} 列を追加)。
@@ -61,6 +67,7 @@ public final class WoodcuttingGimmickConfig {
     private volatile int treeFellLeavesMax = DEFAULT_LEAVES_MAX;
     private volatile int treeFellLeavesPerTick = DEFAULT_LEAVES_PER_TICK;
     private volatile boolean treeFellLeavesDecayOnly = true;
+    private volatile int treeFellScanLimit = DEFAULT_SCAN_LIMIT;
     private volatile Map<String, DropTableConfig.Category> dropTables = Map.of();
 
     /** {@code tree-fell} の一括伐採上限本数(トリガー原木を含まない)。tiers未定義時のグローバル既定値。 */
@@ -148,6 +155,19 @@ public final class WoodcuttingGimmickConfig {
         return treeFellLeavesDecayOnly;
     }
 
+    /**
+     * {@code tree-fell.scan-limit}(既定 512): 「木全体」を把握するときに読むブロックの上限本数
+     * (2026-07-31 G1 レビュー指摘6b で定数から config へ出した)。
+     *
+     * <p><b>伐る本数の上限({@code max-extra-logs})とは別枠</b> — 上限で伐り残した幹も葉の走査の種に
+     * 必要なため。1回の原木破壊でメインスレッドがこの本数ぶんの {@code getBlockAt} を回すので、
+     * 巨木林で tick に効くようなら下げるためのレバー。0以下なら既定値へ戻す(走査ゼロにはしない —
+     * 一括伐採そのものが無言で死ぬため)。
+     */
+    public int treeFellScanLimit() {
+        return treeFellScanLimit;
+    }
+
     /** {@code drop-tables.categories} (2026-07-23 §4): カテゴリid -&gt; 定義。ゲート/抽選は {@code DropTablePolicy} が担う。 */
     public Map<String, DropTableConfig.Category> dropTables() {
         return dropTables;
@@ -186,6 +206,9 @@ public final class WoodcuttingGimmickConfig {
         this.treeFellLeavesMax = yaml.getInt("tree-fell.leaves-max", DEFAULT_LEAVES_MAX);
         this.treeFellLeavesPerTick = yaml.getInt("tree-fell.leaves-per-tick", DEFAULT_LEAVES_PER_TICK);
         this.treeFellLeavesDecayOnly = yaml.getBoolean("tree-fell.leaves-decay-only", true);
+        this.treeFellScanLimit = clampPositiveInt(
+                yaml.getInt("tree-fell.scan-limit", DEFAULT_SCAN_LIMIT),
+                "tree-fell.scan-limit", DEFAULT_SCAN_LIMIT, log);
         this.dropTables = DropTableConfig.parseCategories(
                 yaml.getConfigurationSection("drop-tables.categories"), true, PATH, log);
 

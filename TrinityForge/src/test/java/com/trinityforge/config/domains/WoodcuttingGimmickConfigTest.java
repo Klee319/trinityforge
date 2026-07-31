@@ -97,6 +97,26 @@ class WoodcuttingGimmickConfigTest {
         assertEquals(48, config.treeFellLeavesPerTick());
         assertTrue(config.treeFellLeavesDecayOnly());
         assertEquals(512, config.treeFellMaxLeaves(1, 3), "tiers未定義ならグローバルへフォールバック");
+        // 2026-07-31 G1 指摘6b: scan-limit の Java 既定値は TreeScan の定数と一致していること
+        // (片方だけ変えると「jar だけ配備したサーバ」で走査範囲が変わる)。
+        assertEquals(com.trinityforge.woodcutting.TreeScan.TREE_SCAN_LIMIT, config.treeFellScanLimit());
+    }
+
+    // --- 2026-07-31 G1 レビュー指摘6b: tree-fell.scan-limit の config 化 ---
+
+    @Test
+    void scanLimitCanBeLoweredFromYamlAndNonPositiveFallsBackToTheDefault(@TempDir File tempDir)
+            throws IOException {
+        assertEquals(64, loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  scan-limit: 64
+                """).treeFellScanLimit(), "明示値がそのまま効くこと");
+        assertEquals(512, loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  scan-limit: 0
+                """).treeFellScanLimit(), "0以下は既定へ戻す(走査ゼロで一括伐採が無言で死ぬのを防ぐ)");
     }
 
     @Test
@@ -164,10 +184,14 @@ class WoodcuttingGimmickConfigTest {
         assertEquals(48, config.treeFellLeavesPerTick(), "1tickあたり48枚");
         assertTrue(config.treeFellLeavesDecayOnly(), "既定でバニラの崩壊判定に従うこと");
         assertTrue(config.treeFellBreakLeaves());
-        // 原木側のtier表が壊れていないこと(leaves-max 列を足した回帰確認)。
-        assertEquals(8, config.treeFellMaxExtraLogs(1));
-        assertEquals(16, config.treeFellMaxExtraLogs(2));
-        assertEquals(32, config.treeFellMaxExtraLogs(3));
-        assertEquals(64, config.treeFellMaxExtraLogs(4));
+        assertEquals(512, config.treeFellScanLimit(), "出荷値の scan-limit");
+        // 2026-07-31 G1 レビュー指摘2: 8/16/32/64 から倍にした。decay-only(既定true)は
+        // 「バニラなら崩壊する葉」しか壊さないので、幹を伐り切れない木では葉が1枚も壊れない。
+        // 「葉の掃除がバニラより大幅に速く」を満たす道は decay-only を緩めることではなく
+        // 幹を伐り切ることなので、本数上限を上げるのが正しいレバー。
+        assertEquals(16, config.treeFellMaxExtraLogs(1));
+        assertEquals(32, config.treeFellMaxExtraLogs(2));
+        assertEquals(64, config.treeFellMaxExtraLogs(3));
+        assertEquals(128, config.treeFellMaxExtraLogs(4));
     }
 }
