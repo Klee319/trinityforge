@@ -137,11 +137,26 @@ potion-merge:
 # 対応するグループが無く、healthboost-haste-2 は逆に未参照で永久ロックだった。
 #
 # base はビン(AWKWARD/THICK/MUNDANE/WATER)、ingredient は醸造素材。
-# バニラで既に成立する組み合わせを書くとバニラのレシピを上書きしてしまうので、
-# 「バニラでは何も出ない組み合わせ」に割り当てること。
+#
+# 【重要・2026-07-31 D10(K-13)で判明した機構】ここに書いた組み合わせは起動時に
+# Paper の醸造 customMixes(PotionBrewer#addPotionMix)へ登録される。この登録が
+# 「素材を上段スロットに置けること」と「醸造が始まること」の両方を成立させている:
+#   - 醸造台の素材スロットはバニラの醸造素材か customMixes の素材しか受け付けない
+#     (= CMD 付きの討伐素材を置く手段は登録だけ。ホッパー経路も同条件)。
+#   - THICK / MUNDANE は「バニラに出発点の mix が無い」ので、登録が無いと
+#     醸造タイマーが次 tick で 0 に戻り BrewEvent が永久に発火しない。
+#     ※以前ここには「THICK はバニラでは何も生まないので安全」と書いてあったが、
+#       これは逆で「何も生まない = 登録が無ければ醸造不可」が正しい。
+#
+# 【バニラのレシピを潰さないこと】customMixes はバニラより先に評価されるので、
+# バニラで既に成立する (base, ingredient) を書くと、そのバニラレシピが
+# サーバ全体で作れなくなる。該当ペアは起動時に WARNING を出して登録から外すが、
+# 未解放プレイヤーは BrewEvent 側のゲートでそのビンごと止められるため、
+# 「バニラのポーションも作れない」状態は残る。新しい組み合わせは
+# THICK / MUNDANE のような「バニラが出発点にしないベース」へ寄せること。
 brew-unlocks:
   # skilltree/alchemy.yml C-1-upper「俊敏・跳躍の調合」(Lv40)
-  # THICK ベースはバニラでは何も生まないので、グロウストーン無しで II 相当を作れる枠にした。
+  # THICK ベースはバニラが出発点にしないので、グロウストーン無しで II 相当を作れる枠にした。
   swiftness-jump:
     potions:
       - base: THICK
@@ -159,6 +174,11 @@ brew-unlocks:
   # skilltree/alchemy.yml C-2-upper「体力増強の調合」(Lv60)
   healthboost-haste:
     potions:
+      # ⚠️ AWKWARD + グリスタリングメロンは「バニラの治癒のポーション」と同じ組み合わせ。
+      #   customMixes には登録されない(登録するとサーバ全体で治癒が作れなくなるため、
+      #   起動時に WARNING を出してスキップする)。加えて未解放プレイヤーは
+      #   このビンを入れると醸造ごと止まるので、治癒も作れない状態が残る。
+      #   直すなら base を THICK 側へ寄せること(Java 側の変更は不要)。
       - base: AWKWARD
         ingredient: GLISTERING_MELON_SLICE
         result:
@@ -209,9 +229,11 @@ brew-unlocks:
   # CrossPluginItemResolver.idOf へ寄せた。それまでは TF カタログの PDC だけを見ていたため、
   # ArsPaper の materials.yml 側で定義した素材を書いても永久に一致しなかった。
   #
-  # 【base の選び方】バニラが同じ (base, ingredient) から何かを作る組み合わせは避ける。
-  # 重なるとバニラ側のレシピが先に成立して、こちらの結果で上書きする形になり挙動が読みにくい。
-  # THICK は「バニラでは何も生まない」ので、独自効果の置き場として一番安全。
+  # 【base の選び方】バニラが同じ (base, ingredient) から何かを作る組み合わせは避ける
+  # (customMixes がバニラより先に評価されるため、そのバニラレシピを潰してしまう)。
+  # THICK は「バニラが出発点にしない」ベースなので独自効果の置き場として一番安全 —
+  # ただし customMixes への登録が前提で、登録が無いと醸造が始まらない点に注意
+  # (このセクション冒頭の【重要】参照)。
   # ---------------------------------------------------------------------------
   # skilltree/alchemy.yml C-2-lower「衰弱の術」(Lv60) — 妨害寄りの調合
   hunter-hex:
@@ -348,6 +370,23 @@ thread-slots:
     weapon: 5
     tool: 5
     other: 5
+# レシピ帳(作業台左のレシピ候補)の解禁 (2026-07-31 D7)
+# 【なぜ必要か】Bukkit の addRecipe はレシピを「サーバに登録」するだけで、レシピ帳は
+# プレイヤーが discover 済みのレシピしか表示しない。バニラは minecraft:recipes/... という
+# 隠し進捗で解禁を配っているため、対応する進捗を持たない TF/Ars のレシピは永久に出ない。
+# ここを true にしておくと、ログイン時・ノード解放時・reload 後に自動で解禁する。
+#
+# 【既知の限界】custom:<カタログID> 素材は材質だけで登録しているので、レシピ帳の
+# 「クリックで材料を並べる」機能では素のバニラ基材が並び、結果枠は空になる。
+# レシピ帳は「何が作れるかの索引」として使い、実際に組むときは /tf recipes のGUIで素材を確認する。
+# (ExactChoice へ変えると品質差のある個体が素材として認識されなくなるため採らない)
+recipe-book:
+  # false にしても既に解禁されたレシピは消えない(解禁状態は playerdata に永続する)。
+  # 「今後解禁しない」という意味になる。
+  reveal-plugin-recipes: true
+  # recipe:<id> ゲートが未解放のレシピをレシピ帳から隠す。false にすると
+  # 「レシピ帳に出るのにクラフトすると結果枠が空」になるので true 推奨。
+  hide-locked-recipes: true
 removed-vanilla-recipes: []
 removed-vanilla-items:
   - ANY:MENDING

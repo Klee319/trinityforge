@@ -196,8 +196,9 @@ class BrewIngredientSaveListenerTest {
                 .getAnnotation(EventHandler.class);
 
         assertEquals(EventPriority.HIGHEST, annotation.priority(),
-                "must run after every canceller (BrewUnlockListener cancels at HIGH), "
-                        + "but before NativeSkillExperienceListener clears the owner PDC at MONITOR");
+                "must run after every canceller (BrewUnlockListener cancels at NORMAL, "
+                        + "CatalogVanillaOperationGuardListener at HIGH), but before "
+                        + "NativeSkillExperienceListener clears the owner PDC at MONITOR");
         assertEquals(true, annotation.ignoreCancelled(),
                 "an already-cancelled brew never reaches vanilla's shrink(1), so crediting +1 there "
                         + "would be pure item duplication");

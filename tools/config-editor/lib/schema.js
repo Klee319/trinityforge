@@ -2149,6 +2149,26 @@ function validateTfCraftingFeatures(data, errors) {
       }
     }
   }
+  // D7 (2026-07-31): レシピ本へのTF/Arsレシピ開示。既定値は Java 側
+  // CraftingFeaturesConfig#loadRecipeBook と一致(どちらも true)。
+  const recipeBook = data["recipe-book"];
+  if (recipeBook !== undefined && recipeBook !== null) {
+    if (!isPlainObject(recipeBook)) {
+      errors.push("recipe-book はマップである必要があります");
+    } else {
+      for (const key of ["reveal-plugin-recipes", "hide-locked-recipes"]) {
+        const v = recipeBook[key];
+        if (v !== undefined && v !== null && typeof v !== "boolean") {
+          errors.push(`recipe-book.${key}: true / false である必要があります`);
+        }
+      }
+      for (const key of Object.keys(recipeBook)) {
+        if (key !== "reveal-plugin-recipes" && key !== "hide-locked-recipes") {
+          errors.push(`recipe-book.${key}: 未知のキーです (reveal-plugin-recipes / hide-locked-recipes のみ)`);
+        }
+      }
+    }
+  }
   const removed = data["removed-vanilla-recipes"];
   if (removed !== undefined && removed !== null) {
     if (!Array.isArray(removed)) {

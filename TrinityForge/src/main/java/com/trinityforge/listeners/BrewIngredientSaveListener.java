@@ -50,7 +50,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * 必ず{@code shrink(1)}する」ことが前提であり、<strong>誰かがこの後に{@link BrewEvent}をキャンセル
  * すると+1だけが残って純粋な増殖になる</strong>。TF内には実際にキャンセルする
  * {@link BrewUnlockListener#onBrew}(未解放のゲート付きTF醸造レシピを弾く)が存在し、しかも
- * こちらの方が登録順が後(={@code TrinityForge}での登録位置が下)であるため、同じ HIGH に置くと
+ * こちらの方が登録順が後(={@code TrinityForge}での登録位置が下)であるため、同じ優先度に置くと
  * 「+1 → キャンセル → shrinkされない」の順で毎周回1個ずつ増える無限増殖装置になっていた
  * (2026-07-26 のレビューで検出・修正)。よってこのハンドラは
  * <strong>キャンセル判定がすべて終わった後の {@code HIGHEST}</strong> で、かつ
@@ -58,6 +58,11 @@ import java.util.concurrent.ThreadLocalRandom;
  * HIGHEST より後にキャンセルされる経路は残らない。
  * <br>下限側の制約もある: {@link NativeSkillExperienceListener#onBrew} が MONITOR で所有者PDCを
  * 消去するため、MONITOR まで下げることはできない。HIGHEST はこの上下の制約を同時に満たす唯一の点。
+ * <br><b>2026-07-31 (D10)</b>: 同じ型の複製経路がもう1本残っていた —
+ * {@link CatalogVanillaOperationGuardListener#onBrew} が HIGHEST・かつ登録順が後だったため、
+ * カタログ品を醸造素材/ビン枠に入れると「+1 → キャンセル」で素材が純増していた。
+ * あちらを HIGH へ下げて解消済み。<b>この不変条件は「キャンセラは全て HIGHEST より前」</b>であり、
+ * {@code BrewUnlockIngredientGateTest} が4本の優先度をまとめて固定している。
  *
  * <p><b>確率スケール</b>: {@code ingredient_save_chance}は{@link com.trinityforge.stats.PercentStatNormalize}
  * の{@code RATE_KEYS}に登録済みのため、config側で{@code 15}と書いても{@code 0.15}(フラクション)へ

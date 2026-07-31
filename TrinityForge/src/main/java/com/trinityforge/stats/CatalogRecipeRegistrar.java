@@ -173,6 +173,20 @@ public final class CatalogRecipeRegistrar {
         return List.copyOf(registeredSpecs.values());
     }
 
+    /**
+     * このレジストラが <b>実際に {@code Bukkit.addRecipe} した全キー</b>。
+     *
+     * <p>{@link #allRegistered()} との違いに注意: あちらは {@code registeredSpecs} 由来なので
+     * {@link #registerOne} が入れた「正レシピ」だけで、
+     * <b>{@code _decompress} 逆レシピと {@code added_<n>}(crafting-features.yml の
+     * {@code added-recipes})を含まない</b>。「レシピ帳へ解禁する対象」のように
+     * <b>登録した全キー</b>が欲しい用途はこちらを使う
+     * ({@code RecipeDiscoveryListener} が唯一の利用者)。
+     */
+    public Set<NamespacedKey> allRegisteredKeys() {
+        return Set.copyOf(registeredKeys);
+    }
+
     private void removeAll() {
         for (NamespacedKey key : registeredKeys) {
             Bukkit.removeRecipe(key);

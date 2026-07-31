@@ -87,7 +87,18 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    /**
+     * ⚠️ 優先度は {@code HIGH} 固定(他のハンドラと違って HIGHEST ではない)。
+     *
+     * <p>{@code BrewIngredientSaveListener}(HIGHEST)は「素材を +1 しておけば直後にバニラが
+     * {@code shrink(1)} して相殺される」方式で材料節約を実装しているので、
+     * <b>そのハンドラより後にキャンセルすると +1 だけが残って素材が純増する</b>
+     * (同ファイルのクラスjavadoc「優先度が HIGHEST でなければならない理由」参照)。
+     * 同じ HIGHEST に置くと登録順で先に +1 が走り、その後ここがキャンセルして複製になっていた
+     * (2026-07-31 D10 の調査で発覚。カタログ品を醸造素材/ビン枠へ入れると発火する)。
+     * <b>キャンセラは必ず HIGHEST より前</b>に置く。
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBrew(BrewEvent event) {
         BrewerInventory inventory = event.getContents();
         ItemStack ingredient = inventory.getIngredient();

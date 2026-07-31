@@ -187,6 +187,10 @@ public final class TrinityForge extends JavaPlugin {
     private Runnable damageIndicatorUninstaller;
     private ItemFactory itemFactory;
     private CatalogRecipeRegistrar catalogRecipeRegistrar;
+    /** レシピ帳へのプラグインレシピ解禁 (2026-07-31 D7)。{@link #onEnable} 完了までは null。 */
+    private com.trinityforge.listeners.RecipeDiscoveryListener recipeDiscoveryListener;
+    /** brew-unlocks の醸造 customMixes 登録 (2026-07-31 D10)。{@link #onEnable} 完了までは null。 */
+    private com.trinityforge.stats.BrewPotionMixRegistrar brewPotionMixRegistrar;
     private com.trinityforge.stats.VanillaRecipeRemover vanillaRecipeRemover;
     private com.trinityforge.stats.VanillaItemRemover vanillaItemRemover;
     private com.trinityforge.listeners.VanillaItemRemovalListener vanillaItemRemovalListener;
@@ -449,6 +453,13 @@ public final class TrinityForge extends JavaPlugin {
                     perkAttributeApplier.apply(player);
                     gatheringEfficiencyApplier.reconcileFull(player);
                     perkMirrorService.sync(player);
+                    // ノード取得/ツリーリセットの直後に recipe:<id> ゲートの解放状態が変わるので、
+                    // レシピ帳もその場で追随させる(次のログインまで待たせない)。
+                    // フィールド参照なのは、レシピ登録器がこの行より後で組まれるため
+                    // (ラムダは呼ばれた時点の値を読む)。
+                    if (recipeDiscoveryListener != null) {
+                        recipeDiscoveryListener.reconcile(player);
+                    }
                 });
         getServer().getPluginManager().registerEvents(nativeSkillTreeMenu, this);
         // Player-defender item side (LD-8 γ, LD-13): sums the TF-only defense (typed 耐性 + common
@@ -553,6 +564,23 @@ public final class TrinityForge extends JavaPlugin {
                 () -> configManager.craftingFeatures().addedRecipes());
         catalogRecipeRegistrar.registerAll();
         CatalogRitualBridge.registerAll(this, configManager.itemCatalog());
+        // D7: 登録しただけではレシピ帳に出ない(Bukkit.addRecipe は discover を配らない)。
+        // ログイン時・ノード解放時・reload 後に TF/Ars のレシピを解禁するリスナー。
+        this.recipeDiscoveryListener = new com.trinityforge.listeners.RecipeDiscoveryListener(
+                this, configManager.dedicatedEffects(), configManager.craftingFeatures(),
+                catalogRecipeRegistrar::allRegisteredKeys);
+        getServer().getPluginManager().registerEvents(recipeDiscoveryListener, this);
+        // D10 (K-13): brew-unlocks を Paper の醸造 customMixes へ登録する。これが無いと
+        // CMD 付きの討伐素材は上段スロットに置けず、THICK ベースは醸造自体が始まらない。
+        this.brewPotionMixRegistrar = new com.trinityforge.stats.BrewPotionMixRegistrar(
+                this, () -> configManager.craftingFeatures().brewUnlocks(),
+                com.trinityforge.stats.BrewPotionMixRegistrar.serverSink());
+        brewPotionMixRegistrar.registerAll();
+        // /minecraft:reload は PotionBrewing を作り直すので customMixes が全消滅する。
+        // レシピ帳の解禁も同時に張り直す(レシピ側も再送されるため)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.ServerResourcesReloadListener(this::reapplyAfterResourcesReload),
+                this);
         // crafting-features.yml removed-vanilla-recipes: バニラ/データパックレシピの無効化
         // (editor から編集可能。reload でリストから外れたレシピは復元される)。
         this.vanillaRecipeRemover = new com.trinityforge.stats.VanillaRecipeRemover(getLogger());
@@ -1175,6 +1203,14 @@ public final class TrinityForge extends JavaPlugin {
                                             catalogRecipeRegistrar.registerAll();
                                             CatalogRitualBridge.registerAll(TrinityForge.this, configManager.itemCatalog());
                                         }
+                                        // brew-unlocks の増減を醸造 customMixes へ反映する (D10)。
+                                        if (brewPotionMixRegistrar != null) {
+                                            brewPotionMixRegistrar.registerAll();
+                                        }
+                                        // レシピの増減 / recipe: ゲートの配置替えをレシピ帳へ反映する (D7)。
+                                        if (recipeDiscoveryListener != null) {
+                                            recipeDiscoveryListener.reconcileAllOnline();
+                                        }
                                         // removed-vanilla-recipes の増減を反映 (外れた分は復元)。
                                         if (vanillaRecipeRemover != null) {
                                             vanillaRecipeRemover.apply(
@@ -1708,6 +1744,24 @@ public final class TrinityForge extends JavaPlugin {
     public void refreshCatalogRecipes() {
         if (catalogRecipeRegistrar != null) {
             catalogRecipeRegistrar.registerAll();
+        }
+        // ArsPaper の enable でレシピが増えるので、レシピ帳の解禁も張り直す (D7)。
+        // この時点でオンラインのプレイヤーは通常いないが、reload 経路と同じ扱いにしておく。
+        if (recipeDiscoveryListener != null) {
+            recipeDiscoveryListener.reconcileAllOnline();
+        }
+    }
+
+    /**
+     * {@code /minecraft:reload}(データパック再読込)後の張り直し (2026-07-31 D10)。
+     * {@code PotionBrewing#reload} は customMixes を引き継がないため、醸造 mix は必ず再登録が要る。
+     */
+    private void reapplyAfterResourcesReload() {
+        if (brewPotionMixRegistrar != null) {
+            brewPotionMixRegistrar.registerAll();
+        }
+        if (recipeDiscoveryListener != null) {
+            recipeDiscoveryListener.reconcileAllOnline();
         }
     }
 
