@@ -237,4 +237,18 @@ public final class ItemData {
         }
         container.set(PdcKeys.ITEM_COATING_FLAT_DAMAGE, PersistentDataType.DOUBLE, amount);
     }
+
+    /**
+     * このスタックがクリエイティブ由来か(2026-07-31)。詳細と限界は
+     * {@link PdcKeys#ITEM_CREATIVE_ORIGIN} の javadoc。absent = false(既存の全アイテム)。
+     */
+    public boolean creativeOrigin() {
+        return container.getOrDefault(
+                PdcKeys.ITEM_CREATIVE_ORIGIN, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** クリエイティブ由来マーカーを刻む(一方向。剥がす用途は無い)。 */
+    public void markCreativeOrigin() {
+        container.set(PdcKeys.ITEM_CREATIVE_ORIGIN, PersistentDataType.BYTE, (byte) 1);
+    }
 }

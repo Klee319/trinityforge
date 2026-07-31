@@ -58,7 +58,23 @@ class CollectionEntryResolutionTest {
 
     private static CollectionListener.MetaFacts facts(String stamped, String arsId,
                                                      Integer cmd, String templateId) {
+        return facts(false, stamped, arsId, cmd, templateId);
+    }
+
+    /** クリエイティブ由来マーカーが刻まれたスタック(それ以外の事実は同じ)。 */
+    private static CollectionListener.MetaFacts creativeFacts(String stamped, String arsId,
+                                                             Integer cmd, String templateId) {
+        return facts(true, stamped, arsId, cmd, templateId);
+    }
+
+    private static CollectionListener.MetaFacts facts(boolean creativeOrigin, String stamped, String arsId,
+                                                     Integer cmd, String templateId) {
         return new CollectionListener.MetaFacts() {
+            @Override
+            public boolean creativeOrigin() {
+                return creativeOrigin;
+            }
+
             @Override
             public Optional<String> stampedCatalogId() {
                 return Optional.ofNullable(stamped);
@@ -84,6 +100,11 @@ class CollectionEntryResolutionTest {
     /** meta を触ったら即座に落ちる番犬。meta 無しスタックの経路が本当に meta を見ないことの証明に使う。 */
     private static CollectionListener.MetaFacts forbiddenFacts() {
         return new CollectionListener.MetaFacts() {
+            @Override
+            public boolean creativeOrigin() {
+                throw new AssertionError("meta を持たないスタックで出自マーカーを読もうとした");
+            }
+
             @Override
             public Optional<String> stampedCatalogId() {
                 throw new AssertionError("meta を持たないスタックで PDC を読もうとした");
@@ -201,5 +222,48 @@ class CollectionEntryResolutionTest {
     void blankMaterialNameIsIgnored() {
         assertTrue(CollectionListener.resolveEntryId(null, false, emptyFacts(), WATCHED).isEmpty());
         assertTrue(CollectionListener.resolveEntryId("  ", false, emptyFacts(), WATCHED).isEmpty());
+    }
+
+    // --- クリエイティブ由来マーカー: ゲームモードゲートを素通りする creative→survival 持ち込みを塞ぐ ---
+
+    /**
+     * ゲームモードゲート({@code excluded})は「そのフレームのゲームモード」しか見ないので、
+     * <b>クリエイティブで並べてサバイバルで走査させる</b>経路は素通りする。
+     * {@code ops/RUNBOOK.md} は「メインの world は creative」かつ HuskSync は
+     * {@code game_mode: false}(ゲームモードは同期しない)でインベントリだけ同期すると書いており、
+     * {@code /server resource} で移るだけで「クリエイティブで出した品を持ったサバイバルプレイヤー」
+     * が成立する。しかも遡り登録の抑止と噛み合って<b>チャット0行で</b>16件が入るため、
+     * 修正前(1件ごとに通知が出ていた)より検知しにくい。
+     */
+    @Test
+    @DisplayName("クリエイティブ由来マーカーが付いた素のバニラ品は、監視対象 Material でも記録しない")
+    void creativeOriginStackIsNotRecordedEvenWhenItsMaterialIsWatched() {
+        assertTrue(CollectionListener.resolveEntryId("ELYTRA", true,
+                        creativeFacts(null, null, null, null), WATCHED).isEmpty(),
+                "creative で items.structure の16件を並べて survival へ移ると、走査時のゲームモードは"
+                        + "SURVIVAL なので既存ゲートを素通りし、報酬ティア t1(10)/t2(30) を無条件に跨ぐ");
+    }
+
+    @Test
+    @DisplayName("クリエイティブ由来マーカーはTFカタログ刻印より優先される")
+    void creativeOriginBeatsTheStampedCatalogId() {
+        assertTrue(CollectionListener.resolveEntryId("ECHO_SHARD", true,
+                        creativeFacts("skill_tree_reset", null, null, null), WATCHED).isEmpty(),
+                "クリエイティブインベントリから出せるのは素のバニラ品だけとは限らない"
+                        + "(/give や中クリック複製でカタログ品も出せる)ので、出自が刻印より優先される");
+    }
+
+    @Test
+    @DisplayName("クリエイティブ由来マーカーはArs刻印より優先される")
+    void creativeOriginBeatsTheArsItemId() {
+        assertTrue(CollectionListener.resolveEntryId("ECHO_SHARD", true,
+                        creativeFacts(null, "reality_thread_core", null, null), WATCHED).isEmpty());
+    }
+
+    @Test
+    @DisplayName("クリエイティブ由来マーカーはCMD一致より優先される")
+    void creativeOriginBeatsTheCatalogTemplateMatch() {
+        assertTrue(CollectionListener.resolveEntryId("ECHO_SHARD", true,
+                        creativeFacts(null, null, 100083, "skill_tree_reset"), WATCHED).isEmpty());
     }
 }

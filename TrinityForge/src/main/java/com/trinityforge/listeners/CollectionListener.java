@@ -19,6 +19,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -90,19 +91,58 @@ import java.util.Set;
  *       {@code items.structure} の16件が全部クリエイティブインベントリから出せる素のバニラ品なので、
  *       除外しないと図鑑と報酬ティアが無料で埋まる。</li>
  *   <li>遡り登録の通知抑止は「実際に1件以上記録した走査」だけがフラグを消費する
- *       ({@link #scanInventory})。参加時の走査だけを静かにしても、遺物をチェストへ
+ *       ({@link #recordWithBackfillGate})。参加時の走査だけを静かにしても、遺物をチェストへ
  *       しまっているプレイヤーには効かない。</li>
  *   <li>監視集合は config snapshot の同一性でキャッシュする({@link #watchedConfigIds()})。
  *       {@link #onPickup} が拾得1件ごとに約150エントリを走査していた。</li>
  * </ul>
+ *
+ * <p><b>ゲームモードゲートだけでは構造的に閉じない (2026-07-31 追加修正)</b>: 上の1つ目は
+ * <b>「クリエイティブでいる間の記録」しか</b>塞げない。図鑑は他の6箇所と違って
+ * <b>インベントリの状態を遡って走査する</b>({@link #scanInventory})ので、クリエイティブで
+ * {@code items.structure} の16件を並べてからサバイバルへ移ると、走査時のゲームモードは
+ * SURVIVAL になりゲートを素通りして16件が一括登録される。しかも「最初の productive な走査は
+ * 静か」という抑止と噛み合って<b>チャット0行で</b>通るため、修正前より検知しにくい。
+ * ({@code ops/RUNBOOK.md} はメインの world を creative と書いており、HuskSync は
+ * {@code game_mode: false} でインベントリだけ同期するので、{@code /server resource} で
+ * 移動するだけで「クリエイティブで出した品を持ったサバイバルプレイヤー」が成立する。)
+ *
+ * <p>そこで<b>出自をアイテム側の PDC に刻む</b>({@link com.trinityforge.pdc.PdcKeys#ITEM_CREATIVE_ORIGIN})。
+ * 刻む経路は {@link #onCreativeSet}(クリエイティブのアイテム生成の本体)と、
+ * クリエイティブ/スペクテイター滞在中の {@link #onPickup}。<b>ゲームモードゲートは残す</b> —
+ * ゲートは「クリエイティブ中の記録」を、印は「クリエイティブで得た品をサバイバルで走査したとき」を
+ * 塞ぐので、役割が違い両方必要。
+ *
+ * <p><b>印は best-effort</b>: 以下は塞げていないと明記しておく。
+ * <ul>
+ *   <li>クラフト素材として消費した品・別アイテムへ変換した品・ブロックとして設置して壊し直した品は
+ *       新しいスタックになるので印が失われる(そこから作った完成品は図鑑に載る)。</li>
+ *   <li>{@code /give} や他プラグインが直接インベントリへ書き込む経路には印が付かない
+ *       (どちらも op 相当の権限が前提なので受容する)。</li>
+ *   <li>スタック合体で印は失われない代わりに、印付きスタックは素の同種スタックと
+ *       <b>合体しなくなる</b>(PDC が違うので {@code isSimilar} が不一致になる)。</li>
+ * </ul>
+ * 完全な出自追跡はアイテムを個体管理しない限り不可能なので、ここは
+ * 「無料で16件埋まる」経路だけを閉じる割り切りである。
+ *
+ * <p><b>本番 world が実際にクリエイティブ運用なら、その world では図鑑機能が丸ごと不活性になる</b>
+ * (ゲートで記録されず、生成した品にも印が付くのでサバイバルへ持ち込んでも載らない)。
+ * これは意図した挙動であり、図鑑を機能させたい運用ではサバイバルの world / 資源サーバで遊ぶ必要がある。
  */
 public final class CollectionListener implements Listener {
 
     /** editor が custom アイテムに付ける接頭辞。監視集合を作るときに落とす。 */
     private static final String CUSTOM_PREFIX = "custom:";
 
-    /** 自プラグイン名。参加時走査を遅延させるスケジューラを引くためだけに使う。 */
-    private static final String OWN_PLUGIN_NAME = "TrinityForge";
+    /**
+     * 自プラグイン名。参加時走査を遅延させるスケジューラを引くためだけに使う。
+     *
+     * <p>package-private なのは {@code CollectionListenerGuardsTest} が
+     * {@code paper-plugin.yml} の {@code name:} と一致していることを機械的に縛るため。
+     * ここが drift すると {@link #resolveOwnPlugin()} が黙って {@code null} を返し、
+     * HuskSync 対策の遅延が<b>テスト全部緑のまま消える</b>。
+     */
+    static final String OWN_PLUGIN_NAME = "TrinityForge";
 
     /**
      * 参加時走査を遅らせる tick 数(2秒)。詳細は {@link #onJoin}。HuskSync の snapshot 適用が
@@ -166,15 +206,86 @@ public final class CollectionListener implements Listener {
         return Bukkit.getPluginManager().getPlugin(OWN_PLUGIN_NAME);
     }
 
+    /**
+     * 拾得。クリエイティブ/スペクテイター中の拾得は<b>記録せず、代わりに出自マーカーを刻む</b>
+     * ({@link #onCreativeSet} と合わせてクラス javadoc の「ゲームモードゲートだけでは
+     * 構造的に閉じない」を参照)。サバイバルへ戻ってから走査させる抜け穴を塞ぐのが目的。
+     *
+     * <p>通知の抑止は走査経路と同じ {@link #recordWithBackfillGate} に通す。
+     * <b>「拾得は常に通知」という従来の流儀を変えている</b>理由は同メソッドの javadoc。
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent event) {
-        if (!config.catalogItemsEnabled() || !(event.getEntity() instanceof Player player)
-                || excluded(player)) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        if (excluded(player)) {
+            // 図鑑機能が config で無効でも刻む。後で有効化したときに「クリエイティブで集めた分」が
+            // 一斉に登録される穴を残さないため(刻むのはクリエイティブ/スペクテイター中だけなので安い)。
+            ItemStack dropped = event.getItem().getItemStack();
+            if (markCreativeOrigin(dropped)) {
+                // CraftItem#getItemStack() は NMS スタックの mirror なので上の書き込みで既に
+                // 通っているが、copy を返す実装に変わった場合に備えて書き戻す(冪等)。
+                event.getItem().setItemStack(dropped);
+            }
+            return;
+        }
+        if (!config.catalogItemsEnabled()) {
             return;
         }
         ItemStack stack = event.getItem().getItemStack();
-        catalogIdOf(stack).ifPresent(id -> service.record(player,
+        catalogIdOf(stack).ifPresent(id -> recordWithBackfillGate(player,
                 Map.of(CollectionService.itemEntryId(id), qualityOf(stack))));
+    }
+
+    /**
+     * クリエイティブのアイテム生成({@code SetCreativeModeSlot} パケット)に出自マーカーを刻む。
+     *
+     * <p>この経路がクリエイティブでアイテムが「湧く」本体で、通常のインベントリ操作は
+     * {@code InventoryClickEvent} 側なのでここには来ない。刻んだ品はサバイバルへ持ち込んでも
+     * {@link #resolveEntryId} が図鑑判定から外すため、{@code items.structure} の16件を
+     * クリエイティブで並べてサバイバルへ移る抜け穴が閉じる。
+     *
+     * <p>{@code setCursor} で刻んだスタックを差し戻す(CraftBukkit は本イベント後の
+     * {@code getCursor()} をスロットへ書き込む)。カーソルを<b>差し替える</b>だけなので、
+     * {@code CraftItemEvent} でカーソルを書くと素材が消費されず複製する既知の罠
+     * ({@code docs/agent-context/common-traps.md})とは別経路であり無関係。
+     *
+     * <p>優先度は {@code HIGHEST}(MONITOR ではない)。カーソルを<b>書き換える</b>ハンドラなので
+     * 「MONITOR では変更しない」の流儀を守りつつ、他プラグインより後に走って印が上書きされないようにする。
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onCreativeSet(InventoryCreativeEvent event) {
+        ItemStack cursor = event.getCursor();
+        if (cursor == null || cursor.getType().isAir()) {
+            return;
+        }
+        ItemStack marked = cursor.clone();
+        if (markCreativeOrigin(marked)) {
+            event.setCursor(marked);
+        }
+    }
+
+    /**
+     * クリエイティブ由来マーカーを刻む。既に刻まれていれば何もしない(PDC 書き込みを繰り返さない)。
+     *
+     * @return meta を書き換えたら true
+     */
+    private static boolean markCreativeOrigin(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        ItemData data = ItemData.of(meta);
+        if (data.creativeOrigin()) {
+            return false;
+        }
+        data.markCreativeOrigin();
+        stack.setItemMeta(meta);
+        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -229,22 +340,7 @@ public final class CollectionListener implements Listener {
         service.record(killer, Set.of(CollectionService.mobEntryId(event.getEntityType().name())));
     }
 
-    /**
-     * インベントリ全スロットの差分登録。
-     *
-     * <p><b>通知の抑止(遡り登録)</b>: K-11 の修正で「既に持っていた素のバニラ品」が一斉に
-     * 記録可能になったため、そのままだと1件ごとの「図鑑に登録」チャットが最大16行流れ、
-     * {@code reward-tiers} の t3(60)/t4(120)/t5(200) を跨いだ分だけ {@code broadcast: true} の
-     * サーバー全体告知が連続発火して<b>事故に見える</b>。そこで
-     * <b>「そのプレイヤーで最初に1件以上記録した走査」だけを静かに行う</b>
-     * (報酬そのものは通常どおり付与する)。
-     *
-     * <p>フラグを「初回参加の走査」で消費してはいけない。遺物系(エリトラ/トーテム/レコード/
-     * バナー模様)はチェストやエンダーチェストにしまってあることが多く、初回参加の走査は
-     * <b>0件で終わってフラグだけ焼かれる</b>。すると後でチェストから出した瞬間に、抑止したかった
-     * 通知の束がそのまま出る。<b>記録が発生した走査だけがフラグを消費する</b>ことで、
-     * 参加時でもインベントリ閉時でも「最初のまとまった追い付き分」を静かに通せる。
-     */
+    /** インベントリ全スロットの差分登録。通知の抑止は {@link #recordWithBackfillGate} に寄せてある。 */
     private void scanInventory(Player player) {
         if (!config.catalogItemsEnabled() || excluded(player)) {
             return;
@@ -261,6 +357,35 @@ public final class CollectionListener implements Listener {
                 ids.merge(entryId, quality, Math::max);
             });
         }
+        recordWithBackfillGate(player, ids);
+    }
+
+    /**
+     * アイテム記録の唯一の出口。<b>遡り登録の通知抑止</b>をここに集約する。
+     *
+     * <p><b>抑止が必要な理由</b>: K-11 の修正で「既に持っていた素のバニラ品」が一斉に
+     * 記録可能になったため、そのままだと1件ごとの「図鑑に登録」チャットが最大16行流れ、
+     * {@code reward-tiers} の t3(60)/t4(120)/t5(200) を跨いだ分だけ {@code broadcast: true} の
+     * サーバー全体告知が連続発火して<b>事故に見える</b>。そこで
+     * <b>「そのプレイヤーで最初に1件以上記録した記録」だけを静かに行う</b>
+     * (報酬そのものは通常どおり付与する)。
+     *
+     * <p>フラグを「初回参加の走査」で消費してはいけない。遺物系(エリトラ/トーテム/レコード/
+     * バナー模様)はチェストやエンダーチェストにしまってあることが多く、初回参加の走査は
+     * <b>0件で終わってフラグだけ焼かれる</b>。すると後でチェストから出した瞬間に、抑止したかった
+     * 通知の束がそのまま出る。<b>記録が発生した走査だけがフラグを消費する</b>ことで、
+     * 参加時でもインベントリ閉時でも「最初のまとまった追い付き分」を静かに通せる。
+     *
+     * <p><b>2026-07-31: 拾得({@link #onPickup})もこの抑止に揃えた</b> — 「拾得は常に通知」という
+     * 従来の流儀を意図的に変えている。理由は、抑止が走査経路だけだと<b>地面を経由する取り出し</b>が
+     * すり抜けるため。エンダーチェストから遺物をカーソルへ取って GUI を Esc/E で閉じるとカーソルの
+     * スタックは地面へ落ちて即座に拾い直しになり({@code getContents()} はカーソルを含まないので
+     * 走査側では見えない)、この経路が {@link #onPickup} を通る。結果、1件ずつ取り出す操作では
+     * 抑止したかった通知の束と報酬ティアの全体告知がそのまま出るうえ、フラグは未消費のまま残るので
+     * 後続のまとめ走査だけが無音になり、<b>通知の出方が経路依存で一貫しなくなる</b>。
+     * 代償は「そのプレイヤーの初回の正当な拾得1件が静かになる」ことだけ。
+     */
+    private void recordWithBackfillGate(Player player, Map<String, Integer> ids) {
         if (ids.isEmpty()) {
             return;
         }
@@ -268,8 +393,8 @@ public final class CollectionListener implements Listener {
         boolean retroactive = !data.collectionBackfillDone();
         int newlyAdded = service.record(player, ids, !retroactive);
         if (retroactive && newlyAdded > 0) {
-            // 実際に記録が発生した走査だけがフラグを消費する。品質ptの更新だけ(newlyAdded == 0)や
-            // 既知エントリしか無かった走査では消費しない — 抑止したい「まとまった追い付き」は
+            // 実際に記録が発生した経路だけがフラグを消費する。品質ptの更新だけ(newlyAdded == 0)や
+            // 既知エントリしか無かった場合は消費しない — 抑止したい「まとまった追い付き」は
             // まだ来ていないため。
             data.markCollectionBackfillDone();
         }
@@ -289,6 +414,11 @@ public final class CollectionListener implements Listener {
      * t1(10)/t2(30) を無条件に跨ぎ t3(60) の全体ブロードキャストにも寄る
      * ({@code ops/RUNBOOK.md} が「メインの world は creative」と書いているので想定外の環境ではない)。
      * 討伐側も同じで、クリエイティブなら任意のモブを即殺できる。
+     *
+     * <p><b>このゲートだけでは足りない</b>(2026-07-31)。見ているのは「そのフレームのゲームモード」
+     * だけなので、クリエイティブで並べてからサバイバルへ移って走査させる経路は素通りする。
+     * アイテム側の出自マーカー({@link #onCreativeSet} / {@link #onPickup})と<b>両方</b>で塞ぐ。
+     * 詳細はクラス javadoc。
      */
     private static boolean excluded(Player player) {
         GameMode gm = player.getGameMode();
@@ -355,7 +485,15 @@ public final class CollectionListener implements Listener {
         if (!hasItemMeta) {
             // 素のバニラ品。PDC も CMD も存在しえないので Material 判定だけで決まる。
             // ここを早期 return(= Optional.empty())にしていたのが K-11。
+            // 出自マーカーも PDC なので、meta が無いスタックには原理的に付いていない。
             return trackedVanillaId(materialName, watched);
+        }
+        if (facts.creativeOrigin()) {
+            // クリエイティブ由来。ゲームモードゲートを素通りする「creative→survival 持ち込み」を
+            // ここで落とす。カタログ刻印/Ars刻印/CMD より先に見るのは、クリエイティブインベントリから
+            // 出せるのは素のバニラ品だけとは限らず(/give や中クリック複製でカスタム品も出せる)、
+            // 刻印の有無に関わらず出自が優先されるべきだから。詳細はクラス javadoc。
+            return Optional.empty();
         }
         Optional<String> stamped = facts.stampedCatalogId();
         if (stamped.isPresent()) {
@@ -392,6 +530,13 @@ public final class CollectionListener implements Listener {
      */
     interface MetaFacts {
 
+        /**
+         * クリエイティブ由来マーカー({@code trinityforge:creative_origin})が刻まれているか。
+         * true なら図鑑判定から丸ごと外す(クラス javadoc の「ゲームモードゲートだけでは
+         * 構造的に閉じない」)。
+         */
+        boolean creativeOrigin();
+
         /** TF カタログの PDC 刻印 ({@code trinityforge:catalog_id})。 */
         Optional<String> stampedCatalogId();
 
@@ -407,6 +552,11 @@ public final class CollectionListener implements Listener {
 
     private MetaFacts metaFactsOf(ItemStack stack, ItemMeta meta) {
         return new MetaFacts() {
+            @Override
+            public boolean creativeOrigin() {
+                return ItemData.of(meta).creativeOrigin();
+            }
+
             @Override
             public Optional<String> stampedCatalogId() {
                 return CatalogIdentity.catalogIdOf(meta);
