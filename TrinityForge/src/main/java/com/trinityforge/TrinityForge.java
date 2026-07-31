@@ -152,6 +152,12 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.stats.CrossPluginItemResolver crossPluginItemResolver;
     private SkillLevelSource skillLevelSource;
     private NativeProgressionService progressionService;
+    /**
+     * 日次EXP逓減の状態保持器(2026-07-31)。プレイヤー×スキルごとに指数移動窓を持つだけなので
+     * DB を増やさない。退出時に {@code forget} して有界に保つ。
+     */
+    private final com.trinityforge.progression.DailyExpDiminishing dailyExpDiminishing =
+            new com.trinityforge.progression.DailyExpDiminishing();
     private NativeProgressionAdminService progressionAdminService;
     private NativeExperienceDispatcher experienceDispatcher;
     private ProgressionRepository progressionRepository;
@@ -275,7 +281,12 @@ public final class TrinityForge extends JavaPlugin {
                     // タスク3(2026-07-26 EXP調整): レベル逓減カーブ。既定はgathering/combatとも
                     // level-diminishing.*=false なので SkillExpDiminishingCurve は常に1.0を返す
                     // (=現行挙動を1ミリも変えない)。
-                    new com.trinityforge.progression.SkillExpDiminishingCurve(configManager.skillExp()));
+                    new com.trinityforge.progression.SkillExpDiminishingCurve(configManager.skillExp()),
+                    // 2026-07-31 ユーザー確定「既存の24時間EXPによって取得量が軽減されていく設定」。
+                    // その機構は実在しなかった(あったのは spot-diminishing=同一地点だけ)ので新設。
+                    // 設定は Supplier で毎回引く: reload で skill-exp.yml を読み直しても反映される。
+                    this.dailyExpDiminishing,
+                    () -> configManager.skillExp().dailyDiminishing());
             this.progressionAdminService = new NativeProgressionAdminService(
                     progressionRepository, progressionCatalog,
                     () -> configManager.skillTrees().all().values(),
@@ -309,7 +320,7 @@ public final class TrinityForge extends JavaPlugin {
         // 破壊時バニラEXP(S9)配線のため aggregator 生成後(下方)へ移動した。gimmick系(Digging/VeinMining/
         // TreeFelling)より前に登録される点は変わらないので、placed-mark の消去順序は不変。
         getServer().getPluginManager().registerEvents(
-                new ProgressionPreloadListener(this, progressionRepository), this);
+                new ProgressionPreloadListener(this, progressionRepository, dailyExpDiminishing), this);
         this.nativePerkService = new NativePerkService(progressionService,
                 () -> configManager.skillTrees().all().values());
         // スキルノードロック(2026-07-27): プレステージ時に維持する perk をプレイヤーPDCから供給する。

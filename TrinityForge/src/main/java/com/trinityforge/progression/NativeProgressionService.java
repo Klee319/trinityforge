@@ -39,6 +39,14 @@ public final class NativeProgressionService {
     private final java.util.function.ToDoubleFunction<UUID> allSkillExpMultiplier;
     private final PlayerLockRegistry locks;
     private final ExpDiminishingCurve diminishingCurve;
+    /**
+     * 直近24時間の稼ぎ総量に応じた逓減（2026-07-31）。レベル逓減({@link #diminishingCurve})とは
+     * 別の軸で、こちらは<b>プレイヤーごと</b>に効く。既定は {@code null}（無効）なので、
+     * 既存の呼び出し側は挙動が変わらない。
+     */
+    private final DailyExpDiminishing dailyDiminishing;
+    /** {@link #dailyDiminishing} が使う設定の供給元。reload で差し替わるので毎回引き直す。 */
+    private final java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings;
 
     public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog) {
         this(repository, catalog, id -> 0.0);
@@ -68,11 +76,32 @@ public final class NativeProgressionService {
     public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog,
                                     java.util.function.ToDoubleFunction<UUID> allSkillExpMultiplier,
                                     PlayerLockRegistry locks, ExpDiminishingCurve diminishingCurve) {
+        this(repository, catalog, allSkillExpMultiplier, locks, diminishingCurve, null, null);
+    }
+
+    /**
+     * 日次逓減つきの構築子（2026-07-31）。{@code dailyDiminishing} / {@code dailySettings} の
+     * どちらかが {@code null} なら日次逓減は完全に無効で、上の構築子と同一挙動になる。
+     * 設定は Supplier 経由で毎回引く ── {@code /trinityforge reload} で
+     * {@code stats/skill-exp.yml} を読み直したとき、焼き込んだ値だと反映されないため。
+     */
+    public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog,
+                                    java.util.function.ToDoubleFunction<UUID> allSkillExpMultiplier,
+                                    PlayerLockRegistry locks, ExpDiminishingCurve diminishingCurve,
+                                    DailyExpDiminishing dailyDiminishing,
+                                    java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.allSkillExpMultiplier = Objects.requireNonNull(allSkillExpMultiplier, "allSkillExpMultiplier");
         this.locks = Objects.requireNonNull(locks, "locks");
         this.diminishingCurve = Objects.requireNonNull(diminishingCurve, "diminishingCurve");
+        this.dailyDiminishing = dailyDiminishing;
+        this.dailySettings = dailySettings;
+    }
+
+    /** 日次逓減の状態保持器（退出時に {@code forget} を呼ぶリスナ用）。無効なら {@code null}。 */
+    public DailyExpDiminishing dailyDiminishing() {
+        return dailyDiminishing;
     }
 
     /** Exposes the shared per-player lock so sibling services can serialize against it. */
@@ -126,6 +155,19 @@ public final class NativeProgressionService {
             amount = amount * Math.max(0.0, diminishing);
             if (!Double.isFinite(amount) || amount == 0.0) {
                 return GrantResult.unchanged(rawSkillId);
+            }
+        }
+        // 日次逓減(2026-07-31): 直近24時間にそのスキルで稼いだ総量で薄める。レベル逓減とは軸が違うので
+        // 乗算で合成する。consume は「読み取りと蓄積の加算」が一体なので1回の付与につき1回だけ呼ぶ。
+        // 逓減前の amount(レベル逓減適用後)を蓄積へ入れる ── 逓減後の値を入れると、薄まるほど
+        // 蓄積が増えなくなって自分で自分を打ち消す(いくら稼いでも threshold に届かない)。
+        if (dailyDiminishing != null && dailySettings != null) {
+            double daily = dailyDiminishing.consume(dailySettings.get(), playerId, skillId, amount);
+            if (Double.isFinite(daily) && daily != 1.0) {
+                amount = amount * Math.max(0.0, daily);
+                if (!Double.isFinite(amount) || amount == 0.0) {
+                    return GrantResult.unchanged(rawSkillId);
+                }
             }
         }
         SkillProgress after = new XpTransitionService(entry.curve()).apply(before, amount);

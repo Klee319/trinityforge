@@ -17,8 +17,19 @@ public final class ProgressionPreloadListener implements Listener {
 
     private final Plugin plugin;
     private final ProgressionRepository repository;
+    /**
+     * 日次EXP逓減の状態(2026-07-31)。プレイヤー×スキルの指数移動窓をメモリに持つだけなので、
+     * 退出時に捨ててメモリを有界にする。null 可(逓減を配線していない構成でも動く)。
+     */
+    private final com.trinityforge.progression.DailyExpDiminishing dailyExpDiminishing;
 
     public ProgressionPreloadListener(Plugin plugin, ProgressionRepository repository) {
+        this(plugin, repository, null);
+    }
+
+    public ProgressionPreloadListener(Plugin plugin, ProgressionRepository repository,
+                                      com.trinityforge.progression.DailyExpDiminishing dailyExpDiminishing) {
+        this.dailyExpDiminishing = dailyExpDiminishing;
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.repository = Objects.requireNonNull(repository, "repository");
     }
@@ -48,6 +59,9 @@ public final class ProgressionPreloadListener implements Listener {
         // The generation bump inside evict also rejects any still-in-flight preload for this player.
         if (repository instanceof CachedProgressionRepository cached) {
             cached.evict(event.getPlayer().getUniqueId());
+        }
+        if (dailyExpDiminishing != null) {
+            dailyExpDiminishing.forget(event.getPlayer().getUniqueId());
         }
     }
 }

@@ -59,6 +59,13 @@ public final class SkillExpConfig {
     private volatile double spotDiminishingDecayPerKill = 0.05;
     private volatile double spotDiminishingFloor = 0.1;
     private volatile boolean spotDiminishingExemptsDungeons = true;
+    /**
+     * 日次逓減(2026-07-31 ユーザー確定「既存の24時間EXPによって取得量が軽減されていく設定」)。
+     * この機構は「既にある」と思われていたが実在せず、あったのは spot-diminishing(同一地点)だけだった。
+     * 既定は無効なので、yml に書くまで挙動は変わらない。
+     */
+    private volatile com.trinityforge.progression.DailyExpDiminishing.Settings dailyDiminishing =
+            com.trinityforge.progression.DailyExpDiminishing.Settings.DISABLED;
     // --- 2026-07-26 EXP調整タスク1: 採取EXPの算出方式 ---
     // drop_sum(既定): 従来どおりドロップ品の合計値(現行の実サーバ挙動と完全一致・変更なし)。
     // block_value   : ブロック自体に設定された値(mining_break.<ブロック名>等)をそのまま使う。
@@ -189,6 +196,11 @@ public final class SkillExpConfig {
             return 1.0;
         }
         return dungeonOnlyExp ? 0.0 : outsideDungeonExpRate;
+    }
+
+    /** 日次逓減の設定(daily-diminishing)。無効時は {@code Settings.DISABLED}。 */
+    public com.trinityforge.progression.DailyExpDiminishing.Settings dailyDiminishing() {
+        return dailyDiminishing;
     }
 
     // --- TT/放置対策: 同一地点の逓減 (spot-diminishing) ---
@@ -397,6 +409,16 @@ public final class SkillExpConfig {
         this.dungeonOnlyExp = yaml.getBoolean("dungeon-only-exp", true);
         this.outsideDungeonExpRate = Math.max(0.0, Math.min(1.0,
                 yaml.getDouble("outside-dungeon-exp-rate", 0.25)));
+        // 日次逓減。window-hours は「時定数」で、その時間が経つと蓄積が 1/e (約37%) まで戻る。
+        // exempt-skills は正規化前の生IDをそのまま集合に入れる(スキルIDは大文字固定なので一致する)。
+        this.dailyDiminishing = new com.trinityforge.progression.DailyExpDiminishing.Settings(
+                yaml.getBoolean("daily-diminishing.enabled", false),
+                Math.max(1.0, yaml.getDouble("daily-diminishing.window-hours", 24.0)) * 3_600_000.0,
+                yaml.getDouble("daily-diminishing.threshold", 0.0),
+                yaml.getDouble("daily-diminishing.step", 1.0),
+                yaml.getDouble("daily-diminishing.decay-per-step", 1.0),
+                yaml.getDouble("daily-diminishing.floor", 0.25),
+                new java.util.HashSet<>(yaml.getStringList("daily-diminishing.exempt-skills")));
         this.spotDiminishingEnabled = yaml.getBoolean("spot-diminishing.enabled", true);
         this.spotDiminishingRadius = Math.max(1.0, yaml.getDouble("spot-diminishing.radius", 24.0));
         this.spotDiminishingWindowSeconds =
