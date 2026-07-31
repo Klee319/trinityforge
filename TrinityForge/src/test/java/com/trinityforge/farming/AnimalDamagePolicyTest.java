@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AnimalDamagePolicyTest {
 
     @Test
-    void animalNotMonsterIsEligible() {
+    void peacefulAnimalIsEligible() {
         assertTrue(AnimalDamagePolicy.eligibleVictim(true, false));
     }
 
@@ -20,8 +20,9 @@ class AnimalDamagePolicyTest {
     }
 
     @Test
-    void hostileAnimalsLikeMobsAreExcludedEvenIfAnimalsInterface() {
-        // Defensive case: something implementing both Animals and Monster must still be excluded.
+    void hostileAnimalsAreExcludedEvenIfTheyImplementAnimals() {
+        // HOGLIN の形: Animals だが Enemy。呼び出し側は Bukkit の Monster ではなく Paper の Enemy を
+        // 渡さなければならない(Monster を渡していたため 2026-07-31 までホグリンに4倍が乗っていた)。
         assertFalse(AnimalDamagePolicy.eligibleVictim(true, true));
     }
 

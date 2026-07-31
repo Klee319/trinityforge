@@ -3,7 +3,9 @@ package com.trinityforge.progression;
 import com.trinityforge.config.domains.RoleBuffsConfig;
 import com.trinityforge.listeners.RoleBuffListener;
 import com.trinityforge.pdc.PlayerData;
-import org.bukkit.entity.Monster;
+import org.bukkit.entity.Enemy;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 
 import java.util.Locale;
@@ -21,11 +23,18 @@ import java.util.function.LongSupplier;
  * 補助職の選択そのものが意味を失っていた（横の選択肢を増やす設計が「全部同時に持てる」で崩れる）。
  * 戦闘職と補助職で別々のクールダウンを持つのは、GUI で戦闘職を選んだ直後に補助職も選べる
  * 必要があるため（共通にすると片方を選んだ瞬間にもう片方が押せなくなる）。
+ *
+ * <p><b>ここには独立した 2 つの関門がある。混ぜないこと。</b>
+ * <ul>
+ *   <li><b>交戦中ガード</b>({@code role-change.nearby-enemy-radius}, 既定 0=無効) —
+ *       「今この瞬間、戦闘中か」だけを見る。乗せ替え悪用の抑止はこれの仕事ではない。</li>
+ *   <li><b>変更クールダウン</b>({@code role-change.cooldown-minutes}, 既定 120 分) —
+ *       枠ごとの待ち時間。<b>{@code /tf role clear} → 即再選択という迂回路を塞いでいるのは
+ *       こちら側だけ</b>({@link #clear(Player)} が両枠の刻印時刻を更新する)なので、
+ *       交戦中ガードを無効にしても迂回路は開かない。</li>
+ * </ul>
  */
 public final class RoleChangeService {
-
-    /** この距離内に敵モブが居るとロール変更を拒否する(戦闘中の付け替え防止)。 */
-    private static final double MONSTER_SCAN_RADIUS = 16.0;
 
     private final RoleBuffsConfig roleBuffs;
     private final RoleBuffListener roleBuffListener;
@@ -47,7 +56,26 @@ public final class RoleChangeService {
     }
 
     /**
-     * ロール変更が可能か（枠に依存しない共通ゲートのみ）。
+     * ロール変更の機能自体が使えるか（プレイヤーかどうかと {@code allow-command} だけ）。
+     *
+     * <p>交戦中ガードもクールダウンも見ない。<b>GUI を開く／{@code /tf role clear} のような
+     * 「読むだけ・外すだけ」の動線用</b>で、ロールの説明を読む操作を戦闘状態で塞ぐ理由が無いため
+     * 適用系とは別の入口にしてある（実際に付け替える側は {@link #denyReason(Player)} を通す）。
+     *
+     * @return 使えない理由(プレイヤーへそのまま出せる日本語)。使えるなら {@link Optional#empty()}
+     */
+    public Optional<String> commandDisabledReason(Player player) {
+        if (player == null) {
+            return Optional.of("プレイヤー専用コマンドです。");
+        }
+        if (!roleBuffs.allowRoleCommand()) {
+            return Optional.of("コマンドによるロール変更は無効です。");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * ロールを<b>付け替え</b>られるか（枠に依存しない共通ゲートのみ）。
      *
      * <p>クールダウンは枠ごとなので、ここでは見ない。{@link #denyReasonForCombat(Player)} /
      * {@link #denyReasonForSupport(Player)} が「共通ゲート + その枠のクールダウン」を返す。
@@ -55,17 +83,41 @@ public final class RoleChangeService {
      * @return 変更できない理由(プレイヤーへそのまま出せる日本語)。変更できるなら {@link Optional#empty()}
      */
     public Optional<String> denyReason(Player player) {
-        if (player == null) {
-            return Optional.of("プレイヤー専用コマンドです。");
+        Optional<String> disabled = commandDisabledReason(player);
+        if (disabled.isPresent()) {
+            return disabled;
         }
-        if (!roleBuffs.allowRoleCommand()) {
-            return Optional.of("コマンドによるロール変更は無効です。");
-        }
-        if (player.getNearbyEntities(MONSTER_SCAN_RADIUS, MONSTER_SCAN_RADIUS, MONSTER_SCAN_RADIUS)
-                .stream().anyMatch(Monster.class::isInstance)) {
-            return Optional.of("近くに敵モブがいるためロール変更できません。");
+        double radius = roleBuffs.nearbyEnemyRadius();
+        if (radius > 0.0 && engagedInCombat(player, radius)) {
+            return Optional.of("戦闘中(敵に狙われている間)はロール変更できません。");
         }
         return Optional.empty();
+    }
+
+    /**
+     * 「本当に交戦中か」。半径内の敵を Paper の {@link Enemy} で判定し、さらに
+     * <b>{@link Mob#getTarget()} が自分のときだけ</b>交戦中とみなす。
+     *
+     * <p>距離だけで見ていた 2026-07-31 以前は、ネザーのゾンビピグリンや壁越し・地下洞窟のモブでも
+     * 拒否されて「拠点や洞窟付近では常時変更不可」になっていた。敵対判定に Bukkit の
+     * {@code Monster} を使ってはいけない（中立の PigZombie/Piglin/Enderman を拾い、
+     * Slime/Ghast/Shulker/EnderDragon/Hoglin を落とす）のは、このプロジェクトで既に踏んだ落とし穴。
+     *
+     * <p>{@code Mob} でない {@link Enemy}（現行の paper-api には無いが将来増えうる）は
+     * ターゲットを問い合わせられないので距離だけで拒否する。逆に、ターゲットを公開しない
+     * ボス AI（EnderDragon 等は {@code getTarget()} が null のことがある）はガードを跨げる —
+     * ここは「誤爆で常時変更不可になる」方を重く見た上での割り切り。
+     */
+    private static boolean engagedInCombat(Player player, double radius) {
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (!(entity instanceof Enemy)) {
+                continue;
+            }
+            if (!(entity instanceof Mob mob) || player.equals(mob.getTarget())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 戦闘職を変更できるか(共通ゲート + 戦闘職のクールダウン)。 */

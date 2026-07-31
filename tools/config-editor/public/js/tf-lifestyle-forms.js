@@ -1457,7 +1457,11 @@
       [
         field("allow-command", window.checkboxInput(!!change["allow-command"], (v) => {
           change["allow-command"] = v;
-        }), { label: "/tf role set を許可", key: "allow-command", desc: "非戦闘時のみ" }),
+        }), {
+          label: "/tf role set を許可", key: "allow-command",
+          desc: "false にするとコマンド・GUI からのロール変更を一切受け付けない。"
+            + "戦闘中の可否は下の「交戦中ガードの半径」で決まる(既定では戦闘中でも変更できる)。"
+        }),
         // 2026-07-31: 待ち時間が無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば
         // 全系統に最大倍率が乗り、補助職の選択そのものが意味を失う。
         field("cooldown-minutes", window.numberInput(change["cooldown-minutes"], (v) => {
@@ -1477,6 +1481,19 @@
           label: "初回は待ち時間を刻まない", key: "first-choice-free",
           desc: "空の枠を初めて埋めるときは刻まない。"
             + "「1つ選んで説明を読み、選び直す」までは無料になるので、始めたばかりの人が詰まらない。"
+        }),
+        // 2026-07-31: 以前は 16 のハードコード＋Bukkit の Monster 判定だったため、ネザーの
+        // ゾンビピグリンや壁越しの洞窟モブで常時変更不可・逆にエンドラ戦では素通りしていた。
+        field("nearby-enemy-radius", window.numberInput(change["nearby-enemy-radius"], (v) => {
+          if (v == null || v === "") delete change["nearby-enemy-radius"];
+          else change["nearby-enemy-radius"] = Math.max(0, Number(v));
+        }, { int: false }), {
+          label: "交戦中ガードの半径(ブロック)", key: "nearby-enemy-radius",
+          desc: "0 でガードを無効(既定)。上限は64。"
+            + "0 より大きくすると、その半径内に「自分を狙っている敵」が居る間だけ変更できなくなる。"
+            + "GUIを開く操作と /tf role clear はこのガードを通さない(説明を読むだけ・外すだけなので)。"
+            + "待ち時間とは別の機構で、乗せ替え悪用の抑止は待ち時間側が担う。"
+            + "待ち時間と両方を 0 にすると、被弾直前に tank・与ダメ直前に mage へ無制限に往復できる。"
         })
       ]
     ));

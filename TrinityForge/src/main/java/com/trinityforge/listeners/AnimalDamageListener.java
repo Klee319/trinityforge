@@ -4,9 +4,9 @@ import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FarmingGimmickConfig;
 import com.trinityforge.farming.AnimalDamagePolicy;
 import org.bukkit.entity.Animals;
+import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -17,8 +17,9 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import java.util.Objects;
 
 /**
- * 畜産スキルツリー{@code animal-damage-4x}(flag): プレイヤーが動物(=Animals実装、Monster実装を除く
- * 敵対mob除外)へ与える最終ダメージを倍率(既定4倍、{@code stats/farming-gimmick.yml}で要調整)にする。
+ * 畜産スキルツリー{@code animal-damage-4x}(flag): プレイヤーが動物(=Animals実装のうち、Paperの
+ * {@code Enemy}=敵対を除いたもの)へ与える最終ダメージを倍率(既定4倍、
+ * {@code stats/farming-gimmick.yml}で要調整)にする。
  *
  * <p><strong>TF戦闘パイプラインとの二重適用回避</strong>: {@link CombatListener#onEntityDamageByEntity}
  * が同じ{@link EntityDamageByEntityEvent}の{@code BASE}modifierを{@code EventPriority.HIGH}で確定させる
@@ -47,7 +48,9 @@ public final class AnimalDamageListener implements Listener {
             return;
         }
         Entity victim = event.getEntity();
-        boolean eligible = AnimalDamagePolicy.eligibleVictim(victim instanceof Animals, victim instanceof Monster);
+        // 敵対判定は Paper の Enemy。Bukkit の Monster で見ると HOGLIN(Animals かつ Enemy だが
+        // Monster ではない)が「動物」に化けて、ネザーでホグリンを4倍で殴れる。
+        boolean eligible = AnimalDamagePolicy.eligibleVictim(victim instanceof Animals, victim instanceof Enemy);
         if (!eligible || !(victim instanceof LivingEntity)) {
             return;
         }
