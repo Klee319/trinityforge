@@ -11,12 +11,20 @@ public final class AnimalDamagePolicy {
     }
 
     /**
-     * 動物への与ダメージ倍率の対象となるか({@code Animals}実装 かつ {@code Monster}非実装、
-     * 敵対mob除く)。ハチ等の{@code Animals}実装は対象に含まれる(要調整: 個別除外が必要なら
-     * ここに条件を追加する)。
+     * 動物への与ダメージ倍率の対象となるか({@code Animals}実装 かつ 敵対でない)。
+     * ハチ等の{@code Animals}実装は対象に含まれる(要調整: 個別除外が必要ならここに条件を追加する)。
+     *
+     * <p><b>敵対判定は Paper の {@code Enemy} で渡すこと。</b>2026-07-31 まで呼び出し側が Bukkit の
+     * {@code Monster} を渡していたため、{@code Animals=true / Monster=false / Enemy=true} である
+     * <b>HOGLIN が「動物」として 4 倍で殴れていた</b>（ネザーでの畜産倍率漏れ）。
+     * {@code Monster}/{@code Animals} は敵対分類に使えない、というのはこのプロジェクトで既に
+     * 明文化済みの落とし穴（{@code ResourceServerMobSimulationTest#isHostile}）。
+     *
+     * @param isAnimal  {@code victim instanceof org.bukkit.entity.Animals}
+     * @param isHostile {@code victim instanceof org.bukkit.entity.Enemy}
      */
-    public static boolean eligibleVictim(boolean isAnimal, boolean isMonster) {
-        return isAnimal && !isMonster;
+    public static boolean eligibleVictim(boolean isAnimal, boolean isHostile) {
+        return isAnimal && !isHostile;
     }
 
     /**

@@ -282,4 +282,56 @@ class RoleBuffsConfigTest {
 
         assertEquals(10.0, config.supportRole("miner").expMultiplier());
     }
+
+    /**
+     * 交戦中ガードの既定は 0(=無効)。配備済みサーバの yml には新キーが生えない
+     * ({@code saveResource(PATH, false)} なので上書きしない)ため、<b>Java 側の既定値が
+     * そのまま本番挙動になる</b>。既定を 0 以外にすると「直したのに直っていない」になる。
+     */
+    @Test
+    void nearbyEnemyRadiusDefaultsToZeroSoTheGuardIsOff(@TempDir File tempDir) throws IOException {
+        RoleBuffsConfig config = loaded(tempDir, """
+                role-change:
+                  allow-command: true
+                  cooldown-minutes: 120
+                """);
+
+        assertEquals(0.0, config.nearbyEnemyRadius());
+    }
+
+    @Test
+    void nearbyEnemyRadiusIsReadWhenSet(@TempDir File tempDir) throws IOException {
+        RoleBuffsConfig config = loaded(tempDir, """
+                role-change:
+                  nearby-enemy-radius: 8.5
+                """);
+
+        assertEquals(8.5, config.nearbyEnemyRadius());
+    }
+
+    @Test
+    void nearbyEnemyRadiusIsClampedAndNegativesFallBackToDisabled(@TempDir File tempDir) throws IOException {
+        assertEquals(64.0, loaded(tempDir, """
+                role-change:
+                  nearby-enemy-radius: 100000.0
+                """).nearbyEnemyRadius(), "走査コストの歯止め");
+
+        File other = new File(tempDir, "negative");
+        assertEquals(0.0, loaded(other, """
+                role-change:
+                  nearby-enemy-radius: -5.0
+                """).nearbyEnemyRadius(), "不正値は「有効」ではなく「無効」側へ寄せる");
+    }
+
+    /** {@code role-change:} セクションそのものが無い yml でもガードは無効のまま。 */
+    @Test
+    void missingRoleChangeSectionLeavesTheGuardOff(@TempDir File tempDir) throws IOException {
+        RoleBuffsConfig config = loaded(tempDir, """
+                combat-roles:
+                  tank:
+                    label: Tank
+                """);
+
+        assertEquals(0.0, config.nearbyEnemyRadius());
+    }
 }

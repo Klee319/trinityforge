@@ -100,12 +100,18 @@ public final class RoleBuffsConfig implements LoadableConfig {
 
     /** {@code role-change.cooldown-minutes} の上限(日)。桁を間違えて実質永久ロックになるのを防ぐ。 */
     private static final double MAX_COOLDOWN_MINUTES = 7 * 24 * 60;
+    /**
+     * {@code role-change.nearby-enemy-radius} の上限(ブロック)。この半径の立方体を毎回エンティティ走査
+     * するので、桁を間違えたときに走査コストが跳ねないよう歯止めを掛ける。
+     */
+    private static final double MAX_NEARBY_ENEMY_RADIUS = 64.0;
 
     private volatile Map<String, CombatRoleSpec> combatRoles = Map.of();
     private volatile Map<String, SupportRoleSpec> supportRoles = Map.of();
     private volatile boolean allowRoleCommand = true;
     private volatile long roleChangeCooldownMillis = 0L;
     private volatile boolean firstChoiceFree = true;
+    private volatile double nearbyEnemyRadius = 0.0;
 
     public Map<String, CombatRoleSpec> combatRoles() {
         return combatRoles;
@@ -133,6 +139,23 @@ public final class RoleBuffsConfig implements LoadableConfig {
     /** 未設定の枠を初めて選ぶときは待ち時間を課さないか。始めたばかりの人を詰まらせないための逃げ道。 */
     public boolean firstChoiceFree() {
         return firstChoiceFree;
+    }
+
+    /**
+     * 「交戦中はロールを変更できない」ガードの走査半径(ブロック)。<b>0 でガードそのものを無効化する
+     * (既定)</b>。0 より大きいと、その半径内に<b>自分を狙っている敵</b>が居る間だけ変更できなくなる。
+     *
+     * <p>2026-07-31 まではこの値が 16.0 のハードコードで、しかも敵対判定が Bukkit の
+     * {@code Monster} だったため、ネザーのゾンビピグリン／ピグリンや昼のクモ・壁越しの洞窟モブで
+     * <b>常時変更不可</b>になり、逆に {@code Monster} でない Slime/Ghast/Shulker/EnderDragon/Hoglin
+     * との戦闘中は<b>素通り</b>していた（意図と両方向に外れていた）。判定は Paper の
+     * {@code Enemy} ＋「自分を狙っているか」へ寄せ、既定値は 0（無効）にしてある。
+     *
+     * <p>これは変更クールダウン({@link #roleChangeCooldownMillis()})とは<b>別の機構</b>で、
+     * 乗せ替え悪用の抑止はクールダウン側が担う。
+     */
+    public double nearbyEnemyRadius() {
+        return nearbyEnemyRadius;
     }
 
     public CombatRoleSpec combatRole(String id) {
@@ -226,6 +249,12 @@ public final class RoleBuffsConfig implements LoadableConfig {
         }
         this.roleChangeCooldownMillis = (long) (Math.min(cooldownMinutes, MAX_COOLDOWN_MINUTES) * 60_000L);
         this.firstChoiceFree = change == null || change.getBoolean("first-choice-free", true);
+        // 既定 0 = 交戦中ガードを無効化する。非有限/負は「無効」へ寄せる(無言で有効になる方が危険)。
+        double nearbyRadius = change == null ? 0.0 : change.getDouble("nearby-enemy-radius", 0.0);
+        if (!Double.isFinite(nearbyRadius) || nearbyRadius < 0.0) {
+            nearbyRadius = 0.0;
+        }
+        this.nearbyEnemyRadius = Math.min(nearbyRadius, MAX_NEARBY_ENEMY_RADIUS);
 
         log.info("[" + PATH + "] loaded " + combat.size() + " combat + " + support.size() + " support role(s) OK");
         return true;

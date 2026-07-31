@@ -136,25 +136,28 @@ public final class RoleCommand {
         effects.forEach(player::sendMessage);
     }
 
-    /** {@code /tf role set}(引数なし) — アイテム表示のロール選択GUIを開く。 */
+    /**
+     * {@code /tf role set}(引数なし) — アイテム表示のロール選択GUIを開く。
+     *
+     * <p>開くだけなら交戦中ガードは見ない。GUI はロールの説明を読む唯一の画面なので、戦闘中に
+     * 「開くことすらできない」のは理不尽（以前は 16m 以内に敵モブが居ると開けなかった）。
+     * 実際に押したときは {@link RoleSelectGui} 側で適用系のゲートを通し、ガードを有効にしている
+     * 運用では lore に理由を出して手戻りを吸収する。
+     */
     private int openGui(CommandSourceStack source) {
-        CommandSender sender = source.getSender();
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(Component.text("プレイヤー専用コマンドです。", NamedTextColor.RED));
+        if (!ensureCommandEnabled(source)) {
             return 0;
         }
-        // 開く前にもゲートを見る(開いてからクリック時に弾かれるより分かりやすい)。
-        var deny = roleChangeService.denyReason(player);
-        if (deny.isPresent()) {
-            player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
-            return 0;
-        }
-        selectGui.open(player);
+        selectGui.open((Player) source.getSender());
         return Command.SINGLE_SUCCESS;
     }
 
+    /**
+     * {@code /tf role clear} — 解除も交戦中ガードは見ない（外すだけなので戦闘中に塞ぐ理由が無い。
+     * 解除→即再選択の迂回路を塞いでいるのは {@code clear} 側の刻印＝クールダウンであってガードではない）。
+     */
     private int clear(CommandSourceStack source) {
-        if (!ensureAllowed(source)) {
+        if (!ensureCommandEnabled(source)) {
             return 0;
         }
         Player player = (Player) source.getSender();
@@ -221,13 +224,25 @@ public final class RoleCommand {
         return next != null && !next.equals(currentId);
     }
 
+    /** 付け替える動線({@code set})のゲート。交戦中ガードも通す。 */
     private boolean ensureAllowed(CommandSourceStack source) {
+        return ensureAllowed(source, true);
+    }
+
+    /** 読むだけ・外すだけの動線(GUIを開く / {@code clear})のゲート。交戦中ガードは通さない。 */
+    private boolean ensureCommandEnabled(CommandSourceStack source) {
+        return ensureAllowed(source, false);
+    }
+
+    private boolean ensureAllowed(CommandSourceStack source, boolean applyCombatGate) {
         CommandSender sender = source.getSender();
         if (!(sender instanceof Player player)) {
             sender.sendMessage(Component.text("プレイヤー専用コマンドです。", NamedTextColor.RED));
             return false;
         }
-        var deny = roleChangeService.denyReason(player);
+        var deny = applyCombatGate
+                ? roleChangeService.denyReason(player)
+                : roleChangeService.commandDisabledReason(player);
         if (deny.isPresent()) {
             player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
             return false;
