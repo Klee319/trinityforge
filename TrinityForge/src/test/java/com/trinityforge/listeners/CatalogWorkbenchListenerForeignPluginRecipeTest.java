@@ -60,7 +60,6 @@ class CatalogWorkbenchListenerForeignPluginRecipeTest {
     private static final int IRON_BLOCK_1X_CMD = 100200;
 
     private CatalogWorkbenchListener listener;
-    private CatalogRecipeRegistrar registrar;
 
     @BeforeEach
     void setUp() {
@@ -71,7 +70,7 @@ class CatalogWorkbenchListenerForeignPluginRecipeTest {
                         "source_berry", Material.GLOW_BERRIES, SOURCE_BERRY_CMD, "ソースベリー"),
                 "iron_block_1x", new ExternalItemRegistry.Definition(
                         "iron_block_1x", Material.IRON_BLOCK, IRON_BLOCK_1X_CMD, "圧縮鉄ブロック")));
-        registrar = mock(CatalogRecipeRegistrar.class);
+        CatalogRecipeRegistrar registrar = mock(CatalogRecipeRegistrar.class);
         // 盤面に合う TF カタログレシピは1本も無い = 従来の経路なら必ず結果枠がクリアされる状況。
         when(registrar.registered(any())).thenReturn(Optional.empty());
         when(registrar.allRegistered()).thenReturn(List.of());
