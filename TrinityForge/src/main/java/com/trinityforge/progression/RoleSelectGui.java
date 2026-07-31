@@ -76,46 +76,59 @@ public final class RoleSelectGui implements Listener {
         String currentCombat = data.rolePrimary().orElse(null);
         String currentSupport = data.roleSupport().orElse(null);
 
+        // 待ち時間はヘッダとボタンの両方に出す。押してから初めて拒否されるより、
+        // 開いた時点で「今は変えられない」と分かるほうが手戻りが少ない(2026-07-31)。
+        long combatWait = roleChangeService.combatCooldownRemainingMillis(player);
+        long supportWait = roleChangeService.supportCooldownRemainingMillis(player);
+
         inventory.setItem(COMBAT_HEADER_SLOT, header("戦闘職", Material.NETHERITE_SWORD,
                 currentCombat, roleChangeService.config().combatRole(currentCombat) == null
-                        ? null : roleChangeService.config().combatRole(currentCombat).label()));
+                        ? null : roleChangeService.config().combatRole(currentCombat).label(), combatWait));
         List<CombatRoleSpec> combatRoles = new ArrayList<>(roleChangeService.config().combatRoles().values());
         for (int i = 0; i < combatRoles.size() && i < MAX_PER_ROW; i++) {
             CombatRoleSpec spec = combatRoles.get(i);
             inventory.setItem(COMBAT_ROW_START + i,
-                    combatButton(spec, spec.id().equals(currentCombat)));
+                    combatButton(spec, spec.id().equals(currentCombat), combatWait));
         }
 
         inventory.setItem(SUPPORT_HEADER_SLOT, header("補助職", Material.ENCHANTED_BOOK,
                 currentSupport, roleChangeService.config().supportRole(currentSupport) == null
-                        ? null : roleChangeService.config().supportRole(currentSupport).label()));
+                        ? null : roleChangeService.config().supportRole(currentSupport).label(), supportWait));
         List<SupportRoleSpec> supportRoles = new ArrayList<>(roleChangeService.config().supportRoles().values());
         for (int i = 0; i < supportRoles.size() && i < MAX_PER_ROW; i++) {
             SupportRoleSpec spec = supportRoles.get(i);
             inventory.setItem(SUPPORT_ROW_START + i,
-                    supportButton(spec, spec.id().equals(currentSupport)));
+                    supportButton(spec, spec.id().equals(currentSupport), supportWait));
         }
 
         inventory.setItem(CLEAR_SLOT, clearButton());
         player.openInventory(inventory);
     }
 
-    private ItemStack header(String title, Material icon, String currentId, String currentLabel) {
+    private ItemStack header(String title, Material icon, String currentId, String currentLabel,
+                             long waitMillis) {
         ItemStack stack = new ItemStack(icon);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text(title, NamedTextColor.GOLD)
                 .decoration(TextDecoration.ITALIC, false));
         // label は MiniMessage 可なので、文字列連結に混ぜる前にタグを落とす。
-        meta.lore(List.of(Component.text("現在: "
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("現在: "
                         + (currentId == null ? "(なし)"
                                 : (currentLabel == null ? currentId : MiniText.plain(currentLabel))),
                         NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false)));
+                .decoration(TextDecoration.ITALIC, false));
+        if (waitMillis > 0L) {
+            lore.add(Component.text("変更可能まで あと "
+                            + RoleChangeService.formatRemaining(waitMillis), NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
+        meta.lore(lore);
         stack.setItemMeta(meta);
         return stack;
     }
 
-    private ItemStack combatButton(CombatRoleSpec spec, boolean selected) {
+    private ItemStack combatButton(CombatRoleSpec spec, boolean selected, long waitMillis) {
         List<Component> lore = new ArrayList<>();
         for (String line : spec.description()) {
             lore.add(MiniText.render(line, NamedTextColor.GRAY));
@@ -127,10 +140,10 @@ public final class RoleSelectGui implements Listener {
                         .decoration(TextDecoration.ITALIC, false))
                 : effects);
         return roleButton(spec.label(), spec.icon(), DEFAULT_COMBAT_ICON, lore, selected,
-                combatKey, spec.id());
+                combatKey, spec.id(), waitMillis);
     }
 
-    private ItemStack supportButton(SupportRoleSpec spec, boolean selected) {
+    private ItemStack supportButton(SupportRoleSpec spec, boolean selected, long waitMillis) {
         List<Component> lore = new ArrayList<>();
         for (String line : spec.description()) {
             lore.add(MiniText.render(line, NamedTextColor.GRAY));
@@ -142,12 +155,12 @@ public final class RoleSelectGui implements Listener {
                         .decoration(TextDecoration.ITALIC, false))
                 : effects);
         return roleButton(spec.label(), spec.icon(), DEFAULT_SUPPORT_ICON, lore, selected,
-                supportKey, spec.id());
+                supportKey, spec.id(), waitMillis);
     }
 
     private ItemStack roleButton(String label, String iconName, Material fallbackIcon,
                                  List<Component> lore, boolean selected,
-                                 NamespacedKey key, String roleId) {
+                                 NamespacedKey key, String roleId, long waitMillis) {
         ItemStack stack = new ItemStack(resolveIcon(iconName, fallbackIcon));
         ItemMeta meta = stack.getItemMeta();
         // label は MiniMessage 可。色を書いていない label だけ、選択状態の色(緑/白)を当てる。
@@ -157,9 +170,17 @@ public final class RoleSelectGui implements Listener {
                 .append(MiniText.render(label, selected ? NamedTextColor.GREEN : NamedTextColor.WHITE)));
         List<Component> full = new ArrayList<>(lore);
         full.add(Component.empty());
-        full.add(Component.text(selected ? "選択中" : "クリックで選択",
-                        selected ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
-                .decoration(TextDecoration.ITALIC, false));
+        if (selected) {
+            full.add(Component.text("選択中", NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else if (waitMillis > 0L) {
+            full.add(Component.text("変更可能まで あと " + RoleChangeService.formatRemaining(waitMillis),
+                            NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            full.add(Component.text("クリックで選択", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
         meta.lore(full);
         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, roleId);
         stack.setItemMeta(meta);
@@ -171,8 +192,16 @@ public final class RoleSelectGui implements Listener {
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text("ロールを解除", NamedTextColor.RED)
                 .decoration(TextDecoration.ITALIC, false));
-        meta.lore(List.of(Component.text("戦闘職・補助職の両方を外します", NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false)));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("戦闘職・補助職の両方を外します", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false));
+        if (roleChangeService.config().roleChangeCooldownMillis() > 0L) {
+            // 解除でもクールダウンは刻む(刻まないと「解除→即再選択」が迂回路になる)。
+            // 押す前に分かるようにここへ書く。
+            lore.add(Component.text("解除しても変更の待ち時間は発生します", NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
+        meta.lore(lore);
         meta.getPersistentDataContainer().set(clearKey, PersistentDataType.BYTE, (byte) 1);
         stack.setItemMeta(meta);
         return stack;
@@ -207,8 +236,18 @@ public final class RoleSelectGui implements Listener {
         if (combatId == null && supportId == null && !clear) {
             return;
         }
+        // 「選択中」をもう一度押しただけなら何も起きないので、待ち時間の警告も出さない。
+        PlayerData current = PlayerData.of(player);
+        if ((combatId != null && current.rolePrimary().filter(combatId::equals).isPresent())
+                || (supportId != null && current.roleSupport().filter(supportId::equals).isPresent())) {
+            return;
+        }
         // 引数版コマンドと同じゲート。拒否理由はチャットへ出し、GUIは開いたままにする。
-        var deny = roleChangeService.denyReason(player);
+        // クールダウンは枠ごとなので、押したボタンに対応する枠のゲートを見る
+        // (共通ゲートだけを見ると、戦闘職の待ち時間で補助職まで押せなくなる)。
+        var deny = clear ? roleChangeService.denyReason(player)
+                : combatId != null ? roleChangeService.denyReasonForCombat(player)
+                : roleChangeService.denyReasonForSupport(player);
         if (deny.isPresent()) {
             player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
             return;

@@ -98,9 +98,14 @@ public final class RoleBuffsConfig implements LoadableConfig {
         }
     }
 
+    /** {@code role-change.cooldown-minutes} の上限(日)。桁を間違えて実質永久ロックになるのを防ぐ。 */
+    private static final double MAX_COOLDOWN_MINUTES = 7 * 24 * 60;
+
     private volatile Map<String, CombatRoleSpec> combatRoles = Map.of();
     private volatile Map<String, SupportRoleSpec> supportRoles = Map.of();
     private volatile boolean allowRoleCommand = true;
+    private volatile long roleChangeCooldownMillis = 0L;
+    private volatile boolean firstChoiceFree = true;
 
     public Map<String, CombatRoleSpec> combatRoles() {
         return combatRoles;
@@ -112,6 +117,22 @@ public final class RoleBuffsConfig implements LoadableConfig {
 
     public boolean allowRoleCommand() {
         return allowRoleCommand;
+    }
+
+    /**
+     * ロールを変更してから次に変更できるまでの待ち時間(ミリ秒)。0 で待ち時間なし。
+     *
+     * <p>待ち時間が無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば全系統に
+     * 最大倍率が乗るので、補助職の選択そのものが意味を失う（横の選択肢を増やす設計が
+     * 「全部同時に持てる」で崩れる）。
+     */
+    public long roleChangeCooldownMillis() {
+        return roleChangeCooldownMillis;
+    }
+
+    /** 未設定の枠を初めて選ぶときは待ち時間を課さないか。始めたばかりの人を詰まらせないための逃げ道。 */
+    public boolean firstChoiceFree() {
+        return firstChoiceFree;
     }
 
     public CombatRoleSpec combatRole(String id) {
@@ -199,6 +220,12 @@ public final class RoleBuffsConfig implements LoadableConfig {
 
         ConfigurationSection change = yaml.getConfigurationSection("role-change");
         this.allowRoleCommand = change == null || change.getBoolean("allow-command", true);
+        double cooldownMinutes = change == null ? 0.0 : change.getDouble("cooldown-minutes", 0.0);
+        if (!Double.isFinite(cooldownMinutes) || cooldownMinutes < 0.0) {
+            cooldownMinutes = 0.0;
+        }
+        this.roleChangeCooldownMillis = (long) (Math.min(cooldownMinutes, MAX_COOLDOWN_MINUTES) * 60_000L);
+        this.firstChoiceFree = change == null || change.getBoolean("first-choice-free", true);
 
         log.info("[" + PATH + "] loaded " + combat.size() + " combat + " + support.size() + " support role(s) OK");
         return true;

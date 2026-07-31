@@ -190,6 +190,10 @@ class PlayerPdcPrimitiveTypeAuditTest {
         data.setHeldPerks(List.of("perk.a", "perk.b"));
         data.setLockedPerks(List.of("perk.a"));
         data.setRoles("tank", "healer");
+        // ロール変更クールダウンの刻印(2026-07-31)。サーバ間で同期されないと、
+        // 資源サーバへ渡って戻るだけで待ち時間がリセットされる迂回路になる。
+        data.setRolePrimaryChangedAt(1_700_000_000_000L);
+        data.setRoleSupportChangedAt(1_700_000_000_000L);
         data.setCollectionEntries(List.of("item:sword"));
         data.setClaimedCollectionTiers(List.of("tier.1"));
         data.grantSpecialReward("reward.banner");

@@ -108,6 +108,17 @@ public final class PdcKeys {
     public static final NamespacedKey PLAYER_ROLE_PRIMARY = key("role_primary");
     public static final NamespacedKey PLAYER_ROLE_SUPPORT = key("role_support");
     /**
+     * ロールを最後に変更した時刻 (epoch millis, 2026-07-31)。戦闘職・補助職で別々に持つ。
+     *
+     * <p>別々にするのは、GUI で戦闘職を選んだ直後に補助職も選べる必要があるため
+     * (共通のクールダウンにすると片方を選んだ瞬間にもう片方が押せなくなる)。
+     *
+     * <p>クールダウンが無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば
+     * 全系統に最大倍率が乗るので、補助職の選択そのものが意味を失う。
+     */
+    public static final NamespacedKey PLAYER_ROLE_PRIMARY_CHANGED_AT = key("role_primary_changed_at");
+    public static final NamespacedKey PLAYER_ROLE_SUPPORT_CHANGED_AT = key("role_support_changed_at");
+    /**
      * Generic addon combat-stat contribution channel ({@code AddonCombatStats}): a per-player canonical
      * stat map that any hard-dependent addon may write, folded into BOTH the attacker (CombatListener)
      * and defender (PlayerDefenseResolver) paths exactly like a perk buff. Used by the ArsPaper fork for

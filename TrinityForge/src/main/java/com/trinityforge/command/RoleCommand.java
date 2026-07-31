@@ -98,6 +98,16 @@ public final class RoleCommand {
         sendRole(player, "補助職", support == null ? null : support.label(),
                 support == null ? List.<String>of() : support.description(),
                 support == null ? List.of() : descriptions.describeSupport(support));
+        // 待ち時間があるなら残りを出す。GUIを開かなくても「今は変えられない」と分かるように。
+        long combatWait = roleChangeService.combatCooldownRemainingMillis(player);
+        long supportWait = roleChangeService.supportCooldownRemainingMillis(player);
+        if (combatWait > 0L || supportWait > 0L) {
+            player.sendMessage(Component.text("変更可能まで: 戦闘職 "
+                    + (combatWait > 0L ? "あと " + RoleChangeService.formatRemaining(combatWait) : "いつでも")
+                    + " / 補助職 "
+                    + (supportWait > 0L ? "あと " + RoleChangeService.formatRemaining(supportWait) : "いつでも"),
+                    NamedTextColor.YELLOW));
+        }
         player.sendMessage(Component.text("変更: /tf role set (GUI) / 解除: /tf role clear",
                 NamedTextColor.DARK_GRAY));
         return Command.SINGLE_SUCCESS;
@@ -171,6 +181,26 @@ public final class RoleCommand {
             player.sendMessage(Component.text("未知の補助職: " + supportRaw, NamedTextColor.RED));
             return 0;
         }
+        // クールダウンも「両方先に見る」— 補助職だけ待ち時間中なのに戦闘職だけ書き換わって
+        // 終わる部分適用を防ぐ(ID誤りの扱いと同じ理由)。同じロールを選び直すだけなら
+        // 実際には何も変わらないので待ち時間を見ない。
+        PlayerData data = PlayerData.of(player);
+        boolean combatChanges = isChange(data.rolePrimary().orElse(null), combatRaw);
+        boolean supportChanges = support != null && isChange(data.roleSupport().orElse(null), supportRaw);
+        if (combatChanges) {
+            var deny = roleChangeService.denyReasonForCombat(player);
+            if (deny.isPresent()) {
+                player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
+                return 0;
+            }
+        }
+        if (supportChanges) {
+            var deny = roleChangeService.denyReasonForSupport(player);
+            if (deny.isPresent()) {
+                player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
+                return 0;
+            }
+        }
         roleChangeService.setCombat(player, combatRaw);
         if (support != null) {
             roleChangeService.setSupport(player, supportRaw);
@@ -183,6 +213,12 @@ public final class RoleCommand {
                         + (supportLabel != null ? " / 補助=" + supportLabel : ""),
                 NamedTextColor.GREEN));
         return Command.SINGLE_SUCCESS;
+    }
+
+    /** 現在値と指定値を正規化して比べ、実際に切り替わるかを返す。 */
+    private static boolean isChange(String currentId, String rawId) {
+        String next = RoleChangeService.normalize(rawId);
+        return next != null && !next.equals(currentId);
     }
 
     private boolean ensureAllowed(CommandSourceStack source) {

@@ -312,6 +312,24 @@ public final class PlayerData {
         container.remove(PdcKeys.PLAYER_ROLE_SUPPORT);
     }
 
+    /** 戦闘職を最後に変更した時刻 (epoch millis)。未変更なら 0。 */
+    public long rolePrimaryChangedAt() {
+        return container.getOrDefault(PdcKeys.PLAYER_ROLE_PRIMARY_CHANGED_AT, PersistentDataType.LONG, 0L);
+    }
+
+    /** 補助職を最後に変更した時刻 (epoch millis)。未変更なら 0。 */
+    public long roleSupportChangedAt() {
+        return container.getOrDefault(PdcKeys.PLAYER_ROLE_SUPPORT_CHANGED_AT, PersistentDataType.LONG, 0L);
+    }
+
+    public void setRolePrimaryChangedAt(long epochMillis) {
+        container.set(PdcKeys.PLAYER_ROLE_PRIMARY_CHANGED_AT, PersistentDataType.LONG, epochMillis);
+    }
+
+    public void setRoleSupportChangedAt(long epochMillis) {
+        container.set(PdcKeys.PLAYER_ROLE_SUPPORT_CHANGED_AT, PersistentDataType.LONG, epochMillis);
+    }
+
     /**
      * ガチャ天井(pity)カウンタ: {@code poolId}のプールで連続して最高レア枠を引けなかった回数。
      * 未記録(未プレイ)なら0。{@code com.trinityforge.gacha.GachaDraw#drawWithPity}の

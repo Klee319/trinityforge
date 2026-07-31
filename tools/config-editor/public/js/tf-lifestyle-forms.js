@@ -1454,9 +1454,31 @@
     ));
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "ロール変更 (role-change)" })],
-      [field("allow-command", window.checkboxInput(!!change["allow-command"], (v) => {
-        change["allow-command"] = v;
-      }), { label: "/tf role set を許可", key: "allow-command", desc: "非戦闘時のみ" })]
+      [
+        field("allow-command", window.checkboxInput(!!change["allow-command"], (v) => {
+          change["allow-command"] = v;
+        }), { label: "/tf role set を許可", key: "allow-command", desc: "非戦闘時のみ" }),
+        // 2026-07-31: 待ち時間が無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば
+        // 全系統に最大倍率が乗り、補助職の選択そのものが意味を失う。
+        field("cooldown-minutes", window.numberInput(change["cooldown-minutes"], (v) => {
+          if (v == null || v === "") delete change["cooldown-minutes"];
+          else change["cooldown-minutes"] = Math.max(0, Number(v));
+        }, { int: false }), {
+          label: "変更の待ち時間(分)", key: "cooldown-minutes",
+          desc: "0 で待ち時間なし。戦闘職と補助職は別々に数える。"
+            + "0 にすると「採掘するときだけ鉱夫・釣るときだけ漁師」で全系統に最大倍率が乗るため、"
+            + "補助職の選択そのものが意味を失う。上限は7日。"
+            + "解除(/tf role clear)でも刻む(刻まないと解除→即再選択が迂回路になる)。"
+        }),
+        field("first-choice-free", window.checkboxInput(
+          change["first-choice-free"] === undefined ? true : !!change["first-choice-free"], (v) => {
+            change["first-choice-free"] = v;
+          }), {
+          label: "初回は待ち時間を刻まない", key: "first-choice-free",
+          desc: "空の枠を初めて埋めるときは刻まない。"
+            + "「1つ選んで説明を読み、選び直す」までは無料になるので、始めたばかりの人が詰まらない。"
+        })
+      ]
     ));
 
     // 画面を開いただけで description: [] が生えるのを防ぐ(編集で配列化しているため)。
