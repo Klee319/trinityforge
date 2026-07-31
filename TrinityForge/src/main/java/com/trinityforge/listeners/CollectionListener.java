@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.progression.CollectionService;
 import com.trinityforge.stats.CatalogIdentity;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.DerivedItemStats;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -42,6 +43,12 @@ import java.util.Set;
  * 一致すれば図鑑対象にする({@link CatalogIdentity#ensure} と同じくCMD無しのバニラスタックは
  * カタログ照合しない — 偶然materialが同じだけの vanilla /give を誤登録しないため)。
  *
+ * <p><b>ArsPaper 側のアイテム (2026-07-31)</b>: PDC刻印の読み取りは
+ * {@link com.trinityforge.stats.CrossPluginItemResolver#idOf} 経由にしてある。TF の catalog PDC しか
+ * 見ていなかったため、ArsPaper の {@code materials.yml} / {@code sourcejars.yml} で定義したアイテム
+ * (モブドロップ素材・ダンジョン踏破の証・ソースの階梯)が<b>永久に記録されず</b>、図鑑カテゴリに
+ * 書いてある 116 件のうち 48 件が「絶対に埋まらない枠」として並び続けていた。
+ *
  * <p><b>バニラアイテム (2026-07-29)</b>: 以前はカタログ品しか記録できなかったため、
  * アチーブメントの「アイテム条件」にバニラアイテムを書いても進捗が永久に0のままだった。
  * {@code item:<MATERIAL>} も記録できるようにしたが、拾った物を無条件に記録すると
@@ -54,6 +61,9 @@ import java.util.Set;
  * どちらの config も reload で差し替わるので、監視集合はキャッシュせず毎回引き直す。
  */
 public final class CollectionListener implements Listener {
+
+    /** editor が custom アイテムに付ける接頭辞。監視集合を作るときに落とす。 */
+    private static final String CUSTOM_PREFIX = "custom:";
 
     private final CollectionConfig config;
     private final CollectionService service;
@@ -137,6 +147,17 @@ public final class CollectionListener implements Listener {
         if (stamped.isPresent()) {
             return stamped;
         }
+        // ArsPaper 側で定義したアイテム。2026-07-31 まで見ていなかったため、materials.yml /
+        // sourcejars.yml 由来のアイテム(モブドロップ素材17件・ダンジョン踏破の証22件・
+        // ソースの階梯9件 = 図鑑カテゴリ116件中48件)が永久に記録されず、図鑑に
+        // 「絶対に埋まらない枠」として並び続けていた。
+        Optional<String> arsId = CrossPluginItemResolver.arsIdOf(stack);
+        if (arsId.isPresent()) {
+            // バニラ Material と同じく設定から参照されているIDだけに絞る。Ars の登録アイテムは
+            // グリフ120件を含めて300件超あり、無条件に記録するとプレイヤーPDCがそれだけ膨らみ、
+            // かつ図鑑の報酬ティア(10/30/60/120/200件)の重みが黙って変わってしまう。
+            return watchedConfigIds().contains(arsId.get()) ? arsId : Optional.empty();
+        }
         Integer cmd = DerivedItemStats.customModelDataOf(meta);
         if (cmd == null) {
             return trackedVanillaId(stack.getType());
@@ -150,37 +171,51 @@ public final class CollectionListener implements Listener {
         if (material == null || material.isAir()) {
             return Optional.empty();
         }
-        return watchedVanillaItems().contains(material.name())
+        return watchedConfigIds().contains(material.name())
                 ? Optional.of(material.name())
                 : Optional.empty();
     }
 
     /**
-     * 図鑑カテゴリとアチーブメントのアイテム条件に書かれた Material 名の集合。
-     * カタログIDは Material として解決できないので自然に除外される。
+     * 図鑑カテゴリとアチーブメントのアイテム条件に書かれたIDの集合。
+     *
+     * <p>Material 名(大文字)と ArsPaper のカスタムID(小文字)の両方が入る。両者は表記が衝突しないので
+     * 1つの集合で足りる。TF カタログIDも混ざるが、カタログ品はこの集合を経由せず PDC 刻印で
+     * 記録されるため実害はない。
+     *
+     * <p>どちらの config も reload で差し替わるのでキャッシュしない。
      */
-    private Set<String> watchedVanillaItems() {
+    private Set<String> watchedConfigIds() {
         Set<String> watched = new LinkedHashSet<>();
         for (CollectionConfig.Category category : config.itemCategories()) {
-            category.entries().forEach(entry -> addIfMaterial(watched, entry));
+            category.entries().forEach(entry -> addWatched(watched, entry));
         }
         for (AchievementsConfig.Achievement achievement : achievements.achievements()) {
             AchievementsConfig.Trigger trigger = achievement.trigger();
             if (trigger == null || !"item".equals(trigger.collectionScope())) {
                 continue;
             }
-            trigger.collectionTargets().forEach(target -> addIfMaterial(watched, target));
+            trigger.collectionTargets().forEach(target -> addWatched(watched, target));
         }
         return watched;
     }
 
-    private static void addIfMaterial(Set<String> out, String raw) {
+    /**
+     * Material なら正規化した Material 名、そうでなければそのままカスタムIDとして登録する。
+     * editor が付ける {@code custom:} 接頭辞は落とす(他ドメインと同じ扱い)。
+     */
+    private static void addWatched(Set<String> out, String raw) {
         if (raw == null || raw.isBlank()) {
             return;
         }
-        Material material = Material.matchMaterial(raw.trim().toUpperCase(Locale.ROOT));
-        if (material != null && material.isItem()) {
-            out.add(material.name());
+        String token = raw.trim();
+        if (token.regionMatches(true, 0, CUSTOM_PREFIX, 0, CUSTOM_PREFIX.length())) {
+            token = token.substring(CUSTOM_PREFIX.length()).trim();
         }
+        if (token.isEmpty()) {
+            return;
+        }
+        Material material = Material.matchMaterial(token.toUpperCase(Locale.ROOT));
+        out.add(material != null && material.isItem() ? material.name() : token);
     }
 }

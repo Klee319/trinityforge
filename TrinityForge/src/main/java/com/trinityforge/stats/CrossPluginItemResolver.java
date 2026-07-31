@@ -198,7 +198,23 @@ public final class CrossPluginItemResolver {
         if (tfId.isPresent()) {
             return tfId;
         }
-        String arsId = meta.getPersistentDataContainer().get(ARS_CUSTOM_ITEM_ID, PersistentDataType.STRING);
+        return arsIdOf(stack);
+    }
+
+    /**
+     * ArsPaper 側の刻印だけを読む({@code arspaper:custom_item_id})。TF の catalog PDC は見ない。
+     *
+     * <p>{@link #idOf} と分けてあるのは、呼び出し側が「TF の品か Ars の品か」で扱いを変える必要が
+     * ある場合のため。図鑑({@code CollectionListener})は TF カタログ品を無条件に記録する一方、
+     * Ars 側は登録アイテムが300件超(グリフ120件を含む)あるので設定から参照されているIDだけに
+     * 絞る必要があり、同じ {@code Optional<String>} では判別できない。
+     */
+    public static Optional<String> arsIdOf(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) {
+            return Optional.empty();
+        }
+        String arsId = stack.getItemMeta().getPersistentDataContainer()
+                .get(ARS_CUSTOM_ITEM_ID, PersistentDataType.STRING);
         return (arsId == null || arsId.isBlank()) ? Optional.empty() : Optional.of(arsId);
     }
 }
