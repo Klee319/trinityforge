@@ -613,8 +613,20 @@ class MobOverridesConfigTest {
         assertEquals(0, r.skipped(), "the shipped mob-overrides.yml must have no skipped entries");
         MobOverridesConfig config = configOf(r.scopes());
         int checked = 0;
+        int defaultScopeMobs = 0;
         for (Map.Entry<String, Map<String, MobOverrideEntry>> scope : r.scopes().entrySet()) {
             if (scope.getKey().equals(MobOverridesConfig.DEFAULT_SCOPE)) {
+                // 2026-07-31: default スコープに「バニラモブの特殊攻撃(abilities)」を入れたので、
+                // ここには vanilla-exp を持たないエントリが正当に存在する。バニラモブの経験値は
+                // バニラのままが正しく、ramp を書くと「オーバーワールドのゾンビのEXPを TF が上書きする」
+                // ことになるため、意図的に書いていない(vanillaExpFor は empty を返し、
+                // 呼び出し側はキルのEXPに触らない)。
+                for (Map.Entry<String, MobOverrideEntry> mob : scope.getValue().entrySet()) {
+                    assertFalse(mob.getValue().abilities().isEmpty(),
+                            "default." + mob.getKey() + " は abilities を持つためだけに置いてあるはずだが空だった"
+                            + "(vanilla-exp も無いので、このエントリは何もしていない)");
+                    defaultScopeMobs++;
+                }
                 continue;
             }
             for (Map.Entry<String, MobOverrideEntry> mob : scope.getValue().entrySet()) {
@@ -623,7 +635,8 @@ class MobOverridesConfigTest {
                 checked++;
             }
         }
-        assertEquals(r.mobCount(), checked, "every parsed mob must live in a non-default scope");
+        assertEquals(r.mobCount(), checked + defaultScopeMobs,
+                "parse が数えたモブ数と、走査したモブ数(ダンジョン + default)が一致すること");
         assertTrue(checked >= 396, "expected the full imported dungeon roster, got " + checked);
     }
 

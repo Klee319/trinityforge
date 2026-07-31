@@ -121,6 +121,7 @@ const REGISTRY = Object.freeze([
   // ダンジョン(ワールド)×EliteMobsモブid単位の強さ/ドロップオーバーライド(2026-07-26新設)。
   // mob-profiles.yml(自動生成・直接編集禁止)の上に重ねる層。
   { id: "mob-overrides", label: "モブオーバーライド (mob-overrides)", group: "TrinityForge", section: "mobs-dungeon", base: "trinityforge", rel: "combat/mob-overrides.yml", schema: "tf-mob-overrides" },
+  { id: "mob-abilities", label: "敵の特殊攻撃 (mob-abilities)", group: "TrinityForge", section: "mobs-dungeon", base: "trinityforge", rel: "combat/mob-abilities.yml", schema: "tf-mob-abilities" },
   { id: "mob-import", label: "モブインポート (mob-import)", group: "TrinityForge", section: "mobs-dungeon", base: "trinityforge", rel: "combat/mob-import.yml", schema: "tf-mob-import" },
   // combat-damage (旧: 戦闘ダメージタブ) は削除。combat/damage.yml の各フィールドは
   // 「共通変数（戦闘定数）」ビュー (__constants__, /api/constants) から編集する。

@@ -1307,6 +1307,78 @@
     ]);
   }
 
+  // abilities (特殊攻撃、2026-07-31)。値は combat/mob-abilities.yml のテンプレートID。
+  // 候補は同ファイルから読み込む(window.MOB_ABILITY_IDS)。読めなかったときは自由入力に落として
+  // 「候補が出ないから設定できない」状態を作らない。
+  // window.listSelect は cfg オブジェクト1個を受ける(位置引数で呼ぶと候補が出ない)。
+  // 候補に無いIDも通すのは、mob-abilities.yml をまだ保存していない状態でも書けるようにするため。
+  function abilityIdSelect(current, ids, onChange) {
+    const cur = current == null ? "" : String(current);
+    const CUSTOM = "__custom_ability__";
+    const options = (ids || []).map((id) => ({ value: id, primary: id, secondary: "", title: id }));
+    if (cur && !(ids || []).includes(cur)) {
+      options.unshift({ value: cur, primary: cur, secondary: "(mob-abilities.yml に無い)", title: cur });
+    }
+    options.push({ value: CUSTOM, primary: "その他(自由入力)…", secondary: "" });
+    return window.listSelect({
+      value: cur,
+      placeholder: "選択…",
+      allowCustom: true,
+      customPlaceholder: "テンプレートIDを直接入力",
+      customValue: CUSTOM,
+      options: options,
+      onCommit: (v) => { onChange(v); return true; }
+    });
+  }
+
+  function buildAbilitiesBlock(host) {
+    const box = h("div", { class: "card-list-body" });
+    function render() {
+      box.innerHTML = "";
+      box.appendChild(h("div", {
+        class: "field-desc",
+        style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 4px;",
+        text: "このモブが撃つ特殊攻撃。技の中身(ダメージ倍率・クールダウン・演出)は"
+          + "「敵の特殊攻撃 (mob-abilities)」画面のテンプレート側にあります。"
+          + "drops と同じく置換で、ワールドスコープに1件でも書くと default 側は使われません。"
+      }));
+      const list = Array.isArray(host.abilities) ? host.abilities : [];
+      if (!list.length) {
+        box.appendChild(h("div", {
+          class: "field-desc",
+          style: "font-size:11px;color:var(--muted,#6b7280);",
+          text: "未設定(このモブは特殊攻撃を撃ちません)。"
+        }));
+      }
+      const candidates = Array.isArray(window.MOB_ABILITY_IDS) ? window.MOB_ABILITY_IDS : [];
+      list.forEach((value, index) => {
+        const row = h("div", { class: "stat-row" });
+        row.appendChild(abilityIdSelect(String(value), candidates, (nv) => {
+          host.abilities[index] = nv;
+        }));
+        row.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "\u00d7",
+          onclick: () => {
+            host.abilities.splice(index, 1);
+            if (!host.abilities.length) delete host.abilities;
+            render();
+          }
+        }));
+        box.appendChild(row);
+      });
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 特殊攻撃を追加",
+        onclick: () => {
+          if (!Array.isArray(host.abilities)) host.abilities = [];
+          host.abilities.push(candidates.length ? candidates[0] : "");
+          render();
+        }
+      }));
+    }
+    render();
+    return box;
+  }
+
   // level-cutoff (レベル差による足きり、2026-07-27)。スコープ(ダンジョン)単位・モブ単位のどちらでも
   // 構造は同じなので共通化する: level-cutoff: { over-level: {threshold, exp-rate, drop-rate},
   // under-level: {item-threshold} }。空欄にした項目/空になったサブブロックはキーごと delete する
@@ -1504,6 +1576,8 @@
       buildOverrideExpBlock(mobEntry),
       subTitle("レベル差による足きり (level-cutoff)"),
       buildLevelCutoffBlock(mobEntry),
+      subTitle("特殊攻撃 (abilities)"),
+      buildAbilitiesBlock(mobEntry),
       h("div", { class: "mob-drops-section" }, [
         window.fieldLabelEl("drops"),
         h("div", {

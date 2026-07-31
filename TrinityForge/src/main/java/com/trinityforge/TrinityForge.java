@@ -219,6 +219,8 @@ public final class TrinityForge extends JavaPlugin {
     private FeedbackLayer activeFeedbackLayer;
     private ActiveCommand activeCommand;
     private org.bukkit.scheduler.BukkitTask achievementPollTask;
+    /** 敵の特殊攻撃(2026-07-31)。config が無効なら start() が何も開始しない。 */
+    private com.trinityforge.combat.MobAbilityTask mobAbilityTask;
     private UseRequirementService useRequirementService;
     private PlayerLootLuckSource lootLuckSource;
     private com.trinityforge.stats.PlayerMobDropBonusSource mobDropBonusSource;
@@ -977,6 +979,15 @@ public final class TrinityForge extends JavaPlugin {
         this.achievementPollTask = getServer().getScheduler().runTaskTimer(this,
                 achievementService::pollStatistics, 20L * 60, 20L * 60);
 
+        // 敵の特殊攻撃(2026-07-31): combat/mob-abilities.yml のテンプレートを
+        // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
+        this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
+                configManager.mobAbilities(), configManager.mobOverrides(),
+                new com.trinityforge.combat.MobAbilityExecutor(this, combatService),
+                new com.trinityforge.combat.MobAbilityCooldowns(),
+                new java.util.Random());
+        mobAbilityTask.start();
+
         // Block player-facing /em /ag while TF owns progression (ops can bypass).
         getServer().getPluginManager().registerEvents(new EliteMobsCommandGateListener(), this);
 
@@ -1059,6 +1070,10 @@ public final class TrinityForge extends JavaPlugin {
         if (achievementPollTask != null) {
             achievementPollTask.cancel();
             achievementPollTask = null;
+        }
+        if (mobAbilityTask != null) {
+            mobAbilityTask.stop();
+            mobAbilityTask = null;
         }
         try {
             if (experienceDispatcher != null) {

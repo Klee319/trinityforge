@@ -17,6 +17,7 @@ import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -91,6 +92,8 @@ public final class MobOverridesConfig implements LoadableConfig {
      * 表示専用のメタデータ — 戦闘パイプラインもスコープ解決も一切読まない。
      */
     private static final String DISPLAY_NAME_KEY = "display-name";
+    /** 特殊攻撃テンプレートIDの列(2026-07-31)。値は combat/mob-abilities.yml のキー。 */
+    private static final String ABILITIES_KEY = "abilities";
 
     /**
      * 「レベル差による足きり」ブロックのキー(2026-07-27)。scope直下・mob直下の両方で同じキー名を使う
@@ -363,6 +366,35 @@ public final class MobOverridesConfig implements LoadableConfig {
         return entry == null ? null : entry.vanillaExp();
     }
 
+    /**
+     * このモブが撃つ特殊攻撃テンプレートIDの列(2026-07-31)。解決規則は {@link #dropsFor} と同じ
+     * REPLACE — ワールドスコープが1件でも書いていればそれが全部で、default 側とは合成しない
+     * (合成すると「ダンジョンごとに技を差し替える」ができなくなる)。
+     */
+    public List<String> abilitiesFor(String worldName, String mobId) {
+        if (mobId == null) {
+            return List.of();
+        }
+        String id = MobIdNormalizer.normalize(mobId);
+        String worldScope = worldScopeKey(worldName);
+        if (worldScope != null) {
+            List<String> worldAbilities = abilitiesInScope(worldScope, id);
+            if (!worldAbilities.isEmpty()) {
+                return worldAbilities;
+            }
+        }
+        return abilitiesInScope(DEFAULT_SCOPE, id);
+    }
+
+    private List<String> abilitiesInScope(String scopeName, String mobId) {
+        Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
+        if (mobs == null) {
+            return List.of();
+        }
+        MobOverrideEntry entry = mobs.get(mobId);
+        return entry == null ? List.of() : entry.abilities();
+    }
+
     private List<MobOverrideDropEntry> dropsInScope(String scopeName, String mobId) {
         Map<String, MobOverrideEntry> mobs = scopes.get(scopeName);
         if (mobs == null) {
@@ -443,8 +475,19 @@ public final class MobOverridesConfig implements LoadableConfig {
                 String displayName = trimToNull(mobSection.getString(DISPLAY_NAME_KEY));
                 LevelCutoffResult mobCutoffResult = parseLevelCutoff(mobSection, scopeName, rawMobId, log);
                 skipped += mobCutoffResult.skipped();
+                // 2026-07-31: 特殊攻撃テンプレートIDの列。ここでは実在チェックをしない ——
+                // mob-abilities.yml のロード順に依存させたくないため。未定義IDは発動時に読み飛ばす。
+                List<String> abilities = new ArrayList<>();
+                for (String raw : mobSection.getStringList(ABILITIES_KEY)) {
+                    if (raw != null && !raw.isBlank()) {
+                        String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
+                        if (!abilities.contains(normalized)) {
+                            abilities.add(normalized);
+                        }
+                    }
+                }
                 mobs.put(mobId, new MobOverrideEntry(statsResult.stats(), dropsResult.drops(), vanillaExp,
-                        displayName, mobCutoffResult.cutoff()));
+                        displayName, mobCutoffResult.cutoff(), abilities));
                 mobCount++;
             }
             if (!mobs.isEmpty()) {

@@ -156,7 +156,33 @@
 overrides:
   # 全ダンジョン共通のフォールバック(ワールド個別指定が無いモブに使われる)
   default:
-    mobs: {}
+    # 2026-07-31: バニラモブの特殊攻撃(abilities)。テンプレート定義は combat/mob-abilities.yml。
+    # 【EliteMobs の mob id を持たないモブは EntityType 名がキーになる】ので、ここに小文字の
+    # EntityType 名を書けばオーバーワールドのモブにも技が付く。
+    #
+    # 【なぜゾンビ/スケルトンには付けていないか】序盤の手触りを変えないため。Lv0 の装備で
+    # AoE を撒くモブと戦わせると「カジュアルが最初の1時間で折れる」。技を付けたのは
+    # 「もともと危険」と認識されているモブだけで、しかも既存の挙動を裏切らない技を選んでいる
+    # (ラヴェジャーは突進する / ピリジャーは撃つ / ブレイズは火を吐く)。
+    mobs:
+      ravager:
+        abilities: [bull_rush]
+      pillager:
+        abilities: [arrow_fan]
+      witch:
+        abilities: [frost_field]
+      blaze:
+        abilities: [ember_spray]
+      wither_skeleton:
+        abilities: [crippling_stomp]
+      warden:
+        abilities: [shockwave]
+      elder_guardian:
+        abilities: [piercing_beam]
+      wither:
+        abilities: [piercing_beam, call_the_swarm]
+      ender_dragon:
+        abilities: [shockwave, call_the_swarm]
 
   # adventurers_guild_hub (HUB) — custombosses/adventurers_guild / 5体
   # アリーナ「Wood League」 — custombosses/wood_league_arena / 91体
@@ -936,6 +962,8 @@ overrides:
           magical:  { defense-rate: 0.15, resistance: 0.12 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 第2段階は物理の壁。近接で張り付かせて剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
         drops:
           - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_melee_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
@@ -945,6 +973,8 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
+        # 2026-07-31 特殊攻撃: 足を止めさせる係
+        abilities: [crippling_stomp]
         drops:
           - { item: "custom:reality_thread_core", chance: 0.25, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_melee_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -968,6 +998,8 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
+        # 2026-07-31 特殊攻撃: 遮蔽を使わせる係
+        abilities: [arrow_fan]
         drops:
           - { item: "custom:reality_thread_core", chance: 0.25, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_ranged_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -984,6 +1016,8 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
+        # 2026-07-31 特殊攻撃: 立ち位置を強制する係
+        abilities: [frost_field]
         drops:
           - { item: "custom:reality_thread_core", chance: 0.25, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_1_status_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -1001,6 +1035,8 @@ overrides:
           magical:  { defense-rate: 0.2, resistance: 0.45 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 第3段階は魔法の壁。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
+        abilities: [piercing_beam, withering_aura]
         drops:
           - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
@@ -1011,6 +1047,8 @@ overrides:
           magical:  { defense-rate: 0.3, resistance: 0.18 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 第4段階は総攻撃。増援を呼ぶので守衛のヘイトと軽減が効く
+        abilities: [call_the_horde, shockwave]
         drops:
           - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
       em_id_binder_of_worlds_phase_3_enderman_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -1063,6 +1101,8 @@ overrides:
           magical:  { defense-rate: 0.38, resistance: 0.22 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
+        # 2026-07-31 特殊攻撃: 最終段階は全部入り。3職のどれか1つでは足りず、装備と立ち回りの両方を要求する
+        abilities: [piercing_beam, shadow_step, call_the_swarm, shockwave]
         drops:
           - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_binder", chance: 1.0, min: 1, max: 1 }

@@ -1927,6 +1927,119 @@ function validateTfMobOverrides(data, errors) {
       validateMobOverrideDrops(entry.drops, prefix, errors);
       validateMobOverrideVanillaExp(entry["vanilla-exp"], prefix, errors);
       validateMobLevelCutoff(entry["level-cutoff"], prefix, errors);
+      validateMobAbilityRefs(entry.abilities, prefix, errors);
+    }
+  }
+}
+
+/**
+ * mob-overrides の abilities: は combat/mob-abilities.yml のテンプレートID列。
+ * ここでは「文字列の配列で、IDの形が正しいか」だけを見る -- 実在チェックをしないのは、
+ * Java 側もロード順に依存しない作りにしてあり(未定義IDは発動時に読み飛ばす)、
+ * editor が別ファイルの内容に依存すると片方だけ保存したときに保存できなくなるため。
+ */
+function validateMobAbilityRefs(abilities, prefix, errors) {
+  if (abilities === undefined || abilities === null) return;
+  if (!Array.isArray(abilities)) {
+    errors.push(`${prefix}.abilities: 配列である必要があります`);
+    return;
+  }
+  abilities.forEach((v, i) => {
+    if (typeof v !== "string" || !v.trim()) {
+      errors.push(`${prefix}.abilities[${i}]: 特殊攻撃テンプレートID(文字列)である必要があります`);
+    } else if (!/^[a-z0-9_]+$/.test(v.trim().toLowerCase())) {
+      errors.push(`${prefix}.abilities[${i}]: '${v}' はIDとして不正です (半角英小文字・数字・アンダースコアのみ)`);
+    }
+  });
+}
+
+// ---- combat/mob-abilities.yml (tf-mob-abilities) 2026-07-31新設 ----
+const MOB_ABILITY_TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
+  "teleport_strike", "beam", "summon"];
+
+/** Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。 */
+const MOB_ABILITY_RANGES = {
+  "damage-percent": [0, 100],
+  "cooldown-seconds": [0.5, 600],
+  "chance": [0, 1],
+  "range": [1, 64],
+  "radius": [0, 32],
+  "count": [0, 64],
+  "spread-degrees": [0, 360],
+  "duration-seconds": [0, 60],
+  "knockback": [0, 5],
+  "particle-count": [0, 500]
+};
+
+function validateTfMobAbilities(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  if (data["check-interval-ticks"] !== undefined) {
+    const interval = data["check-interval-ticks"];
+    if (!Number.isInteger(interval) || interval < 5 || interval > 200) {
+      errors.push("check-interval-ticks: 5〜200 の整数である必要があります (Java 側もこの範囲に丸めます)");
+    }
+  }
+  const abilities = data.abilities;
+  if (abilities === undefined || abilities === null) return;
+  if (!isPlainObject(abilities)) { errors.push("abilities: マップである必要があります"); return; }
+  for (const [id, entry] of Object.entries(abilities)) {
+    const prefix = `abilities.${id}`;
+    if (!/^[a-zA-Z0-9_]+$/.test(id)) {
+      errors.push(`${prefix}: IDは半角英数字とアンダースコアのみ使用できます`);
+    }
+    if (!isPlainObject(entry)) { errors.push(`${prefix}: マップである必要があります`); continue; }
+    if (!MOB_ABILITY_TYPES.includes(entry.type)) {
+      errors.push(`${prefix}.type: ${MOB_ABILITY_TYPES.join(" / ")} のいずれかである必要があります`);
+    }
+    if (entry["damage-type"] !== undefined
+        && !["physical", "magical"].includes(String(entry["damage-type"]).toLowerCase())) {
+      errors.push(`${prefix}.damage-type: physical / magical のいずれかである必要があります`);
+    }
+    for (const [key, bounds] of Object.entries(MOB_ABILITY_RANGES)) {
+      const value = entry[key];
+      if (value === undefined || value === null) continue;
+      if (typeof value !== "number" || !Number.isFinite(value) || value < bounds[0] || value > bounds[1]) {
+        errors.push(`${prefix}.${key}: ${bounds[0]}〜${bounds[1]} の数値である必要があります`);
+      }
+    }
+    for (const key of ["display-name", "projectile", "summon-type", "particle", "sound"]) {
+      if (entry[key] !== undefined && entry[key] !== null && typeof entry[key] !== "string") {
+        errors.push(`${prefix}.${key}: 文字列である必要があります`);
+      }
+    }
+    // 型ごとの必須項目。空欄のまま保存すると Java 側は「発動しなかった」扱いで黙って何もしない。
+    if (entry.type === "projectile_volley" && !String(entry.projectile || "").trim()) {
+      errors.push(`${prefix}.projectile: projectile_volley では投射物(EntityType)の指定が必須です`);
+    }
+    if (entry.type === "summon" && !String(entry["summon-type"] || "").trim()) {
+      errors.push(`${prefix}.summon-type: summon では召喚するモブ(EntityType)の指定が必須です`);
+    }
+    const effects = entry.effects;
+    if (effects !== undefined && effects !== null) {
+      if (!Array.isArray(effects)) {
+        errors.push(`${prefix}.effects: 配列である必要があります`);
+      } else {
+        effects.forEach((effect, i) => {
+          if (!isPlainObject(effect)) {
+            errors.push(`${prefix}.effects[${i}]: マップである必要があります`);
+            return;
+          }
+          if (typeof effect.type !== "string" || !effect.type.trim()) {
+            errors.push(`${prefix}.effects[${i}].type: PotionEffectType名(文字列)である必要があります`);
+          }
+          if (effect["duration-seconds"] !== undefined
+              && (typeof effect["duration-seconds"] !== "number" || effect["duration-seconds"] < 0)) {
+            errors.push(`${prefix}.effects[${i}].duration-seconds: 0以上の数値である必要があります`);
+          }
+          if (effect.amplifier !== undefined && (!Number.isInteger(effect.amplifier) || effect.amplifier < 0)) {
+            errors.push(`${prefix}.effects[${i}].amplifier: 0以上の整数である必要があります`);
+          }
+        });
+      }
     }
   }
 }
@@ -2928,6 +3041,9 @@ function validate(schemaType, data) {
       break;
     case "tf-mob-level-table":
       validateTfMobLevelTable(data, errors);
+      break;
+    case "tf-mob-abilities":
+      validateTfMobAbilities(data, errors);
       break;
     case "tf-mob-overrides":
       validateTfMobOverrides(data, errors);

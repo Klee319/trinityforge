@@ -259,6 +259,29 @@
    * 影響を与えない)。
    * どちらかの取得に失敗しても、取れた方だけで候補を返す。
    */
+  /**
+   * combat/mob-abilities.yml のテンプレートID一覧（mob-overrides の abilities: 欄の候補、2026-07-31）。
+   *
+   * <p>loadConfigCompanion ではなく直接 GET しているのは、これが<b>読み取り専用の候補源</b>で
+   * 保存時のマージ対象ではないため（COMPANION_OPTION_KEYS に載せると存在しない opts キーを
+   * 渡すことになる。gathering-efficiency と同じ理由）。読めなくても空配列で続行し、
+   * abilities 欄は自由入力として使える。
+   */
+  async function fetchMobAbilityIds() {
+    try {
+      const r = await api("GET", "/api/config/mob-abilities");
+      if (r && r.data) {
+        rememberRevision("mob-abilities", r.revision);
+        rememberBase("mob-abilities", r.data);
+        const abilities = r.data.abilities;
+        if (abilities && typeof abilities === "object" && !Array.isArray(abilities)) {
+          return Object.keys(abilities);
+        }
+      }
+    } catch (_) { /* optional */ }
+    return [];
+  }
+
   async function fetchCatalogCandidatesWithMaterials() {
     let catalogData = null;
     let materialsData = null;
@@ -698,10 +721,13 @@
       case "tf-dungeon-themes": return window.buildDungeonThemesForm(data);
       case "tf-mob-import": return window.buildMobImportForm(data);
       case "tf-mob-profiles": return window.buildMobProfilesForm(data);
+      case "tf-mob-abilities": return window.buildMobAbilitiesForm(data);
       case "tf-mob-overrides": {
         // drops の item は Material 名だけでなく custom:<カタログID> も取れるので、
         // カタログ候補を渡してセレクトメニューから選べるようにする (2026-07-26)。
         const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        // 2026-07-31: abilities: の候補を combat/mob-abilities.yml から読む。
+        window.MOB_ABILITY_IDS = await fetchMobAbilityIds();
         return window.buildMobOverridesForm(data, { catalogCandidates });
       }
       case "tf-hate-rates": return window.buildHateRatesForm(data);

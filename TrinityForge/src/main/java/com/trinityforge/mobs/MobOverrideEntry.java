@@ -23,6 +23,11 @@ import java.util.List;
  *                    raw EliteMobs id (2026-07-26 「モブの表示名もGUI/簡易モードで設定可能に」), or
  *                    {@code null}/blank when none is set. Presentation metadata only — nothing in the
  *                    combat pipeline reads it, and it never affects how a mob is matched or resolved.
+ * @param abilities  このモブが撃つ特殊攻撃テンプレートID(2026-07-31、{@code combat/mob-abilities.yml} の
+ *                   キー)。空リストはこのスコープが何も設定していないことを意味し、{@code drops} と同じく
+ *                   下位スコープへフォールスルーする(「特殊攻撃なし」を意味しない)。
+ *                   <b>ここに書けるのはIDだけ</b>で、数値はテンプレート側にある — モブは396体あるので、
+ *                   個別に数値を書き下すとバランス調整のたびに396箇所を直すことになる。
  * @param levelCutoff このモブ単位の「レベル差による足きり」設定(2026-07-27)、または
  *                    {@link MobLevelCutoff#NONE}(無効)。{@code null} は {@link MobLevelCutoff#NONE} に
  *                    正規化される。スコープ単位のブロックとの優先順位は
@@ -30,13 +35,20 @@ import java.util.List;
  *                    「モブ単位で何が書かれているか」だけを保持する。
  */
 public record MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
-                                String displayName, MobLevelCutoff levelCutoff) {
+                                String displayName, MobLevelCutoff levelCutoff, List<String> abilities) {
 
     public MobOverrideEntry {
         stats = stats == null ? MobStatOverride.EMPTY : stats;
         drops = drops == null ? List.of() : List.copyOf(drops);
         displayName = displayName == null || displayName.isBlank() ? null : displayName;
         levelCutoff = levelCutoff == null ? MobLevelCutoff.NONE : levelCutoff;
+        abilities = abilities == null ? List.of() : List.copyOf(abilities);
+    }
+
+    /** Back-compat: an entry carrying no ability list (the pre-2026-07-31 five-field shape). */
+    public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
+                             String displayName, MobLevelCutoff levelCutoff) {
+        this(stats, drops, vanillaExp, displayName, levelCutoff, null);
     }
 
     /** Back-compat: an entry carrying no level-cutoff (the pre-2026-07-27 four-field shape). */

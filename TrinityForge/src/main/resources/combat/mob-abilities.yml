@@ -1,0 +1,248 @@
+# =============================================================================
+# combat/mob-abilities.yml — 敵の特殊攻撃テンプレート
+# =============================================================================
+# 【何のためのファイルか】
+#   敵の違いが「HPと攻撃力の数値だけ」だと、どのモブも同じ殴り合いになる。ここでは
+#   攻撃手法と演出のバリエーションを「テンプレート」として定義し、
+#   combat/mob-overrides.yml の各モブに abilities: [id, ...] で貼り付ける。
+#
+# 【なぜテンプレート方式なのか】
+#   モブは 396 体ある。個別に数値を書き下すと、バランス調整のたびに 396 箇所を直すことになる。
+#   テンプレート側の数値を 1 つ変えれば、それを貼った全モブに同時に効く。
+#
+# 【EliteMobs の powers との関係】
+#   EM の powers はサーバの plugins/EliteMobs/custombosses/*.yml にしか無く、
+#   リポジトリからは触れない。このファイルは TF 側で完結する別系統で、
+#   EM モブにもバニラモブにも同じように貼れる。
+#
+# 【型 (type)】
+#   ground_slam       自分の足元を中心にした全方位 AoE。「読んで離れる」動きを作る
+#   projectile_volley 対象方向へ扇状に投射物を撒く。遮蔽物を使う動きを作る
+#   charge            対象へ突進し、着地後に周囲判定。突進線から外れる動きを作る
+#   aura              一定時間、周囲に継続ダメージ/効果を撒く。立ち位置を強制する
+#   teleport_strike   対象の背後へ転移して斬る。逃げ切りを許さない
+#   beam              自分の向きへ直線状に判定を伸ばす。横に避ける動きを作る
+#   summon            増援を呼ぶ。単体火力より範囲処理を要求する
+#
+# 【共通パラメータ】
+#   display-name      発動時に周囲へアクションバーで出す技名（空なら無表示）。MiniMessage 可
+#                     頭上表示ではなくアクションバーなのは統合版でも読めるため
+#   damage-type       physical / magical。magical は魔法防御で受ける（防御の作り分けが意味を持つ）
+#   damage-percent    そのモブの攻撃力に対する倍率。0 にすると「ダメージなしの演出＋効果だけ」
+#   cooldown-seconds  同じモブが再発動できるまでの秒数
+#   chance            判定 1 回あたりの発動率 [0,1]。判定間隔は下の check-interval-ticks
+#   range             発動を試みる対象までの距離。これより遠い相手には撃たない
+#   radius            AoE 半径 / beam の太さ / summon の湧き半径
+#   count             投射数 / 召喚数 / beam の刻み数（= 射程 m）
+#   spread-degrees    扇の開き角（projectile_volley、count>=2 のときだけ意味を持つ）
+#   projectile        飛ばす EntityType 名（ARROW / SMALL_FIREBALL / WITHER_SKULL など）
+#   summon-type       召喚する EntityType 名
+#   duration-seconds  aura の持続秒数。1 秒ごとに damage-percent 分を刻むので、伸ばすほど総量が増える
+#   knockback         吹き飛ばし強度（0 なら吹き飛ばさない）
+#   effects           命中した相手へ付けるポーション効果のリスト
+#   particle          演出パーティクル名。※データ必須の種類（FLASH / DUST / BLOCK / ITEM /
+#                     ENTITY_EFFECT / SHRIEK / SCULK_CHARGE / VIBRATION 等）は受け付けない。
+#                     書いても無視される（データ引数なしで撃つと例外になり戦闘処理を道連れにするため）
+#   particle-count    パーティクル個数。1 未満は演出そのものをスキップ（0 は「消える」ではない）
+#   sound             効果音名（ENTITY_GENERIC_EXPLODE など）
+#
+# 【安全弁】数値は Java 側で範囲に丸める（半径 32 / クールダウン 0.5〜600 秒 / 投射数 64 など）。
+#   書き間違いでサーバが止まるより静かに丸める方を選んでいる。
+# =============================================================================
+
+# 機能全体のスイッチ。false にすると周期タスクそのものを回さない。
+enabled: true
+
+# 発動判定を回す間隔（tick）。短くすると負荷が直線的に増えるので 5〜200 に丸める。
+# ここは「抽選をどれだけ細かく行うか」だけを決め、実際の発動頻度は各テンプレートの
+# cooldown-seconds と chance で決まる。
+check-interval-ticks: 20
+
+abilities:
+
+  # ---------------------------------------------------------------------------
+  # 近接型 — 「張り付き続けると死ぬ」を作る
+  # ---------------------------------------------------------------------------
+  shockwave:
+    display-name: "<red>震脚</red>"
+    type: ground_slam
+    damage-type: physical
+    damage-percent: 1.4
+    cooldown-seconds: 9
+    chance: 0.30
+    range: 5
+    radius: 5
+    knockback: 0.9
+    particle: EXPLOSION
+    particle-count: 24
+    sound: ENTITY_GENERIC_EXPLODE
+
+  # 足を止めさせる版。ダメージは軽いが鈍足が乗るので、逃げ足で解決させない。
+  crippling_stomp:
+    display-name: "<gold>足砕き</gold>"
+    type: ground_slam
+    damage-type: physical
+    damage-percent: 0.8
+    cooldown-seconds: 14
+    chance: 0.25
+    range: 4
+    radius: 4
+    knockback: 0.2
+    effects:
+      - type: SLOWNESS
+        duration-seconds: 4
+        amplifier: 1
+    particle: CRIT
+    particle-count: 30
+    sound: ENTITY_IRON_GOLEM_ATTACK
+
+  # ---------------------------------------------------------------------------
+  # 遠距離型 — 「遮蔽を使う」を作る
+  # ---------------------------------------------------------------------------
+  arrow_fan:
+    display-name: "<yellow>矢の雨</yellow>"
+    type: projectile_volley
+    damage-type: physical
+    damage-percent: 0.0   # 投射物のダメージはバニラの矢に任せる（二重取りを避ける）
+    cooldown-seconds: 8
+    chance: 0.35
+    range: 24
+    count: 5
+    spread-degrees: 50
+    projectile: ARROW
+    particle: CLOUD
+    particle-count: 12
+    sound: ENTITY_SKELETON_SHOOT
+
+  ember_spray:
+    display-name: "<red>火の粉</red>"
+    type: projectile_volley
+    damage-type: magical
+    damage-percent: 0.0
+    cooldown-seconds: 10
+    chance: 0.30
+    range: 20
+    count: 3
+    spread-degrees: 30
+    projectile: SMALL_FIREBALL
+    particle: FLAME
+    particle-count: 20
+    sound: ENTITY_BLAZE_SHOOT
+
+  # ---------------------------------------------------------------------------
+  # 接近強制型 — 「距離を取り続ける」を封じる
+  # ---------------------------------------------------------------------------
+  bull_rush:
+    display-name: "<red>突進</red>"
+    type: charge
+    damage-type: physical
+    damage-percent: 1.6
+    cooldown-seconds: 12
+    chance: 0.28
+    range: 14
+    radius: 2.5
+    knockback: 1.2
+    particle: SWEEP_ATTACK
+    particle-count: 8
+    sound: ENTITY_RAVAGER_ROAR
+
+  shadow_step:
+    display-name: "<dark_purple>影渡り</dark_purple>"
+    type: teleport_strike
+    damage-type: physical
+    damage-percent: 1.8
+    cooldown-seconds: 16
+    chance: 0.25
+    range: 20
+    radius: 1.5
+    knockback: 0.3
+    particle: PORTAL
+    particle-count: 40
+    sound: ENTITY_ENDERMAN_TELEPORT
+
+  # ---------------------------------------------------------------------------
+  # 立ち位置強制型 — 「そこに居続けられない」を作る
+  # ---------------------------------------------------------------------------
+  withering_aura:
+    display-name: "<dark_gray>枯死の霧</dark_gray>"
+    type: aura
+    damage-type: magical
+    damage-percent: 0.35
+    cooldown-seconds: 22
+    chance: 0.22
+    range: 8
+    radius: 6
+    duration-seconds: 6
+    effects:
+      - type: WEAKNESS
+        duration-seconds: 3
+        amplifier: 0
+    particle: SMOKE
+    particle-count: 30
+    sound: ENTITY_WITHER_AMBIENT
+
+  frost_field:
+    display-name: "<aqua>凍気</aqua>"
+    type: aura
+    damage-type: magical
+    damage-percent: 0.25
+    cooldown-seconds: 20
+    chance: 0.22
+    range: 8
+    radius: 5
+    duration-seconds: 5
+    effects:
+      - type: SLOWNESS
+        duration-seconds: 3
+        amplifier: 0
+    particle: SNOWFLAKE
+    particle-count: 26
+    sound: BLOCK_GLASS_BREAK
+
+  # ---------------------------------------------------------------------------
+  # 直線型 — 「横に避ける」を作る
+  # ---------------------------------------------------------------------------
+  piercing_beam:
+    display-name: "<light_purple>貫通光</light_purple>"
+    type: beam
+    damage-type: magical
+    damage-percent: 2.0
+    cooldown-seconds: 15
+    chance: 0.25
+    range: 22
+    radius: 1.2
+    count: 18          # 刻み数 = ほぼ射程(m)。壁で止まるので遮蔽が意味を持つ
+    particle: END_ROD
+    particle-count: 4
+    sound: ENTITY_GUARDIAN_ATTACK
+
+  # ---------------------------------------------------------------------------
+  # 増援型 — 「単体火力だけでは処理しきれない」を作る
+  # ---------------------------------------------------------------------------
+  call_the_horde:
+    display-name: "<red>招集</red>"
+    type: summon
+    damage-percent: 0.0
+    cooldown-seconds: 40
+    chance: 0.20
+    range: 16
+    radius: 3
+    count: 3
+    summon-type: ZOMBIE
+    particle: SOUL
+    particle-count: 20
+    sound: ENTITY_ZOMBIE_VILLAGER_CONVERTED
+
+  call_the_swarm:
+    display-name: "<dark_purple>群れを呼ぶ</dark_purple>"
+    type: summon
+    damage-percent: 0.0
+    cooldown-seconds: 45
+    chance: 0.18
+    range: 16
+    radius: 3
+    count: 4
+    summon-type: ENDERMITE
+    particle: PORTAL
+    particle-count: 24
+    sound: ENTITY_ENDERMITE_AMBIENT

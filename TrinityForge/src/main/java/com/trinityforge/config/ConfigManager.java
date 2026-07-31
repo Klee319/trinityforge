@@ -30,6 +30,7 @@ import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.LoreConfig;
 import com.trinityforge.config.domains.MobImportConfig;
 import com.trinityforge.config.domains.MobLevelTableConfig;
+import com.trinityforge.config.domains.MobAbilitiesConfig;
 import com.trinityforge.config.domains.MobOverridesConfig;
 import com.trinityforge.config.domains.MobProfileConfig;
 import com.trinityforge.config.domains.MiningGimmickConfig;
@@ -97,6 +98,8 @@ public final class ConfigManager {
     // ダンジョン(ワールド)×モブid単位の強さ/ドロップオーバーライド(combat/mob-overrides.yml,
     // 2026-07-26新設)。mob-profiles.ymlは直接編集せず、この層をその上に重ねる。
     private final MobOverridesConfig mobOverrides = new MobOverridesConfig();
+    /** 敵の特殊攻撃テンプレート(2026-07-31)。mob-overrides の abilities: が参照する。 */
+    private final MobAbilitiesConfig mobAbilities = new MobAbilitiesConfig();
     private final DungeonThemeConfig dungeonThemes = new DungeonThemeConfig();
     private final DungeonGateConfig dungeonGates = new DungeonGateConfig();
     private final HateConfig hate = new HateConfig();
@@ -184,6 +187,7 @@ public final class ConfigManager {
         register(mobTypes);
         register(mobLevelTable);
         register(mobOverrides);
+        register(mobAbilities);
         register(dungeonThemes);
         register(dungeonGates);
         register(hate.domain());
@@ -313,6 +317,11 @@ public final class ConfigManager {
 
     public MobOverridesConfig mobOverrides() {
         return mobOverrides;
+    }
+
+    /** 敵の特殊攻撃テンプレート({@code combat/mob-abilities.yml})。 */
+    public MobAbilitiesConfig mobAbilities() {
+        return mobAbilities;
     }
 
     public DungeonThemeConfig dungeonThemes() {
