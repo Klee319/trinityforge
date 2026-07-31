@@ -342,6 +342,13 @@ over-enchant:
 enchant-bookshelf-power:
   max-bookshelves: 15
   power-per-bookshelf: 0.8
+# スレッド(糸)装着枠のカテゴリ別上限。item-stats の thread-slots はここで clamp され、
+# 上限 0 のカテゴリでは【キーごと削除される】(ThreadSlotPolicy#applyCategoryCap)。
+# ⚠ ここを Java 側の既定値(CraftingFeaturesConfig#DEFAULT_THREAD_SLOT_CAP)とずらしてはいけない。
+#   2026-07-31 まで Java 既定が weapon/tool/other=0 のままこの yml だけ 5 になっていたため、
+#   武器・触媒 78 件が「lore に『スレッド枠 N枠』と出るのに装着 GUI も効果も無い飾り」になっていた。
+#   現在は fork の /ars thread(手持ち装備)と防具のスニーク+右クリックの両方で機能する。
+#   other は触媒(BLAZE_ROD の杖など)が属するカテゴリなので、0 にすると杖の枠が消える。
 thread-slots:
   max-by-category:
     armor: 5

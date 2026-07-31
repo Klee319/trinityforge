@@ -162,11 +162,13 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     private volatile Map<String, BrewUnlockGroup> brewUnlocks = Map.of();
     /** dedicated-effect id → enchant → absolute max level */
     private volatile Map<String, Map<Enchantment, Integer>> overEnchantProfiles = Map.of();
-    private volatile Map<String, Integer> threadSlotMaxByCategory = Map.of(
-            EquipmentSlotResolver.CATEGORY_ARMOR, 5,
-            EquipmentSlotResolver.CATEGORY_WEAPON, 0,
-            EquipmentSlotResolver.CATEGORY_TOOL, 0,
-            EquipmentSlotResolver.CATEGORY_OTHER, 0);
+    /**
+     * {@code thread-slots.max-by-category} の既定値。<b>出荷 yml
+     * ({@code progression/crafting-features.yml})と一致させること</b> —
+     * {@link #DEFAULT_THREAD_SLOT_CAP} の javadoc に drift 事故の経緯がある。
+     */
+    private volatile Map<String, Integer> threadSlotMaxByCategory =
+            Collections.unmodifiableMap(defaultThreadSlotCaps());
     /** Vanilla/datapack recipe keys to unregister (e.g. {@code minecraft:iron_sword}). */
     private volatile List<String> removedVanillaRecipes = List.of();
     /**
@@ -808,16 +810,37 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         return caps;
     }
 
+    /**
+     * 全カテゴリ共通のスレッド枠上限の既定値。
+     *
+     * <p><b>2026-07-31 の drift 修復</b>: ここは長らく {@code armor:5 / weapon:0 / tool:0 / other:0}
+     * だった一方、出荷 yml は commit {@code 7dca432} で weapon/tool/other を 5 にしていた。
+     * {@link com.trinityforge.stats.ThreadSlotPolicy#applyCategoryCap} は
+     * <b>cap&le;0 のとき {@code thread-slots} をマップから削除する</b>設計なので、
+     * 0 の間は「非防具に枠は存在しない」として矛盾が表に出ず、5 にした瞬間に
+     * {@code ItemAssembler} が lore を焼いて<b>「スレッド枠 N枠」と出るだけの飾り</b>が
+     * 78 件生まれた(F2 のユーザー報告の実体)。既定値と出荷 yml をずらすと
+     * 同じ形の drift がまた黙って通るため、両者は必ず一致させる
+     * ({@code ShippedThreadSlotCapDriftTest} が機械的に突き合わせる)。
+     */
+    static final int DEFAULT_THREAD_SLOT_CAP = 5;
+
+    /** {@link #DEFAULT_THREAD_SLOT_CAP} を全カテゴリへ敷いた既定マップ。 */
+    private static Map<String, Integer> defaultThreadSlotCaps() {
+        Map<String, Integer> caps = new LinkedHashMap<>();
+        caps.put(EquipmentSlotResolver.CATEGORY_ARMOR, DEFAULT_THREAD_SLOT_CAP);
+        caps.put(EquipmentSlotResolver.CATEGORY_WEAPON, DEFAULT_THREAD_SLOT_CAP);
+        caps.put(EquipmentSlotResolver.CATEGORY_TOOL, DEFAULT_THREAD_SLOT_CAP);
+        caps.put(EquipmentSlotResolver.CATEGORY_OTHER, DEFAULT_THREAD_SLOT_CAP);
+        return caps;
+    }
+
     private void loadThreadSlots(YamlConfiguration yaml) {
         ConfigurationSection threadSlots = yaml.getConfigurationSection("thread-slots");
         if (threadSlots == null) {
             return;
         }
-        Map<String, Integer> caps = new LinkedHashMap<>();
-        caps.put(EquipmentSlotResolver.CATEGORY_ARMOR, 5);
-        caps.put(EquipmentSlotResolver.CATEGORY_WEAPON, 0);
-        caps.put(EquipmentSlotResolver.CATEGORY_TOOL, 0);
-        caps.put(EquipmentSlotResolver.CATEGORY_OTHER, 0);
+        Map<String, Integer> caps = defaultThreadSlotCaps();
         ConfigurationSection byCat = threadSlots.getConfigurationSection("max-by-category");
         if (byCat != null) {
             for (String key : byCat.getKeys(false)) {

@@ -151,4 +151,45 @@ class ItemFactoryTest {
 
         assertFalse(stack.getItemMeta().hasEnchants());
     }
+
+    // --- 「スレッド枠拡張」儀式 (F2 2026-07-31) ---
+
+    private ItemFactory factoryWithThreadSlotCaps() {
+        ItemAssembler assembler = mock(ItemAssembler.class);
+        when(assembler.assemble(any(), any(), anyLong(), anyInt())).thenReturn(0);
+        // craftingFeatures は yml 未ロード = 既定の上限マップ(全カテゴリ 5)。
+        return new ItemFactory(assembler,
+                new com.trinityforge.config.domains.ItemStatsConfig(),
+                new com.trinityforge.config.domains.CraftingFeaturesConfig());
+    }
+
+    @Test
+    void expandRitualThreadSlotSucceedsOnWeaponsAndCatalysts() {
+        // F2: 出荷 yml が weapon/tool/other の上限を 5 にしているので、儀式は武器・触媒でも
+        // 成立しなければならない(成立するのに効果が無い、が今回の不具合の裏返し)。
+        ItemFactory factory = factoryWithThreadSlotCaps();
+
+        for (Material material : List.of(
+                Material.NETHERITE_SWORD, Material.BLAZE_ROD, Material.NETHERITE_PICKAXE,
+                Material.DIAMOND_CHESTPLATE)) {
+            ItemStack stack = new ItemStack(material);
+            ItemStack expanded = factory.expandRitualThreadSlot(stack, 3).orElseThrow(
+                    () -> new AssertionError(material + " のスレッド枠拡張儀式が失敗した"
+                            + "(出荷ymlの上限は全カテゴリ 5 なので成立するべき)"));
+            assertEquals(1, ItemData.of(expanded.getItemMeta()).ritualThreadSlotBonus(),
+                    material + " の累計付与カウンタが +1 されていない");
+        }
+    }
+
+    @Test
+    void expandRitualThreadSlotStopsAtTheRitualsOwnCumulativeMax() {
+        ItemFactory factory = factoryWithThreadSlotCaps();
+        ItemStack stack = new ItemStack(Material.NETHERITE_SWORD);
+
+        ItemStack once = factory.expandRitualThreadSlot(stack, 1).orElseThrow();
+        assertEquals(1, ItemData.of(once.getItemMeta()).ritualThreadSlotBonus());
+        // max-slots=1 に到達済み → 素材を消費させないため empty を返す。
+        assertTrue(factory.expandRitualThreadSlot(once, 1).isEmpty(),
+                "累計上限に到達したら empty(素材消費なし)で返すこと");
+    }
 }
