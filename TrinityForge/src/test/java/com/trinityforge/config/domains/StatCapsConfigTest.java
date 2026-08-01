@@ -144,13 +144,21 @@ class StatCapsConfigTest {
         assertEquals(Map.of("mining_fortune", 10.0), config.caps());
     }
 
+    /**
+     * 出荷ymlの実バイトをコピーして {@link StatCapsConfig} の実ロード経路で読む。
+     *
+     * <p><b>2026-08-01 に期待値を反転した</b>。以前ここは「出荷は上限0件(全部コメントアウト)」を
+     * 固定していたが、K-19(19枠フル厳選で crit-chance 171% / attack-power 20,520 が乗る)への対策として
+     * <b>攻撃側8キーの初期値を出荷するようになった</b>ので、0件を要求すると出荷内容と必ず食い違う。
+     *
+     * <p>ここでは「出荷ymlが壊れずに読める」ことと
+     * 「{@code gathering-efficiency-max-enchant-level} は<b>依然として未設定</b>
+     * (= {@code stats/gathering-efficiency.yml} 側へフォールバックする後方互換経路が生きている)」だけを見る。
+     * <b>個々の cap 値が妥当かどうか</b>(装備を潰していないか / キーが StatVocabulary 既知か)は
+     * {@code ShippedStatCapsDriftTest} が出荷 {@code item-stats.yml} と突き合わせて検査する。
+     */
     @Test
-    void bundledYamlResourceHasNoCapsByDefault(@TempDir File tempDir) throws IOException {
-        // 出荷ymlの実バイトをコピーして読み込み、既定で上限が1件も無い(=現在の挙動と完全に同一)ことを
-        // StatCapsConfig の実ロード経路(sec==nullの扱いも含む)で確認する。すべてコメントアウトされた
-        // stat-caps: セクションはYAML上「値なし(null)」に畳まれる場合があり、これは load() が
-        // sec==null として正しく「空マップ」に扱う想定どおりの挙動 — マニュアルなYAML内省ではなく
-        // 実際のロード結果で検証する。
+    void bundledYamlResourceShipsTheAttackSideCapsAndNoGatheringOverride(@TempDir File tempDir) throws IOException {
         File source = new File("src/main/resources/" + StatCapsConfig.PATH);
         assertTrue(source.exists(), "bundled " + StatCapsConfig.PATH + " must exist under src/main/resources");
         File dest = new File(tempDir, StatCapsConfig.PATH);
@@ -159,8 +167,11 @@ class StatCapsConfigTest {
 
         StatCapsConfig config = new StatCapsConfig();
         assertTrue(config.load(fakePlugin(tempDir)), "bundled stat-caps.yml must parse without issues");
-        assertTrue(config.caps().isEmpty(),
-                "shipped stat-caps.yml must ship with every cap commented out (default = no cap)");
-        assertNull(config.gatheringEfficiencyMaxEnchantLevel());
+        assertFalse(config.caps().isEmpty(),
+                "出荷 stat-caps.yml が空。2026-08-01 に攻撃側8キーの初期値を入れた(K-19)ので、"
+                        + "空へ戻っているなら意図的な差し戻しか、config-editor 保存でセクションが落ちている。");
+        assertNull(config.gatheringEfficiencyMaxEnchantLevel(),
+                "gathering-efficiency-max-enchant-level は stat-caps: マップの外側のキーで、"
+                        + "未設定のまま stats/gathering-efficiency.yml へフォールバックさせる出荷方針。");
     }
 }

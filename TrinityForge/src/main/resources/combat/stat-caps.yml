@@ -18,7 +18,20 @@
 #   UI(STAT_CAPS_SECTIONS) / Java(StatCapsConfig) / 上記mdの3点セットで揃えること
 #   (tools/config-editor/test/tf-stat-caps-registry.test.js が機械的に照合している)。
 
-stat-caps: {}
+# 2026-08-01: 攻撃側8キーの初期上限を投入(K-19 / 追加コンテンツ詳細プラン §3 A-4)。
+# ⚠ ここは「厳選(スレッド)の寄与分」ではなく【最終合算値】の上限なので、武器そのものの
+#   attack-power も同じ上限に服する。値の導出根拠(出荷 item-stats.yml の実測)は
+#   docs/config-reference/combat/stat-caps.md の「出荷初期値(2026-08-01)」を参照。
+#   防御側は combat/damage.yml の max-mitigation-rate / max-crit-reduction が別途効くので書いていない。
+stat-caps:
+  attack-power: 110000
+  crit-chance: 0.85
+  crit-damage: 3.2
+  penetration: 0.85
+  percent-bonus-damage: 1.0
+  flat-bonus-damage: 60
+  bleed-chance: 0.6
+  bleed-damage: 4500
 
 # 採集効率(gathering-efficiency、旧称:最終効率)の効率強化エンチャント上限。未記載なら
 # stats/gathering-efficiency.yml 側の max-enchant-level が使われる(詳細は上記md)。

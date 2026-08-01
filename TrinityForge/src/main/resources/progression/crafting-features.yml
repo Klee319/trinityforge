@@ -13,8 +13,11 @@ coating:
       bonus-damage: 5
       max-stacks: 10
 wood-repair:
+  # 2026-08-01: キーは ArsPaper materials.yml に実在する ID でなければならない。
+  # 旧値 compressed_wood_1x は【どの ID 空間にも存在しない】綴りで、木材修繕が永久に不発だった
+  # (実在するのは oak_wood_1x)。ここは「素材の catalog/Ars ID」で照合する。
   materials:
-    compressed_wood_1x:
+    oak_wood_1x:
       durability: 200
       quick-repair: true
 disassembly:
