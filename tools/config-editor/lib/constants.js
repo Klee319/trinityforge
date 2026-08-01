@@ -26,10 +26,12 @@ const FIELD_SPECS = Object.freeze([
   { id: "physical.min-component-damage", file: "damage", path: ["physical", "min-component-damage"], kind: "number", min: -1000000, max: 1000000, def: 1.0 },
   // B2: バニラのチャージ攻撃(クールダウン中の連打減衰)をTFの近接プレイヤー攻撃に再導入する設定。
   // min-multiplier/exponent は Java 側 (CombatDamageConfig#meleeChargeMinMultiplier/-Exponent) が
-  // それぞれ [0,1] / [0.01,100] にクランプする(damage.yml出荷値=0.2/2.0=バニラ相当)。
+  // それぞれ [0,1] / [0.01,100] にクランプする。
+  // 【2026-08-01】バランス調整(要件1a)で出荷既定を 0.2/2.0(バニラ相当)から 0.1/1.6 へ変更した
+  // (より顕著な連打ペナルティ + よりなだらかなカーブ立ち上がり。damage.yml 側コメント参照)。
   { id: "melee-charge.enabled", file: "damage", path: ["melee-charge", "enabled"], kind: "boolean", def: true },
-  { id: "melee-charge.min-multiplier", file: "damage", path: ["melee-charge", "min-multiplier"], kind: "number", min: 0, max: 1, def: 0.2 },
-  { id: "melee-charge.exponent", file: "damage", path: ["melee-charge", "exponent"], kind: "number", min: 0.01, max: 100, def: 2.0 },
+  { id: "melee-charge.min-multiplier", file: "damage", path: ["melee-charge", "min-multiplier"], kind: "number", min: 0, max: 1, def: 0.1 },
+  { id: "melee-charge.exponent", file: "damage", path: ["melee-charge", "exponent"], kind: "number", min: 0.01, max: 100, def: 1.6 },
   // 2026-07-25: attack-speed(絶対値)+attack-speed-bonus(割合)合成後の最終実効速度クランプ関連。
   // min-effective は Java 側 CombatDamageConfig で [0.01,4.0] にクランプ(既定0.1)。
   // reconcile-interval-ticks は PerkAttributeApplier の装備フィンガープリント再照合周期(tick)、[1,1200]。

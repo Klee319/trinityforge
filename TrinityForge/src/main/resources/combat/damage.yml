@@ -10,10 +10,19 @@
 physical:
   base-coefficient: 1
   min-component-damage: 1
+# 【2026-08-01】バランス調整(要件1a): クールダウン未完了時の連打減衰を「より滑らかかつ顕著」にする。
+# min-multiplier(下限倍率)を 0.2→0.1 に下げ、未チャージ(t=0)での一撃を半分の威力まで落とす
+# (=より顕著な連打ペナルティ)。exponent(指数)を 2.0→1.6 に下げ、t^exponent のカーブを
+# バニラのt^2よりなだらかにする——2.0だと「チャージ後半(t=0.7〜1.0)に威力の大半が集中し、
+# それまでは体感で変化が薄いまま最後に急に全力へ戻る」段付きの手触りだったが、指数を下げると
+# 序盤からの立ち上がりが緩やかになり、t=1.0直前で急激に跳ね上がる感覚が薄れる(smoothstep化まで
+# はしていない単純なべき乗のままだが、指数を下げるだけで十分に体感差が出る)。
+# 参考値(min=0.1, exp=1.6): t=0.2→0.169 / t=0.5→0.397 / t=0.8→0.730 / t=1.0→1.0
+# (旧min=0.2, exp=2.0: t=0.2→0.232 / t=0.5→0.4 / t=0.8→0.712 / t=1.0→1.0)
 melee-charge:
   enabled: true
-  min-multiplier: 0.2
-  exponent: 2.0
+  min-multiplier: 0.1
+  exponent: 1.6
 attack-speed:
   min-effective: 0.1
   reconcile-interval-ticks: 10

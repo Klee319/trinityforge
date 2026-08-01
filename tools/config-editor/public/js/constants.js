@@ -30,8 +30,8 @@
       title: "近接チャージ (連打減衰)",
       fields: [
         { id: "melee-charge.enabled", label: "有効", kind: "boolean", desc: "バニラのチャージ攻撃(クールダウン中の連打による減衰)をTFのダメージパイプラインへ再導入するか。近接プレイヤー攻撃のみに適用(弓/クロスボウ/トライデント/魔法/モブ攻撃には適用しない)。" },
-        { id: "melee-charge.min-multiplier", label: "下限倍率(t=0)", kind: "number", desc: "振った直後(未チャージ)のダメージ倍率の下限。既定0.2=バニラ相当。" },
-        { id: "melee-charge.exponent", label: "指数", kind: "number", desc: "冷却後の攻撃強度割合に掛ける指数。既定2.0=バニラ相当。" }
+        { id: "melee-charge.min-multiplier", label: "下限倍率(t=0)", kind: "number", desc: "振った直後(未チャージ)のダメージ倍率の下限。既定0.1(2026-08-01調整、旧0.2=バニラ相当)。" },
+        { id: "melee-charge.exponent", label: "指数", kind: "number", desc: "冷却後の攻撃強度割合に掛ける指数。既定1.6(2026-08-01調整、旧2.0=バニラ相当)。低いほどカーブがなだらかになる。" }
       ]
     },
     {

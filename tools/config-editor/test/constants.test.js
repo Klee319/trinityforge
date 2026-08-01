@@ -28,7 +28,9 @@ test("出荷combat設定の数値・真偽値はすべて共通変数画面へ�
     "aoe.hit-players", "curve.scale", "curve.min-level", "curve.max-level", "cache.ttl-seconds"
   ].map((key) => [key, fields[key]])), {
     "physical.base-coefficient": 1, "physical.min-component-damage": 1,
-    "melee-charge.enabled": true, "melee-charge.min-multiplier": 0.2, "melee-charge.exponent": 2.0,
+    // 2026-08-01 バランス調整(要件1a): 連打減衰を「より滑らかかつ顕著」にするため
+    // 出荷既定を 0.2/2.0(バニラ相当) から 0.1/1.6 へ変更した。
+    "melee-charge.enabled": true, "melee-charge.min-multiplier": 0.1, "melee-charge.exponent": 1.6,
     "attack-speed.min-effective": 0.1, "attack-speed.reconcile-interval-ticks": 10,
     "magical.base-coefficient": 1, "magical.min-component-damage": 1,
     "magical.scale-with-combat-level": true,

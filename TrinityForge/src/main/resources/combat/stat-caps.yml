@@ -23,8 +23,14 @@
 #   attack-power も同じ上限に服する。値の導出根拠(出荷 item-stats.yml の実測)は
 #   docs/config-reference/combat/stat-caps.md の「出荷初期値(2026-08-01)」を参照。
 #   防御側は combat/damage.yml の max-mitigation-rate / max-crit-reduction が別途効くので書いていない。
+#
+# 2026-08-01(同日・後): バランス調整(要件1b「重武器の火力を上げる代わりに攻撃速度を下げる」)で
+#   HEAVY_WEAPONS の attack-power を ×1.25 したため、単品最大が 96,279.8 → 120,349.8 へ上がり
+#   旧上限 110000 を追い越した。上限を据え置くと【最上位武器に持ち替えてもダメージが伸びない】
+#   という無言の症状になる(ShippedStatCapsDriftTest がこれを検出する)。
+#   旧上限は当時の単品最大に対して 1.1425 倍の余裕を取っていたので、同じ余裕率を保って 137500 とする。
 stat-caps:
-  attack-power: 110000
+  attack-power: 137500
   crit-chance: 0.85
   crit-damage: 3.2
   penetration: 0.85

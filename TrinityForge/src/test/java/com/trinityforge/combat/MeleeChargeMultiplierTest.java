@@ -111,6 +111,24 @@ class MeleeChargeMultiplierTest {
         assertEquals(0.4, MeleeChargeMultiplier.compute(true, 10, 1.0, 0.2, -3.0), 1e-9);
     }
 
+    /**
+     * 【2026-08-01】バランス調整(要件1a): 出荷 combat/damage.yml の新既定値
+     * (min-multiplier=0.1, exponent=1.6) を代表チャージ率(20/50/80/100%)で固定する回帰テスト。
+     * 旧既定(0.2, 2.0)より低チャージ時の減衰が顕著(t=0.2で0.232→0.169)かつ、指数を下げたことで
+     * カーブがなだらかになる(t=0.8の到達値が0.712→0.730へ上がり、フルチャージ直前の急な跳ね上がりが
+     * 緩和される)。出荷値そのものが変わった場合はこのテストで検知される。
+     */
+    @ParameterizedTest
+    @CsvSource({
+        "4,  1.0, 0.16853154",   // t=0.2
+        "10, 1.0, 0.39688928",   // t=0.5
+        "16, 1.0, 0.72977655",   // t=0.8
+        "20, 1.0, 1.0",          // t=1.0
+    })
+    void matchesShippedDefaultCurveAcrossRange(int elapsed, double speed, double expected) {
+        assertEquals(expected, MeleeChargeMultiplier.compute(true, elapsed, speed, 0.1, 1.6), 1e-6);
+    }
+
     @Test
     void resultIsAlwaysWithinMinMultiplierAndOne() {
         for (int elapsed = 0; elapsed <= 20; elapsed += 2) {
