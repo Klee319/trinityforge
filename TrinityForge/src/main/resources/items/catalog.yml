@@ -5742,6 +5742,156 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
 
+
+  # ===== 単発装備8点 (柱5-3) — コア4種の出口。1コアにつき武器/ツール1点＋防具1点 =====
+  # Lv100帯は増やさない。防具の phys-flat-defense は同レベル帯のバニラ相当部位と同値。
+  # 減算式なので数値をずらすと Lv100 で被弾回数が発散する(仕様書 §0-1)。
+  # 識別は減算されないキー(dodge-chance / move-speed / max-health / knockback-resistance)だけで行う。
+  woodsman_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:#c9b37a>樵の大斧</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_wood
+      pedestal-items:
+      - OAK_LOG x8
+      - custom:hard_metal x2
+      - NETHERITE_SCRAP x2   # 同じコアの2点を割るための識別素材
+      source: 25000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>刃こぼれの一つ一つが、倒した木の数だ。</italic></dark_gray>
+    - <gray>伐採の経験値と追加ドロップが増える。</gray>
+  forestfolk_cloak:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#c9b37a>森人の外套</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_wood
+      pedestal-items:
+      - OAK_LOG x8
+      - custom:hard_metal x2
+      - GOLDEN_CHESTPLATE x1   # 同じコアの2点を割るための識別素材
+      source: 25000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>枝を鳴らさずに歩く者の装い。</italic></dark_gray>
+    - <gray>回避率と移動速度が上がる。</gray>
+  feast_breastplate:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#c9b37a>饗宴の胸当て</color>
+    custom-model-data: 5741
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_meat
+      pedestal-items:
+      - COOKED_BEEF x8
+      - custom:hard_metal x2
+      - GOLDEN_CHESTPLATE x1   # 同じコアの2点を割るための識別素材
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>満たされた腹は、鎧より硬い。</italic></dark_gray>
+    - <gray>体力が増え、食料の消費が減る。</gray>
+  hunter_javelin:
+    material: NETHERITE_SPEAR
+    display-name: <color:#c9b37a>猟師の投槍</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_meat
+      pedestal-items:
+      - COOKED_BEEF x8
+      - custom:hard_metal x2
+      - STICK x2   # 同じコアの2点を割るための識別素材
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>間合いを詰めない狩り方がある。</italic></dark_gray>
+    - <gray>本作中で最も長いリーチを持つ。</gray>
+  harvest_hoe:
+    material: NETHERITE_HOE
+    display-name: <color:#c9b37a>豊穣の鍬</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_vegetable
+      pedestal-items:
+      - WHEAT x16
+      - custom:hard_metal x2
+      - HAY_BLOCK x1   # 同じコアの2点を割るための識別素材
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>実りは待つ者にだけ来る。</italic></dark_gray>
+    - <gray>農業の経験値と追加ドロップが増える。</gray>
+  herb_hat:
+    material: NETHERITE_HELMET
+    display-name: <color:#c9b37a>香草の帽子</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_vegetable
+      pedestal-items:
+      - WHEAT x16
+      - custom:hard_metal x2
+      - GOLDEN_HELMET x1   # 同じコアの2点を割るための識別素材
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>草の匂いが染みついている。</italic></dark_gray>
+    - <gray>食べたときの満腹度回復量が増える。</gray>
+  leyline_shovel:
+    material: NETHERITE_SHOVEL
+    display-name: <color:#c9b37a>地脈のシャベル</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_dirt
+      pedestal-items:
+      - DIRT x16
+      - custom:hard_metal x2
+      - FLINT x1   # 同じコアの2点を割るための識別素材
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>地面の下を流れるものを掬い上げる。</italic></dark_gray>
+    - <gray>掘削の経験値と幸運が増える。</gray>
+  bedrock_greaves:
+    material: NETHERITE_BOOTS
+    display-name: <color:#c9b37a>岩盤の具足</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_dirt
+      pedestal-items:
+      - DIRT x16
+      - custom:hard_metal x2
+      - GOLDEN_BOOTS x1   # 同じコアの2点を割るための識別素材
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>一歩も下がらないための重さ。</italic></dark_gray>
+    - <gray>ノックバック耐性が上がる。</gray>
+
 _editor:
   categories:
     weapon:
@@ -5775,6 +5925,7 @@ _editor:
         itemIds:
           - source_gem_spear
           - infinity_spear
+          - hunter_javelin
           - emberforge_spear
           - cryocore_spear
           - hero_spear
@@ -5855,6 +6006,7 @@ _editor:
           - golden_greataxe
           - diamond_greataxe
           - netherite_greataxe
+          - woodsman_greataxe
           - source_gem_greataxe
           - infinity_greataxe
           - emberforge_greataxe
@@ -6010,11 +6162,13 @@ _editor:
         itemIds:
           - source_gem_shovel
           - infinity_shovel
+          - leyline_shovel
       - id: cat_1784732947413
         label: クワ
         itemIds:
           - source_gem_hoe
           - infinity_hoe
+          - harvest_hoe
       - id: cat_1784732953900
         label: ハサミ
         itemIds: []
@@ -6100,10 +6254,14 @@ _editor:
         label: インフィニティ
         itemIds:
           - infinity_boots
+          - bedrock_greaves
           - emberforge_boots
           - infinity_chestplate
+          - feast_breastplate
+          - forestfolk_cloak
           - emberforge_chestplate
           - infinity_helmet
+          - herb_hat
           - emberforge_helmet
           - infinity_leggings
           - emberforge_leggings
@@ -6227,6 +6385,7 @@ _editor:
       - golden_greataxe
       - diamond_greataxe
       - netherite_greataxe
+      - woodsman_greataxe
       - source_gem_dagger
       - source_gem_rapier
       - source_gem_warhammer
@@ -6262,6 +6421,7 @@ _editor:
       - hero_rapier
       - nuclear_rapier
       - infinity_spear
+      - hunter_javelin
       - emberforge_spear
       - cryocore_spear
       - hero_spear
@@ -6352,8 +6512,10 @@ _editor:
       - source_gem_hoe
       - infinity_pickaxe
       - infinity_shovel
+      - leyline_shovel
       - infinity_axe_tool
       - infinity_hoe
+      - harvest_hoe
     other:
       - novus_criculus_luminis
     armor:
@@ -6370,12 +6532,16 @@ _editor:
       - wither_leggings
       - wither_boots
       - infinity_helmet
+      - herb_hat
       - emberforge_helmet
       - infinity_chestplate
+      - feast_breastplate
+      - forestfolk_cloak
       - emberforge_chestplate
       - infinity_leggings
       - emberforge_leggings
       - infinity_boots
+      - bedrock_greaves
       - emberforge_boots
       - mage_arcane_novice_helmet
       - mage_arcane_novice_chestplate
@@ -6496,8 +6662,10 @@ _editor:
     novus_criculus_luminis: other
     source_gem_shovel: tool
     infinity_shovel: tool
+    leyline_shovel: tool
     source_gem_hoe: tool
     infinity_hoe: tool
+    harvest_hoe: tool
     source_gem_sword: weapon
     wooden_cane: catalyst
     wooden_dagger: weapon
@@ -6528,6 +6696,7 @@ _editor:
     golden_greataxe: weapon
     diamond_greataxe: weapon
     netherite_greataxe: weapon
+    woodsman_greataxe: weapon
     stone_cane: catalyst
     copper_cane: catalyst
     iron_cane: catalyst
@@ -6569,6 +6738,7 @@ _editor:
     emberforge_rapier: weapon
     cryocore_rapier: weapon
     infinity_spear: weapon
+    hunter_javelin: weapon
     emberforge_spear: weapon
     cryocore_spear: weapon
     infinity_trident: weapon

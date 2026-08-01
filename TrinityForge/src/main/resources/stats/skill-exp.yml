@@ -210,6 +210,16 @@ smithing:
     DIAMOND_CHESTPLATE: 200
     DIAMOND_LEGGINGS: 175
     DIAMOND_BOOTS: 100
+    # --- 単発装備(柱5-3)の系統素材とコア4種 ---
+    # コア4種は tf_core_jewelry と同じ素材重さ(4隅=圧縮素材/4辺=高レベル敵素材/中央=圧縮エメラルド)
+    # なので、同じ 60 に揃える。
+    OAK_LOG: 4
+    COOKED_BEEF: 4
+    DIRT: 0.5
+    custom:tf_core_wood: 60
+    custom:tf_core_meat: 60
+    custom:tf_core_vegetable: 60
+    custom:tf_core_dirt: 60
     # --- 圧縮素材(氷芯・熾鉄シリーズの儀式で消費する) ---
     # custom:<id>_Nx = 素材N個ぶん。既存の custom:blaze_rod_2x=16 / _3x=24 (BLAZE_ROD=8) と同じ尺度。
     custom:stone_5x: 7.5

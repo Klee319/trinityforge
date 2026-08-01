@@ -9590,6 +9590,184 @@ items:
         min: 0
         max: 1.5
 
+
+  # ===== 単発装備8点 (柱5-3) =====
+  NETHERITE_SWORD#5740:
+    fixed:
+      attack-power: 4200
+      attack-speed: 0.833
+      attack-reach: 0.28
+      crit-chance: 0.04
+      crit-damage: 0.72
+      penetration: 0.08
+      damage-modifier: 0.9
+      durability: 900
+      thread-slots: 1
+      woodcutting-exp-bonus: 0.15
+      woodcutting-extra-drop-chance: 0.03
+    per-quality:
+      attack-power: 199.97646
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 150
+    use-level-requirement: 60
+    use-skill: HEAVY_WEAPONS
+    quality-mode-offset: -6
+    random:
+      attack-power:
+        min: -671.95481
+        max: 840.01412
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+  NETHERITE_CHESTPLATE#5740:
+    fixed:
+      armor-defense-rate: 2
+      durability: 620
+      phys-resistance: 0.17952
+      phys-flat-defense: 14.72
+      dodge-chance: 0.05
+      max-health: 9.2
+      thread-slots: 1
+      move-speed: 0.015
+    per-quality:
+      durability: 103
+    use-level-requirement: 60
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -6
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 4.8
+      max-health:
+        min: 0
+        max: 2.8
+  NETHERITE_CHESTPLATE#5741:
+    fixed:
+      armor-defense-rate: 4
+      durability: 480
+      phys-resistance: 0.04758
+      phys-flat-defense: 9.04
+      max-health: 11.2
+      move-speed: -0.004
+      thread-slots: 1
+      food-save-chance: 0.08
+    per-quality:
+      durability: 80
+    use-level-requirement: 45
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 3.4
+      max-health:
+        min: 0
+        max: 2.4
+  NETHERITE_SPEAR#5740:
+    fixed:
+      attack-power: 1010
+      attack-speed: 0.79
+      attack-reach: 1.4
+      crit-chance: 0.05
+      crit-damage: 0.48
+      penetration: 0.24
+      damage-modifier: 0.59
+      durability: 936
+      fixed-damage: 5.34
+      thread-slots: 1
+    per-quality:
+      attack-power: 48.09524
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
+      durability: 156
+    use-level-requirement: 45
+    use-skill: LIGHT_WEAPONS
+    quality-mode-offset: -5
+    random:
+      attack-power:
+        min: -161.58252
+        max: 201.9609
+      penetration:
+        min: -0.06
+        max: 0.09
+      crit-damage:
+        min: -0.1
+        max: 0.15
+  NETHERITE_HOE#5740:
+    fixed:
+      durability: 936
+      thread-slots: 1
+      farming-exp-bonus: 0.2
+      harvest-extra-drop-chance: 0.05
+    per-quality:
+      durability: 156
+    use-level-requirement: 30
+    use-skill: FARMING
+    quality-mode-offset: -3
+  NETHERITE_HELMET#5740:
+    fixed:
+      armor-defense-rate: 1
+      durability: 350
+      phys-resistance: 0.044795
+      phys-flat-defense: 1.82
+      armor-strength: 0.046
+      dodge-chance: 0.04675
+      max-health: 2.1
+      thread-slots: 1
+      food-restore-bonus: 0.2
+    per-quality:
+      durability: 58
+    use-level-requirement: 35
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -4
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 1.07
+      max-health:
+        min: 0
+        max: 0.6
+  NETHERITE_SHOVEL#5740:
+    fixed:
+      durability: 936
+      thread-slots: 1
+      digging-exp-bonus: 0.2
+      loot-luck: 0.5
+    per-quality:
+      durability: 156
+    use-level-requirement: 30
+    use-skill: DIGGING
+    quality-mode-offset: -3
+  NETHERITE_BOOTS#5740:
+    fixed:
+      armor-defense-rate: 2
+      durability: 400
+      phys-resistance: 0.03211
+      phys-flat-defense: 1.82
+      armor-strength: 0.1625
+      move-speed: -0.002
+      max-health: 2.1
+      thread-slots: 1
+      knockback-resistance: 0.1
+    per-quality:
+      durability: 67
+    use-level-requirement: 35
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -4
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 1.07
+      max-health:
+        min: 0
+        max: 0.6
+
 _editor:
   categories:
     weapon:
@@ -9631,6 +9809,7 @@ _editor:
           - WOODEN_SWORD#51
           - DIAMOND_SPEAR#50
           - NETHERITE_SPEAR#118
+          - NETHERITE_SPEAR#5740
           - NETHERITE_SPEAR#5720
           - NETHERITE_SPEAR#5700
           - NETHERITE_SPEAR#119
@@ -9718,6 +9897,7 @@ _editor:
           - GOLDEN_SWORD#32
           - DIAMOND_SWORD#1105
           - NETHERITE_SWORD#33
+          - NETHERITE_SWORD#5740
           - DIAMOND_SWORD#1110
           - NETHERITE_SWORD#142
           - NETHERITE_SWORD#5725
@@ -9892,6 +10072,7 @@ _editor:
         itemIds:
           - DIAMOND_SHOVEL#74
           - NETHERITE_SHOVEL#188
+          - NETHERITE_SHOVEL#5740
           - WOODEN_SHOVEL
           - STONE_SHOVEL
           - COPPER_SHOVEL
@@ -9904,6 +10085,7 @@ _editor:
         itemIds:
           - DIAMOND_HOE#76
           - NETHERITE_HOE#194
+          - NETHERITE_HOE#5740
           - WOODEN_HOE
           - STONE_HOE
           - COPPER_HOE
@@ -10048,12 +10230,16 @@ _editor:
         label: インフィニティ
         itemIds:
           - NETHERITE_HELMET#148
+          - NETHERITE_HELMET#5740
           - NETHERITE_HELMET#5720
           - NETHERITE_CHESTPLATE#151
+          - NETHERITE_CHESTPLATE#5741
+          - NETHERITE_CHESTPLATE#5740
           - NETHERITE_CHESTPLATE#5720
           - NETHERITE_LEGGINGS#154
           - NETHERITE_LEGGINGS#5720
           - NETHERITE_BOOTS#157
+          - NETHERITE_BOOTS#5740
           - NETHERITE_BOOTS#5720
       - id: cat_1784963395848
         label: 骨鎧
@@ -10144,6 +10330,7 @@ _editor:
     WOODEN_SWORD#51: weapon
     DIAMOND_SPEAR#50: weapon
     NETHERITE_SPEAR#118: weapon
+    NETHERITE_SPEAR#5740: weapon
     NETHERITE_SPEAR#5720: weapon
     NETHERITE_SPEAR#5700: weapon
     NETHERITE_SPEAR#119: weapon
@@ -10216,6 +10403,7 @@ _editor:
     GOLDEN_SWORD#32: weapon
     DIAMOND_SWORD#1105: weapon
     NETHERITE_SWORD#33: weapon
+    NETHERITE_SWORD#5740: weapon
     DIAMOND_SWORD#1110: weapon
     NETHERITE_SWORD#142: weapon
     NETHERITE_SWORD#5725: weapon
@@ -10318,6 +10506,7 @@ _editor:
     NETHERITE_AXE#191: tool
     DIAMOND_SHOVEL#74: tool
     NETHERITE_SHOVEL#188: tool
+    NETHERITE_SHOVEL#5740: tool
     WOODEN_SHOVEL: tool
     STONE_SHOVEL: tool
     COPPER_SHOVEL: tool
@@ -10327,6 +10516,7 @@ _editor:
     NETHERITE_SHOVEL: tool
     DIAMOND_HOE#76: tool
     NETHERITE_HOE#194: tool
+    NETHERITE_HOE#5740: tool
     WOODEN_HOE: tool
     STONE_HOE: tool
     COPPER_HOE: tool
@@ -10414,12 +10604,16 @@ _editor:
     NETHERITE_LEGGINGS#156: armor
     NETHERITE_BOOTS#159: armor
     NETHERITE_HELMET#148: armor
+    NETHERITE_HELMET#5740: armor
     NETHERITE_HELMET#5720: armor
     NETHERITE_CHESTPLATE#151: armor
+    NETHERITE_CHESTPLATE#5741: armor
+    NETHERITE_CHESTPLATE#5740: armor
     NETHERITE_CHESTPLATE#5720: armor
     NETHERITE_LEGGINGS#154: armor
     NETHERITE_LEGGINGS#5720: armor
     NETHERITE_BOOTS#157: armor
+    NETHERITE_BOOTS#5740: armor
     NETHERITE_BOOTS#5720: armor
     LEATHER_HELMET#200124: armor
     LEATHER_CHESTPLATE#200125: armor
@@ -10519,6 +10713,7 @@ _editor:
       - WOODEN_SWORD#51
       - DIAMOND_SPEAR#50
       - NETHERITE_SPEAR#118
+      - NETHERITE_SPEAR#5740
       - NETHERITE_SPEAR#5720
       - NETHERITE_SPEAR#5700
       - NETHERITE_SPEAR#119
@@ -10591,6 +10786,7 @@ _editor:
       - GOLDEN_SWORD#32
       - DIAMOND_SWORD#1105
       - NETHERITE_SWORD#33
+      - NETHERITE_SWORD#5740
       - DIAMOND_SWORD#1110
       - NETHERITE_SWORD#142
       - NETHERITE_SWORD#5725
@@ -10728,6 +10924,7 @@ _editor:
       - NETHERITE_AXE#191
       - DIAMOND_SHOVEL#74
       - NETHERITE_SHOVEL#188
+      - NETHERITE_SHOVEL#5740
       - WOODEN_SHOVEL
       - STONE_SHOVEL
       - COPPER_SHOVEL
@@ -10737,6 +10934,7 @@ _editor:
       - NETHERITE_SHOVEL
       - DIAMOND_HOE#76
       - NETHERITE_HOE#194
+      - NETHERITE_HOE#5740
       - WOODEN_HOE
       - STONE_HOE
       - COPPER_HOE
@@ -10827,12 +11025,16 @@ _editor:
       - NETHERITE_LEGGINGS#156
       - NETHERITE_BOOTS#159
       - NETHERITE_HELMET#148
+      - NETHERITE_HELMET#5740
       - NETHERITE_HELMET#5720
       - NETHERITE_CHESTPLATE#151
+      - NETHERITE_CHESTPLATE#5741
+      - NETHERITE_CHESTPLATE#5740
       - NETHERITE_CHESTPLATE#5720
       - NETHERITE_LEGGINGS#154
       - NETHERITE_LEGGINGS#5720
       - NETHERITE_BOOTS#157
+      - NETHERITE_BOOTS#5740
       - NETHERITE_BOOTS#5720
       - LEATHER_HELMET#200124
       - LEATHER_CHESTPLATE#200125

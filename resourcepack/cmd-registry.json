@@ -3556,6 +3556,62 @@
       "id": "emberforge_boots",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5740,
+      "id": "woodsman_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 5740,
+      "id": "forestfolk_cloak",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 5741,
+      "id": "feast_breastplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 5740,
+      "id": "hunter_javelin",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 5740,
+      "id": "harvest_hoe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 5740,
+      "id": "herb_hat",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SHOVEL",
+      "cmd": 5740,
+      "id": "leyline_shovel",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 5740,
+      "id": "bedrock_greaves",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
     }
   ]
 }

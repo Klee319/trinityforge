@@ -335,6 +335,13 @@
           "model": "minecraft:item/netherite_sword",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5740,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

@@ -76,6 +76,13 @@
           "model": "minecraft:item/netherite_hoe",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5740,
+        "model": {
+          "model": "minecraft:item/netherite_hoe",
+          "type": "minecraft:model"
+        }
       }
     ]
   }
