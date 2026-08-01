@@ -762,7 +762,49 @@ function validateTfCraftQuality(data, errors) {
       }
     }
   }
+  // 2026-08-01 分離: 品質抽選のばらつき補正を作業台/儀式で別々に持つ節。
+  // 既定値は Java 側 CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致させること
+  // (scale=1.0 / flat=0.0)。ズレると「開いて保存しただけで yml の意味が変わる」。
+  for (const section of ["workbench", "ritual"]) {
+    const spread = data[section];
+    if (spread === undefined || spread === null) continue;
+    if (!isPlainObject(spread)) {
+      errors.push(`${section} はマップである必要があります`);
+      continue;
+    }
+    for (const k of ["upswing-scale", "downswing-reduction-scale"]) {
+      const v = spread[k];
+      if (v === undefined || v === null) continue;
+      if (!isNumber(v) || v < 0) errors.push(`${section}.${k}: 0以上の数値である必要があります`);
+    }
+    for (const k of ["upswing-flat", "downswing-reduction-flat"]) {
+      const v = spread[k];
+      if (v === undefined || v === null) continue;
+      if (!isNumber(v)) errors.push(`${section}.${k}: 数値である必要があります`);
+    }
+    for (const k of Object.keys(spread)) {
+      if (!TF_CRAFT_QUALITY_SPREAD_FIELDS.has(k)) {
+        errors.push(`${section}.${k}: 不明なフィールドです (許可: ${[...TF_CRAFT_QUALITY_SPREAD_FIELDS].join(" / ")})`);
+      }
+    }
+  }
 }
+
+// craft-quality.yml の workbench/ritual 節で許可するフィールド。
+// Java: CraftQualityConfig#readSpread と 1:1。
+const TF_CRAFT_QUALITY_SPREAD_FIELDS = new Set([
+  "upswing-scale", "upswing-flat", "downswing-reduction-scale", "downswing-reduction-flat"
+]);
+
+// craft-quality.yml の workbench/ritual 節の既定値。
+// Java: CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致(scale=1.0 / flat=0.0)。
+// ここがズレると editor で「開いて保存しただけ」でバランスが動くので、片方だけ変えないこと。
+const TF_CRAFT_QUALITY_SPREAD_DEFAULTS = Object.freeze({
+  "upswing-scale": 1.0,
+  "upswing-flat": 0.0,
+  "downswing-reduction-scale": 1.0,
+  "downswing-reduction-flat": 0.0
+});
 
 // ---- skill-exp.yml (tf-skill-exp) ----
 // スキルEXP獲得設定。各セクション(ars-smithing 等)はスカラー値のマップ。
@@ -3363,5 +3405,6 @@ module.exports = {
   validateItemStatsLayerRefs,
   validateSkillTreeLayerRefs,
   BIND_TYPES,
-  APPLIES_TO
+  APPLIES_TO,
+  TF_CRAFT_QUALITY_SPREAD_DEFAULTS
 };
