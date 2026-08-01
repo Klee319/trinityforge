@@ -151,7 +151,7 @@ class CatalogVanillaOperationGuardListenerTest {
     }
 
     @Test
-    void clearsDefaultAnvilSmithingAndGrindstoneResults() {
+    void clearsDefaultAnvilAndSmithingResults() {
         ItemStack protectedItem = catalogStack(halo);
 
         AnvilInventory anvil = mock(AnvilInventory.class);
@@ -165,18 +165,85 @@ class CatalogVanillaOperationGuardListenerTest {
         PrepareSmithingEvent smithingEvent = mock(PrepareSmithingEvent.class);
         when(smithingEvent.getInventory()).thenReturn(smithing);
 
-        GrindstoneInventory grindstone = mock(GrindstoneInventory.class);
-        when(grindstone.getContents()).thenReturn(new ItemStack[] {protectedItem, null, protectedItem});
-        PrepareGrindstoneEvent grindstoneEvent = mock(PrepareGrindstoneEvent.class);
-        when(grindstoneEvent.getInventory()).thenReturn(grindstone);
-
         listener.onPrepareAnvil(anvilEvent);
         listener.onPrepareSmithing(smithingEvent);
-        listener.onPrepareGrindstone(grindstoneEvent);
 
         verify(anvilEvent).setResult(null);
         verify(smithingEvent).setResult(null);
-        verify(grindstoneEvent).setResult(null);
+    }
+
+    /**
+     * U4: 砥石で拒否するのは「カタログ品を素材として食う修理マージ」だけ。
+     * 片方だけがカタログ品だと、素材側のロール/品質/バインドが黙って消える。
+     */
+    @Test
+    void clearsGrindstoneResultOnlyWhenTheMergeWouldConsumeACatalogIdentity() {
+        PrepareGrindstoneEvent event = grindstoneEvent(catalogStack(halo), new ItemStack(Material.GLOWSTONE));
+
+        listener.onPrepareGrindstone(event);
+
+        verify(event).setResult(null);
+    }
+
+    /** U4: 片側だけの投入 = 純粋なエンチャント除去なので結果枠を消してはいけない。 */
+    @Test
+    void keepsGrindstoneResultForPureEnchantRemoval() {
+        PrepareGrindstoneEvent upperOnly = grindstoneEvent(catalogStack(halo), null);
+        PrepareGrindstoneEvent lowerOnly = grindstoneEvent(null, catalogStack(halo));
+
+        listener.onPrepareGrindstone(upperOnly);
+        listener.onPrepareGrindstone(lowerOnly);
+
+        verify(upperOnly, org.mockito.Mockito.never()).setResult(null);
+        verify(lowerOnly, org.mockito.Mockito.never()).setResult(null);
+    }
+
+    /** U4: 両側が同一 catalogId なら identity は消えない(同種修理)ので許可する。 */
+    @Test
+    void keepsGrindstoneResultWhenBothSlotsShareTheSameCatalogIdentity() {
+        PrepareGrindstoneEvent event = grindstoneEvent(catalogStack(halo), catalogStack(halo));
+
+        listener.onPrepareGrindstone(event);
+
+        verify(event, org.mockito.Mockito.never()).setResult(null);
+    }
+
+    /** U4: エンチャント本の適用と同一 identity の修理は金床でも許可する。 */
+    @Test
+    void keepsAnvilResultForEnchantedBookApplicationAndSameIdentityRepair() {
+        ItemTemplate blade = template("guard_blade", Material.DIAMOND_SWORD, 111);
+        templates.put(blade.id(), blade);
+        ItemStack sword = catalogStack(blade);
+        ItemStack book = new ItemStack(Material.ENCHANTED_BOOK);
+
+        AnvilInventory bookAnvil = mock(AnvilInventory.class);
+        when(bookAnvil.getContents()).thenReturn(new ItemStack[] {sword, book, null});
+        when(bookAnvil.getFirstItem()).thenReturn(sword);
+        when(bookAnvil.getSecondItem()).thenReturn(book);
+        PrepareAnvilEvent bookEvent = mock(PrepareAnvilEvent.class);
+        when(bookEvent.getInventory()).thenReturn(bookAnvil);
+
+        AnvilInventory repairAnvil = mock(AnvilInventory.class);
+        when(repairAnvil.getContents()).thenReturn(new ItemStack[] {sword, sword.clone(), null});
+        when(repairAnvil.getFirstItem()).thenReturn(sword);
+        when(repairAnvil.getSecondItem()).thenReturn(sword.clone());
+        PrepareAnvilEvent repairEvent = mock(PrepareAnvilEvent.class);
+        when(repairEvent.getInventory()).thenReturn(repairAnvil);
+
+        listener.onPrepareAnvil(bookEvent);
+        listener.onPrepareAnvil(repairEvent);
+
+        verify(bookEvent, org.mockito.Mockito.never()).setResult(null);
+        verify(repairEvent, org.mockito.Mockito.never()).setResult(null);
+    }
+
+    private static PrepareGrindstoneEvent grindstoneEvent(ItemStack upper, ItemStack lower) {
+        GrindstoneInventory grindstone = mock(GrindstoneInventory.class);
+        when(grindstone.getItem(0)).thenReturn(upper);
+        when(grindstone.getItem(1)).thenReturn(lower);
+        PrepareGrindstoneEvent event = mock(PrepareGrindstoneEvent.class);
+        when(event.getInventory()).thenReturn(grindstone);
+        return event;
     }
 
     @Test

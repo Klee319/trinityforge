@@ -1,52 +1,154 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.pdc.ItemData;
-import com.trinityforge.pdc.PdcKeys;
+import com.trinityforge.stats.CatalogVanillaOperationPolicy;
+import com.trinityforge.stats.ItemFactory;
+import com.trinityforge.stats.ItemTemplate;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.PrepareGrindstoneEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 /**
- * TrinityForge 装備の砥石利用: エンチャント除去は許可し、TF 由来 PDC（品質/ロール等）を維持する。
+ * TrinityForge 装備の砥石利用(U4): エンチャント除去そのものは成立させたうえで、
+ * 砥石が剥がしてしまう見た目とステータス(表示名・lore・attribute modifier・TF 付与エンチャント)を
+ * <strong>元の rollSeed / quality のまま</strong>復元する。
  *
- * <p>Paper の砥石処理は多くの場合 PDC を結果 ItemStack へ引き継ぐが、環境差で
- * {@link PdcKeys#ITEM_CATALOG_ID} / {@link PdcKeys#ITEM_ROLL_SEED} が欠落することがある。
- * その場合のみ上スロット入力から該当キーをコピーするセーフガードを掛ける。
+ * <p>復元は「元アイテムを clone し、バニラ結果が残したエンチャントと耐久だけを取り込み、
+ * {@link ItemFactory#stamp} で再組み立てする」形で行う。カタログテンプレートから
+ * {@link ItemFactory#create} で作り直す実装にはしていない: create は owner(SOULBOUND の所有者)/
+ * 儀式のスレッド枠加算/コーティング/クラフト時ロール補正といった「支払い済みの PDC」を
+ * 再現しないので、砥石を通すだけで魂縛が外れる・儀式の投資が消えるという別のバグになる。
+ *
+ * <p><strong>rollSeed は絶対に引き直さない。</strong>引き直すと「砥石に通して厳選ロールをガチャする」
+ * exploit になる。品質・厳選ロール・耐久も維持する(砥石はエンチャント付け替え用の道具でよい)。
+ *
+ * <p>優先度が MONITOR なのは、拒否判定を持つ
+ * {@link CatalogVanillaOperationGuardListener#onPrepareGrindstone}(HIGHEST) より必ず後に走る必要が
+ * あるため(結果が null = ガードが拒否した組み合わせなので何もしない)。
  * materials.yml 素材のみの組み合わせは ArsPaper {@code CustomItemListener} が結果を空にする。
  */
 public final class GrindstonePreserveListener implements Listener {
 
+    private final ItemCatalogConfig catalog;
+    private final ItemFactory itemFactory;
+
+    public GrindstonePreserveListener(ItemCatalogConfig catalog, ItemFactory itemFactory) {
+        this.catalog = Objects.requireNonNull(catalog, "catalog");
+        this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPrepareGrindstone(PrepareGrindstoneEvent event) {
-        ItemStack upper = event.getInventory().getItem(0);
-        ItemStack lower = event.getInventory().getItem(1);
         ItemStack result = event.getResult();
-        if (result == null || result.getType().isAir()) {
+        if (isEmpty(result)) {
             return;
         }
-
+        ItemStack upper = event.getInventory().getItem(0);
+        ItemStack lower = event.getInventory().getItem(1);
         ItemStack primary = firstNonEmpty(upper, lower);
         if (primary == null || !hasTfItemIdentity(primary)) {
             return;
         }
 
-        ItemStack preserved = preserveTfKeys(primary, result);
-        event.setResult(preserved);
+        ItemStack restored = restore(primary, result);
+        // 片側だけの投入(=純粋な除去)で、復元後のエンチャントが元と完全に同じなら、
+        // プレイヤーが外せるエンチャントは1つも無い(= TF 自身が付与した刻印だけ)。
+        // それでも結果枠を出すと「取り出す→TF が刻印を戻す→また取り出す」で砥石が
+        // 無限EXP源になるので、この場合だけ結果を空にする。
+        if ((isEmpty(upper) || isEmpty(lower))
+                && enchantmentsOf(primary).equals(enchantmentsOf(restored))) {
+            event.setResult(null);
+            return;
+        }
+        event.setResult(restored);
+    }
+
+    /**
+     * 元アイテム({@code primary})を土台に、バニラ結果({@code vanillaResult})が下した
+     * 「どのエンチャントを残すか / 耐久をいくつにするか」だけを取り込んだ復元品を作る。
+     */
+    private ItemStack restore(ItemStack primary, ItemStack vanillaResult) {
+        ItemStack out = primary.clone();
+        out.setAmount(Math.max(1, vanillaResult.getAmount()));
+        // バニラが残したエンチャント(呪い等)に揃える = 「エンチャントだけ落とす」
+        applyEnchantments(out, enchantmentsOf(vanillaResult));
+        // 耐久はバニラ結果を引き継ぐ(単体投入なら元と同値、同一 identity のマージなら修理後の値)。
+        copyDamage(vanillaResult, out);
+
+        ItemData source = ItemData.of(primary.getItemMeta());
+        // rollSeed が無いアイテムは TF の派生ステを持たない(ItemRefreshPolicy と同じ基準)ので
+        // 再組み立てしない。ここで seed を発行してはいけない(新規ロールの発行になる)。
+        source.rollSeed().ifPresent(seed -> itemFactory.stamp(out, seed, source.quality()));
+        restoreEnchantGlow(primary, out);
+        return out;
+    }
+
+    /**
+     * カタログの {@code enchant-glow} 由来の隠しエンチャントは砥石で剥がされ、
+     * {@link ItemFactory#stamp}(= 再組み立て)では戻らないので個別に戻す。
+     * 戻さないと「砥石に通すと光沢が永久に消える」という不可逆な見た目劣化になる。
+     */
+    private void restoreEnchantGlow(ItemStack primary, ItemStack out) {
+        Optional<ItemTemplate> template = CatalogVanillaOperationPolicy.catalogIdOf(primary, catalog)
+                .flatMap(catalog::template);
+        if (template.isEmpty() || !template.get().enchantGlow()) {
+            return;
+        }
+        ItemMeta meta = out.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        ItemFactory.applyEnchantGlow(meta);
+        out.setItemMeta(meta);
+    }
+
+    /** {@code stack} のエンチャント構成を {@code target} と一致させる(余りを外し、足りない分を付ける)。 */
+    private static void applyEnchantments(ItemStack stack, Map<Enchantment, Integer> target) {
+        for (Enchantment existing : Set.copyOf(stack.getEnchantments().keySet())) {
+            if (!target.containsKey(existing)) {
+                stack.removeEnchantment(existing);
+            }
+        }
+        target.forEach(stack::addUnsafeEnchantment);
+    }
+
+    private static void copyDamage(ItemStack from, ItemStack to) {
+        ItemMeta fromMeta = from.getItemMeta();
+        ItemMeta toMeta = to.getItemMeta();
+        if (!(fromMeta instanceof Damageable fromDamage) || !(toMeta instanceof Damageable toDamage)) {
+            return;
+        }
+        toDamage.setDamage(fromDamage.getDamage());
+        to.setItemMeta(toMeta);
+    }
+
+    private static Map<Enchantment, Integer> enchantmentsOf(ItemStack stack) {
+        return stack == null ? Map.of() : stack.getEnchantments();
     }
 
     private static ItemStack firstNonEmpty(ItemStack first, ItemStack second) {
-        if (first != null && !first.getType().isAir()) {
+        if (!isEmpty(first)) {
             return first;
         }
-        if (second != null && !second.getType().isAir()) {
+        if (!isEmpty(second)) {
             return second;
         }
         return null;
+    }
+
+    private static boolean isEmpty(ItemStack item) {
+        return item == null || item.getType().isAir();
     }
 
     private static boolean hasTfItemIdentity(ItemStack item) {
@@ -59,89 +161,5 @@ public final class GrindstonePreserveListener implements Listener {
             || data.quality() > ItemData.MIN_QUALITY
             || data.bindType().isPresent()
             || data.owner().isPresent();
-    }
-
-    private static ItemStack preserveTfKeys(ItemStack source, ItemStack result) {
-        ItemStack out = result.clone();
-        if (!source.hasItemMeta() || !out.hasItemMeta()) {
-            return out;
-        }
-
-        ItemMeta sourceMeta = source.getItemMeta();
-        ItemMeta resultMeta = out.getItemMeta();
-        ItemData src = ItemData.of(sourceMeta);
-        ItemData res = ItemData.of(resultMeta);
-        PersistentDataContainer srcPdc = sourceMeta.getPersistentDataContainer();
-        PersistentDataContainer resPdc = resultMeta.getPersistentDataContainer();
-
-        src.catalogId().ifPresent(id -> {
-            if (res.catalogId().isEmpty()) {
-                res.setCatalogId(id);
-            }
-        });
-        if (src.hasRollSeed() && !res.hasRollSeed()) {
-            res.setRollSeed(src.rollSeed().orElseThrow());
-        }
-        if (src.quality() > ItemData.MIN_QUALITY && res.quality() <= ItemData.MIN_QUALITY) {
-            res.setQuality(src.quality());
-        }
-        copyStringIfMissing(srcPdc, resPdc, PdcKeys.ITEM_BIND_TYPE);
-        copyStringIfMissing(srcPdc, resPdc, PdcKeys.ITEM_OWNER);
-        copyIntegerIfMissing(srcPdc, resPdc, PdcKeys.ITEM_DATA_VERSION);
-        copyIntegerIfMissing(srcPdc, resPdc, PdcKeys.ITEM_TABLE_GENERATION);
-        copyStringIfMissing(srcPdc, resPdc, PdcKeys.ITEM_USE_SKILL);
-        copyIntegerIfMissing(srcPdc, resPdc, PdcKeys.ITEM_USE_LEVEL_REQ);
-        copyStringIfMissing(srcPdc, resPdc, PdcKeys.ITEM_TOOL_ENCHANT_BONUS);
-        copyDoubleIfMissing(srcPdc, resPdc, PdcKeys.ITEM_CRAFT_ROLL_UP);
-        copyDoubleIfMissing(srcPdc, resPdc, PdcKeys.ITEM_CRAFT_ROLL_DOWN_REDUCTION);
-        copyDoubleIfMissing(srcPdc, resPdc, PdcKeys.ITEM_CRAFT_ROLL_INSET_DELTA);
-
-        // BindType enum round-trip for typed access above; also restore parsed bind if only string was copied.
-        src.bindType().ifPresent(bt -> {
-            if (res.bindType().isEmpty()) {
-                res.setBindType(bt);
-            }
-        });
-        src.owner().ifPresent(owner -> {
-            if (res.owner().isEmpty()) {
-                res.setOwner(owner);
-            }
-        });
-
-        out.setItemMeta(resultMeta);
-        return out;
-    }
-
-    private static void copyStringIfMissing(
-            PersistentDataContainer src, PersistentDataContainer dst, org.bukkit.NamespacedKey key) {
-        if (dst.has(key, PersistentDataType.STRING)) {
-            return;
-        }
-        String value = src.get(key, PersistentDataType.STRING);
-        if (value != null) {
-            dst.set(key, PersistentDataType.STRING, value);
-        }
-    }
-
-    private static void copyIntegerIfMissing(
-            PersistentDataContainer src, PersistentDataContainer dst, org.bukkit.NamespacedKey key) {
-        if (dst.has(key, PersistentDataType.INTEGER)) {
-            return;
-        }
-        Integer value = src.get(key, PersistentDataType.INTEGER);
-        if (value != null) {
-            dst.set(key, PersistentDataType.INTEGER, value);
-        }
-    }
-
-    private static void copyDoubleIfMissing(
-            PersistentDataContainer src, PersistentDataContainer dst, org.bukkit.NamespacedKey key) {
-        if (dst.has(key, PersistentDataType.DOUBLE)) {
-            return;
-        }
-        Double value = src.get(key, PersistentDataType.DOUBLE);
-        if (value != null) {
-            dst.set(key, PersistentDataType.DOUBLE, value);
-        }
     }
 }
