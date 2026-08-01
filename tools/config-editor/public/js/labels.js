@@ -415,7 +415,12 @@
     "window-seconds": { label: "判定時間窓(秒)", desc: "spot-diminishing: この秒数のあいだの獲得回数を同一地点判定に使う。" },
     "threshold": { label: "逓減開始回数", desc: "spot-diminishing: 判定時間窓のあいだにこの回数を超えた分から、1回ごとにdecay-per-killずつ倍率を下げる。" },
     "decay-per-kill": { label: "逓減幅(1回あたり)", desc: "spot-diminishing: threshold超過1回ごとに倍率から差し引く量。" },
-    "floor": { label: "倍率下限", desc: "これ未満には下がらない倍率の下限値(spot-diminishing/level-diminishing共通のキー)。" },
+    "floor": { label: "倍率下限", desc: "これ未満には下がらない倍率の下限値(daily-diminishing/spot-diminishing/level-diminishing共通のキー)。0にすると完全に稼げなくなるので必ず0より大きくすること。" },
+    // daily-diminishing (2026-08-01 仕様変更 + ラベル日本語化)
+    "window-hours": { label: "逓減の時間窓(時間)", desc: "daily-diminishing: 稼ぎの蓄積が薄れる時定数。24なら約24時間で蓄積が約37%まで戻る(0にはならない)。日付でリセットしないのは「23:59に溜めて00:00から全開」を最適解にしないため。" },
+    "per-amount": { label: "逓減1段あたりの獲得量", desc: "daily-diminishing: 時間窓での総獲得EXPがこの量に達するたびに1段逓減する。スキルごとに独立して数える(採掘を掘り切った日でも伐採は等倍)。" },
+    "decay-per-amount": { label: "1段あたりの倍率", desc: "daily-diminishing: 1段ごとに掛かる倍率。0.7なら1段ごとに現在の70%(=30%減)。段数は切り捨てなので「あと何EXPで1段落ちるか」を数えられる。" },
+    "exempt-skills": { label: "逓減しないスキル", desc: "daily-diminishing: この一覧に入れたスキルIDは逓減の対象外。例: [FISHING]" },
     "exempt-dungeon-worlds": { label: "ダンジョン内を除外", desc: "trueのとき、EliteMobsダンジョンのインスタンスワールド内ではspot-diminishingの逓減を適用しない(既定true)。" },
     "gathering-enabled": { label: "採取スキルへ適用", desc: "level-diminishing: MINING/FARMING/WOODCUTTING/DIGGING(採取系)へレベル逓減カーブを適用するか。" },
     "combat-enabled": { label: "戦闘スキルへ適用", desc: "level-diminishing: HEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERY/HEAVY_ARMOR/LIGHT_ARMOR/ARS_MAGIC(戦闘系)へレベル逓減カーブを適用するか。" },

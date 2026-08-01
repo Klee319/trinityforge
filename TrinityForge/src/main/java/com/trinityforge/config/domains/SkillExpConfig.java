@@ -424,12 +424,14 @@ public final class SkillExpConfig {
                 yaml.getDouble("outside-dungeon-exp-rate", 0.25)));
         // 日次逓減。window-hours は「時定数」で、その時間が経つと蓄積が 1/e (約37%) まで戻る。
         // exempt-skills は正規化前の生IDをそのまま集合に入れる(スキルIDは大文字固定なので一致する)。
+        // 2026-08-01 仕様変更: 旧 threshold/step/decay-per-step(連続的な逓減)を廃止し、
+        // 「per-amount を稼ぐたびに decay-per-amount 倍になる」離散の刻みへ置き換えた。
+        // 旧キーが残っていても読まない ── 意味が変わったので黙って引き継ぐと逓減の効き方が化ける。
         this.dailyDiminishing = new com.trinityforge.progression.DailyExpDiminishing.Settings(
                 yaml.getBoolean("daily-diminishing.enabled", false),
                 Math.max(1.0, yaml.getDouble("daily-diminishing.window-hours", 24.0)) * 3_600_000.0,
-                yaml.getDouble("daily-diminishing.threshold", 0.0),
-                yaml.getDouble("daily-diminishing.step", 1.0),
-                yaml.getDouble("daily-diminishing.decay-per-step", 1.0),
+                yaml.getDouble("daily-diminishing.per-amount", 150000.0),
+                yaml.getDouble("daily-diminishing.decay-per-amount", 1.0),
                 yaml.getDouble("daily-diminishing.floor", 0.25),
                 new java.util.HashSet<>(yaml.getStringList("daily-diminishing.exempt-skills")));
         this.spotDiminishingEnabled = yaml.getBoolean("spot-diminishing.enabled", true);

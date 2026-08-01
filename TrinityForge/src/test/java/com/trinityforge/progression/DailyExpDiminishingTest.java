@@ -25,8 +25,8 @@ class DailyExpDiminishingTest {
     private static final double HOUR = 3_600_000.0;
 
     private static DailyExpDiminishing.Settings settings() {
-        // 1000 まで等倍 → 1000 超過分 1000 ごとに 0.5 倍 → 下限 0.25
-        return new DailyExpDiminishing.Settings(true, 24 * HOUR, 1000.0, 1000.0, 0.5, 0.25, Set.of());
+        // 1000 稼ぐごとに 0.5 倍(離散) → 下限 0.25
+        return new DailyExpDiminishing.Settings(true, 24 * HOUR, 1000.0, 0.5, 0.25, Set.of());
     }
 
     @Test
@@ -42,30 +42,37 @@ class DailyExpDiminishingTest {
     }
 
     @Test
-    @DisplayName("しきい値までは等倍、超えた分だけ薄まる")
-    void decaysOnlyAboveThreshold() {
+    @DisplayName("per-amount に達するたびに1段ずつ薄まる")
+    void decaysOneStepEachTimeThePerAmountIsReached() {
         AtomicLong now = new AtomicLong(0L);
         DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
         UUID player = UUID.randomUUID();
 
-        // 蓄積 1000 = ちょうど threshold → まだ等倍
-        assertEquals(1.0, daily.consume(settings(), player, "MINING", 1000.0));
-        // 蓄積 2000 = 1段超過 → 0.5
+        // 蓄積 999 = まだ1段目に達していない → 等倍
+        assertEquals(1.0, daily.consume(settings(), player, "MINING", 999.0), 1e-9);
+        // 蓄積 1999 → floor(1999/1000)=1段 → 0.5
         assertEquals(0.5, daily.consume(settings(), player, "MINING", 1000.0), 1e-9);
-        // 蓄積 3000 = 2段超過 → 0.25（floor と一致）
+        // 蓄積 2999 → 2段 → 0.25（floor と一致）
         assertEquals(0.25, daily.consume(settings(), player, "MINING", 1000.0), 1e-9);
         // それ以上は floor で止まる
         assertEquals(0.25, daily.consume(settings(), player, "MINING", 100_000.0), 1e-9);
     }
 
     @Test
-    @DisplayName("段の境目で急に落ちない（段数を整数に丸めていない）")
-    void decayIsContinuous() {
-        double justBelow = DailyExpDiminishing.multiplierFor(settings(), 1999.0);
-        double justAbove = DailyExpDiminishing.multiplierFor(settings(), 2001.0);
+    @DisplayName("段は離散。境界を跨いだ瞬間に1段落ちる（2026-08-01 仕様変更）")
+    void decayStepsDownDiscretelyAtEachBoundary() {
+        // 旧仕様は「段数を丸めない連続式」だったが、プレイヤーが「あと何EXPで落ちるか」を
+        // 数えられないので離散へ変更した。境界の手前と後で必ず段が変わる。
+        assertEquals(1.0, DailyExpDiminishing.multiplierFor(settings(), 999.0), 1e-9);
+        assertEquals(0.5, DailyExpDiminishing.multiplierFor(settings(), 1000.0), 1e-9);
+        assertEquals(0.5, DailyExpDiminishing.multiplierFor(settings(), 1999.0), 1e-9);
+        assertEquals(0.25, DailyExpDiminishing.multiplierFor(settings(), 2000.0), 1e-9);
 
-        assertTrue(Math.abs(justBelow - justAbove) < 0.001,
-                "1段の境界を跨いでも倍率はほぼ連続であること: " + justBelow + " vs " + justAbove);
+        // 次の段まであと何EXPかを出せること（表示用）。
+        assertEquals(1.0, DailyExpDiminishing.untilNextStep(settings(), 999.0), 1e-9);
+        assertEquals(500.0, DailyExpDiminishing.untilNextStep(settings(), 1500.0), 1e-9);
+        // 下限へ張り付いたら -1（もう落ちないので案内しない）。
+        assertEquals(-1.0, DailyExpDiminishing.untilNextStep(settings(), 99_999.0), 1e-9);
     }
 
     @Test
@@ -114,7 +121,7 @@ class DailyExpDiminishingTest {
     @DisplayName("exempt-skills のスキルは逓減しない")
     void exemptSkillsAreUntouched() {
         DailyExpDiminishing.Settings exempting = new DailyExpDiminishing.Settings(
-                true, 24 * HOUR, 1000.0, 1000.0, 0.5, 0.25, Set.of("FISHING"));
+                true, 24 * HOUR, 1000.0, 0.5, 0.25, Set.of("FISHING"));
         DailyExpDiminishing daily = new DailyExpDiminishing(() -> 0L);
         UUID player = UUID.randomUUID();
 
@@ -142,12 +149,11 @@ class DailyExpDiminishingTest {
     @DisplayName("floor は Settings 側で 0〜1 にクランプされる（0除算や増幅を作らない）")
     void settingsClampsRanges() {
         DailyExpDiminishing.Settings insane = new DailyExpDiminishing.Settings(
-                true, -5.0, -100.0, 0.0, 5.0, 9.0, null);
+                true, -5.0, -100.0, 5.0, 9.0, null);
 
         assertTrue(insane.windowMillis() >= 1.0);
-        assertEquals(0.0, insane.threshold());
-        assertTrue(insane.step() >= 1.0);
-        assertEquals(1.0, insane.decayPerStep());
+        assertTrue(insane.perAmount() >= 1.0);
+        assertEquals(1.0, insane.decayPerAmount());
         assertEquals(1.0, insane.floor());
         assertTrue(insane.exemptSkills().isEmpty());
     }
