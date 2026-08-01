@@ -481,7 +481,15 @@
       for (const key of keys) delete target[key];
     }
     const legacyProgressionKeys = {
-      archery: ["daily_limit", "is_chunk_nerfed"],
+      // N5(2026-07-31): 弓術EXPを討伐時ベース(skill-exp.yml の combat.kill-exp)へ統一したので、
+      // per-hit 式専用だった係数はすべて legacy。表示から隠すだけでは再保存で復活するため列挙して落とす。
+      archery: [
+        "daily_limit", "is_chunk_nerfed",
+        "bow_exp_base", "crossbow_exp_base", "damage_exp_bonus",
+        "distance_exp_multiplier_base", "distance_exp_multiplier", "distance_limit",
+        "infinity_multiplier", "spawner_spawned_multiplier", "max_health_limitation",
+        "pvp_multiplier", "entity_exp_multipliers"
+      ],
       heavy_armor: ["exp_second_piece", "daily_limit"],
       light_armor: ["exp_second_piece", "daily_limit"],
       heavy_weapons: ["exp_per_damage", "exp_enemies_nerfed"],

@@ -25,7 +25,15 @@ test("EXP設定から今回廃止したlegacyキーがすべて消えている",
   }
 
   const forbiddenByFile = {
-    "archery_progression.yml": ["legacy", "daily_limit", "is_chunk_nerfed"],
+    // N5(2026-07-31): 弓術EXPを討伐時ベース(skill-exp.yml の combat.kill-exp)へ統一したため、
+    // per-hit 式専用だった係数は出荷ymlから消えている。効かないキーが再び生えるのを禁止する。
+    "archery_progression.yml": [
+      "legacy", "daily_limit", "is_chunk_nerfed",
+      "bow_exp_base", "crossbow_exp_base", "damage_exp_bonus",
+      "distance_exp_multiplier_base", "distance_exp_multiplier", "distance_limit",
+      "infinity_multiplier", "spawner_spawned_multiplier", "max_health_limitation",
+      "pvp_multiplier", "entity_exp_multipliers"
+    ],
     "heavy_armor_progression.yml": ["legacy", "exp_second_piece", "daily_limit"],
     "light_armor_progression.yml": ["legacy", "exp_second_piece", "daily_limit"],
     "heavy_weapons_progression.yml": ["legacy", "exp_per_damage", "exp_enemies_nerfed"],
@@ -68,8 +76,10 @@ test("敵別討伐EXP倍率はmob-level-table記載51種を漏れなく持つ", 
     const actual = new Set(Object.keys(skillExp[section]["kill-exp"]["entity-type-multipliers"] || {}));
     assert.deepEqual([...actual].sort(), [...expected].sort(), `${section} の敵倍率表が正典と不一致`);
   }
+  // N5(2026-07-31): archery_progression.yml は entity_exp_multipliers ごと削除された
+  // (弓術の敵種倍率は combat.kill-exp.entity-type-multipliers を近接と共有する)。
+  // 独自の敵倍率表を持つのは防具の2ファイルだけ。
   for (const file of [
-    "archery_progression.yml",
     "heavy_armor_progression.yml",
     "light_armor_progression.yml"
   ]) {

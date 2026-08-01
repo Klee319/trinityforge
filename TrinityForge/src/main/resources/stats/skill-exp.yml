@@ -7,7 +7,9 @@
 # dungeon-only-exp: true にすると、下記の戦闘系スキル
 #   重武器(HEAVY)/軽武器(LIGHT)/弓術(ARCHERY)/重装甲/軽装甲/ARS_MAGIC
 # のEXPは「EliteMobsダンジョンのインスタンスワールド内」でのみ加算され、オーバーワールド等では
-# 加算されない(トリガ: 軽・重武器と魔法=討伐、弓術=命中、防具=被弾)。
+# 加算されない(トリガ: 軽・重武器と弓術と魔法=討伐、防具=被弾)。
+# ※N5(2026-07-31): 以前は弓術だけが「命中ごとに与ダメージ比例」だったが、軽・重武器と同じ
+#   討伐時ベースへ統一した(combat.kill-exp.base の ARCHERY 行が基礎値)。
 # ダンジョンワールド判定は fork が生成/破棄時に TF の DungeonWorldRegistry へ登録した world UUID による。
 # false = 従来どおりどこでも加算。※ars-smithing(クラフト)/採取/釣り等の非戦闘EXPはこのゲートの対象外。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/skill-exp.md
@@ -197,6 +199,7 @@ combat:
     base:
       HEAVY_WEAPONS: 30
       LIGHT_WEAPONS: 20
+      ARCHERY: 25
     per-mob-level: 2
     per-max-health: 0.25
     unlisted-entity-multiplier: 0

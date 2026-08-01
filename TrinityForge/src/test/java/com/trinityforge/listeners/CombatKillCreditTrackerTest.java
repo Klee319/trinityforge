@@ -32,6 +32,54 @@ class CombatKillCreditTrackerTest {
         assertTrue(tracker.consume(victim, 100.0).isEmpty(), "a death pays each ledger only once");
     }
 
+    /**
+     * N5(2026-07-31): ARCHERY も台帳経由(討伐時ベース)になったので、弓と近接を混ぜて削った場合の
+     * 按分を固定する。同一攻撃者でもスキルが違えば別エントリになり、share の総和は 1.0 を超えない
+     * (=「キル1回分」を2スキルで分け合う。水増しは起きないが単一武器より伸びが遅い、が仕様)。
+     *
+     * <p>これまで skill 引数に渡していたのは HEAVY/LIGHT だけで、弓を混ぜたときの挙動は未検証だった。
+     */
+    @Test
+    void archeryContributionsShareTheKillWithMeleeWithoutInflatingTheTotal() {
+        CombatKillCreditTracker tracker = new CombatKillCreditTracker();
+        UUID victim = UUID.randomUUID();
+        UUID archer = UUID.randomUUID();
+        UUID mixed = UUID.randomUUID();
+
+        tracker.record(victim, archer, SkillId.ARCHERY, 40.0, 100.0);
+        // 同一プレイヤーが弓で削ってから近接で仕留めた場合、ARCHERY と LIGHT_WEAPONS の2エントリになる。
+        tracker.record(victim, mixed, SkillId.ARCHERY, 30.0, 60.0);
+        tracker.record(victim, mixed, SkillId.LIGHT_WEAPONS, 30.0, 30.0);
+
+        List<CombatKillCreditTracker.Credit> credits = tracker.consume(victim, 100.0);
+
+        assertEquals(3, credits.size());
+        assertCredit(credits, archer, SkillId.ARCHERY, 0.40);
+        assertCredit(credits, mixed, SkillId.ARCHERY, 0.30);
+        assertCredit(credits, mixed, SkillId.LIGHT_WEAPONS, 0.30);
+        assertEquals(1.0, credits.stream().mapToDouble(CombatKillCreditTracker.Credit::share).sum(), 1e-9);
+    }
+
+    /**
+     * マルチショット/貫通で1回の発射が複数命中しても、被弾前HPでクランプされたダメージが足されるだけで
+     * 「命中回数ぶん払う」ことにはならない(per-hit 方式ではここが3回払いだった)。
+     */
+    @Test
+    void multipleArrowHitsOnOneVictimAccumulateInsteadOfPayingPerHit() {
+        CombatKillCreditTracker tracker = new CombatKillCreditTracker();
+        UUID victim = UUID.randomUUID();
+        UUID archer = UUID.randomUUID();
+
+        tracker.record(victim, archer, SkillId.ARCHERY, 10.0, 20.0);
+        tracker.record(victim, archer, SkillId.ARCHERY, 10.0, 10.0);
+        tracker.record(victim, archer, SkillId.ARCHERY, 10.0, 1.0);
+
+        List<CombatKillCreditTracker.Credit> credits = tracker.consume(victim, 20.0);
+        assertEquals(1, credits.size(), "同一(攻撃者,スキル)は1エントリへ集約される");
+        assertEquals(1.0, credits.getFirst().share(), 1e-9,
+                "被弾前HPでクランプされるので、過剰ダメージでも share は 1.0 を超えない");
+    }
+
     @Test
     void overkillOnlyCountsHealthRemainingBeforeTheHit() {
         CombatKillCreditTracker tracker = new CombatKillCreditTracker();

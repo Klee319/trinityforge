@@ -308,19 +308,11 @@ class CombatListenerNoSkillExpMobsTest {
         verify(dispatcher).grant(eq(attacker.getUniqueId()), eq("HEAVY_WEAPONS"), anyDouble());
     }
 
-    @Test
-    void missingProgressionCatalogFailsSafeWithoutLegacyPerHitExp(@TempDir File dir) throws Exception {
-        CombatListener listener = listener(dir, false);
-        Player attacker = server.addPlayer();
-        Chicken victim = world.spawn(world.getSpawnLocation(), Chicken.class);
-        var method = CombatListener.class.getDeclaredMethod(
-                "archeryExpAmount", ItemStack.class, double.class, Player.class, LivingEntity.class);
-        method.setAccessible(true);
-
-        double amount = (double) method.invoke(
-                listener, new ItemStack(Material.BOW), 100.0, attacker, victim);
-
-        assertEquals(0.0, amount,
-                "catalog未配線時に削除済みのper-hit EXPへフォールバックしてはならない");
-    }
+    // N5(2026-07-31): missingProgressionCatalogFailsSafeWithoutLegacyPerHitExp を削除した。
+    // 弓術EXPを討伐時ベースへ統一した際に per-hit 計算 archeryExpAmount(このテストが reflection で
+    // 直叩きしていた対象)ごと削除したため、テスト自体が成立しない。同じ性質
+    // 「命中経路でスキルEXPを付与する経路が存在しない」は
+    //   - LegacySkillExpApiRemovalTest#combatListenerGrantsSkillExpOnlyFromTheDeathHandler(構造)
+    //   - CombatListenerProjectileIntegrationTest#arrowHitsGrantNoExpAndTheKillPaysArcheryOnce(実挙動)
+    // が引き継いでいる。
 }

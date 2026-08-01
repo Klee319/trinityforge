@@ -7,6 +7,8 @@ import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.dungeon.DungeonWorldRegistry;
 import com.trinityforge.listeners.CombatListener;
+import com.trinityforge.progression.LocationExpDiminishing;
+import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
@@ -20,6 +22,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -30,14 +33,24 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
+import org.mockito.ArgumentCaptor;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -58,6 +71,7 @@ class CombatListenerProjectileIntegrationTest {
     private ServerMock server;
     private WorldMock world;
     private CombatListener listener;
+    private NativeExperienceDispatcher dispatcher;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -70,6 +84,13 @@ class CombatListenerProjectileIntegrationTest {
         // These tests only assert impact damage, not EXP gating, so an empty (non-dungeon) registry is fine.
         TrinityForge tf = mock(TrinityForge.class);
         when(tf.dungeonWorldRegistry()).thenReturn(new DungeonWorldRegistry());
+        // N5(2026-07-31): 弓術EXPの討伐時ベース化を実際に通すため、EXP付与のシンク側も配線する。
+        // これが無いと onCombatKill が locationExpDiminishing()/experienceDispatcher() で NPE になる。
+        LocationExpDiminishing diminishing = mock(LocationExpDiminishing.class);
+        when(diminishing.multiplierForKillSpot(any(), any(), any(), anyBoolean())).thenReturn(1.0);
+        when(tf.locationExpDiminishing()).thenReturn(diminishing);
+        dispatcher = mock(NativeExperienceDispatcher.class);
+        when(tf.experienceDispatcher()).thenReturn(dispatcher);
         TrinityForgeSingletonTestSupport.set(tf);
     }
 
@@ -238,5 +259,126 @@ class CombatListenerProjectileIntegrationTest {
         assertEquals(0.0, damage, 1e-6,
                 "force=0 must scale the bow's attack-power contribution down to 0 (no perk/addon "
                         + "attack-power configured in this fixture)");
+    }
+
+    // ------------------------------------------------------------------
+    // N5 (2026-07-31): 弓術EXPは討伐時ベース
+    //   ユーザー報告「弓術のスキルだけ経験値が討伐時ベースではなくダメージベースになっている」。
+    //   このクラスは唯一の飛び道具E2Eだが、これまで弓術EXPの付与を一度も通していなかった
+    //   (BOW行に use-skill が無く、かつ per-hit 式が progressionCatalog=null で常に0を返していた)。
+    // ------------------------------------------------------------------
+
+    /** BOW に {@code use-skill: ARCHERY} を明記した fixture(弓術EXPが実際に流れる形)。 */
+    private CombatListener archeryExpListener(File dir) throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  BOW:
+                    fixed: { attack-power: %s }
+                    use-skill: ARCHERY
+                    use-level-requirement: 0
+                """.formatted(BOW_ATTACK_POWER));
+
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        Plugin plugin = MockBukkit.createMockPlugin();
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(
+                cm.itemStats(), cm.combatDamage(), perks, new RoleBuffResolver(cm.roleBuffs()));
+        PlayerDefenseResolver defense = new PlayerDefenseResolver(
+                cm.combatDamage().defenseStatKeys(), aggregator);
+        SymmetricCombatService svc = new SymmetricCombatService(
+                cm.combatDamage(), cm.combatLevel(), cm.mobTypes(), SkillLevelSource.EMPTY, defense);
+        BleedService bleed = new BleedService(plugin, svc, cm.combatDamage());
+        return new CombatListener(plugin, svc, cm.itemStats(),
+                cm.combatDamage(), SkillLevelSource.EMPTY, bleed, perks, aggregator,
+                cm.useRequirements(), cm.skillExp(), cm.craftingFeatures(),
+                new RoleBuffResolver(cm.roleBuffs()));
+    }
+
+    /** 1本撃って当てる(発射時に弓を retain させるので、着弾時に ARCHERY が解決される)。 */
+    private void shootAndHit(Player shooter, Zombie victim) {
+        ItemStack bow = new ItemStack(Material.BOW);
+        Arrow arrow = world.spawn(world.getSpawnLocation(), Arrow.class);
+        listener.onEntityShootBow(new EntityShootBowEvent(shooter, bow, arrow, 1.0f));
+        impactDamage(shooter, arrow, victim);
+    }
+
+    /** 矢による致死(致死ダメージの起因者=射手)。 */
+    private void arrowKill(Player shooter, Zombie victim) {
+        Arrow finisher = world.spawn(world.getSpawnLocation(), Arrow.class);
+        finisher.setShooter(shooter);
+        DamageSource source = DamageSource.builder(DamageType.ARROW)
+                .withDirectEntity(finisher).withCausingEntity(shooter).build();
+        listener.onCombatKill(new EntityDeathEvent(victim, source, new ArrayList<>()));
+    }
+
+    /**
+     * 本タスクの本体E2E: 矢を当てただけではEXPは1点も入らず、討伐が確定した時に1回だけ入る。
+     * 旧実装は命中のたびに与ダメージ比例で即時付与しており(CT・重複排除なし)、倒さずに撃ち続ける
+     * だけで無制限に稼げた。
+     */
+    @Test
+    void arrowHitsGrantNoExpAndTheKillPaysArcheryOnce(@TempDir File dir) throws IOException {
+        listener = archeryExpListener(dir);
+        Player shooter = server.addPlayer();
+        Zombie victim = world.spawn(world.getSpawnLocation(), Zombie.class);
+
+        shootAndHit(shooter, victim);
+        shootAndHit(shooter, victim);
+        shootAndHit(shooter, victim);
+        verify(dispatcher, never()).grant(any(), anyString(), anyDouble());
+
+        arrowKill(shooter, victim);
+
+        ArgumentCaptor<Double> amount = ArgumentCaptor.forClass(Double.class);
+        verify(dispatcher, times(1))
+                .grant(eq(shooter.getUniqueId()), eq("ARCHERY"), amount.capture());
+        assertTrue(amount.getValue() > 0.0,
+                "討伐時に弓術EXPが入っていない(combat.kill-exp.base.ARCHERY の行が無い可能性): "
+                        + amount.getValue());
+    }
+
+    /**
+     * 討伐時ベースであることの直接証拠: 同じ敵を1本で倒しても4本で倒しても弓術EXPは同額。
+     * per-hit 方式なら命中本数に比例して増える。
+     */
+    @Test
+    void archeryKillExpDoesNotScaleWithArrowCount(@TempDir File dir) throws IOException {
+        listener = archeryExpListener(dir);
+        Player shooter = server.addPlayer();
+
+        Zombie oneShot = world.spawn(world.getSpawnLocation(), Zombie.class);
+        shootAndHit(shooter, oneShot);
+        arrowKill(shooter, oneShot);
+
+        Zombie manyShots = world.spawn(world.getSpawnLocation(), Zombie.class);
+        for (int i = 0; i < 4; i++) {
+            shootAndHit(shooter, manyShots);
+        }
+        arrowKill(shooter, manyShots);
+
+        ArgumentCaptor<Double> amounts = ArgumentCaptor.forClass(Double.class);
+        verify(dispatcher, times(2))
+                .grant(eq(shooter.getUniqueId()), eq("ARCHERY"), amounts.capture());
+        assertEquals(amounts.getAllValues().get(0), amounts.getAllValues().get(1), 1e-9,
+                "命中本数でEXPが変わる = ダメージベースへ戻っている");
+    }
+
+    /**
+     * 確定仕様(N5-D): 矢で削っても致死ダメージの起因者がプレイヤーでなければ誰にも払わない
+     * (近接と同じ扱い)。弓だけ致死ゲートを緩めると溶岩トラップEXPファームの穴になる。
+     */
+    @Test
+    void arrowDamagedButEnvironmentallyKilledMobPaysNoArcheryExp(@TempDir File dir) throws IOException {
+        listener = archeryExpListener(dir);
+        Player shooter = server.addPlayer();
+        Zombie victim = world.spawn(world.getSpawnLocation(), Zombie.class);
+        shootAndHit(shooter, victim);
+
+        DamageSource lava = DamageSource.builder(DamageType.LAVA).build();
+        listener.onCombatKill(new EntityDeathEvent(victim, lava, new ArrayList<>()));
+
+        verify(dispatcher, never()).grant(any(), anyString(), anyDouble());
     }
 }
