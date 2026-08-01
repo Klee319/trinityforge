@@ -70,6 +70,17 @@ public final class DungeonGateConfig implements LoadableConfig {
         return !regionGatesByWorld.isEmpty();
     }
 
+    /**
+     * ゲートが1本でも定義されているか。
+     *
+     * <p>{@code DungeonGateService#checkRequiredEntry} の「機能ごと無効」判定に使う。
+     * 1本も無い状態と「このダンジョンだけ書き忘れた」状態は区別しなければならない
+     * (前者で拒否すると、鍵ゲートを一度も設定していないサーバーで全ダンジョンが封鎖される)。</p>
+     */
+    public boolean hasAnyGate() {
+        return !gatesByWorld.isEmpty() || !gatesByAlias.isEmpty() || !regionGatesByWorld.isEmpty();
+    }
+
     /** 鍵アイテム付きゲートが1つでも設定されているか({@code DungeonKeyItemListener}の早期リターン用)。 */
     public boolean hasKeyGates() {
         return keyGatesPresent;

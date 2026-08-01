@@ -107,6 +107,11 @@ public final class DungeonGateService {
                 || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION)) {
             return true;
         }
+        // checkRequiredEntry と同じ理由でゲート0本なら素通し。ここだけ拒否すると
+        // 「一覧では入れないのに参加はできる」という食い違いが出る。
+        if (!gateConfig.hasAnyGate()) {
+            return true;
+        }
         if (lookupKey == null || lookupKey.isBlank()) {
             player.sendMessage(UNCONFIGURED_GATE);
             return false;
@@ -133,6 +138,13 @@ public final class DungeonGateService {
         }
         if (player.hasPermission(ADMIN_PERMISSION)
                 || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION)) {
+            return true;
+        }
+        // ゲートを1本も定義していないサーバーでは、この入口ごと無効にする。
+        // 「1本も無い」と「このダンジョンだけ書き忘れた」は別物で、前者で拒否すると
+        // 出荷時の gates.yml(エントリ0本)のまま一般プレイヤーが全ダンジョンに入れなくなる。
+        // 1本でも定義した時点で下の fail-close が復活し、設定漏れは従来どおり拒否される。
+        if (!gateConfig.hasAnyGate()) {
             return true;
         }
         if (lookupKey == null || lookupKey.isBlank()) {

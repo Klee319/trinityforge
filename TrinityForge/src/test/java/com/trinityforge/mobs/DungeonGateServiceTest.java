@@ -143,8 +143,13 @@ class DungeonGateServiceTest {
         assertFalse(service.checkEntry(player, "dungeon_sanctum"));
     }
 
+    /**
+     * ゲートを1本も定義していないサーバーでは、この入口ごと無効になる。
+     * ここを fail-close にすると、出荷時の gates.yml(エントリ0本)のまま
+     * 一般プレイヤーが EliteMobs ダンジョンに一切入れなくなる。
+     */
     @Test
-    void requiredEliteMobsEntryFailsClosedWhenNoGateIsConfigured() throws Exception {
+    void requiredEliteMobsEntryIsDisabledEntirelyWhenNoGateExistsAtAll() throws Exception {
         DungeonGateConfig gateConfig = loadViaFakePlugin("gates: {}\n");
         SymmetricCombatService combat = mock(SymmetricCombatService.class);
         when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(50);
@@ -152,7 +157,32 @@ class DungeonGateServiceTest {
 
         PlayerMock player = server.addPlayer();
 
+        assertTrue(service.checkRequiredEntry(player, "unconfigured_content_package"));
+        assertTrue(service.previewRequiredEntry(player, "unconfigured_content_package"));
+    }
+
+    /**
+     * ゲートを1本でも定義した時点で fail-close が復活する。
+     * 「運用を始めたのに1件書き忘れた」は従来どおり拒否しないと、
+     * {@code /em dungeontp} から無制限に入場できてしまう。
+     */
+    @Test
+    void requiredEliteMobsEntryFailsClosedOnceAnyGateIsConfigured() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("""
+                gates:
+                  dungeon_sanctum:
+                    content-package: sanctum_package.yml
+                    required-combat-level: 0
+                """);
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(50);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock player = server.addPlayer();
+
         assertFalse(service.checkRequiredEntry(player, "unconfigured_content_package"));
+        assertFalse(service.previewRequiredEntry(player, "unconfigured_content_package"));
+        assertTrue(service.checkRequiredEntry(player, "sanctum_package.yml"));
     }
 
     @Test
