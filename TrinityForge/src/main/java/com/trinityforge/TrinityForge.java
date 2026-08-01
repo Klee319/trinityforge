@@ -638,7 +638,7 @@ public final class TrinityForge extends JavaPlugin {
                 crossPluginItemResolver, experienceDispatcher, perkAttributeApplier);
         getServer().getPluginManager().registerEvents(
                 new CollectionListener(configManager.collection(), collectionService,
-                        configManager.itemCatalog(), configManager.achievements()), this);
+                        configManager.itemCatalog(), configManager.achievements(), this), this);
         // itemCatalog は「種別順(use-skill)/使用可能レベル順」の並べ替えキーを引くために渡す
         // (2026-07-27。未指定でも名前順・絞り込み・検索は動く)。
         this.collectionGui = new com.trinityforge.progression.CollectionGui(this, configManager.collection(),
@@ -847,6 +847,9 @@ public final class TrinityForge extends JavaPlugin {
                 new TreeFellingListener(configManager.dedicatedEffects(), configManager.woodcuttingGimmick(),
                         crossPluginItemResolver, placedBlockTracker, activeFeedbackLayer,
                         activeCooldownManager, aggregator, chainBreakExpGrant);
+        // 段階破壊のスケジューリングに使う Plugin を明示注入する。未注入だと getProvidingPlugin
+        // 一本足になり、失敗時は WARNING を出して同tick破壊へ縮退する(N1/N2 の配線)。
+        treeFellingListener.setPlugin(this);
         getServer().getPluginManager().registerEvents(treeFellingListener, this);
         // 通常アクティブと半アクティブを同じ0.5秒タスクで表示し、同tickでの二重上書きを避ける。
         // 一括伐採の適格条件/CT計算は発動リスナー自身へ委譲し、表示との仕様ずれを防ぐ。
@@ -940,7 +943,7 @@ public final class TrinityForge extends JavaPlugin {
         MobTypeDropListener mobTypeDropListener =
                 new MobTypeDropListener(configManager.mobTypes(), configManager.craftQuality(),
                         configManager.quality(), itemFactory, mobDropBonusSource,
-                        configManager.itemStats());
+                        configManager.itemStats(), crossPluginItemResolver);
         getServer().getPluginManager().registerEvents(mobTypeDropListener, this);
 
         // レベル帯テーブル(combat/mob-level-table.yml): ドロップ削除/追加/バニラEXP上書き、
