@@ -1,10 +1,14 @@
 package com.trinityforge.stats;
 
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -12,23 +16,31 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 出荷 {@code progression/crafting-features.yml} の {@code brew-unlocks} に
- * <b>同じ {@code (base, ingredient)} の組が2つ以上無い</b>ことを固定する drift ガード
- * (2026-07-31 D10 レビュー指摘#2)。
+ * 出荷 {@code progression/crafting-features.yml} の {@code brew-unlocks} が
+ * <b>実際に登録され、かつ素材IDが実行時に一致しうる</b>ことを固定する drift ガード
+ * (2026-07-31 D10 レビュー指摘#2 / 指摘#7)。
  *
  * <h2>なぜテストで縛るのか</h2>
- * 重複した組は「壊れて見えない」形で効かなくなる: Paper の customMixes も
- * {@code BrewUnlockListener} も<b>先に一致した1件</b>で確定するので、yml で後ろに書いた側
- * (実際に起きたのは Lv80 の上位段 amplifier 1)が<b>絶対に出ない</b>。ランタイムは
- * {@code BrewPotionMixRegistrar} が要求レベルの高い側を残して WARNING を出すが、
- * 起動ログを誰も見ないと「片方のノードのポーションが永久に作れない」まま運用される。
- * 出荷 config の側で重複ゼロを保証しておけば、editor でうっかり増やした瞬間にビルドで落ちる。
+ * <ul>
+ *   <li><b>重複した組</b>は「壊れて見えない」形で効かなくなる: Paper の customMixes も
+ *       {@code BrewUnlockListener} も<b>先に一致した1件</b>で確定するので、yml で後ろに書いた側
+ *       (実際に起きたのは Lv80 の上位段 amplifier 1)が<b>絶対に出ない</b>。</li>
+ *   <li><b>バニラ衝突する組</b>は起動時に登録がスキップされる(登録するとそのバニラレシピが
+ *       サーバ全体で作れなくなるため)。スキップされた組は醸造が始まらない。</li>
+ *   <li><b>解決できない素材ID</b>は最悪の形で死ぬ: mix は登録されるので
+ *       「素材スロットに入るのに永久に一致しない」「レシピ帳には出るのに永久に作れない」になり、
+ *       ログにも出ない(このリポジトリの既知の無言死クラス)。指摘#7 の指摘どおり、
+ *       {@code vanillaCollision} だけを見るテストはこの状態を「登録可能」と表明してしまう。</li>
+ * </ul>
+ * どれも起動ログを誰も見ないと運用され続けるので、出荷 config の側でビルド時に落とす。
  *
  * <p>ベースは {@code THICK} / {@code MUNDANE} のような「バニラが出発点にしないベース」で
  * 段を分けるのが正しい形 — 素材が同じでもベースが違えば別の組になる。
@@ -39,6 +51,24 @@ class ShippedBrewUnlocksPairDriftTest {
     private static final Map<String, String> EXPECTED_TIER_BASES = Map.of(
             "healthboost-haste", "THICK",
             "healthboost-haste-2", "MUNDANE");
+
+    /** TF カタログ(出荷 yml)。ここに書かれた id は {@code trinityforge:catalog_id} で一致する。 */
+    private static final File CATALOG = new File("src/main/resources/items/catalog.yml");
+
+    /**
+     * CMD 割り当て台帳。{@code source} が {@code catalog} / {@code materials} のどちらの
+     * レジストリに属する id かまで記録している<b>唯一の tracked な一覧</b>。
+     *
+     * <p>ArsPaper の {@code materials.yml}(= {@code arspaper:custom_item_id} の定義元)は
+     * {@code .gitignore} 除外でクローンにも worktree にも存在しないため、そこにしか無い id を
+     * 直接は検証できない。台帳は「その id が materials/catalog のどちらかに実在した時点で
+     * CMD を確保した」ことの記録なので、少なくとも<b>綴り間違い・定義忘れ</b>は捕まる。
+     */
+    private static final File CMD_REGISTRY = new File("../resourcepack/cmd-registry.json");
+
+    /** あれば使う(通常のクローン/worktree には無い)。あるときは最も強い証拠になる。 */
+    private static final File ARS_MATERIALS =
+            new File("../fork-handoff/arspaper/fork/src/main/resources/materials.yml");
 
     @Test
     void noTwoGroupsDeclareTheSameBaseIngredientPair() {
@@ -74,6 +104,44 @@ class ShippedBrewUnlocksPairDriftTest {
                 "出荷 config にバニラ衝突する組が残っている(起動時に登録がスキップされる)");
     }
 
+    /**
+     * 指摘#7: 登録できることだけでなく<b>素材IDが実行時に一致しうる</b>ことまで見る。
+     * ここを見ないと「mix は登録されるのに素材が上段に入らない」= 無言死を通してしまう。
+     */
+    @Test
+    void everyShippedIngredientIdCanActuallyResolveAtRuntime() {
+        Set<String> knownCustomIds = knownCustomItemIds();
+        assertTrue(knownCustomIds.size() >= 100,
+                "custom アイテムIDの一覧を読めていない(パスが壊れている?): " + knownCustomIds.size()
+                        + " 件 / catalog=" + CATALOG.getAbsolutePath()
+                        + " / ledger=" + CMD_REGISTRY.getAbsolutePath());
+
+        List<String> unresolvable = new ArrayList<>();
+        forEachPotion((groupId, base, ingredient) -> {
+            String where = groupId + ": " + base + " + " + ingredient;
+            if (BrewRecipeSupport.isCustomKey(ingredient)) {
+                String id = BrewRecipeSupport.customId(ingredient);
+                if (id == null) {
+                    unresolvable.add(where + " — custom: の後ろが空");
+                } else if (!knownCustomIds.contains(id)) {
+                    // 大小違いは実行時に別物(BrewRecipeSupport#matchesIngredient は equals 比較)。
+                    String hint = knownCustomIds.stream()
+                            .filter(known -> known.equalsIgnoreCase(id))
+                            .findFirst()
+                            .map(known -> " — 大小違いの候補あり: '" + known + "'")
+                            .orElse(" — どのレジストリにも存在しない");
+                    unresolvable.add(where + hint);
+                }
+            } else if (Material.matchMaterial(ingredient.trim()) == null) {
+                unresolvable.add(where + " — 不明なバニラ材質");
+            }
+        });
+
+        assertEquals(List.of(), unresolvable,
+                "醸造素材のIDが解決できない。mix は登録されるので症状は「素材スロットに入るのに"
+                        + "永久に一致しない/レシピ帳に出るのに作れない」= 無言死になる");
+    }
+
     @Test
     void healthBoostTiersAreSeparatedByBaseNotByDuplicatingThePair() {
         Map<String, Set<String>> basesByGroup = new LinkedHashMap<>();
@@ -84,6 +152,42 @@ class ShippedBrewUnlocksPairDriftTest {
         EXPECTED_TIER_BASES.forEach((groupId, expectedBase) -> assertEquals(Set.of(expectedBase),
                 basesByGroup.get(groupId),
                 groupId + " は " + expectedBase + " ベースで段を表す (両段が同じベースだと組が重複する)"));
+    }
+
+    /**
+     * {@code custom:<id>} として解決しうる id の集合。
+     * TF カタログ(出荷 yml)＋ CMD 割り当て台帳 ＋(あれば)ArsPaper の materials.yml。
+     */
+    private static Set<String> knownCustomItemIds() {
+        Set<String> ids = new LinkedHashSet<>();
+        assertTrue(CATALOG.isFile(), "出荷 catalog.yml が見つからない: " + CATALOG.getAbsolutePath());
+        ConfigurationSection items = YamlConfiguration.loadConfiguration(CATALOG)
+                .getConfigurationSection("items");
+        assertNotNull(items, "catalog.yml に items セクションが無い");
+        ids.addAll(items.getKeys(false));
+
+        assertTrue(CMD_REGISTRY.isFile(), "CMD 台帳が見つからない: " + CMD_REGISTRY.getAbsolutePath());
+        // JSON パーサを持ち込まずに "id": "<value>" だけを拾う(台帳は生成物なので形が安定している)。
+        Matcher matcher = Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"").matcher(read(CMD_REGISTRY));
+        while (matcher.find()) {
+            ids.add(matcher.group(1));
+        }
+
+        if (ARS_MATERIALS.isFile()) {
+            Matcher materials = Pattern.compile("(?m)^  ([A-Za-z0-9_]+):\\s*$").matcher(read(ARS_MATERIALS));
+            while (materials.find()) {
+                ids.add(materials.group(1));
+            }
+        }
+        return ids;
+    }
+
+    private static String read(File file) {
+        try {
+            return Files.readString(file.toPath(), StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new AssertionError("読めない: " + file.getAbsolutePath(), ex);
+        }
     }
 
     private interface PotionVisitor {

@@ -74,8 +74,19 @@ public final class BrewRecipeSupport {
      * {@code (base, ingredient)} の正規化キー。<b>重複検出と dedup の唯一の基準</b>
      * (2026-07-31 D10 レビュー指摘#2: 同じ組を2グループが宣言すると先勝ちで上位版が到達不能になる)。
      *
-     * <p>base 空欄は「任意のビン」なので {@code *} へ倒す。素材は {@code custom:<id>} を小文字化、
-     * バニラ材質は {@link Material#name()} へ正規化する({@code sugar} と {@code SUGAR} を別物にしない)。
+     * <p><b>正規化は {@link #matchesIngredient} / {@link #matchesBase} の照合規則と一致させる</b>
+     * (2026-07-31 レビュー指摘#8)。ここだけ緩いと「重複として片方を黙って落としたのに、
+     * 実行時には別アイテムとして扱う」という取り違えが起きる:
+     * <ul>
+     *   <li>base: {@link #matchesBase} が {@code PotionType.valueOf(大文字化)} で解決するので大文字化。
+     *       空欄は「任意のビン」なので {@code *} へ倒す。</li>
+     *   <li>バニラ材質: {@link #matchesIngredient} が {@link Material#matchMaterial} で解決するので
+     *       {@link Material#name()} へ正規化する({@code sugar} と {@code SUGAR} を別物にしない)。</li>
+     *   <li>{@code custom:<id>}: {@link #matchesIngredient} が {@code customId::equals} で
+     *       <b>大小を区別して</b>比較するので、ここでも小文字化しない
+     *       ({@code custom:Hoglin_Tusk} と {@code custom:hoglin_tusk} は実行時に別物なので
+     *       重複にしてはいけない)。</li>
+     * </ul>
      */
     public static String pairKey(String base, String ingredient) {
         String normalizedBase = base == null || base.isBlank()
@@ -83,7 +94,7 @@ public final class BrewRecipeSupport {
         String normalizedIngredient;
         if (isCustomKey(ingredient)) {
             String id = customId(ingredient);
-            normalizedIngredient = "custom:" + (id == null ? "" : id.toLowerCase(Locale.ROOT));
+            normalizedIngredient = "custom:" + (id == null ? "" : id);
         } else {
             Material mat = ingredient == null ? null : Material.matchMaterial(ingredient.trim());
             normalizedIngredient = mat != null ? mat.name()

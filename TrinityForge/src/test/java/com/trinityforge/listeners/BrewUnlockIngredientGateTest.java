@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -52,12 +53,18 @@ import static org.mockito.Mockito.when;
  * {@code Cancellable} ではない)。対策は3段:
  * (1) 組み合わせが成立する投入を素材側・ビン側の両方で弾く、
  * (2) 未解放の組み合わせが載っているスタンドは燃料を受け付けない、
- * (3) 走り出してしまったら燃料を 0 にして周回を止める。
+ * (3) 走り出してしまった周回は診断ログだけを出し、<b>残りの燃料チャージには触らない</b>
+ *     (レビュー指摘#6: 0 にすると正当な所有者のログアウトで最大19醸造分が無言で消えていた。
+ *      (2) が補給を拒否するので必ず止まる)。
+ *
+ * <p>所有権の移り方(レビュー指摘#5 / #9)もここで固定する: 判定するのは<b>操作者</b>で、
+ * 記録済み所有者がオンラインかつ解放している間は所有権が移らない。
  */
 class BrewUnlockIngredientGateTest {
 
     private static final NamespacedKey ARS_ID = new NamespacedKey("arspaper", "custom_item_id");
     private static final UUID OWNER = UUID.fromString("00000000-0000-0000-0000-0000000000aa");
+    private static final UUID OTHER = UUID.fromString("00000000-0000-0000-0000-0000000000bb");
 
     // ---- 優先度の不変条件 ----
 
@@ -234,6 +241,100 @@ class BrewUnlockIngredientGateTest {
 
         verify(event).setCancelled(true);
         assertNull(owners.remembered, "弾いた投入で所有権を奪えてはいけない");
+        assertNull(owners.replaced);
+    }
+
+    // ---- レビュー指摘#9: 判定するのは「操作者」で「記録済み所有者」ではない ----
+
+    @Test
+    void aLockedActorCannotInsertIntoAStandOwnedByAnUnlockedPlayer() {
+        // judged = actor を judged = resolveOwner(brew) に書き換えたらここが落ちる。
+        // その改変は「未解放プレイヤーが解放済み所有者の台へ手で対象素材を入れられる」
+        // = ゲートが実質無効になる穴を開ける。
+        Player owner = player(OWNER);
+        Player intruder = player(OTHER);
+        BrewerInventory inv = standWith(PotionType.THICK);
+        RecordingOwners owners = new RecordingOwners(OWNER, owner);
+        InventoryClickEvent event = placeEvent(intruder, inv, tusk());
+
+        listener(p -> p == owner, owners).onBrewerClick(event);
+
+        verify(event).setCancelled(true);
+        assertNull(owners.replaced, "弾いた投入で所有権を奪えてはいけない");
+    }
+
+    @Test
+    void anUnlockedActorMayInsertEvenWhenTheRecordedOwnerIsLocked() {
+        // 逆向き: 操作者で判定するので、記録済み所有者が未解放でも解放済みの操作者は投入できる。
+        Player lockedOwner = player(OWNER);
+        Player actor = player(OTHER);
+        BrewerInventory inv = standWith(PotionType.THICK);
+        RecordingOwners owners = new RecordingOwners(OWNER, lockedOwner);
+        InventoryClickEvent event = placeEvent(actor, inv, tusk());
+
+        listener(p -> p == actor, owners).onBrewerClick(event);
+
+        verify(event, never()).setCancelled(true);
+        assertSame(actor, owners.replaced,
+                "記録済み所有者がその組を解放していないなら、解放している操作者へ所有権を移す"
+                        + "(移さないと未解放プレイヤーが先に1回投入するだけで他人の台を永久に止められる)");
+    }
+
+    // ---- レビュー指摘#5: 所有権は先着優先(正当な所有者からは奪えない) ----
+
+    @Test
+    void anotherUnlockedPlayerCannotTakeOverAStandWhoseOwnerCanStillBrewIt() {
+        // 旧実装は解放済みなら無条件に remember していたため、Alice の台に Bob が1回投入して
+        // 所有者を奪い、ログアウトするだけで Alice の醸造を止められた。
+        Player owner = player(OWNER);
+        Player other = player(OTHER);
+        BrewerInventory inv = standWith(PotionType.THICK);
+        RecordingOwners owners = new RecordingOwners(OWNER, owner);
+        InventoryClickEvent event = placeEvent(other, inv, tusk());
+
+        listener(p -> true, owners).onBrewerClick(event);
+
+        verify(event, never()).setCancelled(true);
+        assertNull(owners.replaced, "オンラインかつ解放済みの所有者からは奪えない");
+        assertNull(owners.remembered);
+    }
+
+    @Test
+    void theOwnerRecordIsNotRewrittenWhenTheActorIsAlreadyTheOwner() {
+        // 毎クリックで PDC を書き直す(= stand.update() する)必要は無い。
+        Player owner = player(OWNER);
+        BrewerInventory inv = standWith(PotionType.THICK);
+        RecordingOwners owners = new RecordingOwners(OWNER, owner);
+
+        listener(p -> true, owners).onBrewerClick(placeEvent(owner, inv, tusk()));
+
+        assertNull(owners.remembered);
+        assertNull(owners.replaced);
+    }
+
+    @Test
+    void anUnlockedPlayerTakesOverAStandWhoseRecordedOwnerIsOffline() {
+        Player actor = player(OTHER);
+        BrewerInventory inv = standWith(PotionType.THICK);
+        RecordingOwners owners = new RecordingOwners(OWNER, null); // 記録はあるがオフライン
+
+        listener(p -> true, owners).onBrewerClick(placeEvent(actor, inv, tusk()));
+
+        assertSame(actor, owners.replaced,
+                "オフラインの記録を残したままだと、その台のゲート付き醸造が誰にもできない");
+    }
+
+    @Test
+    void hopperInsertionIsBlockedWhenTheRecordedOwnerIsOnlineButLocked() {
+        // ホッパー経路には操作者がいないので、記録済み所有者が解放していない限り通さない
+        // (= 未解放プレイヤーがホッパーでゲート付きポーションを量産できない)。
+        Player lockedOwner = player(OWNER);
+        BrewerInventory inv = standWith(PotionType.THICK);
+        InventoryMoveItemEvent event = hopperEvent(inv, tusk());
+
+        listener(p -> false, new RecordingOwners(OWNER, lockedOwner)).onHopperMove(event);
+
+        verify(event).setCancelled(true);
     }
 
     // ---- ホッパー経由: 所有者で判定する ----
@@ -345,8 +446,11 @@ class BrewUnlockIngredientGateTest {
     }
 
     @Test
-    void aLockedBrewThatManagedToStartHasItsFuelDrainedSoItCannotLoop() {
-        // BrewingStartEvent は Cancellable ではないので、周回を止める手段は「燃料を 0 にする」だけ。
+    void aLockedBrewThatManagedToStartKeepsTheRestOfItsFuelCharges() {
+        // レビュー指摘#6: 以前は setFuelLevel(0) していた。バニラはブレイズパウダー1個を
+        // 20チャージにまとめて充填するので、正当な所有者がログアウトを挟むだけで
+        // 最大19醸造分が無言で消えていた(javadoc は「1周分だけ失われる」と書いていた)。
+        // 周回が止まることは onBrewingStandFuel(補給拒否)が保証する。
         org.bukkit.block.BrewingStand stand = standLoaded(PotionType.THICK, tusk());
         BrewingStartEvent event = mock(BrewingStartEvent.class);
         Block block = blockOf(stand);
@@ -354,8 +458,8 @@ class BrewUnlockIngredientGateTest {
 
         listener(false, new RecordingOwners(null, null)).onBrewingStart(event);
 
-        verify(stand).setFuelLevel(0);
-        verify(stand).update();
+        verify(stand, never()).setFuelLevel(org.mockito.ArgumentMatchers.anyInt());
+        verify(stand, never()).update();
     }
 
     @Test
@@ -368,7 +472,21 @@ class BrewUnlockIngredientGateTest {
 
         listener(true, new RecordingOwners(OWNER, owner)).onBrewingStart(event);
 
-        verify(stand, never()).setFuelLevel(0);
+        verify(stand, never()).setFuelLevel(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void theOnlyThingThatEndsTheLoopIsRefusingToRefuel() {
+        // 「残りチャージを消さない」の代わりに終端を保証しているのが燃料ゲート。
+        // これが外れると未解放の組み合わせで永久に空回りできてしまうので、対で固定する。
+        org.bukkit.block.BrewingStand stand = standLoaded(PotionType.THICK, tusk());
+        Block block = blockOf(stand); // 先に組む(when の引数の中で stub すると Mockito が壊れる)
+        BrewingStandFuelEvent fuel = mock(BrewingStandFuelEvent.class);
+        when(fuel.getBlock()).thenReturn(block);
+
+        listener(false, new RecordingOwners(null, null)).onBrewingStandFuel(fuel);
+
+        verify(fuel).setCancelled(true);
     }
 
     // ---- ヘルパー ----
@@ -384,6 +502,19 @@ class BrewUnlockIngredientGateTest {
 
     private static BrewUnlockListener listener(boolean unlocked, BrewStandOwners owners,
                                               BrewPotionSpec... extraSpecs) {
+        return listener(player -> unlocked, owners, extraSpecs);
+    }
+
+    /**
+     * 解放状態を<b>プレイヤーごとに</b>決められる listener (レビュー指摘#9)。
+     *
+     * <p>{@code any(Player.class)} で一律スタブしていた旧ヘルパーでは、actor と記録済み所有者の
+     * 解放状態を区別するテストが1本も書けず、{@code judged = actor} を
+     * {@code judged = resolveOwner(brew)} に書き換えても全件緑になっていた
+     * (その改変は「未解放プレイヤーが解放済み所有者の台へ手で対象素材を入れられる」穴を開ける)。
+     */
+    private static BrewUnlockListener listener(Predicate<Player> unlocked, BrewStandOwners owners,
+                                              BrewPotionSpec... extraSpecs) {
         List<MixPlan> plans = new ArrayList<>();
         plans.add(new MixPlan(new NamespacedKey("trinityforge", "brew_apex_brew_1"), "apex-brew",
                 new BrewPotionSpec("THICK", "custom:hoglin_tusk", mock(PotionEffectType.class), 3600, 2), 90));
@@ -395,10 +526,16 @@ class BrewUnlockIngredientGateTest {
 
         DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
         when(dedicatedEffects.isActive(org.mockito.ArgumentMatchers.any(Player.class),
-                eq("brew:apex-brew"))).thenReturn(unlocked);
+                eq("brew:apex-brew"))).thenAnswer(call -> unlocked.test(call.getArgument(0)));
         Plugin plugin = mock(Plugin.class);
         when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("BrewUnlockIngredientGateTest"));
         return new BrewUnlockListener(dedicatedEffects, () -> List.copyOf(plans), owners, plugin);
+    }
+
+    private static Player player(UUID id) {
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(id);
+        return player;
     }
 
     private static InventoryClickEvent placeEvent(Player player, BrewerInventory inv, ItemStack moving) {
@@ -509,6 +646,7 @@ class BrewUnlockIngredientGateTest {
         private final UUID recorded;
         private final Player online;
         private Player remembered;
+        private Player replaced;
 
         RecordingOwners(UUID recorded, Player online) {
             this.recorded = recorded;
@@ -523,6 +661,11 @@ class BrewUnlockIngredientGateTest {
         @Override
         public void remember(BrewerInventory brew, Player player) {
             this.remembered = player;
+        }
+
+        @Override
+        public void replace(BrewerInventory brew, Player player) {
+            this.replaced = player;
         }
 
         @Override

@@ -19,6 +19,7 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -194,8 +195,51 @@ class BrewPotionMixRegistrarTest {
         assertEquals(BrewRecipeSupport.pairKey("", "SUGAR"),
                 BrewRecipeSupport.pairKey(null, "SUGAR"),
                 "base 空欄と未指定は同じ「任意のビン」");
-        assertEquals(BrewRecipeSupport.pairKey("THICK", "custom:Hoglin_Tusk"),
-                BrewRecipeSupport.pairKey("THICK", "custom:hoglin_tusk"));
+    }
+
+    @Test
+    void pairKeyFollowsTheSameCaseRulesAsTheRuntimeIngredientMatcher() {
+        // 2026-07-31 レビュー指摘#8: pairKey の正規化が matchesIngredient より緩いと
+        // 「重複として片方を黙って落としたのに、実行時には別アイテムとして扱う」取り違えになる。
+        // matchesIngredient は custom: の id を大小区別して比較する(CrossPluginItemResolver の
+        // PDC 値と equals)ので、pairKey も小文字化してはいけない。
+        ItemStack tusk = TestStacks.withArsId(Material.BONE, "hoglin_tusk");
+        assertTrue(BrewRecipeSupport.matchesIngredient(tusk, "custom:hoglin_tusk"));
+        assertFalse(BrewRecipeSupport.matchesIngredient(tusk, "custom:Hoglin_Tusk"),
+                "実行時は大小を区別する = 別の素材");
+        assertNotEquals(BrewRecipeSupport.pairKey("THICK", "custom:Hoglin_Tusk"),
+                BrewRecipeSupport.pairKey("THICK", "custom:hoglin_tusk"),
+                "実行時に別物なら重複扱いしてはいけない(片方が WARNING だけで消えると"
+                        + "「登録されているのに永久に一致しない」組が残る)");
+
+        // 逆にバニラ材質は matchesIngredient も Material.matchMaterial で解決する = 大小/別名を吸収する。
+        ItemStack sugar = TestStacks.plain(Material.SUGAR);
+        assertTrue(BrewRecipeSupport.matchesIngredient(sugar, "sugar"));
+        assertTrue(BrewRecipeSupport.matchesIngredient(sugar, "minecraft:SUGAR"));
+        assertEquals(BrewRecipeSupport.pairKey("THICK", "sugar"),
+                BrewRecipeSupport.pairKey("THICK", "minecraft:SUGAR"));
+    }
+
+    @Test
+    void waterBaseOnlyCollidesWithTheElevenIngredientsVanillaActuallyBrewsFromWater() {
+        // 2026-07-31 レビュー指摘#3(の残り): WATER の衝突条件が「AWKWARD 起点の素材」まで
+        // 巻き込んでいたため、バニラに WATER mix が無い8素材でも登録を拒否していた。
+        for (String ingredient : List.of("GLISTERING_MELON_SLICE", "GHAST_TEAR", "RABBIT_FOOT",
+                "BLAZE_POWDER", "SPIDER_EYE", "SUGAR", "MAGMA_CREAM", "REDSTONE",
+                "GLOWSTONE_DUST", "FERMENTED_SPIDER_EYE", "NETHER_WART")) {
+            assertNotNull(BrewPotionMixRegistrar.vanillaCollision("WATER", ingredient),
+                    "WATER + " + ingredient + " はバニラの mix(登録するとサーバ全体で潰れる)");
+        }
+        // AWKWARD 起点しか無い素材: WATER + これらはバニラに1件も無い。
+        for (String ingredient : List.of("GOLDEN_CARROT", "PUFFERFISH", "TURTLE_SCUTE",
+                "PHANTOM_MEMBRANE", "BREEZE_ROD", "SLIME_BLOCK", "STONE", "COBWEB")) {
+            assertNull(BrewPotionMixRegistrar.vanillaCollision("WATER", ingredient),
+                    "WATER + " + ingredient + " はバニラに存在しないので拒否してはいけない");
+            assertNotNull(BrewPotionMixRegistrar.vanillaCollision("AWKWARD", ingredient),
+                    "AWKWARD + " + ingredient + " は実在するバニラの mix");
+            assertNotNull(BrewPotionMixRegistrar.vanillaCollision("", ingredient),
+                    "base 未指定は AWKWARD ビンも含むので衝突する");
+        }
     }
 
     // ---- 要求レベルの解決 ----

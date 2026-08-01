@@ -131,6 +131,11 @@ class BrewUnlockListenerTest {
             }
 
             @Override
+            public void replace(BrewerInventory brew, Player player) {
+                // 同上。
+            }
+
+            @Override
             public Player online(UUID uuid) {
                 return online;
             }

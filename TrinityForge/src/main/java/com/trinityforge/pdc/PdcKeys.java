@@ -300,21 +300,12 @@ public final class PdcKeys {
      */
     public static final NamespacedKey VILLAGER_TRADES_INJECTED = key("villager_trades_injected");
 
-    // --- Brewing stand (progression/crafting-features.yml brew-unlocks). ---
-    /**
-     * ゲート対象の醸造(base + 素材)を<b>最初に正当に組み立てたプレイヤー</b>の UUID を醸造台ブロックの
-     * PDC へ記録する (2026-07-31 D10 レビュー指摘#1)。値は {@code UUID#toString()}。
-     *
-     * <p>これが無いと解放判定を「スタンドを見ている / 半径8ブロック以内のプレイヤー」で行うことになり、
-     * <b>解放者が醸造中(400tick=20秒)に8ブロック歩くだけで完成時キャンセルへ落ちる</b>。
-     * キャンセルは {@code doBrew} が素材を減らさず即 return する経路なので、次tickで
-     * {@code brewable && fuel>0} から再開し<b>燃料を延々と燃やし続ける</b>。所有者を
-     * ブロック側に持たせることで、離席・ログアウト・別プレイヤーの介入に依らず判定が安定する。
-     *
-     * <p>ブロックの PDC なので {@code /minecraft:reload} でもチャンクアンロードでも消えない
-     * (醸造台を壊すと消える = 所有権のリセット手段が自然に存在する)。
-     */
-    public static final NamespacedKey BREW_STAND_OWNER = key("brew_stand_owner");
+    // --- Brewing stand ---
+    // 醸造台の所有者キーは<b>ここに置かない</b>。所有者記録は
+    // com.trinityforge.listeners.BrewOwnership が唯一の定義(キー文字列・書き込み規則・寿命の全部)で、
+    // 醸造解放ゲートもそれを読む。2026-07-31 に一度ここへ BREW_STAND_OWNER を新設して
+    // 「誰に醸造を許可するか」と「誰にEXP/品質を付けるか」が別キーで決まる状態を作ったため撤去した
+    // (レビュー指摘#1)。所有者の記録を2本目にしないこと。
 
     // --- Cosmetic display entities (COMBAT focus-HP overlay). ---
     /** Tags a {@code TextDisplay} spawned by {@code FocusHpDisplay} so an orphan sweep on enable

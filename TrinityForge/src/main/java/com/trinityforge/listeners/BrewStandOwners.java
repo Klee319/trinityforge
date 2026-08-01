@@ -1,12 +1,9 @@
 package com.trinityforge.listeners;
 
-import com.trinityforge.pdc.PdcKeys;
-import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.BrewerInventory;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Objects;
@@ -15,8 +12,10 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 /**
- * 醸造台の<b>所有者</b>(= ゲート対象の組み合わせを最初に正当に組み立てたプレイヤー)の読み書き
- * (2026-07-31 D10 レビュー指摘#1(b))。
+ * 醸造解放ゲート({@link BrewUnlockListener})から見た所有者の読み書き。
+ * <b>記録そのものは {@link BrewOwnership} が唯一持つ</b>(2026-07-31 レビュー指摘#1 の是正) —
+ * このインターフェースは「{@link BrewerInventory} しか手元に無いイベント」から
+ * {@link BrewOwnership} を呼ぶための薄いアダプタで、専用のPDCキーは<b>持たない</b>。
  *
  * <h2>なぜ「近くのプレイヤー」ではいけないのか</h2>
  * 解放判定を「スタンドの閲覧者 or 半径8ブロック以内のプレイヤー」で行うと、
@@ -29,22 +28,35 @@ import java.util.logging.Level;
  * <h2>インターフェースにしている理由</h2>
  * ブロックの {@code BlockState} と {@code Bukkit.getPlayer(UUID)} に触るため、MockBukkit 無しの
  * 単体テストからは差し替えられる必要がある(MockBukkit は未実装 API を SKIPPED に化けさせるので、
- * 本番実装をテストへ持ち込むと検証そのものが消える)。
+ * 本番実装をテストへ持ち込むと検証そのものが消える)。本番実装 {@link #blockPdc} の配線
+ * ({@code getHolder()} でスタンドへ解決する / {@code update()} で書き戻す /
+ * {@link BrewOwnership} と同じキーを使う)は {@code BrewStandOwnersBlockPdcTest} が
+ * Mockito だけで固定している。
  */
 public interface BrewStandOwners {
 
     /** スタンドに記録された所有者の UUID。未記録・壊れた値・スタンドでない場合は empty。 */
     Optional<UUID> ownerOf(BrewerInventory brew);
 
-    /** {@code player} をこのスタンドの所有者として記録する(既存の記録は上書きする)。 */
+    /**
+     * {@code player} をこのスタンドの所有者として記録する。<b>既存の記録は上書きしない</b>
+     * ({@link BrewOwnership#rememberOwner} = 先着優先)。
+     */
     void remember(BrewerInventory brew, Player player);
+
+    /**
+     * 記録済み所有者を {@code player} へ差し替える。<b>現所有者ではこの醸造が成立しないと
+     * 確認できた場合にだけ</b>呼ぶ({@link BrewOwnership#replaceOwner} の制約)。
+     */
+    void replace(BrewerInventory brew, Player player);
 
     /** UUID に対応する<b>オンラインの</b>プレイヤー。オフライン/不在なら {@code null}。 */
     Player online(UUID uuid);
 
-    /** 本番実装: 醸造台ブロックの PDC を読み書きする。 */
+    /** 本番実装: 醸造台ブロックの PDC を {@link BrewOwnership} 経由で読み書きする。 */
     static BrewStandOwners blockPdc(Plugin plugin) {
         Objects.requireNonNull(plugin, "plugin");
+        BrewOwnership ownership = new BrewOwnership(plugin);
         return new BrewStandOwners() {
             @Override
             public Optional<UUID> ownerOf(BrewerInventory brew) {
@@ -53,12 +65,7 @@ public interface BrewStandOwners {
                     return Optional.empty();
                 }
                 try {
-                    String raw = stand.getPersistentDataContainer()
-                            .get(PdcKeys.BREW_STAND_OWNER, PersistentDataType.STRING);
-                    if (raw == null || raw.isBlank()) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(UUID.fromString(raw.trim()));
+                    return ownership.ownerOf(stand);
                 } catch (RuntimeException ex) {
                     // 壊れた値は「所有者不明」として扱う(例外を醸造経路へ伝播させない)。
                     plugin.getLogger().log(Level.FINE, "[brew-unlocks] unreadable brewing stand owner", ex);
@@ -68,26 +75,37 @@ public interface BrewStandOwners {
 
             @Override
             public void remember(BrewerInventory brew, Player player) {
+                write(brew, player, false);
+            }
+
+            @Override
+            public void replace(BrewerInventory brew, Player player) {
+                write(brew, player, true);
+            }
+
+            @Override
+            public Player online(UUID uuid) {
+                return uuid == null ? null : plugin.getServer().getPlayer(uuid);
+            }
+
+            private void write(BrewerInventory brew, Player player, boolean displace) {
                 BrewingStand stand = standOf(brew);
                 if (stand == null || player == null) {
                     return;
                 }
                 try {
-                    stand.getPersistentDataContainer().set(PdcKeys.BREW_STAND_OWNER,
-                            PersistentDataType.STRING, player.getUniqueId().toString());
-                    // BlockState はスナップショットなので update() で書き戻す。イベント内で同期的に
-                    // 呼ぶので、この瞬間のスナップショットと実体の中身は一致している
+                    // BlockState はスナップショットなので BrewOwnership 側が update() で書き戻す。
+                    // イベント内で同期的に呼ぶので、この瞬間のスナップショットと実体の中身は一致している
                     // (クリックのインベントリ変更はイベントから戻った後に適用される)。
-                    stand.update();
+                    if (displace) {
+                        ownership.replaceOwner(stand, player);
+                    } else {
+                        ownership.rememberOwner(stand, player);
+                    }
                 } catch (RuntimeException ex) {
                     plugin.getLogger().log(Level.FINE,
                             "[brew-unlocks] failed to record brewing stand owner", ex);
                 }
-            }
-
-            @Override
-            public Player online(UUID uuid) {
-                return uuid == null ? null : Bukkit.getPlayer(uuid);
             }
         };
     }
@@ -105,24 +123,10 @@ public interface BrewStandOwners {
     }
 
     /**
-     * このスタンドの燃料を 0 にする(未解放の組み合わせで走り出してしまった周回を1回で止めるため)。
-     * 醸造台でなければ何もしない。
+     * 醸造台インベントリの持ち主({@code BrewerInventory#getHolder()} は 1.21.11 で
+     * {@link BrewingStand} を返す共変オーバーライドを持つ)。醸造台でなければ {@code null}。
      */
-    static void drainFuel(Block block) {
-        if (block == null) {
-            return;
-        }
-        try {
-            if (block.getState() instanceof BrewingStand stand) {
-                stand.setFuelLevel(0);
-                stand.update();
-            }
-        } catch (RuntimeException ignored) {
-            // 燃料を落とせなくても致命ではない(次の BrewingStandFuelEvent で補給を拒否する)。
-        }
-    }
-
-    private static BrewingStand standOf(BrewerInventory brew) {
+    static BrewingStand standOf(BrewerInventory brew) {
         if (brew == null) {
             return null;
         }

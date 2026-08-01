@@ -67,24 +67,38 @@ import java.util.function.Supplier;
  *       (素材だけを見ていた旧実装は、砂糖を先に入れてから THICK ビンを入れると素通りしていた)。</li>
  *   <li>{@link #onBrewingStandFuel} — 未解放の組み合わせが載っているスタンドは
  *       <b>燃料を受け付けない</b>({@code BrewingStandFuelEvent} はキャンセル可能で、
- *       キャンセルするとブレイズパウダーも消費されない)。これが「開始そのものを弾く」本体。</li>
- *   <li>{@link #onBrewingStart} — 既に燃料を持っていたスタンドが走り出した場合は
- *       <b>燃料を 0 にして周回を1回で終わらせる</b>(2 のおかげで補給もされない)。</li>
+ *       キャンセルするとブレイズパウダーも消費されない)。これが「開始そのものを弾く」本体
+ *       かつ<b>ループの終端を保証する唯一の機構</b>。</li>
+ *   <li>{@link #onBrewingStart} — 既に燃料を持っていたスタンドが走り出した場合の記録
+ *       (診断ログのみ)。<b>残りの燃料チャージには触らない</b> — 詳細は同メソッドの javadoc。</li>
  * </ol>
  *
  * <h2>解放判定は「スタンドに記録された所有者」</h2>
- * {@link BrewStandOwners} 参照。閲覧者や半径8ブロックのプレイヤーで判定していた旧実装は、
+ * 所有者の記録は {@link BrewOwnership}(醸造の所有者PDCの単一定義)で、EXP・品質・速度の帰属先と
+ * <b>同じ1本</b>。閲覧者や半径8ブロックのプレイヤーで判定していた旧実装は、
  * <b>解放者が醸造中(20秒)に8ブロック歩くだけで</b>未解放扱いへ落ちて上記の燃料ループに入っていた。
- * 所有者は「ゲート対象の組み合わせを正当に(=解放済みの状態で)組み立てたプレイヤー」として
- * 投入時にブロックの PDC へ記録する。
+ *
+ * <p><b>所有権の移り方</b>({@link #isLockedInsertion} で決まる):
+ * <ul>
+ *   <li>記録が無ければ、その組み合わせを解放している操作者が所有者になる。</li>
+ *   <li>記録済み所有者が<b>オンラインかつその組み合わせを解放している</b>間は、
+ *       他の解放済みプレイヤーが同じ組を投入しても<b>所有権は移らない</b>
+ *       (乗っ取り→ログアウトで他人の台を止められる穴を閉じるため)。</li>
+ *   <li>逆に、記録済み所有者がオフラインまたは未解放なら、解放している操作者へ<b>差し替える</b>。
+ *       ここを閉じると未解放プレイヤーが先に1回投入するだけで他人の台を永久に止められる。</li>
+ * </ul>
  *
  * <p><b>⚠️ ホッパー自動化への影響</b>: ホッパーには操作者がいないので、判定は
  * <b>スタンドに記録された所有者</b>だけで行う。したがって
  * 「所有者が未記録」「所有者がオフライン」「所有者がその組み合わせを解放していない」のいずれでも
- * <b>投入が拒否され、素材はホッパーに残って詰まる</b>。自動化するなら
- * <b>解放済みのプレイヤーが一度手で同じ組み合わせを組み立てて所有者になり、かつオンラインである</b>
- * 必要がある(醸造台を壊すと所有者の記録も消える)。燃料が無言で溶けるより事故が少ないという判断
+ * <b>投入が拒否され、素材はホッパーに残って詰まる</b>。燃料が無言で溶けるより事故が少ないという判断
  * (オーケストレータ決定 2026-07-31)。
+ *
+ * <p>さらに所有者の記録は<b>醸造が1回完了するたびに消える</b>
+ * ({@link NativeSkillExperienceListener#onBrew} の {@link BrewOwnership#clear})。したがって
+ * <b>ゲート付き醸造をホッパーで連続量産することは構造的にできない</b> — サイクルごとに
+ * 解放済みプレイヤーの手投入が必要になる(レビュー指摘#5「所有者記録後は未解放プレイヤーが
+ * ホッパーで量産できる」の是正)。
  */
 public final class BrewUnlockListener implements Listener {
 
@@ -220,13 +234,22 @@ public final class BrewUnlockListener implements Listener {
     }
 
     /**
-     * 既に燃料を持っていたスタンドが未解放の組み合わせで走り出した場合の後始末
+     * 既に燃料を持っていたスタンドが未解放の組み合わせで走り出した場合の記録
      * (所有者がログアウトした・ノードを振り直した・他プラグインが素材を差し込んだ等)。
      *
      * <p>{@code BrewingStartEvent} は {@code Cancellable} ではないので開始自体は止められない。
-     * 燃料を 0 にして<b>次の周回が始まらない</b>ようにする({@link #onBrewingStandFuel} が補給も拒否する
-     * ので、解放条件が満たされるまで再開しない)。この1周分の燃料1つは、イベント発火前に
-     * バニラが既に減らしているため取り返せない。
+     * <b>この1周分の燃料チャージ1つ</b>は、イベント発火前にバニラが既に減らしているため取り返せない。
+     *
+     * <p><b>⚠️ 残りのチャージには触らない</b> (2026-07-31 レビュー指摘#6 の是正)。以前はここで
+     * {@code setFuelLevel(0)} していたが、バニラはブレイズパウダー1個を<b>20チャージ</b>にまとめて
+     * 充填するので、<b>正当な所有者がログアウトを挟むだけで最大19醸造分が無言で消えていた</b>
+     * (javadoc は「1周分だけ失われる」と書いてあり実挙動と食い違っていた)。
+     *
+     * <p>チャージを残すとこの周回は繰り返すが、<b>止まることは保証されている</b>:
+     * {@link #onBrewingStandFuel} が補給を拒否するので、残りチャージ(1個のブレイズパウダーで最大20)を
+     * 使い切った時点で必ず停止する(最長 20 周 × 400tick = 400秒)。しかもその間に所有者が戻る/
+     * 解放条件が満たされれば、<b>次の周回はそのまま完成する</b>(0 にしていた頃は再点火が必要だった)。
+     * 未解放のまま空回りするのは所有者自身の燃料だけで、ポーションは1本も出ないので悪用価値は無い。
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onBrewingStart(BrewingStartEvent event) {
@@ -234,9 +257,9 @@ public final class BrewUnlockListener implements Listener {
         if (brew == null || !isLockedBrew(brew)) {
             return;
         }
-        BrewStandOwners.drainFuel(event.getBlock());
         plugin.getLogger().log(java.util.logging.Level.FINE,
-                () -> "[brew-unlocks] drained the fuel of a brewing stand that started a locked gated brew");
+                () -> "[brew-unlocks] a brewing stand started a locked gated brew: it will spin down on its "
+                        + "remaining fuel charges (refuelling is refused) and produce nothing");
     }
 
     /** 未解放プレイヤーによる投入をクリック経路で弾く(クラスjavadoc「投入自体を弾く」参照)。 */
@@ -336,6 +359,12 @@ public final class BrewUnlockListener implements Listener {
      * <p>成立してしまう組み合わせのうち<b>1つでも解放している</b>なら投入を許し、その操作者を
      * スタンドの所有者として記録する(以降の完成時判定とホッパー投入はこの所有者で行う)。
      *
+     * <p><b>判定するのは「操作者」であって「記録済み所有者」ではない</b>(クリック/ドラッグ経路)。
+     * ここを記録済み所有者にすると<b>未解放プレイヤーが解放済み所有者の台へ手で対象素材を入れられる</b>
+     * (= ゲートが実質無効になる)。ホッパー経路だけは操作者がいないので記録済み所有者で判定する。
+     * この優先順位は {@code BrewUnlockIngredientGateTest} が、actor と owner の解放状態を
+     * <b>別々に</b>スタブしたテストで固定している(レビュー指摘#9)。
+     *
      * @param actor クリック/ドラッグの操作者。ホッパー経路は {@code null}(記録済み所有者で判定する)。
      */
     private boolean isLockedInsertion(BrewerInventory brew, Player actor, ItemStack stack) {
@@ -350,12 +379,43 @@ public final class BrewUnlockListener implements Listener {
         for (MixPlan plan : completed) {
             if (holdsUnlock(judged, plan)) {
                 if (actor != null) {
-                    owners.remember(brew, actor);
+                    claimOwnership(brew, actor, completed);
                 }
                 return false; // 解放済み: 通常どおり投入できる
             }
         }
         return true;
+    }
+
+    /**
+     * 投入を許した操作者を所有者として記録する。<b>所有権は先着優先で、現所有者がその組み合わせを
+     * 実際に成立させられる間は移らない</b>(クラスjavadoc「所有権の移り方」/ レビュー指摘#5)。
+     *
+     * <p>差し替えを完全に禁じると、<b>未解放プレイヤーが空の台へ1回投入して所有者になるだけで
+     * その台のゲート付き醸造を永久に止められる</b>(燃料も受け付けなくなる)。逆に無条件で差し替えると
+     * 「解放済みの第三者が1回投入 → ログアウト」で他人の醸造を止められる。両方を閉じる条件が
+     * 「現所有者がオンラインかつ解放しているなら動かさない」。
+     */
+    private void claimOwnership(BrewerInventory brew, Player actor, List<MixPlan> completed) {
+        Player recorded = resolveOwner(brew);
+        if (recorded != null && Objects.equals(recorded.getUniqueId(), actor.getUniqueId())) {
+            return; // 既に自分が所有者(毎クリック PDC を書き直さない)
+        }
+        boolean recordedCanBrewIt = false;
+        for (MixPlan plan : completed) {
+            if (holdsUnlock(recorded, plan)) {
+                recordedCanBrewIt = true;
+                break;
+            }
+        }
+        if (recordedCanBrewIt) {
+            return; // 正当な所有者が現に使えている台は奪わせない
+        }
+        if (owners.ownerOf(brew).isPresent()) {
+            owners.replace(brew, actor);
+        } else {
+            owners.remember(brew, actor);
+        }
     }
 
     /**

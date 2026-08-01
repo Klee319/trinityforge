@@ -117,6 +117,26 @@ public final class BrewPotionMixRegistrar {
             Material.TURTLE_SCUTE, Material.PHANTOM_MEMBRANE, Material.BREEZE_ROD,
             Material.SLIME_BLOCK, Material.STONE, Material.COBWEB);
 
+    /**
+     * {@code WATER} を出発点とするバニラの mix 素材(1.21.11 の {@code addVanillaMixes} の
+     * {@code WATER} 行そのまま。<b>これで全部</b>)。
+     *
+     * <p>2026-07-31 レビュー指摘#3 の修正: 以前は「AWKWARD 起点の素材 or 延長/強化/反転 or ネザーウォート」
+     * を WATER の衝突条件にしていたため、<b>バニラに WATER mix が存在しない8素材</b>
+     * ({@code GOLDEN_CARROT} / {@code PUFFERFISH} / {@code TURTLE_SCUTE} / {@code PHANTOM_MEMBRANE} /
+     * {@code BREEZE_ROD} / {@code SLIME_BLOCK} / {@code STONE} / {@code COBWEB} — いずれも
+     * AWKWARD 起点しか無い)でも登録を拒否していた。実在しないバニラレシピを守るための拒否は
+     * 「運営者が editor で書いた組が無言で成立しない」= K-13 と同じ症状の再発なので、
+     * <b>実際にバニラが醸造する組だけ</b>を拒否する。
+     */
+    private static final Set<Material> WATER_VANILLA_INGREDIENTS = Set.of(
+            // → ありふれた(MUNDANE)
+            Material.GLISTERING_MELON_SLICE, Material.GHAST_TEAR, Material.RABBIT_FOOT,
+            Material.BLAZE_POWDER, Material.SPIDER_EYE, Material.SUGAR, Material.MAGMA_CREAM,
+            Material.REDSTONE,
+            // → 濃厚(THICK) / 弱化(WEAKNESS) / 奇妙(AWKWARD)
+            Material.GLOWSTONE_DUST, Material.FERMENTED_SPIDER_EYE, Material.NETHER_WART);
+
     /** 登録の宛先。テストから Bukkit を触らずに差し替えるためのシーム(reset は意図的に無い)。 */
     public interface MixSink {
         void add(PotionMix mix);
@@ -374,13 +394,18 @@ public final class BrewPotionMixRegistrar {
      * <ul>
      *   <li>{@code custom:<id>} 素材は<b>述語照合(PDC 一致)</b>なので、基材が偶然バニラ素材と同じ材質
      *       ({@code endermite_soot} = 火薬 など)でも素のバニラ素材には当たらない → 衝突しない。</li>
-     *   <li>{@link #ANY_BASE_VANILLA_INGREDIENTS} はベースに関係なく衝突。</li>
-     *   <li>{@code base} 空欄は「任意のビン」= AWKWARD/WATER も含むので、バニラ素材なら必ず衝突。</li>
-     *   <li>{@code WATER} はバニラがほぼ全素材から MUNDANE / ネザーウォートから AWKWARD を作るので、
-     *       バニラ素材なら衝突扱い。</li>
+     *   <li>{@link #CONTAINER_VANILLA_INGREDIENTS} はベースに関係なく衝突(容器 mix は
+     *       「どのポーションからでも」成立する)。</li>
+     *   <li>{@code base} 空欄は「任意のビン」= WATER/AWKWARD/効果付きポーションを全部含むので、
+     *       それらのいずれかで衝突する素材なら衝突。</li>
+     *   <li>{@code WATER} は {@link #WATER_VANILLA_INGREDIENTS}(バニラの WATER 行11件)と衝突。
+     *       <b>それ以外のバニラ素材は WATER 起点の mix を持たないので衝突しない</b>
+     *       (例: {@code WATER + GOLDEN_CARROT} はバニラに存在しない)。</li>
      *   <li>{@code AWKWARD} は {@link #AWKWARD_VANILLA_INGREDIENTS} と衝突。</li>
-     *   <li>{@code THICK} / {@code MUNDANE} / 実ポーションをベースにする場合は、上記の
-     *       「どのポーションでも」素材以外では衝突しない(バニラに出発点の mix が無い)。</li>
+     *   <li>{@code THICK} / {@code MUNDANE} をベースにする場合は容器 mix 以外では衝突しない
+     *       (バニラに出発点の mix が無い = {@link #VANILLA_DEAD_END_BASES})。</li>
+     *   <li>効果付きポーションをベースにする場合は
+     *       {@link #POTION_MODIFIER_VANILLA_INGREDIENTS}(延長/強化/反転)と衝突。</li>
      * </ul>
      */
     static String vanillaCollision(String base, String ingredient) {
@@ -397,10 +422,10 @@ public final class BrewPotionMixRegistrar {
         }
         String normalized = base == null ? "" : base.trim().toUpperCase(Locale.ROOT);
         boolean startsAWKWARD = AWKWARD_VANILLA_INGREDIENTS.contains(mat);
+        boolean startsWATER = WATER_VANILLA_INGREDIENTS.contains(mat);
         boolean modifier = POTION_MODIFIER_VANILLA_INGREDIENTS.contains(mat);
-        boolean waterIngredient = startsAWKWARD || modifier || mat == Material.NETHER_WART;
         if (normalized.isEmpty()) {
-            return waterIngredient
+            return startsWATER || startsAWKWARD || modifier
                     ? "base 未指定は「任意のビン」を意味するため、バニラの醸造素材 '" + mat
                             + "' と必ず衝突する"
                     : null;
@@ -410,7 +435,7 @@ public final class BrewPotionMixRegistrar {
             return null;
         }
         if ("WATER".equals(normalized)) {
-            return waterIngredient
+            return startsWATER
                     ? "WATER + '" + mat + "' はバニラが MUNDANE / THICK / AWKWARD / 弱化 を作る組み合わせ"
                     : null;
         }
