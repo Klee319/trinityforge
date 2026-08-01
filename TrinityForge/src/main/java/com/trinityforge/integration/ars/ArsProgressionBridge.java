@@ -1,11 +1,16 @@
 package com.trinityforge.integration.ars;
 
 import com.trinityforge.TrinityForge;
+import com.trinityforge.config.domains.SkillExpConfig;
 import com.trinityforge.progression.UseRequirementResolver;
 import com.trinityforge.progression.core.SkillId;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
+
+import java.util.Collection;
+import java.util.Map;
 
 /** Public integration facade used by TrinityForge and the ArsPaper fork to grant native EXP. */
 public final class ArsProgressionBridge {
@@ -43,12 +48,80 @@ public final class ArsProgressionBridge {
      * back to a fixed hard-coded grant.
      */
     public static void grantSmithingCraftExp(Plugin plugin, Player player, ItemStack result) {
+        grantSmithingCraftExp(plugin, player, result, java.util.List.of());
+    }
+
+    /**
+     * Ars鍛冶(儀式)EXPを<b>消費素材ごと</b>に config から引いて付与する (U1/N6, 2026-08-01)。
+     *
+     * <p><b>これまで何が起きていたか</b>: 儀式経路は {@code ars-smithing.exp-per-craft} の定額だけを
+     * 見ており、素材表({@code smithing.exp-per-material})は作業台経路
+     * ({@link com.trinityforge.listeners.CraftQualityListener})にしか繋がっていなかった。
+     * そのため「ネザライト級の素材を溶かす儀式」も「石を並べる儀式」も同じEXPだった。
+     *
+     * <p><b>表は作業台と共用する</b>。素材1個あたりの価値を2箇所で二重管理すると必ずずれるため、
+     * 儀式専用の表は<b>作らない</b>。トークンの語彙も同じ({@code IRON_INGOT} / {@code custom:<id>})。
+     *
+     * <p><b>合計が0のときは定額へ戻す</b>。作業台経路では「表に無い素材は無報酬」が
+     * 解体ループ対策のゲートとして意図的だが、儀式素材は Ars 側の materials.yml 由来のものが多く、
+     * 表に無いだけで儀式EXPが丸ごと消えると「jarだけ新しいサーバで儀式が無報酬になる」回帰になる。
+     * よって儀式では 0 を「未設定」とみなし、従来どおり {@code ars-smithing.exp-per-craft} を使う。
+     *
+     * @param materialTokens 消費した素材のトークン({@code IRON_INGOT} / {@code custom:<id>})。
+     *                       1個につき1要素(同じ素材2個なら2要素)。空なら定額のまま。
+     */
+    public static void grantSmithingCraftExp(Plugin plugin, Player player, ItemStack result,
+                                             Collection<String> materialTokens) {
         TrinityForge tf = TrinityForge.getInstance();
         if (tf == null || tf.config() == null) {
             return;
         }
-        grantSmithingExpForResult(
-                plugin, player, result, tf.config().skillExp().arsSmithingExpPerCraft());
+        SkillExpConfig skillExp = tf.config().skillExp();
+        double fromMaterials = sumMaterialExp(materialTokens, skillExp.smithingExpPerMaterial());
+        double base = fromMaterials > 0.0 ? fromMaterials : skillExp.arsSmithingExpPerCraft();
+        grantSmithingExpForResult(plugin, player, result, base);
+    }
+
+    /**
+     * 素材トークン列 → 素材表の合計値。表が空、トークンが空、表に無いトークンはいずれも 0 を積む
+     * (「未設定の素材は無報酬」が表の設計意図なので、暗黙の既定値を出してはいけない)。
+     */
+    public static double sumMaterialExp(Collection<String> materialTokens,
+                                        Map<String, Double> perMaterial) {
+        if (materialTokens == null || materialTokens.isEmpty()
+                || perMaterial == null || perMaterial.isEmpty()) {
+            return 0.0;
+        }
+        double total = 0.0;
+        for (String token : materialTokens) {
+            if (token == null || token.isBlank()) continue;
+            Double value = perMaterial.get(SkillExpConfig.normalizeMaterialToken(token));
+            if (value != null && Double.isFinite(value)) {
+                total += value;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 素材トークン: TFカタログ品は {@code custom:<catalogId>}、ArsPaper のカスタム品は
+     * {@code custom:<arsId>}、どちらでもなければ Material 名。
+     *
+     * <p><b>Ars 側の刻印({@code arspaper:custom_item_id})も読むことが必須</b> —— 出荷の
+     * {@code smithing.exp-per-material} にある {@code custom:} 行はほとんどが ArsPaper の
+     * materials.yml 由来のID(source_gem / magebloom_fiber / hard_metal …)で、TFカタログのPDCしか
+     * 見ていなかった頃はそれらが<b>1行も引けず、常に0EXP</b>だった。
+     * 二重読み取りは {@link CrossPluginItemResolver#idOf} に既にあるのでそれを使う
+     * (ここで {@code arspaper} 名前空間を再実装しない)。
+     */
+    public static String materialToken(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) {
+            return "";
+        }
+        return CrossPluginItemResolver.idOf(stack)
+                .filter(id -> !id.isBlank())
+                .map(id -> SkillExpConfig.normalizeMaterialToken("custom:" + id))
+                .orElseGet(() -> stack.getType().name());
     }
 
     /**

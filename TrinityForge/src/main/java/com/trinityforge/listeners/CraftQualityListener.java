@@ -219,18 +219,17 @@ public final class CraftQualityListener implements Listener {
     }
 
     /**
-     * 素材トークン: TFカタログ品は {@code custom:<catalogId>}、それ以外は Material 名。
-     * カタログIDは PDC にしか無いので、同じ Material の通常品と作り分けるにはここを通す必要がある。
+     * 素材トークン: TFカタログ品/ArsPaperカスタム品は {@code custom:<id>}、それ以外は Material 名。
+     *
+     * <p><b>2026-08-01 修正</b>: 以前はTFカタログのPDC({@code ItemData#catalogId})しか読んでおらず、
+     * 出荷 {@code smithing.exp-per-material} の {@code custom:} 行はほぼ全てが ArsPaper の
+     * materials.yml 由来のID(source_gem / magebloom_fiber / hard_metal …)なので、
+     * <b>盤面に置いても1行も引けず0EXPだった</b>。実装は
+     * {@link ArsProgressionBridge#materialToken}(TF/Ars 両方のPDCを読む)へ一本化し、
+     * 儀式経路と作業台経路で素材の数え方がずれないようにしている。
      */
     private static String materialToken(ItemStack stack) {
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            Optional<String> catalogId = ItemData.of(meta).catalogId();
-            if (catalogId.isPresent() && !catalogId.get().isBlank()) {
-                return SkillExpConfig.normalizeMaterialToken("custom:" + catalogId.get());
-            }
-        }
-        return stack.getType().name();
+        return ArsProgressionBridge.materialToken(stack);
     }
 
     /**
