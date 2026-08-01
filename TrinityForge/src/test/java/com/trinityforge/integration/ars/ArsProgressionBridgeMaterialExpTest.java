@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -154,6 +156,35 @@ class ArsProgressionBridgeMaterialExpTest {
                 new ItemStack(Material.BOOK), List.of("custom:表に無い素材"));
 
         verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
+    }
+
+    @Test
+    @DisplayName("1つでも表に無い素材があれば合計を捨てて定額へ戻す(安い素材を足してEXPが激減しない)")
+    void partialCoverageFallsBackToTheFlatAmountInsteadOfTheStubSum() {
+        PlayerMock player = server.addPlayer();
+        NativeExperienceDispatcher dispatcher = stubTrinityForge(Map.of("STICK", 0.5));
+
+        // 実バグの再現形: 最上位素材4種は表に無く、STICK だけが引ける。
+        // 「合計>0なら合計」という規則だと 1.0 EXP まで落ちていた(同格で STICK 抜きの品は 100)。
+        ArsProgressionBridge.grantSmithingCraftExp(MockBukkit.createMockPlugin(), player,
+                new ItemStack(Material.BOOK),
+                List.of("custom:binder_fragment", "custom:abyssal_ingot",
+                        "custom:dungeon_seal_binder", "custom:reality_thread_core",
+                        "STICK", "STICK"));
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
+    }
+
+    @Test
+    @DisplayName("allMaterialsListed は全カバーのときだけ true(空入力は false=定額へ倒す)")
+    void allMaterialsListedOnlyAcceptsFullCoverage() {
+        Map<String, Double> table = Map.of("IRON_INGOT", 8.0, "custom:source_gem", 20.0);
+        assertTrue(ArsProgressionBridge.allMaterialsListed(
+                List.of("IRON_INGOT", "custom:source_gem"), table));
+        assertFalse(ArsProgressionBridge.allMaterialsListed(
+                List.of("IRON_INGOT", "DIRT"), table));
+        assertFalse(ArsProgressionBridge.allMaterialsListed(List.of(), table));
+        assertFalse(ArsProgressionBridge.allMaterialsListed(List.of("IRON_INGOT"), Map.of()));
     }
 
     @Test

@@ -60,9 +60,12 @@ gathering:
 ars-smithing:
   # Ars鍛冶(儀式)のEXP。2026-08-01 以降、儀式が消費した素材を下の smithing.exp-per-material で
   # 合計した値が優先される(素材ごとの価値を二重管理しないため、表は鍛冶と共用)。
-  # 消費素材が1つも表に無いときだけ、この定額へ戻る。
+  # 消費素材が【1つでも】表に無ければ、合計を捨ててこの定額へ戻る(2026-08-02 修正)。
   # (作業台側と違い「表に無い＝0」にしないのは、儀式素材は ArsPaper の materials.yml 由来が多く、
   #  表が未整備なサーバで儀式EXPが丸ごと消えるほうが害が大きいため)
+  # 【重要】ここを「合計が0のときだけ定額」にしてはいけない。表を部分的にしか引けないと
+  # 「表に載っている安い素材ぶんだけ」が合計になり、素材を1つ足すとEXPが100分の1に落ちる。
+  # 実際 binder_spear が 100 -> 1 になっていた(同格の binder_sword は全素材が表に無く 100 のまま)。
   exp-per-craft: 100
 smithing:
   # 素材表(exp-per-material)が空のときだけ使われる定額フォールバック。
@@ -141,6 +144,105 @@ smithing:
     custom:dragon_scale: 80
     custom:warden_tendril: 90
     custom:source_gem_block: 180
+    # --- 以下は儀式(Ars鍛冶)で消費される素材 (2026-08-02 追加) ---
+    # 儀式は「全素材が表に引けたときだけ」合計を使い、1つでも欠けると ars-smithing.exp-per-craft の
+    # 定額へ戻る。つまり下の行が欠けると、そのレシピは素材価値と無関係な定額に落ちる。
+    # 出荷の儀式レシピ121件が全カバーであることは ShippedRitualMaterialExpCoverageTest が保証する。
+    # 値の導き方(既存の尺度をそのまま延長したもの):
+    #   ブロック = 素材9個ぶん(QUARTZ_BLOCK だけ4個) / 装備 = 使用インゴット数ぶん(兜5・胴8・脚7・靴4)
+    #   圧縮素材 custom:<id>_Nx = 素材N個ぶん / 加工品 = 材料の合計
+    # --- 鉱石ブロック・圧縮 ---
+    LAPIS_LAZULI: 1
+    LAPIS_BLOCK: 9
+    REDSTONE: 1
+    REDSTONE_BLOCK: 9
+    QUARTZ: 2
+    QUARTZ_BLOCK: 8
+    EMERALD: 10
+    EMERALD_BLOCK: 90
+    IRON_BLOCK: 72
+    GOLD_BLOCK: 72
+    DIAMOND_BLOCK: 225
+    NETHERITE_BLOCK: 1080
+    # --- 農作物・雑貨 ---
+    WHEAT: 1
+    HAY_BLOCK: 9
+    WHITE_WOOL: 4
+    FEATHER: 1
+    FLINT: 2
+    SUGAR: 0.5
+    SLIME_BALL: 2
+    GLOWSTONE_DUST: 2
+    BLAZE_POWDER: 4
+    MAGMA_CREAM: 6
+    PUFFERFISH: 4
+    GOLDEN_CARROT: 10
+    GOLDEN_APPLE: 72
+    RABBIT_FOOT: 8
+    CHEST: 8
+    TRIPWIRE_HOOK: 5
+    SHIELD: 20
+    # --- エンド・深層 ---
+    ENDER_PEARL: 5
+    CHORUS_FRUIT: 4
+    ENDER_EYE: 10
+    ENDER_CHEST: 90
+    CRYING_OBSIDIAN: 12
+    GHAST_TEAR: 20
+    END_CRYSTAL: 90
+    SEA_LANTERN: 25
+    NAUTILUS_SHELL: 20
+    TOTEM_OF_UNDYING: 200
+    ELYTRA: 250
+    HEAVY_CORE: 150
+    # 入手が1個限りで再取得コストが桁違いなので、素材合計ではなく単独で最上位帯に置く。
+    DRAGON_EGG: 300
+    # --- バニラ防具(魔導士シリーズの土台) ---
+    IRON_HELMET: 40
+    IRON_CHESTPLATE: 64
+    IRON_LEGGINGS: 56
+    IRON_BOOTS: 32
+    GOLDEN_HELMET: 40
+    GOLDEN_CHESTPLATE: 64
+    GOLDEN_LEGGINGS: 56
+    GOLDEN_BOOTS: 32
+    DIAMOND_HELMET: 125
+    DIAMOND_CHESTPLATE: 200
+    DIAMOND_LEGGINGS: 175
+    DIAMOND_BOOTS: 100
+    # --- 儀式専用の上位素材 ---
+    custom:echo_shard_2x: 60
+    custom:abyssal_ingot: 250
+    custom:dungeon_seal_binder: 300
+    custom:reality_thread_core: 350
+    custom:binder_fragment: 400
+    # --- 魔導士シリーズの中間段(下位ティアを素材にして上げていく) ---
+    custom:spell_book_novice: 40
+    custom:spell_book_apprentice: 80
+    custom:mage_arcane_novice_helmet: 60
+    custom:mage_arcane_novice_chestplate: 90
+    custom:mage_arcane_novice_leggings: 80
+    custom:mage_arcane_novice_boots: 50
+    custom:mage_arcane_apprentice_helmet: 120
+    custom:mage_arcane_apprentice_chestplate: 180
+    custom:mage_arcane_apprentice_leggings: 160
+    custom:mage_arcane_apprentice_boots: 100
+    custom:mage_weaver_novice_helmet: 60
+    custom:mage_weaver_novice_chestplate: 90
+    custom:mage_weaver_novice_leggings: 80
+    custom:mage_weaver_novice_boots: 50
+    custom:mage_weaver_apprentice_helmet: 120
+    custom:mage_weaver_apprentice_chestplate: 180
+    custom:mage_weaver_apprentice_leggings: 160
+    custom:mage_weaver_apprentice_boots: 100
+    custom:mage_guardian_novice_helmet: 60
+    custom:mage_guardian_novice_chestplate: 90
+    custom:mage_guardian_novice_leggings: 80
+    custom:mage_guardian_novice_boots: 50
+    custom:mage_guardian_apprentice_helmet: 120
+    custom:mage_guardian_apprentice_chestplate: 180
+    custom:mage_guardian_apprentice_leggings: 160
+    custom:mage_guardian_apprentice_boots: 100
 ars-magic:
   kill-exp:
     enabled: true
