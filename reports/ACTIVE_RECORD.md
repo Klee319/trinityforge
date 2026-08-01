@@ -2786,6 +2786,14 @@ WIP 値とテスト期待値のずれ）。いずれも WIP が `items/catalog.y
 | `c52f791` | `merge: work/w3b-archery-exp`。弓術EXPを討伐時ベースへ統一し per-hit 経路（`ArcheryExperiencePolicy`）を削除（N5） |
 
 **この棚卸し時点（2026-08-01）で TF 本体のテストを実走して確認: 3308 tests / 0 failed / 0 errors / 2 skipped（全緑）。**
+
+> **数え方の罠（実際に踏んだ）**: **Gradle は失敗があるときしか `N tests completed, M failed` の行を出さない。**
+> 全緑の run は件数を一切表示しないので、`grep "tests completed"` で数えると
+> **「最後に失敗した run の古い件数」を現在値だと誤認する**（実際に 3283 と誤記した）。
+> 全緑時の件数は `build/test-results/test/*.xml` の集計でしか取れない。
+> ただし**削除されたテストクラスの XML は残り続ける**ので、集計する前に
+> `rm -rf build/test-results/test` してから `--rerun-tasks` で走らせること。
+> 上の 3308 はその手順で確定した値（XML 394 本）。
 スキップ2件は既知の正当分。（`cd TrinityForge && ./gradlew test --offline` の
 `build/test-results/test/*.xml` を集計。ビルドは UP-TO-DATE キャッシュ）
 
