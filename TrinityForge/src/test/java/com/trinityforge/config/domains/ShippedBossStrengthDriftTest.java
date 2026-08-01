@@ -57,10 +57,36 @@ class ShippedBossStrengthDriftTest {
 
     /** 束縛者は {@code contentLevel: 50} 固定(level-sync が無い)。柱2 の倍率はこのレベルで評価する。 */
     private static final int BINDER_CONTENT_LEVEL = 50;
-    private static final double RAMP_HP_BASE = 150.0;
-    private static final double RAMP_HP_GROWTH = 1.072;
-    private static final double RAMP_ATTACK_BASE = 7.0;
-    private static final double RAMP_ATTACK_GROWTH = 1.03;
+
+    private static final String MOB_IMPORT = "src/main/resources/combat/mob-import.yml";
+
+    // ランプ定数は【出荷 mob-import.yml から読む】。ここに直書きすると、ランプの base/growth を
+    // 変えても yml 側の絶対値と乖離したまま全件緑で通ってしまい、このテストの主目的
+    // (「倍率の意味が変わったことを検出する」)が果たせない。
+    private static final double RAMP_HP_BASE = rampValue("max-health", "base");
+    private static final double RAMP_HP_GROWTH = rampValue("max-health", "growth");
+    private static final double RAMP_ATTACK_BASE = rampValue("attack.attack-power", "base");
+    private static final double RAMP_ATTACK_GROWTH = rampValue("attack.attack-power", "growth");
+
+    /**
+     * 出荷 {@code combat/mob-import.yml} から共通ランプの1値を読む。
+     * キーが消えたら 0 を返さず即座に落とす —— 0 で続けると「倍率が合っている」という
+     * 意味のない緑になるため。
+     */
+    private static double rampValue(String path, String key) {
+        File file = new File(MOB_IMPORT);
+        if (!file.isFile()) {
+            throw new AssertionError("出荷 mob-import.yml が見つからない: " + file.getAbsolutePath());
+        }
+        ConfigurationSection section =
+                YamlConfiguration.loadConfiguration(file).getConfigurationSection(path);
+        if (section == null || !section.isSet(key)) {
+            throw new AssertionError("mob-import.yml に " + path + "." + key + " が無い。"
+                    + "柱2 の倍率はこのランプを Lv" + BINDER_CONTENT_LEVEL
+                    + " で評価した値を基準にしているので、キーが消えると倍率の意味が失われる");
+        }
+        return section.getDouble(key);
+    }
 
     private static final String BINDER_WORLD = "em_id_binder_of_worlds";
 

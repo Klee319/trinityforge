@@ -127,11 +127,29 @@ class CatalogRecipeRegistrarNetheriteTest {
     }
 
     // ------------------------------------------------------------------
-    // 出荷カタログ: netherite メソッドが 1 件残らず登録されること
+    // 出荷カタログ: netherite メソッドが「衝突しない限り」登録されること
     // ------------------------------------------------------------------
 
+    /**
+     * <b>この件数一致は MockBukkit だから成立する。実サーバでは 12 件中 5 件しか登録されない。</b>
+     *
+     * <p>{@link CatalogRecipeRegistrar} は {@code NetheriteUpgradeGuard} で
+     * 「同じ3点(テンプレ/base/インゴット)に一致する他所のレシピが既にある材質」への登録を避ける。
+     * MockBukkit は<b>バニラのスミスレシピを1件も持たない</b>ので誰とも衝突せず全件登録されるが、
+     * 実サーバでは出荷の source 12 件のうち DIAMOND_SWORD×5 / DIAMOND_AXE / DIAMOND_HOE の
+     * <b>7 件がバニラの {@code netherite_*_smithing} に当たって除外される</b>
+     * （除外されても壊れない ── それらは<b>バニラのレシピが一致するおかげで</b>
+     *  {@code PrepareSmithingEvent} が飛び、{@code CatalogSmithingListener} が結果を差し替える）。
+     *
+     * <p>したがってこのテストが固定しているのは「登録処理そのものが正しく動くこと」であって、
+     * <b>「実サーバで12件出ること」ではない</b>。U7 が実際に必要としていた
+     * 非バニラ base の 5 件は {@link #reportedBrokenNetheriteItemsRegisterTheirNonVanillaBaseMaterial}
+     * が、衝突時に降りることは
+     * {@link #netheriteRecipeIsSkippedWhenAnExistingSmithingRecipeAlreadyMatchesTheSameTriple}
+     * が別々に固定している。
+     */
     @Test
-    void everyShippedNetheriteRecipeIsRegisteredAsASmithingTransformRecipe(@TempDir File tempDir)
+    void everyShippedNetheriteRecipeRegistersWhenNothingElseClaimsTheSameTriple(@TempDir File tempDir)
             throws IOException {
         ItemCatalogConfig catalog = loadShippedCatalog(tempDir);
         Map<String, String> specs = shippedNetheriteSpecs(catalog);
@@ -160,7 +178,9 @@ class CatalogRecipeRegistrarNetheriteTest {
         }
         assertTrue(missing.isEmpty(), "method: netherite が Bukkit に登録されていない: " + missing);
         assertEquals(specs.size(), trinityForgeSmithingRecipes().size(),
-                "登録された TF スミス台レシピ数が method: netherite の件数と一致しない");
+                "登録された TF スミス台レシピ数が method: netherite の件数と一致しない"
+                        + "(MockBukkit にはバニラのスミスレシピが無いので全件登録されるのが正。"
+                        + "実サーバでは NetheriteUpgradeGuard が7件を除外して5件になる)");
     }
 
     /**

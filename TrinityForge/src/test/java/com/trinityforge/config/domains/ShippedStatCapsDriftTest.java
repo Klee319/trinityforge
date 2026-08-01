@@ -208,4 +208,32 @@ class ShippedStatCapsDriftTest {
                             + "現在の caps: " + caps.keySet());
         }
     }
+
+    // === drift 検出(4) 設定リファレンスの記載値が出荷 cap から離れていないこと ===
+
+    /**
+     * {@code docs/config-reference/combat/stat-caps.md} が {@code attack-power} の上限を
+     * <b>実際の出荷値で</b>書いていることを固定する（2026-08-02 追加）。
+     *
+     * <p><b>なぜ要るか</b>: この md は cap を上げ下げした理由の唯一の記録で、
+     * 「単品最大がいくつだから cap をいくつにした」という導出まで書いてある。
+     * ところが値をアサートするものが何も無く、cap を動かしても md は無言で古くなる。
+     * 実際 2026-08-01→08-02 の2回の変更で {@code 137500}(実際は {@code 127500})、
+     * 単品最大 {@code 120,349.8}(実際は {@code 111,395.9}) と<b>2箇所とも stale になった</b>。
+     * 古い導出を読んだ人は「まだ余裕がある」と誤解して cap を据え置く。
+     */
+    @Test
+    @DisplayName("設定リファレンスの attack-power 上限が出荷値と一致している(md が無言で腐らない)")
+    void theConfigReferenceQuotesTheShippedAttackPowerCap(@TempDir File tempDir) throws IOException {
+        double cap = loadShippedCaps(tempDir).caps().get(StatKeys.canonical("attack-power"));
+        File doc = new File("../docs/config-reference/combat/stat-caps.md");
+        assertTrue(doc.isFile(), "設定リファレンスが見つからない: " + doc.getAbsolutePath());
+
+        String text = Files.readString(doc.toPath(), StandardCharsets.UTF_8);
+        String expected = "`attack-power: " + (long) cap + "`";
+        assertTrue(text.contains(expected),
+                "stat-caps.md が出荷値 " + expected + " を書いていない。"
+                        + "cap を動かしたら md の見出し値と『単品最大がいくつだから』の導出も直すこと"
+                        + "(古い導出だけが残ると、次に読む人が余裕を誤って見積もる)");
+    }
 }
