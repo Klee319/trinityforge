@@ -3038,8 +3038,116 @@ ops\launch\start-all.cmd
 
 ### 残タスク
 
-- **`stash@{0}`（resourcepack）と Ars の materials.yml stash の査読。** 上記のとおり破壊を含むが、
-  `bow.json` の引き絞りモデルなど救出すべきものが混ざっている。
-- **`work/m1-dungeon-gate` の削除。** 分岐点が dev から 207 コミット前で、内容は `113ff86` と
-  C2 の gates.yml に完全に置き換わっている。worktree ごと消してよい。
 - config-editor の既知10件の失敗（バランス調整とは無関係の既存不具合）。
+- **他 worktree に残る未コミット WIP 43ファイルの査読**（下記「棚卸し」参照）。
+
+---
+
+## 2026-08-01（続き） 孤児 stash の救出と、棚卸しで見つかった audit の穴
+
+### 1. `stash@{0}`（resourcepack）の救出 — `8ade36d`
+
+~~残タスク: stash@{0} の査読~~ → **完了。**
+
+台帳（`cmd-registry.json`）の差分を全数分解したところ、「割当の消失」だと思っていた2件は
+実際には **material の付け替え**だった。付け替え先は現行 `catalog.yml` と矛盾する:
+
+| 変更 | stash の主張 | catalog.yml の実態 |
+|---|---|---|
+| `fnis_peccati_profundi` | `NETHERITE_HOE:68` | **`IRON_CHAIN:68`** |
+| `novus_criculus_luminis` | `GLOWSTONE_DUST:84` | **`GLOWSTONE:84`** |
+| `BLAZE_ROD:400012-400014` | `lastmagic` / `darkabyss` / `boundary_cane` | **`infinity` / `dragon` / `wither_cane`**（stash 側の3つは catalog に存在しない） |
+
+→ **台帳と削除2件（`iron_chain.json` / `glowstone.json`）は復元しない。**
+アイテム json の追加分だけを取り込んだ。追加 threshold 37件のうち **36件は HEAD 台帳に実在する
+割当で、描画エントリだけが欠けていた**（= そのアイテムがバニラ見た目で出ていた）。
+残る1件 `NETHERITE_HOE:68` だけが上記の付け替えによる幻の割当なので除外。
+`bow.json` / `trident.json` の引き絞りモデル（`using_item` + `use_duration` の入れ子 dispatch）も含む。
+未追跡の随伴3ファイル（`glowstone_dust.json`、`novus_criculus_luminis_84.json/png`）は破棄。
+
+**`resourcepack/build_item_pack.py` を新設。** これまで `dist/TrinityForge-Pack.zip` は
+手作業生成で、ソースを直しても zip が古いまま commit される事故が繰り返されていた
+（生成前の zip はソースより **56ファイル欠落・54ファイル古い**状態だった）。
+zip の中身は `trinityforge-items/` ∪ `trinityforge-skill-gui/` の単純な和集合（実測で確認）。
+生成前に下記を機械検証して落とす:
+
+1. threshold が `cmd-registry.json` に実在するか（**この検査が上の幻の割当を検出した**）
+2. threshold が昇順かつ重複なしか（`range_dispatch` は昇順前提）
+3. 参照先 model と `trinityforge:` 名前空間 texture が実在するか
+4. 2つのソースディレクトリでパスが衝突していないか
+
+再生成後: **516→572ファイル / 428KB→469KB / ソースとのドリフト0件。**
+
+### 2. Ars の `materials.yml` stash の査読 — フォーク側 `a15adab`
+
+~~残タスク: materials.yml stash の査読~~ → **完了。救出は3行のみ。**
+
+救出したのは `_editor.categories.material` の `id:` 3件（`ダンジョンの印` / `EM限定素材` /
+`ソース階梯`。他8件は id を持っていた）。**推測ではなく実行可能なゲートで確認**:
+`config-editor` の `catalog-category-host.test.js`「出荷 yml の `_editor.categories` は
+全要素が id を持つ」が実際に落ちていた（13/1 fail → 修正後 **14/14 pass**）。
+id が無いと `merge.js` の `identityKeyOf` が要素同定キーを返せず、配列が要素単位マージから
+外れて丸ごと置換になる（= 同時編集で他セッションの追加が無言で消える）。
+
+同 stash の他の変更はすべて破壊なので取り込まない: 日本語コメント88行の欠落 /
+儀式レシピへの `type: shapeless` + `ingredients: []` 注入 / `custom:source_gem` →
+`custom:source_berry` の無言差し替え。
+
+### 3. `work/m1-dungeon-gate` の削除 — 完了
+
+削除前に「171行のテストを捨てないか」を確認した。dev 側は `DungeonGateServiceTest` が
+**14テスト**あり、m1 の8テストとは**設計が逆**だった:
+
+- m1: 未定義ダンジョンは素通し（**fail-open**）
+- dev: ゲートが1つでも設定されていれば **fail-closed**（`requiredEliteMobsEntryFailsClosedOnceAnyGateIsConfigured`）
+
+さらに dev の `gates.yml` は **577行**（m1 は48行）で `everyShippedEliteMobsDungeonHasAGate` が
+全ダンジョンの定義を強制しているため、fail-open 自体が起こり得ない。完全に上位互換なので
+worktree ごと削除。未マージコミット0件だった `work/m2/m3/m4` の空ブランチも同時に削除。
+
+### 4. 棚卸しで見つかった audit の穴（今回いちばん重要）
+
+`wip-audit.ps1` は「問題なし」と言っていたが、**実際には31本の worktree に109ファイルの
+未コミット変更が残っていた。** 原因は2つ。
+
+**(a) 検査範囲の穴。** 検査1は主ワークツリーしか見ず、検査3は**未マージコミットを持つ
+ブランチしか回らない**。「ブランチはマージ済みなのに worktree には未コミットの WIP がある」が
+両方の網を抜けていた。commit されていないので **worktree を消したら復元手段が無い**種類の作業。
+→ **検査 4/4「他 worktree の未コミット変更」を追加**（`8992496`）。31本・109ファイルを検出。
+
+**(b) テストが成果物をリポジトリへ書き戻していた。** 109ファイルのうち **62件は
+`ops/reports/` の2本**。`SharedSqliteConcurrencyTest` / `ResourceServerMobSimulationTest` が
+書き出す成果物で、中身に JUnit `@TempDir` のパスと実測時間が入る = **何も変えていなくても
+テストを回すたびに必ず差分が出る**。31本すべてで未コミット扱いになり、本物の孤児 WIP を
+その中に埋もれさせていた。
+→ `OpsReport.write()` を **opt-in 化**。通常の `./gradlew test` は `build/ops-reports/`（gitignore 済）
+へ書くのでワークツリーは汚れない。成果物を更新したいときだけ:
+
+```
+./gradlew test -Dtf.opsReport=true "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-21"
+```
+
+既定実行で `ops/reports/` に差分ゼロ、`-Dtf.opsReport=true` で両ファイルが更新されることを
+実走で確認済み。**同種のもの（リポジトリ内へ書き出し、かつ内容が実行ごとに変わる生成物）を
+新しく足すときは、必ず既定を `build/` 配下にすること。** tracked にすると audit のノイズ源になり、
+本物の事故を見えなくする。
+
+### 5. 残った WIP 43ファイルの扱い（次に触る人へ）
+
+`ops/reports/` の62件を除いた **43ファイルが実ソースの WIP** として worktree に残っている。
+**一括で捨ててはいけない。** 判定を試みた結果、機械的な一括判定はできないと分かった:
+
+- 行単位の一致率は使えない。`PdcKeys.java` は dev との一致率 **7%** だが、
+  中身のクリエイティブ出自マーカー（`ITEM_CREATIVE_ORIGIN`）は **dev に完全実装済み**だった
+  （`ItemData` / `CollectionListener` の `onCreativeSet` / `onPickBlock` など）。
+  同じ機能を別の書き方で実装すると一致率は下がるので、**textual な指標は supersession を測れない。**
+- 方向も混在している。`LeafDecayPlanner` は **dev のほうが大きい**（226行 > worktree 190行 = dev が先行）が、
+  `VeinMiningAlgorithm` は **worktree のほうが大きい**（159行 > dev 119行 = dev に無い行がある）。
+
+→ **消さずに残した。** 査読するときは worktree ごとに中身を見て、要るものだけを拾うこと:
+
+```
+git -C <worktree> stash push -m "orphan-<日付>: <経緯>"
+```
+
+`wip-audit.ps1` の検査4がこの43ファイルを毎回列挙するので、見落とすことはもう無い。
