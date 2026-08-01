@@ -221,12 +221,15 @@ public final class CraftQualityService {
         return tuning == null ? CraftQualityConfig.SpreadTuning.IDENTITY : tuning;
     }
 
+    // キー名は CraftQualityConfig の定数を参照する — lore から落とす判定
+    // (CraftQualityConfig#inertSpreadStatKeys)と読み出し側でキーがズレると、
+    // 「効いているのに消える」/「効かないのに出る」が無言で起きるため。
     private double craftUpswingBonus(Player player) {
-        return readDoubleStat(player, "craft_upswing_bonus");
+        return readDoubleStat(player, CraftQualityConfig.UPSWING_STAT_KEY);
     }
 
     private double craftDownswingBonus(Player player) {
-        return readDoubleStat(player, "craft_downswing_reduction");
+        return readDoubleStat(player, CraftQualityConfig.DOWNSWING_STAT_KEY);
     }
 
     public CraftRollMods craftRollMods(Player player) {

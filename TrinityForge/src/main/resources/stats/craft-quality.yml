@@ -26,6 +26,16 @@
 # いずれも 0 未満へは落とさない (σ=0 は「その側は mode 固定」の意味になる)。
 # 既定値(scale=1.0 / flat=0.0)は分離前とまったく同じ挙動 — ここを触らない限りバランスは動かない
 # (Java側 CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致。CraftQualitySpreadSplitTest が固定している)。
+#
+# ※上振れ側の「0未満へ落とさない」は分離のときに新設したもの(分離前の上振れはクランプ無しだった)。
+#   upswing-flat に負値を書けるようにしたぶん σ が負に振り切れるのを止めるためで、既定値では発火しない
+#   (spread-up 自体が 0 以上・flat=0・ステ側も 0 以上に潰してあるので、足し算の結果が負にならない)。
+#
+# ※upswing-scale / downswing-reduction-scale を workbench と ritual の「両方とも 0」にすると、
+#   そのステ(craft-upswing-bonus / craft-downswing-reduction)はどこにも効かなくなる。その場合は
+#   アイテムやパークが値を持っていても lore の該当行を出さない(効かないものを説明しない、が規約)。
+#   片方だけ 0 なら「その経路でだけ効かない」なので lore には出したままにする。
+#
 # 品質mode側の分割(作業台=workbench-quality-bonus / 儀式=ritual-quality-bonus)は別途ステ側で済んでいる。
 
 mode:
