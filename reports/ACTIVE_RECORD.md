@@ -3151,3 +3151,81 @@ git -C <worktree> stash push -m "orphan-<日付>: <経緯>"
 ```
 
 `wip-audit.ps1` の検査4がこの43ファイルを毎回列挙するので、見落とすことはもう無い。
+
+---
+
+## 2026-08-01（棚卸し）— 残タスクの実コード照合。**記録の腐り5件を訂正**
+
+ユーザー依頼「残タスクとバグ修正・コンテンツ追加依頼の確認」に対し、記録を読み上げずに
+**実コードで裏を取った**。過去の棚卸しで15件が「既に実装済み」だった前科があるため。
+
+### 0. 前提そのものが消滅している（最重要）
+
+**「他セッションの未コミット変更に阻まれていて着手できない」（本記録 2838-2848 行）は全て stale。**
+メインワークツリーは clean、ArsPaper フォークも実質 clean（`M libs/TrinityForge.jar` と `?? tmp/` のみ、
+HEAD は `a15adab`）。**U7 / U5 / U6 / U1 / N6 / U14 / N4 / K-16 のブロッカー記述は全部無効で、
+いつでも着手できる。** 「フォーク待ち」も同様（X1 レーンは `ba2811d` / `c9a4a37` で完了済み）。
+
+### 1. 訂正が必要だったもの
+
+| id | 記録 | 実測 |
+|---|---|---|
+| **U7 原因1** | 「`items/catalog.yml:397` の `NETHERITE` → `NETHERITE_INGOT` の1語で復活」 | **出荷 yml にその文字列は存在しない。** catalog.yml を触った全6コミット・stash 3件・worktree 38本を `--all --full-history` で走査して出現0件。実在したのは**配備済み config** 側（`Main_Server/plugins/TrinityForge/items/catalog.yml:383-397`）。**さらに「1語で復活」も誤り** ── 出荷 yml は `method: netherite` なので配備すると原因2に直撃し、故障が「レシピ登録スキップ」から「鍛冶台に弓を置けない」へ変わるだけ |
+| **U5 重武器の火力** | 未着手 | **`efb822a` で解決済み。** MACE `attack-power: 1575`(×1.25) / `attack-speed: 0.408`(×0.85)。実効DPS比 H/L は9帯中8帯で **+24%**（目標帯 +0〜+15% を**やや超過**）|
+| **U8 解凍レシピの補完** | 「content 作業として残る」 | **既に0件。** `materials.yml` の24ファミリ・67エントリ全部が `recipe:` を持ち `reversible: true`（`RecipeManager`/`UnifiedRecipeLoader` が消費する実効フラグ）|
+| **K-16** | 表題「上位ソースリンクの config 化」 | config 化そのものは `4bfbed0` で完了（int オーバーフローで投入分が全損する穴も `buffer-cap` クランプで解消済み）。**未実装なのは「レートを上げる階梯」**。`max-per-transfer` は全リンク共通が1個あるだけで種別別・上位段別の上書きが無い。**表題を「レート上昇階梯の実装」へ改めるべき** |
+| **N4 / U14 / U1 / N6** | 「X1（フォーク直列レーン）待ち」 | フォークは空いている。**待ちではなく単に未着手** |
+
+**U5 の判定は計算モデルに強く依存する（自己反証の記録）。** 素朴に `attack-power × attack-speed` で
+出すと H/L = **0.49** で真逆の結論になる。正しくは 10tick 無敵によるヒットレート上限（最大2発/秒）と
+`damage-modifier` を入れる必要があり、それを入れると攻撃速度4.12の軽武器は速度の優位を失う
+（TF は無敵時間を変更していない ── `NoDamageTicks` の grep 0件）。
+**武器クラス間の DPS パリティを守る自動テストは0本**なので、次に片側の数値を触ると無言で壊れる。
+
+### 2. 現在も未解決（実コードで確定）
+
+| id | 内容 | 根拠 |
+|---|---|---|
+| **U7 原因2** | NETHERITE メソッドの13件が Bukkit へ一切登録されない。`RecipeSpec.isBukkitCrafting()` は workbench/inventory のみ true で、`CatalogRecipeRegistrar.java:95` が弾く。リポジトリ全体で `new SmithingTransformRecipe` は**0件** | 影響: `netherite_bow`(384) / `netherite_trident`(4029) / `netherite_mace`(4120) / `netherite_crossbow`(4223) |
+| **U6** | 「攻撃速度を最低値へ」が一切未適用。`efb822a` の ×0.85 は HEAVY_WEAPONS 66件のみで対象品は全部圏外 | BOW/CROSSBOW `attack-speed: 4`(表中最大) / 杖(BLAZE_ROD#400001-400014) は**キー自体が無く** `AttackSpeedResolver.java:46-48` で TF 不干渉＝バニラ4.0 / TRIDENT 0.48 |
+| **U1 / N6** | 儀式EXPは今も定額。`ArsProgressionBridge.grantSmithingCraftExp` → `ars-smithing.exp-per-craft: 100` で素材表を参照しない。素材表は作業台側にしかない | 併せて `CraftQualityListener.java:227-236` の `materialToken` が TF カタログ PDC しか読まず Ars の `arspaper:custom_item_id` を読まないため、**出荷表の `custom:` 13行のうち12行が死んでいる** |
+| **U14** | `SummonSteedEffect.java:85` が `setSaddle(new ItemStack(Material.SADDLE))`。召喚馬のインベントリを守る仕組みは fork に0件 | |
+| **U10** | ArmorStand/Mannequin の除外は `DamagePopupDisplay.java:67` と `FocusHpDisplay.java:191,205` の2箇所だけで**EXP 経路に無い**。現在の唯一の防波堤は `skill-exp.yml:207/143` の `unlisted-entity-multiplier: 0` | 追記: N5 で弓術も討伐時ベースへ統一されたので、`A-U10.md` が挙げた per-hit 経路は**消滅済み**。未検証: ArmorStand で `EntityDeathEvent` が実際に発火するか（発火しないなら 1.0 に戻しても再発しない可能性）|
+| **N4** | `SortMode` は NAME/KIND/LEVEL/DEFAULT の4つのみ（要求の「防具・素材・武器・ツール・その他」5分類は無い）。`KindMode` は ALL/WORKBENCH/RITUAL のみ。`RecipeBrowserGui.java`(74KB) に `quality`/`品質` の出現**0件** | |
+| **U16** | 記録どおり**配備で直る**。出荷 yml には既に無く、配備済み config にだけ残る | 罠: 出荷 yml `:17` の `POTION` は junk-to-scrap の**分類用フォールバック**（`:7-9` に明記）で釣果テーブルではない。「まだ直っていない」と誤読しないこと |
+
+### 3. コンテンツ追加の実装状況 ── **計画7本柱のうち実装は2本半**
+
+計画書は `docs/design/2026-08-01-content-expansion-plan.md`（488行、数値まで具体化済み）。
+
+**実装済み**: 柱1（`gates.yml` 19件＋鍵17種、`catalog.yml:4948-5160`）／柱3-A（枠拡張儀式・
+振り直しへの `reality_thread_core` 要求・`stat-caps` 8キー・`thread-sets` 死に値修正）／
+着手前修正 0-6・0-7（`wood-repair` のキー修正、農業 drop-tables 新設）。
+
+`key_hallosseum` / `key_north_pole` の2種は**意図的に未実装**（`catalog.yml:4942-4945` に理由）。
+ルートチェストへ独自アイテムを注入する機構が無く（`LootGenerateEvent` は削除用途にしか使っていない）、
+到達不能なアイテムを生やさない判断。
+
+**未着手（grep 0件で確認）**
+
+| 柱 | 内容 | 実測 |
+|---|---|---|
+| 柱5 | 新シリーズ26種（`cryocore_*` 13＋`emberforge_*` 17）＋単発装備8点 | `cryocore` / `emberforge` ともに**0件** |
+| 柱7 | `use-role` ＋ロール専用装備8点 | `use-role` がリポジトリに**0件** |
+| 柱2 | 束縛者の HP/attack 倍率4段階 | `mob-overrides.yml` に実キー0件（コメント例2件のみ）|
+| 柱2-1 | 他24ダンジョンボスへの `abilities` 付与 | 16件のまま変化なし。**24ダンジョンのボスは今も特殊攻撃ゼロ** |
+| 柱4 | 用途ゼロ30件の解消 | コア4種（`tf_core_wood/meat/vegetable/dirt`）は依然ガチャ景品のみで**消費レシピ0件＝用途ゼロのまま**。`pillager_plate`/`piglin_ear`/`skeleton_horse_bone` の醸造追加も、村人取引側の `tf_scrap` も未実装 |
+| 柱6 | `infinity_source_core` を炉として機能させる | 実装なし（`collection.yml:134-143` にコレクション目標としての記述のみ）|
+| K-22(2) | `goal_worldbinder` の parent を `delve_relics` へ戻す | `achievements.yml:522` は今も `parent: delve_all_seals`。**「第1目標が実質最後になる」バグは未解消** |
+
+なお `stat-caps.yml` の値は計画の初期値（attack-power 16,000 等）ではなく、同日後半の
+バランス調整（要件18/19）でさらに引き上げた値（137,500 等）になっている。柱3-A-4 自体は
+実装済みだが**最終値は本プランの数値とは別物**。
+
+### 4. この照合で確認していないこと（明示）
+
+- テストスイートは実走していない（調査のみの指示のため）
+- 実サーバでの動作確認なし。鍛冶台 `SmithingMenu` の `mayPlace` 制約は `C-U7.md` の逆アセンブル結果の引用
+  （ただし TF が `SmithingTransformRecipe` を1件も登録していないことは実コードで確定）
+- U5 の DPS は机上計算（`per-quality` / `random` ロールとプレイヤー側ステータスを無視）
+- EliteMobs フォークは今回見ていない
