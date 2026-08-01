@@ -6,6 +6,8 @@ import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.progression.CollectionService;
+import io.papermc.paper.event.player.PlayerPickBlockEvent;
+import io.papermc.paper.event.player.PlayerPickEntityEvent;
 import net.kyori.adventure.text.Component;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -33,6 +35,7 @@ import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -241,22 +245,42 @@ class CollectionListenerGuardsTest {
     }
 
     /**
-     * クリエイティブのアイテム生成(SetCreativeModeSlot パケット相当)を1件流す。
+     * クリエイティブのスロット書き込み(SetCreativeModeSlot パケット相当)を1件流す。
      *
      * <p>view を Mockito でモックするのは、MockBukkit の {@code InventoryView#convertSlot} が
      * <b>未実装</b>で、{@code InventoryClickEvent} のコンストラクタがそれを呼ぶため
      * ({@code UnimplementedOperationException} は {@code TestAbortedException} を継承するので、
      * そのままだとテストが FAILED ではなく<b>SKIPPED に化けて素通りする</b>)。
      * {@code InventoryCreativeEvent#getCursor}/{@code setCursor} は自前フィールドを読み書きするので
-     * view には一切依存しない ── スタブが必要なのは convertSlot の1メソッドだけ。
+     * cursor 側は view に依存しない。view から引くのは
+     * <b>誰が書いたか({@code getPlayer})と書き込み前のスロット内容({@code getItem})</b>の2つで、
+     * どちらも「整理か新規生成か」の判定に必須。
+     *
+     * @param previous 書き込み<b>前</b>のそのスロットの内容({@code null} = 空)
+     * @param written  書き込まれる内容(= イベントの cursor)。{@code null}/AIR ならスロットが空になる操作
      */
-    private static InventoryCreativeEvent creativeSet(CollectionListener listener, ItemStack newItem) {
+    private static InventoryCreativeEvent creativeSet(CollectionListener listener, Player player,
+                                                      ItemStack previous, ItemStack written) {
+        return creativeSet(listener, player, 0, previous, written);
+    }
+
+    private static InventoryCreativeEvent creativeSet(CollectionListener listener, Player player,
+                                                      int rawSlot, ItemStack previous, ItemStack written) {
         org.bukkit.inventory.InventoryView view = mock(org.bukkit.inventory.InventoryView.class);
-        when(view.convertSlot(0)).thenReturn(0);
+        when(view.convertSlot(rawSlot)).thenReturn(rawSlot);
+        when(view.getPlayer()).thenReturn(player);
+        when(view.getItem(rawSlot)).thenReturn(previous);
         InventoryCreativeEvent event = new InventoryCreativeEvent(view,
-                InventoryType.SlotType.CONTAINER, 0, newItem);
+                InventoryType.SlotType.CONTAINER, rawSlot, written);
         listener.onCreativeSet(event);
         return event;
+    }
+
+    /** クリエイティブのプレイヤーを1人用意する(スロット書き込み系のテストの前提)。 */
+    private Player creativePlayer() {
+        Player player = server.addPlayer();
+        player.setGameMode(GameMode.CREATIVE);
+        return player;
     }
 
     // --- 5-1: クリエイティブ/スペクテイター除外 ---
@@ -337,13 +361,14 @@ class CollectionListenerGuardsTest {
     }
 
     @Test
-    @DisplayName("クリエイティブのアイテム生成(InventoryCreativeEvent)に出自マーカーを刻む")
+    @DisplayName("クリエイティブのアイテム欄から新しく湧いた品には出自マーカーを刻む")
     void creativeInventorySetStampsTheCreativeOriginMarker() {
         Fixture f = fixture();
-        // このイベントはサーバ側がクリエイティブのプレイヤーにしか通さない
-        // (handleSetCreativeModeSlot が gameMode.isCreative() で門前払いする)ので、
-        // ハンドラ側でゲームモードを再判定する必要はない。
-        InventoryCreativeEvent event = creativeSet(f.listener, new ItemStack(Material.DIAMOND));
+        Player player = creativePlayer();
+
+        // 空のスロットへ、手持ちに無い品が現れた = アイテム欄から湧いた。
+        InventoryCreativeEvent event = creativeSet(f.listener, player, null,
+                new ItemStack(Material.DIAMOND));
 
         assertTrue(creativeOrigin(event.getCursor()),
                 "クリエイティブインベントリからの取り出しはこの経路で来る(通常のインベントリ操作は"
@@ -681,5 +706,309 @@ class CollectionListenerGuardsTest {
         assertTrue(recorded(player, "EMERALD"));
         assertTrue(announced(player),
                 "フラグは拾得と走査で共有する。経路ごとに別扱いすると通知の出方が経路依存になる");
+    }
+
+    // --- G2 再レビュー 指摘1(a): 正当な品に印が誤って付く経路を閉じる ---
+
+    /**
+     * <b>HIGH 指摘の本体</b>。{@code InventoryCreativeEvent} は「アイテム生成」専用ではなく、
+     * クリエイティブのクライアントが書き換えたスロットの<b>結果</b>を送るパケットなので、
+     * ホットバーの並べ替えでも飛ぶ。しかも持ち上げと置き直しは別クリック＝別パケットで、
+     * 置き直しの時点では品がインベントリのどこにも無い。無条件に刻むと、資源サーバで
+     * 正当に入手したエリトラをメイン world(creative)で整理するだけで印が付き、
+     * <b>そのスタックは永久に図鑑に載らなくなる</b>(エラーも通知も出ない)。
+     */
+    @Test
+    @DisplayName("HIGH: クリエイティブ画面での並べ替え(持ち上げ→置き直し)には印を付けない")
+    void rearrangingAnOwnedItemInCreativeDoesNotStampIt() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        ItemStack legit = new ItemStack(Material.ELYTRA);
+        player.getInventory().setItem(0, legit);
+
+        // 1クリック目: ホットバー0を持ち上げる → 「スロット0 = 空」が届く。
+        creativeSet(f.listener, player, 0, legit, null);
+        player.getInventory().setItem(0, null); // サーバがスロットを空にする
+        assertFalse(creativeOrigin(legit), "持ち上げただけで印が付いてはいけない");
+
+        // 2クリック目: ホットバー3へ置く → 「スロット3 = エリトラ」が届く。
+        // この時点でエリトラはインベントリのどこにも無い(カーソルもサーバ側では更新されない)。
+        InventoryCreativeEvent placed = creativeSet(f.listener, player, 3, null, legit);
+
+        assertFalse(creativeOrigin(placed.getCursor()),
+                "整理を新規生成と誤認すると、資源サーバで正当に入手した品が永久に図鑑に載らなくなる");
+    }
+
+    @Test
+    @DisplayName("並べ替えを1件覚えたあとでも、別の品の新規生成には印を付ける(緩めすぎていないこと)")
+    void spawningADifferentItemAfterARearrangeIsStillStamped() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        ItemStack legit = new ItemStack(Material.ELYTRA);
+        player.getInventory().setItem(0, legit);
+
+        creativeSet(f.listener, player, 0, legit, null); // エリトラを持ち上げる
+        player.getInventory().setItem(0, null);
+
+        InventoryCreativeEvent spawned = creativeSet(f.listener, player, 3, null,
+                new ItemStack(Material.TOTEM_OF_UNDYING));
+
+        assertTrue(creativeOrigin(spawned.getCursor()),
+                "覚えているのは持ち上げた品だけ。別の品を湧かせたら従来どおり刻む");
+    }
+
+    @Test
+    @DisplayName("同じ品が既にそのスロットに居た書き込み(個数変更・積み増し)には印を付けない")
+    void restackingTheSameItemInTheSameSlotIsNotStamped() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        ItemStack previous = new ItemStack(Material.ECHO_SHARD, 8);
+        ItemStack written = new ItemStack(Material.ECHO_SHARD, 16);
+
+        InventoryCreativeEvent event = creativeSet(f.listener, player, previous, written);
+
+        assertFalse(creativeOrigin(event.getCursor()),
+                "同じ品が既にそのスロットに居るなら新規生成ではない");
+    }
+
+    @Test
+    @DisplayName("既に同じ品を持っているなら新しく湧いた分にも印を付けない(誤付与を避ける側へ倒す)")
+    void spawningAnItemTheePlayerAlreadyOwnsIsNotStamped() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        player.getInventory().setItem(5, new ItemStack(Material.TOTEM_OF_UNDYING));
+
+        InventoryCreativeEvent event = creativeSet(f.listener, player, null,
+                new ItemStack(Material.TOTEM_OF_UNDYING));
+
+        assertFalse(creativeOrigin(event.getCursor()),
+                "既に持っている品はそちらで図鑑を埋められるので、塞ぐ意味が無いのに誤付与のリスクだけ増える");
+    }
+
+    @Test
+    @DisplayName("印付きの品を既に持っている状態なら、印無しの同種を湧かせた分は刻む")
+    void spawningAnUnstampedCopyOfAStampedItemIsStillStamped() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        ItemStack stamped = new ItemStack(Material.TOTEM_OF_UNDYING);
+        ItemMeta meta = stamped.getItemMeta();
+        ItemData.of(meta).markCreativeOrigin();
+        stamped.setItemMeta(meta);
+        player.getInventory().setItem(5, stamped);
+
+        InventoryCreativeEvent event = creativeSet(f.listener, player, null,
+                new ItemStack(Material.TOTEM_OF_UNDYING));
+
+        assertTrue(creativeOrigin(event.getCursor()),
+                "印の有無で isSimilar が外れるので「既に持っている」には数えない"
+                        + "(数えると印付きを1個持つだけで無印の複製が作れる)");
+    }
+
+    @Test
+    @DisplayName("サバイバルのプレイヤーのスロット書き込みには印を付けない")
+    void aSurvivalPlayersCreativeSlotWriteIsNotStamped() {
+        Fixture f = fixture();
+        Player player = server.addPlayer();
+        player.setGameMode(GameMode.SURVIVAL);
+
+        InventoryCreativeEvent event = creativeSet(f.listener, player, null,
+                new ItemStack(Material.DIAMOND));
+
+        assertFalse(creativeOrigin(event.getCursor()),
+                "サーバは creative にしか通さないが、通ったら刻まない側で落とす");
+    }
+
+    @Test
+    @DisplayName("退出で並べ替えの記憶を捨てる(掃除しないマップは増え続ける)")
+    void quitDropsTheRememberedCreativeRemoval() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        ItemStack legit = new ItemStack(Material.ELYTRA);
+        player.getInventory().setItem(0, legit);
+        creativeSet(f.listener, player, 0, legit, null); // 持ち上げを覚える
+        player.getInventory().setItem(0, null);
+
+        f.listener.onQuit(new org.bukkit.event.player.PlayerQuitEvent(player, Component.empty(),
+                org.bukkit.event.player.PlayerQuitEvent.QuitReason.DISCONNECTED));
+
+        InventoryCreativeEvent placed = creativeSet(f.listener, player, 3, null, legit);
+
+        assertTrue(creativeOrigin(placed.getCursor()),
+                "記憶が残っていると、退出したプレイヤーの UUID がマップに残り続ける"
+                        + "(このテストは記憶が捨てられたことを刻印の有無で観測している)");
+    }
+
+    // --- G2 再レビュー 指摘2: 中クリック複製(pick block)も塞ぐ ---
+
+    /**
+     * 1.21.4 で pick block はサーバ側処理へ移り、{@code SetCreativeModeSlot} とは別系統の
+     * {@code ServerboundPickItemFromBlockPacket} になった(paper-api 1.21.11 に
+     * {@code PlayerPickBlockEvent} が存在することが物証)。塞がないと、印付きの
+     * {@code DRAGON_EGG} を設置して中クリックするだけで印無しのコピーが手に入る。
+     */
+    @Test
+    @DisplayName("クリエイティブの中クリック複製(ブロック)で湧いた品に印を刻む")
+    void creativePickBlockStampsTheDuplicatedItem() {
+        Plugin plugin = MockBukkit.createMockPlugin();
+        Fixture f = new Fixture(plugin);
+        Player player = creativePlayer();
+
+        f.listener.onPickBlock(new PlayerPickBlockEvent(
+                player, mock(org.bukkit.block.Block.class), false, 0, -1));
+        // バニラはイベントの後で複製品を選択スロットへ入れる。
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DRAGON_EGG));
+        server.getScheduler().performOneTick();
+
+        assertTrue(creativeOrigin(player.getInventory().getItemInMainHand()),
+                "印付きの DRAGON_EGG を設置して中クリックすれば印無しのコピーが取れてしまう");
+    }
+
+    @Test
+    @DisplayName("既に持っている品の中クリックには印を付けない(選び直しただけの操作)")
+    void pickBlockOfAnAlreadyOwnedItemIsNotStamped() {
+        Plugin plugin = MockBukkit.createMockPlugin();
+        Fixture f = new Fixture(plugin);
+        Player player = creativePlayer();
+        player.getInventory().setItem(7, new ItemStack(Material.DRAGON_EGG));
+
+        f.listener.onPickBlock(new PlayerPickBlockEvent(
+                player, mock(org.bukkit.block.Block.class), false, 0, 7));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DRAGON_EGG));
+        server.getScheduler().performOneTick();
+
+        assertFalse(creativeOrigin(player.getInventory().getItemInMainHand()),
+                "サバイバル同様「持っている品を選び直す」操作なので、刻むと正当な品に印が付く");
+    }
+
+    @Test
+    @DisplayName("サバイバルの中クリックには印を付けない")
+    void survivalPickBlockIsNotStamped() {
+        Plugin plugin = MockBukkit.createMockPlugin();
+        Fixture f = new Fixture(plugin);
+        Player player = server.addPlayer();
+        player.setGameMode(GameMode.SURVIVAL);
+
+        f.listener.onPickBlock(new PlayerPickBlockEvent(
+                player, mock(org.bukkit.block.Block.class), false, 0, -1));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DRAGON_EGG));
+        server.getScheduler().performOneTick();
+
+        assertFalse(creativeOrigin(player.getInventory().getItemInMainHand()));
+    }
+
+    @Test
+    @DisplayName("クリエイティブの中クリック複製(エンティティ)も同じ経路で刻む")
+    void creativePickEntityStampsTheDuplicatedItem() {
+        Plugin plugin = MockBukkit.createMockPlugin();
+        Fixture f = new Fixture(plugin);
+        Player player = creativePlayer();
+
+        f.listener.onPickEntity(new PlayerPickEntityEvent(
+                player, mock(org.bukkit.entity.Entity.class), false, 0, -1));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.ELYTRA));
+        server.getScheduler().performOneTick();
+
+        assertTrue(creativeOrigin(player.getInventory().getItemInMainHand()));
+    }
+
+    // --- G2 再レビュー 指摘3: 図鑑機能が無効なら印も付けない ---
+
+    /**
+     * 印は PDC なので、刻んだスタックは {@code minecraft:custom_data} が付き
+     * {@code isSameItemSameComponents} が不一致になって<b>素の同種スタックと合体しない</b>。
+     * 図鑑が無効なら印から得られる利益はゼロで、この副作用だけが残る
+     * (配布用チェストに入れた石64個が受け取ったプレイヤーの石と合体せずスロットを二重に食う)。
+     */
+    @Test
+    @DisplayName("図鑑機能が無効ならクリエイティブのスロット書き込みに印を付けない")
+    void creativeSetDoesNotStampWhenTheFeatureIsDisabled() {
+        Fixture f = fixture();
+        when(f.config.enabled()).thenReturn(false);
+        Player player = creativePlayer();
+
+        InventoryCreativeEvent event = creativeSet(f.listener, player, null,
+                new ItemStack(Material.DIAMOND));
+
+        assertFalse(creativeOrigin(event.getCursor()),
+                "無効なサーバでは、素の同種スタックと合体しなくなる副作用だけが残る");
+    }
+
+    @Test
+    @DisplayName("図鑑機能が無効ならクリエイティブの拾得にも印を付けない")
+    void creativePickupDoesNotStampWhenTheFeatureIsDisabled() {
+        Fixture f = fixture();
+        when(f.config.enabled()).thenReturn(false);
+        Player player = creativePlayer();
+        ItemStack stack = new ItemStack(Material.DIAMOND);
+
+        pickup(f.listener, player, stack);
+
+        assertFalse(creativeOrigin(stack));
+    }
+
+    @Test
+    @DisplayName("図鑑機能が無効なら中クリック複製にも印を付けない")
+    void pickBlockDoesNotStampWhenTheFeatureIsDisabled() {
+        Plugin plugin = MockBukkit.createMockPlugin();
+        Fixture f = new Fixture(plugin);
+        when(f.config.enabled()).thenReturn(false);
+        Player player = creativePlayer();
+
+        f.listener.onPickBlock(new PlayerPickBlockEvent(
+                player, mock(org.bukkit.block.Block.class), false, 0, -1));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DRAGON_EGG));
+        server.getScheduler().performOneTick();
+
+        assertFalse(creativeOrigin(player.getInventory().getItemInMainHand()));
+    }
+
+    // --- G2 再レビュー 指摘5: 印をスロット/アイテムエンティティへ反映させる本番経路 ---
+
+    /**
+     * {@code onPickup} の {@code setItemStack} による書き戻しは<b>死にコードではない</b>。
+     * 現在の {@code CraftItem#getItemStack()} は NMS スタックの mirror なので in-place の
+     * 書き込みでも通るが、<b>copy を返す実装に変わったら印付けが無言で全滅する</b>。
+     * ここでは getItemStack() が毎回 copy を返すアイテムエンティティを作り、
+     * 書き戻し経路だけで印が残ることを固定する(書き戻しを消すとこのテストが落ちる)。
+     */
+    @Test
+    @DisplayName("拾得の印は getItemStack() が copy を返す実装でも書き戻しで残る")
+    void creativePickupWriteBackSurvivesACopyingItemEntity() {
+        Fixture f = fixture();
+        Player player = creativePlayer();
+        AtomicReference<ItemStack> stored = new AtomicReference<>(new ItemStack(Material.DIAMOND));
+        Item drop = mock(Item.class);
+        when(drop.getItemStack()).thenAnswer(invocation -> stored.get().clone());
+        doAnswer(invocation -> {
+            stored.set(invocation.getArgument(0));
+            return null;
+        }).when(drop).setItemStack(org.mockito.ArgumentMatchers.any());
+
+        f.listener.onPickup(new EntityPickupItemEvent(player, drop, 0));
+
+        assertTrue(creativeOrigin(stored.get()),
+                "mirror 前提の in-place 書き込みだけに頼ると、copy を返す実装で印付けが無言で全滅する");
+    }
+
+    /**
+     * 中クリック複製側の書き戻し。{@code getItemInMainHand()} も mirror だが、同じ理由で
+     * {@code setItemInMainHand} まで通していることをスロットの実内容で確認する
+     * (イベントの自前フィールドではなく、走査が実際に読むスロットを見る)。
+     */
+    @Test
+    @DisplayName("中クリック複製の印はスロットの実内容に載る(走査が読む場所と同じ)")
+    void pickBlockMarkerLandsOnTheActualHotbarSlot() {
+        Plugin plugin = MockBukkit.createMockPlugin();
+        Fixture f = new Fixture(plugin);
+        Player player = creativePlayer();
+        player.getInventory().setHeldItemSlot(4);
+
+        f.listener.onPickBlock(new PlayerPickBlockEvent(
+                player, mock(org.bukkit.block.Block.class), false, 4, -1));
+        player.getInventory().setItem(4, new ItemStack(Material.DRAGON_EGG));
+        server.getScheduler().performOneTick();
+
+        assertTrue(creativeOrigin(player.getInventory().getItem(4)),
+                "イベントの戻り値ではなく、走査(getContents)が読むスロットに印が載っていること");
     }
 }
