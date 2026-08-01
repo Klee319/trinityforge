@@ -3314,3 +3314,23 @@ U14 の対策が `InventoryOpenEvent` を無条件キャンセルしていたが
 - ArsPaper フォークの `libs/TrinityForge.jar` は未コミットのまま（tracked かつ public repo なので push 不可）。
   **クリーンチェックアウトからは fork がコンパイルできない状態**
 - 43件の持ち主不明 WIP（他ワークツリー）は手つかず
+
+### 6. 2026-08-02 追記: §4 の残り指摘を潰した
+
+| 指摘 | 状態 | 根拠 |
+|---|---|---|
+| ~~HIGH: WEAPONSMITH の取引2件が実行時に消える~~ | **解決** `71695b8` | `tf_scrap` / `tf_core_jewelry` は **ArsPaper の materials.yml 由来**で TF カタログには存在しない。`resolveStack` が TF カタログしか引いていなかった。Ars レジストリへフォールバック＋`amount` の適用漏れも修正＋捨てるときに警告を出すようにした |
+| ~~MEDIUM: 柱4 の村人取引が未実装~~ | **解決** `71695b8` | 上の修正で解決可能になった。`TOOLSMITH` に `tf_scrap`×8 → `iron_ingot_scrap`×4（＝ゴミ8→鉄1）。`tf_scrap` は釣りのゴミとガチャからも出るので回収路として成立する |
+| ~~MEDIUM: `ShippedBossStrengthDriftTest` がランプ定数を直書き~~ | **解決** `87f7fbf` | `mob-import.yml` から読むようにした。`growth` を 1.072→1.080 にすると落ちることを確認 |
+| ~~MEDIUM: `stat-caps.md` が stale~~ | **解決** `87f7fbf` | 実値は cap 127500 / 単品最大 111,395.9（`NETHERITE_SWORD#5611`）。**md が出荷 cap を引用していることを落とすテストを追加**（値を書き換えると落ちることを確認）。stale が2回続いた根本はゲートが無かったこと |
+| ~~MEDIUM: U7 のテストが production 意味論を主張~~ | **解決** `87f7fbf` | MockBukkit にバニラのスミスレシピが無いから全件通るだけ。実サーバでは 7 件が除外され 5 件。テスト名とメッセージを実態に合わせた（除外されても壊れない理由も明記） |
+| ~~MEDIUM: エンチャント試練1〜9のボスが特殊攻撃ゼロ~~ | **解決** `437bb8a` | 9体へ1つずつ付与。ability 持ちは 34→43 体 |
+| ~~MEDIUM: 醸造テストが `plan()` を通していない~~ | **解決** `437bb8a` | `plan()` は未知素材・バニラ衝突・重複ペアを警告だけ出して黙って落とす。`ShippedBrewDeadEndPlanTest` を追加 |
+| ~~MEDIUM: `generate-item-stats.js` が無言で巻き戻す~~ | **解決** `437bb8a` | `--force` が無いと実行を拒否し、何が失われるかを列挙する |
+
+**残る判断待ち（コード側の対応は不要）**
+
+- `apex-brew` の SPEED `amplifier: 2`（速度III）はバニラ上限（速度II）超え。カスタム醸造なので意図的とも取れるが、値はユーザー判断
+- GOLD帯（`use-level-requirement` 35）は H/L が 0.89〜0.95 で重武器が弱いまま。全品の `damage-modifier` が 0.95〜0.98 に揃っている構造的なもので、U5 のスコープ外
+- 束縛者 HP 29,106 は Spigot 既定の `attribute.maxHealth.max`（1024）超え。既存サーバは引き上げ済みだが**新設サーバでは無言でクランプされる**
+- ArsPaper フォークの `libs/TrinityForge.jar` は未コミットのまま（tracked かつ public repo なので push 不可）。クリーンチェックアウトからは fork がコンパイルできない
