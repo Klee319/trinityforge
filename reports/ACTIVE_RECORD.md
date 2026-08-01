@@ -120,17 +120,17 @@ SKIPPED として報告される**ため、「この 2 件から増えていな�
 
 | # | 内容 | 詳細 |
 |---|---|---|
-| **K-11** | **図鑑「遺物」16 件（バニラ Material）が構造的に記録不能** → **第3目標が達成不能** | `CollectionListener.catalogIdOf` 冒頭の `!stack.hasItemMeta()` で早期 return するため、**メタを持たない素のバニラアイテムが 1 件も記録されない**。`collection.yml` の `items.structure`（ELYTRA / TOTEM_OF_UNDYING / DRAGON_EGG / ECHO_SHARD ほか 16 件）が永久に錠前のまま。2026-07-29 に「バニラ Material も図鑑に載せる」を実装した時点からの欠陥で、`goal_completionist`（`percent: 100`）が誰も達成できない。**`CollectionArsItemRecordingTest` の `watchedVanillaMaterialStillRecorded` は緑になる** ── MockBukkit の `ItemStack#hasItemMeta()` が素のスタックでも true を返すため（`common-traps.md` の MockBukkit 素通り罠と同型）。修正は Material 判定を meta ゲートより前へ出すだけ |
+| ~~K-11~~ | ~~**図鑑「遺物」16 件（バニラ Material）が構造的に記録不能** → **第3目標が達成不能**~~ | **解決（`d1fb079`、`git show` で確認済み）**。meta ゲートを「メソッド全体の早期 return」から「分岐セレクタ」へ変更し、Material 判定を meta 無しスタックの fallback にした。以下は解決前の記述: `CollectionListener.catalogIdOf` 冒頭の `!stack.hasItemMeta()` で早期 return するため、**メタを持たない素のバニラアイテムが 1 件も記録されない**。`collection.yml` の `items.structure`（ELYTRA / TOTEM_OF_UNDYING / DRAGON_EGG / ECHO_SHARD ほか 16 件）が永久に錠前のまま。2026-07-29 に「バニラ Material も図鑑に載せる」を実装した時点からの欠陥で、`goal_completionist`（`percent: 100`）が誰も達成できない。**`CollectionArsItemRecordingTest` の `watchedVanillaMaterialStillRecorded` は緑になる** ── MockBukkit の `ItemStack#hasItemMeta()` が素のスタックでも true を返すため（`common-traps.md` の MockBukkit 素通り罠と同型） |
 | **K-12** | **討伐素材 4 件にドロップ元が無い** | `dragon_scale` / `elder_guardian_spike` / `wither_skull_fragment` / `warden_tendril` が `mob-overrides.yml` のどこからも落ちない。これらを材料にした**18 本のレシピがレシピ帳に出るのに永久に作れない**。`wither_skull_fragment` の lore は「ウィザーが討伐時に落とす」と明言していて実装と矛盾（K-5 と同型の「表示が実装からずれる」）。修正は ENDER_DRAGON / ELDER_GUARDIAN / WITHER / WARDEN へ `add-drops` を足すだけで **editor から完結する** |
-| **K-13** | **醸造レシピ 10 件中 9 件が成立しない** | 討伐素材（ウィッチの秘薬・ガーディアンの棘・ホグリンの牙ほか）が**バニラの醸造素材ではないため醸造台の上段に置けない**。`apex-brew` 4 件は全滅（アルケミー Lv90 ノードが完全な無効果）、`survivor-brew` 3 件も全滅、`hunter-hex` は 1 件だけ生きる。既存の `healthboost-haste` / `-2` の `AWKWARD+GOLDEN_APPLE→LUCK` も同じ理由で元から不成立。修正には `PotionBrewer#addPotionMix` での ingredient 登録が必要（＝Java 側の対応が要る） |
+| ~~K-13~~ | ~~**醸造レシピ 10 件中 9 件が成立しない**~~ | **解決（`076b8d1`、`git show` で確認済み）**。`BrewPotionMixRegistrar` を追加し `PotionBrewer#addPotionMix` で customMixes を登録した（D10 として §7 の履歴にも記載）。以下は解決前の記述: 討伐素材（ウィッチの秘薬・ガーディアンの棘・ホグリンの牙ほか）が**バニラの醸造素材ではないため醸造台の上段に置けない**。`apex-brew` 4 件は全滅（アルケミー Lv90 ノードが完全な無効果）、`survivor-brew` 3 件も全滅、`hunter-hex` は 1 件だけ生きる。既存の `healthboost-haste` / `-2` の `AWKWARD+GOLDEN_APPLE→LUCK` も同じ理由で元から不成立 |
 | **K-14** | **リソースパック配線が未了（Wave 4 は意図的に未実施だが、副作用で 7 件が別アイテムに化ける）** | 27 枚の PNG は参照元（`models/item/*.json` と `assets/minecraft/items/*.json`）が無いので**パックに入っても描画されない**。さらに既存の items json が既に張られている 7 件は**素のバニラではなく別アイテムの見た目で出る**（ピリジャーの鎧片が「重金属」、深淵/束縛者の弓・メイス・トライデント計 6 種が「ソースジェム武器」）。`dist/TrinityForge-Pack.zip` も今バッチ以前のコミットのままで `dungeon_seal` を 1 件も含まない。統合版向け `texts/*.lang` は 1 件も無い（無いと識別子がそのまま名前になる既知の罠）。441 CMD 中 299 が未配線 |
 | **K-15** | **ユーザーが挙げた「テクスチャ準備済み」18 種は、このリポジトリにも配備先パックにも見つからない** | ガチャ券 6 種 / ミート・ダート・ベジタブルコア / モブ素材 13 種のテクスチャが `resourcepack/` に存在しない。配備先 Bedrock パックのダンプ（135 items）にも 2 件しか無い。**ローカル素材か未コミットの別フォルダにしか無いと考えるのが妥当**で、ユーザーに置き場所を確認しないと着手できない。ウッドコアとジュエリーコアだけは専用見た目がある |
-| **K-16** | **「強化ループ」＝ソース生産レートを上げる機構が存在しない** | 階梯 9 段は容量（capacity）を増やすだけで**レートを上げない**。`MAX_DRAIN_PER_TICK` が固定なのでソース機関（3000 万）を 1 個焼べても実際にジャーへ入るのは 1 日 86.4 万ずつ＝回収に約 35 日。レートを上げる唯一の手段はソースリンクの台数で、1 台 400 ソースで無制限に量産できる。結果**第2目標の到達時間は「何台並べたか」だけで決まる**（1 台なら 4 ヶ月弱／並べれば数日）＝「作業厨で約 1 ヶ月」が成立しない。加えてバッファが INTEGER PDC で上限クランプが無く、約 2.1 億超で int オーバーフロー→負値→投入分が無言で全損する |
+| K-16 | **「強化ループ」＝ソース生産レートを上げる機構が存在しない** | **部分前進（2026-08-01、フォーク `4bfbed0` で確認済み）**: 「ソース転送の config 化」が入り、旧来ハードコードだったソース転送の挙動が config 駆動になった。**ただし既定値は据え置きで、「レートを上げる階梯」自体は未実装のまま**なので取り消し線は付けない。以下は解決前の記述: 階梯 9 段は容量（capacity）を増やすだけで**レートを上げない**。`MAX_DRAIN_PER_TICK` が固定なのでソース機関（3000 万）を 1 個焼べても実際にジャーへ入るのは 1 日 86.4 万ずつ＝回収に約 35 日。レートを上げる唯一の手段はソースリンクの台数で、1 台 400 ソースで無制限に量産できる。結果**第2目標の到達時間は「何台並べたか」だけで決まる**（1 台なら 4 ヶ月弱／並べれば数日）＝「作業厨で約 1 ヶ月」が成立しない。加えてバッファが INTEGER PDC で上限クランプが無く、約 2.1 億超で int オーバーフロー→負値→投入分が無言で全損する |
 | **K-17** | **ロール限定コンテンツが 1 件も無い** | ロールの効果はステ注入・EXP 倍率・常時ポーション・ヘイト係数の 4 種だけ。**コンテンツ側からロールを参照する仕組み自体が未実装**（`use-requirements` の required-role や drops のロールゲートが無い）。「この職でないと作れない／出ない」が無いので、ロールはアイデンティティではなく小さなステ選択にとどまる。要件 4「有意義な活用」は数値面だけ満たしている |
 | **K-18** | **厳選に「育てる」側が無い** | メイン／サブステのランダム抽選と振り直し儀式までは成立しているが、**強化レベル（+0→+20）／サブステ 4 本の段階解放／部位別の主ステ固定／ロック／スコア表示／一括分解**が全て無い。原神型の周回のうち「引く」だけがあり「育てる・待つ・守る」が無い。加えて個体ごとに PDC が違うので**スタックせず周回でインベントリを圧迫する** |
 | **K-19** | **`stats/stat-caps.yml` が空なので厳選の上限が効かない** | 設計注記は「TF 側 stat-caps が最終上限を担保する」と書いているが出荷 config は空。会心率・貫通・攻撃力に実効上限が無いまま 9 枠フル厳選が通る。上限を書くか `thread-rolls.yml` の幅を見直すかの判断が未着手 |
 | **K-20** | **`reality_thread_core`（現実の芯）が説明どおりの用途に使われていない** | アイテム説明・ルート表のコメント・ドロップ設計はすべて「振り直しの触媒」と書いているのに、**振り直し儀式の実レシピは別素材（汎用のソースジェム／アメシスト）を要求する**。深部ダンジョン周回と厳選の周回が結び付いていない |
-| **K-21** | **旧 `config.yml` の `loot.*` キーが editor に残っている（今バッチで新しく生まれた「書いても効かない」箇所）** | ルート抽選を `loot-tables.yml` へ移したのに、`ArsPaper 全体設定` 画面に旧 3 キーが残っている。「ルートチェスト ON」を off にしても追加抽選は止まらず、出現率を変えても何も変わらない。さらに `ensureObj` のため **ars-config を保存するだけで `config.yml` に無効な `loot:` ブロックが復活する** |
+| ~~K-21~~ | ~~**旧 `config.yml` の `loot.*` キーが editor に残っている（今バッチで新しく生まれた「書いても効かない」箇所）**~~ | **解決（`8446b55`、`git show` で確認済み）**。D3/D4（editor のカテゴリ id 欠落・セレクトのID表示）と併せて旧 `loot.*` キーを撤去した。以下は解決前の記述: ルート抽選を `loot-tables.yml` へ移したのに、`ArsPaper 全体設定` 画面に旧 3 キーが残っている。「ルートチェスト ON」を off にしても追加抽選は止まらず、出現率を変えても何も変わらない。さらに `ensureObj` のため **ars-config を保存するだけで `config.yml` に無効な `loot:` ブロックが復活する** |
 | **K-22** | **束縛者が「最強」として設定されていない／第1目標が実質「最後の目標」になっている** | (1) 束縛者 18 体に `level` / `max-health` / `attack` が 1 つも無く、HP と攻撃力は全モブ共通ランプ（base150 growth1.072 / base7.0 growth1.03）任せ＝同レベル帯の他ボスと同じ式。段階ごとの耐性と技だけが差別化。(2) `goal_worldbinder` の `parent` が `delve_all_seals`（19 種の印すべて）なので、**束縛者を倒しても他 18 ダンジョンを踏破するまで達成にならない**（前提は達成そのものを縛る実装）。名目上の第1目標が実際は最後に解ける。(3) TF 側のダンジョン入場ゲート（`dungeon/gates.yml`）が空なので前段の踏破を強制しない |
 
 **同日修正済み（今バッチで私が入れた欠陥 2 件）**:
@@ -2692,10 +2692,17 @@ editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言による�
 6. 第3節の配線2件
 7. 全テスト実走（TF / フォーク / editor）＋ この ACTIVE_RECORD への追記＋ commit / push（`dev`）
 8. **配備**（クリーン jar を作り直してから。yml 同時配備が必須なものが2件ある）
-9. 未着手の要望: K-16 / K-17（スレッド40種）/ ドロップ素材と武器の editor 対応 / 倒すメリット / テクスチャ /
+9. 未着手の要望: K-16（部分前進あり。フォークの「ソース転送の config 化」`4bfbed0` で一歩前進したが、
+   既定値は据え置きで「レートを上げる階梯」自体は未実装。§4 の K-16 直下も参照）/
+   K-17（スレッド40種）/ 倒すメリット / テクスチャ /
    N3 ダンジョンEXP / N4 レシピソート＋劣悪品質の最低ステ表示 / N6 儀式EXP /
-   ダンジョンの鍵 / スキルレベル到達アチーブメント / 新設セレクトの日本語化（再発防止まで）/
-   `daily-diminishing` のラベル日本語化
+   ダンジョンの鍵 / スキルレベル到達アチーブメント
+   - ~~ドロップ素材と武器の editor 対応~~ → **完了**（U13。editor 側は `8c0c507`、Java 側配線は `978acc8`）
+   - ~~新設セレクトの日本語化（再発防止まで）~~ → **完了**（`a42e55d` で機械ラチェット2本
+     `select-japanese-labels-2026-07-29.test.js` / `catalog-category-host.test.js` を導入）
+   - ~~`daily-diminishing` のラベル日本語化~~ → **完了（`3bede74`）。ただしユーザー依頼は
+     ラベル日本語化だけでなく仕様変更を含んでいた**（旧 `threshold`/`step`/`decay-per-step` の
+     連続式 → 新 `per-amount`/`decay-per-amount` の離散式へ変更。§8「記録から抜けていたもの」参照）
 
 ## 8. 2026-08-01 の進捗（この節を随時更新する）
 
@@ -2744,16 +2751,62 @@ editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言による�
 WIP 値とテスト期待値のずれ）。いずれも WIP が `items/catalog.yml` と `stats/skill-exp.yml` を
 書き換え中であることによる。editor は 14 テスト失敗（同じく他セッター WIP 由来）。
 
-**まだマージできない2本（他セッションの未コミット変更に阻まれ、`git merge` が abort する）:**
+~~**まだマージできない2本（他セッションの未コミット変更に阻まれ、`git merge` が abort する）**~~ →
+**両方とも 2026-08-01 中にマージ済み**（下記「抜けていたコミットの追記」参照）。
 
-| ブランチ | 阻んでいるファイル |
+| ブランチ | 阻んでいたファイル | マージ結果 |
+|---|---|---|
+| `work/w2b-stat-vocab-fix-g4`（語彙 L7/D13） | `combat/base-stats.yml` / `stats/item-stats.yml` / `stats/lore.yml` | `aa22f65` でマージ。マージ中に**本物のバグを発見**（下記参照） |
+| `work/w3b-archery-exp`（N5 弓術） | `stats/skill-exp.yml` / `skills/base/archery_progression.yml` | `c52f791` でマージ |
+
+### 2026-08-01 さらに後 — 記録漏れの10コミットを追記（今回の棚卸しで復元）
+
+**`27fdd95` を最後に本節の更新が止まっており、以降11コミット（うち10コミットが本節未記載）が
+記録から欠落していた。結果、ユーザー依頼の仕様変更（`3bede74`）が記録に残らず見落とされる事故が
+起きた。** 詳細は「9. 記録から抜けていたもの」を参照。以下、`git show --stat` で内容を確認して追記する。
+
+| commit | 内容 |
 |---|---|
-| `work/w2b-stat-vocab-fix-g4`（語彙 L7/D13） | `combat/base-stats.yml` / `stats/item-stats.yml` / `stats/lore.yml` |
-| `work/w3b-archery-exp`（N5 弓術） | `stats/skill-exp.yml` / `skills/base/archery_progression.yml` |
+| `1457f9c` | `/tf give` が個数（`amount` リテラル）を引数に取れるようにした。旧実装は第2引数が常に quality 扱いで、`/tf give iron_ingot 64` が「品質64」と誤解釈され `maxQuality`（既定9）へ無言クランプされていた |
+| `7865c8c` | 品質の上振れ増加/下振れ抑制（`craft_upswing_bonus`/`craft_downswing_reduction`）を作業台クラフトと儀式クラフトで別々の係数に設定できるようにした（`stats/craft-quality.yml` に `workbench.*`/`ritual.*` 節を追加）。出荷既定値は分離前と数式が完全一致 |
+| `3094271` | 実サーバ報告2件（採掘領域）。(1a) 回収したスポナーが `setSpawnedType` の実装ミスで中身が空になる不具合を修正（`BlockStateMeta` を丸ごと写す方式へ）。(1b) 再設置したスポナーを壊すと `placedBlocks.isPlaced` の早期 return でドロップが無言消滅していた問題を修正。(2) `feature:haste-active-mining` のゲート判定がツリー横断だったため、採掘ツリー未解放でもシャベル所持だけで採掘速度上昇が撃てていた問題を修正 |
+| `a42e55d` | editor の実サーバ報告3件。「?」ホバーで祖先の `title` 属性が二重表示される不具合、追加した素材が「すべて」表示だと常に未分類になる不具合、レア度/ダメージ種別セレクトが生ID表示のままだった不具合（p5-forms は onInput のずれで保存もされない二重バグだった）を修正。機械ラチェット2本（`select-japanese-labels-2026-07-29.test.js`／`catalog-category-host.test.js`）を追加 |
+| `113ff86` | 出荷 `gates.yml` がエントリ0本のとき fail-close が全ダンジョンの入場封鎖として働き、**一般プレイヤーがどのEMダンジョンにも入れなかった**問題を修正（報告21）。ゲート未定義のときだけ無効化し、1本でも定義したら従来の fail-close を維持する |
+| `b84671e` | `ops/launch/deploy.cmd` に `--tf-only` を追加。フォークが編集途中でも TF 本体だけを安全に配備できるようにした |
+| `3bede74` | **ユーザー依頼の仕様変更（記録漏れの当事者）。** EXP日次逓減を「step単位の連続逓減」から
+「時間窓での総獲得量が任意量に達するたびに現在の任意%減る」離散式へ変更。旧
+`threshold`/`step`/`decay-per-step` を廃止し `per-amount`/`decay-per-amount` の2キーへ置き換え（段数は切り捨て）。
+`untilNextStep()` を追加。editor の `daily-diminishing` キーにラベル/説明が無かったので追加した |
+| `0f793d5` | `ops/scripts/wip-audit.ps1` を追加。レート制限で落ちたエージェントが実際に踏んだ3件
+（持ち主のいない未コミット変更／未マージブランチ同士の担当ファイル衝突／分岐点が古い worktree）を機械検出する |
+| `aa22f65` | `merge: work/w2b-stat-vocab-fix-g4`。**マージ時に本物のバグを発見**: 品質の上振れ/下振れ語彙が
+`workbench_upswing_bonus`/`ritual_upswing_bonus` へ経路別に改名されていたのに、実装（`CraftQualityService`）が
+旧名 `craft_upswing_bonus` を読み続けていた。`aggregator.totalOf` は未知キーを例外にせず 0.0 を返すため、
+**上振れ増加パークが恒久的に死ぬところだった**。実装を経路別キーへ揃え、パーク単位でも作業台/儀式が分離されるようにした |
+| `c52f791` | `merge: work/w3b-archery-exp`。弓術EXPを討伐時ベースへ統一し per-hit 経路（`ArcheryExperiencePolicy`）を削除（N5） |
+
+**この棚卸し時点（2026-08-01）で TF 本体のテストを実走して確認: 3308 tests / 0 failed / 0 errors / 2 skipped（全緑）。**
+スキップ2件は既知の正当分。（`cd TrinityForge && ./gradlew test --offline` の
+`build/test-results/test/*.xml` を集計。ビルドは UP-TO-DATE キャッシュ）
 
 **注意**: Y レーンのブランチは `tmp/findings/urgent/*.md` を force-add していたため、マージで
 **`tmp/` の作業メモが `dev` に載り public リポジトリへ push された**（レビュー md のみ。秘密・jar は無し）。
 `git rm --cached` は権限ゲートで拒否されたので追跡解除は未実施。
+
+### ArsPaper フォーク（`fork-handoff/arspaper/fork`）の 2026-08-01 バッチ（6コミット）
+
+フォークは独立 git リポジトリ（`.gitignore` 除外）。`git -C fork-handoff/arspaper/fork log --oneline -12`
+で確認済み。ブランチ `feat/trinityforge-fork`。**フォークなので `trinityforge` リモートへの push が別途必要**
+（本節作成時点で push 済みかは未確認 — 要確認）。
+
+| commit | 内容 |
+|---|---|
+| `7bc0d9d` | perf: `base-stats.yml` のキー宣言判定を時間窓内でファイルに触らせない |
+| `edca816` | fix: 受動生成がバッファへ無限蓄積する穴を塞ぐ／マナ最大値の0判定を4状態へ |
+| `9f85dbf` | fix: 隣接ジャーが満杯のとき排出分が無言で消えていた問題を修正 |
+| `d6155ec` | fix: 最大マナ0を「未記載＝Ars既定100」として扱う保険を追加 |
+| `4bfbed0` | fix: マナ基礎値の0が無視される件を修正・**ソース転送の config 化**（K-16 の直接の成果。§4 の K-16 に部分前進として追記済み）・経路のパーティクル可視化 |
+| `73f8b4e` | fix: スタック装備へのスレッド装着が複製とデータ喪失になっていた問題を修正（F6指摘1/3/5/7） |
 
 ### 進行中のワークフロー
 
@@ -2803,3 +2856,50 @@ TF 本体ではなく ArsPaper フォークの `com.arspaper.gui.RecipeBrowserGu
 TF 側は `integration/ars/ArsRecipeBrowserBridge.java`（58行・全リフレクションの fail-soft ブリッジ）しか持たない。
 フォークは同時編集できないので、**X1（フォーク直列レーン）の完了後に着手する。**
 同じ理由で K-16（上位ソースリンクの config 化）と U1/N6（儀式EXP）と U14（鞍）もフォーク待ち。
+
+### 記録から抜けていたもの（2026-08-01 棚卸し。同じ事故を繰り返さないための明示）
+
+**本節作成の発端**: `reports/ACTIVE_RECORD.md` が `27fdd95` を最後に11コミット分止まっており、
+その間にユーザーが依頼した仕様変更（`3bede74` の daily-diminishing 離散化）が記録から消え、
+実装されないまま見落とされる事故が起きた。今回の棚卸しでほかにも記録漏れが見つかったので、
+再発防止のためここへ明示する。
+
+1. **実サーバ報告の番号に欠番がある。** `113ff86` のコミットメッセージが「報告21」の存在を
+   示しているが、本 ACTIVE_RECORD に記録されている実サーバ報告は U1〜U18 までしかない。
+   **報告19・20 の内容が本記録に存在しない**（`git log --all` / `tmp/findings/` を検索したが
+   トレースが見つからなかった）。**ユーザーに報告19・20の内容確認が必要。**
+2. **本節冒頭の事故そのもの**: `27fdd95` 以降11コミット中10コミットが本節（§8）に未記載だった
+   （今回 `1457f9c` / `7865c8c` / `3094271` / `a42e55d` / `113ff86` / `b84671e` / `3bede74` /
+   `0f793d5` / `aa22f65` / `c52f791` を追記して復元）。
+3. **ArsPaper フォークに未コミットの新規機能が2本ある。** `git -C fork-handoff/arspaper/fork status`
+   で実在を確認済み: `src/main/java/com/arspaper/gui/GlyphBrowserGui.java`（グリフ一覧GUI、未追跡）と
+   `src/main/java/com/arspaper/mana/ManaBarVisibility.java` / `ManaBarVisibilityPolicy.java` ＋
+   `src/test/java/com/arspaper/mana/ManaBarVisibilityPolicyTest.java`（マナバー表示制御、未追跡）。
+   要望由来と思われるが、本記録にも `tmp/decisions.md` 系の decisions にも対応する記述が無い。
+   **何の要望に対応するもので、いつ・誰が着手したか要確認。**
+4. **リソースパックに未コミット変更が20ファイル超ある。** `git status` で確認済み: 既存 items json
+   14件の変更、`glowstone.json` / `iron_chain.json` の削除、`glowstone_dust.json` の新規、
+   `novus_criculus_luminis_84` の新規モデル＋テクスチャ（`assets/trinityforge/models/item/` および
+   `assets/trinityforge/textures/item/`）。**誰が何をどこまでやったのか本記録に記述が無い。**
+   `resourcepack/dist/TrinityForge-Pack.zip` も未コミットで変更されている。
+5. **`stash@{0}` に退避した孤児変更がある。** `git stash list` で確認済み:
+   `orphan-2026-08-01: レート制限で落ちたエージェントが残したTF出荷ymlの変更
+   （editor保存によるコメント/orderキー欠落を含む）。要査読、不要なら drop`。
+   内容は「editor 保存によるコメント欠落と機能の巻き戻し」だが、**ユーザー依頼の仕様変更の
+   途中経過が混ざっていた可能性がある**ため破棄せず退避してある。復元は `git stash pop`
+   （対象は `stash@{0}` のみ。`stash@{1}` は `work/b4-quality-split` 由来の別物）。**査読が必要。**
+
+### 再発防止
+
+`ops/scripts/wip-audit.ps1`（`0f793d5` で追加）を**波の開始前と、中断からの復帰時に必ず走らせる**
+運用にした。検出する3種と、それぞれが今日（2026-08-01）実際に出した実害:
+
+- **持ち主のいない未コミット変更**: 上記4（リソースパック20ファイル超）・5（stash の孤児yml）が該当。
+  誰の作業か分からないまま埋もれ、査読漏れのリスクを生んでいた。
+- **未マージブランチ同士の担当ファイル衝突**: `work/w2b-stat-vocab-fix-g4` と他レーンが
+  `combat/base-stats.yml` 等を同時に触っており、`git merge` が abort する状態が長時間放置されていた
+  （「まだマージできない2本」として記録が止まっていた原因の一つ）。
+- **分岐点が古い worktree**: 初期スナップショット上の grep で誤結論を出した実例が過去にあった
+  （`workflow-meta-must-be-pure-literal` 系の教訓と同型の罠）。
+
+詳細は `docs/agent-context/parallel-worktrees.md` にある。
