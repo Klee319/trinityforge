@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.config.domains.QualityConfig;
@@ -42,11 +43,34 @@ import java.util.logging.Level;
  *
  * <p><b>個数の指定は {@code amount} リテラル経由が正</b>(2026-08-01)。位置指定の第2引数は昔から
  * {@code quality} なので、{@code /tf give iron_ingot 64} は「64個」ではなく「品質64」と解釈される
- * ——しかも実効上限({@link QualityConfig#maxQuality()}、既定9)へ黙って丸められて「品質9が1個」に
- * なっていた。数量を指定する手段が事実上無かったのはこれが理由。位置指定形
+ * ——しかも実効上限({@link QualityConfig#maxQuality()})へ黙って丸められて「品質が1個」になっていた。
+ * 数量を指定する手段が事実上無かったのはこれが理由。位置指定形
  * ({@code /tf give <item> <quality> <count>}) は後方互換のため残してある。
+ *
+ * <p><b>品質の実効上限をこのクラスに焼き込まないこと</b>(2026-08-01 追記)。上限は
+ * {@link QualityConfig#maxQuality()} が返す値で、しかも <b>{@code stats/quality.yml} の
+ * {@code max-quality} ではなく {@code stats/quality-tiers.yml} のティア数-1 が優先される</b>。
+ * 出荷 config はティアが16行あるので実効上限は <b>15</b> であり、yml に書いてある {@code max-quality: 9}
+ * でも、かつてここの javadoc に書いてあった「既定9」でもない。つまり
+ * {@code /tf give iron_ingot 15}(「15個ほしい」のつもり)は<b>今も</b>エラーにならず「品質15が1個」に
+ * なる —— 範囲外に落ちたときだけ救済メッセージが出せるので、上限を小さく誤認していると
+ * 救済が働く範囲まで誤認することになる。数値は必ず実行時に config から引く。
  */
 public final class GiveItemCommand {
+
+    /**
+     * 個数指定のキーワード。<b>照合は大文字小文字を無視する</b>({@link #isAmountKeyword}) —
+     * Brigadier のリテラルは完全一致でしか当たらず(親ノードの {@code literals} が名前をキーにした
+     * マップなので、{@code Amount} は<b>リテラル候補にすら上がらず</b>そのまま {@code player} 引数へ
+     * 流れる)、統合版/スマホのキーボードは先頭を自動で大文字にするため、素直に書くと
+     * {@code /tf give iron_ingot Amount 64} が「Amount というプレイヤーへ」の意味に化ける。
+     *
+     * <p>綴り違いのリテラルノードを追加で登録する解決策は採らない: <b>リテラルの補完はクライアント側が
+     * 受け取ったコマンドツリーから行う</b>ので、サーバ側で {@code listSuggestions} を潰しても
+     * タブ補完には全綴りが並んでしまう。代わりに {@code player} 引数の着地点で判定する
+     * ({@link #givePlayerOrKeyword} / {@link #giveWordThenCount})。
+     */
+    static final String AMOUNT_KEYWORD = "amount";
 
     /** {@code amount} の下限。0個・負数の要求は必ずエラーにする(黙って1個に読み替えない)。 */
     static final int MIN_AMOUNT = 1;
@@ -104,6 +128,12 @@ public final class GiveItemCommand {
      * <p>{@code quality} の Brigadier 側の範囲は {@link ItemData} の静的な 0〜100 に固定し、
      * <b>設定の実効上限は実行時に検証する</b>({@link #validateRanges})。コマンドツリーは起動時に
      * 一度だけ登録されるので、ここに設定値を焼き込むと {@code /tf reload} 後に stale な範囲が残るため。
+     *
+     * <p><b>個数({@code count})の Brigadier 側の範囲は意図的に無制限</b>(2026-08-01)。
+     * {@code integer(MIN_AMOUNT, MAX_AMOUNT)} で縛ると Brigadier が先に弾いてしまい、
+     * {@link #validateRanges} の個数側エラーが<b>本番から到達不能な死に分岐</b>になっていた
+     * (テストだけが直接呼んで「担保しているつもり」になる)。範囲外は自前の日本語エラーで返したいので、
+     * パーサは通して実行時に検証する ——品質と同じ規約。
      */
     public LiteralArgumentBuilder<CommandSourceStack> node() {
         return Commands.literal("give")
@@ -128,8 +158,7 @@ public final class GiveItemCommand {
                                         IntegerArgumentType.getInteger(ctx, "quality"), 1))
                                 // 品質と個数を両方指定する形。キーワード付き(推奨)と位置指定(後方互換)の両方を張る。
                                 .then(amountNode(ctx -> IntegerArgumentType.getInteger(ctx, "quality")))
-                                .then(Commands.argument("count",
-                                                IntegerArgumentType.integer(MIN_AMOUNT, MAX_AMOUNT))
+                                .then(Commands.argument("count", IntegerArgumentType.integer())
                                         .executes(ctx -> giveTo(ctx.getSource().getSender(), null,
                                                 StringArgumentType.getString(ctx, "item"),
                                                 IntegerArgumentType.getInteger(ctx, "quality"),
@@ -141,18 +170,8 @@ public final class GiveItemCommand {
                                                         StringArgumentType.getString(ctx, "item"),
                                                         IntegerArgumentType.getInteger(ctx, "quality"),
                                                         IntegerArgumentType.getInteger(ctx, "count")))))
-                                .then(Commands.argument("player", StringArgumentType.word())
-                                        .suggests((ctx, builder) -> suggestPlayers(builder))
-                                        .executes(ctx -> giveTo(ctx.getSource().getSender(),
-                                                StringArgumentType.getString(ctx, "player"),
-                                                StringArgumentType.getString(ctx, "item"),
-                                                IntegerArgumentType.getInteger(ctx, "quality"), 1))))
-                        .then(Commands.argument("player", StringArgumentType.word())
-                                .suggests((ctx, builder) -> suggestPlayers(builder))
-                                .executes(ctx -> giveTo(ctx.getSource().getSender(),
-                                        StringArgumentType.getString(ctx, "player"),
-                                        StringArgumentType.getString(ctx, "item"),
-                                        quality.giveDefaultQuality(), 1))));
+                                .then(playerNode(ctx -> IntegerArgumentType.getInteger(ctx, "quality"))))
+                        .then(playerNode(ctx -> quality.giveDefaultQuality())));
     }
 
     /**
@@ -161,13 +180,12 @@ public final class GiveItemCommand {
      */
     private LiteralArgumentBuilder<CommandSourceStack> amountNode(
             ToIntFunction<CommandContext<CommandSourceStack>> qualityOf) {
-        return Commands.literal("amount")
+        return Commands.literal(AMOUNT_KEYWORD)
                 .executes(ctx -> {
-                    ctx.getSource().getSender().sendMessage(Component.text(
-                            "使い方: /tf give <item> [品質] amount <個数> [プレイヤー]", NamedTextColor.RED));
+                    sendAmountUsage(ctx.getSource().getSender());
                     return 0;
                 })
-                .then(Commands.argument("count", IntegerArgumentType.integer(MIN_AMOUNT, MAX_AMOUNT))
+                .then(Commands.argument("count", IntegerArgumentType.integer())
                         .executes(ctx -> giveTo(ctx.getSource().getSender(), null,
                                 StringArgumentType.getString(ctx, "item"),
                                 qualityOf.applyAsInt(ctx),
@@ -179,6 +197,81 @@ public final class GiveItemCommand {
                                         StringArgumentType.getString(ctx, "item"),
                                         qualityOf.applyAsInt(ctx),
                                         IntegerArgumentType.getInteger(ctx, "count")))));
+    }
+
+    /**
+     * {@code <player> [<n> [player]]} 枝。{@code player} は素の単語なので、<b>綴りが
+     * {@code amount} と大文字小文字だけ違うトークンはここへ落ちてくる</b>(理由は
+     * {@link #AMOUNT_KEYWORD})。そのケースを黙ってプレイヤー名として扱わないために、
+     * この枝に「単語のあとに個数」の形を生やして着地点で判定する。
+     *
+     * <p>副産物として {@code /tf give <item> Steve 64}(プレイヤー名の後ろに個数)も
+     * Brigadier の構文エラーではなく<b>日本語の案内</b>で返せるようになる。整数の兄弟
+     * ({@code quality} / 位置指定 {@code count})のほうが先に登録されているので、
+     * {@code /tf give <item> 5 64} の解決先は従来どおり品質+個数のまま変わらない
+     * (Brigadier は同点の候補を登録順の安定ソートで選ぶ)。
+     */
+    private RequiredArgumentBuilder<CommandSourceStack, String> playerNode(
+            ToIntFunction<CommandContext<CommandSourceStack>> qualityOf) {
+        return Commands.argument("player", StringArgumentType.word())
+                .suggests((ctx, builder) -> suggestPlayers(builder))
+                .executes(ctx -> givePlayerOrKeyword(ctx.getSource().getSender(),
+                        StringArgumentType.getString(ctx, "player"),
+                        StringArgumentType.getString(ctx, "item"),
+                        qualityOf.applyAsInt(ctx)))
+                .then(Commands.argument("count", IntegerArgumentType.integer())
+                        .executes(ctx -> giveWordThenCount(ctx.getSource().getSender(),
+                                StringArgumentType.getString(ctx, "player"), null,
+                                StringArgumentType.getString(ctx, "item"),
+                                qualityOf.applyAsInt(ctx),
+                                IntegerArgumentType.getInteger(ctx, "count")))
+                        .then(Commands.argument("target", StringArgumentType.word())
+                                .suggests((ctx, builder) -> suggestPlayers(builder))
+                                .executes(ctx -> giveWordThenCount(ctx.getSource().getSender(),
+                                        StringArgumentType.getString(ctx, "player"),
+                                        StringArgumentType.getString(ctx, "target"),
+                                        StringArgumentType.getString(ctx, "item"),
+                                        qualityOf.applyAsInt(ctx),
+                                        IntegerArgumentType.getInteger(ctx, "count")))));
+    }
+
+    /** {@code amount} キーワードの照合(大文字小文字・前後の空白を無視)。 */
+    static boolean isAmountKeyword(String token) {
+        return token != null && AMOUNT_KEYWORD.equalsIgnoreCase(token.trim());
+    }
+
+    private static void sendAmountUsage(CommandSender sender) {
+        sender.sendMessage(Component.text(
+                "使い方: /tf give <item> [品質] amount <個数> [プレイヤー]", NamedTextColor.RED));
+    }
+
+    /**
+     * {@code player} 位置に落ちた単語の着地点。{@code amount} の綴り違い(大文字小文字)なら
+     * 個数の書き方を案内する —— ここを素通しすると「Amount というプレイヤーは居ません」という
+     * 見当違いのエラーになり、個数指定ができないという元の症状に戻る。
+     */
+    private int givePlayerOrKeyword(CommandSender sender, String word, String itemId, int requestedQuality) {
+        if (isAmountKeyword(word)) {
+            sendAmountUsage(sender);
+            return 0;
+        }
+        return giveTo(sender, word, itemId, requestedQuality, 1);
+    }
+
+    /**
+     * {@code <word> <n> [player]} の着地点。{@code word} が {@code amount} の綴り違いなら個数指定として
+     * 受理し、そうでなければ「プレイヤー名の後ろに個数は置けない」と正しい形を案内する。
+     */
+    private int giveWordThenCount(CommandSender sender, String word, String trailingPlayer,
+                                  String itemId, int requestedQuality, int requestedAmount) {
+        if (isAmountKeyword(word)) {
+            return giveTo(sender, trailingPlayer, itemId, requestedQuality, requestedAmount);
+        }
+        sender.sendMessage(Component.text(
+                "プレイヤー名(" + word + ")の後ろに個数は置けません。"
+                        + "個数は /tf give <item> [品質] amount <個数> [プレイヤー] の形で指定してください。",
+                NamedTextColor.RED));
+        return 0;
     }
 
     private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions>
@@ -207,9 +300,15 @@ public final class GiveItemCommand {
      *
      * <p><b>無言クランプは禁止</b>: 「指定した値と実挙動がずれる」事故をこのコードベースで繰り返して
      * いるので、範囲外は必ずエラーにして<b>1個も配らない</b>。とくに品質は Brigadier 側の範囲
-     * (0〜100)より設定の実効上限({@link QualityConfig#maxQuality()}、既定9)のほうが狭く、旧実装では
-     * ここが黙って丸められていた ——「個数のつもりで打った数字が品質として丸められる」のが
+     * (0〜100)より設定の実効上限({@link QualityConfig#maxQuality()}、出荷 config では15)のほうが狭く、
+     * 旧実装ではここが黙って丸められていた ——「個数のつもりで打った数字が品質として丸められる」のが
      * 「個数を指定できない」の正体なので、エラー文で {@code amount} の書き方を必ず案内する。
+     * {@code maxQuality} は必ず呼び出し側が config から引いて渡すこと(ここに定数を置かない)。
+     *
+     * <p><b>個数側の分岐も本番から到達する</b>(2026-08-01 修正)。以前は Brigadier の
+     * {@code integer(MIN_AMOUNT, MAX_AMOUNT)} が先に弾いていたためこの分岐は死んでおり、
+     * 直接呼ぶテストだけが緑になっていた。現在は {@code count} をパーサ側で縛らないので、
+     * {@code /tf give <item> amount 0} や {@code amount 99999} はここに到達して日本語で返る。
      */
     static String validateRanges(int requestedQuality, int requestedAmount, int maxQuality) {
         if (requestedQuality < ItemData.MIN_QUALITY || requestedQuality > maxQuality) {
@@ -344,13 +443,34 @@ public final class GiveItemCommand {
             sender.sendMessage(Component.text("Player not online: " + playerName, NamedTextColor.RED));
             // 「個数のつもりで数字を打った」ケースの救済。品質の範囲(0〜100)を外れた数字は
             // player 引数へ流れ着くので、ここが実質「個数を打った人」の着地点になる。
-            if (playerName.chars().allMatch(Character::isDigit)) {
-                sender.sendMessage(Component.text(
-                        "個数を指定したい場合は /tf give <item> amount " + playerName + " です。",
-                        NamedTextColor.YELLOW));
+            if (!playerName.isEmpty() && playerName.chars().allMatch(Character::isDigit)) {
+                sender.sendMessage(Component.text(amountRescueHint(playerName), NamedTextColor.YELLOW));
             }
         }
         return target;
+    }
+
+    /**
+     * 「個数のつもりで数字を打った」人への案内文。
+     *
+     * <p><b>打てないコマンドを案内しないこと</b>(2026-08-01 修正)。旧実装は拾った数字をそのまま
+     * {@code amount <数字>} に埋め込んでいたので、{@code /tf give iron_ingot 99999} には
+     * 「{@code /tf give iron_ingot amount 99999} です」と返していた —— それも個数の上限
+     * ({@link #MAX_AMOUNT})に引っかかって失敗する。範囲内の値だけ埋め込み、範囲外(桁あふれ含む)は
+     * 値を出さずに上限を伝える。
+     */
+    static String amountRescueHint(String digits) {
+        int value;
+        try {
+            value = Integer.parseInt(digits);
+        } catch (NumberFormatException ex) {
+            value = -1; // 桁あふれ。範囲外と同じ扱い。
+        }
+        if (value >= MIN_AMOUNT && value <= MAX_AMOUNT) {
+            return "個数を指定したい場合は /tf give <item> amount " + value + " です。";
+        }
+        return "個数を指定したい場合は /tf give <item> amount <個数> です"
+                + "(個数は " + MIN_AMOUNT + "〜" + MAX_AMOUNT + ")。";
     }
 
     /**

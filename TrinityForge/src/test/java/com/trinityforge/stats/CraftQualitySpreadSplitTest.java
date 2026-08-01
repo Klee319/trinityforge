@@ -50,6 +50,16 @@ class CraftQualitySpreadSplitTest {
 
     // ---- SpreadTuning の式そのもの ----
 
+    /** 分離前の上振れσ: {@code spread-up + max(0, ステ)}(クランプ無し)。 */
+    private static double preSplitSpreadUp(double base, double statBonus) {
+        return base + Math.max(0.0, statBonus);
+    }
+
+    /** 分離前の下振れσ: {@code max(0, spread-down - max(0, ステ))}(クランプは分離前からある)。 */
+    private static double preSplitSpreadDown(double base, double statReduction) {
+        return Math.max(0.0, base - Math.max(0.0, statReduction));
+    }
+
     @Test
     @DisplayName("既定値(scale=1.0 / flat=0.0)は分離前の式と完全に一致する")
     void identityTuningReproducesThePreSplitFormula() {
@@ -75,6 +85,44 @@ class CraftQualitySpreadSplitTest {
         CraftQualityConfig.SpreadTuning flat = new CraftQualityConfig.SpreadTuning(1.0, 0.25, 1.0, 0.25);
         assertEquals(1.75 + 0.25 + 0.5, flat.effectiveSpreadUp(1.75, 0.5), 1e-9);
         assertEquals(1.75 - 0.25 - 0.5, flat.effectiveSpreadDown(1.75, 0.5), 1e-9);
+    }
+
+    @Test
+    @DisplayName("恒等は『config から到達できる入力』では分離前と一致し、差が出るのは負のbaseだけ(新設の0クランプ)")
+    void identityMatchesThePreSplitFormulaForEveryReachableInput() {
+        CraftQualityConfig.SpreadTuning identity = CraftQualityConfig.SpreadTuning.IDENTITY;
+
+        // spread-up / spread-down は QualityConfig が 0 未満へ落とさない = base は必ず 0 以上。
+        // その範囲では上振れ側の新設クランプは発火せず、分離前の式と1ミリも違わない。
+        for (double base : new double[]{0.0, 0.25, 1.5, 1.75, 10.0}) {
+            for (double stat : new double[]{-5.0, 0.0, 0.3, 2.0, 999.0}) {
+                assertEquals(preSplitSpreadUp(base, stat), identity.effectiveSpreadUp(base, stat), 1e-9,
+                        "base=" + base + " stat=" + stat);
+                assertEquals(preSplitSpreadDown(base, stat), identity.effectiveSpreadDown(base, stat), 1e-9,
+                        "base=" + base + " stat=" + stat);
+            }
+        }
+
+        // 唯一の差: 負の base。分離前は負のσをそのまま返していたが、今は 0 で止まる。
+        // これは意図的な変更で、config からは作れない入力(下の testで裏を取る)。
+        assertEquals(-1.0, preSplitSpreadUp(-1.0, 0.0), 1e-9);
+        assertEquals(0.0, identity.effectiveSpreadUp(-1.0, 0.0), 1e-9,
+                "新設した0クランプ: σが負に振り切れるのを止める");
+    }
+
+    @Test
+    @DisplayName("負の spread-up は config から作れない(=上振れの0クランプは既定値では発火しない)")
+    void qualityConfigNeverHandsOutANegativeSpread() {
+        QualityConfig quality = new QualityConfig();
+        assertTrue(quality.spreadUp() >= 0.0, "spread-up が負になると新設クランプが挙動差になる");
+        assertTrue(quality.spreadDown() >= 0.0);
+    }
+
+    @Test
+    @DisplayName("upswing-flat に負値を書いてもσは0で止まる(0クランプを新設した理由そのもの)")
+    void negativeUpswingFlatIsClampedInsteadOfGoingNegative() {
+        CraftQualityConfig config = configFrom("ritual:\n  upswing-flat: -999.0\n");
+        assertEquals(0.0, config.ritualSpread().effectiveSpreadUp(1.75, 5.0), 1e-9);
     }
 
     // ---- yml の読み込み ----
@@ -160,6 +208,142 @@ class CraftQualitySpreadSplitTest {
         assertEquals(4, service.qualityMode(player, Set.of()), "mode 自体は変わらない");
         assertTrue(service.minimumQuality(player, Set.of()) < 4,
                 "下振れ抑制ステを効かせない設定なら、下振れσが残るので下限は mode より下");
+    }
+
+    // ---- S7: 品質mode加算ステ(workbench_quality_bonus / ritual_quality_bonus)の経路分割 ----
+
+    /**
+     * 両経路のσを 0 に潰す設定。ロール結果が mode そのものになるので、
+     * 「どちらの mode 加算ステを読んだか」を乱数抜きで観測できる。
+     */
+    private static final String PINNED_TO_MODE = """
+            workbench:
+              upswing-flat: -999.0
+              downswing-reduction-flat: 999.0
+            ritual:
+              upswing-flat: -999.0
+              downswing-reduction-flat: 999.0
+            """;
+
+    private static CraftQualityService serviceWith(Player player, Map<String, Double> stats) {
+        return new CraftQualityService(SkillLevelSource.EMPTY, configFrom(PINNED_TO_MODE),
+                new QualityConfig(), aggregatorReturning(player, stats), null);
+    }
+
+    @Test
+    @DisplayName("S7: workbench_quality_bonus は作業台ロールにだけ乗る(儀式へは漏れない)")
+    void workbenchQualityBonusOnlyAffectsTheWorkbenchRoll() {
+        Player player = mock(Player.class);
+        CraftQualityService service = serviceWith(player, Map.of("workbench_quality_bonus", 4.0));
+
+        assertEquals(4, service.rollQuality(player, Set.of()), "作業台側には乗る");
+        assertEquals(0, service.rollArsSmithingQuality(player), "儀式側には乗らない");
+    }
+
+    @Test
+    @DisplayName("S7: ritual_quality_bonus は儀式ロールにだけ乗る(作業台へは漏れない)")
+    void ritualQualityBonusOnlyAffectsTheRitualRoll() {
+        Player player = mock(Player.class);
+        CraftQualityService service = serviceWith(player, Map.of("ritual_quality_bonus", 3.0));
+
+        assertEquals(0, service.rollQuality(player, Set.of()), "作業台側には乗らない");
+        assertEquals(3, service.rollArsSmithingQuality(player), "儀式側には乗る");
+    }
+
+    @Test
+    @DisplayName("S7: 両方持っていても互いに足し合わされず、経路ごとに独立して効く")
+    void bothQualityBonusesStayIndependent() {
+        Player player = mock(Player.class);
+        CraftQualityService service = serviceWith(player, Map.of(
+                "workbench_quality_bonus", 4.0,
+                "ritual_quality_bonus", 3.0));
+
+        assertEquals(4, service.rollQuality(player, Set.of()), "合算(7)になってはいけない");
+        assertEquals(3, service.rollArsSmithingQuality(player), "合算(7)になってはいけない");
+        assertEquals(4, service.qualityMode(player, Set.of()), "プレビューは作業台側");
+    }
+
+    // ---- 「効かないステは lore からも消す」ための無効化キー ----
+
+    @Test
+    @DisplayName("既定(scale=1.0)ではどのステも無効化されていない = lore から消さない")
+    void nothingIsInertWithTheShippedDefaults() {
+        assertEquals(Set.of(), configFrom("mode:\n  base-quality: 0\n").inertSpreadStatKeys());
+    }
+
+    @Test
+    @DisplayName("scale=0 にした経路のステだけが無効化キーになる(もう片方の経路のキーは残る)")
+    void onlyStatsMutedOnTheirOwnPathAreReportedAsInert() {
+        // 2026-08-01 の経路別キー分割後は 1キーが1経路にしか属さないので、
+        // 「作業台だけ 0」にしたら作業台側のキーだけが inert になる。
+        // (共通キー時代は「両経路とも 0 のときだけ」だったが、その条件のまま経路別キーへ
+        //  当てると、作業台で死んだステが儀式が生きている限り lore に出続ける取りこぼしになる。)
+        CraftQualityConfig workbenchOnly = configFrom("workbench:\n  upswing-scale: 0.0\n");
+        assertEquals(Set.of(CraftQualityConfig.WORKBENCH_UPSWING_STAT_KEY),
+                workbenchOnly.inertSpreadStatKeys(),
+                "儀式側のキーは効いたままなので隠してはいけない");
+
+        CraftQualityConfig bothPathsUpswingDead = configFrom("""
+                workbench:
+                  upswing-scale: 0.0
+                ritual:
+                  upswing-scale: 0.0
+                """);
+        assertEquals(
+                Set.of(CraftQualityConfig.WORKBENCH_UPSWING_STAT_KEY,
+                        CraftQualityConfig.RITUAL_UPSWING_STAT_KEY),
+                bothPathsUpswingDead.inertSpreadStatKeys());
+
+        CraftQualityConfig allDead = configFrom("""
+                workbench:
+                  upswing-scale: 0.0
+                  downswing-reduction-scale: 0.0
+                ritual:
+                  upswing-scale: 0.0
+                  downswing-reduction-scale: 0.0
+                """);
+        assertEquals(
+                Set.of(CraftQualityConfig.WORKBENCH_UPSWING_STAT_KEY,
+                        CraftQualityConfig.RITUAL_UPSWING_STAT_KEY,
+                        CraftQualityConfig.WORKBENCH_DOWNSWING_STAT_KEY,
+                        CraftQualityConfig.RITUAL_DOWNSWING_STAT_KEY),
+                allDead.inertSpreadStatKeys());
+    }
+
+    @Test
+    @DisplayName("flat だけ入れても『ステが効く』ことにはならない(判定は scale だけを見る)")
+    void flatDoesNotResurrectAMutedStat() {
+        CraftQualityConfig config = configFrom("""
+                workbench:
+                  upswing-scale: 0.0
+                  upswing-flat: 5.0
+                ritual:
+                  upswing-scale: 0.0
+                  upswing-flat: 5.0
+                """);
+        assertEquals(
+                Set.of(CraftQualityConfig.WORKBENCH_UPSWING_STAT_KEY,
+                        CraftQualityConfig.RITUAL_UPSWING_STAT_KEY),
+                config.inertSpreadStatKeys());
+    }
+
+    @Test
+    @DisplayName("無効化キーは実際に読み出しているステキーと一致する(名前がズレたら無言で外れる)")
+    void inertKeysMatchTheKeysTheServiceActuallyReads() {
+        Player player = mock(Player.class);
+        // 上振れステだけを持たせ、上振れσが実際に広がることで「このキーが読まれている」ことを示す。
+        CraftQualityService service = new CraftQualityService(
+                SkillLevelSource.EMPTY, configFrom("ritual:\n  downswing-reduction-flat: 999.0\n"),
+                new QualityConfig(),
+                // Ars鍛冶(儀式)経路のロールなので、儀式側のキーを持たせる。
+                aggregatorReturning(player, Map.of(CraftQualityConfig.RITUAL_UPSWING_STAT_KEY, 50.0)), null);
+
+        boolean sawAboveMode = false;
+        for (int i = 0; i < 200 && !sawAboveMode; i++) {
+            sawAboveMode = service.rollArsSmithingQuality(player) > 0;
+        }
+        assertTrue(sawAboveMode,
+                "CraftQualityConfig.RITUAL_UPSWING_STAT_KEY が CraftQualityService の読み出しキーと一致していない");
     }
 
     @Test

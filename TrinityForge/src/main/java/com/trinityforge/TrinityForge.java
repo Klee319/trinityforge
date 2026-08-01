@@ -519,12 +519,17 @@ public final class TrinityForge extends JavaPlugin {
         // Write-side item assembly shared by the give command, (M3) fork drop/craft flows, and the
         // refresh listener below (SELECTION_SPEC 5: a table edit must reach items already in play).
         this.tableGeneration = new TableGeneration();
+        // config で機構ごと殺されたばらつきステ(craft-quality.yml の scale=0)を lore から落とす。
+        // 未配線だと「設定で無効にしたのに説明文だけ生きている」表示と実装の食い違いになる。
+        // Supplier で渡すのは /trinityforge reload で config が差し替わるため。
+        LoreComposer loreComposer = new LoreComposer();
+        loreComposer.useInertStatKeys(configManager.craftQuality()::inertSpreadStatKeys);
         ItemAssembler itemAssembler = new ItemAssembler(
                 configManager.itemStats(),
                 configManager.attributeMapping(),
                 new AttributeApplier(this),
                 configManager.lore(),
-                new LoreComposer(),
+                loreComposer,
                 configManager.qualityTiers(),
                 tableGeneration,
                 configManager.itemCatalog(),
