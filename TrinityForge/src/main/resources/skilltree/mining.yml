@@ -92,8 +92,11 @@ nodes:
     parent: C
     icon: IRON_PICKAXE
     cost: 1
-    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・採集効率 永続+1
-    buffs:
+    effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・メインにツルハシを持つと採集効率+1
+    # gathering-efficiency は buffs(常時)ではなく mainhand-buffs に置くこと(2026-08-01)。
+    # 適用先の GatheringEfficiencyEnchantApplier は FARMING/MINING/WOODCUTTING/DIGGING の
+    # 全ツールを対象にするので、常時加算にすると「採掘ツリーで取った+1がシャベルや斧にも乗る」。
+    mainhand-buffs:
       gathering-efficiency: 1
     dedicated-effects:
       - id: glyph:break
@@ -105,8 +108,9 @@ nodes:
     parent: D
     icon: DIAMOND_PICKAXE
     cost: 1
-    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・採集効率 永続+1
-    buffs:
+    effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・メインにツルハシを持つと採集効率+1
+    # 上の D と同じ理由で mainhand-buffs(常時にするとシャベル/斧にも乗る)。
+    mainhand-buffs:
       gathering-efficiency: 1
     dedicated-effects:
       - id: glyph:advanced_break

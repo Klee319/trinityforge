@@ -124,7 +124,11 @@ class NativeSkillExperienceListenerCropMaturityTest {
 
         Player player = player();
         DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
-        when(dedicatedEffects.isActive(eq(player), eq("break-vanilla-exp"))).thenReturn(true);
+        // 2026-08-01: 破壊時バニラEXPの解放判定はツリー限定になった(採掘ツリーの解放で作物にも
+        // 出てしまっていたため)。ここは作物=FARMING の破壊なので FARMING で解放しておく。
+        // ツリー横断の漏れそのものは NativeSkillExperienceListenerBreakVanillaExpScopeTest が縛る。
+        when(dedicatedEffects.isActive(eq(player), eq("break-vanilla-exp"), eq(SkillId.FARMING)))
+                .thenReturn(true);
         PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
         when(aggregator.aggregate(player)).thenReturn(
                 new PlayerCombatAggregate(Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));

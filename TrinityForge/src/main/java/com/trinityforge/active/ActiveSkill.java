@@ -65,8 +65,14 @@ public interface ActiveSkill {
     }
 
     /**
-     * The {@code feature:<id>} (bare, no prefix) this skill's unlock/tier is gated on, queried via
-     * {@code DedicatedEffectsConfig#valueMax(player, gateEffectId())}.
+     * The {@code feature:<id>} (bare, no prefix) this skill's unlock/tier is gated on.
+     *
+     * <p>実トリガー({@link ActivationDispatcher})はこれを<b>ツリー限定</b>で解決する:
+     * {@code DedicatedEffectsConfig#valueMax(player, gateEffectId(), useSkill)} — {@code useSkill} は
+     * 持ち替えたメインハンドの {@code use-skill}。ツリーを問わない2引数版
+     * ({@code valueMax(player, gateEffectId())}) を使ってよいのは、持ち物を前提にしない
+     * {@code /tf active <id>}(デバッグ専用、{@code com.trinityforge.command.ActiveCommand})だけである。
+     * 理由はクラスjavadocの「CTは共有だが『解放』は共有ではない」節を参照。
      */
     String gateEffectId();
 

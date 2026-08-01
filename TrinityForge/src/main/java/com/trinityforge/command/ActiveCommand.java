@@ -35,6 +35,23 @@ import java.util.Objects;
  * <p>Bypasses the item-match check (there is no "held item" requirement here) but still enforces the same
  * gate/cooldown rules as the real trigger, so it is a faithful debug surface rather than a bypass of the
  * unlock system.
+ *
+ * <h2>ここだけツリー横断のままなのは意図的（2026-08-01）</h2>
+ * <p>{@code ActivationDispatcher} は 2026-08-01 の実サーバ報告
+ * (「シャベルを持っていても採掘速度上昇が発動する」)を受けて、ゲートを<b>持ち替えたツールの
+ * {@code use-skill} と同じスキルツリーの配置だけ</b>に絞って解決するようになった
+ * ({@code DedicatedEffectsConfig#valueMax(player, effectId, skill)})。
+ * <b>このコマンドは意図的にその絞り込みを行わず、2引数版のツリー横断解決を使い続ける。</b>
+ * 「持ち物」という概念自体がここには無い(=絞り込むべき {@code useSkill} が存在しない)ためで、
+ * 絞り込みの代わりにできることは「どれか1本のツリーを勝手に選ぶ」しかなく、それは
+ * <b>デバッグ用途としてむしろ嘘になる</b>(mining だけ解放したプレイヤーに対し、コマンドは
+ * 「解放されている」と正しく答えるべきで、シャベルツリー基準で「未解放」と答えてはいけない)。
+ * したがってこのコマンドの「未解放です」表示は<b>どのツリーでも一切解放していないこと</b>を意味し、
+ * 実トリガーが撃てるかどうかとは一致しない — <b>手に持ったツールでは発動しないのにここでは通る</b>
+ * ケースが正常に存在する。それを切り分けるのが管理者の仕事なので、
+ * ここを「実トリガーと完全一致」に寄せる修正を入れてはいけない
+ * (絞り込みたくなったら、まず {@link ActiveSkill#targetSkills()} のどれを選ぶのかを説明できること)。
+ * ※ゲート以外(CT短縮キー/CT長/フィードバック)は実トリガーと同一のまま。
  */
 public final class ActiveCommand {
 
@@ -80,6 +97,9 @@ public final class ActiveCommand {
             return 0;
         }
         ActiveSkill active = skill.get();
+        // 意図的にツリー横断(2引数版)。ここには「持ったツールの use-skill」が無いので絞り込む軸が
+        // 存在しない。実トリガー(ActivationDispatcher)はツリー限定なので、両者の結果は一致しない
+        // ことがある——それが正しい。詳細はクラスjavadocの「ここだけツリー横断のままなのは意図的」節。
         OptionalDouble tierOpt = dedicatedEffects.valueMax(player, active.gateEffectId());
         if (tierOpt.isEmpty()) {
             player.sendMessage(Component.text("未解放です: " + id, NamedTextColor.RED));
