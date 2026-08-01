@@ -20,11 +20,26 @@ import org.bukkit.plugin.Plugin;
  *
  * <p>The report files are deliverables, not test scratch — they are written into the repository so the
  * numbers can be reviewed and diffed alongside the config changes that produced them.
+ *
+ * <p><b>Writing into {@code ops/reports/} is opt-in</b> ({@code -Dtf.opsReport=true}). The reports
+ * embed a JUnit {@code @TempDir} path and wall-clock timings, so their content changes on every run
+ * even when nothing else did. While every {@code ./gradlew test} rewrote them, the working tree was
+ * dirtied by simply running the tests: the 2026-08-01 stock-take found these two files showing as
+ * uncommitted in <b>31 of 31</b> worktrees, which is what made real orphaned WIP impossible to spot
+ * (62 of the 109 dirty files were just this). Regenerate the deliverable deliberately:
+ *
+ * <pre>{@code ./gradlew test -Dtf.opsReport=true "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-21"}</pre>
  */
 final class OpsReport {
 
     /** Repo-root-relative directory the simulation reports are written to. */
     private static final String REPORTS_DIR = "ops/reports";
+
+    /** Set to {@code true} to write into {@link #REPORTS_DIR} instead of the throwaway build dir. */
+    private static final String OPT_IN_PROPERTY = "tf.opsReport";
+
+    /** Where the reports go on an ordinary test run. Under {@code build/}, so git never sees them. */
+    private static final String SCRATCH_DIR = "TrinityForge/build/ops-reports";
 
     /**
      * Marker paths that only exist at the repository root, used to locate it regardless of whether the
@@ -71,10 +86,14 @@ final class OpsReport {
                 Plugin.class.getClassLoader(), new Class<?>[]{Plugin.class}, handler);
     }
 
-    /** Writes {@code markdown} to {@code ops/reports/<fileName>} and returns the path actually written. */
+    /**
+     * Writes {@code markdown} and returns the path actually written — {@code ops/reports/<fileName>}
+     * when {@code -Dtf.opsReport=true}, otherwise a throwaway copy under {@code build/}.
+     */
     static Path write(String fileName, String markdown) {
         try {
-            Path dir = repoRoot().resolve(REPORTS_DIR);
+            boolean optedIn = Boolean.parseBoolean(System.getProperty(OPT_IN_PROPERTY));
+            Path dir = repoRoot().resolve(optedIn ? REPORTS_DIR : SCRATCH_DIR);
             Files.createDirectories(dir);
             Path file = dir.resolve(fileName);
             Files.writeString(file, markdown, StandardCharsets.UTF_8);

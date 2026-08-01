@@ -86,6 +86,11 @@ tasks.processResources {
 
 tasks.test {
     useJUnitPlatform()
+    // ops/reports/ の書き出しは opt-in。レポートは @TempDir のパスと実測時間を含むので毎回内容が
+    // 変わり、既定で更新すると「テストを走らせただけでワークツリーが汚れる」。実際に 31 本の
+    // worktree 全部で未コミット扱いになり、本物の孤児 WIP が埋もれていた(2026-08-01)。
+    // 成果物を更新したいときだけ ./gradlew test -Dtf.opsReport=true を明示的に叩く。
+    System.getProperty("tf.opsReport")?.let { systemProperty("tf.opsReport", it) }
     testLogging {
         events("skipped", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

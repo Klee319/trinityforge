@@ -20,6 +20,13 @@
         「該当コードは存在しない」という結論が丸ごと誤りになる。
         実際に「入場ブロッカーは存在しない」という誤報告が出て、訂正に往復した。
 
+    (4) 他 worktree に取り残された未コミット変更
+        (1) は主ワークツリーしか見ず、(3) は未マージコミットを持つブランチしか回らない。
+        そのため「ブランチはマージ済みなのに worktree には未コミットの WIP が残っている」
+        状態が両方の網を抜ける。2026-08-01 の棚卸しで、この状態の worktree が実際に 32 本
+        見つかった(合計100ファイル超の実ソース変更)。audit は「問題なし」と言っていた。
+        この WIP は commit されていないので worktree を消せば復元手段が無い。
+
 .PARAMETER Base
   比較の基準ブランチ。既定は dev。
 
@@ -49,7 +56,7 @@ try {
     # 「どのブランチにも入っていない作業ツリーの変更」は、中断したエージェントの置き土産である
     # ことが多い。捨てる前に必ず git stash push -- <paths> で退避すること(復元できる)。
     Write-Host ''
-    Write-Host '--- 1/3  持ち主のいない未コミット変更 ---'
+    Write-Host '--- 1/4  持ち主のいない未コミット変更 ---'
     $dirty = @(git status --porcelain | Where-Object { $_ -notmatch '^\?\?' })
     if ($dirty.Count -eq 0) {
         Write-Host '  [ OK  ] 作業ツリーは clean'
@@ -63,7 +70,7 @@ try {
 
     # ---- (2) 未マージブランチ同士の担当ファイル衝突 --------------------------------------------
     Write-Host ''
-    Write-Host '--- 2/3  未マージブランチの担当ファイル衝突 ---'
+    Write-Host '--- 2/4  未マージブランチの担当ファイル衝突 ---'
     $branches = @(git branch --format='%(refname:short)' |
                   Where-Object { $_ -and $_ -ne $Base -and $_ -notmatch '^\(' })
     $owners = @{}     # file -> [branch,...]
@@ -104,7 +111,7 @@ try {
     # ここが一番静かに壊れる。古いスナップショット上で grep しても「無い」としか出ないので、
     # 調査結果そのものが誤りになる。エージェントに調査させる前に必ず潰す。
     Write-Host ''
-    Write-Host '--- 3/3  分岐点が古いブランチ・worktree ---'
+    Write-Host '--- 3/4  分岐点が古いブランチ・worktree ---'
     $stale = 0
     foreach ($b in ($touched.Keys | Sort-Object)) {
         $mb = (git merge-base $Base $b 2>$null)
@@ -118,6 +125,39 @@ try {
     if ($stale -eq 0) {
         Write-Host '  [ OK  ] すべてのブランチが十分新しい分岐点にある'
     } else {
+        $problems++
+    }
+
+    # ---- (4) 他 worktree に取り残された未コミット変更 ------------------------------------------
+    # (1) は主ワークツリー、(3) は未マージブランチしか見ないので、両方の網を抜ける穴がある。
+    # 「ブランチはマージ済み(= rev-list で 0 件)なのに worktree には未コミットの WIP がある」
+    # がそれで、worktree を消した瞬間に復元不能になる。ここだけが検出できる。
+    Write-Host ''
+    Write-Host '--- 4/4  他 worktree の未コミット変更 ---'
+    $others = @(git worktree list --porcelain |
+                Where-Object { $_ -like 'worktree *' } |
+                ForEach-Object { $_.Substring(9) } |
+                Where-Object { (Resolve-Path $_).Path -ne (Resolve-Path $repo).Path })
+    $dirtyTrees = 0
+    $dirtyFiles = 0
+    foreach ($wt in $others) {
+        $st = @(git -C $wt status --porcelain 2>$null | Where-Object { $_ -notmatch '^\?\?' })
+        if ($st.Count -eq 0) { continue }
+        $br = (git -C $wt rev-parse --abbrev-ref HEAD 2>$null)
+        $ahead = (git rev-list --count "$Base..$br" 2>$null)
+        if (-not $ahead) { $ahead = '?' }
+        Write-Host ("  [WARN ] {0,-40} 未コミット {1,3} 件 / {2} への未マージ {3} 件" -f $br, $st.Count, $Base, $ahead)
+        $dirtyTrees++
+        $dirtyFiles += $st.Count
+    }
+    if ($dirtyTrees -eq 0) {
+        Write-Host '  [ OK  ] 他 worktree に未コミット変更は無い'
+    } else {
+        Write-Host ''
+        Write-Host "  合計 $dirtyTrees 本の worktree に $dirtyFiles ファイルの未コミット変更がある。"
+        Write-Host '  未マージ 0 件なら「commit されていない = 消したら復元できない」ので、'
+        Write-Host '  worktree を消す前に必ず中身を見て、要るものは stash か commit で拾うこと:'
+        Write-Host '          git -C <worktree> stash push -m "orphan-<日付>: <経緯>"'
         $problems++
     }
 
