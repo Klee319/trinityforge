@@ -3612,6 +3612,13 @@
       "id": "bedrock_greaves",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "BEACON",
+      "cmd": 500001,
+      "id": "infinity_source_core",
+      "source": "fork-arspaper",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
     }
   ]
 }

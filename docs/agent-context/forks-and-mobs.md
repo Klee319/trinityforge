@@ -327,6 +327,37 @@ TFがそれを認識できるのは `com.trinityforge.stats.ExternalItemRegistry
 - バニラ素材が `custom:` を満たしてしまわないことがexploit防止線。Bukkit側は `MaterialChoice`
   なので素の `PRISMARINE_SHARD` でも通ってしまい、リスナーの拒否だけが防波堤になっている。
 
+### ⚠️ `itemRegistry`/`blockRegistry` は `Map.put` の無警告上書き — 登録順序を変えると無言で挙動が変わる
+
+`CustomItemRegistry#register`/`CustomBlockRegistry#register`（どちらも `com.arspaper.item`/`com.arspaper.block`）
+は同idなら黙って上書きする。`ArsPaper#initRegistries` は `registerDefaultBlocks()` →
+`registerDefaultItems()` の順で呼ぶため、後者内の `materialConfigManager.getAll()` ループ
+（`materials.yml` の全アイテムを `ConfigurableMaterial` として `itemRegistry` へ登録）が
+**先に登録された CustomBlock を無言で踏み潰す**。
+
+- `materials.yml` に書いた素材id（例: `infinity_source_core`）を後から「置ける CustomBlock」に
+  昇格させたいときは、この上書きを防ぐガードが必須（`ArsPaper#registerDefaultItems` /
+  `#reloadMaterialConfig` に `if (blockRegistry.has(mat.id())) continue;` を追加した実装参照、
+  2026-08-02）。ガードを忘れると「ブロックのJavaクラスは存在するのに、実際に生成される
+  ItemStack は非設置の ConfigurableMaterial のまま」という気づきにくい退行になる
+  （見た目/CMDだけが変わってエラーは一切出ない）。
+- 一方で `UnifiedRecipeLoader` の `materials.yml` パース（`loadMaterialSection` 系）は
+  **Java クラスの登録と完全に独立**している（`sourcejars.yml`/`sourcelinks.yml` の recipe も同様）。
+  なので `materials.yml` の `recipe:` ブロックはそのまま残してよく、削除する必要はない
+  ―― 素材からブロックへ「格上げ」しても既存のレシピ登録経路はそのまま生きる。
+
+### ⚠️ NETHER_STAR 等バニラで非設置の Material をベースにした `materials.yml` アイテムは、CustomBlock 化しないと絶対に「置けない」
+
+`materials.yml`（`MaterialConfigManager`→`ConfigurableMaterial`）で定義されるアイテムは
+`BaseCustomItem` 止まりで `CustomBlock` を継承しない。`base_material` に元々ブロックとして
+存在しない Material（`NETHER_STAR` 等）を指定していると、`BlockPlaceEvent` はバニラ側で
+そもそも発火しないため「設置して機能させる」系の要求は、既存の素材定義を流用するだけでは
+実現できない。`com.arspaper.block.impl.*`（`Waystone`/`Pedestal`/`RitualCore` 等）と同じ形で
+**新しい `CustomBlock` サブクラスを起こし、`getBlockMaterial()` に `BEACON` 等 TileState を
+持つ設置可能 Material を返す**必要がある（`InfinitySourceCore` が実例、2026-08-02）。
+見た目(CMD)は base_material が変わるため既存のリソースパックモデルを引き継げない
+（新規CMDでの追従が必要。今回は資源パック変更を対象外としたため機能面のみ先行実装）。
+
 ## モブ系（TF ↔ EliteMobs 全般）
 
 - TF側のモブconfigはモブ**id**キーで、EntityTypeは実行時無視される: `combat/mob-defaults.yml`
