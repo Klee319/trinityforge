@@ -97,6 +97,20 @@
           "model": "minecraft:item/mace",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "model": "minecraft:item/mace",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

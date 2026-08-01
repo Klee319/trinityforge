@@ -3346,6 +3346,216 @@
       "id": "binder_boots",
       "source": "catalog",
       "allocatedAt": "2026-07-31T12:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5700,
+      "id": "cryocore_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5701,
+      "id": "cryocore_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5702,
+      "id": "cryocore_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 5700,
+      "id": "cryocore_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 5700,
+      "id": "cryocore_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 5700,
+      "id": "cryocore_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "MACE",
+      "cmd": 5700,
+      "id": "cryocore_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5703,
+      "id": "cryocore_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5704,
+      "id": "cryocore_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 5700,
+      "id": "cryocore_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5705,
+      "id": "cryocore_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "BOW",
+      "cmd": 5700,
+      "id": "cryocore_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 5700,
+      "id": "cryocore_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5720,
+      "id": "emberforge_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5721,
+      "id": "emberforge_dagger",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5722,
+      "id": "emberforge_rapier",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SPEAR",
+      "cmd": 5720,
+      "id": "emberforge_spear",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "TRIDENT",
+      "cmd": 5720,
+      "id": "emberforge_trident",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HOE",
+      "cmd": 5720,
+      "id": "emberforge_scythe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "MACE",
+      "cmd": 5720,
+      "id": "emberforge_mace",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5723,
+      "id": "emberforge_warhammer",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5724,
+      "id": "emberforge_grate_sword",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_AXE",
+      "cmd": 5720,
+      "id": "emberforge_axe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 5725,
+      "id": "emberforge_greataxe",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "BOW",
+      "cmd": 5720,
+      "id": "emberforge_bow",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "CROSSBOW",
+      "cmd": 5720,
+      "id": "emberforge_crossbow",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_HELMET",
+      "cmd": 5720,
+      "id": "emberforge_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 5720,
+      "id": "emberforge_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_LEGGINGS",
+      "cmd": 5720,
+      "id": "emberforge_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_BOOTS",
+      "cmd": 5720,
+      "id": "emberforge_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
     }
   ]
 }

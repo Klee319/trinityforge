@@ -251,6 +251,90 @@
           "model": "minecraft:item/netherite_sword",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5701,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5702,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5703,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5704,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5705,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5721,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5722,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5723,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5724,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5725,
+        "model": {
+          "model": "minecraft:item/netherite_sword",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

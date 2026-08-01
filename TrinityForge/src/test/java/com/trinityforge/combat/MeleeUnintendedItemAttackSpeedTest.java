@@ -52,8 +52,8 @@ class MeleeUnintendedItemAttackSpeedTest {
     /** 杖・触媒。材質は BLAZE_ROD / ENDER_EYE と揃っていないので use-skill で拾う。 */
     private static final String CATALYST_SKILL = "ARS_MAGIC";
 
-    /** 出荷データで実際に該当する件数(弓14 + クロスボウ14 + トライデント14 + 触媒12)。 */
-    private static final int EXPECTED_TARGETS = 54;
+    /** 出荷データで実際に該当する件数(弓16 + クロスボウ16 + トライデント16 + 触媒12)。 */
+    private static final int EXPECTED_TARGETS = 60;
 
     private static YamlConfiguration shipped(String path) throws IOException {
         try (InputStream in = MeleeUnintendedItemAttackSpeedTest.class.getClassLoader()

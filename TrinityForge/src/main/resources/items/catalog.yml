@@ -5161,6 +5161,587 @@ items:
     - ''
     - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
     - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
+
+  # ===== 氷芯シリーズ (cryocore) — Lv100 / 儀式 / 全13武器種 =====
+  # 形(速度・リーチ・会心・貫通・ダメージ補正・厳選幅)は infinity と同一で、
+  # attack-power だけ 0.7 倍。武器種ごとの比は infinity の実値をそのまま引き継ぐ。
+  # 儀式素材は武器種ごとに1つ差し替えてある。RitualRecipeRegistry#findMatch は
+  # findFirst なので、core+pedestal が完全一致すると最初の1本しか成立しない。
+  cryocore_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の剣</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_dagger:
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の短剣</color>
+    custom-model-data: 5701
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - FLINT x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_rapier:
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯のレイピア</color>
+    custom-model-data: 5702
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - FEATHER x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_spear:
+    material: NETHERITE_SPEAR
+    display-name: <color:#7fd4e8>氷芯の槍</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - STICK x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_trident:
+    material: TRIDENT
+    display-name: <color:#7fd4e8>氷芯の三叉槍</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - PRISMARINE_SHARD x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_scythe:
+    material: NETHERITE_HOE
+    display-name: <color:#7fd4e8>氷芯の鎌</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - HAY_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_mace:
+    material: MACE
+    display-name: <color:#7fd4e8>氷芯のメイス</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - HEAVY_CORE x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の戦鎚</color>
+    custom-model-data: 5703
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - IRON_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の大剣</color>
+    custom-model-data: 5704
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - NETHERITE_SCRAP x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_axe:
+    material: NETHERITE_AXE
+    display-name: <color:#7fd4e8>氷芯の斧</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - COPPER_INGOT x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の大斧</color>
+    custom-model-data: 5705
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - NETHERITE_SCRAP x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_bow:
+    material: BOW
+    display-name: <color:#7fd4e8>氷芯の弓</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - STRING x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_crossbow:
+    material: CROSSBOW
+    display-name: <color:#7fd4e8>氷芯の弩</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+      - custom:breeze_rod_3x x2
+      - custom:hard_metal x4
+      - custom:elder_guardian_spike x2
+      - TRIPWIRE_HOOK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+
+  # ===== 熾鉄シリーズ (emberforge) — Lv100 / 儀式 / 全13武器種 =====
+  # 形(速度・リーチ・会心・貫通・ダメージ補正・厳選幅)は infinity と同一で、
+  # attack-power だけ 0.85 倍。武器種ごとの比は infinity の実値をそのまま引き継ぐ。
+  # 儀式素材は武器種ごとに1つ差し替えてある。RitualRecipeRegistry#findMatch は
+  # findFirst なので、core+pedestal が完全一致すると最初の1本しか成立しない。
+  emberforge_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の剣</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_dagger:
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の短剣</color>
+    custom-model-data: 5721
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - FLINT x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_rapier:
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄のレイピア</color>
+    custom-model-data: 5722
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - FEATHER x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_spear:
+    material: NETHERITE_SPEAR
+    display-name: <color:#e8894a>熾鉄の槍</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - STICK x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_trident:
+    material: TRIDENT
+    display-name: <color:#e8894a>熾鉄の三叉槍</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - PRISMARINE_SHARD x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_scythe:
+    material: NETHERITE_HOE
+    display-name: <color:#e8894a>熾鉄の鎌</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - HAY_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_mace:
+    material: MACE
+    display-name: <color:#e8894a>熾鉄のメイス</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - HEAVY_CORE x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_warhammer:
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の戦鎚</color>
+    custom-model-data: 5723
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - IRON_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_grate_sword:
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の大剣</color>
+    custom-model-data: 5724
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - NETHERITE_SCRAP x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_axe:
+    material: NETHERITE_AXE
+    display-name: <color:#e8894a>熾鉄の斧</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - COPPER_INGOT x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_greataxe:
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の大斧</color>
+    custom-model-data: 5725
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - NETHERITE_SCRAP x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_bow:
+    material: BOW
+    display-name: <color:#e8894a>熾鉄の弓</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - STRING x2   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_crossbow:
+    material: CROSSBOW
+    display-name: <color:#e8894a>熾鉄の弩</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - TRIPWIRE_HOOK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_helmet:
+    material: NETHERITE_HELMET
+    display-name: <color:#e8894a>熾鉄の兜</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - GOLDEN_HELMET x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_chestplate:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#e8894a>熾鉄の胸当て</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - GOLDEN_CHESTPLATE x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_leggings:
+    material: NETHERITE_LEGGINGS
+    display-name: <color:#e8894a>熾鉄の具足</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - GOLDEN_LEGGINGS x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_boots:
+    material: NETHERITE_BOOTS
+    display-name: <color:#e8894a>熾鉄の靴</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+      - custom:stone_5x x1
+      - custom:emerald_block_4x x1
+      - custom:hard_metal x6
+      - GOLDEN_BOOTS x1   # 武器種の識別用(これが無いと findFirst で潰れる)
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+
 _editor:
   categories:
     weapon:
@@ -5169,6 +5750,8 @@ _editor:
         itemIds:
           - source_gem_sword
           - infinity_sword
+          - emberforge_sword
+          - cryocore_sword
           - hero_sword
           - nuclear_sword
       - id: cat_1784732080645
@@ -5183,6 +5766,8 @@ _editor:
           - netherite_axe_tf
           - source_gem_axe
           - infinity_axe
+          - emberforge_axe
+          - cryocore_axe
           - hero_axe
           - nuclear_axe
       - id: cat_1784732090920
@@ -5190,6 +5775,8 @@ _editor:
         itemIds:
           - source_gem_spear
           - infinity_spear
+          - emberforge_spear
+          - cryocore_spear
           - hero_spear
           - nuclear_spear
       - id: cat_1784732119145
@@ -5206,6 +5793,8 @@ _editor:
           - source_gem_scythe
           - fnis_peccati_profundi
           - infinity_scythe
+          - emberforge_scythe
+          - cryocore_scythe
           - hero_scythe
           - nuclear_scythe
       - id: cat_1784732138435
@@ -5220,6 +5809,8 @@ _editor:
           - netherite_warhammer
           - source_gem_warhammer
           - infinity_warhammer
+          - emberforge_warhammer
+          - cryocore_warhammer
           - hero_warhammer
           - nuclear_warhammer
       - id: cat_1784732147938
@@ -5234,6 +5825,8 @@ _editor:
           - netherite_dagger
           - source_gem_dagger
           - infinity_dagger
+          - emberforge_dagger
+          - cryocore_dagger
           - hero_dagger
           - nuclear_dagger
       - id: cat_1784732165608
@@ -5248,6 +5841,8 @@ _editor:
           - netherite_rapier
           - source_gem_rapier
           - infinity_rapier
+          - emberforge_rapier
+          - cryocore_rapier
           - hero_rapier
           - nuclear_rapier
       - id: cat_1784732175598
@@ -5262,6 +5857,8 @@ _editor:
           - netherite_greataxe
           - source_gem_greataxe
           - infinity_greataxe
+          - emberforge_greataxe
+          - cryocore_greataxe
           - hero_greataxe
           - nuclear_greataxe
       - id: cat_1784780540617
@@ -5275,6 +5872,8 @@ _editor:
           - diamond_grate_sword
           - netherite_grate_sword
           - infinity_grate_sword
+          - emberforge_grate_sword
+          - cryocore_grate_sword
           - hero_grate_sword
           - nuclear_grate_sword
           - source_gem_grate_sword
@@ -5291,6 +5890,8 @@ _editor:
           - revolution_bow
           - source_gem_bow
           - infinity_bow
+          - emberforge_bow
+          - cryocore_bow
           - hero_bow
           - nuclear_bow
       - id: cat_20260723_トライデント
@@ -5305,6 +5906,8 @@ _editor:
           - netherite_trident
           - source_gem_trident
           - infinity_trident
+          - emberforge_trident
+          - cryocore_trident
           - hero_trident
           - nuclear_trident
       - id: cat_20260723_メイス
@@ -5319,6 +5922,8 @@ _editor:
           - netherite_mace
           - source_gem_mace
           - infinity_mace
+          - emberforge_mace
+          - cryocore_mace
           - hero_mace
           - nuclear_mace
       - id: cat_20260723_クロスボウ
@@ -5333,6 +5938,8 @@ _editor:
           - netherite_crossbow
           - source_gem_crossbow
           - infinity_crossbow
+          - emberforge_crossbow
+          - cryocore_crossbow
           - hero_crossbow
           - nuclear_crossbow
       - id: cat_20260724_特殊武器
@@ -5493,9 +6100,13 @@ _editor:
         label: インフィニティ
         itemIds:
           - infinity_boots
+          - emberforge_boots
           - infinity_chestplate
+          - emberforge_chestplate
           - infinity_helmet
+          - emberforge_helmet
           - infinity_leggings
+          - emberforge_leggings
       - id: cat_1784963378551
         label: 深海鱗鎧
         itemIds:
@@ -5571,6 +6182,8 @@ _editor:
       - gold_test
       - source_gem_sword
       - infinity_sword
+      - emberforge_sword
+      - cryocore_sword
       - hero_sword
       - nuclear_sword
       - stone_bow
@@ -5627,6 +6240,8 @@ _editor:
       - diamond_axe_tf
       - netherite_axe_tf
       - infinity_axe
+      - emberforge_axe
+      - cryocore_axe
       - hero_axe
       - nuclear_axe
       - wooden_grate_sword
@@ -5637,36 +6252,58 @@ _editor:
       - diamond_grate_sword
       - netherite_grate_sword
       - infinity_dagger
+      - emberforge_dagger
+      - cryocore_dagger
       - hero_dagger
       - nuclear_dagger
       - infinity_rapier
+      - emberforge_rapier
+      - cryocore_rapier
       - hero_rapier
       - nuclear_rapier
       - infinity_spear
+      - emberforge_spear
+      - cryocore_spear
       - hero_spear
       - nuclear_spear
       - infinity_trident
+      - emberforge_trident
+      - cryocore_trident
       - hero_trident
       - nuclear_trident
       - infinity_scythe
+      - emberforge_scythe
+      - cryocore_scythe
       - hero_scythe
       - nuclear_scythe
       - infinity_mace
+      - emberforge_mace
+      - cryocore_mace
       - hero_mace
       - nuclear_mace
       - infinity_warhammer
+      - emberforge_warhammer
+      - cryocore_warhammer
       - hero_warhammer
       - nuclear_warhammer
       - infinity_grate_sword
+      - emberforge_grate_sword
+      - cryocore_grate_sword
       - hero_grate_sword
       - nuclear_grate_sword
       - infinity_greataxe
+      - emberforge_greataxe
+      - cryocore_greataxe
       - hero_greataxe
       - nuclear_greataxe
       - infinity_bow
+      - emberforge_bow
+      - cryocore_bow
       - hero_bow
       - nuclear_bow
       - infinity_crossbow
+      - emberforge_crossbow
+      - cryocore_crossbow
       - hero_crossbow
       - nuclear_crossbow
       - source_gem_grate_sword
@@ -5733,9 +6370,13 @@ _editor:
       - wither_leggings
       - wither_boots
       - infinity_helmet
+      - emberforge_helmet
       - infinity_chestplate
+      - emberforge_chestplate
       - infinity_leggings
+      - emberforge_leggings
       - infinity_boots
+      - emberforge_boots
       - mage_arcane_novice_helmet
       - mage_arcane_novice_chestplate
       - mage_arcane_novice_leggings
@@ -5919,18 +6560,44 @@ _editor:
     wooden_grate_sword: weapon
     source_gem_spear: weapon
     infinity_dagger: weapon
+    emberforge_dagger: weapon
+    cryocore_dagger: weapon
     infinity_sword: weapon
+    emberforge_sword: weapon
+    cryocore_sword: weapon
     infinity_rapier: weapon
+    emberforge_rapier: weapon
+    cryocore_rapier: weapon
     infinity_spear: weapon
+    emberforge_spear: weapon
+    cryocore_spear: weapon
     infinity_trident: weapon
+    emberforge_trident: weapon
+    cryocore_trident: weapon
     infinity_scythe: weapon
+    emberforge_scythe: weapon
+    cryocore_scythe: weapon
     infinity_mace: weapon
+    emberforge_mace: weapon
+    cryocore_mace: weapon
     infinity_warhammer: weapon
+    emberforge_warhammer: weapon
+    cryocore_warhammer: weapon
     infinity_grate_sword: weapon
+    emberforge_grate_sword: weapon
+    cryocore_grate_sword: weapon
     infinity_axe: weapon
+    emberforge_axe: weapon
+    cryocore_axe: weapon
     infinity_greataxe: weapon
+    emberforge_greataxe: weapon
+    cryocore_greataxe: weapon
     infinity_bow: weapon
+    emberforge_bow: weapon
+    cryocore_bow: weapon
     infinity_crossbow: weapon
+    emberforge_crossbow: weapon
+    cryocore_crossbow: weapon
     infinity_cane: catalyst
     dragon_cane: catalyst
     wither_cane: catalyst

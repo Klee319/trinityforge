@@ -210,6 +210,13 @@ smithing:
     DIAMOND_CHESTPLATE: 200
     DIAMOND_LEGGINGS: 175
     DIAMOND_BOOTS: 100
+    # --- 圧縮素材(氷芯・熾鉄シリーズの儀式で消費する) ---
+    # custom:<id>_Nx = 素材N個ぶん。既存の custom:blaze_rod_2x=16 / _3x=24 (BLAZE_ROD=8) と同じ尺度。
+    custom:stone_5x: 7.5
+    custom:wither_rose_2x: 20
+    custom:breeze_rod_3x: 60
+    custom:emerald_block_4x: 360
+    custom:netherite_block_1x: 1080
     # --- 儀式専用の上位素材 ---
     custom:echo_shard_2x: 60
     custom:abyssal_ingot: 250

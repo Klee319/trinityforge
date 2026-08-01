@@ -225,6 +225,84 @@
           "property": "minecraft:display_context",
           "type": "minecraft:select"
         }
+      },
+      {
+        "threshold": 5700,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/trident",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "on_false": {
+              "base": "minecraft:item/trident_in_hand",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "on_true": {
+              "base": "minecraft:item/trident_throwing",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "property": "minecraft:using_item",
+            "type": "minecraft:condition"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
+      },
+      {
+        "threshold": 5720,
+        "model": {
+          "cases": [
+            {
+              "model": {
+                "model": "minecraft:item/trident",
+                "type": "minecraft:model"
+              },
+              "when": [
+                "gui",
+                "ground",
+                "fixed",
+                "on_shelf"
+              ]
+            }
+          ],
+          "fallback": {
+            "on_false": {
+              "base": "minecraft:item/trident_in_hand",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "on_true": {
+              "base": "minecraft:item/trident_throwing",
+              "model": {
+                "type": "minecraft:trident"
+              },
+              "type": "minecraft:special"
+            },
+            "property": "minecraft:using_item",
+            "type": "minecraft:condition"
+          },
+          "property": "minecraft:display_context",
+          "type": "minecraft:select"
+        }
       }
     ]
   }
