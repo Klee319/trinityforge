@@ -48,7 +48,6 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
@@ -131,8 +130,8 @@ public final class NativeSkillExperienceListener implements Listener {
         this.dedicatedEffects = dedicatedEffects;
         this.aggregator = aggregator;
         this.mobLevelTable = mobLevelTable;
-        // 醸造所有者PDCキーの定義は BrewOwnership へ一本化(二重実装防止)。書き込み側はこのクラス
-        // (rememberBrewer/markAutomatedBrew/onBrew)が引き続き担うが、キー文字列そのものは共有クラスから。
+        // 醸造所有者PDCは BrewOwnership へ一本化(二重実装防止)。キー文字列だけでなく
+        // 書き込み規則(先着優先・差し替え・自動マーク・完了時クリア)もあちら側にしかない。
         this.brewOwnership = new BrewOwnership(plugin);
     }
 
@@ -610,20 +609,17 @@ public final class NativeSkillExperienceListener implements Listener {
                 && rawSlot < event.getView().getTopInventory().getSize()
                 && directPlacement;
         if (!intoStandSlot) return;
-        stand.getPersistentDataContainer().set(
-                brewOwnership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
-        stand.getPersistentDataContainer().set(
-                brewOwnership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_MANUAL);
-        stand.update();
+        // 先着優先(BrewOwnership の書き込み規則1)。最後に触った人が上書きできると、他人の醸造の
+        // 報酬を最後にクリックするだけで奪えるうえ、未解放プレイヤーが最後に触るだけで
+        // 解放済みの台のゲート付き醸造を止められる(同じ1本のキーを解放ゲートも読むため)。
+        brewOwnership.rememberOwner(stand, player);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void markAutomatedBrew(InventoryMoveItemEvent event) {
         InventoryHolder holder = event.getDestination().getHolder();
         if (!(holder instanceof BrewingStand stand)) return;
-        stand.getPersistentDataContainer().set(
-                brewOwnership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_AUTO);
-        stand.update();
+        brewOwnership.markAutomated(stand);
     }
 
     /**
@@ -639,9 +635,10 @@ public final class NativeSkillExperienceListener implements Listener {
         // Always clear brewer/mode attribution after this brew completes, win or lose, so credit
         // (and the manual/automated mode flag) can never persist onto a later, unrelated brew —
         // this is what closed the "one manual click sticks the 8x rate forever" exploit.
-        stand.getPersistentDataContainer().remove(brewOwnership.lastBrewerKey());
-        stand.getPersistentDataContainer().remove(brewOwnership.brewModeKey());
-        stand.update();
+        // 2026-07-31: 醸造解放ゲートも同じ記録を読むので、このクリアは
+        // 「ゲート付き醸造はサイクルごとに解放済みプレイヤーの手投入が必要(=完全なホッパー自動化は
+        // できない)」も同時に意味する(BrewUnlockListener のクラスjavadoc参照)。
+        brewOwnership.clear(stand);
         if (ownerId.isEmpty()) return;
         SkillCatalogEntry alchemy = catalog.get(SkillId.ALCHEMY);
         ItemStack ingredient = brewIngredient(event);

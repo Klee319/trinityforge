@@ -60,6 +60,8 @@
     { id: "coating", label: "コーティング", hint: "武器コーティング素材" },
     { id: "vanilla-remove", label: "バニラレシピ削除", hint: "バニラ/データパックレシピの無効化" },
     { id: "recipe-add", label: "レシピ追加", hint: "バニラアイテムを結果にするクラフトレシピの追加登録" },
+    // D7 (2026-07-31): レシピ本にTF/Arsのレシピを出す(索引用途)。
+    { id: "recipe-book", label: "レシピ本", hint: "TF/Arsレシピをレシピ本に載せるかどうか" },
     // T4 (2026-07-25): ArsPaper config.yml の mana.source-auto-consume.items をこのタブへ移設。
     // 保存先は ars-config (getExtraSaves)。
     { id: "source-auto-consume", label: "ソース自動消費", hint: "アイテム→マナ自動消費 (ArsPaper config.yml)" }
@@ -302,6 +304,13 @@
     }
     ensureObj(working, "thread-slots", { "max-by-category": defaultThreadSlotCaps() });
     ensureObj(working["thread-slots"], "max-by-category", defaultThreadSlotCaps());
+    // D7 (2026-07-31): レシピ本へのTF/Arsレシピ開示。既定値は Java 側
+    // CraftingFeaturesConfig#loadRecipeBook と厳密に一致させること(ここがずれると
+    // 「editor で開いて保存しただけ」で挙動が変わる)。
+    ensureObj(working, "recipe-book", { "reveal-plugin-recipes": true, "hide-locked-recipes": true });
+    for (const key of ["reveal-plugin-recipes", "hide-locked-recipes"]) {
+      if (typeof working["recipe-book"][key] !== "boolean") working["recipe-book"][key] = true;
+    }
     if (!Array.isArray(working["removed-vanilla-recipes"])) working["removed-vanilla-recipes"] = [];
     if (!Array.isArray(working["removed-vanilla-items"])) working["removed-vanilla-items"] = [];
     if (working["added-recipes"] != null && !Array.isArray(working["added-recipes"])) delete working["added-recipes"];
@@ -384,7 +393,8 @@
       const map = h("div", { class: "cf-map" });
       const rows = [
         ["スレッド枠", "thread-slots", "item-stats カテゴリ上限でクランプ。"],
-        ["コーティング", "coating", "素材ごとのダメージとスタック上限。"]
+        ["コーティング", "coating", "素材ごとのダメージとスタック上限。"],
+        ["レシピ本", "recipe-book", "TF/Arsレシピをレシピ本に載せるか。"]
       ];
       for (const [title, key, desc] of rows) {
         map.appendChild(h("button", {
@@ -587,6 +597,7 @@
         case "coating": renderCoating(); break;
         case "vanilla-remove": renderVanillaRemove(); break;
         case "recipe-add": renderRecipeAdd(); break;
+        case "recipe-book": renderRecipeBook(); break;
         case "source-auto-consume": renderSourceAutoConsume(); break;
         default: renderOverview();
       }
@@ -640,6 +651,44 @@
           formHint("バニラアイテムを結果にするクラフトレシピを追加登録します。レシピの編集UIはアイテムカタログと同じです。"
             + "素材はバニラMaterial / custom:<カタログID> / list:<互換ID> を指定できます。"),
           formHint("反映はサーバ再起動 または /trinityforge reload。※結果はバニラアイテムのみ(カタログ品はカタログ側でレシピ定義してください)。"),
+          box
+        ]
+      ));
+    }
+
+    // レシピ本へのTF/Arsレシピ開示 (recipe-book)。D7 (2026-07-31)。
+    // Bukkit.addRecipe は「登録」だけで「発見(discover)」はしないため、TF/Ars のレシピは
+    // レシピ本に一切出ていなかった。ログイン時に discoverRecipes で開示する。
+    function renderRecipeBook() {
+      const rb = working["recipe-book"];
+      const box = h("div", { class: "cf-mat-list" });
+      const revealCard = h("div", { class: "cf-mat-card" });
+      revealCard.appendChild(field("TF/Arsレシピをレシピ本に載せる",
+        window.checkboxInput(rb["reveal-plugin-recipes"] !== false, (v) => {
+          rb["reveal-plugin-recipes"] = v === true;
+          renderBody();
+        }),
+        "ログイン時と /trinityforge reload 時に、trinityforge: と arspaper: のレシピをレシピ本へ開示します。"));
+      box.appendChild(revealCard);
+      const hideCard = h("div", { class: "cf-mat-card" });
+      hideCard.appendChild(field("未解放レシピは隠す",
+        window.checkboxInput(rb["hide-locked-recipes"] !== false, (v) => {
+          rb["hide-locked-recipes"] = v === true;
+        }),
+        "gated-catalog-recipes でスキルツリー解放待ちになっているレシピを、解放前はレシピ本から隠します。"
+        + " OFF にすると未解放レシピも一覧に出ます(クラフトは従来どおり弾かれます)。"));
+      box.appendChild(hideCard);
+      bodyEl.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "レシピ本 (recipe-book)" })],
+        [
+          formHint("レシピ本(バニラのレシピブック)にTF/ArsPaperのレシピを載せるかどうかの設定です。"
+            + "バニラは非表示の進捗(minecraft:recipes/...)でレシピを解禁しているため、プラグインが登録した"
+            + "レシピは明示的に開示しないと永久にレシピ本へ出ません。"),
+          formHint("⚠️ レシピ本は「索引」として使ってください。custom:<ID> 素材のレシピはレシピ本のクリック配置で"
+            + "素のバニラ素材が入るため、そのままではクラフトできません(TF側の素材チェックで弾かれます)。"
+            + "実際に作るときはTFのレシピGUIを使ってください。"),
+          formHint("反映はプレイヤーの再ログイン または /trinityforge reload。"
+            + "※ OFF に戻しても、既に開示済みのレシピはプレイヤーデータに残るため自動では消えません。"),
           box
         ]
       ));
@@ -1186,7 +1235,25 @@
       root.innerHTML = "";
       root.appendChild(card(
         [h("span", { class: "entry-key-label", text: "醸造解放" })],
-        [formHint("材料はバニラ Material 名、または custom:<カタログID>。該当材料の醸造は専用効果所持者のみ（未所持はBrewEventキャンセル）。custom: は醸造タイマーを強制開始します。")]
+        [
+          formHint("材料はバニラ Material 名、または custom:<カタログID>。該当材料の醸造は専用効果所持者のみです"
+            + "（未解放プレイヤーは投入自体が弾かれ、燃料も入りません）。"),
+          // D10 (2026-07-31): ここに書かれた (ベース, 材料) の組は起動時に Paper の PotionMix として
+          // サーバへ登録される。登録しないと醸造タイマーがそもそも進まない(THICK/MUNDANE ベースは
+          // バニラに対応する醸造が無いため、次tickで brewTime が 0 に戻される)。
+          formHint("⚠️ バニラと同じ (ベース, 材料) の組を書くと、そのバニラ醸造レシピをサーバ全体で"
+            + "上書き(=消滅)させてしまうため、その組は登録をスキップします(起動ログに警告が出ます)。"
+            + "TF独自の醸造には custom:<カタログID> 材料、または THICK / MUNDANE ベースを使ってください。"
+            + "なおレッドストーン/グロウストーン/発酵した蜘蛛の目は延長・強化・反転なので、"
+            + "THICK / MUNDANE ベースなら衝突しません(火薬とドラゴンブレスはどのベースでも衝突します)。"),
+          formHint("⚠️ 同じ (ベース, 材料) の組を2つのグループに書かないでください。先に一致した1件しか"
+            + "成立しないため、もう一方のグループのポーションは永久に作れません(上位段を作るときは"
+            + "ベースを変えてください。例: 下位段=THICK / 上位段=MUNDANE)。"),
+          formHint("⚠️ 投入の判定は「操作したプレイヤー」、ホッパー経由の判定は「醸造台に記録された所有者」"
+            + "です(所有者=その組み合わせを最初に解放済みの状態で組み立てたプレイヤー)。ホッパーは"
+            + "所有者が未記録・オフライン・未解放のいずれでも弾かれ、材料が手前で詰まります"
+            + "(自動化する場合は解放済みのプレイヤーが一度手で組み立て、オンラインである必要があります)。")
+        ]
       ));
       const keys = Object.keys(brew);
       if (!keys.length) {

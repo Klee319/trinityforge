@@ -181,6 +181,10 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     private volatile List<String> removedVanillaItems = List.of();
     /** {@code added-recipes}: extra Bukkit recipes whose result is a plain vanilla Material. */
     private volatile List<AddedRecipe> addedRecipes = List.of();
+    /** {@code recipe-book.reveal-plugin-recipes} — 既定 true。 */
+    private volatile boolean recipeBookRevealPluginRecipes = true;
+    /** {@code recipe-book.hide-locked-recipes} — 既定 true。 */
+    private volatile boolean recipeBookHideLockedRecipes = true;
 
     public int coatingBaseMaxStacks() {
         return coatingBaseMaxStacks;
@@ -337,6 +341,29 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         return addedRecipes;
     }
 
+    /**
+     * {@code recipe-book.reveal-plugin-recipes}(既定 {@code true}): ログイン時に TF / ArsPaper の
+     * 登録レシピをプレイヤーのレシピ帳へ解禁するか。
+     *
+     * <p><b>false へ戻しても既に解禁されたレシピは消えない</b>(レシピ帳の解禁状態は playerdata に
+     * 永続するため)。false は「今後新しく解禁しない」という意味であり、隠し直しはしない
+     * ({@code RecipeDiscoveryListener} の javadoc 参照)。
+     */
+    public boolean recipeBookRevealPluginRecipes() {
+        return recipeBookRevealPluginRecipes;
+    }
+
+    /**
+     * {@code recipe-book.hide-locked-recipes}(既定 {@code true}): {@code recipe:<id>} ゲートが
+     * 未解放のレシピをレシピ帳から隠すか({@code undiscoverRecipes})。
+     *
+     * <p>false にすると「レシピ帳に出るのにクラフトすると結果枠が空になる」状態
+     * ({@code CatalogCraftGateListener} が結果を消す)になるので、既定の true を推奨する。
+     */
+    public boolean recipeBookHideLockedRecipes() {
+        return recipeBookHideLockedRecipes;
+    }
+
     // --- Backward-compat accessors used by older call sites during migration ---
 
     /** @deprecated use {@link #coatingMaterial(String)} */
@@ -427,6 +454,7 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         this.removedVanillaItems = List.copyOf(removedItems);
 
         loadAddedRecipes(yaml, log);
+        loadRecipeBook(yaml);
 
         log.info("[" + PATH + "] loaded OK");
         return true;
@@ -681,6 +709,21 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             rows.put(tier, new PotionMergeTierValues(maxEffects, maxDurationSeconds));
         }
         return TierTable.of(rows);
+    }
+
+    /**
+     * {@code recipe-book}(2026-07-31 D7 新設)。セクションを丸ごと省略しても既定 true のままなので、
+     * 既存の yml をそのまま読んでも挙動は「解禁する / 未解放は隠す」になる。
+     */
+    private void loadRecipeBook(YamlConfiguration yaml) {
+        ConfigurationSection section = yaml.getConfigurationSection("recipe-book");
+        if (section == null) {
+            this.recipeBookRevealPluginRecipes = true;
+            this.recipeBookHideLockedRecipes = true;
+            return;
+        }
+        this.recipeBookRevealPluginRecipes = section.getBoolean("reveal-plugin-recipes", true);
+        this.recipeBookHideLockedRecipes = section.getBoolean("hide-locked-recipes", true);
     }
 
     private void loadBrewUnlocks(YamlConfiguration yaml, Logger log) {

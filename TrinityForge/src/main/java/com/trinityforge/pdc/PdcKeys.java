@@ -300,6 +300,13 @@ public final class PdcKeys {
      */
     public static final NamespacedKey VILLAGER_TRADES_INJECTED = key("villager_trades_injected");
 
+    // --- Brewing stand ---
+    // 醸造台の所有者キーは<b>ここに置かない</b>。所有者記録は
+    // com.trinityforge.listeners.BrewOwnership が唯一の定義(キー文字列・書き込み規則・寿命の全部)で、
+    // 醸造解放ゲートもそれを読む。2026-07-31 に一度ここへ BREW_STAND_OWNER を新設して
+    // 「誰に醸造を許可するか」と「誰にEXP/品質を付けるか」が別キーで決まる状態を作ったため撤去した
+    // (レビュー指摘#1)。所有者の記録を2本目にしないこと。
+
     // --- Cosmetic display entities (COMBAT focus-HP overlay). ---
     /** Tags a {@code TextDisplay} spawned by {@code FocusHpDisplay} so an orphan sweep on enable
      * can find and remove any left behind by a crash (the entity is also non-persistent). */

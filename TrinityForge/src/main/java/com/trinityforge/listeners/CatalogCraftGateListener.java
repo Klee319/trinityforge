@@ -152,7 +152,15 @@ public final class CatalogCraftGateListener implements Listener {
         if (!(recipe instanceof Keyed keyed)) {
             return null;
         }
-        NamespacedKey key = keyed.getKey();
+        return resolveGateId(keyed.getKey());
+    }
+
+    /**
+     * {@link #resolveGateId(Recipe)} のキーだけ版。レシピ実体を持たずキーしか無い経路
+     * ({@code RecipeDiscoveryListener} のレシピ帳解禁: 「隠す集合」を「実際にブロックされる集合」と
+     * 必ず一致させるため、判定ロジックをこちらへ寄せて二重管理を作らない)から使う。
+     */
+    static String resolveGateId(NamespacedKey key) {
         if (key == null) {
             return null;
         }

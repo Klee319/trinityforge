@@ -2118,6 +2118,17 @@ function validateGeneric(data, errors) {
 }
 
 // ---- crafting-features.yml (tf-crafting-features) ----
+// brew-unlocks の (base, ingredient) 正規化キー。Java 側 BrewRecipeSupport#pairKey と同じ規約
+// (base 空欄は「任意のビン」= *、custom:<id> は小文字化、材質名は大文字化)。
+function brewPairKey(base, ingredient) {
+  const b = typeof base === "string" && base.trim() ? base.trim().toUpperCase() : "*";
+  const raw = typeof ingredient === "string" ? ingredient.trim() : "";
+  const i = raw.toLowerCase().startsWith("custom:")
+    ? raw.toLowerCase()
+    : raw.replace(/^minecraft:/i, "").toUpperCase();
+  return `${b} + ${i}`;
+}
+
 function validateTfCraftingFeatures(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -2147,6 +2158,48 @@ function validateTfCraftingFeatures(data, errors) {
           }
         }
       }
+    }
+  }
+  // D7 (2026-07-31): レシピ本へのTF/Arsレシピ開示。既定値は Java 側
+  // CraftingFeaturesConfig#loadRecipeBook と一致(どちらも true)。
+  const recipeBook = data["recipe-book"];
+  if (recipeBook !== undefined && recipeBook !== null) {
+    if (!isPlainObject(recipeBook)) {
+      errors.push("recipe-book はマップである必要があります");
+    } else {
+      for (const key of ["reveal-plugin-recipes", "hide-locked-recipes"]) {
+        const v = recipeBook[key];
+        if (v !== undefined && v !== null && typeof v !== "boolean") {
+          errors.push(`recipe-book.${key}: true / false である必要があります`);
+        }
+      }
+      for (const key of Object.keys(recipeBook)) {
+        if (key !== "reveal-plugin-recipes" && key !== "hide-locked-recipes") {
+          errors.push(`recipe-book.${key}: 未知のキーです (reveal-plugin-recipes / hide-locked-recipes のみ)`);
+        }
+      }
+    }
+  }
+  // D10 レビュー指摘#2 (2026-07-31): 同じ (base, ingredient) を複数グループが宣言すると、
+  // Paper の customMixes も BrewUnlockListener も「先に一致した1件」で確定するため、
+  // 片方のグループのポーションが永久に作れなくなる(Java 側は要求レベルの高い方を残して
+  // 起動ログに WARNING を出すが、起動ログを見ないと気づけない)。保存時点でエラーにする。
+  const brewUnlocks = data["brew-unlocks"];
+  if (isPlainObject(brewUnlocks)) {
+    const seen = new Map();
+    for (const [gid, group] of Object.entries(brewUnlocks)) {
+      if (!isPlainObject(group) || !Array.isArray(group.potions)) continue;
+      group.potions.forEach((potion, i) => {
+        if (!isPlainObject(potion)) return;
+        const pair = brewPairKey(potion.base, potion.ingredient);
+        const first = seen.get(pair);
+        if (first) {
+          errors.push(`brew-unlocks.${gid}.potions[${i}]: (${pair}) は ${first} が既に宣言しています。`
+            + "同じ組を2つ書くと片方のポーションは永久に作れません(段を分けるならベースを変えてください)");
+        } else {
+          seen.set(pair, `${gid}.potions[${i}]`);
+        }
+      });
     }
   }
   const removed = data["removed-vanilla-recipes"];
