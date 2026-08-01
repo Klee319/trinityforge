@@ -2714,6 +2714,47 @@ editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言による�
   かまどが壊れていた場合だけ従来どおり地面へ）。バニラは満杯のかまどでは精錬を止めるので
   破棄されるのは上限到達のその1回・最大1個だけ。
 
+### 2026-08-01 後半 — 未マージ7ブランチを `dev` へ集約（`978acc8` まで push 済み）
+
+**X1〜X4 / Y1〜Y4 のワークフローは両方とも完走していた。** 成果物は各ブランチに残っており、
+以下を `dev` へマージした（マージ順は「`TrinityForge.java` を触る X4 を先頭」）。
+
+| マージ順 | ブランチ | 内包していた旧ブランチ | 中身 |
+|---|---|---|---|
+| 1 | `work/w2c-brew-fix2-x4` | `worktree-wf_d786342c-39a-2`(L6) / `work/w2b-recipe-brew-fix-g3` | レシピ帳解禁＋醸造 customMixes＋所有者PDCの二重実装解消 |
+| 2 | `work/w2c-collection-fix2-x2` | `work/w2-fixups-l5` / `work/w2b-collection-fix-g2` | 図鑑の `creative_origin` 誤刻印（**永久に登録不能**）を解消 |
+| 3 | `work/w3d-gathering-fix2-x3` | `work/w3-gathering` / `work/w3c-gathering-fix-g1` | 伐採 N1/N2＋G1 round1・round2 |
+| 4〜7 | `work/y1-grindstone-u4` / `y2-enchant-pool-u17` / `y3-sugarcane-u9` / `y4-editor-mobitems-u13` | — | U4 砥石 / U17 エンチャント抽選 / U9 サトウキビ / U13 editor モブ定義 |
+
+**衝突は1件だけ**（`tools/config-editor/public/js/tf-crafting-features.js`）。dev 側の
+`defaultThreadSlotCaps()`（F6）と X4 側の `recipe-book` 既定値補完がぶつかったので、**両方を残す形**で解決した。
+
+**`978acc8` で配線3件を入れた**（`TrinityForge.java` は choke file なので各レーンが意図的に残していた分）:
+
+- `MobTypeDropListener` へ `crossPluginItemResolver` を渡す — **Y4 の HIGH**。
+  未配線だと editor で `custom:<id>` を設定できるのに**ドロップが1件も出ない**（無言失敗）。
+- `CollectionListener` を5引数化して `plugin` を渡す（文字列でのプラグイン引きをやめる）。
+- `TreeFellingListener#setPlugin(this)` — 段階破壊の Plugin 解決を明示注入に（N1/N2）。
+
+**テスト実測（メインのワークツリー、マージ後）: 3246 tests / 5 failed / 2 skipped。**
+スキップ2件は既知の正当分（＝MockBukkit の隠れ失敗ゼロ）。
+**失敗5件はすべて他セッションの未コミット yml 由来**で、今回のマージが増やしたものではない
+（4クラス: `CatalogVanillaOperationPolicyConfigTest` = 出荷 catalog が1件パース不能・
+`SkillExpConfigTest` / `NativeSkillCatalogRatesTest` / `NativeSkillCatalogTest` = `skill-exp.yml` の
+WIP 値とテスト期待値のずれ）。いずれも WIP が `items/catalog.yml` と `stats/skill-exp.yml` を
+書き換え中であることによる。editor は 14 テスト失敗（同じく他セッター WIP 由来）。
+
+**まだマージできない2本（他セッションの未コミット変更に阻まれ、`git merge` が abort する）:**
+
+| ブランチ | 阻んでいるファイル |
+|---|---|
+| `work/w2b-stat-vocab-fix-g4`（語彙 L7/D13） | `combat/base-stats.yml` / `stats/item-stats.yml` / `stats/lore.yml` |
+| `work/w3b-archery-exp`（N5 弓術） | `stats/skill-exp.yml` / `skills/base/archery_progression.yml` |
+
+**注意**: Y レーンのブランチは `tmp/findings/urgent/*.md` を force-add していたため、マージで
+**`tmp/` の作業メモが `dev` に載り public リポジトリへ push された**（レビュー md のみ。秘密・jar は無し）。
+`git rm --cached` は権限ゲートで拒否されたので追跡解除は未実施。
+
 ### 進行中のワークフロー
 
 | run | レーン | 対象 |
