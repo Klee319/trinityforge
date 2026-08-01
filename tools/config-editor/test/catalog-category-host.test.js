@@ -296,3 +296,114 @@ test("検査できなかったファイルは他ファイルの件数で埋め�
   assert.ok(lines.some((l) => /^catalog\.yml: \d+ 要素を検査$/.test(l)), lines.join(" / "));
   assert.ok(lines.some((l) => l.startsWith("__absent__.yml: 未検査")), lines.join(" / "));
 });
+
+// ============================================================
+// 2026-08-01 実サーバ報告「追加した素材が editor でカテゴリ分けできていない」の回帰テスト。
+//
+// 真因: 割当は `assignItemToActiveEditorCategory` の1本しかなく、これは
+// 「カテゴリタブで絞り込み中のときだけ」割り当てる。既定の表示は「すべて」なので、
+// 普通に「+ 素材追加」した品はどのカテゴリにも入らない。エラーも警告も出ないので、
+// カテゴリタブを押さずに追加し続ける限り全部が「未設定」に溜まり続ける。
+// ファイル跨ぎ移動 (カタログ⇄素材) と表示タブ移動も同じ形で無所属になっていた。
+//
+// 対策: `ensureItemEditorCategory` = 「絞り込み中ならそのカテゴリ、無ければ『未分類』」。
+// 未分類は仮想タブの「未設定」と違い実体のあるカテゴリなので yml に残る。
+// ============================================================
+
+function hostWithTwoCategories() {
+  return {
+    materials: {},
+    _editor: {
+      categories: {
+        material: [
+          { id: "cat_drop", label: "ドロップ素材", itemIds: [] },
+          { id: "cat_craft", label: "クラフト素材", itemIds: [] }
+        ]
+      }
+    }
+  };
+}
+
+test("「すべて」表示のまま追加しても未分類カテゴリへ必ず入る", () => {
+  const { win } = loadEditorCategories();
+  const host = hostWithTwoCategories();
+
+  // 絞り込みなし (= 既定の「すべて」)。ここが旧実装では no-op だった。
+  const catId = win.ensureItemEditorCategory(host, "material", "dragon_scale");
+  assert.equal(catId, win.UNCLASSIFIED_EDITOR_CATEGORY_ID);
+  assert.equal(win.getItemEditorCategory(host, "material", "dragon_scale"), catId,
+    "追加した品がどのカテゴリにも属していない (未設定タブにしか出ない)");
+
+  const cats = win.listEditorCategories(host, "material");
+  const unclassified = cats.find((c) => c.id === catId);
+  assert.ok(unclassified, "未分類カテゴリが作られていない");
+  assert.equal(unclassified.label, "未分類");
+  assert.deepEqual(unclassified.itemIds, ["dragon_scale"]);
+
+  // 2件目は同じ未分類カテゴリを使い回す (追加のたびに増やさない)。
+  win.ensureItemEditorCategory(host, "material", "dungeon_seal_mines");
+  const after = win.listEditorCategories(host, "material");
+  assert.equal(after.filter((c) => c.id === catId).length, 1);
+  assert.deepEqual(after.find((c) => c.id === catId).itemIds,
+    ["dragon_scale", "dungeon_seal_mines"]);
+});
+
+test("カテゴリタブで絞り込み中なら、そのカテゴリへ入る (従来挙動を維持)", () => {
+  const { win } = loadEditorCategories();
+  const host = hostWithTwoCategories();
+  const bar = win.renderEditorCategoryBar(host, "material", () => {}, () => {});
+  const dropBtn = bar.querySelectorAll(".editor-cat-tab")
+    .find((c) => c.getAttribute("data-cat-id") === "cat_drop");
+  dropBtn.props.onclick();
+
+  assert.equal(win.ensureItemEditorCategory(host, "material", "dragon_scale"), "cat_drop");
+  // 絞り込み中に追加したものは未分類を作らない。
+  assert.ok(!win.listEditorCategories(host, "material")
+    .some((c) => c.id === win.UNCLASSIFIED_EDITOR_CATEGORY_ID));
+});
+
+test("既にカテゴリを持つ品は勝手に動かさない", () => {
+  const { win } = loadEditorCategories();
+  const host = hostWithTwoCategories();
+  win.moveItemEditorCategory(host, "material", "dragon_scale", "cat_craft");
+  assert.equal(win.ensureItemEditorCategory(host, "material", "dragon_scale"), "cat_craft");
+  assert.ok(!win.listEditorCategories(host, "material")
+    .some((c) => c.id === win.UNCLASSIFIED_EDITOR_CATEGORY_ID));
+});
+
+test("表示タブを移すと移動先タブでもカテゴリへ入る (未設定へ落ちない)", () => {
+  const { win } = loadEditorCategories();
+  const host = {
+    items: { battle_axe: {} },
+    _editor: {
+      itemTabs: { battle_axe: "tool" },
+      categories: {
+        tool: [{ id: "cat_axe", label: "斧", itemIds: ["battle_axe"] }],
+        weapon: [{ id: "cat_sword", label: "剣", itemIds: [] }]
+      }
+    }
+  };
+  win.moveItemDisplayTab(host, "battle_axe", "weapon", ["weapon", "tool"]);
+
+  assert.equal(win.getItemDisplayTab(host, "battle_axe"), "weapon");
+  assert.equal(win.getItemEditorCategory(host, "tool", "battle_axe"), "",
+    "移動元タブのカテゴリからは外れること");
+  assert.equal(win.getItemEditorCategory(host, "weapon", "battle_axe"),
+    win.UNCLASSIFIED_EDITOR_CATEGORY_ID,
+    "移動先タブで無所属になっている (表示タブを変えると未設定へ落ちる)");
+});
+
+test("assignItemToActiveEditorCategory は ensure へ委譲している (旧 no-op へ戻していない)", () => {
+  // 呼び出し側(forms.js / ars-forms.js)は名前を変えずに全部この関数を通るので、
+  // ここが no-op に戻ると「追加した品が未設定に溜まる」症状がそのまま復活する。
+  assert.match(editorCategories,
+    /window\.assignItemToActiveEditorCategory = function[\s\S]{0,200}?window\.ensureItemEditorCategory\(/);
+  assert.match(editorCategories, /function ensureItemEditorCategory\(host, tabKey, itemId\)/);
+  // 追加経路が ensure を通っていること (素材の「+ 素材追加」/ ファイル跨ぎ移動)。
+  const arsForms = fs.readFileSync(path.join(ROOT, "public", "js", "ars-forms.js"), "utf8");
+  const forms = fs.readFileSync(path.join(ROOT, "public", "js", "forms.js"), "utf8");
+  assert.match(arsForms, /window\.ensureItemEditorCategory\(cat, tab, entry\.id\)/,
+    "素材→カタログ移動でカテゴリ割当をしていない");
+  assert.match(forms, /window\.ensureItemEditorCategory\(mats, "material", id\)/,
+    "カタログ→素材移動でカテゴリ割当をしていない");
+});

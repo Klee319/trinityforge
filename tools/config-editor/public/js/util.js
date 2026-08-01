@@ -857,7 +857,18 @@ window.helpIcon = function helpIcon(desc, opts) {
   const icon = window.h("span", {
     class: "help-icon", text: "?",
     tabindex: "0", role: "button",
-    "aria-haspopup": "true", "aria-expanded": "false"
+    "aria-haspopup": "true", "aria-expanded": "false",
+    // 【2026-08-01 実サーバ報告「?をホバーするとレガシーのHTMLの説明が出てくる」の修正】
+    // title 属性のツールチップは**祖先へ遡って**表示される (自分に title が無い要素をホバーすると
+    // 最も近い祖先の title がブラウザ標準の黄色いツールチップとして出る)。
+    // editor には `sub-title` / `lore-stat-key` のように「説明文をまるごと title へ入れた」
+    // 旧方式の親要素がまだ多数あり、その中に置いた「?」をホバーすると
+    //   独自ツールチップ(整形済み) + ブラウザ標準ツールチップ(未整形の生テキスト)
+    // が二重に出ていた。生テキストには MiniMessage の `<gray><icon><name>` 等が含まれるので
+    // 「HTML の断片が出てくる」ように見える。
+    // 空文字の title は「この要素には注釈が無い」の明示宣言で、**祖先の title を打ち消す**
+    // (HTML 仕様。空でない title を入れる = 標準ツールチップを使う、ではない点に注意)。
+    title: ""
   });
   icon.addEventListener("mouseenter", () => {
     if (helpTooltipAnchor !== icon) openHelpTooltip(icon, keyLabel, desc, false);
@@ -900,6 +911,27 @@ window.fieldLabelEl = function fieldLabelEl(key, opts) {
   // 英字キーを小さく併記 (ユーザがYAMLキーを見失わないように)
   if (!options.hideKey && ja !== key) children.push(window.h("span", { class: "form-label-key", text: key, title: "YAMLキー" }));
   return window.h("span", { class: "form-label with-ja" }, children);
+};
+
+// セクション見出し (`.sub-title`)。説明文は「?」の独自ツールチップへ回す。
+//
+// 2026-08-01: それまでは `h("div", { class: "sub-title", text, title: desc })` と書いて
+// **説明文をブラウザ標準の title ツールチップ**で出していた (2026-07-27 に helpIcon から
+// 追い出したはずの旧方式が、見出し側にだけ残っていた)。折返しも書式も制御できないうえ、
+// 見出しの中に「?」がある画面では標準ツールチップと独自ツールチップが二重に出る。
+// 見出しの説明は必ずこのヘルパー経由にして、`.sub-title` に title を書かないこと。
+//
+// @param {string} text 見出し文字列
+// @param {string} [desc] 説明文 (あれば「?」を付ける。空なら見出しだけ)
+// @param {Array} [extraChildren] 見出し行に並べる追加要素
+window.subTitleEl = function subTitleEl(text, desc, extraChildren) {
+  const children = [window.h("span", { class: "sub-title-text", text: text == null ? "" : String(text) })];
+  const help = window.helpIcon(desc);
+  if (help) children.push(help);
+  if (Array.isArray(extraChildren)) {
+    for (const c of extraChildren) if (c) children.push(c);
+  }
+  return window.h("div", { class: "sub-title" }, children);
 };
 
 // ステータスキー入力の横に出す日本語ヒント。入力変更に追従して更新する。

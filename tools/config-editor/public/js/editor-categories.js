@@ -300,11 +300,55 @@
     return cat.itemIds.includes(itemId);
   };
 
-  /** Assign item to currently active nested category (if any). */
-  window.assignItemToActiveEditorCategory = function assignItemToActiveEditorCategory(host, tabKey, itemId) {
+  // ---- 新規追加品の自動カテゴリ割当 ----
+  //
+  // 【2026-08-01 実サーバ報告「追加した素材が editor でカテゴリ分けできていない」の修正】
+  // それまでの `assignItemToActiveEditorCategory` は「カテゴリタブで絞り込み中のときだけ」
+  // 割り当てる作りだった。既定の表示は「すべて」なので、**普通に追加した品はどのカテゴリにも
+  // 入らない**。カテゴリタブを1つも押さずに追加し続ける限り、全部が「未設定」に溜まる
+  // (エラーも警告も出ないので気づけない)。同じ理由で、カタログ⇄素材のファイル跨ぎ移動や
+  // 表示タブの移動でも移動先タブでは無所属になっていた。
+  //
+  // 「絞り込み中ならそのカテゴリ、そうでなければ『未分類』カテゴリ」へ必ず入れる。
+  // 未分類は実体のあるカテゴリなので、タブから一覧でき、カード上のセレクトで移動できる。
+  // (仮想タブの「未設定」と違い、yml に残る = 次に開いたときも同じ場所に居る。)
+  const UNCLASSIFIED_CATEGORY_ID = "cat_auto_unclassified";
+  const UNCLASSIFIED_CATEGORY_LABEL = "未分類";
+
+  /**
+   * itemId が tabKey のどれかのカテゴリに属している状態を保証する。
+   * 既にどこかへ属していれば何もしない (勝手に移動させない)。
+   * @returns {string} 所属カテゴリ id (割り当てられなかった場合は "")
+   */
+  window.ensureItemEditorCategory = function ensureItemEditorCategory(host, tabKey, itemId) {
+    if (!host || typeof host !== "object" || !tabKey || !itemId) return "";
+    const existing = window.getItemEditorCategory(host, tabKey, itemId);
+    if (existing) return existing;
+
+    const cats = listCategories(host, tabKey);
     const active = activeMap(host)[tabKey] || "__all__";
-    if (active === "__all__" || active === "__unset__") return;
-    window.moveItemEditorCategory(host, tabKey, itemId, active);
+    if (active !== "__all__" && active !== "__unset__" && cats.some((c) => c.id === active)) {
+      window.moveItemEditorCategory(host, tabKey, itemId, active);
+      return active;
+    }
+
+    let fallback = cats.find((c) => c.id === UNCLASSIFIED_CATEGORY_ID);
+    if (!fallback) {
+      fallback = { id: UNCLASSIFIED_CATEGORY_ID, label: UNCLASSIFIED_CATEGORY_LABEL, itemIds: [] };
+      cats.push(fallback);
+    }
+    window.moveItemEditorCategory(host, tabKey, itemId, fallback.id);
+    return fallback.id;
+  };
+
+  window.UNCLASSIFIED_EDITOR_CATEGORY_ID = UNCLASSIFIED_CATEGORY_ID;
+
+  /**
+   * 新規追加/複製時の割当。名前は呼び出し側との互換のため据え置き。
+   * 絞り込み中のカテゴリがあればそこへ、無ければ「未分類」へ入れる (ensureItemEditorCategory)。
+   */
+  window.assignItemToActiveEditorCategory = function assignItemToActiveEditorCategory(host, tabKey, itemId) {
+    window.ensureItemEditorCategory(host, tabKey, itemId);
   };
 
   function listOrders(host) {
@@ -476,6 +520,9 @@
     if (typeof window.appendEditorOrder === "function") {
       window.appendEditorOrder(host, toTab, itemId);
     }
+    // 移動元タブのネストカテゴリからは外れたので、移動先タブでも必ずどこかへ入れる
+    // (でないと「表示タブを変えたら未設定へ落ちる」= 2026-08-01 報告と同じ形になる)。
+    window.ensureItemEditorCategory(host, toTab, itemId);
   };
 
   /**

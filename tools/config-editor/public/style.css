@@ -390,6 +390,10 @@ select.field-input option {
 
 .sub-section { border-top: 1px solid var(--border); padding-top: 8px; }
 .sub-title { font-size: 12px; font-weight: 700; color: var(--accent); margin: 6px 0; }
+/* 見出し + 「?」ヘルプ (util.js window.subTitleEl)。説明は独自ツールチップへ回すので
+   `.sub-title` へ title 属性は書かない (書くとブラウザ標準ツールチップが二重に出る)。 */
+.sub-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sub-title > .sub-title-text { color: inherit; }
 .stat-rows, .lore-rows { display: flex; flex-direction: column; gap: 6px; }
 .stat-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* プレイヤー基礎ステ画面: 固定ラベル + 値入力を揃える。 */

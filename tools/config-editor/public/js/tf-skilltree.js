@@ -160,11 +160,10 @@
     const supportsMultipliers = buffsKey === "buffs" || buffsKey === "mainhand-buffs";
     const multiplierKey = buffsKey === "mainhand-buffs" ? "mainhand-multipliers" : "multipliers";
     const box = h("div", {});
-    box.appendChild(h("div", {
-      class: "sub-title",
-      text: title || "バフ (buffs / multipliers)",
-      title: description || "加算モードは総合ステータスへ加算。乗算モードは同一レイヤ内を足し合わせ、レイヤ間を乗算して総合値へ適用します。"
-    }));
+    box.appendChild(window.subTitleEl(
+      title || "バフ (buffs / multipliers)",
+      description || "加算モードは総合ステータスへ加算。乗算モードは同一レイヤ内を足し合わせ、レイヤ間を乗算して総合値へ適用します。"
+    ));
     // カテゴリ絞り込み(要望2026-07-26: ステが増えてきたので追加候補をカテゴリで絞れるように)。
     // カテゴリのID→日本語ラベルは tf-lore.js の LORE_CATEGORIES をそのまま再利用する(重複定義しない)。
     // カテゴリ一覧自体は window.STAT_META に実際に出現する category 値からハードコードせず動的生成する。
@@ -389,12 +388,9 @@
   // 段は3部位/4部位の2枠固定(1/2/5以上は不正)。乗算モード用の別キーは持たない(このスキーマに乗算モード枠は無い)。
   function setBuffsSection(obj) {
     const box = h("div", {});
-    box.appendChild(h("div", {
-      class: "sub-title",
-      text: "セット条件バフ (set-buffs)",
-      title: "所属ツリーの防具を指定部位数以上装備している間だけ加算。成立している最大の段だけが採用される"
-        + "(3と4の両方は加算されない)。"
-    }));
+    box.appendChild(window.subTitleEl("セット条件バフ (set-buffs)",
+      "所属ツリーの防具を指定部位数以上装備している間だけ加算。成立している最大の段だけが採用される"
+        + "(3と4の両方は加算されない)。"));
 
     function tierMap(tier, create) {
       if (!obj["set-buffs"] || typeof obj["set-buffs"] !== "object") {

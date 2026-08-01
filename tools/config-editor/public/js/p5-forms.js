@@ -13,7 +13,14 @@
       h("div", { class: "entry-body" }, bodyChildren)
     ]);
   }
-  function subTitle(text, title) { return h("div", { class: "sub-title", text, title: title || "" }); }
+  // 見出しの説明はブラウザ標準の title ではなく「?」の独自ツールチップへ回す (2026-08-01)。
+  // 第2引数の名前は呼び出し側との互換のため据え置き (中身は説明文)。
+  // util.js を読まない最小 window (単体テスト) では見出しだけを出す。
+  // フォールバックでも title 属性は使わない — 標準ツールチップが二重に出る旧方式そのものなので。
+  function subTitle(text, title) {
+    if (typeof window.subTitleEl === "function") return window.subTitleEl(text, title);
+    return h("div", { class: "sub-title", text });
+  }
   function emptyHint(text) { return h("div", { class: "empty-hint", text }); }
 
   // 挿入順を保ったままマップのキーをリネームする。
@@ -407,7 +414,11 @@
           }),
           h("span", { class: "range-label", text: "色" }),
           window.selectLabeledInput
-            ? window.selectLabeledInput(node.color || "GRAY", RARITY_COLORS, (v) => { node.color = v; })
+            // 【2026-08-01 修正】第3引数(語彙グループ)を渡し忘れてコールバックが
+            // enumGroup の位置に入っていた。結果 (a) ラベル解決に失敗して生ID表示、
+            // (b) onInput が undefined になり**色を選んでも保存されない**、の2重バグ。
+            ? window.selectLabeledInput(node.color || "GRAY", RARITY_COLORS, "rarity-color",
+                (v) => { node.color = v; })
             : (() => {
                 const sel = h("select", { class: "field-input" });
                 for (const c of RARITY_COLORS) {

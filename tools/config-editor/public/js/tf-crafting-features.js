@@ -182,8 +182,13 @@
       h("div", { class: "entry-body" }, bodyChildren)
     ]);
   }
+  // 見出しの説明はブラウザ標準の title ではなく「?」の独自ツールチップへ回す (2026-08-01)。
+  // 第2引数の名前は呼び出し側との互換のため据え置き (中身は説明文)。
+  // util.js を読まない最小 window (単体テスト) では見出しだけを出す。
+  // フォールバックでも title 属性は使わない — 標準ツールチップが二重に出る旧方式そのものなので。
   function subTitle(text, title) {
-    return h("div", { class: "sub-title", text, title: title || "" });
+    if (typeof window.subTitleEl === "function") return window.subTitleEl(text, title);
+    return h("div", { class: "sub-title", text });
   }
   function emptyHint(text) {
     return h("div", { class: "empty-hint", text });
