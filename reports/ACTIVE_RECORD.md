@@ -3334,3 +3334,158 @@ U14 の対策が `InventoryOpenEvent` を無条件キャンセルしていたが
 - GOLD帯（`use-level-requirement` 35）は H/L が 0.89〜0.95 で重武器が弱いまま。全品の `damage-modifier` が 0.95〜0.98 に揃っている構造的なもので、U5 のスコープ外
 - 束縛者 HP 29,106 は Spigot 既定の `attribute.maxHealth.max`（1024）超え。既存サーバは引き上げ済みだが**新設サーバでは無言でクランプされる**
 - ArsPaper フォークの `libs/TrinityForge.jar` は未コミットのまま（tracked かつ public repo なので push 不可）。クリーンチェックアウトからは fork がコンパイルできない
+
+---
+
+## 2026-08-02 コンテンツ追加7本柱を全て閉じた（柱5 / 柱5-3 / 柱6 / 柱7）
+
+同日前半の §3 で「7本柱のうち実装は2本半」と実測していた残りを全部実装した。
+**TF全体 3466 tests / 0 failures / 0 errors / 2 skipped**（2 skipped は MockBukkit 既知）、
+config-editor **931件中 fail 10（着手前と同数＝新規失敗ゼロ）**、
+ArsPaper フォーク **264 tests / 0 failures / 0 skipped**。
+リソパは `python resourcepack/build_item_pack.py` が `packed_files=572 sha1=1dd6df1…` で通る。
+
+### 1. 7本柱の最終状態
+
+| 柱 | 内容 | 状態 |
+|---|---|---|
+| ~~柱1~~ | ダンジョン鍵19件＋印18種の出口 | **解決済**（同日前半） |
+| ~~柱2 / 柱2-1~~ | 束縛者の倍率4段階／ボスへの `abilities` | **解決** `8570e40` `437bb8a`（43体） |
+| ~~柱3-A~~ | 枠拡張儀式・振り直し・`stat-caps` | **解決済**（同日前半） |
+| ~~柱4~~ | 用途ゼロ30件の解消 | **解決** 下記 4 に内訳 |
+| ~~柱5~~ | 新シリーズ2本（氷芯13＋熾鉄17） | **解決** `b5a66de` |
+| ~~柱5-3~~ | 単発装備8点（コア4種の出口） | **解決** `5b0eadd`（前提の `0cb0140` 込み） |
+| ~~柱6~~ | `infinity_source_core` を設置して機能させる | **解決** fork `9215a39`（**未 push**。下記 5） |
+| ~~柱7~~ | `use-role` ＋ロール専用装備8点 | **解決** `37adf41` |
+
+### 2. 柱5 — 氷芯 / 熾鉄シリーズ 30種（`b5a66de`）
+
+tier の上限は上げず、既存最上位（`infinity` Lv100）と**同じ帯で横に並べた**。
+氷芯 = 攻撃 0.70 倍だが `bleed-chance` 下限保証、熾鉄 = 攻撃 0.85 倍だが耐久 3 倍。
+どちらも thread 枠 2。防具は **`phys-flat-defense` を一切動かしていない**
+（減算式なので Lv100 で発散する。spec §0-1）。
+
+**生成は表の書き写しでなく、出荷 yml の `infinity_*` ブロックを読んで意図したキーだけ上書きした**
+（`tmp/gen_series.py`）。これで転記ミスの種類ごと消えたうえ、下の3件が実測で出てきた。
+
+- **`yaml.safe_load` は重複キーを黙って通すが、editor の JS 側 `yaml` は `DUPLICATE_KEY` で投げる。**
+  生成器が `NETHERITE_HOE#5700` / `TRIDENT#5700` に `bleed-chance` を足したが、この2つは
+  infinity から継承済みだった。Python 側は無警告で通り、**editor のテストが3ファイルまるごと落ちて**初めて分かった。
+  以後 yml を生成したら必ず重複キーを見る。
+- 丸め桁が足りず `0.12 → 0.1` / `0.015 → 0.01` に化けていた。率専用の書式（小数第3位）を分けた。
+- `MeleeUnintendedItemAttackSpeedTest` の対象が 54→60 に増えるのは**正しい**（新規の弓/クロスボウ/
+  トライデントが対象に入るため）。期待値を 60 に更新した。
+
+### 3. 柱5-3 — 単発装備8点とスキル別EXPステ（`5b0eadd` / `0cb0140`）
+
+コア4種（`tf_core_wood/meat/vegetable/dirt`）を核とする儀式で、1コアあたり武器系1＋防具1の
+**2用途**を持たせた（「1素材1用途」を避ける方針どおり）。
+
+**`use-skill` を分類マーカーに流用しなかった。** `use-skill` は使用要件であって分類ではないので、
+斧に `WOODCUTTING` を書くとモブを殴って伐採EXPが入る。代わりに
+`<skill>_exp_bonus` 系のステを新設し、`NativeProgressionService#grantExpUnderRepositoryLock` の
+**スキルIDが確定している1箇所**にだけフックを足した（全スキル一律ぶんとは加算合成してから1回だけ掛ける）。
+`PerSkillExpBonusTest` は `multAdd += perSkill;` を `+= 0.0` に差し替えると2件落ちることを確認済み（空振りでない）。
+
+**語彙キーを1本足すと登録先が6箇所ある**（1つでも忘れると drift テストが落ちる）:
+`StatVocabulary` / `stats/lore.yml`（カテゴリ内で `order` が一意）/ `combat/base-stats.yml` /
+`StatsCategory.java` / `docs/config-reference/combat/stat-caps.md` /
+editor の `labels.js`・`tf-base-stats.js`・`tf-lore.js` ＋ `tf-stat-caps-tab.test.js` の件数。
+
+**仕様書の数値のうち4件は実測すると誤りだったので直した**（`docs/design/2026-08-01-content-expansion-spec.md` §0-3〜§0-5）。
+
+| 仕様書 | 実測して分かったこと | 採用値 |
+|---|---|---|
+| 猟師の投槍 attack-power 2,800 | Lv60 の `NETHERITE_SPEAR`(2,634.66) すら超える。同格 Lv45 は `DIAMOND_SPEAR` 878.22 | **1,010** |
+| 同 attack-reach +1.2 | 出荷全体の最大リーチが 1.0。相対値でなく絶対値のキー | **1.4（絶対値）** |
+| 防具 Lv30 帯 | **Lv30 の防具段が存在しない**（段は 25/35/45/60） | 香草の帽子・岩盤の具足を **Lv35** へ |
+| — | ツール2点は Lv30 のままで問題ない | 最終 30/35/45/60 |
+
+### 4. 柱4 — 用途ゼロ30件は全件クローズ
+
+| 内訳 | 出口 | 状態 |
+|---|---|---|
+| `dungeon_seal_*` 18種 | `key_binder`（`list:dungeon_seals` ×5） | 柱1 |
+| コア4種 | 柱5-3 の単発装備8点（1コア=2用途） | `5b0eadd` |
+| 圧縮の袋小路5種 | 氷芯/熾鉄シリーズの儀式素材（各13〜17件で消費） | `b5a66de` |
+| `tf_scrap` | 村人 `TOOLSMITH`：`tf_scrap`×8 → `iron_ingot_scrap`×4 | `71695b8` |
+| `tf_crystal_apple` | 変更なし（食べるアイテムとして正しい） | — |
+| `infinity_source_core` | 設置して機能させる | fork `9215a39` |
+| 完全な行き止まり3種 | 醸造3種 | `032173e` |
+
+**`_Nx` 圧縮素材の EXP は Ars の実レシピと `skill-exp.yml` の規約が食い違っている。**
+Ars 側は指数（`stone_5x` = 9^5 = 59,049個ぶん）だが、`skill-exp.yml` は自身のコメントで
+線形（`custom:<id>_Nx = 素材N個ぶん`）と宣言していて既存行も全部そちら。
+**ファイル自身の規約に揃えた**（指数で入れると儀式1回で 88,573 EXP という桁違いの値になる）。
+どちらが正かは要判断だが、混在させるほうが確実に悪いのでこの選択にした。
+
+### 5. 柱6 — `infinity_source_core` を設置炉にした（fork `9215a39`、**push できていない**）
+
+BEACON の CustomBlock として設置でき、半径内（既定5）のソースリンクに
+`transfer.infinity-core.{transfer-multiplier,buffer-multiplier}`（既定 x2.0）を乗せる。
+マルチブロック判定はせず球状半径だけ。コアは消費されず右クリックで回収できる。
+
+- 倍率は `Sourcelink#addToBuffer` の既存クランプ（`SourceTransferConfig.clampBuffer`）に
+  cap として渡すので、K-16 のオーバーフロー保護をそのまま再利用している。
+- **`materials.yml` 由来の `ConfigurableMaterial` 登録が、同idの CustomBlock を上書きしていた。**
+  同idが CustomBlock 済みならスキップするようにした（放置すると設置できないアイテムに戻る）。
+- **リソパのモデルが無い**ので `BEACON#500001` は素のビーコンとして描画される。CMD は台帳
+  （`6e38d58`）に取ってあるので壊れてはいない。**モデルは未作成＝残タスク。**
+- このフォークは `libs/TrinityForge.jar` が tracked で、リポジトリは public なので **push できない**。
+  ローカルコミットのまま。前から続いている制約で、今回も解消していない。
+
+### 6. 柱7 — `use-role` とロール専用装備8点（`37adf41`）
+
+ロール変更CTが120分あるので「今日はこの職で遊ぶ」を選ぶ理由を作る。**縦強化にしない。**
+ステは単発装備と同等で、差は「その職でないと装備できない」ことだけ。
+
+- `use-role` の判定は `UseRequirementService#denialFor` の**1箇所だけ**に入れた。
+  近接/弓/ツール/防具装備/Ars触媒詠唱の全経路がここを通る（＝ここが緩むと全部緩む）。
+  戦闘職・補助職のどちらの枠で一致しても可。
+- `add-drops` に `roles:` を足した。`mobs:`/`mob-ids:` が「倒された側」を絞るのに対し
+  こちらは「倒した側」。**帯そのものには書けない**（帯ごと絞ると `remove-drops` や
+  `vanilla-exp` まで職業依存になる）。
+- 後方互換（未指定＝全部に適用）を `LevelTierDropRoleFilterTest` / `UseRoleGateTest` で固定した。
+  `UseRequirementsConfig.enforce` は**コード上の既定が false** で、true にしているのは出荷 yml のほう。
+  テストが自前で `enforce: true` を書かないと**ゲートが素通りしてテスト自体が何も検証しない**（実際に一度踏んだ）。
+
+**仕様書の数値のうち3件は「そのステが存在しない」ので置き換えた**（spec §0-6 / §0-7）。
+
+| 仕様書 | 実測 | 採用値 |
+|---|---|---|
+| 挑発の紋章「hate係数 +0.3」 | **ヘイトの機構自体が無い** | `damage-reduction 0.02` ＋ `knockback-resistance 0.05` |
+| 坑夫の灯／均しの手袋「ギミック発動率 +1%」 | 外から動かすステが無い | `mining-fortune` / `suspicious-respawn-chance` |
+| 樵の砥石「一括伐採CT −15%」 | `tree-fell-cooldown-reduction` が実在した | そのまま |
+
+**装飾品2点（`AMETHYST_SHARD`）はそのままでは完全な死にアイテムだった。**
+`PlayerStatAggregator` が読むのは**防具4部位・メインハンド・オフハンドだけ**で、
+インベントリに入れただけのアイテムのステは1つも効かない。`offhand-stats-apply: true` を立てて
+オフハンド装備にした。**インベントリ常駐型のアクセサリを作るなら機構から要る。**
+
+### 7. 次に触る人向け（今回出た恒久的な注意点）
+
+- **儀式レシピは `(core-item, pedestal-items)` が同一だと `findFirst` で先勝ちし、後発が無言で作れなくなる。**
+  ロール装備8点は `custom:hard_metal x2` が共通なので、職ごとの識別素材を1つずつ入れてある。消すと壊れる。
+- **CMD は素材ごとの割り当て。** `NETHERITE_SWORD#5700` と `MACE#5700` は別物。
+  `range_dispatch` は「値以下で最大の threshold」を拾うので、**登録し忘れた CMD は前のシリーズの
+  モデルで無言で描画される**。ただし `assets/minecraft/items/<material>.json` 自体が無い素材
+  （CROSSBOW / NETHERITE_SHOVEL / AMETHYST_SHARD / LEATHER_CHESTPLATE / LEATHER_HELMET）は
+  バニラ描画なので**足す必要が無い**。threshold の中身は**そのファイル自身の `fallback` を丸ごとコピー**する
+  （`fallback` の形は素材ごとに違い、`select` や入れ子 `range_dispatch` のこともある）。
+
+### 8. 残タスク（この時点で開いているもの）
+
+| 重大度 | 内容 |
+|---|---|
+| HIGH | **ArsPaper フォークが push できない**（`libs/TrinityForge.jar` が tracked／repo が public）。クリーンチェックアウトから fork をコンパイルできない状態が続いている。柱6 のコミットもローカルのみ |
+| MEDIUM | `BEACON#500001`（`infinity_source_core`）のリソパモデルが無い。素のビーコンとして描画される |
+| MEDIUM | `_Nx` 圧縮素材の EXP 規約（線形 vs 指数）はユーザー判断待ち。上記 4 参照 |
+| LOW | `apex-brew` の SPEED `amplifier: 2`（速度III）がバニラ上限超え。カスタム醸造なので意図的とも取れる |
+| LOW | GOLD帯（Lv35）は重武器が H/L 0.89〜0.95 で弱いまま。全品の `damage-modifier` が揃っている構造的なもの |
+| LOW | 束縛者 HP 29,106 は Spigot 既定 `attribute.maxHealth.max`(1024) 超え。**新設サーバでは無言でクランプ** |
+| — | 43件の持ち主不明 WIP（他ワークツリー）は手つかず |
+| — | config-editor の既知 fail 10件は今回のスコープ外（着手前から同数） |
+
+**配備はユーザーの作業。** `ops\launch\stop-all.cmd` → `ops\launch\deploy.cmd --config` →
+`ops\launch\start-all.cmd`。**リソパは `deploy.cmd` の対象外**（GitHub release 経由）。
+稼働中に jar を差し替えると必ず `NoClassDefFoundError` になるので、必ず停止してから。
