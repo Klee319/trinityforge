@@ -5,6 +5,7 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig.GatheringExpMode;
+import com.trinityforge.farming.CropMaturity;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.UseRequirementResolver;
@@ -326,12 +327,16 @@ public final class NativeSkillExperienceListener implements Listener {
         Material material = block.getType();
         String name = material.name();
         // タスク1(2026-07-26): 採取EXPの算出方式はconfig駆動(gathering.exp-mode、既定drop_sum=現行挙動)。
-        GatheringExpMode mode = TrinityForge.getInstance().config().skillExp().gatheringExpMode();
+        GatheringExpMode mode = gatheringExpMode();
 
         double exp = gatheringExp(SkillId.FARMING, "block_drops", name, drops, mode);
         String skill = SkillId.FARMING;
-        if (exp > 0.0 && block.getBlockData() instanceof Ageable ageable
-                && ageable.getAge() < ageable.getMaximumAge()) return false;
+        // 成熟ガードは「成熟しないと収穫できない作物」だけに掛ける(2026-08-01 U9)。以前は
+        // instanceof Ageable で弾いていたが、Ageable の age はブロックごとに意味が違い、サトウキビ/
+        // コンブ/竹/ねじれツタ/泣きツタ/光ツタは age が周回する成長カウンタなので「収穫できる状態でも
+        // ほぼ常に age < maximumAge」だった。結果、これらは農業EXPも(return falseなので)破壊時
+        // バニラEXPも永久に0だった。判定の一元化と全ブロックの分類は CropMaturity 参照。
+        if (exp > 0.0 && CropMaturity.isImmatureCrop(block)) return false;
         if (exp <= 0.0) {
             exp = gatheringExp(SkillId.WOODCUTTING, "woodcutting_break", name, drops, mode);
             skill = SkillId.WOODCUTTING;
@@ -359,6 +364,17 @@ public final class NativeSkillExperienceListener implements Listener {
         }
         grant(player, skill, exp);
         return true;
+    }
+
+    /**
+     * 採取EXPの算出方式({@code gathering.exp-mode})。{@link TrinityForge#getInstance()} が null
+     * (プラグイン未起動=ユニットテスト等)のときは既定の {@link GatheringExpMode#DROP_SUM} を返す —
+     * {@link #worldExpRate} が同じ状況でワールドゲートを掛けないのと同じ理由で、ここで NPE を投げると
+     * 破壊経路そのものがテストから叩けなくなる。
+     */
+    private static GatheringExpMode gatheringExpMode() {
+        var tf = TrinityForge.getInstance();
+        return tf == null ? GatheringExpMode.DROP_SUM : tf.config().skillExp().gatheringExpMode();
     }
 
     /**
