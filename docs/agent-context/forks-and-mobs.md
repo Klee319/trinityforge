@@ -145,6 +145,55 @@ EliteMobsフォーク側のコマンドrouting（MagmaCore）は正常なので�
   TF有効時に未登録なので `Unknown command` になる。実質 admin 系（`/em setup` `/em downloadall`
   等）のみ通る。
 
+### ⚠️ フォークのテストで使う定数プール一致チェックは「クラス単位」— 同一クラス内の別メソッドが身代わりになる
+
+`TrinityForgeGateWiringTest`（`src/test/java/.../trinityforge/`）はコンパイル済み `.class` を
+生バイト読みして policy メソッド名の文字列一致を見るだけなので、**クラス全体で1回でもその名前を
+参照していれば通る**。2026-08-01のミューテーションテストで実証: `CurrencyCustomLootEntry#directDrop`
+からゲートを削除しても`#locationDrop`側の呼び出しが残っているだけで検出されず、
+`LootTables#generatePlayerLoot`の`bonus_coins.yml`判定をリテラル`false`に差し替えても
+（呼び出し自体は残るため）検出されなかった。**「戻り値を無視した呼び出しが盲点」という旧説は誤り**
+（同ファイルjavadocで訂正済み）。
+
+- メソッド単位で確認したいときは `Javap.java`（同パッケージ）を使う: 実行中JVMの
+  `java.home/bin/javap -p -c -constants` を子プロセスで呼び、出力をメンバ宣言行（2スペース
+  インデント固定）の境界でメソッド単位にスライスする。文字列定数（`ldc`のコメント）もそのまま
+  読めるので、「どの引数が渡っているか」（例: `"bonus_coins.yml"` の有無）まで検証できる。
+  `CurrencyShowerCallSiteTest` が実例。
+- 挙動テスト（`EliteEntityNametagTest` 系のRecordingLivingEntity Proxy駆動）で潰せるならそちらを
+  優先する。javapベースの検証は「ライブサーバ無しでは駆動できない経路」（DB/経済/実際のダンジョン
+  loot生成が必要な箇所）専用の最終手段。
+
+### ⚠️ フォークのテストで重いコンストラクタを回避する `Unsafe.allocateInstance` 技法
+
+`MagmaCore`（`getInstance()`が private static singleton）、`EliteMobProperties`（abstract、
+フィールド初期化子が `ElitePower.getDefensivePowers().clone()` 等の静的config参照を伴う）、
+`CustomBossesConfigFields`（コンストラクタが `CustomBossesConfig` 経由の実config読込を要求）、
+`CustomBossEntity`（コンストラクタが `EMPackage.getContent` 等サーバ依存処理を実行）は、
+どれも実コンストラクタを通すとサーバ起動なしのユニットテストでは組み立てられない。
+
+- `sun.misc.Unsafe.allocateInstance(Class)`（`theUnsafe`静的フィールドをreflectionで取得）は
+  コンストラクタ・フィールド初期化子を一切実行せずインスタンスを確保する。abstract/interfaceは
+  不可（最小限の空サブクラスを用意する。`FakeMagmaCore.TestJavaPlugin`、
+  `EliteEntitySpawnNametagTest.TestEliteMobProperties` が実例）。
+- 確保後に必要なフィールドだけreflectionまたは既存の`@Setter`（Lombok）で埋める。
+  `CustomBossesConfigFields#setAlwaysShowName`のような公開setterがあればreflection不要。
+- **このフォークは `spigot-api` でコンパイルされており `paper-api` ではない**
+  （`build.gradle`の`compileOnly`が`org.spigotmc:spigot-api`）。`io.papermc.paper.plugin.configuration.PluginMeta`
+  は存在しない。`JavaPlugin#getName()`は`final`で`getDescription()`（`final`、`PluginDescriptionFile`を返す）
+  経由、その`description`フィールドを直接reflectionで書き換えるのが唯一の細工経路（`FakeMagmaCore`実装）。
+
+### HIGH-2/HIGH-3設計メモ（2026-08-01, `TrinityForgeDungeonGateListener` / `TrinityForgeIntegration`）
+
+- `trinityforge.yml`の`dungeon-entry-gate`（トップレベル真偽値、既定`true`）はTF連携そのものの
+  緊急停止スイッチ。`false`にすると全ダンジョンの入場制限がTF側判定を一切経由せず解除される
+  （権限バイパスと同格）。`TrinityForgeConfigMigration.appendMissingKeys`が既存config差分適用する。
+- fail-open/fail-close は「TFに聞けた上でNOと言われた」（fail-CLOSE、`DungeonGateService`側が
+  そもそも0ゲート設定でfail-openする設計なのでここで更に緩めない）と「TFに聞くこと自体ができな
+  かった」（null lookupKey／サービス未解決／例外、fail-OPEN＋`Logger.warn`）を必ず分ける。
+  `evaluateOrFailOpen`ヘルパ（`DungeonGateService`が`final`でモック不可なため`GateOperation`
+  関数型インターフェースで例外注入用の穴を作った）に両呼び出し元を通す。
+
 ## ビルド・配備（EliteMobs / TF API 連携）
 
 EliteMobsフォーク（`fork-handoff/elitemobs/elitemobs-fork`）は TrinityForge のクラスを
