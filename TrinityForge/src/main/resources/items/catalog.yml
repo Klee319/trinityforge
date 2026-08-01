@@ -1253,10 +1253,13 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # FEATHER x1 は hero_sword/hero_trident との衝突回避(RitualRecipeRegistry#findMatchは
+      # findFirstのため素材構成が完全一致すると片方しか成立しない)。レイピアは軽さ・敏捷寄り。
       pedestal-items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
         - custom:elder_guardian_spike x2
+        - FEATHER x1
       source: 8000
       type: shapeless
       ingredients: []
@@ -1270,10 +1273,13 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # FEATHER x1 は nuclear_sword/nuclear_trident との衝突回避(RitualRecipeRegistry#findMatchは
+      # findFirstのため素材構成が完全一致すると片方しか成立しない)。レイピアは軽さ・敏捷寄り。
       pedestal-items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
         - custom:hard_metal x2
+        - FEATHER x1
       source: 15000
       type: shapeless
       ingredients: []
@@ -1301,10 +1307,12 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # STICK x2 は hero_dagger との衝突回避(柄の長さで差別化する槍/穂先系の慣例)。
       pedestal-items:
         - custom:blaze_rod_3x x1
         - custom:dragon_breath_3x x1
         - custom:elder_guardian_spike x2
+        - STICK x2
       source: 8000
       type: shapeless
       ingredients: []
@@ -1318,10 +1326,12 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # STICK x2 は nuclear_dagger との衝突回避(柄の長さで差別化する槍/穂先系の慣例)。
       pedestal-items:
         - custom:blaze_rod_2x x1
         - custom:wither_rose_1x x1
         - custom:hard_metal x2
+        - STICK x2
       source: 15000
       type: shapeless
       ingredients: []
@@ -1350,10 +1360,12 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # PRISMARINE_SHARD x1 は hero_sword/hero_rapier との衝突回避(水棲武器らしい素材で差別化)。
       pedestal-items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
         - custom:elder_guardian_spike x2
+        - PRISMARINE_SHARD x1
       source: 8000
       type: shapeless
       ingredients: []
@@ -1367,10 +1379,12 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # PRISMARINE_SHARD x1 は nuclear_sword/nuclear_rapier との衝突回避(水棲武器らしい素材で差別化)。
       pedestal-items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
         - custom:hard_metal x2
+        - PRISMARINE_SHARD x1
       source: 15000
       type: shapeless
       ingredients: []
@@ -1546,10 +1560,12 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # NETHERITE_SCRAP x1 は hero_mace との衝突回避(大剣は刀身が大きい分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_3x x5
         - custom:dragon_breath_3x x5
         - custom:wither_skull_fragment x2
+        - NETHERITE_SCRAP x1
       source: 8000
       type: shapeless
       ingredients: []
@@ -1563,10 +1579,12 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # NETHERITE_SCRAP x1 は nuclear_mace との衝突回避(大剣は刀身が大きい分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_2x x5
         - custom:wither_rose_1x x5
         - custom:heavy_metal x2
+        - NETHERITE_SCRAP x1
       source: 15000
       type: shapeless
       ingredients: []
@@ -1595,10 +1613,12 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # NETHERITE_SCRAP x2 は hero_warhammer との衝突回避(大斧は刃面が広い分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_3x x4
         - custom:dragon_breath_3x x4
         - custom:wither_skull_fragment x2
+        - NETHERITE_SCRAP x2
       source: 8000
       type: shapeless
       ingredients: []
@@ -1612,10 +1632,12 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # NETHERITE_SCRAP x2 は nuclear_warhammer との衝突回避(大斧は刃面が広い分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_2x x4
         - custom:wither_rose_1x x4
         - custom:heavy_metal x2
+        - NETHERITE_SCRAP x2
       source: 15000
       type: shapeless
       ingredients: []
@@ -1828,11 +1850,14 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # dragon_scale の個数を部位ごとに変えて dragon_helmet 等との衝突を回避する
+      # (RitualRecipeRegistry#findMatchはfindFirstのため完全一致だと最初の1本しか成立しない)。
+      # 胴は面積が最大なので dragon_scale x4(このカタログの他系統と同じ「胴が最重量」の並びに合わせる)。
       pedestal-items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
-        - custom:dragon_scale x2
-      source: 8000
+        - custom:dragon_scale x4
+      source: 16000
       type: shapeless
       ingredients: []
     lore:
@@ -1846,11 +1871,12 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # dragon_scale x3(dragon_helmet=2 と dragon_chestplate=4 の間。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
-        - custom:dragon_scale x2
-      source: 8000
+        - custom:dragon_scale x3
+      source: 12000
       type: shapeless
       ingredients: []
     lore:
@@ -1864,11 +1890,12 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
+      # dragon_scale x1(ブーツは面積最小=最軽量。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
-        - custom:dragon_scale x2
-      source: 8000
+        - custom:dragon_scale x1
+      source: 4000
       type: shapeless
       ingredients: []
     lore:
@@ -1900,11 +1927,14 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # reinforced_leather の個数を部位ごとに変えて wither_helmet 等との衝突を回避する
+      # (RitualRecipeRegistry#findMatchはfindFirstのため完全一致だと最初の1本しか成立しない)。
+      # 胴は面積最大なので reinforced_leather x4。
       pedestal-items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
-        - custom:reinforced_leather x2
-      source: 15000
+        - custom:reinforced_leather x4
+      source: 30000
       type: shapeless
       ingredients: []
     lore:
@@ -1918,11 +1948,12 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # reinforced_leather x3(wither_helmet=2 と wither_chestplate=4 の間。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
-        - custom:reinforced_leather x2
-      source: 15000
+        - custom:reinforced_leather x3
+      source: 22500
       type: shapeless
       ingredients: []
     lore:
@@ -1936,11 +1967,12 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
+      # reinforced_leather x1(ブーツは面積最小=最軽量。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
-        - custom:reinforced_leather x2
-      source: 15000
+        - custom:reinforced_leather x1
+      source: 7500
       type: shapeless
       ingredients: []
     lore:
@@ -4270,6 +4302,14 @@ items:
   #   防具は armor-defense-rate を上げず damage-reduction / armor-strength で上位を表現する
   #   (防御率はバニラ防具分へ加算されるので、盛ると物理無効化に届いてしまう)。
   # テクスチャは未作成なので、当面はベース Material の見た目で出る(CMD だけ確保済み)。
+  #
+  # 【2026-08-01 儀式レシピの衝突修正】RitualRecipeRegistry#findMatch は LinkedHashMap を
+  # findFirst で走査するため、core-item と pedestal-items が完全一致するレシピは最初の1本しか
+  # 成立しない。abyss_*/binder_*(各13種)は全武器種で素材構成が完全一致していたため、
+  # abyss_sword/binder_sword 以外の12種が永久にクラフト不可だった。武器種ごとに1種類だけ
+  # 追加素材(または個数)を足して差別化してある。sword は元のまま(既存プレイヤーが覚えている
+  # レシピを壊さない)。source(必要Source量)も武器の「強さ帯」(hero_*/nuclear_* に元々
+  # 埋め込まれていた blaze_rod 個数 x1〜x5 の重み)に合わせて 0.5x〜2.5x でスケールしてある。
   abyss_sword:
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵の剣</color>
@@ -4295,11 +4335,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # FLINT x1 で abyss_sword と衝突回避(短剣=軽量級、source も低め)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - FLINT x1
+      source: 15000
       type: shapeless
       ingredients: []
     lore:
@@ -4313,10 +4355,12 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # FEATHER x1 で abyss_sword と衝突回避(軽さ・敏捷寄り)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
+      - FEATHER x1
       source: 30000
       type: shapeless
       ingredients: []
@@ -4331,11 +4375,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # STICK x2 で abyss_sword と衝突回避(柄が長い分だけ余分に使う)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - STICK x2
+      source: 15000
       type: shapeless
       ingredients: []
     lore:
@@ -4349,10 +4395,12 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # PRISMARINE_SHARD x1 で abyss_sword と衝突回避(水棲武器らしい素材)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
+      - PRISMARINE_SHARD x1
       source: 30000
       type: shapeless
       ingredients: []
@@ -4367,11 +4415,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # HAY_BLOCK x1 で abyss_sword と衝突回避(刈り取り=鎌のモチーフ)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - HAY_BLOCK x1
+      source: 45000
       type: shapeless
       ingredients: []
     lore:
@@ -4385,11 +4435,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # HEAVY_CORE x1 で abyss_sword と衝突回避(メイスそのものの重心素材)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - HEAVY_CORE x1
+      source: 75000
       type: shapeless
       ingredients: []
     lore:
@@ -4403,11 +4455,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # IRON_BLOCK x1 で abyss_sword と衝突回避(打撃武器らしい塊素材)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - IRON_BLOCK x1
+      source: 60000
       type: shapeless
       ingredients: []
     lore:
@@ -4421,11 +4475,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # NETHERITE_SCRAP x1 で abyss_sword と衝突回避(刀身が大きい分だけ地金を余分に使う)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - NETHERITE_SCRAP x1
+      source: 75000
       type: shapeless
       ingredients: []
     lore:
@@ -4439,10 +4495,12 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # COPPER_INGOT x2 で abyss_sword と衝突回避(刃の重ね打ちに使う地金)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
+      - COPPER_INGOT x2
       source: 30000
       type: shapeless
       ingredients: []
@@ -4457,11 +4515,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # NETHERITE_SCRAP x2 で abyss_sword と衝突回避(刃面が広い分だけ地金を余分に使う)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - NETHERITE_SCRAP x2
+      source: 60000
       type: shapeless
       ingredients: []
     lore:
@@ -4475,11 +4535,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # STRING x2 で abyss_sword と衝突回避(弓弦)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - STRING x2
+      source: 45000
       type: shapeless
       ingredients: []
     lore:
@@ -4493,11 +4555,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:abyssal_ingot
+      # TRIPWIRE_HOOK x1 で abyss_sword と衝突回避(引き金機構のモチーフ)。
       pedestal-items:
       - custom:abyssal_ingot x3
       - custom:hard_metal x2
       - custom:echo_shard_2x x2
-      source: 30000
+      - TRIPWIRE_HOOK x1
+      source: 15000
       type: shapeless
       ingredients: []
     lore:
@@ -4532,12 +4596,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # FLINT x1 で binder_sword と衝突回避(短剣=軽量級、source も低め)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - FLINT x1
+      source: 60000
       type: shapeless
       ingredients: []
     lore:
@@ -4552,11 +4618,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # FEATHER x1 で binder_sword と衝突回避(軽さ・敏捷寄り)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
+      - FEATHER x1
       source: 120000
       type: shapeless
       ingredients: []
@@ -4572,12 +4640,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # STICK x2 で binder_sword と衝突回避(柄が長い分だけ余分に使う)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - STICK x2
+      source: 60000
       type: shapeless
       ingredients: []
     lore:
@@ -4592,11 +4662,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # PRISMARINE_SHARD x1 で binder_sword と衝突回避(水棲武器らしい素材)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
+      - PRISMARINE_SHARD x1
       source: 120000
       type: shapeless
       ingredients: []
@@ -4612,12 +4684,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # HAY_BLOCK x1 で binder_sword と衝突回避(刈り取り=鎌のモチーフ)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - HAY_BLOCK x1
+      source: 180000
       type: shapeless
       ingredients: []
     lore:
@@ -4632,12 +4706,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # HEAVY_CORE x1 で binder_sword と衝突回避(メイスそのものの重心素材)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - HEAVY_CORE x1
+      source: 300000
       type: shapeless
       ingredients: []
     lore:
@@ -4652,12 +4728,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # IRON_BLOCK x1 で binder_sword と衝突回避(打撃武器らしい塊素材)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - IRON_BLOCK x1
+      source: 240000
       type: shapeless
       ingredients: []
     lore:
@@ -4672,12 +4750,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # NETHERITE_SCRAP x1 で binder_sword と衝突回避(刀身が大きい分だけ地金を余分に使う)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - NETHERITE_SCRAP x1
+      source: 300000
       type: shapeless
       ingredients: []
     lore:
@@ -4692,11 +4772,13 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # COPPER_INGOT x2 で binder_sword と衝突回避(刃の重ね打ちに使う地金)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
+      - COPPER_INGOT x2
       source: 120000
       type: shapeless
       ingredients: []
@@ -4712,12 +4794,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # NETHERITE_SCRAP x2 で binder_sword と衝突回避(刃面が広い分だけ地金を余分に使う)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - NETHERITE_SCRAP x2
+      source: 240000
       type: shapeless
       ingredients: []
     lore:
@@ -4732,12 +4816,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # STRING x2 で binder_sword と衝突回避(弓弦)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - STRING x2
+      source: 180000
       type: shapeless
       ingredients: []
     lore:
@@ -4752,12 +4838,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # TRIPWIRE_HOOK x1 で binder_sword と衝突回避(引き金機構のモチーフ)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
       - custom:dungeon_seal_binder x1
       - custom:reality_thread_core x1
-      source: 120000
+      - TRIPWIRE_HOOK x1
+      source: 60000
       type: shapeless
       ingredients: []
     lore:
@@ -4790,11 +4878,14 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # hard_metal の個数を部位ごとに変えて binder_helmet 等との衝突を回避する
+      # (RitualRecipeRegistry#findMatchはfindFirstのため完全一致だと最初の1本しか成立しない)。
+      # 胴は面積最大なので hard_metal x4。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
-      - custom:hard_metal x2
-      source: 60000
+      - custom:hard_metal x4
+      source: 120000
       type: shapeless
       ingredients: []
     lore:
@@ -4808,11 +4899,12 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # hard_metal x3(binder_helmet=2 と binder_chestplate=4 の間。衝突回避と部位重量の並び)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
-      - custom:hard_metal x2
-      source: 60000
+      - custom:hard_metal x3
+      source: 90000
       type: shapeless
       ingredients: []
     lore:
@@ -4826,11 +4918,12 @@ items:
     recipe:
       method: ritual
       core-item: custom:binder_fragment
+      # hard_metal x1(ブーツは面積最小=最軽量。衝突回避と部位重量の並び)。
       pedestal-items:
       - custom:binder_fragment x3
       - custom:abyssal_ingot x2
-      - custom:hard_metal x2
-      source: 60000
+      - custom:hard_metal x1
+      source: 30000
       type: shapeless
       ingredients: []
     lore:
