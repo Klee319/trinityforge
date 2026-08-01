@@ -9,9 +9,46 @@
 (function () {
   const h = window.h;
 
+  // ---- 「未分類」受け皿カテゴリ ----
+  // 新規追加/複製/タブ移動で行き先が決まらない品を必ず入れる、実体のあるカテゴリ。
+  // 仮想タブ「未設定」と違い yml に残る = 次に開いても同じ場所に居る。
+  // id は**予約語**として扱う (下の RESERVED_CATEGORY_IDS)。ユーザー側の採番・救済採番が
+  // この id を取ると、以後この関数の受け皿がユーザーのカテゴリに化けて中身が混ざる。
+  const UNCLASSIFIED_CATEGORY_ID = "cat_auto_unclassified";
+  const UNCLASSIFIED_CATEGORY_LABEL = "未分類";
+  const RESERVED_CATEGORY_IDS = new Set([UNCLASSIFIED_CATEGORY_ID]);
+
+  const normalizeLabel = (s) => String(s == null ? "" : s).trim();
+
   // host(YAMLルート) → { [tabKey]: activeCategoryId|"__all__" }
   // host に直接付けると getData のスプレッドで YAML に混入するため分離する。
   const activeByHost = new WeakMap();
+
+  // host → Map<tabKey, バー再構築関数>。カテゴリの**構造**(カテゴリ自体の増減)は
+  // フォーム側の追加ハンドラの中でも起きる (ensureItemEditorCategory が「未分類」を作る) が、
+  // バーは split-views の renderBar からしか作り直されないため、バーだけ古いまま残っていた
+  // (タブに「未分類」が無いのにカードは「未分類」所属 = 一覧と食い違う / 2026-08-01 報告)。
+  // 同じ (host, tabKey) では**最後に作ったバーだけ**が生きているものとして扱う
+  // (split-views の renderBar は毎回新しいバーへ差し替えるので、古い方は破棄済み)。
+  const barRefreshByHost = new WeakMap();
+
+  function registerBarRefresh(host, tabKey, fn) {
+    if (!host || typeof host !== "object") return;
+    let m = barRefreshByHost.get(host);
+    if (!m) {
+      m = new Map();
+      barRefreshByHost.set(host, m);
+    }
+    m.set(tabKey, fn);
+  }
+
+  /** カテゴリ構造が変わったときにタブバーを描き直す。バーが無い画面では何もしない。 */
+  window.refreshEditorCategoryBar = function refreshEditorCategoryBar(host, tabKey) {
+    if (!host || typeof host !== "object") return;
+    const m = barRefreshByHost.get(host);
+    const fn = m && m.get(tabKey);
+    if (typeof fn === "function") fn();
+  };
 
   function activeMap(host) {
     if (!host || typeof host !== "object") return {};
@@ -83,6 +120,11 @@
     for (const cat of cats) {
       if (cat && typeof cat === "object" && cat.id) used.add(String(cat.id));
     }
+    // 予約 id は救済採番の対象にしない。label が "unclassified" のカテゴリを手書きすると
+    // derivedCategoryId が `cat_auto_unclassified` を作り、「未分類」の受け皿を丸ごと奪う
+    // (以後そのカテゴリに新規追加品が混ざり込む / 2026-08-01)。
+    // 既に明示的に `id: cat_auto_unclassified` を持つカテゴリは上の used 収集で守られる。
+    for (const reserved of RESERVED_CATEGORY_IDS) used.add(reserved);
     cats.forEach((cat, index) => {
       if (!cat || typeof cat !== "object" || cat.id) return;
       let id = derivedCategoryId(tabKey, cat.label, index);
@@ -118,13 +160,21 @@
    */
   window.renderEditorCategoryBar = function renderEditorCategoryBar(host, tabKey, onFilterChange, onStructureChange) {
     ensureEditor(host);
-    const cats = listCategories(host, tabKey);
+    let cats = listCategories(host, tabKey);
     const bar = h("div", { class: "editor-cat-bar" });
     const am = activeMap(host);
     if (!am[tabKey]) am[tabKey] = "__all__";
 
     function isVirtualCatId(id) {
       return id === "__all__" || id === "__unset__";
+    }
+
+    // バーの中身だけを作り直す。DOM API を全部は持たないテスト用フェイク要素でも動くよう、
+    // replaceChildren → children 配列 → innerHTML の順にフォールバックする。
+    function clearBar() {
+      if (typeof bar.replaceChildren === "function") { bar.replaceChildren(); return; }
+      if (Array.isArray(bar.children)) { bar.children.length = 0; return; }
+      bar.innerHTML = "";
     }
 
     function syncActiveUi() {
@@ -151,42 +201,54 @@
       else notifyFilter();
     }
 
-    const allBtn = h("button", {
-      class: "recipe-tab", type: "button",
-      onclick: () => { am[tabKey] = "__all__"; syncActiveUi(); notifyFilter(); }
-    }, [h("span", { text: "すべて" })]);
-    allBtn.setAttribute("data-cat-id", "__all__");
-    bar.appendChild(allBtn);
-
-    const unsetBtn = h("button", {
-      class: "recipe-tab", type: "button",
-      onclick: () => { am[tabKey] = "__unset__"; syncActiveUi(); notifyFilter(); }
-    }, [h("span", { text: "未設定" })]);
-    unsetBtn.setAttribute("data-cat-id", "__unset__");
-    bar.appendChild(unsetBtn);
-
     let dragCatId = null;
 
-    for (const cat of cats) {
-      const btn = h("button", {
-        class: "recipe-tab editor-cat-tab", type: "button", draggable: true,
-        onclick: () => { am[tabKey] = cat.id; syncActiveUi(); notifyFilter(); }
-      }, [h("span", { text: cat.label || cat.id })]);
-      btn.setAttribute("data-cat-id", cat.id);
-      btn.addEventListener("dragstart", (e) => {
-        dragCatId = cat.id;
-        btn.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", cat.id);
-      });
-      btn.addEventListener("dragend", () => {
-        dragCatId = null;
-        btn.classList.remove("dragging");
-        bar.querySelectorAll(".editor-cat-tab").forEach((b) => {
-          b.classList.remove("drag-over-before", "drag-over-after");
+    // タブ/操作ボタンをバーへ組み直す。カテゴリの増減 (「未分類」の自動生成を含む) の
+    // たびに呼べるよう、DOM を作る側はすべてこの中に閉じる。
+    function buildBar() {
+      clearBar();
+      cats = listCategories(host, tabKey);
+
+      const allBtn = h("button", {
+        class: "recipe-tab", type: "button",
+        onclick: () => { am[tabKey] = "__all__"; syncActiveUi(); notifyFilter(); }
+      }, [h("span", { text: "すべて" })]);
+      allBtn.setAttribute("data-cat-id", "__all__");
+      bar.appendChild(allBtn);
+
+      const unsetBtn = h("button", {
+        class: "recipe-tab", type: "button",
+        onclick: () => { am[tabKey] = "__unset__"; syncActiveUi(); notifyFilter(); }
+      }, [h("span", { text: "未設定" })]);
+      unsetBtn.setAttribute("data-cat-id", "__unset__");
+      bar.appendChild(unsetBtn);
+
+      for (const cat of cats) {
+        const btn = h("button", {
+          class: "recipe-tab editor-cat-tab", type: "button", draggable: true,
+          onclick: () => { am[tabKey] = cat.id; syncActiveUi(); notifyFilter(); }
+        }, [h("span", { text: cat.label || cat.id })]);
+        btn.setAttribute("data-cat-id", cat.id);
+        btn.addEventListener("dragstart", (e) => {
+          dragCatId = cat.id;
+          btn.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", cat.id);
         });
-      });
-      bar.appendChild(btn);
+        btn.addEventListener("dragend", () => {
+          dragCatId = null;
+          btn.classList.remove("dragging");
+          bar.querySelectorAll(".editor-cat-tab").forEach((b) => {
+            b.classList.remove("drag-over-before", "drag-over-after");
+          });
+        });
+        bar.appendChild(btn);
+      }
+
+      bar.appendChild(addBtn());
+      bar.appendChild(renameBtn());
+      bar.appendChild(deleteBtn());
+      syncActiveUi();
     }
 
     bar.addEventListener("dragover", (e) => {
@@ -225,50 +287,78 @@
       notifyStructure();
     });
 
-    bar.appendChild(h("button", {
-      class: "btn-small", type: "button", text: "+ カテゴリ",
-      onclick: () => {
-        const label = prompt("新しいカテゴリ名");
-        if (!label || !label.trim()) return;
-        let id = label.trim().toLowerCase().replace(/[^a-z0-9_\-]+/g, "_").replace(/^_+|_+$/g, "");
-        if (!id) id = "cat_" + Date.now();
-        while (cats.some((c) => c.id === id)) id = id + "_" + Math.floor(Math.random() * 1000);
-        cats.push({ id, label: label.trim(), itemIds: [] });
-        am[tabKey] = "__all__";
-        notifyStructure();
-      }
-    }));
+    // 同じ表示名のカテゴリが2つ並ぶとタブでもカードのセレクトでも見分けが付かない。
+    // とくに「未分類」は自動生成される受け皿と同名になりうる (2026-08-01 報告)。
+    // 無言で作らせず、その場で断る。
+    function labelTaken(label, exceptId) {
+      const wanted = normalizeLabel(label);
+      return cats.some((c) => c.id !== exceptId && normalizeLabel(c.label || c.id) === wanted);
+    }
 
-    const renameBtn = h("button", {
-      class: "btn-small editor-cat-rename", type: "button", text: "カテゴリ名変更",
-      onclick: () => {
-        const cur = am[tabKey] || "__all__";
-        if (isVirtualCatId(cur)) return;
-        const cat = cats.find((c) => c.id === cur);
-        if (!cat) return;
-        const label = prompt("新しいカテゴリ名", cat.label || cat.id);
-        if (label == null || !label.trim()) return;
-        cat.label = label.trim();
-        notifyStructure();
-      }
-    });
-    bar.appendChild(renameBtn);
+    function addBtn() {
+      return h("button", {
+        class: "btn-small", type: "button", text: "+ カテゴリ",
+        onclick: () => {
+          const raw = prompt("新しいカテゴリ名");
+          if (!raw || !raw.trim()) return;
+          const label = raw.trim();
+          if (labelTaken(label, null)) {
+            alert(`カテゴリ「${label}」は既にあります。別の名前を付けてください。`);
+            return;
+          }
+          let id = label.toLowerCase().replace(/[^a-z0-9_\-]+/g, "_").replace(/^_+|_+$/g, "");
+          if (!id) id = "cat_" + Date.now();
+          // 予約 id (未分類の受け皿) はユーザーのカテゴリに渡さない。
+          while (cats.some((c) => c.id === id) || RESERVED_CATEGORY_IDS.has(id)) {
+            id = id + "_" + Math.floor(Math.random() * 1000);
+          }
+          cats.push({ id, label, itemIds: [] });
+          am[tabKey] = "__all__";
+          notifyStructure();
+        }
+      });
+    }
 
-    const delBtn = h("button", {
-      class: "btn-small danger editor-cat-delete", type: "button", text: "カテゴリ削除",
-      onclick: () => {
-        if (isVirtualCatId(am[tabKey] || "__all__")) return;
-        const cur = am[tabKey];
-        const idx = cats.findIndex((c) => c.id === cur);
-        if (idx < 0) return;
-        if (!confirm(`カテゴリ「${cats[idx].label || cur}」を削除しますか？(アイテム自体は消えません)`)) return;
-        cats.splice(idx, 1);
-        am[tabKey] = "__all__";
-        notifyStructure();
-      }
-    });
-    bar.appendChild(delBtn);
-    syncActiveUi();
+    function renameBtn() {
+      return h("button", {
+        class: "btn-small editor-cat-rename", type: "button", text: "カテゴリ名変更",
+        onclick: () => {
+          const cur = am[tabKey] || "__all__";
+          if (isVirtualCatId(cur)) return;
+          const cat = cats.find((c) => c.id === cur);
+          if (!cat) return;
+          const raw = prompt("新しいカテゴリ名", cat.label || cat.id);
+          if (raw == null || !raw.trim()) return;
+          const label = raw.trim();
+          if (labelTaken(label, cat.id)) {
+            alert(`カテゴリ「${label}」は既にあります。別の名前を付けてください。`);
+            return;
+          }
+          cat.label = label;
+          notifyStructure();
+        }
+      });
+    }
+
+    function deleteBtn() {
+      return h("button", {
+        class: "btn-small danger editor-cat-delete", type: "button", text: "カテゴリ削除",
+        onclick: () => {
+          if (isVirtualCatId(am[tabKey] || "__all__")) return;
+          const cur = am[tabKey];
+          const idx = cats.findIndex((c) => c.id === cur);
+          if (idx < 0) return;
+          if (!confirm(`カテゴリ「${cats[idx].label || cur}」を削除しますか？(アイテム自体は消えません)`)) return;
+          cats.splice(idx, 1);
+          am[tabKey] = "__all__";
+          notifyStructure();
+        }
+      });
+    }
+
+    buildBar();
+    // カテゴリの増減がフォーム側で起きたときに、このバーだけを描き直せるようにする。
+    registerBarRefresh(host, tabKey, buildBar);
     return bar;
   };
 
@@ -312,8 +402,7 @@
   // 「絞り込み中ならそのカテゴリ、そうでなければ『未分類』カテゴリ」へ必ず入れる。
   // 未分類は実体のあるカテゴリなので、タブから一覧でき、カード上のセレクトで移動できる。
   // (仮想タブの「未設定」と違い、yml に残る = 次に開いたときも同じ場所に居る。)
-  const UNCLASSIFIED_CATEGORY_ID = "cat_auto_unclassified";
-  const UNCLASSIFIED_CATEGORY_LABEL = "未分類";
+  // 定数はファイル先頭で定義済み (UNCLASSIFIED_CATEGORY_ID / _LABEL / RESERVED_CATEGORY_IDS)。
 
   /**
    * itemId が tabKey のどれかのカテゴリに属している状態を保証する。
@@ -331,14 +420,46 @@
       window.moveItemEditorCategory(host, tabKey, itemId, active);
       return active;
     }
+    // 【2026-08-01】仮想タブ「未設定」で絞り込み中は**割り当てない**。
+    // 「未設定」は『どのカテゴリにも属さない品』のビューなので、ここで「未分類」へ入れると
+    // 追加した品が絞り込み条件から外れ、**追加した瞬間に画面から消える**。
+    // 他のタブと同じで「絞り込み中の条件をそのまま満たす状態で追加する」が正しい振る舞い。
+    if (active === "__unset__") return "";
 
     let fallback = cats.find((c) => c.id === UNCLASSIFIED_CATEGORY_ID);
+    // ユーザーが手で作った「未分類」があればそれを使う (同名タブを2つ並べない)。
+    if (!fallback) {
+      fallback = cats.find((c) => normalizeLabel(c.label) === UNCLASSIFIED_CATEGORY_LABEL);
+    }
+    let created = false;
     if (!fallback) {
       fallback = { id: UNCLASSIFIED_CATEGORY_ID, label: UNCLASSIFIED_CATEGORY_LABEL, itemIds: [] };
       cats.push(fallback);
+      created = true;
     }
     window.moveItemEditorCategory(host, tabKey, itemId, fallback.id);
+    // カテゴリが1つ増えた = 構造が変わったのでタブバーにも反映する。
+    // (フォーム側の追加ハンドラから呼ばれるため、バーは自力では作り直されない。)
+    if (created) window.refreshEditorCategoryBar(host, tabKey);
     return fallback.id;
+  };
+
+  /**
+   * 複製時の割当。**元アイテムと同じカテゴリ**へ入れる。
+   * 元が無所属のときだけ通常の追加と同じ扱い (絞り込み中のカテゴリ or 「未分類」)。
+   *
+   * 【2026-08-01】item-stats の複製だけがこれを通らず assignItemToActiveEditorCategory を
+   * 呼んでいたため、絞り込みしていない状態で複製すると元のカテゴリを捨てて「未分類」へ落ちていた。
+   * @returns {string} 複製先の所属カテゴリ id ("" は無所属)
+   */
+  window.duplicateItemEditorCategory = function duplicateItemEditorCategory(host, tabKey, srcId, newId) {
+    if (!host || typeof host !== "object" || !tabKey || !newId) return "";
+    const srcCat = srcId ? window.getItemEditorCategory(host, tabKey, srcId) : "";
+    if (srcCat) {
+      window.moveItemEditorCategory(host, tabKey, newId, srcCat);
+      return srcCat;
+    }
+    return window.ensureItemEditorCategory(host, tabKey, newId);
   };
 
   window.UNCLASSIFIED_EDITOR_CATEGORY_ID = UNCLASSIFIED_CATEGORY_ID;

@@ -804,6 +804,45 @@ function onHelpTooltipDocKey(e) {
   if (e.key === "Escape") closeHelpTooltip();
 }
 
+// 説明文に埋まった MiniMessage のプレースホルダー/タグ (`<icon>` `<name>` `<value>` `<gray>`
+// `</gray>` 等)。`<` の直後が英字で、閉じ `>` まで英数と `_ : # -` しか挟まないものだけを拾う。
+// 「レベル<10」「a < b」のような比較記号は対象外 (誤って切り出すと文が壊れる)。
+const HELP_TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9_:#-]*>/g;
+
+// 1行を「地の文」と「タグ」の断片へ分解する。
+//
+// 【2026-08-01 実サーバ報告「『?』の説明にレガシーの HTML が出てくる」の後半の修正】
+// 前回はブラウザ標準 title との二重表示を潰したが、独自ツールチップ本体が
+// タグを**地の文と同じ書式のまま**流し込んでいたので、症状は残っていた
+// (実物: 「使えるプレースホルダー: <icon>=アイコン文字列 … 例: <gray><icon><name>：<value></gray>」)。
+//
+// タグは消さない。タグそのものが説明の中身 (「`<icon>` と書くとアイコンになる」) なので、
+// 除去すると「=アイコン文字列」だけが残って文が壊れる。代わりに editor 既存の
+// 「機械が読む文字列は等幅+チップ背景」規約 (.form-label-key / .help-tooltip-key / .locked-id)
+// に合わせて描き分ける。地の文と見分けが付けば「HTML が漏れている」には見えない。
+function helpTooltipLineEl(line) {
+  HELP_TAG_RE.lastIndex = 0;
+  if (!HELP_TAG_RE.test(line)) {
+    // タグを含まない行(大多数)は従来どおり単純な1要素。無用に断片化しない。
+    return window.h("div", { class: "help-tooltip-line", text: line });
+  }
+  HELP_TAG_RE.lastIndex = 0;
+  const parts = [];
+  let cursor = 0;
+  let m;
+  while ((m = HELP_TAG_RE.exec(line)) !== null) {
+    if (m.index > cursor) {
+      parts.push(window.h("span", { class: "help-tooltip-text", text: line.slice(cursor, m.index) }));
+    }
+    parts.push(window.h("code", { class: "help-tooltip-tag", text: m[0] }));
+    cursor = m.index + m[0].length;
+  }
+  if (cursor < line.length) {
+    parts.push(window.h("span", { class: "help-tooltip-text", text: line.slice(cursor) }));
+  }
+  return window.h("div", { class: "help-tooltip-line" }, parts);
+}
+
 // pinned=true はクリック/フォーカスで開いた場合(hoverが外れても閉じない、明示操作でのみ閉じる)。
 function openHelpTooltip(anchorEl, keyLabel, desc, pinned) {
   if (helpTooltipAnchor === anchorEl) {
@@ -813,9 +852,9 @@ function openHelpTooltip(anchorEl, keyLabel, desc, pinned) {
   closeHelpTooltip();
   const bodyChildren = [];
   if (keyLabel) bodyChildren.push(window.h("div", { class: "help-tooltip-key", text: keyLabel }));
-  // desc 内の改行(\n)を行として反映する。テキストノードのみで組み立てる(innerHTML不使用)。
+  // desc 内の改行(\n)を行として反映する。テキストノードのみで組み立てる(innerHTML は使わない)。
   String(desc).split("\n").forEach((line) => {
-    bodyChildren.push(window.h("div", { class: "help-tooltip-line", text: line }));
+    bodyChildren.push(helpTooltipLineEl(line));
   });
   const tip = window.h("div", { class: "help-tooltip", role: "tooltip" }, bodyChildren);
   document.body.appendChild(tip);

@@ -61,8 +61,15 @@
   // 2026-08-01 まではここだけに辞書があり、セレクト本体
   // (selectLabeledInput(..., "mob-ability-type", ...)) が引く labels.js 側にグループが無かったため、
   // **セレクトだけが生ID表示**になっていた。カード見出しは日本語なのでズレに気づけない。
-  const TYPE_LABELS = (window.LABELS && window.LABELS.ENUM_LABELS
-    && window.LABELS.ENUM_LABELS["mob-ability-type"]) || {};
+  //
+  // ⚠️ 辞書は**描画のたびに引き直す**。`const TYPE_LABELS = window.LABELS...` と束縛すると、
+  // index.html の <script> 順が変わって labels.js より先に読まれた瞬間に `{}` を掴んだまま
+  // 固定され、警告もエラーも出ないまま生ID表示へ戻る (読み込み順への暗黙依存)。
+  function typeLabel(type) {
+    const dict = (window.LABELS && window.LABELS.ENUM_LABELS
+      && window.LABELS.ENUM_LABELS["mob-ability-type"]) || {};
+    return dict[type] || type;
+  }
 
   // 型ごとに「意味を持つ」パラメータ。意味の無い欄を出すと、書いても効かない設定を
   // 書かせてしまう(このリポジトリで何度も起きている「静かに無効」の作り方そのもの)。
@@ -272,7 +279,7 @@
         class: "card-title",
         text: entry["display-name"] ? String(entry["display-name"]) : id
       });
-      const head = [nameLabel, h("span", { class: "card-subtitle", text: TYPE_LABELS[entry.type] || entry.type })];
+      const head = [nameLabel, h("span", { class: "card-subtitle", text: typeLabel(entry.type) })];
 
       const body = h("div", { class: "card-list-body" });
       function renderBody() {
@@ -309,7 +316,7 @@
             : (() => {
                 const sel = h("select", { class: "field-input" });
                 for (const t of TYPES) {
-                  sel.appendChild(h("option", { value: t, text: TYPE_LABELS[t] || t, selected: entry.type === t }));
+                  sel.appendChild(h("option", { value: t, text: typeLabel(t), selected: entry.type === t }));
                 }
                 sel.addEventListener("change", () => { entry.type = sel.value; renderBody(); });
                 return sel;
