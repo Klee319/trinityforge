@@ -83,6 +83,25 @@
     { key: "other", label: "補助", blurb: "item-stats「補助」タブ。触媒(杖)など上記以外。", recommended: THREAD_SLOT_CAP_DEFAULT }
   ];
 
+  /**
+   * カテゴリ上限を 0 にしようとしたときの警告文(2026-07-31 F6 指摘6)。
+   *
+   * ⚠ editor は「0以上の整数」を受け付ける一方、TF 側は出荷 yml に 0 を書くことを
+   * テストで禁止している(ShippedThreadSlotCapDriftTest#noShippedCategoryDisablesThreadSlots)。
+   * 0 は「枠が小さくなる」ではなく ThreadSlotPolicy#applyCategoryCap が thread-slots キーを
+   * 丸ごと削除する = lore の「スレッド枠 N枠」も装着 GUI も効果も全部消えるので、
+   * 「0=対象外」というラベルだけでは何が起こるか分からない(F2 の実体そのもの)。
+   */
+  function threadCapDisableWarning(categoryLabel) {
+    return `「${categoryLabel}」の上限を 0 にすると、このカテゴリのスレッド機構が丸ごと無効になります。\n`
+      + "・lore の「スレッド枠 N枠」表示が消えます\n"
+      + "・装着 GUI (/ars thread・防具のスニーク+右クリック) が開かなくなります\n"
+      + "・既に装着済みのスレッドの効果も出なくなります\n"
+      + "（枠を減らしたいだけなら 1 以上の数値にしてください。"
+      + "TF の出荷 yml は 0 を禁止しているので、0 のまま出荷するとTF側のテストが落ちます。）\n\n"
+      + "それでも 0 にしますか？";
+  }
+
   /** THREAD_CATEGORIES と同じ既定値の max-by-category マップを作る(ensureObj の初期値用)。 */
   function defaultThreadSlotCaps() {
     const caps = {};
@@ -425,10 +444,16 @@
           h("div", { class: "cf-cat-name", text: cat.label }),
           h("label", { class: "inline-check cf-cat-toggle" }, [
             window.checkboxInput(enabled, (v) => {
+              // 0 は「枠が減る」ではなく「機構が丸ごと消える」ので、消える内容を出して確認を取る。
+              if (!v && typeof window.confirm === "function"
+                  && !window.confirm(threadCapDisableWarning(cat.label))) {
+                renderBody();
+                return;
+              }
               capsMap[cat.key] = v ? Math.max(1, Number(capsMap[cat.key]) || cat.recommended || 1) : 0;
               renderBody();
             }),
-            h("span", { text: enabled ? "対象" : "対象外" })
+            h("span", { text: enabled ? "対象" : "対象外 (機構ごと無効)" })
           ])
         ]));
         cardEl.appendChild(h("div", { class: "cf-cat-blurb", text: cat.blurb }));
@@ -438,9 +463,10 @@
           const slider = h("input", {
             type: "range", min: "1", max: "12", step: "1", value: String(val), class: "cf-range"
           });
+          // 「対象」のあいだは 1 未満へ落とせない。0 にする唯一の道は上のトグル(警告付き)。
           const num = window.numberInput(val, (v) => {
             if (v == null || v === "") return;
-            capsMap[cat.key] = Math.max(0, Math.floor(v));
+            capsMap[cat.key] = Math.max(1, Math.floor(v));
             renderBody();
           }, { int: true });
           slider.addEventListener("input", () => {
@@ -452,7 +478,9 @@
           row.appendChild(num);
           cardEl.appendChild(row);
         } else {
-          cardEl.appendChild(h("div", { class: "cf-cat-off-note", text: "上限 0 = このカテゴリではスレッド枠なし。" }));
+          cardEl.appendChild(h("div", { class: "cf-cat-off-note",
+            text: "上限 0 = スレッド機構が丸ごと無効。lore の枠表示も装着 GUI も装着済みスレッドの効果も出ません"
+              + "（枠を減らしたいだけなら「対象」に戻して 1 以上にしてください。TF の出荷 yml は 0 を禁止しています）。" }));
         }
         grid.appendChild(cardEl);
       }

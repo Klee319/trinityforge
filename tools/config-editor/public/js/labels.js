@@ -475,7 +475,7 @@
     "max-duration-seconds": { label: "最大持続秒", desc: "ポーション統合時の持続時間上限(秒)。" },
     "fortune-cap-bonus": { label: "幸運追加上限", desc: "オーバーエンチャ時の Fortune 上限加算。" },
     "enforce": { label: "使用制限を有効化", desc: "use-level / use-skill ゲートをランタイムで強制するか。" },
-    "max-by-category": { label: "カテゴリ別上限", desc: "装備カテゴリごとのスレッド枠上限。0=対象外。" },
+    "max-by-category": { label: "カテゴリ別上限", desc: "装備カテゴリごとのスレッド枠上限。1以上を推奨。0にするとスレッド機構が丸ごと無効になり(lore の枠表示・装着GUI・装着済みスレッドの効果が全て消える)、TF の出荷 yml では禁止されています。" },
     // ---- P4: tool-enchants.yml (tf-tool-enchants) ----
     "enchant": { label: "エンチャント", desc: "minecraft エンチャントキー (efficiency/unbreaking/fortune...)。" },
     "quality-thresholds": { label: "品質しきい値", desc: "到達ごとに+1レベル (例: [3,6,9])。" },
