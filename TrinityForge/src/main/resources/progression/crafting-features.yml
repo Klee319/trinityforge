@@ -292,6 +292,16 @@ brew-unlocks:
           type: SLOWNESS
           duration: 1800
           amplifier: 2
+      # ピリジンの耳: 2026-08-01 追加。それまで tf_core_meat の素材にしかならず
+      # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
+      # 効果は NAUSEA — バニラのポーションでは一切作れず、同じ妨害枠の
+      # BLINDNESS(上の endermite_soot)と役割が被らないため。持続は BLINDNESS と揃えて 1200。
+      - base: THICK
+        ingredient: custom:piglin_ear
+        result:
+          type: NAUSEA
+          duration: 1200
+          amplifier: 0
   # skilltree/alchemy.yml E-2-1「呪詛の術」(Lv80) — 生存寄りの調合
   survivor-brew:
     potions:
@@ -315,6 +325,17 @@ brew-unlocks:
         result:
           type: SATURATION
           duration: 200
+          amplifier: 0
+      # ピリジャーの装甲片: 2026-08-01 追加。それまで tf_core_vegetable の素材にしかならず
+      # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
+      # 効果は FIRE_RESISTANCE — 生存枠として RESISTANCE / CONDUIT_POWER と役割が重ならない。
+      # FIRE_RESISTANCE は amplifier を上げても意味が無いので 0 固定。
+      # 持続はバニラの延長火炎耐性(8:00 = 9600)より短い 6000 にして、上の CONDUIT_POWER と揃える。
+      - base: THICK
+        ingredient: custom:pillager_plate
+        result:
+          type: FIRE_RESISTANCE
+          duration: 6000
           amplifier: 0
   # skilltree/alchemy.yml E「変換の大錬金術師」(Lv90) — 攻めの調合(最上位)
   apex-brew:
@@ -348,6 +369,17 @@ brew-unlocks:
           type: JUMP_BOOST
           duration: 3600
           amplifier: 3
+      # スケルトンホースの骨: 2026-08-01 追加。それまで tf_core_vegetable の素材にしかならず
+      # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
+      # 効果は SPEED — 骸骨馬という出所に一番素直で、上の JUMP_BOOST と同じ移動系ビルドを補う。
+      # バニラの俊敏は amplifier 1 が上限なので、最上位帯のこの群に合わせて 2 に置く
+      # (base が THICK なのでバニラの砂糖レシピは潰さない)。
+      - base: THICK
+        ingredient: custom:skeleton_horse_bone
+        result:
+          type: SPEED
+          duration: 3600
+          amplifier: 2
 # オーバーエンチャント (overenchant:<プロファイルID>)
 # 【重要】ここのキーがそのままゲートIDになる。skilltree 側の
 # dedicated-effects `overenchant:<id>` と綴りが一致していないと、

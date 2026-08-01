@@ -519,7 +519,10 @@ achievements:
       vanilla-exp: 0
   goal_worldbinder:
     display-name: 世界を解いた者
-    parent: delve_all_seals
+    # 前提は delve_relics(深層3種)。delve_all_seals(19種すべての印)にすると
+    # 「名目上の第1目標が、実際は全ダンジョン踏破後にしか解けない＝事実上の最後」になる(K-22(2))。
+    # delve_all_seals は収集系の別枝として delve_relics の下にそのまま残す。
+    parent: delve_relics
     icon: DRAGON_EGG
     lore:
       - "<gradient:#ff4d4d:#ffd166>【第1目標】世界の束縛者を討つ。</gradient>"
