@@ -4,8 +4,8 @@
 //
 // 修正1: window.labelForStat という未定義関数を呼んでいたため日本語ラベルが出ず生キーが表示される
 //        バグ。正しいAPIは window.LABELS.statLabel (public/js/labels.js)。
-// 修正2: base-stats.yml に書いても no-op な4キー(glyph-slot-bonus / heavy-armor-move-speed-per-piece /
-//        light-armor-move-speed-per-piece / armor-set-bonus)を画面から除外する。除外は表示のみで、
+// 修正2: base-stats.yml に書いても no-op なキー(glyph-slot-bonus / armor-set-bonus)を画面から除外する。
+//        2026-07-31 に heavy-/light-armor-move-speed-per-piece は語彙ごと廃止された。除外は表示のみで、
 //        既存データのロスレス往復は壊さないこと。
 //        (2026-07-27: 唯一の例外だった charged-shot-unlocked は挙動ゼロの同語反復フラグと判明し、
 //         ステ語彙ごと撤去された。この画面にフラグ系のステはもう存在しない。armor-set-buffs全面移行で
@@ -146,8 +146,6 @@ test("statLabel: 実物のlabels.jsをロードしても生キーではなく日
 
 const EXPECTED_NO_OP_KEYS = [
   "glyph-slot-bonus",
-  "heavy-armor-move-speed-per-piece",
-  "light-armor-move-speed-per-piece",
   "armor-set-bonus"
 ];
 
@@ -163,7 +161,7 @@ const ALL_EXCLUDED_KEYS = [
   ...EXPECTED_NO_OP_KEYS, ...EXPECTED_NOT_PLAYER_STAT_KEYS, ...EXPECTED_REDUNDANT_KEYS
 ];
 
-test("NO_OP_BASE_STATS_KEYS: no-op 4キー + アイテム専用1キー + 重複2キーちょうどを含む", () => {
+test("NO_OP_BASE_STATS_KEYS: no-op 2キー + アイテム専用1キー + 重複2キーちょうどを含む", () => {
   assert.deepEqual([...NO_OP_BASE_STATS_KEYS].sort(), [...ALL_EXCLUDED_KEYS].sort());
 });
 
@@ -175,7 +173,6 @@ test("allStatKeys: 除外キー(no-op/アイテム専用/重複)が落ち、通�
     global.window.STAT_LIST = [];
     global.window.FALLBACK_STATS = [
       "attack-power", "glyph-slot-bonus",
-      "heavy-armor-move-speed-per-piece", "light-armor-move-speed-per-piece",
       "armor-set-bonus", "tool-enchant-efficiency", "mana-bonus", "mana-regen"
     ];
     global.window.HIDDEN_STATS = [];
@@ -192,7 +189,7 @@ test("allStatKeys: 除外キー(no-op/アイテム専用/重複)が落ち、通�
 });
 
 // materials.js の FALLBACK_STATS (他画面=item-stats/skilltreeバフでも共有) からは
-// no-op 4キー + tool-enchant-efficiency を削除していないこと(=base-stats画面限定の除外であること)
+// no-op キー + tool-enchant-efficiency を削除していないこと(=base-stats画面限定の除外であること)
 // を確認する。tool-enchant-efficiency は item-stats では今も有効なステなので、
 // FALLBACK_STATS から消してはいけない(brief 前提5)。
 test("materials.js の FALLBACK_STATS には除外対象キーが引き続き残っている(他画面では有効なため)", () => {
@@ -266,8 +263,7 @@ function withDomStubs(fn) {
     return el;
   };
   global.window.STAT_LIST = ["attack-power", "crit-chance", "max-health", "attack-speed-bonus",
-    "arrow-piercing", "glyph-slot-bonus",
-    "heavy-armor-move-speed-per-piece", "light-armor-move-speed-per-piece", "armor-set-bonus"];
+    "arrow-piercing", "glyph-slot-bonus", "armor-set-bonus"];
   global.window.FALLBACK_STATS = [];
   global.window.HIDDEN_STATS = [];
   global.window.STAT_META = {
@@ -277,8 +273,6 @@ function withDomStubs(fn) {
     "attack-speed-bonus": { name: "攻撃速度加算", category: "attack", order: 4 },
     "arrow-piercing": { name: "矢貫通", category: "attack", order: 3 },
     "glyph-slot-bonus": { name: "グリフ枠", category: "ars", order: 1 },
-    "heavy-armor-move-speed-per-piece": { name: "重鎧移動", category: "defense", order: 1 },
-    "light-armor-move-speed-per-piece": { name: "軽鎧移動", category: "defense", order: 4 },
     "armor-set-bonus": { name: "セット効果増幅", category: "defense", order: 5 }
   };
   global.window.STAT_FORMATS = { "arrow-piercing": "INTEGER" };
@@ -420,7 +414,6 @@ test("ロスレス: no-op除外キーに既存値がある場合、buildBaseStat
   withDomStubs(() => {
     const existing = {
       "glyph-slot-bonus": 3,
-      "heavy-armor-move-speed-per-piece": 0.5,
       "armor-set-bonus": 0.02,
       "attack-power": 10
     };

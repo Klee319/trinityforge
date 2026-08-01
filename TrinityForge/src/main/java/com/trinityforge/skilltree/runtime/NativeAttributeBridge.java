@@ -12,15 +12,26 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Resolves conditional armor-set buff stats. Flat per-piece move-speed is handled directly here from the
- * {@code general} perk buffs; the {@code set-buffs} schema (SKILL_TREE armor-set-buffs migration §1) is
- * resolved by {@link PerkBuffResolver#setBuffsFor} and amplified here by the {@code armor-set-bonus}
- * total stat. This bridge only exists because both effects depend on the number/type of worn armor pieces.
+ * Resolves conditional armor-set buff stats: the {@code set-buffs} schema (SKILL_TREE armor-set-buffs
+ * migration §1) is resolved by {@link PerkBuffResolver#setBuffsFor} and amplified here by the
+ * {@code armor-set-bonus} total stat. This bridge only exists because that effect depends on the
+ * number/type of worn armor pieces.
+ *
+ * <p>2026-07-31: 旧「装備部位数 × 係数」の平坦キー
+ * ({@code light_armor_move_speed_per_piece} / {@code heavy_armor_move_speed_per_piece}) を撤去した。
+ * 専用の読み出し経路(perk buffs の {@code general} のみ)を持つだけのキーで、同じ効果は
+ * {@code set-buffs} の {@code move-speed}(段3/4条件)で表現できるため統合した
+ * (light_armor.yml / heavy_armor.yml のノードAが移行先)。
+ *
+ * <p><b>移行で変わった点は2つ</b>(どちらも意図どおり):
+ * (1) 1〜2部位では効かなくなった(閾値が段3のため)、
+ * (2) <b>{@code armor-set-bonus} で増幅されるようになった</b> — 旧 per-piece 経路は
+ * {@code general} から直読みしていたので増幅されなかったが、move-speed だけを増幅の例外に
+ * するとノードB「セット効果量UP」の宣言(3・4部位のセット効果をまとめて強化)と食い違う。
+ * 実効値は {@code NativeAttributeBridgeTest#moveSpeedFromSetBuffsIsAmplifiedByArmorSetBonus} が固定。
  */
 public final class NativeAttributeBridge {
 
-    private static final String LIGHT_MOVE_PER_PIECE = "light_armor_move_speed_per_piece";
-    private static final String HEAVY_MOVE_PER_PIECE = "heavy_armor_move_speed_per_piece";
     private static final String ARMOR_SET_BONUS = "armor_set_bonus";
     private static final String LIGHT_ARMOR_SKILL = "LIGHT_ARMOR";
     private static final String HEAVY_ARMOR_SKILL = "HEAVY_ARMOR";
@@ -32,12 +43,10 @@ public final class NativeAttributeBridge {
     }
 
     /**
-     * Movement from armor-piece natives: {@code perpiece * worn matching pieces * 0.01}
-     * (YAML values are percent-like; 0.5 → +0.5% per piece), plus the {@code set-buffs} contribution of
-     * both the {@code light_armor} and {@code heavy_armor} trees (SKILL_TREE armor-set-buffs migration
-     * §1), each amplified by {@code 1 + max(0, armor-set-bonus)} (§2). Because the set-buff threshold
-     * tiers are 3 and 4 out of 4 armor slots, a light set and a heavy set can never both be active at once
-     * (3 + 3 &gt; 4).
+     * The {@code set-buffs} contribution of both the {@code light_armor} and {@code heavy_armor} trees
+     * (SKILL_TREE armor-set-buffs migration §1), each amplified by {@code 1 + max(0, armor-set-bonus)}
+     * (§2). Because the set-buff threshold tiers are 3 and 4 out of 4 armor slots, a light set and a
+     * heavy set can never both be active at once (3 + 3 &gt; 4).
      *
      * <p>Keys returned here span multiple channels ({@code move_speed}/{@code knockback_resistance} are
      * ATTRIBUTE; a {@code set-buffs} author may declare ATTACK/DEFENSE/GENERAL keys too) — callers must
@@ -64,10 +73,6 @@ public final class NativeAttributeBridge {
             }
         }
         Map<String, Double> out = new HashMap<>();
-        double lightMove = general.getOrDefault(LIGHT_MOVE_PER_PIECE, 0.0) * light * 0.01;
-        double heavyMove = general.getOrDefault(HEAVY_MOVE_PER_PIECE, 0.0) * heavy * 0.01;
-        add(out, "move_speed", lightMove + heavyMove);
-
         double amplifier = 1.0 + Math.max(0.0, general.getOrDefault(ARMOR_SET_BONUS, 0.0));
         mergeSetBuffs(out, perkBuffs.setBuffsFor(id, LIGHT_ARMOR_SKILL, light), amplifier);
         mergeSetBuffs(out, perkBuffs.setBuffsFor(id, HEAVY_ARMOR_SKILL, heavy), amplifier);

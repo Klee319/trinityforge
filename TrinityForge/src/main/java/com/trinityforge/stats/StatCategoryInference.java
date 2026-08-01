@@ -29,7 +29,6 @@ public final class StatCategoryInference {
                 // カテゴリに落ちる)。
                 || key.equals("haste_active_mining_cooldown_reduction")
                 || key.equals("tree_fell_cooldown_reduction")
-                || key.equals("bow_cooldown_reduction")
                 || key.equals("distance_damage_bonus")) {
             return StatCategory.ATTACK;
         }
@@ -37,7 +36,12 @@ public final class StatCategoryInference {
                 || key.equals("reflect_flat") || key.equals("reflect_percent")) {
             return StatCategory.DEFENSE;
         }
-        if (key.equals("lapis_cost_reduction")
+        // 2026-07-31: workbench_* / ritual_* は品質(quality-bonus)と上振れ/下振れ(upswing/downswing)の
+        // クラフト系キー群。旧 craft_* は下の key.contains("craft") で拾えていたが、分割後の名前には
+        // craft が含まれないので明示ルールが必要(さもないと OTHER に落ちる)。
+        if (key.startsWith("workbench_")
+                || key.startsWith("ritual_")
+                || key.equals("lapis_cost_reduction")
                 || key.equals("material_refund_chance")
                 || key.equals("ingredient_save_chance")
                 || key.equals("enchant_luck")

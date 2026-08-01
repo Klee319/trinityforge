@@ -42,7 +42,8 @@
     // entry.category が優先されるため、これは新規statや category 未設定時のフォールバックに過ぎない。
     // CT(item-cooldown) と 効率強化増幅(tool-enchant-*) は「その他」。
     if (s.includes("item-cooldown") || s.startsWith("tool-enchant")) return "other";
-    if (s.startsWith("craft-") || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance", "ritual-quality-bonus", "workbench-quality-bonus"].includes(s)) return "craft";
+    if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")
+      || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance"].includes(s)) return "craft";
     if (["mining-fortune", "fishing-luck", "fishing-bonus", "suspicious-respawn-chance", "hive-harvest-fortune"].includes(s)) return "gathering";
     if (["mana", "spell", "glyph", "thread", "slot", "arcane", "source-cost-reduction"].some((k) => s.includes(k))) return "ars";
     if ([
@@ -191,10 +192,14 @@
       const label = (window.LABELS && window.LABELS.statLabel) ? window.LABELS.statLabel(key) : key;
       const statDesc = (window.LABELS && typeof window.LABELS.statDescription === "function")
         ? window.LABELS.statDescription(key) : "このステータスの実装上の説明は未登録です。";
-      const keyLabel = h("span", { class: "lore-stat-key", title: key }, [
+      // 2026-07-31: 親 span の title 属性を撤去した。HTML の title は子孫にも効くため、
+      // helpIcon の独自ポップオーバーとブラウザ標準ツールチップが同時に出ていた
+      // (説明文の MiniMessage プレースホルダがそのまま見える症状)。キー名は helpIcon の
+      // keyLabel(ツールチップ先頭行)と隣の mini-label で見せる。
+      const keyLabel = h("span", { class: "lore-stat-key" }, [
         h("span", { class: "drag-handle", text: "⠿", title: "ドラッグで表示順を入れ替え" }),
         h("span", { text: label && label !== key ? label : key }),
-        window.helpIcon(statDesc),
+        window.helpIcon(statDesc, { keyLabel: "キー: " + key }),
         label && label !== key ? h("span", { class: "mini-label", text: " " + key }) : null
       ]);
 

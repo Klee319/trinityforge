@@ -88,10 +88,12 @@ nodes:
     parent: C
     icon: CROSSBOW
     cost: 1
-    effect-text: "チャージ速度短縮・ダメージ増加"
+    effect-text: "ダメージ増加"
     buffs:
       attack-power: 0.1
-      bow_cooldown_reduction: 0.1   # 旧 archery_chargedshotcooldown_add: -0.1 (符号反転)
+      # 2026-07-31: bow_cooldown_reduction: 0.1 を削除。アイテムCT短縮(cooldown-reduction)と
+      # 同じ Player#setCooldown を二重に掛ける設計で、BOW/CROSSBOW に item-cooldown が無いため
+      # 残CTが常に0 = 完全な no-op だった。effect-text からも「チャージ速度短縮」を外した。
   E:
     name: "極意・貫空"
     level: 90

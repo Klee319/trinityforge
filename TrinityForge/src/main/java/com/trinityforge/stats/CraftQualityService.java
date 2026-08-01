@@ -26,14 +26,20 @@ import java.util.concurrent.ThreadLocalRandom;
  * ({@link CraftQualityPolicy#resolveQuality}); the final quality is a split-normal (bell) draw around the
  * mode with the up/down σ from {@code quality.yml spread-up}/{@code spread-down}
  * ({@link CraftQualityPolicy#resolveQualityNormal}) — the same model as mob drops, except a craft widens
- * the UP side by the crafter's {@code craftUpswingBonus} perk (上振れパーク). Bounded to
+ * the UP side by the crafter's {@code workbench_upswing_bonus}/{@code ritual_upswing_bonus} perk (上振れパーク). Bounded to
  * {@code [0, quality.maxQuality()]}.
  *
- * <p><b>2026-08-01 作業台/儀式のばらつき分離</b>: {@code craft_upswing_bonus}(品質の上振れ増加) と
- * {@code craft_downswing_reduction}(品質の下振れ抑制)は経路共通のステのままだが、
- * 「どちらの経路にどれだけ効かせるか」は {@code stats/craft-quality.yml} の
- * {@code workbench.*} / {@code ritual.*}({@link CraftQualityConfig.SpreadTuning})で別々に設定できる。
- * 経路の選択は {@link CraftPath} で明示する。出荷既定値は恒等(分離前と同じ挙動)。
+ * <p><b>2026-08-01 作業台/儀式のばらつき分離(2段構え)</b>:
+ * <ul>
+ *   <li><b>装備・パーク単位</b>: 旧 {@code craft_upswing_bonus} / {@code craft_downswing_reduction}
+ *       (経路共通)を {@code workbench_*} / {@code ritual_*} へ分割した。共通のままだと
+ *       <b>鍛冶ツリーのパークが儀式クラフトにも、魔法鍛冶ツリーのパークが作業台クラフトにも漏れる</b>。</li>
+ *   <li><b>サーバ全体</b>: 「どちらの経路にどれだけ効かせるか」を {@code stats/craft-quality.yml} の
+ *       {@code workbench.*} / {@code ritual.*}({@link CraftQualityConfig.SpreadTuning})で調整できる。
+ *       出荷既定値は恒等(分離前と同じ挙動)。</li>
+ * </ul>
+ * 片方だけでは「全体は分けられるが個人は分けられない」「個人は分けられるが運営が寄せられない」の
+ * どちらかになるので両方入れてある。経路の選択は {@link CraftPath} で明示する。
  *
  * <p>Purely the quality roll — it
  * grants NO EXP (the {@code CraftItemEvent} listener keeps its own ARS_SMITHING EXP grant), so a caller
@@ -111,8 +117,8 @@ public final class CraftQualityService {
         Objects.requireNonNull(crafter, "crafter");
         int mode = qualityModeWithBonus(crafter, candidateSkills, modeOffset, qualityBonusFor(path, crafter));
         CraftQualityConfig.SpreadTuning tuning = spreadTuningFor(path);
-        double spreadUp = tuning.effectiveSpreadUp(quality.spreadUp(), craftUpswingBonus(crafter));
-        double spreadDown = tuning.effectiveSpreadDown(quality.spreadDown(), craftDownswingBonus(crafter));
+        double spreadUp = tuning.effectiveSpreadUp(quality.spreadUp(), upswingBonusFor(path, crafter));
+        double spreadDown = tuning.effectiveSpreadDown(quality.spreadDown(), downswingBonusFor(path, crafter));
         return CraftQualityPolicy.resolveQualityNormal(
                 mode, ThreadLocalRandom.current().nextGaussian(), spreadUp, spreadDown, quality.maxQuality());
     }
@@ -132,7 +138,7 @@ public final class CraftQualityService {
 
     /**
      * The GUARANTEED-MINIMUM quality for a workbench preview (task: "プレビューは常に「最低でもこれは出る」を
-     * 示すべき"): same mode/spreadDown計算(craftDownswingBonus 込み)as {@link #rollQualityWithBonus} for the
+     * 示すべき"): same mode/spreadDown計算(経路ごとの下振れ抑制パーク込み)as {@link #rollQualityWithBonus} for the
      * workbench path, run through {@link CraftQualityPolicy#minimumQuality}. Unlike {@link #qualityMode},
      * this reflects the TRUE floor the actual (Gaussian) craft roll can reach — never a mode/peak value
      * that the roll could still undercut.
@@ -147,7 +153,7 @@ public final class CraftQualityService {
         int mode = qualityModeWithBonus(crafter, candidateSkills, modeOffset, workbenchQualityBonus(crafter));
         // プレビューは作業台専用なので、ばらつき補正も workbench.* を引く(儀式のプレビューは存在しない)。
         double spreadDown = spreadTuningFor(CraftPath.WORKBENCH)
-                .effectiveSpreadDown(quality.spreadDown(), craftDownswingBonus(crafter));
+                .effectiveSpreadDown(quality.spreadDown(), downswingBonusFor(CraftPath.WORKBENCH, crafter));
         return CraftQualityPolicy.minimumQuality(mode, spreadDown, quality.maxQuality());
     }
 
@@ -221,12 +227,26 @@ public final class CraftQualityService {
         return tuning == null ? CraftQualityConfig.SpreadTuning.IDENTITY : tuning;
     }
 
-    private double craftUpswingBonus(Player player) {
-        return readDoubleStat(player, "craft_upswing_bonus");
+    /**
+     * 経路ごとの上振れ増加パーク。
+     *
+     * <p>2026-08-01: 旧 {@code craft_upswing_bonus}(経路共通)から
+     * {@code workbench_upswing_bonus} / {@code ritual_upswing_bonus} へ分割した。
+     * 共通キーのままだと <b>鍛冶ツリーのパークが儀式クラフトにも、魔法鍛冶ツリーのパークが
+     * 作業台クラフトにも漏れる</b>。{@code stats/craft-quality.yml} の
+     * {@code workbench.*}/{@code ritual.*} はサーバ全体の倍率で、こちらは装備・パーク単位の分離。
+     * 2段構えなのは意図的で、片方だけでは「全体は分けられるが個人は分けられない」/
+     * 「個人は分けられるが運営が寄せられない」のどちらかになる。</p>
+     */
+    private double upswingBonusFor(CraftPath path, Player player) {
+        return readDoubleStat(player,
+                path == CraftPath.RITUAL ? "ritual_upswing_bonus" : "workbench_upswing_bonus");
     }
 
-    private double craftDownswingBonus(Player player) {
-        return readDoubleStat(player, "craft_downswing_reduction");
+    /** 経路ごとの下振れ抑制パーク。分割の理由は {@link #upswingBonusFor} と同じ。 */
+    private double downswingBonusFor(CraftPath path, Player player) {
+        return readDoubleStat(player,
+                path == CraftPath.RITUAL ? "ritual_downswing_reduction" : "workbench_downswing_reduction");
     }
 
     public CraftRollMods craftRollMods(Player player) {
@@ -234,6 +254,30 @@ public final class CraftQualityService {
                 pctFraction(readDoubleStat(player, "craft_roll_up_bonus")),
                 pctFraction(readDoubleStat(player, "craft_roll_down_reduction")),
                 pctFraction(readDoubleStat(player, "craft_roll_inset")));
+    }
+
+    /**
+     * このサービスが読むステータスキーの全集合。
+     *
+     * <p>タイポの検知専用。{@code aggregator.totalOf} は未知キーに対して例外を投げず
+     * <b>無言で 0.0 を返す</b>ので、キー名を打ち間違えても「そのステが常に効かない」という形でしか
+     * 現れず、テストにも production にも症状が出ない。ここを唯一の名寄せ点にして、
+     * {@code StatVocabulary} / {@code StatsCategory.CRAFT} / {@code combat/base-stats.yml} /
+     * {@code stats/lore.yml} と機械照合する({@code CraftQualityStatKeyDriftTest})。
+     *
+     * <p>キーを増減したらこのメソッドも直すこと。直し忘れると照合が素通りする。</p>
+     */
+    public static java.util.Set<String> statKeysRead() {
+        return java.util.Set.of(
+                "workbench_quality_bonus",
+                "ritual_quality_bonus",
+                "workbench_upswing_bonus",
+                "ritual_upswing_bonus",
+                "workbench_downswing_reduction",
+                "ritual_downswing_reduction",
+                "craft_roll_up_bonus",
+                "craft_roll_down_reduction",
+                "craft_roll_inset");
     }
 
     private int readIntStat(Player player, String key) {

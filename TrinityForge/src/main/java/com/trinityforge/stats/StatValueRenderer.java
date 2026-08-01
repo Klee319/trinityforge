@@ -17,8 +17,15 @@ public final class StatValueRenderer {
     private StatValueRenderer() {
     }
 
-    /** lore の format/unit/decimals に従って描画する。PERCENT は ×100 して {@code %} を付ける。 */
-    public static String render(StatDisplaySpec spec, double value) {
+    /**
+     * lore の format/unit/decimals に従って描画する。PERCENT は ×100 して {@code %} を付ける。
+     *
+     * <p>渡すのは<b>内部値</b>(集計の生値)。単位と内部値の桁が違うステ
+     * ({@code melee-knockback} 等)は {@link StatDisplaySpec#toDisplayValue} が換算する。
+     * ここで自前に掛け直すと lore とチャット/GUIで値が食い違うので、必ずこの1か所に任せること。
+     */
+    public static String render(StatDisplaySpec spec, double internalValue) {
+        double value = spec.toDisplayValue(internalValue);
         int decimals = Math.min(2, spec.decimals());
         LoreValueFormat format = spec.format();
         String text = switch (format) {

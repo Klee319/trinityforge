@@ -25,8 +25,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * 2026-08-01 分離: 品質抽選の「ばらつき」補正(上振れ増加 {@code craft_upswing_bonus} /
- * 下振れ抑制 {@code craft_downswing_reduction})を、作業台クラフトと儀式(ArsPaperのリチュアル)で
+ * 2026-08-01 分離: 品質抽選の「ばらつき」補正(上振れ増加 {@code workbench_upswing_bonus} /
+ * 下振れ抑制 {@code workbench_downswing_reduction})を、作業台クラフトと儀式(ArsPaperのリチュアル)で
  * 別々に設定できるようにした件の回帰テスト。
  *
  * <p>最重要の契約は<b>「分離しただけではバランスが1ミリも動かない」</b>こと。出荷 yml の既定値が
@@ -136,7 +136,7 @@ class CraftQualitySpreadSplitTest {
         Player player = mock(Player.class);
         PlayerStatAggregator aggregator = aggregatorReturning(player, Map.of(
                 "workbench_quality_bonus", 4.0,
-                "craft_downswing_reduction", 999.0));
+                "workbench_downswing_reduction", 999.0));
         // ritual 側だけ「下振れ抑制ステを効かせない」に倒す。作業台側は恒等のまま。
         CraftQualityConfig config = configFrom("ritual:\n  downswing-reduction-scale: 0.0\n");
         CraftQualityService service = new CraftQualityService(
@@ -152,7 +152,7 @@ class CraftQualitySpreadSplitTest {
         Player player = mock(Player.class);
         PlayerStatAggregator aggregator = aggregatorReturning(player, Map.of(
                 "workbench_quality_bonus", 4.0,
-                "craft_downswing_reduction", 999.0));
+                "workbench_downswing_reduction", 999.0));
         CraftQualityConfig config = configFrom("workbench:\n  downswing-reduction-scale: 0.0\n");
         CraftQualityService service = new CraftQualityService(
                 SkillLevelSource.EMPTY, config, new QualityConfig(), aggregator, null);

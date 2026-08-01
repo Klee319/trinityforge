@@ -41,7 +41,10 @@ public final class NativeCombatPerkListener implements Listener {
     // 同一 priority の登録順に依存して毎回上書き消去されていたため)。定数も CombatListener 側にある。
     private static final String ARROW_PIERCING = StatKeys.canonical("arrow_piercing");
     private static final String ARROW_VELOCITY = StatKeys.canonical("arrow_velocity");
-    private static final String BOW_COOLDOWN_REDUCTION = StatKeys.canonical("bow_cooldown_reduction");
+    // 2026-07-31: bow_cooldown_reduction を撤去。アイテムCT短縮(cooldown_reduction)と同じ
+    // Player#setCooldown を二重に掛ける設計で、しかも item-stats.yml の BOW/CROSSBOW に
+    // item-cooldown が無いため shooter.getCooldown(bow) が常に0 = 完全な no-op だった。
+    // 弓のCT短縮はアイテムCT短縮(CombatListener.startItemCooldown)へ一本化する。
     private static final String ARROW_KNOCKBACK = StatKeys.canonical("arrow_knockback");
     private static final String MELEE_KNOCKBACK = StatKeys.canonical("melee_knockback");
     private static final String STUN_CHANCE = StatKeys.canonical("stun_chance");
@@ -59,6 +62,28 @@ public final class NativeCombatPerkListener implements Listener {
      * (CapRefResolver 拘束テスト対象)。{@code public} でないと cap-ref から参照できない。
      */
     public static final int MAX_STUN_DURATION_TICKS = 100;
+
+    /**
+     * ノックバック内部値1あたりの初速(blocks/tick)。近接と矢で係数が違う。
+     *
+     * <p>2026-07-31 レビュー指摘4: {@code stats/lore.yml} の単位は {@code m} だが内部値は
+     * <b>距離ではなく velocity への加算</b>なので、表示側で
+     * {@code display-scale} を掛けて桁を合わせている。空中の水平減衰 0.91/tick を等比級数で
+     * 積むと総移動距離は初速の {@link #VELOCITY_TO_BLOCKS} 倍なので、
+     * lore の {@code display-scale} は「この係数 × {@link #VELOCITY_TO_BLOCKS}」で決めること
+     * (整合は {@code KnockbackDisplayScaleDriftTest} が機械照合する)。接地中は摩擦が強い
+     * (0.6×0.91)ため実距離は表示より短くなる概算値である点は docs/config-reference に明記済み。
+     */
+    public static final double MELEE_KNOCKBACK_VELOCITY_PER_UNIT = 0.35;
+
+    /** 矢ノックバック内部値1あたりの初速(blocks/tick)。{@link #MELEE_KNOCKBACK_VELOCITY_PER_UNIT} 参照。 */
+    public static final double ARROW_KNOCKBACK_VELOCITY_PER_UNIT = 0.4;
+
+    /**
+     * 初速(blocks/tick)→総移動距離(blocks)の換算係数。バニラの空中水平減衰 0.91/tick を
+     * 等比級数で積んだ {@code 1/(1-0.91)}。
+     */
+    public static final double VELOCITY_TO_BLOCKS = 1.0 / (1.0 - 0.91);
 
     /**
      * 「実際に殴った」と見なすDamageCause。{@code CombatListener} の同名の集合と意図的に同一に保つこと
@@ -98,7 +123,8 @@ public final class NativeCombatPerkListener implements Listener {
         double knock = agg.totalOf(MELEE_KNOCKBACK);
         if (knock > 0.0) {
             Vector vel = victim.getVelocity();
-            Vector push = attacker.getLocation().getDirection().normalize().multiply(0.35 * knock);
+            Vector push = attacker.getLocation().getDirection().normalize()
+                    .multiply(MELEE_KNOCKBACK_VELOCITY_PER_UNIT * knock);
             victim.setVelocity(vel.add(push));
         }
 
@@ -142,7 +168,8 @@ public final class NativeCombatPerkListener implements Listener {
         // 効いていた(=フラグはあってもなくても挙動が変わらない死にキーだった)。
         double chargedKb = agg.totalOf(ARROW_KNOCKBACK);
         if (chargedKb > 0.0 && projectile.getVelocity().lengthSquared() > 1.0) {
-            Vector push = projectile.getVelocity().normalize().multiply(0.4 * chargedKb);
+            Vector push = projectile.getVelocity().normalize()
+                    .multiply(ARROW_KNOCKBACK_VELOCITY_PER_UNIT * chargedKb);
             event.getEntity().setVelocity(event.getEntity().getVelocity().add(push));
         }
     }
@@ -168,7 +195,7 @@ public final class NativeCombatPerkListener implements Listener {
         // 弓精度(bow_accuracy)は符号反転済み語彙: 正の値ほど高精度 → jitter = max(0, 基準0.08 − 精度)。
         double accuracy = agg.totalOf(BOW_ACCURACY);
         // 2026-07-27: 旧 chargedUnlocked ゲートを撤去。OR 条件に並んでいた4ステ
-        // (ARROW_PIERCING / ARROW_VELOCITY / BOW_COOLDOWN_REDUCTION / ARROW_KNOCKBACK)は、
+        // (ARROW_PIERCING / ARROW_VELOCITY / 旧 BOW_COOLDOWN_REDUCTION / ARROW_KNOCKBACK)は、
         // ゲートの内側でそれぞれ「自分が非0か」を再度検査していたため、ゲートは常に無条件で
         // 開いているのと同じだった(同語反復)。各ステ自身の判定だけを残す。
 
@@ -191,19 +218,6 @@ public final class NativeCombatPerkListener implements Listener {
         int pierce = (int) Math.round(agg.totalOf(ARROW_PIERCING));
         if (pierce > 0 && event.getProjectile() instanceof org.bukkit.entity.AbstractArrow arrow) {
             arrow.setPierceLevel(Math.min(127, arrow.getPierceLevel() + pierce));
-        }
-
-        // bow_cooldown_reduction は符号反転済み語彙: 正の値ほど短縮 → reduced = current × (1 − v)。
-        double cdReduce = agg.totalOf(BOW_COOLDOWN_REDUCTION);
-        if (cdReduce > 0.0) {
-            ItemStack heldBow = event.getBow();
-            if (heldBow != null && !heldBow.getType().isAir()) {
-                int current = shooter.getCooldown(heldBow);
-                if (current > 0) {
-                    int reduced = Math.max(0, (int) Math.round(current * (1.0 - Math.min(1.0, cdReduce))));
-                    shooter.setCooldown(heldBow, reduced);
-                }
-            }
         }
     }
 

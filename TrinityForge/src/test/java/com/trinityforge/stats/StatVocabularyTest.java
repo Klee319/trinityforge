@@ -54,7 +54,7 @@ class StatVocabularyTest {
     @DisplayName("bow/archery new keys route to ATTACK")
     void archeryKeysRouteAttack() {
         for (String key : new String[]{"bow_accuracy", "ammo_save_chance", "distance_damage_bonus",
-                "arrow_piercing", "arrow_velocity", "bow_cooldown_reduction", "arrow_knockback"}) {
+                "arrow_piercing", "arrow_velocity", "arrow_knockback"}) {
             assertEquals(StatVocabulary.Channel.ATTACK, StatVocabulary.channelOf(key), key);
         }
     }
@@ -92,7 +92,9 @@ class StatVocabularyTest {
                 "hunger_save_chance", "mob_drop_bonus", "skill_exp_bonus", "loot_luck",
                 "mob_drop_quality", "gacha_rate_bonus", "suspicious_respawn_chance",
                 "hive_harvest_fortune", "food_save_chance",
-                "workbench_quality_bonus", "ritual_quality_bonus", "craft_upswing_bonus", "craft_downswing_reduction",
+                "workbench_quality_bonus", "ritual_quality_bonus",
+                "workbench_upswing_bonus", "ritual_upswing_bonus",
+                "workbench_downswing_reduction", "ritual_downswing_reduction",
                 "craft_roll_up_bonus", "craft_roll_down_reduction", "craft_roll_inset",
                 "mana_bonus", "mana_regen",
                 "lapis_cost_reduction", "source_cost_reduction", "material_refund_chance",

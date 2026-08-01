@@ -23,7 +23,7 @@
 #     - workbench_quality_bonus は品質mode加算。mode = skillLv/10 + bonus を
 #       stats/quality.yml max-quality: 9 でクランプするため、**高レベルほど飽和して無駄になる**。
 #       → 増分は低レベル側(A/B)に寄せる。
-#     - craft_upswing_bonus / craft_roll_up_bonus は分布の上側σを広げる stat で飽和しない。
+#     - workbench_upswing_bonus / craft_roll_up_bonus は分布の上側σを広げる stat で飽和しない。
 #       → 増分は高レベル側(C/D)に寄せる。
 #   なお `recipe:` ゲートはフェイルオープン(未配置=解放)なので、撤去してもロック事故は起きない
 #   (FailCloseGateSkillTreePlacementTest の対象外である理由もこれ)。同時に、TF側カタログが
@@ -45,7 +45,7 @@ prestige:
   effect-text: "全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%"
   buffs:
     workbench_quality_bonus: 3
-    craft_upswing_bonus: 0.15
+    workbench_upswing_bonus: 0.15
 
 nodes:
   A:
@@ -88,7 +88,7 @@ nodes:
       - "クラフト品のランダムステータス上振れ幅+2%"
     buffs:
       workbench_quality_bonus: 1
-      craft_upswing_bonus: 0.10    # 旧: ダイヤティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
+      workbench_upswing_bonus: 0.10   # 旧: ダイヤティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
       craft_roll_up_bonus: 2
   D:
     name: "ダイヤの鍛冶匠"
@@ -104,7 +104,7 @@ nodes:
       - "クラフト品のランダムステータス上振れ幅+3%"
     buffs:
       workbench_quality_bonus: 1
-      craft_upswing_bonus: 0.15    # 旧: ネザライトティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
+      workbench_upswing_bonus: 0.15   # 旧: ネザライトティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
       craft_roll_up_bonus: 3
   E:
     name: "ネザライトの鍛冶王"
@@ -238,7 +238,7 @@ nodes:
     effects:
       - "ランダムステータスの品質で下振れが減少"
     buffs:
-      craft_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
+      workbench_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
   B-alpha-2:
     name: "下振れ軽減II"
     level: 50           # 画像に明示Lvなし。-2は+20と推定
@@ -251,7 +251,7 @@ nodes:
     effects:
       - "ランダムステータスの品質で下振れが減少"
     buffs:
-      craft_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
+      workbench_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
   B-beta-1:
     name: "品質上限I"
     level: 30

@@ -116,7 +116,11 @@ public final class LoreConfig implements LoadableConfig {
                                     ? StatCategory.parse(entry.getString("category"))
                                     : StatCategoryInference.infer(key),
                             parseTrigger(entry.getConfigurationSection("trigger")),
-                            parseLimits(entry.getConfigurationSection("limits"))));
+                            parseLimits(entry.getConfigurationSection("limits")),
+                            // 内部値→表示値の換算係数。単位(unit)と内部値の桁が違うステだけが
+                            // 1.0 以外を持つ(2026-07-31: ノックバック2キー)。0以下/非有限は
+                            // StatDisplaySpec が IllegalArgumentException を投げ、この行が skipped になる。
+                            entry.getDouble("display-scale", StatDisplaySpec.DEFAULT_DISPLAY_SCALE)));
                 } catch (IllegalArgumentException ex) {
                     log.warning("[" + PATH + "] stat '" + key + "' invalid (" + ex.getMessage() + "); skipped");
                     skipped++;

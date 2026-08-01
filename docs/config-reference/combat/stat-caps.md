@@ -95,6 +95,33 @@ arrow-velocity
 `combat/base-stats.yml` で設定し、装備・パークの値を加算します。最終値は
 `NativeCombatPerkListener.MAX_STUN_DURATION_TICKS`（既定100tick）で制限されます。
 
+`melee-knockback` / `arrow-knockback` は 2026-07-31 に単位を揃えました（どちらも `FLAT` +
+単位 `m`）。**割合ではないので上限値も生値で書きます**
+（`melee-knockback` は同日 `PercentStatNormalize.RATE_KEYS` から外しました。残していると
+`2`（=2m のつもり）が `0.02` へ黙って矯正されます）。
+
+#### ⚠ ノックバックの「1m」が内部値のいくらか（ここに値を書く前に必読）
+
+実体は対象の velocity への加算です（`NativeCombatPerkListener`：近接
+`MELEE_KNOCKBACK_VELOCITY_PER_UNIT = 0.35`、矢 `ARROW_KNOCKBACK_VELOCITY_PER_UNIT = 0.4`。
+どちらも「内部値1あたり 係数 blocks/tick の初速」）。空中の水平減衰 0.91/tick を等比級数で積むと
+総移動距離は初速の `1/(1-0.91) = 11.11` 倍（`VELOCITY_TO_BLOCKS`）なので、
+
+| キー | 内部値1 が押し出す距離 | **1m 相当の内部値** | lore の `display-scale` |
+|---|---|---|---|
+| `melee-knockback` | 約 3.9 m | **約 0.26** | 3.9 |
+| `arrow-knockback` | 約 4.4 m | **約 0.23** | 4.4 |
+
+**この `stat-caps.yml` に書く上限値・`combat/base-stats.yml` の初期値・`item-stats` /
+`skilltree` の値・PDC はすべて内部値です。** 単位 `m` との桁合わせは表示側だけが行います
+（`stats/lore.yml` の `display-scale` → `StatDisplaySpec#toDisplayValue`。lore とチャット/GUI で
+値が食い違わないよう換算はこの1か所に集約してあります）。
+
+つまり **「2m まで許す」上限は `2` ではなく `0.5` 前後** です（`2` と書くと表示上 7.8m
+＝約8ブロック飛ぶ設定になります）。接地中は摩擦が強い（0.6×0.91）ため実距離は表示より短くなる
+概算値です。Java の係数を変えたら `display-scale` も直してください
+（`KnockbackDisplayScaleDriftTest` が機械照合して落とします）。
+
 ### ATTACK チャネル (2026-07-26 拡大 — CombatListener が attackerStats / baseDamage 算出点で直接クランプ)
 
 暴走しがちな近接/弓の本命ステ。詳細は `CombatListener#onEntityDamageByEntity` のコメント参照。
@@ -154,8 +181,10 @@ hive-harvest-fortune
 food-save-chance
 workbench-quality-bonus
 ritual-quality-bonus
-craft-upswing-bonus
-craft-downswing-reduction
+workbench-upswing-bonus
+workbench-downswing-reduction
+ritual-upswing-bonus
+ritual-downswing-reduction
 craft-roll-up-bonus
 craft-roll-down-reduction
 craft-roll-inset

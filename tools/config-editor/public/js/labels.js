@@ -69,11 +69,10 @@
     "distance-damage-bonus": "弓:距離ダメ↑",
     "arrow-piercing": "弓:矢貫通↑",
     "arrow-velocity": "弓:矢速度↑",
-    "bow-cooldown-reduction": "弓:CT↓",
     "arrow-knockback": "弓:矢KB↑",
     "melee-knockback": "近接:追撃KB↑",
     "stun-chance": "近接:スタン率↑",
-    "stun-duration-bonus": "近接:スタン時間(tick)",
+    "stun-duration-bonus": "近接:スタン時間",
     "power-attack-damage": "近接:空中ダメ↑",
     "power-attack-radius": "近接:空中半径↑",
     "cooldown-reduction": "戦闘:アイテムCT↓",
@@ -96,8 +95,10 @@
     "harvest-extra-drop-chance": "ドロップ:収穫追加↑",
     "ritual-quality-bonus": "クラフト:儀式品質↑",
     "workbench-quality-bonus": "クラフト:作業台品質↑",
-    "craft-upswing-bonus": "クラフト:上振れ↑",
-    "craft-downswing-reduction": "クラフト:下振れ↓",
+    "workbench-upswing-bonus": "クラフト:作業台上振れ↑",
+    "workbench-downswing-reduction": "クラフト:作業台下振れ↓",
+    "ritual-upswing-bonus": "クラフト:儀式上振れ↑",
+    "ritual-downswing-reduction": "クラフト:儀式下振れ↓",
     "craft-roll-up-bonus": "クラフト:ロール上振れ↑",
     "craft-roll-down-reduction": "クラフト:ロール下振れ↓",
     "craft-roll-inset": "クラフト:ロール収束",
@@ -115,8 +116,6 @@
     "breeding-extra-child-chance": "繁殖:追加子供率↑",
     "bred-animal-growth-bonus": "繁殖:動物成長↑",
     "planted-crop-growth-bonus": "繁殖:作物成長↑",
-    "light-armor-move-speed-per-piece": "装備:軽装部位速度↑",
-    "heavy-armor-move-speed-per-piece": "装備:重装部位速度↑",
     "armor-set-bonus": "装備:セット効果↑",
     "enchant-luck": "エンチャ:運↑",
     "enchant-exp-gain-bonus": "エンチャ:EXP↑",
@@ -186,9 +185,10 @@
     "distance-damage-bonus": "射手と対象の距離に応じて増える射撃ダメージ補正。",
     "arrow-piercing": "射出した矢の貫通レベルに加算される。",
     "arrow-velocity": "チャージ射撃時の矢速度倍率に加算される。",
-    "bow-cooldown-reduction": "チャージ射撃後の弓の待機時間を割合で短縮する。",
-    "arrow-knockback": "高速のチャージ射撃が対象に与えるノックバック量。",
-    "melee-knockback": "近接攻撃時に追加で与えるノックバック量。",
+    "arrow-knockback": "高速のチャージ射撃が対象に与えるノックバック量。内部的には対象の速度への加算(値1=初速0.4 blocks/tick)で、"
+      + "空中の水平減衰込みだと値1で約4.4m飛ぶ。ここに書く値は内部値で、表示だけが m へ換算される(1m ≒ 0.23)。",
+    "melee-knockback": "近接攻撃時に追加で与えるノックバック量。内部的には対象の速度への加算(値1=初速0.35 blocks/tick)で、"
+      + "空中の水平減衰込みだと値1で約3.9m飛ぶ。ここに書く値は内部値で、表示だけが m へ換算される(1m ≒ 0.26)。",
     "stun-chance": "近接攻撃時にスタンを付与する確率。",
     "stun-duration-bonus": "stun-chance発動時のスタン(鈍化/採掘速度低下/移動凍結)継続時間。base-statsの初期tickへ装備・パーク値を加算します。"
       + "初期値は25tick、加算後は5秒(100tick)を絶対上限としてクランプされます。",
@@ -219,20 +219,24 @@
     "hive-harvest-fortune": "ハニカム・ハチミツの採取量が増える確率。バニラの幸運と同じ考え方で、100%を超えると確定で追加ドロップする。",
     "ritual-quality-bonus": "儀式クラフトの品質基礎値を増やす。",
     "workbench-quality-bonus": "作業台クラフトの品質基礎値を増やす。",
-    "craft-upswing-bonus": "クラフト品質抽選の上振れを増やす。",
-    "craft-downswing-reduction": "クラフト品質抽選の下振れを抑える。",
+    "workbench-upswing-bonus": "作業台クラフトの品質抽選で上振れ側の広がりを増やす。儀式クラフトには効かない。",
+    "workbench-downswing-reduction": "作業台クラフトの品質抽選で下振れ側の広がりを抑える。儀式クラフトには効かない。",
+    "ritual-upswing-bonus": "儀式クラフトの品質抽選で上振れ側の広がりを増やす。作業台クラフトには効かない。",
+    "ritual-downswing-reduction": "儀式クラフトの品質抽選で下振れ側の広がりを抑える。作業台クラフトには効かない。",
     "craft-roll-up-bonus": "クラフト時のロール結果を上方向へ補正する。",
     "craft-roll-down-reduction": "クラフト時のロール結果の下振れを抑える。",
     "craft-roll-inset": "クラフト時のロール結果を中央へ収束させる。",
     "lapis-cost-reduction": "Ars 系処理のラピス消費を軽減する。",
-    "material-refund-chance": "処理に使った素材を返却する確率。",
-    "ingredient-save-chance": "素材を消費しない確率(バニラ醸造台+Arsアルケミカル素材投入の両方に適用)。",
+    "material-refund-chance": "儀式(ペデスタル)専用。台座の素材は通常どおり消費されたうえで、この確率で1個だけインベントリへ返却される(満杯なら足元へドロップ)。消費をスキップする材料節約率とは別の機構で、醸造台やアルケミカルソースリンクには効かない。",
+    "ingredient-save-chance": "素材の消費自体をスキップする確率(返却ではない)。バニラ醸造台の材料投入とArsアルケミカルソースリンクへの素材投入の両方に適用される。儀式(ペデスタル)には効かない(そちらは素材返還率)。",
     "source-cost-reduction": "Ars のソース消費を軽減する。"
     // ---- 2026-07-26 タスク3: lore.yml表示追加に伴うSTAT_DESCRIPTIONS未登録12キーの補完 ----
     ,"flat-bonus-damage": "最終ダメージへ加算される固定値。item-stats.ymlへ直接記述することはできず、"
       + "パーク/base-stats/モブ攻撃・コーティング内部経路からのみ供給される。"
-    ,"flat-defense": "phys-flat-defense/magic-flat-defenseに分岐する前の汎用守備力キー。"
-      + "DefenseStatBridge/PlayerDefenseResolverのlegacyFlat経路で読まれる。"
+    ,"flat-defense": "物理/魔法に分かれていない旧アイテム向けの互換キー(汎用の守備力)。"
+      + "設定した値は適用時に物理守備力・魔法守備力のどちらかへ振り分けられ、"
+      + "上限もその振り分け先のキーの上限に従う。新しく設定するときは物理守備力/魔法守備力を直接使うこと"
+      + "(この画面からは既定で隠している)。"
     ,"mana-max-base": "base-stats.yml専用のマナ初期値(基礎)。ArsPaperのmana.default-max相当の値をここで設定し、"
       + "フォークはTrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
     ,"mana-regen-base": "base-stats.yml専用のマナ自然回復(基礎)。フォークはTrinityForgeBridge.manaBaseStat"
@@ -259,8 +263,6 @@
     ,"planted-crop-growth-bonus": "自身が植えた作物の成長を速める(%)。"
     ,"ars-tier-bonus": "Ars で利用できる Tier を増やす。"
     ,"glyph-slot-bonus": "Ars のグリフ配置可能数を増やす。"
-    ,"light-armor-move-speed-per-piece": "革・チェーンの装備部位数ごとに移動速度を加算する。"
-    ,"heavy-armor-move-speed-per-piece": "革・チェーン以外の防具部位数ごとに移動速度を加算する。"
     ,"armor-set-bonus": "スキルツリーのset-buffs(装備部位3/4段の条件バフ)で宣言した段の値全体に" +
         " ×(1+この値) を掛ける。負値は0扱い。段は3と4のみで、成立している最大の段だけが採用される" +
         "(3と4の両方が同時に加算されることはない)。軽装/重装で共通の1キー。"
@@ -444,7 +446,8 @@
     "icon": { label: "アイコン", desc: "行頭に付くアイコン文字列 (リソースパックのPUAグリフ等)。" },
     "format": { label: "表示形式", desc: "FLAT(加算)/PERCENT(%)/INTEGER(整数)/SCALAR(x1.50)。" },
     "decimals": { label: "小数桁数", desc: "表示する小数の桁数。0以上の整数。" },
-    "order": { label: "並び順", desc: "同じステータスカテゴリ内での表示順。小さいほど上。" },
+    "order": { label: "並び順", desc: "同じステータスカテゴリ内での表示順。小さいほど上。同じカテゴリ内で重複させないこと（同値だとキー名の辞書順で並ぶため記述順と食い違う）。" },
+    "display-scale": { label: "表示換算係数", desc: "内部値→表示値の換算係数（既定1.0＝換算なし）。単位が内部値の単位と一致しないステだけに使う校正値で、Java側の係数と対応させる必要があるため通常は編集しない（例: ノックバックは velocity 加算なので m 表示へ 3.9 / 4.4 倍している）。base-stats・item-stats・上限値・PDC は内部値のまま。" },
     "category": { label: "ステカテゴリ", desc: "攻撃 / 守備 / 補助 / Ars / その他。Lore の区切りと editor 候補の並び基準。" },
     "lore-default": { label: "デフォルト表示", desc: "ONならこのカテゴリのフォールバック固定ステを、値が0でも Lore に表示する（hide-when-zero をバイパス）。" },
     "show-sign": { label: "符号表示", desc: "プラス値に + を付けるか。" },
@@ -691,6 +694,9 @@
     // 軽装(light_armor) 本日新設含む
     // 2026-07-27(armor-set-buffs全面移行): lightarmor_setdodgechance_add/lightarmor_setamount_add は
     // スキルツリーのset-buffsスキーマ(装備部位3/4段の条件バフ)+ armor-set-bonus(共通増幅率)へ統一され廃止。
+    // 2026-07-31: 移行先の light-/heavy-armor-move-speed-per-piece を廃止したため
+    // LEGACY_NATIVE_TO_BUFF からは外した(旧 native データは移行せずそのまま残す方針)。
+    // 旧データを画面に出したときのラベルとしてここは残す。
     "lightarmor_movementspeedperpiece_add": { label: "軽装: 装備部位ごとの移動速度+", unit: "割合(0〜1)" },
     // 重装(heavy_armor)
     // 2026-07-27: heavyarmor_setknockbackresistance_add/heavyarmor_setamount_add も同様に廃止。

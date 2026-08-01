@@ -15,6 +15,9 @@
 # category: attack/defense/craft/gathering/utility/ars/other (2026-07-23 7分類再編。旧 support は
 # utility へ改名統合。"support" 文字列は後方互換のため引き続き utility として読み込める)
 # unit: PERCENT以外の末尾単位（例: m / 秒）。PERCENTは自動で%。
+# display-scale: 内部値→表示値の換算係数（既定 1.0 = 換算なし）。unit が内部値の単位と一致しない
+#   ステだけに書く。base-stats / item-stats / skilltree / stat-caps に書く値と PDC は内部値のままで、
+#   lore と /tf stats・/tf status の表示だけがこの係数を掛ける（換算は StatDisplaySpec に一本化）。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/lore.md
 
 layout:
@@ -127,7 +130,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 9
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: attack
@@ -713,21 +716,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
-  bow-cooldown-reduction:
-    name: 弓CT短縮
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 105
-    show-sign: true
-    hide-when-zero: true
-    category: attack
   arrow-knockback:
     name: 矢ノックバック
     icon: ""
     format: FLAT
+    unit: m
+    display-scale: 4.4
     decimals: 1
-    order: 106
+    order: 105
     show-sign: true
     hide-when-zero: true
     category: attack
@@ -739,9 +735,11 @@ stats:
   melee-knockback:
     name: 追撃ノックバック
     icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 107
+    format: FLAT
+    unit: m
+    display-scale: 3.9
+    decimals: 1
+    order: 106
     show-sign: true
     hide-when-zero: true
     category: attack
@@ -755,7 +753,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 108
+    order: 107
     show-sign: true
     hide-when-zero: true
     category: attack
@@ -1154,8 +1152,8 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
-  craft-upswing-bonus:
-    name: 上振れ拡大
+  workbench-upswing-bonus:
+    name: 作業台上振れ拡大
     icon: ""
     format: FLAT
     decimals: 1
@@ -1170,12 +1168,44 @@ stats:
         - PLAYER
     limits:
       floor: 0
-  craft-downswing-reduction:
-    name: 下振れ抑制
+  workbench-downswing-reduction:
+    name: 作業台下振れ抑制
     icon: ""
     format: FLAT
     decimals: 1
     order: 202
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  ritual-upswing-bonus:
+    name: 儀式上振れ拡大
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 203
+    show-sign: true
+    hide-when-zero: true
+    category: craft
+    trigger:
+      when: ON_CRAFT
+      sources: ALL
+      applies-to:
+        - PLAYER
+    limits:
+      floor: 0
+  ritual-downswing-reduction:
+    name: 儀式下振れ抑制
+    icon: ""
+    format: FLAT
+    decimals: 1
+    order: 204
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1191,7 +1221,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 203
+    order: 205
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1207,7 +1237,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 204
+    order: 206
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1223,7 +1253,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 205
+    order: 207
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1239,7 +1269,7 @@ stats:
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 207
+    order: 212
     show-sign: true
     hide-when-zero: true
     unit: 個
@@ -1433,36 +1463,6 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: ars
-  light-armor-move-speed-per-piece:
-    name: 軽装部位速度
-    icon: ""
-    format: FLAT
-    decimals: 2
-    order: 56
-    show-sign: true
-    hide-when-zero: true
-    unit: "%"
-    category: defense
-    trigger:
-      when: PASSIVE_ATTRIBUTE
-      sources: NON_ITEM_ONLY
-      applies-to:
-        - PLAYER
-  heavy-armor-move-speed-per-piece:
-    name: 重装部位速度
-    icon: ""
-    format: FLAT
-    decimals: 2
-    order: 57
-    show-sign: true
-    hide-when-zero: true
-    unit: "%"
-    category: defense
-    trigger:
-      when: PASSIVE_ATTRIBUTE
-      sources: NON_ITEM_ONLY
-      applies-to:
-        - PLAYER
   armor-set-bonus:
     name: セット効果増幅
     icon: ""

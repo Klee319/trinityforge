@@ -41,8 +41,11 @@ public final class StatVocabulary {
             "attack_power", "flat_bonus_damage", "percent_bonus_damage", "crit_chance", "crit_damage",
             "penetration", "damage_modifier", "fixed_damage", "bleed_chance", "bleed_damage",
             // 弓系 (NativeCombatPerkListener → totalOf(shooter, bow))
+            // 2026-07-31: bow_cooldown_reduction を撤去。アイテムCT短縮(cooldown_reduction)と同じ
+            // Player#setCooldown を二重に掛ける設計で、しかも item-stats.yml の BOW/CROSSBOW に
+            // item-cooldown が無いため残CTが常に0 = 完全な no-op だった。弓のCTはアイテムCT短縮へ一本化する。
             "bow_accuracy", "ammo_save_chance", "distance_damage_bonus", "arrow_piercing",
-            "arrow_velocity", "bow_cooldown_reduction", "arrow_knockback",
+            "arrow_velocity", "arrow_knockback",
             // 近接系 (NativeCombatPerkListener → totalOf(attacker, weapon))
             "melee_knockback", "stun_chance", "power_attack_damage", "power_attack_radius",
             // スタン時間のtick加算値。base-statsの初期tick、装備、パークを合算し、
@@ -119,7 +122,13 @@ public final class StatVocabulary {
             // クラフト系 (CraftQualityService → クラフターの totalOf())
             // workbench_quality_bonus=作業台品質, ritual_quality_bonus=儀式品質。
             "workbench_quality_bonus", "ritual_quality_bonus",
-            "craft_upswing_bonus", "craft_downswing_reduction",
+            // 2026-07-31: 旧 craft_upswing_bonus / craft_downswing_reduction を作業台用と儀式用の
+            // 2組へ分割した。旧キーは両経路の同じ計算を読んでいたため、鍛冶ツリーのパークが儀式クラフトに、
+            // 魔法鍛冶ツリーのパークが作業台クラフトに漏れていた。命名は quality_bonus 側に合わせる。
+            "workbench_upswing_bonus", "ritual_upswing_bonus",
+            "workbench_downswing_reduction", "ritual_downswing_reduction",
+            // ロール3キーは分割しない: craft_roll_* は PdcKeys でアイテム PDC に焼かれており、
+            // キー名を変えると流通済みアイテムのロール補正が読めなくなる(ステータスが変わる)。
             "craft_roll_up_bonus", "craft_roll_down_reduction", "craft_roll_inset",
             // バニラEXP倍率系 (kill/break/breeding/常時)。乗算適用は各リスナー(EntityDeath/BlockBreak/
             // EntityBreed)で 1 + always + 個別 として消費。break は前提 feature:break-vanilla-exp が必要。
@@ -154,9 +163,11 @@ public final class StatVocabulary {
             "mana_idle_seconds", "mana_idle_bonus_percent", "mana_idle_bonus_flat",
             // スキルツリー由来の条件付き装備効果。NativeAttributeBridge が装備部位数を判定して消費する。
             // 2026-07-27: charged_shot_unlocked をここから削除。「解放フラグ」を名乗りながら、
-            // 解放対象の効果(貫通/初速/弓CT短縮/矢ノックバック)がいずれも自分自身のステの非0判定を
+            // 解放対象の効果(貫通/初速/矢ノックバック)がいずれも自分自身のステの非0判定を
             // 個別に持っており、フラグのOR条件にも同じステが並ぶ同語反復だった(挙動ゼロ)。
-            "light_armor_move_speed_per_piece", "heavy_armor_move_speed_per_piece",
+            // 2026-07-31: light_armor_move_speed_per_piece / heavy_armor_move_speed_per_piece も撤去。
+            // 「装備部位数×係数」の専用経路(NativeAttributeBridge)を持つだけのキーで、
+            // 同じ効果は set-buffs スキーマ(段3/4条件バフ)の move-speed で表現できるため統合した。
             // 2026-07-27 (armor-set-buffs 全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
             // light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を廃止し、
             // set-buffs スキーマ(段3/4条件バフ)+ このキー1本(軽装/重装共通の増幅率)へ統一。

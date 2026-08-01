@@ -79,8 +79,11 @@
 #     consumer配線は後続フェーズ)
 #     弓系: bow-accuracy(弓精度・符号反転=正が高精度), ammo-save-chance(矢節約率),
 #           distance-damage-bonus(距離ダメージ), arrow-piercing(矢貫通,整数), arrow-velocity(矢速度),
-#           bow-cooldown-reduction(弓CT短縮・符号反転=正が短縮), arrow-knockback(矢ノックバック)
-#     近接系: melee-knockback(追撃ノックバック), stun-chance(スタン率), power-attack-damage(空中攻撃ダメ),
+#           arrow-knockback(矢ノックバック・単位m)
+#           ※ 旧 bow-cooldown-reduction(弓CT短縮)は2026-07-31に廃止。弓のCT短縮は
+#             cooldown-reduction(アイテムCT短縮)へ一本化した。
+#     近接系: melee-knockback(追撃ノックバック・単位m。矢ノックバックと同じ単位系), stun-chance(スタン率),
+#           power-attack-damage(空中攻撃ダメ),
 #           power-attack-radius(空中攻撃半径),
 #           coating-charges(コーティング回数上限ボーナス・整数。WeaponCoatingListenerがメインハンド武器
 #           単体のこのステを floor して読み、Math.min(coating-base-max-stacks, 素材maxStacks) +
@@ -94,8 +97,9 @@
 #           gacha-rate-bonus(ガチャ確率UP), suspicious-respawn-chance(怪しいブロック復活),
 #           hive-harvest-fortune(養蜂幸運), food-save-chance(食料節約率)
 #     クラフト系: workbench-quality-bonus(作業台品質), ritual-quality-bonus(儀式品質),
-#           craft-upswing-bonus(上振れ拡大),
-#           craft-downswing-reduction(下振れ抑制), craft-roll-up-bonus(ロール上振れ),
+#           workbench-upswing-bonus/ritual-upswing-bonus(上振れ拡大・作業台/儀式で別),
+#           workbench-downswing-reduction/ritual-downswing-reduction(下振れ抑制・作業台/儀式で別),
+#           craft-roll-up-bonus(ロール上振れ),
 #           craft-roll-down-reduction(ロール下振れ抑制), craft-roll-inset(ロール収束)
 #     fork consumer系: lapis-cost-reduction(ラピス消費軽減), source-cost-reduction(ソース消費軽減),
 #           material-refund-chance(素材返還率), ingredient-save-chance(材料節約率)

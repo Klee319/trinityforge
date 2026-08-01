@@ -47,8 +47,8 @@ window.FALLBACK_STATS = [
   // 実効レベルは floor 値。pickaxe 等に採掘効率を付与)。
   "tool-enchant-efficiency",
   // スキルツリー専用の条件付き/解放バフ。アイテムステには通常設定しないが、同じバフUIから選択できる。
+  // 2026-07-31: light/heavy-armor-move-speed-per-piece は語彙ごと廃止(set-buffs の move-speed へ統合)。
   "ars-tier-bonus", "glyph-slot-bonus",
-  "light-armor-move-speed-per-piece", "heavy-armor-move-speed-per-piece",
   "armor-set-bonus"
 ];
 
@@ -110,13 +110,31 @@ window.FALLBACK_STAT_FORMATS = {
 // 各statのデフォルト単位 (lore.yml の unit が読めない/キー欠落時のフォールバック)。
 // PERCENT ステは自動で "%"、それ以外はここに無ければ単位なし。
 // 「単位」入力はデフォルトをグレーアウト表示し、「カスタム」チェックONのときのみ自由入力。
+// 2026-07-31: lore.yml に unit があるのにここに無いキーが14件あり、Lore表示設定の単位欄が
+// 全部「カスタム」扱いで表示されていた(tick が既定として扱われない症状の正体)。
+// test/lore-unit-and-stat-vocab-drift.test.js が lore.yml と双方向で機械照合する。
 window.FALLBACK_STAT_UNITS = {
   "attack-reach": "m",
   "aoe-radius": "m",
   "aoe-max-targets": "体",
   "item-cooldown": "秒",
   "mana-regen": "/秒",
-  "thread-slots": "枠"
+  "thread-slots": "枠",
+  // 押し出し量(velocity 加算)。矢/近接で同じ単位系なので表記も m で揃える。
+  "arrow-knockback": "m",
+  "melee-knockback": "m",
+  "power-attack-radius": "m",
+  "stun-duration-bonus": "tick",
+  "mana-cost-reduction-percent": "%",
+  "workbench-quality-bonus": "pt",
+  "ritual-quality-bonus": "pt",
+  "potion-quality-bonus": "pt",
+  "lapis-cost-reduction": "個",
+  "ars-tier-bonus": "ティア",
+  "glyph-slot-bonus": "枠",
+  "mana-regen-base": "/秒",
+  "mana-regen-interval-ticks": "tick",
+  "mana-idle-seconds": "秒"
 };
 
 // stat のデフォルト単位を解決 (lore.yml 由来 STAT_META.unit → フォールバック辞書 → PERCENT は "%")。

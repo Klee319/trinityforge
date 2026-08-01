@@ -73,7 +73,7 @@ class LoreConfigDeclarationTest {
     private static final Set<String> UNDECLARED_ALLOW_LIST = Set.of(
             "bleed-chance", "bleed-damage", "durability",
             "bow-accuracy", "ammo-save-chance", "arrow-piercing",
-            "arrow-velocity", "bow-cooldown-reduction",
+            "arrow-velocity",
             "haste-active-mining-cooldown-reduction",
             "health-regen-bonus", "coating-charges",
             // 2026-07-28: coating-stack-increase(feature)からの通常stat化で新設。姉妹キー

@@ -217,17 +217,65 @@ class NativeAttributeBridgeTest {
         assertFalse(attrs.containsKey("knockback_resistance"), "金装備が重装セットを成立させてはいけない");
     }
 
-    // --- move-speed-per-piece: unaffected by the set-buffs migration ---
+    // --- move-speed: 2026-07-31 に「部位数比例の平坦バフ」から set-buffs へ移行 ---
 
+    /**
+     * 旧 {@code light-/heavy-armor-move-speed-per-piece} は撤去され、移動速度は
+     * {@code set-buffs} の {@code move-speed}(段3/4)から来る。閾値未満では一切効かない
+     * (これが移行で変わった唯一の挙動)。
+     */
     @Test
-    void moveSpeedPerPieceStillAppliesUnconditionally() {
+    void moveSpeedNowComesFromSetBuffsAndRespectsTheThreshold() {
+        SkillNode a = node("A", Map.of(3, Map.of("move-speed", 0.015), 4, Map.of("move-speed", 0.02)));
+        SkillTree lightTree = tree(LIGHT, Map.of("A", a));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree), Set.of(perk(LIGHT, "A")));
+
+        wearLight(2);
+        assertFalse(bridge.armorAttributesFor(player).containsKey("move_speed"),
+                "2部位では段3が成立しないので移動速度は付かない");
+
+        wearLight(3);
+        assertEquals(0.015, bridge.armorAttributesFor(player).get("move_speed"), EPS);
+
+        wearLight(4);
+        assertEquals(0.02, bridge.armorAttributesFor(player).get("move_speed"), EPS);
+    }
+
+    /**
+     * <b>移行で変わったもう1点(2026-07-31 レビュー指摘2)</b>: set-buffs へ移した move-speed は
+     * 他のセット効果と同じく {@code armor-set-bonus} で増幅される。
+     * 旧 per-piece 経路は perk buffs の general マップから直読みしていたので増幅されなかったが、
+     * 「セット効果量UP」ノード(light_armor.yml B / heavy_armor.yml B)は
+     * <b>段3/4のセット効果をまとめて強化する</b>のが宣言どおりの意味なので、
+     * move-speed を例外にはしない(効果テキストもそう書いてある)。
+     * この期待値が変わると light_armor.yml / heavy_armor.yml のコメントが嘘になる。
+     */
+    @Test
+    void moveSpeedFromSetBuffsIsAmplifiedByArmorSetBonus() {
+        SkillNode a = node("A", Map.of(3, Map.of("move-speed", 0.015), 4, Map.of("move-speed", 0.02)));
+        SkillNode b = plainBuffsNode("B", Map.of("armor-set-bonus", 0.1));
+        SkillTree lightTree = tree(LIGHT, Map.of("A", a, "B", b));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree),
+                Set.of(perk(LIGHT, "A"), perk(LIGHT, "B")));
+
+        wearLight(4);
+        assertEquals(0.02 * 1.1, bridge.armorAttributesFor(player).get("move_speed"), EPS,
+                "4部位 +2% は armor-set-bonus 0.1 で +2.2% になる(セット効果量UPの宣言どおり)");
+
+        wearLight(3);
+        assertEquals(0.015 * 1.1, bridge.armorAttributesFor(player).get("move_speed"), EPS,
+                "3部位 +1.5% は armor-set-bonus 0.1 で +1.65% になる");
+    }
+
+    /** 撤去した旧キーを平坦 buffs に書いても、もう move_speed には一切ならないこと。 */
+    @Test
+    void retiredPerPieceKeysNoLongerProduceMoveSpeed() {
         SkillNode a = plainBuffsNode("A", Map.of("light-armor-move-speed-per-piece", 0.5));
         SkillTree lightTree = tree(LIGHT, Map.of("A", a));
         NativeAttributeBridge bridge = bridgeFor(List.of(lightTree), Set.of(perk(LIGHT, "A")));
-        wearLight(2);
+        wearLight(4);
 
-        Map<String, Double> attrs = bridge.armorAttributesFor(player);
-
-        assertEquals(0.5 * 2 * 0.01, attrs.get("move_speed"), EPS);
+        assertFalse(bridge.armorAttributesFor(player).containsKey("move_speed"),
+                "撤去した per-piece キーが move_speed を生んでいる");
     }
 }
