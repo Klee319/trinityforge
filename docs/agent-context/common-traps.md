@@ -223,6 +223,73 @@ Ars 側だけを読んでいたため、**TFカタログ由来の儀式 39 件�
 浅いクローンだとキーの同一性が崩れ、選択状態が別画面に届かず絞り込みが常に無効になる。
 「同じ内容に見えるオブジェクトを渡しているのに動かない」ときはまずオブジェクト同一性を疑うこと。
 
+## yml を「生成」するときの罠
+
+### ⚠️ Python の `yaml.safe_load` は重複キーを黙って通すが、editor の JS `yaml` は投げる
+`yaml.safe_load` は同一マッピング内に同じキーが2回あっても**警告なしで後勝ち**にする。
+一方 config-editor が使う JS の `yaml` は `YAMLParseError: Map keys must be unique` を投げるので、
+**Python 側の検証を全部通ったファイルが editor 側のテストをファイルごと落とす**。
+生成器で既存ブロックを複製・加筆するときは、加筆するキーが**継承元に既に無いか**必ず確認する
+（`infinity_*` を種にすると `bleed-chance` などが既にある個体だけ重複する、という形で当たる）。
+
+### 生成器は「表を書き写す」のでなく「出荷 yml の既存ブロックを読んで意図したキーだけ上書きする」
+仕様書の数値を転記すると、転記ミスと**仕様書自体の誤り**が区別できなくなる。
+既存ブロックを読んで差分だけ当てる方式にすると、
+「そのキーが実在しない」「その帯が存在しない」「その値は既存最大を超えている」が
+生成時に例外として出る。実際にこの方式で仕様書側の誤りが7件出た（2026-08-02）。
+
+### 率のフォーマットは値のフォーマットと分ける
+`0.12` を小数第1位で丸めると `0.1`、`0.015` は `0.01` になる。桁が落ちても yml としては妥当なので
+テストも通ってしまう。率専用に小数第3位まで残す書式を用意すること。
+
+## リソースパック / CMD の罠
+
+### CMD は「素材ごと」の割り当て。`range_dispatch` は登録漏れを無言で前のモデルに落とす
+`NETHERITE_SWORD#5700` と `MACE#5700` は**別のアイテム**。`resourcepack/cmd-registry.json` は
+再生成できない永続台帳で、番号の再利用は禁止。
+
+`assets/minecraft/items/<material>.json` の `range_dispatch` は**「値以下で最大の threshold」**を選ぶので、
+threshold を足し忘れた CMD は**エラーにならず、直前のシリーズのモデルで描画される**。
+
+- threshold の中身は**そのファイル自身の `fallback` を丸ごとディープコピー**する。
+  `fallback` の形は素材ごとに違い（`minecraft:model` / `minecraft:select` / `minecraft:condition` /
+  入れ子の `range_dispatch`）、`{"model": ...}` 決め打ちで書くと `KeyError` になるか、
+  もっと悪いことに**形の違う素材だけ描画が壊れる**。
+- **その素材の json 自体が存在しない場合は何も足さなくてよい**（バニラが描画する）。
+  2026-08-02 時点で該当するのは CROSSBOW / NETHERITE_SHOVEL / AMETHYST_SHARD /
+  LEATHER_CHESTPLATE / LEATHER_HELMET。
+- `resourcepack/build_item_pack.py` は「json にある threshold が台帳に無い」を落とすが、
+  **逆（台帳にあって json に無い）は通す**。つまりビルドが通っても描画が正しいとは限らない。
+
+## アイテム設計の罠
+
+### インベントリに入れただけのアイテムのステータスは1つも効かない
+`PlayerStatAggregator` が読むのは**防具4部位・メインハンド・オフハンドだけ**。
+「アクセサリ」枠は存在しないので、装飾品を作るなら `offhand-stats-apply: true` を立てて
+**オフハンド装備**にするか、機構から作る必要がある。放置すると完全な死にアイテムになるが、
+**テストも lint も何も言わない**。
+
+### `use-skill` は使用要件であって分類マーカーではない
+斧に `use-skill: WOODCUTTING` と書くと「伐採スキルが要る斧」になるだけで、
+**その斧でモブを殴ったときに伐採EXPが入る**（採取ツールにも付いているため）。
+スキル別の効果が欲しいときは専用のステータスキー（`<skill>_exp_bonus` など）を足す。
+
+### 儀式レシピは `(core-item, pedestal-items)` が同一だと先勝ちで後発が無言死する
+`RitualRecipeRegistry#findMatch` は `findFirst`。同じ核と同じ台座構成のレシピを2件以上登録すると、
+2件目以降は**レシピ帳に出るのに永久に作れない**。共通素材で揃えたいときは、
+アイテムごとの識別素材を台座に1つ入れて回避する。
+
+### 語彙キーを1本足すと登録先が6箇所ある
+`StatVocabulary` / `stats/lore.yml`（カテゴリ内で `order` が一意）/ `combat/base-stats.yml` /
+`command/StatsCategory.java` / `docs/config-reference/combat/stat-caps.md` /
+editor の `labels.js`・`tf-base-stats.js`・`tf-lore.js` ＋ `test/tf-stat-caps-tab.test.js` の件数。
+1つでも漏らすと drift テストが落ちる（＝落ちたら「テストが古い」ではなく登録漏れを疑う）。
+
+### 使用要件のゲートは `UseRequirementsConfig.enforce` の【コード上の既定が false】
+`true` にしているのは出荷 `progression/use-requirements.yml` のほう。
+テストが自前の一時ディレクトリに yml を書く場合、`enforce: true` を書かないと
+**ゲートが素通りして、そのテストが何も検証しないまま緑になる**。
+
 ## 関連
 - [./forks-and-mobs.md](./forks-and-mobs.md)
 - [./ops-build-deploy.md](./ops-build-deploy.md)
