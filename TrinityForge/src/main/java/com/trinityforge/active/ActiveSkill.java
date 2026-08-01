@@ -32,7 +32,18 @@ import java.util.Set;
  * shovel). {@link #targetSkills()} therefore returns a {@link Set}, not a single id, and
  * {@link #id()}/{@link CooldownManager} stay keyed by the ONE skill id regardless of which tree's item
  * triggered it — a player who activates via a pickaxe and immediately tries again via a shovel must be
- * refused (single shared cooldown per active, never per-trigger-skill). Any new {@link ActiveSkill}
+ * refused (single shared cooldown per active, never per-trigger-skill).
+ *
+ * <p><b>2026-08-01 実サーバ報告の修正 — CTは共有だが「解放」は共有ではない</b>: 上の「共有」は
+ * <em>クールダウン</em>にだけ掛かる規則で、<em>解放判定</em>には掛からない。
+ * {@link ActivationDispatcher} は {@link #gateEffectId()} を
+ * <b>持ち替えたツールの {@code use-skill} と同じスキルツリーに置かれた配置だけ</b>に絞って解決する
+ * ({@code DedicatedEffectsConfig#valueMax(Player, String, String)})。そうしないと
+ * <b>{@code mining.yml} A-1 しか取っていないプレイヤーがシャベルでも発動できて</b>しまい、
+ * 「シャベルを持っていても採掘速度上昇が発動する」という実サーバ報告になっていた
+ * (tier も同様に、そのツリー内の配置の最大値だけを見る)。
+ *
+ * <p>Any new {@link ActiveSkill}
  * implementation, and any future migration of another gathering feature onto this framework, MUST treat
  * "one active reachable from several {@code use-skill} tags" as the default assumption, not a special
  * case to opt into — {@link ActiveSkillRegistry#forTargetSkill(String)} and

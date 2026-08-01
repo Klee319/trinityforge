@@ -36,8 +36,16 @@ public final class DedicatedEffectGateIndex {
     public static final DedicatedEffectGateIndex EMPTY =
             new DedicatedEffectGateIndex(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
-    /** One node's placement of an effect: the node's own perk id, plus the placement's value (may be {@code null}). */
-    public record PerkValue(String perkId, Double value) {
+    /**
+     * One node's placement of an effect: the skill tree it lives in, the node's own perk id, and the
+     * placement's value (may be {@code null}).
+     *
+     * <p>{@code skill} exists so a consumer can ask "is this effect unlocked <em>in this particular
+     * tree</em>" rather than "anywhere" — required whenever the same effect id is placed on several
+     * trees and the trigger is tree-specific (see
+     * {@link #valueMaxByPerks(java.util.Set, String, String)}).
+     */
+    public record PerkValue(String skill, String perkId, Double value) {
     }
 
     private final Map<String, Set<String>> glyphGatePerks;
@@ -138,6 +146,20 @@ public final class DedicatedEffectGateIndex {
      * or a match set with no numeric value all yield {@link OptionalDouble#empty()}.
      */
     public OptionalDouble valueMaxByPerks(Set<String> heldPerks, String effectId) {
+        return valueMaxByPerks(heldPerks, effectId, null);
+    }
+
+    /**
+     * {@link #valueMaxByPerks(Set, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted, identical to the two-argument form).
+     *
+     * <p><b>2026-08-01 実サーバ報告の修正</b>: 同じ effect id を複数のツリーが置くのは正当な形
+     * ({@code feature:haste-active-mining} は {@code mining.yml} A-1 と {@code digging.yml} A-1 の
+     * 両方が置く)。しかし「どのツリーで解放したか」を無視して最大値を返すと、
+     * <b>ツルハシ側のノードしか取っていないプレイヤーがシャベルでも発動できてしまう</b>
+     * (逆も同様)。トリガーが持ち替えたツールのスキルに紐づく用途では必ずこちらを使うこと。
+     */
+    public OptionalDouble valueMaxByPerks(Set<String> heldPerks, String effectId, String skill) {
         if (heldPerks == null || heldPerks.isEmpty() || effectId == null) {
             return OptionalDouble.empty();
         }
@@ -145,8 +167,10 @@ public final class DedicatedEffectGateIndex {
         if (placements == null) {
             return OptionalDouble.empty();
         }
+        String scope = skill == null || skill.isBlank() ? null : skill.trim();
         return placements.stream()
                 .filter(placement -> heldPerks.contains(placement.perkId()) && placement.value() != null)
+                .filter(placement -> scope == null || scope.equalsIgnoreCase(placement.skill()))
                 .mapToDouble(PerkValue::value)
                 .max();
     }
@@ -183,7 +207,7 @@ public final class DedicatedEffectGateIndex {
                     // consumer needing isActive/valueSum/valueMax for any effect id (flag or gate alike) has
                     // one uniform query surface.
                     effectValues.computeIfAbsent(placement.id(), k -> new ArrayList<>())
-                            .add(new PerkValue(perkId, placement.value()));
+                            .add(new PerkValue(tree.skill(), perkId, placement.value()));
 
                     GateEffectId gate = parsed.get();
                     Map<String, Set<String>> bucket = switch (gate.channel()) {

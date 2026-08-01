@@ -77,7 +77,10 @@ public final class ActiveCooldownDisplay implements Runnable {
                 if (!cooldowns.hasRecord(player.getUniqueId(), skill.id())) {
                     continue; // 一度も使っていない = CTは走っていない(重い集計を避ける)
                 }
-                OptionalDouble tier = dedicatedEffects.valueMax(player, skill.gateEffectId());
+                // 表示条件はトリガー条件と同じ絞り込み(クラスjavadoc) — ゲートも
+                // ActivationDispatcher と同様に「持っているツールのツリー」へ限定しないと、
+                // 発動できないツールを持っている間だけCTが見えるという食い違いが起きる。
+                OptionalDouble tier = dedicatedEffects.valueMax(player, skill.gateEffectId(), useSkill);
                 if (tier.isEmpty()) {
                     continue;
                 }
