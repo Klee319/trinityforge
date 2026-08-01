@@ -117,6 +117,11 @@ public final class StatVocabulary {
             "fish_sell_price_bonus", "disassembly_return_bonus", "ocean_fishing_bonus",
             // 生存・汎用系
             "hunger_save_chance", "mob_drop_bonus", "skill_exp_bonus", "loot_luck", "mob_drop_quality",
+            // スキル別EXP倍率(2026-08-02 柱5-3、NativeProgressionService の PerSkillExpBonus が消費)。
+            // skill_exp_bonus(全スキル一律)とは【加算】で合成される。付与先スキルを縛るのはこのキーだけで、
+            // use-skill は装備要件であって分類マーカーではない(採取ツールにも付いているので、
+            // use-skill: WOODCUTTING を分類に使うと斧で殴っただけで伐採EXPが入る)。
+            "woodcutting_exp_bonus", "farming_exp_bonus", "digging_exp_bonus",
             "gacha_rate_bonus", "suspicious_respawn_chance", "hive_harvest_fortune",
             "food_save_chance",
             // クラフト系 (CraftQualityService → クラフターの totalOf())

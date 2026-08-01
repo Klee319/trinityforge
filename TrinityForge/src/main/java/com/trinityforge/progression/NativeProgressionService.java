@@ -37,6 +37,15 @@ public final class NativeProgressionService {
     private final ProgressionRepository repository;
     private final NativeSkillCatalog catalog;
     private final java.util.function.ToDoubleFunction<UUID> allSkillExpMultiplier;
+    /**
+     * スキル別のEXP倍率（2026-08-02 柱5-3）。{@link #allSkillExpMultiplier} が全スキル一律なのに対し、
+     * こちらは<b>付与先スキルごと</b>に引く（{@code woodcutting_exp_bonus} など）。
+     *
+     * <p><b>なぜ {@code use-skill} で代用しないか</b>: {@code use-skill} は分類マーカーではなく
+     * 「装備要件」であり、採取ツールにも付いている。伐採EXP+15% を {@code use-skill: WOODCUTTING} で
+     * 表現すると<b>斧で殴っただけで伐採EXPが入る</b>。倍率は必ずこのステで表現すること。
+     */
+    private final PerSkillExpBonus perSkillExpMultiplier;
     private final PlayerLockRegistry locks;
     private final ExpDiminishingCurve diminishingCurve;
     /**
@@ -90,9 +99,25 @@ public final class NativeProgressionService {
                                     PlayerLockRegistry locks, ExpDiminishingCurve diminishingCurve,
                                     DailyExpDiminishing dailyDiminishing,
                                     java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings) {
+        this(repository, catalog, allSkillExpMultiplier, locks, diminishingCurve,
+                dailyDiminishing, dailySettings, (playerId, skillId) -> 0.0);
+    }
+
+    /**
+     * スキル別EXP倍率つきの構築子（2026-08-02 柱5-3）。{@code perSkillExpMultiplier} は
+     * <b>正規化済みのスキルID</b>（{@code woodcutting} など）を受け取り、そのスキルにだけ効く
+     * 加算倍率を返す。全スキル一律ぶんの {@code allSkillExpMultiplier} とは<b>加算</b>で合成される。
+     */
+    public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog,
+                                    java.util.function.ToDoubleFunction<UUID> allSkillExpMultiplier,
+                                    PlayerLockRegistry locks, ExpDiminishingCurve diminishingCurve,
+                                    DailyExpDiminishing dailyDiminishing,
+                                    java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings,
+                                    PerSkillExpBonus perSkillExpMultiplier) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.allSkillExpMultiplier = Objects.requireNonNull(allSkillExpMultiplier, "allSkillExpMultiplier");
+        this.perSkillExpMultiplier = Objects.requireNonNull(perSkillExpMultiplier, "perSkillExpMultiplier");
         this.locks = Objects.requireNonNull(locks, "locks");
         this.diminishingCurve = Objects.requireNonNull(diminishingCurve, "diminishingCurve");
         this.dailyDiminishing = dailyDiminishing;
@@ -130,14 +155,23 @@ public final class NativeProgressionService {
         if (!Double.isFinite(amount) || amount == 0.0) {
             return GrantResult.unchanged(rawSkillId);
         }
+        String skillId = normalizeSkillId(rawSkillId);
+        // 全スキル一律ぶんとスキル別ぶんは【加算】で合成してから1回だけ掛ける。
+        // 別々に掛けると (1+a)(1+b) となり、表記どおりの合計にならない。
         double multAdd = allSkillExpMultiplier.applyAsDouble(playerId);
-        if (Double.isFinite(multAdd) && multAdd != 0.0) {
+        if (!Double.isFinite(multAdd)) {
+            multAdd = 0.0;
+        }
+        double perSkill = perSkillExpMultiplier.bonusFor(playerId, skillId);
+        if (Double.isFinite(perSkill)) {
+            multAdd += perSkill;
+        }
+        if (multAdd != 0.0) {
             amount = amount * (1.0 + Math.max(-0.9, multAdd));
         }
         if (!Double.isFinite(amount) || amount == 0.0) {
             return GrantResult.unchanged(rawSkillId);
         }
-        String skillId = normalizeSkillId(rawSkillId);
         SkillCatalogEntry entry = requireSkill(skillId);
         LoadResult<PlayerProgression> persisted = repository.load(playerId);
         if (persisted.isFailed()) {

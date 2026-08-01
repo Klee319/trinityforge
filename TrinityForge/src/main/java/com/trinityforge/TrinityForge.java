@@ -292,7 +292,21 @@ public final class TrinityForge extends JavaPlugin {
                     // その機構は実在しなかった(あったのは spot-diminishing=同一地点だけ)ので新設。
                     // 設定は Supplier で毎回引く: reload で skill-exp.yml を読み直しても反映される。
                     this.dailyExpDiminishing,
-                    () -> configManager.skillExp().dailyDiminishing());
+                    () -> configManager.skillExp().dailyDiminishing(),
+                    // スキル別EXP倍率(2026-08-02 柱5-3)。キーは <スキルID>_exp_bonus。
+                    // use-skill は装備要件であって分類マーカーではない(採取ツールにも付いている)ので、
+                    // 「伐採EXP+15%」の類はここのステでしか表現してはいけない。
+                    (id, skillId) -> {
+                        PlayerStatAggregator live = this.playerStatAggregator;
+                        if (live == null || skillId == null || skillId.isBlank()) {
+                            return 0.0;
+                        }
+                        Player online = getServer().getPlayer(id);
+                        return online == null ? 0.0
+                                : live.aggregate(online).totalOf(
+                                        com.trinityforge.stats.StatKeys.canonical(
+                                                skillId + "_exp_bonus"));
+                    });
             this.progressionAdminService = new NativeProgressionAdminService(
                     progressionRepository, progressionCatalog,
                     () -> configManager.skillTrees().all().values(),

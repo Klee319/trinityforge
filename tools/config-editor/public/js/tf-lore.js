@@ -52,7 +52,7 @@
     ].some((k) => s.includes(k))) return "attack";
     if (["defense", "resistance", "armor", "max-health", "knockback", "dodge", "reduction", "health-regen"].some((k) => s.includes(k))) return "defense";
     if ([
-      "move-speed", "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
+      "move-speed", "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
       // 2026-07-24 新規: バニラEXP/追加ドロップ/満腹度/繁殖・成長
       "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus", "vanilla-exp-bonus", "breeding-vanilla-exp-bonus",
       "woodcutting-extra-drop-chance", "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",

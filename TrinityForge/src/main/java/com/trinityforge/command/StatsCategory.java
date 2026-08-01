@@ -106,7 +106,9 @@ public enum StatsCategory {
             // 2026-07-26 M-stats分類: バニラEXP倍率(全源+源別)と満腹度系。特定の生産/採取スキルに
             // 属さない「生活まわり」なので UTILITY。
             "vanilla_exp_bonus", "kill_vanilla_exp_bonus", "break_vanilla_exp_bonus",
-            "breeding_vanilla_exp_bonus", "food_restore_bonus", "hidden_saturation_bonus");
+            "breeding_vanilla_exp_bonus", "food_restore_bonus", "hidden_saturation_bonus",
+            // スキル別EXP倍率(2026-08-02 柱5-3)。skill_exp_bonus と同じ扱いで UTILITY。
+            "woodcutting_exp_bonus", "farming_exp_bonus", "digging_exp_bonus");
 
     private static final Set<String> ARS_KEYS = Set.of(
             "mana_bonus", "mana_regen", "hit_mana_recovery", "damage_mana_recovery", "thread_slots",

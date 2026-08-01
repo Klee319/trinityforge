@@ -173,6 +173,9 @@ ocean-fishing-bonus
 hunger-save-chance
 mob-drop-bonus
 skill-exp-bonus
+woodcutting-exp-bonus
+farming-exp-bonus
+digging-exp-bonus
 loot-luck
 mob-drop-quality
 gacha-rate-bonus

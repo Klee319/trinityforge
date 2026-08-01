@@ -910,6 +910,51 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
+  # スキル別の経験値増加(2026-08-02 柱5-3)。skill-exp-bonus(全スキル一律)とは加算で合成される。
+  # 付与先スキルを縛るのはこのキーだけ。use-skill は装備要件であって分類マーカーではないので、
+  # use-skill: WOODCUTTING を分類に使うと「斧で殴っただけで伐採EXPが入る」罠を踏む。
+  woodcutting-exp-bonus:
+    name: 伐採経験値増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 143
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  farming-exp-bonus:
+    name: 農業経験値増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 144
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  digging-exp-bonus:
+    name: 掘削経験値増加
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 145
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   loot-luck:
     name: 幸運
     icon: ""

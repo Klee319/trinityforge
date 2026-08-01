@@ -202,7 +202,8 @@
       keys: [
         "mining-fortune", "fishing-luck", "fishing-bonus", "gathering-efficiency",
         "fish-sell-price-bonus", "disassembly-return-bonus", "ocean-fishing-bonus",
-        "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "loot-luck",
+        "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus",
+        "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus", "loot-luck",
         "mob-drop-quality", "gacha-rate-bonus", "suspicious-respawn-chance",
         "hive-harvest-fortune", "food-save-chance", "workbench-quality-bonus",
         "ritual-quality-bonus",

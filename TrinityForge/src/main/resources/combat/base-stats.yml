@@ -128,6 +128,10 @@ base-stats:
   hunger-save-chance: 0
   mob-drop-bonus: 0
   skill-exp-bonus: 0
+  # スキル別の経験値増加(2026-08-02 柱5-3)。skill-exp-bonus とは加算で合成される。
+  woodcutting-exp-bonus: 0
+  farming-exp-bonus: 0
+  digging-exp-bonus: 0
   loot-luck: 0
   mob-drop-quality: 0
   gacha-rate-bonus: 0

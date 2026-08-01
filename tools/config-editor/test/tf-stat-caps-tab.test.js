@@ -102,9 +102,11 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 // attack-reach / knockback-resistance / max-health)が上限対応してUIへ加わった。
 // 92 → 94: 2026-07-31 に craft-upswing-bonus / craft-downswing-reduction の2キーを
 // workbench-* / ritual-* の4キーへ分割した(作業台と儀式で同じパークが共有されていた)。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく94件ちょうど", () => {
+// 94 → 97: 2026-08-02 にスキル別EXP倍率3キー(woodcutting/farming/digging-exp-bonus)を追加した
+// (単発装備の「伐採EXP+15%」を use-skill で表現すると斧で殴って伐採EXPが入るため)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく97件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 94, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 97, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 

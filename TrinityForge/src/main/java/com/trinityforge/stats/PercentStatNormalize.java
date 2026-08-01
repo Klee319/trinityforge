@@ -41,6 +41,10 @@ public final class PercentStatNormalize {
             StatKeys.canonical("hunger-save-chance"),
             StatKeys.canonical("mob-drop-bonus"),
             StatKeys.canonical("skill-exp-bonus"),
+            // スキル別EXP倍率(2026-08-02 柱5-3)。skill-exp-bonus と同じ %系。
+            StatKeys.canonical("woodcutting-exp-bonus"),
+            StatKeys.canonical("farming-exp-bonus"),
+            StatKeys.canonical("digging-exp-bonus"),
             StatKeys.canonical("cooldown-reduction"),
             StatKeys.canonical("gacha-rate-bonus"),
             StatKeys.canonical("suspicious-respawn-chance"),
