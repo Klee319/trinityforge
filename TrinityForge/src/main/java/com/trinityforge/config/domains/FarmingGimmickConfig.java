@@ -1,6 +1,7 @@
 package com.trinityforge.config.domains;
 
 import com.trinityforge.skilltree.effects.TierTable;
+import com.trinityforge.stats.DropTableConfig;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -20,6 +21,13 @@ import java.util.logging.Logger;
  * 養蜂の幸運確率({@code hive_harvest_fortune})は装備+perk合算ステータスとして別経路
  * ({@code PlayerStatAggregator})で持つため、このconfigには含まない。Same raw-YAML loader style as
  * {@link MiningGimmickConfig}/{@link WoodcuttingGimmickConfig}。
+ *
+ * <p><b>{@code drop-tables} (2026-08-01)</b>: 採掘/伐採/掘削だけが持っていた
+ * 「採取トリガー型の追加ドロップ」(2026-07-23 stat-gate-overhaul §4)を農業にも通す。
+ * 農業だけ {@code drop-tables} セクション自体が存在せず、4職の中でここだけ機構ごと空いていた
+ * (追加コンテンツ詳細プラン §8「最大の空き経路」)。パースは他3職と完全に同じ
+ * {@link DropTableConfig#parseCategories} を共有し、抽選/ゲートは {@code DropTablePolicy}、
+ * 発火は {@code FarmingGimmickListener} が担う。
  */
 public final class FarmingGimmickConfig {
 
@@ -34,6 +42,16 @@ public final class FarmingGimmickConfig {
     private volatile double beeCalmRadius = DEFAULT_BEE_CALM_RADIUS;
     /** {@code area-harvest.tiers.<tier>.radius} (2026-07-25 §1)。未定義ならグローバルscalarへ完全後方互換。 */
     private volatile TierTable<Integer> areaHarvestTiers = TierTable.empty();
+    /** {@code drop-tables.categories} (2026-08-01)。未定義なら空 = 追加ドロップ無し(従来の挙動)。 */
+    private volatile Map<String, DropTableConfig.Category> dropTables = Map.of();
+
+    /**
+     * {@code drop-tables.categories}: カテゴリid -&gt; 定義。ゲート/抽選は {@code DropTablePolicy} が担う
+     * (採掘/伐採/掘削と同じ構造)。Never null。
+     */
+    public Map<String, DropTableConfig.Category> dropTables() {
+        return dropTables;
+    }
 
     /** {@code area-harvest} の範囲収穫半径(ブロック)。1=3x3(8マス追加)。tiers未定義時のグローバル既定値。 */
     public int areaHarvestRadius() {
@@ -86,8 +104,10 @@ public final class FarmingGimmickConfig {
                 yaml.getDouble("bee-no-aggro.calm-radius", DEFAULT_BEE_CALM_RADIUS),
                 "bee-no-aggro.calm-radius", DEFAULT_BEE_CALM_RADIUS, log);
         this.areaHarvestTiers = parseAreaHarvestTiers(yaml.getConfigurationSection("area-harvest.tiers"), log);
+        this.dropTables = DropTableConfig.parseCategories(
+                yaml.getConfigurationSection("drop-tables.categories"), true, PATH, log);
 
-        log.info("[" + PATH + "] loaded OK");
+        log.info("[" + PATH + "] loaded " + this.dropTables.size() + " drop-table categor(y/ies) OK");
         return true;
     }
 

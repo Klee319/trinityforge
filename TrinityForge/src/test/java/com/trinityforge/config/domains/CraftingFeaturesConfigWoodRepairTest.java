@@ -10,10 +10,12 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -84,5 +86,42 @@ class CraftingFeaturesConfigWoodRepairTest {
         WoodRepairMaterial mat = config.woodRepairMaterial("compressed_wood_1x");
         assertEquals(200, mat.durability());
         assertFalse(mat.quickRepair());
+    }
+
+    /**
+     * 2026-08-01: 出荷 yml が実在しない素材IDを指していないことの回帰ガード。
+     *
+     * <p>出荷値は 2026-08-01 まで {@code compressed_wood_1x} だったが、この綴りは
+     * <b>TF の items/catalog.yml にも ArsPaper の materials.yml にも存在しない</b>
+     * (実在するのは {@code oak_wood_1x})。{@link com.trinityforge.listeners.WoodRepairListener} は
+     * 素材IDが表に無ければ黙って return するだけなので、木材修繕は<b>エラーも警告も出さずに
+     * 一度も発動しなかった</b>。素材IDの typo は原理的にこの形でしか現れないため、
+     * 「出荷 yml が実在しないIDへ戻っていないこと」をここで固定する。
+     *
+     * <p>ArsPaper の materials.yml は {@code .gitignore} 除外でこのリポジトリに存在せず、
+     * テストから実在確認はできない。そのため<b>既知の壊れ値そのものを禁じる</b>形にしている
+     * (ID を変えるときは Ars の materials.yml を実際に見てからこの期待値も更新すること)。
+     */
+    @Test
+    void shippedWoodRepairMaterialIdIsTheRealArsMaterialId(@TempDir File tempDir) throws IOException {
+        File file = new File(tempDir, CraftingFeaturesConfig.PATH);
+        Files.createDirectories(file.getParentFile().toPath());
+        try (var in = CraftingFeaturesConfigWoodRepairTest.class.getClassLoader()
+                .getResourceAsStream(CraftingFeaturesConfig.PATH.replace('\\', '/'))) {
+            assertNotNull(in, "出荷リソースが見つからない: " + CraftingFeaturesConfig.PATH);
+            Files.write(file.toPath(), in.readAllBytes());
+        }
+        CraftingFeaturesConfig config = new CraftingFeaturesConfig();
+        assertTrue(config.load(fakePlugin(tempDir)), "出荷 crafting-features.yml がパースできない");
+
+        Set<String> ids = config.woodRepairMaterials().keySet();
+        assertFalse(ids.isEmpty(), "出荷 yml から wood-repair.materials が消えている(木材修繕が丸ごと無効になる)");
+        assertFalse(ids.contains("compressed_wood_1x"),
+                "出荷 wood-repair.materials が実在しないID 'compressed_wood_1x' を指している。"
+                        + "この綴りは TF catalog.yml にも ArsPaper materials.yml にも無いので、"
+                        + "WoodRepairListener は無言で return し木材修繕が永久に発動しない"
+                        + "(実在するのは 'oak_wood_1x')。現在の値: " + ids);
+        assertTrue(ids.contains("oak_wood_1x"),
+                "出荷 wood-repair.materials に oak_wood_1x が無い。現在の値: " + ids);
     }
 }

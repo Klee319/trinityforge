@@ -3,7 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.CraftingFeaturesConfig.WoodRepairMaterial;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
-import com.trinityforge.stats.CatalogIdentity;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
@@ -20,7 +20,18 @@ import org.bukkit.inventory.meta.Damageable;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Compressed-wood durability repair (woodcutting wood-repair-unlock). */
+/**
+ * Compressed-wood durability repair (woodcutting wood-repair-unlock).
+ *
+ * <p><b>2026-08-01</b>: 素材の識別は {@link CrossPluginItemResolver#idOf} を使う。以前は
+ * {@code CatalogIdentity#catalogIdOf}(= TF の {@code trinityforge:catalog_id} PDC だけ)を読んでいたが、
+ * {@code wood-repair.materials} が指す圧縮木材は <b>ArsPaper の materials.yml 側の実体</b>で、
+ * {@code BaseCustomItem#createItemStack} が刻むのは {@code arspaper:custom_item_id} <b>だけ</b>。
+ * TF 側の catalog PDC は付かないので、素材をどれだけ正しく設定しても
+ * {@code catalogId.isEmpty()} で必ず早期 return し、<b>木材修繕は無言で一度も発動しなかった</b>。
+ * 出荷 yml の ID が実在しない {@code compressed_wood_1x} だった件(同日修正)と合わせて二重に死んでおり、
+ * ID だけ直しても直らない。両方読む唯一の合流点が {@link CrossPluginItemResolver#idOf}。
+ */
 public final class WoodRepairListener implements Listener {
 
     private static final String UNLOCK = "wood-repair-unlock";
@@ -46,13 +57,11 @@ public final class WoodRepairListener implements Listener {
         if (left == null || material == null || !(left.getItemMeta() instanceof Damageable damageable)) {
             return;
         }
-        Optional<String> catalogId = material.hasItemMeta()
-                ? CatalogIdentity.catalogIdOf(material.getItemMeta())
-                : Optional.empty();
-        if (catalogId.isEmpty()) {
+        Optional<String> materialId = CrossPluginItemResolver.idOf(material);
+        if (materialId.isEmpty()) {
             return;
         }
-        WoodRepairMaterial mat = features.woodRepairMaterial(catalogId.get());
+        WoodRepairMaterial mat = features.woodRepairMaterial(materialId.get());
         if (mat == null) {
             return;
         }
@@ -102,11 +111,11 @@ public final class WoodRepairListener implements Listener {
                 || !(target.getItemMeta() instanceof Damageable targetMeta) || targetMeta.getDamage() <= 0) {
             return;
         }
-        Optional<String> catalogId = CatalogIdentity.catalogIdOf(cursor.getItemMeta());
-        if (catalogId.isEmpty()) {
+        Optional<String> materialId = CrossPluginItemResolver.idOf(cursor);
+        if (materialId.isEmpty()) {
             return;
         }
-        WoodRepairMaterial mat = features.woodRepairMaterial(catalogId.get());
+        WoodRepairMaterial mat = features.woodRepairMaterial(materialId.get());
         if (mat == null || !mat.quickRepair()) {
             return;
         }
