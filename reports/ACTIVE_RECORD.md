@@ -2696,3 +2696,60 @@ editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言による�
    N3 ダンジョンEXP / N4 レシピソート＋劣悪品質の最低ステ表示 / N6 儀式EXP /
    ダンジョンの鍵 / スキルレベル到達アチーブメント / 新設セレクトの日本語化（再発防止まで）/
    `daily-diminishing` のラベル日本語化
+
+## 8. 2026-08-01 の進捗（この節を随時更新する）
+
+### `dev` に入った修正
+
+| commit | 内容 | テスト |
+|---|---|---|
+| `7142839` | ~~U15 PvPで被害者の持ち物が倍率で増える~~ / ~~U11 モブの装備・拾得アイテムに倍率が乗る~~ / ~~U12 ドロップ増加が確定切り上げ~~ | `NativeSurvivalPerkDropDuplicationTest` 5 tests / 0 skipped / 0 failures |
+| `aa97412` | ~~U2 かまどが満杯でも精錬ボーナスを吐き出す~~ | `FurnaceSmeltListenerTest` 14 tests / 0 skipped / 0 failures |
+
+- U12 は `NativeSurvivalPerkListener.scaleAmount` に切り出した。整数部は確定・**小数部だけ乱数で+1**なので
+  期待値が倍率に一致する（1個 × 1.5 → 50%で2個 / 50%で1個）。
+- U11 は装備スロット（手・オフハンド・防具4部位）の中身を突合せて倍率から除外する。
+  モブの拾得アイテムも装備スロットに入るのでこの1経路で両方賄える。
+- U2 は**2026-07-30 の「消滅させない」方針を反転させた**（かまど健在なら溢れ分は破棄、
+  かまどが壊れていた場合だけ従来どおり地面へ）。バニラは満杯のかまどでは精錬を止めるので
+  破棄されるのは上限到達のその1回・最大1個だけ。
+
+### 進行中のワークフロー
+
+| run | レーン | 対象 |
+|---|---|---|
+| `wf_cf7ae761-04d` | X1〜X4 | REJECT 2件（F4 魔法 / F3 スレッド枠）＋ 図鑑 HIGH ＋ 伐採・醸造・語彙の MEDIUM |
+| `wf_01789c6c-3ea` | Y1〜Y4 ＋ U18 調査 | U4 砥石・金床 / U17 エンチャント抽選 / U9 サトウキビ / U13 editor モブ定義 |
+
+各レーンは `work/y*-*` / `work/w*` ブランチにコミットし、レビューは
+`tmp/findings/urgent/<レーンキー>-review.md` に出る。
+
+### コード変更が不要と確定したもの
+
+- **U16 クラフト不可のポーションが釣れる = 配備で直る。** 出荷 yml
+  （`stats/fishing-gimmick.yml` の `junk_vanilla`）には既に `item: POTION` の行が無い。
+  実データは稼働側 config にしか残っていないので、**config を配備すれば解消**する。
+  同じ差分で `treasure_vanilla` の `ENCHANTED_BOOK`（＝エンチャントが乗らない空の本）も消えている。
+- **U8 16倍以降の圧縮が作れない = 配備漏れ。** 圧縮系67エントリは全部 ArsPaper の `materials.yml` にあり、
+  TF の `catalog.yml` には1件も無い。解凍レシピが無いファミリの補完だけは content 作業として残る。
+
+### 他セッションの未コミット変更に阻まれていて着手できないもの
+
+**下記は「触ると他人の WIP を巻き込む」ので意図的に止めている。** 他セッションが commit したら着手する。
+
+| id | 必要な変更 | 阻んでいるファイル |
+|---|---|---|
+| **U7 原因1** | `items/catalog.yml:397` の `NETHERITE` → **`NETHERITE_INGOT`**（1語。これだけで `netherite_bow` と、それを素材にする `nether_star_bow` 以降が全部復活する） | `items/catalog.yml` |
+| U7 原因2 | 弓/クロスボウ/トライデント/メイスは**バニラの鍛冶台が base スロットで物理的に受け付けない**（`SMITHING_BASE` に無い）。作業台レシピで模すか、TF が `SmithingTransformRecipe` を登録して property set に載せるかの設計判断が必要 | 同上 |
+| U5 / U6 | 重武器の一撃強化・トライデント等の攻撃速度を最低値へ | `stats/item-stats.yml`, `combat/base-stats.yml` |
+| U1 / N6 | Ars鍛冶の儀式EXPを素材ごと config 駆動に | `stats/skill-exp.yml`＋ArsPaper フォーク（フォークは X1 が編集中） |
+| U14 | 召喚した馬から鞍が取れる（`SummonSteedEffect`） | ArsPaper フォーク（X1 が編集中） |
+
+### 判断待ち・未着手
+
+- **U10 防具立てでレベリングできる**: `work/w3b-archery-exp` のマージで弓術の穴は閉じるが、
+  N3 の `unlisted-entity-multiplier` 0→1.0 を入れると3スキル全部で再開する。
+  **`ArmorStand`/`Mannequin` の構造的除外を、マージ後の EXP 経路に1箇所入れる**のが正しい対処。
+  （既に `DamagePopupDisplay.java:67-68` と `FocusHpDisplay.java:201-205` は明示的に除外している。EXP 経路だけ持っていない。）
+- **U3 ドリリング中にツルハシのモーションが消える**: 機構は EliteMobs の `DRILLING` エンチャントと同定済みだが、
+  「モーション」が指す描画事象はクライアント側なのでリポジトリ内では確定できない。**ユーザーへの確認が必要。**
