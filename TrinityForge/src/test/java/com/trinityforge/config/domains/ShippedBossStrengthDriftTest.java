@@ -134,6 +134,17 @@ class ShippedBossStrengthDriftTest {
         putBoss("em_id_enchantment_challenge_10", "enchantment_boss_tricky_bones", easy);
         putBoss("em_north_pole", "northpole_santa_claus", easy);
         putBoss("em_id_the_nether_wastes", "em_id_the_nether_wastes_miniboss_5_shroud_p2", easy);
+        // エンチャント試練1〜9(2026-08-02 積み残しの解消)。低難度なので技は1つずつ。
+        // 課題ごとに要求ビルドが入れ替わるダンジョン群なので、技もボスの性格に合わせて散らしてある。
+        putBoss("em_id_enchantment_challenge_1", "enchantment_boss_dark_flame", List.of("ember_spray"));
+        putBoss("em_id_enchantment_challenge_2", "enchantment_boss_energized_bunny", List.of("shadow_step"));
+        putBoss("em_id_enchantment_challenge_3", "enchantment_boss_jealous_block", List.of("shockwave"));
+        putBoss("em_id_enchantment_challenge_4", "enchantment_boss_leet_summoner", List.of("call_the_swarm"));
+        putBoss("em_id_enchantment_challenge_5", "enchantment_boss_loveable_impaler", List.of("piercing_beam"));
+        putBoss("em_id_enchantment_challenge_6", "enchantment_boss_ravegarer", List.of("bull_rush"));
+        putBoss("em_id_enchantment_challenge_7", "enchantment_boss_rock_solid_cold", List.of("frost_field"));
+        putBoss("em_id_enchantment_challenge_8", "enchantment_boss_the_firebunger", List.of("ember_spray"));
+        putBoss("em_id_enchantment_challenge_9", "enchantment_boss_the_glass_master", List.of("arrow_fan"));
     }
 
     private static void putBoss(String world, String mobId, List<String> abilities) {
@@ -141,10 +152,11 @@ class ShippedBossStrengthDriftTest {
     }
 
     /**
-     * abilities を持つモブの総数。9(default のバニラモブ) + 7(束縛者、2026-07-31) + 18(柱2-1 で追加) = 34。
+     * abilities を持つモブの総数。9(default のバニラモブ) + 7(束縛者、2026-07-31)
+     * + 18(柱2-1、2026-08-01) + 9(エンチャント試練1〜9、2026-08-02) = 43。
      * 増減したらこの定数と一緒に「なぜ増えたか」を書くこと。
      */
-    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 34;
+    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 43;
 
     // === 読み込みヘルパ(出荷リソースの bytes をそのまま使う。写しを手書きしない) ===
 

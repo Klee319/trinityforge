@@ -1179,6 +1179,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。炎を撒いて足場を削る
+        abilities: [ember_spray]
         drops: []
 
   # enchantment_challenge_10_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_10 / 3体
@@ -1226,6 +1229,9 @@ overrides:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。跳ね回る相手。瞬間移動で追わせる
+        abilities: [shadow_step]
         drops: []
 
   # enchantment_challenge_3_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_3 / 1体
@@ -1239,6 +1245,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。動かない塊。近寄った相手だけを弾く
+        abilities: [shockwave]
         drops: []
 
   # enchantment_challenge_4_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_4 / 3体
@@ -1252,6 +1261,9 @@ overrides:
           physical: { defense-rate: 0.11, resistance: 0.12 }
           magical:  { defense-rate: 0.02, resistance: 0.12 }
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。召喚士。増援を呼ぶのが本体の役
+        abilities: [call_the_swarm]
         drops: []
       enchantment_boss_leet_summoner_eidolon_one:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "幻影エイドロン (召喚体) (1体目)"
@@ -1279,6 +1291,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。串刺し。直線の貫通で位置取りを強制
+        abilities: [piercing_beam]
         drops: []
       enchantment_boss_loveable_impaler_trident_launcher:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "トライデント発射機"
@@ -1299,6 +1314,9 @@ overrides:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。突進役
+        abilities: [bull_rush]
         drops: []
 
   # enchantment_challenge_7_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_7 / 1体
@@ -1312,6 +1330,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。氷結。立ち位置の強制にとどめる
+        abilities: [frost_field]
         drops: []
 
   # enchantment_challenge_8_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_8 / 1体
@@ -1325,6 +1346,9 @@ overrides:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。炎属性
+        abilities: [ember_spray]
         drops: []
 
   # enchantment_challenge_9_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_9 / 1体
@@ -1338,6 +1362,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
+        # 技は1つだけにして立ち位置の強制にとどめる。ガラス片を扇状に飛ばす
+        abilities: [arrow_fan]
         drops: []
 
   # the_bridge_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_bridge / 7体

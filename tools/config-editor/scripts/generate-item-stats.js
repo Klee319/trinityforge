@@ -10,6 +10,39 @@ const YAML = require("yaml");
 const root = path.resolve(__dirname, "..", "..", "..");
 const catalogPath = path.join(root, "TrinityForge", "src", "main", "resources", "items", "catalog.yml");
 const targetPath = path.join(root, "TrinityForge", "src", "main", "resources", "stats", "item-stats.yml");
+
+// ---------------------------------------------------------------------------
+// 実行ゲート (2026-08-02 追加)
+//
+// このスクリプトは出荷 item-stats.yml を【丸ごと上書きする】。ところが tiers 表は
+// 手で入れた調整を1つも持っていないため、うっかり走らせると以下が無言で巻き戻る:
+//
+//   ・U5 重武器 attack-power ×1.157 (目標帯 +15% への引き下げ)
+//   ・U6 遠隔武器の attack-speed 0.1 (近接素振りの抑止)
+//   ・yml 内の日本語コメント全部 (YAML.stringify は再生成なのでコメントを持てない)
+//   ・generator が生成しない孤児CMD (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / #51 …)
+//
+// 「気づけない事故」なので、意図の表明なしには走らせない。復旧は git checkout だけなので
+// 実害は小さいが、他セッションの WIP を巻き込むと戻せなくなる。
+// ---------------------------------------------------------------------------
+if (!process.argv.includes("--force")) {
+  console.error(`generate-item-stats.js は出荷 item-stats.yml を丸ごと上書きします。
+
+  上書きすると失われるもの:
+    - U5 重武器 attack-power ×1.157 (この generator の tiers 表は持っていません)
+    - U6 遠隔武器 attack-speed 0.1
+    - yml 内の日本語コメント全部 (再生成なのでコメントは復元されません)
+    - generator が生成しない孤児CMD (GOLDEN_SWORD#59 / WOODEN_SWORD#60 / #51 など)
+
+  出荷 yml が真源です。表を書き換えたいときは generator ではなく yml を直接編集するか、
+  設定エディタから保存してください。
+
+  それでも再生成する場合:  node scripts/generate-item-stats.js --force
+  実行後は必ず  git diff -- TrinityForge/src/main/resources/stats/item-stats.yml  で
+  意図しない巻き戻りが無いか確認してください。`);
+  process.exit(1);
+}
+
 const catalog = YAML.parse(fs.readFileSync(catalogPath, "utf8"));
 
 const tiers = {
