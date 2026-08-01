@@ -223,7 +223,13 @@ public record RecipeSpec(Method method,
         return method == Method.INVENTORY;
     }
 
-    /** Bukkitの通常クラフト(ShapedRecipe/ShapelessRecipe)として登録すべきか = workbench || inventory。 */
+    /**
+     * Bukkitの通常クラフト(ShapedRecipe/ShapelessRecipe)として登録すべきか = workbench || inventory。
+     *
+     * <p>{@link Method#NETHERITE} は false のまま — こちらは作業台レシピではなく
+     * {@code SmithingTransformRecipe} として {@code CatalogRecipeRegistrar#registerNetheriteOne}
+     * が別経路で登録する(「Bukkitに登録しない」という意味ではないので注意)。
+     */
     public boolean isBukkitCrafting() {
         return isWorkbench() || isInventory();
     }
