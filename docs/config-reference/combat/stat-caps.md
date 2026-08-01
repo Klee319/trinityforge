@@ -39,6 +39,29 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 - `attack-power` は「item側のenchant倍率(Sharpness等)を折り込んだ **後** の最終値」に掛かる。
   一般ATTACKチャネルの他キーよりクランプ対象が広い点に注意。
+
+#### ⚠️ `attack-power` は近接と魔法で「上限の意味」が違う (2026-07-31 F5 指摘6)
+
+同じ `attack-power: N` を書いても、掛かる対象が経路によって違う。**是正せず非対称のまま運用する**
+(揃えるには合算の設計変更が必要なので別件)。数値を決めるときは必ずこの差を意識すること。
+
+| 経路 | クランプ対象 | 適用点 |
+|---|---|---|
+| 近接 (TF `CombatListener`) | **合算総量** — 装備 + オフハンド + スキルツリーパーク + 永続バフ + `base-stats` を全部足した後の値 | `PlayerCombatAggregate#clamp` |
+| 魔法 (ArsPaperフォーク → `WeaponAttackStatResolver#attackPowerOf`) | **単品** — 触媒/杖 1本が持つ `attack-power` だけ | `WeaponAttackStatResolver#cappedAttackPower` |
+
+つまり `attack-power: 3000` と書いた場合:
+
+- 近接は「全部合わせて 3000 まで」になる。
+- 魔法は「杖1本あたり 3000 まで」になる。装備の他部位やパークが乗る分は上限の外側で足される
+  ので、**魔法側の実効上限は 3000 より大きくなりうる**。
+
+また `WeaponAttackStatResolver#forItem` が返す他のステ (`crit-chance` / `penetration` など) は
+このクランプを通らない。`attack-power` 1キーだけが上限に服する。
+
+「魔法へも近接と同じ上限を掛けたい」場合は、`attack-power` ではなく
+`combat/damage.yml` の `magical.attack-power-scale` を下げる方が意図どおりになる
+(ただしそちらは PvE も同時に下がる)。
 - `armor-defense-rate` は TF側(perk/addon由来)の合計だけが対象。防具の vanilla armor attribute
   ミラー分はここに含まれない(二重計上防止のため元々別経路 — `combat/damage.yml` の `vanilla-armor.*` が
   別途その分を作る)。

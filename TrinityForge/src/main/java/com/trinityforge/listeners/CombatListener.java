@@ -9,6 +9,7 @@ import com.trinityforge.combat.AttackStats;
 import com.trinityforge.combat.BleedService;
 import com.trinityforge.combat.CombatHitResult;
 import com.trinityforge.combat.CritFlash;
+import com.trinityforge.combat.FinalDamageScaling;
 import com.trinityforge.combat.MaceSmashDamage;
 import com.trinityforge.combat.MagicPipelineDamage;
 import com.trinityforge.combat.MeleeChargeMultiplier;
@@ -557,25 +558,43 @@ public final class CombatListener implements Listener {
      * {@link MagicResistanceFoldListener} と同じ: {@code DamageCause.MAGIC} はTF/Arsの専有ではなく
      * バニラの負傷ポーションや {@code /damage} も同じcauseで届くため、causeだけを見るとTFパイプライン
      * 外のダメージまで書き換えてしまう。
+     *
+     * <p><b>⚠️ なぜ BASE を縮めるのではなく「最終ダメージ」へ抑制を掛けるのか(2026-07-31 F5 指摘1、
+     * dev に入った実害リグレッションの修正)</b>: 初版は {@code setDamage(BASE, suppressed)} だけを
+     * 呼んでいたが、Paper の {@code setDamage(DamageModifier, double)} は {@code modifiers.put} しか
+     * 行わない(バイトコードで確認済み)。バニラの各軽減 modifier —— {@code MAGIC}(防護エンチャント) /
+     * {@code ABSORPTION}(吸収ハート) / {@code BLOCKING}(盾) —— は<b>縮める前の BASE から算出された
+     * 絶対値のまま残る</b>ため、{@code getFinalDamage()}(= 全 modifier の単純和・0クランプなし)が
+     * 負値へ潰れ、<b>魔法が当たっても常に0ダメージ</b>になっていた
+     * (BASE 21222 → 3.0 に対し 防護IV の MAGIC が -13582 のまま／吸収ハート4だけでも 3.0-4 = -1)。
+     * 現在は {@link FinalDamageScaling} で<b>適用中の全 modifier を同一係数で縮める</b>ので、
+     * 最終ダメージが抑制値と一致し、0以下へ潰れることが構造的に起こらない。詳細と根拠は
+     * {@link FinalDamageScaling} の javadoc に一本化してある。
+     *
+     * <p><b>バニラ {@code MAGIC} modifier を(物理経路のように)0化してはいけない</b>: 魔法経路の
+     * {@code SymmetricCombatService#magicalFinalDamage} は {@code componentResult} へ
+     * {@code vanillaProtectionDefense} を<b>渡していない</b>(同クラスの {@code extraDefense} 引数の
+     * javadoc に「magical/DoT 経路は MAGIC modifier を0化しないので二重適用してはならない」と明記)。
+     * つまり魔法に対する防護エンチャントの軽減は<b>バニラ modifier だけが担っている</b>ので、
+     * 0化すると防護が魔法に対して丸ごと消える(B1型の無言削除)。ここで係数スケールを選んでいるのは
+     * 「割合としての軽減を保ったまま最終値だけ上限に収める」ためでもある。
      */
-    @SuppressWarnings("deprecation") // DamageModifier.BASE の読み書き。CombatListener 全体と同じ扱い。
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onMagicPipelineDamageByEntity(EntityDamageByEntityEvent event) {
         if (!magicPvpSuppressionApplies(event.getCause(), MagicPipelineDamage.isActive(),
                 event.getDamager(), event.getEntity())) {
             return;
         }
-        if (!event.isApplicable(EntityDamageEvent.DamageModifier.BASE)) {
-            return;
-        }
         LivingEntity victim = (LivingEntity) event.getEntity();
-        double base = event.getDamage(EntityDamageEvent.DamageModifier.BASE);
-        double suppressed = PvpDamagePolicy.apply(base, PvpDamagePolicy.maxHealthOf(victim),
+        double finalBefore = event.getFinalDamage();
+        if (finalBefore <= 0.0) {
+            return; // 盾で完全ブロック等。既に0以下なので抑制する余地がない。
+        }
+        double suppressed = PvpDamagePolicy.apply(finalBefore, PvpDamagePolicy.maxHealthOf(victim),
                 damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
                 damageConfig.pvpMaxDamagePercentOfMaxHealth());
-        if (suppressed != base) {
-            event.setDamage(EntityDamageEvent.DamageModifier.BASE, Math.max(0.0, suppressed));
-        }
+        FinalDamageScaling.scaleAllModifiers(event,
+                FinalDamageScaling.scaleFactor(finalBefore, suppressed));
     }
 
     /**

@@ -101,6 +101,27 @@ public final class WeaponAttackStatResolver {
      * <p>上限の解決順は「コンストラクタで注入された {@code statCaps} → 実行中プラグインの
      * {@code config().statCaps()}」。本番の配線(4引数コンストラクタ)を変えずに上限を効かせるための
      * 二段構えで、プラグイン未起動(単体テスト)では素通し=従来挙動になる。
+     *
+     * <p><b>⚠️ 静的グローバル参照({@code TrinityForge.getInstance()})が残っている理由
+     * (2026-07-31 F5 指摘6)</b>: 本番でこのクラスを組み立てているのは
+     * {@code TrinityForge.java} の1箇所<b>だけ</b>で、そこへ {@code configManager.statCaps()} を
+     * 足せば5引数コンストラクタ(=真の依存注入)へ移行できる。しかし当該ファイルは
+     * 「複数セッションが並行して編集するため、どのレーンも触らない」という運用制約の対象なので、
+     * このレーンでは配線を変更できなかった。必要な変更は<b>引数を1つ足す1行だけ</b>で、
+     * {@code tmp/findings/X1-wiring-followup.md} に記録してある。移行後は
+     * {@link #activeStatCaps()} と4引数コンストラクタを削除できる。
+     * それまでの副作用として、テストが {@code TrinityForgeSingletonTestSupport} で張ったモックに
+     * 挙動が依存する（＝5引数コンストラクタで明示注入するテストを正とする）。
+     *
+     * <p><b>⚠️ {@code stat-caps.yml} の {@code attack-power} は近接と魔法で意味が違う(是正しない)</b>:
+     * 近接は {@code PlayerCombatAggregate#clamp} が
+     * 「装備＋オフハンド＋パーク＋永続バフ＋{@code base-stats} を全部足した<b>合算総量</b>」へ掛けるが、
+     * こちらは<b>触媒/杖1本の単品値</b>へ掛かる。よって {@code attack-power: 3000} と書いたとき
+     * 近接は「全部合わせて3000まで」、魔法は「杖1本あたり3000まで」になり、
+     * 魔法側の実効上限は 3000 を超えうる。揃えるには合算の設計変更が必要なので別件として据え置き、
+     * この非対称を {@code docs/config-reference/combat/stat-caps.md} に明記した。
+     * また {@link #forItem} が返す他のステ({@code crit-chance} / {@code penetration} 等)は
+     * このクランプを通らない — 上限に服するのは {@code attack-power} 1キーだけである。
      */
     public double attackPowerOf(ItemStack item) {
         if (item == null || item.getType().isAir() || item.getAmount() <= 0) {

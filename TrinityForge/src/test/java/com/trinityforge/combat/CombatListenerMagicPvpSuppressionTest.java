@@ -12,6 +12,9 @@ import com.trinityforge.progression.SkillLevelSource;
 import com.trinityforge.skilltree.runtime.PerkBuffResolver;
 import com.trinityforge.skilltree.runtime.SkillPerkStatSource;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
 import org.bukkit.entity.LivingEntity;
@@ -32,8 +35,11 @@ import org.mockbukkit.mockbukkit.world.WorldMock;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.EnumMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -120,6 +126,32 @@ class CombatListenerMagicPvpSuppressionTest {
                 EntityDamageEvent.DamageCause.MAGIC, source, MAGIC_DAMAGE);
     }
 
+    /**
+     * 実サーバと同じ「BASE 以外の modifier も入っている」イベントを組む(F5 指摘1 の回帰用)。
+     * 5引数の非推奨コンストラクタは modifiers に BASE しか入れないため、防護エンチャントや
+     * 吸収ハートによる崩壊を<b>構造的に再現できない</b>(まさに「モックの既定値のおかげで
+     * 通っているだけのテスト」だった)。modifier マップを渡す版だけが再現できる。
+     */
+    private EntityDamageByEntityEvent magicHitWithModifiers(
+            Player caster, LivingEntity victim,
+            Map<EntityDamageEvent.DamageModifier, Double> extraModifiers) {
+        Map<EntityDamageEvent.DamageModifier, Double> modifiers =
+                new EnumMap<>(EntityDamageEvent.DamageModifier.class);
+        modifiers.put(EntityDamageEvent.DamageModifier.BASE, MAGIC_DAMAGE);
+        modifiers.putAll(extraModifiers);
+
+        Map<EntityDamageEvent.DamageModifier, Function<? super Double, Double>> functions =
+                new EnumMap<>(EntityDamageEvent.DamageModifier.class);
+        for (EntityDamageEvent.DamageModifier modifier : modifiers.keySet()) {
+            functions.put(modifier, Functions.constant(modifiers.get(modifier)));
+        }
+
+        DamageSource source = DamageSource.builder(DamageType.MAGIC)
+                .withCausingEntity(caster).withDirectEntity(caster).build();
+        return new EntityDamageByEntityEvent(caster, victim,
+                EntityDamageEvent.DamageCause.MAGIC, source, modifiers, functions);
+    }
+
     private static double base(EntityDamageEvent event) {
         return event.getDamage(EntityDamageEvent.DamageModifier.BASE);
     }
@@ -144,6 +176,121 @@ class CombatListenerMagicPvpSuppressionTest {
         // min(21222 * 0.5, 20 * 0.15) = 3.0。倍率だけだと10611で即死するので割合上限が効くことが本質。
         assertEquals(3.0, base(event), 1e-9,
                 "魔法もPvP抑制(倍率→最大体力割合上限)を通る必要がある");
+    }
+
+    @Test
+    @DisplayName("防護エンチャント付きの相手でも最終ダメージが0以下に潰れない(F5 指摘1)")
+    void magicPvpSuppressionDoesNotCollapseToZeroWithProtectionEnchantment(@TempDir File dir)
+            throws IOException {
+        CombatListener listener = listener(dir);
+        Player caster = server.addPlayer();
+        Player victim = server.addPlayer();
+
+        // 防護IVフルセット(EPF16 ≒ -64%)を抑制前 BASE から算出した絶対値。実サーバはこの形で届く。
+        double protectionModifier = -13582.0;
+        EntityDamageByEntityEvent event = magicHitWithModifiers(caster, victim,
+                Map.of(EntityDamageEvent.DamageModifier.MAGIC, protectionModifier));
+        double finalBefore = event.getFinalDamage();
+        assertEquals(MAGIC_DAMAGE + protectionModifier, finalBefore, 1e-9,
+                "前提: 抑制前の最終ダメージは BASE + 防護modifier");
+
+        MagicPipelineDamage.mark();
+        try {
+            listener.onMagicPipelineDamageByEntity(event);
+        } finally {
+            MagicPipelineDamage.clear();
+        }
+
+        // 初版実装(BASEだけを 3.0 へ書き換える)だと 3.0 - 13582 < 0 = 完全無効になっていた。
+        assertTrue(event.getFinalDamage() > 0.0,
+                "防護エンチャント持ちへの魔法が0ダメージへ潰れてはならない(実測 "
+                        + event.getFinalDamage() + ")");
+        assertEquals(3.0, event.getFinalDamage(), 1e-9,
+                "抑制は最終ダメージへ掛かる: min(7640*0.5, 20*0.15) = 3.0");
+        assertTrue(event.getDamage(EntityDamageEvent.DamageModifier.MAGIC) < 0.0,
+                "防護は0化せず軽減として残す(魔法経路はTF側で防護を再導出していないため)");
+        assertEquals(protectionModifier / MAGIC_DAMAGE,
+                event.getDamage(EntityDamageEvent.DamageModifier.MAGIC) / base(event), 1e-9,
+                "防護の『割合としての軽減』が抑制の前後で変わらない");
+    }
+
+    @Test
+    @DisplayName("吸収ハート付きの相手でも最終ダメージが0以下に潰れない(F5 指摘1)")
+    void magicPvpSuppressionDoesNotCollapseToZeroWithAbsorptionHearts(@TempDir File dir)
+            throws IOException {
+        CombatListener listener = listener(dir);
+        Player caster = server.addPlayer();
+        Player victim = server.addPlayer();
+
+        // 金リンゴの吸収ハート2個 = -min(absorption, damage) = -4.0。防護が無くてもこれだけで
+        // 初版実装は 3.0 - 4 = -1 → 0ダメージへ振り切れていた。
+        double absorption = -4.0;
+        EntityDamageByEntityEvent event = magicHitWithModifiers(caster, victim,
+                Map.of(EntityDamageEvent.DamageModifier.ABSORPTION, absorption));
+
+        MagicPipelineDamage.mark();
+        try {
+            listener.onMagicPipelineDamageByEntity(event);
+        } finally {
+            MagicPipelineDamage.clear();
+        }
+
+        assertTrue(event.getFinalDamage() > 0.0,
+                "吸収ハート持ちへの魔法が0ダメージへ潰れてはならない(実測 "
+                        + event.getFinalDamage() + ")");
+        assertEquals(3.0, event.getFinalDamage(), 1e-9, "抑制後の最終ダメージは上限値ちょうど");
+        double expectedScale = 3.0 / (MAGIC_DAMAGE + absorption);
+        assertEquals(absorption * expectedScale,
+                event.getDamage(EntityDamageEvent.DamageModifier.ABSORPTION), 1e-9,
+                "吸収の消費量も同じ比率で縮む(上限が効いている間は吸収プールが比例して長持ちする)");
+    }
+
+    @Test
+    @DisplayName("防護＋吸収の同時持ちでも0以下に潰れない(F5 指摘1)")
+    void magicPvpSuppressionSurvivesProtectionAndAbsorptionTogether(@TempDir File dir)
+            throws IOException {
+        CombatListener listener = listener(dir);
+        Player caster = server.addPlayer();
+        Player victim = server.addPlayer();
+
+        Map<EntityDamageEvent.DamageModifier, Double> extras = new EnumMap<>(
+                EntityDamageEvent.DamageModifier.class);
+        extras.put(EntityDamageEvent.DamageModifier.MAGIC, -13582.0);
+        extras.put(EntityDamageEvent.DamageModifier.ABSORPTION, -4.0);
+        EntityDamageByEntityEvent event = magicHitWithModifiers(caster, victim, extras);
+
+        MagicPipelineDamage.mark();
+        try {
+            listener.onMagicPipelineDamageByEntity(event);
+        } finally {
+            MagicPipelineDamage.clear();
+        }
+
+        assertTrue(event.getFinalDamage() > 0.0, "実測 " + event.getFinalDamage());
+        assertEquals(3.0, event.getFinalDamage(), 1e-9, "抑制後の最終ダメージは上限値ちょうど");
+    }
+
+    @Test
+    @DisplayName("盾で完全ブロック済み(最終0)の魔法には触らない")
+    void fullyBlockedMagicIsLeftAlone(@TempDir File dir) throws IOException {
+        CombatListener listener = listener(dir);
+        Player caster = server.addPlayer();
+        Player victim = server.addPlayer();
+
+        EntityDamageByEntityEvent event = magicHitWithModifiers(caster, victim,
+                Map.of(EntityDamageEvent.DamageModifier.BLOCKING, -MAGIC_DAMAGE));
+        assertEquals(0.0, event.getFinalDamage(), 1e-9, "前提: 完全ブロックで最終0");
+
+        MagicPipelineDamage.mark();
+        try {
+            listener.onMagicPipelineDamageByEntity(event);
+        } finally {
+            MagicPipelineDamage.clear();
+        }
+
+        assertEquals(MAGIC_DAMAGE, base(event), 1e-9,
+                "最終が既に0以下なら縮める余地がないので何も書き換えない");
+        assertEquals(0.0, event.getFinalDamage(), 1e-9, "最終ダメージも0のまま");
     }
 
     @Test
