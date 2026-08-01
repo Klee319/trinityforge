@@ -2751,5 +2751,14 @@ editor = 18 件すべて `lib/schema.js` の `APPLIES_TO` 二重宣言による�
   N3 の `unlisted-entity-multiplier` 0→1.0 を入れると3スキル全部で再開する。
   **`ArmorStand`/`Mannequin` の構造的除外を、マージ後の EXP 経路に1箇所入れる**のが正しい対処。
   （既に `DamagePopupDisplay.java:67-68` と `FocusHpDisplay.java:201-205` は明示的に除外している。EXP 経路だけ持っていない。）
-- **U3 ドリリング中にツルハシのモーションが消える**: 機構は EliteMobs の `DRILLING` エンチャントと同定済みだが、
-  「モーション」が指す描画事象はクライアント側なのでリポジトリ内では確定できない。**ユーザーへの確認が必要。**
+- ~~**U3 ドリリング中にツルハシのモーションが消える**~~ → **2026-08-01 ユーザー確認により「バグではなかった」。クローズ。**
+  （調査結果自体は `tmp/findings/urgent/E-U3.md` / `E-U3b.md` に残す。機構は EliteMobs の `DRILLING`
+  エンチャントで、禁止実装である MINING_EFFICIENCY / BLOCK_BREAK_SPEED 属性は使っていないことを反証済み。）
+
+### レシピGUI系はフォーク待ち（2026-08-01 確認）
+
+**N4 レシピのソート拡充（防具・素材・武器・ツール・その他）と「劣悪品質での最低ステータス表示」は
+TF 本体ではなく ArsPaper フォークの `com.arspaper.gui.RecipeBrowserGui` が実体。**
+TF 側は `integration/ars/ArsRecipeBrowserBridge.java`（58行・全リフレクションの fail-soft ブリッジ）しか持たない。
+フォークは同時編集できないので、**X1（フォーク直列レーン）の完了後に着手する。**
+同じ理由で K-16（上位ソースリンクの config 化）と U1/N6（儀式EXP）と U14（鞍）もフォーク待ち。
