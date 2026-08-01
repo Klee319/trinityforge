@@ -292,7 +292,7 @@ brew-unlocks:
           type: SLOWNESS
           duration: 1800
           amplifier: 2
-      # ピリジンの耳: 2026-08-01 追加。それまで tf_core_meat の素材にしかならず
+      # ピグリンの耳: 2026-08-01 追加。それまで tf_core_meat の素材にしかならず
       # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
       # 効果は NAUSEA — バニラのポーションでは一切作れず、同じ妨害枠の
       # BLINDNESS(上の endermite_soot)と役割が被らないため。持続は BLINDNESS と揃えて 1200。
