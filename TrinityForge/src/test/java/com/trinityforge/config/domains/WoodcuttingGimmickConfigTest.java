@@ -100,6 +100,36 @@ class WoodcuttingGimmickConfigTest {
         // 2026-07-31 G1 指摘6b: scan-limit の Java 既定値は TreeScan の定数と一致していること
         // (片方だけ変えると「jar だけ配備したサーバ」で走査範囲が変わる)。
         assertEquals(com.trinityforge.woodcutting.TreeScan.TREE_SCAN_LIMIT, config.treeFellScanLimit());
+        // 2026-07-31 G1 round2 指摘2: 距離の歯止めはキーが無い古い配備ymlでも Java 既定で効くこと
+        // (この修正が「yml を配備しないと直らない」種類になるのを避けている)。
+        assertEquals(WoodcuttingGimmickConfig.DEFAULT_MAX_HORIZONTAL_DISTANCE,
+                config.treeFellMaxHorizontalDistance());
+        assertEquals(WoodcuttingGimmickConfig.DEFAULT_MAX_VERTICAL_DISTANCE,
+                config.treeFellMaxVerticalDistance());
+    }
+
+    // --- 2026-07-31 G1 round2 レビュー指摘2: 叩いた位置からの距離の上限 ---
+
+    @Test
+    void distanceCapsCanBeTightenedFromYamlAndZeroMeansUnlimited(@TempDir File tempDir) throws IOException {
+        WoodcuttingGimmickConfig tightened = loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  max-horizontal-distance: 4
+                  max-vertical-distance: 12
+                """);
+        assertEquals(4, tightened.treeFellMaxHorizontalDistance(), "明示値がそのまま効くこと");
+        assertEquals(12, tightened.treeFellMaxVerticalDistance());
+
+        WoodcuttingGimmickConfig unlimited = loaded(tempDir, """
+                tree-fell:
+                  max-extra-logs: 8
+                  max-horizontal-distance: 0
+                  max-vertical-distance: -1
+                """);
+        assertEquals(0, unlimited.treeFellMaxHorizontalDistance(),
+                "0以下は「その軸は無制限」の意味なので既定へ戻さず保つこと");
+        assertEquals(-1, unlimited.treeFellMaxVerticalDistance());
     }
 
     // --- 2026-07-31 G1 レビュー指摘6b: tree-fell.scan-limit の config 化 ---
@@ -185,6 +215,12 @@ class WoodcuttingGimmickConfigTest {
         assertTrue(config.treeFellLeavesDecayOnly(), "既定でバニラの崩壊判定に従うこと");
         assertTrue(config.treeFellBreakLeaves());
         assertEquals(512, config.treeFellScanLimit(), "出荷値の scan-limit");
+        // 2026-07-31 G1 round2 指摘2: 出荷値が Java 既定値と一致していること(片方だけ動かすと
+        // 「jar だけ配備したサーバ」で走査範囲が変わる = 指摘6b と同じドリフト)。
+        assertEquals(WoodcuttingGimmickConfig.DEFAULT_MAX_HORIZONTAL_DISTANCE,
+                config.treeFellMaxHorizontalDistance(), "出荷値の max-horizontal-distance");
+        assertEquals(WoodcuttingGimmickConfig.DEFAULT_MAX_VERTICAL_DISTANCE,
+                config.treeFellMaxVerticalDistance(), "出荷値の max-vertical-distance");
         // 2026-07-31 G1 レビュー指摘2: 8/16/32/64 から倍にした。decay-only(既定true)は
         // 「バニラなら崩壊する葉」しか壊さないので、幹を伐り切れない木では葉が1枚も壊れない。
         // 「葉の掃除がバニラより大幅に速く」を満たす道は decay-only を緩めることではなく

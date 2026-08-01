@@ -31,6 +31,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalDouble;
@@ -47,9 +48,12 @@ import java.util.OptionalDouble;
  *
  * <p>破壊時は成熟作物の{@link BlockBreakEvent}をトリガーとする「1リスナーに複数flag effectを
  * まとめる」様式({@link TreeFellingListener}と同様)。右クリック収穫も保護・drop・EXP互換のため
- * 認可用BlockBreakEventを発火する。周囲ブロックの処理は{@link Block#breakNaturally}/
- * {@link Block#setType}を直接呼ぶだけでBlockBreakEventを再発火しないため、area-harvestが
- * area-harvestを連鎖的に再誘発することはない(加えて{@link #processingAreaHarvest}で多重ガード)。
+ * 認可用BlockBreakEventを発火する。周囲ブロックの処理は{@link Block#setType}を直接呼ぶだけで
+ * BlockBreakEventを再発火しないため、area-harvestが area-harvestを連鎖的に再誘発することはない
+ * (加えて{@link #processingAreaHarvest}で多重ガード)。
+ *
+ * <p>2026-07-31 G1 round2 指摘7: 範囲収穫の1マスは<b>ルートテーブルを1回だけ引く</b>
+ * ({@link #harvestNeighbor} 参照)。旧実装は EXP 用と実ドロップ用で別々に引いていた。
  */
 public final class FarmingHarvestListener implements Listener {
 
@@ -213,8 +217,12 @@ public final class FarmingHarvestListener implements Listener {
                 // 2026-07-28: 範囲収穫分も BlockBreakEvent が飛ばないため農業EXPが入っていなかった
                 // (一括伐採/一括破壊と同じ欠落)。破壊前に付与すること。作物は硬度0なのでバニラでも
                 // 鍬の耐久は減らない — ここで耐久を消費しないのは意図的。
-                ChainBreakSupport.grantExpFor(chainBreakExp, player, neighbor, tool);
-                harvestNeighbor(neighbor, neighborType, tool, replantActive);
+                // 2026-07-31 G1 round2 指摘7: ルートテーブルの抽選はこの1回だけ。引いた結果を
+                // そのまま harvestNeighbor へ渡す(旧実装は EXP 用と実ドロップ用で別々に引いていたので、
+                // 確率ドロップだと「EXPの根拠」と「手に入る物」が食い違い、抽選コストも2倍だった)。
+                Collection<ItemStack> rolled =
+                        ChainBreakSupport.grantExpFor(chainBreakExp, player, neighbor, tool);
+                harvestNeighbor(neighbor, neighborType, tool, replantActive, rolled);
                 harvested++;
             }
             if (harvested > 0) {
@@ -226,20 +234,29 @@ public final class FarmingHarvestListener implements Listener {
         }
     }
 
-    private void harvestNeighbor(Block block, Material type, ItemStack tool, boolean replantActive) {
-        if (!replantActive) {
-            // breakNaturally はBlockBreakEventを発火しないため、area-harvestの再帰的な再誘発は起きない。
-            block.breakNaturally(tool);
-            return;
+    /**
+     * 範囲収穫の1マス分。<b>{@code rolled} は呼び出し側が既に引いた抽選結果</b>で、ここで引き直さない
+     * (2026-07-31 G1 round2 指摘7)。旧実装は自動再植なしの経路で {@code breakNaturally(tool)} を、
+     * 自動再植ありの経路で {@code readDrops} をそれぞれ呼んでいたので、どちらも EXP 用の抽選とは
+     * <em>別の2回目</em>になっていた。両経路を {@code setType(AIR)} + 自前の散布へ寄せて1回化する
+     * ({@link com.trinityforge.gathering.ChainBreakSupport} の連鎖破壊と同じ形)。
+     *
+     * <p>{@code setType} も {@code breakNaturally} と同じく {@code BlockBreakEvent} を発火しないので、
+     * area-harvest が area-harvest を再誘発することは無い(旧実装の性質そのまま)。
+     */
+    private void harvestNeighbor(Block block, Material type, ItemStack tool, boolean replantActive,
+                                 Collection<ItemStack> rolled) {
+        List<DropStack> drops = toDropStacks(rolled);
+        if (replantActive) {
+            drops = DropAdjustment.subtractOne(drops, FarmingCropCatalog.seedMaterial(type));
         }
-        List<DropStack> drops = readDrops(block, tool);
-        List<DropStack> adjusted = DropAdjustment.subtractOne(drops, FarmingCropCatalog.seedMaterial(type));
         World world = block.getWorld();
         Location location = block.getLocation();
-        // setType もイベントを発火しない(breakNaturallyと同じ理由でarea-harvestの再帰は起きない)。
         block.setType(Material.AIR);
-        dropAll(world, location, adjusted);
-        scheduleReplant(world, location, type);
+        dropAll(world, location, drops);
+        if (replantActive) {
+            scheduleReplant(world, location, type);
+        }
     }
 
     private static boolean isMature(Block block) {
@@ -248,14 +265,26 @@ public final class FarmingHarvestListener implements Listener {
     }
 
     private static List<DropStack> readDrops(Block block, ItemStack tool) {
-        List<DropStack> drops = new ArrayList<>();
-        for (ItemStack stack : block.getDrops(tool)) {
-            drops.add(new DropStack(stack.getType(), stack.getAmount()));
+        return toDropStacks(block.getDrops(tool));
+    }
+
+    /** 抽選結果を {@link DropStack} 列へ写す。空/AIRのスタックは落とさない。 */
+    private static List<DropStack> toDropStacks(Collection<ItemStack> stacks) {
+        List<DropStack> drops = new ArrayList<>(stacks.size());
+        for (ItemStack stack : stacks) {
+            if (stack != null && stack.getType() != Material.AIR && stack.getAmount() > 0) {
+                drops.add(new DropStack(stack.getType(), stack.getAmount()));
+            }
         }
         return drops;
     }
 
     private static void dropAll(World world, Location location, List<DropStack> drops) {
+        if (!ChainBreakSupport.tileDropsEnabled(world)) {
+            // 2026-07-31 G1 round2 指摘4: setType + dropItemNaturally の経路は doTileDrops を
+            // 自分で見ないとバニラ(breakNaturally 経由)と食い違う。false のサーバでは湧かせない。
+            return;
+        }
         for (DropStack drop : drops) {
             world.dropItemNaturally(location, new ItemStack(drop.material(), drop.amount()));
         }

@@ -222,6 +222,95 @@ class FarmingHarvestListenerTest {
         assertEquals(Material.AIR, neighbor.getType(), "toggle ON + unlocked must area-harvest the neighbor");
     }
 
+    // --- 2026-07-31 G1 round2 レビュー指摘7: 範囲収穫もルートテーブルを1回だけ引く ---
+
+    /**
+     * area-harvest の共通スタブ(半径1・auto-replant は引数で切り替え)。
+     */
+    private void stubAreaHarvest(boolean autoReplant) {
+        when(dedicatedEffects.isActive(any(), eq("auto-replant"))).thenReturn(autoReplant);
+        when(dedicatedEffects.valueMax(any(), eq("area-harvest"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.areaHarvestRadius(1)).thenReturn(1);
+    }
+
+    private FarmingHarvestListener listener(ChainBreakExpGrant expGrant) {
+        return new FarmingHarvestListener(MockBukkit.createMockPlugin(), dedicatedEffects, gimmickConfig,
+                new FeedbackLayer(), expGrant);
+    }
+
+    @Test
+    void areaHarvestRollsTheLootTableOnceSoTheExpAndTheDropsCannotDisagree() {
+        // 旧実装は EXP 用に1回(grantExpFor -> getDrops)、実ドロップ用にもう1回
+        // (breakNaturally / readDrops)引いていた。確率ドロップだと「EXPの根拠」と「手に入る物」が
+        // 食い違い、抽選コストも2倍だった(一括伐採/一括採掘は既に1回化済みで、範囲収穫だけ残っていた)。
+        //
+        // 「2回引いたか」を観測するために、EXP付与の瞬間にブロックの抽選結果を差し替える —
+        // 2回目を引く実装なら差し替え後の DIAMOND が落ちる。1回だけ引く実装なら落ちない。
+        stubAreaHarvest(false);
+        Block origin = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+        ((BlockMock) neighbor).setDrops(List.of(new ItemStack(Material.WHEAT)));
+
+        List<ItemStack> grantedToExp = new java.util.ArrayList<>();
+        ChainBreakExpGrant expGrant = (p, block, drops, tool) -> {
+            grantedToExp.addAll(drops);
+            ((BlockMock) block).setDrops(List.of(new ItemStack(Material.DIAMOND, 5)));
+        };
+
+        listener(expGrant).onBlockBreak(breakEvent(origin));
+
+        assertEquals(Material.AIR, neighbor.getType(), "隣接マスは収穫されること(前提の確認)");
+        assertEquals(1, grantedToExp.size());
+        assertEquals(Material.WHEAT, grantedToExp.get(0).getType());
+        assertEquals(1, droppedAmount(Material.WHEAT),
+                "EXPの根拠になった抽選結果がそのまま地面に出ること");
+        assertEquals(0, droppedAmount(Material.DIAMOND),
+                "テーブルを2回引いていないこと(2回目を引く実装ならここで DIAMOND が落ちる)");
+    }
+
+    @Test
+    void areaHarvestWithAutoReplantSubtractsOneSeedFromTheSameSingleRoll() {
+        // 自動再植ありの経路も同じ1回の抽選結果から種1個を差し引くこと(旧実装はここでも引き直していた)。
+        stubAreaHarvest(true);
+        Block origin = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+        ((BlockMock) neighbor).setDrops(List.of(
+                new ItemStack(Material.WHEAT),
+                new ItemStack(Material.WHEAT_SEEDS, 2)));
+
+        ChainBreakExpGrant expGrant = (p, block, drops, tool) ->
+                ((BlockMock) block).setDrops(List.of(new ItemStack(Material.DIAMOND, 5)));
+
+        listener(expGrant).onBlockBreak(breakEvent(origin));
+
+        assertEquals(1, droppedAmount(Material.WHEAT));
+        assertEquals(1, droppedAmount(Material.WHEAT_SEEDS), "再植のぶん種1個を差し引くこと");
+        assertEquals(0, droppedAmount(Material.DIAMOND), "テーブルを2回引いていないこと");
+
+        server.getScheduler().performTicks(3L);
+        assertEquals(Material.WHEAT, neighbor.getType(), "1tick後に age0 で再植されること");
+        assertEquals(0, ((Ageable) neighbor.getBlockData()).getAge());
+    }
+
+    // --- 2026-07-31 G1 round2 レビュー指摘4: setType + dropItemNaturally は doTileDrops を見る ---
+
+    @Test
+    void areaHarvestDropsNothingWhenTheDoTileDropsGameRuleIsOff() {
+        // 旧 breakNaturally は NMS の popResource 経由で doTileDrops を見ていたが、
+        // World#dropItemNaturally は一切見ない。範囲収穫だけがドロップを出す非対称を消す。
+        player.getWorld().setGameRule(org.bukkit.GameRules.BLOCK_DROPS, false);
+        stubAreaHarvest(false);
+        Block origin = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+        ((BlockMock) neighbor).setDrops(List.of(new ItemStack(Material.WHEAT)));
+
+        listener(mock(ChainBreakExpGrant.class)).onBlockBreak(breakEvent(origin));
+
+        assertEquals(Material.AIR, neighbor.getType(), "doTileDrops=false でも収穫自体は起きること");
+        assertEquals(0, droppedAmount(Material.WHEAT),
+                "doTileDrops=false ならアイテムは湧かないこと(バニラと同じ)");
+    }
+
     @Test
     void autoReplantToggleOffLeavesVanillaDropsUncancelledEvenWhenUnlocked() {
         when(dedicatedEffects.isActive(any(), eq("auto-replant"))).thenReturn(true);

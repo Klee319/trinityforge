@@ -2,6 +2,7 @@ package com.trinityforge.gathering;
 
 import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
 import org.bukkit.GameMode;
+import org.bukkit.GameRules;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -76,6 +77,9 @@ public final class ChainBreakSupport {
         int broken = 0;
         boolean damageTool = consumeDurability && consumesDurability(player, tool);
         Material toolType = tool == null ? null : tool.getType();
+        // 2026-07-31 G1 round2 指摘4: doTileDrops は1回だけ読む(連鎖は最大1024枚なので
+        // ブロックごとに読むと NamespacedKey の文字列化がそのぶん走る)。
+        boolean dropItems = tileDropsEnabled(world);
         for (BlockPos pos : positions) {
             Block target = world.getBlockAt(pos.x(), pos.y(), pos.z());
             if (!accepts.test(target.getType())) {
@@ -85,7 +89,7 @@ public final class ChainBreakSupport {
                 // 道具が壊れた/持ち替わった。
                 break;
             }
-            breakOnce(player, target, tool, expGrant);
+            breakOnce(player, target, tool, expGrant, dropItems);
             broken++;
             if (damageTool && !damageHeldTool(player)) {
                 // 道具が壊れた。
@@ -117,11 +121,24 @@ public final class ChainBreakSupport {
      * 合成して代用すると採掘運/ドロップテーブル/設置追跡など10以上のリスナーが連鎖分にも反応して
      * 収穫量が跳ね上がるので、これは意図的に据え置き(クラス javadoc 参照)。
      *
+     * <p><b>2026-07-31 G1 round2 指摘4: 等価性に開いていた唯一の穴 = {@code doTileDrops}。</b>
+     * 旧 {@code breakNaturally} は NMS の {@code Block.dropResources} → {@code popResource} を通り、
+     * {@code popResource} は {@code doTileDrops} ゲームルールを見て false ならアイテムを湧かせない。
+     * 一方 {@link World#dropItemNaturally} はこのゲームルールを<b>一切見ない</b>ので、
+     * {@code doTileDrops=false} のサーバでは「連鎖破壊分だけがドロップを出す」という非対称が
+     * 生じていた。{@link #tileDropsEnabled} で明示的に見て、false ならアイテムを湧かせない。
+     * <b>採取EXPは従来どおり付与する</b> — 旧実装も {@code getDrops} の結果で EXP を付与した後に
+     * {@code breakNaturally} が何も落とさない挙動だったので、これが等価な側。
+     *
      * <p><b>残余</b>: コンテナ(チェスト等)の中身は {@code getDrops} に含まれないので、連鎖対象に
      * コンテナを入れると中身が消える。現在の呼び出し元は原木/葉/鉱石/作物だけなので該当しないが、
-     * 連鎖対象を広げるときはここを見ること。
+     * 連鎖対象を広げるときはここを見ること。また {@code state.spawnAfterBreak(...)} も呼ばれなくなるが、
+     * 現行の呼び出し元(原木/葉/鉱石/作物)では実質 no-op なので影響しない。
+     *
+     * @param dropItems {@code doTileDrops} 相当。false ならブロックは壊すがアイテムは湧かせない。
      */
-    private static void breakOnce(Player player, Block target, ItemStack tool, ChainBreakExpGrant expGrant) {
+    private static void breakOnce(Player player, Block target, ItemStack tool, ChainBreakExpGrant expGrant,
+                                  boolean dropItems) {
         // 抽選はこの1回だけ。破壊前に読むこと(壊した後は AIR になりドロップが取れない)。
         Collection<ItemStack> drops = target.getDrops(tool, player);
         if (expGrant != null) {
@@ -130,6 +147,9 @@ public final class ChainBreakSupport {
         Location dropAt = target.getLocation();
         World world = target.getWorld();
         target.setType(Material.AIR);
+        if (!dropItems) {
+            return;
+        }
         for (ItemStack drop : drops) {
             if (drop != null && drop.getType() != Material.AIR && drop.getAmount() > 0) {
                 world.dropItemNaturally(dropAt, drop);
@@ -138,14 +158,44 @@ public final class ChainBreakSupport {
     }
 
     /**
+     * {@code doTileDrops} ゲームルールの現在値(2026-07-31 G1 round2 指摘4)。
+     * <b>{@code setType} + {@code dropItemNaturally}</b> でブロックを壊す経路は、これを自分で見ないと
+     * バニラ({@code breakNaturally} 経由)と挙動が食い違う。
+     *
+     * <p>値が取れない実装(テストダブル等で {@code null} が返る)ではバニラ既定の {@code true} として扱う
+     * — 「ドロップが出ない」方向に倒すと採取が黙って死ぬので、安全側は true。
+     *
+     * <p>参照するのは {@link GameRules#BLOCK_DROPS}。{@code GameRule.DO_TILE_DROPS} は
+     * paper-api 1.21.11 で deprecated-for-removal になった同じ定数の旧名なので使わない。
+     */
+    public static boolean tileDropsEnabled(World world) {
+        if (world == null) {
+            return true;
+        }
+        Boolean value = world.getGameRuleValue(GameRules.BLOCK_DROPS);
+        return value == null || value;
+    }
+
+    /**
      * 硬度0のブロック(作物・草・花など)はバニラでも道具の耐久を減らさないため、範囲収穫は
      * EXP だけを補う。破壊は呼び出し側が行う(自動再植の有無で経路が分かれるため)。
+     *
+     * <p><b>ルートテーブルはここで1回だけ引き、その結果を返す</b>(2026-07-31 G1 round2 指摘7)。
+     * 旧実装は EXP 用に1回引いた直後、呼び出し側が {@code breakNaturally}／{@code getDrops} で
+     * <em>同じテーブルをもう1回</em>引いて実際のドロップを撒いていた。つまり範囲収穫だけが
+     * 「採取EXPが実際に落ちた物とは別の抽選で計算される」状態で残っており、抽選コストも2倍だった
+     * (一括伐採/一括採掘は {@link #breakOnce} で既に1回化してある)。
+     * <b>呼び出し側は返り値をそのまま撒くこと。二度引かないこと。</b>
+     *
+     * @return 引いた抽選結果(そのまま撒く用)。{@code expGrant} が null でも抽選は行って返す。
      */
-    public static void grantExpFor(ChainBreakExpGrant expGrant, Player player, Block block, ItemStack tool) {
-        if (expGrant == null) {
-            return;
+    public static Collection<ItemStack> grantExpFor(ChainBreakExpGrant expGrant, Player player, Block block,
+                                                    ItemStack tool) {
+        Collection<ItemStack> drops = block.getDrops(tool, player);
+        if (expGrant != null) {
+            expGrant.grant(player, block, drops, tool);
         }
-        expGrant.grant(player, block, block.getDrops(tool, player), tool);
+        return drops;
     }
 
     private static boolean consumesDurability(Player player, ItemStack tool) {

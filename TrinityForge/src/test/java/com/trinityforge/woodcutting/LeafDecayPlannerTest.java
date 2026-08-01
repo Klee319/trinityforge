@@ -165,6 +165,31 @@ class LeafDecayPlannerTest {
         assertTrue(plan.doomed().isEmpty(), "届かない葉は計画に入らない");
     }
 
+    // --- 2026-07-31 G1 round2 レビュー指摘8: budgetExhausted の境界での偽陽性 ---
+
+    @Test
+    void spendingExactlyTheWholeBudgetWithoutBeingCutOffIsNotReportedAsExhausted() {
+        // budgetExhausted は「予算で打ち切った」の意味でなければならない。旧実装は
+        // probes >= budget を証拠にしていたので、<b>最後の1回で予算を使い切って正常終了した</b>走査まで
+        // 異常として報告し、呼び出し側が「leaves-max を上げるか scan-limit を下げよ」という
+        // 誤った対処を促す WARNING を出していた(実害はログノイズだが運用者を誤誘導する)。
+        //
+        // 構成: maxLeaves=1 なので予算は 1 x PROBE_BUDGET_FACTOR = 8。種を2本(面隣接)にすると
+        // collectFrom のキューは 10 件になり、その 8 番目 (0,2,0) だけを葉にする。
+        // 8 回目の探索で受理 -> 枚数上限に達して BFS が正常終了。probes はちょうど予算と同じ 8。
+        List<BlockPos> trunk = List.of(new BlockPos(0, 0, 0), new BlockPos(0, 1, 0));
+        BlockPos eighthProbedPosition = new BlockPos(0, 2, 0);
+
+        LeafDecayPlanner.Plan plan = LeafDecayPlanner.plan(trunk,
+                memberOf(Set.of(eighthProbedPosition)), NO_SUPPORT, 1, true);
+
+        assertEquals(List.of(eighthProbedPosition), plan.doomed(), "葉は計画に入ること");
+        assertEquals(1 * LeafDecayPlanner.PROBE_BUDGET_FACTOR, plan.probes(),
+                "予算ぴったりまで世界を読んだ状態を作れていること(前提の確認)");
+        assertFalse(plan.budgetExhausted(),
+                "予算を使い切っただけで打ち切っていないなら異常ではない(旧実装はここで true を返していた)");
+    }
+
     @Test
     void aDenseCanopyNeverHitsTheProbeBudget() {
         // 実樹冠(葉が密)では受理率が高いので予算に当たらないこと = 正常系を殺していないことの確認。

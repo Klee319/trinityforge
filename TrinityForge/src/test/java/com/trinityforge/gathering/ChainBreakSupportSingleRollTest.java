@@ -107,6 +107,89 @@ class ChainBreakSupportSingleRollTest {
         verify(world).dropItemNaturally(block.getLocation(), apple);
     }
 
+    // --- 2026-07-31 G1 round2 レビュー指摘4: 呼び出し形状ではなく「実際に落ちた物」を検証する ---
+
+    /**
+     * MockBukkit の実ワールド上で {@code setDrops} したブロックを連鎖破壊し、<b>地面に湧いた
+     * item entity の中身</b>(マテリアルと個数)を数える。
+     *
+     * <p>既存3本は {@code mock(Block.class)} / {@code mock(World.class)} の呼び出し形状テストなので、
+     * 「{@code dropItemNaturally} が呼ばれた」ことしか固定できていなかった(レビュー指摘4)。
+     * {@code BlockMock#getDrops(tool, player)} は {@code setDrops} で与えた列を返すので、
+     * 実ワールドでも抽選内容を制御できる。
+     */
+    private java.util.Map<Material, Integer> droppedStacksIn(World world) {
+        java.util.Map<Material, Integer> byMaterial = new java.util.LinkedHashMap<>();
+        for (org.bukkit.entity.Item item : world.getEntitiesByClass(org.bukkit.entity.Item.class)) {
+            ItemStack stack = item.getItemStack();
+            byMaterial.merge(stack.getType(), stack.getAmount(), Integer::sum);
+        }
+        return byMaterial;
+    }
+
+    private Block shippedLogWithDrops(int x, int y, int z, List<ItemStack> drops) {
+        Block block = player.getWorld().getBlockAt(x, y, z);
+        block.setType(Material.OAK_LOG);
+        ((org.mockbukkit.mockbukkit.block.BlockMock) block).setDrops(drops);
+        return block;
+    }
+
+    @Test
+    void theItemEntitiesThatLandAreExactlyTheRolledStacks() {
+        ItemStack tool = new ItemStack(Material.IRON_AXE);
+        Block first = shippedLogWithDrops(0, 64, 0,
+                List.of(new ItemStack(Material.OAK_LOG), new ItemStack(Material.APPLE, 3)));
+        Block second = shippedLogWithDrops(0, 65, 0, List.of(new ItemStack(Material.OAK_SAPLING, 2)));
+
+        int broken = ChainBreakSupport.breakChain(player, player.getWorld(),
+                List.of(new BlockPos(0, 64, 0), new BlockPos(0, 65, 0)),
+                material -> material == Material.OAK_LOG, tool, null, false);
+
+        assertEquals(2, broken);
+        assertEquals(Material.AIR, first.getType());
+        assertEquals(Material.AIR, second.getType());
+        assertEquals(java.util.Map.of(
+                        Material.OAK_LOG, 1,
+                        Material.APPLE, 3,
+                        Material.OAK_SAPLING, 2),
+                droppedStacksIn(player.getWorld()),
+                "個数まで含めて抽選結果そのものが地面に出ること(呼び出し形状ではなく中身の検証)");
+    }
+
+    @Test
+    void nothingIsDroppedWhenTheDoTileDropsGameRuleIsOffButBlocksStillBreakAndExpStillLands() {
+        // 旧 breakNaturally は NMS の popResource 経由で doTileDrops を見ていたが、
+        // World#dropItemNaturally は一切見ない。等価性に開いていた唯一の穴(レビュー指摘4)。
+        player.getWorld().setGameRule(org.bukkit.GameRules.BLOCK_DROPS, false);
+        ItemStack tool = new ItemStack(Material.IRON_AXE);
+        ItemStack log = new ItemStack(Material.OAK_LOG);
+        Block block = shippedLogWithDrops(0, 64, 0, List.of(log));
+        Collection<ItemStack> granted = new ArrayList<>();
+
+        int broken = ChainBreakSupport.breakChain(player, player.getWorld(), List.of(new BlockPos(0, 64, 0)),
+                material -> material == Material.OAK_LOG, tool,
+                (p, b, drops, t) -> granted.addAll(drops), false);
+
+        assertEquals(1, broken, "doTileDrops=false でもブロックは壊れること(バニラと同じ)");
+        assertEquals(Material.AIR, block.getType());
+        assertEquals(java.util.Map.of(), droppedStacksIn(player.getWorld()),
+                "doTileDrops=false ならアイテムは1つも湧かないこと(旧 breakNaturally と等価)");
+        assertEquals(List.of(log), List.copyOf(granted),
+                "採取EXPは従来どおり抽選結果で付与する(旧実装も getDrops の結果で付与していた)");
+    }
+
+    @Test
+    void dropsLandNormallyWhenTheDoTileDropsGameRuleIsExplicitlyOn() {
+        player.getWorld().setGameRule(org.bukkit.GameRules.BLOCK_DROPS, true);
+        ItemStack tool = new ItemStack(Material.IRON_AXE);
+        shippedLogWithDrops(0, 64, 0, List.of(new ItemStack(Material.OAK_LOG, 1)));
+
+        ChainBreakSupport.breakChain(player, player.getWorld(), List.of(new BlockPos(0, 64, 0)),
+                material -> material == Material.OAK_LOG, tool, null, false);
+
+        assertEquals(java.util.Map.of(Material.OAK_LOG, 1), droppedStacksIn(player.getWorld()));
+    }
+
     @Test
     void emptyOrAirStacksAreNotSpawnedAsItemEntities() {
         // getDrops が「掘れない道具」で空を返すケース。ブロックは消えるが item entity は湧かないこと。

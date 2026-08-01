@@ -49,6 +49,19 @@ public final class WoodcuttingGimmickConfig {
      * <b>Java 側の既定値をここで変えると出荷 yml とドリフトする</b>ので、変えるなら両方を同時に直すこと。
      */
     private static final int DEFAULT_SCAN_LIMIT = 512;
+    /**
+     * 叩いた位置からの水平距離({@code |dx|}/{@code |dz|})の上限の既定値
+     * (2026-07-31 G1 round2 指摘2 の第二の歯止め)。バニラで最も横に広がる原木構造(大マングローブの
+     * 枝分かれで概ね ±6、巨大ジャングル/ダークオークの枝で ±4〜5)より大きいので自然樹には当たらない。
+     * <b>0以下は「水平方向は無制限」</b>(2026-07-31 以前の挙動)。
+     */
+    public static final int DEFAULT_MAX_HORIZONTAL_DISTANCE = 8;
+    /**
+     * 叩いた位置からの垂直距離({@code |dy|})の上限の既定値(同上)。バニラで最も高い樹木
+     * (トウヒ/ジャングルの2x2 巨木で概ね30段)より大きいので自然樹には当たらない。
+     * <b>0以下は「垂直方向は無制限」</b>。
+     */
+    public static final int DEFAULT_MAX_VERTICAL_DISTANCE = 32;
 
     /**
      * {@code tree-fell.tiers.<tier>} の1行 (2026-07-31 N2 で {@code leaves-max} 列を追加)。
@@ -68,6 +81,8 @@ public final class WoodcuttingGimmickConfig {
     private volatile int treeFellLeavesPerTick = DEFAULT_LEAVES_PER_TICK;
     private volatile boolean treeFellLeavesDecayOnly = true;
     private volatile int treeFellScanLimit = DEFAULT_SCAN_LIMIT;
+    private volatile int treeFellMaxHorizontalDistance = DEFAULT_MAX_HORIZONTAL_DISTANCE;
+    private volatile int treeFellMaxVerticalDistance = DEFAULT_MAX_VERTICAL_DISTANCE;
     private volatile Map<String, DropTableConfig.Category> dropTables = Map.of();
 
     /** {@code tree-fell} の一括伐採上限本数(トリガー原木を含まない)。tiers未定義時のグローバル既定値。 */
@@ -168,6 +183,32 @@ public final class WoodcuttingGimmickConfig {
         return treeFellScanLimit;
     }
 
+    /**
+     * {@code tree-fell.max-horizontal-distance}(既定 {@value #DEFAULT_MAX_HORIZONTAL_DISTANCE}):
+     * <b>叩いた位置</b>から水平({@code x}/{@code z} 各軸)にこの距離を超える丸太は走査も伐採もしない
+     * (2026-07-31 G1 round2 指摘2)。
+     *
+     * <p><b>これは {@code PlacedBlockTracker} による設置丸太除外の「第二の歯止め」</b>:
+     * 設置記録は {@code BlockPlaceEvent} を通った丸太しか覆えないので、WorldEdit / schematic /
+     * {@code /setblock} / ピストンで動いた丸太 / チャンク上限FIFOで追い出されたマーク は
+     * 「自然木」として走査されてしまう。距離で先に切れば、記録に乗らない丸太建築でも
+     * <b>視界外のブロックが消える最悪ケースは起きない</b>。
+     *
+     * <p>0以下なら無制限(2026-07-31 以前の挙動)。
+     */
+    public int treeFellMaxHorizontalDistance() {
+        return treeFellMaxHorizontalDistance;
+    }
+
+    /**
+     * {@code tree-fell.max-vertical-distance}(既定 {@value #DEFAULT_MAX_VERTICAL_DISTANCE}):
+     * <b>叩いた位置</b>から垂直({@code y})にこの距離を超える丸太は走査も伐採もしない
+     * ({@link #treeFellMaxHorizontalDistance()} と対。0以下なら無制限)。
+     */
+    public int treeFellMaxVerticalDistance() {
+        return treeFellMaxVerticalDistance;
+    }
+
     /** {@code drop-tables.categories} (2026-07-23 §4): カテゴリid -&gt; 定義。ゲート/抽選は {@code DropTablePolicy} が担う。 */
     public Map<String, DropTableConfig.Category> dropTables() {
         return dropTables;
@@ -209,6 +250,13 @@ public final class WoodcuttingGimmickConfig {
         this.treeFellScanLimit = clampPositiveInt(
                 yaml.getInt("tree-fell.scan-limit", DEFAULT_SCAN_LIMIT),
                 "tree-fell.scan-limit", DEFAULT_SCAN_LIMIT, log);
+        // 距離上限は「0以下 = その軸は無制限」という別の意味を持つので clampPositiveInt は通さない
+        // (2026-07-31 G1 round2 指摘2)。キーが無い古い配備 yml では Java 既定の 8/32 が効くので、
+        // jar だけ差し替えたサーバでも第二の歯止めは働く。
+        this.treeFellMaxHorizontalDistance =
+                yaml.getInt("tree-fell.max-horizontal-distance", DEFAULT_MAX_HORIZONTAL_DISTANCE);
+        this.treeFellMaxVerticalDistance =
+                yaml.getInt("tree-fell.max-vertical-distance", DEFAULT_MAX_VERTICAL_DISTANCE);
         this.dropTables = DropTableConfig.parseCategories(
                 yaml.getConfigurationSection("drop-tables.categories"), true, PATH, log);
 

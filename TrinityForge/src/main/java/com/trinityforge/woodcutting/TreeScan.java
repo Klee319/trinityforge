@@ -40,6 +40,14 @@ import java.util.function.Predicate;
  *       丸太建築側は {@code PlacedBlockTracker} で走査を止める(呼び出し側の
  *       {@code TreeFellingListener} 参照)ことで実害を潰してある。</li>
  * </ul>
+ *
+ * <p><b>2026-07-31 G1 round2 レビュー指摘2: 記録に乗らない丸太建築への第二の歯止め。</b>
+ * {@code PlacedBlockTracker} による除外は「{@code BlockPlaceEvent} を通って置かれた丸太」しか覆えない
+ * (WorldEdit / schematic / {@code /setblock} / ピストンで動いた丸太 / チャンク上限 FIFO で追い出された
+ * マーク は全部「自然木」として走査される)。そこで {@link #withinDistance} を走査の述語に AND して
+ * <b>叩いた位置から一定距離を超える丸太を最初から見ない</b>ようにし、記録に乗らない建築でも
+ * 「視界外のブロックが消える」最悪ケースを消す。既定値は実在するバニラ樹木の寸法より大きいので
+ * 自然樹には影響しない(値の根拠は {@code stats/woodcutting-gimmick.yml} のコメント)。
  */
 public final class TreeScan {
 
@@ -74,6 +82,33 @@ public final class TreeScan {
     }
 
     /**
+     * 「叩いた位置 {@code origin} から一定距離の内側か」を判定する述語(2026-07-31 G1 round2 指摘2)。
+     * 走査の述語に AND して使う — 距離判定はワールドを読まないので<b>材質判定より前に置くこと</b>
+     * (範囲外の位置で {@code getBlockAt} も PDC 走査も走らせないため)。
+     *
+     * <p>水平は {@code x}/{@code z} 各軸のチェビシェフ距離、垂直は {@code y} の差で見る(球ではなく
+     * 直方体) — 木は縦に長く横に短いので、軸ごとに別の上限を持てる形が要件に合う。
+     *
+     * @param maxHorizontal {@code |dx|} と {@code |dz|} の上限。<b>0以下は「水平方向は無制限」</b>。
+     * @param maxVertical   {@code |dy|} の上限。<b>0以下は「垂直方向は無制限」</b>。
+     * @return 範囲内なら true を返す述語(両方が0以下なら常に true = 2026-07-31 以前の挙動)
+     */
+    public static Predicate<BlockPos> withinDistance(BlockPos origin, int maxHorizontal, int maxVertical) {
+        Objects.requireNonNull(origin, "origin");
+        if (maxHorizontal <= 0 && maxVertical <= 0) {
+            return pos -> true;
+        }
+        return pos -> {
+            if (maxVertical > 0 && Math.abs(pos.y() - origin.y()) > maxVertical) {
+                return false;
+            }
+            return maxHorizontal <= 0
+                    || (Math.abs(pos.x() - origin.x()) <= maxHorizontal
+                        && Math.abs(pos.z() - origin.z()) <= maxHorizontal);
+        };
+    }
+
+    /**
      * {@code origin} と同じ幹柱の最下段を返す。{@code y-1} が {@code isTrunk} を満たす限り真下へ降りる
      * ので、同じ幹柱のどのブロックから呼んでも同じ座標が返る(=面依存が消える一点)。
      *
@@ -95,14 +130,21 @@ public final class TreeScan {
 
     /**
      * {@code base} から面隣接で繋がる幹を最大 {@code scanLimit} 本まで集め、{@link #BOTTOM_UP} 順に
-     * 並べて返す。{@code base} 自身を含む。
+     * 並べて返す。{@code base} 自身を含む — <b>ただし {@code base} も {@code isTrunk} で検査する</b>。
+     *
+     * <p><b>2026-07-31 G1 round2 指摘10</b>: 以前は {@code base} を無条件に結果へ入れていた。
+     * 述語が「自然木の丸太か」を意味する本番では、<em>設置された丸太を叩くとその1本が木として残り</em>
+     * 葉の BFS の種になっていた(呼び出し側は木全体を種にするため)。周囲の自然原木が距離6以内で
+     * 支えるので実害は「森の中の丸太1本を壊すと近傍の自然葉が数枚壊れて CT を取る」程度だったが、
+     * 「設置丸太は木ではない」という本クラスの主張とは食い違っていた。空を返せば呼び出し側の
+     * {@code planLeaves} も {@code treeLogs.isEmpty()} で即座に降りる。
      *
      * @param scanLimit {@code base} を含めた本数の上限。0以下なら空を返す。
      */
     public static List<BlockPos> wholeTree(BlockPos base, Predicate<BlockPos> isTrunk, int scanLimit) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(isTrunk, "isTrunk");
-        if (scanLimit <= 0) {
+        if (scanLimit <= 0 || !isTrunk.test(base)) {
             return List.of();
         }
         List<BlockPos> tree = new ArrayList<>();

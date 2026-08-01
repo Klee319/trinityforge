@@ -69,6 +69,13 @@ class TreeFellingListenerTest {
         // 2026-07-31 G1 指摘6b: 走査上限は config 由来になった。Mockito 既定の 0 だと
         // 「木が1本も見えない」ので機構ごと死ぬ。Java の既定値と同じ値を全テストの土台に置く。
         when(gimmickConfig.treeFellScanLimit()).thenReturn(TreeScan.TREE_SCAN_LIMIT);
+        // 2026-07-31 G1 round2 指摘2: 距離上限も同じ理由で出荷既定を土台に置く。Mockito 既定の 0 は
+        // 「無制限」の意味なので、放置すると<b>全テストが第二の歯止めを通らない</b>状態で緑になる
+        // (指摘9 で問題にされた「スタブ漏れで出荷され得ない設定を検証していた」と同型の罠)。
+        when(gimmickConfig.treeFellMaxHorizontalDistance())
+                .thenReturn(WoodcuttingGimmickConfig.DEFAULT_MAX_HORIZONTAL_DISTANCE);
+        when(gimmickConfig.treeFellMaxVerticalDistance())
+                .thenReturn(WoodcuttingGimmickConfig.DEFAULT_MAX_VERTICAL_DISTANCE);
         player = server.addPlayer();
     }
 
@@ -410,10 +417,10 @@ class TreeFellingListenerTest {
     }
 
     @Test
-    void breakingWhileOnCooldownDoesNotScanTheTreeAtAll() {
+    void breakingWhileOnCooldownDoesNotFellTheSecondTree() {
         // 2026-07-31 G1 指摘3: 旧実装はCT判定を走査の後ろへ移した副作用で、CT中の空振り破壊でも
-        // 毎回フルスキャン(最大512本 + 近傍の getBlockAt 約3000回)の代金を払っていた。
-        // treeFellScanLimit() は走査の入り口でしか呼ばれないので、「呼ばれていない = 走査していない」。
+        // 毎回フルスキャンの代金を払っていた。ここは「CT中は何も伐れない」という結果側の確認で、
+        // 「走査の代金を払わない」本題は breakingWhileOnCooldownReadsTheWorldZeroTimes が縛る。
         stubTreeFell(8);
         stubLeaves(512, true);
         for (int y = 64; y <= 70; y++) {
@@ -427,12 +434,157 @@ class TreeFellingListenerTest {
         listener.onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
         assertTrue(remainingCooldownMillis() > 0L, "1本目でCTを消費している(前提の確認)");
 
-        org.mockito.Mockito.clearInvocations(gimmickConfig);
         listener.onBlockBreak(breakEvent(player.getWorld().getBlockAt(20, 64, 0)));
 
-        org.mockito.Mockito.verify(gimmickConfig, org.mockito.Mockito.never()).treeFellScanLimit();
-        assertEquals(Material.OAK_LOG, player.getWorld().getBlockAt(20, 65, 0).getType(),
-                "CT中なので2本目の木は伐れないこと");
+        for (int y = 64; y <= 70; y++) {
+            assertEquals(Material.OAK_LOG, player.getWorld().getBlockAt(20, y, 0).getType(),
+                    "CT中なので2本目の木は1本も伐れないこと y=" + y);
+        }
+    }
+
+    @Test
+    void breakingWhileOnCooldownReadsTheWorldZeroTimes() {
+        // 2026-07-31 G1 round2 指摘9: 旧テストは `verify(never()).treeFellScanLimit()` という
+        // <b>実装の呼び出し形状</b>に依存していたので、走査入口のキャッシュ化やコンストラクタ移動で
+        // 「CT前の早期 return を消してもテストは緑」になり得た。本題は「走査の代金を払わない」なので、
+        // ワールドへのアクセス回数そのもので縛る — 走査は必ず getBlockAt を通るため、
+        // 「World に一度も触っていない」なら走査は始まっていない。
+        stubTreeFell(8);
+        stubLeaves(512, true);
+        for (int y = 64; y <= 70; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+        TreeFellingListener listener = listener();
+        listener.onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+        assertTrue(remainingCooldownMillis() > 0L, "1本目でCTを消費している(前提の確認)");
+
+        // 2本目は World をモックにして「1回も読まれない」ことを直接観測する。
+        org.bukkit.World probedWorld = mock(org.bukkit.World.class);
+        Block struck = mock(Block.class);
+        when(struck.getType()).thenReturn(Material.OAK_LOG);
+        when(struck.getWorld()).thenReturn(probedWorld);
+        when(struck.getX()).thenReturn(20);
+        when(struck.getY()).thenReturn(64);
+        when(struck.getZ()).thenReturn(20);
+
+        listener.onBlockBreak(breakEvent(struck));
+
+        verifyNoInteractions(probedWorld);
+        org.mockito.Mockito.verify(struck, org.mockito.Mockito.never()).getWorld();
+    }
+
+    // --- 2026-07-31 G1 round2 レビュー指摘2 記録に依存しない第二の歯止め(叩いた位置からの距離) ---
+
+    @Test
+    void anUnmarkedLogWallBeyondTheDistanceCapIsNeverFelled() {
+        // WorldEdit / schematic / ピストン移動 / チャンク上限FIFO で記録から落ちた丸太は
+        // PlacedBlockTracker では覆えない(=「自然木」に見える)。距離の歯止めが最後の防波堤。
+        // 30本の横一列の右端(x=29)を叩く。水平上限8なので x=21..28 だけが伐れ、x=0..20 は残ること。
+        stubTreeFell(64);
+        stubLeaves(512, true);
+        for (int x = 0; x <= 29; x++) {
+            player.getWorld().getBlockAt(x, 64, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(29, 64, 0)));
+
+        for (int x = 0; x <= 20; x++) {
+            assertEquals(Material.OAK_LOG, player.getWorld().getBlockAt(x, 64, 0).getType(),
+                    "叩いた位置から水平8を超える丸太(視界外)は消えないこと x=" + x);
+        }
+        for (int x = 21; x <= 28; x++) {
+            assertEquals(Material.AIR, player.getWorld().getBlockAt(x, 64, 0).getType(),
+                    "距離の内側は従来どおり伐れること x=" + x);
+        }
+    }
+
+    @Test
+    void theDistanceCapCanBeOpenedUpFromConfigAndZeroMeansUnlimited() {
+        // レバーとして効くことの確認(0以下 = 無制限 = 2026-07-31 以前の挙動)。
+        stubTreeFell(64);
+        stubLeaves(512, true);
+        when(gimmickConfig.treeFellMaxHorizontalDistance()).thenReturn(0);
+        for (int x = 0; x <= 29; x++) {
+            player.getWorld().getBlockAt(x, 64, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(29, 64, 0)));
+
+        assertEquals(Material.AIR, player.getWorld().getBlockAt(0, 64, 0).getType(),
+                "水平上限を0(無制限)にすると列の反対側まで伐れること");
+    }
+
+    @Test
+    void aThirtyBlockTallNaturalTreeIsUnaffectedByTheShippedVerticalCap() {
+        // 既定 8/32 は実在するバニラ樹木の寸法より大きいので自然樹の伐採は変わらないこと。
+        // (実在する最大級 = 高さ30段程度・水平 ±6程度。ここでは高さ30の柱で確認する)
+        stubTreeFell(128);
+        stubLeaves(512, true);
+        for (int y = 64; y <= 93; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+
+        for (int y = 65; y <= 93; y++) {
+            assertEquals(Material.AIR, player.getWorld().getBlockAt(0, y, 0).getType(),
+                    "高さ30段の木は既定の垂直上限32に当たらず全部倒れること y=" + y);
+        }
+    }
+
+    // --- 2026-07-31 G1 round2 レビュー指摘3 走査中のPDC読みはチャンクごとに1回 ---
+
+    @Test
+    void theScanReadsThePlacedMarkArrayOncePerChunkNotOncePerScannedBlock() {
+        // PDC の LONG_ARRAY は copy-on-read なので「読んだ回数 = 配列を複製した回数」。
+        // 旧実装は走査述語から isPlaced を直接呼んでいたので、読んだ回数が<b>走査したブロック数に
+        // 比例</b>し、マークが多いチャンクでの伐採1回で数十MBの短命オブジェクトを生んでいた。
+        // ここでは「木の大きさを変えても読んだ回数が変わらない」ことで比例していないことを固定する。
+        stubTreeFell(64);
+        when(gimmickConfig.treeFellBreakLeaves()).thenReturn(false); // 葉は別経路なので切り離す
+
+        for (int y = 64; y <= 65; y++) {
+            player.getWorld().getBlockAt(0, y, 0).setType(Material.OAK_LOG);
+        }
+        long beforeSmall = placedBlockTracker.chunkReadCount();
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(0, 64, 0)));
+        long smallTreeReads = placedBlockTracker.chunkReadCount() - beforeSmall;
+
+        cooldowns = new CooldownManager();
+        for (int y = 64; y <= 88; y++) {
+            player.getWorld().getBlockAt(5, y, 5).setType(Material.OAK_LOG);
+        }
+        long beforeBig = placedBlockTracker.chunkReadCount();
+        listener().onBlockBreak(breakEvent(player.getWorld().getBlockAt(5, 64, 5)));
+        long bigTreeReads = placedBlockTracker.chunkReadCount() - beforeBig;
+
+        assertEquals(Material.AIR, player.getWorld().getBlockAt(5, 88, 5).getType(),
+                "25本の木がちゃんと伐れていること(前提の確認 — 走査していなければこのテストは無意味)");
+        assertEquals(1L, smallTreeReads, "同一チャンク内なら2本の木でもPDC読みは1回");
+        assertEquals(smallTreeReads, bigTreeReads,
+                "木が2本から25本に増えてもPDC読みの回数は増えないこと(アロケーションが走査量に比例しない)");
+    }
+
+    // --- 2026-07-31 G1 round2 レビュー指摘10 設置丸太は葉のBFSの種にもならない ---
+
+    @Test
+    void strikingAPlacedLogDoesNotSeedTheLeafScanWithIt() {
+        // 旧実装は wholeTree が base を無条件に木へ入れていたので、設置丸太を叩くとその1本が
+        // 葉のBFSの種になり(かつ「これから消えるもの」として支持から外れるので)、面隣接の自然葉が
+        // 支持なしと判定されて壊れ、CTまで取られていた。
+        stubTreeFell(64);
+        stubLeaves(512, true);
+        Block placed = player.getWorld().getBlockAt(0, 64, 0);
+        placed.setType(Material.OAK_LOG);
+        placedBlockTracker.markPlaced(placed);
+        Block leaf = player.getWorld().getBlockAt(1, 64, 0);
+        leaf.setType(Material.OAK_LEAVES);
+
+        listener().onBlockBreak(breakEvent(placed));
+
+        assertEquals(Material.OAK_LEAVES, leaf.getType(),
+                "設置丸太は木ではないので葉のBFSの種にもならないこと");
+        assertEquals(0L, remainingCooldownMillis(), "仕事が無いのでCTも取らないこと");
     }
 
     @Test

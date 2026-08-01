@@ -191,6 +191,24 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
      * 材質一致を先に判定してから {@code isPlaced} を呼ぶので、PDC の線形走査が走るのは実際に丸太
      * だった位置(最大 {@code scan-limit} 本)だけに収まる。
      *
+     * <p><b>2026-07-31 G1 round2 指摘2: 設置記録に依存しない第二の歯止め。</b>
+     * 上の緩和策は {@code PlacedBlockTracker} の記録が前提で、記録は {@code BlockPlaceEvent} 1本しか
+     * 見ていない。したがって <b>WorldEdit / schematic / {@code /setblock} / 構造物生成で置かれた丸太</b>、
+     * <b>ピストンで座標が変わった丸太</b>、<b>チャンクあたり上限の FIFO で追い出されたマーク</b> は
+     * 依然として「自然木」として走査される — <em>この残余は緩和策のまま残す</em>と決めた
+     * ({@code tmp/decisions.md})。代わりに {@link TreeScan#withinDistance} を走査の述語へ AND し、
+     * <b>叩いた位置から水平 {@code max-horizontal-distance} / 垂直 {@code max-vertical-distance} を
+     * 超える丸太は最初から見ない</b>。これで記録に乗らない建築でも「クリック位置から十数ブロック離れた
+     * 視界外の行が消える」という最悪ケースは起きない(既定 8/32 は実在するバニラ樹木の寸法より大きいので
+     * 自然樹の伐採は変わらない)。<b>残余</b>: 距離の内側にある建築部分は依然として伐れる。
+     *
+     * <p><b>2026-07-31 G1 round2 指摘3: 走査中の PDC 読みはチャンクごとに1回。</b>
+     * {@link PlacedBlockTracker#isPlaced} は copy-on-read で毎回 {@code long[]} を丸ごと複製するので、
+     * 走査述語から直接呼ぶと「マークが多いチャンクでの伐採1回」が数十MBの短命オブジェクトを
+     * メインスレッドに積んでいた。{@link PlacedBlockTracker#newScanLookup()} で走査スコープの
+     * ローカルキャッシュを作り、走査が終わったら捨てる(アロケーションが走査ブロック数ではなく
+     * <b>触ったチャンク数</b>に比例する)。
+     *
      * <p><b>2026-07-31 G1 レビュー指摘3/4: CT は「走査の前に覗き、仕事が確定してから取る」。</b>
      * CT 中は {@link CooldownManager#remainingMillis} で早期 return して走査そのものを行わない
      * (旧: CT 中の空振り破壊でも毎回フルスキャンの代金を払っていた)。逆に消費は原木と葉の両方の
@@ -229,10 +247,25 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
         // 同じ集合が伐れる(TreeScan の javadoc 参照)。走査上限は伐採上限とは別枠 —
         // 上限で伐り残した幹も葉の走査の種に必要なため。
         // 2026-07-31 G1 指摘1: 設置された丸太は木ではないので走査をそこで止める(丸太建築の事故防止)。
-        // 材質一致を先に見てから isPlaced を呼ぶこと(PDC の線形走査を空気/葉の位置で回さないため)。
+        // 2026-07-31 G1 round2 指摘2: 設置記録は BlockPlaceEvent 経由の丸太しか覆えない(WorldEdit /
+        // schematic / ピストン移動 / チャンク上限FIFOで落ちたマークは「自然木」に見える)。そこで
+        // 「叩いた位置からの距離」という記録に依存しない第二の歯止めを AND する。
+        // 述語の評価順は 距離 → 材質 → 設置記録 の順で固定すること:
+        //   距離判定はワールドを読まないので範囲外で getBlockAt が走らない。
+        //   材質判定を先に置くので PDC 参照は実際に丸太だった位置(最大 scan-limit 本)だけに収まる。
+        // 2026-07-31 G1 round2 指摘3: その PDC 参照も ScanLookup 経由にしてチャンクごとに1回だけ読む
+        // (isPlaced は copy-on-read で毎回 long[] を丸ごと複製するため、走査で直接呼ぶと
+        //  斧1振りで数十MBの短命オブジェクトがメインスレッドに乗っていた)。走査が終われば捨てる。
+        Predicate<BlockPos> withinReach = TreeScan.withinDistance(originPos,
+                gimmickConfig.treeFellMaxHorizontalDistance(),
+                gimmickConfig.treeFellMaxVerticalDistance());
+        PlacedBlockTracker.ScanLookup placedLookup = placedBlockTracker.newScanLookup();
         Predicate<BlockPos> sameLog = pos -> {
+            if (!withinReach.test(pos)) {
+                return false;
+            }
             Block candidate = world.getBlockAt(pos.x(), pos.y(), pos.z());
-            return candidate.getType() == type && !placedBlockTracker.isPlaced(candidate);
+            return candidate.getType() == type && !placedLookup.isPlaced(candidate);
         };
         BlockPos base = TreeScan.trunkBase(originPos, sameLog);
         List<BlockPos> tree = TreeScan.wholeTree(base, sameLog, gimmickConfig.treeFellScanLimit());

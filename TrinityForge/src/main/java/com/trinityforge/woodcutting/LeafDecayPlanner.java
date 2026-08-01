@@ -89,7 +89,10 @@ public final class LeafDecayPlanner {
      * @param doomed          壊してよい葉の座標(種に近い順)。
      * @param probes          {@code isBreakableLeaf} を実際に呼んだ回数(=世界読みの実測値)。
      * @param budgetExhausted 予算({@link #PROBE_BUDGET_FACTOR} × {@code maxLeaves})に当たって
-     *                        候補収集を打ち切ったか。true なら樹冠の一部が計画に入っていない。
+     *                        候補収集を<b>実際に打ち切ったか</b>。true なら樹冠の一部が計画に
+     *                        入っていない。<b>「予算を使い切った」だけでは true にならない</b> —
+     *                        予算ぴったりで正常終了した走査を異常と報告していたのが
+     *                        2026-07-31 G1 round2 指摘8 の偽陽性。
      */
     public record Plan(List<BlockPos> doomed, int probes, boolean budgetExhausted) {
 
@@ -153,15 +156,22 @@ public final class LeafDecayPlanner {
                 ? Integer.MAX_VALUE
                 : maxLeaves * PROBE_BUDGET_FACTOR;
         int[] probes = {0};
+        // 2026-07-31 G1 round2 指摘8: 「予算を使い切った」と「予算で打ち切った」は別。
+        // 旧実装は probes >= probeBudget を打ち切りの証拠にしていたので、
+        // <b>予算ぴったりで正常終了した</b>走査(枚数上限で BFS が止まった/キューが尽きた)まで
+        // 「異常」と報告し、呼び出し側が誤った対処(leaves-max を上げよ)を促す WARNING を出していた。
+        // 実際に棄却を1回でも返したときだけ true にする。
+        boolean[] truncated = {false};
         Predicate<BlockPos> budgeted = pos -> {
             if (probes[0] >= probeBudget) {
+                truncated[0] = true;
                 return false;
             }
             probes[0]++;
             return isBreakableLeaf.test(pos);
         };
         List<BlockPos> canopy = VeinMiningAlgorithm.collectFrom(treeLogs, budgeted, maxLeaves);
-        boolean exhausted = probes[0] >= probeBudget;
+        boolean exhausted = truncated[0];
         if (!decayOnly || canopy.isEmpty()) {
             return new Plan(canopy, probes[0], exhausted);
         }
