@@ -237,4 +237,37 @@ public final class ItemData {
         }
         container.set(PdcKeys.ITEM_COATING_FLAT_DAMAGE, PersistentDataType.DOUBLE, amount);
     }
+
+    /**
+     * このスタックがクリエイティブ由来か(2026-07-31)。詳細と限界は
+     * {@link PdcKeys#ITEM_CREATIVE_ORIGIN} の javadoc。absent = false(既存の全アイテム)。
+     */
+    public boolean creativeOrigin() {
+        return container.getOrDefault(
+                PdcKeys.ITEM_CREATIVE_ORIGIN, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** クリエイティブ由来マーカーを刻む。 */
+    public void markCreativeOrigin() {
+        container.set(PdcKeys.ITEM_CREATIVE_ORIGIN, PersistentDataType.BYTE, (byte) 1);
+    }
+
+    /**
+     * クリエイティブ由来マーカーを剥がす(2026-08-01)。
+     *
+     * <p><b>剥がす経路が必要な理由</b>: 刻む側は「クリエイティブで生成された」ことを完全には
+     * 判定できない({@code CollectionListener#onCreativeSet} / {@code onPickup} の javadoc の
+     * 「印が誤って付く」節)。印が付いたスタックは図鑑判定から丸ごと外れるので、誤って付くと
+     * <b>そのスタックは以後どのサバイバル走査でも永久に図鑑に載らない</b>。エラーも通知も出ない
+     * ため、剥がす手段が無いと運用で回復できない。{@code /tf collection unmark} がこれを呼ぶ。
+     *
+     * @return 実際に印を消したら true(元々付いていなければ false)
+     */
+    public boolean clearCreativeOrigin() {
+        if (!creativeOrigin()) {
+            return false;
+        }
+        container.remove(PdcKeys.ITEM_CREATIVE_ORIGIN);
+        return true;
+    }
 }

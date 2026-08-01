@@ -259,3 +259,113 @@ test("醸造ギミックの材料ヒントは custom: を解ける共通ヘル�
   const unknown = win.materialHintEl("custom:no_such");
   assert.equal(unknown.textContent, "カスタム:no_such");
 });
+
+// ============================================================
+// 2026-07-31 (追補): アチーブメント画面の候補が**セッション中ずっと更新されない**問題。
+//
+// 上の「共通の候補源を使う」修正で achievements を ensureCustomItemCandidates() に
+// 差し替えたが、これは module スコープの promise を**一度だけ**解決して保持する実装で
+// 無効化経路が無く、毎回同一の配列インスタンスを返す。揃えた相手の tf-collection は
+// fetchCatalogCandidatesWithMaterials() を毎回呼び直すので、鮮度の流儀が食い違ったまま
+// だった。症状: カタログ画面で新規アイテムを追加して保存 → アチーブメント画面のセレクトに
+// 出てこない(ハードリロードするまで)。
+// ============================================================
+
+/**
+ * app.js から「候補源の2関数」をそのまま切り出して実行する。
+ * app.js 本体は DOM 前提の巨大 IIFE なので丸ごとは動かせないが、この2関数は
+ * api / rememberRevision / rememberBase / window だけに依存するので隔離して実走できる。
+ * (fetchCatalogCandidatesWithMaterials → let customItemCandidatePromise →
+ *  ensureCustomItemCandidates は app.js 内で連続しているので、その範囲を1スライスで取る。)
+ */
+function loadCandidateSources(api) {
+  const app = JS("app.js");
+  const start = app.indexOf("async function fetchCatalogCandidatesWithMaterials()");
+  assert.ok(start >= 0, "fetchCatalogCandidatesWithMaterials が見つからない");
+  const endStart = app.indexOf("function ensureCustomItemCandidates()", start);
+  assert.ok(endStart > start, "ensureCustomItemCandidates が見つからない");
+  // ensureCustomItemCandidates の本体の閉じ括弧まで、波括弧の対応を数えて取る。
+  let depth = 0;
+  let end = -1;
+  for (let i = app.indexOf("{", endStart); i < app.length; i += 1) {
+    if (app[i] === "{") depth += 1;
+    else if (app[i] === "}") {
+      depth -= 1;
+      if (depth === 0) { end = i + 1; break; }
+    }
+  }
+  assert.ok(end > 0, "ensureCustomItemCandidates の本体を切り出せない");
+  const slice = app.slice(start, end);
+  assert.match(slice, /let customItemCandidatePromise/,
+    "2関数の間にあるメモ化用の変数宣言がスライスに入っていない");
+  const win = {
+    buildCatalogCandidates: (catalogData) => Object.keys((catalogData && catalogData.items) || {})
+      .map((id) => ({ id, label: id })),
+    setCustomItemCandidates: () => {}
+  };
+  const factory = new Function("api", "rememberRevision", "rememberBase", "window",
+    `${slice}\nreturn { fetchCatalogCandidatesWithMaterials, ensureCustomItemCandidates };`);
+  return factory(api, () => {}, () => {}, win);
+}
+
+/** catalog の GET 回数を数えつつ、items を後から差し替えられる api スタブ。 */
+function catalogApiStub(items) {
+  const state = { catalogGets: 0 };
+  state.api = async (_method, url) => {
+    if (url === "/api/config/catalog") {
+      state.catalogGets += 1;
+      return { revision: state.catalogGets, data: { items: { ...items } } };
+    }
+    return { revision: 1, data: {} };
+  };
+  return state;
+}
+
+test("共通の候補源は呼ぶたびに読み直す (保存直後の新規アイテムがセレクトに出る)", async () => {
+  const items = { old_item: {} };
+  const stub = catalogApiStub(items);
+  const sources = loadCandidateSources(stub.api);
+
+  const first = await sources.fetchCatalogCandidatesWithMaterials();
+  assert.deepEqual(first.map((c) => c.id), ["old_item"]);
+
+  // カタログ画面で新規アイテムを追加して保存した状態。
+  items.new_item = {};
+  const second = await sources.fetchCatalogCandidatesWithMaterials();
+
+  assert.ok(second.map((c) => c.id).includes("new_item"),
+    "保存後に候補が更新されない(セレクトに新規アイテムが出ない)");
+  assert.equal(stub.catalogGets, 2, "毎回 catalog を読み直していない");
+});
+
+test("ensureCustomItemCandidates は一度しか解決しない (画面の候補源には使えない)", async () => {
+  const items = { old_item: {} };
+  const stub = catalogApiStub(items);
+  const sources = loadCandidateSources(stub.api);
+
+  const first = await sources.ensureCustomItemCandidates();
+  items.new_item = {};
+  const second = await sources.ensureCustomItemCandidates();
+
+  // メモ化そのものは仕様(materialInput のカスタム候補を共通入口で1度だけ温める役)。
+  // だからこそ「画面ごとの catalogCandidates」には使えない、という契約をここで固定する。
+  assert.equal(second, first, "メモ化が外れている(共通入口の追加GETが毎画面で走る)");
+  assert.equal(stub.catalogGets, 1);
+  assert.ok(!second.map((c) => c.id).includes("new_item"),
+    "メモ化 promise は保存後の新規アイテムを見られない");
+});
+
+test("アチーブメント画面の候補は毎回読み直す側へ揃える (図鑑画面と鮮度をそろえる)", () => {
+  const app = JS("app.js");
+  const achievements = /case "tf-achievements": \{[\s\S]*?\n      \}/.exec(app);
+  assert.ok(achievements, "case \"tf-achievements\" が見つからない");
+  // 「なぜ使わないか」はコメントで残すので、判定はコメントを外したコードだけで行う。
+  const body = achievements[0].replace(/^[ \t]*\/\/.*$/gm, "");
+  assert.match(body, /fetchCatalogCandidatesWithMaterials\(\)/,
+    "achievements が毎回読み直す候補源を使っていない");
+  assert.ok(!/ensureCustomItemCandidates\(\)/.test(body),
+    "メモ化 promise を画面の候補源に使っている(保存しても候補が更新されない)");
+  // 兄弟の図鑑画面と同じ関数であること = 鮮度の流儀を食い違わせない。
+  assert.match(/case "tf-collection": \{[\s\S]*?\n      \}/.exec(app)[0],
+    /fetchCatalogCandidatesWithMaterials\(\)/);
+});

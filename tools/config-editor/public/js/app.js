@@ -856,11 +856,13 @@
         // アイテムのセレクトが生ID表示になっていた(実測 55 件中 31 件)。兄弟の tf-collection は
         // 同じファイル内で fetchCatalogCandidatesWithMaterials() を使っており、画面ごとに流儀が
         // 違うことがこのバグの温床だったので、共通の候補源へ揃える。
-        // ensureCustomItemCandidates() は buildEditorForLoadedConfig の入口で既に await 済みの
-        // メモ化 promise なので、追加 GET は発生しない。
+        // ⚠️ ensureCustomItemCandidates() は使わない。あれは module スコープの promise を
+        // 一度だけ解決して保持する(無効化経路が無い)ので、カタログ画面で新規アイテムを追加して
+        // 保存してもこの画面のセレクトには出てこない(ハードリロードするまで)。
+        // 追加 GET 1回で鮮度を取る方を選び、兄弟の tf-collection と流儀を揃える。
         const [specialRewards, catalogCandidates, collectionData] = await Promise.all([
           loadSpecialRewards(),
-          ensureCustomItemCandidates(),
+          fetchCatalogCandidatesWithMaterials(),
           (async () => { try { const r = await api("GET", "/api/config/collection"); return r && r.data ? r.data : {}; } catch (_) { return {}; } })()
         ]);
         return window.buildAchievementsForm(data, {

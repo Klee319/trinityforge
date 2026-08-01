@@ -286,12 +286,23 @@ class CollectionArsItemRecordingTest {
         assertTrue(PlayerData.of(player).collectionBackfillDone());
     }
 
+    /**
+     * 空のインベントリで参加してもフラグを消費しないこと。
+     *
+     * <p><b>2026-07-31 に仕様を変えた</b>: 元は「初回参加の走査でフラグを消費する」だったが、
+     * 遺物系(エリトラ/トーテム/レコード/バナー模様)はチェストやエンダーチェストへ
+     * しまってあることが多く、初回参加の走査は<b>0件で終わってフラグだけ焼かれていた</b>。
+     * すると抑止したかった「最大16件のチャット＋全体ブロードキャスト」が、後でチェストから
+     * 出した瞬間にそのまま出る。消費条件は「実際に1件以上記録した走査」に限る
+     * (詳細は {@code CollectionListenerGuardsTest})。
+     */
     @Test
-    @DisplayName("2回目以降の参加で見つかった新規登録は従来どおり通知する")
-    void laterJoinsAnnounceNewDiscoveries() {
+    @DisplayName("記録が0件の参加ではフラグを消費せず、その後の初回登録を静かに通す")
+    void emptyJoinKeepsTheBackfillFlagForTheFirstRealDiscovery() {
         Player player = server.addPlayer();
-        join(player); // 空のインベントリで遡り登録を消費する
-        assertTrue(PlayerData.of(player).collectionBackfillDone());
+        join(player); // 空のインベントリ = 記録0件
+        assertFalse(PlayerData.of(player).collectionBackfillDone(),
+                "0件の走査でフラグを焼くと、チェストから出した1回が通知の束になる");
 
         player.getInventory().addItem(new ItemStack(Material.DIAMOND));
         drainMessages(player);
@@ -299,22 +310,33 @@ class CollectionArsItemRecordingTest {
         join(player);
 
         assertTrue(recorded(player, "DIAMOND"));
-        assertTrue(drainMessages(player).stream().anyMatch(m -> m.contains("図鑑に登録")),
-                "抑止は遡り分の1回だけ。以後の新規登録は通知する");
+        assertTrue(drainMessages(player).stream().noneMatch(m -> m.contains("図鑑に登録")),
+                "最初に記録が発生した走査が遡り登録なので、ここが静かになる");
+        assertTrue(PlayerData.of(player).collectionBackfillDone());
     }
 
+    /**
+     * インベントリ閉時の走査も遡り登録の対象にする。
+     *
+     * <p><b>2026-07-31 に仕様を変えた</b>: 元は「インベントリを閉じた走査は必ず通知する」
+     * だったが、それは「参加時の走査だけが遡り扱い」という穴を仕様として固定していた。
+     * チェストに遺物をしまっているプレイヤーが初めて取り出す経路は<b>まさにここ</b>なので、
+     * 最初の productive な走査は経路を問わず静かに行う。2回目以降は従来どおり通知する
+     * (ダンジョンloot直入れ・ガチャ・取引の新規入手)。
+     */
     @Test
-    @DisplayName("インベントリを閉じた走査は遡り扱いにしない")
-    void inventoryCloseScanAlwaysAnnounces() {
+    @DisplayName("インベントリ閉時でも最初に記録が発生した走査は静かに行う")
+    void firstProductiveInventoryCloseScanIsSilent() {
         Player player = server.addPlayer();
         player.getInventory().addItem(new ItemStack(Material.DIAMOND));
         drainMessages(player);
 
         scan(player);
 
-        assertTrue(drainMessages(player).stream().anyMatch(m -> m.contains("図鑑に登録")),
-                "ダンジョンloot直入れ・ガチャ・取引はこの経路で入ってくる新規入手なので通知する");
-        assertFalse(PlayerData.of(player).collectionBackfillDone(),
-                "遡り登録のフラグは参加時の走査だけが消費する");
+        assertTrue(recorded(player, "DIAMOND"));
+        assertTrue(drainMessages(player).stream().noneMatch(m -> m.contains("図鑑に登録")),
+                "チェストから遺物を出した1回がこの経路で来るので、参加時だけを静かにしても効かない");
+        assertTrue(PlayerData.of(player).collectionBackfillDone(),
+                "記録が発生した走査なのでここでフラグを消費する");
     }
 }

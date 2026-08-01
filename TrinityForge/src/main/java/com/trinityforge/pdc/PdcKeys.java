@@ -92,6 +92,38 @@ public final class PdcKeys {
     public static final NamespacedKey ITEM_COATING_STACKS = key("coating_stacks");
     /** Accumulated flat bonus damage from weapon coating materials. */
     public static final NamespacedKey ITEM_COATING_FLAT_DAMAGE = key("coating_flat_damage");
+    /**
+     * クリエイティブ由来マーカー (BYTE=1, 2026-07-31)。「このスタックはクリエイティブで生成された／
+     * クリエイティブ・スペクテイター中に拾われた」ことを<b>アイテム側</b>に刻む。
+     * {@code CollectionListener} はこの印が付いたスタックを図鑑の判定から丸ごと外す。
+     *
+     * <p><b>なぜゲームモード判定だけでは足りないか</b>: 図鑑は「拾った瞬間」だけでなく
+     * <b>インベントリの状態を遡って走査する</b>経路を持つので、クリエイティブで並べた品を
+     * サバイバルへ持ち込んで走査させれば、走査時のゲームモードは SURVIVAL になり
+     * 既存のゲームモードゲートを素通りする(HuskSync がインベントリを同期する構成では
+     * {@code /server} で移るだけで成立する)。行為の瞬間しか見ない他の6箇所
+     * ({@code EquipmentDurabilityService} 等)と違い、図鑑だけは出自をアイテムに残す必要がある。
+     *
+     * <p><b>best-effort である限界(印が失われる側)</b>: クラフト素材として消費した品・別アイテムへ
+     * 変換した品・ブロックとして設置して壊し直した品では印が失われる(新しいスタックになるため)。
+     * 逆に印の付いたスタックは PDC が違うので素の同種スタックと<b>合体しない</b>
+     * (クリエイティブで出した石と survival で拾った石が別スタックになる)。
+     * これらは「クリエイティブ品が図鑑を無料で埋める」ことを塞ぐ代償として受け入れている。
+     *
+     * <p><b>best-effort である限界(印が誤って付く側 — 2026-08-01 追記)</b>: こちらの方が症状が重い。
+     * 誤って付くと<b>そのスタックは以後どのサバイバル走査でも永久に図鑑に載らない</b>のに、
+     * エラーも通知も出ない。判明している誤付与経路は
+     * <ul>
+     *   <li>クリエイティブ滞在中に<b>地面から拾った</b>品(モブ討伐ドロップ・他プレイヤーの落とし物・
+     *       資源サーバから持ち帰った品を落として拾い直した場合)。地面のスタックからは出自を
+     *       判定する手掛かりが一切取れないため絞れない。</li>
+     *   <li>クリエイティブ画面での整理のうち、「持ち上げ→置き直し」の対応付けに失敗したもの
+     *       ({@code CollectionListener#onCreativeSet} の限界。同種の品を複数同時に juggle した場合など)。</li>
+     * </ul>
+     * <b>回復手段は {@code /tf collection unmark}</b>(OP または {@code trinityforge.admin})。
+     * {@link com.trinityforge.pdc.ItemData#clearCreativeOrigin()} がその実体。
+     */
+    public static final NamespacedKey ITEM_CREATIVE_ORIGIN = key("creative_origin");
 
     // --- Player (PROGRESSION / UNLOCK / ROLE): perks, prestige, role are the unlock truth. ---
     public static final NamespacedKey PLAYER_PRESTIGE_COUNT = key("prestige_count");
