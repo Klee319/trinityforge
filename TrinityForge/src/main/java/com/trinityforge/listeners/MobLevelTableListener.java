@@ -9,6 +9,7 @@ import com.trinityforge.pdc.MobData;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -161,7 +163,15 @@ public final class MobLevelTableListener implements Listener {
         // vanilla-exp は通す — 削除は報酬ではないし、バニラEXPはオーブ回収時の
         // PlayerExpChangeEvent 側(AfkSuppressionListener)で 0 にされるので、ここで二重に止めない。
         List<LevelTierDropEntry> addDrops = isGated(entity.getKiller()) ? List.of() : rule.addDrops();
+        // 2026-08-02 柱7: roles: 指定のあるエントリはキルしたプレイヤーの職業で絞る。
+        // 未指定(空)のエントリしか無いときは PDC を一切読まない(既存の挙動と同じコストに保つ)。
+        Set<String> killerRoles = addDrops.stream().anyMatch(d -> !d.roles().isEmpty())
+                ? rolesOf(entity.getKiller())
+                : Set.of();
         for (LevelTierDropEntry drop : addDrops) {
+            if (!drop.allowsRoles(killerRoles)) {
+                continue;
+            }
             // 2026-07-25 レベルテーブルのモブ別ドロップ指定拡張(§2-A) + 2026-07-26 mob-ids 追加:
             // 未指定(空)なら従来どおり全モブに適用、指定時はそのEntityType/モブidのキルだけに絞り込む。
             if (!drop.appliesTo(mobType, profileId)) {
@@ -200,6 +210,18 @@ public final class MobLevelTableListener implements Listener {
      *                 持たないので日本語表示名までは出せない — 名前が要る警告は
      *                 {@code MobOverrideDropListener} 側が日本語名付きで出す。
      */
+    /** キルしたプレイヤーの戦闘職・補助職。プレイヤー以外/未選択なら空。 */
+    private static Set<String> rolesOf(Player killer) {
+        if (killer == null) {
+            return Set.of();
+        }
+        com.trinityforge.pdc.PlayerData data = com.trinityforge.pdc.PlayerData.of(killer);
+        Set<String> roles = new java.util.LinkedHashSet<>();
+        data.rolePrimary().ifPresent(roles::add);
+        data.roleSupport().ifPresent(roles::add);
+        return roles;
+    }
+
     private ItemStack buildDropStack(LevelTierDropEntry drop, int count, String mobLabel) {
         if (!drop.isCustom()) {
             return new ItemStack(drop.material(), count);

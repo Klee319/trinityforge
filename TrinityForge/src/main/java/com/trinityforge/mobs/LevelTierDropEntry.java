@@ -34,9 +34,12 @@ import java.util.Set;
  * @param max       maximum stack size (inclusive), &gt;= {@code min}
  * @param targets   which mobs this entry applies to ({@code mobs:} EntityType axis + {@code mob-ids:}
  *                  EliteMobsモブid axis); {@link MobTargetFilter#EMPTY} = every mob (back-compat default)
+ * @param roles     {@code roles:} — キルしたプレイヤーの職業がこの集合に含まれるときだけロールする
+ *                  (2026-08-02 柱7)。空 = 職業を問わない(後方互換の既定)。IDは
+ *                  {@code progression/role-buffs.yml} のキーと同じ正規化(小文字)で保持する
  */
 public record LevelTierDropEntry(Material material, String catalogId, double chance, int min, int max,
-                                  MobTargetFilter targets) {
+                                  MobTargetFilter targets, Set<String> roles) {
 
     public LevelTierDropEntry {
         int itemSet = (material != null ? 1 : 0) + (catalogId != null ? 1 : 0);
@@ -56,16 +59,29 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
             throw new IllegalArgumentException("min must be <= max: min=" + min + " max=" + max);
         }
         targets = targets == null ? MobTargetFilter.EMPTY : targets;
+        roles = roles == null ? Set.of() : Set.copyOf(roles);
     }
 
     public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
                                                  MobTargetFilter targets) {
-        return new LevelTierDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max, targets);
+        return ofMaterial(material, chance, min, max, targets, Set.of());
     }
 
     public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
                                                 MobTargetFilter targets) {
-        return new LevelTierDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"), chance, min, max, targets);
+        return ofCatalog(catalogId, chance, min, max, targets, Set.of());
+    }
+
+    public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
+                                                 MobTargetFilter targets, Set<String> roles) {
+        return new LevelTierDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max,
+                targets, roles);
+    }
+
+    public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
+                                                MobTargetFilter targets, Set<String> roles) {
+        return new LevelTierDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"), chance, min, max,
+                targets, roles);
     }
 
     /** Back-compat overload for callers/tests that only narrow by {@link EntityType}. */
@@ -100,5 +116,24 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
     /** Back-compat: matches on the {@link EntityType} axis only (no mob id available at the call site). */
     public boolean appliesTo(EntityType type) {
         return appliesTo(type, null);
+    }
+
+    /**
+     * {@code true} when the killer's roles satisfy {@code roles:} — 空の {@code roles:} は常に一致する
+     * (職業を問わない従来どおりの挙動)。{@code killerRoles} は戦闘職・補助職の両方を渡してよい。
+     */
+    public boolean allowsRoles(Set<String> killerRoles) {
+        if (roles.isEmpty()) {
+            return true;
+        }
+        if (killerRoles == null || killerRoles.isEmpty()) {
+            return false;
+        }
+        for (String role : killerRoles) {
+            if (role != null && roles.contains(role.trim().toLowerCase(java.util.Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

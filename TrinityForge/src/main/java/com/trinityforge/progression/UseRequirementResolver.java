@@ -17,9 +17,20 @@ import java.util.Optional;
  */
 public final class UseRequirementResolver {
 
-    public record Resolved(String skill, int level) {
+    public record Resolved(String skill, int level, String role) {
+
+        /** ロール条件を持たない従来どおりの結果。既存の呼び出し側はこちらのまま。 */
+        public Resolved(String skill, int level) {
+            this(skill, level, null);
+        }
+
         public boolean hasSkill() {
             return skill != null && !skill.isBlank();
+        }
+
+        /** ロール専用装備か（{@code use-role} が書かれているか）。 */
+        public boolean hasRole() {
+            return role != null && !role.isBlank();
         }
     }
 
@@ -39,9 +50,9 @@ public final class UseRequirementResolver {
 
         if (itemStats.profileFor(stack.getType(), cmd).isPresent()) {
             Optional<ItemUseRequirement> live = itemStats.useRequirementFor(stack.getType(), cmd);
-            if (live.isPresent() && live.get().hasSkill()) {
+            if (live.isPresent() && (live.get().hasSkill() || live.get().hasRole())) {
                 ItemUseRequirement req = live.get();
-                return Optional.of(new Resolved(req.skill(), req.level()));
+                return Optional.of(new Resolved(req.skill(), req.level(), req.role()));
             }
             // item-stats プロファイルはあるが use-skill 未設定 → ItemAssembler が catalog から
             // 刻印した PDC をフォールバック( loot/creative 等で editor 側 use gate のみあるケース)。

@@ -153,6 +153,13 @@ public final class ItemStatsConfig {
         if (raw.hasSkill()) {
             return Optional.of(raw);
         }
+        if (raw.hasRole()) {
+            // use-skill が無くても use-role だけで要件になる。ここで empty を返すと
+            // ロール条件が黙って消える(装備制限が一切かからない)。
+            return Optional.of(UseSkillDefaults.infer(material, customModelData)
+                    .map(skill -> new ItemUseRequirement(raw.levelOrZero(), skill, raw.role()))
+                    .orElse(raw));
+        }
         return UseSkillDefaults.infer(material, customModelData)
                 .map(skill -> new ItemUseRequirement(raw.levelOrZero(), skill));
     }
@@ -434,7 +441,8 @@ public final class ItemStatsConfig {
                             parseMultipliers(entry)));  // may throw -> skip item
                     ItemUseRequirement useReq = parseUseRequirement(entry);
                     // Keep skill-only OR level-authored rows (level-only needs UseSkillDefaults later).
-                    if (useReq.hasSkill() || entry.contains("use-level-requirement")) {
+                    if (useReq.hasSkill() || useReq.hasRole()
+                            || entry.contains("use-level-requirement")) {
                         parsedUse.put(normalizedKey, useReq);
                     }
                     Integer offset = parseQualityModeOffset(entry);
@@ -673,7 +681,7 @@ public final class ItemStatsConfig {
     private static boolean isLegacyFallbackKey(String key) {
         return switch (key) {
             case "fixed", "per-quality", "random", "durability", "offhand-stats-apply",
-                 "advanced", "use-skill", "use-level-requirement" -> true;
+                 "advanced", "use-skill", "use-level-requirement", "use-role" -> true;
             default -> false;
         };
     }
@@ -893,6 +901,6 @@ public final class ItemStatsConfig {
         if (skill != null && skill.isBlank()) {
             skill = null;
         }
-        return new ItemUseRequirement(level, skill);
+        return new ItemUseRequirement(level, skill, entry.getString("use-role"));
     }
 }

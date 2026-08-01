@@ -270,6 +270,36 @@
   // opts.allowEmpty:false のときは空選択を出さない (craft-quality の category-skill 用。
   // カテゴリは必ずスキルを持つため「未設定=削除」を提示しない)。
   // 現在値がリストに無ければロスレス表示のため選択肢に補う。
+  // progression/role-buffs.yml のキーと一致させること。ここがずれると
+  // 「エディタで選べるのに実行時は一致しない」という無言の不一致になる。
+  const USE_ROLE_IDS = [
+    "swordfighter", "mage", "tank",
+    "farmer", "fisher", "miner", "digger", "woodcutter"
+  ];
+
+  function roleSelect(value, onChange) {
+    const cur = value == null ? "" : String(value);
+    const label = window.LABELS ? window.LABELS.enumLabel : (g, v) => v;
+    const ids = USE_ROLE_IDS.slice();
+    if (cur && !ids.includes(cur)) ids.push(cur);
+    const optsList = [{ value: "", primary: "(職業を問わない)", secondary: "" }];
+    for (const id of ids) {
+      const ja = label("use-role", id);
+      optsList.push({
+        value: id,
+        primary: ja && ja !== id ? ja : id,
+        secondary: ja && ja !== id ? id : "",
+        title: id
+      });
+    }
+    return window.listSelect({
+      value: cur,
+      options: optsList,
+      placeholder: "(職業を問わない)",
+      onChange
+    });
+  }
+
   function skillSelect(value, onChange, opts) {
     const allowEmpty = !opts || opts.allowEmpty !== false;
     const cur = value == null ? "" : String(value);
@@ -309,7 +339,7 @@
   ];
   const LEGACY_FALLBACK_KEYS = new Set([
     "fixed", "per-quality", "random", "durability", "offhand-stats-apply",
-    "advanced", "use-skill", "use-level-requirement", "lore-default"
+    "advanced", "use-skill", "use-level-requirement", "use-role", "lore-default"
   ]);
   // 「特殊アイテム」画面(機能アイテムカテゴリ)へ集約済みの TF 特殊アイテム。唯一の正典は
   // functional-items.js の TF_SPECIAL_ITEM_IDS で、ここでは二重管理せず参照するだけにする。
@@ -1556,6 +1586,13 @@
           else entry["use-skill"] = v;
         })));
       }
+
+      // 専用職業 (use-role): この職業に就いているときだけ装備/使用できる。
+      // 使用スキルとは独立した条件で、両方書けば両方満たす必要がある(UseRequirementService)。
+      grid.appendChild(fieldRow("use-role", roleSelect(entry["use-role"], (v) => {
+        if (!v) delete entry["use-role"];
+        else entry["use-role"] = v;
+      })));
 
       // 品質基準値 (quality-mode-offset): クラフト品質modeのオフセット。負値可。
       // 空欄=キー削除(デフォルト=クラフトユーザの品質ポイント通り)。

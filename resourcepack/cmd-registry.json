@@ -3619,6 +3619,62 @@
       "id": "infinity_source_core",
       "source": "fork-arspaper",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 5760,
+      "id": "gladiator_belt",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5760,
+      "id": "chanter_ring",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_CHESTPLATE",
+      "cmd": 5760,
+      "id": "taunt_crest",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 5761,
+      "id": "harvest_basket",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 5760,
+      "id": "tide_float",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 5761,
+      "id": "pit_lamp",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 5762,
+      "id": "leveling_gloves",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
+    },
+    {
+      "material": "AMETHYST_SHARD",
+      "cmd": 5761,
+      "id": "woodsman_whetstone",
+      "source": "catalog",
+      "allocatedAt": "2026-08-02T00:00:00.000Z"
     }
   ]
 }

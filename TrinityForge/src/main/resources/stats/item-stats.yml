@@ -9768,6 +9768,162 @@ items:
         min: 0
         max: 0.6
 
+
+  # ===== ロール専用装備8点 (柱7) =====
+  LEATHER_CHESTPLATE#5760:
+    fixed:
+      armor-defense-rate: 2
+      durability: 269
+      phys-resistance: 0.138465
+      phys-flat-defense: 9.04
+      dodge-chance: 0.0272
+      max-health: 7.2
+      thread-slots: 1
+      penetration: 0.04
+    per-quality:
+      durability: 45
+    use-level-requirement: 45
+    use-role: swordfighter
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 3.4
+      max-health:
+        min: 0
+        max: 2.4
+  AMETHYST_SHARD#5760:
+    fixed:
+      mana-cost-reduction-percent: 0.06
+    offhand-stats-apply: true
+    use-level-requirement: 45
+    use-role: mage
+  NETHERITE_CHESTPLATE#5760:
+    fixed:
+      armor-defense-rate: 4
+      durability: 316
+      phys-resistance: 0.04758
+      phys-flat-defense: 9.04
+      max-health: 7.2
+      move-speed: -0.004
+      thread-slots: 1
+      damage-reduction: 0.02
+      knockback-resistance: 0.05
+    per-quality:
+      durability: 53
+    use-level-requirement: 45
+    use-role: tank
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 3.4
+      max-health:
+        min: 0
+        max: 2.4
+  LEATHER_CHESTPLATE#5761:
+    fixed:
+      armor-defense-rate: 2
+      durability: 269
+      phys-resistance: 0.138465
+      phys-flat-defense: 9.04
+      dodge-chance: 0.0272
+      max-health: 7.2
+      thread-slots: 1
+      harvest-extra-drop-chance: 0.1
+    per-quality:
+      durability: 45
+    use-level-requirement: 45
+    use-role: farmer
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 3.4
+      max-health:
+        min: 0
+        max: 2.4
+  LEATHER_HELMET#5760:
+    fixed:
+      armor-defense-rate: 1
+      durability: 184
+      phys-resistance: 0.051935
+      phys-flat-defense: 3.39
+      armor-strength: 0.049
+      dodge-chance: 0.040375
+      max-health: 2.7
+      thread-slots: 1
+      fishing-luck: 0.02
+    per-quality:
+      durability: 31
+    use-level-requirement: 45
+    use-role: fisher
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 1.27
+      max-health:
+        min: 0
+        max: 0.9
+  LEATHER_HELMET#5761:
+    fixed:
+      armor-defense-rate: 1
+      durability: 184
+      phys-resistance: 0.051935
+      phys-flat-defense: 3.39
+      armor-strength: 0.049
+      dodge-chance: 0.040375
+      max-health: 2.7
+      thread-slots: 1
+      mining-fortune: 0.01
+    per-quality:
+      durability: 31
+    use-level-requirement: 45
+    use-role: miner
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 1.27
+      max-health:
+        min: 0
+        max: 0.9
+  LEATHER_CHESTPLATE#5762:
+    fixed:
+      armor-defense-rate: 2
+      durability: 269
+      phys-resistance: 0.138465
+      phys-flat-defense: 9.04
+      dodge-chance: 0.0272
+      max-health: 7.2
+      thread-slots: 1
+      suspicious-respawn-chance: 0.01
+    per-quality:
+      durability: 45
+    use-level-requirement: 45
+    use-role: digger
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -5
+    random:
+      phys-flat-defense:
+        min: 0
+        max: 3.4
+      max-health:
+        min: 0
+        max: 2.4
+  AMETHYST_SHARD#5761:
+    fixed:
+      tree-fell-cooldown-reduction: 0.15
+    offhand-stats-apply: true
+    use-level-requirement: 45
+    use-role: woodcutter
+
 _editor:
   categories:
     weapon:
@@ -10035,6 +10191,8 @@ _editor:
           - BLAZE_ROD#400006
           - BLAZE_ROD#400007
           - BLAZE_ROD#400012
+          - AMETHYST_SHARD#5761
+          - AMETHYST_SHARD#5760
           - BLAZE_ROD#400013
           - BLAZE_ROD#400014
       - id: cat_20260723_触媒
@@ -10230,9 +10388,15 @@ _editor:
         label: インフィニティ
         itemIds:
           - NETHERITE_HELMET#148
+          - LEATHER_HELMET#5761
+          - LEATHER_HELMET#5760
           - NETHERITE_HELMET#5740
           - NETHERITE_HELMET#5720
           - NETHERITE_CHESTPLATE#151
+          - LEATHER_CHESTPLATE#5762
+          - LEATHER_CHESTPLATE#5761
+          - NETHERITE_CHESTPLATE#5760
+          - LEATHER_CHESTPLATE#5760
           - NETHERITE_CHESTPLATE#5741
           - NETHERITE_CHESTPLATE#5740
           - NETHERITE_CHESTPLATE#5720
@@ -10489,6 +10653,8 @@ _editor:
     BLAZE_ROD#400006: catalyst
     BLAZE_ROD#400007: catalyst
     BLAZE_ROD#400012: catalyst
+    AMETHYST_SHARD#5761: catalyst
+    AMETHYST_SHARD#5760: catalyst
     BLAZE_ROD#400013: catalyst
     BLAZE_ROD#400014: catalyst
     BLAZE_ROD#400001: catalyst
@@ -10604,9 +10770,15 @@ _editor:
     NETHERITE_LEGGINGS#156: armor
     NETHERITE_BOOTS#159: armor
     NETHERITE_HELMET#148: armor
+    LEATHER_HELMET#5761: armor
+    LEATHER_HELMET#5760: armor
     NETHERITE_HELMET#5740: armor
     NETHERITE_HELMET#5720: armor
     NETHERITE_CHESTPLATE#151: armor
+    LEATHER_CHESTPLATE#5762: armor
+    LEATHER_CHESTPLATE#5761: armor
+    NETHERITE_CHESTPLATE#5760: armor
+    LEATHER_CHESTPLATE#5760: armor
     NETHERITE_CHESTPLATE#5741: armor
     NETHERITE_CHESTPLATE#5740: armor
     NETHERITE_CHESTPLATE#5720: armor
@@ -10899,6 +11071,8 @@ _editor:
       - BLAZE_ROD#400006
       - BLAZE_ROD#400007
       - BLAZE_ROD#400012
+      - AMETHYST_SHARD#5761
+      - AMETHYST_SHARD#5760
       - BLAZE_ROD#400013
       - BLAZE_ROD#400014
       - BLAZE_ROD#400001
@@ -11025,9 +11199,15 @@ _editor:
       - NETHERITE_LEGGINGS#156
       - NETHERITE_BOOTS#159
       - NETHERITE_HELMET#148
+      - LEATHER_HELMET#5761
+      - LEATHER_HELMET#5760
       - NETHERITE_HELMET#5740
       - NETHERITE_HELMET#5720
       - NETHERITE_CHESTPLATE#151
+      - LEATHER_CHESTPLATE#5762
+      - LEATHER_CHESTPLATE#5761
+      - NETHERITE_CHESTPLATE#5760
+      - LEATHER_CHESTPLATE#5760
       - NETHERITE_CHESTPLATE#5741
       - NETHERITE_CHESTPLATE#5740
       - NETHERITE_CHESTPLATE#5720

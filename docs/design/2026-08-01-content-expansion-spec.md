@@ -75,6 +75,22 @@ Lv30 用に `phys-flat-defense` を新規に作ると §0-1 の発散リスク�
 ツール2点（`harvest_hoe` / `leyline_shovel`）は防具ラダーに関わらないので Lv30 のまま。
 結果の分布は **30 / 35 / 45 / 60** で、「Lv100帯を増やさない」という §4 の狙いは満たしている。
 
+### 0-6. 柱7 の効果2件は既存の仕組みに無かったので置き換えた（2026-08-02）
+
+| 表の効果 | 実在するか | 採用した効果 |
+|---|---|---|
+| `taunt_crest` の「hate係数 +0.3」 | **ヘイト（敵対度）の機構自体が無い** | `damage-reduction` +0.02 に `knockback-resistance` +0.05 を足した（前に出る役の性格は残る） |
+| `pit_lamp` の「採掘ギミック発動率 +1%」 | 発動率を外から動かすステが無い | `mining-fortune` +0.01 |
+| `leveling_gloves` の「掘削ギミック発動率 +1%」 | 同上 | `suspicious-respawn-chance` +0.01（怪しいブロックの復活 — 掘削の稼ぎ口そのもの） |
+| `woodsman_whetstone` の「一括伐採CT −15%」 | **`tree-fell-cooldown-reduction` が実在した** | そのまま採用 |
+
+### 0-7. 装飾品2点はオフハンド装備にした
+
+`chanter_ring` / `woodsman_whetstone` は `AMETHYST_SHARD` で、防具スロットに入らない。
+`PlayerStatAggregator` が読むのは **防具4部位・メインハンド・オフハンド** だけなので、
+インベントリに入れているだけではステが一切効かない（＝完全な死にアイテムになる）。
+`offhand-stats-apply: true` を立てて **オフハンドに持つと効く装飾品**とした。
+
 ### 0-5. 「伐採EXP +15%」等は専用ステキーを新設して表現した
 
 §4 の「必ず守る2点」の1点目（`use-skill` を分類マーカーに使わない）を満たす手段が

@@ -7,9 +7,9 @@ package com.trinityforge.stats;
  * <p>A skill-less row may still be authored (level only); callers resolve a default skill via
  * {@link UseSkillDefaults} before stamping. Missing level falls back to {@code 0}.
  */
-public record ItemUseRequirement(int level, String skill) {
+public record ItemUseRequirement(int level, String skill, String role) {
 
-    public static final ItemUseRequirement NONE = new ItemUseRequirement(0, null);
+    public static final ItemUseRequirement NONE = new ItemUseRequirement(0, null, null);
 
     public ItemUseRequirement {
         if (level < 0) {
@@ -18,6 +18,28 @@ public record ItemUseRequirement(int level, String skill) {
         if (skill != null && skill.isBlank()) {
             skill = null;
         }
+        role = normalizeRole(role);
+    }
+
+    /** ロール条件を持たない従来どおりの要件。既存の呼び出し側はこちらのまま。 */
+    public ItemUseRequirement(int level, String skill) {
+        this(level, skill, null);
+    }
+
+    /**
+     * ロールIDは {@code progression/role-buffs.yml} のキーと同じ正規化(小文字・前後空白除去)。
+     * ここで揃えておかないと「Farmer」と書いた yml が黙って一致しなくなる。
+     */
+    public static String normalizeRole(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return raw.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** ロール条件が書かれているか。 */
+    public boolean hasRole() {
+        return role != null;
     }
 
     /** True when the gate has a skill and a positive level (enforced when {@code enforce} is on). */

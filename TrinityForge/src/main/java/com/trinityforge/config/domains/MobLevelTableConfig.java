@@ -294,13 +294,15 @@ public final class MobLevelTableConfig implements LoadableConfig {
             MobFilterResult mobFilter = parseTargetFilter(map.get("mobs"), map.get("mob-ids"),
                     "min-level=" + minLevel + " add-drops for " + label, log);
             skipped += mobFilter.skipped();
+            Set<String> roles = parseRoleFilter(map.get("roles"),
+                    "min-level=" + minLevel + " add-drops for " + label, log);
             try {
                 double chance = clamp01(requireDouble(map, "chance", minLevel, label, log));
                 int min = requireInt(map, "min", minLevel, label, log);
                 int max = requireInt(map, "max", minLevel, label, log);
                 drops.add(catalogId != null
-                        ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets())
-                        : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets()));
+                        ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets(), roles)
+                        : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets(), roles));
             } catch (IllegalArgumentException ex) {
                 log.warning("[" + PATH + "] min-level=" + minLevel + " add-drops for " + label + " invalid ("
                         + ex.getMessage() + "); skipped");
@@ -308,6 +310,34 @@ public final class MobLevelTableConfig implements LoadableConfig {
             }
         }
         return new AddDropsResult(drops, skipped);
+    }
+
+    /**
+     * {@code roles:} — キルしたプレイヤーの職業でこのエントリを絞る(2026-08-02 柱7)。
+     * 未指定/空なら空集合＝職業を問わない(後方互換)。IDは {@code progression/role-buffs.yml} の
+     * キーと同じ正規化(小文字・前後空白除去)で持つ — 揃えないと「Farmer」と書いた yml が黙って外れる。
+     *
+     * <p>存在しない職業IDかどうかはここでは判定しない。role-buffs.yml は別ドメイン設定で
+     * ロード順が保証されないため、ここで弾くと「順番次第で消える」不安定な挙動になる。
+     */
+    private static Set<String> parseRoleFilter(Object rolesRaw, String context, Logger log) {
+        if (rolesRaw == null) {
+            return Set.of();
+        }
+        if (!(rolesRaw instanceof List<?> list)) {
+            log.warning("[" + PATH + "] " + context + " 'roles' must be a list; ignored");
+            return Set.of();
+        }
+        Set<String> roles = new LinkedHashSet<>();
+        for (Object entry : list) {
+            String name = entry == null ? null : String.valueOf(entry).trim();
+            if (name == null || name.isBlank()) {
+                log.warning("[" + PATH + "] " + context + " has a blank 'roles' entry; skipped");
+                continue;
+            }
+            roles.add(name.toLowerCase(Locale.ROOT));
+        }
+        return Set.copyOf(roles);
     }
 
     /**

@@ -298,6 +298,7 @@
     "use-level-requirement": { label: "使用可能レベル", desc: "装備/使用に必要なレベル。0以上の整数。" },
     "quality-mode-offset": { label: "品質基準値", desc: "このアイテムの品質抽選の中心(mode)をずらすオフセット。クラフト、モブドロップ、拾得ルート、釣りで得る装備に共通して適用される。+1ならmodeが+1、-1ならmodeが-1。空欄は0。" },
     "use-skill": { label: "使用スキル", desc: "紐づくスキル系統。例: HEAVY_WEAPONS" },
+    "use-role": { label: "専用職業", desc: "この職業に就いているときだけ装備/使用できる。空欄=職業を問わない。使用スキルとは別条件で、両方書けば両方満たす必要がある。" },
     // armors.yml
     "display_name_prefix": { label: "表示名の接頭辞", desc: "防具名の先頭に付く文字列。" },
     "name_color": { label: "名前の色", desc: "&d などの色コード、または #RRGGBB。" },
@@ -576,6 +577,12 @@
       "DIGGING": "切削", "ENCHANTING": "エンチャント", "FARMING": "農業", "FISHING": "釣り",
       "HEAVY_ARMOR": "重装備", "HEAVY_WEAPONS": "重量武器", "LIGHT_ARMOR": "軽装備",
       "LIGHT_WEAPONS": "軽量武器", "MINING": "採掘", "SMITHING": "鍛冶", "WOODCUTTING": "伐採"
+    },
+    // item-stats.yml use-role (職業)。progression/role-buffs.yml のキーと一致させること。
+    "use-role": {
+      "swordfighter": "剣闘士", "mage": "魔導士", "tank": "盾役",
+      "farmer": "農家", "fisher": "釣り人", "miner": "坑夫",
+      "digger": "掘削者", "woodcutter": "木こり"
     },
     // items.yml (ars-recipes)
     "method": { "workbench": "作業台", "ritual": "儀式", "combine": "合成", "netherite": "ネザライト化" },

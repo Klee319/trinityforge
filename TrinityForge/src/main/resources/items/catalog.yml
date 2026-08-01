@@ -5892,6 +5892,148 @@ items:
     - <dark_gray><italic>一歩も下がらないための重さ。</italic></dark_gray>
     - <gray>ノックバック耐性が上がる。</gray>
 
+
+  # ===== ロール専用装備8点 (柱7) — use-role の最初の使い所 =====
+  # 縦強化にしない。ステは単発装備と同等で、差は「そのロールでないと装備できない」ことだけ。
+  # ロール変更CTが120分あるので「今日はこの職で遊ぶ」を選ぶ理由になる。
+  # 防具5点の phys-flat-defense は Lv45 のバニラ相当部位と同値のまま動かしていない。
+  gladiator_belt:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#b48ee0>闘士の帯</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - IRON_BLOCK x1   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>締めた瞬間、間合いが変わる。</italic></dark_gray>
+    - <gray>剣闘士だけが身に着けられる。貫通率が上がる。</gray>
+  chanter_ring:
+    material: AMETHYST_SHARD
+    display-name: <color:#b48ee0>詠唱者の指輪</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - LAPIS_BLOCK x1   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>唱えるより先に、指が覚えている。</italic></dark_gray>
+    - <gray>魔導士だけが使える装飾品。オフハンドに持つとマナ消費が減る。</gray>
+  taunt_crest:
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#b48ee0>挑発の紋章</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - SHIELD x1   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>前に出る者にしか、これは似合わない。</italic></dark_gray>
+    - <gray>盾役だけが身に着けられる。被ダメージとノックバックを抑える。</gray>
+  harvest_basket:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#b48ee0>実りの籠</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - HAY_BLOCK x1   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>背負ったぶんだけ、持って帰れる。</italic></dark_gray>
+    - <gray>農家だけが身に着けられる。収穫の追加ドロップ率が上がる。</gray>
+  tide_float:
+    material: LEATHER_HELMET
+    display-name: <color:#b48ee0>潮見の浮き</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - NAUTILUS_SHELL x1   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>沈む速さで、下にいるものが分かる。</italic></dark_gray>
+    - <gray>釣り人だけが身に着けられる。釣り運が上がる。</gray>
+  pit_lamp:
+    material: LEATHER_HELMET
+    display-name: <color:#b48ee0>坑夫の灯</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - FLINT x1   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>暗いほど、見えるものがある。</italic></dark_gray>
+    - <gray>坑夫だけが身に着けられる。採掘運が上がる。</gray>
+  leveling_gloves:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#b48ee0>均しの手袋</color>
+    custom-model-data: 5762
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - DIRT x8   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>掘るより、均すほうが難しい。</italic></dark_gray>
+    - <gray>掘削者だけが身に着けられる。怪しいブロックが復活しやすくなる。</gray>
+  woodsman_whetstone:
+    material: AMETHYST_SHARD
+    display-name: <color:#b48ee0>樵の砥石</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+      - custom:hard_metal x2
+      - OAK_LOG x8   # 職ごとの識別素材(無いと findFirst で潰れる)
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+    - ''
+    - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
+    - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
+
 _editor:
   categories:
     weapon:
@@ -6140,6 +6282,8 @@ _editor:
           - diamond_cane
           - netherite_cane
           - infinity_cane
+          - woodsman_whetstone
+          - chanter_ring
           - dragon_cane
           - wither_cane
       - id: cat_20260723_触媒
@@ -6257,10 +6401,16 @@ _editor:
           - bedrock_greaves
           - emberforge_boots
           - infinity_chestplate
+          - leveling_gloves
+          - harvest_basket
+          - taunt_crest
+          - gladiator_belt
           - feast_breastplate
           - forestfolk_cloak
           - emberforge_chestplate
           - infinity_helmet
+          - pit_lamp
+          - tide_float
           - herb_hat
           - emberforge_helmet
           - infinity_leggings
@@ -6503,6 +6653,8 @@ _editor:
       - diamond_cane
       - netherite_cane
       - infinity_cane
+      - woodsman_whetstone
+      - chanter_ring
       - dragon_cane
       - wither_cane
     tool:
@@ -6532,9 +6684,15 @@ _editor:
       - wither_leggings
       - wither_boots
       - infinity_helmet
+      - pit_lamp
+      - tide_float
       - herb_hat
       - emberforge_helmet
       - infinity_chestplate
+      - leveling_gloves
+      - harvest_basket
+      - taunt_crest
+      - gladiator_belt
       - feast_breastplate
       - forestfolk_cloak
       - emberforge_chestplate
@@ -6769,6 +6927,8 @@ _editor:
     emberforge_crossbow: weapon
     cryocore_crossbow: weapon
     infinity_cane: catalyst
+    woodsman_whetstone: catalyst
+    chanter_ring: catalyst
     dragon_cane: catalyst
     wither_cane: catalyst
     source_gem_grate_sword: weapon

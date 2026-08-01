@@ -2,6 +2,7 @@ package com.trinityforge.progression;
 
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.UseRequirementsConfig;
+import com.trinityforge.pdc.PlayerData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
@@ -39,8 +40,26 @@ public final class UseRequirementService {
             return Optional.empty();
         }
         return UseRequirementResolver.resolve(item, itemStats)
-                .filter(req -> !UseRequirementPolicy.meets(
-                        req.skill(), req.level(), skillLevelSource.levelsOf(player.getUniqueId())));
+                .filter(req -> !meetsSkill(player, req) || !meetsRole(player, req));
+    }
+
+    private boolean meetsSkill(Player player, UseRequirementResolver.Resolved req) {
+        return UseRequirementPolicy.meets(
+                req.skill(), req.level(), skillLevelSource.levelsOf(player.getUniqueId()));
+    }
+
+    /**
+     * ロール専用装備（{@code use-role}）の判定。戦闘職・補助職の<b>どちらの枠でも</b>一致すれば可。
+     * 枠を分けて判定すると、同じキーで両方の枠を見に行く呼び出し側が要る割に得るものが無い。
+     */
+    private static boolean meetsRole(Player player, UseRequirementResolver.Resolved req) {
+        if (!req.hasRole()) {
+            return true;
+        }
+        PlayerData data = PlayerData.of(player);
+        String required = req.role();
+        return data.rolePrimary().filter(required::equals).isPresent()
+                || data.roleSupport().filter(required::equals).isPresent();
     }
 
     /**
@@ -49,10 +68,19 @@ public final class UseRequirementService {
     public boolean blockedWithMessage(Player player, ItemStack item) {
         return denialFor(player, item)
                 .map(req -> {
-                    player.sendActionBar(denialMessage(req));
+                    player.sendActionBar(meetsRole(player, req)
+                            ? denialMessage(req)
+                            : roleDenialMessage(req));
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /** ロール不一致の拒否文言。レベル不足とは原因が違うので文言も分ける。 */
+    public static Component roleDenialMessage(UseRequirementResolver.Resolved req) {
+        return Component.text(
+                "この装備は職業「" + req.role() + "」専用です",
+                NamedTextColor.RED);
     }
 
     /** 標準の拒否文言 (既存の近接/弓/ツールゲートと同一書式)。 */
