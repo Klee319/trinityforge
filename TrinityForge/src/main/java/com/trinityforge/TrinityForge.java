@@ -708,8 +708,9 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new OverEnchantListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(roleBuffListener, this);
-        // TF装備の砥石: エンチャ除去のみ許可し PDC ステを保全。
-        getServer().getPluginManager().registerEvents(new GrindstonePreserveListener(), this);
+        // TF装備の砥石: エンチャ除去のみ許可し、砥石が剥がす見た目/派生ステを元のロールで復元する(U4)。
+        getServer().getPluginManager().registerEvents(
+                new GrindstonePreserveListener(configManager.itemCatalog(), itemFactory), this);
         // Tool use-level gate (block break) — mirrors CombatListener weapon gate.
         getServer().getPluginManager().registerEvents(
                 new UseRequirementListener(skillLevelSource, configManager.useRequirements(),

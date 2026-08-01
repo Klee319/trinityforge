@@ -125,11 +125,7 @@ public final class ItemFactory {
             leatherMeta.setColor(hexToColor(template.color()));
         }
         if (template.enchantGlow()) {
-            Enchantment glow = Registry.ENCHANTMENT.get(ENCHANT_GLOW_KEY);
-            if (glow != null) {
-                meta.addEnchant(glow, 1, true);
-                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-            }
+            applyEnchantGlow(meta);
         }
 
         ItemData data = ItemData.of(meta);
@@ -149,6 +145,21 @@ public final class ItemFactory {
         // the item's own PDC). Not set by stamp() below: that path is not catalog-sourced.
         data.setCatalogId(template.id());
         return meta;
+    }
+
+    /**
+     * カタログの {@code enchant-glow: true} 由来の隠しエンチャント(+{@link ItemFlag#HIDE_ENCHANTS})を
+     * (再)付与する。{@link #buildIdentity} 以外に、砥石でエンチャントを剥がした後の復元
+     * ({@code GrindstonePreserveListener}) からも呼ぶため public: キー({@link #ENCHANT_GLOW_KEY})を
+     * 呼び出し側で複製すると、glow の実装を変えたときに片方だけ取り残される。
+     */
+    public static void applyEnchantGlow(ItemMeta meta) {
+        Objects.requireNonNull(meta, "meta");
+        Enchantment glow = Registry.ENCHANTMENT.get(ENCHANT_GLOW_KEY);
+        if (glow != null) {
+            meta.addEnchant(glow, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
     }
 
     /**

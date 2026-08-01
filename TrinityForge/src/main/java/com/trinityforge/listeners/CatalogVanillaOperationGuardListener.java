@@ -34,6 +34,7 @@ import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.SmithingInventory;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionType;
@@ -48,6 +49,10 @@ import java.util.Optional;
  * behaviour. Purpose-built TF operations remain available: catalog workbench recipes are handled by
  * {@link CatalogWorkbenchListener}, and declared combine/netherite recipes are allowed here for
  * {@link CatalogAnvilListener}/{@link CatalogSmithingListener} to produce their catalog result.
+ *
+ * <p>砥石/金床は「カタログ品を素材として食う操作」だけを拒否する(U4)。エンチャント除去・
+ * エンチャント本の適用・同一 identity の修理は identity を消費しないので許可する
+ * ({@link #onPrepareGrindstone} / {@link #onPrepareAnvil} の各 javadoc)。
  */
 public final class CatalogVanillaOperationGuardListener implements Listener {
 
@@ -165,19 +170,73 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
         }
     }
 
+    /**
+     * 砥石(U4): 「カタログ identity が消費されてバニラ品に化ける組み合わせ」だけを拒否する。
+     *
+     * <p>許可するのは (a) 片側のスロットだけが埋まっている = 純粋なエンチャント除去、
+     * (b) 両側が同一 catalogId = 同種修理。拒否するのは「片方だけがカタログ品の修理マージ」で、
+     * これは素材側に入れたカタログ品のロール/品質/バインドが黙って消えるため。
+     * {@link PrepareGrindstoneEvent} は Cancellable ではないので拒否は {@code setResult(null)} で行う。
+     *
+     * <p>許可した組み合わせで砥石が剥がす表示名/lore/attribute の復元は
+     * {@link GrindstonePreserveListener}(MONITOR = この判定の後)が担当する。
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrepareGrindstone(PrepareGrindstoneEvent event) {
-        if (containsCatalogItem(event.getInventory())) {
-            event.setResult(null);
+        ItemStack upper = event.getInventory().getItem(0);
+        ItemStack lower = event.getInventory().getItem(1);
+        if (!isCatalog(upper) && !isCatalog(lower)) {
+            return;
         }
+        if (isEmptySlot(upper) || isEmptySlot(lower)) {
+            return;
+        }
+        if (sameCatalogIdentity(upper, lower)) {
+            return;
+        }
+        event.setResult(null);
     }
 
+    /**
+     * 金床(U4): 宣言済み combine レシピに加えて、エンチャント本の適用と同一 identity の修理を許可する。
+     * それ以外(素材アイテムによる修理・改名のみ等、カタログ品を素材として食う操作)は従来どおり拒否。
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrepareAnvil(PrepareAnvilEvent event) {
         AnvilInventory inventory = event.getInventory();
-        if (containsCatalogItem(inventory) && !matchesDeclaredCombine(inventory)) {
-            event.setResult(null);
+        if (!containsCatalogItem(inventory)) {
+            return;
         }
+        if (matchesDeclaredCombine(inventory)
+                || appliesEnchantmentBook(inventory)
+                || sameCatalogIdentity(inventory.getFirstItem(), inventory.getSecondItem())) {
+            return;
+        }
+        event.setResult(null);
+    }
+
+    /** 第2スロットがエンチャント本({@link EnchantmentStorageMeta})なら、その適用は許可する。 */
+    private static boolean appliesEnchantmentBook(AnvilInventory inventory) {
+        ItemStack first = inventory.getFirstItem();
+        ItemStack second = inventory.getSecondItem();
+        if (isEmptySlot(first) || isEmptySlot(second) || !second.hasItemMeta()) {
+            return false;
+        }
+        return second.getItemMeta() instanceof EnchantmentStorageMeta;
+    }
+
+    /** 両スロットが同一 catalogId のカタログ品か(= identity を消費しない同種修理)。 */
+    private boolean sameCatalogIdentity(ItemStack first, ItemStack second) {
+        if (isEmptySlot(first) || isEmptySlot(second)) {
+            return false;
+        }
+        Optional<String> firstId = CatalogVanillaOperationPolicy.catalogIdOf(first, catalog);
+        return firstId.isPresent()
+                && firstId.equals(CatalogVanillaOperationPolicy.catalogIdOf(second, catalog));
+    }
+
+    private static boolean isEmptySlot(ItemStack item) {
+        return item == null || item.getType().isAir();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
