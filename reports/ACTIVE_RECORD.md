@@ -3229,3 +3229,88 @@ HEAD は `a15adab`）。**U7 / U5 / U6 / U1 / N6 / U14 / N4 / K-16 のブロッ�
   （ただし TF が `SmithingTransformRecipe` を1件も登録していないことは実コードで確定）
 - U5 の DPS は机上計算（`per-quality` / `random` ロールとプレイヤー側ステータスを無視）
 - EliteMobs フォークは今回見ていない
+
+---
+
+## 2026-08-02 バグ4レーン＋コンテンツ第1波の統合と、レビューで出た回帰の修正
+
+2つのワークフロー（バグ `wf_6ca7f2f8-b9e` 4レーン／コンテンツ第1波 `wf_6dc1923c-2c4` 2レーン）が
+完走したので、反証検証の指摘を潰しながら dev へ統合した。**TF全体 3450 tests / 0 failures / 0 errors / 2 skipped**、
+ArsPaper フォーク **251 tests / 0 failures**。
+
+### 1. 解決した項目
+
+| 項目 | 状態 | 根拠 |
+|---|---|---|
+| ~~**U7 原因2** `method: netherite` がスミス台に置けない~~ | **解決** `6bc8397` | `CatalogRecipeRegistrar` が `SmithingTransformRecipe` を登録するようにした。1.21.2 以降 base スロットの可否は固定タグでなく「登録済みスミスレシピの ingredient」から `RecipeManager#finalizeRecipeLoading` が組み直す `RecipePropertySet` で決まるため、登録しない限り BOW/CROSSBOW/TRIDENT/MACE/BLAZE_ROD は物理的に置けなかった |
+| ~~**U5** 重武器の火力~~ | **解決** `e179fda` | 目標帯 +15% へ引き下げ。`WeaponDpsParityTest` で固定 |
+| ~~**U6** 遠隔武器の近接素振り~~ | **解決** `e179fda` | `attack-speed` を最低値へ。`MeleeUnintendedItemAttackSpeedTest` で固定 |
+| ~~**U10** 防具立て・マネキンでレベリングできる~~ | **解決** `4f57c1b` | `SkillExpConfig` の kill-exp 計算で構造的に0を返す |
+| ~~**U14** 召喚馬から鞍が取れる~~ | **解決** fork `7e38494`（＋元の `30aecb0`）| 装備枠GUIの3経路を塞ぐ。騎乗者だけは開ける |
+| ~~**U1/N6** 儀式EXPが定額・素材トークンがArs刻印を読めない~~ | **解決** `bac2bfc` ＋ **回帰修正** `361ccaf` | 下記 2 参照 |
+| ~~**N4** 最低ステータス表示~~ | **解決** fork `30aecb0` | |
+| ~~**K-22(2)** `goal_worldbinder` の parent~~ | **解決** `032173e` | `delve_relics` へ戻した。`ShippedAchievementGraphReachabilityTest` で固定 |
+| ~~**柱2 / 柱2-1**~~ | **解決** `8570e40` | 束縛者の HP/攻撃を4段階で明示、18ダンジョンの踏破ボスへ `abilities` |
+| ~~**柱4（一部）**~~ | **解決** `032173e` | 行き止まり素材3種に醸造の出口 |
+
+### 2. レビューで見つけた回帰を dev 上で直した（重要）
+
+**儀式EXPが最上位武器を 100 → 1 に落としていた（`361ccaf`）。**
+`bac2bfc` は「素材合計が0のときだけ定額へ戻る」という規則にしたが、出荷の
+`smithing.exp-per-material` には**儀式素材の行が1つも無かった**。結果、表に載っている安い素材だけが
+合計になり、**儀式121件のうち57件が定額100を下回った**。最悪は `binder_spear`（source 60,000 の
+最上位武器）の **1 EXP** で、同格の `binder_sword` は全素材が表に無いおかげで 100 のまま
+── **安い素材を1つ足すとEXPが100分の1になる**という向きの不整合だった。
+
+- 部分カバーは「表が未整備」と同じ状態なので、**全素材が引けたときだけ**合計を信用する規則に変えた
+- 儀式が消費する素材（バニラ57種／`custom:` 29種）を表に追加し **121/121 を全カバー**にした
+- `ShippedRitualMaterialExpCoverageTest` が行の欠落で落ちる（行を1つ消すと「30件が影響」と出ることを確認済み）
+
+**召喚馬に乗っている間ずっと自分のインベントリを開けなくなっていた（fork `7e38494`）。**
+U14 の対策が `InventoryOpenEvent` を無条件キャンセルしていたが、騎乗中に E で開くのは
+「馬の装備画面」で、**その下半分がプレイヤー自身のインベントリ**。バニラには騎乗中に
+自分の持ち物だけを開く画面が無いので、召喚馬（既定60秒＋延長可）に乗っている間は
+インベントリが使えず、押すたびに赤文字が出ていた。騎乗者だけ開かせるようにした
+（鞍の抜き取りは click/drag 側が全て弾いているので「見えるが触れない」だけ）。
+
+**束縛者のオーバーライドで個体ばらつきが消えることが yml コメントと逆だった（`8ffd05c`）。**
+絶対値オーバーライドは variance を掛けた**後**に適用される**置換**なので、±15% の個体差は完全に消える。
+「体感値はここから ±15% ぶれる」と書いてあると、実機校正で実測が一致しない理由を探すことになる。
+
+### 3. 前提の訂正（次に触る人が同じ結論を出さないように）
+
+- **`ArmorStand` は `EntityDeathEvent` を発火する。** 「`kill()` を override するので発火しない」という
+  調査時の推測は誤り。Paper では `brokenByPlayer` → `dropAllDeathLoot` → `callEntityDeathEvent`。
+  この推測のまま「U10 は非バグ」と閉じると穴が残る。
+- **討伐EXPの経路は2本ある。** `CombatListener#onCombatKill`（武器スキル）と
+  `ArsMagicExperienceListener#onMagicKill`（魔法）。片方だけ塞ぐと杖で通る。
+  両方が `SkillExpConfig` の kill-exp 計算を通るので、除外はそこに置くと1箇所で済む。
+- **`mob-overrides.yml` のモブIDは拡張子なしが正。** `MobOverridesConfig` は yml 側キーにも
+  `MobIdNormalizer.normalize` を通すので `.yml` 付きでも当たるが、既存405件が全て拡張子なし。
+- **`method: netherite` の結果ID12件は Ars の `materials.yml` に存在しない**（実測）。
+  よって `buildResult` の Ars 経路（TF刻印を付けない）には落ちず、「素のバニラ弓＋テンプレ＋インゴットで
+  TF装備が無償で作れる」経路は出荷データでは成立しない。**将来 Ars 側に同名IDを足すと開く**。
+
+### 4. 残っている指摘（未対応・優先度順）
+
+| 重大度 | 内容 | 場所 |
+|---|---|---|
+| HIGH | **WEAPONSMITH の追加取引2件が実行時に丸ごと消える**（`tf_scrap` だけでなく `tf_core_jewelry` も）。職業まるごと死んでいる | `economy/villager-trades.yml` |
+| MEDIUM | U7 の全件登録テストは MockBukkit にバニラのスミスレシピが無いから通っているだけ。実サーバでは `NetheriteUpgradeGuard` が 12件中7件を除外し**5件しか登録されない**。テスト名と実挙動が食い違う | `CatalogRecipeRegistrarNetheriteTest` |
+| MEDIUM | `docs/config-reference/combat/stat-caps.md` が stale（137500 / 単品最大 120,349.8 → 実際は 127500 / 111,395.9）。値をアサートするテストが無い | 同ファイル |
+| MEDIUM | `ShippedBossStrengthDriftTest` がランプ定数をハードコードしており `mob-import.yml` を読んでいない。ランプを触っても8件とも緑のまま | 同テスト |
+| MEDIUM | `em_id_enchantment_challenge_1〜9` の9ボスは特殊攻撃ゼロのまま（付与できたのは18ダンジョン。設計書の「24」は設計書側の誤り） | `mob-overrides.yml` |
+| MEDIUM | 柱4の**村人取引（2-b）は未実装**。上の HIGH と同根 | |
+| MEDIUM | 醸造テストが `BrewPotionMixRegistrar.plan()` を通しておらず、「yml に書いてある」までしか固定していない | `ShippedBrewDeadEndMaterialTest` |
+| MEDIUM | `generate-item-stats.js` は出荷 `item-stats.yml` を丸ごと上書きする設計で、U5/U6 の変更も日本語コメントも持たない。**実行すると無言で巻き戻る** | `tools/config-editor/scripts/` |
+| LOW | `apex-brew` の SPEED `amplifier: 2`（速度III）はバニラ上限（速度II）超え。ユーザー判断が要る | `crafting-features.yml` |
+| LOW | GOLD帯（`use-level-requirement` 35）は H/L が 0.89〜0.95 で重武器が弱いまま。全帯 damage-modifier が揃っている構造的なもの | `item-stats.yml` |
+| LOW | 束縛者 HP 29,106 は Spigot 既定の `attribute.maxHealth.max`（1024）超え。**新設サーバでは無言でクランプされる** | 運用 |
+
+### 5. 確認していないこと
+
+- 実サーバでの動作確認は一切なし（配備はユーザーの作業）
+- EliteMobs フォークは今回触っていない
+- ArsPaper フォークの `libs/TrinityForge.jar` は未コミットのまま（tracked かつ public repo なので push 不可）。
+  **クリーンチェックアウトからは fork がコンパイルできない状態**
+- 43件の持ち主不明 WIP（他ワークツリー）は手つかず
