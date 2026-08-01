@@ -393,10 +393,9 @@
             dup.id = copyId;
             models.splice(models.indexOf(entry) + 1, 0, { id: copyId, model: dup });
             // 複製元と同じネストカテゴリへ割り当てる (絞り込み中でも見失わない)。
-            if (editorCategoryKey && typeof window.getItemEditorCategory === "function"
-                && typeof window.moveItemEditorCategory === "function") {
-              const cat = window.getItemEditorCategory(src, editorCategoryKey, entry.id);
-              if (cat) window.moveItemEditorCategory(src, editorCategoryKey, copyId, cat);
+            // 元が無所属なら通常の追加と同じ扱い (絞り込み中のカテゴリ or 「未分類」)。
+            if (editorCategoryKey && typeof window.duplicateItemEditorCategory === "function") {
+              window.duplicateItemEditorCategory(src, editorCategoryKey, entry.id, copyId);
             }
             render();
           }

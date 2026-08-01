@@ -833,6 +833,14 @@ select.field-input option {
 }
 .help-tooltip-line { color: var(--text); overflow-wrap: break-word; }
 .help-tooltip-line:empty { min-height: 0.6em; }
+/* 説明文中の MiniMessage タグ/プレースホルダー (<icon> <gray> 等)。地の文と同じ書式で流すと
+   「説明に HTML が漏れている」ようにしか見えないので、editor の「機械が読む文字列」規約
+   (.form-label-key / .help-tooltip-key / .locked-id と同じ等幅+チップ)へ揃える (2026-08-01)。 */
+.help-tooltip-tag {
+  font-family: "Consolas", "Courier New", monospace; font-size: 11px;
+  color: var(--accent); background: #232a35;
+  padding: 0 3px; border-radius: 3px; white-space: nowrap;
+}
 
 .input-with-hint { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stat-hint, .mat-hint { font-size: 12px; color: var(--accent); white-space: nowrap; }

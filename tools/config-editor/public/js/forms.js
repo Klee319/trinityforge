@@ -1897,8 +1897,9 @@
             if (typeof window.setItemDisplayTab === "function") {
               window.setItemDisplayTab(working, copy, activeCat);
             }
-            if (useEditorMeta && typeof window.assignItemToActiveEditorCategory === "function") {
-              window.assignItemToActiveEditorCategory(working, editorCategoryKey, copy);
+            // 複製元と同じネストカテゴリへ。元が無所属のときだけ通常の追加と同じ扱い。
+            if (useEditorMeta && typeof window.duplicateItemEditorCategory === "function") {
+              window.duplicateItemEditorCategory(working, editorCategoryKey, key, copy);
             }
             if (useEditorMeta && typeof window.appendEditorOrder === "function") {
               window.appendEditorOrder(working, editorCategoryKey, copy);
@@ -3041,12 +3042,8 @@
               window.setItemDisplayTab(working, copy, activeCat);
             }
             // 複製元と同じネストカテゴリへ割り当てる (絞り込み中でも見失わない)。
-            if (useEditorMeta && typeof window.getItemEditorCategory === "function"
-                && typeof window.moveItemEditorCategory === "function") {
-              const cat = window.getItemEditorCategory(working, editorCategoryKey, id);
-              if (cat) window.moveItemEditorCategory(working, editorCategoryKey, copy, cat);
-            } else if (useEditorMeta && typeof window.assignItemToActiveEditorCategory === "function") {
-              window.assignItemToActiveEditorCategory(working, editorCategoryKey, copy);
+            if (useEditorMeta && typeof window.duplicateItemEditorCategory === "function") {
+              window.duplicateItemEditorCategory(working, editorCategoryKey, id, copy);
             }
             if (useEditorMeta && typeof window.appendEditorOrder === "function") {
               window.appendEditorOrder(working, editorCategoryKey, copy);
