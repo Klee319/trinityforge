@@ -27,8 +27,30 @@ public record MobLevelCoefficients(
         double maxHealthGrowth,
         double maxHealthGrowthInterval) {
 
+    /**
+     * <b>入れ子レコードの {@code ZERO} を参照してはいけない</b>(2026-08-01 修正)。
+     *
+     * <p>{@code DefenseCoeffs}/{@code AttackCoeffs} のコンストラクタは外側クラスの静的メソッド
+     * {@link #finiteOrZero} を呼ぶ。静的メソッドの呼び出しは外側クラスの初期化を強制するので、
+     * <b>入れ子側が先に初期化された場合</b>(例: どこかが {@code DefenseCoeffs.ZERO} を先に触る)、
+     * 順序はこうなる:
+     * {@code DefenseCoeffs.<clinit>} → {@code new DefenseCoeffs(..)} → {@code finiteOrZero}
+     * → {@code MobLevelCoefficients.<clinit>} → ここ。
+     * このとき {@code DefenseCoeffs.ZERO} は<b>まだ代入されておらず null</b> なので、
+     * 下のコンパクトコンストラクタの {@code requireNonNull(physical)} が
+     * {@code ExceptionInInitializerError} を投げ、以後この JVM では
+     * {@code NoClassDefFoundError: Could not initialize class MobLevelCoefficients} が出続ける
+     * (=モブのレベルスケーリングが丸ごと死ぬ)。どちらの順序で初期化されるかは
+     * 「最初にどのクラスに触ったか」だけで決まるため、実サーバでも再現しうる。
+     *
+     * <p>そこで定数を参照せず<b>その場で生成する</b>。同一スレッドの再帰的な初期化は JVM が許すので、
+     * 入れ子側が初期化中でもインスタンス生成は成功し、null が入らない。
+     */
     public static final MobLevelCoefficients ZERO = new MobLevelCoefficients(
-            0.0, 0.0, DefenseCoeffs.ZERO, DefenseCoeffs.ZERO, AttackCoeffs.ZERO);
+            0.0, 0.0,
+            new DefenseCoeffs(0.0, 0.0, 0.0, 0.0),
+            new DefenseCoeffs(0.0, 0.0, 0.0, 0.0),
+            new AttackCoeffs(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
 
     public MobLevelCoefficients {
         Objects.requireNonNull(physical, "physical");
