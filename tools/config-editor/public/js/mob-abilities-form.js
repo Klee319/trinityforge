@@ -22,7 +22,14 @@
   function fieldRow(key, control, opts) {
     return h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), control]);
   }
-  function subTitle(text, title) { return h("div", { class: "sub-title", text, title: title || "" }); }
+  // 見出しの説明はブラウザ標準の title ではなく「?」の独自ツールチップへ回す (2026-08-01)。
+  // 第2引数の名前は呼び出し側との互換のため据え置き (中身は説明文)。
+  // util.js を読まない最小 window (単体テスト) では見出しだけを出す。
+  // フォールバックでも title 属性は使わない — 標準ツールチップが二重に出る旧方式そのものなので。
+  function subTitle(text, title) {
+    if (typeof window.subTitleEl === "function") return window.subTitleEl(text, title);
+    return h("div", { class: "sub-title", text });
+  }
   function uniqueKey(map, base) {
     if (!Object.prototype.hasOwnProperty.call(map, base)) return base;
     let i = 1;
@@ -50,15 +57,12 @@
   const TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
     "teleport_strike", "beam", "summon"];
 
-  const TYPE_LABELS = {
-    ground_slam: "全方位AoE (ground_slam)",
-    projectile_volley: "扇状の投射 (projectile_volley)",
-    charge: "突進 (charge)",
-    aura: "持続オーラ (aura)",
-    teleport_strike: "背後へ転移して斬る (teleport_strike)",
-    beam: "直線ビーム (beam)",
-    summon: "増援召喚 (summon)"
-  };
+  // 型の日本語名は labels.js の ENUM_LABELS["mob-ability-type"] が正 (辞書を二重に持たない)。
+  // 2026-08-01 まではここだけに辞書があり、セレクト本体
+  // (selectLabeledInput(..., "mob-ability-type", ...)) が引く labels.js 側にグループが無かったため、
+  // **セレクトだけが生ID表示**になっていた。カード見出しは日本語なのでズレに気づけない。
+  const TYPE_LABELS = (window.LABELS && window.LABELS.ENUM_LABELS
+    && window.LABELS.ENUM_LABELS["mob-ability-type"]) || {};
 
   // 型ごとに「意味を持つ」パラメータ。意味の無い欄を出すと、書いても効かない設定を
   // 書かせてしまう(このリポジトリで何度も起きている「静かに無効」の作り方そのもの)。

@@ -581,7 +581,30 @@
     "skill-role": { "main": "主軸", "intermediate": "中間", "branch": "分岐", "greek": "排他(ギリシャ)" },
     "achievement-trigger": { "statistic": "統計", "advancement": "進捗", "static": "図鑑登録", "counter": "累計カウンタ" },
     // 累計カウンタID(trigger.counter)。Java/フォーク側が実際に加算しているものだけを並べる。
-    "achievement-counter": { "source_spent": "儀式で消費した累計ソース" }
+    "achievement-counter": { "source_spent": "儀式で消費した累計ソース" },
+    // ---- 2026-08-01: 日本語化の取りこぼし ----
+    // mob-abilities.yml ability.type。mob-abilities-form.js が
+    // selectLabeledInput(..., "mob-ability-type", ...) で引いていたのに、この辞書に
+    // グループ自体が無く**セレクトが生ID表示**になっていた(フォーム内のフォールバック
+    // <select> だけが日本語を持っていた=到達しないコード)。
+    "mob-ability-type": {
+      "ground_slam": "全方位AoE (ground_slam)",
+      "projectile_volley": "扇状の投射 (projectile_volley)",
+      "charge": "突進 (charge)",
+      "aura": "持続オーラ (aura)",
+      "teleport_strike": "背後へ転移して斬る (teleport_strike)",
+      "beam": "直線ビーム (beam)",
+      "summon": "増援召喚 (summon)"
+    },
+    "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" },
+    // thread-rolls.yml rarities.<id>.color (Bukkit ChatColor 名)。日本語名は colors.js の
+    // MC_COLORS(&コード表)と同じ表記に揃える。
+    "rarity-color": {
+      "BLACK": "黒", "DARK_BLUE": "濃い青", "DARK_GREEN": "濃い緑", "DARK_AQUA": "濃い水色",
+      "DARK_RED": "濃い赤", "DARK_PURPLE": "濃い紫", "GOLD": "金", "GRAY": "灰色",
+      "DARK_GRAY": "濃い灰色", "BLUE": "青", "GREEN": "緑", "AQUA": "水色",
+      "RED": "赤", "LIGHT_PURPLE": "明るい紫", "YELLOW": "黄", "WHITE": "白"
+    }
     // dedicated-effect-category / dedicated-effect-param (専用効果カタログUI) は廃止(2026-07-23)。
     // 解放効果の種別ラベルは window.GATE_EFFECTS.gateEffectTypeLabel(type) を使う (gate-effects.js)。
   };

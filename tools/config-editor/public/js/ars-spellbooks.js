@@ -22,8 +22,12 @@
   }
   // FIELD_LABELS 辞書に無いキー(cooldown 等)向け: labels.js は編集しない方針のため、
   // ラベル文字列とヒントをその場で指定できる簡易版フィールド行。
+  // 説明はブラウザ標準の title ではなく「?」の独自ツールチップへ回す (2026-08-01)。
   function fieldRowCustom(labelText, desc, control) {
-    const labelEl = h("span", { class: "form-label", text: labelText, title: desc || labelText });
+    const children = [h("span", { class: "form-label-ja", text: labelText })];
+    const help = window.helpIcon(desc);
+    if (help) children.push(help);
+    const labelEl = h("span", { class: "form-label with-ja" }, children);
     return h("div", { class: "form-field" }, [labelEl, control]);
   }
   function emptyGuide(title, hint) {
@@ -542,26 +546,20 @@
       return h("div", {}, [
         h("div", { class: "empty-hint", text: "マナ消費軽減(実数)/(%) もここで設定します(ステ一覧から選択)。整数ステのため品質別上昇値に小数を入れると累積し、整数化した分だけ実効値が上がります(切り捨て=閾値方式)。" }),
         h("div", { class: "sub-section" }, [
-          h("div", {
-            class: "sub-title", text: "固定ステ (stats.fixed)",
-            title: "常に適用される固定ステータス。int系ステ(thread-slots/マナ消費軽減等)は本体側で小数点以下を切り捨ててintとして扱われます。"
-          }),
+          window.subTitleEl("固定ステ (stats.fixed)",
+            "常に適用される固定ステータス。int系ステ(thread-slots/マナ消費軽減等)は本体側で小数点以下を切り捨ててintとして扱われます。"),
           Object.keys(fixedGroup).length ? null : h("div", { class: "empty-hint", text: "まだ固定ステがありません。「+ 固定ステ追加」で追加します。" }),
           fixedRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", {
-            class: "sub-title", text: "品質別上昇値 (stats.per-quality)",
-            title: "品質が1上がるごとにこのステへ加算される増分(fixedの上に加算)。int系ステは小数点以下を切り捨ててintとして扱われます。"
-          }),
+          window.subTitleEl("品質別上昇値 (stats.per-quality)",
+            "品質が1上がるごとにこのステへ加算される増分(fixedの上に加算)。int系ステは小数点以下を切り捨ててintとして扱われます。"),
           Object.keys(pqGroup).length ? null : h("div", { class: "empty-hint", text: "まだ品質別上昇値がありません。「+ 品質別上昇値追加」で追加します。" }),
           pqRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", {
-            class: "sub-title", text: "ランダムロールステ (stats.random)",
-            title: "レンジ{min,max}をrollSeedに応じて個体ごとに解決するランダムステ。int系ステは小数点以下を切り捨ててintとして扱われます。"
-          }),
+          window.subTitleEl("ランダムロールステ (stats.random)",
+            "レンジ{min,max}をrollSeedに応じて個体ごとに解決するランダムステ。int系ステは小数点以下を切り捨ててintとして扱われます。"),
           Object.keys(randGroup).length ? null : h("div", { class: "empty-hint", text: "まだランダムロールステがありません。「+ ランダムロールステ追加」で追加します。" }),
           randRows
         ])

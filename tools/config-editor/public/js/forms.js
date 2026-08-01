@@ -412,6 +412,12 @@
       if (typeof window.setItemDisplayTab === "function") {
         window.setItemDisplayTab(working, key, candidate.tab);
       }
+      // カタログ由来で自動生成した枠も必ずどこかのカテゴリへ入れる。
+      // 入れないと「カタログに足したのにステータス画面では未設定タブにしか出ない」
+      // (2026-08-01 報告「追加した素材がカテゴリ分けできていない」と同じ形)。
+      if (useEditorMeta && typeof window.ensureItemEditorCategory === "function") {
+        window.ensureItemEditorCategory(working, candidate.tab, key);
+      }
     }
     for (const entry of Object.values(working.items)) normalizeRatePercentsInEntry(entry);
     if (working.fallback && typeof working.fallback === "object") {
@@ -761,7 +767,7 @@
 
       renderCatCheckboxes();
       root.appendChild(h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: "表示ステータス (攻撃/守備/補助/Ars/その他)", title: "チェックしたカテゴリ(Lore表示設定のカテゴリ)のステだけを「+追加」プルダウンの候補に出します。登録済みのステは絞り込みに関係なく常に表示されます。" }),
+        window.subTitleEl("表示ステータス (攻撃/守備/補助/Ars/その他)", "チェックしたカテゴリ(Lore表示設定のカテゴリ)のステだけを「+追加」プルダウンの候補に出します。登録済みのステは絞り込みに関係なく常に表示されます。"),
         catCheckboxRow
       ]));
       root.appendChild(h("div", {
@@ -1197,10 +1203,8 @@
       const assignedKeys = assignedStatKeys(entryRef);
       const hasAdvanced = entryRef.advanced && typeof entryRef.advanced === "object";
       const advSection = h("div", { class: "sub-section" });
-      advSection.appendChild(h("div", {
-        class: "sub-title", text: "高度なオプション (advanced)",
-        title: "割り当て済みステのうち、実際に付与される種類を確率でランダム化します。"
-      }));
+      advSection.appendChild(window.subTitleEl("高度なオプション (advanced)",
+        "割り当て済みステのうち、実際に付与される種類を確率でランダム化します。"));
       if (!hasAdvanced) {
         advSection.appendChild(h("button", {
           class: "btn-small", type: "button", text: "+ 高度なオプション追加",
@@ -1247,17 +1251,17 @@
       }
       blocks.push(
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "固定ステ (fixed)", title: "常に適用される固定ステータス" }),
+          window.subTitleEl("固定ステ (fixed)", "常に適用される固定ステータス"),
           fixedCount ? null : h("div", { class: "empty-hint", text: "まだ固定ステがありません。「+ 固定ステ追加」で追加します。" }),
           fixedRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "品質別上昇値 (per-quality)", title: "品質が1上がるごとにこのステへ加算される増分 (fixedの上に加算)" }),
+          window.subTitleEl("品質別上昇値 (per-quality)", "品質が1上がるごとにこのステへ加算される増分 (fixedの上に加算)"),
           pqCount ? null : h("div", { class: "empty-hint", text: "まだ品質別上昇値がありません。「+ 品質別上昇値追加」で追加します。" }),
           perQualityRows
         ]),
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "ランダムロールステ (random)", title: "レンジ{min,max}を「範囲=1」として品質に応じたロール分布で抽選し、fixed/per-qualityの上に加算(物理魔法共用)。分布パラメータは quality.yml。" }),
+          window.subTitleEl("ランダムロールステ (random)", "レンジ{min,max}を「範囲=1」として品質に応じたロール分布で抽選し、fixed/per-qualityの上に加算(物理魔法共用)。分布パラメータは quality.yml。"),
           randCount ? null : h("div", { class: "empty-hint", text: "まだランダムロールステがありません。「+ ランダムロールステ追加」で追加します。" }),
           randomRows
         ]),
@@ -1497,7 +1501,7 @@
       }));
       return [
         h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "固定ステ (fixed)", title: "この装備種で未設定のキーを埋める既定値" }),
+          window.subTitleEl("固定ステ (fixed)", "この装備種で未設定のキーを埋める既定値"),
           fixedKeys.length ? null : h("div", { class: "empty-hint", text: "まだ固定ステがありません。" }),
           fixedRows
         ])
@@ -1569,7 +1573,7 @@
       grid.appendChild(qualityModeField);
 
       return h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: "使用制限・オフハンド", title: "使用可能レベルと武器種/装備種スキル。カタログではなく item-stats で設定します。" }),
+        window.subTitleEl("使用制限・オフハンド", "使用可能レベルと武器種/装備種スキル。カタログではなく item-stats で設定します。"),
         grid
       ]);
     }
@@ -1588,7 +1592,7 @@
           if (v == null) delete entry["max-glyph-tier"]; else entry["max-glyph-tier"] = Math.trunc(v);
         }, { int: true })));
         return h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "魔導書固有", title: "グリフ設定可能数・魔法保存数・設定可能グリフの最大ティア" }),
+          window.subTitleEl("魔導書固有", "グリフ設定可能数・魔法保存数・設定可能グリフの最大ティア"),
           grid
         ]);
       }
@@ -1598,7 +1602,7 @@
           if (v == null) delete entry["max-bind-tier"]; else entry["max-bind-tier"] = Math.trunc(v);
         }, { int: true })));
         return h("div", { class: "sub-section" }, [
-          h("div", { class: "sub-title", text: "触媒固有", title: "この触媒にバインド可能なスペルの最大グリフティア" }),
+          window.subTitleEl("触媒固有", "この触媒にバインド可能なスペルの最大グリフティア"),
           grid
         ]);
       }
@@ -1613,11 +1617,8 @@
         // 未設定のままキーを増やさない。UI操作時に materialize。
       }
       const box = h("div", { class: "sub-section" });
-      box.appendChild(h("div", {
-        class: "sub-title",
-        text: "スレッド固有",
-        title: "セット効果の閾値・ステータス、および暗視などの特殊効果"
-      }));
+      box.appendChild(window.subTitleEl("スレッド固有",
+        "セット効果の閾値・ステータス、および暗視などの特殊効果"));
 
       // ---- セット効果 ----
       const setBox = h("div", { class: "sub-section" });
@@ -2438,10 +2439,8 @@
     writeBack();
 
     const box = h("div", { class: "sub-section recipe-section" });
-    box.appendChild(h("div", {
-      class: "sub-title", text: "クラフトレシピ (recipe / recipes・任意)",
-      title: "作業台 / 儀式 / 合成 / ネザライト化。1アイテムに複数レシピを設定できます(例: 圧縮+分解、単発+まとめ生産の儀式)。"
-    }));
+    box.appendChild(window.subTitleEl("クラフトレシピ (recipe / recipes・任意)",
+      "作業台 / 儀式 / 合成 / ネザライト化。1アイテムに複数レシピを設定できます(例: 圧縮+分解、単発+まとめ生産の儀式)。"));
 
     list.forEach((recipe, idx) => {
       const card = h("div", { class: "sub-section recipe-card" });
@@ -2901,6 +2900,10 @@
       }
       mats.materials[id] = m;
       if (typeof window.appendEditorOrder === "function") window.appendEditorOrder(mats, "material", id);
+      // 移動先(素材タブ)でも必ずどこかのカテゴリへ入れる。入れないと素材画面で「未設定」に落ちる。
+      if (typeof window.ensureItemEditorCategory === "function") {
+        window.ensureItemEditorCategory(mats, "material", id);
+      }
       // カタログ側から除去 (タブピン/ネストカテゴリ/並び順も全タブから掃除)。
       delete working.items[id];
       if (typeof window.removeItemDisplayTab === "function") window.removeItemDisplayTab(working, id);

@@ -350,9 +350,7 @@
           window.checkboxInput(B["show-owner"] !== false, (v) => { B["show-owner"] = v; }),
           h("span", { text: "所有者行を表示 (show-owner)" })
         ]),
-        h("div", { class: "sub-title", text: "所有者行テンプレート (owner-line)", title: ownerDesc }, [
-          window.helpIcon(ownerDesc)
-        ]),
+        window.subTitleEl("所有者行テンプレート (owner-line)", ownerDesc),
         window.richTextInput(B["owner-line"] || "", "minimessage", (v) => { B["owner-line"] = v; })
       ]));
 
@@ -363,9 +361,7 @@
           window.checkboxInput(B["show-use-requirement"] !== false, (v) => { B["show-use-requirement"] = v; }),
           h("span", { text: "使用制限行を表示 (show-use-requirement)" })
         ]),
-        h("div", { class: "sub-title", text: "使用制限行テンプレート (use-requirement-line)", title: reqDesc }, [
-          window.helpIcon(reqDesc)
-        ]),
+        window.subTitleEl("使用制限行テンプレート (use-requirement-line)", reqDesc),
         window.richTextInput(B["use-requirement-line"] || "", "minimessage", (v) => { B["use-requirement-line"] = v; })
       ]));
 
@@ -382,9 +378,7 @@
         + "<icon>=アイコン文字列 / <name>=ステ表示名 / <value>=符号・単位・色つきの値。"
         + "例: <gray><icon><name>：<value></gray>";
       body.appendChild(h("div", { class: "lore-layout-section" }, [
-        h("div", { class: "sub-title", text: "ステータス表示テンプレート (line-template)", title: templateDesc }, [
-          window.helpIcon(templateDesc)
-        ]),
+        window.subTitleEl("ステータス表示テンプレート (line-template)", templateDesc),
         window.richTextInput(L["line-template"] || "", "minimessage", (v) => { L["line-template"] = v; })
       ]));
 
@@ -395,9 +389,7 @@
         + "<tier>=ティア色付きの【ティア名】 / <tier-name>=色なしのティア名 / <score>=品質スコア値。"
         + "例: " + scoreTemplateDefault;
       body.appendChild(h("div", { class: "lore-layout-section" }, [
-        h("div", { class: "sub-title", text: "スコア表示テンプレート (score-line-template)", title: scoreTemplateDesc }, [
-          window.helpIcon(scoreTemplateDesc)
-        ]),
+        window.subTitleEl("スコア表示テンプレート (score-line-template)", scoreTemplateDesc),
         window.richTextInput(L["score-line-template"] || scoreTemplateDefault, "minimessage",
           (v) => { L["score-line-template"] = v; })
       ]));
@@ -474,7 +466,7 @@
       renderAdv(hasAdv);
 
       return h("div", { class: "sub-section" }, [
-        h("div", { class: "sub-title", text: title, title: desc }),
+        window.subTitleEl(title, desc),
         boxBody,
         advBox
       ]);

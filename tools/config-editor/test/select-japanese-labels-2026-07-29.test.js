@@ -369,3 +369,181 @@ test("アチーブメント画面の候補は毎回読み直す側へ揃える (
   assert.match(/case "tf-collection": \{[\s\S]*?\n      \}/.exec(app)[0],
     /fetchCatalogCandidatesWithMaterials\(\)/);
 });
+
+// ============================================================
+// 2026-08-01 実サーバ報告「アイテムのセレクトメニューの表示が ID 表記で日本語でない」の
+// 再発防止ラチェット。
+//
+// 2026-07-29 に全面日本語化したのに、その後に足された `selectLabeledInput` の呼び出しが
+// 2つの形で生ID表示へ戻っていた。どちらも**例外もログも出ない**ので気づけない:
+//   (a) 第3引数(語彙グループ)の渡し忘れ。コールバックが enumGroup の位置に入るので
+//       ラベル解決に失敗して生ID表示になり、さらに onInput が undefined になって
+//       **選んでも保存されない**。 (p5-forms.js のレア度カラー)
+//   (b) 語彙グループ名を書いたのに labels.js 側にそのグループが無い。
+//       フォーム内のフォールバック <select> だけが日本語辞書を持っていて、
+//       実際に描画される listSelect は生ID。 (mob-abilities-form.js の型/ダメージ種別)
+//
+// どちらもソース走査で機械的に検出できるので、呼び出し規約そのものを固定する。
+// ============================================================
+
+/**
+ * コメントを空白へ潰す。コメント内の「例示としての呼び出し」を実コードと誤検出しないため。
+ * (文字列リテラル内の `//` は残す。)
+ */
+function stripJsComments(src) {
+  const NL = String.fromCharCode(10);
+  let out = "";
+  let inStr = null;
+  for (let i = 0; i < src.length; i += 1) {
+    const ch = src[i];
+    const next = src[i + 1];
+    if (inStr) {
+      if (ch === "\\") { out += ch + (next || ""); i += 1; continue; }
+      if (ch === inStr) inStr = null;
+      out += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") { inStr = ch; out += ch; continue; }
+    if (ch === "/" && next === "/") {
+      while (i < src.length && src[i] !== NL) i += 1;
+      out += NL;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) {
+        if (src[i] === NL) out += NL;
+        i += 1;
+      }
+      i += 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/** `selectLabeledInput(` の呼び出しごとに、丸括弧の対応を数えて引数を切り出す。 */
+function parseSelectLabeledInputCalls(rawSrc) {
+  const src = stripJsComments(rawSrc);
+  const calls = [];
+  const needle = "selectLabeledInput(";
+  let from = 0;
+  for (;;) {
+    const at = src.indexOf(needle, from);
+    if (at < 0) break;
+    from = at + needle.length;
+    // 定義側 (`window.selectLabeledInput = function selectLabeledInput(`) は呼び出しではない。
+    const before = src.slice(Math.max(0, at - 30), at);
+    if (/function\s+$/.test(before)) continue;
+
+    let depth = 1;
+    let i = from;
+    let inStr = null;
+    const args = [];
+    let cur = "";
+    for (; i < src.length && depth > 0; i += 1) {
+      const ch = src[i];
+      if (inStr) {
+        if (ch === "\\") { cur += ch + src[i + 1]; i += 1; continue; }
+        if (ch === inStr) inStr = null;
+        cur += ch;
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") { inStr = ch; cur += ch; continue; }
+      if (ch === "(" || ch === "[" || ch === "{") depth += 1;
+      else if (ch === ")" || ch === "]" || ch === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+      if (ch === "," && depth === 1) { args.push(cur.trim()); cur = ""; continue; }
+      cur += ch;
+    }
+    args.push(cur.trim());
+    calls.push({ index: at, args });
+  }
+  return calls;
+}
+
+test("selectLabeledInput の第3引数は必ず語彙グループの文字列リテラル", () => {
+  const offenders = [];
+  for (const name of fs.readdirSync(path.join(ROOT, "public", "js"))) {
+    if (!name.endsWith(".js")) continue;
+    for (const call of parseSelectLabeledInputCalls(JS(name))) {
+      const group = call.args[2];
+      if (group === undefined || !/^"[a-z0-9-]+"$/.test(group)) {
+        offenders.push(`${name}: 第3引数が語彙グループでない -> ${String(group).slice(0, 40)}`);
+      }
+    }
+  }
+  // 渡し忘れるとラベルが解決できず生ID表示になり、同時に onInput がずれて保存も効かなくなる。
+  assert.deepEqual(offenders, [], offenders.join(" / "));
+});
+
+test("selectLabeledInput が使う語彙グループは labels.js に実在し、全値が日本語", () => {
+  const win = {};
+  new Function("window", JS("labels.js"))(win);
+  const ENUM = win.LABELS.ENUM_LABELS;
+  const hasJa = (s) => /[぀-ヿ一-鿿]/.test(String(s));
+
+  const missingGroups = [];
+  const missingValues = [];
+  for (const name of fs.readdirSync(path.join(ROOT, "public", "js"))) {
+    if (!name.endsWith(".js")) continue;
+    const src = JS(name);
+    for (const call of parseSelectLabeledInputCalls(src)) {
+      const raw = call.args[2];
+      if (!raw || !/^"[a-z0-9-]+"$/.test(raw)) continue; // 上のテストが担当
+      const group = raw.slice(1, -1);
+      if (!ENUM[group]) { missingGroups.push(`${name}: "${group}"`); continue; }
+
+      // 第2引数が文字列リテラルの配列 (インライン or 同ファイルの const) なら値も網羅を見る。
+      let listSrc = call.args[1] || "";
+      if (/^[A-Z_][A-Z0-9_]*$/.test(listSrc)) {
+        // テンプレートリテラルなので正規表現のバックスラッシュは二重に書く。
+        const m = new RegExp(`const ${listSrc}\\s*=\\s*\\[([\\s\\S]*?)\\];`).exec(src);
+        listSrc = m ? m[1] : "";
+      }
+      if (!/^\s*\[?\s*"/.test(listSrc)) continue; // 動的生成は対象外
+      const values = (listSrc.match(/"([^"]+)"/g) || []).map((s) => s.slice(1, -1));
+      for (const v of values) {
+        const ja = ENUM[group][v];
+        if (!ja || !hasJa(ja)) missingValues.push(`${name}: "${group}"."${v}"`);
+      }
+    }
+  }
+  assert.deepEqual(missingGroups, [],
+    `labels.js に無い語彙グループを指している(セレクトが生ID表示になる): ${missingGroups.join(", ")}`);
+  assert.deepEqual(missingValues, [],
+    `語彙グループに日本語ラベルが無い値がある(その値だけ生ID表示になる): ${missingValues.join(", ")}`);
+});
+
+test("モブ技の型ラベルは labels.js へ一本化されている (フォーム側に辞書を持ち直さない)", () => {
+  const src = JS("mob-abilities-form.js");
+  // 自前の辞書リテラルを持つと、listSelect が引く labels.js 側とだけズレて生ID表示に戻る。
+  assert.ok(!/const TYPE_LABELS = \{\s*\n?\s*ground_slam:/.test(src),
+    "mob-abilities-form.js が型の日本語辞書を持ち直している");
+  assert.match(src, /ENUM_LABELS\["mob-ability-type"\]/);
+
+  const win = {};
+  new Function("window", JS("labels.js"))(win);
+  assert.equal(win.LABELS.enumLabel("mob-ability-type", "charge"), "突進 (charge)");
+  assert.equal(win.LABELS.enumLabel("mob-ability-damage-type", "physical"), "物理");
+});
+
+test("スレッド厳選のレア度カラーは日本語表示で、選択が保存される", () => {
+  const { win, captured } = loadUtilWithCapturedListSelect();
+  const src = JS("p5-forms.js");
+  const call = parseSelectLabeledInputCalls(src)
+    .find((c) => /node\.color/.test(c.args[0] || ""));
+  assert.ok(call, "レア度カラーの selectLabeledInput が見つからない");
+  assert.equal(call.args[2], '"rarity-color"', "語彙グループを渡していない(生ID表示 + 保存が効かない)");
+  assert.match(call.args[3] || "", /node\.color = v/, "onInput が第4引数に来ていない");
+
+  // 実際に日本語主表示になること。
+  win.selectLabeledInput("GRAY", ["GRAY", "DARK_AQUA"], "rarity-color", () => {});
+  const opts = captured[captured.length - 1].options;
+  assert.equal(opts.find((o) => o.value === "GRAY").primary, "灰色");
+  assert.equal(opts.find((o) => o.value === "DARK_AQUA").primary, "濃い水色");
+  assert.equal(opts.find((o) => o.value === "GRAY").secondary, "GRAY");
+});

@@ -268,6 +268,10 @@
       cat.items[entry.id] = e;
       if (typeof window.setItemDisplayTab === "function") window.setItemDisplayTab(cat, entry.id, tab);
       if (typeof window.appendEditorOrder === "function") window.appendEditorOrder(cat, tab, entry.id);
+      // 移動先(カタログの表示タブ)でも必ずどこかのカテゴリへ入れる。
+      if (typeof window.ensureItemEditorCategory === "function") {
+        window.ensureItemEditorCategory(cat, tab, entry.id);
+      }
       // 素材側から除去 (ネストカテゴリ/並び順も掃除)。
       models.splice(models.indexOf(entry), 1);
       if (editorCategoryKey && typeof window.removeEditorCategoryItem === "function") {
