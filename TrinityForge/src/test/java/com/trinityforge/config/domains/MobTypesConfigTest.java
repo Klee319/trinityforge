@@ -12,6 +12,7 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MobTypesConfigTest {
@@ -164,6 +165,65 @@ class MobTypesConfigTest {
         MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
         assertNotNull(def);
         assertTrue(def.drops().isEmpty());
+    }
+
+    // --- 2026-08-01 U13: drops[].material の custom:<id> (Material と排他) ---
+
+    @Test
+    void customDropTokenBecomesCatalogIdWithoutTouchingMaterial() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    drops:
+                      - { material: "custom:tf_scrap", chance: 0.25, min: 1, max: 3 }
+                      - { material: ROTTEN_FLESH, chance: 0.1, min: 1, max: 1 }
+                """);
+        assertEquals(0, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(2, def.drops().size());
+        assertTrue(def.drops().get(0).isCustom());
+        assertEquals("tf_scrap", def.drops().get(0).catalogId());
+        assertNull(def.drops().get(0).material());
+        assertEquals(0.25, def.drops().get(0).chance(), DELTA);
+        assertEquals(3, def.drops().get(0).max());
+        assertEquals(Material.ROTTEN_FLESH, def.drops().get(1).material());
+        assertNull(def.drops().get(1).catalogId());
+    }
+
+    @Test
+    void customDropPrefixIsCaseInsensitiveAndTrimmed() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    drops:
+                      - { material: "  CUSTOM: tf_scrap  ", chance: 0.1, min: 1, max: 1 }
+                """);
+        assertEquals(0, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals("tf_scrap", def.drops().get(0).catalogId());
+    }
+
+    @Test
+    void blankCustomDropIdIsSkippedAndCounted() throws Exception {
+        // "custom:" だけの行を Material.valueOf へ落とすと "CUSTOM:" という別トークンとして
+        // 扱われてしまうので、ここで明示的に弾いて skipped に数える。
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    drops:
+                      - { material: "custom:", chance: 0.1, min: 1, max: 1 }
+                      - { material: BONE, chance: 0.1, min: 1, max: 1 }
+                """);
+        assertEquals(1, r.skipped());
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(1, def.drops().size());
+        assertEquals(Material.BONE, def.drops().get(0).material());
     }
 
     @Test

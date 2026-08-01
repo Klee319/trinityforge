@@ -9,6 +9,7 @@ import com.trinityforge.mobs.MobDropRoller;
 import com.trinityforge.mobs.MobTypeDefinition;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.stats.CraftQualityPolicy;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.MaterialTier;
 import com.trinityforge.stats.PlayerMobDropBonusSource;
@@ -22,6 +23,8 @@ import org.bukkit.inventory.ItemStack;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SplittableRandom;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * combat/mob-types.yml で定義されたEntityTypeのバニラモブが死亡した際、その{@code drops:}一覧に従って
@@ -33,8 +36,17 @@ import java.util.SplittableRandom;
  * {@link LivingEntity#getKiller()} がnullの死亡では何も追加しない。また、AFK対策の
  * {@link #setDropGate(java.util.function.Predicate)} がkillerを抑止した場合も、バニラドロップには
  * 触れず追加分だけを止める。
+ *
+ * <p><b>カスタムアイテム(2026-08-01 U13):</b> {@code drops[].material} が {@code custom:<id>} の場合は
+ * {@link CrossPluginItemResolver#create(String)} で組み立てる({@code MobOverrideDropListener} /
+ * {@code MobLevelTableListener} と同じ形)。解決できなければ WARNING を1回出してその抽選だけ捨てる
+ * (fail-open — 他のドロップやバニラドロップは巻き込まない)。品質の刻印はバニラ Material のときだけ
+ * 行う: カタログ品は resolver 内の {@code ItemFactory#create} が既に rollSeed と品質を打っているので、
+ * ここで {@code stamp} すると上書きになる。
  */
 public final class MobTypeDropListener implements Listener {
+
+    private static final Logger LOG = Logger.getLogger(MobTypeDropListener.class.getName());
 
     private final MobTypesConfig mobTypesConfig;
     private final CraftQualityConfig craftQuality;
@@ -43,36 +55,62 @@ public final class MobTypeDropListener implements Listener {
     private final PlayerMobDropBonusSource mobDropBonus;
     // 品質基準値 (item-stats quality-mode-offset) の参照元。null可 (テスト/未配線時はオフセット0)。
     private final ItemStatsConfig itemStats;
+    /**
+     * {@code custom:<id>} ドロップの解決先。null可 = 未配線。null のまま custom: ドロップを引くと
+     * 「設定できるのに永久にドロップしない」無言失敗になるので、そのときは専用の WARNING を出す
+     * (配線は {@code TrinityForge.java} の {@code new MobTypeDropListener(...)} に
+     * {@code crossPluginItemResolver} を渡すこと)。
+     */
+    private final CrossPluginItemResolver itemResolver;
     private final SplittableRandom random;
     private volatile java.util.function.Predicate<Player> dropGate;
+    /** 未配線 WARNING を毎キル出さないためのラッチ。 */
+    private volatile boolean unwiredResolverWarned;
 
     public MobTypeDropListener(MobTypesConfig mobTypesConfig, CraftQualityConfig craftQuality,
                                 QualityConfig quality, ItemFactory itemFactory) {
-        this(mobTypesConfig, craftQuality, quality, itemFactory, null, null, new SplittableRandom());
+        this(mobTypesConfig, craftQuality, quality, itemFactory, null, null, null, new SplittableRandom());
     }
 
     public MobTypeDropListener(MobTypesConfig mobTypesConfig, CraftQualityConfig craftQuality,
                                 QualityConfig quality, ItemFactory itemFactory,
                                 PlayerMobDropBonusSource mobDropBonus) {
-        this(mobTypesConfig, craftQuality, quality, itemFactory, mobDropBonus, null, new SplittableRandom());
+        this(mobTypesConfig, craftQuality, quality, itemFactory, mobDropBonus, null, null, new SplittableRandom());
     }
 
     public MobTypeDropListener(MobTypesConfig mobTypesConfig, CraftQualityConfig craftQuality,
                                 QualityConfig quality, ItemFactory itemFactory,
                                 PlayerMobDropBonusSource mobDropBonus, ItemStatsConfig itemStats) {
-        this(mobTypesConfig, craftQuality, quality, itemFactory, mobDropBonus, itemStats, new SplittableRandom());
+        this(mobTypesConfig, craftQuality, quality, itemFactory, mobDropBonus, itemStats, null,
+                new SplittableRandom());
+    }
+
+    /**
+     * 2026-08-01 U13: {@code drops[].material} の {@code custom:<id>} を解決できる本番用コンストラクタ。
+     *
+     * @param itemResolver {@code custom:<id>} の解決先。<b>これを渡さないと custom: ドロップは
+     *                     1件も出ない</b>(WARNING は出る)。
+     */
+    public MobTypeDropListener(MobTypesConfig mobTypesConfig, CraftQualityConfig craftQuality,
+                                QualityConfig quality, ItemFactory itemFactory,
+                                PlayerMobDropBonusSource mobDropBonus, ItemStatsConfig itemStats,
+                                CrossPluginItemResolver itemResolver) {
+        this(mobTypesConfig, craftQuality, quality, itemFactory, mobDropBonus, itemStats, itemResolver,
+                new SplittableRandom());
     }
 
     /** Package-visible ctor for tests that need a deterministic random source. */
     MobTypeDropListener(MobTypesConfig mobTypesConfig, CraftQualityConfig craftQuality,
                          QualityConfig quality, ItemFactory itemFactory,
-                         PlayerMobDropBonusSource mobDropBonus, ItemStatsConfig itemStats, SplittableRandom random) {
+                         PlayerMobDropBonusSource mobDropBonus, ItemStatsConfig itemStats,
+                         CrossPluginItemResolver itemResolver, SplittableRandom random) {
         this.mobTypesConfig = Objects.requireNonNull(mobTypesConfig, "mobTypesConfig");
         this.craftQuality = Objects.requireNonNull(craftQuality, "craftQuality");
         this.quality = Objects.requireNonNull(quality, "quality");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
         this.mobDropBonus = mobDropBonus; // nullable: 未配線時はボーナス0
         this.itemStats = itemStats; // nullable: 未配線時は品質基準値オフセット0
+        this.itemResolver = itemResolver; // nullable: 未配線時は custom: ドロップを WARNING 付きで捨てる
         this.random = Objects.requireNonNull(random, "random");
     }
 
@@ -111,6 +149,15 @@ public final class MobTypeDropListener implements Listener {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
+            if (drop.isCustom()) {
+                // 2026-08-01 U13: カタログ/Ars のカスタムアイテム。解決失敗はこの1件だけ捨てる
+                // (fail-open。MobOverrideDropListener / MobLevelTableListener と同じ契約)。
+                ItemStack custom = buildCustomStack(drop, count, entity.getType().name());
+                if (custom != null) {
+                    event.getDrops().add(custom);
+                }
+                continue;
+            }
             ItemStack stack = new ItemStack(drop.material(), count);
             if (MaterialTier.of(drop.material()).isEquipment()) {
                 int qualityValue = drop.quality() != null ? drop.quality()
@@ -119,6 +166,40 @@ public final class MobTypeDropListener implements Listener {
             }
             event.getDrops().add(stack);
         }
+    }
+
+    /**
+     * {@code custom:<id>} ドロップの組み立て。解決できない(未知IDや resolver 未配線)ときは WARNING を
+     * 出して {@code null} を返す(この抽選だけ捨てる)。
+     *
+     * <p>品質は {@code CrossPluginItemResolver#create} 側の {@code ItemFactory#create} が既に打つので、
+     * ここで {@code itemFactory.stamp} を重ねない。個数0の抽選も捨てる({@code ItemStack#setAmount(0)}
+     * のスタックを drops へ積まない — 兄弟2リスナーと同じ)。
+     */
+    private ItemStack buildCustomStack(MobDropEntry drop, int count, String mobLabel) {
+        if (count <= 0) {
+            return null;
+        }
+        if (itemResolver == null) {
+            if (!unwiredResolverWarned) {
+                unwiredResolverWarned = true;
+                LOG.log(Level.WARNING, "[mob-types] " + mobLabel + " の drops に custom:"
+                        + drop.catalogId() + " が設定されているが CrossPluginItemResolver が未配線のため"
+                        + "カスタムアイテムのドロップは一切行われない"
+                        + " (TrinityForge.java の new MobTypeDropListener(...) へ crossPluginItemResolver を渡すこと)");
+            }
+            return null;
+        }
+        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId());
+        if (resolved.isEmpty()) {
+            LOG.log(Level.WARNING, "[mob-types] " + mobLabel + " の drops custom item '"
+                    + drop.catalogId() + "' could not be resolved (unknown catalog/Ars id?);"
+                    + " this roll was skipped");
+            return null;
+        }
+        ItemStack stack = resolved.get();
+        stack.setAmount(count);
+        return stack;
     }
 
     /** AFK判定側の一時障害で通常プレイのドロップまで失わないよう、述語失敗時は付与を継続する。 */

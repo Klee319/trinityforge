@@ -196,11 +196,17 @@
   }
 
   function buildDropRow(drop, onRemove) {
+    // 2026-08-01 U13: material は Material名 または custom:<カタログID>。allowCustom を渡していな
+    // かったため、この画面だけカスタムアイテムが候補に出ず、「＋ 直接入力…」で custom:foo と打っても
+    // normalizeCommitValue が CUSTOMFOO へ潰していた(=入れる経路が1本も無い)。
+    // 候補源は app.js の共通入口 ensureCustomItemCandidates() が積む window.CUSTOM_ITEM_CANDIDATES
+    // をそのまま使う(この画面用に新しく取りに行かない)。
+    // Java 側は MobTypesConfig#parseDrops / MobDropEntry / MobTypeDropListener が custom: を解釈する。
     const matHint = window.materialHintEl(drop.material);
     const matInput = window.materialInput(drop.material, "material-list", (v) => {
       drop.material = v;
       matHint.update(v);
-    });
+    }, { allowCustom: true });
     const chanceInput = window.numberInput(drop.chance, (v) => { drop.chance = v == null ? 0 : v; }, { int: false });
     const minInput = window.numberInput(drop.min, (v) => { drop.min = v == null ? 0 : v; }, { int: true });
     const maxInput = window.numberInput(drop.max, (v) => { drop.max = v == null ? 0 : v; }, { int: true });
@@ -212,12 +218,17 @@
     return h("div", { class: "mob-drop-row" }, [
       h("div", { class: "field-grid" }, [
         fieldRow("material", h("div", { class: "input-with-hint" }, [matInput, matHint]), {
-          label: "素材(Material)", desc: "ドロップするアイテムの Material 名。"
+          label: "素材(Material/custom:)",
+          desc: "ドロップするアイテム。Material名 または custom:<カタログID>"
+            + "(items/catalog.yml と ArsPaper materials.yml の両方から選べる)。"
         }),
         fieldRow("chance", chanceInput),
         fieldRow("min", minInput, { label: "個数(最小)", desc: "ドロップ個数の下限。0以上の整数。" }),
         fieldRow("max", maxInput, { label: "個数(最大)", desc: "ドロップ個数の上限。0以上の整数、min以上。" }),
-        fieldRow("quality", qualityInput, { label: "固定品質(省略可)", desc: "省略時はモブレベル駆動で自動決定。" })
+        fieldRow("quality", qualityInput, {
+          label: "固定品質(省略可)",
+          desc: "省略時はモブレベル駆動で自動決定。custom: のアイテムには効かない(生成側が品質を決める)。"
+        })
       ]),
       h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: onRemove })
     ]);

@@ -48,10 +48,16 @@
 #                               growth 省略 or 1.0 = 従来どおりの線形 (後方互換)。
 #                               growth-interval は growth 1回分あたりのレベル幅 (省略時 1.0)。
 #   drops                   : 追加ドロップ一覧 (省略可)。各要素は以下を持つ:
-#                               material: アイテムのMaterial名 (必須)
+#                               material: Material名 または custom:<カスタムアイテムID> (必須)
+#                                         (2026-08-01 U13) custom: は items/catalog.yml の ID と
+#                                         ArsPaper materials.yml の ID の両方を引ける。解決できない
+#                                         IDはその1件だけWARNINGを出して捨てる(他のドロップは出る)。
+#                                         mob-overrides.yml の drops[].item /
+#                                         mob-level-table.yml の add-drops[].material と同じ書式。
 #                               chance  : 1死亡あたりのドロップ確率 [0,1] (必須)
 #                               min/max : ドロップ個数の範囲 (両方0以上、min<=max、必須)
 #                               quality : 固定品質値 (省略可。省略時はモブレベル駆動で自動決定)
+#                                         ※ custom: のときは無効 (カタログ品の品質は生成側が決める)
 #
 # バランス方針 (2026-07-24 / item-stats 装備帯アンカー):
 #   - 主戦場は use-lv 0〜40（木〜金）。同帯ライトソードで約6ヒット、同帯軽〜中防具で約12〜20ヒット耐え。
