@@ -2911,3 +2911,135 @@ TF 側は `integration/ars/ArsRecipeBrowserBridge.java`（58行・全リフレ�
   （`workflow-meta-must-be-pure-literal` 系の教訓と同型の罠）。
 
 詳細は `docs/agent-context/parallel-worktrees.md` にある。
+
+---
+
+## 2026-08-01（後半セッション）— Wave3＋コンテンツの統合、バランス調整、パッチノート、配備準備
+
+`ae6bce1..e5e47ab`。16エージェントの反証レビューが出した **HIGH 8件**を潰してから統合した。
+
+### マージしたレーン
+
+| ブランチ | 内容 |
+|---|---|
+| `work/w3-active-scope` | 専用効果のスキル別スコープ／採取効率をメインハンド限定に |
+| `work/w3-editor` | ？ホバー説明のレガシーHTML除去・カテゴリ追従 |
+| `work/c2-dungeon-boss` | **gates.yml に EM 全61ダンジョンを列挙**＋モブ係数の初期化順 |
+| `work/c1-catalog` | ダンジョンの鍵と入手経路（ガチャ／戦利品／クラフト） |
+| `work/c4-caps-gathering` | ステータス上限の初期値・農業ドロップテーブル新設 |
+| `work/w3-give-quality` | `/tf give` の実行テスト／効かないステを lore から落とす seam |
+
+### レビュー指摘のうち、実物を見たら**誤報だったもの**
+
+- 「鍵ゲート17件を書くと残り44ダンジョンが一般プレイヤーに閉じる」→ **発生しない**。
+  C2 が61件すべてを列挙しており、鍵なしダンジョンは `required-combat-level: 0` の
+  素通しゲートとして明示されている。指摘は C1 単独マージを前提にしていた。
+- 「`aliases` から `.yml` を削れる」→ **削ってはいけない**（`getFilename()` は `.yml` 付きを返す）。
+  出荷 yml は正しく `.yml` 付きで、`key-item` に `custom:` を付ける罠もヘッダに注記済み。
+  **誤っていたのは報告文だけでコードは正しかった。**
+
+### HIGH の修正（実物で確認して直したもの）
+
+- **`FarmingGimmickListener` が未配線**（`07a6253`）。config・出荷yml 2カテゴリ・editor の農業タブまで
+  揃っているのに `registerEvents` だけ無く、実行時に一度も発火しなかった。テスト3324件は緑のまま素通り。
+  再発防止に `RegisterEventsDriftTest`（listeners 配下の Listener 実装71件が `TrinityForge.java` に
+  現れることをソーステキストで検証。許可リストは空）。
+- **農業drop-table 2カテゴリだけパークゲート無し**（同）。`DropTablePolicy.isOpen` の自動反転規則
+  （未参照カテゴリ＝全員に開放）で Lv0 からガチャ券が引けていた。既存ノード B(Lv30)/C(Lv50) へ配置。
+- **儀式レシピ43件が永久にクラフト不可**（`da1d105`）。`RitualRecipeRegistry#findMatch` が `findFirst`
+  のため `(core-item, pedestal-items)` 完全一致のレシピは最初の1本しか成立しない。119件を機械照合して
+  13グループの衝突を確認し、武器種・部位の意味が通る素材で差別化して**衝突0**に。
+  `ShippedRitualRecipeUniquenessTest` で再発を止める（source はキーに含めない ── `findMatch` が
+  見ていないので source を変えても衝突は解けない）。
+- **M3 の (F) が廃止済みキーの上に建っていた**（`cd4ab3d`）。dev は `03287fc` で経路別4キーへ分割済み。
+  そのままマージすると誰も書かないキーを読んで恒久 no-op（`totalOf` は未知キーで 0.0 を返す）。
+  経路別へ載せ替え、判定も「両経路とも0のときだけ」→「そのキーの経路が0か」へ単純化した
+  （旧条件のままだと作業台だけ0にしても儀式が生きている限り死んだステが lore に出続ける）。
+  choke file の都合でレーンが書けなかった `loreComposer.useInertStatKeys(...)` の配線も入れた。
+
+### EliteMobs フォーク（REJECT → 3件を個別コミットで解消）
+
+`1f3b1766` / `1a5406d1` / `1ae1ec40`。
+
+- **緊急停止スイッチの復活**（`dungeon-entry-gate: true`）。round2 が「死んだ節」として消したが、
+  実際は**唯一の参照をそのコミットが消した**ので、config で止める手段が消えていた。既定は `true`
+  （旧既定の `false` には戻さない ── ゲートは61件出荷済みで実際に使われている機能）。
+- **fail-open / fail-close の分離**。「TF が入れないと判断した」＝拒否、
+  「TF に問い合わせられなかった（service==null／例外／lookupKey 取得失敗）」＝素通し＋警告ログ。
+  初期化事故でプレイヤーを締め出さない。
+- **ミューテーション4本の取りこぼしを解消**。定数プール方式の配線テストの真の盲点は
+  「**同一クラス内の別メソッドに同じ呼び出しが1つでも残れば通る**」。javap をメソッド単位で切る
+  `Javap` テストユーティリティと行動テストで4本とも RED を実測。
+  配備 jar のバイトコードでも裏取り済み（`CurrencyCustomLootEntry` にゲート呼び出し2箇所、
+  `LootTables` に `bonus_coins.yml` 定数1件＝引数が実条件のまま）。
+
+### バランス調整（ユーザー要件18/19）
+
+- **要件1a**（`efb822a`）: 連打減衰の `min-multiplier` 0.2→0.1、`exponent` 2.0→1.6。
+- **要件1b**（同）: **HEAVY_WEAPONS 66件のみ** attack-power ×1.25 / attack-speed ×0.85。
+  LIGHT_WEAPONS 84件は据え置き（両方に同じ倍率を掛けると比が変わらず差別化にならない）。
+  `attack-power` 上限を 110000→137500（単品最大が 96,280→120,350 に上がったため。
+  据え置くと「最上位武器に持ち替えてもダメージが伸びない」無言の症状。
+  **C4 が同日追加した `ShippedStatCapsDriftTest` が実際にこれを検出した**）。
+- **要件2**（`be693d2`）: 重装は耐性×1.30／防具強度×1.25／ノックバック耐性×1.25、
+  軽装は耐性×0.85／回避率×0.85。重装フル装備の移動速度を **-12% に統一**
+  （従来は 金-28% / ダイヤ**+5%（重装なのに速くなる）** / 鉄-8% とばらついていた。
+  兜と胴には `move-speed` キー自体が無かったので22部位に新設）。
+
+> ⚠️ **`phys-flat-defense` は一切触っていない。** `armor-ladder.test.js` が固定する耐久ラダー
+> （最大ロールのフル装備で20発）は**余裕がゼロ**で、実測すると ×1.04 で Lv100帯が 19.9→49.7発、
+> ×1.08 で **Infinity（無敵）**、×0.96 で 12.4発（許容下限17割れ）になる。減算式なので
+> `(攻撃力 − 固定防御)` が 0 に近づくと発散するのが原因。乗算式の `phys-resistance` は
+> ×1.30 でも全9帯 20.0〜22.4 に収まる。**今後この4ステで強弱を付けようとしないこと。**
+
+### 破壊的な孤児変更を2件退避（**査読が必要**）
+
+前回セッションの `stash@{1}`（TF出荷yml 17本）に加えて2件。
+
+1. **`resourcepack/` 一式** → `stash@{0}`（TF リポジトリ）。
+   `cmd-registry.json` を機械照合したところ、**CMD の再利用3件**
+   （`400012`〜`400014` が現存する `infinity_cane`/`dragon_cane`/`wither_cane` から
+   **どこにも定義が無い** `lastmagic_cane`/`darkabyss_cane`/`boundary_cane` へ付け替え）と
+   **割当の消失2件**（`IRON_CHAIN:68` `fnis_peccati_profundi` / `GLOWSTONE:84`
+   `novus_criculus_luminis`、どちらも定義は現存）。台帳は**再生成不可・再利用禁止**なので
+   commit すると既存アイテムの見た目が黙って入れ替わる。
+   ただし `bow.json` の引き絞りモデル追加は有用なので**後で救出すること**。
+2. **`fork-handoff/arspaper/fork/src/main/resources/materials.yml`** → Ars フォークの stash。
+   editor 保存による日本語コメント欠落に加え、**`ingredients: []` の素材ゼロレシピ**と
+   **レシピ素材の無言の差し替え**（`custom:source_gem` → `custom:source_berry`）を含む。
+
+Ars フォークの Java 側 WIP（マナバー可視化ポリシー／グリフブラウザ／呪文破壊マーカーの集約）は
+227件全緑を実測して `ba2811d` で保全した。**上記1の記録4・2の記録3はこれで解消。**
+
+### テスト実測
+
+- TF 本体: **3397件 / 失敗0 / エラー0 / skipped 2**（全緑）
+- ArsPaper フォーク: **227件 / 失敗0 / エラー0 / skipped 0**
+- EliteMobs フォーク: **87件 / 失敗0 / エラー0 / skipped 0**
+- config-editor: **既知の10件のみ失敗**（バランス調整前のベースラインと同数。実測で確認）
+
+### パッチノート・配備
+
+`docs/patchnotes/2026-08-01.md`（288行、`e5e47ab`）。前回 7-26 以降の159コミットから
+プレイヤーに影響するものだけを選んで日本語で記述。
+
+配備はドライラン済み（`--dry-run --config`）。**実行はユーザーが行う**:
+
+```
+ops\launch\stop-all.cmd
+ops\launch\deploy.cmd --config
+ops\launch\start-all.cmd
+```
+
+**`--config` が必須**。付けないと今回のバランス調整・gates.yml の61件・儀式レシピの差別化が
+サーバへ届かない（jar 内蔵の yml は既存ファイルがあると書き出されない）。
+`--config` は live state（`sourcejars.yml` / `sourcelinks.yml`）を除外する実装になっている。
+**稼働中の jar 差し替えは必ず `NoClassDefFoundError` になるので、必ず停止してから実行すること。**
+
+### 残タスク
+
+- **`stash@{0}`（resourcepack）と Ars の materials.yml stash の査読。** 上記のとおり破壊を含むが、
+  `bow.json` の引き絞りモデルなど救出すべきものが混ざっている。
+- **`work/m1-dungeon-gate` の削除。** 分岐点が dev から 207 コミット前で、内容は `113ff86` と
+  C2 の gates.yml に完全に置き換わっている。worktree ごと消してよい。
+- config-editor の既知10件の失敗（バランス調整とは無関係の既存不具合）。
