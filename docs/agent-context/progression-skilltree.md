@@ -95,6 +95,12 @@ config-editorのskilltree UIには専用フォーム（`buildSkillTreeForm`, `pu
 
 出荷既定の`exp-mode: drop_sum`では、「ブロック名の行」はゲート判定（値>0か）専用であり、**実際に付与されるEXPはドロップしたアイテムの材質名に対する値の合計**。ブロックとドロップ品が同じ場合（大半）は1行で足りるが、`SEA_LANTERN`→`PRISMARINE_CRYSTALS`のように違う材質を落とすブロックは、**ドロップ側の行も足さないとEXP0のまま**（テラコッタが表から丸ごと抜けていて掘っても0だった実例あり）。ブロックを追加するたびに、実際のドロップ品目を確認して行を足す必要がある。シルクタッチ無しで何も落とさないブロック（氷等）はEXP0が正しい挙動。
 
+### ⚠️ `instanceof Ageable` は「成熟する作物」の判定にならない（成熟ガードは必ずホワイトリスト）
+
+Bukkitの`Ageable`は「`age`プロパティを持つブロック」という意味しか持たず、**`age`の意味はブロックごとに違う**。小麦・ニンジン・ジャガイモ・ビートルート・ネザーウォート・カカオ・松明花・ピッチャー・ベリーは`age`が成熟度で`age == maximumAge`が収穫適期だが、**サトウキビ・コンブ・サボテン・ねじれツタ・泣きツタ・光ツタの`age`は「次の1段を伸ばすまでのカウンタ」で、最大値(15や25)に達した瞬間に新しい段を生やして0に戻る**（竹の`age`は太さ0/1にすぎない）。したがって`instanceof Ageable && age < maximumAge`で未成熟を弾くと、**収穫できる状態のサトウキビはほぼ常に「未成熟」と判定され、農業EXPが永久に0になる**。実際に`NativeSkillExperienceListener#grantGathering`がこれで壊れており、しかも判定が`return false`だったため**破壊時バニラEXP解放（`break-vanilla-exp`）まで道連れで無効**だった（サトウキビ/コンブ/竹/ねじれツタ/泣きツタ/光ツタの6種が該当。2026-08-01 U9で修正）。判定は`com.trinityforge.farming.CropMaturity`に一元化してあり、**「成熟しないと収穫できない作物」のホワイトリスト方式**にしてある。除外リスト方式にすると、Paperが新しい`Ageable`ブロックを追加するたびに同じ「無言でEXP0」が再発するため、未知のブロックは常に収穫可能として素通しする（fail-open）。Paper 1.21.11で`Ageable`を実装するMaterialは22種で、`CropMaturity`のjavadocに全件の分類がある（Paperを上げたら`Material`のブロックデータクラスを走査して再確認する）。
+
+なお`FarmingHarvestListener`（auto-replant/area-harvest）と`PlantedCropGrowthListener`は`FarmingCropCatalog.isCrop`で先に5作物へ絞っているのでこの罠を踏んでいない。一方**`GatheringExtraDropListener`の`harvest_extra_drop_chance`は素の`Ageable && age == maximumAge`のままなので、サトウキビ/コンブ/竹等では追加ドロップが一切抽選されない**（逆にコーラスフラワーや凍結氷が「成熟した作物」に化ける）。これは収穫量＝バランスに触る変更になるので未修正のまま残してある。
+
 ## EXPシステムの構造
 
 ### EXP経路は3系統＋バニラ経験値オーブの計4系統
