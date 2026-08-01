@@ -1485,13 +1485,36 @@ function validateMobDefenseBlock(block, prefix, errors) {
   }
 }
 
+/**
+ * mob-types.yml drops[].material が受け付ける2書式の判定 (2026-08-01 U13)。
+ *
+ * Java 側 (`MobTypesConfig#parseDrops`) の受理集合をそのまま写す:
+ *   - `custom:` 始まり(大小無視・前後空白は trim) → ID が空でなければ OK
+ *   - それ以外 → `toUpperCase()` してから `Material.valueOf` なので小文字の Material名 も通る
+ * ここを Java より狭くすると「Java では動くのにエディタでは必ず検証エラー」というドリフトになる
+ * (docs/agent-context/config-editor.md の「Java 側の loader を先に読んで突き合わせる」)。
+ */
+function isValidMobDropItemToken(raw) {
+  if (typeof raw !== "string") return false;
+  const token = raw.trim();
+  if (!token) return false;
+  if (/^custom:/i.test(token)) {
+    return token.slice("custom:".length).trim().length > 0;
+  }
+  return /^[A-Za-z0-9_]+$/.test(token);
+}
+
 function validateMobDrops(drops, prefix, errors) {
   if (drops === undefined || drops === null) return;
   if (!Array.isArray(drops)) { errors.push(`${prefix}.drops: 配列である必要があります`); return; }
   drops.forEach((d, i) => {
     const p = `${prefix}.drops[${i}]`;
     if (!isPlainObject(d)) { errors.push(`${p}: マップである必要があります`); return; }
-    if (typeof d.material !== "string" || !d.material) errors.push(`${p}.material: 必須の文字列(Material名)です`);
+    // それまでは「非空文字列なら何でも OK」だったので、custom: が Java に届かない状態
+    // (MobTypesConfig が custom: を知らず WARNING で捨てていた)をエディタ側でも検知できなかった。
+    if (!isValidMobDropItemToken(d.material)) {
+      errors.push(`${p}.material: Material名または custom:<カタログID> である必要があります`);
+    }
     if (!isNumber(d.chance) || d.chance < 0 || d.chance > 1) errors.push(`${p}.chance: 0.0〜1.0の数値である必要があります`);
     if (!isNonNegInteger(d.min)) errors.push(`${p}.min: 0以上の整数である必要があります`);
     if (!isNonNegInteger(d.max)) errors.push(`${p}.max: 0以上の整数である必要があります`);

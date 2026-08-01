@@ -49,6 +49,13 @@ public final class MobTypesConfig implements LoadableConfig {
     private static final String ATTACK_POWER_GROWTH_INTERVAL = "attack-power-growth-interval";
     private static final String LEVEL_COEFFICIENTS = "level-coefficients";
     private static final String MAX_LEVEL = "max-level";
+    /**
+     * 2026-08-01 U13: drops[].material が受け付けるカスタムアイテムトークンの接頭辞。設定エディタは
+     * カスタムアイテムの選択を必ず {@code custom:<id>} へ正規化する({@code public/js/util.js} の
+     * materialInput)。共有定数は作らず各ドメインが自前で持つのが既存の流儀(MobOverridesConfig /
+     * MobLevelTableConfig / RecipeIngredient なども同じ private 定数を持っている)。
+     */
+    private static final String CUSTOM_PREFIX = "custom:";
     /** CMB-21: mob-import.yml / mob-types.yml の成長式がLv100想定で設計されている(コメント「Lv100で
      * 約134.5」等)ため、既定の距離レベル上限もLv100に揃える。 */
     private static final int DEFAULT_MAX_LEVEL = 100;
@@ -392,6 +399,12 @@ public final class MobTypesConfig implements LoadableConfig {
      * A missing or invalid field skips that single drop (never the whole mob-types entry) AND
      * increments the returned skipped count, so a bad drop config is reflected in {@link
      * ParseResult#skipped()} instead of reporting a silently clean load.
+     *
+     * <p>{@code material} accepts a vanilla {@link Material} name OR a {@code custom:<id>} token
+     * (2026-08-01 U13) — the same two-format rule {@code MobOverridesConfig#parseDrops} (drops[].item)
+     * and {@code MobLevelTableConfig} (add-drops[].material) already implement. The prefix is stripped
+     * HERE, locally, per the existing house style (each of the ten domains that accept it strips its
+     * own); a blank id is skipped with a warning rather than being turned into a Material lookup.
      */
     private static DropParseResult parseDrops(List<Map<?, ?>> rawDrops, String ownerKey, Logger log) {
         List<MobDropEntry> drops = new ArrayList<>();
@@ -403,22 +416,36 @@ public final class MobTypesConfig implements LoadableConfig {
                 skipped++;
                 continue;
             }
-            Material material;
-            try {
-                material = Material.valueOf(String.valueOf(materialRaw).toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException ex) {
-                log.warning("[" + PATH + "] '" + ownerKey + "' drop material '" + materialRaw + "' invalid; skipped");
-                skipped++;
-                continue;
+            String token = String.valueOf(materialRaw).trim();
+            Material material = null;
+            String catalogId = null;
+            if (token.regionMatches(true, 0, CUSTOM_PREFIX, 0, CUSTOM_PREFIX.length())) {
+                catalogId = token.substring(CUSTOM_PREFIX.length()).trim();
+                if (catalogId.isEmpty()) {
+                    log.warning("[" + PATH + "] '" + ownerKey + "' drop 'custom:' id must not be blank; skipped");
+                    skipped++;
+                    continue;
+                }
+            } else {
+                try {
+                    material = Material.valueOf(token.toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException ex) {
+                    log.warning("[" + PATH + "] '" + ownerKey + "' drop material '" + materialRaw
+                            + "' invalid; skipped");
+                    skipped++;
+                    continue;
+                }
             }
             try {
-                double chance = clamp01(requireDouble(raw, "chance", ownerKey, material));
-                int min = requireInt(raw, "min", ownerKey, material);
-                int max = requireInt(raw, "max", ownerKey, material);
+                double chance = clamp01(requireDouble(raw, "chance", ownerKey, token));
+                int min = requireInt(raw, "min", ownerKey, token);
+                int max = requireInt(raw, "max", ownerKey, token);
                 Integer quality = raw.get("quality") == null ? null : toInt(raw.get("quality"), 0);
-                drops.add(new MobDropEntry(material, chance, min, max, quality));
+                drops.add(catalogId != null
+                        ? MobDropEntry.ofCatalog(catalogId, chance, min, max, quality)
+                        : MobDropEntry.ofMaterial(material, chance, min, max, quality));
             } catch (IllegalArgumentException ex) {
-                log.warning("[" + PATH + "] '" + ownerKey + "' drop for " + material + " invalid ("
+                log.warning("[" + PATH + "] '" + ownerKey + "' drop for " + token + " invalid ("
                         + ex.getMessage() + "); skipped");
                 skipped++;
             }
@@ -427,21 +454,21 @@ public final class MobTypesConfig implements LoadableConfig {
     }
 
     /** Required numeric field: throws (caught by the caller, which logs + counts it skipped) if absent/non-numeric. */
-    private static double requireDouble(Map<?, ?> raw, String field, String ownerKey, Material material) {
+    private static double requireDouble(Map<?, ?> raw, String field, String ownerKey, String itemToken) {
         Object value = raw.get(field);
         if (!(value instanceof Number number)) {
             throw new IllegalArgumentException("'" + field + "' is required and must be numeric for "
-                    + ownerKey + "/" + material);
+                    + ownerKey + "/" + itemToken);
         }
         return number.doubleValue();
     }
 
     /** Required numeric field: throws (caught by the caller, which logs + counts it skipped) if absent/non-numeric. */
-    private static int requireInt(Map<?, ?> raw, String field, String ownerKey, Material material) {
+    private static int requireInt(Map<?, ?> raw, String field, String ownerKey, String itemToken) {
         Object value = raw.get(field);
         if (!(value instanceof Number number)) {
             throw new IllegalArgumentException("'" + field + "' is required and must be numeric for "
-                    + ownerKey + "/" + material);
+                    + ownerKey + "/" + itemToken);
         }
         return number.intValue();
     }
