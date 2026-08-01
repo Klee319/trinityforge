@@ -457,6 +457,12 @@
     "strength-per-quality": { label: "敵の強さ1段あたり", desc: "敵レベルがこの数上がるごとに期待品質(mode)+1。0以下でmode固定。" },
     "enabled": { label: "有効", desc: "この設定機能をON/OFFする。" },
     "ars-gear": { label: "Ars装備スキル", desc: "Ars魔法装備の品質を駆動するスキル (ARS_SMITHING等)。" },
+    // 2026-08-01 分離: craft-quality.yml の workbench/ritual 節 (作業台/儀式で別々のばらつき補正)。
+    // 既定値 scale=1.0 / flat=0.0 は Java の CraftQualityConfig.SpreadTuning.IDENTITY と一致。
+    "upswing-scale": { label: "上振れ増加の倍率", desc: "プレイヤーステ「品質の上振れ増加(craft-upswing-bonus)」をこの経路で何倍にして効かせるか。1.0=そのまま(分離前と同じ)、0=この経路には効かせない。" },
+    "upswing-flat": { label: "上振れσ加算", desc: "この経路にだけ無条件で足す上振れσ。ステとは無関係に効く。0=加算なし(分離前と同じ)。" },
+    "downswing-reduction-scale": { label: "下振れ抑制の倍率", desc: "プレイヤーステ「品質の下振れ抑制(craft-downswing-reduction)」をこの経路で何倍にして効かせるか。1.0=そのまま(分離前と同じ)、0=この経路には効かせない。" },
+    "downswing-reduction-flat": { label: "下振れσ減算", desc: "この経路にだけ無条件で下振れσから引く値。ステとは無関係に効く。0=減算なし(分離前と同じ)。σは0未満にはならない。" },
     // ---- P4: quality.yml (tf-quality) ----
     "max-quality": { label: "最大品質(フォールバック)", desc: "品質ティアが無い場合の最大品質。範囲[1,100]。" },
     "spread-up": { label: "上振れσ", desc: "品質抽選(正規分布)の上振れ側の標準偏差σ。大きいほど高品質へ跳ねやすい。クラフト・敵ドロップ共通。" },

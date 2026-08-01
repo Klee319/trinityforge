@@ -5,6 +5,28 @@
 # ※釣りの品質はロッド駆動(stats/fishing-gimmick.yml fishing.*)に移行済みで、ここには存在しない。
 # ※カテゴリ->生産スキルの対応(weapon/armor/tool -> SMITHING, ars-gear -> ARS_SMITHING)は固定ゲームルール
 #   のためJava側にハードコード済み(CraftQualityConfig#categorySkill)。
+#
+# ■ workbench / ritual (2026-08-01 分離)
+# 品質抽選の「ばらつき」補正を、作業台クラフトと儀式(ArsPaperのリチュアル)で別々に設定できる。
+# 従来は両経路が完全に同じ計算を通っていたため、「儀式だけ上振れを抑えたい」という調整ができなかった。
+#
+# プレイヤーステの craft-upswing-bonus(品質の上振れ増加) / craft-downswing-reduction(品質の下振れ抑制)は
+# 引き続き経路共通の1本だが、経路ごとに
+#   upswing-scale             : craft-upswing-bonus をその経路で何倍にして効かせるか(0=効かせない)
+#   upswing-flat              : ステとは無関係に、その経路にだけ無条件で足す上振れσ
+#   downswing-reduction-scale : craft-downswing-reduction をその経路で何倍にして効かせるか(0=効かせない)
+#   downswing-reduction-flat  : ステとは無関係に、その経路にだけ無条件で下振れσから引く値
+# をここで別々に決められる。
+#
+#   実効上振れσ = stats/quality.yml spread-up   + upswing-flat
+#                                                + max(0, craft-upswing-bonus)       * upswing-scale
+#   実効下振れσ = stats/quality.yml spread-down - downswing-reduction-flat
+#                                                - max(0, craft-downswing-reduction) * downswing-reduction-scale
+#
+# いずれも 0 未満へは落とさない (σ=0 は「その側は mode 固定」の意味になる)。
+# 既定値(scale=1.0 / flat=0.0)は分離前とまったく同じ挙動 — ここを触らない限りバランスは動かない
+# (Java側 CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致。CraftQualitySpreadSplitTest が固定している)。
+# 品質mode側の分割(作業台=workbench-quality-bonus / 儀式=ritual-quality-bonus)は別途ステ側で済んでいる。
 
 mode:
   skill-levels-per-quality: 10
@@ -13,3 +35,13 @@ drop:
   enabled: true
   strength-per-quality: 10
   base-quality: 0
+workbench:
+  upswing-scale: 1.0
+  upswing-flat: 0.0
+  downswing-reduction-scale: 1.0
+  downswing-reduction-flat: 0.0
+ritual:
+  upswing-scale: 1.0
+  upswing-flat: 0.0
+  downswing-reduction-scale: 1.0
+  downswing-reduction-flat: 0.0

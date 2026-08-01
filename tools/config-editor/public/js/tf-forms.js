@@ -324,6 +324,45 @@
     }
     return body;
   }
+  // ---- craft-quality.yml: 作業台/儀式で別々の品質ばらつき補正 (2026-08-01 分離) ----
+  // 既定値は Java 側 CraftQualityConfig.SpreadTuning.IDENTITY と厳密に一致させること
+  // (scale=1.0 / flat=0.0)。ここがズレると「editor で開いて保存しただけ」で yml の意味が変わり、
+  // しかも条件が緩む方向なので誰も気付けない (lib/schema.js の同名定数と2本ミラー)。
+  const CRAFT_QUALITY_SPREAD_DEFAULTS = {
+    "upswing-scale": 1.0,
+    "upswing-flat": 0.0,
+    "downswing-reduction-scale": 1.0,
+    "downswing-reduction-flat": 0.0
+  };
+  const CRAFT_QUALITY_SPREAD_LABELS = {
+    workbench: "作業台クラフトのばらつき (workbench)",
+    ritual: "儀式クラフトのばらつき (ritual)"
+  };
+
+  // 節が無い yml (分離前の出荷物) でもフォームを出すため、既定値で埋めてから描画する。
+  // 既定値は恒等なので、埋めて保存しても挙動は分離前と変わらない。
+  function appendCraftQualitySpreadSections(root, craftWorking) {
+    root.appendChild(h("div", { class: "qd-note", text:
+      "以下は品質抽選の「ばらつき」を作業台クラフトと儀式クラフトで別々に調整する設定です "
+      + "(craft-quality.yml)。上振れ増加(craft-upswing-bonus)と下振れ抑制(craft-downswing-reduction)は"
+      + "プレイヤー側の共通ステですが、経路ごとに「何倍で効かせるか(scale)」と「無条件に足すσ(flat)」を"
+      + "別々に決められます。既定値(scale=1.0 / flat=0.0)は分離前とまったく同じ挙動です。" }));
+    for (const section of ["workbench", "ritual"]) {
+      let obj = craftWorking[section];
+      if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+        obj = {};
+        craftWorking[section] = obj;
+      }
+      for (const [k, v] of Object.entries(CRAFT_QUALITY_SPREAD_DEFAULTS)) {
+        if (typeof obj[k] !== "number") obj[k] = v;
+      }
+      root.appendChild(card(
+        [h("span", { class: "entry-key-label", text: CRAFT_QUALITY_SPREAD_LABELS[section] })],
+        // scale/flat は小数を取るので必ず小数入力にする (1.0 は JS では整数扱いになるため)。
+        [scalarSectionBody(obj, undefined, null, null, { forceFloat: true })]));
+    }
+  }
+
   // working の指定セクション(ネストしたオブジェクト)を順にカード化して root に追加する。
   function appendScalarSections(root, working, sectionKeys, labels, labelOpts) {
     for (const section of sectionKeys) {
@@ -397,6 +436,7 @@
       appendScalarSections(root, craftWorking, ["mode", "drop"], {
         mode: "クラフト品質 (mode)", drop: "敵ドロップ品質 (drop)"
       });
+      appendCraftQualitySpreadSections(root, craftWorking);
     }
 
     return { element: root, getData: () => working, getCraftData: () => craftWorking };
@@ -413,6 +453,7 @@
     appendScalarSections(root, working, ["mode", "drop"], {
       mode: "クラフト品質 (mode)", drop: "敵ドロップ品質 (drop)"
     });
+    appendCraftQualitySpreadSections(root, working);
     return { element: root, getData: () => working };
   };
 
