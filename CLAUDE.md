@@ -76,8 +76,20 @@ cd tools/config-editor && npm test
 この割り当てを自動でやるのが `.claude/workflows/parallel-implement.js`
 （触るファイルを先に調べ、交わるタスクを同じレーンへ落としてから worktree で並列実装する）。
 
+## 中断から復帰したら最初にこれ
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\wip-audit.ps1
+```
+
+**持ち主のいない未コミット変更 / 未マージブランチ同士の担当ファイル衝突 / 分岐点が古い worktree** を検出する。
+3 つとも 2026-08-01 に実際に踏んで作業を捨てた事故で、**気づくのが遅れるほど高くつく**。
+詳細と対処は `docs/agent-context/parallel-worktrees.md`。
+
 ## 進め方の型
 
+0. **自分の立ち位置を最初に確認する。** 調査を始める前に `git log --oneline -1` と
+   `git merge-base dev HEAD`。古いスナップショット上での「grep でヒットゼロ」は結論にならない。
 1. **実コードで裏を取る。** `ACTIVE_RECORD.md` の記述も腐る（棚卸しで 15 件が「既に実装済み」だった）。
 2. **原因を特定してから直す。** このコードベースの不具合は「設定ミス」に見えて実際は
    配備漏れ・ビルド漏れ・イベント順序であることが多い。
