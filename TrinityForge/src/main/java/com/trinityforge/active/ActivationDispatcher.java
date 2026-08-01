@@ -95,7 +95,13 @@ public final class ActivationDispatcher implements Listener {
 
         long now = System.currentTimeMillis();
         for (ActiveSkill skill : candidates) {
-            OptionalDouble tierOpt = dedicatedEffects.valueMax(player, skill.gateEffectId());
+            // ゲートは「持っているツールのスキルツリー」に限定して解決する(2026-08-01 実サーバ報告
+            // 「シャベルを手に持っていても採掘速度上昇のバフが発動できる」の修正)。
+            // haste-active-mining は mining.yml A-1 と digging.yml A-1 の両方が置くゲートなので、
+            // ツリーを問わず最大値を取ると **ツルハシ側しか解放していないプレイヤーがシャベルでも
+            // 発動できて**しまい、逆も同様だった。CTは従来どおり ActiveSkill#id() 単位で共有する
+            // (ツリーごとに別CTにはしない)。
+            OptionalDouble tierOpt = dedicatedEffects.valueMax(player, skill.gateEffectId(), useSkill);
             if (tierOpt.isEmpty()) {
                 continue; // this candidate isn't unlocked for the player: try the next one, never cancel.
             }

@@ -25,6 +25,14 @@ import java.util.Set;
  * {@code "DIGGING"} so a shovel tagged {@code use-skill: DIGGING} keeps triggering this exactly as a
  * pickaxe tagged {@code use-skill: MINING} does, with a single shared cooldown (see {@link ActiveSkill}
  * class doc) — a player cannot extend uptime by switching tools mid-cooldown.
+ *
+ * <p><b>2026-08-01 実サーバ報告「シャベルを手に持っていても採掘速度上昇のバフが発動できる」</b>:
+ * {@code targetSkills()} が両方を返すこと自体は仕様どおり(切削ツリーにも A-1 がある)。バグだったのは
+ * <b>解放判定がツリーを問わなかった</b>ことで、{@code mining.yml} A-1/A-2/A-3 しか取っていない
+ * プレイヤーでもシャベルで発動できていた。{@link ActivationDispatcher} が
+ * ゲート({@code feature:haste-active-mining})を「持ったツールの {@code use-skill} と同じツリーの配置」
+ * だけに絞って解決するようになり、ツルハシは採掘ツリー、シャベルは切削ツリーの解放段階で判定される
+ * (tier もそのツリー内の最大値)。CTは引き続き1本を共有する。
  */
 public final class HasteActiveSkill implements ActiveSkill {
 

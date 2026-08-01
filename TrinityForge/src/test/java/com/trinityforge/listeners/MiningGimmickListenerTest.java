@@ -9,6 +9,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrushableBlock;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.block.spawner.SpawnerEntry;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
@@ -22,15 +23,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -268,7 +273,13 @@ class MiningGimmickListenerTest {
     }
 
     @Test
-    void playerPlacedSpawnerCannotBeHarvestedAgainAndDropsNoSpawnerExp() {
+    void playerPlacedSpawnerIsStillHarvestableButAwardsNoExp() {
+        // 実サーバ報告(2026-08-01): 回収したスポナーを設置し直して壊すと「アイテムごと消える」。
+        // 旧実装は placedBlocks.isPlaced(block) で早期 return しており、setDropItems(false) も
+        // 走らないため **バニラ挙動(スポナーは何も落とさない)** が適用されて持ち物が無言で消えていた。
+        // javadoc は「place/break 複製を防ぐため」と書いていたが、1個→設置→再回収も1個のままで
+        // 複製にはならない。設置済みでも回収は通し、**バニラEXPだけ** 0 に抑止するのが正しい
+        // (EXPは設置/破壊を繰り返すと無限に稼げるため)。
         Player player = server.addPlayer();
         ItemStack tool = new ItemStack(Material.DIAMOND_PICKAXE);
         Enchantment silkTouch = org.bukkit.Registry.ENCHANTMENT.get(
@@ -278,6 +289,10 @@ class MiningGimmickListenerTest {
 
         Block block = player.getWorld().getBlockAt(8, 64, 8);
         block.setType(Material.SPAWNER);
+        CreatureSpawner source = assertInstanceOf(CreatureSpawner.class, block.getState());
+        source.setSpawnedType(EntityType.BLAZE);
+        source.update(true);
+
         DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
         when(dedicatedEffects.isActive(player, "spawner-silktouch-harvest")).thenReturn(true);
         PlacedBlockTracker placedBlocks = new PlacedBlockTracker(MockBukkit.createMockPlugin());
@@ -291,8 +306,99 @@ class MiningGimmickListenerTest {
 
         listener.onBlockBreak(event);
 
-        assertEquals(0, player.getWorld().getEntitiesByClass(Item.class).size());
-        verify(event, never()).setDropItems(false);
-        verify(event).setExpToDrop(0);
+        Item dropped = player.getWorld().getEntitiesByClass(Item.class).iterator().next();
+        BlockStateMeta meta = assertInstanceOf(BlockStateMeta.class, dropped.getItemStack().getItemMeta());
+        CreatureSpawner droppedState = assertInstanceOf(CreatureSpawner.class, meta.getBlockState());
+        assertEquals(EntityType.BLAZE, droppedState.getSpawnedType());
+        verify(event).setDropItems(false);
+        verify(event, atLeastOnce()).setExpToDrop(0);
+    }
+
+    /**
+     * 実サーバ報告(2026-08-01)「回収したスポナーの中身が空」の根本原因を縛る。
+     *
+     * <p>Paper 1.21.11 の {@code CreatureSpawner#getSpawnedType()} は
+     * {@code @Nullable}(実装は {@code nextSpawnData == null} と NBT のエンティティ型が
+     * 解決できないときに {@code null} を返す)。そして {@code setSpawnedType(null)} は
+     * <b>spawnPotentials を空にして空の SpawnData を入れる</b>という「空スポナー化」の
+     * 意味を持つ。旧実装は {@code spawnerItem(source.getSpawnedType())} と素通しで渡していたので、
+     * 型が解決できない元ブロックからは<b>無言で空のスポナー</b>が落ちていた。
+     */
+    private CreatureSpawner mockSpawnerState(EntityType spawnedType, List<SpawnerEntry> potentialSpawns) {
+        CreatureSpawner state = mock(CreatureSpawner.class);
+        when(state.getType()).thenReturn(Material.SPAWNER);
+        when(state.getSpawnedType()).thenReturn(spawnedType);
+        when(state.getPotentialSpawns()).thenReturn(potentialSpawns);
+        // MockBukkit の BlockStateMetaMock#getBlockState は保持した state の copy() を返すので、
+        // モックでも「丸ごと写した状態」を読み戻せるように自分自身を返す。
+        when(state.copy()).thenReturn(state);
+        return state;
+    }
+
+    private record SpawnerFixture(BlockBreakEvent event, World world, Player player) {
+    }
+
+    private SpawnerFixture spawnerBreakEvent(CreatureSpawner state) {
+        Player player = server.addPlayer();
+        ItemStack tool = new ItemStack(Material.DIAMOND_PICKAXE);
+        tool.addUnsafeEnchantment(
+                org.bukkit.Registry.ENCHANTMENT.get(org.bukkit.NamespacedKey.minecraft("silk_touch")), 1);
+        player.getInventory().setItemInMainHand(tool);
+
+        World world = mock(World.class);
+        org.bukkit.Location location = mock(org.bukkit.Location.class);
+        Block block = mock(Block.class);
+        when(block.getType()).thenReturn(Material.SPAWNER);
+        when(block.getState()).thenReturn(state);
+        when(block.getWorld()).thenReturn(world);
+        when(block.getLocation()).thenReturn(location);
+
+        BlockBreakEvent event = mock(BlockBreakEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getBlock()).thenReturn(block);
+        return new SpawnerFixture(event, world, player);
+    }
+
+    private MiningGimmickListener listenerFor(Player player, PlacedBlockTracker placedBlocks) {
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        when(dedicatedEffects.isActive(player, "spawner-silktouch-harvest")).thenReturn(true);
+        return new MiningGimmickListener(MockBukkit.createMockPlugin(), dedicatedEffects,
+                mock(PlayerStatAggregator.class), new MiningGimmickConfig(), placedBlocks);
+    }
+
+    @Test
+    void spawnerWithNoResolvableContentIsNeverHarvestedIntoAnEmptyItem() {
+        CreatureSpawner state = mockSpawnerState(null, List.of());
+        PlacedBlockTracker placedBlocks = mock(PlacedBlockTracker.class);
+        when(placedBlocks.isPlaced(any(Block.class))).thenReturn(false);
+        SpawnerFixture fixture = spawnerBreakEvent(state);
+
+        listenerFor(fixture.player(), placedBlocks).onBlockBreak(fixture.event());
+
+        // 空スポナーを作って落とすのではなく、回収そのものを見送る(=バニラ挙動へ戻す)。
+        verify(fixture.world(), never()).dropItemNaturally(any(), any());
+        verify(fixture.event(), never()).setDropItems(false);
+    }
+
+    @Test
+    void spawnerWhoseTypeIsUnresolvableButHasPotentialSpawnsIsStillHarvestedWholeState() {
+        // getSpawnedType() が null でも spawnPotentials に中身があるスポナーは実在する
+        // (別プラグイン/構造物が setPotentialSpawns だけを使った場合)。entity type だけを写す
+        // 旧実装ではこの中身が丸ごと捨てられていた。ブロック状態を丸写しすれば失われない。
+        SpawnerEntry entry = mock(SpawnerEntry.class);
+        CreatureSpawner state = mockSpawnerState(null, List.of(entry));
+        PlacedBlockTracker placedBlocks = mock(PlacedBlockTracker.class);
+        when(placedBlocks.isPlaced(any(Block.class))).thenReturn(false);
+        SpawnerFixture fixture = spawnerBreakEvent(state);
+
+        listenerFor(fixture.player(), placedBlocks).onBlockBreak(fixture.event());
+
+        ArgumentCaptor<ItemStack> drop = ArgumentCaptor.forClass(ItemStack.class);
+        verify(fixture.world()).dropItemNaturally(any(), drop.capture());
+        BlockStateMeta meta = assertInstanceOf(BlockStateMeta.class, drop.getValue().getItemMeta());
+        // 「entity type を setSpawnedType で写す」経路なら null が渡って空スポナーになる。
+        // 丸写し経路なら元の state がそのまま載っている。
+        assertSame(state, meta.getBlockState());
+        verify(fixture.event()).setDropItems(false);
     }
 }

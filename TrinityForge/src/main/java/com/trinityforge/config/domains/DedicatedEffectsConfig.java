@@ -91,8 +91,30 @@ public final class DedicatedEffectsConfig implements LoadableConfig {
 
     /** The highest {@code value} among {@code player}'s matching placements. Fail-safe: same as {@link #isActive}. */
     public OptionalDouble valueMax(Player player, String effectId) {
+        return valueMax(player, effectId, null);
+    }
+
+    /**
+     * {@link #valueMax(Player, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted).
+     *
+     * <p>同じ effect id を複数のツリーが置いていて、かつ<b>どのツリー由来で解放したかが意味を持つ</b>
+     * 経路(持ったツールの {@code use-skill} でトリガーするアクティブスキル等)は必ずこちらを使うこと。
+     * 詳細は {@link com.trinityforge.skilltree.effects.DedicatedEffectGateIndex#valueMaxByPerks(Set, String, String)}。
+     * Fail-safe: same as {@link #isActive}.
+     */
+    public OptionalDouble valueMax(Player player, String effectId, String skill) {
         try {
-            return gateIndex.valueMaxByPerks(heldPerksOf(player), normalize(effectId));
+            return gateIndex.valueMaxByPerks(heldPerksOf(player), normalize(effectId), skill);
+        } catch (RuntimeException ex) {
+            return OptionalDouble.empty();
+        }
+    }
+
+    /** {@link #valueMax(Player, String, String)} without a live {@link Player}. */
+    public OptionalDouble valueMaxByPerks(Set<String> heldPerks, String effectId, String skill) {
+        try {
+            return gateIndex.valueMaxByPerks(heldPerks, normalize(effectId), skill);
         } catch (RuntimeException ex) {
             return OptionalDouble.empty();
         }

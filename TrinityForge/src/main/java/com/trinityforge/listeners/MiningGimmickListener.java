@@ -45,9 +45,14 @@ import java.util.concurrent.ThreadLocalRandom;
  *       class as {@link BeekeepingListener}'s {@code hive-harvest-fortune} fix. Now compares the fraction
  *       directly against the roll, same idiom as {@link com.trinityforge.combat.CritResolver}.</li>
  *   <li>{@code spawner-silktouch-harvest} (flag): breaking a {@link Material#SPAWNER} with a
- *       silk-touch tool drops a SPAWNER item whose {@link CreatureSpawner#getSpawnedType()} is copied
- *       through {@link BlockStateMeta}. Player-placed spawners are excluded to prevent place/break
- *       item and experience loops.</li>
+ *       silk-touch tool drops a SPAWNER item carrying the <b>whole</b> {@link CreatureSpawner} block
+ *       state through {@link BlockStateMeta} (see {@link #spawnerItem}: copying only the entity type
+ *       both lost {@code spawnPotentials}/delays and — when {@code getSpawnedType()} returned
+ *       {@code null} — silently produced an EMPTY spawner).
+ *       2026-08-01: player-placed spawners used to be excluded entirely, which made a re-placed
+ *       spawner <b>vanish on break</b> (no drop from us, and vanilla drops nothing either). They are
+ *       harvestable again; only the vanilla spawner EXP stays suppressed, since that (unlike the item)
+ *       really can be farmed by repeated place/break.</li>
  * </ul>
  */
 public final class MiningGimmickListener implements Listener {
@@ -143,10 +148,12 @@ public final class MiningGimmickListener implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlock();
         if (placedBlocks.isPlaced(block)) {
-            // Vanilla spawners award experience independently of item drops. Suppress that too:
-            // otherwise any harvested spawner that was placed again would still yield free EXP.
+            // 設置済みスポナーでも「回収」自体は通す(1個→設置→再回収も1個のままで複製にならない)。
+            // 抑止するのはバニラEXPだけ — こちらは設置/破壊を繰り返すと無限に稼げるため。
+            // 2026-08-01 実サーバ報告の修正: 以前はここで早期 return しており、setDropItems(false) も
+            // 走らないためバニラ挙動(スポナーは何も落とさない)が適用され、プレイヤーの持ち物が
+            // 無言で消えていた(「再設置すると破壊で消滅する」の正体)。
             event.setExpToDrop(0);
-            return;
         }
         if (!dedicatedEffects.isActive(player, EFFECT_SPAWNER_HARVEST)) {
             return;
@@ -158,7 +165,14 @@ public final class MiningGimmickListener implements Listener {
         if (!(block.getState() instanceof CreatureSpawner source)) {
             return;
         }
-        ItemStack drop = spawnerItem(source.getSpawnedType());
+        if (isEmptySpawner(source)) {
+            // 中身が解決できないスポナーは「空のスポナーを落とす」のではなく回収を見送る
+            // (=バニラ挙動へ戻す)。空の実物を握らせるより、落ちない方が原因を追いやすい。
+            plugin.getLogger().warning("[mining] スポナー回収を見送りました: "
+                    + "spawned-type も spawn-potentials も解決できません at " + block.getLocation());
+            return;
+        }
+        ItemStack drop = spawnerItem(source);
         if (drop == null) {
             return;
         }
@@ -168,17 +182,43 @@ public final class MiningGimmickListener implements Listener {
     }
 
     /**
-     * Creates the item-state copy required by Paper/Bukkit: {@code getBlockState()} returns a copy,
-     * so both {@code setBlockState()} and {@code setItemMeta()} are required to retain the entity type.
+     * 回収してもプレイヤーに何も渡らない「空スポナー」かどうか。
+     *
+     * <p>Paper 1.21.11 の {@link CreatureSpawner#getSpawnedType()} は {@code @Nullable} で、
+     * 実装は {@code nextSpawnData} が無いときと NBT のエンティティ型が解決できないときに
+     * {@code null} を返す。ただし {@code spawnPotentials} 側にだけ中身があるスポナーは実在するので、
+     * 型が解決できなくても potentials が空でなければ「中身あり」と扱う(状態を丸写しするため失われない)。
      */
-    private static ItemStack spawnerItem(EntityType spawnedType) {
+    private static boolean isEmptySpawner(CreatureSpawner source) {
+        EntityType spawnedType = source.getSpawnedType();
+        if (spawnedType != null && spawnedType != EntityType.UNKNOWN) {
+            return false;
+        }
+        return source.getPotentialSpawns().isEmpty();
+    }
+
+    /**
+     * Creates the item-state copy required by Paper/Bukkit: {@code getBlockState()} returns a copy,
+     * so both {@code setBlockState()} and {@code setItemMeta()} are required to retain the state.
+     *
+     * <p><b>2026-08-01 「回収したスポナーの中身が空」の修正</b>: 以前は
+     * {@code itemSpawner.setSpawnedType(source.getSpawnedType())} と entity type だけを写していた。
+     * これには2つの穴があった。
+     * <ol>
+     *   <li>{@code getSpawnedType()} が {@code null} を返すと、Paper の
+     *       {@code setSpawnedType(null)} は<b>「spawnPotentials を空にして空の SpawnData を入れる」</b>
+     *       という明示的な空スポナー化を行う。つまり<b>無言で空のスポナーを作って落としていた</b>。</li>
+     *   <li>成功した場合でも {@code spawnPotentials}/遅延/湧き範囲/湧き数といった元スポナーの設定が
+     *       すべて捨てられていた。</li>
+     * </ol>
+     * ブロック状態を丸ごと写せば両方とも起きない。
+     */
+    private static ItemStack spawnerItem(CreatureSpawner source) {
         ItemStack item = new ItemStack(Material.SPAWNER, 1);
-        if (!(item.getItemMeta() instanceof BlockStateMeta meta)
-                || !(meta.getBlockState() instanceof CreatureSpawner itemSpawner)) {
+        if (!(item.getItemMeta() instanceof BlockStateMeta meta)) {
             return null;
         }
-        itemSpawner.setSpawnedType(spawnedType);
-        meta.setBlockState(itemSpawner);
+        meta.setBlockState(source);
         item.setItemMeta(meta);
         return item;
     }

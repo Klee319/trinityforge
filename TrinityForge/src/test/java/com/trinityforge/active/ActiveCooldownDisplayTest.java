@@ -90,7 +90,7 @@ class ActiveCooldownDisplayTest {
 
     @Test
     void showsRemainingWhileTheCooldownIsRunning() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID), any())).thenReturn(OptionalDouble.of(1.0));
         player.getInventory().setItemInMainHand(taggedItem(TARGET_SKILL));
         cooldowns.tryConsume(player.getUniqueId(), SKILL_ID, 10_000L, System.currentTimeMillis());
 
@@ -101,7 +101,7 @@ class ActiveCooldownDisplayTest {
 
     @Test
     void staysSilentWhenTheSkillWasNeverUsed() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID), any())).thenReturn(OptionalDouble.of(1.0));
         player.getInventory().setItemInMainHand(taggedItem(TARGET_SKILL));
 
         display.run();
@@ -112,7 +112,7 @@ class ActiveCooldownDisplayTest {
     @Test
     void staysSilentWhileHoldingAnItemForAnotherSkill() {
         // 関係ない道具を持っている間までアクションバーを占有すると、他のフィードバックを潰す。
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.of(1.0));
+        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID), any())).thenReturn(OptionalDouble.of(1.0));
         player.getInventory().setItemInMainHand(taggedItem("HEAVY_WEAPONS"));
         cooldowns.tryConsume(player.getUniqueId(), SKILL_ID, 10_000L, System.currentTimeMillis());
 
@@ -123,7 +123,7 @@ class ActiveCooldownDisplayTest {
 
     @Test
     void staysSilentWhenTheSkillIsNotUnlocked() {
-        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID))).thenReturn(OptionalDouble.empty());
+        when(dedicatedEffects.valueMax(any(), eq(SKILL_ID), any())).thenReturn(OptionalDouble.empty());
         player.getInventory().setItemInMainHand(taggedItem(TARGET_SKILL));
         cooldowns.tryConsume(player.getUniqueId(), SKILL_ID, 10_000L, System.currentTimeMillis());
 
