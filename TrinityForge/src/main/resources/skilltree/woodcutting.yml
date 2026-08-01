@@ -71,8 +71,11 @@ nodes:
     parent: C
     icon: IRON_AXE
     cost: 1
-    effect-text: 大きな木を一括破壊 1回/10s・伐採グリフの解放・採集効率 永続+1
-    buffs:
+    effect-text: 大きな木を一括破壊 1回/10s・伐採グリフの解放・メインに斧を持つと採集効率+1
+    # gathering-efficiency は buffs(常時)ではなく mainhand-buffs に置くこと(2026-08-01)。
+    # 適用先の GatheringEfficiencyEnchantApplier は FARMING/MINING/WOODCUTTING/DIGGING の
+    # 全ツールを対象にするので、常時加算にすると「伐採ツリーで取った+1がツルハシやシャベルにも乗る」。
+    mainhand-buffs:
       gathering-efficiency: 1
     effects:
       - 大きな木を一括破壊(1回/10秒)
@@ -88,8 +91,9 @@ nodes:
     parent: D
     icon: DIAMOND_AXE
     cost: 1
-    effect-text: 耐久値を圧縮木材で回復可能・ウッドコア解放・採集効率 永続+1
-    buffs:
+    effect-text: 耐久値を圧縮木材で回復可能・ウッドコア解放・メインに斧を持つと採集効率+1
+    # 上の D と同じ理由で mainhand-buffs(常時にするとツルハシ/シャベルにも乗る)。
+    mainhand-buffs:
       gathering-efficiency: 1
     effects:
       - 耐久値を圧縮木材で回復可能

@@ -147,11 +147,13 @@ public final class NativeSkillExperienceListener implements Listener {
         Block block = event.getBlock();
         if (placedBlockTracker.clearIfPlaced(block)) return;
         ItemStack tool = player.getInventory().getItemInMainHand();
-        boolean qualifyingGatheringBreak = grantGathering(player, block,
+        // 破壊時バニラEXPは「どの採取スキルとして扱われた破壊か」でツリーを絞る必要があるので、
+        // grantGathering が確定させたスキルIDをそのまま受け取る(null=採取扱いでない破壊)。
+        String gatheringSkill = grantGathering(player, block,
                 block.getDrops(tool, player),
                 false, tool);
-        if (qualifyingGatheringBreak) {
-            grantBreakVanillaExp(player);
+        if (gatheringSkill != null) {
+            grantBreakVanillaExp(player, gatheringSkill);
         }
     }
 
@@ -180,10 +182,19 @@ public final class NativeSkillExperienceListener implements Listener {
      * かつ非設置ブロックに限って、バニラEXPオーブを{@code BASE_BREAK_EXP}を基準に上乗せする。
      * vanilla_exp_bonus/break_vanilla_exp_bonusはどちらもフラクション値(0.2=+20%)であり、パーセント
      * 変換は行わない。dedicatedEffects/aggregatorが未配線(旧コンストラクタ経由)の場合は何もしない。
+     *
+     * <p><b>2026-08-01 実サーバ報告の修正 — 解放判定はツリー横断してはいけない</b>:
+     * {@code feature:break-vanilla-exp} は mining/woodcutting/digging/farming の<b>4ツリーすべて</b>が
+     * A ノードに置いている。以前はツリーを問わない {@code isActive(player, id)} で見ていたため、
+     * <b>採掘ツリーの A しか取っていないプレイヤーが作物・原木・土でもバニラEXPを得ていた</b>
+     * (=3ツリー分の解放をタダ取りできる)。破壊が属する採取スキルで絞る。
+     *
+     * @param gatheringSkill {@link #grantGathering} が確定させた採取スキルID
+     *                       (FARMING/WOODCUTTING/DIGGING/MINING)。このツリーに置かれた配置だけを見る。
      */
-    private void grantBreakVanillaExp(Player player) {
+    private void grantBreakVanillaExp(Player player, String gatheringSkill) {
         if (dedicatedEffects == null || aggregator == null) return;
-        if (!dedicatedEffects.isActive(player, FEATURE_BREAK_VANILLA_EXP)) return;
+        if (!dedicatedEffects.isActive(player, FEATURE_BREAK_VANILLA_EXP, gatheringSkill)) return;
         var totals = aggregator.aggregate(player);
         double bonus = totals.totalOf(VANILLA_EXP_BONUS) + totals.totalOf(BREAK_VANILLA_EXP_BONUS);
         int amount = (int) Math.round(BASE_BREAK_EXP * (1.0 + Math.max(0.0, bonus)));
@@ -321,8 +332,15 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /** @return true if this break was recognized as a FARMING/WOODCUTTING/DIGGING/MINING gathering break. */
-    private boolean grantGathering(Player player, Block block, Collection<ItemStack> drops, boolean blast,
-                                   ItemStack tool) {
+    /**
+     * 採取EXPを付与し、<b>そのブロックがどの採取スキルとして扱われたか</b>を返す。
+     *
+     * @return FARMING/WOODCUTTING/DIGGING/MINING のいずれか。採取扱いでない(=EXP対象外の)破壊なら
+     *         {@code null}。呼び出し側はこの戻り値をそのまま破壊時バニラEXPのツリー限定に使う
+     *         (2026-08-01。以前は boolean で「採取扱いか」だけを返しており、どのツリーかが失われていた)。
+     */
+    private String grantGathering(Player player, Block block, Collection<ItemStack> drops, boolean blast,
+                                  ItemStack tool) {
         Material material = block.getType();
         String name = material.name();
         // タスク1(2026-07-26): 採取EXPの算出方式はconfig駆動(gathering.exp-mode、既定drop_sum=現行挙動)。
@@ -335,7 +353,7 @@ public final class NativeSkillExperienceListener implements Listener {
         // コンブ/竹/ねじれツタ/泣きツタ/光ツタは age が周回する成長カウンタなので「収穫できる状態でも
         // ほぼ常に age < maximumAge」だった。結果、これらは農業EXPも(return falseなので)破壊時
         // バニラEXPも永久に0だった。判定の一元化と全ブロックの分類は CropMaturity 参照。
-        if (exp > 0.0 && CropMaturity.isImmatureCrop(block)) return false;
+        if (exp > 0.0 && CropMaturity.isImmatureCrop(block)) return null;
         if (exp <= 0.0) {
             exp = gatheringExp(SkillId.WOODCUTTING, "woodcutting_break", name, drops, mode);
             skill = SkillId.WOODCUTTING;
@@ -355,14 +373,14 @@ public final class NativeSkillExperienceListener implements Listener {
             }
             skill = SkillId.MINING;
         }
-        if (exp <= 0.0) return false;
+        if (exp <= 0.0) return null;
         // 使用可能レベル連動EXP (2026-07-28): FARMINGは対象外(要件どおり)、爆破採掘(blast=true, tool=null)
         // にも掛からない(resolveUseLevelがtool==nullで常に0=倍率1.0を返す)。
         if (!SkillId.FARMING.equals(skill)) {
             exp *= useLevelExpMultiplier(skill, tool);
         }
         grant(player, skill, exp);
-        return true;
+        return skill;
     }
 
     /**

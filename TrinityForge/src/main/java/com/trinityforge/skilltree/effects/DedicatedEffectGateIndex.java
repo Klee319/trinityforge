@@ -43,6 +43,7 @@ public final class DedicatedEffectGateIndex {
      * <p>{@code skill} exists so a consumer can ask "is this effect unlocked <em>in this particular
      * tree</em>" rather than "anywhere" — required whenever the same effect id is placed on several
      * trees and the trigger is tree-specific (see
+     * {@link #isActiveByPerks(java.util.Set, String, String)} /
      * {@link #valueMaxByPerks(java.util.Set, String, String)}).
      */
     public record PerkValue(String skill, String perkId, Double value) {
@@ -96,11 +97,28 @@ public final class DedicatedEffectGateIndex {
 
     /**
      * True when {@code heldPerks} contains the perk id of at least one node placing {@code effectId},
-     * across every channel (unlike {@link #glyphGatePerks()} etc. this is not limited to one channel).
+     * across every channel (unlike {@link #glyphGatePerks()} etc. this is not limited to one channel)
+     * <b>and across every skill tree</b> — use {@link #isActiveByPerks(Set, String, String)} when the
+     * tree the effect was unlocked in has to match the trigger.
      * Fail-safe: {@code null}/empty {@code heldPerks}, a {@code null} {@code effectId}, or an
      * {@code effectId} unknown to this index all yield {@code false}.
      */
     public boolean isActiveByPerks(Set<String> heldPerks, String effectId) {
+        return isActiveByPerks(heldPerks, effectId, null);
+    }
+
+    /**
+     * {@link #isActiveByPerks(Set, String)} restricted to placements that live in the skill tree
+     * {@code skill} ({@code null}/blank = unrestricted, identical to the two-argument form).
+     *
+     * <p><b>2026-08-01 実サーバ報告の修正 (param:none 版)</b>: {@link #valueMaxByPerks(Set, String, String)}
+     * と同じ理由でツリー限定が要る効果は、値を持つ効果 (SCALE) だけではない。{@code feature:break-vanilla-exp}
+     * は {@code mining.yml} / {@code woodcutting.yml} / {@code digging.yml} / {@code farming.yml} の
+     * <b>4ツリーすべてが A ノードに置いている</b>ので、「どこか1本で解放したら全部の採取で発動する」
+     * 判定にすると<b>採掘ツリーだけ育てたプレイヤーが作物や原木でもバニラEXPを得てしまう</b>。
+     * 破壊したブロックが属する採取スキルでこちらを使って絞ること。
+     */
+    public boolean isActiveByPerks(Set<String> heldPerks, String effectId, String skill) {
         if (heldPerks == null || heldPerks.isEmpty() || effectId == null) {
             return false;
         }
@@ -108,8 +126,10 @@ public final class DedicatedEffectGateIndex {
         if (placements == null) {
             return false;
         }
+        String scope = skill == null || skill.isBlank() ? null : skill.trim();
         for (PerkValue placement : placements) {
-            if (heldPerks.contains(placement.perkId())) {
+            if (heldPerks.contains(placement.perkId())
+                    && (scope == null || scope.equalsIgnoreCase(placement.skill()))) {
                 return true;
             }
         }
