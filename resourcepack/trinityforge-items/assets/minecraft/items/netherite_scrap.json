@@ -20,6 +20,13 @@
           "model": "minecraft:item/netherite_scrap",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5451,
+        "model": {
+          "model": "minecraft:item/netherite_scrap",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

@@ -8,6 +8,13 @@
     },
     "entries": [
       {
+        "threshold": 5410,
+        "model": {
+          "model": "minecraft:item/prismarine_shard",
+          "type": "minecraft:model"
+        }
+      },
+      {
         "threshold": 100011,
         "model": {
           "type": "minecraft:model",

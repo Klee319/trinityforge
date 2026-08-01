@@ -8,6 +8,20 @@
     },
     "entries": [
       {
+        "threshold": 5406,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5411,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
         "threshold": 100021,
         "model": {
           "model": "minecraft:item/string",

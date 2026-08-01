@@ -13,6 +13,13 @@
           "type": "minecraft:model",
           "model": "trinityforge:item/heavy_metal"
         }
+      },
+      {
+        "threshold": 5403,
+        "model": {
+          "model": "minecraft:item/iron_ingot",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

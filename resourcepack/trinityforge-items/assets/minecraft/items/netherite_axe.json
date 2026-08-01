@@ -41,6 +41,20 @@
           "model": "minecraft:item/netherite_axe",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5604,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5610,
+        "model": {
+          "model": "minecraft:item/netherite_axe",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

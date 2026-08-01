@@ -27,6 +27,13 @@
           "model": "minecraft:item/leather",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 5401,
+        "model": {
+          "model": "minecraft:item/leather",
+          "type": "minecraft:model"
+        }
       }
     ]
   }
