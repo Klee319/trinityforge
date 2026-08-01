@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -165,6 +166,9 @@ public final class SkillExpConfig {
      * 魔法で敵を倒したときのEXP。敵種・TFモブレベル・最大体力のすべてを設定値だけで合成する。
      */
     public double arsMagicKillExp(String entityType, int mobLevel, double maxHealth) {
+        if (isPlayerPlaceableTarget(entityType)) {
+            return 0.0;
+        }
         double base = arsMagicKillExpBase
                 + Math.max(0, mobLevel) * arsMagicKillExpPerMobLevel
                 + Math.max(0.0, maxHealth) * arsMagicKillExpPerMaxHealth;
@@ -262,12 +266,47 @@ public final class SkillExpConfig {
      * (行の存在自体は {@code SkillExpConfigTest} が固定している)。
      */
     public double combatKillExp(String skillId, String entityType, int mobLevel, double maxHealth) {
+        if (isPlayerPlaceableTarget(entityType)) {
+            return 0.0;
+        }
         String skill = skillId == null ? "" : skillId.trim().toUpperCase(Locale.ROOT);
         double base = combatKillExpBase.getOrDefault(skill, 0.0)
                 + Math.max(0, mobLevel) * combatKillExpPerMobLevel
                 + Math.max(0.0, maxHealth) * combatKillExpPerMaxHealth;
         return Math.max(0.0, base) * entityMultiplier(combatKillEntityTypeMultipliers, entityType,
                 combatKillUnlistedEntityMultiplier);
+    }
+
+    /**
+     * <b>プレイヤーが自分で置ける「的」</b>の EntityType (U10, 2026-08-02)。
+     * ここに入る種は {@link #combatKillExp} / {@link #arsMagicKillExp} が
+     * <b>config を一切見ずに 0 を返す</b>。
+     *
+     * <p><b>なぜ config の除外リストでは足りないか</b>: 既存の除外機構は2つとも設定値で、
+     * どちらも「戻すと復活する」性質のものだった ──
+     * {@code combat.kill-exp.unlisted-entity-multiplier} / {@code ars-magic.kill-exp.unlisted-entity-multiplier}
+     * を 1.0 にすれば元通り無限に稼げるし、{@code mob-level-table.yml} の {@code no-skill-exp-mobs} は
+     * 行を消せば復活する。防具立ては素材3個で無限に量産できるので、
+     * <b>設定で開けられる状態にしておくこと自体が事故</b>になる。
+     *
+     * <p><b>2箇所に効かせる必要がある</b>: 討伐EXPの経路は
+     * {@code CombatListener#onCombatKill}(武器スキル)と
+     * {@code ArsMagicExperienceListener#onMagicKill}(魔法)の<b>2本</b>あり、
+     * 片方だけ塞いでも杖で叩けば通ってしまう。両方が最終的にこのクラスの
+     * kill-exp 計算を通るので、<b>ここに置けば1箇所で両方に効く</b>。
+     *
+     * <p><b>MANNEQUIN も入れてある</b>。1.21.9 で追加された種で
+     * {@code EntityDeathEvent} を発火するかは実機未確認だが、発火しないなら無害、
+     * 発火するなら防具立てと同じ穴になるので、先に塞いでおくほうが安い。
+     */
+    private static final Set<String> PLAYER_PLACEABLE_TARGETS = Set.of("ARMOR_STAND", "MANNEQUIN");
+
+    /** 討伐EXPを構造的に0にする種か。{@code null}/空は false(通常の設定経路へ)。 */
+    private static boolean isPlayerPlaceableTarget(String entityType) {
+        if (entityType == null || entityType.isBlank()) {
+            return false;
+        }
+        return PLAYER_PLACEABLE_TARGETS.contains(entityType.trim().toUpperCase(Locale.ROOT));
     }
 
     /** タスク3: 採取スキル(MINING/FARMING/WOODCUTTING/DIGGING)へレベル逓減カーブを適用するか(既定false)。 */
