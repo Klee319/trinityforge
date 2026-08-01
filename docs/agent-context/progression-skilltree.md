@@ -222,6 +222,34 @@ TF 本体に無い**。現在唯一の実装 `source_spent` は ArsPaper フォ�
 - コスト層（mana等の消費）はv1では実体を作らず、インターフェースのみ用意する。
 - **Java側の`FeatureEffectRegistry`とeditor側の`gate-vocabulary.js`のFEATURES配列は語彙パリティを保つ必須ペア。** 片方にだけ追加すると、実装済みなのにeditorから配置できない（またはその逆）という事故になる（`break-vanilla-exp`が過去に実際にこれで踏まれた）。
 
+### ⚠️ `drop:<prof>:<categoryId>` は「自動反転規則」でfail-open。配置ゼロ=無条件開放
+
+`DropTablePolicy.isOpen`（`TrinityForge/src/main/java/com/trinityforge/stats/DropTablePolicy.java`）は
+「`dropGatePerks` に未参照のカテゴリ＝全員に開放」という設計（`glyph:`/`recipe:`/`ritual:`と同じfail-open族。
+対照的に`brew:`/`trade:`/`overenchant:`はfail-close）。したがって、`stats/*-gimmick.yml`に
+`drop-tables.categories`を新設したら、**対応する`drop:<prof>:<categoryId>`をどこかのスキルツリーノードの
+`dedicated-effects`に必ず置くこと**。置き忘れるとレベル0のプレイヤーから無条件で引ける
+（2026-08-01 実例: 農業に新設した`gacha_tier1`/`compressed_bread`の2カテゴリが未配置のまま出荷されかけた）。
+`FailCloseGateSkillTreePlacementTest`はこの`drop:`系を意図的に対象外にしている
+（fail-openなので未配置は「壊れている」ではなく「正常」というのがそのテストの前提）。
+つまり**`drop:`の配置漏れを検出する自動テストは無い**ので、`drop-tables.categories`を足すたびに
+手動で「対応するdedicated-effectsが実在するツリーに存在するか」をgrepで確認すること。
+参考: `drop:mining:gacha_tier1`等は自ツリー(mining.yml)ではなく`digging.yml`側に配置されている
+（採掘の景品を「切削の進行」でも解放する設計）。`drop:<prof>:`の`prof`はノードが属するツリーの
+スキル名と一致している必要はなく、`stats/*-gimmick.yml`側の`drop-tables`を読むリスナーの
+`PROF_*`定数と一致していればどのツリーに置いてもよい。
+
+### `registerEvents`配線漏れの検出テストは存在する（`RegisterEventsDriftTest`）が、限界がある
+
+`TrinityForge/src/test/java/com/trinityforge/listeners/RegisterEventsDriftTest.java`
+（2026-08-01新設）は`com.trinityforge.listeners`配下の全`implements Listener`クラス名が
+`TrinityForge.java`の本文にテキストとして1度でも現れるかだけを見る。**「importされている/他クラスの
+コンストラクタに渡されているだけで、そのListener自身はregisterEventsされていない」という中間状態は
+検出できない**（class名の単語境界一致だけを見る簡易実装のため）。新しいListenerを追加したら、
+このテストが緑でも`getServer().getPluginManager().registerEvents(...)`まで実際に到達しているかを
+目で確認すること。意図的に配線しないListenerが出た場合は同ファイルの`ALLOWED_UNREGISTERED`に
+理由コメント付きで追加する（2026-08-01時点では空＝全Listener実装が実際に配線済み）。
+
 ## 関連
 
 - [./combat.md](./combat.md)

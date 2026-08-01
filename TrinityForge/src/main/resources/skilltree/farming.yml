@@ -50,15 +50,22 @@ nodes:
     parent: A
     icon: STONE_HOE
     cost: 1
-    effect-text: 作物の成長速度UP・ご飯の圧縮を可能に・満腹時に食べた量に応じた品質と時間でバフ
+    effect-text: 作物の成長速度UP・ご飯の圧縮を可能に・満腹時に食べた量に応じた品質と時間でバフ・ガチャ券(初級)を低確率で入手
     effects:
       - 作物の成長速度UP
       - ご飯の圧縮を可能に
       - 満腹時に食べた量に応じた品質と時間でバフ
+      - ガチャ券(初級)を低確率で入手
     dedicated-effects:
       - id: recipe:compressed_bread_1x
       - id: recipe:compressed_cooked_beef_1x
       - id: feature:satiety-buff
+      # 2026-08-01 追加(レビューHIGH指摘1): 採掘/伐採/掘削の drop-table 経路は全カテゴリが
+      # スキルツリーにゲートノードを持つのに farming-gimmick.yml の gacha_tier1/compressed_bread の
+      # 2カテゴリだけ配置が無く、DropTablePolicy.isOpen の自動反転規則(未参照=全員に開放)により
+      # レベル0の新規プレイヤーから無条件で引けていた。採掘のガチャ券1相当(digging.yml B=Lv30)に
+      # 解放レベルを揃えてここへ配置する。
+      - id: drop:farming:gacha_tier1
   C:
     name: 近所の農家
     level: 50
@@ -66,13 +73,19 @@ nodes:
     parent: B
     icon: GOLDEN_HOE
     cost: 1
-    effect-text: 収穫量UP・バニラEXPを追加で獲得
+    effect-text: 収穫量UP・バニラEXPを追加で獲得・収穫時に低確率で圧縮パンを入手
     effects:
       - 収穫量UP
       - バニラEXPを追加で獲得
+      - 収穫時に低確率で圧縮パンを入手
     buffs:
       harvest-extra-drop-chance: 0.15
       break-vanilla-exp-bonus: 0.50
+    dedicated-effects:
+      # 2026-08-01 追加(レビューHIGH指摘1): compressed_bread は gacha_tier1 より中盤以降に
+      # 解放されるべき(圧縮パンは B で解放したレシピの延長=収穫量UPノードと相性が良い)ため
+      # 主軸 C(Lv50)へ配置。ここも drop-tables.categories の自動反転規則を閉じる目的。
+      - id: drop:farming:compressed_bread
   D:
     name: 村の豪農
     level: 70

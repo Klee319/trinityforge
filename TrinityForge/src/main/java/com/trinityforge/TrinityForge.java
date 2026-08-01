@@ -863,6 +863,14 @@ public final class TrinityForge extends JavaPlugin {
                 new DiggingGimmickListener(configManager.dedicatedEffects(), configManager.diggingGimmick(),
                         progressionCatalog, placedBlockTracker, crossPluginItemResolver), this);
 
+        // 農業(作物収穫)ギミック: farming drop-table(2026-08-01 新設)。掘削と同形だが、作物は必ず
+        // プレイヤーが植える = 種の設置が PlacedBlockTracker に必ずマークを付けるため、
+        // 「置く→壊す」ガードだけはリスナー側で別扱いしている(素の isPlaced を掛けると全収穫が除外される)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.FarmingGimmickListener(
+                        configManager.dedicatedEffects(), configManager.farmingGimmick(),
+                        progressionCatalog, placedBlockTracker, crossPluginItemResolver), this);
+
         // 2026-07-25 切削C-1/C-2: シャベル耐久累計→バニラ/職業EXPボーナス。バニラ分は本リスナー自身が
         // PlayerExpChangeEventで直接適用し、職業分は experienceDispatcher の任意resolverへ配線する
         // (NativeExperienceDispatcher#grant自体はイベントではないため、この間接注入が必要)。
