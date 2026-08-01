@@ -4836,6 +4836,238 @@ items:
     lore:
     - ''
     - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  # ==== 2026-08-01 追加: ダンジョンの鍵 (key_*) ====
+  # dungeon/gates.yml の key-item から参照される入場鍵。ベースは TRIAL_KEY / CMD 5501-5519 を確保する。
+  # 印(dungeon_seal_*)は「踏破の証」であって鍵ではない。印は recipe を持たず、鍵の素材にだけなる。
+  #
+  # 【配分の根拠】入手経路の空きを埋める向きに割っている。棚卸し時点の経路密度は
+  #   クラフト87件 / EMボス112エントリ に対して 村人2・釣り3・採掘3・伐採1・掘削1・農業0・儀式6 で、
+  #   ルート系が極端に薄かった。鍵をルート限定にすること自体が、そのまま空き経路の解消になる。
+  # 【クラフトを序盤5種に寄せた理由】鍵が無いと1つも入れないため、入口だけは必ずクラフトで
+  #   開けられる必要がある。逆に中盤以降をルート限定にしても手詰まりにならない。
+  # 【実装済みの配分】クラフト5 / 採掘3 / 掘削3 / 釣り2 / ガチャ3 / 合成1 = 17種。
+  #   設計上の「戦利品(ルートチェスト) 2種」= key_hallosseum / key_north_pole は
+  #   ルートチェストへの独自アイテム注入機構が存在しない(LootGenerateEvent は
+  #   VanillaItemRemovalListener の削除用途にしか使っていない)ため、入手経路を用意できない。
+  #   到達不能なアイテムを生やさないよう、この2種はあえて定義していない。CMD 5517/5518 は予約。
+
+  # ---- クラフト5種 (序盤の入口) ----
+  key_mines:
+    material: TRIAL_KEY
+    display-name: <color:#9e9e9e>鉱山の鍵</color>
+    custom-model-data: 5501
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:stone_2x
+        - IRON_INGOT
+        - IRON_INGOT
+      amount: 1
+    lore:
+    - ''
+    - <dark_gray><italic>坑道の入口に差さっていた、ありふれた鉄の鍵。</italic></dark_gray>
+  key_deep_mines:
+    material: TRIAL_KEY
+    display-name: <color:#7986cb>深層鉱山の鍵</color>
+    custom-model-data: 5502
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_mines
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - AMETHYST_SHARD
+        - AMETHYST_SHARD
+        - AMETHYST_SHARD
+      amount: 1
+    lore:
+    - ''
+    - <dark_gray><italic>浅い坑道の鍵を、より深い錠前に合わせて削り直した。</italic></dark_gray>
+  key_quarry:
+    material: TRIAL_KEY
+    display-name: <color:#a1887f>採石場の鍵</color>
+    custom-model-data: 5503
+    # list:scrap_metals は iron_ingot_scrap と tf_scrap のどちらでも通す。
+    # tf_scrap は「入手だけあって出口ゼロ」(村人が鉄12→3で吸う純粋シンク)だったので、
+    # ここを代替枠にして初めて使い道が生まれる。
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:stone_3x
+        - custom:stone_3x
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+      amount: 1
+    lore:
+    - ''
+    - <dark_gray><italic>切り出した石の重さで、扉の錘が下りる。</italic></dark_gray>
+  key_cave:
+    material: TRIAL_KEY
+    display-name: <color:#ff7043>灼熱の洞窟の鍵</color>
+    custom-model-data: 5504
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:netherrack_2x
+        - custom:blaze_rod_1x
+        - custom:blaze_rod_1x
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+      amount: 1
+    lore:
+    - ''
+    - <dark_gray><italic>熱を帯びていないと、錠前の側が凍りついて回らない。</italic></dark_gray>
+  key_enchant_trial:
+    material: TRIAL_KEY
+    display-name: <color:#7e57c2>エンチャント試練の鍵</color>
+    custom-model-data: 5505
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - BOOK
+        - BOOK
+        - custom:source_gem
+      amount: 1
+    lore:
+    - ''
+    - <dark_gray><italic>綴じた頁の間に、通行の許可が挟んである。</italic></dark_gray>
+
+  # ---- 採掘ギミック3種 (stats/mining-gimmick.yml の dungeon_keys カテゴリ) ----
+  # レシピは持たない。採掘の鉱脈破壊トリガーからのみ出る。
+  key_bridge:
+    material: TRIAL_KEY
+    display-name: <color:#8d6e63>古橋の聖所の鍵</color>
+    custom-model-data: 5506
+    lore:
+    - ''
+    - <dark_gray><italic>橋脚の内側に埋め込まれていた。掘り当てるほかに手はない。</italic></dark_gray>
+  key_city:
+    material: TRIAL_KEY
+    display-name: <color:#ffb300>ドワーフの地下都市の鍵</color>
+    custom-model-data: 5507
+    lore:
+    - ''
+    - <dark_gray><italic>都市の門番は、鍵を岩脈の中に隠す習わしだった。</italic></dark_gray>
+  key_steamworks:
+    material: TRIAL_KEY
+    display-name: <color:#78909c>蒸気機関工房の鍵</color>
+    custom-model-data: 5508
+    lore:
+    - ''
+    - <dark_gray><italic>歯車の噛み合わせがそのまま鍵の形をしている。</italic></dark_gray>
+
+  # ---- 掘削ギミック3種 (stats/digging-gimmick.yml の dungeon_keys カテゴリ) ----
+  key_climb:
+    material: TRIAL_KEY
+    display-name: <color:#4db6ac>登攀路の鍵</color>
+    custom-model-data: 5509
+    lore:
+    - ''
+    - <dark_gray><italic>登る前に、まず足元を掘れという話だった。</italic></dark_gray>
+  key_palace:
+    material: TRIAL_KEY
+    display-name: <color:#ffd54f>宮殿の鍵</color>
+    custom-model-data: 5510
+    lore:
+    - ''
+    - <dark_gray><italic>庭園の土の下で、金の鍵が待っていた。</italic></dark_gray>
+  key_sewer_maze:
+    material: TRIAL_KEY
+    display-name: <color:#689f38>下水道迷宮の鍵</color>
+    custom-model-data: 5511
+    lore:
+    - ''
+    - <dark_gray><italic>泥をかき出すと、格子の留め具が出てくる。</italic></dark_gray>
+
+  # ---- 釣り(宝)2種 (stats/fishing-gimmick.yml の groups.treasure) ----
+  key_knight_castle:
+    material: TRIAL_KEY
+    display-name: <color:#e0e0e0>騎士団の城の鍵</color>
+    custom-model-data: 5512
+    lore:
+    - ''
+    - <dark_gray><italic>堀に投げ捨てられた鍵。騎士団が城を捨てた日のものだ。</italic></dark_gray>
+  key_dark_cathedral:
+    material: TRIAL_KEY
+    display-name: <color:#5c6bc0>闇の大聖堂の鍵</color>
+    custom-model-data: 5513
+    lore:
+    - ''
+    - <dark_gray><italic>水底から引き上げると、まだ祈りの重さが残っている。</italic></dark_gray>
+
+  # ---- ガチャ3種 (gacha.yml の tier1/tier2/tier3) ----
+  key_nether_bell:
+    material: TRIAL_KEY
+    display-name: <color:#ef5350>ネザーの鐘の鍵</color>
+    custom-model-data: 5514
+    lore:
+    - ''
+    - <dark_gray><italic>振ると、遠くで鐘が同じ音を返す。</italic></dark_gray>
+  key_nether_wastes:
+    material: TRIAL_KEY
+    display-name: <color:#8e24aa>ネザーの荒野の鍵</color>
+    custom-model-data: 5515
+    lore:
+    - ''
+    - <dark_gray><italic>荒野には扉が無い。鍵の方が場所を決める。</italic></dark_gray>
+  key_fireworks:
+    material: TRIAL_KEY
+    display-name: <color:#ffa726>花火工房の鍵</color>
+    custom-model-data: 5516
+    lore:
+    - ''
+    - <dark_gray><italic>火薬の匂いが染みついて落ちない。</italic></dark_gray>
+
+  # ---- 合成1種: 束縛者の鍵 ----
+  # list:dungeon_seals を5個要求する。「19種すべて」ではなく「任意5種」にするのが要点で、
+  # どのダンジョンから攻めても束縛者に到達できる(縦は細く・横は多く)。
+  # これで用途ゼロだった印18種に一斉に出口ができる。
+  # 注: 同じ印5個でも成立する。互換リストはスロット単位の判定で、種類の重複を禁止する機構が無い。
+  key_binder:
+    material: TRIAL_KEY
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ者の鍵</gradient>
+    custom-model-data: 5519
+    enchant-glow: true
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - custom:abyssal_ingot
+        - custom:abyssal_ingot
+        - custom:reality_thread_core
+      amount: 1
+    lore:
+    - ''
+    - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
+    - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
 _editor:
   categories:
     weapon:

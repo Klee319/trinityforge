@@ -7,6 +7,30 @@
 
 drop-tables:
   categories:
+    # 2026-08-01 追加: ダンジョンの鍵(掘削枠3種)。
+    # 掘削は既存のドロップ経路が ruins_thread の1件しかなく、全経路の中で最も薄かった。
+    # 鍵をルート限定にする配分の中で、ここに3種を寄せて経路の空きを埋める。
+    dungeon_key_climb:
+      display-name: 登攀路の鍵
+      trigger-chance-percent: 2.0
+      entries:
+        - item: key_climb
+          weight: 1
+          amount: 1
+    dungeon_key_palace:
+      display-name: 宮殿の鍵
+      trigger-chance-percent: 1.5
+      entries:
+        - item: key_palace
+          weight: 1
+          amount: 1
+    dungeon_key_sewer_maze:
+      display-name: 下水道迷宮の鍵
+      trigger-chance-percent: 1.0
+      entries:
+        - item: key_sewer_maze
+          weight: 1
+          amount: 1
     ruins_thread:
       display-name: "遺跡の空スレッド"
       trigger-chance-percent: 5.0
