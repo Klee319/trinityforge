@@ -7,6 +7,7 @@ import com.trinityforge.config.domains.VillagerTradesConfig.ProfessionTrades;
 import com.trinityforge.config.domains.VillagerTradesConfig.TradeOffer;
 import com.trinityforge.config.domains.VillagerTradesConfig.TradeStack;
 import com.trinityforge.pdc.PdcKeys;
+import com.trinityforge.stats.ArsItemGiveBridge;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
 import net.kyori.adventure.text.Component;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Logger;
 
 /**
  * Perk-gated villager trades ({@code economy/villager-trades.yml}), gated by {@code trade:<PROFESSION>}
@@ -146,6 +148,12 @@ public final class VillagerTradeListener implements Listener {
             ItemStack input = resolveStack(offer.input());
             ItemStack result = resolveStack(offer.output());
             if (input == null || result == null) {
+                // 黙って捨てないこと。WEAPONSMITH の2件がここで消え、block-vanilla-trades: true と
+                // 相まって「解放したのに空の商人」になっていた(2026-08-02 まで誰も気づけなかった)。
+                Logger.getLogger(VillagerTradeListener.class.getName()).warning(
+                        "[villager-trades] 取引を1件捨てた: input=" + describe(offer.input())
+                                + " output=" + describe(offer.output())
+                                + " (TFカタログにも ArsPaper のレジストリにも無いIDか、不正な Material)");
                 continue;
             }
             MerchantRecipe recipe = new MerchantRecipe(result, 0, offer.maxUses(), false,
@@ -156,16 +164,45 @@ public final class VillagerTradeListener implements Listener {
         return out;
     }
 
+    /**
+     * {@code catalog:} で指定されたIDを実物へ解決する。
+     *
+     * <p><b>TFカタログだけを見てはいけない</b> (2026-08-02 修正)。出荷 {@code villager-trades.yml} の
+     * {@code tf_scrap} / {@code tf_core_jewelry} は<b>ArsPaper の {@code materials.yml} 由来のID</b>で、
+     * TF の {@code catalog.yml} には存在しない。TFカタログだけを引いていたため両方 {@code null} になり、
+     * WEAPONSMITH の追加取引が<b>2件とも無言で消えていた</b>
+     * (しかも {@code block-vanilla-trades: true} なので、{@code trade:WEAPONSMITH} を解放すると
+     *  バニラ取引も消えて<b>空の商人</b>になる)。素材トークン側は既に
+     * {@code CrossPluginItemResolver} で両方読むようになっていたので、こちらだけが取り残されていた。
+     *
+     * <p>{@code amount} の適用もここで行う。以前は {@code itemFactory.create} の戻り値
+     * (常に1個)をそのまま返しており、{@code amount: 3} と書いても1個しか出なかった。
+     */
     private ItemStack resolveStack(TradeStack stack) {
         if (stack.isCatalog()) {
-            return catalog.template(stack.catalogId())
+            ItemStack resolved = catalog.template(stack.catalogId())
                     .map(t -> itemFactory.create(t, ThreadLocalRandom.current().nextLong(), 0))
+                    .or(() -> ArsItemGiveBridge.create(stack.catalogId()))
                     .orElse(null);
+            if (resolved == null || resolved.getType().isAir()) {
+                return null;
+            }
+            resolved.setAmount(Math.max(1, stack.amount()));
+            return resolved;
         }
         Material mat = Material.matchMaterial(stack.material());
         if (mat == null || mat.isAir()) {
             return null;
         }
         return new ItemStack(mat, stack.amount());
+    }
+
+    /** ログ用。{@code catalog:foo x3} / {@code IRON_INGOT x12} の形。 */
+    private static String describe(TradeStack stack) {
+        if (stack == null) {
+            return "(なし)";
+        }
+        String id = stack.isCatalog() ? "catalog:" + stack.catalogId() : String.valueOf(stack.material());
+        return id + " x" + stack.amount();
     }
 }

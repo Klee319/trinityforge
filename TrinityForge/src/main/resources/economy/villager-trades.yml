@@ -28,6 +28,14 @@ professions:
         output: { material: IRON_PICKAXE, amount: 1 }
         max-uses: 8
         villager-xp: 5
+      # スクラップの出口(柱4)。tf_scrap は釣りのゴミ(junk-to-scrap)とガチャから出るので、
+      # ここは「拾ったゴミを鉄へ戻す」回収路。iron_ingot_scrap は4個で鉄インゴット1個に戻るので、
+      # 実効レートは「ゴミ8 → 鉄1」。WEAPONSMITH の 鉄12→スクラップ3 で買って回すと
+      # 鉄32→鉄1 の大損になるので、鉄の複製経路にはならない。
+      - input: { catalog: tf_scrap, amount: 8 }
+        output: { catalog: iron_ingot_scrap, amount: 4 }
+        max-uses: 12
+        villager-xp: 3
   CLERIC:
     block-vanilla-trades: false
     trades:
