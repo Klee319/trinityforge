@@ -95,6 +95,11 @@ pools:
       - item: "thread_empty"
         weight: 4
         amount: 1
+      # 2026-08-01 追加: ダンジョンの鍵(ガチャ枠3種のうち初級)。
+      # 鍵をルート限定にする配分で、低難度ダンジョン=低ティアのガチャに対応させている。
+      - item: "key_fireworks"
+        weight: 4
+        amount: 1
       - item: "tf_core_vegetable"
         weight: 1
         amount: 1
@@ -124,6 +129,10 @@ pools:
       - item: "thread_empty"
         weight: 4
         amount: 2
+      # 2026-08-01 追加: ダンジョンの鍵(ガチャ枠・中級)
+      - item: "key_nether_bell"
+        weight: 6
+        amount: 1
       - item: "tf_core_meat"
         weight: 1
         amount: 1
@@ -156,6 +165,10 @@ pools:
       - item: "thread_empty"
         weight: 4
         amount: 3
+      # 2026-08-01 追加: ダンジョンの鍵(ガチャ枠・上級)
+      - item: "key_nether_wastes"
+        weight: 6
+        amount: 1
       - item: "tf_gacha_ticket_4"
         weight: 2
         amount: 1

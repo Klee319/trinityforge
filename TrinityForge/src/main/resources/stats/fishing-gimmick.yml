@@ -91,6 +91,18 @@ fishing:
             - item: tf_gacha_ticket_5
               weight: 1
               amount: 1
+        # 2026-08-01 追加: ダンジョンの鍵(釣り枠2種)。宝グループ(treasure-percent: 5)の中の抽選。
+        # 鍵をルート限定にする配分のうち、水系ダンジョン2種をここへ寄せた。
+        # weight は騎士団の城3 : 闇の大聖堂2 で、より深い側を細くしてある。
+        dungeon_keys:
+          display-name: ダンジョンの鍵
+          entries:
+            - item: key_knight_castle
+              weight: 3
+              amount: 1
+            - item: key_dark_cathedral
+              weight: 2
+              amount: 1
         treasure_vanilla:
           display-name: バニラ宝(移植)
           entries:
