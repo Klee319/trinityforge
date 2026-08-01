@@ -8,6 +8,7 @@ REM  Usage:
 REM    deploy.cmd                 build what changed, then deploy to every backend
 REM    deploy.cmd --dry-run       print the plan. Builds nothing, copies nothing, deletes nothing.
 REM    deploy.cmd --build-only    build what changed and stop. Touches no server file.
+REM    deploy.cmd --tf-only       build and deploy TrinityForge only. Both forks are left alone.
 REM    deploy.cmd --config        also copy the repository yml over the deployed config
 REM    deploy.cmd --restart       stop the network, deploy, start it again
 REM    deploy.cmd --force         deploy even though a backend is running -- READ THE WARNING
@@ -38,6 +39,7 @@ set "FORCE="
 set "WITH_CONFIG="
 set "RESTART="
 set "BUILD_ONLY="
+set "TF_ONLY="
 set "BADARG="
 set "FAILED="
 set "BUILT=0"
@@ -71,6 +73,11 @@ if /i "%~1"=="--build-only" (
     shift /1
     goto parse
 )
+if /i "%~1"=="--tf-only" (
+    set "TF_ONLY=1"
+    shift /1
+    goto parse
+)
 if /i "%~1"=="--help" goto usage
 if /i "%~1"=="-h" goto usage
 if /i "%~1"=="/?" goto usage
@@ -80,10 +87,12 @@ goto usage
 
 :usage
 echo.
-echo   deploy.cmd [--dry-run] [--build-only] [--config] [--restart] [--force]
+echo   deploy.cmd [--dry-run] [--build-only] [--tf-only] [--config] [--restart] [--force]
 echo.
 echo     --dry-run     print the plan only. No build, no copy, no delete.
 echo     --build-only  build what changed, then stop. No server file is touched.
+echo     --tf-only     TrinityForge only. Neither fork is built nor copied. Use this while a
+echo                   fork working tree is mid-edit -- a normal run would ship half-written code.
 echo     --config      also copy the repository yml over the deployed config.
 echo     --restart     stop the whole network, deploy, then start it again.
 echo     --force       deploy even though a backend is running. Breaks the live JVM.
@@ -219,6 +228,16 @@ REM  NOT rebuilt that copy can still be stale (someone ran plain `gradlew jar`),
 REM  and refresh BEFORE building a fork -- otherwise the fork compiles against an old TF ABI and
 REM  either fails to build or explodes at runtime.
 :b_ars
+REM  --tf-only clears both fork artifacts, which makes :deploy_jar and :deploy_config skip them the
+REM  same way they skip a fork whose source is absent. Nothing under fork-handoff is read or written.
+if not defined TF_ONLY goto b_ars_go
+echo   [SKIP ] ArsPaper       --tf-only: not built, not copied
+echo   [SKIP ] EliteMobs      --tf-only: not built, not copied
+set "ARS_ART="
+set "EM_ART="
+set /a SKIPPED+=2
+goto b_done
+:b_ars_go
 if not exist "%ARS_DIR%\gradlew.bat" goto b_ars_absent
 call :sync_libs "%TF_THIN%" "%ARS_DIR%\libs" "ArsPaper "
 if errorlevel 1 goto fail
