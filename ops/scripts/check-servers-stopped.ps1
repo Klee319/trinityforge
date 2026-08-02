@@ -26,16 +26,32 @@
 .PARAMETER Quiet
     見つかったものだけを出す（待ちループから毎回呼ぶとき用）。
 
+.PARAMETER Server
+    判定対象を絞る。省略時は全バックエンド（従来の挙動）。
+    `deploy.cmd --server` 用。**一部のバックエンドにだけ jar を配る**とき、触らないサーバが
+    稼働中であることを理由に配備を止めるのは筋が悪いので、ゲートも同じ範囲へ絞る。
+
+    受け付ける綴りは 3 通り（大小無視）: 設定キー(Main) / `Name`(main) / `Root` の末尾
+    ディレクトリ名(Main_Server)。deploy.cmd は TF_BACKENDS のディレクトリ名を渡す。
+
+    **どれにも一致しない名前を渡したら throw する。** ここで黙って 0 件を判定すると
+    「全部停止している」と答えてしまい、**稼働中のサーバへ jar を上書きする**という、
+    このスクリプトが存在する理由そのものの事故になる。
+
 .OUTPUTS
-    終了コード 0 = 全バックエンド停止 / 1 = 1 台以上稼働中
+    終了コード 0 = 対象バックエンドが全て停止 / 1 = 1 台以上稼働中
 
 .EXAMPLE
     .\check-servers-stopped.ps1
+
+.EXAMPLE
+    .\check-servers-stopped.ps1 -Server Dev_Server
 #>
 [CmdletBinding()]
 param(
-    [string] $ConfigPath,
-    [switch] $Quiet
+    [string]   $ConfigPath,
+    [switch]   $Quiet,
+    [string[]] $Server
 )
 
 Set-StrictMode -Version Latest
@@ -64,21 +80,46 @@ function Test-FileLocked {
 
 $busy = New-Object System.Collections.Generic.List[string]
 
-foreach ($name in @($config.Servers.Keys)) {
-    $server = $config.Servers[$name]
+# -Server の解決。設定キー / Name / Root の末尾ディレクトリ名 のどれでも当たるようにする。
+# 一致ゼロは throw（上の .PARAMETER Server 参照 — 黙って「全部停止」と答えると事故になる）。
+$targetKeys = @($config.Servers.Keys)
+if ($Server) {
+    $resolved = New-Object System.Collections.Generic.List[string]
+    foreach ($wanted in $Server) {
+        if (-not $wanted) { continue }
+        $hit = @($config.Servers.Keys) | Where-Object {
+            $s = $config.Servers[$_]
+            ($_ -eq $wanted) -or ($s.Name -eq $wanted) -or ((Split-Path $s.Root -Leaf) -eq $wanted)
+        }
+        if (-not $hit) {
+            $known = (@($config.Servers.Keys) | ForEach-Object {
+                "$_ / $($config.Servers[$_].Name) / $(Split-Path $config.Servers[$_].Root -Leaf)"
+            }) -join " | "
+            throw "-Server '$wanted' はどのバックエンドにも一致しません。指定できるのは: $known"
+        }
+        foreach ($h in $hit) { if (-not $resolved.Contains($h)) { $resolved.Add($h) } }
+    }
+    $targetKeys = $resolved.ToArray()
+}
+
+foreach ($name in $targetKeys) {
+    # 変数名は $server にしないこと。PowerShell の変数名は大文字小文字を区別しないので
+    # param の [string[]] $Server と同一変数になり、ハッシュテーブルを代入した瞬間に
+    # 型制約で string[] へ黙って変換される（$backend.RconPort が「存在しない」で落ちる）。
+    $backend = $config.Servers[$name]
     $reasons = @()
 
-    if (Get-NetTCPConnection -State Listen -LocalPort $server.RconPort -ErrorAction SilentlyContinue) {
-        $reasons += "RCON $($server.RconPort) が LISTEN"
+    if (Get-NetTCPConnection -State Listen -LocalPort $backend.RconPort -ErrorAction SilentlyContinue) {
+        $reasons += "RCON $($backend.RconPort) が LISTEN"
     }
 
-    $lock = Join-Path $server.Root "world\session.lock"
+    $lock = Join-Path $backend.Root "world\session.lock"
     if ((Test-Path -LiteralPath $lock) -and (Test-FileLocked -Path $lock)) {
         $reasons += "world\session.lock がロック済み"
     }
 
     if ($reasons.Count -gt 0) {
-        $busy.Add("$($server.Name): " + ($reasons -join " / "))
+        $busy.Add("$($backend.Name): " + ($reasons -join " / "))
     }
 }
 
@@ -93,7 +134,13 @@ $velocity = @($javaProcesses | Where-Object {
 
 if ($busy.Count -eq 0) {
     if (-not $Quiet) {
-        Write-OpsLog "バックエンドはすべて停止しています。jar を差し替えても安全です。"
+        if ($Server) {
+            Write-OpsLog ("対象バックエンドは停止しています: " +
+                (($targetKeys | ForEach-Object { Split-Path $config.Servers[$_].Root -Leaf }) -join ", ") +
+                "。ここに jar を差し替えても安全です（対象外のサーバは判定していません）。")
+        } else {
+            Write-OpsLog "バックエンドはすべて停止しています。jar を差し替えても安全です。"
+        }
         if ($velocity.Count -gt 0) {
             Write-OpsLog ("参考: Velocity が稼働中です PID " +
                 (($velocity | ForEach-Object { $_.ProcessId }) -join ", ") +

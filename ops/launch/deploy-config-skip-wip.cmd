@@ -46,9 +46,14 @@ echo   skipped     : %SKIP_TF%
 echo.
 
 REM ---- 1/3  refuse to run against a live server ------------------------------------------------
+REM  Uses the same detector as deploy.cmd. This script used to probe world\session.lock from cmd
+REM  with `2>nul (call ) >>lock`, which REPORTED A LIVE SERVER AS STOPPED: cmd opens the append
+REM  handle with enough sharing that Paper's lock does not block it. check-servers-stopped.ps1
+REM  opens with FileShare.None and also looks at the RCON port, and it sees both.
 echo --- 1/3  are the backends stopped ---
 set "RUNNING="
-for %%B in (%TF_BACKENDS%) do call :check_running "%%B"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\check-servers-stopped.ps1"
+if errorlevel 1 set "RUNNING=1"
 if not defined RUNNING goto stopped
 echo.
 echo   One or more backends look alive. A plugin only reads its yml at enable time, so
@@ -127,17 +132,6 @@ if errorlevel 8 (
     exit /b 1
 )
 echo   [ OK  ] %~1
-goto :eof
-
-REM ---------------------------------------------------------------------------------------------
-REM  A backend is "alive" when its world\session.lock cannot be opened for writing.
-:check_running
-set "LOCK=%VELOCITY_ROOT%\%~1\world\session.lock"
-if not exist "%LOCK%" goto :eof
-2>nul (call ) >>"%LOCK%" || (
-    echo   [ALIVE] %~1
-    set "RUNNING=1"
-)
 goto :eof
 
 :usage

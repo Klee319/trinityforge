@@ -29,6 +29,31 @@
 
 個別のものは、1 台だけ上げ直すときに使う。
 
+### 配備先を 1 台に絞る（`deploy.cmd --server`）
+
+```
+deploy.cmd --server dev                    dev だけに配る
+deploy.cmd --server main --server dev      複数指定は --server を繰り返す
+deploy.cmd --server Dev_Server             ディレクトリ名でも短縮形でも通る（大小無視）
+```
+
+`--server` は **jar のコピー・ArsPaper の config コピー・「稼働中か」の判定**の 3 つを同時に絞る。
+つまり **dev だけ止めて dev だけに配り、main と resource は動かしたまま**にできる。
+対象外のサーバが稼働中であることを理由に配備が止まることはない。
+
+**絞れないものが 1 つある: TrinityForge の yml。** 他のバックエンドの `plugins\TrinityForge` は
+config ホスト（`TF_CONFIG_HOST` = Main_Server）へのジャンクションなので、1 回書けば 3 台すべてに
+届く。そのため `--config` と併用したときは:
+
+- 対象に config ホストが**含まれる** → コピーするが「全台に届く」と警告を出す
+- 対象に config ホストが**含まれない** → **TF の yml はスキップ**する
+  （黙って書くと「触らないでと言われたサーバ」を変えてしまうため）
+
+**`--restart` とは併用できない**（エラーで止まる）。`stop-all` / `start-all` はネットワーク全体が
+単位で、`stop-network.ps1` に台別の選択が無いため、併用すると**対象外のサーバを止めたまま
+放置する**ことになる。1 台だけ差し替えるときは、そのサーバのコンソールで止めてから
+`deploy.cmd --server <name>` を実行し、`start-dev.cmd` などで個別に上げ直す。
+
 ### ウィンドウの出かた
 
 **サーバ 4 台（velocity / main / resource / dev）は Windows Terminal の 1 ウィンドウに

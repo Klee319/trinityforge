@@ -9,12 +9,21 @@ REM    deploy.cmd                 build what changed, then deploy to every backe
 REM    deploy.cmd --dry-run       print the plan. Builds nothing, copies nothing, deletes nothing.
 REM    deploy.cmd --build-only    build what changed and stop. Touches no server file.
 REM    deploy.cmd --tf-only       build and deploy TrinityForge only. Both forks are left alone.
+REM    deploy.cmd --server NAME   deploy to that backend only. Repeat the flag for several.
 REM    deploy.cmd --config        also copy the repository yml over the deployed config
 REM    deploy.cmd --restart       stop the network, deploy, start it again
 REM    deploy.cmd --force         deploy even though a backend is running -- READ THE WARNING
 REM    deploy.cmd --help
 REM
-REM  ABORTS WHILE ANY BACKEND IS RUNNING. Overwriting a jar under a live JVM raises
+REM  --server takes either the backend directory name (Main_Server) or its short form (main):
+REM  a name that is not a backend on its own is retried with "_Server" appended. Case is ignored.
+REM  It narrows the JAR copy, the ArsPaper config copy AND the "is it running" gate -- with
+REM  --server only the targeted backends have to be stopped, so you can ship to Dev_Server while
+REM  Main_Server keeps serving players. What it CANNOT narrow is the TrinityForge yml: on the other
+REM  backends plugins\TrinityForge is an NTFS junction to TF_CONFIG_HOST, so one write reaches all
+REM  three no matter what. See :deploy_config.
+REM
+REM  ABORTS WHILE ANY TARGETED BACKEND IS RUNNING. Overwriting a jar under a live JVM raises
 REM  NoClassDefFoundError the moment it needs a class it has not loaded yet; /reload does not fix
 REM  it and a full stop -> start is the only way back.
 REM
@@ -40,6 +49,8 @@ set "WITH_CONFIG="
 set "RESTART="
 set "BUILD_ONLY="
 set "TF_ONLY="
+set "SERVER_FILTER="
+set "TF_TARGETS="
 set "BADARG="
 set "FAILED="
 set "BUILT=0"
@@ -78,6 +89,15 @@ if /i "%~1"=="--tf-only" (
     shift /1
     goto parse
 )
+if /i "%~1"=="--server" (
+    if "%~2"=="" goto arg_server_missing
+    call :add_target "%~2"
+    if errorlevel 1 goto arg_server_bad
+    set "SERVER_FILTER=1"
+    shift /1
+    shift /1
+    goto parse
+)
 if /i "%~1"=="--help" goto usage
 if /i "%~1"=="-h" goto usage
 if /i "%~1"=="/?" goto usage
@@ -85,22 +105,58 @@ echo [ERROR] Unknown option: %~1
 set "BADARG=1"
 goto usage
 
+:arg_server_missing
+echo [ERROR] --server needs a backend name, for example: --server main
+set "BADARG=1"
+goto usage
+
+:arg_server_bad
+echo         Known backends: %TF_BACKENDS%
+echo         Short forms work too: main, resource, dev
+set "BADARG=1"
+goto usage
+
 :usage
 echo.
-echo   deploy.cmd [--dry-run] [--build-only] [--tf-only] [--config] [--restart] [--force]
+echo   deploy.cmd [--dry-run] [--build-only] [--tf-only] [--server NAME] [--config] [--restart] [--force]
 echo.
 echo     --dry-run     print the plan only. No build, no copy, no delete.
 echo     --build-only  build what changed, then stop. No server file is touched.
 echo     --tf-only     TrinityForge only. Neither fork is built nor copied. Use this while a
 echo                   fork working tree is mid-edit -- a normal run would ship half-written code.
+echo     --server NAME deploy to that backend only. Repeat for several: --server main --server dev
+echo                   Accepts Main_Server or main. Narrows the jar copy, the ArsPaper config copy
+echo                   and the running check, so only the targeted backends must be stopped.
+echo                   It does NOT narrow the TrinityForge yml -- that is junction-shared.
 echo     --config      also copy the repository yml over the deployed config.
 echo     --restart     stop the whole network, deploy, then start it again.
+echo                   Cannot be combined with --server: stop-all/start-all are network-wide.
 echo     --force       deploy even though a backend is running. Breaks the live JVM.
+echo.
+echo   Backends: %TF_BACKENDS%
 echo.
 if defined BADARG exit /b 1
 exit /b 0
 
 :parsed
+REM  No --server given: every backend is a target, exactly as before.
+if not defined SERVER_FILTER set "TF_TARGETS=%TF_BACKENDS%"
+
+REM  stop-all.cmd / start-all.cmd act on the whole network (stop-network.ps1 has no per-server
+REM  selection), so "--restart --server dev" would stop main and resource and never start them
+REM  again. Refuse instead of doing something destructive that reads as selective.
+if not defined SERVER_FILTER goto opt_ok
+if not defined RESTART goto opt_ok
+echo [ERROR] --restart cannot be combined with --server.
+echo         stop-all.cmd and start-all.cmd act on the whole network, so this would stop the
+echo         backends you did not target and leave them down.
+echo         Do it in steps instead:
+echo           %SELF%stop-all.cmd
+echo           %SELF%deploy.cmd --server dev
+echo           %SELF%start-all.cmd
+echo         Or, to touch one backend only, stop and start it from its own console.
+exit /b 1
+:opt_ok
 
 REM ---- sources and artifacts -------------------------------------------------------------------
 REM  Watched trees are src\main only: releaseAssembly does not run tests, so a test-only edit
@@ -130,6 +186,7 @@ if not defined DRYRUN echo  TrinityForge deploy
 echo ============================================================
 echo   repo        : %TF_REPO%
 echo   backends    : %TF_BACKENDS%
+if defined SERVER_FILTER echo   TARGETS     : %TF_TARGETS%   ^<-- --server: the rest is left alone
 echo   config host : %TF_CONFIG_HOST%
 echo   jdk         : %JDK21_HOME%
 echo.
@@ -184,8 +241,26 @@ echo   [DRY  ] would run stop-all.cmd, wait for every backend to go down, deploy
 goto build
 
 :s1_check
+if defined SERVER_FILTER goto s1_check_targets
 powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\check-servers-stopped.ps1"
 if not errorlevel 1 goto build
+goto s1_running
+
+REM  --server: only the targeted backends gate the run. The network-wide check would abort on a
+REM  backend we are not going to write to, which is the whole point of --server.
+REM
+REM  The SAME detector is used for both paths, just with -Server. An earlier attempt probed
+REM  world\session.lock from cmd with the `2>nul (call ) >>lock` idiom instead, and it reported a
+REM  LIVE server as stopped: cmd opens the append handle with enough sharing that Paper's own lock
+REM  does not block it, whereas the ps1 opens with FileShare.None and sees it. Do not reintroduce
+REM  a hand-rolled cmd probe here -- a false "stopped" is exactly the accident this gate exists for.
+:s1_check_targets
+echo   --server: only these have to be stopped: %TF_TARGETS%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\check-servers-stopped.ps1" -Server %TF_TARGETS%
+if not errorlevel 1 goto build
+goto s1_running
+
+:s1_running
 if defined DRYRUN goto s1_dry_note
 if not defined FORCE goto s1_abort
 echo.
@@ -330,8 +405,14 @@ goto done
 echo   [DRY  ] would run start-all.cmd
 goto done
 :s5_manual
+if defined SERVER_FILTER goto s5_manual_targets
 echo   [SKIP ] not restarting. New classes only load on a full JVM restart:
 echo             %SELF%start-all.cmd
+goto done
+:s5_manual_targets
+echo   [SKIP ] not restarting. Start only what you stopped -- start-all.cmd would also touch the
+echo           backends this run deliberately left alone. Per-backend scripts:
+echo             %SELF%start-main.cmd  /  start-resource.cmd  /  start-dev.cmd
 goto done
 :s5_skip_bo
 echo   [SKIP ] --build-only.
@@ -368,6 +449,31 @@ exit /b 1
 REM =============================================================================================
 REM  subroutines
 REM =============================================================================================
+
+REM ---------------------------------------------------------------------------------------------
+REM  :add_target <name>
+REM    Resolve one --server argument against TF_BACKENDS and append it to TF_TARGETS.
+REM    Accepts the directory name (Main_Server) or a short form (main): anything that is not a
+REM    backend on its own is retried with "_Server" appended, so a fourth backend added to
+REM    TF_BACKENDS later gets its short form for free -- there is no alias table to forget.
+REM    Comparison is case-insensitive, but the name stored is the one spelled in TF_BACKENDS,
+REM    because it is used as a directory name under VELOCITY_ROOT.
+REM    Returns 1 when the name matches no backend.
+REM ---------------------------------------------------------------------------------------------
+:add_target
+set "AT_HIT="
+for %%B in (%TF_BACKENDS%) do if /i "%%B"=="%~1" set "AT_HIT=%%B"
+if not defined AT_HIT for %%B in (%TF_BACKENDS%) do if /i "%%B"=="%~1_Server" set "AT_HIT=%%B"
+if not defined AT_HIT (
+    echo [ERROR] Unknown backend: %~1
+    exit /b 1
+)
+REM  Repeating the same --server twice would copy the jar twice. Harmless but confusing in the
+REM  log, so drop the duplicate.
+for %%T in (%TF_TARGETS%) do if /i "%%T"=="%AT_HIT%" goto :eof
+if not defined TF_TARGETS (set "TF_TARGETS=%AT_HIT%") else (set "TF_TARGETS=%TF_TARGETS% %AT_HIT%")
+goto :eof
+
 
 REM ---------------------------------------------------------------------------------------------
 REM  :stale <artifact> <semicolon-separated watched paths> <out var>
@@ -484,7 +590,7 @@ if not exist "%~2" (
     goto :eof
 )
 echo   %~1  from %~2
-for %%B in (%TF_BACKENDS%) do call :deploy_jar_one "%~1" "%~2" "%~3" "%%B"
+for %%B in (%TF_TARGETS%) do call :deploy_jar_one "%~1" "%~2" "%~3" "%%B"
 goto :eof
 
 :deploy_jar_one
@@ -545,6 +651,20 @@ REM ----------------------------------------------------------------------------
 :deploy_config
 set "TFRES=%TF_DIR%\src\main\resources"
 set "TFDST=%VELOCITY_ROOT%\%TF_CONFIG_HOST%\plugins\TrinityForge"
+REM  --server cannot narrow this: the other backends reach the very same directory through an NTFS
+REM  junction, so one write is seen by all three. When the config host is not among the targets,
+REM  writing it anyway would silently change servers the caller asked to leave alone -- skip and say so.
+if not defined SERVER_FILTER goto cfg_tf_go
+set "CFG_HOST_TARGETED="
+for %%T in (%TF_TARGETS%) do if /i "%%T"=="%TF_CONFIG_HOST%" set "CFG_HOST_TARGETED=1"
+if defined CFG_HOST_TARGETED goto cfg_tf_shared_note
+echo   [SKIP ] TrinityForge yml: %TF_CONFIG_HOST% is not among --server targets.
+echo           plugins\TrinityForge is junction-shared, so copying it would change every backend,
+echo           not just %TF_TARGETS%. Re-run with --server %TF_CONFIG_HOST% if that is what you want.
+goto cfg_ars
+:cfg_tf_shared_note
+echo   [NOTE ] TrinityForge yml reaches ALL backends through the junction, not only %TF_TARGETS%.
+:cfg_tf_go
 if not exist "%TFDST%\" goto cfg_tf_absent
 if defined DRYRUN goto cfg_tf_dry
 robocopy "%TFRES%" "%TFDST%" *.yml /S /XF paper-plugin.yml /NFL /NDL /NJH /NJS /NP >nul
@@ -565,7 +685,7 @@ echo   [SKIP ] TrinityForge: %TFDST% does not exist
 
 :cfg_ars
 if "%ARS_ART%"=="" goto :eof
-for %%B in (%TF_BACKENDS%) do call :deploy_config_ars "%%B"
+for %%B in (%TF_TARGETS%) do call :deploy_config_ars "%%B"
 goto :eof
 
 :deploy_config_ars

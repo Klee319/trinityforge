@@ -212,6 +212,51 @@ Velocity の `ServerCommand` が参照する権限文字列は `velocity.command
 起票前に「実装が無いのか、値が入っていないだけなのか」を実コードで確認すること。
 一方でユーザーが報告する「UI が崩れる」は判断待ちの設計選択ではなく**実バグ**として扱う。
 
+## 「サーバが停止しているか」の判定を cmd で自作しない（2026-08-02）
+
+`deploy.cmd` が jar を上書きする前の関門は `ops\scripts\check-servers-stopped.ps1` **だけ**を使う。
+cmd から `world\session.lock` を直接叩く次の定番イディオムは、**このリポジトリの環境では
+稼働中のサーバを「停止中」と誤判定する**ことを実測で確認した。
+
+```cmd
+2>nul (call ) >>"%LOCK%" || (set "RUNNING=1")
+```
+
+cmd の追記オープンは Paper が握っているロックと共存できる共有モードで開くため、**開けてしまう**。
+PowerShell 側は `[System.IO.File]::Open($p,'Open','ReadWrite','None')`（共有なし）で開くので検出できる。
+加えて ps1 は RCON ポートの LISTEN も見るので、ワールドを開く前の起動途中も拾える。
+
+**誤って「停止中」と答えることの代償が非対称**（稼働中の jar 差し替え＝ `NoClassDefFoundError`、
+JVM 再起動以外に復旧手段なし）なので、軽い判定に置き換えてはいけない。台数を絞りたいときは
+`check-servers-stopped.ps1 -Server <backend...>` を使う。
+
+## PowerShell: param 名とループ変数名が衝突すると型制約で黙って壊れる（2026-08-02）
+
+`check-servers-stopped.ps1` に `[string[]] $Server` を足した瞬間、**フィルタを使わない従来の経路まで**
+`The property 'RconPort' cannot be found on this object` で落ちた。原因は既存のループ変数 `$server`。
+
+- PowerShell の変数名は**大文字小文字を区別しない**ので `$Server` と `$server` は同一変数。
+- param の**型制約は変数に residual に残る**ため、`$server = $config.Servers[$name]`（ハッシュテーブル）が
+  `[string[]]` へ**黙って変換**され、以降のプロパティ参照が全部失われる。
+- エラーは代入行ではなく**参照行**で出るので、原因が param 追加だと気づきにくい。
+
+対処は片方の改名（このファイルではループ変数を `$backend` にした）。**param を追加したら、同名（大小無視）の
+ローカル変数がスクリプト内に無いか必ず grep すること。**
+
+## deploy.cmd --server で配備先を絞る（2026-08-02）
+
+`deploy.cmd --server dev` のように**配る先を限定**できる。`Main_Server` でも `main` でも通る
+（一致しなければ `_Server` を足して再照合するので、4台目を `TF_BACKENDS` に足しても短縮形が自動で効く）。
+
+絞られるのは **jar のコピー / ArsPaper の config コピー / 停止判定**の3つ。
+**TrinityForge の yml だけは絞れない** — 他のバックエンドの `plugins\TrinityForge` は
+`TF_CONFIG_HOST` へのジャンクションなので、1回書けば3台に届く。
+そのため `--config` 併用時は、対象に config ホストが含まれなければ **TF の yml をスキップ**する
+（黙って書くと「触るなと言われたサーバ」を変えてしまうため）。
+
+**`--restart` とは併用不可**（エラーで停止）。`stop-network.ps1` に台別の選択が無く、
+`stop-all` / `start-all` はネットワーク全体が単位なので、併用すると対象外のサーバを止めたまま放置する。
+
 ## 関連
 - [./config-editor.md](./config-editor.md)
 - [./common-traps.md](./common-traps.md)
