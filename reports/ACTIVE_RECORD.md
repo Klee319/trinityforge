@@ -3620,3 +3620,87 @@ BEACON の CustomBlock として設置でき、半径内（既定5）のソー�
   材質は未使用のトリム鍛冶型2種（FLOW / BOLT）＋**陶器の欠片23種・旗の模様10種が使用ゼロ**なので、
   24種すべてに固有アイコンを与えられる。**スレッドはリソパのモデル json を1件も持たない**ので
   テクスチャ作業は不要（材質を散らせば見た目は分かれる）。
+
+---
+
+## 2026-08-02 スレッド40種化と「TF が配ったスレッドが防具に挿さらない」の解決（`95cb6b5`）
+
+### 解決した不具合（新規に発見・修正）
+
+**症状**: TF 経路（ダンジョンの `add-drops` / `gacha.yml` / 実績報酬 / 図鑑報酬 / モブ別ドロップ）で
+配られたスレッドが、見た目は正しいのに**防具に一切装着できない**。
+
+**原因**: 装着可否はフォークの `ThreadGui#isEffectThread` が Ars の PDC 2種
+（`arspaper:custom_item_id` と `arspaper:thread_item_type`）で判定するが、
+**TrinityForge 本体は後者を1箇所も書かない（grep 0件）**。
+`CrossPluginItemResolver#create` の解決順が「TFカタログ → Ars → バニラ Material」で、
+カタログ側に同IDのエントリが居るスレッドは**必ずカタログ側で解決されていた**。
+ダンジョンドロップだけの話ではなく、`gacha.yml` の `thread_empty` 配布も以前から同じ状態だった。
+
+**修正**: `items/catalog.yml` に `external-source:`（有効値は現状 `arspaper` のみ）を追加し、
+**宣言のあるIDに限り**解決順を「外部プラグイン → カタログ」へ反転する。
+- 外部側が解決できなければ**必ずカタログへフォールバック**する（Ars 非導入構成があるため）。
+- **全体の解決順は反転しない**。Ars 側 loot-tables 経路（`ItemCostRef#createStack`）は
+  元から「Ars → TrinityForgeBridge → PAPER」で正しく、全体反転は逆向きの事故を作るため。
+- 未知のソース名は `color:` と同じ fail-soft（警告して宣言だけ無視、アイテム本体はロード）。
+  黙って受けると「宣言したのに解決順が変わらない」＝症状の出ない設定ミスになる。
+- `ItemTemplate` は12コンポーネントになったが、**従来の11引数（正準）形を委譲コンストラクタとして残した**
+  ので既存26箇所の呼び出しは無改修。
+
+**空振りでないことの確認**（実装を一時的に壊してテストが落ちることを確認済み）:
+
+| 壊し方 | 落ちたテスト |
+|---|---|
+| 宣言を無視して常にカタログ優先（＝修正前の挙動） | 3件 FAILED |
+| 全体の解決順を無条件反転 | 1件 FAILED |
+| `parseExternalSource` が常に null | 3件 FAILED |
+| 出荷 catalog.yml から `thread_luck` の宣言を1件だけ削除 | 1件 FAILED（欠けているIDを名指しで表示） |
+
+### 40種の綴り突き合わせ（workflow が未検証として残した穴。2026-08-02 に実測して閉じた）
+
+綴りが1文字でもズレると「Ars が解決できない → カタログへフォールバック → **元と同じく装着不可**」で
+**壊れはしないが直りもしない**（症状が変わらないので気づけない）ため、全層を機械的に突合した:
+
+| 層 | 件数 |
+|---|---|
+| `catalog.yml` の `thread_*` | 40 |
+| フォーク `threads.yml` | 40 |
+| フォーク `thread-sets.yml` | 39 |
+
+- `catalog − threads.yml` = 空、`threads.yml − catalog` = 空、`catalog − ThreadType enum の文字列` = 空。
+- `thread-sets.yml` に無いのは `empty` の1件のみ（効果を持たないスレッドなので正しい）。
+
+### 統合版（Bedrock）のアイテム名 — 記録側の誤りを訂正
+
+**誤り**: 「TF パックに `texts/*.lang` が0件なのが原因」。
+**実際**: 統合版クライアントが読むのは GeyserExtra が生成する
+`<Geyser>/extensions/geyserextra/packs/geyserextra_auto.zip` の `texts/*.lang` で、その中身は
+`custom_items.json` の `display_name` の写し。**TF パックに `texts/` を入れても届かない。**
+TF が用意すべきなのは Java パックの `assets/trinityforge/lang/{ja_jp,en_us}.json`
+（`resourcepack/build_item_lang.py` で生成。`item.minecraft.*` 等バニラ名前空間への書き込みは
+スクリプト側で拒否する ── 書くと全 Java プレイヤーのバニラアイテム名が変わる）。
+
+**さらに lang を置いただけでは直らない**: `prepopulateRegistryFromJavaPack` が
+`(baseItem, cmd)` の既存エントリを skip するため。台帳の英語フォールバック名エントリを
+先に消す必要があり、`ops/scripts/prune-geyser-auto-items.ps1` を追加した
+（既定 dry-run / `-Apply` 時のみバックエンド停止確認 / バックアップ必須 /
+PDC 由来エントリを巻き込むなら中断）。削除条件は**名前の書式では切り分けられない**
+（`CustomItemScanner` も同じ `custom_<base>_<cmd>` を作る）ため、
+「その (base, cmd) が今のパックに実在し `trinityforge:` 専用モデルを指している＝次の起動で必ず再導出される」
+を根拠にしている。
+
+配備先台帳の実測: 全310エントリ / 削除対象94 / 保全216（うち日本語表示名120）。
+パックの `trinityforge:` 専用モデル付き CMD 113 のうち、**105 は台帳が既に埋まっていて lang が効かない**、
+8 は空いていて lang だけで直る。
+
+### テスト
+
+3474 tests / 1 failed / 2 skipped。失敗は `SkillExpConfigTest`
+（`combat.kill-exp.base.ARCHERY` が 25 でなく 30）で、**別セッションの未コミット `skill-exp.yml`** が原因。
+本件とは無関係なので触っていない。skipped 2 は既知の許容値。
+
+### 残っている関連課題
+
+- フォーク側に `ThreadGui#isEffectThread` の PDC 2種判定そのもののテストは無い（TF 側からは検証不能）。
+- editor の「素材タブへ移動」(`moveEntryToMaterials`) はエントリを作り直すので `external-source` を
+  引き継がない。ただし `ShippedCatalogExternalSourceDriftTest` が赤くなって気づけるので未対応。
