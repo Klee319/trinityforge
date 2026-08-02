@@ -129,6 +129,79 @@ disassembly:
             weight: 3
           - item: custom:copper_ingot_scrap
             weight: 1
+    # =========================================================================
+    # スレッドの一括分解 (2026-08-02 追加 / 柱3-A の A-3)
+    # -------------------------------------------------------------------------
+    # スレッド厳選は「引く → 要らなければ捨てる」のループなのに、要らないスレッドの
+    # 処分先が1つも無かった(枠拡張 A-1 と振り直し A-2 だけが先に入っていた)。
+    # ここに thread_* を足すことで、床に捨てた不要スレッドへアンビルを落とせば
+    # 「次のスレッドを作り直す素材」に還る = 厳選の回転がそのまま素材循環になる。
+    #
+    # 【なぜアンビル1回でまとめて処理できるか】効果付きスレッドは1本ごとに厳選ロール
+    # (主ステ/サブステ)を持つので ItemMeta が全部違い、まとめて投げても Item エンティティが
+    # 1本=1個に分かれる。DisassemblyListener は着地点周辺の Item を全部処理するので、
+    # 束で投げれば束のまま分解される(スタック内部を掘る処理は不要)。
+    #
+    # 【ID の当たり方】DisassemblyListener は CrossPluginItemResolver.idOf で解決した
+    # カタログ ID を CraftingFeaturesConfig#disassemblyRulesFor に渡し、完全一致 → 末尾 *
+    # ワイルドカード(最長前置一致)の順で照合する。実行時のスレッドは TF catalog.yml の
+    # thread_* 16件でも ArsPaper の ThreadItem("thread_" + type) でも必ず thread_ 始まりなので、
+    # thread_* 1行で 16 種すべてに当たる。完全一致は必ずワイルドカードより優先されるため、
+    # 下の thread_empty 行が「空のスレッド」だけを別扱いに上書きする。
+    #
+    # 【なぜ base-amount を書くか】スレッドは全部 method: ritual で、儀式のコア/台座は
+    # RecipeSpec の shaped/shapeless ingredients に入らない = レシピから素材数を引くと必ず 0 になり、
+    # input 方式では永久に何も返らない。base-amount はレシピを一切引かない経路なのでこれを使う。
+    #
+    # 【なぜ base-amount: 4 なのか】戻り量は
+    #   floor(floor(base-amount × 戻り総% ÷ 100) × outputs[].multiplier)
+    # で、戻り総% は percent-per-level 25 × 解体レベル。解体は skilltree/smithing.yml B-3-upper
+    # の1ノードだけ(value 1)なので実測レベルは常に 1 = 25%。つまり内側の floor を 1 にするには
+    # base-amount が 4 必要で、3 以下だと floor(0) になって【1個も返らない】。
+    # 実際の個数は outputs 側の multiplier で決める(1 なら1個、2 なら2個)。
+    #
+    # 【なぜ現実の芯(reality_thread_core)を返さないのか】効果付きスレッドは
+    # items/catalog.yml の儀式で custom:thread_empty + バニラ素材 + source_gem + magebloom_fiber
+    # から作れる = 完全に再生産可能。ここで現実の芯を返すと「再生産可能な素材 → 振り直しの触媒」
+    # という洗浄経路ができ、fork の items.yml が A-2 でわざわざ閉じた
+    # 「汎用素材だけで無限に厳選を回せる状態」がそのまま復活する(枠拡張 A-1 の触媒でもある)。
+    # 深部ダンジョン周回でしか触媒が増えない設計を壊さないため、戻りは再生産可能な素材だけに限る。
+    #
+    # 【期待値】1本の効果付きスレッドの製造原価はおよそ source_gem 3個相当
+    # (thread_empty の 1 + 儀式台座の 2) + magebloom_fiber 3 + バニラ素材 + ソース 1200〜1800。
+    # 下の重み付けの期待値は source_gem 0.5 + magebloom_fiber 0.8(= gem 0.2 相当。fiber は
+    # 種+gem1個から4個できる) + source_shard 0.1 で、原価のおよそ 2 割。解体の 25% という
+    # 建て付けとも揃い、「捨てるよりは得だが作り直すには足りない」水準に収まる。
+    thread_*:
+      - base-amount: 4
+        multiplier: 1
+        outputs:
+          # 一番使い道の広い戻り。次の thread_empty を1個編める。
+          - item: custom:source_gem
+            weight: 5
+            multiplier: 1
+          # スレッドの「布地」側。gem より安い(gem 1個 → fiber 4個)ので2個返す。
+          - item: custom:magebloom_fiber
+            weight: 4
+            multiplier: 2
+          # 儀式のソース代の一部返し(焼べると 500 ソース)。当たりは少なめ。
+          - item: custom:source_shard
+            weight: 1
+            multiplier: 1
+    # 空のスレッドは thread_* より優先される完全一致で上書きする。
+    # 上書きが必要な理由: 空のスレッドは source_gem 1 + magebloom_fiber 1 + ソース 200 で
+    # 何本でも作れる(3本まとめて作る儀式もある)ため、thread_* の戻りをそのまま当てると
+    # 「再生産可能な素材 → source_gem 等」の等価往復ができてしまい、分解の意味が消える。
+    # 分解対象からは外さない(外すとアンビルを落としても何も起きず、原因が分からない挙動になる)。
+    # 戻りは自分の製造原価より必ず安い magebloom_fiber 1個だけ。
+    # 1周あたり source_gem 1個とソース 200 を確実に失うので、往復させても損しかしない。
+    thread_empty:
+      - base-amount: 4
+        multiplier: 1
+        outputs:
+          - item: custom:magebloom_fiber
+            weight: 1
+            multiplier: 1
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960
