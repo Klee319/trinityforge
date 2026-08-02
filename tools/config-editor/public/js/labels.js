@@ -624,16 +624,10 @@
       "beam": "直線ビーム (beam)",
       "summon": "増援召喚 (summon)"
     },
-    "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" },
-    // item-stats.yml random-roll-pools.<poolId>.rarities.<id>.color (Bukkit ChatColor 名。
-    // 2026-08-02 に ArsPaper 独自の thread-rolls.yml から移設)。日本語名は colors.js の
-    // MC_COLORS(&コード表)と同じ表記に揃える。
-    "rarity-color": {
-      "BLACK": "黒", "DARK_BLUE": "濃い青", "DARK_GREEN": "濃い緑", "DARK_AQUA": "濃い水色",
-      "DARK_RED": "濃い赤", "DARK_PURPLE": "濃い紫", "GOLD": "金", "GRAY": "灰色",
-      "DARK_GRAY": "濃い灰色", "BLUE": "青", "GREEN": "緑", "AQUA": "水色",
-      "RED": "赤", "LIGHT_PURPLE": "明るい紫", "YELLOW": "黄", "WHITE": "白"
-    }
+    "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" }
+    // "rarity-color"(スレッド厳選専用のレア度カラー辞書)は 2026-08-02 に専用UI(p5-forms.js の
+    // buildRandomRollPoolsForm)ごと撤去した。スレッドは他アイテムと同じ item-stats.yml フォームで
+    // 編集するため、レア度カラーという概念自体が editor に存在しない。
     // dedicated-effect-category / dedicated-effect-param (専用効果カタログUI) は廃止(2026-07-23)。
     // 解放効果の種別ラベルは window.GATE_EFFECTS.gateEffectTypeLabel(type) を使う (gate-effects.js)。
   };

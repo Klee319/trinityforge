@@ -323,6 +323,34 @@ materials.yml の画面で踏んだら、まずここを疑うこと。
 このパターンに当たったら「表示名が引けない」のではなく「表示名という概念がそもそも無い」ケースなので、
 無理に他のフィールド(先頭素材のitem等)を代用ラベルにしない。
 
+## 「専用GUIを作るな、既存の汎用フォームを使え」指示への違反は item-stats.yml 系でよく起きる (2026-08-02)
+スレッド厳選(主ステ1つ+サブステ0〜4つの抽選)を ArsPaper 独自 `thread-rolls.yml` から TF の
+`stats/item-stats.yml` へ移設した際、ユーザーの明示指示(「専用のGUIと仕様を作るな。武器と同じ
+アイテムステータス設定の仕様とやり方で、スレッドも個別にステータス定義しろ」)に反し、
+`random-roll-pools:` という**第4の専用データ層**と、editor に `p5-forms.js` の
+`buildRandomRollPoolsForm`/`buildRandomRollPoolEditor`(rarities/main-stats/sub-stats/sub-count/
+quality-spread 専用フォーム)+ `split-views.js` の「スレッド」タブだけ専用セクションを上に合成する
+分岐(`o.itemCategory === "thread"`)を新設してしまっていた(同日中に撤去)。
+- **なぜ間違いか**: `items.<key>` は既に `fixed`/`per-quality`/`random`(min/max)/
+  `advanced.randomize-grants`+`grant-chances` という汎用ロール機構を持っており(`forms.js` の
+  `buildItemStatsForm`、`lib/schema.js` の `validateItemStats`)、スレッドも武器/防具と同じ
+  `items.<Material>` エントリとして表現できる。個体差(スレッド固有のランダム性)は既存 `random:`
+  レイヤーの守備範囲内で、新しい抽選機構やレア度概念を作る必要は無かった
+  (`no-new-dedicated-spec-reuse-item-stats` の教訓と同種の再発)。
+- **検知の仕方**: `grep -rn "random-roll-pool\|randomRollPool"` は撤去後も**過去の経緯を説明する
+  コメントには残る**(このリポジトリの規約として、廃止した機構は消した理由をコメントで残す)ため、
+  この grep 単体では「ゼロ=完全撤去」の判定にならない。実体があるかどうかは
+  `window\.buildXxxForm\s*=`(関数定義そのもの)や、その関数を呼ぶ側の分岐条件
+  (`o.itemCategory === "thread"` のような専用 if)を正規表現で狙って判定すること。
+  回帰テストは `test/thread-dedicated-ui-removed-2026-08-02.test.js`
+  (静的ソースチェック3件 + `buildSplitConfigView` 経由で「スレッド」タブが他カテゴリと
+  同じ `itemStatsForm` をそのまま使い、`random-roll-pools` ルートキーを書き換えず素通しすることを
+  固定する動的チェック2件)。
+- **ロスレス側の裏付け**: `buildItemStatsForm` の `working = data`(同一参照、浅いクローンではない)
+  なので、`items` 以外のルートキー(`random-roll-pools` 等、Java 側の削除待ちで yml にまだ残る間)は
+  editor がスキーマ検証も専用フォームも持たないまま黙って素通しする。専用UIを外しても
+  「開いて保存しただけで消える」事故にはならない。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

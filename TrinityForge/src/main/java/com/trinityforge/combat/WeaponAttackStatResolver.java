@@ -190,6 +190,29 @@ public final class WeaponAttackStatResolver {
     }
 
     /**
+     * The full derived item-stats map (canonical key → value) for a bare {@code (material,
+     * customModelData)} at the given {@code qualityLevel}/{@code rollSeed} — i.e. {@link #resolveItemStats}
+     * with the roll layer live instead of pinned to quality 0 / seed 0. This is the entry point for the
+     * ArsPaper fork to pull a single equipped thread's individual roll from armor: a thread is stamped
+     * with TF's own {@code rollSeed} and quality at generation time, and derives through the exact same
+     * {@link DerivedItemStats#profileStats} path as any weapon, so the two-arg preview overload above and
+     * this one only differ in whether the roll layer is exercised. Returns a fresh, caller-owned
+     * <b>mutable</b> map (empty for a null material, no matching entry, or any derivation failure —
+     * fail-open). Must be called on the server main thread.
+     */
+    public Map<String, Double> resolveItemStats(Material material, Integer customModelData,
+                                                int qualityLevel, long rollSeed) {
+        if (material == null) {
+            return new java.util.LinkedHashMap<>();
+        }
+        try {
+            return DerivedItemStats.profileStats(material, customModelData, qualityLevel, rollSeed, itemStats);
+        } catch (RuntimeException malformedProfile) {
+            return new java.util.LinkedHashMap<>();
+        }
+    }
+
+    /**
      * The FULL derived stat map (canonical-ish keys, as authored) for a live {@link ItemStack}: fixed +
      * per-quality (using the item's OWN PDC quality, unlike {@link #resolveItemStats}) + random roll +
      * weapon use-level base formula. Exposed for Change 1 (P10 magic aggregation, ARSPAPER_FORK_SPEC):

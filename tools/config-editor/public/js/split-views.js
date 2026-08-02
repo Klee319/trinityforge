@@ -193,19 +193,9 @@
       if (skills && typeof form.setUseSkillOptions === "function") {
         form.setUseSkillOptions(skills);
       }
-      // 「スレッド」タブだけ、item-stats.yml の random-roll-pools(旧 ArsPaper thread-rolls.yml)
-      // を編集する専用セクションを上に足す(2026-08-02)。buildRandomRollPoolsForm は同じ data
-      // 参照を直接編集するので、下の itemStatsForm.getData() の working スプレッドに
-      // random-roll-pools キーがそのまま乗る(追加のマージ処理は不要)。
-      if (o.itemCategory === "thread" && typeof window.buildRandomRollPoolsForm === "function") {
-        const poolsForm = window.buildRandomRollPoolsForm(data);
-        const wrap = h("div", { class: "hub-thread-composite" });
-        wrap.appendChild(h("div", { class: "sub-title", text: "スレッド厳選 (random-roll-pools)" }));
-        wrap.appendChild(poolsForm.element);
-        wrap.appendChild(h("div", { class: "sub-title", text: "アイテム別ステータス" }));
-        wrap.appendChild(itemStatsForm.element);
-        form = { element: wrap, rerender: itemStatsForm.rerender, getData: itemStatsForm.getData };
-      }
+      // 「スレッド」タブに専用の抽選プールセクションを重ねる合成表示は 2026-08-02 に撤去した。
+      // スレッドは武器/防具と同じ item-stats.yml のフォーム(fixed/per-quality/random/advanced)で
+      // 通常のアイテムエントリとして編集する(専用GUIは作らない、というユーザー指示に合わせる)。
       getData = () => {
         const d = form.getData();
         // form 側 working が _editor を新規作成/更新している場合はそれを優先。

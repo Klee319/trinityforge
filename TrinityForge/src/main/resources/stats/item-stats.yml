@@ -3,8 +3,8 @@
 # 各装備のステを1品ずつ個別に設定できます。焼き付けはしない: 編集 + /trinityforge reload で既存品にも即再導出。
 #
 # ■ 小数の丸め方針(2026-08-02): 数値は小数第3位までで書く。生成スクリプトが吐く4桁以上の小数
-#   (例: 0.051935)は editor でそのまま生の桁が見える上、random-roll-pools の decimal-step 量子化
-#   (min/maxの小数桁がそのままロール刻みになる)では無意味に細かい刻みへ化ける。既存の3桁以下の値は
+#   (例: 0.051935)は editor でそのまま生の桁が見える上、random: セクションの刻み幅量子化
+#   (min/maxの小数桁がそのままロール刻みになる。StatRange#step)では無意味に細かい刻みへ化ける。既存の3桁以下の値は
 #   意図的な粒度指定として扱い、勝手に桁を揃えない(0.05のままでよい。0.050 のような無意味な0埋めもしない)。
 #
 # ■ キーの形式
@@ -22,6 +22,10 @@
 #                 （物理・魔法共用）。抽選値はアイテムの rollSeed で決定的（同じ品は常に同じ値。reloadしても不変）。
 #                 中心modeは品質比例(高品質ほど max 寄り)。roll-center-inset を上げると極端品質でも端に張り付かず山形になる。
 #                 fixed / per-quality を書いていないステに random だけ書いた場合、基礎0にロール分だけ加算される。
+#                 ■ 刻み幅(2026-08-02 タスク#43): min/maxの小数点以下の桁数からロールの刻み幅を自動で決める
+#                 (StatRange#step。ItemStatsConfig がパース時に算出する)。両方とも整数なら整数刻み、
+#                 例えば min: 0.5 / max: 2.0 なら0.1刻みで抽選する。指数表記(1.0E-4等)で書いた場合は
+#                 量子化を諦めて連続値のままロールする(壊れるより無効化)。
 #   advanced:     任意。高度オプション。
 #     randomize-grants: true のとき、fixed/per-quality/random に書いたステ種類のうち実際に付与するものを
 #                       ステごとの確率でランダム化(rollSeedで決定的)。
@@ -161,231 +165,6 @@
 #   ⚠️ attack-speed はバニラの Attribute.ATTACK_SPEED にしか写像しないので、弓の引き絞り
 #      速度・トライデントの投擲・魔法の詠唱には一切影響しない。落ちるのは殴りだけ。
 #
-# ■ ランダムロールプール (random-roll-pools) ── 2026-08-02 新設
-#   アイテム1個ぶんの「主ステ1つ + サブステ0〜N個 + レア度」を抽選するテーブル。
-#   fixed/per-quality/random(段2ロール、上のコメント参照)とは別枠で、複数アイテムが同じ抽選テーブルを
-#   共有できる(itemsの各エントリから `random-roll-pool: <poolId>` で参照する)。
-#   生成した瞬間にアイテムへ焼き込む方式(rollSeedではなく専用PDC)なので、ここのmin/maxを後から
-#   変えても既に配ったアイテムの数値は変わらない。
-#
-#   旧 ArsPaper フォークの thread-rolls.yml (スレッドの厳選) をここへ統合した。エディタの
-#   「ステータス設定」タブから編集できるようにするのが目的で、抽選ロジック自体は
-#   com.trinityforge.stats.RandomRollPool へ移設しただけで変更していない。
-#
-#   ■ 抽選の順序
-#     1. rarities から weight で1つ引く   -> 主ステの値へ multiplier が掛かる(サブには掛からない)
-#     2. main-stats から weight で1つ引く -> min..max の一様乱数 x multiplier
-#     3. sub-count から weight で本数を引く
-#     4. sub-stats から重複なしで本数分引く(主ステと同じキーは引かない)
-#
-#   ■ 刻み幅(2026-08-02 タスク#43): min/maxの小数点以下の桁数からロールの刻み幅を決める。
-#     両方とも整数なら整数刻み、例えば min: 0.5 / max: 2.0 なら0.1刻みで抽選する。
-#     quality-spreadで拡縮した後のmin/maxではなく、ここに書いた元のmin/maxの桁数が基準。
-#
-#   ■ quality(TFのクラフト品質、0〜100目安)に応じてロールのmin/max幅そのものを広げる。
-#     「一方的に強くする」のではなく「ブレを大きくする」方向: qualityが高いほど下限はわずかに下がり、
-#     上限はより大きく上がる(=当たり外れの幅が広がりつつ、期待値は上がる)。quality=0(品質が
-#     分からない経路のフォールバック含む)では下限・上限とも据え置きで、従来どおりの抽選になる。
-#
-#   ■ percent: 表示だけの指定。true なら lore に "+3.5%" と出す(保存値は 0.035 のまま)。
-random-roll-pools:
-  # スレッド用プール。防具4部位 x thread-slots(1式9枠)まで装着できるため、主ステは最大9個乗る。
-  # attack-power を例に取ると 9 x 400 x 1.8 ≈ 6480 で、インフィニティの剣(37800)の約17%。
-  # 「装備の乗り換えより厳選のほうが強い」状態にはしない、が目安。さらに stat-caps がキー単位で
-  # 最終上限を掛けるので暴走はしない。
-  thread:
-    quality-spread:
-      enabled: true
-      # quality=100 のときの下限縮小率(0.05 = 元の min から最大5%下がる)
-      low-shrink-at-max-quality: 0.05
-      # quality=100 のときの上限拡張率(0.15 = 元の max から最大15%上がる)
-      high-expand-at-max-quality: 0.15
-    # レア度。主ステの値に multiplier が掛かり、label が lore の先頭に出る。
-    rarities:
-      common:
-        weight: 55
-        multiplier: 1.0
-        label: "並"
-        color: GRAY
-      rare:
-        weight: 28
-        multiplier: 1.2
-        label: "希"
-        color: AQUA
-      epic:
-        weight: 13
-        multiplier: 1.45
-        label: "極"
-        color: LIGHT_PURPLE
-      legend:
-        weight: 4
-        multiplier: 1.8
-        label: "神"
-        color: GOLD
-    # 主ステータス候補。必ず1つ付く。
-    # ⚠️ armor-defense-rate は【意図的に候補へ入れていない】。バニラ防具の防御率(上限0.8)へ
-    #   加算されるため、厳選で盛れると貫通0の相手からの物理を実質無効化できてしまう。
-    main-stats:
-      attack-power:
-        weight: 10
-        min: 200
-        max: 600
-        percent: false
-      percent-bonus-damage:
-        weight: 9
-        min: 0.02
-        max: 0.05
-        percent: true
-      crit-chance:
-        weight: 9
-        min: 0.02
-        max: 0.05
-        percent: true
-      crit-damage:
-        weight: 9
-        min: 0.04
-        max: 0.1
-        percent: true
-      penetration:
-        weight: 8
-        min: 0.02
-        max: 0.05
-        percent: true
-      flat-bonus-damage:
-        weight: 8
-        min: 1.0
-        max: 3.0
-        percent: false
-      bleed-chance:
-        weight: 6
-        min: 0.02
-        max: 0.06
-        percent: true
-      bleed-damage:
-        weight: 6
-        min: 20
-        max: 80
-        percent: false
-      phys-resistance:
-        weight: 9
-        min: 0.015
-        max: 0.04
-        percent: true
-      magic-resistance:
-        weight: 9
-        min: 0.015
-        max: 0.04
-        percent: true
-      phys-flat-defense:
-        weight: 8
-        min: 1.5
-        max: 5.0
-        percent: false
-      magic-flat-defense:
-        weight: 8
-        min: 1.5
-        max: 5.0
-        percent: false
-      damage-reduction:
-        weight: 6
-        min: 0.01
-        max: 0.025
-        percent: true
-      dodge-chance:
-        weight: 6
-        min: 0.01
-        max: 0.03
-        percent: true
-      armor-strength:
-        weight: 6
-        min: 0.02
-        max: 0.05
-        percent: true
-    # サブステータスの本数。0本(外れ個体)は入れない ── 主1本+サブ0本=合計1種は
-    # 「合計は必ず2種以上」という要件を満たさない。2,3,4本の相対比率は当たりの厚みの調整。
-    sub-count:
-      1: 50
-      2: 30
-      3: 15
-      4: 5
-    # サブステータス候補。主ステと同じキーは引かない。値は主ステの概ね4割。
-    sub-stats:
-      attack-power:
-        weight: 10
-        min: 60
-        max: 240
-        percent: false
-      percent-bonus-damage:
-        weight: 9
-        min: 0.005
-        max: 0.02
-        percent: true
-      crit-chance:
-        weight: 9
-        min: 0.005
-        max: 0.02
-        percent: true
-      crit-damage:
-        weight: 9
-        min: 0.01
-        max: 0.04
-        percent: true
-      penetration:
-        weight: 8
-        min: 0.005
-        max: 0.02
-        percent: true
-      flat-bonus-damage:
-        weight: 8
-        min: 0.4
-        max: 1.2
-        percent: false
-      bleed-chance:
-        weight: 6
-        min: 0.005
-        max: 0.024
-        percent: true
-      bleed-damage:
-        weight: 6
-        min: 8
-        max: 32
-        percent: false
-      phys-resistance:
-        weight: 9
-        min: 0.005
-        max: 0.016
-        percent: true
-      magic-resistance:
-        weight: 9
-        min: 0.005
-        max: 0.016
-        percent: true
-      phys-flat-defense:
-        weight: 8
-        min: 0.6
-        max: 2.0
-        percent: false
-      magic-flat-defense:
-        weight: 8
-        min: 0.6
-        max: 2.0
-        percent: false
-      damage-reduction:
-        weight: 6
-        min: 0.004
-        max: 0.01
-        percent: true
-      dodge-chance:
-        weight: 6
-        min: 0.004
-        max: 0.012
-        percent: true
-      armor-strength:
-        weight: 6
-        min: 0.008
-        max: 0.02
-        percent: true
-
 # 下はバニラ装備・ツールとTFネイティブ品の個別ステータス定義。
 
 items:
@@ -10271,92 +10050,1083 @@ items:
     use-level-requirement: 45
     use-role: woodcutter
 
-  # ■ スレッド(items/catalog.yml の thread_* 40件) ── 2026-08-02、旧ArsPaper thread-rolls.yml から移設。
-  #   戦闘ステは全て random-roll-pool: thread (上の random-roll-pools 参照) から抽選される。
-  #   ArsPaper の ThreadItem#createItemStack がスレッドを1個作るたびにここへ問い合わせ、
-  #   結果をアイテム固有のPDCへ焼き込む(TrinityForgeBridge.rollThreadStats)。
-  #   ここに fixed/per-quality を足すと「どの個体にも必ず付く」下駄になる(現状は空=完全ランダム)。
+  # ■ スレッド(items/catalog.yml の thread_* 40件) ── 2026-08-03、1件ずつ個別に定義する。
+  #   武器・防具とまったく同じ仕様で書く。スレッド専用の抽選テーブルは作らない
+  #   (2026-08-02 に random-roll-pools という専用層を作ってしまい撤去した経緯がある)。
+  #
+  #   ■ 1件の組み立て方(全40件で統一)
+  #     per-quality: 主ステ1種だけ。品質1段あたりの増分(品質は0..9なので最大で max の約4割ぶん上乗せ)。
+  #     random:      主ステ1種 + サブステ4種。値はアイテム個体の rollSeed で決まり、
+  #                  ブレ幅は品質が高いほど広がる(stats/quality.yml の roll-spread-*)。
+  #     advanced:    randomize-grants で「サブ4種のうち実際に付くもの」を1種ずつ抽選する。
+  #                  主ステは grant-chances に書かないので常に付く(未記載キーは確率1.0)。
+  #                  サブは各0.45なので、付くサブの本数は平均1.8種。
+  #
+  #   ■ レンジの小数桁 = 抽選の刻み幅。率系をあえて 0.018〜0.052 のように3桁で書いているのは、
+  #     0.02〜0.05 だと0.01刻み(4通り)になり厳選の当たり外れが潰れるため。
+  #
+  #   ■ 防具4部位 x 枠(1式9枠)まで装着できるので、主ステは最大9個ぶん乗る。
+  #     attack-power なら 9 x 620 + 品質分 ≈ 7800 で、インフィニティの剣(37800)の約2割が上限の目安。
+  #     さらに stat-caps がキー単位で最終上限を掛けるので暴走はしない。
+  #
+  #   ■ offhand-stats-apply: false は全件共通。スレッドは防具へ装着して初めて効く素材であり、
+  #     オフハンドに持っただけでステが乗ってはいけない。
   WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001:
-    # thread_empty: 効果を持たない中間素材(儀式で型付きスレッドに変換する)。厳選しない。
+    # thread_empty: 効果を持たない中間素材(儀式で型付きスレッドに変換する)。ステは持たせない。
     offhand-stats-apply: false
-  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002: # thread_mana_regen
-    random-roll-pool: thread
-  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003: # thread_mana_boost
-    random-roll-pool: thread
-  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004: # thread_speed
-    random-roll-pool: thread
-  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005: # thread_jump_boost
-    random-roll-pool: thread
-  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006: # thread_night_vision
-    random-roll-pool: thread
-  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007: # thread_fire_resistance
-    random-roll-pool: thread
-  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008: # thread_dolphins_grace
-    random-roll-pool: thread
-  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009: # thread_conduit_power
-    random-roll-pool: thread
-  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010: # thread_hero_of_the_village
-    random-roll-pool: thread
-  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011: # thread_health_boost
-    random-roll-pool: thread
-  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012: # thread_hit_mana_recovery
-    random-roll-pool: thread
-  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013: # thread_damage_mana_recovery
-    random-roll-pool: thread
-  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014: # thread_spell_cost_down
-    random-roll-pool: thread
-  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015: # thread_flight
-    random-roll-pool: thread
-  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016: # thread_backpack
-    random-roll-pool: thread
-  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017: # thread_mana_amplify
-    random-roll-pool: thread
-  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018: # thread_mana_circulate
-    random-roll-pool: thread
-  FLOW_POTTERY_SHERD#300019: # thread_source_thrift
-    random-roll-pool: thread
-  ARMS_UP_POTTERY_SHERD#300020: # thread_artisan
-    random-roll-pool: thread
-  BREWER_POTTERY_SHERD#300021: # thread_ritualist
-    random-roll-pool: thread
-  PLENTY_POTTERY_SHERD#300022: # thread_thrift
-    random-roll-pool: thread
-  SCRAPE_POTTERY_SHERD#300023: # thread_salvage
-    random-roll-pool: thread
-  BURN_POTTERY_SHERD#300031: # thread_scholar
-    random-roll-pool: thread
-  MINER_POTTERY_SHERD#300024: # thread_miner
-    random-roll-pool: thread
-  ANGLER_POTTERY_SHERD#300025: # thread_angler
-    random-roll-pool: thread
-  SHEAF_POTTERY_SHERD#300026: # thread_harvest
-    random-roll-pool: thread
-  SNORT_POTTERY_SHERD#300027: # thread_timber
-    random-roll-pool: thread
-  FRIEND_POTTERY_SHERD#300029: # thread_diligence
-    random-roll-pool: thread
-  SHELTER_POTTERY_SHERD#300033: # thread_endurance
-    random-roll-pool: thread
-  HEARTBREAK_POTTERY_SHERD#300034: # thread_gourmet
-    random-roll-pool: thread
-  GUSTER_POTTERY_SHERD#300039: # thread_slow_falling
-    random-roll-pool: thread
-  SKULL_POTTERY_SHERD#300028: # thread_spoils
-    random-roll-pool: thread
-  HOWL_POTTERY_SHERD#300030: # thread_experience
-    random-roll-pool: thread
-  HEART_POTTERY_SHERD#300032: # thread_mending_flesh
-    random-roll-pool: thread
-  DANGER_POTTERY_SHERD#300035: # thread_thorn
-    random-roll-pool: thread
-  BLADE_POTTERY_SHERD#300036: # thread_concussion
-    random-roll-pool: thread
-  MOURNER_POTTERY_SHERD#300037: # thread_swiftcast
-    random-roll-pool: thread
-  ARCHER_POTTERY_SHERD#300038: # thread_marksman
-    random-roll-pool: thread
-  EXPLORER_POTTERY_SHERD#300040: # thread_luck
-    random-roll-pool: thread
+  DANGER_POTTERY_SHERD#300035: # thread_thorn 茨: 出血で削る
+    per-quality:
+      bleed-damage: 3
+    random:
+      bleed-damage:
+        min: 20
+        max: 80
+      bleed-chance:
+        min: 0.005
+        max: 0.025
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      attack-power:
+        min: 60
+        max: 240
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        bleed-chance: 0.45
+        phys-flat-defense: 0.45
+        attack-power: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+  BLADE_POTTERY_SHERD#300036: # thread_concussion 脳震盪: 一撃の重さ
+    per-quality:
+      flat-bonus-damage: 0.12
+    random:
+      flat-bonus-damage:
+        min: 0.9
+        max: 3.1
+      attack-power:
+        min: 60
+        max: 240
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      penetration:
+        min: 0.005
+        max: 0.021
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        attack-power: 0.45
+        crit-chance: 0.45
+        penetration: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  ARCHER_POTTERY_SHERD#300038: # thread_marksman 狙撃: 会心を出す
+    per-quality:
+      crit-chance: 0.002
+    random:
+      crit-chance:
+        min: 0.018
+        max: 0.052
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      penetration:
+        min: 0.005
+        max: 0.021
+      attack-power:
+        min: 60
+        max: 240
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        penetration: 0.45
+        attack-power: 0.45
+        percent-bonus-damage: 0.45
+    offhand-stats-apply: false
+  MOURNER_POTTERY_SHERD#300037: # thread_swiftcast 速唱: 手数で押す
+    per-quality:
+      percent-bonus-damage: 0.002
+    random:
+      percent-bonus-damage:
+        min: 0.018
+        max: 0.052
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      attack-power:
+        min: 60
+        max: 240
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      penetration:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        attack-power: 0.45
+        magic-resistance: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+  SKULL_POTTERY_SHERD#300028: # thread_spoils 戦利品: 素の火力
+    per-quality:
+      attack-power: 25
+    random:
+      attack-power:
+        min: 200
+        max: 620
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      flat-bonus-damage:
+        min: 0.4
+        max: 1.2
+      bleed-damage:
+        min: 8
+        max: 32
+      penetration:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        flat-bonus-damage: 0.45
+        bleed-damage: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011: # thread_health_boost 体力増強: 物理を受ける
+    per-quality:
+      phys-flat-defense: 0.2
+    random:
+      phys-flat-defense:
+        min: 1.4
+        max: 5.2
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-flat-defense: 0.45
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  SHELTER_POTTERY_SHERD#300033: # thread_endurance 耐久: 総ダメージを削る
+    per-quality:
+      damage-reduction: 0.001
+    random:
+      damage-reduction:
+        min: 0.009
+        max: 0.026
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-resistance: 0.45
+        magic-resistance: 0.45
+        phys-flat-defense: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007: # thread_fire_resistance 火耐性: 魔法を受ける
+    per-quality:
+      magic-resistance: 0.0015
+    random:
+      magic-resistance:
+        min: 0.014
+        max: 0.042
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-flat-defense: 0.45
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009: # thread_conduit_power 導管: 魔法防御の芯
+    per-quality:
+      magic-flat-defense: 0.2
+    random:
+      magic-flat-defense:
+        min: 1.4
+        max: 5.2
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      dodge-chance:
+        min: 0.004
+        max: 0.013
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+  HEART_POTTERY_SHERD#300032: # thread_mending_flesh 再生: 物理耐性
+    per-quality:
+      phys-resistance: 0.0015
+    random:
+      phys-resistance:
+        min: 0.014
+        max: 0.042
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+        magic-resistance: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  GUSTER_POTTERY_SHERD#300039: # thread_slow_falling 緩落: 回避
+    per-quality:
+      dodge-chance: 0.001
+    random:
+      dodge-chance:
+        min: 0.009
+        max: 0.031
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        damage-reduction: 0.45
+        phys-flat-defense: 0.45
+        magic-flat-defense: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002: # thread_mana_regen マナ再生: 魔法火力
+    per-quality:
+      percent-bonus-damage: 0.002
+    random:
+      percent-bonus-damage:
+        min: 0.018
+        max: 0.052
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      attack-power:
+        min: 60
+        max: 240
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        crit-chance: 0.45
+        magic-flat-defense: 0.45
+        attack-power: 0.45
+    offhand-stats-apply: false
+  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003: # thread_mana_boost マナ増強: 魔法防御
+    per-quality:
+      magic-flat-defense: 0.2
+    random:
+      magic-flat-defense:
+        min: 1.4
+        max: 5.2
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        percent-bonus-damage: 0.45
+        damage-reduction: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012: # thread_hit_mana_recovery 被弾回復: 耐える
+    per-quality:
+      magic-resistance: 0.0015
+    random:
+      magic-resistance:
+        min: 0.014
+        max: 0.042
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      dodge-chance:
+        min: 0.004
+        max: 0.013
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-resistance: 0.45
+        damage-reduction: 0.45
+        magic-flat-defense: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013: # thread_damage_mana_recovery 与ダメ回復: 攻める
+    per-quality:
+      attack-power: 25
+    random:
+      attack-power:
+        min: 200
+        max: 620
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      penetration:
+        min: 0.005
+        max: 0.021
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        penetration: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014: # thread_spell_cost_down 詠唱軽減: 貫通
+    per-quality:
+      penetration: 0.002
+    random:
+      penetration:
+        min: 0.018
+        max: 0.052
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      attack-power:
+        min: 60
+        max: 240
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-damage: 0.45
+        attack-power: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017: # thread_mana_amplify 増幅: 会心ダメージ
+    per-quality:
+      crit-damage: 0.004
+    random:
+      crit-damage:
+        min: 0.038
+        max: 0.104
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      attack-power:
+        min: 60
+        max: 240
+      penetration:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        attack-power: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018: # thread_mana_circulate 循環: 会心率
+    per-quality:
+      crit-chance: 0.002
+    random:
+      crit-chance:
+        min: 0.018
+        max: 0.052
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      attack-power:
+        min: 60
+        max: 240
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        magic-flat-defense: 0.45
+        magic-resistance: 0.45
+        attack-power: 0.45
+    offhand-stats-apply: false
+  FLOW_POTTERY_SHERD#300019: # thread_source_thrift 源節約: 防具強度
+    per-quality:
+      armor-strength: 0.002
+    random:
+      armor-strength:
+        min: 0.018
+        max: 0.052
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        damage-reduction: 0.45
+        magic-flat-defense: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+  BURN_POTTERY_SHERD#300031: # thread_scholar 学者: 魔法火力
+    per-quality:
+      percent-bonus-damage: 0.002
+    random:
+      percent-bonus-damage:
+        min: 0.018
+        max: 0.052
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      attack-power:
+        min: 60
+        max: 240
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        magic-flat-defense: 0.45
+        magic-resistance: 0.45
+        attack-power: 0.45
+    offhand-stats-apply: false
+  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004: # thread_speed 俊足: 回避
+    per-quality:
+      dodge-chance: 0.001
+    random:
+      dodge-chance:
+        min: 0.009
+        max: 0.031
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      attack-power:
+        min: 60
+        max: 240
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        attack-power: 0.45
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005: # thread_jump_boost 跳躍: 手数
+    per-quality:
+      crit-chance: 0.002
+    random:
+      crit-chance:
+        min: 0.018
+        max: 0.052
+      dodge-chance:
+        min: 0.004
+        max: 0.013
+      attack-power:
+        min: 60
+        max: 240
+      flat-bonus-damage:
+        min: 0.4
+        max: 1.2
+      penetration:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        dodge-chance: 0.45
+        attack-power: 0.45
+        flat-bonus-damage: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008: # thread_dolphins_grace 水泳: 回避と耐性
+    per-quality:
+      dodge-chance: 0.001
+    random:
+      dodge-chance:
+        min: 0.009
+        max: 0.031
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        damage-reduction: 0.45
+        magic-flat-defense: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006: # thread_night_vision 暗視: 会心
+    per-quality:
+      crit-chance: 0.002
+    random:
+      crit-chance:
+        min: 0.018
+        max: 0.052
+      penetration:
+        min: 0.005
+        max: 0.021
+      attack-power:
+        min: 60
+        max: 240
+      dodge-chance:
+        min: 0.004
+        max: 0.013
+      crit-damage:
+        min: 0.01
+        max: 0.042
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        penetration: 0.45
+        attack-power: 0.45
+        dodge-chance: 0.45
+        crit-damage: 0.45
+    offhand-stats-apply: false
+  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015: # thread_flight 飛行: 回避特化
+    per-quality:
+      dodge-chance: 0.001
+    random:
+      dodge-chance:
+        min: 0.009
+        max: 0.031
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        damage-reduction: 0.45
+        magic-resistance: 0.45
+        phys-resistance: 0.45
+        magic-flat-defense: 0.45
+    offhand-stats-apply: false
+  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016: # thread_backpack 背負い袋: 物理防御
+    per-quality:
+      phys-flat-defense: 0.2
+    random:
+      phys-flat-defense:
+        min: 1.4
+        max: 5.2
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-flat-defense: 0.45
+        armor-strength: 0.45
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+  ARMS_UP_POTTERY_SHERD#300020: # thread_artisan 職人: 防具強度
+    per-quality:
+      armor-strength: 0.002
+    random:
+      armor-strength:
+        min: 0.018
+        max: 0.052
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        magic-flat-defense: 0.45
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+  BREWER_POTTERY_SHERD#300021: # thread_ritualist 儀式師: 魔法防御
+    per-quality:
+      magic-flat-defense: 0.2
+    random:
+      magic-flat-defense:
+        min: 1.4
+        max: 5.2
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      dodge-chance:
+        min: 0.004
+        max: 0.013
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        armor-strength: 0.45
+        damage-reduction: 0.45
+        dodge-chance: 0.45
+    offhand-stats-apply: false
+  PLENTY_POTTERY_SHERD#300022: # thread_thrift 倹約: 防具強度
+    per-quality:
+      armor-strength: 0.002
+    random:
+      armor-strength:
+        min: 0.018
+        max: 0.052
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+        magic-resistance: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+  SCRAPE_POTTERY_SHERD#300023: # thread_salvage 回収: 物理防御
+    per-quality:
+      phys-flat-defense: 0.2
+    random:
+      phys-flat-defense:
+        min: 1.4
+        max: 5.2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        armor-strength: 0.45
+        damage-reduction: 0.45
+        magic-flat-defense: 0.45
+        phys-resistance: 0.45
+    offhand-stats-apply: false
+  MINER_POTTERY_SHERD#300024: # thread_miner 採掘: 素の火力
+    per-quality:
+      attack-power: 25
+    random:
+      attack-power:
+        min: 200
+        max: 620
+      flat-bonus-damage:
+        min: 0.4
+        max: 1.2
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      penetration:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        flat-bonus-damage: 0.45
+        phys-flat-defense: 0.45
+        armor-strength: 0.45
+        penetration: 0.45
+    offhand-stats-apply: false
+  ANGLER_POTTERY_SHERD#300025: # thread_angler 釣り: 回避
+    per-quality:
+      dodge-chance: 0.001
+    random:
+      dodge-chance:
+        min: 0.009
+        max: 0.031
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-resistance: 0.45
+        magic-flat-defense: 0.45
+        damage-reduction: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  SHEAF_POTTERY_SHERD#300026: # thread_harvest 収穫: 物理耐性
+    per-quality:
+      phys-resistance: 0.0015
+    random:
+      phys-resistance:
+        min: 0.014
+        max: 0.042
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+        armor-strength: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+  SNORT_POTTERY_SHERD#300027: # thread_timber 伐採: 素の火力
+    per-quality:
+      attack-power: 25
+    random:
+      attack-power:
+        min: 200
+        max: 620
+      flat-bonus-damage:
+        min: 0.4
+        max: 1.2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      crit-chance:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        flat-bonus-damage: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+        crit-chance: 0.45
+    offhand-stats-apply: false
+  FRIEND_POTTERY_SHERD#300029: # thread_diligence 勤勉: 被ダメ軽減
+    per-quality:
+      damage-reduction: 0.001
+    random:
+      damage-reduction:
+        min: 0.009
+        max: 0.026
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-resistance: 0.45
+        magic-resistance: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+    offhand-stats-apply: false
+  HEARTBREAK_POTTERY_SHERD#300034: # thread_gourmet 美食: 物理防御
+    per-quality:
+      phys-flat-defense: 0.2
+    random:
+      phys-flat-defense:
+        min: 1.4
+        max: 5.2
+      magic-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      phys-resistance:
+        min: 0.005
+        max: 0.017
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-flat-defense: 0.45
+        damage-reduction: 0.45
+        phys-resistance: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  HOWL_POTTERY_SHERD#300030: # thread_experience 経験: 火力全般
+    per-quality:
+      percent-bonus-damage: 0.002
+    random:
+      percent-bonus-damage:
+        min: 0.018
+        max: 0.052
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      attack-power:
+        min: 60
+        max: 240
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-chance: 0.45
+        crit-damage: 0.45
+        attack-power: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+  EXPLORER_POTTERY_SHERD#300040: # thread_luck 幸運: 会心と回避
+    per-quality:
+      crit-chance: 0.002
+    random:
+      crit-chance:
+        min: 0.018
+        max: 0.052
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      dodge-chance:
+        min: 0.004
+        max: 0.013
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      bleed-chance:
+        min: 0.005
+        max: 0.025
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        crit-damage: 0.45
+        dodge-chance: 0.45
+        percent-bonus-damage: 0.45
+        bleed-chance: 0.45
+    offhand-stats-apply: false
+  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010: # thread_hero_of_the_village 英雄: 攻防両取り
+    per-quality:
+      attack-power: 25
+    random:
+      attack-power:
+        min: 200
+        max: 620
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+      crit-chance:
+        min: 0.005
+        max: 0.021
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
+        phys-flat-defense: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
 
 _editor:
   categories:

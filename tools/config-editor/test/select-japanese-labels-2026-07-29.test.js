@@ -531,19 +531,6 @@ test("モブ技の型ラベルは labels.js へ一本化されている (フォ�
   assert.equal(win.LABELS.enumLabel("mob-ability-damage-type", "physical"), "物理");
 });
 
-test("スレッド厳選のレア度カラーは日本語表示で、選択が保存される", () => {
-  const { win, captured } = loadUtilWithCapturedListSelect();
-  const src = JS("p5-forms.js");
-  const call = parseSelectLabeledInputCalls(src)
-    .find((c) => /node\.color/.test(c.args[0] || ""));
-  assert.ok(call, "レア度カラーの selectLabeledInput が見つからない");
-  assert.equal(call.args[2], '"rarity-color"', "語彙グループを渡していない(生ID表示 + 保存が効かない)");
-  assert.match(call.args[3] || "", /node\.color = v/, "onInput が第4引数に来ていない");
-
-  // 実際に日本語主表示になること。
-  win.selectLabeledInput("GRAY", ["GRAY", "DARK_AQUA"], "rarity-color", () => {});
-  const opts = captured[captured.length - 1].options;
-  assert.equal(opts.find((o) => o.value === "GRAY").primary, "灰色");
-  assert.equal(opts.find((o) => o.value === "DARK_AQUA").primary, "濃い水色");
-  assert.equal(opts.find((o) => o.value === "GRAY").secondary, "GRAY");
-});
+// 「スレッド厳選のレア度カラー」テストは 2026-08-02、p5-forms.js の random-roll-pools 専用UI
+// (buildRandomRollPoolsForm/buildRandomRollPoolEditor)ごと撤去した。スレッドは他アイテムと
+// 同じ item-stats.yml フォームで編集するため、レア度カラーという概念自体が editor に無い。

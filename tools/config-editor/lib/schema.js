@@ -1124,9 +1124,11 @@ function validateTfGacha(data, errors) {
 
 // ---- thread-rolls.yml (ars-thread-rolls) ----
 // 2026-08-02: スレッド厳選(主ステ1つ + サブステ0〜4つの抽選テーブル)は ArsPaper 独自の
-// thread-rolls.yml から TrinityForge item-stats.yml の random-roll-pools セクションへ
-// 全面移設した。バリデーションは item-stats.yml 側のスキーマ(tf-item-stats)へ統合済みなので、
-// このファイル・スキーマ id は廃止(fork 側も thread-rolls.yml 自体を削除済み)。
+// thread-rolls.yml から TrinityForge item-stats.yml へ全面移設した。専用の random-roll-pools
+// レイヤーと editor 専用GUIは同日中に撤去し、スレッドも他アイテムと同じ items.<key> の
+// fixed/per-quality/random/advanced で個別にステータス定義する(validateItemStats がそのまま
+// 検証する。専用スキーマは不要)。このファイル・スキーマ id は廃止(fork 側も
+// thread-rolls.yml 自体を削除済み)。
 
 // ---- thread-sets.yml (ars-thread-sets) ----
 function validateArsThreadSets(data, errors) {

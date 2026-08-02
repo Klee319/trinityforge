@@ -229,6 +229,38 @@ class ItemStatsConfigTest {
     }
 
     @Test
+    void randomSectionDerivesQuantizationStepFromAuthoredDecimals(@TempDir File tempDir) throws IOException {
+        // The roll quantization step (StatRange#step, formerly random-roll-pools' decimal-step) is
+        // derived from the number of decimal places AUTHORED on min/max in the yml, not from
+        // ConfigurationSection#getDouble (which cannot tell `200` from `200.0`).
+        ItemStatsConfig config = config(tempDir, """
+                items:
+                  DIAMOND_SWORD:
+                    random:
+                      attack-power: { min: 200, max: 600 }
+                  GOLDEN_SWORD:
+                    random:
+                      crit-chance: { min: 0.02, max: 0.05 }
+                  IRON_SWORD:
+                    random:
+                      flat-bonus-damage: { min: 0.5, max: 2.0 }
+                """);
+        assertTrue(config.load(fakePlugin(tempDir)));
+
+        StatRange bothIntegers = config.profileFor(Material.DIAMOND_SWORD, null).orElseThrow()
+                .random().get("attack_power");
+        assertEquals(1.0, bothIntegers.step(), 0.0, "both bounds authored as integers -> step=1");
+
+        StatRange twoDecimals = config.profileFor(Material.GOLDEN_SWORD, null).orElseThrow()
+                .random().get("crit_chance");
+        assertEquals(0.01, twoDecimals.step(), 1e-12, "min: 0.02 / max: 0.05 -> step=0.01");
+
+        StatRange oneDecimal = config.profileFor(Material.IRON_SWORD, null).orElseThrow()
+                .random().get("flat_bonus_damage");
+        assertEquals(0.1, oneDecimal.step(), 1e-12, "min: 0.5 / max: 2.0 -> step=0.1");
+    }
+
+    @Test
     void malformedRandomRangeSkipsTheItem(@TempDir File tempDir) throws IOException {
         // A random stat with min > max (or a non-{min,max} shape) is malformed: the whole item is
         // skipped with a warning (load returns false), matching the fixed/per-quality skip contract.

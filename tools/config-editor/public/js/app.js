@@ -688,7 +688,6 @@
         return window.buildGachaForm(data, { catalogCandidates });
       }
       case "ars-thread-sets": return window.buildThreadSetsForm(data);
-      // ars-thread-rolls は 2026-08-02 廃止 (item-stats.yml の random-roll-pools へ移設済み)。
       case "ars-recipes": return window.buildRecipesForm(data, { onlyEffects: true });
       case "ars-materials": return window.buildMaterialsForm(data);
       case "ars-threads": return window.buildThreadsForm(data);

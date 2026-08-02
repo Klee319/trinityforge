@@ -30,6 +30,14 @@
   フォーク自身の `.git` へ commit すること自体は可能だが、**push 先は必ず `trinityforge` リモート**
   （`origin` は上流で絶対に push しない）。この文書群のタスクでは通常「commit もしない」運用
   （TF本体・フォーク双方とも）が指示されることが多いので、着手前の指示を優先すること。
+  **⚠️ ArsPaper は EliteMobs と remote 構成が違う**（2026-08-03 実機確認、`git remote -v`）:
+  `origin` = `https://github.com/Klee319/ArsPaper.git`（Klee319自身の下流フォーク）のみで、
+  `trinityforge` という名前の remote は存在しない・上流（本家 ArsNouveau 等）への参照も無い。
+  つまり ArsPaper では「push 先は `origin`」が正しい（EliteMobsの命名規約をそのまま適用すると
+  「pushしてはいけない」と誤読する）。ArsPaper本体リポジトリ(`Klee319/ArsPaper`)も
+  **public**（`gh repo view Klee319/ArsPaper --json visibility` で確認）なので、
+  `libs/TrinityForge.jar`（tracked）は他フォークと同じ理由でcommit/pushしないこと
+  （既にhistory上commit済みで`git status`上は`M`として出るが、追加のcommitに含めない）。
 
 ## EliteMobs フォーク
 
@@ -610,28 +618,48 @@ infinity_source_core 補正の順に多段で掛ける。
 見た目(CMD)は base_material が変わるため既存のリソースパックモデルを引き継げない
 （新規CMDでの追従が必要。今回は資源パック変更を対象外としたため機能面のみ先行実装）。
 
-### ⚠️ スレッド厳選（thread-rolls.yml）は生成時焼き込みなので、TF品質を反映するには「player を生成経路まで手動で運ぶ」しかない
+### ⚠️ スレッド個体差は 2026-08-03 に「Ars専用 ThreadRoll」から「TFの item-stats.yml 個別定義」へ全面移行済み
 
-`ThreadItem.createItemStack()`（無引数、`ItemRegistry.get(id).createItemStack()` から呼ばれる
-汎用経路）は **PDC への `ThreadRoll` 焼き込みを即座に行う**。一方 TF 側のクラフト品質刻印
-（`TrinityForgeBridge.finalizeCatalogRitualResult` → `finalizeArsSmithingResult` →
-`stampCraftedQuality`）は `RitualManager` の儀式パイプラインで **アイテム生成の"後"** に走る、
-かつ `BaseCustomItem#isQualityStamped()==true` の品（触媒・魔導書等）だけが対象で
-`ThreadItem` は対象外（`isQualityStamped()` 未オーバーライド=false）。この2点により、
-「TFの品質を使ってスレッドのロール幅を広げる」は**TFの通常の品質刻印パイプラインに相乗りできない**
-（品質が確定する前にロールが焼き込まれてしまう）。
+※かつてこの節は「スレッド厳選（thread-rolls.yml）は生成時焼き込みなので TF品質を反映するには
+player を生成経路まで手動で運ぶしかない」「個体差は Ars 側 `ThreadRoll` PDC だけで表現する設計を
+維持する」と書いていたが、その設計自体が 2026-08-03 に置き換えられたため誤り（当時は正しかった）。
+現在の実態は以下:
 
-- 正しい実装は「品質をロール**前**に別途ロールする」: `CraftQualityService.rollArsSmithingQuality
-  (Player, ItemStack)`（既に public、TF側API変更不要）を `TrinityForgeBridge` 経由で呼び、
-  結果を `ThreadRollConfig.roll(Random, int quality)` へ渡す。TF の ItemData 品質 PDC には書かない
-  （スレッドの個体差は Ars 側 `ThreadRoll` PDC だけで表現する設計を維持）。
-- `createItemStack()` は `BaseCustomItem` 側で固定シグネチャなので、player を運ぶには
-  `ThreadItem` 側にだけ `createItemStack(Player crafter)` オーバーロードを足し、呼び出し元
-  （`RitualManager#resolveResult`）で `item instanceof ThreadItem` 分岐して使い分ける
-  （`ItemRegistry.get(id)` の戻り型は具象クラス `BaseCustomItem` なので `instanceof` で絞り込める）。
-  無引数版はこのオーバーロードへ `null` を渡すだけの薄いラッパにし、
-  「player が分からない経路（ルートチェスト/ダンジョンドロップ/管理コマンド付与）は quality=0
-  相当で従来どおり」という fail-open フォールバックを自然に満たす。
+- `ThreadRoll`/`ThreadRollConfig`/`thread-rolls.yml` は削除済み。スレッド1個ぶんの個体差は、
+  武器・触媒と全く同じ **TF の `rollSeed`(long) + `quality`(int)** の2値だけで表現する
+  （`com.trinityforge.pdc.ItemData`）。ステの中身（何がどれだけ乗るか）は
+  `stats/item-stats.yml` の `items:` 配下、スレッド40件それぞれの `MATERIAL#CMD` キー
+  （CMD帯 300000-300099）に個別の `fixed`/`per-quality`/`random`/`advanced.randomize-grants` を
+  書く（武器と完全に同じ仕様）。共有の「厳選プール」という概念自体が無い。
+- `ThreadItem#createItemStack(Player crafter)` が
+  `TrinityForgeBridge#stampThreadIdentity(item, crafter)` を呼び、
+  `com.trinityforge.stats.ItemFactory#stamp(ItemStack, long rollSeed, int quality)`
+  （武器のクラフト刻印と**同一の**エントリポイント）へ委譲する。品質は
+  `TrinityForgeBridge#currentArsSmithingQuality` で得る（player 不明なら 0 = fail-open）。
+  効果を持たない `thread_empty` は刻印しない。
+- **`ItemFactory#stamp` をスレッドに使っても安全な理由（この安全性は条件付き）**:
+  `stamp()` は `ItemAssembler#assemble` を通じて**フルの再組み立て**（PDC刻印・耐久・lore全体の
+  再構築・バニラ `AttributeModifier` の投影 `AttributeProjection.project`）を行う重い処理だが、
+  `AttributeProjection.defaults()` が vanilla 属性へ投影するのは
+  `knockback_resistance`/`armor_defense_rate`/`max_health`/`move_speed`/`attack_speed`/
+  `attack_speed_bonus`/`attack_reach` の**7キーだけ**（`attack-power` は意図的に除外）。
+  スレッドの40エントリはこの7キーのどれも使っていない（2026-08-03時点で確認済み）ため
+  `stamp()` はスレッドに対して余計な vanilla AttributeModifier を一切生成しない。
+  **⚠️ 将来この7キーのいずれかをスレッドの `item-stats.yml` に足すと、無警告でスレッドに
+  vanilla属性（例えば move_speed）が直接付与される** ── ソケットせず手に持つだけでも
+  `EquipmentSlotResolver` が `Category.ANY` に落とすぶん `AttributeProjection` は
+  `EquipmentSlotGroup.ANY` スコープで適用してしまうため、`thread-sets.yml` 側で意図している
+  「ソケットしないと発動しない」という前提が崩れる。7キーに触れるスレッドを追加するときは
+  `stamp()` を使わない別経路（PDC刻印のみの軽量パス）に切り替えること。
+- 装着中スレッドの個体差は防具PDC `ItemKeys#THREAD_SLOT_ROLLS` に
+  `"<rollSeed>:<quality>"` 形式（`com.arspaper.item.ThreadSlotIdentity#encode/decode`）で
+  `THREAD_SLOTS` と同じ添字で保存する。旧形式（レア度+ステ値埋め込み）は例外を投げず
+  `NONE`(rollSeed=0, quality=0) へ fail-open する。
+- `TrinityForgeBridge#rerollThreadIdentity`/`ThreadGui#restoreRoll` のように
+  **`ItemStack` を `editMeta` で in-place 書き換える** ブリッジ呼び出しは、呼び出し後には
+  「書き換え前の状態」を再取得できない。旧lore行との差分など「前後比較」が必要な処理は、
+  ブリッジ呼び出しの**前**に前状態をキャプチャしておくこと（`ThreadRerollRitualEffect#execute`
+  が実例。呼び出し順を逆にすると新旧が同じ値になり lore の差分除去が無言で空振りする）。
 
 ### ⚠️ 魔法基礎ダメージは「グリフ基礎＋杖の攻撃力」が加算合成される — グリフ側だけに固定値を積んでも高攻撃力帯で無意味化する
 
@@ -662,10 +690,11 @@ Lv100帯で10000超に育つため、グリフ側だけに「増幅1段+3.0HP」
 
 フォークは `.gitignore` 除外＝TF側の worktree では分離できない（本ファイル冒頭参照）ので、
 並行作業は**同一のフォーク作業ディレクトリを直接共有**する。あるセッションが未完成のAPI参照
-（例: TF側にまだ存在しない `ItemStatsConfig#randomRollPoolFor` / `com.trinityforge.stats.RandomRollPool`
-を呼ぶコード）を残したまま離脱すると、**自分が一切触っていないファイルの変更のせいで
-`./gradlew build` が丸ごと失敗する**。この状態は `git diff --stat -- <自分が触ったファイル>` で
-自分の差分が孤立したハンクに収まっていることを確認すれば、原因が自分のコードでないと切り分けられる。
+（例: 2026-08-02 時点で実在した「TF側にまだ存在しない `ItemStatsConfig#randomRollPoolFor` を
+呼ぶコード」。この`RandomRollPool`構想自体その後2026-08-03に廃止・置換された）を残したまま
+離脱すると、**自分が一切触っていないファイルの変更のせいで `./gradlew build` が丸ごと失敗する**。
+この状態は `git diff --stat -- <自分が触ったファイル>` で自分の差分が孤立したハンクに
+収まっていることを確認すれば、原因が自分のコードでないと切り分けられる。
 
 - 自分の変更だけを検証したい場合、フォーク自身が独立した `.git` を持つことを利用し、
   作業ディレクトリを丸ごとスクラッチにコピー（`robocopy <fork> <scratch> /E /XD .git build .gradle tmp`。
@@ -675,6 +704,14 @@ Lv100帯で10000超に育つため、グリフ側だけに「増幅1段+3.0HP」
   切り離して検証できる（本番のフォーク作業ディレクトリには一切触れない）。
 - ライブのフォーク作業ディレクトリを直接 `git stash`/`checkout --`/`reset` で「一時的に元へ戻す」
   形の検証は**禁止**（他レーンの未コミットWIPを消す）。上記のコピー退避が唯一の安全な代替手段。
+- **同じ1ファイルの中で自分のハンクと他レーンのハンクが隣接/混在する**こともある
+  （ファイル単位のstage/addでは分離できない）。この場合、①まず自分の変更だけを含む状態へ
+  他レーンのハンクをEditツールで一時的に手で戻す（増分が小さければ現実的。git内蔵の
+  patch選択機能はこのBashツールから対話実行できない）②`./gradlew build`/`test`が通ることを
+  確認 ③自分の担当ファイル一覧だけを明示 `git add` してcommit ④他レーンのハンクをEditで
+  元どおり書き戻す（コミット後の作業ディレクトリが「commit直前に見つけた状態」に一致することを
+  `git status --short` で確認）。他レーンの未コミットWIPを一切失わずに、自分の変更だけを
+  正確なコミット境界で記録できる。
 
 ### ArsPaper フォークのテストは JavaPlugin/Bukkit ランタイムを一切構築しない（MockBukkit も Mockito も依存に無い）
 
@@ -687,7 +724,9 @@ Lv100帯で10000超に育つため、グリフ側だけに「増幅1段+3.0HP」
    （`ThreadSetThresholdReachabilityTest` / `SourcelinkConfigTest` が実例）。
    ロジックが plugin インスタンス無しで検証できるよう、config クラス側に
    `static`/`package-private` の純関数を切り出しておくと（例:
-   `ThreadRollConfig.lowMultiplierFor`/`highMultiplierFor`）ここで直接テストできる。
+   `ThreadSlotIdentity.encode`/`decode`）ここで直接テストできる
+   （※ 旧例だった `ThreadRollConfig.lowMultiplierFor`/`highMultiplierFor` は
+   2026-08-03 のスレッド個体差移行でクラスごと削除済み）。
 2. **wiring テスト（ソーステキスト検査）**: `Files.readString` で `.java` を文字列として読み、
    「呼ぶべきメソッド呼び出しの文字列が含まれているか」を `assertTrue(source.contains(...))` で
    固定する（`MagicStatSourceWiringTest` / `LegacyCastExperienceRemovalTest` が実例）。
