@@ -41,9 +41,16 @@
 #       中間値(例: 0.5)は物理/魔法の2コンポーネントへ分割し、回避ロールは1回のまま両方へ通す
 #       (プレイヤーの物理防具と魔法防御がそれぞれ担当分だけ効く「半分魔法」モブが作れる)。
 #       真偽値ではなく比率にした理由: 「半分物理・半分魔法」の中間モブを表現でき、0.0既定のまま
-#       完全な後方互換になるため。既存モブのバランス変更を避けるため、この値は
-#       新設した派生モブ(EliteMobs custombosses側)にのみ設定し、この41種の既存エントリは
-#       意図的に magic-ratio を設定していない(=全モブ完全物理のまま、プレイヤー側の前提を壊さない)。
+#       完全な後方互換になるため。
+#     【割り当ての方針】「魔法モブ4割・物理モブ6割」を満たすため、バニラで元から魔法的な手段
+#       (術・ビーム・火球・弾・呪い)で攻撃するモブ17種に設定した。これは既存モブの性質を
+#       書き換えたのではなく、【機構が無かったせいで表現できていなかった性質を、やっと表現できる
+#       ようになった】もの。魔女がポーションを投げて物理ダメージになっていた方がおかしい。
+#       純粋な近接モブ(ゾンビ/スケルトン/クリーパー/ピグリン等)は完全物理のまま一切変えていない。
+#       内訳: 敵対モブ41種のうち magic-ratio >= 0.5 が14種。これに mob-overrides.yml の
+#       派生カスタムボス6種(全て >= 0.5)を足して 20/47 = 42.6% が「主に魔法で殴るモブ」。
+#       比率で重み付けした魔法ダメージのシェアは 35.7%。どちらの数え方でもおおよそ4割。
+#       残る STRAY/BOGGED/WITHER_SKELETON の3種は 0.3〜0.4 で「主に物理・一部魔法」側に数えている。
 #   level-coefficients      : レベル1あたりの各ステ加算係数
 #                             実効値 = 基準 + 係数 × effectiveLevel
 #                               max-health / armor-strength / physical{...} / magical{...} / attack{...}
@@ -158,12 +165,21 @@ max-level: 100
 #                    + floor(ワールドスポーンからの距離 × coordinate-coefficient)
 #   キーは World.Environment 名(NORMAL / NETHER / THE_END / CUSTOM)。ワールド名では引かない
 #   (ネザー/エンドのワールド名はサーバー構成依存で一致せず、EliteMobsのインスタンスワールドは
-#   毎回名前が変わるため — forks-and-mobs.md 既知の罠と同じ理由)。タグ付き(mob-types 配下)・
-#   未タグ付け(defaults)問わず、全モブのbase levelに一律加算される。
+#   毎回名前が変わるため — forks-and-mobs.md 既知の罠と同じ理由)。
+#
+#   【適用範囲】バニラモブ(mob-types 配下のタグ付き・defaults の未タグ付けの両方)に加え、
+#   EliteMobs 由来モブ(CustomBoss/取り込んだダンジョンモブ)の base-level にも乗る
+#   (2026-08-02修正、MobTypeSpawnListener#applyDimensionLevelBonus)。ただし EliteMobs モブには
+#   次の2点で「一律加算」ではない:
+#     - base-level だけを「EM側が既に決めた MOB_LEVEL」に加算する。EM 自身が刻んだ防御/攻撃/HPの
+#       値は一切上書きしない(EM のレベル決定ロジック自体を壊さないため)。
+#     - coordinate-coefficient の上書きは EliteMobs モブには適用されない。EM は座標距離ではなく
+#       自前のダンジョンレベル/SpawnRadiusDifficultyIncrementer で難度を決める別系統のため。
 #
 #   base-level: 整数、既定0(未設定/セクション自体を書かなくてもよい)。
-#   coordinate-coefficient: 省略可。指定した場合のみ、そのディメンションの全モブで
-#     (mob-types各エントリ/defaults の)coordinate-coefficient を上書きする。
+#   coordinate-coefficient: 省略可。指定した場合のみ、そのディメンションのバニラモブ全体で
+#     (mob-types各エントリ/defaults の)coordinate-coefficient を上書きする(EliteMobsモブには
+#     効かない、上記参照)。
 #     ⚠️ ネザーはオーバーワールド換算で距離が1/8になる(同じ体感距離でも実ブロック距離は1/8)。
 #     このファイルの実装は「その場のワールド内の生のブロック距離」に係数を掛けるだけで、
 #     8倍のような自動換算は一切行わない(据え置き)。ネザーでも通常世界と同じ体感カーブに
@@ -174,7 +190,7 @@ max-level: 100
 # dimensions:
 #   NETHER:
 #     base-level: 20
-#     # coordinate-coefficient: 0.16   # 例: オーバーワールド換算(distance×8)相当にしたい場合
+#     # coordinate-coefficient: 0.16   # 例: オーバーワールド換算(distance×8)相当にしたい場合、バニラモブのみに適用
 #   THE_END:
 #     base-level: 45
 dimensions: {}
@@ -235,6 +251,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 火球
+      magic-ratio: 0.8
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -285,6 +303,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 毒の矢。矢そのものは物理
+      magic-ratio: 0.4
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -335,6 +355,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): ウィンドチャージの弾
+      magic-ratio: 0.7
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -435,6 +457,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 樹脂の呪いで縛る。本体の打撃は物理
+      magic-ratio: 0.5
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -585,6 +609,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): レーザーと採掘疲労の呪い
+      magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -735,6 +761,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): ドラゴンブレス。突進そのものは物理なので完全魔法にはしない
+      magic-ratio: 0.7
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -785,6 +813,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 召喚した牙とヴェックスで攻撃する完全な術者
+      magic-ratio: 1.0
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -835,6 +865,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 火球
+      magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -935,6 +967,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): レーザー
+      magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1085,6 +1119,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 幻影と盲目付与で戦う完全な術者
+      magic-ratio: 1.0
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1485,6 +1521,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 浮遊を付与する誘導弾
+      magic-ratio: 0.8
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1735,6 +1773,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 氷結の矢。矢そのものは物理
+      magic-ratio: 0.4
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1785,6 +1825,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 召喚された霊体だが攻撃手段は剣なので半々
+      magic-ratio: 0.5
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1885,6 +1927,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): ソニックブーム。近接の叩きつけは物理なので混合
+      magic-ratio: 0.6
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1935,6 +1979,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 投擲ポーションのみで攻撃する完全な術者
+      magic-ratio: 1.0
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -1985,6 +2031,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): ウィザースカルの弾
+      magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048
@@ -2035,6 +2083,8 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
+      # 魔法モブ(2026-08-02): 剣が主体だがウィザーを付与する
+      magic-ratio: 0.3
     level-coefficients:
       max-health: 0
       max-health-growth: 1.048

@@ -175,8 +175,17 @@
     const cats = listCategories(host, tabKey);
     if (cats.some((c) => c.id === DRAFT_CATEGORY_ID)) return cats;
     const handmade = cats.find((c) => normalizeLabel(c.label) === DRAFT_CATEGORY_LABEL);
-    if (handmade) handmade.id = DRAFT_CATEGORY_ID;
-    else cats.push({ id: DRAFT_CATEGORY_ID, label: DRAFT_CATEGORY_LABEL, itemIds: [] });
+    if (handmade) {
+      handmade.id = DRAFT_CATEGORY_ID;
+      // 【2026-08-02 指摘3】ラベル一致だけで既存カテゴリを昇格させる場合、既にそこへ
+      // 入っていたメンバーにも draft: true を付ける。付けないと「タブは準備中と表示されるのに
+      // 中身は普通に配線されたまま(ゲームに出続ける)」という食い違いが生まれる。
+      if (Array.isArray(handmade.itemIds)) {
+        for (const itemId of handmade.itemIds) syncDraftFlag(host, itemId, true);
+      }
+    } else {
+      cats.push({ id: DRAFT_CATEGORY_ID, label: DRAFT_CATEGORY_LABEL, itemIds: [] });
+    }
     return cats;
   }
 
@@ -202,11 +211,19 @@
    * @param {string} tabKey fixed tab id (weapon, armor, ...)
    * @param {function} onFilterChange 表示フィルタ変更時 (タブ切替)。バーは再構築しない。
    * @param {function} [onStructureChange] カテゴリ追加/削除時。バー再構築が必要。
+   * @param {object} [opts]
+   * @param {boolean} [opts.includeDraftCategory] true のときだけ「準備中」既定カテゴリを用意する。
+   *   【2026-08-02 指摘4】draft: true は catalog.yml でしか実効を持たない(ItemCatalogConfig#load
+   *   だけが読む)。material/threads/item-stats/spellbooks など他ファイルの画面でも無条件に
+   *   ensureDraftCategory していたため、そこへ入れても意味の無い draft: true が
+   *   (items を持つ item-stats.yml では実際に)書き込まれていた。呼び出し側(split-views.js)で
+   *   catalog.yml の画面のときだけ true を渡すこと。
    * @returns {HTMLElement}
    */
-  window.renderEditorCategoryBar = function renderEditorCategoryBar(host, tabKey, onFilterChange, onStructureChange) {
+  window.renderEditorCategoryBar = function renderEditorCategoryBar(host, tabKey, onFilterChange, onStructureChange, opts) {
     ensureEditor(host);
-    let cats = ensureDraftCategory(host, tabKey);
+    const includeDraft = !!(opts && opts.includeDraftCategory);
+    let cats = includeDraft ? ensureDraftCategory(host, tabKey) : listCategories(host, tabKey);
     const bar = h("div", { class: "editor-cat-bar" });
     const am = activeMap(host);
     if (!am[tabKey]) am[tabKey] = "__all__";
@@ -228,7 +245,9 @@
       bar.querySelectorAll(".recipe-tab[data-cat-id]").forEach((btn) => {
         btn.classList.toggle("active", btn.getAttribute("data-cat-id") === active);
       });
-      const placeholder = isVirtualCatId(active);
+      // 【2026-08-02 指摘2】予約カテゴリ(未分類/準備中)は id が固定の内部受け皿なので、
+      // 改名・削除の対象から外す(仮想タブと同じ扱いでボタンを無効化する)。
+      const placeholder = isVirtualCatId(active) || RESERVED_CATEGORY_IDS.has(active);
       for (const sel of [".editor-cat-delete", ".editor-cat-rename"]) {
         const btn = bar.querySelector(sel);
         if (!btn) continue;
@@ -371,6 +390,12 @@
         onclick: () => {
           const cur = am[tabKey] || "__all__";
           if (isVirtualCatId(cur)) return;
+          // 【2026-08-02 指摘2】予約カテゴリを改名できると id は cat_auto_draft のまま
+          // ラベルだけ「強化予定」等に変わり、以後そのタブが黙って draft: true を刻み続ける。
+          if (RESERVED_CATEGORY_IDS.has(cur)) {
+            alert("このカテゴリは編集内部で自動管理されているため名前を変更できません。");
+            return;
+          }
           const cat = cats.find((c) => c.id === cur);
           if (!cat) return;
           const raw = prompt("新しいカテゴリ名", cat.label || cat.id);
@@ -392,6 +417,13 @@
         onclick: () => {
           if (isVirtualCatId(am[tabKey] || "__all__")) return;
           const cur = am[tabKey];
+          // 【2026-08-02 指摘2】準備中カテゴリを splice で消すと、メンバーの draft: true を
+          // 外さないまま受け皿だけ無くなり「なぜゲームに出ないか」の手掛かりが UI から消える。
+          // 未分類も同じく id が固定の内部受け皿なので削除させない。
+          if (RESERVED_CATEGORY_IDS.has(cur)) {
+            alert("このカテゴリは編集内部で自動管理されているため削除できません。");
+            return;
+          }
           const idx = cats.findIndex((c) => c.id === cur);
           if (idx < 0) return;
           if (!confirm(`カテゴリ「${cats[idx].label || cur}」を削除しますか？(アイテム自体は消えません)`)) return;
@@ -453,9 +485,10 @@
   /**
    * itemId が tabKey のどれかのカテゴリに属している状態を保証する。
    * 既にどこかへ属していれば何もしない (勝手に移動させない)。
+   * @param {object} [opts] moveItemEditorCategory へそのまま渡す (skipDraftSync 等)。
    * @returns {string} 所属カテゴリ id (割り当てられなかった場合は "")
    */
-  window.ensureItemEditorCategory = function ensureItemEditorCategory(host, tabKey, itemId) {
+  window.ensureItemEditorCategory = function ensureItemEditorCategory(host, tabKey, itemId, opts) {
     if (!host || typeof host !== "object" || !tabKey || !itemId) return "";
     const existing = window.getItemEditorCategory(host, tabKey, itemId);
     if (existing) return existing;
@@ -463,7 +496,7 @@
     const cats = listCategories(host, tabKey);
     const active = activeMap(host)[tabKey] || "__all__";
     if (active !== "__all__" && active !== "__unset__" && cats.some((c) => c.id === active)) {
-      window.moveItemEditorCategory(host, tabKey, itemId, active);
+      window.moveItemEditorCategory(host, tabKey, itemId, active, opts);
       return active;
     }
     // 【2026-08-01】仮想タブ「未設定」で絞り込み中は**割り当てない**。
@@ -483,7 +516,7 @@
       cats.push(fallback);
       created = true;
     }
-    window.moveItemEditorCategory(host, tabKey, itemId, fallback.id);
+    window.moveItemEditorCategory(host, tabKey, itemId, fallback.id, opts);
     // カテゴリが1つ増えた = 構造が変わったのでタブバーにも反映する。
     // (フォーム側の追加ハンドラから呼ばれるため、バーは自力では作り直されない。)
     if (created) window.refreshEditorCategoryBar(host, tabKey);
@@ -605,8 +638,19 @@
     return "";
   };
 
-  /** categoryId null/empty removes item from all nested categories. */
-  window.moveItemEditorCategory = function moveItemEditorCategory(host, tabKey, itemId, categoryId) {
+  /**
+   * categoryId null/empty removes item from all nested categories.
+   * @param {object} [opts]
+   * @param {boolean} [opts.skipDraftSync] true のとき draft: true の付け外しを一切行わない。
+   *   【2026-08-02 指摘1】表示タブの移動 (moveItemDisplayTab) は、移動先タブ内で
+   *   ネストカテゴリの付け替え(旧タブの所属を外す/新タブの「未分類」等へ内部的に入れる)を
+   *   伴うが、これは利用者が「準備中に入れた/出した」という意思表示ではない。
+   *   ここで無条件に syncDraftFlag すると、準備中(draft:true)の品を他タブへピン留めし直した
+   *   瞬間に draft が外れ、次の保存でゲームに出てしまう(レシピ登録・ガチャ抽選対象化)。
+   *   syncDraftFlag を呼ぶのは「利用者がカテゴリセレクトを直接操作した」経路
+   *   (renderEditorCategorySelect の onChange・複製・新規追加の絞り込み割当)だけに限定する。
+   */
+  window.moveItemEditorCategory = function moveItemEditorCategory(host, tabKey, itemId, categoryId, opts) {
     const cats = listCategories(host, tabKey);
     for (const cat of cats) {
       if (!Array.isArray(cat.itemIds)) continue;
@@ -619,7 +663,9 @@
         if (!cat.itemIds.includes(itemId)) cat.itemIds.push(itemId);
       }
     }
-    syncDraftFlag(host, itemId, categoryId === DRAFT_CATEGORY_ID);
+    if (!(opts && opts.skipDraftSync)) {
+      syncDraftFlag(host, itemId, categoryId === DRAFT_CATEGORY_ID);
+    }
   };
 
   window.renameEditorCategoryItem = function renameEditorCategoryItem(host, tabKey, oldId, newId) {
@@ -633,8 +679,8 @@
     if (oi >= 0) order[oi] = newId;
   };
 
-  window.removeEditorCategoryItem = function removeEditorCategoryItem(host, tabKey, itemId) {
-    window.moveItemEditorCategory(host, tabKey, itemId, null);
+  window.removeEditorCategoryItem = function removeEditorCategoryItem(host, tabKey, itemId, opts) {
+    window.moveItemEditorCategory(host, tabKey, itemId, null, opts);
     const order = window.getEditorOrder(host, tabKey);
     const idx = order.indexOf(itemId);
     if (idx >= 0) order.splice(idx, 1);
@@ -681,16 +727,22 @@
     const from = itemTabsMap(host)[itemId] || null;
     window.setItemDisplayTab(host, itemId, toTab);
     const keys = Array.isArray(tabKeys) ? tabKeys : [from, toTab].filter(Boolean);
+    // 【2026-08-02 指摘1 CRITICAL】表示タブの移動はネストカテゴリの内部的な付け替えを伴うが、
+    // 利用者が「準備中へ入れた/出した」わけではない。skipDraftSync で draft: true の付け外しを
+    // 一切発生させない(旧タブの準備中カテゴリから外れても draft は残る/元々無ければ付かない)。
+    const internalOpts = { skipDraftSync: true };
     for (const k of keys) {
       if (!k || k === toTab) continue;
-      window.removeEditorCategoryItem(host, k, itemId);
+      window.removeEditorCategoryItem(host, k, itemId, internalOpts);
     }
     if (typeof window.appendEditorOrder === "function") {
       window.appendEditorOrder(host, toTab, itemId);
     }
     // 移動元タブのネストカテゴリからは外れたので、移動先タブでも必ずどこかへ入れる
     // (でないと「表示タブを変えたら未設定へ落ちる」= 2026-08-01 報告と同じ形になる)。
-    window.ensureItemEditorCategory(host, toTab, itemId);
+    // ここも internalOpts を渡し、移動先の「未分類」等へ内部的に入っただけで draft が
+    // 変化しないようにする。
+    window.ensureItemEditorCategory(host, toTab, itemId, internalOpts);
   };
 
   /**

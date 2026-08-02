@@ -14,24 +14,30 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 出荷 {@code items/catalog.yml} の儀式レシピが、台座リングの物理上限 <b>16 台</b>を
- * 超えていないことを固定する(2026-08-02)。
+ * 出荷 {@code items/catalog.yml} の儀式レシピが、台座リングの物理上限 <b>48 台</b>を
+ * 超えていないことを固定する(2026-08-02、上限を 16→48 に訂正)。
+ *
+ * <h2>なぜ 48 なのか(誤診の訂正)</h2>
+ * かつてこのテストは上限を 16 と誤って固定していた(コアからチェビシェフ距離 2 の外周だけ＝
+ * 5x5 から 3x3 を引いた 16 マスしか見ていなかった)。実際のフォーク実装
+ * {@code RitualManager#findNearbyPedestals} は<b>その 16 マスの外周を Y ±1 の3段ぶん</b>走査し、
+ * 同じ ingredient リストへ積む(16 × 3 = 48)。{@code RitualRecipe#matches} は台座アイテムの
+ * multiset 完全一致しか見ず段を区別しないため、19 台程度のレシピは Y ±1 の段を使えば
+ * 普通に成立する。この誤診により、超過 4 レシピ(harvest_hoe/herb_hat/leyline_shovel/
+ * bedrock_greaves)の素材を「永久にクラフト不可」と誤判定して不要に軽量化する事故があった
+ * (本コミットで素材を元に戻し、上限も 48 へ訂正した)。
  *
  * <h2>なぜテストで縛るのか</h2>
- * 儀式コアの周囲に置ける台座はコアからチェビシェフ距離 2 の外周＝<b>16 マスしかない</b>
- * (5x5 から 3x3 を引いた数)。一方 {@code pedestal-items} の {@code "NAME xN"} は
- * <b>台座 N 台ぶんに展開される</b>ので、行数が 3 行でも合計 19 台を要求していることがある。
- *
- * <p>超えたレシピは登録こそされるが、フォークの {@code RitualRecipe#matches} が台座数の
- * <b>完全一致</b>を要求するため<b>永久に成立しない</b>。つまり
- * 「レシピ帳には出るのに、素材を全部揃えても絶対に作れない」という無言死になる。
- * ログにも出ず、プレイヤーが「作れない」と報告するまで誰も気づけない。
+ * 一方で 48 台を超えるレシピは<b>段をいくら積んでも物理的に置き場が無い</b>。
+ * {@code pedestal-items} の {@code "NAME xN"} は<b>台座 N 台ぶんに展開される</b>ので、
+ * 行数ではなく合計台数で数える必要がある。48 を超えたレシピは登録こそされるが、
+ * フォークの {@code RitualRecipe#matches} が台座数の<b>完全一致</b>を要求するため
+ * <b>永久に成立しない</b>。つまり「レシピ帳には出るのに、素材を全部揃えても絶対に作れない」
+ * という無言死になる。ログにも出ず、プレイヤーが「作れない」と報告するまで誰も気づけない。
  *
  * <h2>エディタ側の検証では足りない理由</h2>
  * {@code tools/config-editor/lib/schema.js} の {@code validatePedestalItems} は保存時に弾くが、
  * <b>yml を直接書いた場合はそこを通らない</b>(スクリプト生成・手編集・エージェントによる一括追加)。
- * 実際 2026-08-02 に、生成スクリプト経由で追加された 4 件が 19 台のまま出荷 yml に入り、
- * <b>エディタで開いたときに初めて「保存できない」形で露見した</b>。
  * 書き込み側を通らない経路がある以上、出荷 yml そのものを固定するテストが要る。
  */
 class ShippedCatalogPedestalLimitTest {
@@ -39,8 +45,8 @@ class ShippedCatalogPedestalLimitTest {
     private static final Logger LOG = Logger.getLogger("ShippedCatalogPedestalLimitTest");
     private static final String CATALOG = "src/main/resources/items/catalog.yml";
 
-    /** 儀式コア周囲の台座リング(チェビシェフ距離 2 の外周)の物理上限。 */
-    private static final int MAX_PEDESTALS = 16;
+    /** 儀式コア周囲の台座リング(Y±1の3段合計、チェビシェフ距離2の外周×3段)の物理上限。 */
+    private static final int MAX_PEDESTALS = 48;
 
     /** 儀式レシピの本数。節ごと消えたことに気づくための下限。 */
     private static final int MIN_EXPECTED_RITUALS = 100;
@@ -73,7 +79,7 @@ class ShippedCatalogPedestalLimitTest {
     }
 
     @Test
-    @DisplayName("出荷カタログの儀式レシピは台座 16 台を超えない(超えると永久にクラフト不可)")
+    @DisplayName("出荷カタログの儀式レシピは台座 48 台を超えない(超えると永久にクラフト不可)")
     void noShippedRitualExceedsThePedestalRing() throws Exception {
         var templates = parseShipped().templates();
 

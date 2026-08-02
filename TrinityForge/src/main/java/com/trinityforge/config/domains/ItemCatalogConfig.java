@@ -66,9 +66,22 @@ public final class ItemCatalogConfig implements LoadableConfig {
         return draftIds;
     }
 
-    /** このIDが「準備中」として配線対象から外されているか。 */
+    /**
+     * このIDが「準備中」として配線対象から外されているか。{@code custom:} 接頭辞は剥がして判定する
+     * ({@link #stripCustomPrefix} は他ドメイン(例: {@code CollectionListener#addWatched})と同じ規約)。
+     *
+     * <p>2026-08-02 敵対的レビュー指摘2: 剥がさずに生IDで判定していたため、editorが正規化する
+     * {@code custom:<id>} 形式で書かれた draft ID(例: {@code gacha.yml} の
+     * {@code item: custom:abyss_sword})が判定をすり抜けていた。{@code GachaListener} 側の
+     * {@code create()} は下流で {@code custom:} を剥がすため、解決不能でも「景品未解決」として
+     * <b>券を消費しない</b>フェイルセーフに乗ってしまい、実質無限ガチャになる。
+     */
     public boolean isDraft(String id) {
-        return id != null && draftIds.contains(id);
+        if (id == null) {
+            return false;
+        }
+        String bare = stripCustomPrefix(id);
+        return bare != null && draftIds.contains(bare);
     }
 
     public String resourcePath() {
@@ -285,15 +298,28 @@ public final class ItemCatalogConfig implements LoadableConfig {
     }
 
     /**
-     * 儀式コアの周囲に物理的に置ける台座は <b>16 台</b>しかない（コアからチェビシェフ距離 2 の外周＝
-     * 5x5 から 3x3 を引いた 16 マス）。{@code pedestal-items} は {@code "NAME xN"} が
+     * 儀式コアの周囲に物理的に置ける台座は <b>48 台</b>（2026-08-02 訂正。かつて 16 と誤診していた
+     * ── 下記参照）。フォーク実装 {@code RitualManager#findNearbyPedestals}
+     * （{@code fork-handoff/arspaper/fork/.../ritual/RitualManager.java}）は
+     * コアから X/Z ±2 の外周 16 マス（5x5 から 3x3 を引いた分）を、<b>Y ±1 の3段</b>にわたって
+     * 走査し、同じ ingredient リストへ積む（{@code 16 × 3 = 48}）。{@code RitualRecipe#matches}
+     * は multiset の完全一致を見るだけで段を区別しないため、19 台程度のレシピは Y ±1 の段を
+     * 使えば普通に成立する。{@code pedestal-items} は {@code "NAME xN"} が
      * <b>台座 N 台ぶんに展開される</b>ので、行数ではなく合計台数で数える。
      *
+     * <p>※かつて「物理上限は 16（Y軸を見ない1段だけ）」と誤診し、超過 4 レシピの素材を
+     * 誤って軽量化する事故があった。原因はフォーク側 {@code RitualManager} 冒頭の javadoc
+     * （{@code PEDESTAL_DISTANCE} のコメント）と {@code ThreadRitualRecipeConfigTest} のテスト定数が
+     * どちらも「16」と書いており、それをコードで裏取りせずに定数化したこと。
+     * <b>fork の doc/テスト定数側はまだ「16」のまま食い違っている</b>（このタスクでは fork 側は直さない
+     * ── 別リポジトリ・別担当）。
+     *
      * <p>超えていても<b>登録は止めない</b>（fail-soft）。止めるとアイテムのレシピが丸ごと消えて
-     * 「なぜレシピ帳に出ないのか」が分からなくなるため。ただし超えたレシピは
-     * {@code RitualRecipe#matches} が台座数の<b>完全一致</b>を要求する以上、
-     * <b>永久にクラフトできない</b>。つまりこれは「レシピ帳には出るのに絶対に作れない」という、
-     * 気づきようのない無言死になる ── だから必ず ID を名指しで警告する。
+     * 「なぜレシピ帳に出ないのか」が分からなくなるため。台座数が 1 段の上限（16）を超えるが
+     * 3 段合計の上限（48）以内なら、Y ±1 にも台座を積む必要がある旨を案内するだけに留める
+     * （実際に成立しうるので「クラフトできない」と断定しない）。3 段合計の上限（48）まで超えた
+     * 場合のみ、{@code RitualRecipe#matches} が台座数の<b>完全一致</b>を要求する以上
+     * <b>永久にクラフトできない</b>ため、ID を名指しで警告する。
      *
      * <p>エディタ側は {@code lib/schema.js} の {@code validatePedestalItems} が保存時に弾くが、
      * yml を直接書いた場合（スクリプト生成・手編集・エージェント）はそこを通らない。
@@ -310,14 +336,23 @@ public final class ItemCatalogConfig implements LoadableConfig {
         }
         if (total > MAX_RITUAL_PEDESTALS) {
             log.warning("[" + PATH + "] item '" + id + "' の儀式レシピは台座 " + total
-                    + " 台を要求していますが、コア周囲に置ける台座は " + MAX_RITUAL_PEDESTALS
-                    + " 台までです。このレシピは登録されますが台座数が一致しないため"
-                    + "【永久にクラフトできません】。pedestal-items を減らしてください");
+                    + " 台を要求していますが、コア周囲のリング(Y±1の3段合計)に置ける台座は "
+                    + MAX_RITUAL_PEDESTALS + " 台までです。このレシピは登録されますが台座数が"
+                    + "一致しないため【永久にクラフトできません】。pedestal-items を減らしてください");
+        } else if (total > PEDESTALS_PER_RING_LAYER) {
+            log.info("[" + PATH + "] item '" + id + "' の儀式レシピは台座 " + total
+                    + " 台を要求しています。コアと同じ段(Y±0)には " + PEDESTALS_PER_RING_LAYER
+                    + " 台までしか置けないため、コアの上下(Y±1)にも台座を配置する3段構成が必要です");
         }
     }
 
-    /** 儀式コア周囲の台座リング（チェビシェフ距離 2 の外周）の物理上限。 */
-    private static final int MAX_RITUAL_PEDESTALS = 16;
+    /** 儀式コア周囲の台座リング1段(Y±0、チェビシェフ距離2の外周)あたりのマス数。 */
+    private static final int PEDESTALS_PER_RING_LAYER = 16;
+
+    /**
+     * 儀式コア周囲の台座リングの物理上限（Y±1 の3段合計 = {@link #PEDESTALS_PER_RING_LAYER} × 3）。
+     */
+    private static final int MAX_RITUAL_PEDESTALS = PEDESTALS_PER_RING_LAYER * 3;
 
     /** {@code "NAME xN"} の N を取り出す。N が無い行は 1 台。 */
     private static final java.util.regex.Pattern PEDESTAL_COUNT =

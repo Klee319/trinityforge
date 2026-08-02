@@ -127,13 +127,13 @@ public final class CollectionService {
         List<String> normalizedTargets = targets == null ? List.of() : targets;
         Set<String> candidates = new LinkedHashSet<>();
         if (normalizedScope.equals("item")) {
-            normalizedTargets.forEach(target -> candidates.add(itemEntryId(target)));
+            normalizedTargets.forEach(target -> addItemCandidate(candidates, target));
         } else if (normalizedScope.equals("mob")) {
             normalizedTargets.forEach(target -> candidates.add(mobEntryId(target)));
         } else if (normalizedScope.equals("category")) {
             for (CollectionConfig.Category category : config.itemCategories()) {
                 if (normalizedTargets.contains(category.id())) {
-                    category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+                    category.entries().forEach(id -> addItemCandidate(candidates, id));
                 }
             }
             for (CollectionConfig.Category category : config.mobCategories()) {
@@ -142,7 +142,7 @@ public final class CollectionService {
                 }
             }
         } else {
-            for (CollectionConfig.Category category : config.itemCategories()) category.entries().forEach(id -> candidates.add(itemEntryId(id)));
+            for (CollectionConfig.Category category : config.itemCategories()) category.entries().forEach(id -> addItemCandidate(candidates, id));
             for (CollectionConfig.Category category : config.mobCategories()) category.entries().forEach(id -> candidates.add(mobEntryId(id)));
         }
         Set<String> owned = new LinkedHashSet<>();
@@ -152,6 +152,27 @@ public final class CollectionService {
         }
         int count = (int) candidates.stream().filter(owned::contains).count();
         return new int[]{count, candidates.size()};
+    }
+
+    /**
+     * 図鑑の母数(候補集合)へ item エントリを足す。{@code draft: true}(準備中)のカタログIDは除外する
+     * ── 敵対的レビュー指摘4(2026-08-02)。
+     *
+     * <p>{@code collection.yml} の {@code categories.items} は draft ID を含んだまま(消してはいけない
+     * ── editor 内での参照はユーザー意図どおりの正常状態)なので、母数計算のこちら側で落とす必要がある。
+     * draft は {@code ItemCatalogConfig#load} が配布経路そのものから外しているため、対象アイテムは
+     * <b>プレイヤーが理論上も入手不可能</b>。分母に残したままだと {@code scope: all}/{@code category}
+     * の図鑑進捗が永久に100%へ到達しない(2026-08-02時点の出荷 collection.yml で abyss_* 13件 +
+     * binder_* 17件 = 30件が該当)。
+     *
+     * <p>{@link #itemResolver} が未注入(2引数コンストラクタを使う既存テスト等)の場合は draft 判定が
+     * できないため、従来どおり無条件で候補に含める(fail-open、既存呼び出し側の挙動を変えない)。
+     */
+    private void addItemCandidate(Set<String> candidates, String itemId) {
+        if (itemResolver != null && itemResolver.isDraft(itemId)) {
+            return;
+        }
+        candidates.add(itemEntryId(itemId));
     }
 
     /**

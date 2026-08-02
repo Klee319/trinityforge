@@ -398,7 +398,9 @@ test("assignItemToActiveEditorCategory は ensure へ委譲している (旧 no-
   // ここが no-op に戻ると「追加した品が未設定に溜まる」症状がそのまま復活する。
   assert.match(editorCategories,
     /window\.assignItemToActiveEditorCategory = function[\s\S]{0,200}?window\.ensureItemEditorCategory\(/);
-  assert.match(editorCategories, /function ensureItemEditorCategory\(host, tabKey, itemId\)/);
+  // 2026-08-02: 表示タブ移動時に draft: true を巻き込まないための opts (skipDraftSync) が
+  // 4番目の引数として追加された(指摘1)。呼び出し元との後方互換のため任意引数のまま。
+  assert.match(editorCategories, /function ensureItemEditorCategory\(host, tabKey, itemId, opts\)/);
   // 追加経路が ensure を通っていること (素材の「+ 素材追加」/ ファイル跨ぎ移動)。
   const arsForms = fs.readFileSync(path.join(ROOT, "public", "js", "ars-forms.js"), "utf8");
   const forms = fs.readFileSync(path.join(ROOT, "public", "js", "forms.js"), "utf8");

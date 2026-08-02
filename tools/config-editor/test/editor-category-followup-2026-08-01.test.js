@@ -164,8 +164,9 @@ test("(2) カテゴリで絞り込み中ならそのカテゴリへ入る (前�
 test("(3) 「未分類」が自動生成されたらタブバーも作り直される (バーとカード一覧が食い違わない)", () => {
   const { win } = loadEditorCategories();
   const host = hostWithOneCategory();
-  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
-  // cat_auto_draft(「準備中」)はバー描画時に全タブへ既定で用意される予約カテゴリ (2026-08-02)。
+  // cat_auto_draft(「準備中」)はバー描画時に既定で用意される予約カテゴリ (2026-08-02)だが、
+  // draft: true が実効を持つ catalog.yml の画面(= includeDraftCategory: true)でだけ出す。
+  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: true });
   assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords", "cat_auto_draft"]);
 
   // フォーム側の「追加」ハンドラが呼ぶ経路。バーの再構築はフォーム側からは呼ばれない。
@@ -272,7 +273,8 @@ test("(6) 「+ カテゴリ」で既存カテゴリと同名は作れない (見
   const { win, alerts } = loadEditorCategories({ prompts: ["剣"] });
   const host = hostWithOneCategory();
   let structureChanges = 0;
-  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => { structureChanges++; });
+  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => { structureChanges++; },
+    { includeDraftCategory: true });
   const addBtn = bar.querySelectorAll(".btn-small").find((b) => b.props.text === "+ カテゴリ");
   assert.ok(addBtn);
   addBtn.props.onclick();

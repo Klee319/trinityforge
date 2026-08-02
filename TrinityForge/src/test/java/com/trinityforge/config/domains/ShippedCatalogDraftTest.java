@@ -157,4 +157,28 @@ class ShippedCatalogDraftTest {
         assertFalse(config.isDraft(null), "null は draft ではない");
         assertFalse(config.isDraft("no_such_item_id"), "存在しないIDは draft ではない");
     }
+
+    /**
+     * 敵対的レビュー指摘2(2026-08-02)の回帰ガード。{@code isDraft} が生IDでしか判定せず
+     * {@code custom:} を剥がしていなかったため、editorが正規化する {@code custom:<id>} 形式で
+     * 書かれた draft ID({@code gacha.yml} の {@code item: custom:abyss_sword} 等)が
+     * {@code GachaListener#withoutDraftPrizes} の抽選前フィルタをすり抜けていた。
+     * すり抜けると下流の {@code create()} は解決不能(景品未解決)になり、券を消費しない
+     * フェイルセーフに乗って実質無限ガチャになる。
+     */
+    @Test
+    @DisplayName("isDraft は custom: 接頭辞を剥がしてから判定する(指摘2の回帰ガード)")
+    void isDraftStripsCustomPrefix() throws Exception {
+        ItemCatalogConfig config = loadShipped();
+        List<String> declared = declaredDraftIds();
+        assertFalse(declared.isEmpty(), "出荷カタログに draft が1件も無い(テスト前提が崩れている)");
+        String sample = declared.get(0);
+
+        assertTrue(config.isDraft("custom:" + sample),
+                "custom: 接頭辞つきの draft ID がすり抜けている: " + sample);
+        assertTrue(config.isDraft("CUSTOM:" + sample),
+                "custom: 接頭辞の大文字小文字を区別してはいけない: " + sample);
+        assertFalse(config.isDraft("custom:" + sample + "_not_real"),
+                "接頭辞を剥がした結果が別IDと誤って一致してはいけない");
+    }
 }

@@ -174,6 +174,16 @@ try節の外に置くとテストが「失敗」ではなく「中断（SKIPPED�
 ArsPaper 側アイテム（スレッド `thread_*` など）でも、アチーブメントから参照するだけで
 記録が始まる。便利だが、記録が増えると `reward-tiers` の登録総数も動く点は意識しておく。
 
+### ⚠️ `draft: true`（準備中）の catalog ID は図鑑の分母から個別に除外しないと永久に100%へ届かない
+
+`CollectionService#progress` の候補集合（分母）は `collection.yml` の `categories.items`/`mobs` の
+列挙をそのまま使う。`items/catalog.yml` を `draft: true` にしても `collection.yml` 側の列挙は
+（editor 内参照を残す仕様なので）**消えない**ため、放置すると理論上入手不可能な draft ID が
+分母に残り続け、`scope: all`/`category` の図鑑進捗が永久に満数へ届かない（2026-08-02、
+abyss_* 13件 + binder_* 17件 = 30件で実際に発生）。対策は `CollectionService` が候補へ足す前に
+`CrossPluginItemResolver#isDraft`（`itemResolver` 注入時のみ判定可、未注入なら fail-open で
+従来どおり含める）で弾くこと。`collection.yml` 自体は触らなくてよい（触るべきでもない）。
+
 ### アチーブメントの整合性は `ShippedAchievementTreeTest` が機械で縛っている
 
 このファイルの間違いは**どれも起動時の警告1行で済み、ゲーム内では「そのノードが無いだけ」に

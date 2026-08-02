@@ -3040,7 +3040,10 @@
             while (Object.prototype.hasOwnProperty.call(working.items, name)) name = `new_item_${i++}`;
             const defaultMaterial = {
               weapon: "DIAMOND_SWORD", armor: "DIAMOND_CHESTPLATE", tool: "DIAMOND_PICKAXE",
-              other: "DIAMOND", catalyst: "BLAZE_ROD", spellbook: "BOOK", thread: "STRING"
+              other: "DIAMOND", catalyst: "BLAZE_ROD", spellbook: "BOOK", thread: "STRING",
+              // 2026-08-02 指摘5: "material-ref" が無いとフォールバックの DIAMOND_SWORD が使われ、
+              // 「素材」タブの参照セクションから足すと必ずダイヤの剣になってしまっていた。
+              "material-ref": "PAPER"
             }[activeCat] || "DIAMOND_SWORD";
             working.items[name] = { material: defaultMaterial };
             if (typeof window.setItemDisplayTab === "function") {
@@ -3153,11 +3156,11 @@
         h("div", { class: "entry-collapse-edit" }, editChildren)
       ];
 
-      const matHint = window.materialHintEl(entry.material);
+      // 2026-08-02: materialHintEl は削除 (materialInput 自身が 2026-07-29 の listSelect 移行で
+      // 既に日本語表示名(primary)を出しているため、隣に並べると同じ名前が2回出て行が潰れる)。
       // material 変更時も現在タブへピン留めし、推論による強制タブ移動を防ぐ。
       const matInput = window.materialInput(entry.material, "material-list", (v) => {
         entry.material = v;
-        matHint.update(v);
         // 革防具以外では color は無効 (Java側も無視)。切替時にキーを落として YAML をきれいに保つ。
         if (typeof window.isLeatherArmorMaterial === "function" && !window.isLeatherArmorMaterial(v)) {
           delete entry.color;
@@ -3192,7 +3195,7 @@
         : null;
 
       const inputChildren = [
-        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput, matHint]), { required: true }),
+        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput]), { required: true }),
         fieldRow("display-name", window.richTextInput(entry["display-name"], "minimessage", (v) => { setOrDelete(entry, "display-name", v); refreshPreview(); })),
         fieldRow("custom-model-data", (() => {
           const wrap = h("span", { class: "cmd-field-row" });

@@ -168,10 +168,193 @@ test("「準備中」はバー描画時に全タブへ既定で用意される (
   const { win } = loadEditorCategories();
   for (const tab of ["weapon", "armor", "tool", "other", "catalyst", "spellbook", "thread"]) {
     const host = { items: {}, _editor: { categories: {} } };
-    win.renderEditorCategoryBar(host, tab, () => {}, () => {});
+    // 【2026-08-02 指摘4】catalog.yml の画面であることを明示するオプトインが無いと
+    // 「準備中」は用意されない(下の「他ファイルの画面には出ない」テストと対になる)。
+    win.renderEditorCategoryBar(host, tab, () => {}, () => {}, { includeDraftCategory: true });
     const ids = win.listEditorCategories(host, tab).map((c) => c.id);
     assert.ok(ids.includes("cat_auto_draft"), `${tab} タブに準備中が出ていない`);
   }
+});
+
+// ============================================================
+// 【2026-08-02 指摘4】draft: true は catalog.yml(ItemCatalogConfig#load)でしか実効を持たない。
+// materials.yml / threads.yml / spellbooks.yml のような他ファイルの画面で「準備中」を出すと、
+// そこへ入れても意味が無い(materials/threadsは無反応、item-stats.yml では誰も読まない
+// draft:true ゴーストキーが実際に書かれる)。opts.includeDraftCategory を渡さない画面
+// (= catalog.yml 以外の split view)では「準備中」を一切生やさないことを固定する。
+// ============================================================
+
+test("includeDraftCategory を渡さない画面には「準備中」が出ない (materials/item-stats 等)", () => {
+  const { win } = loadEditorCategories();
+  const host = { items: {}, _editor: { categories: {} } };
+  win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
+  const ids = win.listEditorCategories(host, "weapon").map((c) => c.id);
+  assert.ok(!ids.includes("cat_auto_draft"),
+    "draft が実効を持たない画面にまで「準備中」カテゴリが生やされている"
+    + "(item-stats.yml では draft: true のゴーストキーとして実際に書き込まれる)");
+});
+
+test("includeDraftCategory: false を明示しても「準備中」は出ない", () => {
+  const { win } = loadEditorCategories();
+  const host = { items: {}, _editor: { categories: {} } };
+  win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: false });
+  const ids = win.listEditorCategories(host, "weapon").map((c) => c.id);
+  assert.ok(!ids.includes("cat_auto_draft"));
+});
+
+// ============================================================
+// 【2026-08-02 指摘1 CRITICAL】表示タブの移動 (moveItemDisplayTab) は draft: true を変えてはならない。
+//
+// 失敗シナリオ: ダンジョンの鍵を「準備中」に入れる(draft: true, ガチャにも出ずクラフト不可) →
+// 運用者がそれを「素材(カタログ内)」タブへピン留めする → 旧実装は moveItemDisplayTab 内部の
+// removeEditorCategoryItem/ensureItemEditorCategory が無条件で syncDraftFlag(false) を呼び、
+// draft が消える → 次の保存で鍵がゲームに出る(レシピ登録・ガチャ抽選対象)。
+// ============================================================
+
+test("【CRITICAL】表示タブを移しても draft: true は残る(準備中の品を他タブへピン留めしても解禁されない)", () => {
+  const { win } = loadEditorCategories();
+  const host = {
+    items: { key_mines: { material: "TRIAL_KEY", draft: true } },
+    _editor: {
+      categories: {
+        other: [{ id: "cat_auto_draft", label: "準備中", itemIds: ["key_mines"] }]
+      },
+      itemTabs: { key_mines: "other" }
+    }
+  };
+
+  win.moveItemDisplayTab(host, "key_mines", "material-ref", ["other", "material-ref"]);
+
+  assert.equal(host.items.key_mines.draft, true,
+    "表示タブを移しただけで draft が外れている(次の保存でゲームに出てしまう)");
+  assert.equal(win.getItemDisplayTab(host, "key_mines"), "material-ref",
+    "表示タブ自体は正しく移っている前提が崩れている");
+});
+
+test("表示タブの移動元でも draft でなかった品は、移動先でも draft にならない", () => {
+  const { win } = loadEditorCategories();
+  const host = {
+    items: { hero_sword: { material: "DIAMOND_SWORD" } },
+    _editor: {
+      categories: { weapon: [{ id: "cat_swords", label: "剣", itemIds: ["hero_sword"] }] },
+      itemTabs: { hero_sword: "weapon" }
+    }
+  };
+
+  win.moveItemDisplayTab(host, "hero_sword", "other", ["weapon", "other"]);
+
+  assert.ok(!("draft" in host.items.hero_sword),
+    "移動しただけで draft: false が書かれている(無関係なキー汚染)");
+});
+
+// ============================================================
+// 【2026-08-02 指摘2】予約カテゴリ(未分類/準備中)は削除・改名できてはいけない。
+// ============================================================
+
+test("「準備中」カテゴリは削除できない(削除すると draft メンバーが孤児化する)", () => {
+  const { win, alerts } = loadEditorCategories();
+  const host = hostWith({ key_mines: { material: "TRIAL_KEY", draft: true } });
+  host._editor.categories.weapon.push({ id: "cat_auto_draft", label: "準備中", itemIds: ["key_mines"] });
+
+  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: true });
+  const draftBtn = bar.querySelectorAll(".recipe-tab[data-cat-id]")
+    .find((b) => b.getAttribute("data-cat-id") === "cat_auto_draft");
+  assert.ok(draftBtn, "準備中タブが無い");
+  draftBtn.props.onclick();
+
+  const deleteBtn = bar.querySelectorAll(".btn-small").find((b) => b.props.text === "カテゴリ削除");
+  assert.ok(deleteBtn);
+  deleteBtn.props.onclick();
+
+  assert.ok(win.listEditorCategories(host, "weapon").some((c) => c.id === "cat_auto_draft"),
+    "予約カテゴリ「準備中」が削除できてしまった");
+  assert.ok(alerts.length >= 1, "削除できない理由を伝えていない");
+});
+
+test("「準備中」カテゴリは改名できない(id は cat_auto_draft のままラベルだけ変わる事故を防ぐ)", () => {
+  const { win, alerts } = loadEditorCategories({ prompts: ["強化予定"] });
+  const host = hostWith({});
+  host._editor.categories.weapon.push({ id: "cat_auto_draft", label: "準備中", itemIds: [] });
+
+  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: true });
+  const draftBtn = bar.querySelectorAll(".recipe-tab[data-cat-id]")
+    .find((b) => b.getAttribute("data-cat-id") === "cat_auto_draft");
+  draftBtn.props.onclick();
+
+  const renameBtn = bar.querySelectorAll(".btn-small").find((b) => b.props.text === "カテゴリ名変更");
+  assert.ok(renameBtn);
+  renameBtn.props.onclick();
+
+  const draft = win.listEditorCategories(host, "weapon").find((c) => c.id === "cat_auto_draft");
+  assert.equal(draft.label, "準備中",
+    "予約カテゴリのラベルが書き換わっている(id は cat_auto_draft のまま「強化予定」等に化ける)");
+  assert.ok(alerts.length >= 1, "改名できない理由を伝えていない");
+});
+
+test("「未分類」カテゴリも予約カテゴリとして削除・改名できない", () => {
+  const { win } = loadEditorCategories();
+  const host = hostWith({});
+  host._editor.categories.weapon.push({ id: "cat_auto_unclassified", label: "未分類", itemIds: [] });
+
+  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
+  const unclassBtn = bar.querySelectorAll(".recipe-tab[data-cat-id]")
+    .find((b) => b.getAttribute("data-cat-id") === "cat_auto_unclassified");
+  unclassBtn.props.onclick();
+
+  bar.querySelectorAll(".btn-small").find((b) => b.props.text === "カテゴリ削除").props.onclick();
+  assert.ok(win.listEditorCategories(host, "weapon").some((c) => c.id === "cat_auto_unclassified"),
+    "予約カテゴリ「未分類」が削除できてしまった");
+});
+
+// ============================================================
+// 【2026-08-02 指摘3】手書きの「準備中」カテゴリを予約 id へ昇格させるとき、
+// 既存メンバーにも draft: true を付ける (id だけ書き換えて中身は配線されたままにしない)。
+// ============================================================
+
+test("手書きの「準備中」カテゴリを昇格させると、既存メンバーにも draft: true が付く", () => {
+  const { win } = loadEditorCategories();
+  const host = {
+    items: {
+      old_stock_a: { material: "IRON_SWORD" },
+      old_stock_b: { material: "GOLDEN_SWORD" }
+    },
+    _editor: {
+      // id 無し・手書きの「準備中」。ensureDraftCategory がラベル一致で昇格させる対象。
+      categories: { weapon: [{ label: "準備中", itemIds: ["old_stock_a", "old_stock_b"] }] }
+    }
+  };
+
+  win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: true });
+
+  assert.equal(host.items.old_stock_a.draft, true,
+    "昇格前から準備中に入っていた品に draft: true が付いていない"
+    + "(タブは「準備中」と表示されるのに中身は配線されたままになる)");
+  assert.equal(host.items.old_stock_b.draft, true);
+  const cat = win.listEditorCategories(host, "weapon").find((c) => c.label === "準備中");
+  assert.equal(cat.id, "cat_auto_draft", "予約 id へ昇格していない");
+});
+
+test("手書きの「準備中」の昇格は、既に draft の付いていない別カテゴリのメンバーを巻き込まない", () => {
+  const { win } = loadEditorCategories();
+  const host = {
+    items: {
+      old_stock: { material: "IRON_SWORD" },
+      other_item: { material: "DIAMOND" }
+    },
+    _editor: {
+      categories: {
+        weapon: [
+          { label: "準備中", itemIds: ["old_stock"] },
+          { id: "cat_other", label: "その他", itemIds: ["other_item"] }
+        ]
+      }
+    }
+  };
+
+  win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: true });
+
+  assert.equal(host.items.old_stock.draft, true);
+  assert.ok(!("draft" in host.items.other_item), "無関係なカテゴリのメンバーまで draft が付いている");
 });
 
 test("読んだだけではカテゴリが増えない (触っていない yml が保存で変わらない)", () => {

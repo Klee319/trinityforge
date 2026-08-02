@@ -235,6 +235,37 @@ TFがこの経路（ダンジョンドロップ・`gacha.yml`・実績報酬・�
   Ars由来アイテム（スレッド・source系アイテム等）を追加したら、**Ars側のPDC判定に依存する機構が
   あるかどうか**を確認し、あれば `external-source:` を付け忘れないこと。
 
+### ⚠️ `draft: true`（準備中）は「参照面を絞る」だけでは不十分。解決系メソッド自身にゲートが要る
+
+`ItemCatalogConfig#load` は `template(id)`/`all()` から draft を落とすが、`CrossPluginItemResolver#create`
+はカタログ miss を「カタログに無いID」としか解釈せず、Ars フォールバック・バニラ `Material` フォールバック
+へそのまま素通りさせていた（2026-08-02 発見）。`items/catalog.yml` の draft かつ
+`external-source: arspaper` の品が `combat/mob-level-table.yml` のドロップに実在すると、**Lv帯の敵撃破で
+実際にドロップする**。対策は `create()`/`exists()` の先頭で `itemCatalog.isDraft(bare)` を明示チェックする
+こと（`CrossPluginItemResolver.java`）。ドロップ表・ガチャ景品欄などの**参照自体は消してはいけない**
+（「準備中でも設定はできる」が仕様）── 消すべきは解決（配布）の方だけ。
+
+同じ理由で `ItemCatalogConfig#isDraft` は `custom:` 接頭辞を剥がしてから判定する必要がある
+（他のカタログID解決系メソッドと同じ規約。剥がさないと editor が正規化した `custom:<id>` 形式の
+draft ID が `GachaListener#withoutDraftPrizes` のフィルタをすり抜け、解決失敗→
+「景品ロスト防止で券を消費しない」フェイルセーフに乗って実質無限ガチャになる）。
+
+draft を分母に使う集計（例: 図鑑 `scope: all`/`category` の候補集合）も個別に除外が要る。
+`collection.yml` のカテゴリ列挙自体は draft ID を含んだままでよい（消してはいけない）ので、
+`CollectionService` 側で `itemResolver.isDraft(id)` を通してから候補へ足す。
+
+### ⚠️ 儀式の台座リング物理上限は 48（16 ではない）── Y±1 の3段を見落とすと過小評価する
+
+`ArsPaper` フォーク `RitualManager#findNearbyPedestals` はコア周囲 X/Z ±2 の外周16マスを
+**Y±1 の3段ぶん**走査して同じ ingredient リストへ積む（16×3=48）。`RitualRecipe#matches` は
+台座アイテムの multiset 完全一致しか見ず段を区別しないため、19台程度のレシピは Y±1 の段を
+使えば普通に成立する。フォーク側の `RitualManager` 冒頭 javadoc（`PEDESTAL_DISTANCE` のコメント）と
+`ThreadRitualRecipeConfigTest` のテスト定数は**どちらも「16」のまま**（このタスクでは fork 未修正、
+別リポジトリ・別担当）。**「16」という記述をコードで裏取りせずに定数化すると過小評価する**
+（2026-08-02 に実際にこの誤診で超過4レシピの素材を不要に軽量化する事故があった）。
+TF 側の上限は `ItemCatalogConfig.MAX_RITUAL_PEDESTALS`（48）と
+`tools/config-editor/lib/schema.js` の `MAX_PEDESTAL_TOTAL`（48）の2箇所を必ず同時に直すこと。
+
 ## config-editor（フロントエンド）の罠
 
 ### カテゴリ選択状態は `WeakMap`（キー＝オブジェクト同一性）で管理されている

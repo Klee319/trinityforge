@@ -11,7 +11,12 @@
     else if (typeof form.rerenderList === "function") form.rerenderList();
   }
 
-  function withCategoryBar(host, tabKey, formEl, form, flowCategoryBar = false) {
+  // includeDraftCategory: 「準備中」既定カテゴリ(draft: true)は catalog.yml だけで実効を持つ
+  // (ItemCatalogConfig#load が draft を見るのは items/catalog.yml のみ)。materials/threads/
+  // item-stats/spellbooks など他ファイルの画面にまで無条件に出すと、そこへ入れても何も
+  // 起きない(materials/threads)か、item-stats.yml に誰も読まない draft: true ゴーストキーが
+  // 書かれる(2026-08-02 指摘4)。呼び出し側で o.type === "catalog" のときだけ true を渡す。
+  function withCategoryBar(host, tabKey, formEl, form, flowCategoryBar = false, includeDraftCategory = false) {
     const root = h("div", { class: "split-view" });
     const nestBar = h("div", { class: `hub-subtabs${flowCategoryBar ? " hub-subtabs-flow" : ""}` });
     const body = h("div", { class: "hub-body" });
@@ -22,7 +27,8 @@
           host,
           tabKey,
           () => rerenderForm(form),
-          () => { renderBar(); rerenderForm(form); }
+          () => { renderBar(); rerenderForm(form); },
+          { includeDraftCategory }
         ));
       }
     }
@@ -125,7 +131,13 @@
         wrap.appendChild(h("div", { class: "sub-title", text: `カタログ内の素材 (items/catalog.yml、表示タブ「${refTab[1]}」)` }));
         catalogRefForm = window.buildCatalogForm(cross.data, {
           hubMode: true,
-          initialCategory: refTab[0]
+          initialCategory: refTab[0],
+          // 【2026-08-02 指摘5】editorCategoryKey を渡さないと useEditorMeta が false になり、
+          // このセクションで新規追加/複製した品が catalog.yml の _editor.categories / orders に
+          // 一切記録されない (次にカタログ画面を開くと「未設定」に落ちる)。
+          // catalog.yml 側の他タブ(weapon/armor/...)の _editor.categories とは
+          // 名前空間が別なので、tabKey に "material-ref" を使っても衝突しない。
+          editorCategoryKey: refTab[0]
         });
         wrap.appendChild(catalogRefForm.element);
       }
@@ -255,7 +267,7 @@
 
     const host = categoryHost;
     const flowCategoryBar = ["catalog", "item-stats"].includes(o.type);
-    const root = withCategoryBar(host, categoryKey, form.element, form, flowCategoryBar);
+    const root = withCategoryBar(host, categoryKey, form.element, form, flowCategoryBar, o.type === "catalog");
     const wrapGet = (fn) => () => {
       const d = fn();
       if (typeof window.pruneEditorUiState === "function") window.pruneEditorUiState(d);

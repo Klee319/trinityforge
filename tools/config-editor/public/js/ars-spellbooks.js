@@ -347,10 +347,10 @@
         })
       ];
 
-      const matHint = window.materialHintEl(entry.material);
+      // 2026-08-02: materialHintEl は削除 (materialInput 自身が 2026-07-29 の listSelect 移行で
+      // 既に日本語表示名(primary)を出しているため、隣に並べると同じ名前が2回出て行が潰れる)。
       const matInput = window.materialInput(entry.material, "material-list", (v) => {
         entry.material = v;
-        matHint.update(v);
         if (typeof window.isLeatherArmorMaterial === "function" && !window.isLeatherArmorMaterial(v)) {
           delete entry.color;
         }
@@ -386,7 +386,7 @@
       });
 
       const inputChildren = [
-        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput, matHint])),
+        fieldRow("material", h("span", { class: "input-with-hint" }, [matInput])),
         fieldRow("display-name", window.richTextInput(entry["display-name"], "minimessage", (v) => { setOrDelete(entry, "display-name", v); refreshPreview(); })),
         fieldRow("name-color", nameColorCtl),
         fieldRow("custom-model-data", (() => {

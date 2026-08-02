@@ -319,6 +319,71 @@ class CollectionServiceTest {
                 "ティア解放も通常どおり通知する");
     }
 
+    /**
+     * 敵対的レビュー指摘4(2026-08-02)の回帰ガード: {@code draft: true} の catalog ID は
+     * {@link CollectionService#progress} の分母(候補集合)から除外され、100%到達を妨げないこと。
+     * {@code collection.yml} 側のカテゴリ列挙は draft ID を含んだままでよい(消してはいけない仕様)。
+     */
+    @Test
+    void progressExcludesDraftItemsFromDenominatorWhenItemResolverInjected(@TempDir File dir) throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                categories:
+                  items:
+                    weapons:
+                      display-name: "武器"
+                      order: 1
+                      entries:
+                        - core_ember
+                        - draft_sword
+                """);
+        CrossPluginItemResolver itemResolver = mock(CrossPluginItemResolver.class);
+        when(itemResolver.isDraft("core_ember")).thenReturn(false);
+        when(itemResolver.isDraft("draft_sword")).thenReturn(true);
+        CollectionService service = new CollectionService(config, LOG, itemResolver, null);
+        Player player = server.addPlayer();
+
+        int[] scopeAll = service.progress(player, "all", List.of());
+        assertEquals(1, scopeAll[1],
+                "draft アイテムが scope:all の分母に残っている(=100%へ永久に到達できない)");
+
+        int[] scopeCategory = service.progress(player, "category", List.of("weapons"));
+        assertEquals(1, scopeCategory[1], "draft アイテムが scope:category の分母に残っている");
+
+        int[] scopeItem = service.progress(player, "item", List.of("core_ember", "draft_sword"));
+        assertEquals(1, scopeItem[1], "draft アイテムが scope:item の分母に残っている");
+
+        // 実際に core_ember を所持していれば1/1=100%になる(母数が縮んだことの直接証拠)。
+        assertEquals(1, service.record(player, java.util.Map.of(CollectionService.itemEntryId("core_ember"), 0)));
+        int[] afterRecord = service.progress(player, "all", List.of());
+        assertEquals(1, afterRecord[0]);
+        assertEquals(1, afterRecord[1]);
+    }
+
+    /**
+     * itemResolver 未注入(既存の2引数コンストラクタ)では draft 判定ができないため、
+     * 従来どおり無条件で候補に含める(fail-open、既存呼び出し側の挙動を変えない)。
+     */
+    @Test
+    void progressIncludesAllItemsWhenItemResolverNotInjected(@TempDir File dir) throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                categories:
+                  items:
+                    weapons:
+                      display-name: "武器"
+                      order: 1
+                      entries:
+                        - core_ember
+                        - draft_sword
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        Player player = server.addPlayer();
+
+        int[] scopeAll = service.progress(player, "all", List.of());
+        assertEquals(2, scopeAll[1], "itemResolver未注入では draft 判定できないため除外しない");
+    }
+
     private static void drainMessages(Player player) {
         allMessages(player);
     }

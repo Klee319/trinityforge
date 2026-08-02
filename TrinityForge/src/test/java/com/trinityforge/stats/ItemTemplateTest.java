@@ -54,4 +54,47 @@ class ItemTemplateTest {
         assertEquals("#8B0000", t.color());
         assertTrue(t.enchantGlow());
     }
+
+    /**
+     * 敵対的レビュー指摘5(2026-08-02)の回帰ガード: compact constructor は trim/lowercase だけでなく
+     * {@code KNOWN_EXTERNAL_SOURCES} の検証もすること。{@code ItemCatalogConfig#parseExternalSource}
+     * は yml パース経路でだけ fail-soft(警告してnullへ落とす)なので、record 自身は誰が呼んでも
+     * 不変条件(既知の外部ソース名か null)を守らないと {@code hasExternalSource()==true} なのに
+     * 問い合わせ経路が存在しない状態が作れてしまう。
+     */
+    @Test
+    void rejectsUnknownExternalSource() {
+        assertThrows(IllegalArgumentException.class, () -> new ItemTemplate(
+                "x", Material.DIAMOND_SWORD, null, null, BindType.TRADEABLE, 0, null,
+                java.util.List.of(), java.util.List.of(), null, false, "garbage", false));
+    }
+
+    @Test
+    void withExternalSourceRejectsUnknownValue() {
+        ItemTemplate t = new ItemTemplate(
+                "x", Material.DIAMOND_SWORD, null, null, BindType.TRADEABLE, 0, "HEAVY_WEAPONS");
+        assertThrows(IllegalArgumentException.class, () -> t.withExternalSource("garbage"));
+    }
+
+    @Test
+    void knownExternalSourceIsAcceptedAndNormalizedToLowercase() {
+        ItemTemplate t = new ItemTemplate(
+                "x", Material.DIAMOND_SWORD, null, null, BindType.TRADEABLE, 0, null,
+                java.util.List.of(), java.util.List.of(), null, false, "ARSPAPER", false);
+        assertEquals(ItemTemplate.EXTERNAL_SOURCE_ARSPAPER, t.externalSource());
+        assertTrue(t.hasExternalSource());
+    }
+
+    @Test
+    void nullOrBlankExternalSourceStaysUnset() {
+        ItemTemplate nullSource = new ItemTemplate(
+                "x", Material.DIAMOND_SWORD, null, null, BindType.TRADEABLE, 0, null,
+                java.util.List.of(), java.util.List.of(), null, false, null, false);
+        assertFalse(nullSource.hasExternalSource());
+
+        ItemTemplate blankSource = new ItemTemplate(
+                "x", Material.DIAMOND_SWORD, null, null, BindType.TRADEABLE, 0, null,
+                java.util.List.of(), java.util.List.of(), null, false, "   ", false);
+        assertFalse(blankSource.hasExternalSource());
+    }
 }

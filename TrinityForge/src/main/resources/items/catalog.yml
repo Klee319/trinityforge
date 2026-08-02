@@ -6348,7 +6348,7 @@ items:
       method: ritual
       core-item: custom:tf_core_vegetable
       pedestal-items:
-      - WHEAT x13
+      - WHEAT x16
       - custom:hard_metal x2
       - HAY_BLOCK x1   # 同じコアの2点を割るための識別素材
       source: 8000
@@ -6367,7 +6367,7 @@ items:
       method: ritual
       core-item: custom:tf_core_vegetable
       pedestal-items:
-      - WHEAT x13
+      - WHEAT x16
       - custom:hard_metal x2
       - GOLDEN_HELMET x1   # 同じコアの2点を割るための識別素材
       source: 10000
@@ -6386,7 +6386,7 @@ items:
       method: ritual
       core-item: custom:tf_core_dirt
       pedestal-items:
-      - DIRT x13
+      - DIRT x16
       - custom:hard_metal x2
       - FLINT x1   # 同じコアの2点を割るための識別素材
       source: 8000
@@ -6405,7 +6405,7 @@ items:
       method: ritual
       core-item: custom:tf_core_dirt
       pedestal-items:
-      - DIRT x13
+      - DIRT x16
       - custom:hard_metal x2
       - GOLDEN_BOOTS x1   # 同じコアの2点を割るための識別素材
       source: 10000

@@ -227,6 +227,13 @@ function validateCatalog(data, errors) {
         errors.push(`items.${id}.bind-type: ${BIND_TYPES.join(" / ")} のいずれかである必要があります`);
       }
     }
+    // 敵対的レビュー指摘6(2026-08-02): draft は真偽値しか意味を持たない
+    // (Java側 ConfigurationSection#getBoolean は非boolean値をfalse=出荷扱いに読む)。
+    // "yes"/1 のような手書き値をエディタが素通りさせると、運用者は「準備中」のつもりで
+    // 実際には出荷されるという事故になる。
+    if (entry.draft !== undefined && entry.draft !== null && typeof entry.draft !== "boolean") {
+      errors.push(`items.${id}.draft: 真偽値(true/false)である必要があります`);
+    }
     validateCatalogRecipe(entry.recipe, `items.${id}.recipe`, errors);
     if (entry.recipes !== undefined && entry.recipes !== null) {
       if (!Array.isArray(entry.recipes)) {
@@ -370,9 +377,11 @@ const RECIPE_TYPES = ["shaped", "shapeless"];
 const EFFECT_TYPES = ["craft", "weather", "flight", "moonfall", "sunrise", "repair",
   "animal_summon", "mob_summon", "enchant_book", "thread_slot_expand", "thread_reroll"];
 const PEDESTAL_RE = /^(custom:)?[A-Za-z_][A-Za-z0-9_]*( x[1-9]\d*)?$/;
-// 儀式コア周囲の台座リング(チェビシェフ距離2の外周)は物理16台。
+// 儀式コア周囲の台座リング(チェビシェフ距離2の外周)は Y±1 の3段に置けるため物理48台
+// (2026-08-02 訂正: フォークの RitualManager#findNearbyPedestals は外周16マスを Y±1 の
+// 3段ぶん走査する。1段だけの16を上限にしていたため19台のレシピが保存できなかった)。
 // "NAME xN" は台座N台分に展開されるため、合計台数で判定する。
-const MAX_PEDESTAL_TOTAL = 16;
+const MAX_PEDESTAL_TOTAL = 48;
 
 function validatePedestalItems(items, prefix, errors) {
   if (items === undefined || items === null) return;

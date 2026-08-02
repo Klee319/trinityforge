@@ -211,12 +211,12 @@
       const inputChildren = [];
 
       if (materialEditable) {
-        const matHint = window.materialHintEl(entry.material);
+        // 2026-08-02: materialHintEl は削除 (materialInput 自身が 2026-07-29 の listSelect 移行で
+        // 既に日本語表示名(primary)を出しているため、隣に並べると同じ名前が2回出て行が潰れる)。
         const matInput = window.materialInput(entry.material, "material-list", (v) => {
           setOrDelete(entry, "material", v);
-          matHint.update(v);
         });
-        inputChildren.push(fieldRow("material", h("span", { class: "input-with-hint" }, [matInput, matHint])));
+        inputChildren.push(fieldRow("material", h("span", { class: "input-with-hint" }, [matInput])));
       } else {
         inputChildren.push(h("div", { class: "empty-guide" }, [
           h("div", { class: "empty-guide-title", text: "material 編集不可" }),

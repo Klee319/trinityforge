@@ -94,6 +94,20 @@
       });
     }
 
+    // window.MATERIALS (バニラ Material 全件) を listSelect の候補形式へ変換する。
+    // materialInput (util.js) の materialOption と同じ変換だが、あちらは custom: 接頭辞前提の
+    // 候補(CUSTOM_ITEM_CANDIDATES)と一体化しているため、bare なカタログID用のこの画面では
+    // 個別に持つ (candidate 生成ロジックを増やすな、という方針への抵触は catalogCandidateOptions
+    // との1本化で吸収し、こちらは"バニラMaterial一覧"という別の情報源そのものなので分ける)。
+    function vanillaMaterialOptions() {
+      const list = Array.isArray(window.MATERIALS) ? window.MATERIALS : [];
+      const L = window.LABELS;
+      return list.map((k) => {
+        const ja = L && typeof L.materialLabel === "function" ? L.materialLabel(k) : "";
+        return { value: k, primary: ja || k, secondary: k };
+      });
+    }
+
     // 景品(pool.entries[].item)は GachaEntry#itemId 仕様どおり「カタログID」または
     // 「バニラMaterial名」のどちらも取れる(custom: 接頭辞は付けない — 実際の gacha.yml も
     // "tf_scrap"/"iron_dagger" のような素の id と "COAL"/"DIAMOND" のような素の Material が
@@ -101,10 +115,19 @@
     // 従来はここだけ window.materialInput({allowCustom:true}) を使っており、custom: 接頭辞を
     // 前提にした候補としか一致しないため、接頭辞なしのカタログIDは常に「候補外」表示になっていた
     // (materialInput 自体はカタログ候補ではなく window.CUSTOM_ITEM_CANDIDATES を見るため)。
-    // 券と同じ catalogCandidateOptions() を土台にし、候補に無い現在値はバニラMaterialとして
-    // window.LABELS.materialLabel で日本語化を試みる(解決できなければ生IDのまま表示する)。
+    // 2026-08-02 指摘7: その修正で catalogCandidateOptions() だけに切り替えた結果、今度は
+    // バニラ Material の候補が丸ごと失われ、"COAL"/"DIAMOND" のような正確な enum 名を
+    // 自由入力するしかなくなっていた (打ち間違えても UI もバリデータも検知しない)。
+    // カタログ候補とバニラ Material 候補を同じ1本のセレクトへ両方積む
+    // (GachaEntry#itemId はどちらも bare な文字列で受けるため値の形式は変えない)。
     function prizeItemSelect(value, onCommit) {
-      const list = catalogCandidateOptions();
+      const seen = new Set();
+      const list = [];
+      for (const opt of catalogCandidateOptions().concat(vanillaMaterialOptions())) {
+        if (seen.has(opt.value)) continue;
+        seen.add(opt.value);
+        list.push(opt);
+      }
       const cur = value == null ? "" : String(value);
       if (cur && !list.some((o) => o.value === cur)) {
         const L = window.LABELS;

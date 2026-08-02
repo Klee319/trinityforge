@@ -114,6 +114,17 @@ public final class CrossPluginItemResolver {
         if (bare == null || bare.isBlank()) {
             return Optional.empty();
         }
+        // draft(準備中)は「どの経路でも解決させない」── 敵対レビュー指摘1(2026-08-02)。
+        // template(id)/all() は既に draft を落としているため catalog 経路は自動的に miss するが、
+        // その miss を「カタログに無いID」と区別できず externalFactory(Ars)/バニラ Material
+        // フォールバックへ素通りしてしまっていた。catalog.yml の 24 件が draft かつ
+        // external-source: arspaper で、うち8件が mob-level-table.yml のドロップに実在するため、
+        // このガードが無いと Lv65 帯の敵撃破で実際にドロップしていた(thread_luck 等)。
+        // ドロップ表の記述自体は「準備中でも editor 内で参照可能」というユーザー意図どおりの
+        // 正常状態なので消さない ── 消すべきは配布の方。
+        if (itemCatalog.isDraft(bare)) {
+            return Optional.empty();
+        }
         // external-source を宣言したエントリだけ「外部プラグイン→カタログ」に反転する。
         // 反転しても外部側が解決できなければ必ずカタログへ落ちる(Ars 非導入構成があるため)。
         boolean externalFirst = prefersExternalSource(bare);
@@ -135,6 +146,21 @@ public final class CrossPluginItemResolver {
         }
         // An explicit custom: token must never fall through to a vanilla Material.
         return isCustomToken(id) ? Optional.empty() : createMaterial(bare);
+    }
+
+    /**
+     * このIDが catalog.yml で {@code draft: true}(準備中)と宣言されているか。{@code custom:} 接頭辞は
+     * 他の解決系メソッドと同じ規約で剥がしてから判定する。カタログに存在しないIDは当然 false。
+     *
+     * <p>用途: {@link com.trinityforge.progression.CollectionService} の図鑑分母計算(指摘4)のように、
+     * 「このIDは配布経路を持たない」ことを catalog/Ars/Material のどれにも作らせず判定したい
+     * 呼び出し側向け。
+     */
+    public boolean isDraft(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        return itemCatalog.isDraft(stripCustomPrefix(id));
     }
 
     /**
@@ -216,6 +242,11 @@ public final class CrossPluginItemResolver {
         }
         String bare = stripCustomPrefix(id);
         if (bare.isBlank()) {
+            return false;
+        }
+        // create() と同じ理由(上記コメント参照): draft は Ars/Material フォールバックへ
+        // 素通りさせない。exists() だけ緩いと GateKeyMatcher 等の可否判定が食い違う。
+        if (itemCatalog.isDraft(bare)) {
             return false;
         }
         if (itemCatalog.template(bare).isPresent()) {

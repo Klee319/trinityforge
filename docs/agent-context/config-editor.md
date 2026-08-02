@@ -216,6 +216,78 @@ js/json/css/html の生制御文字を機械的に禁止しているので、こ
 結果を空にしてしまい、バニラ品も作れなくなることがある。新しいカタログレシピを追加するときは、
 既存バニラレシピと形が完全一致していないか確認する。
 
+## 「準備中」カテゴリ (draft: true) と表示タブ移動の相互作用 (2026-08-02)
+
+### ⚠️ 表示タブの移動でカテゴリの内部的な付け替えが起きると draft: true が無言で消える
+`editor-categories.js` の `moveItemDisplayTab` は、旧タブのネストカテゴリから外し新タブの
+カテゴリへ入れ直す内部処理で `removeEditorCategoryItem`/`ensureItemEditorCategory` を経由し、
+これらは最終的に `moveItemEditorCategory` を呼ぶ。この関数は「準備中」カテゴリへの
+出入りをそのまま `items[id].draft` へ同期する (`syncDraftFlag`)。**カテゴリの内部的な
+付け替え(表示タブ移動に伴う移動元/移動先の再配置)と、利用者が「準備中カテゴリを選んだ」
+という明示操作を区別しないと、準備中(draft: true)の品を別の表示タブへピン留めし直した
+瞬間に draft が外れ、次の保存でゲームに出る**(レシピ登録・ガチャ抽選対象化。ダンジョンの
+鍵のような「先に仕込んで後で解禁する」運用が事故る)。
+- **How**: `moveItemEditorCategory`/`removeEditorCategoryItem`/`ensureItemEditorCategory` に
+  `opts.skipDraftSync` を追加し、`moveItemDisplayTab` からの内部呼び出しだけ `true` を渡す。
+  利用者がカード上のカテゴリセレクト(`renderEditorCategorySelect` の onChange)・複製・
+  新規追加の絞り込み割当を通る経路は従来どおり同期する。
+- 回帰テストは `test/draft-category-2026-08-02.test.js` の
+  「【CRITICAL】表示タブを移しても draft: true は残る」。
+
+### ⚠️ 「準備中」カテゴリは catalog.yml の画面にだけ出す(他ファイルでは意味が無い/害がある)
+`draft: true` は `ItemCatalogConfig#load` が読む catalog.yml 専用のフラグ。materials.yml /
+threads.yml / spellbooks.yml の画面で「準備中」へ入れても Java 側は無反応、**items を持つ
+item-stats.yml では実際に `draft: true` が書き込まれて誰も読まないゴーストキーになる**
+(実測: `{"NETHERITE_SWORD#300010":{"fixed":{...},"draft":true}}`)。
+`renderEditorCategoryBar(host, tabKey, onFilterChange, onStructureChange, opts)` の第5引数
+`opts.includeDraftCategory` が `true` のときだけ `ensureDraftCategory` を呼ぶようにし、
+`split-views.js` の `withCategoryBar` は `o.type === "catalog"` のときだけ `true` を渡す。
+新しい split type を追加するときは、draft が実効を持つファイルかどうかをまず確認してから
+この値を決めること(既定は false = 出さない)。
+回帰テストは `test/split-view-draft-scope-2026-08-02.test.js`。
+
+### ⚠️ 予約カテゴリ(未分類/準備中)は「+ カテゴリ」「救済採番」以外の操作からも守る必要がある
+`RESERVED_CATEGORY_IDS` は `addBtn`(新規作成時の id 衝突回避)と `backfillCategoryIds`(id
+欠落救済)では最初から効いていたが、`deleteBtn`/`renameBtn` にはガードが無く、予約カテゴリを
+削除・改名できてしまっていた。削除すると `draft: true` の付いたメンバーが孤児化し
+(受け皿が消えても items 側のフラグは残るので「なぜゲームに出ないか」の手掛かりが UI から
+消える)、改名すると id は `cat_auto_draft` のままラベルだけ変わり(例:「強化予定」)、
+以後そのタブが意味不明なまま draft を刻み続ける。**予約 id を扱う操作(追加/削除/改名/救済)を
+増やすたびに、その操作にも `RESERVED_CATEGORY_IDS` チェックを個別に入れる必要がある**
+(1箇所に定義しても自動的に全操作へ効くわけではない)。
+
+### 手書きの「準備中」カテゴリを予約 id へ昇格させるとき、既存メンバーにも draft を同期する
+`ensureDraftCategory` はラベル一致 (`"準備中"`) の既存カテゴリを見つけると `id` だけを
+`cat_auto_draft` へ書き換えていたが、そのカテゴリに既に入っていたメンバーの `items[id].draft`
+を付け忘れていた。結果、「タブは準備中と表示されるのに中身は普通に配線されたまま(ゲームに
+出続ける)」という食い違いが起きる。昇格時は `handmade.itemIds` を回って `syncDraftFlag(host,
+id, true)` を呼ぶこと。
+
+## `forms.js` は同じ形の `const defaultMaterial = {...}[activeCat] || "..."` ブロックを2箇所持つ
+`buildCatalogForm`(カタログ画面の「+ アイテム追加」)と別の箇所(item-stats 系)に、ほぼ同じ
+書き方の `defaultMaterial` マップ構築コードがそれぞれ独立して存在する。**片方だけを対象にした
+緩い正規表現(`/const defaultMaterial = \{[\s\S]{0,400}?\}\[activeCat\]/` のような)で静的
+ソーステストを書くと `exec()` は最初にヒットした側(無関係な方)を返し、意図した方の変更を
+検証できないまま緑になる。** 対象を一意に絞るには、編集した側にしかない固有の文字列
+(例: 追加したキー名)を正規表現の中に含めて絞り込むこと。
+
+## ガチャ景品セレクトはカタログ候補とバニラ Material 候補を両方1本のセレクトに積む
+`p5-forms.js` の `prizeItemSelect`(gacha.yml の `pool.entries[].item`)は、`custom:` 接頭辞
+前提の `window.materialInput({allowCustom:true})` から `catalogCandidateOptions()` ベースへ
+置き換えた際、バニラ Material 候補の生成ロジックごと削ってしまっていた(=正確な enum 名を
+自由入力するしかなくなる、`tf-rewards-forms.js` で一度踏んだのと同じ罠の再発)。
+`window.MATERIALS`(vanilla Material 全件配列)と `window.LABELS.materialLabel` から
+`{value, primary, secondary}` を組み、`catalogCandidateOptions()` の結果と重複排除しつつ
+連結する。`GachaEntry#itemId` はどちらも `custom:` 無しの bare な文字列で受けるので、
+値の形式(セレクトの `value`)は変えない。
+
+### 同じ「materialInput 直後に materialHintEl を並べる」二重表示バグは ars-forms.js にも残っている
+`mob-forms.js`(2026-08-02修正済み)/`forms.js`・`ars-spellbooks.js`・`functional-items.js`
+(2026-08-02 CRITICAL指摘で修正)以外に、**`ars-forms.js`(materials.yml 本体の編集フォーム、
+440-444行付近)にも同じパターン `[matInput, matHint]` が残っている**。今回のタスクでは
+明示的な対象範囲外だったため未修正。次にこの症状(素材欄で同じ日本語名が2回出て行が潰れる)を
+materials.yml の画面で踏んだら、まずここを疑うこと。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

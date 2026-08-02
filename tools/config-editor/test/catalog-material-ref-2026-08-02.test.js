@@ -182,6 +182,27 @@ test("forms.js: 表示タブセレクトの tabOpts は material-ref と materia
   assert.match(block[0], /\["material",/, "materials.ymlへの実データ移行オプションが消えている");
 });
 
+// ============================================================
+// 5. 「+ アイテム追加」の既定 Material (2026-08-02 指摘5)。
+//    defaultMaterial マップに "material-ref" が無いとフォールバックの "DIAMOND_SWORD" が
+//    使われ、「素材」タブの参照セクションから品を足すと必ずダイヤの剣になっていた。
+// ============================================================
+
+test("forms.js: 「+ アイテム追加」の defaultMaterial は material-ref にも専用の既定値を持つ", () => {
+  const src = JS("forms.js");
+  // forms.js には defaultMaterial の組み立てが2箇所ある(buildItemStatsForm 側は無関係)ため、
+  // "material-ref" を含む方をピンポイントで拾う(そうでないと最初にヒットした無関係な
+  // ブロックを見て「見つからない」誤検知になる)。
+  const block = /const defaultMaterial = \{[\s\S]{0,500}?"material-ref":[\s\S]{0,80}?\}\[activeCat\] \|\| "DIAMOND_SWORD";/
+    .exec(src);
+  assert.ok(block, "defaultMaterial マップの組み立て箇所(material-ref入り)が見つからない(forms.js の構造が変わった)");
+  assert.match(block[0], /"material-ref":\s*"[A-Z_]+"/,
+    "material-ref 用の既定 Material が定義されていない"
+    + "(素材タブの参照セクションから追加すると必ずダイヤの剣になる)");
+  assert.doesNotMatch(block[0].match(/"material-ref":\s*"([A-Z_]+)"/)[1], /^DIAMOND_SWORD$/,
+    "material-ref の既定値がフォールバックと同じ DIAMOND_SWORD のまま");
+});
+
 test("forms.js:446 のゴーストエントリガードが material-ref も skip 対象にしている", () => {
   const src = JS("forms.js");
   const guard = /if \(candidate && \(candidate\.tab === "material" \|\| candidate\.tab === MATERIAL_REF_TAB_ID\)\) continue;/;
@@ -232,6 +253,11 @@ test("複合ビュー: catalog.yml(counterpart)があれば buildCatalogForm を
   assert.equal(catalogFormOpts.hubMode, true, "7タブ切替バーを隠す hubMode が指定されていない");
   assert.equal(catalogFormOpts.initialCategory, "material-ref",
     "material-ref 固定で開かれていない(既存の7タブが混ざって出る恐れ)");
+  // 2026-08-02 指摘5: editorCategoryKey が無いと useEditorMeta が false になり、
+  // この画面で新規追加/複製した品が catalog.yml の _editor.categories / orders に
+  // 一切記録されない (次にカタログ画面を開くと「未設定」に落ちる)。
+  assert.equal(catalogFormOpts.editorCategoryKey, "material-ref",
+    "editorCategoryKey が渡っていない(この画面での追加/複製が _editor に記録されない)");
 });
 
 test("複合ビュー: catalog.yml が読めない(counterpart無し)場合でも例外にならず materials.yml 単独で動く", () => {

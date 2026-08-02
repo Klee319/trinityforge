@@ -85,6 +85,14 @@ public record ItemTemplate(String id,
         recipes = recipes == null ? List.of() : List.copyOf(recipes);
         externalSource = (externalSource == null || externalSource.isBlank())
                 ? null : externalSource.trim().toLowerCase(java.util.Locale.ROOT);
+        // 敵対的レビュー指摘5(2026-08-02): trim/lowercase だけで KNOWN_EXTERNAL_SOURCES の検証を
+        // していなかったため、withExternalSource("garbage") でも hasExternalSource()==true になれた。
+        // ItemCatalogConfig.parseExternalSource は fail-soft(未知値は警告してnullへ落とす)だが、
+        // それは yml パース経路だけの話であり、この record 自体は誰が呼んでも不変条件を守るべき。
+        if (externalSource != null && !KNOWN_EXTERNAL_SOURCES.contains(externalSource)) {
+            throw new IllegalArgumentException("unknown external-source: '" + externalSource
+                    + "' (known: " + KNOWN_EXTERNAL_SOURCES + ")");
+        }
     }
 
     /**
