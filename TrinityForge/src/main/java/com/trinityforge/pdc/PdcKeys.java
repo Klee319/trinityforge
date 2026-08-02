@@ -210,8 +210,12 @@ public final class PdcKeys {
     // --- パーティクルシード (2026-07-23-stat-gate-overhaul §6.1): 道具側に焼き込むシードID。 ---
     public static final NamespacedKey ITEM_PARTICLE_SEED = key("particle_seed");
 
-    // --- 称号頭上表示 (2026-07-23-stat-gate-overhaul §6.1、FocusHpDisplayと同じ孤児掃除パターン)。 ---
-    public static final NamespacedKey TITLE_DISPLAY = key("title_display");
+    // 称号頭上表示(TITLE_DISPLAY)キーは2026-08-02の書き換えで削除した。旧実装がマークしていた
+    // TextDisplayは setPersistent(false) 済み(=チャンク/ワールドデータへ書き込まれない)であり、
+    // このリポジトリの配備規約(jar差し替えは必ずサーバプロセスの再起動を伴う。ops-build-deploy.md)
+    // によりホットリロード経路は存在しないため、新jarが起動した時点で旧エンティティは
+    // 「一度もディスクに書かれていない=再起動を跨いで存在し得ない」。孤児掃除(sweepOrphans)を
+    // 引き継ぐ必要はないと判断し、キー自体を削除した。
 
     /** ガチャ天井(pity)カウンタキーの接頭辞。プールID毎に独立したカウンタを持つため、他の
      * キーと違い固定の{@code NamespacedKey}ではなく{@link #gachaPityKey(String)}で動的に導出する。 */
