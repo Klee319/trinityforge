@@ -397,6 +397,11 @@ REM  :build_gradle <project dir> <task>
 REM    JAVA_HOME is set per invocation. -Dorg.gradle.java.home on its own does NOT switch the JDK
 REM    for the ArsPaper fork (measured); setting both is harmless for the other two. The
 REM    machine-wide JAVA_HOME is deliberately left alone -- other tools depend on it.
+REM
+REM    The launcher is called as ".\gradlew.bat", not "gradlew.bat". cmd.exe only searches the
+REM    current directory when NoDefaultCurrentDirectoryInExePath is unset, and Git Bash / MSYS
+REM    export it as 1 -- so a bare name fails with "is not recognized" when this script is invoked
+REM    from such a shell, even though it works from a normal cmd window.
 REM ---------------------------------------------------------------------------------------------
 :build_gradle
 if defined DRYRUN (
@@ -410,7 +415,7 @@ pushd "%~1" || (
 setlocal
 set "JAVA_HOME=%JDK21_HOME%"
 set "PATH=%JDK21_HOME%\bin;%PATH%"
-call gradlew.bat %~2 --offline "-Dorg.gradle.java.home=%JDK21_HOME%"
+call .\gradlew.bat %~2 --offline "-Dorg.gradle.java.home=%JDK21_HOME%"
 set "RC=%ERRORLEVEL%"
 endlocal & set "RC=%RC%"
 popd
