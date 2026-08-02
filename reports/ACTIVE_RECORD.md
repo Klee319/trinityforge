@@ -3846,3 +3846,53 @@ physical/magical から導出し、新しい設定面は増やしていない（
   `_editor.itemTabs` には weapon として載っているが `_editor.categories.weapon` のどのカテゴリにも
   属しておらず、editor のテスト
   `catalog-combat-content.test.js:20` が 1 件これで落ち続けている。
+
+### スレッド厳選の未達2点（ArsPaper フォーク側、未コミット）
+
+「厳選」の要件のうち残っていた2点を fork 側だけで実装した。**フォークは `.gitignore` 除外なので
+このリポジトリには入らない。`git clean` / `reset --hard` で消える**ことに注意（配備前に必ずビルドすること）。
+
+- **ロールステの下限が「合計1種」だった** — `thread-rolls.yml` の `sub-count` に `0: 15` があり、
+  15% の確率でサブが1本も付かず主ステ1種だけのスレッドが出ていた。`0` を廃してその重みを `1` へ
+  畳み込み（`1:50, 2:30, 3:15, 4:5`、合計100は維持）。主ステは常に1本固定なので
+  **合計2種が保証される**。サブの加重平均は 1.60 → 1.75、合計 2.60 → 2.75。上限は元から
+  主1+サブ4=5種で満たせていたので変更なし。
+- **品質(quality)がロール幅に効いていなかった** — `quality-spread`（`low-shrink-at-max-quality: 0.05` /
+  `high-expand-at-max-quality: 0.15`、quality=0 で完全に従来どおり）を新設。
+  「一方的に強くする」のではなく**幅そのものを広げる**方向（品質が高いほど下限はわずかに下がり、
+  上限はより大きく上がる＝期待値も上がる）。
+
+**非自明な発見: スレッドは TF の通常の品質刻印パイプラインに相乗りできない。**
+`ThreadItem.createItemStack()` は **PDC へのロール焼き込みを生成時に即座に行う**のに対し、
+TF 側の品質刻印（`finalizeCatalogRitualResult` → `stampCraftedQuality`）は儀式パイプラインの
+**アイテム生成"後"**に走り、かつ `isQualityStamped()==true` の品（触媒・魔導書）だけが対象で
+`ThreadItem` は対象外。**品質が確定する前にロールが焼き込まれてしまう**ため、
+「生成前に品質だけ別途ロールする」実装が必須だった（既存 public の
+`CraftQualityService.rollArsSmithingQuality(Player, ItemStack)` を `TrinityForgeBridge` 経由で再利用。
+**TF 側の API 追加はゼロ**＝`libs/TrinityForge.jar` の再生成も不要）。
+`createItemStack()` は `BaseCustomItem` 側で固定シグネチャなので、`ThreadItem` にだけ
+`createItemStack(Player)` オーバーロードを足し、無引数版は `null` を渡す薄いラッパにした
+（ルートチェスト/ダンジョンドロップ/管理コマンド付与のような **player が分からない経路は
+quality=0 相当で従来どおり**、という fail-open が自然に満たされる）。振り直し儀式
+`ThreadRerollRitualEffect` も同じ経路に通してある。
+
+フォーク側ビルド: `BUILD SUCCESSFUL` / **281 tests, 0 failed, 0 skipped**（ベースライン268 + 新規13）。
+既定値（低5% / 高15%）は「既定と大きく変えない」狙いの暫定値で、実プレイの品質分布を見て要調整。
+
+### editor の残り2件（`089b8ea`）
+
+- **ディメンション別基準レベルの UI** — `dimensions:` を編集するカードを `mob-forms.js` に追加。
+  キーは `World.Environment` の4値固定セレクト。
+- **`sourcelinks.yml` の `transfer:` と `items.<id>.transfer-multiplier` の UI** — フォークの
+  `SourceTransferConfig` が読む 15 リーフを全部出す。キー名はフォークの実装と突き合わせ済み。
+
+**両方に共通する落とし穴（新しい調整ブロックを足すたびに再発する）**:
+「省略時は Java 側にちゃんとした既定値がある」型のブロックを `ensureObject` で丸ごと実体化してから
+描画すると、**カードを開いて何も変更せず保存しただけで、その瞬間の Java 既定値が yml へ全部
+書き込まれる**。`normalize*` の既定値ドリフト事故と同根で、書き込んだ瞬間に「将来の既定値変更が
+この yml だけ効かなくなる」凍結を生む。`readPath`（読むだけ）と `ensurePath`（書くときだけ作る）を
+分離し、空になった中間オブジェクトは `prune` で刈る。「未編集で保存してもキーが増えない」を
+両方のテストで固定した（`docs/agent-context/config-editor.md` に手順として記載）。
+
+エディタのテスト: **982 件中 972 pass / 10 fail**。失敗10件はいずれも着手前からのベースライン
+（名前も一致）で、今回の追加 +37 件は全て pass。
