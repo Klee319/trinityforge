@@ -3531,3 +3531,84 @@ BEACON の CustomBlock として設置でき、半径内（既定5）のソー�
   （通常の cmd ウィンドウからは動く）。`.\gradlew.bat` に直した（`1742787`）。
 - リソースパックは `deploy.cmd` の対象外（GitHub release 経由）。**今回の新規47 CMD は専用テクスチャを
   持たず、素材のバニラ見た目で描画される**（threshold は登録済みなので前シリーズの絵に化けることはない）。
+
+---
+
+## 2026-08-02 過去の全依頼を実コードと突き合わせた棚卸し（未実装の抜け28件）
+
+ユーザー依頼「他にも依頼内容で抜けがあるんじゃないの？過去のメッセージから再確認」に対し、
+**全39セッションの `.jsonl` からユーザー発言を抽出**（重複除去後 768 件・2026-07-03〜08-02）し、
+6レーンに分けて **485 件の実装依頼を実コード/実 yml で照合**した（ワークフロー `wf_3076fa54-138`、14エージェント）。
+各レーンの「未実装」判定は**別エージェントが反証する側で再検証**し、生き残った 28 件が下表。
+
+> **`ACTIVE_RECORD` の「解決」記述は証拠にしない**という条件で走らせている。根拠は全件 file:line。
+
+| 重大度 | 状態 | 依頼(日付) | 実測 | 根拠 |
+|---|---|---|---|---|
+| HIGH | 未実装 | 統合版（Bedrock）でアイテム名がアイテムIDとして表示されてしまう不具合を直してほしい。後続で「木の剣とか木のツールだけまだ wooden_* だった」と再指摘（2026-07-27） | リポジトリ全体に .lang ファイルが 0 件。出荷パック TrinityForge-Pack.zip は 572 エントリ中 .lang 0 件。恒久知識ドキュメントが自ら「未解決」と明記している。resourcepack/build_item_pack.py / build_skill_gui_pack.py にも lang / texts 生成コードは無い（grep ヒット 0） | docs/agent-context/bedrock-geyser.md:89 「名前 → 未解決。恒久解は bedrock-samples の texts/ja_JP.lang をビルド時に取得して…」／`find resourcepack -iname "*.lang" ／ wc -l` = 0／TrinityForge-Pack.zip 内 .lang = 0件／reports/ACTIVE… |
+| HIGH | 部分実装 | オフハンドにスニーク+ドロップで一部アイテムが持てない不具合を、修正後配備まで進めておいて（2026-07-28） | 原因特定（登録済み236件は allow_offhand:true、catalog 非防具183件のうち106件が Bedrock 未登録、うち51件は Java パック自体にモデルが無い）までで止まっており、コード/パック側の是正は未実施。CMD 台帳は 488 割当のうち 375 件が assetName（＝パックのモデル資産）を持たない | reports/ACTIVE_RECORD.md:1177-1188 「⑧ 一部アイテムがオフハンドに持てない（統合版）— 調査のみ、コード修正なし」／resourcepack/cmd-registry.json allocations 488件中 assetName 無し 375件（python 集計）／reports/ACTIVE_RECORD.md:126 K-14「441 CMD 中 29… |
+| HIGH | 未実装 | K-17: ロール限定コンテンツとしてルートチェスト用・ダンジョン用・制作用のスレッドを既存の効果スレッドと合わせて40種類ほど準備し配線する(固定ステ1〜2+ロールステ/ランダムロールステ2〜5種で構成、レア度で強さを変え、品質によるブレを大きくつける)（2026-07-31） | スレッドは16種類のみ。しかも種類は Java の enum にハードコードされており、yml/editor から新種を追加できない構造。ルートチェスト用・ダンジョン用・制作用として区別されたスレッドは0件。item-stats.yml にスレッドの固定ステ行は1件も無く、ステは100%抽選由来のまま(ユーザーが 07-31 08:20 で指摘した状態が未解消) | fork-handoff/arspaper/fork/src/main/java/com/arspaper/item/ThreadType.java:20-58 に定数16件(EMPTY〜BACKPACK)。fork-handoff/arspaper/fork/src/main/resources/threads.yml:28-95 のエントリも16件。TrinityForge/src/main/… |
+| MEDIUM | 部分実装 | 「同様にアイテムカタログに触媒を作成。テンプレートとしてレシピとidの命名規則が分かる木の杖を作成済み」(2026-07-22T21:46)＋テクスチャ割当依頼(2026-07-23T04:53)（2026-07-22） | catalog.yml に wooden/stone/copper/iron/golden/diamond/netherite ほか計10件の *_cane が CMD 400002-400008 等付きで定義されているが、パックに assets/minecraft/items/blaze_rod.json が存在しない(リポジトリ全体で0件)。textures/item に *cane*.png も0件。触媒10種すべてがバニラのブレイズロッド表示。 | catalog.yml:3833-3846 (wooden_cane material: BLAZE_ROD, custom-model-data: 400008) / `find . -name blaze_rod.json` = 0件 / textures/item 内 *cane*.png = 0件 |
+| MEDIUM | 部分実装 | 「新武器大剣を追加。ラインナップは他の武器と同様」＋「テクスチャとモデルが割り当てられていないので割り当てる」(2026-07-23T04:53)（2026-07-23） | 大剣は catalog に wooden/stone/copper/iron/golden/diamond/netherite/source_gem の8種が CMD 62-67,1113,1119 付きで存在するが、パックの range_dispatch エントリは全てバニラモデルへフォールバックしている(例: items/wooden_sword.json の threshold 62 → "minecraft:item/wooden_sword"、s… | catalog.yml:1096-1098 (wooden_grate_sword custom-model-data: 62) / resourcepack/trinityforge-items/assets/minecraft/items/wooden_sword.json の threshold 62 が minecraft:item/wooden_sword / textures/item… |
+| MEDIUM | 部分実装 | 「クロスボウも弓と同じ木～ネザライトを作成して」(2026-07-23T16:15) および「アイテムカタログに追加したvalhalla関連の武器にテクスチャとモデルが割り当てられていないので割り当てる」(2026-07-23T04:53)（2026-07-23） | catalog.yml に15件が CMD 145/146/147/160-183 付きで定義済み(TrinityForge/src/main/resources/items/catalog.yml:472,1696,1712,1729,4127-4229 ほか)。一方 resourcepack/trinityforge-items/assets/minecraft/items/ に crossbow.json が存在せず(リポジトリ全体で `find -… | catalog.yml:4127 (stone_crossbow custom-model-data: 160) / `find . -name crossbow.json` = 0件 / zip 内 items/*.json 112件中 crossbow 0件 / textures/item 内 *crossbow*.png 0件 |
+| MEDIUM | 部分実装 | 「HPや防御力にばらつきがなくて味気ない」— モブの個体ばらつきを HP と防御力に入れてほしい（2026-07-24） | variance は hp と attack の2項目のみ。Java 側も MobImportConfig が variance.hp / variance.attack しか読まず、MobProfile の変異コピーも withMaxHealth / withAttack の2本だけ。防御ステータスは全個体で同一値になる。editor 側も HP と攻撃の2欄のみ | TrinityForge/src/main/resources/combat/mob-import.yml:70-72 (variance: hp/attack のみ) / TrinityForge/src/main/java/com/trinityforge/config/domains/MobImportConfig.java:104-106 (root.getDouble("variance… |
+| MEDIUM | 判断待ち | 通常ワールドでもアーマースタンドにアイテムを持たせられない不具合の修正（2026-07-25） | 稼働サーバの plugins/*.jar 25個をバイトコード走査した調査は完了しており、PlayerArmorStandManipulateEvent を参照するのは EliteMobs の DungeonProtector のみ・かつダンジョンワールド限定と判明したため「プラグイン起因ではない」と結論。以降、修正コミットも ACTIVE_RECORD への記録も無く、ユーザー報告としては未クローズのまま | fork-handoff/elitemobs/elitemobs-fork/src/main/java/com/magmaguy/elitemobs/dungeons/DungeonProtector.java:340-345（ワールドゲート済み）／`grep -n "アーマースタンド" reports/ACTIVE_RECORD.md` は U10（EXP 稼ぎ）の話だけで本件のヒット0件 |
+| MEDIUM | 部分実装 | 軽装と重装のスキルツリーに「2,3,4セットごと」に効果を設定できる条件バフ欄を追加する（メインハンド条件バフと同等の仕組みで、UIと異なるのはセット数ごとに設定できる点）（2026-07-27） | Java ローダーが段キーを 3 と 4 のみに限定し、2 を書くと警告付きで丸ごと破棄する。editor も 3/4 の2枠固定、schema も 3/4 以外をエラーにする。ランタイム（PerkBuffResolver.accumulateSetBuffs）は tier<=wornPieces で汎用に動くので、塞いでいるのは loader/UI/schema の3層だけ。出荷 yml のコメントにも『1〜2部位では効かなくなったのが移行で変わった点』… | TrinityForge/src/main/java/com/trinityforge/config/domains/SkillTreeConfig.java:284 `if (tier == null ／／ (tier != 3 && tier != 4))` → warn+continue / tools/config-editor/public/js/tf-skilltree.js:417 … |
+| MEDIUM | 判断待ち | 広辞苑の3人称描画でテクスチャがずれている／広辞苑の inv テクスチャが Java と異なる／本の中の紙束は Java だと表紙がピッタリ付くが BE は表紙だけずれている。3件まとめてパッチ適用（2026-07-27） | リポジトリ内（resourcepack/, docs/, reports/ACTIVE_RECORD.md）に「広辞苑」「紙束」の修正記録・アセット変更が一切見つからない。同時期に依頼された「スキルツリーのノードテクスチャが BE に反映されない」だけは resourcepack/build_item_model_hints.py + dist/trinityforge-skilltree-item-model-hints.json で解決済み | `grep -rn "広辞苑／紙束" reports/ACTIVE_RECORD.md docs/agent-context/*.md` ヒット0件／resourcepack/ 配下に該当アイテム向けの Bedrock geometry/attachable は無し（Bedrock パック生成は geyserExtra 側＝リポジトリ外） |
+| MEDIUM | 判断待ち | オフハンドをスニーク+ドロップで切り替えた時にアイテムが消失する不具合。一番左の手に持っていたアイテムが上書きされるときがある（2026-07-27） | TrinityForge 本体で PlayerDropItemEvent を購読しているのは AfkActivityListener:88 と GatheringEfficiencyEnchantApplier:148 の2件のみで、オフハンド切替を扱うコードは本体にもフォークにも無い（機能は geyserExtra 側＝リポジトリ外）。恒久メモには「イベント時スナップショットとの突合せは正常系で毎回外れる（オフハンド切替が全沈黙した）」という失敗記録だけ… | `grep -rn PlayerDropItemEvent TrinityForge/src/main/java` = 2件（afk/AfkActivityListener.java:88, gathering/GatheringEfficiencyEnchantApplier.java:148）／memory playerdropitem-removal-timing-is-path-depen… |
+| MEDIUM | 部分実装 | 不足しているカスタムアイテムのテクスチャの作成（目視確認したいので配線はしないで）／新規作成した武器と素材のテクスチャ生成（配線はしない）（2026-07-30） | テクスチャ png は150枚に対し CMD台帳の割当は488件。用意されているのは dungeon_seal_* 19種 / tf_core_jewelry / tf_core_wood まで。ユーザーが名指しした ミートコア(tf_core_meat)・ダートコア・ベジタブルコア、討伐素材13種(ravager_hide / piglin_brute_plate / pillager_plate / witch_elixir / piglin_ear … | resourcepack/trinityforge-items/assets/trinityforge/textures/item/ に .png 150ファイル / resourcepack/cmd-registry.json の allocations は488件。resourcepack/trinityforge-items/assets/minecraft/items/leather.js… |
+| MEDIUM | 部分実装 | K-16 強化ループ：階梯9段形式ではなく、コンフィグに『素材と必要ソースが重いがより効率の良いソースリンク』のレシピを増やす（2026-07-31） | ソースリンクは volcanic / mycelial / alchemical / vitalic / botanical の5『種類』のみで、いずれも単一tier。転送レート(max-per-transfer / interval-ticks)はグローバル1値で、リンク個体ごとに差を付ける段が無い。前進しているのは(a)レートの config 化と(b)infinity-core の半径倍率だけで、ユーザー指定の『レシピを増やす』は0件。ソースジャー側… | fork-handoff/arspaper/fork/src/main/resources/sourcelinks.yml:227/244/262/278/294 の5エントリが全ソースリンク定義(各1レシピ)。同 24-58 の transfer.sourcelink.max-per-transfer はグローバル単一値。同 98-107 の infinity-core が唯一の倍率手段。対比:… |
+| MEDIUM | 意図的に見送り | 各種ダンジョンのうちいくつかはクラフトできる鍵を作成し、多くは釣りや掘削、ガチャ、戦利品などのルート限定にしたい（2026-07-31） | 17種は実装済み(クラフト5/採掘3/掘削3/釣り2/ガチャ3/合成1)だが、戦利品枠の key_hallosseum / key_north_pole の2種は catalog.yml に存在しない。gates.yml は両方を key-item として参照しているため、GateKeyMatcher の fail-open でこの2ゲートだけが無言で無効化され、鍵なしで素通りできる。見送り理由として catalog.yml に『ルートチェストへの独自アイ… | TrinityForge/src/main/resources/dungeon/gates.yml:154 (key_hallosseum) / :476 (key_north_pole)。catalog.yml の `^  key_` grep = 17件でこの2種は無し。見送り理由は catalog.yml:4942-4945。反証: fork-handoff/arspaper/fork/sr… |
+| MEDIUM | 未実装 | XのスキルレベルをYまで上げるようなアチーブメントが欲しい（2026-07-31） | AchievementsConfig の TriggerType は STATISTIC / ADVANCEMENT / STATIC / COUNTER の4種のみ。Bukkit の Statistic にはスキルレベルが無く、COUNTER は PDC直書きの外部加算しか無いため、スキルレベルを条件にできる経路が存在しない | TrinityForge/src/main/java/com/trinityforge/config/domains/AchievementsConfig.java:40 `public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC, COUNTER }`。TF本体 src 配下の SKILL_LEVEL / skill-level トリガー … |
+| MEDIUM | 未実装 | スレッドを16種から40種へ増やす（2026-08-02 に『スレッド40種ってどうなった？』→『ワークフロー組んで進めて』と再要求）（2026-08-02） | ThreadType の enum 定数は 16 個（EMPTY 含む、CMD 300001〜300016）のまま。増種の痕跡なし。過去の棚卸しでも『判断待ち（今回やらない）』として据え置かれている | fork-handoff/arspaper/fork/src/main/java/com/arspaper/item/ThreadType.java: `^    [A-Z_]*(` のマッチ数 = 16（EMPTY..BACKPACK, 300001〜300016） |
+| LOW | 意図的に見送り | skilltree config の「説明 (表示のみ／挙動なし)」を説明に統合し、自由にパーク説明を入力できるようにする（2026-07-18） | 機構は実装済み（SkillNode.java:10-11 が description → effect-text のフォールバックで読む。NativeSkillTreeMenu.java:390-393 が GUI へ表示）。ただし旧 `effects:` リストは統合先に含まれず、SkillNode.java:14-16 に「legacy, now-unread」と明記されたまま出荷 yml に 153 件残っている。editor 側も tf-skill… | grep "^\s*effects:" TrinityForge/src/main/resources/skilltree/*.yml → 153件 / TrinityForge/src/main/java/com/trinityforge/skilltree/SkillNode.java:14-16 / TrinityForge/src/main/java/com/trinityforge/co… |
+| LOW | 部分実装 | 「まずアイテムカタログにvalhallaに存在した武器を同一のレシピで木~ネザライトまで作成」(2026-07-22T21:46)のうち戦斧(axe_tf)系、および「上記武器＋バニラの武器/ツールにソースジェムの**を作成」のソースジェム派生（2026-07-22） | 戦斧は WOODEN_AXE/STONE_AXE/COPPER_AXE/GOLDEN_AXE/IRON_AXE 素材の5件が CMD 77-81 付きで存在するが、これらの素材の items/*.json がパックに1件も無い(DIAMOND_AXE/NETHERITE_AXE はファイルがあるがエントリがバニラモデルへ落ちている)。ソースジェム派生も source_gem_dagger(1106)/rapier(1107)/warhammer(1109)… | catalog.yml:956-969 (wooden_axe_tf material: WOODEN_AXE, custom-model-data: 77) / items/ に wooden_axe.json・stone_axe.json・copper_axe.json・golden_axe.json・iron_axe.json 不在 / diamond_sword.json の thresh… |
+| LOW | 部分実装 | アクティブスキル基盤を全セッションのプランに従って実装（高速破壊II/III の CT 短縮、持続時間・ヘイスト量を tier でカスタム設定可能に、など）（2026-07-24） | 基盤は完成（active/ 10クラス、ActivationDispatcher:82 のスニーク判定、ActiveSkillCooldownKeys の <id>-cooldown-reduction、mining.yml A-1/A-2/A-3 の tier 1/3/5）。ただし ActiveSkillRegistry へ登録されている実スキルは haste-active-mining ただ1本のみ | TrinityForge/src/main/java/com/trinityforge/TrinityForge.java:836 `activeSkillRegistry.register(new HasteActiveSkill(...))` が唯一の register 呼び出し（`grep -n "activeSkillRegistry.register"` ヒット1件） |
+| LOW | 意図的に見送り | 農業ギミックで『その他のパラメータと数値』の設定欄にも tier があったほうがいいのでは（2026-07-26） | FarmingGimmickConfig は area-harvest だけ TierTable を持ち、farming-gimmick.yml も area-harvest にしか tiers: が無い。当時の担当エージェントが『Java が tier 非対応なので死にUIは作らない』と明示的に見送った判断が残っている（その後 durability-exp / potion-merge / xp-bottle-store は tier 化されたが、農業側… | TrinityForge/src/main/java/com/trinityforge/config/domains/FarmingGimmickConfig.java:43-44,66-67,106（TierTable は areaHarvestTiers のみ）/ TrinityForge/src/main/resources/stats/farming-gimmick.yml:11-26（t… |
+| LOW | 判断待ち | 統合版でオフハンドに持った時、大斧が右手と体一つ分右に、レイピアやメイスが右手にある(一部アイテムは左手にちゃんとある)（2026-07-26） | 原理(Bedrockは左腕アタッチャブルをミラーしない → オフハンドもX反転が必要)は docs/agent-context/bedrock-geyser.md:101-107 に恒久知識として記録済み。ただし変換ツール・Bedrock 側パックの実体がこのリポジトリ内に存在せず(bedrock/j2b 関連の成果物 find = 0件)、修正が適用されたことをリポジトリ内で裏取りできない。ユーザーの最終報告(07-26 09:23)以降の修正証跡も無い | docs/agent-context/bedrock-geyser.md:101-107(原理の記録のみ)。リポジトリ全体の `*bedrock*` / `*j2b*` find 結果は docs 1件と EliteMobs のビルドキャッシュのみで、変換成果物・スクリプトは0件 |
+| LOW | 判断待ち | geyserExtraα の AttachableGenerationConfig から firstPersonTranslationFrame / faceUvRotation / rainbowFirstPersonMapping / mirrorOffHandTranslation / debugDumpArtifacts の5キーを削除し定数へ焼き込む（frame は ZXY）。Rainbow 単一ボーン経路と debug dump の死にコードも削除。firstPersonHeightOffset は残す（2026-07-27） | AttachableGenerationConfig / firstPersonHeightOffset はこのリポジトリのどこにも存在せず（ヒットは tmp/user-requests-*.md の依頼文のみ）、geyserExtra のソースはリポジトリ外にあるため実装状態を検証できない | `grep -rn "AttachableGenerationConfig／firstPersonHeightOffset" .` → tmp/user-requests-05.md:6,15 と tmp/user-requests-all.md のみ（実コード0件） |
+| LOW | 部分実装 | スキルEXP獲得 (skill-exp) config の項目名にIDが混ざっているカードがある問題を修正（2026-07-27） | SKILL_LABELS に 3 件（spot-diminishing/gathering/level-diminishing）は追加されたが、skill-exp.yml の残り2セクション `daily-diminishing` と `combat` は辞書に無く、skillLabel() のフォールバックで生IDがそのままカード見出しになる。両セクションとも曲線を持たないので必ず独立カードとして描画される | tools/config-editor/public/js/tf-forms.js:536-539 の SKILL_LABELS に "daily-diminishing"/"combat" が無い（`grep -n "daily-diminishing\／\"combat\"" tf-forms.js` → 0件）/ tf-forms.js:540 `return SKILL_LABELS[id… |
+| LOW | 判断待ち | 統合版でバニラのツールの持ち方がアイテム持ちになってしまっている（+ 「モデルの有無」だけで判定する形に寄せて配備まで）（2026-07-28） | 正解の手段は恒久知識に記録されているが、実装先の geyserExtra はリポジトリ外のため適用済みかを検証できない。TF 側にも resourcepack 側にも該当処理は無い | docs/agent-context/bedrock-geyser.md:86 「手持ちポーズ → CustomItemBedrockOptions.displayHandheld(true) を明示する」／`grep -rn displayHandheld` の実コードヒットは 0 件（docs のみ） |
+| LOW | 部分実装 | アイテムステータスやアイテムカテゴリのページを操作しているとたまにページのアイテムリストがすべて消滅する、カテゴリタブから下がページ内に複製される不具合（2026-07-28） | 同時期に報告された「カテゴリを切り替えても絞り込まれない」（WeakMap の host 取り違え）は 4fa7a53 で修正済みだが、「リストが全消滅する」「カテゴリタブから下が複製される」に対応する修正は split-views.js / item-stats-hub.js の履歴に見当たらない | `git log --all --since=2026-07-28 -- tools/config-editor/public/js/split-views.js tools/config-editor/public/js/item-stats-hub.js` → 4fa7a53 の1件のみ（カテゴリ絞り込み host 取り違えの修正）／reports/ACTIVE_RECORD.md:1150-… |
+| LOW | 部分実装 | 現状EMのダンジョンごとの素材やバニラの敵を倒すメリットがない。バニラの敵やEMの敵にそれぞれ倒すメリットを作成（2026-07-31） | レベル帯単位の add-drops は実装・投入済み(帯0/10/25/45/65/85 にガチャ券と討伐素材13種)。一方で mob-overrides.yml のモブ別 drops は 371件が `drops: []` の空で、中身があるのは26件のみ。つまり『同じレベル帯なら何を倒しても同じ』状態が大半で、ダンジョンごと・モブごとの差別化はほぼ無い | TrinityForge/src/main/resources/combat/mob-overrides.yml: `drops: []` の grep 件数 371 / `drops:`(非空) の grep 件数 26。帯側は combat/mob-level-table.yml の min-level 0/10/25/45/65/85 に add-drops あり |
+| LOW | 部分実装 | スレッドの固定ステは『ステータス設定の固定ステ(fixed)、品質別上昇値、ランダムロールステ、高度なオプションを組み合わせて作れるはず』（2026-07-31） | 受け皿の機構は存在する(thread-sets.yml のコメントが『item-stats.yml にそのキーで fixed: を書けばスレ単体のステになる』と明記)が、item-stats.yml に該当キーが1件も無い。結果としてスレッドのステは今も100%ランダムロール由来で、『固定ステ1〜2＋ロールステ2〜5』という指定の構成になっていない | TrinityForge/src/main/resources/stats/item-stats.yml の `ARMOR_TRIM_SMITHING_TEMPLATE` grep 件数 = 0。受け皿の説明は fork-handoff/arspaper/fork/src/main/resources/thread-sets.yml:8-14 |
+| LOW | 部分実装 | 素材返還率と材料節約率は同じでは？（違うなら見分けが付くようにしてほしい趣旨の指摘）（2026-08-01） | 実装上は別物（material-refund-chance = ArsPaper 儀式ペデスタルの素材返却 / ingredient-save-chance = 醸造の材料節約）だが、lore.yml の material-refund-chance は `when: ON_CRAFT` と宣言されており、作業台クラフト側に消費者は1件も無い（TF Java の grep で consumer ゼロ、実消費は fork の RitualManager のみ… | TrinityForge/src/main/resources/stats/lore.yml:1329-1344 (`material-refund-chance` / `when: ON_CRAFT`) / TF Java 側の consumer grep（`MATERIAL_REFUND／materialRefund`）→ 0件、参照は StatVocabulary・PercentStatNo… |
+
+### この棚卸しで判明した、記録側の誤り2件（重要）
+
+- **設計プラン §5-4 の「スレッド40種化は B-4（強化レベル）と PDC を取り合うので同時にやれ」は事実ではない。**
+  装着データは装備 PDC の `THREAD_SLOTS`（スレッドIDのJSON配列）、厳選値は `THREAD_SLOT_ROLLS`
+  （`"<rarity>|<main>|<subs>"`）で**別キー**。40種化が増やすのは `THREAD_SLOTS` に入る値の種類だけで
+  フォーマットを変えない。**両者は独立に着手できる**（同時にやる利点はフォーク再ビルド・再配備が1回で済むことだけ）。
+  40種化を B-4 の判断待ちにしていた根拠は消えた。
+- **柱3-A は「完了」ではなかった。** A-1（枠拡張儀式）・A-2（振り直しに芯を要求）・A-4（stat-caps）は
+  入っていたが、**A-3（一括分解）だけが入っていなかった**。2026-08-02 に `df3f247` で解決。
+
+### スレッド40種化で踏んではいけない罠（実装前に必ず読む）
+
+- **スレッド単体のステを `stats/item-stats.yml` の `MATERIAL#CMD` に書いてはいけない。**
+  `ArmorManaListener` はソケット済みスレッドについてここを読むが、**同じエントリを TF の
+  `PlayerStatAggregator#aggregate` がメインハンド寄与としても無条件に読む**（材質フィルタが無く、
+  トリム鍛冶型・陶器の欠片は `EquipmentSlotResolver` で ANY に落ちる）。結果
+  **スレッドを装備に挿さず手に持つだけで gacha-rate-bonus / enchant-luck / disassembly-return-bonus 等が乗る**
+  （ガチャ・エンチャ・解体は手に何を持っていても実行できる経路なので実効する）。
+  現在 item-stats.yml に thread の行は **0件**＝この穴はまだ開いていない。開けないこと。
+  正しい経路は `thread-sets.yml` の `thresholds` の**1段目を 1 にする**（ソケット済みしか数えないので手持ちでは発動しない）。
+- **addon チャネルが素通しするのは `attack-speed-bonus` だけ。**`max-health` / `move-speed` /
+  `attack-reach` / `knockback-resistance` / `thread-slots` を thread-sets に書いても**無言で効かない**（ATTRIBUTE チャネル）。
+- **`ThreadType#fromId` は `water_breathing` / `spell_power` を明示的に null 返しする後方互換分岐を持つ。
+  この2つの id は絶対に再利用しない**（古い PDC が無言で復活する）。
+- **id に `hit` を含めてはいけない。**`ThreadConfig.java:82` の `recovery` 振り分けが `key.contains("hit")`
+  という文字列判定で、`hit` を含まない id に `recovery:` を書くと**無言で攻撃時マナ回復に化ける**。
+- **`threads.yml` の `display_name:` は誰も読んでいない**（表示名は enum が正）。既存16件のものは飾り。
+- **`mana-max-percent` / `regen-percent` は ThreadConfig も ManaManager も配線済みなのに、
+  出荷 `threads.yml` に1件も書かれていない完全な遊休レバー。**
+- **層は「3層」ではなく実質7層**: enum / `threads.yml` / **`thread-sets.yml`** / `catalog.yml`(+`itemTabs`) /
+  `cmd-registry.json` / config-editor(`p5-forms.js` の `KNOWN_THREADS`) / **`achievements.yml`**。
+  `ShippedAchievementTreeTest:239` が `assertEquals(16, ...)` で件数を固定しており、
+  **`thread_all` は他ノードの綴りチェック用の「既知IDの基準表」も兼ねている**ので、
+  40件に直さないと新規IDを他ノードに書いた瞬間落ちる。
+- CMD の空き: **300017〜300999 が丸ごと空き**（現行は 300001-300016 の16件のみ）。
+  材質は未使用のトリム鍛冶型2種（FLOW / BOLT）＋**陶器の欠片23種・旗の模様10種が使用ゼロ**なので、
+  24種すべてに固有アイコンを与えられる。**スレッドはリソパのモデル json を1件も持たない**ので
+  テクスチャ作業は不要（材質を散らせば見た目は分かれる）。
