@@ -23,6 +23,7 @@ import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.type.Beehive;
 import org.bukkit.block.data.type.CaveVinesPlant;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -145,7 +146,7 @@ public final class NativeSkillExperienceListener implements Listener {
         Player player = event.getPlayer();
         if (excluded(player)) return;
         Block block = event.getBlock();
-        if (placedBlockTracker.clearIfPlaced(block)) return;
+        if (blockedByPlaceBreakGuard(block)) return;
         ItemStack tool = player.getInventory().getItemInMainHand();
         // 破壊時バニラEXPは「どの採取スキルとして扱われた破壊か」でツリーを絞る必要があるので、
         // grantGathering が確定させたスキルIDをそのまま受け取る(null=採取扱いでない破壊)。
@@ -171,8 +172,8 @@ public final class NativeSkillExperienceListener implements Listener {
      */
     public void grantChainBreak(Player player, Block block, Collection<ItemStack> drops, ItemStack tool) {
         if (player == null || block == null || excluded(player)) return;
-        // 設置ブロックの連鎖破壊はEXP対象外(起点と同じ規則)。
-        if (placedBlockTracker.clearIfPlaced(block)) return;
+        // 設置ブロックの連鎖破壊はEXP対象外(起点と同じ規則、成熟ガード作物の例外も同じ)。
+        if (blockedByPlaceBreakGuard(block)) return;
         grantGathering(player, block, drops, false, tool);
     }
 
@@ -208,12 +209,40 @@ public final class NativeSkillExperienceListener implements Listener {
         Player player = responsiblePlayer(event.getEntity());
         if (player == null || excluded(player)) return;
         for (Block block : event.blockList()) {
-            if (placedBlockTracker.clearIfPlaced(block)) continue;
+            if (blockedByPlaceBreakGuard(block)) continue;
             // 爆破採掘には使用可能レベル連動EXPを掛けない(tool=null)。ツールで壊していないので
             // 「使用したツールの使用可能レベル」という要件の前提を満たさないし、高レベルツルハシを
             // 持ったままTNTを起爆するだけで倍率が乗る抜け道にもなるため。
             grantGathering(player, block, block.getDrops(), true, null);
         }
+    }
+
+    /**
+     * 「置いてから壊す」EXPファーム対策の判定(2026-08-03 実サーバ報告の修正)。
+     *
+     * <p><b>成熟ガード対象の作物({@link CropMaturity#isMaturityGated})は必ず例外にする</b>:
+     * 小麦/ニンジン/ジャガイモ/ビートルート/ネザーウォート/ココア/スイートベリー等は
+     * <b>プレイヤーが種を植えることでしか存在しない</b>ため、種の設置が {@code BlockPlaceEvent} を
+     * 通って {@link PlacedBlockTracker} に必ずマークを付ける。ここで設置マークをそのまま
+     * ガードに使うと、<b>自分の畑で育てて収穫した作物が(例外なく)EXP対象から除外される</b>
+     * ——農業というスキルの主経路そのものが常時0EXPになるバグだった
+     * (`onBlockBreak`/`grantChainBreak`/`onEntityExplode` の3経路すべてが同じ書き方だったため
+     * 単体破壊・一括収穫・爆破のいずれでも再現した)。同種のガードを先に実装していた
+     * {@link FarmingGimmickListener#passesFarmingAntiLoopGuard} は最初からこの例外を持っており、
+     * 本メソッドはそれと同じ規則をEXP経路にも揃える。
+     *
+     * <p>成熟ガード対象の作物は代わりに {@link #grantGathering} 内の
+     * {@link CropMaturity#isImmatureCrop} が「植えた直後(age0)を壊しても付与しない」という
+     * 別の抑止を既に持っているため、設置マークで弾かなくても「種を植えて即壊す」ループへの
+     * 耐性は失われない(成長時間が実質のレート制限になる)。
+     *
+     * <p>それ以外のブロック(石/丸太/土等、および成熟の概念を持たない植物)は
+     * 従来通り設置マークで弾く。マークは(ヒットしたときは常に){@link PlacedBlockTracker#clearIfPlaced}
+     * で消費するので、成熟ガード作物であっても記録自体は溜め続けない。
+     */
+    private boolean blockedByPlaceBreakGuard(Block block) {
+        boolean wasPlaced = placedBlockTracker.clearIfPlaced(block);
+        return wasPlaced && !CropMaturity.isMaturityGated(block.getType());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -296,11 +325,21 @@ public final class NativeSkillExperienceListener implements Listener {
     /**
      * Valhalla {@code farming.entity_drops}: only species listed by the editable breed table are
      * farming mobs; their configured drop values are multiplied by actual stack amounts.
+     *
+     * <p><b>敵対除外(2026-08-03)</b>: {@code entity_breed}の表は「配合可能な生物」の一覧であって
+     * 「敵対しない家畜」の一覧ではない。HOGLIN はクリムゾン菌糸で配合できる({@code Animals}実装)が
+     * 実際は Paper の {@code Enemy}(=敵対)でもあるため、この表に載っているだけで討伐時に農業EXPが
+     * 出ていた({@link com.trinityforge.farming.AnimalDamagePolicy}と同種の
+     * Monster/Animals誤判定罠、{@code Monster}/{@code Enemy}の判定は必ずPaperの{@code Enemy}で行う)。
+     * 討伐対象が{@code Enemy}なら家畜討伐EXPの対象から除外する。ZOGLIN は{@code entity_breed}に
+     * 未掲載のため元々このゲートを通らないが、将来同表へ敵対モブが追加された場合の保険として
+     * ここでも弾く。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFarmingMobDeath(EntityDeathEvent event) {
         Player killer = event.getEntity().getKiller();
         if (killer == null || excluded(killer)) return;
+        if (event.getEntity() instanceof Enemy) return;
         SkillCatalogEntry farming = catalog.get(SkillId.FARMING);
         if (farming == null
                 || farming.expFor("entity_breed", event.getEntityType().name()) <= 0.0) {

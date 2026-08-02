@@ -106,13 +106,65 @@ class NativeSkillExperienceListenerCropMaturityTest {
         verify(fixture.player()).giveExp(1);
     }
 
+    /**
+     * 2026-08-03 実サーバ報告の回帰: 作物は必ずプレイヤーが種を植える({@code BlockPlaceEvent} を通り
+     * {@link PlacedBlockTracker} に必ずマークが付く)ため、置く→壊すEXPファーム対策の設置マーク
+     * ({@code clearIfPlaced})をそのままガードに使うと<b>自分の畑で収穫した完熟作物が例外なく
+     * EXP対象から除外される</b>——農業というスキルの主経路そのものが常時0EXPになっていた
+     * (ジャガイモ報告の真因)。成熟ガード対象の作物は設置マークがあってもEXPが入ること、
+     * かつ未成熟なら(設置マークの有無に関わらず)従来通り0のままであることを両方縛る。
+     */
+    @Test
+    void matureCropPlacedByPlayerStillGrantsFarmingExp() {
+        Fixture fixture = fixture();
+        Block carrots = ageableBlock(Material.CARROTS, 7, 7, Material.CARROT, fixture.player());
+        when(fixture.placedBlockTracker().clearIfPlaced(carrots)).thenReturn(true);
+
+        fixture.listener().onBlockBreak(breakEvent(carrots, fixture.player()));
+
+        verify(fixture.dispatcher()).grant(fixture.player().getUniqueId(), SkillId.FARMING, 10.0);
+        verify(fixture.player()).giveExp(1);
+    }
+
+    @Test
+    void immatureCropPlacedByPlayerStillGrantsNothing() {
+        Fixture fixture = fixture();
+        Block carrots = ageableBlock(Material.CARROTS, 3, 7, Material.CARROT, fixture.player());
+        when(fixture.placedBlockTracker().clearIfPlaced(carrots)).thenReturn(true);
+
+        fixture.listener().onBlockBreak(breakEvent(carrots, fixture.player()));
+
+        verify(fixture.dispatcher(), never()).grant(org.mockito.ArgumentMatchers.any(), anyString(),
+                org.mockito.ArgumentMatchers.anyDouble());
+        verify(fixture.player(), never()).giveExp(anyInt());
+    }
+
+    /**
+     * 対照実験: 成熟ガード対象<b>ではない</b>ブロック(=サトウキビ等)は、従来通り設置マークが
+     * あればEXPを弾く。この例外は「必ずプレイヤーが植える成熟作物」だけに絞られていることを固定する
+     * (掘削/採掘/伐採の「置く→壊す」ファーム対策を骨抜きにしていないことの回帰)。
+     */
+    @Test
+    void placedSugarCaneStillBlockedByPlaceBreakGuard() {
+        Fixture fixture = fixture();
+        Block cane = ageableBlock(Material.SUGAR_CANE, 15, 15, Material.SUGAR_CANE, fixture.player());
+        when(fixture.placedBlockTracker().clearIfPlaced(cane)).thenReturn(true);
+
+        fixture.listener().onBlockBreak(breakEvent(cane, fixture.player()));
+
+        verify(fixture.dispatcher(), never()).grant(org.mockito.ArgumentMatchers.any(), anyString(),
+                org.mockito.ArgumentMatchers.anyDouble());
+        verify(fixture.player(), never()).giveExp(anyInt());
+    }
+
     // ============================================================
     // 組み立て
     // ============================================================
 
     private record Fixture(NativeSkillExperienceListener listener,
                            NativeExperienceDispatcher dispatcher,
-                           Player player) {
+                           Player player,
+                           PlacedBlockTracker placedBlockTracker) {
     }
 
     private static Fixture fixture() {
@@ -135,7 +187,7 @@ class NativeSkillExperienceListenerCropMaturityTest {
 
         NativeSkillExperienceListener listener = new NativeSkillExperienceListener(
                 fakePlugin(), dispatcher, catalog, placedBlockTracker, null, dedicatedEffects, aggregator);
-        return new Fixture(listener, dispatcher, player);
+        return new Fixture(listener, dispatcher, player, placedBlockTracker);
     }
 
     private static Player player() {

@@ -91,6 +91,90 @@ config-editorのskilltree UIには専用フォーム（`buildSkillTreeForm`, `pu
 
 `stats/item-stats.yml`は採取ツール（斧・ツルハシ等）にも`use-skill: WOODCUTTING`/`MINING`/`DIGGING`/`FARMING`/`FISHING`を持たせている（使用可能レベルのゲート用）。**「メインハンドのuse-skillをそのまま付与先スキルにする」実装は、採取ツールで殴っただけで採取スキルEXPが入るバグになる**（`CombatListener#maybeGrantCombatSkillExp`で実際に発生）。戦闘EXPの付与先は**必ずHEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERYの3つへ明示的に絞る**こと（`CombatListener#isCombatWeaponSkill`）。`ARS_MAGIC`は`grantMagicExp`という別経路なので混ぜると二重付与になる。「道具で殴ったら代わりに戦闘スキルを与える」フォールバックは意図的に入れない。
 
+### ⚠️ `skills/base/*_progression.yml` はサーバ上では「無ければ種まき」専用。resources を直しても既存サーバには効かない
+
+`NativeSkillCatalog`（`progression/catalog/NativeSkillCatalog.java`）の javadoc に明記の通り、**実行時の真源は
+`plugins/TrinityForge/skills/base/*.yml`（データフォルダ）** で、jar 同梱の `skills/base/*.yml` は
+`seedDefaults()` が**そのファイルが存在しないときにだけ**コピーする一度きりの初期値。既に一度起動した
+サーバはデータフォルダ側のコピーを使い続けるため、**resources 側の値を直して再ビルド・再配備しても、
+既存プレイヤーが載っているサーバの挙動は変わらない**（対象ファイルを手動削除して再生成させるか、
+値を手動でマージする必要がある）。「resources を直したのに実機で再現する」と報告されたら、まず
+配備先の実ファイルが古いままでないかを疑うこと（`reload(dataFolder, classLoader)` は既存ファイルの
+値をそのまま使う経路で、seed はしない）。※ただしこれは「値が古い」場合の話であり、**配備先が
+resources と完全一致している（mtime/サイズ一致）のに実機で再現するなら、この節は原因ではない**
+——2026-08-03 のジャガイモEXP0報告はこのパターンで、値は最初から正しく、実行経路側のバグ
+（下記「置く→壊すガードが成熟作物を巻き込む」）が真因だった。
+
+### ⚠️⚠️ `PlacedBlockTracker` の「置く→壊すEXPファーム対策」が成熟作物を巻き込むと、自作の畑が恒久的に0EXPになる
+
+**症状**: config（`skills/base/farming_progression.yml`）の値が完全に正しく、配備先ファイルも
+resources と一致しているのに、ジャガイモ/ニンジン/コムギ等を収穫しても農業EXPが一切入らない。
+`CropMaturity` の成熟判定も正しく動く。**「config は合っているのにEXPが0」というときは config を
+疑う前にこの節を疑うこと。**
+
+**機構**: `PlacedBlockTracker`（`listeners/PlacedBlockTracker.java`）は `BlockPlaceEvent` を通った
+座標を「設置ブロック」としてチャンクPDCへ記録し、`NativeSkillExperienceListener#onBlockBreak`
+（および `grantChainBreak`/`onEntityExplode`）は破壊のたびに `clearIfPlaced(block)` を呼んで、
+一致すれば**その破壊を丸ごとEXP対象外にする**——これは「石を置いて壊すだけの採掘EXPファーム」
+「原木を置いて壊すだけの伐採EXPファーム」を防ぐには正しい設計。しかし**成熟ガード対象の作物
+（`CropMaturity.MATURITY_GATED` = WHEAT/CARROTS/POTATOES/BEETROOTS/NETHER_WART/COCOA/
+SWEET_BERRY_BUSH/TORCHFLOWER_CROP/PITCHER_CROP/MELON_STEM/PUMPKIN_STEM）は必ずプレイヤーが
+種を植えることでしか存在しない**——種まきそのものが `BlockPlaceEvent` を通るため、**自分で育てて
+収穫した完熟作物は例外なく「設置ブロック」としてマークされ、農業スキルの主経路（単体破壊）が
+常時0EXPになっていた**（2026-08-03、ユーザー報告「ジャガイモ収穫でEXPが上がらない」の真因。
+コムギ/ニンジン/ビートルート/ネザーウォート/ココア/スイートベリー/カボチャ/スイカの茎も同型で
+同じ穴を持っていた）。
+
+**なぜ見落とされていたか**: 同種のガードを先に実装していた `FarmingGimmickListener`（drop-table
+抽選、2026-08-01新設）は最初からこの罠に気づいて分岐していた
+（`passesFarmingAntiLoopGuard`: 成熟ガード対象の作物は設置マークを見ず、代わりに完熟だけを要求する。
+それ以外は従来通り `isPlaced` で弾く）。しかし**同じ回避策が本体のEXP付与経路
+（`NativeSkillExperienceListener`）には一度もバックポートされておらず**、ドロップテーブルの
+ボーナスは出るのにEXPは出ない、という食い違った状態のまま出荷されていた。「別リスナーに正しい
+実装がある」ことは、それがコピーされているとは限らない一例。
+
+**修正**: `NativeSkillExperienceListener` に共通ヘルパー `blockedByPlaceBreakGuard(Block)` を作り、
+`onBlockBreak`/`grantChainBreak`/`onEntityExplode` の3経路すべてで
+`placedBlockTracker.clearIfPlaced(block)` を直接使うのをやめ、これを経由させた
+（`FarmingGimmickListener#passesFarmingAntiLoopGuard` と同じ規則: `CropMaturity.isMaturityGated`
+なら設置マークがあってもEXPを止めない。マーク自体は毎回消費するのでPDCが際限なく溜まることはない）。
+成熟ガード対象でない作物（サトウキビ/竹/コンブ等、`age`が周回するタイプ）は**従来通り設置マークで
+弾かれる**——これらは完熟の概念が無く壊すと手元に戻るので「置く→壊す」がノーコストで回るため、
+このガードを外してはいけない。回帰は `NativeSkillExperienceListenerCropMaturityTest`
+（`matureCropPlacedByPlayerStillGrantsFarmingExp`/`immatureCropPlacedByPlayerStillGrantsNothing`/
+`placedSugarCaneStillBlockedByPlaceBreakGuard`）が固定している。
+
+**教訓**: `PlacedBlockTracker` を新しい採取系リスナーに配線するときは、対象ブロックが
+「プレイヤーが種を植えることでしか存在しない（＝設置マークが必ず付く）」タイプかどうかを
+`CropMaturity.isMaturityGated` で確認すること。確認せずに掘削/採掘/伐採と同じ `isPlaced`/
+`clearIfPlaced` を素で使うと、そのブロックの主経路が恒久的に無効化される。
+
+### ⚠️ `block_interact` と `block_drops` はゲート方式が違う（1行完結 vs ブロック行=ゲート/ドロップ行=実量の2行制）
+
+`gatheringExp`（drop_sum モード）が読む `block_drops` は「ブロック名の行=ゲート（値>0か）、実際の
+EXPはドロップ材質名の行の合計」という2行制（下記節）。一方 `onFarmingInteract` が読む
+`block_interact`（右クリック収穫、`CAVE_VINES`/`CAVE_VINES_PLANT`＝グロウベリー摘み取り、
+`SWEET_BERRY_BUSH`、`BEEHIVE`/`BEE_NEST` 等）は**単一行が丸ごとEXP量**（ドロップ材質側の行を別途
+足す必要はない）。この2つの方式を混同して「ブロック行はゲート専用だから0でよい」と誤って
+`block_interact` 側を0のままにすると、`isHarvestableFarmingInteraction` の判定自体は true を返すのに
+EXPが常に0になる（2026-08-03、グロウベリーの `CAVE_VINES`/`CAVE_VINES_PLANT` が実際にこれで
+出荷 yml 上0のまま長期間出荷されていた）。値を触るときは、その action が
+`NativeSkillExperienceListener` のどちらの経路（`gatheringExp`系 or `dropActionExp`/直接`expFor`系）
+で読まれているかを先に確認すること。回帰は `NativeSkillCatalogTest#farmingRightClickHarvestGatesAreConfigured`
+が固定している。
+
+### ⚠️ 家畜討伐EXP（`entity_breed`ゲート）も Monster/Animals の罠を踏む——`entity_breed`は「配合可能」であって「非敵対」ではない
+
+`NativeSkillExperienceListener#onFarmingMobDeath`（`entity_drops`＝家畜討伐でドロップ材質に応じて
+FARMING EXPを配る経路）は、討伐対象が`entity_breed`表に載っているか（値>0）だけをゲートに使う。
+`entity_breed`はValhalla由来の「配合可能な生物」一覧であって「非敵対」の一覧ではないため、
+**HOGLIN のようにクリムゾン菌糸で配合できる(=`Animals`)が実際は Paper の `Enemy`(敵対)でもある種**は
+討伐しただけで農業EXPが入っていた(2026-08-03)。修正は `event.getEntity() instanceof Enemy` なら
+即除外（`AnimalDamagePolicy`と同じ「敵対判定は必ずPaperの`Enemy`」原則の適用）。`entity_breed`表に
+新しい生物を足すときは、配合可能かどうかだけでなく Paper API で実際に `Enemy` を実装していないか
+（`javap`で確認、記憶に頼らない）を必ず確認すること。ZOGLIN は現状この表に未掲載のため実害は無いが、
+`Monster`（→`Enemy`を継承）を実装するため将来同表に足すと同じ穴を踏む。
+
 ### ⚠️ 採取EXP表（`skills/base/*_progression.yml`）はブロック行だけでは効かないことがある
 
 出荷既定の`exp-mode: drop_sum`では、「ブロック名の行」はゲート判定（値>0か）専用であり、**実際に付与されるEXPはドロップしたアイテムの材質名に対する値の合計**。ブロックとドロップ品が同じ場合（大半）は1行で足りるが、`SEA_LANTERN`→`PRISMARINE_CRYSTALS`のように違う材質を落とすブロックは、**ドロップ側の行も足さないとEXP0のまま**（テラコッタが表から丸ごと抜けていて掘っても0だった実例あり）。ブロックを追加するたびに、実際のドロップ品目を確認して行を足す必要がある。シルクタッチ無しで何も落とさないブロック（氷等）はEXP0が正しい挙動。

@@ -158,6 +158,50 @@ class NativeSkillCatalogTest {
                 CATALOG.get(SkillId.DIGGING).expFor("archaeology_brush", "DIAMOND"));
     }
 
+    /**
+     * 2026-08-03 実サーバ報告の回帰: グロウベリー(CAVE_VINES_PLANT/CAVE_VINES への右クリック採取)は
+     * {@code onFarmingInteract}({@link com.trinityforge.listeners.NativeSkillExperienceListener})が
+     * {@code block_interact} 表のゲート値を見るが、出荷 yml で長らく 0 になっていたため
+     * {@code isHarvestableFarmingInteraction} が true を返しても EXP が常に 0 だった
+     * (ブロック行はゲート専用/実量はドロップ材質側という `block_drops` の規約と混同し、
+     * `block_interact` は単一行だけで完結する点を見落としたのが原因)。ジャガイモ/ニンジン/
+     * ビートルート等の {@code block_drops} 側(ブロック行=ゲート、ドロップ材質行=実量の2行制)は
+     * 出荷 yml で既に揃っているので、こちらは値の存在だけを固定する。
+     */
+    @Test
+    void farmingRightClickHarvestGatesAreConfigured() {
+        SkillCatalogEntry farming = CATALOG.get(SkillId.FARMING);
+        assertTrue(farming.expFor("block_interact", "CAVE_VINES_PLANT") > 0.0,
+                "グロウベリー(CAVE_VINES_PLANT右クリック採取)のEXPゲートが0のまま");
+        assertTrue(farming.expFor("block_interact", "CAVE_VINES") > 0.0,
+                "グロウベリー(CAVE_VINES右クリック採取)のEXPゲートが0のまま");
+        assertTrue(farming.expFor("block_interact", "SWEET_BERRY_BUSH") > 0.0);
+    }
+
+    /**
+     * {@code block_drops} は「ブロック行=ゲート専用、実量はドロップ材質行」の2行制
+     * ({@code drop_sum} モード)。ブロック行だけあってドロップ材質行が無いとゲートは通るのに
+     * 実量が0になる、という取りこぼしが起きやすいので主要作物を突き合わせて固定する。
+     */
+    @Test
+    void farmingBlockBreakGateAndDropRowsBothConfigured() {
+        SkillCatalogEntry farming = CATALOG.get(SkillId.FARMING);
+        assertTrue(farming.expFor("block_drops", "POTATOES") > 0.0, "POTATOES(ゲート)");
+        assertTrue(farming.expFor("block_drops", "POTATO") > 0.0, "POTATO(実量)");
+        assertTrue(farming.expFor("block_drops", "CARROTS") > 0.0, "CARROTS(ゲート)");
+        assertTrue(farming.expFor("block_drops", "CARROT") > 0.0, "CARROT(実量)");
+        assertTrue(farming.expFor("block_drops", "BEETROOTS") > 0.0, "BEETROOTS(ゲート)");
+        assertTrue(farming.expFor("block_drops", "BEETROOT") > 0.0, "BEETROOT(実量)");
+        assertTrue(farming.expFor("block_drops", "GLOW_BERRIES") > 0.0,
+                "GLOW_BERRIES(CAVE_VINES破壊時のドロップ実量)");
+        assertTrue(farming.expFor("block_drops", "SUGAR_CANE") > 0.0);
+        assertTrue(farming.expFor("block_drops", "BAMBOO") > 0.0);
+        assertTrue(farming.expFor("block_drops", "NETHER_WART") > 0.0);
+        assertTrue(farming.expFor("block_drops", "PUMPKIN") > 0.0);
+        assertTrue(farming.expFor("block_drops", "MELON") > 0.0);
+        assertTrue(farming.expFor("block_drops", "MELON_SLICE") > 0.0, "MELON(実量)");
+    }
+
     // ---- entries() view ----
 
     @Test
