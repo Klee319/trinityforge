@@ -3986,3 +3986,112 @@ quality=0 相当で従来どおり**、という fail-open が自然に満たさ
 - ArsPaper フォーク: **285 tests / 0 failed / 0 skipped**（ベースライン281 + 新規4）。
   **フォークは `.gitignore` 除外なのでこのリポジトリには入らない。`git clean` / `reset --hard` で
   消える**ので、配備前に必ずビルドすること。
+
+## 2026-08-02 バッチ13件（虚空右クリック / 増幅乗算化 / ダンジョン鍵 / 表示名 / スレッド厳選移設）
+
+ユーザー指摘13件を5レーン並列で処理した。**全件クローズ。ただし2件はサーバ上でのコマンド実行が残る**（末尾）。
+
+### 自分（オーケストレータ）の誤りの訂正
+
+- **「ダンジョン名の ID 表記は TF 側は既に正しい」と報告したのは誤り**だった。`gates.yml` に
+  `display-name` が61件並んでいるのを見て断定したが、**それは EM レーンが作業中に書き込んだ途中状態**で、
+  `git show HEAD:...` を引くと **HEAD には1件も無かった**。`DungeonEntryGui` もゲートID（＝行き先ワールド名）を
+  そのまま出していた。**共有ワークツリーで並行レーンが走っている間は、作業ツリーの状態を「既存の実装」と
+  読んではいけない**。裏取りは必ず `git show HEAD:<path>` で行うこと。
+
+### スレッド厳選を TF `item-stats.yml` へ一本化（レガシー削除）
+
+Ars 独自の `thread-rolls.yml` / `ThreadRollConfig` を**削除**し、TF 側 `stats/item-stats.yml` に
+第4の層 `random-roll-pools:` を新設（`RandomRollPool`）。既存の `random:`（`StatRange`）層は
+「列挙した全ステを毎回ロールする」だけで重み抽選・主/サブ別プール・レア度倍率を表現できないため、
+層を足す判断にした。**PDC の保存形式は旧 `ThreadRoll#encode()` とバイト互換**なので既存個体は無改修で読める。
+
+- **`__stats_thread__` タブが空だった真因**は config ミスではなく**配線漏れ**。
+  `_editor.itemTabs` / `categories.thread` / `orders.thread` は「タブに出すための明示ピン」で、
+  `window.inferItemCategory` の材質名フォールバックは weapon/armor/tool/other の4種しか返さない
+  （catalyst/spellbook/thread は構造的に対象外）。スレッド40件にピンを付け忘れていた。
+- **小数刻みロール（要件「小数点の該当桁単位でランダム化」）**: `RandomRollPool.decimalsOf/quantize` が
+  **authored な min/max の小数桁の大きい方**を刻みに採用する。なお「現状は整数単位のはず」という
+  前提は**誤りだった**（旧 `ThreadRollConfig#round` も既存 `random:` 層も整数専用ではなかった）。
+- **ツール系スレッド装着**: 純粋ツール（つるはし/シャベル/クワ/釣竿/ハサミ/火打石）に限り
+  「スニーク＋真上（pitch <= -80 度）＋右クリック」で `ThreadGui`。**斧は weapon/tool 両分類なので除外**。
+  `/ars thread` は保険として併存させた。
+
+### ステータス表示の桁（物理耐性 5.1935）— **表示ではなくデータの問題だった**
+
+`item-stats.yml` に `phys-resistance: 0.051935` が実在し（4箇所）、報告された数字と完全一致した。
+小数3桁以上の値は 1019 個あり、ジェネレータの生値がそのまま出荷されていた。
+**ゲーム内 lore は `lore.yml` で `decimals: 0` なので「+5%」と出る＝ユーザーが見たのは editor**。
+つまり表示側だけ丸めても config を開けば同じ数字が残る。
+
+- 4桁以上の **304 件を小数第3位へ丸めた**（3桁以下は「その粒度でロールする」という
+  意図的指定なので不変更）。差分ベースで検算し、**最大偏差 0.0005 / ゼロに潰れた値 0 件 / 符号反転 0 件**。
+- 併せて `LoreValueFormat` / `StatValueRenderer` に**表示側の桁キャップ**（PERCENT=1桁 / FLAT・SCALAR=2桁）を
+  安全網として入れた。データと表示の両方が入って初めて完結する。
+
+### 増幅（Amplify）を +10%/個の乗算へ
+
+旧仕様は**グリフ基礎ダメージへの固定値加算**で、杖の攻撃力は別途加算されるため、
+**最上位杖（attack-power 10584）では増幅5段でも +0.14%** という死にスキルだった。
+「グリフ側だけ乗算にする」修正では触媒ビルドの支配項（攻撃力）に効かないので、
+**攻撃力を加算合成した後の `effectiveBase` に掛ける**（既存 `glyph_damage_multiplier_bonus` と同じ層）。
+初期杖は旧仕様も +10%/段相当だったので**低tierの体感を変えずに高tierだけが直る**。
+上限は構造上の `max-augments: 6` が実効。安全弁として `max-damage-level: 10`。
+
+### ダンジョン（鍵の消費 / 名前 / ランキング / 難易度 / 入れない）
+
+- **鍵の消費が早すぎた**: TF の `DungeonTeleporter` は EM 委譲でも「委譲呼び出しが例外なく返った」を
+  成功として鍵を消費していた。ブラウザ型（EM ダンジョンの大半）ではそれは
+  **難易度選択GUIを開いただけ**なので、閉じると鍵だけ消える。委譲経路から消費を外し、
+  フォーク側の実潜入フックへ一本化。**`checkDungeonEntryAllowed` -> `checkRequiredEntry` と
+  `onPreTeleport` -> `checkEntry` の両方が実際に消費まで行う**ことを確認済み（消費しない `preview*` とは別メソッド）。
+- **ダンジョン名の ID 表記**は TF・EM の両方に原因。TF は `DungeonGate#displayName` を追加し
+  `gates.yml` 全61ゲートへ日本語名。EM は `WorldInstancedDungeonPackage`/`DynamicDungeonPackage` の
+  `doInstall` が `$name` に `getFilename()`（生ID）を埋めていた**非対称バグ**（`doUninstall` は元から `getName()`）。
+- **ダメージランキングが少なすぎた**: 集計点と確定点が**イベント優先度で1段ずれていた**。
+  EM が NORMAL で巻き戻したバニラ基礎値を積む一方、真の最終ダメージは HIGH の TF 側が後から計算していた。
+  MONITOR で `getFinalDamage()` との差分を補正。ヘイト精度も併せて直る。
+- **難易度選択（ミシック等）は効いている**（質問への回答）。`levelSync` による装備実効ティアの上限クランプ／
+  `difficultyID` によるエリートパワーのフィルタ／同じくドロップ表のフィルタの**3経路で消費**される。
+  ただし体感差は各ダンジョンYAMLが書き分けているか次第で、**ボスHP/攻撃力は TF 駆動の別軸**なので難易度では変わらない。
+
+### 虚空右クリック（ガチャ券・ダンジョンの鍵）— **診断は未確定。安全側に倒した**
+
+- 当初の診断「使用挙動を持たないアイテムは虚空右クリックで `ServerboundUseItemPacket` を送らない」は
+  **一次情報で裏付けられなかった**。確認できたのは PaperMC#5951 の「**完全な素手**なら発火しない」という
+  より狭い話だけ。**このリポジトリの `CombatListener` javadoc（左クリックについて確認済みの事実）を
+  右クリックへ無検証で横展開したのが誤り**だった。左右は vanilla 内部でも別経路。
+- `PlayerAnimationEvent`（腕振り）を使うフォールバック `VoidRightClickBridge` を入れたが、
+  **虚空への左クリック空振りは `PlayerInteractEvent` も `EntityDamageByEntityEvent` も発火しない**
+  （`CombatListener:811` に既出）ので、**ガードをすり抜けてガチャ券が消える**経路が残っていた。
+  → フォールバック経路は**抽選を即実行せず確認GUIを開くだけ**にし、消費・確定は
+  `InventoryClickEvent`（swing/interact と混同しようのない別系統）でのみ起きるようにした。
+  `Handler` インターフェースの javadoc に「この経路で取り返しのつかない確定処理をしてはいけない」を契約として明記。
+- **効くかどうかは実機で確認が必要**。診断が外れていれば「何も起きない」だけで害はない。
+
+### その他
+
+- **アレイ等の複製**: 旧実装は `getEquipment()` の6標準スロットだけ見ていた。Allay は `InventoryHolder` で
+  専用インベントリを持つため素通りしていた。`InventoryHolder` 一般で除外（Allay 決め打ちにしない）。
+- **ID 表記 -> 表示名**: TF は `CollectionEntryNames.itemName()` を共有解決器として `tf give` とガチャ当選へ適用。
+  editor は9ファイルで「表示名を主・IDを副（`entry-sum-id`）」へ統一。**editor から ID は消していない**
+  （yml を編集する道具なのでキーが見えなくなる方が害）。
+- **杖の会心**: `crit-chance` / `crit-damage` / `penetration` を杖11本へ付与。
+
+### この波の最終テスト結果
+
+- TF本体: **3556 tests / 1 failed / 2 skipped**。失敗は別セッションの未コミット `stats/skill-exp.yml`
+  （ARCHERY kill-exp 25->30）による `SkillExpConfigTest` で、この差分とは無関係。スキップ2件もベースライン同数。
+- editor: **1010 tests / 1001 pass / 9 fail**。9件は着手前からのベースラインで**名前も完全一致**。
+- ArsPaper フォーク: **287 tests / 0 failed / 0 skipped**（実ワークツリーで実走）。
+- EliteMobs フォーク: `shadowJar BUILD SUCCESSFUL`。**全同梱 uberjar**（magmacore 233 クラス／
+  `DungeonLocator` 同梱）であることを zip 検査で確認。`*-min.jar` は起動不能なので必ずこちら。
+
+### 配備前に残っている運用作業（**エージェントからは実行できない**）
+
+1. サーバ停止 -> `ops\launch\deploy.cmd --restart`（jar 3本）。稼働中の差し替えは必ず `NoClassDefFoundError`。
+2. `/em language japanese` — ダンジョン内の敵の発言が英語のまま出る件。EM 公式の日本語CSV
+   （26,303件中 97.7% が実翻訳）を取得・保存・reload まで一括で行う。**コードのバグではない**。
+3. Nightbreak コンテンツの取得 — エンチャント試練11-20 / ユグドラシルに入れない件。
+   当該コンテンツはダウンロード権限が無いとワールド設計図自体が存在しない。`gates.yml` 側は61件とも正しい。
+4. 実機確認: 虚空右クリックでガチャ券／鍵が使えるか（上記のとおり診断未確定）。

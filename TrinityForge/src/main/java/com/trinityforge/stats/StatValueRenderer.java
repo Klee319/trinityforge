@@ -26,8 +26,12 @@ public final class StatValueRenderer {
      */
     public static String render(StatDisplaySpec spec, double internalValue) {
         double value = spec.toDisplayValue(internalValue);
-        int decimals = Math.min(2, spec.decimals());
         LoreValueFormat format = spec.format();
+        // 桁数の上限は LoreValueFormat#cappedDecimals と共有する(2026-08-02、実サーバ報告
+        // 「物理耐性5.1935等→せめて5.2%にすべき」対応)。PERCENT/FLAT/SCALAR で個別に
+        // Math.min(2, ...) するとキーの種類ごとの妥当桁数を無視した固定上限になり、lore側の
+        // 上限(PERCENTは1桁)と食い違う — チャット/GUIと lore で桁数が食い違う既知の事故形と同型。
+        int decimals = format.cappedDecimals(spec.decimals());
         String text = switch (format) {
             case PERCENT -> {
                 double shown = truncate(Math.abs(value) * 100.0, decimals);

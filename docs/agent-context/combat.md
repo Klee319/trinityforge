@@ -140,6 +140,71 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 
 `stats.UseSkillDefaults` は装備ゲート用のテーブルで、`_AXE` 系を `HEAVY_WEAPONS` に分類する。これを採取（一括伐採・一括破壊等）のツール判定に流用すると、**素のバニラの斧で一括伐採ができなくなる**（斧＝伐採道具、という採取文脈の直感と矛盾する）。採取用には別の推論表（`gathering/GatheringToolMatcher`: `_PICKAXE`→MINING / `_AXE`→WOODCUTTING / `_SHOVEL`→DIGGING / `_HOE`→FARMING）を使う。判定規則は「use-skill タグがあればタグに従う／タグ無しの素のバニラ道具はマテリアル推論で許可」。
 
+### `random-roll-pools`（重み付き複数候補プールからの厳選抽選。2026-08-02 新設）
+
+`item-stats.yml` の既存 `random:`(`StatRange`)層は「列挙した全ステを毎回ロールする」だけで、
+**候補群から一部だけを重み抽選する・主ステとサブステで別プールを持つ・レア度で倍率を変える**
+という「厳選」の要件を満たせない（`DerivedItemStats#applyRandom` は列挙した stat を無条件に全部ロールする）。
+これを満たすため `com.trinityforge.stats.RandomRollPool`（`ItemStatsConfig#randomRollPoolFor`）を
+新設し、`item-stats.yml` トップレベルの `random-roll-pools:` セクションに置いた。個々のアイテムは
+`random-roll-pool: <poolId>` で紐付ける（`fixed`/`per-quality`/`random` とは独立な第4の層）。
+
+- **元は ArsPaper 独自の `thread-rolls.yml`**（スレッド専用の厳選テーブル）だった。2026-08-02 に
+  「エディタから設定できる／TF 側へ一本化」の依頼で `item-stats.yml` 側へ全面移設し、
+  `ThreadRollConfig`/`thread-rolls.yml` はフォークから削除した。ArsPaper 側は
+  `TrinityForgeBridge.rollThreadStats(material, cmd, quality)` → `RandomRollPool#roll` を叩き、
+  戻り値の `RolledStats#encode()` は旧 `ThreadRoll` の PDC 文字列フォーマットとバイト互換
+  （`<rarityId>|<mainKey>=<value>|<subKey>=<value>;...`）なので、**旧個体の PDC はそのまま
+  `ThreadRoll#decode` で読める**（fail-open: プール未解決/例外時は `rollThreadStats` が null を返し、
+  呼び出し側は「厳選なし」個体として扱う）。
+- **`armor-defense-rate` を候補に入れてはいけない**。物理ダメージの守備力減算率そのものなので、
+  ロール上限次第で物理ダメージを実質無効化できてしまう（`item-stats.yml` の
+  `random-roll-pools` ヘッダコメントに同じ警告あり。プールへ足す前にこのコメントを消さないこと）。
+- **decimal-step 量子化（roll した値を authored な min/max の小数桁に丸める）は 2026-08-02 の新規要件**。
+  旧 `ThreadRollConfig#round`（2〜4桁固定丸め）や既存の `random:` 層（丸めなし・完全連続値）は
+  どちらも「整数専用」ではなかった ── 「昔は整数刻みだったはず」という思い込みで調べずに実装すると、
+  存在しない過去の挙動に合わせて壊す。`RandomRollPool.decimalsOf(StatDef)` は authored な min/max
+  それぞれの小数桁数の**大きい方**(`BigDecimal.stripTrailingZeros().scale()`)を採用する
+  （`min: 0.5, max: 2.0` → 0.1刻み／`min: 1, max: 10` → 整数刻み）。quality-spread で広がった
+  実効レンジではなく、**authored な値から刻みを決める**点に注意（quality で刻みそのものは変わらない）。
+- **quality-spread は quality (0-100) を線形補間して min/max の非対称な幅を広げる**
+  （`low-shrink-at-max-quality` は下限をわずかに締め、`high-expand-at-max-quality` は上限を大きく
+  伸ばす。「厳選の沼」演出。品質0では常に authored のまま）。
+- config-editor 側は `tools/config-editor/public/js/p5-forms.js` の
+  `window.buildRandomRollPoolsForm`（複数プール対応。旧 `buildThreadRollsForm` を汎用化した後継）が
+  UI を持つ。`split-views.js` の `item-stats` 分岐で `itemCategory === "thread"` のときだけ
+  `buildItemStatsForm` の上に合成表示する（同じ `data` 参照を直接編集するので、保存は
+  `buildItemStatsForm#getData` の `{ ...working, items }` スプレッドに乗っかるだけで済み、
+  追加の `extraGets`/マージ処理は不要）。**この合成パターンを他プールへ複製するときは
+  `itemCategory` 名で分岐している箇所を必ず追う**（`__stats_thread__` 以外のタブに漏れ出さない
+  ようにするゲートがここにある）。
+- **item-stats.yml の `_editor.itemTabs`/`_editor.categories.<tab>`/`_editor.orders.<tab>` は
+  「タブに出すための明示ピン」であり、`window.inferItemCategory` の材質名フォールバックは
+  weapon/armor/tool/other の4種類しか返さない**（`catalyst`/`spellbook`/`thread` は
+  フォールバック対象外）。新しいアイテムを `catalyst`/`spellbook`/`thread` タブに出したいなら、
+  `_editor.itemTabs.<MATERIAL#CMD>: <tab>` のピンを明示的に足さないと、材質名フォールバックで
+  黙って `other`（補助タブ）に落ちる。40件のスレッドアイテムを `item-stats.yml` に追加した際、
+  このピンを付け忘れていたため `__stats_thread__` タブが「空に見える」不具合になっていた
+  （実際は `items:` には存在するが、表示タブの解決が別レイヤーだったのが原因）。
+
+## ステータス表示の桁数（lore / チャット / GUI 共通キャップ）
+
+`LoreValueFormat#render`（item lore）と `StatValueRenderer#render`（`/tf stats` チャット・
+`/tf status` GUI）は、**`decimals` に何が渡ってきても** `LoreValueFormat#cappedDecimals` で
+フォーマット種別ごとの上限へ丸める（PERCENT=1桁、FLAT/SCALAR=2桁、INTEGER=無制限＝丸め自体が整数）。
+`cappedDecimals` はパッケージ private で公開し、両レンダラーが同じ1メソッドを呼ぶ設計にしてある
+（2箇所で別々に `Math.min` すると桁数規約がドリフトし、lore とチャット/GUIで表示桁が食い違う
+既知の事故形になる）。**丸めるのは表示だけ**で、内部値（集計・キャップ判定に使う生値）は一切変えない。
+
+※2026-08-02 の実サーバ報告「物理耐性が `5.1935` のように出る（`5.2%` であるべき）」への対応。
+現行 `stats/lore.yml` の decimals 設定は全て PERCENT=0〜1・FLAT=0〜1 で運用されており、この
+上限を追加しても既存の表示値は変わらない。**この上限追加はあくまで防御的措置**であり、
+`5.1935%` を実際に出していたコード経路そのものは現行ソースからは特定できなかった
+（`RandomRollPool`/`ItemFactory`/`LoreComposer`/ArsPaper 側 `ThreadRoll.format()` を確認したが、
+いずれも `decimals<=1` かフォーマット済み文字列を返す実装だった）。古い(既に生成済みの)アイテムの
+lore がキャッシュされたまま残っている可能性があるため、再現した場合は該当アイテムを
+`/tf reload` 後に作り直して(再ロール/再生成して)再現するか確認すること。
+
 ## プレイヤー基礎ステータス（base-stats.yml）
 
 `combat/base-stats.yml` は全プレイヤーへの一律加算をconfigで定義する（空欄=バニラのまま）。`BaseStatsConfig`（`PercentStatNormalize.coerce` で RATE_KEYS のみ %→fraction 変換）が読み、`PlayerStatAggregator.aggregate()` の item マップへ role-buffs/permanent-buffs と同じ流儀で1レイヤ merge される。属性系（max-health等）は `PerkAttributeApplier` が ATTRIBUTE チャネルのみ attrs へ反映する。

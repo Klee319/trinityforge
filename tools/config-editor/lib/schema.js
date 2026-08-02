@@ -1123,58 +1123,10 @@ function validateTfGacha(data, errors) {
 }
 
 // ---- thread-rolls.yml (ars-thread-rolls) ----
-// スレッド1個ごとの厳選(主ステ1つ + サブステ0〜4つ)の抽選テーブル。
-// Java 側 ThreadRollConfig は「壊れている候補だけ捨てて残りで抽選する」fail-open なので、
-// ここでは「その設定のまま保存すると抽選が意図と変わる」ものだけをエラーにする。
-function validateArsThreadRolls(data, errors) {
-  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
-  if (data.enabled !== undefined && typeof data.enabled !== "boolean") {
-    errors.push("enabled: 真偽値である必要があります");
-  }
-  const rarities = data.rarities;
-  if (rarities !== undefined) {
-    if (!isPlainObject(rarities)) { errors.push("rarities はマップである必要があります"); }
-    else {
-      for (const [id, node] of Object.entries(rarities)) {
-        if (!isPlainObject(node)) { errors.push(`rarities.${id}: マップである必要があります`); continue; }
-        if (!isPositiveInt(node.weight)) errors.push(`rarities.${id}.weight: 1以上の整数である必要があります`);
-        if (node.multiplier !== undefined && (!isNumber(node.multiplier) || node.multiplier <= 0)) {
-          errors.push(`rarities.${id}.multiplier: 0より大きい数値である必要があります`);
-        }
-      }
-    }
-  }
-  for (const section of ["main-stats", "sub-stats"]) {
-    const pool = data[section];
-    if (pool === undefined) continue;
-    if (!isPlainObject(pool)) { errors.push(`${section} はマップである必要があります`); continue; }
-    for (const [stat, node] of Object.entries(pool)) {
-      if (!isPlainObject(node)) { errors.push(`${section}.${stat}: マップである必要があります`); continue; }
-      if (!isPositiveInt(node.weight)) errors.push(`${section}.${stat}.weight: 1以上の整数である必要があります`);
-      if (!isNumber(node.min)) errors.push(`${section}.${stat}.min: 数値である必要があります`);
-      if (!isNumber(node.max)) errors.push(`${section}.${stat}.max: 数値である必要があります`);
-      if (isNumber(node.min) && isNumber(node.max) && node.max < node.min) {
-        errors.push(`${section}.${stat}: max は min 以上である必要があります`);
-      }
-      if (isNumber(node.min) && isNumber(node.max) && node.min === 0 && node.max === 0) {
-        errors.push(`${section}.${stat}: min/max が両方0だとこの候補は抽選対象から外れます`);
-      }
-      if (node.percent !== undefined && typeof node.percent !== "boolean") {
-        errors.push(`${section}.${stat}.percent: 真偽値である必要があります`);
-      }
-    }
-  }
-  const subCount = data["sub-count"];
-  if (subCount !== undefined) {
-    if (!isPlainObject(subCount)) { errors.push("sub-count はマップである必要があります"); }
-    else {
-      for (const [count, weight] of Object.entries(subCount)) {
-        if (!/^\d+$/.test(String(count))) errors.push(`sub-count: 本数キー "${count}" は0以上の整数である必要があります`);
-        if (!isPositiveInt(weight)) errors.push(`sub-count.${count}: 1以上の整数である必要があります`);
-      }
-    }
-  }
-}
+// 2026-08-02: スレッド厳選(主ステ1つ + サブステ0〜4つの抽選テーブル)は ArsPaper 独自の
+// thread-rolls.yml から TrinityForge item-stats.yml の random-roll-pools セクションへ
+// 全面移設した。バリデーションは item-stats.yml 側のスキーマ(tf-item-stats)へ統合済みなので、
+// このファイル・スキーマ id は廃止(fork 側も thread-rolls.yml 自体を削除済み)。
 
 // ---- thread-sets.yml (ars-thread-sets) ----
 function validateArsThreadSets(data, errors) {
@@ -3342,9 +3294,6 @@ function validate(schemaType, data) {
       break;
     case "ars-thread-sets":
       validateArsThreadSets(data, errors);
-      break;
-    case "ars-thread-rolls":
-      validateArsThreadRolls(data, errors);
       break;
     case "tf-attribute-map":
       validateTfAttributeMap(data, errors);

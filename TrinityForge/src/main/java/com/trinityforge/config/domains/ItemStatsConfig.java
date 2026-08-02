@@ -6,6 +6,7 @@ import com.trinityforge.stats.ItemStatProfile;
 import com.trinityforge.stats.ItemUseRequirement;
 import com.trinityforge.stats.PercentStatNormalize;
 import com.trinityforge.stats.QualityRollModel;
+import com.trinityforge.stats.RandomRollPool;
 import com.trinityforge.stats.StatKeys;
 import com.trinityforge.stats.StatRange;
 import com.trinityforge.stats.UseSkillDefaults;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -56,6 +58,8 @@ public final class ItemStatsConfig {
     private static final String FALLBACK_ROOT = "fallback";
     private static final String FALLBACK_OVERRIDES_ROOT = "fallback-overrides";
     private static final String EDITOR_ROOT = "_editor";
+    // ランダムロールプール（旧 ArsPaper thread-rolls.yml の移設先、2026-08-02）。
+    private static final String RANDOM_ROLL_POOLS_ROOT = "random-roll-pools";
 
     // normalized item key ("MATERIAL" or "MATERIAL#cmd") -> overlay profile.
     private volatile Map<String, ItemStatProfile> profiles = Map.of();
@@ -76,6 +80,10 @@ public final class ItemStatsConfig {
     // normalized item key -> editor最上位タブ名 (weapon/armor/tool/...)。Materialだけでは分類できない
     // BOOKベース武器等を、属性適用時にも正しい装備スロットへ限定するために使う。
     private volatile Map<String, String> editorTopLevelCategoryByItem = Map.of();
+    // ランダムロールプール定義 (poolId -> pool)。random-roll-pools 直下。
+    private volatile Map<String, RandomRollPool> randomRollPools = Map.of();
+    // normalized item key -> poolId (アイテム個別の random-roll-pool: <id> 参照)。
+    private volatile Map<String, String> randomRollPoolByItem = Map.of();
     // Supplies the quality-dependent roll distribution for the `random` layer; null = no roll applied.
     // Wired once by ConfigManager so item-stats derivation can reach quality.yml's roll model without
     // threading it through every DerivedItemStats caller (mirrors QualityConfig#useEffectiveMaxOverride).
@@ -231,6 +239,37 @@ public final class ItemStatsConfig {
             }
         }
         return Optional.ofNullable(editorTopLevelCategoryByItem.get(base));
+    }
+
+    /**
+     * このアイテムに紐づくランダムロールプール（{@code random-roll-pool: <poolId>} 参照先）。
+     * {@code MATERIAL#cmd} が優先、無ければ素の {@code MATERIAL}。プールIDが未定義/typoの場合も
+     * {@link Optional#empty()}（fail-open ── 厳選が引けないだけでアイテム生成自体は止めない）。
+     *
+     * <p>ArsPaper のスレッド厳選（旧 {@code thread-rolls.yml}）はこの経路で解決する
+     * （{@code TrinityForgeBridge.rollThreadStats} 参照）。
+     */
+    public Optional<RandomRollPool> randomRollPoolFor(Material material, Integer customModelData) {
+        if (material == null) {
+            return Optional.empty();
+        }
+        String base = material.name();
+        String poolId = null;
+        if (customModelData != null) {
+            poolId = randomRollPoolByItem.get(base + "#" + customModelData);
+        }
+        if (poolId == null) {
+            poolId = randomRollPoolByItem.get(base);
+        }
+        if (poolId == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(randomRollPools.get(poolId));
+    }
+
+    /** Test/editor helper: プールID -> 定義(unmodifiable)。 */
+    public Map<String, RandomRollPool> randomRollPools() {
+        return randomRollPools;
     }
 
     /**
@@ -416,6 +455,7 @@ public final class ItemStatsConfig {
         Map<String, ItemStatProfile> parsed = new LinkedHashMap<>();
         Map<String, ItemUseRequirement> parsedUse = new LinkedHashMap<>();
         Map<String, Integer> parsedOffsets = new LinkedHashMap<>();
+        Map<String, String> parsedRollPoolByItem = new LinkedHashMap<>();
         int skipped = 0;
         ConfigurationSection root = yaml.getConfigurationSection(ROOT);
         if (root != null) {
@@ -449,6 +489,10 @@ public final class ItemStatsConfig {
                     if (offset != null) {
                         parsedOffsets.put(normalizedKey, offset);
                     }
+                    String poolId = entry.getString("random-roll-pool");
+                    if (poolId != null && !poolId.isBlank()) {
+                        parsedRollPoolByItem.put(normalizedKey, poolId.trim());
+                    }
                 } catch (IllegalArgumentException ex) {
                     log.log(Level.WARNING, "[" + PATH + "] item '" + rawKey + "' invalid: "
                             + ex.getMessage() + "; skipped");
@@ -459,6 +503,8 @@ public final class ItemStatsConfig {
         this.profiles = Collections.unmodifiableMap(parsed);
         this.useRequirements = Collections.unmodifiableMap(parsedUse);
         this.qualityModeOffsets = Collections.unmodifiableMap(parsedOffsets);
+        this.randomRollPoolByItem = Collections.unmodifiableMap(parsedRollPoolByItem);
+        this.randomRollPools = Collections.unmodifiableMap(parseRandomRollPools(yaml, log));
 
         // フォールバック: 旧形式 (fixed/per-quality/random 直下) + 新形式 (weapon/armor/... カテゴリ別)。
         ItemStatProfile legacyFallback = new ItemStatProfile(Map.of(), Map.of(), Map.of());
@@ -889,6 +935,119 @@ public final class ItemStatsConfig {
             chances.put(StatKeys.canonical(statKey), value);
         }
         return chances;
+    }
+
+    /**
+     * {@code random-roll-pools.<poolId>} を読む。1プールが壊れていてもそのプールだけ破棄して続行する
+     * （fail-open ── 厳選プールの typo でファイル全体のロードを止めない。壊れたプールを参照する
+     * アイテムは {@link #randomRollPoolFor} が単に空を返す）。
+     */
+    private static Map<String, RandomRollPool> parseRandomRollPools(YamlConfiguration yaml, Logger log) {
+        Map<String, RandomRollPool> out = new LinkedHashMap<>();
+        ConfigurationSection root = yaml.getConfigurationSection(RANDOM_ROLL_POOLS_ROOT);
+        if (root == null) {
+            return out;
+        }
+        for (String poolId : root.getKeys(false)) {
+            ConfigurationSection poolSec = root.getConfigurationSection(poolId);
+            if (poolSec == null) {
+                continue;
+            }
+            try {
+                out.put(poolId.trim(), parseRandomRollPool(poolSec));
+            } catch (IllegalArgumentException ex) {
+                log.log(Level.WARNING, "[" + PATH + "] random-roll-pools." + poolId + " が不正です: "
+                        + ex.getMessage() + "; このプールをスキップします");
+            }
+        }
+        return out;
+    }
+
+    private static RandomRollPool parseRandomRollPool(ConfigurationSection poolSec) {
+        List<RandomRollPool.Rarity> rarities = new java.util.ArrayList<>();
+        ConfigurationSection rarSec = poolSec.getConfigurationSection("rarities");
+        if (rarSec != null) {
+            for (String id : rarSec.getKeys(false)) {
+                ConfigurationSection entry = rarSec.getConfigurationSection(id);
+                if (entry == null) {
+                    continue;
+                }
+                int weight = entry.getInt("weight", 0);
+                if (weight <= 0) {
+                    continue;
+                }
+                double multiplier = entry.getDouble("multiplier", 1.0);
+                if (!Double.isFinite(multiplier) || multiplier <= 0.0) {
+                    multiplier = 1.0;
+                }
+                rarities.add(new RandomRollPool.Rarity(id, weight, multiplier,
+                        entry.getString("label", id), entry.getString("color")));
+            }
+        }
+        List<RandomRollPool.StatDef> mainStats = new java.util.ArrayList<>();
+        parseRollStatDefs(poolSec.getConfigurationSection("main-stats"), mainStats);
+        List<RandomRollPool.StatDef> subStats = new java.util.ArrayList<>();
+        parseRollStatDefs(poolSec.getConfigurationSection("sub-stats"), subStats);
+
+        Map<Integer, Integer> subCount = new LinkedHashMap<>();
+        ConfigurationSection countSection = poolSec.getConfigurationSection("sub-count");
+        if (countSection != null) {
+            for (String key : countSection.getKeys(false)) {
+                int count;
+                try {
+                    count = Integer.parseInt(key.trim());
+                } catch (NumberFormatException notInt) {
+                    continue;
+                }
+                int weight = countSection.getInt(key, 0);
+                if (count >= 0 && weight > 0) {
+                    subCount.put(count, weight);
+                }
+            }
+        }
+
+        ConfigurationSection qualitySection = poolSec.getConfigurationSection("quality-spread");
+        boolean qualitySpreadEnabled = qualitySection == null || qualitySection.getBoolean("enabled", true);
+        double lowShrink = qualitySection != null
+                ? qualitySection.getDouble("low-shrink-at-max-quality",
+                        RandomRollPool.DEFAULT_LOW_SHRINK_AT_MAX_QUALITY)
+                : RandomRollPool.DEFAULT_LOW_SHRINK_AT_MAX_QUALITY;
+        double highExpand = qualitySection != null
+                ? qualitySection.getDouble("high-expand-at-max-quality",
+                        RandomRollPool.DEFAULT_HIGH_EXPAND_AT_MAX_QUALITY)
+                : RandomRollPool.DEFAULT_HIGH_EXPAND_AT_MAX_QUALITY;
+        // 下限縮小率が1.0以上だと newMin<=0 を通り越して符号が反転しかねないので安全域へクランプする。
+        // 上限拡張率は負だと「品質が高いほど縮む」という要件と逆向きになるので0未満を切り捨てる。
+        double clampedLow = Double.isFinite(lowShrink)
+                ? Math.max(0.0, Math.min(0.95, lowShrink)) : RandomRollPool.DEFAULT_LOW_SHRINK_AT_MAX_QUALITY;
+        double clampedHigh = Double.isFinite(highExpand)
+                ? Math.max(0.0, highExpand) : RandomRollPool.DEFAULT_HIGH_EXPAND_AT_MAX_QUALITY;
+
+        return new RandomRollPool(rarities, mainStats, subStats, subCount,
+                qualitySpreadEnabled, clampedLow, clampedHigh);
+    }
+
+    private static void parseRollStatDefs(ConfigurationSection section, List<RandomRollPool.StatDef> out) {
+        if (section == null) {
+            return;
+        }
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection entry = section.getConfigurationSection(key);
+            if (entry == null) {
+                continue;
+            }
+            int weight = entry.getInt("weight", 0);
+            double min = entry.getDouble("min", 0.0);
+            double max = entry.getDouble("max", 0.0);
+            if (weight <= 0 || !Double.isFinite(min) || !Double.isFinite(max)) {
+                continue;
+            }
+            if (min == 0.0 && max == 0.0) {
+                continue;
+            }
+            boolean percent = entry.getBoolean("percent", false);
+            out.add(new RandomRollPool.StatDef(StatKeys.canonical(key), weight, min, max, percent));
+        }
     }
 
     private static ItemUseRequirement parseUseRequirement(ConfigurationSection entry) {

@@ -625,7 +625,8 @@
       "summon": "増援召喚 (summon)"
     },
     "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" },
-    // thread-rolls.yml rarities.<id>.color (Bukkit ChatColor 名)。日本語名は colors.js の
+    // item-stats.yml random-roll-pools.<poolId>.rarities.<id>.color (Bukkit ChatColor 名。
+    // 2026-08-02 に ArsPaper 独自の thread-rolls.yml から移設)。日本語名は colors.js の
     // MC_COLORS(&コード表)と同じ表記に揃える。
     "rarity-color": {
       "BLACK": "黒", "DARK_BLUE": "濃い青", "DARK_GREEN": "濃い緑", "DARK_AQUA": "濃い水色",

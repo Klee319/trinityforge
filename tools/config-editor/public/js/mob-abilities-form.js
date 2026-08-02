@@ -125,12 +125,15 @@
    * 候補に無い値も許すのは、バージョンで増えた EntityType / Sound を editor 側の
    * 語彙更新待ちにしないため。
    */
-  function idSelect(current, ids, onChange) {
+  // labels は省略可の { id -> 日本語名 } 辞書。渡さない場合は従来どおり生IDをそのまま出す
+  // (Sound のように既存のJA辞書が無いものは無理に作らない)。
+  function idSelect(current, ids, onChange, labels) {
     const cur = current == null ? "" : String(current);
     const CUSTOM = "__custom_id__";
-    const options = (ids || []).map((id) => ({ value: id, primary: id, secondary: "", title: id }));
+    const ja = (id) => (labels && labels[id]) || id;
+    const options = (ids || []).map((id) => ({ value: id, primary: ja(id), secondary: ja(id) === id ? "" : id, title: id }));
     if (cur && !(ids || []).includes(cur)) {
-      options.unshift({ value: cur, primary: cur, secondary: "(一覧外)", title: cur });
+      options.unshift({ value: cur, primary: ja(cur), secondary: ja(cur) === cur ? "(一覧外)" : cur, title: cur });
     }
     options.push({ value: CUSTOM, primary: "その他(自由入力)…", secondary: "" });
     return window.listSelect({
@@ -162,11 +165,11 @@
     return fieldRow(FIELD_LABELS[key] || key, input, { desc: FIELD_DESCS[key] });
   }
 
-  function textField(host, key, label, candidates, desc) {
+  function textField(host, key, label, candidates, desc, labels) {
     const control = candidates && candidates.length
       ? idSelect(host[key], candidates, (nv) => {
           if (!nv) delete host[key]; else host[key] = nv;
-        })
+        }, labels)
       : (() => {
           const input = h("input", {
             class: "field-input", value: host[key] == null ? "" : String(host[key])
@@ -194,7 +197,7 @@
         if (!effect || typeof effect !== "object") return;
         box.appendChild(h("div", { class: "stat-row" }, [
           h("span", { class: "range-label", text: "効果" }),
-          idSelect(effect.type, POTION_EFFECT_IDS, (nv) => { effect.type = nv; }),
+          idSelect(effect.type, POTION_EFFECT_IDS, (nv) => { effect.type = nv; }, window.POTION_EFFECT_LABELS_JA),
           h("span", { class: "range-label", text: "秒" }),
           (() => {
             const input = h("input", {
@@ -348,11 +351,13 @@
           if (key === "projectile") {
             body.appendChild(textField(entry, "projectile", "投射物 (projectile)",
               window.VANILLA_MOBS || null,
-              "EntityType 名。ARROW / SMALL_FIREBALL / WITHER_SKULL など。必須です。"));
+              "EntityType 名。ARROW / SMALL_FIREBALL / WITHER_SKULL など。必須です。",
+              window.MOB_LABELS_JA));
           } else if (key === "summon-type") {
             body.appendChild(textField(entry, "summon-type", "召喚するモブ (summon-type)",
               window.VANILLA_MOBS || null,
-              "EntityType 名。呼ばれた増援は呼び主と同じレベル帯で刻印されます。必須です。"));
+              "EntityType 名。呼ばれた増援は呼び主と同じレベル帯で刻印されます。必須です。",
+              window.MOB_LABELS_JA));
           } else {
             body.appendChild(numberField(entry, key));
           }
@@ -361,7 +366,8 @@
         body.appendChild(subTitle("演出"));
         body.appendChild(textField(entry, "particle", "パーティクル (particle)", window.VANILLA_PARTICLES || null,
           "データ必須の種類(FLASH / DUST / BLOCK / ITEM / ENTITY_EFFECT / SHRIEK / SCULK_CHARGE / VIBRATION 等)は"
-          + "書いても無視されます(データ引数なしで撃つと例外になり戦闘処理を道連れにするため)。"));
+          + "書いても無視されます(データ引数なしで撃つと例外になり戦闘処理を道連れにするため)。",
+          window.PARTICLE_LABELS_JA));
         body.appendChild(numberField(entry, "particle-count"));
         // Sound / PotionEffectType の一覧は editor 語彙に無いので自由入力。
         body.appendChild(textField(entry, "sound", "効果音 (sound)", null,

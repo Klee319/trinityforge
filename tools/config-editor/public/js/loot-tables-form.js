@@ -30,6 +30,20 @@
     if (typeof window.subTitleEl === "function") return window.subTitleEl(text, title);
     return h("div", { class: "sub-title", text });
   }
+  // entry.item(バニラMaterial または custom:<ID>)から表示名を解決する。
+  // 未登録なら生IDへフォールバックする(空欄化しない)。
+  function resolveItemDisplayLabel(item) {
+    const m = item == null ? "" : String(item);
+    if (!m) return "(未設定)";
+    if (/^custom:/i.test(m)) {
+      const labels = window.CUSTOM_ITEM_LABELS || {};
+      const ja = labels[m] || labels[m.toLowerCase()] || "";
+      return ja || m;
+    }
+    const L = window.LABELS;
+    const ja = L ? L.materialLabel(m) : "";
+    return ja || m;
+  }
   function uniqueKey(map, base) {
     if (!Object.prototype.hasOwnProperty.call(map, base)) return base;
     let i = 1;
@@ -227,7 +241,7 @@
         onclick: () => { list.splice(index, 1); onStructureChange(); }
       }));
       box.appendChild(card([
-        h("span", { class: "card-title", text: type === "enchant-book" ? "カスタムエンチャント本" : (entry.item || "(未設定)") }),
+        h("span", { class: "card-title", text: type === "enchant-book" ? "カスタムエンチャント本" : resolveItemDisplayLabel(entry.item) }),
         h("span", {
           class: "card-subtitle",
           text: (entry.chance == null ? 5 : Math.round(entry.chance * 1000) / 10) + "%"

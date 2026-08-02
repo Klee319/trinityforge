@@ -288,6 +288,41 @@ id, true)` を呼ぶこと。
 明示的な対象範囲外だったため未修正。次にこの症状(素材欄で同じ日本語名が2回出て行が潰れる)を
 materials.yml の画面で踏んだら、まずここを疑うこと。
 
+## `select-japanese-labels-2026-07-29.test.js` はファイル全体に対する文字列一致で「禁止関数」を検査している
+`test/select-japanese-labels-2026-07-29.test.js`(245行目付近)の「醸造ギミックの材料ヒントは custom: を
+解ける共通ヘルパーを使う」は `assert.ok(!/materialLabelWithFallback\(/.test(src))` という**ファイル全体
+(tf-crafting-features.js)への正規表現マッチ**で「custom: を解けない自前実装への先祖返り」を検知している。
+対象は醸造ギミック(brew-unlocks)の material ヒント1箇所のはずだが、正規表現はスコープを絞っていないため、
+**同じファイル内の全く無関係な箇所(例: 解体シリーズの表示名解決)で `materialLabelWithFallback(` を
+呼んでも、あるいはその関数名をコメントに書いただけでも**同じテストが落ちる。
+`custom:` プレフィックスと無関係な単純Material表示名を解決したいときは、この関数を呼ばずに
+`window.MATERIAL_LABELS[key] || key` を直接書く(`materialLabelWithFallback` の中身そのものと同じだが、
+このファイルでは名前を出さない)。新しいテストを書くときも、対象関数呼び出しの正規表現は
+`assert.match(src, /function xxx\(\)[\s\S]*?\n  \}/)` のように**対象範囲を先に切り出してから**
+判定する(`forms.js` の `defaultMaterial` 二重定義の教訓と同根)。
+
+## 生ID表示バグの多くは既に前セッションで修正済み — 修正前に現在のファイルを必ず読み直す
+2026-08-02 の表示名統一タスクで、事前に洗い出された「候補」の一部(`tf-lifestyle-forms.js` の村人職業カード、
+`tf-rewards-forms.js` の特殊報酬/前提アチーブメント/一覧の各行、`mob-abilities-form.js`・`mob-forms.js` の
+モブオーバーライドカード見出し)は、**候補リストが作られた時点では生ID表示だったが、実際に着手した時点では
+既に別セッションが `entry["display-name"] || id` / `professionLabel(id)` 等で修正済みだった**。
+「候補に載っている = 現在も再現する」と決め打ちせず、着手前に該当箇所を読み直して現況を確認すること。
+逆に、`mob-abilities-form.js` の `idSelect`(汎用セレクト、EntityType/Particle/PotionEffectType 用)や
+`mob-forms.js` の `abilityIdSelect`(mob-abilities.yml テンプレートID選択)のように、**個別の見出しは
+直っていても、汎用ヘルパー内部が生ID決め打ちのままのケース**は見落としやすい
+(修正は `window.MOB_LABELS_JA` / `window.PARTICLE_LABELS_JA` / `window.POTION_EFFECT_LABELS_JA`
+(tf-lifestyle-forms.js の `POTION_EFFECT_OPTIONS` を window 経由で共有、新規辞書は作らない) /
+`window.MOB_ABILITY_LABELS_JA`(app.js の `fetchMobAbilityIds` が `abilities[id]["display-name"]` から
+同時に構築)を optional 引数として通す形にした)。
+
+## 運営者が任意に決める「id」はそもそも表示名を持たない(生IDのままで正しい)
+`loot-tables-form.js` の pool id、`p5-forms.js` の gacha pool id のように、**運営者がその場で自由に
+命名する識別子**(Java側に対応する `display-name` フィールドが存在しない)は、id自体が既に人間可読な
+ラベルとして機能している。`p5-forms.js` には「プールIDは運用側の任意名なので和訳できない。代わりに
+景品件数を副表示に出す」という既存コメントがあり、これが設計判断として正しい。表示名統一タスクで
+このパターンに当たったら「表示名が引けない」のではなく「表示名という概念がそもそも無い」ケースなので、
+無理に他のフィールド(先頭素材のitem等)を代用ラベルにしない。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

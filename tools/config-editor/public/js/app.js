@@ -275,6 +275,15 @@
         rememberBase("mob-abilities", r.data);
         const abilities = r.data.abilities;
         if (abilities && typeof abilities === "object" && !Array.isArray(abilities)) {
+          // 選択候補が技名(display-name)ではなく生のテンプレートIDだけで並んでいたため、
+          // 同じ辞書取得のついでに id -> display-name の対応表も作っておく
+          // (mob-forms.js の abilityIdSelect が参照する)。
+          const labels = {};
+          for (const [id, entry] of Object.entries(abilities)) {
+            const dn = entry && typeof entry === "object" ? entry["display-name"] : null;
+            if (dn) labels[id] = String(dn);
+          }
+          window.MOB_ABILITY_LABELS_JA = labels;
           return Object.keys(abilities);
         }
       }
@@ -679,7 +688,7 @@
         return window.buildGachaForm(data, { catalogCandidates });
       }
       case "ars-thread-sets": return window.buildThreadSetsForm(data);
-      case "ars-thread-rolls": return window.buildThreadRollsForm(data);
+      // ars-thread-rolls は 2026-08-02 廃止 (item-stats.yml の random-roll-pools へ移設済み)。
       case "ars-recipes": return window.buildRecipesForm(data, { onlyEffects: true });
       case "ars-materials": return window.buildMaterialsForm(data);
       case "ars-threads": return window.buildThreadsForm(data);
@@ -1688,7 +1697,7 @@
     // spellbooks.yml はティアごとに区切りコメントが多い。
     "ars-spellbooks",
     // gacha.yml / thread-sets.yml はヘッダ解説コメントが多い。
-    "tf-gacha", "ars-thread-sets", "ars-thread-rolls",
+    "tf-gacha", "ars-thread-sets",
     // skilltree/*.yml はヘッダ+ノードごとの区切りコメントが非常に多い (汎用エディタで編集)。
     "tf-skilltree",
     // crafting-features / use-requirements はヘッダ解説コメントが多い。

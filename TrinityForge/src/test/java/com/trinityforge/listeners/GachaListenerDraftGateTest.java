@@ -76,6 +76,9 @@ class GachaListenerDraftGateTest {
             case "getDataFolder" -> dataFolder;
             case "getLogger" -> Logger.getLogger("GachaListenerDraftGateTest");
             case "saveResource" -> null;
+            case "getName" -> "TrinityForge"; // GachaListener が確認GUI用に NamespacedKey を作るため必須
+            case "namespace" -> "trinityforge"; // NamespacedKey(Plugin,String) は getName() でなく
+                                                 // Plugin#namespace() を直接呼ぶ(Namespaced継承分)
             case "toString" -> "FakePlugin";
             case "hashCode" -> System.identityHashCode(proxy);
             case "equals" -> proxy == args[0];

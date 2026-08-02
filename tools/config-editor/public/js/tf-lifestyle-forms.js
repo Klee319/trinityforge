@@ -1245,6 +1245,9 @@
     ["CONDUIT_POWER", "コンジットパワー"], ["DOLPHINS_GRACE", "イルカの好意"],
     ["BAD_OMEN", "不吉な予感"], ["HERO_OF_THE_VILLAGE", "村の英雄"]
   ];
+  // mob-abilities-form.js の POTION_EFFECT_IDS(候補一覧のみ・JA無し)と同じ集合を指す。
+  // 新しい辞書を増やさず、ここで作った日本語対応表を window 経由で共有する。
+  window.POTION_EFFECT_LABELS_JA = Object.fromEntries(POTION_EFFECT_OPTIONS);
   function potionEffectSelect(value, onChange) {
     const cur = value == null ? "" : String(value);
     const known = POTION_EFFECT_OPTIONS.some(([id]) => id === cur);

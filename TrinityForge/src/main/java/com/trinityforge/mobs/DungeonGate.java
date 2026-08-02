@@ -28,6 +28,11 @@ import java.util.Objects;
  * <p>A {@code requiredCombatLevel} of 0 disables the level gate; a null/blank {@code keyItem} disables
  * the key gate.
  *
+ * <p>2026-08-02 表示名対応: {@code displayName} は {@code gates.yml} の任意 {@code display-name:} から
+ * 読む(プレイヤー向けGUI専用、判定・スコープ解決には一切使わない — {@code mob-overrides.yml} の
+ * {@code display-name} と同じ流儀)。未設定時は {@link #displayNameOrWorld()} が {@code world}
+ * (ゲートID)へフォールバックする。
+ *
  * @param world               primary lookup key (destination world name, or a label for region gates)
  * @param aliases             optional EliteMobs content-package names (case-insensitive lookup)
  * @param requiredCombatLevel minimum combat level to enter (0 = no level gate)
@@ -36,9 +41,12 @@ import java.util.Objects;
  * @param keyAmount           how many of {@code keyItem} are required/consumed (>= 1)
  * @param region              in-place dungeon boundary, or {@code null} for a world-keyed gate
  * @param entryLocation       explicit GUI-entry teleport target, or {@code null} for the default rule
+ * @param displayName         optional player-facing name (表示専用), or {@code null} to fall back to
+ *                            {@code world}
  */
 public record DungeonGate(String world, List<String> aliases, int requiredCombatLevel,
-                          String keyItem, int keyAmount, GateRegion region, EntryLocation entryLocation) {
+                          String keyItem, int keyAmount, GateRegion region, EntryLocation entryLocation,
+                          String displayName) {
 
     public DungeonGate {
         Objects.requireNonNull(world, "world");
@@ -52,23 +60,32 @@ public record DungeonGate(String world, List<String> aliases, int requiredCombat
         if (keyItem != null && keyItem.isBlank()) {
             keyItem = null;
         }
+        if (displayName != null && displayName.isBlank()) {
+            displayName = null;
+        }
+    }
+
+    /** Back-compat constructor without a display name (pre-2026-08-02 callers/tests). */
+    public DungeonGate(String world, List<String> aliases, int requiredCombatLevel,
+                       String keyItem, int keyAmount, GateRegion region, EntryLocation entryLocation) {
+        this(world, aliases, requiredCombatLevel, keyItem, keyAmount, region, entryLocation, null);
     }
 
     /** Back-compat constructor without an entry-location (pre-2026-07-27 GUI-entry callers). */
     public DungeonGate(String world, List<String> aliases, int requiredCombatLevel,
                        String keyItem, int keyAmount, GateRegion region) {
-        this(world, aliases, requiredCombatLevel, keyItem, keyAmount, region, null);
+        this(world, aliases, requiredCombatLevel, keyItem, keyAmount, region, null, null);
     }
 
     /** Back-compat constructor without a region (world/alias-keyed gate). */
     public DungeonGate(String world, List<String> aliases, int requiredCombatLevel,
                        String keyItem, int keyAmount) {
-        this(world, aliases, requiredCombatLevel, keyItem, keyAmount, null, null);
+        this(world, aliases, requiredCombatLevel, keyItem, keyAmount, null, null, null);
     }
 
     /** Back-compat constructor without aliases. */
     public DungeonGate(String world, int requiredCombatLevel, String keyItem, int keyAmount) {
-        this(world, List.of(), requiredCombatLevel, keyItem, keyAmount, null, null);
+        this(world, List.of(), requiredCombatLevel, keyItem, keyAmount, null, null, null);
     }
 
     public boolean keyRequired() {
@@ -86,5 +103,10 @@ public record DungeonGate(String world, List<String> aliases, int requiredCombat
 
     public boolean hasEntryLocation() {
         return entryLocation != null;
+    }
+
+    /** プレイヤー向け表示名。未設定なら {@code world}(ゲートID)へフォールバックする。 */
+    public String displayNameOrWorld() {
+        return displayName != null ? displayName : world;
     }
 }

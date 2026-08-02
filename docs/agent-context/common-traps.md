@@ -96,6 +96,58 @@ dependencies:
 バニラは count==0 を「offset を速度として1個だけ飛ばす」という別の意味に解釈する。
 完全に非表示にしたいならパケットごとキャンセルするしかない。
 
+### ⚠️「虚空(何も無い方向)への右クリックで PlayerInteractEvent が飛ばない」という診断は要検証──断定するとフォールバックが二次被害を生む
+
+実サーバ報告「ガチャ券/ダンジョンの鍵がブロックに向いてでないと使えない」の原因調査で、
+「vanilla の『使用』挙動が無いアイテムは、虚空へ右クリックしたとき `ServerboundUseItemPacket`
+自体を送らない」という診断を立てたが、**この診断は「手にアイテムが無い(完全な素手)」場合の
+既知の挙動と混同していた可能性が高い**。Paper 本体の課題管理
+(`PaperMC/Paper#5951`、メンテナ回答「events are only fired in the case where the clients
+care to send us stuff」)で確認できたのは、**素手**で虚空右クリックしたときに限り
+`PlayerInteractEvent` が発火しないという、より狭いケースのみ。手に何らかのアイテムを持っている
+場合(ガチャ券・ダンジョンの鍵は常にこちら)にも同じ制約が及ぶかは、一次情報での裏付けが
+取れなかった。**このリポジトリで実際に確認済みなのは「左クリック(空振り攻撃)で虚空を狙うと
+`PlayerInteractEvent` が飛ばない」ことだけ**(`CombatListener` の `onMissSwing`/`onArmSwing`
+javadoc)。左クリックの javadoc を右クリックのケースに横展開して「確認済み」と書いてしまったのが
+実際の誤り。
+
+**教訓**: 「このリポジトリの別箇所に似た javadoc がある」ことは、今回のケースの直接的な裏付けには
+ならない。左クリックと右クリックはプロトコル上も vanilla 内部処理上も別経路であり、
+一方の既知の制約をもう一方に無検証で適用すると誤診断になる。診断が未確定のまま対症療法
+(フォールバック機構)を書く場合は、**診断が誤りだったとしても安全に倒れる設計**にすること
+(下記 `VoidRightClickBridge` 参照)。
+
+**How(診断の真偽によらず安全なフォールバック設計)**: `listeners/VoidRightClickBridge.java` が
+共有の回避経路。`PlayerAnimationEvent`(腕振り、ヒット/ミスや左右クリックに関係なく必ず発火する)を
+観測し、1tick後に「その間に本物の `PlayerInteractEvent` か(自分が攻撃者の)
+`EntityDamageByEntityEvent` が同じプレイヤーで観測されていなかったら」フォールバック処理へ
+合流させる。**このフォールバックは「登録アイテムを持ったまま虚空へ左クリック(空振り攻撃)した」
+ケースと本質的に区別できない**(vanilla のプロトコル制約でサーバ側から左右を判別する情報が無い)。
+そのため **Handler 実装側は、この経路から呼ばれたときに取り返しのつかない確定処理
+(アイテム消費・抽選確定等)を直接行ってはいけない**。確認GUI/確認メッセージを1枚挟み、
+明確に別系統のイベント(`InventoryClickEvent` 等)を経てから確定させること。
+※かつて「対象アイテムは攻撃/採掘用途を持たないため誤発動しても実害が無い」と書いていたが誤り
+（ガチャ券は「1回だけ本来の右クリックと同じ処理が走る」＝**券の消費と抽選確定が取り返しのつかない
+形で実行される**という実害があった。ダンジョンの鍵はもともと確認GUI越しだったため実害が無かった）。
+
+テストで `PlayerInteractEvent` を Mockito でモックして
+`server.getPluginManager().callEvent(...)` に渡すと、`event.getHandlers()` が `null` を返し
+`PluginManagerMock.callEvent` が NPE になる(モックには `HandlerList` が無い)。この形の
+モックイベントは対象リスナーの `onXxx(event)` を直接呼ぶこと(`callEvent` を経由しない)。
+
+### ⚠️ `NamespacedKey(Plugin, String)` は `Plugin#getName()` ではなく `Plugin#namespace()` を直接呼ぶ
+
+`Plugin` インターフェースは `net.kyori.adventure.key.Namespaced` を継承しており、
+`NamespacedKey(Plugin, String)` のコンストラクタはバイトコード上
+`plugin.namespace()`(`Namespaced` 由来のインターフェースメソッド)を直接呼ぶ ──
+`getName()` は経由しない。動的Proxyで `Plugin` をなりすます自作テストダブル
+(`Proxy.newProxyInstance` + `InvocationHandler`)で `getName` だけハンドリングしていても、
+`new NamespacedKey(fakePlugin, "...")` を呼んだ瞬間に `UnsupportedOperationException: namespace`
+で落ちる(デフォルトメソッドもプロキシの `InvocationHandler` を経由するため、素通りしない)。
+`case "namespace" -> "小文字のプラグイン名";` を明示的にハンドルすること。
+既存の `fakePlugin` ヘルパーがコンストラクタで `NamespacedKey` を新規に作る型を初めて構築対象にした
+瞬間にこの罠を踏む(2026-08-02、`GachaListener` に確認GUI用の `NamespacedKey` を足したことで発覚)。
+
 ## 並行処理
 
 ### ⚠️ 非同期スレッドから戦闘集計を呼ぶと ConcurrentModificationException になる（原因はスレッド跨ぎ、再入ではない）
@@ -170,6 +222,21 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
 外部プラグイン（EliteMobs等）のルート処理が `NORMAL` の `EntityDeathEvent` の中で
 `getDrops()` を丸ごとクリアすることがある。ドロップを上乗せ/上書きするリスナーは
 **`MONITOR`** で登録しないと、それより早いタイミングで消される。
+
+### ⚠️ プレイヤーがモブへ持たせたアイテムの除外は「装備6スロット」だけでは不十分（`InventoryHolder` 系モブ）
+`mob_drop_bonus` のような「戦利品だけ倍率を掛ける」機構は、`getDrops()` の中から
+「プレイヤーが渡した/元々持っていたアイテム」を装備スロットと突き合わせて除外する設計が要る
+（`NativeSurvivalPerkListener#equipmentExclusions` 参照）。しかし Allay 等
+`org.bukkit.inventory.InventoryHolder` を実装するモブは、渡されたアイテムを
+`LivingEntity#getEquipment()` の6スロット（メイン/オフハンド＋防具4部位）ではなく
+**専用の `getInventory()`** に保持する。装備スロットしか見ないと、この経路のアイテムが
+「戦利品」と誤認されて倍率がそのまま乗り、**プレイヤーがアレイに持たせたアイテムが
+ドロップ増加で増殖する**（複製）。
+**How**: `equipmentExclusions` は `entity instanceof InventoryHolder holder` を追加で見て
+`holder.getInventory().getContents()` も除外候補に足すこと。Allay 固有のハードコードにせず、
+`InventoryHolder` 一般で拾うと将来 InventoryHolder を実装する他モブにも自動的に効く。
+テストでは `org.mockbukkit.mockbukkit.entity.AllayMock`（`Allay`/`InventoryHolder` 実装、
+`getInventory()` 実装あり）で再現できる。
 
 ### 属性(Attribute)の付与・削除はスコープを自プラグインの名前空間に限定する
 モブスポーン時などに他プラグインが付けた attribute modifier まで一緒に消してしまう

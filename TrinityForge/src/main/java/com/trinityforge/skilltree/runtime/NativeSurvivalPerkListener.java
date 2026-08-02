@@ -11,6 +11,8 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -118,21 +120,38 @@ public final class NativeSurvivalPerkListener implements Listener {
     }
 
     /**
-     * 装備スロットの中身(手・オフハンド・防具)を倍率除外リストとして返す。
+     * 装備スロット(手・オフハンド・防具)と、{@link InventoryHolder} を実装するモブ専用インベントリの
+     * 中身を、倍率除外リストとして返す。
      *
      * <p>プレイヤーが持たせたアイテムも、モブが地面から拾ったアイテムも、Bukkit上では装備スロットに入る。
      * これらは {@code EntityDeathEvent#getDrops()} に戦利品と混ざって現れるため、突合せて除外しないと
      * 「渡した装備が倍率で増える」＝アイテム複製になる。
+     *
+     * <p><b>2026-08-02 修正: アレイ等 {@link InventoryHolder} モブは対象外だった。</b>
+     * アレイ({@code org.bukkit.entity.Allay}) はプレイヤーが渡したアイテムを標準の6装備スロット
+     * ({@link LivingEntity#getEquipment()}) ではなく、{@code InventoryHolder} 由来の専用インベントリ
+     * ({@code getInventory()}) に保持する。死亡時はこの中身も {@code EntityDeathEvent#getDrops()} へ
+     * 混ざるため、装備スロットしか見ていなかった旧実装ではアレイに持たせたアイテムだけが除外を
+     * すり抜けて倍率対象になっていた(=プレイヤーの持ち物がドロップ増加で増える複製)。
+     * アレイ専用の ad-hoc 分岐にはせず、{@code entity instanceof InventoryHolder} という汎用条件で
+     * 拾う — 将来 InventoryHolder を実装する他のモブ(ラマの積み荷袋等)が増えても同じ扱いになる。
      */
     static List<ItemStack> equipmentExclusions(LivingEntity entity) {
         List<ItemStack> exclusions = new ArrayList<>();
         var equipment = entity.getEquipment();
-        if (equipment == null) return exclusions;
-        for (ItemStack item : new ItemStack[]{
-                equipment.getItemInMainHand(), equipment.getItemInOffHand(),
-                equipment.getHelmet(), equipment.getChestplate(),
-                equipment.getLeggings(), equipment.getBoots()}) {
-            if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
+        if (equipment != null) {
+            for (ItemStack item : new ItemStack[]{
+                    equipment.getItemInMainHand(), equipment.getItemInOffHand(),
+                    equipment.getHelmet(), equipment.getChestplate(),
+                    equipment.getLeggings(), equipment.getBoots()}) {
+                if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
+            }
+        }
+        if (entity instanceof InventoryHolder holder) {
+            Inventory inventory = holder.getInventory();
+            for (ItemStack item : inventory.getContents()) {
+                if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
+            }
         }
         return exclusions;
     }

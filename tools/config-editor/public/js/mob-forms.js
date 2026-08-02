@@ -1423,9 +1423,13 @@
   function abilityIdSelect(current, ids, onChange) {
     const cur = current == null ? "" : String(current);
     const CUSTOM = "__custom_ability__";
-    const options = (ids || []).map((id) => ({ value: id, primary: id, secondary: "", title: id }));
+    // window.MOB_ABILITY_LABELS_JA(app.js の fetchMobAbilityIds が同時に作る)があれば
+    // 技名(display-name)を主表示にし、テンプレートIDは副表示へ回す。無ければ従来どおり生ID。
+    const labels = window.MOB_ABILITY_LABELS_JA || {};
+    const ja = (id) => labels[id] || id;
+    const options = (ids || []).map((id) => ({ value: id, primary: ja(id), secondary: ja(id) === id ? "" : id, title: id }));
     if (cur && !(ids || []).includes(cur)) {
-      options.unshift({ value: cur, primary: cur, secondary: "(mob-abilities.yml に無い)", title: cur });
+      options.unshift({ value: cur, primary: ja(cur), secondary: "(mob-abilities.yml に無い)", title: cur });
     }
     options.push({ value: CUSTOM, primary: "その他(自由入力)…", secondary: "" });
     return window.listSelect({

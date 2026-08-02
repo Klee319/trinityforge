@@ -1126,8 +1126,16 @@
           if (itemCard.open) openDisassemblyItems.add(itemMat);
           else openDisassemblyItems.delete(itemMat);
         });
+        // itemMat はワイルドカード(*)対応の対象IDパターン。ワイルドカード無し(単一Material)の
+        // ときだけ表示名を解決する(ワイルドカードは複数Materialへ一致するため単一の名前へ潰せない)。
+        // 注意: labels.js のフォールバック付きヘルパー関数(このファイルでは custom: を解けない
+        // 実装として使用禁止 — select-japanese-labels-2026-07-29.test.js 参照)は呼ばず、
+        // 同じ辞書(MATERIAL_LABELS)を直接引くだけに留める(custom: とは無関係な単純Materialの解決)。
+        const itemMatLabel = (!/[*?]/.test(itemMat) && window.MATERIAL_LABELS)
+          ? (window.MATERIAL_LABELS[itemMat] || itemMat)
+          : itemMat;
         itemCard.appendChild(h("summary", { class: "cf-mat-card-head" }, [
-          h("span", { class: "entry-key-label", text: itemMat }),
+          h("span", { class: "entry-key-label", text: itemMatLabel }),
           h("span", { class: "entry-summary", text: `返却ルール ${rules.length} 件` }),
           h("button", {
             class: "btn-small danger", type: "button", text: "削除",

@@ -955,7 +955,7 @@
         box.appendChild(h("div", {
           class: "field-desc",
           style: "font-size:11px;color:var(--muted,#6b7280);margin:4px 0 8px;",
-          text: "コアに置いた効果付きスレッド1個の厳選(主ステ/サブステ)を振り直します。パラメータはありません。抽選内容は ArsPaper の thread-rolls.yml 側で決まります。コアのスレッドは消費されず、ペデスタルの素材とソースだけが振り直しの費用になります。"
+          text: "コアに置いた効果付きスレッド1個の厳選(主ステ/サブステ)を振り直します。パラメータはありません。抽選内容は TrinityForge の item-stats.yml(アイテムステータス > スレッドタブの「スレッド厳選」欄)側で決まります。コアのスレッドは消費されず、ペデスタルの素材とソースだけが振り直しの費用になります。"
         }));
       } else {
         // 未知 type: key/value 行

@@ -12,8 +12,9 @@ import java.util.Objects;
 
 /**
  * {@link DungeonGate} から決定した転送先へ実際にプレイヤーを移動させる処理(2026-07-27、
- * {@code DungeonEntryGui} から抽出)。「転送(またはEliteMobsへの委譲呼び出し)が成功したときに限り
- * 後処理を実行する」という順序保証({@link DungeonEntryExecutor} 参照)はここでも維持する。
+ * {@code DungeonEntryGui} から抽出)。「転送が成功したときに限り後処理を実行する」という順序保証
+ * ({@link DungeonEntryExecutor} 参照)は TF 自身が転送を行う経路(ワールドスポーン/明示座標/区画中心)
+ * でのみ維持する。
  *
  * <p>成功後の後処理を {@link Runnable} として外から注入できるようにしたのは、呼び出し元によって
  * 「成功したときにすべきこと」が異なるため —
@@ -21,6 +22,10 @@ import java.util.Objects;
  * {@code /tf dungeon <id>}(管理者クイック入場)はそもそも鍵チェック自体を行わないため何もしない
  * (no-op)。転送先の決定ロジック自体は {@link DungeonEntryTargetResolver} に委ねる(Bukkit非依存の
  * 純粋なルール)。
+ *
+ * <p><b>2026-08-02: {@code onSuccess} は EliteMobs 委譲経路({@link EntryTarget.ElitemobsDelegate})
+ * では一切呼ばれない。</b>{@link #delegateToElitemobs(Player, String)} のjavadoc参照
+ * (鍵の二重管理/premature 消費を避けるため、実消費は EliteMobs フォーク側の実潜入フックへ一本化した)。
  */
 public final class DungeonTeleporter {
 
@@ -40,7 +45,8 @@ public final class DungeonTeleporter {
         Objects.requireNonNull(onSuccess, "onSuccess");
         EntryTarget target = DungeonEntryTargetResolver.resolve(gate);
         if (target instanceof EntryTarget.ElitemobsDelegate delegate) {
-            delegateToElitemobs(player, delegate.contentPackageId(), onSuccess);
+            // onSuccess(鍵消費)はここへは渡さない — delegateToElitemobs のjavadoc参照。
+            delegateToElitemobs(player, delegate.contentPackageId());
         } else if (target instanceof EntryTarget.ExplicitLocation explicit) {
             teleportTo(player, gate, toBukkitLocation(explicit.location()), onSuccess);
         } else if (target instanceof EntryTarget.RegionCenter regionCenter) {
@@ -54,16 +60,28 @@ public final class DungeonTeleporter {
      * EliteMobs連携ダンジョンはTF側では転送せず参加処理へ委譲する。{@code EliteMobsDungeonBridge}の
      * javadocの通り、事前検証(canEnter)は主要な失敗経路(タイポ/未インストール/二重参加)は防ぐが、
      * teleport自体がvoidであるため100%の成否検出はできない — 既知の限界。
+     *
+     * <p><b>ここで {@code onSuccess}(鍵消費)を呼ばない(2026-08-02、実サーバ報告の鍵ロスト修正)。</b>
+     * {@code teleport()} の「reflective呼び出しが例外なく完了した」は、ブラウザ型ダンジョン
+     * ({@code WorldInstancedDungeonPackage}/{@code DynamicDungeonPackage} — EMダンジョンの大半)では
+     * 「EliteMobs側のレベル選択ブラウザGUIを開いただけ」を意味し、実際の潜入(インスタンス生成・
+     * ワールド移動)ではない。ここで鍵を消費すると、プレイヤーがブラウザGUIを閉じただけで鍵だけが
+     * 消える(報告された不具合そのもの)。加えて、EliteMobsフォーク側は 2026-08-01(HIGH-2/HIGH-3)
+     * 以降 {@code TrinityForgeDungeonGateListener.checkDungeonEntryAllowed} を実潜入の瞬間
+     * (ブラウザ型は {@code DungeonInstance#addNewPlayer}、非ブラウザ型は
+     * {@code PlayerPreTeleportEvent} 経由の {@code onPreTeleport})で必ず呼び、同じ
+     * {@link DungeonGateService} に対して同じゲートをもう一度評価・消費する — ここで先に消費すると
+     * その再評価が「鍵を持っていない」で弾かれ、ブラウザで実際に難易度を選んでも入場自体が失敗する
+     * 二重障害になる(鍵だけ失って一度も入れない)。実消費は EliteMobs 側の実入場フックに一本化し、
+     * TF 側はここでは検証(canEnter)と失敗時メッセージだけを担当する。
      */
-    private void delegateToElitemobs(Player player, String contentPackageId, Runnable onSuccess) {
+    private void delegateToElitemobs(Player player, String contentPackageId) {
         if (!EliteMobsDungeonBridge.isAvailable()) {
             player.sendMessage(Component.text("EliteMobsが利用できないため入場できません", NamedTextColor.RED));
             return;
         }
-        boolean success = DungeonEntryExecutor.executeIfSuccessful(
-                () -> EliteMobsDungeonBridge.canEnter(player, contentPackageId)
-                        && EliteMobsDungeonBridge.teleport(player, contentPackageId),
-                onSuccess);
+        boolean success = EliteMobsDungeonBridge.canEnter(player, contentPackageId)
+                && EliteMobsDungeonBridge.teleport(player, contentPackageId);
         if (!success) {
             player.sendMessage(Component.text("ダンジョンに入場できませんでした", NamedTextColor.RED));
         }

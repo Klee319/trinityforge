@@ -150,8 +150,9 @@ public final class DungeonGateConfig implements LoadableConfig {
                     region = null;
                 }
                 EntryLocation entryLocation = parseEntryLocation(entry, world, log);
+                String displayName = entry.getString("display-name");
                 DungeonGate gate = new DungeonGate(world, aliases, requiredLevel, keyItem,
-                        keyAmount, region, entryLocation);
+                        keyAmount, region, entryLocation, displayName);
                 byWorld.put(world, gate);
                 if (region != null) {
                     regionByWorld.computeIfAbsent(region.world(), k -> new ArrayList<>()).add(gate);

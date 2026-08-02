@@ -846,6 +846,15 @@
       /** チェックを外したID(既定は全選択なので、外したものだけ覚える)。 */
       const deselected = new Set();
 
+      // クラフトレシピはカタログIDなので表示名を引ける(CUSTOM_ITEM_LABELS、catalogタブを
+      // 開いた後なら埋まっている)。儀式エフェクトIDは items.yml ritual_effects の自己記述的な
+      // slugで、対応する表示名フィールドが無いため生IDのまま(フォールバック無しで恒常的に生ID)。
+      function matchLabel(id) {
+        if (kind !== "recipe") return id;
+        const labels = window.CUSTOM_ITEM_LABELS || {};
+        return labels[`custom:${id}`] || labels[`custom:${String(id).toLowerCase()}`] || id;
+      }
+
       const overlay = h("div", { class: "modal-overlay" });
       const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
       const summary = h("div", { class: "gate-bulk-summary" });
@@ -896,7 +905,11 @@
             updateAddButton();
           });
           row.appendChild(box);
-          row.appendChild(h("span", { class: "gate-bulk-id", text: id }));
+          const label = matchLabel(id);
+          row.appendChild(h("span", { class: "gate-bulk-id", text: label }));
+          if (label !== id) {
+            row.appendChild(h("span", { class: "entry-sum-id", text: id }));
+          }
           if (isExisting) {
             row.appendChild(h("span", { class: "gate-bulk-tag", text: "追加済み" }));
           }

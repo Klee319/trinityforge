@@ -179,18 +179,32 @@
       };
     } else if (o.type === "item-stats") {
       const skills = (window.ITEM_STATS_USE_SKILLS && window.ITEM_STATS_USE_SKILLS[o.itemCategory]) || null;
-      form = window.buildItemStatsForm(data, {
+      const itemStatsForm = window.buildItemStatsForm(data, {
         useSkillOptions: skills,
         hubMode: true,
         initialCategory: o.itemCategory || "weapon",
         editorCategoryKey: categoryKey,
         catalogCandidates: Array.isArray(o.catalogCandidates) ? o.catalogCandidates : []
       });
+      form = itemStatsForm;
       if (o.itemCategory && typeof form.setActiveCategory === "function") {
         form.setActiveCategory(o.itemCategory);
       }
       if (skills && typeof form.setUseSkillOptions === "function") {
         form.setUseSkillOptions(skills);
+      }
+      // 「スレッド」タブだけ、item-stats.yml の random-roll-pools(旧 ArsPaper thread-rolls.yml)
+      // を編集する専用セクションを上に足す(2026-08-02)。buildRandomRollPoolsForm は同じ data
+      // 参照を直接編集するので、下の itemStatsForm.getData() の working スプレッドに
+      // random-roll-pools キーがそのまま乗る(追加のマージ処理は不要)。
+      if (o.itemCategory === "thread" && typeof window.buildRandomRollPoolsForm === "function") {
+        const poolsForm = window.buildRandomRollPoolsForm(data);
+        const wrap = h("div", { class: "hub-thread-composite" });
+        wrap.appendChild(h("div", { class: "sub-title", text: "スレッド厳選 (random-roll-pools)" }));
+        wrap.appendChild(poolsForm.element);
+        wrap.appendChild(h("div", { class: "sub-title", text: "アイテム別ステータス" }));
+        wrap.appendChild(itemStatsForm.element);
+        form = { element: wrap, rerender: itemStatsForm.rerender, getData: itemStatsForm.getData };
       }
       getData = () => {
         const d = form.getData();

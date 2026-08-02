@@ -111,7 +111,7 @@ public final class DungeonEntryGui implements Listener {
     private ItemStack selectionIcon(DungeonGate gate, int candidateIndex) {
         ItemStack stack = new ItemStack(Material.MAP);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(Component.text(gate.world(), NamedTextColor.AQUA)
+        meta.displayName(Component.text(gate.displayNameOrWorld(), NamedTextColor.AQUA)
                 .decoration(TextDecoration.ITALIC, false));
         meta.lore(List.of(Component.text("クリックで選択", NamedTextColor.GRAY)
                 .decoration(TextDecoration.ITALIC, false)));
@@ -134,7 +134,7 @@ public final class DungeonEntryGui implements Listener {
         int combatLevel = combatService.combatLevelOf(player.getUniqueId());
         ItemStack stack = new ItemStack(Material.KNOWLEDGE_BOOK);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(Component.text(gate.world(), NamedTextColor.GOLD)
+        meta.displayName(Component.text(gate.displayNameOrWorld(), NamedTextColor.GOLD)
                 .decoration(TextDecoration.ITALIC, false));
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text("必要戦闘Lv: " + gate.requiredCombatLevel()

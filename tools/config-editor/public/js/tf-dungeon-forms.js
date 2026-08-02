@@ -548,8 +548,10 @@
         const p = profiles[id] && typeof profiles[id] === "object" ? profiles[id] : (profiles[id] = {});
         const phys = ensureObj(p, "physical");
         const mag = ensureObj(p, "magical");
+        const displayName = String(p["source-name"] || "").trim();
         const head = [
-          h("strong", { text: id }),
+          h("strong", { text: displayName || id }),
+          h("span", { class: "entry-sum-id", text: id }),
           h("span", { class: "entry-sum-meta", text: p["entity-type"] || "?" }),
           h("span", { class: "entry-sum-meta", text: `Lv.${p.level != null ? p.level : "?"}` }),
           h("span", { class: "spacer" }),

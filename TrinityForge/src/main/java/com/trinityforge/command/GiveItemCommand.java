@@ -9,6 +9,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.config.domains.QualityConfig;
 import com.trinityforge.pdc.ItemData;
+import com.trinityforge.progression.CollectionEntryNames;
 import com.trinityforge.stats.ArsItemGiveBridge;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.ItemFactory;
@@ -417,9 +418,11 @@ public final class GiveItemCommand {
                     NamedTextColor.YELLOW));
         }
 
+        // 表示名で返す。ID は運用上まだ知りたいので括弧で併記する(コマンド出力は管理者向け)。
         sender.sendMessage(MiniMessage.miniMessage().deserialize(
-                "<green>Gave <white><n></white>x <white><id></white> (<src>) q=<white><q></white> to <white><p></white>.",
+                "<green>Gave <white><n></white>x <white><name></white> <gray>(<id>)</gray> (<src>) q=<white><q></white> to <white><p></white>.",
                 Placeholder.unparsed("n", Integer.toString(requestedAmount)),
+                Placeholder.component("name", CollectionEntryNames.itemName(itemId, first.stack())),
                 Placeholder.unparsed("id", itemId),
                 Placeholder.unparsed("src", first.sourceLabel()),
                 Placeholder.unparsed("q", Integer.toString(requestedQuality)),

@@ -236,7 +236,9 @@
       const upgradeSel = h("select", { class: "field-input" });
       upgradeSel.appendChild(h("option", { value: "", text: "(なし/最下位ティア)" }));
       for (const id of upgradeCandidates) {
-        const o = h("option", { value: id, text: id });
+        const otherBook = books.find((bk) => bk && bk.id === id);
+        const plainName = (otherBook && window.stripDisplayNamePlain(otherBook["display-name"])) || id;
+        const o = h("option", { value: id, text: `${plainName} (${id})` });
         if (id === curUpgrade) o.selected = true;
         upgradeSel.appendChild(o);
       }

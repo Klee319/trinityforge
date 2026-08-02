@@ -4,6 +4,7 @@ import com.trinityforge.combat.PlayerCombatAggregate;
 import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Material;
+import org.bukkit.entity.Allay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.AllayMock;
 import org.mockbukkit.mockbukkit.entity.LivingEntityMock;
 import org.mockbukkit.mockbukkit.world.WorldMock;
 
@@ -128,6 +130,35 @@ class NativeSurvivalPerkDropDuplicationTest {
         for (ItemStack drop : drops) total += drop.getAmount();
         assertEquals(3, total,
                 "装備1個は据え置き・戦利品1個は2倍なので合計3個。両方除外(2個)や両方倍率(4個)は誤り");
+    }
+
+    /**
+     * 2026-08-02 回帰: アレイ等 {@link org.bukkit.inventory.InventoryHolder} モブに持たせたプレイヤーの
+     * アイテムは、標準の装備スロットではなく専用インベントリ({@code getInventory()})に入るため、
+     * 旧実装(装備スロットしか見ない {@code equipmentExclusions})では除外をすり抜けて倍率対象になり、
+     * 「アレイに持たせたプレイヤーの持ち物がドロップ増加で増える」複製になっていた。
+     */
+    @Test
+    void allayHeldItemIsExcludedWhileLootIsStillMultiplied() {
+        Player killer = server.addPlayer("killer");
+        Allay allay = world.spawn(world.getSpawnLocation(), Allay.class);
+        ((LivingEntityMock) allay).setKiller(killer);
+        ItemStack given = new ItemStack(Material.DIAMOND, 5);
+        ((AllayMock) allay).getInventory().setItem(0, given.clone());
+
+        List<ItemStack> drops = new ArrayList<>(List.of(
+                new ItemStack(Material.ROTTEN_FLESH, 1), given.clone()));
+        listener.onDeathDrops(new EntityDeathEvent(allay, genericSource(), drops));
+
+        int flesh = 0;
+        int diamonds = 0;
+        for (ItemStack drop : drops) {
+            if (drop.getType() == Material.ROTTEN_FLESH) flesh = drop.getAmount();
+            if (drop.getType() == Material.DIAMOND) diamonds = drop.getAmount();
+        }
+        assertEquals(2, flesh, "戦利品(腐肉)には mob_drop_bonus が乗る");
+        assertEquals(5, diamonds,
+                "アレイに持たせたプレイヤーのダイヤは増えてはならない(InventoryHolder 経由の複製)");
     }
 
     /** U12。整数部は確定・小数部だけ確率で+1する(期待値が倍率に一致する)。 */

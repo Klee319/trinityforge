@@ -128,7 +128,11 @@ const REGISTRY = Object.freeze([
 
   // ---- ArsPaper ----
   { id: "thread-sets", label: "スレッドセット効果 (thread-sets)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "thread-sets.yml", schema: "ars-thread-sets" },
-  { id: "thread-rolls", label: "スレッド厳選 (thread-rolls)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "thread-rolls.yml", schema: "ars-thread-rolls" },
+  // 2026-08-02: スレッド厳選(旧 thread-rolls.yml)は TrinityForge の item-stats.yml
+  // (random-roll-pools セクション)へ全面移設した。編集はサイドバーの
+  // 「アイテムステータス > スレッド」タブ(__stats_thread__, item-stats 画面)から行う。
+  // このフォークの thread-rolls.yml 自体を削除したので、config id/schema ごと除去する
+  // (残すと「開くとファイルが無くてエラーになる死んだタブ」になる)。
   { id: "items", label: "儀式エフェクト (ritual effects)", group: "ArsPaper", section: "recipes-magic", base: "arspaper", rel: "items.yml", schema: "ars-recipes" },
   // 機能アイテム(ワンド/コンパス/台座/儀式の核/筆記台/ウェイストーン/ソースベリー)の表示名 +
   // レシピ(items.yml/catalog.yml側の該当recipeへ配線)をまとめて編集するタブ。

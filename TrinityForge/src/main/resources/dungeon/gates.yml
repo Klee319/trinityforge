@@ -113,6 +113,7 @@ gates:
 
   # 冒険者ギルド(拠点) — HUB / 鍵なし(素通り)
   em_adventurers_guild:
+    display-name: "冒険者ギルド(拠点)"
     required-combat-level: 0
     content-package: adventurers_guild_hub
     aliases:
@@ -120,6 +121,7 @@ gates:
 
   # 獣の聖域 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_beasts_sanctuary:
+    display-name: "獣の聖域"
     required-combat-level: 0
     content-package: beasts_sanctuary_lair
     aliases:
@@ -127,6 +129,7 @@ gates:
 
   # 暗黒の尖塔 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_dark_spire:
+    display-name: "暗黒の尖塔"
     required-combat-level: 0
     content-package: the_dark_spire
     aliases:
@@ -134,6 +137,7 @@ gates:
 
   # ダイヤモンドリーグ闘技場 — OPEN_DUNGEON / 鍵なし(素通り)
   em_diamond_arena:
+    display-name: "ダイヤモンドリーグ闘技場"
     required-combat-level: 0
     content-package: diamond_league_arena
     aliases:
@@ -141,6 +145,7 @@ gates:
 
   # 花火工房 — DYNAMIC_DUNGEON / 鍵: key_fireworks (入手: ガチャ tier1 weight 4)
   em_fireworks:
+    display-name: "花火工房"
     required-combat-level: 0
     key-item: key_fireworks
     key-amount: 1
@@ -150,6 +155,7 @@ gates:
 
   # ハロウィン闘技場 — DYNAMIC_DUNGEON / 鍵: key_hallosseum (入手: 戦利品(ルートチェスト mid 4%))
   em_hallosseum:
+    display-name: "ハロウィン闘技場"
     required-combat-level: 0
     key-item: key_hallosseum
     key-amount: 1
@@ -159,6 +165,7 @@ gates:
 
   # 世界を繋ぐ者の聖所 — INSTANCED_DUNGEON / 鍵: key_binder (入手: 合成(印5種から))
   em_id_binder_of_worlds:
+    display-name: "世界を繋ぐ者の聖所"
     required-combat-level: 40
     key-item: key_binder
     key-amount: 1
@@ -168,6 +175,7 @@ gates:
 
   # プリミス 血の神殿 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_bloodtemple:
+    display-name: "プリミス 血の神殿"
     required-combat-level: 0
     content-package: primis_blood_temple_sanctum
     aliases:
@@ -175,6 +183,7 @@ gates:
 
   # 骨の修道院 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_id_bone_monastery:
+    display-name: "骨の修道院"
     required-combat-level: 0
     content-package: bone_monastery_dungeon
     aliases:
@@ -182,6 +191,7 @@ gates:
 
   # クラフテンマイン研究所 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_id_craftenmines_lab:
+    display-name: "クラフテンマイン研究所"
     required-combat-level: 0
     content-package: craftenmines_lab_sanctum
     aliases:
@@ -189,6 +199,7 @@ gates:
 
   # エンチャント試練 1 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_1:
+    display-name: "エンチャント試練 1"
     required-combat-level: 0
     content-package: enchantment_challenge_1_sanctum
     aliases:
@@ -196,6 +207,7 @@ gates:
 
   # エンチャント試練 10 — INSTANCED_DUNGEON / 鍵: key_enchant_trial (入手: クラフト)
   em_id_enchantment_challenge_10:
+    display-name: "エンチャント試練 10"
     required-combat-level: 0
     key-item: key_enchant_trial
     key-amount: 1
@@ -205,6 +217,7 @@ gates:
 
   # エンチャント試練 11 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_11:
+    display-name: "エンチャント試練 11"
     required-combat-level: 0
     content-package: enchantment_challenge_11_sanctum
     aliases:
@@ -212,6 +225,7 @@ gates:
 
   # エンチャント試練 12 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_12:
+    display-name: "エンチャント試練 12"
     required-combat-level: 0
     content-package: enchantment_challenge_12_sanctum
     aliases:
@@ -219,6 +233,7 @@ gates:
 
   # エンチャント試練 13 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_13:
+    display-name: "エンチャント試練 13"
     required-combat-level: 0
     content-package: enchantment_challenge_13_sanctum
     aliases:
@@ -226,6 +241,7 @@ gates:
 
   # エンチャント試練 14 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_14:
+    display-name: "エンチャント試練 14"
     required-combat-level: 0
     content-package: enchantment_challenge_14_sanctum
     aliases:
@@ -233,6 +249,7 @@ gates:
 
   # エンチャント試練 15 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_15:
+    display-name: "エンチャント試練 15"
     required-combat-level: 0
     content-package: enchantment_challenge_15_sanctum
     aliases:
@@ -240,6 +257,7 @@ gates:
 
   # エンチャント試練 16 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_16:
+    display-name: "エンチャント試練 16"
     required-combat-level: 0
     content-package: enchantment_challenge_16_sanctum
     aliases:
@@ -247,6 +265,7 @@ gates:
 
   # エンチャント試練 17 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_17:
+    display-name: "エンチャント試練 17"
     required-combat-level: 0
     content-package: enchantment_challenge_17_sanctum
     aliases:
@@ -254,6 +273,7 @@ gates:
 
   # エンチャント試練 18 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_18:
+    display-name: "エンチャント試練 18"
     required-combat-level: 0
     content-package: enchantment_challenge_18_sanctum
     aliases:
@@ -261,6 +281,7 @@ gates:
 
   # エンチャント試練 19 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_19:
+    display-name: "エンチャント試練 19"
     required-combat-level: 0
     content-package: enchantment_challenge_19_sanctum
     aliases:
@@ -268,6 +289,7 @@ gates:
 
   # エンチャント試練 2 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_2:
+    display-name: "エンチャント試練 2"
     required-combat-level: 0
     content-package: enchantment_challenge_2_sanctum
     aliases:
@@ -275,6 +297,7 @@ gates:
 
   # エンチャント試練 20 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_20:
+    display-name: "エンチャント試練 20"
     required-combat-level: 0
     content-package: enchantment_challenge_20_sanctum
     aliases:
@@ -282,6 +305,7 @@ gates:
 
   # エンチャント試練 3 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_3:
+    display-name: "エンチャント試練 3"
     required-combat-level: 0
     content-package: enchantment_challenge_3_sanctum
     aliases:
@@ -289,6 +313,7 @@ gates:
 
   # エンチャント試練 4 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_4:
+    display-name: "エンチャント試練 4"
     required-combat-level: 0
     content-package: enchantment_challenge_4_sanctum
     aliases:
@@ -296,6 +321,7 @@ gates:
 
   # エンチャント試練 5 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_5:
+    display-name: "エンチャント試練 5"
     required-combat-level: 0
     content-package: enchantment_challenge_5_sanctum
     aliases:
@@ -303,6 +329,7 @@ gates:
 
   # エンチャント試練 6 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_6:
+    display-name: "エンチャント試練 6"
     required-combat-level: 0
     content-package: enchantment_challenge_6_sanctum
     aliases:
@@ -310,6 +337,7 @@ gates:
 
   # エンチャント試練 7 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_7:
+    display-name: "エンチャント試練 7"
     required-combat-level: 0
     content-package: enchantment_challenge_7_sanctum
     aliases:
@@ -317,6 +345,7 @@ gates:
 
   # エンチャント試練 8 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_8:
+    display-name: "エンチャント試練 8"
     required-combat-level: 0
     content-package: enchantment_challenge_8_sanctum
     aliases:
@@ -324,6 +353,7 @@ gates:
 
   # エンチャント試練 9 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_enchantment_challenge_9:
+    display-name: "エンチャント試練 9"
     required-combat-level: 0
     content-package: enchantment_challenge_9_sanctum
     aliases:
@@ -331,6 +361,7 @@ gates:
 
   # 氷結宮殿 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_id_frost_palace:
+    display-name: "氷結宮殿"
     required-combat-level: 0
     content-package: frost_palace_sanctum
     aliases:
@@ -338,6 +369,7 @@ gates:
 
   # オアシスのピラミッド — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_oasis_pyramid:
+    display-name: "オアシスのピラミッド"
     required-combat-level: 0
     content-package: oasis_pyramid_sanctum
     aliases:
@@ -345,6 +377,7 @@ gates:
 
   # プリミス グラディウス侵攻 — INSTANCED_DUNGEON / 鍵なし(素通り)
   em_id_primis_gladius:
+    display-name: "プリミス グラディウス侵攻"
     required-combat-level: 0
     content-package: primis_gladius_invasion_dungeon
     aliases:
@@ -352,6 +385,7 @@ gates:
 
   # 古橋の聖所 — DYNAMIC_DUNGEON / 鍵: key_bridge (入手: 採掘ギミック 2.0%)
   em_id_the_bridge:
+    display-name: "古橋の聖所"
     required-combat-level: 0
     key-item: key_bridge
     key-amount: 1
@@ -361,6 +395,7 @@ gates:
 
   # 灼熱の洞窟 — DYNAMIC_DUNGEON / 鍵: key_cave (入手: クラフト)
   em_id_the_cave:
+    display-name: "灼熱の洞窟"
     required-combat-level: 0
     key-item: key_cave
     key-amount: 1
@@ -370,6 +405,7 @@ gates:
 
   # ドワーフの地下都市 — DYNAMIC_DUNGEON / 鍵: key_city (入手: 採掘ギミック 1.5%)
   em_id_the_city:
+    display-name: "ドワーフの地下都市"
     required-combat-level: 0
     key-item: key_city
     key-amount: 1
@@ -379,6 +415,7 @@ gates:
 
   # 登攀路 — DYNAMIC_DUNGEON / 鍵: key_climb (入手: 掘削ギミック 2.0%)
   em_id_the_climb:
+    display-name: "登攀路"
     required-combat-level: 0
     key-item: key_climb
     key-amount: 1
@@ -388,6 +425,7 @@ gates:
 
   # 深層鉱山 — DYNAMIC_DUNGEON / 鍵: key_deep_mines (入手: クラフト)
   em_id_the_deep_mines:
+    display-name: "深層鉱山"
     required-combat-level: 0
     key-item: key_deep_mines
     key-amount: 1
@@ -397,6 +435,7 @@ gates:
 
   # 聖域の怪異 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_id_the_hallowed_haunt:
+    display-name: "聖域の怪異"
     required-combat-level: 0
     content-package: the_hallowed_haunt_dynamic_dungeon
     aliases:
@@ -404,6 +443,7 @@ gates:
 
   # 鉱山 — DYNAMIC_DUNGEON / 鍵: key_mines (入手: クラフト)
   em_id_the_mines:
+    display-name: "鉱山"
     required-combat-level: 0
     key-item: key_mines
     key-amount: 1
@@ -413,6 +453,7 @@ gates:
 
   # ネザーの鐘 — DYNAMIC_DUNGEON / 鍵: key_nether_bell (入手: ガチャ tier2 weight 6)
   em_id_the_nether_bell:
+    display-name: "ネザーの鐘"
     required-combat-level: 0
     key-item: key_nether_bell
     key-amount: 1
@@ -422,6 +463,7 @@ gates:
 
   # ネザーの荒野 — DYNAMIC_DUNGEON / 鍵: key_nether_wastes (入手: ガチャ tier3 weight 6)
   em_id_the_nether_wastes:
+    display-name: "ネザーの荒野"
     required-combat-level: 0
     key-item: key_nether_wastes
     key-amount: 1
@@ -431,6 +473,7 @@ gates:
 
   # 宮殿 — DYNAMIC_DUNGEON / 鍵: key_palace (入手: 掘削ギミック 1.5%)
   em_id_the_palace:
+    display-name: "宮殿"
     required-combat-level: 0
     key-item: key_palace
     key-amount: 1
@@ -440,6 +483,7 @@ gates:
 
   # 採石場 — DYNAMIC_DUNGEON / 鍵: key_quarry (入手: クラフト)
   em_id_the_quarry:
+    display-name: "採石場"
     required-combat-level: 0
     key-item: key_quarry
     key-amount: 1
@@ -449,6 +493,7 @@ gates:
 
   # 侵攻ミニダンジョン — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_invasion:
+    display-name: "侵攻ミニダンジョン"
     required-combat-level: 0
     content-package: invasion_minidungeon
     aliases:
@@ -456,6 +501,7 @@ gates:
 
   # アイアンリーグ闘技場 — OPEN_DUNGEON / 鍵なし(素通り)
   em_iron_league_arena:
+    display-name: "アイアンリーグ闘技場"
     required-combat-level: 0
     content-package: iron_league_arena
     aliases:
@@ -463,6 +509,7 @@ gates:
 
   # 騎士団の城 — DYNAMIC_DUNGEON / 鍵: key_knight_castle (入手: 釣り(宝) weight 3)
   em_knight_castle:
+    display-name: "騎士団の城"
     required-combat-level: 0
     key-item: key_knight_castle
     key-amount: 1
@@ -472,6 +519,7 @@ gates:
 
   # 北極ミニダンジョン — DYNAMIC_DUNGEON / 鍵: key_north_pole (入手: 戦利品(ルートチェスト shallow 5%))
   em_north_pole:
+    display-name: "北極ミニダンジョン"
     required-combat-level: 0
     key-item: key_north_pole
     key-amount: 1
@@ -481,6 +529,7 @@ gates:
 
   # オアシス — OPEN_DUNGEON / 鍵なし(素通り)
   em_oasis:
+    display-name: "オアシス"
     required-combat-level: 0
     content-package: oasis_adventure
     aliases:
@@ -488,6 +537,7 @@ gates:
 
   # プリミス — OPEN_DUNGEON / 鍵なし(素通り)
   em_primis:
+    display-name: "プリミス"
     required-combat-level: 0
     content-package: primis_adventure
     aliases:
@@ -495,6 +545,7 @@ gates:
 
   # 下水道迷宮 — DYNAMIC_DUNGEON / 鍵: key_sewer_maze (入手: 掘削ギミック 1.0%)
   em_sewer_maze:
+    display-name: "下水道迷宮"
     required-combat-level: 0
     key-item: key_sewer_maze
     key-amount: 1
@@ -504,6 +555,7 @@ gates:
 
   # 蒸気機関工房 — DYNAMIC_DUNGEON / 鍵: key_steamworks (入手: 採掘ギミック 1.0%)
   em_steamworks_lair:
+    display-name: "蒸気機関工房"
     required-combat-level: 0
     key-item: key_steamworks
     key-amount: 1
@@ -513,6 +565,7 @@ gates:
 
   # 飛空艇 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_the_airship:
+    display-name: "飛空艇"
     required-combat-level: 0
     content-package: the_airship
     aliases:
@@ -520,6 +573,7 @@ gates:
 
   # カタコンベ — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_the_catacombs:
+    display-name: "カタコンベ"
     required-combat-level: 0
     content-package: catacombs_lair
     aliases:
@@ -527,6 +581,7 @@ gates:
 
   # コロシアム — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_the_colosseum:
+    display-name: "コロシアム"
     required-combat-level: 0
     content-package: the_colosseum_lair
     aliases:
@@ -534,6 +589,7 @@ gates:
 
   # 闇の大聖堂 — DYNAMIC_DUNGEON / 鍵: key_dark_cathedral (入手: 釣り(宝) weight 2)
   em_the_dark_cathedral:
+    display-name: "闇の大聖堂"
     required-combat-level: 0
     key-item: key_dark_cathedral
     key-amount: 1
@@ -543,6 +599,7 @@ gates:
 
   # 海賊船 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_the_pirate_ship:
+    display-name: "海賊船"
     required-combat-level: 0
     content-package: pirate_ship_minidungeon
     aliases:
@@ -550,6 +607,7 @@ gates:
 
   # 遺跡 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_the_ruins:
+    display-name: "遺跡"
     required-combat-level: 0
     content-package: the_ruins
     aliases:
@@ -557,6 +615,7 @@ gates:
 
   # 吸血鬼の館 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_the_vampire_manor:
+    display-name: "吸血鬼の館"
     required-combat-level: 0
     content-package: vampire_manor_lair
     aliases:
@@ -564,6 +623,7 @@ gates:
 
   # 地下樹林 — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_under_grove:
+    display-name: "地下樹林"
     required-combat-level: 0
     content-package: under_grove_lair
     aliases:
@@ -571,6 +631,7 @@ gates:
 
   # ユグドラシル — DYNAMIC_DUNGEON / 鍵なし(素通り)
   em_yggdrasil:
+    display-name: "ユグドラシル"
     required-combat-level: 0
     content-package: yggdrasil_realm
     aliases:

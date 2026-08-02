@@ -283,26 +283,148 @@ EliteMobsフォーク側のコマンドrouting（MagmaCore）は正常なので�
   `evaluateOrFailOpen`ヘルパ（`DungeonGateService`が`final`でモック不可なため`GateOperation`
   関数型インターフェースで例外注入用の穴を作った）に両呼び出し元を通す。
 
-## ビルド・配備（EliteMobs / TF API 連携）
+### ⚠️ ダンジョン鍵の消費は「GUIで選んだ瞬間」ではなく「実際に入場が成立した瞬間」でなければならない — EliteMobs委譲先には既に本物の消費フックがある
 
-EliteMobsフォーク（`fork-handoff/elitemobs/elitemobs-fork`）は TrinityForge のクラスを
-**`libs/TrinityForge.jar`**（`build.gradle`: `compileOnly files('libs/TrinityForge.jar')`）に対して
-コンパイルする（実行時は実TFプラグインがsoftdepend提供、jarはコンパイル専用の thin jar・全クラス/
-依存なし）。自動コピーは無く手動運用。
+`DungeonTeleporter#teleportTo`（TF側）が `onSuccess`（鍵消費）を渡す旧設計は、EliteMobs へ委譲する
+ダンジョン（`gates.yml` に `aliases`/`content-package` があるもの）では**GUIでレベル/難易度を選んだ
+時点**で鍵を消費していた。この直後にワールド生成失敗・満員・権限不足等でテレポートが失敗しても
+鍵は戻らない（実質ロスト）。
 
-### ⚠️ TF の public API を変更したら `libs/TrinityForge.jar` の再生成が必須
+- 委譲先には**別の・後段の**消費フックが既に存在する: `TrinityForgeDungeonGateListener.checkDungeonEntryAllowed`
+  が `DungeonInstance#addNewPlayer`（`super.addNewPlayer()` 呼び出しの直前）と直接テレポート型の
+  `onPreTeleport` の両方から呼ばれ、**そこが本当の入場成立点**（2026-08-01 HIGH-2/HIGH-3 で新設済み）。
+  `DynamicDungeonInstance#addNewPlayer` も `super`(`DungeonInstance`) を呼ぶので同じフックを継承する。
+- 修正（2026-08-02）: `DungeonTeleporter#delegateToElitemobs` から `onSuccess` 呼び出しを削除し、
+  EliteMobs 委譲先では TF 側が鍵を一切消費しない設計にした（`EliteMobsDungeonBridge.canEnter`/
+  `teleport` の成否のみでメッセージを出す）。実消費は fork 側の上記フックに一本化される。
+  **非委譲**（`ExplicitLocation`/`RegionCenter`/`WorldSpawn`）はこの後段フックが無いため
+  `teleportTo` の即時消費のまま変更していない（同等のfork側再検証経路が存在しないため）。
 
-TF側のpublic API（configアクセサ/policyメソッド等）を追加・変更したら、フォークが新APIを参照
+### ダンジョン名のプレイヤー表示は `gates.yml` の `display-name`（TF側）が一次情報源。EM側の `getName()`(=`content-packages`の`name:`)と別々に存在するので、両方直さないとID表記が残る
+
+TF側 `DungeonEntryGui`（潜入確認画面）は元々 `gate.world()`（=ゲートID、EliteMobs委譲先では
+content-package名と同じ文字列）をそのまま表示していた。2026-08-02 に `DungeonGate` へ
+`displayName` フィールド（8番目のcomponent、旧7引数コンストラクタは後方互換で `displayName=null`
+委譲）を追加し `gates.yml` の全61ゲートへ `display-name:`（`tools/scripts/em_ja_names.py` の
+`DUNGEON_JA` から注入）を設定、`displayNameOrWorld()`（未設定ならゲートIDへフォールバック）
+経由で表示するよう修正した。
+
+- **これはTF側の画面だけを直す**。EliteMobs委譲後にフォーク自身が描く画面（ダンジョン
+  install/uninstallメッセージ等）は別の表示源 `ContentPackagesConfigFields#getName()` を持つ。
+  `WorldInstancedDungeonPackage#doInstall`/`DynamicDungeonPackage#doInstall` はこれを無視して
+  **`getFilename()`（生ID）**を `$name` プレースホルダに埋めていた非対称バグがあり（`doUninstall`
+  側は元から `getName()` を正しく使っていた）、2026-08-02 に `getName()` へ統一して修正した。
+  `InstancedDungeonBrowser`/`DynamicDungeonBrowser`（メニュー本体）は元から `getName()` を
+  正しく使っており問題なし。
+- 教訓: 「ダンジョン名がID表記」の症状は表示元が2つ（TFの`gates.yml display-name`とEM自身の
+  `ContentPackagesConfigFields.getName()`）あるため、片方だけ直しても症状が残ることがある。
+  新しいID露出を探すときは両方の画面フローを洗う。
+
+### ⚠️ ダンジョンのボスダメージランキングは「TFが最終ダメージを確定する前」の値を拾っていた
+
+`TrinityForgeCombatListener#onEliteDamagedByPlayer`（NORMAL、EliteMobs内部処理の一部）は
+`event.setDamage(vanillaBase)` でバニラ基礎値に巻き戻してから return するが、EliteMobs内部は
+この直後に `addDamager(player, vanillaBase)` を呼んでランキングへ積む。**本当の最終ダメージ**は
+その後 HIGH 優先度の TF 側 `CombatListener`（`listeners/` パッケージ、編集禁止）が同じ生イベント
+に対して計算する。つまりランキング集計点とダメージ確定点がイベント優先度で1段ずれていた。
+
+- 修正（2026-08-02）: 同クラスに MONITOR 優先度の `onRawDamageFinalized` を追加。
+  `onEliteDamagedByPlayer` 側は予約 Map（`pendingDamagerCorrections`、entityUUID→(player,記録した
+  vanillaBase)）に控えるだけにし、MONITOR で `event.getFinalDamage()`（=HIGHまで確定済みの真値）
+  との差分を `addDamager(player, delta)` で追加補正する。`addDamager` が加算式なのでこの形でしか
+  補正できない（セッターが無い）。イベントが途中で cancel された場合は補正をスキップしつつ Map
+  からは必ず除去する（残すとリーク兼誤補正の温床になる）。
+- 同じ `damagers` map は `AdvancedAggroManager` のヘイト計算にも使われるため、この修正はダメージ
+  ランキング表示だけでなくモブの狙う対象の精度も間接的に直す。
+
+### EliteMobs には公式の高品質な日本語翻訳が同梱の `/em language japanese` コマンドで手に入る（コード修正不要）
+
+`LanguageCommand`（`REMOTE_LANGUAGES` に `"japanese"` を含む）が
+`https://magmaguy.com/api/elitemobs_translations/japanese.csv` から公式翻訳CSVを取得し、
+`plugins/EliteMobs/translations/japanese.csv` へ保存、`DefaultConfig#setLanguage` 経由で
+config書き込み＋自動 `/em reload` まで一括で行う。2026-08-02 に実ファイルを取得して検証:
+26,303エントリ中 25,708件（97.7%）がバニラ英語と異なる実翻訳（`taunt`/`yggdrasil`/
+`enchantment_challenge` 系を含む戦闘台詞・ダンジョン名も網羅）。
+
+- モブ台詞（`custombosses` の `phrases`/`greetings`/`dialog`/`farewell`）はいずれも
+  `translatable(...)` でラップ済み（`NPCChatBubble`/`CustomBossesConfigFields` で確認）なので、
+  Java側のハードコード翻訳表は不要かつ有害（二重管理源になる）。管理者が
+  `/em language japanese` を一度実行するだけで解決する運用問題であり、コード修正の対象ではない。
+
+### 一部ダンジョン（エンチャント試練11-20・ユグドラシル等）が入れないのは EliteMobs 自身の Nightbreak 有料/無料コンテンツ配布ゲート — TF↔EM連携のバグではない
+
+`PremiumEnchantmentChallengesMetaPackage`/`FreeEnchantmentChallengesMetaPackage`
+（`config/contentpackages/premade/`）は試練1-10（無料）と11-20（premium）を明確に分けた別
+content package として定義されている。`YggdrasilRealm` も同様に `DYNAMIC_DUNGEON` 型の premade
+package で、Nightbreakの `NightbreakAccount`/`NightbreakContentManager` を経由したダウンロード権限
+（`DownloadAllContentCommand`）が無いとワールド設計図自体が存在せず入場できない。
+
+- `gates.yml` 側の設定（`content-package`/`aliases`）はこれら61ダンジョン全てに既に揃っており
+  正しい。「入れない」の原因はTF側の入場判定ではなく、フォーク側のコンテンツ本体
+  （`world_blueprints/`）が未ダウンロードであること。運用者が `/em downloadall` 等で
+  Nightbreak権限相当のコンテンツを取得すれば解消する、TF連携とは独立した論点。
+
+### ダンジョン難易度選択（levelSync/difficultyID）は実際にゲームプレイへ反映される — 3つの独立経路で消費される、死にコードではない
+
+`DungeonInstance#setDifficulty` が `contentPackagesConfigFields.getDifficulties()`（yml の
+`name`/`levelSync`/`id` を持つマップのリスト）から選ばれた難易度を解決し `levelSync`（int）と
+`difficultyID`（String）をインスタンスへセットする。この2値は少なくとも3箇所で消費される
+（2026-08-02 実コード確認）:
+
+1. `PlayerItem#setItem`: `dungeonInstance.getLevelSync() > 0` のとき、プレイヤーの実効武器/防具
+   ティア（ダメージ計算に使う `itemTier`）を `levelSync` で上限クランプする（オーバーレベル装備の
+   弱体化＝レベル同期）。
+2. `ElitePowerParser`（`mobconstructor/custombosses/`）: `InstancedBossEntity` へ付与する
+   エリートパワーのうち、そのパワー定義に `difficultyID:` リストが指定されているものは
+   `instancedBossEntity.getDungeonInstance().getDifficultyID()` が一致しないとスキップされる
+   （難易度別にボスの技構成が変わる）。
+3. `EliteCustomLootEntry#(difficultyID条件)`（`items/customloottable/`）: ドロップ表エントリに
+   `difficultyID:` が指定されている場合、現在のダンジョンインスタンスの `difficultyID` と一致しない
+   と抽選対象から外れる（難易度別ドロップテーブル）。
+
+機構自体は生きている（3箇所いずれもデータ駆動で死にコードではない）が、**実際に差が出るかは
+個々のダンジョンのYAMLが `difficulties:`/`difficultyID:` を実際に書き分けているか次第**。
+ボスHP/攻撃力そのもの（TFが駆動する側）は `levelSync`/`difficultyID` を直接参照しておらず、
+別軸（EliteMobsモブレベル→TF `combat/mob-import.yml` ランプ）で決まる点は要区別。
+
+## ビルド・配備（EliteMobs / ArsPaper / TF API 連携）
+
+EliteMobsフォーク（`fork-handoff/elitemobs/elitemobs-fork`）と ArsPaper フォーク
+（`fork-handoff/arspaper/fork`）はどちらも TrinityForge のクラスを
+**`libs/TrinityForge.jar`**（`build.gradle(.kts)`: `compileOnly(files("libs/TrinityForge.jar"))`）に対して
+コンパイルする（実行時は実TFプラグインがsoftdepend/hard depend提供、jarはコンパイル専用の thin jar・
+全クラス/依存なし）。ArsPaper は TF に `join-classpath: true` で hard-depend しているため、
+古い jar のままだと **`compileJava` がそのままコンパイルエラーで落ちる**（EliteMobs 側は
+実行時 `NoClassDefFoundError` になるだけの場合もあるが、ArsPaper は静的解決なのでビルド自体が通らない）。
+
+### ⚠️ TF の public API を変更したら `libs/TrinityForge.jar` の再生成が必須（両フォーク共通）
+
+TF側のpublic API（configアクセサ/policyメソッド等）や `com.trinityforge.**` 配下の新規クラス
+（例: 2026-08-02 の `com.trinityforge.stats.RandomRollPool`）を追加・変更したら、フォークが新APIを参照
 できるよう jar を再生成して差し替えないとフォークのビルドが落ちる（`TrinityForge#applyDeathDurabilityPenalty`
-などの新設APIがこの経路で必要になった実例あり）。手順:
+や `RandomRollPool` 新設がこの経路で必要になった実例あり）。**"config のミスに見える" フォーク側の
+コンパイルエラーの多くは、実は単にこの jar が古いだけ。** 手順:
 
-1. `cd TrinityForge && ./gradlew jar` → `build/libs/TrinityForge-0.1.0-SNAPSHOT.jar` が生成される
-   （`./gradlew releaseAssembly` がこの同期を行うタスクとしても存在する）。
-2. 生成物をコピー＆リネームして `fork-handoff/elitemobs/elitemobs-fork/libs/TrinityForge.jar` に
-   配置する。
-3. フォークのビルドは `gradlew.bat`（unix `gradlew` は無し）。git-bashからは絶対Windowsパスで
-   `cmd //c '...\gradlew.bat compileJava'` のように呼ぶ。TF本体は `./gradlew`（unix）が使える。
-   両方 Java 21。TF のテストは JUnit5。
+1. `cd TrinityForge && ./gradlew releaseAssembly --offline "-Dorg.gradle.java.home=..."` を実行する。
+   このタスクが `shadowJar`（配布用 `-all.jar`）と `apiJar`（フォーク向け curated API jar）を
+   ビルドしたうえで、**thin jar（`archiveClassifier = "thin"`。全クラス同梱・依存ゼロ）を
+   `fork-handoff/{elitemobs/elitemobs-fork, arspaper/fork, dpschecker/fork}/libs/TrinityForge.jar`
+   へ自動コピーする**（3フォーク全部を一度に同期する。個別に `./gradlew jar` だけ叩いても
+   `build/libs/TrinityForge-0.1.0-SNAPSHOT-thin.jar` が更新されるだけでフォークへは配られない
+   ── 旧手順書は `TrinityForge-0.1.0-SNAPSHOT.jar`（classifier無し）という古いファイル名を
+   前提にしていたが、現行 build.gradle.kts では jar タスクに `archiveClassifier.set("thin")` が
+   付いており、その名前のファイルはもう出ない）。
+   `apiJar`(`com.trinityforge.integration/api/pdc/combat.AttackStats` だけの狭い公開面)は
+   フォークが TF 内部へ深く踏み込む(combat/config/stats/progression/mobs/hate)ため
+   コンパイルには使えない ── これを使うのは配布用 `TrinityForge-api.jar` のみ。
+2. フォークが git worktree 側にしか無い場合は releaseAssembly が
+   「フォークが見つからないので配れなかった」と警告するだけで silently skip する
+   （フォークは `.gitignore` 除外なので worktree に存在しない）。**メインのワークツリーで
+   releaseAssembly を打ち直す**必要がある。
+3. フォークのビルドは ArsPaper/EliteMobs とも Windows 環境では `gradlew.bat` を使うこともできるが、
+   Git Bash からは `./gradlew`（unix ラッパー）がそのまま動く（ArsPaper で確認済み）。
+   `cmd //c '...\gradlew.bat compileJava'` は `gradlew`(sh) が無い環境向けの代替。
+   TF本体・フォークとも Java 21。TF/ArsPaper のテストは JUnit5。
 
 ### ⚠️ EliteMobs フォークの配布jarは `build/libs` の thin jar ではなく `testbed/plugins` の uberjar
 
@@ -510,6 +632,49 @@ infinity_source_core 補正の順に多段で掛ける。
   無引数版はこのオーバーロードへ `null` を渡すだけの薄いラッパにし、
   「player が分からない経路（ルートチェスト/ダンジョンドロップ/管理コマンド付与）は quality=0
   相当で従来どおり」という fail-open フォールバックを自然に満たす。
+
+### ⚠️ 魔法基礎ダメージは「グリフ基礎＋杖の攻撃力」が加算合成される — グリフ側だけに固定値を積んでも高攻撃力帯で無意味化する
+
+`TrinityForgeBridge#magicalFinalDamage` は `spellBase`(グリフ自身の基礎ダメージ) と
+`杖の attack-power × combat/damage.yml の magical.attack-power-scale` を**加算**して
+`effectiveBase` を作る（`MagicStatSourcePolicy#effectiveBase`）。杖の attack-power は
+Lv100帯で10000超に育つため、グリフ側だけに「増幅1段+3.0HP」のような固定値を足しても、
+高攻撃力帯では相対的に誤差（実測: 攻撃力10584の杖で harm を撃つと増幅5段の寄与は約0.14%）
+になり、無言で無意味化する（2026-08-02、増幅グリフの仕様変更で実際に踏んだ）。
+
+- **新しい「割合で効かせたい」魔法ダメージ補正**（増幅・グリフ別倍率スキルツリー等）は、
+  必ず `effectiveBase` 合成**後**・対称パイプライン（守備力/耐性/会心）へ渡す**前**の層で掛ける
+  こと。グリフ基礎だけに掛けると同じ罠を踏み、最終ダメージに掛けると守備力の減算より後ろに
+  なって防御が無意味化する（`MagicStatSourcePolicy#applyGlyphMultiplier` /
+  `#applyAmplifyMultiplier` の javadoc に根拠を記録済み）。
+- 増幅(Amplify)グリフの乗算ボーナス（`glyphs.yml` の `amplify.params.damage-rate-per-stack`、
+  既定1段+10%）はこの層で実装済み。個々のダメージ系エフェクト（`HarmEffect` 等9種）は
+  もう `getAmplifyLevel()` を自分のダメージ式へ直接掛けてはいけない —
+  `SpellContext#dealSpellDamage(target, spellBase, glyphId)` が呼び出し時点の
+  `getAmplifyLevel()` を自動で乗せる。呼び出し側が既に段数を織り込み済みの経路
+  （`HealEffect` の対アンデッド分岐）だけ4引数版で `applyAmplifyDamageMultiplier=false` を渡す。
+- 増幅の実質的な上限は「スペルコスト」ではなく `glyphs.yml` の `max-augments.amplify`
+  （グリフ互換性チェックでの積み増し上限、出荷時点で対象9グリフ全て6）。乗率計算側にも
+  `amplify.params.max-damage-level` で独立の安全弁を持たせてある（将来その上限が外れても
+  乗率だけは青天井にしない）。
+
+### ⚠️ フォークは複数セッションが同じ非バージョン管理ワークツリーを共有する — 他レーンの未完了WIPで自分の変更と無関係にビルドが赤くなる
+
+フォークは `.gitignore` 除外＝TF側の worktree では分離できない（本ファイル冒頭参照）ので、
+並行作業は**同一のフォーク作業ディレクトリを直接共有**する。あるセッションが未完成のAPI参照
+（例: TF側にまだ存在しない `ItemStatsConfig#randomRollPoolFor` / `com.trinityforge.stats.RandomRollPool`
+を呼ぶコード）を残したまま離脱すると、**自分が一切触っていないファイルの変更のせいで
+`./gradlew build` が丸ごと失敗する**。この状態は `git diff --stat -- <自分が触ったファイル>` で
+自分の差分が孤立したハンクに収まっていることを確認すれば、原因が自分のコードでないと切り分けられる。
+
+- 自分の変更だけを検証したい場合、フォーク自身が独立した `.git` を持つことを利用し、
+  作業ディレクトリを丸ごとスクラッチにコピー（`robocopy <fork> <scratch> /E /XD .git build .gradle tmp`。
+  git-bash からは `export MSYS2_ARG_CONV_EXCL="*"` を先に打たないと `/E` 等のフラグがパス変換され
+  `robocopy` が誤動作する）→ 原因不明の他レーンの壊れたメソッド呼び出しをスクラッチ側だけで
+  一時的にスタブ化 → そこで `gradlew build`/`test` を回す、という手順で自分の差分だけを
+  切り離して検証できる（本番のフォーク作業ディレクトリには一切触れない）。
+- ライブのフォーク作業ディレクトリを直接 `git stash`/`checkout --`/`reset` で「一時的に元へ戻す」
+  形の検証は**禁止**（他レーンの未コミットWIPを消す）。上記のコピー退避が唯一の安全な代替手段。
 
 ### ArsPaper フォークのテストは JavaPlugin/Bukkit ランタイムを一切構築しない（MockBukkit も Mockito も依存に無い）
 
