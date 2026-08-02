@@ -332,6 +332,36 @@ if (player.hasPermission("trinityforge.admin")
   手前にあれば副作用の抑止にもなる。`default: op` の権限は開発者自身が必ず持っているため、
   自分でテストすると**必ず素通りする側**に落ちて再現しない。
 
+### ⚠️⚠️⚠️ 上の TF 側修正だけでは直らない — 呼び出し元のフォークに「もう1つの」同型バイパスが残っていた
+
+2026-08-03、TF側 `DungeonGateService#requiredEntry` を上記のとおり修正した（commit `cf15493`）
+**後も実機で鍵が消費されない**ままだった。原因はフォーク側の唯一の呼び出し元
+`TrinityForgeDungeonGateListener`（`fork-handoff/elitemobs/elitemobs-fork/src/main/java/com/magmaguy/elitemobs/trinityforge/`）
+自身が、TF を呼ぶ**手前**で同じ2権限（`trinityforge.admin`/`trinityforge.elitemobs.commands`）を見て
+早期 `return true` していたこと（`checkDungeonEntry` 82行目付近、`checkConfiguredTeleportAllowed`
+112-113行目付近）。TF側の「判定に落ちたときだけ救済する」形の安全な二相評価まで**制御が一度も
+到達しない**ため、TF側をどれだけ正しく直しても効果が出ない。
+
+- **教訓**: 「副作用を持つメソッドへの権限バイパス」はメソッド内部だけでなく、**呼び出し元チェーン
+  全体**（fork→TF の複数プラグイン境界をまたぐ場合は特に）を辿って全箇所を洗うこと。同じ権限文字列
+  (`trinityforge.admin` 等)で `grep -rn hasPermission` をフォーク側にも必ず当てる。片方だけ直して
+  「直したはず」を報告すると、実機では直っていない。
+- 修正（2026-08-03）: フォーク側の2箇所の早期 return を削除し、TF の `DungeonGateService` へ
+  無条件に素通しさせる形にした。`checkDungeonEntryAllowed`/`previewDungeonEntryAllowed`
+  （鍵消費あり/なしの二相）が呼ぶ `checkRequiredEntry`/`previewRequiredEntry` は上記のとおり
+  内部で権限救済を持つので二重管理にならない。`checkConfiguredTeleportAllowed`
+  （`onPreTeleport` 経由、`/em spawntp`・ギルド・NPC帰還等ダンジョン参加以外のテレポート専用）が呼ぶ
+  `DungeonGateService#checkEntry`/`checkRegionEntry` は**そもそも権限救済を持たない設計**
+  （TF自身の `DungeonGateListener`＝`PlayerTeleportEvent`/`PlayerMoveEvent` 側もゲート判定に
+  管理者バイパスを一切持たない対称設計）なので、フォーク側だけが独自の管理者バイパスを持つのは
+  元から一貫性を欠いていた。この経路はダンジョン入場そのものとは別ルート
+  （`DungeonInstance#addNewPlayer`/`checkDungeonEntryAllowed` の実テレポートは素の
+  `player.teleport(...)` を使い `PlayerPreTeleportEvent` を経由しない）なので、削除しても
+  ダンジョン入場の二重ゲート化は起きない。
+- フォーク全体を `grep -n hasPermission` で洗った結果、TF の判定を飛ばす早期 return は
+  上記2箇所のみだった。他の `hasPermission` 呼び出しは全て EliteMobs 自身の権限系
+  （`elitemobs.*`／NPC・アリーナ・ワームホール等の `getPermission()`）で、TF連携とは無関係。
+
 ### ダンジョン名のプレイヤー表示は `gates.yml` の `display-name`（TF側）が一次情報源。EM側の `getName()`(=`content-packages`の`name:`)と別々に存在するので、両方直さないとID表記が残る
 
 TF側 `DungeonEntryGui`（潜入確認画面）は元々 `gate.world()`（=ゲートID、EliteMobs委譲先では
