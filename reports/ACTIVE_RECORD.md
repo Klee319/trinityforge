@@ -3999,12 +3999,17 @@ quality=0 相当で従来どおり**、という fail-open が自然に満たさ
   そのまま出していた。**共有ワークツリーで並行レーンが走っている間は、作業ツリーの状態を「既存の実装」と
   読んではいけない**。裏取りは必ず `git show HEAD:<path>` で行うこと。
 
-### スレッド厳選を TF `item-stats.yml` へ一本化（レガシー削除）
+### ~~スレッド厳選を TF `item-stats.yml` へ一本化（レガシー削除）~~ → **2026-08-03 に撤去**
 
-Ars 独自の `thread-rolls.yml` / `ThreadRollConfig` を**削除**し、TF 側 `stats/item-stats.yml` に
+> **この節の `random-roll-pools:` 新設は指示違反で、翌日 `4fa8116` で全部撤去した。**
+> 「専用のGUIと仕様を作るな」という明示指示に反していた。撤去の理由と作り直した中身は
+> 下の「2026-08-03 スレッド厳選の作り直し」を見ること。以下は経緯としてのみ残す。
+
+~~Ars 独自の `thread-rolls.yml` / `ThreadRollConfig` を**削除**し、TF 側 `stats/item-stats.yml` に
 第4の層 `random-roll-pools:` を新設（`RandomRollPool`）。既存の `random:`（`StatRange`）層は
 「列挙した全ステを毎回ロールする」だけで重み抽選・主/サブ別プール・レア度倍率を表現できないため、
-層を足す判断にした。**PDC の保存形式は旧 `ThreadRoll#encode()` とバイト互換**なので既存個体は無改修で読める。
+層を足す判断にした。~~ ← **この判断が誤り**。`per-quality` / `random` / `advanced.randomize-grants` で
+足りていた。**PDC の保存形式は旧 `ThreadRoll#encode()` とバイト互換**なので既存個体は無改修で読める。
 
 - **`__stats_thread__` タブが空だった真因**は config ミスではなく**配線漏れ**。
   `_editor.itemTabs` / `categories.thread` / `orders.thread` は「タブに出すための明示ピン」で、
@@ -4095,3 +4100,96 @@ Ars 独自の `thread-rolls.yml` / `ThreadRollConfig` を**削除**し、TF 側 
 3. Nightbreak コンテンツの取得 — エンチャント試練11-20 / ユグドラシルに入れない件。
    当該コンテンツはダウンロード権限が無いとワールド設計図自体が存在しない。`gates.yml` 側は61件とも正しい。
 4. 実機確認: 虚空右クリックでガチャ券／鍵が使えるか（上記のとおり診断未確定）。
+
+---
+
+## 2026-08-03 スレッド厳選の作り直し — **前日の実装は指示違反だったので撤去**（`4fa8116`）
+
+ユーザー指摘: 「スレッド作成のやり方が根本的に間違っている。**専用のGUIと仕様を作るなと言ったはず**である。
+武器と同じアイテムステータス設定の仕様とやり方をしてほしい（**個別に**ステータス定義）。
+それだけでも高度な設定を用いた追加ステータスの確率付与や品質別の上昇量、ランダムロールステータスなど
+幅広く設定できるはず。」
+
+**指摘は全面的に正しかった。** 上の 2026-08-02「スレッド厳選を TF `item-stats.yml` へ一本化」で
+~~「既存の `random:` 層では重み抽選・主/サブ別プール・レア度倍率を表現できないため層を足す判断にした」~~
+と書いたが、**そもそも層を足す必要が無かった**。ユーザーが挙げた3つは既存仕様に全部あった:
+
+| 要件 | 既存キー |
+|---|---|
+| 品質別の上昇量 | `per-quality:`（最終値 = fixed + step × 品質Lv、品質は 0..9） |
+| ランダムロールステ | `random: {min,max}`（アイテムの `rollSeed` で決定的。ブレ幅は品質で広がる） |
+| 追加ステの確率付与 | `advanced.randomize-grants: true` + `advanced.grant-chances:`（ステ別 0.0〜1.0） |
+
+**フォークが独自層を発明した真因**は、フォークが呼んでいた
+`TrinityForgeBridge.resolveItemStats(material, cmd)` が **quality=0 / rollSeed=0 固定のテンプレート引き**
+だったこと。同じスレッドが全部同じ値になるのはそのせいで、**足りなかったのは仕様ではなく引数**だった。
+`DerivedItemStats.profileStats(material, cmd, quality, rollSeed, itemStats)` に品質と rollSeed を
+渡すだけで、武器とまったく同じ導出が通る。
+
+### 撤去したもの
+
+- `stats/item-stats.yml` の `random-roll-pools:` ブロックとヘッダ節、各スレッドの `random-roll-pool: thread` 参照
+- `com.trinityforge.stats.RandomRollPool` と `ItemStatsConfig.randomRollPoolFor/randomRollPools`
+- テスト `RandomRollPoolTest` / `ShippedItemStatsRandomRollPoolTest`
+- editor の「スレッド厳選」専用セクション（`p5-forms.js` の `buildRandomRollPoolsForm` /
+  `buildRandomRollPoolEditor` / `RARITY_COLORS`、`split-views.js` の thread タブだけ専用UIを合成する分岐、
+  `labels.js` の `rarity-color` 語彙）。スレッドは他アイテムと**同じ汎用フォーム**で編集する
+- ArsPaper フォークの `ThreadRoll` / `ThreadRollConfig` / `thread-rolls.yml`、
+  `TrinityForgeBridge` の `rollThreadStats` / `hasThreadRollPool` / `randomRollRarityLabel`
+
+### 作り直した中身
+
+- **スレッド40件を `items:` に1件ずつ個別定義**（武器と同じ書式）。組み立ては全件統一:
+  主ステ1種を `per-quality:` で品質成長させ、`random:` に主ステ+サブ4種を書き、
+  `advanced.randomize-grants: true` + `grant-chances` でサブ4種を各 0.45 の確率付与にした
+  （付くサブは平均1.8種）。主ステは `grant-chances` に書かないので常に付く。
+- テーマ別に主ステを割り当てた（茨=`bleed-damage` / 狙撃=`crit-chance` / 体力増強=`phys-flat-defense` /
+  導管=`magic-flat-defense` / 飛行=`dodge-chance` …）。**旧プールは「どのスレッドも同じ15種から引く」**
+  だったので、個別定義にしたことでスレッド種別に性格が付いた（実質の機能向上）。
+- **率系のレンジをあえて3桁で書いた**（`0.018〜0.052`）。`0.02〜0.05` だと刻みが 0.01 になり
+  4通りしか出ず厳選が潰れる。3桁なら 0.001 刻みで 35 通り。
+- レア度（並/希/極/神）の概念は消えた。個体差は「品質」と「実際に付いたサブの内容」で見える。
+
+### 刻み幅（#43）の置き場所を直した
+
+小数刻み量子化は `RandomRollPool` にしか無かったので、**消すと機能ごと消える**ところだった。
+`StatRange` に `step` を持たせて `valueAt` で量子化するよう移設し、
+`ItemStatsConfig` が **yml に書かれた min/max の小数桁**から step を決める（`200/600`→1、`0.02/0.05`→0.01、
+`0.5/2.0`→0.1）。`ConfigurationSection#getDouble` では `2` と `2.0` の区別が消えるので、
+**生オブジェクトの `toString()` から桁を数えている**。
+
+### フォーク側の配線
+
+- スレッド個体は生成時に **TF の rollSeed + quality を刻む**（`ItemFactory#stamp` へ委譲）。
+- 防具の `THREAD_SLOT_ROLLS` は**キーはそのままで格納形式だけ** `"<rollSeed>:<quality>"` に変えた
+  （新キーを増やすと旧キーが永久にゴミとして残る）。旧形式は `ThreadSlotIdentity.decode` が
+  パースに失敗して `NONE`(0,0) へ fail-open ── **ステが消えるのではなく個体差が無くなるだけ**。
+- `ArmorManaListener#collectThreadsInto` は**ステの合算を1本に統合**した。
+  以前は「厳選ステの合算」と「テンプレート引き `resolveItemStats(mat,cmd)` の合算」の**2箇所**で
+  足しており、新経路を足したまま旧経路を残すと fixed/per-quality が二重に乗る。
+- lore は TF 側の整形（`stats/lore.yml` / `LoreValueFormat`）へ委譲する。
+  フォークで数値を整形し直すとチャットと GUI で表示が食い違う。
+
+### `ItemFactory#stamp` をスレッドに使う安全性（**条件付き**）
+
+`stamp` は PDC を書くだけでなく `ItemAssembler#assemble` を通して**バニラ属性も投影する**。
+現在安全なのは、投影対象の7キー（`knockback_resistance` / `armor_defense_rate` / `max_health` /
+`move_speed` / `attack_speed` / `attack_speed_bonus` / `attack_reach`）が
+**スレッドに割り当てた15ステのどれとも重ならない**からに過ぎない。
+**将来この7キーのいずれかをスレッドへ足すと、スレッドを手に持っただけでバニラ属性が付く**（無警告）。
+
+### 検証
+
+- TF 本体 `./gradlew cleanTest test`: **3545 件中 1 失敗 / 2 スキップ**。
+  失敗は `SkillExpConfigTest`（ARCHERY kill-exp 25≠30）で、**別セッションが編集中の
+  `skill-exp.yml` の未コミット差分によるもの**。本作業とは無関係。
+- スレッド40件を yml パーサで機械検証: `random` 5種 / `grant-chances` 4種 / `per-quality` 1種が
+  主ステと一致 / 主ステが確率ゲートされていない / `min<=max` / `offhand-stats-apply: false` を全件確認。
+- editor `npm test`: 1010→1014 件、**失敗は 9 件のまま増減ゼロ**（既知のベースライン失敗）。
+- ArsPaper フォーク: `./gradlew test` 281 件全通過、jar ビルド成功。
+
+### 残（運用者の作業）
+
+- **配備が必要**（jar は差し替え済みだが未配備）。`deploy.cmd --restart` または `--server <name>`。
+- ArsPaper フォークの変更は**ローカルコミットのみ**（`d5e7037`、`feat/trinityforge-fork`）。
+  リモートに同名ブランチが無く push はゲートで拒否された。公開の是非を含めユーザー判断。
