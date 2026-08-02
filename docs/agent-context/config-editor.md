@@ -29,6 +29,80 @@ config-editor 保存経路（`mirrorToDeploy` 等）を通さない自作の生�
 片方だけ直して終わらせない**こと。過去にキー削除がテストの片方向チェックしか無く、削除漏れを構造的に
 見逃していた例がある（ドリフト検知は「追加」と「削除」の両方向でテストすること）。
 
+## ArsPaper の sourcelinks.yml / sourcejars.yml は既に editor 対応済み（「未実装」と誤認しやすい）
+
+`public/js/ars-source-forms.js`（531行、2026-07-27 の「機能アイテム」ナビ新設と同時に配線）が
+`window.buildSourceJarsForm` / `window.buildSourceLinksForm` を提供し、`app.js` の
+`case "ars-sourcejars"` / `case "ars-sourcelinks"` から呼ばれる。ナビは「機能アイテム」グループ
+（`NAV_SECTIONS` の `key: "functional-items"`、`order: ["functional-items", "sourcelinks", "sourcejars"]`）
+から到達できる。material（TileState限定）/ display-name / custom-model-data（CMD自動割当対応）/
+lore / recipe（`renderCatalogRecipeSection` 経由でワンド/儀式レシピ共通UI）/ capacity（jars）/
+type・投入マテリアル表（links の volcanic・mycelial・alchemical）まで一通り揃っている。
+
+「sourcelinks/sourcejars が editor に無い」という報告を受けたら、まずこのファイルが実際に
+到達できているか（ビルド済み editor で「機能アイテム」→「ソースリンク」を開けるか）を確認すること
+── 実装が無いのではなく、報告者が古い build を見ている／到達経路を知らない可能性がある。
+
+### transfer: チューニングブロックと items.<id>.transfer-multiplier は 2026-08-02 に editor 対応済み
+※かつて「`sourcelinks.yml` の `transfer:` 節（`SourceTransferConfig` が消費する調整値）と
+`items.<id>.transfer-multiplier` には UI が無い」と記載していたが、`buildSourceLinksForm`
+（`ars-source-forms.js`）に `renderTransferCard()` と `extraFields` 経由の `transfer-multiplier` を
+追加して解消済み。`buildCatalogLikeCard` の `extraFields` へ渡す関数に足す、という対応方針自体は
+合っていた。新しい調整項目を追加するときの参照点として残す。
+
+### 「設定は本来必須（値が無いと Java が既定値を使う）」タイプの調整ブロックは lazy-touch で作る
+`combat/mob-types.yml` の `dimensions:` や `sourcelinks.yml` の `transfer:` のような「複数階層の
+子キーを持つ調整ブロックで、省略時は Java 側にちゃんとした既定値がある」種類の UI を追加するとき、
+`ensureObject(working, "block")` で丸ごと実体化してから各フィールドを描画すると、**カードを開いて
+何も変更せず保存しただけで、その瞬間の Java 既定値が yml へ全部書き込まれる**。今日の既定値と
+明日以降 Java 側で変わる既定値が一致する保証はなく、書き込んだ瞬間に「将来の既定値変更が
+この yml だけ効かなくなる」という凍結を生む（`normalize*` 系の既定値ドリフト事故と同根、
+本ファイル上部の「Java 側との既定値の食い違い」参照）。
+- **How**: 各リーフフィールドごとに `readPath`（現在値を読むだけ、何も作らない）と
+  `ensurePath`（実際に値を書くときだけ中間オブジェクトを作る）を分離する。値を空へ戻したときは
+  そのキーを消し、`pruneEmptyPath`（またはブロック単位の `pruneEmpty<Block>`）で空になった
+  中間オブジェクトを根本方向へ辿って刈る。`getData()` 側でも同じ prune 関数をもう一度呼んで
+  二重に安全策を掛ける（ライブ編集中の delete だけに頼らない）。
+- 真偽値フィールド（例: `transfer.network.path-particles.enabled`、Java既定 `true`）は
+  `checkboxInput(raw === undefined ? defaultValue : !!raw, ...)` で表示し、既定値と同じ値が
+  選ばれたらキー自体を消す（本コードベース既存の `!== false` 系フィールドと同じ「省略時true」の
+  流儀を踏襲）。
+- 実装例: `public/js/mob-forms.js` の `renderDimensionsCard`/`pruneEmptyDimensions`、
+  `public/js/ars-source-forms.js` の `renderTransferCard`/`ensurePath`/`readPath`/`pruneEmptyPath`/
+  `pruneEmptyTransfer`。回帰テストは `test/mob-types-dimensions-2026-08-02.test.js`・
+  `test/ars-sourcelinks-transfer-2026-08-02.test.js`（「未編集で保存してもキーが増えない」を
+  各パターンで固定している）。
+
+## タブ配置 (`_editor.itemTabs`) の設計と限界
+
+### 「素材」タブは materials.yml 専用で、catalog.yml の itemTabs 拡張だけでは繋がらない
+`app.js` の NAV_SECTIONS で「素材」タブだけ `split: { type: "materials", ... }` になっており、
+`split-views.js` はこの分岐で `buildMaterialsForm(data, ...)`（`ars-forms.js`、materials.yml
+専用）しか呼ばない。catalog.yml 側の `_editor.itemTabs`（`forms.js` の `CATALOG_CATEGORIES` =
+weapon/armor/tool/other/catalyst/spellbook/thread の7値）は `idsInCategory` が汎用文字列比較
+なので新しい値（例: `"material-ref"`）自体は技術的に追加できるが、それだけでは「素材」タブに
+何も表示されない（`buildMaterialsForm` は `data.materials` しか読まないため）。catalog.yml の
+アイテムを「素材」タブへ**移動せずに**一覧・編集できるようにするには、最低でも次の3箇所を
+連動させる新しいアーキテクチャが要る:
+1. `split-views.js` の「素材」分岐で catalog.yml も読み込み、`buildMaterialsForm` と
+   `buildCatalogForm`（`initialCategory` を新値にした2本目のインスタンス）を
+   `thread-bundle`（同ファイル 184-218行）と同じ「2フォームを1画面に積んで `getExtraSaves` で
+   両ファイルへ保存する」パターンで合成する。
+2. `forms.js` の per-item「表示タブ」セレクト（`renderItemTabSelect` の `tabOpts`、3077行付近）
+   に新値を選択肢として追加しないと、運用者がそのタブへ品目を割り当てる手段が無い。
+   **ここに追加する新しい id は既存の `"material"`（`external.material` = 実際に materials.yml
+   へデータ移行するボタン、`moveEntryToMaterials`）と絶対に同じ文字列にしないこと。** 同じ文字列
+   にすると、既存の「素材へ移動」オプションと衝突し、意図せず catalog.yml → materials.yml への
+   実データ移行（`delete working.items[id]` を伴う）を誘発しうる。
+3. `forms.js` の `buildItemStatsForm` は `candidate.tab === "material"` を厳密一致でスキップして
+   item-stats.yml へのゴーストエントリ生成を防いでいる（446行、`item-stats-material-skip.test.js`
+   が固定）。**新しい itemTabs 値を追加したら、この判定にも同じ値を足さないと、その値を持つ
+   catalog アイテムが item-stats.yml に「タブの無い幽霊エントリ」として量産される**（このガード
+   自体は "material" 専用の厳密比較で、新値には自動的に効かない）。
+このため「ダンジョンの鍵をカタログのまま素材タブへ出す」のような要望は、上記3点を同時に設計・
+実装しないと中途半端な機能（一覧はできるが item-stats が壊れる、等）になる。恒久対応が必要なら
+専用タスクとして起票し、ここに挙げた3箇所を最初から通しで設計すること。
+
 ## 同時編集・マージ
 
 ### ⚠️ 配列の3-way マージは要素単位で行う（`merge.js`）
@@ -58,6 +132,33 @@ config-editor 保存経路（`mirrorToDeploy` 等）を通さない自作の生�
 浅いクローンをフォームへ渡している画面では、カテゴリバー側に元の `data` を渡すと**参照が一致せず絞り込みが
 常に無効になる**。カテゴリホストとフォームへ渡すオブジェクトの参照は必ず同じものを使うこと
 （`const host = categoryHost;` を安易に `data` へ書き換えない）。
+
+## UI 部品の重複表示
+
+### ⚠️ `materialInput` の隣に `materialHintEl` を並べると同じ日本語名が二重に出る
+`materialInput`（`util.js`）は 2026-07-29 に `listSelect` ベースへ移行済みで、選択後のトリガー表示
+自体が既に日本語名（`primary`）になっている。それより前に「Material入力の横に日本語ヒントを出す」
+ために作られた `materialHintEl` を今も `input-with-hint` ラッパーで隣に並べている呼び出し（例:
+`mob-forms.js` の `buildDropRow` / `buildAddDropRow` / `buildRemoveDropsBox` /
+`buildDropItemControl`）は、同じ日本語名が2回連続で描画され行が潰れる（実サーバ報告:
+「素材 / material / 幸運のスレッド / 幸運のスレッド / 確率(0〜1) / …」）。
+`materialHintEl` は raw な `<input>` 系の Material 欄（`listSelect` を経由しない箇所、例:
+`forms.js` の `ingredientMaterialControl` のようにテキスト入力＋互換リストボタンと組み合わせる欄）
+では今も意味があるので**一律削除しない**。`materialInput` の直後に付けているものだけが冗長。
+新しく Material/カタログ選択欄を作るときは、まず `materialInput` 単体の表示を確認してから
+ヒントを足すか判断すること（`.mob-drop-row` 直下に要素を増やすと崩れるトラップは既知だが、
+今回のように**既存の子を削るだけ**なら安全）。
+
+### ガチャ景品(`entries[].item`)は「カタログID（接頭辞なし）または バニラMaterial名」
+`GachaEntry#itemId` は `custom:` 接頭辞を付けない bare な文字列（`items/catalog.yml` の ID、
+または `Material` 名）で、`CrossPluginItemResolver#create` が catalog → ArsPaper 登録 →
+バニラ Material の順で解決する（`custom:` 接頭辞を付けた場合はバニラ Material 解決を
+スキップする別経路になるが、実際の `gacha.yml` は一貫して bare 表記）。
+`window.materialInput({allowCustom:true})` は `custom:<id>` 接頭辞前提の候補
+(`window.CUSTOM_ITEM_CANDIDATES`) としか一致しないため、bare なカタログIDをそのまま渡すと
+常に「候補外」表示になる。カタログIDを bare のまま扱うセレクトは `catalogCandidates`
+（`{id, displayName, material, cmd, tab}` の配列、接頭辞なし）ベースで自作する必要がある
+（`p5-forms.js` の `catalogCandidateOptions()` / `prizeItemSelect` 参照）。
 
 ## Java 側との既定値の食い違い
 

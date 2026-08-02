@@ -429,6 +429,47 @@ infinity_source_core 補正の順に多段で掛ける。
 見た目(CMD)は base_material が変わるため既存のリソースパックモデルを引き継げない
 （新規CMDでの追従が必要。今回は資源パック変更を対象外としたため機能面のみ先行実装）。
 
+### ⚠️ スレッド厳選（thread-rolls.yml）は生成時焼き込みなので、TF品質を反映するには「player を生成経路まで手動で運ぶ」しかない
+
+`ThreadItem.createItemStack()`（無引数、`ItemRegistry.get(id).createItemStack()` から呼ばれる
+汎用経路）は **PDC への `ThreadRoll` 焼き込みを即座に行う**。一方 TF 側のクラフト品質刻印
+（`TrinityForgeBridge.finalizeCatalogRitualResult` → `finalizeArsSmithingResult` →
+`stampCraftedQuality`）は `RitualManager` の儀式パイプラインで **アイテム生成の"後"** に走る、
+かつ `BaseCustomItem#isQualityStamped()==true` の品（触媒・魔導書等）だけが対象で
+`ThreadItem` は対象外（`isQualityStamped()` 未オーバーライド=false）。この2点により、
+「TFの品質を使ってスレッドのロール幅を広げる」は**TFの通常の品質刻印パイプラインに相乗りできない**
+（品質が確定する前にロールが焼き込まれてしまう）。
+
+- 正しい実装は「品質をロール**前**に別途ロールする」: `CraftQualityService.rollArsSmithingQuality
+  (Player, ItemStack)`（既に public、TF側API変更不要）を `TrinityForgeBridge` 経由で呼び、
+  結果を `ThreadRollConfig.roll(Random, int quality)` へ渡す。TF の ItemData 品質 PDC には書かない
+  （スレッドの個体差は Ars 側 `ThreadRoll` PDC だけで表現する設計を維持）。
+- `createItemStack()` は `BaseCustomItem` 側で固定シグネチャなので、player を運ぶには
+  `ThreadItem` 側にだけ `createItemStack(Player crafter)` オーバーロードを足し、呼び出し元
+  （`RitualManager#resolveResult`）で `item instanceof ThreadItem` 分岐して使い分ける
+  （`ItemRegistry.get(id)` の戻り型は具象クラス `BaseCustomItem` なので `instanceof` で絞り込める）。
+  無引数版はこのオーバーロードへ `null` を渡すだけの薄いラッパにし、
+  「player が分からない経路（ルートチェスト/ダンジョンドロップ/管理コマンド付与）は quality=0
+  相当で従来どおり」という fail-open フォールバックを自然に満たす。
+
+### ArsPaper フォークのテストは JavaPlugin/Bukkit ランタイムを一切構築しない（MockBukkit も Mockito も依存に無い）
+
+`build.gradle.kts` に `mockbukkit`/`mockito` は無く、`JavaPlugin`/`Bukkit.getServer()` を要求する
+クラスは生きたテストで駆動できない（`LegacyCastExperienceRemovalTest` に明記）。この制約下で
+使われている2つのテスト手法:
+
+1. **config-only テスト**: `YamlConfiguration.loadConfiguration(new File("src/main/resources/..."))`
+   で出荷 yml を直接読み、`JavaPlugin` を経由せず値やキー構造だけを検証する
+   （`ThreadSetThresholdReachabilityTest` / `SourcelinkConfigTest` が実例）。
+   ロジックが plugin インスタンス無しで検証できるよう、config クラス側に
+   `static`/`package-private` の純関数を切り出しておくと（例:
+   `ThreadRollConfig.lowMultiplierFor`/`highMultiplierFor`）ここで直接テストできる。
+2. **wiring テスト（ソーステキスト検査）**: `Files.readString` で `.java` を文字列として読み、
+   「呼ぶべきメソッド呼び出しの文字列が含まれているか」を `assertTrue(source.contains(...))` で
+   固定する（`MagicStatSourceWiringTest` / `LegacyCastExperienceRemovalTest` が実例）。
+   実行時分岐（player有無での経路切替等）を検証したいがオブジェクトを組み立てられないときの
+   最終手段として使う。
+
 ## モブ系（TF ↔ EliteMobs 全般）
 
 - TF側のモブconfigはモブ**id**キーで、EntityTypeは実行時無視される: `combat/mob-defaults.yml`

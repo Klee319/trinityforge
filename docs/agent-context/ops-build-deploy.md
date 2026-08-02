@@ -159,6 +159,20 @@ JVM は未ロードのクラスを実行時に jar から読みに行くため�
 配備には `testbed/plugins/EliteMobs.jar`（MagmaCore 全クラス + DungeonLocator 同梱の uberjar）を使う。
 差し替え前に `unzip -l <jar> | grep -c magmacore` で数百クラス（min版は0）を確認してから配備すること。
 
+### バグ報告を見たら「デプロイ済み jar のタイムスタンプ」と「該当修正コミットの時刻」を先に突き合わせる
+ユーザー報告の症状が「もう直したはずの不具合」に見えるとき、まず配備先 jar の `LastWriteTime` と、
+関連コミットの `git log --format=%ad` を突き合わせる。配備先が権限ゲートで書き込み不可でも**読み取りは可能**
+（`Get-ChildItem` でタイムスタンプだけ見れば十分、中身を展開する必要はない）。
+```powershell
+Get-ChildItem 'D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server\plugins' -Filter '<Plugin>*.jar' |
+  Select-Object Name, LastWriteTime
+```
+配備 jar の時刻が該当修正コミットより古ければ、報告された症状は「未配備」で説明が付き、コード側を
+再調査する前に切り分けが終わる。フォーク（ArsPaper 等）は commit 時刻とビルド時刻がほぼ一致する
+（`gradlew build` は commit 直後に走らせる運用のため）ので、フォーク側は `fork-handoff/.../fork` の
+`git log --format="%h %ad %s" --date=iso` と突き合わせるだけでよい。TF本体側は配備が別タイミングで
+走るため、`reports/ACTIVE_RECORD.md` の配備記録（「配備完了」エントリの時刻）と合わせて確認すること。
+
 ## サーバ起動時の見落とし
 
 ### ⚠️ HuskSync の DB 接続失敗はサーバ起動を止めない

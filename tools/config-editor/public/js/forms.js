@@ -7,6 +7,17 @@
 (function () {
   const h = window.h;
 
+  // catalog.yml のアイテムを「素材」タブ(materials.yml編集画面)にも一覧・編集できるようにする
+  // 表示タブピン (2026-08-02)。実体は catalog.yml に残したまま(移動しない)なので、既存の
+  // "material"(= materials.yml へ実データ移行するボタンの値、buildCatalogForm の
+  // moveEntryToMaterials)とは**絶対に文字列を一致させない**こと。一致させると、鍵アイテムの
+  // ような catalog 専用の実装(PDCタグ/レシピ)を持つ品が誤って materials.yml へ移行されてしまう。
+  // split-views.js / lib 側から参照する唯一の正典としてここで定義し、他ファイルはこの値を
+  // (直接 window 経由で、または同じ文字列を書き写して)使う。
+  const MATERIAL_REF_TAB_ID = "material-ref";
+  const MATERIAL_REF_TAB_LABEL = "素材(カタログ内)";
+  window.CATALOG_MATERIAL_REF_TAB = [MATERIAL_REF_TAB_ID, MATERIAL_REF_TAB_LABEL];
+
   function statList() {
     // lore.yml 由来の STAT_LIST を優先しつつ、FALLBACK_STATS にしか無いキー(採集・マナ等の
     // 本体が読むが lore に載っていない場合があるステ)も候補へ確実に含める (和集合・重複排除)。
@@ -368,18 +379,30 @@
   // フォークの ThreadType が PotionEffectType を持つ種別 (= ArmorManaListener が毎tick 付け直す) と
   // flight (ポーションではないが常時効果) が該当する。
   // ステ加算だけの種別 (miner / spoils など) をここに足すと、選べるのに何も起きない候補が増える。
+  // スレッドの特殊効果ラベル。
+  // ⚠ ラベルの正は【実機の lore】= ArsPaper フォークの ThreadType#getEffectLore /
+  //   ThreadConfig の switch(この2箇所が同じ文言を持つ)。labels.js の POTION_TYPE_LABELS_JA は
+  //   醸造の PotionType 用の辞書で、スレッドの文言とは別系統かつ dolphins_grace /
+  //   conduit_power / health_boost / hero_of_the_village を持たない。そちらへ揃えると
+  //   「エディタでは A、実機では B」という食い違いになるので、必ず実機側に合わせること。
   const THREAD_SPECIAL_EFFECTS = [
     { id: "night_vision", label: "暗視" },
-    { id: "fire_resistance", label: "耐火" },
+    { id: "fire_resistance", label: "火炎耐性" },
     { id: "flight", label: "飛行" },
     { id: "speed", label: "移動速度上昇" },
     { id: "jump_boost", label: "跳躍力上昇" },
-    { id: "dolphins_grace", label: "イルカの優雅さ" },
+    { id: "dolphins_grace", label: "イルカの好意" },
     { id: "conduit_power", label: "コンジットパワー" },
     { id: "hero_of_the_village", label: "村の英雄" },
+    // health_boost は既存16種の頃から PotionEffectType.HEALTH_BOOST を持ち、常時付与セットにも
+    // 入っているのに、このリストにだけ元から入っていなかった(= エディタで選べず、既存値も
+    // 生IDのまま表示されていた)。2026-08-02 に補完。
+    { id: "health_boost", label: "体力増強" },
     // 2026-08-02 スレッド16→40種で追加。新規24種のうち PotionEffectType を持つのはこの2つだけ
-    // (他22種は thread-sets.yml のステ加算のみ)。ラベルは labels.js の POTION_TYPE_LABELS_JA に揃える。
-    { id: "slow_falling", label: "落下耐性" },
+    // (他22種は thread-sets.yml のステ加算のみ)。
+    // slow_falling は「落下耐性」ではない —— それはバニラ Feather Falling(落下ダメージ軽減)の
+    // 訳語で、実機 lore の「落下速度低下」とは別の効果。
+    { id: "slow_falling", label: "落下速度低下" },
     { id: "luck", label: "幸運" }
   ];
   const STAT_FILTER_GROUPS = [
@@ -431,7 +454,11 @@
       // 素材はアイテムステータスを持たず materials.yml 側の別画面で管理するため、
       // item-stats へ空エントリを生やすと「画面に出ないまま working.items だけ膨らむ
       // 幽霊エントリ」になる (ITEM_STATS_CATEGORIES に "material" タブが存在しない)。
-      if (candidate && candidate.tab === "material") continue;
+      // 2026-08-02: "material-ref"(catalog.yml のアイテムを「素材」タブに"移動せず"表示する
+      // ピン。CATALOG_MATERIAL_REF_TAB 参照)も同じ理由でスキップする。ITEM_STATS_CATEGORIES に
+      // 対応タブが無いため、ここを漏らすと material-ref 品が item-stats.yml に
+      // 「タブの無い幽霊エントリ」として量産される。
+      if (candidate && (candidate.tab === "material" || candidate.tab === MATERIAL_REF_TAB_ID)) continue;
       // TF の特殊アイテム(skill_node_lock / skill_tree_reset)も枠を作らない。
       // 2026-07-27 ユーザー指示: この2件は「特殊アイテム」画面(機能アイテムカテゴリ)へ集約し、
       // アイテムステータス側には出さない。
@@ -3061,8 +3088,13 @@
         h("span", { class: "entry-key-label", text: "id" }), idInput
       ];
       if (typeof window.renderItemTabSelect === "function") {
-        // materials.yml が読めていれば「素材」への移動先も出す (ファイル跨ぎはハンドラで処理)。
-        const tabOpts = crossFile ? CATALOG_CATEGORIES.concat([["material", "素材"]]) : CATALOG_CATEGORIES;
+        // 「素材(カタログ内)」ピンは常時選べる (実データ移動を伴わないただの表示タブなので
+        // crossFile の有無に関係ない)。materials.yml が読めていればさらに「素材」への実データ
+        // 移動先も出す (ファイル跨ぎはハンドラで処理)。2つの選択肢名は絶対に文字列衝突させない
+        // (MATERIAL_REF_TAB_ID = "material-ref" ≠ 実データ移行の "material")。
+        const tabOpts = (crossFile
+          ? CATALOG_CATEGORIES.concat([window.CATALOG_MATERIAL_REF_TAB, ["material", "素材(materials.ymlへ移動)"]])
+          : CATALOG_CATEGORIES.concat([window.CATALOG_MATERIAL_REF_TAB]));
         const external = crossFile ? { material: (itemId) => moveEntryToMaterials(itemId) } : null;
         editChildren.push(window.renderItemTabSelect(working, id, entry.material, tabOpts, () => {
           refreshListPreserveScroll(renderList);

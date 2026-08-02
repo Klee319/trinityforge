@@ -1513,6 +1513,9 @@ function validateTfCombatDamage(data, errors) {
 // ---- combat/mob-types.yml (tf-mob-types) ----
 const MOB_ENTITY_TYPE_RE = /^[A-Z0-9_]+$/;
 const MOB_DEFENSE_FIELDS_01 = ["defense-rate", "resistance", "damage-reduction"];
+// dimensions: のキーは World.Environment#values() の4種で固定 (MobTypesConfig#parseDimensions が
+// Enum.valueOf で解決するため、これ以外は Java 側でも常に警告付きスキップ = 無干渉)。
+const TF_MOB_TYPES_ENVIRONMENTS = new Set(["NORMAL", "NETHER", "THE_END", "CUSTOM"]);
 
 function validateMobDefenseBlock(block, prefix, errors) {
   if (block === undefined || block === null) return;
@@ -1654,17 +1657,96 @@ function validateArsMaterialValueMap(block, prefix, errors) {
   }
 }
 
+// 2026-08-02: sourcelinks.yml transfer: 節 (fork の SourceTransferConfig#parse) と同じ範囲。
+// Java側はクランプ+警告(致命的にしない)だが、editor側は明確な範囲外・型違反を保存前に弾く
+// (config-editor.md の「Java側loaderを先に読んで既定値・省略時挙動を突き合わせる」)。
+function validateRangedNumber(value, prefix, min, max, isIntCheck, errors) {
+  if (value === undefined || value === null) return;
+  const ok = isIntCheck ? isNumber(value) && Number.isInteger(value) : isNumber(value);
+  if (!ok || value < min || value > max) {
+    errors.push(`${prefix}: ${min}〜${max}の${isIntCheck ? "整数" : "数値"}である必要があります`);
+  }
+}
+
+function validateArsTransferConfig(transfer, errors) {
+  if (transfer === undefined || transfer === null) return;
+  if (!isPlainObject(transfer)) { errors.push("transfer: マップである必要があります"); return; }
+
+  const link = transfer.sourcelink;
+  if (link !== undefined && link !== null) {
+    if (!isPlainObject(link)) {
+      errors.push("transfer.sourcelink: マップである必要があります");
+    } else {
+      validateRangedNumber(link["interval-ticks"], "transfer.sourcelink.interval-ticks", 1, 72000, true, errors);
+      validateRangedNumber(link["max-per-transfer"], "transfer.sourcelink.max-per-transfer", 1, 2147483647, true, errors);
+      validateRangedNumber(link["buffer-cap"], "transfer.sourcelink.buffer-cap", 1, 2147483647, true, errors);
+      const detect = link["detection-radius"];
+      if (detect !== undefined && detect !== null) {
+        if (!isPlainObject(detect)) {
+          errors.push("transfer.sourcelink.detection-radius: マップである必要があります");
+        } else {
+          validateRangedNumber(detect.vitalic, "transfer.sourcelink.detection-radius.vitalic", 0, 256, true, errors);
+          validateRangedNumber(detect.botanical, "transfer.sourcelink.detection-radius.botanical", 0, 256, true, errors);
+        }
+      }
+    }
+  }
+
+  const net = transfer.network;
+  if (net !== undefined && net !== null) {
+    if (!isPlainObject(net)) {
+      errors.push("transfer.network: マップである必要があります");
+    } else {
+      validateRangedNumber(net["interval-ticks"], "transfer.network.interval-ticks", 1, 72000, true, errors);
+      validateRangedNumber(net["max-per-transfer"], "transfer.network.max-per-transfer", 1, 2147483647, true, errors);
+      validateRangedNumber(net["max-link-range"], "transfer.network.max-link-range", 1, 256, true, errors);
+      const fx = net["path-particles"];
+      if (fx !== undefined && fx !== null) {
+        if (!isPlainObject(fx)) {
+          errors.push("transfer.network.path-particles: マップである必要があります");
+        } else {
+          if (fx.enabled !== undefined && fx.enabled !== null && typeof fx.enabled !== "boolean") {
+            errors.push("transfer.network.path-particles.enabled: 真偽値である必要があります");
+          }
+          validateRangedNumber(fx["interval-ticks"], "transfer.network.path-particles.interval-ticks", 1, 1200, true, errors);
+          validateRangedNumber(fx.spacing, "transfer.network.path-particles.spacing", 0.1, 16.0, false, errors);
+          validateRangedNumber(fx["view-distance"], "transfer.network.path-particles.view-distance", 1, 256, true, errors);
+          validateRangedNumber(fx["max-paths"], "transfer.network.path-particles.max-paths", 1, 4096, true, errors);
+        }
+      }
+    }
+  }
+
+  const core = transfer["infinity-core"];
+  if (core !== undefined && core !== null) {
+    if (!isPlainObject(core)) {
+      errors.push("transfer.infinity-core: マップである必要があります");
+    } else {
+      validateRangedNumber(core.radius, "transfer.infinity-core.radius", 0, 256, true, errors);
+      validateRangedNumber(core["transfer-multiplier"], "transfer.infinity-core.transfer-multiplier", 0, 1000, false, errors);
+      validateRangedNumber(core["buffer-multiplier"], "transfer.infinity-core.buffer-multiplier", 0, 1000, false, errors);
+    }
+  }
+}
+
 function validateArsSourceLinks(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
   for (const key of ["volcanic", "mycelial", "alchemical"]) {
     validateArsMaterialValueMap(data[key], key, errors);
   }
+  validateArsTransferConfig(data.transfer, errors);
   const items = data.items;
   if (items === undefined || items === null) return;
   if (!isPlainObject(items)) { errors.push("items はマップである必要があります"); return; }
   for (const [id, entry] of Object.entries(items)) {
     validateArsItemLookEntry(entry, `items.${id}`, errors);
+    // K-16 (2026-08-02): items.<id>.transfer-multiplier (SourcelinkConfig#readTransferMultiplier)。
+    // Java側は raw<=0 を1.0へフォールバック(警告のみ)だが、editor側は保存前に0以下を弾く。
+    if (isPlainObject(entry) && entry["transfer-multiplier"] !== undefined && entry["transfer-multiplier"] !== null
+        && (!isNumber(entry["transfer-multiplier"]) || entry["transfer-multiplier"] <= 0)) {
+      errors.push(`items.${id}.transfer-multiplier: 0より大きい数値である必要があります`);
+    }
   }
 }
 
@@ -1694,6 +1776,31 @@ function validateTfMobTypes(data, errors) {
       validateMobDefenseBlock(d.physical, "defaults.physical", errors);
       validateMobDefenseBlock(d.magical, "defaults.magical", errors);
       validateMobLevelCoefficients(d["level-coefficients"], "defaults.level-coefficients", errors);
+    }
+  }
+  // 2026-08-02: dimensions: (MobTypesConfig#parseDimensions)。キーは World.Environment 名の4種
+  // (NORMAL/NETHER/THE_END/CUSTOM、大小無視)固定。未知キーは Java 側では警告のみでスキップされ
+  // 致命的にはならないため、ここも同じ寛容さで警告相当のエラーにする(既存 yml を弾かない)。
+  // base-level は 0以上の整数(Java は Math.max(0, getInt(...)) で負は0にクランプするので、editor側は
+  // 明確な不正のみ弾く)。coordinate-coefficient は明示指定時のみ許可され、有限数値である必要がある。
+  if (data.dimensions !== undefined && data.dimensions !== null) {
+    if (!isPlainObject(data.dimensions)) {
+      errors.push("dimensions: マップである必要があります");
+    } else {
+      for (const [envKey, entry] of Object.entries(data.dimensions)) {
+        const prefix = `dimensions.${envKey}`;
+        if (!TF_MOB_TYPES_ENVIRONMENTS.has(String(envKey).toUpperCase())) {
+          errors.push(`${prefix}: キーは World.Environment 名 (NORMAL/NETHER/THE_END/CUSTOM) である必要があります`);
+        }
+        if (!isPlainObject(entry)) { errors.push(`${prefix}: マップである必要があります`); continue; }
+        if (entry["base-level"] !== undefined && entry["base-level"] !== null && !isNonNegInteger(entry["base-level"])) {
+          errors.push(`${prefix}.base-level: 0以上の整数である必要があります`);
+        }
+        if (entry["coordinate-coefficient"] !== undefined && entry["coordinate-coefficient"] !== null
+            && !isNumber(entry["coordinate-coefficient"])) {
+          errors.push(`${prefix}.coordinate-coefficient: 数値である必要があります`);
+        }
+      }
     }
   }
   const mobTypes = data["mob-types"];

@@ -28,6 +28,72 @@
     return h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), control]);
   }
 
+  // 2026-08-02: sourcelinks.yml transfer: 節 (SourceTransferConfig#parse) 用の汎用パスヘルパー。
+  // dimensions(mob-types.yml)と同じ「未編集ならキーを作らない」方針 — Java側の既定値は
+  // ConfigurationSection#isSet で判定するため、キー省略と既定値の明示書き込みは意味的に同値だが、
+  // 将来 Java 側の既定値が変わったときに editor が古い既定値を全ファイルへ焼き付けてしまう事故を
+  // 避けるため、あえて省略のままにする(「開いて保存しただけで yml の意味が変わる」既知の事故クラス)。
+  function ensurePath(root, path) {
+    let node = root;
+    for (const key of path) {
+      if (!node[key] || typeof node[key] !== "object" || Array.isArray(node[key])) node[key] = {};
+      node = node[key];
+    }
+    return node;
+  }
+  function readPath(root, path) {
+    let node = root;
+    for (const key of path) {
+      if (!node || typeof node !== "object") return undefined;
+      node = node[key];
+    }
+    return node;
+  }
+  // 末端のキーを消したあと、空になった中間オブジェクトを根本方向へ辿って刈る
+  // (例: transfer.sourcelink.detection-radius.vitalic を消して空になったら detection-radius も消す)。
+  function pruneEmptyPath(root, path) {
+    const nodes = [root];
+    let node = root;
+    for (const key of path) {
+      if (!node || typeof node !== "object") { node = undefined; nodes.push(undefined); continue; }
+      node = node[key];
+      nodes.push(node);
+    }
+    for (let i = path.length; i >= 1; i -= 1) {
+      const parent = nodes[i - 1];
+      const key = path[i - 1];
+      const cur = nodes[i];
+      if (parent && typeof parent === "object" && cur && typeof cur === "object"
+          && !Array.isArray(cur) && Object.keys(cur).length === 0) {
+        delete parent[key];
+      } else {
+        break;
+      }
+    }
+  }
+  // getData() 側の最終防衛線 (dimensions の pruneEmptyDimensions と同じ二重安全策)。
+  // ライブ編集中の delete+pruneEmptyPath だけに頼らず、保存直前にも空の transfer.* 中間object を刈る。
+  function pruneEmptyTransfer(host) {
+    if (!host || typeof host !== "object") return;
+    const transfer = host.transfer;
+    if (!transfer || typeof transfer !== "object" || Array.isArray(transfer)) return;
+    const link = transfer.sourcelink;
+    if (link && typeof link === "object") {
+      const detect = link["detection-radius"];
+      if (detect && typeof detect === "object" && Object.keys(detect).length === 0) delete link["detection-radius"];
+      if (Object.keys(link).length === 0) delete transfer.sourcelink;
+    }
+    const net = transfer.network;
+    if (net && typeof net === "object") {
+      const fx = net["path-particles"];
+      if (fx && typeof fx === "object" && Object.keys(fx).length === 0) delete net["path-particles"];
+      if (Object.keys(net).length === 0) delete transfer.network;
+    }
+    const core = transfer["infinity-core"];
+    if (core && typeof core === "object" && Object.keys(core).length === 0) delete transfer["infinity-core"];
+    if (Object.keys(transfer).length === 0) delete host.transfer;
+  }
+
   function setOrDelete(obj, key, value) {
     if (value === null || value === undefined || value === "") delete obj[key];
     else obj[key] = value;
@@ -407,6 +473,140 @@
       alchemical: "醸造素材を消費してソースを生成"
     };
 
+    // 2026-08-02: transfer: 節 (SourceTransferConfig#parse) の数値/真偽フィールド1個分のUI。
+    // 未編集ならキーを一切書かない(dimensionsと同じ流儀)。ラベルには Java 側の既定値を明記する。
+    function transferNumberField(path, key, opts) {
+      const o = opts || {};
+      const section = readPath(working, path);
+      const current = section && typeof section === "object" ? section[key] : undefined;
+      const input = window.numberInput(current, (v) => {
+        if (v === null || v === "") {
+          const sec = readPath(working, path);
+          if (sec && typeof sec === "object") delete sec[key];
+          pruneEmptyPath(working, path);
+          return;
+        }
+        const sec = ensurePath(working, path);
+        sec[key] = o.int ? Math.trunc(Number(v)) : v;
+      }, { int: !!o.int });
+      return fieldRow(`transfer.${path.slice(1).join(".")}.${key}`, input, { label: o.label, desc: o.desc });
+    }
+
+    // path-particles.enabled のみ真偽値 (Java既定=true)。「!== false」表示は本コードベースの
+    // 既存の「省略時true」フィールドと同じ流儀 (例: rb["reveal-plugin-recipes"] !== false)。
+    function transferBoolField(path, key, defaultValue, opts) {
+      const o = opts || {};
+      const section = readPath(working, path);
+      const raw = section && typeof section === "object" ? section[key] : undefined;
+      const checked = raw === undefined ? defaultValue : !!raw;
+      const input = window.checkboxInput(checked, (v) => {
+        if (v === defaultValue) {
+          const sec = readPath(working, path);
+          if (sec && typeof sec === "object") delete sec[key];
+          pruneEmptyPath(working, path);
+          return;
+        }
+        const sec = ensurePath(working, path);
+        sec[key] = v;
+      });
+      return fieldRow(`transfer.${path.slice(1).join(".")}.${key}`, input, { label: o.label, desc: o.desc });
+    }
+
+    // 2026-08-02: transfer: 節専用カード。SourceTransferConfig#parse の受理範囲をそのままラベルの
+    // desc へ書く (K-16 でconfig化されたレバー。前は定数だったため editor に UI が無かった)。
+    function renderTransferCard() {
+      return h("div", { class: "entry-card" }, [
+        h("div", { class: "entry-head" }, [
+          h("span", { class: "entry-key-label", text: "ソース転送チューニング (transfer)" })
+        ]),
+        h("div", { class: "entry-body" }, [
+          h("div", {
+            class: "field-desc",
+            style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+            text: "SourceTransferConfig が読む調整値。未編集の項目は既定値のまま(キーを書きません)。"
+                + "変更は /ars reload で反映されます。"
+          }),
+          h("div", { class: "sub-title", text: "ソースリンク → 隣接ソースジャー" }),
+          h("div", { class: "field-grid" }, [
+            transferNumberField(["transfer", "sourcelink"], "interval-ticks", {
+              int: true, label: "供給周期 (tick)",
+              desc: "1〜72000。省略時は既定100。実効レート=max-per-transfer÷interval-ticks。"
+            }),
+            transferNumberField(["transfer", "sourcelink"], "max-per-transfer", {
+              int: true, label: "基準転送量 (1周期あたり)",
+              desc: "1〜2147483647。省略時は既定50。個々の items.<id>.transfer-multiplier がこの基準値に掛かる。"
+            }),
+            transferNumberField(["transfer", "sourcelink"], "buffer-cap", {
+              int: true, label: "内部バッファ上限",
+              desc: "1〜2147483647。省略時は既定2147483647(int上限=実質無制限)。"
+            })
+          ]),
+          h("div", { class: "field-grid" }, [
+            transferNumberField(["transfer", "sourcelink", "detection-radius"], "vitalic", {
+              int: true, label: "バイタリック討伐検知半径",
+              desc: "0〜256。省略時は既定10。0でこの種別のイベント蓄積を止める。"
+            }),
+            transferNumberField(["transfer", "sourcelink", "detection-radius"], "botanical", {
+              int: true, label: "ボタニカル成長検知半径",
+              desc: "0〜256。省略時は既定10。0でこの種別のイベント蓄積を止める。"
+            })
+          ]),
+          h("div", { class: "sub-title", text: "ソースネットワーク (ドミニオンワンドのリレー網)" }),
+          h("div", { class: "field-grid" }, [
+            transferNumberField(["transfer", "network"], "interval-ticks", {
+              int: true, label: "転送周期 (tick)",
+              desc: "1〜72000。省略時は既定40。"
+            }),
+            transferNumberField(["transfer", "network"], "max-per-transfer", {
+              int: true, label: "転送量 (1周期あたり)",
+              desc: "1〜2147483647。省略時は既定100。"
+            }),
+            transferNumberField(["transfer", "network"], "max-link-range", {
+              int: true, label: "最大接続距離 (ブロック)",
+              desc: "1〜256。省略時は既定30。既存の長いリンクは縮めても切れない(新規接続だけ弾かれる)。"
+            })
+          ]),
+          h("div", { class: "sub-title", text: "経路パーティクル表示" }),
+          h("div", { class: "field-grid" }, [
+            transferBoolField(["transfer", "network", "path-particles"], "enabled", true, {
+              label: "表示する", desc: "省略時は既定true。falseで完全に無効化。"
+            }),
+            transferNumberField(["transfer", "network", "path-particles"], "interval-ticks", {
+              int: true, label: "描画周期 (tick)",
+              desc: "1〜1200。省略時は既定20。短くすると滑らかになるが負荷が比例して上がる。"
+            }),
+            transferNumberField(["transfer", "network", "path-particles"], "spacing", {
+              int: false, label: "粒子間隔 (ブロック)",
+              desc: "0.1〜16.0。省略時は既定1.0。小さいほど線が濃くなる。"
+            }),
+            transferNumberField(["transfer", "network", "path-particles"], "view-distance", {
+              int: true, label: "表示距離",
+              desc: "1〜256。省略時は既定48。この距離内に端点がある経路だけ描く。"
+            }),
+            transferNumberField(["transfer", "network", "path-particles"], "max-paths", {
+              int: true, label: "同時表示数",
+              desc: "1〜4096。省略時は既定16。1プレイヤーあたりの描画経路数上限。"
+            })
+          ]),
+          h("div", { class: "sub-title", text: "infinity_source_core (1億ソース到達の恒久設備)" }),
+          h("div", { class: "field-grid" }, [
+            transferNumberField(["transfer", "infinity-core"], "radius", {
+              int: true, label: "効果半径 (ブロック)",
+              desc: "0〜256。省略時は既定5。0でこの補正自体を無効化できる。"
+            }),
+            transferNumberField(["transfer", "infinity-core"], "transfer-multiplier", {
+              int: false, label: "転送倍率",
+              desc: "0〜1000。省略時は既定2.0。半径内ソースリンクのmax-per-transferに掛かる。"
+            }),
+            transferNumberField(["transfer", "infinity-core"], "buffer-multiplier", {
+              int: false, label: "バッファ倍率",
+              desc: "0〜1000。省略時は既定2.0。半径内ソースリンクのbuffer-capに掛かる。"
+            })
+          ])
+        ])
+      ]);
+    }
+
     function render() {
       root.innerHTML = "";
       root.appendChild(h("div", {
@@ -414,6 +614,7 @@
         style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 12px;",
         text: "ソースリンク本体。既定5種に加えて、任意 id + 挙動タイプ (type) のカスタムソースリンクを追加できます。material は TileState ブロックのみ。投入マテリアル表は volcanic/mycelial/alchemical タイプで共有（vitalic/botanical はイベント生成のため投入表なし）。追加は /ars reload、削除の反映はサーバー再起動が必要です。"
       }));
+      root.appendChild(renderTransferCard());
 
       const ids = Object.keys(items);
       if (ids.length === 0) {
@@ -436,6 +637,16 @@
           cmdSource: "sourcelinks",
           extraFields: () => {
             const extras = [];
+            // 2026-08-02 (K-16): items.<id>.transfer-multiplier (SourcelinkConfig#readTransferMultiplier)。
+            // 基準レート(transfer.sourcelink.max-per-transfer)に掛かる倍率。未入力=1.0(無印と同じ)。
+            // 固定5種・カスタム・II/III階梯のいずれにも適用できるので fixed 判定の外(常時表示)。
+            extras.push(fieldRow("transfer-multiplier", window.numberInput(entry["transfer-multiplier"], (v) => {
+              if (v === null || v === "") { delete entry["transfer-multiplier"]; return; }
+              entry["transfer-multiplier"] = v;
+            }, { int: false }), {
+              label: "転送レート倍率",
+              desc: "基準レートに掛かる倍率。省略で1.0(無印と同じ)。上位ソースリンク(_ii/_iii)向け。"
+            }));
             if (!fixed) {
               // カスタム id は挙動タイプを明示指定する (プラグインはこの type で実体を作る)。
               extras.push(fieldRow("type", window.listSelect({
@@ -518,6 +729,7 @@
     return {
       element: root,
       getData: () => {
+        pruneEmptyTransfer(working);
         const out = { ...working, items: pruneEmptyLore(items) };
         for (const key of ["volcanic", "mycelial", "alchemical"]) {
           if (out[key] && typeof out[key] === "object") {
@@ -528,4 +740,8 @@
       }
     };
   };
+
+  // Node テスト向けに純関数を公開 (mob-forms.js の window.MOB_FORMS_LOGIC と同じ流儀)。
+  // ブラウザ実行時の挙動には影響しない。
+  window.ARS_SOURCE_FORMS_LOGIC = { ensurePath, readPath, pruneEmptyPath, pruneEmptyTransfer };
 })();

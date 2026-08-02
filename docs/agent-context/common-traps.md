@@ -216,6 +216,25 @@ Ars 側だけを読んでいたため、**TFカタログ由来の儀式 39 件�
 手書きしていた `SourceAutoConsume` が `trinityforge:item_catalog_id`（実在しない名前）を持っていて
 無言で外れていた。
 
+### ⚠️ `CrossPluginItemResolver` の既定解決順は「TFカタログ優先」── Ars 側にしか正しいPDCを刻めないIDは `external-source:` を明示しないと一生ソケット/挿入できない
+
+`items/catalog.yml` に Ars 側実体（`materials.yml`/`threads.yml` 等）と同じ id のエントリを置くと、
+`CrossPluginItemResolver#create` は既定で「TFカタログ → Ars → バニラ Material」の順に解決する。
+TFがこの経路（ダンジョンドロップ・`gacha.yml`・実績報酬・図鑑報酬など）で配ったアイテムは
+**TF自身のPDC（`trinityforge:catalog_id` 等）しか持たず、Ars側が判定に使うPDC
+（例 `arspaper:custom_item_id` / `arspaper:thread_item_type`）を一切持たない**。見た目・CMDは
+正しいので気づきにくいが、Ars側の機構（例: `ThreadGui#isEffectThread`）がそのPDCで可否判定する物は
+**装着不可のまま**になる（2026-08-02、スレッド全種でこの状態だったことが判明。`95cb6b5`で修正）。
+
+- 対策: `catalog.yml` の該当エントリに `external-source: arspaper`（現状有効値はこの1つ）を足すと、
+  **そのIDに限り**解決順が「外部プラグイン(Ars) → カタログ」へ反転する。Ars側が解決できなければ
+  カタログへフォールバックする（Ars 非導入構成の後方互換）。
+- **全体の解決順は反転しない。** Ars 側 loot-tables 経路（`ItemCostRef#createStack`）は元から
+  「Ars → TrinityForgeBridge → PAPER」で正しいため、グローバルに反転すると逆向きの事故を作る。
+- 新しい Ars 由来 id を catalog.yml に足すたびに、この宣言漏れが再発しうる。TF給付経路で配る
+  Ars由来アイテム（スレッド・source系アイテム等）を追加したら、**Ars側のPDC判定に依存する機構が
+  あるかどうか**を確認し、あれば `external-source:` を付け忘れないこと。
+
 ## config-editor（フロントエンド）の罠
 
 ### カテゴリ選択状態は `WeakMap`（キー＝オブジェクト同一性）で管理されている

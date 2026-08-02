@@ -63,17 +63,24 @@
     if (working.pools == null || typeof working.pools !== "object") working.pools = {};
     const root = h("div", { class: "dedicated-form" });
 
-    // 券IDは items/catalog.yml のカタログIDそのもの (PDCタグで判定するのでバニラ Material は
-    // 券になれない)。2026-07-29 まで素の文字入力で、存在しないIDを書いても無警告だった。
-    // カタログ品だけを候補にしたセレクトへ置き換える (自由入力は残す)。
-    function ticketIdSelect(value, onCommit) {
+    // カタログ候補を listSelect 用の {value, primary, secondary} 配列へ変換する共通処理。
+    // 券ID(catalogCandidates限定)/景品item(catalogCandidates+バニラMaterial自由入力)の
+    // どちらのセレクトからも使う (2026-08-02: 新規に候補生成ロジックを増やさず1本化)。
+    function catalogCandidateOptions() {
       const plain = (raw) => (typeof window.stripDisplayNamePlain === "function"
         ? window.stripDisplayNamePlain(raw) : String(raw == null ? "" : raw));
-      const list = catalogCandidates.map((c) => ({
+      return catalogCandidates.map((c) => ({
         value: c.id,
         primary: plain(c.label != null && c.label !== "" ? c.label : c.displayName) || c.id,
         secondary: c.id
       }));
+    }
+
+    // 券IDは items/catalog.yml のカタログIDそのもの (PDCタグで判定するのでバニラ Material は
+    // 券になれない)。2026-07-29 まで素の文字入力で、存在しないIDを書いても無警告だった。
+    // カタログ品だけを候補にしたセレクトへ置き換える (自由入力は残す)。
+    function ticketIdSelect(value, onCommit) {
+      const list = catalogCandidateOptions();
       const cur = value == null ? "" : String(value);
       if (cur && !list.some((o) => o.value === cur)) {
         list.unshift({ value: cur, primary: cur, secondary: "カタログ未登録" });
@@ -83,6 +90,34 @@
         value: cur, options: list, allowCustom: true,
         customPlaceholder: "カタログID (items/catalog.yml)",
         placeholder: "券アイテムを選択…",
+        onCommit
+      });
+    }
+
+    // 景品(pool.entries[].item)は GachaEntry#itemId 仕様どおり「カタログID」または
+    // 「バニラMaterial名」のどちらも取れる(custom: 接頭辞は付けない — 実際の gacha.yml も
+    // "tf_scrap"/"iron_dagger" のような素の id と "COAL"/"DIAMOND" のような素の Material が
+    // 同じ item: に混在している)。2026-08-02 実サーバ報告「景品セレクトがID表記のまま」の修正:
+    // 従来はここだけ window.materialInput({allowCustom:true}) を使っており、custom: 接頭辞を
+    // 前提にした候補としか一致しないため、接頭辞なしのカタログIDは常に「候補外」表示になっていた
+    // (materialInput 自体はカタログ候補ではなく window.CUSTOM_ITEM_CANDIDATES を見るため)。
+    // 券と同じ catalogCandidateOptions() を土台にし、候補に無い現在値はバニラMaterialとして
+    // window.LABELS.materialLabel で日本語化を試みる(解決できなければ生IDのまま表示する)。
+    function prizeItemSelect(value, onCommit) {
+      const list = catalogCandidateOptions();
+      const cur = value == null ? "" : String(value);
+      if (cur && !list.some((o) => o.value === cur)) {
+        const L = window.LABELS;
+        const ja = L && typeof L.materialLabel === "function" ? L.materialLabel(cur) : "";
+        list.unshift(ja
+          ? { value: cur, primary: ja, secondary: cur }
+          : { value: cur, primary: cur, secondary: "カタログ未登録 / バニラMaterial" });
+      }
+      list.push({ value: "__custom__", primary: "＋ 自由入力…" });
+      return window.listSelect({
+        value: cur, options: list, allowCustom: true,
+        customPlaceholder: "カタログID または バニラMaterial名 (例: DIAMOND)",
+        placeholder: "景品アイテムを選択…",
         onCommit
       });
     }
@@ -172,8 +207,13 @@
           if (ent == null || typeof ent !== "object") { pool.entries[idx] = ent = {}; }
           const row = h("div", { class: "stat-row" });
           row.appendChild(h("span", { class: "range-label", text: "景品" }));
-          // item = itemCatalog ID / custom:id / バニラMaterial。
-          row.appendChild(window.materialInput(ent.item, "material-list", (v) => { ent.item = v; }, { allowCustom: true }));
+          // item = itemCatalog ID または バニラMaterial (custom: 接頭辞は付けない)。
+          row.appendChild(prizeItemSelect(ent.item, (v) => {
+            const next = String(v || "").trim();
+            if (!next) return false;
+            ent.item = next;
+            return true;
+          }));
           row.appendChild(h("span", { class: "range-label", text: "weight" }));
           row.appendChild(window.numberInput(ent.weight, (v) => { ent.weight = v == null ? 1 : v; }, { int: true }));
           row.appendChild(h("span", { class: "range-label", text: "個数" }));

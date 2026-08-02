@@ -109,10 +109,38 @@
         return d;
       };
     } else if (o.type === "materials") {
-      form = window.buildMaterialsForm(data, { editorCategoryKey: categoryKey, crossFile: cross });
-      if (cross) extraGets.push({ id: cross.id, getData: () => cross.data, when: () => cross.dirty });
+      const materialsForm = window.buildMaterialsForm(data, { editorCategoryKey: categoryKey, crossFile: cross });
+      // 「カタログ内の素材」複合セクション (2026-08-02): catalog.yml のアイテム(ダンジョンの鍵など)を
+      // materials.yml へ**移動せず**「素材」タブから一覧・編集できるようにする。thread-bundle と
+      // 同じ「2フォームを1画面に積み、getExtraSaves で両ファイルへ保存する」パターンを流用する。
+      // 表示タブは forms.js の window.CATALOG_MATERIAL_REF_TAB(= "material-ref") 1本だけを見る
+      // buildCatalogForm の別インスタンス(hubMode で 7 タブ切替バー自体は隠す)。crossFile 経由で
+      // 読み込んだ catalog.yml データをそのまま working として渡すので、buildMaterialsForm 側の
+      // 「素材へ移動」機能(同じ catalogオブジェクトへ書き込む)とも矛盾なく共存できる。
+      const wrap = h("div", { class: "hub-materials-composite" });
+      wrap.appendChild(materialsForm.element);
+      let catalogRefForm = null;
+      const refTab = window.CATALOG_MATERIAL_REF_TAB;
+      if (cross && cross.data && refTab) {
+        wrap.appendChild(h("div", { class: "sub-title", text: `カタログ内の素材 (items/catalog.yml、表示タブ「${refTab[1]}」)` }));
+        catalogRefForm = window.buildCatalogForm(cross.data, {
+          hubMode: true,
+          initialCategory: refTab[0]
+        });
+        wrap.appendChild(catalogRefForm.element);
+      }
+      form = { element: wrap, rerender: materialsForm.rerender };
+      if (cross) {
+        // このセクションが存在する限り catalog.yml を常に保存候補に含める(直接編集を拾うため)。
+        // 「移動」機能専用だった旧 when:()=>cross.dirty は外す — 実際に変更が無ければ
+        // app.js 側の isConfigDataChanged が base 比較でスキップするので、ここで絞る必要は無い。
+        extraGets.push({
+          id: cross.id,
+          getData: () => (catalogRefForm ? catalogRefForm.getData() : cross.data)
+        });
+      }
       getData = () => {
-        const d = form.getData();
+        const d = materialsForm.getData();
         // form 側 working が _editor を新規作成/更新している場合はそれを優先。
         // 旧: if (data._editor) d._editor = data._editor だと、form が同じ参照でも
         // 浅いコピー後の取りこぼしや古いスナップショットで並びが消えることがあった。

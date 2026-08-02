@@ -48,6 +48,17 @@
   // 集約前の37種は全て VANILLA_MOBS に含まれることを確認済み(候補は減らない、むしろ大幅に増える)。
   const ENTITY_TYPE_CANDIDATES = Array.isArray(window.VANILLA_MOBS) ? window.VANILLA_MOBS : [];
 
+  // 2026-08-02: dimensions: のキーは World.Environment 名の4種で固定(MobTypesConfig#parseDimensions
+  // が Enum.valueOf で解決するため、未知の値は警告付きでスキップされ無干渉になる)。EntityType 選択と
+  // 同じ「自由入力+datalist」にすると、サーバ構成依存のワールド名を書いてしまい常に無干渉になる事故を
+  // 誘発するため固定4択にする。
+  const DIMENSION_ENVS = [
+    { key: "NORMAL", label: "オーバーワールド (NORMAL)" },
+    { key: "NETHER", label: "ネザー (NETHER)" },
+    { key: "THE_END", label: "エンド (THE_END)" },
+    { key: "CUSTOM", label: "カスタムワールド (CUSTOM)" }
+  ];
+
   const PHYS_MAGIC_FIELDS = ["defense-rate", "resistance", "damage-reduction", "flat-defense"];
   const ATTACK_FIELDS = [
     "attack-power", "flat-bonus-damage", "percent-bonus-damage", "penetration",
@@ -202,10 +213,12 @@
     // 候補源は app.js の共通入口 ensureCustomItemCandidates() が積む window.CUSTOM_ITEM_CANDIDATES
     // をそのまま使う(この画面用に新しく取りに行かない)。
     // Java 側は MobTypesConfig#parseDrops / MobDropEntry / MobTypeDropListener が custom: を解釈する。
-    const matHint = window.materialHintEl(drop.material);
+    // 2026-08-02: materialInput は 2026-07-29 の listSelect 移行で選択後の表示自体が既に日本語名
+    // (primary) になっている。ここに materialHintEl を並べて足すと同じ日本語名が2回出て行が崩れる
+    // (実サーバ報告: レベルテーブルの add-drops 行で「幸運のスレッド / 幸運のスレッド」と重複表示)。
+    // ヒント欄は削除し、materialInput 自身の表示だけに一本化する。
     const matInput = window.materialInput(drop.material, "material-list", (v) => {
       drop.material = v;
-      matHint.update(v);
     }, { allowCustom: true });
     const chanceInput = window.numberInput(drop.chance, (v) => { drop.chance = v == null ? 0 : v; }, { int: false });
     const minInput = window.numberInput(drop.min, (v) => { drop.min = v == null ? 0 : v; }, { int: true });
@@ -217,7 +230,7 @@
 
     return h("div", { class: "mob-drop-row" }, [
       h("div", { class: "field-grid" }, [
-        fieldRow("material", h("div", { class: "input-with-hint" }, [matInput, matHint]), {
+        fieldRow("material", matInput, {
           label: "素材(Material/custom:)",
           desc: "ドロップするアイテム。Material名 または custom:<カタログID>"
             + "(items/catalog.yml と ArsPaper materials.yml の両方から選べる)。"
@@ -339,9 +352,75 @@
       );
     }
 
+    // 2026-08-02: dimensions: (MobTypesConfig#parseDimensions) 専用カード。
+    // キーは World.Environment 名の4種固定(EntityTypeのような自由入力にしない — ネザー/エンドの
+    // ワールド名はサーバ構成依存で一致せず、EliteMobsのインスタンスワールドは毎回名前が変わるため、
+    // ワールド名で引く設計は成立しない。combat.md 参照)。
+    // 未編集でカードを開いただけでは working.dimensions に一切触れない(4環境ぶんの base-level:0 が
+    // 勝手に埋まる事故を避ける)。値を入力した環境だけ実体化し、getData() 時に空エントリを刈る。
+    function renderDimensionsCard() {
+      function touchEnv(envKey) {
+        const dims = ensureObject(working, "dimensions");
+        if (!dims[envKey] || typeof dims[envKey] !== "object" || Array.isArray(dims[envKey])) {
+          dims[envKey] = {};
+        }
+        return dims[envKey];
+      }
+      function readEnv(envKey) {
+        const dims = working.dimensions;
+        return (dims && typeof dims === "object" && dims[envKey] && typeof dims[envKey] === "object")
+          ? dims[envKey] : {};
+      }
+
+      const rows = DIMENSION_ENVS.map(({ key: envKey, label }) => {
+        const current = readEnv(envKey);
+        const baseLevelInput = window.numberInput(current["base-level"], (v) => {
+          if (v === null || v === "") {
+            if (working.dimensions && working.dimensions[envKey]) delete working.dimensions[envKey]["base-level"];
+            return;
+          }
+          touchEnv(envKey)["base-level"] = Math.max(0, Math.floor(Number(v)) || 0);
+        }, { int: true });
+        const coordInput = window.numberInput(current["coordinate-coefficient"], (v) => {
+          if (v === null || v === "") {
+            if (working.dimensions && working.dimensions[envKey]) delete working.dimensions[envKey]["coordinate-coefficient"];
+            return;
+          }
+          touchEnv(envKey)["coordinate-coefficient"] = v;
+        }, { int: false });
+
+        return gridRow([
+          fieldRow(`dimensions.${envKey}.base-level`, baseLevelInput, {
+            label: `${label} — 基準レベル下駄`,
+            desc: "このディメンションの全モブのeffectiveLevelに加算する整数下駄。省略時0(=従来どおり無干渉)。"
+          }),
+          fieldRow(`dimensions.${envKey}.coordinate-coefficient`, coordInput, {
+            label: `${label} — 座標係数上書き (省略可)`,
+            desc: "省略時はモブ側(defaults/mob-types)の座標係数をそのまま使用。指定時だけこの" +
+                "ディメンション全体の座標係数を上書きする。"
+          })
+        ]);
+      });
+
+      return card(
+        [h("span", { class: "entry-key-label", text: "ディメンション別の基準レベル (dimensions)" })],
+        [
+          h("div", {
+            class: "field-desc",
+            style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+            text: "World.Environment(NORMAL/NETHER/THE_END/CUSTOM)ごとにレベル下駄・座標係数上書きを" +
+                "設定します。ワールド名では引かないため、ネザー/エンドのワールド名を書いても効きません。" +
+                "未設定のディメンションは従来どおり無干渉です。"
+          }),
+          ...rows
+        ]
+      );
+    }
+
     function render() {
       root.innerHTML = "";
       root.appendChild(renderMaxLevelCard());
+      root.appendChild(renderDimensionsCard());
       root.appendChild(renderDefaultsCard());
       const keys = Object.keys(mobTypes);
       if (keys.length === 0) {
@@ -496,6 +575,7 @@
           pruneEmptyLevelCoeffs(entry);
           deleteLegacyLevelConstants(entry);
         }
+        pruneEmptyDimensions(working);
         return working;
       }
     };
@@ -525,6 +605,23 @@
     if (topEmpty && !coeffs.physical && !coeffs.magical && !coeffs.attack) delete host[key];
   }
 
+  // 2026-08-02: dimensions.<ENV> が空オブジェクト({})になったエントリを刈る(値を入力→全部消した
+  // ときの掃除)。dimensions 自体が未タッチ(working.dimensions が undefined)なら何もしない —
+  // 「開いて保存しただけで dimensions: {} が4環境ぶんの base-level:0 で埋まる」事故を防ぐのはUI側の
+  // touchEnv 遅延実体化が主だが、掃除側でも空エントリだけは必ず削る(どちらか片方が壊れても事故らない
+  // 二重の安全策)。
+  function pruneEmptyDimensions(host) {
+    if (!host || typeof host !== "object") return;
+    const dims = host.dimensions;
+    if (!dims || typeof dims !== "object" || Array.isArray(dims)) return;
+    for (const key of Object.keys(dims)) {
+      const entry = dims[key];
+      if (!entry || typeof entry !== "object" || Array.isArray(entry) || Object.keys(entry).length === 0) {
+        delete dims[key];
+      }
+    }
+  }
+
   // Node テスト向けに純関数を公開 (tf-lifestyle-forms.js の window.DROP_TABLE_LOGIC と同じ流儀)。
   // ブラウザ実行時の挙動には影響しない (window.buildMobTypesForm は従来どおり別途公開)。
   // expRampValue は下方(mob-overrides の vanilla-exp ブロック)で宣言されるが、関数宣言の巻き上げが
@@ -534,7 +631,7 @@
   // 差し替えたうえでこれを直接呼び、返ってきた要素ツリーの numberInput の oninput を叩いて検証する。
   window.MOB_FORMS_LOGIC = {
     pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue, buildLevelCutoffBlock,
-    pruneEmptyNoSkillExpMobs
+    pruneEmptyNoSkillExpMobs, pruneEmptyDimensions
   };
 
   // --------------------------------------------------------------------------------------------
@@ -551,10 +648,10 @@
     // 2026-07-25 §2-B: material は Material名 または custom:<items/catalog.ymlのID> を受け付ける
     // (LevelTierDropEntry/MobLevelTableConfig 側で custom: プレフィクスを解釈)。fish-sell.prices や
     // ドロップテーブル entries[].item と同じ window.materialInput({ allowCustom: true }) に統一する。
-    const matHint = window.materialHintEl(drop.material);
+    // 2026-08-02: materialHintEl は削除 (materialInput 自身が既に日本語名を表示するため、
+    // 隣に足すと同じ名前が2回出て行が潰れる。実サーバ報告の直接該当箇所)。
     const matInput = window.materialInput(drop.material, "material-list", (v) => {
       drop.material = v;
-      matHint.update(v);
     }, { allowCustom: true });
     const chanceInput = window.numberInput(drop.chance, (v) => { drop.chance = v == null ? 0 : v; }, { int: false });
     const minInput = window.numberInput(drop.min, (v) => { drop.min = v == null ? 0 : v; }, { int: true });
@@ -564,7 +661,7 @@
       // .field-grid と対象モブブロックは縦に積む(横並びにすると両方が潰れて崩れる)。
       h("div", { class: "mob-drop-body" }, [
         h("div", { class: "field-grid" }, [
-          fieldRow("material", h("div", { class: "input-with-hint" }, [matInput, matHint]), {
+          fieldRow("material", matInput, {
             label: "素材(Material/custom:)",
             desc: "この帯だけで追加ドロップするアイテム。Material名 または custom:<カタログID>。"
           }),
@@ -729,13 +826,13 @@
         box.appendChild(h("div", { class: "empty-guide-hint", text: "削除対象はまだありません(省略時は何も削除しません)。" }));
       }
       list.forEach((mat, idx) => {
-        const matHint = window.materialHintEl(mat);
+        // 2026-08-02: materialHintEl は削除 (materialInput 自身が listSelect の日本語表示名を
+        // 既に出しているため、隣に足すと同じ名前が2回並んで行が崩れる)。
         const matInput = window.materialInput(mat, "material-list", (v) => {
           list[idx] = v;
-          matHint.update(v);
         });
         box.appendChild(h("div", { class: "mob-drop-row" }, [
-          h("div", { class: "input-with-hint" }, [matInput, matHint]),
+          h("div", { class: "input-with-hint" }, [matInput]),
           h("button", {
             class: "btn-small danger", type: "button", text: "削除",
             onclick: () => { list.splice(idx, 1); if (list.length === 0) delete tier["remove-drops"]; render(); }
@@ -1064,12 +1161,12 @@
         // 候補が取れないときは自由入力に退避する(選べないより入力できるほうがまし)。
         : window.textInput(currentId, (v) => { drop.item = CUSTOM_PREFIX + String(v || "").trim(); });
     } else {
-      const itemHint = window.materialHintEl(drop.item);
+      // 2026-08-02: materialHintEl は削除 (materialInput 自身が listSelect の日本語表示名を
+      // 既に出しているため、隣に足すと同じ名前が2回並んで行が崩れる)。
       const itemInput = window.materialInput(drop.item, "material-list", (v) => {
         drop.item = v;
-        itemHint.update(v);
       }, { allowCustom: true });
-      valueControl = h("div", { class: "input-with-hint" }, [itemInput, itemHint]);
+      valueControl = h("div", { class: "input-with-hint" }, [itemInput]);
     }
     return h("div", { class: "drop-item-control" }, [kindSelect, valueControl]);
   }

@@ -1105,6 +1105,8 @@ select.field-input option {
 .hub-tabs .recipe-tab { font-size: 15px; padding: 9px 18px; }
 .hub-body { display: flex; flex-direction: column; }
 .hub-ars { display: flex; flex-direction: column; }
+/* 「素材」タブの複合ビュー (materials.yml + catalog.yml の material-ref 品、2026-08-02)。 */
+.hub-materials-composite { display: flex; flex-direction: column; gap: 16px; }
 
 /* ============================================================
    ArsPaper items.yml 専用フォーム (ars-recipes)
