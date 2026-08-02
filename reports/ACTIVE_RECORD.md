@@ -3489,3 +3489,45 @@ BEACON の CustomBlock として設置でき、半径内（既定5）のソー�
 **配備はユーザーの作業。** `ops\launch\stop-all.cmd` → `ops\launch\deploy.cmd --config` →
 `ops\launch\start-all.cmd`。**リソパは `deploy.cmd` の対象外**（GitHub release 経由）。
 稼働中に jar を差し替えると必ず `NoClassDefFoundError` になるので、必ず停止してから。
+
+### 9. 2026-08-02 追記: 実際に配備して起動まで確認した
+
+`stop-all` は不要（3台とも停止済みだった）→ `deploy.cmd --config` → `start-all.cmd` を実走した。
+
+- ビルド 3 件（TF / ArsPaper / EliteMobs）、jar は Main / Resource / Dev の3台へ配布。
+  EliteMobs は Resource には入れない規約どおりスキップ、`.paper-remapped` も削除済み。
+- config は Main へ1回コピー（ジャンクションで3台に反映）＋ ArsPaper は3台へ個別コピー。
+- 3台とも `Done (...)!` まで到達。`check-logs.cmd` は既知症状ゼロ。HuskSync の失敗行もゼロ。
+
+**配備で実際に確認できたこと（テストでは分からない部分）**
+
+- `[items/catalog.yml] loaded 349 item(s) OK`
+- `[CatalogRitualRegistrar] registered 167 TrinityForge catalog ritual recipe(s)`
+  ＝ `catalog.yml` の `method: ritual` 167件と**一致**。新シリーズ30種・単発8点・ロール8点の
+  儀式レシピは**全部登録されている**。
+- 配備済み `stats/item-stats.yml` に `use-role` 8件、`items/catalog.yml` に `cryocore_*`/`emberforge_*` 30件。
+
+**配備して初めて出た事象2件（どちらも実害なし。追いかけないための記録）**
+
+- **`[WARN] failed to register recipe for 'key_binder'; skipped` は無害。**
+  `list:dungeon_seals` の実体19件は **ArsPaper の `materials.yml` 側**にあり、
+  ArsPaper は TF より**後に** enable する（実測 TF 13:58:03 / Ars 13:58:07）。
+  `CatalogRecipeRegistrar#choiceFor` は `custom:` 単体の経路には「Ars がまだなら黙って保留」
+  の分岐があるが、**`list:` の経路には無い**ので警告が出る。
+  その後 `ArsPaper.onEnable` → `TrinityForgeBridge.refreshCatalogRecipes()` →
+  `registerAll()` が全件を張り直し、**2回目の警告は出ていない＝登録は成功している**。
+  気になるなら `list:` 経路にも `arsPaperLoadingPending()` の静かなスキップを入れれば消えるが、
+  レシピ登録の中核パスなのでログ1行のために触る価値は薄い（LOW）。
+- **`plugins/ArsPaper/sourcelinks.yml` に `transfer.infinity-core` 節が入らない。**
+  `deploy.cmd` は `sourcejars.yml` / `sourcelinks.yml` を**意図的に除外**している
+  （稼働中サーバが書き戻すライブ状態のため）。柱6 の3キーは既定値
+  （radius 5 / transfer x2.0 / buffer x2.0）で動くので機能は有効だが、
+  **ファイルから値を調整したい場合はサーバ停止中に手で節を足す必要がある。**
+
+**残っている運用上の注意**
+
+- `deploy.cmd` は `gradlew.bat` をベア名で呼んでいたため、Git Bash / MSYS 系シェルから起動すると
+  `NoDefaultCurrentDirectoryInExePath=1` のせいで `is not recognized` で落ちていた
+  （通常の cmd ウィンドウからは動く）。`.\gradlew.bat` に直した（`1742787`）。
+- リソースパックは `deploy.cmd` の対象外（GitHub release 経由）。**今回の新規47 CMD は専用テクスチャを
+  持たず、素材のバニラ見た目で描画される**（threshold は登録済みなので前シリーズの絵に化けることはない）。
