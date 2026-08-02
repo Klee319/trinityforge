@@ -149,6 +149,46 @@ SWEET_BERRY_BUSH/TORCHFLOWER_CROP/PITCHER_CROP/MELON_STEM/PUMPKIN_STEM）は必�
 `CropMaturity.isMaturityGated` で確認すること。確認せずに掘削/採掘/伐採と同じ `isPlaced`/
 `clearIfPlaced` を素で使うと、そのブロックの主経路が恒久的に無効化される。
 
+### ⚠️ 縦積み植物（サトウキビ/竹/コンブ等）の根元を壊すと、上に育った段のEXPが連鎖破壊ごと消える
+
+**症状**: 「サトウキビの根元を壊すとEXPが入らない」報告（2026-08-03）。根元1段だけなら
+`blockedByPlaceBreakGuard`で0になるのは仕様どおりだが、**上に育った段（設置マークの無い自然成長分）
+まで巻き込んで0になっていた**。
+
+**機構**: サトウキビ/竹/コンブ/サボテン/ねじれツタ/泣きツタは支持ブロック(下、泣きツタのみ上)を
+失うとバニラの物理挙動で連結した段がまとめて消える。この消滅は`BlockBreakEvent`を伴わない自動破壊
+なので、`NativeSkillExperienceListener#onBlockBreak`が一度も呼ばれず、育った段のEXPがまるごと
+失われる——`Block#breakNaturally`が連鎖破壊イベントを発火しないのと同型の穴（`ChainBreakSupport`の
+javadoc参照）。
+
+**なぜ根元の設置マークガード自体は外してはいけないか**（要検討だった設計判断）: `PlacedBlockTracker`
+は`clearIfPlaced`でマークを消費し、`BlockPlaceEvent`のたびに`markPlaced`で無条件に再付与する——
+**根元位置には一切のクールダウンが無い**。よって根元のガードを外すと「植えて壊す」を待ち時間ゼロで
+無限に回せる置く→壊すEXPファームが即座に開く。育った段には「成長に時間がかかる」というレート制限が
+自然にあるが、**根元そのものの再設置サイクルにはその制限が効かない**ため、根元は引き続き弾く必要が
+ある。
+
+**修正**: `onBlockBreak`の冒頭（`blockedByPlaceBreakGuard`判定より前）でバニラが崩す前に自前で
+連鎖対象ブロックを確定し（`StackingPlantChain`が連結方向＋同一系統Materialを保持）、
+`ChainBreakSupport.breakChain`で1段ずつ崩してEXPを付与する（`grantChainBreak`を再利用するので
+各段が個別に`blockedByPlaceBreakGuard`を通る＝手植えで積み上げた場合は各段が個別マークを持つため
+従来どおり全段0のまま——ファームの抜け道にはならない）。回帰は
+`NativeSkillExperienceListenerStackCollapseTest`（新設、MockBukkit使用）が固定している。
+
+**テスト構築上の罠**: `ChainBreakSupport.breakChain`は`World#getGameRuleValue(GameRules.BLOCK_DROPS)`
+を読むため、`GameRules`クラスの静的初期化にBukkitレジストリ（=起動中のサーバ）を要求する。
+生Mockitoモックの`World`/`Block`だけでは`ExceptionInInitializerError`になる。かといって
+`MockBukkit.mock()`を呼ぶだけでも足りない——**実ワールドを1つも作らないまま`GameRules`を触ると
+`IncompatiblePaperVersionException`/`NullPointerException("The rule can't be null!")`
+（`MockBukkitInternalAPIBridge.legacyGameRuleBridge`内）になる**（`MockBukkit.mock()`直後に
+`.addSimpleWorld(...)`等で実ワールドを1つ作らせてからでないと、`GameRule`レジストリのデータが
+読み込まれない）。さらに、たとえ`GameRules`が正常初期化できても**MockBukkitの`Block#getDrops(tool,
+player)`は無言で空コレクションを返す**（`TreeFellingListenerTest`に既知の罠として記載済み）ため、
+`gatheringExp`の「ドロップが空なら0」ガードに常に落ちてEXPが検証できない。結局、連鎖崩壊のEXP量を
+検証するテストは「`MockBukkit.mock()`+実ワールド1つ（`GameRules`用）」と「対象ブロック自体は
+生Mockitoモック（`getDrops`を明示的にスタブ）」を併用する必要がある
+（`NativeSkillExperienceListenerStackCollapseTest`が実例）。
+
 ### ⚠️ `block_interact` と `block_drops` はゲート方式が違う（1行完結 vs ブロック行=ゲート/ドロップ行=実量の2行制）
 
 `gatheringExp`（drop_sum モード）が読む `block_drops` は「ブロック名の行=ゲート（値>0か）、実際の
@@ -343,6 +383,59 @@ TF 本体に無い**。現在唯一の実装 `source_spent` は ArsPaper フォ�
 このテストが緑でも`getServer().getPluginManager().registerEvents(...)`まで実際に到達しているかを
 目で確認すること。意図的に配線しないListenerが出た場合は同ファイルの`ALLOWED_UNREGISTERED`に
 理由コメント付きで追加する（2026-08-01時点では空＝全Listener実装が実際に配線済み）。
+
+## Ars鍛冶（儀式）EXP
+
+### ⚠️ 品質刻印の可否とEXP付与の可否を同じ門にしてはいけない（ArsPaperフォーク）
+
+**症状**: 「Ars鍛冶の経験値が入らない」報告（2026-08-03）。`ArsProgressionBridge.grantSmithingCraftExp`
+自体（素材トークン合計→定額フォールバック）は正しく実装されているのに、儀式で作った特定の品目には
+EXPが一切入らなかった。
+
+**機構**: `fork-handoff/arspaper/fork/.../ritual/RitualManager.java`（儀式完了処理）と
+`.../integration/TrinityForgeBridge.java`（`finalizeCatalogRitualResult`/旧`finalizeArsSmithingResult`）は、
+**EXP付与の呼び出しそのものを「品質を刻める結果か」の門の内側に置いていた**
+（`MaterialTier.isEquipment() || isArsQualityStamped(item)`、または
+`ItemRegistry.get(id).filter(BaseCustomItem::isQualityStamped)`）。装備（武器/防具）はこの門を通るので
+問題なかったが、**「品質という概念自体が意味を持たない」結果——ソースジェムの系譜
+（source_gem→source_shard→…→singularity_proof）・エンチャント本（mana_regen/boost/share/soulbound）・
+ウェイストーン・テレポートコンパス・そして`items/catalog.yml`の`thread_*`系40件（スレッド。
+`external-source: arspaper`、アイコンは`*_ARMOR_TRIM_SMITHING_TEMPLATE`で`MaterialTier.isEquipment()`は
+常にfalse）——は、この門で弾かれて**EXP付与へ一度も到達しなかった**。`BaseCustomItem#isQualityStamped()`
+は既定`false`で、`SpellBook`/`CatalystItem`だけが`true`へ上書きする（`ConfigurableMaterial`は
+上書きしない）ため、この集合は常に0EXPだった。
+
+**なぜ無限EXPにならずに門を開けられるか**: `RitualManager`/`RitualRecipe`には分解・逆儀式の概念が
+**一切無い**（grep確認済み）。唯一「作って壊して作り直す」が成立するのは
+`RecipeManager`（**バニラ作業台レシピ**、`materials.yml`の`reversible: true`、圧縮素材の
+compress/decompress）だが、これは儀式とは別系統のパイプラインで、`CraftItemEvent`経由
+（`CraftQualityListener`）を通る。そちらは「完成品に使用可能レベルが無ければEXPを一切出さない」
+という別の反ファームゲートで既に保護されている（圧縮/解凍素材は使用可能レベルを持たないため
+0EXPのまま——これは意図どおりで、儀式側の修正とは無関係）。
+
+**修正**: 品質刻印とEXP付与を別関数に分離した。`TrinityForgeBridge#grantArsSmithingExpOnly`
+（新設）は品質を刻まずEXPだけを付与し、`isQualityStamped`/`isEquipment`が偽の分岐でこちらを呼ぶ
+（`finalizeArsSmithingResult`は品質を刻める結果専用のまま残し、内部で
+`stampCraftedQuality`→`grantArsSmithingExpOnly`の順で呼ぶよう再構成）。
+`RitualManager`のネイティブ結果分岐・`TrinityForgeBridge#finalizeCatalogRitualResult`の
+tfcatalog分岐の両方に同じ分離を適用した。回帰は
+`fork-handoff/arspaper/fork/src/test/java/com/arspaper/ritual/RitualQualityExpGateSeparationTest.java`
+（フォークの既存流儀に合わせ、MockBukkitを使わずソーステキスト走査で固定）。
+
+**副産物**: `TrinityForgeBridge`側の`catch (Throwable t) {}`（TF側API不整合を握り潰す安全弁）が
+**完全に無言**だったため、フォークの`libs/TrinityForge.jar`が古い等でEXP付与が例外落ちしても
+誰にも気付けなかった。`grantArsSmithingExpOnly`では最低限の警告ログを残すよう変更した——
+TF/フォーク境界の`catch (Throwable)`を新設・変更するときは、フェイルセーフのために握り潰すのは
+よいが**必ず警告ログだけは残す**こと（さもないと同種の不具合が今後も無症状のまま埋没する）。
+
+### `items/catalog.yml` は儀式レシピを2種類のキーで書ける（`recipe:`単数 と `recipes:`複数）
+
+両方とも`ItemTemplate#recipes()`（TF側）に統合され、`CatalogRitualRegistrar`/`RitualManager`
+（フォーク側）から見て完全に同じ扱いになる。**しかし`ShippedRitualMaterialExpCoverageTest`
+（`smithing.exp-per-material`の網羅性を固定するテスト）は単数`.recipe`キーしか走査しない**ため、
+`recipes:`（複数、主にスレッド`thread_*`40件が使用）の消費素材は網羅チェックの対象外——
+表に無い素材があっても警告も落ちるテストも無い。儀式のカバレッジ関連テストを触るときは、
+この2キーが両方とも実際に登録される点を踏まえること（`ItemTemplate`のjavadocに明記あり）。
 
 ## 関連
 

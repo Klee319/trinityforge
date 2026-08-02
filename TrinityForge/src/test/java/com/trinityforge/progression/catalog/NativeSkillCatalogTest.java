@@ -3,6 +3,11 @@ package com.trinityforge.progression.catalog;
 import com.trinityforge.progression.core.SkillId;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -200,6 +205,72 @@ class NativeSkillCatalogTest {
         assertTrue(farming.expFor("block_drops", "PUMPKIN") > 0.0);
         assertTrue(farming.expFor("block_drops", "MELON") > 0.0);
         assertTrue(farming.expFor("block_drops", "MELON_SLICE") > 0.0, "MELON(実量)");
+    }
+
+    /**
+     * 2026-08-03 追加(グロウベリー0EXP事故の再発防止): 個別アサーションだけだと同型の事故
+     * (「行はあるが値が0のまま出荷される」)が別の材質でまた起きる。<b>到達可能なアクション表
+     * (単一行=そのままゲート兼実量、というシンプルな{@code block_drops}系)は1行たりとも0であっては
+     * いけない</b>——0はコード上「その材質は無報酬」を意味し、行が存在すること自体が
+     * 「実装側は対応しているのに値だけ空」という設定漏れの証拠になるため。
+     *
+     * <p>ここで掃く対象は「行の値がそのままゲート兼実量になる」単純な表だけ
+     * ({@code mining_break}/{@code woodcutting_break}/{@code woodcutting_strip}/{@code digging_break}/
+     * {@code archaeology_brush}/{@code entity_breed}/{@code entity_drops}/{@code entity_shear}/
+     * {@code fishing_catch}/FARMINGの{@code block_drops})。倍率・乗数系の表
+     * (enchanting の {@code exp_gain} nested multipliers、防具の {@code entity_exp_multipliers}、
+     * alchemy の {@code brew_result}/{@code brew_ingredient})は0が意味を持ちうる(倍率1.0基準からの
+     * 相対値等)ため対象外——単純な「値そのものがEXP量」の表だけに絞る。
+     *
+     * <p>FARMINGの{@code block_interact}だけは例外的に部分ホワイトリスト方式: 実際に読まれるのは
+     * {@link com.trinityforge.listeners.NativeSkillExperienceListener#isHarvestableFarmingInteraction}
+     * が true を返す5種({@code SWEET_BERRY_BUSH}/{@code CAVE_VINES}/{@code CAVE_VINES_PLANT}/
+     * {@code BEEHIVE}/{@code BEE_NEST})だけで、それ以外の行(PUMPKIN/KELP/ツタ類)は同判定に
+     * 引っかからない到達不能な死に行なので0のままでよい(2026-08-03 棚卸しで確定)。
+     */
+    @Test
+    void reachableSimpleActionTablesHaveNoZeroRows() {
+        record Sweep(String skillId, String action) {
+        }
+        List<Sweep> sweeps = List.of(
+                new Sweep(SkillId.MINING, "mining_break"),
+                new Sweep(SkillId.WOODCUTTING, "woodcutting_break"),
+                new Sweep(SkillId.WOODCUTTING, "woodcutting_strip"),
+                new Sweep(SkillId.DIGGING, "digging_break"),
+                new Sweep(SkillId.DIGGING, "archaeology_brush"),
+                new Sweep(SkillId.FARMING, "block_drops"),
+                new Sweep(SkillId.FARMING, "entity_breed"),
+                new Sweep(SkillId.FARMING, "entity_drops"),
+                new Sweep(SkillId.FARMING, "entity_shear"),
+                new Sweep(SkillId.FISHING, "fishing_catch"));
+
+        // FARMINGの block_interact は「到達可能な5行だけ」を掃く部分ホワイトリスト。
+        Set<String> reachableFarmingInteract = Set.of(
+                "SWEET_BERRY_BUSH", "CAVE_VINES", "CAVE_VINES_PLANT", "BEEHIVE", "BEE_NEST");
+
+        List<String> zeroRows = new ArrayList<>();
+        for (Sweep sweep : sweeps) {
+            SkillCatalogEntry entry = CATALOG.get(sweep.skillId());
+            String prefix = sweep.action() + ".";
+            for (Map.Entry<String, Double> row : entry.actionExp().entrySet()) {
+                if (!row.getKey().startsWith(prefix)) continue;
+                if (row.getValue() == null || row.getValue() <= 0.0) {
+                    zeroRows.add(sweep.skillId() + "/" + row.getKey());
+                }
+            }
+        }
+        SkillCatalogEntry farming = CATALOG.get(SkillId.FARMING);
+        for (Map.Entry<String, Double> row : farming.actionExp().entrySet()) {
+            if (!row.getKey().startsWith("block_interact.")) continue;
+            String material = row.getKey().substring("block_interact.".length());
+            if (!reachableFarmingInteract.contains(material)) continue; // 到達不能な死に行は対象外
+            if (row.getValue() == null || row.getValue() <= 0.0) {
+                zeroRows.add("FARMING/" + row.getKey());
+            }
+        }
+
+        assertTrue(zeroRows.isEmpty(),
+                "到達可能なアクション表に0のままの行がある(設定漏れ、EXPが常に0になる): " + zeroRows);
     }
 
     // ---- entries() view ----

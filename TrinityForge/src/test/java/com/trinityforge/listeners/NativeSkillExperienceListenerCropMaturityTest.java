@@ -157,6 +157,13 @@ class NativeSkillExperienceListenerCropMaturityTest {
         verify(fixture.player(), never()).giveExp(anyInt());
     }
 
+    // 2026-08-03: 連鎖崩壊(根元を壊すと上に育った段もまとめて消える)の回帰は
+    // NativeSkillExperienceListenerStackCollapseTest 側にある。その機構は
+    // ChainBreakSupport.breakChain 経由で GameRules.BLOCK_DROPS を読むため、静的初期化に
+    // Bukkitレジストリ(=起動中のサーバ)を要求する — このファイルは意図して MockBukkit を
+    // 使わない(冒頭javadoc参照)ので、生Mockitoモックの World/Block では
+    // ExceptionInInitializerError になり両立しない。
+
     // ============================================================
     // 組み立て
     // ============================================================

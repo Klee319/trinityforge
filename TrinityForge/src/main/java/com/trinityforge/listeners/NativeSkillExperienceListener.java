@@ -6,6 +6,9 @@ import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.SkillExpConfig.GatheringExpMode;
 import com.trinityforge.farming.CropMaturity;
+import com.trinityforge.gathering.ChainBreakSupport;
+import com.trinityforge.gathering.StackingPlantChain;
+import com.trinityforge.mining.VeinMiningAlgorithm.BlockPos;
 import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.RoleBuffResolver;
 import com.trinityforge.progression.UseRequirementResolver;
@@ -18,6 +21,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.type.Beehive;
@@ -79,6 +83,8 @@ public final class NativeSkillExperienceListener implements Listener {
     /** enchanting.yml A/C/A-alpha/A-beta の「エンチャントEXPの増加/減少」用、プレイヤー単位の新規stat。 */
     private static final String ENCHANT_EXP_GAIN_BONUS = StatKeys.canonical("enchant_exp_gain_bonus");
     private static final String POTION_QUALITY_BONUS = StatKeys.canonical("potion_quality_bonus");
+    /** {@link #grantStackCollapseChain} が1回の破壊で辿る連鎖ブロック数の防御的上限。 */
+    private static final int STACK_COLLAPSE_SCAN_LIMIT = 512;
 
     private final Plugin plugin;
     private final NativeExperienceDispatcher progression;
@@ -146,8 +152,12 @@ public final class NativeSkillExperienceListener implements Listener {
         Player player = event.getPlayer();
         if (excluded(player)) return;
         Block block = event.getBlock();
-        if (blockedByPlaceBreakGuard(block)) return;
         ItemStack tool = player.getInventory().getItemInMainHand();
+        // サトウキビ/竹/コンブ/サボテン/ツタの連鎖崩壊分(下記メソッド参照)。起点自体が
+        // 「置く→壊す」ガードで0になる場合でも、上(下)に育った段は別途EXP対象になるため、
+        // 起点のガード判定より先に処理する。
+        grantStackCollapseChain(player, block, tool);
+        if (blockedByPlaceBreakGuard(block)) return;
         // 破壊時バニラEXPは「どの採取スキルとして扱われた破壊か」でツリーを絞る必要があるので、
         // grantGathering が確定させたスキルIDをそのまま受け取る(null=採取扱いでない破壊)。
         String gatheringSkill = grantGathering(player, block,
@@ -156,6 +166,43 @@ public final class NativeSkillExperienceListener implements Listener {
         if (gatheringSkill != null) {
             grantBreakVanillaExp(player, gatheringSkill);
         }
+    }
+
+    /**
+     * サトウキビ/竹/コンブ/サボテン/ねじれツタ/泣きツタの<b>連鎖崩壊</b>分に採取EXPを付与する
+     * (2026-08-03 実サーバ報告「サトウキビの根元を壊すと経験値が入らなかった」の修正)。
+     *
+     * <p><b>機構</b>: これらは支持ブロック(下、泣きツタのみ上)を失うとバニラの物理挙動で連結した
+     * 段がまとめて消える。この消滅は{@code BlockBreakEvent}を伴わない自動破壊なので、
+     * {@link #onBlockBreak}が一度も呼ばれず<b>育った段のEXPがまるごと失われていた</b>
+     * ({@link StackingPlantChain}のjavadoc参照)。ここでバニラが崩す<b>前</b>(このハンドラは
+     * MONITORだが、イベント発火時点ではまだ実際のワールド除去は行われていないため{@code block}は
+     * まだ元のMaterialのまま読める)に連鎖対象を自前で確定し、{@link ChainBreakSupport}で1段ずつ
+     * 崩してEXPを付与してしまう。処理後にバニラが起点を実際に除去したときは、上(下)は既に空気に
+     * なっているため二重ドロップは起きない。
+     *
+     * <p><b>抜け道が無い根拠</b>: 連鎖対象の各ブロックも{@link #grantChainBreak}(=
+     * {@link #blockedByPlaceBreakGuard})を個別に通る。サトウキビ等は手植えで積み上げることも
+     * できるが、その場合は積んだ1段ずつが{@code BlockPlaceEvent}で個別に設置マークを持つため、
+     * 「手植えで積んで根元だけ壊す」も各段が個別にガードされ0のまま — 育った(＝設置マークの無い)
+     * 段だけがEXP対象になる。
+     */
+    private void grantStackCollapseChain(Player player, Block origin, ItemStack tool) {
+        StackingPlantChain.Family family = StackingPlantChain.familyOf(origin.getType());
+        if (family == null) return;
+        BlockFace direction = family.direction();
+        List<BlockPos> positions = new ArrayList<>();
+        Block cursor = origin.getRelative(direction);
+        // cursor==null: ワールド境界(あるいはgetRelativeを配線していないテストダブル)を防御。
+        // ワールド高さ(既定 -64〜320 = 384段)を大きく超える探索上限も併せて防御的に掛ける。
+        while (cursor != null && positions.size() < STACK_COLLAPSE_SCAN_LIMIT
+                && family.members().contains(cursor.getType())) {
+            positions.add(new BlockPos(cursor.getX(), cursor.getY(), cursor.getZ()));
+            cursor = cursor.getRelative(direction);
+        }
+        if (positions.isEmpty()) return;
+        ChainBreakSupport.breakChain(player, origin.getWorld(), positions,
+                family.members()::contains, tool, this::grantChainBreak, false);
     }
 
     /**
