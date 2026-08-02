@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -133,18 +134,25 @@ class NativeSurvivalPerkDropDuplicationTest {
     }
 
     /**
-     * 2026-08-02 回帰: アレイ等 {@link org.bukkit.inventory.InventoryHolder} モブに持たせたプレイヤーの
-     * アイテムは、標準の装備スロットではなく専用インベントリ({@code getInventory()})に入るため、
-     * 旧実装(装備スロットしか見ない {@code equipmentExclusions})では除外をすり抜けて倍率対象になり、
-     * 「アレイに持たせたプレイヤーの持ち物がドロップ増加で増える」複製になっていた。
+     * 2026-08-03 回帰(実サーバ報告「アレイ等に意図的に持たせたアイテムが増える」)。
+     *
+     * <p><b>このテストは "インベントリが空のまま" 死亡イベントを流す</b>のが肝。2026-08-02 の修正は
+     * イベント中に {@code getInventory()} を読んで除外リストを作っていたが、バニラは
+     * {@code Allay.dropEquipment}/{@code Piglin.dropCustomDeathLoot} で
+     * {@code inventory.removeAllItems()} を済ませて<b>から</b> {@link EntityDeathEvent} を発火するため、
+     * 実サーバではこの読み取りが必ず空になり除外が1件も成立しなかった。MockBukkit はこの順序を
+     * 再現しないので、インベントリに中身を入れたままのテストは<b>壊れたままでも緑になる</b>。
+     * ここでは実サーバと同じ「収納は既に空」の状態を再現し、それでも倍率が掛からないことを縛る。
      */
     @Test
-    void allayHeldItemIsExcludedWhileLootIsStillMultiplied() {
+    void allayDropsAreNeverMultipliedEvenWhenItsInventoryIsAlreadyEmptied() {
         Player killer = server.addPlayer("killer");
         Allay allay = world.spawn(world.getSpawnLocation(), Allay.class);
         ((LivingEntityMock) allay).setKiller(killer);
+        // 実サーバの EntityDeathEvent 時点と同じ状態: 収納は既にバニラが空にしている。
+        assertEquals(0, countNonEmpty(((AllayMock) allay).getInventory().getContents()),
+                "前提: 収納が空であること(バニラの死亡順序と同じ状態)");
         ItemStack given = new ItemStack(Material.DIAMOND, 5);
-        ((AllayMock) allay).getInventory().setItem(0, given.clone());
 
         List<ItemStack> drops = new ArrayList<>(List.of(
                 new ItemStack(Material.ROTTEN_FLESH, 1), given.clone()));
@@ -156,9 +164,29 @@ class NativeSurvivalPerkDropDuplicationTest {
             if (drop.getType() == Material.ROTTEN_FLESH) flesh = drop.getAmount();
             if (drop.getType() == Material.DIAMOND) diamonds = drop.getAmount();
         }
-        assertEquals(2, flesh, "戦利品(腐肉)には mob_drop_bonus が乗る");
         assertEquals(5, diamonds,
-                "アレイに持たせたプレイヤーのダイヤは増えてはならない(InventoryHolder 経由の複製)");
+                "アレイに持たせたプレイヤーのダイヤは増えてはならない(収納持ちモブは倍率対象外)");
+        assertEquals(1, flesh,
+                "収納持ちモブは丸ごと倍率対象外にする(戦利品と持ち物を区別する手段がイベント時に無いため)");
+    }
+
+    /** 収納を持たない通常モブは従来どおり倍率対象のまま(丸ごと除外に巻き込まない)。 */
+    @Test
+    void nonCarrierMobsKeepTheDropMultiplier() {
+        assertTrue(NativeSurvivalPerkListener.carriesPlayerFillableStorage(
+                        world.spawn(world.getSpawnLocation(), Allay.class)),
+                "アレイは収納持ち＝倍率対象外");
+        assertFalse(NativeSurvivalPerkListener.carriesPlayerFillableStorage(
+                        world.spawn(world.getSpawnLocation(), Zombie.class)),
+                "ゾンビは収納を持たない＝倍率対象のまま(装備欄の突合せで守る)");
+    }
+
+    private static int countNonEmpty(ItemStack[] contents) {
+        int count = 0;
+        for (ItemStack item : contents) {
+            if (item != null && !item.getType().isAir()) count++;
+        }
+        return count;
     }
 
     /** U12。整数部は確定・小数部だけ確率で+1する(期待値が倍率に一致する)。 */

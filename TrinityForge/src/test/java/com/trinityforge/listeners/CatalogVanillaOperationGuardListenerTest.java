@@ -9,6 +9,7 @@ import com.trinityforge.stats.RecipeSpec;
 import io.papermc.paper.event.block.CompostItemEvent;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockCookEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.BrewingStandFuelEvent;
@@ -44,7 +45,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.HashMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -294,6 +297,7 @@ class CatalogVanillaOperationGuardListenerTest {
     @Test
     void blocksGlowstoneChargingARespawnAnchor() {
         PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
         Block anchor = mock(Block.class);
         when(anchor.getType()).thenReturn(Material.RESPAWN_ANCHOR);
         when(event.getClickedBlock()).thenReturn(anchor);
@@ -312,6 +316,7 @@ class CatalogVanillaOperationGuardListenerTest {
         templates.put(lock.id(), lock);
 
         PlayerInteractEvent launch = mock(PlayerInteractEvent.class);
+        when(launch.getAction()).thenReturn(Action.RIGHT_CLICK_AIR);
         when(launch.getItem()).thenReturn(catalogStack(eye));
 
         PlayerInteractEntityEvent allayUse = mock(PlayerInteractEntityEvent.class);
@@ -338,6 +343,7 @@ class CatalogVanillaOperationGuardListenerTest {
         ItemTemplate eye = template("someones_eyes", Material.ENDER_EYE, 85);
         templates.put(eye.id(), eye);
         PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
         Block chest = mock(Block.class);
         when(chest.getType()).thenReturn(Material.CHEST);
         when(event.getClickedBlock()).thenReturn(chest);
@@ -347,6 +353,51 @@ class CatalogVanillaOperationGuardListenerTest {
 
         verify(event).setUseItemInHand(org.bukkit.event.Event.Result.DENY);
         verify(event, org.mockito.Mockito.never()).setCancelled(true);
+    }
+
+    /**
+     * 2026-08-03 回帰: カタログ製エンダーアイを<b>虚空(空中)</b>へ右クリックしたときもガードが走ること。
+     *
+     * <p>{@code RIGHT_CLICK_AIR} の {@link PlayerInteractEvent} は
+     * 「clickedBlock が null → useClickedBlock = DENY」でコンストラクタが初期化するため
+     * <b>生成直後から {@code isCancelled()} が true</b>。ハンドラに {@code ignoreCancelled = true} を
+     * 付けていると Bukkit のイベントバスが一切配送せず、バニラの {@code EyeOfEnder} が飛んで
+     * カタログ品(PDC/CMD)が素のエンダーアイに戻る＝カスタムアイテムの消滅になっていた。
+     */
+    @Test
+    void enderEyeThrownAtTheVoidIsStillGuarded() throws Exception {
+        ItemTemplate eye = template("someones_eyes", Material.ENDER_EYE, 85);
+        templates.put(eye.id(), eye);
+        PlayerInteractEvent event = new PlayerInteractEvent(
+                mock(Player.class), Action.RIGHT_CLICK_AIR, catalogStack(eye), null,
+                org.bukkit.block.BlockFace.SELF, EquipmentSlot.HAND);
+
+        assertTrue(event.isCancelled(),
+                "前提: RIGHT_CLICK_AIR は生成直後から isCancelled()==true(この罠そのもの)");
+        assertFalse(CatalogVanillaOperationGuardListener.class
+                        .getMethod("onConsumptiveBlockUse", PlayerInteractEvent.class)
+                        .getAnnotation(org.bukkit.event.EventHandler.class).ignoreCancelled(),
+                "ignoreCancelled=true だと虚空右クリックには一度も配送されない");
+
+        listener.onConsumptiveBlockUse(event);
+
+        assertEquals(org.bukkit.event.Event.Result.DENY, event.useItemInHand(),
+                "カタログ製エンダーアイの投擲を止めないと素のエンダーアイに戻って消滅する");
+    }
+
+    /** 他プラグインが本当にキャンセルした場合({@code useItemInHand == DENY})は従来どおり尊重する。 */
+    @Test
+    void alreadyDeniedItemUseIsLeftAlone() {
+        ItemTemplate eye = template("someones_eyes", Material.ENDER_EYE, 85);
+        templates.put(eye.id(), eye);
+        PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_AIR);
+        when(event.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DENY);
+
+        listener.onConsumptiveBlockUse(event);
+
+        verify(event, org.mockito.Mockito.never())
+                .setUseItemInHand(org.bukkit.event.Event.Result.DENY);
     }
 
     @Test

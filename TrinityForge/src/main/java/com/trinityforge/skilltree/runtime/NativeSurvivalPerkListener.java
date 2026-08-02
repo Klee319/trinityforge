@@ -11,7 +11,6 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
@@ -73,9 +72,11 @@ public final class NativeSurvivalPerkListener implements Listener {
         // どちらか一方が0でも早期returnしない(旧実装はmob_drop_bonus<=0で丸ごとreturnしていた)。
         double dropMultAdd = totals.totalOf(MOB_DROP_BONUS);
         double dropFactor = Math.min(3.0, 1.0 + Math.max(0.0, dropMultAdd));
-        if (dropFactor > 1.0) {
+        if (dropFactor > 1.0 && !carriesPlayerFillableStorage(entity)) {
             // モブの装備欄由来(プレイヤーが持たせた/モブが拾った)のスタックは戦利品ではないので
             // 倍率から除外する。ゾンビ等の拾得アイテムも装備スロットに入るため、装備欄の突合せで両方賄える。
+            // 専用収納を持つモブ(アレイ/ピグリン等)は突合せ自体が成立しないので
+            // carriesPlayerFillableStorage で丸ごと対象外にしてある(同メソッドの javadoc 参照)。
             List<ItemStack> exclusions = equipmentExclusions(entity);
             List<ItemStack> drops = new ArrayList<>(event.getDrops());
             event.getDrops().clear();
@@ -120,21 +121,50 @@ public final class NativeSurvivalPerkListener implements Listener {
     }
 
     /**
-     * 装備スロット(手・オフハンド・防具)と、{@link InventoryHolder} を実装するモブ専用インベントリの
-     * 中身を、倍率除外リストとして返す。
+     * 「プレイヤーが中身を詰められる収納を持つモブ」か。真なら<b>そのモブのドロップには倍率を一切
+     * 適用しない</b>。
+     *
+     * <p><b>2026-08-03 実サーバ報告「アレイ等に意図的に持たせたアイテムが増える」の真因。</b>
+     * 2026-08-02 の修正は {@code entity instanceof InventoryHolder} なら {@code getInventory()} の
+     * 中身を除外リストに積む、というものだった。<b>これは実サーバでは常に空リストになる。</b>
+     * Minecraft 1.21.11 の死亡処理は
+     * <pre>
+     *   LivingEntity.dropAllDeathLoot():
+     *       dropEquipment()          // ← Allay はここで inventory.removeAllItems() し、MAINHAND も空にする
+     *       dropFromLootTable()
+     *       dropCustomDeathLoot()    // ← Piglin はここで inventory.removeAllItems() する
+     *       CraftEventFactory.callEntityDeathEvent(...)   // ← EntityDeathEvent はここでやっと発火
+     * </pre>
+     * の順で、<b>収納が空にされたあとで</b> {@link EntityDeathEvent} が飛ぶ。つまりイベント中に
+     * {@code getInventory()} を読んでも必ず空で、除外は 1 件も成立しない。
+     * 通常の装備スロットが読めるのは CraftBukkit が {@code LivingEntity.clearEquipmentSlots} で
+     * <em>クリアを死亡イベントの後ろへ遅延させている</em>からで、Allay/Piglin の収納クリアは
+     * その遅延の対象外である(Allay の MAINHAND クリアも遅延対象外)。
+     * MockBukkit はこのバニラ順序を再現しないため、旧修正の単体テストは緑のまま実サーバだけが
+     * 壊れていた。
+     *
+     * <p>そこで「イベント時の読み取り」に頼るのをやめ、<b>収納持ちモブは丸ごと倍率の対象外</b>にする。
+     * 状態を持たない判定で複製経路が原理的に消える。失うのは
+     * {@code InventoryHolder} モブの自然ドロップへの倍率だけだが、該当するのは
+     * アレイ/ピグリン/村人/行商人/ピリジャー(いずれも自然ドロップ無し)と
+     * ウマ系(革0-2)/オウムガイ程度なので実害が無い。
+     */
+    static boolean carriesPlayerFillableStorage(LivingEntity entity) {
+        return entity instanceof InventoryHolder;
+    }
+
+    /**
+     * 装備スロット(手・オフハンド・防具)の中身を倍率除外リストとして返す。
      *
      * <p>プレイヤーが持たせたアイテムも、モブが地面から拾ったアイテムも、Bukkit上では装備スロットに入る。
      * これらは {@code EntityDeathEvent#getDrops()} に戦利品と混ざって現れるため、突合せて除外しないと
      * 「渡した装備が倍率で増える」＝アイテム複製になる。
      *
-     * <p><b>2026-08-02 修正: アレイ等 {@link InventoryHolder} モブは対象外だった。</b>
-     * アレイ({@code org.bukkit.entity.Allay}) はプレイヤーが渡したアイテムを標準の6装備スロット
-     * ({@link LivingEntity#getEquipment()}) ではなく、{@code InventoryHolder} 由来の専用インベントリ
-     * ({@code getInventory()}) に保持する。死亡時はこの中身も {@code EntityDeathEvent#getDrops()} へ
-     * 混ざるため、装備スロットしか見ていなかった旧実装ではアレイに持たせたアイテムだけが除外を
-     * すり抜けて倍率対象になっていた(=プレイヤーの持ち物がドロップ増加で増える複製)。
-     * アレイ専用の ad-hoc 分岐にはせず、{@code entity instanceof InventoryHolder} という汎用条件で
-     * 拾う — 将来 InventoryHolder を実装する他のモブ(ラマの積み荷袋等)が増えても同じ扱いになる。
+     * <p>装備スロットに限ってこの読み取りが成立するのは、CraftBukkit が
+     * {@code Mob.dropCustomDeathLoot} のスロットクリアを {@code clearEquipmentSlots} フラグで
+     * <b>死亡イベントの後ろへ遅延</b>させているため(耐久ランダム化も同じスタック実体に効くので
+     * {@code isSimilar} は一致する)。専用収納({@code InventoryHolder})はこの遅延の対象外なので、
+     * そちらは読み取りではなく {@link #carriesPlayerFillableStorage} による丸ごと除外で守る。
      */
     static List<ItemStack> equipmentExclusions(LivingEntity entity) {
         List<ItemStack> exclusions = new ArrayList<>();
@@ -144,12 +174,6 @@ public final class NativeSurvivalPerkListener implements Listener {
                     equipment.getItemInMainHand(), equipment.getItemInOffHand(),
                     equipment.getHelmet(), equipment.getChestplate(),
                     equipment.getLeggings(), equipment.getBoots()}) {
-                if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
-            }
-        }
-        if (entity instanceof InventoryHolder holder) {
-            Inventory inventory = holder.getInventory();
-            for (ItemStack item : inventory.getContents()) {
                 if (item != null && !item.getType().isAir()) exclusions.add(item.clone());
             }
         }

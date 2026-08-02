@@ -20,6 +20,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -52,7 +53,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *       2026-08-01: player-placed spawners used to be excluded entirely, which made a re-placed
  *       spawner <b>vanish on break</b> (no drop from us, and vanilla drops nothing either). They are
  *       harvestable again; only the vanilla spawner EXP stays suppressed, since that (unlike the item)
- *       really can be farmed by repeated place/break.</li>
+ *       really can be farmed by repeated place/break.
+ *       2026-08-03: 設置側({@link #onBlockPlace})が無いと中身は絶対に戻らないことが判明した —
+ *       詳細はそちらの javadoc。</li>
  * </ul>
  */
 public final class MiningGimmickListener implements Listener {
@@ -147,7 +150,8 @@ public final class MiningGimmickListener implements Listener {
     private void handleSpawnerHarvest(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
-        if (placedBlocks.isPlaced(block)) {
+        boolean playerPlaced = placedBlocks.isPlaced(block);
+        if (playerPlaced) {
             // 設置済みスポナーでも「回収」自体は通す(1個→設置→再回収も1個のままで複製にならない)。
             // 抑止するのはバニラEXPだけ — こちらは設置/破壊を繰り返すと無限に稼げるため。
             // 2026-08-01 実サーバ報告の修正: 以前はここで早期 return しており、setDropItems(false) も
@@ -165,20 +169,100 @@ public final class MiningGimmickListener implements Listener {
         if (!(block.getState() instanceof CreatureSpawner source)) {
             return;
         }
+        ItemStack drop;
         if (isEmptySpawner(source)) {
-            // 中身が解決できないスポナーは「空のスポナーを落とす」のではなく回収を見送る
-            // (=バニラ挙動へ戻す)。空の実物を握らせるより、落ちない方が原因を追いやすい。
-            plugin.getLogger().warning("[mining] スポナー回収を見送りました: "
-                    + "spawned-type も spawn-potentials も解決できません at " + block.getLocation());
-            return;
-        }
-        ItemStack drop = spawnerItem(source);
-        if (drop == null) {
-            return;
+            if (!playerPlaced) {
+                // 自然生成側で中身が解決できないスポナーは「空のスポナーを落とす」のではなく回収を
+                // 見送る(=バニラ挙動へ戻す)。空の実物を握らせるより、落ちない方が原因を追いやすい。
+                plugin.getLogger().warning("[mining] スポナー回収を見送りました: "
+                        + "spawned-type も spawn-potentials も解決できません at " + block.getLocation());
+                return;
+            }
+            // 2026-08-03: プレイヤーが自分で設置したスポナーだけは、中身が解決できなくても必ず1個返す。
+            // ここで見送ると「バニラのスポナーは何も落とさない」が適用されて持ち物が消えるため
+            // (実サーバ報告「再設置品を回収できない」の第2経路)。1個入れて1個返るので複製にはならない。
+            plugin.getLogger().warning("[mining] 設置済みスポナーの中身が解決できないため空のまま返します at "
+                    + block.getLocation());
+            drop = new ItemStack(Material.SPAWNER, 1);
+        } else {
+            drop = spawnerItem(source);
+            if (drop == null) {
+                return;
+            }
         }
         event.setDropItems(false);
         event.setExpToDrop(0);
         block.getWorld().dropItemNaturally(block.getLocation(), drop);
+    }
+
+    /**
+     * 再設置されたスポナーへ、手に持っていたアイテムが抱えている {@link CreatureSpawner} の状態を
+     * 書き戻す。<b>これが無いと中身は絶対に戻らない。</b>
+     *
+     * <p><b>2026-08-03 実サーバ報告「スポナーの中身が維持されない／再設置品を回収できない」の真因。</b>
+     * {@link #spawnerItem} はブロック状態をアイテム({@code minecraft:block_entity_data})へ正しく
+     * 書き込めている。落ちているのは<b>設置側</b>で、Minecraft 1.21.11 の
+     * {@code BlockItem.updateCustomBlockEntityTag} は
+     * <pre>
+     *   if (blockEntityType.onlyOpCanSetNbt()
+     *           &amp;&amp; !player.canUseGameMasterBlocks()
+     *           &amp;&amp; !(player.getAbilities().instabuild &amp;&amp; player.hasPermission("minecraft.nbt.place"))) {
+     *       return false;   // BLOCK_ENTITY_DATA を読み込まずに捨てる
+     *   }
+     * </pre>
+     * という門を持ち、{@code BlockEntityType.OP_ONLY_CUSTOM_DATA} には
+     * {@code COMMAND_BLOCK / LECTERN / SIGN / HANGING_SIGN / MOB_SPAWNER / TRIAL_SPAWNER} が入っている。
+     * {@code canUseGameMasterBlocks()} は「クリエイティブ かつ 権限レベル2以上」なので、
+     * サバイバルのプレイヤーでは<b>必ず false</b> — つまり中身つきのスポナーを設置しても、
+     * バニラが黙って中身を捨てて空のスポナーを置く。
+     *
+     * <p>その結果、空になったスポナーを壊すと {@link #isEmptySpawner} が真になり、以前は回収を
+     * 見送っていた(=バニラのスポナーは何も落とさない)ので<b>アイテムごと消えていた</b>。
+     * 「中身が維持されない」と「再設置品を回収できない」は同じ1本の原因の前半と後半である。
+     *
+     * <p>{@link EventPriority#MONITOR} + {@code ignoreCancelled}: 他プラグインのキャンセルより後に
+     * 走らせる。バニラは {@code updateCustomBlockEntityTag} → {@code setPlacedBy} →
+     * {@code callBlockPlaceEvent} の順に呼ぶので、このイベントの時点でブロックエンティティは
+     * 既にワールドに存在する。{@code canBuild()} が false のときはこの直後にバニラが設置を巻き戻すため
+     * 何もしない。
+     *
+     * <p>復元は {@code BlockState#copy(Location)} + {@code update(true, false)} で行う
+     * (Bukkit API が個別に露出していない項目まで丸ごと写せる。{@code setSpawnedType} 等を1つずつ
+     * 写す実装は {@code setSpawnedType(null)} が「空スポナー化」の意味を持つ罠に再度落ちる)。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        CreatureSpawner saved = savedSpawnerState(event.getItemInHand());
+        if (saved == null) {
+            return;
+        }
+        if (!event.canBuild()) {
+            return;
+        }
+        Block placed = event.getBlockPlaced();
+        if (placed.getType() != Material.SPAWNER) {
+            return;
+        }
+        saved.copy(placed.getLocation()).update(true, false);
+    }
+
+    /**
+     * アイテムが抱えている「中身のあるスポナー状態」を返す(無ければ {@code null})。
+     *
+     * <p>{@code BlockStateMeta#getBlockState()} は状態を持たないアイテムに対しても空の状態を
+     * 組み立てて返すため、{@code hasBlockState()} を先に見ないと「空スポナーで上書きする」処理に化ける。
+     */
+    static CreatureSpawner savedSpawnerState(ItemStack stack) {
+        if (stack == null || stack.getType() != Material.SPAWNER) {
+            return null;
+        }
+        if (!(stack.getItemMeta() instanceof BlockStateMeta meta) || !meta.hasBlockState()) {
+            return null;
+        }
+        if (!(meta.getBlockState() instanceof CreatureSpawner saved) || isEmptySpawner(saved)) {
+            return null;
+        }
+        return saved;
     }
 
     /**

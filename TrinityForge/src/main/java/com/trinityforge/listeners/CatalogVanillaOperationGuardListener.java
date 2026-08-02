@@ -15,6 +15,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockCookEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.BrewEvent;
@@ -261,9 +262,34 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
     /**
      * Placement events do not cover vanilla right-click consumption against an existing block.
      * The bundled catalog currently exposes exactly these two base-material behaviours.
+     *
+     * <p><b>{@code ignoreCancelled} を付けてはいけない(2026-08-03)。</b>
+     * {@link PlayerInteractEvent#isCancelled()} は {@code useInteractedBlock() == DENY} と等価で、
+     * コンストラクタが「クリックしたブロックが {@code null} なら {@code useClickedBlock = DENY}」と
+     * 初期化する(Paper 1.21.11 の {@code PlayerInteractEvent} バイトコードで確認済み)。つまり
+     * <b>{@code RIGHT_CLICK_AIR} は生成された瞬間から常に「キャンセル済み」</b>で、
+     * {@code ignoreCancelled = true} の購読者には Bukkit のイベントバスが一切配送しない
+     * ({@link DungeonKeyItemListener#onInteract} と同じ罠)。
+     *
+     * <p>ここでの実害: <b>カタログ登録されたエンダーアイを空中へ右クリックするとガードが走らず</b>、
+     * バニラの {@code EyeOfEnder} エンティティが飛んで消費される。落ちてきたものを拾い直すと
+     * PDC も CustomModelData も持たない素のエンダーアイになるので、<b>カスタムアイテムが消滅する</b>。
+     * ブロックに向けた右クリック(エンドポータルフレームへの充填)だけ塞げていたのはこのため。
+     *
+     * <p>キャンセル判定の代わりに {@link PlayerInteractEvent#useItemInHand()} を見る。他プラグインが
+     * 本当に {@code setCancelled(true)} した場合は Bukkit 側で {@code useItemInHand} も {@code DENY}
+     * になるため、従来どおり尊重される。併せて右クリック系の {@link Action} に限定した
+     * (左クリック/踏み込みはそもそもアイテムを消費しない)。
      */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onConsumptiveBlockUse(PlayerInteractEvent event) {
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (event.useItemInHand() == Event.Result.DENY) {
+            return;
+        }
         ItemStack item = event.getItem();
         if (!isCatalog(item)) {
             return;

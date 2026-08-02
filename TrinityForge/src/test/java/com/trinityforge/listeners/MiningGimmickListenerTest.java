@@ -32,6 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
@@ -399,6 +400,72 @@ class MiningGimmickListenerTest {
         // 「entity type を setSpawnedType で写す」経路なら null が渡って空スポナーになる。
         // 丸写し経路なら元の state がそのまま載っている。
         assertSame(state, meta.getBlockState());
+        verify(fixture.event()).setDropItems(false);
+    }
+
+    /**
+     * 2026-08-03 実サーバ報告「スポナーの中身が維持されない／再設置品を回収できない」の真因を縛る。
+     *
+     * <p>アイテム側({@code minecraft:block_entity_data})は正しく書けていた。落ちていたのは<b>設置側</b>で、
+     * バニラ {@code BlockItem.updateCustomBlockEntityTag} は
+     * {@code BlockEntityType.OP_ONLY_CUSTOM_DATA}(MOB_SPAWNER を含む)に対して
+     * 「クリエイティブ かつ 権限レベル2以上」でなければ BLOCK_ENTITY_DATA を<b>読み込まずに捨てる</b>。
+     * その結果サバイバルでは必ず空スポナーが置かれ、それを壊すと空判定で回収を見送っていたため
+     * アイテムごと消えていた。TF 側で明示的に書き戻すのが唯一の経路。
+     */
+    @Test
+    void replacedSpawnerGetsItsSavedStateWrittenBackByUs() {
+        CreatureSpawner saved = mockSpawnerState(EntityType.BLAZE, List.of());
+        org.bukkit.block.BlockState placedState = mock(org.bukkit.block.BlockState.class);
+        when(saved.copy(any(org.bukkit.Location.class))).thenReturn(placedState);
+
+        ItemStack inHand = new ItemStack(Material.SPAWNER, 1);
+        BlockStateMeta meta = assertInstanceOf(BlockStateMeta.class, inHand.getItemMeta());
+        meta.setBlockState(saved);
+        inHand.setItemMeta(meta);
+
+        Block placed = mock(Block.class);
+        when(placed.getType()).thenReturn(Material.SPAWNER);
+        when(placed.getLocation()).thenReturn(mock(org.bukkit.Location.class));
+        org.bukkit.event.block.BlockPlaceEvent event =
+                mock(org.bukkit.event.block.BlockPlaceEvent.class);
+        when(event.getItemInHand()).thenReturn(inHand);
+        when(event.getBlockPlaced()).thenReturn(placed);
+        when(event.canBuild()).thenReturn(true);
+
+        listenerFor(server.addPlayer(), mock(PlacedBlockTracker.class)).onBlockPlace(event);
+
+        verify(placedState).update(true, false);
+    }
+
+    /** 中身を持たないスポナー(クリエイティブ配布品など)では書き戻しを走らせない(空で上書きしない)。 */
+    @Test
+    void plainSpawnerItemDoesNotTriggerAnyWriteBack() {
+        ItemStack plain = new ItemStack(Material.SPAWNER, 1);
+
+        assertNull(MiningGimmickListener.savedSpawnerState(plain),
+                "状態を持たないアイテムから空スポナー状態を作って上書きしてはならない");
+        assertNull(MiningGimmickListener.savedSpawnerState(new ItemStack(Material.STONE)),
+                "スポナー以外は対象外");
+    }
+
+    /**
+     * 2026-08-03: 設置済みスポナーの中身が(何らかの理由で)解決できなくても、回収を見送ると
+     * バニラ挙動でアイテムごと消える。プレイヤーが自分で置いたものは必ず1個返す。
+     */
+    @Test
+    void playerPlacedEmptySpawnerIsStillReturnedAsAnItem() {
+        CreatureSpawner state = mockSpawnerState(null, List.of());
+        PlacedBlockTracker placedBlocks = mock(PlacedBlockTracker.class);
+        when(placedBlocks.isPlaced(any(Block.class))).thenReturn(true);
+        SpawnerFixture fixture = spawnerBreakEvent(state);
+
+        listenerFor(fixture.player(), placedBlocks).onBlockBreak(fixture.event());
+
+        ArgumentCaptor<ItemStack> drop = ArgumentCaptor.forClass(ItemStack.class);
+        verify(fixture.world()).dropItemNaturally(any(), drop.capture());
+        assertEquals(Material.SPAWNER, drop.getValue().getType());
+        assertEquals(1, drop.getValue().getAmount(), "1個入れて1個返る(複製にしない)");
         verify(fixture.event()).setDropItems(false);
     }
 }
