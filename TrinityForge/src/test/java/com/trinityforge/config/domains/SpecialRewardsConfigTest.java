@@ -129,7 +129,7 @@ class SpecialRewardsConfigTest {
         assertFalse(new SpecialRewardsConfig().isKnown("anything"));
     }
 
-    // --- display.title-separator (2026-08-02: TextDisplayオフセット当て推量方式からの置き換え) -------------
+    // --- display.nametag-clearance (2026-08-03: 称号は頭上の別行。ネームタグ上端からの余白で持つ) ---
 
     private static Plugin fakePlugin(File dataFolder) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
@@ -156,34 +156,48 @@ class SpecialRewardsConfigTest {
     }
 
     @Test
-    void titleSeparatorDefaultsWhenAbsent(@TempDir File tempDir) throws IOException {
+    void nametagClearanceDefaultsWhenAbsent(@TempDir File tempDir) throws IOException {
         SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
-        assertEquals(" ", config.titleSeparator());
+        assertEquals(0.4, config.titleNametagClearance(), 1e-9);
     }
 
     @Test
-    void titleSeparatorHonorsExplicitValue(@TempDir File tempDir) throws IOException {
+    void nametagClearanceHonorsExplicitValue(@TempDir File tempDir) throws IOException {
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
-                  title-separator: " | "
+                  nametag-clearance: 1.25
                 titles: {}
                 particles: {}
                 particle-seeds: {}
                 """);
-        assertEquals(" | ", config.titleSeparator());
+        assertEquals(1.25, config.titleNametagClearance(), 1e-9);
     }
 
     @Test
-    void titleSeparatorHonorsExplicitEmptyString(@TempDir File tempDir) throws IOException {
-        // 空文字列("区切り無し")は正式な設定として許容する。null(未設定)だけが既定にフォールバックする。
+    void nametagClearanceHonorsExplicitZero(@TempDir File tempDir) throws IOException {
+        // 0("ネームタグの真上に接する")は正式な設定として許容する。
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
-                  title-separator: ""
+                  nametag-clearance: 0
                 titles: {}
                 particles: {}
                 particle-seeds: {}
                 """);
-        assertEquals("", config.titleSeparator());
+        assertEquals(0.0, config.titleNametagClearance(), 1e-9);
+    }
+
+    @Test
+    void negativeNametagClearanceFallsBackToTheDefault(@TempDir File tempDir) throws IOException {
+        // 負の余白は称号をネームタグへ重ねて名前を隠す(＝報告されたバグそのもの)ので、
+        // 設定ミスで再現できないように既定へ戻す。
+        SpecialRewardsConfig config = loaded(tempDir, """
+                display:
+                  nametag-clearance: -2.0
+                titles: {}
+                particles: {}
+                particle-seeds: {}
+                """);
+        assertEquals(0.4, config.titleNametagClearance(), 1e-9);
     }
 
     // --- prune-orphaned-grants / lastLoadOk (SpecialRewardPruner の安全弁, 2026-07-28) ---------------

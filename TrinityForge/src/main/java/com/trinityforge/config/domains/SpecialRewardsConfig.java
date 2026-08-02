@@ -58,13 +58,13 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     public record ParticleSeed(String id, String seedItem, Particle particle, int count) {
     }
 
-    /** {@link #titleSeparator()} の既定値。プレイヤー名と称号のあいだに挟む区切り文字列。 */
-    private static final String DEFAULT_TITLE_SEPARATOR = " ";
+    /** {@link #titleNametagClearance()} の既定値。ネームタグ上端と称号行のあいだに空けるブロック数。 */
+    private static final double DEFAULT_TITLE_NAMETAG_CLEARANCE = 0.4;
 
     private volatile Map<String, Title> titles = Map.of();
     private volatile Map<String, ParticleEffect> particles = Map.of();
     private volatile Map<String, ParticleSeed> particleSeeds = Map.of();
-    private volatile String titleSeparator = DEFAULT_TITLE_SEPARATOR;
+    private volatile double titleNametagClearance = DEFAULT_TITLE_NAMETAG_CLEARANCE;
     // 孤児化した付与分の自動剥奪 (SpecialRewardPruner) の安全弁。既定true。壊れたYAMLを「全部未定義」と
     // 誤判定して全員の報酬を消し飛ばす事故を防ぐため、これがfalseの間はプルーナー自体を丸ごとスキップできる。
     private volatile boolean pruneOrphanedGrants = true;
@@ -93,17 +93,22 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     }
 
     /**
-     * 称号をプレイヤー名のネームタグ({@code Team#suffix}, {@code TitleDisplayService})に連結する際の
-     * 区切り文字列。バグ報告(2026-08-01再発): 旧実装は別エンティティ({@code TextDisplay})を
-     * パッセンジャーとして頭上に浮かせており、ネームタグへ重なる高さを目視確認できないまま
-     * 当て推量(0.35→0.75)で調整していた。ネームタグそのものへ称号を織り込む方式へ変更したことで、
-     * 「重なる高さ」という当て推量が必要な数値自体が構造的に消えている。ここで調整できるのは
-     * 見た目の区切り(既定は半角スペース1個)だけで、{@code progression/special-rewards.yml} の
-     * {@code display.title-separator} から設定する。{@code /trinityforge reload} で次回の
-     * 張り直し(参加/装備変更)から反映される。
+     * 称号の行(頭上の別行、{@link com.trinityforge.progression.TitleDisplayService})を、バニラの
+     * ネームタグの<b>上端からさらに何ブロック上</b>に置くかの余白。既定 0.4。
+     *
+     * <p>この値が「余白」であって「足元からの高さ」ではないことが重要。旧実装はパッセンジャーの
+     * マウント点からの相対オフセットを直接書いており、マウント点の実高さ(バニラ既定は
+     * {@code 高さ×0.75} = 1.35)を計算に入れていなかったため、0.35 でも 0.75 でもネームタグ
+     * (足元から {@code 高さ+0.5} = 2.3)に届かず<b>重なって名前を隠していた</b>のがバグ報告
+     * 「称号を付けている人にネームタグが表示されなかった」の正体。現在は
+     * {@code 高さ + 0.5 + この余白} という絶対座標へ毎tick追従させるので、マウント点という
+     * 未知数が式から消えている。
+     *
+     * <p>{@code progression/special-rewards.yml} の {@code display.nametag-clearance} から設定し、
+     * {@code /trinityforge reload} で次回の張り直しから反映される。
      */
-    public String titleSeparator() {
-        return titleSeparator;
+    public double titleNametagClearance() {
+        return titleNametagClearance;
     }
 
     /**
@@ -142,10 +147,12 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         this.titles = result.titles();
         this.particles = result.particles();
         this.particleSeeds = result.particleSeeds();
-        // display.title-separator: 空文字列も「区切り無し」として正式に許容する(nullのみ既定へ
-        // フォールバック)。
-        String separator = yaml.getString("display.title-separator", DEFAULT_TITLE_SEPARATOR);
-        this.titleSeparator = separator != null ? separator : DEFAULT_TITLE_SEPARATOR;
+        // display.nametag-clearance: 0 も「ネームタグ上端にぴったり載せる」として正式に許容する。
+        // 負値/非有限値だけ既定へ戻す(負にするとネームタグへ再び重なり、直したはずのバグが戻るため)。
+        double clearance = yaml.getDouble("display.nametag-clearance", DEFAULT_TITLE_NAMETAG_CLEARANCE);
+        this.titleNametagClearance = Double.isFinite(clearance) && clearance >= 0.0
+                ? clearance
+                : DEFAULT_TITLE_NAMETAG_CLEARANCE;
         this.pruneOrphanedGrants = yaml.getBoolean("prune-orphaned-grants", true);
 
         if (result.skipped() > 0) {

@@ -4441,3 +4441,197 @@ EM フォークの生成箇所で main のチームを複製するようにし�
 `deploy.cmd` に `--config` なしのとき**稼働中とズレている yml を一覧する**段を足した。
 今回の draft 漏れは「コードは正しいのに設定が前日のまま」で、**症状がすべてコードのバグに見える**ため
 原因究明に時間を溶かした。実測で動作確認済み（現在18ファイルが出る）。
+
+### ~~45レベル以降（ダイヤ装備以降）に戦いごたえが無い~~ → 修正（`d6f3878`）
+
+武器の `attack-power` はダイヤ以降で指数的に伸びるのに、フィールドモブHP（`combat/mob-types.yml`）は
+全帯で一律 `growth=1.048` の固定カーブしか持たず、ダイヤ以降の武器スケールに対して校正されていなかった。
+**討伐秒数（TTK）が Lv45 1.83s → Lv60 1.27s → Lv80 1.04s と、レベルが上がるほど短くなっていた。**
+
+`ConversionPolicy.Ramp` に**加算専用の高レベル区間**（`level>=highLevelFrom` で
+`+highLevelPerLevel*(level-highLevelFrom)`）を足し、`RampParser` を単一窓口として全 ramp 形状 yml へ
+波及させた。**乗算にしなかったのは**、防御系フィールドが低レベル帯でほぼ 0 のため
+「0×何倍=0」で無効化する事故を避けるため。閾値ちょうどでは加算項が 0 なので、
+**Lv45 以下は数式的に完全一致**（低レベル帯は byte-identical で、既存プレイヤーの体感は変わらない）。
+
+| Lv | TTK 修正前 | TTK 修正後 | 倍率 |
+|---|---|---|---|
+| 5〜35 | 3.02〜4.66s | 変化なし | 1.00x |
+| 45 | 1.829s | 1.829s（閾値ちょうどは不変） | 1.00x |
+| 60 | 1.269s | **3.909s** | **3.08x** |
+| 80 | 1.042s | **3.021s** | **2.90x** |
+
+**モブ攻撃力には一切手を入れていない**ので、致死までの被弾数は全帯で不変
+（＝手応えは増えるが「詰み」化しない）。ダンジョンモブ（`combat/mob-import.yml`）は
+Lv45+ で HP `+1800/level`、物理/魔法 flat-defense を両方 `+150/level`。
+**flat-defense は会心判定前の初回減算なので、未対策のプレイヤーほど総ダメージから削られる割合が大きい**
+（Lv60 でカット率 36.5% vs 対策済み 19.4%）。これが「厳選・耐性の投資が意味を持つ」レバー。
+
+**未解決として残るもの**: Lv35 の高 TTK から Lv45 の低 TTK への**急降下そのもの**は、
+`stats/item-stats.yml` のダイヤ武器 `attack-power` の急伸が主因と推定される（今回の担当範囲外）。
+次に item-stats を触るときは、今回入れた `high-level-per-level` の各係数を併せて再校正すること。
+
+### U18（敵の攻撃に魔法攻撃は設定されているか）= **実バグだった**。ダンジョンモブは構造的に100%物理
+
+`ConversionPolicy.AttackRamp` に **`magic-ratio` フィールド自体が存在しなかった**。
+フィールドモブ側は約41%が非ゼロ `magic-ratio` を持ち「魔法4割」設計どおりだったが、
+**ダンジョンモブ（EliteMobs、事実上の後半コンテンツ本体）は全部100%物理**で、
+**後半でだけ魔法耐性が死にステータス**になっていた。「耐性の対策が無くても簡単に勝ててしまう」という
+報告と符合する。`magic-ratio` を新設して一律 35% を付与した（種別ごとの差別化は今後の余地として残す）。
+
+### 次元の基準レベルが最大HPに反映されない（C-8）= コード上は実バグ・現行の実害はゼロ
+
+`MobData.adjustLevel` は PDC の `MOB_LEVEL` だけを書き換え、Bukkit の最大HP属性を再計算しない
+（攻撃力は `SymmetricCombatService` が都度動的に再計算する**非対称構造**だった）。
+ただし出荷 `mob-types.yml` の `dimensions:` は全モブで空なので現行運用への影響は無い。潜在バグとして修正済み。
+
+### `CombatListener.java:814` の `LEFT_CLICK_AIR` 分岐（C-7）= 到達不能な死にコード
+
+`javap` でバイトコード確認済み。`LEFT_CLICK_AIR` も `PlayerInteractEvent` のコンストラクタで
+無条件に `useClickedBlock=DENY`（＝生成時点でキャンセル済み）になるので、`ignoreCancelled=true` の
+このリスナーには元から一度も配送されない。`onArmSwing`（`PlayerAnimationEvent`）が全スイングを
+無条件に拾うため検知漏れは無く、**分岐削除**を選択した（`ignoreCancelled` を外して有効化する方は、
+空振りに副作用を新設することになるので採らなかった）。javadoc を実挙動に合わせて書き直した。
+
+### この波の最終テスト結果
+
+- TF 本体 `./gradlew cleanTest test`: **3585 件 / 1 失敗 / 2 スキップ**。
+  失敗1件は `SkillExpConfigTest.shippedSkillExpYamlDeclaresKillExpBaseForAllThreeCombatWeaponSkills`
+  （ARCHERY 25≠30）で、**別セッションが編集中の `stats/skill-exp.yml` の未コミット差分**が原因
+  （HEAD の値は 25、作業ツリーが 30）。この波の変更とは無関係。
+  スキップ2件（`OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`）もベースライン同数。
+- TF 本体 `./gradlew releaseAssembly`: **BUILD SUCCESSFUL**（`TrinityForge-0.1.0-SNAPSHOT-all.jar` 16.2MB）。
+- ArsPaper フォーク `./gradlew test`: **294 件 / 0 失敗**。
+- EliteMobs フォーク `./gradlew compileJava`: **BUILD SUCCESSFUL**。
+  なお最初の実装はコンパイルできなかった ── **フォークは spigot-api でビルドするので
+  Adventure 版の `Team#prefix(Component)` / `suffix(Component)` / `hasColor()` は存在しない**。
+  レガシーの String API（`setPrefix`/`setSuffix`/`getColor`）を使うこと。
+- config-editor `npm test`: **未実測**（下記のとおりセッション終盤に Bash ツールが死んだため）。
+  難易度レーンの報告では失敗3件（`tier-table-editor` / `weapon-random-balance` ほか）で、
+  いずれも当該レーンの変更に含まれないファイル由来の既存失敗。**次に触る人が実測すること。**
+
+### 配備（**エージェントからは実行できない**）
+
+**この波の修正は1つも配備されていない。** 稼働中の jar は 08-02 22:24〜23:00、
+稼働中の yml は最も古いもので 07-27。サーバを停止してから:
+
+```
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd --config --restart
+```
+
+**`--config` が要る。** 付けないと yml が配られず、準備中アイテムの封鎖も難易度調整も
+スキルEXPの0値修正も**一切効かない**（付けない場合は新しく足した `[CHECK]` 段が
+ズレているファイルを一覧する）。fork の jar は `deploy.cmd` が変更を検出して自動でビルドし直す。
+
+## 2026-08-03 称号の別行復帰 / 非敵対モブの討伐EXP撤廃 / EM display の残り1経路
+
+### ~~「準備中アイテムが入手できる」は `/tf reload` では直らない~~ → 配備漏れであることを実測で確定
+
+ユーザー報告「tf reload したけど残ってた」。**reload は「サーバのディスク上の yml を読み直す」だけ**なので、
+その yml 自体が古ければ何度 reload しても結果は変わらない。実測:
+
+| | `draft: true` の行数 |
+|---|---|
+| リポジトリ `TrinityForge/src/main/resources/items/catalog.yml` | **100** |
+| 稼働サーバ `Main_Server/plugins/TrinityForge/items/catalog.yml` | **0** |
+
+**コード側の修正は不要**（`CrossPluginItemResolver#createArsGated` は入っている）。`deploy.cmd --config` が唯一の解。
+
+### ~~称号を付けるとネームタグが消える~~ → 頭上の別行へ戻したうえで真因を潰した
+
+2026-08-02 に「スコアボードチームの suffix でネームタグへ織り込む（＝名前と同じ行）」へ書き換えたが、
+ユーザー判断は**別行のまま**。よって位置の決め方だけを作り直した。
+
+**真因は算数で確定できる。** 旧実装は `player.addPassenger` + `Transformation` で、config 値を
+**マウント点からの相対オフセット**として使っていた。マウント点はバニラ既定 `高さ×0.75` = **1.35**、
+バニラのネームタグは `高さ+0.5` = **2.3**。
+
+| 旧オフセット | 称号の実高さ | ネームタグ(2.3)との関係 |
+|---|---|---|
+| 0.35 | 1.70 | はるか下 |
+| 0.75 | 2.10 | 文字高0.25なので 1.98〜2.23、ネームタグ 2.18〜2.43 と**2.18〜2.23で重なる** |
+
+**どちらの当て推量もネームタグより上に届いていなかった**。背景なし・不透明度200・seeThrough の
+称号が名前に重なって読めなくしていた。
+
+修正: パッセンジャーをやめ、`FocusHpDisplay` と同じ**毎tickテレポート追従の独立エンティティ**にした。
+位置は `TitleDisplayService.titleAnchorY(playerHeight, clearance)` = `高さ + 0.5 + 余白` という
+**足元からの絶対高さ**で決まるので、マウント点という未知数が式から消えている。
+config キーは `display.head-offset-y` / `title-separator` → **`display.nametag-clearance`（既定 0.4）**。
+「ネームタグ上端からさらに空ける余白」なので、負でない限り必ず名前より上に出る（負値は既定へ戻す）。
+副次的に**パッセンジャーがプラグインのテレポートを妨げる**問題も消えた。
+`TitleDisplayServiceTest` が「余白 0/0.1/0.4/1.0/5.0 のどれでもネームタグより下に来ない」ことと
+「旧実装の 0.35/0.75 は両方とも 2.3 未満だった」ことを数値で固定する。
+**spawn 経路は MockBukkit が TextDisplay 生成を実装しておらず例外化する**ので踏んでいない
+（踏むと SKIPPED に化けて緑のまま壊れる）。
+
+EM フォークの `SimpleScoreboard#copyMainTeamsInto` は**残した**。称号がチームを使わなくなったので
+必須ではなくなったが、「EM がプレイヤーを新規スコアボードへ移したまま main へ戻さない」のは
+EM 自身の実バグで、消すと他プラグインのチーム表示が再び壊れるため。
+
+### ~~イルカ・ホッキョクグマ等から討伐EXPが入る~~ → 非敵対モブを全表から撤廃
+
+判定基準を **Paper の `Enemy` インターフェース**に統一。`mob-level-table.yml` の
+`no-skill-exp-mobs` へ **DOLPHIN / POLAR_BEAR / SKELETON_HORSE** を追加（7→10種）。
+この3種は `tiers:` の `mobs:` には**残す** — 帯の `mobs:` はレベル決定と `add-drops` のゲートなので、
+外すとドロップとレベル付けまで消える（EXPだけ止めたいのに別機構が壊れる）。
+
+倍率表からは**行ごと削除**した（`0` で書き残さない）。対象4表 = `stats/skill-exp.yml` の
+`combat` / `ars-magic`、`heavy_armor_progression.yml` / `light_armor_progression.yml`。
+各表 42 → **41種**。
+
+editor の網羅テストは契約を変えた: 旧「正典51種すべてを持ち no-skill-exp-mobs は0と書く」→
+新「**キー集合 == 正典 − no-skill-exp-mobs**」。検出力は落ちていない（帯に居るのにどちらの集合にも
+無いモブは今も deepEqual で落ちる＝`unlisted-entity-multiplier: 0` による無言の0扱いを見逃さない）。
+
+**`stats/skill-exp.yml` の `ARCHERY: 30` を 25 へ戻した。** 別セッションの未コミット差分で、
+`SkillExpConfigTest` が固定している「軽武器(20) < 弓術 < 重武器(30)」を破っており、
+**この1件だけが赤かった**。25 は HEAD の値。
+
+### EM の頭上表示: 稼働 jar を逆アセンブルして残り1経路を特定
+
+「EM の display と TF の display が被る」の再報告に対し、**稼働中の jar そのもの**を検証した
+（ソースに入っていることは配備されている証拠にならない）。
+
+```
+javap -p -c -classpath <稼働EliteMobs.jar> ...
+```
+
+- `BossHealthDisplay` … `isSuppressNativeCombatDisplayEnabled` の呼び出し **4箇所**（ソースと同数）
+- `EliteEntity` … `NativeDisplayPolicy.resolveNametagVisible` / `resolveSpawnNametagVisible` の両方あり
+- 稼働 `plugins/EliteMobs/trinityforge.yml` … `nametag: true` / `custom-model-nametag: true`
+
+→ **HPバー・数値HP・ダメージ/回復/XPポップアップ・名札は稼働 jar で全部止まっている。**
+
+止まっていなかったのは **`skills/CombatLevelDisplay`（プレイヤーの頭上に出る EM の戦闘レベル表示）だけ**。
+マスタースイッチが一度も届いていない唯一の頭上表示で、`FakeText` を **`y + 0.5`** にマウントする
+= TF が称号行を描くのとまったく同じ帯。現状 `skills.yml` の `showCombatLevelDisplay: false` で
+たまたま出ていないだけで、**true にすると TF 側から止める手段が無かった**。
+`NativeDisplayPolicy.allowPlayerCombatLevelDisplay()` を新設し `createDisplay` の単一チョークポイントで塞いだ。
+
+**したがって、稼働 jar の状態では EM 由来の頭上表示は残っていない。** それでも被って見えるなら
+残る候補は TF 自身の表示（`FocusHpDisplay` の2行＋耐性表示、`DamagePopupDisplay`）か第三のプラグイン。
+**どの文字列が重なって見えるかを1つ教えてもらえれば特定できる**（HPバー / 数値HP / 名前 / レベル / 称号）。
+
+### レベル差によるドロップカット・EXP減衰の設定場所（質問への回答）
+
+**`combat/mob-overrides.yml` の `level-cutoff:` ブロック。** `diff = プレイヤーLv − モブLv` として:
+
+- `over-level.threshold` / `exp-rate` / `drop-rate` … 格上のとき。`-1` で完全に入手不可
+- `under-level.item-threshold` … 格下のとき TF追加ドロップを不可にする（EXPには効かない）
+
+解決順は**ブロック丸ごと採用**（項目マージではない）:
+`<実ワールド>.mobs.<モブid>` → `<実ワールド>` → `default.mobs.<モブid>` → `default` → 足きり無し。
+対象は **EXP と TF追加ドロップ（`mob-overrides.yml` の `drops:`）だけ**。バニラ本来のドロップは対象外
+（モブトラップが完全に死ぬのを防ぐ意図的な設計）。
+
+**⚠ 出荷 yml のどこにも書かれていない = レベル差による減衰は現在まったく効いていない。**
+別物として `stats/skill-exp.yml` の `level-diminishing:`（自分のスキルレベルによる逓減）もあるが、
+`gathering-enabled: false` / `combat-enabled: false` で**こちらも無効**。
+
+### この波のテスト結果
+
+- TF 本体 `./gradlew cleanTest test`: **BUILD SUCCESSFUL**（失敗0）。
+  直前の同一コマンドは `3585 tests / 1 failed / 2 skipped` で、その1件が上記 ARCHERY。
+- editor `npm test`: **1010件 / 9 failed**。9件は着手前と**名前まで完全一致**のベースラインで、
+  今回の変更が増やしたものは無い。

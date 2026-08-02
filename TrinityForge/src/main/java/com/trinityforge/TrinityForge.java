@@ -679,7 +679,7 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.specialRewards(), configManager.dedicatedEffects());
         this.titleDisplayService = new com.trinityforge.progression.TitleDisplayService(this,
                 player -> specialRewardService.equippedTitleDisplay(player).orElse(null),
-                () -> configManager.specialRewards().titleSeparator());
+                () -> configManager.specialRewards().titleNametagClearance());
         getServer().getPluginManager().registerEvents(titleDisplayService, this);
         this.particleEffectService = new com.trinityforge.progression.ParticleEffectService(
                 this, configManager.specialRewards());

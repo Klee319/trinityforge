@@ -210,12 +210,18 @@ public final class PdcKeys {
     // --- パーティクルシード (2026-07-23-stat-gate-overhaul §6.1): 道具側に焼き込むシードID。 ---
     public static final NamespacedKey ITEM_PARTICLE_SEED = key("particle_seed");
 
-    // 称号頭上表示(TITLE_DISPLAY)キーは2026-08-02の書き換えで削除した。旧実装がマークしていた
-    // TextDisplayは setPersistent(false) 済み(=チャンク/ワールドデータへ書き込まれない)であり、
-    // このリポジトリの配備規約(jar差し替えは必ずサーバプロセスの再起動を伴う。ops-build-deploy.md)
-    // によりホットリロード経路は存在しないため、新jarが起動した時点で旧エンティティは
-    // 「一度もディスクに書かれていない=再起動を跨いで存在し得ない」。孤児掃除(sweepOrphans)を
-    // 引き継ぐ必要はないと判断し、キー自体を削除した。
+    // --- 称号の頭上表示 (2026-07-23-stat-gate-overhaul §6.1) ---
+    /**
+     * {@code TitleDisplayService} が生成した {@code TextDisplay} である印。
+     *
+     * <p>2026-08-02 のスコアボード方式への書き換えでいったん削除したが、2026-08-03 に
+     * 「称号は頭上の別行に出す」方針へ戻したため復活させた。表示体は
+     * {@code setPersistent(false)} なのでディスクへは書かれない ── それでも印を付けるのは、
+     * <b>同一プロセス内で起き得る孤児</b>(プラグインの無効化→再有効化、ワールドのアンロード、
+     * サーバ側の例外で {@code shutdown()} を通らずに終わった場合)を起動時の
+     * {@code sweepOrphans()} が確実に回収できるようにするため。
+     */
+    public static final NamespacedKey TITLE_DISPLAY = key("title_display");
 
     /** ガチャ天井(pity)カウンタキーの接頭辞。プールID毎に独立したカウンタを持つため、他の
      * キーと違い固定の{@code NamespacedKey}ではなく{@link #gachaPityKey(String)}で動的に導出する。 */

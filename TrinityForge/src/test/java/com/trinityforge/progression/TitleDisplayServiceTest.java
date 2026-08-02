@@ -1,14 +1,7 @@
 package com.trinityforge.progression;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.Team;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,23 +11,33 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * バグ報告(2026-08-01再発): 「称号を付けている人にネームタグが表示されなかった」の修正回帰テスト。
+ * バグ報告「称号を付けている人にネームタグが表示されなかった」の回帰テスト。
  *
- * <p>旧実装({@code TextDisplay} パッセンジャー + 当て推量オフセット)から、スコアボードチームの
- * {@code suffix} でネームタグへ直接称号を織り込む方式へ置き換えた。この方式は構造的に
- * 「ネームタグへ重なる高さの当て推量」が発生しない(別エンティティが存在しない)ことと、
- * チーム所属がテレポート/ワールド間移動で失われないことを検証する。
+ * <p><b>何を固定しているか</b>: 称号は頭上の<b>別行</b>に出す(2026-08-03 のユーザー判断)。
+ * したがって「別エンティティを作らない」方式でバグを回避することはできず、
+ * <b>置く高さそのものを正しく決める</b>必要がある。真因は旧実装が高さを
+ * 「パッセンジャーのマウント点からの相対値」で持っていたこと ── マウント点(高さ×0.75=1.35)を
+ * 計算に入れていなかったため、0.35 でも 0.75 でもネームタグ(高さ+0.5=2.3)より下にしか
+ * 行かず、重なって名前を隠していた。
  *
- * <p>MockBukkit の {@code TeamMock} は {@code prefix()}/{@code suffix()}(Adventure Component版)を
- * 実装しているため、ここでは実際にスコアボードへチームを登録・照会して検証する
- * (spawn経路がMockBukkit未実装で即例外化していた旧実装のような回避策は不要)。
+ * <p>そこでこのテストは {@link TitleDisplayService#titleAnchorY(double, double)} を直接叩き、
+ * <b>どんな入力でも称号がネームタグより上に出る</b>ことを固定する。これは旧実装の 0.35 / 0.75 を
+ * 両方とも落とせる検査であり、「見た目を実サーバで確認しないと分からない」状態から抜けている。
+ *
+ * <p>spawn 経路そのものは MockBukkit が {@code TextDisplay} の生成を実装しておらず例外化するため
+ * ここでは踏まない(踏むと SKIPPED に化けて緑のまま壊れる — common-traps.md)。
+ * 称号未装備でエンティティを作らない経路だけ実挙動で確認する。
  */
 class TitleDisplayServiceTest {
+
+    /** バニラがネームタグを描画する高さ(足元から 高さ+0.5)。テスト側にも独立して書き、実装と突き合わせる。 */
+    private static final double VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER = 1.8 + 0.5;
+    /** TextDisplay 1行ぶんの文字高の概算。ネームタグと「触れずに」離れているかの判定に使う。 */
+    private static final double ONE_LINE_TEXT_HEIGHT = 0.25;
 
     private ServerMock server;
     private Plugin plugin;
@@ -50,131 +53,87 @@ class TitleDisplayServiceTest {
         MockBukkit.unmock();
     }
 
-    private static Scoreboard mainScoreboard() {
-        return Bukkit.getScoreboardManager().getMainScoreboard();
-    }
+    @Test
+    void defaultClearancePlacesTheTitleClearOfTheVanillaNametag() {
+        double anchor = TitleDisplayService.titleAnchorY(1.8, 0.4);
 
-    private static String plain(Component component) {
-        return PlainTextComponentSerializer.plainText().serialize(component);
+        assertEquals(2.7, anchor, 1e-9, "立ち状態(高さ1.8)+既定余白0.4 は 1.8+0.5+0.4 = 2.7");
+        assertTrue(anchor - ONE_LINE_TEXT_HEIGHT / 2
+                        > VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER + ONE_LINE_TEXT_HEIGHT / 2,
+                "称号の下端がネームタグの上端より上に無いと、名前に重なって隠す(報告されたバグそのもの)");
     }
 
     @Test
-    void refreshPlacesPlayerOnATeamWithTitleAsSuffix() {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "<red>Slayer</red>", () -> " ");
-        Player player = server.addPlayer();
+    void theTwoHistoricalGuessesWouldBothHaveOverlappedTheNametag() {
+        // 旧実装は「マウント点(高さ×0.75 = 1.35)+ config値」を称号の高さにしていた。
+        // 現在の式が返す値と比べることで、旧実装がなぜ名前を隠したかを数値で残す。
+        double oldMountPoint = 1.8 * 0.75;
+        double oldAnchorWith035 = oldMountPoint + 0.35;
+        double oldAnchorWith075 = oldMountPoint + 0.75;
 
-        service.refresh(player);
-
-        Team team = mainScoreboard().getPlayerTeam(player);
-        assertNotNull(team, "equipping a title must place the player on a scoreboard team");
-        assertTrue(team.hasEntry(player.getName()));
-        assertEquals(" Slayer", plain(team.suffix()));
+        assertTrue(oldAnchorWith035 < VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER,
+                "0.35 は 1.70 でネームタグ(2.3)のはるか下だった");
+        assertTrue(oldAnchorWith075 < VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER,
+                "0.75 でも 2.10 にしかならず、ネームタグ(2.3)に届いていなかった");
+        assertTrue(TitleDisplayService.titleAnchorY(1.8, 0.4) > oldAnchorWith075,
+                "現在の式は旧実装のどの当て推量よりも高い位置へ置く");
     }
 
     @Test
-    void refreshReadsConfiguredSeparatorSupplierExactlyOncePerCall() {
+    void anyNonNegativeClearanceStaysAtOrAboveTheNametag() {
+        for (double clearance : new double[]{0.0, 0.1, 0.4, 1.0, 5.0}) {
+            assertTrue(TitleDisplayService.titleAnchorY(1.8, clearance) >= VANILLA_NAMETAG_Y_FOR_STANDING_PLAYER,
+                    "余白 " + clearance + " でも称号がネームタグより下に来てはいけない");
+        }
+    }
+
+    @Test
+    void negativeOrBrokenClearanceFallsBackInsteadOfSinkingIntoTheNametag() {
+        double fallback = TitleDisplayService.titleAnchorY(1.8, 0.4);
+
+        assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, -1.0), 1e-9,
+                "負の余白は既定へ戻す(そのまま使うと名前へ重なる)");
+        assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, Double.NaN), 1e-9);
+        assertEquals(fallback, TitleDisplayService.titleAnchorY(1.8, Double.POSITIVE_INFINITY), 1e-9);
+    }
+
+    @Test
+    void sneakingHeightIsFollowedInsteadOfHardCodingTheStandingHeight() {
+        // スニーク中の当たり判定高さは 1.5。ネームタグもそれに追随して 2.0 へ下がるので、
+        // 称号も一緒に下がらないと「しゃがむと称号だけ浮く」ことになる。
+        assertEquals(1.5 + 0.5 + 0.4, TitleDisplayService.titleAnchorY(1.5, 0.4), 1e-9);
+        assertTrue(TitleDisplayService.titleAnchorY(1.5, 0.4) < TitleDisplayService.titleAnchorY(1.8, 0.4),
+                "しゃがんだら称号も下がる(高さを定数で埋め込んでいない証明)");
+    }
+
+    @Test
+    void brokenHeightFallsBackToTheStandingHeight() {
+        double standing = TitleDisplayService.titleAnchorY(1.8, 0.4);
+
+        assertEquals(standing, TitleDisplayService.titleAnchorY(0.0, 0.4), 1e-9);
+        assertEquals(standing, TitleDisplayService.titleAnchorY(-1.0, 0.4), 1e-9);
+        assertEquals(standing, TitleDisplayService.titleAnchorY(Double.NaN, 0.4), 1e-9);
+    }
+
+    @Test
+    void refreshWithNoEquippedTitleNeverSpawnsAnythingAndNeverReadsTheClearance() {
         AtomicInteger reads = new AtomicInteger();
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> null, () -> {
             reads.incrementAndGet();
-            return " :: ";
+            return 0.4;
         });
         Player player = server.addPlayer();
 
-        service.refresh(player);
-
-        assertEquals(1, reads.get(), "the configured separator supplier must be read exactly once per refresh");
-        Team team = mainScoreboard().getPlayerTeam(player);
-        assertEquals(" :: Title", plain(team.suffix()));
+        // 称号未装備なら spawn 経路(MockBukkit未実装で例外化する)へ入らないことが前提。
+        assertDoesNotThrow(() -> service.refresh(player));
+        assertEquals(0, reads.get(), "称号が無いのに表示位置を計算しに行ってはいけない");
     }
 
     @Test
-    void nullSeparatorFallsBackToSingleSpace() {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> null);
+    void refreshWithABlankTitleIsTreatedAsUnequipped() {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "   ", () -> 0.4);
         Player player = server.addPlayer();
 
-        service.refresh(player);
-
-        Team team = mainScoreboard().getPlayerTeam(player);
-        assertEquals(" Title", plain(team.suffix()));
-    }
-
-    @Test
-    void refreshWithNoEquippedTitleRemovesTheTeamEntirely() {
-        TitleDisplayService equipped = new TitleDisplayService(plugin, p -> "Title", () -> " ");
-        Player player = server.addPlayer();
-        equipped.refresh(player);
-        assertNotNull(mainScoreboard().getPlayerTeam(player));
-
-        TitleDisplayService unequipped = new TitleDisplayService(plugin, p -> null, () -> " ");
-        unequipped.refresh(player);
-
-        assertNull(mainScoreboard().getPlayerTeam(player),
-                "unequipping the title must remove the team, not merely blank the suffix");
-    }
-
-    @Test
-    void onQuitRemovesTheTeam() {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
-        Player player = server.addPlayer();
-        service.refresh(player);
-        assertNotNull(mainScoreboard().getPlayerTeam(player));
-
-        service.onQuit(new PlayerQuitEvent(player, "bye"));
-
-        assertNull(mainScoreboard().getPlayerTeam(player));
-    }
-
-    @Test
-    void onJoinAppliesTheCurrentlyEquippedTitle() {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
-        Player player = server.addPlayer();
-
-        service.onJoin(new PlayerJoinEvent(player, "joined"));
-
-        assertNotNull(mainScoreboard().getPlayerTeam(player));
-    }
-
-    @Test
-    void startAppliesEquippedTitlesToAllOnlinePlayers() {
-        Player p1 = server.addPlayer();
-        Player p2 = server.addPlayer();
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
-
-        service.start();
-
-        assertNotNull(mainScoreboard().getPlayerTeam(p1));
-        assertNotNull(mainScoreboard().getPlayerTeam(p2));
-    }
-
-    @Test
-    void shutdownRemovesEveryOnlinePlayersTeam() {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
-        Player p1 = server.addPlayer();
-        Player p2 = server.addPlayer();
-        service.refresh(p1);
-        service.refresh(p2);
-
-        service.shutdown();
-
-        assertNull(mainScoreboard().getPlayerTeam(p1));
-        assertNull(mainScoreboard().getPlayerTeam(p2));
-    }
-
-    @Test
-    void teleportingAndChangingWorldsNeverDetachTheTitle() {
-        // 旧実装(パッセンジャーTextDisplay)はテレポート/ワールド間移動でパッセンジャーが外れるため
-        // 明示的な張り直しリスナーが必須だった。チーム所属はプレイヤー識別子(エントリ名)に紐づき
-        // エンティティ/パッセンジャーが存在しないため、テレポート自体が一切妨げられず、
-        // 張り直しの特別処理も不要になったことをここで固定する
-        // (このテストにはteleport/world-changeリスナーは登場しない — それが正しい設計であることの証明)。
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
-        Player player = server.addPlayer();
-        service.refresh(player);
-
-        player.teleport(player.getLocation().add(50, 0, 50));
-
-        Team team = mainScoreboard().getPlayerTeam(player);
-        assertNotNull(team, "team membership must survive a teleport untouched");
-        assertEquals(" Title", plain(team.suffix()));
+        assertDoesNotThrow(() -> service.refresh(player));
     }
 }

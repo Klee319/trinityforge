@@ -57,24 +57,32 @@ test("EXP設定から今回廃止したlegacyキーがすべて消えている",
   }
 });
 
+// 正典は combat/mob-level-table.yml の「no-skill-exp-mobs ∪ 全帯の mobs:」= 51種。
 // 2026-07-31: 50 -> 51。SKELETON_HORSE を Lv45/65/85 帯の mobs: へ追加した
 // (骸馬の骨ドロップを配線するため。帯の mobs: がゲートなので、居ないと add-drops が空振りする)。
-// このテストは同時に「実は9種が5つの倍率表すべてから欠けていた」ことも掘り出した
-// (BEE/GOAT/LLAMA/TRADER_LLAMA/PANDA/WOLF/IRON_GOLEM = no-skill-exp-mobs なのに 0 が書かれておらず、
-//  DOLPHIN/POLAR_BEAR は帯に居るのに倍率が無く unlisted-entity-multiplier: 0 で無言の0扱い)。
-// 全表を埋めて解消済み。
-test("敵別討伐EXP倍率はmob-level-table記載51種を漏れなく持つ", () => {
+//
+// 2026-08-03 に契約を変更した。旧契約は「51種すべてを倍率表に持ち、no-skill-exp-mobs は 0 と書く」
+// だったが、非敵対モブ(Paper の Enemy を実装しないモブ)は倍率表に載せない方針になったため、
+// 「倍率表のキー集合 == 正典 − no-skill-exp-mobs」へ改めた。
+// 検出力は落ちていない — 帯に居るのに no-skill-exp-mobs にも倍率表にも無いモブは、
+// どちらの集合にも入らないので今も deepEqual で落ちる(unlisted-entity-multiplier: 0 による
+// 「無言の0扱い」を見逃さない、というこのテストの元々の目的はそのまま)。
+test("敵別討伐EXP倍率は正典51種からno-skill-exp-mobsを除いた集合と完全一致する", () => {
   const table = load(path.join("combat", "mob-level-table.yml"));
-  const expected = new Set(table["no-skill-exp-mobs"] || []);
+  const noSkillExp = new Set(table["no-skill-exp-mobs"] || []);
+  const canon = new Set(noSkillExp);
   for (const tier of table.tiers || []) {
-    for (const mob of tier.mobs || []) expected.add(mob);
+    for (const mob of tier.mobs || []) canon.add(mob);
   }
-  assert.equal(expected.size, 51, "正典mob-level-tableの対象数が変わった場合は倍率表も再確認する");
+  assert.equal(canon.size, 51, "正典mob-level-tableの対象数が変わった場合は倍率表も再確認する");
 
+  const expected = [...canon].filter((mob) => !noSkillExp.has(mob));
+  assert.equal(expected.length, 41, "no-skill-exp-mobs の増減時は倍率表も同時に直すこと");
+
+  const tables = [];
   const skillExp = load(path.join("stats", "skill-exp.yml"));
   for (const section of ["combat", "ars-magic"]) {
-    const actual = new Set(Object.keys(skillExp[section]["kill-exp"]["entity-type-multipliers"] || {}));
-    assert.deepEqual([...actual].sort(), [...expected].sort(), `${section} の敵倍率表が正典と不一致`);
+    tables.push([section, skillExp[section]["kill-exp"]["entity-type-multipliers"] || {}]);
   }
   // N5(2026-07-31): archery_progression.yml は entity_exp_multipliers ごと削除された
   // (弓術の敵種倍率は combat.kill-exp.entity-type-multipliers を近接と共有する)。
@@ -83,15 +91,14 @@ test("敵別討伐EXP倍率はmob-level-table記載51種を漏れなく持つ", 
     "heavy_armor_progression.yml",
     "light_armor_progression.yml"
   ]) {
-    const exp = load(path.join("skills", "base", file)).experience || {};
-    const actual = new Set(Object.keys(exp.entity_exp_multipliers || {}));
-    assert.deepEqual([...actual].sort(), [...expected].sort(), `${file} の敵倍率表が正典と不一致`);
+    tables.push([file, (load(path.join("skills", "base", file)).experience || {}).entity_exp_multipliers || {}]);
   }
 
-  for (const mob of table["no-skill-exp-mobs"] || []) {
-    assert.equal(skillExp.combat["kill-exp"]["entity-type-multipliers"][mob], 0,
-      `${mob} は戦闘スキルEXP無効なので倍率0である必要がある`);
-    assert.equal(skillExp["ars-magic"]["kill-exp"]["entity-type-multipliers"][mob], 0,
-      `${mob} はArs魔法EXPも倍率0である必要がある`);
+  for (const [label, multipliers] of tables) {
+    assert.deepEqual(Object.keys(multipliers).sort(), [...expected].sort(), `${label} の敵倍率表が正典と不一致`);
+    for (const mob of noSkillExp) {
+      assert.equal(Object.hasOwn(multipliers, mob), false,
+        `${label}: ${mob} は非敵対/EXP無効モブなので倍率行ごと消すこと(0で書き残さない)`);
+    }
   }
 });

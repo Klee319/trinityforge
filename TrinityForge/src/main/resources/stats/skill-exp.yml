@@ -16,34 +16,10 @@
 
 dungeon-only-exp: false
 outside-dungeon-exp-rate: 0.25
-# daily-diminishing: (2026-07-31 追加) 直近24時間に【そのスキルで】稼いだ総量に応じて
-#   EXP 取得量を薄める。1日12時間プレイする層と週末だけの層の差を縮めるための機構。
-#
-#   ここが spot-diminishing と違う点: あちらは「同じ場所で狩り続ける」ことへの抑制(半径16/300秒)で、
-#   総量には一切効かない。1日単位で稼ぎを薄める仕組みはこれまで存在しなかった。
-#
-#   仕組みは指数移動窓。付与のたびに「蓄積 x exp(-経過/window) + 今回の量」を計算する。
-#   ・window-hours = 時定数。24 なら 24 時間で蓄積が約37%まで戻る(0 にはならない)。
-#   ・日付でリセットしないのは意図的 ── 「23:59 に溜めて 00:00 から全開」が最適解になるのを防ぐため。
-#   ・スキルごとに独立。採掘を掘り切った日でも伐採は等倍で入る(縦を伸ばさず横へ促す)。
-#   ・サーバ再起動で蓄積は消える(DB を増やさない判断。プレイヤーは再起動を選べないので悪用にならない)。
-#
-#   per-amount / decay-per-amount: (2026-08-01 仕様変更) 時間窓での総獲得量が per-amount に
-#     達するたびに、EXP取得量が「現在の decay-per-amount 倍」になる。0.7 なら1段ごとに30%減。
-#     段数は切り捨て(離散)なので、プレイヤー側で「あと何EXPで1段落ちるか」を数えられる。
-#     旧 threshold / step / decay-per-step(段数を丸めない連続式)は廃止した ── 連続だと
-#     気づかないうちにじわじわ減るだけで、何をすれば戻るのかが伝わらなかったため。
-#     ※旧キーは読まない。残っていても無視されるので、書き換え漏れは挙動に出る。
-#   floor: 倍率の下限。0 にすると完全に稼げなくなるので必ず 0 より大きくする。
-#   exempt-skills: 逓減しないスキルID(例: [FISHING])。
-#
-#   現行値の意味: 15万までは等倍 -> 15万到達で0.7倍 -> 30万で0.49倍 -> 45万で0.343倍 ->
-#   それ以降は下限0.3倍。レベル50前後の1レベルが約6千EXP、レベル80前後で約7.7万EXPなので、
-#   カジュアル(1日5万程度)はまったく影響を受けず、長時間層だけが薄まる水準。
 daily-diminishing:
   enabled: true
   window-hours: 24
-  per-amount: 150000
+  per-amount: 100000
   decay-per-amount: 0.7
   floor: 0.3
   exempt-skills: []
@@ -58,29 +34,10 @@ spot-diminishing:
 gathering:
   exp-mode: block_value
 ars-smithing:
-  # Ars鍛冶(儀式)のEXP。2026-08-01 以降、儀式が消費した素材を下の smithing.exp-per-material で
-  # 合計した値が優先される(素材ごとの価値を二重管理しないため、表は鍛冶と共用)。
-  # 消費素材が【1つでも】表に無ければ、合計を捨ててこの定額へ戻る(2026-08-02 修正)。
-  # (作業台側と違い「表に無い＝0」にしないのは、儀式素材は ArsPaper の materials.yml 由来が多く、
-  #  表が未整備なサーバで儀式EXPが丸ごと消えるほうが害が大きいため)
-  # 【重要】ここを「合計が0のときだけ定額」にしてはいけない。表を部分的にしか引けないと
-  # 「表に載っている安い素材ぶんだけ」が合計になり、素材を1つ足すとEXPが100分の1に落ちる。
-  # 実際 binder_spear が 100 -> 1 になっていた(同格の binder_sword は全素材が表に無く 100 のまま)。
   exp-per-craft: 100
 smithing:
-  # 素材表(exp-per-material)が空のときだけ使われる定額フォールバック。
-  # 表に1行でも書いてあれば、この値は無視され「盤面の素材の合計」で決まる。
   exp-per-craft: 15
-  # クラフト盤面に置いた素材 1 個あたりの鍛冶EXP。3x3 の全マスを合計し、
-  # さらに完成品の使用可能レベル倍率(use-level-exp-multipliers)と同時クラフト回数を掛ける。
-  # キーは Material 名(大文字)、custom:<ID> は TFカタログ品と ArsPaper のカスタム品の両方
-  # (2026-08-01 修正: 以前は TF カタログの刻印しか読んでおらず、下の custom: 行の大半を占める
-  #  ArsPaper 由来ID(source_gem / magebloom_fiber / hard_metal …)が1行も引けず常に0だった)。
-  # ここに無い素材は 0(=無報酬)。
-  # 【重要】完成品に「使用可能レベル」が設定されていないアイテムには EXP を一切付与しない。
-  # 解体で素材へ戻せるアイテムを作り直し続ける無限EXP経路(unzipサイクル)を塞ぐため。
   exp-per-material:
-    # --- 木材・繊維 ---
     STICK: 0.5
     OAK_PLANKS: 1
     SPRUCE_PLANKS: 1
@@ -96,13 +53,11 @@ smithing:
     WARPED_PLANKS: 1
     STRING: 1
     LEATHER: 3
-    # --- 石材 ---
     COBBLESTONE: 1.5
     STONE: 1.5
     COBBLED_DEEPSLATE: 2
     DEEPSLATE: 2
     BLACKSTONE: 2
-    # --- 金属・宝石 ---
     COPPER_INGOT: 4
     IRON_INGOT: 8
     GOLD_INGOT: 8
@@ -110,7 +65,6 @@ smithing:
     DIAMOND: 25
     NETHERITE_SCRAP: 30
     NETHERITE_INGOT: 120
-    # --- モブ素材 ---
     BLAZE_ROD: 8
     BREEZE_ROD: 20
     PHANTOM_MEMBRANE: 6
@@ -120,7 +74,6 @@ smithing:
     ECHO_SHARD: 30
     HEART_OF_THE_SEA: 60
     NETHER_STAR: 200
-    # --- TFカタログ素材 ---
     custom:stone_2x: 3
     custom:netherrack_2x: 2
     custom:thread_empty: 4
@@ -144,14 +97,6 @@ smithing:
     custom:dragon_scale: 80
     custom:warden_tendril: 90
     custom:source_gem_block: 180
-    # --- 以下は儀式(Ars鍛冶)で消費される素材 (2026-08-02 追加) ---
-    # 儀式は「全素材が表に引けたときだけ」合計を使い、1つでも欠けると ars-smithing.exp-per-craft の
-    # 定額へ戻る。つまり下の行が欠けると、そのレシピは素材価値と無関係な定額に落ちる。
-    # 出荷の儀式レシピ121件が全カバーであることは ShippedRitualMaterialExpCoverageTest が保証する。
-    # 値の導き方(既存の尺度をそのまま延長したもの):
-    #   ブロック = 素材9個ぶん(QUARTZ_BLOCK だけ4個) / 装備 = 使用インゴット数ぶん(兜5・胴8・脚7・靴4)
-    #   圧縮素材 custom:<id>_Nx = 素材N個ぶん / 加工品 = 材料の合計
-    # --- 鉱石ブロック・圧縮 ---
     LAPIS_LAZULI: 1
     LAPIS_BLOCK: 9
     REDSTONE: 1
@@ -164,7 +109,6 @@ smithing:
     GOLD_BLOCK: 72
     DIAMOND_BLOCK: 225
     NETHERITE_BLOCK: 1080
-    # --- 農作物・雑貨 ---
     WHEAT: 1
     HAY_BLOCK: 9
     WHITE_WOOL: 4
@@ -182,7 +126,6 @@ smithing:
     CHEST: 8
     TRIPWIRE_HOOK: 5
     SHIELD: 20
-    # --- エンド・深層 ---
     ENDER_PEARL: 5
     CHORUS_FRUIT: 4
     ENDER_EYE: 10
@@ -195,9 +138,7 @@ smithing:
     TOTEM_OF_UNDYING: 200
     ELYTRA: 250
     HEAVY_CORE: 150
-    # 入手が1個限りで再取得コストが桁違いなので、素材合計ではなく単独で最上位帯に置く。
     DRAGON_EGG: 300
-    # --- バニラ防具(魔導士シリーズの土台) ---
     IRON_HELMET: 40
     IRON_CHESTPLATE: 64
     IRON_LEGGINGS: 56
@@ -210,9 +151,6 @@ smithing:
     DIAMOND_CHESTPLATE: 200
     DIAMOND_LEGGINGS: 175
     DIAMOND_BOOTS: 100
-    # --- 単発装備(柱5-3)の系統素材とコア4種 ---
-    # コア4種は tf_core_jewelry と同じ素材重さ(4隅=圧縮素材/4辺=高レベル敵素材/中央=圧縮エメラルド)
-    # なので、同じ 60 に揃える。
     OAK_LOG: 4
     COOKED_BEEF: 4
     DIRT: 0.5
@@ -220,20 +158,16 @@ smithing:
     custom:tf_core_meat: 60
     custom:tf_core_vegetable: 60
     custom:tf_core_dirt: 60
-    # --- 圧縮素材(氷芯・熾鉄シリーズの儀式で消費する) ---
-    # custom:<id>_Nx = 素材N個ぶん。既存の custom:blaze_rod_2x=16 / _3x=24 (BLAZE_ROD=8) と同じ尺度。
     custom:stone_5x: 7.5
     custom:wither_rose_2x: 20
     custom:breeze_rod_3x: 60
     custom:emerald_block_4x: 360
     custom:netherite_block_1x: 1080
-    # --- 儀式専用の上位素材 ---
     custom:echo_shard_2x: 60
     custom:abyssal_ingot: 250
     custom:dungeon_seal_binder: 300
     custom:reality_thread_core: 350
     custom:binder_fragment: 400
-    # --- 魔導士シリーズの中間段(下位ティアを素材にして上げていく) ---
     custom:spell_book_novice: 40
     custom:spell_book_apprentice: 80
     custom:mage_arcane_novice_helmet: 60
@@ -267,15 +201,14 @@ ars-magic:
     per-mob-level: 1.5
     per-max-health: 0.25
     unlisted-entity-multiplier: 0
+    # 非敵対モブは載せない（方針は combat.kill-exp 側の注記を参照）。
     entity-type-multipliers:
-      BEE: 0
       BLAZE: 1.7
       BOGGED: 1.2
       BREEZE: 1.6
       CAVE_SPIDER: 1.2
       CREAKING: 1.5
       CREEPER: 1.3
-      DOLPHIN: 1
       DROWNED: 1.2
       ELDER_GUARDIAN: 3
       ENDERMAN: 1.5
@@ -284,37 +217,29 @@ ars-magic:
       EVOKER: 2
       GHAST: 1.8
       GIANT: 4
-      GOAT: 0
       GUARDIAN: 1.4
       HOGLIN: 1.5
       HUSK: 1.1
       ILLUSIONER: 2
-      IRON_GOLEM: 0
-      LLAMA: 0
       MAGMA_CUBE: 1.3
-      PANDA: 0
       PARCHED: 1.2
       PHANTOM: 1.3
       PIGLIN: 1.1
       PIGLIN_BRUTE: 1.8
       PILLAGER: 1.2
-      POLAR_BEAR: 1.4
       RAVAGER: 2.5
       SHULKER: 1.5
       SILVERFISH: 1
       SKELETON: 1.1
-      SKELETON_HORSE: 1
       SLIME: 1
       SPIDER: 1
       STRAY: 1.3
-      TRADER_LLAMA: 0
       VEX: 1.4
       VINDICATOR: 1.4
       WARDEN: 7
       WITCH: 1.5
       WITHER: 6
       WITHER_SKELETON: 1.8
-      WOLF: 0
       ZOGLIN: 1.8
       ZOMBIE: 1
       ZOMBIE_VILLAGER: 1
@@ -327,19 +252,25 @@ combat:
     base:
       HEAVY_WEAPONS: 30
       LIGHT_WEAPONS: 20
+      # 弓術は「軽武器 < 弓術 < 重武器」に収める(遠距離で安全な代わりに手数と弾薬コストがある)。
+      # 30 にすると重武器と同値になり、SkillExpConfigTest が固定しているこの順序が崩れる。
       ARCHERY: 25
     per-mob-level: 2
     per-max-health: 0.25
     unlisted-entity-multiplier: 0
+    # 非敵対モブ（Paper の Enemy インターフェースを持たないモブ）は討伐EXPの対象外。
+    # unlisted-entity-multiplier: 0 なので「行を書かない＝EXPゼロ」であり、0 で明示する必要も無い。
+    # 2026-08-03 に一掃した行: BEE / DOLPHIN / GOAT / IRON_GOLEM / LLAMA / PANDA /
+    # POLAR_BEAR / SKELETON_HORSE / TRADER_LLAMA / WOLF。
+    # イルカやホッキョクグマは「そもそも敵対ではない」ので、討伐EXPを持たせない方針。
+    # ここに新しい行を足すときは、そのモブが Paper の Enemy を実装しているか必ず先に確認すること。
     entity-type-multipliers:
-      BEE: 0
       BLAZE: 1.7
       BOGGED: 1.2
       BREEZE: 1.6
       CAVE_SPIDER: 1.2
       CREAKING: 1.5
       CREEPER: 1.3
-      DOLPHIN: 1
       DROWNED: 1.2
       ELDER_GUARDIAN: 3
       ENDERMAN: 1.5
@@ -348,37 +279,29 @@ combat:
       EVOKER: 2
       GHAST: 1.8
       GIANT: 4
-      GOAT: 0
       GUARDIAN: 1.4
       HOGLIN: 1.5
       HUSK: 1.1
       ILLUSIONER: 2
-      IRON_GOLEM: 0
-      LLAMA: 0
       MAGMA_CUBE: 1.3
-      PANDA: 0
       PARCHED: 1.2
       PHANTOM: 1.3
       PIGLIN: 1.1
       PIGLIN_BRUTE: 1.8
       PILLAGER: 1.2
-      POLAR_BEAR: 1.4
       RAVAGER: 2.5
       SHULKER: 1.5
       SILVERFISH: 1
       SKELETON: 1.1
-      SKELETON_HORSE: 1
       SLIME: 1
       SPIDER: 1
       STRAY: 1.3
-      TRADER_LLAMA: 0
       VEX: 1.4
       VINDICATOR: 1.4
       WARDEN: 7
       WITCH: 1.5
       WITHER: 6
       WITHER_SKELETON: 1.8
-      WOLF: 0
       ZOGLIN: 1.8
       ZOMBIE: 1
       ZOMBIE_VILLAGER: 1

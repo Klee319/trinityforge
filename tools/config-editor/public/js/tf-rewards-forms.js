@@ -606,9 +606,13 @@
     const titlesBody = h("div");
     const particlesBody = h("div");
     const seedsBody = h("div");
-    // 2026-07-27: display.head-offset-y だけが専用GUIから漏れていて、yml を直接触るしかなかった。
+    // 2026-07-27: display の余白設定だけが専用GUIから漏れていて、yml を直接触るしかなかった。
     // 値を触らないまま保存しても消えはしない(working をそのまま返す往復ロスレス方式)が、
     // 「GUIから編集できない設定」が1つ残るのでここへ出す。
+    // 2026-08-03: キーを head-offset-y から nametag-clearance へ変更。旧キーは「パッセンジャーの
+    // マウント点からの相対値」で、マウント点の実高さ(1.35)を知らないと正しい値を出せず、
+    // 0.35 も 0.75 もネームタグ(2.3)に届かず重なって名前を隠していた。新キーは
+    // 「ネームタグの上端からさらに空ける余白」なので、負でない限り必ずネームタグより上に出る。
     const display = ensureObj(working, "display", {});
     // 2026-07-29: 全体設定2枚 + 称号/パーティクル/シードの一覧3枚が縦積みで、下のシードを
     // 直すたびに全部スクロールしていた。タブに割って1画面1関心にする。
@@ -619,12 +623,12 @@
     generalPane.appendChild(card(
       [h("span", { class: "entry-key-label", text: "称号の頭上表示 (display)" })],
       [h("div", { class: "field-grid" }, [
-        field("頭上オフセットY (ブロック)", window.numberInput(
-          display["head-offset-y"] == null ? 0.75 : display["head-offset-y"],
-          (v) => { display["head-offset-y"] = v == null ? 0 : v; }
-        ), "称号のTextDisplayを既定のマウント点からさらに持ち上げる高さ。"
-          + "プレイヤー名と重なるなら上げ、離れすぎるなら下げる。/trinityforge reload 後、"
-          + "次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映。")
+        field("ネームタグとの余白 (ブロック)", window.numberInput(
+          display["nametag-clearance"] == null ? 0.4 : display["nametag-clearance"],
+          (v) => { display["nametag-clearance"] = v == null ? 0 : v; }
+        ), "称号の行を、バニラのネームタグ(プレイヤー名)の上端からさらに何ブロック上に置くか。"
+          + "0 でネームタグの真上に接し、大きくするほど離れる。0未満は既定値(0.4)に戻される — "
+          + "負にすると名前に重なって隠すため。/trinityforge reload で反映。")
       ])]
     ));
     generalPane.appendChild(card(
