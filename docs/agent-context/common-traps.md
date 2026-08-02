@@ -419,6 +419,69 @@ editor の `labels.js`・`tf-base-stats.js`・`tf-lore.js` ＋ `test/tf-stat-cap
 テストが自前の一時ディレクトリに yml を書く場合、`enforce: true` を書かないと
 **ゲートが素通りして、そのテストが何も検証しないまま緑になる**。
 
+## モブ・ブロックのバニラ挙動の罠（2026-08-03 追加）
+
+いずれも「保存側／読み取り側のコードは正しいのに、バニラ側の順序と権限ゲートのせいで
+効果がゼロになる」形。**修正を書いた側だけを見ていると、直したはずのものが実機で何も変わらない。**
+どちらも配備済み `versions/1.21.11/paper-1.21.11.jar` を `javap -c` して確定した（推測ではない）。
+
+### ⚠️⚠️ スポナーの中身は「設置時にサバイバルのプレイヤーだと必ず捨てられる」
+
+`BlockItem.updateCustomBlockEntityTag` に op 専用ゲートがある:
+
+```
+BlockEntityType.onlyOpCanSetNbt()        // true なら
+Player.canUseGameMasterBlocks()          // creative かつ権限レベル2以上でなければ
+CraftHumanEntity.hasPermission("minecraft.nbt.place")
+-> false: BLOCK_ENTITY_DATA を読み込まずに捨てる
+```
+
+`BlockEntityType` の静的初期化子:
+
+```
+OP_ONLY_CUSTOM_DATA = Set.of(COMMAND_BLOCK, LECTERN, SIGN, HANGING_SIGN, MOB_SPAWNER, TRIAL_SPAWNER)
+```
+
+**サバイバルのプレイヤーは `canUseGameMasterBlocks()` が必ず false。** つまりアイテム側に
+`BlockStateMeta` で中身を正しく保存しても、**置いた瞬間にバニラが黙って捨てて空スポナーになる**。
+
+- **How**: `BlockPlaceEvent`（`MONITOR` + `ignoreCancelled`）で、手持ちアイテムの `BlockStateMeta` から
+  `CreatureSpawner` を取り出して `saved.copy(loc).update(true, false)` で**自分で書き戻す**。
+  バニラは `updateCustomBlockEntityTag -> setPlacedBy -> callBlockPlaceEvent` の順なので、
+  イベント時点でブロックエンティティは既に存在する。`canBuild()` が false のときは何もしない。
+- `setSpawnedType` 等を1項目ずつ写す実装にしない。**`setSpawnedType(null)` は「空スポナー化」の意味を持つ**し、
+  API に露出していない項目が落ちる。
+- `BlockStateMeta#getBlockState()` は**状態を持たないアイテムにも空の状態を組み立てて返す**ので、
+  必ず `hasBlockState()` を先に見る。見ないと空で上書きする。
+- 2026-08-01 の修正が実機で効かなかったのはこれが理由。保存側だけを直しており、
+  **設置側の書き戻しが無い限り保存側を何度直しても中身は絶対に戻らない。**
+
+### ⚠️⚠️ `EntityDeathEvent` の時点で、アレイとピグリンの収納は既に空
+
+`LivingEntity.dropAllDeathLoot` の順序:
+
+```
+dropEquipment()                 <- Allay はここで inventory.removeAllItems() し MAINHAND も空にする
+dropFromLootTable()
+dropCustomDeathLoot()           <- Piglin はここで removeAllItems() する
+CraftEventFactory.callEntityDeathEvent(...)   <- EntityDeathEvent はここでやっと発火
+```
+
+通常モブの装備欄が死亡イベントで読めるのは、CraftBukkit が `Mob.dropCustomDeathLoot` 内で
+`LivingEntity.clearEquipmentSlots` フラグを使い**クリアをイベントの後ろへ遅延させている**から。
+**Allay / Piglin の収納クリアはその遅延の対象外。**
+
+- **失敗の形**: 「死亡イベントで `getInventory()` を読んで、その中身をドロップ倍率の対象から外す」は
+  **常に空リストを作るだけの no-op**。プレイヤーが持たせたアイテムがドロップ倍率で増える経路が残る。
+- **How**: イベント時の読み取りに依存せず、**`InventoryHolder` を実装するモブは丸ごと倍率対象外**にする。
+  状態を持たない判定なので順序に左右されない。
+- **MockBukkit はバニラの死亡順序を再現しない**ので、収納に中身を入れたままイベントを流すテストは
+  **壊れたままでも緑になる**。回帰テストは**収納を空のまま**（＝実機と同じ状態）流すこと。
+  実際 `NativeSurvivalPerkDropDuplicationTest` は中身を入れて流していたため、no-op 修正を緑で通していた。
+- 安全だったもの（NMS 全数確認済み）: ウマ系チェスト（`spawnAtLocation` するだけでコンテナを空にしない）／
+  村人・行商人・ピリジャー（収納をドロップしない）／アーマースタンド（装備を `drops` に積み、
+  クリアはイベント後）／通常モブの装備・拾得品（`clearEquipmentSlots` で遅延）。
+
 ## 関連
 - [./forks-and-mobs.md](./forks-and-mobs.md)
 - [./ops-build-deploy.md](./ops-build-deploy.md)
