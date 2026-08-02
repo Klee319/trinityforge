@@ -251,20 +251,6 @@ items:
         i: custom:source_gem
         s: STICK
       amount: 1
-  gold_test:
-    material: GOLDEN_SWORD
-    lore:
-      - テスト用やで
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - "   "
-        - " g "
-        - "   "
-      ingredients:
-        g: GOLD_INGOT
-    custom-model-data: 59
   source_gem_sword:
     material: DIAMOND_SWORD
     display-name: ソースジェムの剣
@@ -7072,7 +7058,6 @@ _editor:
       - Winter_Grim_Reaper
       - fnis_peccati_profundi
       - source_gem_scythe
-      - gold_test
       - source_gem_sword
       - infinity_sword
       - emberforge_sword
@@ -7413,7 +7398,6 @@ _editor:
     golad_scythe: weapon
     diamond_scythe: weapon
     nethrite_scythe: weapon
-    gold_test: weapon
     stone_bow: weapon
     copper_bow: weapon
     iron_bow: weapon
