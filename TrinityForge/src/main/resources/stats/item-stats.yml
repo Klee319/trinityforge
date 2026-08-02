@@ -9967,8 +9967,6 @@ _editor:
         itemIds:
           - DIAMOND_SWORD#1111
           - NETHERITE_SWORD#112
-          - NETHERITE_SWORD#5720
-          - NETHERITE_SWORD#5700
           - NETHERITE_SWORD#113
           - NETHERITE_SWORD#114
           - WOODEN_SWORD
@@ -9990,8 +9988,6 @@ _editor:
           - NETHERITE_AXE#83
           - DIAMOND_SWORD#1114
           - NETHERITE_AXE#139
-          - NETHERITE_AXE#5720
-          - NETHERITE_AXE#5700
           - NETHERITE_AXE#140
           - NETHERITE_AXE#141
       - id: cat_1784732090920
@@ -10000,9 +9996,6 @@ _editor:
           - WOODEN_SWORD#51
           - DIAMOND_SPEAR#50
           - NETHERITE_SPEAR#118
-          - NETHERITE_SPEAR#5740
-          - NETHERITE_SPEAR#5720
-          - NETHERITE_SPEAR#5700
           - NETHERITE_SPEAR#119
           - NETHERITE_SPEAR#120
           - WOODEN_SPEAR
@@ -10026,8 +10019,6 @@ _editor:
           - DIAMOND_HOE#49
           - IRON_CHAIN#68
           - NETHERITE_HOE#124
-          - NETHERITE_HOE#5720
-          - NETHERITE_HOE#5700
           - NETHERITE_HOE#125
           - NETHERITE_HOE#126
       - id: cat_1784732138435
@@ -10042,8 +10033,6 @@ _editor:
           - NETHERITE_SWORD#27
           - DIAMOND_SWORD#1109
           - NETHERITE_SWORD#133
-          - NETHERITE_SWORD#5723
-          - NETHERITE_SWORD#5703
           - NETHERITE_SWORD#134
           - NETHERITE_SWORD#135
       - id: cat_1784732147938
@@ -10058,8 +10047,6 @@ _editor:
           - NETHERITE_SWORD#6
           - DIAMOND_SWORD#1106
           - NETHERITE_SWORD#109
-          - NETHERITE_SWORD#5721
-          - NETHERITE_SWORD#5701
           - NETHERITE_SWORD#110
           - NETHERITE_SWORD#111
       - id: cat_1784732165608
@@ -10074,8 +10061,6 @@ _editor:
           - NETHERITE_SWORD#15
           - DIAMOND_SWORD#1107
           - NETHERITE_SWORD#115
-          - NETHERITE_SWORD#5722
-          - NETHERITE_SWORD#5702
           - NETHERITE_SWORD#116
           - NETHERITE_SWORD#117
       - id: cat_1784732175598
@@ -10088,11 +10073,8 @@ _editor:
           - GOLDEN_SWORD#32
           - DIAMOND_SWORD#1105
           - NETHERITE_SWORD#33
-          - NETHERITE_SWORD#5740
           - DIAMOND_SWORD#1110
           - NETHERITE_SWORD#142
-          - NETHERITE_SWORD#5725
-          - NETHERITE_SWORD#5705
           - NETHERITE_SWORD#143
           - NETHERITE_SWORD#144
       - id: cat_1784780540617
@@ -10106,8 +10088,6 @@ _editor:
           - DIAMOND_SWORD#1113
           - NETHERITE_SWORD#67
           - NETHERITE_SWORD#136
-          - NETHERITE_SWORD#5724
-          - NETHERITE_SWORD#5704
           - NETHERITE_SWORD#137
           - NETHERITE_SWORD#138
           - DIAMOND_SWORD#1119
@@ -10124,8 +10104,6 @@ _editor:
           - DIAMOND_SWORD#1099
           - BOW#1118
           - BOW#1115
-          - BOW#5720
-          - BOW#5700
           - BOW#1116
           - BOW#1117
           - BOW
@@ -10141,8 +10119,6 @@ _editor:
           - TRIDENT#180
           - TRIDENT#181
           - TRIDENT#121
-          - TRIDENT#5720
-          - TRIDENT#5700
           - TRIDENT#122
           - TRIDENT#123
           - TRIDENT
@@ -10158,8 +10134,6 @@ _editor:
           - MACE#173
           - MACE#182
           - MACE#127
-          - MACE#5720
-          - MACE#5700
           - MACE#128
           - MACE#129
           - MACE
@@ -10175,8 +10149,6 @@ _editor:
           - CROSSBOW#166
           - CROSSBOW#183
           - CROSSBOW#145
-          - CROSSBOW#5720
-          - CROSSBOW#5700
           - CROSSBOW#146
           - CROSSBOW#147
           - CROSSBOW
@@ -10188,32 +10160,63 @@ _editor:
       - id: cat_abyss_binder_weapon
         label: 深淵・束縛者
         itemIds:
-          - NETHERITE_SWORD#5600
-          - NETHERITE_SWORD#5601
-          - NETHERITE_SWORD#5602
-          - NETHERITE_SPEAR#5602
-          - TRIDENT#5602
-          - NETHERITE_HOE#5602
-          - MACE#5602
-          - NETHERITE_SWORD#5603
-          - NETHERITE_SWORD#5604
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
           - NETHERITE_AXE#5604
-          - NETHERITE_SWORD#5605
           - BOW#5605
           - CROSSBOW#5605
-          - NETHERITE_SWORD#5606
-          - NETHERITE_SWORD#5607
-          - NETHERITE_SWORD#5608
-          - NETHERITE_SPEAR#5608
-          - TRIDENT#5608
-          - NETHERITE_HOE#5608
-          - MACE#5608
-          - NETHERITE_SWORD#5609
-          - NETHERITE_SWORD#5610
+          - NETHERITE_SWORD#5601
+          - NETHERITE_SWORD#5604
+          - NETHERITE_SWORD#5605
+          - MACE#5602
+          - NETHERITE_SWORD#5602
+          - NETHERITE_HOE#5602
+          - NETHERITE_SPEAR#5602
+          - NETHERITE_SWORD#5600
+          - TRIDENT#5602
+          - NETHERITE_SWORD#5603
           - NETHERITE_AXE#5610
-          - NETHERITE_SWORD#5611
           - BOW#5611
           - CROSSBOW#5611
+          - NETHERITE_SWORD#5607
+          - NETHERITE_SWORD#5610
+          - NETHERITE_SWORD#5611
+          - MACE#5608
+          - NETHERITE_SWORD#5608
+          - NETHERITE_HOE#5608
+          - NETHERITE_SPEAR#5608
+          - NETHERITE_SWORD#5606
+          - TRIDENT#5608
+          - NETHERITE_SWORD#5609
+          - NETHERITE_AXE#5700
+          - BOW#5700
+          - CROSSBOW#5700
+          - NETHERITE_SWORD#5701
+          - NETHERITE_SWORD#5704
+          - NETHERITE_SWORD#5705
+          - MACE#5700
+          - NETHERITE_SWORD#5702
+          - NETHERITE_HOE#5700
+          - NETHERITE_SPEAR#5700
+          - NETHERITE_SWORD#5700
+          - TRIDENT#5700
+          - NETHERITE_SWORD#5703
+          - NETHERITE_AXE#5720
+          - BOW#5720
+          - CROSSBOW#5720
+          - NETHERITE_SWORD#5721
+          - NETHERITE_SWORD#5724
+          - NETHERITE_SWORD#5725
+          - MACE#5720
+          - NETHERITE_SWORD#5722
+          - NETHERITE_HOE#5720
+          - NETHERITE_SPEAR#5720
+          - NETHERITE_SWORD#5720
+          - TRIDENT#5720
+          - NETHERITE_SWORD#5723
+          - NETHERITE_SPEAR#5740
+          - NETHERITE_SWORD#5740
     catalyst:
       - id: cat_1784733677892
         label: バニラ
@@ -10226,8 +10229,6 @@ _editor:
           - BLAZE_ROD#400006
           - BLAZE_ROD#400007
           - BLAZE_ROD#400012
-          - AMETHYST_SHARD#5761
-          - AMETHYST_SHARD#5760
           - BLAZE_ROD#400013
           - BLAZE_ROD#400014
       - id: cat_20260723_触媒
@@ -10235,6 +10236,11 @@ _editor:
         itemIds:
           - BLAZE_ROD#400001
           - ENDER_EYE#85
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - AMETHYST_SHARD#5760
+          - AMETHYST_SHARD#5761
     tool:
       - id: cat_1784781029395
         label: ツルハシ
@@ -10265,7 +10271,6 @@ _editor:
         itemIds:
           - DIAMOND_SHOVEL#74
           - NETHERITE_SHOVEL#188
-          - NETHERITE_SHOVEL#5740
           - WOODEN_SHOVEL
           - STONE_SHOVEL
           - COPPER_SHOVEL
@@ -10278,7 +10283,6 @@ _editor:
         itemIds:
           - DIAMOND_HOE#76
           - NETHERITE_HOE#194
-          - NETHERITE_HOE#5740
           - WOODEN_HOE
           - STONE_HOE
           - COPPER_HOE
@@ -10294,6 +10298,11 @@ _editor:
         label: 釣り竿
         itemIds:
           - FISHING_ROD
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - NETHERITE_HOE#5740
+          - NETHERITE_SHOVEL#5740
     other:
       - id: cat_1784638696666
         label: サブウェポン
@@ -10423,23 +10432,9 @@ _editor:
         label: インフィニティ
         itemIds:
           - NETHERITE_HELMET#148
-          - LEATHER_HELMET#5761
-          - LEATHER_HELMET#5760
-          - NETHERITE_HELMET#5740
-          - NETHERITE_HELMET#5720
           - NETHERITE_CHESTPLATE#151
-          - LEATHER_CHESTPLATE#5762
-          - LEATHER_CHESTPLATE#5761
-          - NETHERITE_CHESTPLATE#5760
-          - LEATHER_CHESTPLATE#5760
-          - NETHERITE_CHESTPLATE#5741
-          - NETHERITE_CHESTPLATE#5740
-          - NETHERITE_CHESTPLATE#5720
           - NETHERITE_LEGGINGS#154
-          - NETHERITE_LEGGINGS#5720
           - NETHERITE_BOOTS#157
-          - NETHERITE_BOOTS#5740
-          - NETHERITE_BOOTS#5720
       - id: cat_1784963395848
         label: 骨鎧
         itemIds:
@@ -10492,10 +10487,27 @@ _editor:
       - id: cat_abyss_binder_armor
         label: 束縛者の装束
         itemIds:
-          - NETHERITE_HELMET#5611
-          - NETHERITE_CHESTPLATE#5611
-          - NETHERITE_LEGGINGS#5611
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - NETHERITE_BOOTS#5740
           - NETHERITE_BOOTS#5611
+          - NETHERITE_CHESTPLATE#5611
+          - NETHERITE_HELMET#5611
+          - NETHERITE_LEGGINGS#5611
+          - NETHERITE_BOOTS#5720
+          - NETHERITE_CHESTPLATE#5720
+          - NETHERITE_HELMET#5720
+          - NETHERITE_LEGGINGS#5720
+          - NETHERITE_CHESTPLATE#5741
+          - NETHERITE_CHESTPLATE#5740
+          - LEATHER_CHESTPLATE#5760
+          - LEATHER_CHESTPLATE#5761
+          - NETHERITE_HELMET#5740
+          - LEATHER_CHESTPLATE#5762
+          - LEATHER_HELMET#5761
+          - NETHERITE_CHESTPLATE#5760
+          - LEATHER_HELMET#5760
     spellbook: []
     thread: []
   itemTabs:

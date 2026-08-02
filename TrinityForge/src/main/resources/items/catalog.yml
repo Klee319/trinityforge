@@ -6588,8 +6588,6 @@ _editor:
         itemIds:
           - source_gem_sword
           - infinity_sword
-          - emberforge_sword
-          - cryocore_sword
           - hero_sword
           - nuclear_sword
       - id: cat_1784732080645
@@ -6604,8 +6602,6 @@ _editor:
           - netherite_axe_tf
           - source_gem_axe
           - infinity_axe
-          - emberforge_axe
-          - cryocore_axe
           - hero_axe
           - nuclear_axe
       - id: cat_1784732090920
@@ -6613,9 +6609,6 @@ _editor:
         itemIds:
           - source_gem_spear
           - infinity_spear
-          - hunter_javelin
-          - emberforge_spear
-          - cryocore_spear
           - hero_spear
           - nuclear_spear
       - id: cat_1784732119145
@@ -6632,8 +6625,6 @@ _editor:
           - source_gem_scythe
           - fnis_peccati_profundi
           - infinity_scythe
-          - emberforge_scythe
-          - cryocore_scythe
           - hero_scythe
           - nuclear_scythe
       - id: cat_1784732138435
@@ -6648,8 +6639,6 @@ _editor:
           - netherite_warhammer
           - source_gem_warhammer
           - infinity_warhammer
-          - emberforge_warhammer
-          - cryocore_warhammer
           - hero_warhammer
           - nuclear_warhammer
       - id: cat_1784732147938
@@ -6664,8 +6653,6 @@ _editor:
           - netherite_dagger
           - source_gem_dagger
           - infinity_dagger
-          - emberforge_dagger
-          - cryocore_dagger
           - hero_dagger
           - nuclear_dagger
       - id: cat_1784732165608
@@ -6680,8 +6667,6 @@ _editor:
           - netherite_rapier
           - source_gem_rapier
           - infinity_rapier
-          - emberforge_rapier
-          - cryocore_rapier
           - hero_rapier
           - nuclear_rapier
       - id: cat_1784732175598
@@ -6694,11 +6679,8 @@ _editor:
           - golden_greataxe
           - diamond_greataxe
           - netherite_greataxe
-          - woodsman_greataxe
           - source_gem_greataxe
           - infinity_greataxe
-          - emberforge_greataxe
-          - cryocore_greataxe
           - hero_greataxe
           - nuclear_greataxe
       - id: cat_1784780540617
@@ -6712,8 +6694,6 @@ _editor:
           - diamond_grate_sword
           - netherite_grate_sword
           - infinity_grate_sword
-          - emberforge_grate_sword
-          - cryocore_grate_sword
           - hero_grate_sword
           - nuclear_grate_sword
           - source_gem_grate_sword
@@ -6730,8 +6710,6 @@ _editor:
           - revolution_bow
           - source_gem_bow
           - infinity_bow
-          - emberforge_bow
-          - cryocore_bow
           - hero_bow
           - nuclear_bow
       - id: cat_20260723_トライデント
@@ -6746,8 +6724,6 @@ _editor:
           - netherite_trident
           - source_gem_trident
           - infinity_trident
-          - emberforge_trident
-          - cryocore_trident
           - hero_trident
           - nuclear_trident
       - id: cat_20260723_メイス
@@ -6762,8 +6738,6 @@ _editor:
           - netherite_mace
           - source_gem_mace
           - infinity_mace
-          - emberforge_mace
-          - cryocore_mace
           - hero_mace
           - nuclear_mace
       - id: cat_20260723_クロスボウ
@@ -6778,8 +6752,6 @@ _editor:
           - netherite_crossbow
           - source_gem_crossbow
           - infinity_crossbow
-          - emberforge_crossbow
-          - cryocore_crossbow
           - hero_crossbow
           - nuclear_crossbow
       - id: cat_20260724_特殊武器
@@ -6790,32 +6762,63 @@ _editor:
       - id: cat_abyss_binder_weapon
         label: 深淵・束縛者
         itemIds:
-          - abyss_sword
-          - abyss_dagger
-          - abyss_rapier
-          - abyss_spear
-          - abyss_trident
-          - abyss_scythe
-          - abyss_mace
-          - abyss_warhammer
-          - abyss_grate_sword
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
           - abyss_axe
-          - abyss_greataxe
           - abyss_bow
           - abyss_crossbow
-          - binder_sword
-          - binder_dagger
-          - binder_rapier
-          - binder_spear
-          - binder_trident
-          - binder_scythe
-          - binder_mace
-          - binder_warhammer
-          - binder_grate_sword
+          - abyss_dagger
+          - abyss_grate_sword
+          - abyss_greataxe
+          - abyss_mace
+          - abyss_rapier
+          - abyss_scythe
+          - abyss_spear
+          - abyss_sword
+          - abyss_trident
+          - abyss_warhammer
           - binder_axe
-          - binder_greataxe
           - binder_bow
           - binder_crossbow
+          - binder_dagger
+          - binder_grate_sword
+          - binder_greataxe
+          - binder_mace
+          - binder_rapier
+          - binder_scythe
+          - binder_spear
+          - binder_sword
+          - binder_trident
+          - binder_warhammer
+          - cryocore_axe
+          - cryocore_bow
+          - cryocore_crossbow
+          - cryocore_dagger
+          - cryocore_grate_sword
+          - cryocore_greataxe
+          - cryocore_mace
+          - cryocore_rapier
+          - cryocore_scythe
+          - cryocore_spear
+          - cryocore_sword
+          - cryocore_trident
+          - cryocore_warhammer
+          - emberforge_axe
+          - emberforge_bow
+          - emberforge_crossbow
+          - emberforge_dagger
+          - emberforge_grate_sword
+          - emberforge_greataxe
+          - emberforge_mace
+          - emberforge_rapier
+          - emberforge_scythe
+          - emberforge_spear
+          - emberforge_sword
+          - emberforge_trident
+          - emberforge_warhammer
+          - hunter_javelin
+          - woodsman_greataxe
     catalyst:
       - id: cat_1784733677892
         label: バニラ
@@ -6828,14 +6831,17 @@ _editor:
           - diamond_cane
           - netherite_cane
           - infinity_cane
-          - woodsman_whetstone
-          - chanter_ring
           - dragon_cane
           - wither_cane
       - id: cat_20260723_触媒
         label: 触媒
         itemIds:
           - someones_eyes
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - chanter_ring
+          - woodsman_whetstone
     tool:
       - id: cat_1784781029395
         label: ツルハシ
@@ -6852,19 +6858,22 @@ _editor:
         itemIds:
           - source_gem_shovel
           - infinity_shovel
-          - leyline_shovel
       - id: cat_1784732947413
         label: クワ
         itemIds:
           - source_gem_hoe
           - infinity_hoe
-          - harvest_hoe
       - id: cat_1784732953900
         label: ハサミ
         itemIds: []
       - id: cat_1784733136020
         label: 釣り竿
         itemIds: []
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - harvest_hoe
+          - leyline_shovel
     other:
       - id: cat_1784638696666
         label: サブウェポン
@@ -6944,23 +6953,9 @@ _editor:
         label: インフィニティ
         itemIds:
           - infinity_boots
-          - bedrock_greaves
-          - emberforge_boots
           - infinity_chestplate
-          - leveling_gloves
-          - harvest_basket
-          - taunt_crest
-          - gladiator_belt
-          - feast_breastplate
-          - forestfolk_cloak
-          - emberforge_chestplate
           - infinity_helmet
-          - pit_lamp
-          - tide_float
-          - herb_hat
-          - emberforge_helmet
           - infinity_leggings
-          - emberforge_leggings
       - id: cat_1784963378551
         label: 深海鱗鎧
         itemIds:
@@ -7013,12 +7008,56 @@ _editor:
       - id: cat_abyss_binder_armor
         label: 束縛者の装束
         itemIds:
-          - binder_helmet
-          - binder_chestplate
-          - binder_leggings
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - bedrock_greaves
           - binder_boots
+          - binder_chestplate
+          - binder_helmet
+          - binder_leggings
+          - emberforge_boots
+          - emberforge_chestplate
+          - emberforge_helmet
+          - emberforge_leggings
+          - feast_breastplate
+          - forestfolk_cloak
+          - gladiator_belt
+          - harvest_basket
+          - herb_hat
+          - leveling_gloves
+          - pit_lamp
+          - taunt_crest
+          - tide_float
     spellbook: []
-    thread: []
+    thread:
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - thread_angler
+          - thread_artisan
+          - thread_concussion
+          - thread_diligence
+          - thread_endurance
+          - thread_experience
+          - thread_gourmet
+          - thread_harvest
+          - thread_luck
+          - thread_mana_amplify
+          - thread_mana_circulate
+          - thread_marksman
+          - thread_mending_flesh
+          - thread_miner
+          - thread_ritualist
+          - thread_salvage
+          - thread_scholar
+          - thread_slow_falling
+          - thread_source_thrift
+          - thread_spoils
+          - thread_swiftcast
+          - thread_thorn
+          - thread_thrift
+          - thread_timber
   orders:
     weapon:
       - wooden_halberd

@@ -165,13 +165,15 @@ test("(3) 「未分類」が自動生成されたらタブバーも作り直さ�
   const { win } = loadEditorCategories();
   const host = hostWithOneCategory();
   const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
-  assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords"]);
+  // cat_auto_draft(「準備中」)はバー描画時に全タブへ既定で用意される予約カテゴリ (2026-08-02)。
+  assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords", "cat_auto_draft"]);
 
   // フォーム側の「追加」ハンドラが呼ぶ経路。バーの再構築はフォーム側からは呼ばれない。
   host.items.sword_new = {};
   win.ensureItemEditorCategory(host, "weapon", "sword_new");
 
-  assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords", "cat_auto_unclassified"],
+  assert.deepEqual(tabIds(bar),
+    ["__all__", "__unset__", "cat_swords", "cat_auto_draft", "cat_auto_unclassified"],
     "自動生成した「未分類」がタブバーに出ていない (バーだけ古いまま = 一覧と食い違う)");
 });
 
@@ -274,7 +276,10 @@ test("(6) 「+ カテゴリ」で既存カテゴリと同名は作れない (見
   const addBtn = bar.querySelectorAll(".btn-small").find((b) => b.props.text === "+ カテゴリ");
   assert.ok(addBtn);
   addBtn.props.onclick();
-  assert.equal(win.listEditorCategories(host, "weapon").length, 1, "同名カテゴリが増えている");
+  // 予約カテゴリ「準備中」はバー描画時に必ず1つ足されるので、ユーザー由来のカテゴリだけを数える。
+  const userCategories = win.listEditorCategories(host, "weapon")
+    .filter((c) => c.id !== "cat_auto_draft");
+  assert.equal(userCategories.length, 1, "同名カテゴリが増えている");
   assert.equal(structureChanges, 0);
   assert.equal(alerts.length, 1, "同名で作れないことを伝えていない (無言で握り潰さない)");
 });

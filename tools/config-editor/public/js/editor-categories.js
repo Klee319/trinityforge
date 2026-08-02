@@ -16,7 +16,19 @@
   // この id を取ると、以後この関数の受け皿がユーザーのカテゴリに化けて中身が混ざる。
   const UNCLASSIFIED_CATEGORY_ID = "cat_auto_unclassified";
   const UNCLASSIFIED_CATEGORY_LABEL = "未分類";
-  const RESERVED_CATEGORY_IDS = new Set([UNCLASSIFIED_CATEGORY_ID]);
+
+  // ---- 「準備中」カテゴリ (2026-08-02) ----
+  // 全タブに既定で1つだけ存在する予約カテゴリ。ここへ入れた品は catalog.yml に
+  // `draft: true` が付き、**ゲーム側へ一切配線されない**(レシピも登録されず、ドロップも
+  // ガチャも実績報酬も出ない)。エディタからは通常どおり編集・参照できるので、
+  // 「実際には出ないがドロップ表には先に書いておく」という早期仕込みができる。
+  // 解禁はこのカテゴリから出すだけ (= draft: が外れる)。
+  // 「未分類」と同じく id は**予約語**。ユーザー採番がこれを取ると受け皿が化けて中身が混ざる。
+  const DRAFT_CATEGORY_ID = "cat_auto_draft";
+  const DRAFT_CATEGORY_LABEL = "準備中";
+  const RESERVED_CATEGORY_IDS = new Set([UNCLASSIFIED_CATEGORY_ID, DRAFT_CATEGORY_ID]);
+  window.DRAFT_CATEGORY_ID = DRAFT_CATEGORY_ID;
+  window.DRAFT_CATEGORY_LABEL = DRAFT_CATEGORY_LABEL;
 
   const normalizeLabel = (s) => String(s == null ? "" : s).trim();
 
@@ -151,6 +163,40 @@
   }
 
   /**
+   * 「準備中」を全タブの既定カテゴリとして用意する。**UI(タブバー)の描画時にだけ**呼ぶ。
+   *
+   * listCategories 側でやらないのは、あれがデータ層の純粋な参照(移動・改名・削除・保存が全部通る)
+   * だからで、そこで行を生やすと「読んだだけでカテゴリが1つ増える」= 触っていない yml が
+   * 保存で変わる、という既知の事故クラス(normalize の既定値ドリフト)になる。
+   * 必ず末尾に足すのは、既存の並びを崩さないため。
+   * ラベル一致の手作りカテゴリがあれば予約 id へ昇格させ、同名タブを2つ並べない。
+   */
+  function ensureDraftCategory(host, tabKey) {
+    const cats = listCategories(host, tabKey);
+    if (cats.some((c) => c.id === DRAFT_CATEGORY_ID)) return cats;
+    const handmade = cats.find((c) => normalizeLabel(c.label) === DRAFT_CATEGORY_LABEL);
+    if (handmade) handmade.id = DRAFT_CATEGORY_ID;
+    else cats.push({ id: DRAFT_CATEGORY_ID, label: DRAFT_CATEGORY_LABEL, itemIds: [] });
+    return cats;
+  }
+
+  /**
+   * 「準備中」カテゴリの所属を catalog.yml の `draft: true` へ反映する。
+   *
+   * カテゴリ所属(_editor)とアイテム本体(items)で状態を二重に持つことになるが、二重化は避けられない:
+   * `_editor` はゲームが読まないメタなので、**サーバ側は items の draft しか見られない**。
+   * 逆にカテゴリ側を持たないと、エディタで「準備中だけ一覧する」ができない。
+   * そこで**カテゴリ所属を入力・draft を出力**と決め、移動のたびに一方向で同期する
+   * (この関数以外から draft を書かない)。
+   */
+  function syncDraftFlag(host, itemId, inDraftCategory) {
+    const entry = host && host.items && typeof host.items === "object" ? host.items[itemId] : null;
+    if (!entry || typeof entry !== "object") return;
+    if (inDraftCategory) entry.draft = true;
+    else if ("draft" in entry) delete entry.draft;
+  }
+
+  /**
    * Renders nested category tabs + add/rename/delete for one fixed tab.
    * @param {object} host YAML root object (mutated)
    * @param {string} tabKey fixed tab id (weapon, armor, ...)
@@ -160,7 +206,7 @@
    */
   window.renderEditorCategoryBar = function renderEditorCategoryBar(host, tabKey, onFilterChange, onStructureChange) {
     ensureEditor(host);
-    let cats = listCategories(host, tabKey);
+    let cats = ensureDraftCategory(host, tabKey);
     const bar = h("div", { class: "editor-cat-bar" });
     const am = activeMap(host);
     if (!am[tabKey]) am[tabKey] = "__all__";
@@ -573,6 +619,7 @@
         if (!cat.itemIds.includes(itemId)) cat.itemIds.push(itemId);
       }
     }
+    syncDraftFlag(host, itemId, categoryId === DRAFT_CATEGORY_ID);
   };
 
   window.renameEditorCategoryItem = function renameEditorCategoryItem(host, tabKey, oldId, newId) {
