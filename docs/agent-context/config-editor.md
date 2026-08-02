@@ -351,6 +351,25 @@ quality-spread 専用フォーム)+ `split-views.js` の「スレッド」タブ
   editor がスキーマ検証も専用フォームも持たないまま黙って素通しする。専用UIを外しても
   「開いて保存しただけで消える」事故にはならない。
 
+## 「もう1つのカードでも同じ実体を編集させたい」ときは新セクションを作らず参照を渡す (2026-08-03)
+
+`skill-exp.yml` の Ars鍛冶(`ars-smithing`)カードは長らく `exp-per-craft` の定額表示のままだったが、
+Java側 (`ArsProgressionBridge#grantSmithingCraftExp`, 2026-08-01以降) は儀式経路でも
+`smithing.exp-per-material`(鍛冶カードの素材表)を読むよう変わっていた ── 消費素材が**全部**表に
+載っているときだけ合計値を使い、**1つでも表に無ければ** `ars-smithing.exp-per-craft` の定額に戻る。
+この種の「片方のカードの実装が先に進み、もう片方のカード表示が古いまま」を直すとき、
+`ars-smithing.exp-per-material` のような**新しいキーを作ってはいけない**(Javaが読まない死に設定になる)。
+正しい直し方は、Ars鍛冶カードの描画関数の中で `working.smithing["exp-per-material"]` への
+**直接参照**を `expMapEditor` に渡すこと。同一オブジェクト参照なので、どちらのカードで編集しても
+もう片方に即時反映される(浅いクローンを挟むとこの反映が壊れる、既知のWeakMap選択状態の罠と同根)。
+`working.smithing` や `exp-per-material` が存在しない場合は `ensureObj` で強制生成せず(lazy-touch)、
+編集不可の案内だけを出す ── ここで強制生成すると「Ars鍛冶カードを開いて保存しただけで
+`smithing: {}` が yml に生える」正規化ドリフト事故になる。実装は `public/js/tf-forms.js` の
+`buildSharedSmithingMaterialSection`。`lib/schema.js` 側は `exp-per-craft`/`exp-per-material` を
+セクション名に関係なく汎用検証しているため、この種の「表示だけ2箇所に出す」変更は `lib/` 側の
+ミラー更新が不要な数少ないケース(新しいYAMLキーを増やしていないため)。回帰テストは
+`test/ars-smithing-shared-material-2026-08-03.test.js`。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

@@ -773,9 +773,12 @@
       },
       "ars-smithing": {
         "exp-per-craft": {
-          label: "クラフト1回EXP",
+          label: "素材表が引けないときの定額EXP",
           desc: "Ars装備(Ars鍛冶カテゴリのアイテム)を1回作成したときに付与する Ars鍛冶(ARS_SMITHING) 経験値。"
             + "儀式による作成と、Ars装備を作業台で作った場合の両方が対象。"
+            + "消費素材が下の「素材ごとの獲得EXP(鍛冶と共用)」表に全部載っているときは、その素材の合計値が"
+            + "優先して使われる。1つでも表に無い素材があると合計は使われず、この定額に戻る"
+            + "(部分的な合計を使うと、素材を1つ足しただけでEXPが大きく目減りする逆転が起きるため)。"
             + "シフトクリックの一括クラフトでも1回分だけ付く。"
         }
       }
@@ -799,9 +802,10 @@
         cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
           h("span", { class: "entry-key-label", text: skillLabel(section) })
         ]));
-        cardEl.appendChild(h("div", { class: "entry-body" }, [
-          scalarSectionBody(working[section], { hideKey: true }, SECTION_FIELD_OVERRIDES[section])
-        ]));
+        const bodyChildren = [scalarSectionBody(working[section], { hideKey: true }, SECTION_FIELD_OVERRIDES[section])];
+        // 曲線データが無い(progressionData に ars_smithing が無い)場合でも、素材表は同じ実体を出す。
+        if (section === "ars-smithing") bodyChildren.push(buildSharedSmithingMaterialSection());
+        cardEl.appendChild(h("div", { class: "entry-body" }, bodyChildren));
         root.appendChild(cardEl);
       }
     }
@@ -824,6 +828,14 @@
           body.appendChild(subHeading("行動あたりの獲得EXP"));
           body.appendChild(scalarSectionBody(working[section], { hideKey: true },
             SECTION_FIELD_OVERRIDES[section]));
+          // Ars鍛冶(ars-smithing)は「クラフト1回EXP」だけの旧表示のままだった。
+          // 実装(ArsProgressionBridge#grantSmithingCraftExp)は2026-08-01以降、儀式経路でも
+          // smithing.exp-per-material を読むため、鍛冶カードと同じ素材表をここにも出す。
+          // 新しいキー(ars-smithing.exp-per-material)は作らず、smithing.exp-per-material への
+          // 参照をそのまま渡す(どちらのカードで編集しても同じ実体が変わる)。
+          if (section === "ars-smithing") {
+            body.appendChild(buildSharedSmithingMaterialSection());
+          }
           body.appendChild(subHeading("レベル曲線・獲得レート"));
           body.appendChild(buildCurveBody(skillId));
           cardEl.appendChild(body);
@@ -832,6 +844,38 @@
         }
         root.appendChild(cardEl);
       }
+    }
+
+    /**
+     * Ars鍛冶カードに、鍛冶(smithing)の「素材ごとの獲得EXP」表をそのまま差し込む。
+     *
+     * working.smithing["exp-per-material"] への直接参照を expMapEditor へ渡す(浅いクローンを
+     * 挟まない)ので、Ars鍛冶カードで行を追加・削除・編集すると鍛冶カード側にも同時に反映される。
+     * working.smithing 自体が無い、または exp-per-material がオブジェクトでない場合は
+     * 新しくキーを作らず(lazy-touch)、編集不可の案内だけを出す — 「開いて保存しただけで
+     * smithing: {} や exp-per-material: {} が yml に生える」事故を避けるため。
+     */
+    function buildSharedSmithingMaterialSection() {
+      const wrap = h("div", { class: "se-shared-material-section" });
+      const smithingObj = working.smithing;
+      const materialMap = smithingObj && typeof smithingObj === "object" && !Array.isArray(smithingObj)
+        && smithingObj["exp-per-material"] && typeof smithingObj["exp-per-material"] === "object"
+        && !Array.isArray(smithingObj["exp-per-material"])
+        ? smithingObj["exp-per-material"] : null;
+      wrap.appendChild(subHeading("素材ごとの獲得EXP (鍛冶カードと共用の表です)"));
+      wrap.appendChild(h("div", { class: "form-hint", text:
+        "この表は鍛冶(SMITHING)カードの「素材ごとの獲得EXP」とまったく同じ実体(smithing.exp-per-material)です。"
+        + "どちらのカードで編集しても、もう片方の表示にも同時に反映されます(Ars鍛冶専用の別表は作られません)。"
+        + "消費素材が全部この表に載っているときだけ合計値が使われ、1つでも表に無い素材があると"
+        + "上の「素材表が引けないときの定額EXP」に戻ります。" }));
+      if (materialMap) {
+        wrap.appendChild(expMapEditor(materialMap, "material"));
+      } else {
+        wrap.appendChild(h("div", { class: "empty-hint", text:
+          "smithing.exp-per-material が定義されていないため、ここでは編集できません。"
+          + "鍛冶カードで素材表を作成すると、ここにも表示されるようになります。" }));
+      }
+      return wrap;
     }
 
     /**
