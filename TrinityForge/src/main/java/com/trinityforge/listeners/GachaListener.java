@@ -25,6 +25,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -52,6 +53,7 @@ public final class GachaListener implements Listener {
     private final QualityConfig quality;
     private final PlayerStatAggregator aggregator;
     private final CrossPluginItemResolver itemResolver;
+    private final ItemCatalogConfig itemCatalog;
 
     public GachaListener(Plugin plugin, GachaConfig gachaConfig, ItemCatalogConfig itemCatalog,
                          ItemFactory itemFactory, QualityConfig quality, PlayerStatAggregator aggregator) {
@@ -59,8 +61,9 @@ public final class GachaListener implements Listener {
         this.gachaConfig = Objects.requireNonNull(gachaConfig, "gachaConfig");
         this.quality = Objects.requireNonNull(quality, "quality");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.itemCatalog = Objects.requireNonNull(itemCatalog, "itemCatalog");
         this.itemResolver = new CrossPluginItemResolver(
-                Objects.requireNonNull(itemCatalog, "itemCatalog"),
+                this.itemCatalog,
                 Objects.requireNonNull(itemFactory, "itemFactory"));
     }
 
@@ -96,9 +99,18 @@ public final class GachaListener implements Listener {
         // regardless of whether the draw below succeeds.
         event.setCancelled(true);
 
-        Optional<GachaPool> pool = gachaConfig.pool(ticket.get().poolId());
+        Optional<GachaPool> pool = gachaConfig.pool(ticket.get().poolId())
+                .map(this::withoutDraftPrizes);
         if (pool.isEmpty()) {
             sendError(player, "ガチャ設定が不正です(プール未定義)。管理者に連絡してください。");
+            return;
+        }
+        if (pool.get().entries().isEmpty()) {
+            // 準備中の景品しか残らなかった。抽選に入ると必ず「解決失敗→券を消費しない」経路へ落ちて
+            // 無限に引き直せてしまうので、ここで打ち切る(券も減らさないが、引く動作自体が成立しない)。
+            plugin.getLogger().warning("[gacha] pool '" + ticket.get().poolId()
+                    + "' は景品が全て準備中(draft)のため抽選できません");
+            sendError(player, "このガチャは現在準備中です。");
             return;
         }
 
@@ -169,6 +181,27 @@ public final class GachaListener implements Listener {
                     "[gacha] failed to build prize '" + entry.itemId() + "'", ex);
             return Optional.empty();
         }
+    }
+
+    /**
+     * 「準備中」(catalog.yml の {@code draft: true})の景品を抽選前にプールから外す。
+     *
+     * <p>準備中アイテムは {@code ItemCatalogConfig} がゲーム側の参照面から落としているので、
+     * そのまま抽選すると {@link #resolvePrize} が必ず空を返す。ところが解決失敗時の設計は
+     * <b>「券を消費しない」</b>(景品ロスト防止)なので、準備中の景品を1件でも残したまま運用すると
+     * <b>券が減らないまま何度でも引ける</b>＝実質無限ガチャになる。だから
+     * 「解決に失敗した」ではなく<b>「最初から候補に入れない」</b>で扱う。
+     *
+     * <p>重みは残ったエントリのぶんだけで再計算される(GachaDraw は総和を都度取る)ので、
+     * 準備中を外した結果は「その景品が無い設定」と同じ挙動になる。
+     */
+    private GachaPool withoutDraftPrizes(GachaPool pool) {
+        List<GachaEntry> live = pool.entries().stream()
+                .filter(entry -> !itemCatalog.isDraft(entry.itemId()))
+                .toList();
+        return live.size() == pool.entries().size()
+                ? pool
+                : new GachaPool(pool.id(), live, pool.pityThreshold());
     }
 
     private void giveOrDrop(Player player, ItemStack prize) {

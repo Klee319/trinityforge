@@ -60,7 +60,8 @@ public record ItemTemplate(String id,
                            List<RecipeSpec> recipes,
                            String color,
                            boolean enchantGlow,
-                           String externalSource) {
+                           String externalSource,
+                           boolean draft) {
 
     /** {@code external-source: arspaper} — 実体は ArsPaper フォークの ItemRegistry が持つ。 */
     public static final String EXTERNAL_SOURCE_ARSPAPER = "arspaper";
@@ -94,7 +95,16 @@ public record ItemTemplate(String id,
                         BindType bindType, int useLevelRequirement, String useSkill, List<String> lore,
                         List<RecipeSpec> recipes, String color, boolean enchantGlow) {
         this(id, material, displayName, customModelData, bindType, useLevelRequirement, useSkill, lore,
-                recipes, color, enchantGlow, null);
+                recipes, color, enchantGlow, null, false);
+    }
+
+    /** {@code draft} 導入前の 12 引数形。{@code draft: false}(＝出荷済み)として委譲する。 */
+    public ItemTemplate(String id, Material material, String displayName, Integer customModelData,
+                        BindType bindType, int useLevelRequirement, String useSkill, List<String> lore,
+                        List<RecipeSpec> recipes, String color, boolean enchantGlow,
+                        String externalSource) {
+        this(id, material, displayName, customModelData, bindType, useLevelRequirement, useSkill, lore,
+                recipes, color, enchantGlow, externalSource, false);
     }
 
     /** 実体を別プラグインが持つと宣言されているか({@code external-source:} が有効値で書かれている)。 */
@@ -105,7 +115,7 @@ public record ItemTemplate(String id,
     /** この template に {@code external-source} だけを付け替えた複製。 */
     public ItemTemplate withExternalSource(String source) {
         return new ItemTemplate(id, material, displayName, customModelData, bindType, useLevelRequirement,
-                useSkill, lore, recipes, color, enchantGlow, source);
+                useSkill, lore, recipes, color, enchantGlow, source, draft);
     }
 
     /** Convenience constructor for callers with a single (possibly null) recipe. */

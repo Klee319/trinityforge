@@ -15,10 +15,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -40,6 +42,7 @@ public final class ItemCatalogConfig implements LoadableConfig {
     private static final Pattern HEX_COLOR = Pattern.compile("^#[0-9A-Fa-f]{6}$");
 
     private volatile Map<String, ItemTemplate> templates = Map.of();
+    private volatile Set<String> draftIds = Set.of();
 
     public Optional<ItemTemplate> template(String id) {
         return Optional.ofNullable(templates.get(id));
@@ -47,6 +50,25 @@ public final class ItemCatalogConfig implements LoadableConfig {
 
     public Map<String, ItemTemplate> all() {
         return templates;
+    }
+
+    /**
+     * {@code draft: true}(エディタの「準備中」カテゴリ)と宣言され、<b>ゲーム側へ配線していない</b>
+     * アイテムの ID 集合。{@link #template(String)} / {@link #all()} からは既に除いてあるので、
+     * 通常のゲームプレイ経路がこれを見る必要は無い。
+     *
+     * <p>唯一の用途は<b>「解決に失敗した」と「意図して配らない」を区別したい所</b>。具体的には
+     * ガチャで、景品が解決できないと {@code GachaListener} は<b>券を消費しない</b>設計になっており
+     * (景品ロスト防止)、準備中のアイテムを景品欄に置いたままにすると
+     * <b>券が減らないまま引き直せる</b>=実質無限ガチャになる。抽選前に除外するために要る。
+     */
+    public Set<String> draftIds() {
+        return draftIds;
+    }
+
+    /** このIDが「準備中」として配線対象から外されているか。 */
+    public boolean isDraft(String id) {
+        return id != null && draftIds.contains(id);
     }
 
     public String resourcePath() {
@@ -72,14 +94,34 @@ public final class ItemCatalogConfig implements LoadableConfig {
             return false;
         }
         ParseResult result = parse(yaml.getConfigurationSection(ROOT), log);
-        this.templates = result.templates();
 
+        // draft(準備中)はここで【ゲーム側の参照面から落とす】。ゲームプレイ側の全経路
+        // (レシピ登録・ドロップ・ガチャ・実績報酬・図鑑・分解・金床/鍛冶台)は例外なく
+        // template(id) / all() を通るので、ここ1箇所で「配線されない」を保証できる。
+        // 個々の配布サイト(12箇所以上)にガードを足す方式にすると、経路が1本増えるたびに
+        // 漏れて「準備中のはずのアイテムが出た」になるため、参照面そのものを絞っている。
+        // parse() の戻り値には draft も含めたまま残す — 出荷 yml を検査するテスト群
+        // (ShippedCatalog*Test)は「yml に何が書いてあるか」を見るものなので、
+        // ここで消すと準備中のアイテムだけ検査対象から外れてしまう。
+        Map<String, ItemTemplate> live = new LinkedHashMap<>();
+        Set<String> drafts = new LinkedHashSet<>();
+        result.templates().forEach((id, template) -> {
+            if (template.draft()) {
+                drafts.add(id);
+            } else {
+                live.put(id, template);
+            }
+        });
+        this.templates = Map.copyOf(live);
+        this.draftIds = Set.copyOf(drafts);
+
+        String draftNote = drafts.isEmpty() ? "" : " (準備中 " + drafts.size() + " 件は未配線)";
         if (result.skipped() > 0) {
-            log.warning("[" + PATH + "] loaded " + result.templates().size() + " item(s), "
+            log.warning("[" + PATH + "] loaded " + live.size() + " item(s)" + draftNote + ", "
                     + result.skipped() + " skipped");
             return false;
         }
-        log.info("[" + PATH + "] loaded " + result.templates().size() + " item(s) OK");
+        log.info("[" + PATH + "] loaded " + live.size() + " item(s)" + draftNote + " OK");
         return true;
     }
 
@@ -144,7 +186,8 @@ public final class ItemCatalogConfig implements LoadableConfig {
                             List.copyOf(recipes),
                             parseColor(entry, material, id, log),
                             entry.getBoolean("enchant-glow", false),
-                            parseExternalSource(entry, id, log)));
+                            parseExternalSource(entry, id, log),
+                            entry.getBoolean("draft", false)));
                 } catch (IllegalArgumentException ex) {
                     log.warning("[" + PATH + "] item '" + id + "' invalid (" + ex.getMessage() + "); skipped");
                     skipped++;
@@ -240,6 +283,45 @@ public final class ItemCatalogConfig implements LoadableConfig {
         }
         return raw;
     }
+
+    /**
+     * 儀式コアの周囲に物理的に置ける台座は <b>16 台</b>しかない（コアからチェビシェフ距離 2 の外周＝
+     * 5x5 から 3x3 を引いた 16 マス）。{@code pedestal-items} は {@code "NAME xN"} が
+     * <b>台座 N 台ぶんに展開される</b>ので、行数ではなく合計台数で数える。
+     *
+     * <p>超えていても<b>登録は止めない</b>（fail-soft）。止めるとアイテムのレシピが丸ごと消えて
+     * 「なぜレシピ帳に出ないのか」が分からなくなるため。ただし超えたレシピは
+     * {@code RitualRecipe#matches} が台座数の<b>完全一致</b>を要求する以上、
+     * <b>永久にクラフトできない</b>。つまりこれは「レシピ帳には出るのに絶対に作れない」という、
+     * 気づきようのない無言死になる ── だから必ず ID を名指しで警告する。
+     *
+     * <p>エディタ側は {@code lib/schema.js} の {@code validatePedestalItems} が保存時に弾くが、
+     * yml を直接書いた場合（スクリプト生成・手編集・エージェント）はそこを通らない。
+     * 出荷 yml については {@code ShippedCatalogPedestalLimitTest} が別途固定している。
+     */
+    private static void warnIfPedestalsExceedRing(List<String> pedestals, String id, Logger log) {
+        int total = 0;
+        for (String entry : pedestals) {
+            if (entry == null) {
+                continue;
+            }
+            java.util.regex.Matcher matcher = PEDESTAL_COUNT.matcher(entry.trim());
+            total += matcher.matches() ? Integer.parseInt(matcher.group(1)) : 1;
+        }
+        if (total > MAX_RITUAL_PEDESTALS) {
+            log.warning("[" + PATH + "] item '" + id + "' の儀式レシピは台座 " + total
+                    + " 台を要求していますが、コア周囲に置ける台座は " + MAX_RITUAL_PEDESTALS
+                    + " 台までです。このレシピは登録されますが台座数が一致しないため"
+                    + "【永久にクラフトできません】。pedestal-items を減らしてください");
+        }
+    }
+
+    /** 儀式コア周囲の台座リング（チェビシェフ距離 2 の外周）の物理上限。 */
+    private static final int MAX_RITUAL_PEDESTALS = 16;
+
+    /** {@code "NAME xN"} の N を取り出す。N が無い行は 1 台。 */
+    private static final java.util.regex.Pattern PEDESTAL_COUNT =
+            java.util.regex.Pattern.compile(".*\\s+x(\\d+)$");
 
     /**
      * {@code external-source:} を読む —— 「このIDの<b>実体</b>を持っているのは別プラグインだ」宣言。
@@ -354,6 +436,7 @@ public final class ItemCatalogConfig implements LoadableConfig {
         if (method == RecipeSpec.Method.RITUAL) {
             String core = blankToNull(recipe.getString("core-item"));
             List<String> pedestals = recipe.getStringList("pedestal-items");
+            warnIfPedestalsExceedRing(pedestals, id, log);
             int source = Math.max(0, recipe.getInt("source", 0));
             RecipeSpec ritualSpec = RecipeSpec.ritual(core, pedestals, source, amount).withRegister(register);
             return withReversibleParsed(ritualSpec, recipe, id, log);

@@ -3791,6 +3791,7 @@ items:
 
   # --- 経路=制作: 儀式で作る 8 種 -------------------------------------------
   thread_mana_amplify:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <blue>マナ増幅のスレッド</blue>
@@ -3813,6 +3814,7 @@ items:
       type: shapeless
       ingredients: []
   thread_mana_circulate:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <aqua>循環のスレッド</aqua>
@@ -3835,6 +3837,7 @@ items:
       type: shapeless
       ingredients: []
   thread_source_thrift:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: FLOW_POTTERY_SHERD
     display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
@@ -3857,6 +3860,7 @@ items:
       type: shapeless
       ingredients: []
   thread_artisan:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: ARMS_UP_POTTERY_SHERD
     display-name: <gold>匠のスレッド</gold>
@@ -3879,6 +3883,7 @@ items:
       type: shapeless
       ingredients: []
   thread_ritualist:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: BREWER_POTTERY_SHERD
     display-name: <light_purple>儀式師のスレッド</light_purple>
@@ -3901,6 +3906,7 @@ items:
       type: shapeless
       ingredients: []
   thread_thrift:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: PLENTY_POTTERY_SHERD
     display-name: <yellow>倹約のスレッド</yellow>
@@ -3923,6 +3929,7 @@ items:
       type: shapeless
       ingredients: []
   thread_salvage:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: SCRAPE_POTTERY_SHERD
     display-name: <gray>解体のスレッド</gray>
@@ -3945,6 +3952,7 @@ items:
       type: shapeless
       ingredients: []
   thread_scholar:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: BURN_POTTERY_SHERD
     display-name: <dark_purple>選書のスレッド</dark_purple>
@@ -3972,6 +3980,7 @@ items:
   # 配線は ArsPaper の loot-tables.yml -> LootTableListener#onLootGenerate。
   # recipe: を持たないのは意図的(儀式で量産できると探索する動機が消えるため)。
   thread_miner:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: MINER_POTTERY_SHERD
     display-name: <dark_gray>豊鉱のスレッド</dark_gray>
@@ -3985,6 +3994,7 @@ items:
       - ""
       - <color:dark_purple>同じ岩でも、掘る者で取れ高が変わる</color>
   thread_angler:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: ANGLER_POTTERY_SHERD
     display-name: <blue>潮読みのスレッド</blue>
@@ -3997,6 +4007,7 @@ items:
       - ""
       - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
   thread_harvest:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: SHEAF_POTTERY_SHERD
     display-name: <yellow>実りのスレッド</yellow>
@@ -4009,6 +4020,7 @@ items:
       - ""
       - <color:dark_purple>土は、手をかけた分だけ返してくる</color>
   thread_timber:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: SNORT_POTTERY_SHERD
     display-name: <dark_green>年輪のスレッド</dark_green>
@@ -4021,6 +4033,7 @@ items:
       - ""
       - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
   thread_diligence:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: FRIEND_POTTERY_SHERD
     display-name: <green>研鑽のスレッド</green>
@@ -4033,6 +4046,7 @@ items:
       - ""
       - <color:dark_purple>同じ一日から、より多くを持ち帰る</color>
   thread_endurance:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: SHELTER_POTTERY_SHERD
     display-name: <gold>持久のスレッド</gold>
@@ -4045,6 +4059,7 @@ items:
       - ""
       - <color:dark_purple>まだ歩ける、まだ行ける</color>
   thread_gourmet:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: HEARTBREAK_POTTERY_SHERD
     display-name: <red>美食のスレッド</red>
@@ -4058,6 +4073,7 @@ items:
       - ""
       - <color:dark_purple>腹が減っては、糸も紡げぬ</color>
   thread_slow_falling:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: GUSTER_POTTERY_SHERD
     display-name: <white>浮遊のスレッド</white>
@@ -4075,6 +4091,7 @@ items:
   # 配線は combat/mob-level-table.yml の Lv65 / Lv85 帯 add-drops。
   # recipe: を持たないのは意図的(戦闘での到達度そのものを入手条件にしている)。
   thread_spoils:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: SKULL_POTTERY_SHERD
     display-name: <gold>戦利品のスレッド</gold>
@@ -4088,6 +4105,7 @@ items:
       - ""
       - <color:dark_purple>倒した者にだけ、分け前がある</color>
   thread_experience:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: HOWL_POTTERY_SHERD
     display-name: <green>経験のスレッド</green>
@@ -4101,6 +4119,7 @@ items:
       - ""
       - <color:dark_purple>過ぎた時間は、糸が覚えている</color>
   thread_mending_flesh:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: HEART_POTTERY_SHERD
     display-name: <red>治癒のスレッド</red>
@@ -4113,6 +4132,7 @@ items:
       - ""
       - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
   thread_thorn:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: DANGER_POTTERY_SHERD
     display-name: <dark_red>棘のスレッド</dark_red>
@@ -4126,6 +4146,7 @@ items:
       - ""
       - <color:dark_purple>触れた者が、まず痛む</color>
   thread_concussion:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: BLADE_POTTERY_SHERD
     display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
@@ -4139,6 +4160,7 @@ items:
       - ""
       - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
   thread_swiftcast:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: MOURNER_POTTERY_SHERD
     display-name: <yellow>速攻のスレッド</yellow>
@@ -4152,6 +4174,7 @@ items:
       - ""
       - <color:dark_purple>先に動いた方が、生き残る</color>
   thread_marksman:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: ARCHER_POTTERY_SHERD
     display-name: <dark_green>射手のスレッド</dark_green>
@@ -4166,6 +4189,7 @@ items:
       - ""
       - <color:dark_purple>一射のために、百射を捨てる</color>
   thread_luck:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     external-source: arspaper
     material: EXPLORER_POTTERY_SHERD
     display-name: <gold>幸運のスレッド</gold>
@@ -4757,6 +4781,7 @@ items:
   # レシピを壊さない)。source(必要Source量)も武器の「強さ帯」(hero_*/nuclear_* に元々
   # 埋め込まれていた blaze_rod 個数 x1〜x5 の重み)に合わせて 0.5x〜2.5x でスケールしてある。
   abyss_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵の剣</color>
     custom-model-data: 5600
@@ -4775,6 +4800,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_dagger:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵の短剣</color>
     custom-model-data: 5601
@@ -4795,6 +4821,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_rapier:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵のレイピア</color>
     custom-model-data: 5602
@@ -4815,6 +4842,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_spear:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SPEAR
     display-name: <color:#3b1f5e>深淵の槍</color>
     custom-model-data: 5602
@@ -4835,6 +4863,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_trident:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: TRIDENT
     display-name: <color:#3b1f5e>深淵のトライデント</color>
     custom-model-data: 5602
@@ -4855,6 +4884,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_scythe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HOE
     display-name: <color:#3b1f5e>深淵の鎌</color>
     custom-model-data: 5602
@@ -4875,6 +4905,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_mace:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: MACE
     display-name: <color:#3b1f5e>深淵のメイス</color>
     custom-model-data: 5602
@@ -4895,6 +4926,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_warhammer:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵のウォーハンマー</color>
     custom-model-data: 5603
@@ -4915,6 +4947,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_grate_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵の大剣</color>
     custom-model-data: 5604
@@ -4935,6 +4968,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_axe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_AXE
     display-name: <color:#3b1f5e>深淵の戦斧</color>
     custom-model-data: 5604
@@ -4955,6 +4989,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_greataxe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#3b1f5e>深淵の大斧</color>
     custom-model-data: 5605
@@ -4975,6 +5010,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_bow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: BOW
     display-name: <color:#3b1f5e>深淵の弓</color>
     custom-model-data: 5605
@@ -4995,6 +5031,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   abyss_crossbow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: CROSSBOW
     display-name: <color:#3b1f5e>深淵のクロスボウ</color>
     custom-model-data: 5605
@@ -5015,6 +5052,7 @@ items:
     - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
     - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
   binder_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ剣</gradient>
     custom-model-data: 5606
@@ -5035,6 +5073,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_dagger:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ短剣</gradient>
     custom-model-data: 5607
@@ -5057,6 +5096,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_rapier:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレイピア</gradient>
     custom-model-data: 5608
@@ -5079,6 +5119,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_spear:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SPEAR
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ槍</gradient>
     custom-model-data: 5608
@@ -5101,6 +5142,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_trident:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: TRIDENT
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐトライデント</gradient>
     custom-model-data: 5608
@@ -5123,6 +5165,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_scythe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HOE
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ鎌</gradient>
     custom-model-data: 5608
@@ -5145,6 +5188,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_mace:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: MACE
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐメイス</gradient>
     custom-model-data: 5608
@@ -5167,6 +5211,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_warhammer:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐウォーハンマー</gradient>
     custom-model-data: 5609
@@ -5189,6 +5234,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_grate_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大剣</gradient>
     custom-model-data: 5610
@@ -5211,6 +5257,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_axe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_AXE
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ戦斧</gradient>
     custom-model-data: 5610
@@ -5233,6 +5280,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_greataxe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大斧</gradient>
     custom-model-data: 5611
@@ -5255,6 +5303,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_bow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: BOW
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ弓</gradient>
     custom-model-data: 5611
@@ -5277,6 +5326,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_crossbow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: CROSSBOW
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐクロスボウ</gradient>
     custom-model-data: 5611
@@ -5299,6 +5349,7 @@ items:
     - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
     - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
   binder_helmet:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HELMET
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐヘルメット</gradient>
     custom-model-data: 5611
@@ -5317,6 +5368,7 @@ items:
     - ''
     - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
   binder_chestplate:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_CHESTPLATE
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐチェストプレート</gradient>
     custom-model-data: 5611
@@ -5338,6 +5390,7 @@ items:
     - ''
     - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
   binder_leggings:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_LEGGINGS
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレギンス</gradient>
     custom-model-data: 5611
@@ -5357,6 +5410,7 @@ items:
     - ''
     - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
   binder_boots:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_BOOTS
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐブーツ</gradient>
     custom-model-data: 5611
@@ -5614,6 +5668,7 @@ items:
   # 儀式素材は武器種ごとに1つ差し替えてある。RitualRecipeRegistry#findMatch は
   # findFirst なので、core+pedestal が完全一致すると最初の1本しか成立しない。
   cryocore_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#7fd4e8>氷芯の剣</color>
     custom-model-data: 5700
@@ -5632,6 +5687,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_dagger:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#7fd4e8>氷芯の短剣</color>
     custom-model-data: 5701
@@ -5651,6 +5707,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_rapier:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#7fd4e8>氷芯のレイピア</color>
     custom-model-data: 5702
@@ -5670,6 +5727,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_spear:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SPEAR
     display-name: <color:#7fd4e8>氷芯の槍</color>
     custom-model-data: 5700
@@ -5689,6 +5747,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_trident:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: TRIDENT
     display-name: <color:#7fd4e8>氷芯の三叉槍</color>
     custom-model-data: 5700
@@ -5708,6 +5767,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_scythe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HOE
     display-name: <color:#7fd4e8>氷芯の鎌</color>
     custom-model-data: 5700
@@ -5727,6 +5787,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_mace:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: MACE
     display-name: <color:#7fd4e8>氷芯のメイス</color>
     custom-model-data: 5700
@@ -5746,6 +5807,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_warhammer:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#7fd4e8>氷芯の戦鎚</color>
     custom-model-data: 5703
@@ -5765,6 +5827,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_grate_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#7fd4e8>氷芯の大剣</color>
     custom-model-data: 5704
@@ -5784,6 +5847,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_axe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_AXE
     display-name: <color:#7fd4e8>氷芯の斧</color>
     custom-model-data: 5700
@@ -5803,6 +5867,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_greataxe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#7fd4e8>氷芯の大斧</color>
     custom-model-data: 5705
@@ -5822,6 +5887,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_bow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: BOW
     display-name: <color:#7fd4e8>氷芯の弓</color>
     custom-model-data: 5700
@@ -5841,6 +5907,7 @@ items:
     - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
     - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
   cryocore_crossbow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: CROSSBOW
     display-name: <color:#7fd4e8>氷芯の弩</color>
     custom-model-data: 5700
@@ -5866,6 +5933,7 @@ items:
   # 儀式素材は武器種ごとに1つ差し替えてある。RitualRecipeRegistry#findMatch は
   # findFirst なので、core+pedestal が完全一致すると最初の1本しか成立しない。
   emberforge_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#e8894a>熾鉄の剣</color>
     custom-model-data: 5720
@@ -5884,6 +5952,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_dagger:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#e8894a>熾鉄の短剣</color>
     custom-model-data: 5721
@@ -5903,6 +5972,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_rapier:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#e8894a>熾鉄のレイピア</color>
     custom-model-data: 5722
@@ -5922,6 +5992,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_spear:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SPEAR
     display-name: <color:#e8894a>熾鉄の槍</color>
     custom-model-data: 5720
@@ -5941,6 +6012,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_trident:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: TRIDENT
     display-name: <color:#e8894a>熾鉄の三叉槍</color>
     custom-model-data: 5720
@@ -5960,6 +6032,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_scythe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HOE
     display-name: <color:#e8894a>熾鉄の鎌</color>
     custom-model-data: 5720
@@ -5979,6 +6052,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_mace:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: MACE
     display-name: <color:#e8894a>熾鉄のメイス</color>
     custom-model-data: 5720
@@ -5998,6 +6072,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_warhammer:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#e8894a>熾鉄の戦鎚</color>
     custom-model-data: 5723
@@ -6017,6 +6092,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_grate_sword:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#e8894a>熾鉄の大剣</color>
     custom-model-data: 5724
@@ -6036,6 +6112,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_axe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_AXE
     display-name: <color:#e8894a>熾鉄の斧</color>
     custom-model-data: 5720
@@ -6055,6 +6132,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_greataxe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#e8894a>熾鉄の大斧</color>
     custom-model-data: 5725
@@ -6074,6 +6152,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_bow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: BOW
     display-name: <color:#e8894a>熾鉄の弓</color>
     custom-model-data: 5720
@@ -6093,6 +6172,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_crossbow:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: CROSSBOW
     display-name: <color:#e8894a>熾鉄の弩</color>
     custom-model-data: 5720
@@ -6112,6 +6192,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_helmet:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HELMET
     display-name: <color:#e8894a>熾鉄の兜</color>
     custom-model-data: 5720
@@ -6131,6 +6212,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_chestplate:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_CHESTPLATE
     display-name: <color:#e8894a>熾鉄の胸当て</color>
     custom-model-data: 5720
@@ -6150,6 +6232,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_leggings:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_LEGGINGS
     display-name: <color:#e8894a>熾鉄の具足</color>
     custom-model-data: 5720
@@ -6169,6 +6252,7 @@ items:
     - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
     - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
   emberforge_boots:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_BOOTS
     display-name: <color:#e8894a>熾鉄の靴</color>
     custom-model-data: 5720
@@ -6194,6 +6278,7 @@ items:
   # 減算式なので数値をずらすと Lv100 で被弾回数が発散する(仕様書 §0-1)。
   # 識別は減算されないキー(dodge-chance / move-speed / max-health / knockback-resistance)だけで行う。
   woodsman_greataxe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SWORD
     display-name: <color:#c9b37a>樵の大斧</color>
     custom-model-data: 5740
@@ -6212,6 +6297,7 @@ items:
     - <dark_gray><italic>刃こぼれの一つ一つが、倒した木の数だ。</italic></dark_gray>
     - <gray>伐採の経験値と追加ドロップが増える。</gray>
   forestfolk_cloak:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_CHESTPLATE
     display-name: <color:#c9b37a>森人の外套</color>
     custom-model-data: 5740
@@ -6230,6 +6316,7 @@ items:
     - <dark_gray><italic>枝を鳴らさずに歩く者の装い。</italic></dark_gray>
     - <gray>回避率と移動速度が上がる。</gray>
   feast_breastplate:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_CHESTPLATE
     display-name: <color:#c9b37a>饗宴の胸当て</color>
     custom-model-data: 5741
@@ -6248,6 +6335,7 @@ items:
     - <dark_gray><italic>満たされた腹は、鎧より硬い。</italic></dark_gray>
     - <gray>体力が増え、食料の消費が減る。</gray>
   hunter_javelin:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SPEAR
     display-name: <color:#c9b37a>猟師の投槍</color>
     custom-model-data: 5740
@@ -6266,6 +6354,7 @@ items:
     - <dark_gray><italic>間合いを詰めない狩り方がある。</italic></dark_gray>
     - <gray>本作中で最も長いリーチを持つ。</gray>
   harvest_hoe:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HOE
     display-name: <color:#c9b37a>豊穣の鍬</color>
     custom-model-data: 5740
@@ -6273,7 +6362,7 @@ items:
       method: ritual
       core-item: custom:tf_core_vegetable
       pedestal-items:
-      - WHEAT x16
+      - WHEAT x13
       - custom:hard_metal x2
       - HAY_BLOCK x1   # 同じコアの2点を割るための識別素材
       source: 8000
@@ -6284,6 +6373,7 @@ items:
     - <dark_gray><italic>実りは待つ者にだけ来る。</italic></dark_gray>
     - <gray>農業の経験値と追加ドロップが増える。</gray>
   herb_hat:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_HELMET
     display-name: <color:#c9b37a>香草の帽子</color>
     custom-model-data: 5740
@@ -6291,7 +6381,7 @@ items:
       method: ritual
       core-item: custom:tf_core_vegetable
       pedestal-items:
-      - WHEAT x16
+      - WHEAT x13
       - custom:hard_metal x2
       - GOLDEN_HELMET x1   # 同じコアの2点を割るための識別素材
       source: 10000
@@ -6302,6 +6392,7 @@ items:
     - <dark_gray><italic>草の匂いが染みついている。</italic></dark_gray>
     - <gray>食べたときの満腹度回復量が増える。</gray>
   leyline_shovel:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_SHOVEL
     display-name: <color:#c9b37a>地脈のシャベル</color>
     custom-model-data: 5740
@@ -6309,7 +6400,7 @@ items:
       method: ritual
       core-item: custom:tf_core_dirt
       pedestal-items:
-      - DIRT x16
+      - DIRT x13
       - custom:hard_metal x2
       - FLINT x1   # 同じコアの2点を割るための識別素材
       source: 8000
@@ -6320,6 +6411,7 @@ items:
     - <dark_gray><italic>地面の下を流れるものを掬い上げる。</italic></dark_gray>
     - <gray>掘削の経験値と幸運が増える。</gray>
   bedrock_greaves:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_BOOTS
     display-name: <color:#c9b37a>岩盤の具足</color>
     custom-model-data: 5740
@@ -6327,7 +6419,7 @@ items:
       method: ritual
       core-item: custom:tf_core_dirt
       pedestal-items:
-      - DIRT x16
+      - DIRT x13
       - custom:hard_metal x2
       - GOLDEN_BOOTS x1   # 同じコアの2点を割るための識別素材
       source: 10000
@@ -6344,6 +6436,7 @@ items:
   # ロール変更CTが120分あるので「今日はこの職で遊ぶ」を選ぶ理由になる。
   # 防具5点の phys-flat-defense は Lv45 のバニラ相当部位と同値のまま動かしていない。
   gladiator_belt:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: LEATHER_CHESTPLATE
     display-name: <color:#b48ee0>闘士の帯</color>
     custom-model-data: 5760
@@ -6361,6 +6454,7 @@ items:
     - <dark_gray><italic>締めた瞬間、間合いが変わる。</italic></dark_gray>
     - <gray>剣闘士だけが身に着けられる。貫通率が上がる。</gray>
   chanter_ring:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: AMETHYST_SHARD
     display-name: <color:#b48ee0>詠唱者の指輪</color>
     custom-model-data: 5760
@@ -6378,6 +6472,7 @@ items:
     - <dark_gray><italic>唱えるより先に、指が覚えている。</italic></dark_gray>
     - <gray>魔導士だけが使える装飾品。オフハンドに持つとマナ消費が減る。</gray>
   taunt_crest:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: NETHERITE_CHESTPLATE
     display-name: <color:#b48ee0>挑発の紋章</color>
     custom-model-data: 5760
@@ -6395,6 +6490,7 @@ items:
     - <dark_gray><italic>前に出る者にしか、これは似合わない。</italic></dark_gray>
     - <gray>盾役だけが身に着けられる。被ダメージとノックバックを抑える。</gray>
   harvest_basket:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: LEATHER_CHESTPLATE
     display-name: <color:#b48ee0>実りの籠</color>
     custom-model-data: 5761
@@ -6412,6 +6508,7 @@ items:
     - <dark_gray><italic>背負ったぶんだけ、持って帰れる。</italic></dark_gray>
     - <gray>農家だけが身に着けられる。収穫の追加ドロップ率が上がる。</gray>
   tide_float:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: LEATHER_HELMET
     display-name: <color:#b48ee0>潮見の浮き</color>
     custom-model-data: 5760
@@ -6429,6 +6526,7 @@ items:
     - <dark_gray><italic>沈む速さで、下にいるものが分かる。</italic></dark_gray>
     - <gray>釣り人だけが身に着けられる。釣り運が上がる。</gray>
   pit_lamp:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: LEATHER_HELMET
     display-name: <color:#b48ee0>坑夫の灯</color>
     custom-model-data: 5761
@@ -6446,6 +6544,7 @@ items:
     - <dark_gray><italic>暗いほど、見えるものがある。</italic></dark_gray>
     - <gray>坑夫だけが身に着けられる。採掘運が上がる。</gray>
   leveling_gloves:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: LEATHER_CHESTPLATE
     display-name: <color:#b48ee0>均しの手袋</color>
     custom-model-data: 5762
@@ -6463,6 +6562,7 @@ items:
     - <dark_gray><italic>掘るより、均すほうが難しい。</italic></dark_gray>
     - <gray>掘削者だけが身に着けられる。怪しいブロックが復活しやすくなる。</gray>
   woodsman_whetstone:
+    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
     material: AMETHYST_SHARD
     display-name: <color:#b48ee0>樵の砥石</color>
     custom-model-data: 5761
