@@ -96,39 +96,51 @@ dependencies:
 バニラは count==0 を「offset を速度として1個だけ飛ばす」という別の意味に解釈する。
 完全に非表示にしたいならパケットごとキャンセルするしかない。
 
-### ⚠️「虚空(何も無い方向)への右クリックで PlayerInteractEvent が飛ばない」という診断は要検証──断定するとフォールバックが二次被害を生む
+### ⚠️⚠️ `PlayerInteractEvent` に `ignoreCancelled = true` を付けると **RIGHT_CLICK_AIR が一切届かない**
 
-実サーバ報告「ガチャ券/ダンジョンの鍵がブロックに向いてでないと使えない」の原因調査で、
+**これが「ガチャ券/ダンジョンの鍵がブロックに向いてでないと使えない」の真因**(2026-08-03 確定)。
+Bukkit の `PlayerInteractEvent` は次の2行でできている(Paper 1.21.11 の実バイトコードで確認):
+
+```java
+// コンストラクタ
+useClickedBlock = (blockClicked == null) ? Result.DENY : Result.ALLOW;
+// isCancelled()
+return useInteractedBlock() == Result.DENY;
+```
+
+つまり **`RIGHT_CLICK_AIR`/`LEFT_CLICK_AIR`(= クリックしたブロックが `null`)のイベントは、
+誰もキャンセルしていなくても生成された瞬間から `isCancelled() == true`**。
+Bukkit のイベントバス(`RegisteredListener#callEvent`)は `ignoreCancelled = true` の購読者に
+キャンセル済みイベントを配送しないので、**`@EventHandler(ignoreCancelled = true)` を付けた
+`PlayerInteractEvent` ハンドラは空クリックでは一度も呼ばれない**。
+`RIGHT_CLICK_BLOCK` だけ動いて空クリックが無反応、という症状はこれ。
+
+**How**: 空クリックを扱うハンドラでは `ignoreCancelled` を付けず、代わりに
+`event.useItemInHand() == Event.Result.DENY` で早期 return する。`useItemInHand` は
+「アイテムの使用が拒否されたか」だけを表す独立フィールドで、空クリックでも `DEFAULT` のまま。
+他プラグインが `setCancelled(true)` を呼べば Bukkit 側で `useItemInHand` も `DENY` になるため、
+本当のキャンセルは従来どおり尊重される(＝ `ignoreCancelled` より正確)。
+
+対象は「ブロックを見ている(= `RIGHT_CLICK_BLOCK` しか来ない)ことが前提のリスナー」以外すべて。
+2026-08-03 に `GachaListener` / `DungeonKeyItemListener` / `ActivationDispatcher`(スニーク+右クリック
+＝アクティブスキルの正式トリガー) / `WeaponCoatingListener` / `XpBottleListener` /
+`CombatListener#onRightClickItem` / `UseRequirementListener` / `OwnerBindListener` の8本を修正した。
+後ろ2本は「使用制限を掛ける」側なので、これは**空クリックなら制限を素通りできる抜け道**だった。
+回帰テストは `GachaListenerVoidClickAndDisplayNameTest` /
+`DungeonKeyItemListenerVoidClickTest` にあり、アノテーションの `ignoreCancelled()` が
+`false` であること自体もアサートしている(付け直しを検知するため)。
+
+**副次的な教訓(2026-08-02 の誤診断の記録)**: 当初この症状に対して
 「vanilla の『使用』挙動が無いアイテムは、虚空へ右クリックしたとき `ServerboundUseItemPacket`
-自体を送らない」という診断を立てたが、**この診断は「手にアイテムが無い(完全な素手)」場合の
-既知の挙動と混同していた可能性が高い**。Paper 本体の課題管理
-(`PaperMC/Paper#5951`、メンテナ回答「events are only fired in the case where the clients
-care to send us stuff」)で確認できたのは、**素手**で虚空右クリックしたときに限り
-`PlayerInteractEvent` が発火しないという、より狭いケースのみ。手に何らかのアイテムを持っている
-場合(ガチャ券・ダンジョンの鍵は常にこちら)にも同じ制約が及ぶかは、一次情報での裏付けが
-取れなかった。**このリポジトリで実際に確認済みなのは「左クリック(空振り攻撃)で虚空を狙うと
-`PlayerInteractEvent` が飛ばない」ことだけ**(`CombatListener` の `onMissSwing`/`onArmSwing`
-javadoc)。左クリックの javadoc を右クリックのケースに横展開して「確認済み」と書いてしまったのが
-実際の誤り。
-
-**教訓**: 「このリポジトリの別箇所に似た javadoc がある」ことは、今回のケースの直接的な裏付けには
-ならない。左クリックと右クリックはプロトコル上も vanilla 内部処理上も別経路であり、
-一方の既知の制約をもう一方に無検証で適用すると誤診断になる。診断が未確定のまま対症療法
-(フォールバック機構)を書く場合は、**診断が誤りだったとしても安全に倒れる設計**にすること
-(下記 `VoidRightClickBridge` 参照)。
-
-**How(診断の真偽によらず安全なフォールバック設計)**: `listeners/VoidRightClickBridge.java` が
-共有の回避経路。`PlayerAnimationEvent`(腕振り、ヒット/ミスや左右クリックに関係なく必ず発火する)を
-観測し、1tick後に「その間に本物の `PlayerInteractEvent` か(自分が攻撃者の)
-`EntityDamageByEntityEvent` が同じプレイヤーで観測されていなかったら」フォールバック処理へ
-合流させる。**このフォールバックは「登録アイテムを持ったまま虚空へ左クリック(空振り攻撃)した」
-ケースと本質的に区別できない**(vanilla のプロトコル制約でサーバ側から左右を判別する情報が無い)。
-そのため **Handler 実装側は、この経路から呼ばれたときに取り返しのつかない確定処理
-(アイテム消費・抽選確定等)を直接行ってはいけない**。確認GUI/確認メッセージを1枚挟み、
-明確に別系統のイベント(`InventoryClickEvent` 等)を経てから確定させること。
-※かつて「対象アイテムは攻撃/採掘用途を持たないため誤発動しても実害が無い」と書いていたが誤り
-（ガチャ券は「1回だけ本来の右クリックと同じ処理が走る」＝**券の消費と抽選確定が取り返しのつかない
-形で実行される**という実害があった。ダンジョンの鍵はもともと確認GUI越しだったため実害が無かった）。
+自体を送らない」という診断を立て、`PlayerAnimationEvent`(腕振り)経由のフォールバック
+`VoidRightClickBridge` を書いた。この診断は**誤り**で、実際には
+`ServerboundUseItemPacket` は送られており `PlayerInteractEvent` も発火していた
+(素手の場合の既知の挙動 `PaperMC/Paper#5951` と、このリポジトリで確認済みの
+「**左**クリックの空振りでは `PlayerInteractEvent` が飛ばない」(`CombatListener#onMissSwing`)を、
+右クリックへ無検証で横展開したのが誤りの中身)。
+`VoidRightClickBridge` は真因の修正とともに撤去した — 残しても
+「虚空へ左クリックで空振りしただけで確認GUIが開く」誤検出が残るだけで得るものが無いため。
+**症状から機構を推測して回避経路を足す前に、まず API の実装(バイトコードでよい)を読むこと。**
 
 テストで `PlayerInteractEvent` を Mockito でモックして
 `server.getPluginManager().callEvent(...)` に渡すと、`event.getHandlers()` が `null` を返し

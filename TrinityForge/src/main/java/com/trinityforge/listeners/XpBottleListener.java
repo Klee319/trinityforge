@@ -59,7 +59,14 @@ public final class XpBottleListener implements Listener {
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    /**
+     * <b>{@code ignoreCancelled} を付けてはいけない(2026-08-03)。</b>{@link PlayerInteractEvent} は
+     * クリックしたブロックが {@code null}(= {@code RIGHT_CLICK_AIR})のとき、誰もキャンセルしていなくても
+     * 生成時点から {@code isCancelled() == true} になるため、{@code ignoreCancelled = true} を付けると
+     * 空クリックが一切配送されない(=ブロックに向けたときしか経験値瓶を扱えない)。理由の詳細は
+     * {@link GachaListener#onInteract} の javadoc。
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             // Paper fires this event for both hands; only handle the main-hand instance so an
@@ -68,6 +75,9 @@ public final class XpBottleListener implements Listener {
         }
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (event.useItemInHand() == org.bukkit.event.Event.Result.DENY) {
             return;
         }
         Player player = event.getPlayer();

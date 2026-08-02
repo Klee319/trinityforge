@@ -48,10 +48,21 @@ public final class UseRequirementListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    /**
+     * <b>{@code ignoreCancelled} を付けてはいけない(2026-08-03)。</b>{@link PlayerInteractEvent} は
+     * クリックしたブロックが {@code null}(= {@code RIGHT_CLICK_AIR}/{@code LEFT_CLICK_AIR})のとき、
+     * 誰もキャンセルしていなくても生成時点から {@code isCancelled() == true} になるため、
+     * {@code ignoreCancelled = true} を付けると空クリックが一切配送されない。ここは「使用制限を掛ける」
+     * 側なので、それは<b>空クリックなら制限を素通りできる抜け道</b>になっていた。詳細は
+     * {@code com.trinityforge.listeners.GachaListener#onInteract} の javadoc。
+     */
+    @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND && event.getHand() != EquipmentSlot.OFF_HAND) {
             return;
+        }
+        if (event.useItemInHand() == org.bukkit.event.Event.Result.DENY) {
+            return; // 既に別の誰かがアイテム使用を止めている: 重ねて拒否する必要は無い
         }
         ItemStack stack = event.getItem();
         if (stack != null && UseRequirementResolver.skipInteractGate(stack.getType())) {

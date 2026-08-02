@@ -845,20 +845,25 @@ public final class CombatListener implements Listener {
      * してからスイングで殴っても、後続の呼び出しは既に始まっているCTを見て即return するため二重に短縮
      * 計算が走ったりCTがリセットされたりしない。
      *
-     * <p>優先度はMONITOR、{@code ignoreCancelled = true}: このリスナーはCTを開始するだけで他の判断に
-     * 一切影響を与えないため、他プラグイン/TF内の別リスナーが最終的に何を決めた後でも安全に動ける
-     * MONITORを選んだ(onMissSwing/onArmSwingと同じ位置付け)。ignoreCancelled=trueにより、
-     * アドベンチャーモードで {@code useInteractedBlock()} がDENYになりイベント全体がキャンセルされた
-     * ケースを含め、キャンセル済みイベントでは発火しない — これは同ファイル内の他の
-     * {@code PlayerInteractEvent} 購読者({@link com.trinityforge.active.ActivationDispatcher}含む)と
-     * 揃えた既存の書き方であり、新しい判定方式を発明していない。
+     * <p>優先度はMONITOR。このリスナーはCTを開始するだけで他の判断に一切影響を与えないため、
+     * 他プラグイン/TF内の別リスナーが最終的に何を決めた後でも安全に動けるMONITORを選んだ
+     * (onMissSwing/onArmSwingと同じ位置付け)。
+     *
+     * <p><b>{@code ignoreCancelled} は付けない(2026-08-03 修正)。</b>
+     * {@link PlayerInteractEvent#isCancelled()} は {@code useInteractedBlock() == DENY} と等価で、
+     * クリックしたブロックが {@code null}(= {@code RIGHT_CLICK_AIR})だとコンストラクタが
+     * {@code useClickedBlock = DENY} と初期化するため、<b>空クリックは誰もキャンセルしていなくても
+     * 生成時点から「キャンセル済み」</b>になる。以前はここに {@code ignoreCancelled = true} が付いており、
+     * 「右クリックで使うアイテムのCT」という本来の目的にも関わらず<b>ブロックに向けた右クリックでしか
+     * CTが始まらなかった</b>。キャンセル判定は下の {@code useItemInHand()} で行う(こちらが本来見るべき
+     * フィールド)。詳細は {@link GachaListener#onInteract} の javadoc。
      *
      * <p>オフハンドは対象外({@code event.getHand() == EquipmentSlot.HAND} でゲート) —
      * {@link #startItemCooldown} 自体がメインハンド専用の実装であるため、オフハンドの右クリックで
      * 呼び出すと {@code attacker.getInventory().getItemInMainHand()} を読んでメインハンドのCTを誤って
      * 開始してしまう(オフハンドにアイテムCTを掛けたい訳ではない操作でも発動する)。
      */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onRightClickItem(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;

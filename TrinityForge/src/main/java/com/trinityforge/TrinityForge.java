@@ -567,19 +567,15 @@ public final class TrinityForge extends JavaPlugin {
         com.trinityforge.mobs.DungeonEntryGui dungeonEntryGui = new com.trinityforge.mobs.DungeonEntryGui(
                 this, dungeonGateService, combatService);
         getServer().getPluginManager().registerEvents(dungeonEntryGui, this);
-        // 虚空右クリック(何もない方向への右クリック)フォールバック橋渡し(2026-08-02): ガチャ券/
-        // ダンジョンの鍵はどちらもベース素材(PAPER/TRIAL_KEY)に vanilla の「使用」挙動が無いため、
-        // 虚空へ向けた右クリックでは PlayerInteractEvent 自体が発火しない
-        // (com.trinityforge.listeners.VoidRightClickBridge javadoc 参照)。両リスナーがここで
-        // Handler として登録し、腕振り(swing)経由のフォールバックに合流する。
-        com.trinityforge.listeners.VoidRightClickBridge voidRightClickBridge =
-                new com.trinityforge.listeners.VoidRightClickBridge(this);
-        getServer().getPluginManager().registerEvents(voidRightClickBridge, this);
+        // 2026-08-03: ここにあった腕振り経由の「虚空右クリック」フォールバック(VoidRightClickBridge)は
+        // 撤去した。当初の診断「vanilla の使用挙動が無いアイテムは虚空右クリックで
+        // PlayerInteractEvent 自体が発火しない」は誤りで、真因は購読側の ignoreCancelled = true
+        // だった(RIGHT_CLICK_AIR はブロックが null なので生成時点で常に isCancelled() == true)。
+        // 詳細は DungeonKeyItemListener#onInteract / GachaListener#onInteract の javadoc。
         com.trinityforge.listeners.DungeonKeyItemListener dungeonKeyItemListener =
                 new com.trinityforge.listeners.DungeonKeyItemListener(
                         configManager.dungeonGates(), dungeonGateService.keyMatcher(), dungeonEntryGui);
         getServer().getPluginManager().registerEvents(dungeonKeyItemListener, this);
-        voidRightClickBridge.register(dungeonKeyItemListener);
         // /tf dungeon <id> のクイック入場(2026-07-27 admin)は、鍵GUI経由の通常入場とまったく同じ
         // 転送ロジックを共有する(DungeonTeleporter)。違いは「成功後に鍵を消費するか」だけ。
         com.trinityforge.mobs.DungeonTeleporter dungeonTeleporter =
@@ -835,8 +831,6 @@ public final class TrinityForge extends JavaPlugin {
         GachaListener gachaListener = new GachaListener(this, configManager.gacha(), configManager.itemCatalog(),
                 itemFactory, configManager.quality(), aggregator);
         getServer().getPluginManager().registerEvents(gachaListener, this);
-        // 虚空右クリックフォールバック(上の voidRightClickBridge 配線を参照)。
-        voidRightClickBridge.register(gachaListener);
 
         // 汎用アクティブスキル基盤 (2026-07-25 gather-rework-active-framework §3 W1): haste-active-mining を
         // 基盤上の最初のActiveSkillとして再実装(旧HasteActiveMiningListenerの私製CT Mapを置換)。

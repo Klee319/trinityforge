@@ -9,11 +9,11 @@ import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
 import org.bukkit.Material;
-import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryAction;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.block.BlockFace;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -43,27 +43,27 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * 回帰テスト(2026-08-02、コーディネーター指摘反映版):
+ * 回帰テスト:
  * <ul>
- *   <li><b>本質(コーディネーター指摘の核心)</b>: 虚空右クリックフォールバック
- *       ({@link VoidRightClickBridge.Handler#tryHandle}) は左クリック(空振り攻撃)との誤検出が
- *       ありうるため、<b>その経路だけでは券が絶対に消費されない</b>こと(確認GUIが開くだけ)。</li>
- *   <li>確認GUIで「使用する」を実際にクリックした場合にのみ、通常の {@code onInteract} 経路と
- *       同じ抽選/消費結果になること。</li>
- *   <li>確認GUIで「やめる」を押した/GUIを無視した場合は券が一切減らないこと。</li>
+ *   <li><b>虚空(何も無い方向)への右クリックでガチャ券が使えること</b>(2026-08-03、実サーバ報告)。
+ *       真因は {@link GachaListener#onInteract} に付いていた {@code ignoreCancelled = true} で、
+ *       {@link PlayerInteractEvent} は「クリックしたブロックが {@code null}」だと生成時点から
+ *       {@code isCancelled() == true} になる({@code useClickedBlock} が {@code DENY} 初期化される)ため、
+ *       {@code RIGHT_CLICK_AIR} が購読者へ一切配送されていなかった。
+ *       ブロックに向けた右クリックだけが動いていたのはこのため。</li>
  *   <li>当選メッセージの {@code <item>} プレースホルダが生ID(例 {@code thread_luck})ではなく
  *       アイテムの表示名を出すこと。解決できない場合は生IDへフォールバックすること(要件#34)。</li>
  * </ul>
+ *
+ * <p>2026-08-02 に足した腕振り経由のフォールバック({@code VoidRightClickBridge})は、上の真因が
+ * 判明したため撤去した。当時この位置にあった「フォールバック経路単体では券を消費しない」テストも
+ * 対象ごと消えている。
  */
 class GachaListenerVoidClickAndDisplayNameTest {
 
     private static final String TICKET_CATALOG_ID = "test_gacha_ticket";
     private static final String PRIZE_CATALOG_ID = "test_prize_item";
     private static final String POOL_ID = "test_pool";
-
-    // GachaListener の CONFIRM_YES_SLOT/CONFIRM_NO_SLOT と一致させる(private定数のためテスト側で複製)。
-    private static final int CONFIRM_YES_SLOT = 4;
-    private static final int CONFIRM_NO_SLOT = 6;
 
     private ServerMock server;
 
@@ -160,41 +160,16 @@ class GachaListenerVoidClickAndDisplayNameTest {
         return new GachaListener(fakePlugin(dir), gacha, catalog, itemFactory, mock(QualityConfig.class), aggregator);
     }
 
-    private static InventoryClickEvent click(PlayerMock player, int slot) {
-        return new InventoryClickEvent(
-                player.getOpenInventory(), InventoryType.SlotType.CONTAINER, slot,
-                ClickType.LEFT, InventoryAction.PICKUP_ALL);
+    /** 虚空への右クリック: クリックしたブロックが {@code null} の {@link PlayerInteractEvent}。 */
+    private static PlayerInteractEvent rightClickAir(PlayerMock player) {
+        return new PlayerInteractEvent(player, Action.RIGHT_CLICK_AIR,
+                player.getInventory().getItemInMainHand(), null, BlockFace.SELF, EquipmentSlot.HAND);
     }
 
     @Test
-    @DisplayName("虚空右クリック(tryHandle)は確認GUIを開くだけで、その場では券を1枚も消費しない"
-            + "(=左クリック空振りとの誤検出時の実害をゼロにする、コーディネーター指摘の本質)")
-    void tryHandleAloneNeverConsumesTicket(@org.junit.jupiter.api.io.TempDir File dir) throws IOException {
-        ItemFactory itemFactory = mock(ItemFactory.class);
-        when(itemFactory.create(any(ItemTemplate.class), anyLong(), anyInt())).thenReturn(namedPrizeStack());
-        GachaListener listener = buildListener(dir, itemFactory);
-        PlayerMock player = server.addPlayer();
-        ItemStack ticket = ticketStack();
-        player.getInventory().setItemInMainHand(ticket);
-        drainLastMessage(player);
-
-        boolean handled = listener.tryHandle(player, player.getInventory().getItemInMainHand());
-
-        assertTrue(handled, "登録済みの券なので tryHandle は true を返すはず"
-                + "(=VoidRightClickBridge が『処理済み』と判断できる)");
-        assertEquals(3, player.getInventory().getItemInMainHand().getAmount(),
-                "確認GUIを開いただけの段階では券は1枚も減らない");
-        assertFalse(player.getInventory().first(Material.DIAMOND) >= 0,
-                "確認前に景品が付与されてはいけない");
-        Inventory top = player.getOpenInventory().getTopInventory();
-        assertTrue(top.getSize() > 0 && top != player.getInventory(),
-                "確認GUIが実際に開いていること");
-    }
-
-    @Test
-    @DisplayName("確認GUIで『使用する』をクリックして初めて1枚消費・景品付与・表示名メッセージが確定する")
-    void confirmingInGuiActuallyDrawsAndConsumesOneTicket(@org.junit.jupiter.api.io.TempDir File dir)
-            throws IOException {
+    @DisplayName("虚空への右クリック(RIGHT_CLICK_AIR)でも券が1枚消費され景品が付与される"
+            + "(ブロックに向けたときだけ動いていた実サーバ報告の回帰)")
+    void rightClickAirDrawsAndConsumesOneTicket(@org.junit.jupiter.api.io.TempDir File dir) throws IOException {
         ItemFactory itemFactory = mock(ItemFactory.class);
         when(itemFactory.create(any(ItemTemplate.class), anyLong(), anyInt())).thenReturn(namedPrizeStack());
         GachaListener listener = buildListener(dir, itemFactory);
@@ -202,34 +177,68 @@ class GachaListenerVoidClickAndDisplayNameTest {
         player.getInventory().setItemInMainHand(ticketStack());
         drainLastMessage(player);
 
-        listener.tryHandle(player, player.getInventory().getItemInMainHand());
-        listener.onClick(click(player, CONFIRM_YES_SLOT));
+        PlayerInteractEvent event = rightClickAir(player);
+        // 罠そのものを固定する: 空クリックのイベントは誰もキャンセルしていないのに
+        // 生成直後から isCancelled() == true になっている。
+        assertTrue(event.isCancelled(),
+                "RIGHT_CLICK_AIR は blockClicked == null なので useClickedBlock が DENY 初期化され、"
+                        + "生成時点で isCancelled() == true になる(Bukkit の仕様)");
+
+        listener.onInteract(event);
 
         assertEquals(2, player.getInventory().getItemInMainHand().getAmount(),
-                "確認クリック後は通常のonInteract経路と同じく1枚だけ消費されるはず");
+                "虚空右クリックでも券は1枚だけ消費されるはず");
         assertTrue(player.getInventory().first(Material.DIAMOND) >= 0, "景品が付与されているはず");
+    }
+
+    @Test
+    @DisplayName("onInteract に ignoreCancelled=true を付け直すと RIGHT_CLICK_AIR が届かなくなるため禁止")
+    void onInteractMustNotIgnoreCancelled() throws NoSuchMethodException {
+        EventHandler annotation = GachaListener.class
+                .getMethod("onInteract", PlayerInteractEvent.class)
+                .getAnnotation(EventHandler.class);
+
+        assertFalse(annotation.ignoreCancelled(),
+                "PlayerInteractEvent は RIGHT_CLICK_AIR のとき常に isCancelled()==true なので、"
+                        + "ignoreCancelled=true を付けると Bukkit のイベントバスが空クリックを配送しない。"
+                        + "キャンセル判定は useItemInHand()==DENY で行うこと");
+    }
+
+    @Test
+    @DisplayName("他プラグインがアイテム使用を拒否した(useItemInHand=DENY)場合は券を消費しない")
+    void deniedItemUseLeavesTicketUntouched(@org.junit.jupiter.api.io.TempDir File dir) throws IOException {
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        when(itemFactory.create(any(ItemTemplate.class), anyLong(), anyInt())).thenReturn(namedPrizeStack());
+        GachaListener listener = buildListener(dir, itemFactory);
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInMainHand(ticketStack());
+
+        PlayerInteractEvent event = rightClickAir(player);
+        event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
+        listener.onInteract(event);
+
+        assertEquals(3, player.getInventory().getItemInMainHand().getAmount(),
+                "アイテム使用が拒否されているので抽選も消費も起きない");
+        assertFalse(player.getInventory().first(Material.DIAMOND) >= 0, "景品も付与されない");
+    }
+
+    @Test
+    @DisplayName("当選メッセージは生IDでなく表示名を出す(要件#34)")
+    void winMessageUsesDisplayName(@org.junit.jupiter.api.io.TempDir File dir) throws IOException {
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        when(itemFactory.create(any(ItemTemplate.class), anyLong(), anyInt())).thenReturn(namedPrizeStack());
+        GachaListener listener = buildListener(dir, itemFactory);
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInMainHand(ticketStack());
+        drainLastMessage(player);
+
+        listener.onInteract(rightClickAir(player));
+
         String message = drainLastMessage(player);
         assertTrue(message != null && message.contains("光る宝石"),
                 "表示名(光る宝石)が当選メッセージに出るはず: " + message);
         assertFalse(message != null && message.contains(PRIZE_CATALOG_ID),
                 "生ID(" + PRIZE_CATALOG_ID + ")がそのままチャットに出てはいけない(要件#34): " + message);
-    }
-
-    @Test
-    @DisplayName("確認GUIで『やめる』を押した場合は券が一切減らない")
-    void cancellingInGuiLeavesTicketUntouched(@org.junit.jupiter.api.io.TempDir File dir) throws IOException {
-        ItemFactory itemFactory = mock(ItemFactory.class);
-        when(itemFactory.create(any(ItemTemplate.class), anyLong(), anyInt())).thenReturn(namedPrizeStack());
-        GachaListener listener = buildListener(dir, itemFactory);
-        PlayerMock player = server.addPlayer();
-        player.getInventory().setItemInMainHand(ticketStack());
-
-        listener.tryHandle(player, player.getInventory().getItemInMainHand());
-        listener.onClick(click(player, CONFIRM_NO_SLOT));
-
-        assertEquals(3, player.getInventory().getItemInMainHand().getAmount(),
-                "『やめる』を押しても券は減らない");
-        assertFalse(player.getInventory().first(Material.DIAMOND) >= 0, "景品も付与されない");
     }
 
     @Test
@@ -244,8 +253,7 @@ class GachaListenerVoidClickAndDisplayNameTest {
         player.getInventory().setItemInMainHand(ticketStack());
         drainLastMessage(player);
 
-        listener.tryHandle(player, player.getInventory().getItemInMainHand());
-        listener.onClick(click(player, CONFIRM_YES_SLOT));
+        listener.onInteract(rightClickAir(player));
 
         String message = drainLastMessage(player);
         assertFalse(message != null && message.contains(PRIZE_CATALOG_ID),

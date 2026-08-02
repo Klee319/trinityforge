@@ -100,28 +100,7 @@ public final class DungeonGateService {
      * browser selection and instance creation are checked again.
      */
     public boolean previewRequiredEntry(Player player, String lookupKey) {
-        if (player == null) {
-            return false;
-        }
-        if (player.hasPermission(ADMIN_PERMISSION)
-                || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION)) {
-            return true;
-        }
-        // checkRequiredEntry と同じ理由でゲート0本なら素通し。ここだけ拒否すると
-        // 「一覧では入れないのに参加はできる」という食い違いが出る。
-        if (!gateConfig.hasAnyGate()) {
-            return true;
-        }
-        if (lookupKey == null || lookupKey.isBlank()) {
-            player.sendMessage(UNCONFIGURED_GATE);
-            return false;
-        }
-        Optional<DungeonGate> gateOpt = gateConfig.resolve(lookupKey);
-        if (gateOpt.isEmpty()) {
-            player.sendMessage(UNCONFIGURED_GATE);
-            return false;
-        }
-        return evaluate(player, List.of(gateOpt.get()), true, false);
+        return requiredEntry(player, lookupKey, false);
     }
 
     /**
@@ -133,13 +112,39 @@ public final class DungeonGateService {
      * 管理・復旧作業用の権限保持者はゲート未設定でも通過できる。</p>
      */
     public boolean checkRequiredEntry(Player player, String lookupKey) {
+        return requiredEntry(player, lookupKey, true);
+    }
+
+    /**
+     * {@link #checkRequiredEntry}(消費あり)と {@link #previewRequiredEntry}(消費なし)の共通実装。
+     *
+     * <p><b>2026-08-03 実サーバ報告「ダンジョンの鍵が消費されなくなった」の修正。</b>
+     * 以前はこのメソッドの先頭で {@code trinityforge.admin} /
+     * {@code trinityforge.elitemobs.commands} 保持者を無条件に {@code true} で返していた。
+     * 2026-08-02 に鍵の消費をここ(EliteMobs の実潜入フックから呼ばれる唯一の消費点、
+     * {@link DungeonTeleporter#proceedToTarget} のjavadoc参照)へ一本化した結果、
+     * <b>その先頭 return が「鍵を消費する唯一のコード」を丸ごと飛び越す</b>ようになった。
+     * {@code trinityforge.admin} は {@code paper-plugin.yml} で {@code default: op} なので、
+     * OP は誰でもこの経路に入る = 実質「鍵が一切減らない」。移設前は
+     * {@code DungeonEntryGui} 側の {@code consumeKey} に権限バイパスが無かったため OP でも消費されていた。
+     *
+     * <p>そこで権限バイパスを「拒否されるはずだったときだけ救済する」形へ狭めた:
+     * 判定自体は全員に対して普通に走らせ(=条件を満たしていれば全員から鍵を消費し)、
+     * <b>判定に落ちた場合に限り</b>権限保持者を通す。二相評価({@link #evaluate})は
+     * 「拒否した場合は何も消費しない」ことを保証しているので、救済経路で鍵だけ失うことは無い。
+     * これにより「管理者はダンジョンから締め出されない」という元の意図
+     * ({@code /tf dungeon <id>} のクイック入場・設定漏れゲートの通過を含む)は完全に維持したまま、
+     * 鍵を持って普通に入った管理者からは正しく鍵が減るようになる。
+     *
+     * <p>権限保持者に対しては拒否メッセージを送らない({@code notify=false})。通してしまう以上、
+     * 「入れません」と表示してから入場させるのは嘘になるため。代わりに救済したことを1行知らせる。
+     */
+    private boolean requiredEntry(Player player, String lookupKey, boolean consume) {
         if (player == null) {
             return false;
         }
-        if (player.hasPermission(ADMIN_PERMISSION)
-                || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION)) {
-            return true;
-        }
+        boolean privileged = player.hasPermission(ADMIN_PERMISSION)
+                || player.hasPermission(ELITEMOBS_TOOLING_PERMISSION);
         // ゲートを1本も定義していないサーバーでは、この入口ごと無効にする。
         // 「1本も無い」と「このダンジョンだけ書き忘れた」は別物で、前者で拒否すると
         // 出荷時の gates.yml(エントリ0本)のまま一般プレイヤーが全ダンジョンに入れなくなる。
@@ -148,15 +153,31 @@ public final class DungeonGateService {
             return true;
         }
         if (lookupKey == null || lookupKey.isBlank()) {
+            if (privileged) {
+                return true;
+            }
             player.sendMessage(UNCONFIGURED_GATE);
             return false;
         }
         Optional<DungeonGate> gateOpt = gateConfig.resolve(lookupKey);
         if (gateOpt.isEmpty()) {
+            if (privileged) {
+                return true;
+            }
             player.sendMessage(UNCONFIGURED_GATE);
             return false;
         }
-        return evaluate(player, List.of(gateOpt.get()), true, true);
+        boolean allowed = evaluate(player, List.of(gateOpt.get()), !privileged, consume);
+        if (!allowed && privileged) {
+            // 事前確認(consume=false)と確定(consume=true)の2回呼ばれる経路があるので、通知は確定時だけ。
+            if (consume) {
+                player.sendMessage(Component.text(
+                        "[管理者] 入場条件を満たしていませんが権限で通過しました（鍵は消費されません）",
+                        NamedTextColor.GRAY));
+            }
+            return true;
+        }
+        return allowed;
     }
 
     /** 区画ゲートが1つでも設定されているか(移動イベントの早期リターン用)。 */

@@ -198,6 +198,71 @@ class DungeonGateServiceTest {
         assertTrue(service.checkRequiredEntry(admin, "unconfigured_content_package"));
     }
 
+    /**
+     * 2026-08-03 実サーバ報告「ダンジョンの鍵が消費されなくなった」の回帰テスト。
+     *
+     * <p>2026-08-02 に鍵の消費をここ({@code checkRequiredEntry} = EliteMobs の実潜入フックから
+     * 呼ばれる唯一の消費点)へ一本化したが、当時このメソッドの先頭に「{@code trinityforge.admin} 保持者は
+     * 無条件に true」という早期returnが残っており、<b>消費コードを丸ごと飛び越していた</b>。
+     * {@code trinityforge.admin} は {@code paper-plugin.yml} で {@code default: op} なので、
+     * OP は全員この経路に落ちる = 実質「鍵が誰からも減らない」。
+     * 権限バイパスは「拒否されるはずだったときの救済」だけに狭めてある。
+     */
+    @Test
+    void adminWithKeyStillGetsTheKeyConsumed() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("""
+                gates:
+                  dungeon_sanctum:
+                    content-package: sanctum_package.yml
+                    required-combat-level: 0
+                    key-item: tf_crypt_sigil
+                    key-amount: 1
+                """);
+        resolvableAsCatalogItem("tf_crypt_sigil");
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(50);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock admin = server.addPlayer();
+        admin.setOp(true);
+        admin.getInventory().setItem(0, stampedCatalogItem(Material.LEATHER, "tf_crypt_sigil"));
+
+        assertTrue(service.previewRequiredEntry(admin, "sanctum_package.yml"));
+        assertTrue(hasAnyCatalogKey(admin, "tf_crypt_sigil"), "事前確認では消費しない");
+        assertTrue(service.checkRequiredEntry(admin, "sanctum_package.yml"));
+        assertFalse(hasAnyCatalogKey(admin, "tf_crypt_sigil"),
+                "管理者権限を持っていても、鍵を持って条件を満たして入った以上は鍵が消費されるべき");
+    }
+
+    /**
+     * 一方で「管理者はダンジョンから締め出されない」という権限バイパス本来の意図は維持する:
+     * 鍵を持っていない管理者は入場でき、かつ(持っていないので当然)何も失わない。
+     */
+    @Test
+    void adminWithoutKeyStillEntersAndLosesNothing() throws Exception {
+        DungeonGateConfig gateConfig = loadViaFakePlugin("""
+                gates:
+                  dungeon_sanctum:
+                    content-package: sanctum_package.yml
+                    required-combat-level: 99
+                    key-item: tf_crypt_sigil
+                    key-amount: 1
+                """);
+        resolvableAsCatalogItem("tf_crypt_sigil");
+        SymmetricCombatService combat = mock(SymmetricCombatService.class);
+        when(combat.combatLevelOf(org.mockito.ArgumentMatchers.any(UUID.class))).thenReturn(1);
+        DungeonGateService service = new DungeonGateService(gateConfig, combat, itemResolver);
+
+        PlayerMock admin = server.addPlayer();
+        admin.setOp(true);
+        PlayerMock ordinary = server.addPlayer();
+
+        assertTrue(service.checkRequiredEntry(admin, "sanctum_package.yml"),
+                "レベルも鍵も足りない管理者でも権限で通過できる(元の意図)");
+        assertFalse(service.checkRequiredEntry(ordinary, "sanctum_package.yml"),
+                "一般プレイヤーは従来どおり拒否される");
+    }
+
     @Test
     void gatePresenceCheckResolvesWorldAndContentPackageWithoutConsuming() throws Exception {
         DungeonGateConfig gateConfig = loadViaFakePlugin("""

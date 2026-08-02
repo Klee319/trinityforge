@@ -308,6 +308,30 @@ EliteMobsフォーク側のコマンドrouting（MagmaCore）は正常なので�
   **非委譲**（`ExplicitLocation`/`RegionCenter`/`WorldSpawn`）はこの後段フックが無いため
   `teleportTo` の即時消費のまま変更していない（同等のfork側再検証経路が存在しないため）。
 
+### ⚠️⚠️ 消費を「権限バイパスのあるメソッド」へ移すと、OP には消費が一切走らなくなる
+
+上の 2026-08-02 の移設の直後に「ダンジョンの鍵が消費されなくなった」と実サーバから報告が来た
+（2026-08-03 修正）。移設先の `DungeonGateService#checkRequiredEntry` は先頭に
+
+```java
+if (player.hasPermission("trinityforge.admin")
+        || player.hasPermission("trinityforge.elitemobs.commands")) return true;
+```
+
+という早期 return を持っており、**`trinityforge.admin` は `paper-plugin.yml` で `default: op`**。
+つまり OP は全員この行で返り、その下にある**唯一の鍵消費コードを丸ごと飛び越す**。
+移設前は `DungeonEntryGui` 側の `consumeKey` に権限バイパスが無かったので OP でも消費されていた。
+「移設元では消費しなくなったが、移設先では権限で素通りしていた」という形。
+
+- 修正: 権限バイパスを**「拒否されるはずだったときの救済」だけに狭めた**。判定は全員に走らせ
+  （条件を満たしていれば OP からも鍵を消費し）、判定に落ちた場合に限り権限保持者を通す。
+  二相評価は「拒否時は何も消費しない」を保証しているので、救済経路で鍵だけ失うことはない。
+  権限保持者には拒否メッセージを出さず「権限で通過した」旨だけ出す。
+- **教訓**: 副作用（消費・付与・記録）を別メソッドへ移すときは、移設先の**先頭にある早期 return を
+  全部読むこと**。特に権限チェックは「拒否の緩和」のつもりで書かれていても、副作用の実行位置より
+  手前にあれば副作用の抑止にもなる。`default: op` の権限は開発者自身が必ず持っているため、
+  自分でテストすると**必ず素通りする側**に落ちて再現しない。
+
 ### ダンジョン名のプレイヤー表示は `gates.yml` の `display-name`（TF側）が一次情報源。EM側の `getName()`(=`content-packages`の`name:`)と別々に存在するので、両方直さないとID表記が残る
 
 TF側 `DungeonEntryGui`（潜入確認画面）は元々 `gate.world()`（=ゲートID、EliteMobs委譲先では
