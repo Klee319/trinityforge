@@ -271,8 +271,11 @@ class ResourceServerMobSimulationTest {
     private static double scaledHealth(MobTypeDefinition def, int level) {
         MobLevelCoefficients coeffs = def.levelCoefficients();
         double base = def.maxHealth() == null ? 20.0 : def.maxHealth();
+        // 2026-08-03(45+難易度修正): high-level-from/high-level-per-level も本番と同じ経路で渡す。
+        // 5-arg版のまま(=常にno-op)だとLv50/75/100の表がLv45+加速を含まない古い数字のまま出力される。
         return MobStatScaling.scaleMaxHealth(base, coeffs.maxHealth(),
-                coeffs.maxHealthGrowth(), coeffs.maxHealthGrowthInterval(), level);
+                coeffs.maxHealthGrowth(), coeffs.maxHealthGrowthInterval(),
+                coeffs.maxHealthHighLevelFrom(), coeffs.maxHealthHighLevelPerLevel(), level);
     }
 
     private static DefenseStats scaledPhysical(MobTypeDefinition def, int level) {

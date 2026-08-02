@@ -224,6 +224,8 @@ defaults:
     max-health: 0
     max-health-growth: 1.048
     max-health-growth-interval: 1.0
+    max-health-high-level-from: 45
+    max-health-high-level-per-level: 923.58
   max-health: 400
 mob-types:
   # --- A群: 敵対モブ(Paper の Enemy マーカー基準・41種) ---------------------
@@ -257,6 +259,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 785.05
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -309,6 +313,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 738.87
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -361,6 +367,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -411,6 +419,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 646.51
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -463,6 +473,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -513,6 +525,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 692.69
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -563,6 +577,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -615,6 +631,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 2031.88
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -665,6 +683,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 1293.02
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -715,6 +735,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 415.61
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -767,6 +789,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 5079.7
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -819,6 +843,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -871,6 +897,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 461.79
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -921,6 +949,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 2401.31
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -973,6 +1003,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1023,6 +1055,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 1200.66
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1073,6 +1107,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1125,6 +1161,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 969.76
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1175,6 +1213,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 554.15
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1225,6 +1265,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1275,6 +1317,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 646.51
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1325,6 +1369,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1375,6 +1421,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 1385.37
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1425,6 +1473,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 831.22
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1475,6 +1525,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 2401.31
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1527,6 +1579,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 1015.94
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1577,6 +1631,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 415.61
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1627,6 +1683,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 785.05
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1677,6 +1735,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 461.79
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1727,6 +1787,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 646.51
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1779,6 +1841,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 785.05
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1831,6 +1895,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 369.43
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1881,6 +1947,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 877.4
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1933,6 +2001,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 5541.5
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -1985,6 +2055,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 831.22
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2037,6 +2109,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 4617.91
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2089,6 +2163,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 1015.94
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2139,6 +2215,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 1246.84
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2189,6 +2267,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2239,6 +2319,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2289,6 +2371,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2341,6 +2425,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 323.25
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2391,6 +2477,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 461.79
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2441,6 +2529,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 461.79
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2491,6 +2581,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 2216.6
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2541,6 +2633,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 646.51
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2591,6 +2685,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 785.05
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2641,6 +2737,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 923.58
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2691,6 +2789,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 646.51
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025
@@ -2741,6 +2841,8 @@ mob-types:
       max-health: 0
       max-health-growth: 1.048
       max-health-growth-interval: 1.0
+      max-health-high-level-from: 45
+      max-health-high-level-per-level: 554.15
       armor-strength: 0.0025
       physical:
         defense-rate: 0.0025

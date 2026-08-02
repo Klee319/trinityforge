@@ -807,17 +807,22 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * Empty-swing アイテムCT: left-click air/block starts CT when the client sends an interact packet.
-     * Looking into void/sky often does <em>not</em> fire {@link PlayerInteractEvent} — that path is
-     * covered by {@link #onArmSwing} ({@link PlayerAnimationEvent}).
+     * Empty-swing アイテムCT: left-click block starts CT when the client sends an interact packet.
+     *
+     * <p>2026-08-03(棚卸し指摘): {@code LEFT_CLICK_AIR} は届かない。{@link PlayerInteractEvent} は
+     * コンストラクタで {@code blockClicked == null} なら無条件に {@code useClickedBlock = DENY} を刻み、
+     * {@code isCancelled()} はその値だけを見る（{@code RIGHT_CLICK_AIR} と全く同じ仕組み）。つまり
+     * 空中クリックは生成された瞬間から cancelled 済みで、{@code ignoreCancelled = true} のこのリスナーには
+     * 最初から配送されない。以前の分岐は到達不能な死にコードだったので削除した。
+     * 空中/void への空振りは {@link #onArmSwing} ({@link PlayerAnimationEvent}) が無条件に拾うため、
+     * 検知漏れは無い。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMissSwing(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
-        Action action = event.getAction();
-        if (action != Action.LEFT_CLICK_AIR && action != Action.LEFT_CLICK_BLOCK) {
+        if (event.getAction() != Action.LEFT_CLICK_BLOCK) {
             return;
         }
         maybeStartSwingCooldown(event.getPlayer());

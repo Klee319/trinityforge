@@ -302,6 +302,85 @@ coordinateCoefficient != 0.0` のみを見ていた）にもあった。`dimensi
 「下駄を計算に使う関数」を1箇所直しても、「そもそも下駄ありレベリングとして扱うか」を判定する
 ゲート条件が別に存在する場合は両方直すこと。
 
+## 45+難易度修正（2026-08-03）で確定した恒久知識
+
+### ダンジョンモブ(mob-import.yml)の攻撃合成は `mob-types.yml` とは別ymlの別ランプ — 片方に足したステが自動でもう片方に反映されるわけではない
+
+`unknown-mobs.synthesize: true` により、EliteMobsダンジョンモブは事実上**全て** `combat/mob-import.yml`
+の `ConversionPolicy.AttackRamp`（`RampParser#attackRamp`）から攻撃/防御/HPを合成される
+（出荷状態の `combat/mob-profiles.yml` は `profiles: {}` で空——焼き値のインポート結果ではなく、
+このランプが唯一の実効ソース）。フィールドモブの `combat/mob-types.yml`（`MobLevelCoefficients`）
+とは**別の Java 型・別の yml で独立に authored** されている。2026-08-03 以前、`AttackRamp` には
+`magic-ratio` フィールド自体が存在せず（8フィールド構成）、**ダンジョンモブの通常攻撃は100%物理固定**
+だった（フィールドモブは `mob-types.yml` 側で約41%が非ゼロ magic-ratio を持ち「4割魔法」設計に一致——
+`ShippedMobMagicRatioTest` で保証済み——なので、この非対称にこれまで誰も気づいていなかった）。
+
+**How**: `AttackRamp` を9フィールド化し `magic-ratio` を追加（8引数コンストラクタは後方互換で
+`magicRatio=ZERO`）。`mob-import.yml` の `attack:` に `magic-ratio: {base: 0.35, per-level: 0.0}`
+を追加し、全ダンジョンモブを一律35%ハイブリッド化した（モブ種別ごとの差は未実装、時間制約による
+意図的な単純化）。**新しいモブ攻撃ステータスを足すときは、`mob-types.yml`(フィールド) と
+`mob-import.yml`(ダンジョン) の両方に authored 値が要ることを都度確認すること**——
+Java側の型を1回拡張しただけでは、もう片方の yml には何も入らない。
+
+### `MobData.adjustLevel` は `MOB_LEVEL` だけを書く — HP属性(Bukkit Attribute)は追随しない
+
+`MobData.adjustLevel(holder, level)` はPDCの `MOB_LEVEL` 1キーだけを上書きする専用API（`MobData#stamp`
+系＝防御9キー全部を焼き直す処理とは別物）。`SymmetricCombatService` は攻撃力を **その都度 `MOB_LEVEL`
+を読んで動的に**スケールするため `adjustLevel` 後すぐ反映されるが、最大HPは spawn 時（または
+EliteMobs所有モブなら `EliteEntity.setMaxHealth()` 内オーバーライド時）に**一度だけ** Bukkit
+Attribute へ焼かれた値のままで、`adjustLevel` を呼んでも一切再計算されない。
+
+**How**: `MOB_LEVEL` を後から書き換える経路（例: `MobTypeSpawnListener#applyDimensionLevelBonus`）は、
+`ConfigManager.resolveRuntimeProfile` などで同じプロファイルを新しいレベルで再解決し、
+`MobStatScaling.scaleMaxHealth` を明示的に呼び直してHPも書き戻すこと
+（`MobTypeSpawnListener#reapplyDimensionBonusMaxHealth`、2026-08-03追加）。
+※出荷 `mob-types.yml` の `dimensions:` セクションは全モブで空（未設定）のため、この不具合自体は
+2026-08-03時点で**本番影響ゼロの潜在バグ**だった（`dimensions.<ENV>.base-level` を実際に設定する
+運用に入って初めて症状が出る）。「HPも上がっていたか」という棚卸し指摘への回答は「上がっていなかった
+（コード上は追随しない）が、出荷config側でこの経路自体が未使用だったので現状の45+体感難易度とは無関係」。
+
+### `ConversionPolicy.Ramp`(および`AttackRamp`)の「高レベル区間」は加算専用・`RampParser`が唯一のパース窓口
+
+`Ramp` は `effective = (base + per*level) * growth^(level/interval)` に加え、
+`level >= highLevelFrom` のとき `+ highLevelPerLevel * (level - highLevelFrom)` を**加算するだけ**の
+第2区間を持てる（2026-08-03追加、既定は `highLevelFrom=+∞` で完全no-op）。**乗算による第2指数区間に
+しなかったのは意図的**——base側カーブが0（例: mob-import.ymlの各種flat-defenseは低レベル帯でほぼ0）の
+場所に乗算区間を足すと「0×何倍=0」で無力化するため。連続性も設計上保証されている
+（`level==highLevelFrom` ちょうどでは加算項が0なので、効果は閾値の**次のレベルから**しか見えない
+——「Lv45ちょうどでは変化なし、Lv46から効く」という体感は仕様どおり）。
+
+`RampParser#ramp`/`#attackRamp` が全ての ramp 形状yml（`mob-import.yml` の max-health・
+physical/magical の各 flat-defense・attack 全般）を読む唯一の窓口なので、`high-level-from`/
+`high-level-per-level` を1回パーサへ足すだけで対象の全フィールドに波及する。**ただしフィールドモブ
+(`mob-types.yml`) 側の `MobLevelCoefficients.DefenseCoeffs`(physical/magical の
+defense-rate/resistance/damage-reduction/flat-defense) は今も purely-linear のまま
+（`base + coeff*level`、growthも高レベル区間も無い）**——2026-08-03改修で高レベル区間を得たのは
+field-mobの max-health(`MobLevelCoefficients.maxHealthHighLevelFrom/PerLevel`) だけで、
+DefenseCoeffs 側への同種拡張は意図的に未着手（今後の難易度パスへの申し送り）。
+
+### 難易度チューニングで「厳選/耐性投資を意味あるものにする」には flat-defense を使う——HP倍率や%軽減では差が出ない
+
+HPを一律倍率で増やしても、最適化済み攻撃者と未最適化攻撃者のTTK比は変わらない（両者に同じ倍率が掛かり
+比で相殺される）。defense-rate/resistance のような%軽減も同様に両者へ均等に効くため差が出ない。
+一方 flat-defense は `ComponentDamageCalculator` のパイプライン上「会心判定より前の初回減算」
+（本ファイル冒頭「守備力は初回減算」参照）であり、固定値の減算は**小さい方(未対策)のダメージ総量から
+比例して大きな割合を削る**ため、対策の有無で被ダメ軽減率に実差が生まれる。実測（2026-08-03、
+`combat/mob-import.yml` の物理/魔法flat-defenseへ Lv45+ `+150/level` を追加）: Lv60で未対策36.5%
+カット・対策済み19.4%カット、Lv80で未対策22.7%・対策済み12.1%。今後「投資が効く」難易度調整をする際は
+HP/%軽減ではなくflat-defense（またはこれに類する会心前の固定減算）を第一候補にすること。
+
+### config-editor: scaling block へキーを1個足したら `pruneEmptyScalingBlock` 系の空判定も同じ変更で更新する
+
+`tools/config-editor/public/js/mob-forms.js` の `pruneEmptyScalingBlock(host, key)` は
+`level-coefficients` などのブロックを保存時に「全フィールドが空なら丸ごと削除」する。この空判定
+（`topEmpty` 等）は**スキーマから自動導出されておらず、フィールド名を手で列挙したチェック**なので、
+Java側（`RampParser`/`MobTypesConfig#parseLevelCoefficients` 等）に新しい任意キーを追加しても、
+ここへ追記し忘れると「新フィールドだけ入力して保存」→「空扱いされてブロックごと消える」という
+**サイレントなデータロス**になる（フィールドがエディタに出ないだけの不具合より発見しづらい——
+一見保存できているように見える）。新しいscaling系キーを追加するときは、既存の
+「config-editorミラー2本（`lib/`と`public/js/`）を両方更新」に加えて、**この空判定も対象キーに
+含める**こと。
+
 ## 関連
 
 - [./progression-skilltree.md](./progression-skilltree.md)

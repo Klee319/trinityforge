@@ -18,16 +18,21 @@ public final class RampParser {
     }
 
     /**
-     * A {@code { base, per-level, growth, growth-interval }} ramp; null section yields a zero
-     * (linear) ramp. {@code growth}/{@code growth-interval} default to {@code 1.0} when absent, which
-     * makes {@link Ramp}'s geometric term vanish (= the historical linear ramp, full back-compat).
+     * A {@code { base, per-level, growth, growth-interval, high-level-from, high-level-per-level }}
+     * ramp; null section yields a zero (linear) ramp. {@code growth}/{@code growth-interval} default
+     * to {@code 1.0} when absent, which makes {@link Ramp}'s geometric term vanish (= the historical
+     * linear ramp, full back-compat). {@code high-level-from}/{@code high-level-per-level}
+     * (2026-08-03, 45+難易度修正) default to "never triggers" ({@code Double.POSITIVE_INFINITY}) /
+     * {@code 0.0} when absent — full back-compat for every config written before this pair existed.
      */
     public static Ramp ramp(ConfigurationSection section) {
         if (section == null) {
             return new Ramp(0.0, 0.0);
         }
         return new Ramp(section.getDouble("base", 0.0), section.getDouble("per-level", 0.0),
-                section.getDouble("growth", 1.0), section.getDouble("growth-interval", 1.0));
+                section.getDouble("growth", 1.0), section.getDouble("growth-interval", 1.0),
+                section.getDouble("high-level-from", Double.POSITIVE_INFINITY),
+                section.getDouble("high-level-per-level", 0.0));
     }
 
     /**
@@ -93,10 +98,13 @@ public final class RampParser {
     }
 
     /**
-     * The eight attacker-side ramps ({@code attack-power/flat-bonus-damage/percent-bonus-damage/
-     * crit-chance/crit-damage/penetration/damage-modifier/fixed-damage}), with the same
+     * The attacker-side ramps ({@code attack-power/flat-bonus-damage/percent-bonus-damage/
+     * crit-chance/crit-damage/penetration/damage-modifier/fixed-damage/magic-ratio}), with the same
      * scalar-mistake warnings as {@link #defenseRamp(ConfigurationSection, String, Logger, String)}.
-     * An absent {@code key} yields {@link AttackRamp#ZERO} (= unconfigured attack, fail-soft).
+     * An absent {@code key} yields {@link AttackRamp#ZERO} (= unconfigured attack, fail-soft). A
+     * present section with no {@code magic-ratio} child silently defaults to a zero ramp (0.0 at every
+     * level = 完全物理) via {@link #ramp(ConfigurationSection, String, Logger, String)}'s normal
+     * absent-key handling — no warning, matching every other optional attack field.
      */
     public static AttackRamp attackRamp(ConfigurationSection parent, String key, Logger log,
                                         String contextPath) {
@@ -118,7 +126,8 @@ public final class RampParser {
                 ramp(section, "crit-damage", log, childPath),
                 ramp(section, "penetration", log, childPath),
                 damageModifierRamp(section, log, childPath),
-                ramp(section, "fixed-damage", log, childPath));
+                ramp(section, "fixed-damage", log, childPath),
+                ramp(section, "magic-ratio", log, childPath));
     }
 
     private static Ramp damageModifierRamp(ConfigurationSection section, Logger log, String contextPath) {

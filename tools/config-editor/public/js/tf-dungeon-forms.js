@@ -69,14 +69,17 @@
     });
   }
 
-  // ---- base+per-level (+任意で growth 指数) ランプ (themes / mob-import) ----
+  // ---- base+per-level (+任意で growth 指数 / 高レベル加算区間) ランプ (themes / mob-import) ----
   //   opts.showGrowth: true のときだけ growth / growth-interval 欄を追加描画する。
-  //   growth 系は任意入力: 空欄なら書き込まない(未入力キーを追加しない=既定の線形挙動を維持)。
-  //   themes.yml 側は showGrowth を渡さない(base/per-levelのみ)ため、ここでの出し分けで
-  //   themes フォームへ growth 欄が漏れ出ることはない。
+  //   opts.showHighLevel: true のときだけ high-level-from / high-level-per-level 欄を追加描画する
+  //   (2026-08-03、45+難易度修正。ConversionPolicy.Ramp/RampParser参照)。
+  //   growth系・high-level系はどちらも任意入力: 空欄なら書き込まない(未入力キーを追加しない=
+  //   既定の従来挙動を維持)。themes.yml 側はどちらも渡さない(base/per-levelのみ)ため、
+  //   ここでの出し分けで themes フォームへ漏れ出ることはない。
   function rampEditors(host, keys, title, opts) {
     const o = opts || {};
     const showGrowth = !!o.showGrowth;
+    const showHighLevel = !!o.showHighLevel;
     const box = h("div", { class: "mob-defense-block" });
     box.appendChild(sub(title));
     const rows = h("div", { class: "stat-rows" });
@@ -105,12 +108,32 @@
           })
         );
       }
+      if (showHighLevel) {
+        rowChildren.push(
+          h("span", { class: "mini-label", text: "高レベル開始" }),
+          window.numberInput(ramp["high-level-from"] == null ? "" : ramp["high-level-from"], (v) => {
+            if (v == null || v === "") delete ramp["high-level-from"];
+            else ramp["high-level-from"] = v;
+          }),
+          h("span", { class: "mini-label", text: "高レベル加算/Lv" }),
+          window.numberInput(ramp["high-level-per-level"] == null ? "" : ramp["high-level-per-level"], (v) => {
+            if (v == null || v === "") delete ramp["high-level-per-level"];
+            else ramp["high-level-per-level"] = v;
+          })
+        );
+      }
       rows.appendChild(h("div", { class: "stat-row" }, rowChildren));
     }
     box.appendChild(rows);
     if (showGrowth) {
       box.appendChild(h("div", { class: "form-hint", text:
         "指数(growth)・指数間隔は空欄のままなら書き込まれず、従来どおり線形(基準+Lv×増分)のままです。growth>1.0で指数的に増加します。" }));
+    }
+    if (showHighLevel) {
+      box.appendChild(h("div", { class: "form-hint", text:
+        "高レベル開始・高レベル加算/Lvは空欄のままなら書き込まれず無効(従来どおり)です。設定した場合、"
+        + "そのレベル未満は完全無干渉、そのレベル以上だけ「加算/Lv ×(レベル−開始レベル)」を上のカーブに追加加算します"
+        + "(閾値そのものの値は連続、乗算ではなく純粋な加算です)。" }));
     }
     return box;
   }
@@ -384,7 +407,9 @@
   // attack ブロックの8ステ (mob-import.yml attack:)。damage-modifier は既定1.0(乗算中立)。
   const ATTACK_KEYS = [
     "attack-power", "flat-bonus-damage", "percent-bonus-damage", "crit-chance",
-    "crit-damage", "penetration", "damage-modifier", "fixed-damage"
+    "crit-damage", "penetration", "damage-modifier", "fixed-damage",
+    // 2026-08-03(U18): このモブの通常攻撃を魔法として解決する割合[0,1]。既定0(base)=完全物理。
+    "magic-ratio"
   ];
 
   window.buildMobImportForm = function buildMobImportForm(data) {
@@ -456,8 +481,8 @@
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "守備の合成式 (基準 + Lv×増分)" })],
       [
-        rampEditors(phys, DEFENSE_KEYS, "物理"),
-        rampEditors(mag, DEFENSE_KEYS, "魔法"),
+        rampEditors(phys, DEFENSE_KEYS, "物理", { showHighLevel: true }),
+        rampEditors(mag, DEFENSE_KEYS, "魔法", { showHighLevel: true }),
         (() => {
           const box = h("div", { class: "mob-defense-block" });
           box.appendChild(sub("防具強度"));
@@ -475,13 +500,13 @@
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "最大HP (max-health)" })],
-      [rampEditors(working, ["max-health"], "TF駆動の最大HP。0=unconfiguredならEliteMobs側のHPを維持", { showGrowth: true })]
+      [rampEditors(working, ["max-health"], "TF駆動の最大HP。0=unconfiguredならEliteMobs側のHPを維持", { showGrowth: true, showHighLevel: true })]
     ));
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "攻撃 (attack)" })],
       [
-        rampEditors(attack, ATTACK_KEYS, "攻撃側ステ (spawn時にモブへ焼き込み)", { showGrowth: true }),
+        rampEditors(attack, ATTACK_KEYS, "攻撃側ステ (spawn時にモブへ焼き込み)", { showGrowth: true, showHighLevel: true }),
         h("div", { class: "form-hint", text:
           "damage-modifier の既定は 1.0 (乗算の中立値)。0.0 にすると威力が半減するため、意図せず0にしないよう注意してください。" })
       ]

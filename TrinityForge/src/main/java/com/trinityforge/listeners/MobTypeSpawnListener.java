@@ -3,8 +3,10 @@ package com.trinityforge.listeners;
 import com.trinityforge.combat.AttackStats;
 import com.trinityforge.combat.DamageType;
 import com.trinityforge.combat.DefenseStats;
+import com.trinityforge.config.ConfigManager;
 import com.trinityforge.config.domains.MobTypesConfig;
 import com.trinityforge.mobs.MobLevelCoefficients;
+import com.trinityforge.mobs.MobProfile;
 import com.trinityforge.mobs.MobTransformCarryOver;
 import com.trinityforge.mobs.MobLevelScaling;
 import com.trinityforge.mobs.MobStatScaling;
@@ -55,10 +57,12 @@ public final class MobTypeSpawnListener implements Listener {
 
     private final Plugin plugin;
     private final MobTypesConfig mobTypesConfig;
+    private final ConfigManager configManager;
 
-    public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig) {
+    public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig, ConfigManager configManager) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.mobTypesConfig = Objects.requireNonNull(mobTypesConfig, "mobTypesConfig");
+        this.configManager = Objects.requireNonNull(configManager, "configManager");
     }
 
     /**
@@ -121,9 +125,43 @@ public final class MobTypeSpawnListener implements Listener {
         int eliteLevel = data.level();
         int adjusted = Math.max(0, eliteLevel + bonus);
         MobData.adjustLevel(entity, adjusted);
+        reapplyDimensionBonusMaxHealth(entity, data, adjusted);
         LOG.fine("[mob-types] dimension level bonus applied to elite-owned "
                 + entity.getType().name() + " environment=" + environment.name()
                 + " baseLevel=" + eliteLevel + " bonus=" + bonus + " -> " + adjusted);
+    }
+
+    /**
+     * 2026-08-03(棚卸し指摘: 次元基準レベルが攻撃力だけ上げてHPを上げていない): {@link MobData#adjustLevel}
+     * は {@code MOB_LEVEL} だけを書き換える。{@code MOB_LEVEL} は {@link com.trinityforge.combat.SymmetricCombatService}
+     * が攻撃のたびにライブで読む(攻撃力側の {@code DefaultDamageResolver} レベル倍率に即反映される)が、
+     * HP は Bukkit の {@code MAX_HEALTH} 属性としてフォークが所有権を主張した時点で一度だけ焼き込まれる値
+     * なので、この下駄だけでは絶対に反映されない — 「HPだけ置き去り」になる非対称の原因。
+     *
+     * <p>フォークが刻んだ {@code MOB_PROFILE_ID} から {@link ConfigManager#resolveRuntimeProfile} を
+     * 下駄込みの {@code adjustedLevel} で呼び直し(フォーク自身が HP を決めるのと同じ経路の再利用)、
+     * {@link MobProfile#hasMaxHealth()} なら Bukkit 属性を上書きする。{@code profileId} が無い
+     * ({@code dungeonTheme} だけの)個体は解決キーが無いため何もしない(安全側、既存個体を壊さない)。
+     */
+    private void reapplyDimensionBonusMaxHealth(LivingEntity entity, MobData data, int adjustedLevel) {
+        Optional<String> profileId = data.profileId();
+        if (profileId.isEmpty()) {
+            return;
+        }
+        long rollSeed = data.rollSeed().isPresent() ? data.rollSeed().getAsLong() : 0L;
+        String worldName = entity.getWorld().getName();
+        configManager.resolveRuntimeProfile(profileId.get(), adjustedLevel, rollSeed, worldName)
+                .filter(MobProfile::hasMaxHealth)
+                .ifPresent(profile -> applyMaxHealth(entity, profile.maxHealth(), currentHealthRatio(entity)));
+    }
+
+    /** 現在HP/現在MAX_HEALTH属性値の比率(0-1)。属性が無い/0以下なら安全側で満タン(1.0)扱い。 */
+    private static double currentHealthRatio(LivingEntity entity) {
+        AttributeInstance attr = entity.getAttribute(Attribute.MAX_HEALTH);
+        if (attr == null || attr.getValue() <= 0.0) {
+            return 1.0;
+        }
+        return clampRatio(entity.getHealth() / attr.getValue());
     }
 
     /**
@@ -209,7 +247,8 @@ public final class MobTypeSpawnListener implements Listener {
         if (maxHealthBase != null) {
             appliedMaxHealth = MobStatScaling.scaleMaxHealth(
                     maxHealthBase, coeffs.maxHealth(),
-                    coeffs.maxHealthGrowth(), coeffs.maxHealthGrowthInterval(), level);
+                    coeffs.maxHealthGrowth(), coeffs.maxHealthGrowthInterval(),
+                    coeffs.maxHealthHighLevelFrom(), coeffs.maxHealthHighLevelPerLevel(), level);
             applyMaxHealth(entity, appliedMaxHealth, healthRatio);
             scheduleHealthReassert(entity, appliedMaxHealth, healthRatio, physical.armorStrength());
         }

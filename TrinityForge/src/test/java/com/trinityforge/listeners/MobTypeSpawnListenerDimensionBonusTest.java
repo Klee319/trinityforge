@@ -2,12 +2,16 @@ package com.trinityforge.listeners;
 
 import com.trinityforge.combat.AttackStats;
 import com.trinityforge.combat.DefenseStats;
+import com.trinityforge.config.ConfigManager;
 import com.trinityforge.config.domains.MobTypesConfig;
 import com.trinityforge.mobs.MobLevelCoefficients;
+import com.trinityforge.mobs.MobProfile;
 import com.trinityforge.mobs.MobTypeDefinition;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.pdc.PdcKeys;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.EntityType;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.persistence.PersistentDataType;
@@ -44,6 +48,7 @@ class MobTypeSpawnListenerDimensionBonusTest {
     private ServerMock server;
     private Plugin tfPlugin;
     private MobTypesConfig mobTypesConfig;
+    private ConfigManager configManager;
     private MobTypeSpawnListener listener;
     private WorldMock netherWorld;
 
@@ -52,7 +57,8 @@ class MobTypeSpawnListenerDimensionBonusTest {
         server = MockBukkit.mock();
         tfPlugin = MockBukkit.createMockPlugin("TrinityForge");
         mobTypesConfig = mock(MobTypesConfig.class);
-        listener = new MobTypeSpawnListener(tfPlugin, mobTypesConfig);
+        configManager = mock(ConfigManager.class);
+        listener = new MobTypeSpawnListener(tfPlugin, mobTypesConfig, configManager);
 
         netherWorld = server.addSimpleWorld("nether_test_world");
         netherWorld.setEnvironment(World.Environment.NETHER);
@@ -121,5 +127,47 @@ class MobTypeSpawnListenerDimensionBonusTest {
         listener.onSpawn(new CreatureSpawnEvent(zombie, CreatureSpawnEvent.SpawnReason.NATURAL));
 
         assertEquals(10, MobData.of(zombie).level(), "下駄0なら従来どおりEMの値のまま");
+    }
+
+    /**
+     * 2026-08-03(棚卸し指摘の回帰テスト): 下駄が MOB_LEVEL(攻撃力側)だけでなく、
+     * {@link ConfigManager#resolveRuntimeProfile} 経由の再解決で MAX_HEALTH 属性にも反映されること。
+     */
+    @Test
+    void dimensionBaseLevelAlsoReappliesMaxHealthViaConfigManager() {
+        when(mobTypesConfig.definition(EntityType.ZOMBIE)).thenReturn(Optional.empty());
+        when(mobTypesConfig.dimensionBaseLevel(World.Environment.NETHER)).thenReturn(20);
+
+        MobProfile boosted = new MobProfile("test_boss", 30, null,
+                DefenseStats.NONE, DefenseStats.NONE, AttackStats.plain(0), 500.0);
+        when(configManager.resolveRuntimeProfile("test_boss", 30, 0L, "nether_test_world"))
+                .thenReturn(Optional.of(boosted));
+
+        ZombieMock zombie = spawnEliteOwnedZombie(10);
+        listener.onSpawn(new CreatureSpawnEvent(zombie, CreatureSpawnEvent.SpawnReason.NATURAL));
+
+        AttributeInstance attr = zombie.getAttribute(Attribute.MAX_HEALTH);
+        assertEquals(500.0, attr.getBaseValue(), 1.0e-9,
+                "下駄込みレベルで再解決したmaxHealthがMAX_HEALTH属性に反映されること");
+        assertEquals(500.0, zombie.getHealth(), 1.0e-9, "満タンスポーンなので現在HPも新しい上限まで入ること");
+    }
+
+    /** profileId が無い(dungeonThemeだけの)個体は解決キーが無いため、HP再解決は何もしない(安全側)。 */
+    @Test
+    void noProfileIdSkipsMaxHealthReapplyButStillAdjustsLevel() {
+        when(mobTypesConfig.definition(EntityType.ZOMBIE)).thenReturn(Optional.empty());
+        when(mobTypesConfig.dimensionBaseLevel(World.Environment.NETHER)).thenReturn(20);
+
+        ZombieMock zombie = new ZombieMock(server, UUID.randomUUID());
+        zombie.setLocation(new org.bukkit.Location(netherWorld, 0, 64, 0));
+        zombie.getPersistentDataContainer().set(PdcKeys.MOB_DUNGEON_THEME, PersistentDataType.STRING, "test_theme");
+        zombie.getPersistentDataContainer().set(PdcKeys.MOB_LEVEL, PersistentDataType.INTEGER, 10);
+        double baseHealthBefore = zombie.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
+
+        listener.onSpawn(new CreatureSpawnEvent(zombie, CreatureSpawnEvent.SpawnReason.NATURAL));
+
+        assertEquals(30, MobData.of(zombie).level(), "profileId不在でもレベルの下駄自体は乗ること");
+        assertEquals(baseHealthBefore, zombie.getAttribute(Attribute.MAX_HEALTH).getBaseValue(), 1.0e-9,
+                "profileId不在ならMAX_HEALTHは一切触らないこと");
     }
 }

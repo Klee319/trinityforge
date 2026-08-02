@@ -311,6 +311,39 @@ class MobTypesConfigTest {
     }
 
     @Test
+    void missingHighLevelBreakpointKeysDefaultToNoOpBackCompat() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    level-coefficients:
+                      max-health: 55
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(Double.POSITIVE_INFINITY, def.levelCoefficients().maxHealthHighLevelFrom(), DELTA);
+        assertEquals(0.0, def.levelCoefficients().maxHealthHighLevelPerLevel(), DELTA);
+    }
+
+    @Test
+    void parsesMaxHealthHighLevelBreakpointKeys() throws Exception {
+        ParseResult r = parse("""
+                mob-types:
+                  ZOMBIE:
+                    level: 1
+                    max-health: 380
+                    level-coefficients:
+                      max-health: 0
+                      max-health-high-level-from: 45
+                      max-health-high-level-per-level: 660.0
+                """);
+        MobTypeDefinition def = r.definitions().get(EntityType.ZOMBIE);
+        assertNotNull(def);
+        assertEquals(45.0, def.levelCoefficients().maxHealthHighLevelFrom(), DELTA);
+        assertEquals(660.0, def.levelCoefficients().maxHealthHighLevelPerLevel(), DELTA);
+    }
+
+    @Test
     void missingAttackPowerGrowthKeysDefaultToLinearBackCompat() throws Exception {
         ParseResult r = parse("""
                 mob-types:

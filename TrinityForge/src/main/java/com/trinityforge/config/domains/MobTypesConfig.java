@@ -46,6 +46,9 @@ public final class MobTypesConfig implements LoadableConfig {
     private static final String MAX_HEALTH = "max-health";
     private static final String MAX_HEALTH_GROWTH = "max-health-growth";
     private static final String MAX_HEALTH_GROWTH_INTERVAL = "max-health-growth-interval";
+    /** 2026-08-03(45+難易度修正): {@code level-coefficients} の max-health 追加加速の開始レベルと傾き。 */
+    private static final String MAX_HEALTH_HIGH_LEVEL_FROM = "max-health-high-level-from";
+    private static final String MAX_HEALTH_HIGH_LEVEL_PER_LEVEL = "max-health-high-level-per-level";
     private static final String ATTACK_POWER_GROWTH = "attack-power-growth";
     private static final String ATTACK_POWER_GROWTH_INTERVAL = "attack-power-growth-interval";
     private static final String LEVEL_COEFFICIENTS = "level-coefficients";
@@ -447,7 +450,10 @@ public final class MobTypesConfig implements LoadableConfig {
                 parseAttackCoeffs(section.getConfigurationSection("attack")),
                 // 省略時は growth=1.0/interval=1.0 = 従来どおりの線形(後方互換)。
                 section.getDouble(MAX_HEALTH_GROWTH, 1.0),
-                section.getDouble(MAX_HEALTH_GROWTH_INTERVAL, 1.0));
+                section.getDouble(MAX_HEALTH_GROWTH_INTERVAL, 1.0),
+                // 省略時は「発動しない」(Double.POSITIVE_INFINITY)= 従来どおり(後方互換)。
+                section.getDouble(MAX_HEALTH_HIGH_LEVEL_FROM, Double.POSITIVE_INFINITY),
+                section.getDouble(MAX_HEALTH_HIGH_LEVEL_PER_LEVEL, 0.0));
     }
 
     private static MobLevelCoefficients.AttackCoeffs parseAttackCoeffs(ConfigurationSection section) {

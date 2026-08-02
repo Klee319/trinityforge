@@ -92,10 +92,10 @@
   // キーを書き込まない(未入力=従来どおりの線形)。mob-types.yml は base+per-level+growth を
   // 1つのオブジェクトへまとめず {baseKey}/{baseKey}-growth/{baseKey}-growth-interval の3キーへ
   // 分散配置する既存レイアウトを踏襲するため、rampEditors そのものは再利用せず同じ入力UXだけ倣う。
-  function growthFieldRows(touch, obj, baseKey, labelPrefix) {
+  function growthFieldRows(touch, obj, baseKey, labelPrefix, opts) {
     const growthKey = `${baseKey}-growth`;
     const intervalKey = `${baseKey}-growth-interval`;
-    return [
+    const rows = [
       fieldRow(growthKey, window.numberInput(obj[growthKey] == null ? "" : obj[growthKey], (v) => {
         const target = touch();
         if (v === null || v === "") { delete target[growthKey]; return; }
@@ -113,6 +113,33 @@
         desc: "growth 1回分あたりのレベル幅(省略時1.0)。"
       })
     ];
+    // 2026-08-03(45+難易度修正): {baseKey}-high-level-from/{baseKey}-high-level-per-level。
+    // 現状は max-health だけが呼び出し側(buildLevelCoeffBlock)から opts.showHighLevel:true で
+    // 有効化されている(Java側 MobLevelCoefficients が max-health にしかこの2キーを持たないため。
+    // attack-power 側に同じUIを出すと「入力しても何も効かない」死んだフィールドになるので出さない)。
+    if (opts && opts.showHighLevel) {
+      const fromKey = `${baseKey}-high-level-from`;
+      const perLevelKey = `${baseKey}-high-level-per-level`;
+      rows.push(
+        fieldRow(fromKey, window.numberInput(obj[fromKey] == null ? "" : obj[fromKey], (v) => {
+          const target = touch();
+          if (v === null || v === "") { delete target[fromKey]; return; }
+          target[fromKey] = v;
+        }, { int: false }), {
+          label: `${labelPrefix}高レベル開始`,
+          desc: "このレベル以上だけ追加加算する第2区間の開始レベル。省略=発動しない(従来どおり)。"
+        }),
+        fieldRow(perLevelKey, window.numberInput(obj[perLevelKey] == null ? "" : obj[perLevelKey], (v) => {
+          const target = touch();
+          if (v === null || v === "") { delete target[perLevelKey]; return; }
+          target[perLevelKey] = v;
+        }, { int: false }), {
+          label: `${labelPrefix}高レベル加算/Lv`,
+          desc: "開始レベル以上、1レベルごとに加算する量(乗算ではなく純粋な加算)。開始レベルちょうどでは0(連続)。"
+        })
+      );
+    }
+    return rows;
   }
 
   function buildLevelCoeffBlock(host) {
@@ -156,7 +183,7 @@
         label: "最大HP係数",
         desc: "レベル1あたりの最大HP加算係数。"
       }),
-      ...growthFieldRows(touchCoeffs, coeffs, "max-health", "最大HP"),
+      ...growthFieldRows(touchCoeffs, coeffs, "max-health", "最大HP", { showHighLevel: true }),
       fieldRow("armor-strength", window.numberInput(coeffs["armor-strength"], (v) => {
         const c = touchCoeffs();
         if (v === null || v === "") { delete c["armor-strength"]; return; }
@@ -597,8 +624,12 @@
     const physEmpty = !phys || typeof phys !== "object" || Object.keys(phys).length === 0;
     const magEmpty = !mag || typeof mag !== "object" || Object.keys(mag).length === 0;
     const atkEmpty = !atk || typeof atk !== "object" || Object.keys(atk).length === 0;
+    // 2026-08-03(45+難易度修正): max-health-high-level-from/per-level をここに足し忘れると、
+    // このフィールドだけ入力して保存したときに「空扱いされてブロックごと消える」事故になる
+    // (現に max-health-growth 系はこの理由で既にチェック対象、同じ罠を踏まないため追加)。
     const topEmpty = coeffs["max-health"] == null && coeffs["armor-strength"] == null
-      && coeffs["max-health-growth"] == null && coeffs["max-health-growth-interval"] == null;
+      && coeffs["max-health-growth"] == null && coeffs["max-health-growth-interval"] == null
+      && coeffs["max-health-high-level-from"] == null && coeffs["max-health-high-level-per-level"] == null;
     if (physEmpty) delete coeffs.physical;
     if (magEmpty) delete coeffs.magical;
     if (atkEmpty) delete coeffs.attack;

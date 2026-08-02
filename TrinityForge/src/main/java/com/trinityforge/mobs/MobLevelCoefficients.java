@@ -17,6 +17,14 @@ import java.util.Objects;
  * scoped to max-health and attack-power only for now; other stats stay purely linear, but follow
  * the same {@code <field>}/{@code <field>Growth}/{@code <field>GrowthInterval} shape so a future
  * stat can opt in the same way.
+ *
+ * <p>{@code maxHealthHighLevelFrom}/{@code maxHealthHighLevelPerLevel} (2026-08-03, 45+難易度修正)
+ * add a second, ADDITIVE-only phase on top of the curve above: for
+ * {@code level >= maxHealthHighLevelFrom}, {@code + maxHealthHighLevelPerLevel * (level -
+ * maxHealthHighLevelFrom)} is added. {@code maxHealthHighLevelFrom} defaults to
+ * {@code Double.POSITIVE_INFINITY} (never triggers) so every pre-existing config is unaffected.
+ * See {@code ConversionPolicy.Ramp}'s own high-level fields for why this is additive rather than a
+ * second geometric growth (works even when the underlying curve is 0 at the breakpoint).
  */
 public record MobLevelCoefficients(
         double maxHealth,
@@ -25,7 +33,9 @@ public record MobLevelCoefficients(
         DefenseCoeffs magical,
         AttackCoeffs attack,
         double maxHealthGrowth,
-        double maxHealthGrowthInterval) {
+        double maxHealthGrowthInterval,
+        double maxHealthHighLevelFrom,
+        double maxHealthHighLevelPerLevel) {
 
     /**
      * <b>入れ子レコードの {@code ZERO} を参照してはいけない</b>(2026-08-01 修正)。
@@ -64,19 +74,36 @@ public record MobLevelCoefficients(
         if (!(maxHealthGrowthInterval > 0.0) || !Double.isFinite(maxHealthGrowthInterval)) {
             maxHealthGrowthInterval = 1.0;
         }
+        if (Double.isNaN(maxHealthHighLevelFrom)) {
+            maxHealthHighLevelFrom = Double.POSITIVE_INFINITY;
+        }
+        if (!Double.isFinite(maxHealthHighLevelPerLevel)) {
+            maxHealthHighLevelPerLevel = 0.0;
+        }
     }
 
     /** Back-compat: attack coeffs default to zero; max-health growth defaults to 1.0 (linear). */
     public MobLevelCoefficients(double maxHealth, double armorStrength,
                                 DefenseCoeffs physical, DefenseCoeffs magical) {
-        this(maxHealth, armorStrength, physical, magical, AttackCoeffs.ZERO, 1.0, 1.0);
+        this(maxHealth, armorStrength, physical, magical, AttackCoeffs.ZERO, 1.0, 1.0,
+                Double.POSITIVE_INFINITY, 0.0);
     }
 
     /** Back-compat: max-health growth defaults to 1.0 (linear, pre-growth behaviour). */
     public MobLevelCoefficients(double maxHealth, double armorStrength,
                                 DefenseCoeffs physical, DefenseCoeffs magical,
                                 AttackCoeffs attack) {
-        this(maxHealth, armorStrength, physical, magical, attack, 1.0, 1.0);
+        this(maxHealth, armorStrength, physical, magical, attack, 1.0, 1.0,
+                Double.POSITIVE_INFINITY, 0.0);
+    }
+
+    /** Back-compat: max-health high-level breakpoint defaults to a no-op. */
+    public MobLevelCoefficients(double maxHealth, double armorStrength,
+                                DefenseCoeffs physical, DefenseCoeffs magical,
+                                AttackCoeffs attack, double maxHealthGrowth,
+                                double maxHealthGrowthInterval) {
+        this(maxHealth, armorStrength, physical, magical, attack, maxHealthGrowth,
+                maxHealthGrowthInterval, Double.POSITIVE_INFINITY, 0.0);
     }
 
     public record DefenseCoeffs(

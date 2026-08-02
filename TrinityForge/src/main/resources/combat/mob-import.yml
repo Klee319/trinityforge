@@ -53,17 +53,24 @@ unknown-mobs:
 theme:
   default: ""
 
+# 2026-08-03(45+難易度修正): physical/magical の flat-defense に high-level-from/high-level-per-level
+# (ConversionPolicy.Ramp、RampParser参照)を追加。base/per-levelが0のままなので、Lv45未満は
+# 従来どおり完全無干渉(flat-defense=0)。Lv45以降だけ、レベル1につき+15ずつ乗る加算専用の第2区間。
+# 固定ダメージと違い貫通不可の防御率とは別で、この flat-defense は「クリット前に減算される純粋な
+# 固定値」(ComponentDamageCalculator step2)なので、厳選で攻撃力を伸ばした対策済みプレイヤーほど
+# 相対的な被害率が小さくなる — 「厳選(攻撃力の伸び)が効く」ための主レバー。数値の根拠は
+# tmp/balance-45plus.js の Lv60/Lv80 試算(未対策と対策ありの被害率に約2倍の差が出る水準)。
 physical:
   defense-rate:     { base: 0.0,  per-level: 0.0 }
   resistance:       { base: 0.12, per-level: 0.0 }
   damage-reduction: { base: 0.0,  per-level: 0.0 }
-  flat-defense:     { base: 0.0,  per-level: 0.0 }
+  flat-defense:     { base: 0.0,  per-level: 0.0, high-level-from: 45, high-level-per-level: 150.0 }
 
 magical:
   defense-rate:     { base: 0.0,  per-level: 0.0 }
   resistance:       { base: 0.12, per-level: 0.0 }
   damage-reduction: { base: 0.0,  per-level: 0.0 }
-  flat-defense:     { base: 0.0,  per-level: 0.0 }
+  flat-defense:     { base: 0.0,  per-level: 0.0, high-level-from: 45, high-level-per-level: 150.0 }
 
 armor-strength:     { base: 0.0, per-level: 0.0 }
 
@@ -71,7 +78,14 @@ variance:
   hp:     0.15
   attack: 0.15
 
-max-health:         { base: 150.0, per-level: 0.0, growth: 1.072, growth-interval: 1.0 }
+# 2026-08-03(45+難易度修正): high-level-from/high-level-per-level(Lv45から加算専用の第2区間、
+# ConversionPolicy.Ramp参照)を追加。Lv45未満は growth 1.072 の従来カーブのまま完全無干渉。
+# Lv45以降は「Lv45時点のHP × 約0.52/レベル」相当を追加加算し、Lv60で約3.8倍・Lv80で約2.6倍まで
+# HPを積み増す(討伐に要する秒数の崩壊を止め、フィールドモブと同水準の手応えへ戻す)。
+# 根拠・試算過程は tmp/balance-45plus.js。attack-power 側は意図的に変更しない
+# (被ダメージ側をこれ以上悪化させて詰みを作らないため、投資が効くレバーは flat-defense に集約)。
+max-health:         { base: 150.0, per-level: 0.0, growth: 1.072, growth-interval: 1.0,
+                      high-level-from: 45, high-level-per-level: 1800.0 }
 
 attack:
   attack-power:         { base: 7.0, per-level: 0.0, growth: 1.03, growth-interval: 1.0 }
@@ -82,3 +96,12 @@ attack:
   penetration:          { base: 0.0, per-level: 0.0 }
   damage-modifier:      { base: 1.0, per-level: 0.0 }
   fixed-damage:         { base: 0.0, per-level: 0.0 }
+  # 2026-08-03(U18): このランプには元々 magic-ratio が無く、unknown-mobs.synthesize / level: dynamic
+  # で解決される全ダンジョンモブ(mob-profiles.ymlはprofiles: {}で空 = 事実上これが全て)が
+  # 常に完全物理(magic-ratio=0.0)になっていた。combat/mob-types.yml のフィールドモブは
+  # 41種中17種(約4割)が magic-ratio>0 で「物理耐性だけ積めば全部軽減できる」を避けているのに、
+  # ダンジョン側だけこの設計が抜けており、「耐性の対策なしで勝てる」の一因になっていた。
+  # per-levelは意図的に0(magic-ratioはレベルで伸びる量ではなく攻撃の型の分類、MobStatScaling参照)。
+  # 個体ごとに物理/魔法を分けず全ダンジョンモブを一律35%魔法のハイブリッド攻撃にすることで、
+  # 物理防御だけに寄せても魔法防御だけに寄せても必ず一定の被弾が残るようにする。
+  magic-ratio:          { base: 0.35, per-level: 0.0 }
