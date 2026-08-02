@@ -553,6 +553,54 @@ tiers:
         max: 1
         mobs:
           - PARCHED
+    # 【戦闘系スレッド8種のドロップ】 2026-08-02 追加
+    # スレッド40種のうち「入手経路=ダンジョン」に割り当てた8種。残りは儀式(catalog.yml の
+    # recipe: method: ritual)と構造物チェスト(ArsPaper loot-tables.yml)に分けてある。
+    # 高レベル帯だけに置いてあるのは、フィールドモブのレベルがワールド原点からの距離で決まる
+    # (coordinate-coefficient 0.02 = 50ブロックで+1)ため、Lv65 = 原点から約3250ブロック以上、
+    # Lv85 = 約4250ブロック以上が実質の下限条件になり、近場の湧き潰し量産で稼げないため。
+    #
+    # 【mobs: も roles: もあえて書かない理由】
+    # 進捗 thread_all が「40種すべてのスレッドを集める」を条件にしている。特定 EntityType に
+    # 紐づけると、そのモブが Lv65 に届く距離で湧かないプレイヤーは永久に集められない。
+    # roles: も同じで、職業未選択のプレイヤーや別職業のプレイヤーには一切落ちなくなる
+    # (=収集不能)。帯自体の mobs: が敵性モブ43種に絞られているので、牧場の家畜では出ない。
+    #
+    # 【確率の根拠】 Lv65 0.2% / Lv85 0.4%。8種あるので「何かしらのスレッドが出る」のは
+    # 約62キルに1回 / 約31キルに1回。スレッドは生成時にステータスが個体抽選される
+    # (厳選対象)ので、1本出て終わりではなく回し続ける前提の数量に置いてある。
+      - material: custom:thread_spoils
+        chance: 0.002   # 戦利品のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_experience
+        chance: 0.002   # 経験のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_mending_flesh
+        chance: 0.002   # 治癒のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_thorn
+        chance: 0.002   # 棘のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_concussion
+        chance: 0.002   # 昏倒のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_swiftcast
+        chance: 0.002   # 速攻のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_marksman
+        chance: 0.002   # 射手のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_luck
+        chance: 0.002   # 幸運のスレッド
+        min: 1
+        max: 1
     mobs:
       - BLAZE
       - BOGGED
@@ -704,6 +752,54 @@ tiers:
         max: 2
         mobs:
           - PARCHED
+    # 【戦闘系スレッド8種のドロップ】 2026-08-02 追加
+    # スレッド40種のうち「入手経路=ダンジョン」に割り当てた8種。残りは儀式(catalog.yml の
+    # recipe: method: ritual)と構造物チェスト(ArsPaper loot-tables.yml)に分けてある。
+    # 高レベル帯だけに置いてあるのは、フィールドモブのレベルがワールド原点からの距離で決まる
+    # (coordinate-coefficient 0.02 = 50ブロックで+1)ため、Lv65 = 原点から約3250ブロック以上、
+    # Lv85 = 約4250ブロック以上が実質の下限条件になり、近場の湧き潰し量産で稼げないため。
+    #
+    # 【mobs: も roles: もあえて書かない理由】
+    # 進捗 thread_all が「40種すべてのスレッドを集める」を条件にしている。特定 EntityType に
+    # 紐づけると、そのモブが Lv65 に届く距離で湧かないプレイヤーは永久に集められない。
+    # roles: も同じで、職業未選択のプレイヤーや別職業のプレイヤーには一切落ちなくなる
+    # (=収集不能)。帯自体の mobs: が敵性モブ43種に絞られているので、牧場の家畜では出ない。
+    #
+    # 【確率の根拠】 Lv65 0.2% / Lv85 0.4%。8種あるので「何かしらのスレッドが出る」のは
+    # 約62キルに1回 / 約31キルに1回。スレッドは生成時にステータスが個体抽選される
+    # (厳選対象)ので、1本出て終わりではなく回し続ける前提の数量に置いてある。
+      - material: custom:thread_spoils
+        chance: 0.004   # 戦利品のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_experience
+        chance: 0.004   # 経験のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_mending_flesh
+        chance: 0.004   # 治癒のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_thorn
+        chance: 0.004   # 棘のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_concussion
+        chance: 0.004   # 昏倒のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_swiftcast
+        chance: 0.004   # 速攻のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_marksman
+        chance: 0.004   # 射手のスレッド
+        min: 1
+        max: 1
+      - material: custom:thread_luck
+        chance: 0.004   # 幸運のスレッド
+        min: 1
+        max: 1
     mobs:
       - BLAZE
       - BOGGED

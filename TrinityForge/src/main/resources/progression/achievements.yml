@@ -741,6 +741,11 @@ achievements:
       collection:
         scope: item
         threshold: 5
+        # 2026-08-02: スレッドが 16 -> 40 種になったのに合わせ、候補に儀式で作れる
+        # 制作系8種も足した。この節は「5 種類集める」の候補であって全種の一覧ではない
+        # (全種の基準表は下の thread_all)。候補を儀式製に寄せてあるのは、この段階の
+        # プレイヤーがまだ深部構造物にも高レベル帯モブにも到達していないため —
+        # 探索/戦闘経路のスレッドしか候補が無いと、進めないのに条件だけ見える形になる。
         targets:
           - thread_mana_regen
           - thread_mana_boost
@@ -749,6 +754,14 @@ achievements:
           - thread_damage_mana_recovery
           - thread_spell_cost_down
           - thread_backpack
+          - thread_mana_amplify
+          - thread_mana_circulate
+          - thread_source_thrift
+          - thread_artisan
+          - thread_ritualist
+          - thread_thrift
+          - thread_salvage
+          - thread_scholar
     broadcast: false
     rewards:
       special: []
@@ -762,13 +775,24 @@ achievements:
     parent: thread_variety
     icon: WHITE_WOOL
     lore:
-      - "<gray>16 種すべてのスレッドを集める。</gray>"
+      - "<gray>40 種すべてのスレッドを集める。</gray>"
       - "<dark_gray>数値の厳選はここから始まる(集めるだけなら終わりではない)。</dark_gray>"
     trigger:
       type: static
       collection:
         scope: item
+        # 【このリストはスレッドIDの「基準表」も兼ねている】 2026-08-02 に 16 -> 40 種へ拡張。
+        # ShippedAchievementTreeTest#collectionItemTargetsAreKnownIds は、他ノードの
+        # collection.targets が「図鑑エントリ」か「ここに並んだID」のどちらかに含まれることを
+        # 検査している。スレッドは ArsPaper 側の登録(materials.yml 等)と突き合わせられない
+        # (フォークのソースは .gitignore 除外でクローンに存在しない)ため、ここが唯一の照合先。
+        # 新しいスレッドIDを他ノードに書く前に、必ずここへ足すこと。足さないと綴りが正しくても
+        # テストが落ちる。逆にここを削ると、綴り間違いを誰も検出できなくなる。
+        #
+        # 内訳は入手経路別に 制作8 / ルート8 / ダンジョン8 + 既存16。
+        # threshold は省略時「列挙件数」= 40 になる(AchievementsConfig の既定)。
         targets:
+          # --- 既存16種 (CMD 300001-300016) ---
           - thread_empty
           - thread_mana_regen
           - thread_mana_boost
@@ -785,6 +809,33 @@ achievements:
           - thread_conduit_power
           - thread_hero_of_the_village
           - thread_flight
+          # --- 経路=制作: 儀式で作る8種 (catalog.yml の recipe: method: ritual) ---
+          - thread_mana_amplify
+          - thread_mana_circulate
+          - thread_source_thrift
+          - thread_artisan
+          - thread_ritualist
+          - thread_thrift
+          - thread_salvage
+          - thread_scholar
+          # --- 経路=ルート: 構造物チェスト8種 (ArsPaper loot-tables.yml) ---
+          - thread_miner
+          - thread_angler
+          - thread_harvest
+          - thread_timber
+          - thread_diligence
+          - thread_endurance
+          - thread_gourmet
+          - thread_slow_falling
+          # --- 経路=ダンジョン: 高レベル帯モブドロップ8種 (combat/mob-level-table.yml) ---
+          - thread_spoils
+          - thread_experience
+          - thread_mending_flesh
+          - thread_thorn
+          - thread_concussion
+          - thread_swiftcast
+          - thread_marksman
+          - thread_luck
     broadcast: true
     rewards:
       special:

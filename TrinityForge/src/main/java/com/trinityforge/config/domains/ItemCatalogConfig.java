@@ -143,7 +143,8 @@ public final class ItemCatalogConfig implements LoadableConfig {
                             parseLore(entry),
                             List.copyOf(recipes),
                             parseColor(entry, material, id, log),
-                            entry.getBoolean("enchant-glow", false)));
+                            entry.getBoolean("enchant-glow", false),
+                            parseExternalSource(entry, id, log)));
                 } catch (IllegalArgumentException ex) {
                     log.warning("[" + PATH + "] item '" + id + "' invalid (" + ex.getMessage() + "); skipped");
                     skipped++;
@@ -238,6 +239,33 @@ public final class ItemCatalogConfig implements LoadableConfig {
             return null;
         }
         return raw;
+    }
+
+    /**
+     * {@code external-source:} を読む —— 「このIDの<b>実体</b>を持っているのは別プラグインだ」宣言。
+     * 未指定/空は {@code null}(＝TF カタログが実体を持つ、従来どおり)。
+     *
+     * <p>これが要る理由は {@link ItemTemplate#externalSource()} の javadoc に書いてあるが、要点は
+     * 「カタログにも同IDのエントリが必要(CMD台帳・レシピ・図鑑・エディタ表示の真源)だが、
+     * <b>配るときに作るべき実体はフォーク側</b>」という二面性がここでしか表現できないこと。
+     *
+     * <p>fail-soft ({@code color:} と同じ方針): 未知のソース名は警告して宣言だけ無視する。
+     * TF 側に問い合わせ経路が無い名前を黙って受け入れると、書いた側は宣言したつもりのまま
+     * 従来の解決順で動き続け、<b>症状が「直っていない」としか出ない</b>ため。
+     */
+    private static String parseExternalSource(ConfigurationSection entry, String id, Logger log) {
+        String raw = entry.getString("external-source");
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        if (!ItemTemplate.KNOWN_EXTERNAL_SOURCES.contains(normalized)) {
+            log.warning("[" + PATH + "] item '" + id + "' external-source '" + raw
+                    + "' は未知の外部ソース名。TF 側に問い合わせ経路が無いため宣言を無視します"
+                    + "(有効値: " + ItemTemplate.KNOWN_EXTERNAL_SOURCES + ")");
+            return null;
+        }
+        return normalized;
     }
 
     /**

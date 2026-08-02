@@ -211,7 +211,7 @@ class ShippedAchievementTreeTest {
     /**
      * {@code scope: item} の対象IDのタイプミスを拾う。
      *
-     * <p>照合先は「collection.yml のカテゴリに載っているID」＋「thread_all ノードが列挙したスレッド16種」。
+     * <p>照合先は「collection.yml のカテゴリに載っているID」＋「thread_all ノードが列挙したスレッド40種」。
      * ArsPaper 側の登録一覧そのもの({@code materials.yml} 等)とは突き合わせられない ──
      * フォークのソースは {@code .gitignore} で除外されておりクローンには存在しないため、
      * そこへ依存させるとクローン先でこのテストが落ちる(または無言でスキップされる)。
@@ -220,7 +220,7 @@ class ShippedAchievementTreeTest {
      * 「1ノードだけ永久に未達成」が、他ノードとの綴り不一致として現れる。
      */
     @Test
-    @DisplayName("collection.scope: item の対象IDは図鑑エントリかスレッド16種のいずれか")
+    @DisplayName("collection.scope: item の対象IDは図鑑エントリかスレッド40種のいずれか")
     void collectionItemTargetsAreKnownIds() {
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(new File(COLLECTION));
         Set<String> known = new LinkedHashSet<>();
@@ -236,8 +236,8 @@ class ShippedAchievementTreeTest {
         AchievementsConfig.Achievement threadAll = achievements.stream()
                 .filter(a -> a.id().equals("thread_all")).findFirst().orElseThrow(
                         () -> new AssertionError("thread_all ノードが無い(スレッドIDの基準表が失われている)"));
-        assertEquals(16, threadAll.trigger().collectionTargets().size(),
-                "スレッドは threads.yml に16種。増減したらこのノードも合わせる");
+        assertEquals(40, threadAll.trigger().collectionTargets().size(),
+                "スレッドは ArsPaper の ThreadType に40種(2026-08-02 に16種から拡張)。増減したらこのノードも合わせる");
         known.addAll(threadAll.trigger().collectionTargets());
 
         for (AchievementsConfig.Achievement achievement : achievements) {
@@ -247,7 +247,7 @@ class ShippedAchievementTreeTest {
             for (String target : achievement.trigger().collectionTargets()) {
                 assertTrue(known.contains(target),
                         achievement.id() + " の collection.targets '" + target
-                                + "' は図鑑エントリにもスレッド16種にも無い(綴り違いなら永久に未達成)");
+                                + "' は図鑑エントリにもスレッド40種にも無い(綴り違いなら永久に未達成)");
             }
         }
     }

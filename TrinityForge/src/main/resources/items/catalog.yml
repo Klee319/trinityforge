@@ -27,6 +27,24 @@
 #                             例: color: "#8B0000"   (暗い赤色の革鎧)
 #   enchant-glow           (optional) true でエンチャント光沢(発光)だけを付与する(実際のエンチャント効果は
 #                           付かない見た目だけの光沢。隠しエンチャント+HIDE_ENCHANTSの定番手法)。既定 false。
+#   external-source        (optional) 「このIDの"実体"を持っているのは別プラグインだ」という宣言。
+#                           有効値は現在 arspaper のみ。未指定 = TFカタログが実体を持つ(従来どおり)。
+#                           これを書くと CrossPluginItemResolver#create が【そのIDに限り】
+#                           ArsPaper 側の実体を先に作りに行き、Ars が居ない/未登録なら
+#                           従来どおりカタログへフォールバックする(解決順が変わるのは宣言したIDだけ)。
+#                           【何のためにあるか】スレッド(thread_* 40件)の装着可否は、ArsPaperフォークの
+#                           ThreadGui#isEffectThread が Ars の PDC 2種
+#                           (arspaper:custom_item_id と arspaper:thread_item_type)で判定している。
+#                           TF本体は後者を1箇所も書かないので、TFカタログ側で解決した瞬間に
+#                           「見た目は同じだが防具のスレッド枠に挿さらないスレッド」が無言で出来上がる。
+#                           それでもカタログにエントリが必要なのは、CMD台帳・レシピ・図鑑・エディタ表示が
+#                           カタログを真源にしているため(エントリごと消すことはできない)。
+#                           つまりこのキーは「台帳としては載せるが、配るときの実体はフォークから取る」を
+#                           表現するためのもの。thread_* から外す場合は、配布経路
+#                           (gacha.yml / combat/mob-level-table.yml の add-drops / 実績報酬 等)が
+#                           全て装着不可のスレッドを配り始めることを意味する。
+#                           ※出荷 thread_* 40件に必ず付いていることは
+#                             ShippedCatalogExternalSourceDriftTest が固定している。
 #   recipe                 (optional) クラフト/鍛冶レシピ。method で方式を選ぶ。
 #                           workbench: TF起動時/reload時に trinityforge:catalog_<id> でBukkit登録。
 #                           ritual: Ars儀式登録。combine: 金床。netherite: 鍛冶台(Bukkit登録なし)。
@@ -3393,6 +3411,7 @@ items:
       type: shapeless
       ingredients: []
   thread_empty:
+    external-source: arspaper
     material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gray>空のスレッド</gray>
     custom-model-data: 300001
@@ -3423,6 +3442,7 @@ items:
         type: shapeless
         ingredients: []
   thread_mana_regen:
+    external-source: arspaper
     material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <aqua>マナ回復速度上昇のスレッド</aqua>
     custom-model-data: 300002
@@ -3441,6 +3461,7 @@ items:
       type: shapeless
       ingredients: []
   thread_mana_boost:
+    external-source: arspaper
     material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <blue>マナ最大値上昇のスレッド</blue>
     custom-model-data: 300003
@@ -3461,6 +3482,7 @@ items:
       type: shapeless
       ingredients: []
   thread_speed:
+    external-source: arspaper
     material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <white>迅速のスレッド</white>
     custom-model-data: 300004
@@ -3482,6 +3504,7 @@ items:
       type: shapeless
       ingredients: []
   thread_jump_boost:
+    external-source: arspaper
     material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <green>跳躍のスレッド</green>
     custom-model-data: 300005
@@ -3503,6 +3526,7 @@ items:
       type: shapeless
       ingredients: []
   thread_night_vision:
+    external-source: arspaper
     material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_aqua>暗視のスレッド</dark_aqua>
     custom-model-data: 300006
@@ -3524,6 +3548,7 @@ items:
       type: shapeless
       ingredients: []
   thread_fire_resistance:
+    external-source: arspaper
     material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <red>耐火のスレッド</red>
     custom-model-data: 300007
@@ -3545,6 +3570,7 @@ items:
       type: shapeless
       ingredients: []
   thread_dolphins_grace:
+    external-source: arspaper
     material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_aqua>イルカの好意のスレッド</dark_aqua>
     custom-model-data: 300008
@@ -3566,6 +3592,7 @@ items:
       type: shapeless
       ingredients: []
   thread_conduit_power:
+    external-source: arspaper
     material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <aqua>コンジットパワーのスレッド</aqua>
     custom-model-data: 300009
@@ -3587,6 +3614,7 @@ items:
       type: shapeless
       ingredients: []
   thread_hero_of_the_village:
+    external-source: arspaper
     material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <green>村の英雄のスレッド</green>
     custom-model-data: 300010
@@ -3607,6 +3635,7 @@ items:
       type: shapeless
       ingredients: []
   thread_health_boost:
+    external-source: arspaper
     material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <red>体力増強のスレッド</red>
     custom-model-data: 300011
@@ -3628,6 +3657,7 @@ items:
       type: shapeless
       ingredients: []
   thread_hit_mana_recovery:
+    external-source: arspaper
     material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gold>被弾マナ回復のスレッド</gold>
     custom-model-data: 300012
@@ -3648,6 +3678,7 @@ items:
       type: shapeless
       ingredients: []
   thread_damage_mana_recovery:
+    external-source: arspaper
     material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_red>攻撃マナ回復のスレッド</dark_red>
     custom-model-data: 300013
@@ -3667,6 +3698,7 @@ items:
       type: shapeless
       ingredients: []
   thread_spell_cost_down:
+    external-source: arspaper
     material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <yellow>詠唱効率のスレッド</yellow>
     custom-model-data: 300014
@@ -3688,6 +3720,7 @@ items:
       type: shapeless
       ingredients: []
   thread_flight:
+    external-source: arspaper
     material: SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <white>飛行のスレッド</white>
     custom-model-data: 300015
@@ -3711,6 +3744,7 @@ items:
       type: shapeless
       ingredients: []
   thread_backpack:
+    external-source: arspaper
     material: SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_green>バックパックのスレッド</dark_green>
     custom-model-data: 300016
@@ -3732,6 +3766,418 @@ items:
       source: 1000
       type: shapeless
       ingredients: []
+  # ==========================================================================
+  # スレッド 24 種の追加 (CMD 300017-300040) 2026-08-02
+  #
+  # 【id の規約 — ズレると無言で壊れる】
+  #   カタログIDは必ず "thread_" + ArsPaper 側 ThreadType の id と1文字も違えないこと。
+  #   RitualManager#resolveResult は Ars 実体を TF catalog より優先して解決するため、
+  #   綴りがズレると「儀式では作れるのに防具へ装着できないスレッド」が無言で出来上がる。
+  #
+  # 【効果値はここには書かない】
+  #   単体効果は ArsPaper の threads.yml、複数装備のセット効果は thread-sets.yml が持つ。
+  #   TF 側 stats/item-stats.yml の MATERIAL#CMD には【絶対に書かない】 —
+  #   ArmorManaListener はソケット済みスレッドについてそこを読むが、同じエントリを
+  #   PlayerStatAggregator#aggregate が材質フィルタ無しでメインハンド寄与としても読むため、
+  #   「防具に挿さず手に持つだけで効果が乗る」穴が開く。
+  #
+  # 【入手経路の3分割】
+  #   制作(8種)      : ここに recipe: (method: ritual) を持つ。祭壇で作る。
+  #   ルート(8種)    : ArsPaper の loot-tables.yml。構造物チェストの追加抽選。
+  #   ダンジョン(8種): combat/mob-level-table.yml の add-drops(Lv65/Lv85 帯)。
+  #   recipe: を持たないものは、儀式では作れない = そのカタログIDの入手経路が
+  #   上のどちらか一方に限定されるということ(意図した設計であって書き忘れではない)。
+  # ==========================================================================
+
+  # --- 経路=制作: 儀式で作る 8 種 -------------------------------------------
+  thread_mana_amplify:
+    external-source: arspaper
+    material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <blue>マナ増幅のスレッド</blue>
+    custom-model-data: 300017
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <blue>装備1個ごとに 最大マナ +3% (3個まで累積)</blue>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>器を広げれば、届く場所も広がる</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:source_gem_block
+        - LAPIS_BLOCK x2
+        - custom:magebloom_fiber x3
+      source: 2600
+      type: shapeless
+      ingredients: []
+  thread_mana_circulate:
+    external-source: arspaper
+    material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <aqua>循環のスレッド</aqua>
+    custom-model-data: 300018
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <aqua>装備1個ごとに マナ回復速度 +4% (3個まで累積)</aqua>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>絶えず巡るものは尽きない</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - GHAST_TEAR x3
+        - custom:source_gem x3
+        - custom:reinforced_fiber
+      source: 2400
+      type: shapeless
+      ingredients: []
+  thread_source_thrift:
+    external-source: arspaper
+    material: FLOW_POTTERY_SHERD
+    display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
+    custom-model-data: 300019
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_aqua>儀式のソース消費 -2% / 3個で -5% / 5個で -8%</dark_aqua>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>流れを読む者は溺れない</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - AMETHYST_SHARD x4
+        - custom:source_gem_block
+        - custom:magebloom_fiber x2
+      source: 2800
+      type: shapeless
+      ingredients: []
+  thread_artisan:
+    external-source: arspaper
+    material: ARMS_UP_POTTERY_SHERD
+    display-name: <gold>匠のスレッド</gold>
+    custom-model-data: 300020
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <gold>作業台クラフトの品質 +1 / 3個で +2 / 5個で +3</gold>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>同じ材料でも、手が違えば別物になる</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:tf_core_jewelry
+        - IRON_BLOCK x2
+        - custom:source_gem x2
+      source: 2000
+      type: shapeless
+      ingredients: []
+  thread_ritualist:
+    external-source: arspaper
+    material: BREWER_POTTERY_SHERD
+    display-name: <light_purple>儀式師のスレッド</light_purple>
+    custom-model-data: 300021
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <light_purple>儀式クラフトの品質 +1 / 3個で +2 / 5個で +3</light_purple>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>作法を知る者にだけ、祭壇は応える</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - AMETHYST_SHARD x2
+      source: 2400
+      type: shapeless
+      ingredients: []
+  thread_thrift:
+    external-source: arspaper
+    material: PLENTY_POTTERY_SHERD
+    display-name: <yellow>倹約のスレッド</yellow>
+    custom-model-data: 300022
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <yellow>儀式の台座素材が 2% / 3個で 4% / 5個で 7% の確率で返る</yellow>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>捨てるところなど、どこにもない</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:tf_core_wood
+        - custom:tf_core_vegetable
+        - custom:source_gem x2
+      source: 1800
+      type: shapeless
+      ingredients: []
+  thread_salvage:
+    external-source: arspaper
+    material: SCRAPE_POTTERY_SHERD
+    display-name: <gray>解体のスレッド</gray>
+    custom-model-data: 300023
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <gray>金床での解体の戻り量 +5% / 3個で +10% / 5個で +15%</gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>壊し方を知る者は、作り方も知っている</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:hard_metal x2
+        - IRON_BLOCK
+        - custom:source_gem x2
+      source: 2000
+      type: shapeless
+      ingredients: []
+  thread_scholar:
+    external-source: arspaper
+    material: BURN_POTTERY_SHERD
+    display-name: <dark_purple>選書のスレッド</dark_purple>
+    custom-model-data: 300031
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_purple>エンチャント運 +0.5 / 5個で +1.0</dark_purple>
+      - <dark_purple>3個でエンチャントコスト -2%</dark_purple>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>棚から一冊を選ぶのも、技のうち</color>
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - LAPIS_BLOCK x2
+        - custom:tf_core_jewelry
+        - custom:source_gem x2
+      source: 2200
+      type: shapeless
+      ingredients: []
+
+  # --- 経路=ルート: 構造物チェストの追加抽選で出る 8 種 ----------------------
+  # 配線は ArsPaper の loot-tables.yml -> LootTableListener#onLootGenerate。
+  # recipe: を持たないのは意図的(儀式で量産できると探索する動機が消えるため)。
+  thread_miner:
+    external-source: arspaper
+    material: MINER_POTTERY_SHERD
+    display-name: <dark_gray>豊鉱のスレッド</dark_gray>
+    custom-model-data: 300024
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>採掘の追加ドロップ +3.6% / 3個で +6% / 5個で +8.4%</dark_gray>
+      - <dark_gray>採掘速度そのものには影響しない</dark_gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>同じ岩でも、掘る者で取れ高が変わる</color>
+  thread_angler:
+    external-source: arspaper
+    material: ANGLER_POTTERY_SHERD
+    display-name: <blue>潮読みのスレッド</blue>
+    custom-model-data: 300025
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <blue>釣りの幸運 +2.4% / 3個で +3.6% / 5個で +4.8%</blue>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
+  thread_harvest:
+    external-source: arspaper
+    material: SHEAF_POTTERY_SHERD
+    display-name: <yellow>実りのスレッド</yellow>
+    custom-model-data: 300026
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <yellow>農作物の追加ドロップ +2.4% / 3個で +3.6% / 5個で +4.8%</yellow>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>土は、手をかけた分だけ返してくる</color>
+  thread_timber:
+    external-source: arspaper
+    material: SNORT_POTTERY_SHERD
+    display-name: <dark_green>年輪のスレッド</dark_green>
+    custom-model-data: 300027
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_green>伐採の追加ドロップ +2.4% / 3個で +3.6% / 5個で +4.8%</dark_green>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
+  thread_diligence:
+    external-source: arspaper
+    material: FRIEND_POTTERY_SHERD
+    display-name: <green>研鑽のスレッド</green>
+    custom-model-data: 300029
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <green>スキル経験値の取得量 +2.4% / 3個で +3.6% / 5個で +6%</green>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>同じ一日から、より多くを持ち帰る</color>
+  thread_endurance:
+    external-source: arspaper
+    material: SHELTER_POTTERY_SHERD
+    display-name: <gold>持久のスレッド</gold>
+    custom-model-data: 300033
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <gold>空腹の消費を 3.6% / 3個で 6% / 5個で 8.4% の確率で打ち消す</gold>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>まだ歩ける、まだ行ける</color>
+  thread_gourmet:
+    external-source: arspaper
+    material: HEARTBREAK_POTTERY_SHERD
+    display-name: <red>美食のスレッド</red>
+    custom-model-data: 300034
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <red>食事の回復量 +12% / 5個で +30%</red>
+      - <red>3個で隠し満腹度の回復 +12%</red>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>腹が減っては、糸も紡げぬ</color>
+  thread_slow_falling:
+    external-source: arspaper
+    material: GUSTER_POTTERY_SHERD
+    display-name: <white>浮遊のスレッド</white>
+    custom-model-data: 300039
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <white>低速落下 (装備中常時)</white>
+      - <white>3個で物理耐性 +2.4% / 5個で +4.8%</white>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>落ちるのではなく、降りるのだ</color>
+
+  # --- 経路=ダンジョン: 高レベル帯のモブドロップで出る 8 種 ------------------
+  # 配線は combat/mob-level-table.yml の Lv65 / Lv85 帯 add-drops。
+  # recipe: を持たないのは意図的(戦闘での到達度そのものを入手条件にしている)。
+  thread_spoils:
+    external-source: arspaper
+    material: SKULL_POTTERY_SHERD
+    display-name: <gold>戦利品のスレッド</gold>
+    custom-model-data: 300028
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <gold>モブドロップ +3% / 3個で +4.5% / 5個で +7.5%</gold>
+      - <dark_gray>対人戦では効果がない</dark_gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>倒した者にだけ、分け前がある</color>
+  thread_experience:
+    external-source: arspaper
+    material: HOWL_POTTERY_SHERD
+    display-name: <green>経験のスレッド</green>
+    custom-model-data: 300030
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <green>獲得経験値 +4.5% / 3個で +7.5% / 5個で +10.5%</green>
+      - <dark_gray>討伐・採掘・製錬など全ての経験値源に効く</dark_gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>過ぎた時間は、糸が覚えている</color>
+  thread_mending_flesh:
+    external-source: arspaper
+    material: HEART_POTTERY_SHERD
+    display-name: <red>治癒のスレッド</red>
+    custom-model-data: 300032
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <red>自然回復量 +3% / 3個で +4.5% / 5個で +7.5%</red>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
+  thread_thorn:
+    external-source: arspaper
+    material: DANGER_POTTERY_SHERD
+    display-name: <dark_red>棘のスレッド</dark_red>
+    custom-model-data: 300035
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_red>被弾時に反射 3% / 3個で 4.5%</dark_red>
+      - <dark_red>5個で固定反射ダメージ +3</dark_red>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>触れた者が、まず痛む</color>
+  thread_concussion:
+    external-source: arspaper
+    material: BLADE_POTTERY_SHERD
+    display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
+    custom-model-data: 300036
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_aqua>攻撃時のスタン率 1.5% / 5個で 4.5%</dark_aqua>
+      - <dark_aqua>3個でスタン時間 +6tick (基準 25tick)</dark_aqua>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
+  thread_swiftcast:
+    external-source: arspaper
+    material: MOURNER_POTTERY_SHERD
+    display-name: <yellow>速攻のスレッド</yellow>
+    custom-model-data: 300037
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <yellow>アイテムの使用クールダウン -3% / 3個で -4.5% / 5個で -7.5%</yellow>
+      - <dark_gray>詠唱コストやアクティブスキルのCTには効かない</dark_gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>先に動いた方が、生き残る</color>
+  thread_marksman:
+    external-source: arspaper
+    material: ARCHER_POTTERY_SHERD
+    display-name: <dark_green>射手のスレッド</dark_green>
+    custom-model-data: 300038
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_green>矢の節約 4.5% / 5個で 10.5%</dark_green>
+      - <dark_green>3個で命中精度 +3%</dark_green>
+      - <dark_gray>矢の貫通・速度そのものには影響しない</dark_gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>一射のために、百射を捨てる</color>
+  thread_luck:
+    external-source: arspaper
+    material: EXPLORER_POTTERY_SHERD
+    display-name: <gold>幸運のスレッド</gold>
+    custom-model-data: 300040
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <gold>幸運 (装備中常時)</gold>
+      - <gold>3個でモブドロップ +3% / 5個で +7.5%</gold>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>運は、探しに行った者のところへ来る</color>
   someones_eyes:
     material: ENDER_EYE
     lore:
@@ -6794,6 +7240,30 @@ _editor:
     thread_spell_cost_down: thread
     thread_flight: thread
     thread_backpack: thread
+    thread_mana_amplify: thread
+    thread_mana_circulate: thread
+    thread_source_thrift: thread
+    thread_artisan: thread
+    thread_ritualist: thread
+    thread_thrift: thread
+    thread_salvage: thread
+    thread_scholar: thread
+    thread_miner: thread
+    thread_angler: thread
+    thread_harvest: thread
+    thread_timber: thread
+    thread_diligence: thread
+    thread_endurance: thread
+    thread_gourmet: thread
+    thread_slow_falling: thread
+    thread_spoils: thread
+    thread_experience: thread
+    thread_mending_flesh: thread
+    thread_thorn: thread
+    thread_concussion: thread
+    thread_swiftcast: thread
+    thread_marksman: thread
+    thread_luck: thread
     Winter_Grim_Reaper: weapon
     wooden_halberd: weapon
     koujien: weapon

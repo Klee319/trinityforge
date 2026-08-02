@@ -205,10 +205,27 @@
   //   thread-sets: { <threadType>: { thresholds: { <N>: { <stat>: value } } } }
   //   累積しきい値式: N以上の全しきい値のステを合算。
   // ============================================================
+  // 「+ スレッド種追加」で提案する種別名。ArsPaper フォークの ThreadType enum の id と1:1で対応する
+  // (id が1文字でもズレると、書いた thread-sets が Java 側で誰にも参照されない死に設定になる)。
+  // 順序 = 提案順。既存15種 → 2026-08-02 追加の24種(制作/ルート/ダンジョンの経路順)。
   const KNOWN_THREADS = [
+    // --- 初期からある15種 (CMD 300002〜300016) ---
     "mana_regen", "mana_boost", "speed", "jump_boost", "night_vision", "fire_resistance",
     "dolphins_grace", "conduit_power", "hero_of_the_village", "health_boost",
-    "hit_mana_recovery", "damage_mana_recovery", "spell_cost_down", "flight", "backpack"
+    "hit_mana_recovery", "damage_mana_recovery", "spell_cost_down", "flight", "backpack",
+    // --- 制作(儀式・生産)枠 8種 (CMD 300017〜300023 / 300031) ---
+    // mana_amplify / mana_circulate は threads.yml 側に効果値を持つ stackable 型なので、
+    // 出荷 yml では thread-sets を空にしてある(セット効果も書くと同じ効果を二重取りできてしまう)。
+    // 提案候補には残す = 「ここに何か足したい」ときに id を手打ちさせないため。
+    "mana_amplify", "mana_circulate", "source_thrift", "artisan", "ritualist",
+    "thrift", "salvage", "scholar",
+    // --- ルート(採取・生活)枠 8種 (CMD 300024〜300027 / 300029 / 300033 / 300034 / 300039) ---
+    // slow_falling は装備中常時 SLOW_FALLING を持つため、セット効果は3個目から
+    // (既存のポーション枠スレッドと同じく1段目はポーション効果そのものが取り分)。
+    "miner", "angler", "harvest", "timber", "diligence", "endurance", "gourmet", "slow_falling",
+    // --- ダンジョン(戦闘)枠 8種 (CMD 300028 / 300030 / 300032 / 300035〜300038 / 300040) ---
+    // luck も slow_falling と同様、常時 LUCK を持つのでセット効果は3個目から。
+    "spoils", "experience", "mending_flesh", "thorn", "concussion", "swiftcast", "marksman", "luck"
   ];
 
   window.buildThreadSetsForm = function buildThreadSetsForm(data) {

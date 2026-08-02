@@ -828,6 +828,58 @@ class ItemCatalogConfigTest {
      * ひとつも skip されないこと(= 全て矩形であること)を検査する。7件の胴レシピが非矩形のまま
      * 気づかれずに投入された事故の再発防止ガード。
      */
+    /**
+     * {@code external-source:} は「このIDの実体を持っているのは別プラグインだ」宣言
+     * (2026-08-02)。{@code CrossPluginItemResolver#create} はこの宣言があるIDに限り
+     * ArsPaper 側を先に作りに行く。大文字/前後空白は正規化して受ける。
+     */
+    @Test
+    void parsesExternalSourceDeclaration() throws Exception {
+        ParseResult r = parse("""
+                items:
+                  thread_speed:
+                    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
+                    external-source: "  ArsPaper  "
+                  plain_item:
+                    material: DIAMOND
+                """);
+        assertEquals(0, r.skipped());
+        ItemTemplate thread = r.templates().get("thread_speed");
+        assertNotNull(thread);
+        assertEquals("arspaper", thread.externalSource());
+        assertTrue(thread.hasExternalSource());
+        // 宣言の無いエントリは従来どおり(= 解決順も変わらない)
+        assertNull(r.templates().get("plain_item").externalSource());
+        assertFalse(r.templates().get("plain_item").hasExternalSource());
+    }
+
+    /**
+     * 未知のソース名は fail-soft: 警告して宣言だけ無視し、アイテム本体はロードする。
+     * 黙って受け入れると「宣言したつもりなのに解決順が変わらない」という、
+     * 症状が出ない形の設定ミスになる。
+     */
+    @Test
+    void unknownExternalSourceIsWarnedAndIgnored() throws Exception {
+        List<ParseResult> results = new ArrayList<>();
+        List<String> messages = captureLogMessages(() -> {
+            try {
+                results.add(parse("""
+                        items:
+                          thread_speed:
+                            material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
+                            external-source: elitemobs
+                        """));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        ItemTemplate thread = results.get(0).templates().get("thread_speed");
+        assertNotNull(thread, "未知のソース名でアイテムごと落としてはいけない(fail-soft)");
+        assertNull(thread.externalSource());
+        assertTrue(messages.stream().anyMatch(m -> m.contains("external-source")),
+                "未知の external-source が警告されていない: " + messages);
+    }
+
     @Test
     void productionCatalogHasNoNonRectangularShapedRecipes() throws Exception {
         java.nio.file.Path path = java.nio.file.Path.of("src/main/resources/items/catalog.yml");

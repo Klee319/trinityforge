@@ -23,9 +23,22 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import sys
 import zipfile
 
 BASE = Path(__file__).parent
+
+# 同じディレクトリの build_item_lang を確実に見つける。
+# `python resourcepack/build_item_pack.py` ならスクリプトのあるディレクトリが
+# sys.path[0] に入るので素の import でも通るが、`python -m` / `runpy` /
+# 他モジュールからの import ではそれが働かず ModuleNotFoundError になる。
+# パックのビルドを「どこから叩いても同じ」にしておく（起動方法の違いで
+# lang だけ生成されない、という無言の劣化を避ける）。
+if str(BASE) not in sys.path:
+    sys.path.insert(0, str(BASE))
+
+import build_item_lang  # noqa: E402  (sys.path を整えてから読む必要がある)
+
 ROOTS = (BASE / "trinityforge-items", BASE / "trinityforge-skill-gui")
 REGISTRY = BASE / "cmd-registry.json"
 OUTPUT = BASE / "dist" / "TrinityForge-Pack.zip"
@@ -145,5 +158,13 @@ def build(files: list[tuple[str, Path]]) -> tuple[int, int, str]:
 
 
 if __name__ == "__main__":
+    # 統合版の名前解決に使う lang は毎回作り直す。手で置くと catalog.yml を
+    # 直したのに古い名前が配布され続ける (zip が stale だった過去と同じ事故)。
+    lang_table, lang_notes = build_item_lang.generate()
+    build_item_lang.write(lang_table)
+    for note in lang_notes:
+        print(f"lang_note={note}")
+    print(f"lang_keys={len(lang_table)}")
+
     packed_files, size, sha1 = build(validate())
     print(f"packed_files={packed_files} bytes={size} sha1={sha1}")

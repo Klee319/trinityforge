@@ -41,6 +41,20 @@ import java.util.logging.Logger;
  * every gacha prize / achievement reward item / drop-table entry written from the editor resolved to
  * nothing at runtime — and because {@code GachaListener} treats an unresolvable prize as "do not consume
  * the ticket", that failure surfaced as free, unlimited re-rolls rather than as an error.
+ *
+ * <p><b>{@code external-source:} による例外</b> (2026-08-02): カタログエントリが
+ * {@code external-source: arspaper} を宣言している<b>そのIDに限り</b>、上の順序を反転して
+ * <b>Ars を先に</b>作りに行く({@link ItemTemplate#externalSource()})。Ars が居ない/そのIDを
+ * 登録していないサーバ構成では、従来どおりカタログへフォールバックする。
+ *
+ * <p>なぜ必要か: スレッド(catalog の {@code thread_*} 40件)は、装着可否をフォーク側
+ * {@code ThreadGui#isEffectThread} が Ars の PDC 2種({@code arspaper:custom_item_id} と
+ * {@code arspaper:thread_item_type})で判定する。<b>TF 本体は後者を1箇所も書かない</b>ので、
+ * カタログ側で解決した瞬間に「見た目は同じだが防具に装着できないスレッド」が出来上がる。
+ * この経路は今回のダンジョンドロップだけの話ではなく、{@code ItemGrant} 経由の
+ * {@code gacha.yml} の {@code thread_empty} 配布も同じ理由で以前から壊れていた。
+ * 一方 Ars 側 loot-tables 経路({@code ItemCostRef#createStack})は「Ars→TF」の順なので元から正しく、
+ * <b>全体の解決順を反転させると今度はそちらと逆向きの事故を作る</b>ため、宣言のあるIDだけを対象にする。
  */
 public final class CrossPluginItemResolver {
 
@@ -55,10 +69,27 @@ public final class CrossPluginItemResolver {
 
     private final ItemCatalogConfig itemCatalog;
     private final ItemFactory itemFactory;
+    private final java.util.function.Function<String, Optional<ItemStack>> externalFactory;
 
     public CrossPluginItemResolver(ItemCatalogConfig itemCatalog, ItemFactory itemFactory) {
+        this(itemCatalog, itemFactory, CrossPluginItemResolver::createArs);
+    }
+
+    /**
+     * テスト用シーム。{@code externalFactory} は「外部プラグイン(現状 ArsPaper)の実体を id から作る」
+     * 関数で、本番は必ず {@link #createArs} が入る(上の 2 引数コンストラクタ)。
+     *
+     * <p>差し替え可能にしてあるのは、{@link #createArs} が
+     * {@code Bukkit.getPluginManager().getPlugin("ArsPaper")} 越しのリフレクションで、
+     * ユニットテストからは<b>「Ars が居ない」側しか再現できない</b>ため。それでは
+     * {@code external-source} の肝である<b>解決順そのもの</b>(Ars が居るときに先に試すか)を
+     * 一切検証できず、空振りテストになる。
+     */
+    CrossPluginItemResolver(ItemCatalogConfig itemCatalog, ItemFactory itemFactory,
+                            java.util.function.Function<String, Optional<ItemStack>> externalFactory) {
         this.itemCatalog = Objects.requireNonNull(itemCatalog, "itemCatalog");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
+        this.externalFactory = Objects.requireNonNull(externalFactory, "externalFactory");
     }
 
     /**
@@ -83,16 +114,36 @@ public final class CrossPluginItemResolver {
         if (bare == null || bare.isBlank()) {
             return Optional.empty();
         }
+        // external-source を宣言したエントリだけ「外部プラグイン→カタログ」に反転する。
+        // 反転しても外部側が解決できなければ必ずカタログへ落ちる(Ars 非導入構成があるため)。
+        boolean externalFirst = prefersExternalSource(bare);
+        if (externalFirst) {
+            Optional<ItemStack> external = externalFactory.apply(bare);
+            if (external.isPresent()) {
+                return external;
+            }
+        }
         Optional<ItemStack> catalog = createCatalog(bare, rollSeed, quality);
         if (catalog.isPresent()) {
             return catalog;
         }
-        Optional<ItemStack> ars = createArs(bare);
-        if (ars.isPresent()) {
-            return ars;
+        if (!externalFirst) {
+            Optional<ItemStack> ars = externalFactory.apply(bare);
+            if (ars.isPresent()) {
+                return ars;
+            }
         }
         // An explicit custom: token must never fall through to a vanilla Material.
         return isCustomToken(id) ? Optional.empty() : createMaterial(bare);
+    }
+
+    /**
+     * このIDのカタログエントリが「実体は別プラグインが持つ」と宣言しているか
+     * ({@code items/catalog.yml} の {@code external-source:})。カタログに無いIDは当然 false ——
+     * 宣言はカタログエントリにしか書けないので、宣言の無いIDの解決順は<b>一切変わらない</b>。
+     */
+    private boolean prefersExternalSource(String bareId) {
+        return itemCatalog.template(bareId).map(ItemTemplate::hasExternalSource).orElse(false);
     }
 
     /**

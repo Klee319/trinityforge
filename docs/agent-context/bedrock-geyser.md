@@ -61,6 +61,25 @@ PDC経路のエントリは**liveなItemStackを観測したときにしか作�
 して拡張がファイルを読み直しGeyserに登録する。Paperだけ再起動しても登録数は変わらない。
 ログの `Registered NNN custom items` が期待値と違うときは、この2段階のどちらで止まっているかを見る。
 
+#### 例外: 「毎起動パック走査から再導出できる」エントリだけは外科的に消してよい
+台帳のエントリは由来が 2 系統ある。**片方は消しても次の起動で必ず戻る**ので、
+「台帳＝全部消してはいけない」を「絞り込みも一切できない」と読むと詰む
+（下記「既存エントリは lang を足しても直らない」を直す唯一の手段がこれ）。
+
+| 由来 | 見分け方 | 消したらどうなるか |
+|---|---|---|
+| パック先行登録 (`prepopulateRegistryFromJavaPack`) | `name` が `custom_<ベースアイテム>_<cmd>` ちょうど／`cmd > 0`／`display_name` が `prettifyBaseItemName(baseItem)` の英語整形そのもの (`Wooden Sword`)／キーが `name` `custom_model_data` `display_name` `creative_category` `register` `allow_offhand` だけ | **次の Paper 起動で作り直される**（ただしそのCMDが今のパックに在ることが条件） |
+| 実物観測 (`CustomItemScanner`) | `pdc_identifier` / `armor` / `item_model` / `unbreakable` が付く、または `display_name` が日本語 | **誰かが再びその実物を手に持つまで戻らない＝データ削除** |
+
+**`name` の書式だけでは由来を切り分けられない。** `CustomItemScanner#generateMappingName` は
+PDC の id が取れなかったとき **同じ `custom_<base>_<cmd>` を作る**（javap で確認済み）。
+安全に消せる根拠は名前ではなく「**その `(ベースアイテム, cmd)` が今のパックに実在し、
+かつ `trinityforge:` 名前空間の専用モデルを指している**」ことの側にある。
+判定と削除は `ops/scripts/prune-geyser-auto-items.ps1`（実体は同名 `.py`）に実装済み。
+既定 dry-run・バックアップ必須・PDC 由来を 1 件でも巻き込んだら中断する。
+2026-08-02 の実測は **310 件中 94 件が削除対象／216 件は保全**（日本語名を持つ 120 件は全部残る）。
+**Paper 稼働中に実行してはいけない**（GeyserExtra が同じファイルを上書き保存で書き戻す）。
+
 ### ⚠️ カスタムアイテム名はパックの `texts/*.lang` からしか出ない
 Geyserのカスタムアイテムは新規のBedrockアイテム `geyserextra:<name>` として登録され、
 Bedrockクライアントはその名前を**パックの `texts/*.lang` から引く**しか手段がない。
@@ -69,10 +88,78 @@ Bedrockクライアントはその名前を**パックの `texts/*.lang` から�
 無いだけ、というケースがある。生成パックを実際に展開して確認するのが決め手で、
 JSONを眺めるだけでは分からない）。
 - キーの形は `item.geyserextra:<name>` と `item.geyserextra:<name>.name` の両方を書く
-  （Bedrockのバージョンで揺れがあるため）。
+  （Bedrockのバージョンで揺れがあるため）。実測（2026-08-02、配備中の
+  `packs/geyserextra_auto.zip`）でも両形式が出力されている。
 - 識別子のサニタイズ規則は両側（パック生成側とハンドラ側）で一致させる必要がある
   （`[^a-z0-9_\-./]` → `_` のような変換が片方だけずれると、lang キーが不一致になり
   無言でID表示に戻る）。
+- **この `texts/*.lang` を書くのは TF ではなく GeyserExtra** で、中身は
+  `custom_items.json` の `display_name` の写しでしかない。だから実務上の作業対象は
+  lang ファイルではなく **台帳の `display_name`** になる（次節）。
+
+### ⚠️ `texts/*.lang` を書くのは GeyserExtra 側。TFリポジトリが用意するのは「Javaパックの lang」
+**`texts/*.lang` を TrinityForge-Pack.zip に入れても効かない。** あれは Java 版クライアントへ配る
+Java パックであり、統合版クライアントが受け取るのは GeyserExtra が生成する
+`<Geyser>/extensions/geyserextra/packs/geyserextra_auto.zip` の方だから。
+GeyserExtra は `texts/{en_US,ja_JP}.lang` と `texts/languages.json` を既に生成しており、
+その値は `custom_items.json` の `display_name` をそのまま流している。
+**足りないのは lang ファイルではなく、そこへ流し込む「名前」の方だった。**
+
+`display_name` の決まり方は 2 経路ある:
+- **実行時スキャナ**（`CustomItemScanner#extractDisplayName`）: 実際の ItemStack の
+  `ItemMeta.displayName()` → PDC の displayname 系キー → バニラ材質名。
+  TF のカタログアイテムは表示名を持つので、**一度でも誰かが手に持てば**正しい名前になる。
+- **パック先行登録**（`GeyserExtraPaper#prepopulateRegistryFromJavaPack` →
+  `deriveFallbackDisplayName`）: 誰も触っていない CMD 用。モデル参照の終端名から
+  Mojang 慣習の翻訳キー `item.<ns>.<終端名>` を組み立て、**オペレータの Java パックの
+  `assets/<ns>/lang/<locale>.json`** を引く（`JavaPackLangReader`、primary は
+  config の `javaPackLocale`＝`ja_jp`、フォールバックは `en_us`）。引けないと
+  ベース材質名を英語整形した "Wooden Sword" になる。
+
+TF のパックは lang を 1 枚も持っていなかったので常に後者の英語整形に落ちていた。
+これが「木のツールだけ `wooden_*` のまま」の正体。→ `resourcepack/build_item_lang.py` が
+`catalog.yml` / ArsPaper `materials.yml` の表示名（MiniMessage・`&`コードを剥がす）から
+`assets/trinityforge/lang/{ja_jp,en_us}.json` を生成し、`build_item_pack.py` が毎回作り直す。
+
+**やってはいけないこと**: lang のキーはパック全体でグローバルなので、`item.minecraft.*` を
+書くと**バニラアイテムの名前を全 Java プレイヤー分書き換える**。専用モデルを持たず
+`minecraft:item/diamond_sword` をそのまま指している CMD（2026-08-02 時点で 122 件）は
+この方式では名前を付けられない — テクスチャを作って専用モデルに差し替えるのが先。
+なお `resolveSingleModelRef` は「実在する PNG に解決できたモデル参照」しか採らないので、
+専用モデルの無い CMD はそもそも Bedrock カスタムアイテムとして登録されず、
+統合版ではバニラ名で出る（＝ID 表示にはならない）。
+
+#### ⚠️ lang を足しただけでは **既存の登録は 1 件も直らない**（今回の一番の落とし穴）
+`prepopulateRegistryFromJavaPack` は先頭で
+`itemMappingRegistry.getByCustomModelData(baseItem, cmd).isPresent()` を見て、
+**在ったらその CMD を丸ごと skip する**（`register()` にも `contains(name)` の二重ガードがある）。
+レジストリは起動時に `custom_items.json` を読み込み済みなので、
+**一度でも登録された CMD には二度と新しい `display_name` が入らない。**
+実行時スキャナ側も救ってくれない — `CustomItemScanner` の更新分岐は
+`hasDisplayName()` が false のときしか表示名を上げず、既存エントリは既に
+`Wooden Sword` を持っているので条件を満たさない。
+
+実測（2026-08-02、配備中の台帳）: パックの `trinityforge:` 専用モデル付き CMD は 113 件。
+そのうち **105 件は既に台帳が埋まっていて lang が効かない**（94 件が英語フォールバック名、
+11 件は実物観測で既に正しい日本語名）。lang だけで直るのは残る **8 件**しかない。
+→ **`ops/scripts/prune-geyser-auto-items.ps1` で英語フォールバック名の 94 件を消してから
+Paper を起動する**のが必須手順。上記「例外: 毎起動パック走査から再導出できるエントリ」を参照。
+
+#### 反映は 4 段。1 つでも欠けると「直したのに何も変わらない」になる
+1. **新しい `dist/TrinityForge-Pack.zip` を配布先（GitHub release）へ差し替える**
+   （`resourcepack/build_item_pack.py` で再生成。**PyYAML が要る**: `python -m pip install pyyaml`。
+   `build_item_lang.py` を同ディレクトリから import するので、リポジトリ内の相対配置を崩さないこと）
+2. **`server.properties` の `resource-pack` と `resource-pack-sha1` を両方更新する**
+   ⚠️ **sha1 を更新し忘れると何も変わらない。** `JavaPackResolver` は
+   `<Paper>/plugins/GeyserExtra/cache/server-resource-pack.zip` と `.sha1` にパックをキャッシュし、
+   `resource-pack-sha1` と一致していれば**ダウンロードそのものを省く**。
+   URL だけ変えて sha1 を据え置くと、旧 zip をそのまま読み続ける
+   （疑わしいときは `cache/server-resource-pack.sha1` の中身と server.properties を突き合わせる。
+   キャッシュを消してしまうのも手）
+3. **Paper を起動する** — ここで台帳が lang 由来の名前で埋め直される
+4. **プロキシ（Velocity）を再起動する** — `packs/geyserextra_auto.pending.zip` が
+   本番の `geyserextra_auto.zip` に入れ替わるのは拡張の起動時。
+   `.pending.zip` が残っているのは「生成済みだが未適用」のサイン
 
 ### ⚠️ 「未登録にすれば直る」は誤り — 名前・手持ちポーズ・オフハンド可否は三者トレードオフではなく個別に直す
 PDCだけで登録される（`customModelData=0`/`iconPath=null`）マッピングは描画を一切変えられないが、
@@ -86,8 +173,13 @@ PDCだけで登録される（`customModelData=0`/`iconPath=null`）マッピン
 - 手持ちポーズ → `CustomItemBedrockOptions.displayHandheld(true)` を明示する
   （Bedrockは `hand_equipped` で斜め持ちを決め、カスタムアイテムはバニラのそれを継承しない。
   ベースアイテムの接尾辞 `_sword`/`_pickaxe`等から判定する）
-- 名前 → 未解決。恒久解は bedrock-samples の `texts/ja_JP.lang` をビルド時に取得して
-  バニラ名表を生成すること。
+- 名前 → 手段は確定（Java パック側に `assets/trinityforge/lang/*.json` を生成して
+  GeyserExtra のパック先行登録に食わせる。上記「`texts/*.lang` を書くのは GeyserExtra 側」）だが、
+  **lang を置くだけでは既存の登録は 1 件も直らない**。台帳（`custom_items.json`）の
+  英語フォールバック名エントリを先に消す必要がある（上記「lang を足しただけでは
+  既存の登録は 1 件も直らない」＋ `ops/scripts/prune-geyser-auto-items.ps1`）。
+  バニラ名表を作る案は `item.minecraft.*` を書くことになり
+  **バニラアイテムの名前を潰す**ので採らない。
 
 ### 統合版でオフハンドに置けるかは「Bedrockカスタムアイテムとして登録されたか」で決まる
 登録済みアイテムには `allow_offhand: true` が付く。**未登録アイテムはバニラのベースアイテム扱いになり、

@@ -15,6 +15,12 @@ bin/
 # ---- 依存 ----
 node_modules/
 
+# Python のバイトコード。resourcepack/build_item_pack.py が同ディレクトリの
+# build_item_lang を import するようになったので、パックを 1 回ビルドしただけで
+# resourcepack/__pycache__/ が生えて public リポジトリへ混入しうる。
+__pycache__/
+*.pyc
+
 # ---- バックアップ（巨大・git で置き換わるもの） ----
 backups/
 backups.zip

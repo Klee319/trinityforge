@@ -364,6 +364,10 @@
   };
 
   // スレッド特殊効果 (暗視・飛行など)。threads.yml のタイプ id に対応する既定候補。
+  // ここに載せてよいのは「装備しているだけで常時効果が乗る」種別だけ。
+  // フォークの ThreadType が PotionEffectType を持つ種別 (= ArmorManaListener が毎tick 付け直す) と
+  // flight (ポーションではないが常時効果) が該当する。
+  // ステ加算だけの種別 (miner / spoils など) をここに足すと、選べるのに何も起きない候補が増える。
   const THREAD_SPECIAL_EFFECTS = [
     { id: "night_vision", label: "暗視" },
     { id: "fire_resistance", label: "耐火" },
@@ -372,7 +376,11 @@
     { id: "jump_boost", label: "跳躍力上昇" },
     { id: "dolphins_grace", label: "イルカの優雅さ" },
     { id: "conduit_power", label: "コンジットパワー" },
-    { id: "hero_of_the_village", label: "村の英雄" }
+    { id: "hero_of_the_village", label: "村の英雄" },
+    // 2026-08-02 スレッド16→40種で追加。新規24種のうち PotionEffectType を持つのはこの2つだけ
+    // (他22種は thread-sets.yml のステ加算のみ)。ラベルは labels.js の POTION_TYPE_LABELS_JA に揃える。
+    { id: "slow_falling", label: "落下耐性" },
+    { id: "luck", label: "幸運" }
   ];
   const STAT_FILTER_GROUPS = [
     ["attack", "攻撃"], ["defense", "守備"], ["support", "補助"], ["ars", "Ars"], ["other", "その他"]
