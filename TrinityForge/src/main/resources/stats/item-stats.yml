@@ -6475,6 +6475,11 @@ items:
     use-level-requirement: 80
     use-skill: ARS_MAGIC
     quality-mode-offset: -7
+  # ember_wand。ArsPaper の spellbooks.yml に触媒として登録されている唯一の初期杖で、
+  # ステータスは BLAZE_ROD#400008(木の杖)と完全に同一。にもかかわらず CT だけが
+  # spellbooks.yml 側の cooldown: 1.5 から来ていたため、【同格なのに CT が半分＝常に最適解】
+  # という状態だった。item-cooldown を 3.0 に揃えて他の杖と同じ土俵に乗せる
+  # (item-cooldown は spellbooks.yml の cooldown より優先されるので、あちらの 1.5 は無効化される)。
   BLAZE_ROD#400001:
     fixed:
       attack-power: 17.6
@@ -6483,6 +6488,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.03
       thread-slots: 1
+      item-cooldown: 3.0
     per-quality:
       attack-power: 0.7
       mana-bonus: 1
