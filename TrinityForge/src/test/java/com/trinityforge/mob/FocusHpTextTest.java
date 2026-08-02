@@ -168,6 +168,46 @@ class FocusHpTextTest {
                 "both tags together must still keep the display at 2 lines total");
     }
 
+    // --- 指摘10 (2026-08-02): formatPlain がlean引数を持たず実表示と食い違っていたバグの回帰 ---
+    @Test
+    void formatPlainBackwardCompatibleOverloadOmitsTagsLikeUnconfiguredMob() {
+        assertEquals("Lv.5 Zombie\n12 / 20", FocusHpText.formatPlain(5, "Zombie", 12, 20),
+                "4引数版は従来どおりタグなし(NONE/NONE相当)であること");
+    }
+
+    @Test
+    void formatPlainWithResistanceLeanMatchesColoredFormTag() {
+        assertEquals("Lv.10 Boss [耐:魔]",
+                FocusHpText.formatPlain(10, "Boss", 50, 100,
+                        FocusHpText.ResistanceLean.MAGICAL, FocusHpText.AttackLean.NONE)
+                        .split("\n")[0],
+                "耐性タグは色付き表示と同じ文字列で名前行に付くこと");
+    }
+
+    @Test
+    void formatPlainWithAttackLeanMatchesColoredFormTag() {
+        assertEquals("Lv.10 Boss [攻:魔]",
+                FocusHpText.formatPlain(10, "Boss", 50, 100,
+                        FocusHpText.ResistanceLean.NONE, FocusHpText.AttackLean.MAGICAL)
+                        .split("\n")[0],
+                "攻撃タイプタグは色付き表示と同じ文字列で名前行に付くこと");
+    }
+
+    @Test
+    void formatPlainWithBothLeansKeepsThemDistinctAndOnTheNameLine() {
+        String plain = FocusHpText.formatPlain(10, "Boss", 50, 100,
+                FocusHpText.ResistanceLean.PHYSICAL, FocusHpText.AttackLean.HYBRID);
+        assertEquals("Lv.10 Boss [耐:物] [攻:混]\n50 / 100", plain,
+                "耐性/攻撃の両タグが混ざらず1行のまま name line に並ぶこと(色付き表示のformatと同じレイアウト)");
+    }
+
+    @Test
+    void formatPlainWithNoneLeansOmitsBothTags() {
+        String plain = FocusHpText.formatPlain(10, "Boss", 50, 100,
+                FocusHpText.ResistanceLean.NONE, FocusHpText.AttackLean.NONE);
+        assertEquals("Lv.10 Boss\n50 / 100", plain);
+    }
+
     private static boolean containsTranslatable(Component component, String keyPrefix) {
         if (component instanceof net.kyori.adventure.text.TranslatableComponent translatable
                 && translatable.key().startsWith(keyPrefix)) {

@@ -177,10 +177,51 @@ public final class FocusHpText {
         };
     }
 
-    /** Plain-text form for tests / logs (no color codes). */
+    /**
+     * Plain-text form for tests / logs (no color codes). Backward-compatible 4-arg overload: no
+     * lean tags (equivalent to {@link ResistanceLean#NONE}/{@link AttackLean#NONE}).
+     */
     public static String formatPlain(int level, String name, int curHp, int maxHp) {
+        return formatPlain(level, name, curHp, maxHp, ResistanceLean.NONE, AttackLean.NONE);
+    }
+
+    /**
+     * Same as {@link #formatPlain(int, String, int, int)}, but a faithful plain-text rendering of
+     * the actual colored display — including the {@link ResistanceLean}/{@link AttackLean} tags
+     * appended to the name line by {@link #format(int, Component, int, int, ResistanceLean,
+     * AttackLean)} (2026-08-02 指摘10修正: this 4-arg-only overload previously had no way to express
+     * the tags added alongside it, so a plain-text log of a tagged mob silently dropped them —
+     * a real display/log mismatch, not just an unused overload).
+     */
+    public static String formatPlain(int level, String name, int curHp, int maxHp,
+                                     ResistanceLean lean, AttackLean attackLean) {
         String safeName = name == null || name.isBlank() ? "?" : name;
-        return "Lv." + level + " " + safeName + "\n" + Math.max(0, curHp) + " / " + Math.max(1, maxHp);
+        StringBuilder nameLine = new StringBuilder(safeName);
+        String resistTag = plainResistanceTag(lean);
+        if (resistTag != null) {
+            nameLine.append(' ').append(resistTag);
+        }
+        String attackTagText = plainAttackTag(attackLean);
+        if (attackTagText != null) {
+            nameLine.append(' ').append(attackTagText);
+        }
+        return "Lv." + level + " " + nameLine + "\n" + Math.max(0, curHp) + " / " + Math.max(1, maxHp);
+    }
+
+    private static String plainResistanceTag(ResistanceLean lean) {
+        return switch (lean) {
+            case PHYSICAL -> "[耐:物]";
+            case MAGICAL -> "[耐:魔]";
+            case NONE -> null;
+        };
+    }
+
+    private static String plainAttackTag(AttackLean lean) {
+        return switch (lean) {
+            case MAGICAL -> "[攻:魔]";
+            case HYBRID -> "[攻:混]";
+            case NONE -> null;
+        };
     }
 
     static TextColor hpColor(int curHp, int maxHp) {

@@ -353,6 +353,28 @@ TF側のpublic API（configアクセサ/policyメソッド等）を追加・変�
 
 新規に「tier化」を頼まれても、この実態を再確認してから着手すること。
 
+### ⚠️ `SpellCaster.cast` の `catalyst` 引数はバインド詠唱では「杖」ではなく「バインド先の魔導書」になる — null チェックだけで経路を切り分けられない
+
+`SpellCaster#cast(caster, recipe, sharedSpell, catalyst, castItem)` の5引数版で、`catalyst` と
+`castItem` は別物（D6、`SpellCaster.java:151` javadoc参照）。呼び出し元3経路で意味が違う:
+
+| 呼び出し元 | `catalyst` | `castItem` |
+|---|---|---|
+| `SpellWand#castSpell`（旧tier実装、死にコード） | 杖自身 | `null` |
+| `item/impl/SpellBook#onRightClick` | 魔導書自身 | `null` |
+| `SpellBindListener#onRightClick`（TFカタログ杖10本はこの経路） | `heldCatalyst`(触媒として`catalysts.yml`に登録済みならバインド品自身、**未登録なら常にバインド先の魔導書**) | バインド品自身(実際に右クリックしたアイテム) |
+
+`SpellBindListener` 経由で `catalyst` が魔導書になったとき、`resolveSpellBookTierData(catalyst)` は
+**null を返さない**（本物の登録済み魔導書なので `BOOK_TIER` PDC も `spell_book_` prefix も揃っている）。
+つまり「`catalystData == null` かつ `bookTierData == null`」で新しい分岐を作ろうとすると、
+TFカタログ杖10本（`BLAZE_ROD#400002〜400008`/`400012〜400014`、いずれも `spellbooks.yml` の
+`catalysts:` 未登録）のバインド詠唱では `bookTierData != null` になり分岐に入れない ――
+`spell-books:` の `cooldown:` が全ティア `0` なので実害は無いように見えるが、
+**「null かどうか」ではなく「実際に自分のCT値(>0)を持っているかどうか」で判定しないと、
+item-cooldown ステを杖CTの権威にする改修が無言で no-op になる**（2026-08-02、item-cooldown配線で実際に踏んだ）。
+`SpellCaster.java` の `catalystOwnsCt` / `bookOwnsCt`（`catalystData/bookTierData` の
+`cooldownMs()/getCooldownMs() > 0` を明示的に見る局所変数）がこの区別を固定している。
+
 ### ⚠️ `materials.yml` の `recipe.result` を省略すると自己破壊レシピが無言で登録される
 
 `UnifiedRecipeLoader.loadWorkbenchFromSection` は `recipe:` ブロックの `result:` を省略すると

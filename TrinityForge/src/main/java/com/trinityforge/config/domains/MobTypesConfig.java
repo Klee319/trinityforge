@@ -226,14 +226,24 @@ public final class MobTypesConfig implements LoadableConfig {
         this.dimensionBaseLevels = dimensionOverrides.baseLevels();
         this.dimensionCoordinateCoefficients = dimensionOverrides.coordinateCoefficients();
 
-        int totalSkipped = result.skipped() + dimensionOverrides.skipped();
-        if (totalSkipped > 0) {
+        // 2026-08-02(指摘13修正): 以前は mob-types(89エントリ)のskippedとdimensionsのskippedを
+        // totalSkippedへ合算して1本のメッセージで出していたため、「dimensionsのキー1件のtypoが
+        // mob-typesの読み込み失敗に見える」誤解を招いていた。原因の切り分けができるよう分けて出す。
+        boolean ok = true;
+        if (result.skipped() > 0) {
             log.warning("[" + PATH + "] loaded " + result.definitions().size() + " mob type(s), "
-                    + totalSkipped + " skipped");
-            return false;
+                    + result.skipped() + " skipped");
+            ok = false;
         }
-        log.info("[" + PATH + "] loaded " + result.definitions().size() + " mob type(s) OK");
-        return true;
+        if (dimensionOverrides.skipped() > 0) {
+            log.warning("[" + PATH + "] dimensions: loaded " + dimensionOverrides.baseLevels().size()
+                    + " dimension override(s), " + dimensionOverrides.skipped() + " skipped");
+            ok = false;
+        }
+        if (ok) {
+            log.info("[" + PATH + "] loaded " + result.definitions().size() + " mob type(s) OK");
+        }
+        return ok;
     }
 
     /**

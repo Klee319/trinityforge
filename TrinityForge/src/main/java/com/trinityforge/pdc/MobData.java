@@ -198,6 +198,19 @@ public final class MobData {
         holder.getPersistentDataContainer().set(PdcKeys.MOB_TYPE_STAMPED, PersistentDataType.BYTE, (byte) 1);
     }
 
+    /**
+     * Overwrites ONLY {@link PdcKeys#MOB_LEVEL}, leaving every other stamped key (defense, attack,
+     * profile markers) untouched. Used when a caller wants to adjust an already-profiled mob's level
+     * in place — e.g. {@code MobTypeSpawnListener} adding {@code dimensions.<ENV>.base-level} on top
+     * of a level an EliteMobs-owned mob already decided for itself — without re-deriving or clobbering
+     * that owner's own defense/attack/HP values (unlike {@link #stamp}, which always rewrites all 9
+     * defense keys from scratch and would silently wipe them).
+     */
+    public static void adjustLevel(PersistentDataHolder holder, int level) {
+        Objects.requireNonNull(holder, "holder");
+        holder.getPersistentDataContainer().set(PdcKeys.MOB_LEVEL, PersistentDataType.INTEGER, level);
+    }
+
     /** Stamps scaled attack stats for mob→player symmetric pipeline routing. */
     public static void stampAttack(PersistentDataHolder holder, AttackStats attack) {
         Objects.requireNonNull(holder, "holder");

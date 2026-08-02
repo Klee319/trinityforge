@@ -169,18 +169,30 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 
 ## アイテムCT(item-cooldown)は触媒詠唱もゲートする — 「近接専用」ではない
 
-`item-cooldown`(秒)は近接専用と誤解しやすいが、ArsPaperフォークの触媒詠唱も同じキーを読む。
-`SpellCaster.attemptCast`（`fork-handoff/arspaper/fork/.../spell/SpellCaster.java:274-284,388-391`）は
-詠唱前に `TrinityForgeBridge.itemCooldownSeconds(catalyst) > 0` でCT設定の有無を判定してゲートし、
-詠唱成功後に `TrinityForgeBridge.startItemCooldown` → `WeaponAttackStatResolver.itemCooldownSeconds`
-→ `Player#setCooldown` の順で開始する。近接側（`CombatListener.startItemCooldown`）とは**別の解決経路**
-（`DerivedItemStats.resolve(item,...)` をそのアイテム単体に対して呼ぶだけで、`PlayerStatAggregator` は経由しない）
-であり、**`cooldown_reduction`（アイテムCT短縮ステ）は近接側だけが乗算適用し、触媒詠唱側の
-`TrinityForgeBridge.startItemCooldown` はこの乗算を一切行わない**（2026-08-02時点）。つまり触媒に
-`cooldown_reduction` を盛ってもCTは短縮されない — 「短縮ステでCTが0になる」心配は今は無いが、
-将来フォーク側に同じ乗算を足す場合は近接側と同じ下限クランプ
-（`CombatListener.startItemCooldown`: `seconds *= Math.max(0.05, 1.0 - Math.min(0.9, reduction))`）を
-必ず入れること（クランプが無いと理論上0まで縮む）。
+`item-cooldown`(秒)は近接専用と誤解しやすいが、ArsPaperフォークの詠唱も同じキーを読む。
+※かつて「`SpellCaster.attemptCast` が触媒(`catalystData!=null`)経由の詠唱だけをゲートし、
+`cooldown_reduction`は触媒詠唱側では一切乗算されない」と書いていたが、両方とも2026-08-02の
+改修で古い説になった（以下が現状）。実際のメソッド名は `SpellCaster#cast`
+（`attemptCast`というメソッドは存在しない）。
+
+- **ゲート/開始の権威は3経路あり、優先順位は 触媒 > 魔導書 > item-cooldown汎用**（`SpellCaster.java`
+  の `catalystOwnsCt`/`bookOwnsCt` 変数で排他制御、同一詠唱で重ねがけしない）:
+  ①触媒(`spellbooks.yml` の `catalysts:` に `cooldown:` 秒指定、または触媒自身が
+  `item-cooldown`ステを持つ)、②魔導書(`spell-books:` の `cooldown:` 秒指定。現状全ティア0なので
+  実質未使用)、③**item-cooldown汎用パス**(①②のどちらも自分のCTを持たない詠唱で、実際に
+  右クリックしたアイテム——`castItem`優先、無ければ`catalyst`——の`item-cooldown`ステを見る)。
+- **③が無いと何が起きるか**: TFカタログの杖10本(`BLAZE_ROD#400002〜400008`/`400012〜400014`)は
+  `catalysts:` に未登録で、かつ`SpellBindListener`経由のバインド詠唱では`catalyst`引数が
+  「バインド先の魔導書」に化ける(D6)ため、③が無ければ`item-stats.yml`の`item-cooldown`
+  (3.0〜1.8秒)が一本も読まれず無視される（2026-08-02実装。詳細は
+  `docs/agent-context/forks-and-mobs.md` の「`SpellCaster.cast` の `catalyst` 引数は…」節）。
+- **`cooldown_reduction`は2026-08-02以降、`TrinityForgeBridge.startItemCooldown`(触媒経路・③汎用
+  パス共通の唯一の開始関数)でも近接側と同じ規則で乗算適用される**: `tfStatTotal(player,
+  "cooldown_reduction")`(装備+skilltree perk全ソース合算、`CombatListener`の
+  `aggregator.aggregate(attacker).totalOf(...)`と同一値)を読み、
+  `seconds *= Math.max(0.05, 1.0 - Math.min(0.9, reduction))`という近接側
+  (`CombatListener.startItemCooldown`)と全く同じ下限クランプを踏襲する。触媒/杖に
+  `cooldown_reduction`を盛るとCTが短縮される（「短縮されない」という以前の記述は誤りで上書き済み）。
 
 ## モブのディメンション別基準レベルは `World.Environment` で引く（ワールド名ではない）
 
@@ -199,6 +211,31 @@ coordinate-coefficientもモブ側の値のまま、という「従来どおり�
 一切行わない（据え置き）。ネザーでも通常世界と同じ体感の距離スケーリングにしたい場合は、
 `dimensions.NETHER.coordinate-coefficient` を明示的に大きい値（例: オーバーワールド値の8倍程度）へ
 上書き設定して運用側で補正すること。
+
+### ⚠️ `dimensions.<ENV>.base-level` は「EliteMobs 所有モブへの早期 return」より前に足さないと丸ごと無効化される
+
+`MobTypeSpawnListener#onSpawn` は `isEliteMobsOwned(data)` が真のモブ（`MOB_PROFILE_ID`/
+`MOB_DUNGEON_THEME` を持つ、取り込んだ EM モブのほぼ全部）に対して `applyScaledProfile` を
+一切呼ばずに `return` する（EM が刻んだ防御/攻撃/HP を守るための意図的な設計、上の
+「EliteMobs連携: HPは `setMaxHealth()` 内でオーバーライドする」参照）。`dimensions.<ENV>.base-level`
+の加算は `applyScaledProfile` の中でしか行われないため、**この早期 return より後ろに置いた実装は
+EM 由来モブに一切効かない**（2026-08-02 に実際にこの順序で踏んだ：`dimensions:` を新設したのに
+「ネザーのダンジョンモブだけレベルが上がらない」という報告になった）。
+
+**How**: EM 所有モブ向けには専用の最小加算パス（`MobTypeSpawnListener#applyDimensionLevelBonus`）を
+早期 return の直前に挟む。EM が既に `MOB_LEVEL` へ書いた値を読み、下駄を足した値を
+`MobData.adjustLevel(holder, level)`（**`MOB_LEVEL` 1キーだけを上書きする**、`MobData#stamp`/
+`#stampMobType` とは別の専用API）で書き戻す。`MobData#stamp` 系は防御9キーを毎回ゼロから
+全部書き直すため、レベルだけ変えたいときに誤って使うと EM の防御値が消える。EliteMobs モブには
+`coordinate-coefficient` の上書きも適用しない（EM は座標距離ではなく自前のダンジョンレベル/
+`SpawnRadiusDifficultyIncrementer` で難度を決める別系統のため、混ぜる意味がない）。
+
+同種の罠は `applyUntaggedDefaults` の `hasLeveling` ガード（`baseLevel > 0 ||
+coordinateCoefficient != 0.0` のみを見ていた）にもあった。`dimensions:` の下駄だけを設定して
+`defaults.level`/`defaults.coordinate-coefficient` を両方0のまま運用しようとすると、
+このガードに巻き込まれて `applyScaledProfile` 自体が呼ばれず（PDC刻印すら発生しない）無効化される。
+「下駄を計算に使う関数」を1箇所直しても、「そもそも下駄ありレベリングとして扱うか」を判定する
+ゲート条件が別に存在する場合は両方直すこと。
 
 ## 関連
 

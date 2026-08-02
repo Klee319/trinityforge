@@ -79,6 +79,7 @@ public final class MobTypeSpawnListener implements Listener {
 
         if (maybeDef.isPresent()) {
             if (isEliteMobsOwned(data)) {
+                applyDimensionLevelBonus(entity, data);
                 return;
             }
             MobTypeDefinition def = maybeDef.get();
@@ -90,9 +91,39 @@ public final class MobTypeSpawnListener implements Listener {
         }
 
         if (data.hasProfile()) {
+            applyDimensionLevelBonus(entity, data);
             return;
         }
         applyUntaggedDefaults(entity, healthRatio);
+    }
+
+    /**
+     * 2026-08-02(指摘4修正): {@link #isEliteMobsOwned} が真のモブは上の2箇所の早期returnで
+     * {@link #applyScaledProfile} を一切通らないため、{@code dimensions.<ENV>.base-level} の下駄が
+     * これまで一切乗らなかった（取り込んだ EliteMobs モブのほぼ全部が対象外という致命的な抜け）。
+     *
+     * <p>EM が既に決めたレベル決定ロジック自体（防御/攻撃/HPの値）は一切書き換えず、
+     * {@link MobData#adjustLevel} で {@code MOB_LEVEL} だけを「EM が刻んだ値 + 下駄」へ上書きする
+     * 最小加算にする。{@code dimensions.<ENV>.coordinate-coefficient} の上書きはここでは適用しない
+     * — EliteMobs モブは {@code distanceFromWorldSpawn} ベースの座標線形スケーリング
+     * （{@link #applyScaledProfile} 専用の仕組み）を一切通らず、難度は EM 自身のダンジョンレベル/
+     * {@code SpawnRadiusDifficultyIncrementer} で決まる別系統のため、座標係数を混ぜる意味がない。
+     */
+    private void applyDimensionLevelBonus(LivingEntity entity, MobData data) {
+        if (!isEliteMobsOwned(data)) {
+            return;
+        }
+        World.Environment environment = entity.getWorld().getEnvironment();
+        int bonus = mobTypesConfig.dimensionBaseLevel(environment);
+        if (bonus == 0) {
+            return;
+        }
+        int eliteLevel = data.level();
+        int adjusted = Math.max(0, eliteLevel + bonus);
+        MobData.adjustLevel(entity, adjusted);
+        LOG.fine("[mob-types] dimension level bonus applied to elite-owned "
+                + entity.getType().name() + " environment=" + environment.name()
+                + " baseLevel=" + eliteLevel + " bonus=" + bonus + " -> " + adjusted);
     }
 
     /**
@@ -123,7 +154,15 @@ public final class MobTypeSpawnListener implements Listener {
                 ? mobTypesConfig.defaultMaxHealth().getAsDouble() : null;
         MobLevelCoefficients coeffs = mobTypesConfig.defaultLevelCoefficients();
 
-        boolean hasLeveling = baseLevel > 0 || coordinateCoefficient != 0.0;
+        // 2026-08-02(指摘4副次修正): dimensions.<ENV>.base-level/coordinate-coefficient だけを設定して
+        // defaults.level=0 かつ defaults.coordinate-coefficient=0 のまま運用しようとすると、この下駄を
+        // hasLeveling に勘定していなかったせいで下のガードに巻き込まれ applyScaledProfile 自体が
+        // 呼ばれず(PDC刻印すら発生せず)無効化されていた。ディメンションの下駄もレベリングありと
+        // 数える。
+        World.Environment environment = entity.getWorld().getEnvironment();
+        boolean hasDimensionLeveling = mobTypesConfig.dimensionBaseLevel(environment) != 0
+                || mobTypesConfig.dimensionCoordinateCoefficient(environment).isPresent();
+        boolean hasLeveling = baseLevel > 0 || coordinateCoefficient != 0.0 || hasDimensionLeveling;
         boolean hasDefense = !isZeroDefense(physicalBase) || !isZeroDefense(magicalBase);
         boolean hasScaling = !isZeroCoeffs(coeffs);
         if (maxHealthBase == null && !hasLeveling && !hasDefense && !hasScaling) {
