@@ -4193,3 +4193,84 @@ quality=0 相当で従来どおり**、という fail-open が自然に満たさ
 - **配備が必要**（jar は差し替え済みだが未配備）。`deploy.cmd --restart` または `--server <name>`。
 - ArsPaper フォークの変更は**ローカルコミットのみ**（`d5e7037`、`feat/trinityforge-fork`）。
   リモートに同名ブランチが無く push はゲートで拒否された。公開の是非を含めユーザー判断。
+
+---
+
+## 2026-08-03 未修整の洗い出し（「漏れがないか確認して」への回答）
+
+ユーザー指摘: 「まだ多くのバグが直っていなさそう。**未修整のバグや、修正しても失敗できなかった内容**がある。
+漏れがないかちゃんと確認して。**漏れには根拠なく試したバグ修正もある**」
+
+fresh-context の監査レーンで全体を洗い直した結果を以下に置く。**「直したつもりで直っていなかった」ものが
+実際にあった。** いずれも共通の失敗形で、**修正したメソッドまで制御が到達していなかった**。
+
+### 決着: 虚空右クリックの診断は「未確定」ではなく確定した（前節の ~~診断は未確定。安全側に倒した~~ を訂正）
+
+前節で「一次情報で裏付けられなかった」「効くかどうかは実機で確認が必要」と書いたが、**根本原因は
+リポジトリ内で確定できた**。`PlayerInteractEvent` は `clickedBlock == null`（＝空中クリック）のとき
+**コンストラクタの中で `useClickedBlock = DENY` を立てる**ので、イベントは**生まれた瞬間から
+`isCancelled() == true`**。Bukkit のイベントバスは `ignoreCancelled = true` の購読者に**配送しない**。
+つまり `@EventHandler(ignoreCancelled = true)` を付けた `PlayerInteractEvent` ハンドラは
+**空中右クリックで一度も呼ばれない**。`paper-api` のバイトコードを `javap` で確認済み（推測ではない）。
+
+正しいガードは `ignoreCancelled` を外して `event.useItemInHand() == Event.Result.DENY` を見ること。
+`PlayerAnimationEvent` によるフォールバック（`VoidRightClickBridge`）は**不要になったので削除した**。
+
+**この罠は同じファイル群にまだ残っていた**（下の C-3）。`ignoreCancelled = true` + `PlayerInteractEvent`
+の組み合わせは**このリポジトリでは原則として誤り**。
+
+### 決着: ダンジョンの鍵が消費されない — TF 側を直しても、**呼び出し元のフォークに同型のバイパスが残っていた**
+
+`cf15493` で TF 側 `DungeonGateService#requiredEntry` の権限バイパスを「判定に落ちたときだけ救済する」
+形へ直したが、**唯一の呼び出し元**である EM フォークの `TrinityForgeDungeonGateListener` 自身が、
+TF を呼ぶ**手前**で `trinityforge.admin` / `trinityforge.elitemobs.commands` を見て早期 `return true`
+していた。`trinityforge.admin` は `paper-plugin.yml` で **`default: op`** なので、報告者（OP）は
+この行で抜け、**鍵消費コードへ一度も到達しない**。
+
+フォーク側2箇所（`checkDungeonEntry` / `checkConfiguredTeleportAllowed`）を削除して素通しにした。
+ビルド後の jar から `TrinityForgeDungeonGateListener.class` を取り出して `javap` で
+`trinityforge.admin` / `hasPermission` が**0件**であることを確認済み。教訓は
+`docs/agent-context/forks-and-mobs.md`（`d3c46b6`）へ。
+
+**この失敗形（`default: op` の権限による早期 return が副作用コードを飛ばす）は、開発者自身が OP なので
+自分でテストすると必ず素通りする側に落ちて再現しない。** 権限バイパスを見たら、
+そのメソッド内部だけでなく**呼び出し元チェーン全体**を辿ること。
+
+### 監査で出た未修整（担当レーンへ配布済み）
+
+| # | 深刻度 | 内容 | 状態 |
+|---|---|---|---|
+| C-1 | CRITICAL | EM フォークの権限バイパスで鍵消費に到達しない | **修正済み**（上記） |
+| C-2 | HIGH | 準備中(draft)アイテムの入手経路が3つ残っている: (a) ArsPaper `loot-tables.yml` の構造物チェスト8種（**TF 側では原理的に塞げない**）(b) `GiveItemCommand.java:509` の `CrossPluginItemResolver.createArs` が `isDraft` を見ない (c) `VillagerTradeListener.java:185` のフォールバック | レーンへ配布 |
+| C-3 | HIGH | `CatalogVanillaOperationGuardListener.java:265` が `ignoreCancelled = true`。カタログ製エンダーアイを**空中**へ投げるとガードが走らず PDC/CMD ごと素の状態に戻る | レーンへ配布 |
+| C-4 | MEDIUM | 出荷 yml に到達可能な `0`（無報酬）が4行: `woodcutting_progression.yml` の `STRIPPED_PALE_OAK_LOG` / `STRIPPED_WARPED_STEM` / `STRIPPED_CRIMSON_STEM` / `CRIMSON_STEM`、`digging_progression.yml` の `MUD` | レーンへ配布 |
+| C-5 | MEDIUM | **テストが赤**（3552件中4失敗）。3件は `NativeSkillExperienceListener.grantStackCollapseChain:194` の NPE（`cursor` が null）。**`onBlockBreak` は MONITOR なので、ここで投げるとその破壊の採取EXPが丸ごと落ちる** | レーンへ配布 |
+| C-6 | MEDIUM | **別セッションの未コミット `stats/skill-exp.yml`**。下記参照。**私の担当外** | ユーザー判断待ち |
+| C-7 | LOW | `CombatListener.java:814` の `LEFT_CLICK_AIR` 分岐が到達不能・javadoc が実挙動と食い違う | レーンへ配布 |
+| C-8 | LOW/仕様 | 次元の基準レベルが EM モブの**攻撃力だけ**を上げ、最大体力に反映されていない（`MobTypeSpawnListener.java:114-127`）。「45レベル以降が手応えない」の原因候補 | レーンへ配布 |
+
+### C-6: 別セッションが `stats/skill-exp.yml` を編集中。**触っていないが、意図の確認が要る**
+
+未コミット差分（`git diff -- TrinityForge/src/main/resources/stats/skill-exp.yml`）の中身:
+
+1. **`combat.kill-exp.base.ARCHERY` を 25 から 30 へ。** 重武器と同値になるので、
+   `SkillExpConfigTest` が固定している意図「**軽武器(20) < 弓術 < 重武器(30)**」を破る。
+   **これが現在のテスト赤1件の正体。** 意図的な調整ならテスト側の意図も一緒に更新すること。
+2. **`ars-magic.kill-exp.entity-type-multipliers` から受動系9行を削除**（BEE / DOLPHIN / GOAT /
+   IRON_GOLEM / LLAMA / PANDA / POLAR_BEAR / TRADER_LLAMA / WOLF）。7行は元から `0` なので無影響だが、
+   **`DOLPHIN: 1` と `POLAR_BEAR: 1.4` は非0**。`unlisted-entity-multiplier: 0` なので、
+   この2種は魔法討伐EXPが**0に落ちる**。受動系を一律で外す意図なら妥当だが、意図の確認が要る。
+3. **本文コメント77行が消えている。** 移設先とされる `docs/config-reference/stats/skill-exp.md` は
+   **2026-08-01 15:16 の内容のまま**で、消えるコメントのうち新しいもの
+   （`daily-diminishing`(07-31追加) / `per-amount`・`decay-per-amount`(08-01仕様変更) /
+   `smithing.exp-per-material` の【重要】注意(08-01,08-02)）を**1つも含んでいない**。
+   このまま commit すると**移設先の無いまま知識が消える**。
+
+`daily-diminishing.per-amount` の 150000 から 100000 は純粋な調整値。
+
+### まだ着手していない（前節から持ち越し）
+
+- **U18（敵の攻撃に魔法攻撃は設定されているか）= 未調査。** 難易度レーンへ配布した。
+  魔法攻撃を持つモブが実在しなければ**魔法耐性が死にステータス**で、
+  「耐性の対策なしで勝ててしまう」というユーザーの体感と符合する。
+- **U3（ドリリングでツルハシのモーションが消える）= inconclusive。** 描画事象なのでリポジトリ内では確定不能。
