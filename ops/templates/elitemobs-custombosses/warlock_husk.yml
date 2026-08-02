@@ -1,0 +1,7 @@
+# 呪術師のハスク (warlock_husk) — 通常攻撃の6割が魔法として解決されるハイブリッド派生モブ(magic-ratio: 0.6)。
+# combat/mob-overrides.yml の overrides.default.mobs.warlock_husk が強さ/技/ドロップを上書きする。
+# 配備手順は ops/deploy-elitemobs-magic-mobs.md を参照。
+isEnabled: true
+entityType: HUSK
+name: "&5呪術師のハスク"
+level: 25

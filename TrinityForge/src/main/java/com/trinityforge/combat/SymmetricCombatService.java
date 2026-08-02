@@ -136,8 +136,20 @@ public final class SymmetricCombatService {
         double base = resolver().physicalDefaultDamage(vanillaBaseDamage, mobLevel);
         double itemAttackPower = attack.defaultDamage();
         double baseDamage = (itemAttackPower != 0 ? itemAttackPower : base) * earlyLevelAttackMultiplier(mobLevel);
-        return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
-                damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, projectileHit));
+        // 2026-08-02: attack.magicRatio() が0より大きいモブの通常攻撃は、物理/魔法の2コンポーネントへ
+        // 分割して1回の回避ロールで通す(hybrid攻撃、実装1)。既定0.0は従来どおり完全物理1コンポーネント
+        // のまま(挙動不変・後方互換)。
+        double ratio = attack.magicRatio();
+        if (ratio <= 0.0) {
+            return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(baseDamage),
+                    damageConfig.minComponentDamage(), vanillaProtectionDefense(victim, projectileHit));
+        }
+        if (ratio >= 1.0) {
+            return componentResult(DamageType.MAGICAL, victim, attack.withDefaultDamage(baseDamage),
+                    damageConfig.magicalMinComponentDamage());
+        }
+        return hybridComponentResult(victim, attack.withDefaultDamage(baseDamage * (1.0 - ratio)),
+                attack.withDefaultDamage(baseDamage * ratio), vanillaProtectionDefense(victim, projectileHit));
     }
 
     /**
@@ -187,8 +199,19 @@ public final class SymmetricCombatService {
      * @param attack the attacker's stats template (its {@code defaultDamage} is replaced by {@code flatBase})
      */
     public double physicalFinalDamageFlat(PersistentDataHolder victim, double flatBase, AttackStats attack) {
-        return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(flatBase),
-                damageConfig.minComponentDamage()).damage();
+        // 2026-08-02: attack.magicRatio() が0より大きい場合は物理/魔法の2コンポーネントへ分割する
+        // (実装1、fork TrinityForgeCombatListener の「EliteMobs自身が計算済みの基礎ダメージ」経路が
+        // これを使う)。既定0.0は従来どおり完全物理のまま(挙動不変)。
+        double ratio = attack.magicRatio();
+        if (ratio <= 0.0) {
+            return componentResult(DamageType.PHYSICAL, victim, attack.withDefaultDamage(flatBase),
+                    damageConfig.minComponentDamage()).damage();
+        }
+        if (ratio >= 1.0) {
+            return magicalFinalDamageFlat(victim, flatBase, attack);
+        }
+        return hybridComponentResult(victim, attack.withDefaultDamage(flatBase * (1.0 - ratio)),
+                attack.withDefaultDamage(flatBase * ratio), DefenseStats.NONE).damage();
     }
 
     /**
@@ -296,6 +319,45 @@ public final class SymmetricCombatService {
                 new SymmetricDamagePipeline(CritResolver.RANDOM, cappedDodge, minComponentDamage);
         return pipeline.computeResult(
                 List.of(new ComponentInput(type, attack, stats)), defender.dodgeChance());
+    }
+
+    /**
+     * Splits one mob attack into a PHYSICAL and a MAGICAL component (2026-08-02, 実装1: モブの通常攻撃を
+     * 部分的または完全に魔法として解決する) and runs both through {@link SymmetricDamagePipeline} in a
+     * SINGLE {@code computeResult} call so the whole-attack dodge roll happens exactly once (回避=攻撃
+     * 全体を無効化, Q3 — the class javadoc of {@link SymmetricDamagePipeline#compute} already flagged
+     * "when hybrid lands, unify the two components into one pipeline.compute call" as the requirement;
+     * this is that unification). Each component gets its own defender resolution
+     * ({@link #resolveDefender}) so the victim's physical vs magical defense/resistance apply to the
+     * matching half of the split damage — a victim with only physical armor still takes the magical
+     * half in full, and vice versa (this is the whole point of the feature: 魔法モブは物理防具で
+     * 受けられない).
+     *
+     * @param physicalAttack the physical half, already carrying its share of the base damage via
+     *                       {@link AttackStats#withDefaultDamage}
+     * @param magicalAttack  the magical half, same contract
+     * @param extraPhysicalDefense additional physical-only defender addend (vanilla Protection/Projectile
+     *                             Protection re-derivation, see {@link #vanillaProtectionDefense}); pass
+     *                             {@link DefenseStats#NONE} for the flat (already-finalized) entry points
+     *                             that never applied it to begin with
+     */
+    private CombatHitResult hybridComponentResult(PersistentDataHolder victim, AttackStats physicalAttack,
+                                                  AttackStats magicalAttack, DefenseStats extraPhysicalDefense) {
+        DefenderProfile physicalDefender = resolveDefender(DamageType.PHYSICAL, victim);
+        DefenderProfile magicalDefender = resolveDefender(DamageType.MAGICAL, victim);
+        DefenseStats physicalStats = clampedDefense(physicalDefender.stats().combine(extraPhysicalDefense));
+        DefenseStats magicalStats = clampedDefense(magicalDefender.stats());
+        DodgeResolver cappedDodge = DodgeResolver.capped(DodgeResolver.RANDOM, damageConfig.maxDodgeChance());
+        SymmetricDamagePipeline pipeline =
+                new SymmetricDamagePipeline(CritResolver.RANDOM, cappedDodge, damageConfig.minComponentDamage());
+        List<ComponentInput> components = List.of(
+                new ComponentInput(DamageType.PHYSICAL, physicalAttack, physicalStats,
+                        damageConfig.minComponentDamage()),
+                new ComponentInput(DamageType.MAGICAL, magicalAttack, magicalStats,
+                        damageConfig.magicalMinComponentDamage()));
+        // 回避率は型非依存(MobData#dodgeChance javadoc参照)なので、どちらのdefenderProfileから読んでも
+        // 同じ値になる — physicalDefenderのものを使う。
+        return pipeline.computeResult(components, physicalDefender.dodgeChance());
     }
 
     private DefenseStats clampedDefense(DefenseStats stats) {

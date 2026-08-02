@@ -61,6 +61,10 @@
 #     penetration          : 貫通率%
 #     damage-modifier      : ダメージ補正
 #     fixed-damage         : 固定ダメージ(全防御貫通)
+#     magic-ratio           : このモブの通常攻撃を魔法として解決する割合 [0.0, 1.0](2026-08-02新設)。
+#                              既定0.0=完全物理。1.0=完全魔法。中間値は物理/魔法へ分割し回避ロールは
+#                              1回のまま両方へ通す(hybrid攻撃)。単独指定でき、他の attack 項目を
+#                              一切書かなくても効く(hasAttack判定には影響しない)。
 #
 # 【drops の項目一覧】 (このモブを倒したときに追加で出るアイテムの一覧)
 #   item   : Material名、または custom:<items/catalog.ymlのID / ArsPaper素材ID> (必須)
@@ -183,6 +187,124 @@ overrides:
         abilities: [piercing_beam, call_the_swarm]
       ender_dragon:
         abilities: [shockwave, call_the_swarm]
+
+    # 2026-08-02: attack.magic-ratio(実装1)を実証する新規派生カスタムボス6体。EliteMobs custombosses
+    # として ops/templates/elitemobs-custombosses/*.yml に用意し、/trinityforge importmobs custombosses
+    # で combat/mob-profiles.yml へ取り込んだ後、ここが強さ・技・ドロップを重ねる(手順は
+    # ops/deploy-elitemobs-magic-mobs.md 参照)。既存41体の mob-types.yml エントリは意図的に一切
+    # 変更していない(「既存モブの性質を書き換えない」方針。詳細は同docの冒頭コメント参照)。
+      caster_zombie:
+        display-name: "術者のゾンビ"
+        stats:
+          max-health: 80
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 12, magic-ratio: 1.0 }
+        abilities: [ember_spray]
+        vanilla-exp: { base: 24.0, per-level: 0.6, growth: 1.008, growth-interval: 1.0 }
+        drops:
+          - item: ROTTEN_FLESH
+            chance: 1.0
+            min: 1
+            max: 2
+          - item: GLOWSTONE_DUST
+            chance: 0.15
+            min: 1
+            max: 2
+      warlock_husk:
+        display-name: "呪術師のハスク"
+        stats:
+          max-health: 110
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 15, magic-ratio: 0.6 }
+        abilities: [withering_aura]
+        vanilla-exp: { base: 30.0, per-level: 0.75, growth: 1.008, growth-interval: 1.0 }
+        drops:
+          - item: ROTTEN_FLESH
+            chance: 1.0
+            min: 1
+            max: 2
+          - item: WITHER_ROSE
+            chance: 0.05
+            min: 1
+            max: 1
+      frost_wraith_skeleton:
+        display-name: "氷結の彷徨い骨"
+        stats:
+          max-health: 90
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 13, magic-ratio: 0.7 }
+        abilities: [frost_field]
+        vanilla-exp: { base: 26.0, per-level: 0.66, growth: 1.008, growth-interval: 1.0 }
+        drops:
+          - item: BONE
+            chance: 1.0
+            min: 1
+            max: 2
+          - item: PACKED_ICE
+            chance: 0.15
+            min: 1
+            max: 2
+      abyssal_drowned:
+        display-name: "深淵の溺者"
+        stats:
+          max-health: 130
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 17, magic-ratio: 0.8 }
+        abilities: [piercing_beam]
+        vanilla-exp: { base: 34.0, per-level: 0.84, growth: 1.008, growth-interval: 1.0 }
+        drops:
+          - item: PRISMARINE_SHARD
+            chance: 0.6
+            min: 1
+            max: 3
+          - item: NAUTILUS_SHELL
+            chance: 0.08
+            min: 1
+            max: 1
+      cursed_wanderer:
+        display-name: "呪われた徘徊者"
+        stats:
+          max-health: 70
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 10, magic-ratio: 0.5 }
+        abilities: [withering_aura]
+        vanilla-exp: { base: 22.0, per-level: 0.54, growth: 1.008, growth-interval: 1.0 }
+        drops:
+          - item: ROTTEN_FLESH
+            chance: 1.0
+            min: 1
+            max: 2
+          - item: EMERALD
+            chance: 0.1
+            min: 1
+            max: 1
+      shadow_spider:
+        display-name: "影渡りの蜘蛛"
+        stats:
+          max-health: 100
+          physical: { defense-rate: 0.15, resistance: 0.10 }
+          magical:  { defense-rate: 0.05, resistance: 0.05 }
+          attack: { attack-power: 14, magic-ratio: 0.9 }
+        abilities: [frost_field, piercing_beam]
+        vanilla-exp: { base: 28.0, per-level: 0.72, growth: 1.008, growth-interval: 1.0 }
+        drops:
+          - item: STRING
+            chance: 0.8
+            min: 1
+            max: 2
+          - item: SPIDER_EYE
+            chance: 0.5
+            min: 1
+            max: 2
+          - item: FERMENTED_SPIDER_EYE
+            chance: 0.05
+            min: 1
+            max: 1
 
   # adventurers_guild_hub (HUB) — custombosses/adventurers_guild / 5体
   # アリーナ「Wood League」 — custombosses/wood_league_arena / 91体

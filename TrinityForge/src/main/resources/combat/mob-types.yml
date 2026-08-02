@@ -34,8 +34,16 @@
 #   physical / magical      : 防御率(defense-rate) / 耐性(resistance) / 被ダメージ軽減(damage-reduction)
 #                             (いずれも0.0〜1.0) / 守備力(flat-defense、0以上)
 #   attack                  : 攻撃側 (attack-power / flat-bonus-damage / percent-bonus-damage /
-#                             crit-chance / crit-damage / penetration / damage-modifier / fixed-damage)。
-#                             damage-modifier の中立値は 1.0（0.0 にするとダメージが半減する）。
+#                             crit-chance / crit-damage / penetration / damage-modifier / fixed-damage /
+#                             magic-ratio)。damage-modifier の中立値は 1.0（0.0 にするとダメージが半減する）。
+#     magic-ratio (2026-08-02新設): このモブの通常攻撃(近接/投射)を魔法として解決する割合 [0.0, 1.0]。
+#       既定 0.0 = 完全物理(従来どおり、未設定なら挙動は1ミリも変わらない)。1.0 = 完全魔法。
+#       中間値(例: 0.5)は物理/魔法の2コンポーネントへ分割し、回避ロールは1回のまま両方へ通す
+#       (プレイヤーの物理防具と魔法防御がそれぞれ担当分だけ効く「半分魔法」モブが作れる)。
+#       真偽値ではなく比率にした理由: 「半分物理・半分魔法」の中間モブを表現でき、0.0既定のまま
+#       完全な後方互換になるため。既存モブのバランス変更を避けるため、この値は
+#       新設した派生モブ(EliteMobs custombosses側)にのみ設定し、この41種の既存エントリは
+#       意図的に magic-ratio を設定していない(=全モブ完全物理のまま、プレイヤー側の前提を壊さない)。
 #   level-coefficients      : レベル1あたりの各ステ加算係数
 #                             実効値 = 基準 + 係数 × effectiveLevel
 #                               max-health / armor-strength / physical{...} / magical{...} / attack{...}

@@ -132,26 +132,63 @@ EliteMobs はエンティティを普通にスポーンさせた**後**にエリ
 横串で洗い出すこと。`NativeDisplayPolicy` に新しいメソッドを足すたびに、そのメソッドを呼んでいない
 既存の類似コード（同じ情報を描く別のクラス/別のタイミング）が無いか `grep` で確認する。
 
-### ⚠️ mob-profiles.yml へ「魔法職モブ」を追加しても、EliteMobs の premade Lua power には魔法ダメージとして判定されるものが無い
+### ⚠️ モブの通常攻撃を魔法として解決するには `attack.magic-ratio` を使う(Lua power 経由ではない)
 
-TF の戦闘パイプラインが被弾を MAGICAL 扱いするのは `TrinityForgeAbilityDamage.mark()` が立っている
-間だけで、これは Lua スクリプトが `context.player:damage(...)` のような**直接ダメージAPI**
-（`ScriptAction.runDamage` 経由）を呼んだ瞬間にしか立たない。fork の
-`config/luapowers/premade/*.java`（`AttackFireballLuaConfig` 等、約70種）は**どれも直接ダメージAPIを
-呼ばず**、`summon_projectile` でバニラの実弾（FIREBALL 等）を撃つ・ポーション効果を付与する等の
-バニラ機構に依存している。これらはプレイヤーへの着弾がバニラの `EntityDamageByEntityEvent` を
-経由するため、`TrinityForgeCombatListener#onPlayerDamagedByElite` の `isAbilityDamage()` 判定を
-通らず、最終的に `applyPhysical` 側（PHYSICAL 扱い）へ落ちる。
+※かつて「EliteMobs の premade Lua power には魔法ダメージとして判定されるものが無いので、モブに
+魔法攻撃をさせるには直接ダメージAPIを呼ぶ新しい Lua power を書くしかない」と診断していたが、
+これは「EliteMobs 自身のスキル(Lua power)発火経路」に限った話で**誤りではないが不完全**だった。
+2026-08-02 に、EliteMobs のスキル機構を一切経由しない別軸の機構(`attack.magic-ratio`)を新設し、
+「モブの通常攻撃(近接/投射)そのものを魔法として解決する」を実現した。
 
-- 「モブに魔法攻撃をさせる」を本当に実装するには、直接ダメージAPIを呼ぶ**新しい Lua power を
-  書く**か、既存 power のうちどれかがこの経路を通ることを個別に確認する必要がある。既存 power の
-  名前（`attack_fireball` 等）だけから「魔法っぽいから MAGICAL 判定されるはず」と判断しないこと。
-- `combat/mob-profiles.yml` は**保護対象としてデプロイ時に上書き除外されている生成物**
-  （`/trinityforge importmobs` の出力、本番は約268KBだがリポジトリ側は空のひな形 `profiles: {}`
-  のみ）。リポジトリ側でこのファイルへ手書きエントリを足しても、配備スクリプトがリポジトリの
-  ひな形で本番の268KBを上書きしないよう既に除外されているため実質無効（詳細は
-  `reports/ACTIVE_RECORD.md` の該当メモ）。このファイルを編集する新規モブ追加は、本番の
-  `mob-profiles.yml` を直接触るか `/trinityforge importmobs` を本番で走らせる形でしか実現できない。
+- **設定場所**: `combat/mob-types.yml` / `combat/mob-profiles.yml` / `combat/mob-overrides.yml` の
+  `attack:` ブロックに `magic-ratio` [0.0, 1.0] を追加。既定 0.0 = 完全物理(未設定の既存モブは
+  1体も挙動が変わらない)。1.0 = 完全魔法。中間値は物理/魔法の2コンポーネントへ分割し、
+  回避ロールは1回のまま両方へ通す(`SymmetricCombatService#hybridComponentResult`、
+  `SymmetricDamagePipeline.computeResult(List<ComponentInput>, dodgeChance)` の既存の複数コンポーネント
+  対応をそのまま使う設計)。
+- **`hasAttack()` のゲート外**: `magic-ratio` は「型」であって「量」ではないので、
+  `MobProfile#hasAttack()`(=他8フィールドが全部ゼロなら攻撃プロファイル無しとみなすゲート)には
+  含まれない。fork の `TrinityForgeSpawnListener#stamp` はこのゲートの**外**で
+  `PdcKeys.MOB_ATTACK_MAGIC_RATIO` を無条件に書く — `combat/mob-overrides.yml` で
+  `attack.magic-ratio` だけを単独指定しても(`attack-power` 等を一切書かなくても)効く。
+- **プレイヤー側は物理防具では受けられない**: `SymmetricCombatService` は物理/魔法それぞれ独立に
+  `resolveDefender` するため、`magic-ratio=1.0` のモブの一撃は物理専用装備(`phys-flat-defense` 等)の
+  軽減を一切受けない。「魔法モブなのに物理防具で受けられる」は明示的にテストで固定してある
+  (`SymmetricCombatServiceMagicRatioTest`)。
+- **表示**: `magic-ratio > 0` のモブは頭上HPプレートに `[攻:魔]`(完全魔法)/`[攻:混]`(ハイブリッド)
+  タグが付く(`FocusHpText.AttackLean`)。既存の耐性寄りタグ `[耐:物]`/`[耐:魔]`(`ResistanceLean`、
+  防御軸の情報)とは別軸で、同じ名前行に並んでも混ざらない(2行レイアウトのまま)。
+- `combat/mob-profiles.yml` は**保護対象としてデプロイ時に上書き除外されている生成物**なのは
+  従来どおり(以下の段落参照)。新規モブに `magic-ratio` を持たせたい場合、mob-types.yml で足りる
+  フィールドモブ以外は「custombosses YAML を作って `combat/mob-overrides.yml`(生成物ではない)
+  で上書きする」のが唯一の安全な経路。手順は `ops/deploy-elitemobs-magic-mobs.md` 参照。
+
+`combat/mob-profiles.yml` は**保護対象としてデプロイ時に上書き除外されている生成物**
+（`/trinityforge importmobs` の出力、本番は約268KBだがリポジトリ側は空のひな形 `profiles: {}`
+のみ）。リポジトリ側でこのファイルへ手書きエントリを足しても、配備スクリプトがリポジトリの
+ひな形で本番の268KBを上書きしないよう既に除外されているため実質無効（詳細は
+`reports/ACTIVE_RECORD.md` の該当メモ）。このファイルを編集する新規モブ追加は、本番の
+`mob-profiles.yml` を直接触るか `/trinityforge importmobs` を本番で走らせる形でしか実現できない。
+
+**ただし `/trinityforge importmobs` は必須ではない**: `ConfigManager#resolveRuntimeProfileBase` は
+mob-profiles.yml に無い EliteMobs モブを `combat/mob-import.yml` のランプで自動合成する
+(`mob-import.yml` の `unknown-mobs.synthesize: true` が既定、既存の「未インポートEMモブ」節参照)。
+`combat/mob-overrides.yml`(生成物ではない、リポジトリ由来がそのまま効く)側で `stats.attack` を
+フル指定しておけば、importmobs を一度も走らせなくても強さ・技・ドロップは正しく上書きされる —
+import はあくまで「override を消したときのフォールバック値を実値にする」ための保険。
+
+### ⚠️ `combat/mob-overrides.yml` に `abilities:` を持つモブを増減すると `ShippedBossStrengthDriftTest` が落ちる(意図的なドリフトロック)
+
+`ShippedBossStrengthDriftTest#abilityCarrierCountIsPinned`(`TrinityForge/src/test/java/.../config/domains/`)
+は出荷 `mob-overrides.yml` 全体を走査して `abilities:` を持つモブの**総数**を固定定数
+(`EXPECTED_ABILITY_CARRIER_COUNT`)と突き合わせる。技持ちモブを1体でも増減すると即座に失敗する
+（テスト自体が「壊れた」のではなく設計どおり — 数が変わったら理由も一緒に書けというロック）。
+
+- 対処は定数を実数へ更新し、同じテストファイルの `@DisplayName` と定数直上の javadoc コメントの
+  内訳（何+何+何=合計）も一緒に更新すること。片方だけ直すと次にこのテストを読むエージェントが
+  古い内訳のまま新しい数字を信じてしまう。
+- 2026-08-02: `attack.magic-ratio` を実証する派生カスタムボス6体を `default.mobs` に追加した際に
+  43→49へ実際に踏んだ。
 
 ### ⚠️ mob-overrides の絶対値指定はレベル追従を破壊する
 

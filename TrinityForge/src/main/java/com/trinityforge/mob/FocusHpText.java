@@ -16,17 +16,34 @@ public final class FocusHpText {
      * Which damage type a mob's CONFIGURED defense profile leans toward resisting more. Derived purely
      * from the existing {@code combat/mob-defaults.yml} / {@code mob-import.yml} / {@code
      * mob-profiles.yml} defense keys already stamped to the mob's PDC (no new config surface) — see
-     * {@link #leanFrom}. Deliberately does NOT attempt to classify which type of damage the mob's own
-     * ATTACKS deal: EliteMobs has no per-mob static tag for that (TrinityForge's combat pipeline decides
-     * it per-HIT at runtime — melee/projectile always resolve PHYSICAL, script/power "ability" damage
-     * always resolves MAGICAL, see {@code TrinityForgeCombatListener#onPlayerDamagedByElite}), and most
-     * elite mobs with any ElitePower use both, so a single per-mob "attack type" icon would misrepresent
-     * more mobs than it clarifies.
+     * {@link #leanFrom}.
+     *
+     * <p>※2026-08-02までは「モブの攻撃タイプは判定できない」としてここに固定表示しない設計だったが、
+     * {@code combat/mob-types.yml} / {@code mob-profiles.yml} / {@code mob-overrides.yml} の
+     * {@code attack.magic-ratio}(実装1)でモブの通常攻撃自体を魔法として解決できるようになったため、
+     * その情報は下記 {@link AttackLean} として別タグで表示する。こちらの {@link ResistanceLean} は
+     * 引き続き「防御(耐性)がどちらの型に寄っているか」だけを表し、両者は混ざらない別タグとして
+     * 名前行に並べる。
      */
     public enum ResistanceLean {
         /** Both components are within {@link #LEAN_THRESHOLD} of each other (including 0/0 = unconfigured). */
         NONE,
         PHYSICAL,
+        MAGICAL
+    }
+
+    /**
+     * モブの通常攻撃(attack.magic-ratio)がどちらの型で解決されるかを示すタグ(2026-08-02 新設、実装2)。
+     * {@link ResistanceLean}(防御の偏り)とは別の情報 — 「魔法耐性が高いモブ」と「魔法で殴ってくる
+     * モブ」は無関係なので、同じタグに混ぜない。{@code magic-ratio <= 0}(既定・従来どおり完全物理)の
+     * ときは {@link #NONE} でタグを一切出さない(ほとんどのモブはこちら)。
+     */
+    public enum AttackLean {
+        /** magic-ratio <= 0(完全物理、従来どおり)。タグなし。 */
+        NONE,
+        /** 0 &lt; magic-ratio &lt; 1: 通常攻撃が物理/魔法の両方で解決される。 */
+        HYBRID,
+        /** magic-ratio &gt;= 1: 通常攻撃が完全に魔法として解決される。 */
         MAGICAL
     }
 
@@ -65,13 +82,30 @@ public final class FocusHpText {
      */
     public static Component format(int level, Component nameComponent, int curHp, int maxHp,
                                     ResistanceLean lean) {
+        return format(level, nameComponent, curHp, maxHp, lean, AttackLean.NONE);
+    }
+
+    /**
+     * Same as {@link #format(int, Component, int, int, ResistanceLean)} with an additional optional
+     * attack-type tag (実装2, 2026-08-02): shown only when the mob's {@code attack.magic-ratio} is
+     * greater than 0 (most mobs stay {@link AttackLean#NONE}, no tag). Appended on the SAME name line,
+     * after the resistance tag if both are present — the display stays at 2 lines total (see class-level
+     * rationale on {@link #format(int, Component, int, int, ResistanceLean)}'s sibling javadoc), and the
+     * two tags are visually distinct bracket groups so they never read as one merged piece of information.
+     */
+    public static Component format(int level, Component nameComponent, int curHp, int maxHp,
+                                    ResistanceLean lean, AttackLean attackLean) {
         Component safeName = nameComponent == null ? Component.text("?") : nameComponent;
         int safeMax = Math.max(1, maxHp);
         int safeCur = Math.max(0, curHp);
         Component nameLine = Component.text().color(NamedTextColor.WHITE).append(safeName).build();
-        Component tag = resistanceTag(lean);
-        if (tag != null) {
-            nameLine = nameLine.append(Component.text(" ")).append(tag);
+        Component resistTag = resistanceTag(lean);
+        if (resistTag != null) {
+            nameLine = nameLine.append(Component.text(" ")).append(resistTag);
+        }
+        Component attackTag = attackTag(attackLean);
+        if (attackTag != null) {
+            nameLine = nameLine.append(Component.text(" ")).append(attackTag);
         }
         return Component.empty()
                 .append(Component.text("Lv." + level + " ", NamedTextColor.GOLD, TextDecoration.BOLD))
@@ -112,6 +146,33 @@ public final class FocusHpText {
         return switch (lean) {
             case PHYSICAL -> Component.text("[耐:物]", NamedTextColor.GRAY);
             case MAGICAL -> Component.text("[耐:魔]", NamedTextColor.AQUA);
+            case NONE -> null;
+        };
+    }
+
+    /**
+     * Resolves {@link AttackLean} from a mob's stamped {@code attack.magic-ratio} [0,1](実装2）。
+     * {@code ratio <= 0} is {@link AttackLean#NONE}(タグなし、既定・大多数のモブ)。
+     */
+    public static AttackLean attackLeanFrom(double magicRatio) {
+        if (magicRatio >= 1.0) {
+            return AttackLean.MAGICAL;
+        }
+        if (magicRatio > 0.0) {
+            return AttackLean.HYBRID;
+        }
+        return AttackLean.NONE;
+    }
+
+    /**
+     * 攻撃タイプタグ({@link ResistanceLean} の耐性タグとは別のブラケット、色も別系統(紫)にして
+     * 見分けがつくようにしてある)。カスタムフォント/グリフは使わずバニラの色付きテキストのみ
+     * (統合版でも化けない)。
+     */
+    private static Component attackTag(AttackLean lean) {
+        return switch (lean) {
+            case MAGICAL -> Component.text("[攻:魔]", NamedTextColor.LIGHT_PURPLE);
+            case HYBRID -> Component.text("[攻:混]", NamedTextColor.LIGHT_PURPLE, TextDecoration.ITALIC);
             case NONE -> null;
         };
     }

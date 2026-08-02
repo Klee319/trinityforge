@@ -1,0 +1,8 @@
+# 呪われた徘徊者 (cursed_wanderer) — 通常攻撃の5割が魔法として解決される派生モブ(magic-ratio: 0.5、
+# 物理/魔法の均等ハイブリッドを実証する枠)。combat/mob-overrides.yml の
+# overrides.default.mobs.cursed_wanderer が強さ/技/ドロップを上書きする。
+# 配備手順は ops/deploy-elitemobs-magic-mobs.md を参照。
+isEnabled: true
+entityType: ZOMBIE_VILLAGER
+name: "&2呪われた徘徊者"
+level: 18

@@ -153,10 +153,12 @@ class ShippedBossStrengthDriftTest {
 
     /**
      * abilities を持つモブの総数。9(default のバニラモブ) + 7(束縛者、2026-07-31)
-     * + 18(柱2-1、2026-08-01) + 9(エンチャント試練1〜9、2026-08-02) = 43。
+     * + 18(柱2-1、2026-08-01) + 9(エンチャント試練1〜9、2026-08-02) + 6(実装1: attack.magic-ratio を
+     * 実証する新規派生カスタムボス6体。caster_zombie/warlock_husk/frost_wraith_skeleton/
+     * abyssal_drowned/cursed_wanderer/shadow_spider。2026-08-02、既存モブは書き換えていない) = 49。
      * 増減したらこの定数と一緒に「なぜ増えたか」を書くこと。
      */
-    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 43;
+    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 49;
 
     // === 読み込みヘルパ(出荷リソースの bytes をそのまま使う。写しを手書きしない) ===
 
@@ -329,11 +331,12 @@ class ShippedBossStrengthDriftTest {
     }
 
     @Test
-    @DisplayName("abilities を持つモブの総数が 34(default 9 + 束縛者 7 + 踏破ボス 18)")
+    @DisplayName("abilities を持つモブの総数が 49(default 9 + 束縛者 7 + 踏破ボス 18 + エンチャント試練 9 + 派生6)")
     void abilityCarrierCountIsPinned() throws IOException {
         assertEquals(EXPECTED_ABILITY_CARRIER_COUNT, allAbilityUsages().size(),
                 "abilities を持つモブの数が変わった。内訳は default のバニラモブ9 + 束縛者7 + "
-                        + "柱2-1 の踏破ボス18。増減させたときはこの定数と理由を一緒に更新すること。"
+                        + "柱2-1 の踏破ボス18 + エンチャント試練9 + 実装1の派生カスタムボス6。"
+                        + "増減させたときはこの定数と理由を一緒に更新すること。"
                         + "実際の内訳: " + allAbilityUsages().keySet());
     }
 

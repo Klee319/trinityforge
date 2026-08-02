@@ -97,7 +97,7 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 
 フォークの刻印処理は import 時に `base + perLevel×level` を数値として焼く仕組みだが、`level: dynamic`（ダンジョン内のほぼ全モブ）はコンバットレベル依存の実行時値であり import 時点では数値化できない。**How**: `MobProfile.dynamic` フラグ＋`ConfigManager.resolveRuntimeProfile(id, runtimeLevel)` で、dynamic なプロファイルは実レベルで都度再構築する。固定ダンジョン（level が数値）は従来どおり焼き値のまま。武器tierの成長は指数的（剣の attack-power が木→インフィニティで約600倍）なので、モブ側の `ConversionPolicy.Ramp` も `growth`/`growth-interval` を持つ指数式に対応している（省略時 growth=1.0 で従来の線形と一致、後方互換）。
 
-### FocusHpDisplay の耐性寄りタグは既存の防御configから導出、攻撃タイプは意図的に出していない
+### FocusHpDisplay の耐性寄りタグは既存の防御configから導出、攻撃タイプタグは `attack.magic-ratio` から導出（2026-08-02〜、2行のまま両立）
 
 `mob.FocusHpText.leanFrom(physical, magical)` はモブの `physical`/`magical` の
 `defenseRate*0.4+resistance*0.4+damageReduction*0.2` 加重スコアを比較し、差が0.05未満なら
@@ -107,10 +107,15 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 固定**している（`DamagePopupDisplay` の浮遊ダメージ表示や隣接モブの名前ラベルとの重なりを避けるため、
 3行目を新設しない設計判断）。
 
-意図的に「モブの攻撃タイプ（技が魔法か物理か）」のタグは出していない: TFの被ダメ判定は
-`TrinityForgeAbilityDamage.mark()` が立っている間だけMAGICAL扱いになるが、これは限られた条件でしか
-立たない（次項参照）。ほとんどのeliteモブは近接攻撃(PHYSICAL固定)としか判定されないため、
-静的な「攻撃タイプ」アイコンは大半のモブで無意味・誤解を招くと判断して見送った。
+※2026-08-02までは「モブの攻撃タイプ（技が魔法か物理か）」のタグは意図的に出していなかった
+（当時 TF の被ダメ判定は `TrinityForgeAbilityDamage.mark()` が立っている間だけ MAGICAL 扱いになる
+限定的な経路しか無く、ほとんどの elite モブは近接攻撃(PHYSICAL固定)としか判定されなかったため）。
+`attack.magic-ratio`(次項「モブの通常攻撃を魔法として解決するには…」参照、`forks-and-mobs.md`)の
+新設により、モブの通常攻撃自体が魔法/ハイブリッドとして解決できるようになったので、
+`FocusHpText.AttackLean`(NONE/HYBRID/MAGICAL、`attackLeanFrom(magicRatio)` で導出)として
+`[攻:魔]`/`[攻:混]` タグを追加した。`ResistanceLean`(防御軸)とは別の enum・別の色系統（紫）で、
+同じ名前行に両方並んでも混ざらない設計（`FocusHpText.format` の6引数オーバーロード）。
+`magic-ratio<=0`（既定・大多数のモブ）は従来どおりタグなし。
 
 ## マナ回復ステータス
 

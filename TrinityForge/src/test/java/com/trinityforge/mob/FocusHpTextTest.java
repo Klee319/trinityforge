@@ -118,6 +118,56 @@ class FocusHpTextTest {
         assertFalse(plain.contains("耐:"), "an unconfigured/balanced mob must not show any resistance tag");
     }
 
+    // --- 依頼2 (2026-08-02): 攻撃タイプタグ(attack.magic-ratio)の導出とレイアウト ---
+    @Test
+    void attackLeanFromReturnsNoneForZeroMagicRatio() {
+        assertEquals(FocusHpText.AttackLean.NONE, FocusHpText.attackLeanFrom(0.0),
+                "magic-ratio=0(既定・大多数のモブ)はタグなし");
+    }
+
+    @Test
+    void attackLeanFromReturnsHybridForMidRatio() {
+        assertEquals(FocusHpText.AttackLean.HYBRID, FocusHpText.attackLeanFrom(0.5));
+    }
+
+    @Test
+    void attackLeanFromReturnsMagicalForFullRatio() {
+        assertEquals(FocusHpText.AttackLean.MAGICAL, FocusHpText.attackLeanFrom(1.0));
+    }
+
+    @Test
+    void formatWithAttackLeanKeepsTheDisplayAtTwoLines() {
+        Component result = FocusHpText.format(10, Component.text("Boss"), 50, 100,
+                FocusHpText.ResistanceLean.NONE, FocusHpText.AttackLean.MAGICAL);
+        String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(result);
+        assertEquals(1, plain.chars().filter(c -> c == '\n').count(),
+                "the attack-type tag must be appended to the name line, not add a third line");
+        assertTrue(plain.contains("攻:魔"), "the magical attack-type tag must render on the name line");
+    }
+
+    @Test
+    void formatWithAttackLeanNoneOmitsTheTag() {
+        Component result = FocusHpText.format(10, Component.text("Boss"), 50, 100,
+                FocusHpText.ResistanceLean.NONE, FocusHpText.AttackLean.NONE);
+        String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(result);
+        assertFalse(plain.contains("攻:"), "magic-ratio=0のモブは攻撃タイプタグを一切出さないこと");
+    }
+
+    @Test
+    void resistanceAndAttackTagsCoexistWithoutMerging() {
+        // 耐性タグ([耐:魔])と攻撃タイプタグ([攻:魔])は別軸の情報 — 同時に出ても混ざらず両方読み取れること。
+        Component result = FocusHpText.format(10, Component.text("Boss"), 50, 100,
+                FocusHpText.ResistanceLean.MAGICAL, FocusHpText.AttackLean.MAGICAL);
+        String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(result);
+        assertTrue(plain.contains("耐:魔"), "resistance tag must still render");
+        assertTrue(plain.contains("攻:魔"), "attack-type tag must still render");
+        assertEquals(1, plain.chars().filter(c -> c == '\n').count(),
+                "both tags together must still keep the display at 2 lines total");
+    }
+
     private static boolean containsTranslatable(Component component, String keyPrefix) {
         if (component instanceof net.kyori.adventure.text.TranslatableComponent translatable
                 && translatable.key().startsWith(keyPrefix)) {

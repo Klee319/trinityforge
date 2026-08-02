@@ -307,6 +307,19 @@ public final class PdcKeys {
     public static final NamespacedKey MOB_ATTACK_DAMAGE_MODIFIER = key("mob_attack_damage_modifier");
     public static final NamespacedKey MOB_ATTACK_FIXED_DAMAGE = key("mob_attack_fixed_damage");
     /**
+     * このモブの通常攻撃を魔法として解決する割合 [0,1](2026-08-02 新設、{@code combat/mob-types.yml} /
+     * {@code combat/mob-profiles.yml} / {@code combat/mob-overrides.yml} の {@code attack.magic-ratio}）。
+     * 0.0(既定・absent)= 完全物理(従来どおり)。
+     *
+     * <p><b>{@link #MOB_ATTACK_POWER} 等の「フルの攻撃プロファイル」とは独立に書き込まれる</b>
+     * （fork {@code TrinityForgeSpawnListener#stamp} 参照）。EliteMobs ダンジョンモブの大多数は
+     * {@code attack:} ブロック自体を持たず(＝{@code MOB_ATTACK_POWER} 等は書かれず
+     * {@code hasAttackProfile()} は false のまま)、EliteMobs 自身の計算した基礎ダメージを
+     * フォーク側 {@code TrinityForgeCombatListener} が flat 委譲で受け取る。その経路でも
+     * 魔法比率だけは独立に読めるよう、このキーは attack-power の有無と無関係に常に刻む。
+     */
+    public static final NamespacedKey MOB_ATTACK_MAGIC_RATIO = key("mob_attack_magic_ratio");
+    /**
      * Marker (BYTE=1) written by {@code CombatListener#onCreatureSpawn} for a mob that came out of a
      * monster spawner, so {@code ArcheryExperiencePolicy} can apply the spawner EXP multiplier.
      *

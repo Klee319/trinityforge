@@ -470,7 +470,10 @@ public final class MobTypesConfig implements LoadableConfig {
                 section.getDouble("crit-damage", 0.0),
                 section.getDouble("penetration", 0.0),
                 section.getDouble("damage-modifier", 1.0),
-                section.getDouble("fixed-damage", 0.0));
+                section.getDouble("fixed-damage", 0.0),
+                // 2026-08-02: このモブの通常攻撃を魔法として解決する割合[0,1]。既定0.0=完全物理
+                // (従来どおり)。AttackStatsのコンパクトコンストラクタが[0,1]へクランプする。
+                section.getDouble("magic-ratio", 0.0));
     }
 
     private static MobLevelCoefficients.DefenseCoeffs parseDefenseCoeffs(ConfigurationSection section) {

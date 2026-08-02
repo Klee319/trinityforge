@@ -303,7 +303,11 @@ public final class FocusHpDisplay implements Listener {
         FocusHpText.ResistanceLean lean = FocusHpText.leanFrom(
                 data.defenseFor(com.trinityforge.combat.DamageType.PHYSICAL),
                 data.defenseFor(com.trinityforge.combat.DamageType.MAGICAL));
-        return FocusHpText.format(level, nameComponent, curHp, maxHp, lean);
+        // 実装2(2026-08-02): モブの通常攻撃タイプ(attack.magic-ratio)を耐性タグとは別のタグで表示する。
+        // hasAttackProfile()の有無に関わらず読める(MobData#attackMagicRatio javadoc参照) — EliteMobs
+        // ダンジョンモブの大多数はTFの攻撃プロファイルを持たないが、magic-ratioだけは独立に設定できる。
+        FocusHpText.AttackLean attackLean = FocusHpText.attackLeanFrom(data.attackMagicRatio());
+        return FocusHpText.format(level, nameComponent, curHp, maxHp, lean, attackLean);
     }
 
     private static final class TrackedDisplay {

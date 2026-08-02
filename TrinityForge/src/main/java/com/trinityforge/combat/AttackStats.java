@@ -16,6 +16,12 @@ package com.trinityforge.combat;
  *                           Uniform[min(1,endpoint), max(1,endpoint)]; unset → 1.0, explicit 0/negative
  *                           values remain real endpoints
  * @param fixedDamage        固定ダメージ, 全防御ステータスを貫通する純加算 (step 8)
+ * @param magicRatio         このモブの通常攻撃のうち魔法として解決する割合 [0,1](2026-08-02 新設)。
+ *                           0.0(既定)= 完全物理(従来どおり)、1.0 = 完全魔法、中間値は
+ *                           {@link com.trinityforge.combat.SymmetricCombatService} が物理/魔法の
+ *                           2コンポーネントに分割し、回避ロールは1回のまま両方へ通す(hybrid攻撃)。
+ *                           プレイヤー側の武器・アイテムの {@code AttackStats} には意味を持たない
+ *                           (モブの通常攻撃専用)。
  */
 public record AttackStats(
         double defaultDamage,
@@ -25,7 +31,8 @@ public record AttackStats(
         double critDamage,
         double penetration,
         double damageModifier,
-        double fixedDamage
+        double fixedDamage,
+        double magicRatio
 ) {
     /**
      * Guards every construction path (config, PDC-derived bridge, tests) so a bad input can never
@@ -43,6 +50,21 @@ public record AttackStats(
         penetration = capAtOne(finiteOrZero(penetration));
         damageModifier = Double.isFinite(damageModifier) ? damageModifier : 1.0;
         fixedDamage = finiteOrZero(fixedDamage);
+        magicRatio = Math.max(0.0, Math.min(1.0, finiteOrZero(magicRatio)));
+    }
+
+    /**
+     * Back-compat 8-arg constructor (pre-2026-08-02 shape): every existing call site in the codebase
+     * (player weapons, mob-types/mob-profiles importers, PDC bridges) constructs an {@link AttackStats}
+     * with these 8 fields and has no notion of {@link #magicRatio()} yet. Delegates to the canonical
+     * 9-arg constructor with {@code magicRatio = 0.0} (完全物理、従来どおり) so none of those call
+     * sites need to change.
+     */
+    public AttackStats(double defaultDamage, double flatBonusDamage, double percentBonusDamage,
+                        double critChance, double critDamage, double penetration, double damageModifier,
+                        double fixedDamage) {
+        this(defaultDamage, flatBonusDamage, percentBonusDamage, critChance, critDamage, penetration,
+                damageModifier, fixedDamage, 0.0);
     }
 
     private static double finiteOrZero(double value) {
@@ -55,16 +77,22 @@ public record AttackStats(
 
     /** A pure default-damage attack with no extra stats (e.g. vanilla mob baseline). */
     public static AttackStats plain(double defaultDamage) {
-        return new AttackStats(defaultDamage, 0, 0, 0, 0, 0, 1, 0);
+        return new AttackStats(defaultDamage, 0, 0, 0, 0, 0, 1, 0, 0.0);
     }
 
     /**
-     * Returns a copy with {@code defaultDamage} replaced, keeping every other stat. Lets a caller
-     * build the attacker stats (crit/penetration/... from a catalyst) once and then inject the
-     * level-scaled default damage the pipeline should use.
+     * Returns a copy with {@code defaultDamage} replaced, keeping every other stat (including
+     * {@link #magicRatio()}). Lets a caller build the attacker stats (crit/penetration/... from a
+     * catalyst) once and then inject the level-scaled default damage the pipeline should use.
      */
     public AttackStats withDefaultDamage(double newDefaultDamage) {
         return new AttackStats(newDefaultDamage, flatBonusDamage, percentBonusDamage, critChance,
-                critDamage, penetration, damageModifier, fixedDamage);
+                critDamage, penetration, damageModifier, fixedDamage, magicRatio);
+    }
+
+    /** Returns a copy with {@link #magicRatio()} replaced, keeping every other stat. */
+    public AttackStats withMagicRatio(double newMagicRatio) {
+        return new AttackStats(defaultDamage, flatBonusDamage, percentBonusDamage, critChance,
+                critDamage, penetration, damageModifier, fixedDamage, newMagicRatio);
     }
 }

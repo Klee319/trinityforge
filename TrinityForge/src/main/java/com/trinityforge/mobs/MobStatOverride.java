@@ -81,7 +81,8 @@ public record MobStatOverride(
                 override.critDamage() != null ? override.critDamage() : base.critDamage(),
                 override.penetration() != null ? override.penetration() : base.penetration(),
                 override.damageModifier() != null ? override.damageModifier() : base.damageModifier(),
-                override.fixedDamage() != null ? override.fixedDamage() : base.fixedDamage());
+                override.fixedDamage() != null ? override.fixedDamage() : base.fixedDamage(),
+                override.magicRatio() != null ? override.magicRatio() : base.magicRatio());
     }
 
     /** Partial {@link DefenseStats} override; {@code armorStrength} lives on the parent record instead
@@ -90,9 +91,16 @@ public record MobStatOverride(
                                         Double flatDefense) {
     }
 
-    /** Partial {@link AttackStats} override. */
+    /**
+     * Partial {@link AttackStats} override. {@code magicRatio} (2026-08-02) can be set alone —
+     * without also setting {@code defaultDamage} etc. — so an EliteMobs dungeon mob that has NO
+     * TrinityForge {@code attack:} profile in {@code mob-profiles.yml} (the common case; it keeps
+     * EliteMobs' own damage formula) can still be classified as a magic attacker. See
+     * {@code MobProfile#hasAttack()}: {@code magicRatio} alone does not flip that flag, so setting
+     * only this field does NOT divert the mob into TrinityForge's full attack-power-owned path.
+     */
     public record AttackFieldOverride(Double defaultDamage, Double flatBonusDamage, Double percentBonusDamage,
                                        Double critChance, Double critDamage, Double penetration,
-                                       Double damageModifier, Double fixedDamage) {
+                                       Double damageModifier, Double fixedDamage, Double magicRatio) {
     }
 }

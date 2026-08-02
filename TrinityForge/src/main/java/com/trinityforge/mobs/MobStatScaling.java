@@ -66,7 +66,10 @@ public final class MobStatScaling {
                 base.critDamage() + coeffs.critDamage() * level,
                 base.penetration() + coeffs.penetration() * level,
                 base.damageModifier() + coeffs.damageModifier() * level,
-                base.fixedDamage() + coeffs.fixedDamage() * level);
+                base.fixedDamage() + coeffs.fixedDamage() * level,
+                // magic-ratio はレベルで伸びる「量」ではなく攻撃の「型」の分類なので、
+                // 他の係数と違いレベル係数を持たず base の値をそのまま通す(2026-08-02)。
+                base.magicRatio());
     }
 
 }

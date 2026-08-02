@@ -1,0 +1,7 @@
+# 深淵の溺者 (abyssal_drowned) — 通常攻撃の8割が魔法として解決される派生モブ(magic-ratio: 0.8)。
+# combat/mob-overrides.yml の overrides.default.mobs.abyssal_drowned が強さ/技/ドロップを上書きする。
+# 配備手順は ops/deploy-elitemobs-magic-mobs.md を参照。
+isEnabled: true
+entityType: DROWNED
+name: "&3深淵の溺者"
+level: 28

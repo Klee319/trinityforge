@@ -671,6 +671,12 @@ public final class MobOverridesConfig implements LoadableConfig {
                 nullableValidatedDouble(section, "damage-modifier", scopeName, mobId,
                         "stats.attack.damage-modifier", log, skipped),
                 nullableValidatedDouble(section, "fixed-damage", scopeName, mobId, "stats.attack.fixed-damage",
+                        log, skipped),
+                // 2026-08-02: このモブの通常攻撃を魔法として解決する割合[0,1]。attack-power等の他フィールド
+                // を1件も書かなくても単独で設定できる(MobStatOverride.AttackFieldOverride javadoc参照)ので、
+                // EliteMobsダンジョンモブ(mob-profiles.ymlにattack:が無くEliteMobs自身の式のまま)にも
+                // 「魔法として解決する」ことだけを乗せられる。[0,1]範囲外は警告のうえ無視。
+                nullableValidatedRate(section, "magic-ratio", scopeName, mobId, "stats.attack.magic-ratio",
                         log, skipped));
     }
 

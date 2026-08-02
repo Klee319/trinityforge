@@ -59,7 +59,7 @@ class MobStatOverrideTest {
     @Test
     void attackSubFieldsMergeIndependently() {
         MobStatOverride.AttackFieldOverride attackOverride =
-                new MobStatOverride.AttackFieldOverride(null, null, null, 0.99, null, null, null, null);
+                new MobStatOverride.AttackFieldOverride(null, null, null, 0.99, null, null, null, null, null);
         MobStatOverride override = new MobStatOverride(null, null, null, null, null, attackOverride);
         MobProfile base = baseProfile();
         MobProfile result = override.applyTo(base);
@@ -68,6 +68,22 @@ class MobStatOverrideTest {
         assertEquals(base.attack().defaultDamage(), result.attack().defaultDamage());
         assertEquals(base.attack().flatBonusDamage(), result.attack().flatBonusDamage());
         assertEquals(base.attack().fixedDamage(), result.attack().fixedDamage());
+        assertEquals(base.attack().magicRatio(), result.attack().magicRatio());
+    }
+
+    @Test
+    void magicRatioOverrideAppliesAloneWithoutTouchingOtherAttackFields() {
+        // magic-ratio を単独指定しても他の attack フィールドは base のまま(hasAttack() のゲートに
+        // 影響しないことの回帰確認 — MobStatOverride.AttackFieldOverride の javadoc 参照)。
+        MobStatOverride.AttackFieldOverride attackOverride =
+                new MobStatOverride.AttackFieldOverride(null, null, null, null, null, null, null, null, 0.6);
+        MobStatOverride override = new MobStatOverride(null, null, null, null, null, attackOverride);
+        MobProfile base = baseProfile();
+        MobProfile result = override.applyTo(base);
+
+        assertEquals(0.6, result.attack().magicRatio());
+        assertEquals(base.attack().defaultDamage(), result.attack().defaultDamage());
+        assertEquals(base.attack().critChance(), result.attack().critChance());
     }
 
     @Test
