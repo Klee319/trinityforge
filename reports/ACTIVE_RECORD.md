@@ -4274,3 +4274,170 @@ TF を呼ぶ**手前**で `trinityforge.admin` / `trinityforge.elitemobs.command
   魔法攻撃を持つモブが実在しなければ**魔法耐性が死にステータス**で、
   「耐性の対策なしで勝ててしまう」というユーザーの体感と符合する。
 - **U3（ドリリングでツルハシのモーションが消える）= inconclusive。** 描画事象なのでリポジトリ内では確定不能。
+
+---
+
+## 2026-08-03 実機バグ報告9件のクローズ（証拠つき）
+
+前節の洗い出しを受けて、報告された9件をレーンに割って全部潰した。**「直したのに直っていなかった」3件は
+すべて同じ失敗形**で、修正したコードに制御が一度も到達していなかった。以下は真因と、
+それを機構レベルで確定した根拠。**推測は1件も含まない**（配備済み jar を `javap -c` して確認したものは
+その旨を明記した）。
+
+### ~~スポナーの中身が維持されず、再設置品を回収できない~~ → 修正（`0e6b2b1`）
+
+**保存側は正しかった。落ちていたのは設置側。** Minecraft 1.21.11 の `BlockItem.updateCustomBlockEntityTag`:
+
+```
+BlockEntityType.onlyOpCanSetNbt() -> Player.canUseGameMasterBlocks()
+  -> false なら BLOCK_ENTITY_DATA を読み込まずに捨てる
+OP_ONLY_CUSTOM_DATA = Set.of(COMMAND_BLOCK, LECTERN, SIGN, HANGING_SIGN, MOB_SPAWNER, TRIAL_SPAWNER)
+```
+
+**サバイバルのプレイヤーは `canUseGameMasterBlocks()` が必ず false。** 中身つきスポナーを置いた瞬間に
+バニラが黙って捨てて空スポナーになり、それを壊すと `isEmptySpawner()` の早期 return で
+`setDropItems(false)` にも到達せず**アイテムごと消えていた**。
+
+2026-08-01 の修正（`3094271`）はアイテム側への保存だけを直していた。保存は成功していたので、
+**設置側の書き戻しが無い限り保存側を何度直しても中身は絶対に戻らない**。
+`BlockPlaceEvent` で `BlockStateMeta` から自分で書き戻す経路を足した。
+第2の保険として、空スポナーでも自分で置いたものなら素の `SPAWNER` を必ず1個返す。
+
+### ~~ドロップ増加でアレイに持たせたアイテムが増える~~ → 修正（`0e6b2b1`）
+
+`LivingEntity.dropAllDeathLoot` の順序（同 jar を `javap -c`）:
+
+```
+dropEquipment()   <- Allay はここで removeAllItems() し MAINHAND も空にする
+dropFromLootTable()
+dropCustomDeathLoot()   <- Piglin はここで removeAllItems()
+callEntityDeathEvent()  <- EntityDeathEvent はここでやっと発火
+```
+
+**`EntityDeathEvent` の時点でアレイの収納も装備も必ず空。** 2026-08-02 の修正（`15236bc`）が入れた
+「`InventoryHolder` の `getInventory()` を除外リストへ」は、実機では**常に空リストを作るだけの no-op**
+だった。通常モブの装備欄が読めるのは CraftBukkit が `clearEquipmentSlots` でクリアを死亡イベントの
+後ろへ遅延させているからで、Allay/Piglin の収納クリアはその遅延の対象外。
+
+**テストが緑だった理由**: `NativeSurvivalPerkDropDuplicationTest` は**収納に中身を入れたまま**
+イベントを流していた。MockBukkit はバニラの死亡順序を再現しないので、壊れたままでも緑になる。
+回帰テストは**収納を空のまま**（＝実機と同じ状態）流す形へ書き直した。
+
+修正は「収納持ち（`InventoryHolder`）は丸ごと倍率対象外」。状態を持たない判定なので順序に左右されない。
+ピグリンが同型の穴だったので一緒に閉じた。ウマ系チェスト/村人/アーマースタンド/通常モブの装備は
+NMS を全数確認して安全と確定。
+
+### ~~ダンジョンの鍵が消費されない~~ → 修正（フォーク側・`d3c46b6` に記録）
+
+TF 側（`cf15493`）は正しかったが、**唯一の呼び出し元である EM フォークの
+`TrinityForgeDungeonGateListener` が、TF を呼ぶ手前で同じ2権限を見て早期 `return true`** していた。
+`trinityforge.admin` は `default: op` なので、報告者（OP）は鍵消費コードへ一度も到達しない。
+ビルド後の jar から当該クラスを取り出して `javap` し、`trinityforge.admin` / `hasPermission` が
+**0件**であることを確認済み。
+
+**この失敗形は開発者自身が OP なので、自分でテストすると必ず素通りする側に落ちて再現しない。**
+
+### ~~準備中カテゴリのアイテムがゲーム内で入手できる~~ → 原因は配備漏れ + 門2つ（`de78dbf`）
+
+**コードは正しく、サーバが前日の設定を読んでいた。**
+
+```
+リポジトリ items/catalog.yml  draft: true が 100 件
+稼働中   items/catalog.yml   draft: true が   0 件（08-02 02:14 のまま）
+```
+
+08-02 23:00 の配備は jar だけだった（`deploy.cmd` は `--config` を渡したときしか yml を配らない）。
+**サーバを停止して config を配備すれば、実在する76件は即止まる。**
+
+併せて、コード側にも門の無い経路が2つあったので塞いだ。準備中スレッド24種は
+`external-source: arspaper` で**実体が Ars 側にある**ため、「Ars を先に引く」経路
+（`/tf give` と村人取引の catalog フォールバック）が `CrossPluginItemResolver#create` の
+draft ゲートを一度も通っていなかった。ゲート付きの入口 `createArsGated` を1つだけ用意して寄せた。
+**「管理者コマンドだから素通しでよい」は成立しない**（実績/図鑑報酬の `commands:` に
+`tf give <draft-id>` と書けばプレイヤーへ渡る）。
+
+ArsPaper の構造物チェストは TF を一度も通らないので、Ars 側から
+`TrinityForgeBridge.isCatalogDraft()` で TF に**問い合わせる**方式にした
+（`loot-tables.yml` から8件を削除すると、解禁時に「draft を外す」に加えて「yml へ書き戻す」が
+必要になり、まさに今回踏んだ二重管理のドリフトを再生産するため）。
+
+> **要判断**: `achievements.yml:820-829` は上記8種を「経路=ルート: 構造物チェスト」と明記している。
+> 今回のゲートにより**解禁するまでドロップしない**。また `thread_all`（厳選者・40種すべて）は
+> スレッド40種のうち24種が draft なので、解禁まで到達不能になる。
+
+### ~~サトウキビの根元を壊すと経験値が入らない~~ → 修正（`a654b6c`）
+
+バニラは支持ブロックを失った縦積み植物（サトウキビ/竹/コンブ/サボテン/各種ツタ）の上位段を
+連鎖的に消すが、**この消滅は `BlockBreakEvent` を伴わない**。そのため `onBlockBreak` が
+連鎖分に対して一度も呼ばれず、**育った段のEXPがまるごと消えていた**。
+
+**根元の「置く→壊す」ガードは意図的に残した。** `PlacedBlockTracker` は `BlockPlaceEvent` のたびに
+マークを無条件で付け直すため、根元位置自体にはクールダウンが無い。ガードを外すと
+「植えて壊す」を待ち時間ゼロで無限に回せる。育った段には「成長に時間がかかる」という
+自然なレート制限があるので、**根元は0のまま・育った段だけ個別にEXP対象**が正しい線引き。
+手植えで積み上げた場合は各段が個別にガードを通るので全段0（抜け道なし）。
+
+### ~~Ars鍛冶の経験値が入らない~~ → 修正（フォーク側）
+
+**EXP付与の呼び出しが「品質を刻めるか」の門の内側にあった。**
+
+```java
+// RitualManager: .filter(BaseCustomItem::isQualityStamped).ifPresent(...)
+// TrinityForgeBridge: if (MaterialTier.of(...).isEquipment() || isArsQualityStamped(item))
+```
+
+装備はこの門を通るので正常だったが、**品質という概念自体が意味を持たない結果**
+──ソースジェムの系譜6件・エンチャント本8件・ウェイストーン・テレポートコンパス、そして
+**`catalog.yml` の `thread_*` 40件**──は `isQualityStamped()` が既定 `false` なので
+EXP付与へ一度も到達していなかった。品質刻印と EXP 付与を分離した。
+
+**無限EXPにならない根拠**: `RitualManager`/`RitualRecipe` に分解・逆儀式の概念が無い。
+唯一の「作って壊して作り直す」経路（圧縮素材の `reversible: true`）は儀式ではなくバニラ作業台の
+レシピで、`CraftQualityListener` 側の「使用可能レベルが無ければEXP0」ゲートで既に保護されている。
+
+副産物として、TF 呼び出しを完全に握り潰していた `catch (Throwable t) {}` に警告ログを足した
+（以後、TF 側 API の不整合が起きても観測できる）。
+
+### ~~レシピGUIで一部アイテムがID表記・表示名にカラーコードが混入~~ → 修正（フォーク側）
+
+真因は2つとも「yml の生文字列を `Component.text()` にそのまま渡していた」こと。
+`materials.yml` はレガシー `&` 記法なので、儀式レシピ名が `&6&l無限ソース核精製` のまま出ていた
+（**報告の「無限ソース生成器」はこれ**）。ID 表記のほうは `custom:` の解決に失敗したときの
+フォールバックが生ID で、実際に発火していたのは `custom:source_singularity_jar`
+（`sourcejars.yml` の配備が 07-27 のままという**別のドリフト**が原因）。
+
+**データは書き換えず、記法変換の入口を `DisplayText` 1つに寄せた**（66KB の `materials.yml` を
+MiniMessage へ書き換えると他レーンが編集中のファイル群を巻き込む巨大 diff になる上、
+`ArsPaper=レガシー&` / `TF catalog.yml=MiniMessage` という規約自体は既に成立していたため）。
+生IDへ落ちたときは WARN ログを出すようにした（config ドリフトを検知できないのが今回の遠因）。
+
+### ~~称号を付けるとネームタグが表示されない~~ → 方式ごと置換（`b9c5395`）
+
+旧実装は `TextDisplay` をプレイヤーのパッセンジャーとしてマウントし、
+`display.head-offset-y` という**実サーバで目視確認できない当て推量の値**（0.35→0.75 と
+根拠なく動かしていた）で高さを合わせていた。スコアボードチームの `suffix` へ移し、
+**別エンティティを生成しない**形にしたので「重なる高さ」という当て推量そのものが構造的に消える。
+パッセンジャーがプラグイン側のテレポートを妨げる副作用も同時に消える。
+**欠点は称号がネームタグと同じ行に出ること**（頭上の別行ではなくなる）。
+
+これに伴う競合を1つ実コードで発見して塞いだ: EliteMobs の `QuestTracking` / `SimpleScoreboard` が
+`player.setScoreboard(getNewScoreboard())` でプレイヤーを**まっさらなスコアボードへ移し、
+追跡終了後も main へ戻さない**。チームの prefix/suffix は「見る側のスコアボード」で解決されるので、
+一度クエストを追跡すると再ログインするまで**そのプレイヤーの視界から全員の称号が消える**。
+EM フォークの生成箇所で main のチームを複製するようにした。
+
+> フォークは spigot-api でコンパイルするので Adventure 版の `Team#prefix(Component)` /
+> `suffix(Component)` / `hasColor()` は**存在しない**（最初の実装はコンパイルできなかった）。
+> レガシーの String API を使うこと。実行時は Paper なので §x のグラデーションも往復できる。
+
+### ~~カタログ製エンダーアイが虚空クリックで素に戻る~~ → 修正（`0e6b2b1`）
+
+`CatalogVanillaOperationGuardListener` の `ignoreCancelled = true` を外し
+`useItemInHand() == DENY` を見る形へ。**リポジトリ全体で残り0件**であることを確認済み
+（他の4件は `*_CLICK_BLOCK` しか扱わないのでこの罠の影響を受けない）。
+
+### 再発防止（`ebc8b1f`）
+
+`deploy.cmd` に `--config` なしのとき**稼働中とズレている yml を一覧する**段を足した。
+今回の draft 漏れは「コードは正しいのに設定が前日のまま」で、**症状がすべてコードのバグに見える**ため
+原因究明に時間を溶かした。実測で動作確認済み（現在18ファイルが出る）。
