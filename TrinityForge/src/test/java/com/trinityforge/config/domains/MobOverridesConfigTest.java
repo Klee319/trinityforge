@@ -789,6 +789,205 @@ class MobOverridesConfigTest {
         assertEquals(7, config.levelCutoffFor("w", "goblin_chief").overLevelThreshold().intValue());
     }
 
+    // --- scope 直下の stats:(ダンジョン単位の既定ステータス、2026-08-03 #62) ---
+
+    @Test
+    void scopeLevelStatsApplyToAMobWithNoEntryOfItsOwn(@TempDir File dir) throws Exception {
+        // この層の存在意義そのもの: mobs: に1件も書いていないモブに効くこと。効かないなら
+        // 「ダンジョンのコンセプト」は396体へ1体ずつ書く以外に手段が無くなる。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    stats:
+                      magical:
+                        resistance: 0.32
+                      attack:
+                        magic-ratio: 0.6
+                    mobs:
+                      some_other_mob:
+                        stats:
+                          max-health: 1
+                """);
+        MobProfile result = config.resolve("my_dungeon", "goblin_chief", baseProfile());
+        assertEquals(0.32, result.magical().resistance());
+        assertEquals(0.6, result.attack().magicRatio());
+    }
+
+    @Test
+    void scopeLevelStatsOnlyTouchTheFieldsItSets(@TempDir File dir) throws Exception {
+        // コンセプトは resistance と magic-ratio しか書かない。Lv45以降の flat-defense ランプや
+        // HP をここで巻き添えに潰さないことが、この設定を安全に配れる前提になっている。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    stats:
+                      physical:
+                        resistance: 0.05
+                    mobs: {}
+                """);
+        MobProfile result = config.resolve("my_dungeon", "goblin_chief", baseProfile());
+        assertEquals(0.05, result.physical().resistance());
+        assertEquals(5.0, result.physical().flatDefense(), "flat-defense は据え置き");
+        assertEquals(0.1, result.physical().defenseRate(), "defense-rate は据え置き");
+        assertEquals(0.1, result.magical().resistance(), "magical 側は据え置き");
+        assertEquals(100.0, result.maxHealth(), "max-health は据え置き");
+    }
+
+    @Test
+    void mobLevelStatsWinOverTheScopeLevelStatsFieldByField(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    stats:
+                      magical:
+                        resistance: 0.32
+                      attack:
+                        magic-ratio: 0.6
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          attack:
+                            magic-ratio: 0.0
+                """);
+        MobProfile result = config.resolve("my_dungeon", "goblin_chief", baseProfile());
+        assertEquals(0.0, result.attack().magicRatio(), "モブ個別が勝つ");
+        assertEquals(0.32, result.magical().resistance(),
+                "モブ個別が書いていない項目は scope 直下の値が生きる(ブロック採用ではなく項目単位)");
+    }
+
+    @Test
+    void worldScopeStatsWinOverDefaultScopeStats(@TempDir File dir) throws Exception {
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    stats:
+                      attack:
+                        magic-ratio: 0.3
+                      physical:
+                        resistance: 0.12
+                    mobs: {}
+                  my_dungeon:
+                    stats:
+                      attack:
+                        magic-ratio: 0.6
+                    mobs: {}
+                """);
+        MobProfile inDungeon = config.resolve("my_dungeon", "goblin_chief", baseProfile());
+        assertEquals(0.6, inDungeon.attack().magicRatio(), "ワールドscopeが default scope に勝つ");
+        assertEquals(0.12, inDungeon.physical().resistance(),
+                "ワールドscopeが書いていない項目は default scope の値が生きる");
+        MobProfile elsewhere = config.resolve("unrelated_world", "goblin_chief", baseProfile());
+        assertEquals(0.3, elsewhere.attack().magicRatio(), "無関係のワールドは default scope だけ");
+    }
+
+    @Test
+    void scopeLevelStatsMatchEveryInstanceOfABlueprintDungeon(@TempDir File dir) throws Exception {
+        // インスタンスワールド名は入場のたびに _1 _2 _3 と変わる。設計図名で書いた stats: が
+        // 全インスタンスに当たらないと、コンセプトは1インスタンス目にしか乗らない。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  em_id_the_mines:
+                    stats:
+                      attack:
+                        magic-ratio: 0.08
+                    mobs: {}
+                """);
+        assertEquals(0.08, config.resolve("em_id_the_mines_7", "any_mob", baseProfile()).attack().magicRatio());
+        assertEquals(0.08, config.resolve("em_id_the_mines", "any_mob", baseProfile()).attack().magicRatio());
+    }
+
+    @Test
+    void scopeWithOnlyStatsAndNoMobsSectionIsValidNotSkipped(@TempDir File dir) throws Exception {
+        // scope直下だけで完結する設定は正しい書き方なので警告もskippedもしない。
+        // (mobs: も scope直下設定も無い scope は従来どおり書き間違いとして skipped のまま —
+        //  scopeMissingMobsSectionIsWarnedAndSkippedNotSilentOk がそちらを守っている)
+        ParseResult r = parse("""
+                overrides:
+                  my_dungeon:
+                    stats:
+                      attack:
+                        magic-ratio: 0.6
+                """);
+        assertEquals(0, r.skipped());
+        assertEquals(1, r.scopeStats().size());
+
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    stats:
+                      attack:
+                        magic-ratio: 0.6
+                """);
+        assertEquals(0.6, config.resolve("my_dungeon", "goblin_chief", baseProfile()).attack().magicRatio(),
+                "mobs: が1件も無い scope でも worldScopeKey が一致すること");
+    }
+
+    @Test
+    void scopeLevelMagicRatioOutOfRangeIsSkippedNotFatal(@TempDir File dir) throws Exception {
+        ParseResult r = parse("""
+                overrides:
+                  my_dungeon:
+                    stats:
+                      attack:
+                        magic-ratio: 1.5
+                      magical:
+                        resistance: 0.32
+                    mobs: {}
+                """);
+        assertEquals(1, r.skipped(), "範囲外の magic-ratio は skipped に計上される");
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    stats:
+                      attack:
+                        magic-ratio: 1.5
+                      magical:
+                        resistance: 0.32
+                    mobs: {}
+                """);
+        MobProfile result = config.resolve("my_dungeon", "goblin_chief", baseProfile());
+        assertEquals(0.0, result.attack().magicRatio(), "不正値は無視され、基底プロファイルの値のまま");
+        assertEquals(0.32, result.magical().resistance(), "同じブロックの正しい項目は生きる");
+    }
+
+    @Test
+    void shippedYamlAssignsAConceptToEveryDungeonExceptTheHub() throws Exception {
+        // 出荷ファイルの実バイトで「28ダンジョン全部にコンセプトが乗っている」ことを担保する。
+        // 新しいダンジョンを追加したのに割り当て漏れ、が起きたらここで落ちる。
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.load(new java.io.File("src/main/resources/" + MobOverridesConfig.PATH));
+        ParseResult r = MobOverridesConfig.parse(cfg, LOG);
+        assertEquals(0, r.skipped());
+
+        java.util.Set<String> withoutConcept = new java.util.LinkedHashSet<>(r.scopes().keySet());
+        withoutConcept.removeAll(r.scopeStats().keySet());
+        assertEquals(java.util.Set.of(MobOverridesConfig.DEFAULT_SCOPE, "em_adventurers_guild"), withoutConcept,
+                "コンセプト未割り当てが許されるのは default と拠点(DPS計測ダミーがいるので耐性を乗せない)だけ");
+
+        // 3種のコンセプトが実際に配られていること(全部同じ値なら差別化になっていない)。
+        java.util.Set<Double> ratios = new java.util.TreeSet<>();
+        for (com.trinityforge.mobs.MobStatOverride stats : r.scopeStats().values()) {
+            assertTrue(stats.attack() != null && stats.attack().magicRatio() != null,
+                    "コンセプトは必ず magic-ratio を持つ");
+            assertTrue(stats.physical() != null && stats.physical().resistance() != null,
+                    "コンセプトは必ず physical.resistance を持つ");
+            assertTrue(stats.magical() != null && stats.magical().resistance() != null,
+                    "コンセプトは必ず magical.resistance を持つ");
+            assertTrue(stats.maxHealth() == null && stats.level() == null,
+                    "コンセプトは HP/レベルには触らない(45+ の難易度ランプを巻き添えにしないため)");
+            assertTrue(stats.physical().flatDefense() == null && stats.magical().flatDefense() == null,
+                    "コンセプトは flat-defense には触らない(Lv45以降の加算ランプを殺すため)");
+            ratios.add(stats.attack().magicRatio());
+        }
+        assertEquals(java.util.Set.of(0.10, 0.25, 0.45), ratios,
+                "魔法推奨0.10 / 物魔両方0.25 / 物理推奨0.45 の3種がすべて使われていること");
+        // 0.45 上限のガード: バニラ系防具は magic-flat-defense がゼロなので、魔法成分は無対策の
+        // プレイヤーにほぼ素通りする。ここを上げると「対策すれば無傷/しなければ即死」に振り切れる
+        // (根拠は mob-overrides.yml ヘッダの【magic-ratio の上限を 0.45 に抑えている理由】)。
+        assertTrue(ratios.stream().allMatch(v -> v <= 0.45),
+                "magic-ratio は 0.45 を超えてはならない");
+    }
+
     @Test
     void noLevelCutoffAnywhereYieldsNone(@TempDir File dir) throws Exception {
         MobOverridesConfig config = loadedConfig(dir, """

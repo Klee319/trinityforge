@@ -63,6 +63,25 @@ class ShippedMobImportBreakpointTest {
     }
 
     @Test
+    @DisplayName("#63: attack-power の高レベル区間がLv45から発動し、かつ小さく保たれている")
+    void attackPowerHighLevelBreakpointIsConfiguredAndBounded() throws Exception {
+        ConversionPolicy policy = loadPolicy();
+        ConversionPolicy.Ramp attackPower = policy.attack().attackPower();
+        double at44 = attackPower.at(44);
+        double at45 = attackPower.at(45);
+        double at60 = attackPower.at(60);
+        // Lv45未満は完全無干渉(第2区間は level==45 でちょうど0を足すので閾値上でも連続)。
+        assertEquals(7.0 * Math.pow(1.03, 44), at44, DELTA, "Lv45未満は従来カーブのまま");
+        assertEquals(7.0 * Math.pow(1.03, 45), at45, DELTA, "閾値ちょうどでは加算0(連続)");
+        assertTrue(at60 > 7.0 * Math.pow(1.03, 60) + DELTA,
+                "Lv60で加算が乗っていない(high-level-per-levelが消えている疑い): " + at60);
+        // 上限ガード: 被ダメージは守備力を引いた"残り"に率が掛かるので、攻撃力の増分は残りに対して
+        // 何倍にも効く。ここを大きく回すと即詰みになる(mob-import.yml の attack-power コメント参照)。
+        assertTrue(at60 < 7.0 * Math.pow(1.03, 60) * 1.20,
+                "Lv60の攻撃力が素のカーブの1.2倍以上に膨らんでいる(回し過ぎ): " + at60);
+    }
+
+    @Test
     @DisplayName("45+難易度修正: 物理/魔法 flat-defense の高レベル区間がLv45から発動する")
     void flatDefenseHighLevelBreakpointIsConfigured() throws Exception {
         ConversionPolicy policy = loadPolicy();

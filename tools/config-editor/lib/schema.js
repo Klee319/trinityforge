@@ -1937,6 +1937,14 @@ function validateMobOverrideStats(stats, prefix, errors) {
           errors.push(`${prefix}.stats.attack.${field}: 数値である必要があります`);
         }
       }
+      // magic-ratio (2026-08-02) は他の attack フィールドと違い割合。Java 側(MobOverridesConfig の
+      // nullableValidatedRate)が [0,1] 外を警告のうえ無視するので、editor でも同じ範囲で弾く
+      // ——「保存できたのにゲーム内では無視されている」を作らないため。
+      const magicRatio = attack["magic-ratio"];
+      if (magicRatio !== undefined && magicRatio !== null
+          && (!isNumber(magicRatio) || magicRatio < 0 || magicRatio > 1)) {
+        errors.push(`${prefix}.stats.attack.magic-ratio: 0.0〜1.0の数値である必要があります`);
+      }
     }
   }
 }
@@ -2049,6 +2057,9 @@ function validateTfMobOverrides(data, errors) {
     if (!isPlainObject(scope)) { errors.push(`${scopePrefix}: マップである必要があります`); continue; }
     validateDisplayName(scope, scopePrefix, errors);
     validateMobLevelCutoff(scope["level-cutoff"], scopePrefix, errors);
+    // scope 直下の stats:(そのダンジョン全体の既定ステータス、2026-08-03「ダンジョンごとに物魔の
+    // コンセプトを割り当てる」)。mobs.<mobId>.stats とキー体系も検証も完全に同一。
+    validateMobOverrideStats(scope.stats, scopePrefix, errors);
     const mobs = scope.mobs;
     if (mobs === undefined || mobs === null) continue;
     if (!isPlainObject(mobs)) { errors.push(`${scopePrefix}.mobs: マップである必要があります`); continue; }

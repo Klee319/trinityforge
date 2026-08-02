@@ -55,7 +55,8 @@ theme:
 
 # 2026-08-03(45+難易度修正): physical/magical の flat-defense に high-level-from/high-level-per-level
 # (ConversionPolicy.Ramp、RampParser参照)を追加。base/per-levelが0のままなので、Lv45未満は
-# 従来どおり完全無干渉(flat-defense=0)。Lv45以降だけ、レベル1につき+15ずつ乗る加算専用の第2区間。
+# 従来どおり完全無干渉(flat-defense=0)。Lv45以降だけ、レベル1につき+150ずつ乗る加算専用の第2区間
+# (Ramp.at は value += high-level-per-level * (level - high-level-from) の純加算。Lv60 で +2250)。
 # 固定ダメージと違い貫通不可の防御率とは別で、この flat-defense は「クリット前に減算される純粋な
 # 固定値」(ComponentDamageCalculator step2)なので、厳選で攻撃力を伸ばした対策済みプレイヤーほど
 # 相対的な被害率が小さくなる — 「厳選(攻撃力の伸び)が効く」ための主レバー。数値の根拠は
@@ -88,7 +89,17 @@ max-health:         { base: 150.0, per-level: 0.0, growth: 1.072, growth-interva
                       high-level-from: 45, high-level-per-level: 1800.0 }
 
 attack:
-  attack-power:         { base: 7.0, per-level: 0.0, growth: 1.03, growth-interval: 1.0 }
+  # 2026-08-03(#63「被弾もうちょっと痛くていい」): Lv45以降の加算専用の第2区間を追加。
+  # Lv45未満は growth 1.03 のまま完全無干渉(第2区間は level==45 でちょうど0を足す)。
+  #   Lv45: 26.5(据え置き) / Lv60: 41.2 → 45.0(+9%) / Lv80: 74.5 → 83.2(+12%)
+  # 【なぜ +9% で「体感2〜3割痛い」になるか】被ダメージは守備力(flat-defense)を先に引いてから
+  # 率を掛けるので、攻撃力の増分は"守備力を引いた残り"に対しては何倍にも効く。Lv60 のネザライト
+  # 一式(phys-flat-defense 約49)に対し攻撃力66→72 だと、物理成分の残りは 10.6 → 16.0 と約1.5倍。
+  # つまりここは小さく回すレバーで、大きく回すと即詰みになる。実測して足りなければ
+  # high-level-per-level を 0.05 刻みで上げること(0.25 → 0.30 で Lv60 の残りがさらに約1.2倍)。
+  # attack-power 以外(fixed-damage 等)を上げるのは禁じ手 —— 守備力で減らせない=対策不能になる。
+  attack-power:         { base: 7.0, per-level: 0.0, growth: 1.03, growth-interval: 1.0,
+                          high-level-from: 45, high-level-per-level: 0.25 }
   flat-bonus-damage:    { base: 0.0, per-level: 0.0 }
   percent-bonus-damage: { base: 0.0, per-level: 0.0 }
   crit-chance:          { base: 0.0, per-level: 0.0 }
@@ -102,6 +113,8 @@ attack:
   # 41種中17種(約4割)が magic-ratio>0 で「物理耐性だけ積めば全部軽減できる」を避けているのに、
   # ダンジョン側だけこの設計が抜けており、「耐性の対策なしで勝てる」の一因になっていた。
   # per-levelは意図的に0(magic-ratioはレベルで伸びる量ではなく攻撃の型の分類、MobStatScaling参照)。
-  # 個体ごとに物理/魔法を分けず全ダンジョンモブを一律35%魔法のハイブリッド攻撃にすることで、
-  # 物理防御だけに寄せても魔法防御だけに寄せても必ず一定の被弾が残るようにする。
-  magic-ratio:          { base: 0.35, per-level: 0.0 }
+  # 2026-08-03(#62): ここは「コンセプト未割り当てのダンジョン」用のフォールバックになった。
+  # 既存28ダンジョンには combat/mob-overrides.yml のスコープ直下 stats: で物理推奨/魔法推奨/物魔両方の
+  # コンセプトを割り当て済みで、そちらが勝つ。この値は物魔両方(0.25)と同値にしてあるので、
+  # 新しく落としたダンジョンは「中庸」として始まり、後からコンセプトを割り当てられる。
+  magic-ratio:          { base: 0.25, per-level: 0.0 }
