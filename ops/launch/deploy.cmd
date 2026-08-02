@@ -379,6 +379,7 @@ echo.
 echo --- 4/5  deploy config ---
 if defined BUILD_ONLY goto s4_skip_bo
 if defined WITH_CONFIG goto s4_run
+call :warn_config_drift
 echo   [SKIP ] pass --config to copy the repository yml as well.
 echo           Off by default because plugins\ArsPaper\sourcejars.yml and sourcelinks.yml are LIVE
 echo           STATE written by the running server, and because the config editor already mirrors
@@ -633,6 +634,35 @@ if exist "%PLUGDIR%\.paper-remapped\%TARGET%" (
     del /q "%PLUGDIR%\.paper-remapped\%TARGET%" >nul 2>&1
     echo              cleared .paper-remapped\%TARGET%
 )
+goto :eof
+
+REM ---------------------------------------------------------------------------------------------
+REM  :warn_config_drift
+REM    Say out loud how much yml the deployed config is behind, whenever --config is NOT passed.
+REM
+REM    Why this exists: on 2026-08-03 the running server was serving items\catalog.yml from the
+REM    previous day. That copy had none of the 100 "draft: true" rows the repository had, so every
+REM    unfinished item was obtainable in game while the repository insisted it was gated. The
+REM    deploy on 08-02 23:00 had copied the jars and nothing else, exactly as documented -- but
+REM    "documented" is not the same as "noticed", and hours went into hunting a code bug that was
+REM    never there. Config that silently rots is the single most expensive failure mode here,
+REM    because every symptom of it looks like a bug in code that is already correct.
+REM
+REM    Never copies: /L only lists what a real run would transfer. Deliberately kept to a single
+REM    robocopy call with no pipe, no temp file and no counting -- a listing that is occasionally
+REM    one file too eager is worth far more than a clever check that can wedge the deploy.
+REM    /R:0 /W:0 so a locked destination can never turn this into a retry loop.
+REM ---------------------------------------------------------------------------------------------
+:warn_config_drift
+set "TFRES=%TF_DIR%\src\main\resources"
+set "TFDST=%VELOCITY_ROOT%\%TF_CONFIG_HOST%\plugins\TrinityForge"
+if not exist "%TFDST%\" goto :eof
+echo   [CHECK] repository yml that does not match what the server is running:
+robocopy "%TFRES%" "%TFDST%" *.yml /S /L /XF paper-plugin.yml /NJH /NJS /NDL /NC /NS /NP /R:0 /W:0
+echo           Nothing listed above means the deployed config is current. Anything listed means the
+echo           server is still reading the OLD file, and every fix that lives in that file will look
+echo           "not fixed" in game however many times you rebuild the jar. Re-run with --config.
+echo.
 goto :eof
 
 REM ---------------------------------------------------------------------------------------------
