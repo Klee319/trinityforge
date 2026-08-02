@@ -381,6 +381,43 @@ Java側（`RampParser`/`MobTypesConfig#parseLevelCoefficients` 等）に新し�
 「config-editorミラー2本（`lib/`と`public/js/`）を両方更新」に加えて、**この空判定も対象キーに
 含める**こと。
 
+## ダンジョンのコンセプト（物理/魔法）で確定した恒久知識（2026-08-03）
+
+### ⚠️ 高レベル帯では `magic-ratio` は「割合」ではなく事実上「素通りダメージの絶対量」になる
+
+`magic-ratio` は「このモブの通常攻撃のうち魔法として解決する割合」だが、**分割された物理成分と
+魔法成分はそれぞれ別の `flat-defense` で減算される**（本ファイル「守備力は初回減算」「守備力は
+物理／魔法で分割済み」参照）。そして `stats/item-stats.yml` を全数確認すると、
+**ネザライト/ダイヤ系防具は全変種・全部位が `phys-resistance` / `phys-flat-defense` のみで
+`magic-flat-defense` を1つも持たない**（魔法防御を持つのは守護/魔織シリーズだけ）。
+
+結果、Lv60（ネザライト一式で phys-flat-defense ≈ 49、最大HP ≈ 50、モブ攻撃力 ≈ 66）では:
+
+- 物理成分は守備力にほぼ丸ごと吸われて下限へ落ちる（`0.75 × 66 = 49.5 − 48.8 ≈ 0`）
+- 魔法成分は無対策なら**ほぼ無減算で通る**（`ratio × 66` がそのまま被ダメージ）
+
+つまり `magic-ratio` を 0.1 上げることは「被ダメージを約6.6上げる」＝**最大HPの13%を毎発奪う**
+のと同義で、率の直感（10%増）とは桁が違う。`0.60` にすると魔法成分だけで約40 = 実質2発以下になり、
+**「対策すれば無傷・しなければ即死」の両極端**になる。
+
+**判断基準**: `magic-ratio` を触るときは率で考えず、必ず
+「**無対策のプレイヤーが何発耐えるか** = 最大HP ÷ (ratio × モブ攻撃力)」で確認すること。
+出荷値の上限は 0.45（`MobOverridesConfigTest` にガードあり）。同じ理由で、被ダメージを上げたい
+ときに `fixed-damage`（全防御貫通）を使うのは禁じ手 —— 対策手段が存在しなくなる。
+
+### `mob-overrides.yml` の scope 直下 `stats:`（ダンジョン全体の既定）
+
+`level-cutoff:` と同じく `overrides.<worldName>.stats:` を `mobs:` と同階層に書ける（2026-08-03）。
+キー体系は `mobs.<mobId>.stats` と完全に同一（同じ `parseStats` を通る）。ただし `level-cutoff` が
+**ブロック単位の採用**なのに対し、`stats:` は**項目単位マージ**。解決は5層:
+
+`base < default の scope直下 < default の mob単位 < world の scope直下 < world の mob単位`
+
+**`mobs:` に1件も書いていないモブにも効く**のが存在意義（396体へ1体ずつ書かずにダンジョン全体へ
+コンセプトを乗せるため）。`worldScopeKey` の候補は `scopes` だけでなく scope直下設定を持つ scope
+との**和集合**を見る —— これが無いと「`mobs:` を書かず scope 直下だけ指定した scope」が無言で
+一致しない（2026-08-03 以前は `level-cutoff` にも同じ潜在バグがあった）。
+
 ## 関連
 
 - [./progression-skilltree.md](./progression-skilltree.md)
