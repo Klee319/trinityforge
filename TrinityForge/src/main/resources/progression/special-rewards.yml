@@ -7,7 +7,7 @@
 #   - アチーブメント(achievements.yml) achievements.<id>.rewards.special: [<id>...]
 #
 # titles.<id>:
-#   display: MiniMessage文字列。プレイヤー頭上に表示する称号テキスト。
+#   display: MiniMessage文字列。プレイヤーのネームタグ(名前)に連結して表示する称号テキスト。
 #     例: "<gradient:#ff0000:#ffff00>竜殺し</gradient>"
 #
 # particles.<id>:
@@ -22,12 +22,15 @@
 #   particle:  Bukkit Particle 名
 #   count:     ブロック破壊/攻撃時に発生させる数
 #
-# display.head-offset-y: (バグ報告B1)
-#   称号の頭上表示(TextDisplay)をプレイヤーのパッセンジャー既定マウント点から追加で持ち上げる高さ
-#   (ブロック単位)。実サーバで目視確認できない制約下での暫定値 0.75。
-#   ネームタグ(プレイヤー名)に重なって名前が見えない場合はこの値を上げること。
-#   逆に称号が高すぎる/離れすぎる場合はこの値を下げること。/trinityforge reload で
-#   次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
+# display.title-separator: (バグ報告 2026-08-01再発の修正)
+#   称号をネームタグ(プレイヤー名)へ連結するときに挟む区切り文字列(既定は半角スペース1個)。
+#   旧実装はプレイヤーの頭上に別エンティティ(TextDisplay)をパッセンジャーとして浮かせており、
+#   その高さをネームタグへ重ならないよう調整する必要があった(実サーバで目視確認できないまま
+#   当て推量で値を動かしていた)。現在の実装はスコアボードチームの suffix でネームタグそのものに
+#   称号を織り込むため、別エンティティが存在せず「重なる高さ」という当て推量そのものが
+#   構造的に発生しない(テレポート/ワールド間移動を妨げる副作用も同時に消える)。
+#   ここで調整できるのは見た目の区切り文字だけ。/trinityforge reload で次回の
+#   張り直し(参加/装備変更)から反映される。
 #
 # prune-orphaned-grants: (安全弁)
 #   true(既定) にすると、このファイルから削除した報酬IDを、プレイヤーの保持分
@@ -54,7 +57,7 @@
 
 prune-orphaned-grants: true
 display:
-  head-offset-y: 0.75
+  title-separator: " "
 
 titles:
   # --- 図鑑(collection.yml reward-tiers)の段階報酬 ---

@@ -58,13 +58,13 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     public record ParticleSeed(String id, String seedItem, Particle particle, int count) {
     }
 
-    /** {@link #titleHeadOffsetY()} の既定値(ブロック単位)。詳細は同メソッドのjavadoc参照。 */
-    private static final double DEFAULT_TITLE_HEAD_OFFSET_Y = 0.75;
+    /** {@link #titleSeparator()} の既定値。プレイヤー名と称号のあいだに挟む区切り文字列。 */
+    private static final String DEFAULT_TITLE_SEPARATOR = " ";
 
     private volatile Map<String, Title> titles = Map.of();
     private volatile Map<String, ParticleEffect> particles = Map.of();
     private volatile Map<String, ParticleSeed> particleSeeds = Map.of();
-    private volatile double titleHeadOffsetY = DEFAULT_TITLE_HEAD_OFFSET_Y;
+    private volatile String titleSeparator = DEFAULT_TITLE_SEPARATOR;
     // 孤児化した付与分の自動剥奪 (SpecialRewardPruner) の安全弁。既定true。壊れたYAMLを「全部未定義」と
     // 誤判定して全員の報酬を消し飛ばす事故を防ぐため、これがfalseの間はプルーナー自体を丸ごとスキップできる。
     private volatile boolean pruneOrphanedGrants = true;
@@ -93,15 +93,17 @@ public final class SpecialRewardsConfig implements LoadableConfig {
     }
 
     /**
-     * 称号(頭上表示)を {@code TextDisplay} のパッセンジャー既定マウント点から追加で持ち上げる高さ
-     * (ブロック単位、{@code TitleDisplayService})。バグ報告B1: 旧ハードコード値 0.35 だとちょうど
-     * ネームタグの位置に重なり、プレイヤー名が見えなくなっていた。既定値 0.75 は
-     * 実サーバで目視確認できない制約下での暫定値 — ネームタグに重なる/離れすぎる場合は
-     * {@code progression/special-rewards.yml} の {@code display.head-offset-y} を調整すること。
-     * {@code /trinityforge reload} で次回の表示張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
+     * 称号をプレイヤー名のネームタグ({@code Team#suffix}, {@code TitleDisplayService})に連結する際の
+     * 区切り文字列。バグ報告(2026-08-01再発): 旧実装は別エンティティ({@code TextDisplay})を
+     * パッセンジャーとして頭上に浮かせており、ネームタグへ重なる高さを目視確認できないまま
+     * 当て推量(0.35→0.75)で調整していた。ネームタグそのものへ称号を織り込む方式へ変更したことで、
+     * 「重なる高さ」という当て推量が必要な数値自体が構造的に消えている。ここで調整できるのは
+     * 見た目の区切り(既定は半角スペース1個)だけで、{@code progression/special-rewards.yml} の
+     * {@code display.title-separator} から設定する。{@code /trinityforge reload} で次回の
+     * 張り直し(参加/装備変更)から反映される。
      */
-    public double titleHeadOffsetY() {
-        return titleHeadOffsetY;
+    public String titleSeparator() {
+        return titleSeparator;
     }
 
     /**
@@ -140,10 +142,10 @@ public final class SpecialRewardsConfig implements LoadableConfig {
         this.titles = result.titles();
         this.particles = result.particles();
         this.particleSeeds = result.particleSeeds();
-        // display.head-offset-y (B1): 非有限値/未設定は既定へフォールバック。負値は「頭上表示を下げる」
-        // 正式な運用として許容する(称号を胸元に置く等の演出も構成できる)。
-        double headOffsetY = yaml.getDouble("display.head-offset-y", DEFAULT_TITLE_HEAD_OFFSET_Y);
-        this.titleHeadOffsetY = Double.isFinite(headOffsetY) ? headOffsetY : DEFAULT_TITLE_HEAD_OFFSET_Y;
+        // display.title-separator: 空文字列も「区切り無し」として正式に許容する(nullのみ既定へ
+        // フォールバック)。
+        String separator = yaml.getString("display.title-separator", DEFAULT_TITLE_SEPARATOR);
+        this.titleSeparator = separator != null ? separator : DEFAULT_TITLE_SEPARATOR;
         this.pruneOrphanedGrants = yaml.getBoolean("prune-orphaned-grants", true);
 
         if (result.skipped() > 0) {

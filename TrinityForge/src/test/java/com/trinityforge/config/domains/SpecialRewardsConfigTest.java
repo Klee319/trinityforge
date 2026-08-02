@@ -129,7 +129,7 @@ class SpecialRewardsConfigTest {
         assertFalse(new SpecialRewardsConfig().isKnown("anything"));
     }
 
-    // --- display.head-offset-y (B1: 称号頭上表示のオフセットconfig化) -------------------------------------
+    // --- display.title-separator (2026-08-02: TextDisplayオフセット当て推量方式からの置き換え) -------------
 
     private static Plugin fakePlugin(File dataFolder) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
@@ -156,39 +156,34 @@ class SpecialRewardsConfigTest {
     }
 
     @Test
-    void headOffsetYDefaultsWhenAbsent(@TempDir File tempDir) throws IOException {
+    void titleSeparatorDefaultsWhenAbsent(@TempDir File tempDir) throws IOException {
         SpecialRewardsConfig config = loaded(tempDir, "titles: {}\nparticles: {}\nparticle-seeds: {}\n");
-        assertEquals(0.75, config.titleHeadOffsetY(), 1e-9);
+        assertEquals(" ", config.titleSeparator());
     }
 
     @Test
-    void headOffsetYHonorsExplicitValue(@TempDir File tempDir) throws IOException {
+    void titleSeparatorHonorsExplicitValue(@TempDir File tempDir) throws IOException {
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
-                  head-offset-y: 1.2
+                  title-separator: " | "
                 titles: {}
                 particles: {}
                 particle-seeds: {}
                 """);
-        assertEquals(1.2, config.titleHeadOffsetY(), 1e-9);
+        assertEquals(" | ", config.titleSeparator());
     }
 
     @Test
-    void headOffsetYNonFiniteFallsBackToDefault(@TempDir File tempDir) throws IOException {
-        // YAML has no native NaN/Infinity literal reachable via getDouble in a way that survives parsing
-        // as a String key, so this exercises the defensive Double.isFinite guard by loading a value that
-        // Bukkit's YamlConfiguration#getDouble coerces from a non-numeric string default(0.0)-safe path.
+    void titleSeparatorHonorsExplicitEmptyString(@TempDir File tempDir) throws IOException {
+        // 空文字列("区切り無し")は正式な設定として許容する。null(未設定)だけが既定にフォールバックする。
         SpecialRewardsConfig config = loaded(tempDir, """
                 display:
-                  head-offset-y: "not-a-number"
+                  title-separator: ""
                 titles: {}
                 particles: {}
                 particle-seeds: {}
                 """);
-        // YamlConfiguration#getDouble on an unparsable value falls back to the getDouble(path, default)
-        // default we pass (0.75), so this also lands on the same default — asserting it never throws and
-        // never yields a non-finite value is the real regression guard here.
-        assertTrue(Double.isFinite(config.titleHeadOffsetY()));
+        assertEquals("", config.titleSeparator());
     }
 
     // --- prune-orphaned-grants / lastLoadOk (SpecialRewardPruner の安全弁, 2026-07-28) ---------------

@@ -1,91 +1,97 @@
 package com.trinityforge.progression;
 
-import com.trinityforge.pdc.PdcKeys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.entity.Display;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Transformation;
-import org.joml.AxisAngle4f;
-import org.joml.Vector3f;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
 
-import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.DoubleSupplier;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
- * 称号(titles) 頭上表示 (2026-07-23-stat-gate-overhaul §6.1): 装備中プレイヤーへパッセンジャーの
- * {@link TextDisplay} を1体マウントし、MiniMessage文字列をそのまま描画する。
+ * 称号(titles) のネームタグ表示 (2026-07-23-stat-gate-overhaul §6.1)。
  *
- * <p>{@code FocusHpDisplay} と同じ「死亡位置に浮遊残留させない」規律: 死亡/リスポーン/ワールド移動/
- * ログアウトの全てで確実に despawn し、リスポーン/ワールド移動/参加では{@code textResolver}経由で
- * 現在の装備称号テキストを取得して張り直す。非永続 + {@link PdcKeys#TITLE_DISPLAY} タグ付けで、
- * クラッシュ後の孤児掃除({@link #sweepOrphans})にも対応する。
+ * <p><b>2026-08-02 の書き換え</b>: 旧実装は装備中プレイヤーへ {@code TextDisplay} をパッセンジャーとして
+ * マウントし、頭上の別行に称号を浮かせていた。これがバグ報告「称号を付けている人にネームタグが
+ * 表示されなかった」の原因になっていた —
+ * <ul>
+ *   <li>パッセンジャーの頭上オフセットは実サーバで目視確認できないまま当て推量(0.35→0.75)で
+ *       調整されており、ネームタグの実際の描画高さと合わせる保証が無かった
+ *       (Owen1212055 のInteraction/nametag解説: 騎乗オフセット・Interactionの既定ネームタグ
+ *       オフセット・実際のネームタグオフセットの3つを合成しないと正しい位置にならない)。</li>
+ *   <li>パッセンジャーが付いたエンティティはプラグインからのテレポート(同一ワールド/ワールド間)を
+ *       妨げる副作用がある(同解説に明記)。ダンジョン入口などのテレポートが失敗しうる状態だった。</li>
+ * </ul>
+ *
+ * <p>本実装はスコアボードチームの {@code suffix} でネームタグそのものに称号を織り込む方式へ
+ * 置き換える。プレイヤー1人につき専用のチームを1つ割り当て、そのチームの suffix に
+ * 装備中の称号テキストを設定する。別エンティティを一切生成しないため:
+ * <ul>
+ *   <li>ネームタグと物理的に重なりようがない — 「重なる高さ」という当て推量そのものが構造的に
+ *       発生しない(調整できるのは {@link com.trinityforge.config.domains.SpecialRewardsConfig#titleSeparator()}
+ *       の区切り文字だけ)。</li>
+ *   <li>チーム所属はプレイヤー識別子(エントリ名)に紐づくのでエンティティ/パッセンジャーが存在せず、
+ *       テレポート/ワールド間移動を一切妨げない。</li>
+ *   <li>Display系エンティティの描画が弱い統合版(Bedrock/Geyser)クライアントでも、ネームタグ自体は
+ *       確実に描画されるため称号も確実に見える。</li>
+ * </ul>
+ * 欠点は称号がネームタグと同じ行に出ること(頭上の別行ではなくなる)。
  */
 public final class TitleDisplayService implements Listener {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
+    /**
+     * このプラグインが管理するチーム名の接頭辞。歴史的な16文字制限(現行 Paper では撤廃済みだが、
+     * 混在運用の安全側マージンとして踏襲する)に収めるため、プレイヤーUUIDの先頭11桁hexと
+     * 合わせてちょうど16文字にする。
+     */
+    private static final String TEAM_PREFIX = "tf_t_";
+
     private final Plugin plugin;
     /** プレイヤーの現在の装備称号MiniMessage文字列を返す(未装備/未保有なら null)。 */
     private final Function<Player, String> textResolver;
-    /**
-     * パッセンジャーの既定マウント点から頭上へ持ち上げる追加オフセット(ブロック単位、見た目調整用)。
-     * バグ報告B1: 固定値 0.35 だとネームタグに重なり名前を隠していたため、config駆動化した
-     * ({@code progression/special-rewards.yml} の {@code display.head-offset-y}, 既定 0.75)。
-     * {@link #spawn} を呼ぶたびに最新値を読むので {@code /trinityforge reload} が次回の
-     * 張り直し(参加/リスポーン/ワールド移動/テレポート)から反映される。
-     */
-    private final DoubleSupplier headOffsetY;
-    private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
+    /** ネームタグとのあいだに挟む区切り文字列(config駆動、{@code /trinityforge reload} で反映)。 */
+    private final Supplier<String> separator;
 
-    public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver, DoubleSupplier headOffsetY) {
+    public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver, Supplier<String> separator) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.textResolver = Objects.requireNonNull(textResolver, "textResolver");
-        this.headOffsetY = Objects.requireNonNull(headOffsetY, "headOffsetY");
+        this.separator = Objects.requireNonNull(separator, "separator");
     }
 
     public void start() {
-        sweepOrphans();
         for (Player player : Bukkit.getOnlinePlayers()) {
             refresh(player);
         }
     }
 
+    /** サーバ停止時に全チームを解除する(次回起動時はスコアボード自体が再構築されるため必須ではないが、
+     * ホットリロード可能なプラグイン再読込経路がある場合の孤児防止として行う)。 */
     public void shutdown() {
-        for (TextDisplay display : active.values()) {
-            safeRemove(display);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            despawn(player);
         }
-        active.clear();
     }
 
-    /** 装備状態(称号テキスト)に合わせて表示を張り直す。称号未装備/死亡中/オフラインなら消すのみ。 */
+    /** 装備状態(称号テキスト)に合わせてネームタグ suffix を張り直す。称号未装備/オフラインなら消すのみ。 */
     public void refresh(Player player) {
-        despawn(player.getUniqueId());
-        if (!player.isOnline() || player.isDead()) {
+        if (!player.isOnline()) {
             return;
         }
         String display = textResolver.apply(player);
         if (display == null || display.isBlank()) {
+            despawn(player);
             return;
         }
         Component text;
@@ -94,111 +100,58 @@ public final class TitleDisplayService implements Listener {
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("[title-display] invalid MiniMessage for " + player.getName()
                     + ": " + ex.getMessage());
+            despawn(player);
             return;
         }
-        spawn(player, text);
-    }
-
-    private void spawn(Player player, Component text) {
-        World world = player.getWorld();
-        // config読み出しをspawnコールバックの外で1回だけ行う: 副作用のない値なので早期評価で問題なく、
-        // Bukkit側の例外(テストダブル等)がspawn中に起きても headOffsetY が読まれたことをテストで
-        // 直接確認できる(値そのものを spawn 後に読み戻せない TextDisplay実装差異を避ける)。
-        float offsetY = (float) resolveHeadOffsetY();
-        TextDisplay display = world.spawn(player.getLocation(), TextDisplay.class, d -> {
-            d.setPersistent(false);
-            d.getPersistentDataContainer().set(PdcKeys.TITLE_DISPLAY, PersistentDataType.BYTE, (byte) 1);
-            d.setBillboard(Display.Billboard.CENTER);
-            d.setAlignment(TextDisplay.TextAlignment.CENTER);
-            d.setShadowed(true);
-            d.setSeeThrough(true);
-            d.setDefaultBackground(false);
-            d.setTextOpacity((byte) 200);
-            d.text(text);
-            d.setTransformation(new Transformation(
-                    new Vector3f(0f, offsetY, 0f),
-                    new AxisAngle4f(0f, 0f, 0f, 1f),
-                    new Vector3f(1f, 1f, 1f),
-                    new AxisAngle4f(0f, 0f, 0f, 1f)));
-        });
-        player.addPassenger(display);
-        active.put(player.getUniqueId(), display);
-    }
-
-    /** {@link #headOffsetY} を安全に読む(非有限値は既定 0.75 相当のフォールバック無しで単に0扱いにしない)。 */
-    private double resolveHeadOffsetY() {
-        double value = headOffsetY.getAsDouble();
-        return Double.isFinite(value) ? value : 0.75;
-    }
-
-    private void despawn(UUID playerId) {
-        safeRemove(active.remove(playerId));
-    }
-
-    private static void safeRemove(Entity entity) {
-        if (entity != null && entity.isValid()) {
-            entity.remove();
+        Team team = teamFor(player, true);
+        if (team == null) {
+            return;
+        }
+        team.suffix(Component.text(resolveSeparator()).append(text));
+        if (!team.hasEntry(player.getName())) {
+            team.addEntry(player.getName());
         }
     }
 
-    private void sweepOrphans() {
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                if (entity instanceof TextDisplay display
-                        && display.getPersistentDataContainer().has(PdcKeys.TITLE_DISPLAY, PersistentDataType.BYTE)) {
-                    safeRemove(display);
-                }
-            }
+    private String resolveSeparator() {
+        String value = separator.get();
+        return value != null ? value : " ";
+    }
+
+    private void despawn(Player player) {
+        Team team = teamFor(player, false);
+        if (team != null) {
+            team.unregister();
         }
+    }
+
+    private Team teamFor(Player player, boolean createIfMissing) {
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        if (manager == null) {
+            // プラグイン有効化前など、起動シーケンス上は基本発生しない防御的分岐。
+            return null;
+        }
+        Scoreboard scoreboard = manager.getMainScoreboard();
+        String name = teamName(player);
+        Team team = scoreboard.getTeam(name);
+        if (team == null && createIfMissing) {
+            team = scoreboard.registerNewTeam(name);
+        }
+        return team;
+    }
+
+    private static String teamName(Player player) {
+        String hex = player.getUniqueId().toString().replace("-", "");
+        return TEAM_PREFIX + hex.substring(0, 11);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onQuit(PlayerQuitEvent event) {
-        despawn(event.getPlayer().getUniqueId());
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDeath(PlayerDeathEvent event) {
-        // EMのCombatLevelDisplay浮遊残留バグの再発防止: 死亡直後に必ず消す。リスポーンで張り直す。
-        despawn(event.getEntity().getUniqueId());
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onRespawn(PlayerRespawnEvent event) {
-        Player player = event.getPlayer();
-        despawn(player.getUniqueId());
-        // リスポーン座標が確定するのは次tick以降(このイベント内ではteleport未反映のことがある)。
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                refresh(player);
-            }
-        }.runTask(plugin);
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onWorldChange(PlayerChangedWorldEvent event) {
-        // パッセンジャーはワールド跨ぎ移動で失われることがあるため、必ず張り直す。
-        refresh(event.getPlayer());
+        despawn(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onJoin(PlayerJoinEvent event) {
         refresh(event.getPlayer());
-    }
-
-    /**
-     * 2026-07-23 verifier指摘⑨: テレポート(同一ワールドtp/エンダーパール/waystone等)はパッセンジャーを
-     * eject するため張り直さないと頭上表示が瞬間移動元に置き去りになる。次tickでrefresh(座標確定後)。
-     */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onTeleport(PlayerTeleportEvent event) {
-        Player player = event.getPlayer();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                refresh(player);
-            }
-        }.runTask(plugin);
     }
 }

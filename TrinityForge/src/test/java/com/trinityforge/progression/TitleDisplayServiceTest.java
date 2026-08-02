@@ -1,65 +1,47 @@
 package com.trinityforge.progression;
 
 import net.kyori.adventure.text.Component;
-import org.bukkit.Location;
-import org.bukkit.damage.DamageSource;
-import org.bukkit.damage.DamageType;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.exception.UnimplementedOperationException;
-import org.mockbukkit.mockbukkit.world.WorldMock;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
- * B1 (2026-07-25 バグ報告): 称号(頭上表示)のオフセットconfig化 + despawn規律の回帰テスト。
+ * バグ報告(2026-08-01再発): 「称号を付けている人にネームタグが表示されなかった」の修正回帰テスト。
  *
- * <p>{@link TitleDisplayService#spawn} は {@code TextDisplay#setBillboard(...)} を呼ぶが、これは
- * MockBukkit未実装({@code UnimplementedOperationException}, {@code DamagePopupDisplayTest} と同じ
- * 制約)。よって:
- * <ul>
- *   <li>「configから読まれること」は spawn() に到達する直前で offsetY を1回だけ評価する実装
- *       (本コミットでのリファクタ)を利用し、{@link #assertThrows} で spawn() 到達を確認しつつ
- *       供給された {@code DoubleSupplier} が呼ばれた回数を数える。</li>
- *   <li>「despawn規律」は実際にspawnを経由せず、private {@code active} マップへリフレクションで
- *       Mockito {@code mock(TextDisplay.class)} を直接注入し、各イベントハンドラがそれを
- *       確実に {@code remove()} してマップから外すことを検証する(スポーン経路のMockBukkit制約を回避)。</li>
- * </ul>
+ * <p>旧実装({@code TextDisplay} パッセンジャー + 当て推量オフセット)から、スコアボードチームの
+ * {@code suffix} でネームタグへ直接称号を織り込む方式へ置き換えた。この方式は構造的に
+ * 「ネームタグへ重なる高さの当て推量」が発生しない(別エンティティが存在しない)ことと、
+ * チーム所属がテレポート/ワールド間移動で失われないことを検証する。
+ *
+ * <p>MockBukkit の {@code TeamMock} は {@code prefix()}/{@code suffix()}(Adventure Component版)を
+ * 実装しているため、ここでは実際にスコアボードへチームを登録・照会して検証する
+ * (spawn経路がMockBukkit未実装で即例外化していた旧実装のような回避策は不要)。
  */
 class TitleDisplayServiceTest {
 
     private ServerMock server;
-    private WorldMock world;
     private Plugin plugin;
 
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        world = server.addSimpleWorld("world");
         plugin = MockBukkit.createMockPlugin();
     }
 
@@ -68,147 +50,131 @@ class TitleDisplayServiceTest {
         MockBukkit.unmock();
     }
 
-    // --- config駆動オフセット ------------------------------------------------------------------------
+    private static Scoreboard mainScoreboard() {
+        return Bukkit.getScoreboardManager().getMainScoreboard();
+    }
+
+    private static String plain(Component component) {
+        return PlainTextComponentSerializer.plainText().serialize(component);
+    }
 
     @Test
-    void refreshReadsHeadOffsetFromConfiguredSupplier() {
+    void refreshPlacesPlayerOnATeamWithTitleAsSuffix() {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "<red>Slayer</red>", () -> " ");
+        Player player = server.addPlayer();
+
+        service.refresh(player);
+
+        Team team = mainScoreboard().getPlayerTeam(player);
+        assertNotNull(team, "equipping a title must place the player on a scoreboard team");
+        assertTrue(team.hasEntry(player.getName()));
+        assertEquals(" Slayer", plain(team.suffix()));
+    }
+
+    @Test
+    void refreshReadsConfiguredSeparatorSupplierExactlyOncePerCall() {
         AtomicInteger reads = new AtomicInteger();
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> "<red>Title</red>", () -> {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> {
             reads.incrementAndGet();
-            return 1.23;
+            return " :: ";
         });
         Player player = server.addPlayer();
 
-        // spawn()はTextDisplayのsetBillboard(未実装)で必ず例外化するが、それはoffsetY評価の"後"に
-        // 到達する行なので、例外が飛ぶこと自体が spawn() まで進んだ証拠になる(DamagePopupDisplayTest と
-        // 同じ論法)。
-        assertThrows(UnimplementedOperationException.class, () -> service.refresh(player));
-        assertEquals(1, reads.get(), "the configured head-offset-y supplier must be read exactly once per spawn");
+        service.refresh(player);
+
+        assertEquals(1, reads.get(), "the configured separator supplier must be read exactly once per refresh");
+        Team team = mainScoreboard().getPlayerTeam(player);
+        assertEquals(" :: Title", plain(team.suffix()));
     }
 
     @Test
-    void resolveHeadOffsetYReturnsSuppliedValue() throws Exception {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> null, () -> 2.5);
-        assertEquals(2.5, invokeResolveHeadOffsetY(service), 1e-9);
-    }
-
-    @Test
-    void resolveHeadOffsetYFallsBackWhenSupplierIsNonFinite() throws Exception {
-        TitleDisplayService service = new TitleDisplayService(plugin, p -> null, () -> Double.NaN);
-        double resolved = invokeResolveHeadOffsetY(service);
-        assertTrue(Double.isFinite(resolved), "a non-finite supplier value must never reach the Transformation");
-    }
-
-    private static double invokeResolveHeadOffsetY(TitleDisplayService service) throws Exception {
-        Method m = TitleDisplayService.class.getDeclaredMethod("resolveHeadOffsetY");
-        m.setAccessible(true);
-        return (double) m.invoke(service);
-    }
-
-    // --- despawn規律 (死亡/リスポーン/ワールド移動/ログアウト/テレポート) --------------------------------
-
-    @SuppressWarnings("unchecked")
-    private static Map<UUID, TextDisplay> activeMap(TitleDisplayService service) throws Exception {
-        Field f = TitleDisplayService.class.getDeclaredField("active");
-        f.setAccessible(true);
-        return (Map<UUID, TextDisplay>) f.get(service);
-    }
-
-    private static TextDisplay injectActiveDisplay(TitleDisplayService service, UUID playerId) throws Exception {
-        TextDisplay fake = mock(TextDisplay.class);
-        when(fake.isValid()).thenReturn(true);
-        activeMap(service).put(playerId, fake);
-        return fake;
-    }
-
-    private TitleDisplayService serviceWithNoDisplay() {
-        // textResolverがnullを返す = refresh()が呼ばれても何も出さない。despawn規律のテストは
-        // active マップへ直接注入したフェイクの掃除だけを見るので、これで十分。
-        return new TitleDisplayService(plugin, p -> null, () -> 0.75);
-    }
-
-    @Test
-    void onQuitDespawnsAndRemovesTrackedDisplay() throws Exception {
-        TitleDisplayService service = serviceWithNoDisplay();
+    void nullSeparatorFallsBackToSingleSpace() {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> null);
         Player player = server.addPlayer();
-        TextDisplay fake = injectActiveDisplay(service, player.getUniqueId());
+
+        service.refresh(player);
+
+        Team team = mainScoreboard().getPlayerTeam(player);
+        assertEquals(" Title", plain(team.suffix()));
+    }
+
+    @Test
+    void refreshWithNoEquippedTitleRemovesTheTeamEntirely() {
+        TitleDisplayService equipped = new TitleDisplayService(plugin, p -> "Title", () -> " ");
+        Player player = server.addPlayer();
+        equipped.refresh(player);
+        assertNotNull(mainScoreboard().getPlayerTeam(player));
+
+        TitleDisplayService unequipped = new TitleDisplayService(plugin, p -> null, () -> " ");
+        unequipped.refresh(player);
+
+        assertNull(mainScoreboard().getPlayerTeam(player),
+                "unequipping the title must remove the team, not merely blank the suffix");
+    }
+
+    @Test
+    void onQuitRemovesTheTeam() {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
+        Player player = server.addPlayer();
+        service.refresh(player);
+        assertNotNull(mainScoreboard().getPlayerTeam(player));
 
         service.onQuit(new PlayerQuitEvent(player, "bye"));
 
-        verify(fake, times(1)).remove();
-        assertTrue(activeMap(service).isEmpty(), "the tracked display must be dropped from the active map");
+        assertNull(mainScoreboard().getPlayerTeam(player));
     }
 
     @Test
-    void onDeathDespawnsTrackedDisplay() throws Exception {
-        TitleDisplayService service = serviceWithNoDisplay();
+    void onJoinAppliesTheCurrentlyEquippedTitle() {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
         Player player = server.addPlayer();
-        TextDisplay fake = injectActiveDisplay(service, player.getUniqueId());
 
-        DamageSource source = DamageSource.builder(DamageType.GENERIC).build();
-        PlayerDeathEvent event = new PlayerDeathEvent(
-                player, source, List.of(), 0, Component.text("died"), false);
+        service.onJoin(new PlayerJoinEvent(player, "joined"));
 
-        service.onDeath(event);
-
-        verify(fake, times(1)).remove();
-        assertTrue(activeMap(service).isEmpty());
+        assertNotNull(mainScoreboard().getPlayerTeam(player));
     }
 
     @Test
-    void onWorldChangeRefreshesAndDespawnsPreviousDisplay() throws Exception {
-        TitleDisplayService service = serviceWithNoDisplay();
-        Player player = server.addPlayer();
-        TextDisplay fake = injectActiveDisplay(service, player.getUniqueId());
-
-        service.onWorldChange(new PlayerChangedWorldEvent(player, world));
-
-        // refresh() always despawns first (see javadoc); textResolver returns null here so nothing
-        // new is spawned, leaving the map empty — the stale display must not linger.
-        verify(fake, times(1)).remove();
-        assertTrue(activeMap(service).isEmpty());
-    }
-
-    @Test
-    void onTeleportSchedulesDespawnOfPreviousDisplayNextTick() throws Exception {
-        TitleDisplayService service = serviceWithNoDisplay();
-        Player player = server.addPlayer();
-        TextDisplay fake = injectActiveDisplay(service, player.getUniqueId());
-
-        Location from = player.getLocation();
-        Location to = from.clone().add(5, 0, 5);
-        service.onTeleport(new PlayerTeleportEvent(player, from, to));
-        server.getScheduler().performOneTick();
-
-        verify(fake, times(1)).remove();
-        assertTrue(activeMap(service).isEmpty());
-    }
-
-    @Test
-    void onRespawnSchedulesDespawnOfPreviousDisplayNextTick() throws Exception {
-        TitleDisplayService service = serviceWithNoDisplay();
-        Player player = server.addPlayer();
-        TextDisplay fake = injectActiveDisplay(service, player.getUniqueId());
-
-        service.onRespawn(new PlayerRespawnEvent(player, player.getLocation(), false));
-        server.getScheduler().performOneTick();
-
-        verify(fake, times(1)).remove();
-        assertTrue(activeMap(service).isEmpty());
-    }
-
-    @Test
-    void shutdownRemovesEveryTrackedDisplayAndClearsMap() throws Exception {
-        TitleDisplayService service = serviceWithNoDisplay();
+    void startAppliesEquippedTitlesToAllOnlinePlayers() {
         Player p1 = server.addPlayer();
         Player p2 = server.addPlayer();
-        TextDisplay fake1 = injectActiveDisplay(service, p1.getUniqueId());
-        TextDisplay fake2 = injectActiveDisplay(service, p2.getUniqueId());
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
+
+        service.start();
+
+        assertNotNull(mainScoreboard().getPlayerTeam(p1));
+        assertNotNull(mainScoreboard().getPlayerTeam(p2));
+    }
+
+    @Test
+    void shutdownRemovesEveryOnlinePlayersTeam() {
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
+        Player p1 = server.addPlayer();
+        Player p2 = server.addPlayer();
+        service.refresh(p1);
+        service.refresh(p2);
 
         service.shutdown();
 
-        verify(fake1, times(1)).remove();
-        verify(fake2, times(1)).remove();
-        assertTrue(activeMap(service).isEmpty());
+        assertNull(mainScoreboard().getPlayerTeam(p1));
+        assertNull(mainScoreboard().getPlayerTeam(p2));
+    }
+
+    @Test
+    void teleportingAndChangingWorldsNeverDetachTheTitle() {
+        // 旧実装(パッセンジャーTextDisplay)はテレポート/ワールド間移動でパッセンジャーが外れるため
+        // 明示的な張り直しリスナーが必須だった。チーム所属はプレイヤー識別子(エントリ名)に紐づき
+        // エンティティ/パッセンジャーが存在しないため、テレポート自体が一切妨げられず、
+        // 張り直しの特別処理も不要になったことをここで固定する
+        // (このテストにはteleport/world-changeリスナーは登場しない — それが正しい設計であることの証明)。
+        TitleDisplayService service = new TitleDisplayService(plugin, p -> "Title", () -> " ");
+        Player player = server.addPlayer();
+        service.refresh(player);
+
+        player.teleport(player.getLocation().add(50, 0, 50));
+
+        Team team = mainScoreboard().getPlayerTeam(player);
+        assertNotNull(team, "team membership must survive a teleport untouched");
+        assertEquals(" Title", plain(team.suffix()));
     }
 }
