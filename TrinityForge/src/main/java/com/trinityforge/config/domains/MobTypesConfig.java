@@ -8,6 +8,7 @@ import com.trinityforge.mobs.MobDropEntry;
 import com.trinityforge.mobs.MobLevelCoefficients;
 import com.trinityforge.mobs.MobTypeDefinition;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -59,6 +60,13 @@ public final class MobTypesConfig implements LoadableConfig {
     /** CMB-21: mob-import.yml / mob-types.yml の成長式がLv100想定で設計されている(コメント「Lv100で
      * 約134.5」等)ため、既定の距離レベル上限もLv100に揃える。 */
     private static final int DEFAULT_MAX_LEVEL = 100;
+    /**
+     * 2026-08-02: ディメンション別の基準レベル下駄(NETHER/THE_END等)。ワールド名ではなく
+     * {@link World.Environment} で引く — ネザー/エンドのワールド名は構成依存で一致しない上、
+     * EliteMobsのインスタンスワールドは毎回名前が変わるため(forks-and-mobs.md 既知の罠)。
+     */
+    private static final String DIMENSIONS = "dimensions";
+    private static final String BASE_LEVEL = "base-level";
 
     private volatile Map<EntityType, MobTypeDefinition> definitions = Map.of();
     /**
@@ -75,6 +83,10 @@ public final class MobTypesConfig implements LoadableConfig {
     private volatile double defaultCoordinateCoefficient = 0.0;
     private volatile MobLevelCoefficients defaultLevelCoefficients = MobLevelCoefficients.ZERO;
     private volatile AttackStats defaultAttack = AttackStats.plain(0);
+    /** {@code dimensions.<ENV>.base-level}。未設定のEnvironmentは0(=従来どおり無干渉)。 */
+    private volatile Map<World.Environment, Integer> dimensionBaseLevels = Map.of();
+    /** {@code dimensions.<ENV>.coordinate-coefficient}(明示設定時のみ値を持つ、上書き用)。 */
+    private volatile Map<World.Environment, Double> dimensionCoordinateCoefficients = Map.of();
 
     public Optional<MobTypeDefinition> definition(EntityType type) {
         return Optional.ofNullable(definitions.get(type));
@@ -132,6 +144,34 @@ public final class MobTypesConfig implements LoadableConfig {
         return maxLevel;
     }
 
+    /**
+     * 2026-08-02: このディメンションの基準レベル下駄({@code dimensions.<ENV>.base-level}、
+     * effectiveLevel計算前に個体のbase levelへ加算する)。未設定/未知のEnvironmentは0
+     * (=従来どおりディメンションを一切考慮しない挙動と完全に一致)。
+     */
+    public int dimensionBaseLevel(World.Environment environment) {
+        if (environment == null) {
+            return 0;
+        }
+        return dimensionBaseLevels.getOrDefault(environment, 0);
+    }
+
+    /**
+     * 2026-08-02: このディメンションの{@code coordinate-coefficient}上書き値
+     * ({@code dimensions.<ENV>.coordinate-coefficient}、明示設定時のみ)。空なら呼び出し側は
+     * モブ側(mob-types/defaults)の係数をそのまま使うこと — ネザーの距離は座標上オーバーワールド換算
+     * 1/8になるが、この上書きが未設定な限り従来どおり「その場の距離を生のブロック数として」係数を掛ける
+     * 挙動を維持する(据え置き。8倍換算を自動では行わない。必要なら運用側がこの値でネザーの係数を
+     * 明示的に引き上げて補正する)。
+     */
+    public OptionalDouble dimensionCoordinateCoefficient(World.Environment environment) {
+        if (environment == null) {
+            return OptionalDouble.empty();
+        }
+        Double value = dimensionCoordinateCoefficients.get(environment);
+        return value == null ? OptionalDouble.empty() : OptionalDouble.of(value);
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -182,13 +222,67 @@ public final class MobTypesConfig implements LoadableConfig {
         this.defaultAttack = defaults.attack();
         this.maxLevel = parseMaxLevel(yaml, log);
 
-        if (result.skipped() > 0) {
+        DimensionOverridesResult dimensionOverrides = parseDimensions(yaml, log);
+        this.dimensionBaseLevels = dimensionOverrides.baseLevels();
+        this.dimensionCoordinateCoefficients = dimensionOverrides.coordinateCoefficients();
+
+        int totalSkipped = result.skipped() + dimensionOverrides.skipped();
+        if (totalSkipped > 0) {
             log.warning("[" + PATH + "] loaded " + result.definitions().size() + " mob type(s), "
-                    + result.skipped() + " skipped");
+                    + totalSkipped + " skipped");
             return false;
         }
         log.info("[" + PATH + "] loaded " + result.definitions().size() + " mob type(s) OK");
         return true;
+    }
+
+    /**
+     * 2026-08-02: トップレベル {@code dimensions:} セクションを解析する。キーは {@link
+     * World.Environment} 名(NORMAL/NETHER/THE_END等、大小無視)。未知のEnvironment名は警告して
+     * そのエントリだけスキップ(他のディメンションの読み込みは継続)。セクション自体が無い場合は
+     * 空マップ(=全ディメンションで下駄0・係数上書きなし=従来どおりの挙動)を返す。
+     */
+    static DimensionOverridesResult parseDimensions(ConfigurationSection root, Logger log) {
+        if (root == null) {
+            return new DimensionOverridesResult(Map.of(), Map.of(), 0);
+        }
+        ConfigurationSection section = root.getConfigurationSection(DIMENSIONS);
+        if (section == null) {
+            return new DimensionOverridesResult(Map.of(), Map.of(), 0);
+        }
+        Map<World.Environment, Integer> baseLevels = new LinkedHashMap<>();
+        Map<World.Environment, Double> coefficients = new LinkedHashMap<>();
+        int skipped = 0;
+        for (String key : section.getKeys(false)) {
+            World.Environment environment;
+            try {
+                environment = World.Environment.valueOf(key.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                log.warning("[" + PATH + "] dimensions key '" + key
+                        + "' is not a valid World.Environment (NORMAL/NETHER/THE_END/CUSTOM); skipped");
+                skipped++;
+                continue;
+            }
+            ConfigurationSection entry = section.getConfigurationSection(key);
+            if (entry == null) {
+                log.warning("[" + PATH + "] dimensions entry '" + key + "' is not a section; skipped");
+                skipped++;
+                continue;
+            }
+            int baseLevel = Math.max(0, entry.getInt(BASE_LEVEL, 0));
+            baseLevels.put(environment, baseLevel);
+            if (entry.isSet("coordinate-coefficient")) {
+                double coefficient = entry.getDouble("coordinate-coefficient", 0.0);
+                if (Double.isFinite(coefficient)) {
+                    coefficients.put(environment, coefficient);
+                } else {
+                    log.warning("[" + PATH + "] dimensions." + key
+                            + ".coordinate-coefficient must be finite; ignored (falling back to per-mob value)");
+                    skipped++;
+                }
+            }
+        }
+        return new DimensionOverridesResult(Map.copyOf(baseLevels), Map.copyOf(coefficients), skipped);
     }
 
     /** Pure parse of the {@code mob-types:} section. Invalid entries are skipped, not fatal. */
@@ -501,6 +595,16 @@ public final class MobTypesConfig implements LoadableConfig {
     record DefaultDefenseResult(DefenseStats physical, DefenseStats magical,
                                 Double maxHealth, int level, double coordinateCoefficient,
                                 MobLevelCoefficients levelCoefficients, AttackStats attack) {
+    }
+
+    /**
+     * 2026-08-02: {@code dimensions:} セクションの解析結果。{@code baseLevels}/{@code
+     * coordinateCoefficients} に無い {@link World.Environment} は「未設定=従来どおり無干渉」を意味する
+     * (baseLevelは0、coefficientはモブ側の値をそのまま使う)。
+     */
+    record DimensionOverridesResult(Map<World.Environment, Integer> baseLevels,
+                                    Map<World.Environment, Double> coordinateCoefficients,
+                                    int skipped) {
     }
 
     /** Drop-list parse outcome: the immutable valid-drops list and how many drops were skipped. */

@@ -4,24 +4,32 @@
 繰り返し踏まれてきた恒久的な落とし穴・設計上の不変条件・確定仕様をまとめたものです。
 作業履歴ではなく「今後もそのまま効く事実」だけを載せています。
 
-## 前提: 2つのフォークのソースはこのリポジトリの `.gitignore` で除外されている
+## 前提: 2つのフォークのソースはどちらもこのリポジトリの `.gitignore` で除外されている
 
-- `fork-handoff/arspaper/fork/` は `.gitignore:31` の `fork-handoff/arspaper/fork/` で丸ごと除外されている。
-- `fork-handoff/elitemobs/elitemobs-fork/` は ignore されていない（`.gitignore` の対象は arspaper 側の fork ディレクトリだけ）。
+- `fork-handoff/arspaper/fork/` は `.gitignore:40` の `fork-handoff/arspaper/fork/` で丸ごと除外されている。
+- `fork-handoff/elitemobs/elitemobs-fork/` も **`.gitignore:41` の `fork-handoff/elitemobs/elitemobs-fork/`
+  で丸ごと除外されている**（2026-08-02 実機確認。以前このファイルには「EliteMobs フォークだけは
+  ignore されておらず通常どおり commit/push できる」と書かれていたが**誤り**——`git status` に
+  フォーク内の変更が一切出ない・`git check-ignore -v` が `.gitignore:41` を指すことで確認済み。
+  以下は両フォーク共通の帰結として訂正する）。
 
-帰結:
+帰結（ArsPaper・EliteMobs 両フォーク共通）:
 
-- ArsPaper フォークは **クローンしただけでは存在しない**。新しい git worktree を作っても現れない。
+- どちらのフォークも **クローンしただけでは存在しない**。新しい git worktree を作っても現れない。
   `git add` すると "paths are ignored" で拒否される。
-- ArsPaper フォークのソース変更は **このリポジトリに一切残らない**。ワークツリーを
+- どちらのフォークのソース変更も **TF 本体リポジトリに一切残らない**。ワークツリーを
   `git clean` / `git checkout` / `git reset` すると消える。TF 本体側の変更を commit/push しても
   「fork の作業も保全された」にはならない。
-- ArsPaper フォークは実質的に **別リポジトリ**として扱う必要がある。編集したら
-  (1) commit の対象にならないことを作業報告に明記する、(2) ビルド済み jar
-  （`fork-handoff/arspaper/fork/build/libs/ArsPaper-1.0.0.jar`）を成果物として残す、
-  (3) fork ソースを消す操作（clean・checkout・stash）を絶対に走らせない、の3点を守る。
-- EliteMobs フォーク（`fork-handoff/elitemobs/elitemobs-fork/`）はリポジトリに含まれているため、
-  通常どおり commit/push できる。
+- どちらのフォークも実質的に **別リポジトリ**として扱う必要がある。各フォークディレクトリは
+  それ自体が独立した `.git`（`origin`=上流、`trinityforge`=Klee319の下流フォーク、例:
+  EliteMobsは`https://github.com/Klee319/EliteMobs-trinityforge.git`）を持つ。編集したら
+  (1) TF 本体リポジトリの commit の対象にならないことを作業報告に明記する、(2) ビルド済み jar
+  （ArsPaperは`fork-handoff/arspaper/fork/build/libs/ArsPaper-1.0.0.jar`、EliteMobsは
+  `fork-handoff/elitemobs/elitemobs-fork/testbed/plugins/EliteMobs.jar`）を成果物として残す、
+  (3) フォークソースを消す操作（clean・checkout・stash）を絶対に走らせない、の3点を守る。
+  フォーク自身の `.git` へ commit すること自体は可能だが、**push 先は必ず `trinityforge` リモート**
+  （`origin` は上流で絶対に push しない）。この文書群のタスクでは通常「commit もしない」運用
+  （TF本体・フォーク双方とも）が指示されることが多いので、着手前の指示を優先すること。
 
 ## EliteMobs フォーク
 
@@ -100,6 +108,50 @@ EliteMobs はエンティティを普通にスポーンさせた**後**にエリ
 `MobTypeSpawnListener#scheduleHealthReassert` のような「他プラグインに負けないよう1tick後に
 再適用する」処理は、この1tickの間に所有権が EM へ移るため、**再適用の直前にもう一度
 `MOB_PROFILE_ID` を見て降りる**必要がある。見ないとエリート化直後の個体の HP が毎回潰れる。
+
+### ⚠️ ネイティブ表示の抑止（`native-display-suppression`）はスポーン直後の1経路しか塞がない — 「LibsDisguises 経由」「EnderDragonの頭上バー」は別経路
+
+`trinityforge.yml` の `native-display-suppression` は `NativeDisplayPolicy` の4メソッドで
+バニラ頭上名・カスタムモデル名札・ボス追跡バーを止めるが、**それ以外にも「TF側の表示と重複する
+ネイティブ表示」を出す経路が独立して複数ある**。2026-08-02 に実際に見つかった2件（修正済み）:
+
+- **`DisguiseEntity#applyDisguise`（LibsDisguises の `PlayerDisguise` 名札）**: `CustomBossMegaConsumer#setName`
+  はスポーン直後に正しく `NativeDisplayPolicy` 経由で抑止するが、`DisguiseEntity#scheduleDisguise` が
+  張る **+20tick 後の再適用タスク**（`applyDisguise` を再実行）は `DefaultConfig.isAlwaysShowNametags()`
+  を直接読むだけで抑止を一切経由していなかった。`alwaysShowEliteMobNameTags: true` のサーバでは
+  スポーン1秒後に名札が無言で復活する。`applyDisguise` 内の可視性判定を丸ごと
+  `NativeDisplayPolicy.resolveNametagVisible(...)` に通すことで、即時適用と再適用の両方を一箇所で塞いだ。
+- **`EliteEntity#setLivingEntity` の `EnderDragon` 分岐**: `Wither` はネイティブのトップ画面ボスバーを
+  `getBossBar().setVisible(false)` で無条件に隠しているのに、3行下の `ENDER_DRAGON` 分岐は
+  `getBossBar().setTitle(...)` するだけで **`setVisible` を呼んでいなかった**。ENDER_DRAGON をベースに
+  した elite/custom boss は常にバニラのドラゴン体力バーが出続け、TF の FocusHp と重複していた。
+  Wither の既存パターンに合わせて `setVisible(false)` を追加。
+
+**教訓**: 「表示抑止を1箇所直した」で終わらせず、同じ情報（名札・体力バー）を描く**エンティティ種別
+固有の別経路**（LibsDisguises・EnderDragon/Witherのネイティブボスバー・ModelEngineの別ボーン等）を
+横串で洗い出すこと。`NativeDisplayPolicy` に新しいメソッドを足すたびに、そのメソッドを呼んでいない
+既存の類似コード（同じ情報を描く別のクラス/別のタイミング）が無いか `grep` で確認する。
+
+### ⚠️ mob-profiles.yml へ「魔法職モブ」を追加しても、EliteMobs の premade Lua power には魔法ダメージとして判定されるものが無い
+
+TF の戦闘パイプラインが被弾を MAGICAL 扱いするのは `TrinityForgeAbilityDamage.mark()` が立っている
+間だけで、これは Lua スクリプトが `context.player:damage(...)` のような**直接ダメージAPI**
+（`ScriptAction.runDamage` 経由）を呼んだ瞬間にしか立たない。fork の
+`config/luapowers/premade/*.java`（`AttackFireballLuaConfig` 等、約70種）は**どれも直接ダメージAPIを
+呼ばず**、`summon_projectile` でバニラの実弾（FIREBALL 等）を撃つ・ポーション効果を付与する等の
+バニラ機構に依存している。これらはプレイヤーへの着弾がバニラの `EntityDamageByEntityEvent` を
+経由するため、`TrinityForgeCombatListener#onPlayerDamagedByElite` の `isAbilityDamage()` 判定を
+通らず、最終的に `applyPhysical` 側（PHYSICAL 扱い）へ落ちる。
+
+- 「モブに魔法攻撃をさせる」を本当に実装するには、直接ダメージAPIを呼ぶ**新しい Lua power を
+  書く**か、既存 power のうちどれかがこの経路を通ることを個別に確認する必要がある。既存 power の
+  名前（`attack_fireball` 等）だけから「魔法っぽいから MAGICAL 判定されるはず」と判断しないこと。
+- `combat/mob-profiles.yml` は**保護対象としてデプロイ時に上書き除外されている生成物**
+  （`/trinityforge importmobs` の出力、本番は約268KBだがリポジトリ側は空のひな形 `profiles: {}`
+  のみ）。リポジトリ側でこのファイルへ手書きエントリを足しても、配備スクリプトがリポジトリの
+  ひな形で本番の268KBを上書きしないよう既に除外されているため実質無効（詳細は
+  `reports/ACTIVE_RECORD.md` の該当メモ）。このファイルを編集する新規モブ追加は、本番の
+  `mob-profiles.yml` を直接触るか `/trinityforge importmobs` を本番で走らせる形でしか実現できない。
 
 ### ⚠️ mob-overrides の絶対値指定はレベル追従を破壊する
 
@@ -345,6 +397,25 @@ TFがそれを認識できるのは `com.trinityforge.stats.ExternalItemRegistry
   **Java クラスの登録と完全に独立**している（`sourcejars.yml`/`sourcelinks.yml` の recipe も同様）。
   なので `materials.yml` の `recipe:` ブロックはそのまま残してよく、削除する必要はない
   ―― 素材からブロックへ「格上げ」しても既存のレシピ登録経路はそのまま生きる。
+
+### ⚠️ ソースリンクの転送レートは「基準値 × 種別ごとの階梯倍率」。新しい上位ティアには倍率を明示しないと無印と同速のまま化ける
+
+`sourcelinks.yml` の `transfer.sourcelink.max-per-transfer`（既定50/100tick、K-16が指摘した
+「レートを上げる唯一の手段が台数を並べること」の元凶）は**全リンク共通の基準値**で、個体差は
+`items.<id>.transfer-multiplier`（`SourcelinkConfig.ItemDef#transferMultiplier`、既定1.0）が
+`Sourcelink#effectiveMaxPerTransfer` で基準値へ掛け算することで表現する（2026-08-02, K-16 の
+「容量は伸びるがレートが伸びない」を解消）。`InfinityCoreEffect.scaleCap` を流用して階梯倍率→
+infinity_source_core 補正の順に多段で掛ける。
+
+- 新しい上位ソースリンク（`*_ii`/`*_iii` 等）を `sourcelinks.yml` の `items:` に足しても、
+  `transfer-multiplier:` を明示しなければ**既定1.0＝無印と全く同じレート**になる。レシピもCMDも
+  正しいのに「上位リンクを作ったのに速くならない」という無言の劣化再現になるので、階梯を追加した
+  実装者は必ずこのキーを書くこと。
+- 容量側（`buffer-cap`）には階梯倍率を掛けていない（既定が int 上限＝実質無制限で、ボトルネックは
+  最初からレート側にしかないため）。容量で個体差を付けたい場合は別途キーが要る。
+- `SourcelinkConfig.ItemDef` の canonical constructor は7要素（`transferMultiplier` が末尾に追加済み、
+  2026-08-02）。旧来の5引数コンストラクタは `type` 推定 + `transferMultiplier=1.0` を委譲するので
+  既存呼び出し元（`loadItems()` の1箇所のみ）は無改修で動く。
 
 ### ⚠️ NETHER_STAR 等バニラで非設置の Material をベースにした `materials.yml` アイテムは、CustomBlock 化しないと絶対に「置けない」
 

@@ -34,8 +34,12 @@
 #     ※近接主命中時に周囲へ splash=主命中TFダメージ×rate。hit-players等のグローバル設定は combat/damage.yml の aoe:。
 #   offhand-stats-apply: このアイテムをオフハンドに持ったとき、そのステを戦闘集約に合算するか(true/false。既定 false)。
 #                item直下に書く。旧・全体設定(combat/damage.yml の stat-unification.offhand-enabled)は廃止し、per-item化した。
-#   アイテムCT系: item-cooldown(攻撃後この秒数だけ武器を使用不可にする物理CT=エンダーパール式。値は秒。近接のみ)
-#     ※CTはエンダーパール同様 Material 単位。同Materialの別武器ともCTを共有し、別Materialの武器では回避可。
+#   アイテムCT系: item-cooldown(攻撃後この秒数だけ武器を使用不可にする物理CT=エンダーパール式。値は秒。
+#           近接=CombatListener が直接消費。ArsPaperフォークの触媒詠唱(TrinityForgeBridge.itemCooldownSeconds
+#           /startItemCooldown 経由・SpellCaster.java)も同じ item-cooldown を読み、触媒詠唱後にこのCTを開始する
+#           ため「近接のみ」ではなくなった=2026-08-02 杖シリーズ導入時点)
+#     ※CTはエンダーパール同様 Material 単位（ItemAssemblerがMaterial+CMD単位のcooldown_groupを刻むため実際には
+#       同一カスタム品ID間でのみ共有し、別CMD/別Materialの武器では回避可）。
 #   防御系: phys-resistance, magic-resistance, flat-defense, damage-reduction, dodge-chance
 #   防具値: armor-defense-rate はバニラ防具値/Attribute.ARMOR にADD_NUMBERで加算する整数値
 #           (例: armor-defense-rate: 8 は防具値+8)。armor-strength はTF戦闘における会心軽減率で、
@@ -6300,6 +6304,27 @@ items:
       crit-chance:
         min: -0.04
         max: 0.06
+  # 杖(触媒)シリーズのCT(item-cooldown)は2026-08-02導入。「杖が強すぎる」対策。
+  # 火力ランキング(このファイル内のattack-power実値による): wooden<stone<copper<iron<golden<diamond<netherite
+  # <wither<dragon<infinity。CTはこの順に 3.0s → 1.8s へ緩やかに下げる。
+  #
+  # 【この刻み幅にした理由 — 逆効果になる罠がある】
+  # 「上位ほどCTを大きく短くする」設計にすると、CTが火力差を抑えるどころか【広げる】。
+  # 攻撃力の開きは 17.6 → 10584 の約601倍だが、当初案(6.0s → 1.5s)だと秒間火力の開きは
+  # 2.9 → 7056 の約2434倍まで膨らみ、抑えたかった最上位帯がいちばん抑えられない結果になる。
+  # そこでCTの幅を 3.0s → 1.8s(1.67倍)まで詰め、増幅を最小限にした。
+  # ⚠️ 最上位帯を【本当に】頭打ちにしたいなら、CTは全シリーズ一律にするか、上位ほど長くする必要がある
+  #    (一律にすると秒間火力の開きは攻撃力の開き=601倍と一致する)。ここは運用判断で切り替えられる。
+  # 下位を6秒台にしなかったのは、初期杖が「17.6ダメージを6秒に1回」になり序盤が成立しないため。
+  # 値を変えるときはこのブロックのfixed.item-cooldownだけを編集すればよい(SpellCaster.java:274-284が
+  # TrinityForgeBridge.itemCooldownSeconds/startItemCooldown経由でこの値を読み、詠唱成功後にCTを開始する)。
+  # 上限は stats/lore.yml の item-cooldown.limits.max-duration-ticks-ref (72000tick=1時間、CombatListener.
+  # ITEM_COOLDOWN_MAX_TICKS) で、ここで書く数秒オーダーの値には無関係。
+  # cooldown_reduction(アイテムCT短縮ステ)は現状ArsPaperフォーク側のTrinityForgeBridge.startItemCooldownが
+  # 適用しない(近接専用CombatListener.startItemCooldownだけがこの乗算を行う)ため、触媒CTは現時点では
+  # cooldown_reductionの影響を受けない。したがって「短縮ステでCTが0になる」懸念は今は発生しないが、
+  # 将来フォーク側にcooldown_reduction適用を足す場合は近接側と同じ下限クランプ(Math.max(0.05, 1.0-min(0.9,r)))
+  # を必ず入れること。
   BLAZE_ROD#400008:
     fixed:
       attack-power: 17.6
@@ -6308,6 +6333,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.03
       thread-slots: 1
+      item-cooldown: 3.0
     per-quality:
       attack-power: 0.7
       mana-bonus: 1
@@ -6322,6 +6348,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.05
       thread-slots: 1
+      item-cooldown: 2.9
     per-quality:
       attack-power: 1.2
       mana-bonus: 1
@@ -6336,6 +6363,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.07
       thread-slots: 1
+      item-cooldown: 2.8
     per-quality:
       attack-power: 2
       mana-bonus: 1
@@ -6350,6 +6378,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.09
       thread-slots: 1
+      item-cooldown: 2.7
     per-quality:
       attack-power: 3.4
       mana-bonus: 1
@@ -6364,6 +6393,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.11
       thread-slots: 1
+      item-cooldown: 2.6
     per-quality:
       attack-power: 5.4
       mana-bonus: 1
@@ -6378,6 +6408,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.14
       thread-slots: 1
+      item-cooldown: 2.5
     per-quality:
       attack-power: 14.7
       mana-bonus: 3
@@ -6392,6 +6423,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.17
       thread-slots: 1
+      item-cooldown: 2.4
     per-quality:
       attack-power: 44.1
       mana-bonus: 10
@@ -6406,6 +6438,7 @@ items:
       mana-regen: 9
       source-cost-reduction: 0.23
       thread-slots: 1
+      item-cooldown: 1.8
     per-quality:
       attack-power: 441
       mana-bonus: 100
@@ -6420,6 +6453,7 @@ items:
       mana-regen: 5.6
       source-cost-reduction: 0.23
       thread-slots: 3
+      item-cooldown: 2.0
     per-quality:
       attack-power: 274.4
       mana-bonus: 62
@@ -6434,6 +6468,7 @@ items:
       mana-regen: 3
       source-cost-reduction: 0.2
       thread-slots: 2
+      item-cooldown: 2.2
     per-quality:
       attack-power: 147
       mana-bonus: 33

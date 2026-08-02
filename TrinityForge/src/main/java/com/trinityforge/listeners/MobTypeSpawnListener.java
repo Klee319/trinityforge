@@ -12,6 +12,7 @@ import com.trinityforge.mobs.MobTypeDefinition;
 import com.trinityforge.pdc.MobData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -141,10 +142,18 @@ public final class MobTypeSpawnListener implements Listener {
                                     String source,
                                     double healthRatio) {
         double distance = distanceFromWorldSpawn(entity);
+        // 2026-08-02: ディメンション別の基準レベル下駄(dimensions.<ENV>.base-level)をここで加算する。
+        // World.Environment で引く(ワールド名はネザー/エンド/EliteMobsインスタンスとも構成依存で
+        // 一致しないため)。未設定のEnvironmentは0が返るので、dimensions: セクションを一切書かない
+        // 既存configでは baseLevel/coordinateCoefficient とも完全に不変(後方互換)。
+        World.Environment environment = entity.getWorld().getEnvironment();
+        int adjustedBaseLevel = baseLevel + mobTypesConfig.dimensionBaseLevel(environment);
+        double adjustedCoordinateCoefficient = mobTypesConfig.dimensionCoordinateCoefficient(environment)
+                .orElse(coordinateCoefficient);
         // CMB-21: clamp to mob-types.yml's configured max-level (default 100) so distant mobs cannot
         // scale to an unbounded level (which saturates penetration and makes defense stats moot).
         int level = MobLevelScaling.effectiveLevel(
-                baseLevel, coordinateCoefficient, distance, mobTypesConfig.maxLevel());
+                adjustedBaseLevel, adjustedCoordinateCoefficient, distance, mobTypesConfig.maxLevel());
         double armorBase = physicalBase.armorStrength();
         DefenseStats physical = MobStatScaling.scaleDefense(
                 physicalBase, coeffs.physical(), armorBase, coeffs.armorStrength(), level);
@@ -169,6 +178,7 @@ public final class MobTypeSpawnListener implements Listener {
         String msg = "[mob-types] spawn "
                 + entity.getType().name()
                 + " via " + source
+                + " environment=" + environment.name()
                 + " effectiveLevel=" + level
                 + " distance=" + String.format(Locale.ROOT, "%.1f", distance)
                 + " armorStrength=" + String.format(Locale.ROOT, "%.3f", physical.armorStrength())

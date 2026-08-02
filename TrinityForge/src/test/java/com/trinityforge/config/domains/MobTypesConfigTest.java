@@ -1,16 +1,20 @@
 package com.trinityforge.config.domains;
 
 import com.trinityforge.config.domains.MobTypesConfig.DefaultDefenseResult;
+import com.trinityforge.config.domains.MobTypesConfig.DimensionOverridesResult;
 import com.trinityforge.mobs.MobTypeDefinition;
 import org.bukkit.Material;
+import org.bukkit.World;
 import com.trinityforge.config.domains.MobTypesConfig.ParseResult;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
 import org.junit.jupiter.api.Test;
 
+import java.util.OptionalDouble;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -463,5 +467,129 @@ class MobTypesConfigTest {
         YamlConfiguration zeroCfg = new YamlConfiguration();
         zeroCfg.loadFromString("max-level: 0\n");
         assertEquals(100, MobTypesConfig.parseMaxLevel(zeroCfg, LOG));
+    }
+
+    // --- 2026-08-02: dimensions:(ディメンション別の基準レベル下駄) ---
+
+    @Test
+    void missingDimensionsSectionYieldsEmptyOverrides() {
+        // セクション自体が無い(=既存configの大多数)場合、baseLevel/coordinate-coefficientとも
+        // 一切上書きされない(従来どおりの挙動と完全一致)であることを確認する。
+        YamlConfiguration cfg = new YamlConfiguration();
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        assertEquals(0, result.skipped());
+        assertTrue(result.baseLevels().isEmpty());
+        assertTrue(result.coordinateCoefficients().isEmpty());
+    }
+
+    @Test
+    void emptyDimensionsSectionYieldsEmptyOverrides() throws Exception {
+        // 出荷ymlが書く "dimensions: {}" の形。セクションは存在するが要素0件。
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("dimensions: {}\n");
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        assertEquals(0, result.skipped());
+        assertTrue(result.baseLevels().isEmpty());
+        assertTrue(result.coordinateCoefficients().isEmpty());
+    }
+
+    @Test
+    void parsesDimensionBaseLevelForNetherAndEnd() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                dimensions:
+                  NETHER:
+                    base-level: 20
+                  THE_END:
+                    base-level: 45
+                """);
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        assertEquals(0, result.skipped());
+        assertEquals(20, result.baseLevels().get(World.Environment.NETHER));
+        assertEquals(45, result.baseLevels().get(World.Environment.THE_END));
+        // NORMAL は明示していないので未設定=このマップに一切現れない(呼び出し側で0扱い)。
+        assertFalse(result.baseLevels().containsKey(World.Environment.NORMAL));
+    }
+
+    @Test
+    void dimensionCoordinateCoefficientIsOnlyPresentWhenExplicitlySet() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                dimensions:
+                  NETHER:
+                    base-level: 0
+                    coordinate-coefficient: 0.16
+                  THE_END:
+                    base-level: 10
+                """);
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        assertEquals(0.16, result.coordinateCoefficients().get(World.Environment.NETHER), DELTA);
+        // THE_END は coordinate-coefficient を書いていないので、上書きマップには現れない
+        // (呼び出し側はモブ定義側の係数をそのまま使う=1/8換算などの自動補正は一切行わない)。
+        assertFalse(result.coordinateCoefficients().containsKey(World.Environment.THE_END));
+    }
+
+    @Test
+    void invalidDimensionEnvironmentKeyIsSkippedButOthersLoad() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                dimensions:
+                  NOT_A_REAL_DIMENSION:
+                    base-level: 99
+                  NETHER:
+                    base-level: 20
+                """);
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        assertEquals(1, result.skipped());
+        assertEquals(20, result.baseLevels().get(World.Environment.NETHER));
+        assertEquals(1, result.baseLevels().size());
+    }
+
+    @Test
+    void negativeDimensionBaseLevelClampsToZero() throws Exception {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                dimensions:
+                  NETHER:
+                    base-level: -10
+                """);
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        assertEquals(0, result.skipped());
+        assertEquals(0, result.baseLevels().get(World.Environment.NETHER));
+    }
+
+    @Test
+    void dimensionAccessorsDefaultToUnsetBehaviorOnFreshConfig() {
+        // load()を一度も呼んでいない(=フィールドが初期値のまま)インスタンスは、どのEnvironmentでも
+        // baseLevel=0・coefficient上書きなし(従来どおり)を返す。これが「未設定=既存挙動と完全一致」
+        // の直接の確認になる。
+        MobTypesConfig config = new MobTypesConfig();
+        assertEquals(0, config.dimensionBaseLevel(World.Environment.NETHER));
+        assertEquals(0, config.dimensionBaseLevel(World.Environment.THE_END));
+        assertEquals(0, config.dimensionBaseLevel(World.Environment.NORMAL));
+        assertEquals(OptionalDouble.empty(), config.dimensionCoordinateCoefficient(World.Environment.NETHER));
+    }
+
+    @Test
+    void dimensionBaseLevelAddsIntoEffectiveLevelComputation() throws Exception {
+        // MobTypeSpawnListener が実際に行う計算(adjustedBaseLevel = level +
+        // dimensionBaseLevel(environment) → MobLevelScaling.effectiveLevel)をここで再現し、
+        // 「設定時=下駄が乗る」を末端の実効レベルまで確認する。
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.loadFromString("""
+                dimensions:
+                  NETHER:
+                    base-level: 20
+                """);
+        DimensionOverridesResult result = MobTypesConfig.parseDimensions(cfg, LOG);
+        int mobBaseLevel = 5;
+        int netherBaseLevel = result.baseLevels().getOrDefault(World.Environment.NETHER, 0);
+        int overworldBaseLevel = result.baseLevels().getOrDefault(World.Environment.NORMAL, 0);
+        // ネザー: 下駄20が乗ってから距離分(coordinate-coefficient 0.02, distance 100 -> +2)が足される。
+        assertEquals(5 + 20 + 2,
+                com.trinityforge.mobs.MobLevelScaling.effectiveLevel(mobBaseLevel + netherBaseLevel, 0.02, 100.0, 100));
+        // オーバーワールド(NORMAL未設定): 従来どおり下駄0のまま。
+        assertEquals(5 + 2,
+                com.trinityforge.mobs.MobLevelScaling.effectiveLevel(mobBaseLevel + overworldBaseLevel, 0.02, 100.0, 100));
     }
 }

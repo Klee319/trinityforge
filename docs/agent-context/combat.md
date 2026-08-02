@@ -97,6 +97,21 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 
 フォークの刻印処理は import 時に `base + perLevel×level` を数値として焼く仕組みだが、`level: dynamic`（ダンジョン内のほぼ全モブ）はコンバットレベル依存の実行時値であり import 時点では数値化できない。**How**: `MobProfile.dynamic` フラグ＋`ConfigManager.resolveRuntimeProfile(id, runtimeLevel)` で、dynamic なプロファイルは実レベルで都度再構築する。固定ダンジョン（level が数値）は従来どおり焼き値のまま。武器tierの成長は指数的（剣の attack-power が木→インフィニティで約600倍）なので、モブ側の `ConversionPolicy.Ramp` も `growth`/`growth-interval` を持つ指数式に対応している（省略時 growth=1.0 で従来の線形と一致、後方互換）。
 
+### FocusHpDisplay の耐性寄りタグは既存の防御configから導出、攻撃タイプは意図的に出していない
+
+`mob.FocusHpText.leanFrom(physical, magical)` はモブの `physical`/`magical` の
+`defenseRate*0.4+resistance*0.4+damageReduction*0.2` 加重スコアを比較し、差が0.05未満なら
+`ResistanceLean.NONE`（タグ非表示）にする。この防御プロファイルは `combat/mob-defaults.yml` /
+`mob-import.yml` / `mob-profiles.yml` 系の既存キーがモブPDCへ焼いた値をそのまま読むだけで、
+新しい設定面は増やしていない。**表示は名前行に追記する形（`[耐:物]`/`[耐:魔]`）で行数を2行のまま
+固定**している（`DamagePopupDisplay` の浮遊ダメージ表示や隣接モブの名前ラベルとの重なりを避けるため、
+3行目を新設しない設計判断）。
+
+意図的に「モブの攻撃タイプ（技が魔法か物理か）」のタグは出していない: TFの被ダメ判定は
+`TrinityForgeAbilityDamage.mark()` が立っている間だけMAGICAL扱いになるが、これは限られた条件でしか
+立たない（次項参照）。ほとんどのeliteモブは近接攻撃(PHYSICAL固定)としか判定されないため、
+静的な「攻撃タイプ」アイコンは大半のモブで無意味・誤解を招くと判断して見送った。
+
 ## マナ回復ステータス
 
 ### ⚠️ キー名は直感と逆向き
@@ -146,6 +161,39 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 - **stat化可能**: 弓系・スタン・パリィ・採集ギミック%・食料・伐採・ドロップ/EXP倍率など大半の効果はstat化可能で、consumer側を `NativePerkRewardResolver` から `PlayerStatAggregator.totalOf()` 参照へ切り替えるだけで対応できる。
 
 新しい効果を追加するときは、まず「これは永続アンロックか、瞬間的な数値効果か」を切り分けること。前者を無理にstat化しない。
+
+## アイテムCT(item-cooldown)は触媒詠唱もゲートする — 「近接専用」ではない
+
+`item-cooldown`(秒)は近接専用と誤解しやすいが、ArsPaperフォークの触媒詠唱も同じキーを読む。
+`SpellCaster.attemptCast`（`fork-handoff/arspaper/fork/.../spell/SpellCaster.java:274-284,388-391`）は
+詠唱前に `TrinityForgeBridge.itemCooldownSeconds(catalyst) > 0` でCT設定の有無を判定してゲートし、
+詠唱成功後に `TrinityForgeBridge.startItemCooldown` → `WeaponAttackStatResolver.itemCooldownSeconds`
+→ `Player#setCooldown` の順で開始する。近接側（`CombatListener.startItemCooldown`）とは**別の解決経路**
+（`DerivedItemStats.resolve(item,...)` をそのアイテム単体に対して呼ぶだけで、`PlayerStatAggregator` は経由しない）
+であり、**`cooldown_reduction`（アイテムCT短縮ステ）は近接側だけが乗算適用し、触媒詠唱側の
+`TrinityForgeBridge.startItemCooldown` はこの乗算を一切行わない**（2026-08-02時点）。つまり触媒に
+`cooldown_reduction` を盛ってもCTは短縮されない — 「短縮ステでCTが0になる」心配は今は無いが、
+将来フォーク側に同じ乗算を足す場合は近接側と同じ下限クランプ
+（`CombatListener.startItemCooldown`: `seconds *= Math.max(0.05, 1.0 - Math.min(0.9, reduction))`）を
+必ず入れること（クランプが無いと理論上0まで縮む）。
+
+## モブのディメンション別基準レベルは `World.Environment` で引く（ワールド名ではない）
+
+`combat/mob-types.yml` の `dimensions:`（`MobTypesConfig#parseDimensions`）は
+`effectiveLevel = (level + dimensions.<ENV>.base-level) + floor(距離 × coordinate-coefficient)`
+の形でディメンション別の基準レベル下駄を足す。ネザー/エンドのワールド名は構成依存で一致せず、
+EliteMobsのインスタンスワールドは毎回名前が変わる（forks-and-mobs.md 既知の罠と同根）ため、
+キーは必ず `World.Environment`（NORMAL/NETHER/THE_END/CUSTOM）で引くこと。未設定
+（`dimensions:` セクション自体が無い、または該当Environmentのキーが無い）は必ず下駄0・
+coordinate-coefficientもモブ側の値のまま、という「従来どおり無干渉」に完全一致する
+（`MobTypesConfig#dimensionBaseLevel`/`#dimensionCoordinateCoefficient` は未設定時にそれぞれ
+`0`/`OptionalDouble.empty()` を返す設計）。
+
+**ネザーの距離換算(1/8)は自動補正しない**: `MobTypeSpawnListener#applyScaledProfile` は「そのワールド内の
+生のブロック距離」に `coordinate-coefficient` を掛けるだけで、オーバーワールド換算のための8倍などは
+一切行わない（据え置き）。ネザーでも通常世界と同じ体感の距離スケーリングにしたい場合は、
+`dimensions.NETHER.coordinate-coefficient` を明示的に大きい値（例: オーバーワールド値の8倍程度）へ
+上書き設定して運用側で補正すること。
 
 ## 関連
 

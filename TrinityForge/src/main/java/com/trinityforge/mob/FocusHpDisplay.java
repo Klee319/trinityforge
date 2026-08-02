@@ -296,7 +296,14 @@ public final class FocusHpDisplay implements Listener {
         int curHp = (int) Math.ceil(target.getHealth());
         AttributeInstance maxHealthAttr = target.getAttribute(Attribute.MAX_HEALTH);
         int maxHp = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : curHp;
-        return FocusHpText.format(level, nameComponent, curHp, maxHp);
+        // どちらの型に寄って耐性/防御が設定されているかを示す任意タグ(依頼2)。既存の
+        // combat/mob-defaults.yml 系キー(PDCへ既に焼かれている)から導出するだけで、新しい設定面は
+        // 増やさない — MobData#defenseFor はプロファイル無しモブでは全項目0を返すので、その場合は
+        // FocusHpText.leanFrom が自動的にNONEへ落ちる(明示的なhasProfile()分岐は不要)。
+        FocusHpText.ResistanceLean lean = FocusHpText.leanFrom(
+                data.defenseFor(com.trinityforge.combat.DamageType.PHYSICAL),
+                data.defenseFor(com.trinityforge.combat.DamageType.MAGICAL));
+        return FocusHpText.format(level, nameComponent, curHp, maxHp, lean);
     }
 
     private static final class TrackedDisplay {

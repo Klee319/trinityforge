@@ -145,6 +145,32 @@
 
 max-level: 100
 
+# dimensions: ディメンション別の基準(初期)レベルの下駄(2026-08-02導入)。
+#   effectiveLevel = (levelまたはdefaults.level + dimensions.<ENV>.base-level)
+#                    + floor(ワールドスポーンからの距離 × coordinate-coefficient)
+#   キーは World.Environment 名(NORMAL / NETHER / THE_END / CUSTOM)。ワールド名では引かない
+#   (ネザー/エンドのワールド名はサーバー構成依存で一致せず、EliteMobsのインスタンスワールドは
+#   毎回名前が変わるため — forks-and-mobs.md 既知の罠と同じ理由)。タグ付き(mob-types 配下)・
+#   未タグ付け(defaults)問わず、全モブのbase levelに一律加算される。
+#
+#   base-level: 整数、既定0(未設定/セクション自体を書かなくてもよい)。
+#   coordinate-coefficient: 省略可。指定した場合のみ、そのディメンションの全モブで
+#     (mob-types各エントリ/defaults の)coordinate-coefficient を上書きする。
+#     ⚠️ ネザーはオーバーワールド換算で距離が1/8になる(同じ体感距離でも実ブロック距離は1/8)。
+#     このファイルの実装は「その場のワールド内の生のブロック距離」に係数を掛けるだけで、
+#     8倍のような自動換算は一切行わない(据え置き)。ネザーでも通常世界と同じ体感カーブに
+#     揃えたい場合は、この coordinate-coefficient を明示的に8倍程度へ引き上げて運用側で補正すること。
+#   未設定(このセクション自体が無い、または個々のキーが無い)は必ず「従来どおり無干渉」
+#   (下駄0・係数はモブ側の値のまま)になる。後方互換を壊さない。
+# 例:
+# dimensions:
+#   NETHER:
+#     base-level: 20
+#     # coordinate-coefficient: 0.16   # 例: オーバーワールド換算(distance×8)相当にしたい場合
+#   THE_END:
+#     base-level: 45
+dimensions: {}
+
 defaults:
   level: 0
   coordinate-coefficient: 0.02

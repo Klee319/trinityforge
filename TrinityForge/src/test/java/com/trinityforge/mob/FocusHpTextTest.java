@@ -1,5 +1,6 @@
 package com.trinityforge.mob;
 
+import com.trinityforge.combat.DefenseStats;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.EntityType;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FocusHpTextTest {
@@ -65,6 +67,55 @@ class FocusHpTextTest {
         assertTrue(plain.contains("闇の帝王ゾグラス"), "custom name text must appear verbatim");
         assertTrue(!containsTranslatable(result, "entity.minecraft."),
                 "must NOT fall back to a species translation key when a custom name is supplied");
+    }
+
+    // --- 依頼2 (2026-08-02): 耐性寄りタグの導出とレイアウト ---
+    @Test
+    void leanFromReturnsNoneForUnconfiguredMob() {
+        assertEquals(FocusHpText.ResistanceLean.NONE,
+                FocusHpText.leanFrom(DefenseStats.NONE, DefenseStats.NONE),
+                "a mob with no configured defense profile (all-zero, e.g. no PDC stamp) must not show a tag");
+    }
+
+    @Test
+    void leanFromReturnsNoneWhenBothComponentsAreBalanced() {
+        DefenseStats balanced = new DefenseStats(0.3, 0.2, 0.1, 5.0, 0.0);
+        assertEquals(FocusHpText.ResistanceLean.NONE, FocusHpText.leanFrom(balanced, balanced),
+                "identical physical/magical profiles must not show a misleading skew tag");
+    }
+
+    @Test
+    void leanFromPrefersThePhysicalComponentWhenItsScoreIsHigher() {
+        DefenseStats physical = new DefenseStats(0.6, 0.5, 0.4, 0.0, 0.0);
+        DefenseStats magical = DefenseStats.NONE;
+        assertEquals(FocusHpText.ResistanceLean.PHYSICAL, FocusHpText.leanFrom(physical, magical));
+    }
+
+    @Test
+    void leanFromPrefersTheMagicalComponentWhenItsScoreIsHigher() {
+        DefenseStats physical = DefenseStats.NONE;
+        DefenseStats magical = new DefenseStats(0.6, 0.5, 0.4, 0.0, 0.0);
+        assertEquals(FocusHpText.ResistanceLean.MAGICAL, FocusHpText.leanFrom(physical, magical));
+    }
+
+    @Test
+    void formatWithLeanKeepsTheDisplayAtTwoLines() {
+        Component result = FocusHpText.format(10, Component.text("Boss"), 50, 100,
+                FocusHpText.ResistanceLean.MAGICAL);
+        String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(result);
+        assertEquals(1, plain.chars().filter(c -> c == '\n').count(),
+                "the resistance tag must be appended to the name line, not add a third line");
+        assertTrue(plain.contains("耐:魔"), "the magical-lean tag must render on the name line");
+    }
+
+    @Test
+    void formatWithNoneLeanOmitsTheTag() {
+        Component result = FocusHpText.format(10, Component.text("Boss"), 50, 100,
+                FocusHpText.ResistanceLean.NONE);
+        String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(result);
+        assertFalse(plain.contains("耐:"), "an unconfigured/balanced mob must not show any resistance tag");
     }
 
     private static boolean containsTranslatable(Component component, String keyPrefix) {
