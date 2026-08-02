@@ -7,7 +7,7 @@ import com.trinityforge.config.domains.VillagerTradesConfig.ProfessionTrades;
 import com.trinityforge.config.domains.VillagerTradesConfig.TradeOffer;
 import com.trinityforge.config.domains.VillagerTradesConfig.TradeStack;
 import com.trinityforge.pdc.PdcKeys;
-import com.trinityforge.stats.ArsItemGiveBridge;
+import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
 import net.kyori.adventure.text.Component;
@@ -51,6 +51,8 @@ public final class VillagerTradeListener implements Listener {
     private final VillagerTradesConfig tradesConfig;
     private final ItemCatalogConfig catalog;
     private final ItemFactory itemFactory;
+    /** Ars フォールバックの draft ゲート用。配線を増やさないためここで組み立てる(同じ2引数で作れる)。 */
+    private final CrossPluginItemResolver resolver;
 
     public VillagerTradeListener(DedicatedEffectsConfig dedicatedEffects,
                                  VillagerTradesConfig tradesConfig,
@@ -60,6 +62,7 @@ public final class VillagerTradeListener implements Listener {
         this.tradesConfig = Objects.requireNonNull(tradesConfig, "tradesConfig");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
+        this.resolver = new CrossPluginItemResolver(catalog, itemFactory);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -182,7 +185,11 @@ public final class VillagerTradeListener implements Listener {
         if (stack.isCatalog()) {
             ItemStack resolved = catalog.template(stack.catalogId())
                     .map(t -> itemFactory.create(t, ThreadLocalRandom.current().nextLong(), 0))
-                    .or(() -> ArsItemGiveBridge.create(stack.catalogId()))
+                    // draft(準備中)を素通りさせないためゲート付きの入口を使う。以前はここが
+                    // ArsItemGiveBridge を直接叩いており、catalog 側が draft で miss したあと
+                    // Ars 実体をそのまま返していた(出荷 villager-trades.yml には現状 draft が
+                    // 無いので未発火だったが、門が無いので書けば必ず漏れる。2026-08-03)。
+                    .or(() -> resolver.createArsGated(stack.catalogId()))
                     .orElse(null);
             if (resolved == null || resolved.getType().isAir()) {
                 return null;

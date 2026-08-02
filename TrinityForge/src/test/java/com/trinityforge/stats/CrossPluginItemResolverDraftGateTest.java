@@ -129,6 +129,54 @@ class CrossPluginItemResolverDraftGateTest {
         assertFalse(exists, "draft IDが exists() では true を返している(create()と食い違う)");
     }
 
+    /**
+     * 2026-08-03 の穴: {@code /tf give} と村人取引の catalog フォールバックは、TFカタログより先に
+     * <b>静的な</b> {@code createArs} を直接呼んでいた。{@code createArs} はカタログを持たないので
+     * draft を見られず、{@code external-source: arspaper} の準備中スレッド24種が
+     * そのまま配れていた。ゲート付き入口 {@code createArsGated} へ寄せたことを固定する。
+     */
+    @Test
+    @DisplayName("createArsGated は draft のIDを Ars 側に問い合わせる前に弾く")
+    void createArsGatedRejectsDraftBeforeQueryingArs() {
+        ItemCatalogConfig catalog = mock(ItemCatalogConfig.class);
+        when(catalog.isDraft(DRAFT_ID)).thenReturn(true);
+        ItemFactory factory = mock(ItemFactory.class);
+
+        Optional<ItemStack> result =
+                new CrossPluginItemResolver(catalog, factory).createArsGated(DRAFT_ID);
+
+        assertTrue(result.isEmpty(),
+                "draft IDが Ars 直接解決(/tf give・村人取引)を素通りしている");
+        verify(catalog).isDraft(DRAFT_ID);
+    }
+
+    @Test
+    @DisplayName("createArsGated は custom: 接頭辞つきでも draft を弾く")
+    void createArsGatedStripsCustomPrefix() {
+        ItemCatalogConfig catalog = mock(ItemCatalogConfig.class);
+        when(catalog.isDraft(DRAFT_ID)).thenReturn(true);
+        ItemFactory factory = mock(ItemFactory.class);
+
+        Optional<ItemStack> result = new CrossPluginItemResolver(catalog, factory)
+                .createArsGated("custom:" + DRAFT_ID);
+
+        assertTrue(result.isEmpty(), "custom: 接頭辞つきの draft IDがすり抜けている");
+        verify(catalog, never()).isDraft("custom:" + DRAFT_ID);
+    }
+
+    @Test
+    @DisplayName("createArsGated は draft でないIDのゲートを閉じない(Ars 未導入なら空でよい)")
+    void createArsGatedPassesNonDraft() {
+        ItemCatalogConfig catalog = mock(ItemCatalogConfig.class);
+        when(catalog.isDraft("source_gem")).thenReturn(false);
+        ItemFactory factory = mock(ItemFactory.class);
+
+        // Ars 非導入のテスト環境では結果は空になるが、「draft ゲートで弾いた」のではなく
+        // 「Ars へ問い合わせた結果」であることを、判定が呼ばれた事実で確かめる。
+        new CrossPluginItemResolver(catalog, factory).createArsGated("source_gem");
+        verify(catalog).isDraft("source_gem");
+    }
+
     @Test
     @DisplayName("CrossPluginItemResolver#isDraft は custom: 接頭辞を剥がしてから判定する")
     void isDraftStripsCustomPrefix() {

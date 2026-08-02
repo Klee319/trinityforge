@@ -209,7 +209,37 @@ public final class CrossPluginItemResolver {
         }
     }
 
-    /** ArsPaper registry resolution only (no catalog/Material fallback). Public: see {@link #createCatalog}. */
+    /**
+     * draft(準備中)を除外した ArsPaper 単独解決。<b>Ars を先に引く配布経路は必ずこちらを使うこと</b>。
+     *
+     * <p>{@link #createArs(String)} は静的でカタログを持たないため draft を見られない。
+     * ところが {@code items/catalog.yml} の準備中アイテムには {@code external-source: arspaper} が
+     * 付いたもの(スレッド24種)があり、<b>実体は Ars 側にある</b>。そのため
+     * 「Ars を先に試す」経路 ({@code /tf give}・村人取引の catalog フォールバック) は
+     * {@link #create} の draft ゲートを一度も通らず、準備中アイテムを配れてしまっていた
+     * (2026-08-03)。経路ごとに {@code isDraft} を書き足すと必ずどこかが漏れるので、
+     * <b>ゲート付きの入口をここ1つだけ用意して呼び先を寄せる</b>。
+     *
+     * <p>「管理者コマンドだから素通しでよい」は成立しない ── アチーブメント/図鑑報酬の
+     * {@code commands:} に {@code tf give <draft-id>} と書けば、そこからプレイヤーへ渡るため。
+     */
+    public Optional<ItemStack> createArsGated(String id) {
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        if (itemCatalog.isDraft(stripCustomPrefix(id))) {
+            return Optional.empty();
+        }
+        return createArs(id);
+    }
+
+    /**
+     * ArsPaper registry resolution only (no catalog/Material fallback). Public: see {@link #createCatalog}.
+     *
+     * <p><b>draft ゲートは無い。</b>{@link #create} の externalFactory として内部から使うための
+     * 素の入口で、そちらは呼び出し前に draft を弾いている。配布経路から直接呼ぶときは必ず
+     * {@link #createArsGated(String)} を使うこと。
+     */
     public static Optional<ItemStack> createArs(String id) {
         if (id == null || id.isBlank()) {
             return Optional.empty();

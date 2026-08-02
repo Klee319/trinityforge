@@ -506,7 +506,10 @@ public final class GiveItemCommand {
      * (GachaListener 等が使う統合版 {@code CrossPluginItemResolver#create} とはそこが違う)。
      */
     private Built buildOne(CommandSender sender, String itemId, int quality) {
-        Optional<ItemStack> ars = CrossPluginItemResolver.createArs(itemId);
+        // draft(準備中)は give でも作らない。管理者コマンドだから素通しでよい、とはならない ──
+        // アチーブメント/図鑑報酬の commands: に "tf give <draft-id>" と書けばプレイヤーへ渡るため。
+        // 判定は CrossPluginItemResolver#createArsGated 1箇所に寄せてある。
+        Optional<ItemStack> ars = resolver.createArsGated(itemId);
         if (ars.isPresent()) {
             ItemStack built = ars.get();
             // Catalysts/spellbooks (isQualityStamped) and equipment-tier materials get TF quality.

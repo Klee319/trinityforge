@@ -181,4 +181,43 @@ class ShippedCatalogDraftTest {
         assertFalse(config.isDraft("custom:" + sample + "_not_real"),
                 "接頭辞を剥がした結果が別IDと誤って一致してはいけない");
     }
+
+    /**
+     * 2026-08-03: 「準備中なのに入手できる」の再発防止。ゲートは
+     * {@code CrossPluginItemResolver#create} / {@code #createArsGated} の2つに集約したが、
+     * <b>出荷データ側に準備中IDを書いてしまうと「ゲートが効いているから見えないだけ」</b>という
+     * 分かりにくい状態になる。少なくとも「ゲートを通らない、もしくは通っても
+     * 意図が読めない配布データ」には準備中IDを置かせない。
+     *
+     * <p>対象を村人取引とガチャに限っているのは意図的:
+     * モブドロップ表({@code combat/mob-level-table.yml})とアチーブメントの収集条件には
+     * <b>準備中IDを先に書いておく</b>のがユーザー確定仕様(解禁時に {@code draft:} を外すだけで
+     * 一斉に効く)。そこは資源側で弾く設計なので、ここでは検査しない。
+     */
+    @Test
+    @DisplayName("村人取引とガチャの出荷データに準備中IDが混ざっていない")
+    void distributionDataHasNoDraftIds() throws Exception {
+        List<String> declared = declaredDraftIds();
+        assertFalse(declared.isEmpty(), "出荷カタログに draft が1件も無い(テスト前提が崩れている)");
+
+        List<String> offenders = new ArrayList<>();
+        for (String path : List.of("src/main/resources/economy/villager-trades.yml",
+                "src/main/resources/gacha.yml")) {
+            java.nio.file.Path file = java.nio.file.Path.of(path);
+            if (!Files.isRegularFile(file)) {
+                continue;
+            }
+            String text = Files.readString(file);
+            for (String id : declared) {
+                // "custom:<id>" / "catalog:<id>" / 素の <id> のいずれでも拾えるよう単語境界で見る。
+                if (java.util.regex.Pattern.compile("(?<![A-Za-z0-9_])" + java.util.regex.Pattern.quote(id)
+                        + "(?![A-Za-z0-9_])").matcher(text).find()) {
+                    offenders.add(path + " -> " + id);
+                }
+            }
+        }
+        assertTrue(offenders.isEmpty(),
+                "準備中(draft: true)のアイテムが配布データに書かれている。"
+                        + "ゲートで弾かれるので「取引/景品が無言で消える」状態になる。該当: " + offenders);
+    }
 }
