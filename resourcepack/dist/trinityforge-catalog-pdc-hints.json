@@ -1,0 +1,1944 @@
+{
+  "entries": [
+    {
+      "pdc_identifier": "trinityforge:winter_grim_reaper",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "冬の死神"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "深淵の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "深淵の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "黒淵の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "深淵のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "深淵の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "深淵の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "深淵の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "深淵のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "深淵のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "深淵の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "深淵の槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "深淵の剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "深淵のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "深淵のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyssal_scale_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "深海鱗の鎧のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyssal_scale_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "深海鱗の鎧のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyssal_scale_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "深海鱗の鎧のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyssal_scale_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "深海鱗の鎧のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:bedrock_greaves",
+      "base_item": "minecraft:netherite_boots",
+      "display_name": "岩盤の具足"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "世界を繋ぐ戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_boots",
+      "base_item": "minecraft:netherite_boots",
+      "display_name": "世界を繋ぐブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "世界を繋ぐ弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_chestplate",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "世界を繋ぐチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "世界を繋ぐクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "世界を繋ぐ短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "世界を繋ぐ大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "世界を繋ぐ大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_helmet",
+      "base_item": "minecraft:netherite_helmet",
+      "display_name": "世界を繋ぐヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_leggings",
+      "base_item": "minecraft:netherite_leggings",
+      "display_name": "世界を繋ぐレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "世界を繋ぐメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "世界を繋ぐレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "世界を繋ぐ鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "世界を繋ぐ槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "世界を繋ぐ剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "世界を繋ぐトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:binder_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "世界を繋ぐウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:bone_guard_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "骨鎧のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:bone_guard_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "骨鎧のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:bone_guard_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "骨鎧のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:bone_guard_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "骨鎧のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:boundary_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "冥境の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:carapace_mail_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "甲殻鎧のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:carapace_mail_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "甲殻鎧のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:carapace_mail_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "甲殻鎧のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:carapace_mail_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "甲殻鎧のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:chanter_ring",
+      "base_item": "minecraft:amethyst_shard",
+      "display_name": "詠唱者の指輪"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_axe_tf",
+      "base_item": "minecraft:copper_axe",
+      "display_name": "銅の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "銅の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "銅の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "銅のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_dagger",
+      "base_item": "minecraft:copper_sword",
+      "display_name": "銅の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_grate_sword",
+      "base_item": "minecraft:copper_sword",
+      "display_name": "銅の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_greataxe",
+      "base_item": "minecraft:copper_sword",
+      "display_name": "銅の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "銅のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_rapier",
+      "base_item": "minecraft:copper_sword",
+      "display_name": "銅のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_scythe",
+      "base_item": "minecraft:copper_hoe",
+      "display_name": "銅の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_stud_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "銅鋲の革鎧のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_stud_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "銅鋲の革鎧のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_stud_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "銅鋲の革鎧のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_stud_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "銅鋲の革鎧のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "銅のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_warhammer",
+      "base_item": "minecraft:copper_sword",
+      "display_name": "銅のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "氷芯の斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "氷芯の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "氷芯の弩"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "氷芯の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "氷芯の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "氷芯の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "氷芯のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "氷芯のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "氷芯の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "氷芯の槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "氷芯の剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "氷芯の三叉槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:cryocore_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "氷芯の戦鎚"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_axe_tf",
+      "base_item": "minecraft:diamond_axe",
+      "display_name": "ダイヤモンドの戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "ダイヤモンドの弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "ダイヤモンドの杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "ダイヤモンドのクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_dagger",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ダイヤモンドの短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_grate_sword",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ダイヤモンドの大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_greataxe",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ダイヤモンドの大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "ダイヤモンドのメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_rapier",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ダイヤモンドのレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_scythe",
+      "base_item": "minecraft:diamond_hoe",
+      "display_name": "ダイヤモンドの鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "ダイヤモンドのトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_warhammer",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ダイヤモンドのウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:dragon_boots",
+      "base_item": "minecraft:netherite_boots",
+      "display_name": "エンダードラゴンのブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:dragon_chestplate",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "エンダードラゴンのチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:dragon_helmet",
+      "base_item": "minecraft:netherite_helmet",
+      "display_name": "エンダードラゴンのヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:dragon_leggings",
+      "base_item": "minecraft:netherite_leggings",
+      "display_name": "エンダードラゴンのレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "熾鉄の斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_boots",
+      "base_item": "minecraft:netherite_boots",
+      "display_name": "熾鉄の靴"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "熾鉄の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_chestplate",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "熾鉄の胸当て"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "熾鉄の弩"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "熾鉄の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "熾鉄の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "熾鉄の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_helmet",
+      "base_item": "minecraft:netherite_helmet",
+      "display_name": "熾鉄の兜"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_leggings",
+      "base_item": "minecraft:netherite_leggings",
+      "display_name": "熾鉄の具足"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "熾鉄のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "熾鉄のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "熾鉄の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "熾鉄の槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "熾鉄の剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "熾鉄の三叉槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:emberforge_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "熾鉄の戦鎚"
+    },
+    {
+      "pdc_identifier": "trinityforge:feast_breastplate",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "饗宴の胸当て"
+    },
+    {
+      "pdc_identifier": "trinityforge:fnis_peccati_profundi",
+      "base_item": "minecraft:iron_chain",
+      "display_name": "深罪の終幕"
+    },
+    {
+      "pdc_identifier": "trinityforge:forestfolk_cloak",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "森人の外套"
+    },
+    {
+      "pdc_identifier": "trinityforge:gilded_thread_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "金糸の装束のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:gilded_thread_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "金糸の装束のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:gilded_thread_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "金糸の装束のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:gilded_thread_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "金糸の装束のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:gladiator_belt",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "闘士の帯"
+    },
+    {
+      "pdc_identifier": "trinityforge:golad_scythe",
+      "base_item": "minecraft:golden_hoe",
+      "display_name": "金の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_axe_tf",
+      "base_item": "minecraft:golden_axe",
+      "display_name": "金の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "金の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "金の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "金のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_dagger",
+      "base_item": "minecraft:golden_sword",
+      "display_name": "金の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_grate_sword",
+      "base_item": "minecraft:golden_sword",
+      "display_name": "金の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_greataxe",
+      "base_item": "minecraft:golden_sword",
+      "display_name": "金の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "金のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_rapier",
+      "base_item": "minecraft:golden_sword",
+      "display_name": "金のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "金のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_warhammer",
+      "base_item": "minecraft:golden_sword",
+      "display_name": "金のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:harvest_basket",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "実りの籠"
+    },
+    {
+      "pdc_identifier": "trinityforge:harvest_hoe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "豊穣の鍬"
+    },
+    {
+      "pdc_identifier": "trinityforge:herb_hat",
+      "base_item": "minecraft:netherite_helmet",
+      "display_name": "香草の帽子"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "破壊者の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "暗殺者の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "暗殺者のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "守護者の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "破壊者の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "破壊者の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "破壊者のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "守護者のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "守護者の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "守護者の槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "守護者の剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "守護者のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:hero_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "破壊者のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:hunter_javelin",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "猟師の投槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "インフィニティの戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_axe_tool",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "インフィニティの斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_boots",
+      "base_item": "minecraft:netherite_boots",
+      "display_name": "インフィニティのブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "インフィニティの弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "インフィニティの杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_chestplate",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "インフィニティのチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "インフィニティのクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "インフィニティの短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "インフィニティの大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "インフィニティの大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_helmet",
+      "base_item": "minecraft:netherite_helmet",
+      "display_name": "インフィニティのヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_hoe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "インフィニティのクワ"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_leggings",
+      "base_item": "minecraft:netherite_leggings",
+      "display_name": "インフィニティのレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "インフィニティのメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_pickaxe",
+      "base_item": "minecraft:netherite_pickaxe",
+      "display_name": "インフィニティのピッケル"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "インフィニティのレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "インフィニティの鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_shovel",
+      "base_item": "minecraft:netherite_shovel",
+      "display_name": "インフィニティのシャベル"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "インフィニティの槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "インフィニティの剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "インフィニティのトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:infinity_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "インフィニティのウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_axe_tf",
+      "base_item": "minecraft:iron_axe",
+      "display_name": "鉄の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "鉄の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "鉄の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "鉄のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_dagger",
+      "base_item": "minecraft:iron_sword",
+      "display_name": "鉄の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_grate_sword",
+      "base_item": "minecraft:iron_sword",
+      "display_name": "鉄の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_greataxe",
+      "base_item": "minecraft:iron_sword",
+      "display_name": "鉄の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "鉄のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_rapier",
+      "base_item": "minecraft:iron_sword",
+      "display_name": "鉄のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_scythe",
+      "base_item": "minecraft:iron_hoe",
+      "display_name": "鉄の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "鉄のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_warhammer",
+      "base_item": "minecraft:iron_sword",
+      "display_name": "鉄のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_binder",
+      "base_item": "minecraft:trial_key",
+      "display_name": "世界を繋ぐ者の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_bridge",
+      "base_item": "minecraft:trial_key",
+      "display_name": "古橋の聖所の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_cave",
+      "base_item": "minecraft:trial_key",
+      "display_name": "灼熱の洞窟の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_city",
+      "base_item": "minecraft:trial_key",
+      "display_name": "ドワーフの地下都市の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_climb",
+      "base_item": "minecraft:trial_key",
+      "display_name": "登攀路の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_dark_cathedral",
+      "base_item": "minecraft:trial_key",
+      "display_name": "闇の大聖堂の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_deep_mines",
+      "base_item": "minecraft:trial_key",
+      "display_name": "深層鉱山の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_fireworks",
+      "base_item": "minecraft:trial_key",
+      "display_name": "花火工房の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_knight_castle",
+      "base_item": "minecraft:trial_key",
+      "display_name": "騎士団の城の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_mines",
+      "base_item": "minecraft:trial_key",
+      "display_name": "鉱山の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_nether_bell",
+      "base_item": "minecraft:trial_key",
+      "display_name": "ネザーの鐘の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_nether_wastes",
+      "base_item": "minecraft:trial_key",
+      "display_name": "ネザーの荒野の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_palace",
+      "base_item": "minecraft:trial_key",
+      "display_name": "宮殿の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_quarry",
+      "base_item": "minecraft:trial_key",
+      "display_name": "採石場の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_sewer_maze",
+      "base_item": "minecraft:trial_key",
+      "display_name": "下水道迷宮の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_steamworks",
+      "base_item": "minecraft:trial_key",
+      "display_name": "蒸気機関工房の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:koujien",
+      "base_item": "minecraft:book",
+      "display_name": "広辞苑"
+    },
+    {
+      "pdc_identifier": "trinityforge:leveling_gloves",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "均しの手袋"
+    },
+    {
+      "pdc_identifier": "trinityforge:leyline_shovel",
+      "base_item": "minecraft:netherite_shovel",
+      "display_name": "地脈のシャベル"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_apprentice_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "魔術師の魔導ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_apprentice_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "魔術師の魔導チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_apprentice_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "魔術師の魔導ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_apprentice_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "魔術師の魔導レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_archmage_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "大魔導士の魔導ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_archmage_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "大魔導士の魔導チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_archmage_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "大魔導士の魔導ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_archmage_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "大魔導士の魔導レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_novice_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "見習いの魔導ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_novice_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "見習いの魔導チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_novice_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "見習いの魔導ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_novice_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "見習いの魔導レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_apprentice_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "魔術師の守護ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_apprentice_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "魔術師の守護チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_apprentice_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "魔術師の守護ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_apprentice_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "魔術師の守護レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_archmage_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "大魔導士の守護ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_archmage_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "大魔導士の守護チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_archmage_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "大魔導士の守護ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_archmage_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "大魔導士の守護レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_novice_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "見習いの守護ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_novice_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "見習いの守護チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_novice_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "見習いの守護ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_novice_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "見習いの守護レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_sage_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "賢者の守護ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_sage_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "賢者の守護チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_sage_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "賢者の守護ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_sage_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "賢者の守護レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_starseer_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "星詠みの守護ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_starseer_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "星詠みの守護チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_starseer_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "星詠みの守護ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_guardian_starseer_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "星詠みの守護レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_apprentice_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "魔術師の魔織ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_apprentice_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "魔術師の魔織チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_apprentice_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "魔術師の魔織ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_apprentice_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "魔術師の魔織レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_archmage_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "大魔導士の魔織ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_archmage_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "大魔導士の魔織チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_archmage_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "大魔導士の魔織ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_archmage_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "大魔導士の魔織レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_novice_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "見習いの魔織ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_novice_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "見習いの魔織チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_novice_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "見習いの魔織ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_novice_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "見習いの魔織レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_sage_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "賢者の魔織ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_sage_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "賢者の魔織チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_sage_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "賢者の魔織ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_sage_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "賢者の魔織レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_starseer_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "星詠みの魔織ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_starseer_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "星詠みの魔織チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_starseer_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "星詠みの魔織ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_weaver_starseer_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "星詠みの魔織レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:nether_star_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "ネザースターの弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_axe_tf",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "ネザライトの戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "ネザライトの弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "ネザライトの杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "ネザライトのクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "ネザライトの短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "ネザライトの大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "ネザライトの大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "ネザライトのメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "ネザライトのレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "ネザライトのトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "ネザライトのウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:nethrite_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "ネザライトの鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:novus_criculus_luminis",
+      "base_item": "minecraft:glowstone",
+      "display_name": "新生の光輪"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_axe",
+      "base_item": "minecraft:netherite_axe",
+      "display_name": "星枢の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "星枢の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "星枢のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_dagger",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "星枢の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_grate_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "星枢の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "星枢の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "星枢のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_rapier",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "星枢のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_scythe",
+      "base_item": "minecraft:netherite_hoe",
+      "display_name": "星枢の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_spear",
+      "base_item": "minecraft:netherite_spear",
+      "display_name": "星枢の槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_sword",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "星枢の剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "星枢のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:nuclear_warhammer",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "星枢のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:phantom_shroud_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "幻膜の外套のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:phantom_shroud_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "幻膜の外套のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:phantom_shroud_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "幻膜の外套のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:phantom_shroud_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "幻膜の外套のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:pit_lamp",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "坑夫の灯"
+    },
+    {
+      "pdc_identifier": "trinityforge:revolution_bow",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "Revolution"
+    },
+    {
+      "pdc_identifier": "trinityforge:sharpstone_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "鋭い石のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:skill_node_lock",
+      "base_item": "minecraft:amethyst_shard",
+      "display_name": "スキルノードの楔"
+    },
+    {
+      "pdc_identifier": "trinityforge:skill_tree_reset",
+      "base_item": "minecraft:echo_shard",
+      "display_name": "スキル再構築の書"
+    },
+    {
+      "pdc_identifier": "trinityforge:someones_eyes",
+      "base_item": "minecraft:ender_eye",
+      "display_name": "誰かの\"目\""
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_axe",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムの戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_axe_tool",
+      "base_item": "minecraft:diamond_axe",
+      "display_name": "ソースジェムの斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_boots",
+      "base_item": "minecraft:diamond_boots",
+      "display_name": "ソースジェムのブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "ソースジェムの弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_chestplate",
+      "base_item": "minecraft:diamond_chestplate",
+      "display_name": "ソースジェムのチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "ソースジェムのクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_dagger",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムの短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_grate_sword",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムの大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_greataxe",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムの大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_helmet",
+      "base_item": "minecraft:diamond_helmet",
+      "display_name": "ソースジェムのヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_hoe",
+      "base_item": "minecraft:diamond_hoe",
+      "display_name": "ソースジェムのクワ"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_leggings",
+      "base_item": "minecraft:diamond_leggings",
+      "display_name": "ソースジェムのレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "ソースジェムのメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_pickaxe",
+      "base_item": "minecraft:diamond_pickaxe",
+      "display_name": "ソースジェムのピッケル"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_rapier",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムのレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_scythe",
+      "base_item": "minecraft:diamond_hoe",
+      "display_name": "ソースジェムの鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_shovel",
+      "base_item": "minecraft:diamond_shovel",
+      "display_name": "ソースジェムのシャベル"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_spear",
+      "base_item": "minecraft:diamond_spear",
+      "display_name": "ソースジェムの槍"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_sword",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムの剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "ソースジェムのトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:source_gem_warhammer",
+      "base_item": "minecraft:diamond_sword",
+      "display_name": "ソースジェムのウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:spell_book_apprentice",
+      "base_item": "minecraft:book",
+      "display_name": "魔術師の魔術書"
+    },
+    {
+      "pdc_identifier": "trinityforge:spell_book_archmage",
+      "base_item": "minecraft:book",
+      "display_name": "大魔導士の魔導書"
+    },
+    {
+      "pdc_identifier": "trinityforge:spell_book_novice",
+      "base_item": "minecraft:book",
+      "display_name": "見習いの魔法書"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_axe_tf",
+      "base_item": "minecraft:stone_axe",
+      "display_name": "石の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_bow",
+      "base_item": "minecraft:bow",
+      "display_name": "石の弓"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "石の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_crossbow",
+      "base_item": "minecraft:crossbow",
+      "display_name": "石のクロスボウ"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_dagger",
+      "base_item": "minecraft:stone_sword",
+      "display_name": "石の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_grate_sword",
+      "base_item": "minecraft:stone_sword",
+      "display_name": "石の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_greataxe",
+      "base_item": "minecraft:stone_sword",
+      "display_name": "石の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "石のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_rapier",
+      "base_item": "minecraft:stone_sword",
+      "display_name": "石のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_scythe",
+      "base_item": "minecraft:stone_hoe",
+      "display_name": "石の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "石のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:stone_warhammer",
+      "base_item": "minecraft:stone_sword",
+      "display_name": "石のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:taunt_crest",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "挑発の紋章"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_angler",
+      "base_item": "minecraft:angler_pottery_sherd",
+      "display_name": "潮読みのスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_artisan",
+      "base_item": "minecraft:arms_up_pottery_sherd",
+      "display_name": "匠のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_backpack",
+      "base_item": "minecraft:silence_armor_trim_smithing_template",
+      "display_name": "バックパックのスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_concussion",
+      "base_item": "minecraft:blade_pottery_sherd",
+      "display_name": "昏倒のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_conduit_power",
+      "base_item": "minecraft:eye_armor_trim_smithing_template",
+      "display_name": "コンジットパワーのスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_damage_mana_recovery",
+      "base_item": "minecraft:wild_armor_trim_smithing_template",
+      "display_name": "攻撃マナ回復のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_diligence",
+      "base_item": "minecraft:friend_pottery_sherd",
+      "display_name": "研鑽のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_dolphins_grace",
+      "base_item": "minecraft:coast_armor_trim_smithing_template",
+      "display_name": "イルカの好意のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_empty",
+      "base_item": "minecraft:wayfinder_armor_trim_smithing_template",
+      "display_name": "空のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_endurance",
+      "base_item": "minecraft:shelter_pottery_sherd",
+      "display_name": "持久のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_experience",
+      "base_item": "minecraft:howl_pottery_sherd",
+      "display_name": "経験のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_fire_resistance",
+      "base_item": "minecraft:sentry_armor_trim_smithing_template",
+      "display_name": "耐火のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_flight",
+      "base_item": "minecraft:spire_armor_trim_smithing_template",
+      "display_name": "飛行のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_gourmet",
+      "base_item": "minecraft:heartbreak_pottery_sherd",
+      "display_name": "美食のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_harvest",
+      "base_item": "minecraft:sheaf_pottery_sherd",
+      "display_name": "実りのスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_health_boost",
+      "base_item": "minecraft:rib_armor_trim_smithing_template",
+      "display_name": "体力増強のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_hero_of_the_village",
+      "base_item": "minecraft:host_armor_trim_smithing_template",
+      "display_name": "村の英雄のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_hit_mana_recovery",
+      "base_item": "minecraft:snout_armor_trim_smithing_template",
+      "display_name": "被弾マナ回復のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_jump_boost",
+      "base_item": "minecraft:shaper_armor_trim_smithing_template",
+      "display_name": "跳躍のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_luck",
+      "base_item": "minecraft:explorer_pottery_sherd",
+      "display_name": "幸運のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_mana_amplify",
+      "base_item": "minecraft:flow_armor_trim_smithing_template",
+      "display_name": "マナ増幅のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_mana_boost",
+      "base_item": "minecraft:ward_armor_trim_smithing_template",
+      "display_name": "マナ最大値上昇のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_mana_circulate",
+      "base_item": "minecraft:bolt_armor_trim_smithing_template",
+      "display_name": "循環のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_mana_regen",
+      "base_item": "minecraft:tide_armor_trim_smithing_template",
+      "display_name": "マナ回復速度上昇のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_marksman",
+      "base_item": "minecraft:archer_pottery_sherd",
+      "display_name": "射手のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_mending_flesh",
+      "base_item": "minecraft:heart_pottery_sherd",
+      "display_name": "治癒のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_miner",
+      "base_item": "minecraft:miner_pottery_sherd",
+      "display_name": "豊鉱のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_night_vision",
+      "base_item": "minecraft:dune_armor_trim_smithing_template",
+      "display_name": "暗視のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_ritualist",
+      "base_item": "minecraft:brewer_pottery_sherd",
+      "display_name": "儀式師のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_salvage",
+      "base_item": "minecraft:scrape_pottery_sherd",
+      "display_name": "解体のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_scholar",
+      "base_item": "minecraft:burn_pottery_sherd",
+      "display_name": "選書のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_slow_falling",
+      "base_item": "minecraft:guster_pottery_sherd",
+      "display_name": "浮遊のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_source_thrift",
+      "base_item": "minecraft:flow_pottery_sherd",
+      "display_name": "源流節約のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_speed",
+      "base_item": "minecraft:raiser_armor_trim_smithing_template",
+      "display_name": "迅速のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_spell_cost_down",
+      "base_item": "minecraft:vex_armor_trim_smithing_template",
+      "display_name": "詠唱効率のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_spoils",
+      "base_item": "minecraft:skull_pottery_sherd",
+      "display_name": "戦利品のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_swiftcast",
+      "base_item": "minecraft:mourner_pottery_sherd",
+      "display_name": "速攻のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_thorn",
+      "base_item": "minecraft:danger_pottery_sherd",
+      "display_name": "棘のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_thrift",
+      "base_item": "minecraft:plenty_pottery_sherd",
+      "display_name": "倹約のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_timber",
+      "base_item": "minecraft:snort_pottery_sherd",
+      "display_name": "年輪のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:tide_float",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "潮見の浮き"
+    },
+    {
+      "pdc_identifier": "trinityforge:wither_boots",
+      "base_item": "minecraft:netherite_boots",
+      "display_name": "ウィザーのブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:wither_chestplate",
+      "base_item": "minecraft:netherite_chestplate",
+      "display_name": "ウィザーのチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:wither_helmet",
+      "base_item": "minecraft:netherite_helmet",
+      "display_name": "ウィザーのヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:wither_leggings",
+      "base_item": "minecraft:netherite_leggings",
+      "display_name": "ウィザーのレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:withered_silk_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "蝕みの絹のブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:withered_silk_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "蝕みの絹のチェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:withered_silk_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "蝕みの絹のヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:withered_silk_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "蝕みの絹のレギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_axe_tf",
+      "base_item": "minecraft:wooden_axe",
+      "display_name": "木の戦斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_cane",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "木の杖"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_dagger",
+      "base_item": "minecraft:wooden_sword",
+      "display_name": "木の短剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_grate_sword",
+      "base_item": "minecraft:wooden_sword",
+      "display_name": "木の大剣"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_greataxe",
+      "base_item": "minecraft:wooden_sword",
+      "display_name": "木の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_halberd",
+      "base_item": "minecraft:wooden_sword",
+      "display_name": "木のハルバード"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_mace",
+      "base_item": "minecraft:mace",
+      "display_name": "木のメイス"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_rapier",
+      "base_item": "minecraft:wooden_sword",
+      "display_name": "木のレイピア"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_scythe",
+      "base_item": "minecraft:wooden_hoe",
+      "display_name": "木の鎌"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_trident",
+      "base_item": "minecraft:trident",
+      "display_name": "木のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_warhammer",
+      "base_item": "minecraft:wooden_sword",
+      "display_name": "木のウォーハンマー"
+    },
+    {
+      "pdc_identifier": "trinityforge:woodsman_greataxe",
+      "base_item": "minecraft:netherite_sword",
+      "display_name": "樵の大斧"
+    },
+    {
+      "pdc_identifier": "trinityforge:woodsman_whetstone",
+      "base_item": "minecraft:amethyst_shard",
+      "display_name": "樵の砥石"
+    }
+  ]
+}
