@@ -4892,3 +4892,204 @@ Lv60 の防具は物理側が Lv60 相当のままなので、Lv80〜100 帯で�
 このリストで拾い直せる。
 `mage_{guardian,weaver}_{sage,starseer}_{helmet,chestplate,leggings,boots}` 計16件、
 CMD `200201-04` / `200211-14` / `200221-24` / `200231-34`。
+
+---
+
+## 2026-08-03 全面監査「既存のバグ修正と指示したバランス調整は完了済みか」への回答
+
+ユーザー質問への回答として、**7レーンの独立監査＋各レーンに反証担当**（計15エージェント・941ツールコール）で
+実コードと突き合わせた。**結論: 完了していない。**
+
+| 分類 | 件数 |
+|---|---|
+| 実コードで完了 | 44（うち**回帰テストが無い 12**） |
+| 未完了 | 8 |
+| 一部のみ | 8 |
+| 元の指摘そのものが誤報 | 5 |
+
+**この監査の限界（重要・次に触る人へ）**: 全レーンで Bash が壊れていたため
+**テストを1本も実走していない**。「戻すと落ちる／落ちない」は**すべて静的読解**による判断である。
+配備状態もほぼ未確認。**EMダンジョンの実ワールド名と `mob-overrides.yml` のスコープキーの
+突き合わせもしていない**（1文字違えば #62 の28ダンジョンが丸ごと no-op になるが、検出するテストも無い）。
+
+### オーケストレータが自分でファイルを開いて再計算した4件（＝行動が要る）
+
+サブエージェントの所見をそのまま信じず、以下は全て実物で確認した。
+
+#### ① 物理PvPの抑制が BASE しか書かない（`487e84a` は魔法経路だけ直っていた）
+
+`CombatListener.java:469-473` が PvP 抑制を `total` に適用 → `:483-487` がゼロ化するのは
+`FOLDED_MODIFIERS`（ARMOR/RESISTANCE/MAGIC）だけ → `:494` は `BASE` だけを書く。
+**`:482` のコメント自身が「盾の BLOCKING と ABSORPTION はエンジンに任せる」と明記**しており、
+これらは抑制前のバニラ絶対値のまま残る。`FinalDamageScaling.scaleAllModifiers` の実呼び出しは
+main/java 全体で `:599-600`（魔法）**1箇所のみ**。モブ→プレイヤー経路 `:1373-1383` も同型。
+
+#### ② 重装と軽装の防御序列が指示と逆（要件#17）
+
+Lv60 帯フルセットの実測（`damage.yml:97` `defense-rate-per-point: 0.015` で計算）:
+
+| | armor-defense-rate | phys-resistance | dodge | phys-flat-defense | max-health | 実効被ダメ係数 |
+|---|---|---|---|---|---|---|
+| 重装 `NETHERITE_*`（`item-stats.yml:1399-1482`） | 15 | 0.260 | 0.020 | **36.80** | **23.0** | 0.5735 |
+| 軽装 `LEATHER_*#200144-147` 幻膜（同 `:1910-1991`） | 6 | 0.449 | 0.057 | **36.80** | **23.0** | **0.4728** |
+
+**`phys-flat-defense` と `max-health` が完全同値**で重装に守備の優位が無く、率は軽装が大幅有利。
+結果**軽装のほうが約18%被ダメージが少ない**。移動速度ペナルティ（重装 −0.012 / 軽装 +0.021）は
+指示どおり入っているので、**逆転しているのは防御序列だけ**。
+
+#### ③ `warden_tendril` が入手不能（儀式3本が永久に作れない）
+
+`catalog.yml:1664 / :1714 / :4982`（hero_bow / hero_crossbow / abyss_cane）が `custom:warden_tendril x2` を要求。
+アイテム定義はフォークの `materials.yml:1385` にあるが、
+**`mob-overrides.yml` に `WARDEN` の項目が1つも無い**（`ELDER_GUARDIAN` も無い）。ガチャ表にも無い。
+姉妹3素材（`dragon_scale` / `elder_guardian_spike` / `wither_skull_fragment`）は `gacha.yml` で救済済みで、
+**漏れているのはこの1件だけ**。フォーク `materials.yml:2156` `:2294` のヒットは
+**editor のカテゴリ一覧**であって入手経路ではない（ここで一度誤読しかけた）。
+
+#### ④ 次元の基準レベルが空（要件#23）＋ その副作用
+
+`mob-types.yml:196` が `dimensions: {}`。NETHER 20 / THE_END 45 は `:190-195` の**コメント例のみ**。
+**副作用が重い**: `MobTypeSpawnListener.java:122` の `if (bonus == 0) return;` により、直後の
+`reapplyDimensionBonusMaxHealth`（`:128` / `:146-156`。C-8「次元基準レベルがHPに反映されない」への
+修正でテストもある）が**永久に到達しない**。
+
+### 「直したが証明されていない」12件（回帰テストがゼロ）
+
+戻しても全テストが緑のまま通る。**次の誰かが黙って壊し直せる。**
+
+ダンジョン鍵のOPバイパス削除（フォーク側＝真因）／`/tf give` の draft ゲート／村人取引の draft ゲート／
+Ars構造物チェストの draft ゲート／`deploy.cmd` の config ドリフト警告／C-7 死にコード削除／
+EM 戦闘レベル頭上表示の抑止／EM スコアボードの `copyMainTeamsInto`／スレッド40件の出荷 `item-stats.yml`／
+EM への magic-ratio 配線／フィールドモブHPの高レベル区間／攻撃速度チャージ減衰の出荷値。
+
+**特に悪い例**: `MeleeChargeMultiplierTest.java:129` は javadoc に反して `0.1, 1.6` を
+**リテラルで直接渡している**ので `damage.yml` を読まない。出荷値を書き換えてもテストは緑。
+
+**テストはあるが実効が弱いもの**: `RitualQualityExpGateSeparationTest` /
+`ThreadQualitySpreadWiringTest` / `MagicStatSourceWiringTest` / `ItemCooldownGenericPathWiringTest` は
+いずれも `Files.readString` + `contains` のソース文字列走査型。**呼び出し行の削除は検出できるが、
+「呼び出しを別の門の内側へ移す」再発は素通りする——今回の事故の共通失敗形がまさにそれ。**
+
+### バランス調整の達成状況
+
+| # | 内容 | 状態 | 実数値 |
+|---|---|---|---|
+| #56 | Lv45以降を2〜3倍の手応えに | **完了**（フィールド側テスト無） | ダンジョンLv60 3.78倍 / フィールドLv60 3.08倍 |
+| #62 | ダンジョンごとの物理/魔法コンセプト | **完了** | 28/28がコメントと一致、不一致ゼロ |
+| #16 | チャージ減衰・重軽武器の差別化 | **完了**（前半テスト無） | `damage.yml:22-25` 0.1 / 1.6 |
+| #22 / #35 | 杖のCT / 杖に会心率 | **完了** | 杖11本に crit 0.08 / crit-dmg 0.5 / 貫通 0.05。**`ENDER_EYE#85` だけ未設定** |
+| #61 | 非敵対モブの討伐EXP撤廃 | **完了** | `no-skill-exp-mobs` 10種＋`unlisted-entity-multiplier: 0` の二重防波堤 |
+| — | 準備中(draft)の入手封鎖 | **完了**（4経路中3つテスト無） | 中央ゲート `CrossPluginItemResolver.java:125-127` |
+| #28 | 魔法4割・物理6割 | **一部** | 実際に湧く分だけなら 34.1%。**テストが自然湧きしない実証用ボス6体を分母に足して 42.6% で通している** |
+| #36 | 増幅を+10%乗算へ | **一部** | ignite だけ `glyphs.yml:259` で固定値加算のまま。しかも `IgniteEffect.java:97-98` が `target.damage()` を直接呼び `dealSpellDamage` を経由しないので杖の攻撃力も会心も乗らない |
+| #63 | 被弾をもっと痛く | **一部** | ダンジョンのみ（`mob-import.yml:101-102`）。**フィールドは `attack-power-high-level-*` がスキーマごと存在しない**＝HPだけ3倍で「硬いだけで痛くない」 |
+| #17 | 重装強化・軽装弱化 | **未完了（逆向き）** | 上記② |
+| #23 | ネザー/エンド基準レベル | **未完了** | 上記④ |
+
+### 記録の腐り（このファイル自身の誤り。次に触る人は下を信じること）
+
+| 箇所 | 記録の主張 | 実際 |
+|---|---|---|
+| `:20-34` §1「現在の状態」 | 2026-07-27 時点。TF 2832件/2失敗、editor 825件/28失敗、全て未配備、全台停止中 | TF 3595件/失敗0/SKIPPED2、editor 1027中9失敗。配備は同ファイル `:3501-3508` に「08-02 に3台とも Done」と自分で書いている |
+| `:111` K-9 | 「`glyph-damage-multiplier-bonus` の呼び出し元がゼロ」 | `TrinityForgeBridge.java:231-232/477` から到達し11個のグリフ効果クラスが通る |
+| `:131` K-19 | 「`stats/stat-caps.yml` が空」 | **そのパスのファイルは存在しない。**実体は `combat/stat-caps.yml:42-50` に8キー |
+| `:124` K-12 | 「討伐素材4件にドロップ元が無い」 | 3件は `gacha.yml:210/242/245` で救済済み。残るは `warden_tendril` 1件のみ |
+| `:129` `:3222` K-17 | 「`use-role` がリポジトリに0件」 | `item-stats.yml` に8件。`UseRoleGateTest` も実在 |
+| `:134` K-22(2) | 「`goal_worldbinder` の parent は `delve_all_seals`」 | `achievements.yml:525` は `delve_relics`。テストで固定済み |
+| `:3198` U6 | 「BOW/CROSSBOW attack-speed: 4 / 杖はキー自体が無い」 | 全て `0.1`。`MeleeUnintendedItemAttackSpeedTest` が60件を固定 |
+| `:3197` U7 | 「`new SmithingTransformRecipe` は0件」 | `CatalogRecipeRegistrar.java:14/188` に実在 |
+| `:3200` U14 / `:3201` U10 / `:3202` N4 / `:3199` U1 | いずれも「未解決」 | 全て解決済み・テストも実在 |
+| `:4480` | 「ダンジョンモブに magic-ratio 一律 **35%**」 | 実値は `mob-import.yml:120` の **0.25** |
+| `:3440` | 「`BEACON#500001` の CMD は台帳に取ってある」 | 台帳に `500001` も `BEACON` も0件 |
+| `:2846` `:2868` | 「他セッションのWIPに阻まれて着手できない」「レシピGUIはフォーク待ち」 | 同一文書 `:3172-3175` が「全て stale。いつでも着手できる」と否定済みなのに取り消し線が無い |
+| `:108` vs `:161-168` | 「31キー未宣言」vs「段階1〜4すべて完了」 | 文書内で自己矛盾。実測は許可リスト29キー残 |
+
+**取り消し線つきの K-11 / K-13 / K-21 は3件とも実コードで裏が取れた**（記録が正しい側）。
+
+**オーケストレータ自身の誤りの訂正**: 前節で「`mage_arcane_*` は CMD とステータスだけ残って
+`catalog.yml` に定義が無い未配線シリーズ」と書いたが**誤り**。`catalog.yml:2036-2248` に12種すべて
+定義があり、儀式レシピもCMDも item-stats も揃っている。
+
+### フォークの git 状態（監査の「git に1行も入っていない」は不正確だったが、別の形で危険）
+
+フォークは**それぞれ自前の git リポジトリを持っている**（TF 本体から `.gitignore` 除外なのは設計どおり）。
+ただし実測すると:
+
+| フォーク | remote | 未コミット | 未 push |
+|---|---|---|---|
+| ArsPaper `fork-handoff/arspaper/fork` | `origin` = `Klee319/ArsPaper`（**これが正。上流リモートは無い**） | **41ファイル修正＋6件未追跡** | 上流追跡が未設定で不明 |
+| EliteMobs `fork-handoff/elitemobs/elitemobs-fork` | `origin` = MagmaGuy/EliteMobs（**push 厳禁**）／`trinityforge` = `Klee319/EliteMobs-trinityforge` | **7ファイル修正** | **6コミット ahead** |
+
+未コミット分には**ダンジョン鍵のOPバイパス削除**（`TrinityForgeDungeonGateListener`）、
+**magic-ratio 配線**（`TrinityForgeSpawnListener` / `TrinityForgeCombatListener`）、
+**draft ルート表ゲート**（`LootTableListener`）が含まれる。**TF 本体側で clean/reset を打つと全部消える。**
+`libs/TrinityForge.jar` は tracked だがリポジトリが public なので**ステージしてはいけない**。
+
+---
+
+## 2026-08-03 監査後の4レーン実装 — テスト実走結果と、`item-stats.yml` の所有権衝突
+
+監査で挙がった上位項目を4レーンで実装した（防御序列#17 / 物理PvP抑制 / 次元の基準レベル /
+`warden_tendril` の入手経路）。**サブエージェントは Bash が壊れていて1本もテストを実走できなかった**ので、
+ビルドと全テストはオーケストレータ側でまとめて実走した。
+
+### テスト実走結果（これが「通ったはず」ではない根拠）
+
+| スイート | 件数 | 失敗 | SKIPPED | ログ |
+|---|---|---|---|---|
+| TF 本体 `cleanTest test` | **3627** | **0** | **2** | `tmp/tf-test-0803c.log` / `TrinityForge/build/reports/tests/test/index.html` |
+| config-editor `npm test` | **1027** | **9** | 0 | `tmp/editor-test-0803c.log` |
+
+- TF は監査時点の 3595 件から **+32 件**（4レーンが追加したテスト）。**成功率 100%**。
+  SKIPPED 2 件は既知の恒常スキップ（`OfflineMobImportRunner` /
+  `NativeProgressionStabilizationContractsTest#prestigeRefundUsesLiveYamlCost`）で、**増えていない**。
+- editor の 9 失敗は**実装前（`tmp/editor-test-0803.log`）と1件も違わない同じ9本**。
+  すなわち今回の4レーンで**新規に赤くしたテストはゼロ**。9本の内訳は
+  斧/槍/ソースジェムのカタログ再編（別セッションが作業中）・`skill-exp` の許可リスト・
+  wiki ジェネレータ・`mining-gimmick` の tiers ロスレスで、いずれも**このセッションが触っていないファイル**。
+
+### レビューで潰した「もっともらしいが間違っていた」実装2件
+
+1. **防具レーンが `REFERENCE_HIT = 400.0` という架空の定数を作っていた。**
+   `armor-ladder.test.js:26-28` の基準攻撃は `A(Lv) = 7.0 × 1.03^Lv` なので、Lv0 の基準打撃は 400 ではなく **7.0**。
+   400 固定だと固定守備力（`phys-flat-defense`）が低レベル帯で死に軸になり、その埋め合わせとして
+   **素の革の `phys-resistance` を半分に落とす不要なナーフ**まで入っていた。定数をレベル関数へ直し、
+   革4部位（0.004 / 0.011 / 0.008 / 0.004）を元に戻した。
+2. **モブレーンが `dimensions:` に `NETHER: 20 / THE_END: 45` を実際に入れていた。**
+   下駄は `level` に加算され、`max-health-high-level-from: 45` をまたぐと per-level（モブごとに 554〜1293）が
+   毎レベル加算される区間へ入る。ENDERMAN（`level: 0` / 560HP / growth 1.048 / per-level 1293.02）で
+   本島 ≒Lv47 なら **615HP → 7,653HP（約12倍）**、外周1,000ブロック ≒Lv65 なら **1,422HP → 37,665HP（約26倍）**。
+   さらに `MOB_LEVEL` は EXP 帯と `drops[].quality` も動かすので報酬側も同時に跳ねる。
+   **空へ戻し**、`ShippedMobTypesLevelBandTest` を「空であることを固定する」テストへ書き換えた
+   （`EXPECTED_DIMENSION_BASE_LEVEL = 0`）。値を入れるのは設定作業ではなくバランスの大改造なので、
+   **ユーザーの go/no-go 待ち**（→ 下の「未決」）。
+
+### ⚠️ `stats/item-stats.yml` は他セッターと**同じファイルの中で**衝突している（コミット保留）
+
+作業ツリーの `item-stats.yml` には、防具レーンの編集に加えて**別セッションの編集器保存**が混ざっている:
+
+| 混入内容 | 判定 |
+|---|---|
+| `GOLDEN_SWORD#59` の定義ブロック（35行）が消えている | **意図的**。`resourcepack/.../golden_sword.json` から `threshold: 59 → trinityforge:item/gold_test` も同時に消えており、仮モデルの片付けと判断できる。ただし `_editor.itemTabs:12076` と `_editor.categories:12523` に**参照だけが残っている** |
+| **日本語コメント65行**が消えている（杖CTの設計理由・ember_wand・深淵/束縛者・氷芯・熾鉄・**2026-08-03 のスレッド40件の組み立て規約**） | **編集器保存の巻き添え**。`item-cooldown: 3.0 → 3` の数値正規化が同時に起きているのが署名。CLAUDE.md の「yml のコメントは日本語で書く」で残す前提の記述が失われている |
+
+**このファイルはコミットしなかった。** 触ったのは自分でもあるが、同じファイルに別セッターの進行中の再編が
+乗っているため、`git add` すると相手の半端な状態ごと確定してしまう
+（2026-08-01 に実際に作業を捨てた事故と同型）。**依存する `ArmorHeavyVersusLightDefenseOrderTest` と
+`ShippedRitualMaterialObtainabilityTest` も同時に保留**した（前者は `item-stats.yml`、後者は
+`progression/collection.yml` と `items/catalog.yml` を実読するので、HEAD 単体では赤になりうる）。
+→ **要ユーザー判断**（下の「未決」）。
+
+### この節でコミットしたもの
+
+`4レーンのうち、他セッターと1バイトも重ならない範囲だけ`を分割コミットした。
+`git add -A` は使わず、パスを1本ずつ列挙している。
+
+### 未決（ユーザー判断待ち）
+
+1. **`dimensions:` に値を入れるか。** 入れるとエンドのモブHPが約12〜26倍・EXP帯とドロップ品質も同時に跳ねる。
+   刻むなら `THE_END` は 45 ではなく **20〜30**（高レベル区間に入らない範囲）から。
+2. **`item-stats.yml` の所有権。** 別セッターの再編が終わるのを待つか、
+   コメント65行だけ先に復元するか、防具レーンぶんを別ファイルへ退避して先に確定するか。
+3. **消えたコメント65行を復元するか。** 復元は HEAD の内容を戻すだけで値には触れないが、
+   同じ編集器をもう一度開いて保存すると**また消える**（恒久対策は editor 側のコメント保持で、別課題）。
