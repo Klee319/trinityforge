@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/handheld",
+  "parent": "minecraft:item/mace",
   "textures": {
     "layer0": "trinityforge:item/netherite_mace"
   }

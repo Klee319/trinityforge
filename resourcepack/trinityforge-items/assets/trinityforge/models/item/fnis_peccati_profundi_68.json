@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/handheld",
+  "parent": "minecraft:item/iron_chain",
   "textures": {
     "layer0": "trinityforge:item/fnis_peccati_profundi_68"
   }

@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/handheld",
+  "parent": "minecraft:item/iron_hoe",
   "textures": {
     "layer0": "trinityforge:item/iron_scythe"
   }

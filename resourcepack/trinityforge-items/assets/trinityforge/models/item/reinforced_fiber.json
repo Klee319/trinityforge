@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "minecraft:item/string",
   "textures": {
     "layer0": "trinityforge:item/reinforced_fiber"
   }

@@ -84,6 +84,109 @@ def model_ids(node: object, found: set[str]) -> None:
             model_ids(value, found)
 
 
+VANILLA_DEFS = json.loads(
+    (BASE / ".." / "tools" / "config-editor" / "lib" / "vanilla-item-defs-1.21.11.json")
+    .resolve()
+    .read_text(encoding="utf-8")
+)["defs"]
+
+# 「同じアイテムが状況によって別モデルで描かれる」ことを表す property。
+# lib/respack.js の RENDER_CONTEXT_PROPERTIES と同じ集合（ズレるとこの検査が無意味になる）。
+RENDER_CONTEXT_PROPERTIES = {
+    "minecraft:display_context",
+    "minecraft:using_item",
+    "minecraft:use_duration",
+}
+
+
+def render_shape(node: object) -> str:
+    """モデルツリーの「構造」だけを文字列化する（モデルIDやテクスチャは無視）。"""
+    if isinstance(node, dict):
+        kind = node.get("type")
+        if kind == "minecraft:model":
+            return "model"
+        if kind == "minecraft:special":
+            return "special:" + str(node.get("model", {}).get("type"))
+        if kind == "minecraft:select":
+            return (f"select({node.get('property')})"
+                    f"[{render_shape(node.get('cases'))}|{render_shape(node.get('fallback'))}]")
+        if kind == "minecraft:condition":
+            return (f"cond({node.get('property')})"
+                    f"[{render_shape(node.get('on_true'))}|{render_shape(node.get('on_false'))}]")
+        if kind == "minecraft:range_dispatch":
+            return (f"range({node.get('property')})"
+                    f"[{render_shape(node.get('entries'))}|{render_shape(node.get('fallback'))}]")
+        # cases[] / entries[] の要素は {when|threshold, model:{...}} という形で type を持たない。
+        if kind is None and isinstance(node.get("model"), dict):
+            return render_shape(node["model"])
+        return "?" + str(kind)
+    if isinstance(node, list):
+        return "+".join(render_shape(child) for child in node)
+    return "-"
+
+
+def has_render_context_split(node: object) -> bool:
+    if isinstance(node, dict):
+        if node.get("property") in RENDER_CONTEXT_PROPERTIES:
+            return True
+        return any(has_render_context_split(v) for v in node.values())
+    if isinstance(node, list):
+        return any(has_render_context_split(v) for v in node)
+    return False
+
+
+def authored_3d_model(root: Path, node: object) -> bool:
+    """CMDエントリが「自分で作った立体モデル1個」を指しているか。
+
+    Blockbench で起こした立体モデルは全表示コンテキストでそれを出すのが作者の意図なので、
+    バニラ構造の保持を要求しない（唯一の正当な逸脱）。
+    """
+    if not (isinstance(node, dict) and node.get("type") == "minecraft:model"):
+        return False
+    identifier = node.get("model", "")
+    if not isinstance(identifier, str) or not identifier.startswith("trinityforge:"):
+        return False
+    model_path = asset_path(root, "models", identifier, ".json")
+    if not model_path.exists():
+        return False
+    return "elements" in json.loads(model_path.read_text(encoding="utf-8"))
+
+
+def check_render_structure(path: Path, document: dict, root: Path) -> list[str]:
+    """CMDエントリがバニラの描画構造を捨てていないかを検査する。
+
+    2026-08-03 の退行がここを素通りした: カスタムCMDのエントリが素の minecraft:model へ
+    潰されていたため、トライデントの専用レンダラ（立体モデル＋投擲アニメーション）、弓の
+    引き絞り3段階、槍の手持ちモデルが、CMD付きアイテムでだけ全部消えていた。
+    fallback（CMDなし）は正しかったので、バニラ品だけ見ても気づけない。
+    """
+    material = path.stem.upper()
+    vanilla = VANILLA_DEFS.get(material)
+    if not vanilla:
+        return []
+    vanilla_model = vanilla["model"]
+    # 描画コンテキストで出し分けないマテリアル（防具の鍛冶型など、データ差分の分岐だけを
+    # 持つもの）は、カスタム側で1枚に潰してよい。テクスチャが1枚しか無い以上、
+    # 分岐を残しても全部同じ絵になるだけなので。
+    if not has_render_context_split(vanilla_model):
+        return []
+    expected = render_shape(vanilla_model)
+    problems: list[str] = []
+    model = document.get("model", {})
+    if model.get("type") != "minecraft:range_dispatch":
+        return []
+    for entry in model.get("entries", []):
+        actual = render_shape(entry.get("model"))
+        if actual == expected or authored_3d_model(root, entry.get("model")):
+            continue
+        problems.append(
+            f"{path.name}: cmd {entry.get('threshold')} がバニラの描画構造を捨てている "
+            f"(期待 {expected} / 実際 {actual})。"
+            "素の minecraft:model へ潰すと専用レンダラや引き絞り/手持ちモデルが失われる"
+        )
+    return problems
+
+
 def validate() -> list[tuple[Path, str]]:
     registry = allocations()
     problems: list[str] = []
@@ -112,6 +215,7 @@ def validate() -> list[tuple[Path, str]]:
                 problems.append(
                     f"{path.name}: cmd-registry.json に無い割当 {material}:{value}"
                 )
+        problems.extend(check_render_structure(path, document, ROOTS[0]))
 
     for relative, path in sorted(packable.items()):
         if not relative.endswith(".json"):
