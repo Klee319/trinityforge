@@ -82,15 +82,50 @@ public final class FinalDamageScaling {
      * 適用中の全 modifier へ {@code scale} を掛ける。結果として
      * {@code getFinalDamage()} が {@code scale} 倍になる。
      *
+     * <p>使ってよいのは「{@code BASE} もバニラ由来のまま＝抑制をまだ何も書いていない」経路だけ。
+     * 物理経路のように {@code BASE} を TF の算出値で<b>先に上書きしてある</b>場合は
+     * {@link #scaleModifiersExceptBase} を使う（でないと抑制が二重に掛かる）。
+     *
      * @return 実際に書き換えたら true（{@code scale == 1.0} なら何もせず false）
      */
-    @SuppressWarnings("deprecation")
     public static boolean scaleAllModifiers(EntityDamageEvent event, double scale) {
+        return scaleModifiers(event, scale, false);
+    }
+
+    /**
+     * {@code BASE} を<b>除く</b>適用中の全 modifier へ {@code scale} を掛ける
+     * （2026-08-01 物理PvP経路の同型バグ修正）。
+     *
+     * <h2>なぜ物理経路は {@link #scaleAllModifiers} を使えないのか</h2>
+     * <p>{@code CombatListener} の物理経路は {@code BASE} を
+     * 「TFパイプラインが出した最終ダメージ（＝PvP抑制を掛けた後の値）」で<b>丸ごと上書き</b>する。
+     * つまり {@code BASE} には既に抑制が入っているので、ここで {@code BASE} まで係数を掛けると
+     * <b>抑制が二重に掛かって半分になる</b>。
+     *
+     * <p>一方で 盾 {@code BLOCKING} ／ 吸収ハート {@code ABSORPTION} ／ {@code HARD_HAT} などは
+     * バニラが<b>抑制前のダメージから算出した絶対値</b>のまま残っており
+     * （{@code setDamage(DamageModifier,double)} は {@code modifiers.put} しかしない）、
+     * {@code getFinalDamage()} は全 modifier の単純和で 0 クランプも無い。
+     * よってこの「生き残り modifier」だけを {@code BASE} と同じ係数で縮める必要がある。
+     * 縮めないと、抑制で {@code BASE} が 3.0 まで落ちる帯では吸収ハート2個（{@code -4.0}）だけで
+     * 最終ダメージが {@code -1.0} へ潰れ、<b>盾や金リンゴを持った相手には物理が一切通らなくなる</b>。
+     *
+     * @return 実際に書き換えたら true（{@code scale == 1.0} なら何もせず false）
+     */
+    public static boolean scaleModifiersExceptBase(EntityDamageEvent event, double scale) {
+        return scaleModifiers(event, scale, true);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static boolean scaleModifiers(EntityDamageEvent event, double scale, boolean skipBase) {
         if (!Double.isFinite(scale) || scale == 1.0) {
             return false;
         }
         boolean changed = false;
         for (EntityDamageEvent.DamageModifier modifier : MODIFIERS) {
+            if (skipBase && modifier == EntityDamageEvent.DamageModifier.BASE) {
+                continue;
+            }
             if (!event.isApplicable(modifier)) {
                 continue;
             }

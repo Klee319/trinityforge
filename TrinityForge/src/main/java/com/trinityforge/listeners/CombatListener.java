@@ -122,6 +122,15 @@ public final class CombatListener implements Listener {
      * Every other modifier (shield {@code BLOCKING}, {@code ABSORPTION}, {@code HARD_HAT},
      * {@code FREEZING}, {@code INVULNERABILITY_REDUCTION}, ...) has no pipeline equivalent and must
      * survive untouched, or shield blocking and absorption hearts silently stop working.
+     *
+     * <p><b>2026-08-01 の唯一の例外</b>: player→player で {@link PvpDamagePolicy} が発動したときだけ、
+     * 生き残った modifier に {@code BASE} と<b>同じ抑制係数</b>を掛ける
+     * ({@link com.trinityforge.combat.FinalDamageScaling#scaleModifiersExceptBase})。
+     * これは「0化して効果を消す」のとは逆で、割合としての軽減を保ったまま絶対値のスケールだけを
+     * {@code BASE} に揃える処置である。掛けないと、抑制で {@code BASE} が数点まで縮む帯で
+     * 抑制前のバニラ値のまま残った {@code ABSORPTION}/{@code BLOCKING} が
+     * {@code getFinalDamage()}(全modifierの単純和・0クランプ無し)を負値へ潰し、
+     * 盾や金リンゴを持った相手に物理が一切通らなくなる。
      */
     @SuppressWarnings("deprecation")
     private static final Set<EntityDamageEvent.DamageModifier> FOLDED_MODIFIERS = EnumSet.of(
@@ -466,10 +475,22 @@ public final class CombatListener implements Listener {
         // 位置は「total を出し切った後・setDamage の直前」——ここより後ろの出血/AoEも同じ total を
         // 読むので、抑制後の値が自動的に引き継がれる。モブ→プレイヤーは別経路
         // (handleMobToPlayerDamage)なので影響しない。
+        //
+        // 2026-08-01 バグ修正(魔法経路 487e84a と同型。魔法だけ直して物理が残っていた):
+        // 抑制は total(= 下で BASE へ書く値)しか縮めないが、盾の BLOCKING と吸収ハートの ABSORPTION は
+        // 「縮める前のバニラダメージから算出された絶対値」のまま event に残っている
+        // (Paper の setDamage(DamageModifier,double) は modifiers.put しかせず他modifierを再計算しない)。
+        // getFinalDamage() は全modifierの単純和で0クランプも無いので、抑制で total が 3.0 まで縮む帯では
+        // 吸収ハート2個(-4.0)だけで最終ダメージが -1.0 へ潰れ、「盾や金リンゴを持った相手には物理が
+        // 一切通らない」状態になっていた。縮めた係数を控えておき、BASE を書いた直後に
+        // BASE 以外の生き残りmodifierへ同じ係数を掛ける(根拠は FinalDamageScaling の javadoc に一本化)。
+        double pvpSuppressionScale = 1.0;
         if (livingVictim != null && PvpDamagePolicy.isPvp(victim)) {
+            double beforePvpSuppression = total;
             total = PvpDamagePolicy.apply(total, PvpDamagePolicy.maxHealthOf(livingVictim),
                     damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
                     damageConfig.pvpMaxDamagePercentOfMaxHealth());
+            pvpSuppressionScale = FinalDamageScaling.scaleFactor(beforePvpSuppression, total);
         }
         if (hit.crit() && livingVictim != null) {
             CritFlash.play(livingVictim);
@@ -479,7 +500,8 @@ public final class CombatListener implements Listener {
         // (COMBAT_SYSTEM_SPEC 5, 課題1), so only the engine's own ARMOR/RESISTANCE/MAGIC modifiers are
         // zeroed to avoid double-mitigation (the service re-injects armor from attributes, resistance
         // from the potion effect, and Protection/Projectile Protection via DefenseEnchantmentBridge);
-        // every other modifier (shield BLOCKING, ABSORPTION, ...) is left for the engine to apply as-is.
+        // every other modifier (shield BLOCKING, ABSORPTION, ...) is left for the engine to apply as-is
+        // (the only touch-up is the PvP suppression rescale a few lines below — see FOLDED_MODIFIERS).
         for (EntityDamageEvent.DamageModifier modifier : DAMAGE_MODIFIERS) {
             if (FOLDED_MODIFIERS.contains(modifier) && event.isApplicable(modifier)) {
                 event.setDamage(modifier, 0.0);
@@ -493,6 +515,12 @@ public final class CombatListener implements Listener {
         } else {
             event.setDamage(EntityDamageEvent.DamageModifier.BASE, Math.max(0.0, total));
         }
+        // 上の PvP 抑制で BASE を縮めたのと同じ係数で、BASE 以外の生き残り modifier
+        // (盾 BLOCKING / 吸収 ABSORPTION / HARD_HAT ...)も縮める。BASE は既に抑制後の値なので
+        // 含めてはいけない(二重適用になる) — その理由は FinalDamageScaling#scaleModifiersExceptBase の
+        // javadoc に書いてある。抑制が掛からなかったとき(対モブ / pvp.enabled=false / 上限に届かない /
+        // total<=0 の回復側)は係数がちょうど 1.0 なので event を一切触らない = 従来挙動そのまま。
+        FinalDamageScaling.scaleModifiersExceptBase(event, pvpSuppressionScale);
 
         // Bleed proc (Q3 = (c), melee only): #3 全ステ合算により bleed-chance/bleed-damage は攻撃集約
         // (防具 + メインハンド + (設定により)オフハンド + パーク + アドオン)から読む。アイテムCT(メインハンド専用)
