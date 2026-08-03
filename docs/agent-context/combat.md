@@ -418,6 +418,27 @@ Java側（`RampParser`/`MobTypesConfig#parseLevelCoefficients` 等）に新し�
 との**和集合**を見る —— これが無いと「`mobs:` を書かず scope 直下だけ指定した scope」が無言で
 一致しない（2026-08-03 以前は `level-cutoff` にも同じ潜在バグがあった）。
 
+### ⚠️ scope 直下 `stats:` に守備ステ（耐性・defense-rate）を書いてはいけない
+
+**項目単位マージ**＋**mob単位が後**という組み合わせの帰結として、
+モブ個別が `resistance:` を1つでも持っていれば **scope 側の同じキーは必ず負ける**
+（`MobStatOverride.mergeDefense`）。出荷 `mob-overrides.yml` のダンジョンモブは
+**397/404 が自前の `physical`/`magical` を持つ**ので、scope 直下に耐性を書くと**ほぼ全数に効かない**。
+
+しかも「効かない」ではなく「**`mobs:` に載っていない残り数体にだけ効く**」という中途半端な挙動になり、
+per-mob の実データと矛盾する値をコメント代わりに書けてしまう
+（2026-08-03 に実際にやった。28ダンジョン分の耐性設定が丸ごと no-op だった上、
+per-mob の耐性型と真逆のラベルを9ダンジョンに付けていた）。
+
+- **守り（どの属性が通るか）＝ per-mob の `stats.physical`/`stats.magical` だけで表現する。**
+  各ダンジョン先頭の `# ▼コンセプト:` コメントがその要約で、**これが一次情報**
+- **攻め（敵の攻撃の属性比）＝ scope 直下の `attack.magic-ratio` だけ。**
+  per-mob 側がダンジョンでは1件も書いていないので、ここは実際に効く
+- 両者は**必ず逆向きに揃える**（物理装甲が厚い敵＝魔法が通る＝攻撃はほぼ物理＝`magic-ratio` 低）。
+  同じ向きにすると攻めも守りも同じ属性で足り、属性分けの意味が消える
+- `MobOverridesConfigTest` が「出荷ymlの scope 直下 stats は `physical()==null && magical()==null`」
+  を要求しているので、再混入するとテストが落ちる
+
 ## 関連
 
 - [./progression-skilltree.md](./progression-skilltree.md)

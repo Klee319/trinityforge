@@ -815,8 +815,9 @@ class MobOverridesConfigTest {
 
     @Test
     void scopeLevelStatsOnlyTouchTheFieldsItSets(@TempDir File dir) throws Exception {
-        // コンセプトは resistance と magic-ratio しか書かない。Lv45以降の flat-defense ランプや
-        // HP をここで巻き添えに潰さないことが、この設定を安全に配れる前提になっている。
+        // 機構としては守備ステも書ける(mobs: に無いモブには効く)。出荷ymlが magic-ratio しか
+        // 書かないのは別の理由(下の scopeDefenseLosesToAPerMobEntry)で、ここは機構の確認。
+        // Lv45以降の flat-defense ランプや HP を巻き添えに潰さないことが安全に配れる前提。
         MobOverridesConfig config = loadedConfig(dir, """
                 overrides:
                   my_dungeon:
@@ -831,6 +832,33 @@ class MobOverridesConfigTest {
         assertEquals(0.1, result.physical().defenseRate(), "defense-rate は据え置き");
         assertEquals(0.1, result.magical().resistance(), "magical 側は据え置き");
         assertEquals(100.0, result.maxHealth(), "max-health は据え置き");
+    }
+
+    @Test
+    void scopeDefenseLosesToAPerMobEntry(@TempDir File dir) throws Exception {
+        // 2026-08-03 の実害の再現: scope 直下に耐性を書いても、モブ個別が resistance を持っていれば
+        // 【必ず】負ける(MobStatOverride.mergeDefense は項目単位マージで、モブ個別が後に適用される)。
+        // 出荷ymlのダンジョンモブはほぼ全部が自前の resistance を持つため、scope 側の耐性は
+        // 丸ごと no-op になっていた。この性質を明文化しておかないと同じ書き方を繰り返す。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  my_dungeon:
+                    stats:
+                      physical:
+                        resistance: 0.05
+                      magical:
+                        resistance: 0.32
+                    mobs:
+                      goblin_chief:
+                        stats:
+                          physical: { defense-rate: 0.374, resistance: 0.306 }
+                          magical:  { defense-rate: 0.068, resistance: 0.204 }
+                """);
+        MobProfile result = config.resolve("my_dungeon", "goblin_chief", baseProfile());
+        assertEquals(0.306, result.physical().resistance(), "モブ個別が scope の 0.05 を潰す");
+        assertEquals(0.204, result.magical().resistance(), "モブ個別が scope の 0.32 を潰す");
+        // 対照: 同じ scope でも mobs: に居ないモブには効く(= 効き方が2種類あるので余計に紛らわしい)。
+        assertEquals(0.05, config.resolve("my_dungeon", "no_entry", baseProfile()).physical().resistance());
     }
 
     @Test
@@ -969,18 +997,25 @@ class MobOverridesConfigTest {
         for (com.trinityforge.mobs.MobStatOverride stats : r.scopeStats().values()) {
             assertTrue(stats.attack() != null && stats.attack().magicRatio() != null,
                     "コンセプトは必ず magic-ratio を持つ");
-            assertTrue(stats.physical() != null && stats.physical().resistance() != null,
-                    "コンセプトは必ず physical.resistance を持つ");
-            assertTrue(stats.magical() != null && stats.magical().resistance() != null,
-                    "コンセプトは必ず magical.resistance を持つ");
+            // 【初版の実害の再発防止】scope 直下に physical/magical(耐性)を書くと、モブ個別の
+            // resistance に【必ず負ける】(MobStatOverride.mergeDefense は項目単位マージ)。
+            // 出荷ymlのダンジョンモブは 397/404 が自前の resistance を持つので丸ごと no-op になり、
+            // しかも per-mob の実データと食い違う値を書けてしまう。守りは per-mob 側だけで表現する。
+            assertTrue(stats.physical() == null && stats.magical() == null,
+                    "scope 直下のコンセプトは守備ステを書かない(モブ個別に必ず負けるので no-op になる)");
             assertTrue(stats.maxHealth() == null && stats.level() == null,
                     "コンセプトは HP/レベルには触らない(45+ の難易度ランプを巻き添えにしないため)");
-            assertTrue(stats.physical().flatDefense() == null && stats.magical().flatDefense() == null,
-                    "コンセプトは flat-defense には触らない(Lv45以降の加算ランプを殺すため)");
             ratios.add(stats.attack().magicRatio());
         }
         assertEquals(java.util.Set.of(0.10, 0.25, 0.45), ratios,
                 "魔法推奨0.10 / 物魔両方0.25 / 物理推奨0.45 の3種がすべて使われていること");
+        // 3種が偏りなく配られていること(どれかが1〜2個しかないなら実質2択に戻っている)。
+        java.util.Map<Double, Integer> byRatio = new java.util.TreeMap<>();
+        for (com.trinityforge.mobs.MobStatOverride stats : r.scopeStats().values()) {
+            byRatio.merge(stats.attack().magicRatio(), 1, Integer::sum);
+        }
+        assertEquals(java.util.Map.of(0.10, 12, 0.25, 5, 0.45, 11), byRatio,
+                "魔法推奨12 / 物魔両方5 / 物理推奨11。ここが動いたら ▼コンセプト との対応を見直すこと");
         // 0.45 上限のガード: バニラ系防具は magic-flat-defense がゼロなので、魔法成分は無対策の
         // プレイヤーにほぼ素通りする。ここを上げると「対策すれば無傷/しなければ即死」に振り切れる
         // (根拠は mob-overrides.yml ヘッダの【magic-ratio の上限を 0.45 に抑えている理由】)。

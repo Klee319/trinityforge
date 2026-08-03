@@ -165,22 +165,34 @@
 #           max-health: 2000
 # ============================================================================
 # 【ダンジョンのコンセプト(物理/魔法)】 2026-08-03
-# ダンジョンごとに「敵がどちらの型か」を割り当て、ダンジョン単位の stats: で全モブに一括で乗せている。
-# 直す前は全ダンジョンのモブが物理耐性0.12/魔法耐性0.12・魔法比率0.35で完全に横並びで、
-# 「どのダンジョンでも同じ装備が最適」「魔法特化の敵がどこにもいない」状態だった。
+# ダンジョンごとに「敵がどちらの型か」を割り当てている。表現は【2層に分かれている】:
 #
-#   物魔両方 : phys 0.12 / magic 0.12 / magic-ratio 0.25
-#     中庸。物理と魔法の両方をある程度対策していないと削られる。
-#   物理推奨 : phys 0.05 / magic 0.32 / magic-ratio 0.45
-#     敵が魔法型。魔法に強く物理に脆いので【物理武器が通る】。敵の攻撃も半分近くが魔法なので
-#     【魔法防御を積む】必要がある。
-#   魔法推奨 : phys 0.32 / magic 0.05 / magic-ratio 0.10
-#     敵が物理型。物理に強く魔法に脆いので【魔法が通る】。敵の攻撃はほぼ物理なので
-#     【物理防御を積む】必要がある。
+#   (1) 守り = 各モブの stats.physical / stats.magical (per-mob)。どの属性の攻撃が通るかを決める。
+#       各ダンジョン先頭の `# ▼コンセプト:` コメントがその要約。こちらは以前から存在する。
+#   (2) 攻め = ダンジョン直下の stats.attack.magic-ratio (scope)。敵の通常攻撃のうち何割が
+#       魔法成分かを決める。2026-08-03 に新設。`# 【コンセプト】` コメントがその要約。
+#
+#   物魔両方 : magic-ratio 0.25 —— 中庸。個体ごとに耐性型が混在するダンジョン。
+#   物理推奨 : magic-ratio 0.45 —— 敵は魔法防御が厚い(=【物理武器が通る】)。攻撃は魔法寄りなので
+#                                【魔法防御を積む】必要がある。
+#   魔法推奨 : magic-ratio 0.10 —— 敵は物理装甲が厚い(=【魔法が通る】)。攻撃はほぼ物理なので
+#                                【物理防御を積む】必要がある。
 #
 # 「攻めに使う属性」と「受けに要る属性」が逆になるのは意図した設計 —— 同じ属性に全部寄せれば
-# 済む作りにすると、結局1本の最適解に戻ってしまうため。耐性の差は 0.05 と 0.32 で
-# (1-0.05)/(1-0.32) = 約1.4倍。属性を合わせれば明確に速いが、合わせないと詰むほどではない。
+# 済む作りにすると、結局1本の最適解に戻ってしまうため。
+#
+# 【⚠️ scope 直下の stats: に physical/magical(耐性)を書いてはいけない(2026-08-03 に実際にやった誤り)】
+# MobStatOverride.mergeDefense は【項目単位マージ】なので、モブ個別の
+# `physical: { defense-rate: A, resistance: B }` が1つでもあると、scope 側の resistance は
+# 【必ず負ける】。このファイルのダンジョンモブは 397/404 が自前の resistance を持っているため、
+# scope に耐性を書いても事実上どこにも効かない(初版はこれを書いていて、丸ごと no-op だった)。
+# しかも「▼コンセプト(per-mob の実データ)」と食い違う値を書けるので、読む人を確実に誤解させる。
+# 耐性を変えたいときは per-mob 側を直すこと。scope 直下に置いてよいのは magic-ratio だけ
+# (これは per-mob 側がほぼ書いていないので実際に効く。MobOverridesConfigTest が守っている)。
+#
+# 【(1)と(2)は必ず逆向きに揃える】`▼コンセプト: 物理ビルドが活きる` なら `【コンセプト】物理推奨`。
+# 逆にすると「物理が通る敵が物理で殴ってくる」= 攻めも守りも物理だけで足りる状態になり、
+# 属性を分けた意味が消える。初版は9ダンジョンでこれを取り違えていた。
 #
 # 【magic-ratio の上限を 0.45 に抑えている理由(重要)】
 # 被ダメージは「守備力(flat-defense)を引いてから率を掛ける」ので、物理/魔法に分割された各成分は
@@ -1032,11 +1044,9 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — 火薬技師の機械仕掛け。装甲で覆われている
   em_fireworks:
     display-name: "花火工房"
-    # 【コンセプト】物理推奨(敵は魔法型) —— 炸裂物を撃つ工房。物理武器が通り、魔法防御が要る。
+    # 【コンセプト】魔法推奨(敵は物理型) —— 装甲で覆われた機械仕掛け。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       fireworks_level_50_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
         display-name: "スパーキー (第2段階)"
@@ -1087,9 +1097,7 @@ overrides:
     display-name: "ハロウィン闘技場"
     # 【コンセプト】物理推奨(敵は魔法型) —— 魔女とアンデッドの闘技場。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       halloween_event_boss_mount:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "命知らず (騎乗体)"
@@ -1160,9 +1168,7 @@ overrides:
     display-name: "世界を繋ぐ者の聖所"
     # 【コンセプト】物理推奨(敵は魔法型) —— 次元を繋ぐ術者の聖所。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       binder_of_worlds_phase_1_endermite_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を汚す者 (第2段階) (増援)"
@@ -1352,12 +1358,12 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題1。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_1:
     display-name: "エンチャント試練 1"
-    # 【コンセプト】物魔両方 —— 試練1〜10は「両方 → 魔法推奨 → 物理推奨」を繰り返す梯子にしてある。
+    # 【コンセプト】物理推奨(敵は魔法型) —— 試練1〜10は「奇数=物理推奨 / 偶数=魔法推奨」の交互梯子。
     # 一本の装備で登り切れないようにして、両属性を揃える動機を作るため。
+    # ここの割り当ては上の ▼コンセプト(モブ個別の耐性型)と必ず一致させること。逆にすると
+    # 「物理が通る敵が物理で殴ってくる」＝攻めも守りも同じ属性で足りる状態になり、意味が消える。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       enchantment_boss_dark_flame:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "暗黒の炎"
@@ -1374,11 +1380,9 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題10。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_10:
     display-name: "エンチャント試練 10"
-    # 【コンセプト】物魔両方 —— 梯子の最終段。両属性を揃えたプレイヤーだけが安定して抜けられる。
+    # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の最終段(偶数)。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       enchantment_boss_tricky_bones:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "厄介な骨"
@@ -1415,9 +1419,7 @@ overrides:
     display-name: "エンチャント試練 2"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       enchantment_boss_energized_bunny:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "帯電したウサギ"
@@ -1436,9 +1438,7 @@ overrides:
     display-name: "エンチャント試練 3"
     # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       enchantment_boss_jealous_block:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "嫉妬するブロック"
@@ -1455,11 +1455,9 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題4。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_4:
     display-name: "エンチャント試練 4"
-    # 【コンセプト】物魔両方 —— 中庸。
+    # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の偶数段。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       enchantment_boss_leet_summoner:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "1337 サモナー (召喚体)"
@@ -1490,11 +1488,9 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題5。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_5:
     display-name: "エンチャント試練 5"
-    # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
+    # 【コンセプト】物理推奨(敵は魔法型) —— 交互梯子の奇数段。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       enchantment_boss_loveable_impaler:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "愛らしき串刺し公"
@@ -1518,11 +1514,9 @@ overrides:
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題6。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_6:
     display-name: "エンチャント試練 6"
-    # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
+    # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の偶数段。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       enchantment_boss_ravegarer:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "レイヴ荒らし"
@@ -1539,11 +1533,9 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題7。課題ごとに要求ビルドが入れ替わる
   em_id_enchantment_challenge_7:
     display-name: "エンチャント試練 7"
-    # 【コンセプト】物魔両方 —— 中庸。
+    # 【コンセプト】物理推奨(敵は魔法型) —— 交互梯子の奇数段。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       enchantment_boss_rock_solid_cold:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "岩のような極寒"
@@ -1562,9 +1554,7 @@ overrides:
     display-name: "エンチャント試練 8"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       enchantment_boss_the_firebunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "火炎装置"
@@ -1583,9 +1573,7 @@ overrides:
     display-name: "エンチャント試練 9"
     # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       enchantment_boss_the_glass_master:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "硝子の達人"
@@ -1604,9 +1592,7 @@ overrides:
     display-name: "古橋の聖所"
     # 【コンセプト】物魔両方 —— 守衛と術者が混在する聖所。中庸。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.25 }
     mobs:
       the_bridge_ancient_guardian_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の守護者 (第1段階)"
@@ -1672,9 +1658,7 @@ overrides:
     display-name: "灼熱の洞窟"
     # 【コンセプト】物理推奨(敵は魔法型) —— 炎を纏う敵。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       the_cave_boiled_bones_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "煮られた骨 (召喚体)"
@@ -1726,9 +1710,7 @@ overrides:
     display-name: "ドワーフの地下都市"
     # 【コンセプト】魔法推奨(敵は物理型) —— 重装のドワーフ兵。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_city_ancient_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "古代のドワーフ"
@@ -1829,9 +1811,7 @@ overrides:
     display-name: "登攀路"
     # 【コンセプト】物魔両方 —— 道中の敵種が幅広い。中庸。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.25 }
     mobs:
       the_climb_bone_champion:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "村の勇者"
@@ -2016,9 +1996,7 @@ overrides:
     display-name: "深層鉱山"
     # 【コンセプト】魔法推奨(敵は物理型) —— 坑道の力仕事系。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_deep_mines_boom_surprise_ancient_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "古代のハスク"
@@ -2161,9 +2139,7 @@ overrides:
     display-name: "鉱山"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       the_mines_arachnidian_construct:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "蜘蛛型構造体"
@@ -2446,9 +2422,7 @@ overrides:
     display-name: "ネザーの鐘"
     # 【コンセプト】物理推奨(敵は魔法型) —— 呪術的な敵。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       em_id_the_nether_bell_beam_boss_green_1_speed:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (俊敏)"
@@ -2661,9 +2635,7 @@ overrides:
     display-name: "ネザーの荒野"
     # 【コンセプト】物魔両方 —— 中庸。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.25 }
     mobs:
       em_id_the_nether_wastes_lesser_nether_fiend:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下級ネザーの魔物"
@@ -2827,9 +2799,7 @@ overrides:
     display-name: "宮殿"
     # 【コンセプト】物魔両方 —— 近衛と宮廷魔術師が揃う。中庸。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.25 }
     mobs:
       the_palace_old_stone_king_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古き石の王 (第1段階)"
@@ -2881,9 +2851,7 @@ overrides:
     display-name: "採石場"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       LiftAirFiller:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の送気装置"
@@ -3089,9 +3057,7 @@ overrides:
     display-name: "騎士団の城"
     # 【コンセプト】魔法推奨(敵は物理型) —— 全身板金の騎士。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       the_castle_arcane_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "秘術の騎士"
@@ -3190,11 +3156,9 @@ overrides:
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — 氷雪の魔物。氷魔法への耐性が高い
   em_north_pole:
     display-name: "北極ミニダンジョン"
-    # 【コンセプト】物魔両方 —— 短時間のミニダンジョン。中庸のまま据え置く。
+    # 【コンセプト】物理推奨(敵は魔法型) —— 氷雪の魔物は魔法防御が厚い。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.12 }
-      magical:  { resistance: 0.12 }
-      attack:   { magic-ratio: 0.25 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       northpole_elf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "工房のエルフ"
@@ -3264,11 +3228,9 @@ overrides:
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 下水の雑多な群れ。相手ごとに有効打が変わる
   em_sewer_maze:
     display-name: "下水道迷宮"
-    # 【コンセプト】魔法推奨(敵は物理型) —— 群れて殴ってくる。魔法が通り、物理防御が要る。
+    # 【コンセプト】物魔両方 —— 雑多な群れで個体ごとに耐性型が違う。相手ごとに有効打が変わる。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.25 }
     mobs:
       sewer_tier_10:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "潜むもの"
@@ -3488,9 +3450,7 @@ overrides:
     display-name: "蒸気機関工房"
     # 【コンセプト】魔法推奨(敵は物理型) —— 装甲された機械。魔法が通り、物理防御が要る。
     stats:
-      physical: { resistance: 0.32 }
-      magical:  { resistance: 0.05 }
-      attack:   { magic-ratio: 0.10 }
+      attack: { magic-ratio: 0.10 }
     mobs:
       the_steamworks_clk_wrx702_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "CLK-WRx702 (第1段階)"
@@ -3584,9 +3544,7 @@ overrides:
     display-name: "闇の大聖堂"
     # 【コンセプト】物理推奨(敵は魔法型) —— 邪教の術者。物理武器が通り、魔法防御が要る。
     stats:
-      physical: { resistance: 0.05 }
-      magical:  { resistance: 0.32 }
-      attack:   { magic-ratio: 0.45 }
+      attack: { magic-ratio: 0.45 }
     mobs:
       dark_cathedral_tier_75_area_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "深淵のクトゥルフ信徒 (エリア)"
