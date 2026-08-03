@@ -4784,3 +4784,111 @@ scope 直下 → mob 単位の順に適用されるので、**モブ個別が `r
 - テスト: `shippedYamlAssignsAConceptToEveryDungeonExceptTheHub` を反転
   （`physical()==null && magical()==null` を要求＝死に設定の再混入を落とす）＋ 3種の**内訳件数**を固定。
   新規 `scopeDefenseLosesToAPerMobEntry` で「per-mob が scope を潰す／mobs: に居ないモブには効く」を明文化
+
+## 2026-08-03 敵の攻撃タイプ（物理/魔法）の棚卸しと、魔法防御装備の上位2段追加
+
+### 棚卸しの結論
+
+**ダンジョン外は棲み分けできている。** `combat/mob-types.yml` 実測で、敵対モブ41種のうち
+**17種が `magic-ratio > 0`（0.3〜1.0）／うち14種が 0.5 以上**。ダメージ量で重み付けした魔法シェアは
+**35.7%**。純近接（ゾンビ/スケルトン/クリーパー/ピグリン）は完全物理のまま据え置かれている。
+`mob-overrides.yml` の派生カスタムボス6体（全て0.5以上）を足すと 20/47 = 42.6%。
+ただしこの6体は **`/trinityforge importmobs custombosses` と配備が済むまで出現しない**。
+
+技（`combat/mob-abilities.yml`）は9種中 **物理5 / 魔法4**。
+
+**ダンジョン内は上の #62 修正で 魔法推奨12 / 物理推奨11 / 物魔両方5 + 拠点1** になった。
+
+### ⚠ 前段の報告の訂正
+
+「Lv61〜100 は魔法防御を持つ装備がゼロ」と書いたが、**`use-level-requirement` は下限**なので
+Lv100 のプレイヤーが Lv60 の守護/魔織を着ること自体は**できる**。正しくは
+**「Lv61以降はレベル相応の魔法防御装備が無く、Lv60 の防具を着続けるしかない」**。
+Lv60 の防具は物理側が Lv60 相当のままなので、Lv80〜100 帯では
+「魔法を捨ててネザライト」か「物理を捨てて Lv60 のメイジローブ」の二択に固定されていた。
+
+### 守護（HEAVY_ARMOR）/ 魔織（LIGHT_ARMOR）に Lv80「賢者」/ Lv100「星詠み」を追加
+
+魔法防御（`magic-flat-defense` / `magic-resistance`）を持つ防具は
+**守護/魔織シリーズ（`LEATHER_*#2000xx`）だけ**で、`use-level-requirement` は
+**20 / 40 / 60 の3段が全て**だった（バニラ素材の防具は Lv80 も Lv100 も `phys-*` のみ）。
+`magic-ratio 0.45` を割り当てた11ダンジョンが Lv61以降で対策不能に近くなるため、2段追加した。
+
+| 段 | Lv | 守護 CMD | 魔織 CMD | 儀式の素材 | source |
+|---|---|---|---|---|---|
+| 賢者 | 80 | 200201-04 | 200221-24 | 大魔導士 + `ECHO_SHARD x2` + `DRAGON_BREATH x2` | 10000 |
+| 星詠み | 100 | 200211-14 | 200231-34 | 賢者 + `NETHER_STAR` + `ECHO_SHARD x3` | 20000 |
+
+**CMD は 200201 以降の未使用帯から採番**（`cmd-registry.json` の 2000xx 帯の最大は 200151 で、
+201xxx〜203xxx は1件も無いことを確認済み。再利用はしていない）。
+**このシリーズは resourcepack にモデルを持たない**（`cmd-registry.json` にしか登場しない＝
+色付き革防具）ので、**テクスチャ／モデルの追加作業は不要**。
+
+**数値の作り方**: 既存3段の段間比をそのまま延長（`durability ×1.6` / `magic-flat-defense ×2.2` /
+`mana-bonus ×2.25` / `per-quality durability ×1.6` / `quality-mode-offset -2` /
+`mana-regen +1.2` / `random phys-flat-defense ×2.5`）。防御率・防具強度・回避・スレッド枠・
+移動速度は既存3段で一定なので据え置き。
+
+**⚠ 率だけ段間比を落とした（意図的な逸脱）**: `magic-resistance` を既存比（×1.56）で延ばすと
+1セット合計が **0.365 → 0.57 → 0.89** になり 100% に張り付く。率は乗算で効くので上限に近づくほど
+「1段上げただけで無敵」に振り切れる。レベル追随は**固定値側**に任せ、率は
+`magic-resistance ×1.18 → ×1.14`（セット合計 0.365→0.43→0.49）、
+`random phys-resistance ×1.25 → ×1.20` に抑えた。理由は yml 内にも書いてある。
+
+**ついでに埋めた既存の穴**: `stats/skill-exp.yml` の魔法クラフトEXP表は
+**apprentice(Lv40) までしか無く、大魔導士(Lv60)を儀式で作っても EXP が 0** だった。
+段ごとに倍増する形で 大魔導士 / 賢者 / 星詠み を追加した。
+（`mage_arcane_*` は CMD とステータスだけ残って `catalog.yml` に定義が無い**未配線シリーズ**なので
+載せていない。これは別件として残っている。）
+
+**触ったファイル**: `stats/item-stats.yml`（16ステータス枠＋`_editor` の3か所）/
+`items/catalog.yml`（16アイテム＋`_editor` の4か所）/ `stats/skill-exp.yml`（EXP表＋`DRAGON_BREATH`）/
+`resourcepack/cmd-registry.json`（16採番）。
+
+### 出荷configの契約テストが2件とも実際に落ちて、実害を捕まえた（証拠）
+
+1. `ShippedRitualMaterialExpCoverageTest` —
+   **`DRAGON_BREATH` が `smithing.exp-per-material` に無い**ため、賢者の儀式8件が
+   「素材合計を捨てて `ars-smithing.exp-per-craft` の定額へ落ちる」状態になっていた。
+   `DRAGON_BREATH: 30`（`ECHO_SHARD` と同格）を追加して解消。
+2. editor の `item-stat-coverage.test.js` —
+   **`LEATHER_HELMET#200201 がEditorカテゴリ未割当`**。
+   `item-stats.yml` の `_editor.categories` / `_editor.itemTabs` と
+   `catalog.yml` の `_editor.categories` に16件ずつ追記して解消。
+   **item-stats と catalog に足すだけでは editor から見えない**（新しい防具シリーズを足すときの必須手順）。
+
+### テスト結果
+
+- TF 本体 `./gradlew cleanTest test`: **BUILD SUCCESSFUL**、3595件中 失敗0 / **SKIPPED 2**
+  （既知の `OfflineMobImportRunner` と `NativeProgressionStabilizationContractsTest#prestigeRefundUsesLiveYamlCost`）
+- editor `npm test`: **1027件 / 1018 pass / 9 fail**。9件は着手前と**名前まで完全一致**のベースライン
+  （木～ネザライトのツール斧／斧／槍、`buildSkillExpForm`、金ツール耐久、
+  ソースジェム防具の魔法防御、player wiki generator ×2、ロスレス `mining-gimmick.yml`）。増えていない
+
+### 配備が要る
+
+**configのみの変更なので jar のビルドは不要**だが、`deploy.cmd --config --restart` を打つまで
+反映されない（`/tf reload` では catalog の新規アイテムは拾えない実績あり）。
+
+### ⚠ 未コミット — 3ファイルが他セッションのWIPと混ざっている（ユーザー判断待ち）
+
+**コミット済み**: `stats/skill-exp.yml` / `docs/agent-context/combat.md` / この記録。
+**未コミット**: `stats/item-stats.yml` / `items/catalog.yml` / `resourcepack/cmd-registry.json`。
+
+`ops/scripts/wip-audit.ps1` の結果、**main ワークツリーに持ち主のいない未コミット変更が17ファイル**、
+さらに**31本の worktree に109ファイル**あった。上の3ファイルは私の追加分と他セッションの作業が
+同一ファイル内で混ざっており、`git add <path>` はファイル単位なので**分離できない**。
+`git add -A` 禁止（他人の未コミット変更を巻き込む）に抵触するため、あえて未コミットのまま残した。
+
+差分の内訳（`git diff --numstat` と実測）:
+
+| ファイル | 実差分 | 私の分 | 他セッションの分 |
+|---|---|---|---|
+| `items/catalog.yml` | +1038 / −838 | +357 / −0 | +681 / −838 |
+| `stats/item-stats.yml` | +499 / −169 | +438 / −0 | +61 / −169 |
+| `resourcepack/cmd-registry.json` | +1503 / −1286 | +112 / −0 | 大半は**既存エントリの並べ替え**（`thread_*`・`abyss_*`・`key_*` 等が追加側と削除側の両方に出る）＋ `dragon_cane`/`wither_cane` → `abyss_cane`/`boundary_cane` のリネーム＋ `key_*` 17件の新規 |
+
+**取り戻し方**: 私が追加したのは以下の識別子だけなので、他セッションの作業が確定した後に
+このリストで拾い直せる。
+`mage_{guardian,weaver}_{sage,starseer}_{helmet,chestplate,leggings,boots}` 計16件、
+CMD `200201-04` / `200211-14` / `200221-24` / `200231-34`。

@@ -74,6 +74,9 @@ smithing:
     ECHO_SHARD: 30
     HEART_OF_THE_SEA: 60
     NETHER_STAR: 200
+    # 2026-08-03: 賢者(Lv80)の儀式で使うので追加。エンドラ討伐が要る＝BREEZE_ROD より上、
+    # ECHO_SHARD(深層都市の探索)と同格に置いている。
+    DRAGON_BREATH: 30
     custom:stone_2x: 3
     custom:netherrack_2x: 2
     custom:thread_empty: 4
@@ -194,6 +197,33 @@ smithing:
     custom:mage_guardian_apprentice_chestplate: 180
     custom:mage_guardian_apprentice_leggings: 160
     custom:mage_guardian_apprentice_boots: 100
+    # 2026-08-03: 大魔導士(Lv60)以上が表に無く、儀式で作っても魔法EXPが0だった。
+    # 賢者(Lv80)/星詠み(Lv100)を追加するにあたり、段ごとに倍増する形で大魔導士から埋めている。
+    # mage_arcane_* は catalog.yml に定義が無い(CMDとステだけ残った未配線シリーズ)ので載せない。
+    custom:mage_weaver_archmage_helmet: 240
+    custom:mage_weaver_archmage_chestplate: 360
+    custom:mage_weaver_archmage_leggings: 320
+    custom:mage_weaver_archmage_boots: 200
+    custom:mage_weaver_sage_helmet: 480
+    custom:mage_weaver_sage_chestplate: 720
+    custom:mage_weaver_sage_leggings: 640
+    custom:mage_weaver_sage_boots: 400
+    custom:mage_weaver_starseer_helmet: 960
+    custom:mage_weaver_starseer_chestplate: 1440
+    custom:mage_weaver_starseer_leggings: 1280
+    custom:mage_weaver_starseer_boots: 800
+    custom:mage_guardian_archmage_helmet: 240
+    custom:mage_guardian_archmage_chestplate: 360
+    custom:mage_guardian_archmage_leggings: 320
+    custom:mage_guardian_archmage_boots: 200
+    custom:mage_guardian_sage_helmet: 480
+    custom:mage_guardian_sage_chestplate: 720
+    custom:mage_guardian_sage_leggings: 640
+    custom:mage_guardian_sage_boots: 400
+    custom:mage_guardian_starseer_helmet: 960
+    custom:mage_guardian_starseer_chestplate: 1440
+    custom:mage_guardian_starseer_leggings: 1280
+    custom:mage_guardian_starseer_boots: 800
 ars-magic:
   kill-exp:
     enabled: true

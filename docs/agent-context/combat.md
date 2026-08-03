@@ -405,6 +405,23 @@ Java側（`RampParser`/`MobTypesConfig#parseLevelCoefficients` 等）に新し�
 出荷値の上限は 0.45（`MobOverridesConfigTest` にガードあり）。同じ理由で、被ダメージを上げたい
 ときに `fixed-damage`（全防御貫通）を使うのは禁じ手 —— 対策手段が存在しなくなる。
 
+### 魔法防御を持つ防具は「守護/魔織シリーズ」だけ（`LEATHER_*#2000xx` / `#2002xx`）
+
+`stats/item-stats.yml` を全数確認した結果（2026-08-03）、`magic-flat-defense` /
+`magic-resistance` を持つ**防具**はこのシリーズのみ。**バニラ素材の防具は Lv100 のネザライトまで
+含めて全部位が `phys-*` だけ**を持つ。他に魔法防御を拾える経路はスレッド
+（陶器の欠片／鍛冶テンプレート）のランダムロール（`magic-flat-defense: 0.6〜2`・付与確率45%）だけ。
+
+- 段は **Lv20 見習い / Lv40 魔術師 / Lv60 大魔導士 / Lv80 賢者 / Lv100 星詠み**
+  （Lv80・Lv100 は 2026-08-03 追加。追加前は Lv60 が打ち止めで、Lv61以降は
+  「Lv60 の防具を着続けて物理を捨てる」か「魔法を捨ててネザライト」の二択だった）
+- **`use-level-requirement` は下限**なので、上位帯のプレイヤーが下位段を着ること自体はできる。
+  「Lv61以降は魔法防御ゼロ」ではなく「**レベル相応の魔法防御装備が無い**」が正しい
+- **このシリーズは resourcepack にモデルを持たない**（`cmd-registry.json` にしか出てこない
+  ＝ `color:` で染めた革防具）。段を足すときテクスチャ／モデルの作業は要らない
+- `mage_arcane_*`（CMD 200031-200054）は **item-stats と cmd-registry にだけ存在し
+  `catalog.yml` に定義が無い未配線シリーズ**。入手経路が無いので数に入れないこと
+
 ### `mob-overrides.yml` の scope 直下 `stats:`（ダンジョン全体の既定）
 
 `level-cutoff:` と同じく `overrides.<worldName>.stats:` を `mobs:` と同階層に書ける（2026-08-03）。
