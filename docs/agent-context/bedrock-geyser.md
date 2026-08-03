@@ -262,3 +262,33 @@ cube boneのpivot（RainbowはAABB中心、Java準拠実装は`[0,8,0]`）、一
 ## 関連
 - [./config-editor.md](./config-editor.md)
 - [./common-traps.md](./common-traps.md)
+
+## CMD 付きアイテムは、バニラの「描画構造」まで引き継がないと板ポリになる（2026-08-03）
+
+1.21.4 以降の `assets/minecraft/items/<material>.json` は、単なるモデル指定ではなく
+**描画の分岐ツリー**である。マテリアルによっては、同じアイテムが状況で別モデルになる:
+
+| マテリアル | バニラの構造 | 捨てると失うもの |
+|---|---|---|
+| `trident` | `display_context` で GUI と手持ちを分け、手持ち/投擲は `minecraft:special` の専用レンダラ | **立体モデルと投擲アニメーション**（板ポリ化） |
+| `bow` | `using_item` + `use_duration` で `bow_pulling_0/1/2` を切替 | **引き絞りの3段階**（引いてもモデルが変わらない） |
+| `*_spear` | `display_context` で GUI アイコンと `*_spear_in_hand` を分ける | **槍の構え**（GUI 用の姿勢のまま持つ） |
+| 防具 | `trim_material` で鍛冶型ごとのモデル | アイコンの鍛冶型差（描画コンテキスト由来ではないので TF は意図的に畳んでいる） |
+
+**CMD エントリを素の `minecraft:model` 1個へ潰すと、この構造ごと消える。**
+`fallback`（CMD なし＝バニラ品）だけは正しいままなので、**素の鉄の剣を見ても気づけない**。
+実際 2026-08-03 まで、カスタムのトライデント10種・弓10種・槍3種が全部これで壊れていた。
+
+- 正しいやり方は `tools/config-editor/lib/respack.js` の `entryModelFor()`:
+  バニラのツリーを複製し、`minecraft:model` リーフだけをカスタムへ差し替える。
+  `minecraft:special` は**テクスチャを差し替える手段がそもそも無い**ので触らない
+  （＝カスタムトライデントの手持ち見た目はバニラ固定。GUI アイコンだけ独自にできる）。
+- 自動生成モデルの `parent` は `handheld` / `generated` の2択にしてはいけない。
+  バニラは弓・メイス・槍で **別々の display 変換**を持つ（`item/bow` / `item/handheld_mace` /
+  `item/spear_in_hand`）ので、2択だと全部剣の構えになる。`parent` はそのマテリアルの
+  バニラモデル id をそのまま指し、`layer0` だけ差し替えるのが正。
+- バニラ側の一次情報はクライアント jar
+  (`~/AppData/Roaming/.minecraft/versions/1.21.11/1.21.11.jar`) から直接読むこと。
+  `tools/config-editor/lib/vanilla-item-defs-1.21.11.json` は `items/*.json` の逐語コピーだが、
+  `models/item/*.json`（parent と display）は入っていない。
+- 退行は `resourcepack/build_item_pack.py` の `check_render_structure()` がビルド時に落とす。
