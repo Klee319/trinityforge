@@ -914,6 +914,35 @@ items:
     per-quality:
       durability: 6
     use-skill: FISHING
+  # ==========================================================================
+  # 防具の重装/軽装 序列ルール (2026-08-03 要件#17)
+  #
+  # 【直した不具合】重装(HEAVY_ARMOR)より軽装(LIGHT_ARMOR)のほうが硬かった。
+  # 2026-07-25 のラダー調整は重装と軽装に「同じ守備力・同じ最大体力」を配り、差は
+  # 回避/移動速度/防具値/物理耐性だけに置いた。ところがその物理耐性が軽装のほうが高く
+  # (例 Lv60: 軽装 0.449 / 重装 0.260)、回避の優位と合わさって軽装が約16%硬かった。
+  #
+  # 【今の決まり】同じ必要レベルどうしで比べたとき:
+  #   ・軽装の phys-resistance = 同レベル・同部位の重装の 0.60 倍
+  #     (もともとそれ以下なら据え置き。素の革だけは Lv0 の銅と回避差が大きすぎるので半分にした)
+  #   ・軽装の fixed.max-health = 0(体力ボーナスは重装の取り柄。軽装は random: の上振れ分だけ残る)
+  #   ・phys-flat-defense と armor-defense-rate、random: ブロック、回避/移動速度/防具強度/
+  #     スレッド枠/耐久/魔法防御は一切触っていない。
+  #     ← 守備力と体力の絶対値は 2026-07-25 のラダー(S理論値20発/厳選なし6発)を
+  #       tools/config-editor/test/armor-ladder.test.js が出荷ymlから実測して固定している。
+  #       ここを動かすとラダーが即座に壊れるので、序列づけは上の2軸だけで行う。
+  #
+  # 【結果】1セット装備時の実効被ダメージ係数(回避×防具値×耐性×守備力×体力プール)は
+  # 重装のほうが低い(=硬い)。軽装比:
+  #   Lv0 -21% / Lv0(骨鎧) -24% / Lv10 -24% / Lv15 -43% / Lv35 -48% /
+  #   Lv45 -48% / Lv60 -59% / Lv80 -67% / Lv100 -62%
+  # この序列は ArmorHeavyVersusLightDefenseOrderTest が出荷ymlを実読して固定している。
+  # 数値を戻すと同テストが落ちる。
+  #
+  # 【できなかったこと】魔法防具(mage_* = 守護/魔織/糸)には同じ序列を付けられない。
+  # item-stat-coverage.test.js が mage_* に対して phys-resistance / phys-flat-defense /
+  # max-health を「未設定であること」で縛っており、使える軸が1つも残らないため。
+  # ==========================================================================
   LEATHER_HELMET:
     fixed:
       armor-defense-rate: 1
@@ -1153,7 +1182,7 @@ items:
       armor-defense-rate: 2
       durability: 99
       phys-resistance: 0.029
-      phys-flat-defense: 1
+      phys-flat-defense: 1.0
       armor-strength: 0.15
       dodge-chance: 0.018
       max-health: 1.5
@@ -1216,7 +1245,7 @@ items:
       armor-defense-rate: 2
       durability: 117
       phys-resistance: 0.029
-      phys-flat-defense: 1
+      phys-flat-defense: 1.0
       armor-strength: 0.15
       move-speed: -0.002
       max-health: 1.5
@@ -1484,7 +1513,7 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 99
-      phys-resistance: 0.006
+      phys-resistance: 0.005
       phys-flat-defense: 3
       armor-strength: 0.04
       dodge-chance: 0.061
@@ -1501,11 +1530,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 89
-      phys-resistance: 0.033
+      phys-resistance: 0.011
       phys-flat-defense: 0.47
       armor-strength: 0.014
       dodge-chance: 0.017
-      max-health: 0.45
+      max-health: 0
     per-quality:
       durability: 15
     use-level-requirement: 0
@@ -1522,10 +1551,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 130
-      phys-resistance: 0.087
+      phys-resistance: 0.028
       phys-flat-defense: 1.24
       dodge-chance: 0.011
-      max-health: 1.2
+      max-health: 0
     per-quality:
       durability: 22
     use-level-requirement: 0
@@ -1542,10 +1571,10 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 122
-      phys-resistance: 0.066
+      phys-resistance: 0.021
       phys-flat-defense: 0.93
       move-speed: 0.003
-      max-health: 0.9
+      max-health: 0
     per-quality:
       durability: 20
     use-level-requirement: 0
@@ -1562,11 +1591,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 105
-      phys-resistance: 0.033
+      phys-resistance: 0.011
       phys-flat-defense: 0.47
       armor-strength: 0.014
       move-speed: 0.001
-      max-health: 0.45
+      max-health: 0
     per-quality:
       durability: 18
     use-level-requirement: 0
@@ -1583,11 +1612,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 84
-      phys-resistance: 0.021
+      phys-resistance: 0.005
       phys-flat-defense: 0.96
       armor-strength: 0.028
       dodge-chance: 0.034
-      max-health: 0.9
+      max-health: 0
     per-quality:
       durability: 14
     use-level-requirement: 10
@@ -1604,10 +1633,10 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 122
-      phys-resistance: 0.057
+      phys-resistance: 0.014
       phys-flat-defense: 2.56
       dodge-chance: 0.023
-      max-health: 2.4
+      max-health: 0
     per-quality:
       durability: 20
     use-level-requirement: 10
@@ -1624,10 +1653,10 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 115
-      phys-resistance: 0.042
+      phys-resistance: 0.011
       phys-flat-defense: 1.92
       move-speed: 0.005
-      max-health: 1.8
+      max-health: 0
     per-quality:
       durability: 19
     use-level-requirement: 10
@@ -1644,11 +1673,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 99
-      phys-resistance: 0.021
+      phys-resistance: 0.005
       phys-flat-defense: 0.96
       armor-strength: 0.028
       move-speed: 0.002
-      max-health: 0.9
+      max-health: 0
     per-quality:
       durability: 17
     use-level-requirement: 10
@@ -1665,11 +1694,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 84
-      phys-resistance: 0.052
-      phys-flat-defense: 1
+      phys-resistance: 0.017
+      phys-flat-defense: 1.0
       armor-strength: 0.042
       dodge-chance: 0.051
-      max-health: 1.5
+      max-health: 0
     per-quality:
       durability: 14
     use-level-requirement: 15
@@ -1686,10 +1715,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 122
-      phys-resistance: 0.137
+      phys-resistance: 0.047
       phys-flat-defense: 2.68
       dodge-chance: 0.034
-      max-health: 4
+      max-health: 0
     per-quality:
       durability: 20
     use-level-requirement: 15
@@ -1706,10 +1735,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 115
-      phys-resistance: 0.103
+      phys-resistance: 0.035
       phys-flat-defense: 2.01
       move-speed: 0.007
-      max-health: 3
+      max-health: 0
     per-quality:
       durability: 19
     use-level-requirement: 15
@@ -1726,11 +1755,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 99
-      phys-resistance: 0.052
-      phys-flat-defense: 1
+      phys-resistance: 0.017
+      phys-flat-defense: 1.0
       armor-strength: 0.042
       move-speed: 0.003
-      max-health: 1.5
+      max-health: 0
     per-quality:
       durability: 17
     use-level-requirement: 15
@@ -1747,11 +1776,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 39
-      phys-resistance: 0.045
+      phys-resistance: 0.019
       phys-flat-defense: 1.82
       armor-strength: 0.046
       dodge-chance: 0.047
-      max-health: 2.1
+      max-health: 0
     per-quality:
       durability: 7
     use-level-requirement: 35
@@ -1768,10 +1797,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 57
-      phys-resistance: 0.12
+      phys-resistance: 0.052
       phys-flat-defense: 4.84
       dodge-chance: 0.031
-      max-health: 5.6
+      max-health: 0
     per-quality:
       durability: 10
     use-level-requirement: 35
@@ -1788,10 +1817,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 54
-      phys-resistance: 0.09
+      phys-resistance: 0.038
       phys-flat-defense: 3.63
       move-speed: 0.009
-      max-health: 4.2
+      max-health: 0
     per-quality:
       durability: 9
     use-level-requirement: 35
@@ -1808,11 +1837,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 46
-      phys-resistance: 0.045
+      phys-resistance: 0.019
       phys-flat-defense: 1.82
       armor-strength: 0.046
       move-speed: 0.004
-      max-health: 2.1
+      max-health: 0
     per-quality:
       durability: 8
     use-level-requirement: 35
@@ -1829,11 +1858,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 184
-      phys-resistance: 0.052
+      phys-resistance: 0.011
       phys-flat-defense: 3.39
       armor-strength: 0.049
       dodge-chance: 0.04
-      max-health: 2.7
+      max-health: 0
     per-quality:
       durability: 31
     use-level-requirement: 45
@@ -1850,10 +1879,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 269
-      phys-resistance: 0.138
+      phys-resistance: 0.029
       phys-flat-defense: 9.04
       dodge-chance: 0.027
-      max-health: 7.2
+      max-health: 0
     per-quality:
       durability: 45
     use-level-requirement: 45
@@ -1870,10 +1899,10 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 252
-      phys-resistance: 0.104
+      phys-resistance: 0.022
       phys-flat-defense: 6.78
       move-speed: 0.012
-      max-health: 5.4
+      max-health: 0
     per-quality:
       durability: 42
     use-level-requirement: 45
@@ -1890,11 +1919,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 218
-      phys-resistance: 0.052
+      phys-resistance: 0.011
       phys-flat-defense: 3.39
       armor-strength: 0.049
       move-speed: 0.005
-      max-health: 2.7
+      max-health: 0
     per-quality:
       durability: 36
     use-level-requirement: 45
@@ -1911,11 +1940,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 207
-      phys-resistance: 0.067
+      phys-resistance: 0.023
       phys-flat-defense: 5.52
       armor-strength: 0.053
       dodge-chance: 0.034
-      max-health: 3.45
+      max-health: 0
     per-quality:
       durability: 35
     use-level-requirement: 60
@@ -1932,10 +1961,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 302
-      phys-resistance: 0.18
+      phys-resistance: 0.062
       phys-flat-defense: 14.72
       dodge-chance: 0.023
-      max-health: 9.2
+      max-health: 0
     per-quality:
       durability: 50
     use-level-requirement: 60
@@ -1952,10 +1981,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 283
-      phys-resistance: 0.135
+      phys-resistance: 0.047
       phys-flat-defense: 11.04
       move-speed: 0.015
-      max-health: 6.9
+      max-health: 0
     per-quality:
       durability: 47
     use-level-requirement: 60
@@ -1972,11 +2001,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 245
-      phys-resistance: 0.067
+      phys-resistance: 0.023
       phys-flat-defense: 5.52
       armor-strength: 0.053
       move-speed: 0.006
-      max-health: 3.45
+      max-health: 0
     per-quality:
       durability: 41
     use-level-requirement: 60
@@ -1993,11 +2022,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 296
-      phys-resistance: 0.076
+      phys-resistance: 0.031
       phys-flat-defense: 9.32
       armor-strength: 0.063
       dodge-chance: 0.017
-      max-health: 3.9
+      max-health: 0
     per-quality:
       durability: 49
     use-level-requirement: 80
@@ -2014,10 +2043,10 @@ items:
     fixed:
       armor-defense-rate: 3
       durability: 428
-      phys-resistance: 0.203
+      phys-resistance: 0.081
       phys-flat-defense: 24.84
       dodge-chance: 0.011
-      max-health: 10.4
+      max-health: 0
     per-quality:
       durability: 71
     use-level-requirement: 80
@@ -2034,10 +2063,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 403
-      phys-resistance: 0.152
+      phys-resistance: 0.061
       phys-flat-defense: 18.63
       move-speed: 0.018
-      max-health: 7.8
+      max-health: 0
     per-quality:
       durability: 67
     use-level-requirement: 80
@@ -2054,11 +2083,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 347
-      phys-resistance: 0.076
+      phys-resistance: 0.031
       phys-flat-defense: 9.32
       armor-strength: 0.063
       move-speed: 0.008
-      max-health: 3.9
+      max-health: 0
     per-quality:
       durability: 58
     use-level-requirement: 80
@@ -2192,41 +2221,6 @@ items:
       move-speed:
         min: -0.02
         max: 0.004
-  GOLDEN_SWORD#59:
-    fixed:
-      attack-power: 396
-      attack-speed: 1.6
-      attack-reach: 0
-      crit-chance: 0.08
-      crit-damage: 0.5
-      penetration: 0.05
-      damage-modifier: 0.98
-      durability: 19
-    per-quality:
-      attack-power: 16.5
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
-      durability: 3
-    use-level-requirement: 35
-    use-skill: LIGHT_WEAPONS
-    quality-mode-offset: -4
-    random:
-      attack-power:
-        min: -605
-        max: 550
-      crit-chance:
-        min: -0.34
-        max: 0.26
-      crit-damage:
-        min: -0.7
-        max: 0.7
-      penetration:
-        min: -0.25
-        max: 0.225
-      damage-modifier:
-        min: -1.6
-        max: 1.65
   WOODEN_AXE#77:
     fixed:
       attack-power: 86.8
@@ -6313,37 +6307,6 @@ items:
       crit-chance:
         min: -0.04
         max: 0.06
-  # 杖(触媒)シリーズのCT(item-cooldown)は2026-08-02導入。「杖が強すぎる」対策。
-  # 火力ランキング(このファイル内のattack-power実値による): wooden<stone<copper<iron<golden<diamond<netherite
-  # <wither<dragon<infinity。CTはこの順に 3.0s → 1.8s へ緩やかに下げる。
-  #
-  # 【この刻み幅にした理由 — 逆効果になる罠がある】
-  # 「上位ほどCTを大きく短くする」設計にすると、CTが火力差を抑えるどころか【広げる】。
-  # 攻撃力の開きは 17.6 → 10584 の約601倍だが、当初案(6.0s → 1.5s)だと秒間火力の開きは
-  # 2.9 → 7056 の約2434倍まで膨らみ、抑えたかった最上位帯がいちばん抑えられない結果になる。
-  # そこでCTの幅を 3.0s → 1.8s(1.67倍)まで詰め、増幅を最小限にした。
-  # ⚠️ 最上位帯を【本当に】頭打ちにしたいなら、CTは全シリーズ一律にするか、上位ほど長くする必要がある
-  #    (一律にすると秒間火力の開きは攻撃力の開き=601倍と一致する)。ここは運用判断で切り替えられる。
-  # 下位を6秒台にしなかったのは、初期杖が「17.6ダメージを6秒に1回」になり序盤が成立しないため。
-  # 値を変えるときはこのブロックのfixed.item-cooldownだけを編集すればよい(SpellCaster.java:274-284が
-  # TrinityForgeBridge.itemCooldownSeconds/startItemCooldown経由でこの値を読み、詠唱成功後にCTを開始する)。
-  # 上限は stats/lore.yml の item-cooldown.limits.max-duration-ticks-ref (72000tick=1時間、CombatListener.
-  # ITEM_COOLDOWN_MAX_TICKS) で、ここで書く数秒オーダーの値には無関係。
-  # cooldown_reduction(アイテムCT短縮ステ)は現状ArsPaperフォーク側のTrinityForgeBridge.startItemCooldownが
-  # 適用しない(近接専用CombatListener.startItemCooldownだけがこの乗算を行う)ため、触媒CTは現時点では
-  # cooldown_reductionの影響を受けない。したがって「短縮ステでCTが0になる」懸念は今は発生しないが、
-  # 将来フォーク側にcooldown_reduction適用を足す場合は近接側と同じ下限クランプ(Math.max(0.05, 1.0-min(0.9,r)))
-  # を必ず入れること。
-  #
-  # 【2026-08-02 タスク#35: 杖に攻撃ステータスを足す】
-  # 杖(BLAZE_ROD#400001/#400002〜#400008/#400012〜#400014の11件)は attack-power/attack-speed/
-  # mana-*/source-cost-reduction/thread-slots/item-cooldown しか持たず、crit-chance等の攻撃系が
-  # 無かったため近接武器より一段弱く感じられていた。近接武器(LIGHT_WEAPONS の剣シリーズ)は
-  # 全ティア共通で crit-chance: 0.08 / crit-damage: 0.5 / penetration: 0.05
-  # (per-quality +0.003/+0.02/+0.004)を持つ(＝ティアごとに変えていない、attack-power側で序列を作る
-  # 設計)ので、杖にも同じ値をそのまま横展開した。これで直前に入れた item-cooldown(3.0→1.8秒)ぶんの
-  # 手数低下を、命中あたりの期待ダメージ側で補う形になる。ENDER_EYE#85(タスク対象外の杖類似品)は
-  # 意図的に対象から外している。
   BLAZE_ROD#400008:
     fixed:
       attack-power: 17.6
@@ -6355,7 +6318,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.03
       thread-slots: 1
-      item-cooldown: 3.0
+      item-cooldown: 3
     per-quality:
       attack-power: 0.7
       crit-chance: 0.003
@@ -6523,7 +6486,7 @@ items:
       mana-regen: 5.6
       source-cost-reduction: 0.23
       thread-slots: 3
-      item-cooldown: 2.0
+      item-cooldown: 2
     per-quality:
       attack-power: 274.4
       crit-chance: 0.003
@@ -6554,11 +6517,6 @@ items:
     use-level-requirement: 80
     use-skill: ARS_MAGIC
     quality-mode-offset: -7
-  # ember_wand。ArsPaper の spellbooks.yml に触媒として登録されている唯一の初期杖で、
-  # ステータスは BLAZE_ROD#400008(木の杖)と完全に同一。にもかかわらず CT だけが
-  # spellbooks.yml 側の cooldown: 1.5 から来ていたため、【同格なのに CT が半分＝常に最適解】
-  # という状態だった。item-cooldown を 3.0 に揃えて他の杖と同じ土俵に乗せる
-  # (item-cooldown は spellbooks.yml の cooldown より優先されるので、あちらの 1.5 は無効化される)。
   BLAZE_ROD#400001:
     fixed:
       attack-power: 17.6
@@ -6570,7 +6528,7 @@ items:
       mana-regen: 1
       source-cost-reduction: 0.03
       thread-slots: 1
-      item-cooldown: 3.0
+      item-cooldown: 3
     per-quality:
       attack-power: 0.7
       crit-chance: 0.003
@@ -6722,12 +6680,12 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 217
-      phys-resistance: 0.025
-      phys-flat-defense: 1
+      phys-resistance: 0.018
+      phys-flat-defense: 1.0
       armor-strength: 0.055
       dodge-chance: 0.051
       thread-slots: 2
-      max-health: 1.5
+      max-health: 0
     per-quality:
       durability: 36
     use-level-requirement: 25
@@ -6767,12 +6725,12 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 390
-      phys-resistance: 0.055
+      phys-resistance: 0.013
       phys-flat-defense: 16.68
       armor-strength: 0.02
       dodge-chance: 0.092
       thread-slots: 3
-      max-health: 4.5
+      max-health: 0
     per-quality:
       durability: 65
     use-level-requirement: 100
@@ -6810,11 +6768,11 @@ items:
     fixed:
       armor-defense-rate: 3
       durability: 316
-      phys-resistance: 0.066
+      phys-resistance: 0.049
       phys-flat-defense: 2.68
       dodge-chance: 0.034
       thread-slots: 2
-      max-health: 4
+      max-health: 0
     per-quality:
       durability: 53
     use-level-requirement: 25
@@ -6853,11 +6811,11 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 564
-      phys-resistance: 0.146
+      phys-resistance: 0.034
       phys-flat-defense: 44.48
       dodge-chance: 0.061
       thread-slots: 3
-      max-health: 12
+      max-health: 0
     per-quality:
       durability: 94
     use-level-requirement: 100
@@ -6894,11 +6852,11 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 297
-      phys-resistance: 0.049
+      phys-resistance: 0.037
       phys-flat-defense: 2.01
       move-speed: 0.007
       thread-slots: 2
-      max-health: 3
+      max-health: 0
     per-quality:
       durability: 50
     use-level-requirement: 25
@@ -6936,11 +6894,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 531
-      phys-resistance: 0.109
+      phys-resistance: 0.025
       phys-flat-defense: 33.36
       move-speed: 0.021
       thread-slots: 3
-      max-health: 9
+      max-health: 0
     per-quality:
       durability: 89
     use-level-requirement: 100
@@ -6977,12 +6935,12 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 257
-      phys-resistance: 0.025
-      phys-flat-defense: 1
+      phys-resistance: 0.018
+      phys-flat-defense: 1.0
       armor-strength: 0.055
       move-speed: 0.003
       thread-slots: 2
-      max-health: 1.5
+      max-health: 0
     per-quality:
       durability: 43
     use-level-requirement: 25
@@ -7021,12 +6979,12 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 456
-      phys-resistance: 0.055
+      phys-resistance: 0.013
       phys-flat-defense: 16.68
       armor-strength: 0.02
       move-speed: 0.009
       thread-slots: 3
-      max-health: 4.5
+      max-health: 0
     per-quality:
       durability: 76
     use-level-requirement: 100
@@ -7060,6 +7018,11 @@ items:
       max-health:
         min: 0
         max: 1.5
+  # 守護シリーズ(HEAVY_ARMOR)と魔織/糸(LIGHT_ARMOR)には重装優位を付けられていない。
+  # この系統は物理防御が random: にしか無く、fixed の phys-resistance / phys-flat-defense /
+  # max-health は tools/config-editor/test/item-stat-coverage.test.js が「未設定であること」で
+  # 縛っているため、要件#17 で使ってよい軸が1つも残らない(魔法防御そのものを動かすのは別要件)。
+  # ここを直すには先にあのテストの契約を変える必要がある。
   LEATHER_HELMET#200001:
     fixed:
       armor-defense-rate: 2
@@ -7876,16 +7839,403 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
+  # ==========================================================================
+  # 守護/魔織シリーズの Lv80「賢者」/ Lv100「星詠み」(2026-08-03 追加)
+  #
+  # 【なぜ足したか】魔法防御(magic-flat-defense / magic-resistance)を持つ防具は
+  # このシリーズだけで、上限が Lv60「大魔導士」だった。Lv61以降は装備を新調しても
+  # 魔法防御が一切伸びず、「Lv60 の防具を着続けて物理を捨てる」か「魔法を捨てて
+  # ネザライトを着る」かの二択に固定されていた(バニラ系防具は全部位 magic-* がゼロ)。
+  # ダンジョンのコンセプトで magic-ratio 0.45 を割り当てた11ダンジョンが Lv61以降で
+  # 対策不能に近くなるため、レベル相応の選択肢として2段追加した。
+  #
+  # 【数値の作り方】既存3段(Lv20/40/60)の段間比をそのまま延長している:
+  #   durability ×1.6 / magic-flat-defense ×2.2 / mana-bonus ×2.25 /
+  #   per-quality durability ×1.6 / quality-mode-offset -2 / mana-regen +1.2 /
+  #   random phys-flat-defense ×2.5
+  # 防御率(armor-defense-rate)・防具強度・回避・スレッド枠・移動速度は既存3段で
+  # 一定なので据え置き。
+  #
+  # 【⚠️ 率(magic-resistance / random phys-resistance)だけ段間比を落としている】
+  # 既存の段間比(魔法耐性 ×1.56)をそのまま延ばすと、Lv100 の1セット合計が
+  # 0.365 → 0.57 → 0.89 になり 100% に張り付く。率は乗算で効くので、
+  # 上限に近づくほど「1段上げただけで無敵になる」方向に壊れる。
+  # レベル追随は【固定値(flat-defense)】側で行い、率は
+  # magic-resistance ×1.18 → ×1.14(セット合計 0.365→0.43→0.49)、
+  # random phys-resistance ×1.25 → ×1.20 に抑えている。
+  # ここを触るときは率ではなく「無対策/対策済みで何発耐えるか」で判断すること。
+  # ==========================================================================
+  LEATHER_HELMET#200201:
+    fixed:
+      armor-defense-rate: 2
+      durability: 461
+      armor-strength: 0.15
+      dodge-chance: 0.018
+      thread-slots: 1
+      mana-bonus: 30.4
+      magic-resistance: 0.065
+      magic-flat-defense: 73
+      mana-regen: 4.8
+      move-speed: -0.002
+    per-quality:
+      durability: 77
+    use-level-requirement: 80
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 8.215
+        max: 19.463
+      phys-resistance:
+        min: 0.025
+        max: 0.046
+  LEATHER_CHESTPLATE#200202:
+    fixed:
+      armor-defense-rate: 6
+      durability: 672
+      dodge-chance: 0.012
+      thread-slots: 1
+      mana-bonus: 81
+      magic-resistance: 0.172
+      magic-flat-defense: 194
+      mana-regen: 4.8
+      move-speed: -0.004
+    per-quality:
+      durability: 112
+    use-level-requirement: 80
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 21.908
+        max: 51.903
+      phys-resistance:
+        min: 0.066
+        max: 0.123
+  LEATHER_LEGGINGS#200203:
+    fixed:
+      armor-defense-rate: 4
+      durability: 629
+      move-speed: -0.004
+      thread-slots: 1
+      mana-bonus: 60.8
+      magic-resistance: 0.129
+      magic-flat-defense: 145
+      mana-regen: 4.8
+    per-quality:
+      durability: 106
+    use-level-requirement: 80
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 16.430
+        max: 38.928
+      phys-resistance:
+        min: 0.049
+        max: 0.091
+  LEATHER_BOOTS#200204:
+    fixed:
+      armor-defense-rate: 2
+      durability: 538
+      armor-strength: 0.15
+      move-speed: -0.002
+      thread-slots: 1
+      mana-bonus: 30.4
+      magic-resistance: 0.065
+      magic-flat-defense: 73
+      mana-regen: 4.8
+    per-quality:
+      durability: 90
+    use-level-requirement: 80
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 8.215
+        max: 19.463
+      phys-resistance:
+        min: 0.025
+        max: 0.046
+  LEATHER_HELMET#200211:
+    fixed:
+      armor-defense-rate: 2
+      durability: 738
+      armor-strength: 0.15
+      dodge-chance: 0.018
+      thread-slots: 1
+      mana-bonus: 68.4
+      magic-resistance: 0.074
+      magic-flat-defense: 161
+      mana-regen: 6.0
+      move-speed: -0.002
+    per-quality:
+      durability: 123
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 20.538
+        max: 48.658
+      phys-resistance:
+        min: 0.030
+        max: 0.055
+  LEATHER_CHESTPLATE#200212:
+    fixed:
+      armor-defense-rate: 6
+      durability: 1075
+      dodge-chance: 0.012
+      thread-slots: 1
+      mana-bonus: 182
+      magic-resistance: 0.196
+      magic-flat-defense: 427
+      mana-regen: 6.0
+      move-speed: -0.004
+    per-quality:
+      durability: 179
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 54.770
+        max: 129.758
+      phys-resistance:
+        min: 0.079
+        max: 0.148
+  LEATHER_LEGGINGS#200213:
+    fixed:
+      armor-defense-rate: 4
+      durability: 1006
+      move-speed: -0.004
+      thread-slots: 1
+      mana-bonus: 137
+      magic-resistance: 0.147
+      magic-flat-defense: 319
+      mana-regen: 6.0
+    per-quality:
+      durability: 170
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 41.075
+        max: 97.320
+      phys-resistance:
+        min: 0.059
+        max: 0.109
+  LEATHER_BOOTS#200214:
+    fixed:
+      armor-defense-rate: 2
+      durability: 861
+      armor-strength: 0.15
+      move-speed: -0.002
+      thread-slots: 1
+      mana-bonus: 68.4
+      magic-resistance: 0.074
+      magic-flat-defense: 161
+      mana-regen: 6.0
+    per-quality:
+      durability: 144
+    use-level-requirement: 100
+    use-skill: HEAVY_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 20.538
+        max: 48.658
+      phys-resistance:
+        min: 0.030
+        max: 0.055
+  LEATHER_HELMET#200221:
+    fixed:
+      armor-defense-rate: 1
+      durability: 461
+      armor-strength: 0.02
+      dodge-chance: 0.092
+      thread-slots: 4
+      mana-bonus: 40.5
+      magic-resistance: 0.027
+      magic-flat-defense: 33
+      mana-regen: 4.8
+    per-quality:
+      durability: 77
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 8.215
+        max: 19.463
+      phys-resistance:
+        min: 0.016
+        max: 0.030
+  LEATHER_CHESTPLATE#200222:
+    fixed:
+      armor-defense-rate: 2
+      durability: 672
+      dodge-chance: 0.061
+      thread-slots: 4
+      mana-bonus: 108
+      magic-resistance: 0.072
+      magic-flat-defense: 88
+      mana-regen: 4.8
+    per-quality:
+      durability: 112
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 21.908
+        max: 51.903
+      phys-resistance:
+        min: 0.043
+        max: 0.080
+  LEATHER_LEGGINGS#200223:
+    fixed:
+      armor-defense-rate: 1
+      durability: 629
+      move-speed: 0.021
+      thread-slots: 4
+      mana-bonus: 81
+      magic-resistance: 0.054
+      magic-flat-defense: 66
+      mana-regen: 4.8
+    per-quality:
+      durability: 106
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 16.430
+        max: 38.928
+      phys-resistance:
+        min: 0.033
+        max: 0.060
+  LEATHER_BOOTS#200224:
+    fixed:
+      armor-defense-rate: 1
+      durability: 538
+      armor-strength: 0.02
+      move-speed: 0.009
+      thread-slots: 4
+      mana-bonus: 40.5
+      magic-resistance: 0.027
+      magic-flat-defense: 33
+      mana-regen: 4.8
+    per-quality:
+      durability: 90
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 8.215
+        max: 19.463
+      phys-resistance:
+        min: 0.016
+        max: 0.030
+  LEATHER_HELMET#200231:
+    fixed:
+      armor-defense-rate: 1
+      durability: 738
+      armor-strength: 0.02
+      dodge-chance: 0.092
+      thread-slots: 4
+      mana-bonus: 91
+      magic-resistance: 0.031
+      magic-flat-defense: 73
+      mana-regen: 6.0
+    per-quality:
+      durability: 123
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 20.538
+        max: 48.658
+      phys-resistance:
+        min: 0.019
+        max: 0.036
+  LEATHER_CHESTPLATE#200232:
+    fixed:
+      armor-defense-rate: 2
+      durability: 1075
+      dodge-chance: 0.061
+      thread-slots: 4
+      mana-bonus: 243
+      magic-resistance: 0.082
+      magic-flat-defense: 194
+      mana-regen: 6.0
+    per-quality:
+      durability: 179
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 54.770
+        max: 129.758
+      phys-resistance:
+        min: 0.052
+        max: 0.096
+  LEATHER_LEGGINGS#200233:
+    fixed:
+      armor-defense-rate: 1
+      durability: 1006
+      move-speed: 0.021
+      thread-slots: 4
+      mana-bonus: 182
+      magic-resistance: 0.062
+      magic-flat-defense: 145
+      mana-regen: 6.0
+    per-quality:
+      durability: 170
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 41.075
+        max: 97.320
+      phys-resistance:
+        min: 0.040
+        max: 0.072
+  LEATHER_BOOTS#200234:
+    fixed:
+      armor-defense-rate: 1
+      durability: 861
+      armor-strength: 0.02
+      move-speed: 0.009
+      thread-slots: 4
+      mana-bonus: 91
+      magic-resistance: 0.031
+      magic-flat-defense: 73
+      mana-regen: 6.0
+    per-quality:
+      durability: 144
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 20.538
+        max: 48.658
+      phys-resistance:
+        min: 0.019
+        max: 0.036
   GLOWSTONE#84:
     fixed:
       move-speed: 0.5
       mob-drop-bonus: 0.25
-  # ---- 2026-07-31 追加: 深淵(abyss_*) / 束縛者(binder_*) 装備のステータス ----
-  # infinity 同型のブロックから量キー(attack-power / fixed-damage / 守備力 / max-health)だけを
-  # 倍率でずらして作っている。率(crit / penetration / resistance)と耐久・攻撃速度は据え置き。
   NETHERITE_SWORD#5600:
     fixed:
-      attack-power: 30240.0
+      attack-power: 30240
       attack-speed: 1.6
       attack-reach: 0
       crit-chance: 0.08
@@ -7895,7 +8245,7 @@ items:
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1440.0
+      attack-power: 1440
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -7906,7 +8256,7 @@ items:
     random:
       attack-power:
         min: -4838.4
-        max: 6048.0
+        max: 6048
       crit-damage:
         min: -0.12
         max: 0.18
@@ -8006,7 +8356,7 @@ items:
         max: 0.15
   TRIDENT#5602:
     fixed:
-      attack-power: 27216.0
+      attack-power: 27216
       attack-speed: 0.1
       attack-reach: 0.5
       crit-chance: 0.06
@@ -8018,7 +8368,7 @@ items:
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1296.0
+      attack-power: 1296
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -8108,7 +8458,7 @@ items:
       crit-damage: 0.7
       penetration: 0.16
       damage-modifier: 0.84
-      fixed-damage: 2214.0
+      fixed-damage: 2214
       durability: 1218
       thread-slots: 3
     per-quality:
@@ -8292,7 +8642,7 @@ items:
         max: 0.15
   NETHERITE_SWORD#5606:
     fixed:
-      attack-power: 43470.0
+      attack-power: 43470
       attack-speed: 1.6
       attack-reach: 0
       crit-chance: 0.08
@@ -8302,7 +8652,7 @@ items:
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2070.0
+      attack-power: 2070
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -8313,7 +8663,7 @@ items:
     random:
       attack-power:
         min: -6955.2
-        max: 8694.0
+        max: 8694
       crit-damage:
         min: -0.12
         max: 0.18
@@ -8413,7 +8763,7 @@ items:
         max: 0.15
   TRIDENT#5608:
     fixed:
-      attack-power: 39123.0
+      attack-power: 39123
       attack-speed: 0.1
       attack-reach: 0.5
       crit-chance: 0.06
@@ -8425,7 +8775,7 @@ items:
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1863.0
+      attack-power: 1863
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -8704,7 +9054,7 @@ items:
       phys-resistance: 0.021
       phys-flat-defense: 19.18
       armor-strength: 0.338
-      max-health: 5.17
+      max-health: 5.174
       damage-reduction: 0.03
       move-speed: -0.002
     per-quality:
@@ -8714,10 +9064,10 @@ items:
     quality-mode-offset: -8
     random:
       phys-flat-defense:
-        min: 0.0
+        min: 0
         max: 2.56
       max-health:
-        min: 0.0
+        min: 0
         max: 1.72
   NETHERITE_CHESTPLATE#5611:
     fixed:
@@ -8725,7 +9075,7 @@ items:
       durability: 780
       phys-resistance: 0.056
       phys-flat-defense: 51.15
-      max-health: 13.8
+      max-health: 13.796
       damage-reduction: 0.03
       armor-strength: 0.075
       move-speed: -0.004
@@ -8736,10 +9086,10 @@ items:
     quality-mode-offset: -8
     random:
       phys-flat-defense:
-        min: 0.0
+        min: 0
         max: 6.85
       max-health:
-        min: 0.0
+        min: 0
         max: 4.6
   NETHERITE_LEGGINGS#5611:
     fixed:
@@ -8748,7 +9098,7 @@ items:
       phys-resistance: 0.042
       phys-flat-defense: 38.36
       move-speed: -0.004
-      max-health: 10.35
+      max-health: 10.347
       damage-reduction: 0.03
       armor-strength: 0.075
     per-quality:
@@ -8758,10 +9108,10 @@ items:
     quality-mode-offset: -8
     random:
       phys-flat-defense:
-        min: 0.0
+        min: 0
         max: 5.14
       max-health:
-        min: 0.0
+        min: 0
         max: 3.45
   NETHERITE_BOOTS#5611:
     fixed:
@@ -8771,7 +9121,7 @@ items:
       phys-flat-defense: 19.18
       armor-strength: 0.338
       move-speed: -0.002
-      max-health: 5.17
+      max-health: 5.174
       damage-reduction: 0.03
     per-quality:
       durability: 105
@@ -8780,13 +9130,11 @@ items:
     quality-mode-offset: -8
     random:
       phys-flat-defense:
-        min: 0.0
+        min: 0
         max: 2.56
       max-health:
-        min: 0.0
+        min: 0
         max: 1.72
-
-  # ===== 氷芯シリーズ (cryocore) =====
   NETHERITE_SWORD#5700:
     fixed:
       attack-power: 26460
@@ -9216,8 +9564,6 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-
-  # ===== 熾鉄シリーズ (emberforge) =====
   NETHERITE_SWORD#5720:
     fixed:
       attack-power: 32130
@@ -9715,9 +10061,6 @@ items:
       max-health:
         min: 0
         max: 1.5
-
-
-  # ===== 単発装備8点 (柱5-3) =====
   NETHERITE_SWORD#5740:
     fixed:
       attack-power: 4200
@@ -9754,10 +10097,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 620
-      phys-resistance: 0.18
+      phys-resistance: 0.062
       phys-flat-defense: 14.72
       dodge-chance: 0.05
-      max-health: 9.2
+      max-health: 0
       thread-slots: 1
       move-speed: 0.015
     per-quality:
@@ -9840,11 +10183,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 350
-      phys-resistance: 0.045
+      phys-resistance: 0.019
       phys-flat-defense: 1.82
       armor-strength: 0.046
       dodge-chance: 0.047
-      max-health: 2.1
+      max-health: 0
       thread-slots: 1
       food-restore-bonus: 0.2
     per-quality:
@@ -9893,17 +10236,14 @@ items:
       max-health:
         min: 0
         max: 0.6
-
-
-  # ===== ロール専用装備8点 (柱7) =====
   LEATHER_CHESTPLATE#5760:
     fixed:
       armor-defense-rate: 2
       durability: 269
-      phys-resistance: 0.138
+      phys-resistance: 0.029
       phys-flat-defense: 9.04
       dodge-chance: 0.027
-      max-health: 7.2
+      max-health: 0
       thread-slots: 1
       penetration: 0.04
     per-quality:
@@ -9953,10 +10293,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 269
-      phys-resistance: 0.138
+      phys-resistance: 0.029
       phys-flat-defense: 9.04
       dodge-chance: 0.027
-      max-health: 7.2
+      max-health: 0
       thread-slots: 1
       harvest-extra-drop-chance: 0.1
     per-quality:
@@ -9976,11 +10316,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 184
-      phys-resistance: 0.052
+      phys-resistance: 0.011
       phys-flat-defense: 3.39
       armor-strength: 0.049
       dodge-chance: 0.04
-      max-health: 2.7
+      max-health: 0
       thread-slots: 1
       fishing-luck: 0.02
     per-quality:
@@ -10000,11 +10340,11 @@ items:
     fixed:
       armor-defense-rate: 1
       durability: 184
-      phys-resistance: 0.052
+      phys-resistance: 0.011
       phys-flat-defense: 3.39
       armor-strength: 0.049
       dodge-chance: 0.04
-      max-health: 2.7
+      max-health: 0
       thread-slots: 1
       mining-fortune: 0.01
     per-quality:
@@ -10024,10 +10364,10 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 269
-      phys-resistance: 0.138
+      phys-resistance: 0.029
       phys-flat-defense: 9.04
       dodge-chance: 0.027
-      max-health: 7.2
+      max-health: 0
       thread-slots: 1
       suspicious-respawn-chance: 0.01
     per-quality:
@@ -10049,32 +10389,9 @@ items:
     offhand-stats-apply: true
     use-level-requirement: 45
     use-role: woodcutter
-
-  # ■ スレッド(items/catalog.yml の thread_* 40件) ── 2026-08-03、1件ずつ個別に定義する。
-  #   武器・防具とまったく同じ仕様で書く。スレッド専用の抽選テーブルは作らない
-  #   (2026-08-02 に random-roll-pools という専用層を作ってしまい撤去した経緯がある)。
-  #
-  #   ■ 1件の組み立て方(全40件で統一)
-  #     per-quality: 主ステ1種だけ。品質1段あたりの増分(品質は0..9なので最大で max の約4割ぶん上乗せ)。
-  #     random:      主ステ1種 + サブステ4種。値はアイテム個体の rollSeed で決まり、
-  #                  ブレ幅は品質が高いほど広がる(stats/quality.yml の roll-spread-*)。
-  #     advanced:    randomize-grants で「サブ4種のうち実際に付くもの」を1種ずつ抽選する。
-  #                  主ステは grant-chances に書かないので常に付く(未記載キーは確率1.0)。
-  #                  サブは各0.45なので、付くサブの本数は平均1.8種。
-  #
-  #   ■ レンジの小数桁 = 抽選の刻み幅。率系をあえて 0.018〜0.052 のように3桁で書いているのは、
-  #     0.02〜0.05 だと0.01刻み(4通り)になり厳選の当たり外れが潰れるため。
-  #
-  #   ■ 防具4部位 x 枠(1式9枠)まで装着できるので、主ステは最大9個ぶん乗る。
-  #     attack-power なら 9 x 620 + 品質分 ≈ 7800 で、インフィニティの剣(37800)の約2割が上限の目安。
-  #     さらに stat-caps がキー単位で最終上限を掛けるので暴走はしない。
-  #
-  #   ■ offhand-stats-apply: false は全件共通。スレッドは防具へ装着して初めて効く素材であり、
-  #     オフハンドに持っただけでステが乗ってはいけない。
   WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001:
-    # thread_empty: 効果を持たない中間素材(儀式で型付きスレッドに変換する)。ステは持たせない。
     offhand-stats-apply: false
-  DANGER_POTTERY_SHERD#300035: # thread_thorn 茨: 出血で削る
+  DANGER_POTTERY_SHERD#300035:
     per-quality:
       bleed-damage: 3
     random:
@@ -10101,7 +10418,7 @@ items:
         attack-power: 0.45
         damage-reduction: 0.45
     offhand-stats-apply: false
-  BLADE_POTTERY_SHERD#300036: # thread_concussion 脳震盪: 一撃の重さ
+  BLADE_POTTERY_SHERD#300036:
     per-quality:
       flat-bonus-damage: 0.12
     random:
@@ -10128,7 +10445,7 @@ items:
         penetration: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  ARCHER_POTTERY_SHERD#300038: # thread_marksman 狙撃: 会心を出す
+  ARCHER_POTTERY_SHERD#300038:
     per-quality:
       crit-chance: 0.002
     random:
@@ -10155,7 +10472,7 @@ items:
         attack-power: 0.45
         percent-bonus-damage: 0.45
     offhand-stats-apply: false
-  MOURNER_POTTERY_SHERD#300037: # thread_swiftcast 速唱: 手数で押す
+  MOURNER_POTTERY_SHERD#300037:
     per-quality:
       percent-bonus-damage: 0.002
     random:
@@ -10182,7 +10499,7 @@ items:
         magic-resistance: 0.45
         penetration: 0.45
     offhand-stats-apply: false
-  SKULL_POTTERY_SHERD#300028: # thread_spoils 戦利品: 素の火力
+  SKULL_POTTERY_SHERD#300028:
     per-quality:
       attack-power: 25
     random:
@@ -10209,7 +10526,7 @@ items:
         bleed-damage: 0.45
         penetration: 0.45
     offhand-stats-apply: false
-  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011: # thread_health_boost 体力増強: 物理を受ける
+  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011:
     per-quality:
       phys-flat-defense: 0.2
     random:
@@ -10236,7 +10553,7 @@ items:
         phys-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  SHELTER_POTTERY_SHERD#300033: # thread_endurance 耐久: 総ダメージを削る
+  SHELTER_POTTERY_SHERD#300033:
     per-quality:
       damage-reduction: 0.001
     random:
@@ -10263,7 +10580,7 @@ items:
         phys-flat-defense: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007: # thread_fire_resistance 火耐性: 魔法を受ける
+  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007:
     per-quality:
       magic-resistance: 0.0015
     random:
@@ -10290,7 +10607,7 @@ items:
         phys-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009: # thread_conduit_power 導管: 魔法防御の芯
+  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009:
     per-quality:
       magic-flat-defense: 0.2
     random:
@@ -10317,7 +10634,7 @@ items:
         phys-flat-defense: 0.45
         dodge-chance: 0.45
     offhand-stats-apply: false
-  HEART_POTTERY_SHERD#300032: # thread_mending_flesh 再生: 物理耐性
+  HEART_POTTERY_SHERD#300032:
     per-quality:
       phys-resistance: 0.0015
     random:
@@ -10344,7 +10661,7 @@ items:
         magic-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  GUSTER_POTTERY_SHERD#300039: # thread_slow_falling 緩落: 回避
+  GUSTER_POTTERY_SHERD#300039:
     per-quality:
       dodge-chance: 0.001
     random:
@@ -10371,7 +10688,7 @@ items:
         magic-flat-defense: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002: # thread_mana_regen マナ再生: 魔法火力
+  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002:
     per-quality:
       percent-bonus-damage: 0.002
     random:
@@ -10398,7 +10715,7 @@ items:
         magic-flat-defense: 0.45
         attack-power: 0.45
     offhand-stats-apply: false
-  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003: # thread_mana_boost マナ増強: 魔法防御
+  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003:
     per-quality:
       magic-flat-defense: 0.2
     random:
@@ -10425,7 +10742,7 @@ items:
         damage-reduction: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012: # thread_hit_mana_recovery 被弾回復: 耐える
+  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012:
     per-quality:
       magic-resistance: 0.0015
     random:
@@ -10452,7 +10769,7 @@ items:
         magic-flat-defense: 0.45
         dodge-chance: 0.45
     offhand-stats-apply: false
-  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013: # thread_damage_mana_recovery 与ダメ回復: 攻める
+  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013:
     per-quality:
       attack-power: 25
     random:
@@ -10479,7 +10796,7 @@ items:
         penetration: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
-  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014: # thread_spell_cost_down 詠唱軽減: 貫通
+  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014:
     per-quality:
       penetration: 0.002
     random:
@@ -10506,7 +10823,7 @@ items:
         attack-power: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
-  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017: # thread_mana_amplify 増幅: 会心ダメージ
+  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017:
     per-quality:
       crit-damage: 0.004
     random:
@@ -10533,7 +10850,7 @@ items:
         attack-power: 0.45
         penetration: 0.45
     offhand-stats-apply: false
-  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018: # thread_mana_circulate 循環: 会心率
+  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018:
     per-quality:
       crit-chance: 0.002
     random:
@@ -10560,7 +10877,7 @@ items:
         magic-resistance: 0.45
         attack-power: 0.45
     offhand-stats-apply: false
-  FLOW_POTTERY_SHERD#300019: # thread_source_thrift 源節約: 防具強度
+  FLOW_POTTERY_SHERD#300019:
     per-quality:
       armor-strength: 0.002
     random:
@@ -10587,7 +10904,7 @@ items:
         magic-flat-defense: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
-  BURN_POTTERY_SHERD#300031: # thread_scholar 学者: 魔法火力
+  BURN_POTTERY_SHERD#300031:
     per-quality:
       percent-bonus-damage: 0.002
     random:
@@ -10614,7 +10931,7 @@ items:
         magic-resistance: 0.45
         attack-power: 0.45
     offhand-stats-apply: false
-  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004: # thread_speed 俊足: 回避
+  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004:
     per-quality:
       dodge-chance: 0.001
     random:
@@ -10641,7 +10958,7 @@ items:
         damage-reduction: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
-  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005: # thread_jump_boost 跳躍: 手数
+  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005:
     per-quality:
       crit-chance: 0.002
     random:
@@ -10668,7 +10985,7 @@ items:
         flat-bonus-damage: 0.45
         penetration: 0.45
     offhand-stats-apply: false
-  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008: # thread_dolphins_grace 水泳: 回避と耐性
+  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008:
     per-quality:
       dodge-chance: 0.001
     random:
@@ -10695,7 +11012,7 @@ items:
         magic-flat-defense: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
-  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006: # thread_night_vision 暗視: 会心
+  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006:
     per-quality:
       crit-chance: 0.002
     random:
@@ -10722,7 +11039,7 @@ items:
         dodge-chance: 0.45
         crit-damage: 0.45
     offhand-stats-apply: false
-  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015: # thread_flight 飛行: 回避特化
+  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015:
     per-quality:
       dodge-chance: 0.001
     random:
@@ -10749,7 +11066,7 @@ items:
         phys-resistance: 0.45
         magic-flat-defense: 0.45
     offhand-stats-apply: false
-  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016: # thread_backpack 背負い袋: 物理防御
+  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016:
     per-quality:
       phys-flat-defense: 0.2
     random:
@@ -10776,7 +11093,7 @@ items:
         damage-reduction: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
-  ARMS_UP_POTTERY_SHERD#300020: # thread_artisan 職人: 防具強度
+  ARMS_UP_POTTERY_SHERD#300020:
     per-quality:
       armor-strength: 0.002
     random:
@@ -10803,7 +11120,7 @@ items:
         damage-reduction: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
-  BREWER_POTTERY_SHERD#300021: # thread_ritualist 儀式師: 魔法防御
+  BREWER_POTTERY_SHERD#300021:
     per-quality:
       magic-flat-defense: 0.2
     random:
@@ -10830,7 +11147,7 @@ items:
         damage-reduction: 0.45
         dodge-chance: 0.45
     offhand-stats-apply: false
-  PLENTY_POTTERY_SHERD#300022: # thread_thrift 倹約: 防具強度
+  PLENTY_POTTERY_SHERD#300022:
     per-quality:
       armor-strength: 0.002
     random:
@@ -10857,7 +11174,7 @@ items:
         magic-resistance: 0.45
         phys-flat-defense: 0.45
     offhand-stats-apply: false
-  SCRAPE_POTTERY_SHERD#300023: # thread_salvage 回収: 物理防御
+  SCRAPE_POTTERY_SHERD#300023:
     per-quality:
       phys-flat-defense: 0.2
     random:
@@ -10884,7 +11201,7 @@ items:
         magic-flat-defense: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
-  MINER_POTTERY_SHERD#300024: # thread_miner 採掘: 素の火力
+  MINER_POTTERY_SHERD#300024:
     per-quality:
       attack-power: 25
     random:
@@ -10911,7 +11228,7 @@ items:
         armor-strength: 0.45
         penetration: 0.45
     offhand-stats-apply: false
-  ANGLER_POTTERY_SHERD#300025: # thread_angler 釣り: 回避
+  ANGLER_POTTERY_SHERD#300025:
     per-quality:
       dodge-chance: 0.001
     random:
@@ -10938,7 +11255,7 @@ items:
         damage-reduction: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  SHEAF_POTTERY_SHERD#300026: # thread_harvest 収穫: 物理耐性
+  SHEAF_POTTERY_SHERD#300026:
     per-quality:
       phys-resistance: 0.0015
     random:
@@ -10965,7 +11282,7 @@ items:
         armor-strength: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
-  SNORT_POTTERY_SHERD#300027: # thread_timber 伐採: 素の火力
+  SNORT_POTTERY_SHERD#300027:
     per-quality:
       attack-power: 25
     random:
@@ -10992,7 +11309,7 @@ items:
         phys-flat-defense: 0.45
         crit-chance: 0.45
     offhand-stats-apply: false
-  FRIEND_POTTERY_SHERD#300029: # thread_diligence 勤勉: 被ダメ軽減
+  FRIEND_POTTERY_SHERD#300029:
     per-quality:
       damage-reduction: 0.001
     random:
@@ -11019,7 +11336,7 @@ items:
         armor-strength: 0.45
         phys-flat-defense: 0.45
     offhand-stats-apply: false
-  HEARTBREAK_POTTERY_SHERD#300034: # thread_gourmet 美食: 物理防御
+  HEARTBREAK_POTTERY_SHERD#300034:
     per-quality:
       phys-flat-defense: 0.2
     random:
@@ -11046,7 +11363,7 @@ items:
         phys-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
-  HOWL_POTTERY_SHERD#300030: # thread_experience 経験: 火力全般
+  HOWL_POTTERY_SHERD#300030:
     per-quality:
       percent-bonus-damage: 0.002
     random:
@@ -11073,7 +11390,7 @@ items:
         attack-power: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
-  EXPLORER_POTTERY_SHERD#300040: # thread_luck 幸運: 会心と回避
+  EXPLORER_POTTERY_SHERD#300040:
     per-quality:
       crit-chance: 0.002
     random:
@@ -11100,7 +11417,7 @@ items:
         percent-bonus-damage: 0.45
         bleed-chance: 0.45
     offhand-stats-apply: false
-  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010: # thread_hero_of_the_village 英雄: 攻防両取り
+  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010:
     per-quality:
       attack-power: 25
     random:
@@ -11127,7 +11444,6 @@ items:
         phys-flat-defense: 0.45
         damage-reduction: 0.45
     offhand-stats-apply: false
-
 _editor:
   categories:
     weapon:
@@ -11553,6 +11869,14 @@ _editor:
           - LEATHER_CHESTPLATE#200022
           - LEATHER_LEGGINGS#200023
           - LEATHER_BOOTS#200024
+          - LEATHER_HELMET#200201
+          - LEATHER_CHESTPLATE#200202
+          - LEATHER_LEGGINGS#200203
+          - LEATHER_BOOTS#200204
+          - LEATHER_HELMET#200211
+          - LEATHER_CHESTPLATE#200212
+          - LEATHER_LEGGINGS#200213
+          - LEATHER_BOOTS#200214
       - id: cat_1784732812065
         label: 魔織
         itemIds:
@@ -11568,6 +11892,14 @@ _editor:
           - LEATHER_CHESTPLATE#200082
           - LEATHER_LEGGINGS#200083
           - LEATHER_BOOTS#200084
+          - LEATHER_HELMET#200221
+          - LEATHER_CHESTPLATE#200222
+          - LEATHER_LEGGINGS#200223
+          - LEATHER_BOOTS#200224
+          - LEATHER_HELMET#200231
+          - LEATHER_CHESTPLATE#200232
+          - LEATHER_LEGGINGS#200233
+          - LEATHER_BOOTS#200234
       - id: cat_1784732795466
         label: 魔導
         itemIds:
@@ -12020,6 +12352,22 @@ _editor:
     LEATHER_CHESTPLATE#200082: armor
     LEATHER_LEGGINGS#200083: armor
     LEATHER_BOOTS#200084: armor
+    LEATHER_HELMET#200201: armor
+    LEATHER_CHESTPLATE#200202: armor
+    LEATHER_LEGGINGS#200203: armor
+    LEATHER_BOOTS#200204: armor
+    LEATHER_HELMET#200211: armor
+    LEATHER_CHESTPLATE#200212: armor
+    LEATHER_LEGGINGS#200213: armor
+    LEATHER_BOOTS#200214: armor
+    LEATHER_HELMET#200221: armor
+    LEATHER_CHESTPLATE#200222: armor
+    LEATHER_LEGGINGS#200223: armor
+    LEATHER_BOOTS#200224: armor
+    LEATHER_HELMET#200231: armor
+    LEATHER_CHESTPLATE#200232: armor
+    LEATHER_LEGGINGS#200233: armor
+    LEATHER_BOOTS#200234: armor
     LEATHER_HELMET#200031: armor
     LEATHER_CHESTPLATE#200032: armor
     LEATHER_LEGGINGS#200033: armor
@@ -12477,6 +12825,14 @@ _editor:
       - LEATHER_CHESTPLATE#200022
       - LEATHER_LEGGINGS#200023
       - LEATHER_BOOTS#200024
+      - LEATHER_HELMET#200201
+      - LEATHER_CHESTPLATE#200202
+      - LEATHER_LEGGINGS#200203
+      - LEATHER_BOOTS#200204
+      - LEATHER_HELMET#200211
+      - LEATHER_CHESTPLATE#200212
+      - LEATHER_LEGGINGS#200213
+      - LEATHER_BOOTS#200214
       - LEATHER_HELMET#200061
       - LEATHER_CHESTPLATE#200062
       - LEATHER_LEGGINGS#200063
@@ -12489,6 +12845,14 @@ _editor:
       - LEATHER_CHESTPLATE#200082
       - LEATHER_LEGGINGS#200083
       - LEATHER_BOOTS#200084
+      - LEATHER_HELMET#200221
+      - LEATHER_CHESTPLATE#200222
+      - LEATHER_LEGGINGS#200223
+      - LEATHER_BOOTS#200224
+      - LEATHER_HELMET#200231
+      - LEATHER_CHESTPLATE#200232
+      - LEATHER_LEGGINGS#200233
+      - LEATHER_BOOTS#200234
       - LEATHER_HELMET#200031
       - LEATHER_CHESTPLATE#200032
       - LEATHER_LEGGINGS#200033
