@@ -292,3 +292,40 @@ cube boneのpivot（RainbowはAABB中心、Java準拠実装は`[0,8,0]`）、一
   `tools/config-editor/lib/vanilla-item-defs-1.21.11.json` は `items/*.json` の逐語コピーだが、
   `models/item/*.json`（parent と display）は入っていない。
 - 退行は `resourcepack/build_item_pack.py` の `check_render_structure()` がビルド時に落とす。
+
+## PDC 経路のアイテムは「値」で区別できない。識別スロットの選び方が全体を決める（2026-08-03）
+
+Geyser v2 の述語には **PDC の値を見るものが無い**。PDC 経路で登録した定義は
+`minecraft:custom_data` の**有無**しか判定できないので、同じベース素材に載った
+PDC 定義は全部おなじスタックにマッチし、**先に登録された 1 個が総取り**する。
+つまり「どの PDC キーを識別子として採るか」と「どの順で書き出すか」が、
+そのまま統合版での見た目を決める。
+
+- **TF は `trinityforge:catalog_id` と `trinityforge:bind_type` の両方を書く。**
+  GeyserExtra はキー名の辞書順で最初に当たったものを識別子にしていたので
+  `"b" < "c"` で `bind_type` が勝ち、台帳の TF エントリ 51 件が全部
+  `trinityforge:tradeable` / `:soulbound` になっていた（＝素材ごとに 1 個へ潰れる）。
+  修正は `CustomItemScanner.rankKeysByHint()`: **ヒント語のランク順**に走査し、
+  `*_type` 系は最下位。識別用と表示名用の 2 経路が同じ関数を通るので食い違わない。
+- 書き出し順は `ItemMappingRegistry.save()` の `specificityRank`:
+  CMD → `item_model` → 個別 PDC → 3 素材以上に跨る PDC。
+  **古いエントリを消して直してはいけない**。PDC 経路のエントリは
+  「誰かが実物を持つ」まで再生成できないので、削除は不可逆。
+- 退行検知: `ItemMappingRegistrySpecificityOrderTest` /
+  `PdcKeyHintRankingTest`（どちらも geyserExtra 側）。
+  この 2 本が無いと、壊れても**統合版クライアントを実機で見るまで気づけない**。
+
+### pdc_hints — レシピを持たないアイテムを先に登録する
+
+PDC でしか識別できないアイテムは、ベースアイテムを宣言する手段がリソースパックに
+無いため、GeyserExtra の先回り登録は CMD と `item_model` の 2 経路しかなかった。
+残りは「誰かが実物を持つ」「レシピの材料か結果に現れる」まで台帳に載らないので、
+**モブドロップ・ダンジョン報酬・商人販売のアイテムはどの経路にも掛からない**
+（＝統合版で名前が識別子のまま・オフハンド不可）。
+
+- 生成側: `resourcepack/build_pdc_hints.py` → `resourcepack/dist/trinityforge-catalog-pdc-hints.json`
+- 読み手: geyserExtra の `PdcHintsReader`（`plugins/GeyserExtra/pdc_hints/*.json` を起動時に読む）
+- **sanitize 規則を両側で合わせること。** ずれると先回り分と実物分が別 id で二重に載る。
+  Java 側は `CustomItemScanner.sanitizeForStableId`（小文字化・空白/ハイフン/コロン→`_`・
+  残りは `[a-z0-9_]` のみ・2〜64 文字）。
+- 反映は Paper 書込 → **プロキシ再起動**の 2 段階（拡張は初期化時に 1 回しか読まない）。
