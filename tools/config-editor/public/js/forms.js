@@ -7,16 +7,19 @@
 (function () {
   const h = window.h;
 
-  // catalog.yml のアイテムを「素材」タブ(materials.yml編集画面)にも一覧・編集できるようにする
-  // 表示タブピン (2026-08-02)。実体は catalog.yml に残したまま(移動しない)なので、既存の
-  // "material"(= materials.yml へ実データ移行するボタンの値、buildCatalogForm の
-  // moveEntryToMaterials)とは**絶対に文字列を一致させない**こと。一致させると、鍵アイテムの
-  // ような catalog 専用の実装(PDCタグ/レシピ)を持つ品が誤って materials.yml へ移行されてしまう。
-  // split-views.js / lib 側から参照する唯一の正典としてここで定義し、他ファイルはこの値を
-  // (直接 window 経由で、または同じ文字列を書き写して)使う。
-  const MATERIAL_REF_TAB_ID = "material-ref";
-  const MATERIAL_REF_TAB_LABEL = "素材(カタログ内)";
-  window.CATALOG_MATERIAL_REF_TAB = [MATERIAL_REF_TAB_ID, MATERIAL_REF_TAB_LABEL];
+  // 鍵(ダンジョンキー)の表示タブピン。実体は catalog.yml に残したまま、「素材」画面の
+  // カテゴリバーから一覧・編集する (2026-08-02 導入 → 2026-08-04 に id/ラベルを改称)。
+  // ⚠ 実データ移行の値 "material"(buildCatalogForm の moveEntryToMaterials)とは**絶対に**
+  //   文字列を一致させない。鍵は catalog.yml 前提の実装(gates.yml の key-item 判定・レシピ・
+  //   CMD台帳)を持つので、materials.yml へ移すとダンジョン入場が壊れる。
+  // ⚠ CATALOG_CATEGORIES(=カタログのタブバー/ナビ)には入れない。鍵の置き場は「素材」画面1本で、
+  //   カタログ側にタブを増やすと導線が二重になる。
+  const KEY_TAB_ID = "key";
+  const KEY_TAB_LABEL = "鍵";
+  window.CATALOG_KEY_TAB = [KEY_TAB_ID, KEY_TAB_LABEL];
+  // 「素材」画面のカテゴリバー(materials.yml の _editor.categories.material)に置く鍵カテゴリの id。
+  // このカテゴリを選んでいる間だけ、素材リストの代わりに鍵(catalog.yml)の一覧を出す。
+  window.MATERIALS_KEY_CATEGORY_ID = "cat_dungeon_keys";
 
   function statList() {
     // lore.yml 由来の STAT_LIST を優先しつつ、FALLBACK_STATS にしか無いキー(採集・マナ等の
@@ -454,11 +457,11 @@
       // 素材はアイテムステータスを持たず materials.yml 側の別画面で管理するため、
       // item-stats へ空エントリを生やすと「画面に出ないまま working.items だけ膨らむ
       // 幽霊エントリ」になる (ITEM_STATS_CATEGORIES に "material" タブが存在しない)。
-      // 2026-08-02: "material-ref"(catalog.yml のアイテムを「素材」タブに"移動せず"表示する
-      // ピン。CATALOG_MATERIAL_REF_TAB 参照)も同じ理由でスキップする。ITEM_STATS_CATEGORIES に
-      // 対応タブが無いため、ここを漏らすと material-ref 品が item-stats.yml に
-      // 「タブの無い幽霊エントリ」として量産される。
-      if (candidate && (candidate.tab === "material" || candidate.tab === MATERIAL_REF_TAB_ID)) continue;
+      // 2026-08-02: 鍵(表示タブ "key" = CATALOG_KEY_TAB。実体は catalog.yml のまま「素材」画面へ
+      // 寄せているピン)も同じ理由でスキップする。ITEM_STATS_CATEGORIES に対応タブが無いため、
+      // ここを漏らすと鍵が item-stats.yml に「タブの無い幽霊エントリ」として量産される
+      // (鍵にステータスは付けない ── 2026-08-04 ユーザー確認)。
+      if (candidate && (candidate.tab === "material" || candidate.tab === KEY_TAB_ID)) continue;
       // 2026-08-03: ステータスを持たない品(機能アイテム = ワンド/コンパス/台座/儀式の核/
       // 筆記台/ウェイストーン/ソースベリー、およびブロックであるソースジャー6種)も枠を作らない。
       // 印は catalog-candidates.js の EXTRA_SOURCES.statless → candidate.noItemStats。
@@ -3049,9 +3052,9 @@
             const defaultMaterial = {
               weapon: "DIAMOND_SWORD", armor: "DIAMOND_CHESTPLATE", tool: "DIAMOND_PICKAXE",
               other: "DIAMOND", catalyst: "BLAZE_ROD", spellbook: "BOOK", thread: "STRING",
-              // 2026-08-02 指摘5: "material-ref" が無いとフォールバックの DIAMOND_SWORD が使われ、
-              // 「素材」タブの参照セクションから足すと必ずダイヤの剣になってしまっていた。
-              "material-ref": "PAPER"
+              // 2026-08-02 指摘5: 鍵タブの既定 material が無いとフォールバックの DIAMOND_SWORD が
+              // 使われ、「素材」画面の鍵カテゴリから足すと必ずダイヤの剣になってしまっていた。
+              key: "TRIAL_KEY"
             }[activeCat] || "DIAMOND_SWORD";
             working.items[name] = { material: defaultMaterial };
             if (typeof window.setItemDisplayTab === "function") {
@@ -3099,13 +3102,13 @@
         h("span", { class: "entry-key-label", text: "id" }), idInput
       ];
       if (typeof window.renderItemTabSelect === "function") {
-        // 「素材(カタログ内)」ピンは常時選べる (実データ移動を伴わないただの表示タブなので
-        // crossFile の有無に関係ない)。materials.yml が読めていればさらに「素材」への実データ
-        // 移動先も出す (ファイル跨ぎはハンドラで処理)。2つの選択肢名は絶対に文字列衝突させない
-        // (MATERIAL_REF_TAB_ID = "material-ref" ≠ 実データ移行の "material")。
+        // 「鍵」ピンは常時選べる (実データ移動を伴わないただの表示タブなので crossFile の有無に
+        // 関係ない)。materials.yml が読めていればさらに「素材」への実データ移動先も出す
+        // (ファイル跨ぎはハンドラで処理)。2つの値は絶対に文字列衝突させない
+        // (KEY_TAB_ID = "key" ≠ 実データ移行の "material")。
         const tabOpts = (crossFile
-          ? CATALOG_CATEGORIES.concat([window.CATALOG_MATERIAL_REF_TAB, ["material", "素材(materials.ymlへ移動)"]])
-          : CATALOG_CATEGORIES.concat([window.CATALOG_MATERIAL_REF_TAB]));
+          ? CATALOG_CATEGORIES.concat([window.CATALOG_KEY_TAB, ["material", "素材(materials.ymlへ移動)"]])
+          : CATALOG_CATEGORIES.concat([window.CATALOG_KEY_TAB]));
         const external = crossFile ? { material: (itemId) => moveEntryToMaterials(itemId) } : null;
         editChildren.push(window.renderItemTabSelect(working, id, entry.material, tabOpts, () => {
           refreshListPreserveScroll(renderList);

@@ -1105,8 +1105,10 @@ select.field-input option {
 .hub-tabs .recipe-tab { font-size: 15px; padding: 9px 18px; }
 .hub-body { display: flex; flex-direction: column; }
 .hub-ars { display: flex; flex-direction: column; }
-/* 「素材」タブの複合ビュー (materials.yml + catalog.yml の material-ref 品、2026-08-02)。 */
+/* 「素材」タブの複合ビュー (materials.yml の素材 + catalog.yml の鍵、2026-08-04)。
+   カテゴリバー1本で2つの一覧を切り替えるので、見出しは付けずカードの列だけを並べる。 */
 .hub-materials-composite { display: flex; flex-direction: column; gap: 16px; }
+.hub-materials-keys { display: flex; flex-direction: column; }
 
 /* ============================================================
    ArsPaper items.yml 専用フォーム (ars-recipes)

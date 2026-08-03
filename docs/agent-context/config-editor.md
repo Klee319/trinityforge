@@ -14,6 +14,37 @@
 - 同じ理由で、「この yml のキー一覧」を検証するテストの入力を yml 内コメントに依存させない。
   キー一覧の参照先は `docs/` 配下の md にする。
 
+### ⚠️ 保存1回の副作用は「コメント消滅」だけではない — 表示タブのピンが外れると別ファイルのエントリが消える
+2026-08-04 に実際に踏んだ連鎖。**editor で catalog 系の画面を1回保存しただけ**で次の3つが同時に起きた。
+
+1. `items/catalog.yml` の本文コメント（25行以上）が消える（上の既知の罠）。
+2. `_editor.itemTabs` のピンが `catalyst` → `other` に化けた（`inferItemCategory` の推論結果へ落ちた）。
+3. **その2件の `stats/item-stats.yml` エントリ（`AMETHYST_SHARD#5760/5761`）が丸ごと消えた。**
+
+3 が起きるのは、item-stats 画面の枠が「catalog 候補のうち `tab` が item-stats のタブ集合に入っているもの」
+から作られるためで、**2 でピンが変わると候補が候補から外れ、次の保存でステ定義そのものが落ちる**。
+`1.0` → `1` のような数値表記の正規化も同時に走るので、diff が大きくなって 2/3 が埋もれる。
+
+対処:
+- **editor で画面を開いたら、保存する前に必ず `git diff` を読む。** 意図した1件以外の差分（コメント削除・
+  `itemTabs` の変化・別ファイルのエントリ削除）が混ざっていたら、その保存は捨てる。
+- 調査目的で editor を開くときは**保存ボタンを押さない**。
+- ピンの正しさは出荷ymlを実読するテストで縛る
+  （`test/support-tab-subweapon-only-2026-08-03.test.js` / `test/catalog-key-tab-2026-08-04.test.js`）。
+  これがあると、事故った保存を commit する前に赤で止まる。
+
+### 表示プレビューの記法(legacy / MiniMessage)は固定値で渡してはいけない
+`buildTooltipPreview().update({nameMode, loreMode})` と `richTextInput(value, mode, …)` に
+`"minimessage"` / `"legacy"` を**決め打ちで渡すと、逆の記法で書かれた yml が生文字列で表示される**
+（2026-08-04 の報告「`&c焔喰いの炉` のカラーコードがプレビューで見えている」の原因）。
+
+- ゲーム内は fork の `com.arspaper.util.DisplayText#parse` が「レガシー(`&`/`§`)が1つでもあればレガシー、
+  無ければ MiniMessage」で解釈する。**editor もこの優先順で判定する**のが唯一の正解
+  （`public/js/ars-source-forms.js` の `markupMode` / `markupModeOfLines`。lore は1行でも混ざればレガシー）。
+- 現状の記法はファイル単位で分かれている: `sourcelinks.yml` / `sourcejars.yml` / `materials.yml` はレガシー、
+  `spellbooks.yml` と TF の `items/catalog.yml` は MiniMessage。**片方に固定してよいのは、そのファイルに
+  混在が無いことをテストで縛っている場合だけ**（`test/ars-source-markup-mode-2026-08-04.test.js`）。
+
 ### 生成物ファイルは手編集しない
 `public/data/*.json` のようなビルド生成物（例: EliteMobs ダンジョン台帳）は、生成スクリプトの出力であり
 手編集の対象ではない。手で直しても次回生成で上書きされ、生成スクリプトとの不整合に気づけなくなる。

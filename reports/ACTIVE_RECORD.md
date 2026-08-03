@@ -5204,3 +5204,93 @@ TF の `AddonCombatStats`(PDC) → `PlayerCombatAggregate.addon` へ入り、**`
   未コミット変更と同一ファイル内で混ざっている。** 差分の大半（catalog.yml は 1188+/838-）は
   editor 保存による日本語コメントの消失で、自分の追加分はその一部。2026-08-03 のユーザー判断
   （「item-stats.yml は同梱のままコミットし、混入内容を commit message に明記する」）と同じ扱いにした。
+
+---
+
+## 2026-08-04 — editor「素材」画面の鍵カテゴリ統合 と カラーコード表示の修正（要件2件）
+
+依頼:
+1. 「(items/catalog.yml、表示タブ「素材(カタログ内)」)という謎の要素の中に未分類のものが入っている。
+   カギは（専用）カテゴリを作り、残りは既存の適切なカテゴリに入れて。この要素は見にくいし分かりにくいので
+   消してほしい。他のカタログのタブにUIをそろえてほしい」
+   → 追加質問への回答: **「カギにステータスは付けないので素材タブにカテゴリとして鍵カテゴリを作る」**
+2. 「`&c焔喰いの炉` のように新規追加の一部アイテムがカラーコードが反映されず editor のプレビューで
+   コードが見えている」
+
+### 1. 「カタログ内の素材」セクションを廃止し、素材画面のカテゴリバー1本に統合
+
+- 表示タブ id/ラベルを改称: `material-ref` / 「素材(カタログ内)」 → **`key` / 「鍵」**
+  (`public/js/forms.js` の `window.CATALOG_KEY_TAB`)。`CATALOG_CATEGORIES` には**入れない**
+  ── カタログ側にもタブを増やすと鍵への導線が二重になる。
+- `public/js/split-views.js` の `o.type === "materials"` 分岐を書き換え。
+  内部事情がそのまま出ていた見出し「カタログ内の素材 (items/catalog.yml、表示タブ「素材(カタログ内)」)」と
+  2つ目の検索欄を撤去し、**`window.MATERIALS_SPLIT_LOGIC.visibleSections(active, keyCategoryId)`** で
+  素材(materials.yml)と鍵(catalog.yml)のどちらを出すかを決める。**常に片方だけ**
+  ── 2つ並べると検索欄2つ・カード列2つになり「他のカタログのタブにUIをそろえてほしい」に反する。
+  鍵カテゴリ(`window.MATERIALS_KEY_CATEGORY_ID = "cat_dungeon_keys"`)を選んだときだけ鍵の一覧。
+- `public/js/ars-forms.js` の `buildMaterialsForm` に `suppressed` オプションを追加。
+  鍵カテゴリ選択中は素材側を**丸ごと畳む**(`render()` の先頭で return)。畳まないと
+  「該当する素材がありません」＋検索欄＋「+ 素材追加」が鍵一覧の上に残り、元の「謎の塊」に戻る。
+- データ: `items/catalog.yml` の `_editor` を `material-ref` → `key`（categories / orders / itemTabs の17件）。
+  fork の `materials.yml` の `_editor.categories.material` に `cat_dungeon_keys`（ラベル「ダンジョンの鍵」、
+  itemIds は鍵17件）を追加。**鍵の実体は catalog.yml に残す**
+  ── `dungeon/gates.yml` の `key-item` は焼き込まれた id を厳密比較し、鍵はカタログのレシピと CMD 台帳も
+  持つので、materials.yml へ実移動するとダンジョン入場が壊れる。
+- 「残りは既存の適切なカテゴリに入れて」＝ 鍵タブ内の未分類はゼロ。`_editor.categories.key` の
+  `cat_20260803_dungeon_keys` が17件すべてを保持していることをテストで固定した。
+
+### 2. プレビュー・リッチ入力の記法判定（カラーコードが生で見えていた件）
+
+- 原因は editor 側だけの食い違い。`public/js/ars-source-forms.js` がプレビューとリッチ入力へ
+  記法を **`minimessage` 固定**で渡していたため、レガシー(`&`)で書かれた出荷 yml の
+  `&c焔喰いの炉` が「&c」ごと文字列として表示されていた。ゲーム内は fork の
+  `com.arspaper.util.DisplayText#parse` が両方を解釈するので**表示だけが誤り**。
+- `markupMode(value)` / `markupModeOfLines(lines)` を追加し、`DisplayText#parse` と同じ優先順
+  （レガシーが1つでもあればレガシー、無ければ MiniMessage。lore は1行でも混ざればレガシー）で判定して
+  プレビュー(`nameMode`/`loreMode`)と `richTextInput` の両方へ渡す。ソースリンクとソースジャーは
+  同じカード実装なので両画面が同時に直る。
+- 記法はファイル単位で分かれている（sourcelinks/sourcejars/materials＝レガシー、spellbooks と TF の
+  catalog.yml＝MiniMessage）。固定値のままでよいのは混在が無いことをテストで縛っている場合だけ。
+- 実ブラウザで確認: 「焔喰いの炉」が `rgb(255,85,85)`（`&c`）で描かれ、`&c` は文字列として出ない。
+
+### 実ブラウザでの確認（http://localhost:8787、素材画面）
+
+- カテゴリバー: すべて / 未設定 / 中間素材 / 圧縮ブロック / 圧縮素材 / コア / ガチャ券 / Ars(魔法) / 食料 /
+  ドロップ素材 / ダンジョンの印 / EM限定素材 / ソース階梯 / **ダンジョンの鍵**
+- 「すべて」→ 鍵の一覧は `display:none`、検索欄は1つ、「カタログ内の素材 (…)」見出しは0件。
+- 「ダンジョンの鍵」→ 鍵カード17件、検索欄1つ、各カードに他タブと同じ「表示タブ / カテゴリ」セレクト。
+
+### 事故: editor 保存1回で catalog.yml と item-stats.yml が壊れていた（復旧済み）
+
+作業開始時の作業ツリーに、**editor 保存に由来する未コミットの破壊的差分**があった（`daf06cf` の後に発生）。
+
+- `items/catalog.yml`: 本文の日本語コメント25行以上が消え、`woodsman_whetstone` / `chanter_ring` の
+  表示タブピンが `catalyst` → `other` に化け、両者が「準備中」から「未分類」へ移っていた。
+- `stats/item-stats.yml`: 上のピン変化の結果、**`AMETHYST_SHARD#5760` / `#5761` のステ定義が丸ごと消えていた**
+  （item-stats の枠は catalog 候補の `tab` から作られるため、ピンが外れると候補から落ちて保存で消える）。
+  ほかに `1.0` → `1` の数値正規化。
+- どちらも HEAD から復元し、自分の変更（`material-ref` → `key`）だけを再適用した。壊れた版は
+  scratchpad に退避してある。`resourcepack/cmd-registry.json`（mage_weaver/guardian の CMD 追記）は
+  他セッションの正当な作業なので**触っていない**（staging にも入れない）。
+- 恒久知識として `docs/agent-context/config-editor.md` に追記（「保存1回の副作用はコメント消滅だけではない」
+  「表示プレビューの記法を固定値で渡してはいけない」）。
+
+### テスト実走結果（2026-08-04）
+
+| 対象 | 結果 |
+|---|---|
+| TrinityForge | **3634 tests / 0 failures / 2 skipped**（既知2件） |
+| ArsPaper fork | **320 tests / 0 failures / 0 skipped** |
+| config-editor | **1052 tests / 1043 pass / 9 fail / 0 skipped**。9件は着手前と同一の既存赤（ツール斧レシピ／斧を戦斧へ／`buildSkillExpForm` per-level／金ツール耐久ランダムロール／ソースジェム防具の魔法防御／player-wiki-generator ×2／mining-gimmick ロスレス／槍の使用レベル） |
+
+新規テストがトリップワイヤとして働くことを、実装を戻して確認した（証拠）:
+
+- `markupMode` を `minimessage` 固定へ戻す → `ars-source-markup-mode-2026-08-04.test.js` が4件 FAILED
+- `visibleSections` を「常に両方表示」へ戻す → `catalog-key-tab-2026-08-04.test.js` が3件 FAILED
+- `buildMaterialsForm` の `suppressed()` を無視させる → 同ファイルの suppressed テストが FAILED
+
+### 残課題（前回から継続）
+
+- 階梯ソースリンク20件に `custom-model-data` が無い（見た目は無印と同じモデル）。**リソースパック側の残タスク。**
+- fork（ArsPaper）の commit はローカルのまま。`Klee319/ArsPaper` は public で履歴に
+  `libs/TrinityForge.jar` を含むため、push はユーザー判断待ち。

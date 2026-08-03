@@ -171,6 +171,10 @@
     // { id:"catalog", data:<catalog.ymlのデータ>, dirty:false } を split-views 経由で受け取り、
     // 移動が発生したら dirty=true にして保存時に両ファイルへ書き込ませる。
     const crossFile = options.crossFile && options.crossFile.data ? options.crossFile : null;
+    // 2026-08-04: 「素材」画面はカテゴリバー1本を materials.yml の素材と catalog.yml の鍵で共有する。
+    // 鍵カテゴリを選んでいる間は素材側を丸ごと畳む — 畳まないと「該当する素材がありません」と
+    // 検索欄・「+ 素材追加」が鍵一覧の上に残り、以前の「謎の塊が下にぶら下がっている」状態に戻る。
+    const suppressed = typeof options.suppressed === "function" ? options.suppressed : () => false;
     const src = data && typeof data === "object" ? data : {};
     const topKeys = Object.keys(src);
     if (!topKeys.includes("materials")) topKeys.push("materials");
@@ -283,6 +287,7 @@
 
     function render() {
       root.innerHTML = "";
+      if (suppressed()) return;
       const visible = filterModelsByText(visibleModels());
       // 検索欄 (ID/表示名で絞り込み。カタログ他タブの filterRow と同じ挙動)。
       // CMD一括割当ボタンはここには置かない。全ファイル横断で「リソースパック管理」画面

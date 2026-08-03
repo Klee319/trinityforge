@@ -161,9 +161,10 @@ test("罠3: 出荷 catalog.yml の補助(other)タブはサブウェポンと特
     + "サブウェポンなら SUPPORT_TAB_ALLOWLIST へ追加すること: " + unexpected.join(", "));
 });
 
-test("罠3: 出荷 catalog.yml の key_* は全件 material-ref にピンされている", () => {
+test("罠3: 出荷 catalog.yml の key_* は全件 鍵タブ(key) にピンされている", () => {
   const catalog = shippedCatalog();
-  const refTab = global.window.CATALOG_MATERIAL_REF_TAB[0];
+  // 2026-08-04: タブ id は material-ref → key へ改称 (素材画面のカテゴリバーへ統合)。
+  const refTab = global.window.CATALOG_KEY_TAB[0];
   const tabs = shippedDisplayTabs(catalog);
 
   const keyIds = [...tabs.keys()].filter((id) => id.startsWith("key_"));
@@ -181,5 +182,5 @@ test("罠3: 出荷 catalog.yml の key_* は全件 material-ref にピンされ�
       `${id} が catalog.yml の TRIAL_KEY エントリとして残っていない`);
   }
   assert.notEqual(refTab, "material",
-    "material-ref が実データ移行値 material と同じ文字列になっている(鍵が materials.yml へ移送される)");
+    "鍵タブが実データ移行値 material と同じ文字列になっている(鍵が materials.yml へ移送される)");
 });

@@ -7306,13 +7306,14 @@ _editor:
           - thread_thrift
           - thread_timber
     # ダンジョンの鍵は「補助」ではなく「素材」タブに置く(2026-08-03 ユーザー指示)。
-    # material-ref は catalog.yml のアイテムを **materials.yml へ移動せずに**
-    # 素材タブの「カタログ内の素材」セクションへ出す表示タブ
-    # (forms.js の CATALOG_MATERIAL_REF_TAB)。実移動用の "material" とは別物で、
-    # 鍵を実移動すると ShippedDungeonKeyReachabilityTest などの入手経路検査が
-    # 参照先(materials.yml = .gitignore 除外)を読めなくなり、
+    # key は catalog.yml のアイテムを **materials.yml へ移動せずに** 素材画面の
+    # カテゴリバーへ「鍵」カテゴリとして出す表示タブ (forms.js の CATALOG_KEY_TAB)。
+    # 実移動用の "material" とは別物で、鍵を実移動すると ShippedDungeonKeyReachabilityTest
+    # などの入手経路検査が参照先(materials.yml = .gitignore 除外)を読めなくなり、
     # 「永久に入手不能な鍵」の検知が丸ごと失われる。
-    material-ref:
+    # 2026-08-04: 独立セクション「素材(カタログ内)」を廃止し、素材画面のカテゴリバー1本
+    # (materials.yml の _editor.categories.material の cat_dungeon_keys)へ統合した。
+    key:
       - id: cat_20260803_dungeon_keys
         label: ダンジョンの鍵
         itemIds:
@@ -7649,7 +7650,7 @@ _editor:
       - spell_book_apprentice
       - spell_book_archmage
     thread: []
-    material-ref:
+    key:
       - key_mines
       - key_deep_mines
       - key_quarry
@@ -7668,26 +7669,26 @@ _editor:
       - key_fireworks
       - key_binder
   itemTabs:
-    # ダンジョンの鍵 17種: 表示タブを material-ref(素材タブの「カタログ内の素材」)へ固定する。
+    # ダンジョンの鍵 17種: 表示タブを key(素材画面の「鍵」カテゴリ)へ固定する。
     # ピンを外すと material 推論(TRIAL_KEY → 該当なし → other)へ落ち、
     # 「補助」タブがサブウェポン以外で埋まる状態に戻る。
-    key_mines: material-ref
-    key_deep_mines: material-ref
-    key_quarry: material-ref
-    key_cave: material-ref
-    key_enchant_trial: material-ref
-    key_bridge: material-ref
-    key_city: material-ref
-    key_steamworks: material-ref
-    key_climb: material-ref
-    key_palace: material-ref
-    key_sewer_maze: material-ref
-    key_knight_castle: material-ref
-    key_dark_cathedral: material-ref
-    key_nether_bell: material-ref
-    key_nether_wastes: material-ref
-    key_fireworks: material-ref
-    key_binder: material-ref
+    key_mines: key
+    key_deep_mines: key
+    key_quarry: key
+    key_cave: key
+    key_enchant_trial: key
+    key_bridge: key
+    key_city: key
+    key_steamworks: key
+    key_climb: key
+    key_palace: key
+    key_sewer_maze: key
+    key_knight_castle: key
+    key_dark_cathedral: key
+    key_nether_bell: key
+    key_nether_wastes: key
+    key_fireworks: key
+    key_binder: key
     spell_book_novice: spellbook
     spell_book_apprentice: spellbook
     spell_book_archmage: spellbook

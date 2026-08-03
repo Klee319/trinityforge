@@ -39,6 +39,20 @@
     return root;
   }
 
+  // 「素材」画面(materials.yml + catalog.yml の鍵)のセクション表示判定。カテゴリバー1本で
+  // 2ファイル分の一覧を切り替えるための純関数 — DOM に触らないのでテストから直接呼べる。
+  //   active: activeEditorCategory() の戻り (null=すべて / "__unset__"=未設定 / カテゴリid)
+  //   keyCategoryId: 鍵カテゴリのid。鍵セクションが無い画面では null を渡す
+  // 常に **どちらか片方だけ**を出す。「すべて」で2つ並べると検索欄が2つ・カードの列が2つに
+  // なり、K の指摘「見にくい / 他のカタログのタブにUIをそろえてほしい」に戻る
+  // (他のタブはどれも「カテゴリバー + 検索欄1つ + カード列1つ」)。
+  window.MATERIALS_SPLIT_LOGIC = {
+    visibleSections(active, keyCategoryId) {
+      const keysOnly = !!keyCategoryId && active === keyCategoryId;
+      return { materials: !keysOnly, keys: keysOnly };
+    }
+  };
+
   /**
    * @param {object} opts
    * @param {string} opts.configId primary save target
@@ -115,40 +129,73 @@
         return d;
       };
     } else if (o.type === "materials") {
-      const materialsForm = window.buildMaterialsForm(data, { editorCategoryKey: categoryKey, crossFile: cross });
-      // 「カタログ内の素材」複合セクション (2026-08-02): catalog.yml のアイテム(ダンジョンの鍵など)を
-      // materials.yml へ**移動せず**「素材」タブから一覧・編集できるようにする。thread-bundle と
-      // 同じ「2フォームを1画面に積み、getExtraSaves で両ファイルへ保存する」パターンを流用する。
-      // 表示タブは forms.js の window.CATALOG_MATERIAL_REF_TAB(= "material-ref") 1本だけを見る
-      // buildCatalogForm の別インスタンス(hubMode で 7 タブ切替バー自体は隠す)。crossFile 経由で
-      // 読み込んだ catalog.yml データをそのまま working として渡すので、buildMaterialsForm 側の
-      // 「素材へ移動」機能(同じ catalogオブジェクトへ書き込む)とも矛盾なく共存できる。
+      // 「素材」画面は2つのファイルを1画面で扱う: materials.yml の素材と、catalog.yml に実体を
+      // 残したまま表示だけこちらへ寄せている鍵(表示タブ "key" = window.CATALOG_KEY_TAB)。
+      //
+      // 2026-08-04 改修: 以前は鍵を「カタログ内の素材 (items/catalog.yml、表示タブ「素材(カタログ内)」)」
+      // という独立セクションとして下にぶら下げていた。見出しが内部事情の羅列で、検索欄が2つ並び、
+      // カテゴリバーが無いので他のカタログタブと操作が揃わず、ユーザーからは「謎の要素の中に
+      // 未分類のものが入っている」と見えていた。今は**カテゴリバー1本**
+      // (materials.yml の _editor.categories.material)で素材と鍵を切り替える:
+      //   ・鍵カテゴリ(MATERIALS_KEY_CATEGORY_ID)を選択 → 鍵の一覧だけ
+      //   ・それ以外(すべて/未設定/素材カテゴリ) → 素材だけ
+      // 鍵の実体を materials.yml へ移さないのは、gates.yml の key-item 判定・レシピ・CMD台帳が
+      // catalog.yml 前提で、移すとダンジョン入場が壊れるため(2026-08-04 ユーザー確認)。
+      const keyTab = window.CATALOG_KEY_TAB;
+      const keyCategoryId = window.MATERIALS_KEY_CATEGORY_ID;
+      const hasKeySection = !!(cross && cross.data && keyTab);
+      function activeCategoryId() {
+        return typeof window.activeEditorCategory === "function"
+          ? window.activeEditorCategory(data, categoryKey) : null;
+      }
+      function sections() {
+        return window.MATERIALS_SPLIT_LOGIC.visibleSections(activeCategoryId(), hasKeySection ? keyCategoryId : null);
+      }
+      const materialsForm = window.buildMaterialsForm(data, {
+        editorCategoryKey: categoryKey,
+        crossFile: cross,
+        suppressed: () => !sections().materials
+      });
       const wrap = h("div", { class: "hub-materials-composite" });
       wrap.appendChild(materialsForm.element);
-      let catalogRefForm = null;
-      const refTab = window.CATALOG_MATERIAL_REF_TAB;
-      if (cross && cross.data && refTab) {
-        wrap.appendChild(h("div", { class: "sub-title", text: `カタログ内の素材 (items/catalog.yml、表示タブ「${refTab[1]}」)` }));
-        catalogRefForm = window.buildCatalogForm(cross.data, {
+      let catalogKeyForm = null;
+      let keyBox = null;
+      if (hasKeySection) {
+        catalogKeyForm = window.buildCatalogForm(cross.data, {
           hubMode: true,
-          initialCategory: refTab[0],
+          initialCategory: keyTab[0],
           // 【2026-08-02 指摘5】editorCategoryKey を渡さないと useEditorMeta が false になり、
-          // このセクションで新規追加/複製した品が catalog.yml の _editor.categories / orders に
-          // 一切記録されない (次にカタログ画面を開くと「未設定」に落ちる)。
-          // catalog.yml 側の他タブ(weapon/armor/...)の _editor.categories とは
-          // 名前空間が別なので、tabKey に "material-ref" を使っても衝突しない。
-          editorCategoryKey: refTab[0]
+          // ここで新規追加/複製した品が catalog.yml の _editor.categories / orders に一切
+          // 記録されない (次に開くと「未設定」に落ちる)。catalog.yml 側の他タブ
+          // (weapon/armor/...) とは名前空間が別なので tabKey に "key" を使っても衝突しない。
+          editorCategoryKey: keyTab[0]
         });
-        wrap.appendChild(catalogRefForm.element);
+        keyBox = h("div", { class: "hub-materials-keys" });
+        keyBox.appendChild(catalogKeyForm.element);
+        wrap.appendChild(keyBox);
       }
-      form = { element: wrap, rerender: materialsForm.rerender };
+      function applySectionVisibility() {
+        if (!keyBox) return;
+        keyBox.style.display = sections().keys ? "" : "none";
+      }
+      applySectionVisibility();
+      form = {
+        element: wrap,
+        // カテゴリバーのタブ切替から呼ばれる。素材側と鍵側の両方を描き直してから表示を切る
+        // (鍵側を描き直さないと、追加/削除した鍵がタブを戻すまで反映されない)。
+        rerender: () => {
+          rerenderForm(materialsForm);
+          if (catalogKeyForm) rerenderForm(catalogKeyForm);
+          applySectionVisibility();
+        }
+      };
       if (cross) {
         // このセクションが存在する限り catalog.yml を常に保存候補に含める(直接編集を拾うため)。
         // 「移動」機能専用だった旧 when:()=>cross.dirty は外す — 実際に変更が無ければ
         // app.js 側の isConfigDataChanged が base 比較でスキップするので、ここで絞る必要は無い。
         extraGets.push({
           id: cross.id,
-          getData: () => (catalogRefForm ? catalogRefForm.getData() : cross.data)
+          getData: () => (catalogKeyForm ? catalogKeyForm.getData() : cross.data)
         });
       }
       getData = () => {

@@ -206,7 +206,7 @@ test("includeDraftCategory: false を明示しても「準備中」は出ない"
 // 【2026-08-02 指摘1 CRITICAL】表示タブの移動 (moveItemDisplayTab) は draft: true を変えてはならない。
 //
 // 失敗シナリオ: ダンジョンの鍵を「準備中」に入れる(draft: true, ガチャにも出ずクラフト不可) →
-// 運用者がそれを「素材(カタログ内)」タブへピン留めする → 旧実装は moveItemDisplayTab 内部の
+// 運用者がそれを「鍵」タブへピン留めする → 旧実装は moveItemDisplayTab 内部の
 // removeEditorCategoryItem/ensureItemEditorCategory が無条件で syncDraftFlag(false) を呼び、
 // draft が消える → 次の保存で鍵がゲームに出る(レシピ登録・ガチャ抽選対象)。
 // ============================================================
@@ -223,11 +223,11 @@ test("【CRITICAL】表示タブを移しても draft: true は残る(準備中�
     }
   };
 
-  win.moveItemDisplayTab(host, "key_mines", "material-ref", ["other", "material-ref"]);
+  win.moveItemDisplayTab(host, "key_mines", "key", ["other", "key"]);
 
   assert.equal(host.items.key_mines.draft, true,
     "表示タブを移しただけで draft が外れている(次の保存でゲームに出てしまう)");
-  assert.equal(win.getItemDisplayTab(host, "key_mines"), "material-ref",
+  assert.equal(win.getItemDisplayTab(host, "key_mines"), "key",
     "表示タブ自体は正しく移っている前提が崩れている");
 });
 

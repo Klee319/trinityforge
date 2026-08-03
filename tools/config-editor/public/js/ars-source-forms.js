@@ -24,6 +24,21 @@
     return FALLBACK_TILESTATE.slice();
   }
 
+  // display-name / lore の記法判定。fork の com.arspaper.util.DisplayText#parse と同じ優先順で、
+  // レガシー(&コード)が1つでもあればレガシー、無ければ MiniMessage として扱う。
+  // ⚠ ここを minimessage 固定にすると、出荷 sourcelinks.yml / sourcejars.yml の "&c焔喰いの炉" が
+  //   プレビューでもリッチ入力でも「&c」の生文字列として見える(2026-08-04 報告の実バグ)。
+  //   ゲーム内は DisplayText が両方を解釈するので、editor 側だけが食い違っていた。
+  function markupMode(value) {
+    return /[&§][0-9a-fk-orA-FK-OR]/.test(String(value == null ? "" : value))
+      ? "legacy" : "minimessage";
+  }
+
+  /** 複数行(lore)は1行でもレガシーが混ざっていればレガシーとして描く(プレビューは1モードのみ)。 */
+  function markupModeOfLines(lines) {
+    return markupMode(Array.isArray(lines) ? lines.join(String.fromCharCode(10)) : "");
+  }
+
   function fieldRow(key, control, opts) {
     return h("div", { class: "form-field" }, [window.fieldLabelEl(key, opts), control]);
   }
@@ -133,7 +148,7 @@
     const list = Array.isArray(loreArray) ? loreArray : [];
     list.forEach((line, idx) => {
       box.appendChild(h("div", { class: "lore-row" }, [
-        window.richTextInput(line == null ? "" : String(line), "minimessage", (v) => {
+        window.richTextInput(line == null ? "" : String(line), markupMode(line), (v) => {
           list[idx] = v;
           if (typeof onEdit === "function") onEdit();
         }),
@@ -312,9 +327,9 @@
       const nm = entry["display-name"];
       preview.update({
         name: (nm != null && nm !== "") ? nm : id,
-        nameMode: "minimessage",
+        nameMode: markupMode(nm),
         loreLines: Array.isArray(entry.lore) ? entry.lore : [],
-        loreMode: "minimessage"
+        loreMode: markupModeOfLines(entry.lore)
       });
     }
 
@@ -324,7 +339,7 @@
         label: "material (TileState)",
         desc: "Paper 1.21.11 の TileState 対応ブロックのみ。かまど・飾り壺など。"
       }),
-      fieldRow("display-name", window.richTextInput(entry["display-name"] || "", "minimessage", (v) => {
+      fieldRow("display-name", window.richTextInput(entry["display-name"] || "", markupMode(entry["display-name"]), (v) => {
         setOrDelete(entry, "display-name", v);
         refreshPreview();
       })),
@@ -754,5 +769,5 @@
 
   // Node テスト向けに純関数を公開 (mob-forms.js の window.MOB_FORMS_LOGIC と同じ流儀)。
   // ブラウザ実行時の挙動には影響しない。
-  window.ARS_SOURCE_FORMS_LOGIC = { ensurePath, readPath, pruneEmptyPath, pruneEmptyTransfer };
+  window.ARS_SOURCE_FORMS_LOGIC = { ensurePath, readPath, pruneEmptyPath, pruneEmptyTransfer, markupMode, markupModeOfLines };
 })();
