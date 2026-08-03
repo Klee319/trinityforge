@@ -10393,17 +10393,17 @@ items:
     offhand-stats-apply: false
   DANGER_POTTERY_SHERD#300035:
     per-quality:
-      bleed-damage: 3
+      reflect-percent: 0.006
     random:
-      bleed-damage:
-        min: 20
-        max: 80
+      reflect-percent:
+        min: 0.028
+        max: 0.078
       bleed-chance:
         min: 0.005
         max: 0.025
-      phys-flat-defense:
-        min: 0.6
-        max: 2
+      bleed-damage:
+        min: 20
+        max: 80
       attack-power:
         min: 60
         max: 240
@@ -10414,17 +10414,17 @@ items:
       randomize-grants: true
       grant-chances:
         bleed-chance: 0.45
-        phys-flat-defense: 0.45
+        bleed-damage: 0.45
         attack-power: 0.45
         damage-reduction: 0.45
     offhand-stats-apply: false
   BLADE_POTTERY_SHERD#300036:
     per-quality:
-      flat-bonus-damage: 0.12
+      stun-chance: 0.003
     random:
-      flat-bonus-damage:
-        min: 0.9
-        max: 3.1
+      stun-chance:
+        min: 0.014
+        max: 0.041
       attack-power:
         min: 60
         max: 240
@@ -10447,11 +10447,11 @@ items:
     offhand-stats-apply: false
   ARCHER_POTTERY_SHERD#300038:
     per-quality:
-      crit-chance: 0.002
+      ammo-save-chance: 0.006
     random:
-      crit-chance:
-        min: 0.018
-        max: 0.052
+      ammo-save-chance:
+        min: 0.028
+        max: 0.078
       crit-damage:
         min: 0.01
         max: 0.042
@@ -10474,11 +10474,11 @@ items:
     offhand-stats-apply: false
   MOURNER_POTTERY_SHERD#300037:
     per-quality:
-      percent-bonus-damage: 0.002
+      cooldown-reduction: 0.006
     random:
-      percent-bonus-damage:
-        min: 0.018
-        max: 0.052
+      cooldown-reduction:
+        min: 0.028
+        max: 0.078
       crit-damage:
         min: 0.01
         max: 0.042
@@ -10501,11 +10501,11 @@ items:
     offhand-stats-apply: false
   SKULL_POTTERY_SHERD#300028:
     per-quality:
-      attack-power: 25
+      mob-drop-bonus: 0.006
     random:
-      attack-power:
-        min: 200
-        max: 620
+      mob-drop-bonus:
+        min: 0.028
+        max: 0.078
       crit-damage:
         min: 0.01
         max: 0.042
@@ -10555,11 +10555,11 @@ items:
     offhand-stats-apply: false
   SHELTER_POTTERY_SHERD#300033:
     per-quality:
-      damage-reduction: 0.001
+      hunger-save-chance: 0.005
     random:
-      damage-reduction:
-        min: 0.009
-        max: 0.026
+      hunger-save-chance:
+        min: 0.022
+        max: 0.062
       phys-resistance:
         min: 0.005
         max: 0.017
@@ -10636,11 +10636,11 @@ items:
     offhand-stats-apply: false
   HEART_POTTERY_SHERD#300032:
     per-quality:
-      phys-resistance: 0.0015
+      health-regen-bonus: 0.006
     random:
-      phys-resistance:
-        min: 0.014
-        max: 0.042
+      health-regen-bonus:
+        min: 0.028
+        max: 0.078
       phys-flat-defense:
         min: 0.6
         max: 2
@@ -10690,11 +10690,11 @@ items:
     offhand-stats-apply: false
   TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002:
     per-quality:
-      percent-bonus-damage: 0.002
+      mana-regen: 0.3
     random:
-      percent-bonus-damage:
-        min: 0.018
-        max: 0.052
+      mana-regen:
+        min: 1
+        max: 5
       magic-resistance:
         min: 0.005
         max: 0.017
@@ -10717,11 +10717,11 @@ items:
     offhand-stats-apply: false
   WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003:
     per-quality:
-      magic-flat-defense: 0.2
+      mana-bonus: 3
     random:
-      magic-flat-defense:
-        min: 1.4
-        max: 5.2
+      mana-bonus:
+        min: 10
+        max: 40
       magic-resistance:
         min: 0.005
         max: 0.017
@@ -10744,11 +10744,11 @@ items:
     offhand-stats-apply: false
   SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012:
     per-quality:
-      magic-resistance: 0.0015
+      hit-mana-recovery: 0.3
     random:
-      magic-resistance:
-        min: 0.014
-        max: 0.042
+      hit-mana-recovery:
+        min: 1
+        max: 5
       phys-resistance:
         min: 0.005
         max: 0.017
@@ -10771,11 +10771,11 @@ items:
     offhand-stats-apply: false
   WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013:
     per-quality:
-      attack-power: 25
+      damage-mana-recovery: 0.2
     random:
-      attack-power:
-        min: 200
-        max: 620
+      damage-mana-recovery:
+        min: 1
+        max: 4
       percent-bonus-damage:
         min: 0.005
         max: 0.021
@@ -10798,9 +10798,9 @@ items:
     offhand-stats-apply: false
   VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014:
     per-quality:
-      penetration: 0.002
+      mana-cost-reduction-percent: 0.004
     random:
-      penetration:
+      mana-cost-reduction-percent:
         min: 0.018
         max: 0.052
       percent-bonus-damage:
@@ -10825,11 +10825,11 @@ items:
     offhand-stats-apply: false
   FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017:
     per-quality:
-      crit-damage: 0.004
+      mana-bonus: 4
     random:
-      crit-damage:
-        min: 0.038
-        max: 0.104
+      mana-bonus:
+        min: 15
+        max: 55
       percent-bonus-damage:
         min: 0.005
         max: 0.021
@@ -10852,11 +10852,11 @@ items:
     offhand-stats-apply: false
   BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018:
     per-quality:
-      crit-chance: 0.002
+      mana-regen: 0.4
     random:
-      crit-chance:
-        min: 0.018
-        max: 0.052
+      mana-regen:
+        min: 2
+        max: 7
       percent-bonus-damage:
         min: 0.005
         max: 0.021
@@ -10879,9 +10879,9 @@ items:
     offhand-stats-apply: false
   FLOW_POTTERY_SHERD#300019:
     per-quality:
-      armor-strength: 0.002
+      source-cost-reduction: 0.004
     random:
-      armor-strength:
+      source-cost-reduction:
         min: 0.018
         max: 0.052
       magic-resistance:
@@ -10906,11 +10906,11 @@ items:
     offhand-stats-apply: false
   BURN_POTTERY_SHERD#300031:
     per-quality:
-      percent-bonus-damage: 0.002
+      enchant-luck: 0.2
     random:
-      percent-bonus-damage:
-        min: 0.018
-        max: 0.052
+      enchant-luck:
+        min: 0.9
+        max: 3.1
       crit-damage:
         min: 0.01
         max: 0.042
@@ -11095,11 +11095,11 @@ items:
     offhand-stats-apply: false
   ARMS_UP_POTTERY_SHERD#300020:
     per-quality:
-      armor-strength: 0.002
+      workbench-quality-bonus: 0.12
     random:
-      armor-strength:
-        min: 0.018
-        max: 0.052
+      workbench-quality-bonus:
+        min: 0.5
+        max: 2.1
       phys-flat-defense:
         min: 0.6
         max: 2
@@ -11122,11 +11122,11 @@ items:
     offhand-stats-apply: false
   BREWER_POTTERY_SHERD#300021:
     per-quality:
-      magic-flat-defense: 0.2
+      ritual-quality-bonus: 0.12
     random:
-      magic-flat-defense:
-        min: 1.4
-        max: 5.2
+      ritual-quality-bonus:
+        min: 0.5
+        max: 2.1
       magic-resistance:
         min: 0.005
         max: 0.017
@@ -11149,9 +11149,9 @@ items:
     offhand-stats-apply: false
   PLENTY_POTTERY_SHERD#300022:
     per-quality:
-      armor-strength: 0.002
+      material-refund-chance: 0.004
     random:
-      armor-strength:
+      material-refund-chance:
         min: 0.018
         max: 0.052
       damage-reduction:
@@ -11176,11 +11176,11 @@ items:
     offhand-stats-apply: false
   SCRAPE_POTTERY_SHERD#300023:
     per-quality:
-      phys-flat-defense: 0.2
+      disassembly-return-bonus: 0.004
     random:
-      phys-flat-defense:
-        min: 1.4
-        max: 5.2
+      disassembly-return-bonus:
+        min: 0.018
+        max: 0.052
       armor-strength:
         min: 0.008
         max: 0.021
@@ -11203,11 +11203,11 @@ items:
     offhand-stats-apply: false
   MINER_POTTERY_SHERD#300024:
     per-quality:
-      attack-power: 25
+      mining-fortune: 0.005
     random:
-      attack-power:
-        min: 200
-        max: 620
+      mining-fortune:
+        min: 0.022
+        max: 0.062
       flat-bonus-damage:
         min: 0.4
         max: 1.2
@@ -11230,11 +11230,11 @@ items:
     offhand-stats-apply: false
   ANGLER_POTTERY_SHERD#300025:
     per-quality:
-      dodge-chance: 0.001
+      fishing-luck: 0.005
     random:
-      dodge-chance:
-        min: 0.009
-        max: 0.031
+      fishing-luck:
+        min: 0.022
+        max: 0.062
       magic-resistance:
         min: 0.005
         max: 0.017
@@ -11257,11 +11257,11 @@ items:
     offhand-stats-apply: false
   SHEAF_POTTERY_SHERD#300026:
     per-quality:
-      phys-resistance: 0.0015
+      harvest-extra-drop-chance: 0.005
     random:
-      phys-resistance:
-        min: 0.014
-        max: 0.042
+      harvest-extra-drop-chance:
+        min: 0.022
+        max: 0.062
       phys-flat-defense:
         min: 0.6
         max: 2
@@ -11284,11 +11284,11 @@ items:
     offhand-stats-apply: false
   SNORT_POTTERY_SHERD#300027:
     per-quality:
-      attack-power: 25
+      woodcutting-extra-drop-chance: 0.005
     random:
-      attack-power:
-        min: 200
-        max: 620
+      woodcutting-extra-drop-chance:
+        min: 0.022
+        max: 0.062
       flat-bonus-damage:
         min: 0.4
         max: 1.2
@@ -11311,11 +11311,11 @@ items:
     offhand-stats-apply: false
   FRIEND_POTTERY_SHERD#300029:
     per-quality:
-      damage-reduction: 0.001
+      skill-exp-bonus: 0.004
     random:
-      damage-reduction:
-        min: 0.009
-        max: 0.026
+      skill-exp-bonus:
+        min: 0.018
+        max: 0.052
       phys-resistance:
         min: 0.005
         max: 0.017
@@ -11338,11 +11338,11 @@ items:
     offhand-stats-apply: false
   HEARTBREAK_POTTERY_SHERD#300034:
     per-quality:
-      phys-flat-defense: 0.2
+      food-restore-bonus: 0.02
     random:
-      phys-flat-defense:
-        min: 1.4
-        max: 5.2
+      food-restore-bonus:
+        min: 0.09
+        max: 0.31
       magic-flat-defense:
         min: 0.6
         max: 2
@@ -11365,11 +11365,11 @@ items:
     offhand-stats-apply: false
   HOWL_POTTERY_SHERD#300030:
     per-quality:
-      percent-bonus-damage: 0.002
+      vanilla-exp-bonus: 0.006
     random:
-      percent-bonus-damage:
-        min: 0.018
-        max: 0.052
+      vanilla-exp-bonus:
+        min: 0.028
+        max: 0.078
       crit-chance:
         min: 0.005
         max: 0.021
@@ -11392,11 +11392,11 @@ items:
     offhand-stats-apply: false
   EXPLORER_POTTERY_SHERD#300040:
     per-quality:
-      crit-chance: 0.002
+      loot-luck: 0.15
     random:
-      crit-chance:
-        min: 0.018
-        max: 0.052
+      loot-luck:
+        min: 0.6
+        max: 2.2
       crit-damage:
         min: 0.01
         max: 0.042
@@ -11443,6 +11443,146 @@ items:
         crit-chance: 0.45
         phys-flat-defense: 0.45
         damage-reduction: 0.45
+    offhand-stats-apply: false
+  # 2026-08-03 レシピを持たないスレッド5種(CMD 300041-300045)。
+  # 儀式では作れず、ガチャ景品としてしか出ないので、主ステは「引き当てた甲斐がある」
+  # 生活・採取・戦利品の軸に寄せている。組み立ての規約(主ステ1種 + サブ4種を各0.45で
+  # 確率付与 / 主ステは grant-chances に書かない / offhand-stats-apply: false)は既存40件と同じ。
+  # 名称と主ステの対応は ShippedThreadItemStatsTest が机上で固定する。
+  FLOWER_BANNER_PATTERN#300041:
+    per-quality:
+      potion-quality-bonus: 0.12
+    random:
+      potion-quality-bonus:
+        min: 0.5
+        max: 2.1
+      magic-flat-defense:
+        min: 1.5
+        max: 5
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      armor-strength:
+        min: 0.008
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        magic-flat-defense: 0.45
+        magic-resistance: 0.45
+        damage-reduction: 0.45
+        armor-strength: 0.45
+    offhand-stats-apply: false
+  FIELD_MASONED_BANNER_PATTERN#300042:
+    per-quality:
+      hive-harvest-fortune: 0.005
+    random:
+      hive-harvest-fortune:
+        min: 0.022
+        max: 0.062
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      dodge-chance:
+        min: 0.003
+        max: 0.009
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+      magic-resistance:
+        min: 0.005
+        max: 0.017
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        dodge-chance: 0.45
+        damage-reduction: 0.45
+        magic-resistance: 0.45
+    offhand-stats-apply: false
+  PIGLIN_BANNER_PATTERN#300043:
+    per-quality:
+      breeding-extra-child-chance: 0.005
+    random:
+      breeding-extra-child-chance:
+        min: 0.022
+        max: 0.062
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      phys-resistance:
+        min: 0.004
+        max: 0.013
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      damage-reduction:
+        min: 0.004
+        max: 0.011
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        phys-flat-defense: 0.45
+        phys-resistance: 0.45
+        armor-strength: 0.45
+        damage-reduction: 0.45
+    offhand-stats-apply: false
+  PRIZE_POTTERY_SHERD#300044:
+    per-quality:
+      mob-drop-quality: 0.06
+    random:
+      mob-drop-quality:
+        min: 0.3
+        max: 1.1
+      attack-power:
+        min: 60
+        max: 240
+      crit-damage:
+        min: 0.01
+        max: 0.042
+      penetration:
+        min: 0.005
+        max: 0.021
+      percent-bonus-damage:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        attack-power: 0.45
+        crit-damage: 0.45
+        penetration: 0.45
+        percent-bonus-damage: 0.45
+    offhand-stats-apply: false
+  NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045:
+    per-quality:
+      gathering-efficiency: 0.06
+    random:
+      gathering-efficiency:
+        min: 0.3
+        max: 1.1
+      flat-bonus-damage:
+        min: 0.4
+        max: 1.2
+      armor-strength:
+        min: 0.008
+        max: 0.021
+      phys-flat-defense:
+        min: 0.6
+        max: 2
+      crit-chance:
+        min: 0.005
+        max: 0.021
+    advanced:
+      randomize-grants: true
+      grant-chances:
+        flat-bonus-damage: 0.45
+        armor-strength: 0.45
+        phys-flat-defense: 0.45
+        crit-chance: 0.45
     offhand-stats-apply: false
 _editor:
   categories:
@@ -12052,6 +12192,10 @@ _editor:
           - FRIEND_POTTERY_SHERD#300029
           - SHELTER_POTTERY_SHERD#300033
           - HEARTBREAK_POTTERY_SHERD#300034
+          - FLOWER_BANNER_PATTERN#300041
+          - FIELD_MASONED_BANNER_PATTERN#300042
+          - PIGLIN_BANNER_PATTERN#300043
+          - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
       - id: cat_20260802_thread_combat
         label: 戦闘系
         itemIds:
@@ -12062,6 +12206,7 @@ _editor:
           - BLADE_POTTERY_SHERD#300036
           - MOURNER_POTTERY_SHERD#300037
           - ARCHER_POTTERY_SHERD#300038
+          - PRIZE_POTTERY_SHERD#300044
       - id: cat_20260802_thread_base
         label: 無強化
         itemIds:
@@ -12483,6 +12628,11 @@ _editor:
     SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015: thread
     GUSTER_POTTERY_SHERD#300039: thread
     EXPLORER_POTTERY_SHERD#300040: thread
+    FLOWER_BANNER_PATTERN#300041: thread
+    FIELD_MASONED_BANNER_PATTERN#300042: thread
+    PIGLIN_BANNER_PATTERN#300043: thread
+    PRIZE_POTTERY_SHERD#300044: thread
+    NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045: thread
     TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002: thread
     WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003: thread
     SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012: thread
@@ -12965,3 +13115,8 @@ _editor:
       - MOURNER_POTTERY_SHERD#300037
       - ARCHER_POTTERY_SHERD#300038
       - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001
+      - FLOWER_BANNER_PATTERN#300041
+      - FIELD_MASONED_BANNER_PATTERN#300042
+      - PIGLIN_BANNER_PATTERN#300043
+      - PRIZE_POTTERY_SHERD#300044
+      - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045

@@ -775,13 +775,14 @@ achievements:
     parent: thread_variety
     icon: WHITE_WOOL
     lore:
-      - "<gray>40 種すべてのスレッドを集める。</gray>"
+      - "<gray>45 種すべてのスレッドを集める。</gray>"
       - "<dark_gray>数値の厳選はここから始まる(集めるだけなら終わりではない)。</dark_gray>"
     trigger:
       type: static
       collection:
         scope: item
-        # 【このリストはスレッドIDの「基準表」も兼ねている】 2026-08-02 に 16 -> 40 種へ拡張。
+        # 【このリストはスレッドIDの「基準表」も兼ねている】 2026-08-02 に 16 -> 40 種へ拡張し、
+        # 2026-08-03 にガチャ専用5種を足して 45 種にした。
         # ShippedAchievementTreeTest#collectionItemTargetsAreKnownIds は、他ノードの
         # collection.targets が「図鑑エントリ」か「ここに並んだID」のどちらかに含まれることを
         # 検査している。スレッドは ArsPaper 側の登録(materials.yml 等)と突き合わせられない
@@ -789,8 +790,8 @@ achievements:
         # 新しいスレッドIDを他ノードに書く前に、必ずここへ足すこと。足さないと綴りが正しくても
         # テストが落ちる。逆にここを削ると、綴り間違いを誰も検出できなくなる。
         #
-        # 内訳は入手経路別に 制作8 / ルート8 / ダンジョン8 + 既存16。
-        # threshold は省略時「列挙件数」= 40 になる(AchievementsConfig の既定)。
+        # 内訳は入手経路別に 制作8 / ルート8 / ダンジョン8 / ガチャ5 + 既存16。
+        # threshold は省略時「列挙件数」= 45 になる(AchievementsConfig の既定)。
         targets:
           # --- 既存16種 (CMD 300001-300016) ---
           - thread_empty
@@ -836,6 +837,13 @@ achievements:
           - thread_swiftcast
           - thread_marksman
           - thread_luck
+          # --- 経路=ガチャ: レシピを持たない5種 (gacha.yml の tier2/3/4 景品) ---
+          # 2026-08-03 追加。儀式では作れないので、ここが唯一の入手経路。
+          - thread_perfumer
+          - thread_apiarist
+          - thread_herder
+          - thread_appraiser
+          - thread_excavation
     broadcast: true
     rewards:
       special:

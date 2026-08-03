@@ -1257,8 +1257,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # FEATHER x1 は hero_sword/hero_trident との衝突回避(RitualRecipeRegistry#findMatchは
-      # findFirstのため素材構成が完全一致すると片方しか成立しない)。レイピアは軽さ・敏捷寄り。
       pedestal-items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
@@ -1277,8 +1275,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # FEATHER x1 は nuclear_sword/nuclear_trident との衝突回避(RitualRecipeRegistry#findMatchは
-      # findFirstのため素材構成が完全一致すると片方しか成立しない)。レイピアは軽さ・敏捷寄り。
       pedestal-items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
@@ -1311,7 +1307,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # STICK x2 は hero_dagger との衝突回避(柄の長さで差別化する槍/穂先系の慣例)。
       pedestal-items:
         - custom:blaze_rod_3x x1
         - custom:dragon_breath_3x x1
@@ -1330,7 +1325,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # STICK x2 は nuclear_dagger との衝突回避(柄の長さで差別化する槍/穂先系の慣例)。
       pedestal-items:
         - custom:blaze_rod_2x x1
         - custom:wither_rose_1x x1
@@ -1364,7 +1358,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # PRISMARINE_SHARD x1 は hero_sword/hero_rapier との衝突回避(水棲武器らしい素材で差別化)。
       pedestal-items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
@@ -1383,7 +1376,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # PRISMARINE_SHARD x1 は nuclear_sword/nuclear_rapier との衝突回避(水棲武器らしい素材で差別化)。
       pedestal-items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
@@ -1564,7 +1556,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # NETHERITE_SCRAP x1 は hero_mace との衝突回避(大剣は刀身が大きい分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_3x x5
         - custom:dragon_breath_3x x5
@@ -1583,7 +1574,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # NETHERITE_SCRAP x1 は nuclear_mace との衝突回避(大剣は刀身が大きい分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_2x x5
         - custom:wither_rose_1x x5
@@ -1617,7 +1607,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # NETHERITE_SCRAP x2 は hero_warhammer との衝突回避(大斧は刃面が広い分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_3x x4
         - custom:dragon_breath_3x x4
@@ -1636,7 +1625,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # NETHERITE_SCRAP x2 は nuclear_warhammer との衝突回避(大斧は刃面が広い分だけ地金を余分に使う)。
       pedestal-items:
         - custom:blaze_rod_2x x4
         - custom:wither_rose_1x x4
@@ -1854,9 +1842,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # dragon_scale の個数を部位ごとに変えて dragon_helmet 等との衝突を回避する
-      # (RitualRecipeRegistry#findMatchはfindFirstのため完全一致だと最初の1本しか成立しない)。
-      # 胴は面積が最大なので dragon_scale x4(このカタログの他系統と同じ「胴が最重量」の並びに合わせる)。
       pedestal-items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
@@ -1875,7 +1860,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # dragon_scale x3(dragon_helmet=2 と dragon_chestplate=4 の間。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
@@ -1894,7 +1878,6 @@ items:
     recipe:
       method: ritual
       core-item: DRAGON_EGG
-      # dragon_scale x1(ブーツは面積最小=最軽量。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
@@ -1931,9 +1914,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # reinforced_leather の個数を部位ごとに変えて wither_helmet 等との衝突を回避する
-      # (RitualRecipeRegistry#findMatchはfindFirstのため完全一致だと最初の1本しか成立しない)。
-      # 胴は面積最大なので reinforced_leather x4。
       pedestal-items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
@@ -1952,7 +1932,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # reinforced_leather x3(wither_helmet=2 と wither_chestplate=4 の間。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
@@ -1971,7 +1950,6 @@ items:
     recipe:
       method: ritual
       core-item: NETHER_STAR
-      # reinforced_leather x1(ブーツは面積最小=最軽量。衝突回避と部位重量の並び)。
       pedestal-items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
@@ -2519,6 +2497,169 @@ items:
       - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
       - ""
       - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  # 2026-08-03 追加: 魔織の Lv80「賢者」/ Lv100「星詠み」。
+  # 魔法防御を持つ防具が Lv60 で打ち止めだったため、レベル相応の選択肢として2段追加した
+  # (数値の作り方と根拠は stats/item-stats.yml の #200201 手前のコメントを参照)。
+  mage_weaver_sage_helmet:
+    material: LEATHER_HELMET
+    display-name: <aqua>賢者の魔織ヘルメット</aqua>
+    custom-model-data: 200221
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_helmet
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_sage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <aqua>賢者の魔織チェストプレート</aqua>
+    custom-model-data: 200222
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_chestplate
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_sage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <aqua>賢者の魔織レギンス</aqua>
+    custom-model-data: 200223
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_leggings
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_sage_boots:
+    material: LEATHER_BOOTS
+    display-name: <aqua>賢者の魔織ブーツ</aqua>
+    custom-model-data: 200224
+    color: "#2ECC71"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_archmage_boots
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_weaver_starseer_helmet:
+    material: LEATHER_HELMET
+    display-name: <color:#C8A2FF>星詠みの魔織ヘルメット</color>
+    custom-model-data: 200231
+    color: "#2ECC71"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_helmet
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_starseer_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#C8A2FF>星詠みの魔織チェストプレート</color>
+    custom-model-data: 200232
+    color: "#2ECC71"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_chestplate
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_starseer_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <color:#C8A2FF>星詠みの魔織レギンス</color>
+    custom-model-data: 200233
+    color: "#2ECC71"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_leggings
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_weaver_starseer_boots:
+    material: LEATHER_BOOTS
+    display-name: <color:#C8A2FF>星詠みの魔織ブーツ</color>
+    custom-model-data: 200234
+    color: "#2ECC71"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_weaver_sage_boots
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
   mage_guardian_novice_helmet:
     material: LEATHER_HELMET
     display-name: <light_purple>見習いの守護ヘルメット</light_purple>
@@ -2751,6 +2892,168 @@ items:
       - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
       - ""
       - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  # 2026-08-03 追加: 守護の Lv80「賢者」/ Lv100「星詠み」。
+  # 魔織側と同じ理由・同じ段間比で2段追加した(根拠は stats/item-stats.yml の #200201 手前)。
+  mage_guardian_sage_helmet:
+    material: LEATHER_HELMET
+    display-name: <aqua>賢者の守護ヘルメット</aqua>
+    custom-model-data: 200201
+    color: "#A0A0B0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_helmet
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_sage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <aqua>賢者の守護チェストプレート</aqua>
+    custom-model-data: 200202
+    color: "#A0A0B0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_chestplate
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_sage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <aqua>賢者の守護レギンス</aqua>
+    custom-model-data: 200203
+    color: "#A0A0B0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_leggings
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_sage_boots:
+    material: LEATHER_BOOTS
+    display-name: <aqua>賢者の守護ブーツ</aqua>
+    custom-model-data: 200204
+    color: "#A0A0B0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_archmage_boots
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_guardian_starseer_helmet:
+    material: LEATHER_HELMET
+    display-name: <color:#C8A2FF>星詠みの守護ヘルメット</color>
+    custom-model-data: 200211
+    color: "#A0A0B0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_helmet
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_starseer_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#C8A2FF>星詠みの守護チェストプレート</color>
+    custom-model-data: 200212
+    color: "#A0A0B0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_chestplate
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_starseer_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <color:#C8A2FF>星詠みの守護レギンス</color>
+    custom-model-data: 200213
+    color: "#A0A0B0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_leggings
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_guardian_starseer_boots:
+    material: LEATHER_BOOTS
+    display-name: <color:#C8A2FF>星詠みの守護ブーツ</color>
+    custom-model-data: 200214
+    color: "#A0A0B0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_guardian_sage_boots
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
   abyssal_scale_helmet:
     material: LEATHER_HELMET
     display-name: <white>深海鱗の鎧のヘルメット</white>
@@ -3752,32 +4055,8 @@ items:
       source: 1000
       type: shapeless
       ingredients: []
-  # ==========================================================================
-  # スレッド 24 種の追加 (CMD 300017-300040) 2026-08-02
-  #
-  # 【id の規約 — ズレると無言で壊れる】
-  #   カタログIDは必ず "thread_" + ArsPaper 側 ThreadType の id と1文字も違えないこと。
-  #   RitualManager#resolveResult は Ars 実体を TF catalog より優先して解決するため、
-  #   綴りがズレると「儀式では作れるのに防具へ装着できないスレッド」が無言で出来上がる。
-  #
-  # 【効果値はここには書かない】
-  #   単体効果は ArsPaper の threads.yml、複数装備のセット効果は thread-sets.yml が持つ。
-  #   TF 側 stats/item-stats.yml の MATERIAL#CMD には【絶対に書かない】 —
-  #   ArmorManaListener はソケット済みスレッドについてそこを読むが、同じエントリを
-  #   PlayerStatAggregator#aggregate が材質フィルタ無しでメインハンド寄与としても読むため、
-  #   「防具に挿さず手に持つだけで効果が乗る」穴が開く。
-  #
-  # 【入手経路の3分割】
-  #   制作(8種)      : ここに recipe: (method: ritual) を持つ。祭壇で作る。
-  #   ルート(8種)    : ArsPaper の loot-tables.yml。構造物チェストの追加抽選。
-  #   ダンジョン(8種): combat/mob-level-table.yml の add-drops(Lv65/Lv85 帯)。
-  #   recipe: を持たないものは、儀式では作れない = そのカタログIDの入手経路が
-  #   上のどちらか一方に限定されるということ(意図した設計であって書き忘れではない)。
-  # ==========================================================================
-
-  # --- 経路=制作: 儀式で作る 8 種 -------------------------------------------
   thread_mana_amplify:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <blue>マナ増幅のスレッド</blue>
@@ -3800,7 +4079,7 @@ items:
       type: shapeless
       ingredients: []
   thread_mana_circulate:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <aqua>循環のスレッド</aqua>
@@ -3823,7 +4102,7 @@ items:
       type: shapeless
       ingredients: []
   thread_source_thrift:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: FLOW_POTTERY_SHERD
     display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
@@ -3846,7 +4125,7 @@ items:
       type: shapeless
       ingredients: []
   thread_artisan:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: ARMS_UP_POTTERY_SHERD
     display-name: <gold>匠のスレッド</gold>
@@ -3869,7 +4148,7 @@ items:
       type: shapeless
       ingredients: []
   thread_ritualist:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: BREWER_POTTERY_SHERD
     display-name: <light_purple>儀式師のスレッド</light_purple>
@@ -3892,7 +4171,7 @@ items:
       type: shapeless
       ingredients: []
   thread_thrift:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: PLENTY_POTTERY_SHERD
     display-name: <yellow>倹約のスレッド</yellow>
@@ -3915,7 +4194,7 @@ items:
       type: shapeless
       ingredients: []
   thread_salvage:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: SCRAPE_POTTERY_SHERD
     display-name: <gray>解体のスレッド</gray>
@@ -3938,7 +4217,7 @@ items:
       type: shapeless
       ingredients: []
   thread_scholar:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: BURN_POTTERY_SHERD
     display-name: <dark_purple>選書のスレッド</dark_purple>
@@ -3961,12 +4240,8 @@ items:
       source: 2200
       type: shapeless
       ingredients: []
-
-  # --- 経路=ルート: 構造物チェストの追加抽選で出る 8 種 ----------------------
-  # 配線は ArsPaper の loot-tables.yml -> LootTableListener#onLootGenerate。
-  # recipe: を持たないのは意図的(儀式で量産できると探索する動機が消えるため)。
   thread_miner:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: MINER_POTTERY_SHERD
     display-name: <dark_gray>豊鉱のスレッド</dark_gray>
@@ -3980,7 +4255,7 @@ items:
       - ""
       - <color:dark_purple>同じ岩でも、掘る者で取れ高が変わる</color>
   thread_angler:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: ANGLER_POTTERY_SHERD
     display-name: <blue>潮読みのスレッド</blue>
@@ -3993,7 +4268,7 @@ items:
       - ""
       - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
   thread_harvest:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: SHEAF_POTTERY_SHERD
     display-name: <yellow>実りのスレッド</yellow>
@@ -4006,7 +4281,7 @@ items:
       - ""
       - <color:dark_purple>土は、手をかけた分だけ返してくる</color>
   thread_timber:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: SNORT_POTTERY_SHERD
     display-name: <dark_green>年輪のスレッド</dark_green>
@@ -4019,7 +4294,7 @@ items:
       - ""
       - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
   thread_diligence:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: FRIEND_POTTERY_SHERD
     display-name: <green>研鑽のスレッド</green>
@@ -4032,7 +4307,7 @@ items:
       - ""
       - <color:dark_purple>同じ一日から、より多くを持ち帰る</color>
   thread_endurance:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: SHELTER_POTTERY_SHERD
     display-name: <gold>持久のスレッド</gold>
@@ -4045,7 +4320,7 @@ items:
       - ""
       - <color:dark_purple>まだ歩ける、まだ行ける</color>
   thread_gourmet:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: HEARTBREAK_POTTERY_SHERD
     display-name: <red>美食のスレッド</red>
@@ -4059,7 +4334,7 @@ items:
       - ""
       - <color:dark_purple>腹が減っては、糸も紡げぬ</color>
   thread_slow_falling:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: GUSTER_POTTERY_SHERD
     display-name: <white>浮遊のスレッド</white>
@@ -4072,12 +4347,8 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>落ちるのではなく、降りるのだ</color>
-
-  # --- 経路=ダンジョン: 高レベル帯のモブドロップで出る 8 種 ------------------
-  # 配線は combat/mob-level-table.yml の Lv65 / Lv85 帯 add-drops。
-  # recipe: を持たないのは意図的(戦闘での到達度そのものを入手条件にしている)。
   thread_spoils:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: SKULL_POTTERY_SHERD
     display-name: <gold>戦利品のスレッド</gold>
@@ -4091,7 +4362,7 @@ items:
       - ""
       - <color:dark_purple>倒した者にだけ、分け前がある</color>
   thread_experience:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: HOWL_POTTERY_SHERD
     display-name: <green>経験のスレッド</green>
@@ -4105,7 +4376,7 @@ items:
       - ""
       - <color:dark_purple>過ぎた時間は、糸が覚えている</color>
   thread_mending_flesh:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: HEART_POTTERY_SHERD
     display-name: <red>治癒のスレッド</red>
@@ -4118,7 +4389,7 @@ items:
       - ""
       - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
   thread_thorn:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: DANGER_POTTERY_SHERD
     display-name: <dark_red>棘のスレッド</dark_red>
@@ -4132,7 +4403,7 @@ items:
       - ""
       - <color:dark_purple>触れた者が、まず痛む</color>
   thread_concussion:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: BLADE_POTTERY_SHERD
     display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
@@ -4146,7 +4417,7 @@ items:
       - ""
       - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
   thread_swiftcast:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: MOURNER_POTTERY_SHERD
     display-name: <yellow>速攻のスレッド</yellow>
@@ -4160,7 +4431,7 @@ items:
       - ""
       - <color:dark_purple>先に動いた方が、生き残る</color>
   thread_marksman:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: ARCHER_POTTERY_SHERD
     display-name: <dark_green>射手のスレッド</dark_green>
@@ -4175,7 +4446,7 @@ items:
       - ""
       - <color:dark_purple>一射のために、百射を捨てる</color>
   thread_luck:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
+    draft: true
     external-source: arspaper
     material: EXPLORER_POTTERY_SHERD
     display-name: <gold>幸運のスレッド</gold>
@@ -4188,6 +4459,83 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>運は、探しに行った者のところへ来る</color>
+  # ------------------------------------------------------------------
+  # 2026-08-03 追加5種 (CMD 300041-300045)。ユーザー要件「レシピなしの厳選要素スレッドを
+  # 5件ほど追加」。
+  #
+  # ■ recipe: を持たないのは意図的
+  #   儀式では作れず、gacha.yml の景品としてしか出ない。draft: true にしていないのは
+  #   入手経路が実在するため(draft は「経路が無いので隠す」ための印で、
+  #   ここで付けると解禁まで到達不能になる)。
+  # ■ 厳選(品質別上昇量 + ランダムロール + 確率付与)は stats/item-stats.yml 側。
+  #   主ステが名称と対応していることは ShippedThreadItemStatsTest が机上で固定する。
+  # ■ lore の数値はセット効果(フォーク thread-sets.yml)の累計であって、厳選ぶんは含まない。
+  #   既存40種と同じ書き方に揃えてある。
+  # ------------------------------------------------------------------
+  thread_perfumer:
+    external-source: arspaper
+    material: FLOWER_BANNER_PATTERN
+    display-name: <light_purple>調香のスレッド</light_purple>
+    custom-model-data: 300041
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <light_purple>醸造したポーションの品質 +1 / 5個で +2</light_purple>
+      - <light_purple>3個で醸造速度 +6%</light_purple>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>香りは、調べた者にしか嗅ぎ分けられない</color>
+  thread_apiarist:
+    external-source: arspaper
+    material: FIELD_MASONED_BANNER_PATTERN
+    display-name: <yellow>養蜂のスレッド</yellow>
+    custom-model-data: 300042
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <yellow>蜂の巣の採取量 +2.4% / 3個で +3.6% / 5個で +4.8%</yellow>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>刺されるのを恐れる者に、蜜は渡らない</color>
+  thread_herder:
+    external-source: arspaper
+    material: PIGLIN_BANNER_PATTERN
+    display-name: <green>牧人のスレッド</green>
+    custom-model-data: 300043
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <green>繁殖で子が増える確率 +2.4% / 5個で +4.8%</green>
+      - <green>3個で自分が繁殖させた動物の成長 +6%</green>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>群れは、急かした者から離れていく</color>
+  thread_appraiser:
+    external-source: arspaper
+    material: PRIZE_POTTERY_SHERD
+    display-name: <gold>鑑識のスレッド</gold>
+    custom-model-data: 300044
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <gold>モブから得る品の品質 +1 / 5個で +2</gold>
+      - <gold>3個でモブのドロップ量 +3%</gold>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>同じ骨でも、見る目が値を決める</color>
+  thread_excavation:
+    external-source: arspaper
+    material: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+    display-name: <dark_gray>削岩のスレッド</dark_gray>
+    custom-model-data: 300045
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>農業・採掘・伐採・切削の効率 +1 / 3個で +2 / 5個で +3</dark_gray>
+      - <dark_gray>効率強化エンチャントのレベルとして反映される</dark_gray>
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>岩は、削り方を知っている者にだけ譲る</color>
   someones_eyes:
     material: ENDER_EYE
     lore:
@@ -4698,9 +5046,9 @@ items:
         J: custom:tf_core_jewelry
         R: custom:breeze_rod_2x
         A: custom:amethyst_block_2x
-  dragon_cane:
+  abyss_cane:
     material: BLAZE_ROD
-    display-name: <color:dark_purple>エンダードラゴンの杖</color>
+    display-name: <color:dark_purple>黒淵の杖</color>
     custom-model-data: 400013
     recipe:
       method: ritual
@@ -4712,9 +5060,12 @@ items:
       source: 8000
       type: shapeless
       ingredients: []
-  wither_cane:
+    lore:
+      - <color:dark_aqua>永遠なる白夜を崩落させた</color>
+      - <color:light_purple>無限なる深淵</color>
+  boundary_cane:
     material: BLAZE_ROD
-    display-name: <color:dark_gray>ウィザーの杖</color>
+    display-name: <color:blue>冥境の杖</color>
     custom-model-data: 400014
     recipe:
       method: ritual
@@ -4726,6 +5077,1720 @@ items:
       source: 15000
       type: shapeless
       ingredients: []
+    lore:
+      - <color:dark_red>死界と現界を繋ぐ回廊の鍵</color>
+  abyss_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の剣</color>
+    custom-model-data: 5600
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_dagger:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の短剣</color>
+    custom-model-data: 5601
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - FLINT x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_rapier:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵のレイピア</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - FEATHER x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_spear:
+    draft: true
+    material: NETHERITE_SPEAR
+    display-name: <color:#3b1f5e>深淵の槍</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - STICK x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_trident:
+    draft: true
+    material: TRIDENT
+    display-name: <color:#3b1f5e>深淵のトライデント</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - PRISMARINE_SHARD x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_scythe:
+    draft: true
+    material: NETHERITE_HOE
+    display-name: <color:#3b1f5e>深淵の鎌</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - HAY_BLOCK x1
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_mace:
+    draft: true
+    material: MACE
+    display-name: <color:#3b1f5e>深淵のメイス</color>
+    custom-model-data: 5602
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - HEAVY_CORE x1
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_warhammer:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵のウォーハンマー</color>
+    custom-model-data: 5603
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - IRON_BLOCK x1
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_grate_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の大剣</color>
+    custom-model-data: 5604
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - NETHERITE_SCRAP x1
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_axe:
+    draft: true
+    material: NETHERITE_AXE
+    display-name: <color:#3b1f5e>深淵の戦斧</color>
+    custom-model-data: 5604
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - COPPER_INGOT x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_greataxe:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#3b1f5e>深淵の大斧</color>
+    custom-model-data: 5605
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - NETHERITE_SCRAP x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_bow:
+    draft: true
+    material: BOW
+    display-name: <color:#3b1f5e>深淵の弓</color>
+    custom-model-data: 5605
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - STRING x2
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  abyss_crossbow:
+    draft: true
+    material: CROSSBOW
+    display-name: <color:#3b1f5e>深淵のクロスボウ</color>
+    custom-model-data: 5605
+    recipe:
+      method: ritual
+      core-item: custom:abyssal_ingot
+      pedestal-items:
+        - custom:abyssal_ingot x3
+        - custom:hard_metal x2
+        - custom:echo_shard_2x x2
+        - TRIPWIRE_HOOK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
+      - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
+  binder_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ剣</gradient>
+    custom-model-data: 5606
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_dagger:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ短剣</gradient>
+    custom-model-data: 5607
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - FLINT x1
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_rapier:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレイピア</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - FEATHER x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_spear:
+    draft: true
+    material: NETHERITE_SPEAR
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ槍</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - STICK x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_trident:
+    draft: true
+    material: TRIDENT
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐトライデント</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - PRISMARINE_SHARD x1
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_scythe:
+    draft: true
+    material: NETHERITE_HOE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ鎌</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - HAY_BLOCK x1
+      source: 180000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_mace:
+    draft: true
+    material: MACE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐメイス</gradient>
+    custom-model-data: 5608
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - HEAVY_CORE x1
+      source: 300000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_warhammer:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐウォーハンマー</gradient>
+    custom-model-data: 5609
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - IRON_BLOCK x1
+      source: 240000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_grate_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大剣</gradient>
+    custom-model-data: 5610
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - NETHERITE_SCRAP x1
+      source: 300000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_axe:
+    draft: true
+    material: NETHERITE_AXE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ戦斧</gradient>
+    custom-model-data: 5610
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - COPPER_INGOT x2
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_greataxe:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大斧</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - NETHERITE_SCRAP x2
+      source: 240000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_bow:
+    draft: true
+    material: BOW
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ弓</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - STRING x2
+      source: 180000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_crossbow:
+    draft: true
+    material: CROSSBOW
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐクロスボウ</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:dungeon_seal_binder x1
+        - custom:reality_thread_core x1
+        - TRIPWIRE_HOOK x1
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
+      - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
+  binder_helmet:
+    draft: true
+    material: NETHERITE_HELMET
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐヘルメット</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_chestplate:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐチェストプレート</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x4
+      source: 120000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_leggings:
+    draft: true
+    material: NETHERITE_LEGGINGS
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレギンス</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x3
+      source: 90000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  binder_boots:
+    draft: true
+    material: NETHERITE_BOOTS
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐブーツ</gradient>
+    custom-model-data: 5611
+    enchant-glow: true
+    recipe:
+      method: ritual
+      core-item: custom:binder_fragment
+      pedestal-items:
+        - custom:binder_fragment x3
+        - custom:abyssal_ingot x2
+        - custom:hard_metal x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
+  key_mines:
+    material: TRIAL_KEY
+    display-name: <color:#9e9e9e>鉱山の鍵</color>
+    custom-model-data: 5501
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:iron_ingot_scrap
+        - custom:stone_2x
+        - IRON_INGOT
+        - IRON_INGOT
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>坑道の入口に差さっていた、ありふれた鉄の鍵。</italic></dark_gray>
+  key_deep_mines:
+    material: TRIAL_KEY
+    display-name: <color:#7986cb>深層鉱山の鍵</color>
+    custom-model-data: 5502
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_mines
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - custom:copper_ingot_scrap
+        - AMETHYST_SHARD
+        - AMETHYST_SHARD
+        - AMETHYST_SHARD
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>浅い坑道の鍵を、より深い錠前に合わせて削り直した。</italic></dark_gray>
+  key_quarry:
+    material: TRIAL_KEY
+    display-name: <color:#a1887f>採石場の鍵</color>
+    custom-model-data: 5503
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:stone_3x
+        - custom:stone_3x
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+        - list:scrap_metals
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>切り出した石の重さで、扉の錘が下りる。</italic></dark_gray>
+  key_cave:
+    material: TRIAL_KEY
+    display-name: <color:#ff7043>灼熱の洞窟の鍵</color>
+    custom-model-data: 5504
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:netherrack_2x
+        - custom:blaze_rod_1x
+        - custom:blaze_rod_1x
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+        - MAGMA_BLOCK
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>熱を帯びていないと、錠前の側が凍りついて回らない。</italic></dark_gray>
+  key_enchant_trial:
+    material: TRIAL_KEY
+    display-name: <color:#7e57c2>エンチャント試練の鍵</color>
+    custom-model-data: 5505
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - BOOK
+        - BOOK
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>綴じた頁の間に、通行の許可が挟んである。</italic></dark_gray>
+  key_bridge:
+    material: TRIAL_KEY
+    display-name: <color:#8d6e63>古橋の聖所の鍵</color>
+    custom-model-data: 5506
+    lore:
+      - ""
+      - <dark_gray><italic>橋脚の内側に埋め込まれていた。掘り当てるほかに手はない。</italic></dark_gray>
+  key_city:
+    material: TRIAL_KEY
+    display-name: <color:#ffb300>ドワーフの地下都市の鍵</color>
+    custom-model-data: 5507
+    lore:
+      - ""
+      - <dark_gray><italic>都市の門番は、鍵を岩脈の中に隠す習わしだった。</italic></dark_gray>
+  key_steamworks:
+    material: TRIAL_KEY
+    display-name: <color:#78909c>蒸気機関工房の鍵</color>
+    custom-model-data: 5508
+    lore:
+      - ""
+      - <dark_gray><italic>歯車の噛み合わせがそのまま鍵の形をしている。</italic></dark_gray>
+  key_climb:
+    material: TRIAL_KEY
+    display-name: <color:#4db6ac>登攀路の鍵</color>
+    custom-model-data: 5509
+    lore:
+      - ""
+      - <dark_gray><italic>登る前に、まず足元を掘れという話だった。</italic></dark_gray>
+  key_palace:
+    material: TRIAL_KEY
+    display-name: <color:#ffd54f>宮殿の鍵</color>
+    custom-model-data: 5510
+    lore:
+      - ""
+      - <dark_gray><italic>庭園の土の下で、金の鍵が待っていた。</italic></dark_gray>
+  key_sewer_maze:
+    material: TRIAL_KEY
+    display-name: <color:#689f38>下水道迷宮の鍵</color>
+    custom-model-data: 5511
+    lore:
+      - ""
+      - <dark_gray><italic>泥をかき出すと、格子の留め具が出てくる。</italic></dark_gray>
+  key_knight_castle:
+    material: TRIAL_KEY
+    display-name: <color:#e0e0e0>騎士団の城の鍵</color>
+    custom-model-data: 5512
+    lore:
+      - ""
+      - <dark_gray><italic>堀に投げ捨てられた鍵。騎士団が城を捨てた日のものだ。</italic></dark_gray>
+  key_dark_cathedral:
+    material: TRIAL_KEY
+    display-name: <color:#5c6bc0>闇の大聖堂の鍵</color>
+    custom-model-data: 5513
+    lore:
+      - ""
+      - <dark_gray><italic>水底から引き上げると、まだ祈りの重さが残っている。</italic></dark_gray>
+  key_nether_bell:
+    material: TRIAL_KEY
+    display-name: <color:#ef5350>ネザーの鐘の鍵</color>
+    custom-model-data: 5514
+    lore:
+      - ""
+      - <dark_gray><italic>振ると、遠くで鐘が同じ音を返す。</italic></dark_gray>
+  key_nether_wastes:
+    material: TRIAL_KEY
+    display-name: <color:#8e24aa>ネザーの荒野の鍵</color>
+    custom-model-data: 5515
+    lore:
+      - ""
+      - <dark_gray><italic>荒野には扉が無い。鍵の方が場所を決める。</italic></dark_gray>
+  key_fireworks:
+    material: TRIAL_KEY
+    display-name: <color:#ffa726>花火工房の鍵</color>
+    custom-model-data: 5516
+    lore:
+      - ""
+      - <dark_gray><italic>火薬の匂いが染みついて落ちない。</italic></dark_gray>
+  key_binder:
+    material: TRIAL_KEY
+    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ者の鍵</gradient>
+    custom-model-data: 5519
+    enchant-glow: true
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - list:dungeon_seals
+        - custom:abyssal_ingot
+        - custom:abyssal_ingot
+        - custom:reality_thread_core
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
+      - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
+  cryocore_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の剣</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_dagger:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の短剣</color>
+    custom-model-data: 5701
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - FLINT x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_rapier:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯のレイピア</color>
+    custom-model-data: 5702
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - FEATHER x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_spear:
+    draft: true
+    material: NETHERITE_SPEAR
+    display-name: <color:#7fd4e8>氷芯の槍</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - STICK x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_trident:
+    draft: true
+    material: TRIDENT
+    display-name: <color:#7fd4e8>氷芯の三叉槍</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - PRISMARINE_SHARD x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_scythe:
+    draft: true
+    material: NETHERITE_HOE
+    display-name: <color:#7fd4e8>氷芯の鎌</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - HAY_BLOCK x1
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_mace:
+    draft: true
+    material: MACE
+    display-name: <color:#7fd4e8>氷芯のメイス</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - HEAVY_CORE x1
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_warhammer:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の戦鎚</color>
+    custom-model-data: 5703
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - IRON_BLOCK x1
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_grate_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の大剣</color>
+    custom-model-data: 5704
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - NETHERITE_SCRAP x1
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_axe:
+    draft: true
+    material: NETHERITE_AXE
+    display-name: <color:#7fd4e8>氷芯の斧</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - COPPER_INGOT x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_greataxe:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#7fd4e8>氷芯の大斧</color>
+    custom-model-data: 5705
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - NETHERITE_SCRAP x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_bow:
+    draft: true
+    material: BOW
+    display-name: <color:#7fd4e8>氷芯の弓</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - STRING x2
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  cryocore_crossbow:
+    draft: true
+    material: CROSSBOW
+    display-name: <color:#7fd4e8>氷芯の弩</color>
+    custom-model-data: 5700
+    recipe:
+      method: ritual
+      core-item: custom:wither_rose_2x
+      pedestal-items:
+        - custom:breeze_rod_3x x2
+        - custom:hard_metal x4
+        - custom:elder_guardian_spike x2
+        - TRIPWIRE_HOOK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
+      - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
+  emberforge_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の剣</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_dagger:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の短剣</color>
+    custom-model-data: 5721
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - FLINT x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_rapier:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄のレイピア</color>
+    custom-model-data: 5722
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - FEATHER x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_spear:
+    draft: true
+    material: NETHERITE_SPEAR
+    display-name: <color:#e8894a>熾鉄の槍</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - STICK x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_trident:
+    draft: true
+    material: TRIDENT
+    display-name: <color:#e8894a>熾鉄の三叉槍</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - PRISMARINE_SHARD x1
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_scythe:
+    draft: true
+    material: NETHERITE_HOE
+    display-name: <color:#e8894a>熾鉄の鎌</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - HAY_BLOCK x1
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_mace:
+    draft: true
+    material: MACE
+    display-name: <color:#e8894a>熾鉄のメイス</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - HEAVY_CORE x1
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_warhammer:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の戦鎚</color>
+    custom-model-data: 5723
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - IRON_BLOCK x1
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_grate_sword:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の大剣</color>
+    custom-model-data: 5724
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - NETHERITE_SCRAP x1
+      source: 75000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_axe:
+    draft: true
+    material: NETHERITE_AXE
+    display-name: <color:#e8894a>熾鉄の斧</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - COPPER_INGOT x2
+      source: 30000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_greataxe:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#e8894a>熾鉄の大斧</color>
+    custom-model-data: 5725
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - NETHERITE_SCRAP x2
+      source: 60000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_bow:
+    draft: true
+    material: BOW
+    display-name: <color:#e8894a>熾鉄の弓</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - STRING x2
+      source: 45000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_crossbow:
+    draft: true
+    material: CROSSBOW
+    display-name: <color:#e8894a>熾鉄の弩</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - TRIPWIRE_HOOK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_helmet:
+    draft: true
+    material: NETHERITE_HELMET
+    display-name: <color:#e8894a>熾鉄の兜</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_HELMET x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_chestplate:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#e8894a>熾鉄の胸当て</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_CHESTPLATE x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_leggings:
+    draft: true
+    material: NETHERITE_LEGGINGS
+    display-name: <color:#e8894a>熾鉄の具足</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_LEGGINGS x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  emberforge_boots:
+    draft: true
+    material: NETHERITE_BOOTS
+    display-name: <color:#e8894a>熾鉄の靴</color>
+    custom-model-data: 5720
+    recipe:
+      method: ritual
+      core-item: custom:netherite_block_1x
+      pedestal-items:
+        - custom:stone_5x x1
+        - custom:emerald_block_4x x1
+        - custom:hard_metal x6
+        - GOLDEN_BOOTS x1
+      source: 40000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
+      - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
+  woodsman_greataxe:
+    draft: true
+    material: NETHERITE_SWORD
+    display-name: <color:#c9b37a>樵の大斧</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_wood
+      pedestal-items:
+        - OAK_LOG x8
+        - custom:hard_metal x2
+        - NETHERITE_SCRAP x2
+      source: 25000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>刃こぼれの一つ一つが、倒した木の数だ。</italic></dark_gray>
+      - <gray>伐採の経験値と追加ドロップが増える。</gray>
+  forestfolk_cloak:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#c9b37a>森人の外套</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_wood
+      pedestal-items:
+        - OAK_LOG x8
+        - custom:hard_metal x2
+        - GOLDEN_CHESTPLATE x1
+      source: 25000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>枝を鳴らさずに歩く者の装い。</italic></dark_gray>
+      - <gray>回避率と移動速度が上がる。</gray>
+  feast_breastplate:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#c9b37a>饗宴の胸当て</color>
+    custom-model-data: 5741
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_meat
+      pedestal-items:
+        - COOKED_BEEF x8
+        - custom:hard_metal x2
+        - GOLDEN_CHESTPLATE x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>満たされた腹は、鎧より硬い。</italic></dark_gray>
+      - <gray>体力が増え、食料の消費が減る。</gray>
+  hunter_javelin:
+    draft: true
+    material: NETHERITE_SPEAR
+    display-name: <color:#c9b37a>猟師の投槍</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_meat
+      pedestal-items:
+        - COOKED_BEEF x8
+        - custom:hard_metal x2
+        - STICK x2
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>間合いを詰めない狩り方がある。</italic></dark_gray>
+      - <gray>本作中で最も長いリーチを持つ。</gray>
+  harvest_hoe:
+    draft: true
+    material: NETHERITE_HOE
+    display-name: <color:#c9b37a>豊穣の鍬</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_vegetable
+      pedestal-items:
+        - WHEAT x16
+        - custom:hard_metal x2
+        - HAY_BLOCK x1
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>実りは待つ者にだけ来る。</italic></dark_gray>
+      - <gray>農業の経験値と追加ドロップが増える。</gray>
+  herb_hat:
+    draft: true
+    material: NETHERITE_HELMET
+    display-name: <color:#c9b37a>香草の帽子</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_vegetable
+      pedestal-items:
+        - WHEAT x16
+        - custom:hard_metal x2
+        - GOLDEN_HELMET x1
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>草の匂いが染みついている。</italic></dark_gray>
+      - <gray>食べたときの満腹度回復量が増える。</gray>
+  leyline_shovel:
+    draft: true
+    material: NETHERITE_SHOVEL
+    display-name: <color:#c9b37a>地脈のシャベル</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_dirt
+      pedestal-items:
+        - DIRT x16
+        - custom:hard_metal x2
+        - FLINT x1
+      source: 8000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>地面の下を流れるものを掬い上げる。</italic></dark_gray>
+      - <gray>掘削の経験値と幸運が増える。</gray>
+  bedrock_greaves:
+    draft: true
+    material: NETHERITE_BOOTS
+    display-name: <color:#c9b37a>岩盤の具足</color>
+    custom-model-data: 5740
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_dirt
+      pedestal-items:
+        - DIRT x16
+        - custom:hard_metal x2
+        - GOLDEN_BOOTS x1
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>一歩も下がらないための重さ。</italic></dark_gray>
+      - <gray>ノックバック耐性が上がる。</gray>
+  gladiator_belt:
+    draft: true
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#b48ee0>闘士の帯</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - IRON_BLOCK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>締めた瞬間、間合いが変わる。</italic></dark_gray>
+      - <gray>剣闘士だけが身に着けられる。貫通率が上がる。</gray>
+  chanter_ring:
+    draft: true
+    material: AMETHYST_SHARD
+    display-name: <color:#b48ee0>詠唱者の指輪</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - LAPIS_BLOCK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>唱えるより先に、指が覚えている。</italic></dark_gray>
+      - <gray>魔導士だけが使える装飾品。オフハンドに持つとマナ消費が減る。</gray>
+  taunt_crest:
+    draft: true
+    material: NETHERITE_CHESTPLATE
+    display-name: <color:#b48ee0>挑発の紋章</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - SHIELD x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>前に出る者にしか、これは似合わない。</italic></dark_gray>
+      - <gray>盾役だけが身に着けられる。被ダメージとノックバックを抑える。</gray>
+  harvest_basket:
+    draft: true
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#b48ee0>実りの籠</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - HAY_BLOCK x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>背負ったぶんだけ、持って帰れる。</italic></dark_gray>
+      - <gray>農家だけが身に着けられる。収穫の追加ドロップ率が上がる。</gray>
+  tide_float:
+    draft: true
+    material: LEATHER_HELMET
+    display-name: <color:#b48ee0>潮見の浮き</color>
+    custom-model-data: 5760
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - NAUTILUS_SHELL x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>沈む速さで、下にいるものが分かる。</italic></dark_gray>
+      - <gray>釣り人だけが身に着けられる。釣り運が上がる。</gray>
+  pit_lamp:
+    draft: true
+    material: LEATHER_HELMET
+    display-name: <color:#b48ee0>坑夫の灯</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - FLINT x1
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>暗いほど、見えるものがある。</italic></dark_gray>
+      - <gray>坑夫だけが身に着けられる。採掘運が上がる。</gray>
+  leveling_gloves:
+    draft: true
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#b48ee0>均しの手袋</color>
+    custom-model-data: 5762
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - DIRT x8
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>掘るより、均すほうが難しい。</italic></dark_gray>
+      - <gray>掘削者だけが身に着けられる。怪しいブロックが復活しやすくなる。</gray>
+  woodsman_whetstone:
+    draft: true
+    material: AMETHYST_SHARD
+    display-name: <color:#b48ee0>樵の砥石</color>
+    custom-model-data: 5761
+    recipe:
+      method: ritual
+      core-item: custom:tf_core_jewelry
+      pedestal-items:
+        - custom:hard_metal x2
+        - OAK_LOG x8
+      source: 15000
+      type: shapeless
+      ingredients: []
+    lore:
+      - ""
+      - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
+      - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>
@@ -4749,1823 +6814,6 @@ items:
       - <gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>
       - <gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>
     custom-model-data: 100083
-  # ---- 2026-07-31 追加: EM ダンジョン限定素材を使う装備 ----
-  # 深淵(abyss_*): 全ダンジョンの最終ボスが 10% で落とす abyssal_ingot が主材。
-  #   攻撃力はインフィニティの 80% だが、貫通 +0.06 とスレッド枠 3 を持つ。
-  #   「火力の総和」ではなく「厳選で伸ばす型」を選べるようにするための横の選択肢。
-  # 束縛者(binder_*): 束縛者しか落とさない binder_fragment / dungeon_seal_binder が主材。
-  #   ユーザー確定方針「束縛者だけ縦強化」に沿う唯一の上位帯(攻撃力 115%)。
-  #   防具は armor-defense-rate を上げず damage-reduction / armor-strength で上位を表現する
-  #   (防御率はバニラ防具分へ加算されるので、盛ると物理無効化に届いてしまう)。
-  # テクスチャは未作成なので、当面はベース Material の見た目で出る(CMD だけ確保済み)。
-  #
-  # 【2026-08-01 儀式レシピの衝突修正】RitualRecipeRegistry#findMatch は LinkedHashMap を
-  # findFirst で走査するため、core-item と pedestal-items が完全一致するレシピは最初の1本しか
-  # 成立しない。abyss_*/binder_*(各13種)は全武器種で素材構成が完全一致していたため、
-  # abyss_sword/binder_sword 以外の12種が永久にクラフト不可だった。武器種ごとに1種類だけ
-  # 追加素材(または個数)を足して差別化してある。sword は元のまま(既存プレイヤーが覚えている
-  # レシピを壊さない)。source(必要Source量)も武器の「強さ帯」(hero_*/nuclear_* に元々
-  # 埋め込まれていた blaze_rod 個数 x1〜x5 の重み)に合わせて 0.5x〜2.5x でスケールしてある。
-  abyss_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#3b1f5e>深淵の剣</color>
-    custom-model-data: 5600
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_dagger:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#3b1f5e>深淵の短剣</color>
-    custom-model-data: 5601
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # FLINT x1 で abyss_sword と衝突回避(短剣=軽量級、source も低め)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - FLINT x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_rapier:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#3b1f5e>深淵のレイピア</color>
-    custom-model-data: 5602
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # FEATHER x1 で abyss_sword と衝突回避(軽さ・敏捷寄り)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - FEATHER x1
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_spear:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SPEAR
-    display-name: <color:#3b1f5e>深淵の槍</color>
-    custom-model-data: 5602
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # STICK x2 で abyss_sword と衝突回避(柄が長い分だけ余分に使う)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - STICK x2
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_trident:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: TRIDENT
-    display-name: <color:#3b1f5e>深淵のトライデント</color>
-    custom-model-data: 5602
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # PRISMARINE_SHARD x1 で abyss_sword と衝突回避(水棲武器らしい素材)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - PRISMARINE_SHARD x1
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_scythe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HOE
-    display-name: <color:#3b1f5e>深淵の鎌</color>
-    custom-model-data: 5602
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # HAY_BLOCK x1 で abyss_sword と衝突回避(刈り取り=鎌のモチーフ)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - HAY_BLOCK x1
-      source: 45000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_mace:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: MACE
-    display-name: <color:#3b1f5e>深淵のメイス</color>
-    custom-model-data: 5602
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # HEAVY_CORE x1 で abyss_sword と衝突回避(メイスそのものの重心素材)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - HEAVY_CORE x1
-      source: 75000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_warhammer:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#3b1f5e>深淵のウォーハンマー</color>
-    custom-model-data: 5603
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # IRON_BLOCK x1 で abyss_sword と衝突回避(打撃武器らしい塊素材)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - IRON_BLOCK x1
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_grate_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#3b1f5e>深淵の大剣</color>
-    custom-model-data: 5604
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # NETHERITE_SCRAP x1 で abyss_sword と衝突回避(刀身が大きい分だけ地金を余分に使う)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - NETHERITE_SCRAP x1
-      source: 75000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_axe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_AXE
-    display-name: <color:#3b1f5e>深淵の戦斧</color>
-    custom-model-data: 5604
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # COPPER_INGOT x2 で abyss_sword と衝突回避(刃の重ね打ちに使う地金)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - COPPER_INGOT x2
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_greataxe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#3b1f5e>深淵の大斧</color>
-    custom-model-data: 5605
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # NETHERITE_SCRAP x2 で abyss_sword と衝突回避(刃面が広い分だけ地金を余分に使う)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - NETHERITE_SCRAP x2
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_bow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: BOW
-    display-name: <color:#3b1f5e>深淵の弓</color>
-    custom-model-data: 5605
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # STRING x2 で abyss_sword と衝突回避(弓弦)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - STRING x2
-      source: 45000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  abyss_crossbow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: CROSSBOW
-    display-name: <color:#3b1f5e>深淵のクロスボウ</color>
-    custom-model-data: 5605
-    recipe:
-      method: ritual
-      core-item: custom:abyssal_ingot
-      # TRIPWIRE_HOOK x1 で abyss_sword と衝突回避(引き金機構のモチーフ)。
-      pedestal-items:
-      - custom:abyssal_ingot x3
-      - custom:hard_metal x2
-      - custom:echo_shard_2x x2
-      - TRIPWIRE_HOOK x1
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>ダンジョンの底で固まった、世界の継ぎ目。</italic></dark_gray>
-    - <gray>攻撃力はインフィニティに劣るが、貫通とスレッド枠で伸びる。</gray>
-  binder_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ剣</gradient>
-    custom-model-data: 5606
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      source: 120000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_dagger:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ短剣</gradient>
-    custom-model-data: 5607
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # FLINT x1 で binder_sword と衝突回避(短剣=軽量級、source も低め)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - FLINT x1
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_rapier:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレイピア</gradient>
-    custom-model-data: 5608
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # FEATHER x1 で binder_sword と衝突回避(軽さ・敏捷寄り)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - FEATHER x1
-      source: 120000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_spear:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SPEAR
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ槍</gradient>
-    custom-model-data: 5608
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # STICK x2 で binder_sword と衝突回避(柄が長い分だけ余分に使う)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - STICK x2
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_trident:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: TRIDENT
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐトライデント</gradient>
-    custom-model-data: 5608
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # PRISMARINE_SHARD x1 で binder_sword と衝突回避(水棲武器らしい素材)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - PRISMARINE_SHARD x1
-      source: 120000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_scythe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HOE
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ鎌</gradient>
-    custom-model-data: 5608
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # HAY_BLOCK x1 で binder_sword と衝突回避(刈り取り=鎌のモチーフ)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - HAY_BLOCK x1
-      source: 180000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_mace:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: MACE
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐメイス</gradient>
-    custom-model-data: 5608
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # HEAVY_CORE x1 で binder_sword と衝突回避(メイスそのものの重心素材)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - HEAVY_CORE x1
-      source: 300000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_warhammer:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐウォーハンマー</gradient>
-    custom-model-data: 5609
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # IRON_BLOCK x1 で binder_sword と衝突回避(打撃武器らしい塊素材)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - IRON_BLOCK x1
-      source: 240000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_grate_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大剣</gradient>
-    custom-model-data: 5610
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # NETHERITE_SCRAP x1 で binder_sword と衝突回避(刀身が大きい分だけ地金を余分に使う)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - NETHERITE_SCRAP x1
-      source: 300000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_axe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_AXE
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ戦斧</gradient>
-    custom-model-data: 5610
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # COPPER_INGOT x2 で binder_sword と衝突回避(刃の重ね打ちに使う地金)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - COPPER_INGOT x2
-      source: 120000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_greataxe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ大斧</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # NETHERITE_SCRAP x2 で binder_sword と衝突回避(刃面が広い分だけ地金を余分に使う)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - NETHERITE_SCRAP x2
-      source: 240000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_bow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: BOW
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ弓</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # STRING x2 で binder_sword と衝突回避(弓弦)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - STRING x2
-      source: 180000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_crossbow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: CROSSBOW
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐクロスボウ</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # TRIPWIRE_HOOK x1 で binder_sword と衝突回避(引き金機構のモチーフ)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:dungeon_seal_binder x1
-      - custom:reality_thread_core x1
-      - TRIPWIRE_HOOK x1
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>繋ぎ止めていた手を、逆に握り返した。</italic></dark_gray>
-    - <gray>束縛者を倒した者だけが打てる最上位帯。</gray>
-  binder_helmet:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HELMET
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐヘルメット</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:hard_metal x2
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  binder_chestplate:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_CHESTPLATE
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐチェストプレート</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # hard_metal の個数を部位ごとに変えて binder_helmet 等との衝突を回避する
-      # (RitualRecipeRegistry#findMatchはfindFirstのため完全一致だと最初の1本しか成立しない)。
-      # 胴は面積最大なので hard_metal x4。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:hard_metal x4
-      source: 120000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  binder_leggings:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_LEGGINGS
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐレギンス</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # hard_metal x3(binder_helmet=2 と binder_chestplate=4 の間。衝突回避と部位重量の並び)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:hard_metal x3
-      source: 90000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  binder_boots:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_BOOTS
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐブーツ</gradient>
-    custom-model-data: 5611
-    enchant-glow: true
-    recipe:
-      method: ritual
-      core-item: custom:binder_fragment
-      # hard_metal x1(ブーツは面積最小=最軽量。衝突回避と部位重量の並び)。
-      pedestal-items:
-      - custom:binder_fragment x3
-      - custom:abyssal_ingot x2
-      - custom:hard_metal x1
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>次元の縫い目を、そのまま纏う。</italic></dark_gray>
-  # ==== 2026-08-01 追加: ダンジョンの鍵 (key_*) ====
-  # dungeon/gates.yml の key-item から参照される入場鍵。ベースは TRIAL_KEY / CMD 5501-5519 を確保する。
-  # 印(dungeon_seal_*)は「踏破の証」であって鍵ではない。印は recipe を持たず、鍵の素材にだけなる。
-  #
-  # 【配分の根拠】入手経路の空きを埋める向きに割っている。棚卸し時点の経路密度は
-  #   クラフト87件 / EMボス112エントリ に対して 村人2・釣り3・採掘3・伐採1・掘削1・農業0・儀式6 で、
-  #   ルート系が極端に薄かった。鍵をルート限定にすること自体が、そのまま空き経路の解消になる。
-  # 【クラフトを序盤5種に寄せた理由】鍵が無いと1つも入れないため、入口だけは必ずクラフトで
-  #   開けられる必要がある。逆に中盤以降をルート限定にしても手詰まりにならない。
-  # 【実装済みの配分】クラフト5 / 採掘3 / 掘削3 / 釣り2 / ガチャ3 / 合成1 = 17種。
-  #   設計上の「戦利品(ルートチェスト) 2種」= key_hallosseum / key_north_pole は
-  #   ルートチェストへの独自アイテム注入機構が存在しない(LootGenerateEvent は
-  #   VanillaItemRemovalListener の削除用途にしか使っていない)ため、入手経路を用意できない。
-  #   到達不能なアイテムを生やさないよう、この2種はあえて定義していない。CMD 5517/5518 は予約。
-
-  # ---- クラフト5種 (序盤の入口) ----
-  key_mines:
-    material: TRIAL_KEY
-    display-name: <color:#9e9e9e>鉱山の鍵</color>
-    custom-model-data: 5501
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:iron_ingot_scrap
-        - custom:iron_ingot_scrap
-        - custom:iron_ingot_scrap
-        - custom:iron_ingot_scrap
-        - custom:stone_2x
-        - IRON_INGOT
-        - IRON_INGOT
-      amount: 1
-    lore:
-    - ''
-    - <dark_gray><italic>坑道の入口に差さっていた、ありふれた鉄の鍵。</italic></dark_gray>
-  key_deep_mines:
-    material: TRIAL_KEY
-    display-name: <color:#7986cb>深層鉱山の鍵</color>
-    custom-model-data: 5502
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:key_mines
-        - custom:copper_ingot_scrap
-        - custom:copper_ingot_scrap
-        - custom:copper_ingot_scrap
-        - custom:copper_ingot_scrap
-        - AMETHYST_SHARD
-        - AMETHYST_SHARD
-        - AMETHYST_SHARD
-      amount: 1
-    lore:
-    - ''
-    - <dark_gray><italic>浅い坑道の鍵を、より深い錠前に合わせて削り直した。</italic></dark_gray>
-  key_quarry:
-    material: TRIAL_KEY
-    display-name: <color:#a1887f>採石場の鍵</color>
-    custom-model-data: 5503
-    # list:scrap_metals は iron_ingot_scrap と tf_scrap のどちらでも通す。
-    # tf_scrap は「入手だけあって出口ゼロ」(村人が鉄12→3で吸う純粋シンク)だったので、
-    # ここを代替枠にして初めて使い道が生まれる。
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:stone_3x
-        - custom:stone_3x
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-        - list:scrap_metals
-      amount: 1
-    lore:
-    - ''
-    - <dark_gray><italic>切り出した石の重さで、扉の錘が下りる。</italic></dark_gray>
-  key_cave:
-    material: TRIAL_KEY
-    display-name: <color:#ff7043>灼熱の洞窟の鍵</color>
-    custom-model-data: 5504
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - custom:netherrack_2x
-        - custom:blaze_rod_1x
-        - custom:blaze_rod_1x
-        - MAGMA_BLOCK
-        - MAGMA_BLOCK
-        - MAGMA_BLOCK
-        - MAGMA_BLOCK
-      amount: 1
-    lore:
-    - ''
-    - <dark_gray><italic>熱を帯びていないと、錠前の側が凍りついて回らない。</italic></dark_gray>
-  key_enchant_trial:
-    material: TRIAL_KEY
-    display-name: <color:#7e57c2>エンチャント試練の鍵</color>
-    custom-model-data: 5505
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - LAPIS_BLOCK
-        - BOOK
-        - BOOK
-        - BOOK
-        - BOOK
-        - custom:source_gem
-      amount: 1
-    lore:
-    - ''
-    - <dark_gray><italic>綴じた頁の間に、通行の許可が挟んである。</italic></dark_gray>
-
-  # ---- 採掘ギミック3種 (stats/mining-gimmick.yml の dungeon_keys カテゴリ) ----
-  # レシピは持たない。採掘の鉱脈破壊トリガーからのみ出る。
-  key_bridge:
-    material: TRIAL_KEY
-    display-name: <color:#8d6e63>古橋の聖所の鍵</color>
-    custom-model-data: 5506
-    lore:
-    - ''
-    - <dark_gray><italic>橋脚の内側に埋め込まれていた。掘り当てるほかに手はない。</italic></dark_gray>
-  key_city:
-    material: TRIAL_KEY
-    display-name: <color:#ffb300>ドワーフの地下都市の鍵</color>
-    custom-model-data: 5507
-    lore:
-    - ''
-    - <dark_gray><italic>都市の門番は、鍵を岩脈の中に隠す習わしだった。</italic></dark_gray>
-  key_steamworks:
-    material: TRIAL_KEY
-    display-name: <color:#78909c>蒸気機関工房の鍵</color>
-    custom-model-data: 5508
-    lore:
-    - ''
-    - <dark_gray><italic>歯車の噛み合わせがそのまま鍵の形をしている。</italic></dark_gray>
-
-  # ---- 掘削ギミック3種 (stats/digging-gimmick.yml の dungeon_keys カテゴリ) ----
-  key_climb:
-    material: TRIAL_KEY
-    display-name: <color:#4db6ac>登攀路の鍵</color>
-    custom-model-data: 5509
-    lore:
-    - ''
-    - <dark_gray><italic>登る前に、まず足元を掘れという話だった。</italic></dark_gray>
-  key_palace:
-    material: TRIAL_KEY
-    display-name: <color:#ffd54f>宮殿の鍵</color>
-    custom-model-data: 5510
-    lore:
-    - ''
-    - <dark_gray><italic>庭園の土の下で、金の鍵が待っていた。</italic></dark_gray>
-  key_sewer_maze:
-    material: TRIAL_KEY
-    display-name: <color:#689f38>下水道迷宮の鍵</color>
-    custom-model-data: 5511
-    lore:
-    - ''
-    - <dark_gray><italic>泥をかき出すと、格子の留め具が出てくる。</italic></dark_gray>
-
-  # ---- 釣り(宝)2種 (stats/fishing-gimmick.yml の groups.treasure) ----
-  key_knight_castle:
-    material: TRIAL_KEY
-    display-name: <color:#e0e0e0>騎士団の城の鍵</color>
-    custom-model-data: 5512
-    lore:
-    - ''
-    - <dark_gray><italic>堀に投げ捨てられた鍵。騎士団が城を捨てた日のものだ。</italic></dark_gray>
-  key_dark_cathedral:
-    material: TRIAL_KEY
-    display-name: <color:#5c6bc0>闇の大聖堂の鍵</color>
-    custom-model-data: 5513
-    lore:
-    - ''
-    - <dark_gray><italic>水底から引き上げると、まだ祈りの重さが残っている。</italic></dark_gray>
-
-  # ---- ガチャ3種 (gacha.yml の tier1/tier2/tier3) ----
-  key_nether_bell:
-    material: TRIAL_KEY
-    display-name: <color:#ef5350>ネザーの鐘の鍵</color>
-    custom-model-data: 5514
-    lore:
-    - ''
-    - <dark_gray><italic>振ると、遠くで鐘が同じ音を返す。</italic></dark_gray>
-  key_nether_wastes:
-    material: TRIAL_KEY
-    display-name: <color:#8e24aa>ネザーの荒野の鍵</color>
-    custom-model-data: 5515
-    lore:
-    - ''
-    - <dark_gray><italic>荒野には扉が無い。鍵の方が場所を決める。</italic></dark_gray>
-  key_fireworks:
-    material: TRIAL_KEY
-    display-name: <color:#ffa726>花火工房の鍵</color>
-    custom-model-data: 5516
-    lore:
-    - ''
-    - <dark_gray><italic>火薬の匂いが染みついて落ちない。</italic></dark_gray>
-
-  # ---- 合成1種: 束縛者の鍵 ----
-  # list:dungeon_seals を5個要求する。「19種すべて」ではなく「任意5種」にするのが要点で、
-  # どのダンジョンから攻めても束縛者に到達できる(縦は細く・横は多く)。
-  # これで用途ゼロだった印18種に一斉に出口ができる。
-  # 注: 同じ印5個でも成立する。互換リストはスロット単位の判定で、種類の重複を禁止する機構が無い。
-  key_binder:
-    material: TRIAL_KEY
-    display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ者の鍵</gradient>
-    custom-model-data: 5519
-    enchant-glow: true
-    recipe:
-      method: workbench
-      type: shapeless
-      ingredients:
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - list:dungeon_seals
-        - custom:abyssal_ingot
-        - custom:abyssal_ingot
-        - custom:reality_thread_core
-      amount: 1
-    lore:
-    - ''
-    - <dark_gray><italic>踏破の証を5つ束ねると、繋ぎ目そのものが鍵になる。</italic></dark_gray>
-    - <gray>どのダンジョンの印でもよい。5つ集まればいい。</gray>
-
-  # ===== 氷芯シリーズ (cryocore) — Lv100 / 儀式 / 全13武器種 =====
-  # 形(速度・リーチ・会心・貫通・ダメージ補正・厳選幅)は infinity と同一で、
-  # attack-power だけ 0.7 倍。武器種ごとの比は infinity の実値をそのまま引き継ぐ。
-  # 儀式素材は武器種ごとに1つ差し替えてある。RitualRecipeRegistry#findMatch は
-  # findFirst なので、core+pedestal が完全一致すると最初の1本しか成立しない。
-  cryocore_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#7fd4e8>氷芯の剣</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_dagger:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#7fd4e8>氷芯の短剣</color>
-    custom-model-data: 5701
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - FLINT x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_rapier:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#7fd4e8>氷芯のレイピア</color>
-    custom-model-data: 5702
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - FEATHER x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_spear:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SPEAR
-    display-name: <color:#7fd4e8>氷芯の槍</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - STICK x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_trident:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: TRIDENT
-    display-name: <color:#7fd4e8>氷芯の三叉槍</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - PRISMARINE_SHARD x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_scythe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HOE
-    display-name: <color:#7fd4e8>氷芯の鎌</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - HAY_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 45000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_mace:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: MACE
-    display-name: <color:#7fd4e8>氷芯のメイス</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - HEAVY_CORE x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 75000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_warhammer:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#7fd4e8>氷芯の戦鎚</color>
-    custom-model-data: 5703
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - IRON_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_grate_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#7fd4e8>氷芯の大剣</color>
-    custom-model-data: 5704
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - NETHERITE_SCRAP x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 75000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_axe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_AXE
-    display-name: <color:#7fd4e8>氷芯の斧</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - COPPER_INGOT x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_greataxe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#7fd4e8>氷芯の大斧</color>
-    custom-model-data: 5705
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - NETHERITE_SCRAP x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_bow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: BOW
-    display-name: <color:#7fd4e8>氷芯の弓</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - STRING x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 45000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-  cryocore_crossbow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: CROSSBOW
-    display-name: <color:#7fd4e8>氷芯の弩</color>
-    custom-model-data: 5700
-    recipe:
-      method: ritual
-      core-item: custom:wither_rose_2x
-      pedestal-items:
-      - custom:breeze_rod_3x x2
-      - custom:hard_metal x4
-      - custom:elder_guardian_spike x2
-      - TRIPWIRE_HOOK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>凍りついた核が、傷口から溶け出す。</italic></dark_gray>
-    - <gray>攻撃力は控えめだが、出血を確実に通す。</gray>
-
-  # ===== 熾鉄シリーズ (emberforge) — Lv100 / 儀式 / 全13武器種 =====
-  # 形(速度・リーチ・会心・貫通・ダメージ補正・厳選幅)は infinity と同一で、
-  # attack-power だけ 0.85 倍。武器種ごとの比は infinity の実値をそのまま引き継ぐ。
-  # 儀式素材は武器種ごとに1つ差し替えてある。RitualRecipeRegistry#findMatch は
-  # findFirst なので、core+pedestal が完全一致すると最初の1本しか成立しない。
-  emberforge_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#e8894a>熾鉄の剣</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_dagger:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#e8894a>熾鉄の短剣</color>
-    custom-model-data: 5721
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - FLINT x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_rapier:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#e8894a>熾鉄のレイピア</color>
-    custom-model-data: 5722
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - FEATHER x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_spear:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SPEAR
-    display-name: <color:#e8894a>熾鉄の槍</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - STICK x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_trident:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: TRIDENT
-    display-name: <color:#e8894a>熾鉄の三叉槍</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - PRISMARINE_SHARD x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_scythe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HOE
-    display-name: <color:#e8894a>熾鉄の鎌</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - HAY_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 45000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_mace:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: MACE
-    display-name: <color:#e8894a>熾鉄のメイス</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - HEAVY_CORE x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 75000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_warhammer:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#e8894a>熾鉄の戦鎚</color>
-    custom-model-data: 5723
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - IRON_BLOCK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_grate_sword:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#e8894a>熾鉄の大剣</color>
-    custom-model-data: 5724
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - NETHERITE_SCRAP x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 75000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_axe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_AXE
-    display-name: <color:#e8894a>熾鉄の斧</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - COPPER_INGOT x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 30000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_greataxe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#e8894a>熾鉄の大斧</color>
-    custom-model-data: 5725
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - NETHERITE_SCRAP x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 60000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_bow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: BOW
-    display-name: <color:#e8894a>熾鉄の弓</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - STRING x2   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 45000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_crossbow:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: CROSSBOW
-    display-name: <color:#e8894a>熾鉄の弩</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - TRIPWIRE_HOOK x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_helmet:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HELMET
-    display-name: <color:#e8894a>熾鉄の兜</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - GOLDEN_HELMET x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_chestplate:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#e8894a>熾鉄の胸当て</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - GOLDEN_CHESTPLATE x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_leggings:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_LEGGINGS
-    display-name: <color:#e8894a>熾鉄の具足</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - GOLDEN_LEGGINGS x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-  emberforge_boots:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_BOOTS
-    display-name: <color:#e8894a>熾鉄の靴</color>
-    custom-model-data: 5720
-    recipe:
-      method: ritual
-      core-item: custom:netherite_block_1x
-      pedestal-items:
-      - custom:stone_5x x1
-      - custom:emerald_block_4x x1
-      - custom:hard_metal x6
-      - GOLDEN_BOOTS x1   # 武器種の識別用(これが無いと findFirst で潰れる)
-      source: 40000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>打ち直すほど、鉄は粘る。</italic></dark_gray>
-    - <gray>攻撃力は最上位に一歩譲るが、まず壊れない。</gray>
-
-
-  # ===== 単発装備8点 (柱5-3) — コア4種の出口。1コアにつき武器/ツール1点＋防具1点 =====
-  # Lv100帯は増やさない。防具の phys-flat-defense は同レベル帯のバニラ相当部位と同値。
-  # 減算式なので数値をずらすと Lv100 で被弾回数が発散する(仕様書 §0-1)。
-  # 識別は減算されないキー(dodge-chance / move-speed / max-health / knockback-resistance)だけで行う。
-  woodsman_greataxe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SWORD
-    display-name: <color:#c9b37a>樵の大斧</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_wood
-      pedestal-items:
-      - OAK_LOG x8
-      - custom:hard_metal x2
-      - NETHERITE_SCRAP x2   # 同じコアの2点を割るための識別素材
-      source: 25000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>刃こぼれの一つ一つが、倒した木の数だ。</italic></dark_gray>
-    - <gray>伐採の経験値と追加ドロップが増える。</gray>
-  forestfolk_cloak:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#c9b37a>森人の外套</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_wood
-      pedestal-items:
-      - OAK_LOG x8
-      - custom:hard_metal x2
-      - GOLDEN_CHESTPLATE x1   # 同じコアの2点を割るための識別素材
-      source: 25000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>枝を鳴らさずに歩く者の装い。</italic></dark_gray>
-    - <gray>回避率と移動速度が上がる。</gray>
-  feast_breastplate:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#c9b37a>饗宴の胸当て</color>
-    custom-model-data: 5741
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_meat
-      pedestal-items:
-      - COOKED_BEEF x8
-      - custom:hard_metal x2
-      - GOLDEN_CHESTPLATE x1   # 同じコアの2点を割るための識別素材
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>満たされた腹は、鎧より硬い。</italic></dark_gray>
-    - <gray>体力が増え、食料の消費が減る。</gray>
-  hunter_javelin:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SPEAR
-    display-name: <color:#c9b37a>猟師の投槍</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_meat
-      pedestal-items:
-      - COOKED_BEEF x8
-      - custom:hard_metal x2
-      - STICK x2   # 同じコアの2点を割るための識別素材
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>間合いを詰めない狩り方がある。</italic></dark_gray>
-    - <gray>本作中で最も長いリーチを持つ。</gray>
-  harvest_hoe:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HOE
-    display-name: <color:#c9b37a>豊穣の鍬</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_vegetable
-      pedestal-items:
-      - WHEAT x16
-      - custom:hard_metal x2
-      - HAY_BLOCK x1   # 同じコアの2点を割るための識別素材
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>実りは待つ者にだけ来る。</italic></dark_gray>
-    - <gray>農業の経験値と追加ドロップが増える。</gray>
-  herb_hat:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_HELMET
-    display-name: <color:#c9b37a>香草の帽子</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_vegetable
-      pedestal-items:
-      - WHEAT x16
-      - custom:hard_metal x2
-      - GOLDEN_HELMET x1   # 同じコアの2点を割るための識別素材
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>草の匂いが染みついている。</italic></dark_gray>
-    - <gray>食べたときの満腹度回復量が増える。</gray>
-  leyline_shovel:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_SHOVEL
-    display-name: <color:#c9b37a>地脈のシャベル</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_dirt
-      pedestal-items:
-      - DIRT x16
-      - custom:hard_metal x2
-      - FLINT x1   # 同じコアの2点を割るための識別素材
-      source: 8000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>地面の下を流れるものを掬い上げる。</italic></dark_gray>
-    - <gray>掘削の経験値と幸運が増える。</gray>
-  bedrock_greaves:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_BOOTS
-    display-name: <color:#c9b37a>岩盤の具足</color>
-    custom-model-data: 5740
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_dirt
-      pedestal-items:
-      - DIRT x16
-      - custom:hard_metal x2
-      - GOLDEN_BOOTS x1   # 同じコアの2点を割るための識別素材
-      source: 10000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>一歩も下がらないための重さ。</italic></dark_gray>
-    - <gray>ノックバック耐性が上がる。</gray>
-
-
-  # ===== ロール専用装備8点 (柱7) — use-role の最初の使い所 =====
-  # 縦強化にしない。ステは単発装備と同等で、差は「そのロールでないと装備できない」ことだけ。
-  # ロール変更CTが120分あるので「今日はこの職で遊ぶ」を選ぶ理由になる。
-  # 防具5点の phys-flat-defense は Lv45 のバニラ相当部位と同値のまま動かしていない。
-  gladiator_belt:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: LEATHER_CHESTPLATE
-    display-name: <color:#b48ee0>闘士の帯</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - IRON_BLOCK x1   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>締めた瞬間、間合いが変わる。</italic></dark_gray>
-    - <gray>剣闘士だけが身に着けられる。貫通率が上がる。</gray>
-  chanter_ring:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: AMETHYST_SHARD
-    display-name: <color:#b48ee0>詠唱者の指輪</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - LAPIS_BLOCK x1   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>唱えるより先に、指が覚えている。</italic></dark_gray>
-    - <gray>魔導士だけが使える装飾品。オフハンドに持つとマナ消費が減る。</gray>
-  taunt_crest:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: NETHERITE_CHESTPLATE
-    display-name: <color:#b48ee0>挑発の紋章</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - SHIELD x1   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>前に出る者にしか、これは似合わない。</italic></dark_gray>
-    - <gray>盾役だけが身に着けられる。被ダメージとノックバックを抑える。</gray>
-  harvest_basket:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: LEATHER_CHESTPLATE
-    display-name: <color:#b48ee0>実りの籠</color>
-    custom-model-data: 5761
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - HAY_BLOCK x1   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>背負ったぶんだけ、持って帰れる。</italic></dark_gray>
-    - <gray>農家だけが身に着けられる。収穫の追加ドロップ率が上がる。</gray>
-  tide_float:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: LEATHER_HELMET
-    display-name: <color:#b48ee0>潮見の浮き</color>
-    custom-model-data: 5760
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - NAUTILUS_SHELL x1   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>沈む速さで、下にいるものが分かる。</italic></dark_gray>
-    - <gray>釣り人だけが身に着けられる。釣り運が上がる。</gray>
-  pit_lamp:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: LEATHER_HELMET
-    display-name: <color:#b48ee0>坑夫の灯</color>
-    custom-model-data: 5761
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - FLINT x1   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>暗いほど、見えるものがある。</italic></dark_gray>
-    - <gray>坑夫だけが身に着けられる。採掘運が上がる。</gray>
-  leveling_gloves:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: LEATHER_CHESTPLATE
-    display-name: <color:#b48ee0>均しの手袋</color>
-    custom-model-data: 5762
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - DIRT x8   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>掘るより、均すほうが難しい。</italic></dark_gray>
-    - <gray>掘削者だけが身に着けられる。怪しいブロックが復活しやすくなる。</gray>
-  woodsman_whetstone:
-    draft: true   # 準備中: ゲーム側へ配線しない(レシピ登録もドロップもしない)
-    material: AMETHYST_SHARD
-    display-name: <color:#b48ee0>樵の砥石</color>
-    custom-model-data: 5761
-    recipe:
-      method: ritual
-      core-item: custom:tf_core_jewelry
-      pedestal-items:
-      - custom:hard_metal x2
-      - OAK_LOG x8   # 職ごとの識別素材(無いと findFirst で潰れる)
-      source: 15000
-      type: shapeless
-      ingredients: []
-    lore:
-    - ''
-    - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
-    - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
-
 _editor:
   categories:
     weapon:
@@ -6745,9 +6993,6 @@ _editor:
         itemIds:
           - koujien
           - wooden_halberd
-      - id: cat_abyss_binder_weapon
-        label: 深淵・束縛者
-        itemIds:
       - id: cat_auto_draft
         label: 準備中
         itemIds:
@@ -6817,8 +7062,8 @@ _editor:
           - diamond_cane
           - netherite_cane
           - infinity_cane
-          - dragon_cane
-          - wither_cane
+          - abyss_cane
+          - boundary_cane
       - id: cat_20260723_触媒
         label: 触媒
         itemIds:
@@ -6891,6 +7136,14 @@ _editor:
           - mage_guardian_novice_chestplate
           - mage_guardian_novice_helmet
           - mage_guardian_novice_leggings
+          - mage_guardian_sage_boots
+          - mage_guardian_sage_chestplate
+          - mage_guardian_sage_helmet
+          - mage_guardian_sage_leggings
+          - mage_guardian_starseer_boots
+          - mage_guardian_starseer_chestplate
+          - mage_guardian_starseer_helmet
+          - mage_guardian_starseer_leggings
       - id: cat_1784732812065
         label: 魔織
         itemIds:
@@ -6906,6 +7159,14 @@ _editor:
           - mage_weaver_novice_chestplate
           - mage_weaver_novice_helmet
           - mage_weaver_novice_leggings
+          - mage_weaver_sage_boots
+          - mage_weaver_sage_chestplate
+          - mage_weaver_sage_helmet
+          - mage_weaver_sage_leggings
+          - mage_weaver_starseer_boots
+          - mage_weaver_starseer_chestplate
+          - mage_weaver_starseer_helmet
+          - mage_weaver_starseer_leggings
       - id: cat_1784732795466
         label: 魔導
         itemIds:
@@ -7044,6 +7305,34 @@ _editor:
           - thread_thorn
           - thread_thrift
           - thread_timber
+    # ダンジョンの鍵は「補助」ではなく「素材」タブに置く(2026-08-03 ユーザー指示)。
+    # material-ref は catalog.yml のアイテムを **materials.yml へ移動せずに**
+    # 素材タブの「カタログ内の素材」セクションへ出す表示タブ
+    # (forms.js の CATALOG_MATERIAL_REF_TAB)。実移動用の "material" とは別物で、
+    # 鍵を実移動すると ShippedDungeonKeyReachabilityTest などの入手経路検査が
+    # 参照先(materials.yml = .gitignore 除外)を読めなくなり、
+    # 「永久に入手不能な鍵」の検知が丸ごと失われる。
+    material-ref:
+      - id: cat_20260803_dungeon_keys
+        label: ダンジョンの鍵
+        itemIds:
+          - key_mines
+          - key_deep_mines
+          - key_quarry
+          - key_cave
+          - key_enchant_trial
+          - key_bridge
+          - key_city
+          - key_steamworks
+          - key_climb
+          - key_palace
+          - key_sewer_maze
+          - key_knight_castle
+          - key_dark_cathedral
+          - key_nether_bell
+          - key_nether_wastes
+          - key_fireworks
+          - key_binder
   orders:
     weapon:
       - wooden_halberd
@@ -7225,8 +7514,8 @@ _editor:
       - infinity_cane
       - woodsman_whetstone
       - chanter_ring
-      - dragon_cane
-      - wither_cane
+      - abyss_cane
+      - boundary_cane
     tool:
       - source_gem_pickaxe
       - source_gem_shovel
@@ -7295,6 +7584,14 @@ _editor:
       - mage_weaver_archmage_chestplate
       - mage_weaver_archmage_leggings
       - mage_weaver_archmage_boots
+      - mage_weaver_sage_helmet
+      - mage_weaver_sage_chestplate
+      - mage_weaver_sage_leggings
+      - mage_weaver_sage_boots
+      - mage_weaver_starseer_helmet
+      - mage_weaver_starseer_chestplate
+      - mage_weaver_starseer_leggings
+      - mage_weaver_starseer_boots
       - mage_guardian_novice_helmet
       - mage_guardian_novice_chestplate
       - mage_guardian_novice_leggings
@@ -7307,6 +7604,14 @@ _editor:
       - mage_guardian_archmage_chestplate
       - mage_guardian_archmage_leggings
       - mage_guardian_archmage_boots
+      - mage_guardian_sage_helmet
+      - mage_guardian_sage_chestplate
+      - mage_guardian_sage_leggings
+      - mage_guardian_sage_boots
+      - mage_guardian_starseer_helmet
+      - mage_guardian_starseer_chestplate
+      - mage_guardian_starseer_leggings
+      - mage_guardian_starseer_boots
       - abyssal_scale_helmet
       - abyssal_scale_chestplate
       - abyssal_scale_leggings
@@ -7344,7 +7649,45 @@ _editor:
       - spell_book_apprentice
       - spell_book_archmage
     thread: []
+    material-ref:
+      - key_mines
+      - key_deep_mines
+      - key_quarry
+      - key_cave
+      - key_enchant_trial
+      - key_bridge
+      - key_city
+      - key_steamworks
+      - key_climb
+      - key_palace
+      - key_sewer_maze
+      - key_knight_castle
+      - key_dark_cathedral
+      - key_nether_bell
+      - key_nether_wastes
+      - key_fireworks
+      - key_binder
   itemTabs:
+    # ダンジョンの鍵 17種: 表示タブを material-ref(素材タブの「カタログ内の素材」)へ固定する。
+    # ピンを外すと material 推論(TRIAL_KEY → 該当なし → other)へ落ち、
+    # 「補助」タブがサブウェポン以外で埋まる状態に戻る。
+    key_mines: material-ref
+    key_deep_mines: material-ref
+    key_quarry: material-ref
+    key_cave: material-ref
+    key_enchant_trial: material-ref
+    key_bridge: material-ref
+    key_city: material-ref
+    key_steamworks: material-ref
+    key_climb: material-ref
+    key_palace: material-ref
+    key_sewer_maze: material-ref
+    key_knight_castle: material-ref
+    key_dark_cathedral: material-ref
+    key_nether_bell: material-ref
+    key_nether_wastes: material-ref
+    key_fireworks: material-ref
+    key_binder: material-ref
     spell_book_novice: spellbook
     spell_book_apprentice: spellbook
     spell_book_archmage: spellbook
@@ -7388,6 +7731,13 @@ _editor:
     thread_swiftcast: thread
     thread_marksman: thread
     thread_luck: thread
+    # 2026-08-03 追加5種。旗の模様 / 陶器の欠片 / 鍛冶型はどれも inferItemCategory の
+    # どの分岐にも当たらず既定の other(補助)へ落ちるので、ピンが唯一の防波堤。
+    thread_perfumer: thread
+    thread_apiarist: thread
+    thread_herder: thread
+    thread_appraiser: thread
+    thread_excavation: thread
     Winter_Grim_Reaper: weapon
     wooden_halberd: weapon
     koujien: weapon
@@ -7522,8 +7872,6 @@ _editor:
     infinity_cane: catalyst
     woodsman_whetstone: catalyst
     chanter_ring: catalyst
-    dragon_cane: catalyst
-    wither_cane: catalyst
     source_gem_grate_sword: weapon
     nuclear_sword: weapon
     nuclear_dagger: weapon
@@ -7581,3 +7929,5 @@ _editor:
     binder_chestplate: armor
     binder_leggings: armor
     binder_boots: armor
+    boundary_cane: catalyst
+    abyss_cane: catalyst
