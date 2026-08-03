@@ -217,6 +217,19 @@ overrides:
     # 【EliteMobs の mob id を持たないモブは EntityType 名がキーになる】ので、ここに小文字の
     # EntityType 名を書けばオーバーワールドのモブにも技が付く。
     #
+    # 【⚠️ EntityType 名キーが効くのは abilities: だけ(2026-08-03 に実際に踏んだ罠)】
+    # 同じキーに drops: や vanilla-exp: を書いても【1個も落ちないし EXP も変わらない】。
+    # EntityType 名へフォールバックするのは MobAbilityTask だけで、drops:/vanilla-exp: を読む
+    # MobOverrideDropListener / MobOverrideExpListener は【MOB_PROFILE_ID が刻まれた個体】でしか
+    # 動かず、その PDC は EliteMobs フォークが CustomBoss へ刻むもの。バニラのウォーデンや
+    # ウィザーには最初から存在しないので、リスナーは profileId 不在で即 return する。
+    # 警告もログも出ないため「設定したのに出ない」に気づけない。
+    # 【バニラモブに追加ドロップを配りたいときの正しい置き場】
+    #   ・combat/mob-level-table.yml の add-drops: (mobs: [WARDEN] のように EntityType で絞る)
+    #     — custom:ravager_hide / custom:guardian_spine 等で既に実運用している経路。
+    #   ・combat/mob-types.yml の <ENTITY_TYPE>.drops:
+    # このファイルの drops: は「EliteMobs ダンジョンのモブ限定」と割り切って使うこと。
+    #
     # 【なぜゾンビ/スケルトンには付けていないか】序盤の手触りを変えないため。Lv0 の装備で
     # AoE を撒くモブと戦わせると「カジュアルが最初の1時間で折れる」。技を付けたのは
     # 「もともと危険」と認識されているモブだけで、しかも既存の挙動を裏切らない技を選んでいる
@@ -1800,10 +1813,13 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
+        # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
         drops:
           - { item: "custom:dungeon_seal_city", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+          - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
 
   # the_climb_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_climb / 24体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — アンデッドと獣使いが混在。骨は物理を、影は魔法を弾く
@@ -2037,10 +2053,29 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # 【custom:warden_tendril の入手経路 (2026-08-03 追加)】
+        # items/catalog.yml の儀式3本 —— 暗殺者の弓(hero_bow) / 暗殺者のクロスボウ(hero_crossbow) /
+        # 黒淵の杖(abyss_cane) —— が custom:warden_tendril x2 を要求するのに、この素材は
+        # ガチャ表にもどのドロップ表にも1件も載っておらず、【3本とも永久に作成不能】だった。
+        # 姉妹素材の dragon_scale / elder_guardian_spike / wither_skull_fragment は gacha.yml に
+        # 載っている(=救済済み)ので、抜けていたのは warden_tendril だけ。
+        #
+        # 【率の根拠】儀式1本あたり x2、3本すべて作るなら計6個。chance 0.5 / 1〜2個 =
+        # 1討伐あたり平均0.75個なので、これを載せた踏破ボス3種(深層鉱山/ドワーフの地下都市/
+        # 闇の大聖堂)を1周すると平均2.25個 ≒ 儀式1本ぶん強。3周で3本すべてに届く。
+        # 踏破ボスなので周回コストが高く、無限に湧かせて稼ぐことはできない。
+        # 同じ枠の abyssal_ingot(0.1)より高いのは、こちらが「0個だと詰む」唯一素材だから
+        # (abyssal_ingot は他の踏破ボスにも横断的に載っている)。
+        #
+        # 【重要】これはバニラのウォーデン討伐では出ない。このファイルは MOB_PROFILE_ID を
+        # 持つ EliteMobs 個体にしか効かない(ファイル冒頭 default: の警告参照)。バニラの
+        # ウォーデンからも落としたい場合は combat/mob-level-table.yml の add-drops に
+        # mobs: [WARDEN] で足すこと(このファイルでは実現できない)。
         drops:
           - { item: "custom:dungeon_seal_deep_mines", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+          - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
       em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "熟練の坑夫"
         stats:
@@ -3585,10 +3620,13 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
+        # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
+        # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
         drops:
           - { item: "custom:dungeon_seal_dark_cathedral", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+          - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
       dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "クトゥルフの狂信者"
         stats:
