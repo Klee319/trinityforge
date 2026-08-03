@@ -459,6 +459,14 @@
       // 対応タブが無いため、ここを漏らすと material-ref 品が item-stats.yml に
       // 「タブの無い幽霊エントリ」として量産される。
       if (candidate && (candidate.tab === "material" || candidate.tab === MATERIAL_REF_TAB_ID)) continue;
+      // 2026-08-03: ステータスを持たない品(機能アイテム = ワンド/コンパス/台座/儀式の核/
+      // 筆記台/ウェイストーン/ソースベリー、およびブロックであるソースジャー6種)も枠を作らない。
+      // 印は catalog-candidates.js の EXTRA_SOURCES.statless → candidate.noItemStats。
+      // tab で弾かないのは、これらの tab が "other"(補助) = サブウェポンの正当な置き場と
+      // 同じ値だから — tab で切ると新生の光輪まで一緒に消える。
+      // 候補リスト自体からは消さない: catalog.yml のレシピ素材セレクトが custom:<id> で
+      // 参照するため、候補から消すと「ソースベリーが選べない」(2026-07-30 報告)に戻る。
+      if (candidate && candidate.noItemStats) continue;
       // TF の特殊アイテム(skill_node_lock / skill_tree_reset)も枠を作らない。
       // 2026-07-27 ユーザー指示: この2件は「特殊アイテム」画面(機能アイテムカテゴリ)へ集約し、
       // アイテムステータス側には出さない。
