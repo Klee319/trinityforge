@@ -51,6 +51,17 @@ public final class MobTypesConfig implements LoadableConfig {
     private static final String MAX_HEALTH_HIGH_LEVEL_PER_LEVEL = "max-health-high-level-per-level";
     private static final String ATTACK_POWER_GROWTH = "attack-power-growth";
     private static final String ATTACK_POWER_GROWTH_INTERVAL = "attack-power-growth-interval";
+    /**
+     * 2026-08-03(要件#63の残り): {@code level-coefficients.attack} の attack-power 追加加算の開始レベルと
+     * 傾き。{@code combat/mob-import.yml}(ダンジョン側)の
+     * {@code attack.attack-power.high-level-from / high-level-per-level} と同じ意味・同じ出荷値。
+     * 命名は同一ファイル内に既にある {@code max-health-high-level-from / -per-level} と同じ
+     * 「{基準キー}-high-level-*」の平坦形に揃えた(mob-import.yml はランプを1つのマップへ畳む書式なので
+     * 入れ子キー名が短いだけで、意味は完全に同一)。
+     */
+    private static final String ATTACK_POWER_HIGH_LEVEL_FROM = "attack-power-high-level-from";
+    private static final String ATTACK_POWER_HIGH_LEVEL_PER_LEVEL = "attack-power-high-level-per-level";
+    private static final String ATTACK = "attack";
     private static final String LEVEL_COEFFICIENTS = "level-coefficients";
     private static final String MAX_LEVEL = "max-level";
     /**
@@ -90,9 +101,77 @@ public final class MobTypesConfig implements LoadableConfig {
     private volatile Map<World.Environment, Integer> dimensionBaseLevels = Map.of();
     /** {@code dimensions.<ENV>.coordinate-coefficient}(明示設定時のみ値を持つ、上書き用)。 */
     private volatile Map<World.Environment, Double> dimensionCoordinateCoefficients = Map.of();
+    /** {@code mob-types.<TYPE>.level-coefficients.attack} の攻撃力 高レベル区間。未設定は {@link
+     * AttackPowerHighLevelPhase#NONE}(=従来どおり無干渉)。 */
+    private volatile Map<EntityType, AttackPowerHighLevelPhase> attackPowerHighLevels = Map.of();
+    /** {@code defaults.level-coefficients.attack} の攻撃力 高レベル区間(未タグ付けモブ用)。 */
+    private volatile AttackPowerHighLevelPhase defaultAttackPowerHighLevel = AttackPowerHighLevelPhase.NONE;
+
+    /**
+     * 2026-08-03(要件#63の残り): フィールドモブの攻撃力に対する「Lv{@code from} 以降だけ効く
+     * 加算専用の第2区間」。{@code effective += perLevel * (level - from)}。
+     *
+     * <p>本来は {@link MobLevelCoefficients.AttackCoeffs} に max-health 側と同じ形で持たせるのが筋
+     * (そうすれば {@code MobStatScaling#scaleAttack} を通る全経路が自動的に追随する)。今回は
+     * {@code MobLevelCoefficients}/{@code MobStatScaling} が並行作業中の別レーン所有で編集できないため、
+     * <b>mob-types 経路専用の値としてこのクラスが保持し、{@code MobTypeSpawnListener} が
+     * {@code scaleAttack} の結果へ加算する</b>形にしている。所有権が戻ったら
+     * {@code AttackCoeffs} へ畳み込むこと(やり残し)。
+     *
+     * <p>乗算ではなく加算なのは {@link com.trinityforge.mobs.ConversionPolicy.Ramp} の高レベル区間と
+     * 同じ理由 — 基準カーブが0のステでも効かせられるため。{@code level == from} ちょうどでは 0 を足す
+     * (境界で不連続にならない)。未設定は {@link #NONE} で、既存 config は 1 ミリも挙動が変わらない。
+     */
+    public record AttackPowerHighLevelPhase(double from, double perLevel) {
+
+        /** 未設定 = 一切発動しない(従来どおり完全に無干渉)。 */
+        public static final AttackPowerHighLevelPhase NONE =
+                new AttackPowerHighLevelPhase(Double.POSITIVE_INFINITY, 0.0);
+
+        public AttackPowerHighLevelPhase {
+            // NaN / -Infinity は「全レベルで無限に足す」に化けるので、必ず「発動しない」側へ倒す。
+            if (Double.isNaN(from) || from == Double.NEGATIVE_INFINITY) {
+                from = Double.POSITIVE_INFINITY;
+            }
+            if (!Double.isFinite(perLevel)) {
+                perLevel = 0.0;
+            }
+        }
+
+        /** この区間が実際に何かを足しうるか(= 攻撃ステの刻印を発火させる価値があるか)。 */
+        public boolean isActive() {
+            return perLevel != 0.0 && Double.isFinite(from);
+        }
+
+        /** {@code level} で上乗せする攻撃力。{@code level < from} と未設定は必ず 0.0。 */
+        public double bonusAt(int level) {
+            int lvl = Math.max(0, level);
+            if (perLevel == 0.0 || !Double.isFinite(from) || lvl < from) {
+                return 0.0;
+            }
+            return perLevel * (lvl - from);
+        }
+    }
 
     public Optional<MobTypeDefinition> definition(EntityType type) {
         return Optional.ofNullable(definitions.get(type));
+    }
+
+    /**
+     * 2026-08-03: この EntityType の攻撃力 高レベル区間({@code level-coefficients.attack.
+     * attack-power-high-level-from / -per-level})。未設定/未知の型は {@link
+     * AttackPowerHighLevelPhase#NONE}(= 従来どおり一切足さない)。
+     */
+    public AttackPowerHighLevelPhase attackPowerHighLevel(EntityType type) {
+        if (type == null) {
+            return AttackPowerHighLevelPhase.NONE;
+        }
+        return attackPowerHighLevels.getOrDefault(type, AttackPowerHighLevelPhase.NONE);
+    }
+
+    /** 未タグ付けモブ({@code defaults:})の攻撃力 高レベル区間。 */
+    public AttackPowerHighLevelPhase defaultAttackPowerHighLevel() {
+        return defaultAttackPowerHighLevel;
     }
 
     public Map<EntityType, MobTypeDefinition> all() {
@@ -195,6 +274,7 @@ public final class MobTypesConfig implements LoadableConfig {
         }
         ParseResult result = parse(yaml.getConfigurationSection(ROOT), log);
         this.definitions = result.definitions();
+        this.attackPowerHighLevels = result.attackPowerHighLevels();
         ConfigurationSection defaultsSection = yaml.getConfigurationSection(DEFAULTS);
         DefaultDefenseResult defaults;
         if (defaultsSection != null) {
@@ -223,6 +303,7 @@ public final class MobTypesConfig implements LoadableConfig {
         this.defaultCoordinateCoefficient = defaults.coordinateCoefficient();
         this.defaultLevelCoefficients = defaults.levelCoefficients();
         this.defaultAttack = defaults.attack();
+        this.defaultAttackPowerHighLevel = defaults.attackPowerHighLevel();
         this.maxLevel = parseMaxLevel(yaml, log);
 
         DimensionOverridesResult dimensionOverrides = parseDimensions(yaml, log);
@@ -298,9 +379,28 @@ public final class MobTypesConfig implements LoadableConfig {
         return new DimensionOverridesResult(Map.copyOf(baseLevels), Map.copyOf(coefficients), skipped);
     }
 
+    /**
+     * 2026-08-03: {@code level-coefficients.attack} から攻撃力の高レベル区間を読む。
+     * セクションが無い/キーが無い場合は必ず {@link AttackPowerHighLevelPhase#NONE}
+     * (= 従来どおり無干渉)。
+     */
+    static AttackPowerHighLevelPhase parseAttackPowerHighLevel(ConfigurationSection levelCoefficients) {
+        if (levelCoefficients == null) {
+            return AttackPowerHighLevelPhase.NONE;
+        }
+        ConfigurationSection attack = levelCoefficients.getConfigurationSection(ATTACK);
+        if (attack == null) {
+            return AttackPowerHighLevelPhase.NONE;
+        }
+        return new AttackPowerHighLevelPhase(
+                attack.getDouble(ATTACK_POWER_HIGH_LEVEL_FROM, Double.POSITIVE_INFINITY),
+                attack.getDouble(ATTACK_POWER_HIGH_LEVEL_PER_LEVEL, 0.0));
+    }
+
     /** Pure parse of the {@code mob-types:} section. Invalid entries are skipped, not fatal. */
     static ParseResult parse(ConfigurationSection root, Logger log) {
         Map<EntityType, MobTypeDefinition> parsed = new LinkedHashMap<>();
+        Map<EntityType, AttackPowerHighLevelPhase> attackHighLevels = new LinkedHashMap<>();
         int skipped = 0;
         if (root != null) {
             for (String key : root.getKeys(false)) {
@@ -327,11 +427,15 @@ public final class MobTypesConfig implements LoadableConfig {
                     DefenseStats magical = defense(entry.getConfigurationSection("magical"), armorStrength);
                     MobLevelCoefficients levelCoefficients = parseLevelCoefficients(
                             entry.getConfigurationSection(LEVEL_COEFFICIENTS));
-                    AttackStats attack = parseAttack(entry.getConfigurationSection("attack"));
+                    AttackStats attack = parseAttack(entry.getConfigurationSection(ATTACK));
                     DropParseResult dropResult = parseDrops(entry.getMapList("drops"), key, log);
                     skipped += dropResult.skipped();
                     parsed.put(type, new MobTypeDefinition(type, level, coordinateCoefficient, maxHealth,
                             physical, magical, attack, levelCoefficients, dropResult.drops()));
+                    // definitions と同じ put の直後に置く: 別ループで拾い直すと「定義はスキップされたのに
+                    // 高レベル区間だけ残る」ズレが起きうるため、必ず同じ成功パスで積む。
+                    attackHighLevels.put(type, parseAttackPowerHighLevel(
+                            entry.getConfigurationSection(LEVEL_COEFFICIENTS)));
                 } catch (IllegalArgumentException ex) {
                     log.warning("[" + PATH + "] mob-types entry '" + key + "' invalid (" + ex.getMessage()
                             + "); skipped");
@@ -339,14 +443,14 @@ public final class MobTypesConfig implements LoadableConfig {
                 }
             }
         }
-        return new ParseResult(Map.copyOf(parsed), skipped);
+        return new ParseResult(Map.copyOf(parsed), skipped, Map.copyOf(attackHighLevels));
     }
 
     /** Parses the top-level {@code defaults:} section; null section yields zero baseline stats. */
     static DefaultDefenseResult parseDefaults(ConfigurationSection defaults, Logger log) {
         if (defaults == null) {
             return new DefaultDefenseResult(zeroDefaults(), zeroDefaults(), null, 0, 0.0,
-                    MobLevelCoefficients.ZERO, AttackStats.plain(0));
+                    MobLevelCoefficients.ZERO, AttackStats.plain(0), AttackPowerHighLevelPhase.NONE);
         }
         double armorStrength = Math.max(0.0, defaults.getDouble(ARMOR_STRENGTH, 0.0));
         Double maxHealth = null;
@@ -370,7 +474,8 @@ public final class MobTypesConfig implements LoadableConfig {
                 level,
                 coordinateCoefficient,
                 parseLevelCoefficients(defaults.getConfigurationSection(LEVEL_COEFFICIENTS)),
-                parseAttack(defaults.getConfigurationSection("attack")));
+                parseAttack(defaults.getConfigurationSection(ATTACK)),
+                parseAttackPowerHighLevel(defaults.getConfigurationSection(LEVEL_COEFFICIENTS)));
     }
 
     /**
@@ -413,7 +518,8 @@ public final class MobTypesConfig implements LoadableConfig {
                 level,
                 coordinateCoefficient,
                 parseLevelCoefficients(yaml.getConfigurationSection(LEVEL_COEFFICIENTS)),
-                parseAttack(yaml.getConfigurationSection("attack")));
+                parseAttack(yaml.getConfigurationSection(ATTACK)),
+                parseAttackPowerHighLevel(yaml.getConfigurationSection(LEVEL_COEFFICIENTS)));
     }
 
     private static Double parseOptionalMaxHealth(ConfigurationSection section) {
@@ -606,14 +712,20 @@ public final class MobTypesConfig implements LoadableConfig {
         return Math.max(0.0, Math.min(1.0, value));
     }
 
-    /** Parse outcome: the immutable EntityType->definition map and how many entries were skipped. */
-    record ParseResult(Map<EntityType, MobTypeDefinition> definitions, int skipped) {
+    /**
+     * Parse outcome: the immutable EntityType-&gt;definition map and how many entries were skipped.
+     * {@code attackPowerHighLevels} (2026-08-03) carries the attack-power high-level phase that
+     * {@link MobLevelCoefficients.AttackCoeffs} cannot hold yet — see {@link AttackPowerHighLevelPhase}.
+     */
+    record ParseResult(Map<EntityType, MobTypeDefinition> definitions, int skipped,
+                       Map<EntityType, AttackPowerHighLevelPhase> attackPowerHighLevels) {
     }
 
     /** Defender defaults parse outcome for the untagged-mob baseline profile. */
     record DefaultDefenseResult(DefenseStats physical, DefenseStats magical,
                                 Double maxHealth, int level, double coordinateCoefficient,
-                                MobLevelCoefficients levelCoefficients, AttackStats attack) {
+                                MobLevelCoefficients levelCoefficients, AttackStats attack,
+                                AttackPowerHighLevelPhase attackPowerHighLevel) {
     }
 
     /**

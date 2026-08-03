@@ -62,6 +62,22 @@
 #                                                      attack.attack-power-growth-interval
 #                               growth 省略 or 1.0 = 従来どおりの線形 (後方互換)。
 #                               growth-interval は growth 1回分あたりのレベル幅 (省略時 1.0)。
+#                             さらに max-health と attack.attack-power は「高レベル区間」を持てる
+#                             (加算専用の第2区間。ConversionPolicy.Ramp と同じ意味):
+#                               level >= high-level-from のとき
+#                                 実効値 += high-level-per-level × (level − high-level-from)
+#                               max-health          → max-health-high-level-from /
+#                                                      max-health-high-level-per-level
+#                               attack.attack-power → attack.attack-power-high-level-from /
+#                                                      attack.attack-power-high-level-per-level
+#                               ※ combat/mob-import.yml(ダンジョン側)の
+#                                 attack-power: { ..., high-level-from, high-level-per-level } と
+#                                 同じ意味・同じ出荷値。あちらはランプを1つのマップに畳む書式なので
+#                                 入れ子キー名が短いだけで、意味は完全に同じ。
+#                               両キーとも省略時は「発動しない」(from = 無限大 / per-level = 0)
+#                               = 従来どおり完全に無干渉 (後方互換)。
+#                               乗算ではなく加算なのは、基準カーブが0のステでも効かせられるため。
+#                               level == from ちょうどでは0を足す (境界で不連続にならない)。
 #   drops                   : 追加ドロップ一覧 (省略可)。各要素は以下を持つ:
 #                               material: Material名 または custom:<カスタムアイテムID> (必須)
 #                                         (2026-08-01 U13) custom: は items/catalog.yml の ID と
@@ -156,6 +172,35 @@
 #       是正は別課題。
 #     - coordinate-coefficient: 0.02 なので Lv100 のモブに会うにはスポーンから
 #       5,000 ブロック必要。実際に遭遇しやすいのは Lv0〜55(0〜2,750ブロック)帯である。
+#
+# バランス方針 (2026-08-03 v4 / 高レベル区間の攻撃力 — 要件#63「被弾もうちょっと痛くていい」):
+#   何が壊れていたか: 2026-08-03 の「45+難易度修正」で max-health 側には
+#   max-health-high-level-from/per-level(Lv45以降の加算専用の第2区間)が入り、フィールドモブのHPは
+#   Lv60 で約3.08倍まで積み増された。ところが【攻撃力側には同じキーがそもそも存在しなかった】
+#   (リポジトリ全体で attack-power-high-level-* の grep がゼロ件)。ダンジョン側の
+#   combat/mob-import.yml には attack.attack-power の high-level-from: 45 /
+#   high-level-per-level: 0.25 が入っていたので、フィールドだけが
+#   「硬いだけで痛くない(＝殴り合いが長引くだけ)」方向へ片寄っていた。
+#
+#   何をしたか: mob-import.yml と同じ意味・同じ出荷値のキーを新設し、
+#   level-coefficients.attack へ全50エントリ(敵対41種＋反撃してくる中立9種)に一律で入れた。
+#     attack-power-high-level-from: 45 / attack-power-high-level-per-level: 0.25
+#   Lv45未満は 1 ミリも変わらない(第2区間は level == 45 でちょうど 0 を足す)。
+#
+#   ▼ ZOMBIE(base 5.5 / growth 1.033)の実効攻撃力:
+#     Lv45  23.7 → 23.7  (±0、境界で連続)
+#     Lv60  38.6 → 42.3  (+9.7%)
+#     Lv80  73.9 → 82.6  (+11.8%)
+#     Lv100 141.4 → 155.1 (+9.7%)
+#   base の役割差(5.5〜16.5)には掛からず全モブに同じ量を足すので、弱いモブほど相対的に強くなる。
+#   これは意図的 — 高レベル帯で「雑魚だけ無害」になるのを潰すのが目的で、強モブ側は既に痛い。
+#
+#   なぜ攻撃力だけを小さく回すのか: 被ダメージは「モブ攻撃力 − プレイヤー守備力」を先に引いてから
+#   率を掛けるため、攻撃力の増分は"守備力を引いた残り"に対して何倍にも効く(mob-import.yml の
+#   同じ節の解説と同じ理屈)。よってここは 0.05 刻みで動かすレバーであり、大きく回すと即詰みになる。
+#   attack-power 以外(fixed-damage 等)を上げるのは禁じ手 —— 守備力で減らせない = 対策不能になる。
+#   ⚠️ 上表は式からの計算値。「同帯装備で何発耐えるか」は stats/item-stats.yml の
+#   phys-flat-defense と噛み合って決まるので、実測は tmp/dmg-table.js を回して確認すること。
 # ============================================================================
 
 max-level: 100
@@ -183,16 +228,31 @@ max-level: 100
 #     ⚠️ ネザーはオーバーワールド換算で距離が1/8になる(同じ体感距離でも実ブロック距離は1/8)。
 #     このファイルの実装は「その場のワールド内の生のブロック距離」に係数を掛けるだけで、
 #     8倍のような自動換算は一切行わない(据え置き)。ネザーでも通常世界と同じ体感カーブに
-#     揃えたい場合は、この coordinate-coefficient を明示的に8倍程度へ引き上げて運用側で補正すること。
+#     揃えたい場合は、この coordinate-coefficient を明示的に引き上げて運用側で補正すること
+#     (ただし「8倍にする」は下の NETHER の節に書いたとおり max-level への飽和が早すぎるので非推奨)。
 #   未設定(このセクション自体が無い、または個々のキーが無い)は必ず「従来どおり無干渉」
 #   (下駄0・係数はモブ側の値のまま)になる。後方互換を壊さない。
-# 例:
-# dimensions:
-#   NETHER:
-#     base-level: 20
-#     # coordinate-coefficient: 0.16   # 例: オーバーワールド換算(distance×8)相当にしたい場合、バニラモブのみに適用
-#   THE_END:
-#     base-level: 45
+#
+# 【2026-08-03 ⚠️ここを空でなくするのは「バランスの大改造」であって設定作業ではない】
+#   空のままだと MobTypeSpawnListener#applyDimensionLevelBonus の `if (bonus == 0) return;` で
+#   必ず早期returnするため、その直後の reapplyDimensionBonusMaxHealth(「次元の下駄が攻撃力だけ
+#   上げてHPを上げていない」という指摘への修正)へ制御が一度も到達しない。
+#   ＝【下駄をHPへ反映する修正は、値を入れるまで死んだままである】。これは既知の状態。
+#
+#   一度 NETHER 20 / THE_END 45 を入れてみて、検算した結果【出せないと判断して戻した】:
+#     ・下駄は各モブの level に加算され、その level が max-health-high-level-from(=45)を
+#       またぐと per-level(モブごとに 554〜1293)が【毎レベル加算】される指数区間へ入る。
+#       THE_END 45 は「エンドの全モブを高レベル区間の発火点ちょうどに置く」設定になる。
+#       ENDERMAN(level:0 / 560HP / growth 1.048 / per-level 1293.02)で本島 ≒Lv47 の場合、
+#       615HP → 7,653HP(約12倍)。外周1,000ブロック(≒Lv65)なら 1,422HP → 37,665HP(約26倍)。
+#     ・ネザーは【二重計上】になる。ネザーのモブは既に level に難度が入っている
+#       (BLAZE/GHAST/HOGLIN/WITHER_SKELETON 35、PIGLIN_BRUTE 40、PIGLIN/MAGMA_CUBE 25)。
+#       オーバーワールドのモブが 0 なのに対し、そこへさらに +20 する意味は薄い。
+#     ・副作用として MOB_LEVEL は EXP 帯と drops[].quality(省略時はモブレベル駆動)も動かすので、
+#       取得EXPとドロップ品質も同時に跳ね上がる。
+#   本当に必要なのは ENDERMAN/SKELETON のような「両次元に湧く level:0 モブ」だけなので、
+#   入れるならモブ個別の level を見直す方が筋がよい。全体に効く下駄で解くなら、
+#   まず THE_END を 45 ではなく 20〜30(高レベル区間に入らない範囲)から刻むこと。
 dimensions: {}
 
 defaults:
@@ -276,6 +336,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -330,6 +392,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -384,6 +448,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -436,6 +502,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -490,6 +558,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -542,6 +612,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -594,6 +666,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -648,6 +722,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -700,6 +776,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -752,6 +830,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -806,6 +886,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -860,6 +942,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -914,6 +998,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -966,6 +1052,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1020,6 +1108,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1072,6 +1162,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1124,6 +1216,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1178,6 +1272,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1230,6 +1326,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1282,6 +1380,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1334,6 +1434,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1386,6 +1488,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1438,6 +1542,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1490,6 +1596,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1542,6 +1650,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1596,6 +1706,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1648,6 +1760,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1700,6 +1814,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1752,6 +1868,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1804,6 +1922,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1858,6 +1978,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1912,6 +2034,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -1964,6 +2088,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2018,6 +2144,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2072,6 +2200,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2126,6 +2256,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2180,6 +2312,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2232,6 +2366,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2284,6 +2420,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2336,6 +2474,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2388,6 +2528,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2442,6 +2584,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2494,6 +2638,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2546,6 +2692,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2598,6 +2746,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2650,6 +2800,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2702,6 +2854,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2754,6 +2908,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2806,6 +2962,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002
@@ -2858,6 +3016,8 @@ mob-types:
         attack-power: 0
         attack-power-growth: 1.033
         attack-power-growth-interval: 1.0
+        attack-power-high-level-from: 45
+        attack-power-high-level-per-level: 0.25
         flat-bonus-damage: 0
         percent-bonus-damage: 0
         penetration: 0.002

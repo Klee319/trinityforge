@@ -90,7 +90,7 @@ public final class MobTypeSpawnListener implements Listener {
             applyScaledProfile(entity, def.level(), def.coordinateCoefficient(),
                     def.physical(), def.magical(), def.maxHealth(),
                     def.attack(), def.levelCoefficients(), "mob-types." + entity.getType().name(),
-                    healthRatio);
+                    healthRatio, attackPowerHighLevelFor(entity.getType()));
             return;
         }
 
@@ -208,7 +208,26 @@ public final class MobTypeSpawnListener implements Listener {
         }
         applyScaledProfile(entity, baseLevel, coordinateCoefficient,
                 physicalBase, magicalBase, maxHealthBase,
-                mobTypesConfig.defaultAttack(), coeffs, "defaults", healthRatio);
+                mobTypesConfig.defaultAttack(), coeffs, "defaults", healthRatio,
+                nonNull(mobTypesConfig.defaultAttackPowerHighLevel()));
+    }
+
+    /**
+     * 2026-08-03(要件#63の残り): この EntityType の攻撃力 高レベル区間。
+     *
+     * <p>{@code null} を潰しているのは、{@code MobTypesConfig} を Mockito でモックしたテストが
+     * 未スタブのアクセサで {@code null} を返すため（実 config は必ず
+     * {@link MobTypesConfig.AttackPowerHighLevelPhase#NONE} を返す）。ここで NPE にすると、
+     * 本来この修正と無関係な既存テストが道連れで落ちる。
+     */
+    private MobTypesConfig.AttackPowerHighLevelPhase attackPowerHighLevelFor(
+            org.bukkit.entity.EntityType type) {
+        return nonNull(mobTypesConfig.attackPowerHighLevel(type));
+    }
+
+    private static MobTypesConfig.AttackPowerHighLevelPhase nonNull(
+            MobTypesConfig.AttackPowerHighLevelPhase phase) {
+        return phase == null ? MobTypesConfig.AttackPowerHighLevelPhase.NONE : phase;
     }
 
     private void applyScaledProfile(LivingEntity entity, int baseLevel, double coordinateCoefficient,
@@ -217,7 +236,8 @@ public final class MobTypeSpawnListener implements Listener {
                                     AttackStats attackBase,
                                     MobLevelCoefficients coeffs,
                                     String source,
-                                    double healthRatio) {
+                                    double healthRatio,
+                                    MobTypesConfig.AttackPowerHighLevelPhase attackPowerHighLevel) {
         double distance = distanceFromWorldSpawn(entity);
         // 2026-08-02: ディメンション別の基準レベル下駄(dimensions.<ENV>.base-level)をここで加算する。
         // World.Environment で引く(ワールド名はネザー/エンド/EliteMobsインスタンスとも構成依存で
@@ -237,8 +257,19 @@ public final class MobTypeSpawnListener implements Listener {
         DefenseStats magical = MobStatScaling.scaleDefense(
                 magicalBase, coeffs.magical(), armorBase, coeffs.armorStrength(), level);
         AttackStats scaledAttack = MobStatScaling.scaleAttack(attackBase, coeffs.attack(), level);
+        // 2026-08-03(要件#63の残り): Lv45以降だけ効く加算専用の第2区間。
+        // MobStatScaling / MobLevelCoefficients は別レーン所有で触れないため、ランプ本体ではなく
+        // ここで結果へ足す(MobTypesConfig.AttackPowerHighLevelPhase の javadoc に経緯とやり残し)。
+        // 未設定(NONE)なら bonusAt() は必ず 0.0 を返すので、既存configの挙動は1ミリも変わらない。
+        double attackPowerHighLevelBonus = attackPowerHighLevel.bonusAt(level);
+        if (attackPowerHighLevelBonus != 0.0) {
+            scaledAttack = scaledAttack.withDefaultDamage(
+                    scaledAttack.defaultDamage() + attackPowerHighLevelBonus);
+        }
         MobData.stampMobType(entity, level, physical, magical);
-        if (hasConfiguredAttack(attackBase, coeffs.attack())) {
+        // 高レベル区間だけを設定した config(base も係数も 0)でも刻印が発火するよう or を取る。
+        // 取らないと「yml に書いたのに攻撃ステが刻まれず何も起きない」死んだ設定になる。
+        if (hasConfiguredAttack(attackBase, coeffs.attack()) || attackPowerHighLevel.isActive()) {
             MobData.stampAttack(entity, scaledAttack);
         }
         syncVanillaArmorIcons(entity, physical.armorStrength());
@@ -260,6 +291,11 @@ public final class MobTypeSpawnListener implements Listener {
                 + " effectiveLevel=" + level
                 + " distance=" + String.format(Locale.ROOT, "%.1f", distance)
                 + " armorStrength=" + String.format(Locale.ROOT, "%.3f", physical.armorStrength())
+                + " attackPower=" + String.format(Locale.ROOT, "%.2f", scaledAttack.defaultDamage())
+                + (attackPowerHighLevelBonus != 0.0
+                    ? (" attackHighLevelBonus=+"
+                        + String.format(Locale.ROOT, "%.2f", attackPowerHighLevelBonus))
+                    : "")
                 + (appliedMaxHealth != null
                     ? (" maxHealth=" + String.format(Locale.ROOT, "%.1f", appliedMaxHealth))
                     : " maxHealth=(vanilla)")
