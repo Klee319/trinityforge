@@ -645,7 +645,18 @@
               entry["transfer-multiplier"] = v;
             }, { int: false }), {
               label: "転送レート倍率",
-              desc: "基準レートに掛かる倍率。省略で1.0(無印と同じ)。上位ソースリンク(_ii/_iii)向け。"
+              desc: "基準レートに掛かる倍率。省略で1.0(無印と同じ)。上位ソースリンク(_ii〜_v)向け。"
+            }));
+            // 2026-08-03: items.<id>.yield-multiplier (SourcelinkConfig#readYieldMultiplier)。
+            // 転送レート倍率とは効き方が違う ── あちらは「バッファから1周期に出せる量」で、上げても
+            // 素材1個あたりの取得ソースは変わらない。こちらは生成そのもの(燃料投入/受動生成/
+            // 成長・撃破ボーナス)に掛かるので素材効率が上がる。返却経路には掛からない。
+            extras.push(fieldRow("yield-multiplier", window.numberInput(entry["yield-multiplier"], (v) => {
+              if (v === null || v === "") { delete entry["yield-multiplier"]; return; }
+              entry["yield-multiplier"] = v;
+            }, { int: false }), {
+              label: "生成量倍率",
+              desc: "燃料投入・受動生成・成長/撃破ボーナスの生成量に掛かる倍率。省略で1.0(無印と同じ)。"
             }));
             if (!fixed) {
               // カスタム id は挙動タイプを明示指定する (プラグインはこの type で実体を作る)。

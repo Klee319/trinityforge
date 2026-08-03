@@ -1710,6 +1710,13 @@ function validateArsSourceLinks(data, errors) {
         && (!isNumber(entry["transfer-multiplier"]) || entry["transfer-multiplier"] <= 0)) {
       errors.push(`items.${id}.transfer-multiplier: 0より大きい数値である必要があります`);
     }
+    // 2026-08-03: items.<id>.yield-multiplier (SourcelinkConfig#readYieldMultiplier)。
+    // 転送レートとは別枠の「生成量」倍率。Java側と同じく0以下は無効(あちらは警告+1.0、
+    // editor側は保存前に弾く)。
+    if (isPlainObject(entry) && entry["yield-multiplier"] !== undefined && entry["yield-multiplier"] !== null
+        && (!isNumber(entry["yield-multiplier"]) || entry["yield-multiplier"] <= 0)) {
+      errors.push(`items.${id}.yield-multiplier: 0より大きい数値である必要があります`);
+    }
   }
 }
 

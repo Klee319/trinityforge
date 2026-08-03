@@ -656,9 +656,34 @@ infinity_source_core 補正の順に多段で掛ける。
   実装者は必ずこのキーを書くこと。
 - 容量側（`buffer-cap`）には階梯倍率を掛けていない（既定が int 上限＝実質無制限で、ボトルネックは
   最初からレート側にしかないため）。容量で個体差を付けたい場合は別途キーが要る。
-- `SourcelinkConfig.ItemDef` の canonical constructor は7要素（`transferMultiplier` が末尾に追加済み、
-  2026-08-02）。旧来の5引数コンストラクタは `type` 推定 + `transferMultiplier=1.0` を委譲するので
-  既存呼び出し元（`loadItems()` の1箇所のみ）は無改修で動く。
+- `SourcelinkConfig.ItemDef` の canonical constructor は8要素（`transferMultiplier` が 2026-08-02、
+  `yieldMultiplier` が 2026-08-03 に末尾へ追加済み）。旧来の5引数コンストラクタは `type` 推定 +
+  両倍率=1.0 を委譲するので既存呼び出し元（`loadItems()` の1箇所のみ）は無改修で動く。
+
+### ⚠️ ソースリンクの階梯倍率は「レート」と「生成量」の2本立て。生成量倍率を `addToBuffer` の中で掛けるとソースが無限増殖する
+
+2026-08-03 追加の `items.<id>.yield-multiplier`（`SourceGenerationScaling#scaleYield`）は、上の
+`transfer-multiplier` とは効き方が違う。取り違えると要件を満たしたつもりで何も変わらない:
+
+- `transfer-multiplier`: バッファ→隣接ジャーへ**1周期に出せる量**（`effectiveMaxPerTransfer`）。
+  速く運べるだけで、燃料1個から得られるソース＝素材効率は変わらない。
+- `yield-multiplier`: **新しく生まれる量**。素材効率そのものが変わる。掛ける場所は4経路:
+  ①燃料/食料/素材の手投入（`{Volcanic,Mycelial,Alchemical}Sourcelink#onBlockInteract` の `totalAdded`）
+  ②ホッパー投入（`CustomBlockListener` のソースリンク宛て `InventoryMoveItemEvent` 経路）
+  ③バイタリックの受動生成（`SOURCE_PER_TICK`）④成長/撃破ボーナス（`SourcelinkTickTask#accumulateNear`）。
+  ①と②の片方だけに掛けると「自動化すると素材効率が落ちる」不一致になる。
+
+**`Sourcelink#addToBuffer` の中で掛けてはいけない。** `addToBuffer` は生成経路だけでなく
+`SourcelinkTickTask#tick` の**返却**（`SourceYield#refundToBuffer`＝隣接ジャーに注ぎ切れなかった分を
+戻す）からも呼ばれる共通経路なので、ここで掛けると**隣接ジャーが満杯である限り毎周期ソースが増える
+無限増殖**になる。倍率は必ず呼び出し側（生成点）で `scaleGeneratedYield(...)` を通してから渡す。
+この配線は `SourcelinkYieldWiringTest`（ソース検査。このフォークは Bukkit ランタイムを持たないため
+リスナーは文字列走査で守る）が生成4経路と「返却には掛かっていないこと」の両方を固定している。
+
+- 階梯の値そのもの（転送 x2/x4/x8/x16、生成 x1.5/x2/x3/x4、5種 x 4段=20件）と、
+  表示名に数字段表記を使わない規約は `ShippedSourceLadderTest` が出荷 yml を読んで固定する。
+  段を足すときは `core-item` が前段を指し、`(core-item, pedestal-items)` の組が既存と重複しないこと
+  （重複すると後発が `findFirst` に負けて永久にクラフト不可）。
 
 ### ⚠️ NETHER_STAR 等バニラで非設置の Material をベースにした `materials.yml` アイテムは、CustomBlock 化しないと絶対に「置けない」
 
