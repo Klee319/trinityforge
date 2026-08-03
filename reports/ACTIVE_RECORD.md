@@ -5113,3 +5113,94 @@ EM への magic-ratio 配線／フィールドモブHPの高レベル区間／�
   恒久対策は `tools/config-editor` 側でコメントを保持することになる（→ 別タスク）。
 - **`GOLDEN_SWORD#59` は定義だけ消えて `_editor.itemTabs` と `_editor.categories` に参照が残っている。**
   仮モデル `gold_test` の片付けとしては意図的だが、参照側の掃除が漏れている。
+
+## 2026-08-03 editor の内容誤り9件（スレッド／ソースリンク階梯／タブ分類）
+
+ユーザー報告「editor の内容が一部誤っているので修正し、再発防止に努めてほしい」への対応。9件すべて実装済み・テスト固定済み。
+
+### 分類・表示（要件1〜4）
+
+| 要件 | 対応 |
+|---|---|
+| 触媒が補助カテゴリにある | 触媒候補（spellbooks.yml `catalysts`）をステータス「触媒」タブへ。`buildCatalogCandidates` の `EXTRA_SOURCES` で tab 指定 |
+| 鍵が補助カテゴリにある | 鍵17種をカタログ「素材(カタログ内)」タブへピン留め（ユーザー選択。**`_editor.itemTabs` に `material-ref` を書く。リテラルの `material` を書くと実移行になる**） |
+| ドミニオンワンド／ソースジャー／鍵にステ定義がある | `candidate.noItemStats` を立てて **item-stats の候補から外すがレシピ素材の候補には残す**（`custom:<id>` 参照が切れるのを防ぐ） |
+| 補助欄はサブウェポン以外禁止 | `support-tab-subweapon-only-2026-08-03.test.js` で固定。**`inferItemCategory` は防具トリム／陶器の欠片／旗の模様／鍛冶型のすべてを `other` に落とすので、`_editor.itemTabs` のピン留めだけが防波堤** |
+
+### ⚠ スレッドのマナ系ステは無言で死んでいた（要件5の前提）
+
+装着スレッドのステは `ArmorManaListener#collectThreadsInto` → `TrinityForgeBridge.writeAddonCombatStats` →
+TF の `AddonCombatStats`(PDC) → `PlayerCombatAggregate.addon` へ入り、**`totalOf(key)` を読む消費側でしか効かない**。
+マナ系5キー（`mana_bonus` / `mana_regen` / `hit_mana_recovery` / `damage_mana_recovery` / `mana_cost_reduction_percent`）の
+消費側は `ManaManager` の `ManaKeys` PDC を読むので、**addon 戦闘チャネルへ流しても誰も読まず無言で 0 のまま**だった。
+→ `ThreadManaStatRouting`（純関数）で5キーだけを `threads.yml` と同じ整数カウンタへ仕分ける。
+`mana_cost_reduction_percent` は分数[0,1] → 整数%へ ×100 する（単位が違う）。
+
+- ATTRIBUTE チャネルのキー（`StatVocabulary.isAttribute`: move_speed / attack_speed_bonus / attack_reach /
+  knockback_resistance / max_health）も addon では死ぬ。さらに `AttributeProjection.defaults()` のキーは
+  `ItemFactory#stamp` が**バニラ属性として実体化する**ので、スレッドに載せると「手に持つと効く」になる。
+  → `ShippedThreadItemStatsTest` がこの2集合を主ステから排除する。
+
+### スレッド45種（要件5・6・7）
+
+- 主ステ28件を名称と一致させた（例: マナ増幅=`mana-bonus`、鑑識=`mob-drop-quality`）。**主ステの宣言はテスト側の
+  `THREADS` マップが唯一の真源**にしてあるので、yml を書き換えると必ずテストが落ちる。
+- 棘の主ステを `reflect-percent` にした際、副ステの `bleed-chance` が単体では無効（`BleedService` は
+  `bleed-damage` と両方 > 0 を要求）になっていたのを、副ステの1枠を `bleed-damage` へ入れ替えて解消。
+- レシピなしの厳選スレッド5件を追加（CMD 300041-300045）: 調香 / 養蜂 / 牧人 / 鑑識 / 削岩。
+  入手はガチャのみ（tier2/3/4、weight 4）。`thread_all` の図鑑・アチーブメントは 40種 → **45種**。
+  - **`HOST_POTTERY_SHERD` は存在しない**（HOST は防具トリムのみ）。実在の欠片・旗模様・鍛冶型を `javap` で確認して割当。
+  - `ThreadType` の識別は PDC `arspaper:thread_type` なので、base material の重複は安全。
+
+### ⚠ ソースリンク階梯の「生成量」は `addToBuffer` で掛けてはいけない（要件7）
+
+要件は「階梯が上がると転送速度だけでなく供給量も上がる」。転送側は 2026-08-02 の `transfer-multiplier` で既に
+効いていたが、**燃料1個から得られるソースは無印と同じ**（＝素材効率が階梯で改善しない）ままだった。
+→ `items.<id>.yield-multiplier`（`SourceGenerationScaling#scaleYield`）を追加し、**生成4経路**に掛ける:
+手投入（volcanic/mycelial/alchemical の `totalAdded`）／ホッパー投入（`CustomBlockListener`）／
+バイタリックの受動生成（`SOURCE_PER_TICK`）／成長・撃破ボーナス（`SourcelinkTickTask#accumulateNear`）。
+
+**`Sourcelink#addToBuffer` の中で掛けると無限増殖になる。** `addToBuffer` は生成経路だけでなく
+`SourceYield#refundToBuffer`（隣接ジャーに注ぎ切れず戻す分）からも呼ばれる共通経路なので、
+そこで掛けると**隣接ジャーが満杯である限り毎周期ソースが増える**。`SourcelinkYieldWiringTest` が
+生成4経路と「返却には掛かっていないこと」の両方をソース検査で固定する（このフォークは Bukkit ランタイムを持たない）。
+
+- `long` で受けるのも必須: `custom:source_engine`(単価3000万) をスニークで64個投入すると素で19.2億、
+  倍率を掛けると int が溢れて**負値＝全損**になる。`Integer.MAX_VALUE` で飽和させる。
+
+### ソースリンク tier IV/V と固有名（要件8・9）
+
+- 5種 × 4段 = **20件**（`_ii`〜`_v`）。転送 x2/x4/x8/x16、生成 x1.5/x2/x3/x4（生成側を緩くしたのは素材効率＝
+  無限資源に近づくため）。IV は `custom:source_condenser x4`＋儀式30万、V は `custom:source_engine x2`＋儀式300万。
+  `core-item` は必ず前段。`(core-item, pedestal-items)` の組が重複すると**後発が `findFirst` に負けて永久にクラフト不可**。
+- 数字表記の tier を固有名へ（id は据え置き ── 変えるとレシピと設置済みブロックの PDC が全部切れる）。
+  ソースリンク20件（例: 焔喰いの炉／溶岩心の大炉／火霊王の溶炉／星焔の煉炉）とソースジャー2件
+  （ソースジャー II → 蒼片の壺、III → 結晶の大甕）。`ShippedSourceLadderTest` が
+  「表示名が一意」「数字段表記を含まない」「倍率が段ごとに単調増加」「無印には倍率を書かない」を固定する。
+- editor 側にも `yield-multiplier` の入力欄と検証を追加（`lib/schema.js` ＋ `public/js/ars-source-forms.js`）。
+  yml の本文コメントは editor 保存で消えるので、階梯の説明は `docs/config-reference/arspaper/sourcelinks.md` へ移設済み。
+
+### テスト実走結果（2026-08-03）
+
+| 対象 | 結果 |
+|---|---|
+| TrinityForge | **3634 tests / 0 failures / 2 skipped**（skip は `OfflineMobImportRunner` と `NativeProgressionStabilizationContractsTest#prestigeRefundUsesLiveYamlCost` の既知2件） |
+| ArsPaper fork | **320 tests / 0 failures / 0 skipped**（新規19件を含む） |
+| config-editor | **1038 tests / 1029 pass / 9 fail / 0 skipped**。9件は着手前と同一の既存赤（ツール斧レシピ／斧を戦斧へ／`buildSkillExpForm` per-level／金ツール耐久ランダムロール／ソースジェム防具の魔法防御／player-wiki-generator ×2／mining-gimmick ロスレス／槍の使用レベル） |
+
+新規テストが本当にトリップワイヤとして働くことを、実装を戻して確認した（証拠）:
+
+- `scaleGeneratedYield` を素の乗算へ戻す → `SourcelinkYieldWiringTest` が FAILED
+- 1件の `yield-multiplier` を削る → `ShippedSourceLadderTest`（単調増加）が FAILED
+- 表示名を「ボタニカルソースリンク IV」へ戻す → `ShippedSourceLadderTest`（数字段表記）が FAILED
+- editor の入力欄を消す → `ars-sourcelink-yield-2026-08-03.test.js` が FAILED
+
+### 残課題
+
+- **階梯ソースリンク20件に `custom-model-data` が無い。** 見た目は無印と同じモデルのまま
+  （表示名・lore・block id では区別できるので機能面は問題ない）。CMD 割当はリソースパックのレーンが
+  別セッションで作業中のため据え置き。**リソースパック側の残タスク。**
+- **`items/catalog.yml` / `resourcepack/cmd-registry.json` / `stats/item-stats.yml` は他セッションの
+  未コミット変更と同一ファイル内で混ざっている。** 差分の大半（catalog.yml は 1188+/838-）は
+  editor 保存による日本語コメントの消失で、自分の追加分はその一部。2026-08-03 のユーザー判断
+  （「item-stats.yml は同梱のままコミットし、混入内容を commit message に明記する」）と同じ扱いにした。
