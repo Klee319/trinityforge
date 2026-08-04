@@ -30,7 +30,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * {@link BrewIngredientSaveListener}: {@code ingredient_save_chance}をバニラ醸造台へ配線したことの検証
- * (2026-07-25 監査 reports/20260725_SkilltreeNodeTriage.md B-alpha-1 の修正)。
+ * (2026-07-25 監査 B-alpha-1 の修正。監査レポート本体は 2026-08-04 の整理で削除したので、
+ * 必要なら git 履歴の reports/20260725_SkilltreeNodeTriage.md を見る)。
  *
  * <p>実際にバニラの{@code BrewingStandBlockEntity#doBrew}が行う{@code itemstack.shrink(1)}との
  * 相殺(=消費キャンセルそのもの)は、CraftBukkitの内部実装(単体テストの射程外)に依存する。この

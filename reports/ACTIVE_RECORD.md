@@ -194,7 +194,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
-| 2026-08-04 | **リポジトリ整理**（`67b2c02` ほか）。stale な日付レポート 46 本＋`audit-20260725/` を削除、失効 SPEC 11 本を `docs/archive/` へ、IDE ファイルを ignore、worktree 47 本と作業ブランチ 90 本を整理、ローカル生成物 約 800MB を破棄、この記録を現役分とアーカイブに分割 |
+| 2026-08-04 | **リポジトリ整理**（`67b2c02` ほか）。stale な日付レポート 46 本＋`audit-20260725/` を削除、失効 SPEC 12 本を `docs/archive/` へ、IDE ファイルを ignore、worktree 47 本と作業ブランチ 90 本を整理、ローカル生成物 約 800MB を破棄、この記録を現役分とアーカイブに分割。**`TrinityForge/docs/GREENFIELD-REMAINING-TODO.md`（未実装 11 件の台帳）は実コードで全件が実装済みか前提消滅と確認して archive へ**（根拠は `docs/archive/README.md`） |
 | 2026-08-04 | 消費ソース量に応じた儀式EXP（`ars-smithing.exp-per-source`）／1SPあたりの総合レベル間隔（`power.levels-per-skill-point`）。TF `0b174cb`〜`4000f9d`、ArsPaper fork `be974a4`（**push 未実施** → J-11） |
 | 2026-08-04 | 圧縮シリーズ 64 件追加＋カタログID改名で壊れた参照 152 箇所の修復、editor 2 件。**圧縮アイテムは Ars の `materials.yml` に住む**／`reversible: true` で解凍レシピは自動生成（手書き禁止） |
 | 2026-08-04 | 実機報告 15 件（機能アイテム 3 種 / アチーブメント手動解放 / 統合メニュー / 弓の距離悪用 / 総合プレステージ）。**うち 2 件はコードが正しく配備側の問題** |

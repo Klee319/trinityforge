@@ -19,6 +19,19 @@
 | `2026-07-23-stat-gate-overhaul.md` | 大改修の設計書。適用完了 |
 | `2026-07-26-stat-scope-ux.md` | ステータス分類 UX の設計書。適用完了 |
 | `2026-07-30-content-guidance-draft.md` | コンテンツ拡張の草案。確定版は `docs/design/2026-08-01-content-expansion-spec.md` |
+| `GREENFIELD-REMAINING-TODO.md` | 2026-07-19 の未実装バックログ 11 件。**2026-08-04 に実コードで確認したら全件が実装済みか作り替え済み**だった（旧パスは `TrinityForge/docs/`。下に根拠） |
+
+`GREENFIELD-REMAINING-TODO.md` を消した根拠（この種の台帳は放置すると「まだ残っている」と誤読されるので残す）:
+
+- 実装済み — 武器コーティング → `WeaponCoatingListener`、ポーション統合 → `CraftingFeaturesConfig`
+  の `potion-merge.tiers`、解体 → `DisassemblyListener`、圧縮木材修繕 → `WoodRepairListener`、
+  オーバーエンチャント → `OverEnchantListener`、村人取引解放 → `VillagerTradeListener`（ゲートは
+  `trade:<PROFESSION>` 方式に変わっており、台帳が書いていた `blacksmith-unlock` 等の id ではない）
+- **前提ごと消滅** — 台帳が一次参照にしていた `dedicated-effects.yml` は 2026-07-23 に削除され、
+  registry はスキル別 yml 16 本（`resources/skilltree/mining.yml` など）へ分割された。
+  `food-compression` / `*-core-craft-unlock` / `craft-thread-unlock` / `*-potion-unlock` /
+  `source-jar-link-unlock` は**出荷 yml にも Java にも 1 件もヒットしない**（= 効果 id 自体が現存しない）。
+  再着手するなら台帳を復活させず、現在の 16 本の yml から作り直す。
 
 `OPEN_DECISIONS.md` は **移していない**。LD-* が現行コード（`StatKeys` / `RoleBuffsConfig`）から参照されている
 生きた決定台帳なので `docs/` 直下に残っている。

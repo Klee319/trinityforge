@@ -53,7 +53,7 @@ class FeatureEffectRegistryTest {
                 "weapon-coating-unlock", "source-auto-consume",
                 // S9(2026-07-24): 破壊時バニラEXP解放の前提機能。
                 "break-vanilla-exp",
-                // 2026-07-25: 経済連携(Vault対応)により復活。docs/design/2026-07-23-stat-gate-overhaul.md
+                // 2026-07-25: 経済連携(Vault対応)により復活。docs/archive/2026-07-23-stat-gate-overhaul.md
                 // §3.2 の表を合わせて更新済み(以前は #5 exploit fix でno-op化され語彙から除外されていた)。
                 "fish-sell-toggle",
                 // 2026-07-28(数値のギミックyml集約): furnace-smelt-*/digging-durability-* は
