@@ -218,6 +218,8 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.afk.AfkService afkService;
     private com.trinityforge.progression.AchievementService achievementService;
     private com.trinityforge.progression.achievement.AchievementGui achievementGui;
+    /** 統合メニュー(2026-08-04新設)。各機能GUIへの入口をアイコンで並べるハブ。 */
+    private com.trinityforge.progression.MainMenuGui mainMenuGui;
     private ActiveSkillRegistry activeSkillRegistry;
     private CooldownManager activeCooldownManager;
     private FeedbackLayer activeFeedbackLayer;
@@ -656,6 +658,20 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(roleSelectGui, this);
         this.roleCommand = new RoleCommand(roleChangeService, roleDescriptions, roleSelectGui);
 
+        // 特殊アイテム3種(2026-08-04新設): 職業付け替えの証 / 厳選やり直しの護符 / 品質昇華の結晶。
+        // 券は「効果が成立したときにだけ」消費する(GUIを閉じただけ・対象なし・最高品質到達では減らない)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.items.RoleTicketItemListener(roleSelectGui), this);
+        com.trinityforge.items.EquipmentTicketGui equipmentTicketGui =
+                new com.trinityforge.items.EquipmentTicketGui(this);
+        getServer().getPluginManager().registerEvents(equipmentTicketGui, this);
+        java.util.List<com.trinityforge.items.EquipmentTicketEffect> equipmentTicketEffects = java.util.List.of(
+                new com.trinityforge.items.StatRerollTicketEffect(itemFactory),
+                new com.trinityforge.items.QualityUpgradeTicketEffect(itemFactory, configManager.quality()));
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.items.EquipmentTicketItemListener(equipmentTicketGui, equipmentTicketEffects),
+                this);
+
         // コレクション図鑑 (M7): カタログアイテム入手/プレイヤー討伐を図鑑へ記録し、
         // 登録数しきい値の報酬ティア(称号/コスメ/QoL、progression/collection.yml)を段階解放する。
         this.collectionService = new CollectionService(configManager.collection(), getLogger(),
@@ -709,12 +725,22 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
         // /achievement の進捗GUI(2026-07-29)。スキルツリーGUIと同じコネクタ/移動ボタンを再利用する。
         this.achievementGui = new com.trinityforge.progression.achievement.AchievementGui(
-                this, configManager.achievements(), crossPluginItemResolver, collectionService);
+                this, configManager.achievements(), crossPluginItemResolver, collectionService,
+                achievementService);
         getServer().getPluginManager().registerEvents(achievementGui, this);
         // バニラ進捗(advancement)解除のサーバ側抑止(achievements.yml vanilla-advancements, 2026-07-28)。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.VanillaAdvancementBlockListener(configManager.achievements()),
                 this);
+
+        // 統合メニュー(2026-08-04新設): ロールセット/ステータス/スキルツリー/実績/図鑑/設定への入口を
+        // アイコンで並べる。各項目は既存GUIの open(Player) を呼ぶだけで、各GUI自体には手を入れない。
+        // 「使えるかどうか」は新しい権限ノードを増やさず、既存の業務フラグ
+        // (RoleChangeService#commandDisabledReason / CollectionConfig#enabled) をそのまま読む。
+        this.mainMenuGui = new com.trinityforge.progression.MainMenuGui(
+                this, roleSelectGui, roleChangeService, statusGui, nativeSkillTreeMenu, achievementGui,
+                collectionGui, collectionService, configManager.collection(), settingsGui);
+        getServer().getPluginManager().registerEvents(mainMenuGui, this);
 
         // Re-syncs an item's lore/attributes against the live tables on hotbar switch, armor change,
         // and join, so a reload's effect is not stuck at "only new items see it" (item 1).
@@ -1195,7 +1221,7 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
+                                        "用法: /tf <menu|reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
                                         "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
@@ -1471,6 +1497,17 @@ public final class TrinityForge extends JavaPlugin {
                             .then(recipesCommand.node())
                             .then(glyphsCommand.node())
                             .then(settingsCommand.node())
+                            // /tf menu: 統合メニュー(2026-08-04新設)。各機能GUIへの入口をまとめたハブ。
+                            .then(Commands.literal("menu")
+                                    .executes(ctx -> {
+                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                            ctx.getSource().getSender().sendMessage(Component.text(
+                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+                                            return 0;
+                                        }
+                                        mainMenuGui.open(player);
+                                        return Command.SINGLE_SUCCESS;
+                                    }))
                             .then(specialRewardCommand.node()
                                     .requires(TrinityForge::isTfAdmin))
                             .then(new InspectCommand().node())

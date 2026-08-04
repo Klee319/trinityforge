@@ -6814,6 +6814,39 @@ items:
       - <gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>
       - <gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>
     custom-model-data: 100083
+  role_reselect_ticket:
+    material: NAME_TAG
+    display-name: <color:light_purple>職業付け替えの証</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>今の道を離れ、新しい役目を選び直す証。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックでロール選択GUIを開きます</yellow>
+      - <gray>通常のクールダウン・交戦中制限を無視して選び直せます。</gray>
+      - <gray>実際にロールを確定した瞬間にのみ1個消費します。</gray>
+      - <dark_gray>※確定後は通常どおりクールダウンが始まります。</dark_gray>
+  stat_reroll_ticket:
+    material: RABBIT_FOOT
+    display-name: <color:aqua>厳選やり直しの護符</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>刻まれた運だけを、もう一度天に委ねる。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックで対象の装備を選択します</yellow>
+      - <gray>ランダムロール（厳選幅）だけを引き直します。品質は変わりません。</gray>
+      - <gray>もう一度同じ対象をクリックすると確定します。</gray>
+      - <dark_gray>※厳選ロールを持たないアイテムには使用できません。</dark_gray>
+  quality_upgrade_ticket:
+    material: HEART_OF_THE_SEA
+    display-name: <color:gold>品質昇華の結晶</color>
+    enchant-glow: true
+    lore:
+      - <gray><italic>積み上げた厳選はそのまま、器だけを一段引き上げる。</italic></gray>
+      - ""
+      - <yellow>手に持って右クリックで対象の装備を選択します</yellow>
+      - <gray>品質を1段階引き上げます。ランダムロール（厳選幅）は変わりません。</gray>
+      - <gray>もう一度同じ対象をクリックすると確定します。</gray>
+      - <dark_gray>※最高品質に達した装備には使用できません。</dark_gray>
 _editor:
   categories:
     weapon:

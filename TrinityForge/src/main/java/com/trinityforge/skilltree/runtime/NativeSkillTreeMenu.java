@@ -83,7 +83,7 @@ public final class NativeSkillTreeMenu implements Listener {
             return;
         }
         SkillTree tree = trees.getFirst();
-        openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null);
+        openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null, false);
     }
 
     public void open(Player player, String rawSkillId) {
@@ -92,7 +92,7 @@ public final class NativeSkillTreeMenu implements Listener {
             open(player);
             return;
         }
-        openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null);
+        openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null, false);
     }
 
     /**
@@ -105,13 +105,13 @@ public final class NativeSkillTreeMenu implements Listener {
      * longer stall the event dispatch itself.
      */
     private void reopenNextTick(Player player, String skillId, NativeSkillTreeCanvas.Point center,
-                                String pendingPerkId) {
+                                String pendingPerkId, boolean overview) {
         plugin.getServer().getScheduler().runTask(plugin,
-                () -> openInternal(player, skillId, center, pendingPerkId));
+                () -> openInternal(player, skillId, center, pendingPerkId, overview));
     }
 
     private void openInternal(Player player, String skillId, NativeSkillTreeCanvas.Point center,
-                      String pendingPerkId) {
+                      String pendingPerkId, boolean overview) {
         List<SkillTree> trees = orderedTrees();
         if (trees.isEmpty()) {
             player.sendMessage(Component.text("スキルツリー設定がありません。", NamedTextColor.RED));
@@ -120,6 +120,12 @@ public final class NativeSkillTreeMenu implements Listener {
         SkillTree tree = perks.tree(skillId);
         if (tree == null) {
             tree = trees.getFirst();
+        }
+        // 一覧モード(2026-08-04新設): ツリーの中身は描画せず、全ツリーのアイコンだけを並べる。
+        // 通常モードへ戻す/一覧へ入るのは常に select-skill / toggle-view の2アクションだけ。
+        if (overview) {
+            openOverview(player, trees, tree.skill(), center, pendingPerkId);
+            return;
         }
         NativeSkillTreeCanvas canvas;
         try {
@@ -130,7 +136,7 @@ public final class NativeSkillTreeMenu implements Listener {
             return;
         }
         NativeSkillTreeCanvas.Point safeCenter = canvas.clamp(center);
-        Session holder = new Session(tree.skill(), safeCenter, pendingPerkId);
+        Session holder = new Session(tree.skill(), safeCenter, pendingPerkId, false);
         Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
         holder.inventory = inventory;
 
@@ -195,7 +201,7 @@ public final class NativeSkillTreeMenu implements Listener {
                 .get(valueKey, PersistentDataType.STRING);
         if (action == null) {
             if (session.pendingPerkId != null) {
-                reopenNextTick(player, session.skillId, session.center, null);
+                reopenNextTick(player, session.skillId, session.center, null, session.overview);
             }
             return;
         }
@@ -205,10 +211,15 @@ public final class NativeSkillTreeMenu implements Listener {
             case "select-skill" -> {
                 SkillTree selected = perks.tree(value);
                 if (selected != null) {
+                    // アイコンをクリックしたら一覧/選択バーどちらから来ても常に通常モードへ戻る
+                    // (2026-08-04: 一覧モードの「そのツリーの位置へ移動」要件と同じ経路)。
                     reopenNextTick(player, selected.skill(),
-                            NativeSkillTreeCanvas.project(selected).start(), null);
+                            NativeSkillTreeCanvas.project(selected).start(), null, false);
                 }
             }
+            // 2026-08-04新設: 通常モードとスキルアイコンだけの一覧モードを切り替える。
+            case "toggle-view" -> reopenNextTick(
+                    player, session.skillId, session.center, null, !session.overview);
             case "node" -> handleNode(player, session, value);
             case "prestige" -> handlePrestige(player, session, value);
             default -> { }
@@ -228,7 +239,7 @@ public final class NativeSkillTreeMenu implements Listener {
         NativeSkillTreeCanvas canvas = NativeSkillTreeCanvas.project(tree);
         NativeSkillTreeCanvas.Point moved = canvas.move(session.center, direction(action));
         reopenNextTick(player, session.skillId, moved,
-                moved.equals(session.center) ? session.pendingPerkId : null);
+                moved.equals(session.center) ? session.pendingPerkId : null, session.overview);
     }
 
     private void handleNode(Player player, Session session, String nodeId) {
@@ -258,10 +269,10 @@ public final class NativeSkillTreeMenu implements Listener {
                     snapshot.availablePoints(), owned);
             if (check != NativePerkService.UnlockResult.ELIGIBLE) {
                 player.sendMessage(Component.text(blockedReason(check), NamedTextColor.RED));
-                reopenNextTick(player, session.skillId, session.center, null);
+                reopenNextTick(player, session.skillId, session.center, null, session.overview);
                 return;
             }
-            reopenNextTick(player, session.skillId, session.center, perkId);
+            reopenNextTick(player, session.skillId, session.center, perkId, session.overview);
             return;
         }
         var result = perks.unlock(player.getUniqueId(), tree.skill(), nodeId);
@@ -271,7 +282,7 @@ public final class NativeSkillTreeMenu implements Listener {
         player.sendMessage(Component.text("Unlock: " + result,
                 result == NativePerkService.UnlockResult.UNLOCKED
                         ? NamedTextColor.GREEN : NamedTextColor.RED));
-        reopenNextTick(player, session.skillId, session.center, null);
+        reopenNextTick(player, session.skillId, session.center, null, session.overview);
     }
 
     /**
@@ -281,7 +292,7 @@ public final class NativeSkillTreeMenu implements Listener {
     private void applyNodeLock(Player player, Session session, SkillTree tree, String perkId) {
         if (!loadOwnedPerkIds(player.getUniqueId()).contains(perkId)) {
             player.sendMessage(Component.text("未解放のノードはロックできません。", NamedTextColor.RED));
-            reopenNextTick(player, session.skillId, session.center, null);
+            reopenNextTick(player, session.skillId, session.center, null, session.overview);
             return;
         }
         var data = com.trinityforge.pdc.PlayerData.of(player);
@@ -295,7 +306,7 @@ public final class NativeSkillTreeMenu implements Listener {
             player.sendMessage(Component.text(
                     "ノードをロックしました（プレステージしても解放が維持されます）。", NamedTextColor.GREEN));
         }
-        reopenNextTick(player, session.skillId, session.center, null);
+        reopenNextTick(player, session.skillId, session.center, null, session.overview);
     }
 
     /**
@@ -308,7 +319,7 @@ public final class NativeSkillTreeMenu implements Listener {
             player.sendMessage(Component.text(
                     "「" + tree.displayName() + "」をリセットします。もう一度ノードをクリックして確定してください。",
                     NamedTextColor.YELLOW));
-            reopenNextTick(player, session.skillId, session.center, pendingToken);
+            reopenNextTick(player, session.skillId, session.center, pendingToken, session.overview);
             return;
         }
         var result = perks.resetTree(player.getUniqueId(), tree.skill());
@@ -324,7 +335,7 @@ public final class NativeSkillTreeMenu implements Listener {
             default -> player.sendMessage(
                     Component.text("スキルツリーをリセットできませんでした。", NamedTextColor.RED));
         }
-        reopenNextTick(player, session.skillId, session.center, null);
+        reopenNextTick(player, session.skillId, session.center, null, session.overview);
     }
 
     /** メインハンドのTFカタログアイテムが機能アイテムなら、その機能IDを返す(それ以外は null)。 */
@@ -354,11 +365,11 @@ public final class NativeSkillTreeMenu implements Listener {
                     skill.prestige() >= tier ? "このプレステージは解放済みです。"
                             : "プレステージ条件を満たしていません。",
                     NamedTextColor.RED));
-            reopenNextTick(player, session.skillId, session.center, null);
+            reopenNextTick(player, session.skillId, session.center, null, session.overview);
             return;
         }
         if (!perkId.equals(session.pendingPerkId)) {
-            reopenNextTick(player, session.skillId, session.center, perkId);
+            reopenNextTick(player, session.skillId, session.center, perkId, session.overview);
             return;
         }
         var result = perks.prestige(player.getUniqueId(), session.skillId);
@@ -368,7 +379,7 @@ public final class NativeSkillTreeMenu implements Listener {
         player.sendMessage(Component.text("Prestige: " + result,
                 result == NativePerkService.PrestigeResult.PRESTIGED
                         ? NamedTextColor.GREEN : NamedTextColor.RED));
-        reopenNextTick(player, session.skillId, NativeSkillTreeCanvas.project(tree).start(), null);
+        reopenNextTick(player, session.skillId, NativeSkillTreeCanvas.project(tree).start(), null, session.overview);
     }
 
     private ItemStack nodeIcon(SkillTree tree, NativeSkillTreeCanvas.NodeCell cell, SkillNode node,
@@ -449,7 +460,9 @@ public final class NativeSkillTreeMenu implements Listener {
                 break;
             }
         }
-        for (int offset = -4; offset <= 4; offset++) {
+        // 2026-08-04: 末尾1枠(offset +4 = スロット53 = SkillTreeOverviewLayout.TOGGLE_SLOT)は
+        // 一覧モード切替ボタンに固定で明け渡す(通常/一覧の両方で同じスロットに置く)。
+        for (int offset = -4; offset <= 3; offset++) {
             SkillTree tree = trees.get(Math.floorMod(selected + offset, trees.size()));
             var skill = snapshot.skillOrDefault(tree.skill(), 100);
             String suffix = skill.prestige() > 0 ? " " + roman(skill.prestige()) : "";
@@ -465,6 +478,60 @@ public final class NativeSkillTreeMenu implements Listener {
                             Component.text("スキルポイント: " + snapshot.availablePoints(),
                                     NamedTextColor.GRAY))));
         }
+        inventory.setItem(SkillTreeOverviewLayout.TOGGLE_SLOT, button(
+                SkillTreeGuiVisuals.control("toggle-view"), "toggle-view", "",
+                Component.text("一覧表示に切り替え", NamedTextColor.WHITE),
+                List.of(Component.text("全スキルツリーをアイコンだけで一覧表示します。", NamedTextColor.GRAY))));
+    }
+
+    /**
+     * 一覧モード(2026-08-04新設): 各スキルツリーを表すアイコンだけを格子状に並べる。
+     * クリックすると{@code select-skill}(既存アクション)へ合流し、そのツリーの位置へ移動して
+     * 通常モードへ戻る({@link #onClick}の{@code select-skill}分岐が常に{@code overview=false}で
+     * 再オープンするため、ここでは専用アクションを新設しない)。
+     *
+     * <p>座標そのものは意味を持たないが({@link SkillTreeOverviewLayout}が固定格子へ割り当てる)、
+     * トグルで通常モードへ戻ったときに直前の位置(center)へ戻れるよう{@link Session}へは
+     * そのまま引き継ぐ。
+     */
+    private void openOverview(Player player, List<SkillTree> trees, String currentSkillId,
+                              NativeSkillTreeCanvas.Point center, String pendingPerkId) {
+        Session holder = new Session(currentSkillId, center, pendingPerkId, true);
+        Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
+        holder.inventory = inventory;
+
+        List<String> skillIds = trees.stream().map(SkillTree::skill).toList();
+        Map<String, Integer> slots = SkillTreeOverviewLayout.assign(skillIds);
+        Set<String> owned = loadOwnedPerkIds(player.getUniqueId());
+        var snapshot = progression.snapshot(player.getUniqueId());
+
+        for (SkillTree tree : trees) {
+            Integer slot = slots.get(tree.skill());
+            if (slot == null) {
+                continue; // 格子の容量(20)を超えた分。現状16ツリーなので発生しない。
+            }
+            var skill = snapshot.skillOrDefault(tree.skill(), 100);
+            long unlockedCount = owned.stream()
+                    .filter(id -> id.startsWith(PerkNaming.compact(tree.skill()) + "_perk_"))
+                    .count();
+            boolean isCurrent = tree.skill().equals(currentSkillId);
+            inventory.setItem(slot, button(
+                    SkillTreeGuiVisuals.skill(
+                            tree.skill(), material(tree.icon(), Material.NETHER_STAR)),
+                    "select-skill", tree.skill(),
+                    Component.text(tree.displayName(),
+                            isCurrent ? NamedTextColor.GOLD : NamedTextColor.WHITE),
+                    List.of(
+                            Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
+                            Component.text("プレステージ: " + skill.prestige(), NamedTextColor.GRAY),
+                            Component.text("解放済みノード: " + unlockedCount, NamedTextColor.GRAY),
+                            Component.text("クリックでこのツリーへ移動", NamedTextColor.DARK_GRAY))));
+        }
+        inventory.setItem(SkillTreeOverviewLayout.TOGGLE_SLOT, button(
+                SkillTreeGuiVisuals.control("toggle-view"), "toggle-view", "",
+                Component.text("通常表示に戻る", NamedTextColor.WHITE),
+                List.of(Component.text("直前に見ていたツリーの詳細表示へ戻ります。", NamedTextColor.GRAY))));
+        player.openInventory(inventory);
     }
 
     private ItemStack button(Material material, String action, String value,
@@ -585,12 +652,16 @@ public final class NativeSkillTreeMenu implements Listener {
         private final String skillId;
         private final NativeSkillTreeCanvas.Point center;
         private final String pendingPerkId;
+        /** 2026-08-04新設: 一覧モード(全ツリーのアイコンだけを並べる画面)かどうか。 */
+        private final boolean overview;
         private Inventory inventory;
 
-        private Session(String skillId, NativeSkillTreeCanvas.Point center, String pendingPerkId) {
+        private Session(String skillId, NativeSkillTreeCanvas.Point center, String pendingPerkId,
+                        boolean overview) {
             this.skillId = skillId;
             this.center = center;
             this.pendingPerkId = pendingPerkId;
+            this.overview = overview;
         }
 
         @Override

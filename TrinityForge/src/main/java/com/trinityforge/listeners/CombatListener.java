@@ -41,6 +41,7 @@ import com.trinityforge.stats.StatKeys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import com.trinityforge.TrinityForge;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -466,9 +467,22 @@ public final class CombatListener implements Listener {
         // 上書きするため、距離ボーナスは毎回消えていた。BOW は attack-power:69、CROSSBOW は 270.5 を
         // 持つので常に該当し、archery.yml のα路線が丸ごと無効だった。
         // power-attack-damage と同じ「total 算出後に一度だけ掛ける」位置に統一する。
+        //
+        // 2026-08-04 バグ修正(悪用): 旧実装は「着弾時点の射手の現在地」を使っていたため、矢を
+        // トラップドア等に刺して停止させ、射手だけ遠方へ移動してから第三者に矢を再度落下・命中させると
+        // 実際には矢が飛んでいないのに距離ボーナスが乗る悪用が成立していた。距離は「発射地点(launch time
+        // に onProjectileLaunch が retain した座標) ↔ 着弾地点」で測る — 射手が後から動いても値は伸びない。
+        // 記録が無い矢(プラグイン生成/ディスペンサー発射/サーバ再起動を跨いだ矢)や別ワールド着弾は
+        // 距離ボーナス0(ボーナス無し)にフォールバックする。旧挙動(射手の現在地)へは絶対に戻さないこと
+        // (それでは同じ悪用が残る)。
         if (projectileHit) {
-            total = distanceDamage(total, agg.totalOf(DISTANCE_DAMAGE_BONUS_KEY),
-                    attacker.getLocation().distance(victim.getLocation()));
+            double distanceBlocks = 0.0;
+            if (event.getDamager() instanceof Projectile firedProjectile) {
+                distanceBlocks = ProjectileWeapon.readLaunchLocation(firedProjectile)
+                        .map(launch -> launchDistanceBlocks(launch, victim.getLocation()))
+                        .orElse(0.0);
+            }
+            total = distanceDamage(total, agg.totalOf(DISTANCE_DAMAGE_BONUS_KEY), distanceBlocks);
         }
         // 2026-07-27 PvP抑制: モブ向けに調整された値がそのまま player→player に乗っていたため、
         // Lv100帯(攻撃力 約1052)対 プレイヤー最大体力 約33 で「先に当てた方が確定で即死」だった。
@@ -1137,9 +1151,21 @@ public final class CombatListener implements Listener {
      * the mainhand no longer holds it — this makes the fix safe even if a future Paper version changes the
      * consume/event ordering: if the hand still has the trident (never actually consumed), nothing is
      * added and no duplicate is created.
+     *
+     * <p><b>2026-08-04 バグ修正(distance-damage-bonus 悪用防止):</b> このハンドラは全 projectile 種別で
+     * 発火する唯一の生成イベントなので、Trident 固有の処理より前に「射手がプレイヤーの projectile」だけ
+     * 発射地点を {@link ProjectileWeapon#storeLaunchLocation} で retain する。矢(弓/クロスボウ)は
+     * {@code EntityShootBowEvent} が先に発火してから同じ矢に対しこの {@code ProjectileLaunchEvent} も
+     * 発火する(vanilla の生成順)ため、矢もここ一箇所で拾える — 専用の新規リスナーを重ねる必要はない。
+     * 記録に使うのは {@code projectile.getLocation()}(この時点で既に world にスポーン済みの、実際の
+     * 発射座標そのもの)であり、射手の座標ではない(射手はスニーク/引き絞り中に僅かにズレることがある)。
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (event.getEntity() instanceof Projectile firedProjectile
+                && firedProjectile.getShooter() instanceof Player) {
+            ProjectileWeapon.storeLaunchLocation(firedProjectile, firedProjectile.getLocation());
+        }
         if (!(event.getEntity() instanceof Trident trident)
                 || !(trident.getShooter() instanceof Player shooter)) {
             return;
@@ -1241,6 +1267,27 @@ public final class CombatListener implements Listener {
             return finalDamage;
         }
         return finalDamage * (1.0 + bonus * Math.min(MAX_DISTANCE_DAMAGE_BLOCKS, blocks) / 16.0);
+    }
+
+    /**
+     * 発射地点({@code launch}, {@link ProjectileWeapon#storeLaunchLocation} が retain した座標)から
+     * 着弾地点({@code impact})までのブロック距離。純粋関数(Bukkit の {@link Location#distance} を呼ぶだけ
+     * だが副作用なし)なので {@link #distanceDamage} と同じくユニットテストから直接呼べる。
+     *
+     * <p>{@link Location#distance} は異なる {@link World} 間で {@link IllegalArgumentException} を投げるため、
+     * ワールドが一致しない場合(通常は起こらないが、記録後にワールドがアンロードされた等)は例外を伝播させず
+     * 0(距離ボーナス無し)にフォールバックする。{@code null} 引数・{@code null} World も同様に0を返す。
+     */
+    static double launchDistanceBlocks(Location launch, Location impact) {
+        if (launch == null || impact == null) {
+            return 0.0;
+        }
+        World launchWorld = launch.getWorld();
+        World impactWorld = impact.getWorld();
+        if (launchWorld == null || impactWorld == null || !launchWorld.equals(impactWorld)) {
+            return 0.0;
+        }
+        return launch.distance(impact);
     }
 
     static double powerAttackDamage(double finalDamage, double bonus, boolean airborne) {

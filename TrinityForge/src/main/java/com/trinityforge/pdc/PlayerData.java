@@ -294,6 +294,63 @@ public final class PlayerData {
         return true;
     }
 
+    // --- アチーブメント手動解放方式 (2026-08-04): 達成(条件成立)と解放(受け取り)を分離する ---
+
+    /** 解放(受け取り)済みアチーブメントID一覧。 */
+    public List<String> claimedAchievementIds() {
+        return readJoined(PdcKeys.PLAYER_ACHIEVEMENTS_CLAIMED);
+    }
+
+    /**
+     * {@code id} を解放済みとして記録する(報酬付与の唯一のトリガーは呼び出し側の
+     * {@code AchievementService#claim})。既に解放済みなら {@code false} を返し何もしない
+     * (＝ここが冪等であることが「2回解放しても報酬は1回だけ」の実体)。
+     */
+    public boolean markAchievementClaimed(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        List<String> current = new java.util.ArrayList<>(claimedAchievementIds());
+        if (current.contains(id)) {
+            return false;
+        }
+        current.add(id);
+        writeJoined(PdcKeys.PLAYER_ACHIEVEMENTS_CLAIMED, current, "achievement id");
+        return true;
+    }
+
+    /**
+     * 手動解放方式導入前の「達成済み=報酬受領済み」プレイヤーを、解放済み集合へ1回だけ移行したか。
+     * 未設定(既定 false)は既存プレイヤー全員が該当する(移行がまだ済んでいない)。
+     */
+    public boolean achievementClaimMigrationDone() {
+        return container.getOrDefault(
+                PdcKeys.PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** 移行を済ませたことを記録する(一方向)。 */
+    public void markAchievementClaimMigrationDone() {
+        container.set(PdcKeys.PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED, PersistentDataType.BYTE, (byte) 1);
+    }
+
+    /** {@code id} について「解放できます」通知を既に送ったか(スパム防止)。 */
+    public boolean pendingClaimNotified(String id) {
+        return readJoined(PdcKeys.PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED).contains(id);
+    }
+
+    /** {@code id} について通知済みであることを記録する(既に記録済みなら何もしない)。 */
+    public void markPendingClaimNotified(String id) {
+        if (id == null || id.isBlank()) {
+            return;
+        }
+        List<String> current = new java.util.ArrayList<>(readJoined(PdcKeys.PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED));
+        if (current.contains(id)) {
+            return;
+        }
+        current.add(id);
+        writeJoined(PdcKeys.PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED, current, "achievement id");
+    }
+
     public Optional<String> rolePrimary() {
         return Optional.ofNullable(
                 container.get(PdcKeys.PLAYER_ROLE_PRIMARY, PersistentDataType.STRING));

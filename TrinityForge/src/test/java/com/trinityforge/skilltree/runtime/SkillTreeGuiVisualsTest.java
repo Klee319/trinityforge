@@ -49,6 +49,16 @@ class SkillTreeGuiVisualsTest {
     }
 
     @Test
+    void toggleViewControlUsesAPlainVanillaMaterialWithNoCustomItemModel() {
+        // 2026-08-04新設: 一覧モード⇔通常モードの切替ボタン。新しいリソースパックCMDを要求しない
+        // (itemModel=nullは統合版でも素のバニラ材質のまま描画できる)。
+        var visual = SkillTreeGuiVisuals.control("toggle-view");
+
+        assertEquals(Material.COMPASS, visual.material());
+        assertNull(visual.itemModel());
+    }
+
+    @Test
     void connectorsUseStateAndShapeSpecificValhallaTextures() {
         assertEquals(Material.GRAY_DYE,
                 SkillTreeGuiVisuals.connector(SkillTreeGuiVisuals.ConnectorState.LOCKED, "06").material());

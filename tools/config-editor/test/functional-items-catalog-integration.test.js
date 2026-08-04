@@ -119,8 +119,11 @@ const {
   FUNCTIONAL_ITEM_IDS
 } = require("../public/js/functional-items.js");
 
-test("TF_SPECIAL_ITEM_IDS: skill_node_lock / skill_tree_reset のちょうど2件", () => {
-  assert.deepEqual(TF_SPECIAL_ITEM_IDS.slice().sort(), ["skill_node_lock", "skill_tree_reset"]);
+test("TF_SPECIAL_ITEM_IDS: 既存2件 + 2026-08-04追加の券3件のちょうど5件", () => {
+  assert.deepEqual(TF_SPECIAL_ITEM_IDS.slice().sort(), [
+    "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
+    "skill_tree_reset", "stat_reroll_ticket"
+  ]);
 });
 
 test("TF_SPECIAL_ITEM_IDS は Ars の FUNCTIONAL_ITEM_IDS(7件)と重複しない", () => {
@@ -276,6 +279,36 @@ test("実データ: catalog.yml の skill_node_lock / skill_tree_reset は _edit
       const ids = Array.isArray(cat.itemIds) ? cat.itemIds : [];
       assert.ok(!ids.includes("skill_node_lock"), `_editor.categories.${tabKey} に skill_node_lock が孤児として残っている`);
       assert.ok(!ids.includes("skill_tree_reset"), `_editor.categories.${tabKey} に skill_tree_reset が孤児として残っている`);
+    }
+  }
+});
+
+// ---- 6. catalog.yml 実データ: 2026-08-04追加の券3件(role_reselect_ticket/stat_reroll_ticket/
+// quality_upgrade_ticket)が実在し、同じく _editor.categories に孤児として残っていないこと ----
+
+test("実データ: catalog.yml に券3件(role_reselect_ticket/stat_reroll_ticket/quality_upgrade_ticket)が" +
+    "custom-model-data 無しで存在し、_editor.categories のどのネストカテゴリにも属していない", () => {
+  const { readConfig } = require("../lib/yamlio.js");
+  const catalogPath = path.join(
+    __dirname, "..", "..", "..", "TrinityForge", "src", "main", "resources", "items", "catalog.yml"
+  );
+  const { data } = readConfig(catalogPath);
+  const ticketIds = ["role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket"];
+  for (const id of ticketIds) {
+    assert.ok(data.items[id], `${id} が catalog.yml に無い`);
+    // resourcepack/cmd-registry.json が別セッション編集中のため意図的に custom-model-data 未設定
+    // (CMD割当は reports/ACTIVE_RECORD.md 追跡の後追いタスク)。
+    assert.equal(data.items[id]["custom-model-data"], undefined,
+      `${id} は CMD 未割当のはずが custom-model-data を持っている(割当済みならこのテストごと更新すること)`);
+    assert.equal(data.items[id].recipe, undefined, `${id} にレシピを付けてはいけない`);
+  }
+  const categories = (data._editor && data._editor.categories) || {};
+  for (const [tabKey, cats] of Object.entries(categories)) {
+    for (const cat of cats) {
+      const ids = Array.isArray(cat.itemIds) ? cat.itemIds : [];
+      for (const ticketId of ticketIds) {
+        assert.ok(!ids.includes(ticketId), `_editor.categories.${tabKey} に ${ticketId} が孤児として残っている`);
+      }
     }
   }
 });

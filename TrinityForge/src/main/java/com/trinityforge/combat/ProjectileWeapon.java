@@ -1,12 +1,16 @@
 package com.trinityforge.combat;
 
 import com.trinityforge.pdc.PdcKeys;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Projectile;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Carries the firing weapon (bow/crossbow/trident) with the projectile it launches so the attack
@@ -110,5 +114,65 @@ public final class ProjectileWeapon {
             return 1.0;
         }
         return Math.max(0.0, Math.min(1.0, stored));
+    }
+
+    /**
+     * 2026-08-04 バグ修正(distance-damage-bonus 悪用防止): {@code projectile} の発射地点(launch time の
+     * 座標)を {@link PdcKeys#PROJECTILE_LAUNCH_LOCATION} へ retain する。{@link #store}/{@link #storeDrawForce}
+     * と同じ最善努力(発射イベント自体を落とさないよう、失敗時は何も書き込まず {@link #readLaunchLocation}
+     * が「記録なし」フォールバックへ回る)。{@code location} の {@link Location#getWorld()} が null
+     * (アンロード済み/破棄済みワールド)のときも何もしない。
+     */
+    public static void storeLaunchLocation(Projectile projectile, Location location) {
+        if (projectile == null || location == null || location.getWorld() == null) {
+            return;
+        }
+        try {
+            String encoded = location.getWorld().getUID()
+                    + "|" + location.getX()
+                    + "|" + location.getY()
+                    + "|" + location.getZ();
+            projectile.getPersistentDataContainer()
+                    .set(PdcKeys.PROJECTILE_LAUNCH_LOCATION, PersistentDataType.STRING, encoded);
+        } catch (RuntimeException failed) {
+            // Best-effort retention: leave unstamped, readLaunchLocation falls back to "no record".
+        }
+    }
+
+    /**
+     * The launch location previously {@link #storeLaunchLocation stored} on {@code projectile}, or
+     * empty when none was stored (non-player shooter, plugin-spawned/dispensed projectile, a projectile
+     * that predates this stamp, or the recorded world is no longer loaded) or the stored value fails to
+     * parse (a stale/corrupt format must never throw on the combat path). The caller
+     * ({@code CombatListener#launchDistanceBlocks}) MUST treat an empty result as "no distance bonus" (0
+     * blocks) — never fall back to the shooter's current location, or the exploit this stamp exists to
+     * close (stopping an arrow mid-air, walking away, then re-triggering impact) reopens.
+     */
+    public static Optional<Location> readLaunchLocation(Projectile projectile) {
+        if (projectile == null) {
+            return Optional.empty();
+        }
+        String encoded = projectile.getPersistentDataContainer()
+                .get(PdcKeys.PROJECTILE_LAUNCH_LOCATION, PersistentDataType.STRING);
+        if (encoded == null || encoded.isEmpty()) {
+            return Optional.empty();
+        }
+        String[] parts = encoded.split("\\|", -1);
+        if (parts.length != 4) {
+            return Optional.empty();
+        }
+        try {
+            UUID worldId = UUID.fromString(parts[0]);
+            World world = Bukkit.getWorld(worldId);
+            if (world == null) {
+                return Optional.empty();
+            }
+            double x = Double.parseDouble(parts[1]);
+            double y = Double.parseDouble(parts[2]);
+            double z = Double.parseDouble(parts[3]);
+            return Optional.of(new Location(world, x, y, z));
+        } catch (RuntimeException malformed) {
+            return Optional.empty();
+        }
     }
 }

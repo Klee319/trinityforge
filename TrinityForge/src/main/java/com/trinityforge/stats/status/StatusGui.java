@@ -120,11 +120,9 @@ public final class StatusGui implements Listener {
         AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
         lore.add(entry("体力", StatValueRenderer.plain(player.getHealth()) + " / "
                 + StatValueRenderer.plain(maxHealth != null ? maxHealth.getValue() : player.getHealth())));
-        AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
-        AttributeInstance toughness = player.getAttribute(Attribute.ARMOR_TOUGHNESS);
-        lore.add(entry("バニラ防御 (armor/toughness)",
-                StatValueRenderer.plain(armor != null ? armor.getValue() : 0.0) + " / "
-                        + StatValueRenderer.plain(toughness != null ? toughness.getValue() : 0.0)));
+        // 2026-08-04: 「バニラ防御 (armor/toughness)」の行は削除した(stats チャット側と同じ扱い)。
+        // 実際のダメージ計算を担うのは TF の守備力(物理/魔法)なので、バニラ属性値を並べると
+        // どちらが効いているのか誤解を招く。
         lore.add(Component.empty());
         lore.add(plain("装備・パーク・アドオンを合算した実効値です。", NamedTextColor.DARK_GRAY));
         meta.lore(lore);

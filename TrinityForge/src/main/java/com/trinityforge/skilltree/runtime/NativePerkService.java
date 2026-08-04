@@ -27,6 +27,12 @@ public final class NativePerkService {
 
     private static final Logger LOG = Logger.getLogger(NativePerkService.class.getName());
 
+    /**
+     * POWER のスキルID。他スキルのレベルアップから間接的に加算される派生値であり、プレステージで
+     * 0リセットしてよい通常スキルとは扱いを分ける必要がある(下記 {@link #prestigeUnderLock} 参照)。
+     */
+    private static final String POWER = "POWER";
+
     private final NativeProgressionService progression;
     private final ProgressionRepository repository;
     private final Supplier<Collection<SkillTree>> trees;
@@ -167,8 +173,15 @@ public final class NativePerkService {
             Long stored = storedCosts.get(perkId);
             refund += stored != null ? Math.max(0L, stored) : Math.max(0L, node.cost());
         }
-        SkillProgress reset = new SkillProgress(
-                0, 0.0, 0.0, tier, current.maxAllowedLevel());
+        // バグ修正(2026-08-04): POWERは他スキルのレベルアップから間接的に積み上がる値なので、
+        // 他スキルと同じ「0リセット」をすると、他スキルが既に育っている場合にPOWERノードの
+        // level要求へ恒久的に届かなくなる(ユーザー報告「総合をプレステージするとパークが
+        // 解放できなくなる」の真因)。POWERだけは他スキルの現在レベルから同じ加算式で
+        // 再導出した値をtierと一緒に積む。他スキルのプレステージ挙動(0リセット)は変えない。
+        SkillProgress reset = POWER.equals(tree.skill())
+                ? progression.derivePowerProgress(
+                        progression.snapshot(playerId), tier, current.maxAllowedLevel())
+                : new SkillProgress(0, 0.0, 0.0, tier, current.maxAllowedLevel());
         String prefix = PerkNaming.compact(tree.skill()) + "_perk_";
         if (!repository.prestige(playerId, tree.skill(), prefix,
                 PerkNaming.prestigePerkId(tree.skill(), tier), reset, refund,

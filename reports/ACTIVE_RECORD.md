@@ -5378,3 +5378,86 @@ TF の `AddonCombatStats`(PDC) → `PlayerCombatAggregate.addon` へ入り、**`
 - 階梯ソースリンク20件に `custom-model-data` が無い（見た目は無印と同じモデル）。**リソースパック側の残タスク。**
 - fork（ArsPaper）の commit はローカルのまま。`Klee319/ArsPaper` は public で履歴に
   `libs/TrinityForge.jar` を含むため、push はユーザー判断待ち。
+
+---
+
+## 2026-08-04 — 実機報告バッチ15件（機能アイテム3種 / アチーブメント手動解放 / EM・Ars 連携 / 弓の距離悪用 / 総合プレステージ）
+
+ユーザーからの一括依頼15件。**うち2件はコードが既に正しく、配備側の問題だった**（下記「配備で直るもの」）。
+
+### 実装した内容
+
+| # | 依頼 | 対応 |
+|---|---|---|
+| 1 | ロール付け直しのアイテム追加 | `catalog.yml` に `role_reselect_ticket`（職業付け替えの証、NAME_TAG）。右クリックで `RoleSelectGui` を**クールダウン・交戦中ガードを無視**して開く。**ロールを確定した瞬間にだけ1個消費**。確定後は通常どおり CD を刻む（券連打での交戦中スイッチを防ぐため） |
+| 2 | ランダムステータスのリロールアイテム | `stat_reroll_ticket`（厳選やり直しの護符、RABBIT_FOOT）。`ItemFactory#stamp(stack, 新seed, 既存quality)` で **rollSeed だけ引き直し・品質は不変** |
+| 3 | 品質のレベルアップアイテム | `quality_upgrade_ticket`（品質昇華の結晶、HEART_OF_THE_SEA）。`stamp(stack, 既存rollSeed, quality+1)` で **品質だけ +1・ランダムロールは不変**。最上位ティア到達済みは拒否し券を消費しない |
+| 4 | ステータス表示のバニラ防御項目を削除 | `StatsCommand#show`（`/tf stats`）と `StatusGui#summaryHead`（`/tf status`）の2箇所。`StatVocabulary`/`stats/lore.yml` に載っていない直書きだったので drift テストへの影響なし |
+| 5 | アチーブメント UI をスキルツリーへ揃える | `AchievementGui` は既に格子・コネクタ・視点移動をスキルツリーと共有していた。**揃っていなかったのは「クリックで解放する操作系」だけ**なので #6 と同時に解決。`SkillTreeGuiVisuals.node(unlocked, unlockable, pending, icon)` にそのまま対応させた |
+| 6 | アチーブメントを手動解放にする | 状態を **achieved（条件達成）/ claimed（解放）** の2つに分離。**前提判定は achieved のまま**なので「解放を忘れても次のアチブは達成できる」が成立（`AchievementPrerequisiteTest` が無変更で全件通過＝その裏付け）。報酬・全体アナウンス・永続バフはすべて claim 側へ移動 |
+| 7 | 鍵の本アイコンで `em_id_...` 表示 | **コード修正不要。配備済み `dungeon/gates.yml` が古いだけ**（下記） |
+| 8 | 矢をトラップドアに刺して距離ダメージを伸ばす悪用 | 距離ボーナスを「**発射地点↔着弾地点**」で測る形へ。発射時に矢の PDC へ発射座標を記録。記録なし／別ワールドは**ボーナス0**にフォールバック（旧挙動へは戻さない） |
+| 9 | メニュー画面にロールセット項目 | 統合メニュー GUI `MainMenuGui` を新設（`/tf menu`）。ロールセット／ステータス／スキルツリー／実績／図鑑／設定への入口。**新しい権限ノードは増やさず**既存フラグ（`RoleChangeService#commandDisabledReason` / `CollectionConfig#enabled`）だけを読む |
+| 10 | スキルツリーのアイコン一覧モード | `SkillTreeOverviewLayout` を新設し `NativeSkillTreeMenu` に overview モードを追加。アイコンクリックは**既存の `select-skill` アクションへ合流**（新アクションを作っていない）。トグル枠を作るため下段の選択バーを 9→8 枠へ縮小 |
+| 11 | ダンジョンで EM 設定のアイテムを落とさない | EM フォーク。`currency-shower` / `boss-unique-loot` を false 化し、**7ゲートを素通りしていた宝箱・アリーナ経路にゲートを2本追加**。`vanilla-loot` は「モブ本来の死亡ドロップ」なので **true 据え置き** |
+| 12 | EM のネームタグを消す | 設定は既に抑止側だったが、**引数を無視して強制表示にしていたハードコードが2箇所**（`DisguiseEntity#setDisguiseNameVisibility` / `CustomBossEntity#setName(String,boolean)`）。両方修正し `javap` で実バイトコードを確認 |
+| 13 | 総合(POWER)プレステージでパーク解放不能 | POWER は他スキルのレベルアップからしか EXP が入らない派生スキル。プレステージで level 0 に戻すと他スキルが育ちきっている限り**恒久的に解放不能**だった。**全非POWERスキルの周回履歴から再導出**する形へ。既存被害者は `ProgressionCurveReconciler`（`/tf reload` 経由）で**引き上げ方向のみ**救済 |
+| 14 | Ars の炎上・爆発魔法がバニラダメージ | `IgniteEffect`（継続火炎）/ `ExplosionEffect`（`createExplosion`）/ `HexEffect`（生 `damage()`）の3本が `dealSpellDamage` を通っていなかった。全て TF パイプラインへ。爆発はバニラ側の `ENTITY_EXPLOSION` を必ずキャンセルしてから距離減衰付きで再適用（**二重ダメージにしない**）|
+| 15 | ツールのスレッド装備に「上向き+スニーク+右クリック」 | **既に実装・配備済みだったが対象が限定的**（`CATEGORY_TOOL && !CATEGORY_WEAPON` ＝斧を除外）。**スレッド枠を持つ装備全般**へ拡張 |
+
+### レビューで見つけた既存バグ（依頼外）
+
+- **`HexEffect` の二重登録**: コンストラクタでの自己登録と `ArsPaper#registerListeners()` の一括登録ループが
+  両方走り、`onEntityDamage` が1イベントで2回発火 → **呪詛の追撃ダメージが2倍**入っていた。
+  `ExplosionEffect` も同じ形にしかけていたので、両方とも自己登録を削除して一括ループへ一本化。
+  `registerEvents(this` を全数 grep し、残る3件（`SourcelinkTickTask` / `BlockParticleTask` /
+  `InfinityCoreTracker`）は registry に載らない独立クラスなので自己登録が正しいことを確認済み。
+
+### 配備で直るもの（コード修正なし）
+
+- **`em_id_...` 表示の真因は設定の配備漏れ**。配備先 `Main_Server\plugins\TrinityForge\dungeon\gates.yml` は
+  **2026-08-01 16:52 のままで `display-name:` が 0 件**、リポジトリ側は 61 件。jar は 08-04 10:12 と新しいのに
+  yml だけ止まっていた。`DungeonEntryGui#infoIcon` は `gate.displayNameOrWorld()` を使うので、
+  `display-name` が無いとゲートID へフォールバックする。→ **`ops\launch\deploy.cmd --config` で解消**（jar 不要）。
+- **EM の `elite-drop-sources` は jar 差し替えだけでは反映されない**。`TrinityForgeConfigMigration` は
+  **トップレベルキー単位でしか差分を検出しない**ため、セクションが既に存在する稼働中サーバでは
+  サブキーの既定値変更が届かない。`plugins/EliteMobs/trinityforge.yml` を手で書き換える必要がある:
+  ```yaml
+    currency-shower: false
+    boss-unique-loot: false
+    treasure-chest-loot: false
+    arena-loot: false
+  ```
+
+### テスト実走結果（2026-08-04、全変更統合後）
+
+| 対象 | 結果 |
+|---|---|
+| TrinityForge | **3701 tests / 0 failures / 0 errors / 2 skipped**（既知2件: `OfflineMobImportRunner` / `NativeProgressionStabilizationContractsTest`） |
+| ArsPaper fork | **324 tests / 0 failures** |
+| EliteMobs fork | **91 tests / 0 failures / 0 skipped** |
+| config-editor | 失敗11件。**すべて着手前と同じ他セッター WIP 由来**（item-stats 系 / 槍の使用レベル / player-wiki-generator / tier-table-editor など）。今回追加分は全 pass |
+
+「修正前に戻すと落ちる」ことを確認した項目（証拠）:
+
+- 矢の距離悪用: 距離計算を旧コード（`attacker.getLocation()`）へ戻すと `CombatListenerDistanceDamageExploitTest` が
+  **3件とも FAILED**（悪用時 baseline 50.0 → 150.0 を再現）
+- POWER プレステージ: `prestigeUnderLock` の分岐を一律 0 リセットへ戻すと3件 FAILED。
+  reconciler の一方向ガードを外すと救済テストが FAILED
+- アチーブメント: 本体5ファイルを退避するとテストが**コンパイル不能**（新 API へ依存していることの直接確認）
+
+### 残課題
+
+- **3チケットの CMD が未割り当て**。`resourcepack/cmd-registry.json` が他セッションの未コミット編集中だったため
+  意図的に `custom-model-data` なしで出荷した。割り当て時に外すもの:
+  `CatalogVanillaOperationPolicyConfigTest` の `PENDING_CMD_ASSIGNMENT`（3ID）/ `catalog.yml` の3エントリ /
+  `functional-items-catalog-integration.test.js` の「CMD 無しで存在」テスト。
+- 3チケットに **`recipe:` を付けていない**（既存の `skill_node_lock` / `skill_tree_reset` と同じ扱い）。
+  入手手段は運用側が config-editor で設定する。
+- EM の `QuestReward` 経由のクエスト報酬は**意図的にゲート対象外**。ダンジョン外の EM アイテム配布も
+  止めたい場合は追加対応が要る。
+- フォーク2本（ArsPaper / EliteMobs）は**ローカル commit のみで push していない**。
+- `items/catalog.yml` の作業ツリーには**他セッションのエディタ保存によるコメント38行削除と
+  `_editor` カテゴリ入れ替え**が乗っている。今回の commit には**自分の33行追加だけ**を
+  （HEAD の blob へ差し込んだものを index へ直接書いて）入れてある。**この削除は未コミットのまま残っている**ので、
+  持ち主のセッションが処理すること。

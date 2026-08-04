@@ -16,7 +16,10 @@ public final class SkillTreeGuiVisuals {
             "move-se", new Visual(Material.ARROW, "gui/skilltree_se"),
             "move-s", new Visual(Material.ARROW, "gui/skilltree_s"),
             "move-sw", new Visual(Material.ARROW, "gui/skilltree_sw"),
-            "move-w", new Visual(Material.ARROW, "gui/skilltree_w"));
+            "move-w", new Visual(Material.ARROW, "gui/skilltree_w"),
+            // 2026-08-04新設: 通常モード⇔一覧モード(スキルアイコンだけの格子表示)の切替ボタン。
+            // 新しいリソースパックCMDは要求しない(itemModel未指定=素のバニラ材質を表示する)。
+            "toggle-view", new Visual(Material.COMPASS, null));
 
     private static final Map<String, String> CONNECTOR_SHAPES = Map.ofEntries(
             Map.entry("00", "direct_vertical"),

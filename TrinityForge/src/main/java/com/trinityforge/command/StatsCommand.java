@@ -18,8 +18,6 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -138,14 +136,9 @@ public final class StatsCommand {
         // 乗算モード: 実際の戦闘/採集パスは全て乗算レイヤ適用後の値を使うため、表示も適用後に揃える。
         sendFiltered(player, combinedStats(player), category);
 
-        if (category == StatsCategory.ALL || category == StatsCategory.ARMOR) {
-            AttributeInstance armor = player.getAttribute(Attribute.ARMOR);
-            AttributeInstance toughness = player.getAttribute(Attribute.ARMOR_TOUGHNESS);
-            player.sendMessage(line("  バニラ防御(armor/toughness)",
-                    formatTruncated(armor != null ? armor.getValue() : 0.0)
-                            + " / "
-                            + formatTruncated(toughness != null ? toughness.getValue() : 0.0)));
-        }
+        // 2026-08-04: 「バニラ防御(armor/toughness)」の行は削除した。TF の守備力(物理/魔法)が
+        // 実際のダメージ計算を担っており、バニラ属性値を並べて出すとプレイヤーが
+        // 「どちらが効いているのか」を誤解する。表示は TF 語彙のステータスだけに揃える。
         return Command.SINGLE_SUCCESS;
     }
 

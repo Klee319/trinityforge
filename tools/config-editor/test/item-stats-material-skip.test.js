@@ -95,10 +95,10 @@ test("buildItemStatsForm: スレッド (tab: thread) は従来どおり枠を作
 });
 
 // ---------------------------------------------------------------------------
-// TF 特殊アイテム (skill_node_lock / skill_tree_reset) も枠を作らない (2026-07-27)。
-// この2件は「特殊アイテム」画面(機能アイテムカテゴリ)へ集約済み。加えて catalog.yml で
-// custom-model-data を持たないため、ステータスキーが素の Material になり、設定すると
-// バニラのアメジストの欠片/残響の欠片すべてに効いてしまう(狙ったアイテムだけを指せない)。
+// TF 特殊アイテム (skill_node_lock / skill_tree_reset、2026-08-04に3券を追加) も枠を作らない
+// (2026-07-27)。この5件は「特殊アイテム」画面(機能アイテムカテゴリ)へ集約済み。加えて
+// catalog.yml で custom-model-data を持たないため、ステータスキーが素の Material になり、
+// 設定するとバニラの同名アイテムすべてに効いてしまう(狙ったアイテムだけを指せない)。
 //
 // forms.js は index.html 上で functional-items.js より先に読まれるため、TF_SPECIAL_ITEM_IDS の
 // 参照は「呼び出し時」に解決される必要がある。ここで forms.js の後に functional-items.js を
@@ -107,15 +107,22 @@ test("buildItemStatsForm: スレッド (tab: thread) は従来どおり枠を作
 // ---------------------------------------------------------------------------
 require("../public/js/functional-items.js");
 
-test("buildItemStatsForm: TF特殊アイテム2件は枠を作らない (読み込み順に依存せず効く)", () => {
+test("buildItemStatsForm: TF特殊アイテム5件(既存2件+2026-08-04追加の券3件)は枠を作らない"
+    + " (読み込み順に依存せず効く)", () => {
   const core = global.window.FUNCTIONAL_ITEMS_CORE;
   assert.ok(core && Array.isArray(core.TF_SPECIAL_ITEM_IDS), "TF_SPECIAL_ITEM_IDS が公開されていること");
-  assert.deepEqual(core.TF_SPECIAL_ITEM_IDS.slice().sort(), ["skill_node_lock", "skill_tree_reset"]);
+  assert.deepEqual(core.TF_SPECIAL_ITEM_IDS.slice().sort(), [
+    "quality_upgrade_ticket", "role_reselect_ticket", "skill_node_lock",
+    "skill_tree_reset", "stat_reroll_ticket"
+  ]);
 
   const catalogData = {
     items: {
       skill_node_lock: { material: "AMETHYST_SHARD", "display-name": "スキルノードの楔" },
       skill_tree_reset: { material: "ECHO_SHARD", "display-name": "スキル再構築の書" },
+      role_reselect_ticket: { material: "NAME_TAG", "display-name": "職業付け替えの証" },
+      stat_reroll_ticket: { material: "RABBIT_FOOT", "display-name": "厳選やり直しの護符" },
+      quality_upgrade_ticket: { material: "HEART_OF_THE_SEA", "display-name": "品質昇華の結晶" },
       sword_id: { material: "IRON_SWORD", "display-name": "剣" }
     }
   };
@@ -127,7 +134,7 @@ test("buildItemStatsForm: TF特殊アイテム2件は枠を作らない (読み�
   runBuildItemStatsForm(data, catalogCandidates);
 
   const itemTabs = (data._editor && data._editor.itemTabs) || {};
-  for (const key of ["AMETHYST_SHARD", "ECHO_SHARD"]) {
+  for (const key of ["AMETHYST_SHARD", "ECHO_SHARD", "NAME_TAG", "RABBIT_FOOT", "HEART_OF_THE_SEA"]) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(data.items, key),
       false,

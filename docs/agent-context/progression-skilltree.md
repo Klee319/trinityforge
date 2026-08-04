@@ -40,6 +40,27 @@ BRANCH（右半平面, +SIDE_STEP）とGREEK（左半平面, -SIDE_STEP）は完
 
 `SkillTreeGuiVisuals.node()` で、**解放済みノードは共通「解放済み」モデル（フロッピー見た目）に差し替えず、editorで指定されたperkアイコン（configured Material）をそのまま表示する**。解放済みかどうかは名前色（緑）とlore「解放済み」で区別する。locked/pending/connectorは専用モデルのまま。回帰ガードは`SkillTreeGuiVisualsTest.pendingNodeUsesConfirmTextureButUnlockedKeepsConfiguredIcon`。
 
+### `/tf` サブコマンドは `trinityforge.use`（全体ゲート）以外に個別の権限ノードを持たない
+
+`TrinityForge.java#registerCommands()` を見ると、`role`/`status`/`skills`/`achievement`/`collection`/`settings` は
+`.then(xxxCommand.node())` するだけで個々に `.requires(...)` を足していない（`.requires` があるのは
+`isTfAdmin` 系の管理サブツリーだけ）。**新しい統合GUI/メニューでこれらの「使えるか」を判定するときは、
+新しい権限ノードを作らず各機能が既に持つフラグをそのまま読むこと**（`RoleChangeService#commandDisabledReason`
+＝`role-buffs.yml`の`allow-command`、`CollectionConfig#enabled`）。`MainMenuGui`（`/tf menu`、2026-08-04新設）は
+この2つだけを可否判定に使っており、他4項目（status/skills/achievement/settings）には対応する無効化フラグが
+存在しないため常に利用可能として並べている。
+
+### `NativeSkillTreeMenu` のスロット53は一覧モード切替ボタンに固定で明け渡した
+
+54枠のうち、従来はスロット45-53（9枠）が全て「近傍9ツリーの選択バー」（`renderSkillSelector`、
+`select-skill`アクション）で埋まっており、GUIに空きコントロール枠が無かった。2026-08-04にスロット53
+（選択バー右端）を一覧モード⇔通常モードの切替ボタン（`toggle-view`アクション、
+`SkillTreeGuiVisuals.control("toggle-view")`）専用にし、選択バーは8枠（offset -4..3）へ縮小した。
+このスロットは通常モード・一覧モード（`openOverview`、格子座標は`SkillTreeOverviewLayout`）の両方で
+同じ位置に固定してある。将来この行を触るときは53を選択バー用に戻さないこと。一覧モードのアイコンは
+`select-skill`アクションを流用しており（新アクションは追加していない）、クリックすると常に
+`overview=false`で再描画される＝一覧からアイコンを選ぶと必ず通常モードへ戻る。
+
 ## スキルツリーのカスタムコンテンツ：何が効いて何が効かないか
 
 `skilltree/*.yml`の各ノードには複数の記述フィールドがあるが、実行時に効くものと効かないものがはっきり分かれている。
@@ -236,6 +257,54 @@ Bukkitの`Ageable`は「`age`プロパティを持つブロック」という意
 
 **ワールドゲート・倍率などの合成規則を新しいEXP経路に足すときは、必ず`SkillExpConfig.worldExpRate(boolean inDungeonWorld)`のような一点集約を経由すること。** 呼び出し側が個別にフラグと倍率を見る書き方をすると、片方を忘れた経路が静かに全額付与になり、テストにもエラーにも出ない（Ars魔法EXPがワールドゲート未適用のまま長期間素通りしていた実例あり）。
 
+### ⚠️ POWERは他スキルのレベルアップから間接的にしか積み上がらない「導出値」。プレステージで0リセットしてはいけない
+
+**症状**: 「総合(POWER)をプレステージすると、総合ツリーがコマンドを使ってもパークを解放できなくなる」
+（2026-08-04 ユーザー報告）。POWERは他スキルの`grantExp`が呼ばれるたびに副作用として加算される値であり、
+プレイヤーが直接EXPを稼ぐ経路が無い。`NativePerkService#prestigeUnderLock`は当時、全スキル共通のロジックで
+POWERも`SkillProgress(0, 0.0, 0.0, tier, ...)`へリセットしていた。他スキルが既に育っている状態でPOWERを
+プレステージすると、POWERは他スキルの新しいレベルアップでしか回復できず、要求レベルの低いノードにすら
+二度と届かなくなる（＝恒久的に詰む）。
+
+**機構**: `NativeProgressionService#grantExpUnderRepositoryLock`（`NativeProgressionService.java:213-230`）は
+非POWERスキルSのレベルアップのたびに`powerAfter = XpTransitionService(powerEntry.curve()).apply(powerBefore,
+powerPerLevel * levelsChanged * decayMultiplier)`でPOWERへ加算する。ここで**`powerPerLevel`と`decayRate`は
+POWER自身のカタログ(`power_progression.yml`)から読む固定値**（`powerEntry.rate("power.exp_per_skill_level", …)`
+/ `powerEntry.rate("power.prestige_decay_rate", …)`）であり、Sごとに変わるのは`decayMultiplier`の引数
+`before.prestige()`（＝S自身の現在のプレステージ段）だけ。**「スキルごとに違うPOWER供給率」は存在しない**
+（読み間違えやすい：`powerEntry`と`entry`（S側）を混同すると別式を実装してしまう）。
+
+**修正**: `NativeProgressionService.derivePowerProgress(NativeSkillCatalog, PlayerProgression, prestigeTier,
+maxAllowedLevel)`（static、`NativeProgressionService.java`）を新設し、grantExpと同じ式で
+「他スキルの現在レベル・現在プレステージ段」からPOWERのtotalExpを再構成する。`NativePerkService#prestigeUnderLock`
+はPOWERのプレステージ時だけこれを呼び、level/expを0にせず再導出値を積む（他スキルの挙動は不変）。
+
+**近似の範囲（重要）**: 各スキルの「過去に完了したプレステージ周回」で実際に何レベルまで到達していたかは
+永続化されていない（プレステージでlevel/totalExpが0に戻るため）。`derivePowerProgress`は完了済み周回が
+そのスキルの`catalog.max_level`まで到達していたと仮定する。**出荷`skilltree/*.yml`は全15非POWERスキルで
+`prestige.at-level == experience.max_level == 100`**（`level`は`XpTransitionService`で`maxAllowedLevel`に
+ハードクランプされ、プレステージ条件は`level >= at-level`）なので、この仮定は**近似ではなく厳密に正しい**。
+将来`at-level < max_level`にすると、at-level到達後にmax_levelまで足踏みしていた実績分だけ過小評価する
+近似になる——このケースを避けたいなら`at-level`と`max_level`を常に一致させること。
+
+**既存被害者の復旧経路**: `ProgressionCurveReconciler#recalculatePlayer`（`/trinityforge reload`等から
+`recalculateAll()`が呼ばれる既存経路）に、POWERが`prestige > 0`のとき`derivePowerProgress`の結果と
+現在値を比較し、**導出値の方が高い場合だけ**引き上げる一方向ガードを追加した。下げる方向には絶対に
+動かさない（修正後に正しく積み上がった状態や管理者の意図的な編集を巻き戻さないため）。
+
+**設計上の制約**: `ProgressionCurveReconciler`のコンストラクタは`TrinityForge.java`の配線を変えられない
+制約下では変更できない（`(ProgressionRepository, NativeSkillCatalog)`のまま）。そのため復旧ロジックは
+`NativeProgressionService`インスタンスを持てず、`derivePowerProgress`を**static**にして
+`NativeSkillCatalog`だけで完結させている。POWER絡みの新しい復旧/計算ロジックを追加するときは、
+「`NativeProgressionService`のインスタンスに依存する設計」を避けるか、事前にTrinityForge.java側の
+配線変更が本当に不要か確認すること。
+
+回帰は`NativePerkServicePowerPrestigeTest`（プレステージでレベルが0にならない/unlockが
+LEVEL_TOO_LOWにならない/非POWERスキルは従来どおり0リセット/SP残高が落ち込まない）、
+`NativeProgressionServiceTest`（`derivePowerProgress`が`grantExp`のorganic累積と完全一致することを
+tier0・完了済み周回1回の両方で直接証明）、`ProgressionCurveReconcilerPowerHealingTest`
+（被害者復旧・一方向ガード）で固定している。
+
 ### ⚠️ モブEXPの`growth`をHPと同じ値にしてはいけない
 
 HP/攻撃の指数成長率は「同帯装備なら所要時間がほぼ一定になる」よう校正された値。一方EXPの用途（エンチャ・金床のコスト）はプレイヤーレベルにしか依存しないため、HPと同じgrowthを使うと同じ手間で報酬が桁違い（1000倍等）になり経済が破綻する。EXPのgrowthはHPより大幅に緩やかな値（実装例: 全モブ共通1.008程度）にし、役割係数（雑魚/中ボス/ボス）で規模だけ振る設計にすること。モブ個別のvanilla-expはPDCに刻印されたキル時のレベルで評価するため、`level: dynamic`（入場時にレベルへ追従するモブ）でも正しく追従する。
@@ -276,6 +345,46 @@ try節の外に置くとテストが「失敗」ではなく「中断（SKIPPED�
 - editorでIDを改名/削除したら、他ノードの`parent`/`parents-any`を必ず張り替える。放置すると「存在しない前提」になり、その枝が丸ごと達成不能になる。
 - `PlayerData#revokeSpecialReward`は直接付与リストにあるIDしか見ない。スキルツリーの`reward:<id>`perk経由で装備しただけの報酬（`equippedTitle`/`equippedParticle`等）は付与リストに入らないため、剥奪処理は**別経路で個別に掃除**しないと残り続ける（＝孤児化）。
 - 壊れたYAMLを「全部未定義」と誤読して全員の報酬を消す事故を防ぐため、`load()`はエントリが1件でもskipされた回を失敗扱いにする安全弁がある。
+
+### ⚠️ アチーブメントは「達成(条件成立)」と「解放(受け取り)」が別状態(2026-08-04 手動解放方式)
+
+`AchievementService`は状態を2本の PDC キーへ分けている。**混同すると「条件を満たした瞬間に報酬が付く」
+旧仕様へ逆戻りする、または前提が解放待ちで詰まる。**
+
+| 状態 | PDCキー(`PdcKeys`) | 読み書きするメソッド | 意味 |
+|---|---|---|---|
+| 達成(achieved) | `PLAYER_ACHIEVEMENTS_DONE` | `PlayerData#markAchieved`/`achievedIds` | 条件成立。**報酬は付かない** |
+| 解放(claimed) | `PLAYER_ACHIEVEMENTS_CLAIMED` | `PlayerData#markAchievementClaimed`/`claimedAchievementIds` | `/achievement` GUIでの明示操作。**唯一の報酬付与トリガー** |
+
+- **前提判定(`AchievementsConfig#prerequisitesMet`)は意図的に`achieved`を見る。** 解放を忘れていても
+  次のアチーブメントの条件は満たせる（ロードマップ確認の習慣づけが目的で、詰みを作らないための設計）。
+- **`AchievementService#markAchieved`(旧`grant`)は報酬を一切付与しない。** `pollStatistics`/
+  `onAdvancementDone`はここで止まる。唯一の報酬付与経路は`AchievementService#claim`（`grantRewards`を
+  内部で呼ぶ）。**新しい達成トリガーを追加するときは`grant`ではなく`markAchieved`を呼ぶこと**——
+  `grant`という名のメソッドはもう存在しない（旧コードをコピペすると呼べずコンパイルエラーになるので
+  ここは黙って壊れない）。
+- **`PermanentBuffResolver`は`achievedIds()`ではなく`claimedAchievementIds()`を読む。** permanent-buffs
+  は報酬なので、条件成立しただけ(未解放)のアチーブメントは寄与しない。図鑑`reward-tiers`は元々
+  `claimedCollectionTiers()`だけを見ていたので変更なし。
+- **既存プレイヤー移行**: 手動解放方式の導入前に達成済みだったプレイヤーは既に報酬を受け取っている。
+  `AchievementService#migrateClaimIfNeeded`が`PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED`フラグ(BYTE)を見て、
+  未移行なら`achievedIds()`をそのまま`claimedAchievementIds()`へ**`claim()`を経由せず直接**コピーする
+  （＝報酬は再付与されない）。呼び出し箇所は2つ: `pollStatistics`の周期処理(60秒間隔、資源サーバの
+  HuskSync同期が参加直後より確実に終わっている時間帯)と、`claimedIds(Player)`/`claim(Player,String)`
+  自身の先頭(GUIを開いた瞬間・解放操作の瞬間に間に合わせる保険)。**移行はPDCフラグで冪等**なので
+  二重に呼んでも安全。
+- **GUIの解放操作は`NativeSkillTreeMenu#handleNode`と同じ「1クリック目でpending、同一ノードへの
+  2クリック目で確定」パターン**（`AchievementGui.Session#pendingId`、`center`と同様に**フィールドを
+  mutateせず`render(...)`のたびに新しい`Session`を作る**——スキルツリー側の`pendingPerkId`と同じ
+  イミュータブル運用。ミュータブルにすると`render`が新しい`Session`を作るたびに値が消える）。
+- **`PdcKeys`に新しい`PLAYER_*`キーを足したら`PlayerPdcPrimitiveTypeAuditTest`の
+  `writeEveryPlayerOwnedValue`に書き込みを追記すること。** このテストはリフレクションで
+  `PdcKeys`の`PLAYER_*`静的フィールドを全列挙し、そのキーが監査のテスト内で実際に書き込まれているかを
+  機械的に照合する（＝HuskSync同期可能なprimitive型かどうかの検証対象になっているか）。追記を忘れると
+  `everyPlayerScopedKeyIsCoveredByTheAudit`が「PdcKeys に PLAYER_* キーが追加されたが、本監査が
+  書き込んでいない」で落ちる——**この落ち方はachievements機能自体のバグではなく網羅性チェックの
+  警告なので、テストを消さずに書き込みを足すのが正解**（2026-08-04、`achievements_claimed`/
+  `achievements_claim_migrated`/`achievements_pending_notified`の3キー追加で実際に踏んだ）。
 
 ### ⚠️ `collection.scope: all` の母数と `reward-tiers` のしきい値は**別の数**を数えている
 
@@ -436,6 +545,29 @@ TF/フォーク境界の`catch (Throwable)`を新設・変更するときは、�
 `recipes:`（複数、主にスレッド`thread_*`40件が使用）の消費素材は網羅チェックの対象外——
 表に無い素材があっても警告も落ちるテストも無い。儀式のカバレッジ関連テストを触るときは、
 この2キーが両方とも実際に登録される点を踏まえること（`ItemTemplate`のjavadocに明記あり）。
+
+### `getItemInMainHand()`は空スロットでも`null`でなく`AIR`の`ItemStack`(既定amount=1)を返す
+
+MockBukkitに限らずBukkit APIの契約そのもの。券消費系のテストで「消費されたか」を
+`getItemInMainHand().getAmount()==0`で見ると、空スロットでも`getAmount()`が`1`を返すため
+**「消費されていないのに緑になる」逆方向の罠**を踏む(このタスクで実際に踏んだ:
+`RoleSelectGuiTicketModeTest`で消費が正しく起きていたのにアサーションだけが間違っていた)。
+正しくは`mainHand == null || mainHand.getType() == Material.AIR`で見ること
+(`EquipmentTicketGuiTest`/`NativeSkillTreeMenu#consumeHeldItem`と同じ書き方)。
+
+### `custom-model-data`未設定の新規カタログ品はeditor側で自動的に安全側へ回る
+
+`resourcepack/cmd-registry.json`がロックされていてCMDを割り当てられない新規`items/catalog.yml`
+エントリを追加するとき、editor側で個別の除外コードを書く必要はない――
+`TF_SPECIAL_ITEM_IDS`(`functional-items.js`)へIDを足すだけで、`forms.js#tfSpecialItemIdsForStats`
+(item-stats.yml側の空枠生成をスキップ)と`split-views.js`(カタログ画面から隠し、保存時はロスレスに
+書き戻す)の両方が**動的に**この配列を参照しているため連動して効く。ただし
+`test/item-stats-material-skip.test.js`のような**既存件数をハードコードした回帰テスト**
+(`TF_SPECIAL_ITEM_IDS.slice().sort()`を配列リテラルと比較する等)は件数が変わると必ず落ちるので、
+IDを追加したら該当テストの期待値配列も同時に更新すること(テストの意図自体は正しいので緩めるのではなく
+値を合わせる)。Java側は`CatalogVanillaOperationPolicyConfigTest`の
+`PENDING_CMD_ASSIGNMENT`のような「意図的・追跡付きの例外セット」で同じ状況に対応する
+(`RegisterEventsDriftTest.ALLOWED_UNREGISTERED`と同型のパターン)。
 
 ## 関連
 

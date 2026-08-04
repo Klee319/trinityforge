@@ -69,6 +69,35 @@ yml の値をレビューするときは単位を必ず突き合わせること
 
 `combat/PvpDamagePolicy` + `combat/damage.yml` の `pvp:` セクション。根本原因は「攻撃力は指数で伸びるがプレイヤー最大体力はほぼ一定」という構造なので、倍率だけだと攻撃カーブを触るたびに PvP 倍率調整が必要になり、調整漏れ＝即死ゲーへ逆戻りする。`max-damage-percent-of-max-health`（1発で最大体力の何%まで、というスケールフリーな上限）を併用することで、攻撃力が変動しても「最低◯発は耐える」が構造的に保たれる。適用点は `total` 算出後・`setDamage` 直前の1点（出血DoT・AoEは同じ `total` を読むので自動追随）。ただし**AoEスプラッシュだけは別途**同じ抑制を明示的に置く必要がある（`applyingAoe` ガードで主パイプラインを通らないため）。
 
+### `distance-damage-bonus`（弓術の距離ダメージ）は「発射地点↔着弾地点」で測る — 射手の現在地を使ってはいけない（2026-08-04）
+
+`CombatListener` の距離ダメージは、矢/トライデント等 projectile の**発射地点**を
+`ProjectileWeapon.storeLaunchLocation`（`CombatListener#onProjectileLaunch` が全 projectile 種別で
+発火する `ProjectileLaunchEvent` 内で記録）から読み、着弾地点(victim の位置)との距離を
+`CombatListener#launchDistanceBlocks`（純関数、ワールド不一致/null は0にフォールバック）で測る。
+
+※かつては `attacker.getLocation().distance(victim.getLocation())`（着弾時点の射手の現在地）を使っていたが、
+これは「矢を壁/トラップドア等に刺して停止させ、射手だけ遠方へ移動してから第三者に矢を再度落下・命中させる」
+と、矢自体は1ブロックも飛んでいないのに"距離が離れた"ことになりダメージが跳ね上がる悪用を許していた
+（実サーバ報告で確認、`CombatListenerDistanceDamageExploitTest` に固定）。
+
+- **発射地点の記録は `ProjectileLaunchEvent` 一箇所に統一**（矢は `EntityShootBowEvent` → 同じ矢に対する
+  `ProjectileLaunchEvent` の順で両方発火する vanilla の生成順を利用しており、専用リスナーを重ねる必要はない）。
+  記録するのは `projectile.getLocation()`（この時点で実際にスポーン済みの発射座標そのもの）であり、
+  射手の座標は一切参照しない。
+- **記録が無い矢（プラグイン生成/ディスペンサー発射/サーバ再起動を跨いだ矢など）は距離ボーナス0
+  （ボーナス無し）にフォールバックする。旧挙動（射手の現在地）へ戻すと同じ悪用が再開する**ので、
+  この経路を触るときは絶対にフォールバック先を変えないこと。
+- 記録は `PdcKeys.PROJECTILE_LAUNCH_LOCATION`（`"<worldUUID>|<x>|<y>|<z>"` 形式のSTRING、projectile
+  自身のPDC）。異なるワールド間は `Location#distance` が例外を投げるため `launchDistanceBlocks` が
+  明示的に0へ落とす（`launch.getWorld().equals(impact.getWorld())` を先に見る）。
+- 回帰テストを書くときの罠: `EntityShootBowEvent`/`ProjectileLaunchEvent` を手動構築するテストでは
+  **`arrow.setShooter(shooter)` を `onProjectileLaunch` 呼び出しより前に**やらないと、記録ガード
+  （`firedProjectile.getShooter() instanceof Player`）が偽になり発射地点が一切記録されない ──
+  この場合ボーナスは常に0になり、「射手の移動が結果に影響しない」ことを検証するテストが**偽陽性で
+  緑になる**（実際に2026-08-04にこの順序ミスで一度この状態になった）。テストを書いたら必ず
+  修正前のコードに戻して赤くなることを確認すること。
+
 ## モブ（EliteMobs/フィールド）のスケーリング
 
 ### 指数成長させるのはプレイヤー火力とモブHPだけ

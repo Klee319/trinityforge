@@ -57,10 +57,20 @@
   // 唯一の正典は catalog.yml 側のコメントと SkillTreeItems.java。この2件は Ars の7件と違い、
   // material 上書き許可の概念(FunctionalItemConfig)とは無関係の別ファイル・別仕組みなので
   // MATERIAL_EDITABLE_IDS には混ぜない。
-  const TF_SPECIAL_ITEM_IDS = Object.freeze(["skill_node_lock", "skill_tree_reset"]);
+  // 2026-08-04追加の3件(role_reselect_ticket/stat_reroll_ticket/quality_upgrade_ticket)は
+  // resourcepack/cmd-registry.json が別セッション編集中だったため custom-model-data 未設定のまま
+  // 出荷している(CMD割当は reports/ACTIVE_RECORD.md 追跡の後追いタスク)。UI上は他の2件と同じ
+  // カードで material/CMD/表示名/enchant-glow/lore/recipe を編集できる(CMDが空欄なだけ)。
+  const TF_SPECIAL_ITEM_IDS = Object.freeze([
+    "skill_node_lock", "skill_tree_reset",
+    "role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket"
+  ]);
   const TF_SPECIAL_ITEM_LABELS = Object.freeze({
     skill_node_lock: "スキルノードの楔",
-    skill_tree_reset: "スキル再構築の書"
+    skill_tree_reset: "スキル再構築の書",
+    role_reselect_ticket: "職業付け替えの証",
+    stat_reroll_ticket: "厳選やり直しの護符",
+    quality_upgrade_ticket: "品質昇華の結晶"
   });
 
   // catalog.yml の items.<id> のうち TF 特殊アイテム2件だけを、無ければ空オブジェクトで補完する。

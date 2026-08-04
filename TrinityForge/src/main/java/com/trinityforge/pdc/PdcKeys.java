@@ -371,6 +371,53 @@ public final class PdcKeys {
      * (エンティティ自体も non-persistent かつ duration 経過で自動除去)。 */
     public static final NamespacedKey DAMAGE_POPUP_DISPLAY = key("damage_popup_display");
 
+    /**
+     * 発射武器の発射地点(2026-08-04, distance-damage-bonus 悪用防止)。プレイヤーが撃った矢/トライデント
+     * 等の projectile が {@code ProjectileLaunchEvent} 時点で立っていた位置を
+     * {@code "<worldUUID>|<x>|<y>|<z>"} 形式の STRING で projectile 自身の PDC へ刻む
+     * ({@link #PLAYER_ADDON_COMBAT_STATS} と同じ区切り文字コーデック流儀)。
+     *
+     * <p><b>なぜ必要か</b>: distance-damage-bonus(弓術の距離ダメージ)は本来「矢が実際に飛んだ距離」で
+     * あるべきだが、旧実装は着弾時点の射手の<b>現在地</b>を使っていた。矢をトラップドア等に刺して停止させ、
+     * 射手だけ遠方へ移動してから第三者に矢を再度落下・命中させると、実際には矢は移動していないのに
+     * 「距離が離れた」ことになりダメージが跳ね上がる悪用が成立していた。射手が移動しても発射時点で
+     * 記録済みのこの値は変わらないため、この経路では値が伸びない。
+     *
+     * <p>absent(記録なし: プラグイン生成/ディスペンサー発射/サーバ再起動を跨いだ矢など)の場合、
+     * 読み取り側({@code CombatListener#launchDistanceBlocks})は<b>距離ボーナス0(ボーナス無し)に
+     * フォールバックする</b>。旧挙動(射手の現在地)へフォールバックしてはいけない(それでは同じ悪用が残る)。
+     * ワールドが着弾時と異なる場合も同様に0にフォールバックする({@code Location#distance} は別ワールド間で
+     * 例外を投げるため)。射手がプレイヤーの projectile にのみ書き込む({@code CombatListener#onProjectileLaunch}
+     * 参照、無駄なPDC書き込みを避けるため)。
+     */
+    public static final NamespacedKey PROJECTILE_LAUNCH_LOCATION = key("projectile_launch_location");
+
+    // --- アチーブメント手動解放方式 (2026-08-04): 達成(条件成立)と解放(受け取り)を分離する。 ---
+    /**
+     * 解放(受け取り)済みアチーブメントID集合。0x1F 結合 STRING、{@link #PLAYER_ACHIEVEMENTS_DONE} と
+     * 同じコーデック。条件成立({@link #PLAYER_ACHIEVEMENTS_DONE})だけでは報酬(アイテム/EXP/永続バフ等)は
+     * 付かず、{@code /achievement} GUI でプレイヤーが明示的に解放操作をして初めてこちらへ加わり、その
+     * 時点で報酬が付与される。<b>前提判定(prerequisitesMet)は意図的にこちらではなく
+     * {@link #PLAYER_ACHIEVEMENTS_DONE} を見る</b> ── 「解放を忘れていても次のアチーブメントには
+     * 挑戦できる」(2026-08-04 ユーザー確定)ため。
+     */
+    public static final NamespacedKey PLAYER_ACHIEVEMENTS_CLAIMED = key("achievements_claimed");
+    /**
+     * 解放済み集合への移行を既に済ませたか(BYTE=1)。手動解放方式の導入前に達成していたプレイヤーは
+     * <b>既に報酬を受け取っている</b>ため、導入時に {@link #PLAYER_ACHIEVEMENTS_CLAIMED} を空のままに
+     * すると「まだ解放していない」ように見えて再受給できてしまう(二重取り)。このフラグが立っていない
+     * プレイヤーに対して1回だけ {@code achievements_done} の内容を {@code achievements_claimed} へ
+     * コピーしてから立てる({@code AchievementService#migrateClaimIfNeeded} が唯一の書き手)。新規
+     * プレイヤーは両方空のままコピーされるだけなので無害。
+     */
+    public static final NamespacedKey PLAYER_ACHIEVEMENTS_CLAIM_MIGRATED = key("achievements_claim_migrated");
+    /**
+     * 「解放できます」通知を既に送った達成済みアチーブメントID集合。0x1F 結合 STRING。達成した瞬間に
+     * 1回だけ控えめに知らせる通知のスパム防止用(同じIDへは二度と送らない。解放済みになってもこの
+     * 集合からは消さない ── 消しても再通知する意味が無いため)。
+     */
+    public static final NamespacedKey PLAYER_ACHIEVEMENTS_PENDING_NOTIFIED = key("achievements_pending_notified");
+
     private PdcKeys() {
     }
 

@@ -1,6 +1,8 @@
 package com.trinityforge.progression;
 
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
+import com.trinityforge.progression.catalog.SkillCatalogEntry;
+import com.trinityforge.progression.core.PlayerProgression;
 import com.trinityforge.progression.core.SkillId;
 import com.trinityforge.progression.core.SkillProgress;
 import com.trinityforge.progression.core.XpTransitionService;
@@ -184,6 +186,82 @@ class NativeProgressionServiceTest {
                     "2 prior prestiges must grant even less than 1 (monotonically decreasing)");
             assertEquals(tier0PowerExp * 0.5, tier1PowerExp, 1e-6);
             assertEquals(tier0PowerExp * 0.25, tier2PowerExp, 1e-6);
+        }
+    }
+
+    // --- POWER プレステージ再導出バグ修正 (2026-08-04) ----------------------------------------
+    // 「総合(POWER)をプレステージすると総合ツリーがパークを解放できなくなる」の真因は
+    // NativePerkService#prestigeUnderLock が POWER も他スキル同様に level=0 へリセットしていたこと
+    // (POWERは他スキルのレベルアップから間接的にしか加算されない値なので、0リセットは他スキルが
+    // 育っている限り恒久的に解放不能を招く)。derivePowerProgress はプレステージ時の再導出値を、
+    // grantExp が使う式と同じ式で計算する。
+
+    /**
+     * tier0(他スキルが一度もプレステージされていない)状態では、derivePowerProgress は
+     * grantExpUnderRepositoryLock が実際に積み上げた POWER の totalExp と完全一致する
+     * (近似ではなく、式が同一であることの直接証明)。
+     */
+    @Test
+    void derivePowerProgressMatchesGrantExpAtTierZero() throws Exception {
+        NativeSkillCatalog catalog = NativeSkillCatalog.load(getClass().getClassLoader());
+        try (SqliteProgressionRepository repository =
+                     new SqliteProgressionRepository("jdbc:sqlite::memory:")) {
+            NativeProgressionService service = new NativeProgressionService(repository, catalog);
+            UUID player = UUID.randomUUID();
+
+            double eightMiningLevels = new XpTransitionService(
+                    catalog.get(SkillId.MINING).curve()).cumulativeExpForLevel(8);
+            service.grantExp(player, SkillId.MINING, eightMiningLevels);
+            double organicPowerExp = service.progress(player, SkillId.POWER).orElseThrow().totalExp();
+
+            PlayerProgression snapshot = service.snapshot(player);
+            SkillCatalogEntry powerEntry = catalog.get(SkillId.POWER);
+            SkillProgress derived = NativeProgressionService.derivePowerProgress(
+                    catalog, snapshot, 1, powerEntry.maxLevel());
+
+            assertEquals(organicPowerExp, derived.totalExp(), 1e-6);
+        }
+    }
+
+    /**
+     * 完了済みプレステージ周回（tier0でMININGが実際にmax_levelへ到達してからプレステージし、
+     * tier1でさらに一部レベルアップした状態）でも derivePowerProgress は organic な POWER
+     * totalExp と完全一致する。これは「過去周回はat-levelまで到達していた」という
+     * derivePowerProgress の仮定が、出荷config(at-level == max_level)の下では近似ではなく
+     * 厳密に正しいことの直接証明。
+     */
+    @Test
+    void derivePowerProgressExactlyMatchesGrantExpAcrossACompletedPrestigeCycle() throws Exception {
+        NativeSkillCatalog catalog = NativeSkillCatalog.load(getClass().getClassLoader());
+        try (SqliteProgressionRepository repository =
+                     new SqliteProgressionRepository("jdbc:sqlite::memory:")) {
+            NativeProgressionService service = new NativeProgressionService(repository, catalog);
+            UUID player = UUID.randomUUID();
+            SkillCatalogEntry miningEntry = catalog.get(SkillId.MINING);
+            int miningMax = miningEntry.maxLevel();
+
+            // tier0: MINING を実際に max_level まで到達させる。
+            double toMax = new XpTransitionService(miningEntry.curve()).cumulativeExpForLevel(miningMax);
+            service.grantExp(player, SkillId.MINING, toMax);
+            assertEquals(miningMax, service.progress(player, SkillId.MINING).orElseThrow().level());
+
+            // NativePerkService#prestigeUnderLock が非POWERスキルに対して行うのと同じ「そのスキル自身の
+            // reset」(prestige+1, level/exp を 0 に)。POWER自身の行には触れない — 実際のプレステージと同型。
+            repository.saveSkillProgress(player, SkillId.MINING,
+                    new SkillProgress(0, 0.0, 0.0, 1, miningMax));
+
+            // tier1: さらに3レベル分だけ進める。
+            double threeLevels = new XpTransitionService(miningEntry.curve()).cumulativeExpForLevel(3);
+            service.grantExp(player, SkillId.MINING, threeLevels);
+
+            double organicPowerExp = service.progress(player, SkillId.POWER).orElseThrow().totalExp();
+
+            PlayerProgression snapshot = service.snapshot(player);
+            SkillCatalogEntry powerEntry = catalog.get(SkillId.POWER);
+            SkillProgress derived = NativeProgressionService.derivePowerProgress(
+                    catalog, snapshot, 1, powerEntry.maxLevel());
+
+            assertEquals(organicPowerExp, derived.totalExp(), 1e-6);
         }
     }
 }

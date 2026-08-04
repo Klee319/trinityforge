@@ -33,6 +33,13 @@ import java.util.Set;
  * <p><strong>rollSeed は絶対に引き直さない。</strong>引き直すと「砥石に通して厳選ロールをガチャする」
  * exploit になる。品質・厳選ロール・耐久も維持する(砥石はエンチャント付け替え用の道具でよい)。
  *
+ * <p><b>{@link com.trinityforge.items.StatRerollTicketEffect}(2026-08-04)との整合について。</b>
+ * 同クラスは「専用の消費アイテム(stat_reroll_ticket)でのみ rollSeed を引き直す」という、この節と
+ * 一見矛盾する機能を持つが、矛盾しない。ここで禁止しているのは「エンチャント除去という別目的の
+ * ついでに、無償かつ無制限に引き直せてしまう副作用」であって、「専用の消費アイテムを対価として
+ * 払って引き直す」ことまでは禁止していない。rollSeed を書き換える新しい経路を足すときは、
+ * 必ずこの2クラスを相互参照して「無償の副作用」側に紛れ込ませていないかを確認すること。
+ *
  * <p>優先度が MONITOR なのは、拒否判定を持つ
  * {@link CatalogVanillaOperationGuardListener#onPrepareGrindstone}(HIGHEST) より必ず後に走る必要が
  * あるため(結果が null = ガードが拒否した組み合わせなので何もしない)。

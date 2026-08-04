@@ -3,6 +3,7 @@ package com.trinityforge.progression.achievement;
 import com.trinityforge.config.domains.AchievementsConfig;
 import com.trinityforge.config.domains.AchievementsConfig.Achievement;
 import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.progression.AchievementService;
 import com.trinityforge.progression.CollectionService;
 import com.trinityforge.skilltree.runtime.SkillTreeGuiVisuals;
 import com.trinityforge.stats.CrossPluginItemResolver;
@@ -43,8 +44,12 @@ import java.util.Objects;
  * カスタムフォントで枠を消す。コネクタ形状もスキルツリーと同じ {@code gui/connection/*} を使う
  * ので、<b>新しいテクスチャは要らない</b>。
  *
- * <p>スキルツリーと違って<b>クリックで取得する操作は無い</b>(アチーブメントは条件達成で自動)。
- * ノードのクリックは詳細lore付きの拡大表示ではなく、そのノードを中央へ寄せるだけにしてある。
+ * <p><b>2026-08-04: 手動解放方式に変更した</b>(ロードマップを見に行く習慣づけが目的)。条件成立
+ * (達成)だけでは報酬は付かず、GUIで明示的に解放してはじめて報酬が入る。クリック操作も
+ * スキルツリーの {@code NativeSkillTreeMenu#handleNode} と同じ「1クリック目で確認待ち(pending)、
+ * 同一ノードへの2クリック目で確定」パターンに揃えてある(新しい流儀は作らない方針)。
+ * ノードの状態は3段階: 前提未達成/条件未達成(ロック)・条件成立済みで解放待ち(クリックで解放)・
+ * 解放済み。解放できない/まだ解放していない場合の理由はクリック時にチャットで伝える。
  */
 public final class AchievementGui implements Listener {
 
@@ -86,16 +91,29 @@ public final class AchievementGui implements Listener {
     private final AchievementsConfig config;
     private final CrossPluginItemResolver itemResolver;
     private final CollectionService collectionService;
+    private final AchievementService achievementService;
     private final NamespacedKey navKeyX;
     private final NamespacedKey navKeyY;
     private final NamespacedKey focusKey;
 
+    /** 後方互換コンストラクタ(既存呼び出し元用): 解放操作は無効(fail-soft、クリックしても解放できない)。 */
     public AchievementGui(Plugin plugin, AchievementsConfig config,
                           CrossPluginItemResolver itemResolver, CollectionService collectionService) {
+        this(plugin, config, itemResolver, collectionService, null);
+    }
+
+    /**
+     * @param achievementService 解放(claim)を実行する経路(2026-08-04 手動解放方式)。{@code null} なら
+     *                            クリックしても解放できない(fail-soft)。
+     */
+    public AchievementGui(Plugin plugin, AchievementsConfig config,
+                          CrossPluginItemResolver itemResolver, CollectionService collectionService,
+                          AchievementService achievementService) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.itemResolver = itemResolver;
         this.collectionService = collectionService;
+        this.achievementService = achievementService;
         this.navKeyX = new NamespacedKey(plugin, "achievement_nav_x");
         this.navKeyY = new NamespacedKey(plugin, "achievement_nav_y");
         this.focusKey = new NamespacedKey(plugin, "achievement_focus");
@@ -120,41 +138,61 @@ public final class AchievementGui implements Listener {
             player.sendMessage(Component.text("アチーブメント設定が不正です。", NamedTextColor.RED));
             return;
         }
-        render(player, canvas, focusId == null ? canvas.start() : canvas.focusOn(focusId));
+        render(player, canvas, focusId == null ? canvas.start() : canvas.focusOn(focusId), null);
     }
 
     private void render(Player player, AchievementCanvas canvas, AchievementCanvas.Point center) {
+        render(player, canvas, center, null);
+    }
+
+    /** @param pendingId 確認待ち(1クリック目)のアチーブメントID。無ければ {@code null}。 */
+    private void render(Player player, AchievementCanvas canvas, AchievementCanvas.Point center, String pendingId) {
         AchievementCanvas.Point safe = canvas.clamp(center);
-        Session holder = new Session(safe);
+        Session holder = new Session(safe, pendingId);
         Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
         holder.inventory = inventory;
 
         List<String> achieved = PlayerData.of(player).achievedIds();
+        List<String> claimed = claimedIds(player);
         for (Map.Entry<Integer, AchievementCanvas.Cell> entry : canvas.viewport(safe).entrySet()) {
             AchievementCanvas.Cell cell = entry.getValue();
             if (cell instanceof AchievementCanvas.NodeCell node) {
-                inventory.setItem(entry.getKey(), nodeIcon(player, node.achievement(), achieved));
+                inventory.setItem(entry.getKey(), nodeIcon(player, node.achievement(), achieved, claimed, pendingId));
             } else if (cell instanceof AchievementCanvas.ConnectorCell connector) {
-                inventory.setItem(entry.getKey(), connectorIcon(connector, achieved));
+                inventory.setItem(entry.getKey(), connectorIcon(connector, achieved, claimed));
             }
         }
         for (Map.Entry<Integer, int[]> nav : NAVIGATION.entrySet()) {
             inventory.setItem(nav.getKey(), navButton(nav.getKey(), nav.getValue()));
         }
-        inventory.setItem(SUMMARY_SLOT, summaryIcon(achieved, canvas));
+        inventory.setItem(SUMMARY_SLOT, summaryIcon(achieved, claimed, canvas));
         player.openInventory(inventory);
     }
 
-    /** 達成数のサマリ(中央下)。 */
-    private ItemStack summaryIcon(List<String> achieved, AchievementCanvas canvas) {
+    /** 解放済みID一覧。{@link #achievementService} 未注入なら移行なしでPDCをそのまま読む(fail-soft)。 */
+    private List<String> claimedIds(Player player) {
+        if (achievementService != null) {
+            return achievementService.claimedIds(player);
+        }
+        return PlayerData.of(player).claimedAchievementIds();
+    }
+
+    /** 達成/解放状況のサマリ(中央下)。 */
+    private ItemStack summaryIcon(List<String> achieved, List<String> claimed, AchievementCanvas canvas) {
         int total = canvas.nodes().size();
         long done = canvas.nodes().keySet().stream().filter(achieved::contains).count();
+        long unclaimed = canvas.nodes().keySet().stream()
+                .filter(id -> achieved.contains(id) && !claimed.contains(id)).count();
         ItemStack stack = new ItemStack(Material.BOOK);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(plain("達成状況: " + done + " / " + total, NamedTextColor.GOLD));
-        meta.lore(List.of(
-                plain("矢印で視点を動かせます。", NamedTextColor.GRAY),
-                plain("ノードをクリックすると中央に寄せます。", NamedTextColor.DARK_GRAY)));
+        List<Component> lore = new ArrayList<>();
+        lore.add(plain("矢印で視点を動かせます。", NamedTextColor.GRAY));
+        lore.add(plain("ノードをクリックすると中央に寄せます。", NamedTextColor.DARK_GRAY));
+        if (unclaimed > 0) {
+            lore.add(plain("解放待ち: " + unclaimed + "件（対象ノードをクリック）", NamedTextColor.GOLD));
+        }
+        meta.lore(lore);
         stack.setItemMeta(meta);
         return stack;
     }
@@ -172,15 +210,18 @@ public final class AchievementGui implements Listener {
         return stack;
     }
 
-    private ItemStack connectorIcon(AchievementCanvas.ConnectorCell connector, List<String> achieved) {
+    private ItemStack connectorIcon(AchievementCanvas.ConnectorCell connector, List<String> achieved,
+                                    List<String> claimed) {
         // 線の色は「その線が向かう先」の状態にそろえる(スキルツリーと同じ考え方)。
+        // 2026-08-04: 満点(緑)は「解放済み」のみ。達成済みだが未解放/条件成立に近いものは
+        // unlockable(橙)にとどめる。
         SkillTreeGuiVisuals.ConnectorState state = SkillTreeGuiVisuals.ConnectorState.LOCKED;
         for (String ownerId : connector.ownerIds()) {
-            if (achieved.contains(ownerId)) {
+            if (claimed.contains(ownerId)) {
                 state = SkillTreeGuiVisuals.ConnectorState.UNLOCKED;
                 break;
             }
-            if (available(ownerId, achieved)) {
+            if (achieved.contains(ownerId) || available(ownerId, achieved)) {
                 state = SkillTreeGuiVisuals.ConnectorState.UNLOCKABLE;
             }
         }
@@ -210,32 +251,44 @@ public final class AchievementGui implements Listener {
         return false;
     }
 
-    private ItemStack nodeIcon(Player player, Achievement achievement, List<String> achieved) {
-        boolean done = achieved.contains(achievement.id());
+    private ItemStack nodeIcon(Player player, Achievement achievement, List<String> achieved,
+                               List<String> claimed, String pendingId) {
+        boolean isClaimed = claimed.contains(achievement.id());
+        boolean isAchieved = achieved.contains(achievement.id());
         boolean gateOpen = AchievementsConfig.prerequisitesMet(achievement, achieved);
+        boolean pending = achievement.id().equals(pendingId);
         Material configured = resolveIconMaterial(achievement.icon());
-        SkillTreeGuiVisuals.Visual visual = SkillTreeGuiVisuals.node(done, gateOpen, false, configured);
+        // unlocked=解放済み/unlockable=達成済みでまだ解放していない(クリックで解放できる)。
+        SkillTreeGuiVisuals.Visual visual =
+                SkillTreeGuiVisuals.node(isClaimed, isAchieved && !isClaimed, pending, configured);
 
         ItemStack stack = buildBase(achievement.icon(), visual.material());
         ItemMeta meta = stack.getItemMeta();
         if (meta == null) {
             return stack;
         }
-        NamedTextColor nameColor = done ? NamedTextColor.GREEN
-                : (gateOpen ? NamedTextColor.YELLOW : NamedTextColor.DARK_GRAY);
+        NamedTextColor nameColor = isClaimed ? NamedTextColor.GREEN
+                : (isAchieved ? NamedTextColor.GOLD
+                : (gateOpen ? NamedTextColor.YELLOW : NamedTextColor.DARK_GRAY));
         // 表示名は MiniMessage 可 (アイテムカタログの display-name と同じ記法)。
-        // 色を書いていない表示名だけ、達成状態の色(達成=緑/挑戦中=黄/前提未達=灰)を当てる。
+        // 色を書いていない表示名だけ、状態の色(解放済み=緑/解放待ち=金/挑戦中=黄/前提未達=灰)を当てる。
         meta.displayName(MiniText.render(achievement.displayName(), nameColor));
 
         List<Component> lore = new ArrayList<>();
-        lore.add(plain(done ? "✔ 達成済み" : (gateOpen ? "… 挑戦中" : "✖ 前提未達成"), nameColor));
+        String statusLine = isClaimed ? "✔ 解放済み"
+                : (isAchieved ? "★ 受け取り可能（クリックで解放）"
+                : (gateOpen ? "… 挑戦中" : "✖ 前提未達成"));
+        lore.add(plain(statusLine, nameColor));
+        if (pending) {
+            lore.add(plain("　もう一度クリックすると解放を確定します", NamedTextColor.GOLD));
+        }
         for (String line : achievement.lore()) {
             lore.add(mini(line));
         }
         lore.add(plain("条件: " + conditionText(achievement), NamedTextColor.GRAY));
         String progress = progressText(player, achievement);
         if (progress != null) {
-            lore.add(plain("進捗: " + progress, done ? NamedTextColor.GREEN : NamedTextColor.AQUA));
+            lore.add(plain("進捗: " + progress, isAchieved ? NamedTextColor.GREEN : NamedTextColor.AQUA));
         }
         List<String> prerequisites = AchievementCanvas.prerequisiteIds(achievement);
         if (!prerequisites.isEmpty()) {
@@ -475,11 +528,51 @@ public final class AchievementGui implements Listener {
                 return;
             }
             if (dx != null && dy != null) {
-                render(player, canvas, canvas.move(session.center, dx, dy));
+                // 視点移動は保留中の解放操作を打ち切る(スキルツリーの move と同じ規則)。
+                render(player, canvas, canvas.move(session.center, dx, dy), null);
             } else if (focus != null) {
-                render(player, canvas, canvas.focusOn(focus));
+                handleNodeClick(player, session, canvas, focus);
             }
         });
+    }
+
+    /**
+     * ノードクリックの解放フロー(2026-08-04)。{@code NativeSkillTreeMenu#handleNode} と同じ
+     * 「1クリック目で確認待ち(pending)、同一ノードへの2クリック目で確定」パターン。
+     * 解放待ちでないノード(ロック中/解放済み)をクリックした場合は、従来どおり中央へ寄せるだけ。
+     */
+    private void handleNodeClick(Player player, Session session, AchievementCanvas canvas, String achievementId) {
+        List<String> claimed = claimedIds(player);
+        List<String> achieved = PlayerData.of(player).achievedIds();
+        boolean isClaimed = claimed.contains(achievementId);
+        boolean isAchieved = achieved.contains(achievementId);
+        if (isClaimed || !isAchieved) {
+            render(player, canvas, canvas.focusOn(achievementId), null);
+            return;
+        }
+        if (!achievementId.equals(session.pendingId)) {
+            // 1クリック目: 解放の確認待ちにする。
+            render(player, canvas, canvas.focusOn(achievementId), achievementId);
+            return;
+        }
+        // 2クリック目: 解放を確定する。
+        if (achievementService == null) {
+            player.sendMessage(Component.text("現在アチーブメントを解放できません。", NamedTextColor.RED));
+            render(player, canvas, canvas.focusOn(achievementId), null);
+            return;
+        }
+        AchievementService.ClaimResult result = achievementService.claim(player, achievementId);
+        player.sendMessage(claimResultMessage(result));
+        render(player, canvas, canvas.focusOn(achievementId), null);
+    }
+
+    private static Component claimResultMessage(AchievementService.ClaimResult result) {
+        return switch (result) {
+            case CLAIMED -> Component.text("アチーブメントを解放しました。", NamedTextColor.GREEN);
+            case ALREADY_CLAIMED -> Component.text("既に解放済みです。", NamedTextColor.GRAY);
+            case NOT_ACHIEVED -> Component.text("まだ条件を満たしていません。", NamedTextColor.RED);
+            case UNKNOWN_ACHIEVEMENT -> Component.text("アチーブメントが見つかりません。", NamedTextColor.RED);
+        };
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = false)
@@ -491,10 +584,13 @@ public final class AchievementGui implements Listener {
 
     private static final class Session implements InventoryHolder {
         private final AchievementCanvas.Point center;
+        /** 確認待ち(1クリック目)のアチーブメントID。無ければ {@code null}。 */
+        private final String pendingId;
         private Inventory inventory;
 
-        private Session(AchievementCanvas.Point center) {
+        private Session(AchievementCanvas.Point center, String pendingId) {
             this.center = center;
+            this.pendingId = pendingId;
         }
 
         @Override

@@ -8,6 +8,7 @@ import com.trinityforge.progression.core.XpTransitionService;
 import com.trinityforge.progression.repository.LoadResult;
 import com.trinityforge.progression.repository.ProgressionRepository;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -266,6 +267,82 @@ public final class NativeProgressionService {
 
     public ProgressionRepository repository() {
         return repository;
+    }
+
+    /**
+     * PRG-POWER-PRESTIGE-FIX (2026-08-04): re-derives what POWER's level/EXP <b>should be</b> from
+     * the player's <i>current</i> other-skill levels/prestige tiers, using the exact same formula as
+     * {@link #grantExpUnderRepositoryLock} uses to add POWER EXP on every non-POWER level-up
+     * ({@code powerPerLevel * levelsChanged * decayMultiplier(thatSkill'sOwnPrestigeTier)}, both
+     * {@code powerPerLevel} and {@code decayRate} read once from POWER's own catalog entry — they are
+     * global constants, not per-skill).
+     *
+     * <p><b>Why POWER must never be reset to 0 on its own prestige</b>: POWER is a value derived
+     * from other skills reaching level-ups, not something the player spends EXP on directly (no
+     * gameplay action grants POWER EXP except as a side effect of another skill's grantExp call).
+     * Zeroing it on prestige (the pre-fix behavior) permanently locks every POWER skilltree node
+     * whose {@code level} requirement is below the level other skills already carried POWER to,
+     * because POWER can then only creep back up through further unrelated grants — which may never
+     * happen at the required pace, or at all if the other skills are already maxed.
+     *
+     * <p><b>Approximation disclosed</b>: for a skill's <i>already-completed</i> prestige cycles
+     * (tiers {@code 0..currentTier-1}), the exact number of levels gained in each cycle before the
+     * player triggered that skill's own prestige is not persisted anywhere — only the skill's
+     * current level/tier survive a reset. This method assumes every completed cycle reached that
+     * skill's catalog {@code max_level} exactly. Every shipped {@code skilltree/*.yml} sets
+     * {@code prestige.at-level == experience.max_level == 100} for all 15 non-POWER skills (level is
+     * hard-clamped to {@code max_level} by {@link com.trinityforge.progression.core.XpTransitionService},
+     * and prestige requires {@code level >= at-level}), so under the current shipped config this
+     * assumption is exact, not approximate — a player cannot have prestiged mid-cycle with fewer
+     * levels, nor "sat" at more levels than the cap allows. This only becomes an approximation if a
+     * future config sets a skill's {@code prestige.at-level} strictly below its {@code max_level}
+     * (players could then still choose to keep leveling past {@code at-level} up to {@code max_level}
+     * before manually triggering prestige, and that extra margin is not recoverable after the fact).
+     *
+     * @param player          full progression snapshot (POWER's own entry is ignored/skipped)
+     * @param prestigeTier    the POWER prestige tier the caller is committing (current + 1)
+     * @param maxAllowedLevel POWER's level cap to carry into the returned snapshot
+     */
+    public SkillProgress derivePowerProgress(PlayerProgression player, int prestigeTier, int maxAllowedLevel) {
+        return derivePowerProgress(catalog, player, prestigeTier, maxAllowedLevel);
+    }
+
+    /**
+     * Static form of {@link #derivePowerProgress(PlayerProgression, int, int)} usable by callers
+     * that only have a {@link NativeSkillCatalog} reference (e.g. {@link ProgressionCurveReconciler},
+     * which cannot depend on a live {@code NativeProgressionService} instance without changing its
+     * constructor — and its call site in {@code TrinityForge.java} is off-limits to this fix).
+     */
+    public static SkillProgress derivePowerProgress(NativeSkillCatalog catalog, PlayerProgression player,
+                                                    int prestigeTier, int maxAllowedLevel) {
+        Objects.requireNonNull(catalog, "catalog");
+        Objects.requireNonNull(player, "player");
+        SkillCatalogEntry powerEntry = catalog.get(POWER);
+        if (powerEntry == null) {
+            throw new IllegalArgumentException("Unknown skill: " + POWER);
+        }
+        double powerPerLevel = powerEntry.rate("power.exp_per_skill_level",
+                DEFAULT_POWER_EXP_PER_SKILL_LEVEL);
+        double decayRate = powerEntry.rate("power.prestige_decay_rate",
+                DEFAULT_PRESTIGE_POWER_DECAY_RATE);
+        double totalExp = 0.0;
+        for (Map.Entry<String, SkillCatalogEntry> catalogEntry : catalog.entries().entrySet()) {
+            String skillId = catalogEntry.getKey();
+            if (POWER.equals(skillId)) continue;
+            SkillCatalogEntry entry = catalogEntry.getValue();
+            SkillProgress progress = player.skillOrDefault(skillId, entry.maxLevel());
+            int tierNow = progress.prestige();
+            // Completed prior cycles: each assumed to have reached this skill's own max_level
+            // (see class-level javadoc for why this is exact under the shipped config).
+            for (int t = 0; t < tierNow; t++) {
+                totalExp += powerPerLevel * entry.maxLevel()
+                        * prestigePowerDecayMultiplier(t, decayRate);
+            }
+            // In-progress cycle: the level actually reached so far, at that skill's current tier.
+            totalExp += powerPerLevel * progress.level() * prestigePowerDecayMultiplier(tierNow, decayRate);
+        }
+        SkillProgress seed = new SkillProgress(0, 0.0, 0.0, prestigeTier, maxAllowedLevel);
+        return new XpTransitionService(powerEntry.curve()).apply(seed, totalExp);
     }
 
     private SkillCatalogEntry requireSkill(String skillId) {

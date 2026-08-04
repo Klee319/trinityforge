@@ -209,6 +209,11 @@ class PlayerPdcPrimitiveTypeAuditTest {
         data.setAutoReplantEnabled(false);
         data.setAreaHarvestEnabled(false);
         data.markAchieved("ach.first_kill");
+        // 手動解放方式(2026-08-04): 解放済み集合/移行フラグ/通知済み集合もプレイヤーPDCなので
+        // HuskSyncでの同期対象。3つとも既存のachievements_doneと同じSTRING/BYTEコーデック。
+        data.markAchievementClaimed("ach.first_kill");
+        data.markAchievementClaimMigrationDone();
+        data.markPendingClaimNotified("ach.first_kill");
         data.setGachaPityCount(SAMPLE_GACHA_POOL, 7);
 
         // PlayerData を経由しないプレイヤー PDC。書き手のクラスと同じ型で書く。

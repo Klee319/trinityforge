@@ -24,9 +24,16 @@ import java.util.logging.Logger;
 
 /**
  * アチーブメント (2026-07-23-stat-gate-overhaul §6.2): バニラ統計(周期ポーリング)/バニラ進捗
- * ({@code PlayerAdvancementDoneEvent}) の達成判定と報酬付与。達成済みはプレイヤーPDCに永続化し
- * (再付与しない)、オフライン中の統計進行は次回ログイン後のポーリングで追い付き判定される
+ * ({@code PlayerAdvancementDoneEvent}) の達成判定と、{@code /achievement} GUI からの手動解放
+ * (2026-08-04 導入)。オフライン中の統計進行は次回ログイン後のポーリングで追い付き判定される
  * (統計値そのものがバニラ側に永続化されているため、追いつき用の特別な処理は不要)。
+ *
+ * <p><b>達成(条件成立)と解放(受け取り)は別状態</b>(2026-08-04 ユーザー確定、ロードマップを
+ * 見に行く習慣づけが目的): このクラスの {@code pollStatistics}/{@code onAdvancementDone} は
+ * 条件成立を {@link PlayerData#markAchieved} へ記録するだけで<b>報酬を一切付与しない</b>。
+ * 報酬付与の唯一の経路は {@link #claim}(GUI からの明示的な解放操作)。前提判定
+ * ({@link AchievementsConfig#prerequisitesMet}) は意図的に達成集合({@code achievedIds}) を見る
+ * ── 解放を忘れていても次のアチーブメントの条件は満たせる、という要件の実体がここ。
  */
 public final class AchievementService {
 
@@ -93,6 +100,13 @@ public final class AchievementService {
             return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
+            // 手動解放方式への移行(2026-08-04): 導入前に達成済みだったプレイヤーは既に報酬を
+            // 受け取っているため、claimed集合が空のままだと「未受領」に見えて二重取りになる。
+            // このポーリングは60秒間隔で、参加直後ではなくオンライン中の周期処理として走るため
+            // (資源サーバ構成のHuskSync同期が参加直後より確実に先に終わっている)、ここを
+            // 移行の実施場所にする。1プレイヤーにつき1回だけ実施される(冪等、詳細は
+            // migrateClaimIfNeeded を参照)。
+            migrateClaimIfNeeded(player);
             // 1周の中で連鎖的に前提が解けるよう、達成済み集合はローカルで持ち回す
             // (「親を達成した同じ周で子も達成できる」= 直感どおりに動かすため)。
             List<String> done = new ArrayList<>(PlayerData.of(player).achievedIds());
@@ -101,14 +115,14 @@ public final class AchievementService {
                 progressed = false;
                 for (AchievementsConfig.Achievement achievement : targets) {
                     if (!done.contains(achievement.id()) && gateOpen(achievement, done)
-                            && statisticReached(player, achievement) && grant(player, achievement)) {
+                            && statisticReached(player, achievement) && markAchieved(player, achievement)) {
                         done.add(achievement.id());
                         progressed = true;
                     }
                 }
                 for (AchievementsConfig.Achievement achievement : collectionTargets) {
                     if (!done.contains(achievement.id()) && gateOpen(achievement, done)
-                            && collectionReached(player, achievement) && grant(player, achievement)) {
+                            && collectionReached(player, achievement) && markAchieved(player, achievement)) {
                         done.add(achievement.id());
                         progressed = true;
                     }
@@ -118,7 +132,7 @@ public final class AchievementService {
                 // statistic 型と同じ周期ポーリングで拾う。
                 for (AchievementsConfig.Achievement achievement : counterTargets) {
                     if (!done.contains(achievement.id()) && gateOpen(achievement, done)
-                            && counterReached(player, achievement) && grant(player, achievement)) {
+                            && counterReached(player, achievement) && markAchieved(player, achievement)) {
                         done.add(achievement.id());
                         progressed = true;
                     }
@@ -130,13 +144,41 @@ public final class AchievementService {
                 for (AchievementsConfig.Achievement achievement : advancementTargets) {
                     if (!done.contains(achievement.id()) && gateOpen(achievement, done)
                             && advancementDone(player, achievement.trigger().advancement())
-                            && grant(player, achievement)) {
+                            && markAchieved(player, achievement)) {
                         done.add(achievement.id());
                         progressed = true;
                     }
                 }
             }
         }
+    }
+
+    /**
+     * 手動解放方式導入(2026-08-04)前に達成済みだったプレイヤーの「解放済み集合」を1回だけ
+     * 埋める。未移行(既定)のプレイヤーは {@code achievements_done} の内容をそのまま
+     * {@code achievements_claimed} へコピーする ── 導入前の達成は旧仕様下で既に報酬を渡し終えて
+     * いるので、コピーしても再付与にはならない({@link #claim} を経由しないため)。新規プレイヤーは
+     * 両方空のままコピーされるだけで無害。{@link #claimedIds} からも同じ処理を呼ぶため、
+     * このポーリングに一度も乗らない(60秒未満で退出する等の)プレイヤーでも、GUIを開いた瞬間に
+     * 移行が完了する。
+     */
+    private void migrateClaimIfNeeded(Player player) {
+        PlayerData data = PlayerData.of(player);
+        if (data.achievementClaimMigrationDone()) {
+            return;
+        }
+        for (String id : data.achievedIds()) {
+            data.markAchievementClaimed(id);
+        }
+        data.markAchievementClaimMigrationDone();
+    }
+
+    /**
+     * 解放済みアチーブメントID一覧(移行込み)。GUIの表示・クリック判定はこちらを経由すること。
+     */
+    public List<String> claimedIds(Player player) {
+        migrateClaimIfNeeded(player);
+        return PlayerData.of(player).claimedAchievementIds();
     }
 
     /**
@@ -215,19 +257,73 @@ public final class AchievementService {
                 // 前提未達成ならここでは何もしない。前提が後から満たされた分は
                 // pollStatistics() の advancement 回収パスが拾う(イベントは二度と飛ばないため)。
                 if (gateOpen(achievement, done)) {
-                    grant(player, achievement);
+                    markAchieved(player, achievement);
                 }
             }
         }
     }
 
-    /** @return 実際に達成扱いになったら true(既に達成済みなら false)。 */
-    private boolean grant(Player player, AchievementsConfig.Achievement achievement) {
+    /**
+     * 条件成立(達成)を記録するだけの処理(2026-08-04 手動解放方式)。<b>報酬はここでは一切
+     * 付与しない</b> ── 唯一の付与経路は {@link #claim}。達成した瞬間に一度だけ、控えめに
+     * 「解放できます」を知らせる({@link #notifyClaimable}、内容は出さない・スパム防止で再通知しない)。
+     *
+     * @return 新たに達成扱いになったら true(既に達成済みなら false・冪等)。
+     */
+    private boolean markAchieved(Player player, AchievementsConfig.Achievement achievement) {
         PlayerData data = PlayerData.of(player);
         if (!data.markAchieved(achievement.id())) {
             return false; // 別経路で同tick中に既に達成済み扱いになっていた(冪等)。
         }
-        Component message = Component.text("アチーブメント達成: ", NamedTextColor.GOLD)
+        notifyClaimable(player, data, achievement);
+        return true;
+    }
+
+    /** 達成直後に1回だけ、ロードマップ(/achievement)を見に行くよう控えめに促す。 */
+    private void notifyClaimable(Player player, PlayerData data, AchievementsConfig.Achievement achievement) {
+        if (data.pendingClaimNotified(achievement.id())) {
+            return; // スパム防止: 同じアチーブメントへは二度と通知しない。
+        }
+        data.markPendingClaimNotified(achievement.id());
+        player.sendActionBar(Component.text("アチーブメントを解放できます（/achievement）", NamedTextColor.YELLOW));
+    }
+
+    /**
+     * GUI からの明示的な解放操作(2026-08-04)。条件が成立済みで、まだ解放していない場合のみ
+     * 報酬を付与して解放済みにする。2回目以降の呼び出しは {@link ClaimResult#ALREADY_CLAIMED}
+     * を返すだけで何もしない(＝報酬は1回だけ)。
+     */
+    public ClaimResult claim(Player player, String achievementId) {
+        AchievementsConfig.Achievement achievement = findById(achievementId);
+        if (achievement == null) {
+            return ClaimResult.UNKNOWN_ACHIEVEMENT;
+        }
+        migrateClaimIfNeeded(player);
+        PlayerData data = PlayerData.of(player);
+        if (!data.achievedIds().contains(achievementId)) {
+            return ClaimResult.NOT_ACHIEVED;
+        }
+        if (!data.markAchievementClaimed(achievementId)) {
+            return ClaimResult.ALREADY_CLAIMED;
+        }
+        grantRewards(player, achievement);
+        return ClaimResult.CLAIMED;
+    }
+
+    private AchievementsConfig.Achievement findById(String achievementId) {
+        for (AchievementsConfig.Achievement achievement : config.achievements()) {
+            if (achievement.id().equals(achievementId)) {
+                return achievement;
+            }
+        }
+        return null;
+    }
+
+    /** {@link #claim} からのみ呼ぶ実際の報酬付与(アナウンスもここに含む: 未受領のものを全体
+     *  通知しても意味が通らないため、達成時ではなく解放時に出す)。 */
+    private void grantRewards(Player player, AchievementsConfig.Achievement achievement) {
+        PlayerData data = PlayerData.of(player);
+        Component message = Component.text("アチーブメント解放: ", NamedTextColor.GOLD)
                 .append(MiniText.render(achievement.displayName(), NamedTextColor.YELLOW));
         if (achievement.broadcast()) {
             Bukkit.getServer().sendMessage(Component.text(player.getName() + " が", NamedTextColor.GOLD)
@@ -248,19 +344,21 @@ public final class AchievementService {
             try {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), resolved);
             } catch (RuntimeException ex) {
-                // 1コマンド失敗で達成状態自体は維持する(CollectionServiceと同じ方針: 再実行しない、
+                // 1コマンド失敗で解放状態自体は維持する(CollectionServiceと同じ方針: 再実行しない、
                 // オペレーターが手動対応する前提でログに残す)。
                 log.log(Level.WARNING, "[achievements] reward command failed (achievement="
                         + achievement.id() + "): " + resolved, ex);
             }
         }
         // ATTRIBUTE系永続バフ(max_health/move_speed等)は次回join/防具変更まで反映されないため、
-        // 達成成功後に即座に再適用する(ATTACK/DEFENSE/GENERALはaggregatorが毎回再計算するので不要)。
+        // 解放成功後に即座に再適用する(ATTACK/DEFENSE/GENERALはaggregatorが毎回再計算するので不要)。
         if (perkAttributeApplier != null) {
             perkAttributeApplier.apply(player);
         }
-        return true;
     }
+
+    /** {@link #claim} の結果。 */
+    public enum ClaimResult { CLAIMED, ALREADY_CLAIMED, NOT_ACHIEVED, UNKNOWN_ACHIEVEMENT }
 
     /**
      * {@code rewards.items[]} を付与する。{@link #itemResolver} 未注入なら何もしない(fail-soft)。

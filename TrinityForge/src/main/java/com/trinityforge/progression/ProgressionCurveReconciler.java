@@ -76,6 +76,24 @@ public final class ProgressionCurveReconciler {
             if (again.isFound()) {
                 PlayerProgression p = again.orElseThrow();
                 SkillProgress powerProg = p.skills().get("POWER");
+                // 既存被害者の復旧経路(2026-08-04): 修正前の POWER プレステージは level/EXP を
+                // 0 にリセットしていた(prestige だけが増える)。ここで「プレステージ済み
+                // (prestige > 0) な POWER」を毎回、他スキルの現在レベルから同じ加算式で再導出し、
+                // 現在値より高ければ引き上げる。下げることは絶対にしない ―
+                // 導出値以上(修正後に正しく積み上がった通常状態、または管理者が意図的に編集した
+                // 状態)を巻き戻さないための一方向ガード。
+                if (powerProg != null && powerProg.prestige() > 0) {
+                    SkillProgress derived = NativeProgressionService.derivePowerProgress(
+                            catalog, p, powerProg.prestige(), powerProg.maxAllowedLevel());
+                    if (derived.totalExp() > powerProg.totalExp()) {
+                        repository.saveSkillProgress(playerId, "POWER", derived);
+                        updated++;
+                        LOG.log(Level.INFO, "[progression] healed stuck POWER prestige for "
+                                + playerId + ": level " + powerProg.level() + " -> " + derived.level());
+                        p = p.withSkill("POWER", derived);
+                        powerProg = derived;
+                    }
+                }
                 if (powerProg != null) {
                     long earned = PlayerProgression.STARTING_SKILL_POINTS + powerProg.level();
                     long available = Math.max(0L, earned - p.spentPoints());

@@ -140,6 +140,24 @@ EliteMobs はエンティティを普通にスポーンさせた**後**にエリ
 横串で洗い出すこと。`NativeDisplayPolicy` に新しいメソッドを足すたびに、そのメソッドを呼んでいない
 既存の類似コード（同じ情報を描く別のクラス/別のタイミング）が無いか `grep` で確認する。
 
+**2026-08-04 に見つかった追加2件（修正済み）**: 「ゲートを呼んでいるか」の grep だけでは足りない例。
+
+- **`DisguiseEntity#setDisguiseNameVisibility(boolean, Entity, String)` が引数を無視していた**:
+  呼び出し元（`CustomBossMegaConsumer#setName` の spawn 経路、`CustomBossEntity#setNameVisible` の
+  戦闘出入り経路）はどちらも `NativeDisplayPolicy` で解決済みの値を正しく渡していたが、メソッド本体が
+  `((PlayerDisguise) disguise).setNameVisible(true)` と**引数を使わずハードコードしていた**ため、
+  LibsDisguises の名札はボス出現・戦闘遷移のたびに無条件で再表示されていた。`grep` で
+  `NativeDisplayPolicy` 呼び出しの有無だけを確認すると「呼び出し元は正しい」ので見逃す — **呼ばれた
+  先のメソッド本体が引数を実際に使っているか**まで読む必要がある。
+- **`CustomBossEntity#setName(String, boolean)` が `customModel.setName(name, true)` を
+  ハードコードしていた**: 兄弟の `setName(EliteMobProperties)` / `setNameVisible(boolean)` は
+  `NativeDisplayPolicy.resolveCustomModelNametagVisible(...)` を正しく経由するのに、この
+  オーバーロードだけ経由していなかった。`setPluginName()`（ボスの名前をレベル表示込みで
+  再フォーマットするたびに呼ばれる）経由で到達するため、**名前が再フォーマットされるたびに**
+  `native-display-suppression.custom-model-nametag` を無視してモデルのネームタグが復活していた。
+  同名メソッドの**オーバーロード違い**は片方だけ直されがちなので、`grep -n "void setName("` で
+  全オーバーロードを洗って一つずつ確認すること。
+
 ### ⚠️ モブの通常攻撃を魔法として解決するには `attack.magic-ratio` を使う(Lua power 経由ではない)
 
 ※かつて「EliteMobs の premade Lua power には魔法ダメージとして判定されるものが無いので、モブに
@@ -448,6 +466,38 @@ package で、Nightbreakの `NightbreakAccount`/`NightbreakContentManager` を�
 個々のダンジョンのYAMLが `difficulties:`/`difficultyID:` を実際に書き分けているか次第**。
 ボスHP/攻撃力そのもの（TFが駆動する側）は `levelSync`/`difficultyID` を直接参照しておらず、
 別軸（EliteMobsモブレベル→TF `combat/mob-import.yml` ランプ）で決まる点は要区別。
+
+### ⚠️ `CustomLootTable` は `CustomBossDeath` 以外からも呼ばれる — boss-unique-loot ゲートは宝箱/アリーナ報酬を守らない
+
+`items/customloottable/CustomLootTable`（`EliteDropPolicy` が守る「エリート戦利品」の実体）は
+`CustomBossDeath#doLoot`（ボス死亡ドロップ）だけでなく、`TreasureChest`（ダンジョン宝箱、
+`treasureChestDrop`/`treasureChestDropAtLevel`/`treasureChestDropScalableToPlayerLevel`）、
+`CustomArenasConfigFields`（ギルドアリーナのウェーブ報酬、`arenaReward`）、`QuestReward`
+（クエスト報酬、`questDrop`）の4箇所から `new CustomLootTable(...)` されて使われる。
+`shouldDropBossUniqueLoot()` は `CustomBossDeath` 経路にしか刺さっておらず、残り3箇所は
+無条件で素通りしていた。2026-08-04 に `treasure-chest-loot` / `arena-loot` の専用ゲートを
+`EliteDropPolicy` へ追加して塞いだ（`TreasureChest` は `DungeonInstance`/`DynamicDungeonInstance`
+と直結したダンジョン専用フィクスチャ、`ArenaInstance` も `MatchInstance` 継承のインスタンス戦闘
+コンテンツなので両方「ダンジョンの EliteMobs 側アイテム」の対象。`QuestReward` はダンジョンに
+紐付かない汎用報酬系のため意図的に対象外のまま）。**「ボスのドロップだけ塞げば十分」という
+思い込みは禁物** — `CustomLootTable` を new する箇所を `grep -rn "new CustomLootTable("` で
+毎回全部洗うこと。
+
+### ⚠️ `TrinityForgeConfigMigration` はトップレベルキー単位でしか差分検出しない — 既存サブキーの既定値変更は稼働中サーバーに絶対に反映されない
+
+`TrinityForgeConfigMigration#appendMissingKeys`（javadoc に明記）は「シップされた yml にあって
+既存ファイルに無いトップレベルキー」だけを追記する。`elite-drop-sources:` のように**既に
+トップレベルキー自体が存在するセクション**の中で、既存サブキー（例: `currency-shower`/
+`boss-unique-loot`）の**既定値だけを変える**変更は、そのセクション丸ごとスキップされるため
+**一切追記されない**。つまり出荷 yml の既定値を `true→false` に変えても、既にプレイしている
+サーバーの `plugins/EliteMobs/trinityforge.yml` は古い値 (`true`) のまま永久に残る —
+`jar 差し替え + サーバー再起動` だけでは効かず、**運用者が手でその行を書き換える必要がある**。
+一方、同じセクション内に**新しいサブキー**を足す場合（例: `treasure-chest-loot`）は、キー自体が
+存在しないので `yaml.getBoolean(key, codeDefault)` のコード側デフォルトがそのまま効き、
+ファイルへの追記は不要（見た目上は何も変わらないが正しく既定値どおり動く）。
+**この非対称を混同しないこと**: 「新設キー」は無言で正しく動くが、「既存キーの既定値変更」は
+無言で効かない。既存キーの意味を変える改修をしたら、必ず「稼働中サーバーの config に当てるべき
+diff」を作業報告に明記すること。
 
 ## ビルド・配備（EliteMobs / ArsPaper / TF API 連携）
 
@@ -764,6 +814,60 @@ Lv100帯で10000超に育つため、グリフ側だけに「増幅1段+3.0HP」
   （グリフ互換性チェックでの積み増し上限、出荷時点で対象9グリフ全て6）。乗率計算側にも
   `amplify.params.max-damage-level` で独立の安全弁を持たせてある（将来その上限が外れても
   乗率だけは青天井にしない）。
+
+### ⚠️ Ars効果が `LivingEntity#damage(...)` / `createExplosion(...)` を直接呼ぶと、TFスケールを一切通さずバニラダメージのまま出続ける（無警告）
+
+`spell/effect/` 配下の各エフェクトのうち `context.dealSpellDamage(...)` を経由しないもの
+（2026-08-04時点で `IgniteEffect`（継続火炎ダメージ）/`HexEffect`（追撃ダメージ）/
+`ExplosionEffect`（爆発）の3件が該当していた、修正済み）は、TFの守備力・耐性・PvP抑制・
+`glyph_damage_multiplier_bonus` を一切通らず、config で設定した基礎値がそのまま最終ダメージになる。
+`ScorchEffect`/`HarmEffect`等の「手本」実装との違いは `dealSpellDamage` を呼んでいるかどうかの
+1点だけなので、新規/既存エフェクトを見るときは必ず `grep -n "damage(\|createExplosion(" spell/effect/*.java`
+でTFパイプライン未経由の箇所を横串チェックすること。
+
+### ⚠️ `TrinityForgeBridge#applyMagicDamage` は常に `DamageType.MAGIC` 固定 — `DamageType.ON_FIRE` 等バニラの自動免疫判定に依存していたエフェクトをTF経由へ切り替えると、免疫が黙って外れる
+
+`SpellContext#dealSpellDamage` → `TrinityForgeBridge#magicalFinalDamage` → `TrinityForgeBridge#applyMagicDamage`
+（`fork-handoff/arspaper/fork/src/main/java/com/arspaper/integration/TrinityForgeBridge.java:574`）は
+`DamageSource.builder(DamageType.MAGIC)` で固定適用する。バニラの `PotionEffectType.FIRE_RESISTANCE` は
+`DamageTypeTags.IS_FIRE`（`ON_FIRE`/`IN_FIRE`/`LAVA`/`HOT_FLOOR`）だけを免疫にし `MAGIC` は対象外なので、
+「`DamageType.ON_FIRE` の `DamageSource` を自分で組んで `target.damage(...)` していたから火炎耐性が効いていた」
+エフェクトを単純に `dealSpellDamage` へ置き換えると、TFスケールは掛かるが火炎耐性が無言で無効化される
+（`IgniteEffect` の継続火炎ダメージが実例）。**How**: `target.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE)`
+を呼び出し側で明示チェックしてから `dealSpellDamage` を呼ぶ（免疫時はダメージ自体を出さない）。
+Bukkit API に `Entity#isFireImmune()` に相当するメソッドは存在しない（`paper-api-1.21.11` を `javap` で
+確認済み）ため、Blaze等のEntityType単位の耐性まで再現したい場合は自前のホワイトリストが要る（未実装）。
+
+### ⚠️ `createExplosion(...)` のエンティティダメージはTF `CombatListener#resolveAttacker` が attacker を解決できず（cause=ENTITY_EXPLOSION）完全にバイパスする — キャンセル＋自前ダメージが必須
+
+`World#createExplosion(loc, power, false, false, source)` は `EntityDamageEvent`
+（cause=`ENTITY_EXPLOSION`）を同期的に発火させるが、TF側 `CombatListener#resolveAttacker`
+（`TrinityForge/src/main/java/com/trinityforge/listeners/CombatListener.java:1337-1348`）は
+MELEE_CAUSES(ENTITY_ATTACK/ENTITY_SWEEP_ATTACK)とPROJECTILEしか認識せず、ENTITY_EXPLOSIONでは
+`attacker == null` のまま即 return する。つまりバニラの爆発ダメージは守備力も耐性も一切引かれず
+そのまま適用される。**How**（`ExplosionEffect` で採用したパターン）: `createExplosion` 呼び出しを
+インスタンスの深度カウンタ（`MagicPipelineDamage` と同型、ネスト呼び出し対応）で囲み、
+`EntityDamageEvent` リスナーが「深度>0 かつ cause==ENTITY_EXPLOSION」のときだけ `setCancelled(true)`
+してバニラ分を丸ごと無効化し、代わりに爆心地からの距離減衰を自前で計算して対象ごとに
+`dealSpellDamage` を呼ぶ。**setFire=false/breakBlocks=false の演出用createExplosion自体は残してよい**
+（ブロック破壊やノックバックの挙動は変えず、ダメージ経路だけを差し替える設計）。
+
+### ⚠️ `SpellRegistry` に登録する `SpellEffect` がコンストラクタ内で `registerEvents(this, ...)` すると、`ArsPaper#registerListeners()` の一括登録ループと二重に登録され `@EventHandler` が1イベントにつき2回発火する（無警告）
+
+`ArsPaper#registerListeners()`（`ArsPaper.java:738-743`、`onEnable()`内で`initRegistries()`の**後**に呼ばれる）は
+`spellRegistry.getAll()` を走査し `Listener` 実装を持つ component を一括で `pluginManager.registerEvents(...)`
+する。これが `Listener` を実装する `SpellEffect`（`HexEffect`/`ExplosionEffect`/`BounceEffect`/`GlideEffect`）の
+**唯一の正しい登録経路**。にもかかわらずコンストラクタ内で個別に `Bukkit.getPluginManager().registerEvents(this, plugin)`
+を呼ぶと、Bukkitは同一インスタンスの重複登録を排除しない（`RegisteredListener`が2件積まれる）ため、
+`@EventHandler`メソッドが1イベントにつき2回発火する。実例: `HexEffect#onEntityDamage` が追撃ダメージを
+2倍にしていた（2026-08-04発覚。既存バグで、TFパイプライン統合により顕在化しただけ。合わせて
+`ExplosionEffect`にも同型の誤りが新規混入していたため修正）。**How**: `spellRegistry.register(new XxxEffect(...))`
+される`SpellEffect`は、コンストラクタで自己登録しない（`BounceEffect`/`GlideEffect`が正しい参照実装）。
+新規/既存の`spell/effect/*.java`を見るときは `grep -rn "registerEvents(this" src/main/java` で
+横串チェックすること（`SourcelinkTickTask`/`BlockParticleTask`/`InfinityCoreTracker`のような
+`spellRegistry`に載らない独立クラスの自己登録は正しいので、登録経路の確認が先）。
+回帰は `SpellEffectListenerRegistrationWiringTest`（ソーステキスト検査。フォークはBukkitランタイムを
+持たないため実発火数を数える統合テストは組めない）。
 
 ### ⚠️ フォークは複数セッションが同じ非バージョン管理ワークツリーを共有する — 他レーンの未完了WIPで自分の変更と無関係にビルドが赤くなる
 
