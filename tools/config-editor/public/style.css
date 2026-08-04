@@ -28,6 +28,10 @@
 body {
   margin: 0; background: var(--bg); color: var(--text); font-size: 14px;
   display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  /* R (2026-08-04): モバイルブラウザの 100vh はアドレスバーを含む固定値なので、バーが出ている間
+     ビューポート下端が画面外に出て .main の最下部(保存ボタン等)へ永久に届かなくなる。dvh は
+     実際の可視高に追従する。未対応ブラウザは上の 100vh をそのまま使う(宣言順のフォールバック)。 */
+  height: 100dvh;
 }
 
 /* ダークテーマ向けスクロールバー（白長方形のOS既定を避ける） */
@@ -376,7 +380,11 @@ select.field-input option {
 /* ボタン/追加セレクトの並び。gap無しで密着しないよう統一する */
 .form-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* ラベル幅は form-field と共通の190pxに統一する (縦ライン揃え)。 */
-.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px 16px; }
+/* R (2026-08-04): minmax の下限を直値 340px にすると、トラック幅がそれを下回る狭い画面で
+   グリッド自身が 340px を主張して親からあふれる(auto-fill は下限を守るため列を潰せない)。
+   min(340px, 100%) にすると「広い時は340px下限・狭い時は親幅」に自動で切り替わり、
+   1列に落ちてあふれが消える。以下の auto-fill/auto-fit グリッドすべて同じ理由。 */
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 8px 16px; }
 .field-grid .form-field { justify-content: flex-start; }
 .field-grid .form-label { width: 190px; }
 /* A-3 (2026-07-25): ラベル(190px固定)+セレクト/素材サジェスト(260/280px固定)の合計が
@@ -743,7 +751,7 @@ select.field-input option {
 .constants-view { display: flex; flex-direction: column; gap: 14px; }
 .const-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .const-card-title { font-size: 13px; font-weight: 700; color: var(--accent); padding: 9px 12px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
-.const-body { padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px 18px; }
+.const-body { padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 12px 18px; }
 .const-field { display: flex; flex-direction: column; gap: 3px; }
 .const-field-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .const-label { font-size: 13px; color: var(--text); }
@@ -906,7 +914,7 @@ select.field-input option {
 .home-basepath-key { font-weight: 600; min-width: 110px; }
 .home-basepath-path { color: var(--muted); font-size: 12px; font-family: "Consolas", "Courier New", monospace; word-break: break-all; flex: 1; min-width: 200px; }
 .home-basepath-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
-.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
 .home-card {
   text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 14px 16px; cursor: pointer; color: var(--text); display: flex; flex-direction: column; gap: 6px;
@@ -1366,7 +1374,7 @@ select.field-input option {
 
 .cf-map {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: 10px;
   margin-top: 6px;
 }
@@ -1401,7 +1409,7 @@ select.field-input option {
 
 .cf-cat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 12px;
 }
 .cf-cat-card {
@@ -1665,3 +1673,179 @@ select.field-input option {
 .respack-reserved { font-size: 12px; color: var(--muted); }
 .respack-reserved-list { padding: 8px 0 0; word-break: break-all; }
 .respack-corrupt-banner { color: var(--danger); border-color: var(--danger); background: rgba(224, 87, 74, 0.08); font-weight: 600; }
+
+/* ============================================================
+   レスポンシブ (R / 2026-08-04)
+
+   このファイルは長らく「サイドバー300px固定 + 十分に広い .main」を前提に書かれていて、
+   @media が3つしか無かった。狭い画面で実際に起きていた壊れ方は3種類:
+
+   1. サイドバーが 300px を主張し続けるので、900px 幅では本文が 600px、375px 幅では
+      本文が 75px しか残らない(＝実質使えない)。
+   2. .main は overflow-x:hidden なので、あふれた要素は「スクロールで見える」のではなく
+      クリップされ永久に到達できない。入力欄や削除ボタンが消えるのはこれが原因。
+   3. ラベル(190px固定) + セレクト(260px, flex-shrink:0) のような固定幅の横並びは、
+      親が狭くても縮まないので 2 を直接引き起こす。
+
+   方針: 閾値は CSS 側に一元化し、JS は body.sidebar-open のクラス1つだけを持つ。
+   ドロワーの吸着位置はトップバー実高に追従させる必要があるため、px の決め打ちをせず
+   .layout(トップバーの下の残り全部)を position:relative の基準にして absolute で貼る。
+   ============================================================ */
+
+/* --- 常時: ドロワー用の部品 (広い画面では隠れている) --- */
+
+/* .layout はドロワーの位置基準。トップバー実高を JS/マジックナンバーで持たずに
+   「トップバーの下の残り全部」を得るため、基準をここに置く。 */
+.layout { position: relative; }
+
+/* 3つ目の子(ハンバーガー)が入ると space-between では brand が中央へ流れるので、
+   パス設定側を右端へ固定して並びを確定させる。 */
+.topbar-paths { margin-left: auto; }
+
+.sidebar-toggle {
+  display: none; /* ドロワー閾値でだけ出す。広い画面はサイドバーが常時見えている */
+  flex: none;
+  width: 34px; height: 34px;
+  align-items: center; justify-content: center;
+  padding: 0;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover { border-color: var(--accent); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* ハンバーガー: 中央1本を実体、上下2本を擬似要素で描く(SVG も追加DOMも要らない) */
+.sidebar-toggle-icon { position: relative; }
+.sidebar-toggle-icon,
+.sidebar-toggle-icon::before,
+.sidebar-toggle-icon::after {
+  display: block; width: 16px; height: 2px;
+  border-radius: 1px; background: currentColor;
+}
+.sidebar-toggle-icon::before,
+.sidebar-toggle-icon::after { content: ""; position: absolute; left: 0; }
+.sidebar-toggle-icon::before { top: -5px; }
+.sidebar-toggle-icon::after { top: 5px; }
+
+.sidebar-scrim { display: none; }
+/* JS は hidden 属性で開閉する。閾値内で display:block を当てても閉状態は必ず隠す。 */
+.sidebar-scrim[hidden] { display: none !important; }
+
+/* 列数の多い表(CMD台帳=8列 等)のスクロール枠。親 .main は overflow-x:hidden なので、
+   ここでスクロールさせないと右端の列(操作ボタン)が切り落とされて永久に押せない。
+   閾値で切り替えず常時スクロール可能にするのは、あふれるかどうかが画面幅ではなく
+   中身の文字数で決まる(＝どの幅でも起きうる)ため。表自身の width:100% は温存されるので
+   広い画面の見た目は変わらない。 */
+.table-scroll { overflow-x: auto; max-width: 100%; }
+
+/* --- 1. ラップトップ幅: サイドバーと本文余白を詰める --- */
+@media (max-width: 1280px) {
+  .layout { grid-template-columns: 248px 1fr; }
+  .main { padding: var(--main-pad-top) 18px 16px; }
+}
+
+/* --- 2. タブレット横: 固定2カラムを1カラムへ --- */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 216px 1fr; }
+  /* minmax(340px) + minmax(360px) で下限合計 700px + gap を主張し続けるため、
+     本文幅がそれを下回ると必ずあふれる。1カラムへ倒す。 */
+  .sim-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- 3. ドロワー化 (この閾値は app.js の SIDEBAR_DRAWER_MQ と一致させる) --- */
+@media (max-width: 900px) {
+  .sidebar-toggle { display: inline-flex; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 30;
+    width: min(300px, 84vw);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+    /* visibility は離散プロパティだが transition に載せると「表示は即時 / 非表示は
+       アニメーション終了後」になる。閉じている間キーボードフォーカスが画面外の
+       メニュー項目へ入るのを防ぐのが目的。 */
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), visibility 180ms;
+  }
+  body.sidebar-open .sidebar { transform: none; visibility: visible; }
+  .sidebar-scrim {
+    display: block;
+    position: absolute; inset: 0; z-index: 25;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .main { padding: var(--main-pad-top) 14px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}
+
+/* --- 4. 固定幅の横並びを縦積みへ (あふれ＝クリップの直接原因を消す) --- */
+@media (max-width: 700px) {
+  /* ラベル190px + セレクト260px(min-width:180px, shrink:0) は 375px 幅に入らない。 */
+  .form-field { flex-wrap: wrap; }
+  .form-label,
+  .field-grid .form-label { width: 100%; }
+  .form-field > select.field-input,
+  .form-field > .stat-select,
+  .form-field > .list-select,
+  .form-field > .material-select,
+  .form-field > .material-suggest,
+  .form-field > .editor-cat-field,
+  .form-field > .input-with-hint { flex: 1 1 100%; width: 100%; min-width: 0; max-width: 100%; }
+  .form-field > .input-with-hint > .material-suggest { width: 100%; min-width: 0; }
+
+  /* stat-row 系: flex:0 0 260px / 0 0 400px は shrink 0 なので親が狭くても縮まない。 */
+  .stat-row > .stat-row-label,
+  .stat-row > .list-select,
+  .stat-row > .stat-select,
+  .stat-row > .material-suggest,
+  .stat-row > .field-readonly,
+  .stat-row > .input-with-hint,
+  .skilltree-form .stat-row > .material-suggest,
+  .skilltree-form .stat-row > .dedicated-effect-select,
+  .kv-rows .pedestal-row > input.field-input:first-child {
+    flex: 1 1 100%; min-width: 0; max-width: 100%;
+  }
+  .stat-row > .input-with-hint { flex-wrap: wrap; }
+  .stat-row > .input-with-hint > .material-suggest { min-width: 0; }
+
+  .drop-item-control > .drop-item-kind,
+  .drop-item-control > .input-with-hint,
+  .drop-item-control > .catalog-id-suggest { flex: 1 1 100%; width: 100%; min-width: 0; }
+
+  /* パス設定: 88px 固定ラベル + 入力 + 状態 の3列を、ラベルを上段へ出して2段にする。 */
+  .path-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .path-label { grid-column: 1 / -1; }
+
+}
+
+/* --- 5. スマホ: トップバー / 見出し / 保存ボタン --- */
+@media (max-width: 600px) {
+  .topbar { padding: 8px 12px; gap: 10px; }
+  .brand-text { display: none; } /* TF マークだけ残す */
+  .main { padding: var(--main-pad-top) 12px 14px; }
+  /* 見出しと保存ボタンを2段にし、保存は親指の届く全幅ボタンにする。 */
+  .editor-header { flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .editor-header > div { flex: 1 1 100%; min-width: 0; }
+  .editor-header > #save-btn { flex: 1 1 100%; }
+  .editor-title { font-size: 17px; }
+  .empty { padding: 24px 12px; }
+  .entry-head { padding: 8px 10px; }
+  .const-body { padding: 10px; }
+  .modal-box { padding: 16px; width: calc(100% - 24px); }
+}
+
+/* --- 6. 最狭 (375px 想定) --- */
+@media (max-width: 400px) {
+  .main { padding: var(--main-pad-top) 10px 12px; }
+  /* パス設定ボタンの「n/m」要約はボタン名を押し出すので落とす。 */
+  .paths-toggle .paths-summary { display: none; }
+}
+
+/* --- 7. タッチ端末: 密なフォームを壊さない範囲でタップ領域を広げる --- */
+@media (pointer: coarse) {
+  .nav-item { padding: 10px; }
+  .btn-small { padding: 7px 11px; }
+  .collapse-toggle { min-height: 32px; }
+}

@@ -8,6 +8,10 @@
 </head>
 <body>
   <header class="topbar">
+    <button id="sidebar-toggle-btn" class="sidebar-toggle" type="button"
+            aria-expanded="false" aria-controls="app-sidebar" aria-label="メニューを開閉">
+      <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+    </button>
     <div class="brand">
       <span class="brand-mark">TF</span>
       <span class="brand-text">TrinityForge / ArsPaper Config Editor</span>
@@ -27,7 +31,8 @@
   </header>
 
   <div class="layout">
-    <aside class="sidebar">
+    <div id="sidebar-scrim" class="sidebar-scrim" hidden></div>
+    <aside id="app-sidebar" class="sidebar">
       <div class="sidebar-title">メニュー</div>
       <nav id="config-list" class="config-list"></nav>
     </aside>

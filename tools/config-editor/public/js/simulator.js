@@ -349,7 +349,8 @@
       ]));
     }
     table.appendChild(tbody);
-    output.appendChild(table);
+    /* R (2026-08-04): 狭い画面で列が切り落とされないようスクロール枠に入れる (.respack-table と同じ理由)。 */
+    output.appendChild(h("div", { class: "table-scroll" }, [table]));
 
     // 最終値サマリ
     const expected = model.critChance * crit.final + (1 - clamp01(model.critChance)) * nonCrit.final;

@@ -1247,6 +1247,72 @@
     });
   }
 
+  /* R (2026-08-04): 狭い画面ではサイドバー(300px固定)が本文をほぼ潰すので、CSS 側で
+     オフキャンバス・ドロワーに切り替える。開閉状態は body のクラス1つで表現し、
+     位置やアニメーションは CSS に任せる(JS が px を持たないので閾値の二重管理が起きない)。
+     閾値だけは「ドロワーの時だけ選択で閉じる」判定に必要なので matchMedia で CSS と共有する。 */
+  const SIDEBAR_DRAWER_MQ = window.matchMedia("(max-width: 900px)");
+
+  function isSidebarDrawerMode() {
+    return SIDEBAR_DRAWER_MQ.matches;
+  }
+
+  function setSidebarOpen(open) {
+    const btn = document.getElementById("sidebar-toggle-btn");
+    const scrim = document.getElementById("sidebar-scrim");
+    document.body.classList.toggle("sidebar-open", open);
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (scrim) {
+      if (open) scrim.removeAttribute("hidden");
+      else scrim.setAttribute("hidden", "");
+    }
+  }
+
+  function bindSidebarDrawer() {
+    const btn = document.getElementById("sidebar-toggle-btn");
+    const scrim = document.getElementById("sidebar-scrim");
+    if (!btn || btn._drawerBound) return;
+    btn._drawerBound = true;
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setSidebarOpen(!document.body.classList.contains("sidebar-open"));
+    });
+    if (scrim) scrim.addEventListener("click", () => setSidebarOpen(false));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    });
+
+    /* メニュー項目は起動後に動的生成されるので個別バインドできない。委譲で拾う。
+       カテゴリの折りたたみトグル(.nav-group-toggle)で閉じてしまうと畳んだ結果が見えないため、
+       実際に画面が切り替わる .nav-item のクリックだけを閉じる契機にする。 */
+    const nav = document.getElementById("config-list");
+    if (nav) {
+      nav.addEventListener("click", (e) => {
+        if (!isSidebarDrawerMode()) return;
+        if (e.target.closest(".nav-item")) setSidebarOpen(false);
+      });
+    }
+
+    /* 画面を広げてドロワー閾値を抜けたら開閉状態を捨てる。放置すると
+       (1) サイドバーは常時表示なのに aria-expanded="true" が residual で残る
+       (2) 再び狭めた瞬間にメニューが勝手に開いた状態で現れる
+       の2つが起きる。matchMedia の change だけに頼らず resize でも同じ関数を通すのは、
+       change が発火しない環境を実測で踏んだため(取りこぼすと上の residual が残る)。
+       drawer モードでない かつ 開いている ときだけ実際に動くので resize 連打でも軽い。 */
+    const syncDrawerToViewport = () => {
+      if (isSidebarDrawerMode()) return;
+      if (!document.body.classList.contains("sidebar-open")) return;
+      setSidebarOpen(false);
+    };
+    if (typeof SIDEBAR_DRAWER_MQ.addEventListener === "function") {
+      SIDEBAR_DRAWER_MQ.addEventListener("change", syncDrawerToViewport);
+    } else if (typeof SIDEBAR_DRAWER_MQ.addListener === "function") {
+      SIDEBAR_DRAWER_MQ.addListener(syncDrawerToViewport);
+    }
+    window.addEventListener("resize", syncDrawerToViewport);
+  }
+
   async function saveSettings() {
     const inputs = document.querySelectorAll("#basepaths .path-input");
     const basePaths = {};
@@ -1962,6 +2028,7 @@
     document.getElementById("save-btn").addEventListener("click", save);
     document.getElementById("save-paths-btn").addEventListener("click", saveSettings);
     bindPathsPanel();
+    bindSidebarDrawer();
     window.addEventListener("beforeunload", (e) => {
       if (!isEditorDirty()) return;
       e.preventDefault();
