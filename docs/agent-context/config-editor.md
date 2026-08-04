@@ -401,6 +401,48 @@ Java側 (`ArsProgressionBridge#grantSmithingCraftExp`, 2026-08-01以降) は儀�
 ミラー更新が不要な数少ないケース(新しいYAMLキーを増やしていないため)。回帰テストは
 `test/ars-smithing-shared-material-2026-08-03.test.js`。
 
+## レイアウト: `.main` のあふれは「スクロール」ではなく「クリップ」（2026-08-04）
+
+`.main { overflow-x: hidden }` なので、**本文幅を超えた要素はスクロールで見えるようにならず、
+切り落とされて永久に到達できない**。「削除ボタンが無い」「入力欄が消えた」系の報告は、
+機能の欠落ではなくこれを疑う。`overflow-x` を `auto` に変えるのは筋が悪い
+（横スクロールバーが常時出る問題で 2026-07-25 に一度 `hidden` へ寄せた経緯がある）ので、
+**あふれる側を直す**か、その要素を自前のスクロール枠に入れる。
+
+2026-08-04 に 375px までのレスポンシブ対応を入れた。閾値は
+1280 / 1100 / 900（ドロワー化）/ 700（固定幅の横並びを縦積み）/ 600 / 400 で、
+`style.css` 末尾の「レスポンシブ」節に集約してある。触るときの注意:
+
+- **サイドバードロワーの吸着位置に px を決め打ちしない。** `.layout`（トップバーの下の残り全部）を
+  `position: relative` の基準にして `absolute` で貼っている。トップバーの実高は日本語フォントで
+  変わるので、`calc(100vh - 45px)` 系のマジックナンバーは必ず破綻する(2026-07-25 に踏んだ罠)。
+- **900px という閾値は `app.js` の `SIDEBAR_DRAWER_MQ` と二重に持っている。** 片方だけ変えると
+  「ドロワーなのに項目選択で閉じない」というズレ方をする。
+- **列数の多い表は `.table-scroll` ラッパで包む（閾値で切り替えない）。** あふれるかどうかは
+  画面幅ではなく**中身の文字数**で決まるので、`@media` で `display:block` に切り替える方式では
+  漏れる（実際に 768px で CMD 台帳=8列が 149px あふれてクリップされた）。
+- `auto-fill` グリッドの下限は `minmax(min(Npx, 100%), 1fr)` で書く。直値 `minmax(Npx, 1fr)` は
+  トラックがそれを下回る幅で**グリッド自身が親をあふれさせる**（列を潰せないため）。
+
+### UI をブラウザで検証するときの環境の罠
+
+Browser ペインが**非表示**だとページがフレームを作らないため、次の 3 つが起きる。
+知らないと「直っていない」と誤診する（実際に一度誤診した）。
+
+1. スクリーンショットが撮れない（`the Browser pane is not displayed` で 5s タイムアウト）。
+2. **CSS transition が進まない。** `getComputedStyle` が遷移途中の値を返すので、
+   ドロワーが「閉じているのに `visibility: visible` / `translateX(0)`」に見える。
+   計測前に `document.querySelectorAll('*').forEach(el => el.getAnimations().forEach(a => a.finish()))`
+   で確定させる。
+3. **`resize_window` しても `resize` / `matchMedia` の `change` イベントが 1 回も飛ばない**
+   （1200→500px で 0 件を実測）。ビューポート自体は変わるのでレイアウトは追随するが、
+   JS 側のブレークポイント処理は動かない。ハンドラの正しさは
+   `window.dispatchEvent(new Event('resize'))` で直接叩いて確認する。
+
+あふれの有無は目視より計測の方が確実。`.main` の右端と各子孫の
+`getBoundingClientRect().right` を比べ、**祖先に `overflow-x: auto|scroll` を持つ要素は
+「スクロールで到達できる」ので除外する**のがポイント。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
