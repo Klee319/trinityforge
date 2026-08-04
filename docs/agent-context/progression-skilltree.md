@@ -537,6 +537,34 @@ tfcatalog分岐の両方に同じ分離を適用した。回帰は
 TF/フォーク境界の`catch (Throwable)`を新設・変更するときは、フェイルセーフのために握り潰すのは
 よいが**必ず警告ログだけは残す**こと（さもないと同種の不具合が今後も無症状のまま埋没する）。
 
+### 消費ソース量を儀式EXPへ渡すときは「返還後の値」でなければならない
+
+`ars-smithing.exp-per-source`（2026-08-04）は消費ソース1あたりの追加EXP。フォークが
+`reservedSource` を TF へ渡すが、**渡す地点は `TrinityForgeBridge.recordSourceSpent` と同じ
+「全ての `refundSource` 経路を通過した後」でなければならない**。`RitualManager` は予約後に
+中断・素材差し替え・効果検証失敗など5経路でソースをジャーへ返すので、予約直後の値を渡すと
+**儀式をわざと失敗させ続けるだけでEXPを稼げる**（累計ソース集計が予約直後ではなくここで積んでいるのと
+同じ理由）。この前後関係は `RitualMaterialTokenTest` が呼び出し位置の index 比較で固定している。
+
+ソース項は `grantSkillExp` の2回目呼び出しではなく **base への加算**として実装する。2回付与にすると
+逓減ウィンドウ（`daily-diminishing` / レベル逓減）が2回進み、「1回の儀式なのに2回目だけ減衰した
+端数が乗る」という追いにくい挙動になる。
+
+**係数の桁感覚**: ソース要求量は階梯とともに桁で増える（ソースの欠片100 → 無限のソース核45,000,000）。
+`1.0` を入れると上位儀式1回で最大レベルに届くので、既定は `0.0`（無効）で、有効化するなら
+`0.001` 程度から。
+
+### ⚠️ フォークのソース走査ガードは引数の並びを literal で固定してはいけない
+
+このフォークのテストは MockBukkit を使わずソーステキストを走査する流儀だが、
+`source.contains("grantArsSmithingExpOnly(result, player, consumedTokens)")` のように**引数の並びを
+そのまま固定すると、不変条件を保ったまま引数が1つ増えるだけで落ちる**（2026-08-04 に消費ソース量を
+足したときに2件が実際に落ちた）。正規表現で「必要な引数が入っていること」だけを見る形にする。
+
+同じ理由で、**メソッド名の先頭一致で本体を切り出すのも危険**。委譲するだけのオーバーロードが
+増えると `indexOf("public static void foo(")` はそちらを掴み、「catch が無い」と誤検知する。
+検査したい実体（TF 境界の呼び出しなど）を起点に substring を取ること。
+
 ### `items/catalog.yml` は儀式レシピを2種類のキーで書ける（`recipe:`単数 と `recipes:`複数）
 
 両方とも`ItemTemplate#recipes()`（TF側）に統合され、`CatalogRitualRegistrar`/`RitualManager`
@@ -568,6 +596,32 @@ IDを追加したら該当テストの期待値配列も同時に更新するこ
 値を合わせる)。Java側は`CatalogVanillaOperationPolicyConfigTest`の
 `PENDING_CMD_ASSIGNMENT`のような「意図的・追跡付きの例外セット」で同じ状況に対応する
 (`RegisterEventsDriftTest.ALLOWED_UNREGISTERED`と同型のパターン)。
+
+## スキルポイント残高は「付与・管理コマンド・reload時再計算」の3経路が同じ式を持たないと壊れる
+
+SP総数の式は元々3箇所に重複していた（2026-08-04 に `PlayerProgression#earnedPoints(long, int)` へ集約）:
+
+| 経路 | クラス | いつ走るか |
+|---|---|---|
+| レベルアップ時の付与 | `NativeProgressionService#grantExp` 内 | EXP付与でPOWERが動くたび |
+| 管理コマンドの再計算 | `NativeProgressionAdminService` | `/tf admin` のレベル編集時 |
+| 全員の残高の書き直し | `ProgressionCurveReconciler#recalculateAll` | **`/trinityforge reload` の中だけ** |
+
+**この3つのうち1つでも別の式を持つと「レベルアップで増えた点が reload で消える」**という、
+本人にしか観測できず再現条件も掴みにくい食い違いになる。SP の計算に触るときは必ず
+`earnedPoints` 側だけを変え、呼び出し側で割り算や加算を書き直さないこと。
+
+**`ProgressionCurveReconciler` はログインでは走らない。** 呼び出し口は
+`TrinityForge.java` の `/trinityforge reload` 1箇所だけ（`recalculatePlayer` は
+`recalculateAll` からのみ呼ばれる）。`power.levels-per-skill-point` のような
+「全員の残高に影響する設定」を変えたら reload が必須で、打たなければ各プレイヤーの
+次のレベルアップまで旧残高が残る。設定コメントにこの条件を書いておくこと
+（「ログイン時に直る」と書くと嘘になる）。
+
+設定値の丸めは `SkillExpConfig` 側で `Math.max(1, ...)` する。0 を通すとゼロ除算、
+負を通すと**レベルを上げるほどSPが減る**ので、どちらも設定ミスとして 1 扱いにする。
+値を大きくして `spent > earned` になった場合は available を0へクランプして WARNING を出すのみで、
+**取得済みパークは剥がさない**（剥がすと返金や再購入の整合を別途取る必要が出る）。
 
 ## 関連
 
