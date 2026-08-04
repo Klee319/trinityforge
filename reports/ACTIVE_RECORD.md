@@ -41,7 +41,7 @@
 
 | # | 内容 | メモ |
 |---|---|---|
-| **J-11** | **フォーク 2 本を push するか**（3 択: jar を除外して push / jar も含めて push / push しない） | ArsPaper (`feat/trinityforge-fork`) と EliteMobs はどちらも**ローカル commit のみ**。`Klee319/ArsPaper` は public で `libs/TrinityForge.jar` が **tracked** なので、push すると TF 本体 jar が再び公開される（過去に事故あり）。**しかも jar を除いて push すると、クリーンクローンでのフォークビルドが新 API の 4 引数呼び出しで落ちる**（ローカルの jar は再ビルド済みだが未コミット）。どちらに倒しても副作用があるのでユーザー判断が要る |
+| ~~**J-11**~~ | ~~**フォーク 2 本を push するか**（3 択: jar を除外して push / jar も含めて push / push しない）~~ | **2026-08-04 決定: 「jar を除外して push」。** ArsPaper `feat/trinityforge-fork` は `be974a4` を push 済み（`libs/TrinityForge.jar` は未コミットのまま＝TF 本体 jar は再公開していない）。副作用は既知で受容: **クリーンクローンでのフォークビルドは新 API の 4 引数呼び出しで落ちる**（この環境のローカル jar は新 API でビルド済みなので配備には影響しない）。EliteMobs 側は同じ方針が適用できるか未確認なので**まだ push していない** |
 | **J-12** | **`_Nx` 圧縮素材の EXP 規約**（線形か指数か） | 圧縮 1 段 = 9 倍。EXP をそのまま 9 倍にすると圧縮での EXP 稼ぎが成立する。2026-08-02 から持ち越し |
 | **J-13** | **`apex-brew` の SPEED `amplifier: 2`（速度III）** | バニラ上限（速度II）超え。カスタム醸造なので意図的とも取れる。LOW |
 | **J-14** | **「テクスチャ準備済み」18 種の置き場所**（→ K-15） | ガチャ券 6 種 / ミート・ダート・ベジタブルコア / モブ素材 13 種が `resourcepack/` にも配備先パックにも無い。**置き場所を聞かないと着手できない** |
@@ -195,7 +195,7 @@ git 系:
 | 日付 | 内容 |
 |---|---|
 | 2026-08-04 | **リポジトリ整理**（`67b2c02` ほか）。stale な日付レポート 46 本＋`audit-20260725/` を削除、失効 SPEC 12 本を `docs/archive/` へ、IDE ファイルを ignore、worktree 47 本と作業ブランチ 90 本を整理、ローカル生成物 約 800MB を破棄、この記録を現役分とアーカイブに分割。**`TrinityForge/docs/GREENFIELD-REMAINING-TODO.md`（未実装 11 件の台帳）は実コードで全件が実装済みか前提消滅と確認して archive へ**（根拠は `docs/archive/README.md`） |
-| 2026-08-04 | 消費ソース量に応じた儀式EXP（`ars-smithing.exp-per-source`）／1SPあたりの総合レベル間隔（`power.levels-per-skill-point`）。TF `0b174cb`〜`4000f9d`、ArsPaper fork `be974a4`（**push 未実施** → J-11） |
+| 2026-08-04 | 消費ソース量に応じた儀式EXP（`ars-smithing.exp-per-source`）／1SPあたりの総合レベル間隔（`power.levels-per-skill-point`）。TF `0b174cb`〜`4000f9d`、ArsPaper fork `be974a4`（jar を除外して push 済み） |
 | 2026-08-04 | 圧縮シリーズ 64 件追加＋カタログID改名で壊れた参照 152 箇所の修復、editor 2 件。**圧縮アイテムは Ars の `materials.yml` に住む**／`reversible: true` で解凍レシピは自動生成（手書き禁止） |
 | 2026-08-04 | 実機報告 15 件（機能アイテム 3 種 / アチーブメント手動解放 / 統合メニュー / 弓の距離悪用 / 総合プレステージ）。**うち 2 件はコードが正しく配備側の問題** |
 | 2026-08-04 | editor「素材」画面の鍵カテゴリ統合とカラーコード表示の修正。**editor 保存 1 回で `catalog.yml` と `item-stats.yml` が壊れた事故あり**（復旧済み） |
