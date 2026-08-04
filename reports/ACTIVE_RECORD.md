@@ -5588,3 +5588,73 @@ GUI 編集だけできない**という非対称になっていた（`binder_*` 
   `progression/achievements.yml` / `stats/skill-exp.yml` / `economy/villager-trades.yml` /
   `resourcepack/cmd-registry.json` は**HEAD から自分の変更だけを再生成して index へ直接書いた**
   （手順は `docs/agent-context/ops-build-deploy.md`）。他セッターの差分は未コミットのまま残っている。
+
+## 2026-08-04 — 消費ソース量に応じた儀式EXP／1SPあたりの総合レベル間隔
+
+ユーザー要望2件。TF `0b174cb`（dev に push 済み）、ArsPaper fork `be974a4`（**push 未実施**、下記参照）。
+
+### 1. Ars鍛冶: 消費ソース量に応じた追加EXP
+
+`stats/skill-exp.yml` → `ars-smithing.exp-per-source`（既定 `0.0` = 従来と同一挙動）。
+素材表 `smithing.exp-per-material` または定額 `exp-per-craft` で決まった base に
+`消費ソース量 × この値` を**足し込んでから**1回だけ付与する。
+
+- `grantSkillExp` を2回呼ぶ形にはしていない。逓減ウィンドウ（`daily-diminishing` / レベル逓減）が
+  2回進み、「1回の儀式なのに2回目だけ減衰した端数が乗る」という追いにくい挙動になるため。
+- **フォークが渡すのは `recordSourceSpent` と同じ地点より後の `reservedSource`**。
+  予約直後の値を渡すと、中断・素材差し替え・効果検証失敗の5経路が `refundSource` で
+  ジャーへ返した分までEXPになり、**儀式をわざと失敗させ続けるだけで稼げる**経路になる。
+  この前後関係は `RitualMaterialTokenTest` が呼び出し位置の index 比較で固定している。
+- ソース要求量は階梯とともに桁で増える（ソースの欠片 100 → 無限のソース核 45,000,000）ので、
+  `1.0` のような値を入れると上位儀式1回で最大レベルに届く。yml に警告コメントを置いた。
+
+### 2. 総合設定: 1SPを何レベルごとに与えるか
+
+`stats/skill-exp.yml` → `power.levels-per-skill-point`（既定 `1` = 従来どおり1レベル1点）。
+ポイント総数 = `初期3点 + 総合レベル ÷ この値`（切り捨て）。0以下は 1 へ丸める
+（0 はゼロ除算、負はレベルを上げるほどSPが減る挙動になるため、どちらも設定ミス扱い）。
+
+- **式は3箇所に散っていた**（`NativeProgressionService` の付与 / `NativeProgressionAdminService` の
+  管理コマンド再計算 / `ProgressionCurveReconciler` の reload 時再計算）。片方だけ設定を見ると
+  「レベルアップで増えた点が reload で消える」食い違いになるので、
+  `PlayerProgression#earnedPoints(long, int)` へ集約し、3箇所すべてがそれを呼ぶ形にした。
+  設定は `IntSupplier` で毎回引く（既定 `() -> 1`、reload を反映するため焼き込まない）。
+- **⚠️ 値を変えたら `/trinityforge reload` が必須。** 全員のポイント残高を新しい値で書き直すのは
+  reload の中の再計算だけで、**ログインでは走らない**（`ProgressionCurveReconciler#recalculateAll`
+  の呼び出し口は `/trinityforge reload` の1箇所だけ）。打たないと次のレベルアップまで旧残高のまま。
+- 値を大きくすると既存プレイヤーの獲得済み上限が下がるため、`spent > earned` になりうる。
+  その場合は available を0へクランプし WARNING を出す（**取得済みパークは剥がさない**）。
+
+### editor
+
+スキルEXP画面に「総合(POWER)とスキルポイント」カードを新設（ダンジョン限定EXPカードの直後）。
+`power` は `power_progression.yml` に `experience:` があるため曲線カードにも合流するので、
+`SECTION_EXCLUDED_KEYS` で二重描画を防いだ（`scalarSectionBody` の呼び出し2箇所とも要修正）。
+`ars-smithing.exp-per-source` は `SECTION_FIELD_OVERRIDES` と `labels.js` の `FIELD_LABELS` の
+**2箇所**にラベル登録が必要（前者が画面の説明文、後者が汎用ドリフト検知テスト用）。
+
+### テスト実走
+
+- TF: **3713 tests / 失敗1 / スキップ2**（スキップ2は正常値）。失敗1件は
+  `ShippedAchievementTreeTest`（`collect_arsenal` のしきい値26 > 候補22）で、
+  **他セッションが未コミットの `achievements.yml` / `collection.yml` 由来**。自分は両ファイルを触っていない。
+- fork: **325 tests / 失敗1**。`ThreadRitualRecipeConfigTest` は他セッション未コミットの
+  `items.yml`（-40行）由来。
+- editor: **1089 tests / 失敗12**。12件は着手前から失敗しており、
+  **自分たちの変更（`tf-forms.js` / `schema.js` / `labels.js` / `skill-exp.yml`）を HEAD 版へ戻しても
+  同じ12件が落ちる**ことを実走で確認した（サブエージェントの申告を鵜呑みにせず測り直した）。
+- 「戻すと落ちる」検証: TF 3件（ソース加算を外す / 付与式を旧式へ / reload再計算を旧式へ）と
+  fork 1件（`reservedSource` を外す）を実際に revert して赤になることを確認済み。
+
+### 未実施・引き継ぎ
+
+- **ArsPaper fork の push は未実施。** `Klee319/ArsPaper` は public で `libs/TrinityForge.jar` が
+  tracked なため、`feat/trinityforge-fork` を push すると TF 本体 jar が再び公開される（過去に事故あり）。
+  ローカルの `libs/TrinityForge.jar` は新APIでビルドし直してあるが**コミットしていない**ので、
+  この commit だけを push するとクリーンクローンでのフォークビルドが 4引数呼び出しで落ちる。
+  push 方針（jar を除外して push / jar も含めて push / push しない）はユーザー判断待ち。
+- 配備はサーバ停止後にユーザーが実行。`ops\launch\deploy.cmd --config`
+  （`materials.yml` の反映にはこの `--config` が必須）。
+- `docs/config-reference/stats/skill-exp.md` に今回追加した yml コメント（`power` /
+  `ars-smithing.exp-per-source`）が未収録。editor 経由で保存するとコメントが消えるため、
+  誰かが踏む前に docs 側へ移設しておくのが望ましい。
