@@ -139,7 +139,7 @@ achievements:
         - title_first_step
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_1", amount: 3 }
+        - { id: "custom:gacha_ticket_1", amount: 3 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -218,7 +218,7 @@ achievements:
       special: []
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_2", amount: 3 }
+        - { id: "custom:gacha_ticket_2", amount: 3 }
       job-exp:
         - { skill: FISHING, amount: 1200 }
       permanent-buffs: {}
@@ -264,7 +264,7 @@ achievements:
         - seed_flame
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_3", amount: 2 }
+        - { id: "custom:gacha_ticket_3", amount: 2 }
       job-exp:
         - { skill: SMITHING, amount: 3000 }
       permanent-buffs: {}
@@ -304,7 +304,7 @@ achievements:
       special: []
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_2", amount: 2 }
+        - { id: "custom:gacha_ticket_2", amount: 2 }
       job-exp:
         - { skill: HEAVY_WEAPONS, amount: 1500 }
       permanent-buffs: {}
@@ -366,7 +366,7 @@ achievements:
         - particle_void_aura
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_4", amount: 1 }
+        - { id: "custom:gacha_ticket_4", amount: 1 }
       job-exp:
         - { skill: POWER, amount: 3000 }
       permanent-buffs: {}
@@ -388,7 +388,7 @@ achievements:
         - seed_spark
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_4", amount: 2 }
+        - { id: "custom:gacha_ticket_4", amount: 2 }
       job-exp:
         - { skill: HEAVY_WEAPONS, amount: 8000 }
       permanent-buffs: {}
@@ -431,7 +431,7 @@ achievements:
       special: []
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_3", amount: 1 }
+        - { id: "custom:gacha_ticket_3", amount: 1 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -513,7 +513,7 @@ achievements:
         - particle_dragon_aura
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_5", amount: 1 }
+        - { id: "custom:gacha_ticket_5", amount: 1 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -540,7 +540,7 @@ achievements:
         - seed_void
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_5", amount: 3 }
+        - { id: "custom:gacha_ticket_5", amount: 3 }
       job-exp: []
       permanent-buffs:
         percent-bonus-damage: 5.0
@@ -642,7 +642,7 @@ achievements:
         - title_sourcewright
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_4", amount: 2 }
+        - { id: "custom:gacha_ticket_4", amount: 2 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -663,7 +663,7 @@ achievements:
         - particle_snow_ring
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_5", amount: 1 }
+        - { id: "custom:gacha_ticket_5", amount: 1 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -685,7 +685,7 @@ achievements:
         - particle_spark_ring
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_5", amount: 3 }
+        - { id: "custom:gacha_ticket_5", amount: 3 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -851,7 +851,7 @@ achievements:
         - particle_petal_ring
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_4", amount: 2 }
+        - { id: "custom:gacha_ticket_4", amount: 2 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -893,7 +893,7 @@ achievements:
         - seed_bloom
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_4", amount: 1 }
+        - { id: "custom:gacha_ticket_4", amount: 1 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -916,7 +916,7 @@ achievements:
         - particle_ember_aura
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_5", amount: 1 }
+        - { id: "custom:gacha_ticket_5", amount: 1 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -940,7 +940,7 @@ achievements:
         - particle_dragon_aura
       commands: []
       items:
-        - { id: "custom:tf_gacha_ticket_5", amount: 5 }
+        - { id: "custom:gacha_ticket_5", amount: 5 }
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0

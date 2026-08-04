@@ -116,8 +116,8 @@ nodes:
       - ミートコアを解放(A-4解放済みの場合)
     dedicated-effects:
       - id: glyph:harvest
-      - id: recipe:tf_core_vegetable
-      - id: recipe:tf_core_meat
+      - id: recipe:core_vegetable
+      - id: recipe:core_meat
   A-1:
     name: 鶏小屋の世話係
     level: 20

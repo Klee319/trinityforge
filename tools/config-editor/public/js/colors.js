@@ -212,7 +212,11 @@
     return colorTokenToHex(inner); // <green> 等の短縮色名
   }
 
-  // 開きタグ文字列 → { kind:"color", color } | { kind:"deco", decoKey } | null(非対応)。
+  // gradient タグの中身 ("gradient" / "gradient:c1:c2:..." / 末尾に phase 数値) → 生の引数配列。
+  // 引数は解釈しすぎず (色として解決できないものが混ざっていても) そのまま保持し、ロスレス往復を優先する。
+  const GRADIENT_TAG_RE = /^gradient(?::(.*))?$/i;
+
+  // 開きタグ文字列 → { kind:"color", color } | { kind:"deco", decoKey } | { kind:"gradient", args } | null(非対応)。
   function classifyOpenTag(openRaw) {
     const inner = openRaw.slice(1, -1).trim();
     if (inner === "") return null;
@@ -220,16 +224,20 @@
     if (Object.prototype.hasOwnProperty.call(MM_TAG_TO_DECO, low)) {
       return { kind: "deco", decoKey: MM_TAG_TO_DECO[low] };
     }
+    const gm = GRADIENT_TAG_RE.exec(inner);
+    if (gm) {
+      return { kind: "gradient", args: gm[1] == null ? [] : gm[1].split(":") };
+    }
     const color = parseOpenColorTag(openRaw);
     if (color !== null) return { kind: "color", color };
     return null;
   }
 
-  // 木構造 (ノード配列) の再帰下降パーサ。色タグ/装飾タグは任意の順序・深さで入れ子にできる。
-  // ノード: { kind:"text", text } | { kind:"color"|"deco", color?/decoKey?, openRaw, closeRaw, children }
+  // 木構造 (ノード配列) の再帰下降パーサ。色タグ/装飾タグ/gradientタグは任意の順序・深さで入れ子にできる。
+  // ノード: { kind:"text", text } | { kind:"color"|"deco"|"gradient", color?/decoKey?/gradientArgs?, openRaw, closeRaw, children }
   // 閉じタグは (名前照合せず) スタック最上位を1段閉じるものとして扱う。これにより <b></i> のような
   // 実際の記法ゆれも「原文どおりに」ロスレス往復できる (原文をそのまま echo するだけのため)。
-  // 未対応タグ (gradient 等) / 迷子の閉じタグ / 未終端のタグは全体を null で不可判定にする。
+  // 未対応タグ / 迷子の閉じタグ / 未終端のタグは全体を null で不可判定にする。
   function parseNodesMM(s, i, stack) {
     const nodes = [];
     while (i < s.length) {
@@ -242,12 +250,15 @@
         }
         const openRaw = s.slice(i, gt + 1);
         const info = classifyOpenTag(openRaw);
-        if (!info) return null; // gradient/未知タグ等は非対応
+        if (!info) return null; // 未知タグ等は非対応
         const child = parseNodesMM(s, gt + 1, stack.concat([info]));
         if (!child) return null;
+        const extra = info.kind === "color" ? { color: info.color }
+          : info.kind === "gradient" ? { gradientArgs: info.args }
+          : { decoKey: info.decoKey };
         const node = Object.assign(
           { kind: info.kind, openRaw, closeRaw: child.closeRaw, children: child.nodes },
-          info.kind === "color" ? { color: info.color } : { decoKey: info.decoKey }
+          extra
         );
         nodes.push(node);
         i = child.endIndex;
@@ -293,6 +304,10 @@
       const token = node.token || node.color;
       return { open: `<color:${token}>`, close: "</color>" };
     }
+    if (node.kind === "gradient") {
+      const args = node.gradientArgs || [];
+      return { open: args.length ? `<gradient:${args.join(":")}>` : "<gradient>", close: "</gradient>" };
+    }
     const tag = MM_DECO_TAG_BY_KEY[node.decoKey];
     return { open: `<${tag}>`, close: `</${tag}>` };
   }
@@ -318,23 +333,28 @@
     return out;
   }
 
-  // 木構造ノード配列 → { text, color, token, decos:[...] } の葉ラン配列へ平坦化 (表示/文字モデル用)。
-  // 祖先の色/装飾タグを合成して各葉に割り当てる。シリアライズには使わない (入れ子の開閉が失われるため)。
+  // 木構造ノード配列 → { text, color, token, decos:[...], gradient?:string[] } の葉ラン配列へ平坦化
+  // (表示/文字モデル用)。祖先の色/装飾/gradientタグを合成して各葉に割り当てる。
+  // gradient は色と違い「範囲全体で1色に決まらない」ため、生の引数配列 (rawArgs) をそのまま
+  // 葉に持たせる (実際の各文字色への展開は gradientEndpoints+gradientSpans で行う)。
+  // シリアライズには使わない (入れ子の開閉が失われるため)。
   function flattenMMNodes(nodes) {
     const runs = [];
-    (function walk(list, color, token, decos) {
+    (function walk(list, color, token, decos, gradient) {
       for (const node of list || []) {
         if (node.kind === "text") {
-          if (node.text) runs.push({ text: node.text, color, token, decos });
+          if (node.text) runs.push({ text: node.text, color, token, decos, gradient });
         } else if (node.kind === "color") {
           const tok = openRawToken(node.openRaw) || node.color;
-          walk(node.children, node.color, tok, decos);
+          walk(node.children, node.color, tok, decos, gradient);
         } else if (node.kind === "deco") {
           const nd = decos.indexOf(node.decoKey) >= 0 ? decos : decos.concat([node.decoKey]);
-          walk(node.children, color, token, nd);
+          walk(node.children, color, token, nd, gradient);
+        } else if (node.kind === "gradient") {
+          walk(node.children, color, token, decos, node.gradientArgs || []);
         }
       }
-    })(nodes, null, null, []);
+    })(nodes, null, null, [], null);
     return runs;
   }
 
@@ -346,8 +366,10 @@
     return inner;
   }
 
-  // 文字ごとに解決済みの (color, decos) を持つ「ラン」配列 → 保存用 MiniMessage ノード配列 (新規生成)。
-  // 固定順: 色タグを最外周、装飾タグは DECO_ORDER の順で内側へ重ねる。
+  // 文字ごとに解決済みの (color, decos) または (gradient, decos) を持つ「ラン」配列 →
+  // 保存用 MiniMessage ノード配列 (新規生成)。固定順: gradient/色タグを最外周、
+  // 装飾タグは DECO_ORDER の順で内側へ重ねる。r.gradient (生の引数配列) があれば
+  // r.color は無視して <gradient:...> ノードとして復元する (gradient 優先)。
   function buildMMNodes(runs) {
     return (runs || []).map((r) => {
       let node = { kind: "text", text: r.text == null ? "" : r.text };
@@ -357,7 +379,9 @@
           node = { kind: "deco", decoKey: key, openRaw: null, closeRaw: null, children: [node] };
         }
       }
-      if (r.color) {
+      if (r.gradient) {
+        node = { kind: "gradient", gradientArgs: r.gradient, openRaw: null, closeRaw: null, children: [node] };
+      } else if (r.color) {
         node = { kind: "color", color: r.color, token: r.token || r.color, openRaw: null, closeRaw: null, children: [node] };
       }
       return node;
@@ -381,6 +405,16 @@
         hex: rgbToHex(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t)
       };
     });
+  }
+
+  // gradient タグの生引数配列 (色トークン以外の phase 数値等が混ざっていてもよい) → 表示用の
+  // 開始/終了hex。色として解決できるトークンが1つも無ければ null (呼び出し側でフォールバック)。
+  // 中間ストップは (プレビュー同様) 表示上は無視し、両端だけを線形補間に使う
+  // (個々のストップ編集は非対応。GUI/プレビューで共通のこの関数だけを使う)。
+  function gradientEndpoints(rawArgs) {
+    const hexes = (rawArgs || []).map((a) => colorTokenToHex(a)).filter((v) => v);
+    if (hexes.length === 0) return null;
+    return { from: hexes[0], to: hexes[hexes.length - 1] };
   }
 
   // 単色フィールドの値を判定する。&d / #hex / 色名 / gradient:... を分類。
@@ -453,6 +487,8 @@
     if (!p.ok) return null;
     const runs = flattenMMNodes(p.segments);
     for (const r of runs) {
+      // gradient は legacy(&コード) に相当する記法が無いため変換不可 (色を黙って落とさない)。
+      if (r.gradient) return null;
       if (r.color && !CODE_BY_HEX[String(r.color).toUpperCase()]) return null;
     }
     return serializeLegacy(buildLegacySegs(runs));
@@ -473,6 +509,7 @@
     parseMiniMessage,
     serializeMiniMessage,
     gradientSpans,
+    gradientEndpoints,
     normalizeColorToken,
     serializeColorToken,
     // 文字装飾 (テスト/デバッグ用に公開。UIからは richTextInput 経由で使う)
@@ -756,30 +793,57 @@
       const wrap = h("span", { class: "rich-input" });
       const box = h("div", { class: "rich-box", contenteditable: "true", spellcheck: "false" });
 
+      // gradient を持つラン (r.gradient = 生の引数配列) は、各文字ごとに補間色を割り当てて展開する。
+      // 「どの文字がどの gradient に属するか」は gradients[] (引数配列そのもの、無所属は null) で
+      // 別トラックとして持ち、色配列 (colors[]) は表示専用の補間結果として扱う (直接編集された色とは区別する)。
       function runsToChars(runs) {
-        const chars = [], colors = [], tokens = [], decos = [];
+        const chars = [], colors = [], tokens = [], decos = [], gradients = [];
         for (const r of runs) {
           const txt = r.text == null ? "" : r.text;
+          if (r.gradient) {
+            const ep = gradientEndpoints(r.gradient);
+            const spans = ep ? gradientSpans(txt, ep.from, ep.to) : null;
+            for (let k = 0; k < txt.length; k++) {
+              chars.push(txt[k]);
+              colors.push(spans ? spans[k].hex : null);
+              tokens.push(null);
+              decos.push(r.decos || []);
+              gradients.push(r.gradient);
+            }
+            continue;
+          }
           for (let k = 0; k < txt.length; k++) {
             chars.push(txt[k]);
             colors.push(r.color || null);
             tokens.push(r.color ? (r.token || r.color) : null);
             decos.push(r.decos || []);
+            gradients.push(null);
           }
         }
-        return { text: chars.join(""), colors, tokens, decos };
+        return { text: chars.join(""), colors, tokens, decos, gradients };
       }
 
-      function render(text, colors, tokens, decos) {
+      // gradients[i] が同じ (JSON文字列として一致する) 連続文字は同じ gradient 所属とみなす。
+      function gradKeyAt(gradients, idx) {
+        return gradients && gradients[idx] ? JSON.stringify(gradients[idx]) : null;
+      }
+
+      function render(text, colors, tokens, decos, gradients) {
         box.innerHTML = "";
         let i = 0;
         while (i < text.length) {
           const col = colors[i];
           const dstr = decoStr(decos[i]);
+          const gradKey = gradKeyAt(gradients, i);
           let j = i;
-          while (j < text.length && colors[j] === col && decoStr(decos[j]) === dstr) j++;
+          while (
+            j < text.length &&
+            gradKeyAt(gradients, j) === gradKey &&
+            colors[j] === col &&
+            decoStr(decos[j]) === dstr
+          ) j++;
           const chunk = text.slice(i, j);
-          if (col || dstr) {
+          if (col || dstr || gradKey) {
             const styleParts = [];
             if (col) styleParts.push(`color:${col}`);
             const decoStyle = buildPreviewDecoStyle(dstr);
@@ -793,6 +857,10 @@
               span.dataset.deco = dstr;
               if (dstr.indexOf("obfuscated") >= 0) { span.classList.add("mc-deco-obf"); span.title = "難読化 (プレビュー簡易表示)"; }
             }
+            if (gradKey) {
+              span.dataset.gradient = gradKey;
+              span.title = span.title ? span.title : "グラデーション (個別ストップの編集は簡易モードで)";
+            }
             span.textContent = chunk;
             box.appendChild(span);
           } else {
@@ -804,7 +872,7 @@
       }
 
       function readChars() {
-        const chars = [], colors = [], tokens = [], decos = [];
+        const chars = [], colors = [], tokens = [], decos = [], gradients = [];
         box.childNodes.forEach((node) => {
           const t = node.textContent || "";
           const isEl = node.nodeType === 1;
@@ -812,21 +880,34 @@
           const tok = isEl ? (node.dataset.token || null) : null;
           const dstr = isEl ? (node.dataset.deco || "") : "";
           const darr = dstr ? dstr.split(",") : [];
-          for (let k = 0; k < t.length; k++) { chars.push(t[k]); colors.push(col); tokens.push(col ? tok : null); decos.push(darr); }
+          let grad = null;
+          if (isEl && node.dataset.gradient) {
+            try { grad = JSON.parse(node.dataset.gradient); } catch (_) { grad = null; }
+          }
+          for (let k = 0; k < t.length; k++) { chars.push(t[k]); colors.push(col); tokens.push(col ? tok : null); decos.push(darr); gradients.push(grad); }
         });
-        return { text: chars.join(""), colors, tokens, decos };
+        return { text: chars.join(""), colors, tokens, decos, gradients };
       }
 
+      // gradient 所属の文字は色(補間結果)ではなく所属そのものでグルーピングし、
+      // <gradient:元の引数> ...text... </gradient> として復元する (per-char の色タグへ分解しない)。
       function serialize() {
-        const { text, colors, tokens, decos } = readChars();
+        const { text, colors, tokens, decos, gradients } = readChars();
         const runs = [];
         let i = 0;
         while (i < text.length) {
-          const col = colors[i];
-          const dstr = decoStr(decos[i]);
+          const gradKey = gradKeyAt(gradients, i);
+          const dstr0 = decoStr(decos[i]);
           let j = i;
-          while (j < text.length && colors[j] === col && decoStr(decos[j]) === dstr) j++;
-          runs.push({ text: text.slice(i, j), color: col, token: tokens[i] || col, decos: dstr ? dstr.split(",") : [] });
+          if (gradKey) {
+            while (j < text.length && gradKeyAt(gradients, j) === gradKey && decoStr(decos[j]) === dstr0) j++;
+            runs.push({ text: text.slice(i, j), gradient: gradients[i], decos: dstr0 ? dstr0.split(",") : [] });
+            i = j;
+            continue;
+          }
+          const col = colors[i];
+          while (j < text.length && !gradKeyAt(gradients, j) && colors[j] === col && decoStr(decos[j]) === dstr0) j++;
+          runs.push({ text: text.slice(i, j), color: col, token: tokens[i] || col, decos: dstr0 ? dstr0.split(",") : [] });
           i = j;
         }
         return mode === "minimessage" ? serializeMiniMessage(buildMMNodes(runs)) : serializeLegacy(buildLegacySegs(runs));
@@ -880,12 +961,15 @@
       function applyColor(colHex, token) {
         const rangeSel = getSelectionRange();
         if (!rangeSel || rangeSel.start === rangeSel.end) return;
-        const { text, colors, tokens, decos } = readChars();
+        const { text, colors, tokens, decos, gradients } = readChars();
         for (let k = rangeSel.start; k < rangeSel.end && k < colors.length; k++) {
           colors[k] = colHex || null;
           tokens[k] = colHex ? (token || null) : null;
+          // 選択範囲へ明示的に色を適用/クリアする操作は、その範囲を gradient 所属から外す
+          // (gradient は「範囲全体の自動彩色」なので、部分的な手動着色と両立しない)。
+          gradients[k] = null;
         }
-        render(text, colors, tokens, decos);
+        render(text, colors, tokens, decos, gradients);
         restoreSelection(rangeSel.start, rangeSel.end);
         emit();
       }
@@ -893,7 +977,7 @@
       function applyDecoration(decoKey) {
         const rangeSel = getSelectionRange();
         if (!rangeSel || rangeSel.start === rangeSel.end) return;
-        const { text, colors, tokens, decos } = readChars();
+        const { text, colors, tokens, decos, gradients } = readChars();
         let allOn = true;
         for (let k = rangeSel.start; k < rangeSel.end && k < decos.length; k++) {
           if (!decos[k] || decos[k].indexOf(decoKey) < 0) { allOn = false; break; }
@@ -902,8 +986,24 @@
           const cur = decos[k] || [];
           decos[k] = allOn ? cur.filter((d) => d !== decoKey) : (cur.indexOf(decoKey) >= 0 ? cur : cur.concat([decoKey]));
         }
-        render(text, colors, tokens, decos);
+        render(text, colors, tokens, decos, gradients);
         restoreSelection(rangeSel.start, rangeSel.end);
+        emit();
+      }
+
+      // この編集ボックス内に gradient 所属の文字が1つでもあるか。
+      function hasAnyGradient() {
+        return readChars().gradients.some((g) => !!g);
+      }
+
+      // gradient を丸ごと解除して単色/無色のプレーンテキストへ戻す (選択不要・全文対象)。
+      // 個々の色ストップの編集は非対応 (YAGNI) だが、解除だけは唯一必須の操作として提供する。
+      function dissolveGradient() {
+        const { text, colors, tokens, decos, gradients } = readChars();
+        const newColors = colors.map((c, idx) => (gradients[idx] ? null : c));
+        const newTokens = tokens.map((t, idx) => (gradients[idx] ? null : t));
+        const newGradients = gradients.map(() => null);
+        render(text, newColors, newTokens, decos, newGradients);
         emit();
       }
 
@@ -944,6 +1044,13 @@
           panel.appendChild(h("div", { class: "color-hex-row" }, [h("span", { class: "mini-label", text: "任意色" }), native]));
         }
         panel.appendChild(h("button", { type: "button", class: "btn-small", text: "色を消す", onclick: () => { if (savedSel) restoreSelection(savedSel.start, savedSel.end); applyColor(null, null); closeActivePopover(); } }));
+        if (mode === "minimessage" && hasAnyGradient()) {
+          panel.appendChild(h("button", {
+            type: "button", class: "btn-small", text: "グラデーション解除",
+            title: "この項目のグラデーションを解除して単色/無色のテキストに戻します (選択範囲は問いません)",
+            onclick: () => { dissolveGradient(); closeActivePopover(); }
+          }));
+        }
         panel.appendChild(decoSection(savedSel));
         openPopover(anchor, panel);
       }
@@ -969,7 +1076,7 @@
 
       const initRuns = mode === "minimessage" ? flattenMMNodes(parsed.segments) : parsed.segments;
       const init = runsToChars(initRuns);
-      render(init.text, init.colors, init.tokens, init.decos);
+      render(init.text, init.colors, init.tokens, init.decos, init.gradients);
 
       const colorBtn = h("button", { type: "button", class: "rich-color-btn", title: "選択範囲に色を付ける", text: "色" });
       colorBtn.addEventListener("mousedown", (e) => { e.preventDefault(); });
@@ -1020,36 +1127,39 @@
     const element = h("div", { class: "mc-tooltip" }, [nameEl, loreEl]);
 
     // value を nameMode/loreMode で着色スパン配列へ。既定色 defHex。
+    // gradient ラン (run.gradient = 生の引数配列) は richTextInput のGUI編集ボックスと同じ
+    // gradientEndpoints/gradientSpans を使って着色する (プレビューとGUIで別実装を持たせない)。
     function renderInto(container, value, mode, defHex) {
       container.innerHTML = "";
       const str = value == null ? "" : String(value);
-      // MiniMessage gradient のプレビュー (1文字着色)。
-      const gm = mode === "minimessage" && str.match(/^<gradient:([^>]+)>([\s\S]*)<\/gradient>$/);
-      if (gm) {
-        const stops = gm[1].split(":").map((s) => colorTokenToHex(s) || DEFAULT_NAME_HEX);
-        const from = stops[0], to = stops[stops.length - 1];
-        for (const sp of gradientSpans(gm[2], from, to)) {
-          container.appendChild(h("span", { style: `color:${sp.hex}`, text: sp.char }));
-        }
-        return;
-      }
       const parsed = mode === "minimessage" ? parseMiniMessageForPreview(str) : parseLegacy(str);
       if (parsed.ok) {
         const runs = mode === "minimessage" ? flattenMMNodes(parsed.segments) : parsed.segments;
         for (const run of runs) {
           if (run.text == null || run.text === "") continue;
           const dstr = decoStr(run.decos || []);
-          const styleParts = [`color:${run.color || defHex}`];
           const decoStyle = buildPreviewDecoStyle(dstr);
+          if (run.gradient) {
+            const ep = gradientEndpoints(run.gradient);
+            if (ep) {
+              for (const sp of gradientSpans(run.text, ep.from, ep.to)) {
+                const styleParts = [`color:${sp.hex}`];
+                if (decoStyle) styleParts.push(decoStyle);
+                container.appendChild(h("span", { style: styleParts.join(";"), text: sp.char }));
+              }
+              continue;
+            }
+          }
+          const styleParts = [`color:${run.color || defHex}`];
           if (decoStyle) styleParts.push(decoStyle);
           const span = h("span", { style: styleParts.join(";"), text: run.text });
           if (dstr.indexOf("obfuscated") >= 0) { span.title = "難読化 (プレビュー簡易表示)"; span.classList.add("mc-deco-obf"); }
           container.appendChild(span);
         }
       } else {
-        // M-5: 装飾コード (太字/打消し等) やグラデーション/未対応タグを含む行は色のみ近似表示し、
+        // M-5: 装飾コード (太字/打消し等) や未対応タグを含む行は色のみ近似表示し、
         // 装飾自体は未表現である旨を title で注記する。
-        container.appendChild(h("span", { style: `color:${defHex}`, title: "太字/打消し等の装飾やグラデーションはプレビュー未表現です", text: str }));
+        container.appendChild(h("span", { style: `color:${defHex}`, title: "太字/打消し等の装飾はプレビュー未表現です", text: str }));
       }
     }
 

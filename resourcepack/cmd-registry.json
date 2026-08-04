@@ -4098,6 +4098,461 @@
       "id": "thread_excavation",
       "source": "catalog",
       "allocatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 17,
+      "id": "deepslate_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 18,
+      "id": "deepslate_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 19,
+      "id": "deepslate_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 20,
+      "id": "deepslate_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 21,
+      "id": "sand_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 34,
+      "id": "sand_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 35,
+      "id": "sand_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 36,
+      "id": "sand_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5431,
+      "id": "dirt_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "NETHERRACK",
+      "cmd": 1003,
+      "id": "netherrack_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "NETHERRACK",
+      "cmd": 1004,
+      "id": "netherrack_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "END_STONE",
+      "cmd": 1005,
+      "id": "end_stone_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "END_STONE",
+      "cmd": 1006,
+      "id": "end_stone_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "BIRCH_LOG",
+      "cmd": 37,
+      "id": "birch_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "BIRCH_LOG",
+      "cmd": 38,
+      "id": "birch_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "BIRCH_LOG",
+      "cmd": 39,
+      "id": "birch_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SPRUCE_LOG",
+      "cmd": 40,
+      "id": "spruce_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SPRUCE_LOG",
+      "cmd": 41,
+      "id": "spruce_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SPRUCE_LOG",
+      "cmd": 42,
+      "id": "spruce_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "JUNGLE_LOG",
+      "cmd": 43,
+      "id": "jungle_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "JUNGLE_LOG",
+      "cmd": 44,
+      "id": "jungle_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "JUNGLE_LOG",
+      "cmd": 45,
+      "id": "jungle_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "ACACIA_LOG",
+      "cmd": 46,
+      "id": "acacia_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "ACACIA_LOG",
+      "cmd": 47,
+      "id": "acacia_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "ACACIA_LOG",
+      "cmd": 48,
+      "id": "acacia_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "DARK_OAK_LOG",
+      "cmd": 59,
+      "id": "dark_oak_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "DARK_OAK_LOG",
+      "cmd": 60,
+      "id": "dark_oak_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "DARK_OAK_LOG",
+      "cmd": 61,
+      "id": "dark_oak_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MANGROVE_LOG",
+      "cmd": 69,
+      "id": "mangrove_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MANGROVE_LOG",
+      "cmd": 70,
+      "id": "mangrove_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MANGROVE_LOG",
+      "cmd": 71,
+      "id": "mangrove_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PALE_OAK_LOG",
+      "cmd": 72,
+      "id": "pale_oak_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PALE_OAK_LOG",
+      "cmd": 131,
+      "id": "pale_oak_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PALE_OAK_LOG",
+      "cmd": 132,
+      "id": "pale_oak_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CARROT",
+      "cmd": 184,
+      "id": "carrot_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CARROT",
+      "cmd": 186,
+      "id": "carrot_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CARROT",
+      "cmd": 187,
+      "id": "carrot_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "POTATO",
+      "cmd": 189,
+      "id": "potato_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "POTATO",
+      "cmd": 190,
+      "id": "potato_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "POTATO",
+      "cmd": 192,
+      "id": "potato_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEETROOT",
+      "cmd": 193,
+      "id": "beetroot_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEETROOT",
+      "cmd": 195,
+      "id": "beetroot_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEETROOT",
+      "cmd": 196,
+      "id": "beetroot_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEEF",
+      "cmd": 197,
+      "id": "beef_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEEF",
+      "cmd": 198,
+      "id": "beef_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEEF",
+      "cmd": 199,
+      "id": "beef_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PORKCHOP",
+      "cmd": 200,
+      "id": "porkchop_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PORKCHOP",
+      "cmd": 201,
+      "id": "porkchop_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PORKCHOP",
+      "cmd": 202,
+      "id": "porkchop_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CHICKEN",
+      "cmd": 203,
+      "id": "chicken_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CHICKEN",
+      "cmd": 204,
+      "id": "chicken_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CHICKEN",
+      "cmd": 205,
+      "id": "chicken_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MUTTON",
+      "cmd": 206,
+      "id": "mutton_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MUTTON",
+      "cmd": 207,
+      "id": "mutton_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MUTTON",
+      "cmd": 208,
+      "id": "mutton_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "RABBIT",
+      "cmd": 209,
+      "id": "rabbit_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "RABBIT",
+      "cmd": 210,
+      "id": "rabbit_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "RABBIT",
+      "cmd": 211,
+      "id": "rabbit_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "COD",
+      "cmd": 212,
+      "id": "cod_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "COD",
+      "cmd": 213,
+      "id": "cod_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "COD",
+      "cmd": 214,
+      "id": "cod_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "SALMON",
+      "cmd": 215,
+      "id": "salmon_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "SALMON",
+      "cmd": 216,
+      "id": "salmon_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "SALMON",
+      "cmd": 217,
+      "id": "salmon_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.896Z"
+    },
+    {
+      "material": "PAPER",
+      "cmd": 5016,
+      "id": "gacha_ticket_0",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.896Z"
     }
   ]
 }

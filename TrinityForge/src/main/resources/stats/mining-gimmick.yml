@@ -76,21 +76,21 @@ drop-tables:
       display-name: ガチャ券(初級)
       trigger-chance-percent: 3
       entries:
-        - item: tf_gacha_ticket_1
+        - item: gacha_ticket_1
           weight: 1
           amount: 1
     gacha_tier2:
       display-name: ガチャ券(中級)
       trigger-chance-percent: 2
       entries:
-        - item: tf_gacha_ticket_2
+        - item: gacha_ticket_2
           weight: 1
           amount: 1
     gacha_tier3:
       display-name: ガチャ券(上級)
       trigger-chance-percent: 1
       entries:
-        - item: tf_gacha_ticket_3
+        - item: gacha_ticket_3
           weight: 1
           amount: 1
     ancient_debris:

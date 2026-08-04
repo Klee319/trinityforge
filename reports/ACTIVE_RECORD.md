@@ -5461,3 +5461,122 @@ TF の `AddonCombatStats`(PDC) → `PlayerCombatAggregate.addon` へ入り、**`
   `_editor` カテゴリ入れ替え**が乗っている。今回の commit には**自分の33行追加だけ**を
   （HEAD の blob へ差し込んだものを index へ直接書いて）入れてある。**この削除は未コミットのまま残っている**ので、
   持ち主のセッションが処理すること。
+
+## 2026-08-04 — 圧縮ブロック追加とカタログID改名の後始末・editor不具合2件
+
+実機報告バッチ3（ユーザー指示: 圧縮ブロックの追加／改名で壊れたレシピの修正／editor 2件）。
+
+### 1. 圧縮シリーズ 64 件を追加（+ 欠番のガチャ券 1 件）
+
+**圧縮アイテムは TF の `items/catalog.yml` ではなく ArsPaper の `materials.yml` に住んでいる。**
+`<素材id>_<段数>x`（`_1x`=9倍 / `_2x`=81倍 / `_3x`=729倍 / `_4x`=6561倍）で、
+`recipe.reversible: true` を付けると解凍レシピは `RecipeManager#registerReverseIfNeeded` が自動生成する
+（**解凍レシピを手書きしてはいけない**）。
+
+| 要求 | 追加したもの |
+|---|---|
+| 6561倍まで | `deepslate_1x〜4x` / `sand_1x〜4x`（新規4段）、`dirt_4x`、`netherrack_3x/4x`、`end_stone_3x/4x` |
+| 729倍まで（原木） | `birch_wood` / `spruce_wood` / `jungle_wood` / `acacia_wood` / `dark_oak_wood` / `mangrove_wood` / `pale_oak_wood` の各 `_1x〜3x`（7種×3段=21件） |
+| 729倍まで（食料） | `carrot` / `potato` / `beetroot` / `beef` / `porkchop` / `chicken` / `mutton` / `rabbit` / `cod` / `salmon` の各 `_1x〜3x`（10種×3段=30件） |
+
+- **オークは既に729倍まで存在した**ので追加していない。土は729倍まで、ネザーラック／エンドストーンは
+  81倍までで止まっていた（要求の「6561倍まで」に届いていなかったのはこの3種）。
+- CMD は手で決めず `tools/config-editor/lib/cmd-registry.js#allocateBulk` を Node から1回呼んで払い出した。
+  `nextCmd` は「その material の使用済み最大値+1 から、全 material の使用値を避けて探す」ので
+  **未使用 material では 17, 18, … のような小さい番号が付く**（仕様どおり・衝突なし）。
+- **リソースパックのモデル／テクスチャは作っていない。** 既存の圧縮シリーズも台帳に
+  `assetName` / `customModel` を持たず、CMD は「同一 Material 内でアイテムを識別する番号」としてしか
+  使われていない（見た目はバニラのまま）。
+- editor では `_editor.categories.material` の `圧縮ブロック` / `食料` / ガチャ券カテゴリと
+  `_editor.orders.material` に登録済み。
+
+### 2. カタログID改名で壊れていた参照 152 箇所を修復（16 ファイル）
+
+| 旧ID（解決不能だった） | 新ID | 件数 |
+|---|---|---|
+| `tf_core_wood` / `_meat` / `_vegetable` / `_jewelry` | `core_wood` / `core_meat` / `core_vegetable` / `core_jewelry` | 47 |
+| `tf_core_dirt` | **`core_ground`**（グランドコア。`core_dirt` は存在しない） | 4 |
+| `tf_gacha_ticket_1`〜`_5` | `gacha_ticket_1`〜`_5` | 84 |
+| `tf_gacha_ticket`（無印） | **`gacha_ticket_0`**（新規追加。下記） | 17 |
+
+- `CrossPluginItemResolver` は完全一致でしか解決せず、**解決失敗は例外にならず無言で落ちる**。
+  そのため「レシピが作れない」だけでなく **村人取引1件・ボスドロップ18箇所・アチーブメント報酬26箇所・
+  ガチャの天井景品4プール・入手時スキルEXP表5件**が全部黙って死んでいた。
+- `gacha.yml` は券を **6 種**定義していた（`standard` + `tier1〜tier5`）のに ArsPaper 側は
+  `gacha_ticket_1〜5` の **5 種**しかなく、`standard` プール用の券が**構造的に欠番**だった。
+  `gacha_ticket_0`（`&8ガチャ券【入門】` / PAPER）を新設して6プールすべてに券を対応させた。
+- **既存テストが見逃していた理由**: `ShippedVillagerTradeItemResolvabilityTest` の
+  `ARS_PROVIDED` 許可リストに、実在しない `tf_core_jewelry` を「Ars にある」と書いてしまっていた。
+  許可リスト方式は**リスト自体が誤ると検査ごと無効化される**。
+- 再発防止に `ShippedLegacyCatalogIdDriftTest` を追加（出荷 yml 全 77 件を走査し旧IDの残存を行番号付きで報告）。
+  **1箇所だけ旧IDへ戻すと実際に赤くなることを確認**してから戻した。
+- 副産物: `p5-forms.js` の「+ 券追加」が新規キー既定値を `uniqueKey(working.tickets, "tf_gacha_ticket")` で
+  作っていた。改名後は**ボタンを押した瞬間に死にIDが復活する**ので `"gacha_ticket"` へ修正。
+- `resourcepack/cmd-registry.json` の `assetName` に残る旧ID名は**実ディスクのモデルファイル名**で、
+  `reconcileWithUsage` が意図的に維持する別名前空間。**直してはいけない。**
+
+### 3. editor: カテゴリ選択の内部ID薄字表示
+
+判定を「id の見た目」から**ラベルの一意性**へ移した（`editor-categories.js#computeCategorySecondaries`）。
+旧実装は `^cat_(\d+(_\d+)?|auto_.*)$` に一致する id だけ薄字を抑止していたため、
+セッションが yml へ直書きした `cat_20260724_source_gem` のような説明的 id が薄字で出続けていた。
+**label が非空かつ一意なら薄字なし／label が空か重複しているときだけ id を出す。**
+
+`catalog-category-host.test.js` にあった「旧正規表現がソースに存在すること」を固定するガードテストは、
+同じ不変条件を**挙動で**固定する形に書き換えた（実装文字列を固定すると別実装で同じ不変条件を満たせない）。
+
+### 4. editor: `<gradient:>` で GUI ボタンが無効化される
+
+`colors.js` のツリーパーサが `<gradient:...>` を未知タグ扱いして `ok:false` を返し、
+`richTextInput#remount()` が GUI トグルを `disabled` にしていた。
+一方プレビューだけは gradient を専用 regex で特別扱いしていたため、**プレビューには色が出るのに
+GUI 編集だけできない**という非対称になっていた（`binder_*` 系 18 件の `display-name` が該当）。
+
+- gradient ノード種別を追加（`gradientArgs` は生文字列のまま保持し、色として解決できない引数があっても
+  `ok:false` にしない）。`serializeMiniMessage` は `openRaw` の有無だけで分岐する汎用実装だったため
+  **無改修でロスレス往復した**。
+- プレビューの専用 regex を撤去し、GUI と同じ経路（`flattenMMNodes`+`gradientEndpoints`）へ統一。
+  結果、部分文字列を包む gradient も着色できるようになった。
+- 実データ18件すべての `serialize(parse(v)) === v` を往復テストで固定。gradient 解除ボタンを追加。
+
+### テスト実走結果（2026-08-04、全変更統合後）
+
+| 対象 | 結果 |
+|---|---|
+| TrinityForge | **3702 tests / 1 failed / 2 skipped**。失敗は `ShippedAchievementTreeTest.collectionCategoryThresholdIsReachable`（`collect_arsenal` 閾値26 > 候補22）で、**他セッションの `progression/collection.yml` 未コミット変更（+6/−72）由来**。スキップ2は正常値 |
+| ArsPaper fork | **324 tests / 1 failed**。失敗は `ThreadRitualRecipeConfigTest`（`items.yml` の `max-slots` を 2→1 に変えた他セッションの未コミット変更由来）。`ShippedRecipeDisplayNameTest` 3/0、`RecipeManagerReversibleTest` 15/0 |
+| config-editor | **1078 tests / 12 failed**。12件すべて他セッションの yml 数値編集由来（`mining-gimmick` の段階1/2/3 vs 1/3/5、防具 Lv.25 vs 30 等）。着手時の14件から2件減（私が解消） |
+
+独立検証（`tmp/verify-batch3.js`、サブエージェントの報告を使わず実ファイルから取り直したもの）:
+圧縮シリーズ74件（既存10＋新規64）の段の連鎖・CMD重複・台帳登録、
+`gacha.yml` の券6種と6プールが全部解決すること・孤立プールが無いこと、
+出荷 yml に旧IDが残っていないこと → **問題0件**。
+
+### 配備（ユーザー実行）
+
+- **⚠️ ArsPaper の `materials.yml` は自動では更新されない。** `MaterialConfigManager#load` は
+  `if (!file.exists()) saveResource("materials.yml", false)` だけで、**独自マージ機構が無い**。
+  稼働中サーバに `plugins/ArsPaper/materials.yml` が既に在る限り、jar を入れ替えても
+  `/ars reload` しても**今回の65件は絶対に反映されない**。運用者が
+  サーバ側 `materials.yml` を新しい出荷版で置き換える（または追加分を手で追記する）必要がある。
+  TF 本体の `TrinityForgeConfigMigration.appendMissingKeys` に相当する仕組みは Ars 側に無い。
+- TF resources 側（`gacha.yml` / `mob-overrides.yml` 等の ID 改名）は通常の config 配備で反映される。
+- jar は未ビルド。配備前にサーバ停止 →（TF / ArsPaper を）ビルド → 配備の順で。
+
+### 残課題
+
+- ~~**3チケットの CMD が未割り当て**~~ → **別セッションが割当済み**
+  （`role_reselect_ticket`=NAME_TAG#10 / `stat_reroll_ticket`=RABBIT_FOOT#16 /
+  `quality_upgrade_ticket`=HEART_OF_THE_SEA#5446）。ただし**その割当は未コミット**なので、
+  `functional-items-catalog-integration.test.js` の該当テストは
+  「CMD があるなら台帳に登録済みであること」という**割当済み・未割当のどちらでも成立する不変条件**へ書き換えた
+  （HEAD と作業ツリーの両方で緑になる形）。`CatalogVanillaOperationPolicyConfigTest` の
+  `PENDING_CMD_ASSIGNMENT` は割当をコミットする人が外すこと。
+- 原木の解凍レシピ（`reversible`）は**バニラの「原木1個→板材4個」と入力が競合しうる**
+  （どちらも grid に圧縮原木1個を置いた状態にマッチする）。既存の `oak_wood_*` も同じ状態なので
+  今回は現状踏襲。実機で「圧縮原木を置くと板材になる」なら、逆レシピの登録順かレシピ形状の見直しが要る。
+- 中間ストップを持つ gradient は GUI・プレビューとも**両端だけ**を補間に使う（旧実装の踏襲）。
+- 他セッションの未コミット変更が同一ファイルに同居していたため、`items/catalog.yml` /
+  `progression/achievements.yml` / `stats/skill-exp.yml` / `economy/villager-trades.yml` /
+  `resourcepack/cmd-registry.json` は**HEAD から自分の変更だけを再生成して index へ直接書いた**
+  （手順は `docs/agent-context/ops-build-deploy.md`）。他セッターの差分は未コミットのまま残っている。

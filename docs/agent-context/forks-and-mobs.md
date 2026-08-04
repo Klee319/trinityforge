@@ -916,6 +916,62 @@ MELEE_CAUSES(ENTITY_ATTACK/ENTITY_SWEEP_ATTACK)とPROJECTILEしか認識せず�
    実行時分岐（player有無での経路切替等）を検証したいがオブジェクトを組み立てられないときの
    最終手段として使う。
 
+### ⚠️ `ThreadSetThresholdReachabilityTest` は `../../../TrinityForge/...` という相対パスで TF 本体の
+### `item-stats.yml` を読む ── robocopy スクラッチ検証は「フォークからの階層の深さ」を再現しないと
+### この1テストだけが偽陽性で落ちる
+
+`ThreadSetThresholdReachabilityTest#mainStatMinimums`（`src/test/java/com/arspaper/item/`）は
+`Path.of("../../../TrinityForge/src/main/resources/stats/item-stats.yml")` を直接読む。この
+`../../../`（3階層上）は「フォークの作業ディレクトリが `<repoルート>/fork-handoff/arspaper/fork`
+（=リポジトリルートからちょうど3階層下）にある」ことを前提にしている。本ファイル前段で説明した
+「複数セッション共有WIPから自分の差分だけを検証する」robocopyスクラッチ手法
+（`robocopy <fork> <scratch> /E /XD .git build .gradle tmp`）で、スクラッチ先を
+`tmp/ars-verify-scratch`（=リポジトリルートから2階層）のような**別の深さ**に置くと、
+この1テストだけが「TrinityForge 本体の item-stats.yml が見つからない」で**本当は無関係な理由で**
+失敗する（2026-08-04、圧縮素材64件追加の検証中に発見。before/after比較で「追加前のほうが
+失敗が1件多い」という一見おかしな結果が出て、原因を辿ったらこれだった）。
+
+- **How**: スクラッチ先は必ずリポジトリルートから**ちょうど3階層**（例:
+  `tmp/<a>/<b>/scratch` のように3セグメント）に置く。2階層・4階層はどちらもこの相対パスを壊す。
+- この罠は「自分の変更が原因で新規に失敗が増えた」という誤診断を招く（本セクション上部の
+  robocopy手法自体は正しいので、深さだけを合わせれば before/after は正しく一致する。実際に
+  深さを合わせたら before=after=324 tests/1 failed/0 skippedで一致した）。
+- 同様の `../../../TrinityForge` 相対パス参照が将来増える可能性があるため、フォークのテストで
+  新しい相対パス参照を追加しないこと（絶対パス解決 or `System.getProperty("user.dir")` 起点にする）が
+  望ましいが、既存のこのテストはこの1本のみ（2026-08-04時点、`grep -rl '\.\./\.\./\.\./TrinityForge'
+  src/test/java` で確認）。
+
+### ⚠️⚠️ `gacha.yml`（TF側）の `tickets:` キーは ArsPaper `materials.yml` の実アイテムidと完全一致でなければならない ── 一致していないと券6種が全部無言で解決不能になる（2026-08-04 に発生・修正済み）
+
+`GachaConfig#ticket(catalogId)`（TF側 `com.trinityforge.config.domains.GachaConfig`）は
+`tickets:` セクションの**キー文字列をそのまま** `CrossPluginItemResolver.idOf(heldStack)`
+（TF `ITEM_CATALOG_ID` → 無ければ Ars `arspaper:custom_item_id` の順で読む、`GachaListener.java:129`）
+の返り値と完全一致で突き合わせる。プレフィックスの付け外し・別名解決は一切行わない。
+
+2026-08-04 に実際に壊れていた。`gacha.yml` の `tickets:` が
+`tf_gacha_ticket` / `tf_gacha_ticket_1`〜`_5` という**`tf_` 接頭辞つき**のキーなのに、
+物理アイテムを定義する `fork-handoff/arspaper/fork/src/main/resources/materials.yml` 側の実際の
+id は `gacha_ticket_1`〜`gacha_ticket_5`（**`tf_` 接頭辞なし**、`BaseCustomItem#createItemStack` が
+`itemId` を PDC へそのまま刻む＝yml のキーそのものが実IDになる）。かつ `items/catalog.yml`
+（TF側）には `gacha_ticket` を含む id が1件も無かった。
+つまり `tf_gacha_ticket*` という catalogId を持つ物理アイテムはどこにも存在せず、
+**券6種が1つも `ticket()` の検索にヒットしない**状態だった（`idOf()` は必ず `gacha_ticket_N` を返すため）。
+
+- 症状は「解決失敗は券を消費しない」フェイルセーフ（本ファイル上部の「アイテムID解決」節、
+  および `common-traps.md` 参照）に乗るため、**エラーは一切出ず「ガチャ券を右クリックしても
+  何も起きず、券も減らない」という無言の機能不全**になる。
+  つまり**この種の不一致はログにも例外にも出ない。yml を突き合わせない限り気づけない。**
+- 修正内容（2026-08-04 完了）:
+  - `materials.yml` に `gacha_ticket_0`（`standard` プール用。券は6種あるのに Ars 側が5種しか
+    無く、6種目が構造的に欠番だった）を追加。
+  - `gacha.yml` の `tickets:` キーを `gacha_ticket_0`〜`gacha_ticket_5` へ改名。
+    同時に TF resources 全体の `tf_core_*` → `core_*` / `core_ground`、
+    `tf_gacha_ticket*` → `gacha_ticket*` も直した（計152箇所・16ファイル）。
+  - 再発防止に `ShippedLegacyCatalogIdDriftTest`（出荷 yml に旧 id が残っていないことを検査）を追加。
+- **同種の不一致を今後作らないための要点**: `tickets:` のキーと `entries[].item` は
+  「Ars materials.yml のキー」か「TF catalog.yml のキー」のどちらかと**文字単位で一致**していること。
+  `custom:` 接頭辞は付けない（`gacha.yml` は無接頭辞規約。付けると3経路すべてを外す）。
+
 ## モブ系（TF ↔ EliteMobs 全般）
 
 - TF側のモブconfigはモブ**id**キーで、EntityTypeは実行時無視される: `combat/mob-defaults.yml`

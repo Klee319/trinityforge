@@ -11,7 +11,7 @@ professions:
         max-uses: 12
         villager-xp: 5
       - input: { material: DIAMOND, amount: 2 }
-        output: { catalog: tf_core_jewelry, amount: 1 }
+        output: { catalog: core_jewelry, amount: 1 }
         max-uses: 4
         villager-xp: 10
   ARMORER:

@@ -85,10 +85,10 @@ fishing:
         gacha:
           display-name: 釣りガチャ券
           entries:
-            - item: tf_gacha_ticket_4
+            - item: gacha_ticket_4
               weight: 3
               amount: 1
-            - item: tf_gacha_ticket_5
+            - item: gacha_ticket_5
               weight: 1
               amount: 1
         # 2026-08-01 追加: ダンジョンの鍵(釣り枠2種)。宝グループ(treasure-percent: 5)の中の抽選。

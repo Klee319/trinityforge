@@ -96,7 +96,7 @@ smithing:
     custom:heavy_metal: 40
     custom:elder_guardian_spike: 40
     custom:wither_skull_fragment: 40
-    custom:tf_core_jewelry: 60
+    custom:core_jewelry: 60
     custom:dragon_scale: 80
     custom:warden_tendril: 90
     custom:source_gem_block: 180
@@ -157,10 +157,10 @@ smithing:
     OAK_LOG: 4
     COOKED_BEEF: 4
     DIRT: 0.5
-    custom:tf_core_wood: 60
-    custom:tf_core_meat: 60
-    custom:tf_core_vegetable: 60
-    custom:tf_core_dirt: 60
+    custom:core_wood: 60
+    custom:core_meat: 60
+    custom:core_vegetable: 60
+    custom:core_ground: 60
     custom:stone_5x: 7.5
     custom:wither_rose_2x: 20
     custom:breeze_rod_3x: 60

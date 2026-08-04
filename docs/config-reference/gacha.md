@@ -6,7 +6,7 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 ## 本文コメント一覧(元のyml内での出現順)
 
-### `tf_gacha_ticket:`
+### `gacha_ticket_0:`
 
 券アイテムのitemCatalog ID
 
@@ -14,10 +14,11 @@ config-editor で保存すると本文コメントは復元されないため([t
 
 参照する景品プールID
 
-### 直後: `tf_gacha_ticket_1:`
+### 直後: `gacha_ticket_1:`
 
 ```
---- 要件⑥: ガチャ券 tier1〜5 (items/catalog.yml の tf_gacha_ticket_1..5)。
+--- 要件⑥: ガチャ券 tier1〜5 (ArsPaper materials.yml の gacha_ticket_1..5。
+    2026-08-04 訂正: 券の実体は items/catalog.yml ではなく ArsPaper 側にある)。
     tier1=切削等で入手しやすい/易しい、tier5=釣り等で希少。景品プールは下の pools.tier1..tier5 を参照。
     券ごとに専用プールが1つずつ存在すれば足りるため(GachaConfig/GachaListenerは
     catalogId -> ticket -> pool の1:1参照のみで動作する)、Java側の変更は不要。 ---
@@ -43,7 +44,7 @@ pools: 景品プールの定義。
 
 ### `threshold: 30`
 
-最高レア枠(tf_core_wood, weight2/17≈12%)の天井
+最高レア枠(core_wood, weight2/17≈12%)の天井
 
 ### `- item: "example_sword"`
 
@@ -53,7 +54,7 @@ itemCatalog ID の例 (品質ランダム付与)
 
 バニラMaterial名の例
 
-### `- item: "tf_core_wood"`
+### `- item: "core_wood"`
 
 TFコア(グリフ解放アイテム)も景品にできる
 
@@ -70,11 +71,11 @@ TFコア(グリフ解放アイテム)も景品にできる
 
 ### `threshold: 25`
 
-最高レア枠(tf_core_wood, weight3/18≈17%)の天井
+最高レア枠(core_wood, weight3/18≈17%)の天井
 
 ### `threshold: 25`
 
-最高レア枠(tf_core_vegetable, weight3/18≈17%)の天井
+最高レア枠(core_vegetable, weight3/18≈17%)の天井
 
 ### `threshold: 20`
 

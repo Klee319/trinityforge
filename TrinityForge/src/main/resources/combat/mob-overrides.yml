@@ -1084,11 +1084,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_fireworks", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
       fireworks_phase_2_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ブーミ (第3段階) (増援)"
         stats:
@@ -1135,11 +1135,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_hallosseum", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
       halloween_event_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "不気味なスケルトン (増援)"
         stats:
@@ -1364,7 +1364,7 @@ overrides:
         drops:
           - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:dungeon_seal_binder", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 1.0, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 1.0, min: 2, max: 4 }
 
   # enchantment_challenge_1_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_1 / 1体
@@ -1406,11 +1406,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
         abilities: [frost_field]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_enchant_trial", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
       enchantment_boss_tricky_bones_summon_arrow:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "矢の射出装置 (召喚体)"
         stats:
@@ -1630,11 +1630,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_bridge", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_bridge_corpse_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ドワーフの死骸 (亡骸)"
@@ -1703,11 +1703,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_cave", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_cave_broiled_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "焼かれた坑夫"
@@ -1811,13 +1811,13 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
         # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
         drops:
           - { item: "custom:dungeon_seal_city", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
           - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
 
@@ -1957,11 +1957,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_climb", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_climb_undead_beastmaster_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "アンデッドの調獣師 (第4段階)"
@@ -2051,7 +2051,7 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         # 【custom:warden_tendril の入手経路 (2026-08-03 追加)】
         # items/catalog.yml の儀式3本 —— 暗殺者の弓(hero_bow) / 暗殺者のクロスボウ(hero_crossbow) /
@@ -2073,7 +2073,7 @@ overrides:
         # mobs: [WARDEN] で足すこと(このファイルでは実現できない)。
         drops:
           - { item: "custom:dungeon_seal_deep_mines", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
           - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
       em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2402,11 +2402,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_mines", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_mines_soulweaver_reinforcements:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "魂の裂片 (増援)"
@@ -2573,11 +2573,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_nether_bell", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       em_id_the_nether_bell_corpse_phase_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "腐らざる者 (第2段階) (亡骸)"
@@ -2758,11 +2758,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
         abilities: [frost_field]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_nether_wastes", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_5_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の猟犬 (召喚体)"
@@ -2859,11 +2859,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_palace", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_palace_old_stone_king_summon_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "石の守護者 (召喚体) (1体目)"
@@ -3051,11 +3051,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_quarry", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       em_id_the_quarry_royal_wizard_four:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の速射術士"
@@ -3152,11 +3152,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_knight_castle", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_castle_charlemagne_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "シャルルマーニュ (第4段階)"
@@ -3239,11 +3239,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
         abilities: [frost_field]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_north_pole", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
       northpole_skeleton_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "お仕置きリストの魂 (召喚体)"
         stats:
@@ -3465,11 +3465,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_sewer_maze", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       sewer_tier_70_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "溺死せし者 (増援)"
@@ -3510,11 +3510,11 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         drops:
           - { item: "custom:dungeon_seal_steamworks", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
       the_steamworks_clk_wrx702_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第4段階)"
@@ -3618,13 +3618,13 @@ overrides:
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
-        # 極級ガチャ券(tf_gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
+        # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
         # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
         drops:
           - { item: "custom:dungeon_seal_dark_cathedral", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:tf_gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
           - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
           - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
       dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355

@@ -180,7 +180,7 @@ nodes:
     effects:
       - "ガチャ券4が釣れる"
     dedicated-effects:
-      - id: "drop:fishing:item:tf_gacha_ticket_4"
+      - id: "drop:fishing:item:gacha_ticket_4"
   B-beta-2:
     name: "宝運上昇"
     level: 40
@@ -205,5 +205,5 @@ nodes:
     effects:
       - "ガチャ券5が釣れる"
     dedicated-effects:
-      - id: "drop:fishing:item:tf_gacha_ticket_5"
+      - id: "drop:fishing:item:gacha_ticket_5"
 

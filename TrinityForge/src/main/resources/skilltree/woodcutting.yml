@@ -100,7 +100,7 @@ nodes:
       - ウッドコアを解放
     dedicated-effects:
       - id: feature:wood-repair-unlock
-      - id: recipe:tf_core_wood
+      - id: recipe:core_wood
   A-1:
     name: リンゴ生活
     level: 20

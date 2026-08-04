@@ -182,8 +182,33 @@ test("id を無条件に信頼する実装へ戻していない (バックフィ
   assert.match(editorCategories, /function backfillCategoryIds\(cats, tabKey\)/);
   assert.match(editorCategories, /function listCategories\(host, tabKey\)[\s\S]{0,200}?backfillCategoryIds\(/,
     "listCategories が backfill を通らなくなっている (ここが唯一の読み口)");
-  // 自動採番 id はユーザーに意味が無いのでカードのセレクトの副表記に出さない。
-  assert.match(editorCategories, /\^cat_\(\\d\+\(_\\d\+\)\?\|auto_\.\*\)\$/);
+  // 内部 id はユーザーに意味が無いのでカードのセレクトの副表記に出さない。
+  //
+  // 2026-08-04: 判定を「id の書式」から「ラベルの一意性」へ移した。以前は
+  // `^cat_(\d+(_\d+)?|auto_.*)$` に一致する id だけ薄字を抑止していたため、セッションが
+  // yml へ直書きした cat_20260724_source_gem のような説明的 id が薄字で出続けていた
+  // (実サーバ報告「カテゴリ内部IDが表記され見づらい」)。
+  // 実装文字列を固定すると同じ不変条件を別の実装で満たせなくなるので、挙動で固定する。
+  const { win } = loadEditorCategories();
+  assert.deepEqual(
+    win.computeCategorySecondaries([
+      { id: "cat_1784963631488", label: "剣" },
+      { id: "cat_20260724_source_gem", label: "ソースジェム" },
+      { id: "cat_auto_unclassified", label: "未分類" }
+    ]),
+    ["", "", ""],
+    "ラベルで一意に選べるのに内部 id が薄字で出ている"
+  );
+  // ラベルだけでは区別が付かないときは id で補う (副表記そのものを消したわけではない)。
+  assert.deepEqual(
+    win.computeCategorySecondaries([
+      { id: "cat_a", label: "剣" },
+      { id: "cat_b", label: "剣" },
+      { id: "cat_c", label: "" }
+    ]),
+    ["cat_a", "cat_b", "cat_c"],
+    "ラベル重複・ラベル空でも id を出さなくなっている"
+  );
 });
 
 test("3-way マージの識別キーが id に決まる (カテゴリ配列が丸ごと衝突しない)", () => {

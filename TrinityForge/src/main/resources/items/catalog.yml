@@ -278,7 +278,7 @@ items:
         - " A "
         - " R "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
         R: custom:breeze_rod_2x
   hero_sword:
@@ -1061,7 +1061,7 @@ items:
         - " R "
       ingredients:
         R: custom:breeze_rod_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
   hero_axe:
     material: NETHERITE_AXE
@@ -1199,7 +1199,7 @@ items:
         - " J"
         - "R "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         R: custom:breeze_rod_2x
   hero_dagger:
     material: NETHERITE_SWORD
@@ -1247,7 +1247,7 @@ items:
         - " A "
         - "R  "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
         R: custom:breeze_rod_2x
   hero_rapier:
@@ -1298,7 +1298,7 @@ items:
         - " R "
         - "R  "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         R: custom:breeze_rod_2x
   hero_spear:
     material: NETHERITE_SPEAR
@@ -1348,7 +1348,7 @@ items:
         - " RA"
         - "R  "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
         R: custom:breeze_rod_2x
   hero_trident:
@@ -1400,7 +1400,7 @@ items:
         - "R  "
       ingredients:
         A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         R: custom:breeze_rod_2x
   hero_scythe:
     material: NETHERITE_HOE
@@ -1449,7 +1449,7 @@ items:
         - " R "
       ingredients:
         A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         R: custom:breeze_rod_2x
   hero_mace:
     material: MACE
@@ -1498,7 +1498,7 @@ items:
         - "R  "
       ingredients:
         A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         R: custom:breeze_rod_2x
   hero_warhammer:
     material: NETHERITE_SWORD
@@ -1546,7 +1546,7 @@ items:
         - ARA
         - "RA "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
         R: custom:breeze_rod_2x
   hero_grate_sword:
@@ -1597,7 +1597,7 @@ items:
         - ARA
         - " R "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
         R: custom:breeze_rod_2x
   hero_greataxe:
@@ -1650,7 +1650,7 @@ items:
       ingredients:
         A: custom:amethyst_block_2x
         B: STRING
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
   hero_bow:
     material: BOW
     display-name: <color:dark_purple>暗殺者の弓</color>
@@ -1698,7 +1698,7 @@ items:
         - " R "
       ingredients:
         R: custom:breeze_rod_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         B: STRING
         C: TRIPWIRE_HOOK
   hero_crossbow:
@@ -1974,7 +1974,7 @@ items:
         - "   "
       ingredients:
         A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""
@@ -1992,7 +1992,7 @@ items:
         - AAA
       ingredients:
         A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""
@@ -2010,7 +2010,7 @@ items:
         - A A
       ingredients:
         A: custom:amethyst_block_2x
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""
@@ -2027,7 +2027,7 @@ items:
         - A A
         - "   "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         A: custom:amethyst_block_2x
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
@@ -4141,7 +4141,7 @@ items:
       method: ritual
       core-item: custom:thread_empty
       pedestal-items:
-        - custom:tf_core_jewelry
+        - custom:core_jewelry
         - IRON_BLOCK x2
         - custom:source_gem x2
       source: 2000
@@ -4187,8 +4187,8 @@ items:
       method: ritual
       core-item: custom:thread_empty
       pedestal-items:
-        - custom:tf_core_wood
-        - custom:tf_core_vegetable
+        - custom:core_wood
+        - custom:core_vegetable
         - custom:source_gem x2
       source: 1800
       type: shapeless
@@ -4235,7 +4235,7 @@ items:
       core-item: custom:thread_empty
       pedestal-items:
         - LAPIS_BLOCK x2
-        - custom:tf_core_jewelry
+        - custom:core_jewelry
         - custom:source_gem x2
       source: 2200
       type: shapeless
@@ -5043,7 +5043,7 @@ items:
         - " RA"
         - "R  "
       ingredients:
-        J: custom:tf_core_jewelry
+        J: custom:core_jewelry
         R: custom:breeze_rod_2x
         A: custom:amethyst_block_2x
   abyss_cane:
@@ -6502,7 +6502,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_wood
+      core-item: custom:core_wood
       pedestal-items:
         - OAK_LOG x8
         - custom:hard_metal x2
@@ -6521,7 +6521,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_wood
+      core-item: custom:core_wood
       pedestal-items:
         - OAK_LOG x8
         - custom:hard_metal x2
@@ -6540,7 +6540,7 @@ items:
     custom-model-data: 5741
     recipe:
       method: ritual
-      core-item: custom:tf_core_meat
+      core-item: custom:core_meat
       pedestal-items:
         - COOKED_BEEF x8
         - custom:hard_metal x2
@@ -6559,7 +6559,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_meat
+      core-item: custom:core_meat
       pedestal-items:
         - COOKED_BEEF x8
         - custom:hard_metal x2
@@ -6578,7 +6578,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_vegetable
+      core-item: custom:core_vegetable
       pedestal-items:
         - WHEAT x16
         - custom:hard_metal x2
@@ -6597,7 +6597,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_vegetable
+      core-item: custom:core_vegetable
       pedestal-items:
         - WHEAT x16
         - custom:hard_metal x2
@@ -6616,7 +6616,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_dirt
+      core-item: custom:core_ground
       pedestal-items:
         - DIRT x16
         - custom:hard_metal x2
@@ -6635,7 +6635,7 @@ items:
     custom-model-data: 5740
     recipe:
       method: ritual
-      core-item: custom:tf_core_dirt
+      core-item: custom:core_ground
       pedestal-items:
         - DIRT x16
         - custom:hard_metal x2
@@ -6654,7 +6654,7 @@ items:
     custom-model-data: 5760
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - IRON_BLOCK x1
@@ -6672,7 +6672,7 @@ items:
     custom-model-data: 5760
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - LAPIS_BLOCK x1
@@ -6690,7 +6690,7 @@ items:
     custom-model-data: 5760
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - SHIELD x1
@@ -6708,7 +6708,7 @@ items:
     custom-model-data: 5761
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - HAY_BLOCK x1
@@ -6726,7 +6726,7 @@ items:
     custom-model-data: 5760
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - NAUTILUS_SHELL x1
@@ -6744,7 +6744,7 @@ items:
     custom-model-data: 5761
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - FLINT x1
@@ -6762,7 +6762,7 @@ items:
     custom-model-data: 5762
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - DIRT x8
@@ -6780,7 +6780,7 @@ items:
     custom-model-data: 5761
     recipe:
       method: ritual
-      core-item: custom:tf_core_jewelry
+      core-item: custom:core_jewelry
       pedestal-items:
         - custom:hard_metal x2
         - OAK_LOG x8

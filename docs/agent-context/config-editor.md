@@ -475,6 +475,73 @@ Node 24 は global `WebSocket` / `fetch` を持つので **puppeteer 等の依�
 | 矩形あふれ | 60 件 | **0 件** |
 | 実クリップ（`.main` の overflow > 0） | 33 組合せ・最大 864px | **0** |
 
+## カテゴリセレクトの薄字IDは「ラベルの一意性」で判定する（2026-08-04 修正済み）
+
+※かつて「id の見た目（`cat_<Date.now()>` かどうか）で判定しているため、AI が yml へ直接書く
+説明的な id (`cat_20260724_source_gem` 等) は常に薄字表示される」と診断し、正規表現を緩めない方が
+安全側という結論にしていたが、**正規表現ベースの判定自体を撤去し、ラベルの一意性で判定する方式へ
+置き換えた**（同一の不具合報告への対応、id の命名規則には依存しない解決）。
+
+`editor-categories.js#computeCategorySecondaries`（純関数、`renderEditorCategorySelect` の
+すぐ上）が判定を担う: 同じセレクト内で **label が非空かつ一意** なら薄字なし、**label が空**
+または **他のカテゴリと重複** しているときだけ id を薄字で出す。id の書式は一切見ない。
+`renderEditorCategorySelect` はこの関数の戻り値をそのまま `secondary` へ渡すだけになった。
+- **How**: 新しい予約 id・GUI 採番 id・AI 直書き id のいずれであっても、ラベルさえ他と
+  被っていなければ自動的に薄字が消える。逆にラベルが重複するカテゴリを新設すると
+  （id の命名規則に関わらず）両方に id が出るのが正しい挙動。
+- 回帰テストは `test/category-select-secondary-2026-08-04.test.js`
+  （純関数の4パターン + `renderEditorCategorySelect` 経由の統合テスト2件）。
+- `editor-categories.js` に `lib/` 側のミラーは無い（サーバ側 API 定義ではなく純粋な
+  ブラウザ側描画ロジックのため）。新しい薄字ロジックを他のセレクト（材料/アイテム参照/
+  表示タブ等、`grep -n "secondary:"` で多数ヒットする）へ流用するときは、それらが
+  「id の命名規則」ではなく別の目的（材料IDの併記など）で id を出しているので、
+  同じ関数を安易に共用しない（それぞれ意味が違う）。
+
+## `<gradient:...>` はツリーパーサ・GUI編集とも対応済み（2026-08-04 修正）
+
+※かつて「`<gradient:...>` は表示プレビューだけ対応・リッチ編集(GUI)は非対応」と診断していたが、
+`colors.js` の `classifyOpenTag`/`parseNodesMM`/`flattenMMNodes`/`buildMMNodes`/`canonicalMMTag`
+に gradient ノード種別を追加して解消済み。以下はその実装の恒久知識。
+
+- **ノード表現**: 木パーサのノードは `{ kind:"gradient", gradientArgs:[...], openRaw, closeRaw, children }`
+  （`gradientArgs` は `<gradient:c1:c2:...>` の `:` 区切り引数を**生文字列のまま**保持する。色として
+  解決できない引数（phase 数値等）が混ざっていても解釈しようとせず、往復のためにそのまま残す）。
+  `serializeMiniMessage`(302行) は元々ノードの `kind` を見ずに `openRaw` の有無だけで分岐する
+  汎用実装だったため、**この部分は無改修でロスレス往復した**（`parse→serialize` の往復は
+  classifyOpenTag が `ok:false` を返さなくなるだけで直る。新タグを1つ足すたびに serialize 側の
+  改修が要るとは限らない、という教訓）。
+- **表示色**: `gradientEndpoints(rawArgs)`(新設) が引数配列から色解決できるものだけを filter し、
+  **最初と最後だけ**を線形補間の両端に使う（中間ストップは無視）。これは旧 `buildTooltipPreview` の
+  正規表現特別扱いが元々やっていたのと同じ簡略化で、新しい制約ではない。`buildTooltipPreview` の
+  `renderInto` は独自の regex 特別扱いをやめ、`flattenMMNodes`+`gradientEndpoints`+`gradientSpans`
+  という GUI 側と共通の経路に統一した（結果、gradient が文字列全体でなく部分文字列を包む形
+  `"前置き<gradient:..>中<gradient>後"` でも着色できるようになった。旧実装は全体一致 regex
+  だったためこの形は非対応だった）。
+- **GUI編集ボックスの内部表現**: `richTextInput` の文字ごとモデル(`colors`/`tokens`/`decos`)に
+  並列で `gradients[]`（各文字が属する gradient の生引数配列、非所属は `null`）を追加した。
+  DOM 上は `span.dataset.gradient = JSON.stringify(rawArgs)` で保持し、`readChars()` で
+  `JSON.parse` して復元する。**gradient 所属の文字は per-char で `<color:#hex>` へ分解せず**、
+  `serialize()` が `gradients[]` の連続区間をそのまま `<gradient:元の引数>text</gradient>` へ
+  復元する（`buildMMNodes` の `r.gradient` 分岐）。これにより「GUIを開いただけ・無編集で
+  簡易モードへトグルしても値が変わらない」という既存の安全性を維持している（実測済み）。
+- **明示的な色操作は gradient 所属を解除する**: `applyColor`（選択範囲へ色を適用/クリア）は
+  対象文字の `gradients[k]` も同時に `null` へ落とす。「範囲全体の自動彩色」と「部分的な手動着色」は
+  両立しない、という設計判断。
+- **解除(dissolve)操作**: 個々の色ストップの編集は非対応（YAGNI、実データに需要なし）。
+  代わりに、gradient を含む編集ボックスを右クリックすると出るパレットに
+  「グラデーション解除」ボタンを追加した(`hasAnyGradient()`/`dissolveGradient()`)。
+  **選択範囲を問わず編集ボックス全体が対象**（既存の「色を消す」ボタンは選択必須で
+  gradient 全体の一括解除には使いにくいため、別ボタンにした）。
+- **legacy(&コード) への変換は gradient を含む文字列を `null` にする**: `miniMessageToLegacy` は
+  `flattenMMNodes` の各ランに `r.gradient` があれば即 `null` を返す（legacy に gradient 相当の
+  記法が無いため、変換せず呼び出し側にフォールバックさせる。**この分岐が無いと「色を黙って
+  落とさない」という既存不変条件が gradient だけ破れる**ので、新しいタグ種別を足すたびに
+  この変換関数の分岐漏れが無いか確認すること）。
+- **回帰テスト**: `test/colors-gradient-2026-08-04.test.js`。`items/catalog.yml` の
+  `binder_*`/`key_binder` 系 gradient 付き display-name 18件全ての
+  `serialize(parse(v))===v` 往復、legacy `&r`（リセット、既存の唯一の非対応ケース）と
+  未知タグが引き続き `ok:false` のままであること（gradient 以外まで緩めていないこと）を固定する。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

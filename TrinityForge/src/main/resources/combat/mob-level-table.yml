@@ -144,8 +144,8 @@ tiers:
     # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
     # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
     # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
-    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
-      - material: custom:tf_gacha_ticket
+    # 素の券(gacha_ticket_0 / standard プール)はここが唯一の入手経路。
+      - material: custom:gacha_ticket_0
         chance: 0.005
         min: 1
         max: 1
@@ -200,8 +200,8 @@ tiers:
     # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
     # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
     # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
-    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
-      - material: custom:tf_gacha_ticket
+    # 素の券(gacha_ticket_0 / standard プール)はここが唯一の入手経路。
+      - material: custom:gacha_ticket_0
         chance: 0.008
         min: 1
         max: 1
@@ -256,8 +256,8 @@ tiers:
     # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
     # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
     # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
-    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
-      - material: custom:tf_gacha_ticket
+    # 素の券(gacha_ticket_0 / standard プール)はここが唯一の入手経路。
+      - material: custom:gacha_ticket_0
         chance: 0.012
         min: 1
         max: 1
@@ -322,12 +322,12 @@ tiers:
     # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
     # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
     # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
-    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
-      - material: custom:tf_gacha_ticket
+    # 素の券(gacha_ticket_0 / standard プール)はここが唯一の入手経路。
+      - material: custom:gacha_ticket_0
         chance: 0.016
         min: 1
         max: 1
-      - material: custom:tf_gacha_ticket_2
+      - material: custom:gacha_ticket_2
         chance: 0.004
         min: 1
         max: 1
@@ -473,12 +473,12 @@ tiers:
     # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
     # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
     # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
-    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
-      - material: custom:tf_gacha_ticket
+    # 素の券(gacha_ticket_0 / standard プール)はここが唯一の入手経路。
+      - material: custom:gacha_ticket_0
         chance: 0.02
         min: 1
         max: 1
-      - material: custom:tf_gacha_ticket_3
+      - material: custom:gacha_ticket_3
         chance: 0.004
         min: 1
         max: 1
@@ -672,12 +672,12 @@ tiers:
     # mobs: を書かない = この帯の対象モブ全部。帯自体の mobs: が敵性モブ43種に絞られているので
     # 牧場の家畜では出ない。採掘(mining-gimmick)・釣り(fishing-gimmick)に続く3本目の入手経路で、
     # 「戦闘しかしない人」にもガチャの周回ループが回るようにするのが狙い。
-    # 素の券(tf_gacha_ticket / standard プール)はここが唯一の入手経路。
-      - material: custom:tf_gacha_ticket
+    # 素の券(gacha_ticket_0 / standard プール)はここが唯一の入手経路。
+      - material: custom:gacha_ticket_0
         chance: 0.025
         min: 1
         max: 1
-      - material: custom:tf_gacha_ticket_4
+      - material: custom:gacha_ticket_4
         chance: 0.004
         min: 1
         max: 1

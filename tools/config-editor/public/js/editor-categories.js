@@ -781,23 +781,52 @@
   };
 
   /**
+   * カテゴリセレクトの薄字(id)表示を決める純関数。
+   *
+   * <p>2026-08-04 報告「AIが作成したカテゴリだけ内部idが薄字で見える」の修正。旧実装は
+   * 「idの見た目」(`"cat_" + Date.now()` 形式かどうか)で判定していたため、GUIの「+ カテゴリ」
+   * ボタンが払い出す純数値idは隠れる一方、セッション(AI)がyml へ直接書く
+   * `cat_20260724_source_gem` のような説明的な命名は常に薄字で残っていた。
+   *
+   * <p>ここでは id の命名規則を見ず、**ラベルの有用性**で判定する:
+   * ラベルが空なら(選択肢が空欄になるので)id を出す。ラベルが同じセレクト内で他と
+   * 重複していれば区別のため id を出す。それ以外(ラベルが非空かつ一意)は id を隠す。
+   *
+   * @param {Array<{id:string,label?:string}>} cats 同じセレクトに並ぶカテゴリ一覧
+   * @returns {string[]} cats と同じ順序の副表記文字列 (不要なら "")
+   */
+  window.computeCategorySecondaries = function computeCategorySecondaries(cats) {
+    const list = Array.isArray(cats) ? cats : [];
+    const labelCounts = new Map();
+    for (const cat of list) {
+      const label = (cat && cat.label) || "";
+      labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+    }
+    return list.map((cat) => {
+      if (!cat) return "";
+      const label = cat.label || "";
+      if (!label) return cat.id; // ラベルが空 → 選択肢が空欄にならないよう id を出す
+      return labelCounts.get(label) > 1 ? cat.id : ""; // 重複ラベルのみ id で区別
+    });
+  };
+
+  /**
    * Per-card nested category selector.
    * @param {function} [onChange] called after itemIds update
    */
   window.renderEditorCategorySelect = function renderEditorCategorySelect(host, tabKey, itemId, onChange) {
     const cats = listCategories(host, tabKey);
     const current = window.getItemEditorCategory(host, tabKey, itemId);
+    const secondaries = window.computeCategorySecondaries(cats);
     const picker = window.listSelect({
       value: current || "",
       className: "editor-cat-select",
       placeholder: "(未設定)",
       options: [{ value: "", primary: "(未設定)", secondary: "" }].concat(
-        cats.map((cat) => ({
+        cats.map((cat, i) => ({
           value: cat.id,
           primary: cat.label || cat.id,
-          // 日本語カテゴリ名などslug化できず "cat_<timestamp>" で自動採番されたidや、
-          // id 欠落を救済した "cat_auto_*" はユーザーに意味が無いので副表記に出さない。
-          secondary: cat.id !== (cat.label || "") && !/^cat_(\d+(_\d+)?|auto_.*)$/.test(cat.id) ? cat.id : ""
+          secondary: secondaries[i]
         }))
       ),
       onChange: (v) => {

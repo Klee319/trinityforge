@@ -190,7 +190,7 @@
       }
       ticketBody.appendChild(h("button", {
         class: "btn-small", type: "button", text: "+ 券追加",
-        onclick: () => { working.tickets[uniqueKey(working.tickets, "tf_gacha_ticket")] = { pool: poolIds()[0] || "standard" }; render(); }
+        onclick: () => { working.tickets[uniqueKey(working.tickets, "gacha_ticket")] = { pool: poolIds()[0] || "standard" }; render(); }
       }));
       root.appendChild(card([h("span", { class: "entry-key-label", text: "券 (tickets)" })], [
         subTitle("券アイテムのitemCatalog IDと、参照する景品プールID"),

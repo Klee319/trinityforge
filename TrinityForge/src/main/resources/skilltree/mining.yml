@@ -114,7 +114,7 @@ nodes:
       gathering-efficiency: 1
     dedicated-effects:
       - id: glyph:advanced_break
-      - id: recipe:tf_core_jewelry
+      - id: recipe:core_jewelry
   A-1:
     name: 高速破壊I
     level: 20

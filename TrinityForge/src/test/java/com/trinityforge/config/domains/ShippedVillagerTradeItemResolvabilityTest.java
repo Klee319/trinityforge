@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <b>実物へ解決できるIDだけ</b >であることを固定する（2026-08-02）。
  *
  * <p><b>実際に踏んだ穴</b>: {@code VillagerTradeListener#resolveStack} は TF の
- * {@code catalog.yml} しか引いていなかったが、出荷の {@code tf_scrap} / {@code tf_core_jewelry} は
+ * {@code catalog.yml} しか引いていなかったが、出荷の {@code tf_scrap} / {@code core_jewelry} は
  * <b>ArsPaper の {@code materials.yml} 由来のID</b>で TF カタログには存在しない。
  * その結果 WEAPONSMITH の追加取引が<b>2件とも解決に失敗して無言で捨てられ</b>、
  * さらに {@code block-vanilla-trades: true} なのでバニラ取引も消え、
@@ -42,7 +42,7 @@ class ShippedVillagerTradeItemResolvabilityTest {
      * ここに載せる＝「ArsPaper が enable されていないと、この取引は出ない」ことを承知した、の意。
      */
     private static final Set<String> ARS_PROVIDED =
-            Set.of("tf_scrap", "tf_core_jewelry", "iron_ingot_scrap");
+            Set.of("tf_scrap", "core_jewelry", "iron_ingot_scrap");
 
     /** 柱4: スクラップの出口。無くなると tf_scrap が村人側で行き止まりに戻る。 */
     @Test

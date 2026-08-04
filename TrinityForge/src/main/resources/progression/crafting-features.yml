@@ -365,7 +365,7 @@ brew-unlocks:
           type: SLOWNESS
           duration: 1800
           amplifier: 2
-      # ピグリンの耳: 2026-08-01 追加。それまで tf_core_meat の素材にしかならず
+      # ピグリンの耳: 2026-08-01 追加。それまで core_meat の素材にしかならず
       # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
       # 効果は NAUSEA — バニラのポーションでは一切作れず、同じ妨害枠の
       # BLINDNESS(上の endermite_soot)と役割が被らないため。持続は BLINDNESS と揃えて 1200。
@@ -399,7 +399,7 @@ brew-unlocks:
           type: SATURATION
           duration: 200
           amplifier: 0
-      # ピリジャーの装甲片: 2026-08-01 追加。それまで tf_core_vegetable の素材にしかならず
+      # ピリジャーの装甲片: 2026-08-01 追加。それまで core_vegetable の素材にしかならず
       # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
       # 効果は FIRE_RESISTANCE — 生存枠として RESISTANCE / CONDUIT_POWER と役割が重ならない。
       # FIRE_RESISTANCE は amplifier を上げても意味が無いので 0 固定。
@@ -442,7 +442,7 @@ brew-unlocks:
           type: JUMP_BOOST
           duration: 3600
           amplifier: 3
-      # スケルトンホースの骨: 2026-08-01 追加。それまで tf_core_vegetable の素材にしかならず
+      # スケルトンホースの骨: 2026-08-01 追加。それまで core_vegetable の素材にしかならず
       # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
       # 効果は SPEED — 骸骨馬という出所に一番素直で、上の JUMP_BOOST と同じ移動系ビルドを補う。
       # バニラの俊敏は amplifier 1 が上限なので、最上位帯のこの群に合わせて 2 に置く

@@ -230,6 +230,25 @@ JDBC の `setAutoCommit(false)` は既定で `BEGIN DEFERRED` を発行する。
 なお `gacha.yml` の `entries[].item` には **`custom:` を付けない**（`mob-overrides` の drops や
 レシピ素材とは逆の規約）。詳細は上記「アイテムID解決」節。
 
+### ⚠️ カタログID改名時、config-editor の「新規キー既定値」生成元も一緒に直さないと復活する（2026-08-04）
+`gacha.yml` の券IDを `tf_gacha_ticket*` → `gacha_ticket_0..5` へ改名したとき、editor の
+`public/js/p5-forms.js` に「+ 券追加」ボタンが使う `uniqueKey(working.tickets, "tf_gacha_ticket")`
+という**旧IDをベース文字列に埋め込んだ既定値生成**が残っていた。これは `tickets` マップに
+既に旧IDのキーが有る間は衝突回避で `_1` 以降にずれて表面化しなかったが、改名後（旧キーが
+マップから消える）は**新規追加時にそのまま `tf_gacha_ticket`（=解決不能な死にID）が使われる**。
+カタログ/gacha/materials 側のID命名規則を変えるときは、editor 側の `uniqueKey` 呼び出しに
+埋め込まれた既定ベース文字列も grep して合わせること。
+
+### ⚠️ `resourcepack/cmd-registry.json` の `assetName` はカタログIDのリネームに追随しない（意図的）
+`cmd-registry.json` の1エントリは `id`（カタログ/ArsPaper側の現在のID）と `assetName`
+（実際のモデル/テクスチャファイル名、例 `tf_core_jewelry.json`）を別々に持つ。config-editor の
+`reconcileWithUsage`（`lib/cmd-registry.js`）は**同期のたびに `id` だけ現行configへ正規化し、
+`assetName` は既存値を維持する**設計になっている。したがって `tf_core_jewelry` → `core_jewelry`
+のようにカタログID側を改名しても、`assetName` とディスク上の実ファイル
+（`assets/trinityforge/models/item/tf_core_jewelry.json` 等）は**古い名前のまま残るのが正しい**。
+ここを「IDと不一致だから直すべき」と誤診してリソースパックのモデル/テクスチャファイルまで
+一括リネームしないこと（CMD割当・パック配布物の再生成が絡む別作業になる）。
+
 ### モブ死亡ドロップに割り込むリスナーは `MONITOR` でないと消える
 外部プラグイン（EliteMobs等）のルート処理が `NORMAL` の `EntityDeathEvent` の中で
 `getDrops()` を丸ごとクリアすることがある。ドロップを上乗せ/上書きするリスナーは

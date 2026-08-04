@@ -287,19 +287,32 @@ test("実データ: catalog.yml の skill_node_lock / skill_tree_reset は _edit
 // quality_upgrade_ticket)が実在し、同じく _editor.categories に孤児として残っていないこと ----
 
 test("実データ: catalog.yml に券3件(role_reselect_ticket/stat_reroll_ticket/quality_upgrade_ticket)が" +
-    "custom-model-data 無しで存在し、_editor.categories のどのネストカテゴリにも属していない", () => {
+    "存在し、CMD は台帳に登録済みで、_editor.categories のどのネストカテゴリにも属していない", () => {
   const { readConfig } = require("../lib/yamlio.js");
   const catalogPath = path.join(
     __dirname, "..", "..", "..", "TrinityForge", "src", "main", "resources", "items", "catalog.yml"
   );
   const { data } = readConfig(catalogPath);
+  // 2026-08-04: 当初は「CMD 未割当であること」を固定していたが、CMD 割当は台帳
+  // (resourcepack/cmd-registry.json) 側の作業と対で進むため、割当済み・未割当のどちらでも
+  // 成立する不変条件へ移した。本当に危険なのは「catalog.yml に CMD を書いたのに台帳へ
+  // 登録されていない」状態で、これは番号の二重払い出しを招く。
+  const registry = JSON.parse(fs.readFileSync(
+    path.join(__dirname, "..", "..", "..", "resourcepack", "cmd-registry.json"), "utf8"
+  ));
+  const allocated = new Set(
+    (registry.allocations || []).map((a) => `${String(a.material).toUpperCase()}#${a.cmd}`)
+  );
   const ticketIds = ["role_reselect_ticket", "stat_reroll_ticket", "quality_upgrade_ticket"];
   for (const id of ticketIds) {
     assert.ok(data.items[id], `${id} が catalog.yml に無い`);
-    // resourcepack/cmd-registry.json が別セッション編集中のため意図的に custom-model-data 未設定
-    // (CMD割当は reports/ACTIVE_RECORD.md 追跡の後追いタスク)。
-    assert.equal(data.items[id]["custom-model-data"], undefined,
-      `${id} は CMD 未割当のはずが custom-model-data を持っている(割当済みならこのテストごと更新すること)`);
+    const cmd = data.items[id]["custom-model-data"];
+    if (cmd !== undefined) {
+      assert.ok(Number.isInteger(cmd) && cmd > 0, `${id} の custom-model-data が正の整数でない: ${cmd}`);
+      const key = `${String(data.items[id].material).toUpperCase()}#${cmd}`;
+      assert.ok(allocated.has(key),
+        `${id} の CMD が台帳に無い (${key})。cmd-registry.json へ払い出さずに手で書くと番号が二重払い出しされる`);
+    }
     assert.equal(data.items[id].recipe, undefined, `${id} にレシピを付けてはいけない`);
   }
   const categories = (data._editor && data._editor.categories) || {};

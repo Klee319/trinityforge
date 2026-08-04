@@ -29,18 +29,18 @@
 # 設定リファレンス(本文コメント移設先): docs/config-reference/gacha.md
 
 tickets:
-  tf_gacha_ticket:
+  gacha_ticket_0:
     pool: standard
 
-  tf_gacha_ticket_1:
+  gacha_ticket_1:
     pool: tier1
-  tf_gacha_ticket_2:
+  gacha_ticket_2:
     pool: tier2
-  tf_gacha_ticket_3:
+  gacha_ticket_3:
     pool: tier3
-  tf_gacha_ticket_4:
+  gacha_ticket_4:
     pool: tier4
-  tf_gacha_ticket_5:
+  gacha_ticket_5:
     pool: tier5
 
 pools:
@@ -67,11 +67,11 @@ pools:
       - item: "thread_empty"
         weight: 5
         amount: 1
-      - item: "tf_gacha_ticket_1"
+      - item: "gacha_ticket_1"
         weight: 3
         amount: 1
       # ジャックポット(単独最小 weight = 天井の確定排出先)
-      - item: "tf_core_wood"
+      - item: "core_wood"
         weight: 1
         amount: 1
 
@@ -100,7 +100,7 @@ pools:
       - item: "key_fireworks"
         weight: 4
         amount: 1
-      - item: "tf_core_vegetable"
+      - item: "core_vegetable"
         weight: 1
         amount: 1
 
@@ -143,7 +143,7 @@ pools:
         weight: 4
         amount: 1
         quality-random: true
-      - item: "tf_core_meat"
+      - item: "core_meat"
         weight: 1
         amount: 1
 
@@ -179,7 +179,7 @@ pools:
       - item: "key_nether_wastes"
         weight: 6
         amount: 1
-      - item: "tf_gacha_ticket_4"
+      - item: "gacha_ticket_4"
         weight: 2
         amount: 1
       # 2026-08-03 追加: レシピを持たないスレッド(儀式では作れずここでしか出ない)。
@@ -192,7 +192,7 @@ pools:
         weight: 4
         amount: 1
         quality-random: true
-      - item: "tf_core_jewelry"
+      - item: "core_jewelry"
         weight: 1
         amount: 1
 
@@ -224,7 +224,7 @@ pools:
       - item: "tf_crystal_apple"
         weight: 3
         amount: 1
-      - item: "tf_gacha_ticket_5"
+      - item: "gacha_ticket_5"
         weight: 2
         amount: 1
       # 2026-08-03 追加: レシピを持たないスレッド(儀式では作れずここでしか出ない)。
