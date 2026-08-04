@@ -847,7 +847,7 @@ public final class TrinityForge extends JavaPlugin {
         PickupQualityListener pickupQualityListener = new PickupQualityListener(
                 this, itemFactory, configManager.itemStats(),
                 configManager.qualityTiers(), configManager.quality(),
-                configManager.itemCatalog(), lootLuck);
+                configManager.itemCatalog(), lootLuck, craftQualityService);
         getServer().getPluginManager().registerEvents(pickupQualityListener, this);
         this.stampCommand = new StampCommand(pickupQualityListener);
 

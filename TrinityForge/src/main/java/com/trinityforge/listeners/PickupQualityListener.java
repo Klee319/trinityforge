@@ -8,6 +8,7 @@ import com.trinityforge.pdc.BindType;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogIdentity;
 import com.trinityforge.stats.CraftQualityPolicy;
+import com.trinityforge.stats.CraftQualityService;
 import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.PlayerLootLuckSource;
@@ -61,12 +62,22 @@ public final class PickupQualityListener implements Listener {
     private final QualityConfig quality;
     private final ItemCatalogConfig itemCatalog;
     private final PlayerLootLuckSource lootLuck;
+    // 品質未決定マーカー(儀式クラフト成果物)を回収者のステータスで解決するために使う。
+    // null 可: この経路を持たない構成/テストでは通常のドロップ品経路へフォールバックする。
+    private final CraftQualityService craftQuality;
     // 同一tick内での走査重複を防ぐ(イベントが連続で来ても1プレイヤー1tick1走査)。
     private final Set<UUID> pendingSweep = ConcurrentHashMap.newKeySet();
 
     public PickupQualityListener(Plugin plugin, ItemFactory itemFactory, ItemStatsConfig itemStats,
                                   QualityTiersConfig qualityTiers, QualityConfig quality,
                                   ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck) {
+        this(plugin, itemFactory, itemStats, qualityTiers, quality, itemCatalog, lootLuck, null);
+    }
+
+    public PickupQualityListener(Plugin plugin, ItemFactory itemFactory, ItemStatsConfig itemStats,
+                                  QualityTiersConfig qualityTiers, QualityConfig quality,
+                                  ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck,
+                                  CraftQualityService craftQuality) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
         this.itemStats = Objects.requireNonNull(itemStats, "itemStats");
@@ -74,6 +85,7 @@ public final class PickupQualityListener implements Listener {
         this.quality = Objects.requireNonNull(quality, "quality");
         this.itemCatalog = Objects.requireNonNull(itemCatalog, "itemCatalog");
         this.lootLuck = Objects.requireNonNull(lootLuck, "lootLuck");
+        this.craftQuality = craftQuality;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -185,6 +197,21 @@ public final class PickupQualityListener implements Listener {
             return false;
         }
         ItemData data = ItemData.of(meta);
+        // 儀式クラフト成果物の「品質未決定」マーカー(2026-08-04): 台座の上に置かれた時点では回収者が
+        // 確定していないので、最初にインベントリへ入ったこのプレイヤーの Ars鍛冶ステータスで品質を決め、
+        // itemFactory.stamp でフル再組み立て(lore/属性)してからマーカーを剥がす。
+        // 旧実装は儀式時点で PDC だけ書いて再組み立てを呼んでいなかったため「手に持つまでステータスが
+        // つかない」不具合になっていた。詳細は PdcKeys#ITEM_PENDING_CRAFT_QUALITY。
+        // craftQuality == null(この経路を配線していない構成/テスト)のときは印を残したまま素通りし、
+        // 下の通常ドロップ品経路に任せる ── 品質が付かないより loot 分布で付く方がまし。
+        if (data.pendingCraftQuality() && craftQuality != null) {
+            int crafted = craftQuality.rollArsSmithingQuality(player, stack);
+            data.setCraftRollMods(craftQuality.craftRollMods(player));
+            data.clearPendingCraftQuality();
+            stack.setItemMeta(meta);
+            itemFactory.stamp(stack, ThreadLocalRandom.current().nextLong(), crafted);
+            return true;
+        }
         if (data.hasRollSeed()) {
             // Prepare プレビュー刻印は「刻印済み」扱いだと永久に残る — 品質を保ったまま本物seedへ差し替え。
             Optional<Long> seed = data.rollSeed();

@@ -56,6 +56,25 @@ public final class PdcKeys {
      * 付与時に derivation で {@code thread-slots} へ加算される。absent = 0。
      */
     public static final NamespacedKey ITEM_RITUAL_THREAD_SLOT_BONUS = key("ritual_thread_slot_bonus");
+    /**
+     * 「品質はまだ決まっていない。最初にプレイヤーのインベントリへ入った時点で、そのプレイヤーの
+     * Ars鍛冶ステータスを参照して決める」マーカー(2026-08-04)。
+     *
+     * <p><b>なぜ生成時に品質を決めないのか</b>: Ars の儀式クラフトは成果物を<em>台座の上にドロップ</em>する。
+     * 旧実装({@code TrinityForgeBridge#stampCraftedQuality})は儀式時点で rollSeed+quality を PDC へ
+     * 直接書いていたが、PDC を書くだけで <b>lore/属性のフル再組み立て({@code ItemFactory#stamp})を
+     * 呼んでいなかった</b>ため「品質は入っているのにステータスが表示されない」状態で台座に置かれ、
+     * ユーザーには「手に持つまでステータスがつかない」ように見えていた(この落とし穴の実害)。
+     * さらに台座に置かれた成果物は<b>誰が回収するか儀式時点では確定しない</b>ので、儀式実行者の
+     * ステータスで焼き込むのは仕様としても正しくない。
+     *
+     * <p>そこで生成時はこのマーカーだけを刻み、{@code PickupQualityListener} が
+     * 「最初にインベントリへ入ったプレイヤー」のステータスで品質をロールし、
+     * {@code ItemFactory#stamp} でフル再組み立てしてマーカーを剥がす。
+     * 台座が破壊されてマーカーごと失われた場合は、マーカー無し未刻印品として
+     * 通常のドロップ品経路(loot 分布)で刻印される。absent = false(既存の全アイテム)。
+     */
+    public static final NamespacedKey ITEM_PENDING_CRAFT_QUALITY = key("pending_craft_quality");
 
     /**
      * The firing weapon (bow/crossbow/trident) serialized onto a player-shot projectile at launch so

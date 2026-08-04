@@ -270,4 +270,32 @@ public final class ItemData {
         container.remove(PdcKeys.ITEM_CREATIVE_ORIGIN);
         return true;
     }
+
+    /**
+     * 品質未決定マーカーが立っているか(2026-08-04)。立っている間は品質0・未刻印のまま置かれており、
+     * 最初にプレイヤーのインベントリへ入った時点でそのプレイヤーのステータスを参照して刻印される。
+     * 経緯と理由は {@link PdcKeys#ITEM_PENDING_CRAFT_QUALITY} の javadoc。absent = false。
+     */
+    public boolean pendingCraftQuality() {
+        return container.getOrDefault(
+                PdcKeys.ITEM_PENDING_CRAFT_QUALITY, PersistentDataType.BYTE, (byte) 0) != 0;
+    }
+
+    /** 品質未決定マーカーを刻む(儀式クラフトの成果物生成時)。 */
+    public void markPendingCraftQuality() {
+        container.set(PdcKeys.ITEM_PENDING_CRAFT_QUALITY, PersistentDataType.BYTE, (byte) 1);
+    }
+
+    /**
+     * 品質未決定マーカーを剥がす(回収者のステータスで品質を確定した後)。
+     *
+     * @return 実際に印を消したら true(元々付いていなければ false)
+     */
+    public boolean clearPendingCraftQuality() {
+        if (!pendingCraftQuality()) {
+            return false;
+        }
+        container.remove(PdcKeys.ITEM_PENDING_CRAFT_QUALITY);
+        return true;
+    }
 }
