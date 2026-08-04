@@ -106,6 +106,44 @@ class CollectionServiceTest {
         assertEquals(List.of("bronze"), data.claimedCollectionTiers());
     }
 
+    /**
+     * 解放通知の title は collection.yml 由来で MiniMessage 記法を持つ(出荷値に
+     * {@code <aqua>記録者</aqua>} 等)。{@code Component.text()} に渡していたため、実サーバの
+     * チャットに <b>タグがそのまま出ていた</b>(2026-08-04 報告)。
+     */
+    @Test
+    void tierAnnouncementRendersMiniMessageInsteadOfShowingRawTags(@TempDir File dir)
+            throws IOException {
+        CollectionConfig config = loadedConfig(dir, """
+                enabled: true
+                reward-tiers:
+                  scribe:
+                    threshold: 1
+                    title: "<aqua>記録者</aqua>"
+                """);
+        CollectionService service = new CollectionService(config, LOG);
+        org.mockbukkit.mockbukkit.entity.PlayerMock player = server.addPlayer();
+        player.nextComponentMessage(); // 参加メッセージ等を捨てる
+
+        service.record(player, Set.of(CollectionService.itemEntryId("core_ember")));
+
+        String seen = null;
+        for (net.kyori.adventure.text.Component msg = player.nextComponentMessage();
+                msg != null; msg = player.nextComponentMessage()) {
+            String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                    .plainText().serialize(msg);
+            if (plain.contains("コレクション報酬解放")) {
+                seen = plain;
+                break;
+            }
+        }
+
+        assertTrue(seen != null, "コレクション報酬解放の通知が飛んでいない");
+        assertTrue(seen.contains("記録者"), "称号名が出ていない: " + seen);
+        assertTrue(!seen.contains("<aqua>") && !seen.contains("</aqua>"),
+                "MiniMessage タグが生のまま表示されている: " + seen);
+    }
+
     @Test
     void disabledConfigRecordsNothing(@TempDir File dir) throws IOException {
         CollectionConfig config = loadedConfig(dir, "enabled: false");

@@ -6,6 +6,7 @@ import com.trinityforge.config.domains.ItemGrant;
 import com.trinityforge.pdc.PlayerData;
 import com.trinityforge.skilltree.runtime.PerkAttributeApplier;
 import com.trinityforge.stats.CrossPluginItemResolver;
+import com.trinityforge.text.MiniText;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -325,8 +326,11 @@ public final class CollectionService {
      *                         (遡り登録。{@link #record(Player, Map, boolean)} の javadoc 参照)
      */
     private void announce(Player player, CollectionConfig.RewardTier tier, boolean broadcastAllowed) {
+        // title は collection.yml 由来で MiniMessage 記法を持つ(出荷値に <aqua>記録者</aqua> 等)。
+        // Component.text() に渡すとタグがそのまま見えるので必ず MiniText で描画する
+        // (AchievementService#grantRewards が同じ形。表示名系の描画は全部ここに揃える)。
         Component message = Component.text("コレクション報酬解放: ", NamedTextColor.GOLD)
-                .append(Component.text(tier.title() != null ? tier.title() : tier.id(),
+                .append(MiniText.render(tier.title() != null ? tier.title() : tier.id(),
                         NamedTextColor.YELLOW))
                 .append(Component.text(" (図鑑 " + tier.threshold() + " 種到達)", NamedTextColor.GRAY));
         if (tier.broadcast() && broadcastAllowed) {
