@@ -112,6 +112,38 @@ class EquipmentTicketItemListenerTest {
         verify(gui, never()).open(any(), any());
     }
 
+    /**
+     * 2026-08-04 実サーバ報告「トリガー不明だが大量に PlayerInteractEvent の NPE が出る」の回帰テスト。
+     *
+     * <p><b>真因</b>: {@code effectsById} は {@link java.util.Map#copyOf} で作った<b>不変Map</b>で、
+     * 不変Mapは {@code HashMap} と違い {@code get(null)} で {@link NullPointerException} を投げる
+     * ({@code ImmutableCollections.MapN#probe} が {@code pk.hashCode()} を呼ぶ)。
+     * カタログIDを持たないアイテム(lore付きバニラ品・リネーム品・大半のTF品)を右クリックすると
+     * {@code catalogId().orElse(null)} が {@code null} になり、そのまま {@code get(null)} へ渡っていた。
+     * <b>ほぼ全ての右クリックがこの経路を通る</b>ため、コンソールが NPE で埋まっていた。
+     *
+     * <p>既存の {@code unknownCatalogIdDoesNothing} は「別のIDを持っている」ケースしか見ておらず、
+     * 「IDを一切持たない」ケースが素通りしていた。
+     */
+    @Test
+    @DisplayName("カタログIDを持たないアイテムでの右クリックはNPEを投げず何もしない(不変Mapのget(null)罠)")
+    void itemWithoutCatalogIdDoesNotThrow() {
+        // meta はあるが TF のカタログIDが無いスタック(= lore付きバニラ品・リネーム品と同じ形)。
+        ItemStack plain = new ItemStack(Material.PAPER);
+        ItemMeta meta = plain.getItemMeta();
+        meta.displayName(net.kyori.adventure.text.Component.text("ふつうの紙"));
+        plain.setItemMeta(meta);
+        org.junit.jupiter.api.Assertions.assertTrue(plain.hasItemMeta(),
+                "前提: meta を持つスタックであること(持たないと手前の分岐で return してしまい検査にならない)");
+        player.getInventory().setItemInMainHand(plain);
+        PlayerInteractEvent event = rightClickAir(player, plain);
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> listener.onInteract(event),
+                "カタログIDが無いアイテムで NPE を投げている。不変Map(Map.copyOf)へ null キーを"
+                        + "渡してはいけない(get(null) が NPE)。");
+        verify(gui, never()).open(any(), any());
+    }
+
     @Test
     @DisplayName("未登録のカタログIDを持っての右クリックでは何もしない")
     void unknownCatalogIdDoesNothing() {

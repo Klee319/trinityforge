@@ -59,6 +59,13 @@ public final class EquipmentTicketItemListener implements Listener {
             return;
         }
         String catalogId = ItemData.of(held.getItemMeta()).catalogId().orElse(null);
+        if (catalogId == null) {
+            // 【必須】不変Map({@link Map#copyOf})は HashMap と違い get(null) で NPE を投げる
+            // (ImmutableCollections.MapN#probe が pk.hashCode() を呼ぶ)。カタログIDを持たない
+            // アイテムは「lore付きバニラ品・リネーム品・大半のTF品」を含み、それらでの右クリックが
+            // すべてここを通るため、null を渡すとコンソールが NPE で埋まる(実サーバ報告の真因)。
+            return;
+        }
         EquipmentTicketEffect effect = effectsById.get(catalogId);
         if (effect == null) {
             return;
