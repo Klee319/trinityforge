@@ -34,6 +34,27 @@ git worktree も使えない（過去に 2 日・11 コミットにわたって 
 - 壊れた後に「混入分だけ剥がす」のは**ほぼ不可能**。同じ文の中で編集が交ざるので、
   ハンク単位でも分離できない（実例あり）。**壊す前に検出するしかない。**
 
+### yml の choke file に他人の編集が乗っているとき、自分の追加分だけを commit する手順
+`items/catalog.yml` のような大きな yml は、**別セッションの config-editor 保存によるコメント削除や
+`_editor:` カテゴリの入れ替えが先に乗っていることがある**（editor の保存は yml を再シリアライズするため）。
+そのまま `git add <path>` するとその削除ごと commit してしまう。**自分の追記が独立したブロックなら**
+以下で分離できる（2026-08-04 に実際に使用。`git apply --cached` は改行や文脈のずれで通らないことが多いので、
+blob を組み立てて index へ直接書くほうが確実）。
+
+```bash
+git show HEAD:<path> > tmp/head.yml
+# tmp/head.yml に自分の追加行だけを挿入して tmp/staged.yml を作る（アンカー行で位置を固定する）
+HASH=$(git hash-object -w tmp/staged.yml)
+git update-index --cacheinfo 100644,$HASH,<path>
+git diff --cached --numstat -- <path>   # 追加行数だけ / 削除0 を必ず確認する
+```
+
+- **`git commit -- <path>` を使ってはいけない。** pathspec 付き commit は index ではなく
+  **作業ツリーの内容**を commit するので、せっかく分離した index が捨てられて他人の削除が入る。
+  index をそのまま commit する `git commit -F <msgfile>`（pathspec なし）を使うこと。
+- 作業ツリー側は他人の変更を乗せたまま残る（`git status` で `MM` になる）。**これが正しい状態**で、
+  持ち主のセッションが処理する。
+
 ### ⚠️ `.gitattributes`（`text eol=lf`）を消さない
 Windows 上の編集ツールがファイル全体を CRLF で書き戻すことがあり、実質数行の変更が「全行変更」の差分になって
 レビュー不能かつ並行セッションと衝突しやすくなる。`*.java` / `*.js` / `*.yml` / `*.py` に `text eol=lf` を
