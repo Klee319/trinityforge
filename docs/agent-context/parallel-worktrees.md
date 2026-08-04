@@ -161,6 +161,33 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\wip-audit.ps1
 必ず既定を `build/` 配下にすること。tracked にすると audit のノイズ源になり、
 **本物の事故を見えなくする**。
 
+### ⚠️ IDE メタデータが全 worktree に生えて audit を埋める（2026-08-04 に解消）
+
+`post-check` フックの compile が Eclipse JDT のメタデータ（`TrinityForge/.project` / `.classpath` /
+`.settings/`）を吐くので、**worktree を切るたびに全部で「未追跡ファイル」として現れる**。
+2026-08-04 時点で 47 本すべてに生えており、`wip-audit.ps1` の検査4が毎回 31 本 WARN を出す状態だった。
+**本物の取り残し（実ソースの未コミット変更）がその中に埋もれていた。**
+→ `.gitignore` に 3 パターンを追加して解消済み。**同種のもの（ツールが自動生成してリポジトリ内に置くもの）は
+気づいた時点で ignore に入れる。** ノイズは audit を無力化する。
+
+### 溜まった worktree をまとめて片付ける（2026-08-04 に 47 本を整理した手順）
+
+手順5（片付け）を誰も打たないので worktree は溜まる一方になる。7/31〜8/1 の波の残骸が 47 本、
+うち 31 本に未コミット変更 109 ファイルという状態から片付けた手順:
+
+1. **先に全部退避する。** 未マージ commit が 0 でも未コミット変更は戻せないので、
+   `git -C <wt> diff` を patch として、未追跡の実ファイル（IDE メタデータを除く）はコピーして保存する。
+   2026-08-04 は `backups/orphan-worktrees-20260804/<名前>/{tracked.patch,untracked/}` に置いた
+   （patch 31 本・未追跡ファイル 9 件で 624KB。**この安さなら毎回退避してよい**）。
+2. `git worktree remove --force` を全 worktree に打つ。**Filename too long で失敗する worktree がある**
+   （Gradle の `stash-dir`。対処は [ops-build-deploy.md](./ops-build-deploy.md) の掃除の節）。
+3. **ブランチは `git branch --no-merged dev` で確認してから消す。** 2026-08-04 は 90 本すべてが
+   マージ済みだった（＝コミット済みの成果は失われない）。
+4. `git worktree prune` と `.claude/worktrees/` の残骸確認。
+
+**副作用として grep が速くなる。** 47 本の worktree はリポジトリ内にあり `.gitignore` されていないので、
+リポジトリ全体の `grep` / `rg` が**同じヒットを 48 回返していた**（調査のノイズにもなっていた）。
+
 ### 判明したときの手順
 
 - **未コミット変更の持ち主が分からない**: 消す前に必ず退避する。`git stash push` はパスを指定できるので、
