@@ -622,6 +622,33 @@ lore には「4個で鉄インゴットに戻せる」と書いてあるのに�
 - materials.yml に「素材Aから別の何かを作る」レシピを書くときは必ず `result:` を明示する。
   テストで固定するときも `base_material` だけを見るのは不十分 — `recipe.result` を直接検証すること。
 
+### 圧縮アイテム（9倍→81倍→…）は TF の `catalog.yml` ではなく ArsPaper の `materials.yml` に住んでいる
+
+「圧縮○○」を探して `items/catalog.yml` を grep すると1件も出ない。実体は
+`fork-handoff/arspaper/fork/src/main/resources/materials.yml` にある。
+
+- **命名**: `<素材id>_<段数>x`。`N` は倍率ではなく**段数**（`_1x`=9倍 / `_2x`=81倍 / `_3x`=729倍 /
+  `_4x`=6561倍 / `_5x`=59049倍）。倍率は `display_name` に書く。
+- **2系統ある**: ブロック系は `method: workbench` の 3x3（9倍刻み）、レア素材系は
+  `method: inventory` の 2x2（4倍刻み。`echo_shard_*` 等）。既存シリーズに合わせること。
+- **2段目以降の `ingredients.i` は必ず1段前の `custom:<id>`。** `recipe.result` は書かない
+  （省略＝自分自身が既定値。上の `result:` 節の「破壊レシピ」注意はここでは逆に正しい挙動）。
+- **解凍レシピを手書きしてはいけない。** `reversible: true` を付けると
+  `RecipeManager#registerReverseIfNeeded` が `uniformIngredientValue`/`uniformIngredientCount` を見て
+  「1個 → 元素材N個」の `ShapelessRecipe`（`RecipeChoice.ExactChoice`）を自動生成する。
+  前提を満たさない形だと fail-soft で警告だけ出して逆レシピが登録されない。
+- **CMD は手で決めない。** `tools/config-editor/lib/cmd-registry.js#allocateBulk` を Node から
+  1回だけ呼んで払い出す（`allocate` を1件ずつ呼ぶと台帳の読み書きが競合する、とソースに明記）。
+  `nextCmd` は「その material の使用済み最大値+1 から、全 material の使用値と予約値を避けて探す」ので
+  **未使用 material では 17, 18, … のような小さい番号が付く。これは仕様どおりで衝突しない。**
+- **リソースパックのモデル／テクスチャは要らない。** 既存の圧縮シリーズは CMD 台帳に
+  `assetName` / `customModel` を持たない。CMD は「同一 Material 内でアイテムを識別する番号」
+  としてしか使われず、見た目はバニラのまま。テクスチャを作ろうとしないこと。
+- **`_editor.categories.material` と `_editor.orders.material` にも id を足す**こと（足さないと
+  config-editor 上で分類なしになる）。
+- ⚠️ **原木系の逆レシピはバニラの「原木1個→板材4個」と入力が競合しうる**
+  （どちらも grid に圧縮原木1個を置いた状態にマッチする）。`oak_wood_*` は以前からこの状態。
+
 ### ⚠️ Ars の破壊グリフはTFの採取系リスナーを丸ごと誤発動させる（未修正）
 
 `fork-handoff/arspaper/fork/.../spell/effect/AdvancedBreakEffect.java:55`（`BreakEffect.java` も同系統）
