@@ -184,12 +184,15 @@ test("罠B: tab: \"key\" の候補は item-stats.yml に working.items の枠を
 });
 
 test("罠Bの対照実験: 通常タブ(other等)の候補は従来どおり枠を作る(巻き添え確認)", () => {
+  // 2026-08-04: 対照は **CMD 付き** にする。CMD 未割当の候補は素 Material キーに退化して
+  // バニラの同素材アイテム全部に効いてしまうため、枠を作らなくなった
+  // (test/item-stats-cmdless-candidate-no-bare-key-2026-08-04.test.js)。
   const catalogCandidates = [
-    { id: "sword_id", displayName: "剣", material: "IRON_SWORD", cmd: null, tab: "other" }
+    { id: "sword_id", displayName: "剣", material: "IRON_SWORD", cmd: 9002, tab: "other" }
   ];
   const data = { items: {} };
   runBuildItemStatsForm(data, catalogCandidates);
-  assert.ok(Object.prototype.hasOwnProperty.call(data.items, "IRON_SWORD"),
+  assert.ok(Object.prototype.hasOwnProperty.call(data.items, "IRON_SWORD#9002"),
     "鍵対応でガードを広げすぎて他タブまで巻き込んでいる");
 });
 

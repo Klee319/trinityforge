@@ -477,8 +477,14 @@
       // ステータスキーが素の Material(AMETHYST_SHARD / ECHO_SHARD)になる。そこへステを設定すると
       // 「バニラのアメジストの欠片/残響の欠片すべて」に効いてしまい、特殊アイテム1件を狙えない。
       if (candidate && tfSpecialItemIdsForStats().includes(candidate.id)) continue;
-      const key = candidate && candidate.material
-        ? (candidate.cmd == null ? candidate.material : `${candidate.material}#${candidate.cmd}`) : "";
+      // CMD 未割当の候補は枠を作らない。CMD が無いとキーが素の Material に退化し、
+      // バニラの同素材アイテムすべてにステが効いてしまう(このアイテム単体を指せない)。
+      // 上の skill_node_lock / skill_tree_reset 除外は同じ害を名前で個別に避けていたもので、
+      // 根本原因は CMD の有無なので、**新規追加したカタログ品では必ず再発する**
+      // (既存 item-stats.yml に同じ素キーが在るときだけ下の hasOwnProperty で skip されるため、
+      // 素キーがまだ無い材質のときだけ静かに生える、材質依存の潜在バグだった)。
+      // CMD はステータス設定でその候補を選んだ時点で cmdEnsureCatalogItemCmd が採番する。
+      const key = statsKeyFromCandidate(candidate);
       if (!key || Object.prototype.hasOwnProperty.call(working.items, key)) continue;
       // タブが決まらない候補を暗黙で「補助」へ落とすと、ユーザーには「なぜここにいるのか
       // 分からないエントリ」として補助タブに出続けてしまう(かつ素材のようにタブ自体が
@@ -509,11 +515,15 @@
     }
     const root = h("div", { class: "dedicated-form" });
 
+    // CMD を持たない候補は item-stats のキーを持たない(空文字を返す)。
+    // 素の Material をキーに使うと**バニラの同素材アイテムすべて**にステが効くので、
+    // それはカタログ品 1 件を指す表現になっていない。素キーは常に「バニラのもの」とみなす。
+    // ※この関数は上の候補同期ループ(関数冒頭)からも巻き上げで呼ばれる。
     function statsKeyFromCandidate(c) {
       if (!c || !c.material) return "";
       const cmd = c.cmd;
       if (cmd != null && cmd !== "") return `${c.material}#${cmd}`;
-      return c.material;
+      return "";
     }
     function pickPreferredCatalogCandidate(matches) {
       if (!matches || !matches.length) return null;
@@ -525,6 +535,10 @@
       const hashIdx = key.indexOf("#");
       const material = hashIdx >= 0 ? key.slice(0, hashIdx) : key;
       const cmd = hashIdx >= 0 ? key.slice(hashIdx + 1) : "";
+      // 素 Material キーはバニラのものなので、CMD 未割当の候補に解決させない。
+      // ここを空にしないと「バニラのダイヤの剣のカードに、追加したばかりの新品の名前が
+      // 表示される」(そのカードを編集すると新品を設定したつもりでバニラ全部に効く)。
+      if (cmd === "") return [];
       return catalogCandidates.filter((c) =>
         c && c.material === material && String(c.cmd == null ? "" : c.cmd) === String(cmd)
       );

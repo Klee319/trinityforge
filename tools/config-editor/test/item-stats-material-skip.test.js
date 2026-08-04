@@ -123,7 +123,10 @@ test("buildItemStatsForm: TF特殊アイテム5件(既存2件+2026-08-04追加�
       role_reselect_ticket: { material: "NAME_TAG", "display-name": "職業付け替えの証" },
       stat_reroll_ticket: { material: "RABBIT_FOOT", "display-name": "厳選やり直しの護符" },
       quality_upgrade_ticket: { material: "HEART_OF_THE_SEA", "display-name": "品質昇華の結晶" },
-      sword_id: { material: "IRON_SWORD", "display-name": "剣" }
+      // 2026-08-04: 巻き添え確認用の対照は **CMD 付き** にする。CMD 未割当の候補は
+      // 素 Material キーに退化してバニラ全部に効いてしまうため枠を作らなくなった
+      // (test/item-stats-cmdless-candidate-no-bare-key-2026-08-04.test.js)。
+      sword_id: { material: "IRON_SWORD", "display-name": "剣", "custom-model-data": 9001 }
     }
   };
   const catalogCandidates = buildCatalogCandidates(catalogData, null);
@@ -143,7 +146,7 @@ test("buildItemStatsForm: TF特殊アイテム5件(既存2件+2026-08-04追加�
     assert.equal(Object.prototype.hasOwnProperty.call(itemTabs, key), false);
   }
   // 巻き添えにしていないこと: 通常のカタログ品は従来どおり枠が作られる。
-  assert.ok(Object.prototype.hasOwnProperty.call(data.items, "IRON_SWORD"));
+  assert.ok(Object.prototype.hasOwnProperty.call(data.items, "IRON_SWORD#9001"));
 });
 
 test("buildItemStatsForm: タブ未決定の候補は「補助」へ落とさず枠を作らない", () => {
