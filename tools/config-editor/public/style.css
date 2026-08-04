@@ -1738,6 +1738,13 @@ select.field-input option {
    広い画面の見た目は変わらない。 */
 .table-scroll { overflow-x: auto; max-width: 100%; }
 
+/* 長い1トークン(Windows絶対パス・SHA-1)は折返し候補が無いのであふれる。ブロック自身の幅は
+   親に収まったままインライン内容だけがはみ出すので、**要素の矩形を見る検査では見つからない**
+   (scrollWidth と clientWidth を比べないと気づけない)。`.main` は overflow-x:hidden なので
+   はみ出した分は切り落とされ、出力先パスが読めなくなる。
+   `.respack-reserved-list` が既に word-break:break-all を持っているのと同じ理由。 */
+.respack-build-result { overflow-wrap: anywhere; }
+
 /* --- 1. ラップトップ幅: サイドバーと本文余白を詰める --- */
 @media (max-width: 1280px) {
   .layout { grid-template-columns: 248px 1fr; }
