@@ -59,6 +59,43 @@ public final class LoreConfig implements LoadableConfig {
         return snapshot.displayTable();
     }
 
+    /**
+     * 1ステの表示定義を引く。<b>綴りの違い(ハイフン/アンダースコア/大文字)を吸収する唯一の入口。</b>
+     *
+     * <p><b>なぜ生の {@link #displayTable()} を直接引かせないか(2026-08-04 の真因)</b>:
+     * この表は yml に<b>著者が書いた綴りそのまま</b>({@code attack-power})でキーになっている。
+     * 一方 TF 内部でステキーを持ち回る形は {@link com.trinityforge.stats.StatKeys#canonical}
+     * のスネークケース({@code attack_power})なので、canonical 化した値で生の表を引くと
+     * <b>1件も一致しない</b>。{@code LoreComposer} は表と値の両方を canonical 化しているので
+     * 無事だったが、ArsPaper フォークのスレッド lore は片側だけを canonical 化していたため
+     * 表示名の解決が常に失敗し、フォールバックでステータスidが素のまま実機に出ていた。
+     * 「表と値のどちらを canonical 化するか」を呼び出し側の判断に委ねた設計が事故の原因なので、
+     * 突き合わせはここに閉じる。
+     *
+     * @return 見つからなければ {@code null}(呼び出し側は「表示定義が無いステ」として扱う)
+     */
+    public StatDisplaySpec displaySpecFor(String statKey) {
+        if (statKey == null || statKey.isBlank()) {
+            return null;
+        }
+        Map<String, StatDisplaySpec> table = snapshot.displayTable();
+        StatDisplaySpec direct = table.get(statKey);
+        if (direct != null) {
+            return direct;
+        }
+        String canonical = com.trinityforge.stats.StatKeys.canonical(statKey);
+        StatDisplaySpec folded = table.get(canonical);
+        if (folded != null) {
+            return folded;
+        }
+        for (Map.Entry<String, StatDisplaySpec> entry : table.entrySet()) {
+            if (com.trinityforge.stats.StatKeys.canonical(entry.getKey()).equals(canonical)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
     public LoreLayout layout() {
         return snapshot.layout();
     }

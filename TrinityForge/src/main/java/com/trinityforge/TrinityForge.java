@@ -186,6 +186,8 @@ public final class TrinityForge extends JavaPlugin {
      */
     private Runnable damageIndicatorUninstaller;
     private ItemFactory itemFactory;
+    /** {@link #loreComposer()} の実体。{@code inertStatKeys} 配線済みの1本を共有する。 */
+    private LoreComposer loreComposer;
     private CatalogRecipeRegistrar catalogRecipeRegistrar;
     /** レシピ帳へのプラグインレシピ解禁 (2026-07-31 D7)。{@link #onEnable} 完了までは null。 */
     private com.trinityforge.listeners.RecipeDiscoveryListener recipeDiscoveryListener;
@@ -545,6 +547,7 @@ public final class TrinityForge extends JavaPlugin {
         // Supplier で渡すのは /trinityforge reload で config が差し替わるため。
         LoreComposer loreComposer = new LoreComposer();
         loreComposer.useInertStatKeys(configManager.craftQuality()::inertSpreadStatKeys);
+        this.loreComposer = loreComposer;
         ItemAssembler itemAssembler = new ItemAssembler(
                 configManager.itemStats(),
                 configManager.attributeMapping(),
@@ -1825,6 +1828,22 @@ public final class TrinityForge extends JavaPlugin {
      */
     public ItemFactory itemFactory() {
         return itemFactory;
+    }
+
+    /**
+     * lore 行の組み立て器({@code stats/lore.yml} の {@code layout.line-template} / 表示名 / 桁数 /
+     * 単位 / 色をすべて通す唯一の経路)。{@code inertStatKeys} を配線済みの1本を共有するので、
+     * <b>フォークが独自に整形し直さずにこれを呼べば体裁が必ず TF 装備と一致する</b>。
+     *
+     * <p><b>なぜ公開するか(2026-08-04)</b>: ArsPaper 側のスレッド lore が
+     * 「表示名を1件だけ引いて自前で連結する」経路({@code TrinityForgeBridge#threadStatDisplay})を
+     * 使っていたため、(1) 引くキーを canonical 化していたのに {@code lore.yml} の表(=著者が書いた
+     * ハイフン綴りのまま)は canonical 化されておらず<b>全キーが引けずステータスidが素で表示され</b>、
+     * (2) 引けたとしても色/アイコン/テンプレートは TF と別物、という2重の食い違いになっていた。
+     * 表示は1箇所からしか作らせないのが唯一の再発防止になる。Null until {@link #onEnable} has run.
+     */
+    public LoreComposer loreComposer() {
+        return loreComposer;
     }
 
     /**
