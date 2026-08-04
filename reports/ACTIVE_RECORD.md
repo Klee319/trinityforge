@@ -195,6 +195,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-04 | **実サーバ報告バッチ（24 件）のうち 5 件を修正**。TF `cf12acf`（Ars鍛冶の品質を**回収時**ロールへ＝`ITEM_PENDING_CRAFT_QUALITY` 新設。旧実装は儀式時に PDC だけ書き `ItemFactory#stamp` を呼んでおらず「手に持つまでステが出ない」）／`447ed90`（**右クリックのたびに NPE**。`Map.copyOf` の不変Mapへ `catalogId().orElse(null)` を渡していた＝`get(null)` は HashMap と違い投げる）／`689843e`（**自分が置いたスポナーが壊すと消える**。08-03 の救済がパーク門の内側で一度も到達していなかった）／`5c2d567`（**素材がバニラ装備でない TF 品は品質が常に0**。`isStampableCraftResult` が `MaterialTier#isEquipment()` だけを見ていた＝広辞苑/杖/触媒が全滅）／`6215a0d`（図鑑ティア通知の MiniMessage 生タグ）。ArsPaper fork `ae82e8b`。**リーチ14番は非該当**（バニラ既定は 4 ではなく `entity_interaction_range=3.0`。`BaseStatsConfig` は差分保存なので定数 3.0 が正しい） |
 | 2026-08-04 | **リポジトリ整理**（`67b2c02` ほか）。stale な日付レポート 46 本＋`audit-20260725/` を削除、失効 SPEC 12 本を `docs/archive/` へ、IDE ファイルを ignore、worktree 47 本と作業ブランチ 90 本を整理、ローカル生成物 約 800MB を破棄、この記録を現役分とアーカイブに分割。**`TrinityForge/docs/GREENFIELD-REMAINING-TODO.md`（未実装 11 件の台帳）は実コードで全件が実装済みか前提消滅と確認して archive へ**（根拠は `docs/archive/README.md`） |
 | 2026-08-04 | 消費ソース量に応じた儀式EXP（`ars-smithing.exp-per-source`）／1SPあたりの総合レベル間隔（`power.levels-per-skill-point`）。TF `0b174cb`〜`4000f9d`、ArsPaper fork `be974a4`（jar を除外して push 済み） |
 | 2026-08-04 | 圧縮シリーズ 64 件追加＋カタログID改名で壊れた参照 152 箇所の修復、editor 2 件。**圧縮アイテムは Ars の `materials.yml` に住む**／`reversible: true` で解凍レシピは自動生成（手書き禁止） |
