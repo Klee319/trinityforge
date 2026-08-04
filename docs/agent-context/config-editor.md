@@ -439,9 +439,41 @@ Browser ペインが**非表示**だとページがフレームを作らない�
    JS 側のブレークポイント処理は動かない。ハンドラの正しさは
    `window.dispatchEvent(new Event('resize'))` で直接叩いて確認する。
 
-あふれの有無は目視より計測の方が確実。`.main` の右端と各子孫の
-`getBoundingClientRect().right` を比べ、**祖先に `overflow-x: auto|scroll` を持つ要素は
-「スクロールで到達できる」ので除外する**のがポイント。
+**ペインが非表示でもスクショは撮れる。** ヘッドレス Chrome を CDP で直接叩けばよく、
+Node 24 は global `WebSocket` / `fetch` を持つので **puppeteer 等の依存追加は不要**
+（`package.json` を汚さない）。`Runtime.evaluate` を挟めば「ドロワーを開いた状態」のような
+インタラクション後の画面も撮れる（`chrome --screenshot` 単発では非同期描画に間に合わず、
+操作もできない）。2026-08-04 の実装は `tmp/shot.mjs`（撮影 8 枚）と `tmp/audit.mjs`
+（横あふれ監査 8 幅 × 14 画面）。**`tmp/` は gitignore 対象なので次回は書き直しになる。**
+
+### 横あふれの検査は `scrollWidth` も見ないと取りこぼす
+
+`getBoundingClientRect().right` を親の右端と比べるだけでは不十分。
+**ブロックの矩形は親に収まったまま、中のインライン内容だけがあふれる**ケースがあり、
+矩形ベースの検査は 0 件と報告する。実際に respack のビルド結果
+（`C:\Users\...` の絶対パスと SHA-1 = 折返し候補を持たない 1 トークン）が
+355px の枠から 653px 分あふれて切り落とされていたのを、この穴で一度見逃した。
+
+検査は 2 本立てにする:
+
+1. `rect.right > 親の右端` — 矩形のあふれ
+2. `el.scrollWidth > el.clientWidth` — 中身のあふれ。
+   ただし **`input` / `textarea` / `select` / `button`（欄内スクロールは正常仕様）と
+   `text-overflow: ellipsis`（意図的な省略）を除外しないと偽陽性の山**になる
+   （除外前 49 件中 38 件がノイズだった）。
+
+いずれも**祖先に `overflow-x: auto|scroll` を持つ要素は「横スクロールで到達できる」ので除外**する。
+**最も信頼できる単一指標は `.main` の `scrollWidth - clientWidth`**。これが 0 なら
+「切り落とされて到達できない内容は無い」と言える。個々の要素の `scrollWidth` 超過は
+0 でなくても正常なことが多い。
+
+長い 1 トークン対策は `overflow-wrap: anywhere`（必要なときだけ折る）。
+2026-08-04 の実測 A/B（8 幅 × 14 画面 = 112 組合せ）:
+
+| | 変更前 | 変更後 |
+|---|---|---|
+| 矩形あふれ | 60 件 | **0 件** |
+| 実クリップ（`.main` の overflow > 0） | 33 組合せ・最大 864px | **0** |
 
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)

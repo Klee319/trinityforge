@@ -434,6 +434,30 @@ commit: `fdb364e`。`dev` へ push 済み。**editor は jar 配備を伴わな�
 内容は catalog.yml / skill-exp.yml / item-stats / wiki generator 系で、
 **並行セッションの未コミット変更由来**。本変更とは無関係。
 
+**追記（同日・スクショと再監査）**: Browser ペイン非表示でスクショが撮れなかったので、
+**ヘッドレス Chrome を CDP で直接叩く方式**に切り替えた（`tmp/shot.mjs`。Node 24 の
+global `WebSocket`/`fetch` だけで動くので puppeteer 等の依存追加は無し。`Runtime.evaluate` を
+挟めるので「ドロワーを開いた状態」も撮れる）。8 枚を `tmp/shots/` に出力。
+
+その過程で **`375-respack` だけ 315px のクリップが残っていた**のを発見して修正した（commit `cd872a4`）。
+原因は**矩形ベースの検査の穴**: respack のビルド結果は `C:\Users\...` の絶対パスと SHA-1 を出すが
+どちらも折返し候補を持たない 1 トークンなので、**div の矩形は 355px のままテキストだけが 653px
+はみ出す**。`getBoundingClientRect().right` を見る検査ではどの要素も親を越えないので「0 件」と出る。
+`scrollWidth` と `clientWidth` を比べる検査を足して発見した（`.respack-build-result` に
+`overflow-wrap: anywhere`）。**表をラッパ方式に変えた後、375px の respack を再測していなかった**のが
+見逃しの直接原因。方式を変えたら全幅で測り直すこと。
+
+再監査（`tmp/audit.mjs`。8 幅 × 14 画面 = **112 組合せ**）の A/B:
+
+| | 変更前 | 変更後 |
+|---|---|---|
+| 矩形あふれ | 60 件 | **0 件** |
+| 実クリップ（`.main` の `scrollWidth - clientWidth` > 0） | 33 組合せ・最大 **864px** | **0** |
+| テキストあふれ（非クリップ・`form-field` のラベル溢れ） | 23 件 | 6 件 |
+
+残る 6 件は 768px 以上でだけ出る**変更前から在る**ラベルの溢れで、`.main` のクリップは 0（到達可能）。
+テストは **1042 pass / 11 fail** で失敗集合は着手前と完全一致（+1 pass は並行セッションの新規テスト）。
+
 **この環境の落とし穴（次に UI を検証する人向け）**: Browser ペインが非表示だと
 ①スクリーンショットが撮れない ②フレームを作らないので**CSS transition が進まず**
 `getComputedStyle` が遷移途中の値を返す（`getAnimations().finish()` で確定させる）
