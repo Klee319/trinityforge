@@ -54,6 +54,10 @@ import java.util.concurrent.ThreadLocalRandom;
  *       spawner <b>vanish on break</b> (no drop from us, and vanilla drops nothing either). They are
  *       harvestable again; only the vanilla spawner EXP stays suppressed, since that (unlike the item)
  *       really can be farmed by repeated place/break.
+ *       2026-08-04: その「設置済みスポナーは必ず返す」救済が<b>パーク+シルクタッチの門より後ろ</b>に
+ *       置かれていたため一度も届いていなかった(パーク未解放/非シルクタッチのツルハシで壊すと消えた)。
+ *       門は<b>自然生成スポナーにだけ</b>掛ける — 「自分が置いた物が壊すと消える」ことの根拠には
+ *       ならないため。設置済みは無条件に1個返す(1個入れて1個返るので複製にならない)。
  *       2026-08-03: 設置側({@link #onBlockPlace})が無いと中身は絶対に戻らないことが判明した —
  *       詳細はそちらの javadoc。</li>
  * </ul>
@@ -159,11 +163,20 @@ public final class MiningGimmickListener implements Listener {
             // 無言で消えていた(「再設置すると破壊で消滅する」の正体)。
             event.setExpToDrop(0);
         }
-        if (!dedicatedEffects.isActive(player, EFFECT_SPAWNER_HARVEST)) {
-            return;
-        }
-        ItemStack tool = player.getInventory().getItemInMainHand();
-        if (!hasSilkTouch(tool)) {
+        // 2026-08-04 実サーバ報告「回収すらできなくなっている」の修正。
+        //
+        // 08-03 に入れた「設置済みスポナーは中身が解決できなくても必ず1個返す」救済は、下の
+        // パーク+シルクタッチのゲートより後ろに置かれていたため一度も届いていなかった。つまり
+        // 【パーク未解放 or シルクタッチ以外のツルハシ】で自分が設置したスポナーを壊すと、
+        // ここまでで expToDrop だけ0にしてから素通りし、バニラ挙動(スポナーは何も落とさない)が
+        // 適用されて持ち物が無言で消えていた。
+        //
+        // パークとシルクタッチは「自然生成スポナーを持ち帰れる」という<b>報酬</b>のための門であって、
+        // 「自分が置いた物が壊すと消える」ことの根拠にはならない。よって門は自然生成スポナーだけに
+        // 掛け、設置済みスポナーは無条件に返す(1個入れて1個返るので複製にはならない)。
+        boolean perkHarvest = dedicatedEffects.isActive(player, EFFECT_SPAWNER_HARVEST)
+                && hasSilkTouch(player.getInventory().getItemInMainHand());
+        if (!playerPlaced && !perkHarvest) {
             return;
         }
         if (!(block.getState() instanceof CreatureSpawner source)) {

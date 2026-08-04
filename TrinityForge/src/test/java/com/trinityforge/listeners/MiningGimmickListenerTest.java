@@ -316,6 +316,88 @@ class MiningGimmickListenerTest {
     }
 
     /**
+     * 実サーバ報告(2026-08-04)「回収すらできなくなっている」の回帰テスト。
+     *
+     * <p><b>真因</b>: 08-03 に入れた「設置済みスポナーは必ず1個返す」救済が、パーク
+     * ({@code spawner-silktouch-harvest}) + シルクタッチの門より<b>後ろ</b>に置かれていたため
+     * 一度も到達していなかった。パーク未解放、あるいはシルクタッチ以外のツルハシで自分が設置した
+     * スポナーを壊すと、TF は何も落とさず素通りし、バニラ挙動(スポナーは何も落とさない)が適用されて
+     * 持ち物が無言で消えていた。
+     *
+     * <p>門は「自然生成スポナーを持ち帰れる」という報酬のためのものであって、「自分が置いた物が
+     * 壊すと消える」ことの根拠にはならない。設置済みスポナーは門と無関係に必ず返す。
+     */
+    @Test
+    void playerPlacedSpawnerIsReturnedEvenWithoutThePerk() {
+        Player player = server.addPlayer();
+        // シルクタッチ無しのツルハシ(=門の片方も満たさない、最も厳しい条件)。
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        Block block = player.getWorld().getBlockAt(8, 64, 8);
+        block.setType(Material.SPAWNER);
+        CreatureSpawner source = assertInstanceOf(CreatureSpawner.class, block.getState());
+        source.setSpawnedType(EntityType.SKELETON);
+        source.update(true);
+
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        // パーク未解放(既定の false のまま。when を書かないことが「未解放」の表現)。
+        PlacedBlockTracker placedBlocks = new PlacedBlockTracker(MockBukkit.createMockPlugin());
+        placedBlocks.markPlaced(block);
+        MiningGimmickListener listener = new MiningGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, mock(PlayerStatAggregator.class),
+                new MiningGimmickConfig(), placedBlocks);
+        BlockBreakEvent event = mock(BlockBreakEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getBlock()).thenReturn(block);
+
+        listener.onBlockBreak(event);
+
+        var drops = player.getWorld().getEntitiesByClass(Item.class);
+        assertEquals(1, drops.size(),
+                "自分が設置したスポナーはパーク未解放/シルクタッチ無しでも必ず1個返らなければならない"
+                        + "(返さないとバニラ挙動で持ち物が消える)");
+        Item dropped = drops.iterator().next();
+        assertEquals(Material.SPAWNER, dropped.getItemStack().getType());
+        BlockStateMeta meta = assertInstanceOf(BlockStateMeta.class, dropped.getItemStack().getItemMeta());
+        CreatureSpawner droppedState = assertInstanceOf(CreatureSpawner.class, meta.getBlockState());
+        assertEquals(EntityType.SKELETON, droppedState.getSpawnedType(), "中身も維持されること");
+        verify(event).setDropItems(false);
+        verify(event, atLeastOnce()).setExpToDrop(0);
+    }
+
+    /**
+     * 上の救済を「自然生成スポナーまで無条件に回収できる」まで緩めていないことを縛る
+     * (パーク+シルクタッチはあくまで自然生成スポナーを持ち帰るための門として残す)。
+     */
+    @Test
+    void naturalSpawnerStillRequiresThePerkAndSilkTouch() {
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        Block block = player.getWorld().getBlockAt(9, 64, 9);
+        block.setType(Material.SPAWNER);
+        CreatureSpawner source = assertInstanceOf(CreatureSpawner.class, block.getState());
+        source.setSpawnedType(EntityType.ZOMBIE);
+        source.update(true);
+
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        // markPlaced を呼ばない = 自然生成スポナー。
+        PlacedBlockTracker placedBlocks = new PlacedBlockTracker(MockBukkit.createMockPlugin());
+        MiningGimmickListener listener = new MiningGimmickListener(
+                MockBukkit.createMockPlugin(), dedicatedEffects, mock(PlayerStatAggregator.class),
+                new MiningGimmickConfig(), placedBlocks);
+        BlockBreakEvent event = mock(BlockBreakEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getBlock()).thenReturn(block);
+
+        listener.onBlockBreak(event);
+
+        assertEquals(0, player.getWorld().getEntitiesByClass(Item.class).size(),
+                "自然生成スポナーはパーク+シルクタッチ無しでは回収できない(バニラ挙動)");
+        verify(event, never()).setDropItems(false);
+    }
+
+    /**
      * 実サーバ報告(2026-08-01)「回収したスポナーの中身が空」の根本原因を縛る。
      *
      * <p>Paper 1.21.11 の {@code CreatureSpawner#getSpawnedType()} は
