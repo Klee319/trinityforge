@@ -254,8 +254,14 @@
 
 > ⚠留保: ValhallaMMO公式APIドキュメントwikiは未整備で、上記はソース読解に基づく。β更新でAPI安定性は変わり得る。実装時は対象版ソースで再確認。
 
-### 6.4 ブリッジPL実装計画（2026-07-14・ソース/jar確保済）
-- **依存配線済**: `external/ValhallaMMO`（source, 参照用）＋ `source/ValhallaMMO_1.9.3.jar`（`TrinityForge/build.gradle.kts` に `compileOnly` 追加、ビルド緑で解決確認）／`external/ArsPaper`（fork対象source）。
+### 6.4 ブリッジPL実装計画（2026-07-14・**失効**）
+
+> ⚠**この節は失効している。** 2026-07-22 に ValhallaMMO 依存を撤廃し、進行系は TF 本体の native 実装
+> （`skilltree/` + `progression/`）へ全面移行した。ここに書かれた `Skill`/`Profile` 実装も
+> Valhalla データフォルダへの config 配置も**もう存在しない**。`external/ValhallaMMO` と
+> `source/*.jar` も 2026-08-04 の整理で破棄した。残しているのは perk 転写元としての設計意図のみ。
+
+- **（旧）依存配線**: `external/ValhallaMMO`（source, 参照用）＋ `source/ValhallaMMO_1.9.3.jar` を `compileOnly` に追加していた。どちらも現在は存在しない。
 - **テンプレ確定**（`PowerSkill.java` 準拠）: `Skill` の必須override = `loadConfiguration()`/`isLevelableSkill()`/`getProfileType()`/`getSkillTreeMenuOrderPriority()`＋`Skill(String)`。`Profile` の必須override = `getTableName()`/`getSkillType()`/`getBlankProfile(UUID)`＋`Profile(UUID)`。EXP付与 = `addEXP(player, amt, false, reason)`。
 - **要実装コンポーネント**: ①`ArsMagicSkill`＋`ArsMagicProfile`（＋`ArsSmithingSkill`/Profile）②`SkillRegistry.registerSkill()`/`ProfileRegistry.registerProfileType()` の登録（ValhallaMMOロード後の正しいタイミング）③skills/ars_magic(_progression).yml をValhallaデータフォルダへ配置（スキルツリー§2.6/§3をperk転写）④ArsPaperのキャストイベント購読→`skill.addEXP(...)`（魔法柱EXP源）。
 - **⚠実機検証必須**: 登録タイミング（Valhalla hard depend・LD-10）、config配置先（Valhallaデータフォルダ）、ArsPaperイベント名は**動作サーバでの検証が必要**。Java クラス自体はjarに対しコンパイル可能。

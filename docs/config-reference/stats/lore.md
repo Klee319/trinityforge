@@ -170,7 +170,8 @@ CooldownManager.applyReductionで消費)。符号反転(正=短縮)はcooldown-r
 ```
 ingredient-save-chance は元々ArsPaperのAlchemicalSourcelink(独自クラフトの素材投入)専用の
 consumerしか無く、skilltree/alchemy.yml D「素材を消費しない確率UP」を取得してもバニラの
-醸造台では何も起きなかった(2026-07-25 監査 reports/20260725_SkilltreeNodeTriage.md B-alpha-1)。
+醸造台では何も起きなかった(2026-07-25 監査の B-alpha-1。監査レポート本体は 2026-08-04 の整理で
+削除したので、必要なら git 履歴の reports/20260725_SkilltreeNodeTriage.md を見る)。
 2026-07-26、TrinityForge本体に BrewIngredientSaveListener を追加し、バニラBrewEventでも同じstatを
 ロールするようにした。これにより ingredient-save-chance は「バニラ醸造台の材料投入」と
 「ArsPaperアルケミカルソースリンクへの素材投入」の両方に等しく適用される(片方だけを強化する

@@ -45,6 +45,14 @@ wiki/
 # 絶対パス（D:\game\...）を含むローカル運用スクリプト
 .cursor-rcon.py
 
+# IDE / 言語サーバ（Eclipse JDT）のメタデータ。
+# post-check フックの compile が吐くので、worktree を作るたび全ワークツリーに生える。
+# 除外していないと wip-audit.ps1 の「他 worktree の未コミット変更」が毎回 47 本 WARN になり、
+# 本物の取り残し（実ソースの未コミット変更）がノイズに埋もれる。2026-08-04 に実際に埋もれた。
+.project
+.classpath
+.settings/
+
 # ---- 実サーバ由来の運用データ ----
 server.properties
 ops.json
