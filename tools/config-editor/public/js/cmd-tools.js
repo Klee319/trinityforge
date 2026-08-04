@@ -30,10 +30,108 @@
       const err = new Error(json.error || res.statusText);
       // 変換エラーの明細をUI側で箇条書きにできるよう、Errorへ載せ替えて伝搬させる。
       if (Array.isArray(json.conversionErrors)) err.conversionErrors = json.conversionErrors;
+      // revision 楽観ロックの 409 を呼び出し側で判別するため、状態とペイロードも載せる
+      // (respack-view.js の apiCall と同じ契約に揃える)。
+      err.status = res.status;
+      err.payload = json;
       throw err;
     }
     return json;
   }
+
+  // revision付き楽観ロックPUT (app.js の putConfig / respack-view.js の同名関数と同じ契約)。
+  async function putConfigRevision(configId, data, expectedRevision) {
+    const body = { data };
+    if (expectedRevision != null) body.expectedRevision = expectedRevision;
+    try {
+      const r = await apiCall("PUT", `/api/config/${configId}`, body);
+      return { ok: true, revision: r.revision };
+    } catch (err) {
+      if (err.status === 409 && err.payload && err.payload.conflict) return { ok: false, conflict: true };
+      throw err;
+    }
+  }
+
+  /**
+   * カタログ品に CMD が未割当なら、その場で採番して catalog.yml へ即保存する。
+   *
+   * なぜ必要か: item-stats.yml のキーは `MATERIAL#CMD` で、CMD が空だと素の Material に退化する。
+   * すると (a) バニラの同素材アイテム全部にステが効いてしまい狙ったカタログ品を指せない、
+   * (b) 既存の素 Material エントリ(バニラ用の 77 件)と衝突して「同じキーが既に存在します」で
+   * 追加そのものができない。新規追加したカタログ品は CMD 未割当なので必ず後者を踏む。
+   * 単一アイテムを狙うには CMD が必須なので、ここで採番するのが唯一の正しい解決になる。
+   *
+   * catalog.yml へ即保存するのは、台帳と item-stats のキーだけ `#123` になって catalog.yml が
+   * 未割当のまま残ると、**そのステータスが実物のアイテムに一生マッチしない**半端な状態になるため。
+   *
+   * @returns {Promise<number|null>} 割り当て済み/新規採番した CMD。中止・失敗時は null。
+   */
+  window.cmdEnsureCatalogItemCmd = async function cmdEnsureCatalogItemCmd(opts) {
+    const options = opts || {};
+    const id = String(options.id || "").trim();
+    const material = String(options.material || "").trim().toUpperCase();
+    if (!id || !material) {
+      notify("カタログIDと material が確定していないためCMDを割り当てられません", "error");
+      return null;
+    }
+
+    const readCatalog = async () => {
+      const res = await apiCall("GET", "/api/config/catalog");
+      const data = res && res.data && typeof res.data === "object" ? res.data : {};
+      const items = data.items && typeof data.items === "object" ? data.items : {};
+      return { data, revision: res ? res.revision : null, entry: items[id] || null };
+    };
+
+    try {
+      const first = await readCatalog();
+      if (!first.entry) {
+        // functional-items / sourcejars / 触媒など catalog.yml 以外を出自とする候補。
+        notify(`catalog.yml に id "${id}" が見つかりません。出自のファイルでCMDを割り当ててください`, "error");
+        return null;
+      }
+      const already = first.entry["custom-model-data"];
+      if (typeof already === "number") return already; // 既に割当済み: 何も聞かずそのまま使う
+
+      if (!window.confirm(
+        `「${id}」(${material}) にはまだCMD(CustomModelData)が割り当てられていません。\n\n`
+        + `CMDが無いとステータスのキーが素の ${material} になり、バニラの ${material} すべてに\n`
+        + `効いてしまうため、このアイテム単体を指定できません。\n\n`
+        + "いま未使用のCMDを1つ採番して catalog.yml へ保存します。\n"
+        + "一度払い出した番号は再利用されません。よろしいですか？"
+      )) return null;
+
+      // 確認ダイアログの表示中に他画面が catalog.yml を保存していると revision が古くなる。
+      // 採番より前に revision を取り直す (先に採番すると 409 で台帳の番号だけ捨てることになる)。
+      const fresh = await readCatalog();
+      if (!fresh.entry) {
+        notify(`catalog.yml から id "${id}" が消えています。画面を再読込してください`, "error");
+        return null;
+      }
+      const raced = fresh.entry["custom-model-data"];
+      if (typeof raced === "number") return raced; // 待っている間に他画面が割り当てた
+
+      const alloc = await apiCall("POST", "/api/cmd/allocate", { material, id, source: "catalog" });
+      const cmd = alloc && alloc.cmd;
+      if (typeof cmd !== "number") {
+        notify("CMDの採番結果が不正でした", "error");
+        return null;
+      }
+      fresh.entry["custom-model-data"] = cmd;
+      const put = await putConfigRevision("catalog", fresh.data, fresh.revision);
+      if (!put.ok) {
+        // 台帳には番号が残る (respack-view の一括採番と同じ既知の限界)。番号は捨てても
+        // 再利用しない方針なので、実害は「欠番が1つ増える」だけに留まる。
+        notify(`CMD ${cmd} は採番しましたが、他で編集中のため catalog.yml に保存できませんでした。`
+          + "画面を再読込してやり直してください", "error");
+        return null;
+      }
+      notify(`CMD ${cmd} を「${id}」へ割り当てて catalog.yml に保存しました`, "ok");
+      return cmd;
+    } catch (err) {
+      notify(`CMDの割当に失敗しました: ${err.message}`, "error");
+      return null;
+    }
+  };
 
   // カタログを開き直しても、登録済みテクスチャの状態を台帳から復元する。
   // 以前は各コントロールが常に「未登録」で初期化され、POST直後だけ表示が正しかった。

@@ -1906,10 +1906,29 @@
 
       function commitKeyFromCatalog(candidate) {
         if (!candidate) return;
-        commitKey(
-          candidate.material,
-          candidate.cmd != null && candidate.cmd !== "" ? candidate.cmd : ""
-        );
+        const cmd = candidate.cmd != null && candidate.cmd !== "" ? candidate.cmd : "";
+        if (cmd !== "") {
+          commitKey(candidate.material, cmd);
+          return;
+        }
+        // CMD 未割当のカタログ品はキーが素の Material に退化するため、
+        //   - バニラの同素材アイテム全部にステが効いて、このアイテム単体を指せない
+        //   - 既存の素 Material エントリ(バニラ用 77 件)と衝突し「同じキーが既に存在します」で弾かれる
+        // という2つが起きる。**新規追加した品は CMD 未割当なので必ず後者を踏む**
+        // (「カタログに足したのに、登録していないのに既にあると言われる」の原因はこれ)。
+        // 単体を指すには CMD が必須なので、その場で採番してから続ける。
+        if (typeof window.cmdEnsureCatalogItemCmd !== "function") {
+          alert("このアイテムにはCMDが未割当です。「リソースパック管理」画面の「全アイテムCMD一括採番＆保存」で割り当ててから設定してください。");
+          return;
+        }
+        window.cmdEnsureCatalogItemCmd({ id: candidate.id, material: candidate.material })
+          .then((assigned) => {
+            if (typeof assigned !== "number") return; // 中止・失敗時は何も変えない
+            // 同じ画面が持つ候補リストにも反映する。ここを更新しないと、続けて同じ品を選び直した
+            // ときに再び「CMD未割当」と判定して確認ダイアログが二重に出る。
+            candidate.cmd = assigned;
+            commitKey(candidate.material, assigned);
+          });
       }
 
       let matValue = material;
