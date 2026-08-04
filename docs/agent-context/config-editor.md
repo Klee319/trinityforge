@@ -593,6 +593,53 @@ DOM モック上のユニットテストの結果と食い違って再調査し�
 フィールドの出現回数を数えるときは、**実際にテキストを保持する末端の class（`form-label-ja`）だけ**
 を対象にする、または `closest('.form-field')` で祖先の重複を先に潰してから数える。
 
+## item-stats のキーは CMD が無いと素の Material に退化する ── 新規カタログ品が必ず踏む罠（2026-08-04）
+
+`stats/item-stats.yml` のキーは `MATERIAL#CMD`。`forms.js` の `statsKeyFromCandidate` は
+**CMD が空だと素の `MATERIAL` をキーにする**フォールバックを持つ。CMD は `catalog.yml` の
+`custom-model-data` から来るが、**カタログへ新規追加した直後の品はまだ未割当**（個別の
+「CMD自動割当」ボタンは廃止済みで、番号はリソースパック管理画面の一括採番かテクスチャ登録で付く）。
+その結果 2 つが同時に起きる。
+
+- **狙ったアイテムを指せない**: キーが `DIAMOND_SWORD` になるので、バニラのダイヤの剣**全部**に
+  ステが効く。
+- **追加そのものができない**: 出荷 `item-stats.yml` はバニラ用の素 Material キーを **77 件**持つ
+  （総キー 449）。新品の material がそのどれかと一致すると `commitKey` の重複チェックに当たって
+  「同じキーが既に存在します（重複）」で弾かれる。**これが「登録していないのに既にあると言われる」の
+  正体**（2026-08-04 実機報告）。`material: BOOK` のように素キーが無い材質なら通ってしまうため、
+  **再現するかどうかが材質次第**で、設定ミスに見える。
+
+修正（`691ff03`）は `cmd-tools.js` の `window.cmdEnsureCatalogItemCmd({id, material})`。
+CMD 未割当の候補を選んだときだけ、確認ダイアログ 1 回 → `/api/cmd/allocate` → `catalog.yml` へ
+`custom-model-data` を書いて即保存 → 採番した CMD を返し、`forms.js` の `commitKeyFromCatalog` が
+それで `MATERIAL#CMD` を確定する。押さえるべき点:
+
+- **`catalog.yml` 側にも必ず書く。** item-stats のキーだけ `#123` にすると、そのステータスは
+  実物のアイテムに**一生マッチしない**半端な状態になる。
+- **確認ダイアログの後に revision を取り直してから採番する。** 先に採番して 409 を食うと
+  台帳の番号だけ捨てることになる（番号は再利用しない方針なので欠番が増える）。
+- **`.then()` の中で `candidate.cmd = assigned` も更新する。** 画面が持つ候補リストは同一オブジェクト
+  参照なので、ここを忘れると同じ品を選び直したときに再び未割当と判定して確認が二重に出る。
+- 回帰テストは `test/item-stats-new-catalog-item-cmd-2026-08-04.test.js`（採番ヘルパの契約 6 件＋
+  「出荷 item-stats.yml が素 Material キーを持つ」＝衝突の前提を固定する 1 件）。
+
+**同じ形の潜在バグが `forms.js` の候補同期ループ（`buildItemStatsForm` 冒頭、カタログ品へ空枠を
+生やす箇所）にも残っている。** ここも CMD 未割当の候補は素 Material をキーにするため、素キーが
+まだ無い材質（例 `BOOK`）だと**衝突しないまま素キーの空枠が生える**＝そこにステを設定すると
+バニラ全部に効く。衝突する材質のときは `hasOwnProperty` で skip されるので、代わりに
+**既存のバニラ用素キーのカードが「その新品を選択済み」として表示される**（`findCatalogForStatsKey`
+が素キー→その候補に解決するため）。実機で「バニラのダイヤの剣の枠に新品の名前が出ている」ように
+見えたらこれ。未修正。
+
+## ブラウザで `listSelect` の候補を選ぶ検証は `MAX_RENDERED = 200` に注意（2026-08-04）
+
+`util.js` の `listSelect` はドロップダウンに **先頭 200 件だけ**描画する（`MAX_RENDERED = 200`）。
+カタログ候補は約 400 件あるので、**新しく足した品は初期表示のリストに出てこない**。
+「候補に入っていないから壊れている」と誤診しやすい（本セッションで 1 回誤診した）。
+検証時は `li.list-select-filter-row` 内の `input.list-select-filter` に値を入れて `input` イベントを
+発火させ、絞り込んでから `li` をクリックする。ドロップダウンは**独立したポップアップではなく
+同じ `span.list-select` 内の `ul.material-suggest-list`**なので、`document` 直下を探しても無い。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
