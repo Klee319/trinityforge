@@ -207,6 +207,79 @@ class CraftQualityListenerSmithingExpTest {
         verify(dispatcher, never()).grant(any(), eq(SkillId.SMITHING), anyDouble());
     }
 
+    /**
+     * 2026-08-04 実サーバ報告「広辞苑({@code BOOK#100004})の品質がクラフト時に上がらない」の回帰テスト。
+     *
+     * <p><b>真因</b>: {@code CraftQualityListener#isStampableCraftResult} の門が
+     * <b>バニラ Material が装備扱いか</b>({@code MaterialTier#isEquipment()})だけを見ていた。
+     * TF のアイテムは {@code MATERIAL#CMD} 単位で {@code item-stats.yml} にステータスを持つので、
+     * ベース素材がバニラ装備でないTF品(広辞苑=BOOK、杖/触媒=BLAZE_ROD 等)は
+     * {@code per-quality} を定義していても<b>品質ロールに一度も到達せず常に品質0</b>だった。
+     * ユーザー指摘「バグの事象の一つに過ぎない」の通り、広辞苑固有ではなく素材が装備でない
+     * 全てのステータス付きTF品が同じ穴に落ちていた。
+     */
+    @Test
+    void craftingNonEquipmentMaterialWithQualityBearingProfileStillRollsQuality() {
+        ItemStack result = new ItemStack(Material.BOOK);
+        ItemMeta meta = result.getItemMeta();
+        meta.setCustomModelData(100004);
+        result.setItemMeta(meta);
+
+        ItemStatProfile profile = mock(ItemStatProfile.class);
+        when(profile.qualityApplies()).thenReturn(true);
+        when(itemStats.profileFor(eq(Material.BOOK), eq(100004))).thenReturn(Optional.of(profile));
+        when(itemStats.qualityModeOffsetFor(eq(Material.BOOK), eq(100004))).thenReturn(0);
+        when(itemStats.useRequirementFor(eq(Material.BOOK), eq(100004)))
+                .thenReturn(Optional.of(new ItemUseRequirement(10, SkillId.SMITHING)));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(event, false);
+
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        listener(MockBukkit.createMockPlugin(), itemFactory).onCraft(event);
+
+        verify(itemFactory).stamp(any(ItemStack.class),
+                org.mockito.ArgumentMatchers.anyLong(), anyInt(), any());
+    }
+
+    /**
+     * 上の緩和を「品質と無関係なアイテムまで刻む」まで広げていないことを縛る。
+     * {@code per-quality}/{@code random} を1つも持たないプロファイル(素材・触媒など、
+     * {@code qualityApplies()==false})は、バニラ装備素材でなければ従来どおり刻印しない。
+     */
+    @Test
+    void craftingNonEquipmentMaterialWithoutQualityLayersIsNotStamped() {
+        ItemStack result = new ItemStack(Material.BOOK);
+        ItemMeta meta = result.getItemMeta();
+        meta.setCustomModelData(100009);
+        result.setItemMeta(meta);
+
+        ItemStatProfile fixedOnly = mock(ItemStatProfile.class);
+        when(fixedOnly.qualityApplies()).thenReturn(false);
+        when(itemStats.profileFor(eq(Material.BOOK), eq(100009))).thenReturn(Optional.of(fixedOnly));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        stubRealCraftClick(event, false);
+
+        ItemFactory itemFactory = mock(ItemFactory.class);
+        listener(MockBukkit.createMockPlugin(), itemFactory).onCraft(event);
+
+        verify(itemFactory, never()).stamp(any(ItemStack.class),
+                org.mockito.ArgumentMatchers.anyLong(), anyInt(), any());
+    }
+
     @Test
     void craftingArsQualityItemWithoutTfStatsProfileStillGrantsBaseArsSmithingExp() {
         ItemStack result = new ItemStack(Material.BOOK);

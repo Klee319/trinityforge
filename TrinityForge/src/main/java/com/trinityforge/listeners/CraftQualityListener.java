@@ -425,8 +425,44 @@ public final class CraftQualityListener implements Listener {
     }
 
     private boolean isStampableCraftResult(ItemStack result) {
-        return result != null && !result.getType().isAir()
-                && (MaterialTier.of(result.getType()).isEquipment() || isArsQualityStamped(result));
+        if (result == null || result.getType().isAir()) {
+            return false;
+        }
+        return MaterialTier.of(result.getType()).isEquipment()
+                || isArsQualityStamped(result)
+                || hasQualityBearingStatsProfile(result);
+    }
+
+    /**
+     * {@code stats/item-stats.yml} が「品質で変動する層」({@code per-quality} / {@code random}、
+     * 乗算レイヤ内のものも含む)を定義しているアイテムか。
+     *
+     * <p><b>2026-08-04 実サーバ報告「広辞苑の品質がクラフト時に上がらない」の真因。</b>
+     * {@link #isStampableCraftResult} の門は<b>バニラ Material が装備扱いか</b>
+     * ({@link MaterialTier#isEquipment()})だけを見ていた。TF のアイテムは
+     * {@code MATERIAL#CMD} 単位で {@code item-stats.yml} にステータスを持つので、
+     * <b>ベース素材がバニラ装備でないTF品は per-quality を定義していても品質ロールに一度も到達せず、
+     * 常に品質0でクラフトされていた</b>。広辞苑({@code BOOK#100004})だけの話ではなく、
+     * 杖・触媒({@code BLAZE_ROD#4000xx})など「素材が装備でない全てのステータス付きTF品」が
+     * 同じ穴に落ちていた(ユーザー指摘「バグの事象の一つに過ぎない」の通り)。
+     *
+     * <p>バニラの土ブロック等まで巻き込まないのは、{@code item-stats.yml} に
+     * {@code MATERIAL#CMD} のプロファイルが無ければここが {@code false} を返すため
+     * (呼び出し側 {@link #onCraft} も {@code hasStatsProfile || isArsQualityStamped} を AND している)。
+     *
+     * <p><b>付随して残る制限(意図的)</b>: {@link #candidatesFor} が引く生産スキルは
+     * {@code EquipmentSlotResolver.statCategories(Material)} 由来なので、BOOK/BLAZE_ROD では
+     * 空集合になり<b>スキルレベル由来の mode 加算は 0</b> になる。それでも
+     * {@code workbench_quality_bonus}(作業台品質)・幸運・ばらつきは効くので品質は動く。
+     * ここで {@code use-skill} を生産スキルに流用してはいけない — {@code use-skill} は
+     * 「使用要件」であって分類マーカーではない(採取ツールにも付いており、流用すると誤爆する)。
+     */
+    private boolean hasQualityBearingStatsProfile(ItemStack result) {
+        Integer cmd = result.hasItemMeta()
+                ? DerivedItemStats.customModelDataOf(result.getItemMeta()) : null;
+        return itemStats.profileFor(result.getType(), cmd)
+                .filter(com.trinityforge.stats.ItemStatProfile::qualityApplies)
+                .isPresent();
     }
 
     private Set<String> candidatesFor(ItemStack result) {
