@@ -81,6 +81,22 @@ public final class ArsProgressionBridge {
      */
     public static void grantSmithingCraftExp(Plugin plugin, Player player, ItemStack result,
                                              Collection<String> materialTokens) {
+        grantSmithingCraftExp(plugin, player, result, materialTokens, 0);
+    }
+
+    /**
+     * 消費ソース量ぶんの追加EXPつき (2026-08-04 ユーザー要望)。
+     *
+     * <p>素材表または定額で決まった値に {@code consumedSource × ars-smithing.exp-per-source} を
+     * <b>足してから</b>付与する。別途 {@code grantSkillExp} を2回呼ぶ形にはしない ―
+     * 逓減ウィンドウ({@code daily-diminishing} / レベル逓減)が2回進み、
+     * 「1回の儀式なのに2回目だけ減衰した端数が乗る」という追いにくい挙動になるため。
+     *
+     * @param consumedSource この儀式で実際に消費したソース量。0 以下ならソース項は付かない
+     *                       (作業台経路など、そもそもソースを使わない呼び出しは 0 を渡す)。
+     */
+    public static void grantSmithingCraftExp(Plugin plugin, Player player, ItemStack result,
+                                             Collection<String> materialTokens, int consumedSource) {
         TrinityForge tf = TrinityForge.getInstance();
         if (tf == null || tf.config() == null) {
             return;
@@ -91,7 +107,19 @@ public final class ArsProgressionBridge {
         double base = covered && fromMaterials > 0.0
                 ? fromMaterials
                 : skillExp.arsSmithingExpPerCraft();
+        base += sourceExp(consumedSource, skillExp.arsSmithingExpPerSource());
         grantSmithingExpForResult(plugin, player, result, base);
+    }
+
+    /**
+     * 消費ソース量ぶんの追加EXP。負の消費量・非有限な係数はいずれも 0 を返す
+     * (儀式側が返す値をそのまま信用せず、EXPが減る向きの寄与を作らない)。
+     */
+    public static double sourceExp(int consumedSource, double expPerSource) {
+        if (consumedSource <= 0 || !Double.isFinite(expPerSource) || expPerSource <= 0.0) {
+            return 0.0;
+        }
+        return consumedSource * expPerSource;
     }
 
     /**

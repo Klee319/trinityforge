@@ -25,6 +25,17 @@ public final class SkillExpConfig {
     public enum GatheringExpMode { DROP_SUM, BLOCK_VALUE, MAX }
 
     private volatile double arsSmithingExpPerCraft = 10.0;
+    // 2026-08-04: 儀式で実際に消費したソース量に比例した追加EXP({@code ars-smithing.exp-per-source})。
+    // 素材表/定額で決まる base に「消費ソース量 × この値」を足し込む(別付与にはしない — 別々に
+    // grantSkillExp すると逓減の窓が2回進み、素材由来ぶんと合わせた総量が読めなくなる)。
+    // 既定 0.0 = 従来どおり(ソースは加味しない)。ソースは儀式の階梯とともに桁で増える
+    // (source_shard 100 → infinity_source_core 45,000,000)ので、1.0 のような値を入れると
+    // 上位儀式1回で最大レベルに届く。0.001 程度から試すこと。
+    private volatile double arsSmithingExpPerSource = 0.0;
+    // 2026-08-04: 総合(POWER)レベルを何レベル進めるごとにスキルポイントを1点与えるか
+    // ({@code power.levels-per-skill-point})。1 = 1レベルごとに1点(従来の挙動)。
+    // 2 にすると2レベルで1点になる。0 以下は 1 に丸める(ゼロ除算とポイント無限増加の両方を防ぐ)。
+    private volatile int powerLevelsPerSkillPoint = 1;
     // 2026-07-25 PRG-13: SMITHING EXPは耐久消耗ベースの付与(旧onItemDamage)を廃止し、ARS_SMITHINGと同じ
     // 「武器/防具/ツールをクラフトした瞬間」に一本化した(CraftQualityListener#onCraft、
     // categorySkill: weapon/armor/tool -> SMITHING)。耐久消耗はプレイ時間に比例して無限に発生させられる
@@ -121,6 +132,38 @@ public final class SkillExpConfig {
     /** ARS_SMITHING experience granted when a player crafts Ars gear (the custom skill's EXP source). */
     public double arsSmithingExpPerCraft() {
         return arsSmithingExpPerCraft;
+    }
+
+    /**
+     * 儀式で消費したソース1あたりの追加 ARS_SMITHING EXP。0.0 = ソースを加味しない(既定)。
+     *
+     * <p>素材表({@link #smithingExpPerMaterial()})や定額({@link #arsSmithingExpPerCraft()})で
+     * 決まった base に足し込む形で使う。ソース要求量は儀式の階梯とともに桁で増えるので、
+     * 大きな値を入れると上位儀式1回で最大レベルに届く点に注意。
+     */
+    public double arsSmithingExpPerSource() {
+        return arsSmithingExpPerSource;
+    }
+
+    /**
+     * 総合(POWER)を何レベル進めるごとにスキルポイントを1点与えるか。必ず 1 以上を返す。
+     *
+     * <p>ポイント総数は {@code PlayerProgression.STARTING_SKILL_POINTS + POWERレベル / この値}
+     * (整数除算・切り捨て)。1 = 従来どおり1レベル1点。
+     *
+     * <p><b>この値を大きくすると既存プレイヤーの獲得済みポイントが減る</b>ため、
+     * 既に使ったポイント(spentPoints)が新しい獲得上限を超える状態が起こりうる。
+     * 呼び出し側は available を負にしないこと(ProgressionCurveReconciler が救済する)。
+     * なお全員のポイント残高を新しい値で書き直すのは {@code /trinityforge reload} の中の
+     * 再計算処理だけで、ログインでは走らない。
+     *
+     * <p>ポイント総数そのものの計算は
+     * {@link com.trinityforge.progression.core.PlayerProgression#earnedPoints(long, int)} に集約してある
+     * (式が付与・管理コマンド・reload時再計算の3箇所に散っており、片方だけこの設定を見る状態になると
+     * 「レベルアップで増えた点が reload で消える」ような追跡困難な食い違いになるため)。
+     */
+    public int powerLevelsPerSkillPoint() {
+        return powerLevelsPerSkillPoint;
     }
 
     /**
@@ -444,6 +487,10 @@ public final class SkillExpConfig {
      */
     void applyFrom(org.bukkit.configuration.ConfigurationSection yaml, Logger log) {
         this.arsSmithingExpPerCraft = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-craft", 10.0));
+        this.arsSmithingExpPerSource = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-source", 0.0));
+        // 0 以下は 1 に丸める。0 を許すと「0レベルごとに1点」でゼロ除算、負を許すとポイントが
+        // レベルとともに減る意味不明な挙動になるため、どちらも設定ミスとして 1 扱いにする。
+        this.powerLevelsPerSkillPoint = Math.max(1, yaml.getInt("power.levels-per-skill-point", 1));
         this.smithingExpPerCraft = Math.max(0.0, yaml.getDouble("smithing.exp-per-craft", 15.0));
         this.smithingExpPerMaterial = readMaterialTokenMap(yaml, "smithing.exp-per-material");
         this.arsMagicKillExpEnabled = yaml.getBoolean("ars-magic.kill-exp.enabled", true);

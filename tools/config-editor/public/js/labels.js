@@ -357,6 +357,11 @@
     // 鍛冶 / Ars鍛冶 で意味が違うため、EXP設定画面ではスキルごとの説明で上書きしている
     // (tf-forms.js SECTION_FIELD_OVERRIDES)。ここは他画面用の中立な説明。
     "exp-per-craft": { label: "クラフト1回EXP", desc: "アイテムを1回クラフトしたときに付与する経験値。個数に関わらず1クラフトにつき1回分。素材別EXPが1行でも設定されている場合はそちらが優先され、この値は使われない。" },
+    // 2026-08-04: ars-smithing.exp-per-source (スキルEXP画面ではAr鍛冶カードで
+    // tf-forms.js SECTION_FIELD_OVERRIDES による専用説明に上書きされる。ここは中立な説明)。
+    "exp-per-source": { label: "消費ソース1あたりの追加EXP", desc: "儀式で実際に消費したソース量に比例して加算する追加EXP。0で無効。" },
+    // power.levels-per-skill-point (スキルEXP画面ではページ上部の専用カードで描画、専用説明あり)。
+    "levels-per-skill-point": { label: "1スキルポイントあたりの総合レベル", desc: "総合(POWER)がこの値だけレベルアップするごとにスキルツリーのポイントを1点付与する。" },
     "exp-per-material": { label: "素材別EXP", desc: "クラフト盤面に置いた素材1個あたりの鍛冶EXP。3x3の全マスを合計し、完成品の使用可能レベル倍率を掛ける。ここに無い素材は0。完成品に使用可能レベルが設定されていない場合はEXPを付与しない(解体で素材へ戻せるアイテムの作り直しによる無限EXP対策)。" },
     "kill-exp": { label: "討伐EXP設定", desc: "敵の種類・レベル・最大体力に応じて討伐時に付与するスキルEXP。" },
     "block-break-exp": { label: "ブロック破壊EXP設定", desc: "魔法でブロックを破壊したときに採取系の素材EXPを参照して付与する設定。" },

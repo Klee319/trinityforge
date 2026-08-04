@@ -57,6 +57,12 @@ public final class NativeProgressionService {
     private final DailyExpDiminishing dailyDiminishing;
     /** {@link #dailyDiminishing} が使う設定の供給元。reload で差し替わるので毎回引き直す。 */
     private final java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings;
+    /**
+     * 何POWERレベルごとにスキルポイント1点を与えるか（{@code stats/skill-exp.yml: power.levels-per-skill-point}）。
+     * 既定は {@code () -> 1}（従来どおり1レベル1点）。dailySettings と同じ理由で Supplier 経由 ──
+     * reload で読み直した値を反映するため、構築時の値を焼き込まない。
+     */
+    private final java.util.function.IntSupplier levelsPerSkillPoint;
 
     public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog) {
         this(repository, catalog, id -> 0.0);
@@ -115,6 +121,28 @@ public final class NativeProgressionService {
                                     DailyExpDiminishing dailyDiminishing,
                                     java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings,
                                     PerSkillExpBonus perSkillExpMultiplier) {
+        this(repository, catalog, allSkillExpMultiplier, locks, diminishingCurve,
+                dailyDiminishing, dailySettings, perSkillExpMultiplier, () -> 1);
+    }
+
+    /**
+     * スキルポイント付与間隔つきの構築子（2026-08-04）。{@code levelsPerSkillPoint} は
+     * 「何POWERレベルごとに1点与えるか」を返す。既定値 {@code () -> 1} は従来挙動
+     * （1レベルごとに1点）なので、上の構築子を使う既存の呼び出し側は挙動が変わらない。
+     *
+     * <p>式そのものは {@link PlayerProgression#earnedPoints(long, int)} に集約してある。
+     * ここで直に割り算を書くと、管理コマンド（{@code NativeProgressionAdminService}）と
+     * reload時再計算（{@code ProgressionCurveReconciler}）の3箇所で食い違い、
+     * 「レベルアップで増えた点が再ログインで消える」事故になる。
+     */
+    public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog,
+                                    java.util.function.ToDoubleFunction<UUID> allSkillExpMultiplier,
+                                    PlayerLockRegistry locks, ExpDiminishingCurve diminishingCurve,
+                                    DailyExpDiminishing dailyDiminishing,
+                                    java.util.function.Supplier<DailyExpDiminishing.Settings> dailySettings,
+                                    PerSkillExpBonus perSkillExpMultiplier,
+                                    java.util.function.IntSupplier levelsPerSkillPoint) {
+        this.levelsPerSkillPoint = Objects.requireNonNull(levelsPerSkillPoint, "levelsPerSkillPoint");
         this.repository = Objects.requireNonNull(repository, "repository");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.allSkillExpMultiplier = Objects.requireNonNull(allSkillExpMultiplier, "allSkillExpMultiplier");
@@ -230,7 +258,8 @@ public final class NativeProgressionService {
             resultingPowerLevel = after.level();
         }
         long availablePoints = Math.max(0L,
-                STARTING_SKILL_POINTS + resultingPowerLevel - player.spentPoints());
+                PlayerProgression.earnedPoints(resultingPowerLevel, levelsPerSkillPoint.getAsInt())
+                        - player.spentPoints());
         repository.saveProgressionTransition(playerId, skillId, after, powerAfter,
                 availablePoints, player.spentPoints());
         return new GrantResult(skillId, before, after, levelsChanged, powerLevelsChanged);

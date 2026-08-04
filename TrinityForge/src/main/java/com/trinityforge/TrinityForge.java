@@ -308,11 +308,16 @@ public final class TrinityForge extends JavaPlugin {
                                 : live.aggregate(online).totalOf(
                                         com.trinityforge.stats.StatKeys.canonical(
                                                 skillId + "_exp_bonus"));
-                    });
+                    },
+                    // 1SPを何POWERレベルごとに与えるか(2026-08-04 ユーザー要望)。
+                    // 下の AdminService / ProgressionCurveReconciler にも同じ供給元を渡すこと。
+                    // 片方だけ設定を見ると「レベルアップで増えた点が再ログインで消える」。
+                    () -> configManager.skillExp().powerLevelsPerSkillPoint());
             this.progressionAdminService = new NativeProgressionAdminService(
                     progressionRepository, progressionCatalog,
                     () -> configManager.skillTrees().all().values(),
-                    progressionLocks);
+                    progressionLocks,
+                    () -> configManager.skillExp().powerLevelsPerSkillPoint());
         } catch (SQLException ex) {
             getLogger().log(Level.SEVERE, "Native progression database could not be opened", ex);
             getServer().getPluginManager().disablePlugin(this);
@@ -1239,7 +1244,12 @@ public final class TrinityForge extends JavaPlugin {
                                         } else if (progressionCatalog != null && progressionRepository != null) {
                                             try {
                                                 int rewritten = new com.trinityforge.progression.ProgressionCurveReconciler(
-                                                        progressionRepository, progressionCatalog).recalculateAll();
+                                                        progressionRepository, progressionCatalog,
+                                                        // reload 直後に読み直した値を渡す。ここを既定(1)のままにすると
+                                                        // power.levels-per-skill-point を変えた直後の reload が
+                                                        // 全員のポイント残高を旧式で書き戻してしまう。
+                                                        () -> configManager.skillExp().powerLevelsPerSkillPoint())
+                                                        .recalculateAll();
                                                 if (rewritten > 0) {
                                                     getLogger().info("[progression] curve/cap reconciler rewrote "
                                                             + rewritten + " skill row(s)");

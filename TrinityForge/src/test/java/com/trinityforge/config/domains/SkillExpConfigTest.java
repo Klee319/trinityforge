@@ -439,4 +439,53 @@ class SkillExpConfigTest {
         assertEquals(20.0, config.combatKillExp(SkillId.LIGHT_WEAPONS, "ZOMBIE", 0, 0.0), 1e-9);
         assertEquals(25.0, config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0), 1e-9);
     }
+
+    /** 2026-08-04 追加の2キー。既定は「どちらも従来挙動」でなければならない。 */
+    @Test
+    void sourceExpAndSkillPointIntervalDefaultToLegacyBehaviour(@TempDir File tempDir)
+            throws IOException {
+        SkillExpConfig config = loaded(tempDir, "dungeon-only-exp: false\n");
+
+        assertEquals(0.0, config.arsSmithingExpPerSource(), 1e-9,
+                "exp-per-source の既定が0でないと、既存サーバの儀式EXPが黙って増える");
+        assertEquals(1, config.powerLevelsPerSkillPoint(),
+                "levels-per-skill-point の既定が1でないと、既存プレイヤーのSPが黙って減る");
+    }
+
+    @Test
+    void sourceExpAndSkillPointIntervalAreReadFromYaml(@TempDir File tempDir) throws IOException {
+        SkillExpConfig config = loaded(tempDir, """
+                power:
+                  levels-per-skill-point: 5
+                ars-smithing:
+                  exp-per-craft: 100
+                  exp-per-source: 0.002
+                """);
+
+        assertEquals(0.002, config.arsSmithingExpPerSource(), 1e-9);
+        assertEquals(5, config.powerLevelsPerSkillPoint());
+    }
+
+    /**
+     * 設定ミスの丸め。{@code levels-per-skill-point} に 0 を許すとゼロ除算、負を許すと
+     * 「レベルを上げるほどSPが減る」になるので、どちらも 1 として扱う。
+     * ソース係数の負も、EXPが減る向きの寄与を作らないよう 0 に丸める。
+     */
+    @Test
+    void invalidValuesAreClampedInsteadOfPropagating(@TempDir File tempDir) throws IOException {
+        SkillExpConfig zero = loaded(tempDir, """
+                power:
+                  levels-per-skill-point: 0
+                ars-smithing:
+                  exp-per-source: -5.0
+                """);
+        assertEquals(1, zero.powerLevelsPerSkillPoint());
+        assertEquals(0.0, zero.arsSmithingExpPerSource(), 1e-9);
+
+        SkillExpConfig negative = loaded(tempDir, """
+                power:
+                  levels-per-skill-point: -3
+                """);
+        assertEquals(1, negative.powerLevelsPerSkillPoint());
+    }
 }

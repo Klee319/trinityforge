@@ -945,10 +945,24 @@ function validateTfSkillExp(data, errors) {
       }
       continue;
     }
+    // 2026-08-04: power.levels-per-skill-point。総合(POWER)を何レベルごとに1スキルポイント
+    // 与えるかの整数設定。Java (SkillExpConfig) は 0以下を1へ丸めるだけで例外は投げないが、
+    // エディタ上では誤解を招くので0以下・小数を明示的にエラーにする。
+    if (skill === "power") {
+      const lpsp = section["levels-per-skill-point"];
+      if (lpsp !== undefined && lpsp !== null && (!isInteger(lpsp) || lpsp < 1)) {
+        errors.push("power.levels-per-skill-point: 1以上の整数である必要があります");
+      }
+      continue;
+    }
     const exp = section["exp-per-craft"];
     if (exp !== undefined && exp !== null && (!isNumber(exp) || exp < 0)) {
       errors.push(`${skill}.exp-per-craft: 0以上の数値である必要があります`);
     }
+    // 2026-08-04: 儀式で実際に消費したソース量に比例する追加EXP (ars-smithing.exp-per-source)。
+    // 0以上の数値。専用分岐は作らず、他スキルに同名キーが増えても同じ検証で構わない汎用扱いにする。
+    const expPerSource = section["exp-per-source"];
+    validateNonNegativeExpNumber(expPerSource, `${skill}.exp-per-source`, errors);
     // 2026-07-30: 素材別クラフトEXP (smithing.exp-per-material)。
     // キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
     const perMaterial = section["exp-per-material"];

@@ -570,6 +570,40 @@
       ]
     ));
 
+    // power.levels-per-skill-point: 総合(POWER)を何レベル進めるごとにスキルポイントを1点与えるか。
+    // ページ上部の専用カードだけに出す。汎用セクションループ側でも working.power は
+    // (progression-power の曲線を持つため)「レベル曲線・獲得レート」の総合カードへ合流するので、
+    // このキーだけは SECTION_EXCLUDED_KEYS で汎用ループから除外し二重描画を防ぐ。
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "総合(POWER)とスキルポイント" })],
+      [
+        h("div", { class: "form-field" }, [
+          window.fieldLabelEl("levels-per-skill-point", {
+            label: "1スキルポイントあたりの総合レベル",
+            desc: "総合(POWER)レベルがこの値だけ上がるごとに、スキルツリーのポイントを1点付与します。"
+              + "1 = 1レベルごとに1点(従来の挙動)。2 なら2レベルで1点。"
+              + "ポイント総数 = 初期3点 + 総合レベル ÷ この値(切り捨て)。"
+              + "⚠️ この値を大きくすると既存プレイヤーの獲得済みポイントが減ります。既に使った分が"
+              + "新しい上限を超える場合は、ログイン時の救済処理が「使った分はそのまま・残りを0」に"
+              + "整えます(パークは剥がしません)。",
+            hideKey: true
+          }),
+          window.numberInput(
+            (working.power && typeof working.power === "object" && !Array.isArray(working.power)
+              && typeof working.power["levels-per-skill-point"] === "number")
+              ? working.power["levels-per-skill-point"] : 1,
+            (v) => {
+              if (v === null || v === "") return;
+              const n = Math.max(1, Math.floor(Number(v)));
+              if (!Number.isFinite(n)) return;
+              ensureObj(working, "power")["levels-per-skill-point"] = n;
+            },
+            { int: true }
+          )
+        ])
+      ]
+    ));
+
     // 曲線式のプレースホルダ / 演算子ヘルプ
     root.appendChild(h("div", { class: "entry-card se-help-card" }, [
       h("div", { class: "entry-head" }, [
@@ -780,8 +814,24 @@
             + "優先して使われる。1つでも表に無い素材があると合計は使われず、この定額に戻る"
             + "(部分的な合計を使うと、素材を1つ足しただけでEXPが大きく目減りする逆転が起きるため)。"
             + "シフトクリックの一括クラフトでも1回分だけ付く。"
+        },
+        "exp-per-source": {
+          label: "消費ソース1あたりの追加EXP",
+          desc: "儀式で実際に消費したソース量に比例して Ars鍛冶(ARS_SMITHING) EXP を追加します。"
+            + "素材表または定額で決まった値に「消費ソース量 × この値」を足します(置き換えではありません)。"
+            + "0 = ソースを加味しない(既定)。"
+            + "⚠️ ソース要求量は階梯とともに桁で増える(ソースの欠片100 → 無限のソース核45,000,000)ため、"
+            + "1.0 のような値を入れると上位儀式1回で最大レベルに届きます。0.001 程度から様子を見てください。"
+            + "ソース消費軽減(source_cost_reduction)が効いた後の実消費量で計算されます。"
         }
       }
+    };
+
+    // 汎用セクションループから除外するキー。power.levels-per-skill-point は
+    // ページ上部の専用カードだけに出す(このセクション自体は curveBySkill 経由で
+    // 「レベル曲線・獲得レート」の総合カードへ合流するため、キー単位で除外する)。
+    const SECTION_EXCLUDED_KEYS = {
+      power: new Set(["levels-per-skill-point"])
     };
 
     // 2026-07-29: 曲線を持つスキルのカードは「レベル曲線・獲得レート」の中へ入れる。
@@ -802,7 +852,7 @@
         cardEl.appendChild(h("summary", { class: "entry-head se-skill-summary" }, [
           h("span", { class: "entry-key-label", text: skillLabel(section) })
         ]));
-        const bodyChildren = [scalarSectionBody(working[section], { hideKey: true }, SECTION_FIELD_OVERRIDES[section])];
+        const bodyChildren = [scalarSectionBody(working[section], { hideKey: true }, SECTION_FIELD_OVERRIDES[section], SECTION_EXCLUDED_KEYS[section])];
         // 曲線データが無い(progressionData に ars_smithing が無い)場合でも、素材表は同じ実体を出す。
         if (section === "ars-smithing") bodyChildren.push(buildSharedSmithingMaterialSection());
         cardEl.appendChild(h("div", { class: "entry-body" }, bodyChildren));
@@ -827,7 +877,7 @@
           const body = h("div", { class: "entry-body" });
           body.appendChild(subHeading("行動あたりの獲得EXP"));
           body.appendChild(scalarSectionBody(working[section], { hideKey: true },
-            SECTION_FIELD_OVERRIDES[section]));
+            SECTION_FIELD_OVERRIDES[section], SECTION_EXCLUDED_KEYS[section]));
           // Ars鍛冶(ars-smithing)は「クラフト1回EXP」だけの旧表示のままだった。
           // 実装(ArsProgressionBridge#grantSmithingCraftExp)は2026-08-01以降、儀式経路でも
           // smithing.exp-per-material を読むため、鍛冶カードと同じ素材表をここにも出す。

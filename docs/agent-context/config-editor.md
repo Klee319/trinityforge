@@ -542,6 +542,57 @@ Node 24 は global `WebSocket` / `fetch` を持つので **puppeteer 等の依�
   `serialize(parse(v))===v` 往復、legacy `&r`（リセット、既存の唯一の非対応ケース）と
   未知タグが引き続き `ok:false` のままであること（gradient 以外まで緩めていないこと）を固定する。
 
+## skill-exp.yml に新しいスカラーキーを足すときは、ラベル登録先が2箇所ある（2026-08-04）
+
+`stats/skill-exp.yml` の各セクション（`ars-smithing` / `smithing` / `combat` 等）は `tf-forms.js`
+の `scalarSectionBody` が汎用描画するため、キー単位のラベル/説明は次の**独立した2箇所**に登録する
+必要がある。片方だけだと「画面には出るが、別のドリフト検知テストだけ落ちる」状態になる。
+
+1. **画面固有の説明文**: `buildSkillExpForm` の `SECTION_FIELD_OVERRIDES`（セクション名→キー→
+   `{label, desc}`）。同じキー名でもセクションごとに意味が違う場合（`exp-per-craft` が鍛冶とAr鍛冶で
+   別物、等）はここで上書きする。**これだけ足しても** `test/skill-exp-label-coverage.test.js` の
+   「skill-exp.yml の汎用描画対象キーは全て labels.js で日本語ラベルへ解決される」は直らない。
+2. **`public/js/labels.js` の `FIELD_LABELS`**: このテストは `SECTION_FIELD_OVERRIDES` を一切見ず、
+   `window.LABELS.fieldLabel(key)`（labels.js 単体）だけを実 yml の `GENERIC_SECTION_KEYS`
+   （`gathering`/`ars-smithing`/`smithing`/`ars-magic`/`combat`/`spot-diminishing`/
+   `level-diminishing`）全キーに対して突き合わせる、独立したドリフト検知。新キーがこのいずれかの
+   セクションに入るなら、`labels.js` にも中立な説明（画面別の詳細は要らない、1行で十分）を
+   足さないと、**自分の変更とは無関係に見えるテストだけが赤くなる**（今回は `ars-smithing.exp-per-source`
+   で実際に踏んだ。`power` セクションは `GENERIC_SECTION_KEYS` に含まれないため
+   `levels-per-skill-point` はこのテストの対象外だが、他の画面が生ID表示防止に labels.js を
+   参照することがあるので合わせて登録しておくこと）。
+- `lib/` 側に `labels.js` のミラーは無い（ブラウザ専用の表示ロジックで、サーバ側検証は
+  `lib/schema.js` の型チェックだけが責務のため）。
+
+## 汎用セクションが曲線カードへ合流するスキルで「専用カードだけに出す」を作るときの除外機構
+
+`power` セクション（`skill-exp.yml`）のように、**曲線ファイル（`skills/base/*_progression.yml`）が
+`experience:` を持つスキル**は `buildSkillExpForm` 内の `curveBySkill` 判定で「レベル曲線・獲得レート」
+の統合カードへ自動的に合流する。そのスキルの特定のキーだけをページ上部などの専用カードで描画したい
+場合、汎用ループ（`scalarSectionBody`）側でも同じキーが二重に描画される。
+- **How**: `SECTION_FIELD_OVERRIDES` と対になる `SECTION_EXCLUDED_KEYS`（セクション名→
+  除外キーの `Set`）を作り、`scalarSectionBody` の第4引数 `excludedKeys` へ渡す。呼び出し箇所は
+  **2つ**（`sectionsWithoutCurve` ループと、曲線へ合流した後のループの両方）あるので、片方だけ
+  直すと「曲線を持たない他スキルでは直るが、曲線を持つこのスキルだけ二重表示が残る」という
+  中途半端な修正になる。
+- **合流するかどうかは推測せず、そのスキルの `*_progression.yml` に `experience:` があるかを
+  実ファイルで確認する。** 無ければ合流しないので除外機構自体が不要（曲線を持たないスキルの
+  専用カードは単に「そのセクションの一部フィールドだけ上に出し、残りは下の通常カードに任せる」
+  設計にできる余地がある）。
+- 回帰テストは `test/skill-exp-power-and-source-2026-08-04.test.js`（DOM harness で
+  `.form-label-ja` の出現回数を数えて1箇所だけであることを固定）。
+
+## ブラウザ検証で「同じフィールドが2回出ている」と誤診する CSS セレクタの罠（2026-08-04）
+
+`fieldLabelEl`（`util.js`）が作る DOM は `span.form-label.with-ja > span.form-label-ja`（実際の
+日本語テキストはここ）という**親子とも class 名に `label` を含む**入れ子構造。ヘッドレス Chrome 等で
+`document.querySelectorAll('.form-label, .field-label, [class*=label]')` のような**広い部分一致
+セレクタ**で「このラベル文言が何箇所に出ているか」を数えると、**同じフィールド1個なのに親要素と
+子要素の2件としてカウントされ、二重描画と誤診する**（実際に本セッションで1回誤診し、Node製
+DOM モック上のユニットテストの結果と食い違って再調査した）。
+フィールドの出現回数を数えるときは、**実際にテキストを保持する末端の class（`form-label-ja`）だけ**
+を対象にする、または `closest('.form-field')` で祖先の重複を先に潰してから数える。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
