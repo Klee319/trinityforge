@@ -443,8 +443,24 @@ Browser ペインが**非表示**だとページがフレームを作らない�
 Node 24 は global `WebSocket` / `fetch` を持つので **puppeteer 等の依存追加は不要**
 （`package.json` を汚さない）。`Runtime.evaluate` を挟めば「ドロワーを開いた状態」のような
 インタラクション後の画面も撮れる（`chrome --screenshot` 単発では非同期描画に間に合わず、
-操作もできない）。2026-08-04 の実装は `tmp/shot.mjs`（撮影 8 枚）と `tmp/audit.mjs`
-（横あふれ監査 8 幅 × 14 画面）。**`tmp/` は gitignore 対象なので次回は書き直しになる。**
+操作もできない）。
+
+**実装は `ops/scripts/` にある（2026-08-04 に `tmp/` から昇格。書き直さない）。**
+先に editor を起動しておくこと（`cd tools/config-editor && npm start`）。
+
+| スクリプト | 用途 |
+|---|---|
+| `ops/scripts/lib/cdp.mjs` | CDP クライアント / Chrome 起動 / 描画待ち。**計測前に必ず呼ぶ `flushAnimations()`** を共通化。`chrome.exe` のパスは環境変数 `CHROME` で上書き可 |
+| `ops/scripts/editor-screenshot.mjs` | 8 パターン（1440〜375px、ドロワー開閉を含む）を撮って `tmp/shots/` へ出す（＝コミットされない） |
+| `ops/scripts/editor-overflow-audit.mjs` | 8 幅 × 14 画面 = 112 通りの横あふれ監査。あふれがあれば exit 2 |
+
+```bash
+node ops/scripts/editor-screenshot.mjs
+```
+
+```bash
+node ops/scripts/editor-overflow-audit.mjs
+```
 
 ### 横あふれの検査は `scrollWidth` も見ないと取りこぼす
 
@@ -623,13 +639,26 @@ CMD 未割当の候補を選んだときだけ、確認ダイアログ 1 回 →
 - 回帰テストは `test/item-stats-new-catalog-item-cmd-2026-08-04.test.js`（採番ヘルパの契約 6 件＋
   「出荷 item-stats.yml が素 Material キーを持つ」＝衝突の前提を固定する 1 件）。
 
-**同じ形の潜在バグが `forms.js` の候補同期ループ（`buildItemStatsForm` 冒頭、カタログ品へ空枠を
-生やす箇所）にも残っている。** ここも CMD 未割当の候補は素 Material をキーにするため、素キーが
-まだ無い材質（例 `BOOK`）だと**衝突しないまま素キーの空枠が生える**＝そこにステを設定すると
-バニラ全部に効く。衝突する材質のときは `hasOwnProperty` で skip されるので、代わりに
-**既存のバニラ用素キーのカードが「その新品を選択済み」として表示される**（`findCatalogForStatsKey`
-が素キー→その候補に解決するため）。実機で「バニラのダイヤの剣の枠に新品の名前が出ている」ように
-見えたらこれ。未修正。
+同じ根本原因（CMD 未割当の候補をアイテム1件の識別子として扱っていた）で、**候補同期ループと
+キー解決にも同型のバグがあった**。`8703a1a` で以下の不変条件に揃えて解消済み。
+
+> **CMD を持たないカタログ候補は item-stats のキーを持たない。素 Material キーは常にバニラのもの。**
+
+- `statsKeyFromCandidate`: CMD が無い候補は空文字を返す（以前は素 Material を返していた）
+- 候補同期ループ（`buildItemStatsForm` 冒頭）: 素キーの空枠を作らない。素キーが**まだ無い**材質
+  （例 `BOOK`）では衝突検知に引っかからないため、**「バニラの本すべてに効く枠」が静かに生えていた**
+  ＝材質依存で再現する潜在バグだった。`cmd` が空文字のとき `MATERIAL#` という Java 側が
+  解決できないキーを作っていた不整合（`candidate.cmd == null` しか見ていなかった）も同時に消えた
+- `candidatesForStatsKey`: 素キーを CMD 未割当の候補へ解決させない。以前は
+  **バニラ用の素キーのカードが「その新品を選択済み」として表示され**（`findCatalogForStatsKey` が
+  素キー→その候補に解決していた）、そのカードを編集すると新品を設定したつもりでバニラ全部に効いた
+- `skill_node_lock` / `skill_tree_reset` を名前で個別除外していたのは同じ害の場当たり対応。
+  根本は CMD の有無なので、名前リストは**新規追加品では毎回すり抜ける**
+- 回帰テストは `test/item-stats-cmdless-candidate-no-bare-key-2026-08-04.test.js`。
+  なお既存 2 テスト（`item-stats-material-skip` / `catalog-key-tab-2026-08-04`）の
+  「巻き添え確認」の対照が CMD 未割当だったため、**旧挙動を固定していたテスト側も直した**
+  （対照は CMD 付きにする）。実機では item-stats 武器画面のカード 206 枚が維持され、
+  素キー 18 枚すべてが「カタログID空 ＋ バニラ表示」になることを確認済み
 
 ## ブラウザで `listSelect` の候補を選ぶ検証は `MAX_RENDERED = 200` に注意（2026-08-04）
 
