@@ -63,6 +63,49 @@ public final class LoreComposer {
     /** Marker inserted where a separator belongs; replaced by the width-adapted rule in a post-pass. */
     private static final Component SEPARATOR_MARKER = Component.text("\u0000TF_SEPARATOR\u0000");
 
+    /** カテゴリの描画順。{@link #compose} と {@link #statLines} で同じ順序を使う。 */
+    private static final StatCategory[] CATEGORY_ORDER = {
+            StatCategory.ATTACK, StatCategory.DEFENSE, StatCategory.CRAFT, StatCategory.GATHERING,
+            StatCategory.UTILITY, StatCategory.ARS, StatCategory.OTHER};
+
+    /**
+     * ステ行<b>だけ</b>を返す({@code ====} の区切り線・header/footer・品質行を一切付けない)。
+     * 他のアイテムの lore へ差し込む用途／チャットへ出す用途の入口。
+     *
+     * <p><b>なぜ {@link #compose} を流用してはいけないか(2026-08-05)</b>:
+     * {@code compose} は非空カテゴリごとに区切り線を入れ、その<b>幅はそのときの最長行から決まる</b>
+     * ({@link #resolveSeparators})。差し込み先が「前回の行を内容一致で消してから新しい行を足す」
+     * 方式だと(ArsPaper のスレッド返却 {@code ThreadGui#restoreRoll} と
+     * {@code ThreadRerollRitualEffect} がこれ)、値の桁が変わって幅が変わった瞬間に
+     * <b>古い区切り線が消えずに溜まり続ける</b>。区切り線はアイテム自身の lore を組むときだけの装飾なので、
+     * 差し込み用の経路では最初から作らない。
+     *
+     * <p>ステ源の区別({@link StatSource})は渡せないので全行 {@code FIXED} 色で描かれる。
+     * 差し込み元(スレッド等)は fixed/per-quality/random を合算した値しか持たず内訳が復元できないため、
+     * 「ロール色を偽って付ける」より「一貫して固定色」を選んでいる。
+     */
+    public List<Component> statLines(Map<String, Double> stats,
+                                     Map<String, StatDisplaySpec> displayTable,
+                                     LoreLayout layout) {
+        Objects.requireNonNull(stats, "stats");
+        Objects.requireNonNull(displayTable, "displayTable");
+        Objects.requireNonNull(layout, "layout");
+
+        Map<String, StatDisplaySpec> canonicalTable = canonicalizeTable(displayTable);
+        Map<String, Double> displayStats = new LinkedHashMap<>(canonicalizeStats(stats));
+        Set<String> inert = canonicalizeKeys(inertStatKeys.get());
+        if (!inert.isEmpty()) {
+            displayStats.keySet().removeAll(inert);
+        }
+
+        List<Component> lines = new ArrayList<>();
+        for (StatCategory category : CATEGORY_ORDER) {
+            appendSection(lines, displayStats, canonicalTable, Map.of(), Set.of(), Set.of(),
+                    Map.of(), layout, category, false);
+        }
+        return List.copyOf(lines);
+    }
+
     /** Back-compat overload: use-requirement lore line falls back to {@link LoreConfig.BindLore#defaults()}. */
     public List<Component> compose(LoreComposeRequest request,
                                    Map<String, StatDisplaySpec> displayTable,
@@ -114,11 +157,9 @@ public final class LoreComposer {
                     Placeholder.unparsed("score", String.valueOf(request.qualityScore())))));
         }
 
-        for (StatCategory category : new StatCategory[]{StatCategory.ATTACK, StatCategory.DEFENSE,
-                StatCategory.CRAFT, StatCategory.GATHERING, StatCategory.UTILITY,
-                StatCategory.ARS, StatCategory.OTHER}) {
+        for (StatCategory category : CATEGORY_ORDER) {
             appendSection(lore, displayStats, canonicalTable, displaySources, forceShow, chanceKeys,
-                    multipliers, layout, category);
+                    multipliers, layout, category, true);
         }
 
         // 使用可能レベル行: テンプレートは stats/lore.yml の bind.use-requirement-line
@@ -146,7 +187,7 @@ public final class LoreComposer {
                                Map<String, StatDisplaySpec> table, Map<String, StatSource> sources,
                                Set<String> forceShow, Set<String> chanceKeys,
                                Map<String, Map<String, Double>> multipliers,
-                               LoreLayout layout, StatCategory category) {
+                               LoreLayout layout, StatCategory category, boolean withSeparator) {
         List<StatDisplaySpec> specs = specsInCategory(stats, table, category, forceShow, multipliers);
         List<Component> lines = new ArrayList<>();
         for (StatDisplaySpec spec : specs) {
@@ -161,7 +202,9 @@ public final class LoreComposer {
         if (lines.isEmpty()) {
             return;
         }
-        lore.add(SEPARATOR_MARKER);
+        if (withSeparator) {
+            lore.add(SEPARATOR_MARKER);
+        }
         lore.addAll(lines);
     }
 
