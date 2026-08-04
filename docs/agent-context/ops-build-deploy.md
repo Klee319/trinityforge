@@ -194,6 +194,28 @@ Get-ChildItem 'D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server\plugins
 `git log --format="%h %ad %s" --date=iso` と突き合わせるだけでよい。TF本体側は配備が別タイミングで
 走るため、`reports/ACTIVE_RECORD.md` の配備記録（「配備完了」エントリの時刻）と合わせて確認すること。
 
+### ⚠️ ArsPaper の `materials.yml` は `deploy.cmd --config` でだけ反映される（jar 差し替え・`/ars reload` では反映されない）
+
+`MaterialConfigManager#load` は
+```java
+File file = new File(plugin.getDataFolder(), "materials.yml");
+if (!file.exists()) plugin.saveResource("materials.yml", false);
+```
+だけで、**独自マージ機構が無い**。`saveResource(..., false)` は「既存ファイルがあれば何もしない」
+標準 Bukkit 挙動なので、`plugins\ArsPaper\materials.yml` が既に在るサーバでは
+**新しい jar を入れ替えても `/ars reload` しても、追加した素材は1件も現れない**。
+TF 本体の `TrinityForgeConfigMigration.appendMissingKeys` に相当する追記機構は Ars 側に存在しない。
+
+反映させる唯一の経路は `ops\launch\deploy.cmd --config`。`:deploy_config_ars` が
+`fork-handoff/arspaper/fork/src/main/resources` から `plugins\ArsPaper` へ `*.yml` を
+robocopy で**上書き**する（除外は `paper-plugin.yml` / `sourcejars.yml` / `sourcelinks.yml` の3つだけ。
+後2つは稼働サーバが書く LIVE STATE なので意図的に除外されている）。
+
+- したがって **`--config` を付け忘れると「素材を追加したのに実機に出てこない」が無言で起きる。**
+  `materials.yml` を触った変更は配備手順に必ず `--config` を含めること。
+- 逆に `--config` はサーバ側 `materials.yml` を丸ごと上書きするので、
+  サーバ側を直接手編集していた場合はその編集が消える（editor はリポジトリ側を編集するので通常は問題ない）。
+
 ## サーバ起動時の見落とし
 
 ### ⚠️ HuskSync の DB 接続失敗はサーバ起動を止めない

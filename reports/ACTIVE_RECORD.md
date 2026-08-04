@@ -5554,14 +5554,22 @@ GUI 編集だけできない**という非対称になっていた（`binder_*` 
 
 ### 配備（ユーザー実行）
 
-- **⚠️ ArsPaper の `materials.yml` は自動では更新されない。** `MaterialConfigManager#load` は
-  `if (!file.exists()) saveResource("materials.yml", false)` だけで、**独自マージ機構が無い**。
-  稼働中サーバに `plugins/ArsPaper/materials.yml` が既に在る限り、jar を入れ替えても
-  `/ars reload` しても**今回の65件は絶対に反映されない**。運用者が
-  サーバ側 `materials.yml` を新しい出荷版で置き換える（または追加分を手で追記する）必要がある。
+**`ops\launch\deploy.cmd --config` を使えば反映される。** サーバ停止後に実行すること。
+
+- `deploy.cmd` の `:deploy_config_ars` は `fork-handoff/arspaper/fork/src/main/resources` から
+  `plugins\ArsPaper` へ `*.yml` を robocopy で**上書き**コピーする
+  （除外は `paper-plugin.yml` / `sourcejars.yml` / `sourcelinks.yml` の3つだけ。
+  `sourcejars`/`sourcelinks` は稼働サーバが書く LIVE STATE なので除外されている）。
+  → **`materials.yml` は配備対象に入っており、今回の65件は反映される。**
+- **ただしプラグイン単体では更新されない。** `MaterialConfigManager#load` は
+  `if (!file.exists()) saveResource("materials.yml", false)` だけで独自マージ機構が無いため、
+  **jar を入れ替えただけ・`/ars reload` しただけでは反映されない**
+  （`saveResource(..., false)` は既存ファイルがあれば何もしない）。
   TF 本体の `TrinityForgeConfigMigration.appendMissingKeys` に相当する仕組みは Ars 側に無い。
-- TF resources 側（`gacha.yml` / `mob-overrides.yml` 等の ID 改名）は通常の config 配備で反映される。
-- jar は未ビルド。配備前にサーバ停止 →（TF / ArsPaper を）ビルド → 配備の順で。
+  つまり**`--config` を付け忘れると無言で反映されない**のがこの変更の落とし穴。
+- TF resources 側（`gacha.yml` / `mob-overrides.yml` 等の ID 改名）も同じ `--config` で反映される。
+- Java コードは1行も変わっていない（変更は resources と test のみ）ので、
+  jar の再ビルドは `deploy.cmd` の staleness 判定に任せてよい。
 
 ### 残課題
 
