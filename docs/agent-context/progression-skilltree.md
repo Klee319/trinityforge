@@ -66,16 +66,35 @@ BRANCH（右半平面, +SIDE_STEP）とGREEK（左半平面, -SIDE_STEP）は完
 「初回無料」を無限に再利用できて券が要らなくなる）。旧キー `allow-command` は
 `allow-change` 未指定時のフォールバックとしてだけ読む。
 
-### `NativeSkillTreeMenu` のスロット53は一覧モード切替ボタンに固定で明け渡した
+### `NativeSkillTreeMenu` の最下段は両端2枠がモード切替に固定で明け渡してある
 
 54枠のうち、従来はスロット45-53（9枠）が全て「近傍9ツリーの選択バー」（`renderSkillSelector`、
-`select-skill`アクション）で埋まっており、GUIに空きコントロール枠が無かった。2026-08-04にスロット53
-（選択バー右端）を一覧モード⇔通常モードの切替ボタン（`toggle-view`アクション、
-`SkillTreeGuiVisuals.control("toggle-view")`）専用にし、選択バーは8枠（offset -4..3）へ縮小した。
-このスロットは通常モード・一覧モード（`openOverview`、格子座標は`SkillTreeOverviewLayout`）の両方で
-同じ位置に固定してある。将来この行を触るときは53を選択バー用に戻さないこと。一覧モードのアイコンは
-`select-skill`アクションを流用しており（新アクションは追加していない）、クリックすると常に
-`overview=false`で再描画される＝一覧からアイコンを選ぶと必ず通常モードへ戻る。
+`select-skill`アクション）で埋まっており、GUIに空きコントロール枠が無かった。
+
+- **2026-08-04**: スロット53（選択バー右端）を一覧モード⇔通常モードの切替（`toggle-view`）専用にし、
+  選択バーを8枠（offset -4..3）へ縮小。
+- **2026-08-05（W-29）**: スロット45（選択バー左端 = 最下段左端）を**パーク一覧モード**の切替
+  （`toggle-perk-list`、時計アイコン `SkillTreeGuiVisuals.control("perk-list")` = `CLOCK`）専用にし、
+  選択バーを**7枠（offset -3..3）**へ縮小。選択中のツリーは変わらずスロット49（中央）。
+
+`SkillTreeOverviewLayout.PERK_LIST_SLOT`(45) / `TOGGLE_SLOT`(53) は**全モードで同じ位置に描画する**
+（`renderModeButtons`が1か所で面倒を見る）。将来この行を触るときは45と53を選択バー用に戻さないこと。
+
+モードは3値（`Mode.DETAIL` / `OVERVIEW` / `PERK_LIST`）。**boolean 2本にしないこと** — 「両方 true」
+という存在しない状態を型が許してしまう（2026-08-04 は2値だったので `boolean overview` だった）。
+再描画は `reopenNextTick(player, session, pendingPerkId)` を使う。モード・中心座標・ページを
+呼び出し側で書き写す形にすると、書き写し漏れで「操作したら勝手に通常モードへ戻る」が生える。
+
+- **全ツリー一覧**（`openOverview`）のアイコンは `select-skill` アクションを流用しており
+  （新アクションは追加していない）、クリックすると常に `Mode.DETAIL` で再描画される＝一覧から
+  アイコンを選ぶと必ず通常モードへ戻る。
+- **パーク一覧**（`openPerkList`）は現ツリーのパークを同じ格子（`SkillTreeOverviewLayout`）へ並べ、
+  クリック（`jump-perk`）で `canvas.nodes().get(perkId).point()` を中心に据えて通常モードへ戻る。
+  **ページ送りがある**のはこちらだけ：ツリー数16は格子容量20に収まるがパーク数は POWER で36
+  （config の35ノード + 合成ルート）あり、切り落とすと「一覧に無いパークがある」ことに気づけない。
+  ページ送りは格子の外側の列（`PAGE_PREV_SLOT`=19 / `PAGE_NEXT_SLOT`=25）で、行き先が無い側は描画しない。
+- 一覧の件数は**config のノード数 +1** になる。generator が lv0/コスト0の合成ルートパーク
+  `<compact>_perk_root` を必ず1つ足すため（キャンバス上に実在するマスなので一覧にも出す）。
 
 ## スキルツリーのカスタムコンテンツ：何が効いて何が効かないか
 

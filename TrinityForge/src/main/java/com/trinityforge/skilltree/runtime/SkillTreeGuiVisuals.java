@@ -19,7 +19,11 @@ public final class SkillTreeGuiVisuals {
             "move-w", new Visual(Material.ARROW, "gui/skilltree_w"),
             // 2026-08-04新設: 通常モード⇔一覧モード(スキルアイコンだけの格子表示)の切替ボタン。
             // 新しいリソースパックCMDは要求しない(itemModel未指定=素のバニラ材質を表示する)。
-            "toggle-view", new Visual(Material.COMPASS, null));
+            "toggle-view", new Visual(Material.COMPASS, null),
+            // 2026-08-05新設(W-29): 通常モード⇔パーク一覧モード(現ツリーの全パークの格子表示)の
+            // 切替ボタン。ユーザー指定の「時計アイコン」なので材質は CLOCK 固定。
+            // toggle-view と同じくリソースパックCMDは要求しない。
+            "perk-list", new Visual(Material.CLOCK, null));
 
     private static final Map<String, String> CONNECTOR_SHAPES = Map.ofEntries(
             Map.entry("00", "direct_vertical"),

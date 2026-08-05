@@ -59,6 +59,16 @@ class SkillTreeGuiVisualsTest {
     }
 
     @Test
+    void perkListControlUsesTheClockMaterialTheUserAskedFor() {
+        // 2026-08-05新設(W-29): 「最下段左端を時計アイコンで固定」がユーザー要件そのものなので、
+        // 材質を CLOCK 以外へ差し替えると要件を満たさない。toggle-view と同じくCMDは要求しない。
+        var visual = SkillTreeGuiVisuals.control("perk-list");
+
+        assertEquals(Material.CLOCK, visual.material());
+        assertNull(visual.itemModel());
+    }
+
+    @Test
     void connectorsUseStateAndShapeSpecificValhallaTextures() {
         assertEquals(Material.GRAY_DYE,
                 SkillTreeGuiVisuals.connector(SkillTreeGuiVisuals.ConnectorState.LOCKED, "06").material());
