@@ -39,8 +39,17 @@ export class Cdp {
     this.ws = ws;
     this.id = 0;
     this.pending = new Map();
+    this.dialogs = [];
     ws.addEventListener("message", (ev) => {
       const msg = JSON.parse(ev.data);
+      // alert/confirm はレンダラを止めるので、開いた瞬間に閉じないと以降の
+      // Runtime.evaluate が全部 30 秒タイムアウトする(= 検査が途中で死ぬ)。
+      // 破壊的な確認を誤って通さないよう accept: false (キャンセル相当) で閉じる。
+      if (msg.method === "Page.javascriptDialogOpening") {
+        this.dialogs.push({ type: msg.params.type, message: msg.params.message });
+        this.send("Page.handleJavaScriptDialog", { accept: false }).catch(() => {});
+        return;
+      }
       if (!msg.id || !this.pending.has(msg.id)) return;
       const { resolve, reject } = this.pending.get(msg.id);
       this.pending.delete(msg.id);
@@ -48,6 +57,9 @@ export class Cdp {
       else resolve(msg.result);
     });
   }
+
+  /** 直近で閉じたダイアログを取り出す(検査対象が alert を出したかの判定用)。 */
+  takeDialogs() { const d = this.dialogs; this.dialogs = []; return d; }
 
   send(method, params = {}) {
     const id = ++this.id;
