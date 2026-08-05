@@ -160,13 +160,39 @@ public final class SettingsGui implements Listener {
         return stack;
     }
 
+    /**
+     * 称号1件分のボタン。
+     *
+     * <p><b>2026-08-05 の修正</b>: 以前はボタン名に内部ID({@code title_completionist} 等)をそのまま
+     * 出していた。{@code title} 引数は受け取っているのに一度も使っておらず、プレイヤーは頭上に出る
+     * 実際の称号({@code <gradient:...>万象を知る者</gradient>})と選択画面の名前が繋がらなかった。
+     * 表示は {@link com.trinityforge.text.MiniText} で描画する — {@code display} は special-rewards.yml
+     * 由来の MiniMessage 文字列なので、{@code Component.text()} に渡すとタグが生で見える
+     * (図鑑ティア解放通知で実際に起きた不具合と同じ形)。IDは運用で必要なので lore へ落とす。
+     */
     private ItemStack titleButton(String id, SpecialRewardsConfig.Title title, boolean unlocked, boolean equipped) {
         ItemStack stack = new ItemStack(unlocked
                 ? (equipped ? Material.NAME_TAG : Material.PAPER) : Material.BARRIER);
         ItemMeta meta = stack.getItemMeta();
-        meta.displayName(Component.text(unlocked ? id : "？？？ (未解放)",
-                        equipped ? NamedTextColor.GOLD : NamedTextColor.WHITE)
+        String display = title == null ? null : title.display();
+        if (!unlocked) {
+            meta.displayName(Component.text("？？？ (未解放)", NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else if (display == null || display.isBlank()) {
+            // display 欠落は config 側の不備。IDへフォールバックして選択自体は壊さない。
+            meta.displayName(Component.text(id, equipped ? NamedTextColor.GOLD : NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            meta.displayName(com.trinityforge.text.MiniText.render(display,
+                    equipped ? NamedTextColor.GOLD : NamedTextColor.WHITE));
+        }
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("ID: " + id, NamedTextColor.DARK_GRAY)
                 .decoration(TextDecoration.ITALIC, false));
+        lore.add(Component.text(equipped ? "装備中" : (unlocked ? "クリックで装備" : "未解放"),
+                        equipped ? NamedTextColor.GREEN : (unlocked ? NamedTextColor.GRAY : NamedTextColor.RED))
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(lore);
         if (unlocked) {
             meta.getPersistentDataContainer().set(titleKey, PersistentDataType.STRING, id);
         }
