@@ -231,4 +231,58 @@ class CatalogSmithingListenerTest {
 
         assertNotNull(event.getResult(), "トリムの結果に手を出してはいけない");
     }
+
+    /**
+     * 実サーバ報告「ネザライト化したときにエンチャントがはがれる」(2026-08-05)。
+     *
+     * <p>このリスナーは成果物を {@code itemFactory.create(...)} で<b>作り直す</b>ので、
+     * 何もしなければ素材側のエンチャントは丸ごと消える。バニラのネザライト強化は保持するため、
+     * プレイヤーから見ると取り返しのつかない損失になる。
+     */
+    @Test
+    void netheriteUpgradeKeepsTheEnchantmentsOnTheSourceItem(@TempDir File tempDir) throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir);
+        ItemFactory itemFactory = factory();
+        CatalogSmithingListener listener = new CatalogSmithingListener(catalog, itemFactory);
+        ItemTemplate source = catalog.template("diamond_bow").orElseThrow();
+
+        ItemStack base = itemFactory.createIdentityOnly(source);
+        base.addUnsafeEnchantment(org.bukkit.enchantments.Enchantment.POWER, 4);
+        base.addUnsafeEnchantment(org.bukkit.enchantments.Enchantment.UNBREAKING, 3);
+
+        PrepareSmithingEvent event = event(netheriteTemplate(), base, netheriteIngot(),
+                new ItemStack(Material.BOW));
+        listener.onPrepare(event);
+
+        ItemStack result = event.getResult();
+        assertNotNull(result);
+        assertEquals(4, result.getEnchantmentLevel(org.bukkit.enchantments.Enchantment.POWER),
+                "射撃ダメージ増加IVが引き継がれていない");
+        assertEquals(3, result.getEnchantmentLevel(org.bukkit.enchantments.Enchantment.UNBREAKING),
+                "耐久力IIIが引き継がれていない");
+    }
+
+    /**
+     * 上限突破パークで素材が上限超えのレベルを持っていても、引き継ぎで削られないこと。
+     * ({@code addUnsafeEnchantment} を使っている理由の固定)
+     */
+    @Test
+    void netheriteUpgradeKeepsOverCapEnchantLevels(@TempDir File tempDir) throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir);
+        ItemFactory itemFactory = factory();
+        CatalogSmithingListener listener = new CatalogSmithingListener(catalog, itemFactory);
+        ItemTemplate source = catalog.template("diamond_bow").orElseThrow();
+
+        int overCap = org.bukkit.enchantments.Enchantment.POWER.getMaxLevel() + 2;
+        ItemStack base = itemFactory.createIdentityOnly(source);
+        base.addUnsafeEnchantment(org.bukkit.enchantments.Enchantment.POWER, overCap);
+
+        PrepareSmithingEvent event = event(netheriteTemplate(), base, netheriteIngot(),
+                new ItemStack(Material.BOW));
+        listener.onPrepare(event);
+
+        assertEquals(overCap,
+                event.getResult().getEnchantmentLevel(org.bukkit.enchantments.Enchantment.POWER),
+                "上限突破分がネザライト強化で削られている");
+    }
 }

@@ -8,6 +8,7 @@ import com.trinityforge.stats.ItemTemplate;
 import com.trinityforge.stats.PreviewRollSeeds;
 import com.trinityforge.stats.RecipeSpec;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -16,6 +17,7 @@ import org.bukkit.event.inventory.SmithItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.SmithingInventory;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -63,6 +65,7 @@ public final class CatalogSmithingListener implements Listener {
         int quality = CatalogItemMatch.qualityOf(match.base());
         ItemStack result = itemFactory.create(match.resultTemplate(), PreviewRollSeeds.SMITHING, quality);
         CatalogIdentity.ensure(result, itemCatalog);
+        carryOverEnchantments(match.base(), result);
         event.setResult(result);
     }
 
@@ -80,6 +83,7 @@ public final class CatalogSmithingListener implements Listener {
         long seed = ThreadLocalRandom.current().nextLong();
         ItemStack stamped = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(stamped, itemCatalog);
+        carryOverEnchantments(match.base(), stamped);
         event.setCurrentItem(stamped.clone());
         if (event.getWhoClicked() instanceof org.bukkit.entity.Player player && !event.isShiftClick()) {
             player.setItemOnCursor(stamped.clone());
@@ -114,6 +118,41 @@ public final class CatalogSmithingListener implements Listener {
                 .orElse(false);
         if (tfNetheriteResult) {
             event.setResult(null);
+        }
+    }
+
+    /**
+     * ネザライト強化の素材に付いていたエンチャントを成果物へ引き継ぐ
+     * （実サーバ報告「ネザライト化したときにエンチャントがはがれる」2026-08-05 の修正）。
+     *
+     * <p>このリスナーは成果物を {@code itemFactory.create(...)} で<b>まっさらに作り直す</b>。
+     * TF のステータス/品質を正しく刻むにはそれが必要だが、その副作用として素材側の
+     * エンチャントが丸ごと消えていた。バニラのネザライト強化はエンチャントを保持するので、
+     * プレイヤーから見ると「強化したら全部消えた」という取り返しのつかない損失になる。
+     *
+     * <p><b>付与可否({@code canEnchantItem})で絞り込まない。</b> 素材が正当に持っていた
+     * エンチャントなので、成果物でも正当である。TF のカタログ品は見た目のために本来の武器種と
+     * 違う Material を土台にすることがあり（杖など）、ここで絞ると<b>正しいエンチャントの方が
+     * 消える</b>。金床側の不正付与は {@link OverEnchantListener} の入口で塞いである。
+     *
+     * <p>テンプレート側が同じエンチャントを持つ場合はレベルの高い方を残す。
+     */
+    private static void carryOverEnchantments(ItemStack base, ItemStack result) {
+        if (base == null || result == null || result.getType().isAir()) {
+            return;
+        }
+        for (Map.Entry<Enchantment, Integer> entry : base.getEnchantments().entrySet()) {
+            Enchantment ench = entry.getKey();
+            int fromBase = entry.getValue();
+            if (fromBase <= 0) {
+                continue;
+            }
+            if (result.getEnchantmentLevel(ench) >= fromBase) {
+                continue;
+            }
+            // addUnsafeEnchantment: 上限突破パークで素材が上限超えのレベルを持っている場合に、
+            // ここで削られないようにする。
+            result.addUnsafeEnchantment(ench, fromBase);
         }
     }
 
