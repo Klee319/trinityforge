@@ -201,7 +201,7 @@ class CatalogRecipeRegistrarNetheriteTest {
                 "netherite_trident", Material.TRIDENT,
                 "netherite_mace", Material.MACE,
                 "netherite_crossbow", Material.CROSSBOW,
-                "netherite_cane", Material.BLAZE_ROD);
+                "netherite_wand", Material.BLAZE_ROD);
         expected.forEach((id, base) -> {
             Recipe recipe = Bukkit.getRecipe(new NamespacedKey("trinityforge", "catalog_" + id + "_smithing"));
             SmithingTransformRecipe smithing = assertInstanceOf(SmithingTransformRecipe.class, recipe,

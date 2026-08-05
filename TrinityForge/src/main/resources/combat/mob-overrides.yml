@@ -2055,7 +2055,7 @@ overrides:
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         # 【custom:warden_tendril の入手経路 (2026-08-03 追加)】
         # items/catalog.yml の儀式3本 —— 暗殺者の弓(hero_bow) / 暗殺者のクロスボウ(hero_crossbow) /
-        # 黒淵の杖(abyss_cane) —— が custom:warden_tendril x2 を要求するのに、この素材は
+        # 黒淵の杖(abyss_wand) —— が custom:warden_tendril x2 を要求するのに、この素材は
         # ガチャ表にもどのドロップ表にも1件も載っておらず、【3本とも永久に作成不能】だった。
         # 姉妹素材の dragon_scale / elder_guardian_spike / wither_skull_fragment は gacha.yml に
         # 載っている(=救済済み)ので、抜けていたのは warden_tendril だけ。

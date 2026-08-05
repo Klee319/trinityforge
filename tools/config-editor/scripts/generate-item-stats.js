@@ -398,7 +398,7 @@ for (const [kind, spec] of Object.entries(mageConfig)) {
 const categories = structuredClone(catalog._editor.categories);
 // Catalog categories store custom ids, while item-stats is keyed by Material or Material#CMD.
 // Convert every catalog member before adding vanilla entries so nested-category filtering uses
-// the same identifiers as the actual items map (not orphan aliases such as wooden_cane).
+// the same identifiers as the actual items map (not orphan aliases such as wooden_wand).
 for (const rows of Object.values(categories)) {
   for (const row of rows || []) {
     row.itemIds = [...new Set((row.itemIds || []).map((id) => {

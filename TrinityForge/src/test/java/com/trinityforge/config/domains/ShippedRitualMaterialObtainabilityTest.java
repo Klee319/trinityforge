@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>なぜ必要か(実際に起きた事故)</h2>
  * {@code items/catalog.yml} の儀式3本 —— 暗殺者の弓({@code hero_bow}) / 暗殺者のクロスボウ
- * ({@code hero_crossbow}) / 黒淵の杖({@code abyss_cane}) —— が {@code custom:warden_tendril x2} を
+ * ({@code hero_crossbow}) / 黒淵の杖({@code abyss_wand}) —— が {@code custom:warden_tendril x2} を
  * 要求していたのに、この素材は <b>ガチャ表にもどのモブのドロップ表にも1件も載っていなかった</b>。
  * 姉妹素材の {@code dragon_scale} / {@code elder_guardian_spike} / {@code wither_skull_fragment} は
  * {@code gacha.yml} に載っているため、抜けているのは1件だけ。レシピ帳にも図鑑にも普通に並び、
@@ -97,7 +97,7 @@ class ShippedRitualMaterialObtainabilityTest {
                 "図鑑の「討伐素材」に載っているのに、TF 側の入手経路が1つも無い素材がある。"
                         + "レシピ帳にも図鑑にも普通に並ぶのにプレイヤーは永久に入手できず、"
                         + "ログにも警告にも一切出ない(実際に warden_tendril がこの状態で、"
-                        + "儀式3本 hero_bow / hero_crossbow / abyss_cane が作成不能だった)。"
+                        + "儀式3本 hero_bow / hero_crossbow / abyss_wand が作成不能だった)。"
                         + "経路は combat/mob-level-table.yml の add-drops(バニラモブ) か "
                         + "combat/mob-overrides.yml の drops(EliteMobs個体) か gacha.yml に足すこと。"
                         + " 経路ゼロの素材: " + missing);

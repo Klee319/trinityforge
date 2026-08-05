@@ -104,7 +104,7 @@ class ShippedWardenTendrilDropTest {
         assertTrue(hits > 0,
                 "出荷 mob-overrides.yml の " + CLEAR_BOSS_ID + " を " + SIMULATED_KILLS
                         + " 回討伐しても custom:warden_tendril が1個も出なかった。"
-                        + "この素材は儀式3本(hero_bow / hero_crossbow / abyss_cane)の唯一の素材なので、"
+                        + "この素材は儀式3本(hero_bow / hero_crossbow / abyss_wand)の唯一の素材なので、"
                         + "落ちなければ3本とも【永久に作成不能】になる。"
                         + "drops: の行を消していないか、level-cutoff で止めていないか確認すること");
     }

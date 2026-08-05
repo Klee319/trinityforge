@@ -2051,7 +2051,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400008,
-      "id": "wooden_cane",
+      "id": "wooden_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-23T06:31:29.302Z",
       "assetName": "wooden_cane",
@@ -2060,7 +2060,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400002,
-      "id": "stone_cane",
+      "id": "stone_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-22T22:11:18.688Z",
       "assetName": "stone_cane",
@@ -2069,7 +2069,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400003,
-      "id": "copper_cane",
+      "id": "copper_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-22T22:11:18.688Z",
       "assetName": "copper_cane",
@@ -2078,7 +2078,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400004,
-      "id": "iron_cane",
+      "id": "iron_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-22T22:11:18.688Z",
       "assetName": "iron_cane",
@@ -2087,7 +2087,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400005,
-      "id": "golden_cane",
+      "id": "golden_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-22T22:11:18.688Z",
       "assetName": "golden_cane",
@@ -2096,7 +2096,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400006,
-      "id": "diamond_cane",
+      "id": "diamond_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-22T22:11:18.688Z",
       "assetName": "diamond_cane",
@@ -2105,7 +2105,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400007,
-      "id": "netherite_cane",
+      "id": "netherite_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-22T22:11:18.688Z",
       "assetName": "netherite_cane",
@@ -2317,14 +2317,14 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400012,
-      "id": "infinity_cane",
+      "id": "infinity_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-23T13:30:59.790Z"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400013,
-      "id": "abyss_cane",
+      "id": "abyss_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-23T13:30:59.790Z",
       "assetName": "abyss_cane",
@@ -2334,7 +2334,7 @@
     {
       "material": "BLAZE_ROD",
       "cmd": 400014,
-      "id": "boundary_cane",
+      "id": "boundary_wand",
       "source": "catalog",
       "allocatedAt": "2026-07-23T13:30:59.790Z",
       "assetName": "boundary_cane",

@@ -4634,7 +4634,7 @@ items:
         s: STICK
         i: custom:source_gem
       amount: 1
-  wooden_cane:
+  wooden_wand:
     material: BLAZE_ROD
     display-name: 木の杖
     custom-model-data: 400008
@@ -4648,7 +4648,7 @@ items:
       ingredients:
         C: OAK_WOOD
         A: STICK
-  stone_cane:
+  stone_wand:
     material: BLAZE_ROD
     display-name: 石の杖
     custom-model-data: 400002
@@ -4663,7 +4663,7 @@ items:
         C: list:cobblestone
         A: STICK
       amount: 1
-  copper_cane:
+  copper_wand:
     material: BLAZE_ROD
     display-name: 銅の杖
     custom-model-data: 400003
@@ -4678,7 +4678,7 @@ items:
         C: COPPER_INGOT
         A: STICK
       amount: 1
-  iron_cane:
+  iron_wand:
     material: BLAZE_ROD
     display-name: 鉄の杖
     custom-model-data: 400004
@@ -4693,7 +4693,7 @@ items:
         C: IRON_INGOT
         A: STICK
       amount: 1
-  golden_cane:
+  golden_wand:
     material: BLAZE_ROD
     display-name: 金の杖
     custom-model-data: 400005
@@ -4708,7 +4708,7 @@ items:
         C: GOLD_INGOT
         A: STICK
       amount: 1
-  diamond_cane:
+  diamond_wand:
     material: BLAZE_ROD
     display-name: ダイヤモンドの杖
     custom-model-data: 400006
@@ -4723,12 +4723,12 @@ items:
         C: DIAMOND
         A: STICK
       amount: 1
-  netherite_cane:
+  netherite_wand:
     material: BLAZE_ROD
     display-name: ネザライトの杖
     recipe:
       method: netherite
-      source-item: custom:diamond_cane
+      source-item: custom:diamond_wand
     custom-model-data: 400007
   infinity_pickaxe:
     material: NETHERITE_PICKAXE
@@ -5031,7 +5031,7 @@ items:
     recipe:
       method: netherite
       source-item: custom:diamond_crossbow
-  infinity_cane:
+  infinity_wand:
     material: BLAZE_ROD
     display-name: <color:#7df9ff>インフィニティの杖</color>
     custom-model-data: 400012
@@ -5046,7 +5046,7 @@ items:
         J: custom:core_jewelry
         R: custom:breeze_rod_2x
         A: custom:amethyst_block_2x
-  abyss_cane:
+  abyss_wand:
     material: BLAZE_ROD
     display-name: <color:dark_purple>黒淵の杖</color>
     custom-model-data: 400013
@@ -5063,7 +5063,7 @@ items:
     lore:
       - <color:dark_aqua>永遠なる白夜を崩落させた</color>
       - <color:light_purple>無限なる深淵</color>
-  boundary_cane:
+  boundary_wand:
     material: BLAZE_ROD
     display-name: <color:blue>冥境の杖</color>
     custom-model-data: 400014
@@ -7087,16 +7087,16 @@ _editor:
       - id: cat_1784733677892
         label: バニラ
         itemIds:
-          - wooden_cane
-          - stone_cane
-          - copper_cane
-          - iron_cane
-          - golden_cane
-          - diamond_cane
-          - netherite_cane
-          - infinity_cane
-          - abyss_cane
-          - boundary_cane
+          - wooden_wand
+          - stone_wand
+          - copper_wand
+          - iron_wand
+          - golden_wand
+          - diamond_wand
+          - netherite_wand
+          - infinity_wand
+          - abyss_wand
+          - boundary_wand
       - id: cat_20260723_触媒
         label: 触媒
         itemIds:
@@ -7538,18 +7538,18 @@ _editor:
       - binder_crossbow
     catalyst:
       - someones_eyes
-      - wooden_cane
-      - stone_cane
-      - copper_cane
-      - iron_cane
-      - golden_cane
-      - diamond_cane
-      - netherite_cane
-      - infinity_cane
+      - wooden_wand
+      - stone_wand
+      - copper_wand
+      - iron_wand
+      - golden_wand
+      - diamond_wand
+      - netherite_wand
+      - infinity_wand
       - woodsman_whetstone
       - chanter_ring
-      - abyss_cane
-      - boundary_cane
+      - abyss_wand
+      - boundary_wand
     tool:
       - source_gem_pickaxe
       - source_gem_shovel
@@ -7802,7 +7802,7 @@ _editor:
     infinity_hoe: tool
     harvest_hoe: tool
     source_gem_sword: weapon
-    wooden_cane: catalyst
+    wooden_wand: catalyst
     wooden_dagger: weapon
     stone_dagger: weapon
     copper_dagger: weapon
@@ -7832,12 +7832,12 @@ _editor:
     diamond_greataxe: weapon
     netherite_greataxe: weapon
     woodsman_greataxe: weapon
-    stone_cane: catalyst
-    copper_cane: catalyst
-    iron_cane: catalyst
-    golden_cane: catalyst
-    diamond_cane: catalyst
-    netherite_cane: catalyst
+    stone_wand: catalyst
+    copper_wand: catalyst
+    iron_wand: catalyst
+    golden_wand: catalyst
+    diamond_wand: catalyst
+    netherite_wand: catalyst
     source_gem_dagger: weapon
     source_gem_rapier: weapon
     source_gem_warhammer: weapon
@@ -7903,7 +7903,7 @@ _editor:
     infinity_crossbow: weapon
     emberforge_crossbow: weapon
     cryocore_crossbow: weapon
-    infinity_cane: catalyst
+    infinity_wand: catalyst
     woodsman_whetstone: catalyst
     chanter_ring: catalyst
     source_gem_grate_sword: weapon
@@ -7963,5 +7963,5 @@ _editor:
     binder_chestplate: armor
     binder_leggings: armor
     binder_boots: armor
-    boundary_cane: catalyst
-    abyss_cane: catalyst
+    boundary_wand: catalyst
+    abyss_wand: catalyst
