@@ -204,7 +204,14 @@ if (!file.exists()) plugin.saveResource("materials.yml", false);
 だけで、**独自マージ機構が無い**。`saveResource(..., false)` は「既存ファイルがあれば何もしない」
 標準 Bukkit 挙動なので、`plugins\ArsPaper\materials.yml` が既に在るサーバでは
 **新しい jar を入れ替えても `/ars reload` しても、追加した素材は1件も現れない**。
-TF 本体の `TrinityForgeConfigMigration.appendMissingKeys` に相当する追記機構は Ars 側に存在しない。
+**2026-08-05 訂正: ここには以前「TF 本体の `TrinityForgeConfigMigration.appendMissingKeys` に相当する
+追記機構は Ars 側に存在しない」と書いてあったが、そのクラスは TF にも存在しない**
+（`grep 'class .*Migration|appendMissing' TrinityForge/src/main/java` が 0 件。
+TF の全 `ConfigDomain` も `saveResource(PATH, false)` だけを呼ぶ）。
+つまり **TF 側も同じ**で、既にファイルがあるサーバでは jar に入っている yml は一切読まれない。
+この性質は配備の副作用として有用: **jar をワーキングツリーからビルドしても、
+そこに混ざっている他セッションの未コミット yml がサーバの config へ漏れることはない**
+（config は下記 `deploy-config-head.cmd` の経路だけで変わる）。
 
 反映させる唯一の経路は `ops\launch\deploy.cmd --config`。`:deploy_config_ars` が
 `fork-handoff/arspaper/fork/src/main/resources` から `plugins\ArsPaper` へ `*.yml` を
