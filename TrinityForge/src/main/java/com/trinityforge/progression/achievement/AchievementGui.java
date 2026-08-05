@@ -46,8 +46,9 @@ import java.util.Objects;
  *
  * <p><b>2026-08-06(W-31): 操作系をスキルツリーと完全に同じ配置へ揃えた。</b>
  * ①8方向の視点移動をキャンバスの<b>四隅と辺の中央</b>(スロット 0/4/8/18/26/36/40/44)へ移し、
- * ②最下段(45-52)を<b>系統(ルート実績)の切替バー</b>にした(スキルツリーのスキル選択バーと同じ位置・
- * 同じ「選択中を中央に置いて巡回」動作)。達成状況の本は最下段右端(53)へ。
+ * ②最下段(45-52)を<b>系統(ルート実績)の切替バー</b>にした(スキルツリーのスキル選択バーと同じ位置)。
+ * バーに並ぶのは<b>ルート実績だけ</b>(2026-08-06 ユーザー確定)で、分岐先は並べない。
+ * 達成状況の本は最下段右端(53)へ。
  * ③ツリーは<b>ルートから上へ伸びる</b>({@link AchievementCanvas.AchievementLayout})。
  * 同じ操作系のGUIで伸びる向きだけ逆だと、上下の矢印の意味が画面ごとに入れ替わってしまう。
  *
@@ -79,7 +80,11 @@ public final class AchievementGui implements Listener {
      * 固定しているのに合わせ、「バーの右端は常に固定ボタン」で揃えた。
      */
     private static final int SUMMARY_SLOT = 53;
-    /** 系統切替バーの中央スロット。選択中の系統がここに来る(バーは 45-52 の8枠 = offset -4..3)。 */
+    /** 系統切替バーの左端スロット。ルートがバー幅に収まるときはここから左詰めで並べる。 */
+    private static final int HEAD_BAR_FIRST = 45;
+    /** 系統切替バーの右端スロット(53 は達成状況の本で固定なので 52 まで)。 */
+    private static final int HEAD_BAR_LAST = 52;
+    /** 系統切替バーの中央スロット。バー幅に収まらないときは選択中がここに来る(offset -4..3)。 */
     private static final int HEAD_BAR_CENTER = 49;
     private static final Map<Integer, int[]> NAVIGATION = Map.of(
             0, new int[]{-1, -1},
@@ -222,13 +227,26 @@ public final class AchievementGui implements Listener {
     }
 
     /**
-     * 最下段の系統(ルート実績)切替バー(2026-08-06, W-31)。スキルツリーの
-     * {@code renderSkillSelector} と同じく、選択中を中央({@link #HEAD_BAR_CENTER})に置いて
-     * 前後を巡回表示する。系統が8つ未満なら同じ系統が繰り返し出る(バーに穴を空けない)。
+     * 最下段の系統(ルート実績)切替バー(2026-08-06, W-31)。
+     *
+     * <p>ルートがバー幅(8枠)に収まるなら<b>左詰めで1件ずつ</b>置く。収まらないときだけ
+     * スキルツリーの {@code renderSkillSelector} と同じく、選択中を中央
+     * ({@link #HEAD_BAR_CENTER})に置いて前後を巡回表示する。
+     * スキルツリー側が常に巡回なのは16ツリーあってバーに収まらないからで、
+     * 少数のときに巡回すると<b>同じルートが8枠に並ぶだけ</b>になり切替として読めない。
      */
     private void renderHeadBar(Inventory inventory, List<String> heads, String selectedHeadId,
                                List<String> achieved, List<String> claimed) {
         if (heads.isEmpty()) {
+            return;
+        }
+        int width = HEAD_BAR_LAST - HEAD_BAR_FIRST + 1; // 45-52 の8枠
+        if (heads.size() <= width) {
+            for (int i = 0; i < heads.size(); i++) {
+                String headId = heads.get(i);
+                inventory.setItem(HEAD_BAR_FIRST + i,
+                        headIcon(headId, headId.equals(selectedHeadId), achieved, claimed));
+            }
             return;
         }
         int selected = Math.max(0, heads.indexOf(selectedHeadId));

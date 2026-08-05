@@ -87,11 +87,12 @@ class AchievementCanvasTest {
     }
 
     /**
-     * 系統切替バー(W-31)の並び。出荷configは真のルートが {@code main} 1件だけなので、
-     * ルートしか並べないとバーがボタン1個になり「スクロール切替」が成立しない。
+     * 系統切替バー(W-31)に並ぶのは<b>ルート実績だけ</b>(2026-08-06 ユーザー確定)。
+     * 分岐先(ルートの子)は系統の起点として並べない。出荷configは真のルートが
+     * {@code main} 1件だけなので、バーはボタン1個になる — それが仕様どおり。
      */
     @Test
-    void branchHeadsIncludeTheRootAndTheForkBelowItSoTheBarIsNotASingleButton() {
+    void branchHeadsAreRootsOnlyAndNeverTheForksBelowThem() {
         List<Achievement> achievements = List.of(
                 achievement("main", "", null, List.of()),
                 achievement("life", "", "main", List.of()),
@@ -99,8 +100,8 @@ class AchievementCanvasTest {
                 achievement("war", "", "main", List.of()),
                 achievement("delve", "", "main", List.of()));
 
-        assertEquals(List.of("main", "life", "war", "delve"),
-                AchievementCanvas.branchHeadIds(achievements));
+        assertEquals(List.of("main"), AchievementCanvas.branchHeadIds(achievements),
+                "ルートが子を何本持っていても、系統の起点はルートだけ");
     }
 
     @Test

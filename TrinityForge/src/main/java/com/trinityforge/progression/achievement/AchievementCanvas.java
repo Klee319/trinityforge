@@ -133,21 +133,16 @@ public final class AchievementCanvas {
     }
 
     /**
-     * 最下段の系統切替バー(2026-08-06, W-31)に並べる「系統の起点」を、設定順で返す。
+     * 最下段の系統切替バー(2026-08-06, W-31)に並べる<b>ルート実績</b>を、設定順で返す。
      *
-     * <p>内訳は2種類:
-     * <ol>
-     *   <li>前提を1つも持たないアチーブメント(＝真のルート)</li>
-     *   <li>そのルートが2つ以上の子を持つ場合は、その子(＝そこから分かれる各系統の先頭)も</li>
-     * </ol>
+     * <p>ルート＝{@code parent} が未指定 / 自分自身 / 存在しないID のアチーブメント。
+     * 判定は自動配置({@link AchievementLayout})と同じ規則にしてある({@code parents-any} は
+     * 線としてだけ描かれる関係なので、ルート判定の根拠にしない)。
      *
-     * <p><b>2 を含めるのは出荷configの形のため</b>: 真のルートは {@code main} の1件だけで、
-     * その下に5章がぶら下がっている。ルートだけを並べるとバーがボタン1個になり
-     * 「最下段でルート実績をスクロール切替」が成立しない。ルートが複数あるconfigでは
-     * そのまま全ルートが並ぶ(どちらの形でも壊れない)。
-     *
-     * <p>親子関係は自動配置と同じく {@code parent} 鎖だけを見る({@code parents-any} は
-     * 線としてだけ描かれる関係なので、系統の所属を決める根拠にしない)。
+     * <p><b>ユーザー確定(2026-08-06): ここに並べるのはルート実績だけ。</b>
+     * 「ルートが1件のときは分岐先(章の先頭)も並べる」案は却下された。出荷configの真のルートは
+     * {@code main} の1件だけなので、現状のバーはボタン1個になる — これは仕様どおりなので
+     * 「バーが1個しかないから壊れている」と判断して勝手に増やさないこと。
      */
     public static List<String> branchHeadIds(List<Achievement> achievements) {
         Objects.requireNonNull(achievements, "achievements");
@@ -155,25 +150,16 @@ public final class AchievementCanvas {
         for (Achievement achievement : achievements) {
             known.add(achievement.id());
         }
-        LinkedHashMap<String, List<String>> childrenOf = new LinkedHashMap<>();
         List<String> roots = new ArrayList<>();
         for (Achievement achievement : achievements) {
             String parent = achievement.parent();
-            if (parent != null && known.contains(parent) && !parent.equals(achievement.id())) {
-                childrenOf.computeIfAbsent(parent, key -> new ArrayList<>()).add(achievement.id());
-            } else {
+            boolean hasKnownParent = parent != null && known.contains(parent)
+                    && !parent.equals(achievement.id());
+            if (!hasKnownParent) {
                 roots.add(achievement.id());
             }
         }
-        LinkedHashSet<String> heads = new LinkedHashSet<>();
-        for (String root : roots) {
-            heads.add(root);
-            List<String> kids = childrenOf.getOrDefault(root, List.of());
-            if (kids.size() >= 2) {
-                heads.addAll(kids);
-            }
-        }
-        return List.copyOf(heads);
+        return List.copyOf(roots);
     }
 
     /** {@code parent} と {@code parents-any} を1つの前提IDリストへ(重複は畳む)。 */
