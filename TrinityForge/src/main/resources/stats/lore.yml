@@ -964,6 +964,180 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
+  # 2026-08-05: 実サーバ指摘「職業EXP増加のステータスの種類が、総合と、掘削、農業、伐採しかない」。
+  # 消費側(PerSkillExpBonus)はスキルIDからキーを機械的に組むので実装は元から全スキル対応で、
+  # 欠けていたのは語彙/lore/%矯正の登録だけだった。残り12スキル分をここで揃える。
+  # POWER(総合)は作らない: POWER EXP はプレイヤー行動から直接付与されず、他スキルのレベルアップ時に
+  # NativeProgressionService が内部で加算するだけ(倍率適用より後段)なので、キーを作っても
+  # 一度も読まれない。全スキル一律の skill-exp-bonus(職業EXP増加)が POWER にも効く。
+  mining-exp-bonus:
+    name: 職業EXP増加(採掘)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 146
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  fishing-exp-bonus:
+    name: 職業EXP増加(釣り)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 147
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  alchemy-exp-bonus:
+    name: 職業EXP増加(錬金)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 148
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  enchanting-exp-bonus:
+    name: 職業EXP増加(エンチャント)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 149
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  smithing-exp-bonus:
+    name: 職業EXP増加(鍛冶)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 150
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  ars-smithing-exp-bonus:
+    name: 職業EXP増加(Ars鍛冶)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 151
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  ars-magic-exp-bonus:
+    name: 職業EXP増加(Ars魔法)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 152
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  archery-exp-bonus:
+    name: 職業EXP増加(弓術)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 153
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  light-weapons-exp-bonus:
+    name: 職業EXP増加(軽量武器)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 154
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  heavy-weapons-exp-bonus:
+    name: 職業EXP増加(重量武器)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 155
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  light-armor-exp-bonus:
+    name: 職業EXP増加(軽装備)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 156
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
+  heavy-armor-exp-bonus:
+    name: 職業EXP増加(重装備)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 157
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: PASSIVE
+      sources: ALL
+      applies-to:
+        - PLAYER
   loot-luck:
     name: 幸運
     icon: ""

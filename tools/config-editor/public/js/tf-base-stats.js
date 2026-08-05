@@ -203,7 +203,12 @@
         "mining-fortune", "fishing-luck", "fishing-bonus", "gathering-efficiency",
         "fish-sell-price-bonus", "disassembly-return-bonus", "ocean-fishing-bonus",
         "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus",
-        "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus", "loot-luck",
+        // 2026-08-05: 職業EXP増加(スキル別)を全スキル分そろえた(POWERを除く15スキル)。
+        "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus",
+        "mining-exp-bonus", "fishing-exp-bonus", "alchemy-exp-bonus", "enchanting-exp-bonus",
+        "smithing-exp-bonus", "ars-smithing-exp-bonus", "ars-magic-exp-bonus", "archery-exp-bonus",
+        "light-weapons-exp-bonus", "heavy-weapons-exp-bonus",
+        "light-armor-exp-bonus", "heavy-armor-exp-bonus", "loot-luck",
         "mob-drop-quality", "gacha-rate-bonus", "suspicious-respawn-chance",
         "hive-harvest-fortune", "food-save-chance", "workbench-quality-bonus",
         "ritual-quality-bonus",

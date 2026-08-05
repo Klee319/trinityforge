@@ -89,6 +89,15 @@
     // として対象外にしていたが、出荷スキルツリーは 5/10/10 とパーセントポイントで書かれており、
     // 矯正しないと1回の釣りで追加ドロップ25個になっていた(mining-fortune と同じ壊れ方)。
     , "mining-fortune", "fishing-luck", "fishing-bonus", "ocean-fishing-bonus"
+    // 2026-08-05: 職業EXP増加(スキル別)15キー。Java 側は SkillExpBonusKeys(SkillId.ALL 由来)で
+    // 自動追随するが、こちらは lore.yml のキー名を直接持つ必要があるため列挙する。
+    // 過不足は lore-unit-and-stat-vocab-drift のテストが出荷 lore.yml と突き合わせて落とす。
+    , "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus"
+    , "mining-exp-bonus", "fishing-exp-bonus", "alchemy-exp-bonus", "enchanting-exp-bonus"
+    , "smithing-exp-bonus", "ars-smithing-exp-bonus", "ars-magic-exp-bonus", "archery-exp-bonus"
+    , "light-weapons-exp-bonus", "heavy-weapons-exp-bonus"
+    , "light-armor-exp-bonus", "heavy-armor-exp-bonus"
+    , "skill-exp-bonus"
   ]);
   function coerceRatePercent(key, value) {
     if (!RATE_PERCENT_KEYS.has(key) || value == null || !Number.isFinite(Number(value))) return value;

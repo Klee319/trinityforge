@@ -16,7 +16,7 @@ import java.util.Set;
  */
 public final class PercentStatNormalize {
 
-    private static final Set<String> RATE_KEYS = Set.of(
+    private static final Set<String> FIXED_RATE_KEYS = Set.of(
             StatKeys.canonical("damage-modifier"),
             StatKeys.canonical("percent-bonus-damage"),
             StatKeys.canonical("crit-chance"),
@@ -41,10 +41,6 @@ public final class PercentStatNormalize {
             StatKeys.canonical("hunger-save-chance"),
             StatKeys.canonical("mob-drop-bonus"),
             StatKeys.canonical("skill-exp-bonus"),
-            // スキル別EXP倍率(2026-08-02 柱5-3)。skill-exp-bonus と同じ %系。
-            StatKeys.canonical("woodcutting-exp-bonus"),
-            StatKeys.canonical("farming-exp-bonus"),
-            StatKeys.canonical("digging-exp-bonus"),
             StatKeys.canonical("cooldown-reduction"),
             StatKeys.canonical("gacha-rate-bonus"),
             StatKeys.canonical("suspicious-respawn-chance"),
@@ -115,6 +111,20 @@ public final class PercentStatNormalize {
             // (e.g. 8 = +8 armor). Coercing it ÷100 collapses all armor to near-zero.
             // arrow-piercing (INTEGER) and the FLAT craft-* roll keys are intentionally excluded —
             // they are not [0,1] rates.
+
+    /**
+     * 上の固定リスト + 職業EXP増加(スキル別)。後者は {@code skill-exp-bonus} と同じ %系だが、
+     * 2026-08-02 の新設時に3件だけ手書きされていた(残り12スキル分は語彙にも無かった)。
+     * {@link SkillExpBonusKeys} 経由で導出し、スキルが増えたときに「%矯正だけ抜ける」
+     * (yml に 15 と書くと 1500% になる)事故を構造的に防ぐ。
+     */
+    private static final Set<String> RATE_KEYS = buildRateKeys();
+
+    private static Set<String> buildRateKeys() {
+        Set<String> keys = new java.util.LinkedHashSet<>(FIXED_RATE_KEYS);
+        keys.addAll(SkillExpBonusKeys.all());
+        return Set.copyOf(keys);
+    }
 
     private PercentStatNormalize() {
     }

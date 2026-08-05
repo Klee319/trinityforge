@@ -179,3 +179,18 @@ consumerしか無く、skilltree/alchemy.yml D「素材を消費しない確率U
 alchemy.auto_mult減衰すら無い完全スキップ)。
 ```
 
+### 直後: `mining-exp-bonus:` (2026-08-05 追加。職業EXP増加を全スキル分そろえた件)
+
+```
+2026-08-05: 実サーバ指摘「職業EXP増加のステータスの種類が、総合と、掘削、農業、伐採しかない」。
+消費側(PerSkillExpBonus)はスキルIDからキーを機械的に組むので実装は元から全スキル対応で、
+欠けていたのは語彙/lore/%矯正の登録だけだった。残り12スキル分をここで揃える。
+POWER(総合)は作らない: POWER EXP はプレイヤー行動から直接付与されず、他スキルのレベルアップ時に
+NativeProgressionService が内部で加算するだけ(倍率適用より後段)なので、キーを作っても
+一度も読まれない。全スキル一律の skill-exp-bonus(職業EXP増加)が POWER にも効く。
+
+語彙・%矯正・分類の3箇所は com.trinityforge.stats.SkillExpBonusKeys(SkillId.ALL 由来)へ集約した。
+スキルを増やしたときに必要な追随はこの lore.yml と combat/base-stats.yml、
+config-editor の labels.js だけ(Java 側は自動で追随する)。
+```
+

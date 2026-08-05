@@ -132,6 +132,20 @@ base-stats:
   woodcutting-exp-bonus: 0
   farming-exp-bonus: 0
   digging-exp-bonus: 0
+  # 2026-08-05: 職業EXP増加(スキル別)を全スキル分そろえた(POWERを除く15スキル)。
+  # POWER は EXP がプレイヤー行動から直接付与されないため対象外(詳細は stats/lore.yml のコメント)。
+  mining-exp-bonus: 0
+  fishing-exp-bonus: 0
+  alchemy-exp-bonus: 0
+  enchanting-exp-bonus: 0
+  smithing-exp-bonus: 0
+  ars-smithing-exp-bonus: 0
+  ars-magic-exp-bonus: 0
+  archery-exp-bonus: 0
+  light-weapons-exp-bonus: 0
+  heavy-weapons-exp-bonus: 0
+  light-armor-exp-bonus: 0
+  heavy-armor-exp-bonus: 0
   loot-luck: 0
   mob-drop-quality: 0
   gacha-rate-bonus: 0

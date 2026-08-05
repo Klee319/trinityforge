@@ -36,12 +36,28 @@
     ]);
   }
 
+  // 職業EXP増加: 全スキル一律(skill-exp-bonus) + スキル別15キー(2026-08-05 に3→15へ拡張)。
+  // POWER は EXP がプレイヤー行動から直接付与されないので存在しない(stats/lore.yml のコメント参照)。
+  const SKILL_EXP_BONUS_KEYS = [
+    "skill-exp-bonus",
+    "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus",
+    "mining-exp-bonus", "fishing-exp-bonus", "alchemy-exp-bonus", "enchanting-exp-bonus",
+    "smithing-exp-bonus", "ars-smithing-exp-bonus", "ars-magic-exp-bonus", "archery-exp-bonus",
+    "light-weapons-exp-bonus", "heavy-weapons-exp-bonus",
+    "light-armor-exp-bonus", "heavy-armor-exp-bonus"
+  ];
+
   function inferLoreCategory(stat) {
     const s = String(stat || "").toLowerCase();
     // 2026-07-23 7分類再編 (attack/defense/craft/gathering/utility/ars/other、旧 support は utility へ改名)。
     // entry.category が優先されるため、これは新規statや category 未設定時のフォールバックに過ぎない。
     // CT(item-cooldown) と 効率強化増幅(tool-enchant-*) は「その他」。
     if (s.includes("item-cooldown") || s.startsWith("tool-enchant")) return "other";
+    // 職業EXP増加(スキル別)は attack/defense の部分一致より先に判定する。
+    // ここを下(utility の配列)に置くと light-armor-exp-bonus / heavy-armor-exp-bonus が
+    // "armor" の部分一致で防御へ落ちる(Java 側 StatCategoryInference も同じ理由で
+    // 部分一致より前に置いている)。
+    if (SKILL_EXP_BONUS_KEYS.includes(s)) return "utility";
     if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")
       || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance"].includes(s)) return "craft";
     if (["mining-fortune", "fishing-luck", "fishing-bonus", "suspicious-respawn-chance", "hive-harvest-fortune"].includes(s)) return "gathering";
@@ -52,7 +68,7 @@
     ].some((k) => s.includes(k))) return "attack";
     if (["defense", "resistance", "armor", "max-health", "knockback", "dodge", "reduction", "health-regen"].some((k) => s.includes(k))) return "defense";
     if ([
-      "move-speed", "hunger-save-chance", "mob-drop-bonus", "skill-exp-bonus", "woodcutting-exp-bonus", "farming-exp-bonus", "digging-exp-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
+      "move-speed", "hunger-save-chance", "mob-drop-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
       // 2026-07-24 新規: バニラEXP/追加ドロップ/満腹度/繁殖・成長
       "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus", "vanilla-exp-bonus", "breeding-vanilla-exp-bonus",
       "woodcutting-extra-drop-chance", "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",

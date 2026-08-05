@@ -100,15 +100,28 @@ public enum StatsCategory {
             "woodcutting_extra_drop_chance", "harvest_extra_drop_chance",
             "planted_crop_growth_bonus", "bred_animal_growth_bonus", "breeding_extra_child_chance");
 
-    private static final Set<String> UTILITY_KEYS = Set.of(
+    private static final Set<String> FIXED_UTILITY_KEYS = Set.of(
             "move_speed", "hunger_save_chance", "mob_drop_bonus", "skill_exp_bonus",
             "loot_luck", "mob_drop_quality", "gacha_rate_bonus", "food_save_chance",
             // 2026-07-26 M-stats分類: バニラEXP倍率(全源+源別)と満腹度系。特定の生産/採取スキルに
             // 属さない「生活まわり」なので UTILITY。
             "vanilla_exp_bonus", "kill_vanilla_exp_bonus", "break_vanilla_exp_bonus",
-            "breeding_vanilla_exp_bonus", "food_restore_bonus", "hidden_saturation_bonus",
-            // スキル別EXP倍率(2026-08-02 柱5-3)。skill_exp_bonus と同じ扱いで UTILITY。
-            "woodcutting_exp_bonus", "farming_exp_bonus", "digging_exp_bonus");
+            "breeding_vanilla_exp_bonus", "food_restore_bonus", "hidden_saturation_bonus");
+
+    /**
+     * 上の固定リスト + 職業EXP増加(スキル別)。後者は {@code skill_exp_bonus} と同じ扱いで UTILITY。
+     * 2026-08-02 の新設時は3件だけ手書きされており、残り12スキル分は語彙にも無かった。
+     * 2026-08-05 に {@link com.trinityforge.stats.SkillExpBonusKeys}（{@code SkillId.ALL} 由来）
+     * からの導出へ切り替え、スキルが増えたときに {@code /tf stats} のタブから無言で
+     * 落ちる（OTHER 扱いになる）のを防ぐ。
+     */
+    private static final Set<String> UTILITY_KEYS = utilityKeys();
+
+    private static Set<String> utilityKeys() {
+        Set<String> keys = new java.util.LinkedHashSet<>(FIXED_UTILITY_KEYS);
+        keys.addAll(com.trinityforge.stats.SkillExpBonusKeys.all());
+        return Set.copyOf(keys);
+    }
 
     private static final Set<String> ARS_KEYS = Set.of(
             "mana_bonus", "mana_regen", "hit_mana_recovery", "damage_mana_recovery", "thread_slots",

@@ -63,10 +63,9 @@ public final class StatCategoryInference {
                 || key.startsWith("mob_drop_")
                 || key.equals("skill_exp_bonus")
                 // スキル別EXP倍率(2026-08-02 柱5-3)。endsWith("_exp_bonus") では
-                // vanilla_exp_bonus 系まで巻き込んで既存の分類を変えてしまうので列挙する。
-                || key.equals("woodcutting_exp_bonus")
-                || key.equals("farming_exp_bonus")
-                || key.equals("digging_exp_bonus")) {
+                // vanilla_exp_bonus 系まで巻き込んで既存の分類を変えてしまうので、
+                // SkillId.ALL から導出した集合(SkillExpBonusKeys)で判定する。
+                || SkillExpBonusKeys.contains(key)) {
             return StatCategory.UTILITY;
         }
         if (key.equals("suspicious_respawn_chance") || key.equals("hive_harvest_fortune")) {
