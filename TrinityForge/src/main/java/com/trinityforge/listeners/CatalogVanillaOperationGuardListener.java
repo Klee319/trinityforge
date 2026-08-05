@@ -59,10 +59,15 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
 
     private final ItemCatalogConfig catalog;
     private final CraftingFeaturesConfig features;
+    /** 木材修繕の解放判定にだけ使う({@link #onPrepareAnvil} の javadoc)。 */
+    private final com.trinityforge.config.domains.DedicatedEffectsConfig dedicatedEffects;
 
-    public CatalogVanillaOperationGuardListener(ItemCatalogConfig catalog, CraftingFeaturesConfig features) {
+    public CatalogVanillaOperationGuardListener(
+            ItemCatalogConfig catalog, CraftingFeaturesConfig features,
+            com.trinityforge.config.domains.DedicatedEffectsConfig dedicatedEffects) {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.features = Objects.requireNonNull(features, "features");
+        this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -210,8 +215,16 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
     }
 
     /**
-     * 金床(U4): 宣言済み combine レシピに加えて、エンチャント本の適用と同一 identity の修理を許可する。
+     * 金床(U4): 宣言済み combine レシピに加えて、エンチャント本の適用と同一 identity の修理、
+     * および<b>解放済みプレイヤーの木材修繕</b>を許可する。
      * それ以外(素材アイテムによる修理・改名のみ等、カタログ品を素材として食う操作)は従来どおり拒否。
+     *
+     * <p><b>木材修繕を除外する理由(2026-08-05 の実サーバ報告「元からある防具以外、木材で修繕ができない」)</b>:
+     * {@link WoodRepairListener#onPrepareAnvil} は {@code HIGH} で結果を入れるが、ここは
+     * {@code HIGHEST} なので<b>必ず後に走って上書きする</b>。カタログ品でない=バニラ装備だけが
+     * 生き残っていたのがそのまま報告の症状。判定は
+     * {@link WoodRepairListener#isUnlockedWoodRepair}(効果の保有まで見る)へ委ねている ——
+     * 未解放でも許可すると、圧縮木材が<b>バニラの修理素材として普通に食われる</b>穴になるため。
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrepareAnvil(PrepareAnvilEvent event) {
@@ -221,10 +234,22 @@ public final class CatalogVanillaOperationGuardListener implements Listener {
         }
         if (matchesDeclaredCombine(inventory)
                 || appliesEnchantmentBook(inventory)
-                || sameCatalogIdentity(inventory.getFirstItem(), inventory.getSecondItem())) {
+                || sameCatalogIdentity(inventory.getFirstItem(), inventory.getSecondItem())
+                || isUnlockedWoodRepair(event)) {
             return;
         }
         event.setResult(null);
+    }
+
+    /** 解放済みプレイヤーによる木材修繕か({@link WoodRepairListener#isUnlockedWoodRepair} へ委譲)。 */
+    private boolean isUnlockedWoodRepair(PrepareAnvilEvent event) {
+        if (event.getView() == null
+                || !(event.getView().getPlayer() instanceof org.bukkit.entity.Player player)) {
+            return false;
+        }
+        return WoodRepairListener.isUnlockedWoodRepair(player,
+                event.getInventory().getFirstItem(), event.getInventory().getSecondItem(),
+                dedicatedEffects, features);
     }
 
     /** 第2スロットがエンチャント本({@link EnchantmentStorageMeta})なら、その適用は許可する。 */

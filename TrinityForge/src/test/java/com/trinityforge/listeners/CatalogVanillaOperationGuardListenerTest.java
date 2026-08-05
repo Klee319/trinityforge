@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 class CatalogVanillaOperationGuardListenerTest {
 
     private ItemCatalogConfig catalog;
+    private com.trinityforge.config.domains.DedicatedEffectsConfig dedicatedEffects;
     private CatalogVanillaOperationGuardListener listener;
     private ItemTemplate halo;
     private Map<String, ItemTemplate> templates;
@@ -75,7 +76,8 @@ class CatalogVanillaOperationGuardListenerTest {
                 Optional.ofNullable(templates.get(invocation.getArgument(0, String.class))));
         features = mock(CraftingFeaturesConfig.class);
         when(features.brewUnlocks()).thenReturn(Map.of());
-        listener = new CatalogVanillaOperationGuardListener(catalog, features);
+        dedicatedEffects = mock(com.trinityforge.config.domains.DedicatedEffectsConfig.class);
+        listener = new CatalogVanillaOperationGuardListener(catalog, features, dedicatedEffects);
     }
 
     @AfterEach

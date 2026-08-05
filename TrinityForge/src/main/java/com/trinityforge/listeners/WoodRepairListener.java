@@ -44,30 +44,48 @@ public final class WoodRepairListener implements Listener {
         this.features = Objects.requireNonNull(features, "features");
     }
 
+    /**
+     * この金床の中身が「解放済みプレイヤーによる木材修繕」かどうか。
+     *
+     * <p><b>{@link CatalogVanillaOperationGuardListener#onPrepareAnvil}(HIGHEST)からも呼ばれる。</b>
+     * あちらはカタログ品が素材として食われる操作を {@code setResult(null)} で潰すが、
+     * 木材修繕はこのリスナー(HIGH)が結果を入れた<b>後</b>に走るため、除外しないと
+     * <b>カタログ品(＝TF の武器・防具ほぼ全部)の木材修繕が金床で必ず無効化される</b>
+     * ——「元からある(バニラの)防具しか木材で修繕できない」という 2026-08-05 の実サーバ報告の真因。
+     *
+     * <p>効果の保有まで見るのは、未解放のときにガードを緩めると
+     * 「圧縮木材がバニラの修理素材として普通に食われる」穴が空くため(圧縮木材の素地は
+     * バニラの修理素材そのものなので、バニラ側の結果が成立してしまう)。
+     */
+    static boolean isUnlockedWoodRepair(Player player, ItemStack target, ItemStack material,
+                                        DedicatedEffectsConfig dedicatedEffects,
+                                        CraftingFeaturesConfig features) {
+        if (player == null || target == null || material == null) {
+            return false;
+        }
+        if (!dedicatedEffects.isActive(player, UNLOCK)) {
+            return false;
+        }
+        if (!(target.getItemMeta() instanceof Damageable damageable) || damageable.getDamage() <= 0) {
+            return false;
+        }
+        Optional<String> materialId = CrossPluginItemResolver.idOf(material);
+        return materialId.isPresent() && features.woodRepairMaterial(materialId.get()) != null;
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPrepareAnvil(PrepareAnvilEvent event) {
         if (!(event.getView().getPlayer() instanceof Player player)) {
             return;
         }
-        if (!dedicatedEffects.isActive(player, UNLOCK)) {
-            return;
-        }
         ItemStack left = event.getInventory().getFirstItem();
         ItemStack material = event.getInventory().getSecondItem();
-        if (left == null || material == null || !(left.getItemMeta() instanceof Damageable damageable)) {
+        if (!isUnlockedWoodRepair(player, left, material, dedicatedEffects, features)) {
             return;
         }
-        Optional<String> materialId = CrossPluginItemResolver.idOf(material);
-        if (materialId.isEmpty()) {
-            return;
-        }
-        WoodRepairMaterial mat = features.woodRepairMaterial(materialId.get());
-        if (mat == null) {
-            return;
-        }
-        if (damageable.getDamage() <= 0) {
-            return;
-        }
+        Damageable damageable = (Damageable) left.getItemMeta();
+        WoodRepairMaterial mat = features.woodRepairMaterial(
+                CrossPluginItemResolver.idOf(material).orElseThrow());
         int repair = mat.durability();
         ItemStack result = left.clone();
         ItemMetaRepair.applyRepair(result, Math.min(damageable.getDamage(), repair));
@@ -108,15 +126,13 @@ public final class WoodRepairListener implements Listener {
         }
         ItemStack target = event.getCurrentItem();
         if (target == null || target.getType().isAir()
-                || !(target.getItemMeta() instanceof Damageable targetMeta) || targetMeta.getDamage() <= 0) {
+                || !isUnlockedWoodRepair(player, target, cursor, dedicatedEffects, features)) {
             return;
         }
-        Optional<String> materialId = CrossPluginItemResolver.idOf(cursor);
-        if (materialId.isEmpty()) {
-            return;
-        }
-        WoodRepairMaterial mat = features.woodRepairMaterial(materialId.get());
-        if (mat == null || !mat.quickRepair()) {
+        Damageable targetMeta = (Damageable) target.getItemMeta();
+        WoodRepairMaterial mat = features.woodRepairMaterial(
+                CrossPluginItemResolver.idOf(cursor).orElseThrow());
+        if (!mat.quickRepair()) {
             return;
         }
 

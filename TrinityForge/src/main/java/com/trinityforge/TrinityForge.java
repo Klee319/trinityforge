@@ -770,7 +770,8 @@ public final class TrinityForge extends JavaPlugin {
         // whitelisted by their own declared recipe specs.
         getServer().getPluginManager().registerEvents(
                 new CatalogVanillaOperationGuardListener(
-                        configManager.itemCatalog(), configManager.craftingFeatures()), this);
+                        configManager.itemCatalog(), configManager.craftingFeatures(),
+                        configManager.dedicatedEffects()), this);
         // 鍛冶村人取引: perk-gated custom trades (economy/villager-trades.yml).
         getServer().getPluginManager().registerEvents(
                 new VillagerTradeListener(configManager.dedicatedEffects(), configManager.villagerTrades(),
