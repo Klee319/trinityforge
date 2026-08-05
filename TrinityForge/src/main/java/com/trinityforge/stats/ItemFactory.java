@@ -65,6 +65,20 @@ public final class ItemFactory {
     }
 
     /**
+     * 装備とまったく同じ体裁のステ lore ブロックを組む
+     * ({@link ItemAssembler#statLoreBlock} への委譲)。
+     *
+     * <p>用途は「TF が組んだ lore をフォークが自前の lore で上書きするアイテム」— ArsPaper の
+     * スレッドがこれで、種類ごとの効果説明とスロット案内を自前で足す都合上 lore を作り直している。
+     * その作り直しの<b>ステ部分だけ</b>をこの経路に委ねれば、品質行/区切り線/ロール色まで含めて
+     * 装備と一致する(フォークが自前で連結すると必ず食い違う — 2026-08-04/08-05 の実害2件)。
+     */
+    public java.util.List<net.kyori.adventure.text.Component> statLoreBlock(
+            org.bukkit.Material material, Integer cmd, int quality, long rollSeed) {
+        return assembler.statLoreBlock(material, cmd, quality, rollSeed);
+    }
+
+    /**
      * Builds a fresh item from {@code template}, seeded by {@code rollSeed} at {@code quality}.
      *
      * <p>{@code setCustomModelData(int)} is deprecated in favour of the 1.21 component API but

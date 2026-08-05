@@ -270,6 +270,76 @@ public final class ItemAssembler {
                 itemStats.offhandStatsApply(material, cmd), configWeapon);
     }
 
+    /**
+     * 「TF が組んだ meta をフォークが自前の lore で上書きするアイテム」(ArsPaper のスレッド)向けに、
+     * <b>装備とまったく同じ体裁のステ lore ブロック</b>だけを組んで返す(2026-08-05 の要望
+     * 「スレッドに表記するステータスの lore の体裁とフォントを通常の装備と同じにしてほしい」)。
+     *
+     * <p>{@link #assemble} の lore 部と<b>同じ導出・同じ {@link LoreComposer#compose}</b> を通すので、
+     * 品質行(【名匠】…pt)・カテゴリ区切り線・ロール色(fixed/random の色分け)・確率付与色・乗算行・
+     * アイコン/桁数/単位/カテゴリ順が装備と一致する。{@link LoreComposer#statLines} は区切り線と
+     * 品質行を落とし全行を fixed 色で描くので<b>ここでは使わない</b> — あちらは「他アイテムの lore へ
+     * 差し込む行」専用の入口(幅可変の区切り線が差し込み先に溜まる事故を避けるため)。
+     *
+     * <p>meta を持たないので耐久行と所有者/バインド行は含まない。使用可能Lv行は
+     * {@code item-stats.yml} の use-requirement があれば装備と同じ体裁で入る。
+     *
+     * @param material スレッド(等)の素材
+     * @param cmd      CustomModelData(未使用なら {@code null})
+     * @param quality  品質(0..)
+     * @param rollSeed そのアイテム個体の rollSeed
+     */
+    public List<Component> statLoreBlock(Material material, Integer cmd, int quality, long rollSeed) {
+        Objects.requireNonNull(material, "material");
+        ItemStatProfile profile = itemStats.profileFor(material, cmd)
+                .orElseGet(() -> itemStats.fallback().orElse(null));
+        boolean qualityApplies = profile != null && profile.qualityApplies();
+        int effectiveQuality = qualityApplies ? quality : 0;
+        QualityRollModel effModel = itemStats.rollModel();
+        Map<String, Double> stats = DerivedItemStats.profileStats(
+                material, cmd, effectiveQuality, rollSeed, itemStats, effModel);
+        if (stats.isEmpty()) {
+            return List.of();
+        }
+        java.util.Set<String> granted = DerivedItemStats.resolveGrantedKeys(profile, rollSeed);
+        Map<String, StatSource> statSources = StatSourceResolver.resolve(
+                profile, effectiveQuality, rollSeed, effModel, granted);
+        int qualityScore = QualityScoreCalculator.score(
+                profile, effectiveQuality, rollSeed, effModel, granted);
+        java.util.Optional<QualityTier> tier = qualityApplies
+                ? qualityTiers.tierFor(effectiveQuality) : java.util.Optional.empty();
+        java.util.Set<String> forceShow = itemStats.loreDefaultKeysFor(material, cmd);
+        Map<String, Double> loreStats = new LinkedHashMap<>(stats);
+        for (String key : forceShow) {
+            loreStats.putIfAbsent(key, 0.0);
+        }
+        java.util.Set<String> chanceKeys = profile == null
+                ? java.util.Set.of() : profile.grantChances().keySet();
+        Map<String, Map<String, Double>> loreMultipliers = new LinkedHashMap<>();
+        DerivedItemStats.resolveMultipliers(profile, effectiveQuality, rollSeed, effModel)
+                .forEach((layer, contributions) -> {
+                    Map<String, Double> values = new LinkedHashMap<>();
+                    contributions.forEach((key, contribution) -> values.put(key, contribution + 1.0));
+                    loreMultipliers.put(layer, values);
+                });
+        ItemUseRequirement useReq = itemStats.useRequirementFor(material, cmd).orElse(null);
+        String skillDisplay = "";
+        int useLevel = 0;
+        if (useReq != null && useReq.shouldStamp()) {
+            useLevel = useReq.levelOrZero();
+            String skill = useReq.skill();
+            skillDisplay = skill == null ? "" : (skillTrees.all().get(skill) != null
+                    ? skillTrees.all().get(skill).displayName() : skill);
+        }
+        LoreConfig.Snapshot loreSnapshot = loreConfig.snapshot();
+        return loreComposer.compose(
+                new LoreComposeRequest(loreStats, statSources,
+                        tier.map(QualityTier::name).orElse(""), qualityScore,
+                        null, null, skillDisplay, useLevel, forceShow,
+                        chanceKeys, loreMultipliers, tier.map(QualityTier::color).orElse("")),
+                loreSnapshot.displayTable(), loreSnapshot.layout(), loreSnapshot.bind());
+    }
+
     /** Canonical key for the physical weapon CT stat ({@code item-cooldown}, lore表示名: CT). */
     private static final String ITEM_COOLDOWN_KEY = StatKeys.canonical("item-cooldown");
 
