@@ -79,7 +79,7 @@
 
 | # | 内容 | 前提 |
 |---|---|---|
-| **W-28** | **`/tf menu` と `/tf role set` を削除し、ロールの確認・変更を `/tf status` GUI へ統合する** | あわせて config-editor に「職業変更を許可するか」の設定を新設。許可＝現行の CT 制、不許可＝初回の無料就職以外はアイテム消費でのみ変更可 |
+| ~~**W-28**~~ | ~~**`/tf menu` と `/tf role set` を削除し、ロールの確認・変更を `/tf status` GUI へ統合する**~~ | **2026-08-06 実装済み。** ①`/tf menu`（`MainMenuGui` / `MainMenuLayout` とテスト2本）と `/tf role set`（引数版・GUI版の両方）を削除。②`/tf status` の**スロット38に「職業(ロール)」アイコン**を追加（現在の戦闘職/補助職・変更可否・クリックで `RoleSelectGui`）。**可否の表示は `RoleChangeService#denyReasonForCombat/Support` の文言をそのまま出す** — 待ち時間や「券が必要」を画面ごとに組み立てると表示と実挙動が食い違うので、`RoleSelectGui` の lore も同じメソッドへ寄せた（`waitMillis`＋`gateNotice` の2引数を1本の `notice` に統合）。③**config を `role-change.allow-command` → `allow-change` へ改名し、`false` の意味を変えた**: 旧 `allow-command: false` は「一切変更不可」で**初回の就職すらできなかった**（出荷値が false だったので実際にそうなっていた）。新 `allow-change: false` は「**空の枠への初回就職だけ無料、それ以降は転職の証（`role_reselect_ticket`）を手に持って右クリックしたときだけ変更可**」。**解除も塞ぐ**（枠を空にできると初回無料を無限に再利用できて券が要らなくなる）。旧キーは `allow-change` 未指定時のフォールバックとしてだけ読む（配備済み config が無言で「許可」へ反転しないため）。④config-editor は「職業変更を許可するか」のトグルへ差し替え（保存時に旧キーを削除して二重化を防ぐ）。⑤`/tf role` は確認のみ・`/tf role clear` は解除のみ残す。プレイヤー wiki の生成側も `/tf status` 経由の導線へ更新。回帰は `RoleChangeTicketOnlyModeTest` 5件 + `StatusGuiRolePanelTest` 3件 + `RoleBuffsConfigTest` の旧キーフォールバック |
 | **W-29** | **`/tf skills` GUI の最下段左端を時計アイコンで固定し、現スキルツリーのパーク一覧 ON/OFF を切り替える** | ON のときはスキルツリー一覧と同じ体裁で並べ、クリックで該当パークの座標へ飛ぶ |
 | **W-30** | **`/tf skills` と `/tf achievement` の GUI 状態（ページ/スクロール位置/選択タブ）を再オープン時に復元する** | 現状は毎回初期位置に戻る |
 | **W-31** | **`/tf achievement` の UI をスキルツリーと同じ配置に揃える** | ルート実績に対して上方向へ伸ばす。最下段インベントリでルート実績をスクロール切替、8 方向アイコンを四隅・辺へ配置（skilltree と同一操作系） |

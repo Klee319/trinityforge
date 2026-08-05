@@ -4,7 +4,13 @@ import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.command.StatsCategory;
 import com.trinityforge.config.domains.LoreConfig;
+import com.trinityforge.config.domains.RoleBuffsConfig.CombatRoleSpec;
+import com.trinityforge.config.domains.RoleBuffsConfig.SupportRoleSpec;
+import com.trinityforge.pdc.PlayerData;
+import com.trinityforge.progression.RoleChangeService;
+import com.trinityforge.progression.RoleSelectGui;
 import com.trinityforge.progression.SkillLevelSource;
+import com.trinityforge.text.MiniText;
 import com.trinityforge.skilltree.SkillTree;
 import com.trinityforge.skilltree.runtime.NativePerkService;
 import com.trinityforge.stats.StatDisplaySpec;
@@ -46,12 +52,19 @@ import java.util.Objects;
  *
  * <p>1画面目に概要とカテゴリ、カテゴリをクリックすると2画面目でそのカテゴリの全ステを
  * 1ステ1アイテムで並べる(lore の行数制限に引っかからないように分けている)。
+ *
+ * <p><b>2026-08-05 (W-28): 職業(ロール)の確認・変更の入口をここへ統合した。</b>
+ * {@code /tf menu}(統合メニュー)と {@code /tf role set} は廃止 — 同じことをする入口が
+ * 3つあって、どれが正なのか分からない状態をたたむのが目的。可否判定は
+ * {@link RoleChangeService} をそのまま読むので、この画面が独自のルールを持つことはない。
  */
 public final class StatusGui implements Listener {
 
     private static final int SIZE = 54;
     private static final int HEAD_SLOT = 4;
     private static final int SKILLS_SLOT = 40;
+    /** 職業(ロール)の確認・変更。{@code /tf menu} と {@code /tf role set} を畳んだ先(2026-08-05, W-28)。 */
+    private static final int ROLE_SLOT = 38;
     private static final int CLOSE_SLOT = 49;
     private static final int BACK_SLOT = 49;
     /** カテゴリを並べる中段の左端スロット(19..25 の7枠)。 */
@@ -71,16 +84,21 @@ public final class StatusGui implements Listener {
     private final LoreConfig loreConfig;
     private final SkillLevelSource skillLevelSource;
     private final NativePerkService perkService;
+    private final RoleChangeService roleChangeService;
+    private final RoleSelectGui roleSelectGui;
     private final NamespacedKey categoryKey;
 
     public StatusGui(Plugin plugin, SymmetricCombatService combatService, PlayerStatAggregator aggregator,
-                     LoreConfig loreConfig, SkillLevelSource skillLevelSource, NativePerkService perkService) {
+                     LoreConfig loreConfig, SkillLevelSource skillLevelSource, NativePerkService perkService,
+                     RoleChangeService roleChangeService, RoleSelectGui roleSelectGui) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combatService = Objects.requireNonNull(combatService, "combatService");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
         this.loreConfig = Objects.requireNonNull(loreConfig, "loreConfig");
         this.skillLevelSource = Objects.requireNonNull(skillLevelSource, "skillLevelSource");
         this.perkService = perkService;
+        this.roleChangeService = Objects.requireNonNull(roleChangeService, "roleChangeService");
+        this.roleSelectGui = Objects.requireNonNull(roleSelectGui, "roleSelectGui");
         this.categoryKey = new NamespacedKey(plugin, "status_category");
     }
 
@@ -103,9 +121,47 @@ public final class StatusGui implements Listener {
             inventory.setItem(slot, categoryIcon(section));
             slot++;
         }
+        inventory.setItem(ROLE_SLOT, roleIcon(player));
         inventory.setItem(SKILLS_SLOT, skillsIcon(player));
         inventory.setItem(CLOSE_SLOT, simple(Material.BARRIER, "閉じる", List.of()));
         player.openInventory(inventory);
+    }
+
+    /**
+     * 職業(ロール)の確認と、選択GUIへの入口(2026-08-05, W-28)。
+     *
+     * <p>変更できるかどうかは {@link RoleChangeService} の枠ごとの拒否理由をそのまま出す。
+     * ここで「待ち時間」「券が必要」を独自に組み立てると、実際に押したときの判定と食い違う。
+     */
+    private ItemStack roleIcon(Player player) {
+        PlayerData data = PlayerData.of(player);
+        CombatRoleSpec combat = data.rolePrimary()
+                .map(id -> roleChangeService.config().combatRole(id)).orElse(null);
+        SupportRoleSpec support = data.roleSupport()
+                .map(id -> roleChangeService.config().supportRole(id)).orElse(null);
+
+        ItemStack stack = new ItemStack(Material.LEATHER_CHESTPLATE);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(plain("職業(ロール)", NamedTextColor.GOLD));
+        List<Component> lore = new ArrayList<>();
+        // label は MiniMessage 可なので、1行へ連結する前にタグを落とす。
+        lore.add(entry("戦闘職", combat == null ? "(未選択)" : MiniText.plain(combat.label())));
+        lore.add(entry("補助職", support == null ? "(未選択)" : MiniText.plain(support.label())));
+        lore.add(Component.empty());
+        lore.add(roleAvailability("戦闘職", roleChangeService.denyReasonForCombat(player).orElse(null)));
+        lore.add(roleAvailability("補助職", roleChangeService.denyReasonForSupport(player).orElse(null)));
+        lore.add(Component.empty());
+        lore.add(plain("クリックで職業の確認・変更", NamedTextColor.YELLOW));
+        meta.lore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    private static Component roleAvailability(String slotLabel, String denyReason) {
+        return denyReason == null
+                ? plain(slotLabel + ": 変更できます", NamedTextColor.GREEN)
+                : plain(denyReason, NamedTextColor.RED);
     }
 
     private ItemStack summaryHead(Player player) {
@@ -336,6 +392,12 @@ public final class StatusGui implements Listener {
             if (overview) {
                 if (slot == CLOSE_SLOT) {
                     player.closeInventory();
+                    return;
+                }
+                if (slot == ROLE_SLOT) {
+                    // 開くことはゲートで塞がない(ロールの効果を読む唯一の画面なので)。
+                    // 実際に付け替える瞬間のゲートは RoleSelectGui 側で通す。
+                    roleSelectGui.open(player);
                     return;
                 }
                 if (rawCategory != null) {

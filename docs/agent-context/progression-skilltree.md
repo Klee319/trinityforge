@@ -45,10 +45,26 @@ BRANCH（右半平面, +SIDE_STEP）とGREEK（左半平面, -SIDE_STEP）は完
 `TrinityForge.java#registerCommands()` を見ると、`role`/`status`/`skills`/`achievement`/`collection`/`settings` は
 `.then(xxxCommand.node())` するだけで個々に `.requires(...)` を足していない（`.requires` があるのは
 `isTfAdmin` 系の管理サブツリーだけ）。**新しい統合GUI/メニューでこれらの「使えるか」を判定するときは、
-新しい権限ノードを作らず各機能が既に持つフラグをそのまま読むこと**（`RoleChangeService#commandDisabledReason`
-＝`role-buffs.yml`の`allow-command`、`CollectionConfig#enabled`）。`MainMenuGui`（`/tf menu`、2026-08-04新設）は
-この2つだけを可否判定に使っており、他4項目（status/skills/achievement/settings）には対応する無効化フラグが
-存在しないため常に利用可能として並べている。
+新しい権限ノードを作らず各機能が既に持つフラグをそのまま読むこと**（`RoleChangeService#changeDisabledReason`
+＝`role-buffs.yml`の`allow-change`、`CollectionConfig#enabled`）。
+
+### ロールの確認・変更は `/tf status` のロールアイコンだけ（2026-08-05, W-28）
+
+`/tf menu`（`MainMenuGui`/`MainMenuLayout`）と `/tf role set`（引数版・GUI版の両方）は**削除した**。
+同じことをする入口が3つあってどれが正か分からない状態をたたむのが目的なので、復活させないこと。
+現在の入口は **`/tf status` の `ROLE_SLOT`（スロット38）→ `RoleSelectGui`** と、
+**転職の証（`role_reselect_ticket`）の右クリック → 券モード** の2つだけ。`/tf role` は確認のみ、
+`/tf role clear` は解除のみ残っている。
+
+可否判定は `RoleChangeService` が唯一の出所で、**表示にも同じメソッドを使う**
+（`StatusGui#roleIcon` と `RoleSelectGui#open` はどちらも `denyReasonForCombat`/`denyReasonForSupport`
+の文言をそのまま lore に出す）。ここで待ち時間や「券が必要」を各画面で組み立て直すと
+「表示は変更できると言うのに押したら拒否される」が生まれる。
+
+`role-change.allow-change: false` は**「変更不可」ではなく「初回の無料就職以外はアイテム消費でのみ変更可」**。
+枠が空 かつ `first-choice-free` なら通り、それ以降は券のみ。**解除も塞ぐ**（枠を空にできると
+「初回無料」を無限に再利用できて券が要らなくなる）。旧キー `allow-command` は
+`allow-change` 未指定時のフォールバックとしてだけ読む。
 
 ### `NativeSkillTreeMenu` のスロット53は一覧モード切替ボタンに固定で明け渡した
 

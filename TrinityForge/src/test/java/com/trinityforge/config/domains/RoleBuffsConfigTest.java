@@ -17,7 +17,9 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Numeric ceiling coverage for {@link RoleBuffsConfig} (OPEN_DECISIONS C1b): {@code attack-buffs} /
@@ -292,11 +294,37 @@ class RoleBuffsConfigTest {
     void nearbyEnemyRadiusDefaultsToZeroSoTheGuardIsOff(@TempDir File tempDir) throws IOException {
         RoleBuffsConfig config = loaded(tempDir, """
                 role-change:
-                  allow-command: true
+                  allow-change: true
                   cooldown-minutes: 120
                 """);
 
         assertEquals(0.0, config.nearbyEnemyRadius());
+    }
+
+    /**
+     * {@code allow-change} 未指定なら旧キー {@code allow-command} を読む(2026-08-05, W-28 で改名)。
+     * 配備済みの yml には新キーが生えない({@code saveResource(PATH, false)})ので、
+     * ここで旧キーを見落とすと「不許可にしてあった鯖が無言で許可へ反転する」。
+     */
+    @Test
+    void allowChangeFallsBackToTheLegacyAllowCommandKey(@TempDir File tempDir) throws IOException {
+        assertFalse(loaded(tempDir, """
+                role-change:
+                  allow-command: false
+                """).allowRoleChange(), "旧キーだけの config は旧キーの値で動く");
+
+        File both = new File(tempDir, "both");
+        assertTrue(loaded(both, """
+                role-change:
+                  allow-command: false
+                  allow-change: true
+                """).allowRoleChange(), "新キーがあれば新キーが勝つ");
+
+        File neither = new File(tempDir, "neither");
+        assertTrue(loaded(neither, """
+                role-change:
+                  cooldown-minutes: 120
+                """).allowRoleChange(), "どちらも無ければ既定は許可(=CT制)");
     }
 
     @Test

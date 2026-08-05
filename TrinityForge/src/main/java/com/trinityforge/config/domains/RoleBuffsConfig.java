@@ -52,7 +52,7 @@ public final class RoleBuffsConfig implements LoadableConfig {
     }
 
     /**
-     * @param icon        {@code /tf role set} のGUIで使うアイコンMaterial名(空なら既定アイコン)
+     * @param icon        ロール選択GUIで使うアイコンMaterial名(空なら既定アイコン)
      * @param description GUIに1行で添える説明(空なら省略)
      */
     public record CombatRoleSpec(String id, String label, Map<String, Double> attackBuffs,
@@ -108,7 +108,7 @@ public final class RoleBuffsConfig implements LoadableConfig {
 
     private volatile Map<String, CombatRoleSpec> combatRoles = Map.of();
     private volatile Map<String, SupportRoleSpec> supportRoles = Map.of();
-    private volatile boolean allowRoleCommand = true;
+    private volatile boolean allowRoleChange = true;
     private volatile long roleChangeCooldownMillis = 0L;
     private volatile boolean firstChoiceFree = true;
     private volatile double nearbyEnemyRadius = 0.0;
@@ -121,8 +121,22 @@ public final class RoleBuffsConfig implements LoadableConfig {
         return supportRoles;
     }
 
-    public boolean allowRoleCommand() {
-        return allowRoleCommand;
+    /**
+     * 職業(ロール)の付け替えそのものを許可するか。{@code role-change.allow-change}、既定 true。
+     *
+     * <p><b>false は「変更禁止」ではなく「アイテム消費でのみ変更可」を意味する</b>(2026-08-05, W-28)。
+     * 空の枠を初めて埋める就職({@code first-choice-free})は false でも通り、それ以降の付け替えは
+     * {@code role_reselect_ticket}(職業付け替えの証)を持っているときだけ通る。解除は塞ぐ
+     * (解除で枠を空にできると「初回無料」を無限に再利用できてしまう)。
+     *
+     * <p>true のときは従来どおりクールダウン制({@link #roleChangeCooldownMillis()})。
+     *
+     * <p>旧キー {@code allow-command} は {@code /tf role set} 廃止(W-28)まで
+     * 「コマンド/GUI からの変更を一切受け付けない」だった。配備済み config が無言で
+     * 「許可」へ反転しないよう、{@code allow-change} が無いときだけ旧キーを読む。
+     */
+    public boolean allowRoleChange() {
+        return allowRoleChange;
     }
 
     /**
@@ -242,7 +256,11 @@ public final class RoleBuffsConfig implements LoadableConfig {
         this.supportRoles = Collections.unmodifiableMap(support);
 
         ConfigurationSection change = yaml.getConfigurationSection("role-change");
-        this.allowRoleCommand = change == null || change.getBoolean("allow-command", true);
+        // allow-change が書かれていないときだけ旧キー allow-command を読む(W-28 で改名)。
+        // 既定を素の true にすると、旧キーで「不許可」にしてある配備済み config が
+        // 無言で「許可」へ反転する。
+        boolean legacyAllow = change == null || change.getBoolean("allow-command", true);
+        this.allowRoleChange = change == null || change.getBoolean("allow-change", legacyAllow);
         double cooldownMinutes = change == null ? 0.0 : change.getDouble("cooldown-minutes", 0.0);
         if (!Double.isFinite(cooldownMinutes) || cooldownMinutes < 0.0) {
             cooldownMinutes = 0.0;

@@ -827,7 +827,13 @@ function tieredMaximumSummary(feature, key, unit) {
 function buildOtherPage(data, names) {
   const mining = data.mining["haste-active-mining"] || {};
   const treeFell = data.woodcutting["tree-fell"] || {};
-  const roleCommandEnabled = Boolean(data.roleBuffs["role-change"] && data.roleBuffs["role-change"]["allow-command"]);
+  // 2026-08-05 (W-28): 変更の動線は /tf status のロールアイコンだけになり、キーは
+  // allow-command → allow-change へ改名。false は「変更不可」ではなく
+  // 「初回の就職以外は転職の証が必要」なので、コマンド表そのものは常に出す。
+  const roleChange = data.roleBuffs["role-change"] || {};
+  const roleChangeAllowed = roleChange["allow-change"] === undefined
+    ? (roleChange["allow-command"] === undefined ? true : Boolean(roleChange["allow-command"]))
+    : Boolean(roleChange["allow-change"]);
   const roleNames = [
     ...Object.values(data.roleBuffs["combat-roles"] || {}).map((role) => role.label),
     ...Object.values(data.roleBuffs["support-roles"] || {}).map((role) => role.label)
@@ -883,6 +889,10 @@ ${tradeRows || "| 現在、追加取引は設定されていません | - | - |"
 
 現在選べる役割は ${roleNames || "設定されていません"} です。役割は戦い方や得意な作業に合わせて選べます。
 
+役割は \`/tf status\` の「職業(ロール)」のアイコンから確認・変更できます。${roleChangeAllowed
+    ? "一度選ぶと、次に変えられるようになるまで待ち時間があります。"
+    : "最初の就職だけ自由に選べます。そのあと変えるには「転職の証」を手に持って右クリックしてください。"}
+
 ## プレイヤー向けコマンド
 
 | 入力 | できること |
@@ -891,7 +901,8 @@ ${tradeRows || "| 現在、追加取引は設定されていません | - | - |"
 | \`/tf stats\` | 自分に働いている主な能力を確認する。 |
 | \`/tf collection\` | 図鑑の進み具合を確認する。 |
 | \`/tf settings\` | 称号や演出、他人の演出表示、鉱脈掘り・一括伐採・植え直しと収穫同時・範囲収穫のオン／オフを選ぶ。 |
-${roleCommandEnabled ? "| `/tf role` | 現在の役割を確認する。変更時は `/tf role set` の後で Tab キーを押して候補から選び、解除は `/tf role clear` を使う。 |" : ""}
+| \`/tf status\` | 自分の能力と役割を画面で確認する。役割のアイコンから変更もできる。 |
+| \`/tf role\` | 現在の役割と、その効果を文字で確認する。${roleChangeAllowed ? "解除は `/tf role clear`。" : ""} |
 
 サーバー管理者向けの操作は、権限を持つ人だけが使えます。設定を反映する操作、装備の配布、職業レベルの調整などは、プレイヤー向けのコマンドとは分けて管理されています。`;
   return page("その他の追加機能とコマンド", body);

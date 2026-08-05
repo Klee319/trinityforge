@@ -14,9 +14,14 @@ import java.util.Optional;
 import java.util.function.LongSupplier;
 
 /**
- * ロール変更の可否判定と適用(2026-07-28)。{@code /tf role set <combat> [support]} と
- * {@code /tf role set} のGUI({@link RoleSelectGui})が同じゲート・同じ副作用を通るようにするための
- * 単一の出所 — 片方だけ「戦闘中でも変更できる」といった穴が開かないようにする。
+ * ロール変更の可否判定と適用(2026-07-28)。ロール選択GUI({@link RoleSelectGui})・
+ * 転職の証({@code role_reselect_ticket})・{@code /tf role clear} が同じゲート・同じ副作用を
+ * 通るようにするための単一の出所 — 片方だけ「戦闘中でも変更できる」といった穴が開かないようにする。
+ *
+ * <p><b>2026-08-05 (W-28): {@code /tf role set} を廃止し、確認・変更の動線は {@code /tf status}
+ * のロールアイコン → {@link RoleSelectGui} だけになった。</b>あわせて
+ * {@code role-change.allow-change: false} を「アイテム消費でのみ変更可」の意味に定義した
+ * （旧 {@code allow-command: false} は「一切変更不可」で、初回の就職すらできなかった）。
  *
  * <p><b>2026-07-31: 変更クールダウンを追加。</b>それまで変更は無制限・即時だったため、
  * 採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば全系統に最大倍率が乗り、
@@ -55,21 +60,27 @@ public final class RoleChangeService {
         return roleBuffs;
     }
 
+    /** 券アイテム({@code role_reselect_ticket})の表示名。メッセージ内でだけ使う。 */
+    private static final String TICKET_LABEL = "転職の証";
+
     /**
-     * ロール変更の機能自体が使えるか（プレイヤーかどうかと {@code allow-command} だけ）。
+     * ロールの<b>解除</b>ができるか（プレイヤーかどうかと {@code allow-change} だけ）。
      *
-     * <p>交戦中ガードもクールダウンも見ない。<b>GUI を開く／{@code /tf role clear} のような
-     * 「読むだけ・外すだけ」の動線用</b>で、ロールの説明を読む操作を戦闘状態で塞ぐ理由が無いため
-     * 適用系とは別の入口にしてある（実際に付け替える側は {@link #denyReason(Player)} を通す）。
+     * <p>交戦中ガードもクールダウンも見ない。<b>{@code /tf role clear} のような「外すだけ」の
+     * 動線用</b>で、ロールの説明を読む操作(GUIを開く)は誰でも通す
+     * （実際に付け替える側は {@link #denyReasonForCombat(Player)} 等を通す）。
+     *
+     * <p><b>{@code allow-change: false}(=アイテム消費でのみ変更可)では解除も塞ぐ。</b>
+     * 解除で枠を空にできると「初回の無料就職」を無限に再利用できてしまい、券が要らなくなる。
      *
      * @return 使えない理由(プレイヤーへそのまま出せる日本語)。使えるなら {@link Optional#empty()}
      */
-    public Optional<String> commandDisabledReason(Player player) {
+    public Optional<String> changeDisabledReason(Player player) {
         if (player == null) {
             return Optional.of("プレイヤー専用コマンドです。");
         }
-        if (!roleBuffs.allowRoleCommand()) {
-            return Optional.of("コマンドによるロール変更は無効です。");
+        if (!roleBuffs.allowRoleChange()) {
+            return Optional.of("この鯖では職業の解除はできません(変更は「" + TICKET_LABEL + "」の使用時のみ)。");
         }
         return Optional.empty();
     }
@@ -77,15 +88,16 @@ public final class RoleChangeService {
     /**
      * ロールを<b>付け替え</b>られるか（枠に依存しない共通ゲートのみ）。
      *
-     * <p>クールダウンは枠ごとなので、ここでは見ない。{@link #denyReasonForCombat(Player)} /
-     * {@link #denyReasonForSupport(Player)} が「共通ゲート + その枠のクールダウン」を返す。
+     * <p>クールダウンと {@code allow-change} は枠ごとに見るので、ここでは見ない
+     * （{@code allow-change: false} でも「まだ就いていない枠への初回就職」は通すため、
+     * 枠の状態を知らないこの入口では判定できない）。{@link #denyReasonForCombat(Player)} /
+     * {@link #denyReasonForSupport(Player)} が「共通ゲート + その枠の可否」を返す。
      *
      * @return 変更できない理由(プレイヤーへそのまま出せる日本語)。変更できるなら {@link Optional#empty()}
      */
     public Optional<String> denyReason(Player player) {
-        Optional<String> disabled = commandDisabledReason(player);
-        if (disabled.isPresent()) {
-            return disabled;
+        if (player == null) {
+            return Optional.of("プレイヤー専用コマンドです。");
         }
         double radius = roleBuffs.nearbyEnemyRadius();
         if (radius > 0.0 && engagedInCombat(player, radius)) {
@@ -120,22 +132,47 @@ public final class RoleChangeService {
         return false;
     }
 
-    /** 戦闘職を変更できるか(共通ゲート + 戦闘職のクールダウン)。 */
+    /** 戦闘職を変更できるか(共通ゲート + 戦闘職の可否)。 */
     public Optional<String> denyReasonForCombat(Player player) {
         Optional<String> shared = denyReason(player);
         if (shared.isPresent()) {
             return shared;
         }
-        return cooldownDenial("戦闘職", PlayerData.of(player).rolePrimaryChangedAt());
+        PlayerData data = PlayerData.of(player);
+        return slotDenial("戦闘職", data.rolePrimary(), data.rolePrimaryChangedAt());
     }
 
-    /** 補助職を変更できるか(共通ゲート + 補助職のクールダウン)。 */
+    /** 補助職を変更できるか(共通ゲート + 補助職の可否)。 */
     public Optional<String> denyReasonForSupport(Player player) {
         Optional<String> shared = denyReason(player);
         if (shared.isPresent()) {
             return shared;
         }
-        return cooldownDenial("補助職", PlayerData.of(player).roleSupportChangedAt());
+        PlayerData data = PlayerData.of(player);
+        return slotDenial("補助職", data.roleSupport(), data.roleSupportChangedAt());
+    }
+
+    /**
+     * その枠を付け替えられるか。{@code allow-change} が
+     * <ul>
+     *   <li><b>true</b>(既定) — 従来どおりクールダウン制。</li>
+     *   <li><b>false</b> — <b>まだ就いていない枠への初回就職だけ無料で通し</b>、それ以降は
+     *       券({@code role_reselect_ticket})の所持時のみ通す。券のバイパスは呼び出し側
+     *       ({@link RoleSelectGui})が「確定直前に手に持っているか」で判定するので、
+     *       ここでは常に「券が必要」と答えてよい。</li>
+     * </ul>
+     *
+     * <p>不許可モードで {@code first-choice-free: false} なら初回の就職も券が要る
+     * （運営が全員へ券を配って始める運用。config の組み合わせとして成立させておく）。
+     */
+    private Optional<String> slotDenial(String slotLabel, Optional<String> currentRole, long changedAt) {
+        if (!roleBuffs.allowRoleChange()) {
+            if (currentRole.isEmpty() && roleBuffs.firstChoiceFree()) {
+                return Optional.empty();
+            }
+            return Optional.of(slotLabel + "の変更は「" + TICKET_LABEL + "」を手に持って右クリックしたときだけできます。");
+        }
+        return cooldownDenial(slotLabel, changedAt);
     }
 
     /** その枠のクールダウン残り(ミリ秒)。待てる状態なら 0。 */

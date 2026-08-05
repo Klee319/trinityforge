@@ -4,7 +4,7 @@
 #
 # 【2026-07-28 追加 / 2026-07-29 更新】label / icon / description
 #   label       : GUIとチャットに出す職業名。MiniMessage 記法(<gold>等)が使える。
-#   icon        : /tf role set のGUIでこのロールを表すアイテム(Material名)。
+#   icon        : ロール選択GUI(/tf status のロールアイコンから開く)でこのロールを表すアイテム(Material名)。
 #                 省略・不正な名前のときは既定アイコン(戦闘職=鉄の剣 / 補助職=本)へフォールバックする。
 #   description : GUIと /tf role のチャット表示に添える説明。アイテムカタログの lore と同じく
 #                 複数行で書けて、各行に MiniMessage 記法が使える。省略可。
@@ -12,6 +12,17 @@
 #                   description:
 #                     - "<gray>物理ダメージが敵の防御力を20%貫通する</gray>"
 #   label / icon / description はロールの効果には一切影響しない表示専用の項目。
+#
+# 【2026-08-05 追加(W-28)】role-change.allow-change (旧 allow-command)
+#   職業(ロール)の変更を許可するか。
+#     true  : 下の cooldown-minutes による通常の待ち時間(CT)制。
+#     false : 「初回の無料就職以外はアイテム消費でのみ変更可」
+#             ・まだ就いていない枠への初回就職だけ無料で通る(first-choice-free: true のとき)
+#             ・それ以降は「転職の証」(role_reselect_ticket)を手に持って右クリックしたときだけ変更できる
+#             ・解除(/tf role clear)は塞がる — 枠を空にできると「初回無料」を無限に再利用できるため
+#   旧キー allow-command は allow-change が書かれていないときだけ読む(配備済みconfigが無言で
+#   「許可」へ反転しないようにするため)。旧キーの false は「初回の就職すら不可」だった。
+#   変更の動線は /tf status の「職業(ロール)」アイコンだけ(/tf menu と /tf role set は廃止)。
 
 combat-roles:
   swordfighter:
@@ -21,10 +32,9 @@ combat-roles:
       penetration: 0.2
     defense-buffs: {}
     description:
-      - "<gray>物理ダメージが敵の防御率を 20% 貫通する。</gray>"
-      - "<white>守りの厚い敵ほど恩恵が大きい。</white>"
-      - "<white>「世界を繋ぐ者」第2段階は物理寄りの壁なので、ここが一番楽になる。</white>"
-      - ""
+      - <gray>物理ダメージが敵の防御率を 20% 貫通する。</gray>
+      - <white>守りの厚い敵ほど恩恵が大きい。</white>
+      - <white>「世界を繋ぐ者」第2段階は物理寄りの壁なので、ここが一番楽になる。</white>
       - "<yellow>向く武器: 重量武器・軽量武器</yellow>"
   mage:
     label: 魔術師
@@ -33,19 +43,17 @@ combat-roles:
       percent-bonus-damage: 0.3
     defense-buffs: {}
     description:
-      - "<gray>魔法ダメージに 30% の割合追加ダメージが乗る。</gray>"
-      - "<white>敵の最大体力に比例するので、体力の多いボスに強い。</white>"
-      - "<white>「世界を繋ぐ者」第3段階は魔法寄りの壁なので、ここが一番楽になる。</white>"
-      - ""
+      - <gray>魔法ダメージに 30% の割合追加ダメージが乗る。</gray>
+      - <white>敵の最大体力に比例するので、体力の多いボスに強い。</white>
+      - <white>「世界を繋ぐ者」第3段階は魔法寄りの壁なので、ここが一番楽になる。</white>
       - "<yellow>向く武器: 魔導書(Ars魔法)</yellow>"
   tank:
     label: 守衛
     icon: SHIELD
     description:
-      - "<gray>被ダメージを 10% 軽減し、ヘイトが 1.5 倍になる。</gray>"
-      - "<white>敵の狙いを自分へ集めるので、複数人なら味方の生存率がそのまま上がる。</white>"
-      - "<white>「世界を繋ぐ者」第4段階は増援が同時に湧くので、ここが一番効く。</white>"
-      - ""
+      - <gray>被ダメージを 10% 軽減し、ヘイトが 1.5 倍になる。</gray>
+      - <white>敵の狙いを自分へ集めるので、複数人なら味方の生存率がそのまま上がる。</white>
+      - <white>「世界を繋ぐ者」第4段階は増援が同時に湧くので、ここが一番効く。</white>
       - "<yellow>向く装備: 重装・盾</yellow>"
     defense-buffs:
       damage-reduction: 0.1
@@ -55,15 +63,10 @@ support-roles:
   farmer:
     label: 農家
     description:
-      - "<gray>農業EXP +25% / 村人との取引価格が常時有利になる。</gray>"
-      - "<white>コア系(ベジタブル/ミート)の素材は畑と牧場からしか出ない。</white>"
-      - ""
+      - <gray>農業EXP +25% / 村人との取引価格が常時有利になる。</gray>
+      - <white>コア系(ベジタブル/ミート)の素材は畑と牧場からしか出ない。</white>
       - "<yellow>次: /tf skill farming</yellow>"
     exp-skill: FARMING
-    # 2026-07-31: 補助職の exp-multiplier を 1.15 / 1.25 / 1.35 の3段へ散らした。
-    # 全職 1.2 の横並びでは「どれを選んでも同じ」で選択に意味が無かった。
-    # 段の根拠は「その系統のEXPが単位時間あたりどれだけ稼げるか」の逆数:
-    #   稼ぎやすい(採掘/伐採) = 1.15 / 中間(農業) = 1.25 / 稼ぎにくい(釣り/切削) = 1.35
     exp-multiplier: 1.25
     potion-buff:
       type: HERO_OF_THE_VILLAGE
@@ -73,13 +76,10 @@ support-roles:
   fisher:
     label: 漁師
     description:
-      - "<gray>釣りEXP +35% / 常時 幸運。</gray>"
-      - "<white>釣りは待ち時間で稼ぎが決まるので倍率を最も高くしている。</white>"
-      - "<white>ガチャ券(特級・極級)は釣りギミックからしか出ない。</white>"
-      - ""
+      - <gray>釣りEXP +35% / 常時 幸運。</gray>
+      - <white>釣りは待ち時間で稼ぎが決まるので倍率を最も高くしている。</white>
+      - <white>ガチャ券(特級・極級)は釣りギミックからしか出ない。</white>
       - "<yellow>次: /tf skill fishing</yellow>"
-    # 2026-07-30 修正: FARMING になっていたため釣りEXPには何も乗らず、
-    # 農業EXPが farmer と二重に優遇されていた(expMultiplierForSkill は完全一致比較)。
     exp-skill: FISHING
     exp-multiplier: 1.35
     potion-buff:
@@ -91,10 +91,9 @@ support-roles:
     label: 鉱夫
     icon: IRON_PICKAXE
     description:
-      - "<gray>採掘EXP +15% / 常時 採掘速度上昇。</gray>"
-      - "<white>採掘は単位時間の稼ぎが最も大きいので倍率は控えめ。</white>"
-      - "<white>ガチャ券(初級〜上級)とジュエリーコアは採掘から。</white>"
-      - ""
+      - <gray>採掘EXP +15% / 常時 採掘速度上昇。</gray>
+      - <white>採掘は単位時間の稼ぎが最も大きいので倍率は控えめ。</white>
+      - <white>ガチャ券(初級〜上級)とジュエリーコアは採掘から。</white>
       - "<yellow>次: /tf skill mining</yellow>"
     exp-skill: MINING
     exp-multiplier: 1.15
@@ -105,10 +104,9 @@ support-roles:
   digger:
     label: 土工
     description:
-      - "<gray>切削EXP +35% / 常時 移動速度上昇。</gray>"
-      - "<white>掘った土そのものに使い道が少ないぶん倍率を高くしている。</white>"
-      - "<white>遺跡のスレッドとダートコアは切削から。</white>"
-      - ""
+      - <gray>切削EXP +35% / 常時 移動速度上昇。</gray>
+      - <white>掘った土そのものに使い道が少ないぶん倍率を高くしている。</white>
+      - <white>遺跡のスレッドとダートコアは切削から。</white>
       - "<yellow>次: /tf skill digging</yellow>"
     exp-skill: DIGGING
     exp-multiplier: 1.35
@@ -120,10 +118,9 @@ support-roles:
   woodcutter:
     label: きこり
     description:
-      - "<gray>伐採EXP +15% / 常時 火炎耐性。</gray>"
-      - "<white>一括伐採が乗ると稼ぎが跳ねるので倍率は控えめ。</white>"
-      - "<white>ウッドコアと圧縮木材(耐久回復)は伐採から。</white>"
-      - ""
+      - <gray>伐採EXP +15% / 常時 火炎耐性。</gray>
+      - <white>一括伐採が乗ると稼ぎが跳ねるので倍率は控えめ。</white>
+      - <white>ウッドコアと圧縮木材(耐久回復)は伐採から。</white>
       - "<yellow>次: /tf skill woodcutting</yellow>"
     exp-skill: WOODCUTTING
     exp-multiplier: 1.15
@@ -133,40 +130,7 @@ support-roles:
       amplifier: 0
     icon: IRON_AXE
 role-change:
-  allow-command: true
-  # 2026-07-31 追加。ロールを変更してから次に変更できるまでの待ち時間(分)。0 で待ち時間なし。
-  # 戦闘職と補助職は別々に数える(GUIで戦闘職を選んだ直後に補助職も選べる必要があるため)。
-  #
-  # 【なぜ必要か】待ち時間が無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば
-  # 全系統に最大倍率が乗る。補助職の選択そのものが意味を失い、「横の選択肢を増やして
-  # 縦を伸ばさない」設計が「全部同時に持てる」で崩れる。
-  # 逆に長すぎると選び直しが怖くて誰も試さなくなるので、2時間(=1回のプレイセッション程度)。
-  # カジュアルは1日1回も変えないので実質影響を受けず、切り替えで稼ぐ運用だけが止まる。
-  #
-  # ・交戦中の付け替え禁止は待ち時間とは別の機構(下の nearby-enemy-radius。既定では無効)。
-  # ・同じロールを選び直したときは待ち時間を刻まない。
-  # ・/tf role clear でも待ち時間を刻む(刻まないと「解除→即再選択」が迂回路になる)。
+  allow-change: false
   cooldown-minutes: 120
-  # 空の枠を初めて埋めるときは待ち時間を刻まないか。
-  # true なら「1つ選んで説明を読み、選び直す」までは無料(始めたばかりの人を詰まらせない)。
   first-choice-free: true
-  # 2026-07-31 追加。「交戦中はロールを変更できない」ガードの走査半径(ブロック)。
-  # 0 でガードそのものを無効化する(既定)。上限は64。
-  # 0 より大きくすると、その半径内に【自分を狙っている敵】が居る間だけ変更できなくなる。
-  #
-  # 【なぜ既定を 0 にしたか】2026-07-31 まではこの半径が 16 のハードコードで、しかも敵対判定に
-  # Bukkit の Monster を使っていたため、意図と両方向に外れていた:
-  #   ・ネザーはゾンビピグリン/ピグリンが常時居る(どちらも中立だが Monster)ので事実上永久に変更不可。
-  #     壁越し・真下の洞窟のモブや昼のクモでも拒否されるため、拠点や洞窟付近では正常系で常時ブロック。
-  #   ・逆に Slime/Ghast/Phantom/Shulker/EnderDragon/Hoglin は Monster ではない(Enemy ではある)ので、
-  #     エンドラやガストと戦っている最中は自由に変更できていた。
-  # 判定を Paper の Enemy＋「自分を狙っているか」へ寄せた上で、既定は解禁側(0)に置いた。
-  # 乗せ替え悪用の抑止は上の cooldown-minutes が担うので、これを 0 にしても迂回路は開かない。
-  #
-  # ・ロール選択GUIを開く操作と /tf role clear はこのガードを通さない
-  #   (ロールの説明を読むだけ・外すだけの操作を戦闘中に塞ぐ理由が無い)。
-  # ・ターゲットを公開しないボスAI(エンドラ等)はこのガードを跨げる。
-  #   「誤爆で常時変更不可になる」方を重く見た割り切りで、厳密な戦闘タグ機構は無い。
-  # ・cooldown-minutes: 0 と同時に 0 にすると、被弾直前に tank・与ダメ直前に mage へ
-  #   無制限に往復できる(ロール変更は次tickで効く)。両方を 0 にしないこと。
   nearby-enemy-radius: 0

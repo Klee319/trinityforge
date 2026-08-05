@@ -1378,7 +1378,7 @@
               onclick: () => { delete host[id]; render(); }
             })
           ];
-          // label / icon / description は表示専用項目(/tf role set のGUIと /tf role のチャット
+          // label / icon / description は表示専用項目(ロール選択GUIと /tf role のチャット
           // 表示に使う)。効果には一切影響しない。icon が空/不正なら既定アイコンへ倒れる。
           // 2026-07-29: 入力UIをアイテムカタログへ揃えた。
           //   表示名 = リッチテキスト欄(MiniMessage) / 説明 = 複数行 lore / アイコン = Materialセレクト
@@ -1398,7 +1398,8 @@
               if (v) role.icon = v; else delete role.icon;
             }, { allowCustom: false }), {
               label: "GUIアイコン",
-              desc: "/tf role set のGUIで使うMaterial。空なら既定アイコン(戦闘職=鉄の剣 / 補助職=本)。"
+              desc: "ロール選択GUI(/tf status のロールアイコンから開く)で使うMaterial。"
+                + "空なら既定アイコン(戦闘職=鉄の剣 / 補助職=本)。"
             }),
             h("div", { class: "form-field" }, [
               window.fieldLabelEl("description", {
@@ -1465,11 +1466,24 @@
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "ロール変更 (role-change)" })],
       [
-        field("allow-command", window.checkboxInput(!!change["allow-command"], (v) => {
-          change["allow-command"] = v;
-        }), {
-          label: "/tf role set を許可", key: "allow-command",
-          desc: "false にするとコマンド・GUI からのロール変更を一切受け付けない。"
+        // 2026-08-05 (W-28): /tf role set 廃止にあわせて allow-command から改名。
+        // false の意味も「一切変更不可」から「初回の無料就職以外はアイテム消費でのみ変更可」へ変えた。
+        // 旧キーしか無い yml はサーバ側が allow-command を読むので、ここでは新キーだけを出す。
+        field("allow-change", window.checkboxInput(
+          change["allow-change"] === undefined
+            ? (change["allow-command"] === undefined ? true : !!change["allow-command"])
+            : !!change["allow-change"],
+          (v) => {
+            change["allow-change"] = v;
+            // 旧キーが残っていると「どちらが効くのか」が読めなくなるので、保存時に畳む。
+            delete change["allow-command"];
+          }), {
+          label: "職業変更を許可するか", key: "allow-change",
+          desc: "ON = 下の「変更の待ち時間(分)」による通常のクールダウン制。"
+            + "OFF = 初回の無料就職(下の「初回は待ち時間を刻まない」がONのとき)以外は、"
+            + "「転職の証」(role_reselect_ticket)を手に持って右クリックしたときだけ変更できる。"
+            + "OFF のときは解除(/tf role clear)も塞がる — 枠を空にできると初回の無料就職を"
+            + "無限に再利用できてしまうため。"
             + "戦闘中の可否は下の「交戦中ガードの半径」で決まる(既定では戦闘中でも変更できる)。"
         }),
         // 2026-07-31: 待ち時間が無いと、採掘するときだけ鉱夫・釣るときだけ漁師へ切り替えれば

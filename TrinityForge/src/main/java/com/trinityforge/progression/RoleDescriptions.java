@@ -18,7 +18,7 @@ import java.util.Objects;
 /**
  * ロールのバフを人間が読める行へ変換する共通ロジック(2026-07-28)。
  *
- * <p>{@code /tf role}(チャット表示)と {@code /tf role set} のGUI(アイテムlore)の両方が同じ
+ * <p>{@code /tf role}(チャット表示)とロール選択GUI(アイテムlore)の両方が同じ
  * 説明文を使うための単一の出所。ステ名と数値書式は {@code stats/lore.yml}
  * ({@link LoreConfig#displayTable()})を正とするので、{@code /tf stats} の表示と語彙がズレない。
  */

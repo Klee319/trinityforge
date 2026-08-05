@@ -1,7 +1,6 @@
 package com.trinityforge.command;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.trinityforge.config.domains.RoleBuffsConfig;
 import com.trinityforge.config.domains.RoleBuffsConfig.CombatRoleSpec;
@@ -22,28 +21,25 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * {@code /tf role [set [<combat> [support]]] | clear} — non-combat role assignment (ROLE_SYSTEM_SPEC §7 MVP).
+ * {@code /tf role | /tf role clear} — non-combat role assignment (ROLE_SYSTEM_SPEC §7 MVP)。
  *
- * <p>2026-07-28:
- * <ul>
- *   <li>{@code /tf role}(引数なし)は現在のロール<b>とその効果</b>をチャットへ表示する
- *       (以前はロールIDを1行返すだけで、何のバフが乗っているのか確認できなかった)。</li>
- *   <li>{@code /tf role set}(引数なし)は {@link RoleSelectGui} を開く。引数付きの
- *       {@code set <combat> [support]} は従来どおり。どちらも {@link RoleChangeService} の
- *       同じゲートを通る。</li>
- * </ul>
+ * <p>{@code /tf role}(引数なし)は現在のロール<b>とその効果</b>をチャットへ表示する
+ * (以前はロールIDを1行返すだけで、何のバフが乗っているのか確認できなかった)。
+ *
+ * <p><b>2026-08-05 (W-28): {@code /tf role set} は廃止した。</b>付け替えの動線は
+ * {@code /tf status} のロールアイコン → {@link RoleSelectGui} と、転職の証の右クリックだけ。
+ * 「同じことをする入口が3つ(コマンド引数版・コマンドGUI版・GUI)」で、どれが正か分からない状態を
+ * たたむのが目的なので、<b>ここに set を戻すときは status GUI 側と可否判定を必ず共有すること</b>
+ * ({@link RoleChangeService} が単一の出所)。
  */
 public final class RoleCommand {
 
     private final RoleChangeService roleChangeService;
     private final RoleDescriptions descriptions;
-    private final RoleSelectGui selectGui;
 
-    public RoleCommand(RoleChangeService roleChangeService, RoleDescriptions descriptions,
-                       RoleSelectGui selectGui) {
+    public RoleCommand(RoleChangeService roleChangeService, RoleDescriptions descriptions) {
         this.roleChangeService = Objects.requireNonNull(roleChangeService, "roleChangeService");
         this.descriptions = Objects.requireNonNull(descriptions, "descriptions");
-        this.selectGui = Objects.requireNonNull(selectGui, "selectGui");
     }
 
     private RoleBuffsConfig roleBuffs() {
@@ -54,30 +50,7 @@ public final class RoleCommand {
         return Commands.literal("role")
                 .executes(ctx -> show(ctx.getSource()))
                 .then(Commands.literal("clear")
-                        .executes(ctx -> clear(ctx.getSource())))
-                .then(Commands.literal("set")
-                        .executes(ctx -> openGui(ctx.getSource()))
-                        .then(Commands.argument("combat", StringArgumentType.word())
-                                .suggests((ctx, builder) -> {
-                                    String rem = builder.getRemainingLowerCase();
-                                    roleBuffs().combatRoles().keySet().stream()
-                                            .filter(id -> rem.isEmpty() || id.startsWith(rem))
-                                            .forEach(builder::suggest);
-                                    return builder.buildFuture();
-                                })
-                                .executes(ctx -> set(ctx.getSource(),
-                                        StringArgumentType.getString(ctx, "combat"), null))
-                                .then(Commands.argument("support", StringArgumentType.word())
-                                        .suggests((ctx, builder) -> {
-                                            String rem = builder.getRemainingLowerCase();
-                                            roleBuffs().supportRoles().keySet().stream()
-                                                    .filter(id -> rem.isEmpty() || id.startsWith(rem))
-                                                    .forEach(builder::suggest);
-                                            return builder.buildFuture();
-                                        })
-                                        .executes(ctx -> set(ctx.getSource(),
-                                                StringArgumentType.getString(ctx, "combat"),
-                                                StringArgumentType.getString(ctx, "support"))))));
+                        .executes(ctx -> clear(ctx.getSource())));
     }
 
     /** {@code /tf role} — 現在のロールと、それが実際に乗せているバフを一覧表示する。 */
@@ -108,7 +81,7 @@ public final class RoleCommand {
                     + (supportWait > 0L ? "あと " + RoleChangeService.formatRemaining(supportWait) : "いつでも"),
                     NamedTextColor.YELLOW));
         }
-        player.sendMessage(Component.text("変更: /tf role set (GUI) / 解除: /tf role clear",
+        player.sendMessage(Component.text("変更: /tf status のロールアイコン / 解除: /tf role clear",
                 NamedTextColor.DARK_GRAY));
         return Command.SINGLE_SUCCESS;
     }
@@ -137,22 +110,6 @@ public final class RoleCommand {
     }
 
     /**
-     * {@code /tf role set}(引数なし) — アイテム表示のロール選択GUIを開く。
-     *
-     * <p>開くだけなら交戦中ガードは見ない。GUI はロールの説明を読む唯一の画面なので、戦闘中に
-     * 「開くことすらできない」のは理不尽（以前は 16m 以内に敵モブが居ると開けなかった）。
-     * 実際に押したときは {@link RoleSelectGui} 側で適用系のゲートを通し、ガードを有効にしている
-     * 運用では lore に理由を出して手戻りを吸収する。
-     */
-    private int openGui(CommandSourceStack source) {
-        if (!ensureCommandEnabled(source)) {
-            return 0;
-        }
-        selectGui.open((Player) source.getSender());
-        return Command.SINGLE_SUCCESS;
-    }
-
-    /**
      * {@code /tf role clear} — 解除も交戦中ガードは見ない（外すだけなので戦闘中に塞ぐ理由が無い。
      * 解除→即再選択の迂回路を塞いでいるのは {@code clear} 側の刻印＝クールダウンであってガードではない）。
      */
@@ -166,83 +123,17 @@ public final class RoleCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int set(CommandSourceStack source, String combatRaw, String supportRaw) {
-        if (!ensureAllowed(source)) {
-            return 0;
-        }
-        Player player = (Player) source.getSender();
-        // 両方を先に検証してから適用する: 補助職のIDだけ打ち間違えたときに戦闘職だけ書き換わって
-        // 終わる(部分適用)のを防ぐ。
-        CombatRoleSpec combat = roleBuffs().combatRole(combatRaw);
-        if (combat == null) {
-            player.sendMessage(Component.text("未知の戦闘職: " + combatRaw, NamedTextColor.RED));
-            return 0;
-        }
-        boolean hasSupport = supportRaw != null && !supportRaw.isBlank();
-        SupportRoleSpec support = hasSupport ? roleBuffs().supportRole(supportRaw) : null;
-        if (hasSupport && support == null) {
-            player.sendMessage(Component.text("未知の補助職: " + supportRaw, NamedTextColor.RED));
-            return 0;
-        }
-        // クールダウンも「両方先に見る」— 補助職だけ待ち時間中なのに戦闘職だけ書き換わって
-        // 終わる部分適用を防ぐ(ID誤りの扱いと同じ理由)。同じロールを選び直すだけなら
-        // 実際には何も変わらないので待ち時間を見ない。
-        PlayerData data = PlayerData.of(player);
-        boolean combatChanges = isChange(data.rolePrimary().orElse(null), combatRaw);
-        boolean supportChanges = support != null && isChange(data.roleSupport().orElse(null), supportRaw);
-        if (combatChanges) {
-            var deny = roleChangeService.denyReasonForCombat(player);
-            if (deny.isPresent()) {
-                player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
-                return 0;
-            }
-        }
-        if (supportChanges) {
-            var deny = roleChangeService.denyReasonForSupport(player);
-            if (deny.isPresent()) {
-                player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
-                return 0;
-            }
-        }
-        roleChangeService.setCombat(player, combatRaw);
-        if (support != null) {
-            roleChangeService.setSupport(player, supportRaw);
-        }
-        // チャット1行へ連結するので MiniMessage タグは落とす。
-        String supportLabel = support == null ? null : MiniText.plain(support.label());
-        String combatLabel = MiniText.plain(combat.label());
-        player.sendMessage(Component.text(
-                "ロールを設定しました: 戦闘=" + combatLabel
-                        + (supportLabel != null ? " / 補助=" + supportLabel : ""),
-                NamedTextColor.GREEN));
-        return Command.SINGLE_SUCCESS;
-    }
-
-    /** 現在値と指定値を正規化して比べ、実際に切り替わるかを返す。 */
-    private static boolean isChange(String currentId, String rawId) {
-        String next = RoleChangeService.normalize(rawId);
-        return next != null && !next.equals(currentId);
-    }
-
-    /** 付け替える動線({@code set})のゲート。交戦中ガードも通す。 */
-    private boolean ensureAllowed(CommandSourceStack source) {
-        return ensureAllowed(source, true);
-    }
-
-    /** 読むだけ・外すだけの動線(GUIを開く / {@code clear})のゲート。交戦中ガードは通さない。 */
+    /**
+     * 外すだけの動線({@code clear})のゲート。交戦中ガードは通さない
+     * (外すだけなので戦闘中に塞ぐ理由が無い)。
+     */
     private boolean ensureCommandEnabled(CommandSourceStack source) {
-        return ensureAllowed(source, false);
-    }
-
-    private boolean ensureAllowed(CommandSourceStack source, boolean applyCombatGate) {
         CommandSender sender = source.getSender();
         if (!(sender instanceof Player player)) {
             sender.sendMessage(Component.text("プレイヤー専用コマンドです。", NamedTextColor.RED));
             return false;
         }
-        var deny = applyCombatGate
-                ? roleChangeService.denyReason(player)
-                : roleChangeService.commandDisabledReason(player);
+        var deny = roleChangeService.changeDisabledReason(player);
         if (deny.isPresent()) {
             player.sendMessage(Component.text(deny.get(), NamedTextColor.RED));
             return false;

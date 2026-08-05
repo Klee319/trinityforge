@@ -69,7 +69,7 @@ class RoleChangeCombatGateTest {
         SupportRoleSpec miner = new SupportRoleSpec("miner", "鉱夫", "MINING", 1.15, null, "IRON_PICKAXE", List.of());
 
         RoleBuffsConfig config = mock(RoleBuffsConfig.class);
-        when(config.allowRoleCommand()).thenReturn(true);
+        when(config.allowRoleChange()).thenReturn(true);
         when(config.combatRoles()).thenReturn(Map.of("tank", tank));
         when(config.supportRoles()).thenReturn(Map.of("miner", miner));
         when(config.roleChangeCooldownMillis()).thenReturn(0L);
@@ -173,21 +173,22 @@ class RoleChangeCombatGateTest {
         zombie.setTarget(player);
 
         assertTrue(service.denyReason(player).isPresent(), "付け替えは塞がれる");
-        assertTrue(service.commandDisabledReason(player).isEmpty(),
-                "開く/解除の動線は allow-command だけを見る");
+        assertTrue(service.changeDisabledReason(player).isEmpty(),
+                "解除の動線は allow-change だけを見る");
     }
 
     @Test
-    @DisplayName("allow-command: false は交戦中ガードとは無関係に全部塞ぐ")
-    void allowCommandFalseBlocksEveryPath() {
+    @DisplayName("allow-change: false でも交戦中ガードは別機構(共通ゲートは通る)")
+    void allowChangeFalseIsIndependentOfTheCombatGuard() {
         RoleBuffsConfig config = mock(RoleBuffsConfig.class);
-        when(config.allowRoleCommand()).thenReturn(false);
+        when(config.allowRoleChange()).thenReturn(false);
         when(config.nearbyEnemyRadius()).thenReturn(0.0);
         RoleChangeService service = new RoleChangeService(config, mock(RoleBuffListener.class));
         Player player = playerIn();
 
-        assertTrue(service.commandDisabledReason(player).isPresent());
-        assertTrue(service.denyReason(player).isPresent());
+        assertTrue(service.changeDisabledReason(player).isPresent(), "解除は塞ぐ(枠を空にできると初回無料が再利用できる)");
+        assertTrue(service.denyReason(player).isEmpty(),
+                "共通ゲートは交戦中ガードだけを見る。allow-change は枠ごと(初回無料の例外がある)に見る");
     }
 
     @Test
@@ -195,7 +196,7 @@ class RoleChangeCombatGateTest {
     void nullPlayerIsRejectedByBothEntryPoints() {
         RoleChangeService service = service(0.0);
 
-        assertTrue(service.commandDisabledReason(null).isPresent());
+        assertTrue(service.changeDisabledReason(null).isPresent());
         assertTrue(service.denyReason(null).isPresent());
     }
 

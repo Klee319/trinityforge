@@ -221,8 +221,6 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.afk.AfkService afkService;
     private com.trinityforge.progression.AchievementService achievementService;
     private com.trinityforge.progression.achievement.AchievementGui achievementGui;
-    /** 統合メニュー(2026-08-04新設)。各機能GUIへの入口をアイコンで並べるハブ。 */
-    private com.trinityforge.progression.MainMenuGui mainMenuGui;
     private ActiveSkillRegistry activeSkillRegistry;
     private CooldownManager activeCooldownManager;
     private FeedbackLayer activeFeedbackLayer;
@@ -650,14 +648,9 @@ public final class TrinityForge extends JavaPlugin {
                 aggregator,
                 configManager.lore(),
                 skillLevelSource);
-        // /tf status: 同じ数値をGUIで見るための画面 (2026-07-29)。合算は combined()、整形は
-        // StatValueRenderer と、チャット版 (/tf stats) と同じ経路を通す。
-        this.statusGui = new com.trinityforge.stats.status.StatusGui(this, combatService, aggregator,
-                configManager.lore(), skillLevelSource, nativePerkService);
-        getServer().getPluginManager().registerEvents(statusGui, this);
         this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs());
-        // 2026-07-28: /tf role はロールとバフの内訳をチャットへ、/tf role set はアイテム表示の
-        // 選択GUIを開く。コマンド版とGUI版が同じゲート(RoleChangeService)を通るよう分離してある。
+        // 2026-07-28: /tf role はロールとバフの内訳をチャットへ出す。付け替えは選択GUI
+        // (RoleSelectGui)だけが入口で、可否判定は RoleChangeService に集約してある。
         com.trinityforge.progression.RoleChangeService roleChangeService =
                 new com.trinityforge.progression.RoleChangeService(configManager.roleBuffs(), roleBuffListener);
         com.trinityforge.progression.RoleDescriptions roleDescriptions =
@@ -665,7 +658,13 @@ public final class TrinityForge extends JavaPlugin {
         com.trinityforge.progression.RoleSelectGui roleSelectGui =
                 new com.trinityforge.progression.RoleSelectGui(this, roleChangeService, roleDescriptions);
         getServer().getPluginManager().registerEvents(roleSelectGui, this);
-        this.roleCommand = new RoleCommand(roleChangeService, roleDescriptions, roleSelectGui);
+        this.roleCommand = new RoleCommand(roleChangeService, roleDescriptions);
+        // /tf status: 同じ数値をGUIで見るための画面 (2026-07-29)。合算は combined()、整形は
+        // StatValueRenderer と、チャット版 (/tf stats) と同じ経路を通す。
+        // 2026-08-05 (W-28): ロールの確認・変更の入口もここへ統合したので roleSelectGui より後に作る。
+        this.statusGui = new com.trinityforge.stats.status.StatusGui(this, combatService, aggregator,
+                configManager.lore(), skillLevelSource, nativePerkService, roleChangeService, roleSelectGui);
+        getServer().getPluginManager().registerEvents(statusGui, this);
 
         // 特殊アイテム3種(2026-08-04新設): 職業付け替えの証 / 厳選やり直しの護符 / 品質昇華の結晶。
         // 券は「効果が成立したときにだけ」消費する(GUIを閉じただけ・対象なし・最高品質到達では減らない)。
@@ -749,14 +748,9 @@ public final class TrinityForge extends JavaPlugin {
                 new com.trinityforge.listeners.VanillaAdvancementBlockListener(configManager.achievements()),
                 this);
 
-        // 統合メニュー(2026-08-04新設): ロールセット/ステータス/スキルツリー/実績/図鑑/設定への入口を
-        // アイコンで並べる。各項目は既存GUIの open(Player) を呼ぶだけで、各GUI自体には手を入れない。
-        // 「使えるかどうか」は新しい権限ノードを増やさず、既存の業務フラグ
-        // (RoleChangeService#commandDisabledReason / CollectionConfig#enabled) をそのまま読む。
-        this.mainMenuGui = new com.trinityforge.progression.MainMenuGui(
-                this, roleSelectGui, roleChangeService, statusGui, nativeSkillTreeMenu, achievementGui,
-                collectionGui, collectionService, configManager.collection(), settingsGui);
-        getServer().getPluginManager().registerEvents(mainMenuGui, this);
+        // 2026-08-05 (W-28): 統合メニュー(/tf menu, MainMenuGui)は廃止した。各機能へは
+        // 専用コマンド(/tf status, /skills, /achievement, /tf collection, /tf settings)で入る。
+        // ロールの確認・変更だけは入口が3つあったので /tf status のロールアイコンへ畳んである。
 
         // Re-syncs an item's lore/attributes against the live tables on hotbar switch, armor change,
         // and join, so a reload's effect is not stuck at "only new items see it" (item 1).
@@ -1520,17 +1514,8 @@ public final class TrinityForge extends JavaPlugin {
                             .then(glyphsCommand.node())
                             .then(settingsCommand.node())
                             .then(catalogCommand.node())
-                            // /tf menu: 統合メニュー(2026-08-04新設)。各機能GUIへの入口をまとめたハブ。
-                            .then(Commands.literal("menu")
-                                    .executes(ctx -> {
-                                        if (!(ctx.getSource().getSender() instanceof Player player)) {
-                                            ctx.getSource().getSender().sendMessage(Component.text(
-                                                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
-                                            return 0;
-                                        }
-                                        mainMenuGui.open(player);
-                                        return Command.SINGLE_SUCCESS;
-                                    }))
+                            // /tf menu(統合メニュー)は 2026-08-05 (W-28) に廃止。
+                            // 入口が二重化するとどちらが正か分からなくなるため復活させない。
                             .then(specialRewardCommand.node()
                                     .requires(TrinityForge::isTfAdmin))
                             .then(new InspectCommand().node())

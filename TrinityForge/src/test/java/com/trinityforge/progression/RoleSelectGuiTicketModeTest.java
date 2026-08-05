@@ -65,7 +65,7 @@ class RoleSelectGuiTicketModeTest {
         SupportRoleSpec miner = new SupportRoleSpec("miner", "鉱夫", "MINING", 1.15, null, "IRON_PICKAXE", List.of());
 
         RoleBuffsConfig config = mock(RoleBuffsConfig.class);
-        when(config.allowRoleCommand()).thenReturn(true);
+        when(config.allowRoleChange()).thenReturn(true);
         when(config.combatRoles()).thenReturn(Map.of("tank", tank, "mage", mage));
         when(config.supportRoles()).thenReturn(Map.of("miner", miner));
         when(config.roleChangeCooldownMillis()).thenReturn(COOLDOWN_MILLIS);

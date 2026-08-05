@@ -61,7 +61,7 @@ class RoleChangeCooldownTest {
         SupportRoleSpec fisher = new SupportRoleSpec("fisher", "漁師", "FISHING", 1.35, null, "FISHING_ROD", List.of());
 
         RoleBuffsConfig config = mock(RoleBuffsConfig.class);
-        when(config.allowRoleCommand()).thenReturn(true);
+        when(config.allowRoleChange()).thenReturn(true);
         when(config.combatRoles()).thenReturn(Map.of("tank", tank, "mage", mage));
         when(config.supportRoles()).thenReturn(Map.of("miner", miner, "fisher", fisher));
         when(config.roleChangeCooldownMillis()).thenReturn(cooldownMillis);
