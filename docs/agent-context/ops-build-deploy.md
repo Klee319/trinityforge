@@ -216,6 +216,34 @@ robocopy で**上書き**する（除外は `paper-plugin.yml` / `sourcejars.yml
 - 逆に `--config` はサーバ側 `materials.yml` を丸ごと上書きするので、
   サーバ側を直接手編集していた場合はその編集が消える（editor はリポジトリ側を編集するので通常は問題ない）。
 
+### ⚠️ config を配るときは `deploy-config-head.cmd`（HEAD を配る）を使う（2026-08-05）
+
+このワークツリーは複数セッションで共有しているので、`resources` 配下の `*.yml` には
+**常に他セッションの編集途中が混ざっている**。config 配備の手段は 3 つあるが、正しいのは 3 番目だけ。
+
+| スクリプト | 配るもの | この状況での外れ方 |
+|---|---|---|
+| `deploy.cmd --config` | ワーキングツリー | **他セッションの未完成 yml をそのまま出荷する** |
+| `deploy-config-skip-wip.cmd` | ワーキングツリー − 未コミットのファイル | **自分の変更と他人の WIP が同じファイルに乗っていると自分の変更も落ちる**／**フォークの WIP は検出できない** |
+| **`deploy-config-head.cmd`** | **HEAD（フォークは自前リポジトリの HEAD）** | — |
+
+`skip-wip` の 2 つの外れ方は 2026-08-05 に両方とも実際に起きていた。
+
+- 落ちる側: `stats/lore.yml` は「職業EXP増加 12 件の表示定義（コミット済み）」と
+  「別セッションの `name:` 改名（未コミット）」が同居していた。ファイル単位の除外なので、
+  除外すると**コミット済みの 12 件も配備されず、ステータス画面に一切出ない**。
+- 検出できない側: `fork-handoff/arspaper/fork` は外側リポジトリから `.gitignore` 除外なので
+  `git status -- fork-handoff/...` は**常に空**を返す。そのとき `materials.yml` には
+  別セッションの未コミットのレシピ変更（`stone_1x` を workbench→ritual 等）が乗っていた。
+  除外リストが空なので、そのまま出荷されていた。
+
+`deploy-config-head.cmd` は「除外する」のをやめて**配る内容を HEAD と定義する**。
+`ops/scripts/export-head-config.ps1` が `git archive` の tar 経由で HEAD を
+`tmp/deploy-head/{tf,ars}` へ展開し（`git show` 経由だと PowerShell の文字列化で UTF-8 の
+日本語コメントと改行が壊れるので tar が必要）、robocopy はそこから配る。
+フォークは自前リポジトリなので `git -C <fork> archive` で別途取り出す。
+**「今回配らなかった未コミット yml」の一覧を毎回表示する**ので、取り残しが目に見える。
+
 ## サーバ起動時の見落とし
 
 ### ⚠️ HuskSync の DB 接続失敗はサーバ起動を止めない

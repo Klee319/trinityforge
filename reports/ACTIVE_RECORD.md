@@ -87,7 +87,7 @@
 | **W-34** | **鎌の出血など、武器 tier・攻撃力・防具の防御力に見合っていないステータスの洗い直し** | 個別の値ではなく、tier に対する期待値のテーブルを作って外れ値を洗う |
 | **W-35** | **武器ごとの攻撃リーチを再設計する** | **ユーザー提示の表は「剣＝バニラ 4」を前提としているが、攻撃リーチのバニラ既定は 3.0**（4.5 は `block_interaction_range`＝設置/破壊のリーチで別属性）。3.0 基準で引き直した表をユーザーへ提示してから実装する。リーチ差で生じた性能差は各武器コンセプトの得意ステータスで相殺する |
 | **W-36** | **トライデント系・槍系が三人称視点で 2D アイテムモデルになる** | **2026-08-05 原因確定: パックソースは正しく、配信中の zip が古い。** `server.properties` の `resource-pack-sha1=5b251cb3676df2b681616447cfaf321bda5f85ab` は `resourcepack/dist/TrinityForge-Pack.zip`（作業ツリー版、08-04 10:43）と**ハッシュ一致**する。その zip を展開すると `trident.json` の CMD 121/122/174-181 と `netherite_spear.json` の 118/119、`diamond_spear.json` の 50 に `display_context` 分岐が無く、全コンテキストで平面モデルになる。**ソース側（`assets/minecraft/items/*.json`）は 08-05 16:12 に再生成済みで 13 件とも正しい**（生成側の修正は `c5754d7`、08-03）。**残っているのは zip の再生成と GitHub Release への再発行、`resource-pack-sha1` の更新だけ**。リソースパックは別セッションが作業中（`cmd-registry.json` と dist zip が未コミット）なので、**そのセッションが publish する時に必ず再生成すること** |
-| ~~**W-37**~~ | ~~**鍵を使ったときに出る本のタイトルが内部 ID 表記**~~ | **2026-08-05 判明: コードの不具合ではなく配備漏れ。** 潜入確認 GUI の `KNOWLEDGE_BOOK` は `DungeonGate#displayNameOrWorld()` を出しており、リポジトリの `dungeon/gates.yml` は 61 ゲート全部に `display-name:` を持っている（`15236bc`、2026-08-02）。**配備先の `gates.yml` は 08-01 16:52 のままで `display-name` が 0 件**なので、ワールド名（＝ゲートID）へフォールバックしていた。`ops\launch\deploy-config-skip-wip.cmd` で config を配備すれば直る（サーバ停止が必要）。**同型で本当のコード不具合だった `/tf settings` の称号ボタン ID 表示は `c7b2d94` で修正済み** |
+| ~~**W-37**~~ | ~~**鍵を使ったときに出る本のタイトルが内部 ID 表記**~~ | **2026-08-05 判明: コードの不具合ではなく配備漏れ。** 潜入確認 GUI の `KNOWLEDGE_BOOK` は `DungeonGate#displayNameOrWorld()` を出しており、リポジトリの `dungeon/gates.yml` は 61 ゲート全部に `display-name:` を持っている（`15236bc`、2026-08-02）。**配備先の `gates.yml` は 08-01 16:52 のままで `display-name` が 0 件**なので、ワールド名（＝ゲートID）へフォールバックしていた。`ops\launch\deploy-config-head.cmd` で config を配備すれば直る（サーバ停止が必要）。**同型で本当のコード不具合だった `/tf settings` の称号ボタン ID 表示は `c7b2d94` で修正済み** |
 | ~~**W-38**~~ | ~~**ツルハシに射撃ダメージが付くなど、不適正なツールへエンチャントが付与される**~~ | **2026-08-05 修正済み（`0592838`）**。金床のオーバーエンチャント経路が候補エンチャントを `canEnchantItem` で絞っていなかった。本(`EnchantmentStorageMeta`)は素通し、それ以外は対象判定を通す（`OverEnchantAnvilTargetTest` 3件） |
 | ~~**W-39**~~ | ~~**ネザライト化するとエンチャントが剥がれる**~~ | **2026-08-05 修正済み（`0592838`）**。`CatalogSmithingListener` が結果アイテムを組み直す際に元アイテムのエンチャントを引き継いでいなかった。上限超えレベルもそのまま維持する（`canEnchantItem` で絞らない理由は同メソッドの javadoc: 杖など素材が対象外のカタログ品があるため） |
 | ~~**W-40**~~ | ~~**クリエイティブインベントリのタブにカスタムアイテムが出ない**~~ | **2026-08-05: Java版ではサーバ側から不可能**（クリエイティブタブはクライアントのアイテムレジストリから組まれ、TF品はCMD付きバニラアイテム）。同じ用途を `/tf catalog` GUI で満たした（`03b5265`。クリエイティブ中または `trinityforge.catalog` 権限。`_editor` の分類でタブ分け・未分類は受け皿タブへ回収） |
@@ -161,10 +161,22 @@
   **3 件が計画にすら載らず、9 件が 2 行にまとめられた**。10 件を直して配備した時点で
   「配備完了」とだけ報告したため、ユーザーからはバッチ全体が終わったように見えていた。
   →W-28〜W-40。
-- **2026-08-05 時点で配備待ち（ユーザー作業）**: サーバ停止 → ①TF jar（`2c478af`/`0ae78ef` 込み。
-  反射の仕様変更・`/tf catalog`・金床/ネザライト化の修正）②ArsPaper jar（`6e64216`。スレッド lore）
-  ③config（`ops\launch\deploy-config-skip-wip.cmd`。W-37 の `gates.yml`）。
+- **2026-08-05 時点で配備待ち（ユーザー作業）**: サーバ停止 → ①jar（`ops\launch\deploy.cmd`。
+  `--config` は付けない）②config（`ops\launch\deploy-config-head.cmd`）。
+  jar は 2026-08-05 21:38 時点でビルド済み・検証済み（TF `build/release/TrinityForge-all.jar` に
+  `SkillExpBonusKeys.class` あり／ArsPaper jar は `6e64216`（スレッド lore）より 2 分古かったので再ビルド済み）。
   **稼働中の jar 差し替えは必ず `NoClassDefFoundError`** なので必ず停止後に行う。
+- **config 配備は `deploy-config-head.cmd`（2026-08-05 新設）を使う。** 他の 2 つはこの状況で外れる:
+  `deploy.cmd --config` は**ワーキングツリーを配る**＝他セッションの未完成 yml を出荷する。
+  `deploy-config-skip-wip.cmd` は**未コミットのファイルを丸ごと除外**するので、
+  **自分の変更と他人の WIP が同じファイルに乗っていると自分の変更まで落ちる**
+  （2026-08-05 の `stats/lore.yml`＝職業EXP増加 12 件の表示定義がまさにこれ）。さらに
+  **ArsPaper フォークは外側リポジトリから `.gitignore` 除外なので `git status` が何も返さず、
+  フォークの未コミット変更（`materials.yml` のレシピ変更）を検出できない**。
+  新スクリプトは除外方式をやめ、`ops\scripts\export-head-config.ps1` で
+  **HEAD（フォークは自前リポジトリの HEAD）を `tmp\deploy-head` へ展開してそこから配る**＝
+  「配るのはコミット済みの状態」と定義する。誰の編集途中も混ざらず、
+  コミット済みの変更が同居のせいで落ちることもない。**今回配らなかった未コミット yml の一覧も毎回表示する**。
 
 git 系:
 
@@ -241,6 +253,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-05 | **config 配備を「HEAD を配る」方式へ差し替え**（`ops\launch\deploy-config-head.cmd` ＋ `ops\scripts\export-head-config.ps1`）。既存 2 本はどちらもこのワークツリー（複数セッション共有）で外れる: `deploy.cmd --config` はワーキングツリーを配る＝**他セッションの未完成 yml を出荷**、`deploy-config-skip-wip.cmd` はファイル単位で未コミットを除外するので**自分のコミット済み変更が他人の WIP と同居していると一緒に落ちる**（`stats/lore.yml` の職業EXP増加 12 件がまさにこれ）／さらに**ArsPaper フォークは `.gitignore` 除外で `git status` が常に空を返すため未コミット変更を検出できず、`materials.yml` の他セッションのレシピ変更をそのまま出荷していた**。新方式は除外をやめ `git archive` の tar 経由で HEAD（フォークは自前リポジトリの HEAD）を `tmp/deploy-head` へ展開してそこから配る（`git show` 経由は PowerShell の文字列化で UTF-8 コメントと改行が壊れる）。**配らなかった未コミット yml を毎回列挙**する |
 | 2026-08-05 | **実サーバ報告バッチ6（12 件）＋前バッチ残 1 件を全件クローズ**。TF `c841704`（**EXP保存を「ガラス瓶を素の右クリック」で貯蔵／格納済み瓶の右クリックで払い出し」へ変更**。バニラのガラス瓶用途を全部守るため、水源は流体レイトレース・水入り大釜・waterlogged・`isInteractable()` ブロック・`isHarvestableFarmingInteraction` を先に除外する。払い出しは**ガラス瓶を返す**（経験値瓶を返すとガラス瓶→経験値瓶の無料変換になる）。`rayTraceBlocks` は MockBukkit 未実装なのでテスト用シームを切った）／`cadd0f8`（**釣りボーナスが `PercentStatNormalize.RATE_KEYS` 未登録で1回の釣りに追加25個**。`mining-fortune` と同じ壊れ方。出荷スキルツリー合算で期待値0.25個になることまで固定）／`8bc1f6e`（上振れ/ロール収束の単位を lore に明記）／`249e712`（**editor の GUI/簡易トグルが切り替え不可**の真因＝ロスレスパーサが `<icon>` 等の差し込みタグを未知タグ扱いして `ok:false`。フィールド単位の宣言で text ノードへ落とす。`<click:…>` は従来どおり非対応のまま／ロア表示の行が入力中に動く・動かせないのは `draggable` 行と内側 `<input>` の競合）／`2d9fc93`（**採集効率エンチャント上限の二重管理を撤去**＝`stat-caps.yml` 側の上書きを消して `stats/gathering-efficiency.yml` 一本へ）／`ad6c588`（**職業EXP増加を3→15キーへ**。実装は元から全スキル対応で、語彙/%矯正/分類/lore の4箇所へ3件だけ手書きしていたのが真因。`SkillExpBonusKeys`（`SkillId.ALL` 由来）へ集約。**POWER は作らない**＝POWER EXP は他スキルのレベルアップの副作用として倍率適用より後段で加算されるので死んだキーになる）／`d079bd0`（**杖の catalog id を cane→wand**。CMD 据え置き・`assetName` とアセット実ファイル名は据え置き）。ArsPaper fork `0fa2855`（editor 素材カテゴリの「EM限定素材」「ソース階梯」を廃止して ドロップ素材／Ars(魔法) へ統合）。**回答のみ2件**: 素材変換率と材料節約率は別物（前者=解体の戻り、後者=醸造/Ars投入の節約）／コート上限は skilltree の唯一の上限軸なので判断待ちへ。**別セッションが `lore.yml` / `base-stats.yml` / `catalog.yml` / `collection.yml` / `cmd-registry.json` / `stat-caps.yml` を未コミットで書き換え中だったため、staged 内容を「HEAD + 自分の変更だけ」で blob 直接構築した**（`-U0` の patch は行番号だけで位置を決めるので 174 行の挿入が別エントリの途中へ落ちて yml が壊れる。一度実際に壊した） |
 | 2026-08-05 | **editor「編集しても未保存警告が出ず保存で捨てられる」3 経路を修正**（`ddb6f40`）。**全 76 画面 × 7 種のウィジェットをヘッドレス Chrome で掃引**して特定（`tmp/dirty-audit.mjs`。`isEditorDirty` は非公開だが cancelable な `beforeunload` の `defaultPrevented` で外から判定できる）。3 件はどれも「`working` に差分が出ない」ため `isEditorDirty()` が false になり、画面移動で警告が出ず、**保存ボタンが `save()` 冒頭の `if (!isEditorDirty())` に入ってサーバの内容を読み直す**＝編集を捨てていた。① **スキル各画面（弓術ほか 14 画面）で説明文の全行削除が消える**: 出荷 `skilltree/*.yml` の大半は新キー `description` を持たず旧 `effect-text` だけなので `delete obj.description` が **no-op**。TF 側は description が空/無いと effect-text へフォールバックするので**空文字を書いても消えない** → 空にするときは両方消す。`description` を持つ `light_weapons`/`heavy_weapons` では再現しない**スキル依存**の罠だった。② **レベルテーブルでモブ選択の変更・行削除が反映されない**、③ **ロールバフで説明 Lore 行の編集が反映されない**: どちらも `getData()` の刈り取りが `working[key] = working[key].map().filter()` で**配列を差し替え**、描画時にその配列を掴んだ行エディタが孤児化していた（`getData()` は画面を開いた直後の `syncBaseFromEditor` でも呼ばれるので**開いてから最初の 1 回の編集が必ず落ちる**）→ in-place 刈り取りへ。不変条件「**`getData()` は `working` 配下のコンテナを差し替えてはならない**」をテストで固定（配列の同一性そのものを検証）。**報告のあった「ガチャ券タブ」＝ガチャ画面（`gacha.yml`）と素材画面のガチャ券カテゴリは、券ID/プール/景品/weight/個数/品質ランダム/追加・削除ボタン/表示名リッチ入力/カテゴリタブ往復まで全部当たって再現しなかった**（該当ウィジェットの特定待ち）。掃引スクリプトの偽陽性源（表示フィルタ・`__…__` 番兵選択肢・readonly id 欄・`maxlength=1` セル・タブラベル）は `docs/agent-context/config-editor.md` に記録 |
 | 2026-08-05 | **実サーバ報告バッチ（24 件）続き: EM 2 件＋スレッド 4 件**。EM fork `dfae97bc`（頭上表示の残り漏れ2つ = Lua の `set_custom_name_visible` が抑止を完全迂回／`EliteEntity` が `getName()==null` のときしか可視性を解決しないので**永続ボス・チャンク再読み込みで再トラッキングされる個体**は一度も解決し直されない）。**バニラEM装備のドロップはコード側は正しく、配備済み `plugins/EliteMobs/trinityforge.yml` に古い `true` が残っていたのが真因** ── フォークの設定ローダーは「無かったキーだけを追記し既存値は絶対に書き換えない」ので既定値の変更が効かない。修正スクリプト `ops/scripts/fix-elitemobs-drop-config.ps1`（`bc7d86f`、既定ドライラン・`-Apply` で書換・**実行はサーバ停止後にユーザー**）。TF `4a9e75b`（**スレッドのステ表記がステータスidのまま**の真因 = `stats/lore.yml` の表は yml の綴り（ハイフン）でキーなのに引く側だけ `StatKeys.canonical`（スネーク）へ畳んでいて**1件も一致していなかった**。`LoreConfig#displaySpecFor` に突き合わせを閉じ、`TrinityForge#loreComposer()` を公開してフォークが自前連結をやめた）。ArsPaper fork `9f55d35`（GUI ジェスチャーを**下向き+スニーク+右クリック+直近ジャンプ**へ＝真上はチャット出力へ譲った。下向き単独は採掘/耕作/設置と同姿勢なのでジャンプが唯一の安全装置／効果説明の色を6色から灰色固定へ／装備 lore は `・スレッド名【品質】` の1行だけにし明細は**真上+スニーク**でチャットへ＝`ThreadStatChatListener`／装着スレッドの読みを `SocketedThreads` へ共通化）。**既存の装着済み装備は次に GUI で保存した時点で1行要約へ切り替わる** |
