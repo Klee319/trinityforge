@@ -280,6 +280,8 @@
         ])
       ]);
       row.dataset.statKey = key;
+      // 入力欄の上で始まったドラッグは行の並べ替えにしない(理由は guardRowDragFromInputs)。
+      window.guardRowDragFromInputs(row);
 
       row.addEventListener("dragstart", (ev) => {
         dragKey = key;
@@ -356,7 +358,8 @@
           h("span", { text: "所有者行を表示 (show-owner)" })
         ]),
         window.subTitleEl("所有者行テンプレート (owner-line)", ownerDesc),
-        window.richTextInput(B["owner-line"] || "", "minimessage", (v) => { B["owner-line"] = v; })
+        window.richTextInput(B["owner-line"] || "", "minimessage", (v) => { B["owner-line"] = v; },
+          { placeholders: ["owner"] })
       ]));
 
       const reqDesc = window.LABELS && typeof window.LABELS.fieldDesc === "function"
@@ -367,7 +370,9 @@
           h("span", { text: "使用制限行を表示 (show-use-requirement)" })
         ]),
         window.subTitleEl("使用制限行テンプレート (use-requirement-line)", reqDesc),
-        window.richTextInput(B["use-requirement-line"] || "", "minimessage", (v) => { B["use-requirement-line"] = v; })
+        window.richTextInput(B["use-requirement-line"] || "", "minimessage",
+          (v) => { B["use-requirement-line"] = v; },
+          { placeholders: ["level", "skill"] })
       ]));
 
       return card([h("span", { class: "entry-key-label", text: "所有者・使用制限行 (bind)" })], [body]);
@@ -384,7 +389,9 @@
         + "例: <gray><icon><name>：<value></gray>";
       body.appendChild(h("div", { class: "lore-layout-section" }, [
         window.subTitleEl("ステータス表示テンプレート (line-template)", templateDesc),
-        window.richTextInput(L["line-template"] || "", "minimessage", (v) => { L["line-template"] = v; })
+        // 差し込みタグを宣言しないと、出荷値のように <icon> を含む値で GUI モードが常に無効になる。
+        window.richTextInput(L["line-template"] || "", "minimessage", (v) => { L["line-template"] = v; },
+          { placeholders: ["icon", "name", "value"] })
       ]));
 
       // スコア表示テンプレート (品質スコア行)。line-template と同じ GUI/簡易編集 UIUX。
@@ -396,7 +403,8 @@
       body.appendChild(h("div", { class: "lore-layout-section" }, [
         window.subTitleEl("スコア表示テンプレート (score-line-template)", scoreTemplateDesc),
         window.richTextInput(L["score-line-template"] || scoreTemplateDefault, "minimessage",
-          (v) => { L["score-line-template"] = v; })
+          (v) => { L["score-line-template"] = v; },
+          { placeholders: ["tier", "tier-name", "score"] })
       ]));
 
       // 色ルール (colors.fixed / colors.roll)。旧 positive-color/negative-color は互換のため
@@ -550,6 +558,8 @@
               }
             })
           ]);
+          // 入力欄の上で始まったドラッグは行の並べ替えにしない(理由は guardRowDragFromInputs)。
+          window.guardRowDragFromInputs(row);
           row.addEventListener("dragstart", (ev) => {
             dragIdx = idx;
             row.classList.add("dragging");

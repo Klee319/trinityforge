@@ -553,7 +553,38 @@ node ops/scripts/editor-overflow-audit.mjs
   記法が無いため、変換せず呼び出し側にフォールバックさせる。**この分岐が無いと「色を黙って
   落とさない」という既存不変条件が gradient だけ破れる**ので、新しいタグ種別を足すたびに
   この変換関数の分岐漏れが無いか確認すること）。
-- **回帰テスト**: `test/colors-gradient-2026-08-04.test.js`。`items/catalog.yml` の
+## 差し込みタグ（`<icon>`/`<name>`/…）と GUI モード（2026-08-05 修正）
+
+「GUI/簡易が切り替えられない」報告は **`parseMiniMessage().ok === false`** の一点に収束する。
+`ok:false` は `richTextInput` の `remount()` が GUI ボタンを `disabled` にする条件そのもの。
+原因は 2 系統あり、**症状が同じなので切り分けを間違えやすい**。
+
+1. **色でも装飾でもないタグ**（差し込みタグ）。`classifyOpenTag` が `null` を返し未知タグ扱いになる。
+   フィールド側が持つ差し込みタグ名を `richTextInput(value, mode, onInput, { placeholders: [...] })`
+   で宣言すると、`isPlaceholderTag` がそれだけを「閉じタグを持たない text ノード」に落として通す。
+   **allowlist 方式にしているのは意図的**で、GUI で表現できない本物の MiniMessage タグ
+   （`<click:…>`/`<hover:…>`/`<font:…>`）を「ただの文字」に化けさせないため。
+   宣言済み: `line-template`=icon/name/value、`score-line-template`=tier/tier-name/score、
+   `owner-line`=owner、`use-requirement-line`=level/skill。**新しい差し込みタグを持つ
+   フィールドを増やしたら、その呼び出しにも `placeholders` を渡すこと**（渡し忘れると
+   そのフィールドだけ GUI が無効になる）。
+2. **開き／閉じタグの数が合っていない値**。木パーサは未終端タグを `null` にする一方、
+   MiniMessage 自体は未終端を許すので**表示は正常なまま GUI だけ死ぬ**。実例: 出荷
+   `use-requirement-line` が `<gray>…<white>…</white> <gray>…</gray>` で `<gray>` 1 個ぶん
+   閉じておらず、このフィールドだけ常に簡易編集だった（2026-08-05 に yml 側を均衡させて解消。
+   `</white>` の直後は外側 `<gray>` へ戻るので内側の `<gray>` は元から no-op）。
+   **パーサを緩める修正は入れていない**（ロスレス往復の保証が崩れるため）。同種の報告が来たら
+   まず値のタグ均衡を数える。
+
+**行のドラッグ並べ替えと入力欄の取り合い**（`window.guardRowDragFromInputs`, util.js）: 行に
+`draggable=true` が付いていると、中の `<input>` での範囲選択ドラッグが行の並べ替えとして始まり、
+逆に入力欄で選択した状態から掴むと選択テキストのドラッグが優先されて並べ替えが成立しない。
+=「入力中でも行が動く」と「行を移動できないときがある」は**同じ原因の裏表**。対策は入力系要素の
+`mousedown` 中だけ `draggable` を切ること。復帰は `document` の `mouseup` に一度だけ張る
+（行の内側に張ると「選択したまま行の外で離す」経路で `false` のまま固まる）。
+
+- **回帰テスト**: `test/colors-placeholder-tags-2026-08-05.test.js`（差し込みタグ）／
+  `test/colors-gradient-2026-08-04.test.js`。後者は `items/catalog.yml` の
   `binder_*`/`key_binder` 系 gradient 付き display-name 18件全ての
   `serialize(parse(v))===v` 往復、legacy `&r`（リセット、既存の唯一の非対応ケース）と
   未知タグが引き続き `ok:false` のままであること（gradient 以外まで緩めていないこと）を固定する。

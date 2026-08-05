@@ -259,6 +259,37 @@ window.numberInput = function numberInput(value, onInput, opts) {
   });
 };
 
+/**
+ * draggable な行の中に入力欄がある場合の「ドラッグと文字選択の取り合い」を解消する。
+ *
+ * <p>2026-08-05 実サーバ報告2件の共通の真因: 行に {@code draggable=true} が付いていると、
+ * 中の {@code <input>} で範囲選択しようとしたドラッグが<b>行の並べ替えドラッグとして始まってしまい</b>
+ * (「入力中でも行を動かせてしまう / カーソルで範囲選択できない」)、逆に入力欄で文字を選択した状態から
+ * 行を掴むと<b>選択テキストのドラッグが優先されて並べ替えが成立しない</b>
+ * (「上限の行を移動できないときがある」)。
+ *
+ * <p>対策: 入力系要素の上で mousedown している間だけ {@code draggable} を切る。復帰は document の
+ * mouseup に一度だけ張る(入力欄の外で離しても確実に戻すため。行の内側だけに張ると
+ * 「選択したまま外でボタンを離す」経路で false のまま固まる)。
+ *
+ * @param {HTMLElement} row draggable が付いている行要素
+ */
+window.guardRowDragFromInputs = function guardRowDragFromInputs(row) {
+  if (!row || !row.querySelectorAll) return row;
+  const SELECTOR = "input, textarea, select, button, [contenteditable]";
+  row.querySelectorAll(SELECTOR).forEach((el) => {
+    el.addEventListener("mousedown", () => {
+      row.draggable = false;
+      const restore = () => {
+        row.draggable = true;
+        document.removeEventListener("mouseup", restore);
+      };
+      document.addEventListener("mouseup", restore);
+    });
+  });
+  return row;
+};
+
 window.textInput = function textInput(value, onInput, placeholder) {
   return window.h("input", {
     class: "field-input",

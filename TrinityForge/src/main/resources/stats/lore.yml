@@ -35,7 +35,10 @@ bind:
   show-owner: true
   owner-line: "<gray>所有者: <white><owner></white></gray>"
   show-use-requirement: true
-  use-requirement-line: "<gray>必要Lv: <white><level></white> <gray><skill></gray>"
+  # 2026-08-05: 開きタグ3・閉じタグ2で <gray> が閉じておらず、editor のリッチ編集(GUI)が
+  # このフィールドだけ常に無効になっていた(MiniMessage 自体は未終端を許すので表示は正常)。
+  # </white> の直後は外側の <gray> へ戻るので、内側の <gray> は元から no-op = 消しても表示は同じ。
+  use-requirement-line: "<gray>必要Lv: <white><level></white> <skill></gray>"
 stats:
   attack-power:
     name: 攻撃力

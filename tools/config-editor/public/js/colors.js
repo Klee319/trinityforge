@@ -238,7 +238,7 @@
   // 閉じタグは (名前照合せず) スタック最上位を1段閉じるものとして扱う。これにより <b></i> のような
   // 実際の記法ゆれも「原文どおりに」ロスレス往復できる (原文をそのまま echo するだけのため)。
   // 未対応タグ / 迷子の閉じタグ / 未終端のタグは全体を null で不可判定にする。
-  function parseNodesMM(s, i, stack) {
+  function parseNodesMM(s, i, stack, placeholders) {
     const nodes = [];
     while (i < s.length) {
       if (s[i] === "<") {
@@ -250,8 +250,20 @@
         }
         const openRaw = s.slice(i, gt + 1);
         const info = classifyOpenTag(openRaw);
-        if (!info) return null; // 未知タグ等は非対応
-        const child = parseNodesMM(s, gt + 1, stack.concat([info]));
+        if (!info) {
+          // 2026-08-05: そのフィールドが宣言した差し込みタグ(<icon> <name> <value> 等)は
+          // 閉じタグを持たない「ただの文字」として扱う。以前は未知タグとして非対応判定になり、
+          // 出荷の line-template のように差し込みタグを含む値では GUI モードが常に無効
+          // (「対応外のタグ/装飾があるため GUI に切り替えられません」)になっていた。
+          // text ノードとして原文をそのまま持つのでロスレス往復も崩れない。
+          if (isPlaceholderTag(openRaw, placeholders)) {
+            nodes.push({ kind: "text", text: openRaw });
+            i = gt + 1;
+            continue;
+          }
+          return null; // 未知タグ等は非対応
+        }
+        const child = parseNodesMM(s, gt + 1, stack.concat([info]), placeholders);
         if (!child) return null;
         const extra = info.kind === "color" ? { color: info.color }
           : info.kind === "gradient" ? { gradientArgs: info.args }
@@ -273,17 +285,35 @@
     return { nodes, endIndex: i, closeRaw: null };
   }
 
-  function tryParseMiniMessage(s) {
-    const result = parseNodesMM(s, 0, []);
+  /**
+   * そのフィールドが差し込みタグとして宣言した名前か。
+   *
+   * <p>allowlist 方式にしているのは、GUI で表現できない本物の MiniMessage タグ
+   * ({@code <click:...>} / {@code <hover:...>} / {@code <font:...>} 等)まで「ただの文字」に
+   * 化けさせないため。宣言はフィールド側の責務(呼び出し元が placeholders を渡す)で、
+   * 渡されなければ従来どおり全ての未知タグが非対応判定になる。
+   */
+  function isPlaceholderTag(openRaw, placeholders) {
+    if (!placeholders || !placeholders.length) return false;
+    const inner = openRaw.slice(1, -1).trim().toLowerCase();
+    if (!inner) return false;
+    for (let i = 0; i < placeholders.length; i++) {
+      if (String(placeholders[i]).trim().toLowerCase() === inner) return true;
+    }
+    return false;
+  }
+
+  function tryParseMiniMessage(s, placeholders) {
+    const result = parseNodesMM(s, 0, [], placeholders);
     return result ? result.nodes : null;
   }
 
   // parseMiniMessage(str) → { ok, segments, raw }
   //   segments は木構造のノード配列。ok=true のときのみリッチ編集可能。ok=false は raw フォールバック。
   //   parse 成功後に再シリアライズして原文一致を検証する (ロスレス保証)。
-  function parseMiniMessage(str) {
+  function parseMiniMessage(str, placeholders) {
     const raw = String(str == null ? "" : str);
-    const attempt = tryParseMiniMessage(raw);
+    const attempt = tryParseMiniMessage(raw, placeholders);
     if (attempt && serializeMiniMessage(attempt) === raw) {
       return { ok: true, segments: attempt, raw };
     }
@@ -291,9 +321,9 @@
   }
 
   // プレビュー専用: 往復一致に失敗しても木が取れれば着色表示する (保存はしない)。
-  function parseMiniMessageForPreview(str) {
+  function parseMiniMessageForPreview(str, placeholders) {
     const raw = String(str == null ? "" : str);
-    const attempt = tryParseMiniMessage(raw);
+    const attempt = tryParseMiniMessage(raw, placeholders);
     if (attempt) return { ok: true, segments: attempt, raw };
     return { ok: false, segments: [{ kind: "text", text: raw }], raw };
   }
@@ -706,16 +736,19 @@
   //
   // UIモード: GUI (既定・着色パレット) / 簡易 (タグ生テキスト)。いつでも切替可能。
   // 未対応タグで GUI 解析不能なときは簡易へフォールバックし、GUI ボタンは無効化する。
-  function richTextInput(value, mode, onInput) {
+  function richTextInput(value, mode, onInput, opts) {
     const host = h("span", { class: "rich-host" });
     let current = value == null ? "" : String(value);
     // "gui" | "simple" — 既定は GUI。解析不能なら自動で simple。
     let uiMode = "gui";
     let simpleInput = null;
     let guiSerialize = null;
+    // 2026-08-05: そのフィールドが持つ差し込みタグ名(<icon> <name> <value> 等)。
+    // 宣言すると GUI モードでも「ただの文字」として通る(理由は isPlaceholderTag)。
+    const placeholders = opts && Array.isArray(opts.placeholders) ? opts.placeholders : null;
 
     function parseCurrent() {
-      return mode === "minimessage" ? parseMiniMessage(current) : parseLegacy(current);
+      return mode === "minimessage" ? parseMiniMessage(current, placeholders) : parseLegacy(current);
     }
 
     function notify(v) {
