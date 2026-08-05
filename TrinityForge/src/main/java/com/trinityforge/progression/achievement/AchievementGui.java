@@ -40,9 +40,16 @@ import java.util.Objects;
  * {@code /achievement} — アチーブメントの進捗をノード＋分岐で見るGUI (2026-07-29)。
  *
  * <p>スキルツリーGUI({@code NativeSkillTreeMenu})と同じ流儀にそろえてある:
- * 54枠のうち 9x5=45 枠がキャンバス、外周8か所が視点移動、タイトルはリソースパックの
- * カスタムフォントで枠を消す。コネクタ形状もスキルツリーと同じ {@code gui/connection/*} を使う
- * ので、<b>新しいテクスチャは要らない</b>。
+ * 54枠のうち 9x5=45 枠がキャンバス、タイトルはリソースパックのカスタムフォントで枠を消す。
+ * コネクタ形状もスキルツリーと同じ {@code gui/connection/*} を使うので、
+ * <b>新しいテクスチャは要らない</b>。
+ *
+ * <p><b>2026-08-06(W-31): 操作系をスキルツリーと完全に同じ配置へ揃えた。</b>
+ * ①8方向の視点移動をキャンバスの<b>四隅と辺の中央</b>(スロット 0/4/8/18/26/36/40/44)へ移し、
+ * ②最下段(45-52)を<b>系統(ルート実績)の切替バー</b>にした(スキルツリーのスキル選択バーと同じ位置・
+ * 同じ「選択中を中央に置いて巡回」動作)。達成状況の本は最下段右端(53)へ。
+ * ③ツリーは<b>ルートから上へ伸びる</b>({@link AchievementCanvas.AchievementLayout})。
+ * 同じ操作系のGUIで伸びる向きだけ逆だと、上下の矢印の意味が画面ごとに入れ替わってしまう。
  *
  * <p><b>2026-08-04: 手動解放方式に変更した</b>(ロードマップを見に行く習慣づけが目的)。条件成立
  * (達成)だけでは報酬は付かず、GUIで明示的に解放してはじめて報酬が入る。クリック操作も
@@ -56,35 +63,42 @@ public final class AchievementGui implements Listener {
     private static final Component MENU_TITLE = Component.text("", NamedTextColor.WHITE)
             .font(Key.key("trinityforge", "skill_gui"));
     /**
-     * 移動ボタン配置(2026-07-30 左右対称化)。最下段9枠を、中央の達成状況アイコン(48→49)を軸に
-     * 左右対称へ組み替えた。上(北)と下(南)がその本アイコンを挟む形になる。
+     * 移動ボタン配置(2026-08-06, W-31 でスキルツリーと同一の操作系へ移した)。
+     * 8方向はビューポート(0-44)の<b>四隅と辺の中央</b>に置く
+     * ({@code NativeSkillTreeMenu.NAVIGATION_SLOTS} と同じスロット番号):
      *
      * <pre>
-     *   45   46   47   48   49   50   51   52   53
-     *   ↖    ←    ↙    ↑   [本]   ↓    ↘    →    ↗
+     *    0 ‥‥ 4 ‥‥ 8      ↖  ↑  ↗
+     *   18       26   →    ←     →
+     *   36 ‥ 40 ‥ 44      ↙  ↓  ↘
      * </pre>
-     * 水平の鏡像対: 45↔53(↖↗) / 46↔52(←→) / 47↔51(↙↘)、48↔50 が上下ペア。
-     * 以前は 48 に本、49 が↑、50 が↓ で、本が中央から1枠ずれて左右非対称になっていた。
+     *
+     * <p>2026-07-30〜08-05 は最下段9枠(45-53)に8方向＋達成状況の本を並べていたが、
+     * 最下段は<b>系統(ルート実績)の切替バー</b>へ明け渡した(スキルツリーのスキル選択バーと同じ位置・
+     * 同じ操作)。達成状況の本は最下段右端(53)へ移動 — スキルツリーが同じ位置にモード切替を
+     * 固定しているのに合わせ、「バーの右端は常に固定ボタン」で揃えた。
      */
-    private static final int SUMMARY_SLOT = 49;
+    private static final int SUMMARY_SLOT = 53;
+    /** 系統切替バーの中央スロット。選択中の系統がここに来る(バーは 45-52 の8枠 = offset -4..3)。 */
+    private static final int HEAD_BAR_CENTER = 49;
     private static final Map<Integer, int[]> NAVIGATION = Map.of(
-            45, new int[]{-1, -1},
-            48, new int[]{0, -1},
-            53, new int[]{1, -1},
-            46, new int[]{-1, 0},
-            52, new int[]{1, 0},
-            47, new int[]{-1, 1},
-            50, new int[]{0, 1},
-            51, new int[]{1, 1});
+            0, new int[]{-1, -1},
+            4, new int[]{0, -1},
+            8, new int[]{1, -1},
+            18, new int[]{-1, 0},
+            26, new int[]{1, 0},
+            36, new int[]{-1, 1},
+            40, new int[]{0, 1},
+            44, new int[]{1, 1});
     private static final Map<Integer, String> NAVIGATION_MODELS = Map.of(
-            45, "move-nw",
-            48, "move-n",
-            53, "move-ne",
-            46, "move-w",
-            52, "move-e",
-            47, "move-sw",
-            50, "move-s",
-            51, "move-se");
+            0, "move-nw",
+            4, "move-n",
+            8, "move-ne",
+            18, "move-w",
+            26, "move-e",
+            36, "move-sw",
+            40, "move-s",
+            44, "move-se");
     private static final Material DEFAULT_ICON = Material.PAPER;
 
     private final Plugin plugin;
@@ -95,6 +109,12 @@ public final class AchievementGui implements Listener {
     private final NamespacedKey navKeyX;
     private final NamespacedKey navKeyY;
     private final NamespacedKey focusKey;
+    /**
+     * 系統切替バーのボタンに刻む起点ID(2026-08-06, W-31)。{@link #focusKey} と分けているのは、
+     * バーのクリックが解放(claim)の確認フローへ流れ込まないようにするため
+     * (同じキーにすると、達成済みの起点をバーで選んだだけで解放が確定してしまう)。
+     */
+    private final NamespacedKey headKey;
 
     /** 後方互換コンストラクタ(既存呼び出し元用): 解放操作は無効(fail-soft、クリックしても解放できない)。 */
     public AchievementGui(Plugin plugin, AchievementsConfig config,
@@ -117,6 +137,7 @@ public final class AchievementGui implements Listener {
         this.navKeyX = new NamespacedKey(plugin, "achievement_nav_x");
         this.navKeyY = new NamespacedKey(plugin, "achievement_nav_y");
         this.focusKey = new NamespacedKey(plugin, "achievement_focus");
+        this.headKey = new NamespacedKey(plugin, "achievement_head");
     }
 
     public void open(Player player) {
@@ -138,17 +159,21 @@ public final class AchievementGui implements Listener {
             player.sendMessage(Component.text("アチーブメント設定が不正です。", NamedTextColor.RED));
             return;
         }
-        render(player, canvas, focusId == null ? canvas.start() : canvas.focusOn(focusId), null);
+        render(player, canvas, focusId == null ? canvas.start() : canvas.focusOn(focusId), null, null);
     }
 
-    private void render(Player player, AchievementCanvas canvas, AchievementCanvas.Point center) {
-        render(player, canvas, center, null);
-    }
-
-    /** @param pendingId 確認待ち(1クリック目)のアチーブメントID。無ければ {@code null}。 */
-    private void render(Player player, AchievementCanvas canvas, AchievementCanvas.Point center, String pendingId) {
+    /**
+     * @param pendingId      確認待ち(1クリック目)のアチーブメントID。無ければ {@code null}
+     * @param selectedHeadId 最下段の系統切替バーで選択中の系統。{@code null} なら先頭の系統
+     */
+    private void render(Player player, AchievementCanvas canvas, AchievementCanvas.Point center,
+                        String pendingId, String selectedHeadId) {
         AchievementCanvas.Point safe = canvas.clamp(center);
-        Session holder = new Session(safe, pendingId);
+        List<String> heads = AchievementCanvas.branchHeadIds(config.achievements());
+        String head = selectedHeadId != null && heads.contains(selectedHeadId)
+                ? selectedHeadId
+                : (heads.isEmpty() ? null : heads.getFirst());
+        Session holder = new Session(safe, pendingId, head);
         Inventory inventory = plugin.getServer().createInventory(holder, 54, MENU_TITLE);
         holder.inventory = inventory;
 
@@ -162,11 +187,89 @@ public final class AchievementGui implements Listener {
                 inventory.setItem(entry.getKey(), connectorIcon(connector, achieved, claimed));
             }
         }
+        // 8方向はビューポートの上に重ねる(スキルツリーと同じで、そのセルの中身は隠れる)。
         for (Map.Entry<Integer, int[]> nav : NAVIGATION.entrySet()) {
             inventory.setItem(nav.getKey(), navButton(nav.getKey(), nav.getValue()));
         }
+        renderHeadBar(inventory, heads, head, achieved, claimed);
         inventory.setItem(SUMMARY_SLOT, summaryIcon(achieved, claimed, canvas));
         player.openInventory(inventory);
+    }
+
+    /**
+     * 最下段の系統(ルート実績)切替バー(2026-08-06, W-31)。スキルツリーの
+     * {@code renderSkillSelector} と同じく、選択中を中央({@link #HEAD_BAR_CENTER})に置いて
+     * 前後を巡回表示する。系統が8つ未満なら同じ系統が繰り返し出る(バーに穴を空けない)。
+     */
+    private void renderHeadBar(Inventory inventory, List<String> heads, String selectedHeadId,
+                               List<String> achieved, List<String> claimed) {
+        if (heads.isEmpty()) {
+            return;
+        }
+        int selected = Math.max(0, heads.indexOf(selectedHeadId));
+        for (int offset = -4; offset <= 3; offset++) {
+            String headId = heads.get(Math.floorMod(selected + offset, heads.size()));
+            inventory.setItem(HEAD_BAR_CENTER + offset,
+                    headIcon(headId, offset == 0, achieved, claimed));
+        }
+    }
+
+    /** 系統切替バーの1枠。そのルート実績のアイコン・達成状況・配下の進捗を出す。 */
+    private ItemStack headIcon(String headId, boolean selected, List<String> achieved, List<String> claimed) {
+        Achievement achievement = achievementById(headId);
+        ItemStack stack = achievement == null
+                ? new ItemStack(DEFAULT_ICON)
+                : buildBase(achievement.icon(), resolveIconMaterial(achievement.icon()));
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return stack;
+        }
+        String label = achievement == null ? headId : MiniText.plain(achievement.displayName());
+        meta.displayName(plain(label, selected ? NamedTextColor.GOLD : NamedTextColor.WHITE));
+        List<String> section = sectionIds(headId);
+        long done = section.stream().filter(achieved::contains).count();
+        long got = section.stream().filter(claimed::contains).count();
+        meta.lore(List.of(
+                plain("この系統: " + section.size() + "件", NamedTextColor.GRAY),
+                plain("達成: " + done + " / 解放: " + got, NamedTextColor.GRAY),
+                plain(selected ? "表示中の系統" : "クリックでこの系統へ移動",
+                        selected ? NamedTextColor.DARK_GRAY : NamedTextColor.YELLOW)));
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS);
+        meta.getPersistentDataContainer().set(headKey, PersistentDataType.STRING, headId);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    private Achievement achievementById(String id) {
+        for (Achievement achievement : config.achievements()) {
+            if (achievement.id().equals(id)) {
+                return achievement;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * {@code headId} を起点に {@code parent} 鎖でたどれる子孫(自分を含む)。
+     * 別の系統の起点に当たったらそこで打ち切る(系統ごとの件数を出すため)。循環しても止まる。
+     */
+    private List<String> sectionIds(String headId) {
+        List<String> heads = AchievementCanvas.branchHeadIds(config.achievements());
+        List<String> section = new ArrayList<>();
+        java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>(List.of(headId));
+        java.util.Set<String> seen = new java.util.HashSet<>(List.of(headId));
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            section.add(current);
+            for (Achievement achievement : config.achievements()) {
+                if (current.equals(achievement.parent())
+                        && !heads.contains(achievement.id())
+                        && seen.add(achievement.id())) {
+                    queue.add(achievement.id());
+                }
+            }
+        }
+        return section;
     }
 
     /** 解放済みID一覧。{@link #achievementService} 未注入なら移行なしでPDCをそのまま読む(fail-soft)。 */
@@ -187,7 +290,8 @@ public final class AchievementGui implements Listener {
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(plain("達成状況: " + done + " / " + total, NamedTextColor.GOLD));
         List<Component> lore = new ArrayList<>();
-        lore.add(plain("矢印で視点を動かせます。", NamedTextColor.GRAY));
+        lore.add(plain("四隅・辺の矢印で視点を動かせます。", NamedTextColor.GRAY));
+        lore.add(plain("最下段のアイコンで系統を切り替えます。", NamedTextColor.GRAY));
         lore.add(plain("ノードをクリックすると中央に寄せます。", NamedTextColor.DARK_GRAY));
         if (unclaimed > 0) {
             lore.add(plain("解放待ち: " + unclaimed + "件（対象ノードをクリック）", NamedTextColor.GOLD));
@@ -515,6 +619,7 @@ public final class AchievementGui implements Listener {
         Integer dx = pdc.get(navKeyX, PersistentDataType.INTEGER);
         Integer dy = pdc.get(navKeyY, PersistentDataType.INTEGER);
         String focus = pdc.get(focusKey, PersistentDataType.STRING);
+        String head = pdc.get(headKey, PersistentDataType.STRING);
         // openInventory を InventoryClickEvent の処理中に呼ぶのは Bukkit のアンチパターン
         // (ゴーストカーソル/クライアント desync)。必ず次tickへ逃がす。
         plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -529,7 +634,10 @@ public final class AchievementGui implements Listener {
             }
             if (dx != null && dy != null) {
                 // 視点移動は保留中の解放操作を打ち切る(スキルツリーの move と同じ規則)。
-                render(player, canvas, canvas.move(session.center, dx, dy), null);
+                render(player, canvas, canvas.move(session.center, dx, dy), null, session.headId);
+            } else if (head != null) {
+                // 系統切替バー: その起点を中央に寄せ、バーの選択も動かす(解放操作は挟まない)。
+                render(player, canvas, canvas.focusOn(head), null, head);
             } else if (focus != null) {
                 handleNodeClick(player, session, canvas, focus);
             }
@@ -547,23 +655,23 @@ public final class AchievementGui implements Listener {
         boolean isClaimed = claimed.contains(achievementId);
         boolean isAchieved = achieved.contains(achievementId);
         if (isClaimed || !isAchieved) {
-            render(player, canvas, canvas.focusOn(achievementId), null);
+            render(player, canvas, canvas.focusOn(achievementId), null, session.headId);
             return;
         }
         if (!achievementId.equals(session.pendingId)) {
             // 1クリック目: 解放の確認待ちにする。
-            render(player, canvas, canvas.focusOn(achievementId), achievementId);
+            render(player, canvas, canvas.focusOn(achievementId), achievementId, session.headId);
             return;
         }
         // 2クリック目: 解放を確定する。
         if (achievementService == null) {
             player.sendMessage(Component.text("現在アチーブメントを解放できません。", NamedTextColor.RED));
-            render(player, canvas, canvas.focusOn(achievementId), null);
+            render(player, canvas, canvas.focusOn(achievementId), null, session.headId);
             return;
         }
         AchievementService.ClaimResult result = achievementService.claim(player, achievementId);
         player.sendMessage(claimResultMessage(result));
-        render(player, canvas, canvas.focusOn(achievementId), null);
+        render(player, canvas, canvas.focusOn(achievementId), null, session.headId);
     }
 
     private static Component claimResultMessage(AchievementService.ClaimResult result) {
@@ -586,11 +694,18 @@ public final class AchievementGui implements Listener {
         private final AchievementCanvas.Point center;
         /** 確認待ち(1クリック目)のアチーブメントID。無ければ {@code null}。 */
         private final String pendingId;
+        /**
+         * 最下段の系統切替バーで選択中の起点(2026-08-06, W-31)。
+         * ノードを直接クリックして別系統へ飛んでもバーは動かさない(スキルツリーの
+         * スキル選択バーと同じで、バーが回るのはバーを押したときだけ)。
+         */
+        private final String headId;
         private Inventory inventory;
 
-        private Session(AchievementCanvas.Point center, String pendingId) {
+        private Session(AchievementCanvas.Point center, String pendingId, String headId) {
             this.center = center;
             this.pendingId = pendingId;
+            this.headId = headId;
         }
 
         @Override

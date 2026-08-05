@@ -374,6 +374,27 @@ try節の外に置くとテストが「失敗」ではなく「中断（SKIPPED�
 **`type: statistic` + `statistic-qualifier` で書き直す**のが正解
 （例: `minecraft:story/mine_stone` → `statistic: MINE_BLOCK` / `statistic-qualifier: STONE`）。
 
+### `/tf achievement` GUI はスキルツリーGUIと同じ配置・同じ操作系（2026-08-06, W-31）
+
+| 枠 | 中身 |
+|---|---|
+| 0-44 | キャンバス（9x5 ビューポート。`AchievementCanvas`） |
+| 0 / 4 / 8 / 18 / 26 / 36 / 40 / 44 | 8方向の視点移動（`NativeSkillTreeMenu.NAVIGATION_SLOTS` と**同じスロット番号**） |
+| 45-52 | 系統（ルート実績）切替バー。選択中を 49（中央）に置いて巡回 |
+| 53 | 達成状況の本（固定枠。スキルツリーが同じ位置にモード切替を固定しているのに合わせた） |
+
+- **ツリーはルートから上へ伸びる。** `AchievementLayout` が `y = -depth * STEP` で置く。y の意味
+  （下方向が正）は変えていないので、**明示 `coords` は書いた値がそのまま効く**。
+  向きを揃えたのは、同じ操作系のGUIで伸びる方向だけ逆だと上下矢印の意味が画面ごとに入れ替わるため。
+- **系統バーに並ぶのは `AchievementCanvas.branchHeadIds`** = 前提を持たないルート ＋
+  （そのルートが2つ以上の子を持つ場合は）その子。**ルートだけを並べてはいけない**: 出荷configの
+  真のルートは `main` 1件だけで、それだけだとバーがボタン1個になり「スクロール切替」が成立しない。
+- **バーのボタンは `achievement_head`、キャンバスのノードは `achievement_focus`** と PDC キーを
+  分けてある。同じキーにすると、達成済みの起点をバーで選んだだけで**解放（claim）が確定してしまう**
+  （ノードのクリックは2回目で解放を確定する経路なので）。
+- 縛っているのは `AchievementGuiLayoutTest`（スロット番号そのもの＋バーが claim へ流れないこと）と
+  `AchievementCanvasTest`（伸びる向き・系統バーの並び）。
+
 ### アチーブメントの確定仕様
 
 - 前提（`parent`単一/`parents-any`複数）は「達成そのものを縛る」。前提未達成の間はトリガー条件を満たしても達成にならず報酬も出ない。`parent`と`parents-any`は両方書いてもOR（どちらか1つで開く）。

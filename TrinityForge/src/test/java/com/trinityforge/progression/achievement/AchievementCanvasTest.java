@@ -57,7 +57,8 @@ class AchievementCanvasTest {
     }
 
     @Test
-    void childrenSitBelowTheirParent() {
+    void childrenSitAboveTheirParent() {
+        // 2026-08-06(W-31): スキルツリーに合わせて「ルートから上へ伸ばす」へ反転した。
         List<Achievement> achievements = List.of(
                 achievement("root", "", null, List.of()),
                 achievement("child", "", "root", List.of()));
@@ -66,7 +67,7 @@ class AchievementCanvasTest {
 
         int rootY = canvas.nodes().get("root").point().y();
         int childY = canvas.nodes().get("child").point().y();
-        assertTrue(childY > rootY, "y は下方向に増えるので、子は親より下 (root=" + rootY + ", child=" + childY + ")");
+        assertTrue(childY < rootY, "y は下方向に増えるので、子は親より上 (root=" + rootY + ", child=" + childY + ")");
     }
 
     @Test
@@ -78,11 +79,48 @@ class AchievementCanvasTest {
         AchievementCanvas canvas = AchievementCanvas.project(achievements);
 
         // 正規化で全体が平行移動するので絶対値ではなく相対関係で見る。
-        // root は coords:10,4 で固定、child は自動配置(深さ1 → y=2)なので差は 4-2=2。
+        // root は coords:10,4 で固定、child は自動配置(深さ1 → y=-2)なので差は 4-(-2)=6。
         AchievementCanvas.Point root = canvas.nodes().get("root").point();
         AchievementCanvas.Point child = canvas.nodes().get("child").point();
-        assertEquals(2, root.y() - child.y(), "明示 coords が自動配置に上書きされないこと");
+        assertEquals(6, root.y() - child.y(), "明示 coords が自動配置に上書きされないこと");
         assertEquals(10 - 0, root.x() - child.x(), "x も明示値がそのまま効くこと");
+    }
+
+    /**
+     * 系統切替バー(W-31)の並び。出荷configは真のルートが {@code main} 1件だけなので、
+     * ルートしか並べないとバーがボタン1個になり「スクロール切替」が成立しない。
+     */
+    @Test
+    void branchHeadsIncludeTheRootAndTheForkBelowItSoTheBarIsNotASingleButton() {
+        List<Achievement> achievements = List.of(
+                achievement("main", "", null, List.of()),
+                achievement("life", "", "main", List.of()),
+                achievement("life2", "", "life", List.of()),
+                achievement("war", "", "main", List.of()),
+                achievement("delve", "", "main", List.of()));
+
+        assertEquals(List.of("main", "life", "war", "delve"),
+                AchievementCanvas.branchHeadIds(achievements));
+    }
+
+    @Test
+    void aRootWithASingleChildDoesNotTurnThatChildIntoABranchHead() {
+        List<Achievement> achievements = List.of(
+                achievement("root", "", null, List.of()),
+                achievement("only", "", "root", List.of()));
+
+        assertEquals(List.of("root"), AchievementCanvas.branchHeadIds(achievements));
+    }
+
+    @Test
+    void everyRootIsABranchHeadEvenWhenThereAreSeveral() {
+        List<Achievement> achievements = List.of(
+                achievement("a", "", null, List.of()),
+                achievement("b", "", "does-not-exist", List.of()),
+                achievement("c", "", "a", List.of()));
+
+        assertEquals(List.of("a", "b"), AchievementCanvas.branchHeadIds(achievements),
+                "不明な前提を持つノードもルート扱い(自動配置と同じ規則)");
     }
 
     @Test
@@ -206,6 +244,6 @@ class AchievementCanvasTest {
                 achievement("child", "", "root", List.of())));
 
         assertEquals(new Coord(6, 0), coords.get("root"));
-        assertEquals(2, coords.get("child").y(), "子は深さ1 (STEP=2) の行に来ること");
+        assertEquals(-2, coords.get("child").y(), "子は深さ1 (STEP=2) ぶん上の行に来ること");
     }
 }
