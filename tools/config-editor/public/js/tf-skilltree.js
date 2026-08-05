@@ -601,9 +601,36 @@
     return box;
   }
 
+  /**
+   * 説明文(description)の書き戻し規則。**空にするときは旧 effect-text も消す。**
+   *
+   * TF 側 (SkillTreeConfig#description) は `description` が無い/空白のときだけ旧
+   * `effect-text` へフォールバックする。つまり description を消しただけでは説明は消えず、
+   * 空文字を書いても (nullableString が空文字を null 扱いするため) 同じくフォールバックする。
+   *
+   * さらに悪いことに、**description を持たず effect-text だけを持つノード**(archery /
+   * ars_magic / light_armor など、出荷 yml の大半)では `delete obj.description` が
+   * no-op になる。working に差分が一切出ないので isEditorDirty() が false のままになり、
+   * 画面を移動しても未保存警告が出ず、保存ボタンは「自分の変更はありません」と言って
+   * サーバの内容を読み直す ── 全行削除が黙って捨てられていた (2026-08-05 修正)。
+   *
+   * @param {object} obj    ノード or プレステージのマップ
+   * @param {string} joined 全行を \n で結合した説明文 ("" = 説明なし)
+   */
+  function applyDescription(obj, joined) {
+    if (joined === "") {
+      delete obj.description;
+      delete obj["effect-text"];
+      return;
+    }
+    obj.description = joined;
+  }
+  // 単体テスト用に公開 (DOM ハーネス無しで書き戻し規則そのものを検証する)。
+  window.applySkillNodeDescription = applyDescription;
+
   // 要件⑤: 自由記述の説明(description)。obj.description を正とし、無ければ
   // obj["effect-text"](旧キー)を初期表示だけに使う。編集すると必ず obj.description に書く
-  // (旧 effect-text キーには一切触れない。既存データがあれば温存されたまま残る)。
+  // (空にしたときだけ旧 effect-text も消す。理由は applyDescription)。
   function descriptionSection(obj) {
     const initial = typeof obj.description === "string" ? obj.description
         : (typeof obj["effect-text"] === "string" ? obj["effect-text"] : "");
@@ -613,9 +640,7 @@
     const lines = initial === "" ? [] : initial.split("\n");
     const usedLegacyFallback = typeof obj.description !== "string" && typeof obj["effect-text"] === "string";
     function sync() {
-      const joined = lines.join("\n");
-      if (joined === "") delete obj.description;
-      else obj.description = joined;
+      applyDescription(obj, lines.join("\n"));
     }
     const rowsHost = h("div", { class: "lore-rows-host" });
     function rerenderRows() {

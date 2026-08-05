@@ -1513,8 +1513,18 @@
       for (const role of Object.values(host || {})) {
         if (!role || typeof role !== "object") continue;
         if (Array.isArray(role.description)) {
-          const lines = role.description.filter((line) => String(line == null ? "" : line) !== "");
-          if (lines.length) role.description = lines; else delete role.description;
+          // **配列は差し替えず in-place で刈る。** 説明文の行エディタ(renderLoreRows)は
+          // 描画時に role.description を掴んでから list[idx] = v で書き込むため、
+          // ここで新しい配列へ差し替えると掴んでいた方が孤児になり、以後その行の編集が
+          // working に届かない。getData は画面を開いた直後(app.js syncBaseFromEditor)と
+          // beforeunload のたびに呼ばれるので、「開いてから最初の1回の編集だけが
+          // 未保存警告も出さずに消える」形で出る (2026-08-05 修正。レベルテーブルの
+          // pruneEmptyNoSkillExpMobs と同じ壊れ方)。
+          const lines = role.description;
+          for (let i = lines.length - 1; i >= 0; i--) {
+            if (String(lines[i] == null ? "" : lines[i]) === "") lines.splice(i, 1);
+          }
+          if (!lines.length) delete role.description;
         }
       }
     }

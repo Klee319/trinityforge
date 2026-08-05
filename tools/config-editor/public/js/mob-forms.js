@@ -893,18 +893,36 @@
   // 2026-07-26 改名: 旧名 pruneEmptyAddDropsMobs。2026-07-25 の初版は add-drops[].mobs だけが対象
   // だったが、その後 帯レベルの mobs/mob-ids と mob-ids 全般へ守備範囲が広がったため、名前が実態より
   // 狭いままになっていた(「add-drops の中しか刈らない」と読めてしまう)。
+  /**
+   * 配列の「空要素刈り取り + 正規化」を**同じ配列オブジェクトのまま**行う。
+   *
+   * ここを `arr = arr.map().filter()` で書くと**配列の同一性が壊れる**。行エディタ
+   * (buildAddDropMobsBox / buildNoSkillExpMobsBox 等) は描画時に `working[...]` の配列を
+   * ローカル変数へ掴んでから `list[idx] = v` で書き込むため、getData の中で配列を
+   * 差し替えると掴んでいた方が**孤児**になり、以後その行の編集が working に届かない。
+   * getData は画面を開いた直後 (app.js syncBaseFromEditor) と beforeunload のたびに
+   * 呼ばれるので、「開いてから最初の1回の編集だけが黙って消える」という形で出る
+   * (未保存判定 isEditorDirty も差分を見つけられないので警告すら出ない)。2026-08-05 修正。
+   *
+   * @returns {number} 刈り取り後の要素数
+   */
+  function normalizeStringArrayInPlace(arr) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const v = String(arr[i] == null ? "" : arr[i]).trim();
+      if (v === "") arr.splice(i, 1);
+      else arr[i] = v;
+    }
+    return arr.length;
+  }
+
   function pruneEmptyMobSelections(tiers) {
     function pruneHost(host) {
       if (!host || typeof host !== "object") return;
       if (Array.isArray(host.mobs)) {
-        host.mobs = host.mobs.filter((v) => String(v == null ? "" : v).trim() !== "");
-        if (host.mobs.length === 0) delete host.mobs;
+        if (normalizeStringArrayInPlace(host.mobs) === 0) delete host.mobs;
       }
       if (Array.isArray(host["mob-ids"])) {
-        host["mob-ids"] = host["mob-ids"]
-          .map((v) => String(v == null ? "" : v).trim())
-          .filter((v) => v !== "");
-        if (host["mob-ids"].length === 0) delete host["mob-ids"];
+        if (normalizeStringArrayInPlace(host["mob-ids"]) === 0) delete host["mob-ids"];
       }
     }
     for (const tier of Array.isArray(tiers) ? tiers : []) {
@@ -917,13 +935,15 @@
   // 2026-07-27 牧場対策: no-skill-exp-mobs(トップレベル、tiers とは独立)の空文字/空配列刈り取り。
   // pruneEmptyMobSelections と同じ流儀(未選択行を捨て、結果が空ならキーごと消す)だが、こちらは
   // working 直下の単一キーが対象なのであえて共通化せず単独の純関数として置く。
+  // 配列の差し替えではなく in-place で刈る理由は normalizeStringArrayInPlace のコメント参照
+  // (差し替えると buildNoSkillExpMobsBox が掴んだ配列が孤児になり、開いた直後の1回目の
+  //  編集が未保存警告も出さずに消える)。
   function pruneEmptyNoSkillExpMobs(working) {
     if (!working || typeof working !== "object") return;
     if (!Array.isArray(working["no-skill-exp-mobs"])) return;
-    working["no-skill-exp-mobs"] = working["no-skill-exp-mobs"]
-      .map((v) => String(v == null ? "" : v).trim())
-      .filter((v) => v !== "");
-    if (working["no-skill-exp-mobs"].length === 0) delete working["no-skill-exp-mobs"];
+    if (normalizeStringArrayInPlace(working["no-skill-exp-mobs"]) === 0) {
+      delete working["no-skill-exp-mobs"];
+    }
   }
 
   window.buildMobLevelTableForm = function buildMobLevelTableForm(data) {
