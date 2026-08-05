@@ -216,6 +216,56 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
   このピンを付け忘れていたため `__stats_thread__` タブが「空に見える」不具合になっていた
   （実際は `items:` には存在するが、表示タブの解決が別レイヤーだったのが原因）。
 
+### 武器種の校正は「同系列の剣に対する実効DPS比」で見る（2026-08-05 W-32/W-34/W-35）
+
+**実効DPS = `perHit × min(attack-speed, 2.0)` + 出血の定常値**。導出の要点:
+
+- `min(attack-speed, 2.0)`。被弾側の無敵時間は `LivingEntity.invulnerableDuration(20) / 2 = 10 tick` で
+  TF はここを触っていないので、**同一の敵へ入る有効打は毎秒2発が上限**。
+  `attack-speed` に 2.0 超を書いても表示だけで実効は伸びない（出荷には 4.12 が4本あった）。
+- `MeleeChargeMultiplier` はフルチャージで 1.0 になるので、最適な振り間隔は `T = 20/AS`。
+  出荷 `melee-charge`（min 0.1 / exp 1.6）では**連打の方が得になるのは `attack-speed < 0.28` の
+  遠隔勢だけ**なので、近接は上の式で足りる（`AS = 0.408` でも full charge が最適）。
+- 比の分母は必ず**同じ系列の剣**。Lv100 には binder / infinity / emberforge / abyss / cryocore / hero
+  の6系列が並び、系列ごとに強さが違う（hero は infinity の約6割）。「同レベル帯で最強の剣」を分母に
+  すると弱い系列の武器を系列内の剣より強く見積もる（一度これで hero_mace を 1.5 倍にした）。
+
+**⚠ `combat/stat-caps.yml` の上限が設計制約になる。** 上限は**最終合算値**に効くので、超過分は
+「表示だけ上がって実効は伸びない死に設定」になる。特に:
+
+- `attack-power: 127500`（出荷の単品最大 = `fixed + per-quality×9 + random.max`）。
+  **`attack-speed` が遅い武器は、同じDPSを出すのに `attack-power` が反比例で必要になる**ので、
+  遅すぎる武器は上限と両立しない。メイスは `AS 0.408` のままパリティに載せると上限の **2.09 倍**
+  必要になったので、`AS` を 0.88 へ上げて解決した（下げるべきは上限ではなく武器の遅さ側だった）。
+- `bleed-damage: 4500`。出血は `SymmetricCombatService#bleedFinalDamageFlat` 経由で
+  **防御側ステをほぼ全部無視して体力へ直接入る**（`BleedService#applyOneTick`）ので、この上限が
+  絶対の天井。「総DPSの15%」で設計すると Lv100 では上限の 5.9 倍になり、超過分は無言で消える。
+  → 鎌の出血は「15%、ただし 4500 で打ち切り」。Lv100 では総DPSの 3% にしかならないが、
+  `max-mitigation-rate: 0.9` の相手には**軽減後DPSの2割超**になるので死に設定ではない。
+
+**接尾辞での武器種判定は名前付き一点物を取りこぼす。** `Winter_Grim_Reaper`（鎌）/
+`fnis_peccati_profundi`（鎌）は id に武器種を持たないので、`endsWith("scythe")` 方式の検査を
+**丸ごと素通り**していた（`attack-speed 4.12` / reach 0.1 / 出血2% のまま残っていた）。
+正しい所属は `catalog.yml` の `_editor.categories.weapon` が持っているが、**このカテゴリ表は
+未整備で信用できない**（剣が4件しか入っておらず 54 件が「準備中」）ので、
+接尾辞 + 明示エイリアス表の併用が現実的。出荷 id の綴り違い（大剣 = `grate_sword`、
+鎌 = `nethrite_scythe` / `golad_scythe`）も同じ理由で名前一致を壊す。
+
+**遠隔武器の近接 `attack-speed` は 0.1 で揃える**（2026-08-02 決定「殴るための武器ではない」）。
+`revolution_bow` だけこの一斉変更から漏れて 1.6 のまま残り、**弓が同レベル帯で最強の近接武器
+（剣の119%）**になっていた。一斉変更をやったら必ず「その武器種の全件が同値か」を機械で確認する。
+
+**防具の防御力（同じ棚卸しの防具側）は外れ値なし。** 34 系列すべてが
+`helmet:chestplate:leggings:boots = 15:40:30:15` で揃い、`turtle` だけ 100%（バニラ同様ヘルメット
+専用なので正しい）。レベル逆転に見える 18 組はすべて**魔法防具 vs 物理防具**で、
+魔法防具は `phys-flat-defense` を落とす代わりに物理防具が 0 の `magic-flat-defense`
+（25〜1,068）を持つ設計上のトレード。物理軸だけ見て「弱い」と判定してはいけない。
+
+回帰は `WeaponTierParityTest`（9件。武器種ごとの帯 / 剣を超えない / AS 統一 / AS 2.0 上限 /
+遠隔0.1 / リーチ表 / 鎌の出血 / 出血の一番手は鎌 / 杖の詠唱DPS）と
+`WeaponDpsParityTest`（重武器 vs 軽武器の H/L 比）で固定してある。
+帯は「値の一覧」ではなく**同系列の剣に対する比**なので、武器を1本足しても勝手に守られる。
+
 ## ステータス表示の桁数（lore / チャット / GUI 共通キャップ）
 
 `LoreValueFormat#render`（item lore）と `StatValueRenderer#render`（`/tf stats` チャット・

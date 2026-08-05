@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -79,12 +80,25 @@ class WeaponDpsParityTest {
      * 出荷 item-stats.yml では、どの素材帯でもこの6つの {@code attack-speed} 署名が
      * 繰り返し現れる(重3種 × 軽3種)。<b>attack-speed を触るとこの表が古くなる</b>ので、
      * そのときは実比較件数のチェック({@link #MIN_COMPARISONS})が落ちて気付ける。
+     *
+     * <p>対応は ウォーハンマー/剣、大斧/レイピア、大剣/短剣。2026-08-05 の武器種校正
+     * (W-34、{@code WeaponTierParityTest} 参照)で軽武器側の短剣が 2.050 → 2.000 へ揃った
+     * (2.0 超は無敵時間 10 tick で切り捨てられるので表示だけの値だった)。同じ校正で
+     * 戦斧 → 1.0、槍 → 0.92、鎌 → 2.0、メイス → 0.88 に動いたが、上の3ペアは無変更。
      */
     private static final double[][] ARCHETYPE_PAIRS = {
         {1.003, 1.600},
         {0.833, 1.780},
-        {0.952, 2.050},
+        {0.952, 2.000},
     };
+
+    /**
+     * 同格の対応から外す一点物。キーは<b>item-stats.yml のエントリ名</b>(catalog の id ではない)。
+     * 広辞苑({@code BOOK#100004} = koujien)は「特殊武器」カテゴリの一点物で
+     * {@code attack-speed} 2.0 なので、除外しないと Lv0 帯で<b>短剣/鎌の代表として
+     * 大剣の比較対象になってしまう</b>(アーキタイプの代表ではない)。
+     */
+    private static final Set<String> ARCHETYPE_EXEMPT = Set.of("BOOK#100004");
 
     /**
      * 実際に比較できたペアの下限。出荷データでは 10帯 × 3ペア = 30件 成立する。
@@ -171,6 +185,7 @@ class WeaponDpsParityTest {
                                               boolean chargeEnabled, double chargeMin, double chargeExponent) {
         return pool.stream()
                 .filter(w -> w.skill().equals(skill) && w.band() == band
+                        && !ARCHETYPE_EXEMPT.contains(w.id())
                         && Math.abs(w.attackSpeed() - attackSpeed) < SPEED_MATCH_EPSILON)
                 .max((a, b) -> Double.compare(
                         effectiveDps(a, chargeEnabled, chargeMin, chargeExponent),
