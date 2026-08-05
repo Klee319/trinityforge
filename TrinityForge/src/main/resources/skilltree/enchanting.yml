@@ -158,9 +158,10 @@ nodes:
     parent: B-2
     icon: EXPERIENCE_BOTTLE
     cost: 1
-    effect-text: 自身の経験値を経験値瓶に保存可能
+    # 2026-08-05: 格納の起点をガラス瓶の右クリックへ変更したので表記も合わせる。
+    effect-text: ガラス瓶を右クリックで自身の経験値を保存可能
     effects:
-      - 自身の経験値を経験値瓶に保存可能
+      - ガラス瓶を右クリックで自身の経験値を保存可能
       - "(設計メモ: 経験値増殖の観点からデバフ必須)"
     dedicated-effects:
       - id: feature:xp-bottle-store-unlock

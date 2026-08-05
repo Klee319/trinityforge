@@ -92,7 +92,7 @@ public final class FishingGimmickConfig {
         return treasureMaterials;
     }
 
-    /** {@code xp-bottle-store-unlock}: sneak+右クリックで経験値瓶1本に格納する経験値量。 */
+    /** {@code xp-bottle-store-unlock}: ガラス瓶の右クリック1回で瓶1本に格納する経験値量。 */
     public int xpBottleStoreAmount() {
         return xpBottleStoreAmount;
     }

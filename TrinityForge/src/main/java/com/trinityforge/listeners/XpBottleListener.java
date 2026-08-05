@@ -24,39 +24,70 @@ import java.util.Objects;
 import java.util.OptionalDouble;
 
 /**
- * {@code xp-bottle-store-unlock}(flag, enchanting.yml B-3「EXPフリーザー」): 経験値瓶への経験値の
- * 格納/取出。効果を保有するプレイヤーが手にバニラの {@link Material#EXPERIENCE_BOTTLE} を持ち、
+ * {@code xp-bottle-store-unlock}(flag, enchanting.yml B-3「EXPフリーザー」): 経験値の格納/取出。
+ * 効果を保有するプレイヤーが、
  *
  * <ul>
- *   <li>sneak+右クリック(未充填の瓶): 自身の経験値のうち
- *       {@link FishingGimmickConfig#xpBottleStoreAmount()}(または保有量が少なければ保有量全て)を
- *       瓶1本のPDCに格納する。</li>
- *   <li>通常右クリック(充填済みの瓶、PDCの有無で判定): PDCに格納された経験値量を取り出し自身に返す。</li>
+ *   <li><b>ガラス瓶({@link Material#GLASS_BOTTLE})を右クリック</b>: 自身の経験値のうち
+ *       {@link FishingGimmickConfig#xpBottleStoreAmount(int)}(または保有量が少なければ保有量全て)を
+ *       格納し、ガラス瓶1本を「充填済み経験値瓶」に変える。</li>
+ *   <li><b>充填済み経験値瓶を右クリック</b>: 格納された経験値を
+ *       {@link FishingGimmickConfig#xpBottleReturnRate(int)} 倍で取り出し、<b>ガラス瓶に戻す</b>。</li>
  * </ul>
  *
- * <p>「充填済み」かどうかはMaterialではなく{@link PdcKeys#ITEM_XP_BOTTLE_AMOUNT}の有無で判定する
- * (未充填・充填済みとも同じ{@code EXPERIENCE_BOTTLE}のため)。<strong>充填済みの瓶は sneak 状態に
- * 関わらず常にイベントをキャンセルする</strong>: バニラの「投げる」動作に流れると、瓶に格納した経験値量
- * とは無関係な少量のバニラXPオーブ(投擲時の固定量)に化けて格納値が消滅してしまうため、誤投げによる
- * 経験値消失を防ぐガード。未充填の瓶をsneakなしで右クリックした場合(取り出す対象が無い)は、
- * 通常のバニラ投擲挙動に据え置く(no-op gate)。
+ * <p><b>2026-08-05 仕様変更</b>: 格納の起点を「経験値瓶の sneak+右クリック」から
+ * 「<b>ガラス瓶の通常右クリック</b>」へ変更した(ユーザー指示)。取出でガラス瓶を返すのは対称性のためだけ
+ * ではなく、<b>ガラス瓶→バニラの経験値瓶という無償の変換路を作らないため</b>
+ * (経験値瓶はバニラでは交易/戦利品でしか手に入らない。取出で経験値瓶を返すと
+ * 「ガラス瓶を入れて経験値瓶が出てくる」アイテム増殖になる)。
+ *
+ * <p>「充填済み」かどうかはMaterialではなく{@link PdcKeys#ITEM_XP_BOTTLE_AMOUNT}の有無で判定する。
+ * <strong>充填済みの瓶は sneak 状態に関わらず常にイベントをキャンセルする</strong>: バニラの「投げる」
+ * 動作に流れると、瓶に格納した経験値量とは無関係な少量のバニラXPオーブ(投擲時の固定量)に化けて格納値が
+ * 消滅してしまうため、誤投げによる経験値消失を防ぐガード。PDCを持たない素の経験値瓶は一切触らない
+ * (バニラの投擲のまま)。
+ *
+ * <p><strong>ガラス瓶はバニラの用途を持つ道具なので、バニラの操作を絶対に奪わない</strong>
+ * ({@link #wouldVanillaUseTheBottle}): 水汲み(水源/水没ブロック/水入り大釜)・蜂の巣からの蜜採取・
+ * 甘いベリーの収穫・そもそも右クリックで何かが起きるブロック({@link Material#isInteractable()}=
+ * チェスト/ドア/作業台など)に向けたクリックでは<b>何もせずバニラに譲る</b>。水汲みだけはクリック先が
+ * ブロックとして届かない(バニラの瓶が流体だけを別途レイトレースする)ので、こちらも同じ探索を行う。
  *
  * <p><strong>実装メモ(要調整)</strong>: Bukkitに「経験値を直接減算するAPI」が無いため、格納時は
  * {@link Player#setLevel(int)}/{@link Player#setExp(float)}/{@link Player#setTotalExperience(int)}で
  * 一旦0にリセットしてから{@link Player#giveExp(int)}で残り分を再付与する、広く使われる回避策を採用。
- * 格納量・PDCキー名はconfig/定数(要調整)。
  */
 public final class XpBottleListener implements Listener {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final String EFFECT_XP_BOTTLE_STORE = "xp-bottle-store-unlock";
+    /**
+     * バニラの瓶が水源を探す距離。1.21 の {@code block_interaction_range} 既定値(4.5)に合わせてある
+     * ——バニラの {@code BottleItem} はプレイヤーのブロック操作リーチで流体レイトレースを行うため。
+     */
+    private static final double BLOCK_INTERACTION_RANGE = 4.5;
 
     private final DedicatedEffectsConfig dedicatedEffects;
     private final FishingGimmickConfig gimmickConfig;
 
+    /**
+     * 視線上の「バニラの瓶が汲める流体ブロック」を返す。既定は実レイトレース。
+     *
+     * <p>差し替え可能にしてあるのは <b>MockBukkit が {@code rayTraceBlocks} を未実装
+     * ({@code UnimplementedOperationException})で、テストが失敗ではなく SKIPPED に化けるため</b>。
+     * どのブロックを「汲める」と見るかの判定({@link #isWaterFillTarget})は本物のまま検証する。
+     */
+    private java.util.function.Function<Player, org.bukkit.block.Block> waterTargetLookup =
+            XpBottleListener::rayTraceWaterTarget;
+
     public XpBottleListener(DedicatedEffectsConfig dedicatedEffects, FishingGimmickConfig gimmickConfig) {
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
+    }
+
+    /** テスト専用: 視線上の水源探索を差し替える(理由は {@link #waterTargetLookup})。 */
+    void waterTargetLookupForTest(java.util.function.Function<Player, org.bukkit.block.Block> lookup) {
+        this.waterTargetLookup = Objects.requireNonNull(lookup, "lookup");
     }
 
     /**
@@ -82,7 +113,8 @@ public final class XpBottleListener implements Listener {
         }
         Player player = event.getPlayer();
         ItemStack heldStack = player.getInventory().getItemInMainHand();
-        if (heldStack.getType() != Material.EXPERIENCE_BOTTLE) {
+        Material heldType = heldStack.getType();
+        if (heldType != Material.GLASS_BOTTLE && heldType != Material.EXPERIENCE_BOTTLE) {
             return;
         }
         // 2026-07-26 tier-expand: xp-bottle-store-unlock は feature:<id> SCALE化(旧NONE)。valueMax の
@@ -95,20 +127,75 @@ public final class XpBottleListener implements Listener {
         }
         int tier = (int) tierValue.getAsDouble();
 
-        Integer storedAmount = readStoredAmount(heldStack);
-        if (storedAmount != null) {
+        if (heldType == Material.EXPERIENCE_BOTTLE) {
+            Integer storedAmount = readStoredAmount(heldStack);
+            if (storedAmount == null) {
+                // PDCを持たない素のバニラ経験値瓶: 投擲のまま(この機構は一切触らない)。
+                return;
+            }
             // Always cancel: see class javadoc (protects the stored amount from vanilla's throw).
             event.setCancelled(true);
-            if (!player.isSneaking()) {
-                handleWithdraw(player, heldStack, storedAmount, tier);
-            }
+            handleWithdraw(player, heldStack, storedAmount, tier);
             return;
         }
 
-        if (player.isSneaking()) {
-            handleStore(event, player, heldStack, tier);
+        // ガラス瓶: バニラの用途(水汲み/蜜採取/ブロック操作)が成立するクリックでは何もしない。
+        if (wouldVanillaUseTheBottle(event, player, heldStack)) {
+            return;
         }
-        // Unfilled bottle, not sneaking: no recognized action -> vanilla throw proceeds untouched.
+        handleStore(event, player, heldStack, tier);
+    }
+
+    /**
+     * このクリックが「バニラのガラス瓶の用途」または「ブロックそのものの操作」に当たるか。
+     *
+     * <p>当たるなら格納は行わない ── ガラス瓶は水汲み・蜜採取に日常的に使う道具で、チェストや
+     * ドアを開ける手にも握られているため、<b>奪うと元の操作が壊れる</b>。判定は3段:
+     *
+     * <ol>
+     *   <li>右クリックで何かが起きるブロック({@link Material#isInteractable()}: チェスト/ドア/作業台/
+     *       大釜/蜂の巣など)</li>
+     *   <li>収穫が成立するクリック(蜂の巣の蜜・甘いベリー・光る果実。
+     *       {@link NativeSkillExperienceListener#isHarvestableFarmingInteraction} を再利用 ──
+     *       採取スキルEXPの判定と食い違わせない)</li>
+     *   <li>水汲み。クリック先のブロックとしては届かない(バニラの瓶は流体だけを別途レイトレースする)
+     *       ので、視線上の水源も同じ距離で探す</li>
+     * </ol>
+     *
+     * <p>{@code isInteractable()} は Paper で「網羅的でない」として非推奨だが代替が無く、
+     * <b>外す方向の誤りしか起こさない</b>(true に化けても格納しないだけ)ので保守的な網として使う。
+     * ガラス瓶自身が持つアイテム側の用途は水と蜜だけで、それは2/3段で個別に見ている。
+     */
+    @SuppressWarnings("deprecation")
+    private boolean wouldVanillaUseTheBottle(PlayerInteractEvent event, Player player, ItemStack heldStack) {
+        org.bukkit.block.Block clicked = event.getClickedBlock();
+        if (clicked != null) {
+            if (clicked.getType().isInteractable()
+                    || isWaterFillTarget(clicked)
+                    || NativeSkillExperienceListener.isHarvestableFarmingInteraction(clicked, heldStack)) {
+                return true;
+            }
+        }
+        return isWaterFillTarget(waterTargetLookup.apply(player));
+    }
+
+    /** バニラのガラス瓶が水を汲めるブロックか(水源・水没ブロック・水入り大釜)。 */
+    static boolean isWaterFillTarget(org.bukkit.block.Block block) {
+        if (block == null) {
+            return false;
+        }
+        Material type = block.getType();
+        if (type == Material.WATER || type == Material.WATER_CAULDRON) {
+            return true;
+        }
+        return block.getBlockData() instanceof org.bukkit.block.data.Waterlogged waterlogged
+                && waterlogged.isWaterlogged();
+    }
+
+    private static org.bukkit.block.Block rayTraceWaterTarget(Player player) {
+        org.bukkit.util.RayTraceResult hit = player.rayTraceBlocks(
+                BLOCK_INTERACTION_RANGE, org.bukkit.FluidCollisionMode.SOURCE_ONLY);
+        return hit == null ? null : hit.getHitBlock();
     }
 
     private void handleStore(PlayerInteractEvent event, Player player, ItemStack heldStack, int tier) {
@@ -126,8 +213,9 @@ public final class XpBottleListener implements Listener {
             player.giveExp(remaining);
         }
 
-        ItemStack filledBottle = heldStack.clone();
-        filledBottle.setAmount(1);
+        // ガラス瓶1本を「充填済み経験値瓶」(EXPERIENCE_BOTTLE + PDC)に変える。素の瓶のmetaは
+        // 引き継がない(バニラのガラス瓶に付いた表示名などを経験値瓶へ持ち込まないため)。
+        ItemStack filledBottle = new ItemStack(Material.EXPERIENCE_BOTTLE);
         stampFilledBottle(filledBottle, toStore);
         consumeOneAndGive(player, heldStack, filledBottle);
 
@@ -137,15 +225,10 @@ public final class XpBottleListener implements Listener {
     }
 
     private void handleWithdraw(Player player, ItemStack heldStack, int storedAmount, int tier) {
-        ItemStack emptyBottle = heldStack.clone();
-        emptyBottle.setAmount(1);
-        ItemMeta meta = emptyBottle.getItemMeta();
-        if (meta != null) {
-            meta.getPersistentDataContainer().remove(PdcKeys.ITEM_XP_BOTTLE_AMOUNT);
-            meta.displayName(null);
-            meta.lore(null);
-            emptyBottle.setItemMeta(meta);
-        }
+        // 返すのは EXPERIENCE_BOTTLE ではなく GLASS_BOTTLE。経験値瓶を返すと
+        // 「ガラス瓶を入れて経験値瓶が出てくる」= バニラでは交易/戦利品しか入手経路の無い
+        // アイテムの無償生成路になる(クラス javadoc 参照)。
+        ItemStack emptyBottle = new ItemStack(Material.GLASS_BOTTLE);
         consumeOneAndGive(player, heldStack, emptyBottle);
         int returned = (int) Math.floor(storedAmount * gimmickConfig.xpBottleReturnRate(tier));
         player.giveExp(returned);
