@@ -1268,6 +1268,9 @@ stats:
     limits:
       floor: 0
   craft-roll-up-bonus:
+    # 2026-08-05: 単位を明示。CraftQualityService が値を /100 して品質ロールの σ/収束(0〜1)へ足すので
+    # 記法はパーセントポイント(10 = 10%)。小数もそのまま効く(0.5 = 0.5%)。負値は0へ潰される。
+    unit: "%"
     name: ロール上振れ
     icon: ""
     format: FLAT
@@ -1284,6 +1287,8 @@ stats:
     limits:
       floor: 0
   craft-roll-down-reduction:
+    # 2026-08-05: craft-roll-up-bonus と同じパーセントポイント記法(/100 して下振れσから引く)。
+    unit: "%"
     name: ロール下振れ抑制
     icon: ""
     format: FLAT
@@ -1300,6 +1305,8 @@ stats:
     limits:
       floor: 0
   craft-roll-inset:
+    # 2026-08-05: 同じくパーセントポイント記法。/100 した分だけ収束幅を減らす(実効は 0〜0.4999 でクランプ)。
+    unit: "%"
     name: ロール収束
     icon: ""
     format: FLAT

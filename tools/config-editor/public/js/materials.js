@@ -129,6 +129,11 @@ window.FALLBACK_STAT_UNITS = {
   "mana-cost-reduction-percent": "%",
   "workbench-quality-bonus": "pt",
   "ritual-quality-bonus": "pt",
+  // 2026-08-05: ロール3キーはパーセントポイント記法(CraftQualityService が /100 して σ/収束へ足す)。
+  // format は FLAT のまま(PERCENT にすると表示が ×100 されて 10% が 1000% になる)ので単位だけ付ける。
+  "craft-roll-up-bonus": "%",
+  "craft-roll-down-reduction": "%",
+  "craft-roll-inset": "%",
   "potion-quality-bonus": "pt",
   "lapis-cost-reduction": "個",
   "ars-tier-bonus": "ティア",
