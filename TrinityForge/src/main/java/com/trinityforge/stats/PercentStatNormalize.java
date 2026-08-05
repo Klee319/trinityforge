@@ -56,6 +56,16 @@ public final class PercentStatNormalize {
             StatKeys.canonical("material-refund-chance"),
             StatKeys.canonical("ingredient-save-chance"),
             StatKeys.canonical("fishing-luck"),
+            // 2026-08-05 実サーバ報告「釣りボーナスは%では？ドロップ増加ステと同じ期待値仕様だったはず」:
+            // fishing-bonus は 2026-07-28 に「追加ドロップの期待個数(生値)」として意図的に対象外にされて
+            // いたが、出荷 skilltree/fishing.yml は他の%系と同じくパーセントポイント(A:5 / C:10 /
+            // prestige:10)で書かれている。矯正されないと合算 25 がそのまま
+            // GatheringPolicy.expectedExtra へ渡り、1回の釣りで追加ドロップ25個(MAX_EXTRA 256 まで)に
+            // なっていた ── mining-fortune の登録漏れ(同日修正)と全く同じ壊れ方。
+            // ocean-fishing-bonus は出荷値が 0.05 の分数なので coerce は素通りする(|v|<=1 は非対象)が、
+            // 5 と書かれたときに fishing-bonus と食い違わないよう一緒に登録する。
+            StatKeys.canonical("fishing-bonus"),
+            StatKeys.canonical("ocean-fishing-bonus"),
             // 2026-07-28: mining-fortune はここに登録漏れしていた(fishing-luck だけが入っていた)。
             // skilltree の各ノードは effect-text「ドロップ増加+15%」に合わせて mining-fortune: 15 と
             // パーセントポイントで書かれているが、矯正されないと 15(=1500%) のまま

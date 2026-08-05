@@ -498,8 +498,9 @@ stats:
   fishing-bonus:
     name: 釣りボーナス
     icon: ""
-    format: FLAT
-    decimals: 1
+    # 2026-08-05: 追加ドロップの期待個数(FLAT)ではなく増加率(PERCENT)。mining-fortune と同じ期待値方式。
+    format: PERCENT
+    decimals: 0
     order: 83
     show-sign: true
     hide-when-zero: true

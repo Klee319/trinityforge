@@ -122,6 +122,28 @@ class AllSkillTreesPerkBuffTest {
                 "cross-tree aggregation violations:\n  " + String.join("\n  ", problems));
     }
 
+    /**
+     * 2026-08-05 実サーバ報告「釣りボーナスは%では？ドロップ増加ステと同じ期待値仕様だったはず」の回帰ガード。
+     *
+     * <p>出荷 {@code fishing.yml} は他の%系と同じくパーセントポイントで書かれている
+     * (A:5 / C:10 / prestige:10)。{@code PercentStatNormalize.RATE_KEYS} から fishing-bonus の登録を
+     * 外すと、この合算が 25.0 のまま {@code GatheringPolicy.expectedExtra} へ渡り
+     * <b>1回の釣りで追加ドロップ25個</b>になる。期待個数は1未満に収まっていなければならない。
+     */
+    @Test
+    @DisplayName("出荷スキルツリーの釣りボーナス合算は期待値0.25個(%として矯正されている)")
+    void shippedFishingBonusIsARateNotARawCount(@TempDir File dataFolder) throws IOException {
+        Collection<SkillTree> trees = loadAll(dataFolder);
+
+        PerkBuffs buffs = PerkBuffResolver.compute(unlockEverything(trees), trees);
+
+        Double fishingBonus = buffs.general().get("fishing_bonus");
+        assertTrue(fishingBonus != null, "fishing_bonus が general バフに出ていない(出荷ツリーの付与が消えた)");
+        assertTrue(Math.abs(fishingBonus - 0.25) < 1e-9,
+                "A:5% + C:10% + prestige:10% = 0.25 のはずだが " + fishingBonus
+                        + " ── パーセント矯正が効いていないと 25.0(=追加ドロップ25個)になる");
+    }
+
     /** Shipped skill trees must not retain legacy dedicated-effect ids. */
     private static final Set<String> ALLOWED_UNCONVERTED_DEDICATED_EFFECTS = Set.of();
 

@@ -83,10 +83,12 @@
     "dodge-chance", "phys-resistance", "magic-resistance", "damage-reduction"
     , "armor-strength"
     // armor-defense-rate はバニラ防具ポイント(INTEGER)。÷100しない。
-    // 2026-07-28: 採集の率系2キー。Java 側 PercentStatNormalize.RATE_KEYS と対になる
+    // 2026-07-28: 採集の率系キー。Java 側 PercentStatNormalize.RATE_KEYS と対になる
     // (mining-fortune はそちらでも登録漏れしていて、15 が 1500% として効いていた)。
-    // fishing-bonus は追加ドロップの期待個数(生値)なので対象外。
-    , "mining-fortune", "fishing-luck"
+    // 2026-08-05: fishing-bonus / ocean-fishing-bonus も追加。以前は「追加ドロップの期待個数(生値)」
+    // として対象外にしていたが、出荷スキルツリーは 5/10/10 とパーセントポイントで書かれており、
+    // 矯正しないと1回の釣りで追加ドロップ25個になっていた(mining-fortune と同じ壊れ方)。
+    , "mining-fortune", "fishing-luck", "fishing-bonus", "ocean-fishing-bonus"
   ]);
   function coerceRatePercent(key, value) {
     if (!RATE_PERCENT_KEYS.has(key) || value == null || !Number.isFinite(Number(value))) return value;

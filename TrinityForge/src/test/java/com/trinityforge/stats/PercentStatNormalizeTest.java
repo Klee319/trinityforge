@@ -76,6 +76,28 @@ class PercentStatNormalizeTest {
         assertEquals(-1.0, PercentStatNormalize.coerce("stun-duration-bonus", -1.0), 1e-9);
     }
 
+    /**
+     * 2026-08-05 実サーバ報告「釣りボーナスは%では？ドロップ増加ステと同じ期待値仕様だったはず」。
+     *
+     * <p>登録を外すと出荷 {@code skilltree/fishing.yml} のパーセントポイント表記(A:5 / C:10 /
+     * prestige:10)が矯正されず、合算 25 がそのまま {@code GatheringPolicy.expectedExtra} の期待個数に
+     * なる(=1回の釣りで追加ドロップ25個)。mining-fortune と同じ扱いであることを固定する。
+     */
+    @Test
+    @DisplayName("fishing-bonus / ocean-fishing-bonus は mining-fortune と同じ%系(期待値)")
+    void fishingBonusIsARateKeyLikeMiningFortune() {
+        for (String key : new String[]{"fishing-bonus", "ocean-fishing-bonus"}) {
+            assertTrue(PercentStatNormalize.isRateKey(key), key + " should be a rate key");
+            assertEquals(0.10, PercentStatNormalize.coerce(key, 10.0), 1e-9,
+                    key + ": 出荷スキルツリーの 10 は +10%(期待値0.10個)でなければならない");
+            assertEquals(0.05, PercentStatNormalize.coerce(key, 0.05), 1e-9,
+                    key + ": 既に分数で書かれた値(0.05)は素通りする");
+        }
+        assertEquals(PercentStatNormalize.coerce("mining-fortune", 15.0),
+                PercentStatNormalize.coerce("fishing-bonus", 15.0), 1e-9,
+                "ドロップ増加ステ(mining-fortune)と単位系が一致していること");
+    }
+
     @Test
     @DisplayName("2026-07-23 仕様確定: lapis-cost-reduction is a FLAT count (individual units reduced), not a rate")
     void lapisCostReductionIsNotARateKey() {
