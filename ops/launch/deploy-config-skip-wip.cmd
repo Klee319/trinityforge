@@ -29,8 +29,14 @@ REM  ASCII ONLY -- cmd.exe mis-parses UTF-8 batch files and starts executing the
 REM =============================================================================================
 call "%~dp0launch-config.cmd" || exit /b 1
 
-REM ---- files another session still owns. Edit this list when the situation changes. ------------
-set "SKIP_TF=collection.yml skill-exp.yml"
+REM ---- files another session still owns. DERIVED FROM GIT, never hand-written. ----------------
+REM  This list used to be a literal (collection.yml skill-exp.yml, written 2026-08-02). By
+REM  2026-08-05 the working tree actually had 14 uncommitted yml, so the literal shipped 12 files
+REM  that belonged to other sessions while claiming to skip WIP. A hand-copied exclusion list
+REM  stops protecting anything the moment it goes stale, and nothing tells you it went stale.
+REM  list-wip-config.ps1 asks git every run instead.
+set "SKIP_TF="
+for /f "usebackq delims=" %%F in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\list-wip-config.ps1"`) do call :append_skip "%%F"
 
 set "DRYRUN="
 if /i "%~1"=="--dry-run" set "DRYRUN=1"
@@ -132,6 +138,18 @@ if errorlevel 8 (
     exit /b 1
 )
 echo   [ OK  ] %~1
+goto :eof
+
+REM ---------------------------------------------------------------------------------------------
+REM  Append one file name to SKIP_TF. Kept as a subroutine because delayed expansion inside the
+REM  for /f body would otherwise be needed, and this file must stay ASCII and quirk-free.
+:append_skip
+if "%~1"=="" goto :eof
+if defined SKIP_TF (
+    set "SKIP_TF=%SKIP_TF% %~1"
+) else (
+    set "SKIP_TF=%~1"
+)
 goto :eof
 
 :usage
