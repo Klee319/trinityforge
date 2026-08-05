@@ -416,8 +416,10 @@ stats:
     limits:
       cap: 0.9
       cap-ref: combat/damage.yml#defense.max-dodge-chance
+  # 2026-08-05 仕様変更: 反射は「反射率の確率で発動し、素殴りダメージを返す」方式になった。
+  # reflect-flat は発動したときだけ上乗せされる実数(毎回発動する別枠ではない)。
   reflect-flat:
-    name: 反射ダメージ(実数)
+    name: 反射追加ダメージ(実数)
     icon: ""
     format: FLAT
     decimals: 1
@@ -432,8 +434,9 @@ stats:
         - PLAYER
     limits:
       floor: 0
+  # 2026-08-05 仕様変更: 被ダメージ割合ではなく「反射の発動確率」。
   reflect-percent:
-    name: 反射ダメージ率
+    name: 反射率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -448,6 +451,8 @@ stats:
         - PLAYER
     limits:
       floor: 0
+      # 確率なので 100% を超えても意味が無い(常時発動で頭打ち)。
+      cap: 1
   gathering-efficiency:
     name: 採集効率
     icon: ""

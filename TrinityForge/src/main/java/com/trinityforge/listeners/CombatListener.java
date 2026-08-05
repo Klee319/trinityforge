@@ -177,6 +177,18 @@ public final class CombatListener implements Listener {
     private boolean reflecting = false;
 
     /**
+     * 反射の抽選に使う一様乱数 [0,1)。既定は {@link ThreadLocalRandom}。仕様が「確率で発動」になった
+     * (2026-08-05)ため、テストから発動/不発動を決め打ちできるようにここだけ差し替え可能にしている
+     * (本番コードからは差し替えない)。
+     */
+    private java.util.function.DoubleSupplier reflectRoll = () -> ThreadLocalRandom.current().nextDouble();
+
+    /** テスト専用: 反射の抽選値を固定する(テストが別パッケージにあるため public)。 */
+    public void reflectRollForTest(java.util.function.DoubleSupplier roll) {
+        this.reflectRoll = java.util.Objects.requireNonNull(roll, "roll");
+    }
+
+    /**
      * B2 レビュー修正(HIGH指摘1): {@code Player#getAttackCooldown()} に依存しない自前チャージトラッカー
      * (詳細は {@link MeleeChargeMultiplier} javadoc)。{@link #onPlayerQuit} でログアウト時に破棄する。
      */
@@ -789,14 +801,26 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * 課題2 (2026-07-25): 棘の鎧の再設計 — プレイヤーが被弾した際、守備カテゴリの {@code reflect-flat}
-     * (反射率（実）) + {@code reflect-percent}(反射率（割）、被ダメージ割合)ぶんのダメージを実際の攻撃者
-     * (近接/投射物の発射者)へ跳ね返す。{@code reflect-percent} には棘の鎧レベル(装備4部位合計)×10%も
-     * {@link ReflectDamageBridge} 経由で加算される(ユーザー決定)。バニラ自身の棘プロックは
-     * {@link #onVanillaThornsProc} で無効化済みなのでここが反射の単一経路。
+     * 棘の鎧の再設計(課題2, 2026-07-25) → <b>仕様変更(2026-08-05)</b>。
+     *
+     * <p>実サーバ報告「反射の仕様がおかしい(すごい量のダメージが出る)」を受け、ユーザー確定仕様
+     * 「<b>反射率：被弾時にこの確率で相手にダメージを与える。ダメージは武器の通常攻撃ダメージ(素殴り)</b>」
+     * へ置き換えた。旧仕様は {@code reflect-percent × 被ダメージ} を<b>毎回</b>跳ね返しており、
+     * 被ダメージが大きいほど反射も青天井に伸びる(エリート/ボスの一撃を受けるとそのまま巨大な反射になる)
+     * のが「すごい量」の機構的な原因。新仕様では反射量が被ダメージから完全に切り離される。
+     *
+     * <ul>
+     *   <li>{@code reflect-percent}(反射率) = <b>発動確率</b>。棘の鎧レベル(装備4部位合計)×10% も
+     *       {@link ReflectDamageBridge} 経由で確率へ加算される(旧仕様からの引き継ぎ)。</li>
+     *   <li>発動時のダメージ = <b>被弾者自身の素殴りダメージ</b>({@link #plainMeleeDamage})
+     *       + {@code reflect-flat}。{@code reflect-flat} は新仕様の文面に無いが、既存装備
+     *       (skilltree/power.yml のパーク等)が {@code reflect-percent} と対で配っているため、
+     *       「発動したときの上乗せ実数」として残している(毎回発動する別経路にはしない)。</li>
+     * </ul>
      *
      * <p>MONITOR優先度: 他プラグイン(シールドブロック等)によるダメージ軽減が確定した後の
-     * {@link EntityDamageEvent#getFinalDamage()} を使う(被ダメージ割合はブロック等で0になった一撃を反射しない)。
+     * {@link EntityDamageEvent#getFinalDamage()} を「被弾が成立したか」の判定にだけ使う
+     * (ブロック等で0になった一撃では反射しない。<b>量には使わない</b>)。
      * ダメージを与える相手は {@code EntityDamageByEntityEvent} の damager(近接ならその実体、投射物なら
      * {@link Projectile#getShooter()})。{@link #reflecting} ガードにより、反射で与えたダメージが再度
      * このハンドラを同期再入しても即returnし、無限ループ(反射→反射→…)を1ホップで断ち切る
@@ -819,10 +843,15 @@ public final class CombatListener implements Listener {
             return;
         }
         PlayerCombatAggregate agg = aggregator.aggregate(victim);
-        double flat = Math.max(0.0, agg.totalOf(REFLECT_FLAT_KEY));
-        double percent = Math.max(0.0,
-                agg.totalOf(REFLECT_PERCENT_KEY) + ReflectDamageBridge.thornsPercentContribution(victim));
-        double reflectAmount = flat + percent * finalDamage;
+        double chance = agg.totalOf(REFLECT_PERCENT_KEY)
+                + ReflectDamageBridge.thornsPercentContribution(victim);
+        if (!Double.isFinite(chance) || chance <= 0.0) {
+            return;
+        }
+        if (chance < 1.0 && reflectRoll.getAsDouble() >= chance) {
+            return;
+        }
+        double reflectAmount = plainMeleeDamage(victim, agg) + Math.max(0.0, agg.totalOf(REFLECT_FLAT_KEY));
         if (!Double.isFinite(reflectAmount) || reflectAmount <= 0.0) {
             return;
         }
@@ -832,6 +861,34 @@ public final class CombatListener implements Listener {
         } finally {
             reflecting = false;
         }
+    }
+
+    /**
+     * 被弾者の「素殴り」ダメージ — その場でメインハンドの武器を一振りしたときの<b>基礎</b>ダメージ。
+     *
+     * <p>会心・{@code flat/percent-bonus-damage}・パワーアタック・チャージ減衰といった
+     * {@link #onEntityDamageByEntity} の後段パイプラインは<b>一切通さない</b>(反射が本命の攻撃より
+     * 強くなるのを防ぐ)。基礎の選び方だけは通常攻撃と同じ規則に揃える:
+     * アイテム側に {@code attack-power} が定義されていれば TF値が基礎を置き換え、無ければ
+     * バニラの {@link Attribute#ATTACK_DAMAGE}(手持ち武器の攻撃力修飾を含んだ値)を基礎とし、
+     * どちらの場合もパーク/アドオンの {@code attack-power} を加算する。
+     */
+    private double plainMeleeDamage(Player victim, PlayerCombatAggregate agg) {
+        String attackPowerKey = StatKeys.canonical("attack-power");
+        double multiplier = agg.multiplierFor(attackPowerKey);
+        double item = agg.item().getOrDefault(attackPowerKey, 0.0) * multiplier;
+        double perk = agg.perkAttack().getOrDefault(attackPowerKey, 0.0) * multiplier;
+        double addon = agg.addon().getOrDefault(attackPowerKey, 0.0) * multiplier;
+        if (agg.item().containsKey(attackPowerKey)) {
+            return Math.max(0.0, agg.clamp(attackPowerKey, item + perk + addon));
+        }
+        return Math.max(0.0, vanillaAttackDamage(victim) + agg.clamp(attackPowerKey, perk + addon));
+    }
+
+    /** バニラの攻撃力属性(手持ち武器の修飾込み)。属性が取れない環境では素手相当の 1.0。 */
+    private static double vanillaAttackDamage(Player player) {
+        AttributeInstance instance = player.getAttribute(Attribute.ATTACK_DAMAGE);
+        return instance == null ? 1.0 : instance.getValue();
     }
 
     /**

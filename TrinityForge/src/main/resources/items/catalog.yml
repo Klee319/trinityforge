@@ -4397,8 +4397,8 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_red>被弾時に反射 3% / 3個で 4.5%</dark_red>
-      - <dark_red>5個で固定反射ダメージ +3</dark_red>
+      - <dark_red>被弾時に 3% の確率で反射 / 3個で 4.5%</dark_red>
+      - <dark_red>5個で反射追加ダメージ +3</dark_red>
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>触れた者が、まず痛む</color>

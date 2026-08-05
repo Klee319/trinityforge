@@ -90,15 +90,64 @@ class CombatListenerReflectDamageTest {
                 new RoleBuffResolver(cm.roleBuffs()));
     }
 
+    /**
+     * 仕様変更(2026-08-05, 実サーバ報告「反射のダメージがすごい量になる」): 反射量は
+     * <b>被弾者の素殴りダメージ + reflect-flat</b> であり、<b>受けたダメージには一切比例しない</b>。
+     *
+     * <p>この差が「直った」ことの直接証拠になるよう、被弾者は attack-power 4.0 の武器を持ち、
+     * 受けるダメージはそれよりずっと大きくなるようにしてある。旧実装(reflect-percent × 被ダメージ)
+     * へ戻すと反射量が被ダメージ側に張り付くのでこのアサートは落ちる。
+     */
     @Test
-    void reflectFlatAndPercentDamageTheAttacker(@TempDir File dir) throws IOException {
+    void reflectDealsThePlainWeaponDamageNotAShareOfTheIncomingHit(@TempDir File dir) throws IOException {
+        listener = listener(dir, """
+                items:
+                  GOLDEN_SWORD:
+                    fixed: { attack-power: 40.0, damage-modifier: 1.0 }
+                  WOODEN_SWORD:
+                    fixed: { attack-power: 4.0, damage-modifier: 1.0 }
+                  DIAMOND_CHESTPLATE:
+                    fixed: { reflect-flat: 2.0, reflect-percent: 1.0 }
+                """);
+        Player attacker = server.addPlayer();
+        attacker.getInventory().setItemInMainHand(new ItemStack(Material.GOLDEN_SWORD));
+        double attackerMaxHealth = attacker.getAttribute(Attribute.MAX_HEALTH).getValue();
+        attacker.setHealth(attackerMaxHealth);
+
+        Player victim = server.addPlayer();
+        victim.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
+        victim.getInventory().setItemInMainHand(new ItemStack(Material.WOODEN_SWORD));
+
+        DamageSource source = DamageSource.builder(DamageType.PLAYER_ATTACK)
+                .withCausingEntity(attacker).withDirectEntity(attacker).build();
+        EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
+                attacker, victim, EntityDamageEvent.DamageCause.ENTITY_ATTACK, source, 6.0);
+        listener.onEntityDamageByEntity(event);
+        double finalDamageDealt = event.getFinalDamage();
+        assertTrue(finalDamageDealt > 10.0,
+                "前提が崩れている: 反射量が被ダメージ由来でないことを示すには、被ダメージが"
+                        + " 素殴り(4.0)+reflect-flat(2.0)=6.0 より十分大きい必要がある: " + finalDamageDealt);
+
+        listener.onReflectDamage(event);
+
+        double expectedReflect = 4.0 + 2.0;
+        assertEquals(attackerMaxHealth - expectedReflect, attacker.getHealth(), 1e-6,
+                "反射量は「素殴りダメージ + reflect-flat」であり、被ダメージ(" + finalDamageDealt
+                        + ")には比例しない");
+    }
+
+    /** 反射率は発動確率。抽選に外れた被弾では 1 ダメージも返らない。 */
+    @Test
+    void reflectDoesNotProcWhenTheChanceRollFails(@TempDir File dir) throws IOException {
         listener = listener(dir, """
                 items:
                   GOLDEN_SWORD:
                     fixed: { attack-power: 20.0, damage-modifier: 1.0 }
                   DIAMOND_CHESTPLATE:
-                    fixed: { reflect-flat: 2.0, reflect-percent: 0.5 }
+                    fixed: { reflect-flat: 2.0, reflect-percent: 0.25 }
                 """);
+        listener.reflectRollForTest(() -> 0.30); // 0.25 の外側 = 不発
+
         Player attacker = server.addPlayer();
         attacker.getInventory().setItemInMainHand(new ItemStack(Material.GOLDEN_SWORD));
         double attackerMaxHealth = attacker.getAttribute(Attribute.MAX_HEALTH).getValue();
@@ -112,13 +161,43 @@ class CombatListenerReflectDamageTest {
         EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
                 attacker, victim, EntityDamageEvent.DamageCause.ENTITY_ATTACK, source, 6.0);
         listener.onEntityDamageByEntity(event);
-        double finalDamageDealt = event.getFinalDamage();
 
         listener.onReflectDamage(event);
 
-        double expectedReflect = 2.0 + 0.5 * finalDamageDealt;
-        assertEquals(attackerMaxHealth - expectedReflect, attacker.getHealth(), 1e-6,
-                "attacker must take reflect-flat + reflect-percent*finalDamage");
+        assertEquals(attackerMaxHealth, attacker.getHealth(), 1e-6,
+                "反射率25%の抽選に外れた被弾では反射は発動しない(旧実装は毎回発動していた)");
+    }
+
+    /** 抽選に当たれば発動する(上の不発テストが「常に発動しない」だけの実装で通らないようにする対)。 */
+    @Test
+    void reflectProcsWhenTheChanceRollSucceeds(@TempDir File dir) throws IOException {
+        listener = listener(dir, """
+                items:
+                  GOLDEN_SWORD:
+                    fixed: { attack-power: 20.0, damage-modifier: 1.0 }
+                  DIAMOND_CHESTPLATE:
+                    fixed: { reflect-flat: 2.0, reflect-percent: 0.25 }
+                """);
+        listener.reflectRollForTest(() -> 0.10); // 0.25 の内側 = 発動
+
+        Player attacker = server.addPlayer();
+        attacker.getInventory().setItemInMainHand(new ItemStack(Material.GOLDEN_SWORD));
+        double attackerMaxHealth = attacker.getAttribute(Attribute.MAX_HEALTH).getValue();
+        attacker.setHealth(attackerMaxHealth);
+
+        Player victim = server.addPlayer();
+        victim.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
+
+        DamageSource source = DamageSource.builder(DamageType.PLAYER_ATTACK)
+                .withCausingEntity(attacker).withDirectEntity(attacker).build();
+        EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
+                attacker, victim, EntityDamageEvent.DamageCause.ENTITY_ATTACK, source, 6.0);
+        listener.onEntityDamageByEntity(event);
+
+        listener.onReflectDamage(event);
+
+        assertTrue(attacker.getHealth() < attackerMaxHealth,
+                "反射率25%の抽選に当たった被弾では反射が発動する");
     }
 
     @Test
