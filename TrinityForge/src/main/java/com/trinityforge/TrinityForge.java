@@ -216,6 +216,7 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.progression.TitleDisplayService titleDisplayService;
     private com.trinityforge.progression.ParticleEffectService particleEffectService;
     private com.trinityforge.command.SettingsCommand settingsCommand;
+    private com.trinityforge.command.CatalogCommand catalogCommand;
     private com.trinityforge.command.SpecialRewardCommand specialRewardCommand;
     private com.trinityforge.afk.AfkService afkService;
     private com.trinityforge.progression.AchievementService achievementService;
@@ -714,6 +715,13 @@ public final class TrinityForge extends JavaPlugin {
         settingsGui.setOnParticleChanged(particleEffectService::invalidate);
         getServer().getPluginManager().registerEvents(settingsGui, this);
         this.settingsCommand = new com.trinityforge.command.SettingsCommand(settingsGui);
+        // /tf catalog: カタログ閲覧・配布GUI(2026-08-05)。Java版はサーバからクリエイティブ
+        // タブへ項目を足せないので、同じ用途をサーバ側の画面で満たす。
+        com.trinityforge.items.CatalogBrowseGui catalogGui =
+                new com.trinityforge.items.CatalogBrowseGui(
+                        this, configManager.itemCatalog(), itemFactory);
+        getServer().getPluginManager().registerEvents(catalogGui, this);
+        this.catalogCommand = new com.trinityforge.command.CatalogCommand(catalogGui);
         // 特殊報酬の運営付与/剥奪 (2026-07-27)。アチーブ/図鑑ティアと同じ「直接付与」枠を触る。
         this.specialRewardCommand = new com.trinityforge.command.SpecialRewardCommand(
                 configManager.specialRewards(), specialRewardService, perkAttributeApplier);
@@ -1510,6 +1518,7 @@ public final class TrinityForge extends JavaPlugin {
                             .then(recipesCommand.node())
                             .then(glyphsCommand.node())
                             .then(settingsCommand.node())
+                            .then(catalogCommand.node())
                             // /tf menu: 統合メニュー(2026-08-04新設)。各機能GUIへの入口をまとめたハブ。
                             .then(Commands.literal("menu")
                                     .executes(ctx -> {

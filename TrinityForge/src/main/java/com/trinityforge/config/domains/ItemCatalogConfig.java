@@ -43,6 +43,32 @@ public final class ItemCatalogConfig implements LoadableConfig {
 
     private volatile Map<String, ItemTemplate> templates = Map.of();
     private volatile Set<String> draftIds = Set.of();
+    private volatile CatalogTaxonomy taxonomy = CatalogTaxonomy.EMPTY;
+
+    /**
+     * 設定エディタが {@code _editor:} に持っている分類。
+     * ゲームの挙動には一切関与せず、<b>アイテムを人に見せる画面の並び順にだけ</b>使う
+     * ({@code /tf catalog})。
+     *
+     * @param tabOf      アイテムID → タブID（{@code weapon} / {@code armor} 等）。未登録のIDは入らない
+     * @param categories タブID → そのタブの小分類（エディタでの並び順のまま）
+     */
+    public record CatalogTaxonomy(Map<String, String> tabOf, Map<String, List<Category>> categories) {
+
+        public static final CatalogTaxonomy EMPTY = new CatalogTaxonomy(Map.of(), Map.of());
+
+        /** @param label エディタで付けた小分類名（例「剣」） @param itemIds その小分類の並び順 */
+        public record Category(String label, List<String> itemIds) {
+        }
+    }
+
+    /**
+     * {@code _editor:} 由来の分類。<b>これはゲームの正典ではない</b>——編集画面の見た目のための
+     * メタデータであり、書き手はエディタである。読むだけにし、これで挙動を分岐させないこと。
+     */
+    public CatalogTaxonomy taxonomy() {
+        return taxonomy;
+    }
 
     public Optional<ItemTemplate> template(String id) {
         return Optional.ofNullable(templates.get(id));
@@ -127,6 +153,7 @@ public final class ItemCatalogConfig implements LoadableConfig {
         });
         this.templates = Map.copyOf(live);
         this.draftIds = Set.copyOf(drafts);
+        this.taxonomy = parseTaxonomy(yaml.getConfigurationSection("_editor"));
 
         String draftNote = drafts.isEmpty() ? "" : " (準備中 " + drafts.size() + " 件は未配線)";
         if (result.skipped() > 0) {
@@ -136,6 +163,68 @@ public final class ItemCatalogConfig implements LoadableConfig {
         }
         log.info("[" + PATH + "] loaded " + live.size() + " item(s)" + draftNote + " OK");
         return true;
+    }
+
+    /**
+     * {@code _editor:} の分類を読む。エディタが書く区画なので<b>壊れていても致命にしない</b> ——
+     * 欠けた分は「未分類」として GUI 側が拾えるよう、単に空で返す。
+     *
+     * <p>構造（エディタが書く形）:
+     * <pre>
+     * _editor:
+     *   itemTabs:            &lt;itemId&gt;: &lt;tabId&gt;
+     *   categories:
+     *     &lt;tabId&gt;:
+     *       - id: cat_...
+     *         label: 剣
+     *         itemIds: [ ... ]
+     * </pre>
+     */
+    static CatalogTaxonomy parseTaxonomy(ConfigurationSection editor) {
+        if (editor == null) {
+            return CatalogTaxonomy.EMPTY;
+        }
+        Map<String, String> tabOf = new LinkedHashMap<>();
+        ConfigurationSection tabs = editor.getConfigurationSection("itemTabs");
+        if (tabs != null) {
+            for (String itemId : tabs.getKeys(false)) {
+                String tab = tabs.getString(itemId);
+                if (itemId != null && tab != null && !tab.isBlank()) {
+                    tabOf.put(stripCustomPrefix(itemId), tab);
+                }
+            }
+        }
+
+        Map<String, List<CatalogTaxonomy.Category>> categories = new LinkedHashMap<>();
+        ConfigurationSection cats = editor.getConfigurationSection("categories");
+        if (cats != null) {
+            for (String tab : cats.getKeys(false)) {
+                List<CatalogTaxonomy.Category> list = new ArrayList<>();
+                for (Object raw : cats.getList(tab, List.of())) {
+                    if (!(raw instanceof Map<?, ?> map)) {
+                        continue;
+                    }
+                    Object label = map.get("label");
+                    Object ids = map.get("itemIds");
+                    if (label == null) {
+                        continue;
+                    }
+                    List<String> itemIds = new ArrayList<>();
+                    if (ids instanceof List<?> idList) {
+                        for (Object id : idList) {
+                            if (id != null) {
+                                itemIds.add(stripCustomPrefix(String.valueOf(id)));
+                            }
+                        }
+                    }
+                    list.add(new CatalogTaxonomy.Category(String.valueOf(label), List.copyOf(itemIds)));
+                }
+                if (!list.isEmpty()) {
+                    categories.put(tab, List.copyOf(list));
+                }
+            }
+        }
+        return new CatalogTaxonomy(Map.copyOf(tabOf), Map.copyOf(categories));
     }
 
     /** Pure parse of the {@code items:} section. Unknown/invalid entries are skipped, not fatal. */
