@@ -1261,6 +1261,62 @@
     },
     {
       "material": "LEATHER_HELMET",
+      "cmd": 200221,
+      "id": "mage_weaver_sage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200222,
+      "id": "mage_weaver_sage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200223,
+      "id": "mage_weaver_sage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200224,
+      "id": "mage_weaver_sage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200231,
+      "id": "mage_weaver_starseer_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200232,
+      "id": "mage_weaver_starseer_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200233,
+      "id": "mage_weaver_starseer_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200234,
+      "id": "mage_weaver_starseer_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
       "cmd": 200001,
       "id": "mage_guardian_novice_helmet",
       "source": "catalog",
@@ -1342,6 +1398,62 @@
       "id": "mage_guardian_archmage_boots",
       "source": "catalog",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200201,
+      "id": "mage_guardian_sage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200202,
+      "id": "mage_guardian_sage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200203,
+      "id": "mage_guardian_sage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200204,
+      "id": "mage_guardian_sage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200211,
+      "id": "mage_guardian_starseer_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200212,
+      "id": "mage_guardian_starseer_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200213,
+      "id": "mage_guardian_starseer_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200214,
+      "id": "mage_guardian_starseer_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T09:00:00.000Z"
     },
     {
       "material": "LEATHER_HELMET",
@@ -1538,118 +1650,6 @@
       "id": "withered_silk_boots",
       "source": "catalog",
       "allocatedAt": "2026-07-25T04:26:30.446Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200201,
-      "id": "mage_guardian_sage_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200202,
-      "id": "mage_guardian_sage_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200203,
-      "id": "mage_guardian_sage_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200204,
-      "id": "mage_guardian_sage_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200211,
-      "id": "mage_guardian_starseer_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200212,
-      "id": "mage_guardian_starseer_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200213,
-      "id": "mage_guardian_starseer_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200214,
-      "id": "mage_guardian_starseer_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200221,
-      "id": "mage_weaver_sage_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200222,
-      "id": "mage_weaver_sage_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200223,
-      "id": "mage_weaver_sage_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200224,
-      "id": "mage_weaver_sage_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_HELMET",
-      "cmd": 200231,
-      "id": "mage_weaver_starseer_helmet",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_CHESTPLATE",
-      "cmd": 200232,
-      "id": "mage_weaver_starseer_chestplate",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_LEGGINGS",
-      "cmd": 200233,
-      "id": "mage_weaver_starseer_leggings",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
-    },
-    {
-      "material": "LEATHER_BOOTS",
-      "cmd": 200234,
-      "id": "mage_weaver_starseer_boots",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T09:00:00.000Z"
     },
     {
       "material": "BOOK",
@@ -1962,6 +1962,41 @@
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
+      "material": "FLOWER_BANNER_PATTERN",
+      "cmd": 300041,
+      "id": "thread_perfumer",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "material": "FIELD_MASONED_BANNER_PATTERN",
+      "cmd": 300042,
+      "id": "thread_apiarist",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "material": "PIGLIN_BANNER_PATTERN",
+      "cmd": 300043,
+      "id": "thread_herder",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "material": "PRIZE_POTTERY_SHERD",
+      "cmd": 300044,
+      "id": "thread_appraiser",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_UPGRADE_SMITHING_TEMPLATE",
+      "cmd": 300045,
+      "id": "thread_excavation",
+      "source": "catalog",
+      "allocatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    {
       "material": "ENDER_EYE",
       "cmd": 85,
       "id": "someones_eyes",
@@ -2018,49 +2053,63 @@
       "cmd": 400008,
       "id": "wooden_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-23T06:31:29.302Z"
+      "allocatedAt": "2026-07-23T06:31:29.302Z",
+      "assetName": "wooden_cane",
+      "parent": "handheld"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400002,
       "id": "stone_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z"
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "stone_cane",
+      "parent": "handheld"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400003,
       "id": "copper_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z"
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "copper_cane",
+      "parent": "handheld"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400004,
       "id": "iron_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z"
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "iron_cane",
+      "parent": "handheld"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400005,
       "id": "golden_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z"
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "golden_cane",
+      "parent": "handheld"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400006,
       "id": "diamond_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z"
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "diamond_cane",
+      "parent": "handheld"
     },
     {
       "material": "BLAZE_ROD",
       "cmd": 400007,
       "id": "netherite_cane",
       "source": "catalog",
-      "allocatedAt": "2026-07-22T22:11:18.688Z"
+      "allocatedAt": "2026-07-22T22:11:18.688Z",
+      "assetName": "netherite_cane",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_PICKAXE",
@@ -2995,13 +3044,6 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "OAK_LOG",
-      "cmd": 5201,
-      "id": "oak_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
       "material": "STONE",
       "cmd": 100041,
       "id": "stone_1x",
@@ -3114,6 +3156,20 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
+      "material": "NETHERRACK",
+      "cmd": 1003,
+      "id": "netherrack_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "NETHERRACK",
+      "cmd": 1004,
+      "id": "netherrack_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
       "material": "END_STONE",
       "cmd": 999,
       "id": "end_stone_1x",
@@ -3126,6 +3182,20 @@
       "id": "end_stone_2x",
       "source": "materials",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "END_STONE",
+      "cmd": 1005,
+      "id": "end_stone_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "END_STONE",
+      "cmd": 1006,
+      "id": "end_stone_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
     },
     {
       "material": "LAPIS_BLOCK",
@@ -3282,6 +3352,258 @@
       "allocatedAt": "2026-07-23T13:30:59.742Z"
     },
     {
+      "material": "DEEPSLATE",
+      "cmd": 17,
+      "id": "deepslate_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 18,
+      "id": "deepslate_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 19,
+      "id": "deepslate_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "DEEPSLATE",
+      "cmd": 20,
+      "id": "deepslate_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 21,
+      "id": "sand_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 34,
+      "id": "sand_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.893Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 35,
+      "id": "sand_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SAND",
+      "cmd": 36,
+      "id": "sand_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "OAK_LOG",
+      "cmd": 5201,
+      "id": "oak_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "OAK_LOG",
+      "cmd": 5421,
+      "id": "oak_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "OAK_LOG",
+      "cmd": 5422,
+      "id": "oak_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "BIRCH_LOG",
+      "cmd": 37,
+      "id": "birch_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "BIRCH_LOG",
+      "cmd": 38,
+      "id": "birch_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "BIRCH_LOG",
+      "cmd": 39,
+      "id": "birch_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SPRUCE_LOG",
+      "cmd": 40,
+      "id": "spruce_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SPRUCE_LOG",
+      "cmd": 41,
+      "id": "spruce_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "SPRUCE_LOG",
+      "cmd": 42,
+      "id": "spruce_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "JUNGLE_LOG",
+      "cmd": 43,
+      "id": "jungle_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "JUNGLE_LOG",
+      "cmd": 44,
+      "id": "jungle_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "JUNGLE_LOG",
+      "cmd": 45,
+      "id": "jungle_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "ACACIA_LOG",
+      "cmd": 46,
+      "id": "acacia_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "ACACIA_LOG",
+      "cmd": 47,
+      "id": "acacia_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "ACACIA_LOG",
+      "cmd": 48,
+      "id": "acacia_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "DARK_OAK_LOG",
+      "cmd": 59,
+      "id": "dark_oak_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
+      "material": "DARK_OAK_LOG",
+      "cmd": 60,
+      "id": "dark_oak_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "DARK_OAK_LOG",
+      "cmd": 61,
+      "id": "dark_oak_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MANGROVE_LOG",
+      "cmd": 69,
+      "id": "mangrove_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MANGROVE_LOG",
+      "cmd": 70,
+      "id": "mangrove_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MANGROVE_LOG",
+      "cmd": 71,
+      "id": "mangrove_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PALE_OAK_LOG",
+      "cmd": 72,
+      "id": "pale_oak_wood_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PALE_OAK_LOG",
+      "cmd": 131,
+      "id": "pale_oak_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PALE_OAK_LOG",
+      "cmd": 132,
+      "id": "pale_oak_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5427,
+      "id": "dirt_1x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5428,
+      "id": "dirt_2x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5429,
+      "id": "dirt_3x",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "DIRT",
+      "cmd": 5431,
+      "id": "dirt_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.894Z"
+    },
+    {
       "material": "ECHO_SHARD",
       "cmd": 100081,
       "id": "echo_shard_1x",
@@ -3301,6 +3623,216 @@
       "id": "compressed_cooked_beef_1x",
       "source": "materials",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
+    },
+    {
+      "material": "CARROT",
+      "cmd": 184,
+      "id": "carrot_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CARROT",
+      "cmd": 186,
+      "id": "carrot_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CARROT",
+      "cmd": 187,
+      "id": "carrot_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "POTATO",
+      "cmd": 189,
+      "id": "potato_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "POTATO",
+      "cmd": 190,
+      "id": "potato_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "POTATO",
+      "cmd": 192,
+      "id": "potato_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEETROOT",
+      "cmd": 193,
+      "id": "beetroot_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEETROOT",
+      "cmd": 195,
+      "id": "beetroot_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEETROOT",
+      "cmd": 196,
+      "id": "beetroot_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEEF",
+      "cmd": 197,
+      "id": "beef_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEEF",
+      "cmd": 198,
+      "id": "beef_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "BEEF",
+      "cmd": 199,
+      "id": "beef_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PORKCHOP",
+      "cmd": 200,
+      "id": "porkchop_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PORKCHOP",
+      "cmd": 201,
+      "id": "porkchop_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "PORKCHOP",
+      "cmd": 202,
+      "id": "porkchop_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CHICKEN",
+      "cmd": 203,
+      "id": "chicken_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CHICKEN",
+      "cmd": 204,
+      "id": "chicken_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "CHICKEN",
+      "cmd": 205,
+      "id": "chicken_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MUTTON",
+      "cmd": 206,
+      "id": "mutton_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MUTTON",
+      "cmd": 207,
+      "id": "mutton_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "MUTTON",
+      "cmd": 208,
+      "id": "mutton_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "RABBIT",
+      "cmd": 209,
+      "id": "rabbit_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "RABBIT",
+      "cmd": 210,
+      "id": "rabbit_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "RABBIT",
+      "cmd": 211,
+      "id": "rabbit_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "COD",
+      "cmd": 212,
+      "id": "cod_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "COD",
+      "cmd": 213,
+      "id": "cod_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "COD",
+      "cmd": 214,
+      "id": "cod_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "SALMON",
+      "cmd": 215,
+      "id": "salmon_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "SALMON",
+      "cmd": 216,
+      "id": "salmon_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.895Z"
+    },
+    {
+      "material": "SALMON",
+      "cmd": 217,
+      "id": "salmon_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.896Z"
     },
     {
       "material": "BREEZE_ROD",
@@ -3387,13 +3919,6 @@
       "allocatedAt": "2026-07-23T13:30:59.743Z"
     },
     {
-      "material": "DIRT",
-      "cmd": 5106,
-      "id": "tf_core_dirt",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
       "material": "EMERALD",
       "cmd": 5104,
       "id": "tf_core_jewelry",
@@ -3441,6 +3966,13 @@
     },
     {
       "material": "PAPER",
+      "cmd": 5016,
+      "id": "gacha_ticket_0",
+      "source": "materials",
+      "allocatedAt": "2026-08-04T07:20:07.896Z"
+    },
+    {
+      "material": "PAPER",
       "cmd": 5011,
       "id": "tf_gacha_ticket_1",
       "source": "materials",
@@ -3480,13 +4012,6 @@
       "id": "tf_scrap",
       "source": "materials",
       "allocatedAt": "2026-07-22T21:56:36.875Z"
-    },
-    {
-      "material": "OAK_PLANKS",
-      "cmd": 5311,
-      "id": "plank_scrap",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:30:00.000Z"
     },
     {
       "material": "COPPER_NUGGET",
@@ -3624,11 +4149,27 @@
       "allocatedAt": "2026-07-31T07:45:00.000Z"
     },
     {
+      "material": "DIRT",
+      "cmd": 5106,
+      "id": "tf_core_dirt",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:45:00.000Z"
+    },
+    {
+      "material": "OAK_PLANKS",
+      "cmd": 5311,
+      "id": "plank_scrap",
+      "source": "materials",
+      "allocatedAt": "2026-07-31T07:30:00.000Z"
+    },
+    {
       "material": "LEATHER",
       "cmd": 5401,
       "id": "ravager_hide",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "ravager_hide",
+      "parent": "generated"
     },
     {
       "material": "GOLD_INGOT",
@@ -3649,7 +4190,9 @@
       "cmd": 5404,
       "id": "witch_elixir",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "witch_elixir",
+      "parent": "generated"
     },
     {
       "material": "RABBIT_HIDE",
@@ -3663,28 +4206,36 @@
       "cmd": 5406,
       "id": "stray_cloth",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "stray_cloth",
+      "parent": "generated"
     },
     {
       "material": "BONE",
       "cmd": 5407,
       "id": "skeleton_horse_bone",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "skeleton_horse_bone",
+      "parent": "generated"
     },
     {
       "material": "GUNPOWDER",
       "cmd": 5408,
       "id": "endermite_soot",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "endermite_soot",
+      "parent": "generated"
     },
     {
       "material": "BONE",
       "cmd": 5409,
       "id": "hoglin_tusk",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "hoglin_tusk",
+      "parent": "generated"
     },
     {
       "material": "PRISMARINE_SHARD",
@@ -3698,35 +4249,27 @@
       "cmd": 5411,
       "id": "husk_cloth",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "husk_cloth",
+      "parent": "generated"
     },
     {
       "material": "BONE",
       "cmd": 5412,
       "id": "bogged_mossy_bone",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "bogged_mossy_bone",
+      "parent": "generated"
     },
     {
       "material": "BONE",
       "cmd": 5413,
       "id": "parched_sandy_bone",
       "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "OAK_LOG",
-      "cmd": 5421,
-      "id": "oak_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "OAK_LOG",
-      "cmd": 5422,
-      "id": "oak_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
+      "allocatedAt": "2026-07-31T07:45:00.000Z",
+      "assetName": "parched_sandy_bone",
+      "parent": "generated"
     },
     {
       "material": "BREAD",
@@ -3753,27 +4296,6 @@
       "material": "COOKED_BEEF",
       "cmd": 5426,
       "id": "compressed_cooked_beef_3x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "DIRT",
-      "cmd": 5427,
-      "id": "dirt_1x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "DIRT",
-      "cmd": 5428,
-      "id": "dirt_2x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "DIRT",
-      "cmd": 5429,
-      "id": "dirt_3x",
       "source": "materials",
       "allocatedAt": "2026-07-31T07:45:00.000Z"
     },
@@ -4065,494 +4587,130 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "FLOWER_BANNER_PATTERN",
-      "cmd": 300041,
-      "id": "thread_perfumer",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z"
-    },
-    {
-      "material": "FIELD_MASONED_BANNER_PATTERN",
-      "cmd": 300042,
-      "id": "thread_apiarist",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z"
-    },
-    {
-      "material": "PIGLIN_BANNER_PATTERN",
-      "cmd": 300043,
-      "id": "thread_herder",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z"
-    },
-    {
-      "material": "PRIZE_POTTERY_SHERD",
-      "cmd": 300044,
-      "id": "thread_appraiser",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z"
-    },
-    {
-      "material": "NETHERITE_UPGRADE_SMITHING_TEMPLATE",
-      "cmd": 300045,
-      "id": "thread_excavation",
-      "source": "catalog",
-      "allocatedAt": "2026-08-03T00:00:00.000Z"
-    },
-    {
-      "material": "DEEPSLATE",
-      "cmd": 17,
-      "id": "deepslate_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.893Z"
-    },
-    {
-      "material": "DEEPSLATE",
-      "cmd": 18,
-      "id": "deepslate_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.893Z"
-    },
-    {
-      "material": "DEEPSLATE",
-      "cmd": 19,
-      "id": "deepslate_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.893Z"
-    },
-    {
-      "material": "DEEPSLATE",
-      "cmd": 20,
-      "id": "deepslate_4x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.893Z"
-    },
-    {
-      "material": "SAND",
-      "cmd": 21,
-      "id": "sand_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.893Z"
-    },
-    {
-      "material": "SAND",
-      "cmd": 34,
-      "id": "sand_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.893Z"
-    },
-    {
-      "material": "SAND",
-      "cmd": 35,
-      "id": "sand_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "SAND",
-      "cmd": 36,
-      "id": "sand_4x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "DIRT",
-      "cmd": 5431,
-      "id": "dirt_4x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "NETHERRACK",
-      "cmd": 1003,
-      "id": "netherrack_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "NETHERRACK",
-      "cmd": 1004,
-      "id": "netherrack_4x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "END_STONE",
-      "cmd": 1005,
-      "id": "end_stone_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "END_STONE",
-      "cmd": 1006,
-      "id": "end_stone_4x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "BIRCH_LOG",
-      "cmd": 37,
-      "id": "birch_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "BIRCH_LOG",
-      "cmd": 38,
-      "id": "birch_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "BIRCH_LOG",
-      "cmd": 39,
-      "id": "birch_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "SPRUCE_LOG",
-      "cmd": 40,
-      "id": "spruce_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "SPRUCE_LOG",
-      "cmd": 41,
-      "id": "spruce_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "SPRUCE_LOG",
-      "cmd": 42,
-      "id": "spruce_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "JUNGLE_LOG",
-      "cmd": 43,
-      "id": "jungle_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "JUNGLE_LOG",
-      "cmd": 44,
-      "id": "jungle_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "JUNGLE_LOG",
-      "cmd": 45,
-      "id": "jungle_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "ACACIA_LOG",
-      "cmd": 46,
-      "id": "acacia_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "ACACIA_LOG",
-      "cmd": 47,
-      "id": "acacia_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "ACACIA_LOG",
-      "cmd": 48,
-      "id": "acacia_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "DARK_OAK_LOG",
-      "cmd": 59,
-      "id": "dark_oak_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.894Z"
-    },
-    {
-      "material": "DARK_OAK_LOG",
-      "cmd": 60,
-      "id": "dark_oak_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "DARK_OAK_LOG",
-      "cmd": 61,
-      "id": "dark_oak_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "MANGROVE_LOG",
-      "cmd": 69,
-      "id": "mangrove_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "MANGROVE_LOG",
-      "cmd": 70,
-      "id": "mangrove_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "MANGROVE_LOG",
-      "cmd": 71,
-      "id": "mangrove_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "PALE_OAK_LOG",
-      "cmd": 72,
-      "id": "pale_oak_wood_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "PALE_OAK_LOG",
-      "cmd": 131,
-      "id": "pale_oak_wood_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "PALE_OAK_LOG",
-      "cmd": 132,
-      "id": "pale_oak_wood_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "CARROT",
-      "cmd": 184,
-      "id": "carrot_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "CARROT",
-      "cmd": 186,
-      "id": "carrot_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "CARROT",
-      "cmd": 187,
-      "id": "carrot_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "POTATO",
-      "cmd": 189,
-      "id": "potato_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "POTATO",
-      "cmd": 190,
-      "id": "potato_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "POTATO",
-      "cmd": 192,
-      "id": "potato_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "BEETROOT",
-      "cmd": 193,
-      "id": "beetroot_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "BEETROOT",
-      "cmd": 195,
-      "id": "beetroot_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "BEETROOT",
-      "cmd": 196,
-      "id": "beetroot_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "BEEF",
-      "cmd": 197,
-      "id": "beef_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "BEEF",
-      "cmd": 198,
-      "id": "beef_2x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "BEEF",
-      "cmd": 199,
-      "id": "beef_3x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "PORKCHOP",
-      "cmd": 200,
-      "id": "porkchop_1x",
-      "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
-    },
-    {
-      "material": "PORKCHOP",
-      "cmd": 201,
-      "id": "porkchop_2x",
+      "material": "HAY_BLOCK",
+      "cmd": 218,
+      "id": "hay_block_1x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.676Z"
     },
     {
-      "material": "PORKCHOP",
-      "cmd": 202,
-      "id": "porkchop_3x",
+      "material": "HAY_BLOCK",
+      "cmd": 219,
+      "id": "hay_block_2x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.677Z"
     },
     {
-      "material": "CHICKEN",
-      "cmd": 203,
-      "id": "chicken_1x",
+      "material": "HAY_BLOCK",
+      "cmd": 220,
+      "id": "hay_block_3x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.677Z"
     },
     {
-      "material": "CHICKEN",
-      "cmd": 204,
-      "id": "chicken_2x",
+      "material": "PUMPKIN",
+      "cmd": 221,
+      "id": "pumpkin_1x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.677Z"
     },
     {
-      "material": "CHICKEN",
-      "cmd": 205,
-      "id": "chicken_3x",
+      "material": "PUMPKIN",
+      "cmd": 222,
+      "id": "pumpkin_2x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.677Z"
     },
     {
-      "material": "MUTTON",
-      "cmd": 206,
-      "id": "mutton_1x",
+      "material": "PUMPKIN",
+      "cmd": 223,
+      "id": "pumpkin_3x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.677Z"
     },
     {
-      "material": "MUTTON",
-      "cmd": 207,
-      "id": "mutton_2x",
+      "material": "MELON",
+      "cmd": 224,
+      "id": "melon_1x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "MUTTON",
-      "cmd": 208,
-      "id": "mutton_3x",
+      "material": "MELON",
+      "cmd": 225,
+      "id": "melon_2x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "RABBIT",
-      "cmd": 209,
-      "id": "rabbit_1x",
+      "material": "MELON",
+      "cmd": 226,
+      "id": "melon_3x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "RABBIT",
-      "cmd": 210,
-      "id": "rabbit_2x",
+      "material": "GLOW_BERRIES",
+      "cmd": 227,
+      "id": "glow_berries_1x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "RABBIT",
-      "cmd": 211,
-      "id": "rabbit_3x",
+      "material": "GLOW_BERRIES",
+      "cmd": 228,
+      "id": "glow_berries_2x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "COD",
-      "cmd": 212,
-      "id": "cod_1x",
+      "material": "GLOW_BERRIES",
+      "cmd": 229,
+      "id": "glow_berries_3x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "COD",
-      "cmd": 213,
-      "id": "cod_2x",
+      "material": "SWEET_BERRIES",
+      "cmd": 230,
+      "id": "sweet_berries_1x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "COD",
-      "cmd": 214,
-      "id": "cod_3x",
+      "material": "SWEET_BERRIES",
+      "cmd": 231,
+      "id": "sweet_berries_2x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "SALMON",
-      "cmd": 215,
-      "id": "salmon_1x",
+      "material": "SWEET_BERRIES",
+      "cmd": 232,
+      "id": "sweet_berries_3x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "SALMON",
-      "cmd": 216,
-      "id": "salmon_2x",
+      "material": "APPLE",
+      "cmd": 233,
+      "id": "apple_1x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.895Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "SALMON",
-      "cmd": 217,
-      "id": "salmon_3x",
+      "material": "APPLE",
+      "cmd": 234,
+      "id": "apple_2x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.896Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     },
     {
-      "material": "PAPER",
-      "cmd": 5016,
-      "id": "gacha_ticket_0",
+      "material": "APPLE",
+      "cmd": 235,
+      "id": "apple_3x",
       "source": "materials",
-      "allocatedAt": "2026-08-04T07:20:07.896Z"
+      "allocatedAt": "2026-08-05T07:25:01.678Z"
     }
   ]
 }
