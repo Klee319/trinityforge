@@ -374,6 +374,19 @@ try節の外に置くとテストが「失敗」ではなく「中断（SKIPPED�
 **`type: statistic` + `statistic-qualifier` で書き直す**のが正解
 （例: `minecraft:story/mine_stone` → `statistic: MINE_BLOCK` / `statistic-qualifier: STONE`）。
 
+### GUI の作業位置は「セッション内のメモリ」で復元する（2026-08-06, W-30）
+
+`/tf skills`（`NativeSkillTreeMenu`）と `/tf achievement`（`AchievementGui`）はどちらも
+`Map<UUID, View>` を1本持ち、画面を描くたびに上書きして、引数なしの `open(player)` で復元する。
+
+- **`pending`（解放/解除の確認待ち）は絶対に持ち越さない。** 持ち越すと「閉じて開いて1クリック」で
+  確定する経路ができ、誤爆でSPや報酬を消費する。`View` は `Session` から pending を落とした型に
+  してあるので、うっかり足せない。
+- **ログアウトで捨てる**（`PlayerQuitEvent`）。ログイン跨ぎで復元したいなら PDC だが、PDCキーは
+  バックアップ網羅性テストの対象で保守コストが増える一方、この状態は「その場の作業位置」でしかない。
+- `/tf skills <skill>` のように**別ツリーを名指しで開いたときは復元しない**（そのツリーの起点から）。
+  覚えているツリーと一致するときだけ位置・モード・ページを戻す。
+
 ### `/tf achievement` GUI はスキルツリーGUIと同じ配置・同じ操作系（2026-08-06, W-31）
 
 | 枠 | 中身 |

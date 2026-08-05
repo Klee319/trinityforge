@@ -204,6 +204,66 @@ class AchievementGuiLayoutTest {
                 "系統バーのクリックは解放フローへ流れないこと(バーと本体でPDCキーを分けている理由)");
     }
 
+    /**
+     * W-30(2026-08-06): 閉じて開き直したときにスクロール位置と選択中の系統が戻ること。
+     */
+    @Test
+    void reopeningRestoresTheScrollPositionAndTheSelectedBranch() throws Exception {
+        AchievementGui gui = new AchievementGui(plugin, branchedConfig(), null, null, null);
+        gui.open(player);
+
+        int warSlot = -1;
+        Inventory top = player.getOpenInventory().getTopInventory();
+        for (int slot = 45; slot <= 52; slot++) {
+            if ("war".equals(head(top.getItem(slot)))) {
+                warSlot = slot;
+            }
+        }
+        gui.onClick(clickAt(warSlot));
+        server.getScheduler().performOneTick();
+        assertEquals("war", focus(player.getOpenInventory().getTopInventory().getItem(VIEWPORT_CENTER)),
+                "前提: war が中央に来ている");
+
+        gui.open(player); // 閉じて開き直した相当
+
+        Inventory reopened = player.getOpenInventory().getTopInventory();
+        assertEquals("war", focus(reopened.getItem(VIEWPORT_CENTER)), "スクロール位置が戻ること");
+        assertEquals("war", head(reopened.getItem(HEAD_BAR_CENTER)), "選択中の系統も戻ること");
+    }
+
+    @Test
+    void reopeningNeverCarriesOverAPendingClaimConfirmation() throws Exception {
+        AchievementsConfig config = branchedConfig();
+        AchievementService service = new AchievementService(config, LOG);
+        AchievementGui gui = new AchievementGui(plugin, config, null, null, service);
+
+        player.incrementStatistic(Statistic.JUMP);
+        service.pollStatistics();
+        assertTrue(PlayerData.of(player).achievedIds().contains("main"), "前提: main は達成済み");
+
+        gui.open(player);
+        int mainSlot = -1;
+        Inventory top = player.getOpenInventory().getTopInventory();
+        for (int slot = 0; slot < 45; slot++) {
+            if ("main".equals(focus(top.getItem(slot)))) {
+                mainSlot = slot;
+                break;
+            }
+        }
+        assertTrue(mainSlot >= 0);
+
+        gui.onClick(clickAt(mainSlot)); // 1クリック目 = 確認待ち
+        server.getScheduler().performOneTick();
+        assertFalse(PlayerData.of(player).claimedAchievementIds().contains("main"));
+
+        gui.open(player); // 一度閉じて開き直す
+        gui.onClick(clickAt(mainSlot)); // 開き直した後の1クリック目
+        server.getScheduler().performOneTick();
+
+        assertFalse(PlayerData.of(player).claimedAchievementIds().contains("main"),
+                "確認待ちを持ち越すと「閉じて開いて1クリック」で解放が確定してしまう");
+    }
+
     private InventoryClickEvent clickAt(int slot) {
         return new InventoryClickEvent(
                 player.getOpenInventory(), InventoryType.SlotType.CONTAINER, slot,

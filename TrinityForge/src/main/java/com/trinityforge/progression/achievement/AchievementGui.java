@@ -115,6 +115,17 @@ public final class AchievementGui implements Listener {
      * (同じキーにすると、達成済みの起点をバーで選んだだけで解放が確定してしまう)。
      */
     private final NamespacedKey headKey;
+    /**
+     * プレイヤーごとの「最後に見ていた画面」(2026-08-06, W-30)。閉じて開き直しても
+     * スクロール位置と選択中の系統が戻る。
+     *
+     * <p><b>確認待ち(pendingId)は意図的に持ち越さない。</b>持ち越すと「閉じて開いて1クリック」で
+     * 解放が確定する経路ができ、誤爆で報酬を消費してしまう。
+     *
+     * <p>ログアウトで捨てる(＝ログイン跨ぎでは復元しない)。PDCへ載せれば跨げるが、PDCキーは
+     * バックアップ網羅性の対象で保守コストが増える一方、この状態は「その場の作業位置」でしかない。
+     */
+    private final java.util.Map<java.util.UUID, View> lastView = new java.util.HashMap<>();
 
     /** 後方互換コンストラクタ(既存呼び出し元用): 解放操作は無効(fail-soft、クリックしても解放できない)。 */
     public AchievementGui(Plugin plugin, AchievementsConfig config,
@@ -144,7 +155,9 @@ public final class AchievementGui implements Listener {
         open(player, null);
     }
 
-    /** @param focusId 中央に寄せたいアチーブメントID(null=既定の起点) */
+    /**
+     * @param focusId 中央に寄せたいアチーブメントID(null=前回の位置、無ければ既定の起点)
+     */
     public void open(Player player, String focusId) {
         List<Achievement> achievements = config.achievements();
         if (achievements.isEmpty()) {
@@ -159,7 +172,12 @@ public final class AchievementGui implements Listener {
             player.sendMessage(Component.text("アチーブメント設定が不正です。", NamedTextColor.RED));
             return;
         }
-        render(player, canvas, focusId == null ? canvas.start() : canvas.focusOn(focusId), null, null);
+        // 2026-08-06(W-30): 閉じて開き直しても、スクロール位置と選択中の系統が戻る。
+        View view = lastView.get(player.getUniqueId());
+        AchievementCanvas.Point center = focusId != null
+                ? canvas.focusOn(focusId)
+                : (view == null ? canvas.start() : canvas.clamp(view.center()));
+        render(player, canvas, center, null, view == null ? null : view.headId());
     }
 
     /**
@@ -193,7 +211,14 @@ public final class AchievementGui implements Listener {
         }
         renderHeadBar(inventory, heads, head, achieved, claimed);
         inventory.setItem(SUMMARY_SLOT, summaryIcon(achieved, claimed, canvas));
+        lastView.put(player.getUniqueId(), new View(safe, head));
         player.openInventory(inventory);
+    }
+
+    /** ログアウトで作業位置を捨てる(オフラインプレイヤーのぶんを溜め込まない)。 */
+    @EventHandler
+    public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        lastView.remove(event.getPlayer().getUniqueId());
     }
 
     /**
@@ -688,6 +713,10 @@ public final class AchievementGui implements Listener {
         if (event.getInventory().getHolder() instanceof Session) {
             event.setCancelled(true);
         }
+    }
+
+    /** 「最後に見ていた画面」(2026-08-06, W-30)。{@link Session} から pending を落としたもの。 */
+    private record View(AchievementCanvas.Point center, String headId) {
     }
 
     private static final class Session implements InventoryHolder {

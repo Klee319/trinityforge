@@ -65,6 +65,18 @@ public final class NativeSkillTreeMenu implements Listener {
     private final Consumer<Player> refreshPerks;
     private final NamespacedKey actionKey;
     private final NamespacedKey valueKey;
+    /**
+     * プレイヤーごとの「最後に見ていた画面」(2026-08-06, W-30)。
+     * 閉じて開き直しても、ツリー・スクロール位置・モード・ページが戻る。
+     *
+     * <p><b>保留中の解放確認(pendingPerkId)は意図的に持ち越さない。</b>
+     * 持ち越すと「閉じて開いて1クリック」で解放が確定する経路ができ、誤爆が起きる。
+     *
+     * <p>ログアウトで捨てる(ログイン跨ぎでは復元しない)。PDCへ載せれば跨げるが、
+     * PDCキーはバックアップ網羅性の対象で保守コストが増える一方、この状態は
+     * 「その場の作業位置」でしかないため、セッション内に留める判断。
+     */
+    private final Map<UUID, View> lastView = new HashMap<>();
 
     public NativeSkillTreeMenu(Plugin plugin, NativeProgressionService progression,
                                NativePerkService perks, Consumer<Player> refreshPerks) {
@@ -82,6 +94,11 @@ public final class NativeSkillTreeMenu implements Listener {
             player.sendMessage(Component.text("スキルツリー設定がありません。", NamedTextColor.RED));
             return;
         }
+        View view = lastView.get(player.getUniqueId());
+        if (view != null && perks.tree(view.skillId()) != null) {
+            openInternal(player, view.skillId(), view.center(), null, view.mode(), view.page());
+            return;
+        }
         SkillTree tree = trees.getFirst();
         openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null,
                 Mode.DETAIL, 0);
@@ -93,8 +110,26 @@ public final class NativeSkillTreeMenu implements Listener {
             open(player);
             return;
         }
+        // 同じツリーを開き直したときだけ位置を復元する(別ツリーの指定は、そのツリーの起点から)。
+        View view = lastView.get(player.getUniqueId());
+        if (view != null && view.skillId().equals(tree.skill())) {
+            openInternal(player, view.skillId(), view.center(), null, view.mode(), view.page());
+            return;
+        }
         openInternal(player, tree.skill(), NativeSkillTreeCanvas.project(tree).start(), null,
                 Mode.DETAIL, 0);
+    }
+
+    /** 描き終えた画面を「最後に見ていた画面」として覚える(2026-08-06, W-30)。 */
+    private void remember(Player player, Session session) {
+        lastView.put(player.getUniqueId(),
+                new View(session.skillId, session.center, session.mode, session.page));
+    }
+
+    /** ログアウトで作業位置を捨てる(オフラインプレイヤーのぶんを溜め込まない)。 */
+    @EventHandler
+    public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        lastView.remove(event.getPlayer().getUniqueId());
     }
 
     /**
@@ -200,6 +235,7 @@ public final class NativeSkillTreeMenu implements Listener {
                         Component.text(directionLabel(action), NamedTextColor.WHITE), List.of())));
         renderSkillSelector(inventory, trees, tree.skill(), snapshot);
         renderModeButtons(inventory, Mode.DETAIL, null);
+        remember(player, holder);
         player.openInventory(inventory);
     }
 
@@ -626,6 +662,7 @@ public final class NativeSkillTreeMenu implements Listener {
         }
         renderSkillSelector(inventory, trees, tree.skill(), snapshot);
         renderModeButtons(inventory, Mode.PERK_LIST, (safePage + 1) + " / " + pages + " ページ");
+        remember(player, holder);
         player.openInventory(inventory);
     }
 
@@ -707,6 +744,7 @@ public final class NativeSkillTreeMenu implements Listener {
                             Component.text("クリックでこのツリーへ移動", NamedTextColor.DARK_GRAY))));
         }
         renderModeButtons(inventory, Mode.OVERVIEW, null);
+        remember(player, holder);
         player.openInventory(inventory);
     }
 
@@ -865,5 +903,9 @@ public final class NativeSkillTreeMenu implements Listener {
     }
 
     private record NodeStatus(boolean unlocked, boolean unlockable, boolean pending) {
+    }
+
+    /** 「最後に見ていた画面」(2026-08-06, W-30)。{@link Session} から pending を落としたもの。 */
+    private record View(String skillId, NativeSkillTreeCanvas.Point center, Mode mode, int page) {
     }
 }

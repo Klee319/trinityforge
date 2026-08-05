@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -195,6 +196,59 @@ class NativeSkillTreeMenuPerkListTest {
 
         shown.addAll(rest);
         assertEquals(total, shown.size(), "全パークがどこかのページで必ず見られる");
+    }
+
+    /**
+     * W-30(2026-08-06): 閉じて開き直したときにスクロール位置・モード・ページが戻ること。
+     * ここで縛るのは「パーク一覧から飛んだ中心が再オープンで維持される」までの往復。
+     */
+    @Test
+    void reopeningRestoresTheScrollPositionInsteadOfSnappingBackToTheStart() {
+        menu.open(player);
+        String atStart = displayName(player.getOpenInventory().getTopInventory().getItem(VIEWPORT_CENTER));
+
+        clickSlot(SkillTreeOverviewLayout.PERK_LIST_SLOT);
+        server.getScheduler().performOneTick();
+        List<Integer> perkSlots = slotsWithAction(player.getOpenInventory().getTopInventory(), "jump-perk");
+        clickSlot(perkSlots.get(2)); // 合成ルート・M01 の次 = M02
+        server.getScheduler().performOneTick();
+
+        String moved = displayName(player.getOpenInventory().getTopInventory().getItem(VIEWPORT_CENTER));
+        assertNotEquals(atStart, moved, "前提: ジャンプで中心が動いていること");
+
+        menu.open(player); // 閉じて開き直した相当
+        assertEquals(moved, displayName(
+                        player.getOpenInventory().getTopInventory().getItem(VIEWPORT_CENTER)),
+                "再オープンで初期位置へ戻らないこと");
+    }
+
+    @Test
+    void reopeningRestoresThePerkListModeAndItsPage() {
+        menu.open(player, SkillId.WOODCUTTING);
+        clickSlot(SkillTreeOverviewLayout.PERK_LIST_SLOT);
+        server.getScheduler().performOneTick();
+        clickSlot(SkillTreeOverviewLayout.PAGE_NEXT_SLOT);
+        server.getScheduler().performOneTick();
+
+        menu.open(player);
+
+        Inventory top = player.getOpenInventory().getTopInventory();
+        assertNull(top.getItem(NAV_SLOT_PROBE), "パーク一覧モードのまま開くこと");
+        assertNotNull(top.getItem(SkillTreeOverviewLayout.PAGE_PREV_SLOT),
+                "2ページ目のまま開くこと(「前へ」が出ている)");
+    }
+
+    @Test
+    void askingForADifferentTreeStartsFromItsOwnOriginInsteadOfTheRememberedPosition() {
+        menu.open(player, SkillId.WOODCUTTING);
+        clickSlot(SkillTreeOverviewLayout.PERK_LIST_SLOT);
+        server.getScheduler().performOneTick();
+
+        // 別ツリーを名指しで開いたら、覚えている位置ではなくそのツリーの起点から。
+        menu.open(player, SkillId.MINING);
+
+        Inventory top = player.getOpenInventory().getTopInventory();
+        assertNotNull(top.getItem(NAV_SLOT_PROBE), "名指しの別ツリーは通常モードで開くこと");
     }
 
     private void clickSlot(int slot) {
