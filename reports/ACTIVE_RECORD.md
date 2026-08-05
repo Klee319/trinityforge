@@ -98,6 +98,28 @@
 | ~~**W-43**~~ | ~~**元からある(バニラの)防具以外、木材で修繕ができない**（2026-08-05 追加報告）~~ | **2026-08-05 修正済み（`7af192a`）**。優先度の取り合い。`WoodRepairListener#onPrepareAnvil`(HIGH) が入れた結果を `CatalogVanillaOperationGuardListener#onPrepareAnvil`(HIGHEST) が `setResult(null)` で潰していた。TF 装備はほぼ全部カタログ品なので金床の木材修繕は常に死んでおり、カタログ品でない=バニラ装備だけが通っていた。ガードの除外条件に「解放済みプレイヤーの木材修繕」を追加（未解放でも許可すると圧縮木材がバニラの修理素材として食われる穴になるので効果の保有まで見る） |
 | — | **「EXPを保存する機能」の使い方**（2026-08-05 質問） | **不具合ではない**。エンチャントツリー B-3「EXPフリーザー」（Lv60、`feature:xp-bottle-store-unlock`）を取得後、**バニラの経験値瓶を手に持って** ①スニーク＋右クリック＝格納（段1で 100EXP／瓶1本）②格納済みの瓶を通常右クリック＝取り出し（段1は返却率 50%＝目減りあり。設計メモ「経験値増殖の観点からデバフ必須」）。値は `stats/fishing-gimmick.yml` の `xp-bottle-store`（段2〜4 は value 2/3/4 のノードを置いたときに到達し、200/300/400・60/70/80%）。格納済みの瓶は誤投げ防止で常にクリックを食う |
 
+### 2026-08-06 の配備後コンソール点検で見つかったもの
+
+**点検の前提**: 2026-08-06 02:20〜02:24 に jar（3台）と HEAD の config を配備し、
+`start-all.cmd` で 3 バックエンド＋Velocity を起動した直後のログを全走査した。
+プラグインの enable はすべて成功（TrinityForge / ArsPaper / EliteMobs / HuskSync）。
+**カタログのレシピ登録失敗は 11 件超 → 1 件（`key_binder` のみ）に減った**
+（`infinity_*` / `magic_cane` の失敗は今回の config 配備で解消）。
+スタックトレースは 3 台とも `key_binder` の 1 本だけ。
+
+| # | 内容 | 根拠と原因 |
+|---|---|---|
+| **W-44** | **HIGH: `key_binder`（世界の綴じ手の鍵）のレシピが毎起動で登録に失敗し、永久にクラフト不可** | 3 台とも `[items/catalog.yml] failed to register recipe for 'key_binder'; skipped` / `IllegalArgumentException: custom list member 'dungeon_seal_*' is unknown`。**原因は 2 つの合わせ技**: ①`items/external-items.yml` が `items: {}` のまま（ログの `loaded 0 external item(s)` が証拠）で、`material-lists.yml` の `dungeon_seals`（`custom:dungeon_seal_*` 19 件）を TF 単独では解決できない ②TF のレシピ登録（02:23:07）が **ArsPaper の enable（02:23:12）より前**に走るので、Ars 側の登録も間に合わない。印そのものは `plugins/ArsPaper/materials.yml` に 19 件とも定義済みなので、**足りないのは登録経路だけ**。修正案は (a) 19 件を `external-items.yml` に載せる (b) このレシピの登録を Ars enable 後へ遅らせる。既知の落とし穴「`custom:` 素材は ExternalItemRegistry 登録が必須。空だと無言死」の実例 |
+| **W-45** | **MEDIUM: 特殊報酬 26 件のうち `particle_dragon_aura` が毎起動で捨てられている**（3 台とも `loaded 25 special reward(s), 1 skipped`） | `SpecialRewardsConfig.parseParticle` は `getDataType() != Void.class` の Particle を弾く（Paper 1.21.11 で `FLASH` が Color 必須になり戦闘処理ごと止まった事故の再発防止ガード）。**`paper-api-1.21.11` のバイトコードを確認したところ `DRAGON_BREATH` は `Particle(String,int,String,Class)` に `java.lang.Float` を渡している**（`END_ROD` は 3 引数＝Void）ので、このガードに正しく弾かれている。**設定ミスであってコードの不具合ではない**。修正は yml 側で Void 型のパーティクルへ差し替える。**あわせて、出荷 yml を `parseParticle` に通す回帰テストが無い**（だから誰も気づかないまま出荷された）ので、テストも足す |
+| **W-46** | **MEDIUM: Dev_Server だけ Nightbreak トークンが失効している**（→ W-27② の具体化） | Dev_Server: `Nightbreak token was rejected (401) ... INVALID_TOKEN` に続いて `Failed to prefetch access info for 32 slugs`（`premium-enchantment-sanctums` `yggdrasil-realm` `hallosseum` ほか）。**Main_Server は `Nightbreak account loaded successfully!` → `Parsed 58 content versions` で正常**。EliteMobs のデータフォルダはバックエンドごとに別実体なので、**Dev_Server で `/nightbreaklogin <token>` を実行する運用作業**（トークンは nightbreak.io/account） |
+| **W-47** | **MEDIUM: 統合版でフォールバックが無いカスタムアイテムが 104 件**（リソースパック側） | Main_Server 起動時に GeyserExtra が `[AutoPack] no Bedrock vanilla fallback for minecraft:crossbow` ×100 / `minecraft:compass` ×4。さらに `infinity_{helmet,chestplate,leggings,boots}` と `source_gem_{helmet,leggings,boots}` の 7 種は**装備テクスチャが Java パック側で解決できず防具アタッチャブルをスキップ**（＝装備すると統合版ではバニラ防具の見た目になる。手持ち表示だけは出る）。**W-36 と同じくリソースパック担当セッションの範囲** |
+| — | **BlueMap がリソース未取得で動いていない**（Main_Server） | `BlueMap is missing important resources! / You must accept the required file download` → `plugins/BlueMap/core.conf` でダウンロード同意を入れるまでマップは生成されない。運用判断（TF の機能ではない） |
+| — | **誤検知だったもの（記録して再調査を防ぐ）** | ①`skulls.json` が `{"skulls": []}` で GeyserExtra が「No skulls registered」と警告するが、**`catalog.yml` に `PLAYER_HEAD` は 0 件**なので正常 ②`SERVER IS RUNNING IN OFFLINE/INSECURE MODE` は Velocity 配下では必須の設定 ③`Vault economy provider not found` は INFO で意図どおり ④`resource-pack-id` 空欄は既定 UUID が使われるだけ ⑤儀式レシピ 4 件（`harvest_hoe` / `herb_hat` / `leyline_shovel` / `bedrock_greaves`）が台座 19 台＝3 段構成を要求する INFO は仕様どおりの案内 |
+
+**W-36 は未解消のまま**（今回の点検でも確認）: `server.properties` の
+`resource-pack-sha1=5b251cb3...` は作業ツリーの `dist/TrinityForge-Pack.zip`（08-04 10:43）と
+ハッシュ一致したままで、配信 URL も `pack-20260804014327`。**zip の再生成と再発行が行われていない**。
+
 ---
 
 ## 4. 既知の未修正の問題・弱点

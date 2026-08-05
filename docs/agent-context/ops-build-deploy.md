@@ -121,6 +121,21 @@ LF のみの改行で書くと cmd.exe がラベルを解決できず
 「ラベルを使う 2 本（`server-loop.cmd` / `deploy.cmd`）だけが CRLF」という状態が正しい。
 既存 `.cmd` に `goto` を足すときは、同時に CRLF へ変換すること。
 
+### ⚠️ エージェントのシェルから `start-all.cmd` を叩くと、サーバ間の待ち時間がゼロになる
+`start-all.cmd` は `timeout.exe /t <秒> /nobreak` でバックエンドの起動間隔を空けている。
+ところが**エージェントの非対話シェルは stdin がリダイレクトされている**ため、`timeout.exe` は
+`ERROR: Input redirection is not supported, exiting the process immediately.` を出して**即座に終了する**。
+`||` でも `errorlevel` でも拾っていないので、スクリプトは何事もなかったように次のサーバを起動し、
+**main → resource → dev → Velocity が数秒以内に全部立ち上がる**（2026-08-06 実測）。
+
+- 起動順そのものは守られるが、`start-all.cmd` のコメントが挙げている 2 つの前提が崩れる:
+  ①`plugins/TrinityForge` は 3 台でジャンクション共有なので、初回のスキーマ移行が同時に走りうる
+  ②Velocity がバックエンドより先に上がると「繋がるが移動できない」状態が一瞬できる
+- 2026-08-06 の実測ではどちらも実害は出なかった（DB エラー無し、全台 `Done (…)!`、Velocity も正常）が、
+  **無人で回すなら待ちを別手段にする**（`timeout.exe` を `powershell -NoProfile -Command "Start-Sleep -Seconds N"`
+  に置き換えるか、各サーバのログに `Done (` が出るまで待つ）。
+- 実行後は必ず 3 台とも `Done (` が出ているか、`[TrinityForge]` の WARN/ERROR が増えていないかを確認する。
+
 ### ⚠️ `.cmd` の `shift` は `%0` もずらす — その後の `%~dp0` はスクリプトの場所ではない
 オプション解析ループで `shift` を使うと `%0` が消費した引数に置き換わり、以降の `%~dp0` は
 「その引数文字列をカレントディレクトリ基準で解決したパス」になる。結果、
