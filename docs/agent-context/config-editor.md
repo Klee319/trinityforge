@@ -700,6 +700,65 @@ CMD 未割当の候補を選んだときだけ、確認ダイアログ 1 回 →
 発火させ、絞り込んでから `li` をクリックする。ドロップダウンは**独立したポップアップではなく
 同じ `span.list-select` 内の `ul.material-suggest-list`**なので、`document` 直下を探しても無い。
 
+## ⚠️ `getData()` の刈り取りは `working` 配下のコンテナを差し替えてはならない（2026-08-05 修正）
+
+行エディタ（`renderLoreRows` / `buildAddDropMobsBox` / `buildNoSkillExpMobsBox` など）は
+**描画時に配列オブジェクトをローカル変数へ掴んでから** `list[idx] = v` で書き込む。
+一方 `getData()` の空要素刈り取りを
+
+```js
+working[key] = working[key].map(...).filter(...);   // ← 配列を差し替えてしまう
+```
+
+と書くと、掴んでいた配列が**孤児**になり、以後その行の編集は `working` に届かない。
+`getData()` は **画面を開いた直後**（`app.js` の `syncBaseFromEditor`）と
+**`beforeunload` のたび**（`isEditorDirty`）にも呼ばれるので、
+「**画面を開いてから最初の1回の編集だけが消える**」という形で出る。
+
+さらに悪いのは、差分が出ないので `isEditorDirty()` が `false` のままになること:
+
+- 画面を移動しても未保存警告が出ない
+- 保存ボタンは `save()` 冒頭の `if (!isEditorDirty())` に入り、
+  **「自分の変更はありません」と言ってサーバの内容を読み直す** = 編集が黙って捨てられる
+
+刈り取りは必ず **in-place**（後ろから `splice`）で書く。テストは件数ではなく
+**配列の同一性**（`assert.equal(working[key], captured)`）を固定する
+（`test/prune-must-not-replace-arrays-2026-08-05.test.js`）。
+実害が確認された箇所: `mob-forms.js` の `pruneEmptyNoSkillExpMobs` /
+`pruneEmptyMobSelections`（レベルテーブル）、`tf-lifestyle-forms.js` の
+`pruneEmptyDescriptions`（ロールバフ）。
+
+## ⚠️ 旧キーへフォールバックする表示は「新キーを消す」だけでは消えない（2026-08-05 修正）
+
+`skilltree/*.yml` の説明文は新キー `description`、旧キー `effect-text` の二段構えで、
+TF 側（`SkillTreeConfig#description`）は description が**無い/空白のときだけ** effect-text へ
+フォールバックする（`nullableString` が空文字を null 扱いする）。
+
+- 出荷 yml の**大半のノードは description を持たない**（`light_weapons` / `heavy_weapons` だけが持つ）。
+  そのため editor 側の `delete obj.description` が **no-op** になり、上記と同じ
+  「差分ゼロ → 未保存警告なし → 保存で捨てられる」に落ちていた。**スキル依存の再現条件**なので
+  「たまたま試したスキルでは再現しない」ことがある。
+- `description: ""` を書いても effect-text へフォールバックするので**説明は消えない**。
+  空にする意図を表現できる唯一の書き方は**両方のキーを消す**こと（`applySkillNodeDescription`）。
+
+新旧キーのフォールバックがある欄を触るときは、**Java 側がどちらをどう優先するか**を先に読む。
+
+## 未保存判定の全画面掃引スクリプト（2026-08-05）
+
+`tmp/dirty-audit.mjs`（ヘッドレス Chrome + CDP。`ops/scripts/lib/cdp.mjs` を使う）。
+`isEditorDirty` は非公開だが、**cancelable な `beforeunload` を撃って `defaultPrevented` を見れば
+外から判定できる**。dirty は一度立つと戻せないので**プローブごとに毎回リロード**する。
+`TABS=1` で画面内タブ（`.recipe-tab`）も1枚ずつ回る。**保存は一切しない。**
+
+偽陽性を出す入力が多いので、以下は必ず検査対象から外す（外さないと NG が量産される）:
+
+- 表示フィルタ（「表示ステータス (攻撃/守備/…)」など。`.sub-section` の見出しで判別）
+- `data-value` が `__custom__` / `__material_free__` のような `__…__` 番兵（自由入力欄を開くだけ）
+- `data-value` が空の「(未選択)」、`readonly` の id 欄、`maxlength="1"` のクラフト配置セル
+- タブのラベルや `listSelect` の placeholder を「追加ボタン」と誤認するもの
+- `alert`/`confirm` で却下された操作（`confirm` は**必ず false を返す**こと。
+  `cmdEnsureCatalogItemCmd` のように confirm の先で CMD 採番と catalog.yml の PUT が走る経路がある）
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
