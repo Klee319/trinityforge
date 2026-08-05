@@ -409,7 +409,7 @@ public final class TrinityForge extends JavaPlugin {
         // 採集効率エンチャント連動方式(2026-07-25、mining-efficiency/mining-speed-bonus属性ベースの取り下げ
         // 再設計): メインハンドの農業/採掘/伐採/切削道具へ実行時に効率強化エンチャントとして反映する。
         this.gatheringEfficiencyApplier = new com.trinityforge.gathering.GatheringEfficiencyEnchantApplier(
-                this, aggregator, configManager.gatheringEfficiency(), configManager.statCaps());
+                this, aggregator, configManager.gatheringEfficiency());
         getServer().getPluginManager().registerEvents(gatheringEfficiencyApplier, this);
         // 破壊時バニラEXP(S9)を有効化するため aggregator/dedicatedEffects を渡す 7引数版で登録する。
         // ここは placedBlockTracker(上方) 生成後かつ gimmick系リスナー登録より前なので順序不変。

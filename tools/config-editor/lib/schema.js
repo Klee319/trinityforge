@@ -3251,7 +3251,10 @@ function validateTfBaseStats(data, errors) {
 // base-stats とは逆の規約で「キーが無い」ことに意味があるため、ここでは値の型だけ検証し、
 // 「キーが無ければOK」という base-stats と同じ緩さを保つ(キーの許可リスト検証はしない = 将来
 // Java側で効くキーが増えても editor 側の追随なしに保存できるようにするため)。
-// gathering-efficiency-max-enchant-level はルート直下の独立キー(整数。0以下=無制限)。
+// 2026-08-05: ルート直下の独立キー gathering-efficiency-max-enchant-level(効率強化エンチャントの
+// 上限)はユーザー決定で廃止した(stats/gathering-efficiency.yml の max-enchant-level 一本へ戻した)。
+// Java 側も同日にこのキーを読まなくなったので、検証も外す。現場のファイルに残っていても
+// 「未知のルートキー」として素通りする(このスキーマはキー許可リスト検証をしない)。
 function validateTfStatCaps(data, errors) {
   if (data == null || typeof data !== "object" || Array.isArray(data)) {
     errors.push("ルートはオブジェクトである必要があります");
@@ -3268,10 +3271,6 @@ function validateTfStatCaps(data, errors) {
         }
       }
     }
-  }
-  const bookshelfLevel = data["gathering-efficiency-max-enchant-level"];
-  if (bookshelfLevel !== undefined && bookshelfLevel !== null && !isInteger(bookshelfLevel)) {
-    errors.push("gathering-efficiency-max-enchant-level: 整数である必要があります(0以下=無制限)");
   }
 }
 

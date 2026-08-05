@@ -277,16 +277,22 @@ restore は「クランプ後の最終 MAX_HEALTH」を見ることになり整�
   いずれかへ正規化してからクランプする。つまり legacy 値も最終的には typed キーの上限に服するが、
   「flat-defense」というキー名自体で上限を書いても参照されない(typed キーで書くこと)。
 
-## `gathering-efficiency-max-enchant-level`
+## `gathering-efficiency-max-enchant-level`（2026-08-05 廃止）
 
-採集効率(`gathering-efficiency`、旧称:最終効率)の効率強化エンチャント上限。ルート直下のキー(`stat-caps:` マップの外側)。
+採集効率(`gathering-efficiency`)の効率強化エンチャント上限を、ルート直下のこのキーからも
+上書きできる後方互換ブリッジがあった（2026-07-26 に config-editor の独立カテゴリを畳んだときの移設先）。
 
-旧来は `stats/gathering-efficiency.yml` の `max-enchant-level` だけがこの値を決めていた。
-ここに数値を書くと、そちらより優先してこの値が使われる(`stats/gathering-efficiency.yml` は
-後方互換のため引き続き読み込まれ続けるが、このキーが設定されていれば無視される)。
-未記載なら、これまで通り `stats/gathering-efficiency.yml` 側の値が使われる。
-0以下は「無制限」(`gathering-efficiency.yml` と同じ意味論)。内部ハード上限 255
-(`GatheringEfficiencyMath`)は、この設定に関わらず絶対に超えない。
+**ユーザー指摘「設定項目としても config としても不要」により 2026-08-05 に撤去した。**
+`stats/gathering-efficiency.yml` の `max-enchant-level` と二重管理で、
+「どちらが優先か」を説明しないと使えない状態そのものが不要だったため。
+
+- 上限の唯一の設定箇所は `stats/gathering-efficiency.yml` の `max-enchant-level`（0以下 = 無制限）。
+  内部ハード上限 255（`GatheringEfficiencyMath`）は設定に関わらず絶対に超えない。
+- `StatCapsConfig` はこのキーを読まなくなった。現場の `stat-caps.yml` に残っていても
+  `stat-caps:` セクションの外なので**無視される**（警告も出ないし、ロードも壊さない）。
+- config-editor の「上限」タブからも当該行を削除した。
+  `stats/gathering-efficiency.yml` は editor に UI が無い（サイドバー非表示）ので、
+  上限を変えるときは yml を直接編集する。
 
 ## 出荷初期値 (2026-08-01) — 攻撃側8キーの導出根拠
 

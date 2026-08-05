@@ -121,8 +121,11 @@
    * リビジョンだけ進む**ため、次の保存でマージ前の内容がそのまま書き戻る(=マージが無かったことになる)。
    * ここを一覧にして汎用分岐から引けるようにした。新しいコンパニオンを足したらここにも足すこと。
    *
-   * gathering-efficiency は「隠してあるだけで編集経路が無い」(max-enchant-level は stat-caps.yml 側の
-   * gathering-efficiency-max-enchant-level へ移設済み)ため、意図的に載せていない。
+   * gathering-efficiency は「隠してあるだけで画面から編集する経路が無い」ため、意図的に載せていない。
+   * (2026-07-26 に max-enchant-level を stat-caps.yml 側の
+   * gathering-efficiency-max-enchant-level へ移設したが、二重管理になるとの指摘で 2026-08-05 に
+   * その行と Java 側の読み取りを撤去した。上限は stats/gathering-efficiency.yml が唯一の設定箇所で、
+   * 現状 editor には UI が無い = yml 直編集。)
    */
   const COMPANION_OPTION_KEYS = {
     "glyph-damage-boost": "glyphDamageBoostData",

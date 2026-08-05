@@ -104,17 +104,14 @@ test("上限タブ: STAT_CAPS_SECTIONS の全キーがカテゴリ別グルー�
   const root = renderCapsTabBody();
   const rows = collectRows(root);
   // 各行の1番目の子(ラベル span)の title から生キーを復元する ("<key> — クランプ機構: ..." 形式)。
-  // 「上限」タブには STAT_CAPS_SECTIONS 由来のカテゴリ別行に加え、
-  // gathering-efficiency-max-enchant-level (bookshelfSection、statCapsAllKeys() の対象外・
-  // combat/stat-caps.yml ルート直下の別キー) の行が1つ余分に存在するので、それだけ除いて比較する。
-  const EXTRA_NON_CAP_KEY = "gathering-efficiency-max-enchant-level";
+  // 2026-08-05: gathering-efficiency-max-enchant-level (statCapsAllKeys() の対象外・
+  // combat/stat-caps.yml ルート直下の別キー) の行を削除したので、除外処理も不要になった。
+  // 「上限」タブの行 = STAT_CAPS_SECTIONS 由来のカテゴリ別行だけ。
   const renderedKeys = new Set();
   for (const row of rows) {
     const labelSpan = row.children[0];
     if (!labelSpan || !labelSpan.props || typeof labelSpan.props.title !== "string") continue;
-    const key = labelSpan.props.title.split(" — ")[0];
-    if (key === EXTRA_NON_CAP_KEY) continue;
-    renderedKeys.add(key);
+    renderedKeys.add(labelSpan.props.title.split(" — ")[0]);
   }
 
   for (const k of expectedKeys) {

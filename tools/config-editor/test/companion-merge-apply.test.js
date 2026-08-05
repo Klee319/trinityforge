@@ -79,6 +79,7 @@ test("ドリフト検知: loadConfigCompanion の (id, optKey) が全て COMPANI
 test("gathering-efficiency は COMPANION_OPTION_KEYS に載せない(編集経路が無いため)", () => {
   const map = companionOptionKeyMap();
   assert.ok(!("gathering-efficiency" in map),
-    "gathering-efficiency は max-enchant-level を stat-caps.yml へ移設済みで、"
-    + "画面から編集する経路が無い。載せると存在しない opts キーを渡すことになる");
+    "gathering-efficiency は画面から編集する経路が無い(2026-08-05 に stat-caps.yml 側の"
+    + "上書き行を撤去し、max-enchant-level は yml 直編集に戻った)。"
+    + "載せると存在しない opts キーを渡すことになる");
 });

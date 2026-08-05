@@ -54,7 +54,7 @@ test("app.js: tf-base-stats ケースが stat-caps コンパニオンを読み�
 });
 
 test("schema.js: tf-stat-caps バリデータが登録され、正しい形はエラー無し", () => {
-  const ok = { "stat-caps": { "crit-chance": 0.3, "mining-fortune": 0 }, "gathering-efficiency-max-enchant-level": 5 };
+  const ok = { "stat-caps": { "crit-chance": 0.3, "mining-fortune": 0 } };
   assert.deepEqual(validate("tf-stat-caps", ok), []);
 });
 
@@ -64,10 +64,13 @@ test("schema.js: tf-stat-caps は stat-caps 内の非数値でエラーを返す
   assert.ok(errors.length > 0, "非数値の上限値でエラーが出るはず");
 });
 
-test("schema.js: tf-stat-caps は gathering-efficiency-max-enchant-level の非整数でエラーを返す", () => {
-  const bad = { "gathering-efficiency-max-enchant-level": 1.5 };
-  const errors = validate("tf-stat-caps", bad);
-  assert.ok(errors.length > 0, "非整数でエラーが出るはず");
+// 2026-08-05 ユーザー決定: gathering-efficiency-max-enchant-level(効率強化エンチャントの上限)は
+// stats/gathering-efficiency.yml の max-enchant-level と二重管理だったので廃止した。Java 側の
+// 読み取りも同日撤去。現場の stat-caps.yml に残っている可能性があるので、
+// 「残っていてもバリデーションを落とさない(未知のルートキーとして素通りする)」ことを固定する。
+test("schema.js: 廃止した gathering-efficiency-max-enchant-level が残っていても保存を妨げない", () => {
+  const legacy = { "stat-caps": { "crit-chance": 0.3 }, "gathering-efficiency-max-enchant-level": 1.5 };
+  assert.deepEqual(validate("tf-stat-caps", legacy), []);
 });
 
 test("schema.js: tf-stat-caps は空/未設定を許容する(全キー未記載=上限なし)", () => {

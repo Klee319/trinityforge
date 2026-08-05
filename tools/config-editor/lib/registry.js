@@ -54,8 +54,10 @@ const REGISTRY = Object.freeze([
   // T8 (2026-07-26): 「設定1個のためだけの独立カテゴリ」というユーザー指摘により、サイドバー単独表示を
   // 廃止し「プレイヤー基礎ステータス」画面内の「上限」タブへ統合表示する(app.js の
   // STAT_CAPS_COMPANION_IDS 経由、HIDDEN_CONFIG_IDS でサイドバーから隠す)。ファイル自体・保存先
-  // キーパス(max-enchant-level)は不変。旧ファイルは combat/stat-caps.yml の
-  // gathering-efficiency-max-enchant-level が未設定の間、後方互換として引き続き読み込まれる。
+  // キーパス(max-enchant-level)は不変。
+  // 2026-08-05: 移設先だった combat/stat-caps.yml の gathering-efficiency-max-enchant-level は
+  // 「二重管理で不要」とのユーザー指摘により editor の行ごと撤去した(Java 側も読まなくなった)。
+  // したがってこのファイルの max-enchant-level が上限の唯一の設定箇所(現状 editor に UI は無い)。
   { id: "gathering-efficiency", label: "採集効率の上限 (gathering-efficiency)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/gathering-efficiency.yml", schema: "generic" },
   { id: "lore", label: "ロア表示 (lore)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "stats/lore.yml", schema: "tf-lore" },
   { id: "player-base-stats", label: "プレイヤー基礎ステータス (base-stats)", group: "TrinityForge", section: "quality", base: "trinityforge", rel: "combat/base-stats.yml", schema: "tf-base-stats" },

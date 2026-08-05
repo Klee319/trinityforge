@@ -207,9 +207,13 @@ test("上限タブのチェックボックスON操作で map にキー0が作ら
     "チェックOFF操作でもキーが削除されていない(「上限なし」に戻っていない)");
 });
 
-test("gathering-efficiency-max-enchant-level: 上限タブ内に1行として統合され、未設定/設定を区別する", () => {
+// 2026-08-05 ユーザー決定: 「採集効率 → 効率強化エンチャントの上限」行を削除した
+// (stats/gathering-efficiency.yml の max-enchant-level と二重管理で、優先順位の説明が要る状態
+// そのものが不要だった)。以前ここは「行が存在すること」を固定していたので、期待値を反転する。
+// 併せて「現場のファイルに残っている旧キーを保存で消さない(ロスレス)」ことも見る。
+test("gathering-efficiency-max-enchant-level: 上限タブから削除され、旧キーは保存で消えない", () => {
   setupStubs();
-  const statCapsData = { "stat-caps": {} };
+  const statCapsData = { "stat-caps": {}, "gathering-efficiency-max-enchant-level": 7 };
   const result = global.window.buildBaseStatsForm({}, { statCapsData });
   const buttons = [];
   (function walk(el) {
@@ -226,12 +230,15 @@ test("gathering-efficiency-max-enchant-level: 上限タブ内に1行として統
     if (el.props && typeof el.props.text === "string") texts.push(el.props.text);
     el.children.forEach(walk);
   })(result.element);
-  assert.ok(texts.some((t) => t.includes("効率強化エンチャントの上限")),
-    "gathering-efficiency-max-enchant-level 行が上限タブに見当たらない");
-  assert.ok(texts.some((t) => t.includes("旧ファイルより優先")),
-    "旧ファイルより優先されるという説明文が見当たらない");
+  // 空振り防止: 上限タブそのものは描画されている(他の行があることを確認してから不在を主張する)。
+  assert.ok(texts.length > 0 && texts.some((t) => t.includes("上限")),
+    "上限タブの描画自体が取れていない(この照合は空振りしている)");
+  assert.ok(!texts.some((t) => t.includes("効率強化エンチャントの上限")),
+    "削除したはずの「効率強化エンチャントの上限」行がまだ描画されている");
+  assert.ok(!texts.some((t) => t.includes("旧ファイルより優先")),
+    "削除したはずの優先順位の説明文がまだ描画されている");
 
   const saved0 = result.getExtraSaves().find((e) => e.id === "stat-caps").data;
-  assert.equal(saved0["gathering-efficiency-max-enchant-level"], undefined,
-    "未操作なら gathering-efficiency-max-enchant-level は作られないはず(旧ファイル任せ)");
+  assert.equal(saved0["gathering-efficiency-max-enchant-level"], 7,
+    "現場のファイルに残っている旧キーを editor 保存で消してはいけない(ロスレス)");
 });

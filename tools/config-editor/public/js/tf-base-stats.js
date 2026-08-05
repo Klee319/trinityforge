@@ -342,34 +342,9 @@
     return wrap;
   }
 
-  // gathering-efficiency-max-enchant-level (stat-caps.yml ルート直下、stat-caps: マップの外側)。
-  // 0以下 = 「無制限」を明示的に上書き。未設定 = stats/gathering-efficiency.yml (旧ファイル)の
-  // max-enchant-level が引き続き使われる(後方互換、Java側がそちらへフォールバックする)。
-  function bookshelfLikeIntControl(rootMap, key, opts) {
-    const present = Object.prototype.hasOwnProperty.call(rootMap, key);
-    const numInput = window.numberInput(present ? rootMap[key] : null, (v) => {
-      if (v == null || v === "") return;
-      rootMap[key] = Math.trunc(Number(v));
-    }, { int: true });
-    numInput.disabled = !present;
-    const checkbox = window.checkboxInput(present, (checked) => {
-      if (checked) {
-        if (!Object.prototype.hasOwnProperty.call(rootMap, key)) {
-          rootMap[key] = opts && opts.defaultValue != null ? opts.defaultValue : 0;
-        }
-        numInput.disabled = false;
-        numInput.value = String(rootMap[key]);
-      } else {
-        delete rootMap[key];
-        numInput.disabled = true;
-        numInput.value = "";
-      }
-    });
-    const wrap = h("span", { class: "stat-cap-control" });
-    wrap.appendChild(checkbox);
-    wrap.appendChild(numInput);
-    return wrap;
-  }
+  // 2026-08-05: gathering-efficiency-max-enchant-level 行の削除に伴い bookshelfLikeIntControl
+  // (ルート直下の整数キーを「チェックで有無を切り替える」コントロール)も撤去した。
+  // 唯一の利用箇所がその行で、他に使う予定が無いため残さない。
 
   // 2026-07-27: 「上限」タブの見出しを、手書きの STAT_CAPS_SECTIONS (クランプ機構の出典別)
   // から「基礎」タブと同じ lore カテゴリ (categoryOf/CATEGORY_ORDER/CATEGORY_LABEL) 別へ変更。
@@ -440,23 +415,11 @@
       body.appendChild(section);
     }
 
-    // T2 (2026-07-26): 「最終効率の上限 (gathering-efficiency)」独立カテゴリを畳んでここへ統合。
-    // 2026-07-27: gathering-efficiency の表示名を「最終効率」→「採集効率」へ改称したのに追随。
-    const bookshelfSection = h("div", { class: "mob-defense-block" });
-    bookshelfSection.appendChild(h("div", { class: "sub-title", text: "採集効率 → 効率強化エンチャントの上限" }));
-    const bsRows = h("div", { class: "stat-rows" });
-    bsRows.appendChild(h("div", { class: "stat-row" }, [
-      h("span", { class: "stat-row-label", text: "効率強化エンチャントの上限レベル", title: "gathering-efficiency-max-enchant-level" }),
-      bookshelfLikeIntControl(statCapsWorking, "gathering-efficiency-max-enchant-level", { defaultValue: 0 })
-    ]));
-    bookshelfSection.appendChild(bsRows);
-    bookshelfSection.appendChild(h("div", { class: "field-hint", text:
-      "gathering-efficiency(採集効率)ステを、メインハンドの道具へ実行時に「効率強化」エンチャントの"
-      + "レベルとして反映する際の上限です。旧設定 stats/gathering-efficiency.yml の max-enchant-level を"
-      + "統合したもので、こちらにチェックを入れて値を保存すると旧ファイルより優先されます"
-      + "(旧ファイルは後方互換のため残り続け、ここが未設定の間はそちらの値が使われます)。"
-      + "0以下 = 無制限。内部ハード上限255は常に超えません。" }));
-    body.appendChild(bookshelfSection);
+    // 2026-08-05 ユーザー決定: 「採集効率 → 効率強化エンチャントの上限」ブロックを削除した。
+    // T2 (2026-07-26) でここへ統合した gathering-efficiency-max-enchant-level は
+    // stats/gathering-efficiency.yml の max-enchant-level と二重管理になっており、
+    // 「設定が2箇所あって優先順位が要る」状態そのものが不要だったため。
+    // Java 側の上書きブリッジ(StatCapsConfig)も同日撤去済みで、上限は旧ファイル一本。
 
     return body;
   }

@@ -14,13 +14,11 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link StatCapsConfig} load coverage: "no cap" (key absent) vs "cap 0" (key explicitly present with
- * 0) are distinguished (opposite convention from {@link BaseStatsConfig}), CT短縮系キーは登録されず、
- * {@code gathering-efficiency-max-enchant-level} は独立した上書き値として読める。
+ * 0) are distinguished (opposite convention from {@link BaseStatsConfig})、CT短縮系キーは登録されない。
  */
 class StatCapsConfigTest {
 
@@ -121,19 +119,24 @@ class StatCapsConfigTest {
         assertEquals(-2.0, config.clamp("crit_chance", -2.0), 1e-9, "raw already below negative cap stays as-is");
     }
 
+    /**
+     * 2026-08-05 ユーザー決定: {@code gathering-efficiency-max-enchant-level}(ルート直下の後方互換
+     * ブリッジ)を削除し、効率強化エンチャントの上限は {@code stats/gathering-efficiency.yml} の
+     * {@code max-enchant-level} 一本にした。
+     *
+     * <p>ここで固定するのは「<b>残っていても無害</b>」の一点。旧 config-editor で書き込まれた
+     * このキーが現場の {@code stat-caps.yml} に残り得るので、それがロードを失敗させたり
+     * {@code stat-caps} セクションへ紛れ込んで「未知のステータス」警告を出したりしないことを見る。
+     */
     @Test
-    void gatheringEfficiencyOverrideAbsentByDefault(@TempDir File tempDir) throws IOException {
-        StatCapsConfig config = loaded(tempDir, "stat-caps: {}\n");
-        assertNull(config.gatheringEfficiencyMaxEnchantLevel());
-    }
-
-    @Test
-    void gatheringEfficiencyOverrideIsReadableWhenSet(@TempDir File tempDir) throws IOException {
+    void legacyGatheringEfficiencyOverrideKeyIsIgnoredWithoutBreakingLoad(@TempDir File tempDir) throws IOException {
         StatCapsConfig config = loaded(tempDir, """
-                stat-caps: {}
+                stat-caps:
+                  crit-chance: 0.5
                 gathering-efficiency-max-enchant-level: 8
                 """);
-        assertEquals(8, config.gatheringEfficiencyMaxEnchantLevel());
+        assertEquals(Map.of("crit_chance", 0.5), config.caps(),
+                "ルート直下の旧キーが caps() に混ざってはいけない(stat-caps セクション外)");
     }
 
     @Test
@@ -151,14 +154,12 @@ class StatCapsConfigTest {
      * 固定していたが、K-19(19枠フル厳選で crit-chance 171% / attack-power 20,520 が乗る)への対策として
      * <b>攻撃側8キーの初期値を出荷するようになった</b>ので、0件を要求すると出荷内容と必ず食い違う。
      *
-     * <p>ここでは「出荷ymlが壊れずに読める」ことと
-     * 「{@code gathering-efficiency-max-enchant-level} は<b>依然として未設定</b>
-     * (= {@code stats/gathering-efficiency.yml} 側へフォールバックする後方互換経路が生きている)」だけを見る。
+     * <p>ここでは「出荷ymlが壊れずに読める」ことだけを見る。
      * <b>個々の cap 値が妥当かどうか</b>(装備を潰していないか / キーが StatVocabulary 既知か)は
      * {@code ShippedStatCapsDriftTest} が出荷 {@code item-stats.yml} と突き合わせて検査する。
      */
     @Test
-    void bundledYamlResourceShipsTheAttackSideCapsAndNoGatheringOverride(@TempDir File tempDir) throws IOException {
+    void bundledYamlResourceShipsTheAttackSideCaps(@TempDir File tempDir) throws IOException {
         File source = new File("src/main/resources/" + StatCapsConfig.PATH);
         assertTrue(source.exists(), "bundled " + StatCapsConfig.PATH + " must exist under src/main/resources");
         File dest = new File(tempDir, StatCapsConfig.PATH);
@@ -170,8 +171,5 @@ class StatCapsConfigTest {
         assertFalse(config.caps().isEmpty(),
                 "出荷 stat-caps.yml が空。2026-08-01 に攻撃側8キーの初期値を入れた(K-19)ので、"
                         + "空へ戻っているなら意図的な差し戻しか、config-editor 保存でセクションが落ちている。");
-        assertNull(config.gatheringEfficiencyMaxEnchantLevel(),
-                "gathering-efficiency-max-enchant-level は stat-caps: マップの外側のキーで、"
-                        + "未設定のまま stats/gathering-efficiency.yml へフォールバックさせる出荷方針。");
     }
 }
