@@ -860,6 +860,25 @@
     return data;
   };
 
+  /**
+   * 【2026-08-06 CRITICAL】ここで `_editor.itemTabs` を**その場で**書き換えてはいけない。
+   *
+   * <p>getData() の出力 `out` は `{ ...working }` の浅いコピーなので `out._editor` は
+   * **画面が握っている `working._editor` と同一オブジェクト**になる。その場で delete すると
+   * 保存用の整形のつもりで画面の表示タブピンまで消える。しかも getData() は画面を開いた
+   * 直後 (app.js の syncBaseFromEditor) にも呼ばれるので、開いた瞬間に消える。
+   *
+   * <p>実害: buildItemStatsForm はカタログ候補ぶんの「値なしの空枠」を作り、候補の正しい
+   * タブ (触媒/魔導書など) をピン留めする。空枠は dropEmptyItemProfiles で出力の items から
+   * 落ちるため、そのピンが「孤児」と誤判定されて消え、表示タブが Material 推論へ退化した。
+   * 結果 BLAZE_ROD (触媒) と BOOK (魔導書) が「補助」タブの未設定に湧き、
+   * 消しても再描画のたびに候補同期で復活する ── これが 2026-08-06 の
+   * 「補助の未設定にある内容が消せない。他のカテゴリにあるから要らないのに」の正体。
+   *
+   * <p>そこで**出力オブジェクトの `_editor` だけを差し替える**。`categories` / `orders` は
+   * 同じ参照のまま持ち回るので、行エディタが掴んでいる配列は孤児にならない
+   * (「刈り取りは working 配下のコンテナを差し替えない」という既存の不変条件と同じ理由)。
+   */
   function pruneOrphanItemTabs(data) {
     const ed = data._editor;
     if (!ed || typeof ed !== "object") return;
@@ -868,10 +887,17 @@
     const items = data.items;
     // items が無い/オブジェクトでない config では判定材料が無いので触らない(安全側)。
     if (!items || typeof items !== "object" || Array.isArray(items)) return;
-    for (const itemId of Object.keys(tabs)) {
-      if (!Object.prototype.hasOwnProperty.call(items, itemId)) delete tabs[itemId];
+    const kept = {};
+    let dropped = false;
+    for (const [itemId, tab] of Object.entries(tabs)) {
+      if (Object.prototype.hasOwnProperty.call(items, itemId)) kept[itemId] = tab;
+      else dropped = true;
     }
-    if (Object.keys(tabs).length === 0) delete ed.itemTabs;
+    if (!dropped) return; // 落とすものが無いなら参照もそのまま保つ
+    const cleaned = { ...ed };
+    if (Object.keys(kept).length === 0) delete cleaned.itemTabs;
+    else cleaned.itemTabs = kept;
+    data._editor = cleaned;
   }
 
   window.ensureEditorMeta = ensureEditor;

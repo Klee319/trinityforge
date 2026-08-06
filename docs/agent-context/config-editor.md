@@ -728,6 +728,38 @@ working[key] = working[key].map(...).filter(...);   // ← 配列を差し替え
 `pruneEmptyMobSelections`（レベルテーブル）、`tf-lifestyle-forms.js` の
 `pruneEmptyDescriptions`（ロールバフ）。
 
+## ⚠️ `getData()` の刈り取りは `_editor`（画面の UI 状態）も壊す ── 表示タブピン消失（2026-08-06 修正）
+
+上の「コンテナを差し替えるな」と同じ事故クラスだが、被害が **`_editor` メタ**に出る形。
+
+`getData()` の出力は `const out = { ...working, items }` の**浅いコピー**なので、
+`out._editor` は**画面が握っている `working._editor` と同一オブジェクト**。
+そこで `pruneEditorUiState()`（= `_editor.itemTabs` の孤児掃除）を素直に `delete` すると、
+保存用の整形のつもりで**画面の表示タブピンまで消える**。
+`getData()` は画面を開いた直後にも呼ばれるので、開いた瞬間に消える。
+
+実際の症状（ユーザー報告「補助の未設定にある内容が消せない。他のカテゴリにあるから要らないのに」）:
+
+1. `buildItemStatsForm` はカタログ候補ぶんの**値なしの空枠**を `items` に作り、
+   候補の正しいタブ（`catalyst` / `spellbook`）を `_editor.itemTabs` へピン留めする
+2. 空枠は `dropEmptyItemProfiles` で**出力の `items` から落ちる**
+3. → そのピンが「孤児」と誤判定されて消える
+4. → `getItemDisplayTab` が Material 推論へ退化し、`BLAZE_ROD`/`BOOK` が **「補助」タブ**へ落ちる
+5. → カードを消しても候補同期が毎回作り直すので**消せない**
+
+対策は2点セット。片方だけでは無効になる:
+
+- `pruneOrphanItemTabs` は **出力オブジェクトの `_editor` だけを差し替える**
+  （`{ ...ed, itemTabs: kept }`。`categories` / `orders` は同じ参照で持ち回るので、
+  行エディタが掴んだ配列は孤児にならない）。落とすものが無ければ参照ごと据え置く。
+- `split-views.js` の `_editor` 受け渡しは `adoptEditorMeta(host, out)` に集約し、
+  **画面側が既に持つ `_editor` を保存用出力で上書きしない**。
+  旧コードの `data._editor = d._editor` は刈り取り済みクローンを画面へ書き戻すので、
+  上の対策を1レンダで無効化する。
+
+テスト: `test/item-tab-pin-must-survive-getdata-2026-08-06.test.js`
+（画面側ピンの生存・出力側からの孤児除去・`adoptEditorMeta` の方向性を挙動で固定）。
+
 ## ⚠️ 旧キーへフォールバックする表示は「新キーを消す」だけでは消えない（2026-08-05 修正）
 
 `skilltree/*.yml` の説明文は新キー `description`、旧キー `effect-text` の二段構えで、

@@ -5,6 +5,25 @@
 (function () {
   const h = window.h;
 
+  /**
+   * フォームの保存用出力 `out` と、画面が握っているデータ `host` の間で `_editor` を揃える。
+   *
+   * <p>方向は**一方通行**にする。`host._editor` が既にあるならそれが画面の正であり、
+   * 保存用出力で上書きしてはいけない。out の `_editor` は pruneEditorUiState が
+   * 「items に無いidのピン」を落としたクローンでありうるため、書き戻すと
+   * **画面の表示タブピンが消える**(カタログ候補の空枠が Material 推論のタブへ落ちる。
+   * 2026-08-06「補助の未設定にある内容が消せない」の再発経路)。
+   *
+   * <p>逆に host 側にまだ `_editor` が無い場合だけは、フォームが新規作成したものを採用する
+   * (旧コードの「form 側が _editor を新規作成している場合はそれを優先」の意図はこれ)。
+   */
+  function adoptEditorMeta(host, out) {
+    if (!host || typeof host !== "object" || !out || typeof out !== "object") return out;
+    if (!host._editor && out._editor) host._editor = out._editor;
+    else if (host._editor && !out._editor) out._editor = host._editor;
+    return out;
+  }
+
   function rerenderForm(form) {
     if (!form) return;
     if (typeof form.rerender === "function") form.rerender();
@@ -114,14 +133,7 @@
       }
       getData = () => {
         const d = form.getData();
-        // form 側 working が _editor を新規作成/更新している場合はそれを優先。
-        // 旧: if (data._editor) d._editor = data._editor だと、form が同じ参照でも
-        // 浅いコピー後の取りこぼしや古いスナップショットで並びが消えることがあった。
-        if (d._editor) {
-          data._editor = d._editor;
-        } else if (data._editor) {
-          d._editor = data._editor;
-        }
+        adoptEditorMeta(data, d);
         // 隠した TF 特殊アイテムを欠落させずに戻す(この画面からは編集されていない=無加工のまま)。
         if (tfHiddenEntries) {
           d.items = { ...(d.items || {}), ...tfHiddenEntries };
@@ -200,28 +212,14 @@
       }
       getData = () => {
         const d = materialsForm.getData();
-        // form 側 working が _editor を新規作成/更新している場合はそれを優先。
-        // 旧: if (data._editor) d._editor = data._editor だと、form が同じ参照でも
-        // 浅いコピー後の取りこぼしや古いスナップショットで並びが消えることがあった。
-        if (d._editor) {
-          data._editor = d._editor;
-        } else if (data._editor) {
-          d._editor = data._editor;
-        }
+        adoptEditorMeta(data, d);
         return d;
       };
     } else if (o.type === "threads") {
       form = window.buildThreadsForm(data);
       getData = () => {
         const d = form.getData();
-        // form 側 working が _editor を新規作成/更新している場合はそれを優先。
-        // 旧: if (data._editor) d._editor = data._editor だと、form が同じ参照でも
-        // 浅いコピー後の取りこぼしや古いスナップショットで並びが消えることがあった。
-        if (d._editor) {
-          data._editor = d._editor;
-        } else if (data._editor) {
-          d._editor = data._editor;
-        }
+        adoptEditorMeta(data, d);
         return d;
       };
     } else if (o.type === "item-stats") {
@@ -245,14 +243,7 @@
       // 通常のアイテムエントリとして編集する(専用GUIは作らない、というユーザー指示に合わせる)。
       getData = () => {
         const d = form.getData();
-        // form 側 working が _editor を新規作成/更新している場合はそれを優先。
-        // 旧: if (data._editor) d._editor = data._editor だと、form が同じ参照でも
-        // 浅いコピー後の取りこぼしや古いスナップショットで並びが消えることがあった。
-        if (d._editor) {
-          data._editor = d._editor;
-        } else if (data._editor) {
-          d._editor = data._editor;
-        }
+        adoptEditorMeta(data, d);
         return d;
       };
     } else if (o.type === "spellbooks" || o.type === "spellbooks-catalysts" || o.type === "spellbooks-books") {
@@ -262,14 +253,7 @@
       if (part && typeof form.setActivePart === "function") form.setActivePart(part);
       getData = () => {
         const d = form.getData();
-        // form 側 working が _editor を新規作成/更新している場合はそれを優先。
-        // 旧: if (data._editor) d._editor = data._editor だと、form が同じ参照でも
-        // 浅いコピー後の取りこぼしや古いスナップショットで並びが消えることがあった。
-        if (d._editor) {
-          data._editor = d._editor;
-        } else if (data._editor) {
-          d._editor = data._editor;
-        }
+        adoptEditorMeta(data, d);
         return d;
       };
     } else if (o.type === "thread-bundle") {
@@ -287,12 +271,7 @@
       form = { element: wrap };
         getData = () => {
           const d = threadsForm.getData();
-          if (d._editor) {
-            threadsData._editor = d._editor;
-          } else if (threadsData._editor) {
-            d._editor = threadsData._editor;
-          }
-          return d;
+          return adoptEditorMeta(threadsData, d);
         };
       extraGets.push({ id: "thread-sets", getData: () => setsForm.getData() });
       const root = withCategoryBar(threadsData, categoryKey, wrap, threadsForm);
