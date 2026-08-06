@@ -477,6 +477,27 @@ public final class NativeSkillTreeMenu implements Listener {
                 session.mode, session.page);
     }
 
+    /**
+     * パークのフレーバー説明文を lore の行へ整形する。説明が空なら空リスト。
+     *
+     * <p>通常モード({@link #nodeIcon})とパーク一覧({@link #perkListIcon})の<b>両方から呼ぶ</b>。
+     * 同じ文字列を2箇所で別々に整形すると、片方だけ色コードが素通りするような食い違いが起きる。
+     * {@code \n} で複数行に分割し、editor で付けた legacy の {@code &} 色コードを解釈する。
+     * 色を書いていない行は既定のグレーへ、lore 既定のイタリックは無効化する。
+     */
+    private static List<Component> descriptionLines(String description) {
+        if (description == null || description.isBlank()) {
+            return List.of();
+        }
+        List<Component> lines = new ArrayList<>();
+        for (String line : description.split("\n", -1)) {
+            lines.add(LegacyComponentSerializer.legacyAmpersand().deserialize(line)
+                    .colorIfAbsent(NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
+        return List.copyOf(lines);
+    }
+
     private ItemStack nodeIcon(SkillTree tree, NativeSkillTreeCanvas.NodeCell cell, SkillNode node,
                                int level, long availablePoints, int prestige,
                                Set<String> owned, Set<String> lockedPerks, String pendingPerkId) {
@@ -492,16 +513,7 @@ public final class NativeSkillTreeMenu implements Listener {
                 pending ? "「" + cell.perk().name() + "」を解放しますか？" : cell.perk().name(),
                 status.unlocked ? NamedTextColor.GREEN
                         : status.unlockable ? NamedTextColor.AQUA : NamedTextColor.GRAY);
-        List<Component> lore = new ArrayList<>();
-        if (!cell.perk().description().isBlank()) {
-            // フレーバー説明文は \n で複数行に分割し、editor で付けた legacy & 色コードを解釈して表示する。
-            // 色未指定の行は既定のグレーにフォールバックし、lore 既定のイタリックは無効化する。
-            for (String descLine : cell.perk().description().split("\n", -1)) {
-                lore.add(LegacyComponentSerializer.legacyAmpersand().deserialize(descLine)
-                        .colorIfAbsent(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-        }
+        List<Component> lore = new ArrayList<>(descriptionLines(cell.perk().description()));
         lore.add(Component.text("────────────────", NamedTextColor.DARK_GRAY));
         lore.add(Component.text("必要Lv: " + cell.perk().requiredLv() + " / 現在Lv: " + level,
                 level >= cell.perk().requiredLv() ? NamedTextColor.GRAY : NamedTextColor.RED));
@@ -667,9 +679,13 @@ public final class NativeSkillTreeMenu implements Listener {
     }
 
     /**
-     * パーク一覧の1マス。全ツリー一覧の体裁(アイコン+短い集計行+「クリックで移動」)に合わせ、
-     * 解放状態はツリー本体と同じ配色・同じロックテクスチャで示す。フレーバー説明文は
-     * 通常モードの方が読みやすいので載せない(一覧は「どこにあるか探す」ための画面)。
+     * パーク一覧の1マス。解放状態はツリー本体と同じ配色・同じロックテクスチャで示す。
+     *
+     * <p><b>2026-08-06: 説明文(description)も載せる。</b>当初は「一覧は"どこにあるか探す"ための画面」
+     * として省いていたが、それだと<b>一覧から目的のパークを選べない</b>(名前だけでは何をするパークか
+     * 分からず、1つずつ通常モードへ飛んで戻る操作が要る)。整形は {@link #nodeIcon} と同じ
+     * (改行分割・legacy の &amp; 色コード解釈・色未指定はグレー・イタリック無効)にそろえてある。
+     * 同じ内容を2箇所で別々に整形すると、通常モードと一覧で見え方が食い違う。
      */
     private ItemStack perkListIcon(SkillTree tree, NativeSkillTreeCanvas.NodeCell cell, SkillNode node,
                                    int level, long availablePoints, int prestige,
@@ -677,7 +693,10 @@ public final class NativeSkillTreeMenu implements Listener {
         NodeStatus status = status(
                 tree, cell.perkId(), node, level, availablePoints, prestige, owned, null);
         Material icon = material(cell.perk().icon(), material(tree.icon(), Material.STONE));
-        List<Component> lore = new ArrayList<>();
+        List<Component> lore = new ArrayList<>(descriptionLines(cell.perk().description()));
+        if (!lore.isEmpty()) {
+            lore.add(Component.text("────────────────", NamedTextColor.DARK_GRAY));
+        }
         lore.add(Component.text("必要Lv: " + cell.perk().requiredLv() + " / 現在Lv: " + level,
                 level >= cell.perk().requiredLv() ? NamedTextColor.GRAY : NamedTextColor.RED));
         lore.add(Component.text("コスト: " + cell.perk().cost() + " / 所持: " + availablePoints,

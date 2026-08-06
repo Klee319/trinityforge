@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -96,17 +97,26 @@ class NativeSkillTreeMenuPerkListTest {
         MockBukkit.unmock();
     }
 
-    /** 主軸(MAIN)だけを縦一列に連ねたツリー。ノード数だけを変えたいのでレイアウトは最小構成にする。 */
+    /**
+     * 主軸(MAIN)だけを縦一列に連ねたツリー。ノード数だけを変えたいのでレイアウトは最小構成にする。
+     *
+     * <p>説明文は<b>2行 + legacy の {@code &} 色コード</b>入りにしてある。一覧の lore が
+     * 「複数行に割れているか」「色コードが素の文字として漏れていないか」まで見るため。
+     */
     private static SkillTree trunkTree(String skillId, String displayName, int nodeCount) {
         LinkedHashMap<String, SkillNode> nodes = new LinkedHashMap<>();
         String previous = null;
         for (int i = 1; i <= nodeCount; i++) {
             String id = String.format("M%02d", i);
             nodes.put(id, new SkillNode(id, "パーク" + i, i * 10, SkillRole.MAIN, previous, null,
-                    "STONE", 1, "", Map.of(), Map.of(), List.of(), List.of(), List.of()));
+                    "STONE", 1, description(i), Map.of(), Map.of(), List.of(), List.of(), List.of()));
             previous = id;
         }
         return new SkillTree(skillId, displayName, "STONE", "2,10", null, nodes);
+    }
+
+    private static String description(int index) {
+        return "&b説明" + index + "の1行目\n説明" + index + "の2行目";
     }
 
     @Test
@@ -165,6 +175,43 @@ class NativeSkillTreeMenuPerkListTest {
         assertNotNull(centered, "クリックしたパークがビューポート中央に据えられる");
         assertEquals(perkName, displayName(centered));
         assertEquals("node", action(centered));
+    }
+
+    /**
+     * 2026-08-06(ユーザー要望): 一覧の lore にもパークの説明を出す。名前だけでは何をするパークか
+     * 分からず、1件ずつ通常モードへ飛んで戻らないと選べないため。
+     * 通常モードと<b>同じ整形</b>(複数行に割る・{@code &} 色コードを解釈する)であることまで縛る。
+     */
+    @Test
+    void thePerkListShowsTheSameDescriptionAsTheTreeItself() {
+        menu.open(player); // MINING(2ノード)
+        clickSlot(SkillTreeOverviewLayout.PERK_LIST_SLOT);
+        server.getScheduler().performOneTick();
+
+        // 合成ルート(generator が必ず足す)ではなく config 由来のノードを見る。
+        Inventory list = player.getOpenInventory().getTopInventory();
+        int listedSlot = -1;
+        for (int slot : slotsWithAction(list, "jump-perk")) {
+            if ("パーク1".equals(displayName(list.getItem(slot)))) {
+                listedSlot = slot;
+            }
+        }
+        assertTrue(listedSlot >= 0, "config 由来のパークが一覧に出ていること");
+        List<String> listLore = loreLines(list.getItem(listedSlot));
+
+        // 説明は2行に割れていて、色コードは素の文字として漏れていない。
+        assertTrue(listLore.contains("説明1の1行目"), "説明の1行目が出ること: " + listLore);
+        assertTrue(listLore.contains("説明1の2行目"), "説明の2行目が別の行として出ること: " + listLore);
+        assertFalse(String.join("", listLore).contains("&b"), "legacy の色コードが素で残っていないこと");
+
+        // 通常モードと同じ整形であること(片方だけ整形を変えると見え方が食い違う)。
+        clickSlot(listedSlot);
+        server.getScheduler().performOneTick();
+        ItemStack centered = player.getOpenInventory().getTopInventory().getItem(VIEWPORT_CENTER);
+        assertNotNull(centered);
+        assertEquals("パーク1", displayName(centered), "前提: クリックしたパークが中央に来ている");
+        assertEquals(loreLines(centered).subList(0, 2), listLore.subList(0, 2),
+                "説明の行は通常モードと一致すること");
     }
 
     @Test
@@ -290,6 +337,20 @@ class NativeSkillTreeMenuPerkListTest {
         var name = stack.getItemMeta().displayName();
         return name == null ? "" : net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
                 .plainText().serialize(name);
+    }
+
+    /** lore を1行1要素の素テキストで返す(行の割れ方まで見たいので連結しない)。 */
+    private static List<String> loreLines(ItemStack stack) {
+        var lore = stack.getItemMeta().lore();
+        if (lore == null) {
+            return List.of();
+        }
+        List<String> lines = new java.util.ArrayList<>();
+        for (var line : lore) {
+            lines.add(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                    .plainText().serialize(line));
+        }
+        return List.copyOf(lines);
     }
 
     private static String plain(ItemStack stack) {
