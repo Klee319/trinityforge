@@ -87,7 +87,7 @@
 | ~~**W-33**~~ | ~~**杖の火力が他武器に比べて低すぎる**~~ | **2026-08-05 修正済み。剣の 4〜6% だった**（`attack-power` ×7.4〜11.1 へ引き上げ）。杖は近接で振らず詠唱で撃つので実効レートは `min(attack-speed,2.0)` ではなく **`1/item-cooldown`**（`damage.yml` の `magical.attack-power-scale: 1` が杖の `attack-power` を魔法基礎ダメージへ1:1加算する）。「控えめ」の意図を残して**剣の 47.5%** に置いた（50% にすると `magic_wand` の単品最大が `attack-power` 上限の余裕を食い潰す） |
 | ~~**W-34**~~ | ~~**鎌の出血など、武器 tier・攻撃力・防具の防御力に見合っていないステータスの洗い直し**~~ | **2026-08-05 修正済み。tier 期待値テーブルを作った結果、個別の値ではなく武器種の校正そのものが噛み合っていなかった**。①`attack-speed` の段ごとのばらつき（戦斧 0.323/0.408/0.493+1.003、鎌 1.12/2.12/3.12/4.12、槍 1.38→0.71 の逆進行）を武器種ごとに統一 ②**2.0 超は無敵時間 10 tick で切り捨てられる死に設定**（4本あった）→ 2.0 へ ③出血は総DPSの 1% で個性が数字として存在せず、しかも `cryocore_greataxe`(4,164) が鎌(2,736) を上回る逆転 → 鎌を「15%、ただし上限 4500 で打ち切り」へ ④`revolution_bow` だけ 2026-08-02 の「遠隔の近接 AS は 0.1」から漏れて **弓が同帯最強の近接武器（剣の119%）**になっていた ⑤`koujien`（BOOK 1個で作れる）が剣の 125% ⑥接尾辞に武器種を持たない `Winter_Grim_Reaper` / `fnis_peccati_profundi`（どちらも鎌カテゴリ）が検査ごと素通りしていた。**⚠ 最初の適用は `stat-caps.yml` の上限を無視していて、メイスの `attack-power` が上限の ×2.09、鎌の `bleed-damage` が ×5.91（＝表示だけ上がって実効は伸びない死に設定）になっていた**ので全部やり直した。**防具側は外れ値なし**（34系列すべて 15:40:30:15、`turtle` はバニラ同様ヘルメット専用、レベル逆転18組はすべて魔法防具が `phys-flat-defense` を落として物理防具にはゼロの `magic-flat-defense` を持つトレード）。回帰は `WeaponTierParityTest` 9件 + `WeaponDpsParityTest`。恒久知識は `docs/agent-context/combat.md` |
 | ~~**W-35**~~ | ~~**武器ごとの攻撃リーチを再設計する**~~ | **2026-08-05 実装済み。ユーザー決定「剣=バニラの剣の基準で」**（＝剣は `attack-reach` 0 でバニラの `entity_interaction_range` 3.0 そのまま）。表（バニラ 3.0 への加算 / 実効）: 短剣 -0.5/2.50、**剣・メイス・弓・弩・杖 0/3.00**、戦斧 +0.2/3.20、レイピア +0.3/3.30、ウォーハンマー +0.4/3.40、鎌 +0.5/3.50、大剣・大斧 +0.6/3.60、トライデント +0.8/3.80、槍・ハルバード +1.0/4.00。`hunter_javelin` の 1.4/4.40 は 2026-08-02 に「game 内最長」として決めた一点物なので据え置き。リーチ差の相殺は W-34 の実効DPS帯（同系列の剣に対する比）で行っている |
-| **W-36** | **トライデント系・槍系が三人称視点で 2D アイテムモデルになる** | **2026-08-05 原因確定: パックソースは正しく、配信中の zip が古い。** `server.properties` の `resource-pack-sha1=5b251cb3676df2b681616447cfaf321bda5f85ab` は `resourcepack/dist/TrinityForge-Pack.zip`（作業ツリー版、08-04 10:43）と**ハッシュ一致**する。その zip を展開すると `trident.json` の CMD 121/122/174-181 と `netherite_spear.json` の 118/119、`diamond_spear.json` の 50 に `display_context` 分岐が無く、全コンテキストで平面モデルになる。**ソース側（`assets/minecraft/items/*.json`）は 08-05 16:12 に再生成済みで 13 件とも正しい**（生成側の修正は `c5754d7`、08-03）。**残っているのは zip の再生成と GitHub Release への再発行、`resource-pack-sha1` の更新だけ**。リソースパックは別セッションが作業中（`cmd-registry.json` と dist zip が未コミット）なので、**そのセッションが publish する時に必ず再生成すること** |
+| ~~**W-36**~~ | ~~**トライデント系・槍系が三人称視点で 2D アイテムモデルになる**~~ | **2026-08-07 修正済み**（`pack-20260807135616` を発行。詳細は下の「W-36 を配信 zip へ入れ直した」。**`server.properties` の更新だけユーザー実行待ち**）。以下は 2026-08-05 の原因確定時の記録。**2026-08-05 原因確定: パックソースは正しく、配信中の zip が古い。** `server.properties` の `resource-pack-sha1=5b251cb3676df2b681616447cfaf321bda5f85ab` は `resourcepack/dist/TrinityForge-Pack.zip`（作業ツリー版、08-04 10:43）と**ハッシュ一致**する。その zip を展開すると `trident.json` の CMD 121/122/174-181 と `netherite_spear.json` の 118/119、`diamond_spear.json` の 50 に `display_context` 分岐が無く、全コンテキストで平面モデルになる。**ソース側（`assets/minecraft/items/*.json`）は 08-05 16:12 に再生成済みで 13 件とも正しい**（生成側の修正は `c5754d7`、08-03）。**残っているのは zip の再生成と GitHub Release への再発行、`resource-pack-sha1` の更新だけ**。リソースパックは別セッションが作業中（`cmd-registry.json` と dist zip が未コミット）なので、**そのセッションが publish する時に必ず再生成すること** |
 | ~~**W-37**~~ | ~~**鍵を使ったときに出る本のタイトルが内部 ID 表記**~~ | **2026-08-05 判明: コードの不具合ではなく配備漏れ。** 潜入確認 GUI の `KNOWLEDGE_BOOK` は `DungeonGate#displayNameOrWorld()` を出しており、リポジトリの `dungeon/gates.yml` は 61 ゲート全部に `display-name:` を持っている（`15236bc`、2026-08-02）。**配備先の `gates.yml` は 08-01 16:52 のままで `display-name` が 0 件**なので、ワールド名（＝ゲートID）へフォールバックしていた。`ops\launch\deploy-config-head.cmd` で config を配備すれば直る（サーバ停止が必要）。**同型で本当のコード不具合だった `/tf settings` の称号ボタン ID 表示は `c7b2d94` で修正済み** |
 | ~~**W-38**~~ | ~~**ツルハシに射撃ダメージが付くなど、不適正なツールへエンチャントが付与される**~~ | **2026-08-05 修正済み（`0592838`）**。金床のオーバーエンチャント経路が候補エンチャントを `canEnchantItem` で絞っていなかった。本(`EnchantmentStorageMeta`)は素通し、それ以外は対象判定を通す（`OverEnchantAnvilTargetTest` 3件） |
 | ~~**W-39**~~ | ~~**ネザライト化するとエンチャントが剥がれる**~~ | **2026-08-05 修正済み（`0592838`）**。`CatalogSmithingListener` が結果アイテムを組み直す際に元アイテムのエンチャントを引き継いでいなかった。上限超えレベルもそのまま維持する（`canEnchantItem` で絞らない理由は同メソッドの javadoc: 杖など素材が対象外のカタログ品があるため） |
@@ -116,11 +116,7 @@
 | — | **BlueMap がリソース未取得で動いていない**（Main_Server） | `BlueMap is missing important resources! / You must accept the required file download` → `plugins/BlueMap/core.conf` でダウンロード同意を入れるまでマップは生成されない。運用判断（TF の機能ではない） |
 | — | **誤検知だったもの（記録して再調査を防ぐ）** | ①`skulls.json` が `{"skulls": []}` で GeyserExtra が「No skulls registered」と警告するが、**`catalog.yml` に `PLAYER_HEAD` は 0 件**なので正常 ②`SERVER IS RUNNING IN OFFLINE/INSECURE MODE` は Velocity 配下では必須の設定 ③`Vault economy provider not found` は INFO で意図どおり ④`resource-pack-id` 空欄は既定 UUID が使われるだけ ⑤儀式レシピ 4 件（`harvest_hoe` / `herb_hat` / `leyline_shovel` / `bedrock_greaves`）が台座 19 台＝3 段構成を要求する INFO は仕様どおりの案内 |
 
-**W-36 は未解消のまま**（2026-08-07 時点でも確認）: 下記「ダンジョンの印の配線」で配信 zip を
-`pack-20260807134636` へ差し替えたが、**その zip はダンジョンの印 20 ファイルを足しただけ**で、
-`trident.json` / `netherite_spear.json` / `diamond_spear.json` は旧版のまま入っている
-（ユーザー指示が「ダンジョンの印だけ配備」だったため意図的に据え置き）。
-**W-36 を直すにはこの 3 ファイルを作業ツリー版で入れ替えて再発行するだけ**（ソース側は 08-05 に修正済み）。
+**W-36 は 2026-08-07 に解消**（下の「W-36 を配信 zip へ入れ直した」を参照）。
 
 ### 2026-08-07 ダンジョンの印 19 種を配線して配信した
 
@@ -152,6 +148,25 @@ Main_Server を再起動するまでプレイヤーには旧パックが配ら�
 
 **⚠ 印はまだクラフト経路が死んでいる**: W-44（`key_binder` のレシピ登録失敗）は未修正なので、
 印を素材に使う鍵は作れないまま。今回直したのは**見た目だけ**。
+
+### 2026-08-07 W-36（トライデント・槍が三人称で 2D）を配信 zip へ入れ直した
+
+**ソースは 08-05 の時点で既に正しく、腐っていたのは配信 zip だけ**だったので、
+上の印入り zip（`pack-20260807134636`）を土台に
+`assets/minecraft/items/{trident,netherite_spear,diamond_spear}.json` の 3 エントリを
+作業ツリー版へ差し替えて再発行した（`pack-20260807135616`、
+sha1 `4baf011e607495b57890ade103b02d7ba50c65e0`）。
+
+**差し替え前に平面のままだった CMD 13 件がゼロになったことを実測で確認**（新旧 zip を
+展開して、各 CMD のモデルが `display_context` の `select` になっているかを数えた）:
+`trident` 121/122/174-181、`netherite_spear` 118/119、`diamond_spear` 50。
+差分は**既存 3 エントリの内容変更のみ（追加 0 / 削除 0）**、参照先モデルの欠落なし
+（`*__in_hand` のモデルは 08-02 のパックに既に入っていたので、運ぶ必要があったのは item json だけ）。
+
+**⚠ `server.properties` の更新は未実施**: D:\game への書き込みがエージェントの権限ゲートに
+止められたため、`resource-pack` / `resource-pack-sha1` は
+`pack-20260807134636`（印だけ・W-36 未修正）を指したまま。
+**ユーザーが `ops\scripts\set-resource-pack.ps1` を実行するまで W-36 は直らない。**
 
 ---
 
