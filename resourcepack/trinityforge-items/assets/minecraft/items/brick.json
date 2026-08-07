@@ -1,0 +1,145 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/brick",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5461,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_mines"
+        }
+      },
+      {
+        "threshold": 5462,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_deep_mines"
+        }
+      },
+      {
+        "threshold": 5463,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_quarry"
+        }
+      },
+      {
+        "threshold": 5464,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_cave"
+        }
+      },
+      {
+        "threshold": 5465,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_bridge"
+        }
+      },
+      {
+        "threshold": 5466,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_city"
+        }
+      },
+      {
+        "threshold": 5467,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_climb"
+        }
+      },
+      {
+        "threshold": 5468,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_palace"
+        }
+      },
+      {
+        "threshold": 5469,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_knight_castle"
+        }
+      },
+      {
+        "threshold": 5470,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_sewer_maze"
+        }
+      },
+      {
+        "threshold": 5471,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_steamworks"
+        }
+      },
+      {
+        "threshold": 5472,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_nether_bell"
+        }
+      },
+      {
+        "threshold": 5473,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_nether_wastes"
+        }
+      },
+      {
+        "threshold": 5474,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_dark_cathedral"
+        }
+      },
+      {
+        "threshold": 5475,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial"
+        }
+      },
+      {
+        "threshold": 5476,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_fireworks"
+        }
+      },
+      {
+        "threshold": 5477,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_hallosseum"
+        }
+      },
+      {
+        "threshold": 5478,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_north_pole"
+        }
+      },
+      {
+        "threshold": 5479,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_binder"
+        }
+      }
+    ]
+  }
+}

@@ -116,9 +116,42 @@
 | — | **BlueMap がリソース未取得で動いていない**（Main_Server） | `BlueMap is missing important resources! / You must accept the required file download` → `plugins/BlueMap/core.conf` でダウンロード同意を入れるまでマップは生成されない。運用判断（TF の機能ではない） |
 | — | **誤検知だったもの（記録して再調査を防ぐ）** | ①`skulls.json` が `{"skulls": []}` で GeyserExtra が「No skulls registered」と警告するが、**`catalog.yml` に `PLAYER_HEAD` は 0 件**なので正常 ②`SERVER IS RUNNING IN OFFLINE/INSECURE MODE` は Velocity 配下では必須の設定 ③`Vault economy provider not found` は INFO で意図どおり ④`resource-pack-id` 空欄は既定 UUID が使われるだけ ⑤儀式レシピ 4 件（`harvest_hoe` / `herb_hat` / `leyline_shovel` / `bedrock_greaves`）が台座 19 台＝3 段構成を要求する INFO は仕様どおりの案内 |
 
-**W-36 は未解消のまま**（今回の点検でも確認）: `server.properties` の
-`resource-pack-sha1=5b251cb3...` は作業ツリーの `dist/TrinityForge-Pack.zip`（08-04 10:43）と
-ハッシュ一致したままで、配信 URL も `pack-20260804014327`。**zip の再生成と再発行が行われていない**。
+**W-36 は未解消のまま**（2026-08-07 時点でも確認）: 下記「ダンジョンの印の配線」で配信 zip を
+`pack-20260807134636` へ差し替えたが、**その zip はダンジョンの印 20 ファイルを足しただけ**で、
+`trident.json` / `netherite_spear.json` / `diamond_spear.json` は旧版のまま入っている
+（ユーザー指示が「ダンジョンの印だけ配備」だったため意図的に据え置き）。
+**W-36 を直すにはこの 3 ファイルを作業ツリー版で入れ替えて再発行するだけ**（ソース側は 08-05 に修正済み）。
+
+### 2026-08-07 ダンジョンの印 19 種を配線して配信した
+
+**症状**: 印のテクスチャ（`assets/trinityforge/textures/item/dungeon_seal_*.png` 19 件）は
+2026-08-02 のパックに既に入っていたが、**モデル json と CMD の割り当てが無く**、
+ゲーム内では素のレンガのままだった。CMD の台帳（`cmd-registry.json` の BRICK 5461-5479）は
+HEAD に commit 済みで、**欠けていたのは残り 2 パートだけ**という状態。
+
+**やったこと**:
+1. `assets/trinityforge/models/item/dungeon_seal_*.json` 19 件を新規作成
+   （`parent: minecraft:item/generated` / `layer0: trinityforge:item/<id>`）
+2. `assets/minecraft/items/brick.json` を新規作成（5461-5479 の `range_dispatch`、
+   fallback は `minecraft:item/brick`）
+3. **`build_item_pack.py` は使わずに**、配信中の zip を土台にして上記 20 ファイルだけを足した
+   （作業ツリーには別セッションの未コミット分＝杖 8 種・モブ素材 10 種・lang 変更が居るので、
+   丸ごと詰め直すとそれらまで配信してしまう）。`build_item_pack.py` の validate() と
+   同じ 4 観点（台帳に threshold が実在／昇順・重複なし／参照モデルが入る／
+   モデルの texture が zip に居る）は手元でやり直した
+4. 差分を実測して **追加 20 / 削除 0 / 既存エントリの内容変更 0** を確認
+5. GitHub Release `pack-20260807134636` として発行（sha1 `ad87a462fc1589d7a0d21b78ef7b6443f9416875`）
+6. `ops\scripts\set-resource-pack.ps1` を新設して Main_Server の `server.properties` の
+   `resource-pack` と `resource-pack-sha1` を**両方**更新（sha1 を忘れると GeyserExtra が
+   キャッシュ済み zip を読み続けて何も変わらない）。旧値は `server.properties.bak` に退避
+
+**⚠ まだ反映されていない**: `server.properties` は**起動時にしか読まれない**ので、
+Main_Server を再起動するまでプレイヤーには旧パックが配られる。
+統合版まで通すなら **Paper 起動 → プロキシ（Velocity）再起動**の 2 段が要る
+（`packs/geyserextra_auto.pending.zip` が本番へ入れ替わるのは拡張の起動時）。
+
+**⚠ 印はまだクラフト経路が死んでいる**: W-44（`key_binder` のレシピ登録失敗）は未修正なので、
+印を素材に使う鍵は作れないまま。今回直したのは**見た目だけ**。
 
 ---
 

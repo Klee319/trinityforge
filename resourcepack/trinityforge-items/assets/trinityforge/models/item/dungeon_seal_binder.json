@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "trinityforge:item/dungeon_seal_binder"
+  }
+}
