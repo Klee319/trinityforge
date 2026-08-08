@@ -146,6 +146,31 @@ spawn listener 後付けでHPを上書きすると、EliteMobs が全回復・�
 同じ名前行に両方並んでも混ざらない設計（`FocusHpText.format` の6引数オーバーロード）。
 `magic-ratio<=0`（既定・大多数のモブ）は従来どおりタグなし。
 
+### モブ → モブのダメージは TF が一切触っていない（味方モブを調整するとき最初に知ること）
+
+`CombatListener#onEntityDamageByEntity` は「被害者が Player」（→ `handleMobToPlayerDamage`）か
+「加害者が Player」のどちらでもなければ、`resolveAttacker` が null を返して**即 return** する。
+したがって `MobData.stampAttack` で刻んだ `attack-power` / 会心 / 貫通は
+**モブがプレイヤーを殴るときにしか読まれない**。
+
+ここを知らないと、味方モブ（手懐けた狼・召喚モブ・ゴーレム）を強くしようとして
+`mob-types.yml` の `attack.attack-power` を上げる、という**必ず失敗する直し方**をする:
+
+- 対モブ戦は**1 ミリも変わらない**（TF がその経路を通らないので、与ダメはバニラのまま）
+- 一方で**対プレイヤーだけが強くなる**（mob→player は TF 経路を通る）
+  ＝ペットや召喚モブが PvP の代理攻撃手段になる、という別の穴が開く
+
+さらに TF はモブの HP を大きく持ち上げている（`(base + coeff×lv) × growth^lv` ＋ Lv45 以降の加算区間。
+SKELETON なら Lv0 で 340・Lv45 で 2,805）。**HP だけ持ち上げて mob→mob の与ダメはバニラ**なので、
+モブ同士の戦闘はバニラの数十〜数百倍の時間がかかる。狼（バニラ与ダメ 4）が Lv0 のスケルトンを
+倒すのに約 85 回、Lv45 なら約 700 回殴る計算になる。
+
+味方モブを実戦で意味のあるものにしたいなら、触るべきは attack ステの数値ではなく
+**「味方モブ → 敵モブ」の経路を作るかどうか**。味方判定に使える手掛かりは
+`arspaper:summoner_uuid`（召喚モブ）／`Tameable#getOwner()`（ペット）／
+`IronGolem#isPlayerCreated()`（村の自然湧きと作ったゴーレムを区別できる唯一の API）。
+設計案と却下理由は `reports/ACTIVE_RECORD.md` の M-2 / M-3 を参照。
+
 ## マナ回復ステータス
 
 ### ⚠️ キー名は直感と逆向き
