@@ -271,16 +271,14 @@ items:
     display-name: <color:#7df9ff>インフィニティの剣</color>
     custom-model-data: 112
     recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - " J "
-        - " A "
-        - " R "
-      ingredients:
-        J: custom:core_jewelry
-        A: custom:amethyst_block_2x
-        R: custom:breeze_rod_2x
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x1
+        - custom:breeze_rod_2x x1
+      source: 20000000
+      type: shapeless
+      ingredients: []
   hero_sword:
     material: NETHERITE_SWORD
     display-name: <color:dark_purple>守護者の剣</color>
@@ -1966,15 +1964,13 @@ items:
     display-name: <color:#7df9ff>インフィニティのヘルメット</color>
     custom-model-data: 148
     recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - AJA
-        - A A
-        - "   "
-      ingredients:
-        A: custom:amethyst_block_2x
-        J: custom:core_jewelry
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x4
+      source: 15000000
+      type: shapeless
+      ingredients: []
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""
@@ -1984,15 +1980,13 @@ items:
     display-name: <color:#7df9ff>インフィニティのチェストプレート</color>
     custom-model-data: 151
     recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - A A
-        - AJA
-        - AAA
-      ingredients:
-        A: custom:amethyst_block_2x
-        J: custom:core_jewelry
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x7
+      source: 30000000
+      type: shapeless
+      ingredients: []
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""
@@ -2002,15 +1996,13 @@ items:
     display-name: <color:#7df9ff>インフィニティのレギンス</color>
     custom-model-data: 154
     recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - AJA
-        - A A
-        - A A
-      ingredients:
-        A: custom:amethyst_block_2x
-        J: custom:core_jewelry
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x6
+      source: 25000000
+      type: shapeless
+      ingredients: []
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""
@@ -2020,15 +2012,13 @@ items:
     display-name: <color:#7df9ff>インフィニティのブーツ</color>
     custom-model-data: 157
     recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - J A
-        - A A
-        - "   "
-      ingredients:
-        J: custom:core_jewelry
-        A: custom:amethyst_block_2x
+      method: ritual
+      core-item: custom:core_jewelry
+      pedestal-items:
+        - custom:amethyst_block_2x x3
+      source: 15000000
+      type: shapeless
+      ingredients: []
     lore:
       - <color:gray><i>無限の力が宿る装甲</i></color>
       - ""

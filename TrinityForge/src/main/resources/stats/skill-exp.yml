@@ -115,6 +115,14 @@ smithing:
     custom:dragon_scale: 80
     custom:warden_tendril: 90
     custom:source_gem_block: 180
+    # 2026-08-08: インフィニティ 5 種を儀式へ移した(S-2)ので、その台座素材の行を追加。
+    # 1つでも行が無いと ArsProgressionBridge#grantSmithingCraftExp は素材合計を丸ごと捨てて
+    # ars-smithing.exp-per-craft の定額へ戻る = 素材価値と無関係な固定EXPになる。
+    # 値は圧縮段数から機械的に出している(materials.yml の実レシピ準拠):
+    #   amethyst_block_2x = 81 x AMETHYST_BLOCK = 81 x 4 x AMETHYST_SHARD(6) = 1944
+    #   breeze_rod_2x     = 16 x BREEZE_ROD(20) = 320  ※ブリーズロッドの圧縮は 4 倍刻み
+    custom:amethyst_block_2x: 1944
+    custom:breeze_rod_2x: 320
     LAPIS_LAZULI: 1
     LAPIS_BLOCK: 9
     REDSTONE: 1
