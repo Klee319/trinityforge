@@ -4339,133 +4339,171 @@
       "cmd": 5461,
       "id": "dungeon_seal_mines",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_mines",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5462,
       "id": "dungeon_seal_deep_mines",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_deep_mines",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5463,
       "id": "dungeon_seal_quarry",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_quarry",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5464,
       "id": "dungeon_seal_cave",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_cave",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5465,
       "id": "dungeon_seal_bridge",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_bridge",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5466,
       "id": "dungeon_seal_city",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_city",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5467,
       "id": "dungeon_seal_climb",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_climb",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5468,
       "id": "dungeon_seal_palace",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_palace",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5469,
       "id": "dungeon_seal_knight_castle",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_knight_castle",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5470,
       "id": "dungeon_seal_sewer_maze",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_sewer_maze",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5471,
       "id": "dungeon_seal_steamworks",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_steamworks",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5472,
       "id": "dungeon_seal_nether_bell",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_nether_bell",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5473,
       "id": "dungeon_seal_nether_wastes",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_nether_wastes",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5474,
       "id": "dungeon_seal_dark_cathedral",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_dark_cathedral",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5475,
       "id": "dungeon_seal_enchant_trial",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_enchant_trial",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5476,
       "id": "dungeon_seal_fireworks",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_fireworks",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5477,
       "id": "dungeon_seal_hallosseum",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_hallosseum",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5478,
       "id": "dungeon_seal_north_pole",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_north_pole",
+      "parent": "generated"
     },
     {
       "material": "BRICK",
       "cmd": 5479,
       "id": "dungeon_seal_binder",
       "source": "materials",
-      "allocatedAt": "2026-07-31T10:00:00.000Z"
+      "allocatedAt": "2026-07-31T10:00:00.000Z",
+      "assetName": "dungeon_seal_binder",
+      "parent": "generated"
     },
     {
       "material": "NETHERITE_SCRAP",
@@ -4711,6 +4749,132 @@
       "id": "apple_3x",
       "source": "materials",
       "allocatedAt": "2026-08-05T07:25:01.678Z"
+    },
+    {
+      "material": "CHERRY_LOG",
+      "cmd": 238,
+      "id": "cherry_blossom_wood_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "CHERRY_LOG",
+      "cmd": 239,
+      "id": "cherry_blossom_wood_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "GRANITE",
+      "cmd": 161,
+      "id": "granite_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "GRANITE",
+      "cmd": 240,
+      "id": "granite_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "GRANITE",
+      "cmd": 241,
+      "id": "granite_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "GRANITE",
+      "cmd": 242,
+      "id": "granite_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "DIORITE",
+      "cmd": 243,
+      "id": "diorite_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "DIORITE",
+      "cmd": 244,
+      "id": "diorite_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "DIORITE",
+      "cmd": 245,
+      "id": "diorite_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "DIORITE",
+      "cmd": 246,
+      "id": "diorite_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "ANDESITE",
+      "cmd": 247,
+      "id": "andesite_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "ANDESITE",
+      "cmd": 248,
+      "id": "andesite_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "ANDESITE",
+      "cmd": 249,
+      "id": "andesite_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.257Z"
+    },
+    {
+      "material": "ANDESITE",
+      "cmd": 250,
+      "id": "andesite_4x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.258Z"
+    },
+    {
+      "material": "AMETHYST_BLOCK",
+      "cmd": 251,
+      "id": "amethyst_block_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.258Z"
+    },
+    {
+      "material": "PRISMARINE_SHARD",
+      "cmd": 100014,
+      "id": "source_gem_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.258Z"
+    },
+    {
+      "material": "PRISMARINE_SHARD",
+      "cmd": 100015,
+      "id": "source_gem_2x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.258Z"
+    },
+    {
+      "material": "PRISMARINE_SHARD",
+      "cmd": 100016,
+      "id": "source_gem_3x",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T05:50:39.258Z"
     }
   ]
 }

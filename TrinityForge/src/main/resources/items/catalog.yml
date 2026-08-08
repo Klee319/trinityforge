@@ -6580,7 +6580,7 @@ items:
       method: ritual
       core-item: custom:core_vegetable
       pedestal-items:
-        - WHEAT x16
+        - WHEAT x13
         - custom:hard_metal x2
         - HAY_BLOCK x1
       source: 8000
@@ -6599,7 +6599,7 @@ items:
       method: ritual
       core-item: custom:core_vegetable
       pedestal-items:
-        - WHEAT x16
+        - WHEAT x13
         - custom:hard_metal x2
         - GOLDEN_HELMET x1
       source: 10000
@@ -6618,7 +6618,7 @@ items:
       method: ritual
       core-item: custom:core_ground
       pedestal-items:
-        - DIRT x16
+        - DIRT x13
         - custom:hard_metal x2
         - FLINT x1
       source: 8000
@@ -6637,7 +6637,7 @@ items:
       method: ritual
       core-item: custom:core_ground
       pedestal-items:
-        - DIRT x16
+        - DIRT x13
         - custom:hard_metal x2
         - GOLDEN_BOOTS x1
       source: 10000

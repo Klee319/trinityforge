@@ -2442,7 +2442,11 @@
   }
 
   // 配置グリッド(記号1文字/セル) + 記号→Material対応表。size=3(workbench等)/2(inventory)。
-  function renderShapedRecipeGrid(recipe, rerenderEntry, size) {
+  // onIngredientChange: 素材欄(記号→Material)の値が変わったときだけ呼ぶ軽量コールバック。
+  // rerenderEntry を呼ばないのは、素材欄の change でカード全体を作り直すと入力途中の
+  // フォーカスとスクロールが飛ぶため。「解凍を許可」の可否のように**素材の内容から決まる
+  // 表示**だけをその場で更新するのに使う。
+  function renderShapedRecipeGrid(recipe, rerenderEntry, size, onIngredientChange) {
     const n = size || 3;
     const wrap = h("div", { class: "recipe-shaped-wrap" });
     wrap.appendChild(h("div", { class: "mini-label", text: `配置 (${n}×${n}・各セルに記号1文字、空欄=空きマス)` }));
@@ -2482,6 +2486,7 @@
       row.appendChild(h("span", { class: "entry-hash", text: sym }));
       row.appendChild(ingredientMaterialControl(recipe.ingredients[sym], (v) => {
         recipe.ingredients[sym] = v;
+        if (typeof onIngredientChange === "function") onIngredientChange();
       }, { warnWhenEmpty: true }));
       table.appendChild(row);
     }
@@ -2490,7 +2495,7 @@
   }
 
   // shapeless: Material名の可変リスト。max省略時は9個(workbench等)。inventoryは2×2=4個。
-  function renderShapelessRecipeRows(recipe, rerenderEntry, max) {
+  function renderShapelessRecipeRows(recipe, rerenderEntry, max, onIngredientChange) {
     const maxCount = max || 9;
     const box = h("div", { class: "recipe-shapeless-wrap" });
     box.appendChild(h("div", { class: "mini-label", text: `素材 (順不同・最大${maxCount}個)` }));
@@ -2499,6 +2504,7 @@
       const row = h("div", { class: "stat-row" });
       row.appendChild(ingredientMaterialControl(mat, (v) => {
         recipe.ingredients[idx] = v;
+        if (typeof onIngredientChange === "function") onIngredientChange();
       }));
       row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { recipe.ingredients.splice(idx, 1); rerenderEntry(); } }));
       rows.appendChild(row);
@@ -2821,9 +2827,16 @@
       });
       box.appendChild(fieldRow("type", typeSel));
 
+      // 「解凍を許可」の可否は素材欄の内容から決まる。素材欄は rerenderEntry を呼ばない
+      // (呼ぶと入力途中のフォーカスが飛ぶ)ので、可否だけをその場で計算し直すフックを渡す。
+      // これが無いと**素材を全部同じにしてもチェックボックスが disabled のまま**で、
+      // 保存してリロードするまで押せなかった(2026-08-08 報告)。
+      let refreshReversible = () => {};
+      const onIngredientChange = () => refreshReversible();
+
       if ((recipe.type || "shaped") === "shaped") {
         ensureShapedRecipe(recipe, gridSize);
-        box.appendChild(renderShapedRecipeGrid(recipe, rerenderEntry, gridSize));
+        box.appendChild(renderShapedRecipeGrid(recipe, rerenderEntry, gridSize, onIngredientChange));
         // 向き固定 (catalog.yml のみ。TF側リスナーが向きを強制するため素材等Ars側では無効)。
         // inventory(2×2)でも shaped であれば workbench 同様に意味を持つ。
         if (opts && opts.allowMirror) {
@@ -2844,32 +2857,34 @@
         }
       } else {
         ensureShapelessRecipe(recipe);
-        box.appendChild(renderShapelessRecipeRows(recipe, rerenderEntry, gridSize * gridSize));
+        box.appendChild(renderShapelessRecipeRows(recipe, rerenderEntry, gridSize * gridSize, onIngredientChange));
         delete recipe.mirror;
         delete recipe["strict-orientation"];
       }
 
       // reversible「解凍を許可」: workbench/inventory かつ 素材が全て同一のレシピにのみ設定できる。
       // ONで recipe.reversible=true を保存 (TF側が逆レシピ(結果⇄素材)を自動生成する)。
-      const allSame = catalogRecipeIngredientsAllSame(recipe);
-      if (!allSame && recipe.reversible) delete recipe.reversible; // 対象外になったら自動でOFFへ戻す
       const reversibleHint = "ONにすると逆レシピ(完成品→素材)が自動登録され、バニラの鉄ブロックのように元に戻せます。"
         + "素材が全て同一のレシピのみ設定可能。";
-      const reversibleCb = window.checkboxInput(allSame && recipe.reversible === true, (v) => {
+      const reversibleCb = window.checkboxInput(recipe.reversible === true, (v) => {
         if (v) recipe.reversible = true; else delete recipe.reversible;
       });
-      reversibleCb.disabled = !allSame;
-      const reversibleLabel = h("label", {
-        class: "form-field inline-check",
-        title: allSame ? reversibleHint : reversibleHint + " (現在: 素材が同一でないため設定不可)"
-      }, [
+      const reversibleLabel = h("label", { class: "form-field inline-check" }, [
         reversibleCb,
         h("span", { class: "form-label", text: "解凍を許可 (reversible)" })
       ]);
+      const reversibleNote = h("div", { class: "empty-hint", text: "素材が全て同一のレシピのみ「解凍を許可」を設定できます。" });
       box.appendChild(reversibleLabel);
-      if (!allSame) {
-        box.appendChild(h("div", { class: "empty-hint", text: "素材が全て同一のレシピのみ「解凍を許可」を設定できます。" }));
-      }
+      box.appendChild(reversibleNote);
+      refreshReversible = () => {
+        const allSame = catalogRecipeIngredientsAllSame(recipe);
+        if (!allSame && recipe.reversible) delete recipe.reversible; // 対象外になったら自動でOFFへ戻す
+        reversibleCb.disabled = !allSame;
+        reversibleCb.checked = allSame && recipe.reversible === true;
+        reversibleLabel.title = allSame ? reversibleHint : reversibleHint + " (現在: 素材が同一でないため設定不可)";
+        reversibleNote.style.display = allSame ? "none" : "";
+      };
+      refreshReversible();
     }
 
     if (recipe.method === "workbench" || recipe.method === "ritual" || recipe.method === "inventory") {

@@ -288,6 +288,19 @@
     function render() {
       root.innerHTML = "";
       if (suppressed()) return;
+      // この画面で追加/改名した素材も `custom:<id>` セレクトの候補へ載せる。
+      // app.js は**画面を開いた時点の** materials.yml しか候補へ積まないため、
+      // ここで積まないと「いま足したばかりの素材が、次に作る素材のレシピ素材セレクトに
+      // 出てこない」= 保存して開き直すまで参照できない(2026-08-08 報告)。
+      // カタログ画面(forms.js の renderList)は同じことを既にやっている。
+      if (typeof window.setCustomItemCandidates === "function") {
+        window.setCustomItemCandidates(models.map((m) => ({
+          id: m.id,
+          label: (typeof window.stripDisplayNamePlain === "function"
+            ? window.stripDisplayNamePlain(m.model && m.model.displayName)
+            : (m.model && m.model.displayName)) || m.id
+        })), { replace: false });
+      }
       const visible = filterModelsByText(visibleModels());
       // 検索欄 (ID/表示名で絞り込み。カタログ他タブの filterRow と同じ挙動)。
       // CMD一括割当ボタンはここには置かない。全ファイル横断で「リソースパック管理」画面
@@ -314,7 +327,13 @@
           class: "btn", type: "button", text: "+ 素材追加",
           onclick: () => {
             const id = uniqueId("new_material", models);
-            const model = CORE.parseMaterialEntry(id, { base_material: "PAPER", custom_model_data: 0, display_name: "", lore: [] });
+            // custom_model_data は**書かない**。0 を既定値として入れると
+            //   ・CMD一括採番の対象判定が「未設定」から外れる方向へ揺れる
+            //   ・テクスチャ登録が「CMD未設定なら自動採番」の分岐に入らず CMD 0 へ登録される
+            //   ・yml に意味の無い custom_model_data: 0 が残る
+            // の3つが起きる(2026-08-08 報告「追加時のCMDを null にしてほしい。でないと
+            // CMD一括采配が使えない」)。キーごと持たせず、採番/入力で初めて生やす。
+            const model = CORE.parseMaterialEntry(id, { base_material: "PAPER", display_name: "", lore: [] });
             models.push({ id, model });
             // アクティブなネストカテゴリで絞り込み中なら、そのカテゴリへ割り当てて見える位置に出す。
             if (editorCategoryKey && typeof window.assignItemToActiveEditorCategory === "function") {
@@ -449,7 +468,12 @@
         fieldRow("base_material", h("span", { class: "input-with-hint" }, [matInput, matHint])),
         fieldRow("custom_model_data", (() => {
           const wrap = h("span", { class: "cmd-field-row" });
-          const cmdNumInput = window.numberInput(model.customModelData, (v) => { model.customModelData = v == null ? 0 : v; model.hasCmd = true; }, { int: true });
+          // 入力欄を空にしたら「未設定」へ戻す(0 を書くとCMD一括採番の対象から外れる)。
+          const cmdNumInput = window.numberInput(model.customModelData, (v) => {
+            if (v == null) { model.hasCmd = false; model.customModelData = undefined; return; }
+            model.customModelData = v;
+            model.hasCmd = true;
+          }, { int: true });
           wrap.appendChild(cmdNumInput);
           // M-4: entryだけでなく数値入力欄の表示値にも直接反映する (フル再描画はしない)。
           function syncAssignedCmd(cmd) {

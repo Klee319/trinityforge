@@ -188,7 +188,8 @@
               "name-color": "#FFFFFF",
               "max-slots": 1,
               "max-glyph-tier": 1,
-              "custom-model-data": 0,
+              // custom-model-data は既定値を書かない。0 を入れるとCMD一括採番/テクスチャ登録の
+              // 「未設定」判定から外れる(2026-08-08 報告)。採番か手入力で初めて生やす。
               "upgrade-from": prevId,
               "cooldown": 0
             });
