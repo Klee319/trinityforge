@@ -1092,11 +1092,27 @@ jar が 1 本でも失敗したら yml には触らない（config だけ新し�
 
 #### なぜ `--config` は既定で off なのか
 
-- `fork-handoff/arspaper/fork/src/main/resources/` の **`sourcejars.yml` / `sourcelinks.yml` は、
-  稼働中のサーバが書き込む実状態**（ソースジャー・ソースリンクのブロック座標）。
-  リポジトリ側の値で上書きすると、**実ワールドに無いブロックを指す**ようになる。
-  `--config` を付けてもこの 2 本と `paper-plugin.yml` は必ず除外する
-  （`ops-config.psd1` の `ArsPaperSync.ExcludeFiles` と同じ方針）。
+- `--config` は**ワーキングツリー**をコピーするので、共有ワークツリーでは他セッションの
+  編集途中がそのまま出荷される。**HEAD だけを配る `deploy-config-head.cmd` を使うこと。**
+
+> **⚠ 2026-08-08 訂正（1 週間ぶんのソース階梯が届いていなかった原因）**
+>
+> ここには以前「`sourcejars.yml` / `sourcelinks.yml` は稼働中のサーバが書き込む実状態
+> （ブロック座標）なので必ず除外する」と書いてあったが、**これは取り違え**だった。
+> その 2 本は**読み取り専用の定義ファイル**（ジャー容量・上位ソースリンクの階梯・燃料の点数）で、
+> `SourceJarConfig` / `SourcelinkConfig` は `loadConfiguration` と `saveResource(name, false)` しか
+> 呼ばない。**ブロック座標を書いているのは `source-network.yml`**（`SourceNetwork#saveSnapshot`）で、
+> こちらはプラグインの resources に無いので配備の対象にそもそも入らない。
+>
+> この誤除外が `deploy.cmd` / `deploy-config-head.cmd` / `deploy-config-skip-wip.cmd` /
+> `ops-config.psd1` / `seed-backend-configs.ps1` / `sync-configs.ps1` の 6 箇所に広がっており、
+> 2026-08-02〜04 に追加した**上位ソースリンク II〜V・上位ジャー・階梯触媒の焼べ値が
+> 1 台にも届いていなかった**（lore に「焼べると 500 ソース」と書いてある物を焼べても無反応）。
+>
+> **プラグイン側の自己修復も効かない。** `ArsPaper#updateResourceFiles` は
+> **プラグインのバージョン文字列が変わったときだけ**同梱 yml を展開し直すが、フォークは
+> ずっと `0.1.0-SNAPSHOT` なのでこのゲートは一度も開いていない。
+> **ArsPaper の yml 変更がサーバへ届く経路は配備スクリプトだけ。**
 - yml の配布はもともと **config-editor が保存時にミラー**する仕組みを持っている
   （`tools/config-editor/tool-config.json` の `deployPaths`。ただし向き先は Dev_Server だけ）。
 - コピーは**上書きのみで削除はしない**ので、プラグインが自分で生成した yml

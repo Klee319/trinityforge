@@ -4,8 +4,13 @@
 
 .DESCRIPTION
     TrinityForge の config はディレクトリジャンクションで共有されるので同期不要。
-    一方 ArsPaper は ranking_cache.json / sourcejars.yml / sourcelinks.yml という
-    サーバ固有の状態ファイルを持つため共有できず、config だけをコピーする。
+    一方 ArsPaper は ranking_cache.json / source-network.yml というサーバ固有の状態ファイルを
+    持つため共有できず、config だけをコピーする。
+
+    ⚠ 2026-08-08 訂正: ここは長らく sourcejars.yml / sourcelinks.yml を「サーバ固有の状態」
+    としていたが、その2つは読み取り専用の定義ファイル(容量・階梯・燃料点数)で、全サーバで
+    同じであるべきもの。ブロック座標を書いているのは source-network.yml の方。
+    取り違えのせいで、上位ソースリンク/上位ジャー/階梯触媒の点数が一度も配備されていなかった。
 
     さらに、過去に実際に起きた事故を検出する:
       - plugins に同名プラグインの jar が2つある (ArsPaper.jar と ArsPaper-1.0.0.jar が同居して

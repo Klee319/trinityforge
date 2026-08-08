@@ -381,9 +381,9 @@ if defined BUILD_ONLY goto s4_skip_bo
 if defined WITH_CONFIG goto s4_run
 call :warn_config_drift
 echo   [SKIP ] pass --config to copy the repository yml as well.
-echo           Off by default because plugins\ArsPaper\sourcejars.yml and sourcelinks.yml are LIVE
-echo           STATE written by the running server, and because the config editor already mirrors
-echo           yml when you save. See ops\RUNBOOK.md step 13-5.
+echo           Off by default because this copies the WORKING TREE, which in a shared worktree
+echo           carries other sessions' half-finished edits. Prefer deploy-config-head.cmd, which
+echo           copies the committed state instead. See ops\RUNBOOK.md step 13-5.
 goto s5
 :s4_skip_bo
 echo   [SKIP ] --build-only.
@@ -673,10 +673,14 @@ REM    copy per backend.
 REM
 REM    Left out on purpose:
 REM      paper-plugin.yml   plugin descriptor, not config
-REM      sourcejars.yml     live state: source jar block coordinates written by the running server
-REM      sourcelinks.yml    live state: source link block coordinates written by the running server
-REM    Overwriting the last two points the live world at blocks that are somewhere else.
 REM    Nothing at the destination is ever deleted, so yml the plugin generates itself survives.
+REM
+REM    2026-08-08 CORRECTION -- sourcejars.yml / sourcelinks.yml were also excluded here as
+REM    "live state written by the running server". That was a misidentification and it silently
+REM    withheld the entire source ladder from every backend for a week. Those two are read-only
+REM    definition files (SourceJarConfig / SourcelinkConfig only load them). The file the server
+REM    actually writes is source-network.yml (SourceNetwork#saveSnapshot), which is not part of
+REM    the plugin's resources and therefore is never a copy candidate in the first place.
 REM ---------------------------------------------------------------------------------------------
 :deploy_config
 set "TFRES=%TF_DIR%\src\main\resources"
@@ -729,7 +733,7 @@ if defined DRYRUN (
     echo   [DRY  ] ArsPaper: would copy *.yml to %ARSDST%
     goto :eof
 )
-robocopy "%ARS_DIR%\src\main\resources" "%ARSDST%" *.yml /XF paper-plugin.yml sourcejars.yml sourcelinks.yml /NFL /NDL /NJH /NJS /NP >nul
+robocopy "%ARS_DIR%\src\main\resources" "%ARSDST%" *.yml /XF paper-plugin.yml /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 goto cfg_ars_fail
 echo   [ OK  ] ArsPaper: yml copied to %~1
 goto :eof

@@ -20,10 +20,12 @@ REM  Stop the network first: launch\stop-all.cmd
 REM
 REM  Same exclusions deploy.cmd uses, for the same reasons:
 REM    paper-plugin.yml   plugin descriptor, not config
-REM    sourcejars.yml     live state: source jar block coordinates written by the running server
-REM    sourcelinks.yml    live state: source link block coordinates written by the running server
-REM  Overwriting the last two points the live world at blocks that are somewhere else.
 REM  Nothing at the destination is ever deleted.
+REM
+REM  2026-08-08 CORRECTION -- sourcejars.yml / sourcelinks.yml were excluded here too, as
+REM  "live state written by the running server". Wrong: they are read-only definition files.
+REM  The server writes source-network.yml instead, which is not a plugin resource at all.
+REM  See deploy-config-head.cmd for the full write-up.
 REM
 REM  ASCII ONLY -- cmd.exe mis-parses UTF-8 batch files and starts executing the middle of a line.
 REM =============================================================================================
@@ -129,10 +131,10 @@ if not exist "%ARSDST%\" (
     goto :eof
 )
 if defined DRYRUN (
-    echo   [DRY  ] %~1: would copy *.yml excluding paper-plugin.yml sourcejars.yml sourcelinks.yml
+    echo   [DRY  ] %~1: would copy *.yml excluding paper-plugin.yml
     goto :eof
 )
-robocopy "%ARSRES%" "%ARSDST%" *.yml /XF paper-plugin.yml sourcejars.yml sourcelinks.yml /NFL /NDL /NJH /NJS /NP >nul
+robocopy "%ARSRES%" "%ARSDST%" *.yml /XF paper-plugin.yml /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (
     echo   [ERROR] %~1: ArsPaper config copy failed. robocopy exit=%errorlevel%
     exit /b 1

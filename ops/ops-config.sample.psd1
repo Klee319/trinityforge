@@ -61,9 +61,12 @@
             "plugins\Chunky\tasks"
         )
         Files = @(
-            # 消えたブロックを指し続ける Ars のソース系キャッシュ
-            "plugins\ArsPaper\sourcejars.yml"
-            "plugins\ArsPaper\sourcelinks.yml"
+            # 消えたブロックを指し続ける Ars のソース系キャッシュ。
+            # ⚠ 2026-08-08 訂正: ここは長らく sourcejars.yml / sourcelinks.yml を指していたが、
+            #   その2つは読み取り専用の【定義ファイル】(容量・階梯・燃料点数)で、
+            #   ブロック座標を書いているのは source-network.yml (SourceNetwork#saveSnapshot) の方。
+            #   消す対象を取り違えていたので、リセットのたびに階梯の定義が飛んでいた。
+            "plugins\ArsPaper\source-network.yml"
             "plugins\ArsPaper\ranking_cache.json"
             # 消えた地形の座標を残さない (資源サーバの home は毎週消える仕様)
             "plugins\SetHome\homes.yml"
@@ -71,12 +74,14 @@
     }
 
     # sync-configs.ps1 が main -> resource へコピーする ArsPaper config。
-    # ranking_cache.json / sourcejars.yml / sourcelinks.yml はサーバ固有の状態なので【対象外】。
+    # サーバ固有の【実行時状態】だけを対象外にする。
+    # ⚠ 2026-08-08 訂正: 以前は sourcejars.yml / sourcelinks.yml を除外していたが、
+    #   その2つは全サーバで同じであるべき定義ファイル。除外すると資源サーバだけ階梯が古くなる。
+    #   本当にサーバ固有なのは source-network.yml (リレー網の座標) と ranking_cache.json。
     ArsPaperSync = @{
         ExcludeFiles = @(
             "ranking_cache.json"
-            "sourcejars.yml"
-            "sourcelinks.yml"
+            "source-network.yml"
         )
         # バックアップの残骸をコピーして肥大化させない
         ExcludePatterns = @(

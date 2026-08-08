@@ -31,12 +31,26 @@ REM  ABORTS WHILE ANY BACKEND IS RUNNING. A plugin reads its yml at enable time,
 REM  a live JVM does nothing useful and leaves the on-disk config out of step with what is loaded.
 REM  Stop the network first: launch\stop-all.cmd
 REM
-REM  Same exclusions deploy.cmd uses, for the same reasons:
+REM  Exclusions:
 REM    paper-plugin.yml   plugin descriptor, not config
-REM    sourcejars.yml     live state: source jar block coordinates written by the running server
-REM    sourcelinks.yml    live state: source link block coordinates written by the running server
-REM  Overwriting the last two points the live world at blocks that are somewhere else.
 REM  Nothing at the destination is ever deleted.
+REM
+REM  2026-08-08 CORRECTION -- sourcejars.yml and sourcelinks.yml used to be excluded here as
+REM  "live state: block coordinates written by the running server". THAT WAS WRONG and it cost
+REM  us the whole source ladder: the upper source links (II-V), the upper jars, and the burn
+REM  values of the ladder catalysts were added to the fork in 2026-08-02..04 and NEVER reached
+REM  any backend, because this script refused to copy exactly those two files.
+REM  Proof they are read-only definition files:
+REM    SourceJarConfig / SourcelinkConfig only loadConfiguration() them and saveResource(name,false).
+REM    The runtime block/link state lives in a DIFFERENT file, source-network.yml, written by
+REM    SourceNetwork#saveSnapshot. Block identity itself is in each block's PDC, not in any yml.
+REM  source-network.yml is not part of the plugin's resources, so it is never staged and never
+REM  copied -- there is nothing to exclude.
+REM
+REM  Note also that the plugin cannot repair this by itself: ArsPaper#updateResourceFiles only
+REM  re-extracts its bundled yml when the plugin VERSION STRING changes, and the fork has been
+REM  0.1.0-SNAPSHOT throughout, so that gate has never once opened. This script is the only
+REM  path by which an ArsPaper yml change reaches a server.
 REM
 REM  ASCII ONLY -- cmd.exe mis-parses UTF-8 batch files and starts executing the middle of a line.
 REM =============================================================================================
@@ -150,10 +164,10 @@ if not exist "%ARSDST%\" (
 )
 if defined DRYRUN (
     echo   [DRY  ] ArsPaper: would copy *.yml to %ARSDST%
-    echo              excluding paper-plugin.yml sourcejars.yml sourcelinks.yml
+    echo              excluding paper-plugin.yml
     exit /b 0
 )
-robocopy "%ARSRES%" "%ARSDST%" *.yml /XF paper-plugin.yml sourcejars.yml sourcelinks.yml /NFL /NDL /NJH /NJS /NP >nul
+robocopy "%ARSRES%" "%ARSDST%" *.yml /XF paper-plugin.yml /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (
     echo   [ERROR] ArsPaper config copy failed for %~1. robocopy exit=%errorlevel%
     exit /b 1

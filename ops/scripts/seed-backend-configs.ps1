@@ -57,7 +57,10 @@ $script:ResourceExcluded = @("EliteMobs", "DiscordSRV", "Multiverse-Core", "Mult
 # プラグインディレクトリ配下の【データ】。config ではないので配らない。
 # キーはプラグインディレクトリ名、値はその配下の相対パス。
 $script:DataPaths = @{
-    "ArsPaper"          = @("ranking_cache.json", "sourcejars.yml", "sourcelinks.yml")
+    # ⚠ 2026-08-08 訂正: sourcejars.yml / sourcelinks.yml をここに入れていたが、その2つは
+    #   容量・階梯・燃料点数を書いた【定義】で、全バックエンドに配る必要がある。
+    #   サーバ固有の実行時状態は source-network.yml (SourceNetwork#saveSnapshot) の方。
+    "ArsPaper"          = @("ranking_cache.json", "source-network.yml")
     "CommandBinderGUI"  = @("playerdata")
     "DiscordSRV"        = @("accounts.aof", "linkedaccounts.json")
     "EliteMobs"         = @("data")
