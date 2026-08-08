@@ -149,6 +149,21 @@ Main_Server を再起動するまでプレイヤーには旧パックが配ら�
 **⚠ 印はまだクラフト経路が死んでいる**: W-44（`key_binder` のレシピ登録失敗）は未修正なので、
 印を素材に使う鍵は作れないまま。今回直したのは**見た目だけ**。
 
+### 2026-08-08 ソース収集コンテンツの点検（S-1〜S-5）
+
+「クッキークリッカー式のソース収集は楽しめるか・バランスは適切か」の確認から出た 5 件。
+
+| # | 内容 | 状態 |
+|---|---|---|
+| ~~**S-1**~~ | ~~**ソース階梯の config が一度も配備されていない**~~ | **2026-08-08 修正済み（`e79cce2`）。真因は配備スクリプトの誤除外。** `sourcejars.yml` / `sourcelinks.yml` を「稼働中のサーバが書き込む実状態（ブロック座標）」と誤認して `/XF` していた。**実際にはその 2 本は読み取り専用の定義ファイル**（ジャー容量・上位ソースリンクの階梯・燃料の点数）で、`SourceJarConfig` / `SourcelinkConfig` は `loadConfiguration` と `saveResource(name,false)` しか呼ばない。**ブロック座標を書いているのは `source-network.yml`**（`SourceNetwork#saveSnapshot`）で、これはプラグインの resources に無いので配備の対象にそもそも入らない。誤除外は `deploy.cmd` / `deploy-config-head.cmd` / `deploy-config-skip-wip.cmd` / `ops-config.psd1`(+sample) / `seed-backend-configs.ps1` / `sync-configs.ps1` の **6 箇所**に広がっていた。**プラグイン側の自己修復も効かない**: `ArsPaper#updateResourceFiles` は**プラグインのバージョン文字列が変わったときだけ**同梱 yml を展開し直すが、フォークはずっと `0.1.0-SNAPSHOT` なのでこのゲートは**一度も開いていない**。＝ArsPaper の yml がサーバへ届く経路は配備スクリプトだけ。**⚠ 配備自体は未実施**（D:\game 書き込みは権限ゲート）。`ops\launch\deploy-config-head.cmd` の実行が残っている |
+| ~~**S-3**~~ | ~~**基本ジャー容量 10,000 < カタログ儀式の中央値 15,000**~~ | **2026-08-08 修正済み（fork `18146ab`）。** 191 件中 99 件が「ジャー 1 個では足りない」＝最初のジャーを作った直後の儀式がまず通らなかった。容量を **20,000** にして中央値を 1 個でまかなえるようにし、なお 55/191 は複数ジャーが要る（「増やす vs 良いのに替える」パズルは残す）。`SourceJarConfig.FALLBACK_CAPACITY` も同値へ。回帰は `ShippedSourceJarCapacityTest` 3 件 |
+| ~~**S-4**~~ | ~~**ホッパー投入がジャー個別容量を見ない**~~ | **2026-08-08 修正済み（fork `18146ab`）。** `CustomBlockListener` のホッパー経路だけが static 定数 `SourceJar.MAX_SOURCE`（＝フォールバック 10,000）と比べており、手投入は `maxSource(TileState)` を見ていた。上位ジャー配備後に「手では入るのにホッパーでは 10,000 で止まる」形で出る。容量判定を **`SourceJar#isFull` に一本化**。**⚠ フォークに MockBukkit / Mockito が無いのでリスナー自体の実走テストは書けていない**（容量解決の一本化という構造での担保） |
+| **S-2** | **1 億級のソースシンクが無い** | **未着手（設計判断待ち）。** ソースの実質シンクは TF カタログ 191 儀式の合計 **5,201,600** のみ。`source_engine` 1 個＝3,000 万は総額の **5.8 倍**、`infinity_source_core`＝1 億は **19 倍**。`source_condenser`（1 儀式で 4 個＝280 万）に到達した時点で経済が終わる |
+| **S-5** | **防具の装備時テクスチャ自動割り当て機構** | **未着手（素材が無い）。** 着用時の見た目は `minecraft:equippable` の `asset_id` で決まり **CMD では変わらない**。paper-api 1.21.11 に `Equippable#assetId()` は実在する（`javap` で確認）が、TF は `Equippable` を一切設定しておらず、パックにも `equipment/` と**防具レイヤー PNG が 1 枚も無い**。機構は作れるが、割り当てる元テクスチャが存在しない |
+
+**⚠ 並行作業の衝突**: 2026-08-08 時点で**別セッションが fork の `sourcelinks.yml` を編集中**（階梯 V の台座を x8→x7）。
+`materials.yml` / `items.yml` にも未コミット変更がある。ソース階梯まわりを触るときは先に `git status` を見ること。
+
 ### 2026-08-07 W-36（トライデント・槍が三人称で 2D）を配信 zip へ入れ直した
 
 **ソースは 08-05 の時点で既に正しく、腐っていたのは配信 zip だけ**だったので、
