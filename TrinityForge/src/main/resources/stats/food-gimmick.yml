@@ -38,3 +38,53 @@ custom-foods:
   compressed_cooked_beef_1x:
     food-level: 20
     saturation: 20
+  # 2026-08-08: compressed_bread_2x/3x・compressed_cooked_beef_2x/3x はArsPaperの materials.yml に
+  # アイテムとしては存在するが、このセクションに登録が無かった。FoodGimmickListener#onFoodLevelChange は
+  # custom-foods に一致がないと customFood.isPresent()==false のままバニラのFoodLevelChangeEvent既定処理
+  # (=base_material=BREAD/COOKED_BEEFのバニラ栄養値のみ)へ素通りするため、81倍/729倍に圧縮しても
+  # 食べたときの満腹度・隠し満腹度は圧縮パン/圧縮ステーキ(1x)と同じにしかならず、圧縮段数を上げる意味が
+  # 食事効果には一切無い状態だった(クラフト効率としては段数どおり機能するが給食面だけ死んでいた)。
+  # 1x側で既に9倍した上で満腹度20/隠し満腹度上限相当まで達しているため、2x/3x(81倍/729倍)は9倍した値が
+  # さらに大きく上限を超えるだけで実質同じ値になる。1xと同値を登録して食事効果を有効化する。
+  compressed_bread_2x:
+    food-level: 20
+    saturation: 18
+  compressed_bread_3x:
+    food-level: 20
+    saturation: 18
+  compressed_cooked_beef_2x:
+    food-level: 20
+    saturation: 20
+  compressed_cooked_beef_3x:
+    food-level: 20
+    saturation: 20
+  # 2026-08-08: 圧縮食料6種を追加(materials.yml側は baked_potato_1x/cooked_porkchop_1x/cooked_mutton_1x/
+  # cooked_chicken_1x/cookie_1x/pumpkin_pie_1x、いずれも_1x=9倍のみ)。満腹度/隠し満腹度は
+  # 「バニラ元値を9倍し、20を超えたら20に丸める」方式(既存compressed_bread_1x等と同じ考え方)。
+  # バニラ元値(1.21.11): BAKED_POTATO=hunger5/sat6.0, COOKED_PORKCHOP=hunger8/sat12.8,
+  # COOKED_MUTTON=hunger6/sat9.6, COOKED_CHICKEN=hunger6/sat7.2, COOKIE=hunger2/sat0.4,
+  # PUMPKIN_PIE=hunger8/sat4.8。
+  baked_potato_1x:
+    # hunger 5×9=45→20に丸め。saturation 6.0×9=54.0→20に丸め。
+    food-level: 20
+    saturation: 20
+  cooked_porkchop_1x:
+    # hunger 8×9=72→20に丸め。saturation 12.8×9=115.2→20に丸め。
+    food-level: 20
+    saturation: 20
+  cooked_mutton_1x:
+    # hunger 6×9=54→20に丸め。saturation 9.6×9=86.4→20に丸め。
+    food-level: 20
+    saturation: 20
+  cooked_chicken_1x:
+    # hunger 6×9=54→20に丸め。saturation 7.2×9=64.8→20に丸め。
+    food-level: 20
+    saturation: 20
+  cookie_1x:
+    # クッキーは元が小さいので9倍でも20に届かない。hunger 2×9=18(丸めなし)。saturation 0.4×9=3.6(丸めなし)。
+    food-level: 18
+    saturation: 3.6
+  pumpkin_pie_1x:
+    # hunger 8×9=72→20に丸め。saturation 4.8×9=43.2→20に丸め。
+    food-level: 20
+    saturation: 20

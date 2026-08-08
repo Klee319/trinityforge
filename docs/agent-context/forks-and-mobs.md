@@ -649,6 +649,32 @@ lore には「4個で鉄インゴットに戻せる」と書いてあるのに�
 - ⚠️ **原木系の逆レシピはバニラの「原木1個→板材4個」と入力が競合しうる**
   （どちらも grid に圧縮原木1個を置いた状態にマッチする）。`oak_wood_*` は以前からこの状態。
 
+### ⚠️ 圧縮「食料」は `materials.yml` に登録するだけでは食事効果が無い ── TF側 `stats/food-gimmick.yml` の `custom-foods` に別途登録が必要
+
+圧縮パン/圧縮ステーキ系（調理済み食品を base_material にした圧縮アイテム）は、`materials.yml` に
+定義してレシピが通っても、**食べたときの満腹度/隠し満腹度はバニラの base_material の栄養値のまま**
+（例: `compressed_bread_2x`(81倍)を食べても素のBREADと同じ5満腹度/6.0隠し満腹度しか回復しない）。
+`FoodGimmickListener#onFoodLevelChange`（TF側、`com.trinityforge.listeners`）が
+`CrossPluginItemResolver.idOf(item)`（`BaseCustomItem#createItemStack`が刻む
+`arspaper:custom_item_id` PDC、値は materials.yml の id キーそのもの、prefixなし）で
+`FoodGimmickConfig#customFood(id)`（`stats/food-gimmick.yml` の `custom-foods:` セクション）を引き、
+一致した場合だけ `FoodLevelChangeEvent#setFoodLevel`/`Player#setSaturation`（隠し満腹度はバニラの
+上書きを避けるため次tickへ`runTask`で遅延）でREPLACEする。**`custom-foods:` に無いidはこの経路自体が
+素通りし、バニラの`FoodLevelChangeEvent`既定処理（=base_materialの栄養値）がそのまま残る。**
+2026-08-08時点で実際に `compressed_bread_2x`/`_3x`・`compressed_cooked_beef_2x`/`_3x` の4件が
+未登録のまま長期間放置されていた（クラフト段数は正しく機能するのに食事効果だけ死んでいた）。
+
+- **新しい圧縮食料（調理済み系）を追加したら、materials.yml だけでなく `food-gimmick.yml` の
+  `custom-foods:` にも同じidで `food-level`(0-20, `FoodGimmickConfig.MAX_FOOD_LEVEL`でクランプ)/
+  `saturation`(double, 負値は既定値0.0へfail-safe)を必ず追加すること。** レシピの段数（`_1x`/`_2x`/…）
+  ごとに個別の値を持たせる必要はない ── バニラの満腹度上限は20固定なので、9倍しただけで大抵の食品は
+  上限を超え、`_1x`より上の段は同値で十分（このリポジトリでは`_2x`/`_3x`に`_1x`と同じ値を登録して解消）。
+  例外的に元の栄養値が小さい食品（`COOKIE`: hunger2/sat0.4）は9倍でも20に届かないため、
+  段数ごとに実際の掛け算値を使うこと。
+- `ExternalItemRegistry`（`custom:<id>`をTFレシピ素材として使うときの経路）はここでは不要。
+  `food-gimmick.yml`の`custom-foods`キーはTFカタログ経由でもExternalItemRegistry経由でもなく、
+  `CrossPluginItemResolver.idOf`がPDCを直接読むだけなので、TF側に一切登録しなくても解決できる。
+
 ### ⚠️⚠️ `materials.yml` と `resourcepack/cmd-registry.json` は、触る前に必ず「今すでに未コミットで汚れていないか」を確認する
 
 どちらも複数セッションが同時に触る頻出ファイルで、**自分がまだ何も編集していない時点で既に
@@ -838,6 +864,30 @@ player を生成経路まで手動で運ぶしかない」「個体差は Ars �
   「書き換え前の状態」を再取得できない。旧lore行との差分など「前後比較」が必要な処理は、
   ブリッジ呼び出しの**前**に前状態をキャプチャしておくこと（`ThreadRerollRitualEffect#execute`
   が実例。呼び出し順を逆にすると新旧が同じ値になり lore の差分除去が無言で空振りする）。
+
+### ⚠️ `ThreadConfig`/`ThreadType` は静的初期化で `PotionEffectType` 定数を触るため、テスト基盤(Bukkitランタイム無し)ではクラスをロードするだけで落ちる
+
+`org.bukkit.potion.PotionEffectType.SPEED` 等の静的定数は内部的にレジストリ経由で解決されており、
+CraftBukkit実装(ライブサーバ)が無い状態で参照すると即座に `ExceptionInInitializerError`
+(内部は `IllegalStateException`)で落ちる（2026-08-08、`PotionEffectType.SPEED` を1行だけ参照する
+最小テストで実機確認。このフォークは MockBukkit も `libs/TrinityForge.jar` の実体も持たない）。
+`ThreadType` enum はenum定数の初期化子でこの定数を使うため元からこの制約を持っていた
+（既存テスト`ThreadHandheldWiringTest`のjavadocに「サーバ無しでロードできない」と明記済み）。
+2026-08-08 に `ThreadConfig` へ `potion-effect:` の許可リスト
+(`ThreadConfig.ALLOWED_POTION_EFFECTS`、静的final field)を追加した際、この制約が
+**`ThreadConfig` クラス自体にも伝播した**——`new ThreadConfig(...)` はおろか、テストコードで
+`ThreadConfig` クラスに触れる(クラス初期化が走る)だけで落ちる。
+
+- 新しいテストを書くときは `ThreadConfig`/`ThreadType` を直接インスタンス化・参照せず、
+  (1) 出荷 `threads.yml` を `org.bukkit.configuration.file.YamlConfiguration.loadConfiguration`
+  で直接読む(このAPI自体はサーバ不要)、または (2) `ThreadConfig.java`/`ArmorManaListener.java` の
+  ソースをテキストとして読み特定の実装が存在するかを文字列一致で確認する、の2手段に限定すること
+  (既存の `ArmorManaListenerThreadPotionGuardTest`/`ThreadHandheldWiringTest`/
+  `ThreadConfigPotionOverrideBackCompatTest` と同じ流儀)。
+- `NamedTextColor`/`Component`(Adventure)は同じ制約を持たない(サーバ無しでも安全に参照できる)。
+  制約があるのは Bukkit の `Registry` 経由で遅延解決される型(`PotionEffectType`、ブロック系
+  `Material` の一部等)だけなので、新しいバニラ定数を static field に持たせる前に、その型が
+  レジストリ解決かどうかを確認すること。
 
 ### ⚠️ 魔法基礎ダメージは「グリフ基礎＋杖の攻撃力」が加算合成される — グリフ側だけに固定値を積んでも高攻撃力帯で無意味化する
 
