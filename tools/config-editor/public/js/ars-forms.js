@@ -194,6 +194,151 @@
   }
 
   // ============================================================
+  // threads.yml の効果 (数値効果 + ポーション効果/飛行/バックパック枠) を
+  // 1つの「+ 効果追加」セレクトへ統合したUI部品。
+  //
+  // 2026-08-09: 「アイテムステータスの設定でArs効果とそれ以外でスレッド分けないでほしい。
+  // もともとのスレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」という
+  // 差し戻しを受け、buildThreadsForm 内で別々の節だった「効果パラメータ」(renderEffects)と
+  // 「特殊効果」(renderSpecialEffects、2026-08-08新設)を統合した。forms.js の item-stats.yml
+  // 「スレッド」タブ(threads.yml を横から編集する)からも同じ部品を再利用する
+  // (定義の複製を避けるため、追加できる効果の一覧は CORE.THREAD_EFFECT_KEYS /
+  // CORE.THREAD_POTION_EFFECTS をそのまま参照する)。
+  //
+  // model は CORE.parseThreadEntry() の戻り値そのもの(そのまま参照して破壊的に編集する)。
+  // onChange は「model を確定して再描画する」呼び出し元のコールバック。buildThreadsForm では
+  // models 配列が model を直接保持しているので単純な render の呼び出しでよいが、forms.js 側は
+  // model を毎回 threads.yml から再構築しているため、onChange の中で threads.<id> への
+  // 書き戻し(serializeThreadEntry)まで行う。この部品はどちらの事情も知らない
+  // (呼び出し元が onChange に必要な後処理を包む)。
+  const THREAD_EFFECT_LABELS_JA = {
+    "regen-bonus": "マナ回復速度ボーナス",
+    "mana-bonus": "最大マナボーナス",
+    "recovery": "マナ回復量(被弾/攻撃時)",
+    "cost-reduction": "スペルコスト軽減率(%)",
+    "mana-max-percent": "最大マナの割合上昇(%)",
+    "regen-percent": "マナ回復速度の割合上昇(%)"
+  };
+  const THREAD_POTION_EFFECT_SELECT_OPTIONS = [{ value: "none", primary: "なし(効果を付けない)", secondary: "none" }]
+    .concat(CORE.THREAD_POTION_EFFECTS.map(([id, ja]) => ({ value: id, primary: ja, secondary: id, title: id })));
+
+  window.buildThreadEffectsBox = function buildThreadEffectsBox(model, onChange) {
+    const m = model;
+    const box = h("div", { class: "effect-params-box" });
+    const presentNumeric = CORE.THREAD_EFFECT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(m.effects, k));
+    const hasPotionGroup = !!(m.hasPotionEffect || m.hasPotionLevel);
+    const hasFlightGroup = !!m.hasFlight;
+    const hasSlotsGroup = !!m.hasSlots;
+
+    if (!presentNumeric.length && !hasPotionGroup && !hasFlightGroup && !hasSlotsGroup) {
+      box.appendChild(h("div", { class: "empty-hint",
+        text: "効果はまだありません。「+ 効果追加」で数値効果・ポーション効果・飛行・バックパック枠を足せます。" }));
+    }
+
+    for (const k of presentNumeric) {
+      const row = h("div", { class: "stat-row" });
+      row.appendChild(h("span", { class: "form-label", text: `${THREAD_EFFECT_LABELS_JA[k] || k} (${k})`, title: k }));
+      row.appendChild(window.numberInput(m.effects[k], (v) => { m.effects[k] = v == null ? 0 : v; }));
+      row.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { delete m.effects[k]; onChange(); }
+      }));
+      box.appendChild(row);
+    }
+
+    if (hasPotionGroup) {
+      const effectRow = h("div", { class: "stat-row" });
+      effectRow.appendChild(h("span", { class: "form-label", text: "ポーション効果 (potion-effect)", title: "potion-effect" }));
+      effectRow.appendChild(window.listSelect({
+        value: m.hasPotionEffect ? (m.potionEffect || "") : "",
+        placeholder: "(効果を選択)",
+        options: THREAD_POTION_EFFECT_SELECT_OPTIONS,
+        allowCustom: false,
+        onCommit: (v) => {
+          if (!v) { m.hasPotionEffect = false; m.potionEffect = undefined; }
+          else { m.hasPotionEffect = true; m.potionEffect = v; }
+          onChange();
+          return true;
+        }
+      }));
+      effectRow.appendChild(h("span", { class: "mini-label", text: "Lv" }));
+      const levelInput = window.numberInput(m.hasPotionLevel ? m.potionLevel : null, (v) => {
+        if (v == null || v < 1) { m.hasPotionLevel = false; m.potionLevel = undefined; }
+        else { m.hasPotionLevel = true; m.potionLevel = Math.trunc(v); }
+      }, { int: true });
+      if (!m.hasPotionEffect || m.potionEffect === "none") {
+        levelInput.disabled = true;
+        levelInput.title = "ポーション効果を選ぶと設定できます";
+      }
+      effectRow.appendChild(levelInput);
+      effectRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        title: "未設定に戻す(装備固有の既定値を使う)",
+        onclick: () => {
+          m.hasPotionEffect = false; m.potionEffect = undefined;
+          m.hasPotionLevel = false; m.potionLevel = undefined;
+          onChange();
+        }
+      }));
+      box.appendChild(effectRow);
+    }
+
+    if (hasFlightGroup) {
+      const flightRow = h("div", { class: "stat-row" });
+      flightRow.appendChild(h("span", { class: "form-label", text: "飛行 (flight)", title: "flight" }));
+      flightRow.appendChild(h("input", {
+        type: "checkbox", checked: !!m.flight,
+        onchange: (e) => { m.flight = e.target.checked; onChange(); }
+      }));
+      flightRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { m.hasFlight = false; m.flight = undefined; onChange(); }
+      }));
+      box.appendChild(flightRow);
+    }
+
+    if (hasSlotsGroup) {
+      const slotsRow = h("div", { class: "stat-row" });
+      slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠 (slots)", title: "slots" }));
+      slotsRow.appendChild(window.numberInput(m.slots, (v) => {
+        m.slots = v == null || v < 0 ? 0 : Math.trunc(v);
+      }, { int: true }));
+      slotsRow.appendChild(h("button", {
+        class: "btn-small danger", type: "button", text: "×",
+        onclick: () => { m.hasSlots = false; m.slots = undefined; onChange(); }
+      }));
+      box.appendChild(slotsRow);
+    }
+
+    // ---- + 効果追加 ----
+    const addOptions = [];
+    for (const k of CORE.THREAD_EFFECT_KEYS) {
+      if (!Object.prototype.hasOwnProperty.call(m.effects, k)) {
+        addOptions.push({ value: k, label: `${THREAD_EFFECT_LABELS_JA[k] || k} (${k})` });
+      }
+    }
+    if (!hasPotionGroup) addOptions.push({ value: "potion-effect", label: "ポーション効果 (potion-effect)" });
+    if (!hasFlightGroup) addOptions.push({ value: "flight", label: "飛行 (flight)" });
+    if (!hasSlotsGroup) addOptions.push({ value: "slots", label: "バックパック枠 (slots)" });
+    if (addOptions.length) {
+      const sel = h("select", { class: "field-input" });
+      sel.appendChild(h("option", { value: "", text: "+ 効果追加" }));
+      for (const opt of addOptions) sel.appendChild(h("option", { value: opt.value, text: opt.label }));
+      sel.addEventListener("change", (e) => {
+        const v = e.target.value;
+        if (!v) return;
+        if (v === "potion-effect") { m.hasPotionEffect = true; m.potionEffect = CORE.THREAD_POTION_EFFECTS[0][0]; }
+        else if (v === "flight") { m.hasFlight = true; m.flight = true; }
+        else if (v === "slots") { m.hasSlots = true; m.slots = 0; }
+        else { m.effects[v] = 0; }
+        onChange();
+      });
+      box.appendChild(h("div", { class: "effect-add-row" }, [sel]));
+    }
+    return box;
+  };
+
+  // ============================================================
   // materials.yml
   // ============================================================
   window.buildMaterialsForm = function buildMaterialsForm(data, opts) {
@@ -618,22 +763,6 @@
     // 折りたたみ状態(開いているidの集合)。既定は全て折りたたみ (skilltreeと同じUX)。再描画をまたいで保持する。
     const expanded = new Set();
 
-    // 効果パラメータの日本語ラベル (threads.yml ヘッダ準拠)。
-    // slots は 2026-08-08 に「特殊効果」セクション(potion-effect/potion-level/flight と同グループ)へ
-    // 移したため、ここには残さない(このマップは CORE.THREAD_EFFECT_KEYS 経由でのみ参照される)。
-    const EFFECT_LABELS = {
-      "regen-bonus": "マナ回復速度ボーナス",
-      "mana-bonus": "最大マナボーナス",
-      "recovery": "マナ回復量(被弾/攻撃時)",
-      "cost-reduction": "スペルコスト軽減率(%)",
-      "mana-max-percent": "最大マナの割合上昇(%)",
-      "regen-percent": "マナ回復速度の割合上昇(%)"
-    };
-
-    // 特殊効果(potion-effect/potion-level/flight/slots)のセレクト選択肢。
-    const POTION_EFFECT_SELECT_OPTIONS = [{ value: "none", primary: "なし(効果を付けない)", secondary: "none" }]
-      .concat(CORE.THREAD_POTION_EFFECTS.map(([id, ja]) => ({ value: id, primary: ja, secondary: id, title: id })));
-
     function render() {
       root.innerHTML = "";
       if (models.length === 0) {
@@ -691,17 +820,15 @@
       const body = [];
       body.push(fieldRow("display_name", window.textInput(model.displayName, (v) => { model.displayName = v; model.hasDisplayName = true; }), "表示名 (display_name)"));
 
-      // ---- 効果パラメータ ----
-      body.push(h("div", { class: "sub-title", text: "効果パラメータ" }));
-      body.push(renderEffects(model));
+      // ---- 効果 (数値効果 + ポーション効果/飛行/バックパック枠を1つの「+ 効果追加」で管理) ----
+      // 2026-08-09: 旧「効果パラメータ」節と「特殊効果」節(2026-08-08新設)を統合した
+      // (window.buildThreadEffectsBox、forms.js の item-stats.yml「スレッド」タブとも共通)。
+      body.push(h("div", { class: "sub-title", text: "効果" }));
+      body.push(window.buildThreadEffectsBox(model, render));
 
       // ---- stackable / max ----
       body.push(h("div", { class: "sub-title", text: "重複設定" }));
       body.push(renderStackable(model));
-
-      // ---- 特殊効果 (装備固有のポーション効果/レベル/飛行/バックパック枠) ----
-      body.push(h("div", { class: "sub-title", text: "特殊効果" }));
-      body.push(renderSpecialEffects(model));
 
       // ---- 儀式レシピ ----
       body.push(h("div", { class: "sub-title", text: "儀式レシピ (recipe)" }));
@@ -722,29 +849,6 @@
         onToggle: (open) => { if (open) expanded.add(entry.id); else expanded.delete(entry.id); }
       });
 
-      function renderEffects(m) {
-        const box = h("div", { class: "effect-params-box" });
-        const present = CORE.THREAD_EFFECT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(m.effects, k));
-        if (present.length === 0) box.appendChild(h("div", { class: "empty-hint", text: "効果パラメータはありません。「+ 効果追加」で数値効果を足せます。" }));
-        for (const k of present) {
-          const row = h("div", { class: "stat-row" });
-          row.appendChild(h("span", { class: "form-label", text: `${EFFECT_LABELS[k] || k} (${k})`, title: k }));
-          row.appendChild(window.numberInput(m.effects[k], (v) => { m.effects[k] = v == null ? 0 : v; }));
-          row.appendChild(h("button", { class: "btn-small danger", type: "button", text: "×", onclick: () => { delete m.effects[k]; render(); } }));
-          box.appendChild(row);
-        }
-        // 追加セレクト (未追加の効果キーのみ)。
-        const remaining = CORE.THREAD_EFFECT_KEYS.filter((k) => !Object.prototype.hasOwnProperty.call(m.effects, k));
-        if (remaining.length) {
-          const sel = h("select", { class: "field-input" });
-          sel.appendChild(h("option", { value: "", text: "+ 効果追加" }));
-          for (const k of remaining) sel.appendChild(h("option", { value: k, text: `${EFFECT_LABELS[k] || k} (${k})` }));
-          sel.addEventListener("change", (e) => { const k = e.target.value; if (!k) return; m.effects[k] = 0; render(); });
-          box.appendChild(h("div", { class: "effect-add-row" }, [sel]));
-        }
-        return box;
-      }
-
       function renderStackable(m) {
         const box = h("div", { class: "result-slot" });
         const stackOn = h("input", { type: "checkbox", checked: !!m.stackable, onchange: (e) => { m.stackable = e.target.checked; m.hasStackable = true; render(); } });
@@ -752,69 +856,6 @@
         const maxInput = window.numberInput(m.max, (v) => { m.max = v == null ? 1 : v; m.hasMax = true; }, { int: true });
         if (!m.stackable) { maxInput.disabled = true; maxInput.title = "stackable が有効なときのみ設定できます"; }
         box.appendChild(fieldRow("max", maxInput, "最大セット数 (max)"));
-        return box;
-      }
-
-      // potion-effect / potion-level / flight / slots。
-      // いずれも省略時は Java(ThreadType)の既定値を使う任意キーなので、未編集で開いて保存しても
-      // 値が増えない (lazy-touch)。空へ戻したら delete でキーそのものを消す (0/"" を書き残さない)。
-      function renderSpecialEffects(m) {
-        const box = h("div", { class: "effect-params-box" });
-
-        // ---- ポーション効果 + レベル ----
-        const effectRow = h("div", { class: "stat-row" });
-        effectRow.appendChild(h("span", { class: "form-label", text: "ポーション効果 (potion-effect)", title: "potion-effect" }));
-        effectRow.appendChild(window.listSelect({
-          value: m.hasPotionEffect ? (m.potionEffect || "") : "",
-          placeholder: "(未設定・装備固有の既定値)",
-          options: POTION_EFFECT_SELECT_OPTIONS,
-          allowCustom: false,
-          onCommit: (v) => {
-            if (!v) { m.hasPotionEffect = false; m.potionEffect = undefined; }
-            else { m.hasPotionEffect = true; m.potionEffect = v; }
-            render();
-            return true;
-          }
-        }));
-        effectRow.appendChild(h("button", {
-          class: "btn-small danger", type: "button", text: "×",
-          title: "未設定に戻す(装備固有の既定値を使う)",
-          onclick: () => {
-            m.hasPotionEffect = false; m.potionEffect = undefined;
-            m.hasPotionLevel = false; m.potionLevel = undefined;
-            render();
-          }
-        }));
-        box.appendChild(effectRow);
-
-        const levelRow = h("div", { class: "stat-row" });
-        levelRow.appendChild(h("span", { class: "form-label", text: "効果レベル (potion-level)", title: "potion-level" }));
-        const levelInput = window.numberInput(m.hasPotionLevel ? m.potionLevel : null, (v) => {
-          if (v == null || v < 1) { m.hasPotionLevel = false; m.potionLevel = undefined; }
-          else { m.hasPotionLevel = true; m.potionLevel = Math.trunc(v); }
-        }, { int: true });
-        if (!m.hasPotionEffect) { levelInput.disabled = true; levelInput.title = "ポーション効果を選ぶと設定できます"; }
-        levelRow.appendChild(levelInput);
-        box.appendChild(levelRow);
-
-        // ---- 飛行 ----
-        const flightRow = h("div", { class: "stat-row" });
-        flightRow.appendChild(h("span", { class: "form-label", text: "飛行 (flight)", title: "flight" }));
-        flightRow.appendChild(h("input", {
-          type: "checkbox", checked: !!(m.hasFlight && m.flight),
-          onchange: (e) => { m.hasFlight = e.target.checked; m.flight = e.target.checked ? true : undefined; render(); }
-        }));
-        box.appendChild(flightRow);
-
-        // ---- バックパック枠 ----
-        const slotsRow = h("div", { class: "stat-row" });
-        slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠 (slots)", title: "slots" }));
-        slotsRow.appendChild(window.numberInput(m.hasSlots ? m.slots : null, (v) => {
-          if (v == null || v < 0) { m.hasSlots = false; m.slots = undefined; }
-          else { m.hasSlots = true; m.slots = Math.trunc(v); }
-        }, { int: true }));
-        box.appendChild(slotsRow);
-
         return box;
       }
     }

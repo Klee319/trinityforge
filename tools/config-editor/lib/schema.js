@@ -105,29 +105,10 @@ function validateItemStats(data, errors) {
         }
       }
     }
-    if (entry["set-effects"] !== undefined && entry["set-effects"] !== null) {
-      if (!isPlainObject(entry["set-effects"])) {
-        errors.push(`items.${key}.set-effects: マップである必要があります`);
-      } else if (entry["set-effects"].thresholds !== undefined && entry["set-effects"].thresholds !== null) {
-        const thr = entry["set-effects"].thresholds;
-        if (!isPlainObject(thr)) {
-          errors.push(`items.${key}.set-effects.thresholds: マップである必要があります`);
-        } else {
-          for (const [tk, stats] of Object.entries(thr)) {
-            if (!/^\d+$/.test(tk) || Number(tk) < 1) {
-              errors.push(`items.${key}.set-effects.thresholds.${tk}: 閾値キーは1以上の整数である必要があります`);
-            }
-            if (!isPlainObject(stats)) {
-              errors.push(`items.${key}.set-effects.thresholds.${tk}: ステータスマップである必要があります`);
-            } else {
-              for (const [stat, val] of Object.entries(stats)) {
-                if (!isNumber(val)) errors.push(`items.${key}.set-effects.thresholds.${tk}.${stat}: 数値である必要があります`);
-              }
-            }
-          }
-        }
-      }
-    }
+    // item-stats.yml の entry["set-effects"] は 2026-08-09 に撤去(editor にしか存在しない飾りで、
+    // TF本体・ArsPaperフォークとも読むコードが無く、出荷 item-stats.yml にも実データ0件だった)。
+    // 実際にスレッドのセット効果を持つのは thread-sets.yml 側(validateArsThreadSets が検証、
+    // キーはスレッドID=threads.yml と共通)。新しい yml にこのキーを書かせない(=検証しない)。
     // 乗算モード (multipliers.<layer>.{fixed,per-quality,random})。
     // 未選択レイヤ (__unset__) は保存前に必ずレイヤを割り当てる。
     if (entry.multipliers !== undefined && entry.multipliers !== null) {

@@ -60,15 +60,21 @@
           split: { type: "item-stats", configId: "item-stats", categoryKey: "catalyst", itemCategory: "catalyst" } },
         { id: "__stats_spellbook__", label: "魔導書", kind: "split", badge: "tool",
           split: { type: "item-stats", configId: "item-stats", categoryKey: "spellbook", itemCategory: "spellbook" } },
+        // 2026-08-08 に threads.yml 編集用の専用ナビ項目「スレッド効果 (Ars)」を新設したが、
+        // 2026-08-09 に差し戻された(「Ars効果とそれ以外でスレッド分けないでほしい。もともとの
+        // スレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」)。
+        // 差し戻し直後に「thread-sets.yml が編集不能になる」という理由で thread-sets.yml 専用の
+        // 別ナビ(__thread_sets__)を新設したが、これも同じ2026-08-09に差し戻された
+        // (「スレッドを画面で分けるな」という指示の趣旨に反する、撤去した __thread_effects__ と
+        // 同じ形の分割を作り直しただけだったため)。
+        // threads.yml の potion-effect/potion-level/flight/slots や regen-bonus 等の効果パラメータ、
+        // および thread-sets.yml の N個装備セット効果(thresholds)は、すべてこのタブ(item-stats.yml
+        // の「スレッド」)のカード内から直接編集できる(split-views.js の
+        // o.type === "item-stats" && o.itemCategory === "thread" が threads.yml/thread-sets.yml も
+        // 一緒に読み込み・保存する。forms.js の renderThreadExtraFields が編集UIを描く)。
+        // スレッド関連のナビ項目はこの「スレッド」1つだけにする。
         { id: "__stats_thread__", label: "スレッド", kind: "split", badge: "tool",
-          split: { type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread" } },
-        // 2026-08-08: threads.yml / thread-sets.yml を編集する thread-bundle 分割ビューは
-        // 実装(split-views.js の thread-bundle・app.js の読み込み/保存経路)はあったのに、
-        // それを指すナビ項目がどこにも無く**到達不能**だった。スレッドのポーション効果・
-        // 効果レベル・飛行・バックパック枠は threads.yml が唯一の実配線先なので導線を追加する。
-        // (item-stats 側の「スレッド」はステータス補正だけで、効果の定義は持たない)
-        { id: "__thread_effects__", label: "スレッド効果 (Ars)", kind: "split", badge: "tool",
-          split: { type: "thread-bundle", configId: "threads", categoryKey: "thread" } }
+          split: { type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread" } }
       ]
     },
     // 2026-07-27新設: 「アイテムステータス」の直後に「機能アイテム」カテゴリを配置(ユーザー指示)。
@@ -541,22 +547,34 @@
       // 「今開いている画面(catalog/item-stats)とは別の config がマージされた」ときに
       // アイテム一覧が丸ごと消えて白紙になっていた(state.editor は生きているので実害なし=
       // ユーザー報告どおり)。クリアは差し替え直前だけ行う。
-      if (sp.type === "thread-bundle") {
-        const threadsData = configId === "threads" ? mergedData
-          : (typeof state.editor.getData === "function" ? state.editor.getData() : (state.baseSnapshots.threads || {}));
-        let setsData = state.baseSnapshots["thread-sets"] || {};
-        if (configId === "thread-sets") setsData = mergedData;
-        else if (typeof state.editor.getExtraSaves === "function") {
-          const extras = state.editor.getExtraSaves();
-          const found = extras.find((e) => e.id === "thread-sets");
-          if (found) setsData = found.data;
+      if (sp.type === "item-stats" && sp.itemCategory === "thread" &&
+        (sp.configId === configId || configId === "threads" || configId === "thread-sets")) {
+        // アイテムステータス「スレッド」タブは item-stats.yml / threads.yml / thread-sets.yml の
+        // 3ファイルを1画面で扱う(2026-08-09 統合)。どれがマージされても、他の2つは編集中の値を
+        // 引き継ぐ(再取得すると未保存編集を捨ててしまう)。
+        const catalogCandidates = await fetchCatalogCandidatesWithMaterials();
+        const itemStatsData = sp.configId === configId
+          ? mergedData
+          : (typeof state.editor.getData === "function" ? state.editor.getData() : (state.baseSnapshots[sp.configId] || {}));
+        function resolveExtra(id) {
+          if (configId === id) return mergedData;
+          if (typeof state.editor.getExtraSaves === "function") {
+            const found = state.editor.getExtraSaves().find((e) => e.id === id);
+            if (found) return found.data;
+          }
+          return state.baseSnapshots[id] || {};
         }
+        const threadsData = resolveExtra("threads");
+        const threadSetsData = resolveExtra("thread-sets");
         state.editor = window.buildSplitConfigView({
-          type: "thread-bundle",
-          configId: "threads",
-          categoryKey: sp.categoryKey || "thread",
+          type: sp.type,
+          configId: sp.configId,
+          categoryKey: sp.categoryKey || "default",
+          itemCategory: sp.itemCategory,
+          data: itemStatsData,
+          catalogCandidates,
           threadsData,
-          threadSetsData: setsData
+          threadSetsData
         });
       } else if (sp.configId === configId) {
         let catalogCandidates = [];
@@ -1629,61 +1647,62 @@
       try {
         const sp = view.split || {};
         const loaded = {};
-        if (sp.type === "thread-bundle") {
-          const tr = await api("GET", "/api/config/threads");
-          const sr = await api("GET", "/api/config/thread-sets");
-          rememberRevision("threads", tr.revision);
-          rememberRevision("thread-sets", sr.revision);
-          const threadsData = (tr.data && typeof tr.data === "object") ? tr.data : {};
-          const threadSetsData = (sr.data && typeof sr.data === "object") ? sr.data : {};
-          rememberBase("threads", threadsData);
-          rememberBase("thread-sets", threadSetsData);
-          state.editor = window.buildSplitConfigView({
-            type: "thread-bundle",
-            configId: "threads",
-            categoryKey: sp.categoryKey || "thread",
-            threadsData,
-            threadSetsData
-          });
-          syncBaseFromEditor("threads");
-        } else {
-          const r = await api("GET", `/api/config/${sp.configId}`);
-          rememberRevision(sp.configId, r.revision);
-          loaded.data = (r.data && typeof r.data === "object") ? r.data : {};
-          rememberBase(sp.configId, loaded.data);
-          let catalogCandidates = [];
-          if (sp.type === "item-stats") {
-            catalogCandidates = await fetchCatalogCandidatesWithMaterials();
-          }
-          // catalog⇄materials のファイル跨ぎ移動用に相手ファイルも読み込んでおく
-          // (移動が発生した保存時だけ extraSaves 経由で一緒に PUT される)。
-          let counterpartId = null;
-          let counterpartData = null;
-          if (sp.type === "catalog" || sp.type === "materials") {
-            counterpartId = sp.type === "catalog" ? "materials" : "catalog";
-            try {
-              const xr = await api("GET", `/api/config/${counterpartId}`);
-              rememberRevision(counterpartId, xr.revision);
-              counterpartData = (xr.data && typeof xr.data === "object") ? xr.data : {};
-              rememberBase(counterpartId, counterpartData);
-            } catch (_) {
-              // 相手ファイルが読めなくても編集自体は継続 (跨ぎ移動だけ無効化)。
-              counterpartId = null;
-              counterpartData = null;
-            }
-          }
-          state.editor = window.buildSplitConfigView({
-            type: sp.type,
-            configId: sp.configId,
-            categoryKey: sp.categoryKey || "default",
-            itemCategory: sp.itemCategory,
-            data: loaded.data,
-            catalogCandidates,
-            counterpartId,
-            counterpartData
-          });
-          syncBaseFromEditor(sp.configId);
+        const r = await api("GET", `/api/config/${sp.configId}`);
+        rememberRevision(sp.configId, r.revision);
+        loaded.data = (r.data && typeof r.data === "object") ? r.data : {};
+        rememberBase(sp.configId, loaded.data);
+        let catalogCandidates = [];
+        if (sp.type === "item-stats") {
+          catalogCandidates = await fetchCatalogCandidatesWithMaterials();
         }
+        // catalog⇄materials のファイル跨ぎ移動用に相手ファイルも読み込んでおく
+        // (移動が発生した保存時だけ extraSaves 経由で一緒に PUT される)。
+        let counterpartId = null;
+        let counterpartData = null;
+        if (sp.type === "catalog" || sp.type === "materials") {
+          counterpartId = sp.type === "catalog" ? "materials" : "catalog";
+          try {
+            const xr = await api("GET", `/api/config/${counterpartId}`);
+            rememberRevision(counterpartId, xr.revision);
+            counterpartData = (xr.data && typeof xr.data === "object") ? xr.data : {};
+            rememberBase(counterpartId, counterpartData);
+          } catch (_) {
+            // 相手ファイルが読めなくても編集自体は継続 (跨ぎ移動だけ無効化)。
+            counterpartId = null;
+            counterpartData = null;
+          }
+        }
+        // アイテムステータス「スレッド」タブは threads.yml / thread-sets.yml も一緒に読み込む
+        // (2026-08-09: 独立した「スレッド効果 (Ars)」画面と、その後に一度新設した thread-sets.yml
+        // 専用ナビ(__thread_sets__)を両方撤去し、このタブのカード内へ効果編集・セット効果編集を
+        // 統合したため。extraGets 経由で一緒に保存する。
+        // forms.js の renderThreadExtraFields が実際の編集UIを描く)。
+        let threadsData = null;
+        let threadSetsData = null;
+        if (sp.type === "item-stats" && sp.itemCategory === "thread") {
+          const tr = await api("GET", "/api/config/threads");
+          rememberRevision("threads", tr.revision);
+          threadsData = (tr.data && typeof tr.data === "object") ? tr.data : {};
+          rememberBase("threads", threadsData);
+
+          const sr = await api("GET", "/api/config/thread-sets");
+          rememberRevision("thread-sets", sr.revision);
+          threadSetsData = (sr.data && typeof sr.data === "object") ? sr.data : {};
+          rememberBase("thread-sets", threadSetsData);
+        }
+        state.editor = window.buildSplitConfigView({
+          type: sp.type,
+          configId: sp.configId,
+          categoryKey: sp.categoryKey || "default",
+          itemCategory: sp.itemCategory,
+          data: loaded.data,
+          catalogCandidates,
+          counterpartId,
+          counterpartData,
+          threadsData,
+          threadSetsData
+        });
+        syncBaseFromEditor(sp.configId);
         if (!mountMain(navToken, state.editor.element)) return;
         saveBtn.disabled = false;
       } catch (err) {

@@ -435,6 +435,15 @@
     const editorCategoryKey = options.editorCategoryKey || null;
     const useEditorMeta = !!editorCategoryKey && (!!options.hubMode || !!(data && data._editor));
     const catalogCandidates = Array.isArray(options.catalogCandidates) ? options.catalogCandidates : [];
+    // 「スレッド」タブから threads.yml を横から読み書きするための参照(2026-08-09)。
+    // split-views.js が別途 GET した threads.yml のルートオブジェクトをそのまま(浅いクローンを
+    // 挟まず)渡す想定。呼び出し元が渡さない画面(旧来の呼び出し)では null のままにし、
+    // renderThreadExtraFields 側で threads.yml の効果セクション自体を出さない。
+    const threadsRoot = options.threadsData && typeof options.threadsData === "object" ? options.threadsData : null;
+    // 「スレッド」タブから thread-sets.yml (N個装備のセット効果) を横から読み書きするための参照
+    // (2026-08-09、threadsRoot と同じ流儀)。呼び出し元が渡さない画面では null のままにし、
+    // renderThreadExtraFields 側でセット効果セクション自体を出さない。
+    const threadSetsRoot = options.threadSetsData && typeof options.threadSetsData === "object" ? options.threadSetsData : null;
     const working = data && typeof data === "object" ? data : {};
     if (!working.items || typeof working.items !== "object") working.items = {};
     // カタログ品は必ず対応するステータスタブに「値なしの枠」を持つ。
@@ -1664,7 +1673,7 @@
     }
 
     // 触媒/魔導書/スレッド固有フィールド (通常の fixed/per-quality/random に加えて)。
-    function categoryExtraFields(entry) {
+    function categoryExtraFields(entry, catalogMatch) {
       if (activeCat === "spellbook") {
         const grid = h("div", { class: "field-grid" });
         grid.appendChild(fieldRow("max-glyphs", window.numberInput(entry["max-glyphs"], (v) => {
@@ -1692,103 +1701,160 @@
         ]);
       }
       if (activeCat === "thread") {
-        return renderThreadExtraFields(entry);
+        return renderThreadExtraFields(entry, catalogMatch);
       }
       return null;
     }
 
-    function renderThreadExtraFields(entry) {
-      if (!entry["set-effects"] || typeof entry["set-effects"] !== "object") {
-        // 未設定のままキーを増やさない。UI操作時に materialize。
-      }
+    // catalog.yml の id (thread_<id>) から「thread_」を外した文字列が threads.yml / thread-sets.yml
+    // 側の共通 id になる(45件、完全1:1、実測済み)。カタログに紐付かない行(手打ちmaterial等)は null。
+    function resolveThreadId(match) {
+      const catId = match && match.id;
+      if (!catId || !catId.startsWith("thread_")) return null;
+      return catId.slice("thread_".length);
+    }
+
+    function renderThreadExtraFields(entry, catalogMatch) {
       const box = h("div", { class: "sub-section" });
       box.appendChild(window.subTitleEl("スレッド固有",
-        "セット効果の閾値・ステータス、および暗視などの特殊効果"));
+        "Ars の効果(threads.yml)と、N個装備で発動するセット効果(thread-sets.yml)"));
+      const threadId = resolveThreadId(catalogMatch);
 
-      // ---- セット効果 ----
-      const setBox = h("div", { class: "sub-section" });
-      setBox.appendChild(h("div", { class: "mini-label", text: "セット効果 (set-effects)" }));
-      const se = entry["set-effects"] && typeof entry["set-effects"] === "object" ? entry["set-effects"] : null;
-      const thresholds = se && se.thresholds && typeof se.thresholds === "object" ? se.thresholds : {};
-      const thrKeys = Object.keys(thresholds).sort((a, b) => Number(a) - Number(b));
-      const thrRows = h("div", { class: "pedestal-rows" });
-      if (thrKeys.length === 0) {
-        thrRows.appendChild(h("div", { class: "empty-hint", text: "セット効果なし。「+ 閾値追加」で N個装備時のボーナスを定義します。" }));
+      // ---- threads.yml 側の効果 (regen-bonus 等の数値効果 + potion-effect/potion-level/flight/slots) ----
+      // 2026-08-09: 「アイテムステータスの設定でArs効果とそれ以外でスレッド分けないでほしい。
+      // もともとのスレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」という
+      // 差し戻しを受け、独立した「スレッド効果 (Ars)」ナビ画面(0b23802, 2026-08-08新設)を撤去し、
+      // このカードの中(threads.yml を横から編集する)へ統合した。
+      //
+      // threads.yml の該当エントリを解決し、CORE.parseThreadEntry/serializeThreadEntry を使った
+      // 統合エディタ(window.buildThreadEffectsBox、ars-forms.js と共通)を描く。
+      // threadsRoot が渡っていない画面(旧来の呼び出し経路)では何も描かない。
+      function renderThreadYmlEffects(tid) {
+        if (!threadsRoot || !tid) return null;
+        if (!threadsRoot.threads || typeof threadsRoot.threads !== "object") threadsRoot.threads = {};
+        const threadsMap = threadsRoot.threads;
+        const existed = Object.prototype.hasOwnProperty.call(threadsMap, tid);
+        if (!window.ARS_FORMS || !window.buildThreadEffectsBox) return null; // ars-forms.js 未読込
+        const model = window.ARS_FORMS.parseThreadEntry(tid, threadsMap[tid]);
+        function commit() {
+          const out = window.ARS_FORMS.serializeThreadEntry(model);
+          // 未編集のまま(元から存在しなかったエントリが依然として空)なら書き込まない(lazy-touch)。
+          if (!existed && Object.keys(out).length === 0) delete threadsMap[tid];
+          else threadsMap[tid] = out;
+          render();
+        }
+        const sec = h("div", { class: "sub-section" });
+        sec.appendChild(h("div", { class: "mini-label", text: `スレッド効果 (threads.yml: ${tid})`,
+          title: "potion-effect/potion-level/flight/slots や regen-bonus 等。「+ 効果追加」から選びます。" }));
+        sec.appendChild(window.buildThreadEffectsBox(model, commit));
+        return sec;
       }
-      thrKeys.forEach((tk) => {
-        const stats = thresholds[tk] && typeof thresholds[tk] === "object" ? thresholds[tk] : {};
-        const card = h("div", { class: "stat-rows indented" });
-        card.appendChild(h("div", { class: "stat-row" }, [
-          h("span", { class: "mini-label", text: "閾値(個数)" }),
-          window.numberInput(Number(tk), (v) => {
-            const n = v == null || v < 1 ? 1 : Math.trunc(v);
-            const next = String(n);
-            if (next === tk) return;
-            if (!entry["set-effects"]) entry["set-effects"] = { thresholds: {} };
-            if (!entry["set-effects"].thresholds) entry["set-effects"].thresholds = {};
-            if (Object.prototype.hasOwnProperty.call(entry["set-effects"].thresholds, next)) {
-              alert("同じ閾値が既にあります"); render(); return;
-            }
-            entry["set-effects"].thresholds[next] = entry["set-effects"].thresholds[tk];
-            delete entry["set-effects"].thresholds[tk];
-            render();
-          }, { int: true }),
-          h("button", {
-            class: "btn-small danger", type: "button", text: "× 閾値",
-            onclick: () => {
-              delete entry["set-effects"].thresholds[tk];
-              if (Object.keys(entry["set-effects"].thresholds).length === 0) delete entry["set-effects"];
-              render();
-            }
-          })
-        ]));
-        const statKeys = Object.keys(stats);
-        statKeys.forEach((st) => {
+      const threadYmlSection = renderThreadYmlEffects(threadId);
+      if (threadYmlSection) box.appendChild(threadYmlSection);
+
+      // ---- セット効果 (thread-sets.yml) ----
+      // 2026-08-09: item-stats.yml 側の entry["set-effects"] は editor にしか存在しない飾りだった
+      // (直前に撤去した special-effects と同じパターン。TF本体・ArsPaperフォークとも読むコードが
+      // 無く、出荷 item-stats.yml にも実データ0件だったので撤去した)。実際にスレッドのN個装備
+      // セット効果を読むのは thread-sets.yml (ThreadSetConfig/ArmorManaListener/
+      // ThreadApplicationPolicy が使う。キーは threads.yml と共通のスレッドID)。UIの見た目・
+      // 操作感は旧 set-effects のものをそのまま流用し、書き込み先だけ
+      // threadSetsRoot["thread-sets"][threadId].thresholds へ差し替えた。
+      // threadSetsRoot が渡っていない画面(旧来の呼び出し経路)では何も描かない。
+      function renderThreadSetEffects(tid) {
+        if (!threadSetsRoot || !tid) return null;
+        if (!threadSetsRoot["thread-sets"] || typeof threadSetsRoot["thread-sets"] !== "object") {
+          threadSetsRoot["thread-sets"] = {};
+        }
+        const setsMap = threadSetsRoot["thread-sets"];
+        function pruneNode() {
+          const node = setsMap[tid];
+          if (!node || typeof node !== "object") return;
+          if (node.thresholds && typeof node.thresholds === "object" && isEmptyObject(node.thresholds)) {
+            delete node.thresholds;
+          }
+          if (isEmptyObject(node)) delete setsMap[tid];
+        }
+        const setBox = h("div", { class: "sub-section" });
+        setBox.appendChild(h("div", { class: "mini-label", text: `セット効果 (thread-sets.yml: ${tid})`,
+          title: "N個以上装備で発動する累積しきい値式のステータス。" }));
+        const node = setsMap[tid] && typeof setsMap[tid] === "object" ? setsMap[tid] : null;
+        const thresholds = node && node.thresholds && typeof node.thresholds === "object" ? node.thresholds : {};
+        const thrKeys = Object.keys(thresholds).sort((a, b) => Number(a) - Number(b));
+        const thrRows = h("div", { class: "pedestal-rows" });
+        if (thrKeys.length === 0) {
+          thrRows.appendChild(h("div", { class: "empty-hint", text: "セット効果なし。「+ 閾値追加」で N個装備時のボーナスを定義します。" }));
+        }
+        thrKeys.forEach((tk) => {
+          const stats = thresholds[tk] && typeof thresholds[tk] === "object" ? thresholds[tk] : {};
+          const card = h("div", { class: "stat-rows indented" });
           card.appendChild(h("div", { class: "stat-row" }, [
-            window.statSelect(st, (nv) => {
-              if (!nv || nv === st) return false;
-              if (Object.prototype.hasOwnProperty.call(stats, nv)) { alert("同じステが既にあります"); return false; }
-              renameKey(stats, st, nv);
+            h("span", { class: "mini-label", text: "閾値(個数)" }),
+            window.numberInput(Number(tk), (v) => {
+              const n = v == null || v < 1 ? 1 : Math.trunc(v);
+              const next = String(n);
+              if (next === tk) return;
+              if (Object.prototype.hasOwnProperty.call(setsMap[tid].thresholds, next)) {
+                alert("同じ閾値が既にあります"); render(); return;
+              }
+              setsMap[tid].thresholds[next] = setsMap[tid].thresholds[tk];
+              delete setsMap[tid].thresholds[tk];
               render();
-              return true;
-            }),
-            window.numberInput(stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
-            window.statUnitSlot(st),
+            }, { int: true }),
             h("button", {
-              class: "btn-small danger", type: "button", text: "×",
-              onclick: () => { delete stats[st]; render(); }
+              class: "btn-small danger", type: "button", text: "× 閾値",
+              onclick: () => {
+                delete setsMap[tid].thresholds[tk];
+                pruneNode();
+                render();
+              }
             })
           ]));
+          const statKeys = Object.keys(stats);
+          statKeys.forEach((st) => {
+            card.appendChild(h("div", { class: "stat-row" }, [
+              window.statSelect(st, (nv) => {
+                if (!nv || nv === st) return false;
+                if (Object.prototype.hasOwnProperty.call(stats, nv)) { alert("同じステが既にあります"); return false; }
+                renameKey(stats, st, nv);
+                render();
+                return true;
+              }),
+              window.numberInput(stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
+              window.statUnitSlot(st),
+              h("button", {
+                class: "btn-small danger", type: "button", text: "×",
+                onclick: () => { delete stats[st]; pruneNode(); render(); }
+              })
+            ]));
+          });
+          card.appendChild(h("button", {
+            class: "btn-small", type: "button", text: "+ セットステ追加",
+            onclick: () => {
+              const name = pickNewStat(stats);
+              stats[name] = 0;
+              render();
+            }
+          }));
+          thrRows.appendChild(card);
         });
-        card.appendChild(h("button", {
-          class: "btn-small", type: "button", text: "+ セットステ追加",
+        thrRows.appendChild(h("button", {
+          class: "btn-small", type: "button", text: "+ 閾値追加",
           onclick: () => {
-            const name = pickNewStat(stats);
-            stats[name] = 0;
+            if (!setsMap[tid] || typeof setsMap[tid] !== "object") setsMap[tid] = { thresholds: {} };
+            if (!setsMap[tid].thresholds || typeof setsMap[tid].thresholds !== "object") setsMap[tid].thresholds = {};
+            let n = 2;
+            while (Object.prototype.hasOwnProperty.call(setsMap[tid].thresholds, String(n))) n++;
+            setsMap[tid].thresholds[String(n)] = {};
             render();
           }
         }));
-        thrRows.appendChild(card);
-      });
-      thrRows.appendChild(h("button", {
-        class: "btn-small", type: "button", text: "+ 閾値追加",
-        onclick: () => {
-          if (!entry["set-effects"]) entry["set-effects"] = { thresholds: {} };
-          if (!entry["set-effects"].thresholds) entry["set-effects"].thresholds = {};
-          let n = 2;
-          while (Object.prototype.hasOwnProperty.call(entry["set-effects"].thresholds, String(n))) n++;
-          entry["set-effects"].thresholds[String(n)] = {};
-          render();
-        }
-      }));
-      setBox.appendChild(thrRows);
-      box.appendChild(setBox);
+        setBox.appendChild(thrRows);
+        return setBox;
+      }
+      const threadSetSection = renderThreadSetEffects(threadId);
+      if (threadSetSection) box.appendChild(threadSetSection);
 
-      // 特殊効果(暗視・飛行などのポーション効果)は、ここ(item-stats.yml の「スレッド」タブ)では
-      // 設定しない。実機で読まれるのは threads.yml 側の potion-effect/potion-level/flight/slots
-      // (スレッド画面 = public/js/ars-forms.js の buildThreadsForm「特殊効果」セクション)。
-      // 2026-08-08 削除: 旧「特殊効果 (special-effects)」欄(items.<key>.special-effects へ配列で
-      // 書けるだけの UI)は誰も読まない飾りだった(THREAD_SPECIAL_EFFECTS 定数も同時に削除済み)。
       return box;
     }
 
@@ -2010,7 +2076,7 @@
       ];
 
       const bodyChildren = [itemLevelFields(entry)];
-      const extras = categoryExtraFields(entry);
+      const extras = categoryExtraFields(entry, catalogMatch);
       if (extras) bodyChildren.push(extras);
       // 表示ステータス絞り込みは固定ステの1つ上の行へ（renderStatBlocks 内）。
       bodyChildren.push(...renderStatBlocks(entry, key));
@@ -2125,16 +2191,8 @@
             }
             if (isEmptyObject(ml)) delete entry.multipliers;
           }
-          const se = entry["set-effects"];
-          if (se && typeof se === "object") {
-            if (se.thresholds && typeof se.thresholds === "object") {
-              for (const [tk, stats] of Object.entries(se.thresholds)) {
-                if (isEmptyObject(stats)) delete se.thresholds[tk];
-              }
-              if (isEmptyObject(se.thresholds)) delete se.thresholds;
-            }
-            if (isEmptyObject(se)) delete entry["set-effects"];
-          }
+          // entry["set-effects"] の刈り込みは撤去(2026-08-09。このキー自体を editor が
+          // もう書かない。旧データの掃除は不要 — 出荷 item-stats.yml に実データ0件を確認済み)。
           const adv = entry.advanced;
           if (adv && typeof adv === "object") {
             // advanced ブロックがある＝付与ランダム化ON（UIトグルなし）

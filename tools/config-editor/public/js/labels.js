@@ -551,7 +551,8 @@
     "max-glyphs": { label: "グリフ設定可能数", desc: "1魔法に並べられるグリフの最大数。" },
     "max-glyph-tier": { label: "設定可能グリフ最大ティア", desc: "この魔導書で使えるグリフの最大ティア。" },
     "max-bind-tier": { label: "設定可能グリフ最大ティア", desc: "この触媒にバインド可能なスペルの最大グリフティア。" },
-    "set-effects": { label: "セット効果", desc: "スレッドのセット効果。閾値(個数)ごとにステータスを付与。" },
+    // "set-effects"(item-stats.yml側)は2026-08-09に撤去。実際にスレッドのN個装備セット効果を
+    // 読むのは thread-sets.yml (キーはスレッドID共通)。ラベルも参照が無いので一緒に削除した。
     "special-effects": { label: "特殊効果", desc: "暗視・飛行など、スレッドの既定特殊効果。" },
     "upgrade-from": { label: "アップグレード元", desc: "アップグレード元の魔導書id。最下位ティアは(なし)。items.ymlの儀式定義との整合性は起動時に自動検証される。" },
     "cooldown": { label: "発動CT(秒)", desc: "0または未設定で追加ゲートなし。" },

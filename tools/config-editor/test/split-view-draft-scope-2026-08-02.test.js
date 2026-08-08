@@ -112,11 +112,31 @@ test("spellbooks: renderEditorCategoryBar へ includeDraftCategory は渡らな�
   assert.equal(calls[0].opts.includeDraftCategory, false);
 });
 
-test("thread-bundle: 専用経路も includeDraftCategory を渡さない (既定 false のまま)", () => {
+test("thread-sets(未知の split type、2026-08-09に単独画面自体を撤去): 汎用フォールバックへ落ち、includeDraftCategory は渡らない", () => {
+  // 2026-08-09: thread-bundle(threads.yml + thread-sets.yml を1画面に束ねる旧実装)を撤去した際、
+  // 一度は thread-sets.yml 専用の単独 split type を新設したが、「スレッドを画面で分けるな」という
+  // 指示の趣旨に反する(撤去した thread-bundle と同じ形の分割を作り直しただけ)として再度撤去された。
+  // thread-sets.yml の編集は item-stats.yml の「スレッド」タブへ完全統合済み(下のテスト参照)。
+  // "thread-sets" という type 値自体は split-views.js に対応する分岐を持たず、汎用の
+  // 「unknown split type」フォールバックに落ちる。ここではそのフォールバック経路でも
+  // includeDraftCategory が漏れないことだけを確認する(不変条件の回帰防止)。
   const calls = setupSplitViewStubs();
   window.buildSplitConfigView({
-    type: "thread-bundle", categoryKey: "thread",
-    threadsData: { threads: {} }, threadSetsData: {}
+    type: "thread-sets", configId: "thread-sets", categoryKey: "thread-sets",
+    data: { "thread-sets": {} }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].opts.includeDraftCategory, false);
+});
+
+test("item-stats(スレッド): threadsData/threadSetsData を渡しても includeDraftCategory は false のまま", () => {
+  // 2026-08-09: item-stats.yml の「スレッド」タブが threads.yml/thread-sets.yml を横から
+  // 読み書きするようになった(3ファイル1画面)。includeDraftCategory は catalog.yml 専用のフラグ
+  // なので、threadsData/threadSetsData の有無に関わらず不変。
+  const calls = setupSplitViewStubs();
+  window.buildSplitConfigView({
+    type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread",
+    data: { items: {} }, threadsData: { threads: {} }, threadSetsData: { "thread-sets": {} }
   });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].opts.includeDraftCategory, false);

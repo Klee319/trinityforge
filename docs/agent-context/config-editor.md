@@ -116,9 +116,11 @@ weapon/armor/tool/other/catalyst/spellbook/thread の7値）は `idsInCategory` 
 アイテムを「素材」タブへ**移動せずに**一覧・編集できるようにするには、最低でも次の3箇所を
 連動させる新しいアーキテクチャが要る:
 1. `split-views.js` の「素材」分岐で catalog.yml も読み込み、`buildMaterialsForm` と
-   `buildCatalogForm`（`initialCategory` を新値にした2本目のインスタンス）を
-   `thread-bundle`（同ファイル 184-218行）と同じ「2フォームを1画面に積んで `getExtraSaves` で
-   両ファイルへ保存する」パターンで合成する。
+   `buildCatalogForm`（`initialCategory` を新値にした2本目のインスタンス）を、
+   `o.type === "item-stats"`（同ファイル225行〜。item-stats.yml の「スレッド」タブが
+   threads.yml も一緒に読み込み・`extraGets` で一緒に保存する2026-08-09の実装）と
+   同じ「メイン1本のフォームに、別ファイルの `getData` を `extraGets` として積んで
+   一緒に保存する」パターンで合成する（※かつては撤去済みの `thread-bundle` 型を参照していた）。
 2. `forms.js` の per-item「表示タブ」セレクト（`renderItemTabSelect` の `tabOpts`、3077行付近）
    に新値を選択肢として追加しないと、運用者がそのタブへ品目を割り当てる手段が無い。
    **ここに追加する新しい id は既存の `"material"`（`external.material` = 実際に materials.yml
@@ -791,33 +793,74 @@ TF 側（`SkillTreeConfig#description`）は description が**無い/空白の�
 - `alert`/`confirm` で却下された操作（`confirm` は**必ず false を返す**こと。
   `cmdEnsureCatalogItemCmd` のように confirm の先で CMD 採番と catalog.yml の PUT が走る経路がある）
 
-## ⚠️ 「実装はあるがナビ項目が無い分割ビュー」は無言で死ぬ ── threads.yml がその実例（2026-08-08 修正）
+## ⚠️ 「実装はあるがナビ項目が無い分割ビュー」は無言で死ぬ（教訓は現存、実装は2026-08-09に差し戻し）
 
-`split-views.js` の `o.type === "thread-bundle"`（threads.yml + thread-sets.yml の合成ビュー）は
-**読み込み経路（`app.js` の `view.kind === "split"` → `/api/config/threads` + `/api/config/thread-sets`）も
-保存経路（`extraGets` で thread-sets を一緒に PUT）も揃っていたのに、それを指すナビ項目が
-`NAV_GROUPS` のどこにも無く、画面として一度も開けなかった。**
-`SPLIT_HIDDEN_IDS`(→`HIDDEN_CONFIG_IDS`)が `"threads"`/`"thread-sets"` を登録一覧から外しており
-（2026-07-27 の「カタログ・item-stats のスレッドへ統合済み」というコメント由来）、その「統合先」の
-カタログ/item-stats の「スレッド」タブは実際には **catalog.yml / item-stats.yml のアイテム側だけ**を
-編集する画面で、threads.yml の `threads.<id>`（display_name/potion-effect/stackable/max/recipe 等）を
-編集する導線を持っていなかった。URLハッシュ等の裏口も無い（`location.hash` 監視自体が存在しない）。
+2026-08-08 に、threads.yml を独立画面「スレッド効果 (Ars)」（`__thread_effects__`、
+`split-views.js` の `o.type === "thread-bundle"` で threads.yml + thread-sets.yml を1画面に束ねる方式）
+として新設したが、**2026-08-09 にユーザーから差し戻された**（「アイテムステータスの設定でArs効果と
+それ以外でスレッド分けないでほしい。もともとのスレッド設定の中で効果をセレクトメニューで追加可能な
+方式にしてほしい」）。`__thread_effects__` ナビ項目と `thread-bundle` 型は**撤去済み**。
+※かつてこの節は「`thread-bundle` を専用ナビで解消した」と書いていたが、その解決策自体が
+ユーザーの意図（Ars効果とそれ以外を画面単位で分けない）に反していたため誤り。
 
-- 2026-08-08 に「アイテムステータス」グループの末尾へ
-  `{ id: "__thread_effects__", label: "スレッド効果 (Ars)", kind: "split",
-  split: { type: "thread-bundle", configId: "threads", categoryKey: "thread" } }` を追加して解消。
-  `SPLIT_HIDDEN_IDS` は触っていない（個別 config 一覧へ戻すと二重導線になるため、
-  **専用ナビ項目を足す側**で直すのが既存方針と整合する）。
-- **教訓: 分割ビューは `split-views.js` の分岐・`app.js` の読み書き経路・`NAV_GROUPS` の項目の
-  3点が揃って初めて到達可能。** 前2つだけ書いても機能追加は運営者に届かない。
-  新しい機能を `buildXxxForm` に生やしたら、**必ずブラウザで実際にサイドバーから開いて確認する**
-  （`http://localhost:8787` で該当ナビをクリック → 目的の入力欄が出るか。ヘッドレスChromeでも可、
-  スクリプト例は `tmp/verify-threads-ui-2026-08-08.mjs`）。
+**現在の正しい設計（2026-08-09〜）:** threads.yml の編集導線は「アイテムステータス > スレッド」
+（`__stats_thread__`、`item-stats.yml` の thread カテゴリ）の**カード内**に統合されている。
+- `app.js` の `selectTool`/`applyMergedToEditor` が `sp.type === "item-stats" && sp.itemCategory === "thread"`
+  のときだけ `/api/config/threads` も一緒に GET/PUT する（`threadsData` を `buildSplitConfigView` へ渡す）。
+- `split-views.js` の `o.type === "item-stats"` 分岐が `o.threadsData` を `buildItemStatsForm` に渡し、
+  `extraGets` に `{ id: "threads", getData: () => threadsData }` を積む。
+- `forms.js` の `renderThreadExtraFields` → `renderThreadYmlEffects` が、カタログの `thread_<id>` から
+  `<id>` を剥いで threads.yml の該当エントリを解決し、`window.ARS_FORMS.parseThreadEntry`/
+  `serializeThreadEntry` と **`window.buildThreadEffectsBox`**（下記）を呼んで編集UIを描く。
+- **`window.buildThreadEffectsBox(model, onChange)`（`public/js/ars-forms.js`）が「効果を1つの
+  `+ 効果追加` セレクトから追加する」唯一の共通実装。** 数値効果(regen-bonus等)・
+  potion-effect+potion-level(1行に統合)・flight(チェックボックス)・slots(数値)を**種類で画面を
+  分けず**同じセレクトの選択肢として並べる。`buildThreadsForm`（Ars専用の全件編集画面）と
+  `forms.js`（item-stats.yml の「スレッド」タブ）の**両方がこの1つの実装を呼ぶ**。
+  「効果ごとに専用の別セクション/別画面を作る」設計は**このユーザー指示で明示的に禁止されている**
+  ので、新しい効果キーを追加するときも `buildThreadEffectsBox` の選択肢配列に足すだけにする。
+- thread-sets.yml（N個装着のセット効果。効果選択とは別概念）も**同じカード内へ統合されている**
+  （`extraGets` に `{ id: "thread-sets", getData: () => threadSetsData }` を積む。
+  `forms.js` の `renderThreadSetEffects` が `threadSetsRoot["thread-sets"][threadId].thresholds`
+  を読み書きする）。
+  ※かつてこの節は「thread-sets.yml は独自の最小ナビ `__thread_sets__`（`o.type === "thread-sets"`）
+  を新設して単独画面として残した」と書いていたが、これも**2026-08-09 に再度差し戻された**
+  （「スレッドを画面で分けるな」という指示の趣旨に反する、撤去した `thread-bundle` と同じ形の
+  分割を作り直しただけだったため）。`__thread_sets__` ナビと `o.type === "thread-sets"` 分岐は
+  撤去済み。**「別ファイルの導線を保つ」という理由だけで専用ナビを新設するのは、この指示の下では
+  誤った解決策**（正解は常に既存カードへの統合。分割ビューを1つ消したら、束ねていた他ファイルの
+  データは別の専用ナビではなく「同じカードに extraGets で足す」方を先に検討する）。
+- item-stats.yml 側にあった `entry["set-effects"]`（旧「セット効果」UI、"閾値ごとにステ付与"の
+  見た目は同じだが書き込み先がここだった）は、**special-effects と同じ「editor にしか存在しない
+  飾り」だった**（TF本体・ArsPaperフォークとも読むコードが無く、出荷 item-stats.yml にも実データ
+  0件）。実際にスレッドのN個装備セット効果を読むのは thread-sets.yml（キーは threads.yml と共通の
+  スレッドID）。2026-08-09 に `entry["set-effects"]` の読み書き・検証(`lib/schema.js`)・
+  ラベル(`labels.js`)を全て撤去し、同じ見た目のUIをそのまま thread-sets.yml 書き込みに差し替えた。
+  **「item-stats.yml 側に効果っぽい欄がある」＝「実際にゲームへ効く」ではない例がここでも
+  もう1件見つかった**（下の節の special-effects と同じ構造の罠）。
+- **教訓（変わらず有効）: 分割ビューは `split-views.js` の分岐・`app.js` の読み書き経路・
+  `NAV_SECTIONS`（旧 `NAV_GROUPS`）の項目の3点が揃って初めて到達可能。** 前2つだけ書いても
+  機能追加は運営者に届かない。ブラウザ（`http://localhost:8787`、無ければヘッドレスChrome+CDP、
+  `ops/scripts/lib/cdp.mjs` 参照）で実際にナビをクリックして確認する。
+
+### ⚠️ ブラウザ実測で「保存」を実際に押すと、動いているエディタが指す実リポジトリの yml に書き込む
+
+config-editor は検証用サンドボックスを持たない。`EDITOR_PORT` で別ポートに立てても、
+参照先は同じ実リポジトリの yml（`TrinityForge/src/main/resources/**`,
+`fork-handoff/arspaper/fork/src/main/resources/**`）のまま。ヘッドレスChrome+CDPで
+「保存」ボタン(`#save-btn`)を実際にクリックする検証をすると、そのまま出荷 yml が書き換わる
+（コメント消滅・意図しないキー追加が実際に混入する）。
+- 保存ボタンのクリックまで含めて動作確認したい場合は、`window.fetch` を横取りして
+  `method === "PUT"` のリクエストを**実サーバへ転送せず**ペイロードだけを検査する
+  （`res.ok`/`res.json()` だけ読む最小のフェイク `Response` を返せば `api()` は正常に完走する）。
+  これで「保存すると何が PUT されるか」を実際のUI操作込みで確認できる。
+- GET は読み取りのみで安全なので横取り不要。危険なのは PUT/DELETE だけ。
+- 検証後は `git status`/`git diff` で対象 yml に意図しない変更が付いていないか必ず確認する。
 
 ## スレッドの effects リストは「検証側」と「UI側」で別物 ── 名前が同じでも自動同期しない
 
 `lib/schema.js` の `THREAD_EFFECT_KEYS`（`validateArsThreads` が数値型チェックする既知キー一覧）と
-`public/js/ars-forms.js` の `THREAD_EFFECT_KEYS`（CORE、`buildThreadsForm` の「効果パラメータ」欄に
+`public/js/ars-forms.js` の `THREAD_EFFECT_KEYS`（CORE、`buildThreadEffectsBox` の追加セレクトに
 何を出すか＋ `parseThreadEntry`/`serializeThreadEntry` の分類先）は、他の「lib/ と public/js/ の
 ミラー2本」とは違い**役割が異なる独立リスト**（前者=型検証だけ、後者=UI描画とロスレス往復のモデル
 分類）。過去に両方が偶然同じ配列リテラルだったため、出荷 threads.yml が使う `mana-max-percent`/
@@ -825,20 +868,31 @@ TF 側（`SkillTreeConfig#description`）は description が**無い/空白の�
 新しいスレッド効果キーを追加するときは、この2つを**それぞれ意図的に**更新すること
 （「片方だけ直すと〜」という通常のミラー注意とは逆に、こちらは「同じ配列に見えて実は目的が違う」
 ことが罠。UI側だけ・検証側だけの拡張がありうる)。
-`slots`（バックパック枠）は 2026-08-08 に UI側の `THREAD_EFFECT_KEYS`/汎用「効果パラメータ」欄から
-`potion-effect`/`potion-level`/`flight` と同じ「特殊効果」専用セクション（`renderSpecialEffects`）へ
-移した。検証側の `THREAD_EFFECT_KEYS` には引き続き残す(型検証は場所に関係なく効かせる)。
+`potion-effect`/`potion-level`/`flight`/`slots`（バックパック枠）は数値効果とは別の「型」（選択/真偽値/
+バックパック整数）を持つため `THREAD_EFFECT_KEYS`（数値効果専用）には入らないが、**画面としては
+`buildThreadEffectsBox` の同じ追加セレクトに数値効果と並んで出る**（画面分割はしないが、
+モデル上の分類は型ごとに残る）。
+※かつてこの節は「`slots` を `potion-effect` 等と同じ独立の『特殊効果』専用セクション
+（`renderSpecialEffects`）へ移した」と書いていたが、その専用セクション自体が2026-08-09に
+撤去され `buildThreadEffectsBox` へ統合されたため誤り。
 
-## 旧「特殊効果 (special-effects)」欄(item-stats.yml)は撤去済み ── 実効なきUIの実例
+## 旧「特殊効果 (special-effects)」「セット効果 (set-effects)」欄(item-stats.yml)は撤去済み ── 実効なきUIの実例2件
 
-`forms.js` の `activeCat === "thread"`（**item-stats.yml の「スレッド」タブ**。threads.yml とは
-別ファイル・別データモデル）に `THREAD_SPECIAL_EFFECTS` 定数と `entry["special-effects"]`
-配列を編集するUIがあったが、TF本体・ArsPaperフォークとも読むコードが無く、出荷 item-stats.yml にも
-実データ0件だった（選んでも何も起きない飾り、2026-08-08 撤去）。実際にポーション効果を読むのは
-threads.yml 側の `potion-effect`/`potion-level`/`flight`（`buildThreadsForm` の「特殊効果」節）。
+`forms.js` の `activeCat === "thread"`（**item-stats.yml の「スレッド」タブ**。threads.yml/
+thread-sets.yml とは別ファイル・別データモデル）に、同じ構造の「editor にしか存在しない飾り」
+UI が**2件**あった。どちらも TF本体・ArsPaperフォークとも読むコードが無く、出荷 item-stats.yml
+にも実データ0件だった(選んでも何も起きない):
+- `THREAD_SPECIAL_EFFECTS` 定数 + `entry["special-effects"]` 配列(2026-08-08 撤去)。
+  実際にポーション効果を読むのは threads.yml 側の `potion-effect`/`potion-level`/`flight`
+  (`window.buildThreadEffectsBox`、「アイテムステータス > スレッド」のカード内に統合済み。
+  上の節を参照)。
+- `entry["set-effects"]`(2026-08-09 撤去)。実際にN個装備セット効果を読むのは thread-sets.yml
+  (上の節を参照)。
 このコードベースでは「アイテム個別ステータス画面(item-stats.yml)に効果っぽい欄がある」＝
-「実際にゲームへ効く」ではないことがある。新しい欄を追加するときは、**Java/フォーク側の読み取り
-コードを先に確認してから**UIを生やす(このケースは逆で、UI が先にあって読み取りが無かった)。
+「実際にゲームへ効く」ではないことが**2回連続で**起きている。新しい欄を追加するときは、
+**Java/フォーク側の読み取りコードを先に確認してから**UIを生やす(このケースは逆で、UI が先にあって
+読み取りが無かった)。item-stats.yml の「スレッド」タブに何か新しい効果系の欄を足したくなったら、
+まず「それは threads.yml か thread-sets.yml のどちらかに実装済みの機構ではないか」を疑う。
 
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)

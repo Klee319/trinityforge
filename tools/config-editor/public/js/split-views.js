@@ -77,7 +77,7 @@
    * @param {string} opts.configId primary save target
    * @param {object} opts.data loaded YAML
    * @param {string} [opts.categoryKey] _editor.categories key
-   * @param {"catalog"|"materials"|"threads"|"item-stats"|"spellbooks"|"spellbooks-catalysts"|"spellbooks-books"|"thread-bundle"|"ritual-effects"} opts.type
+   * @param {"catalog"|"materials"|"threads"|"item-stats"|"spellbooks"|"spellbooks-catalysts"|"spellbooks-books"|"ritual-effects"} opts.type
    */
   window.buildSplitConfigView = function buildSplitConfigView(opts) {
     const o = opts || {};
@@ -224,12 +224,24 @@
       };
     } else if (o.type === "item-stats") {
       const skills = (window.ITEM_STATS_USE_SKILLS && window.ITEM_STATS_USE_SKILLS[o.itemCategory]) || null;
+      // 「スレッド」タブは threads.yml / thread-sets.yml も横から一緒に読み書きする(2026-08-09)。
+      // アイテムステータス側で「Ars効果とそれ以外」「効果とセット効果」を画面分割しない、
+      // というユーザー指示に合わせ、旧・独立ナビ「スレッド効果 (Ars)」(thread-bundle 分割ビュー、
+      // 0b23802)と、その後に一度新設した thread-sets.yml 専用ナビ(__thread_sets__)を両方撤去し、
+      // 代わりにこのカード(forms.js の renderThreadExtraFields)から threads.yml/thread-sets.yml
+      // を直接編集する。o.threadsData/o.threadSetsData は呼び出し元(app.js)が別途 GET した
+      // 各ファイルのルートオブジェクトで、forms.js 側がそのまま(浅いクローンを挟まず)
+      // 破壊的に書き込む。
+      const threadsData = o.threadsData && typeof o.threadsData === "object" ? o.threadsData : null;
+      const threadSetsData = o.threadSetsData && typeof o.threadSetsData === "object" ? o.threadSetsData : null;
       const itemStatsForm = window.buildItemStatsForm(data, {
         useSkillOptions: skills,
         hubMode: true,
         initialCategory: o.itemCategory || "weapon",
         editorCategoryKey: categoryKey,
-        catalogCandidates: Array.isArray(o.catalogCandidates) ? o.catalogCandidates : []
+        catalogCandidates: Array.isArray(o.catalogCandidates) ? o.catalogCandidates : [],
+        threadsData,
+        threadSetsData
       });
       form = itemStatsForm;
       if (o.itemCategory && typeof form.setActiveCategory === "function") {
@@ -246,6 +258,11 @@
         adoptEditorMeta(data, d);
         return d;
       };
+      // threadsData/threadSetsData が変更されていなければ isConfigDataChanged が base 比較で
+      // スキップするので、ここで when() で絞り込む必要は無い(「素材」画面の cross と同じ流儀、
+      // 97-98行のコメント参照)。
+      if (threadsData) extraGets.push({ id: "threads", getData: () => threadsData });
+      if (threadSetsData) extraGets.push({ id: "thread-sets", getData: () => threadSetsData });
     } else if (o.type === "spellbooks" || o.type === "spellbooks-catalysts" || o.type === "spellbooks-books") {
       const part = o.type === "spellbooks-catalysts" ? "catalysts"
         : o.type === "spellbooks-books" ? "books" : null;
@@ -255,36 +272,6 @@
         const d = form.getData();
         adoptEditorMeta(data, d);
         return d;
-      };
-    } else if (o.type === "thread-bundle") {
-      const threadsData = o.threadsData || {};
-      const setsData = o.threadSetsData || {};
-      const threadsForm = window.buildThreadsForm(threadsData);
-      const setsForm = window.buildThreadSetsForm
-        ? window.buildThreadSetsForm(setsData)
-        : { element: h("div"), getData: () => setsData };
-      const wrap = h("div", { class: "hub-ars" });
-      wrap.appendChild(h("div", { class: "sub-title", text: "スレッド定義 (threads.yml)" }));
-      wrap.appendChild(threadsForm.element);
-      wrap.appendChild(h("div", { class: "sub-title", text: "セット効果 (thread-sets.yml)" }));
-      wrap.appendChild(setsForm.element);
-      form = { element: wrap };
-        getData = () => {
-          const d = threadsForm.getData();
-          return adoptEditorMeta(threadsData, d);
-        };
-      extraGets.push({ id: "thread-sets", getData: () => setsForm.getData() });
-      const root = withCategoryBar(threadsData, categoryKey, wrap, threadsForm);
-      const wrapGet = (fn) => () => {
-        const d = fn();
-        if (typeof window.pruneEditorUiState === "function") window.pruneEditorUiState(d);
-        return d;
-      };
-      return {
-        element: root,
-        configId: "threads",
-        getData: wrapGet(getData),
-        getExtraSaves: () => extraGets.map((e) => ({ id: e.id, data: wrapGet(e.getData)() }))
       };
     } else if (o.type === "ritual-effects") {
       form = window.buildRecipesForm(data, { onlyEffects: true });

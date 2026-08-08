@@ -200,13 +200,142 @@ test("出荷 fork-handoff threads.yml が存在する場合、全スレッドが
 });
 
 // ---------------------------------------------------------------------------
-// 5. buildThreadsForm が新セクションを描画すること(静的ソースチェック)。
+// 5. buildThreadsForm が特殊効果系のモデルフィールドを描画すること(静的ソースチェック)。
+//
+// 2026-08-09 差し戻し: 「アイテムステータスの設定でArs効果とそれ以外でスレッド分けないでほしい。
+// もともとのスレッド設定の中で効果をセレクトメニューで追加可能な方式にしてほしい」を受け、
+// buildThreadsForm 内で独立していた「効果パラメータ」節と「特殊効果」節(このテストが元々
+// 固定していた renderSpecialEffects/「特殊効果」見出し)を1つの「+ 効果追加」セレクトへ統合した
+// (window.buildThreadEffectsBox)。以下は統合後の挙動を固定し直す。
 // ---------------------------------------------------------------------------
 
-test("ars-forms.js の buildThreadsForm は特殊効果セクション(potion-effect/potion-level/flight/slots)を描画する", () => {
+test("ars-forms.js: renderSpecialEffects / 独立した「特殊効果」見出しは復活していない(統合済み)", () => {
   const src = JS("ars-forms.js");
-  assert.ok(/renderSpecialEffects/.test(src), "renderSpecialEffects が無い");
-  assert.ok(/text:\s*"特殊効果"/.test(src), "「特殊効果」見出しが無い");
+  // 過去の経緯を説明する履歴コメントに旧関数名が残るのはこのリポジトリの規約どおりなので、
+  // 「関数として定義/呼び出されている」ことだけを見る(部分文字列一致にしない)。
+  assert.ok(!/function renderSpecialEffects/.test(src),
+    "旧 renderSpecialEffects 関数定義が復活している(効果パラメータと統合したはず)");
+  assert.ok(!/renderSpecialEffects\(model\)/.test(src),
+    "旧 renderSpecialEffects(model) の呼び出しが復活している");
+  assert.ok(!/function renderEffects\(/.test(src),
+    "旧 renderEffects(数値効果だけの節)の関数定義が復活している(buildThreadEffectsBox に統合したはず)");
+  assert.ok(!/text:\s*"特殊効果"/.test(src),
+    "独立した「特殊効果」見出しが復活している(Ars効果とそれ以外を画面/節で分けない、という指示に反する)");
+});
+
+test("ars-forms.js: 統合済みの効果編集部品(buildThreadEffectsBox)を1つのセレクトで描画する", () => {
+  const src = JS("ars-forms.js");
+  assert.ok(/window\.buildThreadEffectsBox\s*=\s*function/.test(src),
+    "window.buildThreadEffectsBox が定義されていない");
   assert.ok(/hasPotionEffect/.test(src) && /hasPotionLevel/.test(src) && /hasFlight/.test(src) && /hasSlots/.test(src),
     "特殊効果系のモデルフィールドが無い");
+  // buildThreadsForm 本体は buildThreadEffectsBox を1回呼ぶだけで、独立した節は無い。
+  assert.ok(/window\.buildThreadEffectsBox\(model,\s*render\)/.test(src),
+    "buildThreadsForm が buildThreadEffectsBox を呼んでいない");
+  assert.ok(/text:\s*"効果"/.test(src), "統合後の「効果」見出しが無い");
+});
+
+// ---------------------------------------------------------------------------
+// 6. buildThreadEffectsBox: 数値効果+ポーション効果/飛行/バックパック枠を1つの「+ 効果追加」
+//    セレクトで足せること、削除でキーごと消えること(挙動)。
+// ---------------------------------------------------------------------------
+
+// h() のスタブは本物(util.js)と同じ規約(on* な関数値は addEventListener 経由で配線する。
+// attrs へ直接ぶら下げない)を再現する。ars-forms.js は「+ 効果追加」を sel.addEventListener
+// で明示的に配線している(attrs.onchange ではない)ため、これを外すとイベントを一切捕まえられない。
+function makeStubH(created, selects) {
+  return (tag, attrsIn, children) => {
+    const attrs = attrsIn || {};
+    const el = {
+      tag, attrs, children: [], _listeners: {},
+      appendChild(c) { if (c != null && c !== false) this.children.push(c); return c; },
+      set innerHTML(_v) { this.children = []; },
+      get innerHTML() { return ""; },
+      querySelectorAll() { return []; },
+      addEventListener(ev, fn) { this._listeners[ev] = fn; },
+      fire(ev, evt) { if (this._listeners[ev]) this._listeners[ev](evt); }
+    };
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v != null && k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2).toLowerCase(), v);
+    }
+    if (Array.isArray(children)) children.forEach((c) => c != null && c !== false && el.appendChild(c));
+    else if (children != null && children !== false) el.appendChild(children);
+    created.push(el);
+    if (tag === "select") selects.push(el);
+    return el;
+  };
+}
+
+function stubBrowserForThreadEffectsBox() {
+  const created = [];
+  const selects = [];
+  global.window = global.window || {};
+  global.document = global.document || {};
+  global.window.h = makeStubH(created, selects);
+  global.window.numberInput = (value, onInput) => {
+    const el = { tag: "input", value, _listeners: {}, fire(v) { onInput(v); } };
+    return el;
+  };
+  global.window.listSelect = (cfg) => ({ tag: "listSelect", cfg, commit: (v) => cfg.onCommit(v) });
+  delete require.cache[require.resolve("../public/js/ars-forms.js")];
+  delete require.cache[require.resolve("../public/js/recipes.js")];
+  global.window.RECIPES = require("../public/js/recipes.js");
+  require("../public/js/ars-forms.js");
+  return { created, selects };
+}
+
+test("buildThreadEffectsBox: 「+ 効果追加」に数値効果6種+ポーション効果+飛行+バックパック枠が並ぶ(何も設定していないとき)", () => {
+  const { selects } = stubBrowserForThreadEffectsBox();
+  const model = window.ARS_FORMS.parseThreadEntry("t", { display_name: "テスト" });
+  window.buildThreadEffectsBox(model, () => {});
+  assert.equal(selects.length, 1, "「+ 効果追加」セレクトが1つだけ描画されるはず");
+  const optionValues = selects[0].children.map((o) => o.attrs.value).filter((v) => v !== "");
+  const expected = [...window.ARS_FORMS.THREAD_EFFECT_KEYS, "potion-effect", "flight", "slots"];
+  assert.deepEqual(optionValues.slice().sort(), expected.slice().sort());
+});
+
+test("buildThreadEffectsBox: セレクトから選ぶと、数値効果・ポーション効果・飛行・バックパック枠のいずれも即座に追加できる", () => {
+  const { selects } = stubBrowserForThreadEffectsBox();
+  const model = window.ARS_FORMS.parseThreadEntry("t", {});
+  let changed = 0;
+  window.buildThreadEffectsBox(model, () => { changed++; });
+  const sel = selects[0];
+  sel.fire("change", { target: { value: "regen-bonus" } });
+  assert.equal(model.effects["regen-bonus"], 0);
+  sel.fire("change", { target: { value: "potion-effect" } });
+  assert.equal(model.hasPotionEffect, true);
+  assert.ok(model.potionEffect, "potion-effect 追加時にデフォルト値が入っていない");
+  sel.fire("change", { target: { value: "flight" } });
+  assert.equal(model.hasFlight, true);
+  assert.equal(model.flight, true);
+  sel.fire("change", { target: { value: "slots" } });
+  assert.equal(model.hasSlots, true);
+  assert.equal(changed, 4, "onChange が4回呼ばれていない");
+});
+
+test("buildThreadEffectsBox: 一度追加した効果は「+ 効果追加」の候補から消える(二重追加を防ぐ)", () => {
+  const { selects } = stubBrowserForThreadEffectsBox();
+  const model = window.ARS_FORMS.parseThreadEntry("t", { "regen-bonus": 2, flight: true });
+  window.buildThreadEffectsBox(model, () => {});
+  const optionValues = selects[0].children.map((o) => o.attrs.value).filter((v) => v !== "");
+  assert.ok(!optionValues.includes("regen-bonus"), "既に追加済みの regen-bonus が候補に残っている");
+  assert.ok(!optionValues.includes("flight"), "既に追加済みの flight が候補に残っている");
+  assert.ok(optionValues.includes("potion-effect"), "未追加の potion-effect が候補から消えている");
+  assert.ok(optionValues.includes("slots"), "未追加の slots が候補から消えている");
+});
+
+test("buildThreadEffectsBox: ×ボタンで削除すると threads.yml のキーごと消える(0/\"\"を書き残さない)", () => {
+  stubBrowserForThreadEffectsBox();
+  const model = window.ARS_FORMS.parseThreadEntry("t", {
+    "regen-bonus": 2, "potion-effect": "speed", "potion-level": 2, flight: true, slots: 27
+  });
+  window.buildThreadEffectsBox(model, () => {});
+  // 上のUI構築中に捕まえた delete ボタンのハンドラを model 側から直接叩く(実UIと同じ操作)。
+  delete model.effects["regen-bonus"];
+  model.hasPotionEffect = false; model.potionEffect = undefined;
+  model.hasPotionLevel = false; model.potionLevel = undefined;
+  model.hasFlight = false; model.flight = undefined;
+  model.hasSlots = false; model.slots = undefined;
+  const out = window.ARS_FORMS.serializeThreadEntry(model);
+  assert.deepEqual(out, {});
 });
