@@ -24,6 +24,7 @@ import com.trinityforge.config.domains.GatheringEfficiencyConfig;
 import com.trinityforge.config.domains.GlyphDamageBoostConfig;
 import com.trinityforge.config.domains.HateConfig;
 import com.trinityforge.config.domains.ItemCatalogConfig;
+import com.trinityforge.config.domains.EquipmentAssetsConfig;
 import com.trinityforge.config.domains.ExternalItemsConfig;
 import com.trinityforge.config.domains.MaterialListsConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
@@ -86,6 +87,7 @@ public final class ConfigManager {
     // itemCatalog より先に register して、同一パスのレシピ登録が読み込み済みリストを見られるようにする。
     private final MaterialListsConfig materialLists = new MaterialListsConfig();
     private final ExternalItemsConfig externalItems = new ExternalItemsConfig();
+    private final EquipmentAssetsConfig equipmentAssets = new EquipmentAssetsConfig();
     private final ItemCatalogConfig itemCatalog = new ItemCatalogConfig();
     private final MobImportConfig mobImport = new MobImportConfig();
     private final MobProfileConfig mobProfiles = new MobProfileConfig();
@@ -180,6 +182,9 @@ public final class ConfigManager {
         // ConfigDomain 登録は廃止（権威は combat/mob-types.yml の defaults:）。
         register(lore);
         register(externalItems);
+        // 防具の装備時レイヤー割り当て（items/equipment-assets.yml）。
+        // catalog より先に読む必要は無いが、ItemFactory が catalog id で引くので同じ「アイテム識別」帯に置く。
+        register(equipmentAssets);
         register(materialLists);
         register(itemCatalog);
         register(mobImport);
@@ -265,6 +270,10 @@ public final class ConfigManager {
 
     public ItemStatsConfig itemStats() {
         return itemStats;
+    }
+
+    public EquipmentAssetsConfig equipmentAssets() {
+        return equipmentAssets;
     }
 
     public CraftQualityConfig craftQuality() {

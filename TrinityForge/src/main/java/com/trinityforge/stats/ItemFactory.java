@@ -1,9 +1,13 @@
 package com.trinityforge.stats;
 
 import com.trinityforge.config.domains.CraftingFeaturesConfig;
+import com.trinityforge.config.domains.EquipmentAssetsConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
 import com.trinityforge.config.domains.WeaponBaseFormula;
 import com.trinityforge.pdc.ItemData;
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.Equippable;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Color;
@@ -38,9 +42,16 @@ public final class ItemFactory {
      */
     private static final NamespacedKey ENCHANT_GLOW_KEY = NamespacedKey.minecraft("unbreaking");
 
+    /**
+     * 装備レイヤーの名前空間。パック側の {@code assets/trinityforge/equipment/<name>.json} と
+     * 一致していなければならない（{@code resourcepack/build_equipment_assets.py} の {@code NAMESPACE}）。
+     */
+    private static final String EQUIPMENT_ASSET_NAMESPACE = "trinityforge";
+
     private final ItemAssembler assembler;
     private final ItemStatsConfig itemStats;
     private final CraftingFeaturesConfig craftingFeatures;
+    private final EquipmentAssetsConfig equipmentAssets;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     public ItemFactory(ItemAssembler assembler) {
@@ -59,9 +70,19 @@ public final class ItemFactory {
      * {@code itemStats == null} tolerance in tests/callers that never invoke that method).
      */
     public ItemFactory(ItemAssembler assembler, ItemStatsConfig itemStats, CraftingFeaturesConfig craftingFeatures) {
+        this(assembler, itemStats, craftingFeatures, null);
+    }
+
+    /**
+     * 防具の「装備したときの見た目」を差し替える {@link EquipmentAssetsConfig} まで含めた完全形。
+     * {@code equipmentAssets} は {@code null} 可（既存の呼び出し・テストは何も貼らない挙動になる）。
+     */
+    public ItemFactory(ItemAssembler assembler, ItemStatsConfig itemStats,
+            CraftingFeaturesConfig craftingFeatures, EquipmentAssetsConfig equipmentAssets) {
         this.assembler = Objects.requireNonNull(assembler, "assembler");
         this.itemStats = itemStats;
         this.craftingFeatures = craftingFeatures;
+        this.equipmentAssets = equipmentAssets;
     }
 
     /**
@@ -94,6 +115,7 @@ public final class ItemFactory {
         assembler.assemble(meta, template.material(), rollSeed, quality);
 
         stack.setItemMeta(meta);
+        stampEquipmentAsset(stack, template);
         return stack;
     }
 
@@ -115,7 +137,58 @@ public final class ItemFactory {
         ItemStack stack = new ItemStack(template.material());
         ItemMeta meta = buildIdentity(template, stack);
         stack.setItemMeta(meta);
+        stampEquipmentAsset(stack, template);
         return stack;
+    }
+
+    /**
+     * 防具の「装備したときに体の上へ乗るレイヤー」を、{@code items/equipment-assets.yml} の
+     * 割り当てどおりに差し替える。
+     *
+     * <p><b>CMD ではここは変わらない。</b>手持ち/インベントリの見た目は
+     * {@code custom-model-data}、着たときのレイヤーは {@code minecraft:equippable} の
+     * {@code asset_id} と、系統がそもそも別（{@link EquipmentAssetsConfig} 参照）。
+     *
+     * <p>3つの理由で「壊れない側」に倒してある:
+     * <ul>
+     *   <li>割り当てが無ければ何もしない → 既定では全防具がバニラの見た目のまま。
+     *       yml はパックに実物があるセットだけを載せる生成物なので、
+     *       「定義の無い asset_id を書いて防具が透明になる」事故が構造的に起きない。</li>
+     *   <li>元の {@code equippable} が無いアイテム（＝そもそも装備できない）には触らない。</li>
+     *   <li>{@code setData} はコンポーネントを丸ごと差し替えるので、必ず既存値から
+     *       {@code toBuilder()} して {@code asset_id} だけを上書きする。
+     *       新規に組むと装備スロット・装備音・ダメージ挙動・ディスペンサー可否まで
+     *       既定値へ巻き戻る（防具が着られなくなる）。</li>
+     * </ul>
+     *
+     * <p>{@link ItemMeta} ではなく {@link ItemStack} 側の API なので、
+     * {@code setItemMeta} の【後】に呼ぶこと。先に呼ぶと meta の書き戻しで消える。
+     */
+    private void stampEquipmentAsset(ItemStack stack, ItemTemplate template) {
+        if (equipmentAssets == null) return;
+        String asset = equipmentAssets.assetFor(template.id());
+        if (asset == null) return;
+        applyEquipmentAsset(stack, asset);
+    }
+
+    /**
+     * {@code stack} の {@code equippable} の {@code asset_id} だけを {@code asset} に差し替える。
+     * 差し替えたら {@code true}、装備できないアイテム（{@code equippable} が無い）なら
+     * 何もせず {@code false}。
+     *
+     * <p>{@link #stampEquipmentAsset} から切り出してあるのは、
+     * <b>MockBukkit がバニラ既定のデータコンポーネントを持たない</b>ため
+     * （{@code new ItemStack(DIAMOND_HELMET).getData(EQUIPPABLE)} が実サーバでは非 null、
+     * MockBukkit では null）。ここを直接叩けるようにしておかないと、
+     * 「既存値を保ったまま asset_id だけ差し替える」という肝心の挙動が
+     * <b>一度も実行されないまま緑になる</b>。
+     */
+    static boolean applyEquipmentAsset(ItemStack stack, String asset) {
+        Equippable current = stack.getData(DataComponentTypes.EQUIPPABLE);
+        if (current == null) return false;
+        stack.setData(DataComponentTypes.EQUIPPABLE,
+                current.toBuilder().assetId(Key.key(EQUIPMENT_ASSET_NAMESPACE, asset)));
+        return true;
     }
 
     /** Shared identity-only build step for {@link #create} and {@link #createIdentityOnly}. */

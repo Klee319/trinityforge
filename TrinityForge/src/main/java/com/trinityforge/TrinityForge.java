@@ -558,7 +558,8 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.itemCatalog(),
                 configManager.skillTrees(),
                 configManager.craftingFeatures());
-        this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(), configManager.craftingFeatures());
+        this.itemFactory = new ItemFactory(itemAssembler, configManager.itemStats(),
+                configManager.craftingFeatures(), configManager.equipmentAssets());
         // Single id->ItemStack resolution seam (TF catalog -> ArsPaper registry -> vanilla Material) used
         // by every drop-table listener (mining/woodcutting/digging/fishing, 2026-07-23 stat-gate-overhaul §4).
         this.crossPluginItemResolver =

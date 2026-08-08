@@ -409,6 +409,31 @@ threshold を足し忘れた CMD は**エラーにならず、直前のシリー
 - `resourcepack/build_item_pack.py` は「json にある threshold が台帳に無い」を落とすが、
   **逆（台帳にあって json に無い）は通す**。つまりビルドが通っても描画が正しいとは限らない。
 
+### 防具を「着たときの見た目」は CMD では一切変わらない（2026-08-08）
+CMD が効くのはインベントリ / 手持ち / 地面 / 額縁だけ。**体の上に乗るレイヤーは別系統**で、
+`minecraft:equippable` データコンポーネントの `asset_id` が決める。3点セットが揃って初めて効く:
+
+1. サーバが `equippable{asset_id: trinityforge:<セット名>}` を書く
+2. パックに `assets/trinityforge/equipment/<セット名>.json`
+3. パックに `textures/entity/equipment/humanoid/<セット名>.png` と
+   `.../humanoid_leggings/<セット名>.png`（脚だけ別レイヤーなのはバニラと同じ）
+
+**⚠ パックに定義の無い `asset_id` を書くと、その防具は着たときにバニラへ戻るのではなく透明になる。**
+「まだテクスチャが無い」は「バニラのまま」であるべきなので、
+`resourcepack/build_equipment_assets.py` は**必要なレイヤー PNG が全部あるセットだけ**を
+`TrinityForge/src/main/resources/items/equipment-assets.yml` へ書く。PNG を置いて再実行すれば自動配線される。
+`ShippedEquipmentAssetsTest` が「yml に載っているのにパックに実物が無い」を実ファイルで落とす。
+
+**`setData(EQUIPPABLE, ...)` はコンポーネントを丸ごと差し替える。**
+必ず `getData` → `toBuilder()` → `assetId(...)` の順で既存値を引き継ぐこと。
+新規に組むと装備スロット・装備音・耐久消費・ディスペンサー可否が既定へ巻き戻り、**防具が着られなくなる**。
+
+**MockBukkit はバニラ既定のデータコンポーネントを持たない。**
+実サーバでは `new ItemStack(DIAMOND_HELMET).getData(EQUIPPABLE)` が非 null だが MockBukkit では null なので、
+`ItemFactory#create` 経由で書き込みを検証しようとすると**null ガードで素通りして緑になる**。
+`ItemFactory#applyEquipmentAsset` を直接叩き、テスト側で `setData` した equippable に対して検証する
+（`setData`/`getData` 自体は MockBukkit でも往復する）。
+
 ## アイテム設計の罠
 
 ### インベントリに入れただけのアイテムのステータスは1つも効かない
