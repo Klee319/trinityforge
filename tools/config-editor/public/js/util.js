@@ -301,6 +301,29 @@ window.textInput = function textInput(value, onInput, placeholder) {
 };
 
 /**
+ * 入力の確定時（フォーカスが外れる / Enter）にだけコールバックを呼ぶテキスト入力。
+ *
+ * <p><b>コールバックの中で再描画する入力欄には必ずこちらを使うこと</b>（2026-08-08）。
+ * {@link window.textInput} は {@code oninput}＝<b>1 文字ごと</b>に発火するので、
+ * コールバックが再描画すると入力欄そのものが作り直され、<b>1 文字打つたびにフォーカスが飛ぶ</b>。
+ * マップのキー名を書き換える欄（rename → 再描画が必須）で実際に踏んだ。
+ * 加えて 1 文字ごとの rename は "c" → "co" → "cop" … と途中状態のキーを毎回作るので、
+ * 重複チェックや開閉状態の追随も途中状態に対して走ってしまう。
+ *
+ * <p>再描画しない（値を代入するだけの）欄は {@code textInput} のままでよい。
+ * 検索フィルタのように「入力欄は作り直さず兄弟だけ描き直す」形も {@code textInput} で問題ない。
+ */
+window.textInputOnCommit = function textInputOnCommit(value, onCommit, placeholder) {
+  return window.h("input", {
+    class: "field-input",
+    value: value == null ? "" : String(value),
+    placeholder: placeholder || "",
+    onchange: (e) => onCommit(e.target.value),
+    spellcheck: "false"
+  });
+};
+
+/**
  * Material サジェストと同型の見た目で、候補は全件から選ぶセレクト（フィルタなし）。
  * ネイティブ &lt;select size&gt; 展開は使わず fixed オーバーレイにするため、周囲レイアウトがずれない。
  *

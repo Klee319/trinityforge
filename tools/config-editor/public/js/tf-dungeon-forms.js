@@ -542,6 +542,9 @@
       class: "form-banner",
       text: "EliteMobs 個別モブの守備プロファイル。通常は importmobs で生成し、例外だけここで手編集します。"
     }));
+    // oninput-rerender-ok: この入力欄は render() の外で1度だけ作られ、render() が描き直すのは
+    // 兄弟の list だけ。入力欄自体は作り直されないのでフォーカスは飛ばない（絞り込みは1文字ごとに
+    // 効いてほしいので textInput のままでよい）。
     const filter = window.textInput("", () => render(), "ID / 表示名で絞り込み…");
     root.appendChild(h("div", { class: "form-field", style: "margin:8px 0;" }, [
       h("span", { class: "form-label", text: "検索" }),

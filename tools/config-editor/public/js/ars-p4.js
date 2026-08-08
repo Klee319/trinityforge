@@ -562,10 +562,18 @@
       const row = h("div", { class: "stat-rows" });
       row.appendChild(h("div", { class: "form-field" }, [
         window.fieldLabelEl("display-name", { label: "表示名", desc: "editor表示用の和名。fork実装は無視する (未設定ならキー名を表示)。" }),
-        window.textInput(e["display-name"] || "", (v) => {
-          const nv = (v || "").trim();
-          if (nv) e["display-name"] = nv; else delete e["display-name"];
-          rerender();
+        // 2026-08-08: 以前は textInput(oninput=1文字ごと)のコールバックで rerender() していたため、
+        // 1文字打つたびに入力欄が作り直されてフォーカスが飛んでいた。すぐ下の category 欄と同じく
+        // 「入力中は値を書くだけ / 確定時に再描画」へ揃える。
+        h("input", {
+          class: "field-input",
+          value: e["display-name"] || "",
+          spellcheck: "false",
+          oninput: (ev) => {
+            const nv = (ev.target.value || "").trim();
+            if (nv) e["display-name"] = nv; else delete e["display-name"];
+          },
+          onchange: () => rerender()
         })
       ]));
       const catInput = h("input", {

@@ -1155,7 +1155,9 @@
           }),
           // textInput の第3引数は placeholder。以前は { allowCustom: false } を渡していて
           // placeholder="[object Object]" になっていた。
-          window.textInput(itemMat, (v) => {
+          // 2026-08-08: textInput(oninput=1文字ごと)だと、下の renameKey→render() で入力欄が
+          // 作り直され【1文字打つたびにフォーカスが飛ぶ】。確定時だけ発火する方へ変更。
+          window.textInputOnCommit(itemMat, (v) => {
             const next = (v || "").trim();
             if (!next || next === itemMat) return;
             if (Object.prototype.hasOwnProperty.call(items, next)) {
