@@ -515,7 +515,19 @@ function validateArsMaterials(data, errors) {
   }
 }
 
-const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "slots"];
+// mana-max-percent / regen-percent は出荷 threads.yml (mana_amplify / mana_circulate) が
+// 既に使っているキーで、以前はこのリストに無いまま型検証されずに素通りしていた(2026-08-08 修正)。
+const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "slots", "mana-max-percent", "regen-percent"];
+
+// スレッドの特殊効果(装備しているだけで常時付与されるポーション効果)候補。有益効果18種のみ
+// (有害効果は常時付与すると事故になるため候補から外す)。
+// ⚠ public/js/ars-forms.js の THREAD_POTION_EFFECTS と同じ id 集合を保つこと(検証側とUI側のミラー)。
+const THREAD_POTION_EFFECTS = [
+  "speed", "haste", "strength", "jump_boost", "regeneration", "resistance",
+  "fire_resistance", "water_breathing", "invisibility", "night_vision",
+  "health_boost", "absorption", "saturation", "luck", "slow_falling",
+  "conduit_power", "dolphins_grace", "hero_of_the_village"
+];
 
 function validateArsThreads(data, errors) {
   if (data === null) return;
@@ -539,6 +551,18 @@ function validateArsThreads(data, errors) {
     }
     if (entry.max !== undefined && entry.max !== null && !isNonNegInteger(entry.max)) {
       errors.push(`${prefix}.max: 0以上の整数である必要があります`);
+    }
+    if (entry["potion-effect"] !== undefined && entry["potion-effect"] !== null) {
+      const pe = entry["potion-effect"];
+      if (typeof pe !== "string" || (pe !== "none" && !THREAD_POTION_EFFECTS.includes(pe))) {
+        errors.push(`${prefix}.potion-effect: 有益効果18種のid、または "none" である必要があります`);
+      }
+    }
+    if (entry["potion-level"] !== undefined && entry["potion-level"] !== null && !isPositiveInt(entry["potion-level"])) {
+      errors.push(`${prefix}.potion-level: 1以上の整数である必要があります`);
+    }
+    if (entry.flight !== undefined && entry.flight !== null && typeof entry.flight !== "boolean") {
+      errors.push(`${prefix}.flight: 真偽値である必要があります`);
     }
     validateRitualRecipe(entry.recipe, prefix, errors);
   }

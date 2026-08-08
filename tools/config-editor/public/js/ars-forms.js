@@ -77,9 +77,30 @@
   }
 
   // ---- threads エントリ ----
-  const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "slots"];
+  // mana-max-percent / regen-percent は 2026-08-02 の出荷 threads.yml (mana_amplify / mana_circulate)
+  // で既に使われているが、lib/schema.js の検証リストと共にここでも取りこぼされていたため追加した
+  // (2026-08-08)。slots は 2026-08-08 に「特殊効果」専用セクション(potion-effect/potion-level/
+  // flight と同グループ)へ移したため、この汎用「効果パラメータ」ループからは外す
+  // (THREAD_KNOWN には引き続き含めて lossless round-trip を保つ)。
+  const THREAD_EFFECT_KEYS = ["regen-bonus", "mana-bonus", "recovery", "cost-reduction", "mana-max-percent", "regen-percent"];
   const THREAD_EFFECT_SET = new Set(THREAD_EFFECT_KEYS);
-  const THREAD_KNOWN = new Set(["display_name", "stackable", "max", "recipe"].concat(THREAD_EFFECT_KEYS));
+  // スレッドの特殊効果(装備しているだけで常時付与されるポーション効果)候補。有益効果18種のみ
+  // (有害効果は常時付与すると事故になるため候補に出さない)。
+  // ⚠ lib/schema.js の THREAD_POTION_EFFECTS と同じ id 集合を保つこと(検証側とUI側のミラー、
+  //   片方だけ増減すると「GUIでは選べるのに保存時エラー」または逆の食い違いになる)。
+  const THREAD_POTION_EFFECTS = [
+    ["speed", "移動速度上昇"], ["haste", "採掘速度上昇"], ["strength", "攻撃力上昇"],
+    ["jump_boost", "跳躍力上昇"], ["regeneration", "再生能力"], ["resistance", "耐性"],
+    ["fire_resistance", "火炎耐性"], ["water_breathing", "水中呼吸"], ["invisibility", "透明化"],
+    ["night_vision", "暗視"], ["health_boost", "体力増強"], ["absorption", "衝撃吸収"],
+    ["saturation", "満腹度回復"], ["luck", "幸運"], ["slow_falling", "落下速度低下"],
+    ["conduit_power", "コンジットパワー"], ["dolphins_grace", "イルカの好意"],
+    ["hero_of_the_village", "村の英雄"]
+  ];
+  const THREAD_KNOWN = new Set([
+    "display_name", "stackable", "max", "recipe",
+    "potion-effect", "potion-level", "flight", "slots"
+  ].concat(THREAD_EFFECT_KEYS));
 
   function parseThreadEntry(id, entry) {
     const e = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {};
@@ -92,6 +113,11 @@
       effects: {}, // 効果パラメータ (存在するものだけ、順序は元キー順に従う)
       hasStackable: has("stackable"), stackable: e.stackable,
       hasMax: has("max"), max: e.max,
+      // 特殊効果 (装備固有のポーション効果/レベル/飛行/バックパック枠)。
+      hasPotionEffect: has("potion-effect"), potionEffect: e["potion-effect"],
+      hasPotionLevel: has("potion-level"), potionLevel: e["potion-level"],
+      hasFlight: has("flight"), flight: e.flight,
+      hasSlots: has("slots"), slots: e.slots,
       hasRecipe: has("recipe"),
       recipe: RC.parseRitualRecipe(e.recipe)
     };
@@ -110,6 +136,10 @@
       if (k === "display_name") { if (model.hasDisplayName) out.display_name = model.displayName; }
       else if (k === "stackable") { if (model.hasStackable) out.stackable = model.stackable; }
       else if (k === "max") { if (model.hasMax) out.max = model.max; }
+      else if (k === "potion-effect") { if (model.hasPotionEffect) out["potion-effect"] = model.potionEffect; }
+      else if (k === "potion-level") { if (model.hasPotionLevel) out["potion-level"] = model.potionLevel; }
+      else if (k === "flight") { if (model.hasFlight) out.flight = model.flight; }
+      else if (k === "slots") { if (model.hasSlots) out.slots = model.slots; }
       else if (k === "recipe") { if (model.hasRecipe) out.recipe = RC.serializeRitualRecipe(model.recipe); }
       else if (THREAD_EFFECT_SET.has(k)) { if (Object.prototype.hasOwnProperty.call(model.effects, k)) out[k] = model.effects[k]; }
       else if (Object.prototype.hasOwnProperty.call(model._extra, k)) out[k] = clone(model._extra[k]);
@@ -119,6 +149,10 @@
     for (const k of THREAD_EFFECT_KEYS) if (Object.prototype.hasOwnProperty.call(model.effects, k) && !emitted.has(k)) out[k] = model.effects[k];
     if (model.hasStackable && !emitted.has("stackable")) out.stackable = model.stackable;
     if (model.hasMax && !emitted.has("max")) out.max = model.max;
+    if (model.hasPotionEffect && !emitted.has("potion-effect")) out["potion-effect"] = model.potionEffect;
+    if (model.hasPotionLevel && !emitted.has("potion-level")) out["potion-level"] = model.potionLevel;
+    if (model.hasFlight && !emitted.has("flight")) out.flight = model.flight;
+    if (model.hasSlots && !emitted.has("slots")) out.slots = model.slots;
     if (model.hasRecipe && !emitted.has("recipe")) out.recipe = RC.serializeRitualRecipe(model.recipe);
     return out;
   }
@@ -126,7 +160,7 @@
   const CORE = {
     parseMaterialEntry, serializeMaterialEntry,
     parseThreadEntry, serializeThreadEntry,
-    THREAD_EFFECT_KEYS
+    THREAD_EFFECT_KEYS, THREAD_POTION_EFFECTS
   };
   root.ARS_FORMS = CORE;
   if (typeof module !== "undefined" && module.exports) module.exports = CORE;
@@ -585,13 +619,20 @@
     const expanded = new Set();
 
     // 効果パラメータの日本語ラベル (threads.yml ヘッダ準拠)。
+    // slots は 2026-08-08 に「特殊効果」セクション(potion-effect/potion-level/flight と同グループ)へ
+    // 移したため、ここには残さない(このマップは CORE.THREAD_EFFECT_KEYS 経由でのみ参照される)。
     const EFFECT_LABELS = {
       "regen-bonus": "マナ回復速度ボーナス",
       "mana-bonus": "最大マナボーナス",
       "recovery": "マナ回復量(被弾/攻撃時)",
       "cost-reduction": "スペルコスト軽減率(%)",
-      "slots": "バックパックスロット数"
+      "mana-max-percent": "最大マナの割合上昇(%)",
+      "regen-percent": "マナ回復速度の割合上昇(%)"
     };
+
+    // 特殊効果(potion-effect/potion-level/flight/slots)のセレクト選択肢。
+    const POTION_EFFECT_SELECT_OPTIONS = [{ value: "none", primary: "なし(効果を付けない)", secondary: "none" }]
+      .concat(CORE.THREAD_POTION_EFFECTS.map(([id, ja]) => ({ value: id, primary: ja, secondary: id, title: id })));
 
     function render() {
       root.innerHTML = "";
@@ -658,6 +699,10 @@
       body.push(h("div", { class: "sub-title", text: "重複設定" }));
       body.push(renderStackable(model));
 
+      // ---- 特殊効果 (装備固有のポーション効果/レベル/飛行/バックパック枠) ----
+      body.push(h("div", { class: "sub-title", text: "特殊効果" }));
+      body.push(renderSpecialEffects(model));
+
       // ---- 儀式レシピ ----
       body.push(h("div", { class: "sub-title", text: "儀式レシピ (recipe)" }));
       const ritualToggle = h("div", {});
@@ -707,6 +752,69 @@
         const maxInput = window.numberInput(m.max, (v) => { m.max = v == null ? 1 : v; m.hasMax = true; }, { int: true });
         if (!m.stackable) { maxInput.disabled = true; maxInput.title = "stackable が有効なときのみ設定できます"; }
         box.appendChild(fieldRow("max", maxInput, "最大セット数 (max)"));
+        return box;
+      }
+
+      // potion-effect / potion-level / flight / slots。
+      // いずれも省略時は Java(ThreadType)の既定値を使う任意キーなので、未編集で開いて保存しても
+      // 値が増えない (lazy-touch)。空へ戻したら delete でキーそのものを消す (0/"" を書き残さない)。
+      function renderSpecialEffects(m) {
+        const box = h("div", { class: "effect-params-box" });
+
+        // ---- ポーション効果 + レベル ----
+        const effectRow = h("div", { class: "stat-row" });
+        effectRow.appendChild(h("span", { class: "form-label", text: "ポーション効果 (potion-effect)", title: "potion-effect" }));
+        effectRow.appendChild(window.listSelect({
+          value: m.hasPotionEffect ? (m.potionEffect || "") : "",
+          placeholder: "(未設定・装備固有の既定値)",
+          options: POTION_EFFECT_SELECT_OPTIONS,
+          allowCustom: false,
+          onCommit: (v) => {
+            if (!v) { m.hasPotionEffect = false; m.potionEffect = undefined; }
+            else { m.hasPotionEffect = true; m.potionEffect = v; }
+            render();
+            return true;
+          }
+        }));
+        effectRow.appendChild(h("button", {
+          class: "btn-small danger", type: "button", text: "×",
+          title: "未設定に戻す(装備固有の既定値を使う)",
+          onclick: () => {
+            m.hasPotionEffect = false; m.potionEffect = undefined;
+            m.hasPotionLevel = false; m.potionLevel = undefined;
+            render();
+          }
+        }));
+        box.appendChild(effectRow);
+
+        const levelRow = h("div", { class: "stat-row" });
+        levelRow.appendChild(h("span", { class: "form-label", text: "効果レベル (potion-level)", title: "potion-level" }));
+        const levelInput = window.numberInput(m.hasPotionLevel ? m.potionLevel : null, (v) => {
+          if (v == null || v < 1) { m.hasPotionLevel = false; m.potionLevel = undefined; }
+          else { m.hasPotionLevel = true; m.potionLevel = Math.trunc(v); }
+        }, { int: true });
+        if (!m.hasPotionEffect) { levelInput.disabled = true; levelInput.title = "ポーション効果を選ぶと設定できます"; }
+        levelRow.appendChild(levelInput);
+        box.appendChild(levelRow);
+
+        // ---- 飛行 ----
+        const flightRow = h("div", { class: "stat-row" });
+        flightRow.appendChild(h("span", { class: "form-label", text: "飛行 (flight)", title: "flight" }));
+        flightRow.appendChild(h("input", {
+          type: "checkbox", checked: !!(m.hasFlight && m.flight),
+          onchange: (e) => { m.hasFlight = e.target.checked; m.flight = e.target.checked ? true : undefined; render(); }
+        }));
+        box.appendChild(flightRow);
+
+        // ---- バックパック枠 ----
+        const slotsRow = h("div", { class: "stat-row" });
+        slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠 (slots)", title: "slots" }));
+        slotsRow.appendChild(window.numberInput(m.hasSlots ? m.slots : null, (v) => {
+          if (v == null || v < 0) { m.hasSlots = false; m.slots = undefined; }
+          else { m.hasSlots = true; m.slots = Math.trunc(v); }
+        }, { int: true }));
+        box.appendChild(slotsRow);
+
         return box;
       }
     }

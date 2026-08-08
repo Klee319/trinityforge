@@ -61,7 +61,14 @@
         { id: "__stats_spellbook__", label: "魔導書", kind: "split", badge: "tool",
           split: { type: "item-stats", configId: "item-stats", categoryKey: "spellbook", itemCategory: "spellbook" } },
         { id: "__stats_thread__", label: "スレッド", kind: "split", badge: "tool",
-          split: { type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread" } }
+          split: { type: "item-stats", configId: "item-stats", categoryKey: "thread", itemCategory: "thread" } },
+        // 2026-08-08: threads.yml / thread-sets.yml を編集する thread-bundle 分割ビューは
+        // 実装(split-views.js の thread-bundle・app.js の読み込み/保存経路)はあったのに、
+        // それを指すナビ項目がどこにも無く**到達不能**だった。スレッドのポーション効果・
+        // 効果レベル・飛行・バックパック枠は threads.yml が唯一の実配線先なので導線を追加する。
+        // (item-stats 側の「スレッド」はステータス補正だけで、効果の定義は持たない)
+        { id: "__thread_effects__", label: "スレッド効果 (Ars)", kind: "split", badge: "tool",
+          split: { type: "thread-bundle", configId: "threads", categoryKey: "thread" } }
       ]
     },
     // 2026-07-27新設: 「アイテムステータス」の直後に「機能アイテム」カテゴリを配置(ユーザー指示)。

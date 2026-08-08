@@ -388,37 +388,14 @@
     thread: { attack: false, defense: false, support: true, ars: true, other: false }
   };
 
-  // スレッド特殊効果 (暗視・飛行など)。threads.yml のタイプ id に対応する既定候補。
-  // ここに載せてよいのは「装備しているだけで常時効果が乗る」種別だけ。
-  // フォークの ThreadType が PotionEffectType を持つ種別 (= ArmorManaListener が毎tick 付け直す) と
-  // flight (ポーションではないが常時効果) が該当する。
-  // ステ加算だけの種別 (miner / spoils など) をここに足すと、選べるのに何も起きない候補が増える。
-  // スレッドの特殊効果ラベル。
-  // ⚠ ラベルの正は【実機の lore】= ArsPaper フォークの ThreadType#getEffectLore /
-  //   ThreadConfig の switch(この2箇所が同じ文言を持つ)。labels.js の POTION_TYPE_LABELS_JA は
-  //   醸造の PotionType 用の辞書で、スレッドの文言とは別系統かつ dolphins_grace /
-  //   conduit_power / health_boost / hero_of_the_village を持たない。そちらへ揃えると
-  //   「エディタでは A、実機では B」という食い違いになるので、必ず実機側に合わせること。
-  const THREAD_SPECIAL_EFFECTS = [
-    { id: "night_vision", label: "暗視" },
-    { id: "fire_resistance", label: "火炎耐性" },
-    { id: "flight", label: "飛行" },
-    { id: "speed", label: "移動速度上昇" },
-    { id: "jump_boost", label: "跳躍力上昇" },
-    { id: "dolphins_grace", label: "イルカの好意" },
-    { id: "conduit_power", label: "コンジットパワー" },
-    { id: "hero_of_the_village", label: "村の英雄" },
-    // health_boost は既存16種の頃から PotionEffectType.HEALTH_BOOST を持ち、常時付与セットにも
-    // 入っているのに、このリストにだけ元から入っていなかった(= エディタで選べず、既存値も
-    // 生IDのまま表示されていた)。2026-08-02 に補完。
-    { id: "health_boost", label: "体力増強" },
-    // 2026-08-02 スレッド16→40種で追加。新規24種のうち PotionEffectType を持つのはこの2つだけ
-    // (他22種は thread-sets.yml のステ加算のみ)。
-    // slow_falling は「落下耐性」ではない —— それはバニラ Feather Falling(落下ダメージ軽減)の
-    // 訳語で、実機 lore の「落下速度低下」とは別の効果。
-    { id: "slow_falling", label: "落下速度低下" },
-    { id: "luck", label: "幸運" }
-  ];
+  // ⚠ 2026-08-08 削除: 旧 THREAD_SPECIAL_EFFECTS(この定数と、下の renderThreadExtraFields 内に
+  //   あった「特殊効果 (special-effects)」セクション)は、item-stats.yml の items.<key> に
+  //   special-effects: [...] を書けるだけの UI で、TF 本体・ArsPaper フォークとも読むコードが
+  //   1行も無く、出荷 item-stats.yml にも実データが0件だった(選んでも何も起きない飾り)。
+  //   実際のポーション効果(ThreadType#getEffectLore が読む)は threads.yml 側の potion-effect/
+  //   potion-level/flight として設定する(スレッド画面 = public/js/ars-forms.js の
+  //   buildThreadsForm の「特殊効果」セクションを使う。ここ item-stats.yml の「スレッド」タブは
+  //   別ファイル・別データモデルなので special-effects を復活させないこと)。
   const STAT_FILTER_GROUPS = [
     ["attack", "攻撃"], ["defense", "守備"], ["support", "補助"], ["ars", "Ars"], ["other", "その他"]
   ];
@@ -1807,51 +1784,11 @@
       setBox.appendChild(thrRows);
       box.appendChild(setBox);
 
-      // ---- 特殊効果 ----
-      const fxBox = h("div", { class: "sub-section" });
-      fxBox.appendChild(h("div", { class: "mini-label", text: "特殊効果 (special-effects)" }));
-      const fxList = Array.isArray(entry["special-effects"]) ? entry["special-effects"] : [];
-      const fxRows = h("div", { class: "pedestal-rows" });
-      if (fxList.length === 0) {
-        fxRows.appendChild(h("div", { class: "empty-hint", text: "特殊効果なし。暗視・飛行などをセレクトで追加できます。" }));
-      }
-      fxList.forEach((fxId, idx) => {
-        const known = THREAD_SPECIAL_EFFECTS.find((e) => e.id === fxId);
-        fxRows.appendChild(h("div", { class: "stat-row" }, [
-          h("span", { class: "form-label", text: known ? `${known.label} (${fxId})` : fxId }),
-          h("button", {
-            class: "btn-small danger", type: "button", text: "×",
-            onclick: () => {
-              const arr = Array.isArray(entry["special-effects"]) ? entry["special-effects"] : [];
-              arr.splice(idx, 1);
-              if (arr.length === 0) delete entry["special-effects"];
-              else entry["special-effects"] = arr;
-              render();
-            }
-          })
-        ]));
-      });
-      const addSel = h("select", { class: "field-input" });
-      addSel.appendChild(h("option", { value: "", text: "特殊効果を選ぶ…" }));
-      for (const e of THREAD_SPECIAL_EFFECTS) {
-        if (fxList.includes(e.id)) continue;
-        addSel.appendChild(h("option", { value: e.id, text: `${e.label} (${e.id})` }));
-      }
-      fxRows.appendChild(h("div", { class: "form-actions" }, [
-        addSel,
-        h("button", {
-          class: "btn-small", type: "button", text: "+ 追加",
-          onclick: () => {
-            const id = addSel.value;
-            if (!id) return;
-            if (!Array.isArray(entry["special-effects"])) entry["special-effects"] = [];
-            if (!entry["special-effects"].includes(id)) entry["special-effects"].push(id);
-            render();
-          }
-        })
-      ]));
-      fxBox.appendChild(fxRows);
-      box.appendChild(fxBox);
+      // 特殊効果(暗視・飛行などのポーション効果)は、ここ(item-stats.yml の「スレッド」タブ)では
+      // 設定しない。実機で読まれるのは threads.yml 側の potion-effect/potion-level/flight/slots
+      // (スレッド画面 = public/js/ars-forms.js の buildThreadsForm「特殊効果」セクション)。
+      // 2026-08-08 削除: 旧「特殊効果 (special-effects)」欄(items.<key>.special-effects へ配列で
+      // 書けるだけの UI)は誰も読まない飾りだった(THREAD_SPECIAL_EFFECTS 定数も同時に削除済み)。
       return box;
     }
 
