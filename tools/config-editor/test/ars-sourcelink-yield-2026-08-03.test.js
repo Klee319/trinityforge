@@ -122,6 +122,7 @@ function renderCard(entry) {
   };
   global.window.checkboxInput = (value) => makeEl("input", { type: "checkbox", value });
   global.window.textInput = (value) => makeEl("input", { value });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.richTextInput = (value) => makeEl("input", { value });
   global.window.listSelect = (cfg) => makeEl("span", { listCfg: cfg });
   global.window.materialInput = (value) => makeEl("span", { class: "material-suggest", value });

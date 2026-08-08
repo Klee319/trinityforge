@@ -1264,6 +1264,14 @@
       } else {
         root.appendChild(h("div", { class: "empty-hint", text: "解体エディタ(tf-crafting-features.js)が読み込まれていません。" }));
       }
+      // 2026-08-08: スクラップ変換(scrap-conversion)は解体の逆方向(集めたスクラップ->種別スクラップ)
+      // なので同じ鍛冶ギミックタブに、解体セクションの直後へ並べる。
+      if (typeof window.buildCraftingFeaturesScrapConversionSection === "function") {
+        ensureObj(craftingFeaturesWorking, "scrap-conversion");
+        root.appendChild(window.buildCraftingFeaturesScrapConversionSection(craftingFeaturesWorking["scrap-conversion"]));
+      } else {
+        root.appendChild(h("div", { class: "empty-hint", text: "スクラップ変換エディタ(tf-crafting-features.js)が読み込まれていません。" }));
+      }
     }
 
     return {

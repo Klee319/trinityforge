@@ -76,6 +76,7 @@ function setupDom() {
   // 既存の検証は tiers: [] でこれらを避けていたが、折りたたみの回帰テストは帯を必要とする。
   global.window.numberInput = (value, onInput) => makeEl("input", { value, numOnInput: onInput });
   global.window.textInput = (value, onInput) => makeEl("input", { value, textOnInput: onInput });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.materialInput = (value, listId, onInput, opts) => makeEl("span", {
     class: "material-suggest", matValue: value, matOnInput: onInput, matOpts: opts || {}
   });

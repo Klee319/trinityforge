@@ -723,6 +723,53 @@ SP総数の式は元々3箇所に重複していた（2026-08-04 に `PlayerProg
 値を大きくして `spent > earned` になった場合は available を0へクランプして WARNING を出すのみで、
 **取得済みパークは剥がさない**（剥がすと返金や再購入の整合を別途取る必要が出る）。
 
+## スクラップ変換(scrap-conversion)は「重み付き抽選つきクラフトレシピ」を作りたくなったら必ずこのパターンを見る
+
+### ⚠️ `custom:` 素材で「4個→1個」系のクラフトレシピを増設する前に、既存レシピと base_material が衝突していないか確認する
+
+`stats/item-stats.yml`の`custom:`アイテムは`RecipeChoice.MaterialChoice`（型のみ照合、PDC無視）でレシピに登場する。
+**同じbase_material・同じ形状（2x2/3x3の全マス同一）のレシピが2つあると、Bukkitはどちらか一方だけを解決し、
+もう一方は永久にシャドウイングされる**(`docs/agent-context/common-traps.md`にも一般論として記載済み)。
+2026-08-08時点で`tf_scrap`(「ただのスクラップ」)は`iron_ingot_scrap`と同じ`base_material: IRON_NUGGET`・
+同じ2x2形状を持つため、`tf_scrap`4個→種別スクラップのクラフトレシピは**構造的に作れない**
+(`ArsPaper materials.yml`の既存`iron_ingot_scrap`4個→インゴットのレシピと必ず衝突する)。
+
+**どうすべきか**: レシピにせず、`ScrapConversionListener`(`listeners/ScrapConversionListener.java`)のように
+**右クリック直接消費＋その場で1回だけ抽選**する実装にする。データ形は`CraftingFeaturesConfig.DisassemblyRule`
+(`disassembly`と共有、`crafting-features.yml`の`scrap-conversion.<sourceId>`)をそのまま再利用し、
+新しいレコード型は作らない。`PrepareItemCraftEvent`ベースの実装は**採用しないこと**——クラフトグリッドは
+「結果プレビュー→取り出し確定」の2段階があるため、抽選をプレビュー時に行うと取り出す前に閉じて
+開き直す(リロール)操作が可能になり、結果が気に入るまで無限に再抽選できてしまう。右クリック消費なら
+「見て確認できる状態」自体が存在しないため、この経路が構造的に閉じる。
+
+### ⚠️ `PlayerInteractEvent`の`onInteract`に`ignoreCancelled=true`を付けると空クリックが届かない
+
+`RIGHT_CLICK_AIR`/`LEFT_CLICK_AIR`は`blockClicked==null`のため**イベント生成時点で`isCancelled()==true`**
+になる(Bukkitの仕様、Paperでも変わらない)。`GachaListener`と同じ罠で、`ScrapConversionListener#onInteract`
+も`ignoreCancelled`を付けずに`event.useItemInHand() == Event.Result.DENY`で早期returnする実装にしている。
+テストで固定する場合は`@EventHandler`アノテーションの`ignoreCancelled()`を直接リフレクションで読むのが
+確実(`ScrapConversionListenerTest#onInteractMustNotIgnoreCancelled`)。
+
+### `WoodRepairListener`にはEXP付与経路が無い(2026-08-08時点、圧縮木材27種対応後も同じ)
+
+`crafting-features.yml`の`wood-repair.materials`を27種(9樹種×1x/2x/3x)へ拡張しても、`WoodRepairListener`
+本体にEXP付与コードは無い(`stats/skill-exp.yml`にも該当キーは無い)。木材修繕でEXPを稼がせたい場合は
+**別途明示的な指示が必要**——このコメントは「未実装のバグ」ではなく「機能として存在しない」ことの記録。
+
+## ⚠️ `crafting-features.yml`の作業前に必ず`git diff HEAD`で現状を確認する(並行セッションの未コミットWIPが黙って縮む)
+
+2026-08-08、`disassembly.items`から`wooden_*`/`ROTTEN_FLESH`/`STICK`/`STRING`/`BONE`/`INK_SAC`/
+`LILY_PAD`/`BOWL`/`TRIPWIRE_HOOK`/`FISHING_ROD`/`thread_*`等、約308行分のエントリが**別セッションの
+未コミット変更によって作業ツリー上でだけ消えていた**状態が見つかった(HEADには残っている)。
+初回の`git status`はターミナル側で2000文字超が切り詰められるため、**この種の巨大な未コミット差分が
+一覧の途中で見えなくなることがある**。この状態で`disassembly-defaults.test.js`
+(`各素材スクラップ4個はプレイヤーの2×2クラフトで元の素材1個に戻せる`等)を実行すると、
+自分が何も触っていないのに失敗する。**「configを触っていないのにテストが落ちた」ときは、
+`git diff HEAD -- <path> --stat`で対象ファイルの作業ツリーとHEADの差分量を先に確認すること**
+(他人の未コミットWIPが縮めているだけなら、自分の変更を疑って時間を溶かす前に気づける)。
+このドリフトは他セッションの作業中と判断し、**復元せずそのまま**(上に自分の追加を積むだけ)にした
+——復元すると相手の意図した削除を巻き戻す可能性があるため。
+
 ## 関連
 
 - [./combat.md](./combat.md)

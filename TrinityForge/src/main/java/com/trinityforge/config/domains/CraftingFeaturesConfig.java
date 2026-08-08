@@ -152,6 +152,16 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
     private volatile Map<Integer, Integer> disassemblyPercentTiers = Map.of();
     /** Target-id/material wildcard → conversions. No fallback is intentionally provided. */
     private volatile Map<String, List<DisassemblyRule>> disassemblyItems = Map.of();
+    /**
+     * {@code scrap-conversion.<sourceId>} (2026-08-08新設): 「ただのスクラップ(tf_scrap)」のような
+     * 前進レシピを持たない素材を、重み付き抽選で別の素材へ変換するルール。{@link DisassemblyRule} の
+     * 構造(weight付き{@link DisassemblyOutput}リスト + {@code base-amount})をそのまま流用する
+     * ({@code input}は使わない=常にnull、消費量は{@code base-amount}で直接指定する)。
+     *
+     * <p>Bukkitのクラフトレシピにしない理由は {@link com.trinityforge.listeners.ScrapConversionListener}
+     * のクラス javadoc 参照(既存の materials.yml 側スクラップレシピと入力パターンが衝突するため)。
+     */
+    private volatile Map<String, DisassemblyRule> scrapConversions = Map.of();
     private volatile int potionMergeMaxEffects = 5;
     private volatile int potionMergeMaxDurationSeconds = 960;
     /** {@code potion-merge.tiers.<tier>.{max-effects,max-duration-seconds}} (2026-07-26 tier-expand)。 */
@@ -258,6 +268,19 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             }
         }
         return bestWildcard;
+    }
+
+    /** {@code scrap-conversion} の全ルール。source id(例: {@code tf_scrap}) → 変換ルール。 */
+    public Map<String, DisassemblyRule> scrapConversions() {
+        return scrapConversions;
+    }
+
+    /** id(例: {@code tf_scrap})に対応する変換ルール。無ければ {@code null}。 */
+    public DisassemblyRule scrapConversion(String sourceId) {
+        if (sourceId == null || sourceId.isBlank()) {
+            return null;
+        }
+        return scrapConversions.get(sourceId);
     }
 
     public int potionMergeMaxEffects() {
@@ -432,6 +455,7 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
         loadCoating(yaml);
         loadWoodRepair(yaml);
         loadDisassembly(yaml, log);
+        loadScrapConversion(yaml, log);
         loadPotionMerge(yaml, log);
         loadBrewUnlocks(yaml, log);
         loadOverEnchant(yaml, log);
@@ -551,6 +575,45 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             }
         }
         this.disassemblyItems = Collections.unmodifiableMap(items);
+    }
+
+    /**
+     * {@code scrap-conversion.<sourceId>} (2026-08-08新設)。1件のルール形は
+     * {@code disassembly.items.<target>} の1要素(=1つの{@link DisassemblyRule})と同じ形なので
+     * {@link #parseDisassemblyRule} をそのまま再利用する。{@code outputs} は
+     * {@code ConfigurationSection#getMapList} 経由で {@code List<Map<?,?>>} として組み立てる
+     * (disassembly側が {@code itemSec.getMapList(target)} で得るのと同じ形)。
+     *
+     * <p>{@code base-amount} を持たない(=消費量の指定が無い)行は、量を決める術が無いので
+     * 警告を出して読み込まない(disassemblyの「inputもbase-amountも無い行を捨てる」と同じ fail-soft 方針)。
+     */
+    private void loadScrapConversion(YamlConfiguration yaml, Logger log) {
+        Map<String, DisassemblyRule> rules = new LinkedHashMap<>();
+        ConfigurationSection root = yaml.getConfigurationSection("scrap-conversion");
+        if (root != null) {
+            for (String id : root.getKeys(false)) {
+                ConfigurationSection ruleSec = root.getConfigurationSection(id);
+                if (ruleSec == null) {
+                    continue;
+                }
+                Map<String, Object> raw = new LinkedHashMap<>();
+                if (ruleSec.contains("base-amount")) {
+                    raw.put("base-amount", ruleSec.get("base-amount"));
+                }
+                if (ruleSec.contains("multiplier")) {
+                    raw.put("multiplier", ruleSec.get("multiplier"));
+                }
+                raw.put("outputs", ruleSec.getMapList("outputs"));
+                DisassemblyRule rule = parseDisassemblyRule(raw);
+                if (rule == null || !rule.hasBaseAmount()) {
+                    log.warning("[" + PATH + "] 'scrap-conversion." + id
+                            + "' needs a positive 'base-amount' and at least one valid weighted 'outputs' entry; skipped");
+                    continue;
+                }
+                rules.put(id, rule);
+            }
+        }
+        this.scrapConversions = rules.isEmpty() ? Map.of() : Collections.unmodifiableMap(rules);
     }
 
     /**

@@ -65,6 +65,7 @@ function setupDom() {
     return el;
   };
   window.textInput = window.numberInput;
+  window.textInputOnCommit = window.textInput;
   window.collapsibleCard = (_head, body) => makeEl("div", { body });
   window.listSelect = (cfg) => makeEl("select", { listConfig: cfg, value: cfg.value });
   global.alert = () => {};

@@ -71,6 +71,7 @@ global.window.textInput = (value, onInput) => {
   el.trigger = (v) => onInput(v);
   return el;
 };
+global.window.textInputOnCommit = global.window.textInput;
 global.window.materialInput = (value, listId, onInput) => {
   const el = makeFakeEl("span", { value });
   el.trigger = (v) => onInput(v);

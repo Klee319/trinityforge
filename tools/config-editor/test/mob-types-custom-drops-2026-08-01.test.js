@@ -77,6 +77,7 @@ function renderMobTypesForm(data) {
   global.window.fieldLabelEl = (key, opts) => makeEl("label", { text: key, labelOpts: opts || {} });
   global.window.numberInput = (value, onInput, opts) => makeEl("input", { value, numOnInput: onInput, numOpts: opts });
   global.window.textInput = (value, onInput) => makeEl("input", { value, textOnInput: onInput });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.mobTypeSelect = (value, onChange) => makeEl("span", { value, mobOnChange: onChange });
   global.window.listSelect = (opts) => makeEl("span", { listOpts: opts });
   global.window.materialHintEl = () => {

@@ -12,13 +12,91 @@ coating:
     source_gem:
       bonus-damage: 5
       max-stacks: 10
+# 圧縮木材修繕: 樹種によらず「圧縮段(1x/2x/3x)」だけで耐久回復量が決まる。
+# 圧縮1段=9倍(ArsPaper materials.yml のレシピで確認済み: 1x=9倍圧縮/2x=81倍圧縮/3x=729倍圧縮)なので
+# durability も 200 -> 1800(200*9) -> 16200(1800*9) と9倍ずつ。quick-repair は全樹種・全段で true。
 wood-repair:
-  # 2026-08-01: キーは ArsPaper materials.yml に実在する ID でなければならない。
-  # 旧値 compressed_wood_1x は【どの ID 空間にも存在しない】綴りで、木材修繕が永久に不発だった
-  # (実在するのは oak_wood_1x)。ここは「素材の catalog/Ars ID」で照合する。
   materials:
     oak_wood_1x:
       durability: 200
+      quick-repair: true
+    oak_wood_2x:
+      durability: 1800
+      quick-repair: true
+    oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    birch_wood_1x:
+      durability: 200
+      quick-repair: true
+    birch_wood_2x:
+      durability: 1800
+      quick-repair: true
+    birch_wood_3x:
+      durability: 16200
+      quick-repair: true
+    spruce_wood_1x:
+      durability: 200
+      quick-repair: true
+    spruce_wood_2x:
+      durability: 1800
+      quick-repair: true
+    spruce_wood_3x:
+      durability: 16200
+      quick-repair: true
+    jungle_wood_1x:
+      durability: 200
+      quick-repair: true
+    jungle_wood_2x:
+      durability: 1800
+      quick-repair: true
+    jungle_wood_3x:
+      durability: 16200
+      quick-repair: true
+    acacia_wood_1x:
+      durability: 200
+      quick-repair: true
+    acacia_wood_2x:
+      durability: 1800
+      quick-repair: true
+    acacia_wood_3x:
+      durability: 16200
+      quick-repair: true
+    dark_oak_wood_1x:
+      durability: 200
+      quick-repair: true
+    dark_oak_wood_2x:
+      durability: 1800
+      quick-repair: true
+    dark_oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    mangrove_wood_1x:
+      durability: 200
+      quick-repair: true
+    mangrove_wood_2x:
+      durability: 1800
+      quick-repair: true
+    mangrove_wood_3x:
+      durability: 16200
+      quick-repair: true
+    pale_oak_wood_1x:
+      durability: 200
+      quick-repair: true
+    pale_oak_wood_2x:
+      durability: 1800
+      quick-repair: true
+    pale_oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    cherry_blossom_wood_1x:
+      durability: 200
+      quick-repair: true
+    cherry_blossom_wood_2x:
+      durability: 1800
+      quick-repair: true
+    cherry_blossom_wood_3x:
+      durability: 16200
       quick-repair: true
 disassembly:
   percent-per-level: 25
@@ -202,6 +280,32 @@ disassembly:
           - item: custom:magebloom_fiber
             weight: 1
             multiplier: 1
+# スクラップ変換: 「ただのスクラップ(tf_scrap)」4個を、重み付き抽選で種別スクラップ1個へ変換する。
+# 種別スクラップ(copper/iron/gold/diamond/netherite/leather/turtle_scute)は各々ArsPaper materials.yml
+# 側に既存の4個->インゴット等レシピを持っているため、ここには載せない(二重登録防止)。
+# 右クリック消費(ScrapConversionListener)で処理する。クラフトテーブルのレシピにしないのは、
+# tf_scrap の base_material が IRON_NUGGET で iron_ingot_scrap の既存レシピ(2x2 全マスIRON_NUGGET)と
+# 入力パターンが完全に一致し、Bukkitのレシピ照合(custom:素材はMaterialChoice=型のみ照合)が
+# どちらかを必ずシャドウイングしてしまうため(docs/agent-context/common-traps.md 参照)。
+# base-amount は消費個数、outputs の重みは合計100(2026-08-08 ユーザー確定値)。
+scrap-conversion:
+  tf_scrap:
+    base-amount: 4
+    outputs:
+      - item: custom:copper_ingot_scrap
+        weight: 25
+      - item: custom:iron_ingot_scrap
+        weight: 25
+      - item: custom:leather_scrap
+        weight: 20
+      - item: custom:gold_ingot_scrap
+        weight: 12
+      - item: custom:turtle_scute_scrap
+        weight: 12
+      - item: custom:diamond_scrap
+        weight: 5
+      - item: custom:netherite_ingot_scrap
+        weight: 1
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960

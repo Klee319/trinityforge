@@ -70,6 +70,7 @@ global.window.textInput = (value, onInput) => {
   el.trigger = (v) => onInput(v);
   return el;
 };
+global.window.textInputOnCommit = global.window.textInput;
 global.window.materialInput = (value, listId, onInput, opts) => {
   materialInputCalls.push({ value, opts: opts || {} });
   const el = makeFakeEl("span", { value });

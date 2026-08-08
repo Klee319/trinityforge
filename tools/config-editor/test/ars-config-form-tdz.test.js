@@ -78,6 +78,7 @@ test("実行チェック: buildArsConfigForm が ReferenceError なく完走し�
   global.window.numberInput = () => makeEl("input", { class: "num" });
   global.window.checkboxInput = () => makeEl("input", { class: "checkbox" });
   global.window.textInput = () => makeEl("input", { class: "text" });
+  global.window.textInputOnCommit = global.window.textInput;
   // fetch 未定義でも loadFormOptions() 内の try/catch が握りつぶすため無害(D修正の前提通り)。
 
   delete require.cache[require.resolve("../public/js/tf-phase3-forms.js")];
@@ -137,6 +138,7 @@ test("旧 loot.* キー: 画面から撤去され、開いて保存しただけ�
   global.window.numberInput = () => makeEl("input", { class: "num" });
   global.window.checkboxInput = () => makeEl("input", { class: "checkbox" });
   global.window.textInput = () => makeEl("input", { class: "text" });
+  global.window.textInputOnCommit = global.window.textInput;
 
   delete require.cache[require.resolve("../public/js/tf-phase3-forms.js")];
   require("../public/js/tf-phase3-forms.js");

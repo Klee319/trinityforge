@@ -186,6 +186,7 @@ function setupAfkFormStubs() {
     el.__onInput = onInput;
     return el;
   };
+  global.window.textInputOnCommit = global.window.textInput;
   // 2026-07-29: MiniMessage を書く欄(kick-message / tab-suffix-text)を Lore/表示名と同じ
   // 着色パレット付き入力(colors.js の richTextInput)へ寄せた。colors.js はここでは
   // 読み込まないので、値と onInput を保持するだけのスタブを置く。

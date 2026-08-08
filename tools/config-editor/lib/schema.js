@@ -2490,6 +2490,38 @@ function validateTfCraftingFeatures(data, errors) {
       }
     }
   }
+  // scrap-conversion (2026-08-08新設): CraftingFeaturesConfig#loadScrapConversion /
+  // parseDisassemblyRule と同じ受理条件をここで先取りチェックする(base-amount は正の数値必須。
+  // 無い/0以下だと Java 側が黒警告で行ごと skip するだけなので、保存前にここで気付けるようにする)。
+  const scrapConv = data["scrap-conversion"];
+  if (scrapConv !== undefined && scrapConv !== null) {
+    if (!isPlainObject(scrapConv)) errors.push("scrap-conversion はマップである必要があります");
+    else {
+      for (const [id, rule] of Object.entries(scrapConv)) {
+        if (!isPlainObject(rule)) { errors.push(`scrap-conversion.${id}: マップである必要があります`); continue; }
+        const baseAmount = rule["base-amount"];
+        if (!isNumber(baseAmount) || baseAmount <= 0) {
+          errors.push(`scrap-conversion.${id}.base-amount: 0より大きい数値である必要があります(消費個数の唯一の指定手段)`);
+        }
+        if (rule.multiplier !== undefined && rule.multiplier !== null && (!isNumber(rule.multiplier) || rule.multiplier <= 0)) {
+          errors.push(`scrap-conversion.${id}.multiplier: 0より大きい数値である必要があります`);
+        }
+        const outputs = rule.outputs;
+        if (!Array.isArray(outputs) || outputs.length === 0) {
+          errors.push(`scrap-conversion.${id}.outputs: 1件以上の配列(重み抽選の候補)が必要です`);
+        } else {
+          outputs.forEach((o, i) => {
+            if (!isPlainObject(o) || typeof o.item !== "string" || !o.item.trim()) {
+              errors.push(`scrap-conversion.${id}.outputs[${i}].item: 空でない文字列が必要です`);
+            }
+            if (o && o.weight !== undefined && o.weight !== null && (!isNumber(o.weight) || o.weight <= 0)) {
+              errors.push(`scrap-conversion.${id}.outputs[${i}].weight: 0より大きい数値である必要があります`);
+            }
+          });
+        }
+      }
+    }
+  }
   const bp = data["enchant-bookshelf-power"];
   if (bp !== undefined && bp !== null) {
     if (!isPlainObject(bp)) errors.push("enchant-bookshelf-power はマップである必要があります");

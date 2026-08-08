@@ -62,6 +62,7 @@ function renderCard(entry) {
   global.window.numberInput = (value) => makeEl("input", { value });
   global.window.checkboxInput = (value) => makeEl("input", { type: "checkbox", value });
   global.window.textInput = (value) => makeEl("input", { value });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.richTextInput = (value, mode) => {
     richTexts.push({ value, mode });
     return makeEl("input", { value });

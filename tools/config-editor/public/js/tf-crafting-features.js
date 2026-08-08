@@ -293,6 +293,8 @@
     ensureObj(working, "coating", {});
     ensureObj(working, "wood-repair", {});
     ensureObj(working, "disassembly", {});
+    // 2026-08-08新設: scrap-conversion(スクラップ変換)。未設定なら空マップ(=機能オフ)のまま温存する。
+    ensureObj(working, "scrap-conversion", {});
     ensureObj(working, "potion-merge", { "max-effects": 5, "max-duration-seconds": 960 });
     ensureObj(working, "brew-unlocks", {});
     ensureObj(working, "over-enchant", {});
@@ -1207,6 +1209,69 @@
       root.appendChild(card(
         [h("span", { class: "entry-key-label", text: "対象シリーズ ↔ 返却ルール" })],
         [list]
+      ));
+    }
+    render();
+    return root;
+  };
+
+  // スクラップ変換 (scrap-conversion)。2026-08-08 追加。「ただのスクラップ」を右クリック消費すると
+  // 重み付き抽選で種別スクラップ1個へ変わるギミック(ScrapConversionListener、右クリック即消費/即抽選)。
+  // データ形は disassembly の1件分の返却ルールと同じ(base-amount + outputs)なので、
+  // 1件ぶんの編集UIは disassemblyRuleEditor をそのまま再利用する(重複実装しない)。
+  // 鍛冶ギミックタブが disassembly の直後に呼ぶ想定 (tf-forms.js)。
+  window.buildCraftingFeaturesScrapConversionSection = function buildScrapConversionSection(conv) {
+    const root = h("div", { class: "card-list-body" });
+    function render() {
+      root.innerHTML = "";
+      const list = h("div", { class: "cf-mat-list" });
+      const keys = Object.keys(conv);
+      if (!keys.length) list.appendChild(emptyHint("スクラップ変換の設定がありません。"));
+      for (const sourceId of keys) {
+        const rule = (conv[sourceId] && typeof conv[sourceId] === "object") ? conv[sourceId] : (conv[sourceId] = {});
+        const itemCard = h("div", { class: "cf-mat-card" });
+        itemCard.appendChild(h("div", { class: "form-field" }, [
+          window.fieldLabelEl("scrap-conversion-source-id", {
+            label: "変換元 ID",
+            desc: "custom: の item id (末尾の custom: は付けない)。例: tf_scrap",
+            hideKey: true
+          }),
+          window.textInputOnCommit(sourceId, (v) => {
+            const next = (v || "").trim();
+            if (!next || next === sourceId) return;
+            if (Object.prototype.hasOwnProperty.call(conv, next)) {
+              alert("同じ変換元 ID が既にあります");
+              render();
+              return;
+            }
+            renameKey(conv, sourceId, next);
+            render();
+          }, "例: tf_scrap"),
+          h("button", {
+            class: "btn-small danger", type: "button", text: "削除",
+            onclick: () => { delete conv[sourceId]; render(); }
+          })
+        ]));
+        itemCard.appendChild(disassemblyRuleEditor(rule, () => { delete conv[sourceId]; render(); }));
+        list.appendChild(itemCard);
+      }
+      list.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ 変換元追加",
+        onclick: () => {
+          let number = 1;
+          let key = "scrap_source_1";
+          while (Object.prototype.hasOwnProperty.call(conv, key)) key = `scrap_source_${++number}`;
+          conv[key] = { "base-amount": 4, outputs: [{ item: "IRON_INGOT", weight: 1 }] };
+          render();
+        }
+      }));
+      root.appendChild(card(
+        [h("span", { class: "entry-key-label", text: "変換元 ↔ 変換ルール" })],
+        [
+          formHint("右クリックで即時消費・即時抽選(クラフトレシピではない)。素材数の決め方は"
+            + "「固定数を指定(base-amount)」を使うのが基本(スクラップ自体はレシピを持たないため)。"),
+          list
+        ]
       ));
     }
     render();

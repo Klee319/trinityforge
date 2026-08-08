@@ -85,6 +85,7 @@ function renderSourceLinksForm(data, opts) {
     return makeEl("input", { type: "checkbox", value });
   };
   global.window.textInput = (value, onInput) => makeEl("input", { value, textOnInput: onInput });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.richTextInput = (value) => makeEl("input", { value });
   global.window.listSelect = (cfg) => makeEl("span", { listCfg: cfg });
   global.window.materialInput = (value) => makeEl("span", { class: "material-suggest", value });
@@ -234,6 +235,7 @@ test("items.<id>.transfer-multiplier: numberInput へ現在値がそのまま渡
   };
   global.window.checkboxInput = (value, onInput) => makeEl("input", { type: "checkbox", value });
   global.window.textInput = (value, onInput) => makeEl("input", { value });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.richTextInput = (value) => makeEl("input", { value });
   global.window.listSelect = (cfg) => makeEl("span", { listCfg: cfg });
   global.window.materialInput = (value) => makeEl("span", { class: "material-suggest", value });

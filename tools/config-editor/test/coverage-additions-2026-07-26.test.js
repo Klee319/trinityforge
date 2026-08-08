@@ -104,6 +104,7 @@ function setupDom() {
     el.trigger = (v) => onInput(v);
     return el;
   };
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.materialInput = (value, listId, onInput) => {
     const el = makeEl("span", { value });
     el.trigger = (v) => onInput(v);

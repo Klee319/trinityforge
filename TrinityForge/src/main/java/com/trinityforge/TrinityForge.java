@@ -36,6 +36,7 @@ import com.trinityforge.listeners.DotDamageListener;
 import com.trinityforge.listeners.OverEnchantListener;
 import com.trinityforge.listeners.PotionMergeListener;
 import com.trinityforge.listeners.RoleBuffListener;
+import com.trinityforge.listeners.ScrapConversionListener;
 import com.trinityforge.listeners.VillagerTradeListener;
 import com.trinityforge.listeners.WeaponCoatingListener;
 import com.trinityforge.listeners.WoodRepairListener;
@@ -795,6 +796,11 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new DisassemblyListener(configManager.dedicatedEffects(), configManager.craftingFeatures(),
                         configManager.itemCatalog(), itemFactory, aggregator), this);
+        // C-1(2026-08-08): 「ただのスクラップ」4個->重み付き抽選で種別スクラップ1個。右クリック消費
+        // (Bukkitレシピにしない理由は ScrapConversionListener のクラス javadoc 参照)。
+        getServer().getPluginManager().registerEvents(
+                new ScrapConversionListener(configManager.craftingFeatures(),
+                        configManager.itemCatalog(), itemFactory), this);
         getServer().getPluginManager().registerEvents(
                 new PotionMergeListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         // ゲート判定は「実際に登録された customMix」だけを見る (2026-07-31 D10 レビュー指摘#1/#3)。

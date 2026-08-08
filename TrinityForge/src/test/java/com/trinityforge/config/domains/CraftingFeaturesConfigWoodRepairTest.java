@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -123,5 +124,42 @@ class CraftingFeaturesConfigWoodRepairTest {
                         + "(実在するのは 'oak_wood_1x')。現在の値: " + ids);
         assertTrue(ids.contains("oak_wood_1x"),
                 "出荷 wood-repair.materials に oak_wood_1x が無い。現在の値: " + ids);
+    }
+
+    /**
+     * C-2(2026-08-08): 圧縮木材修繕は ArsPaper materials.yml の27種(9樹種 × 1x/2x/3x)すべてに対応し、
+     * 樹種によらず「圧縮段」だけで耐久回復量が決まる(圧縮1段=9倍なので 200 -> 1800 -> 16200)。
+     * quick-repair は全種 true。
+     */
+    @Test
+    void shippedWoodRepairCoversAll27CompressedWoodVariantsWithTierOnlyDurability(@TempDir File tempDir)
+            throws IOException {
+        File file = new File(tempDir, CraftingFeaturesConfig.PATH);
+        Files.createDirectories(file.getParentFile().toPath());
+        try (var in = CraftingFeaturesConfigWoodRepairTest.class.getClassLoader()
+                .getResourceAsStream(CraftingFeaturesConfig.PATH.replace('\\', '/'))) {
+            assertNotNull(in, "出荷リソースが見つからない: " + CraftingFeaturesConfig.PATH);
+            Files.write(file.toPath(), in.readAllBytes());
+        }
+        CraftingFeaturesConfig config = new CraftingFeaturesConfig();
+        assertTrue(config.load(fakePlugin(tempDir)), "出荷 crafting-features.yml がパースできない");
+
+        List<String> species = List.of("oak_wood", "birch_wood", "spruce_wood", "jungle_wood",
+                "acacia_wood", "dark_oak_wood", "mangrove_wood", "pale_oak_wood", "cherry_blossom_wood");
+        var mats = config.woodRepairMaterials();
+        assertEquals(27, mats.size(), "9樹種 × 3段 = 27件であるはず。現在: " + mats.keySet());
+        for (String base : species) {
+            WoodRepairMaterial tier1 = mats.get(base + "_1x");
+            WoodRepairMaterial tier2 = mats.get(base + "_2x");
+            WoodRepairMaterial tier3 = mats.get(base + "_3x");
+            assertNotNull(tier1, base + "_1x が無い");
+            assertNotNull(tier2, base + "_2x が無い");
+            assertNotNull(tier3, base + "_3x が無い");
+            assertEquals(200, tier1.durability(), base + "_1x の耐久回復量");
+            assertEquals(1800, tier2.durability(), base + "_2x の耐久回復量(200*9)");
+            assertEquals(16200, tier3.durability(), base + "_3x の耐久回復量(1800*9)");
+            assertTrue(tier1.quickRepair() && tier2.quickRepair() && tier3.quickRepair(),
+                    base + " は全段 quick-repair: true であるはず");
+        }
     }
 }

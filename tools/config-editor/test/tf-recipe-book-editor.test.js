@@ -46,6 +46,7 @@ function setupStubs() {
   global.window.numberInput = (value) => makeEl("input", { class: "num", value });
   global.window.checkboxInput = (value, onChange) => makeEl("input", { class: "checkbox", value, onChange });
   global.window.textInput = (value) => makeEl("input", { class: "text", value });
+  global.window.textInputOnCommit = global.window.textInput;
   global.window.selectInput = () => makeEl("select");
   global.window.listSelect = () => makeEl("div", { class: "list-select" });
   global.window.materialInput = () => makeEl("div", { class: "material-input" });
