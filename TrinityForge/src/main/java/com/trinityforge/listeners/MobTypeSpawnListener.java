@@ -12,8 +12,10 @@ import com.trinityforge.mobs.MobLevelScaling;
 import com.trinityforge.mobs.MobStatScaling;
 import com.trinityforge.mobs.MobTypeDefinition;
 import com.trinityforge.pdc.MobData;
+import com.trinityforge.progression.SkillLevelSource;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -23,12 +25,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
@@ -55,14 +61,39 @@ public final class MobTypeSpawnListener implements Listener {
      */
     private static volatile Double lastWarnedHealthCeiling = null;
 
+    /**
+     * ArsPaper が召喚モブへ刻む PDC キー。フォークの {@code SummonedMobListener} が
+     * {@code new NamespacedKey(plugin, "summoned")} で作るものと同一
+     * （プラグイン名前空間は {@code arspaper}）。
+     *
+     * <p>ここを {@code NamespacedKey.fromString} ではなくリテラルで書いているのは、
+     * フォークが名前を変えたときに<b>コンパイルではなくテストで落ちる</b>ようにするため
+     * （キー名は文字列なのでどのみち実行時一致しか検証できない）。
+     */
+    static final NamespacedKey ARS_SUMMONED_KEY = new NamespacedKey("arspaper", "summoned");
+    static final NamespacedKey ARS_SUMMONER_UUID_KEY =
+            new NamespacedKey("arspaper", "summoner_uuid");
+
     private final Plugin plugin;
     private final MobTypesConfig mobTypesConfig;
     private final ConfigManager configManager;
+    private final SkillLevelSource skillLevelSource;
 
     public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig, ConfigManager configManager) {
+        this(plugin, mobTypesConfig, configManager, SkillLevelSource.EMPTY);
+    }
+
+    /**
+     * @param skillLevelSource 召喚モブのレベルを召喚者のスキルレベルから決めるための読み出し口
+     *                         ({@code summoned:})。{@link SkillLevelSource#EMPTY} を渡すと
+     *                         全スキル0扱いになり、召喚モブは {@code summoned.base-level} だけになる。
+     */
+    public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig,
+                                ConfigManager configManager, SkillLevelSource skillLevelSource) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.mobTypesConfig = Objects.requireNonNull(mobTypesConfig, "mobTypesConfig");
         this.configManager = Objects.requireNonNull(configManager, "configManager");
+        this.skillLevelSource = Objects.requireNonNull(skillLevelSource, "skillLevelSource");
     }
 
     /**
@@ -80,6 +111,16 @@ public final class MobTypeSpawnListener implements Listener {
         // 未記録(通常のスポーン)なら 1.0 = 従来どおり満タン。早期returnする経路でも
         // 必ず consume するため、ここで先に取り出しておく(保留マップに滞留させない)。
         double healthRatio = MobTransformCarryOver.consumeHealthRatio(entity.getUniqueId());
+
+        // 召喚モブ(Ars の召喚魔法)は「どこで召喚したか」ではなく「誰が召喚したか」で強さが決まる。
+        // EliteMobs 所有のモブより先には置かない — EM が自分でレベルを決める個体を横取りしないため。
+        if (!isEliteMobsOwned(data)) {
+            OptionalInt summoned = summonedLevel(entity);
+            if (summoned.isPresent()) {
+                applySummonedProfile(entity, summoned.getAsInt(), maybeDef.orElse(null), healthRatio);
+                return;
+            }
+        }
 
         if (maybeDef.isPresent()) {
             if (isEliteMobsOwned(data)) {
@@ -183,6 +224,73 @@ public final class MobTypeSpawnListener implements Listener {
         return data.profileId().isPresent() || data.dungeonTheme().isPresent();
     }
 
+    /**
+     * このモブが ArsPaper の召喚魔法で出たものなら、召喚者のスキルレベルから決めた戦闘レベル。
+     * 召喚モブでない／設定が無効／召喚者が見つからない場合は空。
+     *
+     * <p>PDC キーは ArsPaper 側が<b>スポーン consumer の中で</b>書いているので、
+     * {@code CreatureSpawnEvent} の時点で既に読める（後から付くのではない）。
+     * キー名はフォークの {@code SummonedMobListener} が持つ {@code arspaper:summoned} /
+     * {@code arspaper:summoner_uuid} と一対一で対応する。<b>片方でも改名されるとこの機能は
+     * 無言で効かなくなる</b>ので、フォーク側を触るときは必ずここも見ること。
+     *
+     * <p>召喚者がオフライン/退出済みなら空を返す = 従来どおりの距離ベースへ落ちる。
+     * 「召喚者不明の召喚モブ」に勝手なレベルを与えるより、既存挙動へ戻すほうが安全。
+     */
+    private OptionalInt summonedLevel(LivingEntity entity) {
+        // null を潰しているのは、MobTypesConfig を Mockito でモックしたテストが未スタブの
+        // アクセサで null を返すため(実 config は必ず DISABLED を返す)。attackPowerHighLevel が
+        // 同じ理由で nonNull() を噛ませているのと同じ事情 — ここで NPE にすると、この機能と
+        // 無関係な既存テストが道連れで落ちる。
+        MobTypesConfig.SummonedLevelPolicy policy = mobTypesConfig.summonedLevelPolicy();
+        if (policy == null || !policy.enabled()) {
+            return OptionalInt.empty();
+        }
+        PersistentDataContainer pdc = entity.getPersistentDataContainer();
+        if (!pdc.has(ARS_SUMMONED_KEY, PersistentDataType.BYTE)) {
+            return OptionalInt.empty();
+        }
+        String summonerUuid = pdc.get(ARS_SUMMONER_UUID_KEY, PersistentDataType.STRING);
+        if (summonerUuid == null) {
+            return OptionalInt.empty();
+        }
+        UUID casterId;
+        try {
+            casterId = UUID.fromString(summonerUuid);
+        } catch (IllegalArgumentException ex) {
+            return OptionalInt.empty();
+        }
+        int skillLevel = skillLevelSource.levelsOf(casterId).getOrDefault(policy.skill(), 0);
+        return OptionalInt.of(policy.levelFor(skillLevel, mobTypesConfig.maxLevel()));
+    }
+
+    /**
+     * 召喚モブへ、召喚者由来のレベルでステータスを刻む。
+     *
+     * <p>元になる耐久/攻撃の値は<b>そのEntityTypeの通常の定義をそのまま使う</b>
+     * （定義が無ければ {@code defaults:}）。召喚された骨は「骨としての素の強さ」を保ったまま、
+     * レベルだけが召喚者に追随する、という形にしている。
+     */
+    private void applySummonedProfile(LivingEntity entity, int level, MobTypeDefinition def,
+                                      double healthRatio) {
+        World.Environment environment = entity.getWorld().getEnvironment();
+        double distance = distanceFromWorldSpawn(entity);
+        if (def != null) {
+            applyStatsAtLevel(entity, level, def.physical(), def.magical(), def.maxHealth(),
+                    def.attack(), def.levelCoefficients(),
+                    "summoned:" + entity.getType().name(), healthRatio,
+                    attackPowerHighLevelFor(entity.getType()), environment, distance);
+            return;
+        }
+        Double maxHealthBase = mobTypesConfig.defaultMaxHealth().isPresent()
+                ? mobTypesConfig.defaultMaxHealth().getAsDouble() : null;
+        applyStatsAtLevel(entity, level, mobTypesConfig.defaultDefense(DamageType.PHYSICAL),
+                mobTypesConfig.defaultDefense(DamageType.MAGICAL), maxHealthBase,
+                mobTypesConfig.defaultAttack(), mobTypesConfig.defaultLevelCoefficients(),
+                "summoned:defaults", healthRatio,
+                nonNull(mobTypesConfig.defaultAttackPowerHighLevel()), environment, distance);
+    }
+
     private void applyUntaggedDefaults(LivingEntity entity, double healthRatio) {
         int baseLevel = mobTypesConfig.defaultLevel();
         double coordinateCoefficient = mobTypesConfig.defaultCoordinateCoefficient();
@@ -251,6 +359,23 @@ public final class MobTypeSpawnListener implements Listener {
         // scale to an unbounded level (which saturates penetration and makes defense stats moot).
         int level = MobLevelScaling.effectiveLevel(
                 adjustedBaseLevel, adjustedCoordinateCoefficient, distance, mobTypesConfig.maxLevel());
+        applyStatsAtLevel(entity, level, physicalBase, magicalBase, maxHealthBase, attackBase,
+                coeffs, source, healthRatio, attackPowerHighLevel, environment, distance);
+    }
+
+    /**
+     * 解決済みの {@code level} でステータスを刻む。{@link #applyScaledProfile} から切り出してあるのは、
+     * <b>召喚モブだけレベルの決め方が違う</b>ため — 通常のモブは「ワールドスポーンからの距離」で
+     * レベルが決まるが、召喚モブは召喚者のスキルレベルで決まる（{@link #summonedLevel}）。
+     * 距離計算を通した後で上書きするのでは {@code dimensions.<ENV>.coordinate-coefficient} が
+     * 効いてしまい、拠点で召喚したか遠征先で召喚したかで強さが変わってしまう。
+     */
+    private void applyStatsAtLevel(LivingEntity entity, int level,
+                                   DefenseStats physicalBase, DefenseStats magicalBase,
+                                   Double maxHealthBase, AttackStats attackBase,
+                                   MobLevelCoefficients coeffs, String source, double healthRatio,
+                                   MobTypesConfig.AttackPowerHighLevelPhase attackPowerHighLevel,
+                                   World.Environment environment, double distance) {
         double armorBase = physicalBase.armorStrength();
         DefenseStats physical = MobStatScaling.scaleDefense(
                 physicalBase, coeffs.physical(), armorBase, coeffs.armorStrength(), level);

@@ -101,6 +101,8 @@ public final class MobTypesConfig implements LoadableConfig {
     private volatile Map<World.Environment, Integer> dimensionBaseLevels = Map.of();
     /** {@code dimensions.<ENV>.coordinate-coefficient}(明示設定時のみ値を持つ、上書き用)。 */
     private volatile Map<World.Environment, Double> dimensionCoordinateCoefficients = Map.of();
+    /** {@code summoned:}。既定は無効(=召喚モブも従来どおり距離ベース)。 */
+    private volatile SummonedLevelPolicy summonedLevelPolicy = SummonedLevelPolicy.DISABLED;
     /** {@code mob-types.<TYPE>.level-coefficients.attack} の攻撃力 高レベル区間。未設定は {@link
      * AttackPowerHighLevelPhase#NONE}(=従来どおり無干渉)。 */
     private volatile Map<EntityType, AttackPowerHighLevelPhase> attackPowerHighLevels = Map.of();
@@ -254,6 +256,59 @@ public final class MobTypesConfig implements LoadableConfig {
         return value == null ? OptionalDouble.empty() : OptionalDouble.of(value);
     }
 
+    /**
+     * 召喚モブ({@code summoned:})のレベル決め。無効なら {@link SummonedLevelPolicy#DISABLED}。
+     *
+     * <p>召喚モブは「どこで召喚したか」ではなく「誰が召喚したか」で強さが決まるべき、というのが
+     * この設定の主旨。既定の距離ベース({@code coordinate-coefficient})のままだと、
+     * 拠点付近で召喚した使い魔は永久に Lv0 のままになる。
+     */
+    public SummonedLevelPolicy summonedLevelPolicy() {
+        return summonedLevelPolicy;
+    }
+
+    /**
+     * 召喚モブのレベルを召喚者のスキルレベルから決める規則({@code summoned:})。
+     *
+     * @param enabled            false なら召喚モブも従来どおり周囲のモブと同じ距離ベースで決まる
+     * @param skill              参照するスキルid(例 {@code ARS_MAGIC})
+     * @param levelPerSkillLevel 召喚者のスキルレベル1につき何レベル上げるか
+     * @param baseLevel          スキルレベル0でも保証する下駄
+     * @param maxLevel           上限(0以下なら {@link MobTypesConfig#maxLevel()} に従う)
+     */
+    public record SummonedLevelPolicy(boolean enabled, String skill, double levelPerSkillLevel,
+                                      int baseLevel, int maxLevel) {
+
+        public static final SummonedLevelPolicy DISABLED =
+                new SummonedLevelPolicy(false, "", 0.0, 0, 0);
+
+        /** 召喚者のスキルレベルから召喚モブのレベルを出す。{@code fallbackMax} は yml 未指定時の上限。 */
+        public int levelFor(int skillLevel, int fallbackMax) {
+            int raw = baseLevel + (int) Math.floor(Math.max(0, skillLevel) * levelPerSkillLevel);
+            int ceiling = maxLevel > 0 ? maxLevel : fallbackMax;
+            return Math.max(0, Math.min(raw, ceiling));
+        }
+    }
+
+    static SummonedLevelPolicy parseSummoned(ConfigurationSection root, Logger log) {
+        if (root == null) {
+            return SummonedLevelPolicy.DISABLED;
+        }
+        if (!root.getBoolean("enabled", false)) {
+            return SummonedLevelPolicy.DISABLED;
+        }
+        String skill = root.getString("skill", "").trim();
+        if (skill.isEmpty()) {
+            log.warning("[" + PATH + "] summoned.enabled=true なのに summoned.skill が空。"
+                    + "召喚モブのレベル決めを無効のままにします");
+            return SummonedLevelPolicy.DISABLED;
+        }
+        return new SummonedLevelPolicy(true, skill,
+                root.getDouble("level-per-skill-level", 1.0),
+                root.getInt("base-level", 0),
+                root.getInt("max-level", 0));
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -305,6 +360,8 @@ public final class MobTypesConfig implements LoadableConfig {
         this.defaultAttack = defaults.attack();
         this.defaultAttackPowerHighLevel = defaults.attackPowerHighLevel();
         this.maxLevel = parseMaxLevel(yaml, log);
+
+        this.summonedLevelPolicy = parseSummoned(yaml.getConfigurationSection("summoned"), log);
 
         DimensionOverridesResult dimensionOverrides = parseDimensions(yaml, log);
         this.dimensionBaseLevels = dimensionOverrides.baseLevels();

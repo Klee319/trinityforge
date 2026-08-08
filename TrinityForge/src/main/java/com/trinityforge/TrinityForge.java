@@ -1005,7 +1005,8 @@ public final class TrinityForge extends JavaPlugin {
         // scaling + extra drops, independent of the EliteMobs-keyed mob-profiles.yml system. The
         // spawn listener stamps the PDC profile; the drop listener rolls the extra drop table.
         getServer().getPluginManager().registerEvents(
-                new MobTypeSpawnListener(this, configManager.mobTypes(), configManager), this);
+                new MobTypeSpawnListener(this, configManager.mobTypes(), configManager,
+                        skillLevelSource), this);
         // 変身(ゾンビ→ドラウンド等)で PDC と MAX_HEALTH が完全に消えるのを埋める。
         // MobTypeSpawnListener より先(EntityTransformEvent は CreatureSpawnEvent の前)に走るので、
         // 引き継いだダンジョンテーマ等を同リスナーが見られる。
