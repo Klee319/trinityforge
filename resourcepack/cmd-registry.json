@@ -4875,6 +4875,180 @@
       "id": "source_gem_3x",
       "source": "materials",
       "allocatedAt": "2026-08-08T05:50:39.258Z"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5480,
+      "id": "dungeon_seal_enchant_trial_1",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_1",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5481,
+      "id": "dungeon_seal_enchant_trial_2",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_2",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5482,
+      "id": "dungeon_seal_enchant_trial_3",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_3",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5483,
+      "id": "dungeon_seal_enchant_trial_4",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_4",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5484,
+      "id": "dungeon_seal_enchant_trial_5",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_5",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5485,
+      "id": "dungeon_seal_enchant_trial_6",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_6",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5486,
+      "id": "dungeon_seal_enchant_trial_7",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_7",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5487,
+      "id": "dungeon_seal_enchant_trial_8",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_8",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5488,
+      "id": "dungeon_seal_enchant_trial_9",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_9",
+      "parent": "generated"
+    },
+    {
+      "material": "BRICK",
+      "cmd": 5489,
+      "id": "dungeon_seal_enchant_trial_10",
+      "source": "materials",
+      "allocatedAt": "2026-08-08T06:16:53.581Z",
+      "assetName": "dungeon_seal_enchant_trial_10",
+      "parent": "generated"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5520,
+      "id": "key_enchant_trial_1",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5521,
+      "id": "key_enchant_trial_2",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5522,
+      "id": "key_enchant_trial_3",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5523,
+      "id": "key_enchant_trial_4",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5524,
+      "id": "key_enchant_trial_5",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5525,
+      "id": "key_enchant_trial_6",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5526,
+      "id": "key_enchant_trial_7",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5527,
+      "id": "key_enchant_trial_8",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5528,
+      "id": "key_enchant_trial_9",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5529,
+      "id": "key_enchant_trial_10",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5530,
+      "id": "key_hallosseum",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "TRIAL_KEY",
+      "cmd": 5531,
+      "id": "key_north_pole",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T06:16:53.581Z"
     }
   ]
 }

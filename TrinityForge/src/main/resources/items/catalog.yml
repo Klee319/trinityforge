@@ -5767,10 +5767,10 @@ items:
     lore:
       - ""
       - <dark_gray><italic>熱を帯びていないと、錠前の側が凍りついて回らない。</italic></dark_gray>
-  key_enchant_trial:
+  key_enchant_trial_1:
     material: TRIAL_KEY
-    display-name: <color:#7e57c2>エンチャント試練の鍵</color>
-    custom-model-data: 5505
+    display-name: <color:#d1c4e9>エンチャント試練1の鍵</color>
+    custom-model-data: 5520
     recipe:
       method: workbench
       type: shapeless
@@ -5788,6 +5788,196 @@ items:
     lore:
       - ""
       - <dark_gray><italic>綴じた頁の間に、通行の許可が挟んである。</italic></dark_gray>
+  key_enchant_trial_2:
+    material: TRIAL_KEY
+    display-name: <color:#b39ddb>エンチャント試練2の鍵</color>
+    custom-model-data: 5521
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_1
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - BOOK
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>二重に封をした頁が、より深い試練を示す。</italic></dark_gray>
+  key_enchant_trial_3:
+    material: TRIAL_KEY
+    display-name: <color:#9575cd>エンチャント試練3の鍵</color>
+    custom-model-data: 5522
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_2
+        - LAPIS_BLOCK
+        - LAPIS_BLOCK
+        - BOOK
+        - BOOK
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>頁の重みが増し、綴じ目がわずかに軋む。</italic></dark_gray>
+  key_enchant_trial_4:
+    material: TRIAL_KEY
+    display-name: <color:#7e57c2>エンチャント試練4の鍵</color>
+    custom-model-data: 5523
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_3
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+        - DIAMOND
+        - DIAMOND
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>経験の雫が頁に染み込み、鍵の芯まで満たしていく。</italic></dark_gray>
+  key_enchant_trial_5:
+    material: TRIAL_KEY
+    display-name: <color:#673ab7>エンチャント試練5の鍵</color>
+    custom-model-data: 5524
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_4
+        - DIAMOND
+        - DIAMOND
+        - DIAMOND
+        - EMERALD
+        - EMERALD
+        - EMERALD
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>ダイヤモンドの粉末が装丁に埋め込まれ、鍵自体が光を帯びる。</italic></dark_gray>
+  key_enchant_trial_6:
+    material: TRIAL_KEY
+    display-name: <color:#5e35b1>エンチャント試練6の鍵</color>
+    custom-model-data: 5525
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_5
+        - EMERALD
+        - EMERALD
+        - EMERALD
+        - EMERALD
+        - NETHERITE_SCRAP
+        - NETHERITE_SCRAP
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>エメラルドの緑が、ページの奥で脈動している。</italic></dark_gray>
+  key_enchant_trial_7:
+    material: TRIAL_KEY
+    display-name: <color:#512da8>エンチャント試練7の鍵</color>
+    custom-model-data: 5526
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_6
+        - NETHERITE_SCRAP
+        - NETHERITE_SCRAP
+        - NETHERITE_SCRAP
+        - ANCIENT_DEBRIS
+        - ANCIENT_DEBRIS
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>ネザーの残滓が鍵の輪郭を焦がし、扉の抵抗を弱める。</italic></dark_gray>
+  key_enchant_trial_8:
+    material: TRIAL_KEY
+    display-name: <color:#4527a0>エンチャント試練8の鍵</color>
+    custom-model-data: 5527
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_7
+        - ANCIENT_DEBRIS
+        - ANCIENT_DEBRIS
+        - ANCIENT_DEBRIS
+        - GLOWSTONE
+        - GLOWSTONE
+        - GLOWSTONE
+        - custom:source_gem
+        - custom:source_gem
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>古代の残骸が芯に埋め込まれ、試練の重さそのものになった。</italic></dark_gray>
+  key_enchant_trial_9:
+    material: TRIAL_KEY
+    display-name: <color:#311b92>エンチャント試練9の鍵</color>
+    custom-model-data: 5528
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_8
+        - NETHERITE_INGOT
+        - NETHERITE_INGOT
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - EXPERIENCE_BOTTLE
+        - EXPERIENCE_BOTTLE
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>ネザライトの重みが手に食い込む。もう引き返せない。</italic></dark_gray>
+  key_enchant_trial_10:
+    material: TRIAL_KEY
+    display-name: <gradient:#1a0033:#ffd700:#1a0033>エンチャント試練10の鍵</gradient>
+    custom-model-data: 5529
+    enchant-glow: true
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - custom:key_enchant_trial_9
+        - NETHERITE_INGOT
+        - NETHERITE_INGOT
+        - NETHERITE_INGOT
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - custom:source_gem
+        - ECHO_SHARD
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>頁の果てに残ったのは、金色に輝く最後の綴じ目だけだった。</italic></dark_gray>
   key_bridge:
     material: TRIAL_KEY
     display-name: <color:#8d6e63>古橋の聖所の鍵</color>
@@ -5865,6 +6055,48 @@ items:
     lore:
       - ""
       - <dark_gray><italic>火薬の匂いが染みついて落ちない。</italic></dark_gray>
+  key_hallosseum:
+    material: TRIAL_KEY
+    display-name: <color:#ff7f27>ハロウィン闘技場の鍵</color>
+    custom-model-data: 5530
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - CARVED_PUMPKIN
+        - CARVED_PUMPKIN
+        - JACK_O_LANTERN
+        - JACK_O_LANTERN
+        - ROTTEN_FLESH
+        - ROTTEN_FLESH
+        - ROTTEN_FLESH
+        - BONE
+        - BONE
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>くり抜かれた顔の中で、闘技場の観客がまだ笑っている。</italic></dark_gray>
+  key_north_pole:
+    material: TRIAL_KEY
+    display-name: <color:#4fc3f7>北極ミニダンジョンの鍵</color>
+    custom-model-data: 5531
+    recipe:
+      method: workbench
+      type: shapeless
+      ingredients:
+        - PACKED_ICE
+        - PACKED_ICE
+        - PACKED_ICE
+        - BLUE_ICE
+        - BLUE_ICE
+        - SNOW_BLOCK
+        - SNOW_BLOCK
+        - WHITE_WOOL
+        - WHITE_WOOL
+      amount: 1
+    lore:
+      - ""
+      - <dark_gray><italic>握ると手が冷たくなるのに、決して溶けない。</italic></dark_gray>
   key_binder:
     material: TRIAL_KEY
     display-name: <gradient:#1b1b3a:#b388ff:#1b1b3a>世界を繋ぐ者の鍵</gradient>
@@ -7344,7 +7576,16 @@ _editor:
           - key_deep_mines
           - key_quarry
           - key_cave
-          - key_enchant_trial
+          - key_enchant_trial_1
+          - key_enchant_trial_2
+          - key_enchant_trial_3
+          - key_enchant_trial_4
+          - key_enchant_trial_5
+          - key_enchant_trial_6
+          - key_enchant_trial_7
+          - key_enchant_trial_8
+          - key_enchant_trial_9
+          - key_enchant_trial_10
           - key_bridge
           - key_city
           - key_steamworks
@@ -7356,6 +7597,8 @@ _editor:
           - key_nether_bell
           - key_nether_wastes
           - key_fireworks
+          - key_hallosseum
+          - key_north_pole
           - key_binder
   orders:
     weapon:
@@ -7678,7 +7921,16 @@ _editor:
       - key_deep_mines
       - key_quarry
       - key_cave
-      - key_enchant_trial
+      - key_enchant_trial_1
+      - key_enchant_trial_2
+      - key_enchant_trial_3
+      - key_enchant_trial_4
+      - key_enchant_trial_5
+      - key_enchant_trial_6
+      - key_enchant_trial_7
+      - key_enchant_trial_8
+      - key_enchant_trial_9
+      - key_enchant_trial_10
       - key_bridge
       - key_city
       - key_steamworks
@@ -7690,6 +7942,8 @@ _editor:
       - key_nether_bell
       - key_nether_wastes
       - key_fireworks
+      - key_hallosseum
+      - key_north_pole
       - key_binder
   itemTabs:
     # ダンジョンの鍵 17種: 表示タブを key(素材画面の「鍵」カテゴリ)へ固定する。
@@ -7699,7 +7953,16 @@ _editor:
     key_deep_mines: key
     key_quarry: key
     key_cave: key
-    key_enchant_trial: key
+    key_enchant_trial_1: key
+    key_enchant_trial_2: key
+    key_enchant_trial_3: key
+    key_enchant_trial_4: key
+    key_enchant_trial_5: key
+    key_enchant_trial_6: key
+    key_enchant_trial_7: key
+    key_enchant_trial_8: key
+    key_enchant_trial_9: key
+    key_enchant_trial_10: key
     key_bridge: key
     key_city: key
     key_steamworks: key
@@ -7711,6 +7974,8 @@ _editor:
     key_nether_bell: key
     key_nether_wastes: key
     key_fireworks: key
+    key_hallosseum: key
+    key_north_pole: key
     key_binder: key
     spell_book_novice: spellbook
     spell_book_apprentice: spellbook

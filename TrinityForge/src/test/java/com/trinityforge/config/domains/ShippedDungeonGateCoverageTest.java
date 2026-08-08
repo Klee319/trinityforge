@@ -69,7 +69,18 @@ class ShippedDungeonGateCoverageTest {
         EXPECTED_KEYS.put("em_id_the_deep_mines", "key_deep_mines");
         EXPECTED_KEYS.put("em_id_the_quarry", "key_quarry");
         EXPECTED_KEYS.put("em_id_the_cave", "key_cave");
-        EXPECTED_KEYS.put("em_id_enchantment_challenge_10", "key_enchant_trial");
+        // 2026-08-08: key_enchant_trial(単一)を廃止し、エンチャント試練1〜10へ鍵を1本ずつ割り当てた
+        // (旧: em_id_enchantment_challenge_10 だけが key_enchant_trial を要求し、1〜9は鍵なしだった)。
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_1", "key_enchant_trial_1");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_2", "key_enchant_trial_2");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_3", "key_enchant_trial_3");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_4", "key_enchant_trial_4");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_5", "key_enchant_trial_5");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_6", "key_enchant_trial_6");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_7", "key_enchant_trial_7");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_8", "key_enchant_trial_8");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_9", "key_enchant_trial_9");
+        EXPECTED_KEYS.put("em_id_enchantment_challenge_10", "key_enchant_trial_10");
         EXPECTED_KEYS.put("em_id_the_bridge", "key_bridge");
         EXPECTED_KEYS.put("em_id_the_city", "key_city");
         EXPECTED_KEYS.put("em_steamworks_lair", "key_steamworks");
@@ -182,7 +193,7 @@ class ShippedDungeonGateCoverageTest {
     }
 
     @Test
-    @DisplayName("設計書 §1-1 の鍵配分どおりに鍵が置かれている(19種・重複なし)")
+    @DisplayName("設計書 §1-1 の鍵配分どおりに鍵が置かれている(28種・重複なし)")
     void designatedDungeonsCarryTheirDesignatedKey() {
         ConfigurationSection gates = gates();
         Set<String> seen = new HashSet<>();
@@ -200,7 +211,7 @@ class ShippedDungeonGateCoverageTest {
     }
 
     @Test
-    @DisplayName("鍵を持つゲートは配分表の19件だけ(勝手に増えると入場経路が閉じる)")
+    @DisplayName("鍵を持つゲートは配分表の28件だけ(勝手に増えると入場経路が閉じる)")
     void onlyDesignatedDungeonsRequireAKey() {
         ConfigurationSection gates = gates();
         List<String> keyed = new ArrayList<>();

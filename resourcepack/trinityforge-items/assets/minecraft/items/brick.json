@@ -106,13 +106,6 @@
         }
       },
       {
-        "threshold": 5475,
-        "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/dungeon_seal_enchant_trial"
-        }
-      },
-      {
         "threshold": 5476,
         "model": {
           "type": "minecraft:model",
@@ -138,6 +131,76 @@
         "model": {
           "type": "minecraft:model",
           "model": "trinityforge:item/dungeon_seal_binder"
+        }
+      },
+      {
+        "threshold": 5480,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_1"
+        }
+      },
+      {
+        "threshold": 5481,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_2"
+        }
+      },
+      {
+        "threshold": 5482,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_3"
+        }
+      },
+      {
+        "threshold": 5483,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_4"
+        }
+      },
+      {
+        "threshold": 5484,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_5"
+        }
+      },
+      {
+        "threshold": 5485,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_6"
+        }
+      },
+      {
+        "threshold": 5486,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_7"
+        }
+      },
+      {
+        "threshold": 5487,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_8"
+        }
+      },
+      {
+        "threshold": 5488,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_9"
+        }
+      },
+      {
+        "threshold": 5489,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/dungeon_seal_enchant_trial_10"
         }
       }
     ]

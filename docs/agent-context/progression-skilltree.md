@@ -494,6 +494,29 @@ abyss_* 13件 + binder_* 17件 = 30件で実際に発生）。対策は `Collect
 `CrossPluginItemResolver#isDraft`（`itemResolver` 注入時のみ判定可、未注入なら fail-open で
 従来どおり含める）で弾くこと。`collection.yml` 自体は触らなくてよい（触るべきでもない）。
 
+### ⚠️ ダンジョンの鍵/印をID分割・追加したら、yml だけでなく `Shipped*` テストの固定値も一緒に直す
+
+`ShippedDungeonKeyReachabilityTest`/`ShippedDungeonGateCoverageTest`（`config/domains/`）は
+「鍵の総数」「CMD範囲（例: 5501-5519）」「配分表（`EXPECTED_KEYS`）」「未定義許可リスト
+（`INTENTIONALLY_UNDEFINED`）」を**具体的な件数・範囲としてJavaコードにハードコード**している。
+鍵1本を複数本へ分割したり（2026-08-08、`key_enchant_trial` → `_1`〜`_10`）、以前「入手経路が無い」として
+除外していたIDに後からレシピを足した場合（`key_hallosseum`/`key_north_pole`）、yml側だけ直しても
+この2テストは古い固定値のまま**確実に落ちる**。これは「テストを通すための書き換え」ではなく、
+分割/追加という設計変更そのものが固定値の前提を壊すので、**yml変更と同じ作業内で件数・CMD範囲・
+配分表・除外リストも更新すること**。`material-lists.yml` の `dungeon_seals` と `collection.yml` の
+印一覧は完全一致が必須（`ShippedDungeonKeyReachabilityTest`が動的に比較するので、双方を同じ件数
+だけ増減させれば固定値の更新は不要）。
+
+### `dungeon/gates.yml` の作業ツリー版が git HEAD より件数が少ないことがある（無関係な既存drift）
+
+2026-08-08時点、`dungeon/gates.yml` の HEAD（コミット済み、commit `c655349`）には EliteMobs 同梱
+ダンジョン61件全部が列挙されているが、**作業ツリー（未コミット）は28件だけの縮小版**になっていた
+（別セッションの未コミットWIPと思われ、理由不明）。`ShippedDungeonGateCoverageTest`のledger
+（`tools/config-editor/public/data/elitemobs-dungeons.json`）網羅チェックは、HEADの61件版なら通るが
+作業ツリーの28件版では33件不足で確実に落ちる。**これは鍵/印の分割作業とは無関係の既存drift**なので、
+このテストの失敗を見ても自分の変更を疑う前に `git log --oneline -- dungeon/gates.yml` と
+ledgerの件数（`node -e`で`dungeons.filter(d=>d.package).length`）を比較すること。
+
 ### アチーブメントの整合性は `ShippedAchievementTreeTest` が機械で縛っている
 
 このファイルの間違いは**どれも起動時の警告1行で済み、ゲーム内では「そのノードが無いだけ」に

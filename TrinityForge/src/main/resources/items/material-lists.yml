@@ -33,12 +33,16 @@ lists:
       - COBBLED_DEEPSLATE
       - BLACKSTONE
   # ---- 2026-08-01 追加 ----
-  # 各ダンジョンの最終ボスが確定ドロップする「踏破の証」19種。key_binder のレシピが
-  # list:dungeon_seals を5個要求することで、用途ゼロだった印18種に一斉に出口ができる。
-  # 「19種すべて」ではなく「任意5種」にしてあるので、どのダンジョンから攻めても到達できる。
+  # 各ダンジョンの最終ボスが確定ドロップする「踏破の証」。key_binder のレシピが
+  # list:dungeon_seals を5個要求することで、用途ゼロだった印に一斉に出口ができる。
+  # 「全種すべて」ではなく「任意5種」にしてあるので、どのダンジョンから攻めても到達できる。
   # 印そのものは ArsPaper 側 materials.yml 定義(このリポジトリには存在しない)なので custom: で参照する。
   # 増減させるときは progression/collection.yml の dungeon_seal 一覧と必ず揃えること
   # (ShippedDungeonKeyReachabilityTest が食い違いを落とす)。
+  # ---- 2026-08-08 更新 ----
+  # dungeon_seal_enchant_trial(単一・旧CMD 5475)を廃止し、エンチャント試練1〜10に対応する
+  # dungeon_seal_enchant_trial_1〜_10(計10種)へ分割した(旧鍵 key_enchant_trial の10分割と対応)。
+  # 印の実体定義は ArsPaper 側の担当が別途行うため、ここは参照IDの更新のみ。合計28種。
   dungeon_seals:
     label: ダンジョンの印
     materials:
@@ -56,7 +60,16 @@ lists:
       - custom:dungeon_seal_nether_bell
       - custom:dungeon_seal_nether_wastes
       - custom:dungeon_seal_dark_cathedral
-      - custom:dungeon_seal_enchant_trial
+      - custom:dungeon_seal_enchant_trial_1
+      - custom:dungeon_seal_enchant_trial_2
+      - custom:dungeon_seal_enchant_trial_3
+      - custom:dungeon_seal_enchant_trial_4
+      - custom:dungeon_seal_enchant_trial_5
+      - custom:dungeon_seal_enchant_trial_6
+      - custom:dungeon_seal_enchant_trial_7
+      - custom:dungeon_seal_enchant_trial_8
+      - custom:dungeon_seal_enchant_trial_9
+      - custom:dungeon_seal_enchant_trial_10
       - custom:dungeon_seal_fireworks
       - custom:dungeon_seal_hallosseum
       - custom:dungeon_seal_north_pole

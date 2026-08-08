@@ -57,9 +57,15 @@ class ShippedDungeonKeyReachabilityTest {
             "src/main/resources/stats/fishing-gimmick.yml",
             "src/main/resources/gacha.yml");
 
-    /** 設計上は19種だが、ルートチェスト機構が無く入手経路を用意できない2種は未定義のまま。 */
-    private static final Set<String> INTENTIONALLY_UNDEFINED =
-            Set.of("key_hallosseum", "key_north_pole");
+    /**
+     * 意図的に未定義のまま残す鍵ID(現在は0件)。
+     *
+     * <p>※2026-08-08訂正: 以前は {@code key_hallosseum}/{@code key_north_pole} が
+     * 「ルートチェスト機構が無く入手経路を用意できない」として未定義のままここに列挙されていたが、
+     * この2種にも workbench レシピを追加したため定義済みになった。今後また入手経路を用意できない
+     * 鍵が出た場合はここへ追加すること。
+     */
+    private static final Set<String> INTENTIONALLY_UNDEFINED = Set.of();
 
     @BeforeEach
     void setUp() {
@@ -94,7 +100,7 @@ class ShippedDungeonKeyReachabilityTest {
     }
 
     @Test
-    @DisplayName("key_* は TRIAL_KEY ベースで CMD が 5501-5519 に収まり重複しない")
+    @DisplayName("key_* は TRIAL_KEY ベースで CMD が 5501-5531 に収まり重複しない")
     void dungeonKeysShareBaseMaterialAndHaveUniqueModelData() {
         ConfigurationSection items = catalogItems();
         Map<Integer, String> seen = new LinkedHashMap<>();
@@ -110,8 +116,8 @@ class ShippedDungeonKeyReachabilityTest {
                     key + " の material が解決できない");
 
             int cmd = entry.getInt("custom-model-data", -1);
-            assertTrue(cmd >= 5501 && cmd <= 5519,
-                    key + " の custom-model-data " + cmd + " が鍵用に確保した 5501-5519 の外にある");
+            assertTrue(cmd >= 5501 && cmd <= 5531,
+                    key + " の custom-model-data " + cmd + " が鍵用に確保した 5501-5531 の外にある");
             String previous = seen.put(cmd, key);
             assertTrue(previous == null,
                     "custom-model-data " + cmd + " が " + previous + " と " + key + " で重複している"
@@ -134,16 +140,16 @@ class ShippedDungeonKeyReachabilityTest {
                 continue;
             }
             int cmd = entry.getInt("custom-model-data", -1);
-            if (cmd >= 5501 && cmd <= 5519) {
+            if (cmd >= 5501 && cmd <= 5531) {
                 collisions.add(id + "(CMD " + cmd + ")");
             }
         }
         assertTrue(collisions.isEmpty(),
-                "鍵用に確保した CMD 5501-5519 を鍵以外のアイテムが使っている: " + collisions);
+                "鍵用に確保した CMD 5501-5531 を鍵以外のアイテムが使っている: " + collisions);
     }
 
     @Test
-    @DisplayName("互換リスト dungeon_seals は collection.yml の印19種と完全に一致する")
+    @DisplayName("互換リスト dungeon_seals は collection.yml の印28種と完全に一致する")
     void dungeonSealsListMatchesCollectionEntries() {
         Set<String> listMembers = new TreeSet<>();
         ConfigurationSection seals = materialLists().getConfigurationSection("dungeon_seals");
@@ -177,7 +183,7 @@ class ShippedDungeonKeyReachabilityTest {
         long seals = ingredients.stream().filter("list:dungeon_seals"::equals).count();
         assertEquals(5, seals,
                 "key_binder が要求する印の数が5個ではない。"
-                        + "19種すべてを要求すると『名目上の第1目標が実際は最後に解ける』構造に戻る");
+                        + "全種すべてを要求すると『名目上の第1目標が実際は最後に解ける』構造に戻る");
         assertTrue(ingredients.size() <= 9,
                 "shapeless レシピの素材が9個を超えている(作業台に並べきれず登録が落ちる): "
                         + ingredients.size());

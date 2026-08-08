@@ -197,19 +197,21 @@ gates:
     aliases:
       - craftenmines_lab_sanctum.yml
 
-  # エンチャント試練 1 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 1 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_1 (入手: クラフト)
   em_id_enchantment_challenge_1:
     display-name: "エンチャント試練 1"
     required-combat-level: 0
+    key-item: key_enchant_trial_1
+    key-amount: 1
     content-package: enchantment_challenge_1_sanctum
     aliases:
       - enchantment_challenge_1_sanctum.yml
 
-  # エンチャント試練 10 — INSTANCED_DUNGEON / 鍵: key_enchant_trial (入手: クラフト)
+  # エンチャント試練 10 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_10 (入手: クラフト)
   em_id_enchantment_challenge_10:
     display-name: "エンチャント試練 10"
     required-combat-level: 0
-    key-item: key_enchant_trial
+    key-item: key_enchant_trial_10
     key-amount: 1
     content-package: enchantment_challenge_10_sanctum
     aliases:
@@ -287,10 +289,12 @@ gates:
     aliases:
       - enchantment_challenge_19_sanctum.yml
 
-  # エンチャント試練 2 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 2 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_2 (入手: クラフト)
   em_id_enchantment_challenge_2:
     display-name: "エンチャント試練 2"
     required-combat-level: 0
+    key-item: key_enchant_trial_2
+    key-amount: 1
     content-package: enchantment_challenge_2_sanctum
     aliases:
       - enchantment_challenge_2_sanctum.yml
@@ -303,58 +307,72 @@ gates:
     aliases:
       - enchantment_challenge_20_sanctum.yml
 
-  # エンチャント試練 3 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 3 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_3 (入手: クラフト)
   em_id_enchantment_challenge_3:
     display-name: "エンチャント試練 3"
     required-combat-level: 0
+    key-item: key_enchant_trial_3
+    key-amount: 1
     content-package: enchantment_challenge_3_sanctum
     aliases:
       - enchantment_challenge_3_sanctum.yml
 
-  # エンチャント試練 4 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 4 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_4 (入手: クラフト)
   em_id_enchantment_challenge_4:
     display-name: "エンチャント試練 4"
     required-combat-level: 0
+    key-item: key_enchant_trial_4
+    key-amount: 1
     content-package: enchantment_challenge_4_sanctum
     aliases:
       - enchantment_challenge_4_sanctum.yml
 
-  # エンチャント試練 5 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 5 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_5 (入手: クラフト)
   em_id_enchantment_challenge_5:
     display-name: "エンチャント試練 5"
     required-combat-level: 0
+    key-item: key_enchant_trial_5
+    key-amount: 1
     content-package: enchantment_challenge_5_sanctum
     aliases:
       - enchantment_challenge_5_sanctum.yml
 
-  # エンチャント試練 6 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 6 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_6 (入手: クラフト)
   em_id_enchantment_challenge_6:
     display-name: "エンチャント試練 6"
     required-combat-level: 0
+    key-item: key_enchant_trial_6
+    key-amount: 1
     content-package: enchantment_challenge_6_sanctum
     aliases:
       - enchantment_challenge_6_sanctum.yml
 
-  # エンチャント試練 7 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 7 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_7 (入手: クラフト)
   em_id_enchantment_challenge_7:
     display-name: "エンチャント試練 7"
     required-combat-level: 0
+    key-item: key_enchant_trial_7
+    key-amount: 1
     content-package: enchantment_challenge_7_sanctum
     aliases:
       - enchantment_challenge_7_sanctum.yml
 
-  # エンチャント試練 8 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 8 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_8 (入手: クラフト)
   em_id_enchantment_challenge_8:
     display-name: "エンチャント試練 8"
     required-combat-level: 0
+    key-item: key_enchant_trial_8
+    key-amount: 1
     content-package: enchantment_challenge_8_sanctum
     aliases:
       - enchantment_challenge_8_sanctum.yml
 
-  # エンチャント試練 9 — INSTANCED_DUNGEON / 鍵なし(素通り)
+  # エンチャント試練 9 — INSTANCED_DUNGEON / 鍵: key_enchant_trial_9 (入手: クラフト)
   em_id_enchantment_challenge_9:
     display-name: "エンチャント試練 9"
     required-combat-level: 0
+    key-item: key_enchant_trial_9
+    key-amount: 1
     content-package: enchantment_challenge_9_sanctum
     aliases:
       - enchantment_challenge_9_sanctum.yml
