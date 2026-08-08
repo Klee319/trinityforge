@@ -164,6 +164,37 @@ Main_Server を再起動するまでプレイヤーには旧パックが配ら�
 **⚠ 並行作業の衝突**: 2026-08-08 時点で**別セッションが fork の `sourcelinks.yml` を編集中**（階梯 V の台座を x8→x7）。
 `materials.yml` / `items.yml` にも未コミット変更がある。ソース階梯まわりを触るときは先に `git status` を見ること。
 
+### 2026-08-08 エディタ 3 件・圧縮追加・儀式の台座超過・鍵と印の 10 分割・スレッドの説明
+
+ユーザー報告 10 件のバッチ。commit は `fa08a3e` / `9b1e7d4` / `40a4457`。
+
+| # | 内容 | 状態 |
+|---|---|---|
+| ~~**B-1**~~ | ~~カタログ追加時の CMD が 0 になり一括採番の対象外~~ | **修正済み（`fa08a3e`）。** 素材／魔導書の新規追加が `custom_model_data: 0` を seed していた。CMD 欄を空にしたときも 0 でなく未設定へ戻すようにした。**0 は「未設定」ではなく「CMD 0 に登録」なので、テクスチャも CMD 0 へ配線される** |
+| ~~**B-2**~~ | ~~新規カタログ品がレシピのセレクトに出ない~~ | **修正済み（`fa08a3e`）。** 真因は**素材画面が `custom:` 候補を登録していなかった**こと。`app.js` は画面を開いた時点の materials.yml しか積まないので、その場で追加した素材は候補に現れない。カタログ画面と同じく描画ごとに `setCustomItemCandidates` を呼ぶようにした |
+| ~~**B-3**~~ | ~~「解凍を許可」が保存＋リロードまで押せない~~ | **修正済み（`fa08a3e`）。** 可否をカード描画時に 1 度しか計算しておらず、**素材欄の変更は再描画を呼ばない**（呼ぶと入力フォーカスが飛ぶ）ので固まっていた。素材欄の onChange で可否だけ再計算する |
+| ~~**B-4**~~ | ~~圧縮段の追加（サクラ 729 倍／花崗岩・閃緑岩・安山岩 6561 倍／ソースジェム・アメジスト 729 倍）~~ | **完了（`fa08a3e`）。** 18 件追加。ソースジェムは既存段が無いので `source_gem_1x/2x/3x` を新設 |
+| ~~**B-5**~~ | ~~ダンジョンの印のテクスチャがエディタで未割り当て~~ | **修正済み（`fa08a3e`）。** 台帳 `cmd-registry.json` の BRICK#5461-5479 に `assetName` が無く、`previewInfo` / `regenerateItemDefinitions` の配線判定に到達していなかった。**同じ理由で `assets/minecraft/items/brick.json` が再生成のたびに消えていた** |
+| ~~**B-6**~~ | ~~儀式レシピが台座 16 個を超えていないか~~ | **9 件が超過していた。全件修正済み（`fa08a3e`）。** 台座リングは `max(\|x\|,\|z\|)==2` の **16 マスしかない**ので、17 個以上を要求するレシピは**警告も出ずに永久にクラフト不可**。TF 4 件（19 個）＋ Ars ソースリンク V 5 件（18 個）。**数え方の罠**: `pedestal-items` の行数ではなく `xN` を展開した合計が台座数なので、行数で見る検査は 3 行に見えて素通りする。回帰は `ritual-pedestal-capacity-2026-08-08.test.js` |
+| ~~**B-7**~~ | ~~エンチャント試練の鍵と印を 1〜10 へ分割~~ | **完了（`9b1e7d4`）。** `key_enchant_trial`（単一）を廃止し `key_enchant_trial_1`〜`_10`（TRIAL_KEY#5520-5529）へ。レシピは「前段の鍵 1 個＋追加素材」の鎖状進行。印も `dungeon_seal_enchant_trial_1`〜`_10`（BRICK#5480-5489）へ分割し、テクスチャは既存の絵を 10 種で共有（ユーザー選択） |
+| ~~**B-8**~~ | ~~上記の鍵をダンジョンゲートへ登録~~ | **完了（`9b1e7d4`）。** `em_id_enchantment_challenge_1`〜`_9` は `key-item` 自体が無く、`_10` だけが旧鍵を指していた |
+| ~~**B-9**~~ | ~~ゲートが要求するのにカタログに無い鍵~~ | **完了（`9b1e7d4`）。** `key_hallosseum` / `key_north_pole` が未定義で、鍵ゲートが `CrossPluginItemResolver` の fail-open により**素通り**になっていた。TRIAL_KEY#5530-5531 で登録しレシピも付けた。`ShippedDungeonKeyReachabilityTest` の `INTENTIONALLY_UNDEFINED` は空集合になり検査はむしろ厳しくなった |
+| ~~**B-10**~~ | ~~スレッドの説明をフレーバー以外全削除~~ | **完了（`40a4457`）。** catalog.yml の `thread_*` 44 件を `[フレーバー / 空行 / 「防具のスレッドスロットにセット可能」]` の 3 行へ。`thread_mana_regen` はフレーバー行を持たないので据え置き。あわせて **ArsPaper の `threads.yml` からも `lore:` 29 件を削除**（フォークは `.gitignore` 除外なので commit には出ない）。**⚠ threads.yml の lore は `thread-sets.yml` のセット効果を説明する唯一の経路**（`ThreadConfig#getEffectLore` の末尾でそのまま出していた）だったので、**セット効果はゲーム内に一切表示が無くなった** |
+
+**⚠ CMD 台帳が「番号を再利用しない」規約を満たしていない**:
+`tools/config-editor/lib/cmd-registry.js` の `reconcileWithUsage` は**現在の config が参照している行だけ**で台帳を組み直すため、
+editor の保存のたび（`cmd-routes.js#syncCmdRegistryAfterSave` → `server.js:707`）に「config から消えた行」が台帳から落ちる。
+`nextCmd` は台帳の使用済み集合しか避けないので**落ちた番号は再び配られる**。刈り取りは意図的で
+`cmd-registry.test.js:268` が明示的に固定しているが、`CLAUDE.md` の「CMD の永続台帳。番号を再利用しない」と矛盾する。
+実害: 先に採番した TRIAL_KEY#5520-5531 の 12 行が catalog.yml へ書かれる前に消えた。退役した BRICK#5475 も番号ごと開放された。
+`plank_scrap` / `tf_gacha_ticket` / `hoglin_tusk` の消失も同じ機構。**どちらを正とするか未決**。
+
+**⚠ `dungeon/gates.yml` が HEAD より 33 ダンジョン少ない**: HEAD（`c655349` 以来）は EliteMobs 同梱 61 件を列挙しているが、
+作業ツリーは 28 件の縮小版（別セッションの未コミット WIP、ユーザー確認済みで「問題ない」）。
+**入場そのものは塞がれない**（`DungeonGateService#checkEntry` はゲート未登録なら `true` を返す fail-open）が、
+`hasEntryGate` を見る EliteMobs のダンジョンブラウザ経路は**ゲート未登録を拒否する**ので、
+その 33 件は `/em dungeontp` からは入れない。`ShippedDungeonGateCoverageTest` の網羅 2 件はこの差で落ち続ける。
+
 ### 2026-08-07 W-36（トライデント・槍が三人称で 2D）を配信 zip へ入れ直した
 
 **ソースは 08-05 の時点で既に正しく、腐っていたのは配信 zip だけ**だったので、
