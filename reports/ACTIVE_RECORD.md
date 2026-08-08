@@ -284,6 +284,27 @@ editor の保存のたび（`cmd-routes.js#syncCmdRegistryAfterSave` → `server
 `hasEntryGate` を見る EliteMobs のダンジョンブラウザ経路は**ゲート未登録を拒否する**ので、
 その 33 件は `/em dungeontp` からは入れない。`ShippedDungeonGateCoverageTest` の網羅 2 件はこの差で落ち続ける。
 
+### 2026-08-08 スレッド効果・入力欄のフォーカス飛び・スクラップ変換・圧縮木材／ご飯（C-1〜C-5）
+
+ユーザー報告 5 件。commit は `2ab7498` / `0b23802` / `fb64318` / `9c68ac9`、fork（ArsPaper）は `ff3f201`。
+
+| # | 内容 | 状態 |
+|---|---|---|
+| ~~**C-5**~~ | ~~スレッドの効果がステータス設定から選べない／レベルを引数で取れない~~ | **完了（`0b23802` ＋ fork `ff3f201`）。真因は 2 段。** ①`item-stats.yml` 側にあった「特殊効果」欄は**読むコードがどこにも無い飾り**だった（TF 本体・フォークとも参照ゼロ、出荷データも 0 件）。実際に効くのは ArsPaper の `threads.yml`。②その `threads.yml` を編集する `thread-bundle` 分割ビューは**読み込み経路も保存経路も実装済みなのに、それを指すナビ項目がどこにも無く一度も開けなかった**。`potion-effect` / `potion-level` / `flight` / `slots` を config 化（従来はポーション効果が `ThreadType` の enum 決め打ち、振幅は 0 固定）し、「アイテムステータス」へ **「スレッド効果 (Ars)」** の導線を新設。効果は有益系 18 種＋「なし」から選べる。`ArmorManaListener` の `THREAD_POTION_TYPES` 静的配列は廃止し `ThreadConfig#allPotionTypes`（enum 既定 ∪ yml 上書き）を走査する。**同じ効果をより強い振幅で既に持っている場合は上書きしない**。実機（`localhost:8787`）でサイドバーから開いて確認済み |
+| ~~**C-4**~~ | ~~鍛冶ギミックの対象 ID 欄が 1 文字ごとに入力状態が切れる~~ | **修正済み（`2ab7498`）。** `window.textInput` は **`oninput`＝1 文字ごと**に発火する。対象 ID は `disassembly.items` の**マップキー**なので変更＝`renameKey`→再描画が必須で、入力欄そのものが毎文字作り直されていた（途中状態の `c` / `co` / `cop` … というキーまで作っていた）。確定時のみ発火する `window.textInputOnCommit`（`onchange`）を新設して差し替え。同種の箇所が `ars-p4.js` にもあり同時修正。回帰は `text-input-focus-loss-2026-08-08.test.js`（挙動 2 件＋**再描画するコールバックを持つ `textInput` を新たに増やさない構造ガード**。免除は許可リストではなく現場の `// oninput-rerender-ok:` コメントで行う） |
+| ~~**C-1**~~ | ~~各種スクラップ 4 個でバニラ素材へ／ただのスクラップはランダム変換~~ | **完了（`9c68ac9`）。** 種別スクラップ 4 個→バニラ素材のレシピは **ArsPaper `materials.yml` 側に既にあり実際に登録される**ので追加していない（二重登録防止）。「ただのスクラップ」は右クリックで 4 個消費し重み付き抽選で種別スクラップ 1 個（銅 25／鉄 25／革 20／金 12／亀甲羅 12／ダイヤ 5／ネザライト 1）。**クラフトのレシピにできない**: `tf_scrap` の base_material が `IRON_NUGGET` で `iron_ingot_scrap` の既存レシピ（2x2 全マス IRON_NUGGET）と入力が完全一致し、`custom:` 素材は `MaterialChoice`（型のみ照合・PDC を見ない）へ潰れるので**どちらかが必ず無言でシャドウイングされる**。加えて `PrepareItemCraftEvent` で抽選すると**結果枠のプレビューを見てから取り出しを選べる＝リロールで厳選できる**。ガチャ券と同じ「右クリックで 1 回だけ抽選して即消費」に寄せて両方を構造的に閉じた |
+| ~~**C-2**~~ | ~~圧縮木材での修繕をカタログ全種類へ~~ | **完了（`9c68ac9`）。** `wood-repair.materials` を 9 樹種×3 段の **27 種**へ（HEAD は `oak_wood_1x` の 1 件だけだった）。耐久回復は樹種によらず段だけで決まり 1 段＝9 倍なので **200 / 1800 / 16200**。**EXP を与える経路は `WoodRepairListener` に元から存在しない**（`skill-exp.yml` にも項目なし）ので「種類で EXP は変わらない」は現状そのまま成立している。**⚠ `cherry_blossom_wood_*` 3 件は fork HEAD の materials.yml にまだ無い**（別セッションが未コミットで追加中）。存在しない ID の行は照合されないだけで無害 |
+| ~~**C-3**~~ | ~~圧縮ご飯 6 種の追加（満腹度も）~~ | **完了（`fb64318` ＋ fork `ff3f201`）。** ベイクドポテト・焼き豚・焼き羊肉・焼き鳥・クッキー・パンプキンパイの 9 倍（`_1x`）を追加（CMD 252-257）。パンは `compressed_bread_1x` として既存のため追加せず。満腹度はバニラ元値を 9 倍して 20 で丸め、**クッキーだけ元値が小さく 9 倍でも上限に届かない**ので丸めていない（18 / 3.6）。**あわせて既存バグを 1 件修正**: `compressed_bread_2x/3x`・`compressed_cooked_beef_2x/3x` の 4 件が `food-gimmick.yml` の `custom-foods` に未登録で、`FoodGimmickListener#onFoodLevelChange` の一致判定を素通りし、**81 倍・729 倍に圧縮しても食べたときの満腹度は素のパン・ステーキのまま**だった（クラフト段数だけ機能して食事効果が死んでいた） |
+
+**恒久知識**: 分割ビューは **`split-views.js` の分岐・`app.js` の読み書き経路・`NAV_GROUPS` の項目の 3 点が揃って初めて到達可能**。
+前 2 つだけ書いても機能追加は運営者に届かない（`thread-bundle` がその実例）。詳細は `docs/agent-context/config-editor.md`。
+
+**⚠ 未解決の並行作業ドリフト**: `progression/crafting-features.yml` の作業ツリーが HEAD より約 300 行少ない
+（別セッションが `disassembly.items` の `wooden_*` / `ROTTEN_FLESH` / `STICK` / `STRING` / `BONE` 等を削除中で、
+HEAD 19 件 → 作業ツリー 7 件）。**意図的な削除か事故か未確認**。
+editor の `disassembly-defaults.test.js` 3 件（`plank_scrap` 未定義ほか）はこのドリフトで落ち続けている。
+今回の commit は「HEAD ＋ 自分の変更だけ」の blob を作って staging したので、この削除は取り込んでいない。
+
 ### 2026-08-07 W-36（トライデント・槍が三人称で 2D）を配信 zip へ入れ直した
 
 **ソースは 08-05 の時点で既に正しく、腐っていたのは配信 zip だけ**だったので、
