@@ -1268,6 +1268,13 @@
       // なので同じ鍛冶ギミックタブに、解体セクションの直後へ並べる。
       if (typeof window.buildCraftingFeaturesScrapConversionSection === "function") {
         ensureObj(craftingFeaturesWorking, "scrap-conversion");
+        // 見出しが無いと直前の「解体」セクションの続きに見えてしまう(実際にそう見えた)ので、
+        // 解体と同じ体裁で境目を出す。
+        root.appendChild(h("div", { class: "sub-title", text: "スクラップ変換 (scrap-conversion)" }));
+        root.appendChild(h("p", { class: "form-hint", text:
+          "上の「解体」の逆方向です。ここに登録したアイテムを持って右クリックすると、"
+          + "基準素材数のぶんだけ消費して返却先から1件だけ抽選します(クラフト台のレシピではありません)。"
+        }));
         root.appendChild(window.buildCraftingFeaturesScrapConversionSection(craftingFeaturesWorking["scrap-conversion"]));
       } else {
         root.appendChild(h("div", { class: "empty-hint", text: "スクラップ変換エディタ(tf-crafting-features.js)が読み込まれていません。" }));
