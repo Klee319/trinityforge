@@ -342,6 +342,34 @@
           "model": "minecraft:item/netherite_sword",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 400007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/netherite_cane"
+        }
+      },
+      {
+        "threshold": 400012,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/magic_wand"
+        }
+      },
+      {
+        "threshold": 400013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/abyss_cane"
+        }
+      },
+      {
+        "threshold": 400014,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/boundary_cane"
+        }
       }
     ]
   }

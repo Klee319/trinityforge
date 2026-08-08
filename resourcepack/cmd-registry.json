@@ -5049,6 +5049,76 @@
       "id": "key_north_pole",
       "source": "catalog",
       "allocatedAt": "2026-08-08T06:16:53.581Z"
+    },
+    {
+      "material": "WOODEN_SWORD",
+      "cmd": 400008,
+      "id": "wooden_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "STONE_SWORD",
+      "cmd": 400002,
+      "id": "stone_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "COPPER_SWORD",
+      "cmd": 400003,
+      "id": "copper_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "IRON_SWORD",
+      "cmd": 400004,
+      "id": "iron_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "GOLDEN_SWORD",
+      "cmd": 400005,
+      "id": "golden_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "DIAMOND_SWORD",
+      "cmd": 400006,
+      "id": "diamond_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 400007,
+      "id": "netherite_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 400012,
+      "id": "magic_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 400013,
+      "id": "abyss_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
+    },
+    {
+      "material": "NETHERITE_SWORD",
+      "cmd": 400014,
+      "id": "boundary_wand",
+      "source": "catalog",
+      "allocatedAt": "2026-08-08T00:00:00.000Z"
     }
   ]
 }

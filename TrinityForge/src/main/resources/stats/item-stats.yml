@@ -6307,7 +6307,7 @@ items:
       crit-chance:
         min: -0.04
         max: 0.06
-  BLAZE_ROD#400008:
+  WOODEN_SWORD#400008:
     fixed:
       attack-power: 195.536
       attack-speed: 0.1
@@ -6328,7 +6328,7 @@ items:
     use-level-requirement: 0
     use-skill: ARS_MAGIC
     quality-mode-offset: 0
-  BLAZE_ROD#400002:
+  STONE_SWORD#400002:
     fixed:
       attack-power: 315.08
       attack-speed: 0.1
@@ -6349,7 +6349,7 @@ items:
     use-level-requirement: 5
     use-skill: ARS_MAGIC
     quality-mode-offset: -1
-  BLAZE_ROD#400003:
+  COPPER_SWORD#400003:
     fixed:
       attack-power: 347.674
       attack-speed: 0.1
@@ -6370,7 +6370,7 @@ items:
     use-level-requirement: 15
     use-skill: ARS_MAGIC
     quality-mode-offset: -2
-  BLAZE_ROD#400004:
+  IRON_SWORD#400004:
     fixed:
       attack-power: 821.435
       attack-speed: 0.1
@@ -6391,7 +6391,7 @@ items:
     use-level-requirement: 25
     use-skill: ARS_MAGIC
     quality-mode-offset: -3
-  BLAZE_ROD#400005:
+  GOLDEN_SWORD#400005:
     fixed:
       attack-power: 1073.015
       attack-speed: 0.1
@@ -6412,7 +6412,7 @@ items:
     use-level-requirement: 35
     use-skill: ARS_MAGIC
     quality-mode-offset: -4
-  BLAZE_ROD#400006:
+  DIAMOND_SWORD#400006:
     fixed:
       attack-power: 3259.446
       attack-speed: 0.1
@@ -6433,7 +6433,7 @@ items:
     use-level-requirement: 45
     use-skill: ARS_MAGIC
     quality-mode-offset: -5
-  BLAZE_ROD#400007:
+  NETHERITE_SWORD#400007:
     fixed:
       attack-power: 9387.205
       attack-speed: 0.1
@@ -6454,7 +6454,7 @@ items:
     use-level-requirement: 60
     use-skill: ARS_MAGIC
     quality-mode-offset: -6
-  BLAZE_ROD#400012:
+  NETHERITE_SWORD#400012:
     fixed:
       attack-power: 80964.641
       attack-speed: 0.1
@@ -6475,7 +6475,7 @@ items:
     use-level-requirement: 100
     use-skill: ARS_MAGIC
     quality-mode-offset: -8
-  BLAZE_ROD#400013:
+  NETHERITE_SWORD#400013:
     fixed:
       attack-power: 62581.365
       attack-speed: 0.1
@@ -6496,7 +6496,7 @@ items:
     use-level-requirement: 100
     use-skill: ARS_MAGIC
     quality-mode-offset: -8
-  BLAZE_ROD#400014:
+  NETHERITE_SWORD#400014:
     fixed:
       attack-power: 28472.321
       attack-speed: 0.1
@@ -11846,16 +11846,16 @@ _editor:
       - id: cat_1784733677892
         label: バニラ
         itemIds:
-          - BLAZE_ROD#400008
-          - BLAZE_ROD#400002
-          - BLAZE_ROD#400003
-          - BLAZE_ROD#400004
-          - BLAZE_ROD#400005
-          - BLAZE_ROD#400006
-          - BLAZE_ROD#400007
-          - BLAZE_ROD#400012
-          - BLAZE_ROD#400013
-          - BLAZE_ROD#400014
+          - WOODEN_SWORD#400008
+          - STONE_SWORD#400002
+          - COPPER_SWORD#400003
+          - IRON_SWORD#400004
+          - GOLDEN_SWORD#400005
+          - DIAMOND_SWORD#400006
+          - NETHERITE_SWORD#400007
+          - NETHERITE_SWORD#400012
+          - NETHERITE_SWORD#400013
+          - NETHERITE_SWORD#400014
       - id: cat_20260723_触媒
         label: 触媒
         itemIds:
@@ -12393,18 +12393,18 @@ _editor:
     CROSSBOW#147: weapon
     CROSSBOW: weapon
     BOOK#100004: weapon
-    BLAZE_ROD#400008: catalyst
-    BLAZE_ROD#400002: catalyst
-    BLAZE_ROD#400003: catalyst
-    BLAZE_ROD#400004: catalyst
-    BLAZE_ROD#400005: catalyst
-    BLAZE_ROD#400006: catalyst
-    BLAZE_ROD#400007: catalyst
-    BLAZE_ROD#400012: catalyst
+    WOODEN_SWORD#400008: catalyst
+    STONE_SWORD#400002: catalyst
+    COPPER_SWORD#400003: catalyst
+    IRON_SWORD#400004: catalyst
+    GOLDEN_SWORD#400005: catalyst
+    DIAMOND_SWORD#400006: catalyst
+    NETHERITE_SWORD#400007: catalyst
+    NETHERITE_SWORD#400012: catalyst
     AMETHYST_SHARD#5761: catalyst
     AMETHYST_SHARD#5760: catalyst
-    BLAZE_ROD#400013: catalyst
-    BLAZE_ROD#400014: catalyst
+    NETHERITE_SWORD#400013: catalyst
+    NETHERITE_SWORD#400014: catalyst
     BLAZE_ROD#400001: catalyst
     ENDER_EYE#85: catalyst
     DIAMOND_PICKAXE#73: tool
@@ -12872,18 +12872,18 @@ _editor:
       - BOW#5611
       - CROSSBOW#5611
     catalyst:
-      - BLAZE_ROD#400008
-      - BLAZE_ROD#400002
-      - BLAZE_ROD#400003
-      - BLAZE_ROD#400004
-      - BLAZE_ROD#400005
-      - BLAZE_ROD#400006
-      - BLAZE_ROD#400007
-      - BLAZE_ROD#400012
+      - WOODEN_SWORD#400008
+      - STONE_SWORD#400002
+      - COPPER_SWORD#400003
+      - IRON_SWORD#400004
+      - GOLDEN_SWORD#400005
+      - DIAMOND_SWORD#400006
+      - NETHERITE_SWORD#400007
+      - NETHERITE_SWORD#400012
       - AMETHYST_SHARD#5761
       - AMETHYST_SHARD#5760
-      - BLAZE_ROD#400013
-      - BLAZE_ROD#400014
+      - NETHERITE_SWORD#400013
+      - NETHERITE_SWORD#400014
       - BLAZE_ROD#400001
       - ENDER_EYE#85
     tool:

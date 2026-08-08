@@ -41,6 +41,13 @@
           "model": "minecraft:item/copper_sword",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 400003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_cane"
+        }
       }
     ]
   }

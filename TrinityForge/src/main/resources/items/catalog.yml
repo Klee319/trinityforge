@@ -4569,7 +4569,7 @@ items:
         i: custom:source_gem
       amount: 1
   wooden_wand:
-    material: BLAZE_ROD
+    material: WOODEN_SWORD
     display-name: 木の杖
     custom-model-data: 400008
     recipe:
@@ -4583,7 +4583,7 @@ items:
         C: OAK_WOOD
         A: STICK
   stone_wand:
-    material: BLAZE_ROD
+    material: STONE_SWORD
     display-name: 石の杖
     custom-model-data: 400002
     recipe:
@@ -4598,7 +4598,7 @@ items:
         A: STICK
       amount: 1
   copper_wand:
-    material: BLAZE_ROD
+    material: COPPER_SWORD
     display-name: 銅の杖
     custom-model-data: 400003
     recipe:
@@ -4613,7 +4613,7 @@ items:
         A: STICK
       amount: 1
   iron_wand:
-    material: BLAZE_ROD
+    material: IRON_SWORD
     display-name: 鉄の杖
     custom-model-data: 400004
     recipe:
@@ -4628,7 +4628,7 @@ items:
         A: STICK
       amount: 1
   golden_wand:
-    material: BLAZE_ROD
+    material: GOLDEN_SWORD
     display-name: 金の杖
     custom-model-data: 400005
     recipe:
@@ -4643,7 +4643,7 @@ items:
         A: STICK
       amount: 1
   diamond_wand:
-    material: BLAZE_ROD
+    material: DIAMOND_SWORD
     display-name: ダイヤモンドの杖
     custom-model-data: 400006
     recipe:
@@ -4658,7 +4658,7 @@ items:
         A: STICK
       amount: 1
   netherite_wand:
-    material: BLAZE_ROD
+    material: NETHERITE_SWORD
     display-name: ネザライトの杖
     recipe:
       method: netherite
@@ -4966,7 +4966,7 @@ items:
       method: netherite
       source-item: custom:diamond_crossbow
   infinity_wand:
-    material: BLAZE_ROD
+    material: NETHERITE_SWORD
     display-name: <color:#7df9ff>インフィニティの杖</color>
     custom-model-data: 400012
     recipe:
@@ -4981,7 +4981,7 @@ items:
         R: custom:breeze_rod_2x
         A: custom:amethyst_block_2x
   abyss_wand:
-    material: BLAZE_ROD
+    material: NETHERITE_SWORD
     display-name: <color:dark_purple>黒淵の杖</color>
     custom-model-data: 400013
     recipe:
@@ -4998,7 +4998,7 @@ items:
       - <color:dark_aqua>永遠なる白夜を崩落させた</color>
       - <color:light_purple>無限なる深淵</color>
   boundary_wand:
-    material: BLAZE_ROD
+    material: NETHERITE_SWORD
     display-name: <color:blue>冥境の杖</color>
     custom-model-data: 400014
     recipe:

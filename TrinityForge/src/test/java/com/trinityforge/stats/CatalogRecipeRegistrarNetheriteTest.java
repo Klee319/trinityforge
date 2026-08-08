@@ -48,7 +48,7 @@ import static org.mockito.Mockito.when;
  * <p>登録が無いと 1.21.2 以降のスミス台は base スロットにアイテムを置かせない
  * ({@code RecipePropertySet.SMITHING_BASE} は「読み込み済みスミスレシピの base ingredient」から
  * 組み立てられ、CraftBukkit の {@code Bukkit.addRecipe} がその再構築を走らせる)。
- * つまり弓/クロスボウ/トライデント/メイス/ブレイズロッドのように<b>バニラのネザライト強化に
+ * つまり弓/クロスボウ/トライデント/メイスのように<b>バニラのネザライト強化に
  * 存在しない材質</b>は、TF がレシピを登録しない限り物理的に置けず
  * {@code CatalogSmithingListener} まで到達しない。
  */
@@ -136,14 +136,14 @@ class CatalogRecipeRegistrarNetheriteTest {
      * <p>{@link CatalogRecipeRegistrar} は {@code NetheriteUpgradeGuard} で
      * 「同じ3点(テンプレ/base/インゴット)に一致する他所のレシピが既にある材質」への登録を避ける。
      * MockBukkit は<b>バニラのスミスレシピを1件も持たない</b>ので誰とも衝突せず全件登録されるが、
-     * 実サーバでは出荷の source 12 件のうち DIAMOND_SWORD×5 / DIAMOND_AXE / DIAMOND_HOE の
-     * <b>7 件がバニラの {@code netherite_*_smithing} に当たって除外される</b>
+     * 実サーバでは出荷の source 12 件のうち DIAMOND_SWORD×6 / DIAMOND_AXE / DIAMOND_HOE の
+     * <b>8 件がバニラの {@code netherite_*_smithing} に当たって除外される</b>
      * （除外されても壊れない ── それらは<b>バニラのレシピが一致するおかげで</b>
      *  {@code PrepareSmithingEvent} が飛び、{@code CatalogSmithingListener} が結果を差し替える）。
      *
      * <p>したがってこのテストが固定しているのは「登録処理そのものが正しく動くこと」であって、
      * <b>「実サーバで12件出ること」ではない</b>。U7 が実際に必要としていた
-     * 非バニラ base の 5 件は {@link #reportedBrokenNetheriteItemsRegisterTheirNonVanillaBaseMaterial}
+     * 非バニラ base の 4 件は {@link #reportedBrokenNetheriteItemsRegisterTheirNonVanillaBaseMaterial}
      * が、衝突時に降りることは
      * {@link #netheriteRecipeIsSkippedWhenAnExistingSmithingRecipeAlreadyMatchesTheSameTriple}
      * が別々に固定している。
@@ -200,8 +200,7 @@ class CatalogRecipeRegistrarNetheriteTest {
                 "netherite_bow", Material.BOW,
                 "netherite_trident", Material.TRIDENT,
                 "netherite_mace", Material.MACE,
-                "netherite_crossbow", Material.CROSSBOW,
-                "netherite_wand", Material.BLAZE_ROD);
+                "netherite_crossbow", Material.CROSSBOW);
         expected.forEach((id, base) -> {
             Recipe recipe = Bukkit.getRecipe(new NamespacedKey("trinityforge", "catalog_" + id + "_smithing"));
             SmithingTransformRecipe smithing = assertInstanceOf(SmithingTransformRecipe.class, recipe,
@@ -209,6 +208,27 @@ class CatalogRecipeRegistrarNetheriteTest {
             assertTrue(smithing.getBase().test(new ItemStack(base)),
                     id + " の base が " + base + " を受け付けない");
         });
+    }
+
+    /**
+     * 杖はかつて BLAZE_ROD だったので<b>この一覧の5件目</b>だった。M-5 で剣系へ移した結果
+     * base が DIAMOND_SWORD になり、バニラの {@code netherite_sword_smithing} と3点が一致する
+     * ようになったので、{@code NetheriteUpgradeGuard} が実サーバで<b>登録を見送るのが正しい</b>
+     * （見送っても壊れない ── バニラのレシピが一致するのでスロットには置け、
+     *  {@code CatalogSmithingListener} が base の catalogId を見て結果を杖に差し替える。
+     *  短剣/レイピア/戦槌/大斧/大剣が既にこの経路で動いている）。
+     *
+     * <p>ここで固定するのは「杖の netherite が非バニラ base の一覧から抜けたこと」自体。
+     * うっかり BLAZE_ROD へ戻すとバニラの base を奪うレシピを登録しかねないので、
+     * 素材を触ったら必ずこのテストが落ちるようにしておく。
+     */
+    @Test
+    void theWandsNetheriteUpgradeNowUsesTheVanillaSwordBase(@TempDir File tempDir) throws IOException {
+        ItemCatalogConfig catalog = loadShippedCatalog(tempDir);
+
+        assertEquals(Material.DIAMOND_SWORD, catalog.template("diamond_wand").orElseThrow().material(),
+                "杖の base が剣系でないと耐久が持てない(BLAZE_ROD は最大耐久0)");
+        assertEquals(Material.NETHERITE_SWORD, catalog.template("netherite_wand").orElseThrow().material());
     }
 
     // ------------------------------------------------------------------

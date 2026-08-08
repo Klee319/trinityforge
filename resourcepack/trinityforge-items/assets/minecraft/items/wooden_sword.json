@@ -48,6 +48,13 @@
           "model": "minecraft:item/wooden_sword",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 400008,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_cane"
+        }
       }
     ]
   }

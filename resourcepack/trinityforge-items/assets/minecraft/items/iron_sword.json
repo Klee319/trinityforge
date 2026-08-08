@@ -41,6 +41,13 @@
           "model": "minecraft:item/iron_sword",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 400004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_cane"
+        }
       }
     ]
   }
