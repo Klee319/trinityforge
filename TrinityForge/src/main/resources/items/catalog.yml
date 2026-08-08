@@ -3697,10 +3697,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gray>儀式で効果付きスレッドに変換できます</gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>これははじまりにすぎない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipes:
       - method: ritual
         core-item: WHITE_WOOL
@@ -3747,9 +3746,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>知恵は変容する</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3768,10 +3767,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>移動速度上昇 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>さぁ最高速度へ</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3790,10 +3788,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>跳躍力上昇 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>軽やかな気分</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3812,10 +3809,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>暗視 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>暗闇よさらば</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3834,10 +3830,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>火炎耐性 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>炎の中へ</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3856,10 +3851,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>イルカの好意 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>この好意はだれから？</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3878,10 +3872,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>コンジットパワー (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>ガーディアンの気分</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3900,10 +3893,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>村の英雄 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>いい取引だ！</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3921,10 +3913,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>体力増強 (装備中常時)</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>まだ、耐えられる</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3943,9 +3934,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>この痛みは勝利のために</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3964,9 +3955,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>攻撃こそ最大の防御</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -3984,9 +3975,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>質よりも手数で</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4006,10 +3997,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <white>エリトラ飛行 (装備中常時)</white>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>彼方からの贈り物</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4030,10 +4020,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_green>追加インベントリ 27スロット</dark_green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>準備から冒険ははじまっている</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4054,10 +4043,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <blue>装備1個ごとに 最大マナ +3% (3個まで累積)</blue>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>器を広げれば、届く場所も広がる</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4077,10 +4065,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <aqua>装備1個ごとに マナ回復速度 +4% (3個まで累積)</aqua>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>絶えず巡るものは尽きない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4100,10 +4087,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_aqua>儀式のソース消費 -2% / 3個で -5% / 5個で -8%</dark_aqua>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>流れを読む者は溺れない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4123,10 +4109,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gold>作業台クラフトの品質 +1 / 3個で +2 / 5個で +3</gold>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>同じ材料でも、手が違えば別物になる</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4146,10 +4131,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <light_purple>儀式クラフトの品質 +1 / 3個で +2 / 5個で +3</light_purple>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>作法を知る者にだけ、祭壇は応える</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4169,10 +4153,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <yellow>儀式の台座素材が 2% / 3個で 4% / 5個で 7% の確率で返る</yellow>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>捨てるところなど、どこにもない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4192,10 +4175,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gray>金床での解体の戻り量 +5% / 3個で +10% / 5個で +15%</gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>壊し方を知る者は、作り方も知っている</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4215,11 +4197,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_purple>エンチャント運 +0.5 / 5個で +1.0</dark_purple>
-      - <dark_purple>3個でエンチャントコスト -2%</dark_purple>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>棚から一冊を選ぶのも、技のうち</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -4239,11 +4219,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_gray>採掘の追加ドロップ +3.6% / 3個で +6% / 5個で +8.4%</dark_gray>
-      - <dark_gray>採掘速度そのものには影響しない</dark_gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>同じ岩でも、掘る者で取れ高が変わる</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_angler:
     draft: true
     external-source: arspaper
@@ -4253,10 +4231,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <blue>釣りの幸運 +2.4% / 3個で +3.6% / 5個で +4.8%</blue>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_harvest:
     draft: true
     external-source: arspaper
@@ -4266,10 +4243,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <yellow>農作物の追加ドロップ +2.4% / 3個で +3.6% / 5個で +4.8%</yellow>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>土は、手をかけた分だけ返してくる</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_timber:
     draft: true
     external-source: arspaper
@@ -4279,10 +4255,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_green>伐採の追加ドロップ +2.4% / 3個で +3.6% / 5個で +4.8%</dark_green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_diligence:
     draft: true
     external-source: arspaper
@@ -4292,10 +4267,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>スキル経験値の取得量 +2.4% / 3個で +3.6% / 5個で +6%</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>同じ一日から、より多くを持ち帰る</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_endurance:
     draft: true
     external-source: arspaper
@@ -4305,10 +4279,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gold>空腹の消費を 3.6% / 3個で 6% / 5個で 8.4% の確率で打ち消す</gold>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>まだ歩ける、まだ行ける</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_gourmet:
     draft: true
     external-source: arspaper
@@ -4318,11 +4291,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <red>食事の回復量 +12% / 5個で +30%</red>
-      - <red>3個で隠し満腹度の回復 +12%</red>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>腹が減っては、糸も紡げぬ</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_slow_falling:
     draft: true
     external-source: arspaper
@@ -4332,11 +4303,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <white>低速落下 (装備中常時)</white>
-      - <white>3個で物理耐性 +2.4% / 5個で +4.8%</white>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>落ちるのではなく、降りるのだ</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_spoils:
     draft: true
     external-source: arspaper
@@ -4346,11 +4315,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gold>モブドロップ +3% / 3個で +4.5% / 5個で +7.5%</gold>
-      - <dark_gray>対人戦では効果がない</dark_gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>倒した者にだけ、分け前がある</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_experience:
     draft: true
     external-source: arspaper
@@ -4360,11 +4327,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>獲得経験値 +4.5% / 3個で +7.5% / 5個で +10.5%</green>
-      - <dark_gray>討伐・採掘・製錬など全ての経験値源に効く</dark_gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>過ぎた時間は、糸が覚えている</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_mending_flesh:
     draft: true
     external-source: arspaper
@@ -4374,10 +4339,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <red>自然回復量 +3% / 3個で +4.5% / 5個で +7.5%</red>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_thorn:
     draft: true
     external-source: arspaper
@@ -4387,11 +4351,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_red>被弾時に 3% の確率で反射 / 3個で 4.5%</dark_red>
-      - <dark_red>5個で反射追加ダメージ +3</dark_red>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>触れた者が、まず痛む</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_concussion:
     draft: true
     external-source: arspaper
@@ -4401,11 +4363,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_aqua>攻撃時のスタン率 1.5% / 5個で 4.5%</dark_aqua>
-      - <dark_aqua>3個でスタン時間 +6tick (基準 25tick)</dark_aqua>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_swiftcast:
     draft: true
     external-source: arspaper
@@ -4415,11 +4375,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <yellow>アイテムの使用クールダウン -3% / 3個で -4.5% / 5個で -7.5%</yellow>
-      - <dark_gray>詠唱コストやアクティブスキルのCTには効かない</dark_gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>先に動いた方が、生き残る</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_marksman:
     draft: true
     external-source: arspaper
@@ -4429,12 +4387,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_green>矢の節約 4.5% / 5個で 10.5%</dark_green>
-      - <dark_green>3個で命中精度 +3%</dark_green>
-      - <dark_gray>矢の貫通・速度そのものには影響しない</dark_gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>一射のために、百射を捨てる</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_luck:
     draft: true
     external-source: arspaper
@@ -4444,11 +4399,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gold>幸運 (装備中常時)</gold>
-      - <gold>3個でモブドロップ +3% / 5個で +7.5%</gold>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>運は、探しに行った者のところへ来る</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   # ------------------------------------------------------------------
   # 2026-08-03 追加5種 (CMD 300041-300045)。ユーザー要件「レシピなしの厳選要素スレッドを
   # 5件ほど追加」。
@@ -4470,11 +4423,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <light_purple>醸造したポーションの品質 +1 / 5個で +2</light_purple>
-      - <light_purple>3個で醸造速度 +6%</light_purple>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>香りは、調べた者にしか嗅ぎ分けられない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_apiarist:
     external-source: arspaper
     material: FIELD_MASONED_BANNER_PATTERN
@@ -4483,10 +4434,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <yellow>蜂の巣の採取量 +2.4% / 3個で +3.6% / 5個で +4.8%</yellow>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>刺されるのを恐れる者に、蜜は渡らない</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_herder:
     external-source: arspaper
     material: PIGLIN_BANNER_PATTERN
@@ -4495,11 +4445,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <green>繁殖で子が増える確率 +2.4% / 5個で +4.8%</green>
-      - <green>3個で自分が繁殖させた動物の成長 +6%</green>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>群れは、急かした者から離れていく</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_appraiser:
     external-source: arspaper
     material: PRIZE_POTTERY_SHERD
@@ -4508,11 +4456,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <gold>モブから得る品の品質 +1 / 5個で +2</gold>
-      - <gold>3個でモブのドロップ量 +3%</gold>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>同じ骨でも、見る目が値を決める</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_excavation:
     external-source: arspaper
     material: NETHERITE_UPGRADE_SMITHING_TEMPLATE
@@ -4521,11 +4467,9 @@ items:
     bind-type: TRADEABLE
     enchant-glow: true
     lore:
-      - <dark_gray>農業・採掘・伐採・切削の効率 +1 / 3個で +2 / 5個で +3</dark_gray>
-      - <dark_gray>効率強化エンチャントのレベルとして反映される</dark_gray>
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-      - ""
       - <color:dark_purple>岩は、削り方を知っている者にだけ譲る</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   someones_eyes:
     material: ENDER_EYE
     lore:
