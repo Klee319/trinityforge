@@ -778,8 +778,9 @@
     ));
 
     if (foodSubform) {
-      root.appendChild(banner("以下の「食事ギミック」は stats/food-gimmick.yml という別ファイルです"
-        + "(ここへ表示統合していますが、ファイル自体は分離したままです)。保存時は両方まとめて保存されます。"));
+      // 2026-08-09: 「別ファイルだが一緒に保存する」旨の長い説明文は邪魔だという指摘を受けて撤去し、
+      // 区切りの見出し1行だけ残す(見出しごと消すと農業の設定の続きに見えてしまう)。
+      root.appendChild(sub("食事ギミック (stats/food-gimmick.yml)"));
       root.appendChild(foodSubform.element);
     }
 
@@ -804,7 +805,8 @@
     ensureArr(immun, "cancelled-debuff-effects");
 
     const root = h("div", { class: "dedicated-form" });
-    root.appendChild(banner("食事ギミック。ゴミ食の定義・免疫・逆転・満腹バフ・カスタム食料。"));
+    // 2026-08-09: 見出し代わりの説明バナーは、農業ギミックタブへ統合表示したときに
+    // 「別ファイル」バナーと2行続いて邪魔になるため撤去した(区切りは呼び出し側の見出しが担う)。
 
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "ゴミ食 Material" })],
