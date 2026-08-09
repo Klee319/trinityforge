@@ -1,14 +1,10 @@
 package com.trinityforge.listeners;
 
-import com.trinityforge.config.domains.DedicatedEffectsConfig;
 import com.trinityforge.config.domains.FarmingGimmickConfig;
 import com.trinityforge.farming.CropMaturity;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
-import com.trinityforge.stats.CrossPluginItemResolver;
-import com.trinityforge.stats.DropTableConfig;
-import com.trinityforge.stats.DropTablePolicy;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -18,20 +14,15 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 農業(作物収穫)ギミック: {@code farming} drop-table (2026-07-23 stat-gate-overhaul §4) を
- * {@code stats/farming-gimmick.yml drop-tables.categories} から評価する新設リスナー(2026-08-01)。
- *
- * <p><b>なぜ後から足したか</b>: 採掘/伐採/掘削には §4 の drop-table 経路があったのに、
- * <b>農業だけ yml に {@code drop-tables} セクションが存在せず、読む Java も無かった</b>。
- * 4職の中でここだけ「トリガー型の追加ドロップ」という機構が丸ごと欠けており、
- * 追加コンテンツ詳細プラン §8 が「最大の空き経路」と呼んでいたのがこれ。
+ * 農業(作物収穫)ギミック: 2026-08-01 に新設した drop-table 経路
+ * ({@code stats/farming-gimmick.yml drop-tables.categories} からの追加ドロップ抽選)は
+ * 2026-08-09 に機構ごと撤去した。このリスナーは現在、農業のブロック破壊イベントに対して
+ * 「置く→壊す」対策ガード({@link #passesFarmingAntiLoopGuard})のフックだけを残しているのではなく、
+ * 抽選ロジック自体が無くなったため実質的に no-op(将来 drop-table 以外の農業限定フックを
+ * 足す場合の土台として残置)。
  *
  * <p>対象判定は {@link NativeSkillExperienceListener#grantGathering} と同じ分類ロジックを
  * {@link DiggingGimmickListener} と同じ形で流用する: {@code farming_progression.yml} の
@@ -43,12 +34,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@code BlockPlaceEvent} を通るので {@link PlacedBlockTracker} に必ずマークが付き、
  * 掘削と同じ {@code isPlaced} ガードを素で掛けると
  * <b>自分の畑での収穫が1つ残らず除外されてこの機能はどこでも発動しない</b>。
- *
- * <p><b>既知の適用範囲</b>: 発火するのは「プレイヤーが実際に壊した1ブロック」だけ。
- * 範囲収穫({@code area-harvest})が周囲を刈る分は {@code breakNaturally} 経路で
- * {@link BlockBreakEvent} を発火しないので抽選も回らない(採掘の vein-mining と同じ扱い)。
- * 「範囲収穫のぶんも抽選したい」は仕様変更なので、やるなら
- * {@code ChainBreakExpGrant} と同じ形で明示的に呼び出すこと。
  */
 public final class FarmingGimmickListener implements Listener {
 
@@ -57,35 +42,26 @@ public final class FarmingGimmickListener implements Listener {
     /** {@code farming_progression.yml} 側の採取表名。ブロック破壊による農業EXPはこの表から引く。 */
     private static final String ACTION_BLOCK_DROPS = "block_drops";
 
-    private final DedicatedEffectsConfig dedicatedEffects;
     private final FarmingGimmickConfig gimmickConfig;
     private final NativeSkillCatalog catalog;
     private final PlacedBlockTracker placedBlockTracker;
-    private final CrossPluginItemResolver itemResolver;
 
-    public FarmingGimmickListener(DedicatedEffectsConfig dedicatedEffects, FarmingGimmickConfig gimmickConfig,
-                                  NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker,
-                                  CrossPluginItemResolver itemResolver) {
-        this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
+    public FarmingGimmickListener(FarmingGimmickConfig gimmickConfig,
+                                  NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker) {
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.placedBlockTracker = Objects.requireNonNull(placedBlockTracker, "placedBlockTracker");
-        this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
     }
 
     /**
-     * Drop-table roll only — {@link DiggingGimmickListener} と同じ理由で
-     * {@link EventPriority#MONITOR} + {@code ignoreCancelled=true}
-     * (HIGHEST でキャンセルする保護プラグインが景品も確実に抑止できること)。
+     * 2026-08-09: drop-table 撤去に伴い抽選処理を削除。現在は対象判定(anti-loop guard含む)を
+     * 通すだけの no-op。{@link EventPriority#MONITOR} + {@code ignoreCancelled=true} は
+     * {@link DiggingGimmickListener} と同じ理由(HIGHEST でキャンセルする保護プラグインとの整合)で
+     * 維持している。
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         if (SpellBreakGuard.isSpellBreak(event.getBlock())) {
-            // 魔法(Ars)破壊の合成イベントにはドロップテーブルを一切与えない。
-            return;
-        }
-        Map<String, DropTableConfig.Category> categories = gimmickConfig.dropTables();
-        if (categories.isEmpty()) {
             return;
         }
         Block block = event.getBlock();
@@ -102,8 +78,7 @@ public final class FarmingGimmickListener implements Listener {
             // no-op fallback: block_drops 表に載っていない = 農業の収穫対象ではない。
             return;
         }
-
-        rollDropTables(player, block);
+        // drop-tables 機構は撤去済み。これ以上の処理は無い(将来の農業限定フックの土台)。
     }
 
     /**
@@ -131,28 +106,5 @@ public final class FarmingGimmickListener implements Listener {
             return !CropMaturity.isImmatureCrop(block);
         }
         return !placedBlockTracker.isPlaced(block);
-    }
-
-    private void rollDropTables(Player player, Block block) {
-        Set<String> heldPerks = DropTableGateSupport.heldPerksOf(player);
-        Map<String, Set<String>> dropGatePerks = dedicatedEffects.dropGatePerks();
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
-
-        for (DropTableConfig.Category category : gimmickConfig.dropTables().values()) {
-            Optional<DropTableConfig.Entry> drawn = DropTablePolicy.evaluateCategory(
-                    PROF_FARMING, category, heldPerks, dropGatePerks, rng.nextDouble(), rng.nextDouble());
-            drawn.ifPresent(prizeEntry -> dropEntry(block, prizeEntry));
-        }
-    }
-
-    private void dropEntry(Block block, DropTableConfig.Entry entry) {
-        Optional<ItemStack> built = itemResolver.create(entry.item());
-        if (built.isEmpty()) {
-            // Fail-safe: an unresolvable item id must never throw out of a block-break handler.
-            return;
-        }
-        ItemStack prize = built.get();
-        prize.setAmount(Math.max(1, entry.amount()));
-        block.getWorld().dropItemNaturally(block.getLocation(), prize);
     }
 }

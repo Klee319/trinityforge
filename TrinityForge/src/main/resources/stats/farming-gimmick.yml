@@ -2,9 +2,7 @@
 # 対象effectId: area-harvest / animal-damage-4x / bee-no-aggro(採取時のハチ鎮静半径)
 # 養蜂の幸運確率(hive_harvest_fortune)は装備+perk合算ステータスとして別経路で持つため、
 # このファイルには含まれない。
-# ドロップテーブル(drop-tables)は「作物収穫」トリガー型の追加ドロップ(2026-07-23 stat-gate-overhaul §4)。
-# 2026-08-01 新設: 採掘/伐採/掘削だけが持っていた §4 の経路が農業にだけ無く、
-# yml のセクションも読む Java も存在しなかった(4職で唯一、機構ごと空いていた)。
+# 2026-08-01 に新設した drop-tables(作物収穫トリガー型の追加ドロップ)は 2026-08-09 に機構ごと撤去した。
 # 数値は全て暫定(要調整)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/farming-gimmick.md
 
@@ -23,25 +21,3 @@ animal-damage-4x:
   multiplier: 4
 bee-no-aggro:
   calm-radius: 8
-drop-tables:
-  categories:
-    # ガチャ券(初級)。採掘は tier1/2/3 を 3%/2%/1% で配っているのに農業には1本も無かったので、
-    # まず初級だけを採掘 tier1 の半分の確率で通す。景品プールは gacha.yml。
-    gacha_tier1:
-      display-name: ガチャ券(初級)
-      trigger-chance-percent: 1.5
-      entries:
-        - item: gacha_ticket_1
-          weight: 1
-          amount: 1
-    # 圧縮パン(ArsPaper materials.yml の compressed_bread_1x = パン9個相当)。
-    # ベジタブルコア(core_vegetable)は compressed_bread_3x を4個要求する = 1x に換算して324個で、
-    # クラフトだけだと農業の出口として重すぎる。ここを唯一の「収穫からコアへ向かう」導線にする。
-    # 確率は 0.5% — 1回の収穫あたり 0.5% × パン9個相当 なので、小麦換算の増収は約4%に収まる。
-    compressed_bread:
-      display-name: 圧縮パン
-      trigger-chance-percent: 0.5
-      entries:
-        - item: compressed_bread_1x
-          weight: 1
-          amount: 1

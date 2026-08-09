@@ -777,14 +777,6 @@
         numField(bee, "calm-radius", { label: "ハチ鎮静半径" })
       ])]
     ));
-    // 2026-08-01: 農業だけ drop-tables セクションが存在せず、採掘/伐採/掘削にはある
-    // 「採取トリガー型の追加ドロップ」が機構ごと無かった。ここに出さないと yml を直接書いた分が
-    // 画面から見えないまま残り、次に触る人が「農業には無い機能」と誤解する。
-    root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
-      [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
-    ));
-
     if (foodSubform) {
       // 2026-08-09: 「別ファイルだが一緒に保存する」旨の長い説明文は邪魔だという指摘を受けて撤去し、
       // 区切りの見出し1行だけ残す(見出しごと消すと農業の設定の続きに見えてしまう)。
