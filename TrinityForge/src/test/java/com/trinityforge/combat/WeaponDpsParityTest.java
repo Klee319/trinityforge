@@ -76,27 +76,41 @@ class WeaponDpsParityTest {
     private static final double MIN_HEAVY_OVER_LIGHT = 0.85;
 
     /**
-     * 同格アーキタイプの対応表 {@code {重武器のattack-speed, 軽武器のattack-speed}}。
-     * 出荷 item-stats.yml では、どの素材帯でもこの6つの {@code attack-speed} 署名が
-     * 繰り返し現れる(重3種 × 軽3種)。<b>attack-speed を触るとこの表が古くなる</b>ので、
-     * そのときは実比較件数のチェック({@link #MIN_COMPARISONS})が落ちて気付ける。
+     * 同格アーキタイプの対応表 {@code {重武器の武器種, 軽武器の武器種}}。
+     * 対応は ウォーハンマー/剣、大斧/レイピア、大剣/短剣。
      *
-     * <p>対応は ウォーハンマー/剣、大斧/レイピア、大剣/短剣。2026-08-05 の武器種校正
-     * (W-34、{@code WeaponTierParityTest} 参照)で軽武器側の短剣が 2.050 → 2.000 へ揃った
-     * (2.0 超は無敵時間 10 tick で切り捨てられるので表示だけの値だった)。同じ校正で
-     * 戦斧 → 1.0、槍 → 0.92、鎌 → 2.0、メイス → 0.88 に動いたが、上の3ペアは無変更。
+     * <p><b>2026-08-09: attack-speed 署名から武器種へ鍵を張り替えた。</b> 元は
+     * {@code {1.003, 1.600} / {0.833, 1.780} / {0.952, 2.000}} という attack-speed の組で
+     * 同格を引いていたが、これは「武器種ごとに attack-speed が一意」という前提に乗った
+     * <b>代理キー</b>でしかなかった。小数を表示桁(1桁)へ揃える校正でウォーハンマー 1.003 と
+     * 大剣 0.952 がどちらも 1.0 になり、代理キーが2つの武器種を区別できなくなった
+     * (両方のペアでウォーハンマーが選ばれ、大剣/短剣の比が 1.28 に化けた)。
+     * 武器種そのもので引けば、この表は attack-speed の校正から独立する。
+     *
+     * <p>張り替え前後で出荷データの実測値は変わらない(どちらも30件成立・比 0.893〜1.152)
+     * ことを確認済み。<b>意味は変えていない</b>。
      */
-    private static final double[][] ARCHETYPE_PAIRS = {
-        {1.003, 1.600},
-        {0.833, 1.780},
-        {0.952, 2.000},
+    private static final String[][] ARCHETYPE_PAIRS = {
+        {"warhammer", "sword"},
+        {"greataxe", "rapier"},
+        {"grate_sword", "dagger"},
     };
+
+    /**
+     * id の接尾辞から武器種を引く。長い接尾辞を先に置く(grate_sword が sword に食われないため)。
+     * {@code WeaponTierParityTest.TYPES} と同じ規約。
+     */
+    private static final List<String> TYPES = List.of(
+            "grate_sword", "greataxe", "warhammer", "crossbow", "trident", "javelin",
+            "halberd", "scythe", "rapier", "dagger", "spear", "sword", "mace", "wand", "bow", "axe");
 
     /**
      * 同格の対応から外す一点物。キーは<b>item-stats.yml のエントリ名</b>(catalog の id ではない)。
      * 広辞苑({@code BOOK#100004} = koujien)は「特殊武器」カテゴリの一点物で
-     * {@code attack-speed} 2.0 なので、除外しないと Lv0 帯で<b>短剣/鎌の代表として
-     * 大剣の比較対象になってしまう</b>(アーキタイプの代表ではない)。
+     * {@code attack-speed} 2.0 なので、attack-speed 署名で同格を引いていた頃は
+     * <b>Lv0 帯で短剣/鎌の代表として大剣の比較対象になっていた</b>(アーキタイプの代表ではない)。
+     * 武器種で引くようになった今は id に武器種の接尾辞が無いので二重に外れるが、
+     * 「一点物はアーキタイプの代表にしない」という意図の明示として残す。
      */
     private static final Set<String> ARCHETYPE_EXEMPT = Set.of("BOOK#100004");
 
@@ -106,9 +120,7 @@ class WeaponDpsParityTest {
      */
     private static final int MIN_COMPARISONS = 27;
 
-    private static final double SPEED_MATCH_EPSILON = 1.0e-6;
-
-    private record Weapon(String id, String skill, int band,
+    private record Weapon(String id, String type, String skill, int band,
                           double attackPower, double attackSpeed, double damageModifier) {
     }
 
@@ -154,9 +166,30 @@ class WeaponDpsParityTest {
         }
     }
 
+    /** {@code catalog.yml} の {@code "MATERIAL#CMD"} → id。武器種は id の接尾辞からしか引けない。 */
+    private static Map<String, String> catalogIdByStatKey() throws IOException {
+        Map<String, String> out = new LinkedHashMap<>();
+        ConfigurationSection catalogItems = shipped("items/catalog.yml").getConfigurationSection("items");
+        assertNotNull(catalogItems, "出荷 catalog.yml に items セクションが無い");
+        for (String id : catalogItems.getKeys(false)) {
+            ConfigurationSection def = catalogItems.getConfigurationSection(id);
+            if (def == null) {
+                continue;
+            }
+            String material = def.getString("material");
+            if (material == null) {
+                continue;
+            }
+            out.put(def.contains("custom-model-data")
+                    ? material + "#" + def.getInt("custom-model-data") : material, id);
+        }
+        return out;
+    }
+
     private static List<Weapon> shippedWeapons() throws IOException {
         ConfigurationSection items = shipped(ItemStatsConfig.PATH).getConfigurationSection("items");
         assertNotNull(items, "出荷 item-stats.yml に items セクションが無い");
+        Map<String, String> idByStatKey = catalogIdByStatKey();
         List<Weapon> out = new ArrayList<>();
         for (String id : items.getKeys(false)) {
             ConfigurationSection item = items.getConfigurationSection(id);
@@ -171,22 +204,29 @@ class WeaponDpsParityTest {
             if (fixed == null || !fixed.isSet("attack-power") || !fixed.isSet("attack-speed")) {
                 continue;
             }
-            out.add(new Weapon(id, skill, item.getInt("use-level-requirement", 0),
+            String lower = idByStatKey.getOrDefault(id, id).toLowerCase(java.util.Locale.ROOT);
+            String type = TYPES.stream()
+                    .filter(t -> lower.endsWith(t) || lower.endsWith(t + "_tf"))
+                    .findFirst().orElse(null);
+            out.add(new Weapon(id, type, skill, item.getInt("use-level-requirement", 0),
                     fixed.getDouble("attack-power"), fixed.getDouble("attack-speed"),
                     fixed.getDouble("damage-modifier", 1.0)));
         }
         assertTrue(out.size() > 100,
                 "出荷 item-stats.yml から拾えた近接武器が " + out.size()
                         + " 件しかない。use-skill か fixed の構造が変わっている疑い。");
+        assertTrue(out.stream().filter(w -> w.type() != null).count() > 100,
+                "武器種を引けた近接武器が少なすぎる。catalog.yml の id 規約か TYPES の接尾辞が変わっている疑い"
+                        + "(ここが空振りすると同格の対応が1件も成立しない)。");
         return out;
     }
 
-    private static Optional<Weapon> strongest(List<Weapon> pool, String skill, int band, double attackSpeed,
+    private static Optional<Weapon> strongest(List<Weapon> pool, String skill, int band, String type,
                                               boolean chargeEnabled, double chargeMin, double chargeExponent) {
         return pool.stream()
                 .filter(w -> w.skill().equals(skill) && w.band() == band
                         && !ARCHETYPE_EXEMPT.contains(w.id())
-                        && Math.abs(w.attackSpeed() - attackSpeed) < SPEED_MATCH_EPSILON)
+                        && type.equals(w.type()))
                 .max((a, b) -> Double.compare(
                         effectiveDps(a, chargeEnabled, chargeMin, chargeExponent),
                         effectiveDps(b, chargeEnabled, chargeMin, chargeExponent)));
@@ -206,7 +246,7 @@ class WeaponDpsParityTest {
         Map<String, Double> observed = new LinkedHashMap<>();
         int comparisons = 0;
         for (int band : new TreeSet<>(weapons.stream().map(Weapon::band).toList())) {
-            for (double[] pair : ARCHETYPE_PAIRS) {
+            for (String[] pair : ARCHETYPE_PAIRS) {
                 Optional<Weapon> heavy = strongest(weapons, "HEAVY_WEAPONS", band, pair[0],
                         chargeEnabled, chargeMin, chargeExponent);
                 Optional<Weapon> light = strongest(weapons, "LIGHT_WEAPONS", band, pair[1],
@@ -235,8 +275,8 @@ class WeaponDpsParityTest {
         }
         assertTrue(comparisons >= MIN_COMPARISONS,
                 "同格ペアの比較が " + comparisons + " 件しか成立しなかった(最低 " + MIN_COMPARISONS
-                        + " 件)。ARCHETYPE_PAIRS は出荷 item-stats.yml の attack-speed 署名で"
-                        + "同格を対応付けているので、attack-speed を動かしたらこの表も更新すること。"
+                        + " 件)。ARCHETYPE_PAIRS は catalog.yml の id 接尾辞(武器種)で同格を"
+                        + "対応付けているので、武器種の命名規約を変えたらこの表と TYPES も更新すること。"
                         + "更新しないと『1件も比較しないまま緑』になる。実測: " + observed);
     }
 
