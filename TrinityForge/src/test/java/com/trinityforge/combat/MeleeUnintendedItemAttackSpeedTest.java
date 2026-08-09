@@ -43,6 +43,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>なお {@code attack-speed} はバニラの {@code Attribute.ATTACK_SPEED} にしか写像しないので、
  * 弓の引き絞り・トライデントの投擲・魔法の詠唱には影響しない。落ちるのは殴りだけである。
+ *
+ * <h2>2026-08-10: 触媒(杖)は「最低値に張り付き」から「遅い近接武器」へ方針変更</h2>
+ * 元の不具合は「杖に {@code attack-speed} キーが無く、バニラ既定 4.0 = 全武器中で最速だった」ことで、
+ * 最低値 0.1 への張り付けはその応急処置だった。だが 0.1 は 1 振り 10 秒で、
+ * 実効近接DPSが同帯の剣の <b>14〜31%</b> にしかならず、杖は武器として成立していなかった
+ * (ユーザー要望「杖(触媒)も武器として考慮しバランス調整」)。
+ *
+ * <p>そこで杖 10 本は 0.5〜1.1 へ引き上げ、同帯の近接最良の約 70% に置いた。
+ * <b>ここで固定するのは「最低値と一致すること」ではなく「近接武器より確実に遅いこと」</b>に変える。
+ * 遠隔武器(弓/クロスボウ/トライデント)は素振りが本来の使い方でないままなので、従来どおり最低値に固定する。
+ *
+ * <p><b>攻撃力は触っていない</b>。杖の {@code attack-power} は
+ * {@code combat/damage.yml} の {@code magical.attack-power-scale: 1} で
+ * 魔法ダメージへ 1:1 で乗るため、そちらを触ると呪文の威力まで一緒に動く。
  */
 class MeleeUnintendedItemAttackSpeedTest {
 
@@ -51,6 +65,12 @@ class MeleeUnintendedItemAttackSpeedTest {
 
     /** 杖・触媒。材質は BLAZE_ROD / ENDER_EYE と揃っていないので use-skill で拾う。 */
     private static final String CATALYST_SKILL = "ARS_MAGIC";
+
+    /**
+     * 触媒に許す attack-speed の上限。近接武器の最速は剣の 1.6 なので、
+     * それより明確に遅い 1.2 を上限にして「杖が最速の殴り武器になる」退行を塞ぐ。
+     */
+    private static final double CATALYST_MAX_ATTACK_SPEED = 1.2;
 
     /** 出荷データで実際に該当する件数(弓16 + クロスボウ16 + トライデント16 + 触媒12)。 */
     private static final int EXPECTED_TARGETS = 60;
@@ -68,7 +88,7 @@ class MeleeUnintendedItemAttackSpeedTest {
     }
 
     @Test
-    @DisplayName("弓/クロスボウ/トライデント/触媒の attack-speed は全て最低値(damage.yml の min-effective)")
+    @DisplayName("遠隔武器は最低値に固定、触媒(杖)はキーがあり近接武器より遅い")
     void everyMeleeUnintendedItemIsPinnedToTheMinimumAttackSpeed() throws IOException {
         double minimum = shippedMinEffective();
         assertTrue(minimum > 0.0,
@@ -92,26 +112,37 @@ class MeleeUnintendedItemAttackSpeedTest {
                 continue; // 攻撃力を持たない品は殴っても素手同然なので対象外。
             }
             String material = id.contains("#") ? id.substring(0, id.indexOf('#')) : id;
-            boolean target = RANGED_MATERIALS.contains(material)
-                    || CATALYST_SKILL.equals(item.getString("use-skill"));
-            if (!target) {
+            boolean ranged = RANGED_MATERIALS.contains(material);
+            boolean catalyst = CATALYST_SKILL.equals(item.getString("use-skill"));
+            if (!ranged && !catalyst) {
                 continue;
             }
             checked.add(id);
             if (!fixed.isSet("attack-speed")) {
                 missingKey.add(id);
-            } else if (Math.abs(fixed.getDouble("attack-speed") - minimum) > 1.0e-9) {
-                tooFast.add(id + "=" + fixed.getDouble("attack-speed"));
+                continue;
+            }
+            double speed = fixed.getDouble("attack-speed");
+            if (ranged) {
+                // 遠隔武器は「素振りが本来の使い方でない」ので従来どおり最低値に張り付ける。
+                if (Math.abs(speed - minimum) > 1.0e-9) {
+                    tooFast.add(id + "=" + speed + "(遠隔は " + minimum + " 固定)");
+                }
+            } else if (!(speed > 0.0) || speed > CATALYST_MAX_ATTACK_SPEED + 1.0e-9) {
+                // 触媒は殴れてよいが、近接武器(最速 1.6)より遅いことだけは崩さない。
+                tooFast.add(id + "=" + speed + "(触媒は 0 超 " + CATALYST_MAX_ATTACK_SPEED + " 以下)");
             }
         }
 
         assertTrue(missingKey.isEmpty(),
                 "attack-speed キーが無い品がある: " + missingKey
                         + "。キーが無いと TF は一切干渉せず【バニラ既定 4.0 = 最速】のままになる。"
-                        + "『書いていないから遅い』ではないので、必ず明示的に " + minimum + " を書くこと。");
+                        + "『書いていないから遅い』ではないので、必ず明示的に書くこと"
+                        + "(遠隔は " + minimum + "、触媒は " + CATALYST_MAX_ATTACK_SPEED + " 以下)。");
         assertTrue(tooFast.isEmpty(),
-                "殴る前提でない品の attack-speed が最低値(" + minimum + ")になっていない: " + tooFast
-                        + "。素振りだけで ARCHERY / LIGHT_WEAPONS のレベリングが成立してしまう。");
+                "殴る前提でない品の attack-speed が規約から外れている: " + tooFast
+                        + "。遠隔は素振りだけで ARCHERY のレベリングが成立してしまい、"
+                        + "触媒が近接武器より速いと杖が最強の殴り武器になる。");
         assertEquals(EXPECTED_TARGETS, checked.size(),
                 "対象件数が変わっている(実測 " + checked.size() + " / 想定 " + EXPECTED_TARGETS + ")。"
                         + "遠隔武器や触媒を増減したなら EXPECTED_TARGETS も更新すること。対象: " + checked);

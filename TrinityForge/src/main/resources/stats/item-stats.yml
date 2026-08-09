@@ -6310,7 +6310,7 @@ items:
   WOODEN_SWORD#400008:
     fixed:
       attack-power: 196
-      attack-speed: 0.1
+      attack-speed: 0.5
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6331,7 +6331,7 @@ items:
   STONE_SWORD#400002:
     fixed:
       attack-power: 315
-      attack-speed: 0.1
+      attack-speed: 0.5
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6352,7 +6352,7 @@ items:
   COPPER_SWORD#400003:
     fixed:
       attack-power: 348
-      attack-speed: 0.1
+      attack-speed: 0.5
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6373,7 +6373,7 @@ items:
   IRON_SWORD#400004:
     fixed:
       attack-power: 821
-      attack-speed: 0.1
+      attack-speed: 0.5
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6394,7 +6394,7 @@ items:
   GOLDEN_SWORD#400005:
     fixed:
       attack-power: 1073
-      attack-speed: 0.1
+      attack-speed: 0.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6415,7 +6415,7 @@ items:
   DIAMOND_SWORD#400006:
     fixed:
       attack-power: 3259
-      attack-speed: 0.1
+      attack-speed: 0.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6436,7 +6436,7 @@ items:
   NETHERITE_SWORD#400007:
     fixed:
       attack-power: 9387
-      attack-speed: 0.1
+      attack-speed: 0.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6457,7 +6457,7 @@ items:
   NETHERITE_SWORD#400012:
     fixed:
       attack-power: 80965
-      attack-speed: 0.1
+      attack-speed: 0.8
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6478,7 +6478,7 @@ items:
   NETHERITE_SWORD#400013:
     fixed:
       attack-power: 62581
-      attack-speed: 0.1
+      attack-speed: 1.1
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6499,7 +6499,7 @@ items:
   NETHERITE_SWORD#400014:
     fixed:
       attack-power: 28472
-      attack-speed: 0.1
+      attack-speed: 0.7
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -10581,20 +10581,20 @@ items:
       reflect-percent: 0.006
     random:
       reflect-percent:
-        min: 0.028
-        max: 0.078
+        min: 0.011
+        max: 0.14
       bleed-chance:
-        min: 0.005
-        max: 0.025
+        min: 0.002
+        max: 0.045
       bleed-damage:
-        min: 20
-        max: 80
+        min: 8
+        max: 144
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10608,20 +10608,20 @@ items:
       stun-chance: 0.003
     random:
       stun-chance:
-        min: 0.014
-        max: 0.041
+        min: 0.006
+        max: 0.074
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10635,20 +10635,20 @@ items:
       ammo-save-chance: 0.006
     random:
       ammo-save-chance:
-        min: 0.028
-        max: 0.078
+        min: 0.011
+        max: 0.14
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10662,20 +10662,20 @@ items:
       cooldown-reduction: 0.006
     random:
       cooldown-reduction:
-        min: 0.028
-        max: 0.078
+        min: 0.011
+        max: 0.14
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10689,20 +10689,20 @@ items:
       mob-drop-bonus: 0.006
     random:
       mob-drop-bonus:
-        min: 0.028
-        max: 0.078
+        min: 0.011
+        max: 0.14
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       flat-bonus-damage:
-        min: 0.4
-        max: 1.2
+        min: 0.2
+        max: 2.2
       bleed-damage:
-        min: 8
-        max: 32
+        min: 3.2
+        max: 57.6
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10716,20 +10716,20 @@ items:
       phys-flat-defense: 0.2
     random:
       phys-flat-defense:
-        min: 1.4
-        max: 5.2
-      magic-flat-defense:
         min: 0.6
-        max: 2
+        max: 9.4
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10743,20 +10743,20 @@ items:
       hunger-save-chance: 0.005
     random:
       hunger-save-chance:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10770,20 +10770,20 @@ items:
       magic-resistance: 0.0015
     random:
       magic-resistance:
-        min: 0.014
-        max: 0.042
+        min: 0.006
+        max: 0.076
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10797,20 +10797,20 @@ items:
       magic-flat-defense: 0.2
     random:
       magic-flat-defense:
-        min: 1.4
-        max: 5.2
-      magic-resistance:
-        min: 0.005
-        max: 0.017
-      armor-strength:
-        min: 0.008
-        max: 0.021
-      phys-flat-defense:
         min: 0.6
-        max: 2
+        max: 9.4
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
       dodge-chance:
-        min: 0.004
-        max: 0.013
+        min: 0.002
+        max: 0.023
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10824,20 +10824,20 @@ items:
       health-regen-bonus: 0.006
     random:
       health-regen-bonus:
-        min: 0.028
-        max: 0.078
+        min: 0.011
+        max: 0.14
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10851,20 +10851,20 @@ items:
       dodge-chance: 0.001
     random:
       dodge-chance:
-        min: 0.009
-        max: 0.031
-      damage-reduction:
         min: 0.004
-        max: 0.011
+        max: 0.056
+      damage-reduction:
+        min: 0.002
+        max: 0.02
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10878,20 +10878,20 @@ items:
       mana-regen: 0.3
     random:
       mana-regen:
-        min: 1
-        max: 5
+        min: 0.4
+        max: 9
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10905,20 +10905,20 @@ items:
       mana-bonus: 3
     random:
       mana-bonus:
-        min: 10
-        max: 40
+        min: 4
+        max: 72
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10932,20 +10932,20 @@ items:
       hit-mana-recovery: 0.3
     random:
       hit-mana-recovery:
-        min: 1
-        max: 5
+        min: 0.4
+        max: 9
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       dodge-chance:
-        min: 0.004
-        max: 0.013
+        min: 0.002
+        max: 0.023
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10959,20 +10959,20 @@ items:
       damage-mana-recovery: 0.2
     random:
       damage-mana-recovery:
-        min: 1
-        max: 4
+        min: 0.4
+        max: 7.2
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -10986,20 +10986,20 @@ items:
       mana-cost-reduction-percent: 0.004
     random:
       mana-cost-reduction-percent:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11013,20 +11013,20 @@ items:
       mana-bonus: 4
     random:
       mana-bonus:
-        min: 15
-        max: 55
+        min: 6
+        max: 99
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11040,20 +11040,20 @@ items:
       mana-regen: 0.4
     random:
       mana-regen:
-        min: 2
-        max: 7
+        min: 0.8
+        max: 12.6
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11067,20 +11067,20 @@ items:
       source-cost-reduction: 0.004
     random:
       source-cost-reduction:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11094,20 +11094,20 @@ items:
       enchant-luck: 0.2
     random:
       enchant-luck:
-        min: 0.9
-        max: 3.1
+        min: 0.4
+        max: 5.6
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11121,20 +11121,20 @@ items:
       dodge-chance: 0.001
     random:
       dodge-chance:
-        min: 0.009
-        max: 0.031
-      crit-chance:
-        min: 0.005
-        max: 0.021
-      attack-power:
-        min: 60
-        max: 240
-      damage-reduction:
         min: 0.004
-        max: 0.011
+        max: 0.056
+      crit-chance:
+        min: 0.002
+        max: 0.038
+      attack-power:
+        min: 24
+        max: 432
+      damage-reduction:
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11148,20 +11148,20 @@ items:
       crit-chance: 0.002
     random:
       crit-chance:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       dodge-chance:
-        min: 0.004
-        max: 0.013
+        min: 0.002
+        max: 0.023
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       flat-bonus-damage:
-        min: 0.4
-        max: 1.2
+        min: 0.2
+        max: 2.2
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11175,20 +11175,20 @@ items:
       dodge-chance: 0.001
     random:
       dodge-chance:
-        min: 0.009
-        max: 0.031
-      magic-resistance:
-        min: 0.005
-        max: 0.017
-      damage-reduction:
         min: 0.004
-        max: 0.011
+        max: 0.056
+      magic-resistance:
+        min: 0.002
+        max: 0.031
+      damage-reduction:
+        min: 0.002
+        max: 0.02
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11202,20 +11202,20 @@ items:
       crit-chance: 0.002
     random:
       crit-chance:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       dodge-chance:
-        min: 0.004
-        max: 0.013
+        min: 0.002
+        max: 0.023
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11229,20 +11229,20 @@ items:
       dodge-chance: 0.001
     random:
       dodge-chance:
-        min: 0.009
-        max: 0.031
-      damage-reduction:
         min: 0.004
-        max: 0.011
+        max: 0.056
+      damage-reduction:
+        min: 0.002
+        max: 0.02
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11256,20 +11256,20 @@ items:
       phys-flat-defense: 0.2
     random:
       phys-flat-defense:
-        min: 1.4
-        max: 5.2
-      magic-flat-defense:
         min: 0.6
-        max: 2
+        max: 9.4
+      magic-flat-defense:
+        min: 0.2
+        max: 3.6
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11283,20 +11283,20 @@ items:
       workbench-quality-bonus: 0.12
     random:
       workbench-quality-bonus:
-        min: 0.5
-        max: 2.1
+        min: 0.2
+        max: 3.8
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11310,20 +11310,20 @@ items:
       ritual-quality-bonus: 0.12
     random:
       ritual-quality-bonus:
-        min: 0.5
-        max: 2.1
+        min: 0.2
+        max: 3.8
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       dodge-chance:
-        min: 0.004
-        max: 0.013
+        min: 0.002
+        max: 0.023
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11337,20 +11337,20 @@ items:
       material-refund-chance: 0.004
     random:
       material-refund-chance:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11364,20 +11364,20 @@ items:
       disassembly-return-bonus: 0.004
     random:
       disassembly-return-bonus:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11391,20 +11391,20 @@ items:
       mining-fortune: 0.005
     random:
       mining-fortune:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       flat-bonus-damage:
-        min: 0.4
-        max: 1.2
+        min: 0.2
+        max: 2.2
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11418,20 +11418,20 @@ items:
       fishing-luck: 0.005
     random:
       fishing-luck:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11445,20 +11445,20 @@ items:
       harvest-extra-drop-chance: 0.005
     random:
       harvest-extra-drop-chance:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11472,20 +11472,20 @@ items:
       woodcutting-extra-drop-chance: 0.005
     random:
       woodcutting-extra-drop-chance:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       flat-bonus-damage:
-        min: 0.4
-        max: 1.2
+        min: 0.2
+        max: 2.2
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11499,20 +11499,20 @@ items:
       skill-exp-bonus: 0.004
     random:
       skill-exp-bonus:
-        min: 0.018
-        max: 0.052
+        min: 0.007
+        max: 0.094
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11526,20 +11526,20 @@ items:
       food-restore-bonus: 0.02
     random:
       food-restore-bonus:
-        min: 0.09
-        max: 0.31
+        min: 0.036
+        max: 0.558
       magic-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       phys-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11553,20 +11553,20 @@ items:
       vanilla-exp-bonus: 0.006
     random:
       vanilla-exp-bonus:
-        min: 0.028
-        max: 0.078
+        min: 0.011
+        max: 0.14
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11580,20 +11580,20 @@ items:
       loot-luck: 0.15
     random:
       loot-luck:
-        min: 0.6
-        max: 2.2
+        min: 0.2
+        max: 4
       crit-damage:
-        min: 0.01
-        max: 0.042
-      dodge-chance:
         min: 0.004
-        max: 0.013
+        max: 0.076
+      dodge-chance:
+        min: 0.002
+        max: 0.023
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       bleed-chance:
-        min: 0.005
-        max: 0.025
+        min: 0.002
+        max: 0.045
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11607,20 +11607,20 @@ items:
       attack-power: 25
     random:
       attack-power:
-        min: 200
-        max: 620
+        min: 80
+        max: 1116
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11639,20 +11639,20 @@ items:
       potion-quality-bonus: 0.12
     random:
       potion-quality-bonus:
-        min: 0.5
-        max: 2.1
+        min: 0.2
+        max: 3.8
       magic-flat-defense:
-        min: 1.5
-        max: 5
+        min: 0.6
+        max: 9
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11666,20 +11666,20 @@ items:
       hive-harvest-fortune: 0.005
     random:
       hive-harvest-fortune:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       dodge-chance:
-        min: 0.003
-        max: 0.009
+        min: 0.001
+        max: 0.016
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
       magic-resistance:
-        min: 0.005
-        max: 0.017
+        min: 0.002
+        max: 0.031
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11693,20 +11693,20 @@ items:
       breeding-extra-child-chance: 0.005
     random:
       breeding-extra-child-chance:
-        min: 0.022
-        max: 0.062
+        min: 0.009
+        max: 0.112
       phys-flat-defense:
-        min: 0.6
-        max: 2
+        min: 0.2
+        max: 3.6
       phys-resistance:
-        min: 0.004
-        max: 0.013
+        min: 0.002
+        max: 0.023
       armor-strength:
-        min: 0.008
-        max: 0.021
+        min: 0.003
+        max: 0.038
       damage-reduction:
-        min: 0.004
-        max: 0.011
+        min: 0.002
+        max: 0.02
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11720,20 +11720,20 @@ items:
       mob-drop-quality: 0.06
     random:
       mob-drop-quality:
-        min: 0.3
-        max: 1.1
+        min: 0.1
+        max: 2
       attack-power:
-        min: 60
-        max: 240
+        min: 24
+        max: 432
       crit-damage:
-        min: 0.01
-        max: 0.042
+        min: 0.004
+        max: 0.076
       penetration:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
       percent-bonus-damage:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:
@@ -11747,20 +11747,20 @@ items:
       gathering-efficiency: 0.06
     random:
       gathering-efficiency:
-        min: 0.3
-        max: 1.1
-      flat-bonus-damage:
-        min: 0.4
-        max: 1.2
-      armor-strength:
-        min: 0.008
-        max: 0.021
-      phys-flat-defense:
-        min: 0.6
+        min: 0.1
         max: 2
+      flat-bonus-damage:
+        min: 0.2
+        max: 2.2
+      armor-strength:
+        min: 0.003
+        max: 0.038
+      phys-flat-defense:
+        min: 0.2
+        max: 3.6
       crit-chance:
-        min: 0.005
-        max: 0.021
+        min: 0.002
+        max: 0.038
     advanced:
       randomize-grants: true
       grant-chances:

@@ -1,6 +1,8 @@
 # TrinityForge - アイテム品質モデル (SELECTION_SPEC 3 / ITEM_ECONOMY_SPEC 5)。暫定(M7で調整)。
 # 品質(0..max)は、クラフト・敵ドロップ共通の「品質抽選」で決まる(スキル/敵の強さがmodeを、下記σがばらつきを決める)。
-# roll削除後、各ステは品質に対して決定的(item-stats.yml の per-quality 線形)。よってばらつきは品質レベルの抽選のみに存在する。
+# ⚠️ 「roll削除後、各ステは品質に対して決定的」という以前の注記は誤り。item-stats.yml の
+#    random: ブロックは現役で、rollSeed からの抽選が QualityRollModel.reach() 経由で効いている
+#    (スレッド45種はこれが厳選の本体)。ばらつきは「品質レベルの抽選」と「品質内のロール」の2段。
 
 # 品質の「段数」はconfig可変(Q=任意段階)。通常は stats/quality-tiers.yml のエントリ数で決まる
 # (そこが10ティアなら品質0..9)。この数値 max-quality は、あちらにティアが無い場合の「フォールバック」に過ぎない。
@@ -11,8 +13,17 @@
 max-quality: 9
 spread-up: 1.75
 spread-down: 1.75
-roll-spread-up: 0.1
-roll-spread-down: 0.1
+# 品質内のロールのばらつき(σ)。QualityRollModel.reach() が
+#   mode = roll-center-inset + 品質正規化 x (1 - 2 x roll-center-inset)
+#   reach = clamp(mode + z x σ, 0, 1)      ※ z は rollSeed 由来の標準正規
+# として item-stats.yml の random: の min..max を引く位置を決める。
+# 2026-08-10: 0.1 -> 0.22 へ拡大(ユーザー要望「厳選の上振れ下振れをがっつり大きく」)。
+# 0.1 のときは同じ品質なら reach がほぼ mode に張り付き、実質「品質が全てでロールは無意味」だった
+# (品質4-5では z=5 相当が要るので max 側には一生届かない)。0.22 なら最上位品質で約18%が満額を引く。
+# ⚠️ これはスレッド専用のつまみではない。random: を持つ武器・防具のロールにも同じだけ効く。
+roll-spread-up: 0.22
+roll-spread-down: 0.22
+# mode の可動域を [inset, 1-inset] に狭める値。0.2 = 品質0でも下限20%、品質maxでも上限80%の位置。
 roll-center-inset: 0.2
 loot-base-quality: 0
 fishing-base-quality: 0
