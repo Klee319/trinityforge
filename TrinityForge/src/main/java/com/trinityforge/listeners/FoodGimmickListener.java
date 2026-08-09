@@ -6,6 +6,8 @@ import com.trinityforge.config.domains.FoodGimmickConfig;
 import com.trinityforge.food.FoodGimmickPolicy;
 import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.StatKeys;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -97,6 +99,13 @@ public final class FoodGimmickListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
+        if (foodGimmick.isBannedUnregisteredCustomFood(original)) {
+            // カスタムID付きだがcustom-foodsに未登録の食料(圧縮食料の81倍/729倍等)は、素材のバニラ栄養値
+            // で食べられてしまうと大量消費の事故になるため食用機能そのものを奪う(2026-08-09新設)。
+            event.setCancelled(true);
+            player.sendActionBar(Component.text(foodGimmick.unregisteredCustomFoodBanMessage(), NamedTextColor.RED));
+            return;
+        }
         // PercentStatNormalize.RATE_KEYS already coerces this to a [0,1] fraction at aggregation time
         // (e.g. 20 -> 0.2). Compare the fraction directly against the roll (same idiom as CritResolver /
         // BreedingBonusListener#BREEDING_EXTRA_CHILD_CHANCE) instead of routing it through a

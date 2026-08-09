@@ -44,6 +44,12 @@ public final class FoodGimmickConfig {
     private static final double DEFAULT_SATIETY_BUFF_SATURATION_BONUS = 4.0;
     private static final int MIN_FOOD_LEVEL = 0;
     private static final int MAX_FOOD_LEVEL = 20;
+    private static final boolean DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_ENABLED = true;
+    private static final String DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_MESSAGE =
+            "このアイテムは食料として登録されていません";
+    /** ユーザー指示(2026-08-09)により明示除外: グロウベリー系はcustom-foods未登録でも常に食べられる。 */
+    private static final Set<Material> DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_EXCLUDED_MATERIALS =
+            Set.of(Material.GLOW_BERRIES);
 
     /**
      * カスタム食料1件の上書き値: 食べた時に回復する満腹度({@code foodLevel}, 0-20)と隠し満腹度
@@ -61,6 +67,13 @@ public final class FoodGimmickConfig {
     private volatile double junkfoodInversionNonJunkSaturationPenalty = DEFAULT_NON_JUNK_SATURATION_PENALTY;
     private volatile double satietyBuffSaturationBonus = DEFAULT_SATIETY_BUFF_SATURATION_BONUS;
     private volatile Map<String, CustomFood> customFoods = Map.of();
+    /** 2026-08-09新設: custom-foods未登録のカスタムID付き食料を食べられなくするギミック。
+     *  「custom-foodsに満腹度の設定があれば食料、無ければ素材」という規則そのものが判定基準であり、
+     *  個別ID除外は持たない(ユーザー指示2026-08-09: 例外はハードコードのIDリストでなくcustom-foodsへの
+     *  登録で表現する。tf_crystal_appleもcustom-foods側に登録して解決する)。 */
+    private volatile boolean unregisteredCustomFoodBanEnabled = DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_ENABLED;
+    private volatile Set<Material> unregisteredCustomFoodBanExcludedMaterials = DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_EXCLUDED_MATERIALS;
+    private volatile String unregisteredCustomFoodBanMessage = DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_MESSAGE;
 
     /** 「ゴミ食」と判定するMaterial一覧({@code junkfood-immunity}/{@code junkfood-inversion}で共有)。
      *  互換のためMaterial集合のみを返す({@code custom:}指定分は含まない) — カスタム品も含めた判定は
@@ -121,6 +134,45 @@ public final class FoodGimmickConfig {
         return id == null ? Optional.empty() : Optional.ofNullable(customFoods.get(id));
     }
 
+    /** {@code unregistered-custom-food-ban.enabled}: 未登録カスタム食料の禁止ギミックが有効か。 */
+    public boolean unregisteredCustomFoodBanEnabled() {
+        return unregisteredCustomFoodBanEnabled;
+    }
+
+    /** キャンセル時にプレイヤーへ表示する理由文言({@code unregistered-custom-food-ban.message})。 */
+    public String unregisteredCustomFoodBanMessage() {
+        return unregisteredCustomFoodBanMessage;
+    }
+
+    /**
+     * {@code stack} が「カタログ/materials定義のカスタムIDを持ち、かつ custom-foods に満腹度設定が
+     * 無い」ため禁止対象(=食料でなく素材として扱う)か
+     * (2026-08-09新設・2026-08-09補足反映: 圧縮食料等の81倍/729倍を素材のバニラ栄養値で食べられて
+     * しまう事故対策。判定基準は「custom-foodsへの登録の有無」そのもので、個別ID除外は持たない
+     * ——例外はハードコードのIDリストでなくcustom-foods側への登録で表現する方針)。
+     *
+     * <p>判定順序: (1) 機能が無効なら常にfalse。(2) ベースMaterialが
+     * {@code unregistered-custom-food-ban.excluded-materials}(既定値: {@code GLOW_BERRIES})に
+     * 載っていれば常にfalse(グロウベリー系はユーザー指示による明示除外)。(3)
+     * {@link CrossPluginItemResolver#idOf(ItemStack)} でカスタムID(TFカタログ/ArsPaper materials)が
+     * 読めなければ素のバニラ品なので常にfalse(禁止対象はカスタムID付きのみ)。(4) そのIDが
+     * {@link #customFoods}(custom-foods)に登録済みならfalse(満腹度が設定済み=食料として扱う)。
+     * (5) 残り(カスタムID付きだが未登録)は素材として扱い禁止対象。
+     */
+    public boolean isBannedUnregisteredCustomFood(ItemStack stack) {
+        if (!unregisteredCustomFoodBanEnabled || stack == null) {
+            return false;
+        }
+        if (unregisteredCustomFoodBanExcludedMaterials.contains(stack.getType())) {
+            return false;
+        }
+        Optional<String> id = CrossPluginItemResolver.idOf(stack);
+        if (id.isEmpty()) {
+            return false;
+        }
+        return !customFoods.containsKey(id.get());
+    }
+
     /** Loads (or reloads) the config. Returns true when it parsed cleanly. */
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -153,6 +205,20 @@ public final class FoodGimmickConfig {
                 yaml.getDouble("satiety-buff.saturation-bonus", DEFAULT_SATIETY_BUFF_SATURATION_BONUS),
                 "satiety-buff.saturation-bonus", DEFAULT_SATIETY_BUFF_SATURATION_BONUS, log);
         this.customFoods = parseCustomFoods(yaml.getConfigurationSection("custom-foods"), log);
+
+        this.unregisteredCustomFoodBanEnabled = yaml.getBoolean(
+                "unregistered-custom-food-ban.enabled", DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_ENABLED);
+        // excluded-materials未指定(キー自体が無い)時は既定値(GLOW_BERRIES)を使う。空リストを明示した
+        // 場合は「除外なし」の意図として尊重する(getStringListはキー不在でも空リストを返すため、
+        // 既定値注入にはcontains()での明示チェックが必要)。
+        this.unregisteredCustomFoodBanExcludedMaterials = yaml.contains(
+                "unregistered-custom-food-ban.excluded-materials")
+                ? parseMaterials(yaml.getStringList("unregistered-custom-food-ban.excluded-materials"), log)
+                : DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_EXCLUDED_MATERIALS;
+        String banMessage = yaml.getString("unregistered-custom-food-ban.message",
+                DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_MESSAGE);
+        this.unregisteredCustomFoodBanMessage =
+                (banMessage == null || banMessage.isBlank()) ? DEFAULT_UNREGISTERED_CUSTOM_FOOD_BAN_MESSAGE : banMessage;
 
         log.info("[" + PATH + "] loaded " + this.junkFoodMaterials.size() + " junk-food material(s), "
                 + this.customFoods.size() + " custom-food(s) OK");
@@ -194,6 +260,23 @@ public final class FoodGimmickConfig {
             materials.add(material);
         }
         return new JunkFoodTokens(Set.copyOf(materials), Set.copyOf(catalogIds));
+    }
+
+    /** {@code unregistered-custom-food-ban.excluded-materials} 向けの単純なMaterial一覧パーサ。 */
+    private static Set<Material> parseMaterials(List<String> names, Logger log) {
+        Set<Material> parsed = new LinkedHashSet<>();
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            Material material = Material.matchMaterial(name.trim());
+            if (material == null) {
+                log.warning("[" + PATH + "] '" + name + "' is not a valid Material; skipped");
+                continue;
+            }
+            parsed.add(material);
+        }
+        return Set.copyOf(parsed);
     }
 
     private static Set<PotionEffectType> parsePotionEffectTypes(List<String> names, Logger log) {

@@ -166,6 +166,55 @@ class FoodGimmickListenerTest {
         verify(nanEvent, never()).setReplacement(org.mockito.ArgumentMatchers.any());
     }
 
+    // --- 2026-08-09新設: unregistered-custom-food-ban(「81倍は食用にしない」)のリスナー配線 -------------
+
+    @Test
+    void bannedUnregisteredCustomFoodCancelsConsumptionAndShowsMessage() {
+        // FoodGimmickConfig#isBannedUnregisteredCustomFood()がtrueを返す場合、setReplacement等の
+        // 通常経路には進まず、イベント自体をキャンセルしプレイヤーへ理由を通知する。
+        Player player = mock(Player.class);
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+        PlayerStatAggregator aggregator = aggregatorReturning(player, 1000.0); // >=100%だが到達しないはず
+        FoodGimmickListener listener =
+                new FoodGimmickListener(MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, aggregator);
+
+        ItemStack unregistered = stampArsCustomItemId(Material.APPLE, "apple_2x");
+        when(foodGimmick.isBannedUnregisteredCustomFood(unregistered)).thenReturn(true);
+        when(foodGimmick.unregisteredCustomFoodBanMessage()).thenReturn("このアイテムは食料として登録されていません");
+
+        PlayerItemConsumeEvent event = mock(PlayerItemConsumeEvent.class);
+        when(event.isCancelled()).thenReturn(false);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getItem()).thenReturn(unregistered);
+
+        listener.onItemConsume(event);
+
+        verify(event).setCancelled(true);
+        verify(player).sendActionBar(org.mockito.ArgumentMatchers.any(net.kyori.adventure.text.Component.class));
+        verify(event, never()).setReplacement(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void nonBannedFoodIsUnaffectedByUnregisteredCustomFoodBan() {
+        // isBannedUnregisteredCustomFood()がfalseなら通常のno-food-consume-chance経路まで進む
+        // (registered custom food / plain vanilla / excluded material・idの全4パターンを代表する)。
+        Player player = mock(Player.class);
+        DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
+        FoodGimmickConfig foodGimmick = mock(FoodGimmickConfig.class);
+        PlayerStatAggregator aggregator = aggregatorReturning(player, 1000.0); // >=100% -> 必ず成立
+        FoodGimmickListener listener =
+                new FoodGimmickListener(MockBukkit.createMockPlugin(), dedicatedEffects, foodGimmick, aggregator);
+        PlayerItemConsumeEvent event = consumeEvent(player);
+        when(foodGimmick.isBannedUnregisteredCustomFood(org.mockito.ArgumentMatchers.any())).thenReturn(false);
+
+        listener.onItemConsume(event);
+
+        verify(event, never()).setCancelled(true);
+        verify(event).setReplacement(org.mockito.ArgumentMatchers.argThat(
+                stack -> stack.getType() == Material.BREAD));
+    }
+
     @Test
     void oldDedicatedEffectValueNoLongerPreventsConsumption() {
         // Regression guard: the retired dedicated-effect id "no-food-consume-chance" must not save the

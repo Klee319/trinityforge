@@ -74,6 +74,14 @@
       key
     });
   }
+  function boolField(obj, key, opts) {
+    const o = opts || {};
+    return field(key, window.checkboxInput(!!obj[key], (v) => { obj[key] = v; }), {
+      label: o.label || key,
+      desc: o.desc || "",
+      key
+    });
+  }
 
   // E-1 (2026-07-25): fishing.ocean-biomes は以前 textInput の自由入力のみだったため、タイポで
   // 無効なバイオームキーを設定できてしまっていた。tf-phase3-forms.js の form-cooldowns (T1) や
@@ -803,6 +811,10 @@
     const sat = ensureObj(working, "satiety-buff");
     const customFoods = ensureObj(working, "custom-foods");
     ensureArr(immun, "cancelled-debuff-effects");
+    // 2026-08-09新設: custom-foodsに満腹度設定の無いカスタムID付き食料(圧縮食料の81倍/729倍等)を
+    // 食べられなくするギミック。判定基準は「custom-foodsへの登録の有無」そのもの。
+    const ban = ensureObj(working, "unregistered-custom-food-ban");
+    ensureArr(ban, "excluded-materials");
 
     const root = h("div", { class: "dedicated-form" });
     // 2026-08-09: 見出し代わりの説明バナーは、農業ギミックタブへ統合表示したときに
@@ -832,6 +844,19 @@
       [
         h("div", { class: "mini-label", text: "カタログアイテムに満腹度/隠し満腹度を割り当てる (custom-foods)。" }),
         customFoodsEditor(customFoods, catalogCandidates)
+      ]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "未登録カスタム食料の禁止" })],
+      [
+        h("div", {
+          class: "mini-label",
+          text: "カタログ/materials定義のカスタムIDを持つが上の「カスタム食料」に未登録の食料は、素材として扱い食べられなくなる。除外Materialに載っている土台のアイテムは常に食べられる。"
+        }),
+        boolField(ban, "enabled", { label: "有効" }),
+        h("div", { class: "mini-label", text: "除外Material(このMaterialを土台にした品は未登録でも食べられる)" }),
+        stringListEditor(ban["excluded-materials"], { material: true, addLabel: "+ 除外Material追加" }),
+        textField(ban, "message", { label: "禁止時メッセージ" })
       ]
     ));
     return { element: root, getData: () => working };

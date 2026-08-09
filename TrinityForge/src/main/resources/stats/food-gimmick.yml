@@ -88,3 +88,25 @@ custom-foods:
     # hunger 8×9=72→20に丸め。saturation 4.8×9=43.2→20に丸め。
     food-level: 20
     saturation: 20
+  # 2026-08-09: tf_crystal_apple(素材ENCHANTED_GOLDEN_APPLE)を登録。unregistered-custom-food-ban
+  # の判定基準は「custom-foodsに満腹度設定があるか」そのものなので、tf_crystal_appleを
+  # 「食べるアイテムとして正しい仕様」として維持するにはハードコードのID除外でなくここへの登録で
+  # 表現する(バニラのエンチャント金リンゴ相当: hunger4/saturation9.6を採用)。
+  tf_crystal_apple:
+    food-level: 4
+    saturation: 9.6
+
+# 2026-08-09新設: カタログ/materials定義のカスタムIDを持つが上のcustom-foodsに満腹度設定が無い
+# 食料(圧縮食料の81倍/729倍等)を食べられなくするギミック。「81倍は食用にしない=食べる機能そのものを
+# 奪う」という運用方針(Ars側の圧縮食品apple_3x=リンゴ729個分がただのAPPLEとして食べられ、満腹度4の
+# ために729個分が一瞬で消える事故への対策)。バニラ素の食料(カスタムIDを持たない)は今まで通り
+# 食べられる(対象外)。判定基準は「custom-foodsへの登録の有無」そのものであり、個別ID除外は持たない
+# (TFのitems/catalog.ymlとArsPaperのmaterials.ymlの両方に同じ規則が自動的に効く)。
+unregistered-custom-food-ban:
+  enabled: true
+  # このMaterialを土台にしたカスタム品はcustom-foods未登録でも例外として食べられる
+  # (ユーザー指定: グロウベリー系のみ明示除外)。
+  excluded-materials:
+    - GLOW_BERRIES
+  # キャンセル時にプレイヤーへアクションバーで表示する理由。
+  message: "このアイテムは食料として登録されていません"

@@ -3162,6 +3162,28 @@ function validateTfFoodGimmick(data, errors) {
       errors.push(`${prefix}.saturation: 0以上の数値である必要があります`);
     }
   }
+  // unregistered-custom-food-ban: 2026-08-09新設。判定基準は「custom-foodsへの登録の有無」そのもの
+  // なので個別ID除外(excluded-ids)は無い。excluded-materialsのみユーザー指定の明示除外を持つ。
+  const ban = data["unregistered-custom-food-ban"];
+  if (ban === undefined || ban === null) return;
+  if (!isPlainObject(ban)) { errors.push("unregistered-custom-food-ban はマップである必要があります"); return; }
+  if (ban.enabled !== undefined && ban.enabled !== null && typeof ban.enabled !== "boolean") {
+    errors.push("unregistered-custom-food-ban.enabled: 真偽値である必要があります");
+  }
+  if (ban["excluded-materials"] !== undefined && ban["excluded-materials"] !== null) {
+    if (!Array.isArray(ban["excluded-materials"])) {
+      errors.push("unregistered-custom-food-ban.excluded-materials: 配列である必要があります");
+    } else {
+      ban["excluded-materials"].forEach((v, i) => {
+        if (typeof v !== "string" || !v.trim()) {
+          errors.push(`unregistered-custom-food-ban.excluded-materials[${i}]: 空でない文字列である必要があります`);
+        }
+      });
+    }
+  }
+  if (ban.message !== undefined && ban.message !== null && typeof ban.message !== "string") {
+    errors.push("unregistered-custom-food-ban.message: 文字列である必要があります");
+  }
 }
 
 // ---- fishing-gimmick.yml (tf-fishing-gimmick) ----
