@@ -7569,6 +7569,191 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
+  # 2026-08-09 追加: 魔導シリーズの賢者/星詠み。耐久・品質別耐久・ランダムロール・要求レベルは
+  # 同じ階梯の魔織(200221〜200234)と共通の土台をそのまま使う(全シリーズで共通の値になっている)。
+  # 魔導固有のステは「魔導/魔織の大魔導士どうしの比」をそのまま賢者/星詠みへ持ち上げた:
+  #   マナ上限 ×5/3・マナ回復 ×5/3・魔法固定防御 ×1.6・魔法耐性 ×1.391。
+  # 防御力/回避/移動速度/スレッド枠は魔導シリーズ内で階梯を通じて一定なので据え置く。
+  LEATHER_HELMET#200241:
+    fixed:
+      armor-defense-rate: 2
+      durability: 461
+      armor-strength: 0.07
+      dodge-chance: 0.036
+      thread-slots: 2
+      mana-bonus: 68
+      magic-resistance: 0.038
+      magic-flat-defense: 53
+      mana-regen: 8
+    per-quality:
+      durability: 77
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 8.2
+        max: 19
+      phys-resistance:
+        min: 0.016
+        max: 0.03
+  LEATHER_CHESTPLATE#200242:
+    fixed:
+      armor-defense-rate: 4
+      durability: 672
+      dodge-chance: 0.024
+      thread-slots: 2
+      mana-bonus: 180
+      magic-resistance: 0.1
+      magic-flat-defense: 141
+      mana-regen: 8
+    per-quality:
+      durability: 112
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 22
+        max: 52
+      phys-resistance:
+        min: 0.043
+        max: 0.08
+  LEATHER_LEGGINGS#200243:
+    fixed:
+      armor-defense-rate: 3
+      durability: 629
+      move-speed: 0.003
+      thread-slots: 2
+      mana-bonus: 135
+      magic-resistance: 0.075
+      magic-flat-defense: 106
+      mana-regen: 8
+    per-quality:
+      durability: 106
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 16
+        max: 39
+      phys-resistance:
+        min: 0.033
+        max: 0.06
+  LEATHER_BOOTS#200244:
+    fixed:
+      armor-defense-rate: 2
+      durability: 538
+      armor-strength: 0.07
+      move-speed: 0.002
+      thread-slots: 2
+      mana-bonus: 68
+      magic-resistance: 0.038
+      magic-flat-defense: 53
+      mana-regen: 8
+    per-quality:
+      durability: 90
+    use-level-requirement: 80
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -9
+    random:
+      phys-flat-defense:
+        min: 8.2
+        max: 19
+      phys-resistance:
+        min: 0.016
+        max: 0.03
+  LEATHER_HELMET#200251:
+    fixed:
+      armor-defense-rate: 2
+      durability: 738
+      armor-strength: 0.07
+      dodge-chance: 0.036
+      thread-slots: 2
+      mana-bonus: 152
+      magic-resistance: 0.043
+      magic-flat-defense: 117
+      mana-regen: 10
+    per-quality:
+      durability: 123
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 21
+        max: 49
+      phys-resistance:
+        min: 0.019
+        max: 0.036
+  LEATHER_CHESTPLATE#200252:
+    fixed:
+      armor-defense-rate: 4
+      durability: 1075
+      dodge-chance: 0.024
+      thread-slots: 2
+      mana-bonus: 405
+      magic-resistance: 0.114
+      magic-flat-defense: 310
+      mana-regen: 10
+    per-quality:
+      durability: 179
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 55
+        max: 130
+      phys-resistance:
+        min: 0.052
+        max: 0.096
+  LEATHER_LEGGINGS#200253:
+    fixed:
+      armor-defense-rate: 3
+      durability: 1006
+      move-speed: 0.003
+      thread-slots: 2
+      mana-bonus: 303
+      magic-resistance: 0.086
+      magic-flat-defense: 232
+      mana-regen: 10
+    per-quality:
+      durability: 170
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 41
+        max: 97
+      phys-resistance:
+        min: 0.04
+        max: 0.072
+  LEATHER_BOOTS#200254:
+    fixed:
+      armor-defense-rate: 2
+      durability: 861
+      armor-strength: 0.07
+      move-speed: 0.002
+      thread-slots: 2
+      mana-bonus: 152
+      magic-resistance: 0.043
+      magic-flat-defense: 117
+      mana-regen: 10
+    per-quality:
+      durability: 144
+    use-level-requirement: 100
+    use-skill: LIGHT_ARMOR
+    quality-mode-offset: -11
+    random:
+      phys-flat-defense:
+        min: 21
+        max: 49
+      phys-resistance:
+        min: 0.019
+        max: 0.036
   LEATHER_HELMET#200061:
     fixed:
       armor-defense-rate: 1
@@ -12055,6 +12240,14 @@ _editor:
           - LEATHER_CHESTPLATE#200052
           - LEATHER_LEGGINGS#200053
           - LEATHER_BOOTS#200054
+          - LEATHER_HELMET#200241
+          - LEATHER_CHESTPLATE#200242
+          - LEATHER_LEGGINGS#200243
+          - LEATHER_BOOTS#200244
+          - LEATHER_HELMET#200251
+          - LEATHER_CHESTPLATE#200252
+          - LEATHER_LEGGINGS#200253
+          - LEATHER_BOOTS#200254
       - id: cat_1784826519862
         label: エンドラ
         itemIds:
@@ -12525,6 +12718,14 @@ _editor:
     LEATHER_CHESTPLATE#200052: armor
     LEATHER_LEGGINGS#200053: armor
     LEATHER_BOOTS#200054: armor
+    LEATHER_HELMET#200241: armor
+    LEATHER_CHESTPLATE#200242: armor
+    LEATHER_LEGGINGS#200243: armor
+    LEATHER_BOOTS#200244: armor
+    LEATHER_HELMET#200251: armor
+    LEATHER_CHESTPLATE#200252: armor
+    LEATHER_LEGGINGS#200253: armor
+    LEATHER_BOOTS#200254: armor
     NETHERITE_HELMET#149: armor
     NETHERITE_CHESTPLATE#152: armor
     NETHERITE_LEGGINGS#155: armor
@@ -13015,6 +13216,14 @@ _editor:
       - LEATHER_CHESTPLATE#200052
       - LEATHER_LEGGINGS#200053
       - LEATHER_BOOTS#200054
+      - LEATHER_HELMET#200241
+      - LEATHER_CHESTPLATE#200242
+      - LEATHER_LEGGINGS#200243
+      - LEATHER_BOOTS#200244
+      - LEATHER_HELMET#200251
+      - LEATHER_CHESTPLATE#200252
+      - LEATHER_LEGGINGS#200253
+      - LEATHER_BOOTS#200254
       - NETHERITE_HELMET#149
       - NETHERITE_CHESTPLATE#152
       - NETHERITE_LEGGINGS#155

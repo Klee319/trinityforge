@@ -204,6 +204,20 @@ smithing:
     custom:mage_arcane_apprentice_chestplate: 180
     custom:mage_arcane_apprentice_leggings: 160
     custom:mage_arcane_apprentice_boots: 100
+    # 2026-08-09: 魔導シリーズの大魔導士がこの表から丸ごと抜けていた(魔織・守護には 240/360/320/200 が
+    # ある)。賢者/星詠みを足すのに合わせて、EXPが 0 -> 480 と飛ぶ穴を埋める。値は他2シリーズと同一。
+    custom:mage_arcane_archmage_helmet: 240
+    custom:mage_arcane_archmage_chestplate: 360
+    custom:mage_arcane_archmage_leggings: 320
+    custom:mage_arcane_archmage_boots: 200
+    custom:mage_arcane_sage_helmet: 480
+    custom:mage_arcane_sage_chestplate: 720
+    custom:mage_arcane_sage_leggings: 640
+    custom:mage_arcane_sage_boots: 400
+    custom:mage_arcane_starseer_helmet: 960
+    custom:mage_arcane_starseer_chestplate: 1440
+    custom:mage_arcane_starseer_leggings: 1280
+    custom:mage_arcane_starseer_boots: 800
     custom:mage_weaver_novice_helmet: 60
     custom:mage_weaver_novice_chestplate: 90
     custom:mage_weaver_novice_leggings: 80

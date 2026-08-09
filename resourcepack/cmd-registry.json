@@ -1317,6 +1317,62 @@
     },
     {
       "material": "LEATHER_HELMET",
+      "cmd": 200241,
+      "id": "mage_arcane_sage_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200242,
+      "id": "mage_arcane_sage_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200243,
+      "id": "mage_arcane_sage_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200244,
+      "id": "mage_arcane_sage_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
+      "cmd": 200251,
+      "id": "mage_arcane_starseer_helmet",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_CHESTPLATE",
+      "cmd": 200252,
+      "id": "mage_arcane_starseer_chestplate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_LEGGINGS",
+      "cmd": 200253,
+      "id": "mage_arcane_starseer_leggings",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_BOOTS",
+      "cmd": 200254,
+      "id": "mage_arcane_starseer_boots",
+      "source": "catalog",
+      "allocatedAt": "2026-08-09T00:00:00.000Z"
+    },
+    {
+      "material": "LEATHER_HELMET",
       "cmd": 200001,
       "id": "mage_guardian_novice_helmet",
       "source": "catalog",

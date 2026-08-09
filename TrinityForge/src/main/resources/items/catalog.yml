@@ -2255,6 +2255,169 @@ items:
       - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
       - ""
       - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
+  # 2026-08-09 追加: 魔導シリーズだけ賢者/星詠みの2階梯が欠番だった(魔織・守護は5階梯揃っている)。
+  # CMD は守護 20020x/20021x・魔織 20022x/20023x に続けて 20024x/20025x を新規に割り当てる。
+  # レシピ・素材・ソース量は魔織/守護の同階梯と同一(1階梯上げるのに前階梯を core に置く)。
+  mage_arcane_sage_helmet:
+    material: LEATHER_HELMET
+    display-name: <aqua>賢者の魔導ヘルメット</aqua>
+    custom-model-data: 200241
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_helmet
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_sage_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <aqua>賢者の魔導チェストプレート</aqua>
+    custom-model-data: 200242
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_chestplate
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_sage_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <aqua>賢者の魔導レギンス</aqua>
+    custom-model-data: 200243
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_leggings
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_sage_boots:
+    material: LEATHER_BOOTS
+    display-name: <aqua>賢者の魔導ブーツ</aqua>
+    custom-model-data: 200244
+    color: "#6B3FA0"
+    enchant-glow: false
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_archmage_boots
+      pedestal-items:
+        - ECHO_SHARD x2
+        - DRAGON_BREATH x2
+      source: 10000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星の理を読み解く賢者の装備。</color>
+  mage_arcane_starseer_helmet:
+    material: LEATHER_HELMET
+    display-name: <color:#C8A2FF>星詠みの魔導ヘルメット</color>
+    custom-model-data: 200251
+    color: "#6B3FA0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_helmet
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_arcane_starseer_chestplate:
+    material: LEATHER_CHESTPLATE
+    display-name: <color:#C8A2FF>星詠みの魔導チェストプレート</color>
+    custom-model-data: 200252
+    color: "#6B3FA0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_chestplate
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_arcane_starseer_leggings:
+    material: LEATHER_LEGGINGS
+    display-name: <color:#C8A2FF>星詠みの魔導レギンス</color>
+    custom-model-data: 200253
+    color: "#6B3FA0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_leggings
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
+  mage_arcane_starseer_boots:
+    material: LEATHER_BOOTS
+    display-name: <color:#C8A2FF>星詠みの魔導ブーツ</color>
+    custom-model-data: 200254
+    color: "#6B3FA0"
+    enchant-glow: true
+    bind-type: TRADEABLE
+    recipe:
+      method: ritual
+      core-item: custom:mage_arcane_sage_boots
+      pedestal-items:
+        - NETHER_STAR
+        - ECHO_SHARD x3
+      source: 20000
+      type: shapeless
+      ingredients: []
+    lore:
+      - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
+      - ""
+      - <color:dark_purple>星を詠み、魔を退ける極致の装備。</color>
   mage_weaver_novice_helmet:
     material: LEATHER_HELMET
     display-name: <light_purple>見習いの魔織ヘルメット</light_purple>
@@ -7381,6 +7544,14 @@ _editor:
           - mage_arcane_novice_chestplate
           - mage_arcane_novice_helmet
           - mage_arcane_novice_leggings
+          - mage_arcane_sage_helmet
+          - mage_arcane_sage_chestplate
+          - mage_arcane_sage_leggings
+          - mage_arcane_sage_boots
+          - mage_arcane_starseer_helmet
+          - mage_arcane_starseer_chestplate
+          - mage_arcane_starseer_leggings
+          - mage_arcane_starseer_boots
       - id: cat_1784826519862
         label: エンドラ
         itemIds:
@@ -7783,6 +7954,14 @@ _editor:
       - mage_arcane_archmage_chestplate
       - mage_arcane_archmage_leggings
       - mage_arcane_archmage_boots
+      - mage_arcane_sage_helmet
+      - mage_arcane_sage_chestplate
+      - mage_arcane_sage_leggings
+      - mage_arcane_sage_boots
+      - mage_arcane_starseer_helmet
+      - mage_arcane_starseer_chestplate
+      - mage_arcane_starseer_leggings
+      - mage_arcane_starseer_boots
       - mage_weaver_novice_helmet
       - mage_weaver_novice_chestplate
       - mage_weaver_novice_leggings
