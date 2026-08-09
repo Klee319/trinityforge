@@ -28,30 +28,23 @@ import java.util.List;
  *                   下位スコープへフォールスルーする(「特殊攻撃なし」を意味しない)。
  *                   <b>ここに書けるのはIDだけ</b>で、数値はテンプレート側にある — モブは396体あるので、
  *                   個別に数値を書き下すとバランス調整のたびに396箇所を直すことになる。
- * @param levelCutoff このモブ単位の「レベル差による足きり」設定(2026-07-27)、または
- *                    {@link MobLevelCutoff#NONE}(無効)。{@code null} は {@link MobLevelCutoff#NONE} に
- *                    正規化される。スコープ単位のブロックとの優先順位は
- *                    {@code MobOverridesConfig#levelCutoffFor} が解決する — このレコード自体は
- *                    「モブ単位で何が書かれているか」だけを保持する。
+ *
+ * <p><b>「レベル差による足きり」({@code levelCutoff}) は 2026-08-09 に撤去した。</b> ダンジョン×モブ単位で
+ * 持つ意味が無い設定だった — この足きりは EliteMobs のスタンプがあるモブにしか効かず、フィールドの
+ * 野良モブを素通りさせていた。全モブ共通の {@code combat/damage.yml} の {@code level-cutoff:} へ移し、
+ * 適用は {@code com.trinityforge.listeners.KillRewardAdjuster} が一手に引き受ける。
  */
 public record MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
-                                String displayName, MobLevelCutoff levelCutoff, List<String> abilities) {
+                                String displayName, List<String> abilities) {
 
     public MobOverrideEntry {
         stats = stats == null ? MobStatOverride.EMPTY : stats;
         drops = drops == null ? List.of() : List.copyOf(drops);
         displayName = displayName == null || displayName.isBlank() ? null : displayName;
-        levelCutoff = levelCutoff == null ? MobLevelCutoff.NONE : levelCutoff;
         abilities = abilities == null ? List.of() : List.copyOf(abilities);
     }
 
-    /** Back-compat: an entry carrying no ability list (the pre-2026-07-31 five-field shape). */
-    public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
-                             String displayName, MobLevelCutoff levelCutoff) {
-        this(stats, drops, vanillaExp, displayName, levelCutoff, null);
-    }
-
-    /** Back-compat: an entry carrying no level-cutoff (the pre-2026-07-27 four-field shape). */
+    /** Back-compat: an entry carrying no ability list (the pre-2026-07-31 shape). */
     public MobOverrideEntry(MobStatOverride stats, List<MobOverrideDropEntry> drops, Ramp vanillaExp,
                              String displayName) {
         this(stats, drops, vanillaExp, displayName, null);

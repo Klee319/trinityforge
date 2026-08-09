@@ -1,8 +1,6 @@
 package com.trinityforge.listeners;
 
-import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.MobOverridesConfig;
-import com.trinityforge.mobs.MobLevelCutoff;
 import com.trinityforge.pdc.MobData;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
@@ -41,21 +39,19 @@ import java.util.OptionalInt;
  * {@code setDroppedExp} here unconditionally overwrote that 0 with the full ramp value regardless of who
  * (or what) landed the kill, turning any AFK/automated non-player kill into a free EXP farm.
  *
- * <p><b>レベル差による足きり(2026-07-27):</b> {@link MobOverridesConfig#levelCutoffFor} で解決した
- * {@link MobLevelCutoff} の {@link MobLevelCutoff#expMultiplier} を、ランプ済みEXP(未設定なら
- * {@code event.getDroppedExp()} そのもの)に乗算してから {@code setDroppedExp} する。ランプも足きりも
- * どちらも未設定/無効なときだけ、従来どおり {@code setDroppedExp} を一切呼ばない(「未設定 = 触らない」
- * という既存の契約を壊さないため — 足きりの倍率が実質1.0のときも同様に「触らない」を優先する)。
- * 適用順は「ランプ/基準EXP → 足きり倍率 → {@link com.trinityforge.progression.LocationExpDiminishing}」。
+ * <p><b>レベル差による足きりはここには無い(2026-08-09):</b> 2026-07-27 に一度このクラスへ入れたが、
+ * {@code combat/mob-overrides.yml} 由来の設定だったためEliteMobsスタンプ済みモブ(=ダンジョンモブ)にしか
+ * 掛からなかった。共通設定({@code combat/damage.yml} の {@code level-cutoff})へ移し、全モブに効く
+ * {@link LevelCutoffExpListener} が担当する。適用順は「ランプ →
+ * {@link com.trinityforge.progression.LocationExpDiminishing} → 足きり倍率」で、後段の足きりは
+ * このリスナーより後に登録された別リスナーとして走る(どちらも乗算なので順序で結果は変わらない)。
  */
 public final class MobOverrideExpListener implements Listener {
 
     private final MobOverridesConfig mobOverrides;
-    private final SymmetricCombatService combatService;
 
-    public MobOverrideExpListener(MobOverridesConfig mobOverrides, SymmetricCombatService combatService) {
+    public MobOverrideExpListener(MobOverridesConfig mobOverrides) {
         this.mobOverrides = Objects.requireNonNull(mobOverrides, "mobOverrides");
-        this.combatService = Objects.requireNonNull(combatService, "combatService");
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -75,18 +71,14 @@ public final class MobOverrideExpListener implements Listener {
         String worldName = entity.getWorld().getName();
         int mobLevel = mobData.level();
         OptionalInt ramp = mobOverrides.vanillaExpFor(worldName, profileId.get(), mobLevel);
-        MobLevelCutoff cutoff = mobOverrides.levelCutoffFor(worldName, profileId.get());
-        int playerLevel = combatService.combatLevelOf(entity.getKiller().getUniqueId());
-        double multiplier = cutoff.expMultiplier(playerLevel, mobLevel);
-        if (ramp.isEmpty() && multiplier == 1.0) {
-            // 2026-07-27: ランプ未設定 かつ 足きりも実質無効(未発動、または発動していてもexp-rate未設定
-            // で倍率1.0)なら、従来どおり一切触らない — このキルのEXPが何であれ(EliteMobsフォークが
-            // 既に計算した値含め)そのまま生かす。
+        if (ramp.isEmpty()) {
+            // ランプ未設定なら一切触らない — このキルのEXPが何であれ(EliteMobsフォークが既に計算した
+            // 値含め)そのまま生かす。2026-08-09: レベル差の足きりはこのクラスから外し、全モブに効く
+            // LevelCutoffExpListener(このリスナーより後に登録)へ移した。
             return;
         }
-        int baseExp = ramp.isPresent() ? ramp.getAsInt() : event.getDroppedExp();
-        int finalExp = (int) Math.max(0, Math.round(baseExp * multiplier));
         // TT/放置対策: 同一地点で稼ぎ続けたぶんだけ経験値オーブを減らす(ダンジョンは既定で対象外)。
-        event.setDroppedExp(com.trinityforge.progression.LocationExpDiminishing.applyIfRunning(finalExp, entity));
+        event.setDroppedExp(com.trinityforge.progression.LocationExpDiminishing
+                .applyIfRunning(Math.max(0, ramp.getAsInt()), entity));
     }
 }

@@ -112,6 +112,18 @@ public final class MobLevelTableListener implements Listener {
         this.dropGate = gate;
     }
 
+    /** レベル差の足きり + ドロップ増加ステ(2026-08-09)。null可 = 未配線なら素の抽選結果のまま。 */
+    private volatile KillRewardAdjuster killRewardAdjuster;
+
+    /**
+     * add-drops へレベル差の足きり(combat/damage.yml の level-cutoff)とドロップ増加ステ
+     * (mob_drop_bonus)を掛ける(2026-08-09)。null で無効化。{@link #setDropGate} と同じく
+     * 「後から挿す任意の層」なので、コンストラクタ引数ではなくセッターにしている。
+     */
+    public void setKillRewardAdjuster(KillRewardAdjuster adjuster) {
+        this.killRewardAdjuster = adjuster;
+    }
+
     /** 述語の例外でドロップ処理を落とさない(失敗したら従来どおり付与する)。 */
     private boolean isGated(org.bukkit.entity.Player killer) {
         java.util.function.Predicate<org.bukkit.entity.Player> gate = this.dropGate;
@@ -163,6 +175,19 @@ public final class MobLevelTableListener implements Listener {
         // vanilla-exp は通す — 削除は報酬ではないし、バニラEXPはオーブ回収時の
         // PlayerExpChangeEvent 側(AfkSuppressionListener)で 0 にされるので、ここで二重に止めない。
         List<LevelTierDropEntry> addDrops = isGated(entity.getKiller()) ? List.of() : rule.addDrops();
+        // 2026-08-09: レベル差の足きり + ドロップ増加ステ。add-drops にだけ掛ける
+        // (remove-drops と vanilla-exp は上の AFK 対策と同じ理由でここでは触らない)。
+        KillRewardAdjuster adjuster = this.killRewardAdjuster;
+        double chanceMultiplier = 1.0;
+        double countFactor = 1.0;
+        if (adjuster != null && !addDrops.isEmpty()) {
+            if (adjuster.blocksItems(entity.getKiller(), entity)) {
+                addDrops = List.of();
+            } else {
+                chanceMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
+                countFactor = adjuster.countFactor(entity.getKiller());
+            }
+        }
         // 2026-08-02 柱7: roles: 指定のあるエントリはキルしたプレイヤーの職業で絞る。
         // 未指定(空)のエントリしか無いときは PDC を一切読まない(既存の挙動と同じコストに保つ)。
         Set<String> killerRoles = addDrops.stream().anyMatch(d -> !d.roles().isEmpty())
@@ -177,7 +202,7 @@ public final class MobLevelTableListener implements Listener {
             if (!drop.appliesTo(mobType, profileId)) {
                 continue;
             }
-            if (!MobDropRoller.rolls(drop.chance(), random.nextDouble())) {
+            if (!MobDropRoller.rolls(drop.chance() * chanceMultiplier, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
@@ -186,6 +211,10 @@ public final class MobLevelTableListener implements Listener {
             }
             ItemStack stack = buildDropStack(drop, count, profileId != null ? profileId : mobType.name());
             if (stack != null) {
+                if (countFactor > 1.0) {
+                    stack.setAmount(MobDropRoller.scaleCount(stack.getAmount(), countFactor,
+                            stack.getMaxStackSize(), random.nextDouble()));
+                }
                 event.getDrops().add(stack);
             }
         }

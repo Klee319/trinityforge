@@ -1,9 +1,7 @@
 package com.trinityforge.listeners;
 
-import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.MobOverridesConfig;
 import com.trinityforge.mobs.MobDropRoller;
-import com.trinityforge.mobs.MobLevelCutoff;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.stats.CrossPluginItemResolver;
@@ -62,13 +60,20 @@ import java.util.logging.Logger;
  * mob killed by another mob, lava, fall damage, etc. still rolled the full override drop table,
  * effectively turning any AFK/automated non-player kill loop into a free item farm.
  *
- * <p><b>レベル差による足きり(2026-07-27):</b> {@link MobOverridesConfig#levelCutoffFor} で解決した
- * {@link MobLevelCutoff} をこのリスナー自身が適用する。{@code diff = プレイヤー戦闘Lv - モブLv} で
- * under-levelが発動していれば({@code mobLevel - playerLevel} が閾値以上)TF追加ドロップを一切付けず
- * 即return、over-levelが発動していて{@code drop-rate == -1}でも同様。それ以外でover-levelが発動して
- * いれば各drop entryの{@code chance}に倍率を掛けてから抽選する。<b>バニラ本来のドロップ
+ * <p><b>レベル差による足きり(2026-08-09 に共通設定へ移設):</b> 判定は {@link KillRewardAdjuster} が
+ * {@code combat/damage.yml} の {@code level-cutoff:} から解決する(2026-07-27 版は
+ * {@code combat/mob-overrides.yml} 側にあり、EliteMobsのスタンプが無いモブに効かなかった)。
+ * {@code diff = プレイヤー戦闘Lv - モブLv} で under-level が発動していれば TF追加ドロップを一切付けず
+ * 即return、over-level が発動していて {@code drop-rate == -1} でも同様。それ以外で over-level が
+ * 発動していれば各 drop entry の {@code chance} に倍率を掛けてから抽選する。<b>バニラ本来のドロップ
  * ({@code event.getDrops()}に元々入っていたもの)には一切触らない</b> — このリスナーはTF追加ドロップの
  * roll処理にしか関与しないため、足きりの影響範囲は自然とTF追加ドロップのみに限定される。
+ *
+ * <p><b>ドロップ増加ステ({@code mob_drop_bonus}、2026-08-09):</b> 抽選に通った個数へ
+ * {@link KillRewardAdjuster#countFactor} の倍率を掛ける。以前はこのステが
+ * {@code NativeSurvivalPerkListener} で {@code event.getDrops()} の中身にしか掛かっておらず、
+ * <b>TF追加ドロップには一切載っていなかった</b>(同じ MONITOR 優先度で先に登録されている =
+ * TF追加ドロップが積まれる前に走り終わっている)。
  */
 public final class MobOverrideDropListener implements Listener {
 
@@ -76,20 +81,20 @@ public final class MobOverrideDropListener implements Listener {
 
     private final MobOverridesConfig mobOverrides;
     private final CrossPluginItemResolver itemResolver;
-    private final SymmetricCombatService combatService;
+    private final KillRewardAdjuster adjuster;
     private final SplittableRandom random;
 
     public MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver,
-                                    SymmetricCombatService combatService) {
-        this(mobOverrides, itemResolver, combatService, new SplittableRandom());
+                                    KillRewardAdjuster adjuster) {
+        this(mobOverrides, itemResolver, adjuster, new SplittableRandom());
     }
 
     /** Package-visible ctor for tests that need a deterministic random source. */
     MobOverrideDropListener(MobOverridesConfig mobOverrides, CrossPluginItemResolver itemResolver,
-                             SymmetricCombatService combatService, SplittableRandom random) {
+                             KillRewardAdjuster adjuster, SplittableRandom random) {
         this.mobOverrides = Objects.requireNonNull(mobOverrides, "mobOverrides");
         this.itemResolver = Objects.requireNonNull(itemResolver, "itemResolver");
-        this.combatService = Objects.requireNonNull(combatService, "combatService");
+        this.adjuster = Objects.requireNonNull(adjuster, "adjuster");
         this.random = Objects.requireNonNull(random, "random");
     }
 
@@ -121,15 +126,13 @@ public final class MobOverrideDropListener implements Listener {
             return;
         }
         String worldName = entity.getWorld().getName();
-        int mobLevel = mobData.level();
-        int playerLevel = combatService.combatLevelOf(entity.getKiller().getUniqueId());
-        MobLevelCutoff cutoff = mobOverrides.levelCutoffFor(worldName, profileId.get());
-        if (cutoff.blocksItems(playerLevel, mobLevel)) {
-            // 2026-07-27 足きり: under-level発動、またはover-level発動でdrop-rate==-1。バニラ本来の
+        if (adjuster.blocksItems(entity.getKiller(), entity)) {
+            // 足きり: under-level発動、またはover-level発動でdrop-rate==-1。バニラ本来の
             // ドロップには一切触れず、TF追加ドロップのroll処理だけをここで打ち切る。
             return;
         }
-        double dropMultiplier = cutoff.dropChanceMultiplier(playerLevel, mobLevel);
+        double dropMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
+        double countFactor = adjuster.countFactor(entity.getKiller());
         List<MobOverrideDropEntry> drops = mobOverrides.dropsFor(worldName, profileId.get());
         // 2026-07-26: 解決失敗の警告に「どのモブの設定か」を載せる。モブidだけだと 396 体の生成物の
         // どれなのか運用側で追えないため、display-name があれば日本語名を併記する。
@@ -145,6 +148,13 @@ public final class MobOverrideDropListener implements Listener {
                 continue;
             }
             ItemStack stack = buildDropStack(drop, count, mobLabel);
+            if (stack != null && countFactor > 1.0) {
+                // 2026-08-09: ドロップ増加ステ(mob_drop_bonus)。NativeSurvivalPerkListener は同じ
+                // MONITOR優先度でも登録順で先に走るため、あとから足すこのドロップには一度も
+                // 掛かっていなかった。個数を確定させた直後にここで掛ける。
+                stack.setAmount(MobDropRoller.scaleCount(stack.getAmount(), countFactor,
+                        stack.getMaxStackSize(), random.nextDouble()));
+            }
             if (stack != null) {
                 event.getDrops().add(stack);
             }

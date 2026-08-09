@@ -3,7 +3,6 @@ package com.trinityforge.config.domains;
 import com.trinityforge.combat.AttackStats;
 import com.trinityforge.combat.DefenseStats;
 import com.trinityforge.config.domains.MobOverridesConfig.ParseResult;
-import com.trinityforge.mobs.MobLevelCutoff;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.mobs.MobOverrideEntry;
 import com.trinityforge.mobs.MobProfile;
@@ -48,7 +47,7 @@ class MobOverridesConfigTest {
     }
 
     /** Full {@code load()} pipeline (unlike {@link #parse} + {@link #configOf}, this also wires up
-     *  {@code scopeLevelCutoffs}, needed to exercise {@link MobOverridesConfig#levelCutoffFor}). */
+     *  the scope単位のマップ、例えば {@code scopeStats})。 */
     private static MobOverridesConfig loadedConfig(File dataFolder, String yaml) throws Exception {
         File file = new File(dataFolder, MobOverridesConfig.PATH);
         java.nio.file.Files.createDirectories(file.getParentFile().toPath());
@@ -657,138 +656,6 @@ class MobOverridesConfigTest {
                 "a malformed vanilla-exp must not take the rest of the entry down with it");
     }
 
-    // --- level-cutoff (2026-07-27 「レベル差による足きり」) ---
-
-    @Test
-    void mobLevelCutoffAbsentYieldsNone(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        stats:
-                          max-health: 200
-                """);
-        assertEquals(MobLevelCutoff.NONE, config.levelCutoffFor("w", "goblin_chief"));
-    }
-
-    @Test
-    void mobLevelCutoffParsesBothBlocks(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 10
-                            exp-rate: 0.25
-                            drop-rate: -1
-                          under-level:
-                            item-threshold: 20
-                """);
-        MobLevelCutoff cutoff = config.levelCutoffFor("w", "goblin_chief");
-        assertEquals(new MobLevelCutoff(10, 0.25, -1.0, 20), cutoff);
-    }
-
-    @Test
-    void mobLevelCutoffWinsOverScopeLevelCutoffInTheSameScope(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    level-cutoff:
-                      over-level:
-                        threshold: 999
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 5
-                """);
-        assertEquals(5, config.levelCutoffFor("w", "goblin_chief").overLevelThreshold().intValue(),
-                "the mob-level block must win over the scope-level block");
-    }
-
-    @Test
-    void scopeLevelCutoffAppliesWhenMobHasNone(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    level-cutoff:
-                      over-level:
-                        threshold: 7
-                    mobs:
-                      goblin_chief:
-                        stats:
-                          max-health: 200
-                """);
-        assertEquals(7, config.levelCutoffFor("w", "goblin_chief").overLevelThreshold().intValue());
-    }
-
-    @Test
-    void worldScopeMobLevelCutoffWinsOverDefaultScopeMobLevelCutoff(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 999
-                  my_dungeon:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 5
-                """);
-        assertEquals(5, config.levelCutoffFor("my_dungeon", "goblin_chief").overLevelThreshold().intValue(),
-                "world scope mob-level cutoff beats default scope mob-level cutoff");
-        assertEquals(999, config.levelCutoffFor("some_other_world", "goblin_chief").overLevelThreshold().intValue(),
-                "an unrelated world falls back to the default scope's mob-level cutoff");
-    }
-
-    @Test
-    void worldScopeScopeLevelCutoffWinsOverDefaultScopeMobLevelCutoff(@TempDir File dir) throws Exception {
-        // Priority order per spec: world-scope's SCOPE-level block still beats default-scope's MOB-level
-        // block (world always wins over default, regardless of mob-vs-scope granularity within each).
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 999
-                  my_dungeon:
-                    level-cutoff:
-                      over-level:
-                        threshold: 5
-                    mobs:
-                      goblin_chief:
-                        stats:
-                          max-health: 200
-                """);
-        assertEquals(5, config.levelCutoffFor("my_dungeon", "goblin_chief").overLevelThreshold().intValue());
-    }
-
-    @Test
-    void unknownMobIdLevelCutoffFallsBackToScopeLevelCutoff(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    level-cutoff:
-                      over-level:
-                        threshold: 7
-                    mobs:
-                      some_other_mob:
-                        level-cutoff:
-                          over-level:
-                            threshold: 999
-                """);
-        assertEquals(7, config.levelCutoffFor("w", "goblin_chief").overLevelThreshold().intValue());
-    }
-
     // --- scope 直下の stats:(ダンジョン単位の既定ステータス、2026-08-03 #62) ---
 
     @Test
@@ -1023,102 +890,4 @@ class MobOverridesConfigTest {
                 "magic-ratio は 0.45 を超えてはならない");
     }
 
-    @Test
-    void noLevelCutoffAnywhereYieldsNone(@TempDir File dir) throws Exception {
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        stats:
-                          max-health: 200
-                """);
-        assertEquals(MobLevelCutoff.NONE, config.levelCutoffFor("w", "goblin_chief"));
-    }
-
-    @Test
-    void expRateOutOfRangeIsSkippedNotFatal(@TempDir File dir) throws Exception {
-        File file = new File(dir, MobOverridesConfig.PATH);
-        java.nio.file.Files.createDirectories(file.getParentFile().toPath());
-        java.nio.file.Files.writeString(file.toPath(), """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 10
-                            exp-rate: 2.0
-                            drop-rate: 0.5
-                """);
-        MobOverridesConfig config = new MobOverridesConfig();
-        boolean loaded = config.load(fakePlugin(dir));
-        assertFalse(loaded, "an out-of-range exp-rate must be counted as skipped");
-        MobLevelCutoff cutoff = config.levelCutoffFor("w", "goblin_chief");
-        assertEquals(10, cutoff.overLevelThreshold().intValue(),
-                "the OTHER valid field in the same block still applies");
-        assertEquals(null, cutoff.overLevelExpRate(), "the invalid exp-rate is dropped (ignored), not clamped");
-        assertEquals(0.5, cutoff.overLevelDropRate().doubleValue());
-    }
-
-    @Test
-    void negativeDropRateOtherThanMinusOneIsSkippedNotFatal(@TempDir File dir) throws Exception {
-        File file = new File(dir, MobOverridesConfig.PATH);
-        java.nio.file.Files.createDirectories(file.getParentFile().toPath());
-        java.nio.file.Files.writeString(file.toPath(), """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: 10
-                            drop-rate: -0.5
-                """);
-        MobOverridesConfig config = new MobOverridesConfig();
-        boolean loaded = config.load(fakePlugin(dir));
-        assertFalse(loaded, "-0.5 is neither -1 nor within [0,1] and must be skipped");
-        assertEquals(null, config.levelCutoffFor("w", "goblin_chief").overLevelDropRate());
-    }
-
-    @Test
-    void thresholdNegativeValueIsAcceptedNotWarned(@TempDir File dir) throws Exception {
-        // Spec: "未設定/負値 = 無効" — negative threshold values are a legitimate way to author "disabled",
-        // not a validation error, so they must NOT be counted as skipped.
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: -1
-                          under-level:
-                            item-threshold: -1
-                """);
-        MobLevelCutoff cutoff = config.levelCutoffFor("w", "goblin_chief");
-        assertEquals(-1, cutoff.overLevelThreshold().intValue());
-        assertEquals(-1, cutoff.underLevelItemThreshold().intValue());
-        assertFalse(cutoff.isOverLevelActive(999, 0));
-        assertFalse(cutoff.isUnderLevelActive(0, 999));
-    }
-
-    @Test
-    void nonNumericThresholdIsSkippedNotFatal(@TempDir File dir) throws Exception {
-        File file = new File(dir, MobOverridesConfig.PATH);
-        java.nio.file.Files.createDirectories(file.getParentFile().toPath());
-        java.nio.file.Files.writeString(file.toPath(), """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        level-cutoff:
-                          over-level:
-                            threshold: "high"
-                """);
-        MobOverridesConfig config = new MobOverridesConfig();
-        boolean loaded = config.load(fakePlugin(dir));
-        assertFalse(loaded);
-        assertEquals(null, config.levelCutoffFor("w", "goblin_chief").overLevelThreshold());
-    }
 }

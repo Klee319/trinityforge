@@ -163,6 +163,17 @@ public final class CombatListener implements Listener {
     private final CombatKillCreditTracker combatKillCredits = new CombatKillCreditTracker();
 
     /**
+     * レベル差による足きり(2026-08-09、{@code combat/damage.yml} の {@code level-cutoff})。
+     * このクラスでは討伐時の<b>戦闘スキルEXP</b>にだけ使う。null可 = 未配線なら倍率1.0で従来どおり。
+     */
+    private volatile KillRewardAdjuster killRewardAdjuster;
+
+    /** 討伐時の戦闘スキルEXPへレベル差の足きりを掛ける(2026-08-09)。null で無効化。 */
+    public void setKillRewardAdjuster(KillRewardAdjuster adjuster) {
+        this.killRewardAdjuster = adjuster;
+    }
+
+    /**
      * #2 AoE の再入ガード。AoEスプラッシュの {@code target.damage()} が同ハンドラを同期再入した際に true で
      * 早期returnさせ、AoEの連鎖と主命中再計算の上書きを防ぐ。combat は常にメインスレッド同期実行なので
      * volatile も同期も不要(単純フィールドで十分)。
@@ -759,8 +770,14 @@ public final class CombatListener implements Listener {
             double spot = tf == null ? 1.0
                     : tf.locationExpDiminishing().multiplierForKillSpot(contributor, dead, skillExp,
                             tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
+            // レベル差による足きり(2026-08-09、combat/damage.yml の level-cutoff)。
+            // 「止めを刺した1人」ではなく寄与のあった各プレイヤーへ配る仕組みなので、
+            // 受取人ごとにその人自身の戦闘レベルで判定する(全員が同じ倍率になるわけではない)。
+            KillRewardAdjuster adjuster = this.killRewardAdjuster;
+            double cutoff = adjuster == null ? 1.0 : adjuster.expMultiplier(contributor, dead);
+            if (cutoff <= 0.0) continue;
             ArsProgressionBridge.grantSkillExp(plugin, contributor, skill,
-                    amount * credit.share() * role * worldRate * spot);
+                    amount * credit.share() * role * worldRate * spot * cutoff);
         }
     }
 

@@ -64,6 +64,8 @@ public final class MobTypeDropListener implements Listener {
     private final CrossPluginItemResolver itemResolver;
     private final SplittableRandom random;
     private volatile java.util.function.Predicate<Player> dropGate;
+    /** レベル差の足きり + ドロップ増加ステ(2026-08-09)。null可 = 未配線なら素の抽選結果のまま。 */
+    private volatile KillRewardAdjuster killRewardAdjuster;
     /** 未配線 WARNING を毎キル出さないためのラッチ。 */
     private volatile boolean unwiredResolverWarned;
 
@@ -119,6 +121,18 @@ public final class MobTypeDropListener implements Listener {
         this.dropGate = gate;
     }
 
+    /**
+     * レベル差の足きり(combat/damage.yml の level-cutoff)とドロップ増加ステ(mob_drop_bonus)を
+     * このドロップ源へも掛ける(2026-08-09)。null = 未配線で、そのときは従来どおり素の抽選結果が出る。
+     *
+     * <p>コンストラクタ引数ではなくセッターにしているのは、このクラスが既に4本の公開
+     * コンストラクタを持っており、全部に1引数足すと呼び出し側(テスト含む)が一斉に壊れるため。
+     * {@link #setDropGate} と同じ「後から挿す任意の抑止層」という位置づけ。
+     */
+    public void setKillRewardAdjuster(KillRewardAdjuster adjuster) {
+        this.killRewardAdjuster = adjuster;
+    }
+
     @EventHandler
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
@@ -144,11 +158,27 @@ public final class MobTypeDropListener implements Listener {
         int bonusMode = mobDropBonus == null ? 0
                 : mobDropBonus.qualityModeBonus(killer, random.nextDouble());
 
+        // 2026-08-09: レベル差の足きり + ドロップ増加ステ。未配線(null)なら従来どおり素通し。
+        KillRewardAdjuster adjuster = this.killRewardAdjuster;
+        double chanceMultiplier = 1.0;
+        double countFactor = 1.0;
+        if (adjuster != null) {
+            if (adjuster.blocksItems(killer, entity)) {
+                return;
+            }
+            chanceMultiplier = adjuster.chanceMultiplier(killer, entity);
+            countFactor = adjuster.countFactor(killer);
+        }
+
         for (MobDropEntry drop : def.drops()) {
-            if (!MobDropRoller.rolls(drop.chance(), random.nextDouble())) {
+            if (!MobDropRoller.rolls(drop.chance() * chanceMultiplier, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
+            if (countFactor > 1.0) {
+                count = MobDropRoller.scaleCount(count, countFactor,
+                        drop.isCustom() ? 64 : drop.material().getMaxStackSize(), random.nextDouble());
+            }
             if (drop.isCustom()) {
                 // 2026-08-01 U13: カタログ/Ars のカスタムアイテム。解決失敗はこの1件だけ捨てる
                 // (fail-open。MobOverrideDropListener / MobLevelTableListener と同じ契約)。

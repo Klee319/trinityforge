@@ -145,7 +145,19 @@ class ShippedWardenTendrilDropTest {
         });
         SymmetricCombatService combatService = mock(SymmetricCombatService.class);
         when(combatService.combatLevelOf(any())).thenReturn(0);
-        return new MobOverrideDropListener(config, resolver, combatService,
+        // 2026-08-09: 足きり/ドロップ増加ステは KillRewardAdjuster に集約。ここは出荷 yml の
+        // ドロップ表そのものを見るテストなので、どちらも「無し」に固定する。
+        com.trinityforge.config.domains.CombatDamageConfig damageConfig =
+                mock(com.trinityforge.config.domains.CombatDamageConfig.class);
+        when(damageConfig.levelCutoff()).thenReturn(com.trinityforge.mobs.MobLevelCutoff.NONE);
+        com.trinityforge.combat.PlayerStatAggregator aggregator =
+                mock(com.trinityforge.combat.PlayerStatAggregator.class);
+        when(aggregator.aggregate(any(org.bukkit.entity.Player.class)))
+                .thenReturn(new com.trinityforge.combat.PlayerCombatAggregate(
+                        java.util.Map.of(), java.util.Map.of(), java.util.Map.of(),
+                        java.util.Map.of(), java.util.Map.of()));
+        return new MobOverrideDropListener(config, resolver,
+                new KillRewardAdjuster(damageConfig, combatService, aggregator),
                 new SplittableRandom(20260803L));
     }
 

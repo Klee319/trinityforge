@@ -83,6 +83,38 @@ test("2026-07-30 装備耐久ペナルティ: 出荷値が共通変数に出て�
     ["durability.on-hit.min-damage: 整数である必要があります"]);
 });
 
+test("2026-08-09 レベル差による足きり: damage.yml に移設され共通変数から編集できる", () => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
+  const { fields } = extractConstants(damage, {});
+
+  // 出荷既定は「足きり無し」。閾値 -1 = 無効、倍率 1.0 = 無干渉。
+  assert.equal(fields["level-cutoff.over-level.threshold"], -1);
+  assert.equal(fields["level-cutoff.over-level.exp-rate"], 1.0);
+  assert.equal(fields["level-cutoff.over-level.drop-rate"], 1.0);
+  assert.equal(fields["level-cutoff.under-level.item-threshold"], -1);
+
+  const payload = { fields: {
+    "level-cutoff.over-level.threshold": 10,
+    "level-cutoff.over-level.exp-rate": 0.25,
+    "level-cutoff.over-level.drop-rate": -1,
+    "level-cutoff.under-level.item-threshold": 20
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage["level-cutoff"]["over-level"].threshold, 10);
+  assert.equal(updated.damage["level-cutoff"]["over-level"]["exp-rate"], 0.25);
+  // -1 は「完全に入手不可」を表す特別値なので min:-1 で通す必要がある。
+  assert.equal(updated.damage["level-cutoff"]["over-level"]["drop-rate"], -1);
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["item-threshold"], 20);
+
+  // 倍率は [-1, 1] の外を弾く(2.0 は「2倍もらえる」ではなく設定ミス)。
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.exp-rate": 2.0 } }),
+    ["level-cutoff.over-level.exp-rate: 1以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.threshold": 1.5 } }),
+    ["level-cutoff.over-level.threshold: 整数である必要があります"]);
+});
+
 test("defense.max-dodge-chance is retained and persisted", () => {
   const updated = buildUpdatedData(
     { fields: { "defense.max-dodge-chance": 0.25 } },

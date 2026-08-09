@@ -8,6 +8,7 @@ import com.trinityforge.config.ConfigSchema;
 import com.trinityforge.config.SchemaField;
 import com.trinityforge.config.TypedConfig;
 import com.trinityforge.durability.DurabilityPenaltySettings;
+import com.trinityforge.mobs.MobLevelCutoff;
 
 import java.util.List;
 
@@ -80,6 +81,12 @@ public final class CombatDamageConfig {
     private static final String DURABILITY_ON_DEATH_PERCENT = "durability.on-death.percent-of-max";
     private static final String DURABILITY_ON_DEATH_MIN_DAMAGE = "durability.on-death.min-damage";
     private static final String DURABILITY_ON_DEATH_INCLUDE_HANDS = "durability.on-death.include-hands";
+
+    // 2026-08-09 レベル差による足きり(combat/mob-overrides.yml の level-cutoff から移設)。
+    private static final String LEVEL_CUTOFF_OVER_THRESHOLD = "level-cutoff.over-level.threshold";
+    private static final String LEVEL_CUTOFF_OVER_EXP_RATE = "level-cutoff.over-level.exp-rate";
+    private static final String LEVEL_CUTOFF_OVER_DROP_RATE = "level-cutoff.over-level.drop-rate";
+    private static final String LEVEL_CUTOFF_UNDER_ITEM_THRESHOLD = "level-cutoff.under-level.item-threshold";
 
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
@@ -201,7 +208,16 @@ public final class CombatDamageConfig {
                 .field(SchemaField.of(DURABILITY_ON_DEATH_ENABLED, SchemaField.Type.BOOLEAN, true))
                 .field(SchemaField.number(DURABILITY_ON_DEATH_PERCENT, SchemaField.Type.DOUBLE, 0.1, 0.0, 1.0))
                 .field(SchemaField.number(DURABILITY_ON_DEATH_MIN_DAMAGE, SchemaField.Type.INT, 1, 0, 10_000))
-                .field(SchemaField.of(DURABILITY_ON_DEATH_INCLUDE_HANDS, SchemaField.Type.BOOLEAN, true));
+                .field(SchemaField.of(DURABILITY_ON_DEATH_INCLUDE_HANDS, SchemaField.Type.BOOLEAN, true))
+                // レベル差による足きり(2026-08-09、combat/mob-overrides.yml から移設)。
+                // 以前はEliteMobsスタンプ済みモブ(=ダンジョンモブ)にしか効かず、フィールドの野良モブには
+                // 一切掛からなかった。全モブ共通の設定にするためこちらへ移した。
+                // threshold の既定 -1 は「足きり無効」。rate の -1 は「完全に入手不可」を表す特別値なので、
+                // 「無干渉」を表したいときは 1.0 を書く(0.0 は "1個も出ない" 側の端)。
+                .field(SchemaField.number(LEVEL_CUTOFF_OVER_THRESHOLD, SchemaField.Type.INT, -1, -1, 10_000))
+                .field(SchemaField.number(LEVEL_CUTOFF_OVER_EXP_RATE, SchemaField.Type.DOUBLE, 1.0, -1.0, 1.0))
+                .field(SchemaField.number(LEVEL_CUTOFF_OVER_DROP_RATE, SchemaField.Type.DOUBLE, 1.0, -1.0, 1.0))
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_ITEM_THRESHOLD, SchemaField.Type.INT, -1, -1, 10_000));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -441,6 +457,26 @@ public final class CombatDamageConfig {
      * キャンセルされ {@code PlayerDeathEvent} が発火しないため、死亡ペナルティとキャンセルされた一撃分の
      * 防具耐久消費が両方失われていた。既定はダンジョン限定・被弾0.1%・死亡10%。
      */
+    /**
+     * レベル差による足きり(2026-08-09、{@code combat/mob-overrides.yml} の {@code level-cutoff} から移設)。
+     *
+     * <p>移設前はEliteMobsがスタンプしたモブ(=ダンジョンモブ)にしか掛からず、フィールドの野良モブは
+     * どれだけレベル差があっても素通りしていた。ここはワールドにもモブidにも依存しない共通設定なので、
+     * 返り値は常に単一の {@link MobLevelCutoff} で、呼び出し側でのスコープ解決は不要。
+     *
+     * <p>スキーマは値を省略できないため「未設定(null)」は表現しない。{@code threshold} が負なら
+     * その足きりごと無効、rate は {@code 1.0} が無干渉・{@code -1} が完全遮断という
+     * {@link MobLevelCutoff} 本来の規約をそのまま使う。
+     */
+    public MobLevelCutoff levelCutoff() {
+        TypedConfig config = domain.get();
+        return new MobLevelCutoff(
+                config.getInt(LEVEL_CUTOFF_OVER_THRESHOLD),
+                config.getDouble(LEVEL_CUTOFF_OVER_EXP_RATE),
+                config.getDouble(LEVEL_CUTOFF_OVER_DROP_RATE),
+                config.getInt(LEVEL_CUTOFF_UNDER_ITEM_THRESHOLD));
+    }
+
     public DurabilityPenaltySettings durabilityPenalty() {
         TypedConfig config = domain.get();
         return new DurabilityPenaltySettings(

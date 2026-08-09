@@ -1,6 +1,7 @@
 package com.trinityforge.skilltree.runtime;
 
 import com.trinityforge.combat.PlayerStatAggregator;
+import com.trinityforge.mobs.MobDropRoller;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -71,7 +72,7 @@ public final class NativeSurvivalPerkListener implements Listener {
         // vanilla_exp_bonus/kill_vanilla_exp_bonus のみでEXPブーストが効くようにするため、
         // どちらか一方が0でも早期returnしない(旧実装はmob_drop_bonus<=0で丸ごとreturnしていた)。
         double dropMultAdd = totals.totalOf(MOB_DROP_BONUS);
-        double dropFactor = Math.min(3.0, 1.0 + Math.max(0.0, dropMultAdd));
+        double dropFactor = MobDropRoller.bonusFactor(dropMultAdd);
         if (dropFactor > 1.0 && !carriesPlayerFillableStorage(entity)) {
             // モブの装備欄由来(プレイヤーが持たせた/モブが拾った)のスタックは戦利品ではないので
             // 倍率から除外する。ゾンビ等の拾得アイテムも装備スロットに入るため、装備欄の突合せで両方賄える。
@@ -112,12 +113,9 @@ public final class NativeSurvivalPerkListener implements Listener {
      * @param roll 0.0以上1.0未満の乱数。テストのために引数化している。
      */
     static int scaleAmount(int baseAmount, double dropFactor, int maxStackSize, double roll) {
-        double scaled = Math.max(0.0, baseAmount) * Math.max(0.0, dropFactor);
-        int whole = (int) Math.floor(scaled);
-        double fraction = scaled - whole;
-        int amount = whole + (fraction > 0.0 && roll < fraction ? 1 : 0);
-        int cap = Math.max(1, maxStackSize) * 8;
-        return Math.min(cap, Math.max(1, amount));
+        // 2026-08-09: 実装は MobDropRoller#scaleCount へ移した。TF追加ドロップ側でも同じ整数化が
+        // 必要になり、2か所に同じ式を置くと片方だけ直す事故が起きるため。
+        return MobDropRoller.scaleCount(baseAmount, dropFactor, maxStackSize, roll);
     }
 
     /**

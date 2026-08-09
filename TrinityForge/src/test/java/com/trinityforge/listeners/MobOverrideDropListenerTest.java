@@ -1,9 +1,14 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.combat.PlayerCombatAggregate;
+import com.trinityforge.combat.PlayerStatAggregator;
 import com.trinityforge.combat.SymmetricCombatService;
+import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.MobOverridesConfig;
+import com.trinityforge.mobs.MobLevelCutoff;
 import com.trinityforge.pdc.PdcKeys;
 import com.trinityforge.stats.CrossPluginItemResolver;
+import com.trinityforge.stats.StatKeys;
 import org.bukkit.Material;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDeathEvent;
@@ -20,6 +25,7 @@ import org.mockbukkit.mockbukkit.world.WorldMock;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.logging.Logger;
@@ -60,12 +66,33 @@ class MobOverrideDropListenerTest {
         return config;
     }
 
-    /** A {@link SymmetricCombatService} stub whose {@code combatLevelOf} always returns {@code level}
-     *  (2026-07-27 足きり新設 — 大半のテストは足きり無関係なので固定値で十分)。 */
-    private static SymmetricCombatService combatServiceAtLevel(int level) {
+    /** 足きり無し・ドロップ増加ステ無しの {@link KillRewardAdjuster}(大半のテストはどちらも無関係)。 */
+    private static KillRewardAdjuster adjuster(int playerLevel) {
+        return adjuster(playerLevel, MobLevelCutoff.NONE, 0.0);
+    }
+
+    private static KillRewardAdjuster adjuster(int playerLevel, MobLevelCutoff cutoff) {
+        return adjuster(playerLevel, cutoff, 0.0);
+    }
+
+    /**
+     * 2026-08-09: 足きりの設定源が {@code combat/mob-overrides.yml} から共通の
+     * {@code combat/damage.yml} へ移ったので、テストも yml ではなく
+     * {@link CombatDamageConfig#levelCutoff()} をスタブして与える。
+     *
+     * @param playerLevel {@code combatLevelOf} が常に返す討伐者の戦闘レベル
+     * @param cutoff      レベル差による足きり設定
+     * @param dropBonus   {@code mob_drop_bonus} のプレイヤー総合値(0.0 = ボーナス無し)
+     */
+    private static KillRewardAdjuster adjuster(int playerLevel, MobLevelCutoff cutoff, double dropBonus) {
         SymmetricCombatService combatService = mock(SymmetricCombatService.class);
-        when(combatService.combatLevelOf(any())).thenReturn(level);
-        return combatService;
+        when(combatService.combatLevelOf(any())).thenReturn(playerLevel);
+        CombatDamageConfig damageConfig = mock(CombatDamageConfig.class);
+        when(damageConfig.levelCutoff()).thenReturn(cutoff);
+        PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
+        when(aggregator.aggregate(any(org.bukkit.entity.Player.class))).thenReturn(new PlayerCombatAggregate(
+                Map.of(StatKeys.canonical("mob_drop_bonus"), dropBonus), Map.of(), Map.of(), Map.of(), Map.of()));
+        return new KillRewardAdjuster(damageConfig, combatService, aggregator);
     }
 
     private static org.bukkit.plugin.Plugin fakePlugin(File dataFolder) {
@@ -119,7 +146,7 @@ class MobOverrideDropListenerTest {
                 """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(0), new SplittableRandom(0));
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, null); // no MOB_PROFILE_ID stamped
@@ -141,7 +168,7 @@ class MobOverrideDropListenerTest {
                 """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(0), new SplittableRandom(0));
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief", null); // no killer = non-player kill
@@ -167,7 +194,7 @@ class MobOverrideDropListenerTest {
                 """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(0), new SplittableRandom(0));
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
@@ -190,7 +217,7 @@ class MobOverrideDropListenerTest {
                 """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(0), new SplittableRandom(0));
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
@@ -213,7 +240,7 @@ class MobOverrideDropListenerTest {
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         when(resolver.create("tf_core_meat")).thenReturn(Optional.of(builtStack));
         MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(0), new SplittableRandom(0));
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
@@ -238,7 +265,7 @@ class MobOverrideDropListenerTest {
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         when(resolver.create("not_a_real_catalog_id")).thenReturn(Optional.empty());
         MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(0), new SplittableRandom(0));
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
@@ -248,29 +275,43 @@ class MobOverrideDropListenerTest {
         assertEquals(Material.BONE, event.getDrops().get(0).getType());
     }
 
-    // --- level-cutoff (2026-07-27 「レベル差による足きり」) ---
+    // --- レベル差による足きり (2026-08-09 に combat/damage.yml へ移設) ---
+    // 設定は yml ではなく KillRewardAdjuster 経由。yml に level-cutoff: を書いても効かなくなったので、
+    // これらのテストは移設前の実装に戻すと(足きりが mob-overrides 側の未設定=NONE を読むため)全て落ちる。
 
-    @Test
-    void overLevelDropRateMinusOneBlocksTfDropsEntirely(@TempDir File dir) throws Exception {
-        // over-level.drop-rate == -1 means "TF追加ドロップを一切付けない" once the diff hits the threshold.
-        MobOverridesConfig config = loadedConfig(dir, """
+    /**
+     * レベルを刻印した(= {@code MobData#hasProfile()} が true になる)ゾンビ。
+     * 足きりは刻印の無いモブを判定しない({@code level()} が 0 を返し「常にプレイヤーが格上」に
+     * 化けるため)ので、足きりのテストでは必ずレベルを刻む必要がある。
+     */
+    private Zombie leveledZombie(int level) {
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        zombie.getPersistentDataContainer().set(PdcKeys.MOB_LEVEL, PersistentDataType.INTEGER, level);
+        return zombie;
+    }
+
+    /** BONE を確率1.0で1個落とすだけの共通 config。足きりの効き方だけを見たいので中身は最小限。 */
+    private MobOverridesConfig boneDropConfig(File dir) throws Exception {
+        return loadedConfig(dir, """
                 overrides:
                   default:
                     mobs:
                       goblin_chief:
                         drops:
                           - { item: BONE, chance: 1.0, min: 1, max: 1 }
-                        level-cutoff:
-                          over-level:
-                            threshold: 10
-                            drop-rate: -1
                 """);
-        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        // mob level defaults to 0 (MobData.DEFAULT_LEVEL); a level-30 player makes diff=30 >= threshold 10.
-        MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(30), new SplittableRandom(0));
+    }
 
-        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+    @Test
+    void overLevelDropRateMinusOneBlocksTfDropsEntirely(@TempDir File dir) throws Exception {
+        // over-level.drop-rate == -1 = 「TF追加ドロップを一切付けない」。
+        MobOverridesConfig config = boneDropConfig(dir);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        // モブのレベルは既定0(MobData.DEFAULT_LEVEL)。Lv30のプレイヤーなら diff=30 >= threshold 10。
+        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
+                adjuster(30, new MobLevelCutoff(10, null, -1.0, null)), new SplittableRandom(0));
+
+        Zombie zombie = leveledZombie(0);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
         listener.onDeath(event);
 
@@ -279,24 +320,13 @@ class MobOverrideDropListenerTest {
 
     @Test
     void overLevelDropRateBelowThresholdLeavesDropsUntouched(@TempDir File dir) throws Exception {
-        // Same config as above, but the killer's combat level is too low to trigger the cutoff.
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        drops:
-                          - { item: BONE, chance: 1.0, min: 1, max: 1 }
-                        level-cutoff:
-                          over-level:
-                            threshold: 10
-                            drop-rate: -1
-                """);
+        // 同じ足きり設定でも、討伐者のレベルが閾値に届かなければ発動しない。
+        MobOverridesConfig config = boneDropConfig(dir);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(5), new SplittableRandom(0));
+        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
+                adjuster(5, new MobLevelCutoff(10, null, -1.0, null)), new SplittableRandom(0));
 
-        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        Zombie zombie = leveledZombie(0);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
         listener.onDeath(event);
 
@@ -305,25 +335,14 @@ class MobOverrideDropListenerTest {
 
     @Test
     void overLevelDropRateScalesChanceRatherThanBlocking(@TempDir File dir) throws Exception {
-        // drop-rate 0.0 (not -1) scales the chance down to zero via multiplication instead of an outright
-        // block — same observable zero-drop outcome here, but exercises the multiplier path, not blocksItems.
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        drops:
-                          - { item: BONE, chance: 1.0, min: 1, max: 1 }
-                        level-cutoff:
-                          over-level:
-                            threshold: 10
-                            drop-rate: 0.0
-                """);
+        // drop-rate 0.0 は -1 と違い「遮断」ではなく「確率へ 0.0 を乗算」。観測結果は同じ0個だが、
+        // blocksItems ではなく chanceMultiplier 経路を通ることを確かめる。
+        MobOverridesConfig config = boneDropConfig(dir);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(30), new SplittableRandom(0));
+        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
+                adjuster(30, new MobLevelCutoff(10, null, 0.0, null)), new SplittableRandom(0));
 
-        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        Zombie zombie = leveledZombie(0);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
         listener.onDeath(event);
 
@@ -332,62 +351,50 @@ class MobOverrideDropListenerTest {
 
     @Test
     void underLevelItemThresholdBlocksTfDropsEntirely(@TempDir File dir) throws Exception {
-        // under-level: the mob is item-threshold-or-more levels ABOVE the player.
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    mobs:
-                      goblin_chief:
-                        drops:
-                          - { item: BONE, chance: 1.0, min: 1, max: 1 }
-                        level-cutoff:
-                          under-level:
-                            item-threshold: 20
-                """);
+        // under-level: モブのほうが item-threshold 以上に格上のとき。
+        MobOverridesConfig config = boneDropConfig(dir);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        // Player level 1; the mob's stamped combat level (PdcKeys.MOB_LEVEL, what MobData#level() reads)
-        // is set directly below to 50, independent of stats.level (which only affects MobProfile#resolve).
-        MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(1), new SplittableRandom(0));
+        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
+                adjuster(1, new MobLevelCutoff(null, null, null, 20)), new SplittableRandom(0));
 
-        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
-        zombie.getPersistentDataContainer().set(PdcKeys.MOB_LEVEL, PersistentDataType.INTEGER, 50);
+        Zombie zombie = leveledZombie(50);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
         listener.onDeath(event);
 
         assertTrue(event.getDrops().isEmpty(), "under-level item-threshold must block every TF-added drop");
     }
 
-    @Test
-    void mobLevelCutoffWinsOverScopeLevelCutoff(@TempDir File dir) throws Exception {
-        // 4-tier priority: a mob-level block must win over a scope-level block in the same scope.
-        MobOverridesConfig config = loadedConfig(dir, """
-                overrides:
-                  default:
-                    level-cutoff:
-                      over-level:
-                        threshold: 5
-                        drop-rate: -1
-                    mobs:
-                      goblin_chief:
-                        drops:
-                          - { item: BONE, chance: 1.0, min: 1, max: 1 }
-                        level-cutoff:
-                          over-level:
-                            threshold: 999
-                            drop-rate: -1
-                """);
-        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        // diff=30 would trigger the scope-level block (threshold 5) but NOT the mob-level block
-        // (threshold 999), which must win.
-        MobOverrideDropListener listener =
-                new MobOverrideDropListener(config, resolver, combatServiceAtLevel(30), new SplittableRandom(0));
+    // --- ドロップ増加ステ mob_drop_bonus (2026-08-09 新規: 以前はTF追加ドロップに一切載っていなかった) ---
 
-        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+    @Test
+    void mobDropBonusScalesTfAddedDropCount(@TempDir File dir) throws Exception {
+        // 倍率 = 1 + bonus。1.0 のボーナスなら 1個 → 2個。移設前は NativeSurvivalPerkListener が
+        // event.getDrops() の中身にしか掛けておらず、TF追加ドロップは常に1個のままだった。
+        MobOverridesConfig config = boneDropConfig(dir);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
+                adjuster(0, MobLevelCutoff.NONE, 1.0), new SplittableRandom(0));
+
+        Zombie zombie = leveledZombie(0);
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
         listener.onDeath(event);
 
-        assertEquals(1, event.getDrops().size(),
-                "the mob-specific level-cutoff block must win over the scope-wide one entirely");
+        assertEquals(1, event.getDrops().size(), "個数が増えるのであってスタックが増えるのではない");
+        assertEquals(2, event.getDrops().get(0).getAmount(), "mob_drop_bonus 1.0 は TF追加ドロップを2倍にする");
+    }
+
+    @Test
+    void mobDropBonusIsCappedAtTripleTheBaseAmount(@TempDir File dir) throws Exception {
+        // 上限3倍(MobDropRoller.MAX_BONUS_FACTOR)。10.0 を積んでも 11倍にはならない。
+        MobOverridesConfig config = boneDropConfig(dir);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
+                adjuster(0, MobLevelCutoff.NONE, 10.0), new SplittableRandom(0));
+
+        Zombie zombie = leveledZombie(0);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
+        listener.onDeath(event);
+
+        assertEquals(3, event.getDrops().get(0).getAmount(), "倍率は3倍で頭打ちになる");
     }
 }

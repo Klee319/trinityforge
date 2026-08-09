@@ -657,11 +657,11 @@
   // ブラウザ実行時の挙動には影響しない (window.buildMobTypesForm は従来どおり別途公開)。
   // expRampValue は下方(mob-overrides の vanilla-exp ブロック)で宣言されるが、関数宣言の巻き上げが
   // 効くのでここで公開できる(pruneEmptyMobSelections と同じ流儀)。
-  // buildLevelCutoffBlock はDOM構築関数だが、関数宣言の巻き上げにより expRampValue と同じ形で
-  // ここから参照できる(2026-07-27 レベル差による足きり)。Nodeテストは window.h を最小スタブに
-  // 差し替えたうえでこれを直接呼び、返ってきた要素ツリーの numberInput の oninput を叩いて検証する。
+  // buildLevelCutoffBlock(レベル差による足きり)は 2026-08-09 に撤去した。設定が
+  // combat/mob-overrides.yml から combat/damage.yml へ移り、共通変数タブのスカラー欄
+  // (lib/constants.js の level-cutoff.*)になったため、専用フォームが不要になった。
   window.MOB_FORMS_LOGIC = {
-    pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue, buildLevelCutoffBlock,
+    pruneEmptyScalingBlock, pruneEmptyMobSelections, expRampValue,
     pruneEmptyNoSkillExpMobs, pruneEmptyDimensions
   };
 
@@ -1542,96 +1542,6 @@
     return box;
   }
 
-  // level-cutoff (レベル差による足きり、2026-07-27)。スコープ(ダンジョン)単位・モブ単位のどちらでも
-  // 構造は同じなので共通化する: level-cutoff: { over-level: {threshold, exp-rate, drop-rate},
-  // under-level: {item-threshold} }。空欄にした項目/空になったサブブロックはキーごと delete する
-  // (buildOverrideExpBlock/buildDisplayNameFieldと同じ「未保存キーは書かない」流儀)。
-  const LEVEL_CUTOFF_OVER_FIELDS = [
-    {
-      key: "threshold", label: "threshold (発動レベル差)", int: true,
-      desc: "プレイヤー戦闘Lv − モブLv がこの値以上で発動。未設定または負値 = このover-level足きりは無効。"
-    },
-    {
-      key: "exp-rate", label: "exp-rate (経験値倍率)", int: false,
-      desc: "発動時に経験値へ掛ける倍率 [0.0〜1.0]。-1 なら経験値0(完全に入手不可)。未設定なら経験値には無干渉。"
-    },
-    {
-      key: "drop-rate", label: "drop-rate (ドロップ倍率)", int: false,
-      desc: "発動時にTF追加ドロップの確率へ掛ける倍率 [0.0〜1.0]。-1 なら追加ドロップを一切付けない"
-        + "(完全に入手不可)。未設定ならドロップ確率には無干渉。"
-    }
-  ];
-
-  function buildLevelCutoffBlock(host) {
-    function currentCutoff() {
-      const cur = host["level-cutoff"];
-      return (cur && typeof cur === "object" && !Array.isArray(cur)) ? cur : null;
-    }
-    function touchCutoff() {
-      let cur = currentCutoff();
-      if (!cur) { cur = {}; host["level-cutoff"] = cur; }
-      return cur;
-    }
-    function dropCutoffIfEmpty() {
-      const cur = currentCutoff();
-      if (cur && Object.keys(cur).length === 0) delete host["level-cutoff"];
-    }
-    function currentSub(subKey) {
-      const cutoff = currentCutoff();
-      const sub = cutoff ? cutoff[subKey] : null;
-      return (sub && typeof sub === "object" && !Array.isArray(sub)) ? sub : null;
-    }
-    function touchSub(subKey) {
-      const cutoff = touchCutoff();
-      let sub = currentSub(subKey);
-      if (!sub) { sub = {}; cutoff[subKey] = sub; }
-      return sub;
-    }
-    function dropSubIfEmpty(subKey) {
-      const cutoff = currentCutoff();
-      const sub = cutoff ? cutoff[subKey] : null;
-      if (sub && typeof sub === "object" && Object.keys(sub).length === 0) delete cutoff[subKey];
-      dropCutoffIfEmpty();
-    }
-
-    const overView = currentSub("over-level") || {};
-    const overFields = LEVEL_CUTOFF_OVER_FIELDS.map(({ key, label, desc, int }) => {
-      const input = window.numberInput(overView[key], (v) => {
-        const target = touchSub("over-level");
-        if (v === null || v === "") delete target[key];
-        else target[key] = v;
-        dropSubIfEmpty("over-level");
-      }, { int });
-      return fieldRow(key, input, { label, desc });
-    });
-
-    const underView = currentSub("under-level") || {};
-    const itemThresholdInput = window.numberInput(underView["item-threshold"], (v) => {
-      const target = touchSub("under-level");
-      if (v === null || v === "") delete target["item-threshold"];
-      else target["item-threshold"] = v;
-      dropSubIfEmpty("under-level");
-    }, { int: true });
-
-    return h("div", { class: "mob-level-coeff-block" }, [
-      h("div", {
-        class: "field-desc",
-        style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
-        text: "プレイヤーとモブの戦闘レベル差に応じて、経験値やTF追加ドロップ(このスコープの drops: の"
-          + "みが対象。バニラ本来のドロップには一切影響しません)を抑制します。全欄を空にすると未設定"
-          + "(足きり無し)。モブ単位の設定はスコープ単位の設定より優先されます。"
-      }),
-      subTitle("自分(プレイヤー)が敵より格上のとき (over-level)"),
-      gridRow(overFields),
-      subTitle("自分(プレイヤー)が敵より格下のとき (under-level)"),
-      fieldRow("item-threshold", itemThresholdInput, {
-        label: "item-threshold (発動レベル差)",
-        desc: "モブLv − プレイヤー戦闘Lv がこの値以上でTF追加ドロップを入手不可にします"
-          + "(経験値には影響しません)。-1または未設定 = 無効。"
-      })
-    ]);
-  }
-
   // 表示名(display-name)欄。ダンジョン(スコープ)とモブで同じ意味・同じ扱いなので共通化する。
   // 空欄で保存するとキーごと消す(未設定 = EliteMobs側の名前をそのまま使う)。
   function buildDisplayNameField(host, opts) {
@@ -1737,8 +1647,6 @@
       buildOverrideStatsBlock(mobEntry),
       subTitle("経験値の式 (vanilla-exp)"),
       buildOverrideExpBlock(mobEntry),
-      subTitle("レベル差による足きり (level-cutoff)"),
-      buildLevelCutoffBlock(mobEntry),
       subTitle("特殊攻撃 (abilities)"),
       buildAbilitiesBlock(mobEntry),
       h("div", { class: "mob-drops-section" }, [
@@ -1864,8 +1772,6 @@
         })
       ]));
     }
-    body.push(subTitle("レベル差による足きり (level-cutoff、このダンジョンの既定)"));
-    body.push(buildLevelCutoffBlock(scope));
     body.push(mobsBox);
     return window.collapsibleCard(head, body, {
       expanded: openOverrideScopes.has(scopeName),

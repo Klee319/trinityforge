@@ -67,6 +67,8 @@ import com.trinityforge.listeners.NativeSkillExperienceListener;
 import com.trinityforge.listeners.PlacedBlockTracker;
 import com.trinityforge.listeners.ProgressionPreloadListener;
 import com.trinityforge.listeners.TreeFellingListener;
+import com.trinityforge.listeners.KillRewardAdjuster;
+import com.trinityforge.listeners.LevelCutoffExpListener;
 import com.trinityforge.listeners.MobLevelTableListener;
 import com.trinityforge.listeners.MobOverrideDropListener;
 import com.trinityforge.listeners.MobOverrideExpListener;
@@ -524,13 +526,19 @@ public final class TrinityForge extends JavaPlugin {
         // AttackStats via the configured attack-stat-keys mapping (COMBAT 3.1), and folds only the
         // ARMOR/RESISTANCE vanilla modifiers into the symmetric pipeline so shield blocking and
         // absorption keep working (COMBAT_SYSTEM_SPEC 5).
-        getServer().getPluginManager().registerEvents(
-                new CombatListener(this, combatService,
-                        configManager.itemStats(), configManager.combatDamage(),
-                        skillLevelSource, bleedService, perkBuffResolver, aggregator,
-                        configManager.useRequirements(), configManager.skillExp(),
-                        configManager.craftingFeatures(), roleBuffResolver,
-                        configManager.mobLevelTable(), progressionCatalog), this);
+        // 討伐報酬に共通で掛かる調整(2026-08-09): レベル差の足きり(combat/damage.yml の level-cutoff、
+        // 旧 mob-overrides.yml)とドロップ増加ステ(mob_drop_bonus)。EXP側(戦闘スキルEXP/バニラオーブ)と
+        // TF追加ドロップ側の4リスナーが同じ判定を共有するため、ここで1つだけ作って配る。
+        KillRewardAdjuster killRewardAdjuster =
+                new KillRewardAdjuster(configManager.combatDamage(), combatService, aggregator);
+        CombatListener combatListener = new CombatListener(this, combatService,
+                configManager.itemStats(), configManager.combatDamage(),
+                skillLevelSource, bleedService, perkBuffResolver, aggregator,
+                configManager.useRequirements(), configManager.skillExp(),
+                configManager.craftingFeatures(), roleBuffResolver,
+                configManager.mobLevelTable(), progressionCatalog);
+        combatListener.setKillRewardAdjuster(killRewardAdjuster);
+        getServer().getPluginManager().registerEvents(combatListener, this);
 
         // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and
         // a periodic sweep; the listener feeds threat and evicts on death/removal/quit/unload so
@@ -1021,6 +1029,7 @@ public final class TrinityForge extends JavaPlugin {
                 new MobTypeDropListener(configManager.mobTypes(), configManager.craftQuality(),
                         configManager.quality(), itemFactory, mobDropBonusSource,
                         configManager.itemStats(), crossPluginItemResolver);
+        mobTypeDropListener.setKillRewardAdjuster(killRewardAdjuster);
         getServer().getPluginManager().registerEvents(mobTypeDropListener, this);
 
         // レベル帯テーブル(combat/mob-level-table.yml): ドロップ削除/追加/バニラEXP上書き、
@@ -1028,22 +1037,27 @@ public final class TrinityForge extends JavaPlugin {
         // HIGH優先度で MobTypeDropListener(NORMAL) の後に走らせる(§report参照)。
         MobLevelTableListener mobLevelTableListener = new MobLevelTableListener(
                 configManager.mobLevelTable(), dungeonWorldRegistry, crossPluginItemResolver);
+        mobLevelTableListener.setKillRewardAdjuster(killRewardAdjuster);
         getServer().getPluginManager().registerEvents(mobLevelTableListener, this);
 
         // ダンジョン(ワールド)×モブid単位のドロップオーバーライド(combat/mob-overrides.yml、
         // 2026-07-26新設)。MONITOR優先度でMobLevelTableListener(HIGH)より後に走らせ、EliteMobs自身の
         // LootTables#onDeathによるgetDrops()クリアの影響も受けない(MobOverrideDropListener Javadoc参照)。
         MobOverrideDropListener mobOverrideDropListener =
-                // 2026-07-27: レベル差による足きり判定に戦闘レベル(SymmetricCombatService)が要る。
-                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver,
-                        combatService);
+                // 2026-08-09: レベル差の足きりとドロップ増加ステは KillRewardAdjuster へ集約した。
+                new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver, killRewardAdjuster);
         getServer().getPluginManager().registerEvents(mobOverrideDropListener, this);
 
         // 同じ combat/mob-overrides.yml の「モブごとのレベル依存EXP式」(2026-07-26)。同じMONITOR優先度で
         // MobLevelTableListener(HIGH)のレベル帯 vanilla-exp より後 = より具体的な指定が勝つ。
         getServer().getPluginManager().registerEvents(
-                // 2026-07-27: 足きりの exp-rate 判定にも戦闘レベルが要る。
-                new MobOverrideExpListener(configManager.mobOverrides(), combatService), this);
+                new MobOverrideExpListener(configManager.mobOverrides()), this);
+
+        // レベル差による足きりのEXP側(2026-08-09、combat/damage.yml の level-cutoff)。
+        // EXPを書き込む2つのリスナー(MobLevelTableListener=HIGH / MobOverrideExpListener=MONITOR)より
+        // 「後に登録する」ことが、確定したEXPへ倍率を掛ける唯一の保証になる(同一優先度は登録順)。
+        getServer().getPluginManager().registerEvents(
+                new LevelCutoffExpListener(killRewardAdjuster), this);
 
         // AFK(離席)対策 (2026-07-27, afk.yml): 判定は AfkActivityListener が集める「人間にしか出せない
         // 入力」だけで行う。報酬停止はここで4経路へ述語を挿す —

@@ -2,7 +2,6 @@ package com.trinityforge.ops;
 
 import com.trinityforge.combat.AttackStats;
 import com.trinityforge.combat.DefenseStats;
-import com.trinityforge.combat.SymmetricCombatService;
 import com.trinityforge.config.domains.MobLevelTableConfig;
 import com.trinityforge.config.domains.MobOverridesConfig;
 import com.trinityforge.config.domains.MobTypesConfig;
@@ -41,7 +40,6 @@ import java.util.TreeSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 /**
  * 資源サーバ分離の事前検証: <b>EliteMobs を載せないサーバでも、モブのレベル推移と報酬テーブルが
@@ -198,9 +196,9 @@ class ResourceServerMobSimulationTest {
     @DisplayName("出荷 mob-overrides.yml: profileId を持たないフィールドモブには一切適用されない")
     void shippedMobOverridesNeverApplyWithoutAnEliteMobsStamp(@TempDir Path dir) throws Exception {
         MobOverridesConfig overrides = loadOverrides(dir);
-        // profileId 未刻印パスは combatService.combatLevelOf を呼ぶ前に return するため、モックの
-        // 挙動は無関係(2026-07-27 足きり新設でコンストラクタにSymmetricCombatServiceが必須になった)。
-        MobOverrideExpListener listener = new MobOverrideExpListener(overrides, mock(SymmetricCombatService.class));
+        // 2026-08-09: 足きりはこのリスナーから外れて LevelCutoffExpListener へ移ったので、
+        // コンストラクタは MobOverridesConfig 1本に戻っている。
+        MobOverrideExpListener listener = new MobOverrideExpListener(overrides);
 
         Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
         // MOB_PROFILE_ID は書かない = EliteMobs フォークが居ないサーバでのスポーン状態そのもの。

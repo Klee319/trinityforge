@@ -142,6 +142,15 @@
         { id: "durability.on-death.include-hands", label: "死亡時に両手も対象", kind: "boolean", desc: "既定ON=メインハンドの武器とオフハンドも減る。OFFにすると防具4部位だけになる。" }
       ]
     },
+    {
+      title: "レベル差による足きり (2026-08-09)",
+      fields: [
+        { id: "level-cutoff.over-level.threshold", label: "格上判定のレベル差", kind: "int", desc: "(プレイヤーの戦闘Lv - モブのLv) がこの値以上で「格上狩り」として発動する。-1(既定)でこの足きりは無効。以前は combat/mob-overrides.yml にあり、EliteMobsが刻印したダンジョンモブにしか効かなかったが、ここへ移して全モブ共通になった。レベル刻印の無い野良モブは対象外。" },
+        { id: "level-cutoff.over-level.exp-rate", label: "格上時の経験値倍率", kind: "number", desc: "発動時に経験値へ掛ける倍率(0.0〜1.0)。1.0で無干渉、-1で経験値0(完全に入手不可)。バニラの経験値オーブとTFの戦闘スキルEXPの両方に掛かる。" },
+        { id: "level-cutoff.over-level.drop-rate", label: "格上時のドロップ確率倍率", kind: "number", desc: "発動時にTF追加ドロップの確率へ掛ける倍率(0.0〜1.0)。1.0で無干渉、-1でTF追加ドロップを一切付けない。バニラ本来のドロップには一切関与しない(モブトラップが完全に死ぬのを防ぐため)。" },
+        { id: "level-cutoff.under-level.item-threshold", label: "格下判定のレベル差", kind: "int", desc: "(モブのLv - プレイヤーの戦闘Lv) がこの値以上でTF追加ドロップを入手不可にする。-1(既定)でこの足きりは無効。経験値には一切影響しない。" }
+      ]
+    },
     // 攻撃ステキー対応 / 防御ステキー対応 の欄は撤去(2026-07-24)。2026-07-26 に Java 側の
     // config 経路も撤去され(CMB-31)、キー名は AttackStatKeys / DefenseStatKeys の定数が単一の真実。
     // config からは改名できないので、editor に欄を戻してはいけない。

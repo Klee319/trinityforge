@@ -99,6 +99,13 @@ const FIELD_SPECS = Object.freeze([
   { id: "durability.on-death.percent-of-max", file: "damage", path: ["durability", "on-death", "percent-of-max"], kind: "number", min: 0, max: 1, def: 0.1 },
   { id: "durability.on-death.min-damage", file: "damage", path: ["durability", "on-death", "min-damage"], kind: "int", min: 0, max: 10000, def: 1 },
   { id: "durability.on-death.include-hands", file: "damage", path: ["durability", "on-death", "include-hands"], kind: "boolean", def: true },
+  // 2026-08-09 レベル差による足きり。combat/mob-overrides.yml の level-cutoff から移設した
+  // (旧実装はEliteMobsが刻印したダンジョンモブにしか効かず、野良モブが素通りしていた)。
+  // min/max/def は CombatDamageConfig の SchemaField と一致させること。
+  { id: "level-cutoff.over-level.threshold", file: "damage", path: ["level-cutoff", "over-level", "threshold"], kind: "int", min: -1, max: 10000, def: -1 },
+  { id: "level-cutoff.over-level.exp-rate", file: "damage", path: ["level-cutoff", "over-level", "exp-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  { id: "level-cutoff.over-level.drop-rate", file: "damage", path: ["level-cutoff", "over-level", "drop-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  { id: "level-cutoff.under-level.item-threshold", file: "damage", path: ["level-cutoff", "under-level", "item-threshold"], kind: "int", min: -1, max: 10000, def: -1 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。
