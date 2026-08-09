@@ -70,6 +70,13 @@ import java.util.logging.Logger;
  * #setDroppedExp(int)} orb this class writes. This class intentionally never calls {@code
  * setDroppedExp(0)} for {@code no-skill-exp-mobs} — see {@code MobLevelTableConfig#suppressesSkillExp}
  * and its callers in {@code CombatListener}/{@code NativeSkillExperienceListener} instead.
+ *
+ * <p><b>複数人ダンジョンでの分配(2026-08-09):</b> {@code add-drops} の当選スタックは
+ * {@code event.getDrops()} へ直接積まず {@link com.trinityforge.mobs.EliteMobsSharedLootBridge#deliver}
+ * を通す。エリートモブ・ダメージ寄与者2人以上・インスタンス化ダンジョンの3条件がそろったときだけ
+ * EliteMobs の共有戦利品テーブル(emloot、need/greed)が引き取る。それ以外は橋の中で従来どおり
+ * {@code event.getDrops()} へ積まれる。{@code remove-drops} 側は<b>この分岐の対象外</b> —
+ * あちらはモブ本来のバニラドロップを削る処理で、TF が追加したものではないため。
  */
 public final class MobLevelTableListener implements Listener {
 
@@ -215,7 +222,10 @@ public final class MobLevelTableListener implements Listener {
                     stack.setAmount(MobDropRoller.scaleCount(stack.getAmount(), countFactor,
                             stack.getMaxStackSize(), random.nextDouble()));
                 }
-                event.getDrops().add(stack);
+                // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
+                // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら
+                // deliver() の中で従来どおり event.getDrops() へ積まれる。
+                com.trinityforge.mobs.EliteMobsSharedLootBridge.deliver(event, stack);
             }
         }
 

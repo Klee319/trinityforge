@@ -499,6 +499,40 @@ package で、Nightbreakの `NightbreakAccount`/`NightbreakContentManager` を�
 無言で効かない。既存キーの意味を変える改修をしたら、必ず「稼働中サーバーの config に当てるべき
 diff」を作業報告に明記すること。
 
+### ⚠️ emloot（共有戦利品テーブル）は 2026-08-09 以降 EliteMobs 側からは絶対に生成されない — 唯一の生成点は TF 追加ドロップの橋
+
+`SharedLootTable`（`/em loot` の need/greed）を作る経路は上流では
+`EliteCustomLootEntry#addGroupLoot` の 1 本しかなく、そこへ到達するには
+`CustomBossDeath` の戦利品配布が走っている必要がある。2026-08-09 に
+`elite-drop-sources.boss-unique-loot` を **false 確定**（コード既定も反転）にしたため、
+**その配布自体が二度と走らない = EliteMobs 由来の emloot は構造的にゼロ**になった。
+「emloot が出ない」のは設定ミスではなく仕様。
+
+need/greed という機構だけは複数人ダンジョンで活かす方針なので、中身を TF の追加ドロップに
+差し替えてある。経路は片方向で、**TF → フォーク**：
+
+- TF 側 `com.trinityforge.mobs.EliteMobsSharedLootBridge#deliver(EntityDeathEvent, ItemStack)`
+  （リフレクション、`EliteMobsInstanceBridge` と同じ作法）を
+  `MobOverrideDropListener` / `MobLevelTableListener` が `event.getDrops().add(stack)` の
+  **代わりに**呼ぶ。
+- フォーク側 `com.magmaguy.elitemobs.trinityforge.TrinityForgeSharedLoot#offerDungeonLoot(Entity, ItemStack)`
+  が引き取り条件を判定する: **エリートモブ / ダメージ寄与者が 2 人以上 / そのうち誰かが
+  `DungeonInstance` の中**。1 つでも欠ければ `false` を返し、TF 側が従来どおり地面へ落とす。
+- 引き取った場合は `SharedLootTable#addTrinityForgeLoot`（`addLoot` とは別メソッド）へ入る。
+
+**踏み抜きやすい点が 3 つある。**
+
+1. **クラス名・メソッド名・引数型を変えると TF 側は無言で fail-soft に戻る**（コンパイルは通る）。
+   フォーク側 `SharedLootTableTrinityForgeTest#offerDungeonLootSignatureMatchesTheTrinityForgeBridge`
+   が署名を固定しているので、名前を変えるならそのテストと TF 側の定数を同時に直す。
+2. **`SharedLootTable#rollLoot` の EliteMobs 後処理（`SoulbindEnchantment` /
+   `EliteItemLore` / `EliteItemManager#setEliteLevel`）を TF アイテムに掛けてはいけない。**
+   ロアは rollSeed+品質から毎回導出されるので上書きすると二重表示になり `reload` でも直らず、
+   エリートレベルは TF の必要レベルと別物、束縛は素材を取引不能にする。ガードは
+   `trinityForgeLoot`（インスタンス同一性の `IdentityHashMap` セット）で、
+   同テストが javap スライスで固定している。
+3. **`remove-drops` は対象外。** あれはモブ本来のバニラドロップを削る処理で TF 追加分ではない。
+
 ## ビルド・配備（EliteMobs / ArsPaper / TF API 連携）
 
 EliteMobsフォーク（`fork-handoff/elitemobs/elitemobs-fork`）と ArsPaper フォーク

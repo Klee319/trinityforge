@@ -1,6 +1,7 @@
 package com.trinityforge.listeners;
 
 import com.trinityforge.config.domains.MobOverridesConfig;
+import com.trinityforge.mobs.EliteMobsSharedLootBridge;
 import com.trinityforge.mobs.MobDropRoller;
 import com.trinityforge.mobs.MobOverrideDropEntry;
 import com.trinityforge.pdc.MobData;
@@ -74,6 +75,13 @@ import java.util.logging.Logger;
  * {@code NativeSurvivalPerkListener} で {@code event.getDrops()} の中身にしか掛かっておらず、
  * <b>TF追加ドロップには一切載っていなかった</b>(同じ MONITOR 優先度で先に登録されている =
  * TF追加ドロップが積まれる前に走り終わっている)。
+ *
+ * <p><b>複数人ダンジョンでの分配(2026-08-09):</b> 抽選に通ったスタックは
+ * {@code event.getDrops()} へ直接積まず {@link com.trinityforge.mobs.EliteMobsSharedLootBridge#deliver}
+ * を通す。エリートモブ・ダメージ寄与者2人以上・インスタンス化ダンジョンの3条件がそろったときだけ
+ * EliteMobs の共有戦利品テーブル(emloot、need/greed)が引き取り、60秒の投票を経て当選者1人へ渡る。
+ * それ以外(ソロ・フィールド・EliteMobs 不在)は橋の中で従来どおり {@code event.getDrops()} へ
+ * 積まれるので、この分岐でドロップが失われることはない。
  */
 public final class MobOverrideDropListener implements Listener {
 
@@ -156,7 +164,10 @@ public final class MobOverrideDropListener implements Listener {
                         stack.getMaxStackSize(), random.nextDouble()));
             }
             if (stack != null) {
-                event.getDrops().add(stack);
+                // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
+                // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら
+                // deliver() の中で従来どおり event.getDrops() へ積まれる。
+                EliteMobsSharedLootBridge.deliver(event, stack);
             }
         }
     }
