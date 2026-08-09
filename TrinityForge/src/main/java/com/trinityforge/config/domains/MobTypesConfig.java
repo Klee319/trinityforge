@@ -103,6 +103,7 @@ public final class MobTypesConfig implements LoadableConfig {
     private volatile Map<World.Environment, Double> dimensionCoordinateCoefficients = Map.of();
     /** {@code summoned:}。既定は無効(=召喚モブも従来どおり距離ベース)。 */
     private volatile SummonedLevelPolicy summonedLevelPolicy = SummonedLevelPolicy.DISABLED;
+    private volatile TamedLevelPolicy tamedLevelPolicy = TamedLevelPolicy.DISABLED;
     /** {@code mob-types.<TYPE>.level-coefficients.attack} の攻撃力 高レベル区間。未設定は {@link
      * AttackPowerHighLevelPhase#NONE}(=従来どおり無干渉)。 */
     private volatile Map<EntityType, AttackPowerHighLevelPhase> attackPowerHighLevels = Map.of();
@@ -309,6 +310,55 @@ public final class MobTypesConfig implements LoadableConfig {
                 root.getInt("max-level", 0));
     }
 
+    /**
+     * 手懐けた友好モブ({@code tamed:})のレベル決め。無効なら {@link TamedLevelPolicy#DISABLED}。
+     *
+     * <p>{@link SummonedLevelPolicy} と同じ形の下駄/係数/上限を持つが、参照するスキルが無い
+     * ({@code skill} フィールド自体を持たない)。テイムには専用スキルが存在しないため、
+     * 飼い主の総合戦闘レベル({@code progression/combat-level.yml})をそのまま使う設計。
+     */
+    public TamedLevelPolicy tamedLevelPolicy() {
+        return tamedLevelPolicy;
+    }
+
+    /**
+     * 手懐けモブのレベルを飼い主の総合戦闘レベルから決める規則({@code tamed:})。
+     *
+     * <p>{@link SummonedLevelPolicy} と違い参照スキルを持たない — 引数は「飼い主の総合戦闘レベル」
+     * そのもの({@code combat/mob-types.yml} の {@code tamed:} セクションのコメント参照)。
+     *
+     * @param enabled            false なら手懐けモブも従来どおり(EntityTypeの通常値のまま)
+     * @param levelPerSkillLevel 飼い主の総合戦闘レベル1につき何レベル上げるか
+     * @param baseLevel          総合戦闘レベル0でも保証する下駄
+     * @param maxLevel           上限(0以下なら {@link MobTypesConfig#maxLevel()} に従う)
+     */
+    public record TamedLevelPolicy(boolean enabled, double levelPerSkillLevel,
+                                    int baseLevel, int maxLevel) {
+
+        public static final TamedLevelPolicy DISABLED =
+                new TamedLevelPolicy(false, 0.0, 0, 0);
+
+        /** 飼い主の総合戦闘レベルから手懐けモブのレベルを出す。{@code fallbackMax} は yml 未指定時の上限。 */
+        public int levelFor(int combatLevel, int fallbackMax) {
+            int raw = baseLevel + (int) Math.floor(Math.max(0, combatLevel) * levelPerSkillLevel);
+            int ceiling = maxLevel > 0 ? maxLevel : fallbackMax;
+            return Math.max(0, Math.min(raw, ceiling));
+        }
+    }
+
+    static TamedLevelPolicy parseTamed(ConfigurationSection root, Logger log) {
+        if (root == null) {
+            return TamedLevelPolicy.DISABLED;
+        }
+        if (!root.getBoolean("enabled", false)) {
+            return TamedLevelPolicy.DISABLED;
+        }
+        return new TamedLevelPolicy(true,
+                root.getDouble("level-per-skill-level", 1.0),
+                root.getInt("base-level", 0),
+                root.getInt("max-level", 0));
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -362,6 +412,7 @@ public final class MobTypesConfig implements LoadableConfig {
         this.maxLevel = parseMaxLevel(yaml, log);
 
         this.summonedLevelPolicy = parseSummoned(yaml.getConfigurationSection("summoned"), log);
+        this.tamedLevelPolicy = parseTamed(yaml.getConfigurationSection("tamed"), log);
 
         DimensionOverridesResult dimensionOverrides = parseDimensions(yaml, log);
         this.dimensionBaseLevels = dimensionOverrides.baseLevels();

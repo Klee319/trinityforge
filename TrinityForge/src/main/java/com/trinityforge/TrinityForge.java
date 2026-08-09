@@ -1018,9 +1018,12 @@ public final class TrinityForge extends JavaPlugin {
         // Vanilla mob-type system (combat/mob-types.yml): EntityType-keyed level/defense/coordinate
         // scaling + extra drops, independent of the EliteMobs-keyed mob-profiles.yml system. The
         // spawn listener stamps the PDC profile; the drop listener rolls the extra drop table.
+        // M-2: 手懐けた友好モブのレベルは飼い主の総合戦闘レベル(SymmetricCombatService#combatLevelOf、
+        // 実体は combatLevelConfig.model().compute(skillLevelSource.levelsOf(id)))で決める。
+        // combatService はこの時点で既に生成済み(上のcombatService初期化を参照)。
         getServer().getPluginManager().registerEvents(
                 new MobTypeSpawnListener(this, configManager.mobTypes(), configManager,
-                        skillLevelSource), this);
+                        skillLevelSource, combatService::combatLevelOf), this);
         // 変身(ゾンビ→ドラウンド等)で PDC と MAX_HEALTH が完全に消えるのを埋める。
         // MobTypeSpawnListener より先(EntityTransformEvent は CreatureSpawnEvent の前)に走るので、
         // 引き継いだダンジョンテーマ等を同リスナーが見られる。

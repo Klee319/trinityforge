@@ -12,6 +12,7 @@ import com.trinityforge.mobs.MobLevelScaling;
 import com.trinityforge.mobs.MobStatScaling;
 import com.trinityforge.mobs.MobTypeDefinition;
 import com.trinityforge.pdc.MobData;
+import com.trinityforge.progression.CombatLevelSource;
 import com.trinityforge.progression.SkillLevelSource;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -20,11 +21,16 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.entity.AnimalTamer;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityTameEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -78,9 +84,10 @@ public final class MobTypeSpawnListener implements Listener {
     private final MobTypesConfig mobTypesConfig;
     private final ConfigManager configManager;
     private final SkillLevelSource skillLevelSource;
+    private final CombatLevelSource combatLevelSource;
 
     public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig, ConfigManager configManager) {
-        this(plugin, mobTypesConfig, configManager, SkillLevelSource.EMPTY);
+        this(plugin, mobTypesConfig, configManager, SkillLevelSource.EMPTY, CombatLevelSource.EMPTY);
     }
 
     /**
@@ -90,10 +97,26 @@ public final class MobTypeSpawnListener implements Listener {
      */
     public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig,
                                 ConfigManager configManager, SkillLevelSource skillLevelSource) {
+        this(plugin, mobTypesConfig, configManager, skillLevelSource, CombatLevelSource.EMPTY);
+    }
+
+    /**
+     * @param skillLevelSource  召喚モブのレベルを召喚者のスキルレベルから決めるための読み出し口
+     *                          ({@code summoned:})。{@link SkillLevelSource#EMPTY} を渡すと
+     *                          全スキル0扱いになり、召喚モブは {@code summoned.base-level} だけになる。
+     * @param combatLevelSource 手懐けモブのレベルを飼い主の総合戦闘レベルから決めるための読み出し口
+     *                          ({@code tamed:}、M-2)。{@link CombatLevelSource#EMPTY} を渡すと
+     *                          常に総合戦闘レベル0扱いになり、手懐けモブは {@code tamed.base-level}
+     *                          だけになる。
+     */
+    public MobTypeSpawnListener(Plugin plugin, MobTypesConfig mobTypesConfig,
+                                ConfigManager configManager, SkillLevelSource skillLevelSource,
+                                CombatLevelSource combatLevelSource) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.mobTypesConfig = Objects.requireNonNull(mobTypesConfig, "mobTypesConfig");
         this.configManager = Objects.requireNonNull(configManager, "configManager");
         this.skillLevelSource = Objects.requireNonNull(skillLevelSource, "skillLevelSource");
+        this.combatLevelSource = Objects.requireNonNull(combatLevelSource, "combatLevelSource");
     }
 
     /**
@@ -288,6 +311,97 @@ public final class MobTypeSpawnListener implements Listener {
                 mobTypesConfig.defaultDefense(DamageType.MAGICAL), maxHealthBase,
                 mobTypesConfig.defaultAttack(), mobTypesConfig.defaultLevelCoefficients(),
                 "summoned:defaults", healthRatio,
+                nonNull(mobTypesConfig.defaultAttackPowerHighLevel()), environment, distance);
+    }
+
+    /**
+     * M-2: 手懐けた友好モブがテイムされた瞬間。テイム直後は満タン想定(healthRatio=1.0)でよい
+     * (vanillaのテイム自体もHPを削らない)。EliteMobs所有(交配/特殊個体で先にEMがPDCを刻んでいる
+     * ようなケース)なら何もしない。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTame(EntityTameEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity entity)) {
+            return;
+        }
+        if (isEliteMobsOwned(MobData.of(entity))) {
+            return;
+        }
+        applyTamedLevelFromOwner(entity, event.getOwner(), 1.0);
+    }
+
+    /**
+     * M-2: チャンク読み込みで手懐けモブが再構築されるたびに、飼い主の総合戦闘レベルが
+     * 後から上がった分を追随させる。{@code PlayerJoinEvent} で全ワールドを走査する案は
+     * 「そのプレイヤーが飼い主であるモブ一覧」を得る仕組みが無く全走査が重いため採らない
+     * （設計指示）。現在HPの比率を必ず引き継ぐ({@link #currentHealthRatio}) —
+     * 引き継がないと「読み込みのたびに全快／即死する」事故になる。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        for (Entity loaded : event.getEntities()) {
+            if (!(loaded instanceof Tameable tameable) || !tameable.isTamed()) {
+                continue;
+            }
+            if (!(loaded instanceof LivingEntity entity)) {
+                continue;
+            }
+            if (isEliteMobsOwned(MobData.of(entity))) {
+                continue;
+            }
+            applyTamedLevelFromOwner(entity, tameable.getOwner(), currentHealthRatio(entity));
+        }
+    }
+
+    private void applyTamedLevelFromOwner(LivingEntity entity, AnimalTamer owner, double healthRatio) {
+        if (owner == null) {
+            return;
+        }
+        OptionalInt level = tamedLevelFor(owner.getUniqueId());
+        if (level.isEmpty()) {
+            return;
+        }
+        applyTamedProfile(entity, level.getAsInt(), healthRatio);
+    }
+
+    /**
+     * 飼い主のUUIDから、{@code tamed:} ポリシーに基づく手懐けモブのレベルを出す。
+     * Bukkitイベント/エンティティを一切使わない純関数なので、MockBukkitが
+     * {@code EntityTameEvent}/{@code Tameable} を実装していない場合でも直接単体テストできる
+     * (テスト方針)。
+     */
+    OptionalInt tamedLevelFor(UUID ownerId) {
+        // null を潰しているのは summonedLevel() と同じ事情(Mockitoモックの未スタブアクセサ対策)。
+        MobTypesConfig.TamedLevelPolicy policy = mobTypesConfig.tamedLevelPolicy();
+        if (policy == null || !policy.enabled() || ownerId == null) {
+            return OptionalInt.empty();
+        }
+        int combatLevel = combatLevelSource.combatLevelOf(ownerId);
+        return OptionalInt.of(policy.levelFor(combatLevel, mobTypesConfig.maxLevel()));
+    }
+
+    /**
+     * 手懐けモブへ、飼い主由来のレベルでステータスを刻む。{@link #applySummonedProfile} と同じ考え方
+     * (対象EntityTypeの通常の定義をそのまま使い、レベルだけを外部要因で決める)だが、ソース文字列を
+     * "tamed:" にして召喚モブのログと混同しないようにしている。
+     */
+    private void applyTamedProfile(LivingEntity entity, int level, double healthRatio) {
+        MobTypeDefinition def = mobTypesConfig.definition(entity.getType()).orElse(null);
+        World.Environment environment = entity.getWorld().getEnvironment();
+        double distance = distanceFromWorldSpawn(entity);
+        if (def != null) {
+            applyStatsAtLevel(entity, level, def.physical(), def.magical(), def.maxHealth(),
+                    def.attack(), def.levelCoefficients(),
+                    "tamed:" + entity.getType().name(), healthRatio,
+                    attackPowerHighLevelFor(entity.getType()), environment, distance);
+            return;
+        }
+        Double maxHealthBase = mobTypesConfig.defaultMaxHealth().isPresent()
+                ? mobTypesConfig.defaultMaxHealth().getAsDouble() : null;
+        applyStatsAtLevel(entity, level, mobTypesConfig.defaultDefense(DamageType.PHYSICAL),
+                mobTypesConfig.defaultDefense(DamageType.MAGICAL), maxHealthBase,
+                mobTypesConfig.defaultAttack(), mobTypesConfig.defaultLevelCoefficients(),
+                "tamed:defaults", healthRatio,
                 nonNull(mobTypesConfig.defaultAttackPowerHighLevel()), environment, distance);
     }
 

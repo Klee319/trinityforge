@@ -284,6 +284,39 @@ summoned:
   # 召喚モブ専用の上限。0 なら上の max-level に従う。
   max-level: 0
 
+# tamed: 手懐けた友好モブ(狼/猫/馬等、Bukkit の Tameable#isTamed())のレベルを、
+# 飼い主の"スキル"ではなく総合戦闘レベル(progression/combat-level.yml の pillar式)で決める(M-2)。
+#
+# なぜ単一スキルを参照しないか(= summoned: との違い):
+#   summoned: は Ars の召喚魔法という出所が決まっているので、参照するスキル(ARS_MAGIC)が
+#   自然に1つに定まる。一方、テイムには「テイム専用スキル」というものがそもそも存在しない。
+#   summoned: と同じ形式で単一スキルを指定するなら候補は ARS_MAGIC しかないが、それだと
+#   「魔法を上げないと狼が育たない」という筋の通らない依存になってしまう
+#   (弓/採掘/近接戦闘などを幾ら伸ばしても懐いた狼が全く育たない)。
+#   飼い主の総合的な強さに追随させるべきものなので、単一スキルではなく
+#   progression/combat-level.yml が出す総合戦闘レベルをそのまま見る。
+#   (このセクションに summoned.skill に相当する skill: キーは存在しない。単一スキル方式を
+#    採らないことの表明として意図的に省略している。将来 skill: を書いても無視される)
+#
+# level = base-level + floor(飼い主の総合戦闘レベル × level-per-skill-level) (max-level でクランプ)。
+# HPと攻撃力はこのレベルからそのEntityTypeの通常の係数でスケールする(summoned: と同じ考え方)。
+#
+# ⚠ EliteMobs 所有のモブ(MOB_PROFILE_ID/MOB_DUNGEON_THEME を持つ個体)には適用しない。
+# ⚠ 飼い主が特定できない場合(Tameable#getOwner()がnull等)は従来どおり無干渉。
+# ⚠ 飼い主の総合戦闘レベルが後から上がった場合、次にそのモブのチャンクが読み込まれた時点
+#   (EntitiesLoadEvent)で追随する。PlayerJoinEvent での全ワールド走査は
+#   「そのプレイヤーが飼い主であるモブ一覧」を得る仕組みが無く重すぎるため採用していない。
+tamed:
+  # false なら従来どおり(手懐けモブはEntityTypeごとの通常のバニラ/mob-types値のまま)。
+  enabled: true
+  # 飼い主の総合戦闘レベル1につき、手懐けモブのレベルをいくつ上げるか。
+  # 1.0 = 飼い主の総合戦闘レベルがそのまま手懐けモブのレベルになる。
+  level-per-skill-level: 1.0
+  # 飼い主の総合戦闘レベルが0でも保証する下駄。0のままだと駆け出しの狼がLv0のまま(修正前と同じ)。
+  base-level: 1
+  # 手懐けモブ専用の上限。0 なら上の max-level に従う。
+  max-level: 0
+
 defaults:
   level: 0
   coordinate-coefficient: 0.02
