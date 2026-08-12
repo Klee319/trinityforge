@@ -894,6 +894,31 @@ UI が**2件**あった。どちらも TF本体・ArsPaperフォークとも読�
 読み取りが無かった)。item-stats.yml の「スレッド」タブに何か新しい効果系の欄を足したくなったら、
 まず「それは threads.yml か thread-sets.yml のどちらかに実装済みの機構ではないか」を疑う。
 
+## ⚠️ ステの数値入力は必ず `statValueControl` を通す ── 素の `numberInput` は %表示を無言で壊す（2026-08-12 修正）
+
+`isPercentStat(key)` を知っているのは `forms.js` の **`statValueControl(key, value, setter, opts)` だけ**。
+これだけが「値×100 を表示し、÷100 して保存する」%入力（`.pct-input` + `.pct-suffix` の `%`）を作る。
+
+ここを `window.numberInput` で書くと**2つ同時に壊れる**:
+
+1. 割合がそのまま出る（回避率 3% が `0.03`）。
+2. **単位すら出ない。** `statUnitSlot(stat)` は `!isPercentStat(stat)` のときしか単位を返さない
+   ＝ %ステには**空スロット**を返す仕様（`%` は `statValueControl` の `pct-suffix` が出す前提）。
+   つまり `numberInput` + `statUnitSlot` の組み合わせは「小数なのに `%` も付かない」という、
+   一見「lore.yml の宣言ミス」に見える表示になる。
+
+2026-08-12 に実際に踏んだのは `renderThreadSetEffects`（スレッド画面の「セット効果 (thread-sets.yml)」）。
+**`statValueControl` の定義の直上には「thread-sets フォーム等でも同じ %入力(割合保存) を再利用する」と
+既に書いてあった**のに、この1箇所だけ変換され忘れていた。
+
+診断の教訓: 「%ステの表示がおかしい」を **`stats/lore.yml` の宣言監査だけで結論してはいけない**。
+宣言が正しくても**呼び出し側が `statValueControl` を通っていなければ同じ症状になる**。
+監査すべきは「どのフォームが `statValueControl` を呼んでいるか」。
+
+回帰は `test/stat-row-percent-input-2026-08-12.test.js` の構造ガードで固定してある
+（`statSelect` を持つ行が素の `numberInput` を使っていないこと。倍率行 `x1.2` は
+ステの単位も % も持たない別物なので `mult-prefix` を含む行だけ免除）。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
