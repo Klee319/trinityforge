@@ -98,8 +98,15 @@ attack:
   # つまりここは小さく回すレバーで、大きく回すと即詰みになる。実測して足りなければ
   # high-level-per-level を 0.05 刻みで上げること(0.25 → 0.30 で Lv60 の残りがさらに約1.2倍)。
   # attack-power 以外(fixed-damage 等)を上げるのは禁じ手 —— 守備力で減らせない=対策不能になる。
-  attack-power:         { base: 7.0, per-level: 0.0, growth: 1.03, growth-interval: 1.0,
-                          high-level-from: 45, high-level-per-level: 0.25 }
+  # 2026-08-12(火力/防御の再較正): フィールド側(combat/mob-types.yml)を
+  # 「growth 1.033 + Lv45以降 +0.25/Lv」から「growth 1.0148 のみ」へ寝かせたので、
+  # ここも同じ勾配へ揃える。揃えないと Lv100 でダンジョンモブだけ攻撃力 148 対 35 と
+  # 約4.3倍になり、プレイヤー最大HP 100 に対して事実上の即死になる。
+  #   base 10.2 = フィールドの基準モブ(ゾンビ 8.0)の約1.27倍。
+  #   この 1.27 倍という関係は旧カーブ(ダンジョン7.0 / フィールド5.5)の比をそのまま引き継いだもの。
+  #   high-level-per-level は 0 にした(指数側がその役目を担うため。第2区間との二重計上を避ける)。
+  attack-power:         { base: 10.2, per-level: 0.0, growth: 1.0148, growth-interval: 1.0,
+                          high-level-from: 45, high-level-per-level: 0.0 }
   flat-bonus-damage:    { base: 0.0, per-level: 0.0 }
   percent-bonus-damage: { base: 0.0, per-level: 0.0 }
   crit-chance:          { base: 0.0, per-level: 0.0 }

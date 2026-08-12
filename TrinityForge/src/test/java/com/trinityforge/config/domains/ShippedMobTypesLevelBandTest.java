@@ -48,9 +48,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code attack-power-growth} を 1.033→1.02 へ寝かせつつ素の attack-power を ×1.4545 底上げ、かつ
  * {@code max-health-high-level-per-level} を ×2.5 する形で HP 側の高レベル加速だけを残す設計へ変更)。
  * {@code attack-power-high-level-from: 45} キー自体は残っているが per-level が 0 なので常時無干渉。
- * ダンジョン側 {@code combat/mob-import.yml} は今回の対象外のため 0.25 のまま(=フィールドと
- * ダンジョンで高レベル帯の攻撃力カーブが分岐する。両者は元々別ランプなので非対称自体は問題ない、
- * 本ファイル冒頭のクラス javadoc 該当箇所参照)。
+ * <b>2026-08-12 の追補</b>で {@code attack-power-growth} はさらに 1.02→1.0148 へ寝かせ
+ * (Lv100 のプレイヤー最大HPを 166.7→100 に収めるため)、あわせてダンジョン側
+ * {@code combat/mob-import.yml} の {@code attack-power} も同じ勾配
+ * ({@code base: 10.2 / growth: 1.0148 / high-level-per-level: 0.0}) へ揃えた。
+ * 揃えないと Lv100 でダンジョンモブだけ攻撃力が約4.3倍になり事実上の即死になる。
  * 1エントリでも 0.25 のような非0値が残っていると、そのモブだけ高レベル帯の攻撃力が
  * 再較正前の伸びに戻ってしまうので、全エントリが 0 で統一されていることを縛る。
  */

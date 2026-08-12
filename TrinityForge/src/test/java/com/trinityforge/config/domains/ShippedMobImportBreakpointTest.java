@@ -62,23 +62,44 @@ class ShippedMobImportBreakpointTest {
                         + maxHealth.at(45) + " -> " + maxHealth.at(60));
     }
 
+    /** 出荷 mob-import.yml の attack-power カーブ(2026-08-12 の火力/防御再較正で置いた値)。 */
+    private static final double DUNGEON_ATTACK_BASE = 10.2;
+    private static final double DUNGEON_ATTACK_GROWTH = 1.0148;
+
     @Test
-    @DisplayName("#63: attack-power の高レベル区間がLv45から発動し、かつ小さく保たれている")
-    void attackPowerHighLevelBreakpointIsConfiguredAndBounded() throws Exception {
+    @DisplayName("2026-08-12: ダンジョンの attack-power は加算区間を持たない純粋な指数である")
+    void attackPowerIsAPureExponentialWithoutTheHighLevelPhase() throws Exception {
         ConversionPolicy policy = loadPolicy();
         ConversionPolicy.Ramp attackPower = policy.attack().attackPower();
-        double at44 = attackPower.at(44);
-        double at45 = attackPower.at(45);
-        double at60 = attackPower.at(60);
-        // Lv45未満は完全無干渉(第2区間は level==45 でちょうど0を足すので閾値上でも連続)。
-        assertEquals(7.0 * Math.pow(1.03, 44), at44, DELTA, "Lv45未満は従来カーブのまま");
-        assertEquals(7.0 * Math.pow(1.03, 45), at45, DELTA, "閾値ちょうどでは加算0(連続)");
-        assertTrue(at60 > 7.0 * Math.pow(1.03, 60) + DELTA,
-                "Lv60で加算が乗っていない(high-level-per-levelが消えている疑い): " + at60);
-        // 上限ガード: 被ダメージは守備力を引いた"残り"に率が掛かるので、攻撃力の増分は残りに対して
-        // 何倍にも効く。ここを大きく回すと即詰みになる(mob-import.yml の attack-power コメント参照)。
-        assertTrue(at60 < 7.0 * Math.pow(1.03, 60) * 1.20,
-                "Lv60の攻撃力が素のカーブの1.2倍以上に膨らんでいる(回し過ぎ): " + at60);
+
+        // 【契約の変更】2026-08-03(#63)は「Lv45以降だけ +0.25/Lv を加算する」第2区間を置いていた。
+        // 2026-08-12 の再較正でフィールド側(combat/mob-types.yml)の同じ加算を撤去したのに合わせ、
+        // ダンジョン側もここで撤去した。指数を寝かせた(1.03 -> 1.0148)ぶん、加算で高帯を持ち上げると
+        // 二重計上になり、Lv100 で「ダンジョンだけ攻撃力が約4.3倍」という即死状態へ戻る。
+        for (int level : new int[] {0, 44, 45, 46, 60, 80, 100}) {
+            assertEquals(DUNGEON_ATTACK_BASE * Math.pow(DUNGEON_ATTACK_GROWTH, level),
+                    attackPower.at(level), DELTA,
+                    "Lv" + level + " の攻撃力が純粋な指数からずれている"
+                            + "(high-level-per-level が 0 でなくなった疑い)");
+        }
+    }
+
+    @Test
+    @DisplayName("2026-08-12: ダンジョンとフィールドの attack-power の伸びが同じ勾配である")
+    void dungeonAndFieldAttackCurvesShareTheSameGrowth() throws Exception {
+        Path fieldFile = Path.of("src/main/resources/combat/mob-types.yml");
+        assertTrue(Files.isRegularFile(fieldFile), "出荷 yml が見つからない: " + fieldFile.toAbsolutePath());
+        YamlConfiguration field = new YamlConfiguration();
+        field.loadFromString(Files.readString(fieldFile));
+
+        // フィールドの基準モブ(ゾンビ)の伸び。ここが動いたらダンジョン側も一緒に動かすこと ──
+        // 勾配が割れると、割れた分がそのままレベル差の指数として効いて片側だけ即死になる。
+        double fieldGrowth = field.getDouble(
+                "mob-types.ZOMBIE.level-coefficients.attack.attack-power-growth", -1.0);
+        assertEquals(DUNGEON_ATTACK_GROWTH, fieldGrowth, DELTA,
+                "フィールド(mob-types.yml の ZOMBIE)とダンジョン(mob-import.yml)で"
+                        + " attack-power の伸びが割れている。Lv100 では (fieldGrowth/dungeonGrowth)^100 倍の"
+                        + "差になるので、片方だけ触ると必ず片側が事故る");
     }
 
     @Test

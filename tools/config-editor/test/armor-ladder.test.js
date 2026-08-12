@@ -24,14 +24,17 @@ const DEFENSE_RATE_PER_POINT = 0.015; // combat/damage.yml vanilla-armor.defense
 const DEFENSE_RATE_MAX = 0.8;
 
 // 【2026-08-12 防具ラダー引き直し】敵の基準攻撃力カーブ。combat/mob-types.yml の ZOMBIE
-// attack.attack-power (base 8, attack-power-growth 1.02, attack-power-high-level-per-level 0)
-// をそのまま反映する式。A(L) = 8.0 * 1.02^L。
+// attack.attack-power (base 8, attack-power-growth 1.0148, attack-power-high-level-per-level 0)
+// をそのまま反映する式。A(L) = 8.0 * 1.0148^L。
+// 指数は当初 1.02 だったが「最大レベルで50ハートぐらいにとどめたい」というユーザー指示で
+// 1.0148 へ寝かせた(A(100) が 0.6 倍 -> 守備力も最大HPも A に比例するので同じ 0.6 倍で縮み、
+// Lv100 のプレイヤー最大HPが 166.7 -> 100 になる。耐えられる発数は変わらない)。
 // 旧カーブ (7.0*1.03^L, かつLv45以降+0.25/Lvの加算あり) は撤去済み ── 実測でプレイヤー実効HPの
 // 伸び(装備込みでも x3)を敵攻撃力の伸び(x40)が大幅に超えており、守備力(引き算段)だけでは
 // 追いつけず「Lv20〜60は min-component-damage:1 に張り付いて無敵、Lv80〜100はほぼ即死」の
 // 二極化を起こしていた元凶。
 function baseAttackCurve(level) {
-  return 8.0 * Math.pow(1.02, level);
+  return 8.0 * Math.pow(1.0148, level);
 }
 
 // combat/damage.yml の early-level-attack (Lv10未満だけ後掛けする緩和倍率)。
@@ -127,8 +130,17 @@ const TOL = 0.15; // ±15% (S-ladder tolerance per brief)
 // 上下する)。ここでは item-stats.yml の実測値(2026-08-12)を帯別の回帰ロックとして固定する
 // ── 「守備力を引いてもゼロ近傍/爆発の二極化に戻っていないか」を検出するのが目的で、
 // 旧仕様の統一ターゲットそのものを再現する試みではない。
-const S_THEORY_TARGET = { 0: 8.2, 10: 6.2, 20: 5.2, 30: 8.4, 40: 10.6, 55: 8.2, 70: 12.2, 85: 14.0, 100: 9.9 };
-const S_BASELINE_TARGET = { 0: 5.8, 10: 4.6, 20: 4.1, 30: 5.7, 40: 6.9, 55: 5.8, 70: 8.5, 85: 10.1, 100: 7.5 };
+//
+// 【2026-08-12 追補: 指数を 1.02 -> 1.0148 へ寝かせたときの表の更新】
+// A・F・最大HP は「A に比例して」縮めたのに、この表の数値は 10〜35% 増える方向へ寄った。
+// 理由は【バニラの最大HP 20 が固定で縮まないから】── 装備の最大HPだけが縮むので、
+// 総HP(20 + 装備分)は A ほどは縮まない。加えて帯ごとの F の倍率も A の倍率とは一致しない
+// (F は帯の実測合計から target/実測 で出しているため)。
+// 同帯どうしの被弾回数(tmp/balance-model.js の TTD、品質9の期待ロール)は前後で不変。
+// ここが動いたのは「最大ロール(hpMax/flatMax)」と「格上の敵」という、この表だけが見ている
+// 断面。方向としては「格上に対して少し粘れるようになった」で、床値張り付きとは逆側なので許容する。
+const S_THEORY_TARGET = { 0: 9.1, 10: 6.8, 20: 6.0, 30: 9.9, 40: 11.7, 55: 9.4, 70: 13.7, 85: 14.7, 100: 10.1 };
+const S_BASELINE_TARGET = { 0: 5.8, 10: 4.9, 20: 4.3, 30: 6.1, 40: 7.2, 55: 6.4, 70: 9.3, 85: 10.6, 100: 7.7 };
 
 for (const [levelStr, band] of Object.entries(BANDS)) {
   const level = Number(levelStr);
@@ -158,10 +170,11 @@ for (const [levelStr, band] of Object.entries(BANDS)) {
 // 実測値(item-stats.yml, 2026-08-12)を遷移ペアごとの回帰ロックとして固定する。
 const LEVEL_ORDER = [0, 10, 20, 30, 40, 55, 70, 85, 100];
 
-// 1帯上(A帯)の実測耐久回数。key=現在の装備帯(prevLevel)。
-const A_BAND_TARGET = { 0: 3.5, 10: 4.7, 20: 3.9, 30: 6.2, 40: 6.3, 55: 5.1, 70: 7.6, 85: 9.3 };
+// 1帯上(A帯)の実測耐久回数。key=現在の装備帯(prevLevel)。2026-08-12 追補で再測定
+// (増えた理由は上の S_THEORY_TARGET のコメントを見ること。バニラの20が縮まないため)。
+const A_BAND_TARGET = { 0: 3.9, 10: 5.5, 20: 4.8, 30: 7.6, 40: 7.7, 55: 6.4, 70: 9.4, 85: 10.8 };
 // 2帯上(B帯)の実測耐久回数。key=現在の装備帯(prevLevel)。
-const B_BAND_TARGET = { 0: 2.7, 10: 3.6, 20: 3.0, 30: 4.1, 40: 4.1, 55: 3.4, 70: 5.0 };
+const B_BAND_TARGET = { 0: 3.2, 10: 4.4, 20: 3.9, 30: 5.4, 40: 5.4, 55: 4.6, 70: 6.8 };
 
 for (let i = 1; i < LEVEL_ORDER.length; i++) {
   const prevLevel = LEVEL_ORDER[i - 1];
@@ -322,7 +335,7 @@ const NEW_LIGHT_FAMILIES = [
 // ロール帯(fixed と random.max)が同じ刻みへ潰れた部位を +0.1 ずつ押し広げたため。
 // 潰れると厳選幅そのものが消えるので、直下の regression lock がそれを拾う。
 const F_MAX_BY_LEVEL = {
-  10: 3.3, 20: 4.3, 30: 6.2, 40: 8.7, 55: 10.6, 70: 14.2, 85: 13.4,
+  10: 3.3, 20: 4.1, 30: 5.9, 40: 7.5, 55: 8.4, 70: 10.3, 85: 9.2,
 };
 
 test("新規軽装7セット: 各部位のarmor-defense-rateは最低1 (copper_stud兜/靴の0バグ regression lock)", () => {

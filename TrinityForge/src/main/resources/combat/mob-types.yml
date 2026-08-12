@@ -9,7 +9,7 @@
 #   Lv80〜100 とラヴェジャー/ウォーデンはほぼ即死(ウォーデンは全帯 0.2〜2.7発)だった。
 #
 # どう直したか(ユーザー方針「原則、最大値と最小値でキャップに頼らずに済むようにする」):
-#   ・攻撃力の伸びを x40 -> x12 へ寝かせる(growth 1.033 -> 1.02、Lv45以降の +0.25/Lv は撤去)
+#   ・攻撃力の伸びを x40 -> x4.3 へ寝かせる(growth 1.033 -> 1.0148、Lv45以降の +0.25/Lv は撤去)
 #   ・そのうえで素の攻撃力を x1.4545 底上げする。寝かせるだけだと高帯の守備力が
 #     0.1 刻みで書けない大きさになり、表示桁の丸めでロール幅ごと潰れるため
 #     (骨鎧の random.max が fixed と同値に化ける退行を実際に踏んだ)
@@ -19,88 +19,21 @@
 #   ・最大HPは武器DPSの伸び(約6.5%/Lv)に追随させる(base x2.0 / growth 1.048 -> 1.053 /
 #     Lv45以降の加算 x2.5)。TTK が全帯1〜3秒だったのを 3〜6秒帯へ戻すため
 #
-# ⚠️ このカーブは stats/item-stats.yml の防具ラダーと対で校正されている。片方だけ動かすと
-#    たちまち「無敵か即死か」へ戻る。検算は tmp/balance-model.js(出荷ymlを読んで TTK/TTD を出す)。
-# ⚠️ 討伐EXPは skill-exp.yml の per-max-health で最大HPに比例するので、1キルのEXPも約2倍に
-#    なる。TTK も同じ比で伸びるため EXP/時間 はほぼ不変。
-# ============================================================================
-# ============================================================================
-# 2026-08-10 火力/防御の再較正 — 「床値クランプ頼み」をやめる
-#
-# 何が壊れていたか: プレイヤーの実効HPは装備込みでも 20 -> 60(x3)しか伸びないのに、
-#   モブ攻撃力は 3.85 -> 155(x40)伸びていた。その差を埋めていたのは引き算段で効く
-#   防具の phys-flat-defense(6.5 -> 288、x44)1本だけで、攻撃力とほぼ同じ勾配だったため、
-#   残差(攻撃力 - 守備力)が「ゼロ近傍」か「爆発」の二択にしかならなかった。実測では
-#   Lv20〜60 は通常モブの被ダメージが min-component-damage=1 に張り付いて実質無敵、
-#   Lv80〜100 とラヴェジャー/ウォーデンはほぼ即死(ウォーデンは全帯 0.2〜2.7発)だった。
-#
-# どう直したか(ユーザー方針「原則、最大値と最小値でキャップに頼らずに済むようにする」):
-#   ・攻撃力の伸びを x40 -> x12 へ寝かせる(growth 1.033 -> 1.02、Lv45以降の +0.25/Lv は撤去)
-#   ・そのうえで素の攻撃力を x1.4545 底上げする。寝かせるだけだと高帯の守備力が
-#     0.1 刻みで書けない大きさになり、表示桁の丸めでロール幅ごと潰れるため
-#     (骨鎧の random.max が fixed と同値に化ける退行を実際に踏んだ)
-#   ・役割の重いモブはゾンビ基準 5.5 からの超過分を半分に圧縮(ラヴェジャー 9.9 -> 11.2 相当、
-#     ウォーデン 16.5 -> 16.0 相当。圧縮してから底上げしているので見かけの数値は近いが、
-#     伸びが寝ているので高帯の差は大きく縮んでいる)
-#   ・最大HPは武器DPSの伸び(約6.5%/Lv)に追随させる(base x2.0 / growth 1.048 -> 1.053 /
-#     Lv45以降の加算 x2.5)。TTK が全帯1〜3秒だったのを 3〜6秒帯へ戻すため
+# 2026-08-12 追補(ユーザー指示「最大レベルで50ハートぐらいにとどめたい」):
+#   attack-power-growth を 1.02 -> 1.0148 へさらに寝かせた。防具ラダーは F(L)=0.5xA(L)、
+#   HP(L)=8x(A-F)x0.72 と A に完全比例するので、A(100) を 0.6 倍にすると
+#   プレイヤー最大HPもそのまま 166.7 -> 100.1(50ハート)へ縮む。
+#   ★ 耐えられる発数・倒すのに掛かる時間は変わらない(攻撃力・守備力・HPが同じ比で縮むだけ)。
+#   base(8.0)は動かしていない ── 低帯の最大HPはバニラの20に張り付いていて下げようがなく、
+#   base を下げると序盤だけが理不尽になるため。伸びだけを寝かせている。
+#   ★ combat/mob-import.yml(ダンジョン/EliteMobs輸入モブ)の attack-power も同じ勾配へ
+#     揃えてある。片方だけ寝かせるとダンジョンだけ4倍痛い状態になる。
 #
 # ⚠️ このカーブは stats/item-stats.yml の防具ラダーと対で校正されている。片方だけ動かすと
 #    たちまち「無敵か即死か」へ戻る。検算は tmp/balance-model.js(出荷ymlを読んで TTK/TTD を出す)。
-# ⚠️ 討伐EXPは skill-exp.yml の per-max-health で最大HPに比例するので、1キルのEXPも約2倍に
-#    なる。TTK も同じ比で伸びるため EXP/時間 はほぼ不変。
-# ============================================================================
-# ============================================================================
-# 2026-08-10 火力/防御の再較正 — 「床値クランプ頼み」をやめる
-#
-# 何が壊れていたか: プレイヤーの実効HPは装備込みでも 20 -> 60(x3)しか伸びないのに、
-#   モブ攻撃力は 3.85 -> 155(x40)伸びていた。その差を埋めていたのは引き算段で効く
-#   防具の phys-flat-defense(6.5 -> 288、x44)1本だけで、攻撃力とほぼ同じ勾配だったため、
-#   残差(攻撃力 - 守備力)が「ゼロ近傍」か「爆発」の二択にしかならなかった。実測では
-#   Lv20〜60 は通常モブの被ダメージが min-component-damage=1 に張り付いて実質無敵、
-#   Lv80〜100 とラヴェジャー/ウォーデンはほぼ即死(ウォーデンは全帯 0.2〜2.7発)だった。
-#
-# どう直したか(ユーザー方針「原則、最大値と最小値でキャップに頼らずに済むようにする」):
-#   ・攻撃力の伸びを x40 -> x12 へ寝かせる(growth 1.033 -> 1.02、Lv45以降の +0.25/Lv は撤去)
-#   ・そのうえで素の攻撃力を x1.4545 底上げする。寝かせるだけだと高帯の守備力が
-#     0.1 刻みで書けない大きさになり、表示桁の丸めでロール幅ごと潰れるため
-#     (骨鎧の random.max が fixed と同値に化ける退行を実際に踏んだ)
-#   ・役割の重いモブはゾンビ基準 5.5 からの超過分を半分に圧縮(ラヴェジャー 9.9 -> 11.2 相当、
-#     ウォーデン 16.5 -> 16.0 相当。圧縮してから底上げしているので見かけの数値は近いが、
-#     伸びが寝ているので高帯の差は大きく縮んでいる)
-#   ・最大HPは武器DPSの伸び(約6.5%/Lv)に追随させる(base x2.0 / growth 1.048 -> 1.053 /
-#     Lv45以降の加算 x2.5)。TTK が全帯1〜3秒だったのを 3〜6秒帯へ戻すため
-#
-# ⚠️ このカーブは stats/item-stats.yml の防具ラダーと対で校正されている。片方だけ動かすと
-#    たちまち「無敵か即死か」へ戻る。検算は tmp/balance-model.js(出荷ymlを読んで TTK/TTD を出す)。
-# ⚠️ 討伐EXPは skill-exp.yml の per-max-health で最大HPに比例するので、1キルのEXPも約2倍に
-#    なる。TTK も同じ比で伸びるため EXP/時間 はほぼ不変。
-# ============================================================================
-# ============================================================================
-# 2026-08-10 火力/防御の再較正 — 「床値クランプ頼み」をやめる
-#
-# 何が壊れていたか: プレイヤーの実効HPは装備込みでも 20 -> 60(x3)しか伸びないのに、
-#   モブ攻撃力は 3.85 -> 155(x40)伸びていた。その差を埋めていたのは引き算段で効く
-#   防具の phys-flat-defense(6.5 -> 288、x44)1本だけで、攻撃力とほぼ同じ勾配だったため、
-#   残差(攻撃力 - 守備力)が「ゼロ近傍」か「爆発」の二択にしかならなかった。実測では
-#   Lv20〜60 は通常モブの被ダメージが min-component-damage=1 に張り付いて実質無敵、
-#   Lv80〜100 とラヴェジャー/ウォーデンはほぼ即死(ウォーデンは全帯 0.2〜2.7発)だった。
-#
-# どう直したか(ユーザー方針「原則、最大値と最小値でキャップに頼らずに済むようにする」):
-#   ・攻撃力の伸びを x40 -> x12 へ寝かせる(growth 1.033 -> 1.02、Lv45以降の +0.25/Lv は撤去)
-#   ・そのうえで素の攻撃力を x1.4545 底上げする。寝かせるだけだと高帯の守備力が
-#     0.1 刻みで書けない大きさになり、表示桁の丸めでロール幅ごと潰れるため
-#     (骨鎧の random.max が fixed と同値に化ける退行を実際に踏んだ)
-#   ・役割の重いモブはゾンビ基準 5.5 からの超過分を半分に圧縮(ラヴェジャー 9.9 -> 11.2 相当、
-#     ウォーデン 16.5 -> 16.0 相当。圧縮してから底上げしているので見かけの数値は近いが、
-#     伸びが寝ているので高帯の差は大きく縮んでいる)
-#   ・最大HPは武器DPSの伸び(約6.5%/Lv)に追随させる(base x2.0 / growth 1.048 -> 1.053 /
-#     Lv45以降の加算 x2.5)。TTK が全帯1〜3秒だったのを 3〜6秒帯へ戻すため
-#
-# ⚠️ このカーブは stats/item-stats.yml の防具ラダーと対で校正されている。片方だけ動かすと
-#    たちまち「無敵か即死か」へ戻る。検算は tmp/balance-model.js(出荷ymlを読んで TTK/TTD を出す)。
-# ⚠️ 討伐EXPは skill-exp.yml の per-max-health で最大HPに比例するので、1キルのEXPも約2倍に
-#    なる。TTK も同じ比で伸びるため EXP/時間 はほぼ不変。
+# ⚠️ 討伐EXPは skill-exp.yml の per-max-health で最大HPに比例する。モブHPを2倍にしたぶん
+#    1キルのEXPも約2倍になるので、2026-08-12 に per-max-health を 0.75 倍して
+#    「以前比 約1.5倍」へ落としてある(ユーザー指示)。
 # ============================================================================
 # ============================================================================
 # combat/mob-types.yml
@@ -500,7 +433,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -556,7 +489,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -612,7 +545,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -666,7 +599,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -722,7 +655,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -776,7 +709,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -830,7 +763,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -886,7 +819,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -940,7 +873,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -994,7 +927,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1050,7 +983,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1106,7 +1039,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1162,7 +1095,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1216,7 +1149,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1272,7 +1205,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1326,7 +1259,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1380,7 +1313,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1436,7 +1369,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1490,7 +1423,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1544,7 +1477,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1598,7 +1531,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1652,7 +1585,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1706,7 +1639,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1760,7 +1693,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1814,7 +1747,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1870,7 +1803,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1924,7 +1857,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -1978,7 +1911,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2032,7 +1965,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2086,7 +2019,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2142,7 +2075,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2198,7 +2131,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2252,7 +2185,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2308,7 +2241,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2364,7 +2297,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2420,7 +2353,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2476,7 +2409,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2530,7 +2463,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2584,7 +2517,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2638,7 +2571,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2692,7 +2625,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2748,7 +2681,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2802,7 +2735,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2856,7 +2789,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2910,7 +2843,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -2964,7 +2897,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -3018,7 +2951,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -3072,7 +3005,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -3126,7 +3059,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
@@ -3180,7 +3113,7 @@ mob-types:
         flat-defense: 0.0025
       attack:
         attack-power: 0
-        attack-power-growth: 1.02
+        attack-power-growth: 1.0148
         attack-power-growth-interval: 1.0
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0

@@ -292,7 +292,11 @@ ars-magic:
     enabled: true
     base: 20
     per-mob-level: 1.5
-    per-max-health: 0.25
+    # 2026-08-12: 0.25 -> 0.188(x0.75)。火力/防御の再較正でモブ最大HPを2倍にしたぶん、
+    # このキーは最大HPに線形なので1キルのEXPも約2倍になっていた。ユーザー指示で
+    # 「以前比 約1.5倍」まで戻す。base / per-mob-level は最大HPに依らないので触らない
+    # (実際には最大HP項が支配的なので、この係数がほぼそのまま倍率になる)。
+    per-max-health: 0.188
     unlisted-entity-multiplier: 0
     # 非敵対モブは載せない（方針は combat.kill-exp 側の注記を参照）。
     entity-type-multipliers:
@@ -349,7 +353,8 @@ combat:
       # 30 にすると重武器と同値になり、SkillExpConfigTest が固定しているこの順序が崩れる。
       ARCHERY: 25
     per-mob-level: 2
-    per-max-health: 0.25
+    # 2026-08-12: 0.25 -> 0.188(x0.75)。理由は ars-magic.kill-exp 側の注記と同じ。
+    per-max-health: 0.188
     unlisted-entity-multiplier: 0
     # 非敵対モブ（Paper の Enemy インターフェースを持たないモブ）は討伐EXPの対象外。
     # unlisted-entity-multiplier: 0 なので「行を書かない＝EXPゼロ」であり、0 で明示する必要も無い。
