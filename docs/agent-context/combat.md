@@ -485,6 +485,37 @@ Java側（`RampParser`/`MobTypesConfig#parseLevelCoefficients` 等）に新し�
 「config-editorミラー2本（`lib/`と`public/js/`）を両方更新」に加えて、**この空判定も対象キーに
 含める**こと。
 
+## 2026-08-10 火力/防御の再較正で確定した恒久知識
+
+### フィールドモブの `attack-power-high-level-per-level` は 0（ダンジョン側の 0.25 とは意図的に非対称）
+
+`combat/mob-types.yml` の各エントリが持つ `level-coefficients.attack.attack-power-high-level-from/-per-level`
+（2026-08-03 要件#63 で「HPだけ高レベル加速があって攻撃力に無い」不整合を消すために新設）は、
+2026-08-10 の火力/防御再較正で **`per-level` が全エントリ 0 へ撤去された**（`from: 45` キー自体は残るが無干渉）。
+理由は、base の `attack-power-growth` を 1.033→1.02 へ寝かせつつ素の `attack-power` を ×1.4545 底上げし、
+`max-health-high-level-per-level` を ×2.5 する形で「HP側だけに高レベル加速を残す」設計へ変更したため。
+
+- **ダンジョン側 `combat/mob-import.yml` の同キーは今回の対象外で `0.25` のまま**。フィールドと
+  ダンジョンは元々別ランプ（本ファイル「ダンジョンモブの攻撃合成は…別ymlの別ランプ」参照）なので、
+  この非対称自体は設計判断であり「揃えるべきバグ」ではない。過去（要件#63）に「揃っていないと落ちる」
+  テストがあったため、**将来揃えたくなっても、まずこのコメントと `ShippedMobTypesLevelBandTest` の
+  Javadoc を読んで、揃えることが 2026-08-10 の設計判断を上書きすることを理解してから変更すること**。
+- 固定テストは `ShippedMobTypesLevelBandTest`（field側、`per-level==0` を50エントリ全数で縛る）と
+  `ShippedMobImportBreakpointTest`（dungeon側、`0.25` のまま生きていることを縛る）の**2本に分裂**した。
+  同じ「高レベル加速」という概念でも、ファイルが違えば期待値も違う点に注意。
+
+### 防具の絶対値は再較正で動くが、重装/軽装の構造的不変条件は再較正でも保たれている（既存知識の再確認）
+
+「防具の防御力は外れ値なし」節（2026-08-05）が固定した重装/軽装の関係（同帯で `phys-flat-defense` は
+重装/軽装同値・軽装の `fixed.max-health` は必ず0・軽装の `phys-resistance` は重装以下）は、
+**攻撃力カーブに合わせて防具の絶対値を丸ごと引き直す再較正でも、崩さずに保てる**（2026-08-10 に実際に
+このパターンで全面改訂し、`ArmorHeavyVersusLightDefenseOrderTest` は無傷だった）。この4条件は絶対値では
+なく重装/軽装の**比較**なので、両者を同じ関数（同じ帯の `A(L)` から同じ係数で導出）で同時に引き直せば
+自動的に保たれる。片方だけ触ると即座に壊れるので、防具の絶対値再較正は「重装と軽装を同じ式に通す」形で
+実装すること。なお絶対値そのもの（S理論値20発/厳選なし6発 等）を固定するテストは TF 本体（Java）ではなく
+`tools/config-editor/test/armor-ladder.test.js`（JS 側）にあるため、Java の `gradlew test` だけでは
+この軸の drift は検出できない。
+
 ## ダンジョンのコンセプト（物理/魔法）で確定した恒久知識（2026-08-03）
 
 ### ⚠️ 高レベル帯では `magic-ratio` は「割合」ではなく事実上「素通りダメージの絶対量」になる

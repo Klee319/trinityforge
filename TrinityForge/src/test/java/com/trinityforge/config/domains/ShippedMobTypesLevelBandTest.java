@@ -38,21 +38,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * つまり空に戻すと「下駄が乗らない」だけでなく「下駄をHPへ反映する修正そのものが死ぬ」。
  * 空でも yml のロード自体は成功してしまい、警告も出ないので、ここで値そのものを縛る。
  *
- * <h2>2. attack-power の高レベル区間 — 要件#63の残り</h2>
- * HP 側には {@code max-health-high-level-*} が入っているのに攻撃力側にはキーごと無く、
- * フィールドモブが「硬いだけで痛くない」方向へ片寄っていた。全エントリに
- * {@code attack-power-high-level-from: 45 / -per-level: 0.25} が入っていることを縛る
- * (ダンジョン側 {@code combat/mob-import.yml} と同値)。
- * 1エントリでも欠けると、そのモブだけ高レベル帯で無害になるが実プレイでは気づけない。
+ * <h2>2. attack-power の高レベル区間 — 要件#63 → 2026-08-10 火力再較正で撤去</h2>
+ * 要件#63(2026-08-03)では HP 側に {@code max-health-high-level-*} が入っているのに攻撃力側に
+ * キーごと無く、フィールドモブが「硬いだけで痛くない」方向へ片寄っていたため、いったん
+ * {@code attack-power-high-level-per-level: 0.25}(ダンジョン側 combat/mob-import.yml と同値)を
+ * 全エントリへ入れて揃えた。
+ *
+ * <p><b>2026-08-10 の火力/防御再較正でこの上乗せは 0 へ撤去された</b>(base の
+ * {@code attack-power-growth} を 1.033→1.02 へ寝かせつつ素の attack-power を ×1.4545 底上げ、かつ
+ * {@code max-health-high-level-per-level} を ×2.5 する形で HP 側の高レベル加速だけを残す設計へ変更)。
+ * {@code attack-power-high-level-from: 45} キー自体は残っているが per-level が 0 なので常時無干渉。
+ * ダンジョン側 {@code combat/mob-import.yml} は今回の対象外のため 0.25 のまま(=フィールドと
+ * ダンジョンで高レベル帯の攻撃力カーブが分岐する。両者は元々別ランプなので非対称自体は問題ない、
+ * 本ファイル冒頭のクラス javadoc 該当箇所参照)。
+ * 1エントリでも 0.25 のような非0値が残っていると、そのモブだけ高レベル帯の攻撃力が
+ * 再較正前の伸びに戻ってしまうので、全エントリが 0 で統一されていることを縛る。
  */
 class ShippedMobTypesLevelBandTest {
 
     private static final Logger LOG = Logger.getLogger("ShippedMobTypesLevelBandTest");
     private static final double DELTA = 1.0e-9;
 
-    /** 出荷値。ダンジョン側 combat/mob-import.yml の attack-power と同じ。 */
+    /** 出荷値。閾値そのものは 2026-08-10 でも変えていない(per-level が 0 なので無干渉)。 */
     private static final double EXPECTED_ATTACK_HIGH_LEVEL_FROM = 45.0;
-    private static final double EXPECTED_ATTACK_HIGH_LEVEL_PER_LEVEL = 0.25;
+    /** 出荷値。2026-08-10 の火力再較正で撤去され、フィールドモブの高レベル加算は 0 に統一された。 */
+    private static final double EXPECTED_ATTACK_HIGH_LEVEL_PER_LEVEL = 0.0;
 
     /**
      * 出荷値。{@code dimensions.<ENV>.base-level} は<b>意図的に空(=0)</b>。
@@ -132,8 +142,8 @@ class ShippedMobTypesLevelBandTest {
     // ------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("出荷 mob-types.yml: level-coefficients.attack を持つ全エントリに"
-            + " attack-power-high-level-from: 45 / -per-level: 0.25 が入っている")
+    @DisplayName("出荷 mob-types.yml: level-coefficients.attack を持つ全エントリで"
+            + " attack-power-high-level-from: 45 / -per-level: 0(2026-08-10 再較正で撤去済み)")
     void everyShippedAttackCoefficientBlockCarriesTheHighLevelPhase() throws Exception {
         ConfigurationSection types = shippedYaml().getConfigurationSection("mob-types");
         assertNotNull(types, "出荷 mob-types.yml に mob-types: 節が無い");
@@ -165,17 +175,18 @@ class ShippedMobTypesLevelBandTest {
                 "level-coefficients.attack を持つエントリ数が 50 でない(敵対41種＋反撃してくる中立9種)。"
                         + "エントリを足す/消すときは高レベル区間も一緒に入れること");
         assertTrue(missing.isEmpty(),
-                "attack-power の高レベル区間が入っていないエントリがある。そのモブだけ Lv45 以降で"
-                        + "攻撃力が伸びず「硬いだけで痛くない」に戻る。該当: " + missing);
+                "attack-power-high-level-from/-per-level のキー自体が無いエントリがある"
+                        + "(0埋めの明示ではなく丸ごと未設定 = 将来 per-level を書き足すときの土台が無い)。該当: "
+                        + missing);
         assertTrue(wrongValue.isEmpty(),
-                "attack-power の高レベル区間がダンジョン側(combat/mob-import.yml の from 45 / "
-                        + "per-level 0.25)と揃っていない。フィールドとダンジョンで被弾の伸びがずれる。該当: "
-                        + wrongValue);
+                "attack-power の高レベル区間が 2026-08-10 の再較正値(from=45 / per-level=0)から"
+                        + "ずれている。0 でない値が残っていると、そのモブだけ再較正前の高レベル加算が"
+                        + "生き残ってしまう。該当: " + wrongValue);
     }
 
     @Test
     @DisplayName("出荷 mob-types.yml: 攻撃力の高レベル区間がロード後に実値として引ける"
-            + "(Lv44 は 0 / Lv60 は +3.75 / Lv100 は +13.75)")
+            + "(per-level=0 なので Lv44/45/60/80/100 のどこでも加算は常に0)")
     void shippedAttackPowerHighLevelPhaseIsLoadedAndComputesTheExpectedBonus(@TempDir Path dir)
             throws Exception {
         MobTypesConfig config = loadShipped(dir);
@@ -184,13 +195,17 @@ class ShippedMobTypesLevelBandTest {
         assertEquals(EXPECTED_ATTACK_HIGH_LEVEL_FROM, phase.from(), DELTA,
                 "ZOMBIE の attack-power-high-level-from が出荷値でない");
         assertEquals(EXPECTED_ATTACK_HIGH_LEVEL_PER_LEVEL, phase.perLevel(), DELTA,
-                "ZOMBIE の attack-power-high-level-per-level が出荷値でない");
+                "ZOMBIE の attack-power-high-level-per-level が出荷値でない"
+                        + "(2026-08-10 再較正で 0.25 → 0 に撤去されたはず)");
 
-        assertEquals(0.0, phase.bonusAt(44), DELTA, "Lv45 未満は 1 ミリも変わらないこと");
-        assertEquals(0.0, phase.bonusAt(45), DELTA, "開始レベルちょうどでは 0(境界で不連続にならない)");
-        assertEquals(3.75, phase.bonusAt(60), DELTA, "Lv60 は 0.25 × 15 = +3.75");
-        assertEquals(8.75, phase.bonusAt(80), DELTA, "Lv80 は 0.25 × 35 = +8.75");
-        assertEquals(13.75, phase.bonusAt(100), DELTA, "Lv100 は 0.25 × 55 = +13.75");
+        // per-level=0 なので、from の前後どのレベルでも bonusAt は同じ式 per-level×(level-from) の
+        // 結果として常に 0 になる(式自体は要件#63 時代のまま。値がゼロになっただけで機構は生きている)。
+        for (int level : new int[] {0, 44, 45, 46, 60, 80, 100}) {
+            double expected = EXPECTED_ATTACK_HIGH_LEVEL_PER_LEVEL
+                    * Math.max(0, level - EXPECTED_ATTACK_HIGH_LEVEL_FROM);
+            assertEquals(expected, phase.bonusAt(level), DELTA,
+                    "Lv" + level + " の上乗せが 0 でない(per-level=0 のはずなのに加算が生きている)");
+        }
     }
 
     // ------------------------------------------------------------------------------------------
