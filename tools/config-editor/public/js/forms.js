@@ -1820,7 +1820,11 @@
                 render();
                 return true;
               }),
-              window.numberInput(stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
+              // 2026-08-12: 素の numberInput だと %ステ(dodge-chance 等)が割合のまま
+              // 「0.03」と出て単位も付かなかった(statUnitSlot は %ステに空スロットを返す。
+              // % は statValueControl の pct-suffix が出す前提のため)。他の全ステ行と同じく
+              // statValueControl に通して「3 %」入力・割合保存へ揃える。
+              window.statValueControl(st, stats[st], (v) => { stats[st] = v == null ? 0 : v; }),
               window.statUnitSlot(st),
               h("button", {
                 class: "btn-small danger", type: "button", text: "×",
