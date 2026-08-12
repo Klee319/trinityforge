@@ -602,12 +602,17 @@ stats:
   mana-cost-reduction-percent:
     name: マナ消費軽減率
     icon: ""
-    format: FLAT
-    decimals: 0
+    # 2026-08-12: FLAT + unit "%" から PERCENT へ訂正した。このステは PercentStatNormalize が
+    # [0,1] の割合として扱うキー(item-stats.yml の出荷値も 0.004 / 0.007〜0.094 の割合)なのに
+    # FLAT decimals:0 と宣言していたため、(1) 実機の lore には 0.004 が "+0%" としか出ず
+    # 効果が無いように見え、(2) 設定エディタでも %入力ではなく素の数値入力になって
+    # 「単位が % なのに 0.004 と小数で出る」状態だった。PERCENT は自動で ×100 して % を
+    # 付けるので unit: の指定は不要(書くと "%%" になる)。
+    format: PERCENT
+    decimals: 1
     order: 76
     show-sign: true
     hide-when-zero: true
-    unit: "%"
     category: ars
     trigger:
       when: ON_SPELL_CAST

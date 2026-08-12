@@ -94,16 +94,19 @@ window.FALLBACK_STAT_FORMATS = {
   "mining-fortune": "PERCENT",
   "fishing-luck": "PERCENT",
   "fishing-bonus": "PERCENT",
+  // 2026-08-12: INTEGER + 単位 "%" からの訂正。PercentStatNormalize が [0,1] の割合として
+  // 扱うキーで、出荷 item-stats.yml も 0.004 等の割合。INTEGER のままだと %入力にならず
+  // 「単位が % なのに 0.004 と小数で出る」(実機の lore も "+0%" になっていた)。
+  "mana-cost-reduction-percent": "PERCENT",
   // Ars装備ステ (加算値)
   "mana-bonus": "FLAT",
   "mana-regen": "FLAT",
   "hit-mana-recovery": "FLAT",
   "damage-mana-recovery": "FLAT",
   "thread-slots": "INTEGER",
-  // マナ消費軽減 (実数=消費マナから減算する整数, %=消費マナに対する削減率%)。
-  // 整数ステとして扱い、per-quality 小数の累積を floor して実効値にする(閾値方式)。
+  // マナ消費軽減(実数) = 消費マナから減算する整数。整数ステとして扱い、per-quality 小数の
+  // 累積を floor して実効値にする(閾値方式)。率のほうは上の PERCENT 群に移した。
   "mana-cost-reduction-flat": "INTEGER",
-  "mana-cost-reduction-percent": "INTEGER",
   // ツールエンチャレベル (整数閾値。floor したレベルを付与)。
   "tool-enchant-efficiency": "INTEGER"
 };
@@ -126,7 +129,8 @@ window.FALLBACK_STAT_UNITS = {
   "melee-knockback": "m",
   "power-attack-radius": "m",
   "stun-duration-bonus": "tick",
-  "mana-cost-reduction-percent": "%",
+  // mana-cost-reduction-percent はここに書かない(2026-08-12)。PERCENT ステは % が自動で付くので、
+  // 単位も書くと二重になる。lore.yml 側でも unit: を消してある。
   "workbench-quality-bonus": "pt",
   "ritual-quality-bonus": "pt",
   // 2026-08-05: ロール3キーはパーセントポイント記法(CraftQualityService が /100 して σ/収束へ足す)。

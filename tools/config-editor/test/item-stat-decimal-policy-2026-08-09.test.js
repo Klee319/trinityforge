@@ -13,13 +13,14 @@
 // 見えない桁を残すと「表示は同じなのに強さが違う」状態を作る。
 //
 // 【例外の扱い】
-// 例外は2種類だけ。どちらも「リストが腐ったら検査ごと無効になる」のを避けるため、
+// 例外は1種類だけ。「リストが腐ったら検査ごと無効になる」のを避けるため、
 // 例外そのものが今も成立していることを毎回検証する。
-//   (1) MISDECLARED_STATS … lore.yml の format 宣言が実態(0〜1の割合)と食い違っているステ。
-//       値は正しいので触らない。lore.yml を直したら【この例外は自動で落ちる】ので、
-//       直したときに必ずここへ戻ってくることになる。
-//   (2) PER_QUALITY_EXEMPT … per-quality(品質1あたりの上昇量)を1桁へ丸めると 17〜67% の
-//       増減になる箇所。値を変えたらテストが落ちるので、変更時に再検討が強制される。
+//   PER_QUALITY_EXEMPT … per-quality(品質1あたりの上昇量)を1桁へ丸めると 17〜67% の
+//   増減になる箇所。値を変えたらテストが落ちるので、変更時に再検討が強制される。
+//
+// 2026-08-12: もう1種類あった MISDECLARED_STATS(mana-cost-reduction-percent)は撤去した。
+// lore.yml の宣言が FLAT + unit "%" のまま実態(0〜1の割合)と食い違っていたのを PERCENT へ
+// 訂正したため、例外なしで %表示の小数第1位(0.004 -> 0.4% / 0.094 -> 9.4%)に収まる。
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -46,10 +47,18 @@ function loadStatFormats() {
   return out;
 }
 
-// lore.yml が「0〜1の割合」を FLAT と宣言しているステ。PercentStatNormalize が率として扱うのに
-// 表示が FLAT decimals:0 なので、実機の lore には "+0%" としか出ない(既知の表示バグ)。
-// 値(0.018 等)は割合として正しいので丸めない。
-const MISDECLARED_STATS = new Set(["mana-cost-reduction-percent"]);
+// PercentStatNormalize が [0,1] の割合として扱うキーは、lore.yml でも PERCENT でなければ
+// ならない。FLAT のままだと (1) 実機の lore が 0.004 を "+0%" としか出さず (2) 設定エディタも
+// %入力にならず小数のまま出る、という 2026-08-12 まで実在したバグに戻る。
+// PercentStatNormalize.java の StatKeys.canonical("...") 列挙から機械的に引く。
+const PERCENT_NORMALIZE_JAVA = path.join(
+  REPO, "TrinityForge", "src", "main", "java", "com", "trinityforge", "stats", "PercentStatNormalize.java");
+// crit-damage 等「率だが 1 を超えるのが正当」なキーは Java 側で意図的に除外されているので、
+// この列挙に入っていない = ここで検査されないのが正しい。
+function javaRateKeys() {
+  const src = fs.readFileSync(PERCENT_NORMALIZE_JAVA, "utf8");
+  return [...src.matchAll(/StatKeys\.canonical\("([^"]+)"\)/g)].map((m) => m[1]);
+}
 
 // per-quality を1桁へ丸めると設計が壊れる箇所。キーは item-stats.yml のエントリ名。
 const PER_QUALITY_EXEMPT = new Map([
@@ -98,7 +107,6 @@ function collectViolations() {
 
 test("item-stats.yml の値は、エディタの表示単位で小数第1位までに収まっている", () => {
   const leftovers = collectViolations().filter((v) => {
-    if (MISDECLARED_STATS.has(v.stat)) return false;
     if (v.section === "per-quality" && PER_QUALITY_EXEMPT.has(`${v.statKey}|${v.stat}`)) return false;
     return true;
   });
@@ -106,14 +114,22 @@ test("item-stats.yml の値は、エディタの表示単位で小数第1位ま�
     "エディタの表示単位で小数第2位以下が残っている(見えない桁は戦闘計算だけを揺らす)");
 });
 
-test("MISDECLARED_STATS の例外は、lore.yml が今も PERCENT でないことに支えられている", () => {
+test("Java が割合として扱うステは lore.yml でも PERCENT である(2026-08-12)", () => {
   const formats = loadStatFormats();
-  for (const stat of MISDECLARED_STATS) {
-    assert.ok(formats[stat], `${stat} が lore.yml に無い。例外の前提が消えている`);
-    assert.notEqual(formats[stat], "PERCENT",
-      `${stat} の lore.yml が PERCENT に直っている。表示バグが解消したので、この例外は撤去し`
-        + "値(0.018 等)が %表示で小数第1位に収まることを確認すること");
+  const misdeclared = [];
+  let checked = 0;
+  for (const stat of javaRateKeys()) {
+    const format = formats[stat];
+    if (!format) continue; // lore.yml に出ないキー(base-stats 専用など)は表示の話が無い
+    checked += 1;
+    if (format !== "PERCENT") misdeclared.push(`${stat} は lore.yml で ${format}`);
   }
+  assert.ok(checked >= 30, `検査対象が ${checked} 件しかない。Java 側の列挙の読み取りが壊れている`);
+  assert.deepEqual(misdeclared, [],
+    "PercentStatNormalize が [0,1] の割合として扱うのに lore.yml が PERCENT でないステがある。"
+      + "この食い違いは (1) 実機の lore が 0.004 を \"+0%\" としか出さない (2) 設定エディタが "
+      + "%入力にならず小数のまま出す、の2つを同時に起こす"
+      + "(2026-08-12 に mana-cost-reduction-percent で実際に発生)");
 });
 
 test("PER_QUALITY_EXEMPT の例外は、対象アイテムと値が今も実在する", () => {

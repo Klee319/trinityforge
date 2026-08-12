@@ -81,7 +81,11 @@ nodes:
     effect-text: "グリフの配置数+1・詠唱コスト-5%"
     buffs:
       glyph-slot-bonus: 1
-      mana-cost-reduction-percent: 5
+      # 2026-08-12: 5(パーセントポイント記法)から 0.05(割合)へ。PercentStatNormalize が
+      # 実行時に 5 -> 0.05 へ矯正していたので**ゲーム内の効果は変わらない**が、
+      # このステを lore.yml で PERCENT へ訂正したため、5 のままだと設定エディタが
+      # 「500%」と表示してしまう。他の割合ステ(crit-chance 等)と同じ割合記法へ揃える。
+      mana-cost-reduction-percent: 0.05
   E:
     name: "大魔導師"
     level: 90
