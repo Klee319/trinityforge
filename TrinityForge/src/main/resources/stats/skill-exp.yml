@@ -49,7 +49,7 @@ ars-smithing:
   # 素材表(smithing.exp-per-material)または上の定額で決まった値に「消費ソース量 × この値」を足す。
   # ⚠️ ソース要求量は階梯とともに桁で増える(ソースの欠片100 → 無限のソース核45,000,000)ので、
   # 1.0 のような値を入れると上位儀式1回で最大レベルに届く。0.001 程度から様子を見ること。
-  exp-per-source: 0.0
+  exp-per-source: 0.01
 smithing:
   exp-per-craft: 15
   exp-per-material:
@@ -117,7 +117,7 @@ smithing:
     custom:piglin_ear: 20
     custom:witch_elixir: 20
     custom:wither_skull_fragment: 40
-    custom:core_jewelry: 60
+    custom:core_jewelry: 5000
     custom:dragon_scale: 80
     custom:warden_tendril: 90
     custom:source_gem_block: 180
@@ -206,10 +206,10 @@ smithing:
     VERDANT_FROGLIGHT: 12
     COOKED_BEEF: 4
     DIRT: 0.5
-    custom:core_wood: 60
-    custom:core_meat: 60
-    custom:core_vegetable: 60
-    custom:core_ground: 60
+    custom:core_wood: 5000
+    custom:core_meat: 5000
+    custom:core_vegetable: 5000
+    custom:core_ground: 5000
     custom:stone_5x: 0
     custom:wither_rose_2x: 0
     custom:breeze_rod_3x: 0

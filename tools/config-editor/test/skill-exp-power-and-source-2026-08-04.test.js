@@ -114,8 +114,15 @@ test("前提: 実 skill-exp.yml は power.levels-per-skill-point と ars-smithin
   const data = loadRealSkillExp();
   assert.equal(data.power && data.power["levels-per-skill-point"], 1,
     "power.levels-per-skill-point が実ファイルに無い、または既定値1と食い違う(テスト前提のドリフト)");
-  assert.equal(data["ars-smithing"] && data["ars-smithing"]["exp-per-source"], 0.0,
-    "ars-smithing.exp-per-source が実ファイルに無い、または既定値0.0と食い違う(テスト前提のドリフト)");
+  // 2026-08-12: 出荷値が 0.0 -> 0.01 になったので「値そのもの」の固定はやめた。
+  // このテストの目的は下の描画/往復テストの前提(＝キーが実在し数値であること)を担保すること。
+  // Java 既定値(0.0)と editor の表示既定値が一致するかは、実ファイルの値とは無関係な別問題なので
+  // 「tf-skill-exp validate: ars-smithing.exp-per-source は0以上の数値のみ許可する」側で見る。
+  const expPerSource = data["ars-smithing"] && data["ars-smithing"]["exp-per-source"];
+  assert.equal(typeof expPerSource, "number",
+    "ars-smithing.exp-per-source が実ファイルに無い(テスト前提のドリフト)");
+  assert.ok(expPerSource >= 0,
+    `ars-smithing.exp-per-source が負(${expPerSource})。0以上の数値であること`);
 });
 
 test("前提: 実 power_progression.yml は experience: を持つ(power セクションが曲線カードへ合流する前提)", () => {
