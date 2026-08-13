@@ -6,11 +6,39 @@
 
 ### プレイヤーのステータスは単一の合算パイプラインを必ず経由する
 
-`PlayerStatAggregator.aggregate()` が防具4部位＋メインハンド（または発射武器）＋オフハンド（トグル）＋スキルツリーパーク＋役職バフ＋永続バフ＋`base-stats`（config駆動の全員一律加算）＋アドオン（スレッド）を1つの `item` マップへ集約する唯一の生成者。攻撃側は `CombatListener`、防御側は `PlayerDefenseResolver` が両方ともこのマップを `totalOf()` 経由で読む。新しいステ供給源を足すときはこの1マップへ merge するだけで戦闘・採集・クラフト・Ars連携まで一括で効く。
+`PlayerStatAggregator.aggregate()` が防具4部位＋メインハンド（または発射武器）＋オフハンド（アイテムごとの `offhand-stats-apply`。グローバルトグルは廃止済み）＋スキルツリーパーク＋役職バフ＋永続バフ＋`base-stats`（config駆動の全員一律加算）＋アドオン（スレッド）を1つの `item` マップへ集約する唯一の生成者。攻撃側は `CombatListener`、防御側は `PlayerDefenseResolver` が両方ともこのマップを `totalOf()` 経由で読む。新しいステ供給源を足すときはこの1マップへ merge するだけで戦闘・採集・クラフト・Ars連携まで一括で効く。
 
 - 攻撃／防御の振り分けは `AttackStatBridge`/`DefenseStatBridge` のキーフィルタが担当。属性写像ステ（max-health/move-speed/attack-speed/attack-reach 等）が同じ集約マップに入っていても、フィルタで拾われない側には流れないので二重適用にはならない。
 - `armor-defense-rate` / `armor-strength` は `DefenseStatBridge` が常に0固定にする。これらはバニラ armor 属性のミラー（`SymmetricCombatService.vanillaArmorDefense` 系）経由で別途計上されるため。集約側の供給源が増えてもブリッジがdropするので二重計上にならない。
 - 属性系ステ（max-health 等）だけは item マップがバニラ属性へ自動反映されないので、`PerkAttributeApplier.apply()` が `channelOf==ATTRIBUTE` のものだけを Attribute へ merge する。ここが Haste 等の他プラグインと衝突しないよう「ライブ属性値を一切読まない」設計になっている（読むと相殺事故を起こす）。
+
+### ⚠️ オフハンドの規則は「持っているだけ」と「実際に使った」で別（2026-08-13 確定）
+
+`aggregate(Player, ItemStack mainhandContributor, boolean contributorIsOffhand)` の**寄与アイテム
+（`mainhandContributor`）は、どちらの手にあっても常に合算する**。`offhand-stats-apply` の門は
+**「オフハンドに持っているだけ」のアイテム**（＝`armorAndOffhandStats` が掃くオフハンドスロット）
+にしか掛からない。ユーザーが是とした魔法の規則（発動したアイテム＝触媒だけ合算）と同型。
+
+`contributorIsOffhand=true` を渡す呼び出し元は3経路しかなく、**いずれも寄与アイテムは
+「今まさに使ったアイテム」**（釣り＝振った竿／飛び道具＝発射時に projectile へ retain した武器）。
+「オフハンドに持っているだけ」の状況では `contributorIsOffhand` は立たない。
+
+**ここを取り違えると 54 倍のダメージ事故になる。** 2026-08-13 に一度
+「寄与アイテムを門で落とし、代わりに実メインハンドを合算する」という実装を入れて踏んだ:
+`CombatListener` の `tfBaseReplaces` は `agg.item()` の `attack-power` を**ベース置換**に使うので、
+メインハンドにネザライト剣（3780）を持ったままオフハンドの弓（69）を撃つと
+**矢のダメージが剣の値になる**。`item` マップは「総合ステ」と「武器を定義するステ」を兼ねており、
+`attack-power` だけは置換の意味論を持つ ── **`item` へ「使っていない武器」を混ぜてはいけない。**
+
+オフハンドスロットの除外は `contributorIsOffhand` だけでは決めず、**プロファイル一致
+（Material + CMD）のときだけ**にする。飛び道具は発射から着弾まで秒単位あり、その間に
+オフハンドを持ち替えていれば二重計上は起こり得ないので、除外すると新しいアイテムの寄与が無言で落ちる。
+参照比較・`equals` は使えない（Craft 実装がスロット読み取りごとに新しいミラーを返す／
+`equals` は「同一設定の別アイテム」まで誤って一致させる）。
+
+`PROJECTILE_FIRED_FROM_OFFHAND`（PDC）はこの除外判定にしか使われない。よって
+**トライデントが `EntityShootBowEvent` を発火するか否かに関わらず結果は正しい**
+（発火する＝オフハンドのトライデントで正しく除外される／しない＝除外なしでも二重計上は無い）。
 
 ### 武器CTだけが「メインハンド単体」を読む例外
 
