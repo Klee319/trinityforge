@@ -25,8 +25,12 @@ prestige:
   name: "大海の釣り王の栄光"
   effect-text: "同時ヒット確率 永続+10・宝釣りの確率 永続+10%"
   buffs:
-    fishing-bonus: 10
-    fishing-luck: 10
+    # 2026-08-13: 10(パーセントポイント記法)から 0.1(割合)へ。PercentStatNormalize が実行時に
+    # 10 -> 0.1 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
+    # ステを 値x100 で表示するため「1000%」と出ていた。他の割合ステ(skill-exp-bonus: 0.05 等)と
+    # 同じ割合記法へ揃える。以下このファイルの fishing-bonus も同じ理由。
+    fishing-bonus: 0.1
+    fishing-luck: 0.1
 
 nodes:
   A:
@@ -41,7 +45,7 @@ nodes:
       - "同時ヒット確率アップ"
       - "得られる経験値量アップ"
     buffs:
-      fishing-bonus: 5
+      fishing-bonus: 0.05
       skill-exp-bonus: 0.05
   B:
     name: "宝釣りの心得"
@@ -71,7 +75,7 @@ nodes:
       - "同時ヒット確率アップ"
       - "得られる経験値量アップ"
     buffs:
-      fishing-bonus: 10
+      fishing-bonus: 0.1
       skill-exp-bonus: 0.05
   D:
     name: "財宝ハンター"

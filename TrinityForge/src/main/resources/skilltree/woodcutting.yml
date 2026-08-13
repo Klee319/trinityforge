@@ -25,7 +25,10 @@ prestige:
   effect-text: メインに斧を持つと採掘速度上昇 永続+1・全てのリンゴドロップ増加 永続+10%・木材の経験値変換効率+10%
   buffs:
     break-vanilla-exp-bonus: 0.10
-    woodcutting-extra-drop-chance: 10
+    # 2026-08-13: 10(パーセントポイント記法)から 0.1(割合)へ。PercentStatNormalize が実行時に
+    # 10 -> 0.1 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
+    # ステを 値x100 で表示するため「1000%」と出ていた。同じ理由で下の mining-fortune も割合記法。
+    woodcutting-extra-drop-chance: 0.1
   mainhand-buffs:
     gathering-efficiency: 1
 nodes:
@@ -186,7 +189,7 @@ nodes:
     effects:
       - 伐採時に低確率でドロップ+1
     mainhand-buffs:
-      mining-fortune: 5
+      mining-fortune: 0.05
   C-2:
     name: 精密製材II
     level: 60
@@ -198,5 +201,5 @@ nodes:
     effects:
       - 伐採時に1/2の確率でドロップ+1
     mainhand-buffs:
-      mining-fortune: 15
+      mining-fortune: 0.15
 

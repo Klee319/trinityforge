@@ -21,7 +21,10 @@ prestige:
   name: 土木大臣の栄光
   effect-text: メインにシャベルを持つと採掘速度上昇 永続+1・ボーナスドロップ増加 永続+15%
   mainhand-buffs:
-    mining-fortune: 15
+    # 2026-08-13: 15(パーセントポイント記法)から 0.15(割合)へ。PercentStatNormalize が実行時に
+    # 15 -> 0.15 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
+    # ステを 値x100 で表示するため「1500%」と出ていた。
+    mining-fortune: 0.15
     gathering-efficiency: 1
 nodes:
   A:

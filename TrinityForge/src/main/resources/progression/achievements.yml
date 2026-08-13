@@ -543,8 +543,11 @@ achievements:
         - { id: "custom:gacha_ticket_5", amount: 3 }
       job-exp: []
       permanent-buffs:
-        percent-bonus-damage: 5.0
-        damage-reduction: 3.0
+        # 2026-08-13: 5/3(パーセントポイント記法)から 0.05/0.03(割合)へ。RewardFieldsParser が
+        # PercentStatNormalize で実行時に矯正しているので**ゲーム内の効果は変わらない**が、
+        # 設定エディタは PERCENT 宣言のステを 値x100 で表示するため 500%/300% と出ていた。
+        percent-bonus-damage: 0.05
+        damage-reduction: 0.03
       vanilla-exp: 0
 
   source_first:

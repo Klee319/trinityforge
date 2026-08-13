@@ -52,7 +52,11 @@ prestige:
   name: 採掘王の栄光
   effect-text: メインにツルハシを持つと採掘速度上昇 永続+1(既にある場合追加で+1)・ドロップ増加 永続+20%
   mainhand-buffs:
-    mining-fortune: 20
+    # 2026-08-13: 20(パーセントポイント記法)から 0.2(割合)へ。PercentStatNormalize が実行時に
+    # 20 -> 0.2 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
+    # ステを 値x100 で表示するため「2000%」と出ていた(このファイルの C-1/C-2/C-3 は元から
+    # 0.15/0.2/0.29 の割合記法なので、そちらへ揃えた形になる)。
+    mining-fortune: 0.2
     gathering-efficiency: 1
 nodes:
   A:
