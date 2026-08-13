@@ -11,8 +11,11 @@ import com.trinityforge.stats.CrossPluginItemResolver;
 import com.trinityforge.stats.DropTableConfig;
 import com.trinityforge.stats.DropTablePolicy;
 import com.trinityforge.stats.StatKeys;
+import io.papermc.paper.registry.keys.tags.EnchantmentTagKeys;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -230,6 +233,15 @@ public final class FishingGimmickListener implements Listener {
      * エンチャント(既定 {@code ANY:MENDING})を除く — ここで修繕本を作ってしまうと、後段の
      * {@code VanillaItemRemovalListener} が剥がして結局また空の本に戻る。
      *
+     * <p>呪い(束縛/消滅)も候補から外す(2026-08-13 ユーザー判断)。バニラの釣り宝
+     * ({@code enchant_with_levels} treasure:true)は呪い本も出すが、TF では「釣果は当たり」に
+     * 統一する。除外の判定は {@link #cursedEnchants()} 参照。
+     *
+     * <p><b>バニラと同じではない</b>: バニラは経験値レベル30相当の重み付き抽選で複数エンチャントが
+     * 付きうるが、ここは候補から一様ランダムで1件・レベルも {@code 1..maxLevel} の一様乱数。
+     * オーバーエンチャント表({@code crafting-features.yml over-enchant})は金床/エンチャント台側の
+     * 上限なので、釣果の本には掛からない(付与レベルはバニラの maxLevel が上限)。
+     *
      * <p>既に中身がある本(カタログ品/他プラグイン製)には一切触らない。
      */
     private ItemStack rollBookEnchantIfBare(ItemStack stack) {
@@ -240,9 +252,10 @@ public final class FishingGimmickListener implements Listener {
                 || storage.hasStoredEnchants()) {
             return stack;
         }
-        java.util.List<org.bukkit.enchantments.Enchantment> pool = new java.util.ArrayList<>();
-        for (org.bukkit.enchantments.Enchantment candidate : org.bukkit.Registry.ENCHANTMENT) {
-            if (isRemovedEnchant(candidate)) {
+        Set<Enchantment> curses = cursedEnchants();
+        java.util.List<Enchantment> pool = new java.util.ArrayList<>();
+        for (Enchantment candidate : Registry.ENCHANTMENT) {
+            if (curses.contains(candidate) || isRemovedEnchant(candidate)) {
                 continue;
             }
             pool.add(candidate);
@@ -251,11 +264,49 @@ public final class FishingGimmickListener implements Listener {
             return stack;
         }
         ThreadLocalRandom rng = ThreadLocalRandom.current();
-        org.bukkit.enchantments.Enchantment chosen = pool.get(rng.nextInt(pool.size()));
+        Enchantment chosen = pool.get(rng.nextInt(pool.size()));
         int max = Math.max(1, chosen.getMaxLevel());
         storage.addStoredEnchant(chosen, max == 1 ? 1 : rng.nextInt(1, max + 1), true);
         stack.setItemMeta(storage);
         return stack;
+    }
+
+    /**
+     * 呪いエンチャントの集合。{@code EnchantLuckListener#enchantingTablePool()} と同じ二段構えで、
+     * <b>タグ {@code #minecraft:curse} を第一経路</b>にする(ハードコードした除外リストと違い、
+     * バニラ側で呪いが増減しても自動で追随する)。
+     *
+     * <p>第二経路は非推奨の {@link Enchantment#isCursed()}。MockBukkit 4.110.0 は
+     * {@code Registry#hasTag}/{@code getTagValues} がどちらも {@code UnimplementedOperationException}
+     * を投げるため、テスト環境ではこちらへ落ちる。
+     *
+     * <p>どちらも失敗したら空集合を返す = 呪いを弾かない(fail-open)。ここで例外を投げると
+     * 釣果の生成そのものが落ちてアイテムが消えるので、「呪い本がたまに釣れる」より悪い。
+     */
+    @SuppressWarnings("deprecation") // isCursed(): タグ API が無い環境向けのフォールバックとしてのみ使う
+    static Set<Enchantment> cursedEnchants() { // package-private: 単体テストの seam
+        try {
+            if (Registry.ENCHANTMENT.hasTag(EnchantmentTagKeys.CURSE)) {
+                java.util.Collection<Enchantment> tagged =
+                        Registry.ENCHANTMENT.getTagValues(EnchantmentTagKeys.CURSE);
+                if (!tagged.isEmpty()) {
+                    return Set.copyOf(tagged);
+                }
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // タグ API 未実装/未ロードの環境。下の isCursed() 経路へ落ちる。
+        }
+        try {
+            Set<Enchantment> out = new java.util.HashSet<>();
+            for (Enchantment candidate : Registry.ENCHANTMENT) {
+                if (candidate.isCursed()) {
+                    out.add(candidate);
+                }
+            }
+            return out;
+        } catch (RuntimeException | LinkageError ignored) {
+            return Set.of();
+        }
     }
 
     private boolean isRemovedEnchant(org.bukkit.enchantments.Enchantment candidate) {
