@@ -436,6 +436,9 @@ function buildRealMaterialsForm(options) {
     }
     return el;
   };
+  // 2026-08-13: 検索欄は window.filterInput(デバウンス + IME ガード + フォーカス復元)に
+  // 集約したので、その最小スタブも要る(util.js は本物の document に依存するため読み込まない)。
+  global.window.filterInput = (_key, value) => makeEl("input", { value });
   // ars-forms.js は window と document が両方あると「ブラウザ」と判断し、純関数コアを
   // require ではなく window.RECIPES から取る(末尾の IIFE 引数)。先に載せておく。
   global.window.RECIPES = require("../public/js/recipes.js");

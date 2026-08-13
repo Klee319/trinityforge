@@ -222,8 +222,19 @@
   const THREAD_POTION_EFFECT_SELECT_OPTIONS = [{ value: "none", primary: "なし(効果を付けない)", secondary: "none" }]
     .concat(CORE.THREAD_POTION_EFFECTS.map(([id, ja]) => ({ value: id, primary: ja, secondary: id, title: id })));
 
-  window.buildThreadEffectsBox = function buildThreadEffectsBox(model, onChange) {
+  window.buildThreadEffectsBox = function buildThreadEffectsBox(model, onChange, opts) {
     const m = model;
+    // 2026-08-13 実サーバ報告(「効果の引数に数値を入力しても保存時に null(空) になる」)の対策。
+    // 数値入力欄は model を書き換えるだけで呼び出し元へ何も通知していなかった。model を
+    // 使い捨てにする呼び出し元(forms.js の item-stats「スレッド」タブ。毎回の再描画で
+    // threads.yml から model を作り直す)では、その書き換えが次の再描画で捨てられ、
+    // 保存対象の threads.yml 側には一度も届かない。
+    // ここで onChange(=再描画を伴う確定)を呼ぶわけにはいかない — 打鍵のたびに入力欄が
+    // 作り直されてフォーカスが飛び、×ボタンのクリックも blur→再描画に食われて1回目が効かなくなる。
+    // そのため「値だけが変わった」ことを再描画なしで伝える opts.onValueCommit を分けている。
+    // 未指定の呼び出し(buildThreadsForm。models 配列が model をそのまま保持しているので
+    // 書き換えがそのまま保存へ乗る)は従来どおり何もしない。
+    const commitValue = opts && typeof opts.onValueCommit === "function" ? opts.onValueCommit : () => {};
     const box = h("div", { class: "effect-params-box" });
     const presentNumeric = CORE.THREAD_EFFECT_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(m.effects, k));
     const hasPotionGroup = !!(m.hasPotionEffect || m.hasPotionLevel);
@@ -238,7 +249,7 @@
     for (const k of presentNumeric) {
       const row = h("div", { class: "stat-row" });
       row.appendChild(h("span", { class: "form-label", text: `${THREAD_EFFECT_LABELS_JA[k] || k} (${k})`, title: k }));
-      row.appendChild(window.numberInput(m.effects[k], (v) => { m.effects[k] = v == null ? 0 : v; }));
+      row.appendChild(window.numberInput(m.effects[k], (v) => { m.effects[k] = v == null ? 0 : v; commitValue(); }));
       row.appendChild(h("button", {
         class: "btn-small danger", type: "button", text: "×",
         onclick: () => { delete m.effects[k]; onChange(); }
@@ -265,6 +276,7 @@
       const levelInput = window.numberInput(m.hasPotionLevel ? m.potionLevel : null, (v) => {
         if (v == null || v < 1) { m.hasPotionLevel = false; m.potionLevel = undefined; }
         else { m.hasPotionLevel = true; m.potionLevel = Math.trunc(v); }
+        commitValue();
       }, { int: true });
       if (!m.hasPotionEffect || m.potionEffect === "none") {
         levelInput.disabled = true;
@@ -302,6 +314,7 @@
       slotsRow.appendChild(h("span", { class: "form-label", text: "バックパック枠 (slots)", title: "slots" }));
       slotsRow.appendChild(window.numberInput(m.slots, (v) => {
         m.slots = v == null || v < 0 ? 0 : Math.trunc(v);
+        commitValue();
       }, { int: true }));
       slotsRow.appendChild(h("button", {
         class: "btn-small danger", type: "button", text: "×",
@@ -486,12 +499,10 @@
       // (respack-view.js の「全アイテムCMD一括採番＆保存」) に集約済み。
       const filterRow = h("div", { class: "item-stats-filter" }, [
         h("span", { class: "mini-label", text: "検索" }),
-        h("input", {
-          class: "field-input", type: "text", spellcheck: "false",
-          placeholder: "ID/表示名で絞り込み",
-          value: filterText,
-          oninput: (e) => { filterText = e.target.value; render(); }
-        })
+        // render() は root ごと作り直すので、この検索欄は毎回新しい要素になる。
+        // window.filterInput が同じ key の欄へフォーカスとカーソル位置を引き継ぐ。
+        window.filterInput("ars-materials", filterText, (v) => { filterText = v; render(); },
+          { placeholder: "ID/表示名で絞り込み" })
       ]);
       root.appendChild(filterRow);
       if (models.length === 0) {
@@ -718,16 +729,25 @@
         if (typeof renderRecipe !== "function") {
           return h("div", { class: "empty-hint", text: "レシピ UI を読み込めません (forms.js)" });
         }
+        // materials.yml は ArsPaper の MaterialConfigManager / UnifiedRecipeLoader が
+        // recipe:(単数)しか読まないので、レシピは1件までに制限する。
+        // 2026-08-13 実サーバ報告「2つ目のレシピを登録すると1つ目が消える」の真因はここ:
+        // 制限が無かったため2件目を足すと共通UIが entryLike を recipes: へ正規化し、
+        // 下の書き戻しが entryLike.recipe しか見ていないので hasRecipe=false になって
+        // 1件目ごと消えていた。上限に加えて、書き戻し側でも recipes[0] を拾う多重防御を置く。
         return renderRecipe(entryLike, () => {
-          if (entryLike.recipe !== undefined && entryLike.recipe !== null) {
+          const fromList = Array.isArray(entryLike.recipes) ? entryLike.recipes[0] : undefined;
+          const kept = entryLike.recipe !== undefined && entryLike.recipe !== null
+            ? entryLike.recipe : fromList;
+          if (kept !== undefined && kept !== null) {
             m.hasRecipe = true;
-            m.recipe = entryLike.recipe;
+            m.recipe = kept;
           } else {
             m.hasRecipe = false;
             m.recipe = null;
           }
           render();
-        });
+        }, undefined, undefined, { maxRecipes: 1 });
       }
     }
 

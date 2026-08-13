@@ -135,7 +135,9 @@ test("forms.js: renderThreadYmlEffects は window.ARS_FORMS.parseThreadEntry/ser
   const src = JS("forms.js");
   assert.match(src, /window\.ARS_FORMS\.parseThreadEntry\(tid, threadsMap\[tid\]\)/);
   assert.match(src, /window\.ARS_FORMS\.serializeThreadEntry\(model\)/);
-  assert.match(src, /window\.buildThreadEffectsBox\(model, commit\)/);
+  // 2026-08-13: 数値入力を「再描画なしの書き戻し」へ繋ぐ第3引数を追加した
+  // (thread-effect-number-input-commit-2026-08-13.test.js が経緯と不変条件を持つ)。
+  assert.match(src, /window\.buildThreadEffectsBox\(model, commit, \{ onValueCommit: writeBack \}\)/);
   // THREAD_EFFECT_KEYS / THREAD_POTION_EFFECTS の値そのものを forms.js 側にコピーしていないこと。
   assert.ok(!/const\s+THREAD_EFFECT_KEYS\s*=/.test(src), "forms.js が効果キー一覧を複製している");
   assert.ok(!/const\s+THREAD_POTION_EFFECTS\s*=/.test(src), "forms.js がポーション効果一覧を複製している");

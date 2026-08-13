@@ -265,7 +265,10 @@
       // レシピ編集UIはアイテムカテゴリ(catalog)タブと完全共通化する。結果アイテムは常にこの
       // エントリ自身(custom:<id>)のため結果アイテム欄は無く、renderCatalogRecipeSection側の
       // 仕様どおりそのまま合致する。
-      const recipeSection = window.renderCatalogRecipeSection(entry, () => render(), working.items, id, { allowMirror: true });
+      // functional-items.yml は UnifiedRecipeLoader が recipe:(単数)しか読まないので1件まで
+      // (catalog.yml だけが recipes: の配列を読める。下の buildTfSpecialItemsSection は無制限のまま)。
+      const recipeSection = window.renderCatalogRecipeSection(entry, () => render(), working.items, id,
+        { allowMirror: true, maxRecipes: 1 });
 
       const card = window.collapsibleCard(head, [h("div", { class: "entry-2col" }, [inputs, previewCol]), recipeSection], {
         expanded: expandedCards.has(id),

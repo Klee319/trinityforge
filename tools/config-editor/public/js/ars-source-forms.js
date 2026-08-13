@@ -377,9 +377,10 @@
     refreshPreview();
 
     const recipeSection = typeof window.renderCatalogRecipeSection === "function"
+      // sourcejars.yml / sourcelinks.yml は UnifiedRecipeLoader が recipe:(単数)しか読まないので1件まで。
       ? window.renderCatalogRecipeSection(entry, () => {
           if (typeof onRerender === "function") onRerender();
-        }, itemsMap, id)
+        }, itemsMap, id, { maxRecipes: 1 })
       : h("div", { class: "field-desc", text: "レシピUI未読込（forms.js を確認）" });
 
     return window.collapsibleCard(

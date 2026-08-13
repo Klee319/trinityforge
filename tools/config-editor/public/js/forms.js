@@ -877,12 +877,8 @@
 
       const filterRow = h("div", { class: "item-stats-filter" }, [
         h("span", { class: "mini-label", text: "検索" }),
-        h("input", {
-          class: "field-input", type: "text", spellcheck: "false",
-          placeholder: "カタログID / 表示名 / キーで絞り込み",
-          value: filterText,
-          oninput: (e) => { filterText = e.target.value; applyFilter(); }
-        })
+        window.filterInput("item-stats", filterText, (v) => { filterText = v; applyFilter(); },
+          { placeholder: "カタログID / 表示名 / キーで絞り込み" })
       ]);
       root.appendChild(filterRow);
 
@@ -1736,17 +1732,25 @@
         const existed = Object.prototype.hasOwnProperty.call(threadsMap, tid);
         if (!window.ARS_FORMS || !window.buildThreadEffectsBox) return null; // ars-forms.js 未読込
         const model = window.ARS_FORMS.parseThreadEntry(tid, threadsMap[tid]);
-        function commit() {
+        // model は再描画のたびに threads.yml から作り直す使い捨てなので、書き換えたら必ず
+        // threadsMap へ書き戻す。2026-08-13 の実サーバ報告「効果の引数に数値を入力しても
+        // 保存時に null(空) になる」は、数値入力欄がこの書き戻しへ繋がっていなかったのが真因。
+        // 数値入力は writeBack だけ(再描画なし)、効果の追加/削除は行が増減するので commit
+        // (writeBack + 再描画)を使う。数値入力で再描画すると打鍵のたびに入力欄が作り直される。
+        function writeBack() {
           const out = window.ARS_FORMS.serializeThreadEntry(model);
           // 未編集のまま(元から存在しなかったエントリが依然として空)なら書き込まない(lazy-touch)。
           if (!existed && Object.keys(out).length === 0) delete threadsMap[tid];
           else threadsMap[tid] = out;
+        }
+        function commit() {
+          writeBack();
           render();
         }
         const sec = h("div", { class: "sub-section" });
         sec.appendChild(h("div", { class: "mini-label", text: `スレッド効果 (threads.yml: ${tid})`,
           title: "potion-effect/potion-level/flight/slots や regen-bonus 等。「+ 効果追加」から選びます。" }));
-        sec.appendChild(window.buildThreadEffectsBox(model, commit));
+        sec.appendChild(window.buildThreadEffectsBox(model, commit, { onValueCommit: writeBack }));
         return sec;
       }
       const threadYmlSection = renderThreadYmlEffects(threadId);
@@ -2543,7 +2547,16 @@
   }
 
   function renderCatalogRecipeSection(entry, rerenderEntry, itemsMap, entryId, opts) {
+    const options = opts && typeof opts === "object" ? opts : {};
     const items = itemsMap && typeof itemsMap === "object" ? itemsMap : {};
+    // 1エントリに持てるレシピ数の上限。既定は無制限 (catalog.yml = TF本体の ItemCatalogConfig は
+    // recipes:(配列)を読む)。ArsPaper 側の yml は UnifiedRecipeLoader が例外なく
+    // getConfigurationSection("recipe") しか見ないので、それらの画面は maxRecipes: 1 を渡す。
+    // 2026-08-13 実サーバ報告「2つ目のレシピを登録しようとすると1つ目のレシピが消える」の対策:
+    // 上限を超える追加をUIから消す(押せてしまうと、書き戻し先が recipes: に化けて Java から
+    // 見えなくなる。素材タブに至っては呼び出し元が recipe: しか読まないので1件目ごと消える)。
+    const maxRecipes = Number.isFinite(options.maxRecipes) && options.maxRecipes > 0
+      ? Math.trunc(options.maxRecipes) : Infinity;
 
     // recipe:(単発マップ) と recipes:(マップ配列) を1つの作業配列に正規化する。
     // 保存形は常に正規形へ書き戻す: 0件=両キーなし / 1件=recipe: のみ / 2件以上=recipes: のみ。
@@ -2590,16 +2603,21 @@
     if (list.length === 0) {
       box.appendChild(h("div", { class: "empty-hint", text: "レシピは未設定です。" }));
     }
-    box.appendChild(h("button", {
-      class: "btn-small", type: "button", text: "+ レシピを追加",
-      onclick: () => {
-        const fresh = { method: "workbench", type: "shaped" };
-        ensureShapedRecipe(fresh);
-        list.push(fresh);
-        writeBack();
-        rerenderEntry();
-      }
-    }));
+    if (list.length < maxRecipes) {
+      box.appendChild(h("button", {
+        class: "btn-small", type: "button", text: "+ レシピを追加",
+        onclick: () => {
+          const fresh = { method: "workbench", type: "shaped" };
+          ensureShapedRecipe(fresh);
+          list.push(fresh);
+          writeBack();
+          rerenderEntry();
+        }
+      }));
+    } else if (maxRecipes === 1) {
+      box.appendChild(h("div", { class: "field-desc",
+        text: "この設定ファイルは1アイテムにつきレシピを1件までしか持てません(複数レシピを持てるのはアイテムカタログ catalog.yml だけです)。" }));
+    }
     return box;
   }
 
@@ -2937,12 +2955,8 @@
     const tabBar = h("div", { class: "recipe-tabs" });
     const filterRow = h("div", { class: "item-stats-filter" }, [
       h("span", { class: "mini-label", text: "検索" }),
-      h("input", {
-        class: "field-input", type: "text", spellcheck: "false",
-        placeholder: "ID/表示名で絞り込み",
-        value: filterText,
-        oninput: (e) => { filterText = e.target.value; renderList(); }
-      })
+      window.filterInput("catalog", filterText, (v) => { filterText = v; renderList(); },
+        { placeholder: "ID/表示名で絞り込み" })
     ]);
     // CMD一括割当ボタンはここには置かない。全ファイル横断で「リソースパック管理」画面
     // (respack-view.js の「全アイテムCMD一括採番＆保存」) に集約済み。

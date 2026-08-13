@@ -243,6 +243,62 @@ window.setCustomItemCandidates = function setCustomItemCandidates(entries, opts)
 };
 
 // 数値入力。整数フラグで step を切り替える。空欄は null を返す。
+/**
+ * 一覧の絞り込み(検索欄)の共通部品。
+ *
+ * <p>2026-08-13 実サーバ報告「検索窓で文字を1つ入れるたびに入力状態が途切れる」への対策。
+ * それまでは各画面が {@code oninput} から直接一覧の再描画を呼んでいたため、
+ *   - カタログ「武器」タブでは1打鍵あたり実測 570ms メインスレッドが止まり(188カード再生成)、
+ *     日本語入力ではその停止が変換中に挟まって入力が途切れる
+ *   - 「素材」タブ(ars-forms.js)の再描画は {@code root.innerHTML = ""} で<b>検索欄自身を作り直す</b>ため、
+ *     1文字ごとに入力欄が DOM から外れてフォーカスが確実に飛ぶ
+ * という2つの壊れ方をしていた。
+ *
+ * <p>対策は3点セット。どれか1つでも欠けると症状が残る:
+ *   1. IME 変換中(compositionstart〜compositionend)は絞り込みを一切走らせない
+ *   2. それ以外は入力から delay ms のデバウンス(打鍵ごとの全再描画をやめる)
+ *   3. 再描画で入力欄ごと作り直す画面のために、同じ key の検索欄へフォーカスとカーソル位置を戻す
+ *
+ * @param {string} key 画面を識別する固定文字列 (フォーカス復元の対象を絞るため。画面ごとに一意)
+ * @param {string} value 現在の絞り込み文字列
+ * @param {function(string): void} onFilter 絞り込み確定時に呼ぶ (引数は入力欄の現在値)
+ * @param {{delay?: number, placeholder?: string}} [opts] delay 既定 200ms
+ */
+window.filterInput = function filterInput(key, value, onFilter, opts) {
+  const options = opts || {};
+  const delay = options.delay == null ? 200 : options.delay;
+  let timer = null;
+  let composing = false;
+
+  const el = window.h("input", {
+    class: "field-input", type: "text", spellcheck: "false",
+    placeholder: options.placeholder || "",
+    value: value == null ? "" : String(value)
+  });
+
+  function schedule() {
+    // 打鍵のたびに「どこを編集していたか」を更新しておく。再描画で作り直された
+    // 新しい検索欄が、これを見てフォーカスとカーソル位置を引き継ぐ。
+    window.__TF_FILTER_FOCUS = { key, pos: el.selectionStart };
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; onFilter(el.value); }, delay);
+  }
+  el.addEventListener("compositionstart", () => { composing = true; });
+  el.addEventListener("compositionend", () => { composing = false; schedule(); });
+  el.addEventListener("input", () => { if (!composing) schedule(); });
+
+  const restore = window.__TF_FILTER_FOCUS;
+  if (restore && restore.key === key) {
+    setTimeout(() => {
+      if (el.isConnected === false) return;
+      el.focus();
+      const pos = restore.pos == null ? String(el.value || "").length : restore.pos;
+      try { el.setSelectionRange(pos, pos); } catch (_e) { /* number等 setSelectionRange 非対応は無視 */ }
+    }, 0);
+  }
+  return el;
+};
+
 window.numberInput = function numberInput(value, onInput, opts) {
   const options = opts || {};
   return window.h("input", {
