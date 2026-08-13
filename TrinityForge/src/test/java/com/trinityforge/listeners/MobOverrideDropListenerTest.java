@@ -31,6 +31,7 @@ import java.util.SplittableRandom;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -365,27 +366,35 @@ class MobOverrideDropListenerTest {
     }
 
     // --- ドロップ増加ステ mob_drop_bonus (2026-08-09 新規: 以前はTF追加ドロップに一切載っていなかった) ---
+    // 2026-08-13 にユーザー指示で効かせ方を変更。個数への乗算をやめ、ドロップの形で棲み分ける:
+    //   min==max==1 (=レアドロップ) → 抽選確率を (1+bonus) 倍にする(個数は増えない)
+    //   それ以外                     → 抽選後の個数へ加算する(整数部は確定、端数はその確率で+1)
 
     @Test
-    void mobDropBonusScalesTfAddedDropCount(@TempDir File dir) throws Exception {
-        // 倍率 = 1 + bonus。1.0 のボーナスなら 1個 → 2個。移設前は NativeSurvivalPerkListener が
-        // event.getDrops() の中身にしか掛けておらず、TF追加ドロップは常に1個のままだった。
-        MobOverridesConfig config = boneDropConfig(dir);
+    void mobDropBonusRaisesTheChanceOfSingleFixedDropsInsteadOfTheCount(@TempDir File dir) throws Exception {
+        // 確率0.5・1個固定。+100% で 1.0 になるので必ず落ちる。ボーナス無しなら当然落ちない回がある。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        drops:
+                          - { item: BONE, chance: 0.5, min: 1, max: 1 }
+                """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
-                adjuster(0, MobLevelCutoff.NONE, 1.0), new SplittableRandom(0));
 
-        Zombie zombie = leveledZombie(0);
-        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
-        listener.onDeath(event);
+        int boosted = countHits(new MobOverrideDropListener(config, resolver,
+                adjuster(0, MobLevelCutoff.NONE, 1.0), new SplittableRandom(0)), 200);
+        int base = countHits(new MobOverrideDropListener(config, resolver,
+                adjuster(0, MobLevelCutoff.NONE, 0.0), new SplittableRandom(0)), 200);
 
-        assertEquals(1, event.getDrops().size(), "個数が増えるのであってスタックが増えるのではない");
-        assertEquals(2, event.getDrops().get(0).getAmount(), "mob_drop_bonus 1.0 は TF追加ドロップを2倍にする");
+        assertEquals(200, boosted, "0.5 × (1+1.0) = 1.0 なので全部落ちる");
+        assertTrue(base < 200, "ボーナス無しなら 0.5 のまま外れる回がある(前提の確認)");
     }
 
     @Test
-    void mobDropBonusIsCappedAtTripleTheBaseAmount(@TempDir File dir) throws Exception {
-        // 上限3倍(MobDropRoller.MAX_BONUS_FACTOR)。10.0 を積んでも 11倍にはならない。
+    void mobDropBonusNeverInflatesTheCountOfSingleFixedDrops(@TempDir File dir) throws Exception {
+        // 旧仕様は個数への乗算だったので +1000% で3個(上限)になっていた。新仕様では1個のまま。
         MobOverridesConfig config = boneDropConfig(dir);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
         MobOverrideDropListener listener = new MobOverrideDropListener(config, resolver,
@@ -395,6 +404,52 @@ class MobOverrideDropListenerTest {
         EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
         listener.onDeath(event);
 
-        assertEquals(3, event.getDrops().get(0).getAmount(), "倍率は3倍で頭打ちになる");
+        assertEquals(1, event.getDrops().size(), "個数が増えるのであってスタックが増えるのではない");
+        assertEquals(1, event.getDrops().get(0).getAmount(),
+                "1個固定のドロップは確率が上がるだけ。個数は増えない");
+    }
+
+    @Test
+    void mobDropBonusAddsToTheCountOfRandomAmountDrops(@TempDir File dir) throws Exception {
+        // 1〜2個のランダム個数。+100% は確定で1個追加(乱数に依存しない)。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        drops:
+                          - { item: BONE, chance: 1.0, min: 1, max: 2 }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+
+        // 同じ seed なら「確率の抽選 → 個数の抽選」までの乱数消費は両者で一致するので、
+        // 差分がそのままボーナスの寄与になる。
+        int withoutBonus = firstDropAmount(new MobOverrideDropListener(config, resolver,
+                adjuster(0, MobLevelCutoff.NONE, 0.0), new SplittableRandom(0)));
+        int withBonus = firstDropAmount(new MobOverrideDropListener(config, resolver,
+                adjuster(0, MobLevelCutoff.NONE, 1.0), new SplittableRandom(0)));
+
+        assertEquals(withoutBonus + 1, withBonus, "+100% はランダム個数のドロップを確定で1個増やす");
+    }
+
+    /** 同じ listener で n 回キルさせ、TF追加ドロップが1件でも出た回数を数える。 */
+    private int countHits(MobOverrideDropListener listener, int trials) {
+        int hits = 0;
+        for (int i = 0; i < trials; i++) {
+            Zombie zombie = leveledZombie(0);
+            EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
+            listener.onDeath(event);
+            if (!event.getDrops().isEmpty()) hits++;
+        }
+        return hits;
+    }
+
+    /** 1回キルさせて、最初のTF追加ドロップの個数を返す。 */
+    private int firstDropAmount(MobOverrideDropListener listener) {
+        Zombie zombie = leveledZombie(0);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
+        listener.onDeath(event);
+        assertFalse(event.getDrops().isEmpty(), "前提: chance 1.0 なので必ず落ちる");
+        return event.getDrops().get(0).getAmount();
     }
 }

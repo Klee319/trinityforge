@@ -90,13 +90,17 @@ public final class KillRewardAdjuster {
     }
 
     /**
-     * 抽選済みのドロップ個数に掛ける倍率(ドロップ増加ステ)。上限3倍。
-     * 端数は {@link MobDropRoller#scaleCount} が期待値どおりに確率で繰り上げる。
+     * ドロップ増加ステ({@code mob_drop_bonus})の合算値。0以上 +200% 以下へクランプ済み。
+     *
+     * <p>2026-08-13 以降、これは<b>倍率ではない</b>。使い方はドロップの形で分かれる:
+     * 1個固定のドロップは {@link MobDropRoller#boostedChance}(抽選確率を上げる)、
+     * ランダム個数のドロップは {@link MobDropRoller#extraCount}(個数を足す)。
+     * どちらを使うかは {@link MobDropRoller#isSingleFixed} で決める。
      */
-    public double countFactor(Player killer) {
+    public double dropBonus(Player killer) {
         if (killer == null) {
-            return 1.0;
+            return 0.0;
         }
-        return MobDropRoller.bonusFactor(aggregator.aggregate(killer).totalOf(MOB_DROP_BONUS));
+        return MobDropRoller.clampBonus(aggregator.aggregate(killer).totalOf(MOB_DROP_BONUS));
     }
 }

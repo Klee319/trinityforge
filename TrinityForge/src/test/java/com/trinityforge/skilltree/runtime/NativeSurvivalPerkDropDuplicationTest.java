@@ -55,7 +55,7 @@ class NativeSurvivalPerkDropDuplicationTest {
         world = server.addSimpleWorld("world");
 
         PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
-        // +100%(dropFactor=2.0)。端数の確率化を挟まず整数倍で検証できるので、乱数に依存しない。
+        // +100%。2026-08-13 以降これは「確定で+1個」なので、端数の確率化を挟まず乱数に依存しない。
         PlayerCombatAggregate totals = new PlayerCombatAggregate(
                 Map.of(MOB_DROP_BONUS, 1.0), Map.of(), Map.of(), Map.of(), Map.of());
         when(aggregator.aggregate(any(Player.class))).thenReturn(totals);
@@ -189,26 +189,40 @@ class NativeSurvivalPerkDropDuplicationTest {
         return count;
     }
 
-    /** U12。整数部は確定・小数部だけ確率で+1する(期待値が倍率に一致する)。 */
+    /**
+     * 2026-08-13 仕様変更。バニラドロップへのドロップ増加ステは<b>乗算ではなく加算</b>。
+     * 整数部は確定で+、小数部だけその確率で+1する。
+     */
     @Test
-    void fractionalMultiplierIsRolledInsteadOfRoundedUp() {
-        assertEquals(2, NativeSurvivalPerkListener.scaleAmount(1, 1.5, 64, 0.49),
-                "1個 × 1.5 は50%で2個");
-        assertEquals(1, NativeSurvivalPerkListener.scaleAmount(1, 1.5, 64, 0.51),
-                "旧実装(Math.round)は常に2個にしていた＝実質+100%");
-        assertEquals(2, NativeSurvivalPerkListener.scaleAmount(1, 2.0, 64, 0.99),
-                "整数倍は乱数に依存せず確定で与える");
-        assertEquals(3, NativeSurvivalPerkListener.scaleAmount(2, 1.5, 64, 0.99),
-                "2個 × 1.5 は端数が無いので常に3個");
+    void dropBonusAddsCountInsteadOfMultiplying() {
+        assertEquals(2, NativeSurvivalPerkListener.scaleAmount(1, 0.5, 64, 0.49),
+                "+50% は50%の確率で1個増える");
+        assertEquals(1, NativeSurvivalPerkListener.scaleAmount(1, 0.5, 64, 0.51),
+                "外れたら増えない");
+        assertEquals(2, NativeSurvivalPerkListener.scaleAmount(1, 1.0, 64, 0.99),
+                "+100% は乱数に関係なく確定で1個増える");
+        assertEquals(3, NativeSurvivalPerkListener.scaleAmount(1, 1.5, 64, 0.49),
+                "+150% は確定で1個、さらに超過50%の確率でもう1個");
+        assertEquals(2, NativeSurvivalPerkListener.scaleAmount(1, 1.5, 64, 0.51),
+                "+150% の超過分を外したら+1個止まり");
     }
 
-    /** U12。上限と下限は旧実装から変えない(maxStackSize×8 / 最低1個)。 */
+    /** 2026-08-13 仕様変更。旧実装(乗算)との差が最も大きいのは大きなスタック。 */
+    @Test
+    void largeStacksNoLongerDoubleWithFullBonus() {
+        assertEquals(33, NativeSurvivalPerkListener.scaleAmount(32, 1.0, 64, 0.99),
+                "旧実装は32個×2=64個だった。新仕様は+1個(ユーザー指示による意図的な弱体化)");
+    }
+
+    /** ボーナスの上限(+200%)と、個数の上限・下限は旧実装から変えない(maxStackSize×8 / 最低1個)。 */
     @Test
     void scaleAmountKeepsStackCapAndMinimum() {
-        assertEquals(512, NativeSurvivalPerkListener.scaleAmount(1000, 3.0, 64, 0.0));
-        assertEquals(8, NativeSurvivalPerkListener.scaleAmount(4, 3.0, 1, 0.0),
+        assertEquals(3, NativeSurvivalPerkListener.scaleAmount(1, 5.0, 64, 0.0),
+                "ボーナスは+200%で頭打ちなので、いくら盛っても+2個まで");
+        assertEquals(512, NativeSurvivalPerkListener.scaleAmount(1000, 2.0, 64, 0.0));
+        assertEquals(8, NativeSurvivalPerkListener.scaleAmount(10, 2.0, 1, 0.0),
                 "最大スタック1のツールでも上限は maxStackSize×8");
-        assertTrue(NativeSurvivalPerkListener.scaleAmount(0, 3.0, 64, 0.99) >= 1,
+        assertTrue(NativeSurvivalPerkListener.scaleAmount(0, 2.0, 64, 0.99) >= 1,
                 "0個スタックを渡されても負や0を返さない");
     }
 }

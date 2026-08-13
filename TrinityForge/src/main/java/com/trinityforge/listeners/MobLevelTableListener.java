@@ -186,13 +186,13 @@ public final class MobLevelTableListener implements Listener {
         // (remove-drops と vanilla-exp は上の AFK 対策と同じ理由でここでは触らない)。
         KillRewardAdjuster adjuster = this.killRewardAdjuster;
         double chanceMultiplier = 1.0;
-        double countFactor = 1.0;
+        double dropBonus = 0.0;
         if (adjuster != null && !addDrops.isEmpty()) {
             if (adjuster.blocksItems(entity.getKiller(), entity)) {
                 addDrops = List.of();
             } else {
                 chanceMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
-                countFactor = adjuster.countFactor(entity.getKiller());
+                dropBonus = adjuster.dropBonus(entity.getKiller());
             }
         }
         // 2026-08-02 柱7: roles: 指定のあるエントリはキルしたプレイヤーの職業で絞る。
@@ -209,7 +209,14 @@ public final class MobLevelTableListener implements Listener {
             if (!drop.appliesTo(mobType, profileId)) {
                 continue;
             }
-            if (!MobDropRoller.rolls(drop.chance() * chanceMultiplier, random.nextDouble())) {
+            // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
+            // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
+            boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
+            double chance = drop.chance() * chanceMultiplier;
+            if (singleFixed) {
+                chance = MobDropRoller.boostedChance(chance, dropBonus);
+            }
+            if (!MobDropRoller.rolls(chance, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
@@ -218,9 +225,10 @@ public final class MobLevelTableListener implements Listener {
             }
             ItemStack stack = buildDropStack(drop, count, profileId != null ? profileId : mobType.name());
             if (stack != null) {
-                if (countFactor > 1.0) {
-                    stack.setAmount(MobDropRoller.scaleCount(stack.getAmount(), countFactor,
-                            stack.getMaxStackSize(), random.nextDouble()));
+                if (!singleFixed && dropBonus > 0.0) {
+                    stack.setAmount(MobDropRoller.cappedCount(
+                            stack.getAmount() + MobDropRoller.extraCount(dropBonus, random.nextDouble()),
+                            stack.getMaxStackSize()));
                 }
                 // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
                 // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら

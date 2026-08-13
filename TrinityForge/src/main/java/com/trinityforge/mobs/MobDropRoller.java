@@ -42,36 +42,73 @@ public final class MobDropRoller {
         return (int) (min + offset);
     }
 
-    /** ドロップ増加ステ({@code mob_drop_bonus})の倍率上限。3倍を超える増幅は認めない。 */
-    private static final double MAX_BONUS_FACTOR = 3.0;
+    /** ドロップ増加ステ({@code mob_drop_bonus})の上限。+200% を超える増幅は認めない。 */
+    private static final double MAX_BONUS = 2.0;
 
     /**
-     * ドロップ増加ステ({@code mob_drop_bonus}の装備+perk合算)を「個数に掛ける倍率」へ変換する。
-     * 負のボーナスは無視(1.0未満にはしない)、上限は {@value #MAX_BONUS_FACTOR} 倍。
+     * ドロップ増加ステ({@code mob_drop_bonus}の装備+perk合算)を有効な範囲へ収める。
+     * 負のボーナスは無視(0扱い)、上限は +{@code 200%}。
      */
-    public static double bonusFactor(double mobDropBonus) {
-        return Math.min(MAX_BONUS_FACTOR, 1.0 + Math.max(0.0, mobDropBonus));
+    public static double clampBonus(double mobDropBonus) {
+        if (!Double.isFinite(mobDropBonus)) {
+            return 0.0;
+        }
+        return Math.min(MAX_BONUS, Math.max(0.0, mobDropBonus));
     }
 
     /**
-     * ドロップ個数へ倍率を「期待値どおり」に適用して整数化する。
+     * <b>個数が1個固定のドロップ</b>(＝レアドロップ)へのボーナスの効かせ方: 個数ではなく
+     * <b>抽選確率そのもの</b>を元の確率の {@code (1 + bonus)} 倍へ引き上げる。
      *
-     * <p>単純な {@code Math.round(amount * factor)} だと +50% が1個ドロップに対して<b>常に</b>
-     * 2個(切り上げ)＝実質+100%になる。整数部は確定で与え、小数部だけ確率で+1することで
-     * 期待値を倍率に一致させる(1個 × 1.5 → 50%で2個 / 50%で1個)。
+     * <p>2026-08-13 のユーザー指示による仕様。旧実装は個数にしか掛からなかったので、
+     * 「1%で1個落ちるアイテム」にドロップ増加+100%を盛っても<b>遭遇率は1%のまま</b>で、
+     * 当たったときの個数だけが増えていた(＝レアドロップには実質無意味だった)。
+     * 新仕様では 1% → 2% になる。
      *
-     * <p>2026-08-09: {@code NativeSurvivalPerkListener} が持っていた同じ計算をここへ移した。
-     * TF追加ドロップ側(mob-overrides / mob-level-table / mob-types)にもドロップ増加ステを
-     * 掛けるようになり、実装が2か所へ分かれると片方だけ直す事故が起きるため。
+     * <p>ドロップ「率」なので 1.0(=100%) で頭打ちにする。元が 0 のものは 0 のまま
+     * (落ちない設定のものを落ちるようにはしない)。
+     */
+    public static double boostedChance(double chance, double mobDropBonus) {
+        if (!(chance > 0.0)) {
+            return 0.0;
+        }
+        return Math.min(1.0, chance * (1.0 + clampBonus(mobDropBonus)));
+    }
+
+    /**
+     * <b>個数がランダムなドロップ</b>(および2個以上の固定個数)へのボーナスの効かせ方:
+     * 抽選済みの個数へ<b>追加する個数</b>を返す。整数部は確定、端数はその確率で +1。
+     *
+     * <p>2026-08-13 のユーザー指示による仕様。+50% なら 50% の確率で1つ増える。
+     * 100% を超えたら確定で1つ増えたうえで、超過分の確率でさらに1つ増える
+     * (+150% → 確定+1、さらに50%で+1)。
+     *
+     * <p>旧実装は個数への<b>乗算</b>だったので、32個スタックに +100% を盛ると +32 個だった。
+     * 新仕様は加算なので +1 個。この差は意図したもの(ユーザー指示)。
      *
      * @param roll 0.0以上1.0未満の乱数。テストのために引数化している。
      */
-    public static int scaleCount(int baseAmount, double dropFactor, int maxStackSize, double roll) {
-        double scaled = Math.max(0.0, baseAmount) * Math.max(0.0, dropFactor);
-        int whole = (int) Math.floor(scaled);
-        double fraction = scaled - whole;
-        int amount = whole + (fraction > 0.0 && roll < fraction ? 1 : 0);
+    public static int extraCount(double mobDropBonus, double roll) {
+        double bonus = clampBonus(mobDropBonus);
+        int whole = (int) Math.floor(bonus);
+        double fraction = bonus - whole;
+        return whole + (fraction > 0.0 && roll < fraction ? 1 : 0);
+    }
+
+    /**
+     * ボーナス加算後の個数を安全な範囲へ収める(最低1個、上限は {@code maxStackSize × 8})。
+     * 上限と下限は旧 {@code scaleCount} から変えていない。
+     */
+    public static int cappedCount(int amount, int maxStackSize) {
         int cap = Math.max(1, maxStackSize) * 8;
         return Math.min(cap, Math.max(1, amount));
+    }
+
+    /**
+     * ドロップ定義の個数が「1個固定」か。{@link #boostedChance}(確率を上げる)と
+     * {@link #extraCount}(個数を足す)のどちらを使うかの分岐に使う。
+     */
+    public static boolean isSingleFixed(int min, int max) {
+        return min == 1 && max == 1;
     }
 }

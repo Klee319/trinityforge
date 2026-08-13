@@ -161,23 +161,30 @@ public final class MobTypeDropListener implements Listener {
         // 2026-08-09: レベル差の足きり + ドロップ増加ステ。未配線(null)なら従来どおり素通し。
         KillRewardAdjuster adjuster = this.killRewardAdjuster;
         double chanceMultiplier = 1.0;
-        double countFactor = 1.0;
+        double dropBonus = 0.0;
         if (adjuster != null) {
             if (adjuster.blocksItems(killer, entity)) {
                 return;
             }
             chanceMultiplier = adjuster.chanceMultiplier(killer, entity);
-            countFactor = adjuster.countFactor(killer);
+            dropBonus = adjuster.dropBonus(killer);
         }
 
         for (MobDropEntry drop : def.drops()) {
-            if (!MobDropRoller.rolls(drop.chance() * chanceMultiplier, random.nextDouble())) {
+            // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
+            // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
+            boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
+            double chance = drop.chance() * chanceMultiplier;
+            if (singleFixed) {
+                chance = MobDropRoller.boostedChance(chance, dropBonus);
+            }
+            if (!MobDropRoller.rolls(chance, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
-            if (countFactor > 1.0) {
-                count = MobDropRoller.scaleCount(count, countFactor,
-                        drop.isCustom() ? 64 : drop.material().getMaxStackSize(), random.nextDouble());
+            if (!singleFixed && dropBonus > 0.0) {
+                count = MobDropRoller.cappedCount(count + MobDropRoller.extraCount(dropBonus, random.nextDouble()),
+                        drop.isCustom() ? 64 : drop.material().getMaxStackSize());
             }
             if (drop.isCustom()) {
                 // 2026-08-01 U13: カタログ/Ars のカスタムアイテム。解決失敗はこの1件だけ捨てる

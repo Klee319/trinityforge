@@ -70,8 +70,9 @@ import java.util.logging.Logger;
  * ({@code event.getDrops()}に元々入っていたもの)には一切触らない</b> — このリスナーはTF追加ドロップの
  * roll処理にしか関与しないため、足きりの影響範囲は自然とTF追加ドロップのみに限定される。
  *
- * <p><b>ドロップ増加ステ({@code mob_drop_bonus}、2026-08-09):</b> 抽選に通った個数へ
- * {@link KillRewardAdjuster#countFactor} の倍率を掛ける。以前はこのステが
+ * <p><b>ドロップ増加ステ({@code mob_drop_bonus}、2026-08-09 / 2026-08-13 に効かせ方を変更):</b>
+ * {@link KillRewardAdjuster#dropBonus} を、個数が1個固定のエントリなら<b>抽選確率</b>へ、
+ * それ以外なら<b>抽選後の個数への加算</b>へ回す(乗算ではない)。以前はこのステが
  * {@code NativeSurvivalPerkListener} で {@code event.getDrops()} の中身にしか掛かっておらず、
  * <b>TF追加ドロップには一切載っていなかった</b>(同じ MONITOR 優先度で先に登録されている =
  * TF追加ドロップが積まれる前に走り終わっている)。
@@ -140,7 +141,7 @@ public final class MobOverrideDropListener implements Listener {
             return;
         }
         double dropMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
-        double countFactor = adjuster.countFactor(entity.getKiller());
+        double dropBonus = adjuster.dropBonus(entity.getKiller());
         List<MobOverrideDropEntry> drops = mobOverrides.dropsFor(worldName, profileId.get());
         // 2026-07-26: 解決失敗の警告に「どのモブの設定か」を載せる。モブidだけだと 396 体の生成物の
         // どれなのか運用側で追えないため、display-name があれば日本語名を併記する。
@@ -148,7 +149,14 @@ public final class MobOverrideDropListener implements Listener {
                 .map(name -> name + " (" + profileId.get() + ")")
                 .orElseGet(profileId::get);
         for (MobOverrideDropEntry drop : drops) {
-            if (!MobDropRoller.rolls(drop.chance() * dropMultiplier, random.nextDouble())) {
+            // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
+            // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
+            boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
+            double chance = drop.chance() * dropMultiplier;
+            if (singleFixed) {
+                chance = MobDropRoller.boostedChance(chance, dropBonus);
+            }
+            if (!MobDropRoller.rolls(chance, random.nextDouble())) {
                 continue;
             }
             int count = MobDropRoller.rollCount(drop.min(), drop.max(), random.nextInt());
@@ -156,12 +164,13 @@ public final class MobOverrideDropListener implements Listener {
                 continue;
             }
             ItemStack stack = buildDropStack(drop, count, mobLabel);
-            if (stack != null && countFactor > 1.0) {
+            if (stack != null && !singleFixed && dropBonus > 0.0) {
                 // 2026-08-09: ドロップ増加ステ(mob_drop_bonus)。NativeSurvivalPerkListener は同じ
                 // MONITOR優先度でも登録順で先に走るため、あとから足すこのドロップには一度も
                 // 掛かっていなかった。個数を確定させた直後にここで掛ける。
-                stack.setAmount(MobDropRoller.scaleCount(stack.getAmount(), countFactor,
-                        stack.getMaxStackSize(), random.nextDouble()));
+                stack.setAmount(MobDropRoller.cappedCount(
+                        stack.getAmount() + MobDropRoller.extraCount(dropBonus, random.nextDouble()),
+                        stack.getMaxStackSize()));
             }
             if (stack != null) {
                 // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず

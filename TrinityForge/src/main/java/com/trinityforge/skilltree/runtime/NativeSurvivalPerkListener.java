@@ -72,8 +72,8 @@ public final class NativeSurvivalPerkListener implements Listener {
         // vanilla_exp_bonus/kill_vanilla_exp_bonus のみでEXPブーストが効くようにするため、
         // どちらか一方が0でも早期returnしない(旧実装はmob_drop_bonus<=0で丸ごとreturnしていた)。
         double dropMultAdd = totals.totalOf(MOB_DROP_BONUS);
-        double dropFactor = MobDropRoller.bonusFactor(dropMultAdd);
-        if (dropFactor > 1.0 && !carriesPlayerFillableStorage(entity)) {
+        double dropBonus = MobDropRoller.clampBonus(dropMultAdd);
+        if (dropBonus > 0.0 && !carriesPlayerFillableStorage(entity)) {
             // モブの装備欄由来(プレイヤーが持たせた/モブが拾った)のスタックは戦利品ではないので
             // 倍率から除外する。ゾンビ等の拾得アイテムも装備スロットに入るため、装備欄の突合せで両方賄える。
             // 専用収納を持つモブ(アレイ/ピグリン等)は突合せ自体が成立しないので
@@ -88,7 +88,7 @@ public final class NativeSurvivalPerkListener implements Listener {
                     continue;
                 }
                 ItemStack copy = drop.clone();
-                copy.setAmount(scaleAmount(copy.getAmount(), dropFactor,
+                copy.setAmount(scaleAmount(copy.getAmount(), dropBonus,
                         copy.getMaxStackSize(), ThreadLocalRandom.current().nextDouble()));
                 event.getDrops().add(copy);
             }
@@ -104,18 +104,22 @@ public final class NativeSurvivalPerkListener implements Listener {
     }
 
     /**
-     * ドロップ倍率を「期待値どおり」に整数化する。
+     * ドロップ増加ステをバニラドロップへ効かせる。<b>2026-08-13 の仕様変更で乗算から加算になった。</b>
      *
-     * <p>旧実装は {@code Math.round(amount * factor)} だったので、+50% が1個ドロップに対して
-     * <b>常に</b>2個(切り上げ)＝実質+100%になっていた。整数部は確定で与え、小数部だけ確率で+1する
-     * ことで期待値を倍率に一致させる(1個 × 1.5 → 50%で2個 / 50%で1個)。
+     * <p>ユーザー指示の新仕様は「1個固定のドロップは確率を上げる／個数がランダムなものは個数を足す」。
+     * バニラドロップは {@code EntityDeathEvent#getDrops()} に<b>抽選済みの結果しか無く</b>、
+     * 元の chance も min/max も復元できないので、<b>確率を上げる方の規則は適用できない</b>。
+     * したがってここは常に個数を足す側で扱う(+50% なら50%の確率で+1、+150% なら確定+1と50%でもう+1)。
+     *
+     * <p>旧実装は個数への乗算だったので、32個スタックに +100% を盛ると +32 個だった。
+     * 新仕様は +1 個。この弱体化は意図したもの(ユーザー指示)。
      *
      * @param roll 0.0以上1.0未満の乱数。テストのために引数化している。
      */
-    static int scaleAmount(int baseAmount, double dropFactor, int maxStackSize, double roll) {
-        // 2026-08-09: 実装は MobDropRoller#scaleCount へ移した。TF追加ドロップ側でも同じ整数化が
+    static int scaleAmount(int baseAmount, double dropBonus, int maxStackSize, double roll) {
+        // 2026-08-09: 実装は MobDropRoller へ移した。TF追加ドロップ側でも同じ整数化が
         // 必要になり、2か所に同じ式を置くと片方だけ直す事故が起きるため。
-        return MobDropRoller.scaleCount(baseAmount, dropFactor, maxStackSize, roll);
+        return MobDropRoller.cappedCount(baseAmount + MobDropRoller.extraCount(dropBonus, roll), maxStackSize);
     }
 
     /**
