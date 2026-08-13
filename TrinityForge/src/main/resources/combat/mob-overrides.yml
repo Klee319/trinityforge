@@ -241,15 +241,7 @@ overrides:
           attack: { attack-power: 12, magic-ratio: 1.0 }
         abilities: [ember_spray]
         vanilla-exp: { base: 24.0, per-level: 0.6, growth: 1.008, growth-interval: 1.0 }
-        drops:
-          - item: ROTTEN_FLESH
-            chance: 1.0
-            min: 1
-            max: 2
-          - item: GLOWSTONE_DUST
-            chance: 0.15
-            min: 1
-            max: 2
+        drops: []
       warlock_husk:
         display-name: "呪術師のハスク"
         stats:
@@ -259,15 +251,7 @@ overrides:
           attack: { attack-power: 15, magic-ratio: 0.6 }
         abilities: [withering_aura]
         vanilla-exp: { base: 30.0, per-level: 0.75, growth: 1.008, growth-interval: 1.0 }
-        drops:
-          - item: ROTTEN_FLESH
-            chance: 1.0
-            min: 1
-            max: 2
-          - item: WITHER_ROSE
-            chance: 0.05
-            min: 1
-            max: 1
+        drops: []
       frost_wraith_skeleton:
         display-name: "氷結の彷徨い骨"
         stats:
@@ -277,15 +261,7 @@ overrides:
           attack: { attack-power: 13, magic-ratio: 0.7 }
         abilities: [frost_field]
         vanilla-exp: { base: 26.0, per-level: 0.66, growth: 1.008, growth-interval: 1.0 }
-        drops:
-          - item: BONE
-            chance: 1.0
-            min: 1
-            max: 2
-          - item: PACKED_ICE
-            chance: 0.15
-            min: 1
-            max: 2
+        drops: []
       abyssal_drowned:
         display-name: "深淵の溺者"
         stats:
@@ -295,15 +271,7 @@ overrides:
           attack: { attack-power: 17, magic-ratio: 0.8 }
         abilities: [piercing_beam]
         vanilla-exp: { base: 34.0, per-level: 0.84, growth: 1.008, growth-interval: 1.0 }
-        drops:
-          - item: PRISMARINE_SHARD
-            chance: 0.6
-            min: 1
-            max: 3
-          - item: NAUTILUS_SHELL
-            chance: 0.08
-            min: 1
-            max: 1
+        drops: []
       cursed_wanderer:
         display-name: "呪われた徘徊者"
         stats:
@@ -313,15 +281,7 @@ overrides:
           attack: { attack-power: 10, magic-ratio: 0.5 }
         abilities: [withering_aura]
         vanilla-exp: { base: 22.0, per-level: 0.54, growth: 1.008, growth-interval: 1.0 }
-        drops:
-          - item: ROTTEN_FLESH
-            chance: 1.0
-            min: 1
-            max: 2
-          - item: EMERALD
-            chance: 0.1
-            min: 1
-            max: 1
+        drops: []
       shadow_spider:
         display-name: "影渡りの蜘蛛"
         stats:
@@ -331,19 +291,7 @@ overrides:
           attack: { attack-power: 14, magic-ratio: 0.9 }
         abilities: [frost_field, piercing_beam]
         vanilla-exp: { base: 28.0, per-level: 0.72, growth: 1.008, growth-interval: 1.0 }
-        drops:
-          - item: STRING
-            chance: 0.8
-            min: 1
-            max: 2
-          - item: SPIDER_EYE
-            chance: 0.5
-            min: 1
-            max: 2
-          - item: FERMENTED_SPIDER_EYE
-            chance: 0.05
-            min: 1
-            max: 1
+        drops: []
 
   # adventurers_guild_hub (HUB) — custombosses/adventurers_guild / 5体
   # アリーナ「Wood League」 — custombosses/wood_league_arena / 91体
@@ -1059,9 +1007,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_fireworks", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+        drops: []
       fireworks_phase_2_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ブーミ (第3段階) (増援)"
         stats:
@@ -1110,9 +1056,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_hallosseum", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+        drops: []
       halloween_event_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "不気味なスケルトン (増援)"
         stats:
@@ -1176,8 +1120,7 @@ overrides:
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第2段階は物理の壁。近接で張り付かせて剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
-        drops:
-          - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
+        drops: []
       em_id_binder_of_worlds_phase_1_melee_miniboss:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現実を根こそぎにする者 (第2段階)"
         stats:
@@ -1190,8 +1133,7 @@ overrides:
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 足を止めさせる係
         abilities: [crippling_stomp]
-        drops:
-          - { item: "custom:reality_thread_core", chance: 0.25, min: 1, max: 1 }
+        drops: []
       em_id_binder_of_worlds_phase_1_melee_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を荒らす者 (第2段階) (増援)"
         stats:
@@ -1218,8 +1160,7 @@ overrides:
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 遮蔽を使わせる係
         abilities: [arrow_fan]
-        drops:
-          - { item: "custom:reality_thread_core", chance: 0.25, min: 1, max: 1 }
+        drops: []
       em_id_binder_of_worlds_phase_1_ranged_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を滅ぼす者 (第2段階) (増援)"
         stats:
@@ -1239,8 +1180,7 @@ overrides:
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 立ち位置を強制する係
         abilities: [frost_field]
-        drops:
-          - { item: "custom:reality_thread_core", chance: 0.25, min: 1, max: 1 }
+        drops: []
       em_id_binder_of_worlds_phase_1_status_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を破る者 (第2段階) (増援)"
         stats:
@@ -1261,8 +1201,7 @@ overrides:
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第3段階は魔法の壁。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
-        drops:
-          - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
+        drops: []
       em_id_binder_of_worlds_phase_3:   # ボス第3段階 — EXP Lv1:83 / Lv50:298 / Lv100:710
         display-name: "世界を繋ぐ者 (第4段階)"
         stats:
@@ -1276,8 +1215,7 @@ overrides:
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第4段階は総攻撃。増援を呼ぶので守衛のヘイトと軽減が効く
         abilities: [call_the_horde, shockwave]
-        drops:
-          - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
+        drops: []
       em_id_binder_of_worlds_phase_3_enderman_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "現実を屠る者 (第4段階) (増援)"
         stats:
@@ -1334,11 +1272,7 @@ overrides:
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 最終段階は全部入り。3職のどれか1つでは足りず、装備と立ち回りの両方を要求する
         abilities: [piercing_beam, shadow_step, call_the_swarm, shockwave]
-        drops:
-          - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:dungeon_seal_binder", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 1.0, min: 2, max: 4 }
+        drops: []
 
   # enchantment_challenge_1_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_1 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題1。課題ごとに要求ビルドが入れ替わる
@@ -1381,9 +1315,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_enchant_trial", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+        drops: []
       enchantment_boss_tricky_bones_summon_arrow:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "矢の射出装置 (召喚体)"
         stats:
@@ -1605,10 +1537,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_bridge", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_bridge_corpse_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ドワーフの死骸 (亡骸)"
         stats:
@@ -1678,10 +1607,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_cave", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_cave_broiled_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "焼かれた坑夫"
         stats:
@@ -1788,11 +1714,7 @@ overrides:
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
         # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
-        drops:
-          - { item: "custom:dungeon_seal_city", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
-          - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
+        drops: []
 
   # the_climb_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_climb / 24体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — アンデッドと獣使いが混在。骨は物理を、影は魔法を弾く
@@ -1932,10 +1854,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_climb", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_climb_undead_beastmaster_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "アンデッドの調獣師 (第4段階)"
         stats:
@@ -2044,11 +1963,7 @@ overrides:
         # 持つ EliteMobs 個体にしか効かない(ファイル冒頭 default: の警告参照)。バニラの
         # ウォーデンからも落としたい場合は combat/mob-level-table.yml の add-drops に
         # mobs: [WARDEN] で足すこと(このファイルでは実現できない)。
-        drops:
-          - { item: "custom:dungeon_seal_deep_mines", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
-          - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
+        drops: []
       em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "熟練の坑夫"
         stats:
@@ -2377,10 +2292,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_mines", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_mines_soulweaver_reinforcements:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "魂の裂片 (増援)"
         stats:
@@ -2548,10 +2460,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_nether_bell", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       em_id_the_nether_bell_corpse_phase_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "腐らざる者 (第2段階) (亡骸)"
         stats:
@@ -2733,10 +2642,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_nether_wastes", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       em_id_the_nether_wastes_miniboss_5_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の猟犬 (召喚体)"
         stats:
@@ -2834,10 +2740,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_palace", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_palace_old_stone_king_summon_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "石の守護者 (召喚体) (1体目)"
         stats:
@@ -3026,10 +2929,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_quarry", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       em_id_the_quarry_royal_wizard_four:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の速射術士"
         stats:
@@ -3127,10 +3027,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_knight_castle", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_castle_charlemagne_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "シャルルマーニュ (第4段階)"
         stats:
@@ -3214,9 +3111,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_north_pole", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
+        drops: []
       northpole_skeleton_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "お仕置きリストの魂 (召喚体)"
         stats:
@@ -3440,10 +3335,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_sewer_maze", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       sewer_tier_70_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "溺死せし者 (増援)"
         stats:
@@ -3485,10 +3377,7 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops:
-          - { item: "custom:dungeon_seal_steamworks", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
+        drops: []
       the_steamworks_clk_wrx702_p4:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "CLK-WRx702 (第4段階)"
         stats:
@@ -3595,11 +3484,7 @@ overrides:
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
         # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
         # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
-        drops:
-          - { item: "custom:dungeon_seal_dark_cathedral", chance: 1.0, min: 1, max: 1 }
-          - { item: "custom:gacha_ticket_5", chance: 0.06, min: 1, max: 1 }
-          - { item: "custom:abyssal_ingot", chance: 0.1, min: 1, max: 1 }
-          - { item: "custom:warden_tendril", chance: 0.5, min: 1, max: 2 }
+        drops: []
       dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "クトゥルフの狂信者"
         stats:
