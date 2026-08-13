@@ -42,16 +42,29 @@
     if (!parent[key] || typeof parent[key] !== "object" || Array.isArray(parent[key])) parent[key] = {};
     return parent[key];
   }
+  // 値が [0,1] の割合であるキー。mob-forms.js の RATE_FIELDS と同じ根拠
+  // (DefenseStats / AttackStats の javadoc)。flat-defense / flat-bonus-damage / fixed-damage /
+  // attack-power / max-health はダメージ量そのものなので入れない(入れると 100 倍表示になる)。
+  const RATE_RAMP_KEYS = new Set([
+    "defense-rate", "resistance", "damage-reduction", "armor-strength",
+    "percent-bonus-damage", "penetration", "crit-chance", "crit-damage", "damage-modifier"
+  ]);
+
   function numField(obj, key, opts) {
     const o = opts || {};
-    return field(key, window.numberInput(obj[key], (v) => {
+    // 2026-08-13: 割合キー([0,1])は % 入力にする。整数指定(o.int)のものは割合ではないので対象外。
+    const asRate = !o.int && RATE_RAMP_KEYS.has(key) && typeof window.rateValueControl === "function";
+    const setValue = (v) => {
       if (v == null || v === "") {
         if (o.clearable) delete obj[key];
         else obj[key] = o.fallback != null ? o.fallback : 0;
         return;
       }
       obj[key] = o.int ? Math.trunc(v) : v;
-    }, o.int ? { int: true } : undefined), {
+    };
+    return field(key, asRate
+      ? window.rateValueControl(obj[key], setValue, { blankWhenEmpty: !!o.clearable })
+      : window.numberInput(obj[key], setValue, o.int ? { int: true } : undefined), {
       label: o.label || key,
       desc: o.desc || "",
       key
@@ -87,12 +100,19 @@
       const ramp = host[key] && typeof host[key] === "object" ? host[key] : (host[key] = { base: 0, "per-level": 0 });
       if (ramp.base == null) ramp.base = 0;
       if (ramp["per-level"] == null) ramp["per-level"] = 0;
+      // 2026-08-13: 割合キーのランプは % 入力にする(ユーザー指示「割合記法のものはすべて%記法に」)。
+      // **同じ行でも単位が混ざる**のが要点 ── 基準/Lvごと/高レベル加算 はそのキーと同じ単位(割合)
+      // だが、指数(growth) は倍率、指数間隔と高レベル開始はレベル数なので % にしてはいけない。
+      const isRate = RATE_RAMP_KEYS.has(key) && typeof window.rateValueControl === "function";
+      const rateNum = (value, setter, blankWhenEmpty) => (isRate
+        ? window.rateValueControl(value, setter, { blankWhenEmpty })
+        : window.numberInput(value, setter));
       const rowChildren = [
         h("span", { class: "form-label", text: key }),
         h("span", { class: "mini-label", text: "基準" }),
-        window.numberInput(ramp.base, (v) => { ramp.base = v == null ? 0 : v; }),
+        rateNum(ramp.base, (v) => { ramp.base = v == null ? 0 : v; }, false),
         h("span", { class: "mini-label", text: "Lvごと" }),
-        window.numberInput(ramp["per-level"], (v) => { ramp["per-level"] = v == null ? 0 : v; })
+        rateNum(ramp["per-level"], (v) => { ramp["per-level"] = v == null ? 0 : v; }, false)
       ];
       if (showGrowth) {
         rowChildren.push(
@@ -116,10 +136,10 @@
             else ramp["high-level-from"] = v;
           }),
           h("span", { class: "mini-label", text: "高レベル加算/Lv" }),
-          window.numberInput(ramp["high-level-per-level"] == null ? "" : ramp["high-level-per-level"], (v) => {
+          rateNum(ramp["high-level-per-level"] == null ? "" : ramp["high-level-per-level"], (v) => {
             if (v == null || v === "") delete ramp["high-level-per-level"];
             else ramp["high-level-per-level"] = v;
-          })
+          }, true)
         );
       }
       rows.appendChild(h("div", { class: "stat-row" }, rowChildren));

@@ -153,17 +153,38 @@
       }));
       return wrap;
     }
+    return rateValueControl(value, (v) => setter(v == null ? 0 : v), { blankWhenEmpty: false });
+  }
+  // thread-sets フォーム等でも同じ %入力(割合保存) を再利用する。
+  window.statValueControl = statValueControl;
+
+  // [0,1] の割合フィールド用の %入力(表示=値×100 / 保存=入力÷100)。
+  //
+  // **`statValueControl` と分けてあるのは、キーで判定できない割合があるから。**
+  // モブ定義の `physical.resistance` や `attack.crit-chance` は yml の中でブロックに
+  // 属する短縮キーで、`stats/lore.yml` のステ語彙(`phys-resistance` 等)には無い。
+  // つまり `isPercentStat` では割合だと判定できないので、「これは割合だ」と分かっている
+  // 呼び出し側がこちらを直接使う。
+  //
+  // `blankWhenEmpty` の既定が true なのはモブ系フォームの都合:
+  // あちらは「空欄 = キーを書かない(上位スコープの値を継承)」で 0 とは意味が違うため、
+  // 空欄を 0 に潰すとレベル係数やオーバーライドの継承が黙って壊れる。
+  // `statValueControl` 側は従来どおり null を 0 として扱う(既存画面の挙動を変えない)。
+  function rateValueControl(value, setter, opts) {
+    const options = opts || {};
+    const blankWhenEmpty = options.blankWhenEmpty !== false;
+    const empty = value == null || value === "";
     const wrap = h("span", { class: "pct-input" });
-    const shown = value == null ? 0 : roundTo(Number(value) * 100, 4);
+    const shown = empty ? (blankWhenEmpty ? "" : 0) : roundTo(Number(value) * 100, 4);
     const input = window.numberInput(shown, (v) => {
-      setter(v == null || v === "" ? 0 : roundTo(Number(v) / 100, 6));
+      if (v == null || v === "") { setter(blankWhenEmpty ? null : 0); return; }
+      setter(roundTo(Number(v) / 100, 6));
     });
     wrap.appendChild(input);
     wrap.appendChild(h("span", { class: "pct-suffix", text: "%" }));
     return wrap;
   }
-  // thread-sets フォーム等でも同じ %入力(割合保存) を再利用する。
-  window.statValueControl = statValueControl;
+  window.rateValueControl = rateValueControl;
 
   // 挿入順を保ったままマップのキーをリネームする。
   function renameKey(map, oldKey, newKey) {

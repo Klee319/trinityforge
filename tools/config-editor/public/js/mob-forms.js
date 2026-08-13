@@ -65,12 +65,37 @@
     "crit-chance", "crit-damage", "damage-modifier", "fixed-damage"
   ];
 
+  // 2026-08-13: モブ側の割合フィールドを % 入力にする(ユーザー指示「割合記法のものはすべて
+  // %記法にしてほしい」)。**キーからは割合だと判定できない** ── これらは physical:/magical:/
+  // attack: ブロック内の短縮キーで、`stats/lore.yml` のステ語彙(phys-resistance 等)に存在せず
+  // `isPercentStat` は FLAT を返す。だから語彙ではなくこの表で明示する。
+  // 単位の根拠は DefenseStats / AttackStats の javadoc(いずれも [0,1] の割合。
+  // damage-modifier だけは中立値 1.0 の倍率だが単位は同じ割合で、%表示だと 100% = ×1.0 になる)。
+  // **除外したものと理由**: flat-defense / flat-bonus-damage / fixed-damage / attack-power は
+  // 割合ではなくダメージ量そのもの、max-health / level も実数。ここに入れると 100 倍で表示される。
+  const RATE_FIELDS = new Set([
+    "defense-rate", "resistance", "damage-reduction", "armor-strength",
+    "percent-bonus-damage", "penetration", "crit-chance", "crit-damage", "damage-modifier"
+  ]);
+
+  /**
+   * モブ系フォームの値入力。割合フィールドなら % 入力(表示×100 / 保存÷100)、それ以外は素の数値。
+   * **空欄は 0 ではなく null で返す** ── モブ系は「空欄 = キーを書かず上位スコープを継承」なので、
+   * 0 に潰すと継承が黙って壊れる(呼び出し側は元から null で delete している)。
+   */
+  function mobValueInput(key, value, onSet) {
+    if (RATE_FIELDS.has(key) && typeof window.rateValueControl === "function") {
+      return window.rateValueControl(value, onSet);
+    }
+    return window.numberInput(value, onSet, { int: false });
+  }
+
   function buildDefenseBlock(title, obj) {
     const fields = PHYS_MAGIC_FIELDS.map((key) => {
-      const input = window.numberInput(obj[key], (v) => {
+      const input = mobValueInput(key, obj[key], (v) => {
         if (v === null || v === "") { delete obj[key]; return; }
         obj[key] = v;
-      }, { int: false });
+      });
       return fieldRow(key, input);
     });
     return h("div", { class: "mob-defense-block" }, [subTitle(title), gridRow(fields)]);
@@ -79,10 +104,10 @@
   function buildAttackBlock(title, obj) {
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) obj = {};
     const fields = ATTACK_FIELDS.map((key) => {
-      const input = window.numberInput(obj[key], (v) => {
+      const input = mobValueInput(key, obj[key], (v) => {
         if (v === null || v === "") { delete obj[key]; return; }
         obj[key] = v;
-      }, { int: false });
+      });
       return fieldRow(key, input);
     });
     return h("div", { class: "mob-attack-block" }, [subTitle(title), gridRow(fields)]);
@@ -184,22 +209,22 @@
         desc: "レベル1あたりの最大HP加算係数。"
       }),
       ...growthFieldRows(touchCoeffs, coeffs, "max-health", "最大HP", { showHighLevel: true }),
-      fieldRow("armor-strength", window.numberInput(coeffs["armor-strength"], (v) => {
+      fieldRow("armor-strength", mobValueInput("armor-strength", coeffs["armor-strength"], (v) => {
         const c = touchCoeffs();
         if (v === null || v === "") { delete c["armor-strength"]; return; }
         c["armor-strength"] = v;
-      }, { int: false }), {
+      }), {
         label: "防具強度係数",
-        desc: "レベル1あたりの防具強度加算。"
+        desc: "レベル1あたりの防具強度加算(割合なので % 表示。0.25% = Lv100 で +25%)。"
       })
     ];
     function buildLazyDefenseBlock(title, obj, touch) {
       const fields = PHYS_MAGIC_FIELDS.map((key) => {
-        const input = window.numberInput(obj[key], (v) => {
+        const input = mobValueInput(key, obj[key], (v) => {
           const target = touch();
           if (v === null || v === "") { delete target[key]; return; }
           target[key] = v;
-        }, { int: false });
+        });
         return fieldRow(key, input);
       });
       return h("div", { class: "mob-defense-block" }, [subTitle(title), gridRow(fields)]);
@@ -220,11 +245,11 @@
 
   function buildAttackCoeffBlock(title, obj, touch) {
     const fields = ATTACK_FIELDS.flatMap((key) => {
-      const input = window.numberInput(obj[key], (v) => {
+      const input = mobValueInput(key, obj[key], (v) => {
         const target = touch();
         if (v === null || v === "") { delete target[key]; return; }
         target[key] = v;
-      }, { int: false });
+      });
       const row = fieldRow(key, input);
       // attack-power のみ growth/growth-interval に対応 (mob-import.yml の attack-power と揃える)。
       // 構造上は他ステも同じ growthFieldRows で後から追加できる。
@@ -320,10 +345,10 @@
         if (v === null) { delete defaults["coordinate-coefficient"]; return; }
         defaults["coordinate-coefficient"] = v;
       }, { int: false });
-      const armorInput = window.numberInput(defaults["armor-strength"], (v) => {
+      const armorInput = mobValueInput("armor-strength", defaults["armor-strength"], (v) => {
         if (v === null) { delete defaults["armor-strength"]; return; }
         defaults["armor-strength"] = v;
-      }, { int: false });
+      });
       const hpInput = window.numberInput(defaults["max-health"], (v) => {
         if (v === null || v === "") { delete defaults["max-health"]; return; }
         defaults["max-health"] = v;
@@ -524,10 +549,10 @@
         if (v === null || v === "") { delete entry["max-health"]; return; }
         entry["max-health"] = v;
       }, { int: false });
-      const armorInput = window.numberInput(entry["armor-strength"], (v) => {
+      const armorInput = mobValueInput("armor-strength", entry["armor-strength"], (v) => {
         if (v === null) { delete entry["armor-strength"]; return; }
         entry["armor-strength"] = v;
-      }, { int: false });
+      });
 
       const basicBody = gridRow([
         fieldRow("level", levelInput, { label: "基準戦闘レベル", desc: "このモブの基準となる戦闘レベル。0以上の整数。" }),
@@ -1315,30 +1340,30 @@
       if (v === null || v === "") { delete s["max-health"]; return; }
       s["max-health"] = v;
     }, { int: false });
-    const armorStrengthInput = window.numberInput(stats["armor-strength"], (v) => {
+    const armorStrengthInput = mobValueInput("armor-strength", stats["armor-strength"], (v) => {
       const s = touchStats();
       if (v === null || v === "") { delete s["armor-strength"]; return; }
       s["armor-strength"] = v;
-    }, { int: false });
+    });
 
     function buildLazyDefenseBlock(title, obj, touch) {
       const fields = PHYS_MAGIC_FIELDS.map((key) => {
-        const input = window.numberInput(obj[key], (v) => {
+        const input = mobValueInput(key, obj[key], (v) => {
           const target = touch();
           if (v === null || v === "") { delete target[key]; return; }
           target[key] = v;
-        }, { int: false });
+        });
         return fieldRow(key, input);
       });
       return h("div", { class: "mob-defense-block" }, [subTitle(title), gridRow(fields)]);
     }
     function buildLazyAttackBlock(title, obj, touch) {
       const fields = ATTACK_FIELDS.map((key) => {
-        const input = window.numberInput(obj[key], (v) => {
+        const input = mobValueInput(key, obj[key], (v) => {
           const target = touch();
           if (v === null || v === "") { delete target[key]; return; }
           target[key] = v;
-        }, { int: false });
+        });
         return fieldRow(key, input);
       });
       return h("div", { class: "mob-attack-block" }, [subTitle(title), gridRow(fields)]);
