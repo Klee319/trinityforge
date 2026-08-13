@@ -290,10 +290,7 @@
         if (book && typeof book.id === "string" && book.id) booksAsMap[book.id] = book;
       }
       if (typeof window.renderCatalogRecipeSection === "function") {
-        // spellbooks.yml は UnifiedRecipeLoader が recipe:(単数)しか読まないので1件まで
-        // (2件目を作ると recipes: へ化けて Java からレシピが見えなくなる)。
-        body.push(window.renderCatalogRecipeSection(b, () => render(), booksAsMap, curId || `tier_${idx}`,
-          { maxRecipes: 1 }));
+        body.push(window.renderCatalogRecipeSection(b, () => render(), booksAsMap, curId || `tier_${idx}`));
       }
       return window.collapsibleCard(head, body, {
         expanded: expandedBooks.has(curId),

@@ -24,7 +24,10 @@
   // ============================================================
 
   // ---- materials エントリ ----
-  const MATERIAL_KNOWN = new Set(["base_material", "custom_model_data", "display_name", "name_color", "lore", "recipe", "enchant_glow"]);
+  // recipes: は 2026-08-13 に追加。レシピ編集UIは catalog.yml と共通の正規形
+  // (0件=キーなし / 1件=recipe: / 2件以上=recipes:)へ書き戻すので、素材も両方を往復させる
+  // (ArsPaper の UnifiedRecipeLoader も同日に両方を読むようにした)。
+  const MATERIAL_KNOWN = new Set(["base_material", "custom_model_data", "display_name", "name_color", "lore", "recipe", "recipes", "enchant_glow"]);
 
   function parseMaterialEntry(id, entry) {
     const e = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {};
@@ -42,6 +45,8 @@
       hasRecipe: has("recipe"),
       recipe: has("recipe") && e.recipe && typeof e.recipe === "object" && !Array.isArray(e.recipe)
         ? clone(e.recipe) : null,
+      hasRecipes: has("recipes") && Array.isArray(e.recipes),
+      recipes: Array.isArray(e.recipes) ? clone(e.recipes) : null,
       hasEnchantGlow: has("enchant_glow"), enchantGlow: e.enchant_glow
     };
     for (const k of Object.keys(e)) if (!MATERIAL_KNOWN.has(k)) model._extra[k] = clone(e[k]);
@@ -60,6 +65,7 @@
         case "name_color": if (model.hasNameColor) out.name_color = model.nameColor; break;
         case "lore": if (model.hasLore) out.lore = model.lore.slice(); break;
         case "recipe": if (model.hasRecipe && model.recipe) out.recipe = clone(model.recipe); break;
+        case "recipes": if (model.hasRecipes && model.recipes) out.recipes = clone(model.recipes); break;
         case "enchant_glow": if (model.hasEnchantGlow) out.enchant_glow = model.enchantGlow; break;
         default: if (Object.prototype.hasOwnProperty.call(model._extra, k)) out[k] = clone(model._extra[k]);
       }
@@ -72,6 +78,7 @@
     if (model.hasNameColor && !emitted.has("name_color")) out.name_color = model.nameColor;
     if (model.hasLore && !emitted.has("lore")) out.lore = model.lore.slice();
     if (model.hasRecipe && model.recipe && !emitted.has("recipe")) out.recipe = clone(model.recipe);
+    if (model.hasRecipes && model.recipes && !emitted.has("recipes")) out.recipes = clone(model.recipes);
     if (model.hasEnchantGlow && !emitted.has("enchant_glow")) out.enchant_glow = model.enchantGlow;
     return out;
   }
@@ -460,6 +467,7 @@
       if (m.hasEnchantGlow ? !!m.enchantGlow : true) e["enchant-glow"] = true;
       if (Array.isArray(m.lore) && m.lore.length) e.lore = m.lore.map(toMM);
       if (m.hasRecipe && m.recipe) e.recipe = clone(m.recipe);
+      if (m.hasRecipes && Array.isArray(m.recipes)) e.recipes = clone(m.recipes);
       for (const k of Object.keys(m._extra || {})) e[k] = clone(m._extra[k]);
       cat.items[entry.id] = e;
       if (typeof window.setItemDisplayTab === "function") window.setItemDisplayTab(cat, entry.id, tab);
@@ -724,30 +732,26 @@
       }
 
       function renderMaterialRecipeSection(m) {
-        const entryLike = { recipe: m.hasRecipe ? m.recipe : undefined };
+        // 共通UI(catalog.yml と同じ部品)は recipe:(1件) と recipes:(2件以上) を出し入れするので、
+        // **両方を渡して両方を書き戻す**。2026-08-13 実サーバ報告「2つ目のレシピを登録すると
+        // 1つ目が消える」の真因はここで recipe: しか渡さず recipe: しか読み戻していなかったこと
+        // (2件目を足した瞬間に共通UIが entryLike を recipes: へ正規化し、hasRecipe=false になって
+        //  1件目ごと消えていた)。
+        const entryLike = {};
+        if (m.hasRecipe && m.recipe) entryLike.recipe = m.recipe;
+        if (m.hasRecipes && Array.isArray(m.recipes)) entryLike.recipes = m.recipes;
         const renderRecipe = window.renderCatalogRecipeSection;
         if (typeof renderRecipe !== "function") {
           return h("div", { class: "empty-hint", text: "レシピ UI を読み込めません (forms.js)" });
         }
-        // materials.yml は ArsPaper の MaterialConfigManager / UnifiedRecipeLoader が
-        // recipe:(単数)しか読まないので、レシピは1件までに制限する。
-        // 2026-08-13 実サーバ報告「2つ目のレシピを登録すると1つ目が消える」の真因はここ:
-        // 制限が無かったため2件目を足すと共通UIが entryLike を recipes: へ正規化し、
-        // 下の書き戻しが entryLike.recipe しか見ていないので hasRecipe=false になって
-        // 1件目ごと消えていた。上限に加えて、書き戻し側でも recipes[0] を拾う多重防御を置く。
         return renderRecipe(entryLike, () => {
-          const fromList = Array.isArray(entryLike.recipes) ? entryLike.recipes[0] : undefined;
-          const kept = entryLike.recipe !== undefined && entryLike.recipe !== null
-            ? entryLike.recipe : fromList;
-          if (kept !== undefined && kept !== null) {
-            m.hasRecipe = true;
-            m.recipe = kept;
-          } else {
-            m.hasRecipe = false;
-            m.recipe = null;
-          }
+          const single = entryLike.recipe;
+          m.hasRecipe = single !== undefined && single !== null;
+          m.recipe = m.hasRecipe ? single : null;
+          m.hasRecipes = Array.isArray(entryLike.recipes);
+          m.recipes = m.hasRecipes ? entryLike.recipes : null;
           render();
-        }, undefined, undefined, { maxRecipes: 1 });
+        });
       }
     }
 

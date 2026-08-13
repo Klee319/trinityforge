@@ -2547,16 +2547,11 @@
   }
 
   function renderCatalogRecipeSection(entry, rerenderEntry, itemsMap, entryId, opts) {
-    const options = opts && typeof opts === "object" ? opts : {};
     const items = itemsMap && typeof itemsMap === "object" ? itemsMap : {};
-    // 1エントリに持てるレシピ数の上限。既定は無制限 (catalog.yml = TF本体の ItemCatalogConfig は
-    // recipes:(配列)を読む)。ArsPaper 側の yml は UnifiedRecipeLoader が例外なく
-    // getConfigurationSection("recipe") しか見ないので、それらの画面は maxRecipes: 1 を渡す。
-    // 2026-08-13 実サーバ報告「2つ目のレシピを登録しようとすると1つ目のレシピが消える」の対策:
-    // 上限を超える追加をUIから消す(押せてしまうと、書き戻し先が recipes: に化けて Java から
-    // 見えなくなる。素材タブに至っては呼び出し元が recipe: しか読まないので1件目ごと消える)。
-    const maxRecipes = Number.isFinite(options.maxRecipes) && options.maxRecipes > 0
-      ? Math.trunc(options.maxRecipes) : Infinity;
+    // レシピ数に上限は設けない。2026-08-13 に ArsPaper 側の UnifiedRecipeLoader も
+    // recipe:(単数) と recipes:(配列) の両方を読むようにしたので、素材・魔導書・ソース・
+    // 機能アイテムもカタログとまったく同じ挙動になる(「儀式を使うアイテムは素材以外にもあるのだから
+    // 区別する理由が無い。統合されているべき」というユーザー指示)。
 
     // recipe:(単発マップ) と recipes:(マップ配列) を1つの作業配列に正規化する。
     // 保存形は常に正規形へ書き戻す: 0件=両キーなし / 1件=recipe: のみ / 2件以上=recipes: のみ。
@@ -2603,21 +2598,16 @@
     if (list.length === 0) {
       box.appendChild(h("div", { class: "empty-hint", text: "レシピは未設定です。" }));
     }
-    if (list.length < maxRecipes) {
-      box.appendChild(h("button", {
-        class: "btn-small", type: "button", text: "+ レシピを追加",
-        onclick: () => {
-          const fresh = { method: "workbench", type: "shaped" };
-          ensureShapedRecipe(fresh);
-          list.push(fresh);
-          writeBack();
-          rerenderEntry();
-        }
-      }));
-    } else if (maxRecipes === 1) {
-      box.appendChild(h("div", { class: "field-desc",
-        text: "この設定ファイルは1アイテムにつきレシピを1件までしか持てません(複数レシピを持てるのはアイテムカタログ catalog.yml だけです)。" }));
-    }
+    box.appendChild(h("button", {
+      class: "btn-small", type: "button", text: "+ レシピを追加",
+      onclick: () => {
+        const fresh = { method: "workbench", type: "shaped" };
+        ensureShapedRecipe(fresh);
+        list.push(fresh);
+        writeBack();
+        rerenderEntry();
+      }
+    }));
     return box;
   }
 

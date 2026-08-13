@@ -656,6 +656,36 @@ lore には「4個で鉄インゴットに戻せる」と書いてあるのに�
 - materials.yml に「素材Aから別の何かを作る」レシピを書くときは必ず `result:` を明示する。
   テストで固定するときも `base_material` だけを見るのは不十分 — `recipe.result` を直接検証すること。
 
+### ⚠️ 1アイテムに複数レシピを書くときは「登録キー」を結果アイテムIDから分離する
+
+レシピの正規形は **TF の `catalog.yml` と ArsPaper 側の全 yml で共通**（2026-08-13 に統合）:
+
+```
+0件 → キーなし
+1件 → recipe:  （マップ）
+2件以上 → recipes:  （マップの配列）
+```
+
+`UnifiedRecipeLoader#recipeSections` が両形を読み、6ローダー（functional-items / items /
+materials / threads / sourcejars・sourcelinks / spellbooks）すべてが**書かれた順に全件**回す。
+統合前は `getConfigurationSection("recipe")` しか見ていなかったため、設定エディタの共通レシピUIで
+2件目を足した瞬間に**レシピが丸ごと Java から見えなくなっていた**（エディタ画面上でも1件目が消えた）。
+
+**踏むと無言で壊れる点:**
+
+- **登録キーはアイテムIDそのものではいけない。** 作業台は `new NamespacedKey(plugin, data.id())`、
+  儀式は `RitualRecipeRegistry` の `Map` キーが**どちらもレシピの id 文字列**なので、同じアイテムに
+  2件登録すると**後勝ちで片方が黙って消える**（`RecipeManager` は重複キーを skip、
+  `RitualRecipeRegistry` は `put` で上書き）。`UnifiedRecipeLoader#recipeKey(id, index)` が
+  2件目以降を `<id>_r2` にする。**結果アイテムは常に元の id から解決する**（キーを結果に使わない）。
+- **`unlock-gate.yml` の `recipe-perks` はアイテム単位で書かれている。** `_r2` のキーをそのまま引くと
+  **2件目だけ perk ゲートを素通りする**。`RecipeUnlockGate#gateKey` が「完全一致 → 無ければ
+  末尾の `_r<数字>` を落とした基底ID」でフォールバックする。
+- **lore の「作り方」表示は `MaterialConfigManager` が別に読んでいる。** `recipe:` が無い
+  （＝2件以上ある）エントリでは `recipes[0]` で代用する。
+- 設定エディタ側は `lib/schema.js` の `validateRecipeForms()` が `recipe:`/`recipes:` を同じ検証器へ流す。
+  **画面ごとにレシピUIの挙動を変えないこと**（「素材だけ1件まで」にする修正は差し戻された）。
+
 ### 圧縮アイテム（9倍→81倍→…）は TF の `catalog.yml` ではなく ArsPaper の `materials.yml` に住んでいる
 
 「圧縮○○」を探して `items/catalog.yml` を grep すると1件も出ない。実体は

@@ -215,17 +215,23 @@ function validateCatalog(data, errors) {
     if (entry.draft !== undefined && entry.draft !== null && typeof entry.draft !== "boolean") {
       errors.push(`items.${id}.draft: 真偽値(true/false)である必要があります`);
     }
-    validateCatalogRecipe(entry.recipe, `items.${id}.recipe`, errors);
-    if (entry.recipes !== undefined && entry.recipes !== null) {
-      if (!Array.isArray(entry.recipes)) {
-        errors.push(`items.${id}.recipes: レシピマップの配列である必要があります`);
-      } else {
-        entry.recipes.forEach((r, i) => {
-          validateCatalogRecipe(r, `items.${id}.recipes[${i}]`, errors);
-        });
-      }
-    }
+    validateRecipeForms(entry, `items.${id}`, errors, validateCatalogRecipe);
   }
+}
+
+// レシピの正規形は「0件=キーなし / 1件=recipe:(マップ) / 2件以上=recipes:(マップの配列)」で、
+// これは catalog.yml だけでなく ArsPaper 側の materials / threads / spell-books / jars でも同じ
+// (2026-08-13 に UnifiedRecipeLoader を両形対応にして統合した)。どの config でも同じ検証を
+// 掛けられるよう、1件分の検証器 (validateOne) を受け取る共通ヘルパにしてある。
+function validateRecipeForms(entry, prefix, errors, validateOne) {
+  if (!isPlainObject(entry)) return;
+  validateOne(entry.recipe, `${prefix}.recipe`, errors);
+  if (entry.recipes === undefined || entry.recipes === null) return;
+  if (!Array.isArray(entry.recipes)) {
+    errors.push(`${prefix}.recipes: レシピマップの配列である必要があります`);
+    return;
+  }
+  entry.recipes.forEach((r, i) => validateOne(r, `${prefix}.recipes[${i}]`, errors));
 }
 
 // reversible (解凍を許可) の付与条件判定: shaped は shape上の全非空スロットの参照値、
@@ -454,14 +460,15 @@ function validateArsRecipes(data, errors) {
 
 // ---- ArsPaper materials.yml / threads.yml (ars-materials / ars-threads) ----
 // 儀式レシピ (core-item / pedestal-items / source) の共有検証。result は扱わない。
+// prefix はレシピマップ自身のフルパス (例: materials.foo.recipe / materials.foo.recipes[1])。
 function validateRitualRecipe(recipe, prefix, errors) {
   if (recipe === undefined || recipe === null) return;
-  if (!isPlainObject(recipe)) { errors.push(`${prefix}.recipe: マップである必要があります`); return; }
+  if (!isPlainObject(recipe)) { errors.push(`${prefix}: マップである必要があります`); return; }
   if (recipe["core-item"] !== undefined && typeof recipe["core-item"] !== "string") {
-    errors.push(`${prefix}.recipe.core-item: 文字列である必要があります`);
+    errors.push(`${prefix}.core-item: 文字列である必要があります`);
   }
-  validatePedestalItems(recipe["pedestal-items"], `${prefix}.recipe`, errors);
-  validateSource(recipe.source, `${prefix}.recipe`, errors);
+  validatePedestalItems(recipe["pedestal-items"], prefix, errors);
+  validateSource(recipe.source, prefix, errors);
 }
 
 function validateArsMaterials(data, errors) {
@@ -492,7 +499,7 @@ function validateArsMaterials(data, errors) {
     if (entry.enchant_glow !== undefined && entry.enchant_glow !== null && typeof entry.enchant_glow !== "boolean") {
       errors.push(`${prefix}.enchant_glow: 真偽値である必要があります`);
     }
-    validateRitualRecipe(entry.recipe, prefix, errors);
+    validateRecipeForms(entry, prefix, errors, validateRitualRecipe);
   }
 }
 
@@ -545,7 +552,7 @@ function validateArsThreads(data, errors) {
     if (entry.flight !== undefined && entry.flight !== null && typeof entry.flight !== "boolean") {
       errors.push(`${prefix}.flight: 真偽値である必要があります`);
     }
-    validateRitualRecipe(entry.recipe, prefix, errors);
+    validateRecipeForms(entry, prefix, errors, validateRitualRecipe);
   }
 }
 
@@ -1356,9 +1363,7 @@ function validateArsSpellbooks(data, errors) {
     if (b.cooldown !== undefined && b.cooldown !== null && !isNumber(b.cooldown)) {
       errors.push(`spell-books[${i}].cooldown: 数値である必要があります`);
     }
-    if (b.recipe !== undefined && b.recipe !== null) {
-      validateCatalogRecipe(b.recipe, `spell-books[${i}]`, errors);
-    }
+    validateRecipeForms(b, `spell-books[${i}]`, errors, validateCatalogRecipe);
   });
 
   const catalysts = data.catalysts;
@@ -1602,9 +1607,7 @@ function validateArsItemLookEntry(entry, prefix, errors) {
       });
     }
   }
-  if (entry.recipe !== undefined && entry.recipe !== null) {
-    validateCatalogRecipe(entry.recipe, prefix, errors);
-  }
+  validateRecipeForms(entry, prefix, errors, validateCatalogRecipe);
 }
 
 function validateArsSourceJars(data, errors) {
