@@ -142,8 +142,9 @@ window.FALLBACK_STAT_UNITS = {
   "lapis-cost-reduction": "個",
   "ars-tier-bonus": "ティア",
   "glyph-slot-bonus": "枠",
-  "mana-regen-base": "/秒",
-  "mana-regen-interval-ticks": "tick",
+  // 2026-08-13: mana-regen-base / mana-regen-interval-ticks は stats/lore.yml から撤去した
+  // (combat/base-stats.yml 専用の全プレイヤー共通定数で、アイテムのロアには出ない)。
+  // この辞書は lore.yml の unit と双方向で照合されるため、残すと死にキーとして検知される。
   "mana-idle-seconds": "秒"
 };
 

@@ -291,7 +291,9 @@ test("「準備中」カテゴリは改名できない(id は cat_auto_draft の
   assert.ok(alerts.length >= 1, "改名できない理由を伝えていない");
 });
 
-test("「未分類」カテゴリも予約カテゴリとして削除・改名できない", () => {
+// 【2026-08-13】旧受け皿「未分類」は廃止。予約 id ではあり続ける(ユーザー採番に取られると
+// 掃除がユーザーのカテゴリを消す)が、タブに出ないので削除・改名の対象にもならない。
+test("旧「未分類」カテゴリはタブに出ず、描画時に取り除かれる", () => {
   const { win } = loadEditorCategories();
   const host = hostWith({});
   host._editor.categories.weapon.push({ id: "cat_auto_unclassified", label: "未分類", itemIds: [] });
@@ -299,11 +301,9 @@ test("「未分類」カテゴリも予約カテゴリとして削除・改名�
   const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
   const unclassBtn = bar.querySelectorAll(".recipe-tab[data-cat-id]")
     .find((b) => b.getAttribute("data-cat-id") === "cat_auto_unclassified");
-  unclassBtn.props.onclick();
-
-  bar.querySelectorAll(".btn-small").find((b) => b.props.text === "カテゴリ削除").props.onclick();
-  assert.ok(win.listEditorCategories(host, "weapon").some((c) => c.id === "cat_auto_unclassified"),
-    "予約カテゴリ「未分類」が削除できてしまった");
+  assert.equal(unclassBtn, undefined, "旧「未分類」タブが残っている");
+  assert.ok(!win.listEditorCategories(host, "weapon").some((c) => c.id === "cat_auto_unclassified"),
+    "yml 側から取り除かれていない (保存で書き戻ってしまう)");
 });
 
 // ============================================================

@@ -58,6 +58,9 @@ class LoreVocabularyCoverageTest {
                 "基準キー attack_power が両側に無い(比較が空振りしている疑い)");
         List<String> missing = new ArrayList<>();
         for (String key : StatVocabulary.allKeys()) {
+            if (StatVocabulary.BASE_STATS_ONLY_KEYS.contains(key)) {
+                continue;
+            }
             if (!lore.contains(key)) {
                 missing.add(key);
             }
@@ -65,6 +68,39 @@ class LoreVocabularyCoverageTest {
         assertEquals(List.of(), missing,
                 "StatVocabulary にあるのに stats/lore.yml に表示定義が無いキー"
                         + "(効くがアイテムに表示されない)");
+    }
+
+    /**
+     * 除外リスト自体のドリフト検知(2026-08-13)。除外は「検査ごと無効化する」方向に壊れるので、
+     * リストの各キーについて<b>両方向</b>を固定する:
+     * <ul>
+     *   <li>語彙に実在すること — 綴り間違い/廃止キーが残っていると、そのキーの除外は空振りし、
+     *       本来検査したい別のキーを守っているつもりで何も守っていない状態になる</li>
+     *   <li>出荷 lore.yml に<b>無い</b>こと — 除外したまま lore.yml へ戻すと、上の検査は素通りし
+     *       「アイテムのロアに出ない前提のキーが実は出ている」食い違いを誰も見つけられない
+     *       (2026-08-13 に実際にこの形で3キーが紛れ込んでいた)</li>
+     * </ul>
+     */
+    @Test
+    void baseStatsOnlyKeysAreRealAndAbsentFromShippedLore() throws Exception {
+        Set<String> lore = canonicalLoreKeys(shippedLoreStats());
+        assertTrue(!StatVocabulary.BASE_STATS_ONLY_KEYS.isEmpty(), "除外リストが空(この検査が空振り)");
+        List<String> notInVocabulary = new ArrayList<>();
+        List<String> stillInLore = new ArrayList<>();
+        for (String key : StatVocabulary.BASE_STATS_ONLY_KEYS) {
+            if (!StatVocabulary.isKnown(key)) {
+                notInVocabulary.add(key);
+            }
+            if (lore.contains(key)) {
+                stillInLore.add(key);
+            }
+        }
+        assertEquals(List.of(), notInVocabulary,
+                "BASE_STATS_ONLY_KEYS に語彙へ無いキーがある(除外が空振りしている)");
+        assertEquals(List.of(), stillInLore,
+                "BASE_STATS_ONLY_KEYS のキーが stats/lore.yml にも定義されている"
+                        + "(base-stats.yml 専用の定数なのでロア表示設定に置かない。"
+                        + "ロアに出したいなら除外リストから外すこと)");
     }
 
     @Test

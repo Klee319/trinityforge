@@ -41,7 +41,9 @@
   /** 耐久値など ALWAYS_SHOWN を候補の末尾へ固定し、それ以外は lore のカテゴリ→order 順。 */
   function orderStatCandidates(keys) {
     const always = window.ALWAYS_SHOWN_STATS || ["durability"];
-    const catRank = { attack: 0, defense: 1, support: 2, ars: 3, other: 4 };
+    // 候補プルダウンの並び順。STAT_FILTER_GROUPS と同じ7分類・同じ並びにすること
+    // (旧5分類のままだと craft/gathering/utility が全部「不明(9)」で末尾へ団子になる)。
+    const catRank = { attack: 0, defense: 1, craft: 2, gathering: 3, utility: 4, support: 4, ars: 5, other: 6 };
     const bottom = [];
     const rest = [];
     for (const k of keys) {
@@ -398,15 +400,19 @@
   // カテゴリ(攻撃/守備/補助/Ars)のチェックに関わらず常に「+追加」候補へ出すステ。
   // 耐久力は装備種を問わず設定しうるためカテゴリ非依存にする(要件: 補助カテゴリから独立)。
   window.ALWAYS_SHOWN_STATS = window.ALWAYS_SHOWN_STATS || ["durability"];
-  // タブごとの既定ON (攻撃/守備/補助/Ars)。武器→攻撃、防具→守備、ツール/補助→補助、Ars系→Ars。
+  // タブごとの既定ON。2026-08-13 に stats/lore.yml の7分類へ合わせた
+  // (旧: 攻撃/守備/補助/Ars/その他 の5分類。lore.yml は 2026-07-23 の再編で
+  //  attack/defense/craft/gathering/utility/ars/other になっており、
+  //  クラフト系・採集系のステが行き場を失って「補助」へ落ちていた)。
+  // 武器→攻撃、防具→守備、ツール→採集/クラフト/補助、Ars系→Ars、スレッド→補助/Ars/クラフト。
   const ITEM_STATS_CAT_DEFAULTS = {
-    weapon: { attack: true, defense: false, support: false, ars: false, other: false },
-    armor: { attack: false, defense: true, support: false, ars: false, other: false },
-    tool: { attack: false, defense: false, support: true, ars: false, other: true },
-    other: { attack: false, defense: false, support: true, ars: false, other: true },
-    catalyst: { attack: false, defense: false, support: false, ars: true, other: false },
-    spellbook: { attack: false, defense: false, support: false, ars: true, other: false },
-    thread: { attack: false, defense: false, support: true, ars: true, other: false }
+    weapon: { attack: true, defense: false, craft: false, gathering: false, utility: false, ars: false, other: false },
+    armor: { attack: false, defense: true, craft: false, gathering: false, utility: false, ars: false, other: false },
+    tool: { attack: false, defense: false, craft: true, gathering: true, utility: true, ars: false, other: true },
+    other: { attack: false, defense: false, craft: false, gathering: false, utility: true, ars: false, other: true },
+    catalyst: { attack: false, defense: false, craft: false, gathering: false, utility: false, ars: true, other: false },
+    spellbook: { attack: false, defense: false, craft: false, gathering: false, utility: false, ars: true, other: false },
+    thread: { attack: false, defense: false, craft: true, gathering: false, utility: true, ars: true, other: false }
   };
 
   // ⚠ 2026-08-08 削除: 旧 THREAD_SPECIAL_EFFECTS(この定数と、下の renderThreadExtraFields 内に
@@ -417,9 +423,19 @@
   //   potion-level/flight として設定する(スレッド画面 = public/js/ars-forms.js の
   //   buildThreadsForm の「特殊効果」セクションを使う。ここ item-stats.yml の「スレッド」タブは
   //   別ファイル・別データモデルなので special-effects を復活させないこと)。
+  // 「+追加」候補の絞り込みグループ。**stats/lore.yml の category 語彙と同じ7分類**にすること。
+  // 2026-08-13 まではここが旧5分類 (attack/defense/support/ars/other) のままで、lore.yml 側の
+  // craft/gathering/utility が statFilterCategory の許可リストに無く、キー名ヒューリスティックへ
+  // 落ちて全部「補助」扱いになっていた。結果、クラフト系ステ(ロール収束など)は
+  // 「補助」を明示的にONにしない限り候補に出てこず、事実上選べなかった(2026-08-13 ユーザー報告)。
   const STAT_FILTER_GROUPS = [
-    ["attack", "攻撃"], ["defense", "守備"], ["support", "補助"], ["ars", "Ars"], ["other", "その他"]
+    ["attack", "攻撃"], ["defense", "守備"], ["craft", "クラフト"], ["gathering", "採集"],
+    ["utility", "補助"], ["ars", "Ars"], ["other", "その他"]
   ];
+  // 旧語彙 support は 2026-07-23 の再編で utility へ改名された。yml やコード上に残っている
+  // 旧名を新名へ寄せる (statFilterCategory / inferStatCategory の戻り値の正規化に使う)。
+  const LEGACY_STAT_CATEGORY_ALIASES = { support: "utility" };
+  const STAT_FILTER_GROUP_KEYS = new Set(STAT_FILTER_GROUPS.map(([key]) => key));
 
   // ステキー -> {攻撃|守備|補助|Ars} の簡易推論 (item-categories.yml のような設定は無いため、
   // キー名のキーワードから推論するヒューリスティック。lore.yml 由来の未知ステは既定「補助」)。
@@ -432,20 +448,35 @@
     if (["mana", "spell", "cast", "arcane", "glyph", "sunrise", "moonfall", "thread", "slot"].some((k) => s.includes(k))) return "ars";
     if (["attack", "aoe", "crit", "penetration", "bleed", "bonus-damage", "damage-modifier", "fixed-damage"].some((k) => s.includes(k))) return "attack";
     if (["defense", "resistance", "armor", "max-health", "knockback", "dodge", "reduction"].some((k) => s.includes(k))) return "defense";
-    return "support";
+    // 2026-08-13: lore.yml に category が無いキーだけがここへ来る。クラフト系/採集系は
+    // 名前から拾えるので「補助」ひとまとめにせず対応するグループへ落とす。
+    if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")) return "craft";
+    if (["fortune", "fishing-", "harvest-", "woodcutting-", "mining-"].some((k) => s.includes(k))) return "gathering";
+    // 旧称 support。現行語彙は utility (2026-07-23 の7分類再編)。
+    return "utility";
   }
   window.inferStatCategory = inferStatCategory;
 
   // 「+追加」候補の絞り込みに使うステのカテゴリ。lore.yml (STAT_META.category) を最優先し、
   // 無ければキー名ヒューリスティック (仕様: 追加候補の表示選択肢は lore設定のカテゴリに依存)。
+  //
+  // 許可リストは STAT_FILTER_GROUPS から引く。ここをハードコードしていたせいで、
+  // lore.yml 側に増えた craft/gathering/utility が「未知のカテゴリ」としてヒューリスティックへ
+  // 落ちていた (2026-08-13 修正)。グループを増やすときにここを直し忘れても効かなくならないよう、
+  // 語彙は1箇所 (STAT_FILTER_GROUPS) だけを正とする。
   function statFilterCategory(stat) {
     const meta = window.STAT_META && window.STAT_META[stat];
-    const cat = meta && meta.category;
-    if (cat === "attack" || cat === "defense" || cat === "support" || cat === "ars" || cat === "other") {
-      return cat;
-    }
+    const cat = normalizeStatCategory(meta && meta.category);
+    if (cat && STAT_FILTER_GROUP_KEYS.has(cat)) return cat;
     return inferStatCategory(stat);
   }
+  /** 旧カテゴリ名(support)を現行語彙(utility)へ寄せる。未知/空はそのまま返す。 */
+  function normalizeStatCategory(cat) {
+    const key = String(cat == null ? "" : cat);
+    return LEGACY_STAT_CATEGORY_ALIASES[key] || key;
+  }
+  window.normalizeStatCategory = normalizeStatCategory;
+  window.statFilterCategory = statFilterCategory;
 
   const ITEM_STATS_LOCKED_TABS = new Set(["catalyst", "spellbook", "thread"]);
 

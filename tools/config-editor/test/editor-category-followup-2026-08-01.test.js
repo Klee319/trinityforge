@@ -141,11 +141,17 @@ test("(2) 「未設定」で絞り込み中に追加した品は、そのまま�
   assert.equal(win.getItemEditorCategory(host, "weapon", "sword_new"), "");
 });
 
-test("(2) 「すべて」表示のときは従来どおり「未分類」へ入る (前回の修正を戻さない)", () => {
+// 【2026-08-13】「未分類」受け皿は廃止。無所属の品は仮想タブ「未設定」がそのまま一覧するので、
+// 受け皿カテゴリは同じ集合を指すタブを2つ並べていただけだった。
+test("(2) 「すべて」表示のときは無所属のまま (「未分類」を自動生成しない)", () => {
   const { win } = loadEditorCategories();
   const host = hostWithOneCategory();
   host.items.sword_new = {};
-  assert.equal(win.ensureItemEditorCategory(host, "weapon", "sword_new"), "cat_auto_unclassified");
+  assert.equal(win.ensureItemEditorCategory(host, "weapon", "sword_new"), "",
+    "「未分類」受け皿を作っている (仮想タブ「未設定」と同じ集合のタブが2つ並ぶ)");
+  assert.equal(win.listEditorCategories(host, "weapon").length, 1, "カテゴリが増えている");
+  // 無所属でも画面から消えない: 「すべて」でも「未設定」でも一覧される。
+  assert.equal(win.itemInEditorCategory(host, "weapon", "sword_new"), true);
 });
 
 test("(2) カテゴリで絞り込み中ならそのカテゴリへ入る (前回の修正を戻さない)", () => {
@@ -158,10 +164,10 @@ test("(2) カテゴリで絞り込み中ならそのカテゴリへ入る (前�
 });
 
 // ============================================================
-// (3) 「未分類」自動生成後のタブバー追随
+// (3) 追加してもカテゴリは増えない / 旧「未分類」は描画時に掃除される
 // ============================================================
 
-test("(3) 「未分類」が自動生成されたらタブバーも作り直される (バーとカード一覧が食い違わない)", () => {
+test("(3) 品を追加してもタブバーにカテゴリが増えない (「未分類」を生やさない)", () => {
   const { win } = loadEditorCategories();
   const host = hostWithOneCategory();
   // cat_auto_draft(「準備中」)はバー描画時に既定で用意される予約カテゴリ (2026-08-02)だが、
@@ -169,25 +175,46 @@ test("(3) 「未分類」が自動生成されたらタブバーも作り直さ�
   const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {}, { includeDraftCategory: true });
   assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords", "cat_auto_draft"]);
 
-  // フォーム側の「追加」ハンドラが呼ぶ経路。バーの再構築はフォーム側からは呼ばれない。
   host.items.sword_new = {};
   win.ensureItemEditorCategory(host, "weapon", "sword_new");
 
-  assert.deepEqual(tabIds(bar),
-    ["__all__", "__unset__", "cat_swords", "cat_auto_draft", "cat_auto_unclassified"],
-    "自動生成した「未分類」がタブバーに出ていない (バーだけ古いまま = 一覧と食い違う)");
+  assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords", "cat_auto_draft"],
+    "追加でカテゴリが生えている (無所属の品は仮想タブ「未設定」が一覧するので受け皿は要らない)");
 });
 
-test("(3) 同じ (host, tabKey) でバーを作り直したら、追随するのは最新のバーだけ", () => {
+test("(3) 既存 yml に残る「未分類」はバー描画時に取り除かれ、中身は無所属へ戻る", () => {
   const { win } = loadEditorCategories();
-  const host = hostWithOneCategory();
-  const oldBar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
-  const newBar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
-  host.items.sword_new = {};
-  win.ensureItemEditorCategory(host, "weapon", "sword_new");
-  assert.ok(tabIds(newBar).includes("cat_auto_unclassified"), "最新のバーが追随していない");
-  assert.ok(!tabIds(oldBar).includes("cat_auto_unclassified"),
-    "破棄済みのバーまで書き換えている (差し替え前の DOM を触るのは無駄で紛らわしい)");
+  const host = {
+    items: { sword_a: {}, sword_legacy: {} },
+    _editor: {
+      categories: {
+        weapon: [
+          { id: "cat_swords", label: "剣", itemIds: ["sword_a"] },
+          { id: "cat_auto_unclassified", label: "未分類", itemIds: ["sword_legacy"] }
+        ]
+      }
+    }
+  };
+  const bar = win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
+  assert.deepEqual(tabIds(bar), ["__all__", "__unset__", "cat_swords"],
+    "旧「未分類」がタブに残っている");
+  assert.deepEqual(host._editor.categories.weapon.map((c) => c.id), ["cat_swords"],
+    "yml 側からも消えていない (保存で書き戻ってしまう)");
+  // 中身は消さずに無所属へ戻す。無所属の品は「未設定」タブに並ぶ。
+  assert.ok(host.items.sword_legacy, "品そのものを消してはいけない");
+  assert.equal(win.getItemEditorCategory(host, "weapon", "sword_legacy"), "");
+});
+
+test("(3) ラベルが「未分類」なだけのユーザー製カテゴリは掃除しない", () => {
+  const { win } = loadEditorCategories();
+  const host = {
+    items: { a: {} },
+    _editor: { categories: { weapon: [{ id: "cat_mine", label: "未分類", itemIds: ["a"] }] } }
+  };
+  win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
+  assert.deepEqual(host._editor.categories.weapon.map((c) => c.id), ["cat_mine"],
+    "自動生成の受け皿とユーザーの分類を取り違えて消している");
+  assert.equal(win.getItemEditorCategory(host, "weapon", "a"), "cat_mine");
 });
 
 // ============================================================
@@ -201,11 +228,11 @@ test("(4) 複製は元アイテムのカテゴリを継承する", () => {
   assert.equal(win.getItemEditorCategory(host, "weapon", "sword_a_copy"), "cat_swords");
 });
 
-test("(4) 元アイテムが無所属なら、通常の追加と同じ扱い (「未分類」へ)", () => {
+test("(4) 元アイテムが無所属なら、通常の追加と同じ扱い (無所属のまま)", () => {
   const { win } = loadEditorCategories();
   const host = hostWithOneCategory();
-  assert.equal(win.duplicateItemEditorCategory(host, "weapon", "sword_b", "sword_b_copy"),
-    "cat_auto_unclassified");
+  assert.equal(win.duplicateItemEditorCategory(host, "weapon", "sword_b", "sword_b_copy"), "");
+  assert.equal(win.listEditorCategories(host, "weapon").length, 1, "複製でカテゴリが増えている");
 });
 
 test("(4) カテゴリを持つ画面の「複製」は全部 duplicateItemEditorCategory を通る", () => {
@@ -238,35 +265,24 @@ test("(6) label から導出した id が「未分類」の予約 id を奪わ�
     items: { a: {} },
     _editor: {
       categories: {
-        // 手書き: id 無し・label が "unclassified" → 旧実装は cat_auto_unclassified を生成した
+        // 手書き: id 無し・label が "unclassified" → 素の derivedCategoryId は
+        // cat_auto_unclassified を作る。受け皿の自動生成は 2026-08-13 に廃止したが、
+        // この id を取られると dropLegacyUnclassifiedCategory が**ユーザーのカテゴリを消す**
+        // ので、予約語であることは据え置き。
         weapon: [{ label: "unclassified", itemIds: ["a"] }]
       }
     }
   };
   const cats = win.listEditorCategories(host, "weapon");
   assert.notEqual(cats[0].id, "cat_auto_unclassified",
-    "ユーザーのカテゴリが「未分類」の予約 id を奪っている"
-    + " (以後 ensureItemEditorCategory の受け皿がこのカテゴリに化ける)");
+    "ユーザーのカテゴリが「未分類」の予約 id を奪っている (旧受け皿の掃除で丸ごと消える)");
   assert.match(cats[0].id, /^cat_auto_/);
   assert.equal(warnings.length, 1);
 
-  // 受け皿は別カテゴリとして作られ、ユーザーのカテゴリは汚染されない。
-  host.items.b = {};
-  assert.equal(win.ensureItemEditorCategory(host, "weapon", "b"), "cat_auto_unclassified");
+  // バーを描いても消えない = 掃除の対象になっていない。
+  win.renderEditorCategoryBar(host, "weapon", () => {}, () => {});
+  assert.deepEqual(win.listEditorCategories(host, "weapon").map((c) => c.id), [cats[0].id]);
   assert.deepEqual(cats[0].itemIds, ["a"]);
-});
-
-test("(6) 「未分類」という名前のカテゴリが既にあれば、それを使い同名タブを2つ作らない", () => {
-  const { win } = loadEditorCategories();
-  const host = {
-    items: { a: {} },
-    _editor: {
-      categories: { weapon: [{ id: "cat_mine", label: "未分類", itemIds: [] }] }
-    }
-  };
-  const assigned = win.ensureItemEditorCategory(host, "weapon", "a");
-  assert.equal(assigned, "cat_mine", "同じ表示名のカテゴリを別に作っている (タブに「未分類」が2つ並ぶ)");
-  assert.equal(win.listEditorCategories(host, "weapon").length, 1);
 });
 
 test("(6) 「+ カテゴリ」で既存カテゴリと同名は作れない (見分けが付かないタブを増やさない)", () => {

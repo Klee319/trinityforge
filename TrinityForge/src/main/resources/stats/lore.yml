@@ -1786,35 +1786,14 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: craft
-  mana-max-base:
-    name: マナ上限(基礎)
-    icon: ""
-    format: FLAT
-    decimals: 0
-    order: 81
-    show-sign: true
-    hide-when-zero: true
-    category: ars
-  mana-regen-base:
-    name: マナ回復(基礎)
-    icon: ""
-    format: FLAT
-    decimals: 1
-    order: 82
-    show-sign: true
-    hide-when-zero: true
-    unit: /秒
-    category: ars
-  mana-regen-interval-ticks:
-    name: マナ回復間隔
-    icon: ""
-    format: INTEGER
-    decimals: 0
-    order: 83
-    show-sign: false
-    hide-when-zero: true
-    unit: tick
-    category: ars
+  # 2026-08-13 削除: mana-max-base / mana-regen-base / mana-regen-interval-ticks
+  #   「マナ上限(基礎)」等はここ(アイテムのロア表示設定)に置くキーではなかった。
+  #   これらは combat/base-stats.yml 専用の**全プレイヤー共通の定数**(ArsPaper の
+  #   mana.default-max 等の移設先)で、装備・パークからは供給されず、アイテムのロアにも
+  #   出ない。StatVocabulary.BASE_STATS_ONLY_KEYS がこの 3 キーを列挙しており、
+  #   LoreVocabularyCoverageTest が「lore.yml に戻ったら落ちる」方向で固定している。
+  #   アイテムに設定するマナ上限は `mana-bonus`(マナ上限)。
+  #   値の編集は config editor の「共通変数」画面 (combat/base-stats.yml) で行う。
   mana-onhit-percent:
     name: 被弾マナ回復率
     icon: ""

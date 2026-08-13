@@ -9,13 +9,16 @@
 (function () {
   const h = window.h;
 
-  // ---- 「未分類」受け皿カテゴリ ----
-  // 新規追加/複製/タブ移動で行き先が決まらない品を必ず入れる、実体のあるカテゴリ。
-  // 仮想タブ「未設定」と違い yml に残る = 次に開いても同じ場所に居る。
-  // id は**予約語**として扱う (下の RESERVED_CATEGORY_IDS)。ユーザー側の採番・救済採番が
-  // この id を取ると、以後この関数の受け皿がユーザーのカテゴリに化けて中身が混ざる。
+  // ---- 「未分類」受け皿カテゴリ (2026-08-13 廃止) ----
+  // かつては行き先の決まらない品を必ず入れる実体カテゴリを自動生成していたが、
+  // **仮想タブ「未設定」が同じ品をそのまま一覧できる**ため、タブが二重になるだけだった
+  // (ユーザー指摘: 「未設定カテゴリがあるのに未分類カテゴリが自動生成されている」)。
+  // 現在は新規に作らず、既存 yml に残っているものを**タブバー描画時に取り除く**。
+  // 取り除かれた品は無所属に戻る = 仮想タブ「未設定」に並ぶので、消えたようには見えない。
+  //
+  // id は**予約語のまま**残す (下の RESERVED_CATEGORY_IDS)。ユーザーの手書きカテゴリや救済採番が
+  // この id を取ると、掃除の対象になって中身ごと消える。
   const UNCLASSIFIED_CATEGORY_ID = "cat_auto_unclassified";
-  const UNCLASSIFIED_CATEGORY_LABEL = "未分類";
 
   // ---- 「準備中」カテゴリ (2026-08-02) ----
   // 全タブに既定で1つだけ存在する予約カテゴリ。ここへ入れた品は catalog.yml に
@@ -36,31 +39,13 @@
   // host に直接付けると getData のスプレッドで YAML に混入するため分離する。
   const activeByHost = new WeakMap();
 
-  // host → Map<tabKey, バー再構築関数>。カテゴリの**構造**(カテゴリ自体の増減)は
-  // フォーム側の追加ハンドラの中でも起きる (ensureItemEditorCategory が「未分類」を作る) が、
-  // バーは split-views の renderBar からしか作り直されないため、バーだけ古いまま残っていた
-  // (タブに「未分類」が無いのにカードは「未分類」所属 = 一覧と食い違う / 2026-08-01 報告)。
-  // 同じ (host, tabKey) では**最後に作ったバーだけ**が生きているものとして扱う
-  // (split-views の renderBar は毎回新しいバーへ差し替えるので、古い方は破棄済み)。
-  const barRefreshByHost = new WeakMap();
-
-  function registerBarRefresh(host, tabKey, fn) {
-    if (!host || typeof host !== "object") return;
-    let m = barRefreshByHost.get(host);
-    if (!m) {
-      m = new Map();
-      barRefreshByHost.set(host, m);
-    }
-    m.set(tabKey, fn);
-  }
-
-  /** カテゴリ構造が変わったときにタブバーを描き直す。バーが無い画面では何もしない。 */
-  window.refreshEditorCategoryBar = function refreshEditorCategoryBar(host, tabKey) {
-    if (!host || typeof host !== "object") return;
-    const m = barRefreshByHost.get(host);
-    const fn = m && m.get(tabKey);
-    if (typeof fn === "function") fn();
-  };
+  // 【2026-08-13】かつてここに `refreshEditorCategoryBar`(host+tabKey からタブバーを外部再構築
+  // する仕組み)があった。フォーム側の追加ハンドラが ensureItemEditorCategory 経由で「未分類」を
+  // **生やす**唯一の経路のために用意したもので、その受け皿の廃止で発火元が消えたため削除した。
+  // 今カテゴリの構造が変わるのは (a) バー上の「+ カテゴリ」/削除/改名 → onStructureChange で
+  // split-views が renderBar をやり直す (b) 描画時の dropLegacyUnclassifiedCategory /
+  // ensureDraftCategory → バーを組み立てる前に走るので最初から正しい、の2つだけ。
+  // フォーム側からカテゴリを増減させる経路を足すなら、この仕組みも一緒に戻すこと。
 
   function activeMap(host) {
     if (!host || typeof host !== "object") return {};
@@ -206,6 +191,26 @@
   }
 
   /**
+   * 旧「未分類」受け皿カテゴリ({@code cat_auto_unclassified})を取り除く。**タブバー描画時にだけ**呼ぶ
+   * (ensureDraftCategory と同じ理由: データ層の純粋な参照で行を消すと「読んだだけで yml が変わる」)。
+   *
+   * <p>中身は無所属へ戻すだけで消さない — 無所属の品は仮想タブ「未設定」に並ぶ。
+   * 対象は予約 id 完全一致のみ。ラベルが「未分類」なだけのユーザー製カテゴリは触らない
+   * (自動生成の受け皿とユーザーの分類を取り違えて中身ごと消さないため)。
+   * @returns {boolean} 実際に取り除いたら true (タブバーの再構築が要る)
+   */
+  function dropLegacyUnclassifiedCategory(host, tabKey) {
+    const cats = listCategories(host, tabKey);
+    const index = cats.findIndex((c) => c && c.id === UNCLASSIFIED_CATEGORY_ID);
+    if (index < 0) return false;
+    cats.splice(index, 1);
+    const am = activeMap(host);
+    // 消したカテゴリで絞り込み中だった場合、選択が宙に浮くので「すべて」へ戻す。
+    if (am[tabKey] === UNCLASSIFIED_CATEGORY_ID) am[tabKey] = "__all__";
+    return true;
+  }
+
+  /**
    * Renders nested category tabs + add/rename/delete for one fixed tab.
    * @param {object} host YAML root object (mutated)
    * @param {string} tabKey fixed tab id (weapon, armor, ...)
@@ -223,6 +228,8 @@
   window.renderEditorCategoryBar = function renderEditorCategoryBar(host, tabKey, onFilterChange, onStructureChange, opts) {
     ensureEditor(host);
     const includeDraft = !!(opts && opts.includeDraftCategory);
+    // 2026-08-13: 旧「未分類」受け皿は廃止。既存 yml に残っていればここで取り除く。
+    dropLegacyUnclassifiedCategory(host, tabKey);
     let cats = includeDraft ? ensureDraftCategory(host, tabKey) : listCategories(host, tabKey);
     const bar = h("div", { class: "editor-cat-bar" });
     const am = activeMap(host);
@@ -435,8 +442,6 @@
     }
 
     buildBar();
-    // カテゴリの増減がフォーム側で起きたときに、このバーだけを描き直せるようにする。
-    registerBarRefresh(host, tabKey, buildBar);
     return bar;
   };
 
@@ -472,15 +477,16 @@
   //
   // 【2026-08-01 実サーバ報告「追加した素材が editor でカテゴリ分けできていない」の修正】
   // それまでの `assignItemToActiveEditorCategory` は「カテゴリタブで絞り込み中のときだけ」
-  // 割り当てる作りだった。既定の表示は「すべて」なので、**普通に追加した品はどのカテゴリにも
-  // 入らない**。カテゴリタブを1つも押さずに追加し続ける限り、全部が「未設定」に溜まる
-  // (エラーも警告も出ないので気づけない)。同じ理由で、カタログ⇄素材のファイル跨ぎ移動や
-  // 表示タブの移動でも移動先タブでは無所属になっていた。
+  // 割り当てる作りだった。既定の表示は「すべて」なので、普通に追加した品はどのカテゴリにも
+  // 入らない。そこで受け皿カテゴリ「未分類」を自動生成してそこへ入れるようにした。
   //
-  // 「絞り込み中ならそのカテゴリ、そうでなければ『未分類』カテゴリ」へ必ず入れる。
-  // 未分類は実体のあるカテゴリなので、タブから一覧でき、カード上のセレクトで移動できる。
-  // (仮想タブの「未設定」と違い、yml に残る = 次に開いたときも同じ場所に居る。)
-  // 定数はファイル先頭で定義済み (UNCLASSIFIED_CATEGORY_ID / _LABEL / RESERVED_CATEGORY_IDS)。
+  // 【2026-08-13 実サーバ報告「未設定カテゴリがあるのに未分類カテゴリが自動生成されている」】
+  // その受け皿は廃止した。**無所属の品は仮想タブ「未設定」がそのまま一覧する**ので、
+  // 「未分類」は同じ集合を指すタブをもう1つ並べていただけで、しかも yml を汚していた
+  // (無所属のまま返しても「すべて」と「未設定」の両方に出るので、品が画面から消えることはない)。
+  // 既存 yml に残っている受け皿は renderEditorCategoryBar の dropLegacyUnclassifiedCategory が
+  // 描画時に取り除く。id (UNCLASSIFIED_CATEGORY_ID) はその同定にだけ使い、**予約語のまま**
+  // 据え置く (ユーザー採番がこれを取ると掃除がユーザーのカテゴリを消してしまう)。
 
   /**
    * itemId が tabKey のどれかのカテゴリに属している状態を保証する。
@@ -499,36 +505,23 @@
       window.moveItemEditorCategory(host, tabKey, itemId, active, opts);
       return active;
     }
-    // 【2026-08-01】仮想タブ「未設定」で絞り込み中は**割り当てない**。
-    // 「未設定」は『どのカテゴリにも属さない品』のビューなので、ここで「未分類」へ入れると
-    // 追加した品が絞り込み条件から外れ、**追加した瞬間に画面から消える**。
-    // 他のタブと同じで「絞り込み中の条件をそのまま満たす状態で追加する」が正しい振る舞い。
-    if (active === "__unset__") return "";
-
-    let fallback = cats.find((c) => c.id === UNCLASSIFIED_CATEGORY_ID);
-    // ユーザーが手で作った「未分類」があればそれを使う (同名タブを2つ並べない)。
-    if (!fallback) {
-      fallback = cats.find((c) => normalizeLabel(c.label) === UNCLASSIFIED_CATEGORY_LABEL);
-    }
-    let created = false;
-    if (!fallback) {
-      fallback = { id: UNCLASSIFIED_CATEGORY_ID, label: UNCLASSIFIED_CATEGORY_LABEL, itemIds: [] };
-      cats.push(fallback);
-      created = true;
-    }
-    window.moveItemEditorCategory(host, tabKey, itemId, fallback.id, opts);
-    // カテゴリが1つ増えた = 構造が変わったのでタブバーにも反映する。
-    // (フォーム側の追加ハンドラから呼ばれるため、バーは自力では作り直されない。)
-    if (created) window.refreshEditorCategoryBar(host, tabKey);
-    return fallback.id;
+    // 【2026-08-13】絞り込んでいないときは**どのカテゴリにも入れない**。
+    // 以前は「未分類」カテゴリを自動生成してそこへ入れていたが、無所属の品は仮想タブ
+    // 「未設定」がそのまま一覧するので、同じ集合を指すタブが 2 つ並ぶだけだった。
+    // 無所属で返しても品が画面から消えることはない (「すべて」と「未設定」の両方に出る)。
+    //
+    // 【2026-08-01】仮想タブ「未設定」で絞り込み中も同じ理由で割り当てない。
+    // ここで実体カテゴリへ入れると追加した品が絞り込み条件から外れ、
+    // **追加した瞬間に画面から消える**。
+    return "";
   };
 
   /**
    * 複製時の割当。**元アイテムと同じカテゴリ**へ入れる。
-   * 元が無所属のときだけ通常の追加と同じ扱い (絞り込み中のカテゴリ or 「未分類」)。
+   * 元が無所属のときだけ通常の追加と同じ扱い (絞り込み中ならそのカテゴリ、無ければ無所属のまま)。
    *
    * 【2026-08-01】item-stats の複製だけがこれを通らず assignItemToActiveEditorCategory を
-   * 呼んでいたため、絞り込みしていない状態で複製すると元のカテゴリを捨てて「未分類」へ落ちていた。
+   * 呼んでいたため、絞り込みしていない状態で複製すると元のカテゴリを捨てて受け皿へ落ちていた。
    * @returns {string} 複製先の所属カテゴリ id ("" は無所属)
    */
   window.duplicateItemEditorCategory = function duplicateItemEditorCategory(host, tabKey, srcId, newId) {
@@ -541,11 +534,12 @@
     return window.ensureItemEditorCategory(host, tabKey, newId);
   };
 
+  // 廃止済み受け皿の id。既存 yml からの掃除対象を同定するためだけに残す(新規生成はしない)。
   window.UNCLASSIFIED_EDITOR_CATEGORY_ID = UNCLASSIFIED_CATEGORY_ID;
 
   /**
    * 新規追加/複製時の割当。名前は呼び出し側との互換のため据え置き。
-   * 絞り込み中のカテゴリがあればそこへ、無ければ「未分類」へ入れる (ensureItemEditorCategory)。
+   * 絞り込み中のカテゴリがあればそこへ、無ければ無所属のまま (ensureItemEditorCategory)。
    */
   window.assignItemToActiveEditorCategory = function assignItemToActiveEditorCategory(host, tabKey, itemId) {
     window.ensureItemEditorCategory(host, tabKey, itemId);

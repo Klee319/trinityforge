@@ -101,9 +101,12 @@ class LoreConfigDeclarationTest {
             // 段階4(2026-07-27)調査: combat/base-stats.yml専用の「全プレイヤー共通の定数」であり
             // PlayerStatAggregatorのitem+perk合算チャネルを経由しないため、trigger.sourcesが前提とする
             // 「合算元」の概念が当てはまらず未宣言(8キーとも同じ理由、詳細はstats/lore.ymlの
-            // mana-max-baseコメント参照)。
+            // mana-onhit-percentコメント参照)。
             // 2026-07-29(重複ステ間引き): mana-onhit-flat / mana-onattack-flat を廃止し、8キーへ。
-            "mana-max-base", "mana-regen-base", "mana-regen-interval-ticks",
+            // 2026-08-13: mana-max-base / mana-regen-base / mana-regen-interval-ticks を
+            // stats/lore.yml から撤去したので 5キーへ。これらは combat/base-stats.yml 専用の
+            // 全プレイヤー共通定数で、アイテムのロア表示に出る余地が無い(StatVocabulary 側にも
+            // 「lore.yml へは意図的に未登録」と書いてあり、後から紛れ込んだドリフトだった)。
             "mana-onhit-percent", "mana-onattack-percent",
             "mana-idle-seconds", "mana-idle-bonus-percent",
             "mana-idle-bonus-flat");

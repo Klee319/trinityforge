@@ -331,8 +331,14 @@ test("検査できなかったファイルは他ファイルの件数で埋め�
 // カテゴリタブを押さずに追加し続ける限り全部が「未設定」に溜まり続ける。
 // ファイル跨ぎ移動 (カタログ⇄素材) と表示タブ移動も同じ形で無所属になっていた。
 //
-// 対策: `ensureItemEditorCategory` = 「絞り込み中ならそのカテゴリ、無ければ『未分類』」。
-// 未分類は仮想タブの「未設定」と違い実体のあるカテゴリなので yml に残る。
+// 対策: `ensureItemEditorCategory` = 「絞り込み中ならそのカテゴリ、無ければ受け皿『未分類』」。
+//
+// 2026-08-13 実サーバ報告「未設定カテゴリがあるのに未分類カテゴリが自動生成されている」。
+// 受け皿『未分類』は廃止した。無所属の品は仮想タブ「未設定」がそのまま一覧するので、
+// 受け皿は同じ集合を指すタブをもう1つ並べていただけで、しかも yml を汚していた。
+// 2026-08-01 の症状(追加した品が画面から消える)は起きない — 無所属の品は
+// 「すべて」でも「未設定」でも出る。守るべき不変条件は「追加経路が ensure を通ること」と
+// 「絞り込み中はそのカテゴリへ入ること」の2つで、そこはそのまま残す。
 // ============================================================
 
 function hostWithTwoCategories() {
@@ -349,28 +355,23 @@ function hostWithTwoCategories() {
   };
 }
 
-test("「すべて」表示のまま追加しても未分類カテゴリへ必ず入る", () => {
+test("「すべて」表示のまま追加した品は無所属のまま (未分類カテゴリを生やさない)", () => {
   const { win } = loadEditorCategories();
   const host = hostWithTwoCategories();
 
-  // 絞り込みなし (= 既定の「すべて」)。ここが旧実装では no-op だった。
-  const catId = win.ensureItemEditorCategory(host, "material", "dragon_scale");
-  assert.equal(catId, win.UNCLASSIFIED_EDITOR_CATEGORY_ID);
-  assert.equal(win.getItemEditorCategory(host, "material", "dragon_scale"), catId,
-    "追加した品がどのカテゴリにも属していない (未設定タブにしか出ない)");
+  // 絞り込みなし (= 既定の「すべて」)。
+  assert.equal(win.ensureItemEditorCategory(host, "material", "dragon_scale"), "");
+  assert.equal(win.getItemEditorCategory(host, "material", "dragon_scale"), "");
+  assert.deepEqual(win.listEditorCategories(host, "material").map((c) => c.id),
+    ["cat_drop", "cat_craft"], "受け皿カテゴリが増えている");
 
-  const cats = win.listEditorCategories(host, "material");
-  const unclassified = cats.find((c) => c.id === catId);
-  assert.ok(unclassified, "未分類カテゴリが作られていない");
-  assert.equal(unclassified.label, "未分類");
-  assert.deepEqual(unclassified.itemIds, ["dragon_scale"]);
-
-  // 2件目は同じ未分類カテゴリを使い回す (追加のたびに増やさない)。
-  win.ensureItemEditorCategory(host, "material", "dungeon_seal_mines");
-  const after = win.listEditorCategories(host, "material");
-  assert.equal(after.filter((c) => c.id === catId).length, 1);
-  assert.deepEqual(after.find((c) => c.id === catId).itemIds,
-    ["dragon_scale", "dungeon_seal_mines"]);
+  // 無所属でも画面から消えない: 「すべて」でも「未設定」でも一覧される。
+  assert.equal(win.itemInEditorCategory(host, "material", "dragon_scale"), true);
+  const bar = win.renderEditorCategoryBar(host, "material", () => {}, () => {});
+  bar.querySelectorAll(".recipe-tab[data-cat-id]")
+    .find((b) => b.getAttribute("data-cat-id") === "__unset__").props.onclick();
+  assert.equal(win.itemInEditorCategory(host, "material", "dragon_scale"), true,
+    "「未設定」タブに出ていない (受け皿を消したのに拾い先が無い)");
 });
 
 test("カテゴリタブで絞り込み中なら、そのカテゴリへ入る (従来挙動を維持)", () => {
@@ -396,7 +397,7 @@ test("既にカテゴリを持つ品は勝手に動かさない", () => {
     .some((c) => c.id === win.UNCLASSIFIED_EDITOR_CATEGORY_ID));
 });
 
-test("表示タブを移すと移動先タブでもカテゴリへ入る (未設定へ落ちない)", () => {
+test("表示タブを移すと移動元タブのカテゴリから外れ、移動先では無所属になる", () => {
   const { win } = loadEditorCategories();
   const host = {
     items: { battle_axe: {} },
@@ -413,9 +414,11 @@ test("表示タブを移すと移動先タブでもカテゴリへ入る (未設
   assert.equal(win.getItemDisplayTab(host, "battle_axe"), "weapon");
   assert.equal(win.getItemEditorCategory(host, "tool", "battle_axe"), "",
     "移動元タブのカテゴリからは外れること");
-  assert.equal(win.getItemEditorCategory(host, "weapon", "battle_axe"),
-    win.UNCLASSIFIED_EDITOR_CATEGORY_ID,
-    "移動先タブで無所属になっている (表示タブを変えると未設定へ落ちる)");
+  // 移動先で入れるべきカテゴリは決められない (斧→剣 のような対応関係は無い)。
+  // 2026-08-13 まではここで受け皿「未分類」を作っていたが、無所属のまま「未設定」に出せば足りる。
+  assert.equal(win.getItemEditorCategory(host, "weapon", "battle_axe"), "");
+  assert.deepEqual(host._editor.categories.weapon.map((c) => c.id), ["cat_sword"],
+    "移動先タブに受け皿カテゴリを生やしている");
 });
 
 test("assignItemToActiveEditorCategory は ensure へ委譲している (旧 no-op へ戻していない)", () => {

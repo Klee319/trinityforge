@@ -245,4 +245,22 @@ public final class StatVocabulary {
     public static Set<String> allKeys() {
         return BY_KEY.keySet();
     }
+
+    /**
+     * combat/base-stats.yml 専用の「全プレイヤー共通の定数」キー。装備・パークからは供給されず、
+     * アイテムのロアに一行も出ない — したがって {@code stats/lore.yml} に表示定義を持たない。
+     *
+     * <p>2026-08-13: この集合を明示した。以前は「lore.yml へは意図的に未登録」と
+     * コメントに書いてあるだけで機械可読な印が無く、実際には 3 キーとも lore.yml へ紛れ込んで
+     * いた（{@code LoreVocabularyCoverageTest} が「語彙にあるのに lore.yml に無い」を全キーに
+     * 課すため、そこを通すためだけに足されたもの）。結果、config editor の「ロア表示」画面に
+     * 「マナ上限(基礎値)」が並び、アイテムに設定できる「マナ上限」({@code mana_bonus})との
+     * 区別が付かなくなっていた（2026-08-13 ユーザー報告）。
+     *
+     * <p>値の編集は config editor の「共通変数」画面（combat/base-stats.yml）で行う。
+     * フォーク側は {@code TrinityForgeBridge.manaBaseStat} → {@code BaseStatsConfig#statOrDefault}
+     * 経由で直接読む。
+     */
+    public static final Set<String> BASE_STATS_ONLY_KEYS = Set.of(
+            "mana_max_base", "mana_regen_base", "mana_regen_interval_ticks");
 }
