@@ -919,6 +919,40 @@ UI が**2件**あった。どちらも TF本体・ArsPaperフォークとも読�
 （`statSelect` を持つ行が素の `numberInput` を使っていないこと。倍率行 `x1.2` は
 ステの単位も % も持たない別物なので `mult-prefix` を含む行だけ免除）。
 
+### ステ語彙に無い割合は `rateValueControl` を使う（2026-08-13 追加）
+
+上のルールは **`statSelect` を持つ行にしか効かない**。`statValueControl` は
+`isPercentStat(key)` ＝ `stats/lore.yml` の宣言で割合かどうかを決めるので、
+**語彙に載っていないキーは割合でも FLAT に落ちる**。
+
+該当するのがモブ系とダンジョンテーマの固定キーのフォーム。
+`combat/mob-types.yml` などは `physical.resistance` / `attack.crit-chance` のように
+**ブロックに属する短縮キー**で書かれていて、`phys-resistance` のような語彙キーとは綴りが違う。
+そのため `forms.js` に **`rateValueControl(value, setter, opts)`**（キーを見ず常に % 入力）を用意し、
+「これは割合だ」と分かっている呼び出し側が明示リストで指定する:
+`mob-forms.js` の `RATE_FIELDS` と `tf-dungeon-forms.js` の `RATE_RAMP_KEYS`（同一内容の9キー）。
+
+**この表に入れてはいけないもの**: `flat-defense` / `flat-bonus-damage` / `fixed-damage` /
+`attack-power` / `max-health` / `level`。割合ではなくダメージ量・HP・レベルなので、
+入れると画面が 100 倍で表示する。ランプ（`base` / `per-level` / `growth` / …）は
+**1 行の中で単位が混ざる** ── `growth` は倍率、`growth-interval` と `high-level-from` はレベル数なので
+% にしてはいけない。% にしてよいのは `base` / `per-level` / `high-level-per-level` だけ。
+
+空欄の扱いも分かれる。モブ系は「空欄 = キーを書かず上位スコープを継承」なので
+`rateValueControl` の既定は **空欄 → `null`**（呼び出し側が `delete` する）。
+既存画面が使う `statValueControl` 経由は従来どおり `null` を `0` として扱う
+（`blankWhenEmpty: false`）。ここを取り違えると、レベル係数やオーバーライドの継承が黙って壊れる。
+
+**モブ側は `PercentStatNormalize.coerce` を通らない**（`MobTypesConfig` / `MobOverridesConfig` /
+`RampParser` はどれも `getDouble` の生値をそのまま使う）。つまり手書きで `resistance: 25`
+（25% のつもり）と書くと **2500%** としてそのまま通る。エディタ経由なら % 入力なので起きないが、
+yml を直接編集するときはここが効かないことを忘れないこと。
+
+全画面の掃引には `ops/scripts/editor-percent-audit.mjs`（ヘッドレス Chrome、依存ゼロ）を使う。
+**`innerText` で判定しないこと** ── 折りたたみカードの中の行は非表示で `innerText` が空になり、
+418 欄ある画面を 18 欄しか見ないまま「問題なし」と報告する。`textContent` を使い、
+走査母数（数値入力とステ選択の件数）を必ず一緒に出して空振りを検知する。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
