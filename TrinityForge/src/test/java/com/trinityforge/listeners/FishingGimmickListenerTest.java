@@ -30,8 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -60,7 +62,12 @@ class FishingGimmickListenerTest {
 
         PlayerCombatAggregate agg = mock(PlayerCombatAggregate.class);
         when(agg.totalOf(any())).thenReturn(0.0);
+        // 2026-08-13バグ修正: luckTotalOf が2引数版から3引数版 aggregate(player, rod, rodFromOffhand) へ
+        // 変わったため、3引数版もスタブする(未スタブだと Mockito が null を返し agg.totalOf で NPE)。
+        // 2引数版の呼び出し経路は本テストクラス内に残っていないが、他コードパスとの取り違え防止のため
+        // 消さずに両方スタブしておく。
         when(aggregator.aggregate(any(), any())).thenReturn(agg);
+        when(aggregator.aggregate(any(), any(), anyBoolean())).thenReturn(agg);
 
         when(dedicatedEffects.dropGatePerks()).thenReturn(Map.of());
         when(dedicatedEffects.isActive(any(), eq("junk-to-scrap"))).thenReturn(false);
@@ -92,6 +99,42 @@ class FishingGimmickListenerTest {
     private Item realCaughtItem(Material material) {
         Location loc = new Location(player.getWorld(), 0, 64, 0);
         return player.getWorld().dropItem(loc, new ItemStack(material));
+    }
+
+    // ---- 2026-08-13バグ修正の固定テスト: luckTotalOf が aggregate() の第3引数(rodFromOffhand)へ
+    // 実際にオフハンド判定を渡していることを固定する。この検証がこれまで存在しなかったため、
+    // 3引数版への切り替えが本当に効いているかを確認する手段が無かった。----
+
+    @Test
+    void luckTotalOfPassesOffhandTrueWhenRodIsHeldInOffhand() {
+        // メインハンドは竿以外、オフハンドに釣竿 -> resolveRod はオフハンド側の竿を選ぶので rodFromOffhand=true。
+        player.getInventory().setItemInMainHand(new ItemStack(Material.STICK));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.FISHING_ROD));
+        when(gimmickConfig.dropTablesEmpty()).thenReturn(false);
+        when(gimmickConfig.treasurePercent()).thenReturn(0.0);
+        when(gimmickConfig.junkPercent()).thenReturn(0.0);
+        when(gimmickConfig.groups()).thenReturn(Map.of("treasure", Map.of(), "junk", Map.of()));
+
+        Item caught = realCaughtItem(Material.COD);
+
+        listener().onFish(fishEvent(caught));
+
+        verify(aggregator).aggregate(eq(player), any(), eq(true));
+    }
+
+    @Test
+    void luckTotalOfPassesOffhandFalseWhenRodIsHeldInMainhand() {
+        // setUp() で既にメインハンドに釣竿を持たせている(オフハンドは空) -> rodFromOffhand=false。
+        when(gimmickConfig.dropTablesEmpty()).thenReturn(false);
+        when(gimmickConfig.treasurePercent()).thenReturn(0.0);
+        when(gimmickConfig.junkPercent()).thenReturn(0.0);
+        when(gimmickConfig.groups()).thenReturn(Map.of("treasure", Map.of(), "junk", Map.of()));
+
+        Item caught = realCaughtItem(Material.COD);
+
+        listener().onFish(fishEvent(caught));
+
+        verify(aggregator).aggregate(eq(player), any(), eq(false));
     }
 
     @Test

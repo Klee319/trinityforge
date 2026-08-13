@@ -621,6 +621,48 @@ TF側のpublic API（configアクセサ/policyメソッド等）や `com.trinity
 
 新規に「tier化」を頼まれても、この実態を再確認してから着手すること。
 
+### ⚠️ dedicated-effects チャネルと stat語彙チャネルの二重登録は無警告で合算を2倍にする（実例: ars-tier-bonus、2026-08-13修正済み）
+
+`TrinityForgeBridge.tfArsTierUnlockBonus`（修正前、`TrinityForgeBridge.java:2274`付近）は
+`tfEffectValue(player, "ars-tier")`（`DedicatedEffectsConfig.valueSum` 経由、skilltree ノードの
+`dedicated-effects: [{id: ars-tier, value: N}]` 配置だけを合算する旧チャネル、perk 保有のみ加算）と
+`tfNativeArsDouble(player, "unlockedTier")`（`ArsNativeBridge.unlockedTier`、stat語彙
+`ars_tier_bonus` 経由でパーク general + 永続バフ + 役職バフ + base-stats を合算する現行チャネル）を
+**両方**加算していた。`TrinityForge/src/main/resources/skilltree/ars_magic.yml` のノード A（10-44行）・
+E（88-102行）は `buffs: {ars-tier-bonus: 1}` と `dedicated-effects: [{id: ars-tier, value: 1}]` を
+**同じ値で両方**置いていたため、この2ノードを保有するプレイヤーの実効tier加算が意図の2倍
+（正しくは+2のところ+4）になっていた。`GateEffectId.parse`（TF側）は `"ars-tier"` を有効な FLAG
+として受理するため、姉妹キー `glyph-slot-plus`（受理されず常に0を返す「死んでいる」dedicated-effect、
+`TrinityForgeBridge.EFFECT_GLYPH_SLOT_PLUS` の javadoc参照）と違って気づきにくい。
+
+- **How**: 新しい dedicated-effects id を stat語彙（`PlayerStatAggregator`/`ArsNativeBridge` が
+  合算する側）へ移行するときは、呼び出し側で旧チャネルを完全に切り離すこと
+  （`tfArsTierUnlockBonus` は `tfEffectValue(EFFECT_ARS_TIER)` を撤去し `tfNativeArsDouble` のみに
+  一本化した。`EFFECT_ARS_TIER` 定数自体は説明用に残置、他の呼び出し元は無い）。
+  新しい perk buff キーを追加するたびに `skilltree/*.yml` を `grep -rn "dedicated-effects"` して、
+  同じノードに同じ効果を `buffs:` と `dedicated-effects:` の両方で重ねて置いていないか確認する。
+
+### マナ回復系8キーは `combat/base-stats.yml` の生値しか読まない — 装備/perk へ足しても無言で無視される（意図的）
+
+`mana-max-base` / `mana-regen-base` / `mana-regen-interval-ticks` / `mana-onhit-percent` /
+`mana-onattack-percent` / `mana-idle-seconds` / `mana-idle-bonus-percent` / `mana-idle-bonus-flat`
+の8キーは `ManaBaseStats`（`fork-handoff/arspaper/fork/.../mana/ManaBaseStats.java`）が
+`TrinityForgeBridge.manaBaseStatRaw`/`manaBaseStatSource` 経由で **base-stats.yml の生値だけ**を
+読む。`PlayerStatAggregator`/`statTotal`/`nonItemStatTotal` は一切通らないので、item-stats.yml や
+skilltree の `buffs:` にこれらのキーを足しても実行時は完全に無視される（エラーも警告も出ない）。
+
+- 2026-08-13時点、`StatVocabulary` はこの8キーのうち5キー（onhit/onattack-percent・idle-seconds・
+  idle-bonus-percent/flat）を今も `GENERAL_KEYS`（本来は装備/perk合算対象のチャネル）へ登録し、
+  `stats/lore.yml` にも表示定義を残している。残り3キー（mana-max-base/mana-regen-base/
+  mana-regen-interval-ticks）は同日 `StatVocabulary.BASE_STATS_ONLY_KEYS` へ明示的に切り出され、
+  `stats/lore.yml` からも削除された（同ファイルの該当箇所コメント参照）。**残り5キーは
+  同じ「base-stats専用」の実態を持つが、この整理がまだ及んでいない**（config-editorの
+  `public/js/labels.js` は「ManaBaseStats.onHitPercent経由でフォークが読む」のように base-stats専用
+  である旨を明記済みなので、意図的な設計であって合算漏れのバグではない）。
+- **How**: この8キーに item/perk 由来の合算を実装しようとしないこと（フォーク側の消費経路を
+  全部作り直す規模の変更になる）。表示定義の整理（残り5キーを `stats/lore.yml` から外す/
+  `BASE_STATS_ONLY_KEYS` へ追加する）は `stats/lore.yml` の編集権を持つレーンの管轄。
+
 ### ⚠️ `SpellCaster.cast` の `catalyst` 引数はバインド詠唱では「杖」ではなく「バインド先の魔導書」になる — null チェックだけで経路を切り分けられない
 
 `SpellCaster#cast(caster, recipe, sharedSpell, catalyst, castItem)` の5引数版で、`catalyst` と

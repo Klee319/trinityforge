@@ -326,7 +326,12 @@ public final class FishingGimmickListener implements Listener {
     /** {@code luckTotal} for the treasure-ratio shift: rod's aggregated stat + enchant bonus + skill level. */
     private double luckTotalOf(Player player) {
         ItemStack rod = resolveRod(player.getInventory());
-        PlayerCombatAggregate agg = aggregator.aggregate(player, rod);
+        // 2026-08-13バグ修正: ロッドがオフハンド側にある場合は offhand-stats-apply の門を正しく通す
+        // (FishingQualityListener#onFish の rodFromOffhand と同じ導出。参照比較はライブサーバーでは
+        // スロット読み取りごとの新ミラーで一致しないため、Material判定で求める)。
+        boolean rodFromOffhand = player.getInventory().getItemInMainHand().getType() != Material.FISHING_ROD
+                && rod.getType() == Material.FISHING_ROD;
+        PlayerCombatAggregate agg = aggregator.aggregate(player, rod, rodFromOffhand);
         double statLuck = agg.totalOf(FISHING_LUCK_KEY);
         double enchantLuck = EnchantmentStatBridge.bonuses(rod, null).fishingLuckBonus();
         int fishingLevel = skillLevelSource.levelsOf(player.getUniqueId())

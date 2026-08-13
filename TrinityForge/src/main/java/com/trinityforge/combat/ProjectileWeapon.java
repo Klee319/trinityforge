@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Projectile;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -137,6 +138,54 @@ public final class ProjectileWeapon {
         } catch (RuntimeException failed) {
             // Best-effort retention: leave unstamped, readLaunchLocation falls back to "no record".
         }
+    }
+
+    /**
+     * 2026-08-13 バグ修正(オフハンド発射のステ門迂回防止): {@code EntityShootBowEvent#getHand()} から
+     * 「この発射武器がオフハンドから撃たれたか」を {@link #store}/{@link #storeDrawForce} と同じ最善努力で
+     * {@code projectile} の PDC へ retain する。
+     *
+     * <p>トライデントがこのメソッドの呼び出し経路(= {@code EntityShootBowEvent})を通るかどうかは
+     * 未検証。ただしそれが真でも偽でも結果は正しい — このフラグは「寄与アイテムの合算可否」ではなく
+     * 「オフハンドスロットを二重計上しないための除外判定」にしか使われず、寄与アイテム自体はどちらの手に
+     * あっても常に合算される設計契約のため({@link PdcKeys#PROJECTILE_FIRED_FROM_OFFHAND} のjavadoc参照)。
+     */
+    public static void storeFiredFromOffhand(Projectile projectile, boolean firedFromOffhand) {
+        if (projectile == null) {
+            return;
+        }
+        try {
+            projectile.getPersistentDataContainer().set(
+                    PdcKeys.PROJECTILE_FIRED_FROM_OFFHAND, PersistentDataType.BYTE,
+                    (byte) (firedFromOffhand ? 1 : 0));
+        } catch (RuntimeException failed) {
+            // Best-effort retention: leave unstamped, readFiredFromOffhand falls back to false (mainhand).
+        }
+    }
+
+    /**
+     * The offhand-launch flag previously {@link #storeFiredFromOffhand stored} on {@code projectile}, or
+     * {@code false} (mainhand / no record) when none was stored — covers tridents (never stamped, see
+     * {@link #storeFiredFromOffhand}), non-TF/plugin-spawned/dispensed projectiles, and any projectile
+     * that predates this stamp.
+     */
+    public static boolean readFiredFromOffhand(Projectile projectile) {
+        if (projectile == null) {
+            return false;
+        }
+        Byte stored = projectile.getPersistentDataContainer()
+                .get(PdcKeys.PROJECTILE_FIRED_FROM_OFFHAND, PersistentDataType.BYTE);
+        return stored != null && stored == (byte) 1;
+    }
+
+    /**
+     * Pure translation of {@code EntityShootBowEvent#getHand()} into the boolean {@link
+     * #storeFiredFromOffhand} expects. Extracted so the null/MAIN_HAND/OFF_HAND mapping is unit-testable
+     * without a live server. {@code hand == null} (an implementation that never fills the hand, per the
+     * event's own contract) is treated as mainhand ({@code false}), the same default as "no record".
+     */
+    public static boolean isOffhand(EquipmentSlot hand) {
+        return hand == EquipmentSlot.OFF_HAND;
     }
 
     /**

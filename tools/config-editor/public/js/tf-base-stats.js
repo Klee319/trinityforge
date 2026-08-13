@@ -24,20 +24,19 @@
   // 2026-07-25 修正2: base-stats.yml に書いても効果が無い(no-op)キーを画面から除外する。
   // 根拠(Java側裏取り): base-stats.yml の値は PlayerStatAggregator の item マップ
   // (属性チャネルなら PerkAttributeApplier)にしか入らず、PerkBuffResolver.general() には一切入らない。
-  // 以下の7キーは general() 経由でしか読まれないため、base-stats に書いても完全な no-op になる:
+  // 以下のキーは general() 経由でしか読まれないため、base-stats に書いても完全な no-op になる:
   //  - glyph-slot-bonus:
   //    TrinityForge/src/main/java/com/trinityforge/integration/ars/ArsNativeBridge.java:65
   //    (perkBuffResolver.buffsFor(playerId).general().getOrDefault(GLYPH_SLOT_BONUS, 0.0))
-  //  - armor-set-bonus (2026-07-31 まで並んでいた heavy-/light-armor-move-speed-per-piece は
-  //    語彙ごと廃止され、set-buffs の move-speed へ統合された):
-  //    TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java
-  //    (Map<String, Double> general = perkBuffs.buffsFor(id).general(); armorAttributesFor() 全体が
-  //    この general マップからしか読まない = スキルツリーの buffs: 由来分だけで、base-stats.yml は
-  //    perkBuffs.general() に一切合流しない)。2026-07-27(armor-set-buffs全面移行)で旧4キー
-  //    (light/heavy-armor-set-bonus-multiplier, light-armor-set-dodge-chance,
-  //    heavy-armor-set-knockback-resistance)を armor-set-bonus 1本へ統一したが、この制約自体は
-  //    引き継がれる — armor-set-bonus はステ辞書としては全ソース合算の総合ステ(/tf stats 等)だが、
-  //    NativeAttributeBridge の増幅計算にはスキルツリー由来分しか効かない。
+  // (2026-08-13 訂正: armor-set-bonus は上記の no-op 群から外れた。かつて
+  //  「NativeAttributeBridge#armorAttributesFor() は perkBuffs.general() からしか読まず、
+  //  base-stats.yml は一切合流しない」と書いていたが、これは 2026-08-13 の配線変更で誤りになった。
+  //  現在は armorAttributesFor() が PlayerStatAggregator#nonPerkStatTotal(player, "armor_set_bonus")
+  //  も注入するため、combat/base-stats.yml・装備の item-stats・役職バフ・永続バフ由来の
+  //  armor-set-bonus も増幅率に合流する。よって base-stats.yml から編集できる必要があり、
+  //  この画面から除外してはいけない。
+  //  TrinityForge/src/main/java/com/trinityforge/skilltree/runtime/NativeAttributeBridge.java
+  //  (armorAttributesFor() 内 nonPerkStatTotal(player, "armor_set_bonus") 呼び出し箇所)
   // (2026-07-27: 以前ここに「charged-shot-unlocked だけは例外」と書いていたが、当のキーが
   //  挙動ゼロの同語反復フラグと判明したため語彙ごと撤去した。この画面にフラグ系のステは無い。)
   // 将来キーを追加する際は、Java側で `.general()` 経由でしか読まれないことを確認してからここに足すこと
@@ -45,7 +44,7 @@
   //
   // 2026-07-27 注記: このSetには理由が異なる2種類のキーが混在する(定数名はリネームしない —
   // 参照箇所が増えて差分が膨らむため。この注記で代替する)。
-  //  (a) no-op系(上記4キー): base-stats.yml に書いても Java側が読まない完全な死に設定。
+  //  (a) no-op系(上記1キー): base-stats.yml に書いても Java側が読まない完全な死に設定。
   //  (b) そもそもプレイヤー総合ステでない系: tool-enchant-efficiency は「プレイヤー基礎ステータス」
   //      (全員一律加算の総合ステ)ではなく、クラフト時にツール自身へエンチャントとして刻まれる
   //      アイテム専用ステ(item-stats.yml 側の対象)。base-stats.yml へ書いても no-op という意味では
@@ -54,7 +53,6 @@
   //      で読み替えられる)ため、この画面(基礎/上限どちらのタブ)から除外する。
   const NO_OP_BASE_STATS_KEYS = new Set([
     "glyph-slot-bonus",
-    "armor-set-bonus",
     "tool-enchant-efficiency",
     // 2026-07-29(重複ステ間引き) 理由(c): 同じ画面の別キーと完全に同じ意味になるキー。
     // mana-bonus は「マナ上限への加算」、mana-regen は「マナ回復量への加算」で、

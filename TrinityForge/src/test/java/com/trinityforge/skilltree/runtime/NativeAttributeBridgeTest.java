@@ -267,6 +267,99 @@ class NativeAttributeBridgeTest {
                 "3部位 +1.5% は armor-set-bonus 0.1 で +1.65% になる");
     }
 
+    // --- 2026-08-13 修正2: armor-set-bonus 総合値化(パーク以外の供給源) ---
+
+    /**
+     * {@link NativeAttributeBridge#setNonPerkArmorSetBonusSupplier} で注入した供給分が、パーク分と
+     * 合算されてから増幅率へ反映される(base-stats.yml等に armor-set-bonus を置いても効くようになった
+     * バグ修正の直接検証)。
+     */
+    @Test
+    void nonPerkArmorSetBonusSupplier_isAddedToAmplifier() {
+        SkillNode c = node("C", Map.of(3, Map.of("dodge-chance", 0.1)));
+        SkillTree lightTree = tree(LIGHT, Map.of("C", c));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree), Set.of(perk(LIGHT, "C")));
+        bridge.setNonPerkArmorSetBonusSupplier(p -> 0.3);
+        wearLight(3);
+
+        Map<String, Double> attrs = bridge.armorAttributesFor(player);
+
+        assertEquals(0.1 * 1.3, attrs.get("dodge_chance"), EPS,
+                "パーク分(0)+供給分(0.3)=0.3で増幅されるべき");
+    }
+
+    @Test
+    void nonPerkArmorSetBonusSupplier_addsToPerkGeneralArmorSetBonus() {
+        SkillNode c = node("C", Map.of(3, Map.of("dodge-chance", 0.1)));
+        SkillNode bonus = plainBuffsNode("B", Map.of("armor-set-bonus", 0.2));
+        SkillTree lightTree = tree(LIGHT, Map.of("C", c, "B", bonus));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree),
+                Set.of(perk(LIGHT, "C"), perk(LIGHT, "B")));
+        bridge.setNonPerkArmorSetBonusSupplier(p -> 0.3);
+        wearLight(3);
+
+        Map<String, Double> attrs = bridge.armorAttributesFor(player);
+
+        assertEquals(0.1 * 1.5, attrs.get("dodge_chance"), EPS,
+                "パーク分(0.2)+供給分(0.3)=0.5で増幅されるべき(1+0.5=1.5倍)");
+    }
+
+    @Test
+    void nonPerkArmorSetBonusSupplier_combinedNegativeSumIsFlooredAtZero() {
+        SkillNode c = node("C", Map.of(3, Map.of("dodge-chance", 0.1)));
+        SkillNode bonus = plainBuffsNode("B", Map.of("armor-set-bonus", -0.9));
+        SkillTree lightTree = tree(LIGHT, Map.of("C", c, "B", bonus));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree),
+                Set.of(perk(LIGHT, "C"), perk(LIGHT, "B")));
+        bridge.setNonPerkArmorSetBonusSupplier(p -> 0.1);
+        wearLight(3);
+
+        Map<String, Double> attrs = bridge.armorAttributesFor(player);
+
+        assertEquals(0.1, attrs.get("dodge_chance"), EPS,
+                "パーク分(-0.9)+供給分(0.1)=-0.8は0未満なので0クランプ(増幅なし)");
+    }
+
+    @Test
+    void nullNonPerkArmorSetBonusSupplier_behavesExactlyAsBeforeThisWiring() {
+        SkillNode c = node("C", Map.of(3, Map.of("dodge-chance", 0.1)));
+        SkillNode bonus = plainBuffsNode("B", Map.of("armor-set-bonus", 0.5));
+        SkillTree lightTree = tree(LIGHT, Map.of("C", c, "B", bonus));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree),
+                Set.of(perk(LIGHT, "C"), perk(LIGHT, "B")));
+        // setNonPerkArmorSetBonusSupplier を一切呼ばない(未配線の既存コンストラクタ相当)。
+        wearLight(3);
+
+        Map<String, Double> attrs = bridge.armorAttributesFor(player);
+
+        assertEquals(0.1 * 1.5, attrs.get("dodge_chance"), EPS,
+                "未注入(null)ならパーク分だけの既存挙動と完全に同じ");
+    }
+
+    /**
+     * 2026-08-13(性能回帰修正): light/heavy 両方の set-buffs が空のときは、増幅率の計算(供給された
+     * {@code nonPerkArmorSetBonusSupplier})を一度も呼んではならない。増幅率は set-buffs に掛けるためだけ
+     * の値であり、掛ける相手が無いなら供給関数(重い全装備/役職/永続バフのフルスキャン)を呼ぶ意味が無い。
+     */
+    @Test
+    void nonPerkArmorSetBonusSupplier_neverCalledWhenSetBuffsAreEmpty() {
+        SkillNode c = node("C", Map.of(3, Map.of("dodge-chance", 0.1)));
+        SkillTree lightTree = tree(LIGHT, Map.of("C", c));
+        NativeAttributeBridge bridge = bridgeFor(List.of(lightTree), Set.of(perk(LIGHT, "C")));
+        int[] callCount = {0};
+        bridge.setNonPerkArmorSetBonusSupplier(p -> {
+            callCount[0]++;
+            return 0.3;
+        });
+        wearLight(2); // 段3未達 = light/heavy とも set-buffs が空
+
+        Map<String, Double> attrs = bridge.armorAttributesFor(player);
+
+        assertFalse(attrs.containsKey("dodge_chance"), "set-buffsが空なので何も返らない");
+        assertEquals(0, callCount[0],
+                "set-buffsが空のときはnonPerkArmorSetBonusSupplierを一度も呼んではならない");
+    }
+
     /** 撤去した旧キーを平坦 buffs に書いても、もう move_speed には一切ならないこと。 */
     @Test
     void retiredPerPieceKeysNoLongerProduceMoveSpeed() {

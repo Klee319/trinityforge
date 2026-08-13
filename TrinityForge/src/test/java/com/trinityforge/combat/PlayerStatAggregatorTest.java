@@ -762,4 +762,222 @@ class PlayerStatAggregatorTest {
         assertEquals(0.1, nonItem, 1e-9,
                 "nonItemStatTotalはaddon由来(99)を含まずパーク分(0.1)のみを返す");
     }
+
+    // --- 2026-08-13 修正1(revert後の新仕様): 「実際に使ったアイテム(寄与アイテム)はどちらの手にあっても
+    // 常に合算される」。offhand-stats-apply の門は「オフハンドに持っているだけのアイテム」(スロット側)
+    // にだけ掛かる。 ---
+
+    /**
+     * オフハンド対応(offhand-stats-apply)が無くても、寄与アイテム自身(=今まさに使ったアイテム)は常に
+     * 合算される。item()には寄与アイテム(盾=7)だけが入る — contributorIsOffhand=true のとき
+     * 「実際に使ったアイテムではない実メインハンド(剣)」は合算対象に含まれない(offhand-stats-apply
+     * はオフハンドに「持っているだけ」のアイテム向けの門であり、寄与アイテムには掛からない)。
+     */
+    @Test
+    void contributorIsOffhand_contributorIsAlwaysSummedEvenWithoutOffhandStatsApply(@TempDir File dir)
+            throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, false); // SHIELD offhand-stats-apply=false
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(7.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "offhand-stats-apply=falseでも寄与アイテム(盾=7)は常に合算される"
+                        + "(実際に使っていない実メインハンドの剣=10は含まれない)");
+    }
+
+    /**
+     * 寄与アイテムがオフハンドにあり、かつ「今のオフハンドの中身」と同一プロファイルのときは
+     * オフハンドスロット側の合算が除外されるので、寄与アイテムはちょうど1回だけ数えられる。
+     * この盾は offhand-stats-apply=true なので、excludeOffhandSlot が正しく効いていなければ
+     * スロット側からもう1回(mainhand合算の7 + スロット合算の7 = 14)加算されてしまう —
+     * それが起きず7のままであることが二重計上防止の固定点。
+     */
+    @Test
+    void contributorIsOffhand_offhandSlotExcludedSoContributorCountedExactlyOnce(
+            @TempDir File dir) throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, true); // SHIELD offhand-stats-apply=true
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(7.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "寄与アイテム(盾=7)がオフハンドの中身と同一プロファイルなのでスロット側は除外され、"
+                        + "ちょうど7のまま(14への二重計上にならない)");
+    }
+
+    /**
+     * mainhand マップ(アイテムCT専用)は contributorIsOffhand=true のとき<b>寄与アイテム</b>から
+     * 作られる(実メインハンドではない) — 「今使ったアイテム」のCTが正しいため。
+     */
+    @Test
+    void contributorIsOffhand_mainhandMapReflectsContributor(@TempDir File dir)
+            throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, true);
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(7.0, agg.mainhand().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "mainhand()は寄与アイテム(盾=7)由来であるべきで、実メインハンド(剣=10)由来ではない");
+    }
+
+    /**
+     * 2026-08-13 回帰固定(CRITICALバグの再発防止): メインハンドに attack-power の大きいアイテムを、
+     * オフハンドに attack-power の小さい寄与アイテムを持って発射した場合、agg.item()のattack-power
+     * は寄与アイテム(発射した武器)の値だけであり、メインハンド側の値が混ざってはならない。
+     * 修正前のコード(実メインハンドを合算に使っていた)に戻すと、メインハンドの巨大な値がベース
+     * ダメージへ混入してしまう(2026-08-13 実サーバ回帰: ネザライト剣+弓でおよそ54倍の矢ダメージ)。
+     */
+    @Test
+    void offhandProjectile_baseAttackPowerComesFromFiredWeaponNotFromActualMainhand(@TempDir File dir)
+            throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  NETHERITE_SWORD:
+                    fixed: { attack-power: 3780.0 }
+                  BOW:
+                    fixed: { attack-power: 69.0 }
+                """);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        PlayerStatAggregator aggregator =
+                new PlayerStatAggregator(cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()));
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
+        player.getInventory().setItemInOffHand(new ItemStack(Material.BOW));
+        ItemStack contributorMirror = player.getInventory().getItemInOffHand().clone();
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(69.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "発射した弓(69)だけが合算され、メインハンドの剣(3780)は絶対に混ざってはならない");
+        assertEquals(69.0, agg.mainhand().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "mainhand()(武器CT)も寄与アイテム(弓=69)由来であるべき");
+    }
+
+    /**
+     * 2026-08-13 回帰固定: 寄与アイテム(contributorIsOffhand=true)とは<b>別</b>のアイテムが
+     * オフハンドにあり、そのオフハンドアイテムが offhand-stats-apply:true を持つ場合、
+     * その寄与が落ちてはならない(飛び道具は発射から着弾まで秒単位の遅延があり、その間に
+     * オフハンドの中身が入れ替わっていることがある — sameItemProfile が一致しないので
+     * excludeOffhandSlot は false になり、スロット側の合算は生きたままでなければならない)。
+     */
+    @Test
+    void contributorIsOffhand_offhandSwappedMidFlight_newOffhandItemStillCounts(@TempDir File dir)
+            throws IOException {
+        File itemStats = new File(dir, ItemStatsConfig.PATH);
+        Files.createDirectories(itemStats.getParentFile().toPath());
+        Files.writeString(itemStats.toPath(), """
+                items:
+                  BOW:
+                    fixed: { attack-power: 69.0 }
+                  SHIELD:
+                    fixed: { attack-power: 7.0 }
+                    offhand-stats-apply: true
+                """);
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+        PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
+        PlayerStatAggregator aggregator =
+                new PlayerStatAggregator(cm.itemStats(), damage, perks, new RoleBuffResolver(cm.roleBuffs()));
+        Player player = server.addPlayer();
+        // 発射時点のオフハンド寄与アイテムは弓(発射後にretainされたクローン)。
+        ItemStack contributorMirror = new ItemStack(Material.BOW);
+        // 着弾までの間にオフハンドの中身が盾へ入れ替わっている(BOW != SHIELD なので sameItemProfile=false)。
+        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+
+        PlayerCombatAggregate agg = aggregator.aggregate(player, contributorMirror, true);
+
+        assertEquals(76.0, agg.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9,
+                "寄与アイテム(弓=69) + 入れ替わった新しいオフハンドの盾(offhand-stats-apply=true, 7) の"
+                        + "両方が合算されるべき(スロット除外は行われない)");
+    }
+
+    /**
+     * contributorIsOffhand=false の既存挙動は1バイトも変わらない(回帰固定)。
+     * 既存の offhandFlagTrue_includesOffhandStats / mainhandMap_excludesArmorAndOffhand と同じ
+     * フィクスチャで、2引数/3引数(false)経路が同一の結果を返すことを確認する。
+     */
+    @Test
+    void contributorIsOffhandFalse_behavesIdenticallyToTwoArgOverload(@TempDir File dir) throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, true);
+        Player player = equippedPlayer();
+
+        PlayerCombatAggregate viaTwoArg = aggregator.aggregate(player);
+        PlayerCombatAggregate viaThreeArgFalse = aggregator.aggregate(
+                player, player.getInventory().getItemInMainHand(), false);
+
+        assertEquals(viaTwoArg.item().getOrDefault(ATTACK_POWER, 0.0),
+                viaThreeArgFalse.item().getOrDefault(ATTACK_POWER, 0.0), 1e-9);
+        assertEquals(viaTwoArg.mainhand().getOrDefault(ATTACK_POWER, 0.0),
+                viaThreeArgFalse.mainhand().getOrDefault(ATTACK_POWER, 0.0), 1e-9);
+    }
+
+    // --- 2026-08-13 修正2: nonPerkStatTotal(armor-set-bonus 総合値化のための読み取り口) ---
+
+    /**
+     * nonPerkStatTotal は base-stats / 役職 / 永続 / 装備(防具+実メインハンド)を足し、
+     * パーク general分は含まない(NativeAttributeBridge側が別途足すため二重計上防止)。
+     */
+    @Test
+    void nonPerkStatTotal_sumsBaseRolePermanentAndEquipmentButExcludesPerk(@TempDir File dir)
+            throws IOException {
+        writeItemStatsWithManaBonus(dir); // DIAMOND_SWORD.mana_bonus=1.0
+        ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
+        CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
+
+        Map<String, Double> buffs = new LinkedHashMap<>();
+        buffs.put("mana_bonus", 2.0); // パーク分: nonPerkStatTotalには含まれてはいけない
+        SkillNode node = new SkillNode("N", "マナの型", 1, SkillRole.MAIN, null, null, "STONE", 1, "desc",
+                buffs, Map.of(), List.of(), List.of(), List.of());
+        Map<String, SkillNode> nodes = new LinkedHashMap<>();
+        nodes.put("N", node);
+        SkillTree tree = new SkillTree("ARS_MAGIC", "アルス魔術", null, "1,1", null, nodes);
+        String perkId = PerkNaming.perkId("ARS_MAGIC", "N");
+        SkillPerkStatSource source = playerId -> java.util.Set.of(perkId);
+        PerkBuffResolver perks = new PerkBuffResolver(source, () -> List.of(tree));
+
+        RoleBuffResolver roleBuffResolver = mock(RoleBuffResolver.class);
+        when(roleBuffResolver.contributionFor(any())).thenReturn(new RoleBuffResolver.Contribution(
+                Map.of(MANA_BONUS, 3.0), Map.of(), 1.0, null, 1.0));
+        PermanentBuffResolver permanentBuffResolver = mock(PermanentBuffResolver.class);
+        when(permanentBuffResolver.buffsFor(any())).thenReturn(Map.of(MANA_BONUS, 5.0));
+        BaseStatsConfig baseStats = baseStatsFrom(dir, """
+                base-stats:
+                  mana_bonus: 7
+                """);
+
+        PlayerStatAggregator aggregator = new PlayerStatAggregator(cm.itemStats(), damage, perks,
+                roleBuffResolver, null, permanentBuffResolver, baseStats);
+        Player player = equippedPlayer(); // 剣(mana_bonus=1)を装備
+
+        double total = aggregator.nonPerkStatTotal(player, "mana_bonus");
+
+        assertEquals(16.0, total, 1e-9,
+                "装備(1) + 役職(3) + 永続(5) + base-stats(7) = 16。パーク分(2)は含まない");
+    }
+
+    @Test
+    void nonPerkStatTotal_includesActualMainhandItemStats(@TempDir File dir) throws IOException {
+        PlayerStatAggregator aggregator = aggregator(dir, false);
+        Player player = server.addPlayer();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.DIAMOND_SWORD));
+
+        double total = aggregator.nonPerkStatTotal(player, "attack-power");
+
+        assertEquals(10.0, total, 1e-9, "実メインハンド(剣=10)のitem-statsが含まれる");
+    }
 }

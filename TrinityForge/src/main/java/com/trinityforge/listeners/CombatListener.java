@@ -318,7 +318,11 @@ public final class CombatListener implements Listener {
         // アドオンを PlayerStatAggregator で一括集計する。攻撃武器の寄与は近接ならメインハンド、飛び道具
         // なら発射時に retain された武器そのもの(High bug: 着弾時のメインハンドではない)。
         ItemStack mainhandContributor = resolveMainhandContributor(event, attacker);
-        PlayerCombatAggregate agg = aggregator.aggregate(attacker, mainhandContributor);
+        // 2026-08-13バグ修正: 飛び道具(弓/クロスボウ)がオフハンドから撃たれていた場合、寄与アイテムの
+        // 実際の所在(offhand-stats-apply の門)を PDC に retain された値から読む(近接/トライデントは常に
+        // false — resolveContributorIsOffhand のjavadoc参照)。
+        boolean contributorIsOffhand = resolveContributorIsOffhand(event);
+        PlayerCombatAggregate agg = aggregator.aggregate(attacker, mainhandContributor, contributorIsOffhand);
         // LD-9 skill-tree perk addend + アドオン契約は従来通り: item(防具+武器(+offhand)) → perk →
         // addon の順に加算し、攻撃ブリッジ/出血判定へ渡す。attack-power は下で個別に扱う(ベース置換規則)。
         Map<String, Double> itemAndPerk = mergeStats(agg.item(), agg.perkAttack());
@@ -1187,6 +1191,10 @@ public final class CombatListener implements Listener {
             // retain し、着弾時に tfBaseReplaces のitem attack-power へ乗率として掛け戻す(CombatListener
             // 本体側)。ここで捕捉しないと着弾時点ではもう force を取得する手段がない。
             ProjectileWeapon.storeDrawForce(projectile, event.getForce());
+            // 2026-08-13バグ修正(オフハンド発射のステ門迂回防止): どちらの手から撃ったかも同じ projectile
+            // へ retain する。event.getHand() の実装差(null を返し得る)は ProjectileWeapon.isOffhand の
+            // == 比較で null 安全に吸収する。
+            ProjectileWeapon.storeFiredFromOffhand(projectile, ProjectileWeapon.isOffhand(event.getHand()));
         }
     }
 
@@ -1571,6 +1579,23 @@ public final class CombatListener implements Listener {
             }
         }
         return attacker.getInventory().getItemInMainHand();
+    }
+
+    /**
+     * この一撃の攻撃寄与アイテム({@link #resolveMainhandContributor})がオフハンドから来ているかどうか
+     * (2026-08-13バグ修正、offhand-stats-apply 門迂回防止)。飛び道具(弓/クロスボウ)のみ発射時に
+     * retain された値を読む — 近接は常にメインハンドなので既定 {@code false} のまま返る。
+     *
+     * <p>トライデントが発射時にこのキーを retain する経路({@code EntityShootBowEvent})を通るかどうかは
+     * 未検証。ただしこのフラグは「オフハンドスロットを二重計上しないための除外判定」にしか使われず、
+     * 寄与アイテム自体はどちらの手にあっても常に合算される設計契約のため、経路の有無に関わらず
+     * 結果は正しい({@link ProjectileWeapon#storeFiredFromOffhand} のjavadoc参照)。
+     */
+    private static boolean resolveContributorIsOffhand(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Projectile projectile) {
+            return ProjectileWeapon.readFiredFromOffhand(projectile);
+        }
+        return false;
     }
 
     /**

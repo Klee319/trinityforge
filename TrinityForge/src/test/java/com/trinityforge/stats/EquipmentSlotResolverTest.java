@@ -109,6 +109,39 @@ class EquipmentSlotResolverTest {
         assertThrows(NullPointerException.class, () -> EquipmentSlotResolver.resolve(null));
     }
 
+    // --- レーンC(2026-08-13): 頭スロットに実際に装備できる素材のHEAD分類 ---
+
+    @Test
+    void carvedPumpkinResolvesToHead() {
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.CARVED_PUMPKIN));
+    }
+
+    @Test
+    void playerAndMobHeadsResolveToHead() {
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.PLAYER_HEAD));
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.ZOMBIE_HEAD));
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.SKELETON_SKULL));
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.WITHER_SKELETON_SKULL));
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.CREEPER_HEAD));
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.DRAGON_HEAD));
+        assertEquals(EquipmentSlotResolver.Category.HEAD,
+                EquipmentSlotResolver.resolve(Material.PIGLIN_HEAD));
+    }
+
+    @Test
+    void pistonHeadIsNotConfusedWithPlayerHeadSlot() {
+        // 接尾辞判定("_HEAD"で終わる)への回帰を固定する: PISTON_HEADは技術ブロックで頭スロットに装備できない。
+        assertEquals(EquipmentSlotResolver.Category.ANY,
+                EquipmentSlotResolver.resolve(Material.PISTON_HEAD));
+    }
+
     // --- I7 stat-category (applies-to filtering) ---
 
     @Test
@@ -168,5 +201,20 @@ class EquipmentSlotResolverTest {
                 EquipmentSlotResolver.statCategories(Material.STICK));
         assertEquals(Set.of(EquipmentSlotResolver.CATEGORY_OTHER),
                 EquipmentSlotResolver.statCategories(Material.SHIELD));
+    }
+
+    // --- レーンC(2026-08-13)の副作用固定: 頭スロット装備可能素材の追加が statCategories にも波及する ---
+
+    @Test
+    void headEquippableCarvedPumpkinAndPlayerHeadMapToArmorStatCategory() {
+        // これはレーンCが resolve() へ CARVED_PUMPKIN/PLAYER_HEAD 等をHEAD分類として追加した
+        // 意図した副作用であり、避けられない: statCategories() は resolve() の分類結果を丸ごと再利用する
+        // 共有関数のため、resolve() 側の変更は自動的にこちらにも伝播する。出荷 item-stats.yml に
+        // 該当素材のエントリは無いので現時点の実害はゼロだが、将来ここへエントリを足す人がこの分類変更に
+        // 気づけるよう固定する。
+        assertEquals(Set.of(EquipmentSlotResolver.CATEGORY_ARMOR),
+                EquipmentSlotResolver.statCategories(Material.CARVED_PUMPKIN));
+        assertEquals(Set.of(EquipmentSlotResolver.CATEGORY_ARMOR),
+                EquipmentSlotResolver.statCategories(Material.PLAYER_HEAD));
     }
 }

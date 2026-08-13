@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.ToDoubleFunction;
 
 /**
  * Resolves conditional armor-set buff stats: the {@code set-buffs} schema (SKILL_TREE armor-set-buffs
@@ -38,8 +39,32 @@ public final class NativeAttributeBridge {
 
     private final PerkBuffResolver perkBuffs;
 
+    /**
+     * 2026-08-13 修正2({@code armor-set-bonus} 総合値化): パーク以外(装備アイテム / 役職バフ /
+     * 永続バフ / {@code combat/base-stats.yml})由来の {@code armor-set-bonus} を供給する。null 可
+     * (未注入なら 0.0 として扱う、既存挙動と完全互換)。コンストラクタでは注入できない
+     * ({@code TrinityForge} での生成順の都合で {@code PlayerStatAggregator} より先にこのブリッジを
+     * 作る必要があるため)ので、{@link #setNonPerkArmorSetBonusSupplier} で後から注入する。
+     *
+     * <p><b>スレッド可視性(2026-08-13):</b> {@code onEnable} 中に1回だけ設定され、以後は不変
+     * (再設定されない)。{@link #armorAttributesFor} は非同期スレッドからも到達しうる
+     * ({@code PlayerStatAggregator.java:260-262} が非同期呼び出し経路
+     * {@code NativeExperienceDispatcher#drain} を明記している)ため、設定時の書き込みが他スレッドから
+     * 確実に見えるよう {@code volatile} にしている。
+     */
+    private volatile ToDoubleFunction<Player> nonPerkArmorSetBonusSupplier;
+
     public NativeAttributeBridge(PerkBuffResolver perkBuffs) {
         this.perkBuffs = Objects.requireNonNull(perkBuffs, "perkBuffs");
+    }
+
+    /**
+     * @param supplier パーク以外由来の {@code armor-set-bonus} 総合値を返す関数(通常は
+     *                 {@code PlayerStatAggregator#nonPerkStatTotal(player, "armor_set_bonus")})。
+     *                 {@code null} を渡すと未注入状態(0.0扱い)へ戻せる。
+     */
+    public void setNonPerkArmorSetBonusSupplier(ToDoubleFunction<Player> supplier) {
+        this.nonPerkArmorSetBonusSupplier = supplier;
     }
 
     /**
@@ -56,7 +81,6 @@ public final class NativeAttributeBridge {
     public Map<String, Double> armorAttributesFor(Player player) {
         if (player == null) return Map.of();
         UUID id = player.getUniqueId();
-        Map<String, Double> general = perkBuffs.buffsFor(id).general();
         int light = 0;
         int heavy = 0;
         ItemStack[] armor = player.getInventory().getArmorContents();
@@ -72,10 +96,31 @@ public final class NativeAttributeBridge {
                 else heavy++;
             }
         }
+        // 2026-08-13(性能回帰修正): 増幅率(amplifier)は set-buffs に掛けるためだけの値。set-buffs が
+        // light/heavy 両方とも空なら、増幅率をいくら精緻に求めても掛け算する相手が無い。
+        // nonPerkArmorSetBonusSupplier(= PlayerStatAggregator#nonPerkStatTotal)は
+        // usableArmorContents(UseRequirementService×4) + DerivedItemStats.resolve ×5〜6 +
+        // RoleBuffResolver#contributionFor + PermanentBuffResolver#buffsFor(achievement/collection の
+        // フルスキャン)を毎回フル実行するため、set-buffs が空と分かっている呼び出しでこれを走らせるのは
+        // 純粋な無駄(PerkAttributeApplier が装備変更のたび armorAttributesFor を2回呼ぶので特に効く)。
+        // そのため先に light/heavy の set-buffs を解決し、両方 empty なら supplier を一度も呼ばずに
+        // Map.of() を早期returnする。
+        Map<String, Double> lightSetBuffs = perkBuffs.setBuffsFor(id, LIGHT_ARMOR_SKILL, light);
+        Map<String, Double> heavySetBuffs = perkBuffs.setBuffsFor(id, HEAVY_ARMOR_SKILL, heavy);
+        if (lightSetBuffs.isEmpty() && heavySetBuffs.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, Double> general = perkBuffs.buffsFor(id).general();
         Map<String, Double> out = new HashMap<>();
-        double amplifier = 1.0 + Math.max(0.0, general.getOrDefault(ARMOR_SET_BONUS, 0.0));
-        mergeSetBuffs(out, perkBuffs.setBuffsFor(id, LIGHT_ARMOR_SKILL, light), amplifier);
-        mergeSetBuffs(out, perkBuffs.setBuffsFor(id, HEAVY_ARMOR_SKILL, heavy), amplifier);
+        // 2026-08-13 修正2: パーク分(general)に加え、供給されていれば装備/役職/永続/base-stats 由来の
+        // armor-set-bonus も先に合算してから 0 未満をクランプする(base-stats.yml に行があっても
+        // これまで無言で捨てられていたバグの修正)。未注入(null)なら以前と完全に同じ挙動。
+        ToDoubleFunction<Player> supplier = nonPerkArmorSetBonusSupplier;
+        double nonPerkBonus = supplier == null ? 0.0 : supplier.applyAsDouble(player);
+        double amplifier = 1.0 + Math.max(0.0, general.getOrDefault(ARMOR_SET_BONUS, 0.0) + nonPerkBonus);
+        mergeSetBuffs(out, lightSetBuffs, amplifier);
+        mergeSetBuffs(out, heavySetBuffs, amplifier);
 
         return out.isEmpty() ? Map.of() : Map.copyOf(out);
     }

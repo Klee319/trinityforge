@@ -99,12 +99,28 @@ public final class EquipmentSlotResolver {
                 || name.equals("FLINT_AND_STEEL");
     }
 
+    /**
+     * カボチャとスカル/ヘッド系のうち、プレイヤーが実際に頭スロットへ装備できるもの（レーンC）。
+     * {@code name.endsWith("_HEAD")} のような接尾辞判定は {@code PISTON_HEAD}（技術ブロック、頭スロットに
+     * 装備できない）を巻き込むため使わない。明示列挙で固定する。Material 定数を直接参照すると将来の版で
+     * 存在しない名前がコンパイルエラーになりうるので、このクラスの既存の流儀どおり文字列比較で書く。
+     */
+    private static final Set<String> HEAD_EQUIPPABLE = Set.of(
+            "CARVED_PUMPKIN",
+            "PLAYER_HEAD",
+            "ZOMBIE_HEAD",
+            "SKELETON_SKULL",
+            "WITHER_SKELETON_SKULL",
+            "CREEPER_HEAD",
+            "DRAGON_HEAD",
+            "PIGLIN_HEAD");
+
     /** Classifies {@code material} into the slot its attribute modifiers should be scoped to. */
     public static Category resolve(Material material) {
         Objects.requireNonNull(material, "material");
         String name = material.name();
 
-        if (name.endsWith("_HELMET") || name.equals("TURTLE_HELMET")) {
+        if (name.endsWith("_HELMET") || name.equals("TURTLE_HELMET") || HEAD_EQUIPPABLE.contains(name)) {
             return Category.HEAD;
         }
         if (name.endsWith("_CHESTPLATE") || name.equals("ELYTRA")) {

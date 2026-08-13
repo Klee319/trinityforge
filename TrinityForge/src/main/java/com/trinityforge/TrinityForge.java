@@ -400,6 +400,12 @@ public final class TrinityForge extends JavaPlugin {
                 permanentBuffResolver, configManager.baseStats(), configManager.statCaps(),
                 useRequirementService);
         this.playerStatAggregator = aggregator;
+        // 修正2(armor-set-bonus 総合値化): nativeAttributeBridge は aggregator より前に生成する必要が
+        // あるため(perkAttributeApplier の attack-speed 計算がこのブリッジに依存する既存の生成順)、
+        // コンストラクタでは渡せずセッターで後から注入する。装備アイテム/役職バフ/永続バフ/base-stats由来の
+        // armor-set-bonus を増幅率へ反映させる(パーク分は既存どおり perkBuffs.general() から)。
+        nativeAttributeBridge.setNonPerkArmorSetBonusSupplier(
+                p -> aggregator.nonPerkStatTotal(p, "armor_set_bonus"));
         this.perkAttributeApplier = new PerkAttributeApplier(
                 this, perkBuffResolver, nativeAttributeBridge, permanentBuffResolver,
                 configManager.baseStats(), aggregator, configManager.combatDamage(),

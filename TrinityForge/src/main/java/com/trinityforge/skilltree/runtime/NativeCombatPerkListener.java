@@ -146,7 +146,10 @@ public final class NativeCombatPerkListener implements Listener {
         if (!(event.getEntity() instanceof LivingEntity)) return;
 
         ItemStack bow = firingWeapon(projectile, shooter);
-        PlayerCombatAggregate agg = aggregator.aggregate(shooter, bow);
+        // 2026-08-13バグ修正: オフハンドから撃たれた弓/クロスボウでも offhand-stats-apply の門が正しく
+        // 掛かるよう、発射時に retain された値を渡す(トライデントは常に false、CombatListener.
+        // resolveContributorIsOffhand と同じ理由)。
+        PlayerCombatAggregate agg = aggregator.aggregate(shooter, bow, ProjectileWeapon.readFiredFromOffhand(projectile));
 
         // 2026-07-26 バグ修正: distance-damage-bonus の適用をここから CombatListener のパイプライン内
         // ({@code CombatListener.distanceDamage}) へ移設した。
@@ -180,8 +183,19 @@ public final class NativeCombatPerkListener implements Listener {
         Random rng = ThreadLocalRandom.current();
 
         ItemStack bow = event.getBow();
+        // 2026-08-13バグ修正: onProjectileDamage と同じ理由(offhand-stats-apply 門迂回防止)。ここでは
+        // PDC 経由ではなく event.getHand() から直接判定できる(EntityShootBowEvent 本体を持っているため)。
+        //
+        // 2026-08-13再修正: EntityShootBowEvent#getBow() は @Nullable であり、bow が null のときの
+        // 寄与アイテムは(下の三項演算子で)常に「実メインハンドのアイテム」にフォールバックする。
+        // そのフォールバック経路で hand == OFF_HAND だった場合、寄与アイテムはメインハンドなのに
+        // フラグだけ true になり、集計器がオフハンドスロットを不要に除外してしまう(オフハンド側の
+        // 寄与が無言で落ちる)。bow != null のとき「実際にオフハンドの武器を寄与アイテムとして渡している」
+        // ときだけ true にする。
+        boolean firedFromOffhand = bow != null && ProjectileWeapon.isOffhand(event.getHand());
         PlayerCombatAggregate agg = aggregator.aggregate(shooter,
-                bow != null ? bow : shooter.getInventory().getItemInMainHand());
+                bow != null ? bow : shooter.getInventory().getItemInMainHand(),
+                firedFromOffhand);
 
         double ammoSave = agg.totalOf(AMMO_SAVE_CHANCE);
         if (ammoSave > 0.0 && rng.nextDouble() < Math.min(0.9, ammoSave)) {

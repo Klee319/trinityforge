@@ -94,7 +94,8 @@ public final class PlayerStatAggregator {
             ItemStack chestplate,
             ItemStack leggings,
             ItemStack boots,
-            ItemStack offhand) {
+            ItemStack offhand,
+            ItemStack actualMainhandSlot) {
     }
 
     public PlayerStatAggregator(ItemStatsConfig itemStats,
@@ -269,13 +270,20 @@ public final class PlayerStatAggregator {
         // ItemStack reference after this call (e.g. later in the same tick) cannot corrupt an
         // already-cached key's identity, and so the key's equals/hashCode are stable for the map's
         // lifetime regardless of what the live item does afterward.
+        // actualMainhandSlot(2026-08-13, 修正1のrevert後も鍵に残す理由): computeAggregate 自身は
+        // mainhandContributor をどちらの手でも無条件に合算するようになったが、
+        // nativeArmorSetContribution -> NativeAttributeBridge#armorAttributesFor ->
+        // PlayerStatAggregator#nonPerkStatTotal の経路が「プレイヤーの実メインハンド」を独立に読む
+        // (nonPerkStatTotal:529行)。実メインハンドは mainhandContributor と独立に変わり得るため、
+        // 鍵に含めないと同一tick内で古い実メインハンドのスナップショットを返しうる。
         AggregateCacheKey key = new AggregateCacheKey(
                 player.getUniqueId(), mainhandContributor.clone(), contributorIsOffhand,
                 cloneOrNull(player.getInventory().getHelmet()),
                 cloneOrNull(player.getInventory().getChestplate()),
                 cloneOrNull(player.getInventory().getLeggings()),
                 cloneOrNull(player.getInventory().getBoots()),
-                cloneOrNull(player.getInventory().getItemInOffHand()));
+                cloneOrNull(player.getInventory().getItemInOffHand()),
+                cloneOrNull(player.getInventory().getItemInMainHand()));
         // computeIfAbsent は使わない: マッピング関数の実行中に同じマップが構造変更されると
         // 戻り際の modCount チェックで CME になる。上のスレッドガードで主因は塞いだが、
         // computeAggregate が解決器を経由して同じプレイヤーの aggregate(...) へ再入した場合にも
@@ -310,14 +318,27 @@ public final class PlayerStatAggregator {
     private PlayerCombatAggregate computeAggregate(Player player, ItemStack mainhandContributor,
                                                     boolean contributorIsOffhand) {
         ItemStack[] usableArmor = usableArmorContents(player);
-        Map<String, Double> item = armorAndOffhandStats(player, usableArmor, contributorIsOffhand);
-        Map<String, Map<String, Double>> multipliers =
-                armorAndOffhandMultipliers(player, usableArmor, contributorIsOffhand);
 
-        // mainhand はメインハンド(または発射武器)単体のマップとして保持する — armor/offhandは絶対に
-        // 混ぜない。アイテムCTがこのマップだけを読むことで、防具/オフハンドのアイテムCTスタットが誤って
-        // 近接攻撃をゲートしないようにするため。
-        // 防具を手持ちにした場合は着用時のみ寄与(AttributeApplier と同じスロット規則)。
+        // 寄与アイテム(mainhandContributor)がオフハンドにあり、かつ「今のオフハンドの中身」と
+        // プロファイルが一致するときだけ、オフハンド"スロット"側の合算を除外する(下の寄与アイテム
+        // 合算で既に数えるため、スロット側でも数えると二重計上になる)。飛び道具は発射から着弾まで
+        // 秒単位の遅延があり、その間にオフハンドの中身が別アイテムへ入れ替わっていることがある。
+        // 入れ替わっていれば二重計上は起こり得ないので除外してはいけない(除外すると新しく持ち替えた
+        // アイテムの寄与が無言で落ちる)。
+        boolean excludeOffhandSlot = contributorIsOffhand
+                && sameItemProfile(player.getInventory().getItemInOffHand(), mainhandContributor);
+        Map<String, Double> item = armorAndOffhandStats(player, usableArmor, excludeOffhandSlot);
+        Map<String, Map<String, Double>> multipliers =
+                armorAndOffhandMultipliers(player, usableArmor, excludeOffhandSlot);
+
+        // mainhand はアイテムCT専用マップ(防具/オフハンドを絶対に混ぜてはいけない不変条件)。
+        // 2026-08-13(ユーザー確定仕様・親確定解釈): 「実際にその行為に使われたアイテム
+        // (=mainhandContributor)は、どちらの手にあっても常に合算する」。offhand-stats-apply の門は
+        // 「オフハンドに持っているだけのアイテム」(armorAndOffhandStats 側の受動的寄与)にだけ掛ける —
+        // これはユーザーが是とした魔法の規則(発動したアイテム=触媒だけ合算)と同型。防具を手持ちにした
+        // 場合は着用時のみ寄与(AttributeApplier と同じスロット規則)。CT はプレイヤーが実際に「使った」
+        // アイテムのものが正しいので、mainhand マップも mainhandContributor から作る
+        // (contributorIsOffhand=false のときはこれが元々の実メインハンドと同一)。
         Map<String, Double> mainhand = Map.of();
         if (!isWornOnlyArmor(mainhandContributor)) {
             mainhand = DerivedItemStats.resolve(
@@ -391,6 +412,20 @@ public final class PlayerStatAggregator {
         Map<String, Double> item = new LinkedHashMap<>();
         perkBuffs.general().forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
 
+        NonItemContribution rest = nonPerkNonItemContribution(player);
+        rest.item().forEach((key, value) -> item.merge(key, value, Double::sum));
+        return new NonItemContribution(item, rest.extraArmorDefenseRate());
+    }
+
+    /**
+     * {@link #nonItemContribution} からパーク general({@link PerkBuffs#general()})だけを除いたもの
+     * (役職 attack・defense buff / 永続バフ / base-stats)。2026-08-13 修正2({@code armor-set-bonus}
+     * 総合値化)で {@link #nonPerkStatTotal} と共有するために切り出した — パーク分は
+     * {@code NativeAttributeBridge#armorAttributesFor} が {@code perkBuffs.general()} を自前で
+     * 読んで既に増幅式へ折り込んでいるため、こちら側に含めると二重計上になる。
+     */
+    private NonItemContribution nonPerkNonItemContribution(Player player) {
+        Map<String, Double> item = new LinkedHashMap<>();
         RoleBuffResolver.Contribution role = roleBuffResolver.contributionFor(player);
         role.attackBuffs().forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         role.defenseBuffs().forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
@@ -453,6 +488,59 @@ public final class PlayerStatAggregator {
             return contribution.extraArmorDefenseRate();
         }
         return contribution.item().getOrDefault(canonicalKey, 0.0);
+    }
+
+    /**
+     * パーク由来({@link PerkBuffs#general()})と native セット由来({@code NativeAttributeBridge
+     * #armorAttributesFor})を<b>除いた</b>、プレイヤーの該当ステ「総合値」の単純加算合計。
+     * 2026-08-13 修正2({@code armor-set-bonus} 総合値化): {@code NativeAttributeBridge} が装備/
+     * 役職/永続/base-stats 由来の {@code armor-set-bonus} も増幅率へ反映できるよう、循環しない
+     * 読み取り口として新設した。
+     *
+     * <p>含む: 防具4部位 + オフハンド({@code offhand-stats-apply} 門つき) + 実メインハンド の
+     * item ステ + 役職バフ + 永続バフ + base-stats。除く: パーク general(呼び出し元の
+     * {@code NativeAttributeBridge} が自前で足すため二重計上になる) / native セット由来(この値自体が
+     * native セットの増幅率計算に使われるため、含めると自己参照になる)。
+     *
+     * <p><b>循環に注意:</b> {@link #computeAggregate} の途中で
+     * {@code NativeAttributeBridge#armorAttributesFor} が呼ばれ、それがこのメソッドを呼ぶ経路が
+     * 想定されている。このメソッドは {@link #aggregate}/{@link #totalOf} や
+     * {@link #nativeArmorSetContribution} を一切呼ばないので、その循環を作らない。
+     *
+     * <p>{@link #nonItemStatTotal} と違い、装備(防具+オフハンド+メインハンド)の item-stats を<b>含む</b>
+     * ({@code nonItemStatTotal} は「装備は呼び出し元が別途自前集計済み」なフォーク向けAPIで、こちらは
+     * 逆に「装備集計はTF内部でこのメソッドが行う」)。乗算レイヤは適用しない(素の加算合計。
+     * {@code armor-set-bonus} 自体が乗算レイヤ側の増幅率入力であり、ここへ乗算を掛けると二重適用になる)。
+     *
+     * <p><b>意図的な非対称(2026-08-13):</b> このメソッドは常に {@code armorAndOffhandStats(player,
+     * usableArmor, false)}(excludeOffhand=false)でオフハンドを含める。一方 {@link #computeAggregate}
+     * は寄与アイテムがオフハンドにあり、かつそれが「今のオフハンドの中身」と同一プロファイルのときだけ
+     * オフハンド"スロット"側を除外する({@code excludeOffhandSlot})。つまり armor-set-bonus の増幅率は
+     * その除外の有無に関わらず常に全装備(オフハンド含む)を見る — 増幅率は「セットとして何を装備して
+     * いるか」の指標であり、寄与アイテムの二重計上防止(item ステの合算)とは別の関心事だから。
+     *
+     * @param key 任意表記のステキー({@link StatKeys#canonical} で正規化される)
+     */
+    public double nonPerkStatTotal(Player player, String key) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(key, "key");
+        String canonicalKey = StatKeys.canonical(key);
+
+        ItemStack[] usableArmor = usableArmorContents(player);
+        Map<String, Double> item = armorAndOffhandStats(player, usableArmor, false);
+        ItemStack actualMainhand = player.getInventory().getItemInMainHand();
+        if (!isWornOnlyArmor(actualMainhand)) {
+            DerivedItemStats.resolve(actualMainhand, itemStats, combatDamage.weaponBaseFormula())
+                    .forEach((k, v) -> item.merge(StatKeys.canonical(k), v, Double::sum));
+        }
+
+        NonItemContribution rest = nonPerkNonItemContribution(player);
+        rest.item().forEach((k, v) -> item.merge(k, v, Double::sum));
+
+        if (canonicalKey.equals(ARMOR_DEFENSE_RATE_KEY)) {
+            return item.getOrDefault(canonicalKey, 0.0) + rest.extraArmorDefenseRate();
+        }
+        return item.getOrDefault(canonicalKey, 0.0);
     }
 
     /** {@link #nativeArmorSetContribution} 戻り値: チャネル別に振り分け済みの armor-set-buffs 加算分。 */
@@ -710,6 +798,28 @@ public final class PlayerStatAggregator {
                 .map(com.trinityforge.stats.ItemStatProfile::offhandApplies)
                 .orElseGet(() -> itemStats.fallback().map(
                         com.trinityforge.stats.ItemStatProfile::offhandApplies).orElse(false));
+    }
+
+    /**
+     * 寄与アイテム(mainhandContributor)と、いま実際にオフハンドへ入っているアイテムが「同じ設定」かを
+     * Material + CustomModelData のプロファイルで判定する。参照比較・{@code equals} は使わない —
+     * Craft実装はスロット読み取りごとに新しいミラーを返すので参照は一致せず、{@code equals} は
+     * 「同一設定の別アイテム」まで誤って一致させてしまう(既存注記655-660行と同じ理由)。
+     * CMD の読み方は {@link #offhandStatsApply(ItemStack, ItemStatsConfig)} と同じ流儀を踏襲する。
+     * 両方 null/AIR なら「除外しない」側(false)に倒す(安全側)。
+     */
+    private static boolean sameItemProfile(ItemStack a, ItemStack b) {
+        boolean aEmpty = a == null || a.getType().isAir();
+        boolean bEmpty = b == null || b.getType().isAir();
+        if (aEmpty || bEmpty) {
+            return false;
+        }
+        if (a.getType() != b.getType()) {
+            return false;
+        }
+        Integer cmdA = a.hasItemMeta() ? DerivedItemStats.customModelDataOf(a.getItemMeta()) : null;
+        Integer cmdB = b.hasItemMeta() ? DerivedItemStats.customModelDataOf(b.getItemMeta()) : null;
+        return Objects.equals(cmdA, cmdB);
     }
 
     /**

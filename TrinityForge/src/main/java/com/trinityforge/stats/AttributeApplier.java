@@ -41,9 +41,13 @@ import java.util.logging.Logger;
  * weapon/tool resolves to {@code MAINHAND} and an armor piece resolves to its matching armor slot,
  * so an armor stat cannot be double-counted by holding a second copy in hand while another is worn.
  * A material this plugin cannot categorize (blocks, food, materials with no clear equip slot, ...)
- * falls back to {@code ANY}, matching the previous behaviour for those materials. The constructor
- * also accepts an explicit {@link EquipmentSlotGroup} override that forces every item processed by
- * that instance onto one fixed slot scope regardless of material, for callers that want to bypass
+ * falls onto {@link EquipmentSlotResolver.Category#ANY}, which this class in turn maps onto
+ * {@code MAINHAND}/{@code HAND} (per {@code offhand-stats-apply}) rather than the real Bukkit
+ * {@code EquipmentSlotGroup.ANY} constant (2026-08-13, レーンC): {@code EquipmentSlotGroup} has no
+ * "every slot except offhand" constant, and these materials are equippable only in a hand slot to
+ * begin with, so this is how {@code offhand-stats-apply=false} reaches them. The constructor also
+ * accepts an explicit {@link EquipmentSlotGroup} override that forces every item processed by that
+ * instance onto one fixed slot scope regardless of material, for callers that want to bypass
  * inference entirely.
  *
  * <p>Since 1.20.5, an item's implicit material-default attribute modifiers (e.g. a diamond sword's
@@ -153,7 +157,16 @@ public final class AttributeApplier {
         // slot group's key (EquipmentSlotGroup#toString() just returns its stable "mainhand"/"head"/
         // "any" name; verified via javap) keeps modifier keys unique per worn slot, which is enough
         // because only one item can occupy a given non-HAND slot at a time.
-        String rollSeedSuffix = rollSeedSuffix(ItemData.of(meta).rollSeed(), slotGroup);
+        // 2026-08-13バグ修正: レーンCが ANY 分類を offhand-stats-apply=true のとき HAND へ落とした結果、
+        // rollSeedを持たない MAINHAND 分類アイテムと ANY 分類アイテムが同じ ".nosd.hand" サフィックスを
+        // 名乗るようになり、バニラが同一 modifier キーを1件として扱うため片方の寄与が無言で消えていた
+        // (変更前は ".nosd.hand" と ".nosd.any" で別キーだったので両方効いていた)。EquipmentSlotGroup
+        // だけでなく EquipmentSlotResolver.Category も混ぜて一意性を回復する。
+        // 注意: このサフィックスは流通済みアイテムの modifier キーに現れる。キー体系が変わると
+        // 再スタンプされるまで旧キーの modifier が残る — これは今日の ANY→HAND 変更で既に発生している
+        // 事象であり、この修正で新たな害が増えるわけではない(むしろ衝突を解消する側)。
+        String rollSeedSuffix = rollSeedSuffix(ItemData.of(meta).rollSeed(), slotGroup,
+                EquipmentSlotResolver.resolve(material));
 
         int applied = 0;
         // TFがこのapply呼び出しで実際にmodifierを付けたAttribute。restoreVanillaDefaultsでの二重計上防止に使う。
@@ -209,10 +222,11 @@ public final class AttributeApplier {
      * group's own stable key so two such items in different slots never collide (see the {@link #apply}
      * call site's CMB-19 comment for the full rationale).
      */
-    static String rollSeedSuffix(java.util.Optional<Long> rollSeed, EquipmentSlotGroup slotGroup) {
+    static String rollSeedSuffix(java.util.Optional<Long> rollSeed, EquipmentSlotGroup slotGroup,
+                                 EquipmentSlotResolver.Category category) {
         return rollSeed
                 .map(seed -> "." + Long.toHexString(seed))
-                .orElseGet(() -> ".nosd." + slotGroup);
+                .orElseGet(() -> ".nosd." + slotGroup + "." + category.name().toLowerCase(java.util.Locale.ROOT));
     }
 
     private EquipmentSlotGroup resolveSlotGroup(Material material, boolean offhandApplies,
@@ -239,7 +253,13 @@ public final class AttributeApplier {
             case CHEST -> EquipmentSlotGroup.CHEST;
             case LEGS -> EquipmentSlotGroup.LEGS;
             case FEET -> EquipmentSlotGroup.FEET;
-            case ANY -> EquipmentSlotGroup.ANY;
+            // レーンC(2026-08-13): EquipmentSlotResolverが頭装備(カボチャ/スカル類)をHEADへ分類した後に
+            // ANYへ落ちる素材は、実際に装備できるスロットとしては手にしか入らない(SHIELD/FISHING_ROD/
+            // SHEARS/FLINT_AND_STEEL/BOOK/食料/ブロック等)。「オフハンド以外の全スロット」を表す
+            // EquipmentSlotGroupが存在しないため、offhand-stats-applyの門をここへ効かせるにはMAINHAND/HANDへ
+            // 落とすしかない。失われるのはオフハンド適用だけ＝offhand-stats-apply=falseの仕様どおり。
+            // BODY/SADDLEは非プレイヤー用スロットなので考慮不要。
+            case ANY -> offhandApplies ? EquipmentSlotGroup.HAND : EquipmentSlotGroup.MAINHAND;
         };
     }
 

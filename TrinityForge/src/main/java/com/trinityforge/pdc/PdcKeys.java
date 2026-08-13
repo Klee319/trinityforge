@@ -94,6 +94,22 @@ public final class PdcKeys {
      * 無いことと整合)。 */
     public static final NamespacedKey PROJECTILE_DRAW_FORCE = key("projectile_draw_force");
     /**
+     * 発射武器がオフハンドから撃たれたか(BYTE, 1=オフハンド。2026-08-13 バグ修正)。
+     * {@link #PROJECTILE_WEAPON} と同じ projectile PDC へ、{@code EntityShootBowEvent#getHand()} から
+     * 発射時に一度だけ retain する。着弾時にこの値を {@code PlayerStatAggregator#aggregate(Player,
+     * ItemStack, boolean)} の第3引数(contributorIsOffhand)へ渡すことで、オフハンドから撃った弓/
+     * クロスボウの寄与にも {@code offhand-stats-apply} の門が正しく掛かる(旧実装は常に false 固定で
+     * 渡していたため、オフハンド発射時だけ門を素通りしていた)。
+     *
+     * <p>トライデントが {@code EntityShootBowEvent} を発火するかどうかは未検証(CraftBukkitがトライデント
+     * 投擲でもこのイベントを発火する可能性があり、{@code EntityShootBowEvent#getHand()} はまさに左右手の
+     * 識別のために存在する)。ただし発火有無に関わらず結果は正しい — このフラグは「寄与アイテムの合算可否」
+     * ではなく「オフハンドスロットを二重計上しないための除外判定」にしか使われないため(寄与アイテム自体は
+     * どちらの手にあっても常に合算される設計契約、{@code CombatListener#resolveContributorIsOffhand}
+     * 参照)。absent = false(発射武器がメインハンド、非対応の古いprojectile、またはこのキーが未retainの経路)。
+     */
+    public static final NamespacedKey PROJECTILE_FIRED_FROM_OFFHAND = key("projectile_fired_from_offhand");
+    /**
      * XP amount (int, total points — see {@code XpBottlePolicy#totalExperience}) stored onto a
      * filled experience bottle by {@code XpBottleListener} ({@code xp-bottle-store-unlock},
      * enchanting.yml B-3). Presence of this key is what distinguishes a "filled" bottle from a
