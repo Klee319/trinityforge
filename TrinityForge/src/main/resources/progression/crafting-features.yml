@@ -651,3 +651,79 @@ removed-vanilla-recipes: []
 removed-vanilla-items:
   - ANY:MENDING
 gated-catalog-recipes: {}
+
+# スクラップの復号レシピ(2026-08-13 ユーザー指示で ArsPaper の materials.yml から移設)。
+# 解体で得たスクラップ4個を、2x2(インベントリクラフト可)で元のバニラ素材1個へ戻す。
+#
+# 「ただのスクラップ(tf_scrap)」だけは意図的に持たせていない ── あれは前進レシピを持たず、
+# scrap-conversion の重み付き抽選で他のスクラップへ変わる素材なので、復号先が一意に決まらない。
+#
+# 移設理由: レシピの持ち主を1か所(この画面)に寄せるため。以前は ArsPaper 側 materials.yml の
+# recipe: ブロックにあり、エディタの「その他のギミック > レシピ追加」からは見えなかった。
+# ※ ingredients の custom:<id> は ArsPaper が ExternalItemRegistry へ登録した素材を指す。
+#   登録が消えると「レシピ帳に出るのに永久にクラフト不可」になるので、スクラップの id を
+#   materials.yml 側で改名するときはここも必ず追随させること。
+added-recipes:
+  - result: COPPER_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:copper_ingot_scrap
+  - result: IRON_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:iron_ingot_scrap
+  - result: GOLD_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:gold_ingot_scrap
+  - result: DIAMOND
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:diamond_scrap
+  - result: NETHERITE_INGOT
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:netherite_ingot_scrap
+  - result: LEATHER
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:leather_scrap
+  - result: TURTLE_SCUTE
+    amount: 1
+    method: inventory
+    type: shaped
+    shape:
+      - ii
+      - ii
+    ingredients:
+      i: custom:turtle_scute_scrap
