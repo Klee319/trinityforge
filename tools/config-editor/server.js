@@ -545,7 +545,15 @@ app.get("/api/gate-vocabulary", (req, res) => {
       },
       specialRewards: readEntryById("special-rewards"), // registry未登録/ファイル未実装なら null
       catalog: readEntryById("catalog"),
-      items: readEntryById("items")
+      items: readEntryById("items"),
+      // 2026-08-14: recipe:/ritual: ゲートの候補に ArsPaper 側のレシピ定義を全部入れる。
+      // 機能アイテム(ワンド/ウェイストーン等)が1件もセレクトに出ていなかったのが発端。
+      // どれか欠けても buildGateVocabulary は空として扱うので落ちない。
+      functionalItems: readEntryById("functional-items"),
+      materials: readEntryById("materials"),
+      sourcejars: readEntryById("sourcejars"),
+      sourcelinks: readEntryById("sourcelinks"),
+      spellbooks: readEntryById("spellbooks")
     };
     res.json(buildGateVocabulary(sources));
   } catch (err) {

@@ -203,6 +203,70 @@ function extractRitualEffects(itemsData) {
   return isPlainObject(effects) ? Object.keys(effects).sort() : [];
 }
 
+// 2026-08-14 (実サーバ報告「解放ゲートで機能アイテムカテゴリのアイテムを設定できない」):
+// recipe:/ritual: ゲートの候補が items/catalog.yml のワークベンチレシピだけだったので、
+// ArsPaper 側に定義されたレシピ(機能アイテム/中間素材/儀式アイテム/ジャー/リンク/魔導書)は
+// 1件もセレクトに出ていなかった。
+//
+// 実行時のゲートキーは「登録された Bukkit レシピの NamespacedKey のキー部分」で、それは
+// ArsPaper の UnifiedRecipeLoader が各ymlのエントリIDをそのまま使う(2件目以降だけ `_r2` で
+// 一意化し、RecipeUnlockGate#gateKey が基底IDへ寄せる)。つまり ArsPaper のどのymlに書かれた
+// レシピでも「エントリID」で正しくゲートできる ── 候補に出ていなかっただけ。
+//
+// チャンネルの振り分けは method で決まる。ArsPaper の UnlockGate は
+// hasRecipePermission / hasRitualPermission が【別々のマップ】を引くので、儀式アイテムを
+// recipe: 側に置くと儀式経路はそのマップを一切見ず【無言で常時解放】になる
+// (TrinityForge の RecipeRitualGateChannelDriftTest が固定している事故)。
+// よって method: ritual は rituals へ、それ以外(既定 workbench)は recipes へ入れる。
+const ARS_RECIPE_SOURCES = [
+  // [sources のキー, そのymlでエントリを並べているセクション名]
+  ["functionalItems", "items"],
+  ["items", "items"],
+  ["materials", "materials"],
+  ["sourcejars", "jars"],
+  ["sourcelinks", "items"]
+];
+
+// 1件=recipe: / 2件以上=recipes: の正規形(全config共通)。どちらの綴りでも拾う。
+function recipeEntriesOf(entry) {
+  if (!isPlainObject(entry)) return [];
+  const out = [];
+  if (isPlainObject(entry.recipe)) out.push(entry.recipe);
+  if (Array.isArray(entry.recipes)) {
+    for (const r of entry.recipes) {
+      if (isPlainObject(r)) out.push(r);
+    }
+  }
+  return out;
+}
+
+function methodOf(recipe) {
+  return recipe.method == null ? "workbench" : String(recipe.method).trim().toLowerCase();
+}
+
+// レシピを持つ ArsPaper のエントリIDを method ごとに振り分ける。
+function collectArsGateTargets(sources, recipes, rituals) {
+  for (const [sourceKey, sectionKey] of ARS_RECIPE_SOURCES) {
+    const section = sources[sourceKey] && sources[sourceKey][sectionKey];
+    if (!isPlainObject(section)) continue;
+    for (const id of Object.keys(section)) {
+      for (const recipe of recipeEntriesOf(section[id])) {
+        (methodOf(recipe) === "ritual" ? rituals : recipes).add(id);
+      }
+    }
+  }
+  // spellbooks.yml だけ配列形式 (spell-books[].id)。
+  const books = sources.spellbooks && sources.spellbooks["spell-books"];
+  if (Array.isArray(books)) {
+    for (const book of books) {
+      if (!isPlainObject(book) || !book.id) continue;
+      for (const recipe of recipeEntriesOf(book)) {
+        (methodOf(recipe) === "ritual" ? rituals : recipes).add(String(book.id));
+      }
+    }
+  }
+}
+
 /**
  * @param {object} sources
  * @param {object} [sources.glyphs] glyphs.yml の生データ
@@ -214,6 +278,9 @@ function extractRitualEffects(itemsData) {
 function buildGateVocabulary(sources) {
   const s = sources || {};
   const catalogTargets = extractCatalogGateTargets(s.catalog);
+  const recipes = new Set(catalogTargets.recipes);
+  const rituals = new Set(extractRitualEffects(s.items));
+  collectArsGateTargets(s, recipes, rituals);
   return {
     glyphs: extractGlyphs(s.glyphs),
     brews: extractBrews(s.craftingFeatures),
@@ -223,8 +290,8 @@ function buildGateVocabulary(sources) {
     drops: extractDrops(s.gimmicks),
     specialRewards: extractSpecialRewards(s.specialRewards),
     specialRewardLabels: extractSpecialRewardLabels(s.specialRewards),
-    recipes: catalogTargets.recipes,
-    rituals: extractRitualEffects(s.items)
+    recipes: [...recipes].sort(),
+    rituals: [...rituals].sort()
   };
 }
 
