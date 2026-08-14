@@ -259,10 +259,13 @@ nodes:
     group: A-greek
     icon: SHIELD
     cost: 1
-    effect-text: 反射率(発動確率)・反射追加ダメージ(実数)増加
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
     buffs:
+      # 2026-08-14 再較正: reflect-flat(実数) を廃止し reflect-percent へ集約した。
+      # 反射先のモブHPは百万単位なので 0.3 の実数反射は完全な死に値で、装備側も
+      # reflect-flat を1件も配っていない(item-stats.yml で定義ゼロ)。あわせて、
+      # 旧値は Lv10 から Lv90 まで 0.02 のまま伸びず帯に追随していなかったので逓増させる。
       reflect-percent: 0.02
-      reflect-flat: 0.3
   B-alpha-1:
     name: 猛・充実
     level: 30
@@ -291,10 +294,10 @@ nodes:
     parent: A-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: 反射率(発動確率)・反射追加ダメージ(実数)増加
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
     buffs:
-      reflect-percent: 0.02
-      reflect-flat: 0.3
+      # 2026-08-14 再較正 (A-gamma-1 のコメント参照)。
+      reflect-percent: 0.025
   C-alpha-1:
     name: 猛・極み
     level: 50
@@ -323,10 +326,10 @@ nodes:
     parent: B-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: 反射率(発動確率)・反射追加ダメージ(実数)増加
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
     buffs:
-      reflect-percent: 0.02
-      reflect-flat: 0.3
+      # 2026-08-14 再較正 (A-gamma-1 のコメント参照)。
+      reflect-percent: 0.03
   D-alpha-1:
     name: 猛・息吹
     level: 70
@@ -355,10 +358,10 @@ nodes:
     parent: C-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: 反射率(発動確率)・反射追加ダメージ(実数)増加
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
     buffs:
-      reflect-percent: 0.02
-      reflect-flat: 0.3
+      # 2026-08-14 再較正 (A-gamma-1 のコメント参照)。
+      reflect-percent: 0.035
   E-alpha-1:
     name: 猛・体躯
     level: 90
@@ -387,7 +390,7 @@ nodes:
     parent: D-gamma-1
     icon: SHIELD
     cost: 1
-    effect-text: 反射率(発動確率)・反射追加ダメージ(実数)増加
+    effect-text: 被ダメージの一部を反射する(反射率が増加)
     buffs:
-      reflect-percent: 0.02
-      reflect-flat: 0.3
+      # 2026-08-14 再較正 (A-gamma-1 のコメント参照)。
+      reflect-percent: 0.04

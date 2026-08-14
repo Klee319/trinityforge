@@ -43,8 +43,9 @@ prestige:
   name: 韋駄天の境地
   effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
-    phys-flat-defense: 0.15
-    magic-flat-defense: 0.15
+    # 2026-08-14 再較正 (主軸 C と同じ理由)。重装備プレステージ(1.0/3.0)の半分に置く。
+    phys-flat-defense: 0.5
+    magic-flat-defense: 1.5
     armor-defense-rate: 0.1
     damage-reduction: 0.1
 nodes:
@@ -85,8 +86,12 @@ nodes:
     effect-text: 回避率アップ・守備力増加・アドレナリン発動可能・軽装3部位で回避率セットボーナス成立(4部位で強化)
     buffs:
       dodge-chance: 0.1
-      phys-flat-defense: 0.1
-      magic-flat-defense: 0.1
+      # 2026-08-14 再較正: 旧値 0.1 は被ダメージ 0.1 相当(Lv50 のゾンビの一撃 16.7 の 0.6%)で
+      # 実質 no-op だった。守備力は重装備の役割なので、同レベルの重装備ノード
+      # (heavy_armor C = 0.6/1.8) の半分に置く。物理と魔法で値が違うのは装備側の土俵が
+      # 3 倍違うため(最良4部位で phys 20.0 / magic 62.6)。
+      phys-flat-defense: 0.3
+      magic-flat-defense: 0.9
     set-buffs:
       "3":
         dodge-chance: 0.1

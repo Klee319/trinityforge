@@ -42,7 +42,8 @@ prestige:
   name: 弓聖の境地
   effect-text: ダメージ・命中精度・節約率が永続で増加
   buffs:
-    attack-power: 0.15
+    # 2026-08-14 再較正: attack-power から percent-bonus-damage へ振替 (A ノードのコメント参照)。
+    percent-bonus-damage: 0.05
     bow_accuracy: 0.1
     ammo_save_chance: 0.1
 nodes:
@@ -55,7 +56,11 @@ nodes:
     cost: 1
     effect-text: ダメージ増加・射撃精度アップ
     buffs:
-      attack-power: 0.1
+      # 2026-08-14 再較正: attack-power(実数) から percent-bonus-damage(割合) へ振替。
+      # 装備の attack-power は帯とともに指数で伸び(中央値 828 / 最大 80,965)、
+      # 旧値 0.1 は中央値の 0.012%。定数を何倍にしても帯が上がった瞬間に無意味へ戻るので、
+      # 実数のままでは原理的に修正できない(スレッドの実数ダメージ振替と同じ理由)。
+      percent-bonus-damage: 0.03
       bow_accuracy: 0.05
   B:
     name: 追尾の射手
@@ -90,7 +95,8 @@ nodes:
     cost: 1
     effect-text: ダメージ増加
     buffs:
-      attack-power: 0.1
+      # 2026-08-14 再較正: attack-power から percent-bonus-damage へ振替 (A ノードのコメント参照)。
+      percent-bonus-damage: 0.05
   E:
     name: 極意・貫空
     level: 90
