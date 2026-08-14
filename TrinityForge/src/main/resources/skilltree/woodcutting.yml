@@ -13,18 +13,19 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/woodcutting.md
+
 skill: WOODCUTTING
 display-name: 伐採
 icon: IRON_AXE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 1
   at-level: 100
   name: 大伐採者の栄光
   effect-text: メインに斧を持つと採掘速度上昇 永続+1・全てのリンゴドロップ増加 永続+10%・木材の経験値変換効率+10%
   buffs:
-    break-vanilla-exp-bonus: 0.10
+    break-vanilla-exp-bonus: 0.1
     # 2026-08-13: 10(パーセントポイント記法)から 0.1(割合)へ。PercentStatNormalize が実行時に
     # 10 -> 0.1 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
     # ステを 値x100 で表示するため「1000%」と出ていた。同じ理由で下の mining-fortune も割合記法。
@@ -66,7 +67,7 @@ nodes:
     cost: 1
     effect-text: 破壊で2倍のバニラEXP
     buffs:
-      break-vanilla-exp-bonus: 1.0
+      break-vanilla-exp-bonus: 1
   D:
     name: 植林場の経営者
     level: 70
@@ -75,9 +76,6 @@ nodes:
     icon: IRON_AXE
     cost: 1
     effect-text: 大きな木を一括破壊 1回/10s・伐採グリフの解放・メインに斧を持つと採集効率+1
-    # gathering-efficiency は buffs(常時)ではなく mainhand-buffs に置くこと(2026-08-01)。
-    # 適用先の GatheringEfficiencyEnchantApplier は FARMING/MINING/WOODCUTTING/DIGGING の
-    # 全ツールを対象にするので、常時加算にすると「伐採ツリーで取った+1がツルハシやシャベルにも乗る」。
     mainhand-buffs:
       gathering-efficiency: 1
     effects:
@@ -95,7 +93,6 @@ nodes:
     icon: DIAMOND_AXE
     cost: 1
     effect-text: 耐久値を圧縮木材で回復可能・ウッドコア解放・メインに斧を持つと採集効率+1
-    # 上の D と同じ理由で mainhand-buffs(常時にするとツルハシ/シャベルにも乗る)。
     mainhand-buffs:
       gathering-efficiency: 1
     effects:
@@ -144,7 +141,7 @@ nodes:
       - id: glyph:cut
   B-1:
     name: 効率破壊I
-    level: 40
+    level: 35
     role: branch
     parent: B
     icon: SHEARS
@@ -202,4 +199,3 @@ nodes:
       - 伐採時に1/2の確率でドロップ+1
     mainhand-buffs:
       mining-fortune: 0.15
-

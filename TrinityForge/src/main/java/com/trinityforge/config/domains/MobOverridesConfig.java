@@ -61,6 +61,17 @@ import java.util.logging.Logger;
  * だから。解決は<b>項目単位マージ</b>である — scope 直下で {@code attack.magic-ratio} だけ書き、
  * 特定のモブだけ {@code mobs.<id>.stats.max-health} を上書きする、という重ね方が意図した使い方。
  *
+ * <p><b>倍率キー {@code max-health-multiplier} / {@code attack-power-multiplier}</b>
+ * (2026-08-14 「ダンジョンの難易度を敵の強さの差で表現する」要望): {@code stats:} 直下に書く
+ * 「元の値の何倍にするか」。絶対値と併記した場合は<b>絶対値を先に適用し、その結果に倍率を掛ける</b>
+ * (適用順序の仕様は {@link MobStatOverride#applyTo} の javadoc)。難易度をこれで表現するのは、
+ * ダイナミックダンジョン(プレイヤーが入場時にレベルを選ぶ)では絶対値が使えないため —— 倍率なら
+ * 「選んだレベルで本来決まる強さの N 倍」という相対差として成立する。値は<b>0 より大きい有限数</b>
+ * のみ有効(理由は {@code nullablePositiveMultiplier} の javadoc)。<b>倍率だけは 4 層のカスケードで
+ * 「後勝ち」ではなく掛け合わさる</b>({@link #resolve} が層ごとに {@code applyTo} を呼ぶため) ——
+ * {@code default} に書いた倍率は全ダンジョンに乗るので、ダンジョン間の差だけを付けたいなら
+ * {@code default} には書かない。
+ *
  * <p><b>EXP resolution</b> ({@link #vanillaExpFor}): same replace-not-merge precedence as drops — the
  * world scope's {@code vanilla-exp:} ramp wins, else {@code default}'s, else "not configured" (the kill
  * keeps whatever EXP it already had). The value is a RAMP
@@ -572,6 +583,12 @@ public final class MobOverridesConfig implements LoadableConfig {
             skipped[0]++;
             maxHealth = null;
         }
+        // 2026-08-14 倍率キー。難易度を「そのレベルで本来決まる強さの N 倍」として表現するためのもの
+        // (絶対値だと level: dynamic のダンジョンと両立しない。MobStatOverride の javadoc 参照)。
+        Double maxHealthMultiplier = nullablePositiveMultiplier(stats, "max-health-multiplier", scopeName,
+                mobId, "stats.max-health-multiplier", log, skipped);
+        Double attackPowerMultiplier = nullablePositiveMultiplier(stats, "attack-power-multiplier", scopeName,
+                mobId, "stats.attack-power-multiplier", log, skipped);
         Double armorStrength = nullableValidatedDouble(stats, "armor-strength", scopeName, mobId,
                 "stats.armor-strength", log, skipped);
         MobStatOverride.DefenseFieldOverride physical =
@@ -580,8 +597,67 @@ public final class MobOverridesConfig implements LoadableConfig {
                 parseDefense(stats.getConfigurationSection("magical"), scopeName, mobId, "magical", log, skipped);
         MobStatOverride.AttackFieldOverride attack =
                 parseAttack(stats.getConfigurationSection("attack"), scopeName, mobId, log, skipped);
-        MobStatOverride result = new MobStatOverride(level, maxHealth, armorStrength, physical, magical, attack);
+        MobStatOverride result = new MobStatOverride(level, maxHealth, maxHealthMultiplier, armorStrength,
+                attackPowerMultiplier, physical, magical, attack);
         return new StatsResult(result, skipped[0]);
+    }
+
+    /**
+     * 倍率キー(2026-08-14)のパーサ。{@link #nullableValidatedDouble} の契約(未指定は静かに {@code null}、
+     * 非数値/非有限は警告して無視)に加えて<b>「0 より大きい」ことを要求</b>する。
+     *
+     * <p>0 と負値を通さない理由は「掛け算として無意味だから」ではなく<b>実害が真逆だから</b>:
+     * {@code max-health} が 0 は「未設定 = EliteMobs 自身の HP を使う」、{@code attack-power} が 0 は
+     * {@code MobProfile#hasAttack()} が false = 「TF の攻撃側を使わない」を意味する。つまり
+     * {@code max-health-multiplier: 0} と書いた人は「HP を 0 にする」つもりでも、実際には
+     * <b>そのモブの HP 設定ごと消えて EliteMobs 既定の HP に戻る</b>。負値に至っては
+     * {@link MobProfile} のコンパクトコンストラクタが例外を投げ、スポーンリスナーがそれを握り潰して
+     * モブが TF 戦闘パイプラインから丸ごと外れる(2026-07-26 H3 と同じ経路)。どちらも「無言で効かない」
+     * ではなく「無言で別のことが起きる」ので、ここで警告して捨てる。
+     *
+     * <p><b>クォートされた数値文字列({@code "2.5"})も受け付けない</b>(2026-08-14 に方針変更)。
+     * 他の数値キーは {@code toFiniteDouble} が文字列もパースするが、倍率キーだけは
+     * <b>config-editor と受理範囲を揃える</b>ことを優先した: editor 側のバリデータ
+     * ({@code tools/config-editor/lib/schema.js} の {@code isNumber} = {@code typeof value === "number"})
+     * は文字列を弾くので、Java だけが受け付けると「手書きで {@code "2.5"} と書いた yml を editor で開くと
+     * <b>ファイルごと保存できなくなる</b>」という非対称が生まれる。狭い側へ寄せても既存設定は壊れない
+     * ——2026-08-14 実測で出荷 {@code combat/mob-overrides.yml} の倍率キーは 40 件(scope 直下 18 /
+     * per-mob 22)あるが、<b>全件が素の数値でクォート文字列は 0 件</b>。件数は増えていくので、
+     * この判定を広げ直すときは実データを数え直すこと。
+     */
+    private static Double nullablePositiveMultiplier(ConfigurationSection section, String key, String scopeName,
+            String mobId, String fieldLabel, Logger log, int[] skipped) {
+        if (section.contains(key) && !(section.get(key) instanceof Number)) {
+            log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + fieldLabel
+                    + " must be numeric and unquoted (was '" + section.get(key) + "'); ignored");
+            skipped[0]++;
+            return null;
+        }
+        Double value = nullableValidatedDouble(section, key, scopeName, mobId, fieldLabel, log, skipped);
+        if (value == null || value > 0.0) {
+            return value;
+        }
+        log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + fieldLabel
+                + " must be > 0 (was " + value + "); ignored");
+        skipped[0]++;
+        return null;
+    }
+
+    /**
+     * 「正しいキーを間違った階層に書いた」を検出して警告する(2026-08-14)。倍率キーは
+     * {@code stats:} 直下だが、対になる絶対値 {@code attack-power} は {@code stats.attack:} の中に
+     * あるため、{@code attack:} の中へ書いてしまうのは十分あり得る書き間違い。Bukkit の
+     * {@link ConfigurationSection} は未知キーを黙って捨てるので、放置すると
+     * <b>「書いたのに何も起きない」が警告なしで成立する</b> —— このリポジトリで繰り返し事故になっている
+     * パターンなので、明示的に潰しておく。
+     */
+    private static void warnMisplacedKey(ConfigurationSection section, String key, String correctPath,
+            String scopeName, String mobId, String wrongPath, Logger log, int[] skipped) {
+        if (section.contains(key)) {
+            log.warning("[" + PATH + "] " + scopeName + "." + mobId + " " + wrongPath
+                    + " is not a valid key; write it as " + correctPath + " instead; ignored");
+            skipped[0]++;
+        }
     }
 
     private static MobStatOverride.DefenseFieldOverride parseDefense(ConfigurationSection section,
@@ -605,6 +681,16 @@ public final class MobOverridesConfig implements LoadableConfig {
         if (section == null) {
             return null;
         }
+        // 2026-08-14: 倍率キー 2 本はどちらも stats: 直下。attack-power-multiplier は対になる
+        // attack-power がこの attack: の中にあるので混同しやすく、ここに書くと黙って捨てられる
+        // (warnMisplacedKey 参照)。max-health-multiplier にも同じ検査を張るのは、難易度が
+        // 「HP 何倍・攻撃力何倍」の対で書かれるものだから ——【対のうち片方しか警告しないと、
+        // 警告に従って attack-power-multiplier だけ直したのに max-health-multiplier は
+        // attack: の中に残ったまま無言で不発、という一番たちの悪い直り方をする】。
+        warnMisplacedKey(section, "attack-power-multiplier", "stats.attack-power-multiplier", scopeName, mobId,
+                "stats.attack.attack-power-multiplier", log, skipped);
+        warnMisplacedKey(section, "max-health-multiplier", "stats.max-health-multiplier", scopeName, mobId,
+                "stats.attack.max-health-multiplier", log, skipped);
         return new MobStatOverride.AttackFieldOverride(
                 // "attack-power" (not "default-damage"): matches combat/mob-profiles.yml's/
                 // combat/mob-types.yml's own attack: key vocabulary for this same AttackStats.defaultDamage

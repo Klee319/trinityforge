@@ -10,8 +10,8 @@
       {
         "threshold": 5410,
         "model": {
-          "model": "minecraft:item/prismarine_shard",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/guardian_spine"
         }
       },
       {

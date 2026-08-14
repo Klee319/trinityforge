@@ -10,15 +10,15 @@
       {
         "threshold": 5406,
         "model": {
-          "model": "minecraft:item/string",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/stray_cloth"
         }
       },
       {
         "threshold": 5411,
         "model": {
-          "model": "minecraft:item/string",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/husk_cloth"
         }
       },
       {
@@ -33,6 +33,34 @@
         "model": {
           "type": "minecraft:model",
           "model": "trinityforge:item/reinforced_fiber"
+        }
+      },
+      {
+        "threshold": 100023,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 100024,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 100025,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 100026,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
         }
       }
     ]

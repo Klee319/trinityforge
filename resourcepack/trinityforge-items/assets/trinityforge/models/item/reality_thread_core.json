@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/echo_shard",
+  "textures": {
+    "layer0": "trinityforge:item/reality_thread_core"
+  }
+}

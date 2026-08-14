@@ -7,51 +7,20 @@
 
 drop-tables:
   categories:
-    # 2026-08-01 追加: ダンジョンの鍵(掘削枠3種)。
-    # 掘削は既存のドロップ経路が ruins_thread の1件しかなく、全経路の中で最も薄かった。
-    # 鍵をルート限定にする配分の中で、ここに3種を寄せて経路の空きを埋める。
-    dungeon_key_climb:
-      display-name: 登攀路の鍵
-      trigger-chance-percent: 2.0
+    tier1:
+      display-name: tier1
       entries:
-        - item: key_climb
+        - item: custom:gacha_ticket_digging
           weight: 1
           amount: 1
-    dungeon_key_palace:
-      display-name: 宮殿の鍵
-      trigger-chance-percent: 1.5
-      entries:
-        - item: key_palace
-          weight: 1
-          amount: 1
-    dungeon_key_sewer_maze:
-      display-name: 下水道迷宮の鍵
-      trigger-chance-percent: 1.0
-      entries:
-        - item: key_sewer_maze
-          weight: 1
-          amount: 1
-    ruins_thread:
-      display-name: "遺跡の空スレッド"
-      trigger-chance-percent: 5.0
-      entries:
-        - item: thread_empty
-          weight: 1
-          amount: 1
-
+      trigger-chance-percent: 1
 durability-exp:
-  durability-per-percent: 100     # 全 tier 共通の既定（tier 側で個別上書き可）
-  # 2026-07-28 (数値のギミックyml集約): 旧 durability-exp.tiers は「上限%(50/25)をそのままtier番号として
-  # 流用する」アンチパターンだった — C-1(バニラEXP)とC-2(職業EXP)が同じ数値空間を共有していたため、
-  # tierを足すと%の意味が壊れる(例: 50+αのtierを定義するとC-1/C-2どちらのつもりかが曖昧になる)。
-  # 廃止し、feature別(vanilla-exp/job-exp)に独立した tiers表 + cap-percent へ置き換えた。
-  # tierはスキルツリーのノード value から決まる(digging-durability-vanilla-exp/job-exp は
-  # FeatureEffectParam.SCALE、DedicatedEffectsConfig#valueMaxで解決)。該当tier未満の行しか無い場合は
-  # より小さいtierの行へフォールバックし、どの行にも満たない場合は cap-percent 0(無効)として扱う。
-  # durability-per-percent は各行で個別上書き可能(省略時は上のグローバル既定値を使う)。
+  durability-per-percent: 500
   vanilla-exp:
     tiers:
-      1: { cap-percent: 50 }
+      "1":
+        cap-percent: 50
   job-exp:
     tiers:
-      1: { cap-percent: 25 }
+      "1":
+        cap-percent: 25

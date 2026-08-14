@@ -116,6 +116,21 @@ smithing:
     custom:parched_sandy_bone: 20
     custom:piglin_ear: 20
     custom:witch_elixir: 20
+    # 2026-08-14: スレッド儀式10本で消費するので追加。同格の討伐素材(bogged_mossy_bone /
+    # guardian_spine / hoglin_fang / parched_sandy_bone / piglin_ear / witch_elixir)に合わせて 20。
+    # ⚠ ravager_hide / pillager_plate は thread_hit_mana_recovery、endermite_soot は
+    #    thread_night_vision、stray_cloth は thread_speed が要求する。1行でも欠けると
+    #    ArsProgressionBridge#grantSmithingCraftExp が素材合計を捨てて定額100へ落ちる。
+    custom:ravager_hide: 20
+    custom:pillager_plate: 20
+    custom:endermite_soot: 20
+    custom:stray_cloth: 20
+    # 下の3種は今回のスレッド儀式では使わないが、討伐素材カテゴリ(collection.yml の mob_parts)の
+    # 残りで表から抜けていた分。フィールドドロップが配線されれば儀式素材になり得るので、
+    # 「使い始めた瞬間に定額EXPへ落ちる」穴を先に塞いでおく。値は同格に合わせて 20。
+    custom:husk_cloth: 20
+    custom:piglin_brute_plate: 20
+    custom:skeleton_horse_bone: 20
     custom:wither_skull_fragment: 40
     custom:core_jewelry: 5000
     custom:dragon_scale: 80

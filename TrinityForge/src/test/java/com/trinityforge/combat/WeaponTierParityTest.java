@@ -76,20 +76,25 @@ class WeaponTierParityTest {
      * 武器種ごとの「同系列の剣に対する実効DPS比」の許容帯。
      * 剣が 100%。下限だけでなく<b>上限も</b>見る（剣より強い近接武器を作らないため）。
      */
-    private static final Map<String, double[]> MELEE_BAND = Map.of(
-            "sword", new double[] {1.00, 1.00},
-            "dagger", new double[] {0.75, 0.90},
-            "rapier", new double[] {0.75, 0.90},
-            "grate_sword", new double[] {0.70, 0.85},
-            "greataxe", new double[] {0.78, 0.95},
-            "warhammer", new double[] {0.88, 1.00},
-            "scythe", new double[] {0.85, 0.95},
+    private static final Map<String, double[]> MELEE_BAND = Map.ofEntries(
+            Map.entry("sword", new double[] {1.00, 1.00}),
+            Map.entry("dagger", new double[] {0.75, 0.90}),
+            Map.entry("rapier", new double[] {0.75, 0.90}),
+            Map.entry("grate_sword", new double[] {0.70, 0.85}),
+            Map.entry("greataxe", new double[] {0.78, 0.95}),
+            Map.entry("warhammer", new double[] {0.88, 1.00}),
+            Map.entry("scythe", new double[] {0.85, 0.95}),
             // 槍とメイスは 0.85 狙い。0.90 まで上げると attack-power の単品最大が
             // stat-caps の余裕を食い潰す(上のクラスコメント参照)。メイスは
             // power-attack-damage 0.35 があるので空中では約 1.15 倍になる。
-            "spear", new double[] {0.80, 0.95},
-            "axe", new double[] {0.85, 0.95},
-            "mace", new double[] {0.80, 0.95}
+            Map.entry("spear", new double[] {0.80, 0.95}),
+            Map.entry("axe", new double[] {0.85, 0.95}),
+            Map.entry("mace", new double[] {0.80, 0.95}),
+            // 2026-08-14: トライデントを遠隔扱いから近接武器へ移した(下の
+            // rangedWeaponsKeepTheirMinimumMeleeSpeed のコメント参照)。attack-speed 1.6 で
+            // 実測 87.6〜92.3%。帯を持たせないと「近接として使う武器なのに帯の検査だけ素通り」
+            // という、この表がもともと塞いだはずの穴が復活する。
+            Map.entry("trident", new double[] {0.85, 0.95})
     );
 
     /**
@@ -389,12 +394,21 @@ class WeaponTierParityTest {
     }
 
     @Test
-    @DisplayName("遠隔武器(弓/弩/トライデント)の近接 attack-speed が最低値で揃っている")
+    @DisplayName("遠隔武器(弓/弩)の近接 attack-speed が最低値で揃っている")
     void rangedWeaponsKeepTheirMinimumMeleeSpeed() {
         // 2026-08-02 決定「遠隔武器を近接武器として振り回すと本来の用途より強い場面があったので
         // 近接攻撃速度を最低値にする」。revolution_bow だけこの一斉変更から漏れて 1.6 のまま残り、
         // 同レベル帯で最強の近接武器になっていた。
-        Set<String> ranged = Set.of("bow", "crossbow", "trident");
+        //
+        // 2026-08-14: トライデントをこの集合から外した。理由は2つとも機構レベルで確かめてある。
+        //  (1) EXPの抜け道が無い: 武器スキルEXPは CombatListener#onCombatKill の討伐時ダメージ寄与
+        //      配分で use-skill の台帳へ積まれる。トライデントの use-skill は剣と同じ LIGHT_WEAPONS
+        //      なので「素振りだけで別スキルが上がる」問題が原理的に起きない。弓/弩は ARCHERY なので
+        //      矢を1本も撃たずに ARCHERY が上がる ―― こちらは今も最低値に固定する。
+        //  (2) 強さが剣を超えない: attack-speed 1.6 でも同系列の剣の 87.6〜92.3% にしかならない
+        //      (弓は 103〜104%、弩は 112〜113% で剣を超える)。上限側の歯止めは MELEE_BAND の
+        //      trident 帯 と noWeaponOutDpsesTheStrongestSwordOfItsLevel が引き続き効かせる。
+        Set<String> ranged = Set.of("bow", "crossbow");
         List<String> problems = new ArrayList<>();
         int checked = 0;
         for (Weapon w : loadWeapons()) {
@@ -407,7 +421,7 @@ class WeaponTierParityTest {
                 problems.add(w.id() + " (" + w.type() + "): attack-speed " + w.attackSpeed());
             }
         }
-        assertTrue(checked >= 40, "遠隔武器を " + checked + " 本しか読めていない(この検査は空振りしている)");
+        assertTrue(checked >= 30, "遠隔武器を " + checked + " 本しか読めていない(この検査は空振りしている)");
         assertTrue(problems.isEmpty(),
                 "遠隔武器の近接 attack-speed は 0.1(damage.yml の attack-speed.min-effective)で揃える:\n"
                         + String.join("\n", problems));

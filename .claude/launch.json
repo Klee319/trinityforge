@@ -2,6 +2,36 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "gitdiag2",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\gitdiag2.cmd"],
+      "port": 18996
+    },
+    {
+      "name": "sumfix",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\sumfix.cmd"],
+      "port": 18995
+    },
+    {
+      "name": "sumaudit",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\sumaudit.cmd"],
+      "port": 18992
+    },
+    {
+      "name": "verify-stats",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\verify-stats.cmd"],
+      "port": 18994
+    },
+    {
+      "name": "sumaudit2",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\sumaudit2.cmd"],
+      "port": 18993
+    },
+    {
       "name": "config-editor",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
@@ -10,6 +40,108 @@
         "start"
       ],
       "port": 8787
+    },
+    {
+      "name": "gx-redeploy3",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-redeploy3.cmd"],
+      "port": 18944
+    },
+    {
+      "name": "gx-push",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-push.cmd"],
+      "port": 18948
+    },
+    {
+      "name": "gx-commit2",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-commit2.cmd"],
+      "port": 18953
+    },
+    {
+      "name": "gx-commit",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-commit.cmd"],
+      "port": 18947
+    },
+    {
+      "name": "gx-git",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-git.cmd"],
+      "port": 18946
+    },
+    {
+      "name": "gx-post",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-post.cmd"],
+      "port": 18945
+    },
+    {
+      "name": "tf-status-gx",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-tf-status-gx.cmd"],
+      "port": 18960
+    },
+    {
+      "name": "tf-commit-gxdoc",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-tf-commit-gxdoc.cmd"],
+      "port": 18959
+    },
+    {
+      "name": "gx-build",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-build.cmd"],
+      "port": 18958
+    },
+    {
+      "name": "gx-push2",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-push2.cmd"],
+      "port": 18957
+    },
+    {
+      "name": "gx-commit3",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-commit3.cmd"],
+      "port": 18955
+    },
+    {
+      "name": "tf-commit-pdchints",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-tf-commit-pdchints.cmd"],
+      "port": 18956
+    },
+    {
+      "name": "pdc-hints",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-pdc-hints.cmd"],
+      "port": 18954
+    },
+    {
+      "name": "gx-test",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-gx-test.cmd"],
+      "port": 18952
+    },
+    {
+      "name": "tf-test",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-tf-test.cmd"],
+      "port": 18949
+    },
+    {
+      "name": "tf-git",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-tf-git.cmd"],
+      "port": 18950
+    },
+    {
+      "name": "editor-test",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "tmp\\run-editor-test.cmd"],
+      "port": 18951
     }
   ]
 }

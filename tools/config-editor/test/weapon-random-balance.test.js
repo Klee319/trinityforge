@@ -62,20 +62,49 @@ test("エンドコンテンツ以外の武器は固定ダメージ補正が100%�
   }
 });
 
-test("金武器は大きな上下振れを持ち、下振れ側を広く取る", () => {
+// 【2026-08-14 反転】旧版は「金は攻撃力も最終ダメージ補正もマイナスまで下振れすること」を
+// 要求していた。これは仕様ではなく CRITICAL 不具合をそのまま固定していたもので、実測すると
+// 金(Lv35)帯13品は品質0の中央値が実効DPS 14〜25 ―― 木の剣(Lv0) 76 / 鉄の剣(Lv25) 354 に対して
+// 【Lv0装備の1/4以下】だった。原因はこの random 幅で、他帯が min/fixed ≈ -0.16 なのに
+// 金だけ -1.53(約9.5倍)。ロール下限では attack-power が負になり、
+// combat/damage.yml の physical.min-component-damage:1 に張り付いて【1発1ダメージ固定】になる。
+// しかも金帯は quality-mode-offset: -4 なので低品質はレアケースではなく通常経路。
+//
+// 再較正(2026-08-14)は品質15の中央値を1つも動かさず、品質0の中央値だけ他帯と同じ
+// 「q15中央の 0.495 倍」へ戻した(fixed を上げ、random を対称の ±R へ狭めた)。
+// 金の個性である「他帯より広い振れ幅」は残っている: ±R/fixed ≈ 0.33 に対し、
+// 他帯は -0.16/+0.21。damage-modifier に random を持つのも今でも金だけ。
+//
+// ここで固定するのは【振れ幅が他帯より広いこと】と【ロール下限が負にならないこと】。
+// 「負まで下振れすること」を要求へ戻すと上の1ダメージ固定が再発する。
+test("金武器は他帯より広く振れるが、ロール下限が負にならない", () => {
+  let checked = 0;
   for (const key of stats._editor.orders.weapon || []) {
     if (!isGold(key)) continue;
     if (!hasStatsEntry(key)) continue;
-    const random = stats.items[key]?.random;
+    const entry = stats.items[key];
+    const random = entry?.random;
     assert.ok(random, `${sourceId(key)} (${key}) のrandom`);
-    assert.ok(random["attack-power"].min < -stats.items[key].fixed["attack-power"],
-      `${sourceId(key)} の攻撃力がマイナスまで下振れしない`);
-    assert.ok(random["attack-power"].max >= stats.items[key].fixed["attack-power"],
-      `${sourceId(key)} の攻撃力上振れが不足`);
-    assert.ok(stats.items[key].fixed["damage-modifier"] + random["damage-modifier"].min < 0,
-      `${sourceId(key)} の最終ダメージ補正がマイナスまで下振れしない`);
-    assert.ok(random["damage-modifier"].max > 1.35, `${sourceId(key)} の補正上振れ`);
+    if (!random["attack-power"]) continue; // 攻撃力を振らない金の道具(耐久だけ振る品)は対象外
+    checked++;
+    const apFixed = entry.fixed["attack-power"];
+    assert.ok(random["attack-power"].min < 0 && random["attack-power"].max > 0,
+      `${sourceId(key)} の攻撃力が上下に振れていない`);
+    assert.ok(Math.abs(random["attack-power"].min) / apFixed > 0.25,
+      `${sourceId(key)} の攻撃力の振れ幅が他帯(0.16)と大差ない`);
+    assert.ok(apFixed + random["attack-power"].min > 0,
+      `${sourceId(key)} の攻撃力がロール下限で負になる`
+      + `(min-component-damage:1 に張り付いて1発1ダメージ固定になる)`);
+
+    const dmFixed = entry.fixed["damage-modifier"];
+    const dmRoll = random["damage-modifier"];
+    if (dmRoll) {
+      assert.ok(dmFixed + dmRoll.min > 0,
+        `${sourceId(key)} の最終ダメージ補正がロール下限で負になる`);
+      assert.ok(dmRoll.max > 0, `${sourceId(key)} の補正上振れが無い`);
+    }
   }
+  assert.ok(checked >= 10, `金武器を ${checked} 本しか見ていない(この検査は空振りしている)`);
 });
 
 test("木～ネザライトの槍は素材別ステータスと槍カテゴリを持つ", () => {

@@ -10,12 +10,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,40 +54,29 @@ class ShippedRitualMaterialExpCoverageTest {
     /** {@code "custom:hard_metal x4"} や {@code "IRON_INGOT"} から個数を切り離す。 */
     private static final Pattern TOKEN_WITH_COUNT = Pattern.compile("^(.*?)(?:\\s+x\\d+)?$");
 
+    /**
+     * 走査結果。{@code missing} は「表に無い素材トークン -> それを使っているレシピの表示名」。
+     */
+    private record Scan(int ritualCount, TreeMap<String, Set<String>> missing) {
+    }
+
     @Test
     @DisplayName("儀式レシピの消費素材は全て smithing.exp-per-material に載っている(1つ欠けると定額へ落ちる)")
     void everyRitualMaterialHasAnExpRow() {
         Set<String> table = loadMaterialTableKeys();
-        ConfigurationSection items = loadCatalogItems();
+        Scan scan = scan(table, loadCatalogItems());
 
-        // 表に無い素材 -> それを使っているカタログID
-        TreeMap<String, Set<String>> missing = new TreeMap<>();
-        int ritualCount = 0;
-
-        for (String itemId : items.getKeys(false)) {
-            ConfigurationSection recipe = items.getConfigurationSection(itemId + ".recipe");
-            if (recipe == null || !"ritual".equalsIgnoreCase(recipe.getString("method", ""))) {
-                continue;
-            }
-            ritualCount++;
-            for (String token : materialTokens(recipe)) {
-                if (!table.contains(token)) {
-                    missing.computeIfAbsent(token, key -> new TreeSet<>()).add(itemId);
-                }
-            }
-        }
-
-        assertTrue(ritualCount >= MIN_EXPECTED_RITUAL_RECIPES,
-                "出荷カタログの儀式レシピが " + ritualCount + " 件しかない。"
+        assertTrue(scan.ritualCount() >= MIN_EXPECTED_RITUAL_RECIPES,
+                "出荷カタログの儀式レシピが " + scan.ritualCount() + " 件しかない。"
                         + "節ごと消えていないか確認すること(期待: " + MIN_EXPECTED_RITUAL_RECIPES + " 件以上)");
 
-        if (missing.isEmpty()) {
+        if (scan.missing().isEmpty()) {
             return;
         }
 
         StringBuilder message = new StringBuilder();
         Set<String> affected = new TreeSet<>();
-        missing.forEach((token, ids) -> {
+        scan.missing().forEach((token, ids) -> {
             affected.addAll(ids);
             message.append("\n  ").append(token)
                     .append("  (").append(ids.size()).append("件で使用: ")
@@ -95,7 +86,7 @@ class ShippedRitualMaterialExpCoverageTest {
 
         throw new AssertionError(
                 "儀式で消費するのに smithing.exp-per-material に行が無い素材が "
-                        + missing.size() + " 種類ある(影響する儀式レシピ " + affected.size() + " 件)。"
+                        + scan.missing().size() + " 種類ある(影響する儀式レシピ " + affected.size() + " 件)。"
                         + "ArsProgressionBridge#grantSmithingCraftExp は1つでも引けないと"
                         + "素材合計を捨てて ars-smithing.exp-per-craft の定額へ戻すので、"
                         + "これらのレシピは素材価値と無関係な固定EXPになる。"
@@ -103,14 +94,118 @@ class ShippedRitualMaterialExpCoverageTest {
                         + message);
     }
 
-    /** core-item と pedestal-items を、個数を落とした正規化トークンで返す。 */
-    private static List<String> materialTokens(ConfigurationSection recipe) {
-        List<String> raw = new ArrayList<>();
-        String core = recipe.getString("core-item", "");
-        if (core != null && !core.isBlank()) {
-            raw.add(core);
+    /**
+     * 走査が {@code recipes:}（複数形）側の儀式も拾うことを、出荷 yml に触らず fixture で固定する。
+     *
+     * <p><b>なぜ要るか</b>: このリポジトリの正規形は「0件=なし / 1件=<code>recipe:</code> /
+     * 2件以上=<code>recipes:</code>」で全 config 共通。つまり儀式を2本持つアイテムは
+     * <b><code>recipe:</code> 節を持たず <code>recipes:</code> だけを持つ</b>。単数しか見ない走査は
+     * その形を<b>アイテムごと丸ごと取りこぼす</b>ので、2本目を足した瞬間に上のテストが
+     * 無言で素通りし、「素材が表に無い→鍛冶EXPが定額に落ちる」という検出目的が失われる。
+     * 出荷カタログには今のところ {@code recipes:} が0件なので、fixture でしか固定できない。
+     */
+    @Test
+    @DisplayName("recipes:(複数形)側の儀式も走査対象に入る — 単数 recipe: しか見ないとアイテムごと素通りする")
+    void ritualsUnderTheRecipesListAreScanned() throws Exception {
+        ConfigurationSection items = fixtureItems();
+
+        Scan scan = scan(Set.of("IRON_INGOT", "custom:covered_material"), items);
+
+        assertEquals(2, scan.ritualCount(),
+                "recipes: に並ぶ儀式2本が走査されていない(単数 recipe: しか見ていない)。"
+                        + "正規形では2本以上のレシピは recipes: にしか書かれないので、"
+                        + "このままだと2本目を足したレシピが検査対象から丸ごと外れる");
+        assertEquals(Set.of("GOLD_INGOT", "custom:uncovered_material"), scan.missing().keySet(),
+                "recipes: 側の儀式が使う「表に無い素材」が検出されていない。"
+                        + "検出されなければ ArsProgressionBridge が鍛冶EXPを定額へ落とすのに"
+                        + "誰も気づけない。実際の検出結果: " + scan.missing());
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // 走査
+    // ------------------------------------------------------------------------------------------
+
+    /** {@code items:} 節の儀式レシピを全て走査し、表に無い素材を集める。 */
+    private static Scan scan(Set<String> table, ConfigurationSection items) {
+        TreeMap<String, Set<String>> missing = new TreeMap<>();
+        int ritualCount = 0;
+
+        for (String itemId : items.getKeys(false)) {
+            ConfigurationSection item = items.getConfigurationSection(itemId);
+            if (item == null) {
+                continue;
+            }
+            for (RitualRecipe ritual : ritualRecipes(itemId, item)) {
+                ritualCount++;
+                for (String token : materialTokens(ritual.coreItem(), ritual.pedestalItems())) {
+                    if (!table.contains(token)) {
+                        missing.computeIfAbsent(token, key -> new TreeSet<>()).add(ritual.label());
+                    }
+                }
+            }
         }
-        raw.addAll(recipe.getStringList("pedestal-items"));
+        return new Scan(ritualCount, missing);
+    }
+
+    /** 走査対象の儀式1本。{@code label} は失敗メッセージで出所を特定するための表示名。 */
+    private record RitualRecipe(String label, String coreItem, List<String> pedestalItems) {
+    }
+
+    /**
+     * 1アイテムぶんの儀式レシピを、<b>{@code recipe:}（単数）と {@code recipes:}（複数）の両方</b>から拾う。
+     *
+     * <p>正規形は「0件=なし / 1件=<code>recipe:</code> / 2件以上=<code>recipes:</code>」で全 config 共通
+     * （{@link ItemCatalogConfig#parse} も両方を読んで1本のリストに積む）。
+     * 単数だけを見ると、レシピを2本持つアイテムが<b>丸ごと検査対象から外れる</b>。
+     */
+    private static List<RitualRecipe> ritualRecipes(String itemId, ConfigurationSection item) {
+        List<RitualRecipe> out = new ArrayList<>();
+
+        ConfigurationSection single = item.getConfigurationSection("recipe");
+        if (single != null && isRitual(single.getString("method"))) {
+            out.add(new RitualRecipe(itemId, single.getString("core-item"),
+                    single.getStringList("pedestal-items")));
+        }
+
+        List<Map<?, ?>> list = item.getMapList("recipes");
+        for (int i = 0; i < list.size(); i++) {
+            Map<?, ?> raw = list.get(i);
+            if (raw == null || !isRitual(text(raw.get("method")))) {
+                continue;
+            }
+            out.add(new RitualRecipe(itemId + " recipes[" + i + "]",
+                    text(raw.get("core-item")), strings(raw.get("pedestal-items"))));
+        }
+        return out;
+    }
+
+    private static boolean isRitual(String method) {
+        return method != null && "ritual".equalsIgnoreCase(method.trim());
+    }
+
+    private static String text(Object raw) {
+        return raw == null ? null : String.valueOf(raw);
+    }
+
+    private static List<String> strings(Object raw) {
+        List<String> out = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object element : list) {
+                if (element != null) {
+                    out.add(String.valueOf(element));
+                }
+            }
+        }
+        return out;
+    }
+
+    /** core-item と pedestal-items を、個数を落とした正規化トークンで返す。 */
+    private static List<String> materialTokens(String coreItem, List<String> pedestalItems) {
+        List<String> raw = new ArrayList<>();
+        if (coreItem != null && !coreItem.isBlank()) {
+            raw.add(coreItem);
+        }
+        raw.addAll(pedestalItems);
 
         List<String> tokens = new ArrayList<>();
         for (String entry : raw) {
@@ -138,6 +233,10 @@ class ShippedRitualMaterialExpCoverageTest {
         return trimmed.toUpperCase(Locale.ROOT);
     }
 
+    // ------------------------------------------------------------------------------------------
+    // 読み込み
+    // ------------------------------------------------------------------------------------------
+
     private static Set<String> loadMaterialTableKeys() {
         File file = new File(SKILL_EXP);
         assertTrue(file.isFile(), "出荷 skill-exp.yml が見つからない: " + file.getAbsolutePath());
@@ -156,6 +255,35 @@ class ShippedRitualMaterialExpCoverageTest {
         assertTrue(file.isFile(), "出荷カタログが見つからない: " + file.getAbsolutePath());
         ConfigurationSection items = YamlConfiguration.loadConfiguration(file).getConfigurationSection("items");
         assertNotNull(items, CATALOG + " に items: 節が無い");
+        return items;
+    }
+
+    /**
+     * 正規形どおりに「儀式2本＋非儀式1本を {@code recipes:} に並べた」アイテム1件だけの fixture。
+     * 出荷 yml は一切触らない。
+     */
+    private static ConfigurationSection fixtureItems() throws Exception {
+        YamlConfiguration fixture = new YamlConfiguration();
+        fixture.loadFromString(String.join("\n",
+                "items:",
+                "  fixture_blade:",
+                "    material: IRON_SWORD",
+                "    recipes:",
+                "      - method: ritual",
+                "        core-item: IRON_INGOT",
+                "        pedestal-items:",
+                "          - \"custom:covered_material x2\"",
+                "      - method: ritual",
+                "        core-item: GOLD_INGOT",
+                "        pedestal-items:",
+                "          - \"custom:uncovered_material x2\"",
+                "      - method: workbench",
+                "        type: shapeless",
+                "        ingredients:",
+                "          - \"custom:not_a_ritual_material\"",
+                ""));
+        ConfigurationSection items = fixture.getConfigurationSection("items");
+        assertNotNull(items, "fixture の items: 節が読めていない");
         return items;
     }
 }

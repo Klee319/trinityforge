@@ -39,16 +39,5 @@
 #   (111,395.9 × 1.1425 = 127,270 → 切り上げて丸めた値。余裕率は 1.1446)。
 #   ⚠ 単品最大の定義は fixed + per-quality×max-quality + random.max。ShippedStatCapsDriftTest が
 #     出荷 item-stats.yml から実測して「上限 < 単品最大」を落とすので、勝手に下げると即座に露見する。
-stat-caps:
-  attack-power: 127500
-  crit-chance: 0.85
-  crit-damage: 3.2
-  penetration: 0.85
-  percent-bonus-damage: 1.0
-  flat-bonus-damage: 60
-  bleed-chance: 0.6
-  bleed-damage: 4500
 
-# 採集効率(gathering-efficiency、旧称:最終効率)の効率強化エンチャント上限。未記載なら
-# stats/gathering-efficiency.yml 側の max-enchant-level が使われる(詳細は上記md)。
-# gathering-efficiency-max-enchant-level:
+stat-caps: {}

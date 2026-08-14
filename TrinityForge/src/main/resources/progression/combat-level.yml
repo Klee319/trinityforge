@@ -28,13 +28,13 @@ skills:
   ARS_MAGIC: 1
 pillars:
   - top: 1
-    divisor: 1
-  - top: 2
     divisor: 1.5
+  - top: 2
+    divisor: 2
   - top: 3
-    divisor: 2.1
+    divisor: 2.5
   - top: 4
-    divisor: 2.8
+    divisor: 3
 curve:
   scale: 1
   min-level: 0

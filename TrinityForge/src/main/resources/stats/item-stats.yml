@@ -526,7 +526,7 @@ items:
     quality-mode-offset: -2
   GOLDEN_SWORD:
     fixed:
-      attack-power: 396
+      attack-power: 595.7
       attack-speed: 1.6
       attack-reach: 0
       crit-chance: 0.08
@@ -545,8 +545,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -605
-        max: 550
+        min: -199
+        max: 199
       crit-chance:
         min: -0.34
         max: 0.26
@@ -557,11 +557,11 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   GOLDEN_SPEAR:
     fixed:
-      attack-power: 596
+      attack-power: 896.5
       attack-speed: 0.9
       attack-reach: 1
       crit-chance: 0.05
@@ -581,8 +581,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -911
-        max: 828
+        min: -299
+        max: 299
       crit-chance:
         min: -0.34
         max: 0.26
@@ -593,8 +593,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   GOLDEN_PICKAXE:
     fixed:
       durability: 19
@@ -868,7 +868,7 @@ items:
   TRIDENT:
     fixed:
       attack-power: 1134
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -938,42 +938,6 @@ items:
     per-quality:
       durability: 6
     use-skill: FISHING
-  # ==========================================================================
-  # 防具の重装/軽装 序列ルール (2026-08-03 要件#17)
-  #
-  # 【直した不具合】重装(HEAVY_ARMOR)より軽装(LIGHT_ARMOR)のほうが硬かった。
-  # 2026-07-25 のラダー調整は重装と軽装に「同じ守備力・同じ最大体力」を配り、差は
-  # 回避/移動速度/防具値/物理耐性だけに置いた。ところがその物理耐性が軽装のほうが高く
-  # (例 Lv60: 軽装 0.449 / 重装 0.260)、回避の優位と合わさって軽装が約16%硬かった。
-  #
-  # 【今の決まり】同じ必要レベルどうしで比べたとき:
-  #   ・軽装の phys-resistance = 同レベル・同部位の重装の 0.60 倍
-  #     (もともとそれ以下なら据え置き。素の革だけは Lv0 の銅と回避差が大きすぎるので半分にした)
-  #   ・軽装の fixed.max-health = 0(体力ボーナスは重装の取り柄。軽装は random: の上振れ分だけ残る)
-  #   ・phys-flat-defense と armor-defense-rate、random: ブロック、回避/移動速度/防具強度/
-  #     スレッド枠/耐久/魔法防御は 2026-08-03 の作業では一切触っていない。
-  #
-  # 【2026-08-12 に上書きした部分】守備力(phys-flat-defense)と最大体力(max-health)の
-  # 絶対値は、2026-07-25 のラダーではなく「F(L) = 0.5 x A(L)、A(L) = 8.0 x 1.0148^L」へ
-  # 帯ごとに引き直した。
-  # 旧ラダーは守備力(x44)を敵攻撃力(x40)とほぼ同勾配で伸ばしていたため、引き算段の残差が
-  # ゼロ近傍か爆発かの二択になり、全帯で min-component-damage:1 の床値に張り付いていた。
-  # 新しい絶対値は tools/config-editor/test/armor-ladder.test.js が出荷 yml から実測して
-  # 固定し直している(同ファイルの F_MAX_BY_LEVEL と耐久回数ラダーのテスト群)。
-  # ※ 上の「軽装の phys-resistance は重装の0.60倍」「軽装の fixed.max-health は0」という
-  #   序列ルール自体は生きている(帯ごとに一律倍率を掛けたので相対比は保たれる)。
-  #
-  # 【結果】1セット装備時の実効被ダメージ係数(回避×防具値×耐性×守備力×体力プール)は
-  # 重装のほうが低い(=硬い)。軽装比:
-  #   Lv0 -21% / Lv0(骨鎧) -24% / Lv10 -24% / Lv15 -43% / Lv35 -48% /
-  #   Lv45 -48% / Lv60 -59% / Lv80 -67% / Lv100 -62%
-  # この序列は ArmorHeavyVersusLightDefenseOrderTest が出荷ymlを実読して固定している。
-  # 数値を戻すと同テストが落ちる。
-  #
-  # 【できなかったこと】魔法防具(mage_* = 守護/魔織/糸)には同じ序列を付けられない。
-  # item-stat-coverage.test.js が mage_* に対して phys-resistance / phys-flat-defense /
-  # max-health を「未設定であること」で縛っており、使える軸が1つも残らないため。
-  # ==========================================================================
   LEATHER_HELMET:
     fixed:
       armor-defense-rate: 1
@@ -1398,11 +1362,11 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 217
-      phys-resistance: 0.018
+      phys-resistance: 0.035
       phys-flat-defense: 0.9
       magic-flat-defense: 0.5
       armor-strength: 0.175
-      max-health: 2.4
+      max-health: 3
       move-speed: -0.002
     per-quality:
       durability: 36
@@ -1418,12 +1382,12 @@ items:
         max: 0.9
   DIAMOND_CHESTPLATE:
     fixed:
-      armor-defense-rate: 4
+      armor-defense-rate: 6
       durability: 316
-      phys-resistance: 0.048
+      phys-resistance: 0.093
       phys-flat-defense: 2.3
       magic-flat-defense: 1.2
-      max-health: 6.6
+      max-health: 8.1
       move-speed: -0.004
     per-quality:
       durability: 53
@@ -1439,13 +1403,13 @@ items:
         max: 2.3
   DIAMOND_LEGGINGS:
     fixed:
-      armor-defense-rate: 3
+      armor-defense-rate: 4
       durability: 297
-      phys-resistance: 0.036
+      phys-resistance: 0.07
       phys-flat-defense: 1.8
       magic-flat-defense: 0.9
       move-speed: -0.004
-      max-health: 5
+      max-health: 6.2
     per-quality:
       durability: 50
     use-level-requirement: 45
@@ -1462,12 +1426,12 @@ items:
     fixed:
       armor-defense-rate: 2
       durability: 257
-      phys-resistance: 0.018
+      phys-resistance: 0.035
       phys-flat-defense: 0.9
       magic-flat-defense: 0.5
       armor-strength: 0.175
       move-speed: -0.002
-      max-health: 2.4
+      max-health: 3
     per-quality:
       durability: 43
     use-level-requirement: 45
@@ -2428,7 +2392,7 @@ items:
         max: 0.06
   GOLDEN_AXE#81:
     fixed:
-      attack-power: 575
+      attack-power: 864.5
       attack-speed: 1
       attack-reach: 0.2
       crit-chance: 0.06
@@ -2447,8 +2411,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -878
-        max: 798
+        min: -289
+        max: 289
       crit-chance:
         min: -0.34
         max: 0.26
@@ -2459,8 +2423,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   DIAMOND_AXE#82:
     fixed:
       attack-power: 1717
@@ -2859,7 +2823,7 @@ items:
         max: 0.15
   GOLDEN_HOE#54:
     fixed:
-      attack-power: 247
+      attack-power: 371.3
       attack-speed: 2
       attack-reach: 0.5
       crit-chance: 0.06
@@ -2880,8 +2844,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -377
-        max: 343
+        min: -125
+        max: 125
       crit-chance:
         min: -0.34
         max: 0.26
@@ -2892,8 +2856,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   IRON_HOE#55:
     fixed:
       attack-power: 192
@@ -3078,38 +3042,6 @@ items:
       attack-power:
         min: -28
         max: 35
-      bleed-chance:
-        min: -0.07
-        max: 0.11
-      crit-damage:
-        min: -0.1
-        max: 0.15
-  IRON_CHAIN#68:
-    fixed:
-      attack-power: 17348
-      attack-speed: 2
-      attack-reach: 0.5
-      crit-chance: 0.06
-      crit-damage: 0.45
-      penetration: 0.06
-      damage-modifier: 0.53
-      bleed-chance: 0.16
-      bleed-damage: 4500
-      thread-slots: 3
-      durability: 1218
-    per-quality:
-      attack-power: 826.1
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
-      durability: 203
-    use-level-requirement: 100
-    use-skill: LIGHT_WEAPONS
-    quality-mode-offset: -8
-    random:
-      attack-power:
-        min: -2776
-        max: 3470
       bleed-chance:
         min: -0.07
         max: 0.11
@@ -3335,7 +3267,7 @@ items:
         max: 0.06
   GOLDEN_SWORD#26:
     fixed:
-      attack-power: 564
+      attack-power: 848.3
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.05
@@ -3355,8 +3287,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -861
-        max: 783
+        min: -283
+        max: 283
       crit-chance:
         min: -0.34
         max: 0.26
@@ -3367,8 +3299,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   DIAMOND_SWORD#1104:
     fixed:
       attack-power: 1793
@@ -3672,7 +3604,7 @@ items:
         max: 0.15
   GOLDEN_SWORD#12:
     fixed:
-      attack-power: 269
+      attack-power: 404.9
       attack-speed: 2
       attack-reach: -0.5
       crit-chance: 0.12
@@ -3691,8 +3623,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -411
-        max: 374
+        min: -135
+        max: 135
       crit-chance:
         min: -0.34
         max: 0.26
@@ -3703,8 +3635,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   DIAMOND_SWORD#1101:
     fixed:
       attack-power: 857
@@ -4002,7 +3934,7 @@ items:
         max: 0.15
   GOLDEN_SWORD#14:
     fixed:
-      attack-power: 309
+      attack-power: 464.8
       attack-speed: 1.8
       attack-reach: 0.3
       crit-chance: 0.07
@@ -4021,8 +3953,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -472
-        max: 429
+        min: -155
+        max: 155
       crit-chance:
         min: -0.34
         max: 0.26
@@ -4033,8 +3965,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   DIAMOND_SWORD#1102:
     fixed:
       attack-power: 983
@@ -4332,7 +4264,7 @@ items:
         max: 0.06
   GOLDEN_SWORD#32:
     fixed:
-      attack-power: 649
+      attack-power: 956.2
       attack-speed: 0.8
       attack-reach: 0.6
       crit-chance: 0.04
@@ -4351,8 +4283,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -952
-        max: 865
+        min: -324
+        max: 324
       crit-chance:
         min: -0.34
         max: 0.26
@@ -4363,8 +4295,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   DIAMOND_SWORD#1105:
     fixed:
       attack-power: 1983
@@ -4662,7 +4594,7 @@ items:
         max: 0.06
   GOLDEN_SWORD#66:
     fixed:
-      attack-power: 513
+      attack-power: 772.1
       attack-speed: 1
       attack-reach: 0.6
       crit-chance: 0.05
@@ -4681,8 +4613,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -784
-        max: 713
+        min: -258
+        max: 258
       crit-chance:
         min: -0.34
         max: 0.26
@@ -4693,8 +4625,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   DIAMOND_SWORD#1113:
     fixed:
       attack-power: 1633
@@ -4978,7 +4910,7 @@ items:
         max: 0.15
   BOW#1095:
     fixed:
-      attack-power: 309
+      attack-power: 464.8
       attack-speed: 0.1
       attack-reach: 0
       crit-chance: 0.18
@@ -5002,8 +4934,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -472
-        max: 429
+        min: -155
+        max: 155
       crit-chance:
         min: -0.34
         max: 0.26
@@ -5014,8 +4946,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   BOW#1096:
     fixed:
       attack-power: 1381
@@ -5295,7 +5227,7 @@ items:
   TRIDENT#174:
     fixed:
       attack-power: 57
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5326,7 +5258,7 @@ items:
   TRIDENT#175:
     fixed:
       attack-power: 95
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5357,7 +5289,7 @@ items:
   TRIDENT#176:
     fixed:
       attack-power: 108
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5388,7 +5320,7 @@ items:
   TRIDENT#177:
     fixed:
       attack-power: 265
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5418,8 +5350,8 @@ items:
         max: 0.15
   TRIDENT#178:
     fixed:
-      attack-power: 356
-      attack-speed: 0.1
+      attack-power: 536.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5439,8 +5371,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -544
-        max: 495
+        min: -178
+        max: 178
       crit-chance:
         min: -0.34
         max: 0.26
@@ -5451,12 +5383,12 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   TRIDENT#179:
     fixed:
       attack-power: 1134
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5487,7 +5419,7 @@ items:
   TRIDENT#180:
     fixed:
       attack-power: 3402
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5518,7 +5450,7 @@ items:
   TRIDENT#181:
     fixed:
       attack-power: 242
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5550,7 +5482,7 @@ items:
   TRIDENT#121:
     fixed:
       attack-power: 34020
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5581,7 +5513,7 @@ items:
   TRIDENT#122:
     fixed:
       attack-power: 21168
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5613,7 +5545,7 @@ items:
   TRIDENT#123:
     fixed:
       attack-power: 11340
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -5766,7 +5698,7 @@ items:
         max: 0.15
   MACE#171:
     fixed:
-      attack-power: 617
+      attack-power: 928.7
       attack-speed: 0.9
       attack-reach: 0
       crit-chance: 0.06
@@ -5786,8 +5718,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -943
-        max: 858
+        min: -310
+        max: 310
       crit-chance:
         min: -0.34
         max: 0.26
@@ -5798,8 +5730,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   MACE#172:
     fixed:
       attack-power: 1972
@@ -6019,40 +5951,6 @@ items:
       crit-damage:
         min: -0.1
         max: 0.15
-  CROSSBOW#161:
-    fixed:
-      attack-power: 97
-      attack-speed: 0.1
-      attack-reach: 0
-      crit-chance: 0.11
-      crit-damage: 0.85
-      penetration: 0.13
-      damage-modifier: 0.72
-      bow-accuracy: 0.04
-      arrow-velocity: 0.12
-      distance-damage-bonus: 0.08
-      ammo-save-chance: 0.04
-      move-speed: 0.008
-      durability: 78
-    per-quality:
-      attack-power: 7.5
-      crit-chance: 0.012
-      crit-damage: 0.02
-      penetration: 0.004
-      durability: 13
-    use-level-requirement: 5
-    use-skill: ARCHERY
-    quality-mode-offset: -1
-    random:
-      attack-power:
-        min: -15
-        max: 19
-      crit-chance:
-        min: -0.05
-        max: 0.07
-      crit-damage:
-        min: -0.1
-        max: 0.15
   CROSSBOW#162:
     fixed:
       attack-power: 110
@@ -6123,7 +6021,7 @@ items:
         max: 0.15
   CROSSBOW#164:
     fixed:
-      attack-power: 364
+      attack-power: 547.8
       attack-speed: 0.1
       attack-reach: 0
       crit-chance: 0.11
@@ -6147,8 +6045,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -557
-        max: 506
+        min: -183
+        max: 183
       crit-chance:
         min: -0.34
         max: 0.26
@@ -6159,8 +6057,8 @@ items:
         min: -0.25
         max: 0.225
       damage-modifier:
-        min: -1.6
-        max: 1.65
+        min: -0.16
+        max: 0.2
   CROSSBOW#165:
     fixed:
       attack-power: 1159
@@ -6399,7 +6297,7 @@ items:
   WOODEN_SWORD#400008:
     fixed:
       attack-power: 196
-      attack-speed: 0.5
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6420,7 +6318,7 @@ items:
   STONE_SWORD#400002:
     fixed:
       attack-power: 315
-      attack-speed: 0.5
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6441,7 +6339,7 @@ items:
   COPPER_SWORD#400003:
     fixed:
       attack-power: 348
-      attack-speed: 0.5
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6462,7 +6360,7 @@ items:
   IRON_SWORD#400004:
     fixed:
       attack-power: 821
-      attack-speed: 0.5
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6481,9 +6379,13 @@ items:
     use-skill: ARS_MAGIC
     quality-mode-offset: -3
   GOLDEN_SWORD#400005:
+    # 2026-08-14: 金の杖の攻撃力を ×1.614。金(Lv35)帯13品の random 再較正(★1)で
+    # 分母である金の剣の期待攻撃力が同率で上がったため、据え置くと杖の詠唱DPSが
+    # 剣の 47.5% -> 29.4% へ落ちる(WeaponTierParityTest の杖の帯 40〜60% を割る)。
+    # 杖10本のうち金だけが道連れで落ちるので、帯の設計値 47.5% へ戻している。
     fixed:
-      attack-power: 1073
-      attack-speed: 0.6
+      attack-power: 1731.8
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6493,7 +6395,7 @@ items:
       thread-slots: 1
       item-cooldown: 2.6
     per-quality:
-      attack-power: 44.8
+      attack-power: 72.3
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -6504,7 +6406,7 @@ items:
   DIAMOND_SWORD#400006:
     fixed:
       attack-power: 3259
-      attack-speed: 0.6
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6525,7 +6427,7 @@ items:
   NETHERITE_SWORD#400007:
     fixed:
       attack-power: 9387
-      attack-speed: 0.6
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6546,7 +6448,7 @@ items:
   NETHERITE_SWORD#400012:
     fixed:
       attack-power: 80965
-      attack-speed: 0.8
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6567,7 +6469,7 @@ items:
   NETHERITE_SWORD#400013:
     fixed:
       attack-power: 62581
-      attack-speed: 1.1
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6588,7 +6490,7 @@ items:
   NETHERITE_SWORD#400014:
     fixed:
       attack-power: 28472
-      attack-speed: 0.7
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6609,7 +6511,7 @@ items:
   BLAZE_ROD#400001:
     fixed:
       attack-power: 18
-      attack-speed: 0.1
+      attack-speed: 1.6
       crit-chance: 0.08
       crit-damage: 0.5
       penetration: 0.05
@@ -6630,14 +6532,21 @@ items:
   ENDER_EYE#85:
     fixed:
       attack-power: 18
-      attack-speed: 0.1
+      attack-speed: 1.6
       mana-bonus: 2
       mana-regen: 1
       source-cost-reduction: 0.03
       thread-slots: 1
+      crit-chance: 0.08
+      crit-damage: 0.5
+      penetration: 0.05
+      item-cooldown: 3
     per-quality:
       attack-power: 0.7
       mana-bonus: 1
+      crit-chance: 0.003
+      crit-damage: 0.02
+      penetration: 0.004
     use-level-requirement: 0
     use-skill: ARS_MAGIC
     quality-mode-offset: 0
@@ -6774,7 +6683,7 @@ items:
       magic-flat-defense: 0.3
       armor-strength: 0.055
       dodge-chance: 0.051
-      thread-slots: 2
+      thread-slots: 1
       max-health: 0
     per-quality:
       durability: 36
@@ -6865,7 +6774,7 @@ items:
       phys-flat-defense: 1.2
       magic-flat-defense: 0.6
       dodge-chance: 0.034
-      thread-slots: 2
+      thread-slots: 1
       max-health: 0
     per-quality:
       durability: 53
@@ -6954,7 +6863,7 @@ items:
       phys-flat-defense: 0.9
       magic-flat-defense: 0.5
       move-speed: 0.007
-      thread-slots: 2
+      thread-slots: 1
       max-health: 0
     per-quality:
       durability: 50
@@ -7043,7 +6952,7 @@ items:
       magic-flat-defense: 0.3
       armor-strength: 0.055
       move-speed: 0.003
-      thread-slots: 2
+      thread-slots: 1
       max-health: 0
     per-quality:
       durability: 43
@@ -7125,18 +7034,13 @@ items:
       max-health:
         min: 0
         max: 2.8
-  # 守護シリーズ(HEAVY_ARMOR)と魔織/糸(LIGHT_ARMOR)には重装優位を付けられていない。
-  # この系統は物理防御が random: にしか無く、fixed の phys-resistance / phys-flat-defense /
-  # max-health は tools/config-editor/test/item-stat-coverage.test.js が「未設定であること」で
-  # 縛っているため、要件#17 で使ってよい軸が1つも残らない(魔法防御そのものを動かすのは別要件)。
-  # ここを直すには先にあのテストの契約を変える必要がある。
   LEATHER_HELMET#200001:
     fixed:
       armor-defense-rate: 2
       durability: 108
       armor-strength: 0.15
       dodge-chance: 0.018
-      thread-slots: 1
+      thread-slots: 0
       mana-bonus: 2.3
       magic-resistance: 0.02
       magic-flat-defense: 4.5
@@ -7159,7 +7063,7 @@ items:
       armor-defense-rate: 6
       durability: 156
       dodge-chance: 0.012
-      thread-slots: 1
+      thread-slots: 0
       mana-bonus: 6
       magic-resistance: 0.052
       magic-flat-defense: 12
@@ -7182,7 +7086,7 @@ items:
       armor-defense-rate: 4
       durability: 147
       move-speed: -0.004
-      thread-slots: 1
+      thread-slots: 0
       mana-bonus: 4.5
       magic-resistance: 0.039
       magic-flat-defense: 8.8
@@ -7205,7 +7109,7 @@ items:
       durability: 126
       armor-strength: 0.15
       move-speed: -0.002
-      thread-slots: 1
+      thread-slots: 0
       mana-bonus: 2.3
       magic-resistance: 0.02
       magic-flat-defense: 4.5
@@ -7412,7 +7316,7 @@ items:
       durability: 108
       armor-strength: 0.07
       dodge-chance: 0.036
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 5.3
       magic-resistance: 0.01
       magic-flat-defense: 2.8
@@ -7434,7 +7338,7 @@ items:
       armor-defense-rate: 4
       durability: 156
       dodge-chance: 0.024
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 14
       magic-resistance: 0.027
       magic-flat-defense: 7.4
@@ -7456,7 +7360,7 @@ items:
       armor-defense-rate: 3
       durability: 147
       move-speed: 0.003
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 11
       magic-resistance: 0.02
       magic-flat-defense: 5.5
@@ -7479,7 +7383,7 @@ items:
       durability: 126
       armor-strength: 0.07
       move-speed: 0.002
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 5.3
       magic-resistance: 0.01
       magic-flat-defense: 2.8
@@ -7502,7 +7406,7 @@ items:
       durability: 180
       armor-strength: 0.07
       dodge-chance: 0.036
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 14
       magic-resistance: 0.02
       magic-flat-defense: 4.3
@@ -7524,7 +7428,7 @@ items:
       armor-defense-rate: 4
       durability: 264
       dodge-chance: 0.024
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 36
       magic-resistance: 0.054
       magic-flat-defense: 11
@@ -7546,7 +7450,7 @@ items:
       armor-defense-rate: 3
       durability: 246
       move-speed: 0.003
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 27
       magic-resistance: 0.041
       magic-flat-defense: 8
@@ -7569,7 +7473,7 @@ items:
       durability: 210
       armor-strength: 0.07
       move-speed: 0.002
-      thread-slots: 2
+      thread-slots: 1
       mana-bonus: 14
       magic-resistance: 0.02
       magic-flat-defense: 4.3
@@ -7676,11 +7580,6 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
-  # 2026-08-09 追加: 魔導シリーズの賢者/星詠み。耐久・品質別耐久・ランダムロール・要求レベルは
-  # 同じ階梯の魔織(200221〜200234)と共通の土台をそのまま使う(全シリーズで共通の値になっている)。
-  # 魔導固有のステは「魔導/魔織の大魔導士どうしの比」をそのまま賢者/星詠みへ持ち上げた:
-  #   マナ上限 ×5/3・マナ回復 ×5/3・魔法固定防御 ×1.6・魔法耐性 ×1.391。
-  # 防御力/回避/移動速度/スレッド枠は魔導シリーズ内で階梯を通じて一定なので据え置く。
   LEATHER_HELMET#200241:
     fixed:
       armor-defense-rate: 2
@@ -7867,7 +7766,7 @@ items:
       durability: 108
       armor-strength: 0.02
       dodge-chance: 0.092
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 3
       magic-resistance: 0.007
       magic-flat-defense: 1.7
@@ -7889,7 +7788,7 @@ items:
       armor-defense-rate: 2
       durability: 156
       dodge-chance: 0.061
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 8
       magic-resistance: 0.017
       magic-flat-defense: 4.5
@@ -7911,7 +7810,7 @@ items:
       armor-defense-rate: 1
       durability: 147
       move-speed: 0.021
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 6
       magic-resistance: 0.013
       magic-flat-defense: 3.3
@@ -7934,7 +7833,7 @@ items:
       durability: 126
       armor-strength: 0.02
       move-speed: 0.009
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 3
       magic-resistance: 0.007
       magic-flat-defense: 1.7
@@ -7957,7 +7856,7 @@ items:
       durability: 180
       armor-strength: 0.02
       dodge-chance: 0.092
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 8.3
       magic-resistance: 0.013
       magic-flat-defense: 2.6
@@ -7979,7 +7878,7 @@ items:
       armor-defense-rate: 2
       durability: 264
       dodge-chance: 0.061
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 22
       magic-resistance: 0.034
       magic-flat-defense: 7
@@ -8001,7 +7900,7 @@ items:
       armor-defense-rate: 1
       durability: 246
       move-speed: 0.021
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 17
       magic-resistance: 0.026
       magic-flat-defense: 5.4
@@ -8024,7 +7923,7 @@ items:
       durability: 210
       armor-strength: 0.02
       move-speed: 0.009
-      thread-slots: 4
+      thread-slots: 2
       mana-bonus: 8.3
       magic-resistance: 0.013
       magic-flat-defense: 2.6
@@ -8047,7 +7946,7 @@ items:
       durability: 288
       armor-strength: 0.02
       dodge-chance: 0.092
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 18
       magic-resistance: 0.023
       magic-flat-defense: 3
@@ -8069,7 +7968,7 @@ items:
       armor-defense-rate: 2
       durability: 420
       dodge-chance: 0.061
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 48
       magic-resistance: 0.061
       magic-flat-defense: 7.9
@@ -8091,7 +7990,7 @@ items:
       armor-defense-rate: 1
       durability: 393
       move-speed: 0.021
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 36
       magic-resistance: 0.046
       magic-flat-defense: 6.1
@@ -8114,7 +8013,7 @@ items:
       durability: 336
       armor-strength: 0.02
       move-speed: 0.009
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 18
       magic-resistance: 0.023
       magic-flat-defense: 3
@@ -8131,32 +8030,6 @@ items:
       phys-resistance:
         min: 0.013
         max: 0.024
-  # ==========================================================================
-  # 守護/魔織シリーズの Lv80「賢者」/ Lv100「星詠み」(2026-08-03 追加)
-  #
-  # 【なぜ足したか】魔法防御(magic-flat-defense / magic-resistance)を持つ防具は
-  # このシリーズだけで、上限が Lv60「大魔導士」だった。Lv61以降は装備を新調しても
-  # 魔法防御が一切伸びず、「Lv60 の防具を着続けて物理を捨てる」か「魔法を捨てて
-  # ネザライトを着る」かの二択に固定されていた(バニラ系防具は全部位 magic-* がゼロ)。
-  # ダンジョンのコンセプトで magic-ratio 0.45 を割り当てた11ダンジョンが Lv61以降で
-  # 対策不能に近くなるため、レベル相応の選択肢として2段追加した。
-  #
-  # 【数値の作り方】既存3段(Lv20/40/60)の段間比をそのまま延長している:
-  #   durability ×1.6 / magic-flat-defense ×2.2 / mana-bonus ×2.25 /
-  #   per-quality durability ×1.6 / quality-mode-offset -2 / mana-regen +1.2 /
-  #   random phys-flat-defense ×2.5
-  # 防御率(armor-defense-rate)・防具強度・回避・スレッド枠・移動速度は既存3段で
-  # 一定なので据え置き。
-  #
-  # 【⚠️ 率(magic-resistance / random phys-resistance)だけ段間比を落としている】
-  # 既存の段間比(魔法耐性 ×1.56)をそのまま延ばすと、Lv100 の1セット合計が
-  # 0.365 → 0.57 → 0.89 になり 100% に張り付く。率は乗算で効くので、
-  # 上限に近づくほど「1段上げただけで無敵になる」方向に壊れる。
-  # レベル追随は【固定値(flat-defense)】側で行い、率は
-  # magic-resistance ×1.18 → ×1.14(セット合計 0.365→0.43→0.49)、
-  # random phys-resistance ×1.25 → ×1.20 に抑えている。
-  # ここを触るときは率ではなく「無対策/対策済みで何発耐えるか」で判断すること。
-  # ==========================================================================
   LEATHER_HELMET#200201:
     fixed:
       armor-defense-rate: 2
@@ -8259,7 +8132,7 @@ items:
       mana-bonus: 68
       magic-resistance: 0.074
       magic-flat-defense: 9.3
-      mana-regen: 6.0
+      mana-regen: 6
       move-speed: -0.002
     per-quality:
       durability: 123
@@ -8271,7 +8144,7 @@ items:
         min: 1.1
         max: 2.9
       phys-resistance:
-        min: 0.030
+        min: 0.03
         max: 0.055
   LEATHER_CHESTPLATE#200212:
     fixed:
@@ -8282,7 +8155,7 @@ items:
       mana-bonus: 182
       magic-resistance: 0.196
       magic-flat-defense: 25
-      mana-regen: 6.0
+      mana-regen: 6
       move-speed: -0.004
     per-quality:
       durability: 179
@@ -8305,7 +8178,7 @@ items:
       mana-bonus: 137
       magic-resistance: 0.147
       magic-flat-defense: 19
-      mana-regen: 6.0
+      mana-regen: 6
     per-quality:
       durability: 170
     use-level-requirement: 100
@@ -8328,7 +8201,7 @@ items:
       mana-bonus: 68
       magic-resistance: 0.074
       magic-flat-defense: 9.3
-      mana-regen: 6.0
+      mana-regen: 6
     per-quality:
       durability: 144
     use-level-requirement: 100
@@ -8339,7 +8212,7 @@ items:
         min: 1.1
         max: 3
       phys-resistance:
-        min: 0.030
+        min: 0.03
         max: 0.055
   LEATHER_HELMET#200221:
     fixed:
@@ -8347,7 +8220,7 @@ items:
       durability: 461
       armor-strength: 0.02
       dodge-chance: 0.092
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 41
       magic-resistance: 0.027
       magic-flat-defense: 3.7
@@ -8363,13 +8236,13 @@ items:
         max: 2.3
       phys-resistance:
         min: 0.016
-        max: 0.030
+        max: 0.03
   LEATHER_CHESTPLATE#200222:
     fixed:
       armor-defense-rate: 2
       durability: 672
       dodge-chance: 0.061
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 108
       magic-resistance: 0.072
       magic-flat-defense: 9.8
@@ -8385,13 +8258,13 @@ items:
         max: 5.9
       phys-resistance:
         min: 0.043
-        max: 0.080
+        max: 0.08
   LEATHER_LEGGINGS#200223:
     fixed:
       armor-defense-rate: 1
       durability: 629
       move-speed: 0.021
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 81
       magic-resistance: 0.054
       magic-flat-defense: 7.2
@@ -8407,14 +8280,14 @@ items:
         max: 4.4
       phys-resistance:
         min: 0.033
-        max: 0.060
+        max: 0.06
   LEATHER_BOOTS#200224:
     fixed:
       armor-defense-rate: 1
       durability: 538
       armor-strength: 0.02
       move-speed: 0.009
-      thread-slots: 4
+      thread-slots: 3
       mana-bonus: 41
       magic-resistance: 0.027
       magic-flat-defense: 3.7
@@ -8430,7 +8303,7 @@ items:
         max: 2.3
       phys-resistance:
         min: 0.016
-        max: 0.030
+        max: 0.03
   LEATHER_HELMET#200231:
     fixed:
       armor-defense-rate: 1
@@ -8441,7 +8314,7 @@ items:
       mana-bonus: 91
       magic-resistance: 0.031
       magic-flat-defense: 4.3
-      mana-regen: 6.0
+      mana-regen: 6
     per-quality:
       durability: 123
     use-level-requirement: 100
@@ -8463,7 +8336,7 @@ items:
       mana-bonus: 243
       magic-resistance: 0.082
       magic-flat-defense: 12
-      mana-regen: 6.0
+      mana-regen: 6
     per-quality:
       durability: 179
     use-level-requirement: 100
@@ -8485,7 +8358,7 @@ items:
       mana-bonus: 182
       magic-resistance: 0.062
       magic-flat-defense: 8.7
-      mana-regen: 6.0
+      mana-regen: 6
     per-quality:
       durability: 170
     use-level-requirement: 100
@@ -8496,7 +8369,7 @@ items:
         min: 2.3
         max: 5.8
       phys-resistance:
-        min: 0.040
+        min: 0.04
         max: 0.072
   LEATHER_BOOTS#200234:
     fixed:
@@ -8508,7 +8381,7 @@ items:
       mana-bonus: 91
       magic-resistance: 0.031
       magic-flat-defense: 4.3
-      mana-regen: 6.0
+      mana-regen: 6
     per-quality:
       durability: 144
     use-level-requirement: 100
@@ -8521,10 +8394,6 @@ items:
       phys-resistance:
         min: 0.019
         max: 0.036
-  GLOWSTONE#84:
-    fixed:
-      move-speed: 0.5
-      mob-drop-bonus: 0.25
   NETHERITE_SWORD#5600:
     fixed:
       attack-power: 30240
@@ -8649,7 +8518,7 @@ items:
   TRIDENT#5602:
     fixed:
       attack-power: 27216
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -9056,7 +8925,7 @@ items:
   TRIDENT#5608:
     fixed:
       attack-power: 39123
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -9563,7 +9432,7 @@ items:
   TRIDENT#5700:
     fixed:
       attack-power: 23814
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -9984,7 +9853,7 @@ items:
   TRIDENT#5720:
     fixed:
       attack-power: 28917
-      attack-speed: 0.1
+      attack-speed: 1.6
       attack-reach: 0.8
       crit-chance: 0.06
       crit-damage: 0.5
@@ -10699,8 +10568,28 @@ items:
     offhand-stats-apply: true
     use-level-requirement: 45
     use-role: woodcutter
+  # ===== スレッド枠 (CMD 300001-300045) =====
+  # 【必須】この帯のエントリには必ず socketed-only-stats: true を付ける。
+  #   スレッドは「防具のスレッド枠へ挿して初めて効く」素材で、裸のスレッドは装備品ではない。
+  #   このフラグが無いと PlayerStatAggregator がメインハンド/オフハンド/防具スロットの寄与として
+  #   材質フィルタ無しで合算するため、【防具に挿さず手に持つだけで全ステが乗る】穴が開く
+  #   (2026-08-14 実測: 攻撃8キー / 守備9キー / 汎用26キーが手持ちで乗っていた)。
+  #   装着済みスレッドの寄与は ArsPaper 側の別経路(ArmorManaListener ->
+  #   WeaponAttackStatResolver#resolveItemStats)なので、このフラグでは止まらない。
+  #   ロア表示も止まらない(挿したら何が付くかは今まで通り見える)。
+  # 【規則】同一ステに複数の random レンジを併存させない。
+  #   厳選プレイヤーは max がいちばん大きい種類だけでスレッド枠を埋めるので、1種類でもレンジが
+  #   広いと「そのステの帯ごとの寄与 = 広い方の max × 枠数」になり、狭いレンジ側の設計値は
+  #   帯の合計にまったく反映されない(=バランス計算が机上の値と一致しなくなる)。
+  #   実例(2026-08-14): percent-bonus-damage のサブに {0.002,0.038} と {0.003,0.025} が併存し、
+  #   帯ごとの寄与が目標 +39%(Lv20-59) / +49%(Lv60-99) / +59%(Lv100) に対して
+  #   +44.2% / +59.4% / +74.6% と +5.2 / +10.4 / +15.6pt 超過していた。サブは {0.003,0.025} に統一済み。
+  #   ※ そのステを【主ステ】(per-quality を持つ主役)として配る 1 種だけは別枠:
+  #     300010 村の英雄 = {0.003,0.03}。主ステはサブのレンジ統一の対象外。
+
   WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001:
     offhand-stats-apply: false
+    socketed-only-stats: true
   DANGER_POTTERY_SHERD#300035:
     per-quality:
       reflect-percent: 0.006
@@ -10711,12 +10600,12 @@ items:
       bleed-chance:
         min: 0.002
         max: 0.045
-      bleed-damage:
-        min: 8
-        max: 144
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-damage:
+        min: 0.004
+        max: 0.076
       damage-reduction:
         min: 0.002
         max: 0.02
@@ -10724,10 +10613,11 @@ items:
       randomize-grants: true
       grant-chances:
         bleed-chance: 0.45
-        bleed-damage: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
+        crit-damage: 0.45
         damage-reduction: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   BLADE_POTTERY_SHERD#300036:
     per-quality:
       stun-chance: 0.003
@@ -10735,9 +10625,9 @@ items:
       stun-chance:
         min: 0.006
         max: 0.074
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       crit-chance:
         min: 0.002
         max: 0.038
@@ -10750,11 +10640,12 @@ items:
     advanced:
       randomize-grants: true
       grant-chances:
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
         crit-chance: 0.45
         penetration: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   ARCHER_POTTERY_SHERD#300038:
     per-quality:
       ammo-save-chance: 0.006
@@ -10768,20 +10659,21 @@ items:
       penetration:
         min: 0.002
         max: 0.038
-      attack-power:
-        min: 24
-        max: 432
-      percent-bonus-damage:
+      crit-chance:
         min: 0.002
         max: 0.038
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
     advanced:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
         penetration: 0.45
-        attack-power: 0.45
+        crit-chance: 0.45
         percent-bonus-damage: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   MOURNER_POTTERY_SHERD#300037:
     per-quality:
       cooldown-reduction: 0.006
@@ -10792,9 +10684,9 @@ items:
       crit-damage:
         min: 0.004
         max: 0.076
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       magic-resistance:
         min: 0.002
         max: 0.031
@@ -10805,10 +10697,11 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
         magic-resistance: 0.45
         penetration: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SKULL_POTTERY_SHERD#300028:
     per-quality:
       mob-drop-bonus: 0.006
@@ -10819,12 +10712,12 @@ items:
       crit-damage:
         min: 0.004
         max: 0.076
-      flat-bonus-damage:
-        min: 0.2
-        max: 2.2
-      bleed-damage:
-        min: 3.2
-        max: 57.6
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-chance:
+        min: 0.002
+        max: 0.038
       penetration:
         min: 0.002
         max: 0.038
@@ -10832,10 +10725,11 @@ items:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
-        flat-bonus-damage: 0.45
-        bleed-damage: 0.45
+        percent-bonus-damage: 0.45
+        crit-chance: 0.45
         penetration: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011:
     per-quality:
       phys-flat-defense: 0.2
@@ -10863,6 +10757,7 @@ items:
         phys-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SHELTER_POTTERY_SHERD#300033:
     per-quality:
       hunger-save-chance: 0.005
@@ -10890,6 +10785,7 @@ items:
         phys-flat-defense: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007:
     per-quality:
       magic-resistance: 0.0015
@@ -10917,6 +10813,7 @@ items:
         phys-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300009:
     per-quality:
       magic-flat-defense: 0.2
@@ -10944,6 +10841,7 @@ items:
         phys-flat-defense: 0.45
         dodge-chance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   HEART_POTTERY_SHERD#300032:
     per-quality:
       health-regen-bonus: 0.006
@@ -10971,6 +10869,7 @@ items:
         magic-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   GUSTER_POTTERY_SHERD#300039:
     per-quality:
       dodge-chance: 0.001
@@ -10998,6 +10897,7 @@ items:
         magic-flat-defense: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002:
     per-quality:
       mana-regen: 0.3
@@ -11014,17 +10914,18 @@ items:
       magic-flat-defense:
         min: 0.2
         max: 3.6
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
     advanced:
       randomize-grants: true
       grant-chances:
         magic-resistance: 0.45
         crit-chance: 0.45
         magic-flat-defense: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003:
     per-quality:
       mana-bonus: 3
@@ -11036,8 +10937,8 @@ items:
         min: 0.002
         max: 0.031
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
       damage-reduction:
         min: 0.002
         max: 0.02
@@ -11052,6 +10953,7 @@ items:
         damage-reduction: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012:
     per-quality:
       hit-mana-recovery: 0.3
@@ -11079,6 +10981,7 @@ items:
         magic-flat-defense: 0.45
         dodge-chance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300013:
     per-quality:
       damage-mana-recovery: 0.2
@@ -11087,8 +10990,8 @@ items:
         min: 0.4
         max: 7.2
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
       crit-chance:
         min: 0.002
         max: 0.038
@@ -11106,6 +11009,7 @@ items:
         penetration: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300014:
     per-quality:
       mana-cost-reduction-percent: 0.004
@@ -11114,14 +11018,14 @@ items:
         min: 0.007
         max: 0.094
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
       crit-damage:
         min: 0.004
         max: 0.076
-      attack-power:
-        min: 24
-        max: 432
+      crit-chance:
+        min: 0.002
+        max: 0.038
       magic-resistance:
         min: 0.002
         max: 0.031
@@ -11130,9 +11034,10 @@ items:
       grant-chances:
         percent-bonus-damage: 0.45
         crit-damage: 0.45
-        attack-power: 0.45
+        crit-chance: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017:
     per-quality:
       mana-bonus: 4
@@ -11141,14 +11046,14 @@ items:
         min: 6
         max: 99
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
       crit-chance:
         min: 0.002
         max: 0.038
-      attack-power:
-        min: 24
-        max: 432
+      crit-damage:
+        min: 0.004
+        max: 0.076
       penetration:
         min: 0.002
         max: 0.038
@@ -11157,9 +11062,10 @@ items:
       grant-chances:
         percent-bonus-damage: 0.45
         crit-chance: 0.45
-        attack-power: 0.45
+        crit-damage: 0.45
         penetration: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018:
     per-quality:
       mana-regen: 0.4
@@ -11168,25 +11074,26 @@ items:
         min: 0.8
         max: 12.6
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
       magic-flat-defense:
         min: 0.2
         max: 3.6
       magic-resistance:
         min: 0.002
         max: 0.031
-      attack-power:
-        min: 24
-        max: 432
+      crit-damage:
+        min: 0.004
+        max: 0.076
     advanced:
       randomize-grants: true
       grant-chances:
         percent-bonus-damage: 0.45
         magic-flat-defense: 0.45
         magic-resistance: 0.45
-        attack-power: 0.45
+        crit-damage: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   FLOW_POTTERY_SHERD#300019:
     per-quality:
       source-cost-reduction: 0.004
@@ -11214,7 +11121,12 @@ items:
         magic-flat-defense: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   BURN_POTTERY_SHERD#300031:
+    # 2026-08-14 復元(理由は 300020 と同じ)。
+    #   HEAD のサブにあった attack-power {24,432} は案Eの対象(実数ダメージ=帯非依存で低帯だけ
+    #   極端に強くなる)なので、そのまま戻さず percent-bonus-damage {0.003,0.025} へ振り替えた。
+    #   crit-damage を既に持つのでそちらへは回さない(同一 random 節でキーが重複しないこと)。
     per-quality:
       enchant-luck: 0.2
     random:
@@ -11230,17 +11142,18 @@ items:
       magic-resistance:
         min: 0.002
         max: 0.031
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
     advanced:
       randomize-grants: true
       grant-chances:
         crit-damage: 0.45
         magic-flat-defense: 0.45
         magic-resistance: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300004:
     per-quality:
       dodge-chance: 0.001
@@ -11251,9 +11164,9 @@ items:
       crit-chance:
         min: 0.002
         max: 0.038
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       damage-reduction:
         min: 0.002
         max: 0.02
@@ -11264,10 +11177,11 @@ items:
       randomize-grants: true
       grant-chances:
         crit-chance: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
         damage-reduction: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300005:
     per-quality:
       crit-chance: 0.002
@@ -11278,12 +11192,12 @@ items:
       dodge-chance:
         min: 0.002
         max: 0.023
-      attack-power:
-        min: 24
-        max: 432
-      flat-bonus-damage:
-        min: 0.2
-        max: 2.2
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
+      crit-damage:
+        min: 0.004
+        max: 0.076
       penetration:
         min: 0.002
         max: 0.038
@@ -11291,10 +11205,11 @@ items:
       randomize-grants: true
       grant-chances:
         dodge-chance: 0.45
-        attack-power: 0.45
-        flat-bonus-damage: 0.45
+        percent-bonus-damage: 0.45
+        crit-damage: 0.45
         penetration: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300008:
     per-quality:
       dodge-chance: 0.001
@@ -11322,6 +11237,7 @@ items:
         magic-flat-defense: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300006:
     per-quality:
       crit-chance: 0.002
@@ -11332,9 +11248,9 @@ items:
       penetration:
         min: 0.002
         max: 0.038
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       dodge-chance:
         min: 0.002
         max: 0.023
@@ -11345,10 +11261,11 @@ items:
       randomize-grants: true
       grant-chances:
         penetration: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
         dodge-chance: 0.45
         crit-damage: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015:
     per-quality:
       dodge-chance: 0.001
@@ -11376,6 +11293,7 @@ items:
         phys-resistance: 0.45
         magic-flat-defense: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016:
     per-quality:
       phys-flat-defense: 0.2
@@ -11403,7 +11321,11 @@ items:
         damage-reduction: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   ARMS_UP_POTTERY_SHERD#300020:
+    # 2026-08-14 復元: 直前の波でこの種は advanced ごと消え、サブ4種が0件・主ステの
+    #   random が {min: 0, max: 4} という「下限0(=何も引けない個体が出る)」の形になっていた。
+    #   HEAD(5245b48) の内容へ戻す。サブは下の統一レンジに合わせてある。
     per-quality:
       workbench-quality-bonus: 0.12
     random:
@@ -11430,7 +11352,9 @@ items:
         damage-reduction: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   BREWER_POTTERY_SHERD#300021:
+    # 2026-08-14 復元(理由は 300020 と同じ: advanced ごと消えていた)。
     per-quality:
       ritual-quality-bonus: 0.12
     random:
@@ -11457,6 +11381,7 @@ items:
         damage-reduction: 0.45
         dodge-chance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   PLENTY_POTTERY_SHERD#300022:
     per-quality:
       material-refund-chance: 0.004
@@ -11484,6 +11409,7 @@ items:
         magic-resistance: 0.45
         phys-flat-defense: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SCRAPE_POTTERY_SHERD#300023:
     per-quality:
       disassembly-return-bonus: 0.004
@@ -11511,6 +11437,7 @@ items:
         magic-flat-defense: 0.45
         phys-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   MINER_POTTERY_SHERD#300024:
     per-quality:
       mining-fortune: 0.005
@@ -11518,9 +11445,9 @@ items:
       mining-fortune:
         min: 0.009
         max: 0.112
-      flat-bonus-damage:
-        min: 0.2
-        max: 2.2
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       phys-flat-defense:
         min: 0.2
         max: 3.6
@@ -11533,12 +11460,15 @@ items:
     advanced:
       randomize-grants: true
       grant-chances:
-        flat-bonus-damage: 0.45
+        percent-bonus-damage: 0.45
         phys-flat-defense: 0.45
         armor-strength: 0.45
         penetration: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   ANGLER_POTTERY_SHERD#300025:
+    # 2026-08-14 復元(理由は 300020 と同じ)。主ステも HEAD の {0.009,0.112}/pq 0.005 へ戻す
+    #   ── 同じ pq 0.005 の採取系(実り/年輪/豊鉱/養蜂/牧人/持久)と同じレンジに揃うため。
     per-quality:
       fishing-luck: 0.005
     random:
@@ -11565,6 +11495,7 @@ items:
         damage-reduction: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SHEAF_POTTERY_SHERD#300026:
     per-quality:
       harvest-extra-drop-chance: 0.005
@@ -11592,6 +11523,7 @@ items:
         armor-strength: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   SNORT_POTTERY_SHERD#300027:
     per-quality:
       woodcutting-extra-drop-chance: 0.005
@@ -11599,9 +11531,9 @@ items:
       woodcutting-extra-drop-chance:
         min: 0.009
         max: 0.112
-      flat-bonus-damage:
-        min: 0.2
-        max: 2.2
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       armor-strength:
         min: 0.003
         max: 0.038
@@ -11614,11 +11546,12 @@ items:
     advanced:
       randomize-grants: true
       grant-chances:
-        flat-bonus-damage: 0.45
+        percent-bonus-damage: 0.45
         armor-strength: 0.45
         phys-flat-defense: 0.45
         crit-chance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   FRIEND_POTTERY_SHERD#300029:
     per-quality:
       skill-exp-bonus: 0.004
@@ -11646,6 +11579,7 @@ items:
         armor-strength: 0.45
         phys-flat-defense: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   HEARTBREAK_POTTERY_SHERD#300034:
     per-quality:
       food-restore-bonus: 0.02
@@ -11673,6 +11607,7 @@ items:
         phys-resistance: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   HOWL_POTTERY_SHERD#300030:
     per-quality:
       vanilla-exp-bonus: 0.006
@@ -11686,9 +11621,9 @@ items:
       crit-damage:
         min: 0.004
         max: 0.076
-      attack-power:
-        min: 24
-        max: 432
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       magic-resistance:
         min: 0.002
         max: 0.031
@@ -11697,9 +11632,10 @@ items:
       grant-chances:
         crit-chance: 0.45
         crit-damage: 0.45
-        attack-power: 0.45
+        percent-bonus-damage: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   EXPLORER_POTTERY_SHERD#300040:
     per-quality:
       loot-luck: 0.15
@@ -11714,8 +11650,8 @@ items:
         min: 0.002
         max: 0.023
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
       bleed-chance:
         min: 0.002
         max: 0.045
@@ -11727,16 +11663,17 @@ items:
         percent-bonus-damage: 0.45
         bleed-chance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010:
     per-quality:
-      attack-power: 25
+      percent-bonus-damage: 0.002
     random:
-      attack-power:
-        min: 80
-        max: 1116
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.03
+      crit-damage:
+        min: 0.004
+        max: 0.076
       crit-chance:
         min: 0.002
         max: 0.038
@@ -11749,17 +11686,16 @@ items:
     advanced:
       randomize-grants: true
       grant-chances:
-        percent-bonus-damage: 0.45
+        crit-damage: 0.45
         crit-chance: 0.45
         phys-flat-defense: 0.45
         damage-reduction: 0.45
     offhand-stats-apply: false
-  # 2026-08-03 レシピを持たないスレッド5種(CMD 300041-300045)。
-  # 儀式では作れず、ガチャ景品としてしか出ないので、主ステは「引き当てた甲斐がある」
-  # 生活・採取・戦利品の軸に寄せている。組み立ての規約(主ステ1種 + サブ4種を各0.45で
-  # 確率付与 / 主ステは grant-chances に書かない / offhand-stats-apply: false)は既存40件と同じ。
-  # 名称と主ステの対応は ShippedThreadItemStatsTest が机上で固定する。
+    socketed-only-stats: true
   FLOWER_BANNER_PATTERN#300041:
+    # 2026-08-14 復元(理由は 300020 と同じ)。
+    #   HEAD のサブ magic-flat-defense は {0.6,9} だけ他と違ったが、上の「同一ステに複数の
+    #   random レンジを併存させない」規則に従って統一値 {0.2,3.6} へ寄せた。
     per-quality:
       potion-quality-bonus: 0.12
     random:
@@ -11767,8 +11703,8 @@ items:
         min: 0.2
         max: 3.8
       magic-flat-defense:
-        min: 0.6
-        max: 9
+        min: 0.2
+        max: 3.6
       magic-resistance:
         min: 0.002
         max: 0.031
@@ -11786,6 +11722,7 @@ items:
         damage-reduction: 0.45
         armor-strength: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   FIELD_MASONED_BANNER_PATTERN#300042:
     per-quality:
       hive-harvest-fortune: 0.005
@@ -11813,6 +11750,7 @@ items:
         damage-reduction: 0.45
         magic-resistance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   PIGLIN_BANNER_PATTERN#300043:
     per-quality:
       breeding-extra-child-chance: 0.005
@@ -11840,16 +11778,21 @@ items:
         armor-strength: 0.45
         damage-reduction: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   PRIZE_POTTERY_SHERD#300044:
+    # 2026-08-14 復元(理由は 300020 と同じ)。
+    #   HEAD のサブ attack-power {24,432} は案Eの対象。percent-bonus-damage は既に持っているので
+    #   振替先は crit-chance {0.002,0.038} にした。percent-bonus-damage は HEAD の {0.002,0.038} から
+    #   サブの統一値 {0.003,0.025} へ寄せてある(広いレンジが1つでもあると帯の合計がそちらで決まる)。
     per-quality:
       mob-drop-quality: 0.06
     random:
       mob-drop-quality:
         min: 0.1
         max: 2
-      attack-power:
-        min: 24
-        max: 432
+      crit-chance:
+        min: 0.002
+        max: 0.038
       crit-damage:
         min: 0.004
         max: 0.076
@@ -11857,16 +11800,17 @@ items:
         min: 0.002
         max: 0.038
       percent-bonus-damage:
-        min: 0.002
-        max: 0.038
+        min: 0.003
+        max: 0.025
     advanced:
       randomize-grants: true
       grant-chances:
-        attack-power: 0.45
+        crit-chance: 0.45
         crit-damage: 0.45
         penetration: 0.45
         percent-bonus-damage: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
   NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045:
     per-quality:
       gathering-efficiency: 0.06
@@ -11874,9 +11818,9 @@ items:
       gathering-efficiency:
         min: 0.1
         max: 2
-      flat-bonus-damage:
-        min: 0.2
-        max: 2.2
+      percent-bonus-damage:
+        min: 0.003
+        max: 0.025
       armor-strength:
         min: 0.003
         max: 0.038
@@ -11889,11 +11833,48 @@ items:
     advanced:
       randomize-grants: true
       grant-chances:
-        flat-bonus-damage: 0.45
+        percent-bonus-damage: 0.45
         armor-strength: 0.45
         phys-flat-defense: 0.45
         crit-chance: 0.45
     offhand-stats-apply: false
+    socketed-only-stats: true
+  STRING#100023:
+    fixed:
+      loot-luck: 1
+    per-quality:
+      loot-luck: 0.1
+    random:
+      loot-luck:
+        min: 1
+        max: 5
+  STRING#100024:
+    fixed:
+      gacha-rate-bonus: 0.01
+    per-quality:
+      gacha-rate-bonus: 0.005
+    random:
+      gacha-rate-bonus:
+        min: 0.01
+        max: 0.1
+  STRING#100025:
+    fixed:
+      craft-roll-up-bonus: 1
+    per-quality:
+      craft-roll-up-bonus: 1
+    random:
+      craft-roll-up-bonus:
+        min: 1
+        max: 5
+  STRING#100026:
+    fixed:
+      craft-roll-down-reduction: 5
+    per-quality:
+      craft-roll-down-reduction: 2
+    random:
+      craft-roll-down-reduction:
+        min: -10
+        max: 10
 _editor:
   categories:
     weapon:
@@ -12483,6 +12464,7 @@ _editor:
           - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015
           - GUSTER_POTTERY_SHERD#300039
           - EXPLORER_POTTERY_SHERD#300040
+          - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016
       - id: cat_20260802_thread_mana
         label: マナ系
         itemIds:
@@ -12494,37 +12476,43 @@ _editor:
           - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017
           - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018
       - id: cat_20260802_thread_utility
-        label: 収納・生産系
+        label: 品質系
         itemIds:
-          - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016
-          - FLOW_POTTERY_SHERD#300019
           - ARMS_UP_POTTERY_SHERD#300020
           - BREWER_POTTERY_SHERD#300021
-          - PLENTY_POTTERY_SHERD#300022
-          - SCRAPE_POTTERY_SHERD#300023
-          - BURN_POTTERY_SHERD#300031
-          - MINER_POTTERY_SHERD#300024
           - ANGLER_POTTERY_SHERD#300025
-          - SHEAF_POTTERY_SHERD#300026
-          - SNORT_POTTERY_SHERD#300027
+          - FLOWER_BANNER_PATTERN#300041
+          - PRIZE_POTTERY_SHERD#300044
+          - BURN_POTTERY_SHERD#300031
+          - STRING#100023
+          - STRING#100024
+          - STRING#100025
+          - STRING#100026
+      - id: cat_1786620805575
+        label: 効率系
+        itemIds:
+          - PLENTY_POTTERY_SHERD#300022
+          - SKULL_POTTERY_SHERD#300028
+          - HOWL_POTTERY_SHERD#300030
+          - FLOW_POTTERY_SHERD#300019
+          - SCRAPE_POTTERY_SHERD#300023
           - FRIEND_POTTERY_SHERD#300029
           - SHELTER_POTTERY_SHERD#300033
           - HEARTBREAK_POTTERY_SHERD#300034
-          - FLOWER_BANNER_PATTERN#300041
+          - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
           - FIELD_MASONED_BANNER_PATTERN#300042
           - PIGLIN_BANNER_PATTERN#300043
-          - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
+          - SNORT_POTTERY_SHERD#300027
+          - SHEAF_POTTERY_SHERD#300026
+          - MINER_POTTERY_SHERD#300024
       - id: cat_20260802_thread_combat
         label: 戦闘系
         itemIds:
-          - SKULL_POTTERY_SHERD#300028
-          - HOWL_POTTERY_SHERD#300030
           - HEART_POTTERY_SHERD#300032
           - DANGER_POTTERY_SHERD#300035
           - BLADE_POTTERY_SHERD#300036
           - MOURNER_POTTERY_SHERD#300037
           - ARCHER_POTTERY_SHERD#300038
-          - PRIZE_POTTERY_SHERD#300044
       - id: cat_20260802_thread_base
         label: 無強化
         itemIds:
@@ -12536,7 +12524,6 @@ _editor:
     NETHERITE_SWORD#5700: weapon
     NETHERITE_SWORD#113: weapon
     NETHERITE_SWORD#114: weapon
-    GOLDEN_SWORD#59: weapon
     WOODEN_SWORD: weapon
     STONE_SWORD: weapon
     COPPER_SWORD: weapon
@@ -12581,7 +12568,6 @@ _editor:
     WOODEN_HOE#58: weapon
     NETHERITE_HOE#1: weapon
     DIAMOND_HOE#49: weapon
-    IRON_CHAIN#68: weapon
     NETHERITE_HOE#124: weapon
     NETHERITE_HOE#5720: weapon
     NETHERITE_HOE#5700: weapon
@@ -12697,7 +12683,6 @@ _editor:
     MACE#129: weapon
     MACE: weapon
     CROSSBOW#160: weapon
-    CROSSBOW#161: weapon
     CROSSBOW#162: weapon
     CROSSBOW#163: weapon
     CROSSBOW#164: weapon
@@ -12905,7 +12890,6 @@ _editor:
     LEATHER_CHESTPLATE#200149: armor
     LEATHER_LEGGINGS#200150: armor
     LEATHER_BOOTS#200151: armor
-    GLOWSTONE#84: other
     DIAMOND_AXE: tool
     GOLDEN_AXE: tool
     IRON_AXE: tool
@@ -12988,6 +12972,10 @@ _editor:
     MOURNER_POTTERY_SHERD#300037: thread
     ARCHER_POTTERY_SHERD#300038: thread
     WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001: thread
+    STRING#100023: thread
+    STRING#100024: thread
+    STRING#100025: thread
+    STRING#100026: thread
   orders:
     weapon:
       - DIAMOND_SWORD#1111

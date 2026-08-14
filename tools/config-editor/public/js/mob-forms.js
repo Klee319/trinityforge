@@ -90,6 +90,67 @@
     return window.numberInput(value, onSet, { int: false });
   }
 
+  // ------------------------------------------------------------------------------------------
+  // 難易度倍率 (combat/mob-overrides.yml の stats 直下、2026-08-14 新設)
+  // ------------------------------------------------------------------------------------------
+  // 解決後の max-health / attack.attack-power へ掛ける乗数。プレイヤーが選んだレベルに対する
+  // 相対的な強さ差(=難易度)をこの2キーだけで表す。
+  //
+  // 【割合ではなく倍率なので RATE_FIELDS に入れてはいけない】 中立値は 0% ではなく ×1.0。
+  // RATE_FIELDS に入れると画面が 100 倍で表示し、1.0 が「100%」、2.0 が「200%」になる。
+  // (RATE_FIELDS の中身は rate-value-control-2026-08-13.test.js が過不足なしで固定している)
+  //
+  // 【倍率だけは層をまたいで「掛け合わさる」】 他のキーは項目単位マージ(=後勝ち)だが、倍率は
+  // MobStatOverride#applyTo が層ごとに掛けるので、default 1.5 × ダンジョン 2.0 × モブ 2.0 = 6.0 倍。
+  // 上位スコープを「打ち消す」手段は無い(Java 側テスト multipliersCompoundAcrossCascadeLayers が固定)。
+  //
+  // 【既定値は 1.0 ではなく「未設定」】 空欄はキーごと削除する。1.0 は掛け算として完全な no-op
+  // なので設定の意味は変わらないが、「開いて保存しただけ」で全モブに 1.0 が生え、
+  // 意味の無い行で yml が汚れて差分が読めなくなる。だから書かない。
+  const MOB_OVERRIDE_MULTIPLIER_FIELDS = [
+    {
+      key: "max-health-multiplier",
+      label: "最大HP倍率 (省略可)",
+      desc: "解決後の最大HPへ掛ける倍率。1.0で等倍、2.0で2倍。空欄=キーを書かない(倍率なし)。"
+        + "倍率は上位スコープ(ダンジョン単位)のものと【掛け合わさります】(ダンジョン2.0×モブ3.0=6.0倍)。"
+        + "1.0は掛けても何も変わらない完全な無効果値なので、打ち消しには使えません。入れずに空欄のままに。"
+    },
+    {
+      key: "attack-power-multiplier",
+      label: "攻撃力倍率 (省略可)",
+      desc: "解決後の攻撃力(attack.attack-power)へ掛ける倍率。1.0で等倍。空欄=キーを書かない(倍率なし)。"
+        + "最大HP倍率と同じく上位スコープの倍率と掛け合わさり、1.0では打ち消せません。"
+    }
+  ];
+
+  /**
+   * stats 直下の倍率フィールド行を作る。per-mob (mobs.<id>) とスコープ (ダンジョン) の
+   * どちらの host でも同じものを使う — yml のキー体系がまったく同じだから。
+   *
+   * @param host  stats: を持つ側 (mobEntry または scope)。**この時点では stats を作らない**
+   *              (値が入るまで実体化しないのが往復ロスレスの条件)。
+   * @param touch 初めて値が入ったときに host.stats を実体化して返す関数。
+   */
+  function multiplierFieldRows(host, touch) {
+    const stats = (host && host.stats && typeof host.stats === "object" && !Array.isArray(host.stats))
+      ? host.stats : {};
+    return MOB_OVERRIDE_MULTIPLIER_FIELDS.map(({ key, label, desc }) => {
+      const input = window.numberInput(stats[key] == null ? "" : stats[key], (v) => {
+        const target = touch();
+        if (v === null || v === "") {
+          delete target[key];
+          // 倍率だけのために作った stats: を空マップのまま残さない(yml に `stats: {}` が生える)。
+          if (host.stats && typeof host.stats === "object" && Object.keys(host.stats).length === 0) {
+            delete host.stats;
+          }
+          return;
+        }
+        target[key] = v;
+      }, { int: false });
+      return fieldRow(key, input, { label, desc });
+    });
+  }
+
   function buildDefenseBlock(title, obj) {
     const fields = PHYS_MAGIC_FIELDS.map((key) => {
       const input = mobValueInput(key, obj[key], (v) => {
@@ -697,7 +758,100 @@
   // mob-types.yml と同じ「往復ロスレス最優先」方針: working を直接編集し、未編集キーは温存する。
   // --------------------------------------------------------------------------------------------
 
-  function buildAddDropRow(drop, onRemove) {
+  // 2026-08-14 フィールドドロップ配線: chance-by-level(レベル比例確率)の編集UI。
+  // Java 側(MobLevelTableConfig#parseChanceCurve)は4項目すべて揃っていないとカーブごと捨てて
+  // 素の chance に戻すので、ONにしたら4項目を必ず実体化する。OFFならキーごと消す —— 既定値を
+  // 書き戻すと「開いて保存しただけ」で全エントリにカーブが生える(normalize 既定値ドリフト)。
+  function buildChanceCurveSection(drop, onRerender) {
+    const curve = drop["chance-by-level"];
+    const enabled = !!curve && typeof curve === "object" && !Array.isArray(curve);
+    const toggle = h("input", { type: "checkbox" });
+    toggle.checked = enabled;
+    toggle.addEventListener("change", () => {
+      if (toggle.checked) {
+        const base = typeof drop.chance === "number" ? drop.chance : 0;
+        drop["chance-by-level"] = {
+          "from-level": 1, "from-chance": base, "to-level": 100, "to-chance": base
+        };
+      } else {
+        delete drop["chance-by-level"];
+      }
+      onRerender();
+    });
+    const children = [
+      window.fieldLabelEl("chance-by-level", {
+        label: "レベル比例の確率 (chance-by-level、省略可)",
+        desc: "ONにすると、倒したモブのレベルで上の確率を線形補間します(範囲外はクランプ)。"
+          + "OFFなら上の確率をそのまま使います(従来どおり)。"
+      }),
+      h("label", { class: "checkbox-row", style: "display:flex;align-items:center;gap:8px;" }, [
+        toggle,
+        h("span", { text: "レベルで確率を変える" })
+      ])
+    ];
+    if (enabled) {
+      const num = (key, opts) => window.numberInput(curve[key], (v) => {
+        curve[key] = v == null ? 0 : v;
+      }, opts);
+      children.push(h("div", { class: "field-grid" }, [
+        fieldRow("from-level", num("from-level", { int: true }), {
+          label: "下端レベル", desc: "このレベル以下は下端の確率で固定(外挿しません)。"
+        }),
+        fieldRow("from-chance", num("from-chance", { int: false }), {
+          label: "下端の確率(0〜1)", desc: "下端レベルでのドロップ確率。"
+        }),
+        fieldRow("to-level", num("to-level", { int: true }), {
+          label: "上端レベル", desc: "下端レベルより大きいこと。このレベル以上は上端の確率で固定。"
+        }),
+        fieldRow("to-chance", num("to-chance", { int: false }), {
+          label: "上端の確率(0〜1)", desc: "上端レベルでのドロップ確率。"
+        })
+      ]));
+    }
+    return h("div", { class: "mob-drops-section" }, children);
+  }
+
+  // 2026-08-14: where(適用する場所) と baby(子供/大人)。どちらも既定値はキーごと削除する。
+  function buildScopeAndAgeSection(drop) {
+    const whereSelect = window.listSelect({
+      value: typeof drop.where === "string" ? drop.where : "any",
+      options: [
+        { value: "any", primary: "どこでも (any)", secondary: "既定。場所を問わない" },
+        { value: "field", primary: "フィールドのみ (field)", secondary: "ダンジョンインスタンス以外の討伐だけ" },
+        { value: "dungeon", primary: "ダンジョンのみ (dungeon)", secondary: "ダンジョンインスタンス内の討伐だけ" }
+      ],
+      onChange: (v) => {
+        if (!v || v === "any") delete drop.where; else drop.where = String(v);
+      }
+    });
+    const babySelect = window.listSelect({
+      value: drop.baby === true ? "baby" : (drop.baby === false ? "adult" : "any"),
+      options: [
+        { value: "any", primary: "区別しない", secondary: "既定" },
+        { value: "baby", primary: "子供のみ (baby: true)", secondary: "子ゾンビなど" },
+        { value: "adult", primary: "大人のみ (baby: false)", secondary: "子供個体には落とさない" }
+      ],
+      onChange: (v) => {
+        if (v === "baby") drop.baby = true;
+        else if (v === "adult") drop.baby = false;
+        else delete drop.baby;
+      }
+    });
+    return h("div", { class: "field-grid" }, [
+      fieldRow("where", whereSelect, {
+        label: "適用する場所 (where、省略可)",
+        desc: "「ダンジョンインスタンスワールドか」で判定します。ダンジョンのモブにも戦闘レベルは"
+          + "刻まれるので、対象モブ(mobs)を絞るだけではフィールド限定にできません。"
+      }),
+      fieldRow("baby", babySelect, {
+        label: "子供/大人 (baby、省略可)",
+        desc: "子ゾンビのように実行時にしか分からない状態で絞ります。年齢の概念が無いモブ"
+          + "(シュルカー等)に指定すると【1個も落ちなくなる】ので注意。"
+      })
+    ]);
+  }
+
+  function buildAddDropRow(drop, onRemove, onRerender) {
     // buildDropRow(mob-types.yml向け)は quality フィールドを持つが、レベルテーブルの add-drops は
     // material/chance/min/max(+2026-07-25で mobs)のみ読む(Javaパーサが quality を見ない)ため、
     // 混乱を避けて専用に組む。
@@ -725,6 +879,10 @@
           fieldRow("min", minInput, { label: "個数(最小)", desc: "ドロップ個数の下限。0以上の整数。" }),
           fieldRow("max", maxInput, { label: "個数(最大)", desc: "ドロップ個数の上限。0以上の整数、min以上。" })
         ]),
+        // 2026-08-14 フィールドドロップ配線。yml に書けるのに GUI に出ないキーがあると、
+        // 「editor で開いて保存したら意味が変わる」ではなく「そもそも編集できない」形で腐る。
+        buildChanceCurveSection(drop, typeof onRerender === "function" ? onRerender : () => {}),
+        buildScopeAndAgeSection(drop),
         buildTargetFilterSection(drop, "このドロップの対象モブ", "省略時はこの帯の全モブに適用。")
       ]),
       h("button", { class: "btn-small danger", type: "button", text: "削除", onclick: onRemove })
@@ -1070,7 +1228,7 @@
             tier["add-drops"].splice(dIdx, 1);
             if (tier["add-drops"].length === 0) delete tier["add-drops"];
             renderAddDrops();
-          }));
+          }, renderAddDrops));
         });
         addDropsBox.appendChild(h("div", { class: "form-actions" }, [
           h("button", {
@@ -1380,7 +1538,10 @@
         fieldRow("max-health", maxHealthInput, { label: "最大HP (省略可)" }),
         fieldRow("armor-strength", armorStrengthInput, {
           label: "防具強度 (省略可)", desc: "physical/magical両方に同じ値が適用されます。"
-        })
+        }),
+        // 難易度倍率 (2026-08-14)。このモブだけを強く/弱くしたいときに使う。
+        // ダンジョン全体の難易度はスコープ側(ダンジョンカード直下)に置くこと。
+        ...multiplierFieldRows(mobEntry, touchStats)
       ]),
       buildLazyDefenseBlock("物理防御 (physical、省略可)", phys, touchPhys),
       buildLazyDefenseBlock("魔法防御 (magical、省略可)", mag, touchMag),
@@ -1797,6 +1958,33 @@
         })
       ]));
     }
+    // ダンジョン単位の難易度倍率 (2026-08-14)。scope 直下の stats: は「そのダンジョンの全モブに
+    // 効く既定値」で、mobs: に1件も書いていないモブにも当たる — 難易度の本来の置き場はここ。
+    // ⚠️ scope 直下の stats: に physical/magical(耐性)を書くのは【禁止】。項目単位マージなので
+    // 自前の耐性を持つモブ(このファイルでは 397/404)には一切効かず、丸ごと no-op になる
+    // (2026-08-03 に実際にやった誤り。詳細は mob-overrides.yml のヘッダ)。倍率キーは per-mob 側が
+    // ほぼ書かないので実際に効く、という点で magic-ratio と同じ扱い。
+    // 【スコープの stats: 全体を編集する UI はここには置かない】 上の理由で「置いてよいキー」が
+    // ごく一部に限られるため、編集できるのは倍率だけにしてある。他のキーは per-mob 側で編集する
+    // (このフォームは working を直接編集するので、yml に既にある他のキーは触らずそのまま残る)。
+    body.push(subTitle("難易度倍率 (stats、省略可)"));
+    body.push(h("div", {
+      class: "field-desc",
+      style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 8px;",
+      text: isDefault
+        ? "全ダンジョン共通の既定倍率。ワールド個別・モブ個別にも同じキーがある場合は【後勝ちではなく"
+          + "掛け合わさります】(他のキーの項目単位マージとはここだけ違う)。ここに書いた倍率は全ダンジョンに"
+          + "乗るので、ダンジョン間の難易度差だけを付けたいならここには書かないこと。"
+          + "空欄のままなら倍率キー自体を書きません。"
+        : "このダンジョンの全モブに掛かる倍率。プレイヤーが選んだレベルに対する相対的な強さ差＝難易度を"
+          + "ここで表します。モブ個別にも同じキーがある場合は【後勝ちではなく掛け合わさります】"
+          + "(スコープ2.0×モブ3.0=6.0倍。他のキーの項目単位マージとはここだけ違う)。"
+          + "空欄のままなら倍率キー自体を書きません。"
+    }));
+    body.push(gridRow(multiplierFieldRows(scope, () => {
+      if (!scope.stats || typeof scope.stats !== "object" || Array.isArray(scope.stats)) scope.stats = {};
+      return scope.stats;
+    })));
     body.push(mobsBox);
     return window.collapsibleCard(head, body, {
       expanded: openOverrideScopes.has(scopeName),

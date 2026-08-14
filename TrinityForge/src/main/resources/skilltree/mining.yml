@@ -52,12 +52,11 @@ prestige:
   name: 採掘王の栄光
   effect-text: メインにツルハシを持つと採掘速度上昇 永続+1(既にある場合追加で+1)・ドロップ増加 永続+20%
   mainhand-buffs:
-    # 2026-08-13: 20(パーセントポイント記法)から 0.2(割合)へ。PercentStatNormalize が実行時に
-    # 20 -> 0.2 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
-    # ステを 値x100 で表示するため「2000%」と出ていた(このファイルの C-1/C-2/C-3 は元から
-    # 0.15/0.2/0.29 の割合記法なので、そちらへ揃えた形になる)。
     mining-fortune: 0.2
     gathering-efficiency: 1
+  description: |-
+    効率強化増幅+1
+    幸運永続+20%
 nodes:
   A:
     name: はじまりの鉱夫
@@ -79,6 +78,11 @@ nodes:
     effect-text: 光源グリフ解放
     dedicated-effects:
       - id: glyph:light
+    description: |-
+      光源グリフ解放
+      効率強化増幅+1
+    mainhand-buffs:
+      gathering-efficiency: 1
   C:
     name: 鉱山の仕事人
     level: 50
@@ -97,14 +101,15 @@ nodes:
     icon: IRON_PICKAXE
     cost: 1
     effect-text: 破壊グリフ解放・シルクタッチでスポナーの回収が可能に・メインにツルハシを持つと採集効率+1
-    # gathering-efficiency は buffs(常時)ではなく mainhand-buffs に置くこと(2026-08-01)。
-    # 適用先の GatheringEfficiencyEnchantApplier は FARMING/MINING/WOODCUTTING/DIGGING の
-    # 全ツールを対象にするので、常時加算にすると「採掘ツリーで取った+1がシャベルや斧にも乗る」。
     mainhand-buffs:
-      gathering-efficiency: 1
+      mining-fortune: 0.1
     dedicated-effects:
       - id: glyph:break
       - id: feature:spawner-silktouch-harvest
+    description: |-
+      破壊グリフ解放
+      シルクタッチでスポナーの回収が可能になる
+      幸運+10%
   E:
     name: 至高の採掘王
     level: 90
@@ -113,15 +118,18 @@ nodes:
     icon: DIAMOND_PICKAXE
     cost: 1
     effect-text: 採掘グリフ解放・ジュエリーコアのクラフト解放・メインにツルハシを持つと採集効率+1
-    # 上の D と同じ理由で mainhand-buffs(常時にするとシャベル/斧にも乗る)。
     mainhand-buffs:
       gathering-efficiency: 1
     dedicated-effects:
       - id: glyph:advanced_break
       - id: recipe:core_jewelry
+    description: |-
+      採掘グリフ解放
+      ジュエリーコアのクラフト解放
+      効率強化増幅+1
   A-1:
     name: 高速破壊I
-    level: 20
+    level: 15
     role: branch
     parent: A
     icon: REDSTONE
@@ -132,6 +140,9 @@ nodes:
     dedicated-effects:
       - id: feature:haste-active-mining
         value: 1
+    description: |-
+      スキル発動で5sの高速破壊(採掘速度上昇III)
+      CT30s
   A-2:
     name: 高速破壊II
     level: 20
@@ -144,9 +155,12 @@ nodes:
       - スキル発動で10秒間/CD22.5秒の高速破壊(採掘速度上昇IV)
     dedicated-effects:
       - id: feature:haste-active-mining
-        value: 3
+        value: 2
     mainhand-buffs:
       haste-active-mining-cooldown-reduction: 0.25
+    description: |-
+      スキル発動で10sの高速破壊(採掘速度上昇IV)
+      CT30s
   A-3:
     name: 高速破壊III
     level: 40
@@ -159,22 +173,26 @@ nodes:
       - スキル発動で12秒間/CD15秒の高速破壊(採掘速度上昇V)
     dedicated-effects:
       - id: feature:haste-active-mining
-        value: 5
+        value: 3
     mainhand-buffs:
       haste-active-mining-cooldown-reduction: 0.25
+    description: |-
+      スキル発動で15sの高速破壊(採掘速度上昇V)
+      CT30s
   D-1:
     name: 鉱脈破壊
-    level: 70
+    level: 30
     role: branch
-    parent: D
+    parent: B
     icon: RAW_IRON
     cost: 1
     effect-text: 鉱石のみ一括で破壊
     dedicated-effects:
       - id: feature:vein-mining
+    description: 鉱石を一括で破壊可能にする
   B-1:
     name: 精密破壊I
-    level: 40
+    level: 35
     role: branch
     parent: B
     icon: LAPIS_LAZULI
@@ -207,4 +225,4 @@ nodes:
     effects:
       - 鉱石のドロップ増加+25%
     mainhand-buffs:
-      mining-fortune: 0.29
+      mining-fortune: 0.25

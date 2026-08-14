@@ -355,6 +355,139 @@ class MobLevelTableConfigTest {
         assertEquals(Set.of("the_mines_boss"), r.tiers().resolve(0).orElseThrow().targets().mobIds());
     }
 
+    // ------------------------------------------------------------------------------------------
+    // 2026-08-14 フィールドドロップ配線: chance-by-level / where / baby
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    void chanceByLevelInterpolatesLinearlyAndClampsOutsideTheCurve() throws Exception {
+        ParseResult r = parse("""
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - material: BONE
+                        chance: 0.05
+                        chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 100, to-chance: 0.50 }
+                        min: 0
+                        max: 2
+                """);
+        assertEquals(0, r.skipped());
+        LevelTierDropEntry drop = r.tiers().resolve(0).orElseThrow().addDrops().get(0);
+
+        // 端点。出荷 yml が約束している「Lv1 で 5% / Lv100 で 50%」そのもの。
+        assertEquals(0.05, drop.chanceAt(1), 1e-9);
+        assertEquals(0.50, drop.chanceAt(100), 1e-9);
+        // 中点。0.05 + 0.45 × (49/99) = 0.272727…
+        assertEquals(0.05 + 0.45 * (49.0 / 99.0), drop.chanceAt(50), 1e-9);
+        // 範囲外はクランプ(外挿しない)。Lv0 で負の確率、Lv500 で 100% 超にならないこと。
+        assertEquals(0.05, drop.chanceAt(0), 1e-9);
+        assertEquals(0.50, drop.chanceAt(500), 1e-9);
+        // 単調増加であること(補間の符号ミスを直接固定する)。
+        for (int level = 1; level < 100; level++) {
+            assertTrue(drop.chanceAt(level) < drop.chanceAt(level + 1),
+                    "chance-by-level はレベルとともに増えるはず: Lv" + level);
+        }
+    }
+
+    @Test
+    void chanceByLevelAbsentFallsBackToThePlainChance() throws Exception {
+        // 後方互換: 既存の add-drops(カーブ無し)はレベルに関係なく素の chance のまま。
+        ParseResult r = parse("""
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 0.3, min: 1, max: 1 }
+                """);
+        LevelTierDropEntry drop = r.tiers().resolve(0).orElseThrow().addDrops().get(0);
+        assertEquals(null, drop.chanceByLevel());
+        assertEquals(0.3, drop.chanceAt(0), 1e-9);
+        assertEquals(0.3, drop.chanceAt(100), 1e-9);
+    }
+
+    @Test
+    void malformedChanceByLevelIsIgnoredWithoutDroppingTheEntry() throws Exception {
+        // fail-soft: カーブの書き間違いでエントリごと消えると、素材が丸ごと入手不能になる。
+        // 「確率が既定値のまま」で生き残るのが正しい壊れ方。
+        ParseResult r = parse("""
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - material: BONE
+                        chance: 0.2
+                        chance-by-level: { from-level: 1, from-chance: 0.05, to-level: 1, to-chance: 0.5 }
+                        min: 1
+                        max: 1
+                      - material: STICK
+                        chance: 0.2
+                        chance-by-level: "not a mapping"
+                        min: 1
+                        max: 1
+                """);
+        assertEquals(2, r.tiers().resolve(0).orElseThrow().addDrops().size(),
+                "カーブが不正でもエントリ自体は残ること");
+        for (LevelTierDropEntry drop : r.tiers().resolve(0).orElseThrow().addDrops()) {
+            assertEquals(null, drop.chanceByLevel());
+            assertEquals(0.2, drop.chanceAt(100), 1e-9);
+        }
+    }
+
+    @Test
+    void whereParsesFieldDungeonAndDefaultsToAny() throws Exception {
+        ParseResult r = parse("""
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1, where: field }
+                      - { material: STICK, chance: 1.0, min: 1, max: 1, where: DUNGEON }
+                      - { material: FEATHER, chance: 1.0, min: 1, max: 1 }
+                      - { material: FLINT, chance: 1.0, min: 1, max: 1, where: nowhere }
+                """);
+        var drops = r.tiers().resolve(0).orElseThrow().addDrops();
+        assertEquals(LevelTierDropEntry.DropScope.FIELD, drops.get(0).where());
+        // 大文字小文字は吸収する。
+        assertEquals(LevelTierDropEntry.DropScope.DUNGEON, drops.get(1).where());
+        // 未指定は ANY(後方互換)。
+        assertEquals(LevelTierDropEntry.DropScope.ANY, drops.get(2).where());
+        // 不正値も ANY に倒す(警告は出る)。エントリごと消さない。
+        assertEquals(LevelTierDropEntry.DropScope.ANY, drops.get(3).where());
+
+        assertTrue(drops.get(0).appliesInWorld(false), "field はフィールドで有効");
+        assertFalse(drops.get(0).appliesInWorld(true), "field はダンジョンで無効");
+        assertFalse(drops.get(1).appliesInWorld(false), "dungeon はフィールドで無効");
+        assertTrue(drops.get(1).appliesInWorld(true), "dungeon はダンジョンで有効");
+        assertTrue(drops.get(2).appliesInWorld(false) && drops.get(2).appliesInWorld(true),
+                "未指定は場所を問わない");
+    }
+
+    @Test
+    void babyParsesTristateAndNonBooleanIsIgnored() throws Exception {
+        ParseResult r = parse("""
+                tiers:
+                  - min-level: 0
+                    add-drops:
+                      - { material: BONE, chance: 1.0, min: 1, max: 1, mobs: [ZOMBIE], baby: true }
+                      - { material: STICK, chance: 1.0, min: 1, max: 1, mobs: [ZOMBIE], baby: false }
+                      - { material: FEATHER, chance: 1.0, min: 1, max: 1, mobs: [ZOMBIE] }
+                      - { material: FLINT, chance: 1.0, min: 1, max: 1, mobs: [ZOMBIE], baby: "yes" }
+                """);
+        var drops = r.tiers().resolve(0).orElseThrow().addDrops();
+        assertEquals(Boolean.TRUE, drops.get(0).baby());
+        assertEquals(Boolean.FALSE, drops.get(1).baby());
+        assertEquals(null, drops.get(2).baby());
+        assertEquals(null, drops.get(3).baby(), "true/false 以外は無視(区別しない扱い)");
+
+        // baby: true = 子供にだけ当たる。
+        assertTrue(drops.get(0).appliesToAge(Boolean.TRUE));
+        assertFalse(drops.get(0).appliesToAge(Boolean.FALSE));
+        // baby: false = 大人にだけ当たる。
+        assertFalse(drops.get(1).appliesToAge(Boolean.TRUE));
+        assertTrue(drops.get(1).appliesToAge(Boolean.FALSE));
+        // 未指定は年齢を問わない(判定不能なモブでも通る)。
+        assertTrue(drops.get(2).appliesToAge(null));
+        // 判定不能(Ageable でない)モブでは、baby: を書いたエントリは一致しない。
+        assertFalse(drops.get(0).appliesToAge(null));
+    }
+
     // --- 2026-07-27 牧場対策: no-skill-exp-mobs (トップレベル、tiers とは独立) ---
     // バニラEXP(オーブ)は対象外。TrinityForgeの戦闘スキルEXP(武器命中/防具被弾/魔法詠唱)だけを
     // 止めるためのリスト — 実際の抑止判定は CombatListener/NativeSkillExperienceListener 側で行う

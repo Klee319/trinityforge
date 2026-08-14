@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/netherite_ingot",
+  "textures": {
+    "layer0": "trinityforge:item/abyssal_ingot"
+  }
+}

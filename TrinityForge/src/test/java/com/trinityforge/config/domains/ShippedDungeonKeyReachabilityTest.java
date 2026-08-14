@@ -37,8 +37,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>入手経路として数えるのは
  * {@code items/catalog.yml} の {@code recipe:} / 採掘・掘削・釣りギミックの {@code drop-tables} /
- * {@code gacha.yml} の各プール。EM ボスの確定ドロップ({@code combat/mob-overrides.yml})は
- * 印({@code dungeon_seal_*})専用で鍵は配っていないため対象外。
+ * {@code gacha.yml} の各プール。
+ *
+ * <p><b>EM ボスの確定ドロップ({@code combat/mob-overrides.yml})は意図的に数えない</b>
+ * (2026-08-14 追記)。以前ここには「EM ボスは印({@code dungeon_seal_*})専用で鍵は配っていない」と
+ * 書いてあったが、ダンジョン難易度再設計で {@code key_enchant_trial_2}〜{@code key_enchant_trial_10} を
+ * 直前のエンチャント試練の踏破ボスへ確定ドロップとして載せたので、その前提はもう成り立たない。
+ * それでも数えないのは、この経路が<b>条件付き</b>だからである
+ * (前のダンジョンを踏破していないと出ない＝鍵を1つ落とすと連鎖が丸ごと止まる)。
+ * ここで数えてしまうと「レシピを消しても踏破ドロップがあるから緑」になり、
+ * <b>連鎖の途中で詰んでいる状態を検出できなくなる</b>。よって鍵は踏破ドロップとは別に
+ * {@code recipe:} 等の無条件な経路を必ず1つ持つこと、をこのテストで固定し続ける。
  *
  * <p>印そのものと圧縮素材は ArsPaper 側 {@code materials.yml} 定義で、そのソースは
  * {@code .gitignore} 除外のためワークツリーに存在しない。よって

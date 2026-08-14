@@ -17,8 +17,8 @@
       {
         "threshold": 5403,
         "model": {
-          "model": "minecraft:item/iron_ingot",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/pillager_plate"
         }
       }
     ]

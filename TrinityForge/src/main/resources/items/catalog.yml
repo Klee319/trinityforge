@@ -90,10 +90,638 @@
 #                               source-item: diamond_blade
 
 items:
+  thread_angler:
+    external-source: arspaper
+    material: ANGLER_POTTERY_SHERD
+    display-name: <blue>潮読みのスレッド</blue>
+    custom-model-data: 300025
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
+  thread_apiarist:
+    external-source: arspaper
+    material: FIELD_MASONED_BANNER_PATTERN
+    display-name: <yellow>養蜂のスレッド</yellow>
+    custom-model-data: 300042
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>恐れる者に、蜜は渡らない</color>
+  thread_appraiser:
+    external-source: arspaper
+    material: PRIZE_POTTERY_SHERD
+    display-name: <gold>鑑識のスレッド</gold>
+    custom-model-data: 300044
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>見る目が値を決める</color>
+  thread_artisan:
+    external-source: arspaper
+    material: ARMS_UP_POTTERY_SHERD
+    display-name: <gold>匠のスレッド</gold>
+    custom-model-data: 300020
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>同じ材料でも、手が違えば別物になる</color>
+  thread_backpack:
+    external-source: arspaper
+    material: SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <dark_green>バックパックのスレッド</dark_green>
+    custom-model-data: 300016
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>準備から冒険ははじまっている</color>
+  thread_concussion:
+    external-source: arspaper
+    material: BLADE_POTTERY_SHERD
+    display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
+    custom-model-data: 300036
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
+  thread_conduit_power:
+    external-source: arspaper
+    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <aqua>コンジットパワーのスレッド</aqua>
+    custom-model-data: 300009
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>ガーディアンの気分</color>
+    # コンジットパワーのスレッド: バニラのコンジット構造(海洋の心+オウムガイの殻+シーランタン)を
+    # そのまま儀式へ写す。海底神殿の主(エルダーガーディアンの棘)と番人(ガーディアンの棘)で
+    # 「海の守護」を締める。強さ5位 → source 20,000。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - NAUTILUS_SHELL x4
+        - custom:elder_guardian_spike x2
+        - custom:guardian_spine x2
+        - SEA_LANTERN x1
+        - HEART_OF_THE_SEA x1
+      source: 20000
+  thread_damage_mana_recovery:
+    external-source: arspaper
+    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <dark_red>攻撃マナ回復のスレッド</dark_red>
+    custom-model-data: 300013
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>攻撃こそ最大の防御</color>
+  thread_diligence:
+    external-source: arspaper
+    material: FRIEND_POTTERY_SHERD
+    display-name: <green>研鑽のスレッド</green>
+    custom-model-data: 300029
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>より善い一日になりますように</color>
+  thread_dolphins_grace:
+    external-source: arspaper
+    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <dark_aqua>イルカの好意のスレッド</dark_aqua>
+    custom-model-data: 300008
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>この好意はだれから？</color>
+    # イルカの好意のスレッド: 海の光(プリズマリンの結晶)と海の使者(オウムガイの殻)に、
+    # 番人の棘と水中呼吸ポーションの正素材(フグ)を合わせて「水中に受け入れられる」を表す。
+    # 強さ6位 → source 12,000。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - PRISMARINE_CRYSTALS x4
+        - NAUTILUS_SHELL x2
+        - custom:guardian_spine x2
+        - PUFFERFISH x1
+      source: 12000
+  thread_empty:
+    external-source: arspaper
+    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <gray>空のスレッド</gray>
+    custom-model-data: 300001
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>これははじまりにすぎない</color>
+    # 空のスレッド: これだけは自分自身をコアにできないので別設計。
+    # コアは魔力を帯びた繊維(マジックファイバー)＝「糸の芯」。台座は糸(String)・羊毛・源。
+    # 下流9本すべてのコアなのでここを高くすると全部詰まる。ガチャ全6ティアで配っている
+    # アイテムでもあるため、意図的に最安帯(source 1,000)＋2本出しにしてある。
+    # ⚠ magebloom_fiber の base_material は STRING なので、台座の素の STRING x3 と見た目が同じ。
+    #    機能上は PDC で区別されるが、案内するときは「コアが繊維・台座が糸」と伝えること。
+    recipe:
+      method: ritual
+      core-item: custom:magebloom_fiber
+      pedestal-items:
+        - STRING x3
+        - WHITE_WOOL x1
+        - custom:source_gem x1
+      source: 1000
+      amount: 2
+  thread_endurance:
+    external-source: arspaper
+    material: SHELTER_POTTERY_SHERD
+    display-name: <gold>持久のスレッド</gold>
+    custom-model-data: 300033
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>まだ歩けるかい？</color>
+  thread_excavation:
+    external-source: arspaper
+    material: NETHERITE_UPGRADE_SMITHING_TEMPLATE
+    display-name: <dark_gray>削岩のスレッド</dark_gray>
+    custom-model-data: 300045
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>削り方を知るもののみ持つ</color>
+  thread_experience:
+    external-source: arspaper
+    material: HOWL_POTTERY_SHERD
+    display-name: <green>経験のスレッド</green>
+    custom-model-data: 300030
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>刻み込まれた繊維の記憶</color>
+  thread_fire_resistance:
+    external-source: arspaper
+    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <red>耐火のスレッド</red>
+    custom-model-data: 300007
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>炎の中へ</color>
+  thread_flight:
+    external-source: arspaper
+    material: SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <white>飛行のスレッド</white>
+    custom-model-data: 300015
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>彼方からの贈り物</color>
+  thread_gourmet:
+    external-source: arspaper
+    material: HEARTBREAK_POTTERY_SHERD
+    display-name: <red>美食のスレッド</red>
+    custom-model-data: 300034
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>良い一日は良い食事から</color>
+  thread_harvest:
+    external-source: arspaper
+    material: SHEAF_POTTERY_SHERD
+    display-name: <yellow>実りのスレッド</yellow>
+    custom-model-data: 300026
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>手間を惜しまぬ者への恩返し</color>
+  thread_health_boost:
+    external-source: arspaper
+    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <red>体力増強のスレッド</red>
+    custom-model-data: 300011
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>まだ、耐えられる</color>
+  thread_herder:
+    external-source: arspaper
+    material: PIGLIN_BANNER_PATTERN
+    display-name: <green>牧人のスレッド</green>
+    custom-model-data: 300043
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>群れは、急かした者から離れていく</color>
+  thread_hero_of_the_village:
+    external-source: arspaper
+    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <green>村の英雄のスレッド</green>
+    custom-model-data: 300010
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>いい取引だ！</color>
+  thread_hit_mana_recovery:
+    external-source: arspaper
+    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <gold>被弾マナ回復のスレッド</gold>
+    custom-model-data: 300012
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>この痛みは勝利のために</color>
+    # 被弾マナ回復のスレッド: 打撃を受け止めるもの(ラヴェジャーの革・ピリジャーの鎧片)を、
+    # 魔力へ変換する繊維(マジックファイバー)と源(ソースジェム)で編み、
+    # 痛みから生まれる熱(マグマクリーム)で締める。強さ8位 → source 7,000。
+    # ラヴェジャーの革とピリジャーの鎧片を同居させて「襲撃を1回回せば両方揃う」ようにしてある。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:ravager_hide x2
+        - custom:pillager_plate x2
+        - custom:magebloom_fiber x2
+        - custom:source_gem x1
+        - MAGMA_CREAM x1
+      source: 7000
+  thread_jump_boost:
+    external-source: arspaper
+    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <green>跳躍のスレッド</green>
+    custom-model-data: 300005
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>軽やかな気分</color>
+    # 跳躍のスレッド: 跳躍ポーションの正素材(ウサギの足)に、跳ねる(スライムボール)・
+    # 滞空(ファントムの膜)・突進する獣(ホグリンの牙)を重ねる。強さ3位 → source 24,000。
+    # ⚠ Ars ネイティブの core 無し儀式 flight が [FEATHER x4, PHANTOM_MEMBRANE x2, source_gem x2] なので
+    #    PHANTOM_MEMBRANE x2 は共有するが、台座セット全体が違うので衝突しない。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - RABBIT_FOOT x4
+        - SLIME_BALL x4
+        - PHANTOM_MEMBRANE x2
+        - custom:hoglin_fang x1
+      source: 24000
+  thread_luck:
+    external-source: arspaper
+    material: EXPLORER_POTTERY_SHERD
+    display-name: <gold>幸運のスレッド</gold>
+    custom-model-data: 300040
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>運は、探しに行った者のところへ来る</color>
+  thread_mana_amplify:
+    external-source: arspaper
+    material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <blue>マナ増幅のスレッド</blue>
+    custom-model-data: 300017
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>器を広げれば、届く場所も広がる</color>
+  thread_mana_boost:
+    external-source: arspaper
+    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <blue>マナ最大値上昇のスレッド</blue>
+    custom-model-data: 300003
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>知恵は変容する</color>
+    # マナ最大値上昇のスレッド: 魔力そのもの(ソースジェム)を、蓄える器(ラピスブロック)と
+    # 結晶(アメジストの欠片)で受け止め、尽きぬ涙(ガストの涙)で「器の深さ」を表す。
+    # 強さ7位 → source 8,000。順位が中位なので希少素材は一切要求しない。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:source_gem x4
+        - AMETHYST_SHARD x2
+        - LAPIS_BLOCK x1
+        - GHAST_TEAR x1
+      source: 8000
+  thread_mana_circulate:
+    external-source: arspaper
+    material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <aqua>循環のスレッド</aqua>
+    custom-model-data: 300018
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>絶えず巡るものは尽きない</color>
+    # 循環のスレッド: 魔力そのもの(ソースジェム)と魔力を織る繊維(マジックファイバー)を大量に要求し、
+    # 止まらない動力(レッドストーンブロック)と尽きない秘薬(ウィッチの秘薬)で「巡る」を表す。
+    # 強さ4位 → source 22,000。素材のハードルではなく量のハードルで重さを出している。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - REDSTONE_BLOCK x2
+        - custom:witch_elixir x1
+      source: 22000
+  thread_mana_regen:
+    external-source: arspaper
+    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <aqua>マナ回復速度上昇のスレッド</aqua>
+    custom-model-data: 300002
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>祈りは届く</color>
+  thread_marksman:
+    external-source: arspaper
+    material: ARCHER_POTTERY_SHERD
+    display-name: <dark_green>射手のスレッド</dark_green>
+    custom-model-data: 300038
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>一射を軽んじる者に明日は無い</color>
+  thread_mending_flesh:
+    external-source: arspaper
+    material: HEART_POTTERY_SHERD
+    display-name: <red>治癒のスレッド</red>
+    custom-model-data: 300032
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
+  thread_miner:
+    external-source: arspaper
+    material: MINER_POTTERY_SHERD
+    display-name: <dark_gray>豊鉱のスレッド</dark_gray>
+    custom-model-data: 300024
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>見る目があるじゃないか</color>
+  thread_night_vision:
+    external-source: arspaper
+    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <dark_aqua>暗視のスレッド</dark_aqua>
+    custom-model-data: 300006
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>暗闇よさらば</color>
+    # 暗視のスレッド: 暗視ポーションの正素材(金のニンジン)を主軸に、闇そのもの(エンダーマイトの煤)・
+    # 光の届かない沼(ボグドの骨)・視覚に依らない知覚(残響の欠片)を重ね、
+    # 深層都市の主(ウォーデンの触覚)を最上位ゲートに置く。強さ2位 → source 28,000。
+    # ⚠ ECHO_SHARD は古代都市の有限資源なので x2 に抑えてある(圧縮素材 echo_shard_2x は実32個で重すぎる)。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - GOLDEN_CARROT x4
+        - custom:endermite_soot x3
+        - custom:bogged_mossy_bone x2
+        - ECHO_SHARD x2
+        - custom:warden_tendril x1
+      source: 28000
+  thread_perfumer:
+    external-source: arspaper
+    material: FLOWER_BANNER_PATTERN
+    display-name: <light_purple>調香のスレッド</light_purple>
+    custom-model-data: 300041
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>今日はこの香りで</color>
+  thread_ritualist:
+    external-source: arspaper
+    material: BREWER_POTTERY_SHERD
+    display-name: <light_purple>儀式師のスレッド</light_purple>
+    custom-model-data: 300021
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <color:dark_purple>作法を知る者に祭壇は応える</color>
+      - ""
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+  thread_salvage:
+    external-source: arspaper
+    material: SCRAPE_POTTERY_SHERD
+    display-name: <gray>解体のスレッド</gray>
+    custom-model-data: 300023
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>壊し方を知る者は、作り方も知っている</color>
+  thread_scholar:
+    external-source: arspaper
+    material: BURN_POTTERY_SHERD
+    display-name: <dark_purple>選書のスレッド</dark_purple>
+    custom-model-data: 300031
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>棚から一冊を選ぶのも、技のうち</color>
+  thread_slow_falling:
+    external-source: arspaper
+    material: GUSTER_POTTERY_SHERD
+    display-name: <white>浮遊のスレッド</white>
+    custom-model-data: 300039
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>落ちるのではなく、降りるのだ</color>
+  thread_source_thrift:
+    external-source: arspaper
+    material: FLOW_POTTERY_SHERD
+    display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
+    custom-model-data: 300019
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>流れを読む者は溺れない</color>
+  thread_speed:
+    external-source: arspaper
+    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <white>迅速のスレッド</white>
+    custom-model-data: 300004
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>さぁ最高速度へ</color>
+    # 迅速のスレッド: 移動速度ポーションの正素材(砂糖)を主軸に、軽さ(羽)・風(ブリーズロッド)・
+    # 移動を奪う者から剥ぎ取った布(ストレイの布片)を要求する。強さ1位なので source は最上位帯の 30,000。
+    # ⚠ 当初案の custom:skeleton_horse_bone は SKELETON_HORSE が雷雨中のトラップホース限定湧きで、
+    #    最強スレッドのゲートに置くと事実上封印されるため不採用。代わりに雪原で無限に湧く
+    #    STRAY の布片へ置き換えた(「移動を奪うモブ」を迅速の対価にするのはコンセプト上も筋が通る)。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - SUGAR x6
+        - FEATHER x4
+        - custom:stray_cloth x2
+        - BREEZE_ROD x1
+      source: 30000
+  thread_spell_cost_down:
+    external-source: arspaper
+    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
+    display-name: <yellow>詠唱効率のスレッド</yellow>
+    custom-model-data: 300014
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>質よりも手数で</color>
+  thread_spoils:
+    external-source: arspaper
+    material: SKULL_POTTERY_SHERD
+    display-name: <gold>戦利品のスレッド</gold>
+    custom-model-data: 300028
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>働き者に祝福を</color>
+  thread_swiftcast:
+    external-source: arspaper
+    material: MOURNER_POTTERY_SHERD
+    display-name: <yellow>速攻のスレッド</yellow>
+    custom-model-data: 300037
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>先に動いた方が、生き残る</color>
+  thread_thorn:
+    external-source: arspaper
+    material: DANGER_POTTERY_SHERD
+    display-name: <dark_red>棘のスレッド</dark_red>
+    custom-model-data: 300035
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>痛みは生の証明</color>
+  thread_thrift:
+    external-source: arspaper
+    material: PLENTY_POTTERY_SHERD
+    display-name: <yellow>倹約のスレッド</yellow>
+    custom-model-data: 300022
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>捨てるところなど、どこにもない</color>
+  thread_timber:
+    external-source: arspaper
+    material: SNORT_POTTERY_SHERD
+    display-name: <dark_green>年輪のスレッド</dark_green>
+    custom-model-data: 300027
+    bind-type: TRADEABLE
+    enchant-glow: true
+    lore:
+      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - ""
+      - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
+    # 年輪のスレッド: 樹種の違う原木を層のように重ねて「年輪」を表し、
+    # 木を裁つ刃(火打石)を1つだけ添える。純粋な資源スレッドなので
+    # 希少素材を一切要求しない(伐採職が伐採だけで作れることが設計意図)。強さ9位 → source 5,000。
+    recipe:
+      method: ritual
+      core-item: custom:thread_empty
+      pedestal-items:
+        - OAK_LOG x2
+        - SPRUCE_LOG x2
+        - BIRCH_LOG x1
+        - DARK_OAK_LOG x1
+        - FLINT x1
+      source: 5000
   wooden_halberd:
     material: WOODEN_SWORD
     display-name: 木の<b>ハルバード</b>
     custom-model-data: 51
+    draft: true
   koujien:
     material: BOOK
     lore:
@@ -101,7 +729,6 @@ items:
       - ""
       - <color:dark_purple>脅威は平等に裁かれる</color>
     display-name: <b>広辞苑</b>
-    enchant-glow: true
     recipe:
       method: inventory
       type: shaped
@@ -217,8 +844,9 @@ items:
     display-name: <color:aqua><b><i>冬の死神</i></b></color>
     bind-type: SOULBOUND
     custom-model-data: 1
+    draft: true
   fnis_peccati_profundi:
-    material: IRON_CHAIN
+    material: IRON_SWORD
     lore:
       - ""
       - <color:blue>鐘の音が遥か彼方より響き、全ての罪人は沈黙した。</color>
@@ -236,6 +864,7 @@ items:
         s: CALIBRATED_SCULK_SENSOR
         c: IRON_CHAIN
         w: WITHER_ROSE
+    draft: true
   source_gem_scythe:
     material: DIAMOND_HOE
     display-name: ソースジェムの鎌
@@ -251,6 +880,9 @@ items:
         i: custom:source_gem
         s: STICK
       amount: 1
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_sword:
     material: DIAMOND_SWORD
     display-name: ソースジェムの剣
@@ -266,6 +898,9 @@ items:
         s: STICK
       amount: 1
     custom-model-data: 1111
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   infinity_sword:
     material: NETHERITE_SWORD
     display-name: <color:#7df9ff>インフィニティの剣</color>
@@ -279,6 +914,9 @@ items:
       source: 20000000
       type: shapeless
       ingredients: []
+    lore:
+      - ""
+      - ""
   hero_sword:
     material: NETHERITE_SWORD
     display-name: <color:dark_purple>守護者の剣</color>
@@ -443,6 +1081,9 @@ items:
         i: custom:source_gem
         s: custom:magebloom_fiber
     custom-model-data: 1118
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_trident:
     material: TRIDENT
     display-name: ソースジェムのトライデント
@@ -457,6 +1098,9 @@ items:
         i: custom:source_gem
         s: STICK
     custom-model-data: 181
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_mace:
     material: MACE
     display-name: ソースジェムのメイス
@@ -464,13 +1108,16 @@ items:
       method: workbench
       type: shaped
       shape:
-        - " i "
-        - " i "
+        - iii
+        - iri
         - " r "
       ingredients:
         i: custom:source_gem
         r: BREEZE_ROD
     custom-model-data: 182
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_crossbow:
     material: CROSSBOW
     display-name: ソースジェムのクロスボウ
@@ -478,13 +1125,18 @@ items:
       method: workbench
       type: shaped
       shape:
-        - sis
-        - " i "
+        - bib
+        - scs
         - " s "
       ingredients:
         i: custom:source_gem
         s: custom:magebloom_fiber
+        b: STICK
+        c: TRIPWIRE_HOOK
     custom-model-data: 183
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_spear:
     material: DIAMOND_SPEAR
     recipe:
@@ -500,6 +1152,9 @@ items:
       amount: 1
     display-name: ソースジェムの槍
     custom-model-data: 50
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   wooden_dagger:
     material: WOODEN_SWORD
     display-name: 木の短剣
@@ -896,6 +1551,9 @@ items:
         i: custom:source_gem
         s: STICK
       amount: 1
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_rapier:
     material: DIAMOND_SWORD
     display-name: ソースジェムのレイピア
@@ -911,6 +1569,9 @@ items:
         i: custom:source_gem
         s: STICK
       amount: 1
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_warhammer:
     material: DIAMOND_SWORD
     display-name: ソースジェムのウォーハンマー
@@ -926,6 +1587,9 @@ items:
         i: custom:source_gem
         s: STICK
       amount: 1
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_greataxe:
     material: DIAMOND_SWORD
     display-name: ソースジェムの大斧
@@ -941,6 +1605,9 @@ items:
         s: STICK
       amount: 1
     custom-model-data: 1110
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_axe:
     material: DIAMOND_SWORD
     display-name: ソースジェムの戦斧
@@ -949,12 +1616,15 @@ items:
       method: workbench
       type: shaped
       shape:
-        - " is"
-        - " is"
+        - "si "
+        - "si "
         - " i "
       ingredients:
         s: custom:source_gem
         i: STICK
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   wooden_axe_tf:
     material: WOODEN_AXE
     display-name: 木の戦斧
@@ -1054,8 +1724,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - " RJ"
-        - " RA"
+        - "JR "
+        - "AR "
         - " R "
       ingredients:
         R: custom:breeze_rod_2x
@@ -1747,6 +2417,9 @@ items:
         i: custom:source_gem
         s: STICK
     custom-model-data: 1119
+    lore:
+      - ""
+      - <color:dark_purple>我々は魔力を定着させることに成功した</color>
   source_gem_helmet:
     material: DIAMOND_HELMET
     display-name: <aqua>ソースジェムのヘルメット</aqua>
@@ -2255,9 +2928,6 @@ items:
       - <gray><italic>魔力の奔流を制御する魔導系のメイジローブ。</italic></gray>
       - ""
       - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  # 2026-08-09 追加: 魔導シリーズだけ賢者/星詠みの2階梯が欠番だった(魔織・守護は5階梯揃っている)。
-  # CMD は守護 20020x/20021x・魔織 20022x/20023x に続けて 20024x/20025x を新規に割り当てる。
-  # レシピ・素材・ソース量は魔織/守護の同階梯と同一(1階梯上げるのに前階梯を core に置く)。
   mage_arcane_sage_helmet:
     material: LEATHER_HELMET
     display-name: <aqua>賢者の魔導ヘルメット</aqua>
@@ -2650,9 +3320,6 @@ items:
       - <gray><italic>糸のように魔力を編み込む魔織系のメイジローブ。</italic></gray>
       - ""
       - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  # 2026-08-03 追加: 魔織の Lv80「賢者」/ Lv100「星詠み」。
-  # 魔法防御を持つ防具が Lv60 で打ち止めだったため、レベル相応の選択肢として2段追加した
-  # (数値の作り方と根拠は stats/item-stats.yml の #200201 手前のコメントを参照)。
   mage_weaver_sage_helmet:
     material: LEATHER_HELMET
     display-name: <aqua>賢者の魔織ヘルメット</aqua>
@@ -3045,8 +3712,6 @@ items:
       - <gray><italic>盾のように主を守る守護系のメイジローブ。</italic></gray>
       - ""
       - <color:dark_purple>大魔導士の風格を纏う最上級装備。</color>
-  # 2026-08-03 追加: 守護の Lv80「賢者」/ Lv100「星詠み」。
-  # 魔織側と同じ理由・同じ段間比で2段追加した(根拠は stats/item-stats.yml の #200201 手前)。
   mage_guardian_sage_helmet:
     material: LEATHER_HELMET
     display-name: <aqua>賢者の守護ヘルメット</aqua>
@@ -3281,8 +3946,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - "YY "
-        - "XX "
+        - Y Y
+        - X X
         - "   "
       ingredients:
         X: PRISMARINE_SHARD
@@ -3365,8 +4030,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - "YY "
-        - "XX "
+        - Y Y
+        - X X
         - "   "
       ingredients:
         X: BONE
@@ -3449,8 +4114,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - "XX "
-        - "XY "
+        - X X
+        - X Y
         - "   "
       ingredients:
         X: LEATHER
@@ -3533,8 +4198,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - "XX "
-        - "XY "
+        - X X
+        - X Y
         - "   "
       ingredients:
         X: LEATHER
@@ -3617,8 +4282,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - "XX "
-        - "XY "
+        - X X
+        - X Y
         - "   "
       ingredients:
         X: STRING
@@ -3785,8 +4450,8 @@ items:
       method: workbench
       type: shaped
       shape:
-        - "XX "
-        - "XY "
+        - X X
+        - X Y
         - "   "
       ingredients:
         X: STRING
@@ -3810,12 +4475,16 @@ items:
         - IRON_AXE
         - IRON_SWORD
       amount: 1
+    lore:
+      - ""
+      - <color:dark_purple>大いなる一歩目</color>
   spell_book_apprentice:
     material: BOOK
     display-name: <#9966CC>魔術師の魔術書</#9966CC>
     custom-model-data: 100002
     bind-type: SOULBOUND
     lore:
+      - ""
       - <color:dark_purple>未だ道半ば</color>
     recipe:
       method: ritual
@@ -3852,787 +4521,9 @@ items:
       source: 5000
       type: shapeless
       ingredients: []
-  thread_empty:
-    external-source: arspaper
-    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <gray>空のスレッド</gray>
-    custom-model-data: 300001
-    bind-type: TRADEABLE
-    enchant-glow: true
     lore:
-      - <color:dark_purple>これははじまりにすぎない</color>
       - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipes:
-      - method: ritual
-        core-item: WHITE_WOOL
-        pedestal-items:
-          - custom:magebloom_fiber
-          - custom:source_gem
-        source: 200
-        type: shapeless
-        ingredients: []
-      - method: ritual
-        core-item: WHITE_WOOL
-        pedestal-items:
-          - WHITE_WOOL x2
-          - custom:magebloom_fiber x3
-          - custom:source_gem x3
-        source: 600
-        amount: 3
-        type: shapeless
-        ingredients: []
-  thread_mana_regen:
-    external-source: arspaper
-    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <aqua>マナ回復速度上昇のスレッド</aqua>
-    custom-model-data: 300002
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - GHAST_TEAR x2
-        - custom:source_gem x2
-        - custom:magebloom_fiber x2
-      source: 1000
-      type: shapeless
-      ingredients: []
-  thread_mana_boost:
-    external-source: arspaper
-    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <blue>マナ最大値上昇のスレッド</blue>
-    custom-model-data: 300003
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>知恵は変容する</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - DIAMOND_BLOCK x2
-        - custom:source_gem x2
-        - custom:magebloom_fiber x2
-      source: 1600
-      type: shapeless
-      ingredients: []
-  thread_speed:
-    external-source: arspaper
-    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <white>迅速のスレッド</white>
-    custom-model-data: 300004
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>さぁ最高速度へ</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - SUGAR x2
-        - RABBIT_FOOT
-        - custom:source_gem x2
-      source: 1200
-      type: shapeless
-      ingredients: []
-  thread_jump_boost:
-    external-source: arspaper
-    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <green>跳躍のスレッド</green>
-    custom-model-data: 300005
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>軽やかな気分</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - RABBIT_FOOT x2
-        - SLIME_BALL
-        - custom:source_gem x2
-      source: 1200
-      type: shapeless
-      ingredients: []
-  thread_night_vision:
-    external-source: arspaper
-    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <dark_aqua>暗視のスレッド</dark_aqua>
-    custom-model-data: 300006
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>暗闇よさらば</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - GOLDEN_CARROT x2
-        - GLOWSTONE_DUST
-        - custom:source_gem x2
-      source: 1200
-      type: shapeless
-      ingredients: []
-  thread_fire_resistance:
-    external-source: arspaper
-    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <red>耐火のスレッド</red>
-    custom-model-data: 300007
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>炎の中へ</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - MAGMA_CREAM x2
-        - BLAZE_POWDER
-        - custom:source_gem x2
-      source: 1600
-      type: shapeless
-      ingredients: []
-  thread_dolphins_grace:
-    external-source: arspaper
-    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <dark_aqua>イルカの好意のスレッド</dark_aqua>
-    custom-model-data: 300008
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>この好意はだれから？</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - PUFFERFISH x2
-        - SEA_LANTERN
-        - custom:source_gem x2
-      source: 1200
-      type: shapeless
-      ingredients: []
-  thread_conduit_power:
-    external-source: arspaper
-    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <aqua>コンジットパワーのスレッド</aqua>
-    custom-model-data: 300009
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>ガーディアンの気分</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - NAUTILUS_SHELL x2
-        - HEART_OF_THE_SEA
-        - custom:source_gem x2
-      source: 2000
-      type: shapeless
-      ingredients: []
-  thread_hero_of_the_village:
-    external-source: arspaper
-    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <green>村の英雄のスレッド</green>
-    custom-model-data: 300010
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>いい取引だ！</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - EMERALD_BLOCK x3
-        - custom:source_gem x2
-      source: 1600
-      type: shapeless
-      ingredients: []
-  thread_health_boost:
-    external-source: arspaper
-    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <red>体力増強のスレッド</red>
-    custom-model-data: 300011
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>まだ、耐えられる</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - GOLDEN_APPLE x2
-        - NETHERITE_INGOT
-        - custom:source_gem x2
-      source: 1600
-      type: shapeless
-      ingredients: []
-  thread_hit_mana_recovery:
-    external-source: arspaper
-    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <gold>被弾マナ回復のスレッド</gold>
-    custom-model-data: 300012
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>この痛みは勝利のために</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - SHIELD
-        - custom:source_gem x2
-        - custom:magebloom_fiber
-      source: 1200
-      type: shapeless
-      ingredients: []
-  thread_damage_mana_recovery:
-    external-source: arspaper
-    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <dark_red>攻撃マナ回復のスレッド</dark_red>
-    custom-model-data: 300013
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>攻撃こそ最大の防御</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - BLAZE_ROD x2
-        - custom:source_gem x2
-      source: 1200
-      type: shapeless
-      ingredients: []
-  thread_spell_cost_down:
-    external-source: arspaper
-    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <yellow>詠唱効率のスレッド</yellow>
-    custom-model-data: 300014
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>質よりも手数で</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - NETHERITE_BLOCK
-        - GOLD_BLOCK
-        - EMERALD_BLOCK
-        - custom:source_gem x3
-      source: 3000
-      type: shapeless
-      ingredients: []
-  thread_flight:
-    external-source: arspaper
-    material: SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <white>飛行のスレッド</white>
-    custom-model-data: 300015
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>彼方からの贈り物</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - FEATHER x2
-        - PHANTOM_MEMBRANE x2
-        - ELYTRA
-        - NETHER_STAR
-        - custom:source_gem x2
-      source: 6000
-      type: shapeless
-      ingredients: []
-  thread_backpack:
-    external-source: arspaper
-    material: SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <dark_green>バックパックのスレッド</dark_green>
-    custom-model-data: 300016
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>準備から冒険ははじまっている</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - CHEST
-        - ENDER_CHEST
-        - DIAMOND
-        - custom:source_gem x2
-      source: 1000
-      type: shapeless
-      ingredients: []
-  thread_mana_amplify:
-    draft: true
-    external-source: arspaper
-    material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <blue>マナ増幅のスレッド</blue>
-    custom-model-data: 300017
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>器を広げれば、届く場所も広がる</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - custom:source_gem_block
-        - LAPIS_BLOCK x2
-        - custom:magebloom_fiber x3
-      source: 2600
-      type: shapeless
-      ingredients: []
-  thread_mana_circulate:
-    draft: true
-    external-source: arspaper
-    material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
-    display-name: <aqua>循環のスレッド</aqua>
-    custom-model-data: 300018
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>絶えず巡るものは尽きない</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - GHAST_TEAR x3
-        - custom:source_gem x3
-        - custom:reinforced_fiber
-      source: 2400
-      type: shapeless
-      ingredients: []
-  thread_source_thrift:
-    draft: true
-    external-source: arspaper
-    material: FLOW_POTTERY_SHERD
-    display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
-    custom-model-data: 300019
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>流れを読む者は溺れない</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - AMETHYST_SHARD x4
-        - custom:source_gem_block
-        - custom:magebloom_fiber x2
-      source: 2800
-      type: shapeless
-      ingredients: []
-  thread_artisan:
-    draft: true
-    external-source: arspaper
-    material: ARMS_UP_POTTERY_SHERD
-    display-name: <gold>匠のスレッド</gold>
-    custom-model-data: 300020
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>同じ材料でも、手が違えば別物になる</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - custom:core_jewelry
-        - IRON_BLOCK x2
-        - custom:source_gem x2
-      source: 2000
-      type: shapeless
-      ingredients: []
-  thread_ritualist:
-    draft: true
-    external-source: arspaper
-    material: BREWER_POTTERY_SHERD
-    display-name: <light_purple>儀式師のスレッド</light_purple>
-    custom-model-data: 300021
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>作法を知る者にだけ、祭壇は応える</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - custom:source_gem x4
-        - custom:magebloom_fiber x4
-        - AMETHYST_SHARD x2
-      source: 2400
-      type: shapeless
-      ingredients: []
-  thread_thrift:
-    draft: true
-    external-source: arspaper
-    material: PLENTY_POTTERY_SHERD
-    display-name: <yellow>倹約のスレッド</yellow>
-    custom-model-data: 300022
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>捨てるところなど、どこにもない</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - custom:core_wood
-        - custom:core_vegetable
-        - custom:source_gem x2
-      source: 1800
-      type: shapeless
-      ingredients: []
-  thread_salvage:
-    draft: true
-    external-source: arspaper
-    material: SCRAPE_POTTERY_SHERD
-    display-name: <gray>解体のスレッド</gray>
-    custom-model-data: 300023
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>壊し方を知る者は、作り方も知っている</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - custom:hard_metal x2
-        - IRON_BLOCK
-        - custom:source_gem x2
-      source: 2000
-      type: shapeless
-      ingredients: []
-  thread_scholar:
-    draft: true
-    external-source: arspaper
-    material: BURN_POTTERY_SHERD
-    display-name: <dark_purple>選書のスレッド</dark_purple>
-    custom-model-data: 300031
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>棚から一冊を選ぶのも、技のうち</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-    recipe:
-      method: ritual
-      core-item: custom:thread_empty
-      pedestal-items:
-        - LAPIS_BLOCK x2
-        - custom:core_jewelry
-        - custom:source_gem x2
-      source: 2200
-      type: shapeless
-      ingredients: []
-  thread_miner:
-    draft: true
-    external-source: arspaper
-    material: MINER_POTTERY_SHERD
-    display-name: <dark_gray>豊鉱のスレッド</dark_gray>
-    custom-model-data: 300024
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>同じ岩でも、掘る者で取れ高が変わる</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_angler:
-    draft: true
-    external-source: arspaper
-    material: ANGLER_POTTERY_SHERD
-    display-name: <blue>潮読みのスレッド</blue>
-    custom-model-data: 300025
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_harvest:
-    draft: true
-    external-source: arspaper
-    material: SHEAF_POTTERY_SHERD
-    display-name: <yellow>実りのスレッド</yellow>
-    custom-model-data: 300026
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>土は、手をかけた分だけ返してくる</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_timber:
-    draft: true
-    external-source: arspaper
-    material: SNORT_POTTERY_SHERD
-    display-name: <dark_green>年輪のスレッド</dark_green>
-    custom-model-data: 300027
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_diligence:
-    draft: true
-    external-source: arspaper
-    material: FRIEND_POTTERY_SHERD
-    display-name: <green>研鑽のスレッド</green>
-    custom-model-data: 300029
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>同じ一日から、より多くを持ち帰る</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_endurance:
-    draft: true
-    external-source: arspaper
-    material: SHELTER_POTTERY_SHERD
-    display-name: <gold>持久のスレッド</gold>
-    custom-model-data: 300033
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>まだ歩ける、まだ行ける</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_gourmet:
-    draft: true
-    external-source: arspaper
-    material: HEARTBREAK_POTTERY_SHERD
-    display-name: <red>美食のスレッド</red>
-    custom-model-data: 300034
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>腹が減っては、糸も紡げぬ</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_slow_falling:
-    draft: true
-    external-source: arspaper
-    material: GUSTER_POTTERY_SHERD
-    display-name: <white>浮遊のスレッド</white>
-    custom-model-data: 300039
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>落ちるのではなく、降りるのだ</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_spoils:
-    draft: true
-    external-source: arspaper
-    material: SKULL_POTTERY_SHERD
-    display-name: <gold>戦利品のスレッド</gold>
-    custom-model-data: 300028
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>倒した者にだけ、分け前がある</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_experience:
-    draft: true
-    external-source: arspaper
-    material: HOWL_POTTERY_SHERD
-    display-name: <green>経験のスレッド</green>
-    custom-model-data: 300030
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>過ぎた時間は、糸が覚えている</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_mending_flesh:
-    draft: true
-    external-source: arspaper
-    material: HEART_POTTERY_SHERD
-    display-name: <red>治癒のスレッド</red>
-    custom-model-data: 300032
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_thorn:
-    draft: true
-    external-source: arspaper
-    material: DANGER_POTTERY_SHERD
-    display-name: <dark_red>棘のスレッド</dark_red>
-    custom-model-data: 300035
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>触れた者が、まず痛む</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_concussion:
-    draft: true
-    external-source: arspaper
-    material: BLADE_POTTERY_SHERD
-    display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
-    custom-model-data: 300036
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>意識を刈り取るのに、刃は要らない</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_swiftcast:
-    draft: true
-    external-source: arspaper
-    material: MOURNER_POTTERY_SHERD
-    display-name: <yellow>速攻のスレッド</yellow>
-    custom-model-data: 300037
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>先に動いた方が、生き残る</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_marksman:
-    draft: true
-    external-source: arspaper
-    material: ARCHER_POTTERY_SHERD
-    display-name: <dark_green>射手のスレッド</dark_green>
-    custom-model-data: 300038
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>一射のために、百射を捨てる</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_luck:
-    draft: true
-    external-source: arspaper
-    material: EXPLORER_POTTERY_SHERD
-    display-name: <gold>幸運のスレッド</gold>
-    custom-model-data: 300040
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>運は、探しに行った者のところへ来る</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  # ------------------------------------------------------------------
-  # 2026-08-03 追加5種 (CMD 300041-300045)。ユーザー要件「レシピなしの厳選要素スレッドを
-  # 5件ほど追加」。
-  #
-  # ■ recipe: を持たないのは意図的
-  #   儀式では作れず、gacha.yml の景品としてしか出ない。draft: true にしていないのは
-  #   入手経路が実在するため(draft は「経路が無いので隠す」ための印で、
-  #   ここで付けると解禁まで到達不能になる)。
-  # ■ 厳選(品質別上昇量 + ランダムロール + 確率付与)は stats/item-stats.yml 側。
-  #   主ステが名称と対応していることは ShippedThreadItemStatsTest が机上で固定する。
-  # ■ lore の数値はセット効果(フォーク thread-sets.yml)の累計であって、厳選ぶんは含まない。
-  #   既存40種と同じ書き方に揃えてある。
-  # ------------------------------------------------------------------
-  thread_perfumer:
-    external-source: arspaper
-    material: FLOWER_BANNER_PATTERN
-    display-name: <light_purple>調香のスレッド</light_purple>
-    custom-model-data: 300041
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>香りは、調べた者にしか嗅ぎ分けられない</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_apiarist:
-    external-source: arspaper
-    material: FIELD_MASONED_BANNER_PATTERN
-    display-name: <yellow>養蜂のスレッド</yellow>
-    custom-model-data: 300042
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>刺されるのを恐れる者に、蜜は渡らない</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_herder:
-    external-source: arspaper
-    material: PIGLIN_BANNER_PATTERN
-    display-name: <green>牧人のスレッド</green>
-    custom-model-data: 300043
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>群れは、急かした者から離れていく</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_appraiser:
-    external-source: arspaper
-    material: PRIZE_POTTERY_SHERD
-    display-name: <gold>鑑識のスレッド</gold>
-    custom-model-data: 300044
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>同じ骨でも、見る目が値を決める</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
-  thread_excavation:
-    external-source: arspaper
-    material: NETHERITE_UPGRADE_SMITHING_TEMPLATE
-    display-name: <dark_gray>削岩のスレッド</dark_gray>
-    custom-model-data: 300045
-    bind-type: TRADEABLE
-    enchant-glow: true
-    lore:
-      - <color:dark_purple>岩は、削り方を知っている者にだけ譲る</color>
-      - ""
-      - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
+      - <color:dark_purple>ようこそスタートラインへ</color>
   someones_eyes:
     material: ENDER_EYE
     lore:
@@ -4667,7 +4558,7 @@ items:
       amount: 1
     custom-model-data: 73
   novus_criculus_luminis:
-    material: GLOWSTONE
+    material: GLOWSTONE_DUST
     lore:
       - <i>左手に持って効果を発動</i>
       - <color:dark_purple>終わり無き死と生の輪転の末、</color>
@@ -4686,6 +4577,7 @@ items:
         a: AMETHYST_SHARD
         g: GLOWSTONE
     custom-model-data: 84
+    draft: true
   source_gem_shovel:
     material: DIAMOND_SHOVEL
     display-name: ソースジェムのシャベル
@@ -4743,7 +4635,7 @@ items:
         - " AC"
         - "A  "
       ingredients:
-        C: OAK_WOOD
+        C: list:planks
         A: STICK
   stone_wand:
     material: STONE_SWORD
@@ -5041,22 +4933,6 @@ items:
         s: STICK
         B: STRING
         C: TRIPWIRE_HOOK
-  sharpstone_crossbow:
-    material: CROSSBOW
-    custom-model-data: 161
-    display-name: <color:dark_gray><b><i>鋭い石のクロスボウ</i></b></color>
-    recipe:
-      method: workbench
-      type: shaped
-      shape:
-        - sAs
-        - BCB
-        - " s "
-      ingredients:
-        A: SMOOTH_STONE
-        s: STICK
-        B: STRING
-        C: TRIPWIRE_HOOK
   copper_crossbow:
     material: CROSSBOW
     display-name: <color:gold><b><i>銅のクロスボウ</i></b></color>
@@ -5128,9 +5004,9 @@ items:
     recipe:
       method: netherite
       source-item: custom:diamond_crossbow
-  infinity_wand:
+  magic_wand:
     material: NETHERITE_SWORD
-    display-name: <color:#7df9ff>インフィニティの杖</color>
+    display-name: <color:#7df9ff>魔源の杖</color>
     custom-model-data: 400012
     recipe:
       method: workbench
@@ -5143,6 +5019,9 @@ items:
         J: custom:core_jewelry
         R: custom:breeze_rod_2x
         A: custom:amethyst_block_2x
+    lore:
+      - <color:dark_aqua>始まりの魔法使いが遺した二本の杖の片方。</color>
+      - <color:gold>数千年の時を超え、再び光を宿すだろう。</color>
   abyss_wand:
     material: NETHERITE_SWORD
     display-name: <color:dark_purple>黒淵の杖</color>
@@ -7120,6 +6999,38 @@ items:
       - ""
       - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
       - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
+  thread_better_fortune:
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:white>いいことがおきますように</color>
+    display-name: <color:red>開運のスレッド</color>
+    custom-model-data: 100023
+  thread_gacha:
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:#ff0000>7</color><color:#ffa500>7</color><color:yellow>7</color><color:#008000>7</color><color:#0000ff>7</color><color:#000080>7</color><color:#800080>7</color>
+    display-name: <color:#ff0000>ガ</color><color:#ffa500>チ</color><color:#ffff00>ャ</color><color:#008000>ス</color><color:#0000ff>レ</color><color:#000080>ッ</color><color:#800080>ド</color>
+    custom-model-data: 100024
+  thread_role_luck:
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - レッツ上振れ！
+    display-name: ロール運のスレッド
+    custom-model-data: 100025
+  thread_role_effeciency:
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - 効率よく生きよう
+    display-name: ロール効率のスレッド
+    custom-model-data: 100026
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>
@@ -7132,6 +7043,22 @@ items:
       - <gray>ロックを外すときは消費しません（もう一度クリック）。</gray>
       - <dark_gray>※ツリーリセットは保護しません（リセットは全ノードが対象）。</dark_gray>
     custom-model-data: 3
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:netherite_block_1x
+        - custom:diamond_block_2x
+        - custom:gold_block_2x
+        - custom:iron_block_2x
+        - custom:elder_guardian_spike
+        - custom:dragon_scale
+        - custom:wither_skull_fragment
+        - custom:warden_tendril
+      core-item: NETHER_STAR
+      source: 9998
+      amount: 11
   skill_tree_reset:
     material: ECHO_SHARD
     display-name: <color:aqua>スキル再構築の書</color>
@@ -7143,9 +7070,22 @@ items:
       - <gray>そのツリーのノードを全解除し、消費したSPを返却します。</gray>
       - <gray>スキルレベルとプレステージ段はそのまま維持されます。</gray>
     custom-model-data: 100083
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - OCHRE_FROGLIGHT x2
+        - PEARLESCENT_FROGLIGHT x2
+        - VERDANT_FROGLIGHT x2
+        - SLIME_BALL
+        - MAGMA_CREAM
+      core-item: BOOK
+      source: 10000
+      amount: 1
   role_reselect_ticket:
     material: NAME_TAG
-    display-name: <color:light_purple>職業付け替えの証</color>
+    display-name: <color:light_purple>転職の証</color>
     enchant-glow: true
     lore:
       - <gray><italic>今の道を離れ、新しい役目を選び直す証。</italic></gray>
@@ -7154,9 +7094,26 @@ items:
       - <gray>通常のクールダウン・交戦中制限を無視して選び直せます。</gray>
       - <gray>実際にロールを確定した瞬間にのみ1個消費します。</gray>
       - <dark_gray>※確定後は通常どおりクールダウンが始まります。</dark_gray>
+    custom-model-data: 10
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - CHERRY_LOG
+        - DARK_OAK_LOG
+        - ACACIA_LOG
+        - PALE_OAK_LOG
+        - MANGROVE_LOG
+        - SPRUCE_LOG
+        - CRIMSON_STEM
+        - WARPED_STEM
+      core-item: PAPER
+      source: 10000
+      amount: 1
   stat_reroll_ticket:
     material: RABBIT_FOOT
-    display-name: <color:aqua>厳選やり直しの護符</color>
+    display-name: <color:aqua>厳選の護符</color>
     enchant-glow: true
     lore:
       - <gray><italic>刻まれた運だけを、もう一度天に委ねる。</italic></gray>
@@ -7165,6 +7122,23 @@ items:
       - <gray>ランダムロール（厳選幅）だけを引き直します。品質は変わりません。</gray>
       - <gray>もう一度同じ対象をクリックすると確定します。</gray>
       - <dark_gray>※厳選ロールを持たないアイテムには使用できません。</dark_gray>
+    custom-model-data: 16
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - RABBIT_FOOT
+        - TURTLE_EGG
+        - custom:witch_elixir
+        - custom:piglin_ear
+        - custom:hoglin_fang
+        - custom:guardian_spine
+        - custom:bogged_mossy_bone
+        - custom:parched_sandy_bone
+      core-item: NAME_TAG
+      source: 10000
+      amount: 1
   quality_upgrade_ticket:
     material: HEART_OF_THE_SEA
     display-name: <color:gold>品質昇華の結晶</color>
@@ -7176,6 +7150,19 @@ items:
       - <gray>品質を1段階引き上げます。ランダムロール（厳選幅）は変わりません。</gray>
       - <gray>もう一度同じ対象をクリックすると確定します。</gray>
       - <dark_gray>※最高品質に達した装備には使用できません。</dark_gray>
+    custom-model-data: 5446
+    recipe:
+      method: ritual
+      type: shapeless
+      ingredients: []
+      pedestal-items:
+        - custom:breeze_rod_2x x2
+        - custom:blaze_rod_2x x2
+        - custom:dragon_breath_2x x2
+        - custom:echo_shard_2x x2
+      core-item: AMETHYST_SHARD
+      source: 10000
+      amount: 1
 _editor:
   categories:
     weapon:
@@ -7217,9 +7204,7 @@ _editor:
           - copper_scythe
           - stone_scythe
           - wooden_scythe
-          - Winter_Grim_Reaper
           - source_gem_scythe
-          - fnis_peccati_profundi
           - infinity_scythe
           - hero_scythe
           - nuclear_scythe
@@ -7340,7 +7325,6 @@ _editor:
         label: クロスボウ
         itemIds:
           - stone_crossbow
-          - sharpstone_crossbow
           - copper_crossbow
           - iron_crossbow
           - golden_crossbow
@@ -7354,7 +7338,6 @@ _editor:
         label: 特殊武器
         itemIds:
           - koujien
-          - wooden_halberd
       - id: cat_auto_draft
         label: 準備中
         itemIds:
@@ -7412,6 +7395,9 @@ _editor:
           - emberforge_warhammer
           - hunter_javelin
           - woodsman_greataxe
+          - wooden_halberd
+          - fnis_peccati_profundi
+          - Winter_Grim_Reaper
     catalyst:
       - id: cat_1784733677892
         label: バニラ
@@ -7423,7 +7409,7 @@ _editor:
           - golden_wand
           - diamond_wand
           - netherite_wand
-          - infinity_wand
+          - magic_wand
           - abyss_wand
           - boundary_wand
       - id: cat_20260723_触媒
@@ -7432,9 +7418,7 @@ _editor:
           - someones_eyes
       - id: cat_auto_draft
         label: 準備中
-        itemIds:
-          - chanter_ring
-          - woodsman_whetstone
+        itemIds: []
     tool:
       - id: cat_1784781029395
         label: ツルハシ
@@ -7470,11 +7454,16 @@ _editor:
     other:
       - id: cat_1784638696666
         label: サブウェポン
-        itemIds:
-          - novus_criculus_luminis
+        itemIds: []
       - id: cat_1784735489541
         label: 盾
         itemIds: []
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds:
+          - woodsman_whetstone
+          - chanter_ring
+          - novus_criculus_luminis
     armor:
       - id: cat_20260724_source_gem
         label: ソースジェム
@@ -7646,43 +7635,14 @@ _editor:
           - pit_lamp
           - taunt_crest
           - tide_float
-    spellbook: []
+    spellbook:
+      - id: cat_auto_draft
+        label: 準備中
+        itemIds: []
     thread:
       - id: cat_auto_draft
         label: 準備中
-        itemIds:
-          - thread_angler
-          - thread_artisan
-          - thread_concussion
-          - thread_diligence
-          - thread_endurance
-          - thread_experience
-          - thread_gourmet
-          - thread_harvest
-          - thread_luck
-          - thread_mana_amplify
-          - thread_mana_circulate
-          - thread_marksman
-          - thread_mending_flesh
-          - thread_miner
-          - thread_ritualist
-          - thread_salvage
-          - thread_scholar
-          - thread_slow_falling
-          - thread_source_thrift
-          - thread_spoils
-          - thread_swiftcast
-          - thread_thorn
-          - thread_thrift
-          - thread_timber
-    # ダンジョンの鍵は「補助」ではなく「素材」タブに置く(2026-08-03 ユーザー指示)。
-    # key は catalog.yml のアイテムを **materials.yml へ移動せずに** 素材画面の
-    # カテゴリバーへ「鍵」カテゴリとして出す表示タブ (forms.js の CATALOG_KEY_TAB)。
-    # 実移動用の "material" とは別物で、鍵を実移動すると ShippedDungeonKeyReachabilityTest
-    # などの入手経路検査が参照先(materials.yml = .gitignore 除外)を読めなくなり、
-    # 「永久に入手不能な鍵」の検知が丸ごと失われる。
-    # 2026-08-04: 独立セクション「素材(カタログ内)」を廃止し、素材画面のカテゴリバー1本
-    # (materials.yml の _editor.categories.material の cat_dungeon_keys)へ統合した。
+        itemIds: []
     key:
       - id: cat_20260803_dungeon_keys
         label: ダンジョンの鍵
@@ -7715,6 +7675,7 @@ _editor:
           - key_hallosseum
           - key_north_pole
           - key_binder
+    material: []
   orders:
     weapon:
       - wooden_halberd
@@ -7893,9 +7854,7 @@ _editor:
       - golden_wand
       - diamond_wand
       - netherite_wand
-      - infinity_wand
-      - woodsman_whetstone
-      - chanter_ring
+      - magic_wand
       - abyss_wand
       - boundary_wand
     tool:
@@ -7911,6 +7870,8 @@ _editor:
       - harvest_hoe
     other:
       - novus_criculus_luminis
+      - woodsman_whetstone
+      - chanter_ring
     armor:
       - source_gem_helmet
       - source_gem_chestplate
@@ -8038,7 +7999,56 @@ _editor:
       - spell_book_novice
       - spell_book_apprentice
       - spell_book_archmage
-    thread: []
+    thread:
+      - thread_angler
+      - thread_apiarist
+      - thread_appraiser
+      - thread_artisan
+      - thread_backpack
+      - thread_concussion
+      - thread_conduit_power
+      - thread_damage_mana_recovery
+      - thread_diligence
+      - thread_dolphins_grace
+      - thread_empty
+      - thread_endurance
+      - thread_excavation
+      - thread_experience
+      - thread_fire_resistance
+      - thread_flight
+      - thread_gourmet
+      - thread_harvest
+      - thread_health_boost
+      - thread_herder
+      - thread_hero_of_the_village
+      - thread_hit_mana_recovery
+      - thread_jump_boost
+      - thread_luck
+      - thread_mana_amplify
+      - thread_mana_boost
+      - thread_mana_circulate
+      - thread_mana_regen
+      - thread_marksman
+      - thread_mending_flesh
+      - thread_miner
+      - thread_night_vision
+      - thread_perfumer
+      - thread_ritualist
+      - thread_salvage
+      - thread_scholar
+      - thread_slow_falling
+      - thread_source_thrift
+      - thread_speed
+      - thread_spell_cost_down
+      - thread_spoils
+      - thread_swiftcast
+      - thread_thorn
+      - thread_thrift
+      - thread_timber
+      - thread_better_fortune
+      - thread_gacha
+      - thread_role_luck
+      - thread_role_effeciency
     key:
       - key_mines
       - key_deep_mines
@@ -8068,10 +8078,8 @@ _editor:
       - key_hallosseum
       - key_north_pole
       - key_binder
+    material: []
   itemTabs:
-    # ダンジョンの鍵 17種: 表示タブを key(素材画面の「鍵」カテゴリ)へ固定する。
-    # ピンを外すと material 推論(TRIAL_KEY → 該当なし → other)へ落ち、
-    # 「補助」タブがサブウェポン以外で埋まる状態に戻る。
     key_mines: key
     key_deep_mines: key
     key_quarry: key
@@ -8143,8 +8151,6 @@ _editor:
     thread_swiftcast: thread
     thread_marksman: thread
     thread_luck: thread
-    # 2026-08-03 追加5種。旗の模様 / 陶器の欠片 / 鍛冶型はどれも inferItemCategory の
-    # どの分岐にも当たらず既定の other(補助)へ落ちるので、ピンが唯一の防波堤。
     thread_perfumer: thread
     thread_apiarist: thread
     thread_herder: thread
@@ -8281,9 +8287,8 @@ _editor:
     infinity_crossbow: weapon
     emberforge_crossbow: weapon
     cryocore_crossbow: weapon
-    infinity_wand: catalyst
-    woodsman_whetstone: catalyst
-    chanter_ring: catalyst
+    woodsman_whetstone: other
+    chanter_ring: other
     source_gem_grate_sword: weapon
     nuclear_sword: weapon
     nuclear_dagger: weapon
@@ -8343,3 +8348,8 @@ _editor:
     binder_boots: armor
     boundary_wand: catalyst
     abyss_wand: catalyst
+    magic_wand: catalyst
+    thread_better_fortune: thread
+    thread_gacha: thread
+    thread_role_luck: thread
+    thread_role_effeciency: thread

@@ -1,0 +1,47 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:block/dirt",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5106,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/core_ground"
+        }
+      },
+      {
+        "threshold": 5427,
+        "model": {
+          "model": "minecraft:block/dirt",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5428,
+        "model": {
+          "model": "minecraft:block/dirt",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5429,
+        "model": {
+          "model": "minecraft:block/dirt",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 5431,
+        "model": {
+          "model": "minecraft:block/dirt",
+          "type": "minecraft:model"
+        }
+      }
+    ]
+  }
+}

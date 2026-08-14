@@ -10,8 +10,8 @@
       {
         "threshold": 5103,
         "model": {
-          "model": "minecraft:item/leather",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/core_meat"
         }
       },
       {
@@ -24,15 +24,15 @@
       {
         "threshold": 5317,
         "model": {
-          "model": "minecraft:item/leather",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/leather_scrap"
         }
       },
       {
         "threshold": 5401,
         "model": {
-          "model": "minecraft:item/leather",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/ravager_hide"
         }
       }
     ]

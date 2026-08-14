@@ -44,6 +44,16 @@ import java.util.Map;
  * プレイヤーの合算済み総合ステータスへ「x倍率」として掛かる。同一レイヤの倍率はプレイヤー全体で
  * {@code 1 + Σ(v-1)} に合成され、レイヤ同士は乗算される。authored value は倍率そのもの(1.2 = x1.2)。
  *
+ * <p>{@code socketedOnly} — <b>装着専用</b>フラグ({@code socketed-only-stats: true}、既定 false)。
+ * true のアイテムは「プレイヤーが装備/手に持っているスロット」からはステを一切寄与しない。
+ * ArsPaper のスレッド(防具のスレッド枠へ挿して使う素材)専用のフラグで、これが無いと
+ * {@code stats/item-stats.yml} にスレッドのステを書いた瞬間「防具に挿さず手に持つだけで効く」穴が開く
+ * ({@code PlayerStatAggregator} がメインハンド寄与を材質フィルタ無しで合算するため)。
+ * <b>装着済みスレッドの寄与は別経路</b>({@code ArmorManaListener} →
+ * {@code WeaponAttackStatResolver#resolveItemStats(material, cmd, quality, rollSeed)} →
+ * {@link DerivedItemStats#profileStats})なので、このフラグでは止まらない。ロア表示も
+ * {@link DerivedItemStats#resolve} をそのまま通るので「挿したら何が付くか」は今まで通り見える。
+ *
  * @param fixed                canonical stat key -&gt; fixed value (overwrite, always applied when granted)
  * @param perQuality           canonical stat key -&gt; per-quality-level increment
  * @param random               canonical stat key -&gt; {@link StatRange} rolled additively
@@ -52,11 +62,12 @@ import java.util.Map;
  * @param randomizeGrants      付与ステ種類のランダム化を有効にするか
  * @param grantChances         ステキーごとの付与確率(0.0〜1.0)。未記載キーは 1.0
  * @param multipliers          乗算レイヤID -&gt; 乗算ステ定義(fixed/per-quality/random)。空=乗算なし
+ * @param socketedOnly         装着専用(スロット由来の寄与を全面禁止)。既定 false
  */
 public record ItemStatProfile(Map<String, Double> fixed, Map<String, Double> perQuality,
                               Map<String, StatRange> random, Integer durability, boolean offhandApplies,
                               boolean randomizeGrants, Map<String, Double> grantChances,
-                              Map<String, MultiplierSpec> multipliers) {
+                              Map<String, MultiplierSpec> multipliers, boolean socketedOnly) {
 
     /**
      * 乗算モードのステ定義(1レイヤ分)。値の解決は加算ステと同じ fixed + per-quality×品質 + random ロール
@@ -126,6 +137,17 @@ public record ItemStatProfile(Map<String, Double> fixed, Map<String, Double> per
     }
 
     /**
+     * {@code socketedOnly} 無しの8引数コンストラクタ(back-compat)。装着専用フラグは {@code false}。
+     */
+    public ItemStatProfile(Map<String, Double> fixed, Map<String, Double> perQuality,
+                           Map<String, StatRange> random, Integer durability, boolean offhandApplies,
+                           boolean randomizeGrants, Map<String, Double> grantChances,
+                           Map<String, MultiplierSpec> multipliers) {
+        this(fixed, perQuality, random, durability, offhandApplies, randomizeGrants, grantChances,
+                multipliers, false);
+    }
+
+    /**
      * 乗算レイヤ無しの7引数コンストラクタ(back-compat)。
      */
     public ItemStatProfile(Map<String, Double> fixed, Map<String, Double> perQuality,
@@ -161,12 +183,17 @@ public record ItemStatProfile(Map<String, Double> fixed, Map<String, Double> per
 
     /**
      * True when the profile carries no fixed, per-quality, random stats, no durability override,
-     * offhand合算も既定(false)、高度オプションも無効、乗算レイヤも無し — 完全な no-op オーバーレイ。
+     * offhand合算も既定(false)、高度オプションも無効、乗算レイヤも無し、装着専用でもない —
+     * 完全な no-op オーバーレイ。
+     *
+     * <p>{@code socketedOnly} を条件に含めるのは必須: {@code ItemStatsConfig#profileFor} は
+     * 空プロファイルを {@code Optional.empty()} に潰すので、含めないと
+     * 「ステを1つも書かずに装着専用だけ立てたエントリ」がフォールバックへ落ちてフラグごと消える。
      */
     public boolean isEmpty() {
         return fixed.isEmpty() && perQuality.isEmpty() && random.isEmpty()
                 && durability == null && !offhandApplies && !randomizeGrants && grantChances.isEmpty()
-                && multipliers.isEmpty();
+                && multipliers.isEmpty() && !socketedOnly;
     }
 
     /** Grant chance for a canonical (or raw) stat key; defaults to 1.0 when unset. */

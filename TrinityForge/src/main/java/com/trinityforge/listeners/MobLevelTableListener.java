@@ -157,7 +157,10 @@ public final class MobLevelTableListener implements Listener {
             // のどちらの由来でもない = このモブに「レベル帯」という概念が存在しない)。
             return;
         }
-        if (config.dungeonOnly() && !dungeonWorldRegistry.isDungeonWorld(entity.getWorld().getUID())) {
+        // 2026-08-14: ファイル全体の dungeon-only トグルと、add-drops 各エントリの where: が
+        // 同じ判定(ダンジョンインスタンスワールドか)を見るので、1回だけ引いて使い回す。
+        boolean inDungeonWorld = dungeonWorldRegistry.isDungeonWorld(entity.getWorld().getUID());
+        if (config.dungeonOnly() && !inDungeonWorld) {
             return;
         }
         Optional<LevelTierRule> maybeRule = config.resolve(mobData.level());
@@ -209,10 +212,24 @@ public final class MobLevelTableListener implements Listener {
             if (!drop.appliesTo(mobType, profileId)) {
                 continue;
             }
+            // 2026-08-14 フィールドドロップ配線: where: field/dungeon。
+            // 【MOB_TYPE_STAMPED や MOB_PROFILE_ID では判定しない】——
+            // combat/mob-import.yml の unknown-mobs.synthesize: true により EM ダンジョンモブにも
+            // MOB_LEVEL が合成付与されるので、mobs: [RAVAGER] と書いてもダンジョン内の見た目替え
+            // RAVAGER に当たってしまう。ワールドで切るのが構造的に保証できる唯一の手段。
+            if (!drop.appliesInWorld(inDungeonWorld)) {
+                continue;
+            }
+            // 2026-08-14: baby: true/false(子ゾンビ限定など)。Ageable でないモブは判定不能(null)で、
+            // baby: を書いたエントリは一致しない。yml ロード時に警告済み。
+            if (!drop.appliesToAge(babyStateOf(entity))) {
+                continue;
+            }
             // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
             // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
             boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
-            double chance = drop.chance() * chanceMultiplier;
+            // 2026-08-14: chance-by-level があればモブのレベルで補間した確率を使う(無ければ素の chance)。
+            double chance = drop.chanceAt(mobData.level()) * chanceMultiplier;
             if (singleFixed) {
                 chance = MobDropRoller.boostedChance(chance, dropBonus);
             }
@@ -257,6 +274,17 @@ public final class MobLevelTableListener implements Listener {
      *                 持たないので日本語表示名までは出せない — 名前が要る警告は
      *                 {@code MobOverrideDropListener} 側が日本語名付きで出す。
      */
+    /**
+     * 討伐した個体が子供か(2026-08-14 {@code baby:} フィルタ用)。判定できないモブ
+     * ({@link org.bukkit.entity.Ageable} を実装しない = 子供という状態を持たない) は {@code null}。
+     *
+     * <p>{@code Zombie} は {@code Ageable} を継承しているので子ゾンビもここで拾える
+     * ({@code Zombie#isBaby()} を別扱いする必要はない)。
+     */
+    private static Boolean babyStateOf(LivingEntity entity) {
+        return entity instanceof org.bukkit.entity.Ageable ageable ? !ageable.isAdult() : null;
+    }
+
     /** キルしたプレイヤーの戦闘職・補助職。プレイヤー以外/未選択なら空。 */
     private static Set<String> rolesOf(Player killer) {
         if (killer == null) {

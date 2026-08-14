@@ -33,263 +33,252 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/smithing.md
+
 skill: SMITHING
-display-name: "鍛冶"
+display-name: 鍛冶
 icon: SMITHING_TABLE
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 1
   at-level: 100
-  name: "鍛冶王の栄光"
-  effect-text: "全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%"
+  name: 鍛冶王の栄光
+  effect-text: 全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%
   buffs:
     workbench_quality_bonus: 3
     workbench_upswing_bonus: 0.15
-
 nodes:
   A:
-    name: "駆け出しの鍛冶"
+    name: 駆け出しの鍛冶
     level: 10
     role: main
-    parent: null
+    parent:
     icon: LEATHER_CHESTPLATE
     cost: 1
-    effect-text: "作業台品質+2"
+    effect-text: 作業台品質+2
     effects:
-      - "作業台クラフトの品質基準+2"
+      - 作業台クラフトの品質基準+2
     buffs:
-      workbench_quality_bonus: 2   # 旧: +1 + 石ティアの recipe: ゲート5件(2026-07-28撤去、ヘッダ参照)
+      workbench_quality_bonus: 2
   B:
-    name: "銅細工の鍛冶"
+    name: 銅細工の鍛冶
     level: 30
     role: main
     parent: A
     icon: CHAINMAIL_CHESTPLATE
     cost: 1
-    effect-text: "作業台品質+2・ロール上振れ+1%"
+    effect-text: 作業台品質+2・ロール上振れ+1%
     effects:
-      - "作業台クラフトの品質基準+2"
-      - "クラフト品のランダムステータス上振れ幅+1%"
+      - 作業台クラフトの品質基準+2
+      - クラフト品のランダムステータス上振れ幅+1%
     buffs:
-      workbench_quality_bonus: 2   # 旧: +1 + 鉄/金ティアの recipe: ゲート18件(2026-07-28撤去、ヘッダ参照)
+      workbench_quality_bonus: 2
       craft_roll_up_bonus: 1
   C:
-    name: "鉄金の鍛冶師"
+    name: 鉄金の鍛冶師
     level: 50
     role: main
     parent: B
     icon: IRON_CHESTPLATE
     cost: 1
-    effect-text: "作業台品質+1・上振れ拡大+0.1・ロール上振れ+2%"
+    effect-text: 作業台品質+1・上振れ拡大+0.1・ロール上振れ+2%
     effects:
-      - "作業台クラフトの品質基準+1"
-      - "クラフト品質の上振れ幅+0.1"
-      - "クラフト品のランダムステータス上振れ幅+2%"
+      - 作業台クラフトの品質基準+1
+      - クラフト品質の上振れ幅+0.1
+      - クラフト品のランダムステータス上振れ幅+2%
     buffs:
       workbench_quality_bonus: 1
-      workbench_upswing_bonus: 0.10   # 旧: ダイヤティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
+      workbench_upswing_bonus: 0.1
       craft_roll_up_bonus: 2
   D:
-    name: "ダイヤの鍛冶匠"
+    name: ダイヤの鍛冶匠
     level: 70
     role: main
     parent: C
     icon: DIAMOND_CHESTPLATE
     cost: 1
-    effect-text: "作業台品質+1・上振れ拡大+0.15・ロール上振れ+3%"
+    effect-text: 作業台品質+1・上振れ拡大+0.15・ロール上振れ+3%
     effects:
-      - "作業台クラフトの品質基準+1"
-      - "クラフト品質の上振れ幅+0.15"
-      - "クラフト品のランダムステータス上振れ幅+3%"
+      - 作業台クラフトの品質基準+1
+      - クラフト品質の上振れ幅+0.15
+      - クラフト品のランダムステータス上振れ幅+3%
     buffs:
       workbench_quality_bonus: 1
-      workbench_upswing_bonus: 0.15   # 旧: ネザライトティアの recipe: ゲート9件(2026-07-28撤去、ヘッダ参照)
+      workbench_upswing_bonus: 0.15
       craft_roll_up_bonus: 3
   E:
-    name: "ネザライトの鍛冶王"
+    name: ネザライトの鍛冶王
     level: 90
     role: main
     parent: D
     icon: NETHERITE_CHESTPLATE
     cost: 1
-    effect-text: "作業台品質+1・鍛冶師解放"
+    effect-text: 作業台品質+1・鍛冶師解放
     effects:
-      - "作業台クラフトの品質基準+1"
-      - "鍛冶師を解放"
+      - 作業台クラフトの品質基準+1
+      - 鍛冶師を解放
     buffs:
       workbench_quality_bonus: 1
     dedicated-effects:
-      - id: "trade:WEAPONSMITH"
-      - id: "trade:ARMORER"
-      - id: "trade:TOOLSMITH"
-
+      - id: trade:WEAPONSMITH
+      - id: trade:ARMORER
+      - id: trade:TOOLSMITH
   A-1:
-    name: "精錬速度I"
+    name: 精錬速度I
     level: 20
     role: branch
-    parent: A        # 線不明
+    parent: A
     icon: FURNACE
     cost: 1
-    effect-text: "精錬速度+10%"
+    effect-text: 精錬速度+10%
     effects:
-      - "精錬速度+10%"
+      - 精錬速度+10%
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更(数値の実体は stats/smithing-gimmick.yml
-      # furnace-smelt.speed.tiers)。tier1=10%。
-      - id: "feature:furnace-smelt-speed"
+      - id: feature:furnace-smelt-speed
         value: 1
   A-2:
-    name: "精錬速度II"
+    name: 精錬速度II
     level: 40
     role: branch
-    parent: A-1      # 直列連結。線不明
+    parent: A-1
     icon: FURNACE
     cost: 1
-    effect-text: "精錬速度+20%"
+    effect-text: 精錬速度+20%
     effects:
-      - "精錬速度+20%"
+      - 精錬速度+20%
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更。tier2=20%。
-      - id: "feature:furnace-smelt-speed"
+      - id: feature:furnace-smelt-speed
         value: 2
   A-3:
-    name: "精錬速度III"
+    name: 精錬速度III
     level: 40
     role: branch
-    parent: A-2      # 直列連結。線不明
+    parent: A-2
     icon: BLAST_FURNACE
     cost: 1
-    effect-text: "精錬速度+30%"
+    effect-text: 精錬速度+30%
     effects:
-      - "精錬速度+30%"
+      - 精錬速度+30%
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更。tier3=30%。
-      - id: "feature:furnace-smelt-speed"
+      - id: feature:furnace-smelt-speed
         value: 3
   A-4:
-    name: "精錬・制作魔法の解放"
+    name: 精錬・制作魔法の解放
     level: 60
     role: branch
-    parent: A-3      # 直列連結。線不明
+    parent: A-3
     icon: BLAST_FURNACE
     cost: 1
-    effect-text: "精錬魔法開放・制作魔法解放"
+    effect-text: 精錬魔法開放・制作魔法解放
     effects:
-      - "精錬魔法を解放"
-      - "制作魔法を解放"
+      - 精錬魔法を解放
+      - 制作魔法を解放
     dedicated-effects:
-      - id: "glyph:smelt"
-      - id: "glyph:craft"
-
+      - id: glyph:smelt
+      - id: glyph:craft
   B-1:
-    name: "精錬ボーナスI"
-    level: 40
+    name: 精錬ボーナスI
+    level: 35
     role: branch
-    parent: B        # 線不明
+    parent: B
     icon: RAW_IRON
     cost: 1
-    effect-text: "鉱石の精錬ボーナス+10%"
+    effect-text: 鉱石の精錬ボーナス+10%
     effects:
-      - "鉱石の精錬ボーナス+10%"
+      - 鉱石の精錬ボーナス+10%
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更(数値の実体は stats/smithing-gimmick.yml
-      # furnace-smelt.bonus.tiers)。tier1=10%。
-      - id: "feature:furnace-smelt-bonus"
+      - id: feature:furnace-smelt-bonus
         value: 1
   B-2:
-    name: "精錬ボーナスII"
+    name: 精錬ボーナスII
     level: 40
     role: branch
-    parent: B-1      # 直列連結。線不明
+    parent: B-1
     icon: RAW_GOLD
     cost: 1
-    effect-text: "鉱石の精錬ボーナス+20%"
+    effect-text: 鉱石の精錬ボーナス+20%
     effects:
-      - "鉱石の精錬ボーナス+20%"
+      - 鉱石の精錬ボーナス+20%
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更。tier2=20%。
-      - id: "feature:furnace-smelt-bonus"
+      - id: feature:furnace-smelt-bonus
         value: 2
   B-3:
-    name: "精錬ボーナスIII"    # 下段の派生B-3(精錬ボーナス+30%)。上段の解体解放B-3-upperとは別ノード
+    name: 精錬ボーナスIII
     level: 60
     role: branch
-    parent: B-2      # 直列連結。線不明
+    parent: B-2
     icon: RAW_GOLD
     cost: 1
-    effect-text: "鉱石の精錬ボーナス+30%"
+    effect-text: 鉱石の精錬ボーナス+30%
     effects:
-      - "鉱石の精錬ボーナス+30%"
+      - 鉱石の精錬ボーナス+30%
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更。tier3=30%。
-      - id: "feature:furnace-smelt-bonus"
+      - id: feature:furnace-smelt-bonus
         value: 3
-
   B-alpha-1:
-    name: "下振れ軽減I"
+    name: 下振れ軽減I
     level: 30
     role: greek
     parent: B
     group: B-greek
     icon: QUARTZ
     cost: 1
-    effect-text: "ランダムステータスの品質で下振れが減少"
+    effect-text: ランダムステータスの品質で下振れが減少
     effects:
-      - "ランダムステータスの品質で下振れが減少"
+      - ランダムステータスの品質で下振れが減少
     buffs:
-      workbench_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
+      workbench_downswing_reduction: 10
   B-alpha-2:
-    name: "下振れ軽減II"
-    level: 50           # 画像に明示Lvなし。-2は+20と推定
+    name: 下振れ軽減II
+    level: 50
     role: greek
     parent: B-alpha-1
     group: B-greek
     icon: QUARTZ
     cost: 1
-    effect-text: "ランダムステータスの品質で下振れが減少"
+    effect-text: ランダムステータスの品質で下振れが減少
     effects:
-      - "ランダムステータスの品質で下振れが減少"
+      - ランダムステータスの品質で下振れが減少
     buffs:
-      workbench_downswing_reduction: 10   # 旧 dedicated-effects smithing-downswing-reduction (stat化)
+      workbench_downswing_reduction: 10
   B-beta-1:
-    name: "品質上限I"
+    name: 品質上限I
     level: 30
     role: greek
     parent: B
     group: B-greek
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "クラフト品質+1"
+    effect-text: クラフト品質+1
     effects:
-      - "クラフト品質+1"
+      - クラフト品質+1
     buffs:
-      workbench_quality_bonus: 1   # 旧 native smithing_craftqualitybonus_add (stat化)
+      workbench_quality_bonus: 1
   B-beta-2:
-    name: "品質上限II"
-    level: 50           # 画像に明示Lvなし。-2は+20と推定
+    name: 品質上限II
+    level: 50
     role: greek
     parent: B-beta-1
     group: B-greek
     icon: AMETHYST_SHARD
     cost: 1
-    effect-text: "クラフト品質+1"
+    effect-text: クラフト品質+1
     effects:
-      - "クラフト品質+1"
+      - クラフト品質+1
     buffs:
-      workbench_quality_bonus: 1   # 旧 native smithing_craftqualitybonus_add (stat化)
+      workbench_quality_bonus: 1
   B-3-upper:
-    name: "解体の術"
+    name: 解体の術
     level: 70
     role: greek
     parent: B-alpha-2
-    parents-any: [B-beta-2]
+    parents-any:
+      - B-beta-2
     icon: SHEARS
     cost: 1
-    effect-text: "解体解放"
+    effect-text: 解体解放
     effects:
-      - "解体を解放"
+      - 解体を解放
     dedicated-effects:
-      - id: "feature:dismantle-unlock"
+      - id: feature:dismantle-unlock
         value: 1
-

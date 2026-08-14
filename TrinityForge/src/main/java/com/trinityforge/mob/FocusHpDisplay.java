@@ -293,9 +293,13 @@ public final class FocusHpDisplay implements Listener {
         MobData data = MobData.of(target);
         int level = data.hasProfile() ? data.level() : 0;
         Component nameComponent = displayNames.displayName(target);
-        int curHp = (int) Math.ceil(target.getHealth());
+        // 2026-08-14: int だと double→int の narrowing が Integer.MAX_VALUE で「飽和」する(JLS 5.1.3。
+        // 負値に巻き戻りはしないが 2,147,483,647 に張り付いて "2.15B" と嘘の値を出す)。現状の最大HP
+        // 69,371,755 は int の範囲内なので今すぐ壊れてはいないが、HP倍率は層をまたいで掛け合わさる
+        // (default × dungeon × mob)ので上限が読めない。long にしておけば 9.2e18 まで飽和しない。
+        long curHp = (long) Math.ceil(target.getHealth());
         AttributeInstance maxHealthAttr = target.getAttribute(Attribute.MAX_HEALTH);
-        int maxHp = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : curHp;
+        long maxHp = maxHealthAttr != null ? (long) Math.ceil(maxHealthAttr.getValue()) : curHp;
         // どちらの型に寄って耐性/防御が設定されているかを示す任意タグ(依頼2)。既存の
         // combat/mob-defaults.yml 系キー(PDCへ既に焼かれている)から導出するだけで、新しい設定面は
         // 増やさない — MobData#defenseFor はプロファイル無しモブでは全項目0を返すので、その場合は

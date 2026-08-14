@@ -1853,6 +1853,34 @@ function validateMobTargetFilter(host, prefix, errors) {
   }
 }
 
+/**
+ * add-drops[].chance-by-level: { from-level, from-chance, to-level, to-chance } の検査
+ * (2026-08-14 フィールドドロップ配線)。
+ *
+ * 4項目すべて必須にしているのは Java 側と揃えるため —— 1つでも欠けると
+ * MobLevelTableConfig#parseChanceCurve がカーブごと捨てて素の chance に戻る。
+ * editor で「3項目だけ入れて保存できた」を許すと、ゲーム内では確率が変わらないのに
+ * 設定画面上は変わったように見える(最悪の食い違い方)。
+ * to-level > from-level も同じ理由(等しいと傾きが定義できず Java 側が捨てる)。
+ */
+function validateLevelDropChanceCurve(curve, prefix, errors) {
+  if (curve === undefined || curve === null) return;
+  const p = `${prefix}.chance-by-level`;
+  if (!isPlainObject(curve)) { errors.push(`${p}: マップである必要があります`); return; }
+  if (!isNonNegInteger(curve["from-level"])) errors.push(`${p}.from-level: 0以上の整数である必要があります`);
+  if (!isNonNegInteger(curve["to-level"])) errors.push(`${p}.to-level: 0以上の整数である必要があります`);
+  if (!isNumber(curve["from-chance"]) || curve["from-chance"] < 0 || curve["from-chance"] > 1) {
+    errors.push(`${p}.from-chance: 0.0〜1.0の数値である必要があります`);
+  }
+  if (!isNumber(curve["to-chance"]) || curve["to-chance"] < 0 || curve["to-chance"] > 1) {
+    errors.push(`${p}.to-chance: 0.0〜1.0の数値である必要があります`);
+  }
+  if (isNonNegInteger(curve["from-level"]) && isNonNegInteger(curve["to-level"])
+      && curve["to-level"] <= curve["from-level"]) {
+    errors.push(`${p}: to-level(${curve["to-level"]}) > from-level(${curve["from-level"]}) が必要です`);
+  }
+}
+
 function validateTfMobLevelTable(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -1917,6 +1945,18 @@ function validateTfMobLevelTable(data, errors) {
           }
           // 2026-07-25 §2-A: mobs は省略可。2026-07-26: mob-ids も同様(両方指定で AND)。
           validateMobTargetFilter(d, p, errors);
+          // 2026-08-14 フィールドドロップ配線: chance-by-level / where / baby。
+          // Java 側(MobLevelTableConfig#parseChanceCurve/parseDropScope/parseBabyFilter)は
+          // どれも fail-soft(不正なら警告して無視)だが、editor 側は保存前に弾く —— 「保存できたのに
+          // ゲーム内では無視される」を作らないため、受理範囲は Java と一致させる。
+          validateLevelDropChanceCurve(d["chance-by-level"], p, errors);
+          if (d.where !== undefined && d.where !== null
+              && !["field", "dungeon", "any"].includes(d.where)) {
+            errors.push(`${p}.where: field / dungeon / any のいずれかである必要があります`);
+          }
+          if (d.baby !== undefined && d.baby !== null && typeof d.baby !== "boolean") {
+            errors.push(`${p}.baby: 真偽値である必要があります`);
+          }
         });
       }
     }
@@ -1935,6 +1975,23 @@ const MOB_OVERRIDE_ATTACK_FIELDS = [
   "attack-power", "flat-bonus-damage", "percent-bonus-damage",
   "crit-chance", "crit-damage", "penetration", "damage-modifier", "fixed-damage"
 ];
+// 難易度倍率 (2026-08-14 新設)。stats 直下に置く「解決後の max-health / attack.attack-power へ
+// 掛ける乗数」で、プレイヤーが選んだレベルに対する相対的な強さ差(=難易度)を表す。
+//
+// 【倍率だけは層をまたいで「掛け合わさる」】 このファイルの他の数値キーは項目単位マージ(=後勝ち)
+// だが、倍率は Java 側 MobStatOverride#applyTo が層ごとに掛けるので
+// default 1.5 × ダンジョン 2.0 × モブ 2.0 = 6.0 倍になる(MobOverridesMultiplierTest の
+// multipliersCompoundAcrossCascadeLayers が固定)。上位スコープの倍率を「打ち消す」書き方は存在しない。
+//
+// 【既定値は 1.0 ではなく「未設定」】 省略された行を 1.0 で実体化して書き戻さないこと。
+// 掛け算としては 1.0 は完全な no-op なので設定の意味は変わらないが、「開いて保存しただけ」で
+// 全モブに意味の無い 1.0 が生え、yml の差分が読めなくなる(normalize 既定値ドリフトの再発防止)。
+//
+// 【数値のみ。クォートされた "2.5" は弾く】 下の isNumber は typeof value === "number" なので
+// 文字列を通さない。Java 側(MobOverridesConfig#nullablePositiveMultiplier)も 2026-08-14 に
+// 数値のみへ寄せてあり、両者の受理範囲は一致している。片方だけ広いと「手書きの yml を editor で
+// 開くとファイルごと保存できない」/「editor で保存できたのにゲーム内では無視される」になる。
+const MOB_OVERRIDE_MULTIPLIER_FIELDS = ["max-health-multiplier", "attack-power-multiplier"];
 function validateMobOverrideStats(stats, prefix, errors) {
   if (stats === undefined || stats === null) return;
   if (!isPlainObject(stats)) { errors.push(`${prefix}.stats: マップである必要があります`); return; }
@@ -1946,6 +2003,17 @@ function validateMobOverrideStats(stats, prefix, errors) {
   }
   if (stats["armor-strength"] !== undefined && stats["armor-strength"] !== null && !isNumber(stats["armor-strength"])) {
     errors.push(`${prefix}.stats.armor-strength: 数値である必要があります`);
+  }
+  // 難易度倍率。省略可(未設定なら倍率そのものが無い = 何も掛けない)。
+  // 0以下を弾くのは、0でHP/攻撃力が消え、負で符号が反転して「保存はできたのに戦闘が成立しない」
+  // 個体を作れてしまうため。Java 側 (MobOverridesConfig) が別の範囲でクランプするなら、
+  // 「editor では保存できたのにゲーム内では無視される」を作らないよう、そちらへ合わせ直すこと。
+  for (const key of MOB_OVERRIDE_MULTIPLIER_FIELDS) {
+    const v = stats[key];
+    if (v === undefined || v === null) continue;
+    if (!isNumber(v) || v <= 0) {
+      errors.push(`${prefix}.stats.${key}: 0より大きい数値である必要があります`);
+    }
   }
   for (const comp of ["physical", "magical"]) {
     const block = stats[comp];

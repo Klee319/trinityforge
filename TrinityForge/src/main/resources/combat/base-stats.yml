@@ -38,7 +38,6 @@
 #    (誤って1.6等バニラ武器の速度をここへ書いてしまう事故が過去にあったため、根本的に排除した設計判断)。
 # 設定リファレンス(本文コメント移設先): docs/config-reference/combat/base-stats.md
 
-
 base-stats:
   attack-power: 0
   attack-speed-bonus: 0
@@ -66,20 +65,12 @@ base-stats:
   damage-reduction: 0
   dodge-chance: 0
   mining-fortune: 0
-  # 採集効率(旧称:最終効率)。2026-07-26 に tool-enchant-efficiency を統合したため、旧キーはここには書かないこと
-  # (StatKeys のエイリアスで gathering-efficiency に畳まれ、同一キーが2行になって片方が消える)。
   gathering-efficiency: 0
   fishing-luck: 0
   fishing-bonus: 0
-  # 経済連携(Vault対応): 釣りの売却額倍率 / 解体の戻り係数 / 海釣り限定fishing-bonus加算分
   fish-sell-price-bonus: 0
   disassembly-return-bonus: 0
   ocean-fishing-bonus: 0
-  # 2026-07-29(重複ステ間引き): mana-bonus / mana-regen は config editor の
-  # 「プレイヤー基礎ステータス」画面から隠した。全員一律値としては「マナ上限への加算」
-  # 「マナ回復量への加算」にしかならず、下の mana-max-base / mana-regen-base に足されるだけで
-  # 意味が完全に重複するため。行自体は StatVocabulary 網羅テストのために残す(アイテム/
-  # パーク側のステとしては引き続き有効で、ここに値を入れれば従来どおり効く)。
   mana-bonus: 0
   mana-regen: 0
   hit-mana-recovery: 0
@@ -90,11 +81,6 @@ base-stats:
   mana-max-base: 100
   mana-regen-base: 5
   mana-regen-interval-ticks: 20
-  # 2026-07-29(重複ステ間引き): mana-onhit-flat / mana-onattack-flat を廃止した。
-  # 「被弾/与ダメ時に固定量マナ回復」は上の hit-mana-recovery / damage-mana-recovery と
-  # 完全に同じ効果で、fork 側の2リスナーが同じイベントで別々に加算していた。
-  # hit-/damage-mana-recovery 側は装備・パーク・本ファイルの全経路を拾うので上位互換。
-  # ここに残る %系は「最大マナの何%」で意味が違うため統合しない。
   mana-onhit-percent: 0.03
   mana-onattack-percent: 0.03
   mana-idle-seconds: 5
@@ -109,26 +95,21 @@ base-stats:
   distance-damage-bonus: 0
   arrow-piercing: 0
   arrow-velocity: 0
-  # 矢/近接のノックバック押し出し量。単位はブロック(m)相当の速度加算で、両者で同じ単位系。
   arrow-knockback: 0
   melee-knockback: 0
   stun-chance: 0
-  # stun-chance発動時の初期スタン時間(tick)。装備・パークの同名値を加算し、100tickでクランプ。
-  stun-duration-bonus: 25
+  stun-duration-bonus: 0
   power-attack-damage: 0
   power-attack-radius: 0
   cooldown-reduction: 0
-  # 2026-07-25 CT設計一本化: ActiveSkill単位のCT短縮キー
   haste-active-mining-cooldown-reduction: 0
   tree-fell-cooldown-reduction: 0
   health-regen-bonus: 0
-  # 2026-07-25 課題2: 棘の鎧ステータス化(反射率)。実=固定値、割=被ダメージ割合。
   reflect-flat: 0
   reflect-percent: 0
   hunger-save-chance: 0
   mob-drop-bonus: 0
   skill-exp-bonus: 0
-  # スキル別の経験値増加(2026-08-02 柱5-3)。skill-exp-bonus とは加算で合成される。
   woodcutting-exp-bonus: 0
   farming-exp-bonus: 0
   digging-exp-bonus: 0
@@ -165,10 +146,7 @@ base-stats:
   planted-crop-growth-bonus: 0
   ritual-quality-bonus: 0
   workbench-quality-bonus: 0
-  # 2026-07-28新設: 武器コーティングの実効上限スタック数への加算(全ソース合算、WeaponCoatingListener消費)。
   coating-charges-bonus: 0
-  # 2026-07-31: 旧 craft-upswing-bonus / craft-downswing-reduction を作業台用と儀式用に分割。
-  # 旧キーは両経路で共有されており、鍛冶ツリーのパークが儀式クラフトにも漏れていた。
   workbench-upswing-bonus: 0
   workbench-downswing-reduction: 0
   ritual-upswing-bonus: 0
@@ -180,20 +158,12 @@ base-stats:
   material-refund-chance: 0
   ingredient-save-chance: 0
   source-cost-reduction: 0
-  # エンチャント/ポーション品質(2026-07-25、かまど・エンチャント・ポーションは実行者限定ステ)
   enchant-luck: 0
   enchant-exp-gain-bonus: 0
-  # 2026-07-26新設: エンチャントテーブルのレベルコストと金床の修理コストを軽減する(0..0.9)。
   enchant-cost-reduction: 0
   potion-quality-bonus: 0
   brew-speed-bonus: 0
   ars-tier-bonus: 0
   glyph-slot-bonus: 0
-  # 2026-07-25 害悪グリフ強化(ars_magic.yml B-3): 特定グリフのダメージ倍率ボーナス(fraction)
   glyph-damage-multiplier-bonus: 0
-  # 2026-07-31: light/heavy-armor-move-speed-per-piece を廃止。装備部位数比例の専用経路を持つだけの
-  # キーで、同じ効果はスキルツリーの set-buffs(段3/4条件バフ)の move-speed で表現できるため統合した。
-  # 2026-07-27(armor-set-buffs全面移行): 旧4キー(light/heavy-armor-set-bonus-multiplier,
-  # light-armor-set-dodge-chance, heavy-armor-set-knockback-resistance)を廃止し、
-  # スキルツリーのset-buffsスキーマ(装備部位3/4段の条件バフ)+ この1キー(軽装/重装共通の増幅率)へ統一。
   armor-set-bonus: 0

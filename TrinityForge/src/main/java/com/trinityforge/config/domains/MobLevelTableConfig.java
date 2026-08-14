@@ -294,15 +294,24 @@ public final class MobLevelTableConfig implements LoadableConfig {
             MobFilterResult mobFilter = parseTargetFilter(map.get("mobs"), map.get("mob-ids"),
                     "min-level=" + minLevel + " add-drops for " + label, log);
             skipped += mobFilter.skipped();
-            Set<String> roles = parseRoleFilter(map.get("roles"),
-                    "min-level=" + minLevel + " add-drops for " + label, log);
+            String context = "min-level=" + minLevel + " add-drops for " + label;
+            Set<String> roles = parseRoleFilter(map.get("roles"), context, log);
+            // 2026-08-14 フィールドドロップ配線: レベル比例確率 / 適用場所 / 子供個体の3キー。
+            // どれも fail-soft —— 不正なら警告して「そのキーが無かったこと」にし、エントリ自体は生かす
+            // (素材そのものが落ちなくなるより、絞り込みが緩くなるほうが気づきやすい)。
+            LevelTierDropEntry.ChanceCurve curve = parseChanceCurve(map.get("chance-by-level"), context, log);
+            LevelTierDropEntry.DropScope where = parseDropScope(map.get("where"), context, log);
+            Boolean baby = parseBabyFilter(map.get("baby"), context, log);
+            warnIfBabyFilterCannotMatch(baby, mobFilter.targets(), context, log);
             try {
                 double chance = clamp01(requireDouble(map, "chance", minLevel, label, log));
                 int min = requireInt(map, "min", minLevel, label, log);
                 int max = requireInt(map, "max", minLevel, label, log);
                 drops.add(catalogId != null
-                        ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets(), roles)
-                        : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets(), roles));
+                        ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets(), roles,
+                                curve, where, baby)
+                        : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets(), roles,
+                                curve, where, baby));
             } catch (IllegalArgumentException ex) {
                 log.warning("[" + PATH + "] min-level=" + minLevel + " add-drops for " + label + " invalid ("
                         + ex.getMessage() + "); skipped");
@@ -338,6 +347,103 @@ public final class MobLevelTableConfig implements LoadableConfig {
             roles.add(name.toLowerCase(Locale.ROOT));
         }
         return Set.copyOf(roles);
+    }
+
+    /**
+     * {@code chance-by-level: { from-level, from-chance, to-level, to-chance }} — 討伐したモブの
+     * レベルで確率を線形補間するカーブ(2026-08-14 フィールドドロップ配線)。
+     *
+     * <p>未指定なら {@code null}(＝素の {@code chance:} をそのまま使う、後方互換)。不正な形・
+     * 不正な値なら警告して {@code null} を返す —— <b>エントリごと落とさない</b>のが重要で、
+     * 「カーブの書き間違いで素材が丸ごと入手不能になる」より「確率が既定値のまま」のほうが安全。
+     */
+    private static LevelTierDropEntry.ChanceCurve parseChanceCurve(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Map<?, ?> map)) {
+            log.warning("[" + PATH + "] " + context + " 'chance-by-level' must be a mapping"
+                    + " {from-level, from-chance, to-level, to-chance}; ignored");
+            return null;
+        }
+        Object fromLevel = map.get("from-level");
+        Object fromChance = map.get("from-chance");
+        Object toLevel = map.get("to-level");
+        Object toChance = map.get("to-chance");
+        if (!(fromLevel instanceof Number fl) || !(fromChance instanceof Number fc)
+                || !(toLevel instanceof Number tl) || !(toChance instanceof Number tc)) {
+            log.warning("[" + PATH + "] " + context + " 'chance-by-level' needs numeric from-level/"
+                    + "from-chance/to-level/to-chance; ignored");
+            return null;
+        }
+        try {
+            return new LevelTierDropEntry.ChanceCurve(fl.intValue(), clamp01(fc.doubleValue()),
+                    tl.intValue(), clamp01(tc.doubleValue()));
+        } catch (IllegalArgumentException ex) {
+            log.warning("[" + PATH + "] " + context + " 'chance-by-level' invalid (" + ex.getMessage()
+                    + "); ignored");
+            return null;
+        }
+    }
+
+    /**
+     * {@code where: field | dungeon | any} — このドロップを適用する場所(2026-08-14)。
+     * 未指定/不正なら {@link LevelTierDropEntry.DropScope#ANY}(従来どおり場所を問わない)。
+     * 不正値は必ず警告する —— 黙って ANY になると「フィールド限定のつもりがダンジョンでも落ちる」
+     * という、ログにも出ない形で仕様が壊れるため。
+     */
+    private static LevelTierDropEntry.DropScope parseDropScope(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return LevelTierDropEntry.DropScope.ANY;
+        }
+        LevelTierDropEntry.DropScope parsed = LevelTierDropEntry.DropScope.parse(String.valueOf(raw));
+        if (parsed == null) {
+            log.warning("[" + PATH + "] " + context + " 'where' must be field/dungeon/any (was '" + raw
+                    + "'); treated as 'any'");
+            return LevelTierDropEntry.DropScope.ANY;
+        }
+        return parsed;
+    }
+
+    /**
+     * {@code baby: true|false} — 子供個体だけ/大人個体だけに絞る(2026-08-14)。未指定なら
+     * {@code null}(区別しない、後方互換)。Bukkit には {@code BABY_ZOMBIE} のような EntityType が
+     * 存在せず、子供かどうかは実行時プロパティなので {@code mobs:} では表現できない。
+     */
+    private static Boolean parseBabyFilter(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Boolean flag)) {
+            log.warning("[" + PATH + "] " + context + " 'baby' must be true/false (was '" + raw
+                    + "'); ignored");
+            return null;
+        }
+        return flag;
+    }
+
+    /**
+     * {@code baby:} を書いたのに、{@code mobs:} に {@link org.bukkit.entity.Ageable} を実装しない
+     * EntityType が混ざっている場合の警告(2026-08-14)。この組み合わせは実行時に<b>常に不一致</b>に
+     * なる = そのモブからは1個も落ちない。例外も出ずログにも残らないので、ロード時にここで言う。
+     */
+    private static void warnIfBabyFilterCannotMatch(Boolean baby, MobTargetFilter targets, String context,
+                                                     Logger log) {
+        if (baby == null || targets == null || targets.entityTypes().isEmpty()) {
+            return;
+        }
+        List<String> unsupported = new ArrayList<>();
+        for (EntityType type : targets.entityTypes()) {
+            Class<?> entityClass = type.getEntityClass();
+            if (entityClass == null || !org.bukkit.entity.Ageable.class.isAssignableFrom(entityClass)) {
+                unsupported.add(type.name());
+            }
+        }
+        if (!unsupported.isEmpty()) {
+            log.warning("[" + PATH + "] " + context + " has 'baby' but these mobs are not Ageable"
+                    + " (they can never be baby/adult, so this entry will NEVER drop for them): "
+                    + unsupported);
+        }
     }
 
     /**

@@ -34,23 +34,6 @@ fish-sell:
     TROPICAL_FISH: 6
     PUFFERFISH: 4
   max-sells-per-minute: 10
-# 経験値の瓶詰め (feature:xp-bottle-store-unlock)
-# 【2026-08-05 仕様変更】格納はガラス瓶の通常右クリック(sneak不要)。取り出しは充填済み経験値瓶の
-# 右クリックで、手にはガラス瓶が戻る(経験値瓶を返すとガラス瓶→経験値瓶の無償変換路になるため)。
-# ガラス瓶で水汲み・蜜採取・チェスト開けなどバニラの操作が成立するクリックでは何も起きない。
-#
-# return-rate は「取り出し時に返る割合」で、単位は 0.0〜1.0 の分数。
-# 1.0 = 目減りなし。範囲外の値を書くとその段だけ起動時に警告つきでスキップされる。
-#
-# 【2026-07-30 修正】段の return-rate が 50/60/70/80 と % 表記で書かれていたため
-# 検証([0,1])に落ちて 4段すべてがスキップされ、全プレイヤーがグローバル値の
-# return-rate: 1(目減りゼロ)で運用されていた。
-# skilltree/enchanting.yml B-3 の設計メモに「経験値増殖の観点からデバフ必須」と
-# 明記されているので、グローバル値も目減りありへ揃えている。
-# 段は上がるほど改善する(格下げが起きないようグローバル値 = 段1 にしてある)。
-#
-# tier は feature:xp-bottle-store-unlock の value。SCALE 化済みで value 省略 = tier 1。
-# 段2〜4 は value: 2/3/4 を持つノードを置いたときに初めて到達する。
 xp-bottle-store:
   store-amount: 100
   return-rate: 0.5
@@ -86,41 +69,110 @@ fishing:
   groups:
     treasure:
       categories:
-        gacha:
-          display-name: 釣りガチャ券
+        ore:
+          display-name: 鉱石
           entries:
-            - item: gacha_ticket_4
-              weight: 3
+            - item: COPPER_INGOT
+              weight: 12
               amount: 1
-            - item: gacha_ticket_5
+            - item: GOLD_INGOT
+              weight: 10
+              amount: 1
+            - item: IRON_INGOT
+              weight: 12
+              amount: 1
+            - item: REDSTONE
+              weight: 12
+              amount: 1
+            - item: LAPIS_LAZULI
+              weight: 10
+              amount: 1
+            - item: AMETHYST_SHARD
+              weight: 10
+              amount: 1
+            - item: EMERALD
+              weight: 7
+              amount: 1
+            - item: DIAMOND
+              weight: 4
+              amount: 1
+            - item: NETHERITE_SCRAP
               weight: 1
               amount: 1
-        # 2026-08-01 追加: ダンジョンの鍵(釣り枠2種)。宝グループ(treasure-percent: 5)の中の抽選。
-        # 鍵をルート限定にする配分のうち、水系ダンジョン2種をここへ寄せた。
-        # weight は騎士団の城3 : 闇の大聖堂2 で、より深い側を細くしてある。
-        dungeon_keys:
-          display-name: ダンジョンの鍵
-          entries:
-            - item: key_knight_castle
-              weight: 3
-              amount: 1
-            - item: key_dark_cathedral
-              weight: 2
+            - item: COAL
+              weight: 15
               amount: 1
         treasure_vanilla:
           display-name: バニラ宝(移植)
           entries:
             - item: NAME_TAG
-              weight: 1
+              weight: 10
               amount: 1
             - item: SADDLE
-              weight: 1
+              weight: 10
               amount: 1
             - item: NAUTILUS_SHELL
-              weight: 1
+              weight: 10
               amount: 1
             - item: BOW
+              weight: 10
+              amount: 1
+            - item: HEART_OF_THE_SEA
               weight: 1
+              amount: 1
+            - item: EXPERIENCE_BOTTLE
+              weight: 5
+              amount: 1
+            - item: COPPER_PICKAXE
+              weight: 10
+              amount: 1
+            - item: GOLDEN_PICKAXE
+              weight: 8
+              amount: 1
+            - item: IRON_PICKAXE
+              weight: 6
+              amount: 1
+            - item: DIAMOND_PICKAXE
+              weight: 3
+              amount: 1
+            - item: NETHERITE_PICKAXE
+              weight: 1
+              amount: 1
+            - item: GOLDEN_HOE
+              weight: 8
+              amount: 1
+            - item: IRON_HOE
+              weight: 6
+              amount: 1
+            - item: DIAMOND_HOE
+              weight: 3
+              amount: 1
+            - item: NETHERITE_HOE
+              weight: 1
+              amount: 1
+            - item: GOLDEN_AXE
+              weight: 8
+              amount: 1
+            - item: IRON_AXE
+              weight: 6
+              amount: 1
+            - item: COPPER_AXE
+              weight: 10
+              amount: 1
+            - item: DIAMOND_AXE
+              weight: 3
+              amount: 1
+            - item: NETHERITE_AXE
+              weight: 1
+              amount: 1
+            - item: COPPER_HOE
+              weight: 10
+              amount: 1
+        gatya:
+          display-name: tier1
+          entries:
+            - item: custom:gacha_ticket_fishing
+              weight: 10
               amount: 1
     junk:
       categories:
@@ -154,10 +206,7 @@ fishing:
             - item: TRIPWIRE_HOOK
               weight: 1
               amount: 1
-        ocean_thread:
-          display-name: 海洋の空スレッド
-          scrap-exempt: true
-          entries:
-            - item: thread_empty
-              weight: 1
+            - item: custom:tf_scrap
+              weight: 20
               amount: 1
+          scrap-exempt: true

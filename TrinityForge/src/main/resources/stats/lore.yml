@@ -21,8 +21,8 @@
 # 設定リファレンス(本文コメント移設先): docs/config-reference/stats/lore.md
 
 layout:
-  line-template: <gray><icon><name>：<value></gray>
-  score-line-template: <tier><gray>:</gray>  <aqua><score>pt</aqua>
+  line-template: <color:gray><icon><name>：<value></color>
+  score-line-template: <tier><color:gray>:</color>  <color:aqua><score>pt</color>
   positive-color: white
   negative-color: red
   header: []
@@ -35,9 +35,6 @@ bind:
   show-owner: true
   owner-line: "<gray>所有者: <white><owner></white></gray>"
   show-use-requirement: true
-  # 2026-08-05: 開きタグ3・閉じタグ2で <gray> が閉じておらず、editor のリッチ編集(GUI)が
-  # このフィールドだけ常に無効になっていた(MiniMessage 自体は未終端を許すので表示は正常)。
-  # </white> の直後は外側の <gray> へ戻るので、内側の <gray> は元から no-op = 消しても表示は同じ。
   use-requirement-line: "<gray>必要Lv: <white><level></white> <skill></gray>"
 stats:
   attack-power:
@@ -177,7 +174,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 3
+    order: 1
     show-sign: true
     hide-when-zero: true
     unit: 秒
@@ -262,7 +259,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 50
+    order: 2
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -280,7 +277,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 1
-    order: 51
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -298,7 +295,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 52
+    order: 1
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -309,11 +306,11 @@ stats:
         - PLAYER
         - MOB
   knockback-resistance:
-    name: K耐性
+    name: ノックバック耐性
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 53
+    order: 13
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -343,7 +340,7 @@ stats:
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 1000
+    order: 4
     show-sign: false
     hide-when-zero: true
     category: other
@@ -352,7 +349,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 60
+    order: 4
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -370,7 +367,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 61
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -388,7 +385,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 65
+    order: 11
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -406,7 +403,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 66
+    order: 12
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -419,14 +416,12 @@ stats:
     limits:
       cap: 0.9
       cap-ref: combat/damage.yml#defense.max-dodge-chance
-  # 2026-08-05 仕様変更: 反射は「反射率の確率で発動し、素殴りダメージを返す」方式になった。
-  # reflect-flat は発動したときだけ上乗せされる実数(毎回発動する別枠ではない)。
   reflect-flat:
-    name: 反射追加ダメージ(実数)
+    name: 反射ダメ追加
     icon: ""
     format: FLAT
     decimals: 1
-    order: 67
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -437,13 +432,12 @@ stats:
         - PLAYER
     limits:
       floor: 0
-  # 2026-08-05 仕様変更: 被ダメージ割合ではなく「反射の発動確率」。
   reflect-percent:
     name: 反射率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 68
+    order: 9
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -454,10 +448,9 @@ stats:
         - PLAYER
     limits:
       floor: 0
-      # 確率なので 100% を超えても意味が無い(常時発動で頭打ち)。
       cap: 1
   gathering-efficiency:
-    name: 採集効率
+    name: 効率強化増幅
     icon: ""
     format: FLAT
     decimals: 1
@@ -471,7 +464,7 @@ stats:
       applies-to:
         - PLAYER
   mining-fortune:
-    name: 採掘運
+    name: 幸運(採掘)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -485,7 +478,7 @@ stats:
       applies-to:
         - PLAYER
   fishing-luck:
-    name: 釣り運
+    name: 宝釣り
     icon: ""
     format: PERCENT
     decimals: 0
@@ -499,9 +492,8 @@ stats:
       applies-to:
         - PLAYER
   fishing-bonus:
-    name: 釣りボーナス
+    name: 二本釣り
     icon: ""
-    # 2026-08-05: 追加ドロップの期待個数(FLAT)ではなく増加率(PERCENT)。mining-fortune と同じ期待値方式。
     format: PERCENT
     decimals: 0
     order: 83
@@ -514,11 +506,11 @@ stats:
       applies-to:
         - PLAYER
   mana-bonus:
-    name: 最大マナ加算
+    name: マナ上限
     icon: ""
     format: FLAT
     decimals: 0
-    order: 70
+    order: 1
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -528,11 +520,11 @@ stats:
       applies-to:
         - PLAYER
   mana-regen:
-    name: 時間マナ回復加算
+    name: マナ回復量
     icon: ""
     format: FLAT
     decimals: 1
-    order: 71
+    order: 2
     show-sign: true
     hide-when-zero: true
     unit: /秒
@@ -543,11 +535,11 @@ stats:
       applies-to:
         - PLAYER
   hit-mana-recovery:
-    name: 被弾マナ回復(実数)
+    name: 被弾マナ回復(実)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 72
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -557,11 +549,11 @@ stats:
       applies-to:
         - PLAYER
   damage-mana-recovery:
-    name: 攻撃マナ回復(実数)
+    name: 攻撃マナ回復(実)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 73
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -575,22 +567,22 @@ stats:
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 74
+    order: 3
     show-sign: false
     hide-when-zero: true
     unit: 枠
-    category: ars
+    category: other
     trigger:
       when: PASSIVE
       sources: WORN_ARMOR_ONLY
       applies-to:
         - PLAYER
   mana-cost-reduction-flat:
-    name: マナ消費軽減(実数)
+    name: マナ消費効率(実)
     icon: ""
     format: FLAT
     decimals: 0
-    order: 75
+    order: 7
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -600,7 +592,7 @@ stats:
       applies-to:
         - PLAYER
   mana-cost-reduction-percent:
-    name: マナ消費軽減率
+    name: マナ消費効率(率)
     icon: ""
     # 2026-08-12: FLAT + unit "%" から PERCENT へ訂正した。このステは PercentStatNormalize が
     # [0,1] の割合として扱うキー(item-stats.yml の出荷値も 0.004 / 0.007〜0.094 の割合)なのに
@@ -610,7 +602,7 @@ stats:
     # 付けるので unit: の指定は不要(書くと "%%" になる)。
     format: PERCENT
     decimals: 1
-    order: 76
+    order: 8
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -626,7 +618,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 62
+    order: 7
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -646,7 +638,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 63
+    order: 8
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -827,14 +819,14 @@ stats:
       applies-to:
         - PLAYER
   cooldown-reduction:
-    name: アイテムCT短縮
+    name: CT効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 111
+    order: 2
     show-sign: true
     hide-when-zero: true
-    category: attack
+    category: other
     trigger:
       when: ON_MELEE_HIT
       sources: ALL
@@ -843,23 +835,23 @@ stats:
     limits:
       cap: 0.9
   haste-active-mining-cooldown-reduction:
-    name: 高速破壊CT短縮
+    name: 高速破壊CT効率
     icon: ""
     format: PERCENT
     decimals: 0
     order: 112
     show-sign: true
     hide-when-zero: true
-    category: attack
+    category: gathering
   tree-fell-cooldown-reduction:
-    name: 一括伐採CT短縮
+    name: 一括伐採CT効率
     icon: ""
     format: PERCENT
     decimals: 0
     order: 113
     show-sign: true
     hide-when-zero: true
-    category: attack
+    category: gathering
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
@@ -872,21 +864,21 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 91
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: defense
   coating-charges:
-    name: コーティング回数
+    name: コーティング数
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 1001
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: other
   hunger-save-chance:
-    name: 空腹節約率
+    name: 満腹効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -895,7 +887,7 @@ stats:
     hide-when-zero: true
     category: utility
   mob-drop-bonus:
-    name: 討伐ドロップ増加
+    name: ドロップ効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -911,7 +903,7 @@ stats:
     limits:
       cap: 2
   skill-exp-bonus:
-    name: スキル経験値増加
+    name: 職業EXP増加
     icon: ""
     format: PERCENT
     decimals: 0
@@ -924,11 +916,8 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
-  # スキル別の経験値増加(2026-08-02 柱5-3)。skill-exp-bonus(全スキル一律)とは加算で合成される。
-  # 付与先スキルを縛るのはこのキーだけ。use-skill は装備要件であって分類マーカーではないので、
-  # use-skill: WOODCUTTING を分類に使うと「斧で殴っただけで伐採EXPが入る」罠を踏む。
   woodcutting-exp-bonus:
-    name: 伐採経験値増加
+    name: 職業EXP増加(伐採)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -942,7 +931,7 @@ stats:
       applies-to:
         - PLAYER
   farming-exp-bonus:
-    name: 農業経験値増加
+    name: 職業EXP増加(農業)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -956,7 +945,7 @@ stats:
       applies-to:
         - PLAYER
   digging-exp-bonus:
-    name: 掘削経験値増加
+    name: 職業EXP増加(掘削)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -969,12 +958,6 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
-  # 2026-08-05: 実サーバ指摘「職業EXP増加のステータスの種類が、総合と、掘削、農業、伐採しかない」。
-  # 消費側(PerSkillExpBonus)はスキルIDからキーを機械的に組むので実装は元から全スキル対応で、
-  # 欠けていたのは語彙/lore/%矯正の登録だけだった。残り12スキル分をここで揃える。
-  # POWER(総合)は作らない: POWER EXP はプレイヤー行動から直接付与されず、他スキルのレベルアップ時に
-  # NativeProgressionService が内部で加算するだけ(倍率適用より後段)なので、キーを作っても
-  # 一度も読まれない。全スキル一律の skill-exp-bonus(職業EXP増加)が POWER にも効く。
   mining-exp-bonus:
     name: 職業EXP増加(採掘)
     icon: ""
@@ -1144,7 +1127,7 @@ stats:
       applies-to:
         - PLAYER
   loot-luck:
-    name: 幸運
+    name: 開運
     icon: ""
     format: FLAT
     decimals: 1
@@ -1153,7 +1136,7 @@ stats:
     hide-when-zero: true
     category: utility
   mob-drop-quality:
-    name: ドロップ品質
+    name: 品質運(ドロップ)
     icon: ""
     format: FLAT
     decimals: 1
@@ -1167,7 +1150,7 @@ stats:
       applies-to:
         - PLAYER
   gacha-rate-bonus:
-    name: ガチャ確率UP
+    name: ガチャ運
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1176,7 +1159,7 @@ stats:
     hide-when-zero: true
     category: utility
   food-save-chance:
-    name: 食料節約率
+    name: 食料効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1192,7 +1175,7 @@ stats:
     limits:
       cap: 1
   suspicious-respawn-chance:
-    name: 怪しいブロック復活
+    name: 磨き効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1206,7 +1189,7 @@ stats:
       applies-to:
         - PLAYER
   hive-harvest-fortune:
-    name: 養蜂幸運
+    name: 養蜂効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1215,7 +1198,7 @@ stats:
     hide-when-zero: true
     category: gathering
   kill-vanilla-exp-bonus:
-    name: 討伐時バニラEXP
+    name: EXP増加(討伐)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1229,7 +1212,7 @@ stats:
       applies-to:
         - PLAYER
   break-vanilla-exp-bonus:
-    name: 破壊時バニラEXP
+    name: EXP増加(破壊)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1243,7 +1226,7 @@ stats:
       applies-to:
         - PLAYER
   vanilla-exp-bonus:
-    name: 常時バニラEXP
+    name: EXP増加
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1257,7 +1240,7 @@ stats:
       applies-to:
         - PLAYER
   breeding-vanilla-exp-bonus:
-    name: 繁殖時バニラEXP
+    name: EXP増加(繁殖)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1266,7 +1249,7 @@ stats:
     hide-when-zero: true
     category: utility
   woodcutting-extra-drop-chance:
-    name: 伐採追加ドロップ率
+    name: 幸運(伐採)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1280,7 +1263,7 @@ stats:
       applies-to:
         - PLAYER
   harvest-extra-drop-chance:
-    name: 収穫追加ドロップ率
+    name: 幸運(収穫)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1294,7 +1277,7 @@ stats:
       applies-to:
         - PLAYER
   food-restore-bonus:
-    name: 満腹度回復量
+    name: 満腹度回復
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1308,7 +1291,7 @@ stats:
       applies-to:
         - PLAYER
   hidden-saturation-bonus:
-    name: 隠し満腹度回復量
+    name: 隠し満腹度回復
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1322,7 +1305,7 @@ stats:
       applies-to:
         - PLAYER
   breeding-extra-child-chance:
-    name: 繁殖追加子供率
+    name: 繁殖運
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1331,7 +1314,7 @@ stats:
     hide-when-zero: true
     category: utility
   bred-animal-growth-bonus:
-    name: 動物成長速度
+    name: 成長効率(動物)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1340,7 +1323,7 @@ stats:
     hide-when-zero: true
     category: utility
   planted-crop-growth-bonus:
-    name: 作物成長速度
+    name: 成長効率(作物)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1386,7 +1369,7 @@ stats:
       applies-to:
         - PLAYER
   workbench-upswing-bonus:
-    name: 作業台上振れ拡大
+    name: 品質運(作業台)
     icon: ""
     format: FLAT
     decimals: 1
@@ -1402,7 +1385,7 @@ stats:
     limits:
       floor: 0
   workbench-downswing-reduction:
-    name: 作業台下振れ抑制
+    name: 品質効率(作業台)
     icon: ""
     format: FLAT
     decimals: 1
@@ -1418,7 +1401,7 @@ stats:
     limits:
       floor: 0
   ritual-upswing-bonus:
-    name: 儀式上振れ拡大
+    name: 品質運(儀式)
     icon: ""
     format: FLAT
     decimals: 1
@@ -1434,7 +1417,7 @@ stats:
     limits:
       floor: 0
   ritual-downswing-reduction:
-    name: 儀式下振れ抑制
+    name: 品質効率(儀式)
     icon: ""
     format: FLAT
     decimals: 1
@@ -1450,16 +1433,14 @@ stats:
     limits:
       floor: 0
   craft-roll-up-bonus:
-    # 2026-08-05: 単位を明示。CraftQualityService が値を /100 して品質ロールの σ/収束(0〜1)へ足すので
-    # 記法はパーセントポイント(10 = 10%)。小数もそのまま効く(0.5 = 0.5%)。負値は0へ潰される。
-    unit: "%"
-    name: ロール上振れ
+    name: ロール運
     icon: ""
     format: FLAT
     decimals: 1
     order: 205
     show-sign: true
     hide-when-zero: true
+    unit: "%"
     category: craft
     trigger:
       when: ON_CRAFT
@@ -1469,15 +1450,14 @@ stats:
     limits:
       floor: 0
   craft-roll-down-reduction:
-    # 2026-08-05: craft-roll-up-bonus と同じパーセントポイント記法(/100 して下振れσから引く)。
-    unit: "%"
-    name: ロール下振れ抑制
+    name: ロール効率
     icon: ""
     format: FLAT
     decimals: 1
     order: 206
     show-sign: true
     hide-when-zero: true
+    unit: "%"
     category: craft
     trigger:
       when: ON_CRAFT
@@ -1487,8 +1467,6 @@ stats:
     limits:
       floor: 0
   craft-roll-inset:
-    # 2026-08-05: 同じくパーセントポイント記法。/100 した分だけ収束幅を減らす(実効は 0〜0.4999 でクランプ)。
-    unit: "%"
     name: ロール収束
     icon: ""
     format: FLAT
@@ -1496,6 +1474,7 @@ stats:
     order: 207
     show-sign: true
     hide-when-zero: true
+    unit: "%"
     category: craft
     trigger:
       when: ON_CRAFT
@@ -1505,7 +1484,7 @@ stats:
     limits:
       floor: 0
   lapis-cost-reduction:
-    name: ラピス消費軽減
+    name: ラピス消費効率
     icon: ""
     format: INTEGER
     decimals: 0
@@ -1522,7 +1501,7 @@ stats:
     limits:
       floor: 0
   material-refund-chance:
-    name: 素材返還率
+    name: 素材効率（儀式）
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1539,7 +1518,7 @@ stats:
       floor: 0
       cap: 1
   ingredient-save-chance:
-    name: 材料節約率
+    name: 素材効率（醸造）
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1558,11 +1537,11 @@ stats:
       cap: 1
       cap-ref: java:com.trinityforge.listeners.BrewIngredientSaveListener#MAX_INGREDIENT_SAVE_CHANCE
   source-cost-reduction:
-    name: ソース消費軽減
+    name: ソース消費効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 77
+    order: 12
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -1575,7 +1554,7 @@ stats:
       floor: 0
       cap: 0.95
   enchant-cost-reduction:
-    name: エンチャント費用軽減
+    name: エンチャント効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1599,11 +1578,11 @@ stats:
         - PLAYER
         - MOB
   flat-defense:
-    name: 守備力(汎用)
+    name: 守備力
     icon: ""
     format: FLAT
     decimals: 1
-    order: 55
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -1635,7 +1614,7 @@ stats:
     limits:
       floor: 0
   disassembly-return-bonus:
-    name: 解体戻り量増加
+    name: 解体効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1651,7 +1630,7 @@ stats:
     limits:
       floor: 0
   ocean-fishing-bonus:
-    name: 海釣り加算
+    name: 海釣り
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1665,11 +1644,11 @@ stats:
       applies-to:
         - PLAYER
   ars-tier-bonus:
-    name: Ars Tier追加
+    name: 詠唱レベル
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 78
+    order: 13
     show-sign: true
     hide-when-zero: true
     unit: ティア
@@ -1680,11 +1659,11 @@ stats:
       applies-to:
         - PLAYER
   glyph-slot-bonus:
-    name: グリフ枠追加
+    name: グリフ枠
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 79
+    order: 14
     show-sign: true
     hide-when-zero: true
     unit: 枠
@@ -1695,11 +1674,11 @@ stats:
       applies-to:
         - PLAYER
   glyph-damage-multiplier-bonus:
-    name: グリフダメ倍率
+    name: グリフダメージ
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 80
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: ars
@@ -1708,7 +1687,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 58
+    order: 14
     show-sign: true
     hide-when-zero: true
     category: defense
@@ -1729,7 +1708,7 @@ stats:
     limits:
       floor: 0
   enchant-exp-gain-bonus:
-    name: エンチャEXP増減
+    name: EXP増加(エンチャント)
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1760,7 +1739,7 @@ stats:
     limits:
       floor: 0
   brew-speed-bonus:
-    name: 醸造速度
+    name: 醸造効率
     icon: ""
     format: PERCENT
     decimals: 0
@@ -1778,7 +1757,7 @@ stats:
       cap: 0.9
       cap-ref: java:com.trinityforge.listeners.PotionQualityListener#MAX_SPEED_REDUCTION
   coating-charges-bonus:
-    name: コート上限追加
+    name: コート上限
     icon: ""
     format: INTEGER
     decimals: 0
@@ -1795,48 +1774,48 @@ stats:
   #   アイテムに設定するマナ上限は `mana-bonus`(マナ上限)。
   #   値の編集は config editor の「共通変数」画面 (combat/base-stats.yml) で行う。
   mana-onhit-percent:
-    name: 被弾マナ回復率
+    name: 被弾マナ回復(率)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 84
+    order: 4
     show-sign: true
     hide-when-zero: true
     category: ars
   mana-onattack-percent:
-    name: 攻撃マナ回復率
+    name: 攻撃マナ回復(率)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 88
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: ars
   mana-idle-seconds:
-    name: 待機マナ秒数
+    name: 待機マナ速度
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 90
+    order: 9
     show-sign: false
     hide-when-zero: true
     unit: 秒
     category: ars
   mana-idle-bonus-percent:
-    name: 待機マナ回復率
+    name: 待機マナ回復(率)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 92
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: ars
   mana-idle-bonus-flat:
-    name: 待機マナ回復(実数)
+    name: 待機マナ回復(実)
     icon: ""
     format: FLAT
     decimals: 1
-    order: 93
+    order: 11
     show-sign: true
     hide-when-zero: true
     category: ars

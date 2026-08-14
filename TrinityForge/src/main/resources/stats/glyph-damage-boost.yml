@@ -4,5 +4,13 @@
 # 「どのグリフのダメージに乗るか」はこの一覧で決める(harmに決め打ちしない汎用設計)。
 # 将来別のグリフを対象に加えたい場合は、ここへグリフIDを追記するだけでよい
 # (フォーク側は TrinityForge#glyphDamageMultiplier(caster, glyphId) を呼ぶだけで済む)。
+
 boosted-glyphs:
   - harm
+  - explosion
+  - crush_wave
+  - cold_snap
+  - ignite
+  - lightning
+  - scorch
+  - accelerate

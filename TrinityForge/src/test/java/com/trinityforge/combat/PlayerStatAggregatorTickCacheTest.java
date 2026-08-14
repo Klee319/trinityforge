@@ -39,6 +39,13 @@ import static org.mockito.Mockito.verify;
  */
 class PlayerStatAggregatorTickCacheTest {
 
+    /**
+     * profileFor 呼び出し回数は「実解決が走ったか / キャッシュから返ったか」の代理指標。1 回の実解決あたり
+     * 非 air アイテム 1 個につき 3 回呼ばれる（装着専用スロットゲート / resolve / resolveMultipliers）。
+     * この定数はゲートの実装都合であって、テストが守りたいのは「実解決の回数」の方。
+     */
+    private static final int RESOLVE_PROFILE_LOOKUPS = 3;
+
     private ServerMock server;
 
     @BeforeEach
@@ -89,11 +96,13 @@ class PlayerStatAggregatorTickCacheTest {
 
         assertSame(first, second, "same tick + same key must return the cached instance, not a fresh one");
         assertEquals(10.0, first.mainhand().get("attack_power"), 1e-9);
-        // profileFor is called twice per real resolution of the mainhand sword (once from
-        // DerivedItemStats.resolve, once from DerivedItemStats.resolveMultipliers); the sword is the
-        // only non-air item this player has, so exactly 2 total calls proves the second aggregate()
+        // profileFor is called 3x per real resolution of the mainhand sword: once from
+        // PlayerStatAggregator.socketedOnly (the "装着専用(スレッド)" slot gate added 2026-08-14, which
+        // must read the item's profile to decide whether the slot contributes at all), once from
+        // DerivedItemStats.resolve, once from DerivedItemStats.resolveMultipliers. The sword is the
+        // only non-air item this player has, so exactly 3 total calls proves the second aggregate()
         // was served entirely from cache instead of re-resolving.
-        verify(spiedItemStats, times(2)).profileFor(any(), any());
+        verify(spiedItemStats, times(RESOLVE_PROFILE_LOOKUPS)).profileFor(any(), any());
     }
 
     @Test
@@ -109,9 +118,10 @@ class PlayerStatAggregatorTickCacheTest {
 
         assertNotSame(first, second, "advancing the tick must invalidate the memo and force a fresh resolve");
         assertEquals(first.mainhand(), second.mainhand(), "the resolved VALUE is unchanged, only re-computed");
-        // 2 calls per real resolution (see sameTickReturnsIdenticalResultAndResolvesOnlyOnce) x 2 real
-        // resolutions (before and after the tick advance) = 4.
-        verify(spiedItemStats, times(4)).profileFor(any(), any());
+        // RESOLVE_PROFILE_LOOKUPS calls per real resolution (see
+        // sameTickReturnsIdenticalResultAndResolvesOnlyOnce) x 2 real resolutions (before and after
+        // the tick advance).
+        verify(spiedItemStats, times(2 * RESOLVE_PROFILE_LOOKUPS)).profileFor(any(), any());
     }
 
     @Test
@@ -127,8 +137,9 @@ class PlayerStatAggregatorTickCacheTest {
         PlayerCombatAggregate resultB = aggregator.aggregate(playerB, sword);
 
         assertNotSame(resultA, resultB, "distinct players must not share a cache entry even with an equal item");
-        // Two distinct players -> two real resolutions in the same tick (x2 profileFor calls each, see
-        // sameTickReturnsIdenticalResultAndResolvesOnlyOnce), even though the item is equal.
-        verify(spiedItemStats, times(4)).profileFor(any(), any());
+        // Two distinct players -> two real resolutions in the same tick (xRESOLVE_PROFILE_LOOKUPS
+        // profileFor calls each, see sameTickReturnsIdenticalResultAndResolvesOnlyOnce), even though
+        // the item is equal.
+        verify(spiedItemStats, times(2 * RESOLVE_PROFILE_LOOKUPS)).profileFor(any(), any());
     }
 }

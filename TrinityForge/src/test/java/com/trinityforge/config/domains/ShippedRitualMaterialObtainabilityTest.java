@@ -143,48 +143,45 @@ class ShippedRitualMaterialObtainabilityTest {
     }
 
     @Test
-    @DisplayName("warden_tendril が踏破ボス3種に chance 0.5 / 1〜2個で載っている — 率・個数・ボスを変えると落ちる")
-    void wardenTendrilIsPinnedOnTheThreeClearBosses() throws Exception {
-        YamlConfiguration overridesYaml = load(MOB_OVERRIDES, MOB_ID_SAFE_PATH_SEPARATOR);
-        ConfigurationSection overrides = overridesYaml.getConfigurationSection("overrides");
-        assertNotNull(overrides, MOB_OVERRIDES + " に overrides: 節が無い");
-
+    @DisplayName("warden_tendril はフィールドのウォーデン討伐に載っている — 対象モブ/場所/確率/個数を変えると落ちる")
+    void wardenTendrilIsPinnedOnFieldWardenKills() throws Exception {
+        // 2026-08-14: ユーザー指示「討伐素材17種はフィールドの該当モブの固有ドロップへ。
+        // ダンジョンモブには適用しない」により、配布先が mob-overrides.yml の踏破ボス3種から
+        // mob-level-table.yml の add-drops(mobs: [WARDEN] / where: field)へ移った。
+        // 【踏破ボスへ戻さないこと】—— 戻すとダンジョン限定の素材になり、指示と逆になる。
+        YamlConfiguration levelTable = load(MOB_LEVEL_TABLE);
         Map<String, String> found = new TreeMap<>();
-        for (String scopeKey : overrides.getKeys(false)) {
-            ConfigurationSection scope = overrides.getConfigurationSection(scopeKey);
-            if (scope == null) {
-                continue;
-            }
-            ConfigurationSection mobs = scope.getConfigurationSection("mobs");
-            if (mobs == null) {
-                continue;
-            }
-            for (String mobId : mobs.getKeys(false)) {
-                ConfigurationSection mob = mobs.getConfigurationSection(mobId);
-                if (mob == null) {
+        for (Map<?, ?> tier : levelTable.getMapList("tiers")) {
+            for (Map<?, ?> drop : maps(tier.get("add-drops"))) {
+                if (!"warden_tendril".equals(stripCustomPrefix(text(drop.get("material"))))) {
                     continue;
                 }
-                for (Map<?, ?> drop : mob.getMapList("drops")) {
-                    if (!"warden_tendril".equals(stripCustomPrefix(text(drop.get("item"))))) {
-                        continue;
-                    }
-                    found.put(mobId, "chance=" + number(drop.get("chance"))
-                            + " min=" + number(drop.get("min"))
-                            + " max=" + number(drop.get("max")));
-                }
+                found.put("min-level=" + text(tier.get("min-level")),
+                        "mobs=" + strings(drop.get("mobs"))
+                                + " where=" + text(drop.get("where"))
+                                + " chance=" + number(drop.get("chance"))
+                                + " curve=" + curve(drop.get("chance-by-level"))
+                                + " min=" + number(drop.get("min"))
+                                + " max=" + number(drop.get("max")));
             }
         }
 
+        // 【全6帯に必要】帯の解決は floor lookup で1つしか選ばれず、上の帯から下の帯へ継承されない。
+        // min-level: 0 の帯にだけ書くと Lv0〜9 のウォーデンでしか落ちない(＝実質 no-op)。
+        String expectedValue = "mobs=[WARDEN] where=field chance=0.05"
+                + " curve=1@0.05->100@0.5 min=0.0 max=2.0";
         Map<String, String> expected = new TreeMap<>();
-        expected.put("em_id_the_deep_mines_boss_the_pursuer_p3", "chance=0.5 min=1.0 max=2.0");
-        expected.put("em_id_the_city_royal_guard_p3", "chance=0.5 min=1.0 max=2.0");
-        expected.put("dark_cathedral_tier_75_boss_phase_3", "chance=0.5 min=1.0 max=2.0");
+        for (String band : new String[]{"0", "10", "25", "45", "65", "85"}) {
+            expected.put("min-level=" + band, expectedValue);
+        }
 
         assertEquals(expected, found,
-                "custom:warden_tendril の配布先/率/個数が変わっている。儀式1本あたり x2、3本で計6個"
-                        + "必要という前提で chance 0.5・1〜2個(1討伐あたり平均0.75個)にしてあるので、"
-                        + "率や個数を下げるなら「儀式3本を作るのに何回の踏破が要るか」を再計算すること。"
-                        + "この3種以外へ移す場合も、必ず踏破ボス(周回コストが高い枠)に置くこと。");
+                "custom:warden_tendril の配布先/場所/率/個数が変わっている。儀式1本あたり x2、"
+                        + "3本で計6個必要という前提で「Lv1 5% → Lv100 50% / 0〜2個」にしてあるので、"
+                        + "率や個数を下げるなら「儀式3本を作るのに何体のウォーデン討伐が要るか」を"
+                        + "再計算すること。where を field 以外にすると『フィールドのモブから』という"
+                        + "ユーザー指示に反する。帯が1つでも欠けると、その帯のレベルのウォーデンからは"
+                        + "1個も落ちなくなる(帯は floor lookup で1つしか選ばれない)。");
     }
 
     // ------------------------------------------------------------------------------------------
@@ -370,6 +367,20 @@ class ShippedRitualMaterialObtainabilityTest {
     /** 数値を型に依存せず比較できる形へ。整数/小数のどちらで書かれても同じ文字列になる。 */
     private static String number(Object raw) {
         return raw instanceof Number n ? String.valueOf(n.doubleValue()) : String.valueOf(raw);
+    }
+
+    /**
+     * {@code chance-by-level: {from-level, from-chance, to-level, to-chance}} を
+     * {@code "1@0.05->100@0.5"} の形に潰す(2026-08-14)。整数/小数のどちらで書かれても同じ文字列になる。
+     */
+    private static String curve(Object raw) {
+        if (!(raw instanceof Map<?, ?> map)) {
+            return "none";
+        }
+        return number(map.get("from-level")).replaceFirst("\\.0$", "")
+                + "@" + number(map.get("from-chance"))
+                + "->" + number(map.get("to-level")).replaceFirst("\\.0$", "")
+                + "@" + number(map.get("to-chance"));
     }
 
     private static List<String> strings(Object raw) {

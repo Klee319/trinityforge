@@ -10,8 +10,8 @@
       {
         "threshold": 5452,
         "model": {
-          "model": "minecraft:item/echo_shard",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/reality_thread_core"
         }
       },
       {

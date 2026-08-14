@@ -46,60 +46,7 @@ haste-active-mining:
       amplifier: 5
       duration-ticks: 300
 drop-tables:
-  categories:
-    # 2026-08-01 追加: ダンジョンの鍵(採掘枠3種)。
-    # 鍵はクラフト5種で入口だけを開け、中盤以降はルート限定にする配分。採掘は既存の
-    # ドロップ経路が3件しかなく薄かったので、ここへ3種を寄せて経路の空きを埋める。
-    # カテゴリごとに個別の trigger-chance-percent を持つので、深いダンジョンほど低確率にしてある。
-    dungeon_key_bridge:
-      display-name: 古橋の聖所の鍵
-      trigger-chance-percent: 2.0
-      entries:
-        - item: key_bridge
-          weight: 1
-          amount: 1
-    dungeon_key_city:
-      display-name: ドワーフの地下都市の鍵
-      trigger-chance-percent: 1.5
-      entries:
-        - item: key_city
-          weight: 1
-          amount: 1
-    dungeon_key_steamworks:
-      display-name: 蒸気機関工房の鍵
-      trigger-chance-percent: 1.0
-      entries:
-        - item: key_steamworks
-          weight: 1
-          amount: 1
-    gacha_tier1:
-      display-name: ガチャ券(初級)
-      trigger-chance-percent: 3
-      entries:
-        - item: gacha_ticket_1
-          weight: 1
-          amount: 1
-    gacha_tier2:
-      display-name: ガチャ券(中級)
-      trigger-chance-percent: 2
-      entries:
-        - item: gacha_ticket_2
-          weight: 1
-          amount: 1
-    gacha_tier3:
-      display-name: ガチャ券(上級)
-      trigger-chance-percent: 1
-      entries:
-        - item: gacha_ticket_3
-          weight: 1
-          amount: 1
-    ancient_debris:
-      display-name: 古代のがれき
-      trigger-chance-percent: 5
-      entries:
-        - item: ANCIENT_DEBRIS
-          weight: 1
-          amount: 1
+  categories: {}
 fortune:
   fortune-per-level: 0
   fortune-blocks:

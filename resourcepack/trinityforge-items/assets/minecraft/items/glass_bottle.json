@@ -3,15 +3,15 @@
     "type": "minecraft:range_dispatch",
     "property": "minecraft:custom_model_data",
     "fallback": {
-      "model": "minecraft:item/iron_chain",
+      "model": "minecraft:item/glass_bottle",
       "type": "minecraft:model"
     },
     "entries": [
       {
-        "threshold": 68,
+        "threshold": 5404,
         "model": {
           "type": "minecraft:model",
-          "model": "trinityforge:item/fnis_peccati_profundi_68"
+          "model": "trinityforge:item/witch_elixir"
         }
       }
     ]

@@ -12,9 +12,6 @@ coating:
     source_gem:
       bonus-damage: 5
       max-stacks: 10
-# 圧縮木材修繕: 樹種によらず「圧縮段(1x/2x/3x)」だけで耐久回復量が決まる。
-# 圧縮1段=9倍(ArsPaper materials.yml のレシピで確認済み: 1x=9倍圧縮/2x=81倍圧縮/3x=729倍圧縮)なので
-# durability も 200 -> 1800(200*9) -> 16200(1800*9) と9倍ずつ。quick-repair は全樹種・全段で true。
 wood-repair:
   materials:
     oak_wood_1x:
@@ -101,10 +98,6 @@ wood-repair:
 disassembly:
   percent-per-level: 25
   items:
-    wooden_*:
-      - input: list:planks
-        output: custom:plank_scrap
-        multiplier: 2
     copper_*:
       - input: COPPER_INGOT
         output: custom:copper_ingot_scrap
@@ -133,161 +126,6 @@ disassembly:
       - input: TURTLE_SCUTE
         output: custom:turtle_scute_scrap
         multiplier: 2
-    ROTTEN_FLESH:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:leather_scrap
-            weight: 6
-          - item: custom:plank_scrap
-            weight: 3
-          - item: custom:iron_ingot_scrap
-            weight: 1
-    STICK:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:plank_scrap
-            weight: 9
-          - item: custom:copper_ingot_scrap
-            weight: 1
-    STRING:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:leather_scrap
-            weight: 7
-          - item: custom:plank_scrap
-            weight: 3
-    BONE:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:leather_scrap
-            weight: 5
-          - item: custom:turtle_scute_scrap
-            weight: 4
-          - item: custom:iron_ingot_scrap
-            weight: 1
-    INK_SAC:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:leather_scrap
-            weight: 8
-          - item: custom:copper_ingot_scrap
-            weight: 2
-    LILY_PAD:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:plank_scrap
-            weight: 10
-    BOWL:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:plank_scrap
-            weight: 10
-    TRIPWIRE_HOOK:
-      - base-amount: 1
-        multiplier: 1
-        outputs:
-          - item: custom:iron_ingot_scrap
-            weight: 6
-          - item: custom:plank_scrap
-            weight: 4
-    FISHING_ROD:
-      - base-amount: 2
-        multiplier: 1
-        outputs:
-          - item: custom:plank_scrap
-            weight: 6
-          - item: custom:leather_scrap
-            weight: 3
-          - item: custom:copper_ingot_scrap
-            weight: 1
-    # =========================================================================
-    # スレッドの一括分解 (2026-08-02 追加 / 柱3-A の A-3)
-    # -------------------------------------------------------------------------
-    # スレッド厳選は「引く → 要らなければ捨てる」のループなのに、要らないスレッドの
-    # 処分先が1つも無かった(枠拡張 A-1 と振り直し A-2 だけが先に入っていた)。
-    # ここに thread_* を足すことで、床に捨てた不要スレッドへアンビルを落とせば
-    # 「次のスレッドを作り直す素材」に還る = 厳選の回転がそのまま素材循環になる。
-    #
-    # 【なぜアンビル1回でまとめて処理できるか】効果付きスレッドは1本ごとに厳選ロール
-    # (主ステ/サブステ)を持つので ItemMeta が全部違い、まとめて投げても Item エンティティが
-    # 1本=1個に分かれる。DisassemblyListener は着地点周辺の Item を全部処理するので、
-    # 束で投げれば束のまま分解される(スタック内部を掘る処理は不要)。
-    #
-    # 【ID の当たり方】DisassemblyListener は CrossPluginItemResolver.idOf で解決した
-    # カタログ ID を CraftingFeaturesConfig#disassemblyRulesFor に渡し、完全一致 → 末尾 *
-    # ワイルドカード(最長前置一致)の順で照合する。実行時のスレッドは TF catalog.yml の
-    # thread_* 16件でも ArsPaper の ThreadItem("thread_" + type) でも必ず thread_ 始まりなので、
-    # thread_* 1行で 16 種すべてに当たる。完全一致は必ずワイルドカードより優先されるため、
-    # 下の thread_empty 行が「空のスレッド」だけを別扱いに上書きする。
-    #
-    # 【なぜ base-amount を書くか】スレッドは全部 method: ritual で、儀式のコア/台座は
-    # RecipeSpec の shaped/shapeless ingredients に入らない = レシピから素材数を引くと必ず 0 になり、
-    # input 方式では永久に何も返らない。base-amount はレシピを一切引かない経路なのでこれを使う。
-    #
-    # 【なぜ base-amount: 4 なのか】戻り量は
-    #   floor(floor(base-amount × 戻り総% ÷ 100) × outputs[].multiplier)
-    # で、戻り総% は percent-per-level 25 × 解体レベル。解体は skilltree/smithing.yml B-3-upper
-    # の1ノードだけ(value 1)なので実測レベルは常に 1 = 25%。つまり内側の floor を 1 にするには
-    # base-amount が 4 必要で、3 以下だと floor(0) になって【1個も返らない】。
-    # 実際の個数は outputs 側の multiplier で決める(1 なら1個、2 なら2個)。
-    #
-    # 【なぜ現実の芯(reality_thread_core)を返さないのか】効果付きスレッドは
-    # items/catalog.yml の儀式で custom:thread_empty + バニラ素材 + source_gem + magebloom_fiber
-    # から作れる = 完全に再生産可能。ここで現実の芯を返すと「再生産可能な素材 → 振り直しの触媒」
-    # という洗浄経路ができ、fork の items.yml が A-2 でわざわざ閉じた
-    # 「汎用素材だけで無限に厳選を回せる状態」がそのまま復活する(枠拡張 A-1 の触媒でもある)。
-    # 深部ダンジョン周回でしか触媒が増えない設計を壊さないため、戻りは再生産可能な素材だけに限る。
-    #
-    # 【期待値】1本の効果付きスレッドの製造原価はおよそ source_gem 3個相当
-    # (thread_empty の 1 + 儀式台座の 2) + magebloom_fiber 3 + バニラ素材 + ソース 1200〜1800。
-    # 下の重み付けの期待値は source_gem 0.5 + magebloom_fiber 0.8(= gem 0.2 相当。fiber は
-    # 種+gem1個から4個できる) + source_shard 0.1 で、原価のおよそ 2 割。解体の 25% という
-    # 建て付けとも揃い、「捨てるよりは得だが作り直すには足りない」水準に収まる。
-    thread_*:
-      - base-amount: 4
-        multiplier: 1
-        outputs:
-          # 一番使い道の広い戻り。次の thread_empty を1個編める。
-          - item: custom:source_gem
-            weight: 5
-            multiplier: 1
-          # スレッドの「布地」側。gem より安い(gem 1個 → fiber 4個)ので2個返す。
-          - item: custom:magebloom_fiber
-            weight: 4
-            multiplier: 2
-          # 儀式のソース代の一部返し(焼べると 500 ソース)。当たりは少なめ。
-          - item: custom:source_shard
-            weight: 1
-            multiplier: 1
-    # 空のスレッドは thread_* より優先される完全一致で上書きする。
-    # 上書きが必要な理由: 空のスレッドは source_gem 1 + magebloom_fiber 1 + ソース 200 で
-    # 何本でも作れる(3本まとめて作る儀式もある)ため、thread_* の戻りをそのまま当てると
-    # 「再生産可能な素材 → source_gem 等」の等価往復ができてしまい、分解の意味が消える。
-    # 分解対象からは外さない(外すとアンビルを落としても何も起きず、原因が分からない挙動になる)。
-    # 戻りは自分の製造原価より必ず安い magebloom_fiber 1個だけ。
-    # 1周あたり source_gem 1個とソース 200 を確実に失うので、往復させても損しかしない。
-    thread_empty:
-      - base-amount: 4
-        multiplier: 1
-        outputs:
-          - item: custom:magebloom_fiber
-            weight: 1
-            multiplier: 1
-# スクラップ変換: 「ただのスクラップ(tf_scrap)」4個を、重み付き抽選で種別スクラップ1個へ変換する。
-# 種別スクラップ(copper/iron/gold/diamond/netherite/leather/turtle_scute)は各々ArsPaper materials.yml
-# 側に既存の4個->インゴット等レシピを持っているため、ここには載せない(二重登録防止)。
-# 右クリック消費(ScrapConversionListener)で処理する。クラフトテーブルのレシピにしないのは、
-# tf_scrap の base_material が IRON_NUGGET で iron_ingot_scrap の既存レシピ(2x2 全マスIRON_NUGGET)と
-# 入力パターンが完全に一致し、Bukkitのレシピ照合(custom:素材はMaterialChoice=型のみ照合)が
-# どちらかを必ずシャドウイングしてしまうため(docs/agent-context/common-traps.md 参照)。
-# base-amount は消費個数、outputs の重みは合計100(2026-08-08 ユーザー確定値)。
 scrap-conversion:
   tf_scrap:
     base-amount: 4
@@ -309,56 +147,7 @@ scrap-conversion:
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960
-# 醸造アンロック (brew:<グループID>)
-# 【重要】グループを「どのノードからも参照しない」と永久ロックになる
-# (BrewUnlockListener は未参照グループを開放扱いしない)。逆に skilltree 側が
-# 存在しないグループIDを指しているとそのノードは完全な無効果になる。
-# 2026-07-30 修正: skilltree/alchemy.yml C-1-upper の brew:swiftness-jump に
-# 対応するグループが無く、healthboost-haste-2 は逆に未参照で永久ロックだった。
-#
-# base はビン(AWKWARD/THICK/MUNDANE/WATER)、ingredient は醸造素材。
-#
-# 【重要・2026-07-31 D10(K-13)で判明した機構】ここに書いた組み合わせは起動時に
-# Paper の醸造 customMixes(PotionBrewer#addPotionMix)へ登録される。この登録が
-# 「素材を上段スロットに置けること」と「醸造が始まること」の両方を成立させている:
-#   - 醸造台の素材スロットはバニラの醸造素材か customMixes の素材しか受け付けない
-#     (= CMD 付きの討伐素材を置く手段は登録だけ。ホッパー経路も同条件)。
-#   - THICK / MUNDANE は「バニラに出発点の mix が無い」ので、登録が無いと
-#     醸造タイマーが次 tick で 0 に戻り BrewEvent が永久に発火しない。
-#     ※以前ここには「THICK はバニラでは何も生まないので安全」と書いてあったが、
-#       これは逆で「何も生まない = 登録が無ければ醸造不可」が正しい。
-#
-# 【バニラのレシピを潰さないこと】customMixes はバニラより先に評価されるので、
-# バニラで既に成立する (base, ingredient) を書くと、そのバニラレシピが
-# サーバ全体で作れなくなる。該当ペアは起動時に WARNING を出して登録から外す。
-# 2026-07-31 修正: ゲート(投入拒否・完成時キャンセル)も「登録された組」だけに掛かるので、
-# 登録から外れた組は普通にバニラのポーションとして作れる(以前は登録されないのにゲートだけ
-# 残っていて、そのバニラのポーションまで作れなかった)。THICK / MUNDANE のような
-# 「バニラが出発点にしないベース」へ寄せれば、そのままTF独自レシピとして成立する。
-# なお REDSTONE / GLOWSTONE_DUST / FERMENTED_SPIDER_EYE は「延長/強化/反転」なので
-# WATER と効果付きポーションのベースでだけ衝突する(THICK / MUNDANE では衝突しない)。
-# GUNPOWDER / DRAGON_BREATH は容器mix(スプラッシュ化/残留化)なのでどのベースでも衝突する。
-#
-# 【重複を書かないこと】同じ (base, ingredient) を2グループが宣言すると、
-# 要求レベル(brew:<ID> を置いているノードのレベル)が高い側だけが登録され、
-# 低い側のグループはそのポーションを永久に作れなくなる(起動時に WARNING)。
-# 段を分けたいときはベースか素材を変えること(下の healthboost-haste 参照)。
-# ※ custom:<id> の大小違いは「別の素材」として扱う(実行時の照合が大小を区別するため)。
-#   custom:Hoglin_Tusk と custom:hoglin_tusk は重複ではなく、前者は永久に一致しない。
-#
-# 【誰が醸造できるか = 醸造台に記録された所有者】(2026-07-31 レビュー指摘#1/#5)
-# ゲート対象の組み合わせを「解放済みの状態で組み立てたプレイヤー」が醸造台の所有者になり、
-# 投入・燃料・完成の判定はすべてこの所有者で行う(EXP/品質/速度の帰属先と同じ1本の記録)。
-#   - 記録済み所有者がオンラインかつ解放している間は所有権が移らない(乗っ取り防止)。
-#     所有者がオフライン/未解放なら、解放している別プレイヤーの投入で所有権が移る。
-#   - 所有者の記録は「醸造が1回完了する」たびに消える。したがって
-#     ★ゲート付き醸造はサイクルごとに解放済みプレイヤーの手投入が必要で、
-#       ホッパーで連続量産することはできない(素材はホッパーに残って詰まる)。
-#   - 未解放の組み合わせが載っている醸造台は燃料を受け付けない(ブレイズパウダーは消費されない)。
-#     すでに充填済みのチャージは消さないので、所有者が戻れば次の周回はそのまま完成する。
 brew-unlocks:
-  # skilltree/alchemy.yml C-1-upper「俊敏・跳躍の調合」(Lv40)
-  # THICK ベースはバニラが出発点にしないので、グロウストーン無しで II 相当を作れる枠にした。
   swiftness-jump:
     potions:
       - base: THICK
@@ -373,19 +162,6 @@ brew-unlocks:
           type: JUMP_BOOST
           duration: 3600
           amplifier: 1
-  # skilltree/alchemy.yml C-2-upper「体力増強の調合」(Lv60) = 下位段(amplifier 0)。THICK ベース。
-  #
-  # 【2026-07-31 レビュー指摘#2 の修正】以前は下位段(Lv60)と上位段(Lv80)が
-  # THICK+金のニンジン / AWKWARD+金のリンゴ を「同じ組み合わせで」宣言していた。
-  # 同じ (base, ingredient) が2つあると Paper も TF も「先に一致した1件」で確定するため、
-  # yml 順で先の Lv60 側が常に勝ち、Lv80 の amplifier 1 は絶対に出なかった。
-  # 現在は起動時に重複を検出して要求レベルが高い側だけを登録する(敗者は WARNING)ので、
-  # 重複を書くと下位段が丸ごと死ぬ。段ごとにベースを分けて両方成立させる:
-  #   下位段(Lv60) = THICK ベース / 上位段(Lv80) = MUNDANE ベース
-  # どちらもバニラが出発点にしないベースなのでバニラレシピを潰さない。
-  # また旧 AWKWARD+グリスタリングメロンは「バニラの治癒のポーション」と同じ組で
-  # customMixes に登録できず(登録するとサーバ全体で治癒が作れなくなる)、
-  # Lv60 の体力増強が事実上作れなかったので THICK 側へ寄せた。
   healthboost-haste:
     potions:
       - base: THICK
@@ -401,13 +177,11 @@ brew-unlocks:
           duration: 3600
           amplifier: 0
       - base: THICK
-        ingredient: GOLDEN_APPLE
+        ingredient: custom:tf_crystal_apple
         result:
           type: LUCK
-          duration: 3600
-          amplifier: 0
-  # skilltree/alchemy.yml E-1-1「回復・体力増強の調合」(Lv80) = 上位段(amplifier 1)。MUNDANE ベース。
-  # 素材は下位段と同じで、ベース(濃厚 → ありふれた)の作り分けで段を選ぶ。
+          duration: 1200
+          amplifier: 2
   healthboost-haste-2:
     potions:
       - base: MUNDANE
@@ -428,145 +202,91 @@ brew-unlocks:
           type: LUCK
           duration: 3600
           amplifier: 1
-  # ===========================================================================
-  # 討伐素材を使う調合 (2026-07-31 追加)
-  # ---------------------------------------------------------------------------
-  # 高レベル帯の特定モブだけが落とす素材(combat/mob-level-table.yml の add-drops)を
-  # 醸造の入口にする。「素材を集める理由」と「その素材でしか作れない効果」を1対1で結ぶのが狙いで、
-  # どれもバニラのポーションでは作れない効果に寄せている(既存の調合を置き換えない)。
-  #
-  # 【custom: が効く前提】ingredient の custom:<id> は 2026-07-31 に
-  # CrossPluginItemResolver.idOf へ寄せた。それまでは TF カタログの PDC だけを見ていたため、
-  # ArsPaper の materials.yml 側で定義した素材を書いても永久に一致しなかった。
-  #
-  # 【base の選び方】バニラが同じ (base, ingredient) から何かを作る組み合わせは避ける
-  # (customMixes がバニラより先に評価されるため、そのバニラレシピを潰してしまう)。
-  # THICK は「バニラが出発点にしない」ベースなので独自効果の置き場として一番安全 —
-  # ただし customMixes への登録が前提で、登録が無いと醸造が始まらない点に注意
-  # (このセクション冒頭の【重要】参照)。
-  # ---------------------------------------------------------------------------
-  # skilltree/alchemy.yml C-2-lower「衰弱の術」(Lv60) — 妨害寄りの調合
   hunter-hex:
     potions:
-      # ウィッチの秘薬: 魔女しか落とさない小瓶。バニラでは作れない強さの弱体化。
       - base: THICK
         ingredient: custom:witch_elixir
         result:
           type: WEAKNESS
           duration: 3600
           amplifier: 2
-      # エンダーマイトの煤: 次元の隙間の粉。視界を奪う。
       - base: THICK
         ingredient: custom:endermite_soot
         result:
           type: BLINDNESS
           duration: 1200
           amplifier: 0
-      # ストレイの布片: 凍てついた布。移動を止める。
       - base: THICK
         ingredient: custom:stray_cloth
         result:
           type: SLOWNESS
           duration: 1800
           amplifier: 2
-      # ピグリンの耳: 2026-08-01 追加。それまで core_meat の素材にしかならず
-      # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
-      # 効果は NAUSEA — バニラのポーションでは一切作れず、同じ妨害枠の
-      # BLINDNESS(上の endermite_soot)と役割が被らないため。持続は BLINDNESS と揃えて 1200。
       - base: THICK
         ingredient: custom:piglin_ear
         result:
           type: NAUSEA
           duration: 1200
           amplifier: 0
-  # skilltree/alchemy.yml E-2-1「呪詛の術」(Lv80) — 生存寄りの調合
   survivor-brew:
     potions:
-      # ガーディアンの棘: 海底神殿の番人。水中呼吸と暗視をまとめて長時間。
       - base: THICK
         ingredient: custom:guardian_spine
         result:
           type: CONDUIT_POWER
           duration: 6000
           amplifier: 0
-      # ラヴェジャーの革: 分厚い皮。被ダメージ軽減(バニラのポーションには無い効果)。
       - base: THICK
         ingredient: custom:ravager_hide
         result:
           type: RESISTANCE
           duration: 2400
           amplifier: 1
-      # ハスクの布片: 渇きに晒された衣。空腹の進行を止める。
       - base: THICK
         ingredient: custom:husk_cloth
         result:
           type: SATURATION
           duration: 200
           amplifier: 0
-      # ピリジャーの装甲片: 2026-08-01 追加。それまで core_vegetable の素材にしかならず
-      # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
-      # 効果は FIRE_RESISTANCE — 生存枠として RESISTANCE / CONDUIT_POWER と役割が重ならない。
-      # FIRE_RESISTANCE は amplifier を上げても意味が無いので 0 固定。
-      # 持続はバニラの延長火炎耐性(8:00 = 9600)より短い 6000 にして、上の CONDUIT_POWER と揃える。
       - base: THICK
         ingredient: custom:pillager_plate
         result:
           type: FIRE_RESISTANCE
           duration: 6000
           amplifier: 0
-  # skilltree/alchemy.yml E「変換の大錬金術師」(Lv90) — 攻めの調合(最上位)
   apex-brew:
     potions:
-      # ホグリンの牙: 折れてなお鋭い。攻撃力上昇の最上位。
       - base: THICK
         ingredient: custom:hoglin_tusk
         result:
           type: STRENGTH
           duration: 3600
           amplifier: 2
-      # ピグリンブルートの鎧片: 砦の守り手の黄金。ダメージ耐性と引き換えの重さ(遅鈍込み)ではなく
-      # 純粋な体力増強にして、装備で殴り合う型の受け皿にする。
       - base: THICK
         ingredient: custom:piglin_brute_plate
         result:
           type: HEALTH_BOOST
           duration: 3600
           amplifier: 3
-      # ボグドの苔むした骨: 沼の骨。再生の最上位。
       - base: THICK
         ingredient: custom:bogged_mossy_bone
         result:
           type: REGENERATION
           duration: 1200
           amplifier: 2
-      # 砂まみれの骨: 乾き切った骨。跳躍の最上位(移動系ビルドの受け皿)。
       - base: THICK
         ingredient: custom:parched_sandy_bone
         result:
           type: JUMP_BOOST
           duration: 3600
           amplifier: 3
-      # スケルトンホースの骨: 2026-08-01 追加。それまで core_vegetable の素材にしかならず
-      # 「入手経路はあるのに醸造の出口がゼロ」だった行き止まり素材の解消(柱4)。
-      # 効果は SPEED — 骸骨馬という出所に一番素直で、上の JUMP_BOOST と同じ移動系ビルドを補う。
-      # バニラの俊敏は amplifier 1 が上限なので、最上位帯のこの群に合わせて 2 に置く
-      # (base が THICK なのでバニラの砂糖レシピは潰さない)。
       - base: THICK
         ingredient: custom:skeleton_horse_bone
         result:
           type: SPEED
           duration: 3600
           amplifier: 2
-# オーバーエンチャント (overenchant:<プロファイルID>)
-# 【重要】ここのキーがそのままゲートIDになる。skilltree 側の
-# dedicated-effects `overenchant:<id>` と綴りが一致していないと、
-# OverEnchantListener / EnchantLuckListener の該当経路が丸ごと無効になる
-# (2026-07-30 修正: 旧 attack_1 / util_lv1 / attack_2 が
-#  skilltree の overenchant:lv1 / lv2 / lv3 と食い違い機構全体が死んでいた)。
-# 複数プロファイルを同時に持つ場合、各エンチャントの上限は
-# プロファイル横断の Math.max で合成される(格下げは起きない)。
 over-enchant:
-  # skilltree/enchanting.yml C-1「オーバーエンチャントI」(Lv40)
   lv1:
     enchants:
       SHARPNESS: 6
@@ -579,9 +299,6 @@ over-enchant:
       PROJECTILE_PROTECTION: 5
       FIRE_PROTECTION: 5
       FEATHER_FALLING: 5
-  # skilltree/enchanting.yml C-3「オーバーエンチャントIII」(Lv80)
-  # 攻撃系をさらに+1する段。軽減系は lv1 の方が高い値を持つが、
-  # 上限はプロファイル横断の Math.max なので lv1 の 5 が維持される。
   lv3:
     enchants:
       SHARPNESS: 7
@@ -594,7 +311,6 @@ over-enchant:
       PROJECTILE_PROTECTION: 6
       FIRE_PROTECTION: 6
       FEATHER_FALLING: 6
-  # skilltree/enchanting.yml C-2「オーバーエンチャントII」(Lv60)
   lv2:
     enchants:
       EFFICIENCY: 6
@@ -606,63 +322,19 @@ over-enchant:
 enchant-bookshelf-power:
   max-bookshelves: 15
   power-per-bookshelf: 0.8
-# スレッド(糸)装着枠のカテゴリ別上限。item-stats の thread-slots はここで clamp され、
-# 上限 0 のカテゴリでは【キーごと削除される】(ThreadSlotPolicy#applyCategoryCap)。
-# カテゴリごとに違う値を置いてよい(そのための項目)。ただし 0 にすると
-# 「lore にも枠が出ない」= そのカテゴリではスレッド機構ごと無効になる。
-# other は触媒(BLAZE_ROD の杖など)が属するカテゴリなので、0 にすると杖の枠が消える。
-#
-# ■「武器・触媒のスレッド枠が機能しない」(2026-07-31 F2)の正しい因果 —— この項目のせいではない
-#   1. この yml の cap を 0→5 にしたのは本バッチ前段(Wave 0 / commit 7dca432)の変更で、
-#      これにより ItemAssembler が lore に「スレッド枠 N枠」を焼くようになった。
-#   2. しかし ArsPaper フォーク側の装着 GUI の入口が【防具限定】で、スレッドのステ収集も
-#      getArmorContents() 限定だったため、非防具では枠が【飾り】だった。これが真因。
-#      (フォークの commit 331b0c2 で /ars thread とメイン/オフハンド収集を入れて解消)
-#   3. Java 側フィールドの既定値が weapon/tool/other=0 のままだったのは【無害な防御的整合】。
-#      CraftingFeaturesConfig#loadThreadSlots は thread-slots セクションがあれば既定値を
-#      seed した上で max-by-category で上書きするので、4 キーが揃っているこの出荷 yml では
-#      実行時の cap は変更前も後も 5 ——【Java 既定値 0 は稼働サーバで一度も効いていない】。
-#   ⚠ commit 4c60833 の message には「Java 既定値の drift が症状の原因」という誤った因果が
-#     残っているが、正はこのコメントの 1〜3。
 thread-slots:
   max-by-category:
     armor: 5
     weapon: 5
     tool: 5
     other: 5
-# レシピ帳(作業台左のレシピ候補)の解禁 (2026-07-31 D7)
-# 【なぜ必要か】Bukkit の addRecipe はレシピを「サーバに登録」するだけで、レシピ帳は
-# プレイヤーが discover 済みのレシピしか表示しない。バニラは minecraft:recipes/... という
-# 隠し進捗で解禁を配っているため、対応する進捗を持たない TF/Ars のレシピは永久に出ない。
-# ここを true にしておくと、ログイン時・ノード解放時・reload 後に自動で解禁する。
-#
-# 【既知の限界】custom:<カタログID> 素材は材質だけで登録しているので、レシピ帳の
-# 「クリックで材料を並べる」機能では素のバニラ基材が並び、結果枠は空になる。
-# レシピ帳は「何が作れるかの索引」として使い、実際に組むときは /tf recipes のGUIで素材を確認する。
-# (ExactChoice へ変えると品質差のある個体が素材として認識されなくなるため採らない)
 recipe-book:
-  # false にしても既に解禁されたレシピは消えない(解禁状態は playerdata に永続する)。
-  # 「今後解禁しない」という意味になる。
   reveal-plugin-recipes: true
-  # recipe:<id> ゲートが未解放のレシピをレシピ帳から隠す。false にすると
-  # 「レシピ帳に出るのにクラフトすると結果枠が空」になるので true 推奨。
   hide-locked-recipes: true
 removed-vanilla-recipes: []
 removed-vanilla-items:
   - ANY:MENDING
 gated-catalog-recipes: {}
-
-# スクラップの復号レシピ(2026-08-13 ユーザー指示で ArsPaper の materials.yml から移設)。
-# 解体で得たスクラップ4個を、2x2(インベントリクラフト可)で元のバニラ素材1個へ戻す。
-#
-# 「ただのスクラップ(tf_scrap)」だけは意図的に持たせていない ── あれは前進レシピを持たず、
-# scrap-conversion の重み付き抽選で他のスクラップへ変わる素材なので、復号先が一意に決まらない。
-#
-# 移設理由: レシピの持ち主を1か所(この画面)に寄せるため。以前は ArsPaper 側 materials.yml の
-# recipe: ブロックにあり、エディタの「その他のギミック > レシピ追加」からは見えなかった。
-# ※ ingredients の custom:<id> は ArsPaper が ExternalItemRegistry へ登録した素材を指す。
-#   登録が消えると「レシピ帳に出るのに永久にクラフト不可」になるので、スクラップの id を
-#   materials.yml 側で改名するときはここも必ず追随させること。
 added-recipes:
   - result: COPPER_INGOT
     amount: 1

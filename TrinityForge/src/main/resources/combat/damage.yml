@@ -67,29 +67,11 @@ early-level-attack:
   enabled: true
   until-level: 10
   level-0-multiplier: 0.7
-# レベル差による足きり(2026-08-09、combat/mob-overrides.yml の level-cutoff から移設)。
-# 以前はダンジョンモブ(EliteMobsスタンプ済み)にしか効かなかったため、ここへ移して全モブ共通にした。
-# diff = プレイヤーの戦闘レベル - モブのレベル。over-level と under-level は独立に判定される。
-#
-#   over-level  … 自分が格上のとき。diff >= threshold で発動。
-#     threshold : 発動するレベル差。負値(既定 -1)= この足きりは無効。
-#     exp-rate  : 発動時に経験値へ掛ける倍率 [0.0, 1.0]。1.0 = 無干渉。-1 = 経験値0(完全に入手不可)。
-#                 掛かる先は「バニラ経験値オーブ」と「TFの戦闘スキルEXP」の両方。
-#     drop-rate : 発動時にTF追加ドロップの確率へ掛ける倍率 [0.0, 1.0]。1.0 = 無干渉。
-#                 -1 = TF追加ドロップを一切付けない(完全に入手不可)。
-#   under-level … 自分が格下のとき。(モブLv - プレイヤーLv) >= item-threshold でTF追加ドロップを
-#     item-threshold : 遮断する。負値(既定 -1)= この足きりは無効。経験値には一切影響しない。
-#
-# 【対象外】バニラ本来のドロップには一切関与しない。止めるのはTFが追加したドロップ
-#   (mob-overrides.yml の drops: / mob-level-table.yml の add-drops / mob-types.yml の drops)だけ。
-#   バニラドロップまで止めるとモブトラップが完全に死んで「足きり」の域を超えるため(2026-07-27 設計判断)。
-# 【対象外】レベルの刻印が無いモブ(TF管理下でない野良モブ)は判定しない。刻印が無いと
-#   モブLv=0 として扱われ、格上判定が常に発動してしまうため。
 level-cutoff:
   over-level:
     threshold: -1
-    exp-rate: 1.0
-    drop-rate: 1.0
+    exp-rate: 1
+    drop-rate: 1
   under-level:
     item-threshold: -1
 durability:

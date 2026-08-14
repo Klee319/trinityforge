@@ -16,11 +16,6 @@
       "display_name": "深淵の弓"
     },
     {
-      "pdc_identifier": "trinityforge:abyss_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "黒淵の杖"
-    },
-    {
       "pdc_identifier": "trinityforge:abyss_crossbow",
       "base_item": "minecraft:crossbow",
       "display_name": "深淵のクロスボウ"
@@ -69,6 +64,11 @@
       "pdc_identifier": "trinityforge:abyss_trident",
       "base_item": "minecraft:trident",
       "display_name": "深淵のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:abyss_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "黒淵の杖"
     },
     {
       "pdc_identifier": "trinityforge:abyss_warhammer",
@@ -206,7 +206,7 @@
       "display_name": "骨鎧のレギンス"
     },
     {
-      "pdc_identifier": "trinityforge:boundary_cane",
+      "pdc_identifier": "trinityforge:boundary_wand",
       "base_item": "minecraft:blaze_rod",
       "display_name": "冥境の杖"
     },
@@ -244,11 +244,6 @@
       "pdc_identifier": "trinityforge:copper_bow",
       "base_item": "minecraft:bow",
       "display_name": "銅の弓"
-    },
-    {
-      "pdc_identifier": "trinityforge:copper_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "銅の杖"
     },
     {
       "pdc_identifier": "trinityforge:copper_crossbow",
@@ -309,6 +304,11 @@
       "pdc_identifier": "trinityforge:copper_trident",
       "base_item": "minecraft:trident",
       "display_name": "銅のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:copper_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "銅の杖"
     },
     {
       "pdc_identifier": "trinityforge:copper_warhammer",
@@ -391,11 +391,6 @@
       "display_name": "ダイヤモンドの弓"
     },
     {
-      "pdc_identifier": "trinityforge:diamond_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "ダイヤモンドの杖"
-    },
-    {
       "pdc_identifier": "trinityforge:diamond_crossbow",
       "base_item": "minecraft:crossbow",
       "display_name": "ダイヤモンドのクロスボウ"
@@ -434,6 +429,11 @@
       "pdc_identifier": "trinityforge:diamond_trident",
       "base_item": "minecraft:trident",
       "display_name": "ダイヤモンドのトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:diamond_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "ダイヤモンドの杖"
     },
     {
       "pdc_identifier": "trinityforge:diamond_warhammer",
@@ -601,11 +601,6 @@
       "display_name": "金の弓"
     },
     {
-      "pdc_identifier": "trinityforge:golden_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "金の杖"
-    },
-    {
       "pdc_identifier": "trinityforge:golden_crossbow",
       "base_item": "minecraft:crossbow",
       "display_name": "金のクロスボウ"
@@ -639,6 +634,11 @@
       "pdc_identifier": "trinityforge:golden_trident",
       "base_item": "minecraft:trident",
       "display_name": "金のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:golden_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "金の杖"
     },
     {
       "pdc_identifier": "trinityforge:golden_warhammer",
@@ -751,11 +751,6 @@
       "display_name": "インフィニティの弓"
     },
     {
-      "pdc_identifier": "trinityforge:infinity_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "インフィニティの杖"
-    },
-    {
       "pdc_identifier": "trinityforge:infinity_chestplate",
       "base_item": "minecraft:netherite_chestplate",
       "display_name": "インフィニティのチェストプレート"
@@ -851,11 +846,6 @@
       "display_name": "鉄の弓"
     },
     {
-      "pdc_identifier": "trinityforge:iron_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "鉄の杖"
-    },
-    {
       "pdc_identifier": "trinityforge:iron_crossbow",
       "base_item": "minecraft:crossbow",
       "display_name": "鉄のクロスボウ"
@@ -894,6 +884,11 @@
       "pdc_identifier": "trinityforge:iron_trident",
       "base_item": "minecraft:trident",
       "display_name": "鉄のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:iron_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "鉄の杖"
     },
     {
       "pdc_identifier": "trinityforge:iron_warhammer",
@@ -1261,6 +1256,11 @@
       "display_name": "星詠みの魔織レギンス"
     },
     {
+      "pdc_identifier": "trinityforge:magic_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "魔源の杖"
+    },
+    {
       "pdc_identifier": "trinityforge:nether_star_bow",
       "base_item": "minecraft:bow",
       "display_name": "ネザースターの弓"
@@ -1274,11 +1274,6 @@
       "pdc_identifier": "trinityforge:netherite_bow",
       "base_item": "minecraft:bow",
       "display_name": "ネザライトの弓"
-    },
-    {
-      "pdc_identifier": "trinityforge:netherite_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "ネザライトの杖"
     },
     {
       "pdc_identifier": "trinityforge:netherite_crossbow",
@@ -1314,6 +1309,11 @@
       "pdc_identifier": "trinityforge:netherite_trident",
       "base_item": "minecraft:trident",
       "display_name": "ネザライトのトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:netherite_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "ネザライトの杖"
     },
     {
       "pdc_identifier": "trinityforge:netherite_warhammer",
@@ -1421,9 +1421,19 @@
       "display_name": "坑夫の灯"
     },
     {
+      "pdc_identifier": "trinityforge:quality_upgrade_ticket",
+      "base_item": "minecraft:heart_of_the_sea",
+      "display_name": "品質昇華の結晶"
+    },
+    {
       "pdc_identifier": "trinityforge:revolution_bow",
       "base_item": "minecraft:diamond_sword",
       "display_name": "Revolution"
+    },
+    {
+      "pdc_identifier": "trinityforge:role_reselect_ticket",
+      "base_item": "minecraft:name_tag",
+      "display_name": "転職の証"
     },
     {
       "pdc_identifier": "trinityforge:sharpstone_crossbow",
@@ -1566,6 +1576,11 @@
       "display_name": "見習いの魔法書"
     },
     {
+      "pdc_identifier": "trinityforge:stat_reroll_ticket",
+      "base_item": "minecraft:rabbit_foot",
+      "display_name": "厳選の護符"
+    },
+    {
       "pdc_identifier": "trinityforge:stone_axe_tf",
       "base_item": "minecraft:stone_axe",
       "display_name": "石の戦斧"
@@ -1574,11 +1589,6 @@
       "pdc_identifier": "trinityforge:stone_bow",
       "base_item": "minecraft:bow",
       "display_name": "石の弓"
-    },
-    {
-      "pdc_identifier": "trinityforge:stone_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "石の杖"
     },
     {
       "pdc_identifier": "trinityforge:stone_crossbow",
@@ -1621,6 +1631,11 @@
       "display_name": "石のトライデント"
     },
     {
+      "pdc_identifier": "trinityforge:stone_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "石の杖"
+    },
+    {
       "pdc_identifier": "trinityforge:stone_warhammer",
       "base_item": "minecraft:stone_sword",
       "display_name": "石のウォーハンマー"
@@ -1634,6 +1649,16 @@
       "pdc_identifier": "trinityforge:thread_angler",
       "base_item": "minecraft:angler_pottery_sherd",
       "display_name": "潮読みのスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_apiarist",
+      "base_item": "minecraft:field_masoned_banner_pattern",
+      "display_name": "養蜂のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_appraiser",
+      "base_item": "minecraft:prize_pottery_sherd",
+      "display_name": "鑑識のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_artisan",
@@ -1681,6 +1706,11 @@
       "display_name": "持久のスレッド"
     },
     {
+      "pdc_identifier": "trinityforge:thread_excavation",
+      "base_item": "minecraft:netherite_upgrade_smithing_template",
+      "display_name": "削岩のスレッド"
+    },
+    {
       "pdc_identifier": "trinityforge:thread_experience",
       "base_item": "minecraft:howl_pottery_sherd",
       "display_name": "経験のスレッド"
@@ -1709,6 +1739,11 @@
       "pdc_identifier": "trinityforge:thread_health_boost",
       "base_item": "minecraft:rib_armor_trim_smithing_template",
       "display_name": "体力増強のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_herder",
+      "base_item": "minecraft:piglin_banner_pattern",
+      "display_name": "牧人のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_hero_of_the_village",
@@ -1769,6 +1804,11 @@
       "pdc_identifier": "trinityforge:thread_night_vision",
       "base_item": "minecraft:dune_armor_trim_smithing_template",
       "display_name": "暗視のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_perfumer",
+      "base_item": "minecraft:flower_banner_pattern",
+      "display_name": "調香のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_ritualist",
@@ -1881,11 +1921,6 @@
       "display_name": "木の戦斧"
     },
     {
-      "pdc_identifier": "trinityforge:wooden_cane",
-      "base_item": "minecraft:blaze_rod",
-      "display_name": "木の杖"
-    },
-    {
       "pdc_identifier": "trinityforge:wooden_dagger",
       "base_item": "minecraft:wooden_sword",
       "display_name": "木の短剣"
@@ -1924,6 +1959,11 @@
       "pdc_identifier": "trinityforge:wooden_trident",
       "base_item": "minecraft:trident",
       "display_name": "木のトライデント"
+    },
+    {
+      "pdc_identifier": "trinityforge:wooden_wand",
+      "base_item": "minecraft:blaze_rod",
+      "display_name": "木の杖"
     },
     {
       "pdc_identifier": "trinityforge:wooden_warhammer",

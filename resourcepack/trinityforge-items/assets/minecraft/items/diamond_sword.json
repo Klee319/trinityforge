@@ -45,29 +45,29 @@
       {
         "threshold": 1106,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_dagger"
         }
       },
       {
         "threshold": 1107,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_rapier"
         }
       },
       {
         "threshold": 1109,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_warhammer"
         }
       },
       {
         "threshold": 1110,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/source_gem_greataxe"
         }
       },
       {
@@ -101,8 +101,8 @@
       {
         "threshold": 400006,
         "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/diamond_cane"
+          "model": "minecraft:item/diamond_sword",
+          "type": "minecraft:model"
         }
       }
     ]

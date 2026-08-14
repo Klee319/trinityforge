@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/turtle_scute",
+  "textures": {
+    "layer0": "trinityforge:item/turtle_scute_scrap"
+  }
+}

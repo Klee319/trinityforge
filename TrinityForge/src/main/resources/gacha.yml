@@ -31,7 +31,6 @@
 tickets:
   gacha_ticket_0:
     pool: standard
-
   gacha_ticket_1:
     pool: tier1
   gacha_ticket_2:
@@ -42,232 +41,154 @@ tickets:
     pool: tier4
   gacha_ticket_5:
     pool: tier5
-
 pools:
-  # 序盤の汎用プール。素材寄りで、装備は「その帯で自作できる物」に留める
-  # (ガチャを縦強化のショートカットにしないため)。
   standard:
     pity:
       threshold: 30
     entries:
-      - item: "tf_scrap"
+      - item: tf_scrap
         weight: 20
         amount: 4
-      - item: "COAL"
+      - item: COAL
         weight: 18
         amount: 8
-      - item: "IRON_INGOT"
+      - item: IRON_INGOT
         weight: 14
         amount: 4
-      - item: "iron_dagger"
-        weight: 8
+      - item: thread_empty
+        weight: 4
         amount: 1
-        quality-random: true
-      # 空のスレッド = 厳選コンテンツへの入口
-      - item: "thread_empty"
-        weight: 5
-        amount: 1
-      - item: "gacha_ticket_1"
+      - item: gacha_ticket_1
         weight: 3
         amount: 1
-      # ジャックポット(単独最小 weight = 天井の確定排出先)
-      - item: "core_wood"
-        weight: 1
-        amount: 1
-
+      - item: gacha_ticket_0
+        weight: 3
+        amount: 2
   tier1:
     pity:
       threshold: 20
     entries:
-      - item: "GOLD_INGOT"
+      - item: GOLD_INGOT
         weight: 15
         amount: 2
-      - item: "tf_scrap"
+      - item: tf_scrap
         weight: 14
         amount: 6
-      - item: "DIAMOND"
+      - item: DIAMOND
         weight: 8
         amount: 1
-      - item: "copper_stud_helmet"
-        weight: 6
-        amount: 1
-        quality-random: true
-      - item: "thread_empty"
+      - item: thread_empty
+        weight: 4
+        amount: 2
+      - item: key_fireworks
         weight: 4
         amount: 1
-      # 2026-08-01 追加: ダンジョンの鍵(ガチャ枠3種のうち初級)。
-      # 鍵をルート限定にする配分で、低難度ダンジョン=低ティアのガチャに対応させている。
-      - item: "key_fireworks"
-        weight: 4
+      - item: gacha_ticket_1
+        weight: 3
+        amount: 2
+      - item: gacha_ticket_2
+        weight: 3
         amount: 1
-      - item: "core_vegetable"
-        weight: 1
-        amount: 1
-
   tier2:
     pity:
       threshold: 25
     entries:
-      - item: "EMERALD"
+      - item: EMERALD
         weight: 12
         amount: 3
-      - item: "tf_scrap"
+      - item: tf_scrap
         weight: 10
         amount: 8
-      # ソース経済(第2目標)への導線
-      - item: "source_gem"
+      - item: source_gem
         weight: 8
         amount: 1
-      - item: "iron_bow"
+      - item: thread_empty
+        weight: 4
+        amount: 3
+      - item: key_nether_bell
         weight: 6
         amount: 1
-        quality-random: true
-      - item: "carapace_mail_helmet"
-        weight: 5
-        amount: 1
-        quality-random: true
-      - item: "thread_empty"
-        weight: 4
+      - item: gacha_ticket_2
+        weight: 3
         amount: 2
-      # 2026-08-01 追加: ダンジョンの鍵(ガチャ枠・中級)
-      - item: "key_nether_bell"
-        weight: 6
+      - item: gacha_ticket_3
+        weight: 3
         amount: 1
-      # 2026-08-03 追加: レシピを持たないスレッド(儀式では作れずここでしか出ない)。
-      # 天井の確定排出先を奪わないよう、weight は各プールの単独最小値より大きくしてある。
-      - item: "thread_apiarist"
-        weight: 4
-        amount: 1
-        quality-random: true
-      - item: "thread_herder"
-        weight: 4
-        amount: 1
-        quality-random: true
-      - item: "core_meat"
-        weight: 1
-        amount: 1
-
   tier3:
     pity:
       threshold: 25
     entries:
-      - item: "DIAMOND"
+      - item: DIAMOND
         weight: 12
         amount: 3
-      - item: "source_gem"
+      - item: source_gem
         weight: 10
         amount: 2
-      - item: "magebloom_fiber"
+      - item: magebloom_fiber
         weight: 8
         amount: 4
-      - item: "diamond_dagger"
+      - item: thread_empty
+        weight: 4
+        amount: 4
+      - item: key_nether_wastes
         weight: 6
         amount: 1
-        quality-random: true
-      - item: "diamond_bow"
-        weight: 6
+      - item: gacha_ticket_4
+        weight: 3
         amount: 1
-        quality-random: true
-      - item: "abyssal_scale_helmet"
-        weight: 5
-        amount: 1
-        quality-random: true
-      - item: "thread_empty"
-        weight: 4
-        amount: 3
-      # 2026-08-01 追加: ダンジョンの鍵(ガチャ枠・上級)
-      - item: "key_nether_wastes"
-        weight: 6
-        amount: 1
-      - item: "gacha_ticket_4"
-        weight: 2
-        amount: 1
-      # 2026-08-03 追加: レシピを持たないスレッド(儀式では作れずここでしか出ない)。
-      # 天井の確定排出先を奪わないよう、weight は各プールの単独最小値より大きくしてある。
-      - item: "thread_perfumer"
-        weight: 4
-        amount: 1
-        quality-random: true
-      - item: "thread_excavation"
-        weight: 4
-        amount: 1
-        quality-random: true
-      - item: "core_jewelry"
-        weight: 1
-        amount: 1
-
+      - item: gacha_ticket_3
+        weight: 3
+        amount: 2
   tier4:
     pity:
       threshold: 20
     entries:
-      - item: "source_gem"
+      - item: source_gem
         weight: 10
         amount: 4
-      - item: "NETHERITE_SCRAP"
+      - item: NETHERITE_SCRAP
         weight: 10
-        amount: 1
-      - item: "thread_empty"
+        amount: 4
+      - item: thread_empty
         weight: 6
-        amount: 4
-      - item: "netherite_dagger"
-        weight: 5
-        amount: 1
-        quality-random: true
-      - item: "phantom_shroud_helmet"
-        weight: 5
-        amount: 1
-        quality-random: true
-      - item: "mage_guardian_novice_helmet"
-        weight: 4
-        amount: 1
-        quality-random: true
-      - item: "tf_crystal_apple"
+        amount: 5
+      - item: tf_crystal_apple
         weight: 3
         amount: 1
-      - item: "gacha_ticket_5"
-        weight: 2
+      - item: gacha_ticket_5
+        weight: 3
         amount: 1
-      # 2026-08-03 追加: レシピを持たないスレッド(儀式では作れずここでしか出ない)。
-      # 天井の確定排出先を奪わないよう、weight は各プールの単独最小値より大きくしてある。
-      - item: "thread_appraiser"
-        weight: 4
-        amount: 1
-        quality-random: true
-      - item: "dragon_scale"
-        weight: 1
-        amount: 1
-
+      - item: gacha_ticket_4
+        weight: 3
+        amount: 2
   tier5:
     pity:
       threshold: 15
     entries:
-      - item: "source_gem"
+      - item: source_gem
         weight: 10
         amount: 8
-      - item: "ANCIENT_DEBRIS"
-        weight: 8
-        amount: 2
-      - item: "thread_empty"
+      - item: NETHERITE_SCRAP
+        weight: 10
+        amount: 8
+      - item: thread_empty
         weight: 6
         amount: 6
-      - item: "tf_crystal_apple"
+      - item: tf_crystal_apple
         weight: 4
         amount: 2
-      - item: "nuclear_sword"
-        weight: 4
+      - item: elder_guardian_spike
+        weight: 1
         amount: 1
-        quality-random: true
-      - item: "withered_silk_helmet"
-        weight: 4
+      - item: wither_skull_fragment
+        weight: 1
         amount: 1
-        quality-random: true
-      - item: "mage_arcane_archmage_chestplate"
+      - item: gacha_ticket_5
         weight: 3
+        amount: 2
+      - item: warden_tendril
+        weight: 1
         amount: 1
-        quality-random: true
-      - item: "elder_guardian_spike"
-        weight: 2
-        amount: 1
-      - item: "wither_skull_fragment"
+      - item: dragon_scale
         weight: 1
         amount: 1

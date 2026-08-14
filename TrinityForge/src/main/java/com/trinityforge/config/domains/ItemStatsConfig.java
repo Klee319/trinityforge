@@ -438,7 +438,10 @@ public final class ItemStatsConfig {
                             entry.getBoolean("offhand-stats-apply", false),
                             parseRandomizeGrants(entry),
                             parseGrantChances(entry),
-                            parseMultipliers(entry)));  // may throw -> skip item
+                            parseMultipliers(entry),  // may throw -> skip item
+                            // 装着専用(スレッド)。true のアイテムは装備/手持ちスロットから
+                            // ステを一切寄与しない。詳細は ItemStatProfile#socketedOnly の javadoc。
+                            entry.getBoolean("socketed-only-stats", false)));
                     ItemUseRequirement useReq = parseUseRequirement(entry);
                     // Keep skill-only OR level-authored rows (level-only needs UseSkillDefaults later).
                     if (useReq.hasSkill() || useReq.hasRole()

@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/wheat",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5102,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/core_vegetable"
+        }
+      }
+    ]
+  }
+}

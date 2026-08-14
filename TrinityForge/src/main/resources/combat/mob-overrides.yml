@@ -980,6 +980,12 @@ overrides:
     display-name: "花火工房"
     # 【コンセプト】魔法推奨(敵は物理型) —— 装甲で覆われた機械仕掛け。魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.4
       attack: { magic-ratio: 0.10 }
     mobs:
       fireworks_level_50_boss_phase_1:   # ボス第2段階 — EXP Lv1:58 / Lv50:209 / Lv100:497
@@ -1001,13 +1007,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.3
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_fireworks", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_thrift", chance: 0.2, min: 1, max: 1 }
       fireworks_phase_2_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ブーミ (第3段階) (増援)"
         stats:
@@ -1029,6 +1049,12 @@ overrides:
     display-name: "ハロウィン闘技場"
     # 【コンセプト】物理推奨(敵は魔法型) —— 魔女とアンデッドの闘技場。物理武器が通り、魔法防御が要る。
     stats:
+      # 【難易度 2/10・推奨戦闘Lv 20】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.5
       attack: { magic-ratio: 0.45 }
     mobs:
       halloween_event_boss_mount:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -1050,13 +1076,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.068, resistance: 0.204 }
           magical:  { defense-rate: 0.374, resistance: 0.306 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 0.9
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_hallosseum", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_harvest", chance: 0.2, min: 1, max: 1 }
       halloween_event_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "不気味なスケルトン (増援)"
         stats:
@@ -1078,13 +1118,19 @@ overrides:
   #   ※ mob-overrides.yml のスキーマ(MobStatOverride)は倍率キーを持たず絶対値しか受け取らないため、
   #     設計書が倍率で書いている値は上記ランプ実値との積へ展開してある(割り戻せば倍率に戻る)。
   #
-  #   段階            max-health              attack-power          意図
-  #   第2段階 phase_1  4850.99×2.5 = 12127     30.69×1.3 = 39.89     「ここから別格」を最初の一撃で伝える
-  #   第3段階 phase_2  4850.99×3.0 = 14553     30.69×1.4 = 42.96     魔法寄り(既存の耐性配分を維持)
-  #   第4段階 phase_3  4850.99×3.5 = 16978     30.69×1.5 = 46.03
-  #   最終    phase_4  4850.99×6.0 = 29106     30.69×1.8 = 55.24     「ソロで頑張ればぎりぎり行ける」の上限
-  #   ミニボス×3       4850.99×1.8 =  8732     30.69×1.2 = 36.82
-  #   増援×11          変更しない               変更しない            増援は数で圧をかける役。個体を強くすると事故る
+  #
+  # ▼【2026-08-14】攻撃力はさらにスコープ直下の attack-power-multiplier: 4.8 を畳み込んだ値へ更新した。
+  #   理由は下の attack-power-multiplier: 4.8 のコメントを参照(絶対値を持つ個体では倍率が捨てられるため)。
+  #   HP はスコープ倍率が無いので畳み込みは無い。phase_4 の HP だけは踏破ボスの実HP基準へ差し替えてある。
+  #
+  #   段階            max-health              attack-power                     意図
+  #   第2段階 phase_1  4850.99×2.5 = 12127     21.26×1.3=27.64 ×4.8 = 132.67    「ここから別格」を最初の一撃で伝える
+  #   第3段階 phase_2  4850.99×3.0 = 14553     21.26×1.4=29.77 ×4.8 = 142.90    魔法寄り(既存の耐性配分を維持)
+  #   第4段階 phase_3  4850.99×3.5 = 16978     21.26×1.5=31.89 ×4.8 = 153.07
+  #   最終    phase_4  578100(踏破ボスの実HP基準) 21.26×1.8=38.27 ×4.8 = 183.70  「ソロで頑張ればぎりぎり行ける」の上限
+  #   ミニボス×3       4850.99×1.8 =  8732     21.26×1.2=25.52 ×4.8 = 122.50
+  #   増援×11          変更しない               絶対値は書かない(スコープ倍率 4.8 だけが効く。9.99 → 47.952)
+  #                                                                  増援は数で圧をかける役。個体を強くすると事故る
   #
   #   ・すべて初期値。実機校正で詰める前提(設計書 §10-4)。
   #   ・【重要】ここに絶対値を書くと個体ばらつき ±15% は消える。オーバーライドは variance を
@@ -1098,6 +1144,19 @@ overrides:
     display-name: "世界を繋ぐ者の聖所"
     # 【コンセプト】物理推奨(敵は魔法型) —— 次元を繋ぐ術者の聖所。物理武器が通り、魔法防御が要る。
     stats:
+      # 【難易度 10/10・推奨戦闘Lv 100】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      #
+      # 【重要】この倍率が「倍率のまま」効くのは、mobs: 側に attack.attack-power の絶対値を持たない
+      # 増援 11 体だけ(9.99 → 47.952)。ボス 4 体 + ミニボス 3 体の計 7 体は絶対値を持っており、
+      # MobStatOverride#applyTo が「scope 層の倍率 → mob 層の絶対値で置換」の順に走るので、
+      # 4.8 を掛けた結果が丸ごと捨てられる。そのため 7 体には 4.8 を掛けた値を絶対値として
+      # 畳み込んである。この倍率を動かすときは 7 体の attack-power も同じ比で直すこと
+      # (畳み込み忘れは ShippedBossStrengthDriftTest の束縛者 pin が検出する)。
+      attack-power-multiplier: 4.8
       attack: { magic-ratio: 0.45 }
     mobs:
       binder_of_worlds_phase_1_endermite_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -1115,7 +1174,9 @@ overrides:
           magical:  { defense-rate: 0.15, resistance: 0.12 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×2.5 / 攻撃 ×1.3(段階表は上のダンジョン見出しを参照)
           max-health: 12127
-          attack: { attack-power: 27.64 }
+          # 2026-08-14: 27.64 → 132.67(= 27.64 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 132.67 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第2段階は物理の壁。近接で張り付かせて剣闘士の貫通に価値を持たせる
@@ -1128,7 +1189,9 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
           # 2026-08-01 柱2: ミニボス3種は共通ランプLv50実値 ×1.8 / 攻撃 ×1.2
           max-health: 8732
-          attack: { attack-power: 25.52 }
+          # 2026-08-14: 25.52 → 122.5(= 25.52 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 122.5 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 足を止めさせる係
@@ -1155,7 +1218,9 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
           # 2026-08-01 柱2: ミニボス3種は共通ランプLv50実値 ×1.8 / 攻撃 ×1.2
           max-health: 8732
-          attack: { attack-power: 25.52 }
+          # 2026-08-14: 25.52 → 122.5(= 25.52 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 122.5 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 遮蔽を使わせる係
@@ -1175,7 +1240,9 @@ overrides:
           magical:  { defense-rate: 0.286, resistance: 0.234 }
           # 2026-08-01 柱2: ミニボス3種は共通ランプLv50実値 ×1.8 / 攻撃 ×1.2
           max-health: 8732
-          attack: { attack-power: 25.52 }
+          # 2026-08-14: 25.52 → 122.5(= 25.52 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 122.5 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # ミニボス3種はスレッド厳選の触媒(現実の芯)を落とす。再抽選の回数がここで決まる。
         # 2026-07-31 特殊攻撃: 立ち位置を強制する係
@@ -1196,7 +1263,9 @@ overrides:
           magical:  { defense-rate: 0.2, resistance: 0.45 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×3.0 / 攻撃 ×1.4
           max-health: 14553
-          attack: { attack-power: 29.77 }
+          # 2026-08-14: 29.77 → 142.9(= 29.77 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 142.9 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第3段階は魔法の壁。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
@@ -1210,7 +1279,9 @@ overrides:
           magical:  { defense-rate: 0.3, resistance: 0.18 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×3.5 / 攻撃 ×1.5
           max-health: 16978
-          attack: { attack-power: 31.89 }
+          # 2026-08-14: 31.89 → 153.07(= 31.89 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 153.07 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 第4段階は総攻撃。増援を呼ぶので守衛のヘイトと軽減が効く
@@ -1266,13 +1337,28 @@ overrides:
           magical:  { defense-rate: 0.38, resistance: 0.22 }
           # 2026-08-01 柱2: 共通ランプLv50実値 ×6.0 / 攻撃 ×1.8 — 全ダンジョン中で唯一の明示値。
           # 「ソロで頑張ればぎりぎり行ける」の上限として置いた初期値で、実機校正で詰める。
-          max-health: 29106
-          attack: { attack-power: 38.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 578100
+          # 2026-08-14: 38.27 → 183.7(= 38.27 × 4.8)。スコープ倍率 4.8 は絶対値を持つ個体では
+          # 捨てられるため、ここに畳み込んである(理由はスコープ直下 attack-power-multiplier のコメント)。
+          attack: { attack-power: 183.7 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 世界を繋ぐ者は全フェーズが次元の破片を確定で落とす(最終装備の主素材)。
         # 2026-07-31 特殊攻撃: 最終段階は全部入り。3職のどれか1つでは足りず、装備と立ち回りの両方を要求する
         abilities: [piercing_beam, shadow_step, call_the_swarm, shockwave]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_binder", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_flight", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:binder_fragment", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_1_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_1 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題1。課題ごとに要求ビルドが入れ替わる
@@ -1283,18 +1369,35 @@ overrides:
     # ここの割り当ては上の ▼コンセプト(モブ個別の耐性型)と必ず一致させること。逆にすると
     # 「物理が通る敵が物理で殴ってくる」＝攻めも守りも同じ属性で足りる状態になり、意味が消える。
     stats:
-      attack: { magic-ratio: 0.45 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.45, attack-power: 101.5 }
     mobs:
       enchantment_boss_dark_flame:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "暗黒の炎"
         stats:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 2430000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。炎を撒いて足場を削る
         abilities: [ember_spray]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_1", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_2", chance: 0.05, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_2", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_10_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_10 / 3体
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題10。課題ごとに要求ビルドが入れ替わる
@@ -1302,20 +1405,37 @@ overrides:
     display-name: "エンチャント試練 10"
     # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の最終段(偶数)。魔法が通り、物理防御が要る。
     stats:
-      attack: { magic-ratio: 0.10 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.10, attack-power: 214.3 }
     mobs:
       enchantment_boss_tricky_bones:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "厄介な骨"
         stats:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 17340000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
         abilities: [frost_field]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_10", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_5", chance: 0.5, min: 1, max: 1 }
+          - { item: "custom:abyssal_ingot", chance: 1.0, min: 1, max: 1 }
       enchantment_boss_tricky_bones_summon_arrow:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "矢の射出装置 (召喚体)"
         stats:
@@ -1337,18 +1457,35 @@ overrides:
     display-name: "エンチャント試練 2"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
-      attack: { magic-ratio: 0.10 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.10, attack-power: 110.7 }
     mobs:
       enchantment_boss_energized_bunny:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "帯電したウサギ"
         stats:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 3160000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。跳ね回る相手。瞬間移動で追わせる
         abilities: [shadow_step]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_2", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_2", chance: 0.1, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_3", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_3_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_3 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題3。課題ごとに要求ビルドが入れ替わる
@@ -1356,18 +1493,35 @@ overrides:
     display-name: "エンチャント試練 3"
     # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
     stats:
-      attack: { magic-ratio: 0.45 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.45, attack-power: 120 }
     mobs:
       enchantment_boss_jealous_block:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "嫉妬するブロック"
         stats:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 4020000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。動かない塊。近寄った相手だけを弾く
         abilities: [shockwave]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_3", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_2", chance: 0.15, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_4", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_4_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_4 / 3体
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題4。課題ごとに要求ビルドが入れ替わる
@@ -1375,18 +1529,35 @@ overrides:
     display-name: "エンチャント試練 4"
     # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の偶数段。魔法が通り、物理防御が要る。
     stats:
-      attack: { magic-ratio: 0.10 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.10, attack-power: 129.2 }
     mobs:
       enchantment_boss_leet_summoner:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "1337 サモナー (召喚体)"
         stats:
           physical: { defense-rate: 0.11, resistance: 0.12 }
           magical:  { defense-rate: 0.02, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 3830000
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。召喚士。増援を呼ぶのが本体の役
         abilities: [call_the_swarm]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_4", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_3", chance: 0.2, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_5", chance: 1.0, min: 1, max: 1 }
       enchantment_boss_leet_summoner_eidolon_one:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "幻影エイドロン (召喚体) (1体目)"
         stats:
@@ -1408,18 +1579,35 @@ overrides:
     display-name: "エンチャント試練 5"
     # 【コンセプト】物理推奨(敵は魔法型) —— 交互梯子の奇数段。物理武器が通り、魔法防御が要る。
     stats:
-      attack: { magic-ratio: 0.45 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.45, attack-power: 142.2 }
     mobs:
       enchantment_boss_loveable_impaler:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "愛らしき串刺し公"
         stats:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 5630000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。串刺し。直線の貫通で位置取りを強制
         abilities: [piercing_beam]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_5", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_3", chance: 0.25, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_6", chance: 1.0, min: 1, max: 1 }
       enchantment_boss_loveable_impaler_trident_launcher:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "トライデント発射機"
         stats:
@@ -1434,18 +1622,35 @@ overrides:
     display-name: "エンチャント試練 6"
     # 【コンセプト】魔法推奨(敵は物理型) —— 交互梯子の偶数段。魔法が通り、物理防御が要る。
     stats:
-      attack: { magic-ratio: 0.10 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.10, attack-power: 151.4 }
     mobs:
       enchantment_boss_ravegarer:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "レイヴ荒らし"
         stats:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 6390000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。突進役
         abilities: [bull_rush]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_6", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_3", chance: 0.3, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_7", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_7_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_7 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題7。課題ごとに要求ビルドが入れ替わる
@@ -1453,18 +1658,35 @@ overrides:
     display-name: "エンチャント試練 7"
     # 【コンセプト】物理推奨(敵は魔法型) —— 交互梯子の奇数段。物理武器が通り、魔法防御が要る。
     stats:
-      attack: { magic-ratio: 0.45 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.45, attack-power: 164.4 }
     mobs:
       enchantment_boss_rock_solid_cold:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "岩のような極寒"
         stats:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 8220000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。氷結。立ち位置の強制にとどめる
         abilities: [frost_field]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_7", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_4", chance: 0.35, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_8", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_8_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_8 / 1体
   # ▼コンセプト: 魔法ビルドが活きる(物理装甲が厚い) — エンチャント課題8。課題ごとに要求ビルドが入れ替わる
@@ -1472,18 +1694,35 @@ overrides:
     display-name: "エンチャント試練 8"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
-      attack: { magic-ratio: 0.10 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.10, attack-power: 181 }
     mobs:
       enchantment_boss_the_firebunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "火炎装置"
         stats:
           physical: { defense-rate: 0.33, resistance: 0.27 }
           magical:  { defense-rate: 0.06, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 14000000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。炎属性
         abilities: [ember_spray]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_8", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_4", chance: 0.4, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_9", chance: 1.0, min: 1, max: 1 }
 
   # enchantment_challenge_9_sanctum (INSTANCED_DUNGEON) — custombosses/enchantment_challenge_9 / 1体
   # ▼コンセプト: 物理ビルドが活きる(魔法防御が厚い) — エンチャント課題9。課題ごとに要求ビルドが入れ替わる
@@ -1491,18 +1730,35 @@ overrides:
     display-name: "エンチャント試練 9"
     # 【コンセプト】物理推奨(敵は魔法型) —— 物理武器が通り、魔法防御が要る。
     stats:
-      attack: { magic-ratio: 0.45 }
+      # 【エンチャント試練】倍率ではなく【絶対値】で書く(2026-08-14)。この試練群は contentLevel: 1 固定で、
+      # 共通ランプ(combat/mob-import.yml)が Lv1 でしか評価されず倍率をいくら掛けても効かないため。
+      # scope 直下に置くのは他ダンジョンと同じ理由で【雑魚にも効かせるため】。
+      attack: { magic-ratio: 0.45, attack-power: 195.8 }
     mobs:
       enchantment_boss_the_glass_master:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "硝子の達人"
         stats:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # 倍率ではなく絶対値なのは、この敵のレベルが固定でランプが動かないため。
+          # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
+          max-health: 18010000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
         # 技は1つだけにして立ち位置の強制にとどめる。ガラス片を扇状に飛ばす
         abilities: [arrow_fan]
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_enchant_trial_9", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:gacha_ticket_4", chance: 0.45, min: 1, max: 1 }
+          - { item: "custom:key_enchant_trial_10", chance: 1.0, min: 1, max: 1 }
 
   # the_bridge_sanctum (DYNAMIC_DUNGEON) — custombosses/em_id_the_bridge / 7体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — 古代守護者。構造体と術式の複合
@@ -1510,6 +1766,12 @@ overrides:
     display-name: "古橋の聖所"
     # 【コンセプト】物魔両方 —— 守衛と術者が混在する聖所。中庸。
     stats:
+      # 【難易度 3/10・推奨戦闘Lv 30】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.7
       attack: { magic-ratio: 0.25 }
     mobs:
       the_bridge_ancient_guardian_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -1531,13 +1793,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 1.9
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_bridge", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_hero_of_the_village", chance: 0.2, min: 1, max: 1 }
       the_bridge_corpse_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ドワーフの死骸 (亡骸)"
         stats:
@@ -1573,6 +1849,12 @@ overrides:
     display-name: "灼熱の洞窟"
     # 【コンセプト】物理推奨(敵は魔法型) —— 炎を纏う敵。物理武器が通り、魔法防御が要る。
     stats:
+      # 【難易度 9/10・推奨戦闘Lv 90】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 4.4
       attack: { magic-ratio: 0.45 }
     mobs:
       the_cave_boiled_bones_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
@@ -1601,13 +1883,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.076, resistance: 0.228 }
           magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 21
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_cave", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_salvage", chance: 0.2, min: 1, max: 1 }
       the_cave_broiled_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "焼かれた坑夫"
         stats:
@@ -1622,6 +1918,12 @@ overrides:
     display-name: "ドワーフの地下都市"
     # 【コンセプト】魔法推奨(敵は物理型) —— 重装のドワーフ兵。魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.4
       attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_city_ancient_dwarf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -1671,8 +1973,19 @@ overrides:
         stats:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.7
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_thorn", chance: 0.2, min: 1, max: 1 }
       em_id_the_city_mini_boss_three:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の防衛兵"
         stats:
@@ -1706,15 +2019,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 6.7
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
-        # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_city", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_source_thrift", chance: 0.2, min: 1, max: 1 }
 
   # the_climb_dungeon (DYNAMIC_DUNGEON) — custombosses/em_id_the_climb / 24体
   # ▼コンセプト: ハイブリッド(個体ごとに耐性型が混在) — アンデッドと獣使いが混在。骨は物理を、影は魔法を弾く
@@ -1722,6 +2047,12 @@ overrides:
     display-name: "登攀路"
     # 【コンセプト】物魔両方 —— 道中の敵種が幅広い。中庸。
     stats:
+      # 【難易度 8/10・推奨戦闘Lv 80】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 4.1
       attack: { magic-ratio: 0.25 }
     mobs:
       the_climb_bone_champion:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -1849,8 +2180,6 @@ overrides:
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
-        abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -1860,8 +2189,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 23
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): p3 から【移動】。このダンジョンの踏破ボスは p4(= 入口
+        # the_climb_undead_beastmaster.yml の phases が p2:.99999 / p3:.75 / p4:.50 で最深段)。
+        # p3 は HP 75% で通過するだけの段階なので、そこに技を置くと一番長く戦う p4 が無技になる。
+        # 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
+        abilities: [call_the_horde, crippling_stomp]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_climb", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_health_boost", chance: 0.2, min: 1, max: 1 }
       the_climb_undead_beastmaster_summon_p4:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "蘇生した獣 (第4段階) (召喚体)"
         stats:
@@ -1888,8 +2236,19 @@ overrides:
         stats:
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 12
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_endurance", chance: 0.2, min: 1, max: 1 }
       the_climb_undead_warrior:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "かつての防衛兵"
         stats:
@@ -1904,6 +2263,12 @@ overrides:
     display-name: "深層鉱山"
     # 【コンセプト】魔法推奨(敵は物理型) —— 坑道の力仕事系。魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 2/10・推奨戦闘Lv 20】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.5
       attack: { magic-ratio: 0.10 }
     mobs:
       em_id_the_deep_mines_boom_surprise_ancient_husk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -1939,31 +2304,32 @@ overrides:
         stats:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.1
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        # 【custom:warden_tendril の入手経路 (2026-08-03 追加)】
-        # items/catalog.yml の儀式3本 —— 暗殺者の弓(hero_bow) / 暗殺者のクロスボウ(hero_crossbow) /
-        # 黒淵の杖(abyss_wand) —— が custom:warden_tendril x2 を要求するのに、この素材は
-        # ガチャ表にもどのドロップ表にも1件も載っておらず、【3本とも永久に作成不能】だった。
-        # 姉妹素材の dragon_scale / elder_guardian_spike / wither_skull_fragment は gacha.yml に
-        # 載っている(=救済済み)ので、抜けていたのは warden_tendril だけ。
-        #
-        # 【率の根拠】儀式1本あたり x2、3本すべて作るなら計6個。chance 0.5 / 1〜2個 =
-        # 1討伐あたり平均0.75個なので、これを載せた踏破ボス3種(深層鉱山/ドワーフの地下都市/
-        # 闇の大聖堂)を1周すると平均2.25個 ≒ 儀式1本ぶん強。3周で3本すべてに届く。
-        # 踏破ボスなので周回コストが高く、無限に湧かせて稼ぐことはできない。
-        # 同じ枠の abyssal_ingot(0.1)より高いのは、こちらが「0個だと詰む」唯一素材だから
-        # (abyssal_ingot は他の踏破ボスにも横断的に載っている)。
-        #
-        # 【重要】これはバニラのウォーデン討伐では出ない。このファイルは MOB_PROFILE_ID を
-        # 持つ EliteMobs 個体にしか効かない(ファイル冒頭 default: の警告参照)。バニラの
-        # ウォーデンからも落としたい場合は combat/mob-level-table.yml の add-drops に
-        # mobs: [WARDEN] で足すこと(このファイルでは実現できない)。
-        drops: []
+        # 【custom:warden_tendril はここから外した (2026-08-14)】
+        # 儀式3本(暗殺者の弓 hero_bow / 暗殺者のクロスボウ hero_crossbow / 黒淵の杖 abyss_wand)の
+        # 素材だが、入手経路は combat/mob-level-table.yml の add-drops
+        # (mobs: [WARDEN] / where: field)へ移した —— ユーザー指示「討伐素材はフィールドの該当モブ
+        # から。ダンジョンモブには適用しない」による。踏破ボスへの復元は不要。
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_deep_mines", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_excavation", chance: 0.2, min: 1, max: 1 }
       em_id_the_deep_mines_experienced_miner:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "熟練の坑夫"
         stats:
@@ -2062,6 +2428,12 @@ overrides:
     display-name: "鉱山"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 5/10・推奨戦闘Lv 50】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.2
       attack: { magic-ratio: 0.10 }
     mobs:
       the_mines_arachnidian_construct:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2118,8 +2490,19 @@ overrides:
         stats:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.3
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_herder", chance: 0.2, min: 1, max: 1 }
       the_mines_crusty_bones:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "干からびた骨"
         stats:
@@ -2286,13 +2669,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3.9
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
         abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_mines", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_miner", chance: 0.2, min: 1, max: 1 }
       the_mines_soulweaver_reinforcements:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "魂の裂片 (増援)"
         stats:
@@ -2342,6 +2739,12 @@ overrides:
     display-name: "ネザーの鐘"
     # 【コンセプト】物理推奨(敵は魔法型) —— 呪術的な敵。物理武器が通り、魔法防御が要る。
     stats:
+      # 【難易度 5/10・推奨戦闘Lv 50】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.2
       attack: { magic-ratio: 0.45 }
     mobs:
       em_id_the_nether_bell_beam_boss_green_1_speed:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -2454,13 +2857,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.076, resistance: 0.228 }
           magical:  { defense-rate: 0.418, resistance: 0.342 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 7
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 魔法防御が厚いダンジョンの踏破ボス。直線と持続で「避ける」を要求し、魔術師の割合追加に価値を持たせる
         abilities: [piercing_beam, withering_aura]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_nether_bell", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_experience", chance: 0.2, min: 1, max: 1 }
       em_id_the_nether_bell_corpse_phase_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "腐らざる者 (第2段階) (亡骸)"
         stats:
@@ -2552,6 +2969,12 @@ overrides:
     display-name: "ネザーの荒野"
     # 【コンセプト】物魔両方 —— 中庸。
     stats:
+      # 【難易度 6/10・推奨戦闘Lv 60】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.4
       attack: { magic-ratio: 0.25 }
     mobs:
       em_id_the_nether_wastes_lesser_nether_fiend:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2601,8 +3024,19 @@ overrides:
         stats:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 4
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_apiarist", chance: 0.2, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_3_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強化された骨組み (召喚体)"
         stats:
@@ -2636,13 +3070,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 10
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
         abilities: [frost_field]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_nether_wastes", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_backpack", chance: 0.2, min: 1, max: 1 }
       em_id_the_nether_wastes_miniboss_5_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "黒曜石の猟犬 (召喚体)"
         stats:
@@ -2713,6 +3161,12 @@ overrides:
     display-name: "宮殿"
     # 【コンセプト】物魔両方 —— 近衛と宮廷魔術師が揃う。中庸。
     stats:
+      # 【難易度 4/10・推奨戦闘Lv 40】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.9
       attack: { magic-ratio: 0.25 }
     mobs:
       the_palace_old_stone_king_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -2734,13 +3188,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 3
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_palace", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_luck", chance: 0.2, min: 1, max: 1 }
       the_palace_old_stone_king_summon_1:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "石の守護者 (召喚体) (1体目)"
         stats:
@@ -2762,6 +3230,12 @@ overrides:
     display-name: "採石場"
     # 【コンセプト】魔法推奨(敵は物理型) —— 魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 8/10・推奨戦闘Lv 80】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 4.1
       attack: { magic-ratio: 0.10 }
     mobs:
       LiftAirFiller:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -2776,8 +3250,30 @@ overrides:
         stats:
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 19
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): em_id_the_quarry_royal_wizard_five_unlocker_p3 から【移動】。
+        # 名前は状態機械のように見えるが実体はモブID(custombosses/em_id_the_quarry/
+        # LiftStateFinishDungeon.yml は bossType: BOSS / name: $bossLevel &dLift Master /
+        # healthMultiplier: 8.5 の本物のボス定義)。the_quarry_dungeon.yml の dungeonObjectives の
+        # 最後がこれ。移動元の「術式守護のトーテム」は $normalLevel 表記・isRegionalBoss: false の
+        # 仕掛け(Royal Spellcaster の檻を割る係)で踏破ボスではない。
+        # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_quarry", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_diligence", chance: 0.2, min: 1, max: 1 }
       LiftStateFour:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "昇降機の管理者 (段階4)"
         stats:
@@ -2895,8 +3391,19 @@ overrides:
         stats:
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 6.6
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_mana_amplify", chance: 0.2, min: 1, max: 1 }
       em_id_the_quarry_royal_wizard_five:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "王室の術士"
         stats:
@@ -2924,8 +3431,6 @@ overrides:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -2965,6 +3470,12 @@ overrides:
     display-name: "騎士団の城"
     # 【コンセプト】魔法推奨(敵は物理型) —— 全身板金の騎士。魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 3/10・推奨戦闘Lv 30】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.7
       attack: { magic-ratio: 0.10 }
     mobs:
       the_castle_arcane_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3022,8 +3533,6 @@ overrides:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3033,8 +3542,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 1.2
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): p3 から【移動】。このダンジョンの踏破ボスは p4(= 入口
+        # the_castle_charlemagne_p1.yml の phases が p2:0.80 / p3:0.50 / p4:0.30 で最深段。
+        # p4 だけが dropsEliteMobsLoot: true)。p3 は HP 50% で通過するだけの段階。
+        # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_knight_castle", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_damage_mana_recovery", chance: 0.2, min: 1, max: 1 }
       the_castle_cowardly_knight:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "臆病な騎士"
         stats:
@@ -3063,6 +3591,12 @@ overrides:
     display-name: "北極ミニダンジョン"
     # 【コンセプト】物理推奨(敵は魔法型) —— 氷雪の魔物は魔法防御が厚い。物理武器が通り、魔法防御が要る。
     stats:
+      # 【難易度 7/10・推奨戦闘Lv 70】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.7
       attack: { magic-ratio: 0.45 }
     mobs:
       northpole_elf:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3105,13 +3639,28 @@ overrides:
         stats:
           physical: { defense-rate: 0.04, resistance: 0.12 }
           magical:  { defense-rate: 0.22, resistance: 0.18 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 21
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
         abilities: [frost_field]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_north_pole", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_fire_resistance", chance: 0.2, min: 1, max: 1 }
+          - { item: "ENCHANTED_GOLDEN_APPLE", chance: 0.1, min: 1, max: 1 }
       northpole_skeleton_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "お仕置きリストの魂 (召喚体)"
         stats:
@@ -3133,6 +3682,12 @@ overrides:
     display-name: "下水道迷宮"
     # 【コンセプト】物魔両方 —— 雑多な群れで個体ごとに耐性型が違う。相手ごとに有効打が変わる。
     stats:
+      # 【難易度 7/10・推奨戦闘Lv 70】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 3.7
       attack: { magic-ratio: 0.25 }
     mobs:
       sewer_tier_10:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3308,8 +3863,19 @@ overrides:
         stats:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
+          # 【中ボスのHP】目標TTK 6秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 2.19M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 9.6
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 【ドロップ】中ボス(2026-08-14)。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:thread_mending_flesh", chance: 0.2, min: 1, max: 1 }
       sewer_tier_50_water_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ピラニアの王子 (増援)"
         stats:
@@ -3329,13 +3895,27 @@ overrides:
         stats:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 18
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
         # 2026-08-01 特殊攻撃(柱2-1): 耐性が均等なダンジョンの踏破ボス。増援と足止めで手数を要求し、守衛のヘイトと軽減に価値を持たせる
         abilities: [call_the_horde, crippling_stomp]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_sewer_maze", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_mana_regen", chance: 0.2, min: 1, max: 1 }
       sewer_tier_70_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "溺死せし者 (増援)"
         stats:
@@ -3350,6 +3930,12 @@ overrides:
     display-name: "蒸気機関工房"
     # 【コンセプト】魔法推奨(敵は物理型) —— 装甲された機械。魔法が通り、物理防御が要る。
     stats:
+      # 【難易度 4/10・推奨戦闘Lv 40】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.9
       attack: { magic-ratio: 0.10 }
     mobs:
       the_steamworks_clk_wrx702_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
@@ -3372,8 +3958,6 @@ overrides:
           physical: { defense-rate: 0.418, resistance: 0.342 }
           magical:  { defense-rate: 0.076, resistance: 0.228 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-01 特殊攻撃(柱2-1): 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
-        abilities: [shockwave, bull_rush]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -3404,8 +3988,28 @@ overrides:
         stats:
           physical: { defense-rate: 0.22, resistance: 0.18 }
           magical:  { defense-rate: 0.04, resistance: 0.12 }
+          # 【踏破ボスのHP】目標TTK 20秒。根拠は「厳選済みLv100プレイヤーのDPS 730,229 × 実効係数 0.50」
+          # = 実効 365,115 DPS。目標実HP ≒ 7.30M。
+          # この倍率は EliteMobs の healthMultiplier より【前段】に掛かる:
+          #   実HP = ランプ(選ばれたLv) × ここの倍率 × EM の healthMultiplier
+          # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
+          max-health-multiplier: 6
         vanilla-exp: { base: 4.0, per-level: 0.12, growth: 1.008, growth-interval: 1.0 }
-        drops: []
+        # 2026-08-14 特殊攻撃(柱2-1): p3 から【移動】。このダンジョンの踏破ボスは p7(= 入口
+        # the_steamworks_clk_wrx702_p1.yml の phases が p2:0.99999 / p3:0.80 / p4:0.60 /
+        # p5:0.30 / p6:0.10 / p7:0.03 の6段で、p7 が最深段かつ dropsEliteMobsLoot: true)。
+        # p3 は HP 80% で通過するだけの段階なので、そこに技を置くと本番の p7 が無技になる。
+        # 物理装甲が厚いダンジョンの踏破ボス。近接で張り付かせ、剣闘士の貫通に価値を持たせる
+        abilities: [shockwave, bull_rush]
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_steamworks", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_spoils", chance: 0.2, min: 1, max: 1 }
       the_steamworks_gnasuran_electrohead:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "グナスラの電気頭"
         stats:
@@ -3441,6 +4045,12 @@ overrides:
     display-name: "闇の大聖堂"
     # 【コンセプト】物理推奨(敵は魔法型) —— 邪教の術者。物理武器が通り、魔法防御が要る。
     stats:
+      # 【難易度 1/10・推奨戦闘Lv 10】このダンジョン全体の攻撃力倍率(2026-08-14)。
+      # scope 直下に置くのは【雑魚にも効かせるため】—— mobs: に書くとそのモブ1体にしか効かず、
+      # 雑魚の被ダメージが床値(min-component-damage)に張り付いたままになる。
+      # 倍率にしているのは level: dynamic(入場時にプレイヤーがレベルを選ぶ)と両立させるため。
+      # 絶対値だと Lv1 でも Lv100 でも同じ値になり、選んだレベルへの追従が死ぬ。
+      attack-power-multiplier: 2.3
       attack: { magic-ratio: 0.45 }
     mobs:
       dark_cathedral_tier_75_area_folk:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
@@ -3482,9 +4092,15 @@ overrides:
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
-        # warden_tendril (2026-08-03 追加。率の根拠は em_id_the_deep_mines の踏破ボスのコメント参照)。
-        # 儀式3本の唯一の入手経路なので、踏破ボス3種に横断で載せて1ダンジョンの周回渋滞を避ける。
-        drops: []
+        # 【ドロップ】踏破ボス(2026-08-14)。
+        # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
+        # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
+        # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
+        # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
+        # 同じステが"個数への加算"に化け、狙いである「レア遭遇率を上げる」が効かなくなる。
+        drops:
+          - { item: "custom:dungeon_seal_dark_cathedral", chance: 1.0, min: 1, max: 1 }
+          - { item: "custom:thread_gourmet", chance: 0.2, min: 1, max: 1 }
       dark_cathedral_tier_75_boss_phase_display:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "クトゥルフの狂信者"
         stats:

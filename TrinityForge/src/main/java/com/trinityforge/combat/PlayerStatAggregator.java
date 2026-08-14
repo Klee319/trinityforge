@@ -340,7 +340,7 @@ public final class PlayerStatAggregator {
         // アイテムのものが正しいので、mainhand マップも mainhandContributor から作る
         // (contributorIsOffhand=false のときはこれが元々の実メインハンドと同一)。
         Map<String, Double> mainhand = Map.of();
-        if (!isWornOnlyArmor(mainhandContributor)) {
+        if (!excludedFromSlotStats(mainhandContributor, itemStats)) {
             mainhand = DerivedItemStats.resolve(
                     mainhandContributor, itemStats, combatDamage.weaponBaseFormula());
             mainhand.forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
@@ -529,7 +529,7 @@ public final class PlayerStatAggregator {
         ItemStack[] usableArmor = usableArmorContents(player);
         Map<String, Double> item = armorAndOffhandStats(player, usableArmor, false);
         ItemStack actualMainhand = player.getInventory().getItemInMainHand();
-        if (!isWornOnlyArmor(actualMainhand)) {
+        if (!excludedFromSlotStats(actualMainhand, itemStats)) {
             DerivedItemStats.resolve(actualMainhand, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((k, v) -> item.merge(StatKeys.canonical(k), v, Double::sum));
         }
@@ -601,6 +601,50 @@ public final class PlayerStatAggregator {
     }
 
     /**
+     * <b>装着専用アイテム(スレッド)か</b> — {@code stats/item-stats.yml} の
+     * {@code socketed-only-stats: true}({@link com.trinityforge.stats.ItemStatProfile#socketedOnly})。
+     *
+     * <p>true のアイテムは<b>どのスロット(防具4部位 / メインハンド / オフハンド / 触媒)からも</b>
+     * ステを寄与しない。{@link #isWornOnlyArmor} が材質({@link EquipmentSlotResolver})で判定するのに対し、
+     * こちらは<b>設定側の宣言</b>で判定する — スレッドの材質(鍛冶型テンプレート / 陶器の欠片 / 旗の模様)は
+     * どの装備カテゴリにも当たらないため材質からは判別できず、材質を並べた許可リストで判定すると
+     * スレッドが1種増えるたびに穴が開き直るため。
+     *
+     * <p><b>装着済みスレッドの寄与は壊さない:</b> ArsPaper の {@code ArmorManaListener} は
+     * {@code TrinityForgeBridge#resolveThreadStats} →
+     * {@code WeaponAttackStatResolver#resolveItemStats(material, cmd, quality, rollSeed)} →
+     * {@code DerivedItemStats#profileStats} という<b>このクラスを通らない</b>経路で解決し、結果を
+     * {@code AddonCombatStats} へ書き戻す。ここでの遮断はプレイヤーのスロット由来の合算だけに掛かる。
+     * ロア表示({@code ItemAssembler}/{@code LoreComposer})も {@code DerivedItemStats#resolve} を
+     * そのまま通るので「挿したら何が付くか」の表示は変わらない。
+     *
+     * <p>判定の流儀は {@link #offhandStatsApply(ItemStack, ItemStatsConfig)} と同じ
+     * (Material + CustomModelData でプロファイルを引き、無ければフォールバック)。
+     */
+    private static boolean socketedOnly(ItemStack stack, ItemStatsConfig itemStats) {
+        if (stack == null || stack.getType().isAir() || itemStats == null) {
+            return false;
+        }
+        Integer cmd = stack.hasItemMeta()
+                ? DerivedItemStats.customModelDataOf(stack.getItemMeta()) : null;
+        return itemStats.profileFor(stack.getType(), cmd)
+                .map(com.trinityforge.stats.ItemStatProfile::socketedOnly)
+                .orElseGet(() -> itemStats.fallback().map(
+                        com.trinityforge.stats.ItemStatProfile::socketedOnly).orElse(false));
+    }
+
+    /**
+     * そのアイテムを<b>スロットに置いているだけ</b>では item ステを合算してはいけないか。
+     * 「着用専用の防具を手に持っている」({@link #isWornOnlyArmor})と
+     * 「装着専用のスレッド」({@link #socketedOnly})の2つを1つの門にまとめたもの —
+     * 合算地点が複数(防具ループ / オフハンド / メインハンド寄与 / 触媒 / 外部防御者)あるため、
+     * 門を1つにしておかないと1箇所抜けただけで穴が再発する。
+     */
+    private static boolean excludedFromSlotStats(ItemStack stack, ItemStatsConfig itemStats) {
+        return isWornOnlyArmor(stack) || socketedOnly(stack, itemStats);
+    }
+
+    /**
      * メインハンドを除いた「その他装備」ステの合算(防具4部位 + (設定により)オフハンド + パーク攻撃buff +
      * アドオン)を1つのMapへ統合して返す。Change 1(P10 魔法アグリゲーション): 触媒による魔法詠唱の攻撃側
      * ステ集計は、キャスターのメインハンド武器のステを意図的に含めない(触媒自身のステは呼び出し側
@@ -643,7 +687,8 @@ public final class PlayerStatAggregator {
         Map<String, Map<String, Double>> multipliers =
                 armorAndOffhandMultipliers(player, usableArmor, false);
         mergeMultipliers(multipliers, perkBuffs.multipliers());
-        if (extraContributor != null && !extraContributor.getType().isAir()) {
+        if (extraContributor != null && !extraContributor.getType().isAir()
+                && !socketedOnly(extraContributor, itemStats)) {
             DerivedItemStats.resolve(extraContributor, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> combined.merge(StatKeys.canonical(key), value, Double::sum));
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(extraContributor, itemStats));
@@ -667,6 +712,11 @@ public final class PlayerStatAggregator {
         for (ItemStack piece : usableArmor) {
             // stats/item-stats.yml は装備中の各部位に毎回ライブ適用される(PDC無し・素のMATERIALでもOK)。
             // 防具はweaponカテゴリではないため、武器基礎式は発火しない(DerivedItemStatsのガード)。
+            // 装着専用(スレッド)はどのスロットからも寄与しない(通常は防具スロットに入らないが、
+            // コマンド等で押し込まれた場合の抜け道を塞ぐ)。
+            if (socketedOnly(piece, itemStats)) {
+                continue;
+            }
             DerivedItemStats.resolve(piece, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         }
@@ -674,8 +724,9 @@ public final class PlayerStatAggregator {
         // オフハンド合算(per-item化, ユーザー確定): グローバルトグルを廃止し、オフハンドにあるアイテム自身の
         // item-stats に offhand-stats-apply: true が設定されている場合のみ、その派生ステを item に合算する
         // (mainhand には混ぜない — アイテムCTはメインハンド専用のまま)。既定 false なので未設定なら合算しない。
+        // 装着専用(スレッド)は offhand-stats-apply の値によらず寄与しない。
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (!excludeOffhand && offhandStatsApply(offhand)) {
+        if (!excludeOffhand && offhandStatsApply(offhand) && !socketedOnly(offhand, itemStats)) {
             DerivedItemStats.resolve(offhand, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         }
@@ -687,10 +738,13 @@ public final class PlayerStatAggregator {
             Player player, ItemStack[] usableArmor, boolean excludeOffhand) {
         Map<String, Map<String, Double>> multipliers = new LinkedHashMap<>();
         for (ItemStack piece : usableArmor) {
+            if (socketedOnly(piece, itemStats)) {
+                continue; // 装着専用は乗算レイヤも寄与しない(加算側と同じ門)
+            }
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(piece, itemStats));
         }
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (!excludeOffhand && offhandStatsApply(offhand)) {
+        if (!excludeOffhand && offhandStatsApply(offhand) && !socketedOnly(offhand, itemStats)) {
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(offhand, itemStats));
         }
         return multipliers;
@@ -715,7 +769,8 @@ public final class PlayerStatAggregator {
         Map<String, Double> item = new LinkedHashMap<>();
         Map<String, Map<String, Double>> multipliers = new LinkedHashMap<>();
         for (ItemStack piece : usableArmorContents(player)) {
-            if (piece == null || piece.getType().isAir() || !filter.test(piece)) {
+            if (piece == null || piece.getType().isAir() || !filter.test(piece)
+                    || socketedOnly(piece, itemStats)) {
                 continue;
             }
             DerivedItemStats.resolve(piece, itemStats, combatDamage.weaponBaseFormula())
@@ -850,7 +905,7 @@ public final class PlayerStatAggregator {
 
         if (armorContents != null) {
             for (ItemStack piece : armorContents) {
-                if (piece == null || piece.getType().isAir()) {
+                if (piece == null || piece.getType().isAir() || socketedOnly(piece, itemStats)) {
                     continue;
                 }
                 DerivedItemStats.resolve(piece, itemStats, combatDamage.weaponBaseFormula())
@@ -859,13 +914,16 @@ public final class PlayerStatAggregator {
             }
         }
         // オフハンドは offhand-stats-apply: true のときのみ(プレイヤー防御と同一ゲート)。
-        if (offhandStatsApply(offhand, itemStats)) {
+        // 装着専用(スレッド)はここでも寄与しない。
+        if (offhandStatsApply(offhand, itemStats) && !socketedOnly(offhand, itemStats)) {
             DerivedItemStats.resolve(offhand, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(offhand, itemStats));
         }
-        // メインハンドは着用専用防具を手持ちした場合を除き寄与(プレイヤー防御と同一の折込規則)。
-        if (mainhand != null && !mainhand.getType().isAir() && !isWornOnlyArmor(mainhand)) {
+        // メインハンドは着用専用防具/装着専用スレッドを手持ちした場合を除き寄与
+        // (プレイヤー防御と同一の折込規則)。
+        if (mainhand != null && !mainhand.getType().isAir()
+                && !excludedFromSlotStats(mainhand, itemStats)) {
             DerivedItemStats.resolve(mainhand, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(mainhand, itemStats));

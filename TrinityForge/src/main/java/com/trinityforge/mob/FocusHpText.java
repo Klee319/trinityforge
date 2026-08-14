@@ -50,6 +50,16 @@ public final class FocusHpText {
     /** Minimum score gap before a lean is shown; keeps the tag from firing on balanced/near-zero profiles. */
     private static final double LEAN_THRESHOLD = 0.05;
 
+    /**
+     * K/M/B/T 略記に入る閾値。EliteMobs の {@code BossHealthDisplay} が持つ同名定数
+     * ({@code fork-handoff/elitemobs/elitemobs-fork/src/main/java/com/magmaguy/elitemobs/
+     * combatsystem/displays/BossHealthDisplay.java:77-80}) と同じ値。
+     */
+    private static final long THOUSAND = 1_000L;
+    private static final long MILLION = 1_000_000L;
+    private static final long BILLION = 1_000_000_000L;
+    private static final long TRILLION = 1_000_000_000_000L;
+
     private FocusHpText() {
     }
 
@@ -57,7 +67,7 @@ public final class FocusHpText {
      * Colored two-line label: gold level + white name, then HP with ratio-based color.
      * High visibility against world backgrounds (shadow is applied by the TextDisplay).
      */
-    public static Component format(int level, String name, int curHp, int maxHp) {
+    public static Component format(int level, String name, long curHp, long maxHp) {
         String safeName = name == null || name.isBlank() ? "?" : name;
         return format(level, Component.text(safeName), curHp, maxHp);
     }
@@ -68,7 +78,7 @@ public final class FocusHpText {
      * localized species name) or a custom-named entity's own {@code customName()} component without
      * losing its original styling by round-tripping through plain text first.
      */
-    public static Component format(int level, Component nameComponent, int curHp, int maxHp) {
+    public static Component format(int level, Component nameComponent, long curHp, long maxHp) {
         return format(level, nameComponent, curHp, maxHp, ResistanceLean.NONE);
     }
 
@@ -80,7 +90,7 @@ public final class FocusHpText {
      * identically on Java and on Bedrock via Geyser, unlike a private-use-area icon which would need a
      * resource-pack font entry on both platforms.
      */
-    public static Component format(int level, Component nameComponent, int curHp, int maxHp,
+    public static Component format(int level, Component nameComponent, long curHp, long maxHp,
                                     ResistanceLean lean) {
         return format(level, nameComponent, curHp, maxHp, lean, AttackLean.NONE);
     }
@@ -93,11 +103,11 @@ public final class FocusHpText {
      * rationale on {@link #format(int, Component, int, int, ResistanceLean)}'s sibling javadoc), and the
      * two tags are visually distinct bracket groups so they never read as one merged piece of information.
      */
-    public static Component format(int level, Component nameComponent, int curHp, int maxHp,
+    public static Component format(int level, Component nameComponent, long curHp, long maxHp,
                                     ResistanceLean lean, AttackLean attackLean) {
         Component safeName = nameComponent == null ? Component.text("?") : nameComponent;
-        int safeMax = Math.max(1, maxHp);
-        int safeCur = Math.max(0, curHp);
+        long safeMax = Math.max(1L, maxHp);
+        long safeCur = Math.max(0L, curHp);
         Component nameLine = Component.text().color(NamedTextColor.WHITE).append(safeName).build();
         Component resistTag = resistanceTag(lean);
         if (resistTag != null) {
@@ -111,10 +121,10 @@ public final class FocusHpText {
                 .append(Component.text("Lv." + level + " ", NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(nameLine)
                 .append(Component.newline())
-                .append(Component.text(String.valueOf(safeCur), hpColor(safeCur, safeMax), TextDecoration.BOLD))
+                .append(Component.text(formatHp(safeCur), hpColor(safeCur, safeMax), TextDecoration.BOLD))
                 .append(Component.text(" / ", NamedTextColor.DARK_GRAY))
                 // 分母は満タン時の分子と同じ色・太さ(緑+BOLD)に統一。
-                .append(Component.text(String.valueOf(safeMax), NamedTextColor.GREEN, TextDecoration.BOLD));
+                .append(Component.text(formatHp(safeMax), NamedTextColor.GREEN, TextDecoration.BOLD));
     }
 
     /**
@@ -181,7 +191,7 @@ public final class FocusHpText {
      * Plain-text form for tests / logs (no color codes). Backward-compatible 4-arg overload: no
      * lean tags (equivalent to {@link ResistanceLean#NONE}/{@link AttackLean#NONE}).
      */
-    public static String formatPlain(int level, String name, int curHp, int maxHp) {
+    public static String formatPlain(int level, String name, long curHp, long maxHp) {
         return formatPlain(level, name, curHp, maxHp, ResistanceLean.NONE, AttackLean.NONE);
     }
 
@@ -193,7 +203,7 @@ public final class FocusHpText {
      * the tags added alongside it, so a plain-text log of a tagged mob silently dropped them —
      * a real display/log mismatch, not just an unused overload).
      */
-    public static String formatPlain(int level, String name, int curHp, int maxHp,
+    public static String formatPlain(int level, String name, long curHp, long maxHp,
                                      ResistanceLean lean, AttackLean attackLean) {
         String safeName = name == null || name.isBlank() ? "?" : name;
         StringBuilder nameLine = new StringBuilder(safeName);
@@ -205,7 +215,8 @@ public final class FocusHpText {
         if (attackTagText != null) {
             nameLine.append(' ').append(attackTagText);
         }
-        return "Lv." + level + " " + nameLine + "\n" + Math.max(0, curHp) + " / " + Math.max(1, maxHp);
+        return "Lv." + level + " " + nameLine + "\n"
+                + formatHp(Math.max(0L, curHp)) + " / " + formatHp(Math.max(1L, maxHp));
     }
 
     private static String plainResistanceTag(ResistanceLean lean) {
@@ -224,7 +235,65 @@ public final class FocusHpText {
         };
     }
 
-    static TextColor hpColor(int curHp, int maxHp) {
+    /**
+     * HP を K/M/B/T 略記へ落とす(2026-08-14 修正)。修正前は {@code String.valueOf(int)} で生の整数を
+     * 出していたため、闇の大聖堂のボス(7,683,000)が {@code 7683000 / 7683000} と7桁で並び、難易度調整後の
+     * 最大値(69,371,755)では8桁になって完全に読めなかった。
+     *
+     * <p><b>表記規則は EliteMobs の {@code BossHealthDisplay#formatNumber}
+     * ({@code fork-handoff/elitemobs/elitemobs-fork/src/main/java/com/magmaguy/elitemobs/combatsystem/
+     * displays/BossHealthDisplay.java:193-210}) に揃えてある。</b>TF はこの表示を
+     * {@code suppress-native-combat-display} で EM 側の表示を抑止した上で自前に描き直しているので、
+     * ここで独自形式を作るとプレイヤーが同じサーバで2種類の表記(EM のボスバー/XPポップアップと TF の
+     * フォーカス表示)を見ることになる。そのため閾値・小数桁・丸め方向まで一致させている:
+     * <ul>
+     *   <li>閾値は 1,000 / 1e6 / 1e9 / 1e12 で K/M/B/T（同ファイル 197-208 行の分岐順と同じ）</li>
+     *   <li>小数は2桁。丸めは MagmaCore の {@code Round#decimalPlaces}
+     *       ({@code Math.round(v * 10^p) / 10^p}) と同じ<b>四捨五入</b>で、切り捨てではない</li>
+     *   <li>末尾の {@code .0} も EM と同じく残す(1,000 は "1K" ではなく "1.0K")</li>
+     *   <li>負値は EM 同様「符号を前置して絶対値を略記」する</li>
+     * </ul>
+     *
+     * <p><b>EM と意図的に変えてある唯一の点は 1,000 未満。</b>EM は
+     * {@code String.valueOf(Round.twoDecimalPlaces(999))} なので "999.0" と小数が付くが、TF の HP は整数な
+     * ので、それに合わせると全通常モブの表示が "20.0 / 20.0" に化けて元のバグより広範囲に読みにくくなる。
+     * よって 1,000 未満は略記も小数付けもせずそのまま整数で出す。
+     *
+     * <p>なお 999,999 が "1.0M" ではなく "1000.0K" になるのは EM 側の丸めの癖
+     * (999.999 を2桁丸めすると 1000.0 になるが分岐は K のまま)をそのまま再現したもの。ここを「直す」と
+     * EM の表示と食い違うため、あえて揃えてある。
+     */
+    static String formatHp(long value) {
+        if (value < 0) {
+            // Long.MIN_VALUE は符号反転しても負のままで無限再帰になるため潰しておく。
+            long positive = value == Long.MIN_VALUE ? Long.MAX_VALUE : -value;
+            return "-" + formatHp(positive);
+        }
+        if (value >= TRILLION) {
+            return twoDecimalPlaces((double) value / TRILLION) + "T";
+        }
+        if (value >= BILLION) {
+            return twoDecimalPlaces((double) value / BILLION) + "B";
+        }
+        if (value >= MILLION) {
+            return twoDecimalPlaces((double) value / MILLION) + "M";
+        }
+        if (value >= THOUSAND) {
+            return twoDecimalPlaces((double) value / THOUSAND) + "K";
+        }
+        return Long.toString(value);
+    }
+
+    /**
+     * MagmaCore {@code com.magmaguy.magmacore.util.Round#twoDecimalPlaces} と同一の丸め
+     * ({@code Math.round(value * 100) / 100.0} = 四捨五入)。EM は MagmaCore に依存してこれを呼ぶが、
+     * TF 本体は MagmaCore に依存していないので同じ式をここに持つ。
+     */
+    private static double twoDecimalPlaces(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    static TextColor hpColor(long curHp, long maxHp) {
         double ratio = maxHp <= 0 ? 0.0 : (double) curHp / (double) maxHp;
         if (ratio > 0.66) {
             return NamedTextColor.GREEN;

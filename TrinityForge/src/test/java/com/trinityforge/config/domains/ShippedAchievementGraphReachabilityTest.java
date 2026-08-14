@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p><b>なぜ2つ目が要るか (K-22(2))</b>: アチーブメントの前提は表示順ではなく
  * <b>達成そのものを縛る</b>(2026-07-29 ユーザー確定 /
  * {@link com.trinityforge.progression.AchievementService} の {@code gateOpen})。
- * {@code goal_worldbinder} の parent が {@code delve_all_seals}(19種すべての踏破の証)だと、
+ * {@code goal_worldbinder} の parent が {@code delve_all_seals}(全種の踏破の証)だと、
  * 「第1目標」と銘打ったノードが<b>全ダンジョン踏破後にしか解けない＝事実上いちばん最後</b>になる。
  * これは yml 上は完全に正当な設定で、警告も出ず、ゲーム内では「なぜか取れない」としか見えないため、
  * 機械で固定するしか気づく手段が無い。
@@ -127,7 +127,7 @@ class ShippedAchievementGraphReachabilityTest {
         assertNotNull(goal, "goal_worldbinder が無い");
         assertEquals("delve_relics", goal.parent(),
                 "第1目標の parent は delve_relics(深層3種)であること。"
-                        + "delve_all_seals(19種すべての印)にすると、前提は達成そのものを縛るので"
+                        + "delve_all_seals(全種の印)にすると、前提は達成そのものを縛るので"
                         + "「第1目標」が事実上いちばん最後にしか解けなくなる(K-22(2))。現在の値: "
                         + goal.parent());
 
@@ -145,11 +145,19 @@ class ShippedAchievementGraphReachabilityTest {
     @DisplayName("delve_all_seals は収集系の別枝として残っている")
     void allSealsRemainsAsACollectionBranch() {
         AchievementsConfig.Achievement allSeals = byId.get("delve_all_seals");
-        assertNotNull(allSeals, "delve_all_seals が消えている(19種の印を集める枝が失われる)");
+        assertNotNull(allSeals, "delve_all_seals が消えている(全種の印を集める枝が失われる)");
         assertEquals("delve_relics", allSeals.parent(),
                 "delve_all_seals は delve_relics の下に残すこと。現在の値: " + allSeals.parent());
-        assertEquals(19, allSeals.trigger().collectionTargets().size(),
-                "delve_all_seals は19種すべての印を対象にする");
+        // 2026-08-14: ここは件数を書かない。以前は 19 を直書きしていて、印を 19 → 28 種へ
+        // 組み替えたとき【正しく直した側】が落ちる形になっていた(テストが台帳の4つ目の写しに
+        // なっていた)。「印を全部そろえる枝である」ことだけをここで固定し、
+        // 台帳との過不足の照合は ShippedDungeonSealLedgerDriftTest が
+        // combat/mob-overrides.yml を実読して行う(件数の写しをどこにも持たない)。
+        List<String> targets = allSeals.trigger().collectionTargets();
+        assertTrue(targets.size() > 1,
+                "delve_all_seals が印を1種しか対象にしていない(「全踏破」の枝として成立しない): " + targets);
+        assertTrue(targets.stream().allMatch(t -> t.replaceFirst("(?i)^custom:", "").startsWith("dungeon_seal")),
+                "delve_all_seals の対象に印以外が混ざっている: " + targets);
     }
 
     /** parent 鎖をたどって祖先IDを集める(循環は {@link ShippedAchievementTreeTest} 側で禁じている)。 */

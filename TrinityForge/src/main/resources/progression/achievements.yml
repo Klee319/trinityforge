@@ -127,7 +127,7 @@ achievements:
     display-name: 初めの一歩
     icon: WOODEN_PICKAXE
     lore:
-      - "<gray>石をひとつ掘る。ここから5つの道が伸びている。</gray>"
+      - <gray>石をひとつ掘る。ここから5つの道が伸びている。</gray>
     trigger:
       type: statistic
       statistic: MINE_BLOCK
@@ -139,29 +139,32 @@ achievements:
         - title_first_step
       commands: []
       items:
-        - { id: "custom:gacha_ticket_1", amount: 3 }
+        - id: gacha_ticket_0
+          amount: 2
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
-
   life_wood:
     display-name: 薪を積む
     parent: main
     icon: OAK_LOG
     lore:
-      - "<gray>原木を 128 個切り出す。</gray>"
+      - <gray>原木を 128 個切り出す。</gray>
     trigger:
       type: statistic
       statistic: MINE_BLOCK
       statistic-qualifier: OAK_LOG
-      threshold: 128
+      threshold: 64
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: OAK_LOG
+          amount: 64
       job-exp:
-        - { skill: WOODCUTTING, amount: 500 }
+        - skill: WOODCUTTING
+          amount: 500
       permanent-buffs: {}
       vanilla-exp: 0
   life_ore:
@@ -169,7 +172,7 @@ achievements:
     parent: life_wood
     icon: RAW_IRON
     lore:
-      - "<gray>鉄鉱石を 64 個掘る。</gray>"
+      - <gray>鉄鉱石を 64 個掘る。</gray>
     trigger:
       type: statistic
       statistic: MINE_BLOCK
@@ -179,9 +182,12 @@ achievements:
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: IRON_INGOT
+          amount: 10
       job-exp:
-        - { skill: MINING, amount: 500 }
+        - skill: MINING
+          amount: 500
       permanent-buffs: {}
       vanilla-exp: 0
   life_harvest:
@@ -189,18 +195,22 @@ achievements:
     parent: life_ore
     icon: WHEAT
     lore:
-      - "<gray>家畜を 32 回繁殖させる。</gray>"
+      - <gray>家畜を 32 回繁殖させる。</gray>
     trigger:
       type: statistic
       statistic: ANIMALS_BRED
       threshold: 32
+      statistic-qualifier: ""
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_1
+          amount: 3
       job-exp:
-        - { skill: FARMING, amount: 800 }
+        - skill: FARMING
+          amount: 800
       permanent-buffs: {}
       vanilla-exp: 0
   life_fish:
@@ -208,19 +218,22 @@ achievements:
     parent: life_harvest
     icon: FISHING_ROD
     lore:
-      - "<gray>300 匹釣り上げる。ガチャ券の主要な入手経路でもある。</gray>"
+      - <gray>300 匹釣り上げる。ガチャ券の主要な入手経路でもある。</gray>
     trigger:
       type: statistic
       statistic: FISH_CAUGHT
       threshold: 300
+      statistic-qualifier: ""
     broadcast: false
     rewards:
       special: []
       commands: []
       items:
-        - { id: "custom:gacha_ticket_2", amount: 3 }
+        - id: custom:gacha_ticket_2
+          amount: 3
       job-exp:
-        - { skill: FISHING, amount: 1200 }
+        - skill: FISHING
+          amount: 1200
       permanent-buffs: {}
       vanilla-exp: 0
   life_deepslate:
@@ -228,7 +241,7 @@ achievements:
     parent: life_fish
     icon: DEEPSLATE
     lore:
-      - "<gray>深層岩を 2048 個掘り抜く。</gray>"
+      - <gray>深層岩を 2048 個掘り抜く。</gray>
     trigger:
       type: statistic
       statistic: MINE_BLOCK
@@ -239,10 +252,14 @@ achievements:
       special:
         - particle_sparkle
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_3
+          amount: 2
       job-exp:
-        - { skill: MINING, amount: 2500 }
-        - { skill: DIGGING, amount: 1500 }
+        - skill: MINING
+          amount: 2500
+        - skill: DIGGING
+          amount: 1500
       permanent-buffs: {}
       vanilla-exp: 0
   life_netherite:
@@ -250,8 +267,8 @@ achievements:
     parent: life_deepslate
     icon: NETHERITE_INGOT
     lore:
-      - "<gray>ネザライトインゴットを自分の手で精錬する。</gray>"
-      - "<dark_gray>糧の章 完了</dark_gray>"
+      - <gray>ネザライトインゴットを自分の手で精錬する。</gray>
+      - <dark_gray>糧の章 完了</dark_gray>
     trigger:
       type: statistic
       statistic: CRAFT_ITEM
@@ -264,29 +281,34 @@ achievements:
         - seed_flame
       commands: []
       items:
-        - { id: "custom:gacha_ticket_3", amount: 2 }
+        - id: NETHERITE_INGOT
+          amount: 1
       job-exp:
-        - { skill: SMITHING, amount: 3000 }
+        - skill: SMITHING
+          amount: 3000
       permanent-buffs: {}
       vanilla-exp: 0
-
   war_hundred:
     display-name: 百を斬る
     parent: main
     icon: IRON_SWORD
     lore:
-      - "<gray>モブを 100 体倒す。</gray>"
+      - <gray>モブを 100 体倒す。</gray>
     trigger:
       type: statistic
       statistic: MOB_KILLS
       threshold: 100
+      statistic-qualifier: ""
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_1
+          amount: 2
       job-exp:
-        - { skill: LIGHT_WEAPONS, amount: 500 }
+        - skill: LIGHT_WEAPONS
+          amount: 500
       permanent-buffs: {}
       vanilla-exp: 0
   war_thousand:
@@ -294,19 +316,22 @@ achievements:
     parent: war_hundred
     icon: DIAMOND_SWORD
     lore:
-      - "<gray>モブを 1,000 体倒す。</gray>"
+      - <gray>モブを 1,000 体倒す。</gray>
     trigger:
       type: statistic
       statistic: MOB_KILLS
       threshold: 1000
+      statistic-qualifier: ""
     broadcast: false
     rewards:
       special: []
       commands: []
       items:
-        - { id: "custom:gacha_ticket_2", amount: 2 }
+        - id: custom:gacha_ticket_2
+          amount: 2
       job-exp:
-        - { skill: HEAVY_WEAPONS, amount: 1500 }
+        - skill: HEAVY_WEAPONS
+          amount: 1500
       permanent-buffs: {}
       vanilla-exp: 0
   war_raid:
@@ -314,18 +339,22 @@ achievements:
     parent: war_thousand
     icon: CROSSBOW
     lore:
-      - "<gray>襲撃を 5 回撃退する。</gray>"
+      - <gray>襲撃を 5 回撃退する。</gray>
     trigger:
       type: statistic
       statistic: RAID_WIN
       threshold: 5
+      statistic-qualifier: ""
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: EMERALD
+          amount: 64
       job-exp:
-        - { skill: ARCHERY, amount: 1500 }
+        - skill: ARCHERY
+          amount: 1500
       permanent-buffs: {}
       vanilla-exp: 0
   war_wither:
@@ -333,7 +362,7 @@ achievements:
     parent: war_raid
     icon: WITHER_SKELETON_SKULL
     lore:
-      - "<gray>ウィザーを 1 体倒す。</gray>"
+      - <gray>ウィザーを 1 体倒す。</gray>
     trigger:
       type: statistic
       statistic: KILL_ENTITY
@@ -344,9 +373,12 @@ achievements:
       special:
         - particle_soul_ring
       commands: []
-      items: []
+      items:
+        - id: NETHER_STAR
+          amount: 1
       job-exp:
-        - { skill: HEAVY_ARMOR, amount: 2000 }
+        - skill: HEAVY_ARMOR
+          amount: 2000
       permanent-buffs: {}
       vanilla-exp: 0
   war_warden:
@@ -354,7 +386,7 @@ achievements:
     parent: war_wither
     icon: ECHO_SHARD
     lore:
-      - "<gray>ウォーデンを 1 体倒す。</gray>"
+      - <gray>ウォーデンを 1 体倒す。</gray>
     trigger:
       type: statistic
       statistic: KILL_ENTITY
@@ -366,9 +398,11 @@ achievements:
         - particle_void_aura
       commands: []
       items:
-        - { id: "custom:gacha_ticket_4", amount: 1 }
+        - id: custom:gacha_ticket_4
+          amount: 1
       job-exp:
-        - { skill: POWER, amount: 3000 }
+        - skill: POWER
+          amount: 3000
       permanent-buffs: {}
       vanilla-exp: 0
   war_myriad:
@@ -376,41 +410,48 @@ achievements:
     parent: war_warden
     icon: NETHERITE_SWORD
     lore:
-      - "<gray>モブを 10,000 体倒す。</gray>"
-      - "<dark_gray>戦の章 完了</dark_gray>"
+      - <gray>モブを 10,000 体倒す。</gray>
+      - <dark_gray>戦の章 完了</dark_gray>
     trigger:
       type: statistic
       statistic: MOB_KILLS
       threshold: 10000
+      statistic-qualifier: ""
     broadcast: true
     rewards:
       special:
         - seed_spark
       commands: []
       items:
-        - { id: "custom:gacha_ticket_4", amount: 2 }
+        - id: custom:gacha_ticket_4
+          amount: 2
       job-exp:
-        - { skill: HEAVY_WEAPONS, amount: 8000 }
+        - skill: HEAVY_WEAPONS
+          amount: 8000
       permanent-buffs: {}
       vanilla-exp: 0
-
   delve_first:
     display-name: 初踏破
     parent: main
     icon: STONE_BRICKS
     lore:
-      - "<gray>いずれかのダンジョンを踏破し、最初の「踏破の証」を得る。</gray>"
+      - <gray>いずれかのダンジョンを踏破し、最初の「踏破の証」を得る。</gray>
     trigger:
       type: static
       collection:
         scope: category
-        targets: [dungeon]
+        targets:
+          - dungeon
         threshold: 1
+        target: dungeon
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_1
+          amount: 5
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -419,19 +460,23 @@ achievements:
     parent: delve_first
     icon: CHISELED_STONE_BRICKS
     lore:
-      - "<gray>「踏破の証」を 5 種類集める。</gray>"
+      - <gray>「踏破の証」を 5 種類集める。</gray>
     trigger:
       type: static
       collection:
         scope: category
-        targets: [dungeon]
+        targets:
+          - dungeon
         threshold: 5
+        target: dungeon
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
       items:
-        - { id: "custom:gacha_ticket_3", amount: 1 }
+        - id: gacha_ticket_2
+          amount: 5
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -440,19 +485,24 @@ achievements:
     parent: delve_five
     icon: POLISHED_DEEPSLATE
     lore:
-      - "<gray>「踏破の証」を 10 種類集める。</gray>"
+      - <gray>「踏破の証」を 10 種類集める。</gray>
     trigger:
       type: static
       collection:
         scope: category
-        targets: [dungeon]
+        targets:
+          - dungeon
         threshold: 10
+        target: dungeon
+        percent: false
     broadcast: false
     rewards:
       special:
         - particle_ember_aura
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_3
+          amount: 5
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -461,19 +511,27 @@ achievements:
     parent: delve_ten
     icon: NETHERITE_SCRAP
     lore:
-      - "<gray>ダンジョン外では絶対に手に入らない 3 種を揃える。</gray>"
-      - "<dark_gray>次元の破片 / 現実の芯 / 深淵の合金</dark_gray>"
+      - <gray>ダンジョン外では絶対に手に入らない 3 種を揃える。</gray>
+      - <dark_gray>次元の破片 / 現実の芯 / 深淵の合金</dark_gray>
     trigger:
       type: static
       collection:
         scope: item
-        targets: [binder_fragment, reality_thread_core, abyssal_ingot]
+        targets:
+          - binder_fragment
+          - reality_thread_core
+          - abyssal_ingot
+        target: binder_fragment
+        threshold: 3
+        percent: false
     broadcast: true
     rewards:
       special:
         - title_delver
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_4
+          amount: 5
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -482,11 +540,18 @@ achievements:
     parent: delve_relics
     icon: BEACON
     lore:
-      - "<gray>19 種すべての「踏破の証」を集める。</gray>"
+      - <gray>28 種すべての「踏破の証」を集める。</gray>
     trigger:
       type: static
       collection:
         scope: item
+        # 2026-08-14: 19 種 → 28 種へ是正。エンチャント試練の印を単一の
+        # dungeon_seal_enchant_trial から dungeon_seal_enchant_trial_1〜_10 へ分割したとき、
+        # combat/mob-overrides.yml・items/material-lists.yml・progression/collection.yml の
+        # 3 つは 28 種へ更新されたが、ここだけ 19 件のまま取り残されていた。
+        # そのため【廃止済み ID を 1 件要求していて達成不能】かつ【新設 10 種を 1 件も要求していない】
+        # という二重の壊れ方をしていた。以降、印を増減させたら上記 3 ファイルとここを必ず揃えること
+        # (ShippedDungeonSealLedgerDriftTest が両方向の集合比較で落とす)。
         targets:
           - dungeon_seal_mines
           - dungeon_seal_deep_mines
@@ -502,37 +567,51 @@ achievements:
           - dungeon_seal_nether_bell
           - dungeon_seal_nether_wastes
           - dungeon_seal_dark_cathedral
-          - dungeon_seal_enchant_trial
+          - dungeon_seal_enchant_trial_1
+          - dungeon_seal_enchant_trial_2
+          - dungeon_seal_enchant_trial_3
+          - dungeon_seal_enchant_trial_4
+          - dungeon_seal_enchant_trial_5
+          - dungeon_seal_enchant_trial_6
+          - dungeon_seal_enchant_trial_7
+          - dungeon_seal_enchant_trial_8
+          - dungeon_seal_enchant_trial_9
+          - dungeon_seal_enchant_trial_10
           - dungeon_seal_fireworks
           - dungeon_seal_hallosseum
           - dungeon_seal_north_pole
           - dungeon_seal_binder
+        target: dungeon_seal_mines
+        threshold: 28
+        percent: false
     broadcast: true
     rewards:
       special:
         - particle_dragon_aura
       commands: []
       items:
-        - { id: "custom:gacha_ticket_5", amount: 1 }
+        - id: custom:gacha_ticket_5
+          amount: 5
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   goal_worldbinder:
     display-name: 世界を解いた者
-    # 前提は delve_relics(深層3種)。delve_all_seals(19種すべての印)にすると
-    # 「名目上の第1目標が、実際は全ダンジョン踏破後にしか解けない＝事実上の最後」になる(K-22(2))。
-    # delve_all_seals は収集系の別枝として delve_relics の下にそのまま残す。
     parent: delve_relics
     icon: DRAGON_EGG
     lore:
-      - "<gradient:#ff4d4d:#ffd166>【第1目標】世界の束縛者を討つ。</gradient>"
-      - "<gray>束縛者の印は、束縛者以外からは絶対に落ちない。</gray>"
-      - "<dark_gray>このサーバーで唯一、恒久的な戦闘力を配るアチーブメント。</dark_gray>"
+      - <gradient:#ff4d4d:#ffd166>【第1目標】世界の束縛者を討つ。</gradient>
+      - <gray>束縛者の印は、束縛者以外からは絶対に落ちない。</gray>
+      - <dark_gray>このサーバーで唯一、恒久的な戦闘力を配るアチーブメント。</dark_gray>
     trigger:
       type: static
       collection:
         scope: item
-        targets: [dungeon_seal_binder]
+        targets:
+          - dungeon_seal_binder
+        target: dungeon_seal_binder
+        threshold: 1
+        percent: false
     broadcast: true
     rewards:
       special:
@@ -540,7 +619,8 @@ achievements:
         - seed_void
       commands: []
       items:
-        - { id: "custom:gacha_ticket_5", amount: 3 }
+        - id: custom:gacha_ticket_5
+          amount: 2
       job-exp: []
       permanent-buffs:
         # 2026-08-13: 5/3(パーセントポイント記法)から 0.05/0.03(割合)へ。RewardFieldsParser が
@@ -549,25 +629,31 @@ achievements:
         percent-bonus-damage: 0.05
         damage-reduction: 0.03
       vanilla-exp: 0
-
   source_first:
     display-name: 最初のソース
     parent: main
     icon: AMETHYST_SHARD
     lore:
-      - "<gray>ソースの欠片を手に入れる。</gray>"
+      - <gray>ソースの欠片を手に入れる。</gray>
     trigger:
       type: static
       collection:
         scope: item
-        targets: [source_shard]
+        targets:
+          - source_shard
+        target: source_shard
+        threshold: 1
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: source_berry
+          amount: 10
       job-exp:
-        - { skill: ARS_MAGIC, amount: 500 }
+        - skill: ARS_MAGIC
+          amount: 500
       permanent-buffs: {}
       vanilla-exp: 0
   source_crystal:
@@ -575,19 +661,28 @@ achievements:
     parent: source_first
     icon: AMETHYST_CLUSTER
     lore:
-      - "<gray>ソースの結晶と、二段目のソースジャーを揃える。</gray>"
+      - <gray>ソースの結晶と、二段目のソースジャーを揃える。</gray>
     trigger:
       type: static
       collection:
         scope: item
-        targets: [source_crystal, source_jar_ii, source_jar_iii]
+        targets:
+          - source_crystal
+          - source_jar_ii
+          - source_jar_iii
+        target: source_crystal
+        threshold: 3
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: source_berry
+          amount: 64
       job-exp:
-        - { skill: ARS_MAGIC, amount: 1500 }
+        - skill: ARS_MAGIC
+          amount: 1500
       permanent-buffs: {}
       vanilla-exp: 0
   source_engine:
@@ -595,20 +690,30 @@ achievements:
     parent: source_crystal
     icon: RESPAWN_ANCHOR
     lore:
-      - "<gray>凝縮器から特異点ジャーまで、増幅の 4 段を揃える。</gray>"
+      - <gray>凝縮器から特異点ジャーまで、増幅の 4 段を揃える。</gray>
     trigger:
       type: static
       collection:
         scope: item
-        targets: [source_condenser, source_reservoir, source_engine, source_singularity_jar]
+        targets:
+          - source_condenser
+          - source_reservoir
+          - source_engine
+          - source_singularity_jar
+        target: source_condenser
+        threshold: 4
+        percent: false
     broadcast: true
     rewards:
       special:
         - particle_spark_ring
       commands: []
-      items: []
+      items:
+        - id: source_berry
+          amount: 128
       job-exp:
-        - { skill: ARS_MAGIC, amount: 4000 }
+        - skill: ARS_MAGIC
+          amount: 4000
       permanent-buffs: {}
       vanilla-exp: 0
   source_ten_thousand:
@@ -616,7 +721,7 @@ achievements:
     parent: source_engine
     icon: LAPIS_LAZULI
     lore:
-      - "<gray>儀式で累計 10,000 ソースを消費する。</gray>"
+      - <gray>儀式で累計 10,000 ソースを消費する。</gray>
     trigger:
       type: counter
       counter: source_spent
@@ -625,7 +730,9 @@ achievements:
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_3
+          amount: 2
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -634,7 +741,7 @@ achievements:
     parent: source_ten_thousand
     icon: LAPIS_BLOCK
     lore:
-      - "<gray>儀式で累計 1,000,000 ソースを消費する。</gray>"
+      - <gray>儀式で累計 1,000,000 ソースを消費する。</gray>
     trigger:
       type: counter
       counter: source_spent
@@ -645,7 +752,8 @@ achievements:
         - title_sourcewright
       commands: []
       items:
-        - { id: "custom:gacha_ticket_4", amount: 2 }
+        - id: custom:gacha_ticket_4
+          amount: 2
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -654,8 +762,8 @@ achievements:
     parent: source_million
     icon: SEA_LANTERN
     lore:
-      - "<gray>儀式で累計 10,000,000 ソースを消費する。</gray>"
-      - "<dark_gray>ここまで来ると、増幅段の組み方で所要時間が桁で変わる。</dark_gray>"
+      - <gray>儀式で累計 10,000,000 ソースを消費する。</gray>
+      - <dark_gray>ここまで来ると、増幅段の組み方で所要時間が桁で変わる。</dark_gray>
     trigger:
       type: counter
       counter: source_spent
@@ -666,7 +774,8 @@ achievements:
         - particle_snow_ring
       commands: []
       items:
-        - { id: "custom:gacha_ticket_5", amount: 1 }
+        - id: custom:gacha_ticket_5
+          amount: 2
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -675,8 +784,8 @@ achievements:
     parent: source_ten_million
     icon: END_CRYSTAL
     lore:
-      - "<gradient:#00c2ff:#7f5af0>【第2目標】儀式で累計 100,000,000 ソースを消費する。</gradient>"
-      - "<gray>作業厨で約1ヶ月 / カジュアルで数ヶ月を想定した到達点。</gray>"
+      - <gradient:#00c2ff:#7f5af0>【第2目標】儀式で累計 100,000,000 ソースを消費する。</gradient>
+      - <gray>作業厨で約1ヶ月 / カジュアルで数ヶ月を想定した到達点。</gray>
     trigger:
       type: counter
       counter: source_spent
@@ -688,28 +797,32 @@ achievements:
         - particle_spark_ring
       commands: []
       items:
-        - { id: "custom:gacha_ticket_5", amount: 3 }
+        - id: custom:gacha_ticket_5
+          amount: 6
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
-
   collect_start:
     display-name: 収集のはじまり
     parent: main
     icon: BOOK
     lore:
-      - "<gray>図鑑を 10% 埋める。</gray>"
+      - <gray>図鑑を 10% 埋める。</gray>
     trigger:
       type: static
       collection:
         scope: all
         percent: true
         threshold: 10
+        target: ""
+        targets: []
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_1
+          amount: 10
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -718,18 +831,24 @@ achievements:
     parent: collect_start
     icon: STRING
     lore:
-      - "<gray>スレッドを 1 本手に入れる。</gray>"
-      - "<dark_gray>スレッドは生成時にメイン/サブのステータスと数値が抽選される。</dark_gray>"
+      - <gray>スレッドを 1 本手に入れる。</gray>
+      - <dark_gray>スレッドは生成時にメイン/サブのステータスと数値が抽選される。</dark_gray>
     trigger:
       type: static
       collection:
         scope: item
-        targets: [thread_empty]
+        targets:
+          - thread_empty
+        target: thread_empty
+        threshold: 1
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_2
+          amount: 10
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -738,17 +857,12 @@ achievements:
     parent: thread_first
     icon: LEAD
     lore:
-      - "<gray>効果付きスレッドを 5 種類集める。</gray>"
+      - <gray>効果付きスレッドを 5 種類集める。</gray>
     trigger:
       type: static
       collection:
         scope: item
         threshold: 5
-        # 2026-08-02: スレッドが 16 -> 40 種になったのに合わせ、候補に儀式で作れる
-        # 制作系8種も足した。この節は「5 種類集める」の候補であって全種の一覧ではない
-        # (全種の基準表は下の thread_all)。候補を儀式製に寄せてあるのは、この段階の
-        # プレイヤーがまだ深部構造物にも高レベル帯モブにも到達していないため —
-        # 探索/戦闘経路のスレッドしか候補が無いと、進めないのに条件だけ見える形になる。
         targets:
           - thread_mana_regen
           - thread_mana_boost
@@ -765,11 +879,15 @@ achievements:
           - thread_thrift
           - thread_salvage
           - thread_scholar
+        target: thread_mana_regen
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_3
+          amount: 10
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -778,25 +896,13 @@ achievements:
     parent: thread_variety
     icon: WHITE_WOOL
     lore:
-      - "<gray>45 種すべてのスレッドを集める。</gray>"
-      - "<dark_gray>数値の厳選はここから始まる(集めるだけなら終わりではない)。</dark_gray>"
+      - <gray>45 種すべてのスレッドを集める。</gray>
+      - <dark_gray>数値の厳選はここから始まる(集めるだけなら終わりではない)。</dark_gray>
     trigger:
       type: static
       collection:
         scope: item
-        # 【このリストはスレッドIDの「基準表」も兼ねている】 2026-08-02 に 16 -> 40 種へ拡張し、
-        # 2026-08-03 にガチャ専用5種を足して 45 種にした。
-        # ShippedAchievementTreeTest#collectionItemTargetsAreKnownIds は、他ノードの
-        # collection.targets が「図鑑エントリ」か「ここに並んだID」のどちらかに含まれることを
-        # 検査している。スレッドは ArsPaper 側の登録(materials.yml 等)と突き合わせられない
-        # (フォークのソースは .gitignore 除外でクローンに存在しない)ため、ここが唯一の照合先。
-        # 新しいスレッドIDを他ノードに書く前に、必ずここへ足すこと。足さないと綴りが正しくても
-        # テストが落ちる。逆にここを削ると、綴り間違いを誰も検出できなくなる。
-        #
-        # 内訳は入手経路別に 制作8 / ルート8 / ダンジョン8 / ガチャ5 + 既存16。
-        # threshold は省略時「列挙件数」= 45 になる(AchievementsConfig の既定)。
         targets:
-          # --- 既存16種 (CMD 300001-300016) ---
           - thread_empty
           - thread_mana_regen
           - thread_mana_boost
@@ -813,7 +919,6 @@ achievements:
           - thread_conduit_power
           - thread_hero_of_the_village
           - thread_flight
-          # --- 経路=制作: 儀式で作る8種 (catalog.yml の recipe: method: ritual) ---
           - thread_mana_amplify
           - thread_mana_circulate
           - thread_source_thrift
@@ -822,7 +927,6 @@ achievements:
           - thread_thrift
           - thread_salvage
           - thread_scholar
-          # --- 経路=ルート: 構造物チェスト8種 (ArsPaper loot-tables.yml) ---
           - thread_miner
           - thread_angler
           - thread_harvest
@@ -831,7 +935,6 @@ achievements:
           - thread_endurance
           - thread_gourmet
           - thread_slow_falling
-          # --- 経路=ダンジョン: 高レベル帯モブドロップ8種 (combat/mob-level-table.yml) ---
           - thread_spoils
           - thread_experience
           - thread_mending_flesh
@@ -840,13 +943,14 @@ achievements:
           - thread_swiftcast
           - thread_marksman
           - thread_luck
-          # --- 経路=ガチャ: レシピを持たない5種 (gacha.yml の tier2/3/4 景品) ---
-          # 2026-08-03 追加。儀式では作れないので、ここが唯一の入手経路。
           - thread_perfumer
           - thread_apiarist
           - thread_herder
           - thread_appraiser
           - thread_excavation
+        target: thread_empty
+        threshold: 45
+        percent: false
     broadcast: true
     rewards:
       special:
@@ -854,7 +958,8 @@ achievements:
         - particle_petal_ring
       commands: []
       items:
-        - { id: "custom:gacha_ticket_4", amount: 2 }
+        - id: gacha_ticket_3
+          amount: 32
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -863,18 +968,24 @@ achievements:
     parent: thread_all
     icon: ROTTEN_FLESH
     lore:
-      - "<gray>「不死者」と「強敵」から合わせて 20 種を記録する。</gray>"
+      - <gray>「不死者」と「強敵」から合わせて 20 種を記録する。</gray>
     trigger:
       type: static
       collection:
         scope: category
-        targets: [undead, apex]
+        targets:
+          - undead
+          - apex
         threshold: 20
+        target: undead
+        percent: false
     broadcast: false
     rewards:
       special: []
       commands: []
-      items: []
+      items:
+        - id: gacha_ticket_4
+          amount: 10
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -883,20 +994,23 @@ achievements:
     parent: collect_mobs
     icon: ENCHANTED_BOOK
     lore:
-      - "<gray>図鑑を 50% 埋める。</gray>"
+      - <gray>図鑑を 50% 埋める。</gray>
     trigger:
       type: static
       collection:
         scope: all
         percent: true
         threshold: 50
+        target: ""
+        targets: []
     broadcast: true
     rewards:
       special:
         - seed_bloom
       commands: []
       items:
-        - { id: "custom:gacha_ticket_4", amount: 1 }
+        - id: custom:gacha_ticket_4
+          amount: 64
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -905,21 +1019,25 @@ achievements:
     parent: collect_half
     icon: NETHERITE_AXE
     lore:
-      - "<gray>「最上位装備」から 26 種を記録する。</gray>"
-      - "<dark_gray>インフィニティ / 深淵 / 束縛者の3系統から集める。</dark_gray>"
+      - <gray>「最上位装備」から 26 種を記録する。</gray>
+      - <dark_gray>インフィニティ / 深淵 / 束縛者の3系統から集める。</dark_gray>
     trigger:
       type: static
       collection:
         scope: category
-        targets: [infinity]
+        targets:
+          - infinity
         threshold: 26
+        target: infinity
+        percent: false
     broadcast: true
     rewards:
       special:
         - particle_ember_aura
       commands: []
       items:
-        - { id: "custom:gacha_ticket_5", amount: 1 }
+        - id: custom:gacha_ticket_5
+          amount: 10
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
@@ -928,14 +1046,16 @@ achievements:
     parent: collect_arsenal
     icon: NETHER_STAR
     lore:
-      - "<gradient:#ffd700:#ff8c00:#ffd700>【第3目標】図鑑を 100% 埋める。</gradient>"
-      - "<gray>踏破の証 / ソースの階梯 / 討伐素材 / 遺物 / 最上位装備 / 敵 のすべて。</gray>"
+      - <gradient:#ffd700:#ff8c00:#ffd700>【第3目標】図鑑を 100% 埋める。</gradient>
+      - <gray>踏破の証 / ソースの階梯 / 討伐素材 / 遺物 / 最上位装備 / 敵 のすべて。</gray>
     trigger:
       type: static
       collection:
         scope: all
         percent: true
         threshold: 100
+        target: ""
+        targets: []
     broadcast: true
     rewards:
       special:
@@ -943,7 +1063,8 @@ achievements:
         - particle_dragon_aura
       commands: []
       items:
-        - { id: "custom:gacha_ticket_5", amount: 5 }
+        - id: custom:gacha_ticket_5
+          amount: 64
       job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0

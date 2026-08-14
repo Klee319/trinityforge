@@ -57,13 +57,6 @@ nodes:
     icon: IRON_BOOTS
     cost: 1
     effect-text: 重装3部位で移動速度アップ(4部位で強化)・空腹になりにくくなる
-    # 2026-07-31: 旧 heavy-armor-move-speed-per-piece: 0.5(部位数×0.5%)を廃止し、
-    # セット効果(set-buffs)の move-speed へ移した。宣言値は 4部位 +2% / 3部位 +1.5%
-    # (1〜2部位では効かなくなったのが移行で変わった点)。
-    # ⚠ set-buffs はどのキーも armor-set-bonus で増幅される(1 + armor-set-bonus 倍)。
-    # 旧 per-piece 経路は増幅されなかったが、ノードB「鉄壁の装」(armor-set-bonus: 0.1)は
-    # 「3・4部位のセット効果をまとめて強化する」宣言なので move-speed も例外にしない。
-    # 実効値: B 取得後は 4部位 +2.2% / 3部位 +1.65%。armor-set-bonus を伸ばすほど乖離が広がる。
     set-buffs:
       "3":
         move-speed: 0.015
@@ -210,127 +203,139 @@ nodes:
     name: 堅・鉄壁
     level: 30
     role: greek
-    parent: A-alpha-1
+    parent: B
     icon: IRON_INGOT
     cost: 1
     effect-text: 守備力増加
     buffs:
       phys-flat-defense: 0.05
       magic-flat-defense: 0.05
+    group: B-greek
   B-beta-1:
     name: 魔・鉄壁
     level: 30
     role: greek
-    parent: A-beta-1
+    parent: B
     icon: AMETHYST_SHARD
     cost: 1
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.02
+    group: B-greek
   B-gamma-1:
     name: 巌・鉄壁
     level: 30
     role: greek
-    parent: A-gamma-1
+    parent: B
     icon: NETHERITE_SCRAP
     cost: 1
     effect-text: 防具強度・ノックバック耐性増加
     buffs:
       armor-strength: 0.01
       knockback-resistance: 0.01
+    group: B-greek
   C-alpha-1:
     name: 堅・剛守
     level: 50
     role: greek
-    parent: B-alpha-1
+    parent: C
     icon: IRON_INGOT
     cost: 1
     effect-text: 守備力増加
     buffs:
       phys-flat-defense: 0.05
       magic-flat-defense: 0.05
+    group: C-greek
   C-beta-1:
     name: 魔・剛守
     level: 50
     role: greek
-    parent: B-beta-1
+    parent: C
     icon: AMETHYST_SHARD
     cost: 1
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.02
+    group: C-greek
   C-gamma-1:
     name: 巌・剛守
     level: 50
     role: greek
-    parent: B-gamma-1
+    parent: C
     icon: NETHERITE_SCRAP
     cost: 1
     effect-text: 防具強度・ノックバック耐性増加
     buffs:
       armor-strength: 0.01
       knockback-resistance: 0.01
+    group: C-greek
   D-alpha-1:
     name: 堅・堅牢
     level: 70
     role: greek
-    parent: C-alpha-1
+    parent: D
     icon: IRON_INGOT
     cost: 1
     effect-text: 守備力増加
     buffs:
       phys-flat-defense: 0.05
       magic-flat-defense: 0.05
+    group: D-greek
   D-beta-1:
     name: 魔・堅牢
     level: 70
     role: greek
-    parent: C-beta-1
+    parent: D
     icon: AMETHYST_SHARD
     cost: 1
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.02
+    group: D-greek
   D-gamma-1:
     name: 巌・堅牢
     level: 70
     role: greek
-    parent: C-gamma-1
+    parent: D
     icon: NETHERITE_SCRAP
     cost: 1
     effect-text: 防具強度・ノックバック耐性増加
     buffs:
       armor-strength: 0.01
       knockback-resistance: 0.01
+    group: D-greek
   E-alpha-1:
     name: 堅・金剛
     level: 90
     role: greek
-    parent: D-alpha-1
+    parent: E
     icon: IRON_INGOT
     cost: 1
     effect-text: 守備力増加
     buffs:
       phys-flat-defense: 0.05
       magic-flat-defense: 0.05
+    group: E-greek
   E-beta-1:
     name: 魔・金剛
     level: 90
     role: greek
-    parent: D-beta-1
+    parent: E
     icon: AMETHYST_SHARD
     cost: 1
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.02
+    group: E-greek
   E-gamma-1:
     name: 巌・金剛
     level: 90
     role: greek
-    parent: D-gamma-1
+    parent: E
     icon: NETHERITE_SCRAP
     cost: 1
     effect-text: 防具強度・ノックバック耐性増加
     buffs:
       armor-strength: 0.01
       knockback-resistance: 0.01
+    group: E-greek

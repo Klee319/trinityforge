@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/gold_nugget",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5314,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/gold_ingot_scrap"
+        }
+      }
+    ]
+  }
+}

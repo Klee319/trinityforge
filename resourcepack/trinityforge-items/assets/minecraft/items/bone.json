@@ -1,0 +1,33 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "model": "minecraft:item/bone",
+      "type": "minecraft:model"
+    },
+    "entries": [
+      {
+        "threshold": 5407,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/skeleton_horse_bone"
+        }
+      },
+      {
+        "threshold": 5412,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/bogged_mossy_bone"
+        }
+      },
+      {
+        "threshold": 5413,
+        "model": {
+          "type": "minecraft:model",
+          "model": "trinityforge:item/parched_sandy_bone"
+        }
+      }
+    ]
+  }
+}

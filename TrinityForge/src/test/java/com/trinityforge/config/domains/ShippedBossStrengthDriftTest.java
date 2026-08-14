@@ -103,7 +103,61 @@ class ShippedBossStrengthDriftTest {
         BINDER_TIER.put("em_id_binder_of_worlds_phase_1_status_miniboss", new double[] {1.8, 1.2});
     }
 
-    /** 柱2-1 の割り当て表: ワールド名 -&gt; その踏破ボス(印を落とすモブ)id と ability の列。 */
+    /**
+     * 束縛者の踏破ボス。<b>HP だけは柱2 の倍率(×6.0)を離れて絶対値で書いてある</b>ので、
+     * 段階表とは別に固定する。
+     *
+     * <p><b>なぜ 578100 なのか(マジックナンバーではない)</b>:
+     * 実HP = ここの値 × EliteMobs の {@code healthMultiplier} で、束縛者 phase_4 の
+     * {@code custombosses/the_binder_of_worlds/em_id_binder_of_worlds_phase_4.yml} は
+     * {@code healthMultiplier: 120}。したがって実HP = 578100 × 120 = <b>69,372,000</b>。
+     * これは難易度 10 の基準であるエンチャント試練10
+     * ({@code enchantment_boss_tricky_bones} の {@code max-health: 17340000} ×
+     * {@code healthMultiplier: 4.0} = 69,360,000)と同じ帯に置くための値。
+     * <b>柱2 の ×6.0(= 29106)へ差し戻すと実HP が 3.49M へ落ち、最終ボスが試練10 の 1/20 になる。</b>
+     */
+    private static final String BINDER_FINAL_PHASE = "em_id_binder_of_worlds_phase_4";
+
+    private static final double BINDER_FINAL_PHASE_HEALTH = 578100.0;
+
+    /**
+     * 柱2-1 の割り当て表: ワールド名 -&gt; その踏破ボス(そのダンジョンで<b>最後に戦う</b>モブ)id と ability の列。
+     *
+     * <h3>「踏破ボス」の確定手順(2026-08-14 に実データで取り直した)</h3>
+     * 配備先 {@code plugins/EliteMobs/} の実ファイルだけを根拠にする。手順は2段:
+     * <ol>
+     *   <li>{@code content_packages/<pack>.yml} の {@code dungeonObjectives} で
+     *       <b>そのダンジョンのボス系列の入口</b>を特定する。</li>
+     *   <li>その入口ファイルの {@code phases:} を辿り、<b>いちばん深い段階</b>を取る。
+     *       {@code phases:} は「HP割合 → 次のファイル」の列で、入口の p1 にだけ書かれている。</li>
+     * </ol>
+     *
+     * <p><b>ここを間違えると症状が出ない</b>: 途中段階のIDに ability を付けても
+     * {@link MobOverridesConfig#parse} は何も言わないし、その段階は数秒で通過するので
+     * 「たまに撃ってきた気がする」程度にしかならない。<b>一番長く戦う最終段階が無技になる</b>。
+     *
+     * <h3>2026-08-14 に訂正した4件(すべて「途中フェーズを指していた」)</h3>
+     * <ul>
+     *   <li>{@code em_knight_castle}: p3 → <b>p4</b>。
+     *       {@code the_castle_charlemagne_p1.yml} の phases が p2:0.80 / p3:0.50 / p4:0.30。
+     *       p4 だけが {@code dropsEliteMobsLoot: true} + {@code uniqueLootList} を持つ。</li>
+     *   <li>{@code em_steamworks_lair}: p3 → <b>p7</b>。
+     *       {@code the_steamworks_clk_wrx702_p1.yml} の phases が p2〜p7 の6段。</li>
+     *   <li>{@code em_id_the_climb}: p3 → <b>p4</b>。
+     *       {@code the_climb_undead_beastmaster.yml} の phases が p2:.99999 / p3:.75 / p4:.50。</li>
+     *   <li>{@code em_id_the_quarry}: {@code em_id_the_quarry_royal_wizard_five_unlocker_p3}
+     *       → <b>{@code LiftStateFinishDungeon}</b>。
+     *       <b>名前は状態機械のように見えるが実体はモブID</b>
+     *       ({@code custombosses/em_id_the_quarry/LiftStateFinishDungeon.yml} は
+     *       {@code bossType: BOSS} / {@code name: $bossLevel &dLift Master} /
+     *       {@code healthMultiplier: 8.5} を持つ本物のボス定義)。
+     *       {@code the_quarry_dungeon.yml} の {@code dungeonObjectives} の最後がこれで、
+     *       {@code customquests/story_dungeons_quest_7_down_below.yml} もこれを討伐目標にしている。
+     *       元の指定 {@code ..._royal_wizard_five_unlocker_p3} は「術式守護のトーテム」
+     *       ({@code $normalLevel} 表記・{@code isRegionalBoss: false}・HP倍率3.5)で、
+     *       Royal Spellcaster の檻を割るための<b>仕掛け</b>であって踏破ボスではない。</li>
+     * </ul>
+     */
     private static final Map<String, Map.Entry<String, List<String>>> DUNGEON_BOSS_ABILITIES =
             new LinkedHashMap<>();
 
@@ -112,10 +166,10 @@ class ShippedBossStrengthDriftTest {
         List<String> phys = List.of("shockwave", "bull_rush");
         putBoss("em_id_the_mines", "the_mines_soulweaver_daine_p3", phys);
         putBoss("em_id_the_deep_mines", "em_id_the_deep_mines_boss_the_pursuer_p3", phys);
-        putBoss("em_id_the_quarry", "em_id_the_quarry_royal_wizard_five_unlocker_p3", phys);
+        putBoss("em_id_the_quarry", "LiftStateFinishDungeon", phys);
         putBoss("em_id_the_city", "em_id_the_city_royal_guard_p3", phys);
-        putBoss("em_knight_castle", "the_castle_charlemagne_p3", phys);
-        putBoss("em_steamworks_lair", "the_steamworks_clk_wrx702_p3", phys);
+        putBoss("em_knight_castle", "the_castle_charlemagne_p4", phys);
+        putBoss("em_steamworks_lair", "the_steamworks_clk_wrx702_p7", phys);
         putBoss("em_fireworks", "fireworks_level_50_boss_phase_3", phys);
         // 魔法寄り(魔法 defense-rate .418) — piercing_beam + withering_aura
         List<String> magic = List.of("piercing_beam", "withering_aura");
@@ -126,7 +180,7 @@ class ShippedBossStrengthDriftTest {
         // 均等 — call_the_horde + crippling_stomp
         List<String> even = List.of("call_the_horde", "crippling_stomp");
         putBoss("em_id_the_bridge", "the_bridge_ancient_guardian_p3", even);
-        putBoss("em_id_the_climb", "the_climb_undead_beastmaster_p3", even);
+        putBoss("em_id_the_climb", "the_climb_undead_beastmaster_p4", even);
         putBoss("em_id_the_palace", "the_palace_old_stone_king_p3", even);
         putBoss("em_sewer_maze", "sewer_tier_70_boss", even);
         // 低難度 — frost_field 1つだけ
@@ -157,6 +211,15 @@ class ShippedBossStrengthDriftTest {
      * 実証する新規派生カスタムボス6体。caster_zombie/warlock_husk/frost_wraith_skeleton/
      * abyssal_drowned/cursed_wanderer/shadow_spider。2026-08-02、既存モブは書き換えていない) = 49。
      * 増減したらこの定数と一緒に「なぜ増えたか」を書くこと。
+     *
+     * <p><b>2026-08-14 に出荷 yml を数え直して 49 のまま据え置いた</b>。
+     * {@link #DUNGEON_BOSS_ABILITIES} の4件の訂正は「abilities を途中フェーズから最終フェーズへ
+     * <b>移す</b>」であって足す作業ではないので、担い手の総数は変わらない
+     * (default 15 + 束縛者 7 + 踏破ボス 18 + エンチャント試練 9 = 49。
+     * default の 15 は「バニラ9 + 派生カスタムボス6」の合算)。
+     * <b>ここを 53 のような数へ増やしたら、それは移動ではなく二重掲載になっている</b>
+     * ── 途中フェーズ側の {@code abilities:} を消し忘れたということなので、
+     * {@link #onlyTheClearBossOfEachDungeonCarriesAbilities} も同時に落ちる。
      */
     private static final int EXPECTED_ABILITY_CARRIER_COUNT = 49;
 
@@ -226,37 +289,106 @@ class ShippedBossStrengthDriftTest {
 
     // === 柱2: 束縛者の4段階 ===
 
+    /**
+     * 束縛者スコープ直下の {@code attack-power-multiplier} を<b>出荷 yml から読む</b>。
+     * ここを定数で直書きすると、yml 側の倍率だけ動かしても絶対値7体との整合が検査されず、
+     * 「増援だけ強くなってボスが置いていかれる」状態を緑のまま通してしまう。
+     */
+    private static double binderScopeAttackMultiplier() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        ConfigurationSection stats =
+                yaml.getConfigurationSection("overrides." + BINDER_WORLD + ".stats");
+        assertNotNull(stats, "出荷 mob-overrides.yml の " + BINDER_WORLD + " に scope 直下の stats が無い");
+        assertTrue(stats.isSet("attack-power-multiplier"),
+                BINDER_WORLD + " の scope 直下から attack-power-multiplier が消えている。"
+                        + "この倍率は【絶対値を持たない増援11体】の被ダメージが床値(min-component-damage)に"
+                        + "張り付くのを防ぐ唯一の手段なので、消すと雑魚が無害になる。");
+        return stats.getDouble("attack-power-multiplier");
+    }
+
+    /**
+     * 段階表({@link #BINDER_TIER})の対象が、出荷 yml で実際に絶対値を持つ個体と<b>一致している</b>
+     * ことを先に固定する。許可リストだけを見る検査は<b>リスト自体が現実とずれた瞬間に検査ごと無効化</b>
+     * されるため(8体目に絶対値を足しても誰も気づかない)、ここで両側から突き合わせる。
+     */
     @Test
-    @DisplayName("束縛者の4段階＋ミニボス3種が、共通ランプLv50実値×計画倍率の絶対値で書かれている")
+    @DisplayName("束縛者で絶対値(HP/攻撃)を持つのは段階表の7体ちょうど。増援は1体も持たない")
+    void binderAbsoluteCarriersAreExactlyTheTierTable() throws IOException {
+        YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        ConfigurationSection mobs = mobsSection(yaml, BINDER_WORLD);
+
+        Set<String> carriers = new TreeSet<>();
+        for (String mobId : mobs.getKeys(false)) {
+            ConfigurationSection stats = mobs.getConfigurationSection(mobId + ".stats");
+            if (stats == null) {
+                continue;
+            }
+            if (stats.isSet("max-health") || stats.isSet("attack.attack-power")) {
+                carriers.add(mobId);
+            }
+        }
+        assertEquals(new TreeSet<>(BINDER_TIER.keySet()), carriers,
+                "束縛者で per-mob の絶対値を持つ個体の集合が段階表と食い違っている。"
+                        + "絶対値を足した個体は【scope 直下の attack-power-multiplier が丸ごと捨てられる】側へ"
+                        + "移るので(MobOverridesConfig#resolve は scope 直下 → mob 単位の順に適用し、"
+                        + "MobStatOverride#mergeAttack は倍率適用後の値を絶対値で置換する)、"
+                        + "倍率を畳み込まないと 4.8 分だけ弱いまま無言で残る。"
+                        + "段階表に足すか、絶対値をやめるかのどちらかにすること。");
+    }
+
+    @Test
+    @DisplayName("束縛者の4段階＋ミニボス3種が、共通ランプLv50実値×計画倍率×スコープ倍率の絶対値で書かれている")
     void binderTierMatchesThePlannedMultipliers(@TempDir File tempDir) throws IOException {
         MobOverridesConfig config = loadShippedOverrides(tempDir);
         double rampHp = rampAt(RAMP_HP_BASE, RAMP_HP_GROWTH, BINDER_CONTENT_LEVEL);
         double rampAttack = rampAt(RAMP_ATTACK_BASE, RAMP_ATTACK_GROWTH, BINDER_CONTENT_LEVEL);
+        double scopeMultiplier = binderScopeAttackMultiplier();
 
         BINDER_TIER.forEach((mobId, multipliers) -> {
             MobProfile resolved = config.resolve(BINDER_WORLD, mobId, neutralBase(mobId));
-            double expectedHp = Math.rint(rampHp * multipliers[0]);
-            double expectedAttack = Math.rint(rampAttack * multipliers[1] * 100.0) / 100.0;
+
+            // HP: 段階表の倍率をランプ実値に掛けた絶対値。踏破ボス phase_4 だけは倍率を離れた実HP基準
+            // (根拠は BINDER_FINAL_PHASE_HEALTH の javadoc)。
+            double expectedHp = BINDER_FINAL_PHASE.equals(mobId)
+                    ? BINDER_FINAL_PHASE_HEALTH
+                    : Math.rint(rampHp * multipliers[0]);
+
+            // 攻撃: yml は「ランプ実値 × 段階倍率」を小数2桁で丸めた値へ、さらに scope 倍率を
+            // 畳み込んだ2桁の値を書いている(2段の丸めを踏襲しないと 0.01 ずれる)。
+            //   例) phase_1 = 21.26(ランプLv50) × 1.3 = 27.64 → × 4.8 = 132.67
+            // scope 倍率を畳み込むのは、絶対値を持つ個体では倍率が捨てられるため
+            // (MobStatOverride#applyTo → mergeAttack が置換であって乗算ではない)。
+            double plannedAttack = Math.rint(rampAttack * multipliers[1] * 100.0) / 100.0;
+            double expectedAttack = Math.rint(plannedAttack * scopeMultiplier * 100.0) / 100.0;
 
             assertEquals(expectedHp, resolved.maxHealth(), 1.0,
-                    mobId + " の max-health が " + resolved.maxHealth() + "。柱2 は共通ランプ Lv"
-                            + BINDER_CONTENT_LEVEL + " 実値 " + String.format("%.2f", rampHp)
-                            + " × " + multipliers[0] + " = " + expectedHp + " を指定している。"
-                            + "倍率キーは MobStatOverride に無いので、ここは絶対値でしか書けない。");
+                    mobId + " の max-health が " + resolved.maxHealth() + "。期待は " + expectedHp
+                            + (BINDER_FINAL_PHASE.equals(mobId)
+                            ? "(踏破ボスの実HP基準。EM の healthMultiplier 120 を掛けて 69,372,000 = "
+                            + "エンチャント試練10 と同帯)"
+                            : "(共通ランプ Lv" + BINDER_CONTENT_LEVEL + " 実値 "
+                            + String.format("%.2f", rampHp) + " × " + multipliers[0] + ")")
+                            + "。倍率キーは MobStatOverride に無いので、ここは絶対値でしか書けない。");
             assertEquals(expectedAttack, resolved.attack().defaultDamage(), 0.01,
                     mobId + " の attack.attack-power が " + resolved.attack().defaultDamage()
-                            + "。柱2 は共通ランプ Lv" + BINDER_CONTENT_LEVEL + " 実値 "
-                            + String.format("%.2f", rampAttack) + " × " + multipliers[1]
-                            + " = " + expectedAttack + " を指定している。");
+                            + "。期待は 共通ランプ Lv" + BINDER_CONTENT_LEVEL + " 実値 "
+                            + String.format("%.2f", rampAttack) + " × 段階倍率 " + multipliers[1]
+                            + " = " + plannedAttack + " × scope 倍率 " + scopeMultiplier
+                            + " = " + expectedAttack + "。"
+                            + "scope 直下の attack-power-multiplier は【絶対値を持つ個体では捨てられる】ので、"
+                            + "yml 側にはこの畳み込み済みの値を書くのが正しい。"
+                            + "畳み込みを戻すと、増援だけが 4.8 倍でボスが据え置きという逆転が起きる。");
         });
     }
 
     @Test
-    @DisplayName("束縛者の増援は HP も攻撃も無干渉のまま(未設定 = 0 ではなく『下位層をそのまま使う』)")
-    void binderReinforcementsAreLeftUntouched(@TempDir File tempDir) throws IOException {
+    @DisplayName("束縛者の増援は HP 無干渉のまま。攻撃だけは scope 倍率がそのまま効く(絶対値を持たないので)")
+    void binderReinforcementsKeepTheirHpButTakeTheScopeAttackMultiplier(@TempDir File tempDir)
+            throws IOException {
         MobOverridesConfig config = loadShippedOverrides(tempDir);
         YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
         ConfigurationSection mobs = mobsSection(yaml, BINDER_WORLD);
+        double scopeMultiplier = binderScopeAttackMultiplier();
 
         List<String> reinforcements = mobs.getKeys(false).stream()
                 .filter(id -> id.contains("reinforcement"))
@@ -266,16 +398,24 @@ class ShippedBossStrengthDriftTest {
                 "束縛者の増援は 11 体のはず(プラン本文の『増援×10』は実データと1体ずれている)。"
                         + "実際に見つかったのは " + reinforcements);
 
-        // 素の profile に 999/9.99 を敷き、オーバーライド後もその値が残る = 何も上書きしていない。
+        // 素の profile に 999/9.99 を敷く。HP は誰も書いていないのでそのまま残り、
+        // 攻撃だけが scope 直下の倍率で押し上げられる —— これが「増援は個体を強くしないが、
+        // 被ダメージが床値に張り付くのは直す」という 2026-08-14 の設計そのもの。
+        double expectedAttack = 9.99 * scopeMultiplier;
         for (String mobId : reinforcements) {
             MobProfile base = new MobProfile(mobId, 1, null, DefenseStats.NONE, DefenseStats.NONE,
                     AttackStats.plain(9.99), 999.0, false);
             MobProfile resolved = config.resolve(BINDER_WORLD, mobId, base);
             assertEquals(999.0, resolved.maxHealth(), 1.0e-9,
-                    mobId + " に max-health が書かれている。増援は『数で圧をかける役』なので"
-                            + "個体を強くしない、というのが柱2 の明示的な指定。");
-            assertEquals(9.99, resolved.attack().defaultDamage(), 1.0e-9,
-                    mobId + " に attack-power が書かれている(同上)。");
+                    mobId + " の max-health が動いている。増援は『数で圧をかける役』なので"
+                            + "個体を硬くしない、というのが柱2 の明示的な指定"
+                            + "(scope 直下にも max-health-multiplier は置いていない)。");
+            assertEquals(expectedAttack, resolved.attack().defaultDamage(), 1.0e-9,
+                    mobId + " の attack-power が " + resolved.attack().defaultDamage()
+                            + "。増援は per-mob の絶対値を持たないので、scope 直下の "
+                            + "attack-power-multiplier " + scopeMultiplier + " が素通しで効き "
+                            + expectedAttack + " になるのが正。ここに絶対値を書き足すと"
+                            + "倍率が捨てられて逆に弱くなる。");
         }
     }
 
@@ -298,22 +438,39 @@ class ShippedBossStrengthDriftTest {
 
     // === 柱2-1: 他ダンジョンのボスへ配った abilities ===
 
+    /**
+     * <b>1件目で止めずに全ダンジョンぶんを集めてから落とす</b>(2026-08-14)。
+     * ループの中で assert すると、最初に食い違ったダンジョンの分しか見えず、
+     * <b>直しては再実行して次の1件を知る</b>という往復になる
+     * (実際 4 ダンジョンが同時にずれていたのに 1 件しか表示されなかった)。
+     * 設定の drift は「まとめて直す」のが自然なので、まとめて見せる。
+     */
     @Test
     @DisplayName("18ダンジョンの踏破ボスに、属性配分どおりの abilities が付いている")
     void everyDungeonBossCarriesItsPlannedAbilities(@TempDir File tempDir) throws IOException {
         MobOverridesConfig config = loadShippedOverrides(tempDir);
+        List<String> mismatches = new ArrayList<>();
         DUNGEON_BOSS_ABILITIES.forEach((world, boss) -> {
             List<String> actual = config.abilitiesFor(world, boss.getKey());
-            assertEquals(boss.getValue(), actual,
-                    world + " の踏破ボス " + boss.getKey() + " の abilities が想定と違う。"
-                            + "柱2-1 は属性配分(物理寄り/魔法寄り/均等/低難度)で割り当てを決めている。");
+            if (!boss.getValue().equals(actual)) {
+                mismatches.add("overrides." + world + ".mobs." + boss.getKey()
+                        + ": 期待 abilities: " + boss.getValue() + " / 実測 " + actual);
+            }
         });
+        assertTrue(mismatches.isEmpty(),
+                "踏破ボスの abilities が想定と違うダンジョンがある(" + mismatches.size() + "件): " + mismatches
+                        + " ── 柱2-1 は属性配分(物理寄り/魔法寄り/均等/低難度)で割り当てを決めている。"
+                        + "実測が [] なら combat/mob-overrides.yml の当該モブに abilities を足し、"
+                        + "同じダンジョンの途中フェーズに付いている abilities を消すこと"
+                        + "(移動であって追加ではない。詳細は DUNGEON_BOSS_ABILITIES の javadoc)。");
     }
 
+    /** 1件目で止めない理由は {@link #everyDungeonBossCarriesItsPlannedAbilities} と同じ。 */
     @Test
     @DisplayName("abilities は踏破ボスにだけ。同じダンジョンのミニボス・雑魚には付けない")
     void onlyTheClearBossOfEachDungeonCarriesAbilities() throws IOException {
         YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
+        List<String> mismatches = new ArrayList<>();
         DUNGEON_BOSS_ABILITIES.forEach((world, boss) -> {
             ConfigurationSection mobs = mobsSection(yaml, world);
             Set<String> carriers = new TreeSet<>();
@@ -323,11 +480,18 @@ class ShippedBossStrengthDriftTest {
                     carriers.add(mobId);
                 }
             }
-            assertEquals(Set.of(boss.getKey()), carriers,
-                    world + " で abilities を持つモブが踏破ボス1体になっていない。"
-                            + "『ボスだけが技を撃つ』という手触りを守るため、ミニボス・雑魚・増援には付けない"
-                            + "(束縛者だけは 2026-07-31 に決めた例外で、ミニボス3種も技を持つ)。");
+            if (!Set.of(boss.getKey()).equals(carriers)) {
+                mismatches.add(world + ": 技を持つべきは踏破ボス " + boss.getKey()
+                        + " だけなのに、実際の担い手は " + carriers);
+            }
         });
+        assertTrue(mismatches.isEmpty(),
+                "abilities を持つモブが踏破ボス1体になっていないダンジョンがある("
+                        + mismatches.size() + "件): " + mismatches
+                        + " ── 『ボスだけが技を撃つ』という手触りを守るため、ミニボス・雑魚・増援には付けない"
+                        + "(束縛者だけは 2026-07-31 に決めた例外で、ミニボス3種も技を持つ)。"
+                        + "担い手が踏破ボスではない別のIDなら、それは『途中フェーズに付いている』状態。"
+                        + "途中フェーズは数秒で通過するので、一番長く戦う最終フェーズが無技のままになる。");
     }
 
     @Test

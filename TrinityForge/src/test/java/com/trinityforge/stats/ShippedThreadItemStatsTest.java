@@ -41,10 +41,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>{@code per-quality:} は<b>主ステ1件だけ</b>(品質0..9で伸びる軸)。</li>
  *   <li>{@code random:} は<b>主ステ + サブ4種</b>の5件。主ステは {@code random} の先頭。</li>
  *   <li>{@code advanced.randomize-grants: true} + {@code grant-chances} でサブ4種を各 0.45。
- *       <b>主ステは grant-chances に書かない</b>(書くと主ステが確率で消え、名前どおりの
- *       効果を持たない個体が出る)。</li>
+ *       <b>主ステは grant-chances に書かない</b>。</li>
  *   <li>{@code offhand-stats-apply: false}(スレッド自体をオフハンドに持って効かせない)。</li>
  * </ul>
+ *
+ * <h2>「主ステを grant-chances に 1.0 で書く」を禁じる理由(2026-08-14 に実装で確定)</h2>
+ * <b>付与の挙動は変わらない</b>。{@code DerivedItemStats#resolveGrantedKeys} は
+ * {@code chance >= 1.0} を短絡して必ず付与し、{@code ItemStatProfile#grantChance} は
+ * <b>未記載も 1.0</b> を返すので、書いても書かなくても主ステは必ず付く。
+ *
+ * <p>変わるのは<b>ロアの色</b>。{@code ItemAssembler} は
+ * {@code profile.grantChances().keySet()} を「付与確率つきステ」の集合として
+ * {@code LoreComposeRequest} へ渡し、{@code LoreColorRules} が
+ * {@code layout.colors.{fixed,roll}.chance-positive/negative} の色へ切り替える。
+ * 出荷 {@code stats/lore.yml} は今その色を書いていないので<b>今日は見た目も変わらない</b>が、
+ * 誰かが色を足した瞬間に<b>必ず付く主ステが「確率で付くステ」の色で出る</b>ようになる
+ * ── 表示が仕様と逆の嘘をつく。
+ *
+ * <p>つまり「今は無害・意図は読めない」ので、<b>意図が読める側(= 書かない)</b>へ寄せた。
+ * {@code grant-chances} は「保証されないステの一覧」であって、確定ステの置き場ではない。
  *
  * <h2>主ステに選んではいけないキー2種</h2>
  * <ul>
@@ -132,7 +147,15 @@ class ShippedThreadItemStatsTest {
         m.put(300007, new Thread("耐火", "magic-resistance"));
         m.put(300008, new Thread("イルカの好意", "dodge-chance"));
         m.put(300009, new Thread("コンジットパワー", "magic-flat-defense"));
-        m.put(300010, new Thread("村の英雄", "attack-power"));
+        // 2026-08-14: 主ステを attack-power から percent-bonus-damage へ振り替えた(案E)。
+        // attack-power は「武器の基本ダメージを置き換える」実数ステで、値が帯に依存しない。
+        // 厳選q15上限で 25*15 + 1116 = 1491 になり、Lv20 帯の最強剣(699.5)を1本で超えていた。
+        // さらに PlayerStatAggregator#isWornOnlyArmor は HEAD/CHEST/LEGS/FEET しか true にせず、
+        // スレッドの材質(鍛冶型/陶器の欠片/旗の模様)は false なので「装備に挿さず手に持つだけで」
+        // メインハンド寄与として合算される ── Lv20 では素手で握るだけで最強剣の 5.33 倍 DPS だった。
+        // percent-bonus-damage は「与えた最終ダメージの割合」なので、(1) 装備が伸びれば自動で伸び、
+        // (2) 手に持っただけなら素手の基本ダメージ(1.0)の割合にしかならないので穴が同時に塞がる。
+        m.put(300010, new Thread("村の英雄", "percent-bonus-damage"));
         m.put(300011, new Thread("体力増強", "phys-flat-defense"));
         m.put(300015, new Thread("飛行", "dodge-chance"));
         m.put(300016, new Thread("バックパック", "phys-flat-defense"));

@@ -63,41 +63,33 @@
 
 prune-orphaned-grants: true
 display:
-  nametag-clearance: 0.4
-
+  nametag-clearance: 0.2
 titles:
-  # --- 図鑑(collection.yml reward-tiers)の段階報酬 ---
   title_collector:
-    display: "<gray>収集家</gray>"
+    display: <color:gray><b>収集家</b></color>
   title_seeker:
-    display: "<white>探究者</white>"
+    display: <color:white><b>探究者</b></color>
   title_archivist:
-    display: "<aqua>記録者</aqua>"
+    display: <color:aqua><b>記録者</b></color>
   title_worldwalker:
-    display: "<gradient:#7f5af0:#2cb67d>世界渡り</gradient>"
-  # --- 指南(achievements.yml)の章クリア報酬 ---
+    display: <gradient:#7f5af0:#2cb67d><b>世界渡り</b></gradient>
   title_first_step:
-    display: "<gray>はじまりの者</gray>"
+    display: <color:gray><b>はじまりの者</b></color>
   title_gatherer:
-    display: "<green>糧を得る者</green>"
+    display: <color:green><b>糧を得る者</b></color>
   title_sourcewright:
-    display: "<blue>ソースの職人</blue>"
+    display: <color:blue><b>ソースの職人</b></color>
   title_delver:
-    display: "<dark_aqua>深層に潜る者</dark_aqua>"
+    display: <color:dark_aqua><b>深層に潜る者</b></color>
   title_refiner:
-    display: "<gold>厳選者</gold>"
-  # --- 最終目標3種(束縛者 / 1億ソース / 図鑑コンプ) ---
+    display: <color:gold><b>厳選者</b></color>
   title_worldbinder_slayer:
-    display: "<gradient:#ff4d4d:#ffd166>世界を解いた者</gradient>"
+    display: <gradient:#ff4d4d:#ffd166><b>世界を解いた者</b></gradient>
   title_infinite_source:
-    display: "<gradient:#00c2ff:#7f5af0>無限の器</gradient>"
+    display: <gradient:#00c2ff:#7f5af0><b>無限の器</b></gradient>
   title_completionist:
-    display: "<gradient:#ffd700:#ff8c00:#ffd700>万象を知る者</gradient>"
-
+    display: <gradient:#ffd700:#ff8c00:#ffd700><b>万象を知る者</b></gradient>
 particles:
-  # radius は「発生半径(ブロック)」。aura は自分の周りにまとわりつき、circle は円周上へ等間隔で配置する
-  # (circle は count がそのまま円周上の点数になるので、count を上げすぎると視界が潰れる)。
-  # interval-ticks は 20 = 1秒。常時演出なので 10 未満にはしない(描画負荷と視界の両方が壊れる)。
   particle_sparkle:
     particle: END_ROD
     count: 6
@@ -113,7 +105,7 @@ particles:
   particle_void_aura:
     particle: PORTAL
     count: 12
-    radius: 1.0
+    radius: 1
     interval-ticks: 10
     shape: aura
   particle_soul_ring:
@@ -137,20 +129,16 @@ particles:
   particle_spark_ring:
     particle: ELECTRIC_SPARK
     count: 14
-    radius: 1.0
+    radius: 1
     interval-ticks: 12
     shape: circle
   particle_dragon_aura:
     particle: DRAGON_BREATH
     count: 10
-    radius: 1.0
+    radius: 1
     interval-ticks: 12
     shape: aura
-
 particle-seeds:
-  # 「種」を武器/道具に合成すると、その道具での攻撃/破壊時にパーティクルが出るようになる。
-  # seed-item は Material名 または custom:<カタログID>。ここでは新規テクスチャを要らない
-  # バニラ素材だけを使い、入手経路は儀式/ガチャ/ドロップ側で与える。
   seed_flame:
     seed-item: BLAZE_POWDER
     particle: FLAME

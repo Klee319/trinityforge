@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/gold_ingot",
+  "textures": {
+    "layer0": "trinityforge:item/piglin_brute_plate"
+  }
+}

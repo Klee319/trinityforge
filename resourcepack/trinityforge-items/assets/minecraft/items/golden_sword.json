@@ -45,8 +45,8 @@
       {
         "threshold": 400005,
         "model": {
-          "type": "minecraft:model",
-          "model": "trinityforge:item/golden_cane"
+          "model": "minecraft:item/golden_sword",
+          "type": "minecraft:model"
         }
       }
     ]
