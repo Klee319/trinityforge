@@ -143,13 +143,18 @@ class ArmorTreeDefenseCalibrationTest {
         double lightMagic = maxObtainable(light, K_MAGIC_FLAT);
 
         // 重装備側が痩せたら軽装備の目標も一緒にずれてしまうので、先に重装備を絶対値で固定する。
-        // 4.6 / 13.8 = 出荷 item-stats の Lv100 4部位合計(phys 13.80 / magic 62.60)に対する
-        // おおよそ1部位ぶん。
-        assertEquals(4.6, heavyPhys, 1e-6,
-                "重装備ツリー全取りの物理守備力が " + heavyPhys + "。装備1部位ぶん(4.6)から動いている。"
-                        + "動かすなら軽装備側の目標も同時に引き直すこと。");
-        assertEquals(13.8, heavyMagic, 1e-6,
-                "重装備ツリー全取りの魔法守備力が " + heavyMagic + "(13.8 であるべき)");
+        // 8.4 の出どころは combat の設計線 F(L) = 0.5 * A(L):
+        //   Lv100 のモブ基準攻撃力 A = 10.2 * 1.0148^100 = 44.3 → 守備力の総量の目標 22.2
+        //   出荷 item-stats の最良装備4部位 phys 13.8 → ツリーの取り分 = 22.2 - 13.8 = 8.4
+        // これ以上積むと残差が min-component-damage:1 に張り付き、全帯が「ゼロか爆発」の二択になる
+        // (docs/agent-context/combat.md の 2026-08-12 再較正)。つまり 8.4 は目安ではなく上限。
+        assertEquals(8.4, heavyPhys, 1e-6,
+                "重装備ツリー全取りの物理守備力が " + heavyPhys + "。設計線 F(L)=0.5*A(L) から逆算した"
+                        + "ツリーの取り分 8.4 から動いている。上へ動かすとダメージ下限へ張り付き、"
+                        + "下へ動かすと「守備力だけ帯に追随しない」状態へ逆戻りする。");
+        assertEquals(25.2, heavyMagic, 1e-6,
+                "重装備ツリー全取りの魔法守備力が " + heavyMagic + "(25.2 であるべき)。"
+                        + "物理の3倍なのは装備側の土俵が約3倍あるため(Lv100 の重装4部位で magic 62.6)。");
 
         assertEquals(heavyPhys / 2.0, lightPhys, 1e-6,
                 "軽装備ツリー全取りの物理守備力が " + lightPhys + " で、重装備 " + heavyPhys

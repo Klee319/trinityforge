@@ -39,18 +39,21 @@ icon: IRON_CHESTPLATE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1
+  max-times: 5
   at-level: 100
   name: 鉄壁の境地
   effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
-    # 2026-08-14 再較正: 守備力の実数値だけが帯に追随しておらず、同じブロックの
-    # defense-rate/damage-reduction が 10% で効いているのに 0.15 は被ダメージ 0.15 相当
-    # (Lv100 のゾンビの一撃 34.8 の 0.4%) しかなかった。Lv90 の α ノードを上回る値に置く。
-    phys-flat-defense: 1.0
-    magic-flat-defense: 3.0
-    # 2026-08-15: armor-defense-rate から改名。パーク側は [0,1] の軽減率で、
-    # アイテム側の同名キー(バニラ防具値の点数)とは単位が違う。
+    # 2026-08-15 再々較正。目標は combat の設計線 F(L)=0.5*A(L)。
+    # Lv100 でモブ基準攻撃力 A=44.3 なので守備力の総量の目標は 22.2、
+    # 出荷 item-stats の最良装備4部位が phys 13.8 なので、ツリーの取り分は 8.4 が上限。
+    # (これ以上積むと残差が min-component-damage:1 に張り付いて全帯が「ゼロか爆発」になる)
+    # 7ノード合計で phys 8.4 / magic 25.2 になるよう配る。魔法が3倍なのは装備側の土俵が
+    # そもそも約3倍あるため(Lv100 の重装4部位で magic 62.6)。
+    phys-flat-defense: 1.8
+    magic-flat-defense: 5.4
+    # armor-defense-rate(バニラ防具値の点数)ではなく defense-rate([0,1]の軽減率)。
+    # エディタで古いタブから保存すると旧キーへ巻き戻るので注意(2026-08-15 に実際に発生)。
     defense-rate: 0.1
     damage-reduction: 0.1
 nodes:
@@ -90,9 +93,9 @@ nodes:
     cost: 1
     effect-text: ノックバック耐性アップ・守備力増加・憤怒発動可能・重装3部位でKB耐性セットボーナス成立(4部位で強化)
     buffs:
-      # 2026-08-14 再較正 (A-alpha-1 のコメント参照)。主軸 C は同レベルの α ノードと同値に揃える。
-      phys-flat-defense: 0.6
-      magic-flat-defense: 1.8
+      # 2026-08-15 再々較正(プレステージのコメント参照)。主軸Cは同レベルのαノードと同値。
+      phys-flat-defense: 1.1
+      magic-flat-defense: 3.3
     set-buffs:
       "3":
         knockback-resistance: 0.1
@@ -110,7 +113,6 @@ nodes:
     cost: 1
     effect-text: 防御率・物理耐性UP
     buffs:
-      # 2026-08-15: armor-defense-rate から改名(プレステージのコメント参照)。
       defense-rate: 0.1
       phys-resistance: 0.1
   E:
@@ -181,13 +183,9 @@ nodes:
     cost: 1
     effect-text: 守備力増加
     buffs:
-      # 2026-08-14 再較正: 守備力は %軽減より前の素の引き算なので「1ポイント＝被ダメージ1」。
-      # 旧値 0.05 はゾンビ級の一撃(Lv10 で 9.3)の 0.5% で、装備1点(革の胸当て 8.2)の 0.6% しかなく
-      # 実質 no-op だった。α路線を全取りで phys 3.0 / magic 9.0(＝軽装備1点ぶん)になるよう
-      # Lv10→Lv90 で 3 倍に逓増させる(モブ攻撃力の伸び 3.2 倍に追随)。
-      # 物理と魔法で値が違うのは装備側の土俵が違うため(最良4部位で phys 20.0 / magic 62.6)。
-      phys-flat-defense: 0.3
-      magic-flat-defense: 0.9
+      # 2026-08-15 再々較正。α路線は Lv10→Lv90 で 3 倍に逓増する(プレステージのコメント参照)。
+      phys-flat-defense: 0.55
+      magic-flat-defense: 1.65
   A-beta-1:
     name: 魔・重身
     level: 10
@@ -220,9 +218,9 @@ nodes:
     cost: 1
     effect-text: 守備力増加
     buffs:
-      # 2026-08-14 再較正 (A-alpha-1 のコメント参照)。α路線は Lv10→Lv90 で 3 倍に逓増する。
-      phys-flat-defense: 0.45
-      magic-flat-defense: 1.35
+      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。
+      phys-flat-defense: 0.8
+      magic-flat-defense: 2.4
     group: B-greek
   B-beta-1:
     name: 魔・鉄壁
@@ -256,9 +254,9 @@ nodes:
     cost: 1
     effect-text: 守備力増加
     buffs:
-      # 2026-08-14 再較正 (A-alpha-1 のコメント参照)。α路線は Lv10→Lv90 で 3 倍に逓増する。
-      phys-flat-defense: 0.6
-      magic-flat-defense: 1.8
+      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。
+      phys-flat-defense: 1.1
+      magic-flat-defense: 3.3
     group: C-greek
   C-beta-1:
     name: 魔・剛守
@@ -292,9 +290,9 @@ nodes:
     cost: 1
     effect-text: 守備力増加
     buffs:
-      # 2026-08-14 再較正 (A-alpha-1 のコメント参照)。α路線は Lv10→Lv90 で 3 倍に逓増する。
-      phys-flat-defense: 0.75
-      magic-flat-defense: 2.25
+      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。
+      phys-flat-defense: 1.4
+      magic-flat-defense: 4.2
     group: D-greek
   D-beta-1:
     name: 魔・堅牢
@@ -328,9 +326,9 @@ nodes:
     cost: 1
     effect-text: 守備力増加
     buffs:
-      # 2026-08-14 再較正 (A-alpha-1 のコメント参照)。α路線は Lv10→Lv90 で 3 倍に逓増する。
-      phys-flat-defense: 0.9
-      magic-flat-defense: 2.7
+      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。α路線の最終段。
+      phys-flat-defense: 1.65
+      magic-flat-defense: 4.95
     group: E-greek
   E-beta-1:
     name: 魔・金剛

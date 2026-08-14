@@ -38,21 +38,17 @@ icon: LEATHER_CHESTPLATE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1
+  max-times: 5
   at-level: 100
   name: 韋駄天の境地
   effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
-    # 2026-08-15 再々較正。2026-08-14 はノード単価だけを「重装備の半分」に揃えたが、
-    # 守備力を配るノードが軽装備は2個・重装備は7個なので、ツリー全取りの合計では
-    # phys 0.8 / magic 2.4 = 重装備(4.6/13.8)の 17% にしかならず実質 no-op のままだった。
-    # 土俵はレベル帯ごとの装備4部位合計(Lv100 で軽装 phys 13.95 / magic 45.0)。
-    # 重装備ツリー全取り ≒ 装備1部位ぶん なので、軽装備は 0.5 部位ぶん
-    # (= 重装備のちょうど半分 = phys 2.3 / magic 6.9)を目標にし、
-    # プレステージ + 主軸 C/D/E の4ノードへ分散する(1ノードで持たせると
-    # 同レベルの重装備ノードを単価で追い越してしまうため)。
-    phys-flat-defense: 0.8
-    magic-flat-defense: 2.4
+    # 2026-08-15 再々較正。重装備ツリーのちょうど半分(全取りで phys 4.2 / magic 12.6)。
+    # 重装備側の上限の出し方は heavy_armor.yml のプレステージのコメントを参照。
+    # プレステージ + 主軸 C/D/E の4ノードへ分散する(1ノードへ寄せると同レベルの
+    # 重装備ノードを単価で追い越すため)。
+    phys-flat-defense: 1.5
+    magic-flat-defense: 4.5
     defense-rate: 0.1
     damage-reduction: 0.1
 nodes:
@@ -93,11 +89,9 @@ nodes:
     effect-text: 回避率アップ・守備力増加・アドレナリン発動可能・軽装3部位で回避率セットボーナス成立(4部位で強化)
     buffs:
       dodge-chance: 0.1
-      # 2026-08-15 再々較正(プレステージのコメント参照)。同レベルの重装備ノード
-      # (heavy_armor C = 0.6/1.8) を単価で超えない範囲で、D/E と3等分して合計を稼ぐ。
-      # 物理と魔法で値が違うのは装備側の土俵が違うため(Lv100 の軽装4部位で phys 13.95 / magic 45.0)。
-      phys-flat-defense: 0.5
-      magic-flat-defense: 1.5
+      # 2026-08-15 再々較正(プレステージのコメント参照)。主軸 C/D/E で3等分。
+      phys-flat-defense: 0.9
+      magic-flat-defense: 2.7
     set-buffs:
       "3":
         dodge-chance: 0.1
@@ -115,9 +109,9 @@ nodes:
     cost: 1
     effect-text: 守備力・防御率・物理耐性UP
     buffs:
-      # 2026-08-15: 「堅守の境地」なのに守備力を1も配っていなかった。主軸 C/D/E で3等分する。
-      phys-flat-defense: 0.5
-      magic-flat-defense: 1.5
+      # 2026-08-15: 「堅守の境地」なのに守備力を1も配っていなかった。主軸 C/D/E で3等分。
+      phys-flat-defense: 0.9
+      magic-flat-defense: 2.7
       defense-rate: 0.1
       phys-resistance: 0.1
   E:
@@ -130,8 +124,8 @@ nodes:
     effect-text: 守備力・被ダメージ軽減上昇・アドレナリン発動時バフ強化
     buffs:
       # 2026-08-15: 主軸 C/D/E の3等分ぶん(プレステージのコメント参照)。
-      phys-flat-defense: 0.5
-      magic-flat-defense: 1.5
+      phys-flat-defense: 0.9
+      magic-flat-defense: 2.7
       damage-reduction: 0.1
     effects:
       - アドレナリン発動時のバフが強化される
