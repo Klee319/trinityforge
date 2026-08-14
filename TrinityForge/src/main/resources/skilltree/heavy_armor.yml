@@ -52,8 +52,7 @@ prestige:
     # そもそも約3倍あるため(Lv100 の重装4部位で magic 62.6)。
     phys-flat-defense: 1.8
     magic-flat-defense: 5.4
-    # armor-defense-rate(バニラ防具値の点数)ではなく defense-rate([0,1]の軽減率)。
-    # エディタで古いタブから保存すると旧キーへ巻き戻るので注意(2026-08-15 に実際に発生)。
+    # 防御率([0,1]の乗算軽減)。旧 armor-defense-rate(防具値)は 2026-08-15 に廃止済み。
     defense-rate: 0.1
     damage-reduction: 0.1
 nodes:

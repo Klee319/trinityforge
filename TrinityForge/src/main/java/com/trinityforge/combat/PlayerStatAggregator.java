@@ -36,9 +36,6 @@ import java.util.function.Predicate;
  */
 public final class PlayerStatAggregator {
 
-    /** {@link StatKeys#canonical} form of {@code armor-defense-rate}; see {@link #aggregate} 修正B note. */
-    private static final String ARMOR_DEFENSE_RATE_KEY = StatKeys.canonical("armor-defense-rate");
-
     private final ItemStatsConfig itemStats;
     private final CombatDamageConfig combatDamage;
     private final PerkBuffResolver perkBuffResolver;
@@ -151,9 +148,7 @@ public final class PlayerStatAggregator {
      *                  Attribute-channel base stats (max-health 等) have no effect via this {@code item}
      *                  map (it is never read for vanilla Attribute stats); those are applied separately on
      *                  the vanilla-Attribute path (see {@code PerkAttributeApplier}), exactly like
-     *                  permanent buffs. {@code armor-defense-rate} is routed to {@code perkDefense} here,
-     *                  mirroring the permanent-buff handling, since the {@code item} side is 0-fixed by
-     *                  {@code DefenseStatBridge}.
+     *                  permanent buffs.
      */
     public PlayerStatAggregator(ItemStatsConfig itemStats,
                                 CombatDamageConfig combatDamage,
@@ -353,10 +348,9 @@ public final class PlayerStatAggregator {
 
         // ソース3〜6(パーク general / 役職 attack・defense / 永続バフ / base-stats)は
         // #nonItemContribution へ切り出し済み(2026-07-26 マナ系ステ穴埋め、フォークの
-        // nonItemStatTotal と実装を共有するため)。armor-defense-rate の非対称振り分け
-        // (extraArmorDefenseRate → perkDefense経路)はそちらのjavadoc参照。
-        NonItemContribution nonItem = nonItemContribution(player, perkBuffs);
-        nonItem.item().forEach((key, value) -> item.merge(key, value, Double::sum));
+        // nonItemStatTotal と実装を共有するため)。
+        Map<String, Double> nonItem = nonItemContribution(player, perkBuffs);
+        nonItem.forEach((key, value) -> item.merge(key, value, Double::sum));
 
         NativeArmorSetContribution nativeSets = nativeArmorSetContribution(player);
         Map<String, Double> attack = perkBuffs.attack();
@@ -375,19 +369,9 @@ public final class PlayerStatAggregator {
             nativeSets.defense().forEach((key, value) -> merged.merge(key, value, Double::sum));
             perkDefense = merged;
         }
-        if (nonItem.extraArmorDefenseRate() != 0.0) {
-            Map<String, Double> merged = new LinkedHashMap<>(perkDefense);
-            merged.merge(ARMOR_DEFENSE_RATE_KEY, nonItem.extraArmorDefenseRate(), Double::sum);
-            perkDefense = merged;
-        }
 
         return new PlayerCombatAggregate(item, mainhand, attack, perkDefense, addon, multipliers,
                 statCaps);
-    }
-
-    /** {@link #nonItemContribution} の戻り値: item map へ合流させるべき加算分と、perkDefense 経路
-     *  ({@code armor-defense-rate})へ振り分けるべき加算分を分離して保持する。 */
-    private record NonItemContribution(Map<String, Double> item, double extraArmorDefenseRate) {
     }
 
     /**
@@ -399,22 +383,18 @@ public final class PlayerStatAggregator {
      * {@link #nonItemStatTotal}(フォーク向け読み取り口)が、この1つの実装を共有する
      * (2026-07-26 マナ系ステ穴埋め: 同じ集計ロジックを2箇所に書くとドリフトするため共通化)。
      *
-     * <p><b>armor-defense-rate の非対称を維持する(重要):</b> item map 側では
-     * {@code DefenseStatBridge} が {@code armor-defense-rate} を意図的に 0 固定にしている
-     * (vanilla armor属性ミラー専用の経路)ので、item に混ぜても防御側へ届かない(修正B)。
-     * このため permanentBuffResolver / baseStats のこのキーだけは item ではなく
-     * {@code extraArmorDefenseRate}(呼び出し元が perkDefense 経路へ合流させる)へ振り分ける。
-     * 一方 perkBuffs.general() と役職 buff にはこの振り分けが元から無い(このキーがそこに現れても
-     * 素直に item へ入る) — この非対称は変更前の {@code computeAggregate} と完全に同じ挙動であり、
-     * ここを崩すと防御計算が静かに変わる。
+     * <p><b>2026-08-15:</b> かつてここには {@code armor-defense-rate} だけを item ではなく
+     * perkDefense 経路へ逃がす非対称な振り分け({@code extraArmorDefenseRate})があった。
+     * 「item map 側では {@code DefenseStatBridge} がこのキーを 0 固定にしている(バニラ防具属性
+     * ミラー専用の経路だった)ので、item に混ぜても防御側へ届かない」ためだったが、防具値ステ自体を
+     * 廃止して {@code defense-rate} へ一本化し、{@code DefenseStatBridge} が item map から直接
+     * 読むようになったので、この迂回路ごと不要になった。全ソースが素直に item へ入る。
      */
-    private NonItemContribution nonItemContribution(Player player, PerkBuffs perkBuffs) {
+    private Map<String, Double> nonItemContribution(Player player, PerkBuffs perkBuffs) {
         Map<String, Double> item = new LinkedHashMap<>();
         perkBuffs.general().forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
-
-        NonItemContribution rest = nonPerkNonItemContribution(player);
-        rest.item().forEach((key, value) -> item.merge(key, value, Double::sum));
-        return new NonItemContribution(item, rest.extraArmorDefenseRate());
+        nonPerkNonItemContribution(player).forEach((key, value) -> item.merge(key, value, Double::sum));
+        return item;
     }
 
     /**
@@ -424,37 +404,24 @@ public final class PlayerStatAggregator {
      * {@code NativeAttributeBridge#armorAttributesFor} が {@code perkBuffs.general()} を自前で
      * 読んで既に増幅式へ折り込んでいるため、こちら側に含めると二重計上になる。
      */
-    private NonItemContribution nonPerkNonItemContribution(Player player) {
+    private Map<String, Double> nonPerkNonItemContribution(Player player) {
         Map<String, Double> item = new LinkedHashMap<>();
         RoleBuffResolver.Contribution role = roleBuffResolver.contributionFor(player);
         role.attackBuffs().forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         role.defenseBuffs().forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
 
-        double extraArmorDefenseRate = 0.0;
         if (permanentBuffResolver != null) {
-            for (Map.Entry<String, Double> entry : permanentBuffResolver.buffsFor(player).entrySet()) {
-                String key = StatKeys.canonical(entry.getKey());
-                if (key.equals(ARMOR_DEFENSE_RATE_KEY)) {
-                    extraArmorDefenseRate += entry.getValue();
-                } else {
-                    item.merge(key, entry.getValue(), Double::sum);
-                }
-            }
+            permanentBuffResolver.buffsFor(player).forEach(
+                    (key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         }
         // 全プレイヤー一律の基礎ステ(combat/base-stats.yml)。permanent buffs と同じ流儀で item へ1レイヤ。
         // 属性チャネル(max-health 等)はここでは no-op(item mapはvanilla属性に読まれない)で、
         // PerkAttributeApplier 側で別途適用される。
         if (baseStats != null) {
-            for (Map.Entry<String, Double> entry : baseStats.stats().entrySet()) {
-                String key = StatKeys.canonical(entry.getKey());
-                if (key.equals(ARMOR_DEFENSE_RATE_KEY)) {
-                    extraArmorDefenseRate += entry.getValue();
-                } else {
-                    item.merge(key, entry.getValue(), Double::sum);
-                }
-            }
+            baseStats.stats().forEach(
+                    (key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         }
-        return new NonItemContribution(item, extraArmorDefenseRate);
+        return item;
     }
 
     /**
@@ -483,11 +450,7 @@ public final class PlayerStatAggregator {
         String canonicalKey = StatKeys.canonical(key);
         PerkBuffs perkBuffs = perkBuffResolver.buffsFor(
                 player.getUniqueId(), player.getInventory().getItemInMainHand());
-        NonItemContribution contribution = nonItemContribution(player, perkBuffs);
-        if (canonicalKey.equals(ARMOR_DEFENSE_RATE_KEY)) {
-            return contribution.extraArmorDefenseRate();
-        }
-        return contribution.item().getOrDefault(canonicalKey, 0.0);
+        return nonItemContribution(player, perkBuffs).getOrDefault(canonicalKey, 0.0);
     }
 
     /**
@@ -534,12 +497,8 @@ public final class PlayerStatAggregator {
                     .forEach((k, v) -> item.merge(StatKeys.canonical(k), v, Double::sum));
         }
 
-        NonItemContribution rest = nonPerkNonItemContribution(player);
-        rest.item().forEach((k, v) -> item.merge(k, v, Double::sum));
+        nonPerkNonItemContribution(player).forEach((k, v) -> item.merge(k, v, Double::sum));
 
-        if (canonicalKey.equals(ARMOR_DEFENSE_RATE_KEY)) {
-            return item.getOrDefault(canonicalKey, 0.0) + rest.extraArmorDefenseRate();
-        }
         return item.getOrDefault(canonicalKey, 0.0);
     }
 

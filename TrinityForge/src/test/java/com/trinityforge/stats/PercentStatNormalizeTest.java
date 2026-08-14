@@ -25,10 +25,15 @@ class PercentStatNormalizeTest {
     }
 
     @Test
-    @DisplayName("armor-defense-rate stays armor points (not ÷100)")
-    void armorDefenseRateUntouched() {
-        assertEquals(8.0, PercentStatNormalize.coerce("armor-defense-rate", 8.0), 1e-9);
-        assertEquals(2.0, PercentStatNormalize.coerce("armor-defense-rate", 2.0), 1e-9);
+    @DisplayName("2026-08-15 防具値の廃止: defense-rate は率系なので 30 -> 0.30 へ矯正される")
+    void defenseRateIsCoercedLikeEveryOtherRate() {
+        // 旧 armor-defense-rate は「アイテム側=バニラ防具値(点数)」を守るため矯正の対象外だった。
+        // その結果パーク側に 10 と書くと 1000% 軽減として通っていた。防具値を廃止して率へ一本化したので、
+        // ここが対象外に戻ったら同じ事故が再発する。
+        assertTrue(PercentStatNormalize.isRateKey("defense-rate"));
+        assertEquals(0.30, PercentStatNormalize.coerce("defense-rate", 30.0), 1e-9);
+        assertEquals(0.12, PercentStatNormalize.coerce("defense-rate", 0.12), 1e-9);
+        // 廃止済みキーは語彙にも矯正対象にも残っていない。
         assertFalse(PercentStatNormalize.isRateKey("armor-defense-rate"));
     }
 

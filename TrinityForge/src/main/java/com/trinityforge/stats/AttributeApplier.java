@@ -57,8 +57,13 @@ import java.util.logging.Logger;
  * modifiers for the resolved slot ({@link Material#getDefaultAttributeModifiers(EquipmentSlot)}) so
  * equipping an addon item never silently loses its vanilla weapon/armor baseline.
  *
- * <p><b>二重計上防止（防具値のみ）</b>: {@code armor-defense-rate}/{@code armor-strength} は
- * 「その防具のバニラ防具値/靭性そのもの」を著者指定する置換ステなので、TFがこれらの属性に
+ * <p><b>防具値(ARMOR)は常に空</b>: 2026-08-15 に {@code armor-defense-rate}(バニラ防具値の点数)を
+ * 廃止し防御率({@code defense-rate})へ一本化したので、TFスタンプ品では {@link Attribute#ARMOR} へ
+ * TFが値を書かないだけでなく<b>材質既定も復元しない</b>({@link #ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS})。
+ * 復元すると材質既定がバニラ防具ミラー経由で TF の防御率と二重に軽減するため。HUDの防具バーは常に空になる。
+ *
+ * <p><b>二重計上防止（置換ステ）</b>: {@code armor-strength} は
+ * 「その防具のバニラ靭性そのもの」を著者指定する置換ステなので、TFがこの属性に
  * modifier を付けたときは材質既定の再付与を抑制する。一方 {@code max-health}/{@code move-speed}/
  * {@code attack-reach}/{@code knockback-resistance} はプレイヤー基礎値や材質既定の<em>上への加算</em>
  * なので、TF modifier を付けても材質既定は復元したまま重ねる（0指定は no-op で基礎のみ）。
@@ -83,8 +88,16 @@ public final class AttributeApplier {
      * 加算ステ（max_health / attack_speed 等）はここに含めない。
      */
     private static final Set<Attribute> REPLACE_MATERIAL_DEFAULTS = Set.of(
-            Attribute.ARMOR,
             Attribute.ARMOR_TOUGHNESS);
+
+    /**
+     * 材質既定を<b>常に</b>復元しない属性(2026-08-15)。{@code armor-defense-rate}(防具値)を廃止して
+     * 防御率へ一本化したので、TFスタンプ品の {@link Attribute#ARMOR} は「TFが値を書かない」だけでなく
+     * 「材質既定も戻さない」= 実効 0 でなければならない。戻すと革7/ネザライト11といった材質既定が
+     * 復活し、{@code SymmetricCombatService} のバニラ防具ミラー経由で TF の防御率と二重に軽減する。
+     * その結果 HUD の防具バーは TFスタンプ装備では常に空になる(ユーザー確定の挙動)。
+     */
+    private static final Set<Attribute> ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS = Set.of(Attribute.ARMOR);
 
     /**
      * item-level では一切扱わない属性(2026-07-25)。{@code attack-speed}(絶対値・メインハンド専用)と
@@ -289,8 +302,9 @@ public final class AttributeApplier {
 
     /**
      * Pure filter behind {@link #restoreVanillaDefaults}: which of {@code defaults} still need to be
-     * added. Suppresses material defaults only for {@link #REPLACE_MATERIAL_DEFAULTS} attributes that
-     * TF authored this apply (防具値の置換)。加算ステは TF modifier と材質既定を両立させる。
+     * added. {@link #ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS}(ARMOR)は TF が何を書いたかに関わらず常に
+     * 復元しない(防具バーを空にする)。{@link #REPLACE_MATERIAL_DEFAULTS} は TF がこの apply で
+     * 実際に書いた場合だけ材質既定を抑制する。加算ステは TF modifier と材質既定を両立させる。
      * {@link #ITEM_LEVEL_EXCLUDED_ATTRIBUTES}(ATTACK_SPEED)は無条件で常に除外する — TFが item-level で
      * その属性を管理しているかに関わらず、材質既定の復元自体を一切行わない(プレイヤー単位で一元管理する
      * ため; クラスjavadoc参照)。Also skips modifiers already present under the same key (idempotent
@@ -304,6 +318,10 @@ public final class AttributeApplier {
         for (Map.Entry<Attribute, AttributeModifier> entry : defaults.entries()) {
             Attribute attribute = entry.getKey();
             if (ITEM_LEVEL_EXCLUDED_ATTRIBUTES.contains(attribute)) {
+                continue;
+            }
+            if (ALWAYS_SUPPRESSED_MATERIAL_DEFAULTS.contains(attribute)) {
+                // 防具値(ARMOR)は TF の防御率へ一本化したので材質既定も戻さない = 防具バーは常に空。
                 continue;
             }
             if (REPLACE_MATERIAL_DEFAULTS.contains(attribute)

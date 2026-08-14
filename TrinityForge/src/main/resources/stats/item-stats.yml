@@ -74,8 +74,10 @@
 #     ※CTはエンダーパール同様 Material 単位（ItemAssemblerがMaterial+CMD単位のcooldown_groupを刻むため実際には
 #       同一カスタム品ID間でのみ共有し、別CMD/別Materialの武器では回避可）。
 #   防御系: phys-resistance, magic-resistance, flat-defense, damage-reduction, dodge-chance
-#   防具値: armor-defense-rate はバニラ防具値/Attribute.ARMOR にADD_NUMBERで加算する整数値
-#           (例: armor-defense-rate: 8 は防具値+8)。armor-strength はTF戦闘における会心軽減率で、
+#   防御: defense-rate は被ダメージの乗算軽減率(0.0〜1.0)。貫通率で相殺される唯一の軽減。
+#           2026-08-15に防具値(armor-defense-rate, バニラAttribute.ARMORの点数)を廃止し、
+#           1点=1.5%軽減で換算して統合した。TFスタンプ装備のバニラ防具バーは常に空になる。
+#           armor-strength はTF戦闘における会心軽減率で、
 #           0.0〜1.0 の割合値（バニラ靭性 Attribute.ARMOR_TOUGHNESS には写像しない）。
 #   属性系(バニラ属性へ写像): max-health, knockback-resistance, move-speed,
 #           attack-speed(2026-07-25確定: 絶対値方式・メインハンド専用。この値がそのまま実効攻撃速度
@@ -143,7 +145,7 @@
 #           ※ lapis-cost-reduction(ラピス消費軽減)は2026-08-14に廃止(ArsPaper 側の消費リスナーごと削除)
 #     ※ 上記のうち PERCENT表記のものは 0.0〜1.0 の割合値で指定する(他の割合系ステと同様)。
 #   ※ 割合系(crit-chance / penetration / 各resistance / damage-reduction / dodge-chance / armor-strength 等)は
-#     0.0〜1.0 の割合値で指定する。armor-defense-rate だけは防具ポイントの整数値である。
+#     0.0〜1.0 の割合値で指定する(防御率 defense-rate も同じ割合値)。
 #   ※ 旧来の item直下 durability: 上書き値(正の整数)。fixed/per-quality/random と同じ階層(itemエントリ直下)に
 #     書く後方互換フィールド。未指定なら耐久値なし（無限）。補助カテゴリの durability ステが設定されていればそちらが
 #     優先される。例: durability: 3000
@@ -941,7 +943,7 @@ items:
     use-skill: FISHING
   LEATHER_HELMET:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 33
       phys-resistance: 0.004
       phys-flat-defense: 0.2
@@ -959,7 +961,7 @@ items:
         max: 0.3
   LEATHER_CHESTPLATE:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 48
       phys-resistance: 0.011
       phys-flat-defense: 0.5
@@ -976,7 +978,7 @@ items:
         max: 0.6
   LEATHER_LEGGINGS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 45
       phys-resistance: 0.008
       phys-flat-defense: 0.3
@@ -993,7 +995,7 @@ items:
         max: 0.4
   LEATHER_BOOTS:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 39
       phys-resistance: 0.004
       phys-flat-defense: 0.2
@@ -1011,7 +1013,7 @@ items:
         max: 0.3
   CHAINMAIL_HELMET:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 99
       phys-resistance: 0.009
       phys-flat-defense: 0.3
@@ -1034,7 +1036,7 @@ items:
         max: 0.4
   CHAINMAIL_CHESTPLATE:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 144
       phys-resistance: 0.024
       phys-flat-defense: 0.9
@@ -1056,7 +1058,7 @@ items:
         max: 0.8
   CHAINMAIL_LEGGINGS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 135
       phys-resistance: 0.018
       phys-flat-defense: 0.6
@@ -1077,7 +1079,7 @@ items:
         max: 0.6
   CHAINMAIL_BOOTS:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 117
       phys-resistance: 0.009
       phys-flat-defense: 0.4
@@ -1099,7 +1101,7 @@ items:
         max: 0.4
   COPPER_HELMET:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 105
       phys-resistance: 0.018
       phys-flat-defense: 0.2
@@ -1122,7 +1124,7 @@ items:
         max: 0.1
   COPPER_CHESTPLATE:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 153
       phys-resistance: 0.047
       phys-flat-defense: 0.5
@@ -1144,7 +1146,7 @@ items:
         max: 0.4
   COPPER_LEGGINGS:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 144
       phys-resistance: 0.035
       phys-flat-defense: 0.4
@@ -1165,7 +1167,7 @@ items:
         max: 0.3
   COPPER_BOOTS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 124
       phys-resistance: 0.018
       phys-flat-defense: 0.2
@@ -1187,7 +1189,7 @@ items:
         max: 0.2
   IRON_HELMET:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 99
       phys-resistance: 0.029
       phys-flat-defense: 0.4
@@ -1210,7 +1212,7 @@ items:
         max: 0.3
   IRON_CHESTPLATE:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 144
       phys-resistance: 0.078
       phys-flat-defense: 1.1
@@ -1232,7 +1234,7 @@ items:
         max: 0.9
   IRON_LEGGINGS:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 135
       phys-resistance: 0.059
       phys-flat-defense: 0.8
@@ -1253,7 +1255,7 @@ items:
         max: 0.7
   IRON_BOOTS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 117
       phys-resistance: 0.029
       phys-flat-defense: 0.4
@@ -1275,7 +1277,7 @@ items:
         max: 0.4
   GOLDEN_HELMET:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 46
       phys-resistance: 0.032
       phys-flat-defense: 0.7
@@ -1297,7 +1299,7 @@ items:
         max: 0.8
   GOLDEN_CHESTPLATE:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 67
       phys-resistance: 0.086
       phys-flat-defense: 1.8
@@ -1318,7 +1320,7 @@ items:
         max: 1.8
   GOLDEN_LEGGINGS:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 63
       phys-resistance: 0.064
       phys-flat-defense: 1.3
@@ -1339,7 +1341,7 @@ items:
         max: 1.4
   GOLDEN_BOOTS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 54
       phys-resistance: 0.032
       phys-flat-defense: 0.7
@@ -1361,7 +1363,7 @@ items:
         max: 0.8
   DIAMOND_HELMET:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 217
       phys-resistance: 0.035
       phys-flat-defense: 0.9
@@ -1383,7 +1385,7 @@ items:
         max: 0.9
   DIAMOND_CHESTPLATE:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 316
       phys-resistance: 0.093
       phys-flat-defense: 2.3
@@ -1404,7 +1406,7 @@ items:
         max: 2.3
   DIAMOND_LEGGINGS:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 297
       phys-resistance: 0.07
       phys-flat-defense: 1.8
@@ -1425,7 +1427,7 @@ items:
         max: 1.7
   DIAMOND_BOOTS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 257
       phys-resistance: 0.035
       phys-flat-defense: 0.9
@@ -1447,7 +1449,7 @@ items:
         max: 0.9
   NETHERITE_HELMET:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 244
       phys-resistance: 0.039
       phys-flat-defense: 1.1
@@ -1470,7 +1472,7 @@ items:
         max: 1.3
   NETHERITE_CHESTPLATE:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 355
       phys-resistance: 0.104
       magic-resistance: 0.1
@@ -1493,7 +1495,7 @@ items:
         max: 3.6
   NETHERITE_LEGGINGS:
     fixed:
-      armor-defense-rate: 5
+      defense-rate: 0.075
       durability: 333
       phys-resistance: 0.078
       phys-flat-defense: 2.2
@@ -1514,7 +1516,7 @@ items:
         max: 2.7
   NETHERITE_BOOTS:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 288
       phys-resistance: 0.039
       phys-flat-defense: 1.1
@@ -1536,7 +1538,7 @@ items:
         max: 1.5
   TURTLE_HELMET:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 99
       phys-resistance: 0.005
       phys-flat-defense: 1
@@ -1554,7 +1556,7 @@ items:
         max: 0.8
   LEATHER_HELMET#200124:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 89
       phys-resistance: 0.011
       phys-flat-defense: 0.2
@@ -1576,7 +1578,7 @@ items:
         max: 0.1
   LEATHER_CHESTPLATE#200125:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 130
       phys-resistance: 0.028
       phys-flat-defense: 0.5
@@ -1597,7 +1599,7 @@ items:
         max: 0.4
   LEATHER_LEGGINGS#200126:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 122
       phys-resistance: 0.021
       phys-flat-defense: 0.4
@@ -1618,7 +1620,7 @@ items:
         max: 0.3
   LEATHER_BOOTS#200127:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 105
       phys-resistance: 0.011
       phys-flat-defense: 0.2
@@ -1640,7 +1642,7 @@ items:
         max: 0.2
   LEATHER_HELMET#200128:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 84
       phys-resistance: 0.005
       phys-flat-defense: 0.3
@@ -1662,7 +1664,7 @@ items:
         max: 0.4
   LEATHER_CHESTPLATE#200129:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 122
       phys-resistance: 0.014
       phys-flat-defense: 0.9
@@ -1683,7 +1685,7 @@ items:
         max: 0.8
   LEATHER_LEGGINGS#200130:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 115
       phys-resistance: 0.011
       phys-flat-defense: 0.6
@@ -1704,7 +1706,7 @@ items:
         max: 0.6
   LEATHER_BOOTS#200131:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 99
       phys-resistance: 0.005
       phys-flat-defense: 0.4
@@ -1726,7 +1728,7 @@ items:
         max: 0.4
   LEATHER_HELMET#200132:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 84
       phys-resistance: 0.017
       phys-flat-defense: 0.4
@@ -1748,7 +1750,7 @@ items:
         max: 0.3
   LEATHER_CHESTPLATE#200133:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 122
       phys-resistance: 0.047
       phys-flat-defense: 1.1
@@ -1769,7 +1771,7 @@ items:
         max: 0.9
   LEATHER_LEGGINGS#200134:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 115
       phys-resistance: 0.035
       phys-flat-defense: 0.8
@@ -1790,7 +1792,7 @@ items:
         max: 0.7
   LEATHER_BOOTS#200135:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 99
       phys-resistance: 0.017
       phys-flat-defense: 0.4
@@ -1812,7 +1814,7 @@ items:
         max: 0.4
   LEATHER_HELMET#200136:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 39
       phys-resistance: 0.019
       phys-flat-defense: 0.7
@@ -1834,7 +1836,7 @@ items:
         max: 0.8
   LEATHER_CHESTPLATE#200137:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 57
       phys-resistance: 0.052
       phys-flat-defense: 1.8
@@ -1855,7 +1857,7 @@ items:
         max: 1.8
   LEATHER_LEGGINGS#200138:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 54
       phys-resistance: 0.038
       phys-flat-defense: 1.3
@@ -1876,7 +1878,7 @@ items:
         max: 1.4
   LEATHER_BOOTS#200139:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 46
       phys-resistance: 0.019
       phys-flat-defense: 0.7
@@ -1898,7 +1900,7 @@ items:
         max: 0.8
   LEATHER_HELMET#200140:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 184
       phys-resistance: 0.011
       phys-flat-defense: 0.9
@@ -1920,7 +1922,7 @@ items:
         max: 0.9
   LEATHER_CHESTPLATE#200141:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 269
       phys-resistance: 0.029
       phys-flat-defense: 2.3
@@ -1941,7 +1943,7 @@ items:
         max: 2.3
   LEATHER_LEGGINGS#200142:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 252
       phys-resistance: 0.022
       phys-flat-defense: 1.8
@@ -1962,7 +1964,7 @@ items:
         max: 1.7
   LEATHER_BOOTS#200143:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 218
       phys-resistance: 0.011
       phys-flat-defense: 0.9
@@ -1984,7 +1986,7 @@ items:
         max: 0.9
   LEATHER_HELMET#200144:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 207
       phys-resistance: 0.023
       phys-flat-defense: 1.1
@@ -2006,7 +2008,7 @@ items:
         max: 1.3
   LEATHER_CHESTPLATE#200145:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 302
       phys-resistance: 0.062
       phys-flat-defense: 3
@@ -2027,7 +2029,7 @@ items:
         max: 3.6
   LEATHER_LEGGINGS#200146:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 283
       phys-resistance: 0.047
       phys-flat-defense: 2.2
@@ -2048,7 +2050,7 @@ items:
         max: 2.7
   LEATHER_BOOTS#200147:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 245
       phys-resistance: 0.023
       phys-flat-defense: 1.1
@@ -2070,7 +2072,7 @@ items:
         max: 1.5
   LEATHER_HELMET#200148:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 296
       phys-resistance: 0.031
       phys-flat-defense: 1.1
@@ -2092,7 +2094,7 @@ items:
         max: 2.2
   LEATHER_CHESTPLATE#200149:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 428
       phys-resistance: 0.081
       phys-flat-defense: 2.8
@@ -2113,7 +2115,7 @@ items:
         max: 6.4
   LEATHER_LEGGINGS#200150:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 403
       phys-resistance: 0.061
       phys-flat-defense: 2.1
@@ -2134,7 +2136,7 @@ items:
         max: 4.5
   LEATHER_BOOTS#200151:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 347
       phys-resistance: 0.031
       phys-flat-defense: 1.1
@@ -6677,7 +6679,7 @@ items:
     quality-mode-offset: -8
   DIAMOND_HELMET#200101:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 217
       phys-resistance: 0.018
       phys-flat-defense: 0.4
@@ -6700,7 +6702,7 @@ items:
         max: 2.3
   NETHERITE_HELMET#150:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 348
       phys-resistance: 0.051
       phys-flat-defense: 1.1
@@ -6724,7 +6726,7 @@ items:
         max: 2.2
   NETHERITE_HELMET#149:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 390
       phys-resistance: 0.013
       phys-flat-defense: 1
@@ -6747,7 +6749,7 @@ items:
         max: 2.8
   NETHERITE_HELMET#148:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 540
       phys-resistance: 0.021
       phys-flat-defense: 1
@@ -6769,7 +6771,7 @@ items:
         max: 2.8
   DIAMOND_CHESTPLATE#200102:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 316
       phys-resistance: 0.049
       phys-flat-defense: 1.2
@@ -6791,7 +6793,7 @@ items:
         max: 6.6
   NETHERITE_CHESTPLATE#153:
     fixed:
-      armor-defense-rate: 7
+      defense-rate: 0.105
       durability: 504
       phys-resistance: 0.135
       magic-resistance: 0.1
@@ -6815,7 +6817,7 @@ items:
         max: 6.4
   NETHERITE_CHESTPLATE#152:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 564
       phys-resistance: 0.034
       phys-flat-defense: 2.6
@@ -6837,7 +6839,7 @@ items:
         max: 7.7
   NETHERITE_CHESTPLATE#151:
     fixed:
-      armor-defense-rate: 8
+      defense-rate: 0.12
       durability: 780
       phys-resistance: 0.056
       phys-flat-defense: 2.6
@@ -6858,7 +6860,7 @@ items:
         max: 7.7
   DIAMOND_LEGGINGS#200103:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 297
       phys-resistance: 0.037
       phys-flat-defense: 0.9
@@ -6880,7 +6882,7 @@ items:
         max: 5
   NETHERITE_LEGGINGS#156:
     fixed:
-      armor-defense-rate: 5
+      defense-rate: 0.075
       durability: 474
       phys-resistance: 0.102
       magic-resistance: 0.1
@@ -6903,7 +6905,7 @@ items:
         max: 4.5
   NETHERITE_LEGGINGS#155:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 531
       phys-resistance: 0.025
       phys-flat-defense: 2
@@ -6925,7 +6927,7 @@ items:
         max: 6.1
   NETHERITE_LEGGINGS#154:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 732
       phys-resistance: 0.042
       phys-flat-defense: 2
@@ -6946,7 +6948,7 @@ items:
         max: 6.1
   DIAMOND_BOOTS#200104:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 257
       phys-resistance: 0.018
       phys-flat-defense: 0.4
@@ -6969,7 +6971,7 @@ items:
         max: 2.9
   NETHERITE_BOOTS#159:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 408
       phys-resistance: 0.051
       phys-flat-defense: 1.1
@@ -6992,7 +6994,7 @@ items:
         max: 2.3
   NETHERITE_BOOTS#158:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 456
       phys-resistance: 0.013
       phys-flat-defense: 1
@@ -7015,7 +7017,7 @@ items:
         max: 2.8
   NETHERITE_BOOTS#157:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 630
       phys-resistance: 0.021
       phys-flat-defense: 1
@@ -7037,7 +7039,7 @@ items:
         max: 2.8
   LEATHER_HELMET#200001:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 108
       armor-strength: 0.15
       dodge-chance: 0.018
@@ -7061,7 +7063,7 @@ items:
         max: 0.007
   LEATHER_CHESTPLATE#200002:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 156
       dodge-chance: 0.012
       thread-slots: 0
@@ -7084,7 +7086,7 @@ items:
         max: 0.019
   LEATHER_LEGGINGS#200003:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 147
       move-speed: -0.004
       thread-slots: 0
@@ -7106,7 +7108,7 @@ items:
         max: 0.014
   LEATHER_BOOTS#200004:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 126
       armor-strength: 0.15
       move-speed: -0.002
@@ -7129,7 +7131,7 @@ items:
         max: 0.007
   LEATHER_HELMET#200011:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 180
       armor-strength: 0.15
       dodge-chance: 0.018
@@ -7153,7 +7155,7 @@ items:
         max: 0.018
   LEATHER_CHESTPLATE#200012:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 264
       dodge-chance: 0.012
       thread-slots: 1
@@ -7176,7 +7178,7 @@ items:
         max: 0.047
   LEATHER_LEGGINGS#200013:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 246
       move-speed: -0.004
       thread-slots: 1
@@ -7198,7 +7200,7 @@ items:
         max: 0.035
   LEATHER_BOOTS#200014:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 210
       armor-strength: 0.15
       move-speed: -0.002
@@ -7221,7 +7223,7 @@ items:
         max: 0.018
   LEATHER_HELMET#200021:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 288
       armor-strength: 0.15
       dodge-chance: 0.018
@@ -7245,7 +7247,7 @@ items:
         max: 0.037
   LEATHER_CHESTPLATE#200022:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 420
       dodge-chance: 0.012
       thread-slots: 1
@@ -7268,7 +7270,7 @@ items:
         max: 0.098
   LEATHER_LEGGINGS#200023:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 393
       move-speed: -0.004
       thread-slots: 1
@@ -7290,7 +7292,7 @@ items:
         max: 0.073
   LEATHER_BOOTS#200024:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 336
       armor-strength: 0.15
       move-speed: -0.002
@@ -7313,7 +7315,7 @@ items:
         max: 0.037
   LEATHER_HELMET#200031:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 108
       armor-strength: 0.07
       dodge-chance: 0.036
@@ -7336,7 +7338,7 @@ items:
         max: 0.005
   LEATHER_CHESTPLATE#200032:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 156
       dodge-chance: 0.024
       thread-slots: 1
@@ -7358,7 +7360,7 @@ items:
         max: 0.012
   LEATHER_LEGGINGS#200033:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 147
       move-speed: 0.003
       thread-slots: 1
@@ -7380,7 +7382,7 @@ items:
         max: 0.009
   LEATHER_BOOTS#200034:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 126
       armor-strength: 0.07
       move-speed: 0.002
@@ -7403,7 +7405,7 @@ items:
         max: 0.005
   LEATHER_HELMET#200041:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 180
       armor-strength: 0.07
       dodge-chance: 0.036
@@ -7426,7 +7428,7 @@ items:
         max: 0.012
   LEATHER_CHESTPLATE#200042:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 264
       dodge-chance: 0.024
       thread-slots: 1
@@ -7448,7 +7450,7 @@ items:
         max: 0.031
   LEATHER_LEGGINGS#200043:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 246
       move-speed: 0.003
       thread-slots: 1
@@ -7470,7 +7472,7 @@ items:
         max: 0.023
   LEATHER_BOOTS#200044:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 210
       armor-strength: 0.07
       move-speed: 0.002
@@ -7493,7 +7495,7 @@ items:
         max: 0.012
   LEATHER_HELMET#200051:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 288
       armor-strength: 0.07
       dodge-chance: 0.036
@@ -7516,7 +7518,7 @@ items:
         max: 0.024
   LEATHER_CHESTPLATE#200052:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 420
       dodge-chance: 0.024
       thread-slots: 2
@@ -7538,7 +7540,7 @@ items:
         max: 0.064
   LEATHER_LEGGINGS#200053:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 393
       move-speed: 0.003
       thread-slots: 2
@@ -7560,7 +7562,7 @@ items:
         max: 0.048
   LEATHER_BOOTS#200054:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 336
       armor-strength: 0.07
       move-speed: 0.002
@@ -7583,7 +7585,7 @@ items:
         max: 0.024
   LEATHER_HELMET#200241:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 461
       armor-strength: 0.07
       dodge-chance: 0.036
@@ -7606,7 +7608,7 @@ items:
         max: 0.03
   LEATHER_CHESTPLATE#200242:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 672
       dodge-chance: 0.024
       thread-slots: 2
@@ -7628,7 +7630,7 @@ items:
         max: 0.08
   LEATHER_LEGGINGS#200243:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 629
       move-speed: 0.003
       thread-slots: 2
@@ -7650,7 +7652,7 @@ items:
         max: 0.06
   LEATHER_BOOTS#200244:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 538
       armor-strength: 0.07
       move-speed: 0.002
@@ -7673,7 +7675,7 @@ items:
         max: 0.03
   LEATHER_HELMET#200251:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 738
       armor-strength: 0.07
       dodge-chance: 0.036
@@ -7696,7 +7698,7 @@ items:
         max: 0.036
   LEATHER_CHESTPLATE#200252:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 1075
       dodge-chance: 0.024
       thread-slots: 2
@@ -7718,7 +7720,7 @@ items:
         max: 0.096
   LEATHER_LEGGINGS#200253:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 1006
       move-speed: 0.003
       thread-slots: 2
@@ -7740,7 +7742,7 @@ items:
         max: 0.072
   LEATHER_BOOTS#200254:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 861
       armor-strength: 0.07
       move-speed: 0.002
@@ -7763,7 +7765,7 @@ items:
         max: 0.036
   LEATHER_HELMET#200061:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 108
       armor-strength: 0.02
       dodge-chance: 0.092
@@ -7786,7 +7788,7 @@ items:
         max: 0.005
   LEATHER_CHESTPLATE#200062:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 156
       dodge-chance: 0.061
       thread-slots: 2
@@ -7808,7 +7810,7 @@ items:
         max: 0.012
   LEATHER_LEGGINGS#200063:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 147
       move-speed: 0.021
       thread-slots: 2
@@ -7830,7 +7832,7 @@ items:
         max: 0.009
   LEATHER_BOOTS#200064:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 126
       armor-strength: 0.02
       move-speed: 0.009
@@ -7853,7 +7855,7 @@ items:
         max: 0.005
   LEATHER_HELMET#200071:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 180
       armor-strength: 0.02
       dodge-chance: 0.092
@@ -7876,7 +7878,7 @@ items:
         max: 0.012
   LEATHER_CHESTPLATE#200072:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 264
       dodge-chance: 0.061
       thread-slots: 2
@@ -7898,7 +7900,7 @@ items:
         max: 0.031
   LEATHER_LEGGINGS#200073:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 246
       move-speed: 0.021
       thread-slots: 2
@@ -7920,7 +7922,7 @@ items:
         max: 0.023
   LEATHER_BOOTS#200074:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 210
       armor-strength: 0.02
       move-speed: 0.009
@@ -7943,7 +7945,7 @@ items:
         max: 0.012
   LEATHER_HELMET#200081:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 288
       armor-strength: 0.02
       dodge-chance: 0.092
@@ -7966,7 +7968,7 @@ items:
         max: 0.024
   LEATHER_CHESTPLATE#200082:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 420
       dodge-chance: 0.061
       thread-slots: 3
@@ -7988,7 +7990,7 @@ items:
         max: 0.064
   LEATHER_LEGGINGS#200083:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 393
       move-speed: 0.021
       thread-slots: 3
@@ -8010,7 +8012,7 @@ items:
         max: 0.048
   LEATHER_BOOTS#200084:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 336
       armor-strength: 0.02
       move-speed: 0.009
@@ -8033,7 +8035,7 @@ items:
         max: 0.024
   LEATHER_HELMET#200201:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 461
       armor-strength: 0.15
       dodge-chance: 0.018
@@ -8057,7 +8059,7 @@ items:
         max: 0.046
   LEATHER_CHESTPLATE#200202:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 672
       dodge-chance: 0.012
       thread-slots: 1
@@ -8080,7 +8082,7 @@ items:
         max: 0.123
   LEATHER_LEGGINGS#200203:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 629
       move-speed: -0.004
       thread-slots: 1
@@ -8102,7 +8104,7 @@ items:
         max: 0.091
   LEATHER_BOOTS#200204:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 538
       armor-strength: 0.15
       move-speed: -0.002
@@ -8125,7 +8127,7 @@ items:
         max: 0.046
   LEATHER_HELMET#200211:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 738
       armor-strength: 0.15
       dodge-chance: 0.018
@@ -8149,7 +8151,7 @@ items:
         max: 0.055
   LEATHER_CHESTPLATE#200212:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 1075
       dodge-chance: 0.012
       thread-slots: 1
@@ -8172,7 +8174,7 @@ items:
         max: 0.148
   LEATHER_LEGGINGS#200213:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 1006
       move-speed: -0.004
       thread-slots: 1
@@ -8194,7 +8196,7 @@ items:
         max: 0.109
   LEATHER_BOOTS#200214:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 861
       armor-strength: 0.15
       move-speed: -0.002
@@ -8217,7 +8219,7 @@ items:
         max: 0.055
   LEATHER_HELMET#200221:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 461
       armor-strength: 0.02
       dodge-chance: 0.092
@@ -8240,7 +8242,7 @@ items:
         max: 0.03
   LEATHER_CHESTPLATE#200222:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 672
       dodge-chance: 0.061
       thread-slots: 3
@@ -8262,7 +8264,7 @@ items:
         max: 0.08
   LEATHER_LEGGINGS#200223:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 629
       move-speed: 0.021
       thread-slots: 3
@@ -8284,7 +8286,7 @@ items:
         max: 0.06
   LEATHER_BOOTS#200224:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 538
       armor-strength: 0.02
       move-speed: 0.009
@@ -8307,7 +8309,7 @@ items:
         max: 0.03
   LEATHER_HELMET#200231:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 738
       armor-strength: 0.02
       dodge-chance: 0.092
@@ -8330,7 +8332,7 @@ items:
         max: 0.036
   LEATHER_CHESTPLATE#200232:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 1075
       dodge-chance: 0.061
       thread-slots: 4
@@ -8352,7 +8354,7 @@ items:
         max: 0.096
   LEATHER_LEGGINGS#200233:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 1006
       move-speed: 0.021
       thread-slots: 4
@@ -8374,7 +8376,7 @@ items:
         max: 0.072
   LEATHER_BOOTS#200234:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 861
       armor-strength: 0.02
       move-speed: 0.009
@@ -9211,7 +9213,7 @@ items:
         max: 0.15
   NETHERITE_HELMET#5611:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 540
       phys-resistance: 0.021
       phys-flat-defense: 1.1
@@ -9234,7 +9236,7 @@ items:
         max: 3.2
   NETHERITE_CHESTPLATE#5611:
     fixed:
-      armor-defense-rate: 8
+      defense-rate: 0.12
       durability: 780
       phys-resistance: 0.056
       phys-flat-defense: 3
@@ -9257,7 +9259,7 @@ items:
         max: 8.8
   NETHERITE_LEGGINGS#5611:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 732
       phys-resistance: 0.042
       phys-flat-defense: 2.3
@@ -9280,7 +9282,7 @@ items:
         max: 6.6
   NETHERITE_BOOTS#5611:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 630
       phys-resistance: 0.021
       phys-flat-defense: 1.1
@@ -10139,7 +10141,7 @@ items:
         max: 0.15
   NETHERITE_HELMET#5720:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 1620
       thread-slots: 2
       damage-reduction: 0.02
@@ -10163,7 +10165,7 @@ items:
         max: 2.8
   NETHERITE_CHESTPLATE#5720:
     fixed:
-      armor-defense-rate: 8
+      defense-rate: 0.12
       durability: 2340
       thread-slots: 2
       damage-reduction: 0.02
@@ -10186,7 +10188,7 @@ items:
         max: 7.7
   NETHERITE_LEGGINGS#5720:
     fixed:
-      armor-defense-rate: 6
+      defense-rate: 0.09
       durability: 2196
       thread-slots: 2
       damage-reduction: 0.02
@@ -10209,7 +10211,7 @@ items:
         max: 6.1
   NETHERITE_BOOTS#5720:
     fixed:
-      armor-defense-rate: 3
+      defense-rate: 0.045
       durability: 1890
       thread-slots: 2
       damage-reduction: 0.02
@@ -10265,7 +10267,7 @@ items:
         max: 0.06
   NETHERITE_CHESTPLATE#5740:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 620
       phys-resistance: 0.062
       phys-flat-defense: 3
@@ -10288,7 +10290,7 @@ items:
         max: 3.6
   NETHERITE_CHESTPLATE#5741:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 480
       phys-resistance: 0.048
       phys-flat-defense: 2.3
@@ -10353,7 +10355,7 @@ items:
     quality-mode-offset: -3
   NETHERITE_HELMET#5740:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 350
       phys-resistance: 0.019
       phys-flat-defense: 0.7
@@ -10388,7 +10390,7 @@ items:
     quality-mode-offset: -3
   NETHERITE_BOOTS#5740:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 400
       phys-resistance: 0.032
       phys-flat-defense: 0.7
@@ -10412,7 +10414,7 @@ items:
         max: 0.8
   LEATHER_CHESTPLATE#5760:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 269
       phys-resistance: 0.029
       phys-flat-defense: 2.3
@@ -10442,7 +10444,7 @@ items:
     use-role: mage
   NETHERITE_CHESTPLATE#5760:
     fixed:
-      armor-defense-rate: 4
+      defense-rate: 0.06
       durability: 316
       phys-resistance: 0.048
       phys-flat-defense: 2.3
@@ -10467,7 +10469,7 @@ items:
         max: 2.3
   LEATHER_CHESTPLATE#5761:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 269
       phys-resistance: 0.029
       phys-flat-defense: 2.3
@@ -10491,7 +10493,7 @@ items:
         max: 2.3
   LEATHER_HELMET#5760:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 184
       phys-resistance: 0.011
       phys-flat-defense: 0.9
@@ -10516,7 +10518,7 @@ items:
         max: 0.9
   LEATHER_HELMET#5761:
     fixed:
-      armor-defense-rate: 1
+      defense-rate: 0.015
       durability: 184
       phys-resistance: 0.011
       phys-flat-defense: 0.9
@@ -10541,7 +10543,7 @@ items:
         max: 0.9
   LEATHER_CHESTPLATE#5762:
     fixed:
-      armor-defense-rate: 2
+      defense-rate: 0.03
       durability: 269
       phys-resistance: 0.029
       phys-flat-defense: 2.3

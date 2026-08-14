@@ -42,7 +42,7 @@
 - **厳選幅 ±5% は `phys-flat-defense` 以外のキーにだけ適用する。**
   `phys-flat-defense` の `random` は infinity と同値のまま置く。
 
-> **この4ステ（`phys-flat-defense` / `armor-defense-rate` / vanilla armor points / `max-health`）で
+> **この4ステ（`phys-flat-defense` / `defense-rate`（当時の `armor-defense-rate`） / vanilla armor points / `max-health`）で
 > 強弱を付けようとしないこと。** 乗算式の `phys-resistance` は安全（×1.30 でも全9帯 20.0〜22.4 に収まる）。
 
 ### 0-2. 「13種共通のレシピ」は成立しない

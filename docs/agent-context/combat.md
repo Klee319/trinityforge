@@ -9,7 +9,8 @@
 `PlayerStatAggregator.aggregate()` が防具4部位＋メインハンド（または発射武器）＋オフハンド（アイテムごとの `offhand-stats-apply`。グローバルトグルは廃止済み）＋スキルツリーパーク＋役職バフ＋永続バフ＋`base-stats`（config駆動の全員一律加算）＋アドオン（スレッド）を1つの `item` マップへ集約する唯一の生成者。攻撃側は `CombatListener`、防御側は `PlayerDefenseResolver` が両方ともこのマップを `totalOf()` 経由で読む。新しいステ供給源を足すときはこの1マップへ merge するだけで戦闘・採集・クラフト・Ars連携まで一括で効く。
 
 - 攻撃／防御の振り分けは `AttackStatBridge`/`DefenseStatBridge` のキーフィルタが担当。属性写像ステ（max-health/move-speed/attack-speed/attack-reach 等）が同じ集約マップに入っていても、フィルタで拾われない側には流れないので二重適用にはならない。
-- `armor-defense-rate` / `armor-strength` は `DefenseStatBridge` が常に0固定にする。これらはバニラ armor 属性のミラー（`SymmetricCombatService.vanillaArmorDefense` 系）経由で別途計上されるため。集約側の供給源が増えてもブリッジがdropするので二重計上にならない。
+- `armor-strength` は `DefenseStatBridge` が常に0固定にする。バニラ armor 属性のミラー（`SymmetricCombatService.vanillaArmorDefense` 系）経由で別途計上されるため。集約側の供給源が増えてもブリッジがdropするので二重計上にならない。
+- **防御率（`defense-rate`）は 2026-08-15 に一本化された。** それ以前はアイテム側だけ `armor-defense-rate`（バニラ防具値の点数）で書き、`Attribute.ARMOR` へ写像して同じミラーから読み戻していたが、「防具値は直感的でない」というユーザー判断で防具値ステを廃止し、**1点=1.5%軽減（`combat/damage.yml` の `vanilla-armor.defense-rate-per-point`）で換算して `defense-rate` へ統合**した。いまは `DefenseStatBridge` が他の防御ステと同様この率を直接読む。**TFスタンプ装備の `Attribute.ARMOR` は `AttributeApplier` が材質既定ごと常に抑止する（＝防具バーは常に空）** ので、ミラー寄与は0でありTFの防御率と二重計上にならない。ミラー自体は素のバニラ防具（TF未スタンプ）用に残してある。
 - 属性系ステ（max-health 等）だけは item マップがバニラ属性へ自動反映されないので、`PerkAttributeApplier.apply()` が `channelOf==ATTRIBUTE` のものだけを Attribute へ merge する。ここが Haste 等の他プラグインと衝突しないよう「ライブ属性値を一切読まない」設計になっている（読むと相殺事故を起こす）。
 
 ### ⚠️ オフハンドの規則は「持っているだけ」と「実際に使った」で別（2026-08-13 確定）
@@ -272,7 +273,7 @@ SKELETON なら Lv0 で 340・Lv45 で 2,805）。**HP だけ持ち上げて mob
   （`<rarityId>|<mainKey>=<value>|<subKey>=<value>;...`）なので、**旧個体の PDC はそのまま
   `ThreadRoll#decode` で読める**（fail-open: プール未解決/例外時は `rollThreadStats` が null を返し、
   呼び出し側は「厳選なし」個体として扱う）。
-- **`armor-defense-rate` を候補に入れてはいけない**。物理ダメージの守備力減算率そのものなので、
+- **`defense-rate`（防御率。2026-08-15 に廃止した `armor-defense-rate` の統合先）を候補に入れてはいけない**。物理ダメージの守備力減算率そのものなので、
   ロール上限次第で物理ダメージを実質無効化できてしまう（`item-stats.yml` の
   `random-roll-pools` ヘッダコメントに同じ警告あり。プールへ足す前にこのコメントを消さないこと）。
 - **decimal-step 量子化（roll した値を authored な min/max の小数桁に丸める）は 2026-08-02 の新規要件**。
@@ -375,7 +376,7 @@ lore がキャッシュされたまま残っている可能性があるため、
 `combat/base-stats.yml` は全プレイヤーへの一律加算をconfigで定義する（空欄=バニラのまま）。`BaseStatsConfig`（`PercentStatNormalize.coerce` で RATE_KEYS のみ %→fraction 変換）が読み、`PlayerStatAggregator.aggregate()` の item マップへ role-buffs/permanent-buffs と同じ流儀で1レイヤ merge される。属性系（max-health等）は `PerkAttributeApplier` が ATTRIBUTE チャネルのみ attrs へ反映する。
 
 - `attack-power` を base-stats に設定すると「武器ベース置換を誘発する」副作用がある（武器のベース値がこの値に置き換わりエンチャント無効化などが起きうる）ため、既定は空欄推奨。設定するなら影響範囲を理解した上で行うこと。
-- `armor-defense-rate` は base-stats/permanent 両方の合算を `extraArmorDefenseRate` へまとめ、1回だけ perkDefense へ渡す（item マップ側は常に0固定＝`DefenseStatBridge` を回避する専用経路）。
+- 防御率（`defense-rate`）に**専用経路は無い**。2026-08-15 の防具値廃止までは `armor-defense-rate` だけが base-stats/permanent の合算を `extraArmorDefenseRate` へまとめて perkDefense へ直接渡す迂回路を持っていた（item マップ側は常に0固定＝`DefenseStatBridge` 回避）が、その迂回路ごと削除した。いまは他のステと同じく item マップへ merge される。
 - 綴りミス・未知キーは `StatVocabulary.isKnown(key)` が false の場合ログ警告を出す仕組みがある（無警告no-opを避けるため）。
 
 ## 統合版（Bedrock/Geyser）互換の制約

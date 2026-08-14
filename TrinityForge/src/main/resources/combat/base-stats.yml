@@ -54,8 +54,7 @@ base-stats:
   penetration: 0
   bleed-chance: 0
   bleed-damage: 0
-  # armor-defense-rate はバニラ防具値(点数)。防御率(割合)は 2026-08-15 に defense-rate へ分離した。
-  armor-defense-rate: 0
+  # 防御率(被ダメージの乗算軽減, 0.0〜1.0)。2026-08-15 に防具値(armor-defense-rate)を廃止して統合した。
   defense-rate: 0
   armor-strength: 0
   max-health: 0

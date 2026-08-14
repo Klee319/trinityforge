@@ -95,7 +95,7 @@ public final class PercentStatNormalize {
             // 2026-07-25 PRG-07/伐採一括伐採CT短縮: tree-fell専用CT短縮キー(StatVocabulary参照)。
             StatKeys.canonical("tree-fell-cooldown-reduction"),
             // 2026-07-25 課題2: 棘の鎧ステータス化の反射率（割）。reflect-flat は固定ダメージ量(FLAT)なので
-            // 対象外 — armor-defense-rate と同じ理由。
+            // 対象外。
             StatKeys.canonical("reflect-percent"),
             // 2026-07-26 stat-scope 境界引き直し §3 (B→C 昇格): aoe-damage-rate(主命中ダメージに対する
             // 割合0.0〜)と mana-cost-reduction-percent(マナ消費軽減率)は率系。同じ8キーのうち
@@ -106,14 +106,13 @@ public final class PercentStatNormalize {
             // enchant-cost-reductionは0..0.9にランタイム側でもクランプする割合系。
             // stun-duration-bonus は2026-07-29に割合からtick加算へ移行したため対象外。
             StatKeys.canonical("enchant-cost-reduction"),
-            // 2026-08-15: defense-rate(パーク側の防御率)。armor-defense-rate から分離した [0,1] の割合系なので
-            // ここに入れる — 逆に armor-defense-rate はバニラ防具値(点数)なので下のコメント通り対象外のまま。
-            // 分離前は「率なのに%矯正の対象外」で、yml に 10 と書くと 1000% 軽減として通っていた。
+            // 2026-08-15: defense-rate(防御率)。旧 armor-defense-rate は「アイテム側=バニラ防具値(点数)」
+            // という別単位を同居させていたため、点数を守る目的でこの矯正から外されていた — その結果
+            // パーク側に 10 と書くと 1000% 軽減として通っていた。防具値ステを廃止して [0,1] の割合へ
+            // 一本化したので、他の率系と同じくここで矯正する。
             StatKeys.canonical("defense-rate"));
             // gathering-efficiency(採集効率、エンチャント連動方式)は「合算値をfloorしてエンチャント
             // レベルへ変換する」加算値であり、[0,1]の割合ではないため対象外(mining-efficiencyと同じ扱い)。
-            // armor-defense-rate is NOT a [0,1] rate — it is vanilla Attribute.ARMOR points
-            // (e.g. 8 = +8 armor). Coercing it ÷100 collapses all armor to near-zero.
             // arrow-piercing (INTEGER) and the FLAT craft-* roll keys are intentionally excluded —
             // they are not [0,1] rates.
 

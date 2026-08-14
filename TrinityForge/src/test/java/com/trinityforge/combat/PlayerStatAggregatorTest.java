@@ -136,9 +136,9 @@ class PlayerStatAggregatorTest {
         Files.writeString(itemStats.toPath(), """
                 items:
                   DIAMOND_CHESTPLATE:
-                    fixed: { armor-defense-rate: 8.0 }
+                    fixed: { defense-rate: 0.12 }
                   CHAINMAIL_BOOTS:
-                    fixed: { armor-defense-rate: 2.0 }
+                    fixed: { defense-rate: 0.03 }
                 """);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
@@ -149,15 +149,15 @@ class PlayerStatAggregatorTest {
         player.getInventory().setBoots(new ItemStack(Material.CHAINMAIL_BOOTS));
 
         double heavy = aggregator.equippedArmorStatTotal(
-                player, "armor-defense-rate",
+                player, "defense-rate",
                 item -> item.getType() == Material.DIAMOND_CHESTPLATE);
         double light = aggregator.equippedArmorStatTotal(
-                player, "armor-defense-rate",
+                player, "defense-rate",
                 item -> item.getType() == Material.CHAINMAIL_BOOTS);
 
-        assertEquals(8.0, heavy, 1e-9,
+        assertEquals(0.12, heavy, 1e-9,
                 "heavy total must not include the chainmail piece or held/offhand items");
-        assertEquals(2.0, light, 1e-9,
+        assertEquals(0.03, light, 1e-9,
                 "light total must not include the diamond piece or held/offhand items");
     }
 
@@ -377,29 +377,34 @@ class PlayerStatAggregatorTest {
     }
 
     /**
-     * 修正B: {@code armor_defense_rate}(DEFENSE channel)の永続バフは {@link DefenseStatBridge} が
-     * item map 側で常に0固定にする経路には乗らず、perk同様に {@code perkDefense} 経路
-     * ({@link PlayerCombatAggregate#perkDefense()})へ合流して初めて防御側へ届く。
+     * 2026-08-15 防具値の廃止で消えた迂回路の非回帰。かつて {@code armor-defense-rate} は
+     * item map 側で {@link DefenseStatBridge} が常に0固定にしていた(バニラ防具属性ミラー専用の経路)ため、
+     * 永続バフのこのキーだけを {@code perkDefense} へ逃がす特別な振り分けがあった。
+     * 今は {@code defense-rate} を item map から直接読むので、他のステと同じく素直に
+     * {@link PlayerCombatAggregate#item()} へ入って防御側へ届く。
      */
     @Test
-    void permanentBuffResolver_armorDefenseRateRoutesToPerkDefenseNotItem(@TempDir File dir) throws IOException {
+    void permanentBuffResolver_defenseRateFlowsThroughTheItemMapLikeEveryOtherStat(@TempDir File dir)
+            throws IOException {
         writeItemStats(dir, false);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
         PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> java.util.List.of());
-        String armorDefenseRateKey = StatKeys.canonical("armor-defense-rate");
+        String defenseRateKey = StatKeys.canonical("defense-rate");
         PermanentBuffResolver permanentBuffResolver = mock(PermanentBuffResolver.class);
-        when(permanentBuffResolver.buffsFor(any())).thenReturn(Map.of(armorDefenseRateKey, 0.1));
+        when(permanentBuffResolver.buffsFor(any())).thenReturn(Map.of(defenseRateKey, 0.1));
         PlayerStatAggregator aggregator = new PlayerStatAggregator(cm.itemStats(), damage, perks,
                 new RoleBuffResolver(cm.roleBuffs()), null, permanentBuffResolver);
         Player player = equippedPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(0.1, agg.perkDefense().getOrDefault(armorDefenseRateKey, 0.0), 1e-9,
-                "permanent-buffのarmor_defense_rateはperkDefenseへ合流する");
-        assertFalse(agg.item().containsKey(armorDefenseRateKey),
-                "item()には混ぜない(DefenseStatBridgeが常に0固定にする経路のため合流させても無効)");
+        assertEquals(0.1, agg.item().getOrDefault(defenseRateKey, 0.0), 1e-9,
+                "permanent-buff の defense-rate は item() へ合流し、DefenseStatBridge がそこから読む");
+        // 実際に防御側へ届くことまで見る(item map に入っているだけでは「届いた」証明にならない)。
+        assertEquals(0.1,
+                DefenseStatBridge.bridge(agg.item(), DefenseStatKeys.DEFAULT, DamageType.PHYSICAL).defenseRate(),
+                1e-9, "ブリッジ通過後も防御率として残る");
     }
 
     @Test
@@ -463,7 +468,7 @@ class PlayerStatAggregatorTest {
 
     private static final String CRIT_CHANCE = StatKeys.canonical("crit-chance");
     private static final String PHYS_FLAT_DEFENSE = StatKeys.canonical("phys-flat-defense");
-    private static final String ARMOR_DEFENSE_RATE = StatKeys.canonical("armor-defense-rate");
+    private static final String DEFENSE_RATE = StatKeys.canonical("defense-rate");
 
     private BaseStatsConfig baseStatsFrom(File dir, String yaml) throws IOException {
         File file = new File(dir, BaseStatsConfig.PATH);
@@ -514,20 +519,23 @@ class PlayerStatAggregatorTest {
     }
 
     @Test
-    void baseStats_armorDefenseRateRoutesToPerkDefenseNotItem(@TempDir File dir) throws IOException {
-        // permanent-buff と同様、armor-defense-rate は item側では0固定される経路なので perkDefense へ回す。
+    void baseStats_defenseRateFlowsThroughTheItemMapLikeEveryOtherStat(@TempDir File dir) throws IOException {
+        // permanent-buff と同様、2026-08-15 の防具値廃止で perkDefense への特別振り分けは不要になった。
+        // 0.3 と書く(3 と書くと PercentStatNormalize が 0.03 へ矯正する率系キーなので、
+        // 「矯正が効いていること」自体は別テストの担当)。
         PlayerStatAggregator aggregator = aggregatorWithBaseStats(dir, """
                 base-stats:
-                  armor-defense-rate: 3
+                  defense-rate: 0.3
                 """);
         Player player = equippedPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(3.0, agg.perkDefense().getOrDefault(ARMOR_DEFENSE_RATE, 0.0), 1e-9,
-                "base-statsのarmor-defense-rateはperkDefenseへ合流する");
-        assertFalse(agg.item().containsKey(ARMOR_DEFENSE_RATE),
-                "item()には混ぜない(DefenseStatBridgeが0固定にする経路のため)");
+        assertEquals(0.3, agg.item().getOrDefault(DEFENSE_RATE, 0.0), 1e-9,
+                "base-stats の defense-rate は item() へ合流する");
+        assertEquals(0.3,
+                DefenseStatBridge.bridge(agg.item(), DefenseStatKeys.DEFAULT, DamageType.PHYSICAL).defenseRate(),
+                1e-9, "ブリッジ通過後も防御率として残る");
     }
 
     @Test
@@ -562,7 +570,7 @@ class PlayerStatAggregatorTest {
     // PlayerStatAggregator#computeAggregate のソース3〜6(パーク general / 役職 attack・defense /
     // 永続バフ / base-stats)は #nonItemContribution へ切り出された。ここでは
     // (a) 4ソース(パーク・役職・永続バフ・base-stats・装備)を全部同時に持つプレイヤーの item() 合算結果が
-    //     切り出し前と一致すること(通常キー=全ソース合算、armor-defense-rateキー=perkDefenseへ集約)、
+    //     切り出し前と一致すること(2026-08-15 に防具値を廃止して以降は全キーが素直に全ソース合算)、
     // (b) 新しい公開API nonItemStatTotal が装備由来・addon由来を含まないこと、を検証する。
 
     private static final String MANA_BONUS = StatKeys.canonical("mana_bonus");
@@ -636,24 +644,23 @@ class PlayerStatAggregatorTest {
     }
 
     /**
-     * タスク2要件: armor_defense_rate をパークの{@code buffs:}に置いた場合の非回帰。
-     * {@code armor-defense-rate} は {@link com.trinityforge.stats.StatVocabulary#channelOf} により
+     * {@code defense-rate} をパークの{@code buffs:}に置いた場合の非回帰。
+     * このキーは {@link com.trinityforge.stats.StatVocabulary#channelOf} により
      * 常に DEFENSE チャンネルへ自動分類されるため、{@link PerkBuffResolver} の {@code accumulate} が
-     * そもそも {@code perkBuffs.general()} ではなく {@code perkBuffs.defense()} へ振り分ける
-     * (= {@link #nonItemContribution} が触る前の、perkBuffs 生成時点で既に分離済み)。
+     * そもそも {@code perkBuffs.general()} ではなく {@code perkBuffs.defense()} へ振り分ける。
      * よって {@code perkBuffs.defense()} は {@code computeAggregate} で直接 {@code perkDefense} 経路
-     * (via {@code PlayerStatAggregator#nativeArmorSetContribution})に渡り、item() には現れない
-     * — これは切り出し前から変わらない挙動であり、{@code extraArmorDefenseRate} の特別振り分け
-     * (permanentBuffResolver/baseStats専用)とは別経路であることを確認する。
+     * (via {@code PlayerStatAggregator#nativeArmorSetContribution})に渡り、item() には現れない。
+     * item() 側にも perkDefense 側にも同じ量が二重に乗らないことがこのテストの本題
+     * ({@code PlayerDefenseResolver} は両方を combine するため)。
      */
     @Test
-    void armorDefenseRateFromPerkBuffs_routesToPerkDefenseViaVocabularyChannelNotItem(@TempDir File dir)
+    void defenseRateFromPerkBuffs_routesToPerkDefenseViaVocabularyChannelNotItem(@TempDir File dir)
             throws IOException {
         writeItemStats(dir, false);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
         Map<String, Double> buffs = new LinkedHashMap<>();
-        buffs.put("armor-defense-rate", 0.2);
+        buffs.put("defense-rate", 0.2);
         SkillNode node = new SkillNode("A", "防御の型", 1, SkillRole.MAIN, null, null, "STONE", 1, "desc",
                 buffs, Map.of(), List.of(), List.of(), List.of());
         Map<String, SkillNode> nodes = new LinkedHashMap<>();
@@ -668,33 +675,33 @@ class PlayerStatAggregatorTest {
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(0.2, agg.perkDefense().getOrDefault(ARMOR_DEFENSE_RATE, 0.0), 1e-9,
-                "StatVocabularyのDEFENSEチャンネル自動分類により、perkの armor-defense-rate は"
+        assertEquals(0.2, agg.perkDefense().getOrDefault(DEFENSE_RATE, 0.0), 1e-9,
+                "StatVocabularyのDEFENSEチャンネル自動分類により、perkの defense-rate は"
                         + " perkBuffs.defense()経由でそのままperkDefenseへ入る");
-        assertFalse(agg.item().containsKey(ARMOR_DEFENSE_RATE),
-                "item()には現れない(perkBuffs.general()を経由しないため)");
+        assertFalse(agg.item().containsKey(DEFENSE_RATE),
+                "item()には現れない(perkBuffs.general()を経由しないため。両方に入ると防御率が二重計上される)");
     }
 
-    /** タスク2要件: armor_defense_rate を役職バフに置いた場合も、パーク general と同じく item() に
-     *  そのまま入り perkDefense へは回らないこと(役職 buff にもこのキーの振り分けが元々無い)。 */
+    /** {@code defense-rate} を役職バフに置いた場合は item() にそのまま入り perkDefense へは回らないこと
+     *  (役職 buff にはこのキーの振り分けが元々無い)。 */
     @Test
-    void armorDefenseRateFromRoleBuff_staysInItemNotRedirected(@TempDir File dir) throws IOException {
+    void defenseRateFromRoleBuff_staysInItemNotRedirected(@TempDir File dir) throws IOException {
         writeItemStats(dir, false);
         ConfigManager cm = CombatWiringSupport.loadedConfigManager(dir);
         CombatDamageConfig damage = CombatWiringSupport.combatDamageFrom(dir, "");
         PerkBuffResolver perks = new PerkBuffResolver(SkillPerkStatSource.EMPTY, () -> List.of());
         RoleBuffResolver roleBuffResolver = mock(RoleBuffResolver.class);
         when(roleBuffResolver.contributionFor(any())).thenReturn(new RoleBuffResolver.Contribution(
-                Map.of(), Map.of(ARMOR_DEFENSE_RATE, 0.3), 1.0, null, 1.0));
+                Map.of(), Map.of(DEFENSE_RATE, 0.3), 1.0, null, 1.0));
         PlayerStatAggregator aggregator = new PlayerStatAggregator(
                 cm.itemStats(), damage, perks, roleBuffResolver);
         Player player = equippedPlayer();
 
         PlayerCombatAggregate agg = aggregator.aggregate(player);
 
-        assertEquals(0.3, agg.item().getOrDefault(ARMOR_DEFENSE_RATE, 0.0), 1e-9,
-                "役職defenseBuffのarmor-defense-rateは item()にそのまま入る");
-        assertFalse(agg.perkDefense().containsKey(ARMOR_DEFENSE_RATE),
+        assertEquals(0.3, agg.item().getOrDefault(DEFENSE_RATE, 0.0), 1e-9,
+                "役職defenseBuffのdefense-rateは item()にそのまま入る");
+        assertFalse(agg.perkDefense().containsKey(DEFENSE_RATE),
                 "役職バフ由来では perkDefense へ加算しない(振り分けが元々無いため)");
     }
 

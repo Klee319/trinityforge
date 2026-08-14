@@ -84,10 +84,9 @@
     "damage-modifier", "percent-bonus-damage", "crit-chance", "penetration", "bleed-chance",
     "dodge-chance", "phys-resistance", "magic-resistance", "damage-reduction"
     , "armor-strength"
-    // armor-defense-rate はバニラ防具ポイント(INTEGER)。÷100しない。
-    // 2026-08-15: パーク/スキルツリーが配る防御率は defense-rate へ分離した([0,1] の軽減率)。
-    // こちらは矯正対象 — 分離前は「率なのに armor-defense-rate と同じキー」だったため
-    // 10 と書くと 1000% 軽減として通っていた。
+    // 2026-08-15: 防具値(armor-defense-rate, バニラ防具ポイントの整数)を廃止し、
+    // 1点=1.5%軽減 で換算してこの defense-rate([0,1] の軽減率)へ一本化した。
+    // アイテム側もパーク側も同じ率キーになったので、全経路が矯正対象。
     , "defense-rate"
     // 2026-07-28: 採集の率系キー。Java 側 PercentStatNormalize.RATE_KEYS と対になる
     // (mining-fortune はそちらでも登録漏れしていて、15 が 1500% として効いていた)。

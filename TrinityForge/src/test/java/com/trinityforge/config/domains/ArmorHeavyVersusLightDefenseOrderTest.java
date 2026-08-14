@@ -49,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code SymmetricDamagePipeline}(回避は攻撃全体を無効化)をそのままなぞり、体力プールで正規化する:
  * <pre>
  *   coef = (1 - 回避)
- *        × (1 - min(defense-rate-max, armor-defense-rate × defense-rate-per-point))
+ *        × (1 - min(defense-rate-max, defense-rate))
  *        × (1 - phys-resistance)
  *        × (referenceHit(Lv) - phys-flat-defense) / referenceHit(Lv)
  *        × 20 / (20 + max-health)
@@ -82,7 +82,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ArmorHeavyVersusLightDefenseOrderTest {
 
-    /** 出荷 {@code combat/damage.yml} の {@code vanilla-armor.defense-rate-per-point} と一致していること。 */
+    /**
+     * 出荷 {@code combat/damage.yml} の {@code vanilla-armor.defense-rate-per-point} と一致していること。
+     * 2026-08-15 以降このテストの係数計算では使わない(item-stats の値が既に軽減率)が、
+     * <b>防具値→防御率の換算に使ったレート</b>そのものなので固定し続ける — ここが動いたら
+     * 「1点=1.5%」で作った出荷ラダーの前提が崩れる。TFスタンプ外のバニラ防具には今も効く。
+     */
     private static final double DEFENSE_RATE_PER_POINT = 0.015;
     /** 出荷 {@code combat/damage.yml} の {@code vanilla-armor.defense-rate-max} と一致していること。 */
     private static final double DEFENSE_RATE_MAX = 0.8;
@@ -103,7 +108,12 @@ class ArmorHeavyVersusLightDefenseOrderTest {
     /** 重装は軽装の何倍以下の被ダメージであるべきか(0.80 = 20%以上少ない)。 */
     private static final double REQUIRED_HEAVY_RATIO = 0.80;
 
-    private static final String K_ARMOR_RATE = StatKeys.canonical("armor-defense-rate");
+    /**
+     * 防御率。2026-08-15 に防具値({@code armor-defense-rate}, バニラ防具値の点数)を廃止し、
+     * 1点=1.5%軽減で換算してこのキーへ統合した。yml の値がそのまま [0,1] の軽減率なので、
+     * 以前のように {@link #DEFENSE_RATE_PER_POINT} を掛けない。
+     */
+    private static final String K_DEFENSE_RATE = StatKeys.canonical("defense-rate");
     private static final String K_DODGE = StatKeys.canonical("dodge-chance");
     private static final String K_PHYS_RESISTANCE = StatKeys.canonical("phys-resistance");
     private static final String K_PHYS_FLAT = StatKeys.canonical("phys-flat-defense");
@@ -297,8 +307,7 @@ class ArmorHeavyVersusLightDefenseOrderTest {
     /** 1式装備したときの実効被ダメージ係数(小さいほど硬い)。{@code level} はその帯の基準攻撃力に使う。 */
     private static double damageTakenCoefficient(List<ArmorPiece> armorSet, int level) {
         double dodge = clamp01(sum(armorSet, K_DODGE, false));
-        double defenseRate = Math.min(DEFENSE_RATE_MAX,
-                Math.max(0.0, sum(armorSet, K_ARMOR_RATE, false) * DEFENSE_RATE_PER_POINT));
+        double defenseRate = Math.min(DEFENSE_RATE_MAX, clamp01(sum(armorSet, K_DEFENSE_RATE, false)));
         double resistance = clamp01(sum(armorSet, K_PHYS_RESISTANCE, false));
         double flat = Math.max(0.0, sum(armorSet, K_PHYS_FLAT, false));
         double health = VANILLA_BASE_HEALTH + Math.max(0.0, sum(armorSet, K_MAX_HEALTH, false));

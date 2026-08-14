@@ -28,9 +28,11 @@ class StatVocabularyTest {
     void existingDefenseKeys() {
         for (String key : new String[]{"phys_resistance", "magic_resistance", "flat_defense",
                 "phys_flat_defense", "magic_flat_defense", "damage_reduction",
-                "armor_defense_rate", "dodge_chance"}) {
+                "defense_rate", "dodge_chance"}) {
             assertEquals(StatVocabulary.Channel.DEFENSE, StatVocabulary.channelOf(key), key);
         }
+        // 2026-08-15: 防具値は廃止済み。語彙へ戻すと「点数」と「割合」がまた1キーに同居する。
+        assertEquals(StatVocabulary.Channel.NONE, StatVocabulary.channelOf("armor_defense_rate"));
     }
 
     @Test

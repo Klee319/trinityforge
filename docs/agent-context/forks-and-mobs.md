@@ -951,11 +951,13 @@ player を生成経路まで手動で運ぶしかない」「個体差は Ars �
   `stamp()` は `ItemAssembler#assemble` を通じて**フルの再組み立て**（PDC刻印・耐久・lore全体の
   再構築・バニラ `AttributeModifier` の投影 `AttributeProjection.project`）を行う重い処理だが、
   `AttributeProjection.defaults()` が vanilla 属性へ投影するのは
-  `knockback_resistance`/`armor_defense_rate`/`max_health`/`move_speed`/`attack_speed`/
-  `attack_speed_bonus`/`attack_reach` の**7キーだけ**（`attack-power` は意図的に除外）。
-  スレッドの40エントリはこの7キーのどれも使っていない（2026-08-03時点で確認済み）ため
+  `knockback_resistance`/`max_health`/`move_speed`/`attack_speed`/
+  `attack_speed_bonus`/`attack_reach` の**6キーだけ**（`attack-power` は意図的に除外。
+  `armor_defense_rate` も入っていたが 2026-08-15 に防具値ステごと廃止して `defense-rate` へ統合し、
+  写像対象から外した）。
+  スレッドの40エントリはこの6キーのどれも使っていない（2026-08-03時点で確認済み）ため
   `stamp()` はスレッドに対して余計な vanilla AttributeModifier を一切生成しない。
-  **⚠️ 将来この7キーのいずれかをスレッドの `item-stats.yml` に足すと、無警告でスレッドに
+  **⚠️ 将来この6キーのいずれかをスレッドの `item-stats.yml` に足すと、無警告でスレッドに
   vanilla属性（例えば move_speed）が直接付与される** ── ソケットせず手に持つだけでも
   `EquipmentSlotResolver` が `Category.ANY` に落とすぶん `AttributeProjection` は
   `EquipmentSlotGroup.ANY` スコープで適用してしまうため、`thread-sets.yml` 側で意図している

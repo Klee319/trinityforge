@@ -59,7 +59,7 @@ const STAT_EXPLANATIONS = {
   "magic-resistance": "魔法攻撃から受けるダメージを減らします。",
   "phys-flat-defense": "物理攻撃を受けた時に、ダメージを一定量減らします。",
   "magic-flat-defense": "魔法攻撃を受けた時に、ダメージを一定量減らします。",
-  "armor-defense-rate": "防具値を増やします。",
+  "defense-rate": "受けるダメージを割合で減らします(相手の貫通率で打ち消されます)。",
   "armor-strength": "大きな一撃を受けた時の被害を抑えます。",
   "dodge-chance": "攻撃を回避する確率を上げます。",
   "max-health": "最大体力を増やします。",

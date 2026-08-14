@@ -139,7 +139,7 @@ class UseRequirementResolverTest {
                 items:
                   IRON_HELMET:
                     use-skill: HEAVY_ARMOR
-                    fixed: { armor-defense-rate: 1 }
+                    fixed: { defense-rate: 0.015 }
                 """);
         ItemStatsConfig config = loadedConfig(dir);
 

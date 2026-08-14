@@ -1,5 +1,6 @@
 package com.trinityforge.config.domains;
 
+import com.trinityforge.stats.AttributeProjection;
 import com.trinityforge.stats.PercentStatNormalize;
 import com.trinityforge.stats.StatKeys;
 import com.trinityforge.stats.StatVocabulary;
@@ -38,7 +39,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 「防御力 +0.1」(10%軽減)が同じ書式で並び、実効の差が7倍あっても見分けが付かない。
  * さらに {@link PercentStatNormalize} は防具値のほうを守るためにこのキーを%矯正の対象外にしていたので、
  * <b>パーク側に {@code 10} と書くと 1000% 軽減として通っていた</b>。
- * 割合のほうを {@code defense-rate}(PERCENT表示・%矯正あり)へ分離してある。
+ * まず割合のほうを {@code defense-rate}(PERCENT表示・%矯正あり)へ分離し、
+ * <b>同日中に「防具値は直感的でない」というユーザー判断で防具値ステ自体を廃止した</b> —
+ * アイテム側の点数も {@code 1点 = 1.5%軽減}({@code vanilla-armor.defense-rate-per-point} と同率)で
+ * 換算して {@code defense-rate} へ統合し、{@code Attribute.ARMOR} への写像も撤去した。
+ * TFスタンプ装備のバニラ防具バーは常に空({@code AttributeApplier} が材質既定を復元しない)なので、
+ * バニラ防具ミラー経由の二重計上も無い。
  *
  * <h2>直した不具合2 — 軽装備ツリーの守備力がツリー全取りでも装備の 1/6 だった</h2>
  * 2026-08-14 の較正は<b>ノード単価</b>だけを「重装備の半分」に揃えたが、守備力を配るノードが
@@ -192,35 +198,65 @@ class ArmorTreeDefenseCalibrationTest {
     // === 単位の分離 ===
 
     @Test
-    @DisplayName("防御率(割合)は defense-rate、防具値(点数)は armor-defense-rate — 語彙・%矯正・ロア書式が3点セットで揃っている")
-    void theTwoUnitsAreCarriedByTwoDistinctKeys() throws IOException {
+    @DisplayName("防御は defense-rate([0,1]の軽減率)1本 — 防具値(点数)の語彙・ロア・属性写像が全部消えている")
+    void defenseIsCarriedByASingleRateKey() throws IOException {
         String rate = StatKeys.canonical(K_DEFENSE_RATE);
         String points = StatKeys.canonical(K_ARMOR_DEFENSE_RATE);
 
         assertEquals(StatVocabulary.Channel.DEFENSE, StatVocabulary.channelOf(rate),
                 "defense-rate が DEFENSE チャネルに無い。PerkBuffResolver が channel NONE として"
                         + "パーク由来分を無言でドロップする。");
-        assertEquals(StatVocabulary.Channel.DEFENSE, StatVocabulary.channelOf(points),
-                "armor-defense-rate が DEFENSE チャネルから消えている");
+        assertEquals(StatVocabulary.Channel.NONE, StatVocabulary.channelOf(points),
+                "armor-defense-rate(防具値) が語彙へ戻っている。「点数」と「割合」がまた1キーに同居する。");
 
         assertTrue(PercentStatNormalize.isRateKey(rate),
                 "defense-rate が %矯正の対象外になっている。yml に 10 と書くと 1000% 軽減として通ってしまう"
-                        + "(分離前に実際にそうなっていた)。");
-        assertFalse(PercentStatNormalize.isRateKey(points),
-                "armor-defense-rate はバニラ防具値(点数)なので %矯正の対象にしてはいけない。"
-                        + "÷100 すると全装備の防具値がほぼ0へ潰れる。");
+                        + "(防具値と同居していた頃に実際にそうなっていた)。");
+
+        // 防具値は Attribute.ARMOR へ写像しない。写像を戻すと、TFの防御率とバニラ防具ミラーで二重に軽減する。
+        assertFalse(AttributeProjection.defaults().entries().containsKey(points),
+                "armor_defense_rate の Attribute.ARMOR 写像が復活している(防御率と二重計上になる)");
 
         ConfigurationSection lore = load(LORE).getConfigurationSection("stats");
         assertNotNull(lore, "lore.yml に stats セクションが無い");
         assertEquals("PERCENT", lore.getString(K_DEFENSE_RATE + ".format"),
                 "defense-rate のロア書式が PERCENT でない。割合を FLAT で出すと"
                         + "「防御力 +0.1」という単位不明の表示に戻る(ユーザー報告の元の症状)。");
-        assertEquals("FLAT", lore.getString(K_ARMOR_DEFENSE_RATE + ".format"),
-                "armor-defense-rate は防具値(点数)なので FLAT のまま");
         assertEquals("防御率", lore.getString(K_DEFENSE_RATE + ".name"));
-        assertEquals("防具値", lore.getString(K_ARMOR_DEFENSE_RATE + ".name"),
-                "armor-defense-rate の表示名が「防御力」へ戻っている。"
-                        + "割合側(defense-rate)と紛らわしい名前に戻すと、また同じ行に単位違いが並ぶ。");
+        assertFalse(lore.contains(K_ARMOR_DEFENSE_RATE),
+                "lore.yml に防具値のエントリが戻っている。表示だけ戻すと、実効ゼロのステが lore に出る。");
+    }
+
+    /**
+     * 出荷 {@code stats/item-stats.yml} が防具値ではなく防御率で書かれていること、
+     * かつ換算レート(1点=1.5%)の刻みを保っていること。
+     * 防具値へ書き戻されると {@code DefenseStatBridge} が [0,1] の率として読むため、
+     * たとえば「8点」が 800% 軽減になる(= 全ダメージ0)。
+     */
+    @Test
+    @DisplayName("出荷 item-stats は防御率で書かれている — 防具値(点数)へ書き戻されていない")
+    void shippedItemStatsCarryDefenseRateNotArmorPoints() throws IOException {
+        List<String> offenders = new ArrayList<>();
+        int rateLines = 0;
+        for (String line : readRaw("stats/item-stats.yml").split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("#")) {
+                continue; // 廃止の経緯を書いたコメントは対象外
+            }
+            if (trimmed.startsWith(K_ARMOR_DEFENSE_RATE + ":")) {
+                offenders.add(trimmed);
+            } else if (trimmed.startsWith(K_DEFENSE_RATE + ":")) {
+                rateLines++;
+                double value = Double.parseDouble(trimmed.substring((K_DEFENSE_RATE + ":").length()).trim());
+                assertTrue(value > 0.0 && value <= 0.5,
+                        "item-stats の defense-rate が [0,1] の軽減率の範囲を外れている: " + trimmed
+                                + "。点数(1〜8)のまま書かれた疑いがある。");
+            }
+        }
+        assertTrue(offenders.isEmpty(), "item-stats に防具値が残っている: " + offenders);
+        assertTrue(rateLines >= 150,
+                "item-stats の defense-rate が " + rateLines + " 行しかない(151 行あるはず)。"
+                        + "防具値の一括換算が巻き戻された疑いがある。");
     }
 
     /**
@@ -258,7 +294,7 @@ class ArmorTreeDefenseCalibrationTest {
         }
 
         for (String mustHaveUnit : List.of(K_PHYS_FLAT, K_MAGIC_FLAT, "flat-defense",
-                K_ARMOR_DEFENSE_RATE, "max-health", "attack-power")) {
+                "max-health", "attack-power")) {
             assertFalse(unitless.contains(mustHaveUnit),
                     mustHaveUnit + " の unit が消えている。ロアに単位なしの裸の数字が出て、"
                             + "%軽減なのか実数の引き算なのか読めなくなる(2026-08-15 の報告の症状)。");

@@ -102,7 +102,13 @@ const armorTiers = {
   INFINITY:   { weight: 10, level: 100, offset: -8, durability: [900, 1300, 1220, 1050], threads: 0 }
 };
 
+// 防具値(点数)の重量別テーブル。2026-08-15 に防具値ステ(armor-defense-rate)を廃止したので、
+// ここは「はしごの目盛り」としてだけ残し、出力は DEFENSE_RATE_PER_POINT を掛けた
+// 防御率(defense-rate)にする。目盛りを点数のまま持つのは、既存のはしご設計
+// (最良4部位で重量10 = 20点 = 30%軽減)をそのまま読めるようにするため。
 const armorPoints = { 1: 4, 2: 5, 3: 6, 4: 8, 5: 10, 7: 14, 8: 16, 9: 18, 10: 20 };
+// combat/damage.yml の vanilla-armor.defense-rate-per-point と同値(1点=1.5%軽減)。
+const DEFENSE_RATE_PER_POINT = 0.015;
 const armorResistance = { 1: .02, 2: .03, 3: .045, 4: .065, 5: .09, 7: .15, 8: .20, 9: .26, 10: .32 };
 const armorFlat = { 1: 8, 2: 12, 3: 20, 4: 30, 5: 45, 7: 90, 8: 135, 9: 200, 10: 280 };
 const armorStrength = { 1: .04, 2: .06, 3: .08, 4: .11, 5: .14, 7: .24, 8: .30, 9: .36, 10: .42 };
@@ -285,7 +291,7 @@ function armorEntry(config, slotName, magic = null, health = 0, physical = true,
   const s = slot[slotName];
   const index = ["HELMET", "CHESTPLATE", "LEGGINGS", "BOOTS"].indexOf(slotName);
   const fixed = {
-    "armor-defense-rate": Math.max(1, Math.round(armorPoints[config.weight] * s.share)),
+    "defense-rate": round(Math.max(1, Math.round(armorPoints[config.weight] * s.share)) * DEFENSE_RATE_PER_POINT),
     durability: Math.floor(config.durability[index] * .6)
   };
   if (physical) {

@@ -76,13 +76,14 @@ public final class StatVocabulary {
     private static final Set<String> DEFENSE_KEYS = Set.of(
             "phys_resistance", "magic_resistance", "flat_defense", "phys_flat_defense",
             "magic_flat_defense", "damage_reduction",
-            "armor_defense_rate", "dodge_chance",
+            "dodge_chance",
             // 2026-08-15 単位2重問題の解消: armor_defense_rate は
             // 「アイテム側=バニラ防具値(整数の点数)」「パーク側=[0,1]の軽減率」という
             // 互換性の無い2つの単位を1キーで運んでいた(ロア表示も FLAT のまま同じ行に出る)。
-            // 割合のほうを defense_rate へ独立させ、armor_defense_rate はアイテム専用の
-            // 「防具値」に戻す。ComponentDamageCalculator の防御率(貫通で相殺される唯一の乗算軽減)は
-            // このキーとバニラ防具値ミラーの合算で決まる。
+            // 割合のほうを defense_rate へ独立させたうえで、「防具値は直感的でない」という判断で
+            // アイテム側も 1点=1.5%軽減 で換算し、armor_defense_rate 自体を語彙ごと廃止した。
+            // ComponentDamageCalculator の防御率(貫通で相殺される唯一の乗算軽減)はこのキー一本で決まる
+            // (TFスタンプ装備のバニラ防具値は AttributeApplier が常に 0 にするのでミラー寄与は無い)。
             "defense_rate",
             // 生存系: 自然回復量ボーナス
             "health_regen_bonus",

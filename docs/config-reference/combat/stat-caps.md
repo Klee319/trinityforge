@@ -62,12 +62,14 @@ config-editor で保存すると本文コメントは復元されないため([t
 「魔法へも近接と同じ上限を掛けたい」場合は、`attack-power` ではなく
 `combat/damage.yml` の `magical.attack-power-scale` を下げる方が意図どおりになる
 (ただしそちらは PvE も同時に下がる)。
-- `defense-rate` は TF側(perk/addon由来)の合計だけが対象。防具の vanilla armor attribute
-  ミラー分はここに含まれない(二重計上防止のため元々別経路 — `combat/damage.yml` の `vanilla-armor.*` が
+- `defense-rate` は TF側(アイテム/perk/addon 由来)の合計が対象。素のバニラ防具の
+  vanilla armor attribute ミラー分はここに含まれない(`combat/damage.yml` の `vanilla-armor.*` が
   別途その分を作る)。
-  2026-08-15 に `armor-defense-rate` から改名した。旧キーは**アイテム側のバニラ防具値(点数)専用**に戻り、
-  こちらのクランプ対象ではなくなっている(単位が違うものが同名だったため、
-  `PercentStatNormalize` の%矯正も掛けられず、パーク側に `10` と書くと 1000% 軽減で通っていた)。
+  2026-08-15 に防具値ステ(`armor-defense-rate`, バニラ防具値の点数)を**廃止**し、
+  1点=1.5%軽減で換算してこのキーへ統合した。単位の違うものが同名だったせいで
+  `PercentStatNormalize` の%矯正を掛けられず、パーク側に `10` と書くと 1000% 軽減で通っていた
+  ── いまは全経路が [0,1] の率なので矯正もクランプも一様に掛かる。
+  TFスタンプ装備の `Attribute.ARMOR` は常に0(防具バーは空)なのでミラーとの二重計上も起きない。
 - 防御側は `combat/damage.yml` の `defense.max-mitigation-rate` / `max-crit-reduction` が
   既存の専用上限として別途、この後で効く。
 

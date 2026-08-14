@@ -53,8 +53,11 @@ public final class DefenseStatBridge {
                 ? canonical.getOrDefault(StatKeys.canonical(typedFlatKey), 0.0)
                 : canonical.getOrDefault(legacyFlat, 0.0);
 
+        // 防御率%: 2026-08-15 まではここを 0 固定にし、アイテム側は armor-defense-rate(バニラ防具値の
+        // 点数)を Attribute.ARMOR へ写像して VanillaArmorMapping から読み戻していた。防具値ステを
+        // 撤去して defense-rate([0,1])へ一本化したので、他の防御ステと同じくここで直接読む。
         return new DefenseStats(
-                0.0,                                       // 防御率%: vanilla armor mirror, not here (LD-13)
+                valueFor(canonical, keys.defenseRate()),    // 防御率%
                 resistance,                                // 耐性%: typed (LD-13)
                 valueFor(canonical, keys.damageReduction()), // 被ダメージ軽減%: common
                 flatDefense,                               // 守備力(flat): typed+fallback (LD-13)

@@ -968,7 +968,10 @@ public final class NativeSkillExperienceListener implements Listener {
                 pieces,
                 entry.rate("armor.exp_per_damage_piece", 10.0),
                 armorPoints,
-                entry.rate("armor.exp_armor_point_multiplier", 0.05),
+                // 2026-08-15: 入力が防具値(点数, 最良4部位で約20)から防御率([0,1], 同 0.30)へ変わったので
+                // 既定倍率を 1/0.015 倍した(0.05 → 3.33)。最良装備での係数 1+20*0.05=2.0 が
+                // 1+0.30*3.33≒2.0 のまま保たれる。
+                entry.rate("armor.exp_armor_point_multiplier", 3.33),
                 entityMultiplier,
                 pvpMultiplier,
                 pvpExponent);
@@ -1023,13 +1026,18 @@ public final class NativeSkillExperienceListener implements Listener {
         return Double.isFinite(result) && result > 0.0 ? result : 0.0;
     }
 
+    /**
+     * 防具EXPの「装備の硬さ」係数の入力。2026-08-15 に防具値(armor-defense-rate, 点数)を廃止したので
+     * 防御率({@code defense-rate}, [0,1])を読む。数値の桁が 1/66.7 になるため、呼び出し側の既定倍率も
+     * 同じ比で引き上げてある(armorHitExp の {@code armor.exp_armor_point_multiplier} 参照)。
+     */
     private double armorPoints(Player player, boolean heavy) {
         if (aggregator == null) {
             return 0.0;
         }
         try {
             return nonNegativeFinite(
-                    aggregator.equippedArmorStatTotal(player, "armor-defense-rate", stack ->
+                    aggregator.equippedArmorStatTotal(player, "defense-rate", stack ->
                             heavy ? isArmor(stack.getType()) && !isLightArmor(stack.getType())
                                     : isLightArmor(stack.getType())));
         } catch (RuntimeException ignored) {

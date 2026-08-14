@@ -128,8 +128,11 @@ public final class TrinityForgeBridge {
         DefenseStats magic = DefenseStatBridge.bridge(merged, keys, DamageType.MAGICAL);
         double dodge = DefenseStatBridge.dodgeChance(merged, keys);
 
-        // 防御率%(armor-defense-rate)は bridge が常に0で返すため、TFのプレイヤー防御と同様に
-        // バニラ防具アトリビュート(装備で自動加算される armor/toughness)からミラーして合成する。
+        // 2026-08-15: 防具値ステ(armor-defense-rate)を廃止し防御率(defense-rate)へ一本化したので、
+        // bridge は防御率を0ではなく実値で返すようになった。ここでバニラ防具アトリビュート
+        // (armor/toughness)をミラーして足すのは、TF未スタンプの素のバニラ防具のぶんを拾うため
+        // (TFスタンプ装備は AttributeApplier が Attribute.ARMOR を常に0にするのでミラーは0＝
+        // 二重計上にならない)。TFのプレイヤー防御と同じ合成規則。
         DefenseStats mirror = vanillaMirror(entity, dmg);
         phys = phys.combine(mirror);
         magic = magic.combine(mirror);

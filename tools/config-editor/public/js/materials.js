@@ -31,7 +31,8 @@ window.FALLBACK_STATS = [
   "attack-power", "attack-speed", "attack-speed-bonus", "attack-reach", "aoe-radius", "aoe-damage-rate", "aoe-max-targets",
   "item-cooldown", "crit-chance", "crit-damage", "penetration",
   "percent-bonus-damage", "damage-modifier", "fixed-damage", "bleed-chance", "bleed-damage",
-  "armor-defense-rate", "armor-strength", "max-health", "knockback-resistance",
+  // 2026-08-15: 防具値(armor-defense-rate)を廃止し防御率(defense-rate)へ統合した。
+  "defense-rate", "armor-strength", "max-health", "knockback-resistance",
   "move-speed", "phys-resistance", "magic-resistance", "phys-flat-defense", "magic-flat-defense",
   "damage-reduction", "dodge-chance",
   // 補助系ステ: 最大耐久力(fixed/per-quality/randomで設定。floorしてintの実効耐久になる)
@@ -83,7 +84,7 @@ window.FALLBACK_STAT_FORMATS = {
   "penetration": "PERCENT",
   "bleed-chance": "PERCENT",
   "bleed-damage": "FLAT",
-  "armor-defense-rate": "FLAT",
+  "defense-rate": "PERCENT",
   "armor-strength": "PERCENT",
   "max-health": "FLAT",
   "knockback-resistance": "PERCENT",
@@ -162,7 +163,6 @@ window.FALLBACK_STAT_UNITS = {
   "flat-defense": "ダメ",
   "reflect-flat": "ダメ",
   "max-health": "HP",
-  "armor-defense-rate": "点",
   "attack-power": "ダメ",
   "bleed-damage": "ダメ",
   "fixed-damage": "ダメ",

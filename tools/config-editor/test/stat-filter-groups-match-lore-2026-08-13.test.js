@@ -97,7 +97,7 @@ test("STAT_META が無いキーでも、クラフト系/採集系は「補助」
     assert.equal(win.inferStatCategory("fishing-luck"), "gathering");
     // 既存の分類は変えない (ここが崩れると別のステが行方不明になる)。
     assert.equal(win.inferStatCategory("attack-power"), "attack");
-    assert.equal(win.inferStatCategory("armor-defense-rate"), "defense");
+    assert.equal(win.inferStatCategory("defense-rate"), "defense");
     assert.equal(win.inferStatCategory("mana-max"), "ars");
     assert.equal(win.inferStatCategory("item-cooldown"), "other");
     assert.equal(win.inferStatCategory("durability"), "utility");

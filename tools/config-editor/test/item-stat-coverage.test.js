@@ -54,7 +54,8 @@ test("バニラ防具と通常工具は素材別の品質・使用条件を持�
   for (const material of ["LEATHER", "CHAINMAIL", "COPPER", "IRON", "GOLDEN", "DIAMOND", "NETHERITE"]) {
     for (const part of ["HELMET", "CHESTPLATE", "LEGGINGS", "BOOTS"]) {
       const entry = stats.items[`${material}_${part}`];
-      assert.ok(entry?.fixed?.["armor-defense-rate"] > 0, `${material}_${part} の防具値`);
+      // 2026-08-15: 防具値(armor-defense-rate)を廃止し防御率(defense-rate)へ統合した。
+      assert.ok(entry?.fixed?.["defense-rate"] > 0, `${material}_${part} の防御率`);
       assert.ok(entry?.fixed?.["phys-resistance"] > 0, `${material}_${part} の物理耐性`);
       assert.equal(typeof entry["quality-mode-offset"], "number", `${material}_${part} の品質基準値`);
     }

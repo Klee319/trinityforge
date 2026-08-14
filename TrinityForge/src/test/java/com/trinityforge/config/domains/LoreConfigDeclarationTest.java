@@ -61,7 +61,8 @@ class LoreConfigDeclarationTest {
     // 新しくキーを宣言したら、ここに足す代わりに UNDECLARED_ALLOW_LIST から取り除くこと。
     private static final Set<String> DECLARED_KEYS = Set.of(
             "dodge-chance", "armor-strength", "distance-damage-bonus",
-            "phys-resistance", "magic-resistance", "damage-reduction", "armor-defense-rate",
+            // 2026-08-15: armor-defense-rate(防具値)は廃止し defense-rate へ統合した。
+            "phys-resistance", "magic-resistance", "damage-reduction", "defense-rate",
             "stun-duration-bonus", "max-health", "move-speed");
 
     /**

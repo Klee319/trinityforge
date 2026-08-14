@@ -19,6 +19,11 @@
 // test/armor-ladder.test.js's "新規軽装7セット" block for why the light-armor durability ladder is
 // allowed to be non-monotonic).
 //
+// NOTE (2026-08-15) — the stat formerly written as `armor-defense-rate` (vanilla armor POINTS)
+// no longer exists; it was folded into `defense-rate` (a [0,1] rate) at 1 point = 1.5% mitigation.
+// The WARNING below still holds verbatim — read every "armor-defense-rate" in it as "defense-rate",
+// and every "sum above ~8 points" as "sum above ~0.12".
+//
 // WARNING — do not try to make a set's armor-defense-rate AND phys-resistance both exceed a
 // weaker-level neighbor's at the same time (2026-07-25 軽装レビュー T3-2 discovery): physResFor()
 // solves physRes so that (1-defRate)*(1-physRes) == TABLE[level].m exactly. TABLE.m is NOT
@@ -71,10 +76,14 @@ const VANILLA_ARMOR_POINTS = {
   LEATHER: 7, COPPER: 11, GOLDEN: 11, CHAINMAIL: 12, IRON: 15, DIAMOND: 20, NETHERITE: 20,
 };
 
+// 2026-08-15: 防具値ステ(armor-defense-rate, 点数)を廃止して防御率(defense-rate, [0,1])へ一本化した。
+// 設計時の式は変えない(VANILLA_ARMOR_POINTS を足すのは設計時の参考モデルで、実戦闘とは意図的に
+// 別式 — 上の WARNING と test/armor-ladder.test.js の T3-2 lock を参照)。点数の代わりに
+// 防御率で同じ計算をするだけ(旧 点数合計 * 0.015 == 新 defense-rate 合計)。
 function defenseRateFor(items, keys, vanillaMaterial) {
-  const armorSum = keys.reduce((sum, k) => sum + (items[k]?.fixed?.["armor-defense-rate"] || 0), 0);
-  const totalPoints = armorSum + VANILLA_ARMOR_POINTS[vanillaMaterial];
-  return Math.min(totalPoints * 0.015, 0.8);
+  const itemRate = keys.reduce((sum, k) => sum + (items[k]?.fixed?.["defense-rate"] || 0), 0);
+  const totalRate = itemRate + VANILLA_ARMOR_POINTS[vanillaMaterial] * 0.015;
+  return Math.min(totalRate, 0.8);
 }
 
 // physRes solved from m = (1 - defRate) * (1 - physRes)  [damage-reduction kept at 0]

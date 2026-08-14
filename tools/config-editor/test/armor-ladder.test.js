@@ -67,8 +67,12 @@ function partKeys(material, cmdCsv) {
 
 // Sums fixed+random.min (base roll) and fixed+random.max (theoretical roll) for a stat across
 // the 4-piece set, plus the always-fixed (non-rolled) stats used for the defense-rate/m math.
+// 2026-08-15: 防具値ステ(armor-defense-rate, 点数)を廃止し防御率(defense-rate, [0,1])へ一本化した。
+// ここの m は「設計時のはしご」を固定するための別式(VANILLA_ARMOR_POINTS を足す = 実戦闘とは
+// 意図的に違う。理由は T3-2 regression lock のコメント参照)なので、式そのものは変えず、
+// 点数の代わりに防御率で同じ計算をする(旧 点数合計 * 0.015 == 新 defense-rate 合計 で同値)。
 function aggregateSet(keys, vanillaMaterial) {
-  let flatMin = 0, flatMax = 0, hpMin = 20, hpMax = 20, armorDefenseSum = 0, physResSum = 0;
+  let flatMin = 0, flatMax = 0, hpMin = 20, hpMax = 20, defenseRateSum = 0, physResSum = 0;
   for (const part of PARTS) {
     const entry = items[keys[part]];
     assert.ok(entry, `missing item-stats entry for ${keys[part]}`);
@@ -85,11 +89,12 @@ function aggregateSet(keys, vanillaMaterial) {
     hpMin += hpFixed + hpRoll.min;
     hpMax += hpFixed + hpRoll.max;
 
-    armorDefenseSum += fixed["armor-defense-rate"] || 0;
+    defenseRateSum += fixed["defense-rate"] || 0;
     physResSum += fixed["phys-resistance"] || 0;
   }
-  const totalArmorPoints = armorDefenseSum + VANILLA_ARMOR_POINTS[vanillaMaterial];
-  const defRate = Math.min(totalArmorPoints * DEFENSE_RATE_PER_POINT, DEFENSE_RATE_MAX);
+  const totalDefenseRate = defenseRateSum
+    + VANILLA_ARMOR_POINTS[vanillaMaterial] * DEFENSE_RATE_PER_POINT;
+  const defRate = Math.min(totalDefenseRate, DEFENSE_RATE_MAX);
   const m = (1 - defRate) * (1 - physResSum);
   return { flatMin, flatMax, hpMin, hpMax, m };
 }
@@ -123,7 +128,7 @@ const TOL = 0.15; // ±15% (S-ladder tolerance per brief)
 //
 // 旧設計は「理論値20発/厳選なし6発」を全帯共通の目標として、F(fMin/fMax)とm(乗算軽減)を
 // 帯ごとに連立方程式で解いていた(retune-armor-ladder.js の TABLE がその解)。新設計は
-// F(L) = 0.5 * A(L) (早期緩和込み) という単純な閉形に切り替えており、m(armor-defense-rate/
+// F(L) = 0.5 * A(L) (早期緩和込み) という単純な閉形に切り替えており、m(defense-rate/
 // phys-resistanceから決まる乗算軽減)は帯ごとに既存の値のまま(このスクリプトが再計算していない)
 // ため、"理論値20/厳選なし6"を全帯で満たすことはもう保証されない(mが帯ごとに大きく変動する
 // 一方、F=0.5*Aは常に同じ比率なので、両者の組み合わせで出る耐久回数は帯ごとに5~14発の範囲で
@@ -143,11 +148,11 @@ const TOL = 0.15; // ±15% (S-ladder tolerance per brief)
 // 【2026-08-14 ダイヤ(Lv55重装)帯だけ再測定】9.4 -> 12.9 / 6.4 -> 8.9。
 // この帯だけ「1段下の金(Lv40) 11.7 より耐えられない」という逆転が残っていた
 // (DIAMOND_* 4部位の phys-resistance 合計 0.12 が GOLDEN_* の 0.214 を 44% 下回り、
-//  armor-defense-rate も 11 で IRON/GOLDEN の 14 未満だった)。
+//  防具値(当時のarmor-defense-rate)も 11 で IRON/GOLDEN の 14 未満だった)。
 // 2026-08-12 の引き直しは m(乗算軽減)を帯ごとに据え置いた上で実測値をロックしただけなので、
 // この逆転もそのまま固定されていた。GOLDEN -> NETHERITE の線形補間(t=0.4)へ揃えたので、
 // ラダーは 40:11.7 -> 55:12.9 -> 70:13.7 と単調になる。
-// 変更したのは DIAMOND_* 4部位の armor-defense-rate / phys-resistance / max-health だけで、
+// 変更したのは DIAMOND_* 4部位の防具値(現 defense-rate) / phys-resistance / max-health だけで、
 // 他帯の数値は1つも動いていない(この表の他の行が変わっていないことがその証拠)。
 const S_THEORY_TARGET = { 0: 9.1, 10: 6.8, 20: 6.0, 30: 9.9, 40: 11.7, 55: 12.9, 70: 13.7, 85: 14.7, 100: 10.1 };
 const S_BASELINE_TARGET = { 0: 5.8, 10: 4.9, 20: 4.3, 30: 6.1, 40: 7.2, 55: 8.9, 70: 9.3, 85: 10.6, 100: 7.7 };
@@ -234,28 +239,26 @@ test("Lv100理論値でも防具4部位のmax-health合計は暴走していな�
 });
 
 // ---------------------------------------------------------------------------------------------
-// 2026-07-25 軽装レビュー T3-2: COPPER_*(Lv10) が CHAINMAIL_*(Lv20) を「防具値(armor-defense-rate)」
+// 2026-07-25 軽装レビュー T3-2: COPPER_*(Lv10) が CHAINMAIL_*(Lv20) を「防御率(defense-rate)」
 // と「物理耐性(phys-resistance)」の生の値で上回っている件 — 調査の結果、意図した仕様として確定
 // (直さない)。将来「Lv20がLv10に劣っている、逆転バグだ」と早合点して直しに来るのを防ぐための
 // regression lock。
 //
 // 根拠: 8段ダメージパイプラインで最初に減算されるのは「守備力」(phys-flat-defense、TABLEのfMinに
-// 一致)であり、これが実効ダメージ軽減の主軸。armor-defense-rate/phys-resistanceはその後に乗算で
+// 一致)であり、これが実効ダメージ軽減の主軸。defense-rate/phys-resistanceはその後に乗算で
 // 効く副次的な2軸に過ぎない。CHAINMAILは守備力がCOPPERの約2倍(6.40 vs 3.11)あり、副次2軸で劣って
 // いても総合の実効被ダメージではCOPPERより優位(Lv20の敵に対して約25%被ダメージが少ない)。
 //
-// 実行時の防御率換算に注意: armor-defense-rateはAttributeApplier(REPLACE_MATERIAL_DEFAULTS経由)に
-// より「そのバニラ材質の既定ARMOR値を置き換える」ため、実戦闘のdefRateは
-// (4部位のarmor-defense-rate合計) * defense-rate-per-point(0.015) のみで決まり、
-// VANILLA_ARMOR_POINTS(script内の設計時参考値)を加算しない。この回帰テストは実戦闘と同じ換算式を
-// 使う(aggregateSet()のm計算とは意図的に別式 — 詳細はこのファイル冒頭のコメントと
-// scripts/retune-armor-ladder.js のヘッダ参照)。
-test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv20)を上回るが、守備力主導で実効被ダメージはCHAINMAILの方が少ない(直さない仕様)", () => {
-  const DEFENSE_RATE_PER_POINT_RUNTIME = 0.015; // combat/damage.yml (armor-defense-rateは加点のみ、vanilla分は加算しない実戦闘の式)
+// 実行時の防御率換算に注意: 2026-08-15 に防具値ステ(armor-defense-rate)を廃止し、TFスタンプ装備の
+// Attribute.ARMOR は常に 0(防具バーは空)になった。実戦闘の defRate は 4部位の defense-rate 合計
+// そのもので決まり、VANILLA_ARMOR_POINTS(script内の設計時参考値)は一切加算しない。
+// この回帰テストは実戦闘と同じ換算式を使う(aggregateSet()のm計算とは意図的に別式 — 詳細は
+// このファイル冒頭のコメントと scripts/retune-armor-ladder.js のヘッダ参照)。
+test("T3-2 regression lock: COPPER(Lv10)は防御率/物理耐性でCHAINMAIL(Lv20)を上回るが、守備力主導で実効被ダメージはCHAINMAILの方が少ない(直さない仕様)", () => {
   const a20 = aFor(20);
 
-  function rawArmorDefenseRateSum(keys) {
-    return PARTS.reduce((sum, p) => sum + (items[keys[p]].fixed?.["armor-defense-rate"] || 0), 0);
+  function rawDefenseRateSum(keys) {
+    return PARTS.reduce((sum, p) => sum + (items[keys[p]].fixed?.["defense-rate"] || 0), 0);
   }
   function rawPhysResSum(keys) {
     return PARTS.reduce((sum, p) => sum + (items[keys[p]].fixed?.["phys-resistance"] || 0), 0);
@@ -265,7 +268,7 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
   }
   function netDamageAgainstLv20(keys) {
     const flat = rawFlatDefenseSum(keys);
-    const defRate = rawArmorDefenseRateSum(keys) * DEFENSE_RATE_PER_POINT_RUNTIME;
+    const defRate = rawDefenseRateSum(keys);
     const physRes = rawPhysResSum(keys);
     return Math.max(0, a20 - flat) * (1 - defRate) * (1 - physRes);
   }
@@ -273,9 +276,9 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
   const copperKeys = partKeys("COPPER");
   const chainmailKeys = partKeys("CHAINMAIL");
 
-  // 生の防具値/物理耐性は確かにCOPPERの方が高い(これ自体は直さない)。
-  assert.ok(rawArmorDefenseRateSum(copperKeys) > rawArmorDefenseRateSum(chainmailKeys),
-    "COPPERの生armor-defense-rate合計がCHAINMAILを上回っているはず(仕様)");
+  // 生の防御率/物理耐性は確かにCOPPERの方が高い(これ自体は直さない)。
+  assert.ok(rawDefenseRateSum(copperKeys) > rawDefenseRateSum(chainmailKeys),
+    "COPPERの生defense-rate合計がCHAINMAILを上回っているはず(仕様)");
   assert.ok(rawPhysResSum(copperKeys) > rawPhysResSum(chainmailKeys),
     "COPPERの生phys-resistance合計がCHAINMAILを上回っているはず(仕様)");
 
@@ -289,7 +292,7 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
   //     「防具値も物理耐性も劣るCHAINMAILの方が実効被ダメージが少ない」という逆転が起きていた。
   //     当時はこれを『直さない仕様』として固定していた。
   // 新: F(L) = 0.5 x A(L) に引き直したので (A - F) は常に A の半分ぶん残り、引き算段が
-  //     %軽減(防御率・物理耐性)を食い潰さなくなった。結果、防具値と物理耐性で勝るCOPPERが
+  //     %軽減(防御率・物理耐性)を食い潰さなくなった。結果、防御率と物理耐性で勝るCOPPERが
   //     実効被ダメージでも正しく勝つ。逆転は「直した」のであって「壊れた」のではない。
   //
   // ここを旧向きへ戻すには守備力をモブ攻撃力と同勾配へ戻すしかなく、それは
@@ -323,8 +326,8 @@ test("T3-2 regression lock: COPPER(Lv10)は防具値/物理耐性でCHAINMAIL(Lv
 // 「Lv10→Lv20の低下だけ直す」のは一貫性を欠くため直さないと確定した。
 // → 将来の担当者へ: この耐久の凸凹は「バグではなく仕様」。直しに来ないこと。
 //
-// 一方 armor-defense-rate (会心軽減の土台になる生の防具値) は各部位最低1を確保する
-// (0だったcopper_stud兜/靴のバグのみ修正対象。他は元々1以上で問題なし)。
+// 一方 defense-rate (乗算軽減の土台) は各部位最低 0.015(旧仕様の防具値1点ぶん)を確保する
+// (0だったcopper_stud兜/靴のバグのみ修正対象。他は元々1点以上で問題なし)。
 const NEW_LIGHT_FAMILIES = [
   { level: 10, label: "骨鎧(bone_guard)", cmdCsv: "200124,200125,200126,200127" },
   { level: 20, label: "銅鋲の革鎧(copper_stud)", cmdCsv: "200128,200129,200130,200131" },
@@ -350,14 +353,15 @@ const F_MAX_BY_LEVEL = {
   10: 3.3, 20: 4.1, 30: 5.9, 40: 7.5, 55: 8.4, 70: 10.3, 85: 9.2,
 };
 
-test("新規軽装7セット: 各部位のarmor-defense-rateは最低1 (copper_stud兜/靴の0バグ regression lock)", () => {
+test("新規軽装7セット: 各部位のdefense-rateは最低0.015 (copper_stud兜/靴の0バグ regression lock)", () => {
   for (const family of NEW_LIGHT_FAMILIES) {
     const keys = partKeys("LEATHER", family.cmdCsv);
     for (const part of PARTS) {
       const entry = items[keys[part]];
       assert.ok(entry, `missing item-stats entry for ${keys[part]}`);
-      const adr = entry.fixed?.["armor-defense-rate"];
-      assert.ok(adr >= 1, `${family.label} ${part}: armor-defense-rate=${adr} (最低1が必要)`);
+      const rate = entry.fixed?.["defense-rate"];
+      assert.ok(rate >= DEFENSE_RATE_PER_POINT,
+        `${family.label} ${part}: defense-rate=${rate} (最低${DEFENSE_RATE_PER_POINT}が必要)`);
     }
   }
 });

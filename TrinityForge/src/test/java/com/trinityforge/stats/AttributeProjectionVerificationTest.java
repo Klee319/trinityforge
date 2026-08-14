@@ -14,15 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AttributeProjectionVerificationTest {
 
     @Test
-    void defaultsMapsSevenStatKeysToVanillaAttributes() {
+    void defaultsMapsSixStatKeysToVanillaAttributes() {
         AttributeProjection projection = AttributeProjection.defaults();
         // 2026-07-25: attack-speed-bonus(割合・MULTIPLY_SCALAR_1)新設により6->7へ増加。
         // 2026-07-25 採掘効率: 属性ベース(mining-efficiency/mining-speed-bonus)は統合版/Geyserで
         // 正しく動かないため取り下げ、エンチャント連動方式(GatheringEfficiencyEnchantApplier)へ置換した。
         // 7へ戻る。
-        assertEquals(7, projection.entries().size());
+        // 2026-08-15: 防具値(armor_defense_rate → Attribute.ARMOR)を廃止して防御率へ統合したため 7->6。
+        assertEquals(6, projection.entries().size());
         assertTrue(projection.entries().containsKey("knockback_resistance"));
-        assertTrue(projection.entries().containsKey("armor_defense_rate"));
+        // 防具値は写像しない。TFスタンプ装備の Attribute.ARMOR は「TFが書かない」だけでなく
+        // AttributeApplier が材質既定も復元しないので実効 0(HUDの防具バーは常に空)。
+        assertTrue(projection.project(Map.of("armor_defense_rate", 8.0)).isEmpty());
+        assertTrue(projection.project(Map.of("defense_rate", 0.12)).isEmpty());
         assertTrue(projection.entries().containsKey("max_health"));
         assertTrue(projection.entries().containsKey("move_speed"));
         assertTrue(projection.entries().containsKey("attack_speed"));
