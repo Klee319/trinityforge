@@ -191,7 +191,10 @@
     {
       title: "防御 (守備力/回避の暴走対策 - PlayerDefenseResolverが直接クランプ)",
       keys: [
-        "phys-resistance", "magic-resistance", "damage-reduction", "armor-defense-rate",
+        // 2026-08-15: armor-defense-rate → defense-rate。PlayerDefenseResolver が
+        // クランプするのは分離後の防御率(割合)のほうで、armor-defense-rate(バニラ防具値)は
+        // Attribute 経由なのでここでは掛からない。
+        "phys-resistance", "magic-resistance", "damage-reduction", "defense-rate",
         "dodge-chance", "armor-strength", "phys-flat-defense", "magic-flat-defense"
       ]
     },

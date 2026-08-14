@@ -254,12 +254,35 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: attack
+  # 2026-08-15 単位の分離: このキーは「バニラ防具値(点数)」専用。AttributeProjection が
+  # Attribute.ARMOR へ ADD_NUMBER し、combat/damage.yml の vanilla-armor.defense-rate-per-point
+  # (0.015/点、上限 0.8) を通して初めて軽減率になる。表示名を「防御力」から「防具値」へ改めたのは、
+  # 同じキーでパーク側が [0,1] の軽減率を配っていて、FLAT 表示の「防御力 +0.1」と
+  # 「防御力 +8」が同じ行に並んでいたため。割合のほうは下の defense-rate へ分離した。
   armor-defense-rate:
-    name: 防御力
+    name: 防具値
     icon: ""
     format: FLAT
     decimals: 1
     order: 2
+    show-sign: true
+    hide-when-zero: true
+    category: defense
+    trigger:
+      when: ON_DAMAGE_TAKEN
+      sources: ALL
+      applies-to:
+        - PLAYER
+        - MOB
+  # 防御率(パーク/スキルツリーが配る乗算軽減)。ComponentDamageCalculator の
+  # base *= (1 - 防御率 * (1 - 相手の貫通率)) に入る。3つある乗算軽減
+  # (防御率 / 耐性 / 被ダメージ軽減) のうち、相手の貫通率で打ち消される唯一のもの。
+  defense-rate:
+    name: 防御率
+    icon: ""
+    format: PERCENT
+    decimals: 1
+    order: 16
     show-sign: true
     hide-when-zero: true
     category: defense

@@ -77,6 +77,13 @@ public final class StatVocabulary {
             "phys_resistance", "magic_resistance", "flat_defense", "phys_flat_defense",
             "magic_flat_defense", "damage_reduction",
             "armor_defense_rate", "dodge_chance",
+            // 2026-08-15 単位2重問題の解消: armor_defense_rate は
+            // 「アイテム側=バニラ防具値(整数の点数)」「パーク側=[0,1]の軽減率」という
+            // 互換性の無い2つの単位を1キーで運んでいた(ロア表示も FLAT のまま同じ行に出る)。
+            // 割合のほうを defense_rate へ独立させ、armor_defense_rate はアイテム専用の
+            // 「防具値」に戻す。ComponentDamageCalculator の防御率(貫通で相殺される唯一の乗算軽減)は
+            // このキーとバニラ防具値ミラーの合算で決まる。
+            "defense_rate",
             // 生存系: 自然回復量ボーナス
             "health_regen_bonus",
             // 2026-07-25 課題2: 棘の鎧ステータス化(反射率)。実=固定値、割=被ダメージ割合。

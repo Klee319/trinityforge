@@ -56,7 +56,10 @@ public enum StatsCategory {
             "haste_active_mining_cooldown_reduction", "tree_fell_cooldown_reduction");
 
     private static final Set<String> ARMOR_KEYS = Set.of(
-            "armor_defense_rate", "armor_strength", "max_health", "knockback_resistance",
+            // 2026-08-15: armor_defense_rate(アイテム側の防具値) と defense_rate(パーク側の軽減率%)。
+            // 単位が違うだけで両方 ARMOR タブに出す(StatVocabulary の分割コメント参照)。
+            "armor_defense_rate", "defense_rate",
+            "armor_strength", "max_health", "knockback_resistance",
             "phys_resistance", "magic_resistance", "flat_defense",
             "phys_flat_defense", "magic_flat_defense", "damage_reduction", "dodge_chance",
             "health_regen_bonus",

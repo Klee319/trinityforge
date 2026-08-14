@@ -85,6 +85,10 @@
     "dodge-chance", "phys-resistance", "magic-resistance", "damage-reduction"
     , "armor-strength"
     // armor-defense-rate はバニラ防具ポイント(INTEGER)。÷100しない。
+    // 2026-08-15: パーク/スキルツリーが配る防御率は defense-rate へ分離した([0,1] の軽減率)。
+    // こちらは矯正対象 — 分離前は「率なのに armor-defense-rate と同じキー」だったため
+    // 10 と書くと 1000% 軽減として通っていた。
+    , "defense-rate"
     // 2026-07-28: 採集の率系キー。Java 側 PercentStatNormalize.RATE_KEYS と対になる
     // (mining-fortune はそちらでも登録漏れしていて、15 が 1500% として効いていた)。
     // 2026-08-05: fishing-bonus / ocean-fishing-bonus も追加。以前は「追加ドロップの期待個数(生値)」

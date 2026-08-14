@@ -105,7 +105,11 @@ public final class PercentStatNormalize {
             StatKeys.canonical("mana-cost-reduction-percent"),
             // enchant-cost-reductionは0..0.9にランタイム側でもクランプする割合系。
             // stun-duration-bonus は2026-07-29に割合からtick加算へ移行したため対象外。
-            StatKeys.canonical("enchant-cost-reduction"));
+            StatKeys.canonical("enchant-cost-reduction"),
+            // 2026-08-15: defense-rate(パーク側の防御率)。armor-defense-rate から分離した [0,1] の割合系なので
+            // ここに入れる — 逆に armor-defense-rate はバニラ防具値(点数)なので下のコメント通り対象外のまま。
+            // 分離前は「率なのに%矯正の対象外」で、yml に 10 と書くと 1000% 軽減として通っていた。
+            StatKeys.canonical("defense-rate"));
             // gathering-efficiency(採集効率、エンチャント連動方式)は「合算値をfloorしてエンチャント
             // レベルへ変換する」加算値であり、[0,1]の割合ではないため対象外(mining-efficiencyと同じ扱い)。
             // armor-defense-rate is NOT a [0,1] rate — it is vanilla Attribute.ARMOR points

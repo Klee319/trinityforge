@@ -62,9 +62,12 @@ config-editor で保存すると本文コメントは復元されないため([t
 「魔法へも近接と同じ上限を掛けたい」場合は、`attack-power` ではなく
 `combat/damage.yml` の `magical.attack-power-scale` を下げる方が意図どおりになる
 (ただしそちらは PvE も同時に下がる)。
-- `armor-defense-rate` は TF側(perk/addon由来)の合計だけが対象。防具の vanilla armor attribute
+- `defense-rate` は TF側(perk/addon由来)の合計だけが対象。防具の vanilla armor attribute
   ミラー分はここに含まれない(二重計上防止のため元々別経路 — `combat/damage.yml` の `vanilla-armor.*` が
   別途その分を作る)。
+  2026-08-15 に `armor-defense-rate` から改名した。旧キーは**アイテム側のバニラ防具値(点数)専用**に戻り、
+  こちらのクランプ対象ではなくなっている(単位が違うものが同名だったため、
+  `PercentStatNormalize` の%矯正も掛けられず、パーク側に `10` と書くと 1000% 軽減で通っていた)。
 - 防御側は `combat/damage.yml` の `defense.max-mitigation-rate` / `max-crit-reduction` が
   既存の専用上限として別途、この後で効く。
 
@@ -153,7 +156,7 @@ health-regen-bonus
 phys-resistance
 magic-resistance
 damage-reduction
-armor-defense-rate
+defense-rate
 dodge-chance
 armor-strength
 phys-flat-defense

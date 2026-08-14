@@ -102,7 +102,7 @@ public final class PlayerDefenseResolver {
         String resistanceKey = type == DamageType.PHYSICAL
                 ? StatKeys.canonical("phys-resistance") : StatKeys.canonical("magic-resistance");
         DefenseStats capped = new DefenseStats(
-                agg.clamp(StatKeys.canonical("armor-defense-rate"), combined.defenseRate()),
+                agg.clamp(DEFENSE_RATE_KEY, combined.defenseRate()),
                 agg.clamp(resistanceKey, combined.resistance()),
                 agg.clamp(StatKeys.canonical("damage-reduction"), combined.damageReduction()),
                 agg.clamp(flatDefenseKey, combined.flatDefense()),
@@ -122,6 +122,22 @@ public final class PlayerDefenseResolver {
     }
 
     private static final String DODGE_CHANCE_KEY = StatKeys.canonical("dodge-chance");
+
+    /**
+     * パーク/アドオンが配る防御率([0,1] の乗算軽減)のキー。2026-08-15 に
+     * {@code armor-defense-rate} から分離した。
+     *
+     * <p><b>なぜ分けたか</b>: {@code armor-defense-rate} は<b>アイテム側ではバニラ防具値(点数)</b>で
+     * ({@link com.trinityforge.stats.AttributeProjection} が {@code Attribute.ARMOR} へ ADD_NUMBER する)、
+     * <b>パーク側では [0,1] の軽減率</b>という、互換性の無い2つの単位を1キーで運んでいた。
+     * ロア表示も {@code FLAT} 1本なので「防御力 +0.1」と「防具値 +8」が同じ書式で並び、
+     * さらに {@link com.trinityforge.stats.PercentStatNormalize} は(防具値のほうを守るために)
+     * このキーを%矯正の対象外にしていたので、パーク側に 10 と書くと 1000% 軽減として通っていた。
+     */
+    private static final String DEFENSE_RATE_KEY = StatKeys.canonical("defense-rate");
+
+    /** 分離前のキー。出荷スキルツリーからは撤去済みだが、配備先の記述を無言で殺さないため読み続ける。 */
+    private static final String LEGACY_DEFENSE_RATE_KEY = StatKeys.canonical("armor-defense-rate");
 
     /**
      * Maps a canonical defender stat map (a skill-tree perk addend or an addon contribution) to a
@@ -145,8 +161,13 @@ public final class PlayerDefenseResolver {
         double flatDefense = type == DamageType.PHYSICAL
                 ? (hasTyped ? stats.getOrDefault(physKey, 0.0) : stats.getOrDefault(legacyFlatKey, 0.0))
                 : (hasTyped ? stats.getOrDefault(magicKey, 0.0) : stats.getOrDefault(legacyFlatKey, 0.0));
+        // 防御率: 新キー defense-rate を優先し、無いときだけ旧 armor-defense-rate を読む。
+        // 両方あっても足さない — 同じ量を2回数えることになるため(守備力の typed/legacy と同じ規則)。
+        double defenseRate = stats.containsKey(DEFENSE_RATE_KEY)
+                ? stats.getOrDefault(DEFENSE_RATE_KEY, 0.0)
+                : stats.getOrDefault(LEGACY_DEFENSE_RATE_KEY, 0.0);
         return new DefenseStats(
-                stats.getOrDefault(StatKeys.canonical("armor-defense-rate"), 0.0), // 防御率%
+                defenseRate,                                                        // 防御率%
                 resistance,                                                         // 該当耐性%
                 stats.getOrDefault(StatKeys.canonical("damage-reduction"), 0.0),    // 被ダメージ軽減%
                 flatDefense,                                                       // 守備力(flat: typed + legacy fallback)

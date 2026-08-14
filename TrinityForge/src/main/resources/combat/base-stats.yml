@@ -54,7 +54,9 @@ base-stats:
   penetration: 0
   bleed-chance: 0
   bleed-damage: 0
+  # armor-defense-rate はバニラ防具値(点数)。防御率(割合)は 2026-08-15 に defense-rate へ分離した。
   armor-defense-rate: 0
+  defense-rate: 0
   armor-strength: 0
   max-health: 0
   knockback-resistance: 0
@@ -135,6 +137,12 @@ base-stats:
   hive-harvest-fortune: 0
   kill-vanilla-exp-bonus: 0
   break-vanilla-exp-bonus: 0
+  # 破壊時バニラEXP倍率の採取スキル別キー(2026-08-15)。上の共通キーは採取全般に効き、
+  # こちらは「その採取スキルとして扱われた破壊」にだけ効く。
+  mining-break-vanilla-exp-bonus: 0
+  woodcutting-break-vanilla-exp-bonus: 0
+  digging-break-vanilla-exp-bonus: 0
+  farming-break-vanilla-exp-bonus: 0
   vanilla-exp-bonus: 0
   breeding-vanilla-exp-bonus: 0
   woodcutting-extra-drop-chance: 0

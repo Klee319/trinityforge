@@ -27,7 +27,7 @@
 # ★数値は暫定プレースホルダ。プレイテスト後に調整してください。
 # ★ギリシャ路線: alpha=守備力(phys-flat-defense/magic-flat-defense) / beta=魔法耐性(magic-resistance) /
 #   gamma=防具強度(会心軽減)+ノックバック耐性(armor-strength/knockback-resistance) ※2026-07-26職業別草案準拠、
-#   旧beta=防御率(armor-defense-rate)/旧gamma=被ダメージ軽減(damage-reduction)は軽装備側と役割が被るため廃止
+#   旧beta=防御率(defense-rate)/旧gamma=被ダメージ軽減(damage-reduction)は軽装備側と役割が被るため廃止
 # ★軽装備との差分: 主軸C=ノックバック耐性/憤怒(軽装備は回避率/アドレナリン)、D-1系=ノックバック耐性増加(軽装備は回避率増加)
 # ============================================================================
 
@@ -45,11 +45,13 @@ prestige:
   effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
     # 2026-08-14 再較正: 守備力の実数値だけが帯に追随しておらず、同じブロックの
-    # armor-defense-rate/damage-reduction が 10% で効いているのに 0.15 は被ダメージ 0.15 相当
+    # defense-rate/damage-reduction が 10% で効いているのに 0.15 は被ダメージ 0.15 相当
     # (Lv100 のゾンビの一撃 34.8 の 0.4%) しかなかった。Lv90 の α ノードを上回る値に置く。
     phys-flat-defense: 1.0
     magic-flat-defense: 3.0
-    armor-defense-rate: 0.1
+    # 2026-08-15: armor-defense-rate から改名。パーク側は [0,1] の軽減率で、
+    # アイテム側の同名キー(バニラ防具値の点数)とは単位が違う。
+    defense-rate: 0.1
     damage-reduction: 0.1
 nodes:
   A:
@@ -108,7 +110,8 @@ nodes:
     cost: 1
     effect-text: 防御率・物理耐性UP
     buffs:
-      armor-defense-rate: 0.1
+      # 2026-08-15: armor-defense-rate から改名(プレステージのコメント参照)。
+      defense-rate: 0.1
       phys-resistance: 0.1
   E:
     name: 極意・金剛

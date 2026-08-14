@@ -1,0 +1,251 @@
+package com.trinityforge.config.domains;
+
+import com.trinityforge.stats.PercentStatNormalize;
+import com.trinityforge.stats.StatKeys;
+import com.trinityforge.stats.StatVocabulary;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * 装備ツリー(軽装備 / 重装備)が配る防御ステの<b>単位</b>と<b>総量</b>を固定する (2026-08-15)。
+ *
+ * <h2>直した不具合1 — 「防御力」が2つの単位を1キーで運んでいた</h2>
+ * {@code armor-defense-rate} は
+ * <ul>
+ *   <li><b>アイテム側</b>: バニラ防具値(点数)。{@code AttributeProjection} が {@code Attribute.ARMOR} へ
+ *       ADD_NUMBER し、{@code combat/damage.yml} の {@code vanilla-armor.defense-rate-per-point}(0.015/点)を
+ *       通して初めて軽減率になる。</li>
+ *   <li><b>パーク側</b>: {@code [0,1]} の乗算軽減率そのもの。{@code PlayerDefenseResolver} が
+ *       {@code DefenseStats#defenseRate} へ直結する。</li>
+ * </ul>
+ * を同じキーで運んでいた。ロア表示は {@code FLAT} 1本なので「防御力 +8」(防具値)と
+ * 「防御力 +0.1」(10%軽減)が同じ書式で並び、実効の差が7倍あっても見分けが付かない。
+ * さらに {@link PercentStatNormalize} は防具値のほうを守るためにこのキーを%矯正の対象外にしていたので、
+ * <b>パーク側に {@code 10} と書くと 1000% 軽減として通っていた</b>。
+ * 割合のほうを {@code defense-rate}(PERCENT表示・%矯正あり)へ分離してある。
+ *
+ * <h2>直した不具合2 — 軽装備ツリーの守備力がツリー全取りでも装備の 1/6 だった</h2>
+ * 2026-08-14 の較正は<b>ノード単価</b>だけを「重装備の半分」に揃えたが、守備力を配るノードが
+ * 軽装備は2個・重装備は7個なので、<b>ツリー全取りの合計</b>では phys 0.8 / magic 2.4 =
+ * 重装備(4.6 / 13.8)の 17% にしかならなかった。
+ * ノード単価を合わせても総量が合わないという壊れ方はレビューで見落とされやすいので、
+ * <b>合計側を直接縛る</b>のがこのテスト。
+ *
+ * <h2>土俵(なぜこの数字か)</h2>
+ * 基準は「その帯で実際に着る装備4部位の合計」。出荷 {@code stats/item-stats.yml} の実測で
+ * Lv100 の4部位合計は重装 phys 13.80 / magic 62.60、軽装 phys 13.95 / magic 45.00。
+ * 重装備ツリー全取り(4.6 / 13.8)が<b>おおよそ装備1部位ぶん</b>に当たるので、
+ * 軽装備はその半分(= 0.5 部位ぶん)を目標に置く。
+ */
+class ArmorTreeDefenseCalibrationTest {
+
+    private static final String LIGHT = "skilltree/light_armor.yml";
+    private static final String HEAVY = "skilltree/heavy_armor.yml";
+    private static final String LORE = "stats/lore.yml";
+
+    private static final String K_PHYS_FLAT = "phys-flat-defense";
+    private static final String K_MAGIC_FLAT = "magic-flat-defense";
+    private static final String K_DEFENSE_RATE = "defense-rate";
+    private static final String K_ARMOR_DEFENSE_RATE = "armor-defense-rate";
+
+    /** 出荷スキルツリー16本。パーク側の旧キー残存を全ツリーで見るため。 */
+    private static final List<String> SHIPPED_TREES = List.of(
+            "alchemy", "archery", "ars_magic", "ars_smithing", "digging", "enchanting", "farming",
+            "fishing", "heavy_armor", "heavy_weapons", "light_armor", "light_weapons", "mining",
+            "power", "smithing", "woodcutting");
+
+    private static YamlConfiguration load(String path) throws IOException {
+        try (InputStream in = ArmorTreeDefenseCalibrationTest.class.getClassLoader()
+                .getResourceAsStream(path)) {
+            assertNotNull(in, "出荷リソースが見つからない: " + path);
+            return YamlConfiguration.loadConfiguration(new InputStreamReader(in, StandardCharsets.UTF_8));
+        }
+    }
+
+    private static String readRaw(String path) throws IOException {
+        try (InputStream in = ArmorTreeDefenseCalibrationTest.class.getClassLoader()
+                .getResourceAsStream(path)) {
+            assertNotNull(in, "出荷リソースが見つからない: " + path);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    // === ツリー全取りの合計 ===
+
+    /**
+     * 「1キャラが取り切れる最大」の合計。ギリシャ路線 ({@code group}) は排他なので、
+     * 同じ group からは<b>最大値の1ノードだけ</b>を採る。set-buffs は装備部位数に依存するので
+     * 対象外(守備力を配っているのは buffs / mainhand-buffs だけ)。
+     */
+    private static double maxObtainable(YamlConfiguration tree, String statKey) {
+        double total = 0.0;
+        ConfigurationSection prestige = tree.getConfigurationSection("prestige.buffs");
+        if (prestige != null) {
+            total += prestige.getDouble(statKey, 0.0);
+        }
+        ConfigurationSection nodes = tree.getConfigurationSection("nodes");
+        assertNotNull(nodes, "nodes セクションが無い");
+
+        Map<String, Double> bestPerGroup = new LinkedHashMap<>();
+        for (String nodeId : nodes.getKeys(false)) {
+            ConfigurationSection node = nodes.getConfigurationSection(nodeId);
+            if (node == null) {
+                continue;
+            }
+            double value = 0.0;
+            for (String block : List.of("buffs", "mainhand-buffs")) {
+                ConfigurationSection buffs = node.getConfigurationSection(block);
+                if (buffs != null) {
+                    value += buffs.getDouble(statKey, 0.0);
+                }
+            }
+            if (value == 0.0) {
+                continue;
+            }
+            String group = node.getString("group");
+            if (group == null || group.isBlank()) {
+                total += value;
+            } else {
+                bestPerGroup.merge(group, value, Math::max);
+            }
+        }
+        for (double best : bestPerGroup.values()) {
+            total += best;
+        }
+        return total;
+    }
+
+    @Test
+    @DisplayName("軽装備ツリー全取りの守備力は重装備のちょうど半分(ノード単価だけ合わせて合計が1/6のまま、に戻ると落ちる)")
+    void lightArmorTreeGrantsExactlyHalfOfTheHeavyArmorTreesFlatDefense() throws IOException {
+        YamlConfiguration light = load(LIGHT);
+        YamlConfiguration heavy = load(HEAVY);
+
+        double heavyPhys = maxObtainable(heavy, K_PHYS_FLAT);
+        double heavyMagic = maxObtainable(heavy, K_MAGIC_FLAT);
+        double lightPhys = maxObtainable(light, K_PHYS_FLAT);
+        double lightMagic = maxObtainable(light, K_MAGIC_FLAT);
+
+        // 重装備側が痩せたら軽装備の目標も一緒にずれてしまうので、先に重装備を絶対値で固定する。
+        // 4.6 / 13.8 = 出荷 item-stats の Lv100 4部位合計(phys 13.80 / magic 62.60)に対する
+        // おおよそ1部位ぶん。
+        assertEquals(4.6, heavyPhys, 1e-6,
+                "重装備ツリー全取りの物理守備力が " + heavyPhys + "。装備1部位ぶん(4.6)から動いている。"
+                        + "動かすなら軽装備側の目標も同時に引き直すこと。");
+        assertEquals(13.8, heavyMagic, 1e-6,
+                "重装備ツリー全取りの魔法守備力が " + heavyMagic + "(13.8 であるべき)");
+
+        assertEquals(heavyPhys / 2.0, lightPhys, 1e-6,
+                "軽装備ツリー全取りの物理守備力が " + lightPhys + " で、重装備 " + heavyPhys
+                        + " の半分になっていない。2026-08-14 の較正はノード単価だけを半分にしたので"
+                        + "(守備力を配るノードが軽装2個 / 重装7個)、合計では 0.8 = 17% しかなく実質 no-op だった。");
+        assertEquals(heavyMagic / 2.0, lightMagic, 1e-6,
+                "軽装備ツリー全取りの魔法守備力が " + lightMagic + " で、重装備 " + heavyMagic
+                        + " の半分になっていない");
+    }
+
+    @Test
+    @DisplayName("軽装備の守備力は1ノードに寄せず4ノードへ分散する(単価で同レベルの重装備ノードを追い越さないため)")
+    void lightArmorSpreadsItsFlatDefenseOverSeveralNodes() throws IOException {
+        YamlConfiguration light = load(LIGHT);
+        List<String> carriers = new ArrayList<>();
+
+        ConfigurationSection prestige = light.getConfigurationSection("prestige.buffs");
+        if (prestige != null && prestige.getDouble(K_PHYS_FLAT, 0.0) > 0.0) {
+            carriers.add("prestige");
+        }
+        ConfigurationSection nodes = light.getConfigurationSection("nodes");
+        assertNotNull(nodes, "nodes セクションが無い");
+        for (String nodeId : nodes.getKeys(false)) {
+            ConfigurationSection buffs = nodes.getConfigurationSection(nodeId + ".buffs");
+            if (buffs != null && buffs.getDouble(K_PHYS_FLAT, 0.0) > 0.0) {
+                carriers.add(nodeId);
+            }
+        }
+        assertTrue(carriers.size() >= 4,
+                "軽装備で守備力を配っているのが " + carriers + " の " + carriers.size() + " 箇所しかない。"
+                        + "合計を1〜2ノードへ寄せると、同レベルの重装備ノードを単価で追い越してしまう"
+                        + "(重装備は7ノードへ分散している)。");
+    }
+
+    // === 単位の分離 ===
+
+    @Test
+    @DisplayName("防御率(割合)は defense-rate、防具値(点数)は armor-defense-rate — 語彙・%矯正・ロア書式が3点セットで揃っている")
+    void theTwoUnitsAreCarriedByTwoDistinctKeys() throws IOException {
+        String rate = StatKeys.canonical(K_DEFENSE_RATE);
+        String points = StatKeys.canonical(K_ARMOR_DEFENSE_RATE);
+
+        assertEquals(StatVocabulary.Channel.DEFENSE, StatVocabulary.channelOf(rate),
+                "defense-rate が DEFENSE チャネルに無い。PerkBuffResolver が channel NONE として"
+                        + "パーク由来分を無言でドロップする。");
+        assertEquals(StatVocabulary.Channel.DEFENSE, StatVocabulary.channelOf(points),
+                "armor-defense-rate が DEFENSE チャネルから消えている");
+
+        assertTrue(PercentStatNormalize.isRateKey(rate),
+                "defense-rate が %矯正の対象外になっている。yml に 10 と書くと 1000% 軽減として通ってしまう"
+                        + "(分離前に実際にそうなっていた)。");
+        assertFalse(PercentStatNormalize.isRateKey(points),
+                "armor-defense-rate はバニラ防具値(点数)なので %矯正の対象にしてはいけない。"
+                        + "÷100 すると全装備の防具値がほぼ0へ潰れる。");
+
+        ConfigurationSection lore = load(LORE).getConfigurationSection("stats");
+        assertNotNull(lore, "lore.yml に stats セクションが無い");
+        assertEquals("PERCENT", lore.getString(K_DEFENSE_RATE + ".format"),
+                "defense-rate のロア書式が PERCENT でない。割合を FLAT で出すと"
+                        + "「防御力 +0.1」という単位不明の表示に戻る(ユーザー報告の元の症状)。");
+        assertEquals("FLAT", lore.getString(K_ARMOR_DEFENSE_RATE + ".format"),
+                "armor-defense-rate は防具値(点数)なので FLAT のまま");
+        assertEquals("防御率", lore.getString(K_DEFENSE_RATE + ".name"));
+        assertEquals("防具値", lore.getString(K_ARMOR_DEFENSE_RATE + ".name"),
+                "armor-defense-rate の表示名が「防御力」へ戻っている。"
+                        + "割合側(defense-rate)と紛らわしい名前に戻すと、また同じ行に単位違いが並ぶ。");
+    }
+
+    @Test
+    @DisplayName("出荷スキルツリーは1本も armor-defense-rate(防具値) を配っていない — パーク側は defense-rate だけ")
+    void noShippedTreeGrantsTheItemSideArmorPointsKey() throws IOException {
+        List<String> offenders = new ArrayList<>();
+        int scopedHits = 0;
+        for (String tree : SHIPPED_TREES) {
+            String raw = readRaw("skilltree/" + tree + ".yml");
+            for (String line : raw.split("\\R")) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("#")) {
+                    continue; // 経緯を書いたコメントは対象外
+                }
+                if (trimmed.startsWith(K_ARMOR_DEFENSE_RATE + ":")) {
+                    offenders.add(tree + ".yml: " + trimmed);
+                } else if (trimmed.startsWith(K_DEFENSE_RATE + ":")) {
+                    scopedHits++;
+                }
+            }
+        }
+        assertTrue(offenders.isEmpty(),
+                "スキルツリーが armor-defense-rate を配っている: " + offenders
+                        + "。これはアイテム側のバニラ防具値(点数)のキー。パークが割合として書くと"
+                        + "%矯正が掛からず、0.1 が「防具値 +0.1点」として無視されるか、"
+                        + "10 が 1000% 軽減として通る。");
+        assertTrue(scopedHits >= 9,
+                "defense-rate が出荷ツリーで " + scopedHits + " 箇所しか使われていない。"
+                        + "軽装備(プレステージ + 主軸D + ギリシャβ 5本) で 7 箇所、"
+                        + "重装備(プレステージ + 主軸D) で 2 箇所、計 9 箇所あるはず — "
+                        + "旧キーへ戻された疑いがある。");
+    }
+}
