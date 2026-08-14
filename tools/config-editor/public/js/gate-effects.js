@@ -78,10 +78,36 @@
   }
 
   /**
-   * 全ノード横断で、一回性の解放効果IDが複数ノードに置かれていれば警告集合を返す。
+   * 重複判定に使うキーを1配置ぶん返す。判定対象外(ars-tier / 旧形式 / 欠損)は null。
+   *
+   * feature:<id> の value は「そのノードが解放する段階(tier)」であり、Java 側は
+   * DedicatedEffectGateIndex#valueMaxByPerks で保持ノードのうち最大の tier を採る。
+   * つまり同じ機能を tier 違いで複数ノードに置くのは設計どおりの正しい形なので、
+   * feature だけは tier までキーに含めて「引数が違えば別物」とする
+   * (2026-08-14: id だけで数えていたため tier 違いが全部「⚠ 重複」になっていた)。
+   * 空欄の value は FeatureEffectParam#defaultsMissingValue により tier1 として読まれるので
+   * 明示 value:1 と同一キーに畳む。
+   *
+   * feature 以外の unique 種別 (glyph/brew/trade/recipe/ritual/drop/overenchant/reward) は
+   * 純粋な on/off 解放で value に意味が無い。手書き yml に紛れ込んだ value で
+   * 重複警告が消えないよう、value は一切キーに入れない。
+   * @param {{id:*, value:*}} placement dedicated-effects の1要素
+   * @returns {string|null}
+   */
+  function gateEffectDuplicateKey(placement) {
+    const parsed = parseGateEffectId(placement && placement.id);
+    if (!parsed || !isUniqueGateEffectType(parsed.type)) return null;
+    if (parsed.type !== "feature") return parsed.raw;
+    const raw = placement.value;
+    const tier = raw == null || raw === "" ? 1 : Number(raw);
+    return `${parsed.raw}#${Number.isFinite(tier) ? tier : String(raw)}`;
+  }
+
+  /**
+   * 全ノード横断で、一回性の解放効果が同じ設定のまま複数ノードに置かれていれば警告集合を返す。
    * ars-tier(加算型)は対象外。旧形式(未知プレフィックス)のIDは判定不能のため対象外。
    * @param {object} nodes skilltree working.nodes
-   * @returns {Set<string>} 重複している raw id の集合
+   * @returns {Set<string>} 重複しているキーの集合 (gateEffectDuplicateKey と同じ形)
    */
   function computeDuplicateGateEffectIds(nodes) {
     const counts = {};
@@ -89,12 +115,12 @@
       const node = nodes[nodeId];
       const list = node && Array.isArray(node["dedicated-effects"]) ? node["dedicated-effects"] : [];
       for (const placement of list) {
-        const parsed = parseGateEffectId(placement && placement.id);
-        if (!parsed || !isUniqueGateEffectType(parsed.type)) continue;
-        counts[parsed.raw] = (counts[parsed.raw] || 0) + 1;
+        const key = gateEffectDuplicateKey(placement);
+        if (key == null) continue;
+        counts[key] = (counts[key] || 0) + 1;
       }
     }
-    return new Set(Object.keys(counts).filter((id) => counts[id] > 1));
+    return new Set(Object.keys(counts).filter((key) => counts[key] > 1));
   }
 
   /**
@@ -125,6 +151,7 @@
     isLegacyGateEffectId,
     gateEffectTypeLabel,
     isUniqueGateEffectType,
+    gateEffectDuplicateKey,
     computeDuplicateGateEffectIds,
     resolveFeatureValueEdit
   };

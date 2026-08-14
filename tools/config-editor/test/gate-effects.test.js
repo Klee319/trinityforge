@@ -12,7 +12,7 @@ require("../public/js/gate-effects.js");
 const {
   parseGateEffectId, parseDropTarget, isLegacyGateEffectId,
   gateEffectTypeLabel, isUniqueGateEffectType, computeDuplicateGateEffectIds,
-  resolveFeatureValueEdit
+  gateEffectDuplicateKey, resolveFeatureValueEdit
 } = global.window.GATE_EFFECTS;
 
 test("プレフィックス付きIDを type/target に解析する", () => {
@@ -103,6 +103,71 @@ test("computeDuplicateGateEffectIds: ノード/dedicated-effects欠損でも落�
   assert.equal(computeDuplicateGateEffectIds({}).size, 0);
   assert.equal(computeDuplicateGateEffectIds({ "node-1": {} }).size, 0);
   assert.equal(computeDuplicateGateEffectIds({ "node-1": { "dedicated-effects": "not-array" } }).size, 0);
+});
+
+// ---- 引数(tier)違いを重複と誤判定していたバグ (2026-08-14 実利用報告) ----
+// feature:<id> の value は「そのノードが解放する段階(tier)」であり、Java 側は
+// DedicatedEffectGateIndex#valueMaxByPerks で保持ノードのうち最大の tier を採る。
+// つまり同じ機能を tier 違いで複数ノードに置くのは設計どおりの正しい形で、
+// 「⚠ 重複」を出してはいけない。id だけで数えていたので全部重複扱いになっていた。
+
+test("computeDuplicateGateEffectIds: 同じfeatureでもtierが違えば重複ではない", () => {
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "feature:vein-mining", value: 1 }] },
+    "node-2": { "dedicated-effects": [{ id: "feature:vein-mining", value: 2 }] },
+    "node-3": { "dedicated-effects": [{ id: "feature:vein-mining", value: 3 }] }
+  };
+  assert.equal(computeDuplicateGateEffectIds(nodes).size, 0);
+});
+
+test("computeDuplicateGateEffectIds: 同じfeatureでtierも同じなら重複", () => {
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "feature:vein-mining", value: 2 }] },
+    "node-2": { "dedicated-effects": [{ id: "feature:vein-mining", value: 2 }] }
+  };
+  const dup = computeDuplicateGateEffectIds(nodes);
+  assert.equal(dup.size, 1);
+  assert.ok(dup.has(gateEffectDuplicateKey({ id: "feature:vein-mining", value: 2 })));
+});
+
+test("computeDuplicateGateEffectIds: scaleの空欄(tier1相当)と明示value:1は同じ段階として重複", () => {
+  // FeatureEffectParam#defaultsMissingValue: value キーが無い scale 配置は tier1 として読まれる。
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "feature:vein-mining" }] },
+    "node-2": { "dedicated-effects": [{ id: "feature:vein-mining", value: 1 }] }
+  };
+  assert.equal(computeDuplicateGateEffectIds(nodes).size, 1);
+});
+
+test("computeDuplicateGateEffectIds: feature以外のunique種別はvalueが違っても重複", () => {
+  // glyph/brew/trade/recipe/drop/overenchant/reward は純粋な on/off 解放で value に意味が無い。
+  // 手書き yml に紛れ込んだ value で重複警告が消えてはいけない。
+  const nodes = {
+    "node-1": { "dedicated-effects": [{ id: "glyph:blink", value: 1 }] },
+    "node-2": { "dedicated-effects": [{ id: "glyph:blink", value: 2 }] }
+  };
+  const dup = computeDuplicateGateEffectIds(nodes);
+  assert.equal(dup.size, 1);
+  assert.ok(dup.has("glyph:blink"));
+});
+
+test("gateEffectDuplicateKey: 判定対象外(ars-tier/旧形式/欠損)は null", () => {
+  assert.equal(gateEffectDuplicateKey({ id: "ars-tier", value: 1 }), null);
+  assert.equal(gateEffectDuplicateKey({ id: "blacksmith-unlock" }), null);
+  assert.equal(gateEffectDuplicateKey(null), null);
+  assert.equal(gateEffectDuplicateKey({}), null);
+});
+
+test("gateEffectDuplicateKey: featureはtierまで含み、他種別はidそのまま", () => {
+  assert.equal(gateEffectDuplicateKey({ id: "glyph:blink" }), "glyph:blink");
+  assert.notEqual(
+    gateEffectDuplicateKey({ id: "feature:vein-mining", value: 1 }),
+    gateEffectDuplicateKey({ id: "feature:vein-mining", value: 2 })
+  );
+  assert.equal(
+    gateEffectDuplicateKey({ id: "feature:vein-mining" }),
+    gateEffectDuplicateKey({ id: "feature:vein-mining", value: 1 })
+  );
 });
 
 // resolveFeatureValueEdit: 2026-07-25 アクティブスキルtier常時1固定バグ修正のUI側ロジック。

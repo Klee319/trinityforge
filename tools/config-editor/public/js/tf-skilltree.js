@@ -1062,8 +1062,12 @@
             onChange: (v) => {
               const n = v === "" ? null : Number(v);
               const edit = GATE.resolveFeatureValueEdit(feat.param, n);
-              if (edit.remove) { delete placement.value; return; }
-              placement.value = edit.value;
+              if (edit.remove) delete placement.value;
+              else placement.value = edit.value;
+              // tier は重複判定のキーの一部なので、変えたら「⚠ 重複」の再計算が要る
+              // (ID セレクトの onIdChange と同じ理由)。数値直接入力側は1打鍵ごとに
+              // 発火してフォーカスを奪うため再描画しない。
+              render();
             }
           }));
         } else {
@@ -1206,10 +1210,14 @@
               placement.id = nv;
               render();
             }));
-            if (GATE.isUniqueGateEffectType(parsed.type) && duplicateIds.has(parsed.raw)) {
+            // 重複判定のキーは id だけではない: feature は tier(引数)まで含む
+            // (2026-08-14: tier 違いの正しい配置が全部「⚠ 重複」になっていた)。
+            // 集合側と同じ gateEffectDuplicateKey で引くこと。
+            const dupKey = GATE.gateEffectDuplicateKey(placement);
+            if (dupKey != null && duplicateIds.has(dupKey)) {
               rowChildren.push(h("span", {
                 class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
-                title: "この解放効果は1箇所限定ですが、同じ設定内の複数ノードに置かれています。",
+                title: "この解放効果は1箇所限定ですが、同じ設定・同じ段階で複数ノードに置かれています。",
                 text: "⚠ 重複"
               }));
             }
