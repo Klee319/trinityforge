@@ -953,6 +953,33 @@ yml を直接編集するときはここが効かないことを忘れないこ�
 418 欄ある画面を 18 欄しか見ないまま「問題なし」と報告する。`textContent` を使い、
 走査母数（数値入力とステ選択の件数）を必ず一緒に出して空振りを検知する。
 
+## `dropTableEditor`(fishing/mining/woodcutting/digging 共通)は path を渡した瞬間に丸ごと実体化する（2026-08-15）
+
+`tf-lifestyle-forms.js` の `dropTableEditor(working, path, opts)` は内部の
+`resolveDropTableContainer` が `path` の各セグメントへ `ensureObj` を無条件で呼ぶ
+（`for (const key of path) node = ensureObj(node, key)`）。つまり
+**呼び出した時点で `path` の中間オブジェクトと `categories: {}` が丸ごと生成される**。
+既存の `groups.treasure`/`groups.junk` はこれを常時呼んでよい設計（常時テーブル）だが、
+`groups.fish`(後方互換で既定=未設定)のような**任意キーのドロップテーブル**を新設するときは
+`dropTableEditor` を直接呼ばず、`fishGroupEditor`/`unlockGroupEditor`
+（同ファイル、`fishing.unlock-groups.<groupId>` の機能解放追加用テーブルで新設）と同じ
+「`hasOwnProperty` で存在確認 → 無ければ emptyGuide + 有効化ボタンのみ描画 → ボタンを押した
+瞬間に `{ categories: {} }` を代入してから初めて `dropTableEditor` を呼ぶ」二段構えにすること。
+これを怠ると、フォームを開いただけで任意キーが yml へ書き戻る（本ファイル上部の
+「Java 側との既定値の食い違い」節と同じ事故クラス）。
+
+## `stats/*-gimmick.yml` の drop-tables 系(`groups`/`drop-tables.categories`)は長らく schema 未検証だった
+
+`lib/schema.js` の `validateTfMiningGimmick`（コメントに「最小限・許容的」と明記）は
+`suspicious-block-respawn.loot-tables` の型しか見ておらず、mining/woodcutting/digging の
+`drop-tables.categories` と fishing の `groups.*` は 2026-08-15 まで**一切検証されていなかった**
+（不正な `weight`/`amount` を書いても validate() はエラーを返さない）。fishing の
+`groups`/`unlock-groups` にだけ `validateFishingDropGroupsMap`（同ファイル、entries[].weight/amount
+が 1 以上の整数であること等を検査）を新設したが、**mining/woodcutting/digging 側の
+`drop-tables.categories` は今も未検証のまま**。同種の検証を追加するときは、この関数を
+そのまま流用できる形（`{groupId→{categories:{catId→{display-name,entries[],
+trigger-chance-percent?}}}}` 相当の形へ正規化してから渡す）にしてある。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

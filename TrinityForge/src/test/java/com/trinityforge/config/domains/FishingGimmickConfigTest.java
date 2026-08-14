@@ -118,6 +118,38 @@ class FishingGimmickConfigTest {
         assertEquals(0.0, treasureVanilla.triggerChancePercent(), 0.0);
     }
 
+    // ---- 2026-08-15追加: fishing.unlock-groups (機能解放追加テーブル) ----
+
+    @Test
+    void unlockGroupsDefaultsToEmptyWhenSectionAbsent(@TempDir File tempDir) throws IOException {
+        FishingGimmickConfig config = loaded(tempDir, "xp-bottle-store:\n  store-amount: 100\n");
+        assertTrue(config.unlockGroups().isEmpty());
+        assertTrue(config.dropTablesEmpty(), "unlock-groups absent + groups absent -> still fallback mode");
+    }
+
+    @Test
+    void unlockGroupsParsesLikeGroupsAndEscapesFallbackModeAlone(@TempDir File tempDir) throws IOException {
+        // unlock-groupsだけが非空(groupsは空)でもfallback判定を抜けることを確認する
+        // (dropTablesEmptyはgroups/unlock-groupsの両方を見る)。
+        FishingGimmickConfig config = loaded(tempDir, """
+                fishing:
+                  unlock-groups:
+                    treasure:
+                      categories:
+                        treasure_unlock:
+                          display-name: "Unlock Treasure"
+                          entries:
+                            - item: DIAMOND
+                              weight: 1
+                              amount: 1
+                """);
+        assertTrue(config.groups().isEmpty());
+        assertFalse(config.dropTablesEmpty(), "a non-empty unlock-groups alone must exit fallback mode");
+        assertEquals(1, config.unlockGroups().size());
+        DropTableConfig.Category treasureUnlock = config.unlockGroups().get("treasure").get("treasure_unlock");
+        assertEquals("DIAMOND", treasureUnlock.entries().get(0).item());
+    }
+
     @Test
     void fishGroupParsesLikeTreasureAndJunkGroups(@TempDir File tempDir) throws IOException {
         // T1(2026-07-25): fishing.groups.fish(「通常の魚」枠)はtreasure/junkと同じ

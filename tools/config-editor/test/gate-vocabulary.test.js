@@ -106,6 +106,44 @@ test("釣りは fishing.groups.<group>.categories 形式から抽出する", () 
   ]);
 });
 
+test("釣りは unlock-groups.<group>.categories (機能解放追加用テーブル、任意キー) も groups と同じ形式で抽出する", () => {
+  const vocab = buildGateVocabulary({
+    gimmicks: {
+      fishing: {
+        fishing: {
+          groups: {
+            treasure: { categories: { tier1: { "display-name": "宝Tier1" } } }
+          },
+          "unlock-groups": {
+            treasure: { categories: { rare_gem: { "display-name": "宝石解放枠" } } },
+            junk: { categories: { seaweed: {} } }
+          }
+        }
+      }
+    }
+  });
+  assert.deepEqual(vocab.drops, [
+    { profession: "fishing", categoryId: "treasure:tier1", displayName: "宝Tier1" },
+    { profession: "fishing", categoryId: "treasure:rare_gem", displayName: "宝石解放枠" },
+    { profession: "fishing", categoryId: "junk:seaweed", displayName: "seaweed" }
+  ]);
+});
+
+test("釣りは unlock-groups キーが無くても groups だけで従来どおり抽出できる(後方互換)", () => {
+  const vocab = buildGateVocabulary({
+    gimmicks: {
+      fishing: {
+        fishing: {
+          groups: { junk: { categories: { tier1: {} } } }
+        }
+      }
+    }
+  });
+  assert.deepEqual(vocab.drops, [
+    { profession: "fishing", categoryId: "junk:tier1", displayName: "tier1" }
+  ]);
+});
+
 test("special-rewards.yml の titles/particles キーを和集合で返す", () => {
   const vocab = buildGateVocabulary({
     specialRewards: {

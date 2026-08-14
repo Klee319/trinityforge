@@ -84,29 +84,39 @@ function extractTrades(villagerTrades) {
   return Object.keys(professions);
 }
 
+// fishing.groups.<treasure|junk|fish>.categories / fishing.unlock-groups.<同groupId>.categories の
+// 1グループ分を out へ積む共通処理(groups と unlock-groups は完全に同一の Category スキーマ)。
+function collectFishingGroupCategories(profession, groups, out) {
+  if (!isPlainObject(groups)) return;
+  for (const groupId of Object.keys(groups)) {
+    const group = groups[groupId];
+    const categories = group && group.categories;
+    if (!isPlainObject(categories)) continue;
+    for (const catId of Object.keys(categories)) {
+      const cat = categories[catId];
+      out.push({
+        profession,
+        categoryId: `${groupId}:${catId}`,
+        displayName: (isPlainObject(cat) && cat["display-name"]) || catId
+      });
+    }
+  }
+}
+
 // 各ギミックyml drop-tables.categories → { profession, categoryId, displayName }[]
-// 釣りだけ fishing.groups.<treasure|junk>.categories 形式。
+// 釣りだけ fishing.groups.<treasure|junk|fish>.categories 形式。
+// 2026-08-15: 機能解放追加用テーブル fishing.unlock-groups.<同groupId>.categories も同じ
+// categoryId (`${groupId}:${catId}`) で語彙へ追加する ── ノード側の解放IDは
+// drop:fishing:<groupId>:<catId> で groups/unlock-groups どちらのカテゴリも共通形式のため。
 function extractDropCategories(profession, gimmickData) {
   const out = [];
   if (!isPlainObject(gimmickData)) return out;
 
   if (profession === "fishing") {
     const fishing = gimmickData.fishing;
-    const groups = fishing && fishing.groups;
-    if (!isPlainObject(groups)) return out;
-    for (const groupId of Object.keys(groups)) {
-      const group = groups[groupId];
-      const categories = group && group.categories;
-      if (!isPlainObject(categories)) continue;
-      for (const catId of Object.keys(categories)) {
-        const cat = categories[catId];
-        out.push({
-          profession,
-          categoryId: `${groupId}:${catId}`,
-          displayName: (isPlainObject(cat) && cat["display-name"]) || catId
-        });
-      }
-    }
+    if (!isPlainObject(fishing)) return out;
+    collectFishingGroupCategories(profession, fishing.groups, out);
+    collectFishingGroupCategories(profession, fishing["unlock-groups"], out);
     return out;
   }
 

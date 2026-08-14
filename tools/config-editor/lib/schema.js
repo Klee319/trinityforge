@@ -3219,10 +3219,52 @@ function validateTfFoodGimmick(data, errors) {
   }
 }
 
+// fishing.groups / fishing.unlock-groups (機能解放追加用テーブル、任意キー) 共通の最小検証。
+// 両者は完全に同一の Category スキーマ ({ <groupId>: { categories: { <catId>: {
+// "display-name", entries:[{item,weight,amount}], "trigger-chance-percent"? } } } })
+// なので同じ関数で検証する(unlock-groups だけ緩くしない)。entries[].weight/amount は
+// public/js/tf-lifestyle-forms.js の clampMinInt(v,1) と同じ「1以上の整数」規則。
+function validateFishingDropGroupsMap(map, label, errors) {
+  if (map === undefined || map === null) return;
+  if (!isPlainObject(map)) { errors.push(`${label} はマップである必要があります`); return; }
+  for (const [groupId, group] of Object.entries(map)) {
+    if (!isPlainObject(group)) { errors.push(`${label}.${groupId}: マップである必要があります`); continue; }
+    const categories = group.categories;
+    if (categories === undefined || categories === null) continue;
+    if (!isPlainObject(categories)) { errors.push(`${label}.${groupId}.categories: マップである必要があります`); continue; }
+    for (const [catId, cat] of Object.entries(categories)) {
+      if (!isPlainObject(cat)) { errors.push(`${label}.${groupId}.categories.${catId}: マップである必要があります`); continue; }
+      if (cat["display-name"] !== undefined && cat["display-name"] !== null && typeof cat["display-name"] !== "string") {
+        errors.push(`${label}.${groupId}.categories.${catId}.display-name: 文字列である必要があります`);
+      }
+      const chance = cat["trigger-chance-percent"];
+      if (chance !== undefined && chance !== null && !isNumber(chance)) {
+        errors.push(`${label}.${groupId}.categories.${catId}.trigger-chance-percent: 数値である必要があります`);
+      }
+      const entries = cat.entries;
+      if (entries === undefined || entries === null) continue;
+      if (!Array.isArray(entries)) { errors.push(`${label}.${groupId}.categories.${catId}.entries: 配列である必要があります`); continue; }
+      entries.forEach((entry, i) => {
+        if (!isPlainObject(entry)) { errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}]: マップである必要があります`); return; }
+        if (entry.item !== undefined && entry.item !== null && typeof entry.item !== "string") {
+          errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}].item: 文字列である必要があります`);
+        }
+        if (entry.weight !== undefined && entry.weight !== null && (!isInteger(entry.weight) || entry.weight < 1)) {
+          errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}].weight: 1以上の整数である必要があります`);
+        }
+        if (entry.amount !== undefined && entry.amount !== null && (!isInteger(entry.amount) || entry.amount < 1)) {
+          errors.push(`${label}.${groupId}.categories.${catId}.entries[${i}].amount: 1以上の整数である必要があります`);
+        }
+      });
+    }
+  }
+}
+
 // ---- fishing-gimmick.yml (tf-fishing-gimmick) ----
 // xp-bottle-store.return-rate: 取り出し時に返る割合(0.0〜1.0)
 // fish-sell.prices: Material -> 基準売却額(0以上)。fish-sell.max-sells-per-minute: 0以上の整数。
 // fishing.ocean-biomes: バイオームidの文字列配列(namespace無し小文字。ハードコード列挙はしない)。
+// fishing.groups / fishing.unlock-groups: 上の validateFishingDropGroupsMap を同じ規則で適用する。
 function validateTfFishingGimmick(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
@@ -3275,6 +3317,8 @@ function validateTfFishingGimmick(data, errors) {
           });
         }
       }
+      validateFishingDropGroupsMap(fishing.groups, "fishing.groups", errors);
+      validateFishingDropGroupsMap(fishing["unlock-groups"], "fishing.unlock-groups", errors);
     }
   }
 }

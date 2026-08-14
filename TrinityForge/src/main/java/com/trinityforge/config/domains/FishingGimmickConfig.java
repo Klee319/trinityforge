@@ -60,6 +60,13 @@ public final class FishingGimmickConfig {
     private static final String FISHING_SKILL_ID = "FISHING";
 
     private volatile Map<String, Map<String, DropTableConfig.Category>> groups = Map.of();
+    /**
+     * {@code fishing.unlock-groups}(2026-08-15 機能解放追加テーブル): {@code groups}と完全に同一構造の
+     * 「機能解放で開くカテゴリ」置き場。パースは{@link #parseGroups}をそのまま再利用する。任意キー
+     * (未設定なら空Mapで挙動は{@code groups}単体と完全に同じ=後方互換)。実際の合流(希釈込みの1プールへの
+     * マージ)とゲートキー前置きは呼び出し側({@code FishingGimmickListener})の責務。
+     */
+    private volatile Map<String, Map<String, DropTableConfig.Category>> unlockGroups = Map.of();
     private volatile double luckPerLevel = DEFAULT_LUCK_PER_LEVEL;
     private volatile double bonusPerLevel = DEFAULT_BONUS_PER_LEVEL;
 
@@ -139,10 +146,26 @@ public final class FishingGimmickConfig {
         return groups;
     }
 
-    /** {@code true} when neither group has any category — i.e. the fallback (vanilla catch + legacy
-     *  junk/treasure material lists) path must be used instead of the drop-table replace flow. */
+    /**
+     * {@code fishing.unlock-groups.<treasure|junk|fish>.categories}(2026-08-15
+     * 機能解放追加テーブル): {@link #groups()}と対になる、機能解放で開くカテゴリの置き場。構造は
+     * {@code groups()}と完全に同一。呼び出し側({@code FishingGimmickListener})が同じグループidの
+     * {@code groups()}側と1つの重みプールへ合流させる(希釈あり)。省略時は空Map(完全後方互換)。
+     */
+    public Map<String, Map<String, DropTableConfig.Category>> unlockGroups() {
+        return unlockGroups;
+    }
+
+    /** {@code true} when neither {@link #groups()} nor {@link #unlockGroups()} has any category — i.e.
+     *  the fallback (vanilla catch + legacy junk/treasure material lists) path must be used instead of
+     *  the drop-table replace flow. */
     public boolean dropTablesEmpty() {
         for (Map<String, DropTableConfig.Category> categories : groups.values()) {
+            if (!categories.isEmpty()) {
+                return false;
+            }
+        }
+        for (Map<String, DropTableConfig.Category> categories : unlockGroups.values()) {
             if (!categories.isEmpty()) {
                 return false;
             }
@@ -254,6 +277,7 @@ public final class FishingGimmickConfig {
                 yaml.getDouble("fishing.group-ratio.junk-percent", DEFAULT_JUNK_PERCENT),
                 "fishing.group-ratio.junk-percent", DEFAULT_JUNK_PERCENT, log);
         this.groups = parseGroups(yaml.getConfigurationSection("fishing.groups"), log);
+        this.unlockGroups = parseGroups(yaml.getConfigurationSection("fishing.unlock-groups"), log);
         this.luckPerLevel = clampPerLevel(
                 yaml.getDouble("fishing.luck-per-level", DEFAULT_LUCK_PER_LEVEL),
                 "fishing.luck-per-level", DEFAULT_LUCK_PER_LEVEL, log);
@@ -272,6 +296,7 @@ public final class FishingGimmickConfig {
         log.info("[" + PATH + "] loaded " + this.junkMaterials.size() + " junk-material(s), "
                 + this.treasureMaterials.size() + " treasure-material(s), "
                 + this.groups.size() + " fishing group(s), "
+                + this.unlockGroups.size() + " fishing unlock-group(s), "
                 + this.fishSellPrices.size() + " fish-sell price(s) OK");
         return true;
     }

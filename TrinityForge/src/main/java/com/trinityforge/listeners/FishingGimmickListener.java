@@ -26,11 +26,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Logger;
 
 /**
  * 釣りの獲得物置換 (2026-07-23 stat-gate-overhaul §2.3/§4): {@code stats/fishing-gimmick.yml} の
@@ -58,6 +60,14 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@code treasureFlagKey} で記録し、{@link FishingQualityListener}のトレジャー複製防止ロジックに渡す。
  */
 public final class FishingGimmickListener implements Listener {
+
+    private static final Logger LOG = Logger.getLogger(FishingGimmickListener.class.getName());
+
+    /**
+     * groups と unlock-groups でカテゴリidが衝突した組み合わせの記録(警告を1回だけ出すため)。
+     * 判定は釣り上げるたびに通るので、毎回警告すると重複でコンソールが埋まり他の警告が埋もれる。
+     */
+    private final Set<String> warnedDuplicateCategories = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private static final String EFFECT_JUNK_TO_SCRAP = "junk-to-scrap";
     private static final String EFFECT_FISH_SELL_TOGGLE = "fish-sell-toggle";
@@ -156,10 +166,14 @@ public final class FishingGimmickListener implements Listener {
      * {@code treasureFlag}を書く。抽選対象カテゴリが無い/抽選が空(全ロック等)の場合はバニラキャッチを
      * そのまま維持する(fail-safe)。{@code junk-to-scrap}のスクラップ差し替えは{@code groupId}が実際に
      * {@link #GROUP_JUNK}のときだけ適用される({@code fish}グループには適用しない)。
+     *
+     * <p>2026-08-15追加(機能解放追加テーブル): {@code fishing.groups.<groupId>}(デフォルト)と
+     * {@code fishing.unlock-groups.<groupId>}(機能解放で開くカテゴリ)を{@link #mergeGateKeyedCategories}
+     * で1つの重みプールへ合流させてから抽選する(希釈あり・別ロールにはしない、ユーザー確定仕様)。
      */
     private void replaceFromGroup(Player player, Item caught, String groupId, boolean treasureFlag,
                                    ThreadLocalRandom rng) {
-        Map<String, DropTableConfig.Category> categories = gimmickConfig.groups().getOrDefault(groupId, Map.of());
+        Map<String, DropTableConfig.Category> categories = mergeGateKeyedCategories(groupId);
         if (categories.isEmpty()) {
             return; // Fail-safe: nothing configured for this group -> leave the vanilla catch untouched.
         }
@@ -182,6 +196,46 @@ public final class FishingGimmickListener implements Listener {
         }
         caught.setItemStack(replacement);
         caught.getPersistentDataContainer().set(treasureFlagKey, PersistentDataType.BOOLEAN, treasureFlag);
+    }
+
+    /**
+     * {@code fishing.groups.<groupId>}(デフォルト)と{@code fishing.unlock-groups.<groupId>}(機能解放追加)の
+     * カテゴリを1つの重みプールへ合流させる(2026-08-15追加)。同時に、既存バグ修正としてゲート照会キーを
+     * {@code "<groupId>:<catId>"}へ前置きする — {@link DropTablePolicy#drawAcrossCategoriesWithExemption}は
+     * このMapのキーをそのまま{@code categoryOpen(prof, key, ...)}へ渡すので、前置きすることで
+     * {@code categoryOpen("fishing", "treasure:gatya", ...)}が{@code "fishing:treasure:gatya"}を引き、
+     * {@link com.trinityforge.skilltree.effects.DedicatedEffectGateIndex}が{@code drop:fishing:treasure:gatya}
+     * から登録する3セグメントのゲートキーと一致するようになる(旧実装は{@code catId}だけをキーにしていたため
+     * {@code "fishing:gatya"}(2セグメント)を引いてしまい、未登録キー=常時オープン扱いになっていた)。
+     *
+     * <p>{@code groups}と{@code unlock-groups}に同じ{@code groupId}配下で同じカテゴリidが両方あるときは、
+     * ゲートキーが完全に衝突して「どちらが効いているか判別不能」になるため、{@code unlock-groups}側を
+     * 警告ログのうえ無視する(ユーザー確定仕様)。
+     */
+    private Map<String, DropTableConfig.Category> mergeGateKeyedCategories(String groupId) {
+        Map<String, DropTableConfig.Category> defaults = gimmickConfig.groups().getOrDefault(groupId, Map.of());
+        Map<String, DropTableConfig.Category> unlocks = gimmickConfig.unlockGroups().getOrDefault(groupId, Map.of());
+        if (defaults.isEmpty() && unlocks.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, DropTableConfig.Category> merged = new LinkedHashMap<>();
+        for (Map.Entry<String, DropTableConfig.Category> catEntry : defaults.entrySet()) {
+            merged.put(groupId + ":" + catEntry.getKey(), catEntry.getValue());
+        }
+        for (Map.Entry<String, DropTableConfig.Category> catEntry : unlocks.entrySet()) {
+            if (defaults.containsKey(catEntry.getKey())) {
+                // 警告は組み合わせごとに1回だけ。ここは釣り上げるたびに通る経路なので、
+                // 毎回出すとコンソールが重複警告で埋まり、他の警告が見えなくなる。
+                if (warnedDuplicateCategories.add(groupId + ":" + catEntry.getKey())) {
+                    LOG.warning("[fishing] unlock-groups." + groupId + "." + catEntry.getKey()
+                            + " は groups." + groupId + "." + catEntry.getKey() + " と同じカテゴリidのため、"
+                            + "unlock-groups側を無視しました(ゲートキー衝突を避けるため)。");
+                }
+                continue;
+            }
+            merged.put(groupId + ":" + catEntry.getKey(), catEntry.getValue());
+        }
+        return merged;
     }
 
     /**

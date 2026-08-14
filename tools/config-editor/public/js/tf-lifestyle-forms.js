@@ -1008,6 +1008,68 @@
     return wrap;
   }
 
+  /**
+   * fishing.unlock-groups.<groupId> (機能解放追加用テーブル、任意キー) の遅延生成エディタ。
+   * groups.<id> と完全に同一の Category スキーマだが、カテゴリごとに機能解放が必要な点だけが違う。
+   * fishGroupEditor(groups.fish 専用)と同じ「設定するまで書き込まない」方式を treasure/junk/fish の
+   * 3グループ全てに適用する ── ensureObj で丸ごと実体化すると、フォームを開いただけで
+   * fishing.unlock-groups: {} が yml へ書き戻ってしまう(config-editor.md の lazy-touch 注意事項と同根)。
+   * 解放は運用者がスキルツリー側の dedicated-effects に drop:fishing:<groupId>:<catId> を置くことで行う
+   * (lib/gate-vocabulary.js の extractDropCategories が groups と同じ形式でこの categoryId を語彙へ出す)。
+   * @param {object} fishing fishing直下のworking
+   * @param {string} groupId "treasure" | "junk" | "fish"
+   * @param {string} groupLabelJa カード内の説明用ラベル(例:"宝")
+   * @param {object} [dropOpts] dropTableEditor へそのまま渡すopts
+   */
+  function unlockGroupEditor(fishing, groupId, groupLabelJa, dropOpts) {
+    const wrap = h("div", {});
+    function hasGroup() {
+      return !!(fishing["unlock-groups"] && typeof fishing["unlock-groups"] === "object"
+        && Object.prototype.hasOwnProperty.call(fishing["unlock-groups"], groupId));
+    }
+    function renderEnabled() {
+      wrap.innerHTML = "";
+      wrap.appendChild(h("div", {
+        class: "mini-label",
+        text: "解放済みのカテゴリだけがデフォルトテーブルと同じ抽選プールへ合流します。"
+          + "解放するとその分だけ既存アイテムの排出率は下がります。"
+      }));
+      wrap.appendChild(h("div", {
+        class: "mini-label",
+        text: `解放はカテゴリ単位です。スキルツリー側のノードに drop:fishing:${groupId}:<カテゴリID> を書いてください。`
+      }));
+      wrap.appendChild(dropTableEditor(fishing, ["unlock-groups", groupId], dropOpts));
+      wrap.appendChild(h("div", { class: "form-actions" }, [
+        h("button", {
+          class: "btn-small danger", type: "button", text: `設定を解除する(${groupLabelJa}の追加テーブルなし)`,
+          onclick: () => {
+            if (fishing["unlock-groups"] && typeof fishing["unlock-groups"] === "object") {
+              delete fishing["unlock-groups"][groupId];
+              if (Object.keys(fishing["unlock-groups"]).length === 0) delete fishing["unlock-groups"];
+            }
+            renderDisabled();
+          }
+        })
+      ]));
+    }
+    function renderDisabled() {
+      wrap.innerHTML = "";
+      wrap.appendChild(emptyGuide(
+        "未設定(追加テーブルなし)",
+        `「設定する」を押すまでは fishing.unlock-groups.${groupId} は保存されません。`
+      ));
+      wrap.appendChild(h("button", {
+        class: "btn-small", type: "button", text: `+ ${groupLabelJa}の追加テーブルを設定する`,
+        onclick: () => {
+          ensureObj(fishing, "unlock-groups")[groupId] = { categories: {} };
+          renderEnabled();
+        }
+      }));
+    }
+    if (hasGroup()) renderEnabled(); else renderDisabled();
+    return wrap;
+  }
+
   window.buildFishingGimmickForm = function buildFishingGimmickForm(data) {
     const working = data && typeof data === "object" ? data : {};
     const fishing = ensureObj(working, "fishing");
@@ -1074,6 +1136,18 @@
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "魚グループ (groups.fish、既定は未設定=バニラ釣果維持)" })],
       [fishGroupEditor(fishing)]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "宝グループ 追加解放テーブル (unlock-groups.treasure、既定は未設定)" })],
+      [unlockGroupEditor(fishing, "treasure", "宝", { triggerChance: false })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "ゴミグループ 追加解放テーブル (unlock-groups.junk、既定は未設定)" })],
+      [unlockGroupEditor(fishing, "junk", "ゴミ", { triggerChance: false, scrapExempt: true })]
+    ));
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "魚グループ 追加解放テーブル (unlock-groups.fish、既定は未設定)" })],
+      [unlockGroupEditor(fishing, "fish", "魚", { triggerChance: false })]
     ));
     root.appendChild(window.collapsibleCard(
       [h("span", { class: "entry-key-label", text: "バニラ釣果フォールバック分類 (junk/treasure-materials)" })],
