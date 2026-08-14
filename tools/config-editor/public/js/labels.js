@@ -118,7 +118,7 @@
     "craft-roll-up-bonus": "クラフト:ロール上振れ↑",
     "craft-roll-down-reduction": "クラフト:ロール下振れ↓",
     "craft-roll-inset": "クラフト:ロール収束",
-    "lapis-cost-reduction": "クラフト:ラピス消費↓",
+    // 2026-08-14: lapis-cost-reduction を廃止した(ArsPaper の消費リスナーごと削除)。
     "source-cost-reduction": "クラフト:ソース消費↓",
     "material-refund-chance": "クラフト:素材返還↑",
     "ingredient-save-chance": "クラフト:材料節約↑",
@@ -260,7 +260,7 @@
     "craft-roll-up-bonus": "クラフト時のロール結果を上方向へ補正する。",
     "craft-roll-down-reduction": "クラフト時のロール結果の下振れを抑える。",
     "craft-roll-inset": "クラフト時のロール結果を中央へ収束させる。",
-    "lapis-cost-reduction": "Ars 系処理のラピス消費を軽減する。",
+    // 2026-08-14: lapis-cost-reduction の説明は削除(ArsPaper の消費リスナーごと廃止したため)。
     "material-refund-chance": "儀式(ペデスタル)専用。台座の素材は通常どおり消費されたうえで、この確率で1個だけインベントリへ返却される(満杯なら足元へドロップ)。消費をスキップする材料節約率とは別の機構で、醸造台やアルケミカルソースリンクには効かない。",
     "ingredient-save-chance": "素材の消費自体をスキップする確率(返却ではない)。バニラ醸造台の材料投入とArsアルケミカルソースリンクへの素材投入の両方に適用される。儀式(ペデスタル)には効かない(そちらは素材返還率)。",
     "source-cost-reduction": "Ars のソース消費を軽減する。"
@@ -679,7 +679,8 @@
     "arssmithing_craftrollupbonus_add": { label: "Ars鍛冶: ステロール上振れ+", unit: "割合(0〜1)" },
     "arssmithing_craftrolldownreduction_add": { label: "Ars鍛冶: ステロール下振れ減+", unit: "割合(0〜1)" },
     "arssmithing_threadslots_add": { label: "Ars鍛冶: スレッド枠+", unit: "枠" },
-    "arssmithing_lapiscostreduction_add": { label: "Ars鍛冶: ラピス消費軽減+", unit: "割合(0〜1)" },
+    // 2026-08-14: arssmithing_lapiscostreduction_add はラピス消費軽減の旧nativeパーク名。
+    // 機構ごと廃止したので辞書からも消す(出荷 skills/*.yml に使用箇所は無い)。
     "arssmithing_sourcecostreduction_add": { label: "Ars鍛冶: ソース消費軽減+", unit: "割合(0〜1)" },
     "arssmithing_unlockedtier_add": { label: "Ars鍛冶: 解放ティア+", unit: "ティア" },
     // バニラ鍛冶

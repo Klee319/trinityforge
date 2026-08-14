@@ -135,11 +135,6 @@ class StatCategoryInferenceTest {
     }
 
     @Test
-    void lapisCostReductionIsCraft() {
-        assertEquals(StatCategory.CRAFT, StatCategoryInference.infer("lapis-cost-reduction"));
-    }
-
-    @Test
     void materialRefundChanceIsCraft() {
         assertEquals(StatCategory.CRAFT, StatCategoryInference.infer("material-refund-chance"));
     }

@@ -76,7 +76,8 @@ public enum StatsCategory {
             "workbench_upswing_bonus", "ritual_upswing_bonus",
             "workbench_downswing_reduction", "ritual_downswing_reduction",
             "craft_roll_up_bonus", "craft_roll_down_reduction", "craft_roll_inset",
-            "lapis_cost_reduction", "material_refund_chance",
+            // ※ lapis_cost_reduction は 2026-08-14 に廃止(ArsPaper の消費側リスナーごと削除)。
+            "material_refund_chance",
             "ingredient_save_chance",
             // 経済連携(2026-07-25): 解体(DisassemblyListener)は生産系の一つ。
             "disassembly_return_bonus",

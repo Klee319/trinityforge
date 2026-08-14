@@ -154,7 +154,8 @@ base-stats:
   craft-roll-up-bonus: 0
   craft-roll-down-reduction: 0
   craft-roll-inset: 0
-  lapis-cost-reduction: 0
+  # 2026-08-14: lapis-cost-reduction を廃止した(ユーザー判断「ラピス効率は使わない」)。
+  # 消費側だった ArsPaper の LapisCostReductionListener も同時に削除している。
   material-refund-chance: 0
   ingredient-save-chance: 0
   source-cost-reduction: 0

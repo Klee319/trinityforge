@@ -59,7 +59,8 @@
     // 部分一致より前に置いている)。
     if (SKILL_EXP_BONUS_KEYS.includes(s)) return "utility";
     if (s.startsWith("craft-") || s.startsWith("workbench-") || s.startsWith("ritual-")
-      || ["lapis-cost-reduction", "material-refund-chance", "ingredient-save-chance"].includes(s)) return "craft";
+      // 2026-08-14: lapis-cost-reduction を廃止(ArsPaper の消費リスナーごと削除)。
+      || ["material-refund-chance", "ingredient-save-chance"].includes(s)) return "craft";
     if (["mining-fortune", "fishing-luck", "fishing-bonus", "suspicious-respawn-chance", "hive-harvest-fortune"].includes(s)) return "gathering";
     if (["mana", "spell", "glyph", "thread", "slot", "arcane", "source-cost-reduction"].some((k) => s.includes(k))) return "ars";
     if ([

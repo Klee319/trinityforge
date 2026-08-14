@@ -221,8 +221,9 @@
         "planted-crop-growth-bonus", "mana-bonus", "mana-regen", "ars-tier-bonus",
         "glyph-slot-bonus", "hit-mana-recovery", "damage-mana-recovery",
         "mana-cost-reduction-flat", "mana-cost-reduction-percent",
-        "lapis-cost-reduction", "source-cost-reduction", "material-refund-chance",
+        "source-cost-reduction", "material-refund-chance",
         // 2026-08-14: enchant-exp-gain-bonus は廃止 (enchanting-exp-bonus へ統合)。
+        // 2026-08-14: lapis-cost-reduction も廃止 (ArsPaper の消費リスナーごと削除)。
         "ingredient-save-chance", "enchant-luck",
         "potion-quality-bonus", "brew-speed-bonus", "enchant-cost-reduction",
         "glyph-damage-multiplier-bonus"

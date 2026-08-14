@@ -222,7 +222,6 @@ hit-mana-recovery
 damage-mana-recovery
 mana-cost-reduction-flat
 mana-cost-reduction-percent
-lapis-cost-reduction
 source-cost-reduction
 material-refund-chance
 ingredient-save-chance

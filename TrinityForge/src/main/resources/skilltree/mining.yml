@@ -34,8 +34,8 @@
 #   例: glyph:<glyphId> / recipe:<catalogId> / feature:<featureId>。
 #     dedicated-effects:
 #       - id: light-glyph-unlock       # param=none の効果は value 不要
-#       - id: lapis-cost-reduction
-#         value: 5                     # param=percent/int/level の効果は value 必須
+#       - id: feature:vein-mining
+#         value: 2                     # param=percent/int/level/scale の効果は value 必須
 #   ★カタログの「実ゲーム挙動」への配線はまだ無い基盤段階です（後続タスク）。
 # ============================================================================
 

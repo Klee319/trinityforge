@@ -152,7 +152,8 @@ window.FALLBACK_STAT_UNITS = {
   "craft-roll-down-reduction": "%",
   "craft-roll-inset": "%",
   "potion-quality-bonus": "pt",
-  "lapis-cost-reduction": "個",
+  // 2026-08-14: lapis-cost-reduction を stats/lore.yml から撤去したので、この辞書からも消す
+  // (この辞書は lore.yml の unit と双方向で照合されるため、残すと死にキーとして検知される)。
   "ars-tier-bonus": "ティア",
   "glyph-slot-bonus": "枠",
   // 2026-08-13: mana-regen-base / mana-regen-interval-ticks は stats/lore.yml から撤去した

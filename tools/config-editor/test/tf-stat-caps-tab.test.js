@@ -107,9 +107,10 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 // 2026-08-05: 職業EXP増加(スキル別)を3→15キーへ拡張したので 97 → 109。
 // 2026-08-14: enchant-exp-gain-bonus を廃止し enchanting-exp-bonus へ統合したので 109 → 108
 // (ENCHANTING へのEXP付与点が1箇所しかなく、職業EXP増加と同じ量に別経路で掛かる重複だった)。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく108件ちょうど", () => {
+// 2026-08-14: lapis-cost-reduction を廃止したので 108 → 107(ArsPaper の消費リスナーごと削除)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく107件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 108, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 107, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 

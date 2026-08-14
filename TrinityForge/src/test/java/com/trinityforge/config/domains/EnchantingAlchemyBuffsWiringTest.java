@@ -65,6 +65,15 @@ class EnchantingAlchemyBuffsWiringTest {
         // 主軸 A/C は運だけを配り、EXP 増減は載せない(下の assertMainAxisLuckOnly が担保)。
         assertMainAxisLuckOnly(tree, "A", 5.0);
         assertMainAxisLuckOnly(tree, "C", 10.0);
+        // 2026-08-14: ノードBは唯一の効果が lapis-cost-reduction(機構ごと廃止)だったので、
+        // 同じ「消費を減らす」性格の enchant-cost-reduction へ差し替えた。ここが null に戻ると
+        // Lv30 の主軸ノードが SP1 を払って何も起きないノードになる。
+        SkillNode nodeB = tree.nodes().get("B");
+        assertTrue(nodeB != null, "node B must exist");
+        assertEquals(0.10, nodeB.buffs().get("enchant_cost_reduction"),
+                "ノードB(エンチャントの使い手)はエンチャント費用軽減を配る");
+        assertTrue(nodeB.buffs().get("lapis_cost_reduction") == null,
+                "廃止した lapis_cost_reduction が復活している(語彙から消えているので黙って捨てられる)");
         assertNodeBuffs(tree, "A-alpha-1", 8.0, -0.05);
         assertNodeBuffs(tree, "A-alpha-2", 8.0, -0.05);
         assertNodeBuffs(tree, "A-beta-1", 4.0, 0.05);

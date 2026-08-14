@@ -43,13 +43,19 @@ nodes:
     level: 30
     role: main
     parent: A
-    icon: LAPIS_LAZULI
+    icon: EXPERIENCE_BOTTLE
     cost: 1
-    effect-text: ラピスラズリの消費量減少
+    # 2026-08-14: ラピス消費軽減(lapis-cost-reduction)を廃止したので、このノードの効果を
+    # エンチャント費用軽減へ差し替えた。旧ステは ArsPaper の LapisCostReductionListener が
+    # 「削減分のラピスを先に返す」形で実装していたが、ユーザー判断で機構ごと廃止したため、
+    # そのままだとこの主軸ノードが SP1 を払って何も起きないノードになる。
+    # enchant-cost-reduction は EnchantCostReductionListener が消費し、エンチャントテーブルの
+    # 提示/実消費レベルと金床の修理コストの両方を割合で軽減する(prestige も同じ 0.10)。
+    effect-text: エンチャントの消費経験値レベル-10%
     effects:
-      - ラピスラズリの消費量減少
+      - エンチャントの消費経験値レベル-10%
     buffs:
-      lapis-cost-reduction: 1
+      enchant-cost-reduction: 0.10
   C:
     name: エンチャントの達人
     level: 50

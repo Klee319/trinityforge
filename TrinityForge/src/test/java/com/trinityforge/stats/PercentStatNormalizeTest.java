@@ -99,11 +99,10 @@ class PercentStatNormalizeTest {
     }
 
     @Test
-    @DisplayName("2026-07-23 仕様確定: lapis-cost-reduction is a FLAT count (individual units reduced), not a rate")
-    void lapisCostReductionIsNotARateKey() {
+    @DisplayName("2026-08-14 廃止: lapis-cost-reduction は RATE_KEYS にも戻らない(復活の検知)")
+    void lapisCostReductionStaysRetired() {
+        // 廃止キーなので RATE_KEYS へ入れ直されていないことだけを見る。ここが true になったら
+        // 消費側(ArsPaper)を消したのに coerce だけ復活した状態で、yml に書けてしまう。
         assertFalse(PercentStatNormalize.isRateKey("lapis-cost-reduction"));
-        assertEquals(1.0, PercentStatNormalize.coerce("lapis-cost-reduction", 1.0), 1e-9);
-        assertEquals(75.0, PercentStatNormalize.coerce("lapis-cost-reduction", 75.0), 1e-9,
-                "must not be divided by 100 like the RATE_KEYS members are");
     }
 }

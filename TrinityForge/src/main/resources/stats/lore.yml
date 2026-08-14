@@ -1483,23 +1483,6 @@ stats:
         - PLAYER
     limits:
       floor: 0
-  lapis-cost-reduction:
-    name: ラピス消費効率
-    icon: ""
-    format: INTEGER
-    decimals: 0
-    order: 212
-    show-sign: true
-    hide-when-zero: true
-    unit: 個
-    category: craft
-    trigger:
-      when: ON_ENCHANT
-      sources: ALL
-      applies-to:
-        - PLAYER
-    limits:
-      floor: 0
   material-refund-chance:
     name: 素材効率（儀式）
     icon: ""

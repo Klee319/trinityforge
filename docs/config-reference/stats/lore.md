@@ -150,14 +150,13 @@ CooldownManager.applyReductionで消費)。符号反転(正=短縮)はcooldown-r
 --- クラフト系 (CraftQualityService → クラフターの totalOf()) ---
 ```
 
-### 直後: `name: ラピス消費軽減`
+### （削除済み）`lapis-cost-reduction`（ラピス消費軽減）
 
-```
-2026-07-23 仕様確定: %ではなく「軽減する個数」(FLATな整数)。PercentStatNormalizeのRATE_KEYS対象外。
-2026-07-31 order 207 → 212: 儀式上振れ/下振れを 203/204 に入れた分ロール3キーが 207 まで伸びたため、
-空き番の 212 へ移した。移動先はエンチャント系(213 エンチャントコスト軽減 / 214 エンチャント運)の
-直前なので配置としても素直。
-```
+2026-08-14 にユーザー判断「ラピス効率は使わない」で機構ごと廃止した。TF 側の語彙・lore・base-stats・
+skilltree/enchanting.yml のノードBに加え、消費側だった ArsPaper の
+`com.arspaper.enchant.LapisCostReductionListener`（`ArsPaper.java` の registerEvents と
+`TrinityForgeBridge.STAT_LAPIS_COST_REDUCTION`）も同時に削除している。
+ノードBの効果は `enchant-cost-reduction`（エンチャント費用軽減）へ差し替えた。
 
 ### 直後: `source-cost-reduction:`
 

@@ -72,7 +72,7 @@ class GateEffectIdTest {
         assertTrue(GateEffectId.parse("").isEmpty());
         assertTrue(GateEffectId.parse("   ").isEmpty());
         assertTrue(GateEffectId.parse("light-glyph-unlock").isEmpty(), "bare legacy id (no prefix) must not parse");
-        assertTrue(GateEffectId.parse("lapis-cost-reduction").isEmpty());
+        assertTrue(GateEffectId.parse("enchant-cost-reduction").isEmpty());
         assertTrue(GateEffectId.parse("unknownprefix:foo").isEmpty());
         assertTrue(GateEffectId.parse("glyph:").isEmpty(), "prefix with empty remainder must not parse");
         assertTrue(GateEffectId.parse(":foo").isEmpty(), "empty prefix must not parse");

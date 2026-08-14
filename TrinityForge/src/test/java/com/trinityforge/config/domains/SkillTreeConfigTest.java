@@ -554,7 +554,7 @@ class SkillTreeConfigTest {
 
     @Test
     @DisplayName("2026-07-23 verifier指摘②: RATE_KEYS buffs are percent-normalized to [0,1]; FLAT/INTEGER buffs "
-            + "(mana_bonus, lapis_cost_reduction) are left untouched")
+            + "(mana_bonus, enchant_luck) are left untouched")
     void buffsAreNormalizedThroughPercentStatNormalize(@TempDir File dataFolder) throws IOException {
         writeTree(dataFolder, "normalize.yml", """
                 skill: NORMALIZE_TREE
@@ -566,7 +566,9 @@ class SkillTreeConfigTest {
                     buffs:
                       material-refund-chance: 15   # RATE_KEYS member: percent-points authoring -> 0.15
                       mana-bonus: 50                # FLAT, never coerced regardless of RATE_KEYS
-                      lapis-cost-reduction: 50       # 2026-07-23仕様確定: 個数(FLAT), RATE_KEYSから除外済み
+                      # 2026-08-14: 以前はここが lapis-cost-reduction だったが、当キーは廃止したので
+                      # 同じく FLAT でRATE_KEYS非対象の enchant-luck(エンチャント運のポイント)へ差し替えた。
+                      enchant-luck: 50
                 """);
         SkillTreeConfig config = new SkillTreeConfig();
 
@@ -574,7 +576,7 @@ class SkillTreeConfigTest {
         Map<String, Double> buffs = config.tree("NORMALIZE_TREE").orElseThrow().node("A").orElseThrow().buffs();
         assertEquals(0.15, buffs.get("material_refund_chance"), 0.0);
         assertEquals(50.0, buffs.get("mana_bonus"), 0.0);
-        assertEquals(50.0, buffs.get("lapis_cost_reduction"), 0.0);
+        assertEquals(50.0, buffs.get("enchant_luck"), 0.0);
     }
 
     @Test

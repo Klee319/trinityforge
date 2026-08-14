@@ -46,8 +46,8 @@ public final class PercentStatNormalize {
             StatKeys.canonical("suspicious-respawn-chance"),
             StatKeys.canonical("hive-harvest-fortune"),
             StatKeys.canonical("food-save-chance"),
-            // lapis-cost-reduction は2026-07-23仕様確定で「軽減する個数」(FLAT整数)に変更されたため
-            // RATE_KEYSから除外(coerce対象外)。%系のsource-cost-reduction等とは異なる単位。
+            // ※ lapis-cost-reduction は2026-08-14に廃止(ArsPaper の消費側リスナーごと削除)。
+            //   もともと「軽減する個数」(FLAT整数)でRATE_KEYS対象外だったので、この一覧に影響は無い。
             StatKeys.canonical("source-cost-reduction"),
             StatKeys.canonical("material-refund-chance"),
             StatKeys.canonical("ingredient-save-chance"),

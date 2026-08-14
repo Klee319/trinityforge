@@ -250,7 +250,7 @@ class SkillTreeProgressionGeneratorTest {
     void dedicatedEffectsNeverLeakIntoPerkRewards() {
         Map<String, SkillNode> nodes = new LinkedHashMap<>();
         nodes.put("A", new SkillNode("A", "無配線", 10, SkillRole.MAIN, null, null, "STONE", 1, "desc",
-                Map.of(), Map.of("arssmithing_lapiscostreduction_add", 2.0), List.of(), List.of(),
+                Map.of(), Map.of("arssmithing_sourcecostreduction_add", 2.0), List.of(), List.of(),
                 List.of(new DedicatedEffectEntry("glyph:light", null),
                         new DedicatedEffectEntry("recipe:waystone_craft", null),
                         new DedicatedEffectEntry("ritual:animal_summon", null),
@@ -261,7 +261,7 @@ class SkillTreeProgressionGeneratorTest {
         GeneratedProgression gen = SkillTreeProgressionGenerator.generate(tree);
 
         // Only the hand-authored native entry survives; every dedicated-effect placement is gate-index-only.
-        assertEquals(Map.of("arssmithing_lapiscostreduction_add", 2.0),
+        assertEquals(Map.of("arssmithing_sourcecostreduction_add", 2.0),
                 gen.perks().get("arssmithing_perk_a").perkRewards());
     }
 }

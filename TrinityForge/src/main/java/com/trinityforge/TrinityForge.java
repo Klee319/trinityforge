@@ -1770,9 +1770,11 @@ public final class TrinityForge extends JavaPlugin {
     /**
      * The player's総合stat total (装備 + skill-tree perk合算, mainhand context) for {@code key} — the
      * public read seam forks use instead of the retired perk-only native reward path (2026-07-23
-     * stat-gate-overhaul §2 移行B14: fork consumer系 {@code lapis_cost_reduction}/
-     * {@code source_cost_reduction}/{@code material_refund_chance}/{@code ingredient_save_chance}
-     * 等はこのAPI経由で読む想定。fork側の切替は別ウェーブ)。{@code 0.0} when
+     * stat-gate-overhaul §2 移行B14: fork consumer系 {@code source_cost_reduction}/
+     * {@code material_refund_chance}/{@code ingredient_save_chance}
+     * 等はこのAPI経由で読む想定。fork側の切替は別ウェーブ。なお {@code lapis_cost_reduction} は
+     * 2026-08-14 に廃止し、消費側だった ArsPaper の {@code LapisCostReductionListener} ごと削除した)。
+     * {@code 0.0} when
      * the aggregator has not been built yet (before {@link #onEnable} completes) or {@code player} is
      * {@code null}.
      */

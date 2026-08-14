@@ -177,7 +177,12 @@ public final class StatVocabulary {
             // NativeAttributeBridge が PerkBuffResolver#setBuffsFor の結果へ × (1 + max(0, この値)) を掛ける。
             "armor_set_bonus",
             // fork consumer系 (fork は TF static API statTotal(player, key) 経由で読む)
-            "lapis_cost_reduction", "source_cost_reduction", "material_refund_chance",
+            // ※ lapis_cost_reduction は 2026-08-14 に廃止(ユーザー判断「ラピス効率は使わない」)。
+            //   消費側は ArsPaper フォークの com.arspaper.enchant.LapisCostReductionListener で、
+            //   TF の語彙を消すだけでは tfStatTotal が常に0を返す no-op として残り続けるため、
+            //   フォークのリスナーと ArsPaper.java の registerEvents、TrinityForgeBridge の
+            //   STAT_LAPIS_COST_REDUCTION も同時に削除した(フォークの再ビルドと jar 差し替えが要る)。
+            "source_cost_reduction", "material_refund_chance",
             "ingredient_save_chance",
             // エンチャント/ポーション品質 (2026-07-25、かまど・エンチャント・ポーションは実行者限定ステ):
             // enchant_luck=エンチャントテーブルの良エンチャント出現率格上げ用ポイント(EnchantLuckListener消費)。

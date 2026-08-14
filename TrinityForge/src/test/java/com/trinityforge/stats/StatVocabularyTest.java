@@ -97,7 +97,7 @@ class StatVocabularyTest {
                 "workbench_downswing_reduction", "ritual_downswing_reduction",
                 "craft_roll_up_bonus", "craft_roll_down_reduction", "craft_roll_inset",
                 "mana_bonus", "mana_regen",
-                "lapis_cost_reduction", "source_cost_reduction", "material_refund_chance",
+                "source_cost_reduction", "material_refund_chance",
                 "ingredient_save_chance"}) {
             assertEquals(StatVocabulary.Channel.GENERAL, StatVocabulary.channelOf(key), key);
         }

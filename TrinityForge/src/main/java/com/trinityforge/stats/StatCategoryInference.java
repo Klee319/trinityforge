@@ -41,7 +41,7 @@ public final class StatCategoryInference {
         // craft が含まれないので明示ルールが必要(さもないと OTHER に落ちる)。
         if (key.startsWith("workbench_")
                 || key.startsWith("ritual_")
-                || key.equals("lapis_cost_reduction")
+                // 2026-08-14: lapis_cost_reduction を廃止(ArsPaper の消費側リスナーごと削除)。
                 || key.equals("material_refund_chance")
                 || key.equals("ingredient_save_chance")
                 || key.equals("enchant_luck")

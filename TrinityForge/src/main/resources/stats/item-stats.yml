@@ -138,8 +138,9 @@
 #           workbench-downswing-reduction/ritual-downswing-reduction(下振れ抑制・作業台/儀式で別),
 #           craft-roll-up-bonus(ロール上振れ),
 #           craft-roll-down-reduction(ロール下振れ抑制), craft-roll-inset(ロール収束)
-#     fork consumer系: lapis-cost-reduction(ラピス消費軽減), source-cost-reduction(ソース消費軽減),
+#     fork consumer系: source-cost-reduction(ソース消費軽減),
 #           material-refund-chance(素材返還率), ingredient-save-chance(材料節約率)
+#           ※ lapis-cost-reduction(ラピス消費軽減)は2026-08-14に廃止(ArsPaper 側の消費リスナーごと削除)
 #     ※ 上記のうち PERCENT表記のものは 0.0〜1.0 の割合値で指定する(他の割合系ステと同様)。
 #   ※ 割合系(crit-chance / penetration / 各resistance / damage-reduction / dodge-chance / armor-strength 等)は
 #     0.0〜1.0 の割合値で指定する。armor-defense-rate だけは防具ポイントの整数値である。
