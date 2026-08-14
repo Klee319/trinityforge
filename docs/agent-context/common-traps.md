@@ -292,6 +292,15 @@ config-editor は custom アイテムの選択を**必ず `custom:<id>` へ正�
 fail-safe を持つため、解決失敗は**「当たるまで無料で引き直せる」**という形で現れる。
 無料引き直しを見たら、まず景品IDの解決を疑うこと。
 
+**ArsPaper 側も同じ穴を持っていた（2026-08-14 修正）**: `mana.source-auto-consume.items` の
+出荷値は `custom:source_berry: 100` だったが、照合側の `PdcHelper#getCrossPluginItemId` が返すのは
+PDC に入っている**素のid（`source_berry`）**なので 1 件も一致せず、**ソース自動消費は一度も
+発動していなかった**。yml を手で `source_berry` に直しても、editor でその行を触れば
+`materialInput` がまた `custom:` を付けるので戻る ── **読み込み側で剥がす以外に恒久策は無い**
+（`ManaConfig#normalizeItemId`）。**アイテムidをキーにする config を新設したら、
+まずここを確認する。** なお `list:`（互換リスト）は剥がさないこと。互換リストはレシピ素材の語彙で
+1 個のアイテムidではないため、剥がすと存在しないidに化ける。
+
 ### ⚠️ カスタムアイテムidは Ars と TF の 2 つの PDC キーに分かれている
 
 同じ id 空間を 2 プラグインで分担している。id で照合する箇所は**必ず両方読む**こと。
