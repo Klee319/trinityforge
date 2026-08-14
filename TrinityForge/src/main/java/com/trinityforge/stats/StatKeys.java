@@ -50,7 +50,16 @@ public final class StatKeys {
      */
     private static final Map<String, String> LEGACY_KEY_ALIASES = Map.of(
             "weapon_cooldown", "item_cooldown",
-            "tool_enchant_efficiency", "gathering_efficiency");
+            "tool_enchant_efficiency", "gathering_efficiency",
+            // 2026-08-14 ユーザー決定: 「EXP増加(エンチャント)」の統合。enchant_exp_gain_bonus は
+            // 「エンチャント時に得る ENCHANTING スキルEXP」の増減だったが、ENCHANTING への EXP 付与点は
+            // NativeSkillExperienceListener#onEnchant の1箇所しかない(全数確認済み)ため、
+            // 職業EXP増加の共通機構 enchanting_exp_bonus(<スキルID>_exp_bonus)と同じ量に
+            // 別経路で掛かっているだけの重複だった。lore にも「EXP増加(エンチャント)」と
+            // 「職業EXP増加(エンチャント)」が並んでいて区別できない状態だったので後者へ一本化する。
+            // ★このエイリアスを入れる以上、onEnchant 側の乗算は必ず消すこと。残すと同じ倍率が
+            //   listener と NativeProgressionService の二重で掛かる。
+            "enchant_exp_gain_bonus", "enchanting_exp_bonus");
 
     /**
      * 旧綴り検出時に警告を1回だけ出すための既知集合。canonical() はホットパス(攻撃判定のたびに

@@ -73,10 +73,11 @@ public final class PercentStatNormalize {
             StatKeys.canonical("woodcutting-extra-drop-chance"),
             StatKeys.canonical("harvest-extra-drop-chance"),
             StatKeys.canonical("breeding-extra-child-chance"),
-            // 2026-07-25: エンチャント/ポーション実行者限定ステ。enchant-exp-gain-bonus は符号付きの
-            // 増減率(vanilla-exp-bonus等と同様に%系)、brew-speed-bonus は短縮率。
+            // 2026-07-25: エンチャント/ポーション実行者限定ステ。brew-speed-bonus は短縮率。
             // enchant-luck/potion-quality-bonus は coating-charges 同様の整数ポイント蓄積のため対象外。
-            StatKeys.canonical("enchant-exp-gain-bonus"),
+            // 2026-08-14: enchant-exp-gain-bonus をここから外した。廃止して enchanting-exp-bonus へ
+            // 統合したが、職業EXP増加(<スキルID>-exp-bonus)は倍率系として意図的に矯正対象外
+            // (1超が正当)なので、エイリアスで読み替わった先をここへ足してはいけない。
             StatKeys.canonical("brew-speed-bonus"),
             // 2026-07-25 (config editor T2): マナ初期値の%系3キー(base-stats.yml 専用、lore.yml未登録)。
             StatKeys.canonical("mana-onhit-percent"),

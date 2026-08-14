@@ -134,7 +134,7 @@
     "planted-crop-growth-bonus": "繁殖:作物成長↑",
     "armor-set-bonus": "装備:セット効果↑",
     "enchant-luck": "エンチャ:運↑",
-    "enchant-exp-gain-bonus": "エンチャ:EXP↑",
+    // 2026-08-14: enchant-exp-gain-bonus は廃止 (enchanting-exp-bonus へ統合)。
     "enchant-cost-reduction": "エンチャ:費用↓",
     "potion-quality-bonus": "錬金:品質↑",
     "brew-speed-bonus": "錬金:速度↑"
@@ -306,7 +306,9 @@
     ,"ocean-fishing-bonus": "釣り位置が海洋系バイオームのときだけ fishing-bonus の期待値へ加算される追加分(%)。"
     // ---- エンチャント/ポーション品質 (2026-07-25、実行者限定ステ反映: 新規4キー) ----
     ,"enchant-luck": "エンチャントテーブル使用時、確定したエンチャントのレベルを格上げ抽選する確率(luck1.0あたり)に使うポイント。overenchant系を解放していれば上限突破側の出現率にも乗る。"
-    ,"enchant-exp-gain-bonus": "エンチャント実行時に得るENCHANTINGスキルEXPを増減する(符号付き、%)。既存のグローバル設定(enchant.level_cost_multiplier)とは別枠でプレイヤー単位に乗算加算される。"
+    // 2026-08-14: enchant-exp-gain-bonus は廃止した。ENCHANTING への EXP 付与点は onEnchant の
+    // 1箇所しかなく、職業EXP増加(エンチャント)=enchanting-exp-bonus と同じ量に別経路で掛かる
+    // 重複だったため。エンチャントの消費経験値レベルを減らすのは別キーの enchant-cost-reduction。
     ,"potion-quality-bonus": "醸造したポーションの効果時間・強度(amplifier)へ換算されるポイント。強度は切り捨てで整数化される(alchemy-quality.yml)。"
     ,"brew-speed-bonus": "醸造時間を割合で短縮する(%)。ホッパー式の自動醸造には alchemy.auto_mult で減衰した値が適用される。"
     // ---- 2026-07-26 新規2キー ----

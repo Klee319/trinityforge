@@ -45,7 +45,6 @@ public final class StatCategoryInference {
                 || key.equals("material_refund_chance")
                 || key.equals("ingredient_save_chance")
                 || key.equals("enchant_luck")
-                || key.equals("enchant_exp_gain_bonus")
                 || key.equals("potion_quality_bonus")
                 || key.equals("brew_speed_bonus")) {
             return StatCategory.CRAFT;

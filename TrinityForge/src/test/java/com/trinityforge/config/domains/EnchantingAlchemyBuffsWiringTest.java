@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Loads the SHIPPED {@code skilltree/enchanting.yml} and {@code skilltree/alchemy.yml} through the real
- * {@link SkillTreeConfig} parser and asserts the new {@code enchant_luck}/{@code enchant_exp_gain_bonus}/
+ * {@link SkillTreeConfig} parser and asserts the new {@code enchant_luck}/{@code enchanting_exp_bonus}/
  * {@code potion_quality_bonus}/{@code brew_speed_bonus} buffs on the target nodes parsed cleanly (not
  * silently dropped as an unknown key — see {@link SkillTreeConfig}'s {@code parseBuffs}, which drops and
  * warns on any key {@link com.trinityforge.stats.StatVocabulary#isKnown} rejects).
@@ -75,7 +75,7 @@ class EnchantingAlchemyBuffsWiringTest {
         SkillNode node = tree.nodes().get(nodeId);
         assertTrue(node != null, "node " + nodeId + " must exist");
         assertEquals(expectedLuck, node.buffs().get("enchant_luck"), "node " + nodeId + " enchant_luck");
-        assertEquals(expectedExpBonus, node.buffs().get("enchant_exp_gain_bonus"), "node " + nodeId + " enchant_exp_gain_bonus");
+        assertEquals(expectedExpBonus, node.buffs().get("enchanting_exp_bonus"), "node " + nodeId + " enchanting_exp_bonus");
     }
 
     /** 主軸ノード: enchant_luck だけを配り、EXP 増減のトレードオフは載せない。 */
@@ -83,8 +83,8 @@ class EnchantingAlchemyBuffsWiringTest {
         SkillNode node = tree.nodes().get(nodeId);
         assertTrue(node != null, "node " + nodeId + " must exist");
         assertEquals(expectedLuck, node.buffs().get("enchant_luck"), "node " + nodeId + " enchant_luck");
-        assertTrue(node.buffs().get("enchant_exp_gain_bonus") == null,
-                "主軸ノード " + nodeId + " に enchant_exp_gain_bonus を載せない(EXP増減はギリシャ路線の選択要素)");
+        assertTrue(node.buffs().get("enchanting_exp_bonus") == null,
+                "主軸ノード " + nodeId + " に enchanting_exp_bonus を載せない(EXP増減はギリシャ路線の選択要素)");
     }
 
     @Test

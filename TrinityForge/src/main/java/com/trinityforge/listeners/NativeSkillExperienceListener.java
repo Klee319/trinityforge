@@ -80,8 +80,10 @@ public final class NativeSkillExperienceListener implements Listener {
     private static final String FEATURE_BREAK_VANILLA_EXP = "break-vanilla-exp";
     private static final String VANILLA_EXP_BONUS = StatKeys.canonical("vanilla_exp_bonus");
     private static final String BREAK_VANILLA_EXP_BONUS = StatKeys.canonical("break_vanilla_exp_bonus");
-    /** enchanting.yml A/C/A-alpha/A-beta の「エンチャントEXPの増加/減少」用、プレイヤー単位の新規stat。 */
-    private static final String ENCHANT_EXP_GAIN_BONUS = StatKeys.canonical("enchant_exp_gain_bonus");
+    // 2026-08-14: enchant_exp_gain_bonus はここで消費していたが、職業EXP増加の共通機構
+    // (enchanting_exp_bonus = <スキルID>_exp_bonus、NativeProgressionService#grant が適用)と
+    // 同じ量に別経路で掛かる重複だったので廃止した。StatKeys のエイリアスで旧キーは
+    // enchanting_exp_bonus へ読み替わるため、ここで読み直すと二重適用になる。
     private static final String POTION_QUALITY_BONUS = StatKeys.canonical("potion_quality_bonus");
     /** {@link #grantStackCollapseChain} が1回の破壊で辿る連鎖ブロック数の防御的上限。 */
     private static final int STACK_COLLAPSE_SCAN_LIMIT = 512;
@@ -595,12 +597,11 @@ public final class NativeSkillExperienceListener implements Listener {
         ItemStack enchantedItem = event.getItem();
         double amount = enchantingExp(entry, enchants,
                 enchantedItem == null ? null : enchantedItem.getType(), spentLevels);
-        // enchant_exp_gain_bonus (enchanting.yml A/C/A-alpha/A-beta の「エンチャントEXPの増加/減少」):
-        // Valhalla式の設定表評価後にプレイヤー単位で乗算する。正=増加, 負=減少。
-        if (aggregator != null) {
-            double bonus = aggregator.aggregate(enchanter).totalOf(ENCHANT_EXP_GAIN_BONUS);
-            amount = Math.max(0.0, amount * (1.0 + bonus));
-        }
+        // 2026-08-14: ここに enchant_exp_gain_bonus の乗算があったが廃止した。増減は
+        // enchanting_exp_bonus(職業EXP増加(エンチャント))として NativeProgressionService#grant が
+        // skill_exp_bonus と【加算】で合成してから1回だけ掛ける。ここで先に掛けると、
+        // 表記どおりの合計にならない (1+全スキル+職業別)×(1+ここ) の三層になるうえ、
+        // StatKeys のエイリアスで旧キーが enchanting_exp_bonus へ読み替わる今は二重適用になる。
         grant(enchanter, SkillId.ENCHANTING, amount);
     }
 

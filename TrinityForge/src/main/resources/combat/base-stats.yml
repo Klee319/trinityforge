@@ -159,7 +159,8 @@ base-stats:
   ingredient-save-chance: 0
   source-cost-reduction: 0
   enchant-luck: 0
-  enchant-exp-gain-bonus: 0
+  # 2026-08-14: enchant-exp-gain-bonus を廃止した。エンチャント時のスキルEXP増減は
+  # 職業EXP増加(エンチャント)＝上の enchanting-exp-bonus に一本化されている。
   enchant-cost-reduction: 0
   potion-quality-bonus: 0
   brew-speed-bonus: 0

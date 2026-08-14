@@ -227,7 +227,6 @@ source-cost-reduction
 material-refund-chance
 ingredient-save-chance
 enchant-luck
-enchant-exp-gain-bonus
 potion-quality-bonus
 brew-speed-bonus
 enchant-cost-reduction

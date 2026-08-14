@@ -1707,20 +1707,6 @@ stats:
         - PLAYER
     limits:
       floor: 0
-  enchant-exp-gain-bonus:
-    name: EXP増加(エンチャント)
-    icon: ""
-    format: PERCENT
-    decimals: 0
-    order: 142
-    show-sign: true
-    hide-when-zero: true
-    category: utility
-    trigger:
-      when: ON_ENCHANT
-      sources: ALL
-      applies-to:
-        - PLAYER
   potion-quality-bonus:
     name: 醸造品質
     icon: ""

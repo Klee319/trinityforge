@@ -81,7 +81,8 @@ public enum StatsCategory {
             // 経済連携(2026-07-25): 解体(DisassemblyListener)は生産系の一つ。
             "disassembly_return_bonus",
             // エンチャント/ポーション品質(2026-07-25): 生産系スキルの一つとしてクラフトへ分類。
-            "enchant_luck", "enchant_exp_gain_bonus", "potion_quality_bonus", "brew_speed_bonus",
+            // ※ enchant_exp_gain_bonus は 2026-08-14 に enchanting_exp_bonus へ統合して廃止。
+            "enchant_luck", "potion_quality_bonus", "brew_speed_bonus",
             // 2026-07-26 M-stats分類: エンチャント費用・作業台/儀式の品質。いずれも生産の成果物に効く。
             "enchant_cost_reduction", "workbench_quality_bonus", "ritual_quality_bonus",
             // 2026-07-28 (数値のギミックyml集約): feature:coating-stack-increase から降格。

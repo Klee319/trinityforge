@@ -105,9 +105,11 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 // 94 → 97: 2026-08-02 にスキル別EXP倍率3キー(woodcutting/farming/digging-exp-bonus)を追加した
 // (単発装備の「伐採EXP+15%」を use-skill で表現すると斧で殴って伐採EXPが入るため)。
 // 2026-08-05: 職業EXP増加(スキル別)を3→15キーへ拡張したので 97 → 109。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく109件ちょうど", () => {
+// 2026-08-14: enchant-exp-gain-bonus を廃止し enchanting-exp-bonus へ統合したので 109 → 108
+// (ENCHANTING へのEXP付与点が1箇所しかなく、職業EXP増加と同じ量に別経路で掛かる重複だった)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく108件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 109, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 108, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 

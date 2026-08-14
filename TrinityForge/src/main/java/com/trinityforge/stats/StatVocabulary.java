@@ -181,10 +181,12 @@ public final class StatVocabulary {
             "ingredient_save_chance",
             // エンチャント/ポーション品質 (2026-07-25、かまど・エンチャント・ポーションは実行者限定ステ):
             // enchant_luck=エンチャントテーブルの良エンチャント出現率格上げ用ポイント(EnchantLuckListener消費)。
-            // enchant_exp_gain_bonus=エンチャント時のENCHANTINGスキルEXP獲得量への増減(NativeSkillExperienceListener消費)。
             // potion_quality_bonus=醸造ポーションの効果時間/強度換算に使うポイント(PotionQualityListener消費)。
             // brew_speed_bonus=醸造時間短縮率(PotionQualityListener/BrewSpeedListener消費)。
-            "enchant_luck", "enchant_exp_gain_bonus", "potion_quality_bonus", "brew_speed_bonus",
+            // ※ enchant_exp_gain_bonus は 2026-08-14 に廃止。ENCHANTING の EXP 付与点が
+            //   onEnchant の1箇所しかなく、職業EXP増加の enchanting_exp_bonus と同じ量に
+            //   別経路で掛かる重複だった(StatKeys のエイリアスで読み替える)。
+            "enchant_luck", "potion_quality_bonus", "brew_speed_bonus",
             // 2026-07-26 新設: エンチャント費用軽減(EnchantCostReductionListener消費)。
             // エンチャントテーブルのレベルコストと金床の修理コストの両方を割合で軽減する。
             "enchant_cost_reduction",

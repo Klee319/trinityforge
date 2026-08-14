@@ -222,7 +222,8 @@
         "glyph-slot-bonus", "hit-mana-recovery", "damage-mana-recovery",
         "mana-cost-reduction-flat", "mana-cost-reduction-percent",
         "lapis-cost-reduction", "source-cost-reduction", "material-refund-chance",
-        "ingredient-save-chance", "enchant-luck", "enchant-exp-gain-bonus",
+        // 2026-08-14: enchant-exp-gain-bonus は廃止 (enchanting-exp-bonus へ統合)。
+        "ingredient-save-chance", "enchant-luck",
         "potion-quality-bonus", "brew-speed-bonus", "enchant-cost-reduction",
         "glyph-damage-multiplier-bonus"
       ]
