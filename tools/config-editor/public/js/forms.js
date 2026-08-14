@@ -483,6 +483,34 @@
 
   const ITEM_STATS_LOCKED_TABS = new Set(["catalyst", "spellbook", "thread"]);
 
+  // 2026-08-15: 実サーバ報告「スレッドの固有設定欄が見出しだけ残って中身が出ない」の真因は
+  // catalog.yml の id タイプミス(thred_translate)で、ArsPaper の UnifiedRecipeLoader が
+  // カタログid を必ず "thread_<threads.ymlのid>" で生成する規約(recipeKey("thread_" + id, ...))
+  // に合っていなかった。resolveThreadId がそのまま null を返し、見出しの下の2セクションが
+  // 何も描かず理由も出さないため、GUI上は「消えた」ようにしか見えなかった。原因を画面に出す。
+  function threadCatalogIdProblem(catId) {
+    if (!catId) {
+      return {
+        reason: "no-catalog",
+        title: "このスレッド行はカタログ(items/catalog.yml)に紐付いていません",
+        hint: "手打ちの material 行などカタログ外のエントリのため、threads.yml / thread-sets.yml との対応が取れません。"
+          + "カタログ側にエントリを作るか、表示タブの割り当てを確認してください。"
+      };
+    }
+    if (typeof catId !== "string" || !catId.startsWith("thread_") || catId.length <= "thread_".length) {
+      return {
+        reason: "bad-prefix",
+        title: `カタログidが「${catId}」でスレッドの命名規則に合っていません`,
+        hint: "スレッドのカタログidは threads.yml の id から thread_<id> として自動生成されます"
+          + "(ArsPaper の UnifiedRecipeLoader)。thread_ で始まらない id は threads.yml /"
+          + " thread-sets.yml のどのエントリにも対応しないため、ゲーム内でもスレッドとして"
+          + "機能しません。アイテムカタログ画面で id を thread_ 始まりに直してください。"
+      };
+    }
+    return null;
+  }
+  window.threadCatalogIdProblem = threadCatalogIdProblem;
+
   window.buildItemStatsForm = function buildItemStatsForm(data, opts) {
     const options = opts && typeof opts === "object" ? opts : {};
     let useSkillOptions = options.useSkillOptions || null; // null = unrestricted skillSelect
@@ -1761,7 +1789,7 @@
     // 側の共通 id になる(45件、完全1:1、実測済み)。カタログに紐付かない行(手打ちmaterial等)は null。
     function resolveThreadId(match) {
       const catId = match && match.id;
-      if (!catId || !catId.startsWith("thread_")) return null;
+      if (threadCatalogIdProblem(catId)) return null;
       return catId.slice("thread_".length);
     }
 
@@ -1769,6 +1797,15 @@
       const box = h("div", { class: "sub-section" });
       box.appendChild(window.subTitleEl("スレッド固有",
         "Ars の効果(threads.yml)と、N個装備で発動するセット効果(thread-sets.yml)"));
+
+      // 2026-08-15: カタログidが命名規則(thread_<id>)から外れている場合、見出しの下を空にせず
+      // 理由をここで打ち切って表示する(実サーバ報告「見出しだけ残って入力欄が1つも出ない」の対処)。
+      const catProblem = threadCatalogIdProblem(catalogMatch && catalogMatch.id);
+      if (catProblem) {
+        box.appendChild(h("div", { class: "warn-banner", text: `${catProblem.title} — ${catProblem.hint}` }));
+        return box;
+      }
+
       const threadId = resolveThreadId(catalogMatch);
 
       // ---- threads.yml 側の効果 (regen-bonus 等の数値効果 + potion-effect/potion-level/flight/slots) ----
@@ -1917,6 +1954,18 @@
       }
       const threadSetSection = renderThreadSetEffects(threadId);
       if (threadSetSection) box.appendChild(threadSetSection);
+
+      // 2026-08-15: id は正常でも threadsRoot/threadSetsRoot が渡っていない旧来の呼び出し経路
+      // (split-views.js が threads.yml / thread-sets.yml を積んでいない画面)では両方 null になり、
+      // 見出しだけの空セクションが残る。片方だけ描けた場合は正常系(該当ファイルにエントリが
+      // 無いだけ)なので警告は出さない。
+      if (!threadYmlSection && !threadSetSection) {
+        box.appendChild(h("div", {
+          class: "warn-banner",
+          text: "threads.yml / thread-sets.yml が読み込まれていないためスレッド効果の欄を出せません。"
+            + "/api/config/threads と /api/config/thread-sets の応答を確認してください。"
+        }));
+      }
 
       return box;
     }

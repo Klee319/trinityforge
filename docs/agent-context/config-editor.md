@@ -980,6 +980,33 @@ yml を直接編集するときはここが効かないことを忘れないこ�
 そのまま流用できる形（`{groupId→{categories:{catId→{display-name,entries[],
 trigger-chance-percent?}}}}` 相当の形へ正規化してから渡す）にしてある。
 
+## カタログの「スレッド」タブは id が `thread_<threads.ymlのid>` でないと GUI もゲーム内も無言で死ぬ（2026-08-15）
+
+`items/catalog.yml` の `_editor.itemTabs.<id>: "thread"` に分類された id は、ArsPaper
+`UnifiedRecipeLoader.java:212` の `recipeKey("thread_" + threads.ymlのid), ...)` という命名規約に
+必ず合わせる必要がある。実サーバで新規スレッド追加時に `thread_translate` を `thred_translate`
+とタイプミスした事故があり、症状は「エディタでスレッド固有の設定欄を開くと見出し（`subTitleEl`
+「スレッド固有」）だけ残って入力欄が1つも出ない」だった。
+
+- **機構**: `forms.js#resolveThreadId` は `catId.startsWith("thread_")` が false なら `null` を
+  返し、`renderThreadYmlEffects`/`renderThreadSetEffects`（同ファイル、`renderThreadExtraFields`
+  内）は冒頭 `if (!threadsRoot || !tid) return null;` で即 return する。見出し自体は無条件描画な
+  ので、**理由がどこにも出ないまま空欄だけが残る**。id の綴りミスは「エディタのバグ」に見えるが
+  実際は catalog.yml 側のデータ不正で、`thread_` で始まらない id は threads.yml /
+  thread-sets.yml のどのエントリにも対応しないため**ゲーム内でもスレッドとして機能しない**
+  （表示バグではなく実害あり）。
+- **対処（実装済み）**: `forms.js` に純関数 `window.threadCatalogIdProblem(catId)` を新設し、
+  `renderThreadExtraFields` は見出し直後にこれを判定して問題があれば `warn-banner` を出して
+  return する（原因と直し方をGUI上に明示）。`lib/schema.js` の `validateCatalog` にも
+  `validateCatalogThreadTabIds` を追加し、`_editor.itemTabs` で `thread` 分類の id が
+  `thread_` プレフィックスを持つことを保存時に検査する。回帰テストは
+  `test/thread-catalog-id-prefix-2026-08-15.test.js`。
+- **教訓**: `resolveThreadId`/`renderThread*Effects` のように「対応関係が崩れると黙って
+  `null` を返し、呼び出し元も無条件で見出しだけ描く」構造は、原因不明の空欄バグを生みやすい。
+  新しいタブ種別・id 命名規約を導入するときは、対応が取れない場合に**理由を画面に出す**
+  ガード関数を最初から用意すること（`threadCatalogIdProblem` を他のタブ種別へ流用する場合、
+  戻り値の形 `{reason, title, hint}` をそのまま踏襲すると一貫性が保てる）。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

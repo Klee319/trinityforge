@@ -217,6 +217,27 @@ function validateCatalog(data, errors) {
     }
     validateRecipeForms(entry, `items.${id}`, errors, validateCatalogRecipe);
   }
+  validateCatalogThreadTabIds(data, errors);
+}
+
+// 2026-08-15: 「スレッド」タブ(_editor.itemTabs.<id> === "thread")に分類したカタログidは
+// ArsPaper の UnifiedRecipeLoader が recipeKey("thread_" + threads.ymlのid), ...) で
+// 生成する規約に合わせて必ず thread_<id> の形でなければならない。この規則から外れた id は
+// threads.yml / thread-sets.yml のどのエントリにも対応せず、GUI(スレッド固有欄)だけでなく
+// ゲーム内でもスレッドとして機能しない(実サーバ報告: thred_translate のタイプミス)。
+// _editor / _editor.itemTabs が無い catalog(旧来・後方互換)は素通りする。
+function validateCatalogThreadTabIds(data, errors) {
+  const editorMeta = data && data._editor;
+  if (!isPlainObject(editorMeta)) return;
+  const itemTabs = editorMeta.itemTabs;
+  if (!isPlainObject(itemTabs)) return;
+  for (const [id, tab] of Object.entries(itemTabs)) {
+    if (tab !== "thread") continue;
+    if (typeof id !== "string" || !id.startsWith("thread_") || id.length <= "thread_".length) {
+      errors.push(`_editor.itemTabs.${id}: スレッドタブのカタログidは thread_<id> 形式である必要があります`
+        + `(threads.yml / thread-sets.yml に対応せずゲーム内でも機能しません)`);
+    }
+  }
 }
 
 // レシピの正規形は「0件=キーなし / 1件=recipe:(マップ) / 2件以上=recipes:(マップの配列)」で、
