@@ -56,15 +56,21 @@
 
   // item-stats フォーム同様、STAT_LIST(lore.yml由来) と FALLBACK_STATS の和集合をステ候補にする
   // (forms.js の statList() と同一ロジック。forms.js 非公開のためここに複製)。
+  // 2026-08-13: 除外(HIDDEN_STATS)の適用が抜けていたため、廃止済みの flat-defense や
+  // gathering-efficiency へ統合済みの tool-enchant-efficiency がこの画面のセレクトにだけ
+  // 出続けていた。「forms.js と同一ロジック」と書いてある以上、除外も揃える。
   function statListLocal() {
     const primary = (window.STAT_LIST && window.STAT_LIST.length) ? window.STAT_LIST : [];
     const fallback = window.FALLBACK_STATS || [];
+    const hidden = new Set(window.HIDDEN_STATS || ["flat-defense"]);
     const seen = new Set();
     const out = [];
     for (const k of primary.concat(fallback)) {
-      if (!seen.has(k)) { seen.add(k); out.push(k); }
+      if (!k || hidden.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      out.push(k);
     }
-    return out.length ? out : fallback;
+    return out.length ? out : fallback.filter((k) => !hidden.has(k));
   }
 
   // 簡易 lore 行エディタ (forms.js の renderLoreRows と同等・非公開のためここに複製)。

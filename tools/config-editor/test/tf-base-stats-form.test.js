@@ -196,10 +196,16 @@ test("allStatKeys: 除外キー(no-op/アイテム専用/重複)が落ち、通�
 });
 
 // materials.js の FALLBACK_STATS (他画面=item-stats/skilltreeバフでも共有) からは
-// no-op キー + tool-enchant-efficiency を削除していないこと(=base-stats画面限定の除外であること)
-// を確認する。tool-enchant-efficiency は item-stats では今も有効なステなので、
-// FALLBACK_STATS から消してはいけない(brief 前提5)。
-test("materials.js の FALLBACK_STATS には除外対象キーが引き続き残っている(他画面では有効なため)", () => {
+// no-op キーを削除していないこと(=base-stats画面限定の除外であること)を確認する。
+//
+// 2026-08-14 訂正: ここには以前「tool-enchant-efficiency は item-stats では今も有効なステなので
+// FALLBACK_STATS から消してはいけない」と書いてあったが、これは誤り。当キーは 2026-07-26 の
+// 「効率」ステ統合で gathering-efficiency へ吸収され、StatKeys.LEGACY_KEY_ALIASES が canonical 化の
+// 時点で読み替えるため、item-stats でも「別項目に見えて実体は同じキー」になる。実サーバから
+// 「クラフト:効率増幅↑ が選択肢に残っている」と報告されたので FALLBACK_STATS から削除し、
+// HIDDEN_STATS でも止めた(→ legacy-stat-not-selectable-2026-08-14.test.js)。
+// よってこのテストの対象は EXPECTED_NO_OP_KEYS だけ。
+test("materials.js の FALLBACK_STATS には no-op キーが引き続き残っている(他画面では有効なため)", () => {
   delete require.cache[require.resolve("../public/js/materials.js")];
   require("../public/js/materials.js");
   const fallback = global.window.FALLBACK_STATS;

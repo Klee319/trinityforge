@@ -43,14 +43,25 @@ window.FALLBACK_STATS = [
   // 触媒のマナ消費軽減 (旧 mana-cost-reduction.{flat,percent} を item-stat 化。整数閾値ステ:
   // per-quality に小数を入れると加算され、整数化した分だけ実効値が上がる=切り捨て)。
   "mana-cost-reduction-flat", "mana-cost-reduction-percent",
-  // ツールエンチャント (旧 tool-enchants.yml を item-stat 化。整数閾値ステ=エンチャレベル。
-  // 実効レベルは floor 値。pickaxe 等に採掘効率を付与)。
-  "tool-enchant-efficiency",
   // スキルツリー専用の条件付き/解放バフ。アイテムステには通常設定しないが、同じバフUIから選択できる。
   // 2026-07-31: light/heavy-armor-move-speed-per-piece は語彙ごと廃止(set-buffs の move-speed へ統合)。
   "ars-tier-bonus", "glyph-slot-bonus",
   "armor-set-bonus"
 ];
+
+// ステ選択(セレクトメニュー)から必ず隠すキー。
+// statList() は「STAT_LIST(lore.yml 由来) ∪ FALLBACK_STATS」の和集合を候補にするので、
+// lore.yml から語彙を消しただけでは配備先の古い lore.yml 経由でセレクトに出続ける。
+// 「選ばせてはいけないキー」はこの1本で止める(2026-08-13 新設。以前は forms.js と
+// tf-base-stats.js が各自 ["flat-defense"] をハードコードし、ars-spellbooks.js は
+// 除外自体を持っていなかった)。
+//  - flat-defense: 旧・単純守備力。phys-flat-defense / magic-flat-defense へ分離済み。
+//  - tool-enchant-efficiency: 2026-07-26 の「効率」ステ統合で gathering-efficiency へ吸収された
+//    旧綴り。StatKeys.LEGACY_KEY_ALIASES が canonical 化の時点で gathering_efficiency へ
+//    読み替えるため、両方をセレクトに出すと「別項目に見えて実体は同じキー」になり、
+//    同じアイテムに2つ設定すると後勝ちで片方が黙って消える。
+// どちらも既存 yml に値が残っていれば statSelect がロスレス表示で補うので、値は失われない。
+window.HIDDEN_STATS = ["flat-defense", "tool-enchant-efficiency"];
 
 // 各statの既定表示フォーマット (lore.yml が読めない/キー欠落時のフォールバック)。
 // PERCENT のステは item-stats フォームで % 入力 (内部は 0.0〜1.0 の割合で保存) に切り替える。
@@ -107,7 +118,9 @@ window.FALLBACK_STAT_FORMATS = {
   // マナ消費軽減(実数) = 消費マナから減算する整数。整数ステとして扱い、per-quality 小数の
   // 累積を floor して実効値にする(閾値方式)。率のほうは上の PERCENT 群に移した。
   "mana-cost-reduction-flat": "INTEGER",
-  // ツールエンチャレベル (整数閾値。floor したレベルを付与)。
+  // 旧・ツールエンチャレベル。2026-07-26 に gathering-efficiency へ統合済みで、セレクトには
+  // 出さない(HIDDEN_STATS)。ここに残すのは、旧綴りが書かれたままの yml を開いたときに
+  // statSelect のロスレス表示がフォーマット不明で壊れないようにするためだけ。新規に選べる項目ではない。
   "tool-enchant-efficiency": "INTEGER"
 };
 
