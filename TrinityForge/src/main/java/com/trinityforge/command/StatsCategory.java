@@ -122,6 +122,9 @@ public enum StatsCategory {
     private static Set<String> utilityKeys() {
         Set<String> keys = new java.util.LinkedHashSet<>(FIXED_UTILITY_KEYS);
         keys.addAll(com.trinityforge.stats.SkillExpBonusKeys.all());
+        // 破壊時バニラEXP増加(採取スキル別、2026-08-15)。スコープ無しの break_vanilla_exp_bonus と
+        // 同じ UTILITY タブに置く(別タブへ散ると「採掘のだけ採集タブ」のような表示になる)。
+        keys.addAll(com.trinityforge.stats.BreakVanillaExpBonusKeys.all());
         return Set.copyOf(keys);
     }
 

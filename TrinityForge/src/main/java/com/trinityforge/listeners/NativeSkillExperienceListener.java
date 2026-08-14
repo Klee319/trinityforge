@@ -16,6 +16,7 @@ import com.trinityforge.progression.catalog.ItemExpLookup;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import com.trinityforge.stats.BreakVanillaExpBonusKeys;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -239,6 +240,14 @@ public final class NativeSkillExperienceListener implements Listener {
      * <b>採掘ツリーの A しか取っていないプレイヤーが作物・原木・土でもバニラEXPを得ていた</b>
      * (=3ツリー分の解放をタダ取りできる)。破壊が属する採取スキルで絞る。
      *
+     * <p><b>2026-08-15 実サーバ報告の修正 — 倍率も職業間で漏れていた</b>:
+     * 上の解放ゲートは職業別になったが、倍率の {@code break_vanilla_exp_bonus} はスコープを持たない
+     * 総合ステのままで、出荷スキルツリーの6ノード全部がそこへ {@code 0.5} を配っていた。
+     * その結果<b>採掘で取った +50% が伐採・整地・農業の破壊EXPにもそのまま乗っていた</b>
+     * (説明文は「破壊で1.5倍」等とツリー内で完結する前提の書き方)。採取スキル別の
+     * {@link BreakVanillaExpBonusKeys} を導入し、出荷ノードはそちらへ移した。
+     * スコープ無しの {@code break_vanilla_exp_bonus} は「採取全般」の意味で引き続き加算する。
+     *
      * @param gatheringSkill {@link #grantGathering} が確定させた採取スキルID
      *                       (FARMING/WOODCUTTING/DIGGING/MINING)。このツリーに置かれた配置だけを見る。
      */
@@ -247,6 +256,11 @@ public final class NativeSkillExperienceListener implements Listener {
         if (!dedicatedEffects.isActive(player, FEATURE_BREAK_VANILLA_EXP, gatheringSkill)) return;
         var totals = aggregator.aggregate(player);
         double bonus = totals.totalOf(VANILLA_EXP_BONUS) + totals.totalOf(BREAK_VANILLA_EXP_BONUS);
+        // 採取スキル別の倍率(2026-08-15)。破壊が属するツリーのキーだけを足す。
+        String perSkillKey = BreakVanillaExpBonusKeys.forSkill(gatheringSkill);
+        if (perSkillKey != null) {
+            bonus += totals.totalOf(perSkillKey);
+        }
         int amount = (int) Math.round(BASE_BREAK_EXP * (1.0 + Math.max(0.0, bonus)));
         if (amount > 0) {
             player.giveExp(amount);

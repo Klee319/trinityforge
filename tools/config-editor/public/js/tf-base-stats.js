@@ -215,6 +215,9 @@
         "ritual-upswing-bonus", "ritual-downswing-reduction",
         "craft-roll-up-bonus", "craft-roll-down-reduction", "craft-roll-inset",
         "vanilla-exp-bonus", "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus",
+        // 2026-08-15: 破壊時バニラEXPを採取スキル別へ分割(共通キーは採取全般として残す)。
+        "mining-break-vanilla-exp-bonus", "woodcutting-break-vanilla-exp-bonus",
+        "digging-break-vanilla-exp-bonus", "farming-break-vanilla-exp-bonus",
         "breeding-vanilla-exp-bonus", "woodcutting-extra-drop-chance",
         "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",
         "breeding-extra-child-chance", "bred-animal-growth-bonus",

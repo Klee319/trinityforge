@@ -148,6 +148,32 @@ config-editorのskilltree UIには専用フォーム（`buildSkillTreeForm`, `pu
 
 ## use-skill / 採取EXP表の落とし穴
 
+### ⚠️⚠️ 解放ゲートを職業別にしても、同じノードの `buffs`/`mainhand-buffs` は職業間で漏れ続ける
+
+**2026-08-01 と 2026-08-15 に同じ機能で2回踏んだ**。`feature:break-vanilla-exp`（破壊時バニラEXP解放）は
+mining/woodcutting/digging/farming の4ツリーが A ノードに置いており、解放ゲート側は
+`DedicatedEffectsConfig#isActive(player, effectId, skill)` に**壊したブロックの採取スキル**を渡すことで
+ツリー別に絞れる（`DedicatedEffectGateIndex#isActiveByPerks` が `placement.skill()` と一致比較する）。
+**ところが倍率側の stat にはスコープの概念が無い** ── `PlayerStatAggregator#totalOf(key)` は
+装備・パーク・役職・永続・base-stats を**全ツリーまたいで合算**するので、採掘ツリーのノードに
+`break-vanilla-exp-bonus: 0.5` と書くと**伐採・整地・農業の破壊EXPにも同じ +50% が乗る**。
+
+**見つかりにくい理由**: ノードの説明文が「破壊で1.5倍のバニラEXP」のようにツリー内で完結する書き方で、
+解放ゲートが職業別に直った時点で「もう職業別になった」と読めてしまう。実測しても、4ツリーとも解放して
+いれば合計値が正しく見える。
+
+**対処の型**: キーを `<スキルID>_<効果名>` へ分割し、**消費側がスキルIDから機械的にキーを組む**
+（`stats/BreakVanillaExpBonusKeys` / `stats/SkillExpBonusKeys`）。手書きの列挙を語彙・分類・
+`/tf stats` タブ・lore の4箇所へ散らすと必ずどれかが腐る（2026-08-02 の職業別EXP倍率で実際に
+15スキル中12が欠けていた）。同型の分割は 2026-07-31 の `workbench_*` / `ritual_*`（作業台と儀式で
+同じパークが共有されていた）にもある。
+
+**関連する落とし穴2つ**:
+- `StatCategoryInference#infer` と editor の `tf-lore.js` は**キー名の部分一致**で分類するので、
+  スキル別キーは部分一致より**前**に判定しないと `mining_...` だけ GATHERING へ落ちて4キーが別タブに散る。
+- スコープ無しの旧キー（`break_vanilla_exp_bonus` 等）は**消さずに「全体版」として残す**。
+  消すと配備先に残った base-stats/item-stats の記述が警告も出さずに無効化される。
+
 ### ⚠️ `use-skill`はアイテムの分類マーカーではない
 
 `stats/item-stats.yml`は採取ツール（斧・ツルハシ等）にも`use-skill: WOODCUTTING`/`MINING`/`DIGGING`/`FARMING`/`FISHING`を持たせている（使用可能レベルのゲート用）。**「メインハンドのuse-skillをそのまま付与先スキルにする」実装は、採取ツールで殴っただけで採取スキルEXPが入るバグになる**（`CombatListener#maybeGrantCombatSkillExp`で実際に発生）。戦闘EXPの付与先は**必ずHEAVY_WEAPONS/LIGHT_WEAPONS/ARCHERYの3つへ明示的に絞る**こと（`CombatListener#isCombatWeaponSkill`）。`ARS_MAGIC`は`grantMagicExp`という別経路なので混ぜると二重付与になる。「道具で殴ったら代わりに戦闘スキルを与える」フォールバックは意図的に入れない。

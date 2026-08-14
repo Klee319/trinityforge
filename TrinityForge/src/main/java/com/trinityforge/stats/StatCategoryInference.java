@@ -64,7 +64,12 @@ public final class StatCategoryInference {
                 // スキル別EXP倍率(2026-08-02 柱5-3)。endsWith("_exp_bonus") では
                 // vanilla_exp_bonus 系まで巻き込んで既存の分類を変えてしまうので、
                 // SkillId.ALL から導出した集合(SkillExpBonusKeys)で判定する。
-                || SkillExpBonusKeys.contains(key)) {
+                || SkillExpBonusKeys.contains(key)
+                // 破壊時バニラEXP増加(採取スキル別、2026-08-15)。スコープ無しの
+                // break_vanilla_exp_bonus と同じ UTILITY に揃える。ここより下の
+                // contains("mining") へ落とすと mining_break_vanilla_exp_bonus だけ
+                // GATHERING になり、4キーが別々のタブへ散る。
+                || BreakVanillaExpBonusKeys.contains(key)) {
             return StatCategory.UTILITY;
         }
         if (key.equals("suspicious_respawn_chance") || key.equals("hive_harvest_fortune")) {

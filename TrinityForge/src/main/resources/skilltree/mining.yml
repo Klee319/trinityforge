@@ -92,7 +92,7 @@ nodes:
     cost: 1
     effect-text: 破壊で2倍のバニラEXP
     buffs:
-      break-vanilla-exp-bonus: 1
+      mining-break-vanilla-exp-bonus: 1
   D:
     name: 露天掘りの匠
     level: 70

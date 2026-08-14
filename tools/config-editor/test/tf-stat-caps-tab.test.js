@@ -108,9 +108,11 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 // 2026-08-14: enchant-exp-gain-bonus を廃止し enchanting-exp-bonus へ統合したので 109 → 108
 // (ENCHANTING へのEXP付与点が1箇所しかなく、職業EXP増加と同じ量に別経路で掛かる重複だった)。
 // 2026-08-14: lapis-cost-reduction を廃止したので 108 → 107(ArsPaper の消費リスナーごと削除)。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく107件ちょうど", () => {
+// 2026-08-15: 破壊時バニラEXPを採取スキル別の4キーへ分割したので 107 → 111
+// (共通キーのままだと採掘で取った倍率が伐採・整地・農業の破壊EXPにも乗っていた)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく111件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 107, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 111, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 

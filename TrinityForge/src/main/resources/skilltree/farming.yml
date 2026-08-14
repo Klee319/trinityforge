@@ -72,7 +72,7 @@ nodes:
       - バニラEXPを追加で獲得
     buffs:
       harvest-extra-drop-chance: 0.15
-      break-vanilla-exp-bonus: 0.50
+      farming-break-vanilla-exp-bonus: 0.50
   D:
     name: 村の豪農
     level: 70
@@ -86,7 +86,7 @@ nodes:
       - バニラEXPを追加で獲得
     buffs:
       harvest-extra-drop-chance: 0.10
-      break-vanilla-exp-bonus: 0.50
+      farming-break-vanilla-exp-bonus: 0.50
     dedicated-effects:
       - id: feature:area-harvest
   E:

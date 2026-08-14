@@ -206,6 +206,10 @@ craft-roll-inset
 vanilla-exp-bonus
 kill-vanilla-exp-bonus
 break-vanilla-exp-bonus
+mining-break-vanilla-exp-bonus
+woodcutting-break-vanilla-exp-bonus
+digging-break-vanilla-exp-bonus
+farming-break-vanilla-exp-bonus
 breeding-vanilla-exp-bonus
 woodcutting-extra-drop-chance
 harvest-extra-drop-chance

@@ -127,6 +127,11 @@
     "durability": "クラフト:耐久値",
     "kill-vanilla-exp-bonus": "EXP:討伐時↑",
     "break-vanilla-exp-bonus": "EXP:破壊時↑",
+    // 2026-08-15: 破壊時バニラEXPは採取スキル別のキーへ分割した(上の共通キーは採取全般)。
+    "mining-break-vanilla-exp-bonus": "EXP:採掘の破壊時↑",
+    "woodcutting-break-vanilla-exp-bonus": "EXP:伐採の破壊時↑",
+    "digging-break-vanilla-exp-bonus": "EXP:整地の破壊時↑",
+    "farming-break-vanilla-exp-bonus": "EXP:農業の破壊時↑",
     "vanilla-exp-bonus": "EXP:常時↑",
     "breeding-vanilla-exp-bonus": "EXP:繁殖時↑",
     "breeding-extra-child-chance": "繁殖:追加子供率↑",
@@ -285,7 +290,16 @@
     ,"mana-idle-bonus-flat": "待機マナ回復ボーナスの固定分。ManaBaseStats.idleBonusFlat経由でフォークが読む。"
     // ---- 非戦闘系: EXP / 追加ドロップ / 満腹度 / 繁殖・成長 (2026-07-24 新規13キー) ----
     ,"kill-vanilla-exp-bonus": "MOB討伐時に得るバニラ経験値を増やす(%)。"
-    ,"break-vanilla-exp-bonus": "ブロック破壊時に得るバニラ経験値を増やす(%)。前提: 機能解放『破壊時バニラEXP入手』が必要。"
+    ,"break-vanilla-exp-bonus": "ブロック破壊時に得るバニラ経験値を増やす(%)。採取スキルを問わず効く共通の倍率。"
+      + "前提: そのブロックの採取スキルのツリーで機能解放『破壊時バニラEXP入手』を取っていること。"
+      + "スキルツリーのノードには、職業間で漏れないよう下の採取スキル別キーを使うこと。"
+    // 2026-08-15: 採取スキル別の破壊時バニラEXP倍率。解放ゲート(feature:break-vanilla-exp)は
+    // 2026-08-01 から職業別だったが、倍率だけ共通キーのままで採掘の+50%が伐採・整地・農業にも
+    // 乗っていたため分割した。効くのは「そのスキルの採取として扱われた破壊」だけ。
+    ,"mining-break-vanilla-exp-bonus": "採掘として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(伐採/整地/農業)の破壊には効かない。前提: 採掘ツリーの機能解放『破壊時バニラEXP入手』。"
+    ,"woodcutting-break-vanilla-exp-bonus": "伐採として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(採掘/整地/農業)の破壊には効かない。前提: 伐採ツリーの機能解放『破壊時バニラEXP入手』。"
+    ,"digging-break-vanilla-exp-bonus": "整地として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(採掘/伐採/農業)の破壊には効かない。前提: 整地ツリーの機能解放『破壊時バニラEXP入手』。"
+    ,"farming-break-vanilla-exp-bonus": "農業(収穫)として扱われたブロック破壊で得るバニラ経験値を増やす(%)。他の採取(採掘/伐採/整地)の破壊には効かない。前提: 農業ツリーの機能解放『破壊時バニラEXP入手』。"
     ,"vanilla-exp-bonus": "あらゆる経路のバニラ経験値を増やす(%)。"
     ,"breeding-vanilla-exp-bonus": "動物の繁殖時に得るバニラ経験値を増やす(%)。"
     ,"woodcutting-extra-drop-chance": "伐採時に確率で追加ドロップを得る(%)。"

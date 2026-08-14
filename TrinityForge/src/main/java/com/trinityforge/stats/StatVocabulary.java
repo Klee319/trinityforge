@@ -135,6 +135,11 @@ public final class StatVocabulary {
             "craft_roll_up_bonus", "craft_roll_down_reduction", "craft_roll_inset",
             // バニラEXP倍率系 (kill/break/breeding/常時)。乗算適用は各リスナー(EntityDeath/BlockBreak/
             // EntityBreed)で 1 + always + 個別 として消費。break は前提 feature:break-vanilla-exp が必要。
+            // 2026-08-15: break_vanilla_exp_bonus は「採取全般」のスコープ無しキーとして残すが、
+            // 出荷スキルツリーは採取スキル別の <skill>_break_vanilla_exp_bonus
+            // (buildIndex() で BreakVanillaExpBonusKeys から機械的に登録) を使う。
+            // 以前は6ノード全部がこの共通キーへ配っていたため、採掘で取った +50% が
+            // 伐採・整地・農業の破壊EXPにも乗っていた(解放ゲートだけ職業別で倍率が漏れていた)。
             "vanilla_exp_bonus", "kill_vanilla_exp_bonus", "break_vanilla_exp_bonus",
             "breeding_vanilla_exp_bonus",
             // 追加ドロップ確率系 (伐採/収穫)。対応リスナーが確率でドロップを増やす。
@@ -219,6 +224,8 @@ public final class StatVocabulary {
         // 職業EXP増加(スキル別)。実行時の消費側がスキルIDから機械的にキーを組むので、
         // 語彙側も SkillId.ALL から導出する(手書きだと新スキル追加時に無言で欠ける)。
         SkillExpBonusKeys.all().forEach(key -> index.put(key, Channel.GENERAL));
+        // 破壊時バニラEXP増加(採取スキル別)。こちらも消費側が破壊の採取スキルから機械的に組む。
+        BreakVanillaExpBonusKeys.all().forEach(key -> index.put(key, Channel.GENERAL));
         return Map.copyOf(index);
     }
 

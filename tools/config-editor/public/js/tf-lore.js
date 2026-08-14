@@ -72,6 +72,10 @@
       "move-speed", "hunger-save-chance", "mob-drop-bonus", "loot-luck", "mob-drop-quality", "gacha-rate-bonus", "food-save-chance",
       // 2026-07-24 新規: バニラEXP/追加ドロップ/満腹度/繁殖・成長
       "kill-vanilla-exp-bonus", "break-vanilla-exp-bonus", "vanilla-exp-bonus", "breeding-vanilla-exp-bonus",
+      // 2026-08-15: 破壊時バニラEXPの採取スキル別キー。共通キーと同じ utility に置く
+      // (ここに無いと mining- を含む名前が上の gathering/attack の部分一致より後で other へ落ちる)。
+      "mining-break-vanilla-exp-bonus", "woodcutting-break-vanilla-exp-bonus",
+      "digging-break-vanilla-exp-bonus", "farming-break-vanilla-exp-bonus",
       "woodcutting-extra-drop-chance", "harvest-extra-drop-chance", "food-restore-bonus", "hidden-saturation-bonus",
       "breeding-extra-child-chance", "bred-animal-growth-bonus", "planted-crop-growth-bonus"
     ].includes(s)) return "utility";

@@ -1225,6 +1225,66 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
+  # 破壊時バニラEXP増加(採取スキル別、2026-08-15)。上の break-vanilla-exp-bonus は
+  # 採取全般に効く共通キーで、こちらは「その採取スキルとして扱われた破壊」にだけ効く。
+  # 出荷スキルツリーの採掘/伐採/整地/農業ノードはこちらを使う(共通キーへ配ると
+  # 採掘で取った倍率が伐採・整地・農業の破壊EXPにも乗ってしまうため)。
+  mining-break-vanilla-exp-bonus:
+    name: EXP増加(採掘の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 27
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  woodcutting-break-vanilla-exp-bonus:
+    name: EXP増加(伐採の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 28
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  digging-break-vanilla-exp-bonus:
+    name: EXP増加(整地の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 29
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
+  farming-break-vanilla-exp-bonus:
+    name: EXP増加(農業の破壊)
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    order: 30
+    show-sign: true
+    hide-when-zero: true
+    category: utility
+    trigger:
+      when: ON_BLOCK_BREAK
+      sources: ALL
+      applies-to:
+        - PLAYER
   vanilla-exp-bonus:
     name: EXP増加
     icon: ""

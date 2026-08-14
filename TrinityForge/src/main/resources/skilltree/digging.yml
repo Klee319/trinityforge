@@ -62,7 +62,7 @@ nodes:
     effects:
       - 破壊で少量の追加バニラEXPを獲得
     buffs:
-      break-vanilla-exp-bonus: 0.25
+      digging-break-vanilla-exp-bonus: 0.25
   D:
     name: 国土交通省の官僚
     level: 70
