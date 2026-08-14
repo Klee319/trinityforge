@@ -14,7 +14,8 @@
 // + 各config の parse*Tiers/resolve と一致させる
 // (vein-mining→MiningGimmickConfig.veinMiningTiers, haste-active-mining→同haste,
 //  tree-fell→WoodcuttingGimmickConfig, area-harvest→FarmingGimmickConfig,
-//  xp-bottle-store-unlock→FishingGimmickConfig(xp-bottle-store), potion-merge→CraftingFeaturesConfig,
+//  xp-bottle-store-unlock→CraftingFeaturesConfig(xp-bottle-store、2026-08-15移設)、
+//  potion-merge→CraftingFeaturesConfig,
 //  furnace-smelt-*→SmithingGimmickConfig, digging-durability-*→DiggingGimmickConfig)。
 // 2026-07-26 tier-expand: xp-bottle-store-unlock/potion-merge をNONE->SCALE化した際に追加。
 // 2026-07-28 (数値のギミックyml集約): furnace-smelt-speed/bonus と digging-durability-vanilla-exp/job-exp
@@ -27,7 +28,9 @@ const SCALE_FEATURE_SECTIONS = Object.freeze({
   "haste-active-mining": { gimmick: "mining", key: "haste-active-mining" },
   "tree-fell": { gimmick: "woodcutting", key: "tree-fell" },
   "area-harvest": { gimmick: "farming", key: "area-harvest" },
-  "xp-bottle-store-unlock": { gimmick: "fishing", key: "xp-bottle-store" },
+  // 2026-08-15: xp-bottle-store は stats/fishing-gimmick.yml から progression/crafting-features.yml
+  // (gimmick: "craftingFeatures")へ移設した。
+  "xp-bottle-store-unlock": { gimmick: "craftingFeatures", key: "xp-bottle-store" },
   "potion-merge": { gimmick: "craftingFeatures", key: "potion-merge" },
   "furnace-smelt-speed": { gimmick: "smithing", key: "furnace-smelt.speed" },
   "furnace-smelt-bonus": { gimmick: "smithing", key: "furnace-smelt.bonus" },

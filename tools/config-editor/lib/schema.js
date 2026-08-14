@@ -2358,6 +2358,17 @@ function brewPairKey(base, ingredient) {
 function validateTfCraftingFeatures(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+  // xp-bottle-store (2026-08-15 に stats/fishing-gimmick.yml から移設。検証規則は移設前と同一)。
+  const xp = data["xp-bottle-store"];
+  if (xp !== undefined && xp !== null) {
+    if (!isPlainObject(xp)) { errors.push("xp-bottle-store はマップである必要があります"); }
+    else {
+      const rate = xp["return-rate"];
+      if (rate !== undefined && rate !== null && !(isNumber(rate) && rate >= 0 && rate <= 1)) {
+        errors.push("xp-bottle-store.return-rate: 0.0〜1.0 の数値である必要があります");
+      }
+    }
+  }
   const gated = data["gated-catalog-recipes"];
   if (gated !== undefined && gated !== null) {
     if (!isPlainObject(gated)) errors.push("gated-catalog-recipes はマップである必要があります");
@@ -3282,23 +3293,14 @@ function validateFishingDropGroupsMap(map, label, errors) {
 }
 
 // ---- fishing-gimmick.yml (tf-fishing-gimmick) ----
-// xp-bottle-store.return-rate: 取り出し時に返る割合(0.0〜1.0)
 // fish-sell.prices: Material -> 基準売却額(0以上)。fish-sell.max-sells-per-minute: 0以上の整数。
 // fishing.ocean-biomes: バイオームidの文字列配列(namespace無し小文字。ハードコード列挙はしない)。
 // fishing.groups / fishing.unlock-groups: 上の validateFishingDropGroupsMap を同じ規則で適用する。
+// xp-bottle-store の検証は2026-08-15に validateTfCraftingFeatures へ移設した
+// (crafting-features.yml へ移設したのに合わせた。fishing-gimmick.yml側はもう読まれない)。
 function validateTfFishingGimmick(data, errors) {
   if (data === null) return;
   if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
-  const xp = data["xp-bottle-store"];
-  if (xp !== undefined && xp !== null) {
-    if (!isPlainObject(xp)) { errors.push("xp-bottle-store はマップである必要があります"); }
-    else {
-      const rate = xp["return-rate"];
-      if (rate !== undefined && rate !== null && !(isNumber(rate) && rate >= 0 && rate <= 1)) {
-        errors.push("xp-bottle-store.return-rate: 0.0〜1.0 の数値である必要があります");
-      }
-    }
-  }
   const fishSell = data["fish-sell"];
   if (fishSell !== undefined && fishSell !== null) {
     if (!isPlainObject(fishSell)) { errors.push("fish-sell はマップである必要があります"); }

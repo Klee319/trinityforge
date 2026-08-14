@@ -137,6 +137,22 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
      */
     public record AddedRecipe(Material result, int amount, com.trinityforge.stats.RecipeSpec spec) {}
 
+    private static final int DEFAULT_XP_BOTTLE_STORE_AMOUNT = 100;
+    private static final double DEFAULT_XP_BOTTLE_RETURN_RATE = 1.0;
+
+    /** {@code xp-bottle-store-unlock}: ガラス瓶の右クリック1回で瓶1本に格納する経験値量(グローバル既定値)。 */
+    private volatile int xpBottleStoreAmount = DEFAULT_XP_BOTTLE_STORE_AMOUNT;
+    /** {@code xp-bottle-store.return-rate}: 取り出し時に返る割合(0.0-1.0、グローバル既定値)。 */
+    private volatile double xpBottleReturnRate = DEFAULT_XP_BOTTLE_RETURN_RATE;
+    /**
+     * {@code xp-bottle-store.tiers.<tier>.{store-amount,return-rate}} (2026-07-26 tier-expand。
+     * 2026-08-15 に stats/fishing-gimmick.yml から移設)。
+     */
+    private volatile TierTable<XpBottleTierValues> xpBottleTiers = TierTable.empty();
+
+    /** One {@code xp-bottle-store.tiers.<tier>} row. */
+    public record XpBottleTierValues(int storeAmount, double returnRate) {}
+
     private volatile int coatingBaseMaxStacks = 3;
     private volatile Map<String, CoatingMaterial> coatingMaterials = Map.of();
     /** Legacy fallback when PDC flat damage is absent (old items stamped with stacks only). */
@@ -198,6 +214,34 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
     public int coatingBaseMaxStacks() {
         return coatingBaseMaxStacks;
+    }
+
+    /** {@code xp-bottle-store-unlock}: ガラス瓶の右クリック1回で瓶1本に格納する経験値量。 */
+    public int xpBottleStoreAmount() {
+        return xpBottleStoreAmount;
+    }
+
+    /**
+     * {@code xp-bottle-store.return-rate}: 取り出し時に返る割合(0.0-1.0)。実際に返る量は
+     * {@code floor(格納量 × xpBottleReturnRate())}(呼び出し側の責務)。1.0=目減りなし。
+     */
+    public double xpBottleReturnRate() {
+        return xpBottleReturnRate;
+    }
+
+    /**
+     * {@code xp-bottle-store.store-amount} を {@code tier}(プレイヤーの解放済み最高tier、
+     * {@code DedicatedEffectsConfig#valueMax} の結果)で解決する。{@code xp-bottle-store.tiers} が
+     * 未定義、または {@code tier} 未満の行しか無い場合は {@link #xpBottleStoreAmount()}
+     * (グローバルscalar)へ完全後方互換フォールバックする。
+     */
+    public int xpBottleStoreAmount(int tier) {
+        return xpBottleTiers.resolve(tier).map(XpBottleTierValues::storeAmount).orElse(xpBottleStoreAmount);
+    }
+
+    /** {@link #xpBottleStoreAmount(int)}と同じ floor+フォールバック則で解決する還元率。 */
+    public double xpBottleReturnRate(int tier) {
+        return xpBottleTiers.resolve(tier).map(XpBottleTierValues::returnRate).orElse(xpBottleReturnRate);
     }
 
     public Map<String, CoatingMaterial> coatingMaterials() {
@@ -452,6 +496,7 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
             return false;
         }
 
+        loadXpBottleStore(yaml, log);
         loadCoating(yaml);
         loadWoodRepair(yaml);
         loadDisassembly(yaml, log);
@@ -482,6 +527,85 @@ public final class CraftingFeaturesConfig implements LoadableConfig {
 
         log.info("[" + PATH + "] loaded OK");
         return true;
+    }
+
+    /**
+     * {@code xp-bottle-store}(2026-08-15 に stats/fishing-gimmick.yml から移設): クランプ規則は移設前と
+     * 完全に同一(store-amount は正の整数、return-rate は [0,1] へクランプ、tiers は floor 解決+
+     * 未定義ならグローバルscalarへフォールバック)。
+     */
+    private void loadXpBottleStore(YamlConfiguration yaml, Logger log) {
+        this.xpBottleStoreAmount = clampPositiveInt(
+                yaml.getInt("xp-bottle-store.store-amount", DEFAULT_XP_BOTTLE_STORE_AMOUNT),
+                "xp-bottle-store.store-amount", DEFAULT_XP_BOTTLE_STORE_AMOUNT, log);
+        this.xpBottleReturnRate = clampUnitInterval(
+                yaml.getDouble("xp-bottle-store.return-rate", DEFAULT_XP_BOTTLE_RETURN_RATE),
+                "xp-bottle-store.return-rate", DEFAULT_XP_BOTTLE_RETURN_RATE, log);
+        this.xpBottleTiers = parseXpBottleTiers(
+                yaml.getConfigurationSection("xp-bottle-store.tiers"), log);
+    }
+
+    /**
+     * {@code xp-bottle-store.tiers: {<tier>: {store-amount: N, return-rate: N}}} (2026-07-26
+     * tier-expand)。Absent/empty section yields {@link TierTable#empty()} (省略時は完全後方互換)。
+     * {@code tier} はスキルツリーのノード value から決まる(feature:xp-bottle-store-unlock は
+     * {@code FeatureEffectParam.SCALE} — value省略時はtier1が自動補完される)。
+     */
+    private static TierTable<XpBottleTierValues> parseXpBottleTiers(ConfigurationSection section, Logger log) {
+        if (section == null) {
+            return TierTable.empty();
+        }
+        Map<Integer, XpBottleTierValues> rows = new LinkedHashMap<>();
+        for (String tierKey : section.getKeys(false)) {
+            int tier;
+            try {
+                tier = Integer.parseInt(tierKey.trim());
+                if (tier <= 0) {
+                    log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' key must be a positive integer; skipped");
+                    continue;
+                }
+            } catch (NumberFormatException ex) {
+                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' key is not an integer; skipped");
+                continue;
+            }
+            ConfigurationSection row = section.getConfigurationSection(tierKey);
+            if (row == null) {
+                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' is not a map; row skipped");
+                continue;
+            }
+            int storeAmount = row.getInt("store-amount", 0);
+            double returnRate = row.getDouble("return-rate", -1.0);
+            if (storeAmount <= 0 || !Double.isFinite(returnRate) || returnRate < 0.0 || returnRate > 1.0) {
+                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey
+                        + "' must have positive store-amount and return-rate in [0,1]; row skipped");
+                continue;
+            }
+            rows.put(tier, new XpBottleTierValues(storeAmount, returnRate));
+        }
+        return TierTable.of(rows);
+    }
+
+    /** Non-finite/non-positive guard for a count value: falls back to {@code fallback}, never throws. */
+    private static int clampPositiveInt(int raw, String key, int fallback, Logger log) {
+        if (raw <= 0) {
+            log.warning("[" + PATH + "] '" + key + "' must be > 0 (was " + raw + "); using default " + fallback);
+            return fallback;
+        }
+        return raw;
+    }
+
+    /** Clamps a ratio value to {@code [0.0, 1.0]}; a non-finite value falls back to {@code fallback}. */
+    private static double clampUnitInterval(double raw, String key, double fallback, Logger log) {
+        if (!Double.isFinite(raw)) {
+            log.warning("[" + PATH + "] '" + key + "' is not a finite number (" + raw
+                    + "); using default " + fallback);
+            return fallback;
+        }
+        double clamped = Math.max(0.0, Math.min(raw, 1.0));
+        if (clamped != raw) {
+            log.warning("[" + PATH + "] '" + key + "' = " + raw + " is out of [0,1]; clamped to " + clamped);
+        }
+        return clamped;
     }
 
     private void loadCoating(YamlConfiguration yaml) {

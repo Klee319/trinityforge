@@ -1018,8 +1018,10 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(fishSellListener, this);
 
         // enchanting.yml B-3のxp-bottle-store-unlock(flag): 経験値瓶への経験値の格納/取出(MVP)。
+        // 2026-08-15: 数値設定(xp-bottle-store)は progression/crafting-features.yml へ移設したので
+        // 参照する config も CraftingFeaturesConfig へ切り替える。
         getServer().getPluginManager().registerEvents(
-                new XpBottleListener(configManager.dedicatedEffects(), configManager.fishingGimmick()), this);
+                new XpBottleListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
 
         // Vanilla mob-type system (combat/mob-types.yml): EntityType-keyed level/defense/coordinate
         // scaling + extra drops, independent of the EliteMobs-keyed mob-profiles.yml system. The

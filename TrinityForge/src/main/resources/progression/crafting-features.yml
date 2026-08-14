@@ -6,11 +6,32 @@
 # 武器コーティング (weapon-coating-unlock / coating-stack-increase)
 # materials: catalog id → 1スタックあたりダメージ / その素材使用時のスタック上限
 
+# 経験値瓶格納 (xp-bottle-store-unlock)
+# エンチャントツリーの EXPフリーザー(feature:xp-bottle-store-unlock)で解放される機能。
+# tier は解放段階(未解放者/tiers未定義時はグローバル既定値 store-amount/return-rate へフォールバック)。
+# 2026-08-15: stats/fishing-gimmick.yml から移設(釣りとは無関係な設定がそちらに置かれていたため)。
+xp-bottle-store:
+  store-amount: 100
+  return-rate: 0.5
+  tiers:
+    "1":
+      store-amount: 200
+      return-rate: 0.6
+    "2":
+      store-amount: 300
+      return-rate: 0.7
+    "3":
+      store-amount: 400
+      return-rate: 0.8
+
 coating:
   base-max-stacks: 3
   materials:
     source_gem:
-      bonus-damage: 5
+      bonus-damage: 10
+      max-stacks: 10
+    source_gem_block_1x:
+      bonus-damage: 90
       max-stacks: 10
 wood-repair:
   materials:
@@ -20,17 +41,11 @@ wood-repair:
     oak_wood_2x:
       durability: 1800
       quick-repair: true
-    oak_wood_3x:
-      durability: 16200
-      quick-repair: true
     birch_wood_1x:
       durability: 200
       quick-repair: true
     birch_wood_2x:
       durability: 1800
-      quick-repair: true
-    birch_wood_3x:
-      durability: 16200
       quick-repair: true
     spruce_wood_1x:
       durability: 200
@@ -38,17 +53,11 @@ wood-repair:
     spruce_wood_2x:
       durability: 1800
       quick-repair: true
-    spruce_wood_3x:
-      durability: 16200
-      quick-repair: true
     jungle_wood_1x:
       durability: 200
       quick-repair: true
     jungle_wood_2x:
       durability: 1800
-      quick-repair: true
-    jungle_wood_3x:
-      durability: 16200
       quick-repair: true
     acacia_wood_1x:
       durability: 200
@@ -56,17 +65,11 @@ wood-repair:
     acacia_wood_2x:
       durability: 1800
       quick-repair: true
-    acacia_wood_3x:
-      durability: 16200
-      quick-repair: true
     dark_oak_wood_1x:
       durability: 200
       quick-repair: true
     dark_oak_wood_2x:
       durability: 1800
-      quick-repair: true
-    dark_oak_wood_3x:
-      durability: 16200
       quick-repair: true
     mangrove_wood_1x:
       durability: 200
@@ -74,26 +77,17 @@ wood-repair:
     mangrove_wood_2x:
       durability: 1800
       quick-repair: true
-    mangrove_wood_3x:
-      durability: 16200
-      quick-repair: true
     pale_oak_wood_1x:
       durability: 200
       quick-repair: true
     pale_oak_wood_2x:
       durability: 1800
       quick-repair: true
-    pale_oak_wood_3x:
-      durability: 16200
-      quick-repair: true
     cherry_blossom_wood_1x:
       durability: 200
       quick-repair: true
     cherry_blossom_wood_2x:
       durability: 1800
-      quick-repair: true
-    cherry_blossom_wood_3x:
-      durability: 16200
       quick-repair: true
 disassembly:
   percent-per-level: 25
@@ -126,6 +120,13 @@ disassembly:
       - input: TURTLE_SCUTE
         output: custom:turtle_scute_scrap
         multiplier: 2
+  tiers:
+    "1":
+      percent: 10
+    "2":
+      percent: 30
+    "3":
+      percent: 50
 scrap-conversion:
   tf_scrap:
     base-amount: 4
@@ -139,7 +140,7 @@ scrap-conversion:
       - item: custom:gold_ingot_scrap
         weight: 12
       - item: custom:turtle_scute_scrap
-        weight: 12
+        weight: 5
       - item: custom:diamond_scrap
         weight: 5
       - item: custom:netherite_ingot_scrap
@@ -147,6 +148,13 @@ scrap-conversion:
 potion-merge:
   max-effects: 5
   max-duration-seconds: 960
+  tiers:
+    "1":
+      max-effects: 2
+      max-duration-seconds: 1200
+    "2":
+      max-effects: 3
+      max-duration-seconds: 1800
 brew-unlocks:
   swiftness-jump:
     potions:
@@ -155,13 +163,13 @@ brew-unlocks:
         result:
           type: SPEED
           duration: 3600
-          amplifier: 1
+          amplifier: 2
       - base: THICK
         ingredient: RABBIT_FOOT
         result:
           type: JUMP_BOOST
           duration: 3600
-          amplifier: 1
+          amplifier: 2
   healthboost-haste:
     potions:
       - base: THICK
@@ -176,12 +184,6 @@ brew-unlocks:
           type: HASTE
           duration: 3600
           amplifier: 0
-      - base: THICK
-        ingredient: custom:tf_crystal_apple
-        result:
-          type: LUCK
-          duration: 1200
-          amplifier: 2
   healthboost-haste-2:
     potions:
       - base: MUNDANE
@@ -197,9 +199,9 @@ brew-unlocks:
           duration: 3600
           amplifier: 1
       - base: MUNDANE
-        ingredient: GOLDEN_APPLE
+        ingredient: custom:ravager_hide
         result:
-          type: LUCK
+          type: RESISTANCE
           duration: 3600
           amplifier: 1
   hunter-hex:
@@ -228,100 +230,88 @@ brew-unlocks:
           type: NAUSEA
           duration: 1200
           amplifier: 0
-  survivor-brew:
+  luck:
+    effect: ""
     potions:
-      - base: THICK
-        ingredient: custom:guardian_spine
+      - base: MUNDANE
+        ingredient: GOLDEN_APPLE
         result:
-          type: CONDUIT_POWER
-          duration: 6000
+          type: LUCK
+          duration: 1200
           amplifier: 0
-      - base: THICK
-        ingredient: custom:ravager_hide
+      - base: MUNDANE
+        ingredient: custom:tf_crystal_apple
         result:
-          type: RESISTANCE
-          duration: 2400
+          type: LUCK
+          duration: 3600
           amplifier: 1
-      - base: THICK
-        ingredient: custom:husk_cloth
-        result:
-          type: SATURATION
-          duration: 200
-          amplifier: 0
-      - base: THICK
-        ingredient: custom:pillager_plate
-        result:
-          type: FIRE_RESISTANCE
-          duration: 6000
-          amplifier: 0
-  apex-brew:
+  healing:
+    effect: ""
     potions:
       - base: THICK
-        ingredient: custom:hoglin_tusk
+        ingredient: custom:sweet_berries_2x
         result:
-          type: STRENGTH
+          type: INSTANT_HEALTH
           duration: 3600
           amplifier: 2
-      - base: THICK
-        ingredient: custom:piglin_brute_plate
-        result:
-          type: HEALTH_BOOST
-          duration: 3600
-          amplifier: 3
       - base: THICK
         ingredient: custom:bogged_mossy_bone
         result:
           type: REGENERATION
-          duration: 1200
-          amplifier: 2
-      - base: THICK
-        ingredient: custom:parched_sandy_bone
-        result:
-          type: JUMP_BOOST
-          duration: 3600
-          amplifier: 3
-      - base: THICK
-        ingredient: custom:skeleton_horse_bone
-        result:
-          type: SPEED
           duration: 3600
           amplifier: 2
 over-enchant:
-  lv1:
+  alpha-1:
     enchants:
       SHARPNESS: 6
       SMITE: 6
       BANE_OF_ARTHROPODS: 6
       POWER: 6
       IMPALING: 6
+      DENSITY: 6
+  beta-1:
+    enchants:
       PROTECTION: 5
-      BLAST_PROTECTION: 5
-      PROJECTILE_PROTECTION: 5
       FIRE_PROTECTION: 5
       FEATHER_FALLING: 5
-  lv3:
+      PROJECTILE_PROTECTION: 5
+      BLAST_PROTECTION: 5
+  gamma-1:
+    enchants:
+      EFFICIENCY: 6
+      UNBREAKING: 4
+      DEPTH_STRIDER: 4
+      LURE: 4
+  alpha-2:
     enchants:
       SHARPNESS: 7
       SMITE: 7
+      IMPALING: 7
       BANE_OF_ARTHROPODS: 7
       POWER: 7
-      IMPALING: 7
-      PROTECTION: 3
+      DENSITY: 7
+  beta-2:
+    enchants:
+      PROTECTION: 6
+      FEATHER_FALLING: 6
+      FIRE_PROTECTION: 6
       BLAST_PROTECTION: 6
       PROJECTILE_PROTECTION: 6
-      FIRE_PROTECTION: 6
-      FEATHER_FALLING: 6
-  lv2:
+      THORNS: 5
+  gamma-2:
     enchants:
-      EFFICIENCY: 6
-      FORTUNE: 4
-      UNBREAKING: 4
-      LOOTING: 4
-      LUCK_OF_THE_SEA: 4
-      LURE: 4
+      EFFICIENCY: 7
+      FORTUNE: 5
+      LOOTING: 5
+      LUCK_OF_THE_SEA: 5
+      DEPTH_STRIDER: 5
+      LURE: 5
+      UNBREAKING: 5
+      FROST_WALKER: 3
+      RIPTIDE: 6
 enchant-bookshelf-power:
   max-bookshelves: 15
-  power-per-bookshelf: 0.8
+  power-per-bookshelf: 0.7
 thread-slots:
   max-by-category:
     armor: 5

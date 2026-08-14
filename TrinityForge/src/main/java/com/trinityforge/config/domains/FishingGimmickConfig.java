@@ -1,6 +1,5 @@
 package com.trinityforge.config.domains;
 
-import com.trinityforge.skilltree.effects.TierTable;
 import com.trinityforge.stats.DropTableConfig;
 import com.trinityforge.stats.GatheringPolicy;
 import org.bukkit.Material;
@@ -25,35 +24,31 @@ import java.util.logging.Logger;
 /**
  * Loader for {@code stats/fishing-gimmick.yml}: tuning for the釣りスキルツリーB-alpha/B-beta系
  * flag/percent dedicated-effect consumers that have no existing config home
- * ({@code junk-to-scrap}, {@code fish-sell-toggle}, {@code xp-bottle-store-unlock} — see
- * the {@code dedicated-effects:} field on each node in {@code skilltree/*.yml} / {@code skilltree/fishing.yml} /
- * {@code skilltree/enchanting.yml}), the {@code fishing} group-ratio/drop-table mechanism
- * (2026-07-23 stat-gate-overhaul §2.3/§4 — replaces the old {@code gacha-ticket-drop} hardcoded
- * consumers), and the {@code fishing.skill-id/luck-per-level/bonus-per-level} tuning migrated off the
- * now-removed {@code stats/gathering.yml} (§D廃止). The legacy top-level {@code junk-materials}/
- * {@code treasure-materials} lists are kept as a fallback ONLY for when {@code fishing.groups} is absent/
- * empty (design doc §4 fallback note) — once the groups are populated, the drop table is authoritative.
+ * ({@code junk-to-scrap}, {@code fish-sell-toggle} — see the {@code dedicated-effects:} field on each
+ * node in {@code skilltree/*.yml} / {@code skilltree/fishing.yml}), the {@code fishing} group-ratio/
+ * drop-table mechanism (2026-07-23 stat-gate-overhaul §2.3/§4 — replaces the old
+ * {@code gacha-ticket-drop} hardcoded consumers), and the {@code fishing.skill-id/luck-per-level/
+ * bonus-per-level} tuning migrated off the now-removed {@code stats/gathering.yml} (§D廃止). The legacy
+ * top-level {@code junk-materials}/{@code treasure-materials} lists are kept as a fallback ONLY for when
+ * {@code fishing.groups} is absent/empty (design doc §4 fallback note) — once the groups are populated,
+ * the drop table is authoritative.
+ *
+ * <p><b>2026-08-15</b>: {@code xp-bottle-store-unlock}(エンチャントツリー「EXPフリーザー」の機能)の
+ * 数値設定 {@code xp-bottle-store} は {@link CraftingFeaturesConfig} へ移設した(釣りとは無関係な設定が
+ * このファイルに置かれていたため)。{@link #load} はこのセクションがまだ残っていたら警告のみ出す
+ * (逆方向の読み取りフォールバックは実装しない)。
  */
 public final class FishingGimmickConfig {
 
     public static final String PATH = "stats/fishing-gimmick.yml";
 
-    private static final int DEFAULT_XP_BOTTLE_STORE_AMOUNT = 100;
     private static final double DEFAULT_TREASURE_PERCENT = 15.0;
     private static final double DEFAULT_JUNK_PERCENT = 10.0;
     private static final double DEFAULT_LUCK_PER_LEVEL = 0.005;
     private static final double DEFAULT_BONUS_PER_LEVEL = 0.02;
-    private static final double DEFAULT_XP_BOTTLE_RETURN_RATE = 1.0;
 
     private volatile Set<Material> junkMaterials = Set.of();
     private volatile Set<Material> treasureMaterials = Set.of();
-    private volatile int xpBottleStoreAmount = DEFAULT_XP_BOTTLE_STORE_AMOUNT;
-    private volatile double xpBottleReturnRate = DEFAULT_XP_BOTTLE_RETURN_RATE;
-    /** {@code xp-bottle-store.tiers.<tier>.{store-amount,return-rate}} (2026-07-26 tier-expand)。 */
-    private volatile TierTable<XpBottleTierValues> xpBottleTiers = TierTable.empty();
-
-    /** One {@code xp-bottle-store.tiers.<tier>} row. */
-    public record XpBottleTierValues(int storeAmount, double returnRate) {}
     private volatile double treasurePercent = DEFAULT_TREASURE_PERCENT;
     private volatile double junkPercent = DEFAULT_JUNK_PERCENT;
     /** fishing-luck/-bonus連続処理が参照するスキルid。プラグイン側で固定(旧: fishing.skill-id 設定値)。 */
@@ -97,34 +92,6 @@ public final class FishingGimmickConfig {
     /** {@code fish-sell-toggle}: 釣りの「宝」枠と判定するMaterial一覧。 */
     public Set<Material> treasureMaterials() {
         return treasureMaterials;
-    }
-
-    /** {@code xp-bottle-store-unlock}: ガラス瓶の右クリック1回で瓶1本に格納する経験値量。 */
-    public int xpBottleStoreAmount() {
-        return xpBottleStoreAmount;
-    }
-
-    /**
-     * {@code xp-bottle-store.return-rate}: 取り出し時に返る割合(0.0-1.0)。実際に返る量は
-     * {@code floor(格納量 × xpBottleReturnRate())}(呼び出し側の責務)。1.0=目減りなし。
-     */
-    public double xpBottleReturnRate() {
-        return xpBottleReturnRate;
-    }
-
-    /**
-     * {@code xp-bottle-store.store-amount} を {@code tier}(プレイヤーの解放済み最高tier、
-     * {@code DedicatedEffectsConfig#valueMax} の結果)で解決する。{@code xp-bottle-store.tiers} が
-     * 未定義、または {@code tier} 未満の行しか無い場合は {@link #xpBottleStoreAmount()}
-     * (グローバルscalar)へ完全後方互換フォールバックする。
-     */
-    public int xpBottleStoreAmount(int tier) {
-        return xpBottleTiers.resolve(tier).map(XpBottleTierValues::storeAmount).orElse(xpBottleStoreAmount);
-    }
-
-    /** {@link #xpBottleStoreAmount(int)}と同じ floor+フォールバック則で解決する還元率。 */
-    public double xpBottleReturnRate(int tier) {
-        return xpBottleTiers.resolve(tier).map(XpBottleTierValues::returnRate).orElse(xpBottleReturnRate);
     }
 
     /** {@code fishing.group-ratio.treasure-percent} (§2.3): 基準宝率(%、luckTotalでシフトされる前の値)。 */
@@ -261,14 +228,15 @@ public final class FishingGimmickConfig {
         // 後方互換フォールバック専用(§4): fishing.groups が空の間だけ参照される。
         this.junkMaterials = parseMaterials(yaml.getStringList("junk-materials"), log);
         this.treasureMaterials = parseMaterials(yaml.getStringList("treasure-materials"), log);
-        this.xpBottleStoreAmount = clampPositiveInt(
-                yaml.getInt("xp-bottle-store.store-amount", DEFAULT_XP_BOTTLE_STORE_AMOUNT),
-                "xp-bottle-store.store-amount", DEFAULT_XP_BOTTLE_STORE_AMOUNT, log);
-        this.xpBottleReturnRate = clampUnitInterval(
-                yaml.getDouble("xp-bottle-store.return-rate", DEFAULT_XP_BOTTLE_RETURN_RATE),
-                "xp-bottle-store.return-rate", DEFAULT_XP_BOTTLE_RETURN_RATE, log);
-        this.xpBottleTiers = parseXpBottleTiers(
-                yaml.getConfigurationSection("xp-bottle-store.tiers"), log);
+        // 2026-08-15: xp-bottle-store は progression/crafting-features.yml へ移設した(このセクション
+        // 自体はエンチャントツリーの機能で、釣りとは無関係だったため — CraftingFeaturesConfig参照)。
+        // 移行漏れ(移設前の場所にまだ書かれている)に気づけるよう、残っていたら警告するだけで読みはしない
+        // (逆方向のフォールバックは実装しない: 原因が隠れるため)。
+        if (yaml.isSet("xp-bottle-store")) {
+            log.warning("[" + PATH + "] 'xp-bottle-store' は progression/crafting-features.yml へ移動しました"
+                    + "(2026-08-15)。このファイルの 'xp-bottle-store' セクションはもう読まれません。"
+                    + "設定は progression/crafting-features.yml の 'xp-bottle-store' へ書いてください。");
+        }
 
         this.treasurePercent = clampPercent(
                 yaml.getDouble("fishing.group-ratio.treasure-percent", DEFAULT_TREASURE_PERCENT),
@@ -299,46 +267,6 @@ public final class FishingGimmickConfig {
                 + this.unlockGroups.size() + " fishing unlock-group(s), "
                 + this.fishSellPrices.size() + " fish-sell price(s) OK");
         return true;
-    }
-
-    /**
-     * {@code xp-bottle-store.tiers: {<tier>: {store-amount: N, return-rate: N}}} (2026-07-26
-     * tier-expand)。Absent/empty section yields {@link TierTable#empty()} (省略時は完全後方互換)。
-     * {@code tier} はスキルツリーのノード value から決まる(feature:xp-bottle-store-unlock は
-     * {@code FeatureEffectParam.SCALE} — value省略時はtier1が自動補完される)。
-     */
-    private static TierTable<XpBottleTierValues> parseXpBottleTiers(ConfigurationSection section, Logger log) {
-        if (section == null) {
-            return TierTable.empty();
-        }
-        Map<Integer, XpBottleTierValues> rows = new LinkedHashMap<>();
-        for (String tierKey : section.getKeys(false)) {
-            int tier;
-            try {
-                tier = Integer.parseInt(tierKey.trim());
-                if (tier <= 0) {
-                    log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' key must be a positive integer; skipped");
-                    continue;
-                }
-            } catch (NumberFormatException ex) {
-                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' key is not an integer; skipped");
-                continue;
-            }
-            ConfigurationSection row = section.getConfigurationSection(tierKey);
-            if (row == null) {
-                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey + "' is not a map; row skipped");
-                continue;
-            }
-            int storeAmount = row.getInt("store-amount", 0);
-            double returnRate = row.getDouble("return-rate", -1.0);
-            if (storeAmount <= 0 || !Double.isFinite(returnRate) || returnRate < 0.0 || returnRate > 1.0) {
-                log.warning("[" + PATH + "] 'xp-bottle-store.tiers." + tierKey
-                        + "' must have positive store-amount and return-rate in [0,1]; row skipped");
-                continue;
-            }
-            rows.put(tier, new XpBottleTierValues(storeAmount, returnRate));
-        }
-        return TierTable.of(rows);
     }
 
     private static Set<String> parseBiomeKeys(List<String> names) {
@@ -451,20 +379,6 @@ public final class FishingGimmickConfig {
         double clamped = Math.max(0.0, Math.min(raw, 100.0));
         if (clamped != raw) {
             log.warning("[" + PATH + "] '" + key + "' = " + raw + " is out of [0,100]; clamped to " + clamped);
-        }
-        return clamped;
-    }
-
-    /** Clamps a ratio value to {@code [0.0, 1.0]}; a non-finite value falls back to {@code fallback}. */
-    private static double clampUnitInterval(double raw, String key, double fallback, Logger log) {
-        if (!Double.isFinite(raw)) {
-            log.warning("[" + PATH + "] '" + key + "' is not a finite number (" + raw
-                    + "); using default " + fallback);
-            return fallback;
-        }
-        double clamped = Math.max(0.0, Math.min(raw, 1.0));
-        if (clamped != raw) {
-            log.warning("[" + PATH + "] '" + key + "' = " + raw + " is out of [0,1]; clamped to " + clamped);
         }
         return clamped;
     }

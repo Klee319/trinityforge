@@ -29,30 +29,14 @@ treasure-materials:
   - BOW
 fish-sell:
   prices:
-    COD: 2
-    SALMON: 3
-    TROPICAL_FISH: 6
-    PUFFERFISH: 4
+    COD: 200
+    SALMON: 300
+    TROPICAL_FISH: 600
+    PUFFERFISH: 400
   max-sells-per-minute: 10
-xp-bottle-store:
-  store-amount: 100
-  return-rate: 0.5
-  tiers:
-    "1":
-      store-amount: 100
-      return-rate: 0.5
-    "2":
-      store-amount: 200
-      return-rate: 0.6
-    "3":
-      store-amount: 300
-      return-rate: 0.7
-    "4":
-      store-amount: 400
-      return-rate: 0.8
 fishing:
-  luck-per-level: 0.005
-  bonus-per-level: 0.02
+  luck-per-level: 0
+  bonus-per-level: 0
   ocean-biomes:
     - ocean
     - deep_ocean
@@ -172,7 +156,7 @@ fishing:
           display-name: tier1
           entries:
             - item: custom:gacha_ticket_fishing
-              weight: 10
+              weight: 20
               amount: 1
     junk:
       categories:
@@ -206,7 +190,3 @@ fishing:
             - item: TRIPWIRE_HOOK
               weight: 1
               amount: 1
-            - item: custom:tf_scrap
-              weight: 20
-              amount: 1
-          scrap-exempt: true

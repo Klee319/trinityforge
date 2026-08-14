@@ -1,7 +1,7 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
-import com.trinityforge.config.domains.FishingGimmickConfig;
 import com.trinityforge.fishing.XpBottlePolicy;
 import com.trinityforge.pdc.PdcKeys;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -29,11 +29,15 @@ import java.util.OptionalDouble;
  *
  * <ul>
  *   <li><b>ガラス瓶({@link Material#GLASS_BOTTLE})を右クリック</b>: 自身の経験値のうち
- *       {@link FishingGimmickConfig#xpBottleStoreAmount(int)}(または保有量が少なければ保有量全て)を
+ *       {@link CraftingFeaturesConfig#xpBottleStoreAmount(int)}(または保有量が少なければ保有量全て)を
  *       格納し、ガラス瓶1本を「充填済み経験値瓶」に変える。</li>
  *   <li><b>充填済み経験値瓶を右クリック</b>: 格納された経験値を
- *       {@link FishingGimmickConfig#xpBottleReturnRate(int)} 倍で取り出し、<b>ガラス瓶に戻す</b>。</li>
+ *       {@link CraftingFeaturesConfig#xpBottleReturnRate(int)} 倍で取り出し、<b>ガラス瓶に戻す</b>。</li>
  * </ul>
+ *
+ * <p><b>2026-08-15</b>: 数値設定 {@code xp-bottle-store} の読み手を {@code FishingGimmickConfig} から
+ * {@link CraftingFeaturesConfig}(progression/crafting-features.yml)へ移設した(この機能はエンチャント
+ * ツリーの機能で、釣りとは無関係な設定が誤って釣りギミックのファイルに置かれていたため)。
  *
  * <p><b>2026-08-05 仕様変更</b>: 格納の起点を「経験値瓶の sneak+右クリック」から
  * 「<b>ガラス瓶の通常右クリック</b>」へ変更した(ユーザー指示)。取出でガラス瓶を返すのは対称性のためだけ
@@ -68,7 +72,7 @@ public final class XpBottleListener implements Listener {
     private static final double BLOCK_INTERACTION_RANGE = 4.5;
 
     private final DedicatedEffectsConfig dedicatedEffects;
-    private final FishingGimmickConfig gimmickConfig;
+    private final CraftingFeaturesConfig gimmickConfig;
 
     /**
      * 視線上の「バニラの瓶が汲める流体ブロック」を返す。既定は実レイトレース。
@@ -80,7 +84,7 @@ public final class XpBottleListener implements Listener {
     private java.util.function.Function<Player, org.bukkit.block.Block> waterTargetLookup =
             XpBottleListener::rayTraceWaterTarget;
 
-    public XpBottleListener(DedicatedEffectsConfig dedicatedEffects, FishingGimmickConfig gimmickConfig) {
+    public XpBottleListener(DedicatedEffectsConfig dedicatedEffects, CraftingFeaturesConfig gimmickConfig) {
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.gimmickConfig = Objects.requireNonNull(gimmickConfig, "gimmickConfig");
     }

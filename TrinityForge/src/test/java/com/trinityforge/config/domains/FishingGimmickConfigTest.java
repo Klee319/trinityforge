@@ -206,77 +206,86 @@ class FishingGimmickConfigTest {
         assertEquals(100.0, config.treasurePercent(), 0.0);
     }
 
+    // ---- 2026-08-15: xp-bottle-store は CraftingFeaturesConfig(progression/crafting-features.yml)へ
+    // 移設した。当時ここにあった6件のテスト(xpBottleReturnRateDefaultsTo1WhenAbsent 等)は
+    // CraftingFeaturesConfigXpBottleTest へ移設した(移設先で緑を確認済み)。ここでは代わりに、
+    // 移行漏れ(旧セクションが残っている場合の警告)だけを検証する。
+
     @Test
-    void xpBottleReturnRateDefaultsTo1WhenAbsent(@TempDir File tempDir) throws IOException {
-        FishingGimmickConfig config = loaded(tempDir, "xp-bottle-store:\n  store-amount: 100\n");
-        assertEquals(1.0, config.xpBottleReturnRate(), 0.0);
+    void warnsWhenLegacyXpBottleStoreSectionStillPresent(@TempDir File tempDir) throws IOException {
+        java.util.logging.Logger logger = java.util.logging.Logger.getLogger("FishingGimmickConfigTest.legacyXpBottleWarn");
+        java.util.List<java.util.logging.LogRecord> records = new java.util.ArrayList<>();
+        java.util.logging.Handler capture = new java.util.logging.Handler() {
+            @Override public void publish(java.util.logging.LogRecord record) { records.add(record); }
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        logger.addHandler(capture);
+        logger.setUseParentHandlers(false);
+        try {
+            File file = new File(tempDir, FishingGimmickConfig.PATH);
+            Files.createDirectories(file.getParentFile().toPath());
+            Files.writeString(file.toPath(), "xp-bottle-store:\n  store-amount: 100\n  return-rate: 0.9\n");
+            FishingGimmickConfig config = new FishingGimmickConfig();
+            InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
+                case "getDataFolder" -> tempDir;
+                case "getLogger" -> logger;
+                case "saveResource" -> throw new AssertionError("saveResource() must not be called");
+                case "toString" -> "FakePlugin";
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "equals" -> proxy == args[0];
+                default -> throw new UnsupportedOperationException(method.getName());
+            };
+            Plugin plugin = (Plugin) Proxy.newProxyInstance(
+                    Plugin.class.getClassLoader(), new Class<?>[] {Plugin.class}, handler);
+            config.load(plugin);
+        } finally {
+            logger.removeHandler(capture);
+        }
+        boolean warnedAboutMigration = records.stream()
+                .anyMatch(r -> r.getLevel() == java.util.logging.Level.WARNING
+                        && r.getMessage() != null
+                        && r.getMessage().contains("xp-bottle-store")
+                        && r.getMessage().contains("crafting-features.yml"));
+        assertTrue(warnedAboutMigration, "残っている xp-bottle-store セクションについて移設先を明示した警告が出るべき");
     }
 
     @Test
-    void xpBottleReturnRateHonorsExplicitValue(@TempDir File tempDir) throws IOException {
-        FishingGimmickConfig config = loaded(tempDir, """
-                xp-bottle-store:
-                  store-amount: 100
-                  return-rate: 0.9
-                """);
-        assertEquals(0.9, config.xpBottleReturnRate(), 0.0);
-    }
-
-    @Test
-    void xpBottleReturnRateIsClampedTo0To1(@TempDir File tempDir) throws IOException {
-        FishingGimmickConfig config = loaded(tempDir, """
-                xp-bottle-store:
-                  store-amount: 100
-                  return-rate: 1.5
-                """);
-        assertEquals(1.0, config.xpBottleReturnRate(), 0.0);
-    }
-
-    // ---- 2026-07-26 tier-expand: xp-bottle-store.tiers ----
-
-    @Test
-    void tieredXpBottleAccessorsFallBackToGlobalScalarWhenTiersUndefined(@TempDir File tempDir) throws IOException {
-        FishingGimmickConfig config = loaded(tempDir, """
-                xp-bottle-store:
-                  store-amount: 100
-                  return-rate: 0.9
-                """);
-        assertEquals(100, config.xpBottleStoreAmount(1));
-        assertEquals(100, config.xpBottleStoreAmount(99));
-        assertEquals(0.9, config.xpBottleReturnRate(1), 0.0);
-    }
-
-    @Test
-    void tieredXpBottleAccessorsResolveFloorEntryFromTiersTable(@TempDir File tempDir) throws IOException {
-        FishingGimmickConfig config = loaded(tempDir, """
-                xp-bottle-store:
-                  store-amount: 100
-                  return-rate: 1.0
-                  tiers:
-                    1: { store-amount: 100, return-rate: 0.8 }
-                    2: { store-amount: 200, return-rate: 1.0 }
-                """);
-        assertEquals(100, config.xpBottleStoreAmount(1));
-        assertEquals(0.8, config.xpBottleReturnRate(1), 0.0);
-        assertEquals(200, config.xpBottleStoreAmount(2));
-        assertEquals(1.0, config.xpBottleReturnRate(2), 0.0);
-        assertEquals(200, config.xpBottleStoreAmount(99), "floor resolve above the highest defined tier");
-    }
-
-    @Test
-    void malformedXpBottleTierRowIsSkippedWithoutThrowing(@TempDir File tempDir) throws IOException {
-        FishingGimmickConfig config = loaded(tempDir, """
-                xp-bottle-store:
-                  store-amount: 100
-                  return-rate: 1.0
-                  tiers:
-                    1: { store-amount: -5, return-rate: 0.8 }
-                    2: { store-amount: 200, return-rate: 1.5 }
-                    notanumber: { store-amount: 300, return-rate: 0.5 }
-                """);
-        // All three rows invalid -> table stays empty -> falls back to the global scalar.
-        assertEquals(100, config.xpBottleStoreAmount(1));
-        assertEquals(1.0, config.xpBottleReturnRate(1), 0.0);
+    void doesNotWarnWhenLegacyXpBottleStoreSectionAbsent(@TempDir File tempDir) throws IOException {
+        java.util.logging.Logger logger = java.util.logging.Logger.getLogger("FishingGimmickConfigTest.noLegacyXpBottleWarn");
+        java.util.List<java.util.logging.LogRecord> records = new java.util.ArrayList<>();
+        java.util.logging.Handler capture = new java.util.logging.Handler() {
+            @Override public void publish(java.util.logging.LogRecord record) { records.add(record); }
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        logger.addHandler(capture);
+        logger.setUseParentHandlers(false);
+        try {
+            File file = new File(tempDir, FishingGimmickConfig.PATH);
+            Files.createDirectories(file.getParentFile().toPath());
+            Files.writeString(file.toPath(), "junk-materials:\n  - BONE\n");
+            FishingGimmickConfig config = new FishingGimmickConfig();
+            InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
+                case "getDataFolder" -> tempDir;
+                case "getLogger" -> logger;
+                case "saveResource" -> throw new AssertionError("saveResource() must not be called");
+                case "toString" -> "FakePlugin";
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "equals" -> proxy == args[0];
+                default -> throw new UnsupportedOperationException(method.getName());
+            };
+            Plugin plugin = (Plugin) Proxy.newProxyInstance(
+                    Plugin.class.getClassLoader(), new Class<?>[] {Plugin.class}, handler);
+            config.load(plugin);
+        } finally {
+            logger.removeHandler(capture);
+        }
+        boolean warnedAboutMigration = records.stream()
+                .anyMatch(r -> r.getLevel() == java.util.logging.Level.WARNING
+                        && r.getMessage() != null
+                        && r.getMessage().contains("xp-bottle-store"));
+        assertFalse(warnedAboutMigration, "xp-bottle-store セクションが無ければ移設警告は出ないべき");
     }
 
     // ---- T2 (fish-sell): fish-sell.prices / fish-sell.max-sells-per-minute ----

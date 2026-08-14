@@ -1,7 +1,7 @@
 package com.trinityforge.listeners;
 
+import com.trinityforge.config.domains.CraftingFeaturesConfig;
 import com.trinityforge.config.domains.DedicatedEffectsConfig;
-import com.trinityforge.config.domains.FishingGimmickConfig;
 import com.trinityforge.fishing.XpBottlePolicy;
 import com.trinityforge.pdc.PdcKeys;
 import org.bukkit.Material;
@@ -55,7 +55,7 @@ class XpBottleListenerTest {
 
     private ServerMock server;
     private DedicatedEffectsConfig dedicatedEffects;
-    private FishingGimmickConfig gimmickConfig;
+    private CraftingFeaturesConfig gimmickConfig;
     private XpBottleListener listener;
     private PlayerMock player;
 
@@ -63,7 +63,7 @@ class XpBottleListenerTest {
     void setUp() {
         server = MockBukkit.mock();
         dedicatedEffects = mock(DedicatedEffectsConfig.class);
-        gimmickConfig = mock(FishingGimmickConfig.class);
+        gimmickConfig = mock(CraftingFeaturesConfig.class);
         listener = new XpBottleListener(dedicatedEffects, gimmickConfig);
         // 既定は「視線上に水が無い」。水汲みの検証だけ個別に差し替える。
         listener.waterTargetLookupForTest(p -> null);

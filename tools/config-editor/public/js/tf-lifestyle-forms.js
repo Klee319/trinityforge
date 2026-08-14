@@ -1077,7 +1077,6 @@
     ensureArr(working, "junk-materials");
     ensureArr(working, "treasure-materials");
     ensureArr(fishing, "ocean-biomes");
-    const xp = ensureObj(working, "xp-bottle-store");
     const fishSell = ensureObj(working, "fish-sell");
     ensureObj(fishSell, "prices");
 
@@ -1159,26 +1158,6 @@
         stringListEditor(working["treasure-materials"], { material: true, addLabel: "+ 追加" })
       ],
       { expanded: false }
-    ));
-    root.appendChild(card(
-      [h("span", { class: "entry-key-label", text: "経験値瓶格納 (xp-bottle-store)" })],
-      [
-        grid([
-          numField(xp, "store-amount", {
-            label: "経験値瓶 格納量(グローバル既定値)", int: true,
-            desc: "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
-          }),
-          numField(xp, "return-rate", {
-            label: "還元率(0-1、グローバル既定値)",
-            desc: "取り出し時に返る割合(0.0〜1.0)。下のtier表に該当tier行がある場合はそちらが優先される。"
-          })
-        ]),
-        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される"),
-        tierTableEditor(xp, [
-          { key: "store-amount", label: "格納量", int: true },
-          { key: "return-rate", label: "還元率(0-1)" }
-        ])
-      ]
     ));
     return { element: root, getData: () => working };
   };

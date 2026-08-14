@@ -289,6 +289,10 @@
   // window に公開し、別ファイル(tf-forms.js の鍛冶ギミック / tf-lifestyle-forms.js の伐採ギミック)からも
   // 呼べるようにする。
   function normalizeCraftingFeaturesWorking(working) {
+    // 経験値瓶格納 (xp-bottle-store-unlock): 2026-08-15 に stats/fishing-gimmick.yml から移設。
+    // 既定値は Java 側 CraftingFeaturesConfig の DEFAULT_XP_BOTTLE_STORE_AMOUNT/DEFAULT_XP_BOTTLE_RETURN_RATE
+    // と一致させること(ここがずれると「editor で開いて保存しただけ」で挙動が変わる)。
+    ensureObj(working, "xp-bottle-store", { "store-amount": 100, "return-rate": 1.0 });
     ensureObj(working, "gated-catalog-recipes", {});
     ensureObj(working, "coating", {});
     ensureObj(working, "wood-repair", {});
@@ -1644,6 +1648,38 @@
     );
   };
 
+  // 経験値瓶格納 (xp-bottle-store)。エンチャントギミックタブが呼ぶ。2026-08-15 に
+  // stats/fishing-gimmick.yml から移設(釣りとは無関係な設定がそちらに置かれていたため)。
+  // 保存先は working (crafting-features.yml) 自身のサブツリーなので、他のコンパニオン(enchant-luck等)と
+  // 異なり getExtraSaves を経由しない(over-enchant / enchant-bookshelf-power と同じ扱い)。
+  function buildXpBottleStoreSection(xp) {
+    if (!xp || typeof xp !== "object") xp = {};
+    const body = h("div", { class: "const-body" });
+    body.appendChild(field("経験値瓶 格納量(グローバル既定値)", window.numberInput(xp["store-amount"], (v) => {
+      if (v == null) return;
+      xp["store-amount"] = Math.max(1, Math.floor(v));
+    }, { int: true }), "下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"));
+    body.appendChild(field("還元率(0-1、グローバル既定値)", window.numberInput(xp["return-rate"], (v) => {
+      if (v == null) return;
+      xp["return-rate"] = v;
+    }), "取り出し時に返る割合(0.0〜1.0)。下のtier表に該当tier行がある場合はそちらが優先される。"));
+    return card(
+      [h("span", { class: "entry-key-label", text: "経験値瓶格納 (xp-bottle-store)" })],
+      [
+        formHint("解放: xp-bottle-store-unlock(エンチャントツリー「EXPフリーザー」。2026-07-26 tier-expand: "
+          + "SCALE化。tierはノードvalueから決まる)。"),
+        body,
+        h("div", { class: "sub-title", text: "tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される" }),
+        typeof window.tierTableEditor === "function"
+          ? window.tierTableEditor(xp, [
+              { key: "store-amount", label: "格納量", int: true },
+              { key: "return-rate", label: "還元率(0-1)" }
+            ])
+          : h("div", { class: "empty-hint", text: "tier表エディタ(tf-lifestyle-forms.js)が読み込まれていません。" })
+      ]
+    );
+  }
+
   // ============================================================
   // progression/crafting-features.yml (エンチャントギミックタブ, over-enchant / enchant-bookshelf-power を担当)
   // ============================================================
@@ -1670,6 +1706,9 @@
     // T9 (2026-07-26新設): 本棚によるエンチャントパワー (enchant-bookshelf-power)。保存先はこのタブと
     // 同じ crafting-features.yml のため、コンパニオン扱いではなく working 内のサブツリーとして直接編集する。
     root.appendChild(window.buildCraftingFeaturesBookshelfSection(working["enchant-bookshelf-power"]));
+    // 経験値瓶格納 (xp-bottle-store-unlock、2026-08-15 stats/fishing-gimmick.yml から移設): エンチャント
+    // ツリー「EXPフリーザー」で解放される機能なので、このタブ(エンチャントギミック)が担当する。
+    root.appendChild(buildXpBottleStoreSection(working["xp-bottle-store"]));
     if (hasEnchantLuck) {
       root.appendChild(window.buildCraftingFeaturesEnchantLuckSection(enchantLuckWorking));
     }

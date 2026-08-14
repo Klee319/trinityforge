@@ -4,7 +4,9 @@
 // スキルツリー「機能解放」の feature:<id>(param="scale") が参照する各ギミックymlの tiers: から
 // 実際に定義済みのtier番号一覧を抽出する純関数。対象は vein-mining / haste-active-mining /
 // tree-fell / area-harvest の4件(gate-vocabulary.js FEATURES で param:"scale" の元4件と一致)に加え、
-// 2026-07-26 tier-expand で xp-bottle-store-unlock(fishing) / potion-merge(craftingFeatures) を追加。
+// 2026-07-26 tier-expand で xp-bottle-store-unlock / potion-merge(craftingFeatures) を追加。
+// 2026-08-15: xp-bottle-store-unlock の参照先を fishing → craftingFeatures へ移設(実体設定が
+// stats/fishing-gimmick.yml から progression/crafting-features.yml へ移ったのに追随)。
 // 2026-07-28 (数値のギミックyml集約) で furnace-smelt-speed/bonus(smithing) と
 // digging-durability-vanilla-exp/job-exp(digging) を追加 — この4件だけ tiers がymlの1段ネスト下
 // (furnace-smelt.speed / durability-exp.vanilla-exp)にあるため、ドット区切りパス解決の回帰も見る。
@@ -32,10 +34,8 @@ test("buildTierVocabulary: 各機構の定義済みtier番号を昇順で返す"
     farming: {
       "area-harvest": { tiers: { "1": { radius: 1 } } }
     },
-    fishing: {
-      "xp-bottle-store": { tiers: { "1": { "store-amount": 100 }, "2": { "store-amount": 200 } } }
-    },
     craftingFeatures: {
+      "xp-bottle-store": { tiers: { "1": { "store-amount": 100 }, "2": { "store-amount": 200 } } },
       "potion-merge": { tiers: { "1": { "max-effects": 5 } } }
     },
     smithing: {
