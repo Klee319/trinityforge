@@ -589,6 +589,12 @@
         [
           formHint("指定アイテムを自動でソース消費してマナに変換する対応表。保存先は ArsPaper config.yml "
             + "(このタブの内容は保存時に ars-config へ一緒に反映されます)。"),
+          // 2026-08-14 追加: 自動消費のクールタイム(秒)。空欄はキーごと削除して ArsPaper の既定値10秒に
+          // 委ねる(0を書き込むと「CT無し」という別の意味になるので、空欄を0へ丸めてはいけない)。
+          field("自動消費のCT(秒)", window.numberInput(sourceAutoConsume["cooldown-seconds"], (v) => {
+            if (v == null || v === "") delete sourceAutoConsume["cooldown-seconds"];
+            else sourceAutoConsume["cooldown-seconds"] = Math.max(0, Math.trunc(v));
+          }, { int: true }), "変換が成立してから次に変換できるまでの秒数。0でCT無し。空欄なら既定の10秒。"),
           typeof window.buildSourceAutoConsumeItemsEditor === "function"
             ? window.buildSourceAutoConsumeItemsEditor(sourceAutoConsumeItems)
             : emptyHint("エディタ部品(tf-phase3-forms.js)が読み込まれていません。")

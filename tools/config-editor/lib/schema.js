@@ -3306,6 +3306,13 @@ function validateArsConfig(data, errors) {
   const sac = mana["source-auto-consume"];
   if (sac === undefined || sac === null) return;
   if (!isPlainObject(sac)) { errors.push("mana.source-auto-consume はマップである必要があります"); return; }
+  // 2026-08-14 追加: 自動消費のクールタイム(秒)。0以下でCT無し(ArsPaper 側で Math.max(0, …) される)。
+  // 未設定は「キー無し」= ArsPaper の既定値10秒。ここで既定値を補わないのは、開いて保存しただけで
+  // yml にキーが増えるのを避けるため(往復差分を作らない)。
+  const cooldown = sac["cooldown-seconds"];
+  if (cooldown !== undefined && cooldown !== null && !(isInteger(cooldown) && cooldown >= 0)) {
+    errors.push("mana.source-auto-consume.cooldown-seconds: 0以上の整数である必要があります");
+  }
   const items = sac.items;
   if (items === undefined || items === null) return;
   if (!isPlainObject(items)) { errors.push("mana.source-auto-consume.items はマップである必要があります"); return; }
