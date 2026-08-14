@@ -132,6 +132,39 @@ yml の値をレビューするときは単位を必ず突き合わせること
 
 プレイヤー最大HPは60で頭打ち（バニラ20＋防具4部位で+40）という確定仕様がある以上、モブ攻撃力と守備力は準線形に圧縮しないと式が解けない。`被弾 = (敵攻撃A − 守備力F) × %軽減m` で F/A ≒ 0.8 を全帯で保つのが要点。線形カーブ（`A=8+0.75L`）は帯間のギャップが守備力の伸びより遅く、1帯下の理論値装備が同帯の厳選なし装備より硬いという順位逆転を起こしたため、モブ攻撃・HPは指数カーブ（例: `A(Lv)=7.0×1.03^Lv`）で確定している。防具の防御系ステータスには `random` ロールが一切無い（durabilityのみ品質可変）ことが前提になっている点にも注意。
 
+### ⚠️ `mob-types.yml` の `max-health:` は最終HPではなく**ランプの base 項**
+
+`max-health: 4400` を見て「そのモブのHPは 4400」と読むと桁を2つ間違える。実際の適用値は
+`MobTypeSpawnListener.java:516-524` が `MobStatScaling.scaleMaxHealth` に渡した結果で、同じブロックの
+`level-coefficients` で変形される（`ConversionPolicy.Ramp.at`）:
+
+```
+HP(L) = (base + level-coefficients.max-health × L) × max-health-growth^(L / max-health-growth-interval)
+        + (L ≥ max-health-high-level-from ? max-health-high-level-per-level × (L − max-health-high-level-from) : 0)
+```
+
+ENDER_DRAGON の例（`mob-types.yml:941-972`）: base 4400 / growth 1.053 / high-level-from 45 /
+high-level-per-level 12699、`level: 60`。
+**`HP(0) = 4400` だが `HP(60) ≈ 288,000`。** さらに `coordinate-coefficient` でワールドスポーンからの
+距離ぶんレベルが乗る（`MobLevelScaling.java:34-40`、`max-level` 既定100でクランプ）ので、`level:` の値は下限。
+**数値を見積もるときは必ず `level:` と `level-coefficients:` をセットで読むこと。**
+
+### バニラのエンダードラゴンは `CreatureSpawnEvent` を発火する（＝TFの刻印が効く）
+
+2026-08-14 に実サーバで確認済み。エンドの初回生成／エンドクリスタル復活のどちらでも、HPはバニラの 200 ではなく
+TF のスケール値になっていた。したがって `mob-types.yml` の `ENDER_DRAGON` 定義は適用され、
+戦闘レベルも刻まれるので **`mob-level-table.yml` の `add-drops`（`dragon_scale` など）も効く**。
+
+**これはコードからは判定できない。** TF がモブへ刻印する入口は `MobTypeSpawnListener.onSpawn(CreatureSpawnEvent)`
+の1本だけで（`onEntitiesLoad` は `Tameable` 実装しか処理せず `EnderDragon` は該当しない）、
+ドラゴン専用の経路は存在しない。分岐点は「バニラのエンドラがそのイベントを発火するか」だけで、
+それは Paper 側の実装依存なのでリポジトリ内には答えが無い。
+
+**ログで確かめようとして誤読しないこと。** 診断行 `[mob-types] spawn ...` は
+`LOG.fine`（`MobTypeSpawnListener.java:543`）なので**既定の INFO コンソールには出ない**。
+`latest.log` を grep して 0 件でも「刻印されていない」証拠にはならない。実機でHPを見るのが唯一の確実な方法
+（`data get entity @n[type=ender_dragon] Health`）。
+
 ### ⚠️ モブHPの上限は `spigot.yml` 設定に依存する
 
 `MobTypeSpawnListener.applyMaxHealth` はバニラの max_health 属性上限に当たると**無言で縮む**（例外を捕まえて `min(value, attr.getValue())` に落とすだけ）。このサーバーの `spigot.yml` は `settings.attribute.maxHealth.max` を `Double.MAX_VALUE` 相当に設定して運用する前提で高レベルモブのHP設計をしている。この設定が既定値へ戻されると、全高レベルモブのHPが静かに1024へ崩れる。触るときは検出用WARNINGログの有無も確認すること。
