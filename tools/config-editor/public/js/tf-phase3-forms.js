@@ -165,11 +165,48 @@
     });
   }
 
-  // mana.source-auto-consume.items map (itemId -> mana per item) 編集UI。
+  // mana.source-auto-consume.items map の編集UI。
   // T4 (2026-07-25): 元は ArsPaper 全体設定(ars-config)画面内にあったが、「その他のギミック」
   // (tf-crafting-features.js) 画面へ移設。両画面から呼べるよう共有ヘルパーとして公開する。
   // アイテムIDの自由入力は recipes.js の素材選択UI(RECIPES_UI.itemPicker = window.materialInput、
   // バニラMaterial + custom:カタログ両対応)を使う。
+  //
+  // 2026-08-14: 値が「数値のみ(=マナ変換量)」から「マナ変換量＋そのアイテム専用CT」へ拡張された。
+  // 数値だけの行は今までどおり有効で、CTは全体既定(mana.source-auto-consume.cooldown-seconds)を使う。
+  // 数値欄にラベルが無く、すぐ上の全体CT欄と区別がつかない状態だったのも同時に直した
+  // (ユーザー報告「ソースベリー 100 とあるがマナ回復量とCTがそれぞれ設定できるべきでは？」)。
+
+  // 行の値(数値 or {mana, cooldown-seconds})から マナ変換量を読む。
+  function sacManaOf(value) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const n = Number(value.mana);
+      return Number.isFinite(n) ? n : 1;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 1;
+  }
+
+  // 行の値から CT(秒)を読む。未設定(=全体既定に従う)は null。0 は「CT無し」で別の意味。
+  function sacCooldownOf(value) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const c = value["cooldown-seconds"];
+      if (c == null || c === "") return null;
+      const n = Number(c);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  }
+
+  // マナ変換量とCTから保存形を組む。CT未設定なら数値だけの短い形へ戻す
+  // (キーを増やさないことで、開いて保存しただけの往復差分を作らない)。
+  function sacValue(mana, cooldownSeconds) {
+    const m = Math.max(1, Math.trunc(Number.isFinite(mana) ? mana : 1));
+    if (cooldownSeconds == null) return m;
+    return { mana: m, "cooldown-seconds": Math.max(0, Math.trunc(cooldownSeconds)) };
+  }
+
+  window.SOURCE_AUTO_CONSUME_ROW = { manaOf: sacManaOf, cooldownOf: sacCooldownOf, valueOf: sacValue };
+
   window.buildSourceAutoConsumeItemsEditor = function buildSourceAutoConsumeItemsEditor(itemsMap) {
     const box = h("div", { class: "stat-rows" });
     function itemPickerFor(value, onChange) {
@@ -178,6 +215,12 @@
       }
       // recipes.js 未ロード時のフォールバック(通常到達しない)。
       return window.textInput(value, onChange, "source_berry");
+    }
+    function labeled(labelText, control, title) {
+      return h("span", { class: "input-with-hint", title: title || "" }, [
+        h("span", { class: "mini-label", text: labelText }),
+        control
+      ]);
     }
     function render() {
       box.innerHTML = "";
@@ -192,9 +235,14 @@
             renameKey(itemsMap, k, id);
             render();
           }),
-          window.numberInput(itemsMap[k], (v) => {
-            itemsMap[k] = v == null || v === "" ? 1 : Math.max(1, Math.trunc(v));
-          }, { int: true }),
+          labeled("マナ回復量", window.numberInput(sacManaOf(itemsMap[k]), (v) => {
+            const mana = v == null || v === "" ? 1 : Math.max(1, Math.trunc(v));
+            itemsMap[k] = sacValue(mana, sacCooldownOf(itemsMap[k]));
+          }, { int: true }), "このアイテム1個で回復するマナ量。"),
+          labeled("CT(秒)", window.numberInput(sacCooldownOf(itemsMap[k]), (v) => {
+            const cd = v == null || v === "" ? null : Math.max(0, Math.trunc(v));
+            itemsMap[k] = sacValue(sacManaOf(itemsMap[k]), cd);
+          }, { int: true }), "このアイテム専用のCT。空欄なら上の全体CT、0でCT無し。CTはアイテムごとに独立して進みます。"),
           h("button", {
             class: "btn-small danger", type: "button", text: "×",
             onclick: () => { delete itemsMap[k]; render(); }

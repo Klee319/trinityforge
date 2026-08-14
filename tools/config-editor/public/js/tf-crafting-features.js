@@ -591,10 +591,13 @@
             + "(このタブの内容は保存時に ars-config へ一緒に反映されます)。"),
           // 2026-08-14 追加: 自動消費のクールタイム(秒)。空欄はキーごと削除して ArsPaper の既定値10秒に
           // 委ねる(0を書き込むと「CT無し」という別の意味になるので、空欄を0へ丸めてはいけない)。
-          field("自動消費のCT(秒)", window.numberInput(sourceAutoConsume["cooldown-seconds"], (v) => {
+          field("自動消費のCT(秒・全体既定)", window.numberInput(sourceAutoConsume["cooldown-seconds"], (v) => {
             if (v == null || v === "") delete sourceAutoConsume["cooldown-seconds"];
             else sourceAutoConsume["cooldown-seconds"] = Math.max(0, Math.trunc(v));
-          }, { int: true }), "変換が成立してから次に変換できるまでの秒数。0でCT無し。空欄なら既定の10秒。"),
+          }, { int: true }),
+            "下の一覧で「CT(秒)」を空欄にしたアイテムに使われる既定値。"
+            + "変換が成立してから次に変換できるまでの秒数で、0でCT無し。この欄が空欄ならさらに既定の10秒。"
+            + "CTはアイテムごとに独立して進むので、片方がCT中でも別アイテムは使えます。"),
           typeof window.buildSourceAutoConsumeItemsEditor === "function"
             ? window.buildSourceAutoConsumeItemsEditor(sourceAutoConsumeItems)
             : emptyHint("エディタ部品(tf-phase3-forms.js)が読み込まれていません。")

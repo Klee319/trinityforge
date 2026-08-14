@@ -3316,12 +3316,29 @@ function validateArsConfig(data, errors) {
   const items = sac.items;
   if (items === undefined || items === null) return;
   if (!isPlainObject(items)) { errors.push("mana.source-auto-consume.items はマップである必要があります"); return; }
-  for (const [id, amount] of Object.entries(items)) {
+  // 2026-08-14: 値は「数値のみ(=マナ変換量。CTは全体既定)」と
+  // 「{mana, cooldown-seconds}(=アイテムごとのCT)」の2記法を許す。
+  // 旧記法を弾くと既存 config.yml が保存できなくなるので、両方通す。
+  for (const [id, value] of Object.entries(items)) {
     if (!id || !id.trim()) {
       errors.push("mana.source-auto-consume.items: キー(アイテムID)は空でない文字列である必要があります");
     }
-    if (!(isInteger(amount) && amount > 0)) {
-      errors.push(`mana.source-auto-consume.items.${id}: 1以上の整数である必要があります`);
+    if (isPlainObject(value)) {
+      if (!(isInteger(value.mana) && value.mana > 0)) {
+        errors.push(`mana.source-auto-consume.items.${id}.mana: 1以上の整数である必要があります`);
+      }
+      const cd = value["cooldown-seconds"];
+      // キー無し = 全体既定に従う。0 は「CT無し」で別の意味なので、どちらも許す。
+      if (cd !== undefined && cd !== null && !(isInteger(cd) && cd >= 0)) {
+        errors.push(`mana.source-auto-consume.items.${id}.cooldown-seconds: 0以上の整数である必要があります`);
+      }
+      for (const key of Object.keys(value)) {
+        if (key !== "mana" && key !== "cooldown-seconds") {
+          errors.push(`mana.source-auto-consume.items.${id}: 未知のキー '${key}' (mana / cooldown-seconds のみ)`);
+        }
+      }
+    } else if (!(isInteger(value) && value > 0)) {
+      errors.push(`mana.source-auto-consume.items.${id}: 1以上の整数、または {mana, cooldown-seconds} である必要があります`);
     }
   }
 }
