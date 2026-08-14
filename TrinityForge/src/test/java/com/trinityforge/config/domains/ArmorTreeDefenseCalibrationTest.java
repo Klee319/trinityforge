@@ -223,6 +223,52 @@ class ArmorTreeDefenseCalibrationTest {
                         + "割合側(defense-rate)と紛らわしい名前に戻すと、また同じ行に単位違いが並ぶ。");
     }
 
+    /**
+     * 実数系ステが単位なしの裸の数字で出ていた件 (2026-08-15 のユーザー報告
+     * 「守備力とかあるべきものに単位ついていないの違和感ある」)。
+     *
+     * <p><b>守備力は % ではない</b>。{@code ComponentDamageCalculator} のパイプラインで
+     * 防御率 / 耐性 / 被ダメージ軽減という3つの<b>乗算</b>軽減より<b>前</b>に引かれる素の減算なので、
+     * 1ポイント = 被ダメージ1。PERCENT にすると表示が ×100 されて 0.8 が 80% になる
+     * (ロール3キーが FLAT のまま単位 {@code %} だけ付けているのと同じ理由)。
+     * 正しい直し方は書式変更ではなく {@code unit} の付与。
+     *
+     * <p>件数の上限で縛るのは、**単位を1件でも剥がすと落ちる**ようにするため。
+     * 「単位を持つべきキーの一覧」を書くとその一覧自体が腐って検査ごと無効になる。
+     */
+    @Test
+    @DisplayName("実数系ステは単位を持つ — 守備力/攻撃力などが裸の数字へ戻ったら落ちる")
+    void realValuedStatsDeclareAUnit() throws IOException {
+        ConfigurationSection stats = load(LORE).getConfigurationSection("stats");
+        assertNotNull(stats, "lore.yml に stats セクションが無い");
+
+        List<String> unitless = new ArrayList<>();
+        for (String key : stats.getKeys(false)) {
+            ConfigurationSection entry = stats.getConfigurationSection(key);
+            if (entry == null) {
+                continue;
+            }
+            // PERCENT は % が自動で付くので unit を書くと二重になる(2026-08-12 の訂正)。
+            if ("PERCENT".equals(entry.getString("format", "FLAT"))) {
+                continue;
+            }
+            if (entry.getString("unit", "").isBlank()) {
+                unitless.add(key);
+            }
+        }
+
+        for (String mustHaveUnit : List.of(K_PHYS_FLAT, K_MAGIC_FLAT, "flat-defense",
+                K_ARMOR_DEFENSE_RATE, "max-health", "attack-power")) {
+            assertFalse(unitless.contains(mustHaveUnit),
+                    mustHaveUnit + " の unit が消えている。ロアに単位なしの裸の数字が出て、"
+                            + "%軽減なのか実数の引き算なのか読めなくなる(2026-08-15 の報告の症状)。");
+        }
+        assertTrue(unitless.size() <= 6,
+                "単位を持たない実数系ステが " + unitless.size() + " 件ある: " + unitless
+                        + "。2026-08-15 に 28 → 6 件へ減らした(残り6件は運とクラフト品質σで、"
+                        + "単位の意味そのものが未確定)。新しい実数ステを足すときは unit も書くこと。");
+    }
+
     @Test
     @DisplayName("出荷スキルツリーは1本も armor-defense-rate(防具値) を配っていない — パーク側は defense-rate だけ")
     void noShippedTreeGrantsTheItemSideArmorPointsKey() throws IOException {

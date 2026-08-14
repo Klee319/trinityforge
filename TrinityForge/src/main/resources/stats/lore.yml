@@ -45,6 +45,7 @@ stats:
     order: 1
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
     trigger:
       when: ON_ANY_HIT
@@ -59,6 +60,7 @@ stats:
     order: 2
     show-sign: true
     hide-when-zero: true
+    unit: 回/秒
     category: attack
     trigger:
       when: PASSIVE_ATTRIBUTE
@@ -253,6 +255,7 @@ stats:
     order: 42
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
   # 2026-08-15 単位の分離: このキーは「バニラ防具値(点数)」専用。AttributeProjection が
   # Attribute.ARMOR へ ADD_NUMBER し、combat/damage.yml の vanilla-armor.defense-rate-per-point
@@ -267,6 +270,7 @@ stats:
     order: 2
     show-sign: true
     hide-when-zero: true
+    unit: 点
     category: defense
     trigger:
       when: ON_DAMAGE_TAKEN
@@ -321,6 +325,7 @@ stats:
     order: 1
     show-sign: true
     hide-when-zero: true
+    unit: HP
     category: defense
     trigger:
       when: PASSIVE_ATTRIBUTE
@@ -366,6 +371,7 @@ stats:
     order: 4
     show-sign: false
     hide-when-zero: true
+    unit: 回
     category: other
   phys-resistance:
     name: 物理耐性
@@ -447,6 +453,7 @@ stats:
     order: 10
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
     trigger:
       when: ON_DAMAGE_TAKEN
@@ -480,6 +487,7 @@ stats:
     order: 80
     show-sign: true
     hide-when-zero: true
+    unit: Lv
     category: gathering
     trigger:
       when: PASSIVE
@@ -536,6 +544,7 @@ stats:
     order: 1
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
     trigger:
       when: PASSIVE
@@ -565,6 +574,7 @@ stats:
     order: 3
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
     trigger:
       when: ON_DAMAGE_TAKEN
@@ -579,6 +589,7 @@ stats:
     order: 5
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
     trigger:
       when: ON_MELEE_HIT
@@ -608,6 +619,7 @@ stats:
     order: 7
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
     trigger:
       when: ON_SPELL_CAST
@@ -644,6 +656,7 @@ stats:
     order: 7
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
     trigger:
       when: ON_DAMAGE_TAKEN
@@ -664,6 +677,7 @@ stats:
     order: 8
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
     trigger:
       when: ON_DAMAGE_TAKEN
@@ -684,6 +698,7 @@ stats:
     order: 13
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
     trigger:
       when: ON_ANY_HIT
@@ -735,6 +750,7 @@ stats:
     order: 103
     show-sign: true
     hide-when-zero: true
+    unit: 体
     category: attack
   arrow-velocity:
     name: 矢速度
@@ -899,6 +915,7 @@ stats:
     order: 5
     show-sign: true
     hide-when-zero: true
+    unit: 回
     category: other
   hunger-save-chance:
     name: 満腹効率
@@ -1166,6 +1183,7 @@ stats:
     order: 124
     show-sign: true
     hide-when-zero: true
+    unit: pt
     category: utility
     trigger:
       when: ON_KILL
@@ -1636,6 +1654,7 @@ stats:
     order: 12
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: attack
     trigger:
       when: ON_ANY_HIT
@@ -1651,6 +1670,7 @@ stats:
     order: 6
     show-sign: true
     hide-when-zero: true
+    unit: ダメ
     category: defense
     trigger:
       when: ON_DAMAGE_TAKEN
@@ -1816,6 +1836,7 @@ stats:
     order: 217
     show-sign: true
     hide-when-zero: true
+    unit: 回
     category: craft
   # 2026-08-13 削除: mana-max-base / mana-regen-base / mana-regen-interval-ticks
   #   「マナ上限(基礎)」等はここ(アイテムのロア表示設定)に置くキーではなかった。
@@ -1870,6 +1891,7 @@ stats:
     order: 11
     show-sign: true
     hide-when-zero: true
+    unit: MP
     category: ars
 multiplier-layers:
   - id: layer_1

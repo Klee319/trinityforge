@@ -152,6 +152,33 @@ window.FALLBACK_STAT_UNITS = {
   "craft-roll-down-reduction": "%",
   "craft-roll-inset": "%",
   "potion-quality-bonus": "pt",
+  // 2026-08-15: 単位の無い実数ステへ一斉に単位を付けた(ユーザー報告「守備力とかあるべきものに
+  // 単位ついていないの違和感ある」)。守備力は%ではない — 防御率/耐性/被ダメ軽減の乗算より前の
+  // 素の引き算なので「1ポイント = 被ダメージ1」。攻撃力と同じ「ダメ」を付けると桁の差が見て分かる。
+  // 運(enchant-luck/loot-luck)と品質σ(workbench/ritual の upswing/downswing)は単位の意味が
+  // 確定していないので付けていない。
+  "phys-flat-defense": "ダメ",
+  "magic-flat-defense": "ダメ",
+  "flat-defense": "ダメ",
+  "reflect-flat": "ダメ",
+  "max-health": "HP",
+  "armor-defense-rate": "点",
+  "attack-power": "ダメ",
+  "bleed-damage": "ダメ",
+  "fixed-damage": "ダメ",
+  "flat-bonus-damage": "ダメ",
+  "attack-speed": "回/秒",
+  "arrow-piercing": "体",
+  "mana-bonus": "MP",
+  "damage-mana-recovery": "MP",
+  "hit-mana-recovery": "MP",
+  "mana-cost-reduction-flat": "MP",
+  "mana-idle-bonus-flat": "MP",
+  "coating-charges": "回",
+  "coating-charges-bonus": "回",
+  "durability": "回",
+  "mob-drop-quality": "pt",
+  "gathering-efficiency": "Lv",
   // 2026-08-14: lapis-cost-reduction を stats/lore.yml から撤去したので、この辞書からも消す
   // (この辞書は lore.yml の unit と双方向で照合されるため、残すと死にキーとして検知される)。
   "ars-tier-bonus": "ティア",
