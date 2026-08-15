@@ -55,7 +55,12 @@ class ShippedSkillTreeFlatStatScaleTest {
      * 実数のまま置くと帯に追随できないため、スキルツリーの buffs では使わないと決めたキー。
      * 「使っていないキーの一覧」ではなく<b>禁止の宣言</b>なので、増やすときは理由を書くこと。
      */
-    private static final List<String> BANNED_FLAT_KEYS = List.of("attack-power", "reflect-flat");
+    private static final List<String> BANNED_FLAT_KEYS = List.of("attack-power", "reflect-flat",
+            // 2026-08-15(W-30): bleed-damage は 1tick あたりの実数。装備側は帯とともに指数で伸びる
+            // (Lv0 34 → Lv80以降 4,500)ので、ツリーが定数で配ると低帯で壊れ高帯で no-op になる
+            // ── 軽剣ツリー全取りの 150 は Lv0 で武器の +440%、Lv100 で +3.3% だった。
+            // 割合キー bleed-damage-rate(出血させた一撃の最終ダメージに対する比)へ振り替え済み。
+            "bleed-damage");
 
     @Test
     @DisplayName("守備力(実数)の付与は装備1点の土俵から桁で外れておらず、物理より魔法が大きい")
@@ -159,17 +164,29 @@ class ShippedSkillTreeFlatStatScaleTest {
         return list;
     }
 
-    /** {@code nodes.<id>.buffs} と {@code prestige.buffs} のパス一覧。 */
+    /**
+     * {@code nodes.<id>.buffs} / {@code nodes.<id>.mainhand-buffs} と、その prestige 版のパス一覧。
+     *
+     * <p><b>2026-08-15: {@code mainhand-buffs} を追加した。</b> それまでこの検査は {@code buffs} しか
+     * 見ておらず、<b>軽量武器・重量武器の全ノードが検査対象の外にあった</b>(あちらは
+     * {@code mainhand-buffs} で書く)。禁止キーの検査が「該当なし」で緑になっていたのは
+     * 守れていたからではなく、見ていなかったから ── W-30 の出血ダメージ実数150 は
+     * まさにその穴を通って出荷されていた。
+     */
     private static List<String> buffBlocks(YamlConfiguration yaml) {
         List<String> paths = new ArrayList<>();
-        if (yaml.isConfigurationSection("prestige.buffs")) {
-            paths.add("prestige.buffs");
+        for (String block : List.of("buffs", "mainhand-buffs")) {
+            if (yaml.isConfigurationSection("prestige." + block)) {
+                paths.add("prestige." + block);
+            }
         }
         ConfigurationSection nodes = yaml.getConfigurationSection("nodes");
         if (nodes != null) {
             for (String id : nodes.getKeys(false)) {
-                if (nodes.isConfigurationSection(id + ".buffs")) {
-                    paths.add("nodes." + id + ".buffs");
+                for (String block : List.of("buffs", "mainhand-buffs")) {
+                    if (nodes.isConfigurationSection(id + "." + block)) {
+                        paths.add("nodes." + id + "." + block);
+                    }
                 }
             }
         }

@@ -569,7 +569,7 @@ public final class CombatListener implements Listener {
         // 一撃では出血させない(回復と同時に出血DoTを付けるのは矛盾するため total>0 に限定)。Projectile bleed
         // は対象外(着弾時のメインハンドが発射武器とは限らない)。
         if (total > 0 && MELEE_CAUSES.contains(event.getCause()) && victim instanceof LivingEntity living) {
-            maybeApplyBleed(attacker, living, attackerStats);
+            maybeApplyBleed(attacker, living, attackerStats, total);
         }
 
         // 訓練用ダミー(DPSChecker-TF)を殴ってもスキルEXPは付与しない(ダミー叩きでのEXP稼ぎ防止)。
@@ -1314,9 +1314,10 @@ public final class CombatListener implements Listener {
      * "armor's offensive stats boost attacks" intent (アイテムCT だけが agg.mainhand() 専用の例外)。No bleed roll
      * (chance or damage 0) never procs. Keys are read canonically to match the aggregate map.
      */
-    private void maybeApplyBleed(Player attacker, LivingEntity victim, Map<String, Double> weaponDerived) {
+    private void maybeApplyBleed(Player attacker, LivingEntity victim, Map<String, Double> weaponDerived,
+                                 double hitDamage) {
         double chance = weaponDerived.getOrDefault(StatKeys.canonical("bleed-chance"), 0.0);
-        double damage = weaponDerived.getOrDefault(StatKeys.canonical("bleed-damage"), 0.0);
+        double damage = BleedService.damagePerTick(weaponDerived, hitDamage);
         if (chance <= 0.0 || damage <= 0.0) {
             return;
         }

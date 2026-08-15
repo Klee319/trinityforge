@@ -87,6 +87,34 @@ public final class BleedService {
     }
 
     /**
+     * 出血1tickあたりのダメージを、攻撃集約と「出血させた一撃の最終ダメージ」から決める唯一の場所
+     * (2026-08-15, W-30)。近接({@code CombatListener})と魔法({@link #maybeApplyFromAggregate})の
+     * 両方がここを呼ぶ ── 2箇所で式を書くと片方だけ率を落とすたぐいの食い違いが出る。
+     *
+     * <p><b>実数 + 率の合算</b>: {@code bleed-damage} は 1tick あたりの実数(アイテムが配る。帯とともに
+     * 指数的に伸びるので実数のままで意味を持つ)、{@code bleed-damage-rate} はその一撃の最終ダメージに
+     * 対する割合(スキルツリーが配る)。<b>固定値をツリーが配ると低帯で壊れ高帯で no-op になる</b>
+     * ── 軽剣ツリー全取りの 150 は Lv0 で武器の +440%、Lv100 で +3.3% だった(W-30)。率は帯に依存しない。
+     *
+     * <p>基準を「その一撃の<b>最終</b>ダメージ」に採ったのは、近接・魔法のどちらの呼び出し元でも
+     * 同じ意味の値が手元にある唯一の量だから。会心や貫通の結果もそのまま乗るので「重い一撃ほど
+     * 深く出血する」になる。出血の各tick自体は被ダメージ軽減しか受けない(LD-9)ので、防御側の
+     * ステが二重に効くのはこの基準ぶんだけ。
+     *
+     * @param attackerStats 攻撃集約(canonical key -&gt; 値)
+     * @param hitDamage     出血を発生させた一撃の最終ダメージ(正値のみ有効)
+     */
+    public static double damagePerTick(Map<String, Double> attackerStats, double hitDamage) {
+        if (attackerStats == null) {
+            return 0.0;
+        }
+        double flat = attackerStats.getOrDefault(StatKeys.canonical("bleed-damage"), 0.0);
+        double rate = attackerStats.getOrDefault(StatKeys.canonical("bleed-damage-rate"), 0.0);
+        double fromRate = (rate > 0.0 && hitDamage > 0.0 && Double.isFinite(hitDamage)) ? hitDamage * rate : 0.0;
+        return flat + fromRate;
+    }
+
+    /**
      * 課題1(魔法出血): 近接専用だった出血を、ArsPaperフォークの魔法ダメージ経路にも公開する唯一の口。
      * {@code attackerStats} から {@code bleed-chance}/{@code bleed-damage} を読み、成功時に
      * {@link #apply} で出血を開始する。呼び出し側(フォーク)には確率ロジックを一切書かせない
@@ -114,7 +142,7 @@ public final class BleedService {
             return;
         }
         double chance = attackerStats.getOrDefault(StatKeys.canonical("bleed-chance"), 0.0);
-        double damage = attackerStats.getOrDefault(StatKeys.canonical("bleed-damage"), 0.0);
+        double damage = damagePerTick(attackerStats, finalDamage);
         if (chance <= 0.0 || damage <= 0.0) {
             return;
         }

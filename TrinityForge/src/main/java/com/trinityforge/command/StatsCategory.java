@@ -39,7 +39,7 @@ public enum StatsCategory {
             "aoe_radius", "aoe_damage_rate", "aoe_max_targets",
             "flat_bonus_damage", "percent_bonus_damage", "damage_modifier", "fixed_damage",
             "item_cooldown", "crit_chance", "crit_damage", "penetration",
-            "bleed_chance", "bleed_damage",
+            "bleed_chance", "bleed_damage", "bleed_damage_rate",
             // 弓系・近接系・cooldown_reduction (stat-gate-overhaul §2.1)
             "bow_accuracy", "ammo_save_chance", "distance_damage_bonus", "arrow_piercing",
             // 2026-07-31: bow_cooldown_reduction を撤去(アイテムCT短縮へ一本化。StatVocabulary 参照)。

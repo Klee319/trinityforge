@@ -257,6 +257,25 @@ stats:
     hide-when-zero: true
     unit: ダメ
     category: attack
+  # 2026-08-15(W-30): 出血ダメージの割合版。出血させた一撃の最終ダメージに対する比を
+  # 1tickあたりのダメージへ足す(上の実数 bleed-damage と合算)。
+  # 実数はアイテム向け(帯とともに指数的に伸びるので実数のままで意味を持つ)、
+  # 率はスキルツリー向け ── 固定値をツリーが配ると低帯で壊れ高帯で no-op になる
+  # (軽剣ツリー全取りの150は Lv0 で武器の+440%、Lv100 で+3.3%だった)。
+  bleed-damage-rate:
+    name: 出血ダメージ率
+    icon: ""
+    format: PERCENT
+    decimals: 1
+    order: 43
+    show-sign: true
+    hide-when-zero: true
+    category: attack
+    trigger:
+      when: ON_ANY_HIT
+      sources: MAINHAND_ONLY
+      applies-to:
+        - PLAYER
   # 2026-08-15: 防具値(armor-defense-rate)を廃止し、この防御率へ 1点=1.5%軽減 で統合した。
   # 防具値の order 2(防御ブロックの先頭)をそのまま引き継ぐ。
   defense-rate:
@@ -1881,3 +1900,9 @@ multiplier-layers:
   - id: layer_3
     name: 固定ダメージ%
     stat: fixed-damage
+  # 2026-08-15(W-30): 出血ダメージ率(bleed-damage-rate)用のレイヤ。乗算レイヤは
+  # 「1レイヤ=1ステ」なので、実数(layer_2)の定義に率を書いても実行時に無言で捨てられる
+  # (PerkBuffResolver#withValidMultiplierLayers が基準ステ不一致を落とす)。
+  - id: layer_4
+    name: 出血ダメージ率%
+    stat: bleed-damage-rate

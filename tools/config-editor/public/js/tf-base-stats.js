@@ -181,7 +181,7 @@
       keys: [
         "attack-power", "crit-chance", "crit-damage", "flat-bonus-damage",
         "percent-bonus-damage", "penetration", "damage-modifier", "fixed-damage",
-        "bleed-chance", "bleed-damage"
+        "bleed-chance", "bleed-damage", "bleed-damage-rate"
       ]
     },
     {

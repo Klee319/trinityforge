@@ -99,14 +99,17 @@ class SkillTreeConfigTest {
         // 2026-07-30 の軽量武器ツリー改修で、A は全身加算(buffs)ではなく
         // メインハンド限定(mainhand-multipliers / mainhand-buffs)へ移された。
         assertEquals(1.1, a.mainhandMultipliers().get("layer_1").get("attack_power"), 0.0);
-        assertEquals(0.05, a.mainhandBuffs().get("crit_chance"), 0.0);
+        // 2026-08-15(W-31): 武器ツリーの倍率系を装備の土俵(≒1.5倍)まで引き下げた際に 0.05 → 0.03。
+        assertEquals(0.03, a.mainhandBuffs().get("crit_chance"), 0.0);
         // 2026-07-26 職業別草案(戦闘)適用: γ路線は「会心ダメージ」から「出血」へ性格を変えた
         // (α=火力/β=会心・手数 と役割が被っていたため)。crit_damage は載らなくなった。
         // 2026-07-31: 出血系も A と同じくメインハンド限定(mainhand-buffs)へ移動。
-        // bleed_damage は「出血1tickあたりの実ダメージ(flat)」なので、旧 buffs 時代の 0.4 とは単位が違う。
+        // 2026-08-15(W-30): 出血ダメージは実数(bleed_damage)から率(bleed_damage_rate)へ移した。
+        // 実数はアイテムの帯に対して固定なので、ツリーが配ると低帯で壊れ高帯で no-op になる。
         SkillNode aGamma = tree.node("A-gamma-1").orElseThrow();
         assertEquals(0.03, aGamma.mainhandBuffs().get("bleed_chance"), 0.0);
-        assertEquals(6.0, aGamma.mainhandBuffs().get("bleed_damage"), 0.0);
+        assertEquals(0.02, aGamma.mainhandBuffs().get("bleed_damage_rate"), 0.0);
+        assertNull(aGamma.mainhandBuffs().get("bleed_damage"));
         assertNull(aGamma.mainhandBuffs().get("crit_damage"));
         assertNull(aGamma.buffs().get("bleed_chance"));
 
@@ -131,8 +134,9 @@ class SkillTreeConfigTest {
         // 2026-07-30 の軽量武器ツリー改修で、プレステージ報酬もノードと同じくメインハンド限定へ移された
         // (全身加算の attack_power 永続+15% ではなく、メインハンド攻撃力の x1.15 倍率)。
         assertEquals(1.15, prestige.mainhandMultipliers().get("layer_1").get("attack_power"), 0.0);
-        assertEquals(0.1, prestige.mainhandBuffs().get("crit_chance"), 0.0);
-        assertEquals(0.2, prestige.mainhandBuffs().get("crit_damage"), 0.0);
+        // 2026-08-15(W-31): プレステージは3回まで積めるので、ノード側と同じ比率で下げた。
+        assertEquals(0.05, prestige.mainhandBuffs().get("crit_chance"), 0.0);
+        assertEquals(0.15, prestige.mainhandBuffs().get("crit_damage"), 0.0);
         assertTrue(prestige.buffs().isEmpty());
     }
 

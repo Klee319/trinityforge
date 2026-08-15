@@ -110,9 +110,11 @@ test("statCapsAllKeys: 対象外(アイテム個別ステ/CT短縮系/flat-defen
 // 2026-08-14: lapis-cost-reduction を廃止したので 108 → 107(ArsPaper の消費リスナーごと削除)。
 // 2026-08-15: 破壊時バニラEXPを採取スキル別の4キーへ分割したので 107 → 111
 // (共通キーのままだと採掘で取った倍率が伐採・整地・農業の破壊EXPにも乗っていた)。
-test("statCapsAllKeys: yml側の効くキー一覧と重複なく111件ちょうど", () => {
+// 2026-08-15(W-30): 出血ダメージ率(bleed-damage-rate)を新設したので 111 → 112
+// (実数の bleed-damage は帯に追随しないので、スキルツリー側の付与を率へ移した)。
+test("statCapsAllKeys: yml側の効くキー一覧と重複なく112件ちょうど", () => {
   const keys = statCapsAllKeys();
-  assert.equal(keys.length, 111, `件数不一致: ${keys.length}`);
+  assert.equal(keys.length, 112, `件数不一致: ${keys.length}`);
   assert.equal(new Set(keys).size, keys.length, "重複キーがある");
 });
 

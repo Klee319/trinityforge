@@ -142,6 +142,7 @@ damage-modifier
 fixed-damage
 bleed-chance
 bleed-damage
+bleed-damage-rate
 ```
 
 ### DEFENSE チャネル (totalOf 経由 — CombatListener / PerkAttributeApplier が読む)

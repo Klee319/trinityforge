@@ -83,6 +83,8 @@
   const RATE_PERCENT_KEYS = new Set([
     "damage-modifier", "percent-bonus-damage", "crit-chance", "penetration", "bleed-chance",
     "dodge-chance", "phys-resistance", "magic-resistance", "damage-reduction"
+    // 2026-08-15(W-30): 出血ダメージの割合版。実数の bleed-damage は矯正対象外のまま。
+    , "bleed-damage-rate"
     , "armor-strength"
     // 2026-08-15: 防具値(armor-defense-rate, バニラ防具ポイントの整数)を廃止し、
     // 1点=1.5%軽減 で換算してこの defense-rate([0,1] の軽減率)へ一本化した。

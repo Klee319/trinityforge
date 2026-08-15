@@ -54,6 +54,8 @@ base-stats:
   penetration: 0
   bleed-chance: 0
   bleed-damage: 0
+  # 出血ダメージ率(出血させた一撃の最終ダメージに対する割合)。上の実数と合算される。2026-08-15 新設。
+  bleed-damage-rate: 0
   # 防御率(被ダメージの乗算軽減, 0.0〜1.0)。2026-08-15 に防具値(armor-defense-rate)を廃止して統合した。
   defense-rate: 0
   armor-strength: 0

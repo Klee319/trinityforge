@@ -45,13 +45,15 @@ prestige:
   mainhand-multipliers:
     layer_1:
       attack-power: 1.15
+  # 2026-08-15(W-31): プレステージは3回まで積めるので、旧値では会心率だけで +0.3 と
+  # ツリー本体(0.28)を上回っていた。ノード側と同じ比率で下げる。
   mainhand-buffs:
-    crit-chance: 0.1
-    crit-damage: 0.2
+    crit-chance: 0.05
+    crit-damage: 0.15
   description: |-
     攻撃力x1.15(永続)
-    会心率+10%(永続)
-    会心ダメージ+20%(永続)
+    会心率+5%(永続)
+    会心ダメージ+15%(永続)
 nodes:
   A:
     name: 剛撃の心得
@@ -67,9 +69,9 @@ nodes:
       layer_1:
         attack-power: 1.1
     mainhand-buffs:
-      crit-chance: 0.05
+      crit-chance: 0.03
     description: |-
-      会心率+5%
+      会心率+3%
       攻撃力x1.1
   B:
     name: 貫きの一撃
@@ -96,10 +98,10 @@ nodes:
     effects:
       - スタン確率アップ
     mainhand-buffs:
-      crit-damage: 0.2
+      crit-damage: 0.15
       stun-duration-bonus: 5
     description: |-
-      会心ダメージ+20%
+      会心ダメージ+15%
       スタン時間+5tick
   D:
     name: 連打の境地
@@ -130,7 +132,7 @@ nodes:
       - チャージアタックのダメージ増加
     mainhand-buffs:
       penetration: 0.1
-      crit-chance: 0.1
+      crit-chance: 0.05
     description: |
       スタン確率アップ・チャージアタックのダメージ増加
   C-1-1:
@@ -198,9 +200,9 @@ nodes:
     icon: RED_DYE
     cost: 1
     effect-text: 追加ダメージ増加
-    description: 追加ダメージ+3%
+    description: 追加ダメージ+1%
     mainhand-buffs:
-      percent-bonus-damage: 0.03
+      percent-bonus-damage: 0.01
   A-beta-1:
     name: 穿・剛撃
     level: 20
@@ -211,8 +213,8 @@ nodes:
     cost: 1
     effect-text: 貫通率増加
     mainhand-buffs:
-      crit-chance: 0.03
-    description: 会心率+3%
+      crit-chance: 0.02
+    description: 会心率+2%
   A-gamma-1:
     name: 崩・剛撃
     level: 20
@@ -234,9 +236,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     mainhand-buffs:
-      percent-bonus-damage: 0.06
+      percent-bonus-damage: 0.02
     group: B-greek
-    description: 追加ダメージ+6%
+    description: 追加ダメージ+2%
   B-beta-1:
     name: 穿・貫き
     level: 40
@@ -246,9 +248,9 @@ nodes:
     cost: 1
     effect-text: 貫通率増加
     mainhand-buffs:
-      crit-chance: 0.06
+      crit-chance: 0.03
     group: B-greek
-    description: 会心率+6%
+    description: 会心率+3%
   B-gamma-1:
     name: 崩・貫き
     level: 40
@@ -259,8 +261,8 @@ nodes:
     effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
     group: B-greek
     mainhand-buffs:
-      crit-damage: 0.12
-    description: 会心ダメージ+12%
+      crit-damage: 0.1
+    description: 会心ダメージ+10%
   C-alpha-1:
     name: 豪・破砕
     level: 60
@@ -270,9 +272,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     mainhand-buffs:
-      percent-bonus-damage: 0.09
+      percent-bonus-damage: 0.03
     group: C-greek
-    description: 追加ダメージ+9%
+    description: 追加ダメージ+3%
   C-beta-1:
     name: 穿・破砕
     level: 60
@@ -282,9 +284,9 @@ nodes:
     cost: 1
     effect-text: 貫通率増加
     mainhand-buffs:
-      crit-chance: 0.09
+      crit-chance: 0.04
     group: C-greek
-    description: 会心率+9%
+    description: 会心率+4%
   C-gamma-1:
     name: 崩・破砕
     level: 60
@@ -294,9 +296,9 @@ nodes:
     cost: 1
     effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
     group: C-greek
-    description: 会心ダメージ+18%
+    description: 会心ダメージ+14%
     mainhand-buffs:
-      crit-damage: 0.18
+      crit-damage: 0.14
   D-alpha-1:
     name: 豪・連打
     level: 80
@@ -306,9 +308,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     mainhand-buffs:
-      percent-bonus-damage: 0.12
+      percent-bonus-damage: 0.04
     group: D-greek
-    description: 追加ダメージ+12%
+    description: 追加ダメージ+4%
   D-beta-1:
     name: 穿・連打
     level: 80
@@ -318,8 +320,8 @@ nodes:
     cost: 1
     effect-text: 貫通率増加
     mainhand-buffs:
-      crit-chance: 0.12
-    description: 会心率+12%
+      crit-chance: 0.05
+    description: 会心率+5%
     group: D-greek
   D-gamma-1:
     name: 崩・連打
@@ -330,9 +332,9 @@ nodes:
     cost: 1
     effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
     group: D-greek
-    description: 会心ダメージ+24%
+    description: 会心ダメージ+18%
     mainhand-buffs:
-      crit-damage: 0.24
+      crit-damage: 0.18
   E-alpha-1:
     name: 豪・粉砕
     level: 100
@@ -342,9 +344,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     mainhand-buffs:
-      percent-bonus-damage: 0.15
+      percent-bonus-damage: 0.05
     group: E-greek
-    description: 追加ダメージ+15%
+    description: 追加ダメージ+5%
   E-beta-1:
     name: 穿・粉砕
     level: 100
@@ -354,9 +356,9 @@ nodes:
     cost: 1
     effect-text: 貫通率増加
     mainhand-buffs:
-      crit-chance: 0.15
+      crit-chance: 0.06
     group: E-greek
-    description: 会心率+15%
+    description: 会心率+6%
   E-gamma-1:
     name: 崩・粉砕
     level: 100
@@ -366,6 +368,6 @@ nodes:
     cost: 1
     effect-text: 範囲ダメージ半径・範囲ダメージ・スタン率増加
     mainhand-buffs:
-      crit-damage: 0.3
+      crit-damage: 0.22
     group: E-greek
-    description: 会心ダメージ+30%
+    description: 会心ダメージ+22%

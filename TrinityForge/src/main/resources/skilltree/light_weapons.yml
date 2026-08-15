@@ -39,16 +39,18 @@ prestige:
   at-level: 100
   name: 剣聖の境地
   effect-text: ダメージ・会心率・会心ダメージが永続で増加
+  # 2026-08-15(W-31): プレステージは3回まで積めるので、旧値では会心率だけで +0.3 と
+  # ツリー本体(0.28)を上回っていた。ノード側と同じ比率で下げる。
   mainhand-buffs:
-    crit-chance: 0.1
-    crit-damage: 0.2
+    crit-chance: 0.05
+    crit-damage: 0.15
   mainhand-multipliers:
     layer_1:
       attack-power: 1.15
   description: |-
     攻撃力x1.15(永続)
-    会心率+10%(永続)
-    会心ダメージ+20%(永続)
+    会心率+5%(永続)
+    会心ダメージ+15%(永続)
 nodes:
   A:
     name: 鋭刃の心得
@@ -62,10 +64,10 @@ nodes:
       layer_1:
         attack-power: 1.1
     mainhand-buffs:
-      crit-chance: 0.05
+      crit-chance: 0.03
     description: |-
       攻撃力x1.1
-      会心率+5%
+      会心率+3%
   B:
     name: 疾風の太刀
     level: 30
@@ -90,10 +92,14 @@ nodes:
     effect-text: 被ダメージ軽減・会心ダメージ増加・出血確率UP
     description: |-
       会心ダメージ+20%
-      出血ダメージ+50
+      出血ダメージ率+5%
+    # 2026-08-15(W-30): 出血ダメージを実数(bleed-damage)から率(bleed-damage-rate)へ移した。
+    # 実数はアイテムの帯(Lv0で34 → Lv80以降で4,500)に対して固定なので、ツリー全取りの150は
+    # Lv0で武器の+440%・Lv100で+3.3%という「低帯で壊れ・高帯でno-op」になっていた。
+    # 率は「出血させた一撃の最終ダメージ」に対する割合なので全帯で同じ体感になる。
     mainhand-buffs:
       crit-damage: 0.2
-      bleed-damage: 50
+      bleed-damage-rate: 0.05
   D:
     name: 連斬の境地
     level: 70
@@ -120,10 +126,10 @@ nodes:
       - ジャンプ斬りのクリティカルで確定出血
     mainhand-buffs:
       penetration: 0.1
-      crit-chance: 0.1
+      crit-chance: 0.05
     description: |-
       貫通率+10%
-      会心率+10%
+      会心率+5%
   C-1-1:
     name: 斬り
     level: 60
@@ -134,10 +140,10 @@ nodes:
     effect-text: ノックバック距離増加
     description: |-
       出血率+5%
-      出血ダメージ+10
+      出血ダメージ率+2%
     mainhand-buffs:
       bleed-chance: 0.05
-      bleed-damage: 10
+      bleed-damage-rate: 0.02
   C-1-2:
     name: 刺し
     level: 80
@@ -149,11 +155,18 @@ nodes:
     description: |-
       出血率+10%
       出血ダメージx1.2
+      出血ダメージ率x1.2
     mainhand-buffs:
       bleed-chance: 0.1
+    # 2026-08-15(W-30): 乗算レイヤは「1レイヤ=1ステ」で、基準ステと違うキーを書くと実行時に
+    # 無言で捨てられる(PerkBuffResolver#withValidMultiplierLayers)。ツリーは率しか配らなく
+    # なったので、率用の layer_4 を追加した上で実数(layer_2)側も残す ── 実数はアイテム由来の
+    # 出血ダメージに掛かるので、消すとこのノードが従来持っていた効果まで失われる。
     mainhand-multipliers:
       layer_2:
         bleed-damage: 1.2
+      layer_4:
+        bleed-damage-rate: 1.2
   D-1-1:
     name: 間合いの拡張
     level: 80
@@ -185,9 +198,9 @@ nodes:
     icon: RED_DYE
     cost: 1
     effect-text: 追加ダメージ増加
-    description: 追加ダメージ+3%
+    description: 追加ダメージ+1%
     mainhand-buffs:
-      percent-bonus-damage: 0.03
+      percent-bonus-damage: 0.01
   A-beta-1:
     name: 疾・鋭刃
     level: 20
@@ -197,15 +210,9 @@ nodes:
     icon: YELLOW_DYE
     cost: 1
     effect-text: 会心率・攻撃速度増加
-    description: 会心率+3%
+    description: 会心率+2%
     mainhand-buffs:
-      crit-chance: 0.03
-  # 【2026-07-31 修正】γ路線5段すべてが effect-text「出血率・出血ダメージ増加」のまま
-  # crit-damage を配っていた(= β路線と同じ会心軸の二重化)。2026-07-26 職業別草案(戦闘)の
-  # 「α=火力 / β=会心・手数 / γ=出血」という役割分けへ戻す。
-  # bleed-damage の単位は「出血1tickあたりの実ダメージ(flat)」で、damage.yml の
-  # bleed.ticks: 5 回適用される(被ダメージ軽減以外の防御は全部貫通する)。
-  # 数値はβ路線(会心率 0.03→0.15)と対称にした暫定値。実機校正の対象。
+      crit-chance: 0.02
   A-gamma-1:
     name: 冴・鋭刃
     level: 20
@@ -217,10 +224,10 @@ nodes:
     effect-text: 出血率・出血ダメージ増加
     description: |-
       出血率+3%
-      出血ダメージ+6
+      出血ダメージ率+2%
     mainhand-buffs:
       bleed-chance: 0.03
-      bleed-damage: 6
+      bleed-damage-rate: 0.02
   B-alpha-1:
     name: 剛・疾風
     level: 40
@@ -229,9 +236,9 @@ nodes:
     icon: RED_DYE
     cost: 1
     effect-text: 追加ダメージ増加
-    description: 追加ダメージ+6%
+    description: 追加ダメージ+2%
     mainhand-buffs:
-      percent-bonus-damage: 0.06
+      percent-bonus-damage: 0.02
     group: B-greek
   B-beta-1:
     name: 疾・疾風
@@ -242,9 +249,9 @@ nodes:
     cost: 1
     effect-text: 会心率・攻撃速度増加
     group: B-greek
-    description: 会心率+6%
+    description: 会心率+3%
     mainhand-buffs:
-      crit-chance: 0.06
+      crit-chance: 0.03
   B-gamma-1:
     name: 冴・疾風
     level: 40
@@ -256,10 +263,10 @@ nodes:
     group: B-greek
     description: |-
       出血率+6%
-      出血ダメージ+12
+      出血ダメージ率+4%
     mainhand-buffs:
       bleed-chance: 0.06
-      bleed-damage: 12
+      bleed-damage-rate: 0.04
   C-alpha-1:
     name: 剛・捌き
     level: 60
@@ -269,9 +276,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     group: C-greek
-    description: 追加ダメージ+9%
+    description: 追加ダメージ+3%
     mainhand-buffs:
-      percent-bonus-damage: 0.09
+      percent-bonus-damage: 0.03
   C-beta-1:
     name: 疾・捌き
     level: 60
@@ -281,9 +288,9 @@ nodes:
     cost: 1
     effect-text: 会心率・攻撃速度増加
     group: C-greek
-    description: 会心率+9%
+    description: 会心率+4%
     mainhand-buffs:
-      crit-chance: 0.09
+      crit-chance: 0.04
   C-gamma-1:
     name: 冴・捌き
     level: 60
@@ -295,10 +302,10 @@ nodes:
     group: C-greek
     description: |-
       出血率+9%
-      出血ダメージ+18
+      出血ダメージ率+6%
     mainhand-buffs:
       bleed-chance: 0.09
-      bleed-damage: 18
+      bleed-damage-rate: 0.06
   D-alpha-1:
     name: 剛・連斬
     level: 80
@@ -308,9 +315,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     group: D-greek
-    description: 追加ダメージ+12%
+    description: 追加ダメージ+4%
     mainhand-buffs:
-      percent-bonus-damage: 0.12
+      percent-bonus-damage: 0.04
   D-beta-1:
     name: 疾・連斬
     level: 80
@@ -320,9 +327,9 @@ nodes:
     cost: 1
     effect-text: 会心率・攻撃速度増加
     group: D-greek
-    description: 会心率+12%
+    description: 会心率+5%
     mainhand-buffs:
-      crit-chance: 0.12
+      crit-chance: 0.05
   D-gamma-1:
     name: 冴・連斬
     level: 80
@@ -334,10 +341,10 @@ nodes:
     group: D-greek
     description: |-
       出血率+12%
-      出血ダメージ+24
+      出血ダメージ率+8%
     mainhand-buffs:
       bleed-chance: 0.12
-      bleed-damage: 24
+      bleed-damage-rate: 0.08
   E-alpha-1:
     name: 剛・飛燕
     level: 100
@@ -347,9 +354,9 @@ nodes:
     cost: 1
     effect-text: 追加ダメージ増加
     group: E-greek
-    description: 追加ダメージ+15%
+    description: 追加ダメージ+5%
     mainhand-buffs:
-      percent-bonus-damage: 0.15
+      percent-bonus-damage: 0.05
   E-beta-1:
     name: 疾・飛燕
     level: 100
@@ -360,8 +367,8 @@ nodes:
     effect-text: 会心率・攻撃速度増加
     group: E-greek
     mainhand-buffs:
-      crit-chance: 0.15
-    description: 会心率+15%
+      crit-chance: 0.06
+    description: 会心率+6%
   E-gamma-1:
     name: 冴・飛燕
     level: 100
@@ -373,7 +380,7 @@ nodes:
     group: E-greek
     description: |-
       出血率+15%
-      出血ダメージ+30
+      出血ダメージ率+10%
     mainhand-buffs:
       bleed-chance: 0.15
-      bleed-damage: 30
+      bleed-damage-rate: 0.1

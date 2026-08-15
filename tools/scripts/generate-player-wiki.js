@@ -50,6 +50,7 @@ const STAT_EXPLANATIONS = {
   "fixed-damage": "攻撃に一定量のダメージを加えます。",
   "bleed-chance": "出血を与える確率を上げます。",
   "bleed-damage": "出血によるダメージを上げます。",
+  "bleed-damage-rate": "出血によるダメージを、出血させた一撃のダメージに応じて上げます。",
   "bow-accuracy": "弓矢のばらつきを抑えます。",
   "arrow-velocity": "矢の飛ぶ速さを上げます。",
   "distance-damage-bonus": "遠くの相手へのダメージを増やします。",

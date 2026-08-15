@@ -40,6 +40,11 @@ public final class StatVocabulary {
     private static final Set<String> ATTACK_KEYS = Set.of(
             "attack_power", "flat_bonus_damage", "percent_bonus_damage", "crit_chance", "crit_damage",
             "penetration", "damage_modifier", "fixed_damage", "bleed_chance", "bleed_damage",
+            // 2026-08-15: bleed_damage_rate(出血ダメージ率)。bleed_damage は 1tick あたりの実数なので
+            // 帯とともに指数的に伸びるアイテム側でしか意味を持たず、スキルツリーの固定値は低帯で壊れ
+            // 高帯で no-op になっていた(W-30)。率は「出血させた一撃の最終ダメージ」に対する割合なので
+            // 帯に依存しない。両方合算する(アイテムの実数 + ツリーの率)。
+            "bleed_damage_rate",
             // 弓系 (NativeCombatPerkListener → totalOf(shooter, bow))
             // 2026-07-31: bow_cooldown_reduction を撤去。アイテムCT短縮(cooldown_reduction)と同じ
             // Player#setCooldown を二重に掛ける設計で、しかも item-stats.yml の BOW/CROSSBOW に

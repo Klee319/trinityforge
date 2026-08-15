@@ -66,6 +66,15 @@ function* ymlFiles(dir) {
 // `key: 12.5` / `- key: 12` 形式のスカラー行だけを見る(構造を組まずに全ファイルを掃く)。
 const SCALAR_LINE = /^\s*(?:-\s*)?([a-z0-9_-]+):\s*(-?\d+(?:\.\d+)?)\s*(?:#.*)?$/;
 
+// 乗算レイヤ(multipliers: / mainhand-multipliers:)の中では 1.2 は「x1.2」であって 120% ではない。
+// 2026-08-15: 率キー(bleed-damage-rate)を乗算レイヤに載せた瞬間にこの検査が誤検知したため、
+// ブロック配下を丸ごと除外する。インデントだけで判定する(構造を組まない方針は維持)。
+const MULTIPLIER_BLOCK = /^(\s*)(?:mainhand-)?multipliers:\s*(?:#.*)?$/;
+
+function indentOf(line) {
+  return line.length - line.replace(/^\s*/, "").length;
+}
+
 function scan() {
   const formats = loadStatFormats();
   const rateKeys = javaRateKeys();
@@ -76,7 +85,14 @@ function scan() {
   for (const file of ymlFiles(RES)) {
     if (path.resolve(file) === path.resolve(LORE)) continue;
     const rel = path.relative(REPO, file).replace(/\\/g, "/");
+    let multiplierIndent = -1;
     fs.readFileSync(file, "utf8").split(/\r?\n/).forEach((line, i) => {
+      if (line.trim() !== "") {
+        if (multiplierIndent >= 0 && indentOf(line) <= multiplierIndent) multiplierIndent = -1;
+        const block = MULTIPLIER_BLOCK.exec(line);
+        if (block) multiplierIndent = block[1].length;
+      }
+      if (multiplierIndent >= 0) return;
       const m = SCALAR_LINE.exec(line);
       if (!m || !targets.has(m[1])) return;
       scannedValues += 1;

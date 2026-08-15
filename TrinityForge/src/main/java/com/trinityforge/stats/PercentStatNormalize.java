@@ -22,6 +22,9 @@ public final class PercentStatNormalize {
             StatKeys.canonical("crit-chance"),
             StatKeys.canonical("penetration"),
             StatKeys.canonical("bleed-chance"),
+            // 2026-08-15: bleed-damage-rate は [0,1] の割合(出血させた一撃の最終ダメージに対する比)。
+            // 実数の bleed-damage とは別キーなので、こちらだけ矯正の対象にする。
+            StatKeys.canonical("bleed-damage-rate"),
             StatKeys.canonical("dodge-chance"),
             StatKeys.canonical("phys-resistance"),
             StatKeys.canonical("magic-resistance"),
