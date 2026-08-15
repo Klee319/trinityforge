@@ -317,6 +317,40 @@ function Get-ResourceDatapackPlan {
     }
 }
 
+function Test-WorldSessionLocked {
+    <#
+    .SYNOPSIS
+        ワールドの session.lock を握られているか (= そのサーバが起動中か) を返す。
+    .DESCRIPTION
+        RCON パスワードが要らない稼働判定。Minecraft は起動中ずっと
+        <world>\session.lock を排他で開いたままにする ("The world is locked by another
+        instance of Minecraft" の実体)。開ければ停止中、開けなければ起動中。
+
+        RCON より弱い判定だが、パスワード未設定でも使えるのが利点。
+        RCON が使えるならそちらを優先し、これは代替として使うこと。
+
+        session.lock が無い場合は $false (まだワールドが無い = 起動中ではない)。
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $WorldDir)
+
+    $lock = Join-Path $WorldDir "session.lock"
+    if (-not (Test-Path -LiteralPath $lock)) {
+        return $false
+    }
+    try {
+        $stream = [System.IO.File]::Open($lock, 'Open', 'ReadWrite', 'None')
+        $stream.Close()
+        return $false
+    } catch [System.IO.IOException] {
+        return $true
+    } catch {
+        # 権限不足など、握られている以外の理由でも開けないことがある。
+        # 判定できない場合は「起動中」に倒す (稼働中の world を触るほうが危険)。
+        return $true
+    }
+}
+
 function Install-ResourceDatapacks {
     <#
     .SYNOPSIS

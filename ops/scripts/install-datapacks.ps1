@@ -170,21 +170,26 @@ if ($DryRun) {
 # ---- 3. 稼働中でなければワールドへも反映 --------------------------------------------------------
 
 Write-Host ""
-# RCON パスワードが無いと稼働中かどうかを確かめられない。稼働中の world を触るのは危険なので、
-# 判定できない場合は【触らない】側に倒す。
+# 稼働中かの判定。RCON が使えるならそれが一番確実だが、パスワードは必須にしない
+# (未設定というだけで「反映しないまま終わる」のは、配備した気になれてしまい危ない)。
+# 代わりに world\session.lock を見る。Minecraft は起動中ずっとこれを排他で開いている。
+# Destination は <root>\world\datapacks なので、その親がワールドフォルダ。
+# server.properties の level-name を別途読まないのは、二重の情報源を作らないため。
+$worldDir = Split-Path $plan.Destination -Parent
 if ([string]::IsNullOrWhiteSpace($resource.RconPassword)) {
-    Write-OpsLog ("RCON パスワード (TF_RCON_RESOURCE_PASSWORD) が未設定なので、" +
-        "資源サーバが稼働中か判定できません。world\datapacks へは反映しません。" +
-        "次の週次リセットで入ります。") -Level WARN
-    exit 0
+    $running = Test-WorldSessionLocked -WorldDir $worldDir
+    Write-OpsLog ("RCON パスワード未設定のため session.lock で判定しました: " +
+        $(if ($running) { "稼働中" } else { "停止中" }) + " ($worldDir)")
+} else {
+    $running = Test-RconReachable -HostName $resource.RconHost -Port $resource.RconPort `
+        -Password $resource.RconPassword
 }
-$running = Test-RconReachable -HostName $resource.RconHost -Port $resource.RconPort `
-    -Password $resource.RconPassword
 
 if ($running) {
     Write-OpsLog ("資源サーバが稼働中なので world\datapacks へは反映しません。" +
-        "次の週次リセット (reset-resource.ps1) で入ります。" +
-        "すぐ反映したい場合はサーバを停止してからもう一度実行してください。") -Level WARN
+        "稼働中に足しても Paper は読み込み済みで、しかも次に保存された level.dat と" +
+        "食い違う恐れがある。次の週次リセット (reset-resource.ps1) で入ります。" +
+        "すぐ反映したいならサーバを停止してからもう一度実行してください。") -Level WARN
     exit 0
 }
 

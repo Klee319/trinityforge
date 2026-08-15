@@ -272,6 +272,33 @@ try {
             "正本から外したパックが残っている: $($names -join ', ')"
     }
 
+    Test-Case "session.lock で RCON 無しでも稼働中か判定できる" {
+        # RCON パスワードが未設定でも配備できるようにするための判定。
+        # ここが誤って「停止中」を返すと、稼働中の world を書き換えてしまう。
+        $world = Join-Path $sandbox "lockcheck\world"
+        New-Item -ItemType Directory -Path $world -Force | Out-Null
+
+        Assert-True (-not (Test-WorldSessionLocked -WorldDir $world)) `
+            "session.lock が無いのに稼働中と判定した"
+
+        $lock = Join-Path $world "session.lock"
+        Set-Content -LiteralPath $lock -Value "x" -NoNewline
+        Assert-True (-not (Test-WorldSessionLocked -WorldDir $world)) `
+            "誰も握っていない session.lock を稼働中と判定した"
+
+        # Minecraft が起動中に握っているのと同じ排他で開く。
+        $stream = [System.IO.File]::Open($lock, 'Open', 'ReadWrite', 'None')
+        try {
+            Assert-True (Test-WorldSessionLocked -WorldDir $world) `
+                "握られている session.lock を停止中と判定した"
+        } finally {
+            $stream.Close()
+        }
+
+        Assert-True (-not (Test-WorldSessionLocked -WorldDir $world)) `
+            "解放後も稼働中のままになっている"
+    }
+
     # ---- 設定の読み込み ------------------------------------------------------------------------
 
     Write-Host ""
