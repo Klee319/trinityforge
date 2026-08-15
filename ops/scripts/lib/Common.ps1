@@ -261,6 +261,103 @@ function Remove-FileSafely {
     Write-OpsLog "削除しました: $Path"
 }
 
+function Get-ResourceDatapackPlan {
+    <#
+    .SYNOPSIS
+        資源サーバのデータパック配置計画 (正本 -> 配置先) を組み立てて検証する。
+    .DESCRIPTION
+        設定が無ければ $null を返す (データパックを使わない構成)。
+        Required なのに正本が空/不在なら【この時点で throw する】。
+        ワールドを消したあとで気づくと、その週は丸ごとバニラ地形で走ることになる。
+    .PARAMETER SkipRequiredCheck
+        これから正本を作る側 (install-datapacks.ps1) 用。空でも throw しない。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [hashtable] $Config,
+        [Parameter(Mandatory)] [hashtable] $ResourceServer,
+        [switch] $SkipRequiredCheck
+    )
+
+    if (-not $Config.ContainsKey("ResourceDatapacks") -or -not $Config.ResourceDatapacks) {
+        return $null
+    }
+    $spec = $Config.ResourceDatapacks
+    foreach ($key in @("Source", "Destination")) {
+        if (-not $spec.ContainsKey($key) -or [string]::IsNullOrWhiteSpace($spec[$key])) {
+            throw "ops-config.psd1 の ResourceDatapacks に $key がありません。"
+        }
+        if ([IO.Path]::IsPathRooted($spec[$key])) {
+            throw "ResourceDatapacks.$key は資源サーバルートからの相対パスで書いてください: $($spec[$key])"
+        }
+    }
+    $source = Join-Path $ResourceServer.Root $spec.Source
+    $destination = Join-Path $ResourceServer.Root $spec.Destination
+    $required = $spec.ContainsKey("Required") -and $spec.Required
+
+    $packs = @()
+    if (Test-Path -LiteralPath $source) {
+        # データパックは「zip 1本」か「pack.mcmeta を持つフォルダ」のどちらか。両方受ける。
+        $packs = @(Get-ChildItem -LiteralPath $source -Force |
+            Where-Object { $_.Extension -eq ".zip" -or
+                           ($_.PSIsContainer -and (Test-Path -LiteralPath (Join-Path $_.FullName "pack.mcmeta"))) })
+    }
+
+    if ($required -and -not $SkipRequiredCheck -and $packs.Count -eq 0) {
+        throw "中断: データパックの正本が空です: $source`n" +
+              "ResourceDatapacks.Required = `$true のため、ワールドを削除せずにここで止めます。`n" +
+              "ops\scripts\install-datapacks.ps1 で配置するか、Required を `$false にしてください。"
+    }
+
+    return @{
+        Source      = $source
+        Destination = $destination
+        Packs       = $packs
+        Required    = $required
+    }
+}
+
+function Install-ResourceDatapacks {
+    <#
+    .SYNOPSIS
+        正本のデータパックを配置先へ複製する。配置先は毎回作り直す (差分ではなく総入れ替え)。
+    .DESCRIPTION
+        差分コピーにすると、正本から外したパックが配置先に残り続けて
+        「外したはずのパックが効いている」状態になる。原因が config を見ても分からないので、
+        毎回まっさらにしてから入れ直す。
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [hashtable] $Plan,
+        [switch] $DryRun
+    )
+
+    if ($Plan.Packs.Count -eq 0) {
+        Write-OpsLog "データパックの正本が空なので配置をスキップします: $($Plan.Source)" -Level WARN
+        return
+    }
+
+    if ($DryRun) {
+        Write-OpsLog "$($Plan.Destination) を作り直して $($Plan.Packs.Count) 件を複製する" -Level DRYRUN
+        foreach ($pack in $Plan.Packs) {
+            Write-OpsLog "  $($pack.Name)" -Level DRYRUN
+        }
+        return
+    }
+
+    if (Test-Path -LiteralPath $Plan.Destination) {
+        Remove-DirectorySafely -Path $Plan.Destination
+    }
+    New-Item -ItemType Directory -Path $Plan.Destination -Force | Out-Null
+    foreach ($pack in $Plan.Packs) {
+        Copy-Item -LiteralPath $pack.FullName -Destination $Plan.Destination -Recurse -Force
+    }
+    Write-OpsLog "データパックを配置しました: $($Plan.Packs.Count) 件 -> $($Plan.Destination)"
+    foreach ($pack in $Plan.Packs) {
+        Write-OpsLog "  $($pack.Name)"
+    }
+}
+
 function Get-DirectorySizeMB {
     [CmdletBinding()]
     param([Parameter(Mandatory)] [string] $Path)

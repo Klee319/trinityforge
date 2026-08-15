@@ -213,6 +213,65 @@ try {
         Assert-True ($output -match "中断") "中断していない"
     }
 
+    # ---- 週次リセットとデータパックの同居 ------------------------------------------------------
+    # world を丸ごと消すリセットと、world\datapacks に置くデータパックは正面衝突する。
+    # 衝突しても【エラーは出ず、資源ワールドが黙ってバニラ地形に戻る】だけなので、
+    # 「正本が world の外にあること」と「配置が総入れ替えであること」を試験で固定する。
+
+    Write-Host ""
+    Write-Host "=== 週次リセットとデータパックの同居 ===" -ForegroundColor Cyan
+
+    $datapackServer = @{ Name = "resource"; Root = (Join-Path $sandbox "dp-resource") }
+    $datapackConfig = @{
+        ResourceDatapacks = @{
+            Source      = "datapacks-source"
+            Destination = "world\datapacks"
+            Required    = $true
+        }
+    }
+
+    Test-Case "正本が空なら、ワールドを消す前に Required で止まる" {
+        New-Item -ItemType Directory -Path (Join-Path $datapackServer.Root "datapacks-source") -Force | Out-Null
+        $failed = $false
+        try {
+            Get-ResourceDatapackPlan -Config $datapackConfig -ResourceServer $datapackServer | Out-Null
+        } catch {
+            $failed = $true
+            Assert-True ($_.Exception.Message -match "中断") "中断メッセージになっていない: $($_.Exception.Message)"
+        }
+        Assert-True $failed "正本が空なのに素通りした (この状態で world を消すと1週間バニラ地形になる)"
+    }
+
+    Test-Case "正本は world の外に置く (リセットの削除対象と重ならない)" {
+        $plan = $datapackConfig.ResourceDatapacks
+        # ResourceResetTargets は "world" を消す。Source がその配下だと初回リセットで消える。
+        Assert-True (-not ($plan.Source -match '^world[\\/]')) `
+            "Source が world 配下にある: $($plan.Source)"
+        Assert-True ($plan.Destination -match '^world[\\/]') `
+            "Destination は Paper が読む world 配下でなければならない: $($plan.Destination)"
+    }
+
+    Test-Case "配置は総入れ替え (正本から外したパックが配置先に残らない)" {
+        $root = Join-Path $sandbox "dp-swap"
+        $source = Join-Path $root "datapacks-source"
+        $dest   = Join-Path $root "world\datapacks"
+        New-Item -ItemType Directory -Path $source -Force | Out-Null
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $source "keep.zip")  -Value "x" -NoNewline
+        # 前の週まで入っていて、正本からは外したパック。差分コピーだと残り続けて効き続ける。
+        Set-Content -LiteralPath (Join-Path $dest "dropped.zip") -Value "x" -NoNewline
+
+        $plan = Get-ResourceDatapackPlan `
+            -Config @{ ResourceDatapacks = @{ Source = "datapacks-source"; Destination = "world\datapacks" } } `
+            -ResourceServer @{ Name = "resource"; Root = $root }
+        Install-ResourceDatapacks -Plan $plan
+
+        $names = @(Get-ChildItem -LiteralPath $dest | Select-Object -ExpandProperty Name)
+        Assert-True ($names -contains "keep.zip") "正本のパックが配置されていない: $($names -join ', ')"
+        Assert-True (-not ($names -contains "dropped.zip")) `
+            "正本から外したパックが残っている: $($names -join ', ')"
+    }
+
     # ---- 設定の読み込み ------------------------------------------------------------------------
 
     Write-Host ""

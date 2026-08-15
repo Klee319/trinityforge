@@ -4,14 +4,19 @@
 
 .DESCRIPTION
     手順:
+      0. データパックの正本 (ResourceDatapacks.Source) を検査する。
+         ワールドを消したあとで不在に気づくと、その週は丸ごとバニラ地形で走ることになる
       1. 予告をブロードキャスト (既定 10 / 5 / 1 分前)
-      2. RCON stop -> FallbackRouter が在席者をメインへ自動退避。
+      2. maintenance.flag を置いて server-loop.cmd の再起動を保留させ、RCON stop。
+         FallbackRouter が在席者をメインへ自動退避し、
          HuskSync が切替時にインベントリを保存するので、持ち物はこの時点で確定する
       3. プロセスが落ちきるまで待つ (タイムアウトしたら中断。強制終了はしない)
       4. 削除 (ops-config.psd1 の ResourceResetTargets)。
          ジャンクションは Remove-DirectorySafely が必ず弾く
-      5. sync-configs.ps1 で整合チェック。問題があれば起動せず中断する
-      6. server-loop.cmd が自動で起動し直すのを待つ
+     4b. データパックを正本から world\datapacks へ入れ直す (world ごと消えているため)
+      5. sync-configs.ps1 で整合チェック。問題があれば maintenance.flag を残したまま中断する
+         (壊れた状態で起動させない。解消したら flag を消せば server-loop が起動する)
+      6. maintenance.flag を外し、server-loop.cmd が起動し直すのを待つ
       7. Chunky のプリジェネレーションを開始し、メインへ完了を通知する
 
 .PARAMETER DryRun
@@ -81,7 +86,43 @@ foreach ($relative in $allTargets) {
 
 Write-OpsLog "削除対象の安全確認 OK ($($allTargets.Count) 件)"
 
+# データパックの正本を【停止前に】検査する。world を消したあとで「正本が空だった」と分かっても
+# その週は丸ごとバニラ地形で走ることになり、しかもエラーは一切出ない。
+$datapackPlan = Get-ResourceDatapackPlan -Config $config -ResourceServer $resource
+if ($datapackPlan) {
+    Write-OpsLog "データパックの正本を確認: $($datapackPlan.Packs.Count) 件 ($($datapackPlan.Source))"
+} else {
+    Write-OpsLog "ResourceDatapacks の設定が無いのでデータパックは扱いません。"
+}
+
 # ---- 1-3. 予告して停止 -------------------------------------------------------------------------
+
+# ⚠ server-loop.cmd は Paper が落ちてから RESTART_DELAY(10秒)で起動し直す。数GBのワールド削除は
+#   10秒では終わらないので、そのままだと【削除の途中で Paper が起動する】。半分消えたワールドで
+#   立ち上がるうえ、データパックの再配置は Paper が読み終わったあとになり、その週は無効になる。
+#   maintenance.flag を置いてループを保留させ、削除と再配置が済んでから外す。
+#   stop.flag と違い、ループから抜けさせない(消せばそのまま起動し直す)。
+$maintenanceFlag = Join-Path $resource.Root "maintenance.flag"
+
+function Set-MaintenanceHold {
+    if ($DryRun) {
+        Write-OpsLog "maintenance.flag を置いて server-loop の再起動を保留する: $maintenanceFlag" -Level DRYRUN
+        return
+    }
+    New-Item -ItemType File -Path $maintenanceFlag -Force | Out-Null
+    Write-OpsLog "server-loop の再起動を保留しました: $maintenanceFlag"
+}
+
+function Clear-MaintenanceHold {
+    if ($DryRun) {
+        Write-OpsLog "maintenance.flag を外して server-loop に起動させる" -Level DRYRUN
+        return
+    }
+    if (Test-Path -LiteralPath $maintenanceFlag) {
+        Remove-Item -LiteralPath $maintenanceFlag -Force
+        Write-OpsLog "server-loop の保留を解除しました。"
+    }
+}
 
 $wasRunning = $false
 if ($DryRun) {
@@ -110,54 +151,87 @@ if ($wasRunning) {
         }
     }
 
-    # ループを止めずに再起動させたいので stop.flag は置かない。
+    Set-MaintenanceHold
     $stopped = Stop-ServerViaRcon -Server $resource -TimeoutSeconds $StopTimeoutSeconds -DryRun:$DryRun
     if (-not $stopped) {
+        Clear-MaintenanceHold
         Write-OpsLog "停止できなかったのでリセットを中断します。ファイルは一切触っていません。" -Level ERROR
         exit 1
     }
 } else {
     Write-OpsLog "資源サーバは停止しています。そのまま削除に進みます。"
+    Set-MaintenanceHold
 }
 
-# ---- 4. 削除 -----------------------------------------------------------------------------------
+# 削除〜再配置の間に例外が出ても、保留だけは必ず外す。外し忘れると server-loop が
+# 永久に待ち続け、【資源サーバが上がらないまま朝を迎える】。
+# StrictMode 下では未初期化の参照が落ちるので、先に置く。
+$abortWithHold = $false
+try {
 
-Write-Host ""
-Write-OpsLog "--- 削除 ---"
+    # ---- 4. 削除 -------------------------------------------------------------------------------
 
-foreach ($relative in $targets.Directories) {
-    $path = Join-Path $resource.Root $relative
-    Remove-DirectorySafely -Path $path -DryRun:$DryRun
-}
-foreach ($relative in $targets.Files) {
-    $path = Join-Path $resource.Root $relative
-    Remove-FileSafely -Path $path -DryRun:$DryRun
-}
+    Write-Host ""
+    Write-OpsLog "--- 削除 ---"
 
-# ---- 5. 整合チェック ---------------------------------------------------------------------------
-
-Write-Host ""
-Write-OpsLog "--- 起動前の整合チェック ---"
-
-$syncScript = Join-Path $PSScriptRoot "sync-configs.ps1"
-$syncArgs = @("-File", $syncScript)
-if ($ConfigPath) { $syncArgs += @("-ConfigPath", $ConfigPath) }
-if ($DryRun)     { $syncArgs += "-DryRun" }
-
-& powershell.exe -NoProfile -ExecutionPolicy Bypass @syncArgs
-$syncExit = $LASTEXITCODE
-
-if ($syncExit -ne 0) {
-    if ($DryRun) {
-        # ドライランでは残りの手順も見せたいので続行する。実行時はここで止まる。
-        Write-OpsLog ("整合チェックが失敗しました (exit=$syncExit)。" +
-            "実行時はここで中断し、資源サーバを起動しません。ドライランなので手順の表示を続けます。") -Level WARN
-    } else {
-        Write-OpsLog ("整合チェックに失敗しました (exit=$syncExit)。" +
-            "資源サーバは起動しません。上の指摘を解消してから server-loop.cmd を起動してください。") -Level ERROR
-        exit 1
+    foreach ($relative in $targets.Directories) {
+        $path = Join-Path $resource.Root $relative
+        Remove-DirectorySafely -Path $path -DryRun:$DryRun
     }
+    foreach ($relative in $targets.Files) {
+        $path = Join-Path $resource.Root $relative
+        Remove-FileSafely -Path $path -DryRun:$DryRun
+    }
+
+    # ---- 4b. データパックの再配置 ---------------------------------------------------------------
+    # world を消したので datapacks も消えている。Paper が起動する前に入れ直す。
+    # ⚠ ここを飛ばすと、資源ワールドは【バニラ地形で生成され】、案1の構造物も
+    #   ArsPaper の追加戦利品プール(nova_structures:* など)も一切当たらなくなる。無警告。
+
+    if ($datapackPlan) {
+        Write-Host ""
+        Write-OpsLog "--- データパックの再配置 ---"
+        Install-ResourceDatapacks -Plan $datapackPlan -DryRun:$DryRun
+    }
+
+    # ---- 5. 整合チェック -----------------------------------------------------------------------
+
+    Write-Host ""
+    Write-OpsLog "--- 起動前の整合チェック ---"
+
+    $syncScript = Join-Path $PSScriptRoot "sync-configs.ps1"
+    $syncArgs = @("-File", $syncScript)
+    if ($ConfigPath) { $syncArgs += @("-ConfigPath", $ConfigPath) }
+    if ($DryRun)     { $syncArgs += "-DryRun" }
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass @syncArgs
+    $syncExit = $LASTEXITCODE
+
+    if ($syncExit -ne 0) {
+        if ($DryRun) {
+            # ドライランでは残りの手順も見せたいので続行する。実行時はここで止まる。
+            Write-OpsLog ("整合チェックが失敗しました (exit=$syncExit)。" +
+                "実行時はここで中断し、資源サーバを起動しません。ドライランなので手順の表示を続けます。") -Level WARN
+        } else {
+            $abortWithHold = $true
+        }
+    }
+
+} catch {
+    # 想定外の例外。保留を外して server-loop に起動させる(ワールドは再生成されるので実害は小さい)。
+    Clear-MaintenanceHold
+    throw
 }
+
+if ($abortWithHold) {
+    # 保留は【外さない】。壊れた config のまま起動させないのが目的。
+    Write-OpsLog ("整合チェックに失敗しました (exit=$syncExit)。資源サーバは起動しません。" +
+        "上の指摘を解消してから $maintenanceFlag を削除してください " +
+        "(server-loop.cmd が待っているので、消せば自動で起動します)。") -Level ERROR
+    exit 1
+}
+
+Clear-MaintenanceHold
 
 # ---- 6. 起動待ち -------------------------------------------------------------------------------
 

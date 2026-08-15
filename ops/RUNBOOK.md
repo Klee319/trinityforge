@@ -832,6 +832,76 @@ ops\scripts\server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resou
 
 ---
 
+## 手順 17. 資源サーバへ構造物データパック（案1）を入れる
+
+### ⚠⚠ 先に読む: 週次リセットと正面衝突する
+
+週次リセット（`reset-resource.ps1`）は **`world` ディレクトリを丸ごと削除する**。
+Minecraft がデータパックを読むのは `world\datapacks` なので、
+**そこにだけ置くと初回の月曜 04:00 で全部消える。**
+しかも消えても**エラーは一切出ない**。資源ワールドが黙ってバニラ地形で再生成され、
+ArsPaper が足している戦利品プール（`nova_structures:*` など）も namespace ごと当たらなくなる。
+
+そのため **正本は `Resource_Server\datapacks-source`（`world` の外）に置き、
+リセットのたびにスクリプトが `world\datapacks` へ複製し直す。**
+設定は `ops-config.psd1` の `ResourceDatapacks`。
+
+```powershell
+# 1. 何が入るかを先に見る（コピーしない）
+powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\install-datapacks.ps1 -DryRun
+
+# 2. 正本へ配置する（資源サーバが停止していれば world にも即反映される）
+powershell -NoProfile -ExecutionPolicy Bypass -File ops\scripts\install-datapacks.ps1
+```
+
+zip の置き場は既定で `<repo>\tmp\worldgen\downloads`。`-SourceDir` で変えられる。
+
+### 入るもの（案1 = 17 パック）
+
+DnT 本体 + オーバーホール 10 種、Structory、Structory Towers、Towns and Towers、
+Terralith、Incendium、Nullscape、要塞オーバーホール 1 種。
+
+- **要塞オーバーホールはフル版と LITE 版の排他**。両方入れると同じ構造物を 2 つのパックが
+  上書きし合い、どちらが勝つかは読み込み順まかせになる。既定はフル版
+  （`-StrongholdVariant Lite` で切り替え）。
+- スクリプトは**案1 に無い zip をコピーしない**。`downloads` には `minecraft_server.jar` の
+  ようなデータパックでない物も混ざっている。
+- 同じパックの複数版が `downloads` に並んでいたら**中断する**（どれが効くか読み込み順まかせになるため）。
+
+### 反映のタイミング
+
+| 状況 | 反映 |
+|---|---|
+| 資源サーバ停止中に実行 | `world\datapacks` へ即入る。ただし**新しい構造物は未生成のチャンクにしか出ない** |
+| 資源サーバ稼働中に実行 | 正本だけ更新。`world` へは次の週次リセットで入る |
+| 週次リセット | 毎回、正本から**総入れ替え**で入れ直す（正本から外したパックは配置先にも残らない） |
+
+既存ワールドに後から入れると生成済み範囲との継ぎ目ができるので、
+**行き渡らせたいなら `reset-resource.ps1` でワールドごと作り直す**のが正しい。
+
+### メインサーバには入れない
+
+案1 は「資源だけ」の決定。メインは既存ワールドが育っているので、
+地形データパック（Terralith / Incendium / Nullscape）を後入れすると継ぎ目ができる。
+ArsPaper の `loot-tables.yml` はバニラのルートテーブルもティア分けしてあるので、
+**メイン側もデータパック無しのまま戦利品の底上げだけは効く。**
+
+### `maintenance.flag`（リセット中の再起動の保留）
+
+`server-loop.cmd` は Paper が落ちると 10 秒後に起動し直す。数 GB のワールド削除は
+10 秒では終わらないので、そのままだと**削除の途中で Paper が起動する**。
+`reset-resource.ps1` は停止前に `maintenance.flag` を置いてループを保留させ、
+削除とデータパック再配置が済んでから外す。
+
+- `stop.flag` と違い、**ループから抜けさせない**（消せばそのまま起動し直す）。
+- 整合チェック（`sync-configs.ps1`）が失敗した場合は**わざと外さない**。
+  壊れた config のまま起動させないため。指摘を直してから
+  `Resource_Server\maintenance.flag` を手で消せば、`server-loop.cmd` が自動で起動する。
+- リセットが異常終了して flag が残っていないかは、朝いちで確認する
+  （残っていると**資源サーバが上がらないまま**になる）。
+
+---
+
 ## 手順 12. 受け入れ確認
 
 上から順に、実際にプレイして確認する。

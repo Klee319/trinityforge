@@ -73,6 +73,24 @@
         )
     }
 
+    # 資源サーバに入れる構造物/地形データパック(案1)。
+    #
+    # ⚠⚠ **データパックを `world\datapacks` にだけ置くと、週次リセットの初回で全部消える。**
+    #    上の ResourceResetTargets が `world` を丸ごと削除するため。しかも消えても
+    #    エラーは出ず、【資源ワールドが黙ってバニラ地形に戻る】だけなので気づけない
+    #    (追加した戦利品プールも namespace ごと当たらなくなる)。
+    #    なので **正本は world の外 (Source) に置き、リセットのたびに Destination へ複製する。**
+    #    ⚠ データパックを差し替えるときは Source を直すこと。Destination を直しても次のリセットで戻る。
+    ResourceDatapacks = @{
+        # resource サーバのルートからの相対パス。ここが正本。週次リセットでは消さない。
+        Source      = "datapacks-source"
+        # Paper がデータパックを読む場所 (level-name が world 以外なら合わせて直す)。
+        Destination = "world\datapacks"
+        # true にすると、Source が空/不在のときにリセットを中断する。
+        # 【ワールドを消したあとでデータパック不在に気づく】のが最悪なので、停止前に検査する。
+        Required    = $true
+    }
+
     # sync-configs.ps1 が main -> resource へコピーする ArsPaper config。
     # サーバ固有の【実行時状態】だけを対象外にする。
     # ⚠ 2026-08-08 訂正: 以前は sourcejars.yml / sourcelinks.yml を除外していたが、

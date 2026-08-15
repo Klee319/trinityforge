@@ -21,6 +21,14 @@ REM    server-loop.cmd "D:\game\minecraft\PaperServer\Velocity_for_TF\Resource_S
 REM
 REM  To leave the loop (maintenance, i.e. do not bring it back up):
 REM    put an empty file named stop.flag in the server root, then stop the server.
+REM
+REM  To hold the loop without leaving it (weekly reset, i.e. bring it back up when done):
+REM    put an empty file named maintenance.flag in the server root, then stop the server.
+REM    The loop waits here until the flag is deleted, then starts Paper again.
+REM    Without this hold the loop restarts RESTART_DELAY seconds after the stop, which is far
+REM    less time than deleting a multi-GB world takes: Paper would come back up on a half-deleted
+REM    world, and the datapacks would be re-installed after Paper had already read them.
+REM    reset-resource.ps1 creates and removes this flag on its own.
 REM =============================================================================================
 
 set "SERVER_ROOT=%~1"
@@ -71,6 +79,17 @@ echo [INFO] Paper exited (exit=!EXIT_CODE!) %DATE% %TIME%
 if exist "stop.flag" (
     echo [INFO] stop.flag detected, not restarting.
     goto :eof
+)
+
+:maintenance_wait
+if exist "maintenance.flag" (
+    echo [INFO] maintenance.flag present, holding. Delete it to restart. %DATE% %TIME%
+    %SystemRoot%\System32\timeout.exe /t 5 /nobreak >nul
+    if exist "stop.flag" (
+        echo [INFO] stop.flag appeared during maintenance, leaving the loop.
+        goto :eof
+    )
+    goto maintenance_wait
 )
 
 echo [INFO] Restarting in %RESTART_DELAY%s. Ctrl+C to abort.
