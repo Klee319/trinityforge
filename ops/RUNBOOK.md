@@ -1302,7 +1302,98 @@ cd C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforg
 - 消す前の内容は `Velocity_for_TF\_purge-backup-<日時>\` に丸ごと退避される
 - ワールドの地形・config・jar には触らない
 
-### 13-4. 手動をなくす（手順 11 とあわせて登録する）
+---
+
+## 手順 16. サーバ間チャットと管理者 TP
+
+TrinityForge 本体の機能（`plugins\TrinityForge\network.yml`）。プロキシ用プラグインは要らない。
+
+### 16-1. 何に乗っているか
+
+Velocity の**旧 BungeeCord プラグインメッセージチャンネル**。
+`velocity-4.1.0-SNAPSHOT-9.jar` の `BungeeCordMessageResponder` を逆アセンブルして
+`Connect` / `ConnectOther` / `Forward` / `ForwardToPlayer` / `GetServer` / `PlayerList` が
+実装されていることを確認済み。有効化は `velocity.toml` の
+`bungee-plugin-message-channel = true`（既定で true）。
+
+> **定番の HuskChat は開発終了しており Velocity 4 では使えない。**
+> プロキシ側プラグインを足す道は塞がっているので、バックエンド（＝ TF 本体）側で実装している。
+
+**前提: プラグインメッセージはプレイヤーの接続に相乗りする。**
+オンラインが 0 人のサーバは送ることも受け取ることもできない。
+チャットも TP も「相手が居る」ことが前提なので実害は無いが、
+「無人のサーバには何も届かない」は仕様として覚えておく。
+
+### 16-2. 自分がどのサーバかは config に書かない
+
+`plugins\TrinityForge` は main の実体を resource / dev がジャンクションで指しているので、
+**サーバごとに違う config を置けない。** そこで自分の名前はプロキシに `GetServer` で聞き、
+`network.yml` には「プロキシ上のサーバ名 → 表示名」の対応表だけを置いている。
+
+```yaml
+chat:
+  servers:
+    main: "メイン"
+    resource: "資源"
+    dev: "開発"
+```
+
+`velocity.toml` の `[servers]` に名前を足したら、ここにも足す。
+書き忘れるとサーバ名がそのまま出る（空にはしない＝設定漏れが目に見える）。
+
+### 16-3. チャット
+
+3 台のどこで喋っても全台に `【資源】mcid: hello` の形で流れる。
+**自分のサーバの発言も同じ書式に書き換える** ので、1 つの画面に 2 種類の書式が混ざらない。
+
+書式は `chat.format`（MiniMessage）。`%server%` / `%player%` / `%message%` が使える。
+**本文と名前は文字列置換していない** ので、プレイヤーが `<click:run_command:'/op me'>` と
+打っても解釈されない（`ChatFormatTest` で固定してある）。
+
+### 16-4. 管理者 TP
+
+| コマンド | 動き |
+|---|---|
+| `/tpto <player>` | 実行者が相手のところへ飛ぶ |
+| `/tphere <player>` | 相手を実行者のところへ引っぱる |
+
+権限は `trinityforge.admin`。同じサーバに相手が居れば普通のテレポート、
+別サーバなら「探す → 見つかったサーバへ移動 → 到着後に座標へ飛ばす」。
+
+**座標はネットワークに流していない。** 行き先の座標は必ず行き先のサーバ自身が控え、
+相手には「誰が行く／誰を寄こす」だけを伝える。
+
+到着後の実テレポートは `teleport.arrival-delay-ticks`（既定 20 = 1 秒）だけ待つ。
+HuskSync がインベントリを復元し終える前に動かすと座標が巻き戻ることがあるため。
+
+### 16-5. Discord（DiscordSRV）
+
+**まだ動かない。** 3 台とも `BotToken: "BOTTOKEN"` /
+`Channels: {"global": "000000000000000000"}` のままで、DiscordSRV は起動時に自分を無効化している。
+
+設計は「**各サーバの DiscordSRV が自分の発言だけを投げる**」。
+TF が他サーバから受け取った分は `Bukkit.broadcast` で出していて
+チャットイベントではないため、DiscordSRV には拾われない ＝ 二重投稿にならない。
+
+サーバ名の接頭辞は `plugins\DiscordSRV\messages.yml`（ジャンクション共有ではないので各サーバ別）:
+
+```yaml
+MinecraftChatToDiscordMessageFormat: "**%primarygroup%** [メイン] %displayname% » %message%"
+MinecraftChatToDiscordMessageFormatNoPrimaryGroup: "[メイン] %displayname% » %message%"
+```
+
+main = メイン / dev = 開発 は設定済み。残りは:
+
+1. `config.yml` の `BotToken` と `Channels` を 3 台（resource を含めるなら 3 台）に入れる
+2. **resource には DiscordSRV が入っていない。** 資源サーバの発言も Discord へ出すなら
+   jar と config を配って `seed-backend-configs.ps1` の `$ResourceExcluded` から外す
+3. **参加/退出メッセージを main 以外で切る。** サーバ間移動は各バックエンドから見ると
+   「退出」と「参加」なので、3 台とも有効だと移動のたびに Discord が 2 行流れる
+
+### 16-6. 反映
+
+`network.yml` は初回起動時に jar から書き出される。jar の差し替えが要るので
+**`/trinityforge reload` では入らない。フル再起動が必要。**
 
 いずれも**管理者 PowerShell**で 1 回だけ。
 

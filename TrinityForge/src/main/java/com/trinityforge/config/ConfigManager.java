@@ -5,6 +5,7 @@ import com.trinityforge.config.domains.AfkConfig;
 import com.trinityforge.config.domains.AttributeMappingConfig;
 import com.trinityforge.config.domains.CombatDamageConfig;
 import com.trinityforge.config.domains.CollectionConfig;
+import com.trinityforge.config.domains.NetworkConfig;
 import com.trinityforge.config.domains.SpecialRewardsConfig;
 import com.trinityforge.config.domains.CombatLevelConfig;
 import com.trinityforge.config.domains.CraftQualityConfig;
@@ -114,6 +115,11 @@ public final class ConfigManager {
     private final GachaConfig gacha = new GachaConfig();
     // AFK(離席)判定と、その間の報酬停止/自動キック(afk.yml, 2026-07-27)。
     private final AfkConfig afk = new AfkConfig();
+
+    // サーバをまたぐチャットと管理者TP(network.yml, 2026-08-15)。
+    // 3台でジャンクション共有される config なので、サーバ固有の値は持たせない
+    // (自分がどのサーバかはプロキシに GetServer で聞く)。
+    private final NetworkConfig network = new NetworkConfig();
     // 採掘ギミックflag系consumer(vein-mining/haste-active-mining) + mining drop-table + fortune連続処理
     // (旧 gathering.yml mining.* 統合、2026-07-23 stat-gate-overhaul §D)のチューニング。
     private final MiningGimmickConfig miningGimmick = new MiningGimmickConfig();
@@ -208,6 +214,7 @@ public final class ConfigManager {
         register(gacha);
         // AFK対策(afk.yml): 判定タイマーの再スケジュールは TrinityForge#reload 側が行う。
         register(afk);
+        register(network);
         register(miningGimmick::load);
         register(woodcuttingGimmick::load);
         register(diggingGimmick::load);
@@ -359,6 +366,10 @@ public final class ConfigManager {
 
     public AfkConfig afk() {
         return afk;
+    }
+
+    public NetworkConfig network() {
+        return network;
     }
 
     public MiningGimmickConfig miningGimmick() {

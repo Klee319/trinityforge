@@ -222,6 +222,10 @@ public final class TrinityForge extends JavaPlugin {
     private com.trinityforge.command.CatalogCommand catalogCommand;
     private com.trinityforge.command.SpecialRewardCommand specialRewardCommand;
     private com.trinityforge.afk.AfkService afkService;
+
+    // サーバ間チャット/管理者TP(network.yml, 2026-08-15)。プロキシの旧BungeeCordチャンネルを使う。
+    private com.trinityforge.network.ProxyChannel proxyChannel;
+    private com.trinityforge.network.CrossServerTeleport crossServerTeleport;
     private com.trinityforge.progression.AchievementService achievementService;
     private com.trinityforge.progression.achievement.AchievementGui achievementGui;
     private ActiveSkillRegistry activeSkillRegistry;
@@ -1094,6 +1098,26 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.afk().suppressFishingSell() && afkService.isAfk(player));
         afkService.start();
 
+        // ---- サーバ間チャットと管理者TP (network.yml, 2026-08-15) ----
+        // プロキシ(Velocity)の旧BungeeCordプラグインメッセージチャンネルに乗る。
+        // 無効なら登録もしない(使わないチャンネルを開けっ放しにしない)。
+        if (configManager.network().enabled()) {
+            this.proxyChannel = new com.trinityforge.network.ProxyChannel(this);
+            proxyChannel.register();
+            getServer().getPluginManager().registerEvents(proxyChannel, this);
+
+            getServer().getPluginManager().registerEvents(
+                    new com.trinityforge.network.CrossServerChat(this, proxyChannel, configManager.network()),
+                    this);
+
+            this.crossServerTeleport = new com.trinityforge.network.CrossServerTeleport(
+                    this, proxyChannel, configManager.network());
+            getServer().getPluginManager().registerEvents(crossServerTeleport, this);
+            // 迎えに来なかった控えを捨てる。残すとログアウト後の同名参加で誤爆する。
+            getServer().getScheduler().runTaskTimer(this,
+                    crossServerTeleport::purgeExpired, 20L * 60L, 20L * 60L);
+        }
+
         // TT/放置対策(同一地点の逓減)。自身はEXPを配らず、上記2リスナーと戦闘/防具EXP経路から
         // 呼ばれる縮小係数の供給元。Listenerとして登録するのはログアウト時の履歴破棄のためだけ。
         getServer().getPluginManager().registerEvents(locationExpDiminishing, this);
@@ -1187,6 +1211,10 @@ public final class TrinityForge extends JavaPlugin {
         // Cancel the AFK check task (leak-safety, mirrors hate/bleed).
         if (afkService != null) {
             afkService.stop();
+        }
+        // プラグインメッセージのチャンネルを閉じる(hot-reload での多重登録防止)。
+        if (proxyChannel != null) {
+            proxyChannel.unregister();
         }
         // Cancel the focus-HP tick task and despawn every tracked TextDisplay (leak-safety).
         if (focusHpDisplay != null) {
@@ -1594,7 +1622,58 @@ public final class TrinityForge extends JavaPlugin {
                             .build(),
                     "Open the TrinityForge achievement progress GUI",
                     List.of("achievements", "ach"));
+
+            // サーバ間テレポート(管理者専用, 2026-08-15)。
+            // 同じサーバに相手が居るときは普通のテレポートになり、居ないときだけ
+            // プロキシ経由で相手を探して移動する。network.yml で無効化できる。
+            if (crossServerTeleport != null) {
+                commands.register(
+                        Commands.literal("tpto")
+                                .requires(TrinityForge::isTfAdmin)
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> runTeleport(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "player"), true)))
+                                .build(),
+                        "相手のところへ移動する(サーバをまたぐ)",
+                        List.of());
+                commands.register(
+                        Commands.literal("tphere")
+                                .requires(TrinityForge::isTfAdmin)
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(ctx -> runTeleport(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "player"), false)))
+                                .build(),
+                        "相手を自分のところへ呼び寄せる(サーバをまたぐ)",
+                        List.of());
+            }
         });
+    }
+
+    /**
+     * {@code /tpto} と {@code /tphere} の共通部分。
+     *
+     * <p>タブ補完に他サーバのプレイヤーは出せない(プロキシに聞くのは実行時)ので、
+     * 名前は自由入力として受ける。存在しない名前は
+     * {@link com.trinityforge.network.CrossServerTeleport} 側で
+     * 「どのサーバにも見つかりません」に落ちる。
+     */
+    private int runTeleport(CommandSourceStack source, String targetName, boolean goToTarget) {
+        if (!(source.getSender() instanceof Player player)) {
+            source.getSender().sendMessage(Component.text(
+                    "プレイヤーのみ実行できます。", NamedTextColor.RED));
+            return 0;
+        }
+        if (crossServerTeleport == null) {
+            player.sendMessage(Component.text(
+                    "サーバ間テレポートは network.yml で無効になっています。", NamedTextColor.RED));
+            return 0;
+        }
+        if (goToTarget) {
+            crossServerTeleport.teleportTo(player, targetName);
+        } else {
+            crossServerTeleport.teleportHere(player, targetName);
+        }
+        return Command.SINGLE_SUCCESS;
     }
 
     /**
