@@ -30,7 +30,12 @@
 （`LootTableListener#hasNonVanillaEnchant`）。Dungeons and Taverns は `nova_structures:` で
 32 種のエンチャントを追加するが、列挙方式にするとデータパック更新で増えた分だけ黙ってすり抜ける。
 
-- バニラの修繕はここでは落とさない。TF 側 `removed-vanilla-items` が別経路で消す。
+- **バニラの修繕はここでは落とさない。TF 側が別経路で消している**（2026-08-16 に実装で確認済み）。
+  `progression/crafting-features.yml` の `removed-vanilla-items: [ANY:MENDING]` を
+  `VanillaItemRemovalListener#onLootGenerate`（`EventPriority.HIGH`）が全ルートテーブルに適用し、
+  修繕を剥がした結果エンチャントが 0 になった本は**アイテムごと消える**（`VanillaItemRemover.Verdict.REMOVE`）。
+  ArsPaper 側は `EventPriority.NORMAL` なので**必ず TF より先に走る** ＝
+  ArsPaper が増量・追加したあとで TF が修繕を掃除する、という順序になっている。
 - 除去は **ArsPaper が自前のマナ系エンチャント本を足す前** に走るので、`type: enchant-book` で
   足した本は巻き込まれない。
 
