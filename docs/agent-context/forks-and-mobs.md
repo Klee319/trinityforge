@@ -1179,6 +1179,37 @@ id は `gacha_ticket_1`〜`gacha_ticket_5`（**`tf_` 接頭辞なし**、`BaseCu
   「Ars materials.yml のキー」か「TF catalog.yml のキー」のどちらかと**文字単位で一致**していること。
   `custom:` 接頭辞は付けない（`gacha.yml` は無接頭辞規約。付けると3経路すべてを外す）。
 
+### ⚠⚠ 構造物ルートの追加抽選は「実在しない名前空間」を対象にしていて 1 度も発火していなかった
+
+`fork-handoff/arspaper/fork/src/main/resources/loot-tables.yml` は
+`LootGenerateEvent` に割り込んでチェストの中身を増やす仕組みだが、2026-08-16 以前は
+データパック向けプールの対象を **`dungeons_and_taverns:*`** と書いていた。
+**Dungeons and Taverns の実際の名前空間は `nova_structures`**（データパックの
+`data/<namespace>/` を実際に見ないと分からない。配布物の名前とは一致しない）。
+
+- 名前空間を間違えても**例外もログも出ない**。当たり判定が false になるだけなので、
+  「なぜかデータパックのチェストに何も入らない」としか観測できない。
+- 同型の罠が他にもある：`terralith` / `structory` / `structory_towers` / `incendium` /
+  `kaisyn`（Towers and Towers）。**配布名≠名前空間**なので、追加するときは必ず
+  展開して `data/` 直下のディレクトリ名を見ること。
+- 再発防止に `LootTableConfigTest` が案1のデータパック 6 種それぞれについて、
+  **実在する表IDで `Pool#matches` が true になること**を固定している。
+
+関連して、この yml の `pools:` は **`tmp/worldgen/gen_loot_yml.py` の生成物**である
+（346 本のテーブルIDを手で書き写すと必ず取りこぼす）。手で表を足し引きしても
+次の再生成で消える。仕様と再生成手順は
+[docs/config-reference/arspaper/loot-tables.md](../config-reference/arspaper/loot-tables.md)。
+
+### ⚠ 既存戦利品の「量を増やす」実装で四捨五入を使うと倍率が化ける
+
+`quantity-multiplier` は整数部を確定で適用し、**端数はその確率で +1** する
+（`LootTableListener#scaledAmount`）。四捨五入にすると 1 個のスタックが 1.5 倍で
+**常に** 2 個になり、実効 2 倍になる。チェストの中身は 1 個スタックが多いので、
+「1.5 倍のはずが体感 2 倍」という形でしか症状が出ず、yml の数字を疑って何度も配備し直すことになる。
+
+複数プールが同じテーブルに当たったときは**掛け合わせず最大値**を採る。掛け合わせると
+プールを 1 つ足しただけで既存の全チェストが黙って倍量になる。
+
 ## モブ系（TF ↔ EliteMobs 全般）
 
 - TF側のモブconfigはモブ**id**キーで、EntityTypeは実行時無視される: `combat/mob-defaults.yml`
