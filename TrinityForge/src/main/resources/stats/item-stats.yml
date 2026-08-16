@@ -11936,7 +11936,6 @@ _editor:
           - WOODEN_HOE#58
           - NETHERITE_HOE#1
           - DIAMOND_HOE#49
-          - IRON_CHAIN#68
           - NETHERITE_HOE#124
           - NETHERITE_HOE#125
           - NETHERITE_HOE#126
@@ -12060,7 +12059,6 @@ _editor:
         label: クロスボウ
         itemIds:
           - CROSSBOW#160
-          - CROSSBOW#161
           - CROSSBOW#162
           - CROSSBOW#163
           - CROSSBOW#164
@@ -12226,7 +12224,7 @@ _editor:
       - id: cat_1784638696666
         label: サブウェポン
         itemIds:
-          - GLOWSTONE#84
+          - GLOWSTONE_DUST#84
       - id: cat_1784735489541
         label: 盾
         itemIds: []
@@ -12987,7 +12985,6 @@ _editor:
       - NETHERITE_SWORD#5700
       - NETHERITE_SWORD#113
       - NETHERITE_SWORD#114
-      - GOLDEN_SWORD#59
       - WOODEN_SWORD
       - STONE_SWORD
       - COPPER_SWORD
@@ -13032,7 +13029,6 @@ _editor:
       - WOODEN_HOE#58
       - NETHERITE_HOE#1
       - DIAMOND_HOE#49
-      - IRON_CHAIN#68
       - NETHERITE_HOE#124
       - NETHERITE_HOE#5720
       - NETHERITE_HOE#5700
@@ -13148,7 +13144,6 @@ _editor:
       - MACE#129
       - MACE
       - CROSSBOW#160
-      - CROSSBOW#161
       - CROSSBOW#162
       - CROSSBOW#163
       - CROSSBOW#164
@@ -13245,7 +13240,7 @@ _editor:
       - SHEARS
       - FISHING_ROD
     other:
-      - GLOWSTONE#84
+      - GLOWSTONE_DUST#84
     armor:
       - DIAMOND_HELMET#200101
       - DIAMOND_CHESTPLATE#200102

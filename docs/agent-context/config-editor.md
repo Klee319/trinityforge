@@ -1095,8 +1095,9 @@ assets/trinityforge/textures/entity/equipment/humanoid_leggings/<セット名>.p
   materials.yml へ実移動するとダンジョン入場が壊れる）。
 - **How**: `editorMetaItemIdSet(ctx, configId, data)`(`lib/editor-meta-integrity.js`、
   サーバ専用・`ctx.readEntryById` でクロスファイル読取)が configId ごとに集合を組む。
-  `"materials"` は `自身のmaterialsキー ∪ catalog.ymlのitemsキー`。`"catalog"`/`"item-stats"`
-  は自己完結（他ファイル参照なし）。新しい config 種別へ広げるときは、その `_editor` が
+  `"materials"` は `自身のmaterialsキー ∪ catalog.ymlのitemsキー`。`"catalog"` は自己完結。
+  `"item-stats"` は **`CmdRegistry.scanUsage` で定義ファイル全部を走査した `MATERIAL#CMD` 集合
+  ∪ 自身の items キー**（後者は CMD 無しの素の `MATERIAL` キーを拾うため）。新しい config 種別へ広げるときは、その `_editor` が
   意図的に他ファイルの id を指す設計になっていないか（= 専用カテゴリの説明コメントが
   yml 側にあるか）を先に確認してから itemIdSet を決めること。決め打ちで「自ファイルだけ」
   にすると、常時ノイズを出す警告になり 1 週間で誰も読まなくなる。
@@ -1115,6 +1116,32 @@ assets/trinityforge/textures/entity/equipment/humanoid_leggings/<セット名>.p
   `categories[*].itemIds` だけを厳密比較し、`itemTabs`/`orders` は fixture テストのみに留めている
   （出荷データ全体の実測が無い状態で 0 件を断定すると、実装のバグと積年の孤児データの区別が
   つかなくなるため）。
+
+### ⚠️⚠️ `item-stats.yml` の `items:` は「有効なアイテムの一覧」ではない（2026-08-16、上の検査を実際に壊していた）
+
+導入翌日にアイテムステータス画面が **15 件**の宙ぶらりんを出したが、**10 件は今も実在する
+アイテム**を指す誤検知だった。誤検知は「煩い」で済まない ―― 本物の取り残し 4 件が山に埋もれ、
+実際に見過ごされていた。原因は 2 つあり、どちらも「有効 id の母集合」の取り違え。
+
+1. **`item-stats.yml` は参照専用ファイル**（`lib/cmd-removal.js` 冒頭が明記）。
+   `items:` に載るのは「TF ステータスを設定済みのものだけ」で、実在アイテム集合の**部分集合**。
+   ステータス未設定の実在アイテム（catalog.yml の深罪の終幕 `IRON_SWORD#68`・魔法書3種
+   `BOOK#100001-100003`、ArsPaper `spellbooks.yml` の触媒3種 `BLAZE_ROD#400024-400026`）が
+   軒並み「もう存在しません」になっていた。→ サーバ側は `CmdRegistry.scanUsage` の集合を使う。
+2. **ブラウザ側は母集合を作れない**。アイテムステータス画面の `host` にはカタログ候補の
+   「空枠」行と、その `_editor.itemTabs` ピンが載っている（`buildItemStatsForm` が作る。
+   `test/item-tab-pin-must-survive-getdata-2026-08-06.test.js` 参照）。一方 `split-views.js` が
+   渡していた集合は `data.items`（読み込んだ yml そのもの）で、候補が必ず全部あぶれた。
+   **候補ピンは `pruneEditorUiState` が保存時に落とすので yml には一度も書かれない** ――
+   つまり画面にしか出ない、直しようのない警告だった。→ この画面では検査自体を行わない
+   （`itemIdSet = null`）。保存時のサーバ警告に一本化する。
+
+`categories`/`orders` は `pruneEditorUiState` が触らないので**本当に残る**。実際 `b969faa` が
+`items:` エントリだけ消して 4 件（`IRON_CHAIN#68` / `CROSSBOW#161` / `GOLDEN_SWORD#59` /
+`GLOWSTONE#84`）を取り残していた。`IRON_CHAIN`・`GLOWSTONE` は CMD 台帳にも Bukkit の
+Material にも無い名前で、**同じ CMD の実体は別素材**（68 = `IRON_SWORD`、84 = `GLOWSTONE_DUST`）
+という「素材名だけ古い」型の取り残しがある点に注意。回帰は
+`test/editor-meta-item-stats-universe-2026-08-16.test.js`（母集合の非空回り検査つき）。
 
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)

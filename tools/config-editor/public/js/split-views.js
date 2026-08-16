@@ -248,9 +248,20 @@
         return d;
       };
     } else if (o.type === "item-stats") {
-      // item-stats.yml の _editor.categories は自身の items キー(MATERIAL または
-      // MATERIAL#CMD 形式)だけを参照する自己完結型(他ファイル参照はない)。
-      if (data.items && typeof data.items === "object") itemIdSet = new Set(Object.keys(data.items));
+      // 宙ぶらりんid検査は<この画面では行わない>(itemIdSet は null のまま)。
+      //
+      // 2026-08-16 まではここで `new Set(Object.keys(data.items))` を渡していたが、これは誤り。
+      // item-stats.yml は lib/cmd-removal.js が明記するとおり<アイテム定義ではなく既存
+      // (material,cmd) への参照専用ファイル>で、`items:` に載るのは「TFステータスを設定済みの
+      // ものだけ」＝実在アイテム集合の部分集合にすぎない。まだステータスを付けていない実在
+      // アイテム(catalog.yml の深罪の終幕・魔法書3種、ArsPaper spellbooks.yml の触媒3種など)が
+      // 「もう存在しません」と誤検知され、本物の改名漏れが警告の山に埋もれていた。
+      //
+      // 正しい母集合は「定義ファイル全部」だが、それを組めるのはサーバ側だけ
+      // (lib/editor-meta-integrity.js の editorMetaItemIdSet が CmdRegistry.scanUsage で組む)。
+      // ブラウザ側は catalog/spellbooks/materials を持っていないので、ここで無理に集合を作ると
+      // 必ず誤検知になる。検査は保存時のサーバ警告に一本化する。
+      itemIdSet = null;
       const skills = (window.ITEM_STATS_USE_SKILLS && window.ITEM_STATS_USE_SKILLS[o.itemCategory]) || null;
       // 「スレッド」タブは threads.yml / thread-sets.yml も横から一緒に読み書きする(2026-08-09)。
       // アイテムステータス側で「Ars効果とそれ以外」「効果とセット効果」を画面分割しない、

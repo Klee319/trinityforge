@@ -20,6 +20,8 @@
 // 実移動するとダンジョン入場が壊れるから。この場合 itemIdSet は「自ファイルのアイテム集合
 // ∪ catalog.yml のアイテム集合」にすること(呼び出し側の責務。本関数は集合の中身を知らない)。
 
+const CmdRegistry = require("./cmd-registry");
+
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -111,7 +113,38 @@ function editorMetaItemIdSet(ctx, configId, data) {
     return isPlainObject(m) ? Object.keys(m) : [];
   };
   if (configId === "catalog") return new Set(ownIds(data, "items"));
-  if (configId === "item-stats") return new Set(ownIds(data, "items"));
+  if (configId === "item-stats") {
+    // ⚠ item-stats.yml の `items:` は「有効なアイテムの一覧」ではない。
+    // このファイルは cmd-removal.js の冒頭が明記しているとおり<アイテム定義ではなく
+    // 既存 (material,cmd) への参照専用ファイル>で、`items:` に載るのは
+    // 「TFステータスを設定済みのものだけ」＝実在アイテム集合の部分集合にすぎない。
+    //
+    // 2026-08-16 の実害: 自身の `items:` だけを有効集合にしていたため、
+    // まだステータスを付けていない実在アイテム10件が「もう存在しません」と誤検知された
+    // (深罪の終幕 IRON_SWORD#68 / 魔法書3種 BOOK#100001-100003 /
+    //  novus_criculus_luminis GLOWSTONE_DUST#84 はいずれも catalog.yml に実在し、
+    //  無限・竜・ウィザーの触媒 BLAZE_ROD#400024-400026 は ArsPaper spellbooks.yml に実在する)。
+    // 誤検知は「本物の改名漏れ」を警告の山に埋めてしまうので、検査の価値そのものを殺す。
+    //
+    // 正しい母集合は CMD 台帳スキャンと同じ「定義ファイル全部」。CmdRegistry.scanUsage は
+    // catalog / materials / spellbooks / external-items / sourcejars / sourcelinks / item-stats を
+    // 走査して (material, cmd) を返すので、それを item-stats のキー形式 `MATERIAL#CMD` へ直す。
+    // 保存中のファイル自身は ctx 経由だとディスク上の古い内容になるため、渡された data を使う。
+    const ids = new Set(ownIds(data, "items")); // CMD 無しの素の `MATERIAL` キーもここで拾う
+    const readEntry = (id) => (id === "item-stats"
+      ? data
+      : (ctx && typeof ctx.readEntryById === "function" ? ctx.readEntryById(id) : null));
+    let usage;
+    try {
+      usage = CmdRegistry.scanUsage(readEntry);
+    } catch (_) {
+      // 他ファイルが読めない環境(単体テスト等)では自ファイル分だけで判定する。
+      // 検査を落とすのではなく母集合が痩せるだけなので、誤検知側へ倒れる点に注意。
+      usage = [];
+    }
+    for (const u of usage) ids.add(`${u.material}#${u.cmd}`);
+    return ids;
+  }
   if (configId === "materials") {
     // ArsPaper materials.yml: 自身の materials キーに加え、「ダンジョンの鍵」カテゴリが
     // 意図的に指す catalog.yml(TrinityForge本体) の items キーも有効集合に含める
