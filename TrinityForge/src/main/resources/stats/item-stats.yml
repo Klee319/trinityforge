@@ -6318,6 +6318,21 @@ items:
     use-level-requirement: 0
     use-skill: ARS_MAGIC
     quality-mode-offset: 0
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -31.4
+        max: 39.2
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -0.3
+        max: 0.4
   STONE_SWORD#400002:
     fixed:
       attack-power: 315
@@ -6339,6 +6354,21 @@ items:
     use-level-requirement: 5
     use-skill: ARS_MAGIC
     quality-mode-offset: -1
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -50.4
+        max: 63
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -0.5
+        max: 0.6
   COPPER_SWORD#400003:
     fixed:
       attack-power: 348
@@ -6360,6 +6390,21 @@ items:
     use-level-requirement: 15
     use-skill: ARS_MAGIC
     quality-mode-offset: -2
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -55.7
+        max: 69.6
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -0.6
+        max: 0.8
   IRON_SWORD#400004:
     fixed:
       attack-power: 821
@@ -6381,6 +6426,21 @@ items:
     use-level-requirement: 25
     use-skill: ARS_MAGIC
     quality-mode-offset: -3
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -131.4
+        max: 164.2
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -1.3
+        max: 1.6
   GOLDEN_SWORD#400005:
     # 2026-08-14: 金の杖の攻撃力を ×1.614。金(Lv35)帯13品の random 再較正(★1)で
     # 分母である金の剣の期待攻撃力が同率で上がったため、据え置くと杖の詠唱DPSが
@@ -6406,6 +6466,21 @@ items:
     use-level-requirement: 35
     use-skill: ARS_MAGIC
     quality-mode-offset: -4
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -277.1
+        max: 346.4
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -1.9
+        max: 2.4
   DIAMOND_SWORD#400006:
     fixed:
       attack-power: 3259
@@ -6427,6 +6502,21 @@ items:
     use-level-requirement: 45
     use-skill: ARS_MAGIC
     quality-mode-offset: -5
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -521.4
+        max: 651.8
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -5.3
+        max: 6.6
   NETHERITE_SWORD#400007:
     fixed:
       attack-power: 9387
@@ -6448,6 +6538,21 @@ items:
     use-level-requirement: 60
     use-skill: ARS_MAGIC
     quality-mode-offset: -6
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -1502
+        max: 1877
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -16
+        max: 20
   NETHERITE_SWORD#400012:
     fixed:
       attack-power: 80965
@@ -6469,6 +6574,21 @@ items:
     use-level-requirement: 100
     use-skill: ARS_MAGIC
     quality-mode-offset: -8
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -12954
+        max: 16193
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -160
+        max: 200
   NETHERITE_SWORD#400013:
     fixed:
       attack-power: 62581
@@ -6490,6 +6610,21 @@ items:
     use-level-requirement: 100
     use-skill: ARS_MAGIC
     quality-mode-offset: -8
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -10013
+        max: 12516
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -99.5
+        max: 124.4
   NETHERITE_SWORD#400014:
     fixed:
       attack-power: 28472
@@ -6511,6 +6646,21 @@ items:
     use-level-requirement: 80
     use-skill: ARS_MAGIC
     quality-mode-offset: -7
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -4556
+        max: 5694
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -53.3
+        max: 66.6
   BLAZE_ROD#400001:
     fixed:
       attack-power: 18
@@ -6532,6 +6682,21 @@ items:
     use-level-requirement: 0
     use-skill: ARS_MAGIC
     quality-mode-offset: 0
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -2.9
+        max: 3.6
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -0.3
+        max: 0.4
   ENDER_EYE#85:
     fixed:
       attack-power: 18
@@ -6553,6 +6718,21 @@ items:
     use-level-requirement: 0
     use-skill: ARS_MAGIC
     quality-mode-offset: 0
+    # 厳選(ロール)幅。剣・弓と同率で attack-power を fixed の -16%〜+20% 振る。
+    # mana-bonus は杖固有の成長軸(per-quality にも入っている)なので同率で振る。
+    random:
+      attack-power:
+        min: -2.9
+        max: 3.6
+      crit-damage:
+        min: -0.12
+        max: 0.18
+      crit-chance:
+        min: -0.04
+        max: 0.06
+      mana-bonus:
+        min: -0.3
+        max: 0.4
   DIAMOND_PICKAXE#73:
     fixed:
       durability: 936
