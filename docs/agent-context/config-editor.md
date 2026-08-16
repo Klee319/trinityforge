@@ -1013,6 +1013,71 @@ trigger-chance-percent?}}}}` 相当の形へ正規化してから渡す）にし
   ガード関数を最初から用意すること（`threadCatalogIdProblem` を他のタブ種別へ流用する場合、
   戻り値の形 `{reason, title, hint}` をそのまま踏襲すると一貫性が保てる）。
 
+## `assets/minecraft/items/*.json` は生成物 ── 手書きすると必ず巻き戻る（2026-08-16）
+
+`tools/config-editor/lib/respack.js` の `regenerateItemDefinitions(packRoot, registryPath)` は、
+`cmd-registry.json` を唯一の入力として **その material の items json を丸ごと書き直す**。
+ユーザーがエディタのリソースパック管理画面を開くだけで走るので、
+`resourcepack/trinityforge-items/assets/minecraft/items/*.json` を**手で編集しても黙って消える**
+（実際に本セッションで 2 回巻き戻り、「他セッションが revert している」と誤診した）。
+
+配線済みかどうかの判定は 1 行しかない:
+
+```js
+hasModel(a) = a.assetName && exists(models/item/<a.assetName>.json)
+```
+
+ここから 2 つの無言の失敗が出る。
+
+- **`assetName` が無い割当は、モデルもテクスチャもパックに実在していてもバニラの
+  fallback モデルへ落とされる。** テクスチャを追加した本人からは「入れたのに反映されない」
+  にしか見えない（実例: `IRON_SWORD:68` fnis_peccati_profundi、ソース系 5 種）。
+- **その material の配線済み行が 0 件だと、items json ごと生成されない/削除される。**
+  `amethyst_shard` / `prismarine_crystals` / `heart_of_the_sea` / `conduit` / `nether_star` が
+  そもそも存在しなかったのはこれ。
+
+したがって直す場所は **`cmd-registry.json` の `assetName`（と `parent`。手持ち武器なら
+`handheld`、それ以外は `generated`）** であって items json ではない。
+反映は**エディタ自身の generator を呼ぶ**（`require("tools/config-editor/lib/respack.js")` →
+`regenerateItemDefinitions(...)`）。手書きの JSON はエディタが出す形と必ずどこかがズレる。
+
+`cmd-registry.json` は永続台帳で **CMD 番号を再利用しない**。既存の割当に `assetName` を
+後から足すのは正しい操作だが、番号を振り直すのは禁止。
+
+### 「アートはあるのに描かれない」を検出する仕組み
+
+`resourcepack/build_item_pack.py` の `validate()` は元々**前向き参照**（items json → model →
+texture が存在するか）しか見ておらず、上記のどれも検出できなかった。逆向きの検査を 2 本追加してある。
+
+- **D-1**: items json を起点に推移的に辿り、どこからも参照されない model/texture を落とす
+  （＝カタログから消えたアイテムのアートが残り続けるのを止める）
+- **D-2**: `cmd-registry.json` の割当のうち、**パックに実物があるのに** threshold へ配線されて
+  いないものを落とす。割当の大半は意図的にバニラ見た目のままなので、
+  「実物がある」で絞らないと検査そのものが無意味になる
+
+「アイテム定義より先にアートだけ入れる」場合の逃げ道が `resourcepack/unreferenced-assets.json`
+（`{"assets":[{"path": ..., "reason": ...}]}`）。ただし**宣言が腐る方向も両方エラー**にしてある
+（宣言したのに実は配線済み / 実はもう存在しない / `reason` が空）。
+理由の書いていない宣言は許可リストと同じで書いた本人以外に検証できないため、`reason` は必須。
+該当 0 件のときはファイルを置かない（存在しなければ宣言 0 件として扱う）。
+
+## 防具の着用時テクスチャはエディタの管轄外（2026-08-16）
+
+Minecraft 1.21.4+ では**着用時の見た目に CMD は一切効かない**。必要なのは
+`minecraft:equippable{asset_id}` と、パック側の 3 点セット:
+
+```
+assets/trinityforge/equipment/<セット名>.json
+assets/trinityforge/textures/entity/equipment/humanoid/<セット名>.png          (64x32)
+assets/trinityforge/textures/entity/equipment/humanoid_leggings/<セット名>.png (64x32)
+```
+
+エディタには装備レイヤーという概念が無いので、**エディタで防具をどう設定しても着用時の
+見た目は変わらない**。生成は `resourcepack/build_armor_layers_from_items.py`
+（inv テクスチャの配色から決定的にレイヤーを起こし、`equipment-registry.json` と
+`TrinityForge/src/main/resources/items/equipment-assets.yml` まで配線する）。
+手描きの PNG が上記パスにあればそちらが優先される。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)
