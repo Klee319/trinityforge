@@ -6,6 +6,24 @@
 
 ## テストの信頼性
 
+### ⚠️ `config.load()` の戻り値を前提に置くガードは、無関係な警告で「本題に到達する前に」死ぬ
+
+`SkillTreeConfig#load` は**警告が1件でもあれば `false` を返す**（ツリー自体は読めていて `all()` には入る）。
+なので `assertTrue(config.load(...), "...must load OK")` で始まるガードは、**まったく別のファイルの
+軽微な警告で落ちる**。落ちてはいるので「赤いまま放置されている失敗」に埋もれ、**そのテストが本来
+守っているはずの検査は一度も実行されない**。
+
+2026-08-16 の実例: `power.yml` の排他グループ警告と解放効果の重複警告のせいで
+`RecipeRitualGateChannelDriftTest` と `FailCloseGateSkillTreePlacementTest` が冒頭で死に、
+その裏で **`ritual:` → `recipe:` の取り違え14件**と**村人3職の恒久ロック**が素通りしていた
+（どちらも作業ツリー上の未コミット編集で、commit される前に気づけた。つまりガードは
+**「壊れた config が出荷される直前」という一番効いてほしい場面で沈黙していた**）。
+
+- **前提チェックは「読めたかどうか」で書く**（`config.all().size()` が期待本数、など）。
+  戻り値の `false` は「どこかに警告がある」以上の意味を持たない。
+- 「設定が健全か」を見たいなら、それは**専用のテスト**（`AllSkillTreesLoadTest`）の仕事。
+  各ドメインのガードに兼務させると、無関係な赤で検査が消える。
+
 ### ⚠️ MockBukkit の未実装APIは「失敗」ではなく「SKIPPED」として素通りする
 `org.mockbukkit.mockbukkit.exception.UnimplementedOperationException` は
 `TestAbortedException` を継承しているため、JUnit はこれを FAILED ではなく SKIPPED として報告する。

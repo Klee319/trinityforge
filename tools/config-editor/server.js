@@ -561,6 +561,36 @@ app.get("/api/gate-vocabulary", (req, res) => {
   }
 });
 
+// 全スキルツリーの解放効果(dedicated-effects)配置一覧。ツリーをまたぐ「一回性の解放効果の重複」を
+// editor 側で検出するために使う(2026-08-16)。
+//
+// Java 側の DedicatedEffectGateIndex は全16ツリー横断で重複を警告するが、editor は開いている
+// 1ファイルの nodes しか見ていなかったため、ツリーまたぎの重複を構造的に表示できなかった
+// (glyph:snare が alchemy と ars_magic に同時に置かれていた実例がある)。
+app.get("/api/gate-placements", (req, res) => {
+  try {
+    const trees = {};
+    for (const entry of REGISTRY.filter((e) => e.schema === "tf-skilltree")) {
+      const data = readEntry(entry);
+      const nodes = (data && data.nodes) || {};
+      const placements = [];
+      for (const nodeId of Object.keys(nodes)) {
+        const list = nodes[nodeId] && nodes[nodeId]["dedicated-effects"];
+        if (!Array.isArray(list)) continue;
+        for (const placement of list) {
+          if (placement && placement.id != null) {
+            placements.push({ id: placement.id, value: placement.value, node: nodeId });
+          }
+        }
+      }
+      trees[entry.id] = { label: entry.label, skill: data && data.skill, placements };
+    }
+    res.json({ ok: true, trees });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // タスク2 (2026-07-26): スキルツリー「機能解放」のtier(scale)パラメータをセレクトメニュー化するための
 // 語彙供給。gate-vocabulary とは別エンドポイント(lib/gate-vocabulary.js は他作業者が編集中のため
 // 変更しない方針)。対象は vein-mining / haste-active-mining / tree-fell / area-harvest の4件に加え、

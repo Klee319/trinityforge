@@ -132,6 +132,35 @@ config-editorのskilltree UIには専用フォーム（`buildSkillTreeForm`, `pu
 **yml を触ったら両側を grep して突き合わせること。** `FailCloseGateSkillTreePlacementTest` が
 一部を守っているが、網羅ではない。
 
+### ⚠️⚠️ `recipe:` と `ritual:` は別マップ。取り違えると無言で「常時解放」になる
+
+ArsPaper の `UnlockGate` は `hasRecipePermission` と `hasRitualPermission` が**別々のマップ**を引く。
+儀式アイテム（Ars 側 yml で `method: ritual`）を `recipe:` に置くと、儀式経路はそのマップを一切見ないので
+**ゲートが丸ごと無効化され、誰でも作れる状態になる**。例外もログも出ない。逆方向も同じ。
+
+- 2026-07-28 に enchant_book_* 8 件 + volcanic_sourcelink で踏み、2026-08-16 に**同じ場所で再発**した
+  （今度は source_crystal / source_condenser / source_engine / waystone / teleport_compass も巻き込んで 14 件）。
+  再発したのは、注意書きのコメントが editor 保存で消えていたから（`config-editor.md` 参照。現在は解消済み）。
+- ビルド時ガードは `RecipeRitualGateChannelDriftTest`。**期待集合を書き下して完全一致を要求する**形なので、
+  ゲートを足す/消すと必ず落ちる。落ちたら「その id の実体はどっちの method か」を Ars の yml で確認してから
+  期待集合を更新すること。
+- editor 側は 2026-08-16 から行内に「⚠ 儀式側が正しい」を出す（`gateChannelMismatch`）。
+
+### ⚠️ ゲートキーは「レシピの登録ID」であってカタログIDではない
+
+`recipe:`/`ritual:` の target は**実行時に登録されるレシピのキー**で、カタログIDと一致するとは限らない。
+
+| 対象 | 実際のゲートキー | 備考 |
+|---|---|---|
+| TF カタログ `method: workbench` / `inventory` | `<カタログID>` | 2件目以降は `<id>_2`、逆レシピは `<id>_decompress` |
+| TF カタログ `method: ritual` | **`tf_catalog_<カタログID>`** | ArsPaper `CatalogRitualRegistrar` が付ける。2件目以降は `_2` |
+| TF カタログ `method: netherite` | `<id>_smithing` だが**実質ゲート不可** | `CatalogCraftGateListener#netheriteGateId` はバニラ素材の固定表でしか解決しない |
+| ArsPaper 各 yml のエントリ | `<エントリID>` | 2件目以降は `_r2`（`RecipeUnlockGate#gateKey` が基底IDへ寄せる） |
+| バニラレシピ | **小文字**のレシピキー path（`diamond_sword`） | 大文字で書くと一致せず無言で不活性 |
+
+起動時の `[PRG-02]` 警告（`CatalogCraftGateListener#verifyRecipeGateIds`）が解決できない `recipe:` を報告するが、
+**`ritual:` は検証されない**（Ars 内部の `RitualRecipe` は Bukkit から列挙できない）。
+
 ### スライドが唯一の一次specである点への注意
 
 `trinityforge/skilltree/スライド1-12.JPG`が採取・エンチャント・鍛冶・錬金・Ars等の「green-field効果」の唯一の設計原本。多くの値は「落ちやすく/低確率/まれに」など曖昧な表現＝config値は設計段階の暫定値であり、実装時に調整が必要という前提がある。実装オーナーの分担は、TFが直接ドロップ/ギミックを処理するもの（採取・ガチャ券・リンゴ・食料・over-enchant等）と、`TrinityForgeBridge.tfEffect*`経由でforkが処理するもの（遺跡/海洋スレッド、武器コーティング、ポーション統合等）に分かれる。

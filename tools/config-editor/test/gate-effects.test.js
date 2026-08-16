@@ -12,8 +12,68 @@ require("../public/js/gate-effects.js");
 const {
   parseGateEffectId, parseDropTarget, isLegacyGateEffectId,
   gateEffectTypeLabel, isUniqueGateEffectType, computeDuplicateGateEffectIds,
-  gateEffectDuplicateKey, resolveFeatureValueEdit
+  computeDuplicateGateEffectLocations, gateEffectDuplicateKey, resolveFeatureValueEdit,
+  normalizeRecipeGateTarget, gateChannelMismatch
 } = global.window.GATE_EFFECTS;
+
+// --- 2026-08-16 追加分 ---------------------------------------------------------
+
+test("バニラMaterial形式のレシピゲート対象は小文字へ正規化する", () => {
+  // 実行時のゲートキーはレシピキーの path(小文字)。大文字のままだと一致せず無言で効かない。
+  assert.equal(normalizeRecipeGateTarget("DIAMOND_SWORD"), "diamond_sword");
+  assert.equal(normalizeRecipeGateTarget(" NETHERITE_PICKAXE "), "netherite_pickaxe");
+  // カタログID / Ars のエントリIDは元から小文字なので触らない。
+  assert.equal(normalizeRecipeGateTarget("core_wood"), "core_wood");
+  assert.equal(normalizeRecipeGateTarget("tf_core_dirt"), "tf_core_dirt");
+  // 大文字小文字が混ざっているものは判断できないので触らない(勝手に壊さない)。
+  assert.equal(normalizeRecipeGateTarget("Waystone"), "Waystone");
+  assert.equal(normalizeRecipeGateTarget(null), "");
+});
+
+test("recipe:/ritual: のチャンネル取り違えを検出する", () => {
+  const vocab = { recipes: ["core_wood"], rituals: ["waystone", "enchant_book_share"] };
+
+  const misplacedRitual = gateChannelMismatch("recipe", "waystone", vocab);
+  assert.equal(misplacedRitual.correct, "ritual");
+  assert.match(misplacedRitual.message, /常時解放/);
+
+  const misplacedRecipe = gateChannelMismatch("ritual", "core_wood", vocab);
+  assert.equal(misplacedRecipe.correct, "recipe");
+
+  // 正しいチャンネル、語彙に無いID、空はいずれも警告しない。
+  assert.equal(gateChannelMismatch("recipe", "core_wood", vocab), null);
+  assert.equal(gateChannelMismatch("ritual", "waystone", vocab), null);
+  assert.equal(gateChannelMismatch("recipe", "unknown_id", vocab), null);
+  assert.equal(gateChannelMismatch("recipe", "", vocab), null);
+
+  // 両方に載っているID(workbench と ritual の両レシピを持つ)はどちらでも正しい。
+  const both = { recipes: ["source_gem_block"], rituals: ["source_gem_block"] };
+  assert.equal(gateChannelMismatch("recipe", "source_gem_block", both), null);
+  assert.equal(gateChannelMismatch("ritual", "source_gem_block", both), null);
+});
+
+test("一回性の解放効果の重複はツリーをまたいでも検出する", () => {
+  // 2026-08-16以前は開いている1ファイルしか見ておらず、alchemy と ars_magic に同じ
+  // glyph:snare が置かれていたのを editor は一度も表示できなかった。
+  const nodes = { "C-1": { "dedicated-effects": [{ id: "glyph:snare" }] } };
+  const others = [{ id: "glyph:snare", where: "スキル: Ars魔法/B-1-2" }];
+
+  assert.equal(computeDuplicateGateEffectIds(nodes).has("glyph:snare"), false,
+    "他ツリーを渡さなければ従来どおりファイル内だけの判定");
+  assert.equal(computeDuplicateGateEffectIds(nodes, others).has("glyph:snare"), true);
+
+  const where = computeDuplicateGateEffectLocations(nodes, others, "スキル: 錬金").get("glyph:snare");
+  assert.deepEqual(where, ["スキル: 錬金/C-1", "スキル: Ars魔法/B-1-2"]);
+});
+
+test("ツリーをまたぐ判定でも feature は tier 違いを別物として扱う", () => {
+  const nodes = { A: { "dedicated-effects": [{ id: "feature:vein-mining", value: 1 }] } };
+  const others = [{ id: "feature:vein-mining", value: 2, where: "スキル: 切削/B" }];
+  assert.equal(computeDuplicateGateEffectIds(nodes, others).size, 0);
+
+  const same = [{ id: "feature:vein-mining", value: 1, where: "スキル: 切削/B" }];
+  assert.equal(computeDuplicateGateEffectIds(nodes, same).has("feature:vein-mining#1"), true);
+});
 
 test("プレフィックス付きIDを type/target に解析する", () => {
   assert.deepEqual(parseGateEffectId("glyph:blink"), { type: "glyph", target: "blink", raw: "glyph:blink" });

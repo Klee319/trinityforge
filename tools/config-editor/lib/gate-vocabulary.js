@@ -191,19 +191,68 @@ function extractSpecialRewardLabels(specialRewards) {
 }
 
 // items/catalog.yml: items.<id>.recipe.method から、実際にゲートできる出力IDを抽出する。
-// method省略は catalog.yml の既定どおり workbench。combine/netherite はこのゲート方式の対象外。
+// method省略は catalog.yml の既定どおり workbench。
+//
+// 2026-08-16: workbench だけを見ていたので method: inventory の10件(短剣8種/広辞苑/someones_eyes)が
+// 候補に1件も出ていなかった。Java 側は RecipeSpec#isBukkitCrafting() = workbench || inventory で、
+// どちらも trinityforge:catalog_<id> として登録される(CatalogRecipeRegistrar#registerAll)。つまり
+// inventory も recipe:<id> で普通にゲートできる ── 候補に出ていなかっただけ。
+//
+// combine/netherite は対象外のままでよい。netherite は catalog_<id>_smithing という別キーで登録され、
+// しかも CatalogCraftGateListener#netheriteGateId がバニラ素材の固定表でしか解決しないため、
+// recipe:<id> ではそもそもゲートできない(候補に出す方が誤解を招く)。
+// TF カタログの method: ritual は ArsPaper の CatalogRitualRegistrar が
+// 儀式レシピID `tf_catalog_<カタログID>` として登録する(2件目以降は `_2`)。ゲートに使うキーは
+// この儀式レシピIDそのもの(UnlockGate#hasRitualPermission ← tfRitualGatePerks)なので、
+// 素のカタログIDでは一致しない。エディタからは推測不能なので語彙側で組み立てる。
+const CATALOG_RITUAL_ID_PREFIX = "tf_catalog_";
+const CATALOG_GATEABLE_METHODS = new Set(["workbench", "inventory"]);
+
 function extractCatalogGateTargets(catalog) {
   const items = catalog && catalog.items;
   const recipes = [];
-  if (!isPlainObject(items)) return { recipes };
+  const rituals = [];
+  if (!isPlainObject(items)) return { recipes, rituals };
   for (const id of Object.keys(items)) {
     const item = items[id];
-    const recipe = item && item.recipe;
-    if (!isPlainObject(recipe)) continue;
-    const method = recipe.method == null ? "workbench" : String(recipe.method).trim().toLowerCase();
-    if (method === "workbench") recipes.push(id);
+    let ritualIndex = 0;
+    let gateable = false;
+    for (const recipe of recipeEntriesOf(item)) {
+      const method = methodOf(recipe);
+      if (method === "ritual") {
+        ritualIndex++;
+        rituals.push(ritualIndex === 1
+          ? CATALOG_RITUAL_ID_PREFIX + id
+          : `${CATALOG_RITUAL_ID_PREFIX}${id}_${ritualIndex}`);
+      } else if (CATALOG_GATEABLE_METHODS.has(method)) {
+        gateable = true;
+      }
+    }
+    if (gateable) recipes.push(id);
   }
-  return { recipes: recipes.sort() };
+  return { recipes: recipes.sort(), rituals: rituals.sort() };
+}
+
+// tf_catalog_<id> は機械名なので、セレクトが読めないIDの羅列になる(2026-08-16)。
+// catalog.yml の display-name(MiniMessage)をプレーン化した表示ラベルを添える。
+function extractCatalogRitualLabels(catalog) {
+  const items = catalog && catalog.items;
+  const out = {};
+  if (!isPlainObject(items)) return out;
+  for (const id of Object.keys(items)) {
+    const item = items[id];
+    let ritualIndex = 0;
+    for (const recipe of recipeEntriesOf(item)) {
+      if (methodOf(recipe) !== "ritual") continue;
+      ritualIndex++;
+      const key = ritualIndex === 1
+        ? CATALOG_RITUAL_ID_PREFIX + id
+        : `${CATALOG_RITUAL_ID_PREFIX}${id}_${ritualIndex}`;
+      const name = stripMiniMessage(item["display-name"]) || id;
+      out[key] = ritualIndex === 1 ? name : `${name} (${ritualIndex}件目のレシピ)`;
+    }
+  }
+  return out;
 }
 
 // ArsPaper items.yml: ritual_effects.<id> は完成品を作るレシピではなく、
@@ -289,7 +338,7 @@ function buildGateVocabulary(sources) {
   const s = sources || {};
   const catalogTargets = extractCatalogGateTargets(s.catalog);
   const recipes = new Set(catalogTargets.recipes);
-  const rituals = new Set(extractRitualEffects(s.items));
+  const rituals = new Set([...extractRitualEffects(s.items), ...catalogTargets.rituals]);
   collectArsGateTargets(s, recipes, rituals);
   return {
     glyphs: extractGlyphs(s.glyphs),
@@ -301,7 +350,8 @@ function buildGateVocabulary(sources) {
     specialRewards: extractSpecialRewards(s.specialRewards),
     specialRewardLabels: extractSpecialRewardLabels(s.specialRewards),
     recipes: [...recipes].sort(),
-    rituals: [...rituals].sort()
+    rituals: [...rituals].sort(),
+    ritualLabels: extractCatalogRitualLabels(s.catalog)
   };
 }
 

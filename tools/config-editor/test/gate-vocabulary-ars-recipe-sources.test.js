@@ -19,6 +19,50 @@ const YAML = require("yaml");
 
 const { buildGateVocabulary } = require("../lib/gate-vocabulary.js");
 
+// --- 2026-08-16: カタログ側の取りこぼし ---------------------------------------
+
+test("catalog の method: inventory も recipe: 候補に出す", () => {
+  // Java 側 RecipeSpec#isBukkitCrafting() = workbench || inventory。どちらも
+  // trinityforge:catalog_<id> として登録されるので recipe:<id> でゲートできるのに、
+  // 語彙が workbench だけを見ていたため短剣8種などが1件も候補に出ていなかった。
+  const catalog = {
+    items: {
+      iron_dagger: { recipe: { method: "inventory" } },
+      core_wood: { recipe: { method: "workbench" } },
+      plain: { recipe: {} }, // method 省略 = workbench
+      netherite_dagger: { recipe: { method: "netherite" } }
+    }
+  };
+  const vocab = buildGateVocabulary({ catalog });
+  assert.ok(vocab.recipes.includes("iron_dagger"), "method: inventory が候補に出ていない");
+  assert.ok(vocab.recipes.includes("core_wood"));
+  assert.ok(vocab.recipes.includes("plain"));
+  // netherite は catalog_<id>_smithing という別キーで、しかもバニラ素材の固定表でしか
+  // 解決しない。recipe:<id> ではゲートできないので候補に出さないのが正しい。
+  assert.ok(!vocab.recipes.includes("netherite_dagger"), "ゲートできない netherite が候補に出ている");
+});
+
+test("catalog の method: ritual は tf_catalog_<id> として ritual: 候補に出す", () => {
+  // ArsPaper の CatalogRitualRegistrar が儀式レシピIDを tf_catalog_<カタログID> で登録する
+  // (2件目以降は _2)。素のカタログIDではゲートキーに一致しないので、語彙側で組み立てる。
+  const catalog = {
+    items: {
+      thread_angler: {
+        "display-name": "<gold>釣り人のスレッド",
+        recipe: { method: "ritual" }
+      },
+      dual: { recipes: [{ method: "ritual" }, { method: "ritual" }] }
+    }
+  };
+  const vocab = buildGateVocabulary({ catalog });
+  assert.ok(vocab.rituals.includes("tf_catalog_thread_angler"));
+  assert.ok(vocab.rituals.includes("tf_catalog_dual"));
+  assert.ok(vocab.rituals.includes("tf_catalog_dual_2"), "2件目のIDが _2 になっていない");
+  assert.ok(!vocab.recipes.includes("thread_angler"), "儀式が recipe: 側にも出ている");
+  // 機械名のままだとセレクトが読めないので表示ラベルを添える(MiniMessageタグは落とす)。
+  assert.equal(vocab.ritualLabels["tf_catalog_thread_angler"], "釣り人のスレッド");
+});
+
 const ROOT = path.resolve(__dirname, "../../..");
 const ARS_RESOURCES = path.join(ROOT, "fork-handoff/arspaper/fork/src/main/resources");
 

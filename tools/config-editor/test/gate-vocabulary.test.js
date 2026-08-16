@@ -180,7 +180,9 @@ test("catalog.yml の作業台レシピと ArsPaper の儀式エフェクトを�
     items: { ritual_effects: { weather_clear: {}, flight: {} } }
   });
   assert.deepEqual(vocab.recipes, ["default_workbench", "explicit_workbench"]);
-  assert.deepEqual(vocab.rituals, ["flight", "weather_clear"]);
+  // 2026-08-16: カタログの method: ritual は ArsPaper 側で儀式レシピID tf_catalog_<id> として
+  // 登録されるので、儀式エフェクトと同じ ritual: 候補に並ぶ(素のカタログIDでは一致しない)。
+  assert.deepEqual(vocab.rituals, ["flight", "tf_catalog_ritual_staff", "weather_clear"]);
 });
 
 test("features は param=level を含むプログラム定義の固定語彙", () => {

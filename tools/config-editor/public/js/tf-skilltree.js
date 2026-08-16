@@ -872,10 +872,10 @@
       const deselected = new Set();
 
       // クラフトレシピはカタログIDなので表示名を引ける(CUSTOM_ITEM_LABELS、catalogタブを
-      // 開いた後なら埋まっている)。儀式エフェクトIDは items.yml ritual_effects の自己記述的な
-      // slugで、対応する表示名フィールドが無いため生IDのまま(フォールバック無しで恒常的に生ID)。
+      // 開いた後なら埋まっている)。儀式側は ArsPaper items.yml ritual_effects の自己記述的な slug は
+      // 生IDのまま、TFカタログ由来(tf_catalog_*)だけ 2026-08-16 に表示名を引けるようにした。
       function matchLabel(id) {
-        if (kind !== "recipe") return id;
+        if (kind !== "recipe") return ((vocab && vocab.ritualLabels) || {})[id] || id;
         const labels = window.CUSTOM_ITEM_LABELS || {};
         return labels[`custom:${id}`] || labels[`custom:${String(id).toLowerCase()}`] || id;
       }
@@ -964,7 +964,9 @@
         h("div", { class: "modal-title", text: `一括追加: ${kindLabel}` }),
         h("div", { class: "modal-text", text:
           "パターンに一致するIDを解放効果へまとめて追加します。* = 任意の文字列 / ? = 1文字。"
-          + (kind === "ritual" ? "" : " バニラレシピは対象外です（カタログのワークベンチレシピのみ）。") }),
+          + (kind === "ritual" ? "" : " 候補はTFカタログとArsPaperのレシピです。"
+            + "バニラレシピもゲート自体は可能ですが候補には出ないので、小文字のレシピID"
+            + "（例: diamond_sword）を行内で直接入力してください。") }),
         h("div", { class: "gate-bulk-controls" }, [
           patInput,
           h("button", { class: "btn-small", type: "button", text: "すべて選択",
@@ -996,6 +998,27 @@
       })];
     }
 
+    // 2026-08-16: recipe:/ritual: のチャンネル取り違えは実行時に例外もログも出ず、
+    // ゲートが無言で常時解放になる。語彙は両方持っているのでここで警告を出す。
+    function channelWarningBadge(prefix, target) {
+      const mismatch = window.GATE_EFFECTS.gateChannelMismatch(prefix, target, vocab);
+      if (!mismatch) return null;
+      return h("span", {
+        class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
+        title: mismatch.message,
+        text: mismatch.correct === "ritual" ? "⚠ 儀式側が正しい" : "⚠ レシピ側が正しい"
+      });
+    }
+
+    // 儀式エフェクトの候補ラベル。TFカタログ由来(tf_catalog_*)は機械名なので表示名を主表示にする。
+    function ritualOptions(currentTarget) {
+      const labels = (vocab && vocab.ritualLabels) || {};
+      return plainOptions(vocab.rituals, currentTarget).map((o) => {
+        if (o.primary !== o.value || !labels[o.value]) return o;
+        return { value: o.value, primary: labels[o.value], secondary: o.value };
+      });
+    }
+
     function renderRecipeGateRow(prefix, target, onIdChange) {
       const isRitual = prefix === "ritual";
       const mode = window.listSelect({
@@ -1014,9 +1037,9 @@
       });
       if (isRitual) {
         return [mode, window.listSelect({
-          value: target, options: plainOptions(vocab.rituals, target), placeholder: "儀式エフェクトを選択…",
+          value: target, options: ritualOptions(target), placeholder: "儀式エフェクトを選択…",
           onCommit: (v) => { if (!v || v === target) return false; onIdChange(`ritual:${v}`); return true; }
-        }), ...wildcardControls("ritual")];
+        }), ...wildcardControls("ritual"), channelWarningBadge("ritual", target)].filter(Boolean);
       }
       // レシピ素材欄と同一の Material / custom:<itemId> 入力を使う。
       // 実行時の recipe: ゲートはカタログIDを受けるため、保存時だけ custom: を除いて正規化する。
@@ -1027,9 +1050,13 @@
       }
       return [mode, window.materialInput(shown, "material-list", (v) => {
         const raw = String(v == null ? "" : v).trim();
-        const catalogId = raw.replace(/^custom:/i, "").trim();
+        // バニラ Material を選ぶと DIAMOND_SWORD 形式で入るが、実行時のゲートキーは
+        // レシピキーの path = 小文字。大文字のままだと無言で効かないゲートになる。
+        const catalogId = window.GATE_EFFECTS.normalizeRecipeGateTarget(
+          raw.replace(/^custom:/i, "").trim());
         if (catalogId && catalogId !== target) onIdChange(`recipe:${catalogId}`);
-      }, { allowCustom: true }), ...wildcardControls("recipe")];
+      }, { allowCustom: true }), ...wildcardControls("recipe"),
+      channelWarningBadge("recipe", target)].filter(Boolean);
     }
     function renderFeatureRow(placement, target, onIdChange) {
       const kids = [window.listSelect({
@@ -1144,6 +1171,16 @@
           }
         }));
       }
+      // 2026-08-16: 「+ 追加」直後の既定は drop:<職業>: で対象が空。Java 側はこれを
+      // 空文字ターゲットのゲートとして受理してしまい、何もゲートしないまま保存できる。
+      const missing = parsed.mode === "item" ? !parsed.itemId : !parsed.categoryId;
+      if (missing) {
+        kids.push(h("span", {
+          class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
+          title: "対象が未選択です。このまま保存すると、何もゲートしない空の解放効果になります。",
+          text: "⚠ 対象未選択"
+        }));
+      }
       return kids;
     }
 
@@ -1215,9 +1252,12 @@
             // 集合側と同じ gateEffectDuplicateKey で引くこと。
             const dupKey = GATE.gateEffectDuplicateKey(placement);
             if (dupKey != null && duplicateIds.has(dupKey)) {
+              // 2026-08-16: 判定が他ツリーも含むようになったので、どこと衝突しているかを出す。
+              const where = typeof duplicateIds.get === "function" ? duplicateIds.get(dupKey) : null;
               rowChildren.push(h("span", {
                 class: "warn-badge", style: "color:#c0392b;font-weight:bold;",
-                title: "この解放効果は1箇所限定ですが、同じ設定・同じ段階で複数ノードに置かれています。",
+                title: "この解放効果は1箇所限定ですが、同じ設定・同じ段階で複数ノードに置かれています。"
+                  + (Array.isArray(where) && where.length ? "\n配置: " + where.join(" / ") : ""),
                 text: "⚠ 重複"
               }));
             }
@@ -1274,11 +1314,44 @@
         overenchants: Array.isArray(json.overenchants) ? json.overenchants : [],
         drops: Array.isArray(json.drops) ? json.drops : [],
         specialRewards: Array.isArray(json.specialRewards) ? json.specialRewards : [],
+        // 2026-08-16: ラベル2種をここで捨てていたため、特殊報酬セレクトは 2026-07-29 に
+        // 用意した日本語ラベルを一度も表示できていなかった(常に機械名のまま)。
+        specialRewardLabels: json && typeof json.specialRewardLabels === "object" && json.specialRewardLabels
+          ? json.specialRewardLabels : {},
+        ritualLabels: json && typeof json.ritualLabels === "object" && json.ritualLabels
+          ? json.ritualLabels : {},
         recipes: Array.isArray(json.recipes) ? json.recipes : [],
         rituals: Array.isArray(json.rituals) ? json.rituals : []
       };
     } catch (_) {
-      return { glyphs: [], brews: [], trades: [], features: [], overenchants: [], drops: [], specialRewards: [], recipes: [], rituals: [] };
+      return {
+        glyphs: [], brews: [], trades: [], features: [], overenchants: [], drops: [],
+        specialRewards: [], specialRewardLabels: {}, ritualLabels: {}, recipes: [], rituals: []
+      };
+    }
+  }
+
+  // 他ツリーの解放効果配置(2026-08-16)。一回性の解放効果はツリーをまたいでも1箇所限定なので、
+  // 開いているツリーだけを見ていると重複を取りこぼす(Java 側は全ツリー横断で警告する)。
+  // 取得失敗時は空配列 = 従来どおりファイル内だけの判定にフォールバックする。
+  async function fetchOtherTreePlacements(currentSkill) {
+    try {
+      const r = await fetch("/api/gate-placements");
+      if (!r.ok) throw new Error("gate-placements failed");
+      const json = await r.json();
+      const trees = (json && json.trees) || {};
+      const skill = String(currentSkill || "").toLowerCase();
+      const out = [];
+      for (const treeId of Object.keys(trees)) {
+        const tree = trees[treeId] || {};
+        if (String(tree.skill || "").toLowerCase() === skill) continue; // 開いている本人は除く
+        for (const placement of tree.placements || []) {
+          out.push({ id: placement.id, value: placement.value, where: `${tree.label || treeId}/${placement.node}` });
+        }
+      }
+      return out;
+    } catch (_) {
+      return [];
     }
   }
 
@@ -1304,9 +1377,11 @@
     // set-buffs(装備部位数条件バフ)は light_armor / heavy_armor ツリーのみ有効。他ツリーに書かれていたら
     // Java側(SkillTreeConfig)が警告して無視するので、editorも同じ2ツリーだけに描画を出す。
     const SET_BUFF_SKILLS = new Set(["light_armor", "heavy_armor"]);
-    const [vocabulary, featureTiers] = await Promise.all([fetchGateVocabulary(), fetchTierVocabulary()]);
-    vocabulary.featureTiers = featureTiers;
     const working = data && typeof data === "object" ? data : {};
+    const [vocabulary, featureTiers, otherTreePlacements] = await Promise.all([
+      fetchGateVocabulary(), fetchTierVocabulary(), fetchOtherTreePlacements(working.skill)
+    ]);
+    vocabulary.featureTiers = featureTiers;
     const supportsMainhandBuffs = MAINHAND_BUFF_SKILLS.has(String(working.skill || "").toLowerCase());
     const supportsSetBuffs = SET_BUFF_SKILLS.has(String(working.skill || "").toLowerCase());
     migrateLegacyNative(working.prestige);
@@ -1556,7 +1631,9 @@
         if (supportsMainhandBuffs) bodyChildren.push(buffsSection(node, "mainhand-buffs", "メインハンド条件バフ (mainhand-buffs)",
           "このツリーに対応する武器/ツールをメインハンドに持つ間だけ加算されます。"));
         if (supportsSetBuffs) bodyChildren.push(setBuffsSection(node));
-        bodyChildren.push(unlockEffectsSection(node, () => window.GATE_EFFECTS.computeDuplicateGateEffectIds(nodes), vocabulary));
+        bodyChildren.push(unlockEffectsSection(node,
+          () => window.GATE_EFFECTS.computeDuplicateGateEffectLocations(nodes, otherTreePlacements),
+          vocabulary));
 
         // 表示順の上下入替 (working.nodes のキー順を入替。parent参照はid基準なので不変)。
         const upBtn = h("button", { class: "btn-small", type: "button", text: "↑", title: "表示順を上へ", onclick: () => { moveKey(nodes, id, -1); renderNodes(); } });
