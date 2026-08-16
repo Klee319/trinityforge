@@ -23,6 +23,9 @@
 #   teleport_strike   対象の背後へ転移して斬る。逃げ切りを許さない
 #   beam              自分の向きへ直線状に判定を伸ばす。横に避ける動きを作る
 #   summon            増援を呼ぶ。単体火力より範囲処理を要求する
+#   repulse           全方位へ強く吹き飛ばす(上へも飛ぶ)。位置を崩すのが本体
+#   vortex_pull       周囲を自分の方へ引き寄せる(repulse の逆向き)。遠距離の張り付かない立ち回りを崩す
+#   delayed_zone      対象の足元へ印を置き、遅れて着弾する。予告を見て動けば避けられる代わりに高倍率
 #
 # 【共通パラメータ】
 #   display-name      発動時に周囲へアクションバーで出す技名（空なら無表示）。MiniMessage 可
@@ -38,7 +41,12 @@
 #   projectile        飛ばす EntityType 名（ARROW / SMALL_FIREBALL / WITHER_SKULL など）
 #   summon-type       召喚する EntityType 名
 #   duration-seconds  aura の持続秒数。1 秒ごとに damage-percent 分を刻むので、伸ばすほど総量が増える
-#   knockback         吹き飛ばし強度（0 なら吹き飛ばさない）
+#                     delayed_zone では「印を置いてから着弾までの予告秒数」(0.5〜5 秒に丸める。
+#                     未設定は 1.5 秒。0 を即着弾にすると"避けられる技"が書き忘れで回避不能技に化けるため)
+#   knockback         吹き飛ばし強度（0 なら吹き飛ばさない）。vortex_pull では【引き寄せ】の強さ
+#                     ※ここの 0〜5 はそのままの速度ではない。Bukkit の速度はブロック/tick なので
+#                       生の値を入れると場外まで飛ぶ(バニラのノックバックは約 0.4)。
+#                       repulse は水平 0.4 倍・垂直 0.18 倍(上限 0.9)へ換算して適用する
 #   effects           命中した相手へ付けるポーション効果のリスト
 #   particle          演出パーティクル名。※データ必須の種類（FLASH / DUST / BLOCK / ITEM /
 #                     ENTITY_EFFECT / SHRIEK / SCULK_CHARGE / VIBRATION 等）は受け付けない。
@@ -246,3 +254,83 @@ abilities:
     particle: PORTAL
     particle-count: 24
     sound: ENTITY_ENDERMITE_AMBIENT
+
+  # ---------------------------------------------------------------------------
+  # 吹き飛ばし型（2026-08-16 追加）— 「密着し続ける」を物理的に不可能にする
+  # ---------------------------------------------------------------------------
+  # ground_slam の knockback は「当たったついでに少し押す」味付けだが、こちらは
+  # 吹き飛ばしそのものが技。ダメージは控えめにして、位置を崩されること自体を脅威にする。
+  # 崖・溶岩・奈落のある部屋では、この技が事実上の最大火力になる点に注意。
+  gale_smash:
+    display-name: "<red>烈風叩き</red>"
+    type: repulse
+    damage-type: physical
+    damage-percent: 0.9
+    cooldown-seconds: 11
+    chance: 0.28
+    range: 6
+    radius: 6
+    knockback: 4.5      # 水平 1.8 / 垂直 0.81 ブロックtick へ換算される
+    particle: EXPLOSION
+    particle-count: 20
+    sound: ENTITY_GENERIC_EXPLODE
+
+  # ---------------------------------------------------------------------------
+  # 引き寄せ型（2026-08-16 追加）— 「遠くから撃ち続ける」を封じる
+  # ---------------------------------------------------------------------------
+  # charge(突進)は敵が動くので遮蔽で切れるが、これは相手を動かすので遮蔽では切れない。
+  # ダメージはほぼ無く、引きずり込んだ先の近接技で殺すための布石として使う。
+  abyssal_grip:
+    display-name: "<dark_purple>深淵の手</dark_purple>"
+    type: vortex_pull
+    damage-type: magical
+    damage-percent: 0.3
+    cooldown-seconds: 13
+    chance: 0.30
+    range: 20
+    radius: 16          # この半径内のプレイヤーを引き寄せる
+    knockback: 1.6      # 引き寄せの強さ（距離に応じて最大 12m で最大強度）
+    effects:
+      - type: SLOWNESS
+        duration-seconds: 2
+        amplifier: 0
+    particle: PORTAL
+    particle-count: 30
+    sound: ENTITY_ENDERMAN_STARE
+
+  # ---------------------------------------------------------------------------
+  # 予告設置型（2026-08-16 追加）— 「見てから動く」を作る
+  # ---------------------------------------------------------------------------
+  # 印は発動時点の足元に固定され、追尾しない。避けられる代わりに倍率を高くできる。
+  # 逆に言うと、逃げ場の無い狭い部屋のモブに付けると回避不能な高倍率技になるので付けない。
+  meteor_mark:
+    display-name: "<gold>星降りの徴</gold>"
+    type: delayed_zone
+    damage-type: magical
+    # 既存の最大倍率(piercing_beam の 2.0)を超えないこと。避けられる技だからと上げると、
+    # 「避けそこねた1回で即死」＝実質ワンショットになり、防具の投資が意味を失う。
+    damage-percent: 2.0
+    cooldown-seconds: 18
+    chance: 0.26
+    range: 24
+    radius: 3.5
+    duration-seconds: 1.6   # 予告時間
+    knockback: 1.0
+    particle: LAVA
+    particle-count: 24
+    sound: ENTITY_GENERIC_EXPLODE
+
+  quake_spikes:
+    display-name: "<gray>地烈の棘</gray>"
+    type: delayed_zone
+    damage-type: physical
+    damage-percent: 1.7
+    cooldown-seconds: 15
+    chance: 0.28
+    range: 18
+    radius: 3
+    duration-seconds: 1.2
+    knockback: 1.6          # 棘に打ち上げられる
+    particle: CRIT
+    particle-count: 28
+    sound: BLOCK_STONE_BREAK

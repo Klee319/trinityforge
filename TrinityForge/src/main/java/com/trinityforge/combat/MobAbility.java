@@ -29,8 +29,9 @@ import java.util.Locale;
  * @param spreadDegrees   扇の開き角（{@code PROJECTILE_VOLLEY}）
  * @param projectile      飛ばす {@code EntityType} 名（{@code PROJECTILE_VOLLEY}）
  * @param summonType      召喚する {@code EntityType} 名（{@code SUMMON}）
- * @param durationSeconds 効果の持続秒数（{@code AURA}）
- * @param knockback       ノックバック強度（0 なら吹き飛ばさない）
+ * @param durationSeconds 効果の持続秒数（{@code AURA}）／予告から着弾までの秒数（{@code DELAYED_ZONE}）
+ * @param knockback       ノックバック強度（0 なら吹き飛ばさない）。{@code REPULSE} では吹き飛ばし、
+ *                        {@code VORTEX_PULL} では<b>引き寄せ</b>の強さとして使う（向きが逆になるだけ）
  * @param effects         命中した相手へ付けるポーション効果
  * @param particle        演出パーティクル名（{@code Particle} enum、空なら無し）
  * @param particleCount   パーティクル個数。<b>0 は「出さない」ではなく Bukkit では特殊な意味になる</b>ので
@@ -59,7 +60,24 @@ public record MobAbility(String id, String displayName, Type type, DamageType da
         /** 自分の向きへ直線状に判定を伸ばす。横に避ける動きを作る。 */
         BEAM,
         /** 増援を呼ぶ。単体火力より範囲処理を要求する。 */
-        SUMMON
+        SUMMON,
+        /**
+         * 全方位へ<b>強く吹き飛ばす</b>。ダメージより「位置を崩す」ことが本体で、
+         * 水平だけでなく上へも飛ばすので落下・溶岩・崖が脅威になる。
+         * {@code GROUND_SLAM} の knockback は「少し押す」程度の味付けなのに対し、
+         * こちらは吹き飛ばしそのものが技（2026-08-16）。
+         */
+        REPULSE,
+        /**
+         * 周囲のプレイヤーを<b>自分の方へ引き寄せる</b>（{@code REPULSE} の逆向き）。
+         * 遠距離で張り付かない立ち回りを崩し、近接の間合いへ引きずり込む。
+         */
+        VORTEX_PULL,
+        /**
+         * 対象の足元へ<b>印を置き、遅れて着弾</b>する。予告を見て動けば完全に避けられる代わりに
+         * 倍率を高くできる（「避ける技」を作るのが目的で、避けられない高倍率とは別物）。
+         */
+        DELAYED_ZONE
     }
 
     /**
@@ -119,5 +137,28 @@ public record MobAbility(String id, String displayName, Type type, DamageType da
     /** 継続時間を tick で（{@code AURA}）。 */
     public int durationTicks() {
         return (int) Math.round(durationSeconds * 20.0);
+    }
+
+    /** {@code DELAYED_ZONE} の予告時間の既定（{@code duration-seconds} 未設定時）。 */
+    public static final int DEFAULT_DELAY_TICKS = 30;
+    /** 予告が短すぎると「見てから動く」余地が無くなるので下限を置く。 */
+    public static final int MIN_DELAY_TICKS = 10;
+    /** 予告が長すぎると誰も踏んでおらず当たらない置物になるので上限を置く。 */
+    public static final int MAX_DELAY_TICKS = 100;
+
+    /**
+     * 予告から着弾までの遅延 tick（{@code DELAYED_ZONE}）。
+     *
+     * <p>{@code duration-seconds} を流用しているが、{@code AURA} の {@link #durationTicks()} と違って
+     * <b>0（未設定）は「即着弾」ではなく既定 1.5 秒</b>にする。0 を即着弾にすると
+     * 「予告付きで避けられる技」という型そのものが、書き忘れひとつで
+     * 「回避不能な高倍率AoE」へ静かに化けるため。
+     */
+    public int delayTicks() {
+        if (durationSeconds <= 0.0) {
+            return DEFAULT_DELAY_TICKS;
+        }
+        long ticks = Math.round(durationSeconds * 20.0);
+        return (int) Math.max(MIN_DELAY_TICKS, Math.min(MAX_DELAY_TICKS, ticks));
     }
 }

@@ -40,6 +40,21 @@ public final class MobAbilityExecutor {
     /** 技名の告知が届く距離。半径 32 は「同じ部屋にいる人には見える」程度の目安。 */
     private static final double ANNOUNCE_RADIUS = 32.0;
 
+    /** yml の {@code knockback}(0〜5) → 水平速度(ブロック/tick)の換算。 */
+    static final double REPULSE_HORIZONTAL_SCALE = 0.4;
+    /** 同 → 上向き速度の換算。 */
+    static final double REPULSE_VERTICAL_SCALE = 0.18;
+    /** 上向き速度の上限。落下ダメージだけで殺せる高さまで打ち上げないための天井。 */
+    static final double REPULSE_MAX_VERTICAL = 0.9;
+    /** 引き寄せの水平速度換算。 */
+    static final double PULL_HORIZONTAL_SCALE = 0.7;
+    /** この距離以上離れていれば引き寄せは最大強度。 */
+    static final double PULL_FULL_DISTANCE = 12.0;
+    /** 引き寄せ時のわずかな浮き。地面の摩擦・段差で引っ掛からないため。 */
+    static final double PULL_LIFT = 0.2;
+    /** {@code DELAYED_ZONE} の予告パーティクルを撒く間隔。 */
+    private static final long TELEGRAPH_INTERVAL_TICKS = 5L;
+
     private final Plugin plugin;
     private final SymmetricCombatService combat;
 
@@ -71,6 +86,9 @@ public final class MobAbilityExecutor {
                 case TELEPORT_STRIKE -> teleportStrike(mob, target, ability);
                 case BEAM -> beam(mob, target, ability);
                 case SUMMON -> summon(mob, ability);
+                case REPULSE -> repulse(mob, ability);
+                case VORTEX_PULL -> vortexPull(mob, ability);
+                case DELAYED_ZONE -> delayedZone(mob, target, ability);
             };
         } catch (RuntimeException ex) {
             // 設定ミス(未知のEntityType等)を毎tick叫ばせない。1件読み飛ばして次のモブへ。
@@ -240,6 +258,76 @@ public final class MobAbilityExecutor {
         return true;
     }
 
+    /**
+     * 全方位の強ノックバック（2026-08-16）。{@link #pushAway} は「当たったついでに少し押す」味付け
+     * （Y は 0.35 固定・現在の速度へ加算）なので、強度をいくら上げても<b>真横に滑るだけ</b>で
+     * 崖・溶岩・落下が脅威にならない。こちらは {@link #repulseVelocity} で速度を<b>置き換え</b>、
+     * 強度に応じて上方向にも飛ばす。
+     */
+    private boolean repulse(LivingEntity mob, MobAbility ability) {
+        Location center = mob.getLocation();
+        for (Player victim : playersNear(center, ability.radius())) {
+            applyHit(mob, victim, ability);
+            if (ability.knockback() > 0.0) {
+                // ダメージのあとに置くこと。victim.damage() 由来のバニラノックバックを上書きするため。
+                victim.setVelocity(repulseVelocity(center.toVector(),
+                        victim.getLocation().toVector(), ability.knockback()));
+            }
+        }
+        return true;
+    }
+
+    /** 周囲のプレイヤーを自分の方へ引きずり込む（{@link #repulse} の逆向き）。 */
+    private boolean vortexPull(LivingEntity mob, MobAbility ability) {
+        Location center = mob.getLocation();
+        for (Player victim : playersNear(center, ability.radius())) {
+            applyHit(mob, victim, ability);
+            if (ability.knockback() > 0.0) {
+                victim.setVelocity(pullVelocity(center.toVector(),
+                        victim.getLocation().toVector(), ability.knockback()));
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 対象の足元へ印を置き、{@link MobAbility#delayTicks()} 後にその地点へ着弾する。
+     *
+     * <p><b>印の位置は発動時点で固定</b>する（対象を追尾させない）。追尾させると回避手段が
+     * 「射程外へ逃げる」しか無くなり、予告を出す意味が消えるため。撃った本人が着弾前に死んだ場合は
+     * 不発にする（死体から技だけ飛んでくるのを避ける）。
+     */
+    private boolean delayedZone(LivingEntity mob, Player target, MobAbility ability) {
+        Location mark = target.getLocation().clone();
+        int delay = ability.delayTicks();
+        double radius = Math.max(1.0, ability.radius());
+        new BukkitRunnable() {
+            private int elapsed = 0;
+
+            @Override
+            public void run() {
+                if (elapsed >= delay) {
+                    cancel();
+                    if (!mob.isValid()) {
+                        return;
+                    }
+                    playEffects(mark, ability);
+                    for (Player victim : playersNear(mark, radius)) {
+                        applyHit(mob, victim, ability);
+                        if (ability.knockback() > 0.0) {
+                            victim.setVelocity(repulseVelocity(mark.toVector(),
+                                    victim.getLocation().toVector(), ability.knockback()));
+                        }
+                    }
+                    return;
+                }
+                elapsed += TELEGRAPH_INTERVAL_TICKS;
+                playEffects(mark, ability); // 予告。ここが見えないと「避けられる技」が成立しない
+            }
+        }.runTaskTimer(plugin, 0L, TELEGRAPH_INTERVAL_TICKS);
+        return true;
+    }
+
     // ------------------------------------------------------------------
     // 共通部品
     // ------------------------------------------------------------------
@@ -294,11 +382,20 @@ public final class MobAbilityExecutor {
     }
 
     private List<Player> playersInRadius(LivingEntity mob, double radius) {
+        return playersNear(mob.getLocation(), radius);
+    }
+
+    /**
+     * 任意の地点を中心にした走査。{@code DELAYED_ZONE} は<b>撃った本人ではなく置いた印</b>を
+     * 中心に判定するので、モブ中心の走査だけでは足りない。
+     */
+    private List<Player> playersNear(Location center, double radius) {
         List<Player> out = new ArrayList<>();
-        if (radius <= 0.0) {
+        World world = center.getWorld();
+        if (world == null || radius <= 0.0) {
             return out;
         }
-        for (Entity entity : mob.getWorld().getNearbyEntities(mob.getLocation(), radius, radius, radius)) {
+        for (Entity entity : world.getNearbyEntities(center, radius, radius, radius)) {
             if (entity instanceof Player player && player.isValid() && !player.isDead()) {
                 out.add(player);
             }
@@ -331,6 +428,46 @@ public final class MobAbilityExecutor {
         if (sound != null) {
             world.playSound(location, sound, 1.0f, 1.0f);
         }
+    }
+
+    /**
+     * {@code REPULSE} の吹き飛ばし速度（純関数）。
+     *
+     * <p><b>yml の {@code knockback}(0〜5) をそのまま速度に使ってはいけない。</b> Bukkit の速度は
+     * ブロック/tick なので、5 をそのまま入れると毎秒 100 ブロックで場外まで吹き飛ぶ
+     * （バニラのノックバックは約 0.4）。ここで水平 {@value #REPULSE_HORIZONTAL_SCALE} 倍・
+     * 垂直 {@value #REPULSE_VERTICAL_SCALE} 倍（上限 {@value #REPULSE_MAX_VERTICAL}）へ換算する。
+     * 垂直に上限を置くのは、上げ過ぎると落下ダメージだけで殺せてしまい防具の意味が消えるため。
+     *
+     * <p>同じ座標に重なっている（水平距離ゼロ）ときは真上へ。正規化できないベクトルを
+     * {@code normalize()} に渡すと NaN 速度になり、<b>プレイヤーが操作不能になる</b>。
+     */
+    static Vector repulseVelocity(Vector from, Vector victim, double strength) {
+        double power = Math.max(0.0, strength);
+        double lift = Math.min(REPULSE_MAX_VERTICAL, REPULSE_VERTICAL_SCALE * power);
+        Vector away = victim.clone().subtract(from).setY(0.0);
+        if (away.lengthSquared() < 1.0e-6) {
+            return new Vector(0.0, lift, 0.0);
+        }
+        return away.normalize().multiply(power * REPULSE_HORIZONTAL_SCALE).setY(lift);
+    }
+
+    /**
+     * {@code VORTEX_PULL} の引き寄せ速度（純関数）。
+     *
+     * <p>遠い相手ほど強く引く（{@value #PULL_FULL_DISTANCE} m で最大）。距離に依らず一定にすると、
+     * 密着している相手を押し込むだけの無意味な速度が付き、逆に遠い相手は届かない。
+     * わずかに上向き成分を足すのは、地面の摩擦で 1 ブロックの段差にも引っ掛かるため。
+     */
+    static Vector pullVelocity(Vector center, Vector victim, double strength) {
+        double power = Math.max(0.0, strength);
+        Vector toward = center.clone().subtract(victim).setY(0.0);
+        double distance = toward.length();
+        if (distance < 1.0e-3) {
+            return new Vector(0.0, PULL_LIFT, 0.0);
+        }
+        double scale = power * PULL_HORIZONTAL_SCALE * Math.min(1.0, distance / PULL_FULL_DISTANCE);
+        return toward.normalize().multiply(scale).setY(PULL_LIFT);
     }
 
     /** 基準ベクトルをY軸まわりに回す（扇状に撒くため）。 */

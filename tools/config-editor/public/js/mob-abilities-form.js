@@ -53,9 +53,12 @@
     "LEVITATION", "LUCK", "UNLUCK", "SLOW_FALLING", "CONDUIT_POWER", "DOLPHINS_GRACE",
     "BAD_OMEN", "HERO_OF_THE_VILLAGE"];
 
-  // Java の MobAbility.Type と 1:1。増やすときは Java 側の enum と同時に。
+  // Java の MobAbility.Type と 1:1。増やすときは Java 側の enum と同時に
+  // (lib/schema.js の MOB_ABILITY_TYPES と labels.js の ENUM_LABELS も同時に)。
   const TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
-    "teleport_strike", "beam", "summon"];
+    "teleport_strike", "beam", "summon",
+    // 2026-08-16 追加
+    "repulse", "vortex_pull", "delayed_zone"];
 
   // 型の日本語名は labels.js の ENUM_LABELS["mob-ability-type"] が正 (辞書を二重に持たない)。
   // 2026-08-01 まではここだけに辞書があり、セレクト本体
@@ -80,7 +83,12 @@
     aura: ["radius", "duration-seconds"],
     teleport_strike: ["radius", "knockback"],
     beam: ["radius", "count"],
-    summon: ["radius", "count", "summon-type"]
+    summon: ["radius", "count", "summon-type"],
+    // 2026-08-16 追加。knockback は repulse=吹き飛ばし / vortex_pull=引き寄せ の強さ(向きが逆になるだけ)。
+    // delayed_zone の duration-seconds は「印を置いてから着弾までの予告秒」で、aura の持続とは意味が違う。
+    repulse: ["radius", "knockback"],
+    vortex_pull: ["radius", "knockback"],
+    delayed_zone: ["radius", "duration-seconds", "knockback"]
   };
 
   // [min, max, step] — Java 側の clamp と同じ範囲。

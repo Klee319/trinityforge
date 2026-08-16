@@ -342,6 +342,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。犬＝噛みついて足を止める
+        abilities: [crippling_stomp]
         drops: []
       wood_league_wave_10_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悪い子犬 (増援)"
@@ -412,6 +414,8 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。魔法装甲が厚い個体なので技も魔法側
+        abilities: [ember_spray]
         drops: []
       wood_league_wave_16_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ブヒ氏のファン (近接)"
@@ -475,6 +479,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。まとめて弾き飛ばす(囲んで殴るのを崩す)
+        abilities: [gale_smash]
         drops: []
       wood_league_wave_21_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第21波)"
@@ -538,6 +544,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。予告付きの棘で立ち位置を強制
+        abilities: [quake_spikes]
         drops: []
       wood_league_wave_26_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第26波)"
@@ -601,6 +609,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。毒蛇＝留まらせない
+        abilities: [withering_aura]
         drops: []
       wood_league_wave_31_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第31波)"
@@ -664,6 +674,8 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種(魔法側)。道化＝引きずり込む悪戯
+        abilities: [abyssal_grip]
         drops: []
       wood_league_wave_36_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第36波)"
@@ -727,6 +739,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ボスは1種。呪い＝予告してから落とす
+        abilities: [meteor_mark]
         drops: []
       wood_league_wave_41_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第41波)"
@@ -811,6 +825,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目ミニボスは1種。名前どおり刃を扇状に撒く
+        abilities: [arrow_fan]
         drops: []
       wood_league_wave_46_healer:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場の治癒師 (第46波)"
@@ -916,6 +932,9 @@ overrides:
           physical: { defense-rate: 0.266, resistance: 0.285 }
           magical:  { defense-rate: 0.266, resistance: 0.285 }
         vanilla-exp: { base: 80.0, per-level: 2.4, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の最終段だけ2種。技は【最深段(p3)】に置く —— p1/p2 は
+        # HP で通過するだけの段なので、そこに置くと一番長く戦う段が無技になる
+        abilities: [shockwave, call_the_horde]
         drops: []
       wood_league_wave_50_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "ウーサー・スタン (増援)"
@@ -930,6 +949,9 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 闘技場の節目(5波ごとのミニボス/10波ごとのボス)だけに1種ずつ置く。
+        # 雑魚(_melee/_ranged)には付けない —— 同時湧きの頭数ぶん AoE が重なり、波の被ダメが読めなくなるため
+        abilities: [bull_rush]
         drops: []
       wood_league_wave_6_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "闘技場のゾンビ (第6波)"
@@ -1421,8 +1443,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 17340000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-01 特殊攻撃(柱2-1): 低難度ダンジョンの踏破ボス。技は1つだけにして立ち位置の強制にとどめる
-        abilities: [frost_field]
+        # 2026-08-01 特殊攻撃(柱2-1): 立ち位置の強制
+        # 2026-08-16 試練の梯子: 最終段は3種。凍らせ・背後へ回り・予告付きの降炎で位置を奪う
+        abilities: [frost_field, shadow_step, meteor_mark]
         # 踏破の証明 + 高位ダンジョン限定素材 (2026-07-31 追加)。印は chance 1.0 = 必ず1個。
         # 極級ガチャ券(gacha_ticket_5)は釣りギミック以外の入手経路がここだけ。
         # 「釣りをしない人が極級プールに触れない」状態を解消するために踏破ボスへ載せている。
@@ -1545,9 +1568,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 3830000
         vanilla-exp: { base: 2.0, per-level: 0.06, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
-        # 技は1つだけにして立ち位置の強制にとどめる。召喚士。増援を呼ぶのが本体の役
-        abilities: [call_the_swarm]
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 召喚士。増援を呼ぶのが本体の役
+        # 2026-08-16 試練の梯子: 試練4〜6 は2種。増援を呼びつつ足元を割る(棘は予告付き=避けられる)
+        abilities: [call_the_swarm, quake_spikes]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1595,9 +1618,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 5630000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
-        # 技は1つだけにして立ち位置の強制にとどめる。串刺し。直線の貫通で位置取りを強制
-        abilities: [piercing_beam]
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 串刺し。直線の貫通で位置取りを強制
+        # 2026-08-16 試練の梯子: 試練4〜6 は2種。引き寄せてから串刺す(遮蔽に隠れ続けさせない)
+        abilities: [piercing_beam, abyssal_grip]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1638,9 +1661,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 6390000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
-        # 技は1つだけにして立ち位置の強制にとどめる。突進役
-        abilities: [bull_rush]
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 突進役
+        # 2026-08-16 試練の梯子: 試練4〜6 は2種。突進で詰めてから吹き飛ばす(密着し続けさせない)
+        abilities: [bull_rush, gale_smash]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1674,9 +1697,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 8220000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
-        # 技は1つだけにして立ち位置の強制にとどめる。氷結。立ち位置の強制にとどめる
-        abilities: [frost_field]
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 氷結。立ち位置の強制
+        # 2026-08-16 試練の梯子: 試練7〜9 は3種。凍らせ・足を砕き・足元を割る(逃げ道を順に潰す)
+        abilities: [frost_field, crippling_stomp, quake_spikes]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1710,9 +1733,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 14000000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
-        # 技は1つだけにして立ち位置の強制にとどめる。炎属性
-        abilities: [ember_spray]
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 炎属性
+        # 2026-08-16 試練の梯子: 試練7〜9 は3種。火の粉で足場を削り、予告付きの降炎と爆風で押し出す
+        abilities: [ember_spray, meteor_mark, gale_smash]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1746,9 +1769,9 @@ overrides:
           # 実HP = ここの値 × EM の healthMultiplier(EliteEntity#setMaxHealth が後段で掛ける)。
           max-health: 18010000
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
-        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): 低難度ダンジョンの踏破ボス。
-        # 技は1つだけにして立ち位置の強制にとどめる。ガラス片を扇状に飛ばす
-        abilities: [arrow_fan]
+        # 2026-08-02 特殊攻撃(柱2-1 の積み残し): ガラス片を扇状に飛ばす
+        # 2026-08-16 試練の梯子: 試練7〜9 は3種。散弾で削り、引き寄せて貫く(遮蔽での膠着を許さない)
+        abilities: [arrow_fan, abyssal_grip, piercing_beam]
         # 【ドロップ】踏破ボス(2026-08-14)。
         # 印(dungeon_seal_*)は chance 1.0 / 1個固定 = 踏破の証明。複数落ちると図鑑の重複と
         # key_binder の「印5個」要求が壊れるので、個数は絶対に増やさない。
@@ -1980,6 +2003,8 @@ overrides:
           # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
           max-health-multiplier: 3.7
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。衛兵＝盾で弾き飛ばす(密着し続けさせない)
+        abilities: [gale_smash]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -1992,6 +2017,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と同じ属性で揃える。防衛兵＝足止め役
+        abilities: [crippling_stomp]
         drops: []
       em_id_the_city_mini_boss_two:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "都市の監視者"
@@ -1999,6 +2026,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。監視者＝遠距離から射る
+        abilities: [arrow_fan]
         drops: []
       em_id_the_city_royal_guard_p1:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "王室の近衛 (第1段階)"
@@ -2068,6 +2097,9 @@ overrides:
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は【最深段(p2)】に置く。p1 に置くと一番長く戦う段が無技になる
+        # (the_climb_undead_beastmaster と同じ規則)。勇者＝踏み込んで薙ぎ払う
+        abilities: [bull_rush, gale_smash]
         drops: []
       the_climb_bone_champion_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "アンデッドのネズミ (召喚体)"
@@ -2131,6 +2163,8 @@ overrides:
           physical: { defense-rate: 0.238, resistance: 0.255 }
           magical:  { defense-rate: 0.238, resistance: 0.255 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。影＝背後を取り、留まった相手を枯らす
+        abilities: [shadow_step, withering_aura]
         drops: []
       the_climb_skeletal_shadow_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "白化した骨 (召喚体)"
@@ -2243,6 +2277,8 @@ overrides:
           # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
           max-health-multiplier: 12
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。守護者＝踏み鳴らして近寄らせない
+        abilities: [shockwave]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -2343,6 +2379,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。踏破ボス(物理)と属性を揃える。掘削者＝足元を割る
+        abilities: [quake_spikes]
         drops: []
       em_id_the_deep_mines_miniboss_foreman:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "現場監督"
@@ -2350,6 +2388,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。監督＝逃がさない(足止め)
+        abilities: [crippling_stomp]
         drops: []
       em_id_the_deep_mines_miniboss_greedy_miner:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "強欲な坑夫"
@@ -2357,6 +2397,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。強欲＝掴んで引きずり込む(遠距離で撃たせない)
+        abilities: [abyssal_grip]
         drops: []
       em_id_the_deep_mines_miniboss_twisted_excavator:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "捻じれた掘削機"
@@ -2364,6 +2406,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。掘削機＝腕を振り回して弾き飛ばす
+        abilities: [gale_smash]
         drops: []
       em_id_the_deep_mines_nether_moss:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "ネザーの苔"
@@ -2551,6 +2595,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。鍛冶師＝炉の火を撒く
+        abilities: [ember_spray]
         drops: []
       the_mines_mini_boss_tulpa:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "魂のトゥルパ"
@@ -2558,6 +2604,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。思念体＝そこに居続けさせない
+        abilities: [withering_aura]
         drops: []
       the_mines_mini_boss_tulpa_reinforcements:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "凝集した思念 (増援)"
@@ -2572,6 +2620,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。予告付きの落着で足を止めさせない
+        abilities: [meteor_mark]
         drops: []
       the_mines_mini_boss_tusk_summon_one:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "忍耐の魂 (召喚体)"
@@ -2753,6 +2803,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ。魔法装甲が厚い個体なので技も魔法側で揃える
+        # (踏破ボス void_bell_p3 の [piercing_beam, withering_aura] と同じ属性)。光＝直線
+        abilities: [piercing_beam]
         drops: []
       em_id_the_nether_bell_beam_boss_green_2_strength:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (剛力)"
@@ -2760,6 +2813,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。予告してから叩き落とす
+        abilities: [meteor_mark]
         drops: []
       em_id_the_nether_bell_beam_boss_green_3_night_vision:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "光を抱く者 (暗視)"
@@ -2767,6 +2822,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。留まらせない霧
+        abilities: [withering_aura]
         drops: []
       em_id_the_nether_bell_beam_boss_red_1_slow:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (鈍足)"
@@ -2774,6 +2831,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。鈍足＝凍気
+        abilities: [frost_field]
         drops: []
       em_id_the_nether_bell_beam_boss_red_2_hunger:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (飢餓)"
@@ -2781,6 +2840,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。虚無＝呑み込む(引き寄せ)
+        abilities: [abyssal_grip]
         drops: []
       em_id_the_nether_bell_beam_boss_red_3_darkness:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "虚無を抱く者 (暗闇)"
@@ -2788,6 +2849,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。暗闇＝背後を取る
+        abilities: [shadow_step]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_1_bogged:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "悲嘆を抱く者 (沼)"
@@ -2795,6 +2858,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。沼＝足を取る
+        abilities: [frost_field]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_1_bogged_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (召喚体) (沼)"
@@ -2809,6 +2874,9 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ここだけ物理技なのは意図的。ブリーズ＝風で吹き飛ばすモブなので
+        # 見た目と技を一致させた(属性を揃える原則より、この1体は種族の見た目を優先)
+        abilities: [gale_smash]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_2_breeze_summon:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (召喚体) (ブリーズ)"
@@ -2823,6 +2891,8 @@ overrides:
           physical: { defense-rate: 0.06, resistance: 0.18 }
           magical:  { defense-rate: 0.33, resistance: 0.27 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 鐘のビームボスは1種ずつ(魔法側で揃える)。ウォーデン＝直線の咆哮
+        abilities: [piercing_beam]
         drops: []
       em_id_the_nether_bell_beam_boss_yellow_3_warden_power_dummy:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "悲嘆を抱く者 (ウォーデン・出力ダミー)"
@@ -2990,6 +3060,9 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。技の属性は【そのモブの耐性の逆】に揃える
+        # (物理装甲が厚い=魔法が通る敵は物理で殴ってくる)。重い瘴気＝足を止める
+        abilities: [crippling_stomp]
         drops: []
       em_id_the_nether_wastes_miniboss_2_blind:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "濃い瘴気"
@@ -2997,6 +3070,8 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側で揃える
+        abilities: [withering_aura]
         drops: []
       em_id_the_nether_wastes_miniboss_2_summon_hard:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "呪術師 (召喚体) (上級)"
@@ -3031,6 +3106,8 @@ overrides:
           # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
           max-health-multiplier: 4
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側。掴んで毒気の中へ引き込む
+        abilities: [abyssal_grip]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -3050,6 +3127,8 @@ overrides:
           physical: { defense-rate: 0.286, resistance: 0.234 }
           magical:  { defense-rate: 0.052, resistance: 0.156 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。物理側で揃える。噴き出す棘で足場を奪う
+        abilities: [quake_spikes]
         drops: []
       em_id_the_nether_wastes_miniboss_4_summon:   # ミニボス — EXP Lv1:17 / Lv50:60 / Lv100:142
         display-name: "ネザーの小悪魔 (召喚体)"
@@ -3583,6 +3662,8 @@ overrides:
           physical: { defense-rate: 0.374, resistance: 0.306 }
           magical:  { defense-rate: 0.068, resistance: 0.204 }
         vanilla-exp: { base: 56.0, per-level: 1.68, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 技は最深段(p2)へ。騎乗突撃の騎士なので突進(物理側で揃える)
+        abilities: [bull_rush]
         drops: []
 
   # north_pole_minidungeon (DYNAMIC_DUNGEON) — custombosses/the_north_pole / 8体
@@ -3717,6 +3798,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 下水道の各層ボスは1種ずつ。重力ギミックの層＝吹き飛ばし
+        abilities: [gale_smash]
         drops: []
       sewer_tier_20_water:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "密輸業者"
@@ -3731,6 +3814,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。英雄＝踏み込んで斬る
+        abilities: [bull_rush]
         drops: []
       sewer_tier_20_wither_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "萎びた死骸"
@@ -3738,6 +3823,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ウィザー層＝枯死の霧
+        abilities: [withering_aura]
         drops: []
       sewer_tier_30_ice_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "氷の亡霊"
@@ -3745,6 +3832,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。氷の層＝凍気
+        abilities: [frost_field]
         drops: []
       sewer_tier_30_invisibility_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "影の射手"
@@ -3752,6 +3841,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。透明化の層＝背後を取る
+        abilities: [shadow_step]
         drops: []
       sewer_tier_30_melee:   # 雑魚 — EXP Lv1:4 / Lv50:15 / Lv100:35
         display-name: "下水道の獣"
@@ -3780,6 +3871,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。暗闇の層＝闇に引きずり込む
+        abilities: [abyssal_grip]
         drops: []
       sewer_tier_40_darkness_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "影 (増援)"
@@ -3794,6 +3887,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。炎の層＝火の粉
+        abilities: [ember_spray]
         drops: []
       sewer_tier_40_fire_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "焔 (増援)"
@@ -3808,6 +3903,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。毒の層＝留まらせない霧
+        abilities: [withering_aura]
         drops: []
       sewer_tier_40_poison_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "堕ちた庭師 (増援)"
@@ -3836,6 +3933,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。雷の層＝落ちる位置を予告してから撃つ
+        abilities: [meteor_mark]
         drops: []
       sewer_tier_50_ravager_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "下水道の異形"
@@ -3843,6 +3942,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。ラヴェジャー種＝突進
+        abilities: [bull_rush]
         drops: []
       sewer_tier_50_spider_boss:   # ボス第1段階 — EXP Lv1:42 / Lv50:149 / Lv100:355
         display-name: "古代の這うもの"
@@ -3850,6 +3951,8 @@ overrides:
           physical: { defense-rate: 0.21, resistance: 0.225 }
           magical:  { defense-rate: 0.21, resistance: 0.225 }
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。蜘蛛＝群れを呼ぶ
+        abilities: [call_the_swarm]
         drops: []
       sewer_tier_50_spider_boss_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "小蜘蛛 (増援)"
@@ -3870,6 +3973,8 @@ overrides:
           # 右辺の EM 側の値(6.0〜120.0 とモブごとにバラバラ)は織り込み済みなので、この値を素で書く。
           max-health-multiplier: 9.6
         vanilla-exp: { base: 40.0, per-level: 1.2, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: 各層ボスは1種ずつ。水の層＝水中へ引きずり込む
+        abilities: [abyssal_grip]
         # 【ドロップ】中ボス(2026-08-14)。
         # スレッド等の min:1,max:1 は意図的:【個数が1個固定のエントリだけ、ドロップ増加ステが
         # 抽選"確率"側に乗る】(MobDropRoller#isSingleFixed → boostedChance)。min<max にすると
@@ -4142,6 +4247,8 @@ overrides:
           physical: { defense-rate: 0.052, resistance: 0.156 }
           magical:  { defense-rate: 0.286, resistance: 0.234 }
         vanilla-exp: { base: 16.0, per-level: 0.48, growth: 1.008, growth-interval: 1.0 }
+        # 2026-08-16 特殊攻撃: ミニボスは1種。魔法装甲が厚い個体なので技も魔法側(踏破ボスと同じ属性)
+        abilities: [meteor_mark]
         drops: []
       dark_cathedral_tier_75_reinforcement:   # 召喚体/騎乗体 — EXP Lv1:2 / Lv50:7 / Lv100:18
         display-name: "クトゥルフの落とし子 (増援)"

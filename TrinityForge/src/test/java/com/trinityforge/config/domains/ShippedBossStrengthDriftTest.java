@@ -185,20 +185,29 @@ class ShippedBossStrengthDriftTest {
         putBoss("em_sewer_maze", "sewer_tier_70_boss", even);
         // 低難度 — frost_field 1つだけ
         List<String> easy = List.of("frost_field");
-        putBoss("em_id_enchantment_challenge_10", "enchantment_boss_tricky_bones", easy);
         putBoss("em_north_pole", "northpole_santa_claus", easy);
         putBoss("em_id_the_nether_wastes", "em_id_the_nether_wastes_miniboss_5_shroud_p2", easy);
-        // エンチャント試練1〜9(2026-08-02 積み残しの解消)。低難度なので技は1つずつ。
+        // エンチャント試練1〜10。技の数を【試練の番号とともに増やす梯子】にしてある(2026-08-16、K指示):
+        // 1〜3 = 1種 / 4〜6 = 2種 / 7〜10 = 3種。単調性そのものは
+        // ShippedMobAbilityAssignmentTest#enchantmentTrialAbilityCountIsMonotonic が別途固定する。
         // 課題ごとに要求ビルドが入れ替わるダンジョン群なので、技もボスの性格に合わせて散らしてある。
         putBoss("em_id_enchantment_challenge_1", "enchantment_boss_dark_flame", List.of("ember_spray"));
         putBoss("em_id_enchantment_challenge_2", "enchantment_boss_energized_bunny", List.of("shadow_step"));
         putBoss("em_id_enchantment_challenge_3", "enchantment_boss_jealous_block", List.of("shockwave"));
-        putBoss("em_id_enchantment_challenge_4", "enchantment_boss_leet_summoner", List.of("call_the_swarm"));
-        putBoss("em_id_enchantment_challenge_5", "enchantment_boss_loveable_impaler", List.of("piercing_beam"));
-        putBoss("em_id_enchantment_challenge_6", "enchantment_boss_ravegarer", List.of("bull_rush"));
-        putBoss("em_id_enchantment_challenge_7", "enchantment_boss_rock_solid_cold", List.of("frost_field"));
-        putBoss("em_id_enchantment_challenge_8", "enchantment_boss_the_firebunger", List.of("ember_spray"));
-        putBoss("em_id_enchantment_challenge_9", "enchantment_boss_the_glass_master", List.of("arrow_fan"));
+        putBoss("em_id_enchantment_challenge_4", "enchantment_boss_leet_summoner",
+                List.of("call_the_swarm", "quake_spikes"));
+        putBoss("em_id_enchantment_challenge_5", "enchantment_boss_loveable_impaler",
+                List.of("piercing_beam", "abyssal_grip"));
+        putBoss("em_id_enchantment_challenge_6", "enchantment_boss_ravegarer",
+                List.of("bull_rush", "gale_smash"));
+        putBoss("em_id_enchantment_challenge_7", "enchantment_boss_rock_solid_cold",
+                List.of("frost_field", "crippling_stomp", "quake_spikes"));
+        putBoss("em_id_enchantment_challenge_8", "enchantment_boss_the_firebunger",
+                List.of("ember_spray", "meteor_mark", "gale_smash"));
+        putBoss("em_id_enchantment_challenge_9", "enchantment_boss_the_glass_master",
+                List.of("arrow_fan", "abyssal_grip", "piercing_beam"));
+        putBoss("em_id_enchantment_challenge_10", "enchantment_boss_tricky_bones",
+                List.of("frost_field", "shadow_step", "meteor_mark"));
     }
 
     private static void putBoss(String world, String mobId, List<String> abilities) {
@@ -219,9 +228,19 @@ class ShippedBossStrengthDriftTest {
      * default の 15 は「バニラ9 + 派生カスタムボス6」の合算)。
      * <b>ここを 53 のような数へ増やしたら、それは移動ではなく二重掲載になっている</b>
      * ── 途中フェーズ側の {@code abilities:} を消し忘れたということなので、
-     * {@link #onlyTheClearBossOfEachDungeonCarriesAbilities} も同時に落ちる。
+     * {@link #noIntermediatePhaseOfAClearBossCarriesAbilities} も同時に落ちる。
+     *
+     * <p><b>2026-08-16 に 49 → 99 へ引き上げた（K指示で設計方針が変わったため）</b>。
+     * 「技を撃つのは各ダンジョンの踏破ボス1体だけ」という 2026-08-01 の縛りは撤回し、
+     * <b>ミニボス／節目のボスにも1種ずつ配る</b>方針になった（雑魚には依然として付けない ──
+     * 同時湧きの頭数ぶん AoE が重なり波の被ダメージが設計不能になるため）。内訳は
+     * 既存 49 ＋ 追加 50 = 99。追加 50 の内訳:
+     * the_city ミニボス3 / the_climb ボス第2段階3 / the_deep_mines ミニボス4 / the_mines ミニボス3 /
+     * the_nether_wastes ミニボス4 / the_nether_bell ビームボス9 / sewer 各層ボス12 /
+     * wood_league 節目(5波ごとのミニボス・10波ごとのボス)10 / the_castle ser_prancelot_p2 1 /
+     * dark_cathedral black_philip 1。
      */
-    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 49;
+    private static final int EXPECTED_ABILITY_CARRIER_COUNT = 99;
 
     // === 読み込みヘルパ(出荷リソースの bytes をそのまま使う。写しを手書きしない) ===
 
@@ -465,41 +484,64 @@ class ShippedBossStrengthDriftTest {
                         + "(移動であって追加ではない。詳細は DUNGEON_BOSS_ABILITIES の javadoc)。");
     }
 
-    /** 1件目で止めない理由は {@link #everyDungeonBossCarriesItsPlannedAbilities} と同じ。 */
+    /**
+     * <b>踏破ボスと同じ系列の「途中フェーズ」に技を書いていないこと</b>を固定する。
+     * 1件目で止めない理由は {@link #everyDungeonBossCarriesItsPlannedAbilities} と同じ。
+     *
+     * <p>※2026-08-01〜2026-08-16 は「そのダンジョンで技を持つのは踏破ボス<b>1体だけ</b>」という
+     * より強い契約だったが、K の指示でミニボス／節目のボスにも配る方針へ変わったため、
+     * <b>この契約は撤回して「途中フェーズ禁止」だけを残した</b>
+     * （{@link #EXPECTED_ABILITY_CARRIER_COUNT} の javadoc 参照）。
+     * 途中フェーズ禁止のほうは方針が変わっても正しい ── phases は HP 割合で次段へ移るので
+     * 中間段は数秒で通過し、<b>一番長く戦う最終段が無技になる</b>という症状は変わらない。
+     */
     @Test
-    @DisplayName("abilities は踏破ボスにだけ。同じダンジョンのミニボス・雑魚には付けない")
-    void onlyTheClearBossOfEachDungeonCarriesAbilities() throws IOException {
+    @DisplayName("踏破ボスと同じ系列の途中フェーズには abilities を付けない(最終段が無技になる)")
+    void noIntermediatePhaseOfAClearBossCarriesAbilities() throws IOException {
         YamlConfiguration yaml = loadShippedYaml(MobOverridesConfig.PATH);
         List<String> mismatches = new ArrayList<>();
         DUNGEON_BOSS_ABILITIES.forEach((world, boss) -> {
             ConfigurationSection mobs = mobsSection(yaml, world);
-            Set<String> carriers = new TreeSet<>();
+            String series = phaseSeriesOf(boss.getKey());
+            Set<String> strays = new TreeSet<>();
             for (String mobId : mobs.getKeys(false)) {
+                if (mobId.equals(boss.getKey()) || !mobId.startsWith(series)) {
+                    continue;
+                }
                 ConfigurationSection mob = mobs.getConfigurationSection(mobId);
                 if (mob != null && !mob.getStringList("abilities").isEmpty()) {
-                    carriers.add(mobId);
+                    strays.add(mobId);
                 }
             }
-            if (!Set.of(boss.getKey()).equals(carriers)) {
-                mismatches.add(world + ": 技を持つべきは踏破ボス " + boss.getKey()
-                        + " だけなのに、実際の担い手は " + carriers);
+            if (!strays.isEmpty()) {
+                mismatches.add(world + ": 踏破ボス " + boss.getKey()
+                        + " と同じ系列の別段に技が付いている " + strays);
             }
         });
         assertTrue(mismatches.isEmpty(),
-                "abilities を持つモブが踏破ボス1体になっていないダンジョンがある("
+                "踏破ボスの途中フェーズに abilities があるダンジョンがある("
                         + mismatches.size() + "件): " + mismatches
-                        + " ── 『ボスだけが技を撃つ』という手触りを守るため、ミニボス・雑魚・増援には付けない"
-                        + "(束縛者だけは 2026-07-31 に決めた例外で、ミニボス3種も技を持つ)。"
-                        + "担い手が踏破ボスではない別のIDなら、それは『途中フェーズに付いている』状態。"
-                        + "途中フェーズは数秒で通過するので、一番長く戦う最終フェーズが無技のままになる。");
+                        + " ── phases は HP 割合で次段へ移るので途中段は数秒で通過する。"
+                        + "技は必ず最終段へ『移す』こと(両方に書くと二重掲載になり "
+                        + "abilityCarrierCountIsPinned も落ちる)。");
+    }
+
+    /**
+     * {@code the_castle_charlemagne_p4} → {@code the_castle_charlemagne} のように、
+     * 末尾のフェーズ表記（{@code _p4} / {@code _phase_3}）を落として系列名にする。
+     * フェーズ表記が無いボス（{@code sewer_tier_70_boss} 等）はそのままが系列名。
+     */
+    private static String phaseSeriesOf(String bossId) {
+        return bossId.replaceAll("_(p|phase_)\\d+$", "");
     }
 
     @Test
-    @DisplayName("abilities を持つモブの総数が 49(default 9 + 束縛者 7 + 踏破ボス 18 + エンチャント試練 9 + 派生6)")
+    @DisplayName("abilities を持つモブの総数が 99(既存49 + 2026-08-16 のミニボス/節目ボス50)")
     void abilityCarrierCountIsPinned() throws IOException {
         assertEquals(EXPECTED_ABILITY_CARRIER_COUNT, allAbilityUsages().size(),
-                "abilities を持つモブの数が変わった。内訳は default のバニラモブ9 + 束縛者7 + "
-                        + "柱2-1 の踏破ボス18 + エンチャント試練9 + 実装1の派生カスタムボス6。"
+                "abilities を持つモブの数が変わった。内訳は【既存49】(default のバニラモブ9 + "
+                        + "束縛者7 + 柱2-1 の踏破ボス18 + エンチャント試練1〜9の9 + 派生カスタムボス6)"
+                        + " + 【2026-08-16 追加の50】(各ダンジョンのミニボス・節目のボス)。"
                         + "増減させたときはこの定数と理由を一緒に更新すること。"
                         + "実際の内訳: " + allAbilityUsages().keySet());
     }
