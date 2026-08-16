@@ -1892,6 +1892,94 @@ PAPI を入れた状態で起動すると、TF 本体が `trinityforge` 拡張�
 
 ---
 
+## 手順 20. ランキングプラグイン（UserRankBoard）を入れる
+
+**経済プラグイン（手順 19）は前提ではない。** 経済が無い間は所持金ランキングだけが登録されず、
+他のランキングは普通に動く。あとから手順 19 を実施すれば、このスクリプトを再実行しなくても
+所持金ランキングが自動で現れる（`RankingRegistry` が Vault の有無で門を作っている）。
+
+配るもの: `PixelRank-1.3.jar`（ソースは `products/minecraft/rank`、remote は `Klee319/UserRankBoard`）。
+MariaDB ドライバを同梱しているので jar は約 5.6MB ある。
+
+### 20-1. なぜ 3 台で共有できるようにしたのか
+
+**旧版（1.2）のフォルダを 3 台で共有すると記録が全損する。** 旧版の保存は
+`DELETE FROM <table>` してからメモリ上の全件を INSERT し直す実装で、
+これを 3 台が 60 秒ごとに行うと互いの記録を消し合う。
+
+1.3 では `rank_stats(player, server, stat, value)` の**サーバー別の行**にして、
+各サーバーは自分の行だけを upsert する。表示は読み出し時に合算する。
+
+**所持金だけは保存しない。** 経済プラグインが 3 台共通で持つ「今この瞬間の値」なので、
+サーバー別の行にすると停止中のサーバーの行が古い残高で凍り、集計が過去の高額を拾い続ける。
+稼働中のサーバーは毎回 Vault から全員分を読み直せるので、保存する必要がない。
+
+### 20-2. MariaDB に DB とユーザーを作る
+
+```powershell
+& "C:\Program Files\MariaDB 12.3\bin\mariadb.exe" -u root -p
+```
+
+```sql
+CREATE DATABASE pixelrank CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- root は使わない。ホスト部は localhost ではなく 127.0.0.1
+-- （Windows の JDBC は localhost を ::1 で引くことがあり Access denied になる）
+CREATE USER 'pixelrank'@'127.0.0.1' IDENTIFIED BY '<パスワード>';
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+  ON pixelrank.* TO 'pixelrank'@'127.0.0.1';
+FLUSH PRIVILEGES;
+```
+
+`ON *.*` にはしないこと ―― ランキングプラグインが luckperms と husksync を書き換えられるようになる。
+
+### 20-3. 配備する（全サーバ停止後）
+
+```
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\stop-all.cmd
+
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\scripts\install-ranking-plugin.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\scripts\install-ranking-plugin.ps1
+```
+
+実行時に `pixelrank` ユーザーのパスワードを尋ねる（画面に出ず、引数にも設定ファイルにも残らない）。
+環境変数 `TF_PIXELRANK_DB_PASSWORD` があればそれを使う。
+
+**TF 本体の jar も配り直すこと。** ランキング用の公開 API（`TrinityForge#rankingTop`）と
+節目レベルアップの全体アナウンスは 2026-08-16 の変更なので、それ以前の jar には入っていない。
+TF が古いままでも UserRankBoard は落ちないが、TF 由来のランキング（スキルレベル・図鑑・グリフ）が
+1 つも出ない。
+
+### 20-4. 確認
+
+```
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
+```
+
+- ゲーム内で `/pixelrank rank` に一覧が出る
+- main で採掘してから `/server resource` へ移り、同じ数字が出る（＝合算されている）
+- `SELECT DISTINCT server FROM pixelrank.rank_stats;` が **main / resource / dev の 3 行**になる
+
+### 20-5. 踏み抜きやすいところ
+
+- **`server-name` を 3 台で同じにしてはいけない。** 同名だと `rank_stats` の同じ行
+  （主キーは player+server+stat）を奪い合い、片方の記録が消える。
+  `install-ranking-plugin.ps1` は `ops-config.psd1` の Servers のキー（main/resource/dev）を
+  焼き込むので、手で書いて重複させる余地は無い。**config を手で直すときだけ注意する。**
+- **`plugins\PixelRank` をジャンクション共有しない。** 共有すると 3 台が同じ config を読み、
+  `server-name` が同じになって上と同じ事故になる（スクリプトはジャンクションを検出したら中断する）。
+  ジャンクションで実体共有してよいのは `plugins\TrinityForge` だけ。
+- **`storage.type` を `sqlite` に戻すとサーバーごとに別のランキングになる。** エラーは出ない。
+- **TF 連携はリフレクションで呼んでいる。** `UserRankBoard` は public リポジトリなので、
+  TF の API jar を置くと本体 jar を公開してしまう。TF 側の `rankingTop` の署名を変えるときは
+  `TrinityForgeBridge` も合わせて直すこと（不一致なら警告 1 回を出して空の順位表に倒れる＝
+  黙って壊れはしないが、黙って消える）。
+- **`rankingTop` は SQLite への同期アクセス。** メインスレッドから毎 tick 呼ばない
+  （UserRankBoard 側は 30 秒ごとの非同期タスクでキャッシュしている）。
+
+---
+
 ## 資源サーバのプレイヤー周知文（案）
 
 > **資源ワールドについて**
