@@ -344,20 +344,33 @@ public final class TrinityForge extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        // 外部プラグイン向けのスキルレベルアップ通知(2026-08-16)。EXP付与は非同期スレッドから
+        // 走るので、Dispatcher 側がメインスレッドへ寄せてから TrinitySkillLevelUpEvent を発火する。
+        this.progressionService.setLevelUpSink(
+                new com.trinityforge.progression.event.BukkitSkillLevelUpDispatcher(this));
         this.experienceDispatcher = new NativeExperienceDispatcher(this, progressionService);
+        // スキルID → 表示名(skilltree/*.yml の display_name)。本人向けフィードバックと
+        // 全体アナウンスの両方が使うので、同じ lambda を 2 箇所へ書き写さず 1 本を共有する
+        // (書き写すと片方だけ解決規則が古くなり、同じスキルが画面ごとに別名で出る)。
+        java.util.function.Function<String, String> skillDisplayName = skillId -> {
+            for (com.trinityforge.skilltree.SkillTree t : configManager.skillTrees().all().values()) {
+                if (t != null && skillId != null && skillId.equalsIgnoreCase(t.skill())) {
+                    return t.displayName();
+                }
+            }
+            return skillId;
+        };
         // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
         com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
                 new com.trinityforge.progression.SkillExpFeedbackService(
-                this, configManager.skillExp(), progressionCatalog,
-                skillId -> {
-                    for (com.trinityforge.skilltree.SkillTree t : configManager.skillTrees().all().values()) {
-                        if (t != null && skillId != null && skillId.equalsIgnoreCase(t.skill())) {
-                            return t.displayName();
-                        }
-                    }
-                    return skillId;
-                });
+                this, configManager.skillExp(), progressionCatalog, skillDisplayName);
         this.experienceDispatcher.setFeedback(skillExpFeedbackService);
+        // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
+        // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
+        // TrinitySkillLevelUpEvent を購読するだけなので、上の Dispatcher 配線より後であればよい。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.progression.SkillLevelBroadcastListener(
+                        this, configManager.levelBroadcast(), skillDisplayName), this);
         // B3(2026-07-25 バグ報告): ログアウト時に当該プレイヤーのスキル別ボスバー/タイマーを確実に
         // 破棄するため PlayerQuitEvent を購読する(以前は Listener 未実装で未登録だった)。
         getServer().getPluginManager().registerEvents(skillExpFeedbackService, this);
@@ -1830,6 +1843,53 @@ public final class TrinityForge extends JavaPlugin {
     /** ランキング用集計値。DB を開けなかった場合は {@code null}（プレースホルダは 0 を返す）。 */
     public com.trinityforge.ranking.RankingStatsService rankingStatsService() {
         return rankingStatsService;
+    }
+
+    /**
+     * ランキング上位 N 件を返す公開 API（2026-08-16、外部プラグイン UserRankBoard 向け）。
+     *
+     * <p>PlaceholderAPI 拡張（{@code TrinityForgePlaceholders}）は仕様上プレイヤー 1 人分の値しか
+     * 返せないため、順位表を作るにはこちらを直接呼ぶ。
+     *
+     * <p>受け付ける {@code stat}:
+     * <ul>
+     *   <li>{@code collection_items} — 図鑑（アイテム）登録数</li>
+     *   <li>{@code collection_mobs} — 図鑑（モブ）登録数</li>
+     *   <li>{@code glyphs_unlocked} — 解放済みグリフ数</li>
+     *   <li>{@code mob_kills} — 討伐数</li>
+     *   <li>{@code skill_<id>_level} — 個別スキルのレベル（例 {@code skill_mining_level}）</li>
+     *   <li>{@code skill_total_level} — 全スキルのレベル合計（POWER は含まない）</li>
+     * </ul>
+     * 値が 0（スキルなら Lv0）の行は返さない。未知の {@code stat}・{@code limit <= 0}・
+     * DB 未初期化・DB エラーは<b>いずれも空リスト</b>（例外を投げない ── 順位表のために
+     * 呼び出し側プラグインを落とさない）。件数は 1000 件で頭打ち。
+     *
+     * <p><b>SQLite への同期アクセスなのでメインスレッドから毎 tick 呼ばないこと。</b>
+     * 非同期スレッドから呼ぶか、呼び出し側でキャッシュすること。
+     *
+     * @param stat 上記のいずれか
+     * @param limit 最大件数
+     * @return 値の降順。{@link com.trinityforge.ranking.RankingEntry#name()} は不明なら空文字
+     */
+    public java.util.List<com.trinityforge.ranking.RankingEntry> rankingTop(String stat, int limit) {
+        com.trinityforge.ranking.RankingMirrorStore store = this.rankingMirrorStore;
+        if (store == null || stat == null) {
+            return java.util.List.of();
+        }
+        String key = stat.trim().toLowerCase(java.util.Locale.ROOT);
+        try {
+            if ("skill_total_level".equals(key)) {
+                return store.topTotalSkillLevel(limit);
+            }
+            if (key.startsWith("skill_") && key.endsWith("_level")) {
+                String skillId = key.substring("skill_".length(), key.length() - "_level".length());
+                return store.topSkillLevel(skillId, limit);
+            }
+            return store.top(key, limit);
+        } catch (java.sql.SQLException ex) {
+            getLogger().log(Level.WARNING, "ランキング上位の取得に失敗しました: " + stat, ex);
+            return java.util.List.of();
+        }
     }
 
     public NativeExperienceDispatcher experienceDispatcher() {

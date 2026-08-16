@@ -64,6 +64,16 @@ public final class NativeProgressionService {
      */
     private final java.util.function.IntSupplier levelsPerSkillPoint;
 
+    /**
+     * レベル上昇の通知先（2026-08-16、外部プラグイン向けイベント）。既定は
+     * {@link com.trinityforge.progression.event.SkillLevelUpSink#NOOP} なので、
+     * 配線しない限り挙動は一切変わらない（＝ Bukkit 非依存のままテストできる）。
+     * 配線は {@code TrinityForge#onEnable} が
+     * {@link com.trinityforge.progression.event.BukkitSkillLevelUpDispatcher} で行う。
+     */
+    private volatile com.trinityforge.progression.event.SkillLevelUpSink levelUpSink =
+            com.trinityforge.progression.event.SkillLevelUpSink.NOOP;
+
     public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog) {
         this(repository, catalog, id -> 0.0);
     }
@@ -151,6 +161,15 @@ public final class NativeProgressionService {
         this.diminishingCurve = Objects.requireNonNull(diminishingCurve, "diminishingCurve");
         this.dailyDiminishing = dailyDiminishing;
         this.dailySettings = dailySettings;
+    }
+
+    /**
+     * レベル上昇の通知先を差し替える。{@code null} を渡すと通知が無効化される。
+     * 永続化が commit された<b>後</b>にだけ呼ばれるので、通知が来た時点で DB は既に新しいレベル。
+     */
+    public void setLevelUpSink(com.trinityforge.progression.event.SkillLevelUpSink sink) {
+        this.levelUpSink = sink == null
+                ? com.trinityforge.progression.event.SkillLevelUpSink.NOOP : sink;
     }
 
     /** 日次逓減の状態保持器（退出時に {@code forget} を呼ぶリスナ用）。無効なら {@code null}。 */
@@ -262,7 +281,31 @@ public final class NativeProgressionService {
                         - player.spentPoints());
         repository.saveProgressionTransition(playerId, skillId, after, powerAfter,
                 availablePoints, player.spentPoints());
+        // 通知は永続化の後。ここより前で発火すると、保存失敗時に「上がっていないレベル」を
+        // 外部へアナウンスしてしまう。
+        notifyLevelUp(playerId, skillId, before.level(), after.level());
+        if (powerAfter != null && powerLevelsChanged > 0) {
+            notifyLevelUp(playerId, POWER,
+                    powerAfter.level() - powerLevelsChanged, powerAfter.level());
+        }
         return new GrantResult(skillId, before, after, levelsChanged, powerLevelsChanged);
+    }
+
+    /**
+     * レベル上昇を受け口へ流す。<b>通知側の例外で EXP 付与を絶対に落とさない</b> ──
+     * 付与そのものは既に commit 済みで、ここで投げると呼び出し側には
+     * 「保存に失敗した」ようにしか見えない。
+     */
+    private void notifyLevelUp(UUID playerId, String skillId, int oldLevel, int newLevel) {
+        if (newLevel <= oldLevel) {
+            return;
+        }
+        try {
+            levelUpSink.onSkillLevelUp(playerId, skillId, oldLevel, newLevel);
+        } catch (RuntimeException ex) {
+            LOG.log(Level.WARNING, "[progression] level-up notification failed for "
+                    + playerId + " / " + skillId, ex);
+        }
     }
 
     public boolean unlockPerk(UUID playerId, String perkId, int pointCost) {

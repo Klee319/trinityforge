@@ -206,7 +206,7 @@
       // (HIDDEN_CONFIG_IDS 経由でサイドバーから隠すので、この order にも含めない)。
       // enchant-gimmick / brew-gimmick は「その他ギミック」(crafting-features) から切り出した新タブ。
       order: [
-            "skill-exp", "skills-ars-magic", "skills-ars-smithing",
+            "skill-exp", "level-broadcast", "skills-ars-magic", "skills-ars-smithing",
             "gacha",
             "mining-gimmick", "smithing-gimmick", "woodcutting-gimmick", "digging-gimmick", "farming-gimmick",
             "fishing-gimmick",

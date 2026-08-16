@@ -279,6 +279,24 @@ robocopy で**上書き**する（除外は `paper-plugin.yml` / `sourcejars.yml
 フォークは自前リポジトリなので `git -C <fork> archive` で別途取り出す。
 **「今回配らなかった未コミット yml」の一覧を毎回表示する**ので、取り残しが目に見える。
 
+### ⚠ 「3 台で共有」には 2 種類ある — ファイル共有（TF だけ）と DB 共有（それ以外）
+`plugins` 配下で NTFS ジャンクション共有されているのは **`plugins\TrinityForge` だけ**
+（`ops/launch/launch-config.cmd` の `TF_CONFIG_HOST`）。LuckPerms / HuskSync / Jecon のような
+外部プラグインは **`plugins\<名前>` が 3 台それぞれの実体**で、共有しているのは
+**MariaDB 側のデータベース**のほう。したがって:
+- その手の config は **3 台へ同じ内容を 3 回書く**（1 台だけ直すと、その台だけ別の DB を見に行く）。
+  配布は必ずスクリプト経由にする（`ops/scripts/apply-husksync-config.ps1` /
+  `ops/scripts/install-economy-plugins.ps1` はどちらも全バックエンドへ同一内容を書く形になっている）。
+- 逆に **TF の yml は Main へ 1 回**。「3 台に配ったつもりが同じファイルを 3 回上書きしただけ」も、
+  「1 台だけ直して 2 台が古いまま」も、どちらもエラーを出さない。
+
+### DB ごとの文字コードは MariaDB に接続せずに読める
+データディレクトリは `D:\game\minecraft\PaperServer\Velocity_for_TF\TrinityForge_DB\DB`
+（`同\my.ini` の `datadir`）。各データベースの既定文字コードは `<DB名>\db.opt` にそのまま入っており、
+**読み取りだけなら権限ゲートに引っかからない**ので、root パスワードなしで既存 DB に合わせられる。
+2026-08-16 実測: `luckperms` / `husksync` とも `default-character-set=utf8mb4` /
+`default-collation=utf8mb4_unicode_ci`。新しい DB を足すときはこれに揃える。
+
 ## サーバ起動時の見落とし
 
 ### ⚠️ HuskSync の DB 接続失敗はサーバ起動を止めない
@@ -288,6 +306,15 @@ MariaDB / Redis への接続が失敗して `FailedToLoadException` → `Connect
 チェックするスクリプト（`ops/scripts/preflight.ps1` のような機械的な関門）を必ず通すこと。
 `getRedisManager()` が null になる NPE が同時に出ることがあるが、これは初期化失敗時の後始末処理側のバグで
 無害。原因ではないので追いかけない。
+
+### ⚠ Jecon の `lazyWrite: true` は複数サーバ構成で残高を無言でずらす
+Jecon は既定（`lazyWrite: true`）で残高をメモリに溜めてから遅延書き込みする。単体サーバなら
+書き込み削減だが、**3 台が 1 つの `jecon` DB を見る構成では移動先が古い残高を読んで書き戻す**。
+Jecon 同梱 config の英文コメント自身が「複数サーバで DB を共有する場合、残高が一時的に不正確になる」
+と警告している。**例外もログも 1 行も出ず、プレイヤーの申告でしか気づけない。**
+出荷の正本は `ops/templates/jecon.config.yml` で `false` 固定にしてあり、
+`ops/scripts/run-selftest.ps1` の「Jecon の正本は 3 台共有の前提を満たし…」が `true` への回帰を落とす。
+同じ理由で `database.type` を `sqlite` へ戻すと**サーバごとに別の財布**になる（これも無言）。
 
 ### Velocity の `/server` にバックエンドごとの権限ノードは無い
 Velocity の `ServerCommand` が参照する権限文字列は `velocity.command.server` の1つだけで、行き先ごとの

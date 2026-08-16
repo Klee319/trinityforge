@@ -157,6 +157,27 @@ function ConvertTo-YamlSingleQuoted {
     return "'" + ($Value -replace "'", "''") + "'"
 }
 
+function Get-PluginBaseName {
+    <#
+    .SYNOPSIS
+        jar のファイル名からバージョン部と重複コピー部を落とし、プラグイン名の当たりを付ける。
+    .DESCRIPTION
+        "ArsPaper-1.0.0.jar" と "ArsPaper.jar" を同一視したい。厳密には jar 内の plugin.yml を
+        読むべきだが、起動前チェックとしてはファイル名で十分に検出できる。
+        "Geyser-Spigot (5).jar" のような Windows の重複コピー表記も落とす。
+
+        ⚠ sync-configs.ps1 にも同じ規則のローカル定義がある（そちらが自分の定義を優先して使う）。
+          規則を変えるときは 2 箇所とも直すこと。片方だけ直すと
+          「同名 jar の二重配置 = Ambiguous plugin name で起動不能」の検出が片側だけ緩む。
+    #>
+    param([Parameter(Mandatory)] [string] $FileName)
+
+    $name = [IO.Path]::GetFileNameWithoutExtension($FileName)
+    $name = $name -replace '\s*\(\d+\)\s*$', ''          # " (5)"
+    $name = $name -replace '[-_]v?\d+(\.\d+)*.*$', ''     # "-1.0.0-SNAPSHOT-all"
+    return $name.Trim()
+}
+
 function Write-OpsLog {
     [CmdletBinding()]
     param(

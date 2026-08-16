@@ -840,6 +840,211 @@ synchronization:
             "拒否したのに world を触っている"
     }
 
+    # ---- 経済プラグインの配備 --------------------------------------------------------------------
+    #  ここで守りたいのは 3 つ。
+    #   (1) 稼働中のバックエンドへ jar を置かないこと (NoClassDefFoundError、JVM 再起動以外に復旧なし)
+    #   (2) 途中で失敗したときに「jar だけ新しい / config だけ新しい」を作らないこと
+    #   (3) Jecon の正本が単体サーバ用 (sqlite / lazyWrite: true) に戻っていないこと
+    #       ―― どちらもエラーは出ず、3 台で残高が食い違うという形でしか現れない
+
+    Write-Host ""
+    Write-Host "=== 経済プラグインの配備 ===" -ForegroundColor Cyan
+
+    function New-EconomySandbox {
+        param([Parameter(Mandatory)] [string] $Name)
+
+        $root  = Join-Path $sandbox $Name
+        $roots = @{}
+        foreach ($entry in @(
+            @{ Key = "Main";     Dir = "Main_Server" }
+            @{ Key = "Resource"; Dir = "Resource_Server" }
+            @{ Key = "Dev";      Dir = "Dev_Server" }
+        )) {
+            $serverRoot = Join-Path $root $entry.Dir
+            New-Item -ItemType Directory -Path (Join-Path $serverRoot "plugins") -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $serverRoot "world")   -Force | Out-Null
+            $roots[$entry.Key] = $serverRoot
+        }
+
+        # 配布元。PlaceholderAPI は【置かない】= 任意扱いの経路もここで通る。
+        $source = Join-Path $root "source"
+        New-Item -ItemType Directory -Path $source -Force | Out-Null
+        foreach ($jar in @("VaultUnlocked-2.17.0.jar", "Jecon-2.2.1.jar", "JeconCacheName-1.0.0-SNAPSHOT.jar")) {
+            Set-Content -LiteralPath (Join-Path $source $jar) -Value "NEW-$jar" -NoNewline
+        }
+
+        # 使っていないポートを割り当てる。実在ポートを書くと、他のサーバが立っている環境で
+        # 「稼働中」と誤判定してテストが落ちる。
+        $configPath = Join-Path $root "ops-config.psd1"
+        @"
+@{
+    VelocityRoot = "$root"
+    Servers = @{
+        Main     = @{ Name = "main";     Root = "$($roots['Main'])";     RconHost = "127.0.0.1"; RconPort = 45596 }
+        Resource = @{ Name = "resource"; Root = "$($roots['Resource'])"; RconHost = "127.0.0.1"; RconPort = 45597 }
+        Dev      = @{ Name = "dev";      Root = "$($roots['Dev'])";      RconHost = "127.0.0.1"; RconPort = 45598 }
+    }
+    ResourceResetTargets = @{ Directories = @("world"); Files = @() }
+    ArsPaperSync = @{ ExcludeFiles = @(); ExcludePatterns = @() }
+    Backup = @{ Root = "$root\backup"; KeepDays = 1; Databases = @(); WslDistro = "Ubuntu" }
+}
+"@ | Set-Content -LiteralPath $configPath -Encoding UTF8
+
+        return @{ Root = $root; Roots = $roots; SourceDir = $source; ConfigPath = $configPath }
+    }
+
+    function Invoke-EconomyInstall {
+        param(
+            [Parameter(Mandatory)] $Box,
+            [string] $TemplatePath
+        )
+
+        $installer = Join-Path $PSScriptRoot "install-economy-plugins.ps1"
+        $line = "& '$installer' -ConfigPath '$($Box.ConfigPath)' -SourceDir '$($Box.SourceDir)'"
+        if ($TemplatePath) { $line += " -TemplatePath '$TemplatePath'" }
+
+        # 子プロセスの stderr をパイプラインへ落とすので、ここだけ Stop を外す。
+        # そうしないと「子が正しく中断した」こと自体が親の終了エラーになる。
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            return & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command @"
+`$env:TF_JECON_DB_PASSWORD='s3cr3t-for-selftest'
+$line
+"@ 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+    }
+
+    function Get-EconomyJarNames {
+        param([Parameter(Mandatory)] $Box)
+
+        $names = @()
+        foreach ($key in @("Main", "Resource", "Dev")) {
+            $dir = Join-Path $Box.Roots[$key] "plugins"
+            $names += @(Get-ChildItem -LiteralPath $dir -Filter "*.jar" -File |
+                ForEach-Object { "$key/$($_.Name)" })
+        }
+        return $names
+    }
+
+    Test-Case "Jecon の正本は 3 台共有の前提を満たし、パスワードの実値を持たない" {
+        # このリポジトリは public。正本に実パスワードが入った時点で公開事故になる。
+        $master = Join-Path (Split-Path $PSScriptRoot -Parent) "templates\jecon.config.yml"
+        Assert-True (Test-Path -LiteralPath $master) "正本がありません: $master"
+
+        $text = [System.IO.File]::ReadAllText($master)
+        Assert-True ($text.Contains('password: "__SET_ME__"')) "パスワードがプレースホルダになっていない"
+        Assert-True ($text.Contains("type: mysql")) "sqlite に戻っている (サーバごとに別の財布になる)"
+        Assert-True ($text.Contains("lazyWrite: false")) "lazyWrite: false が無い"
+        Assert-True (-not ($text -match "(?m)^\s*lazyWrite:\s*true")) "lazyWrite: true が残っている"
+    }
+
+    Test-Case "停止中なら 3 台へ jar と config が配られ、プレースホルダが残らない" {
+        $box = New-EconomySandbox -Name "economy-deploy"
+        $output = Invoke-EconomyInstall -Box $box
+        Assert-True ($output -notmatch "中断") "中断した: $output"
+
+        $names = @(Get-EconomyJarNames -Box $box)
+        Assert-True ($names.Count -eq 9) "3 台 x 3 本にならない: $($names -join ', ')"
+
+        foreach ($key in @("Main", "Resource", "Dev")) {
+            $file = Join-Path $box.Roots[$key] "plugins\Jecon\config.yml"
+            Assert-True (Test-Path -LiteralPath $file) "$key に config.yml が無い"
+            $text = [System.IO.File]::ReadAllText($file)
+            Assert-True (-not $text.Contains("__SET_ME__")) "$key にプレースホルダが残っている"
+            Assert-True ($text.Contains("password: 's3cr3t-for-selftest'")) "$key にパスワードが入っていない"
+            Assert-True ($text.Contains("lazyWrite: false")) "$key の lazyWrite が false でない"
+        }
+
+        # BOM を付けない。yml 途中に来た BOM は SnakeYAML が文書境界と誤読し、
+        # Bukkit 経由では NPE にしか見えない (過去に回帰 38 件を自作した)。
+        $bytes = [System.IO.File]::ReadAllBytes((Join-Path $box.Roots["Main"] "plugins\Jecon\config.yml"))
+        Assert-True (-not ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)) `
+            "config.yml に BOM が付いている"
+
+        # PlaceholderAPI はサンドボックスに置いていない。任意扱いで、警告だけ出して続行すること。
+        Assert-True ($output -match "PlaceholderAPI") "PAPI の不足を知らせていない"
+    }
+
+    Test-Case "稼働中のバックエンドがあれば jar を 1 本も置かずに中断する" {
+        $box  = New-EconomySandbox -Name "economy-running"
+        $lock = Join-Path $box.Roots["Main"] "world\session.lock"
+        Set-Content -LiteralPath $lock -Value "x" -NoNewline
+
+        # Minecraft が起動中に握っているのと同じ排他で開く。
+        $stream = [System.IO.File]::Open($lock, 'Open', 'ReadWrite', 'None')
+        try {
+            $output = Invoke-EconomyInstall -Box $box
+        } finally {
+            $stream.Close()
+        }
+
+        Assert-True ($output -match "中断") "中断していない: $output"
+        $names = @(Get-EconomyJarNames -Box $box)
+        Assert-True ($names.Count -eq 0) "稼働中なのに jar を置いた: $($names -join ', ')"
+    }
+
+    Test-Case "既存の jar と config は退避してから上書きされる" {
+        $box = New-EconomySandbox -Name "economy-backup"
+        $mainPlugins = Join-Path $box.Roots["Main"] "plugins"
+        Set-Content -LiteralPath (Join-Path $mainPlugins "Jecon-2.2.1.jar") -Value "OLD-JAR" -NoNewline
+        New-Item -ItemType Directory -Path (Join-Path $mainPlugins "Jecon") -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $mainPlugins "Jecon\config.yml") -Value "OLD-CONFIG" -NoNewline
+
+        $output = Invoke-EconomyInstall -Box $box
+        Assert-True ($output -notmatch "中断") "中断した: $output"
+
+        $backups = @(Get-ChildItem -LiteralPath (Join-Path $mainPlugins ".economy-backups") -Directory)
+        Assert-True ($backups.Count -eq 1) "退避先が 1 つ作られていない: $($backups.Count)"
+        Assert-True ((Get-Content -LiteralPath (Join-Path $backups[0].FullName "Jecon-2.2.1.jar") -Raw) -eq "OLD-JAR") `
+            "旧 jar が退避されていない"
+        Assert-True ((Get-Content -LiteralPath (Join-Path $backups[0].FullName "config.yml") -Raw) -eq "OLD-CONFIG") `
+            "旧 config が退避されていない"
+        Assert-True ((Get-Content -LiteralPath (Join-Path $mainPlugins "Jecon-2.2.1.jar") -Raw) -ne "OLD-JAR") `
+            "新しい jar で上書きされていない"
+    }
+
+    Test-Case "必須の jar が 1 本でも欠けたら 1 本も配らない" {
+        $box = New-EconomySandbox -Name "economy-missing"
+        Remove-Item -LiteralPath (Join-Path $box.SourceDir "Jecon-2.2.1.jar") -Force
+
+        $output = Invoke-EconomyInstall -Box $box
+        Assert-True ($output -match "中断") "中断していない: $output"
+        $names = @(Get-EconomyJarNames -Box $box)
+        Assert-True ($names.Count -eq 0) "欠けているのに配った: $($names -join ', ')"
+    }
+
+    Test-Case "同名プラグインの jar が二重配置になるなら配らない" {
+        # ArsPaper.jar と ArsPaper-1.0.0.jar が同居して Ambiguous plugin name で
+        # 起動不能になった前科がある。配ってから気づくと 3 台とも上がらない。
+        $box = New-EconomySandbox -Name "economy-ambiguous"
+        Set-Content -LiteralPath (Join-Path $box.Roots["Main"] "plugins\Jecon.jar") -Value "x" -NoNewline
+
+        $output = Invoke-EconomyInstall -Box $box
+        Assert-True ($output -match "中断") "中断していない: $output"
+        $names = @(Get-EconomyJarNames -Box $box)
+        Assert-True (-not ($names -match "VaultUnlocked")) "衝突しているのに配った: $($names -join ', ')"
+    }
+
+    Test-Case "正本が sqlite / lazyWrite: true に戻っていたら配らない" {
+        $box = New-EconomySandbox -Name "economy-badtemplate"
+        $bad = Join-Path $box.Root "bad-jecon.yml"
+        @'
+lazyWrite: true
+database:
+  type: sqlite
+  mysql:
+    password: "__SET_ME__"
+'@ | Set-Content -LiteralPath $bad -Encoding UTF8
+
+        $output = Invoke-EconomyInstall -Box $box -TemplatePath $bad
+        Assert-True ($output -match "中断") "中断していない: $output"
+        $names = @(Get-EconomyJarNames -Box $box)
+        Assert-True ($names.Count -eq 0) "壊れた正本なのに配った: $($names -join ', ')"
+    }
+
     #  cmd.exe は UTF-8 のバッチファイルを正しく読めない。マルチバイト文字があると
     #  ファイル位置の計算がずれ、行の途中から実行を始める。実際に server-loop.cmd が
     #  日本語コメント入りだった間、stop.flag を見ずに空回りする無限ループになっていた

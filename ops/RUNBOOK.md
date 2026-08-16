@@ -1647,6 +1647,251 @@ dev は `purge-player-data.ps1` が `white-list=true` ＋ `-KeepOps` のメン�
 
 ---
 
+## 手順 19. 経済プラグイン（Vault + Jecon + PlaceholderAPI）を入れる
+
+> 手順 17 がデータパック、手順 18 が仕切り直しで既に埋まっているので **この手順は 19**。
+
+**目的**: 3 バックエンドで**同じ財布**を使う。プレイヤーが `/server` で移動しても残高が変わらないこと。
+
+**入れるもの**（2026-08-16 時点で 3 台とも Vault も PlaceholderAPI も未導入）:
+
+| プラグイン | 役割 | データ |
+|---|---|---|
+| **VaultUnlocked 2.17.0** | 経済 API の**口だけ**を提供する（Vault の後継） | 持たない |
+| **Jecon 2.2.1** | 経済の本体。残高を持つ | **MariaDB の `jecon` DB**（3 台共有） |
+| **JeconCacheName 1.0.0** | Jecon のアドオン（名前解決キャッシュ） | Jecon に従属 |
+| **PlaceholderAPI** | プレースホルダ基盤 | 持たない |
+
+### 19-1. 導入順序と、その理由
+
+**Vault → Jecon → JeconCacheName → PlaceholderAPI** の順に考える
+（ファイルのコピー順は無関係。Bukkit が `plugin.yml` の `depend` を見て読み込み順を決める。
+ここで言う順序は「何が無いと何が無意味になるか」の順）。
+
+- **Vault が先。** Vault は経済 API の**口**しか持たず、残高も設定も持たない。
+  Jecon はその口へ自分を「経済の提供者」として登録する側。**Vault が居ないと登録先が存在しない**ので、
+  Vault 経由で経済を引く他プラグイン（ChestShop など）は「経済が無い」状態で立ち上がる。
+  Jecon 自身のコマンドは動くので、**画面上は正常に見えるのが厄介**。
+- **JeconCacheName は Jecon のアドオン。** 単体では意味がない。Jecon と必ずセットで入れる。
+- **PlaceholderAPI は最後でよい。** 無くても他の 3 つは動く。
+  入れると **TF 本体の `trinityforge` プレースホルダ拡張が登録される**（PAPI が無い間、
+  TF は拡張の登録だけをスキップして起動する＝落ちない）。
+- **⚠ Vault 本体（旧 `Vault.jar`）を同時に入れない。** VaultUnlocked は差し替え前提の後継なので、
+  両方置くと `Ambiguous plugin name` で 3 台とも起動しなくなる。
+  `install-economy-plugins.ps1` はこの二重配置を配布前に検出して中断する。
+
+### 19-2. MariaDB に `jecon` DB と専用ユーザーを作る
+
+**先にこれをやる。** DB が無い状態で起動すると Jecon は繋げず、残高が使えないまま運用が始まる。
+
+```powershell
+& "C:\Program Files\MariaDB 12.3\bin\mariadb.exe" -u root -p
+```
+
+```sql
+-- 1. DB を作る。文字コードは既存の 2 つに合わせる。
+--    luckperms / husksync はどちらも utf8mb4 / utf8mb4_unicode_ci
+--    (データディレクトリ D:\game\...\TrinityForge_DB\DB\<db名>\db.opt を実読して確認済み)
+CREATE DATABASE jecon CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 2. 専用ユーザー。root は使わない。
+--    ホスト部は localhost ではなく 127.0.0.1。Windows では JDBC が localhost を IPv6 (::1) で
+--    引くことがあり、localhost で作ったユーザーだと Access denied になる (手順 2-1 と同じ理由)。
+CREATE USER 'jecon'@'127.0.0.1' IDENTIFIED BY '<パスワード>';
+
+-- 3. 権限は jecon データベースの中だけ。他の DB (luckperms / husksync) には一切効かない。
+--    CREATE / ALTER / INDEX は Jecon が起動時にテーブルを作る・移行するために要る。
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES
+  ON jecon.* TO 'jecon'@'127.0.0.1';
+FLUSH PRIVILEGES;
+```
+
+**確認**（コピペで流せる）:
+
+```sql
+SHOW GRANTS FOR 'jecon'@'127.0.0.1';
+
+SELECT SCHEMA_NAME, DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME
+  FROM information_schema.SCHEMATA
+ WHERE SCHEMA_NAME IN ('luckperms', 'husksync', 'jecon');
+-- 3 行とも utf8mb4 / utf8mb4_unicode_ci であること
+
+SELECT @@query_cache_type;
+-- 2026-08-16 実測: 導入済みの MariaDB 12.3 には存在する（既定 OFF）ので、この行は通る。
+-- ★ 将来 Unknown system variable で落ちる版へ上げたときは 19-7 の「init が毎回失敗する」を読むこと
+```
+
+> 万一 Jecon がテーブル作成で権限不足に落ちたら（ログに `command denied` が出る）、
+> `GRANT ALL ON jecon.* TO 'jecon'@'127.0.0.1';` へ広げる。**`ON *.*` にはしないこと**
+> ―― それをやると経済プラグインが luckperms と husksync を書き換えられるようになる。
+
+### 19-3. jar を集める
+
+3 本は既に手元にある:
+
+```
+D:\game\minecraft\PaperServer\Test_1.21.11\plugins\VaultUnlocked-2.17.0.jar
+D:\game\minecraft\PaperServer\Test_1.21.11\plugins\Jecon-2.2.1.jar
+D:\game\minecraft\PaperServer\Test_1.21.11\plugins\JeconCacheName-1.0.0-SNAPSHOT.jar
+```
+
+**PlaceholderAPI だけ手元に無い。** 配布元は <https://repo.extendedclip.com/releases/>
+（旧 `content/repositories/placeholderapi/` は 404 になっている）。
+
+```powershell
+# 版のディレクトリを開いて最新版のファイル名を確認してから取る
+Start-Process "https://repo.extendedclip.com/releases/me/clip/placeholderapi/"
+
+# 例: 2.11.6 を Test_1.21.11\plugins へ置く (置き場所はここでなくてもよい)
+Invoke-WebRequest `
+  -Uri "https://repo.extendedclip.com/releases/me/clip/placeholderapi/2.11.6/PlaceholderAPI-2.11.6.jar" `
+  -OutFile "D:\game\minecraft\PaperServer\Test_1.21.11\plugins\PlaceholderAPI-2.11.6.jar"
+```
+
+**PAPI が無くても先へ進める。** 配備スクリプトは PAPI だけを任意扱いにして、
+警告を出したうえで残り 3 本を配る。あとから `-PlaceholderApiJar <path>` を付けて配り直せばよい。
+
+### 19-4. 全サーバを止めてから配る
+
+**⚠ 稼働中に jar を置くと必ず `NoClassDefFoundError` になる。** `/reload` では直らず、
+JVM の完全な stop → start だけが復旧手段。配備スクリプトは 1 台でも動いていれば中断する。
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\stop-all.cmd
+```
+
+```powershell
+# 下見 (何も書かない。パスワードも尋ねない)
+powershell -NoProfile -ExecutionPolicy Bypass ^
+  -File C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\scripts\install-economy-plugins.ps1 -DryRun
+
+# 本番 (MariaDB の jecon ユーザーのパスワードをその場で尋ねる)
+powershell -NoProfile -ExecutionPolicy Bypass ^
+  -File C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\scripts\install-economy-plugins.ps1
+```
+
+配置先へ `launch` を配り直してあるなら、入口は
+`D:\game\minecraft\PaperServer\Velocity_for_TF\launch\install-economy-plugins.cmd` でもよい
+（引数はそのまま渡る）。
+
+スクリプトがやること（この順番でしかやらない）:
+
+1. **検査だけ** — 配布元 jar・同名 jar の二重配置・正本の中身・`plugins` の存在。1 つでも欠ければ**何も書かずに中断**
+2. **稼働判定** — [scripts/check-servers-stopped.ps1](scripts/check-servers-stopped.ps1) に委譲（RCON ポートの LISTEN ＋ `world\session.lock` の排他ロック）
+3. **退避** — 上書きするものを `plugins\.economy-backups\<日時>\` へ
+4. **jar** を 3 台へコピー
+5. **`plugins\Jecon\config.yml`** を 3 台へ書く（jar が 1 本でも失敗したらここまで来ない）
+6. `plugins\.paper-remapped\<同名>` を消す（Jecon は `plugin.yml` 方式なので Paper が再マップしてキャッシュする）
+
+**パスワードは引数にも設定ファイルにも書かない。** 環境変数 `TF_JECON_DB_PASSWORD` があればそれを使い、
+無ければその場で入力を求める（表示されない）。**正本（[templates/jecon.config.yml](templates/jecon.config.yml)）には
+`__SET_ME__` しか書かれていない** ―― このリポジトリは public なので実値は絶対に入れない。
+
+### 19-5. 3 台に同じ config を置く、という意味
+
+**共有しているのは MariaDB の `jecon` データベースであって、config ファイルではない。**
+
+- `plugins\Jecon` は **バックエンドごとの実体ディレクトリ**。
+  ジャンクションで実体共有しているのは `plugins\TrinityForge` **だけ**（手順 8）。
+- したがって `config.yml` は 3 つ存在し、**たまたま中身が同じ**という関係になる。
+  1 台だけ書き換えるとその台だけ別の DB を見に行く。**配布は必ずスクリプト経由で 3 台同時に。**
+- 逆に、残高そのものは 1 か所（`jecon` DB）にしかない。だから `/server` で移動しても同じ財布になる。
+
+主な設定値（詳細と理由は [templates/jecon.config.yml](templates/jecon.config.yml) の日本語コメント）:
+
+| キー | 値 | 理由 |
+|---|---|---|
+| `database.type` | `mysql` | `sqlite` に戻すと**サーバごとに別の財布**になる |
+| `database.mysql.host` | `127.0.0.1:3306` | `localhost` は IPv6 で引かれて `Access denied` になりうる |
+| `database.mysql.name` / `username` | `jecon` / `jecon` | 19-2 で作ったもの |
+| **`lazyWrite`** | **`false`** | 既定の `true` は**複数サーバで DB を共有すると残高が一時的に不正確になる**（Jecon 同梱 config 自身の警告） |
+| `connectionPool.maximumPoolSize` | `5` | 3 台 × 既定値ぶんの接続を常時掴むと LuckPerms / HuskSync と合わせて `max_connections` を圧迫する |
+| `defaultBalance` / `format.format` | `5000.0` / `{major} G` | 参照サーバ（`ars_paper1.21.11`）の値を踏襲 |
+
+### 19-6. 起動して確認する
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
+```
+
+**① プラグインが有効になっているか**
+
+各バックエンドのコンソール（または `/plugins`）で
+`Vault`（VaultUnlocked）/ `Jecon` / `JeconCacheName` / `PlaceholderAPI` が緑であること。
+**Jecon が DB に繋げなくてもサーバの起動は止まらない**（HuskSync と同じ）ので、
+`Connection refused` / `Access denied` / `Unknown database` がログに出ていないかを必ず見る:
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\testkit\check-logs.cmd
+```
+
+**② Vault が Jecon を経済として掴んでいるか**
+
+```
+/vault-info
+```
+
+Economy の提供者が `Jecon` になっていること。ここが `None` なら Vault 経由で経済を引く
+プラグインは全部「経済が無い」ままになる（Jecon 自身のコマンドは動くので気づきにくい）。
+
+**③ 3 台で同じ DB を見ているか（これが本命）**
+
+起動後、DB 側でテーブルができていることを見る:
+
+```sql
+SHOW TABLES FROM jecon;
+```
+
+そのうえで**サーバを跨いで残高が一致すること**を確認する。
+Jecon の残高コマンド名は版によって `/money` と `/balance` のどちらかなので、
+`/help Jecon` で実際の名前を確かめてから撃つこと。
+
+```
+main で   : /money            -> 残高を控える
+main で   : /money give <自分> 100   (管理コマンド名も /help Jecon で確認)
+/server resource
+resource で: /money           -> 控えた値 +100 になっていること
+/server dev
+dev で     : /money           -> 同じ値
+```
+
+**片方だけ違う値が出たら `config.yml` が 3 台で揃っていない**（1 台だけ `sqlite` に戻っている、
+`name` が違う、など）。スクリプトで配り直す。
+
+**④ PlaceholderAPI と TF 拡張**
+
+PAPI を入れた状態で起動すると、TF 本体が `trinityforge` 拡張を登録する。
+`/papi list` に `trinityforge` が出ること。出ない場合は
+**PAPI が TF より後に enable されたのではなく、PAPI がそもそも入っていない**ことを先に疑う
+（TF は PAPI 不在なら拡張の登録だけを黙ってスキップする）。
+
+### 19-7. 落とし穴
+
+- **`lazyWrite: true` のままだと残高がずれる。**
+  Jecon は残高をメモリに溜めてから遅延書き込みする。単体サーバなら書き込み削減になるが、
+  3 台で 1 つの DB を見る構成では**移動先が古い残高を読んで書き戻す**。最終的には整合する設計だが、
+  その間に買い物ができてしまう。**エラーは 1 行も出ず、プレイヤーの申告でしか気づけない。**
+  正本は `false` にしてあり、`run-selftest.ps1` が `true` に戻っていないことを検査する。
+- **`jecon` DB を他の用途と混ぜない。** 別プラグインのテーブルを同じ DB に同居させると、
+  権限を絞った意味が無くなるうえ、`backup.ps1` の `Databases` に足すときの粒度も崩れる
+  （バックアップ対象へ `jecon` を足すなら [ops-config.psd1](ops-config.psd1) の `Backup.Databases`）。
+- **`init` が毎回失敗すると Jecon は 1 本もコネクションを張れない。**
+  正本の `database.mysql.init` は Jecon の既定値 `SET SESSION query_cache_type=0` のまま。
+  **2026-08-16 実測で、導入済みの MariaDB 12.3 にはこの変数が存在する（既定 OFF）ので現状は問題ない。**
+  サーバに接続せず確かめるなら
+  `& "C:\Program Files\MariaDB 12.3\bin\mariadbd.exe" --verbose --help | Select-String query-cache-type`。
+  将来 `SELECT @@query_cache_type;` が `Unknown system variable` で落ちる版へ上げた場合は、
+  この初期化 SQL が全接続で失敗して**経済が丸ごと使えなくなる**（ログには出る）。
+  その場合は 3 台の `config.yml` の `init` を `"SELECT 1"` に差し替える
+  （正本を直してから配り直すこと。サーバ側を手で直しても次の配布で戻る）。
+- **`config.yml` を BOM 付きで保存しない。** yml の途中に来た BOM は SnakeYAML が文書境界と
+  誤読し、Bukkit 経由では NPE にしか見えない。PowerShell の `>` と `Set-Content -Encoding utf8` は
+  BOM を付けるので、手で直すときはエディタの保存形式に注意する
+  （スクリプトは `UTF8Encoding($false)` で書いている）。
+- **PAPI を後から入れたら TF 本体の再起動が要る。** 拡張の登録は TF の enable 時にしか走らない。
+
+---
+
 ## 資源サーバのプレイヤー周知文（案）
 
 > **資源ワールドについて**

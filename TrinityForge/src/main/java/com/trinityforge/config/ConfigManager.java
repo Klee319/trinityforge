@@ -29,6 +29,7 @@ import com.trinityforge.config.domains.EquipmentAssetsConfig;
 import com.trinityforge.config.domains.ExternalItemsConfig;
 import com.trinityforge.config.domains.MaterialListsConfig;
 import com.trinityforge.config.domains.ItemStatsConfig;
+import com.trinityforge.config.domains.LevelBroadcastConfig;
 import com.trinityforge.config.domains.LoreConfig;
 import com.trinityforge.config.domains.MobImportConfig;
 import com.trinityforge.config.domains.MobLevelTableConfig;
@@ -163,6 +164,9 @@ public final class ConfigManager {
     // 害悪グリフ強化(ars_magic.yml B-3): glyph_damage_multiplier_bonus statの適用対象グリフID一覧
     // (harmに決め打ちしない汎用設計、2026-07-25)。
     private final GlyphDamageBoostConfig glyphDamageBoost = new GlyphDamageBoostConfig();
+    // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
+    // 本人向けのレベルアップ通知(skillExp の level-up.*)とは別経路・別ファイル。
+    private final LevelBroadcastConfig levelBroadcast = new LevelBroadcastConfig();
 
     public ConfigManager(Plugin plugin) {
         this.plugin = plugin;
@@ -233,6 +237,7 @@ public final class ConfigManager {
         register(alchemyQuality.domain());
         register(smithingGimmick::load);
         register(glyphDamageBoost::load);
+        register(levelBroadcast);
         // TODO(M2+): register magic/, pets/ configs here.
     }
 
@@ -450,6 +455,11 @@ public final class ConfigManager {
 
     public AchievementsConfig achievements() {
         return achievements;
+    }
+
+    /** 節目レベルアップの全体アナウンス({@code progression/level-broadcast.yml})。 */
+    public LevelBroadcastConfig levelBroadcast() {
+        return levelBroadcast;
     }
 
     /**

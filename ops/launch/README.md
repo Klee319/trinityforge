@@ -157,6 +157,12 @@ MariaDB → Garnet → preflight → main → resource → dev → Velocity
 | [seed-backend-configs.cmd](seed-backend-configs.cmd) | あるバックエンドの**設定だけ**を他へ配る（データは持って行かない） | `-From` / `-To` / `-Overwrite` / `-DryRun` |
 | [set-resource-pack.cmd](set-resource-pack.cmd) | `server.properties` にリソースパックの URL と SHA-1 を書く | `-Url` / `-Sha1`（**必須**）/ `-Server` |
 | [prune-geyser-items.cmd](prune-geyser-items.cmd) | GeyserExtra の `custom_items.json` から**再生成できる分だけ**を消す | `-Apply` / `-MaxDelete <n>` |
+| [install-economy-plugins.cmd](install-economy-plugins.cmd) | 経済一式（VaultUnlocked / Jecon / JeconCacheName / PlaceholderAPI）の jar と Jecon の `config.yml` を全バックエンドへ | `-DryRun` / `-SourceDir` / `-PlaceholderApiJar` |
+
+**`install-economy-plugins.cmd` は jar を置くので、1 台でも稼働中なら中断する**
+（[../RUNBOOK.md](../RUNBOOK.md) 手順 19）。3 台が共有するのは **MariaDB の `jecon` DB** であって
+config ファイルではない。`plugins\Jecon` はサーバごとの実体なので、同じ `config.yml` を 3 回書く。
+**パスワードは引数に取らない**（`TF_JECON_DB_PASSWORD`、無ければその場で入力）。
 
 **forwarding secret がずれると全員が `Unable to verify player details` で入れなくなる。**
 他はどこも壊れて見えないので、`-DryRun` が全台「変更なし」になることを先に確かめる。

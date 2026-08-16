@@ -16,6 +16,10 @@
 | **ArsPaper** | — | ○ | ○ | TF を `required: true` で要求するのでセット必須。config はコピー同期 |
 | **HuskSync** | — | ○ | ○ | **新規**。インベントリ / EC / 経験値 / PDC の同期 |
 | LuckPerms | ○ | ○ | ○ | H2 → MariaDB へ移行。`messaging-service: redis` |
+| **VaultUnlocked** | — | ○ | ○ | **新規**（手順 19）。経済 API の口だけ。旧 `Vault.jar` と同居させない |
+| **Jecon** | — | ○ | ○ | **新規**（手順 19）。残高は MariaDB の `jecon` DB を 3 台で共有。`lazyWrite: false` 必須 |
+| **JeconCacheName** | — | ○ | ○ | **新規**（手順 19）。Jecon のアドオン。単体では意味がない |
+| **PlaceholderAPI** | — | ○ | ○ | **新規**（手順 19）。入れると TF の `trinityforge` 拡張が登録される |
 | **Geyser-Spigot** | ○ へ移設 | ✕ | ✕ | Geyser-Velocity に置き換え。バックエンドからは撤去 |
 | **geyserExtra** | ○ へ移設 | ✕ | ✕ | Geyser の `extensions/` へ |
 | floodgate | ○ | ○ | ○ | プロキシに必須。スキンと API のためバックエンドにも残す |
