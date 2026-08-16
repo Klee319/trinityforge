@@ -158,6 +158,18 @@ Main_Server を再起動するまでプレイヤーには旧パックが配ら�
 ~~**⚠ 印はまだクラフト経路が死んでいる**: W-44（`key_binder` のレシピ登録失敗）は未修正なので、
 印を素材に使う鍵は作れないまま。今回直したのは**見た目だけ**。~~
 → 2026-08-16 に W-44 を機構レベルで修正（Ars enable 後の遅延再登録）。TF jar の再ビルド・再配備後に有効。
+→ **2026-08-16 追記: それでも `key_binder` は落ち続けていた。真因はもう 1 段あった。**
+  実サーバ起動ログの `custom list member 'dungeon_seal_enchant_trial_10' is unknown` は
+  再登録の失敗ではなく**素材そのものが配備先に存在しない**という意味だった。
+  TF 側の `items/material-lists.yml`（commit 済み）は印 28 種を要求しているのに、
+  ArsPaper フォークの **HEAD** の `materials.yml` は単数の `dungeon_seal_enchant_trial` を含む 19 種のまま。
+  28 種になっていたのは**フォークの作業ツリーだけ**で、`deploy-config-head.cmd` は
+  フォーク自身の HEAD から配るので、何度配備しても 19 種の古い版が配られ続けていた
+  （配備中の `ArsPaper-1.0.0.jar` に同梱された `materials.yml` は 28 種で作業ツリーと byte 一致。
+  ただし `ArsPaper#updateResourceFiles` は**プラグインのバージョン文字列が変わったときしか再展開しない**ので、
+  jar が新しくても既存 config は一切上書きされない）。
+  → フォーク（`feat/trinityforge-fork`）で `materials.yml` だけを commit（`5697799`）。
+  **config 配備（`deploy-config-head.cmd`）を実行するまでは鍵は作れないまま。**
 
 ### 2026-08-08 ソース収集コンテンツの点検（S-1〜S-5）
 
