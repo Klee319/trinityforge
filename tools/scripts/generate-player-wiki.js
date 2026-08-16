@@ -16,18 +16,84 @@ const PROJECT_ROOT = path.resolve(__dirname, "../..");
 const editorRequire = createRequire(path.join(PROJECT_ROOT, "tools/config-editor/package.json"));
 const YAML = editorRequire("yaml");
 
+/**
+ * 手書きの「読み物」ページの出典。
+ *
+ * ここに書いていない `docs/wiki-source/prose/*.md` は公開されない。
+ * 公開しない判断（生成側の事典と内容が重なって腐るもの）を明示的に残すため、
+ * 「prose にあるものを全部出す」ではなく一覧を持たせている。
+ */
+const PROSE_PAGES = [
+  { source: "00-はじめかた.md", page: "はじめかた.md", section: "はじめに" },
+  { source: "01-このサーバってどんなゲーム.md", page: "このサーバーの遊び方.md", section: "はじめに" },
+  { source: "15-バニラとの違い.md", page: "バニラとの違い.md", section: "はじめに" },
+  { source: "02-戦闘のしくみ.md", page: "戦闘のしくみ.md", section: "遊び方" },
+  { source: "03-ステータスと厳選.md", page: "装備とステータスの見方.md", section: "遊び方" },
+  { source: "08-育成と解放.md", page: "育成とスキルツリー.md", section: "遊び方" },
+  { source: "05-魔法のしくみ.md", page: "魔法のしくみ.md", section: "遊び方" },
+  { source: "07-儀式とソース魔力.md", page: "儀式とソース魔力.md", section: "遊び方" },
+  { source: "09-モブとダンジョン.md", page: "ダンジョン攻略の流れ.md", section: "遊び方" },
+  { source: "06-呪文グリフ一覧.md", page: "呪文グリフの効果.md", section: "事典（しくみ）" },
+  { source: "13-用語集.md", page: "用語集.md", section: "事典（しくみ）" },
+  { source: "10-管理者ガイド-導入とコマンド.md", page: "管理者ガイド-導入とコマンド.md", section: "管理者向け" },
+  { source: "11-管理者ガイド-設定リファレンス.md", page: "管理者ガイド-設定リファレンス.md", section: "管理者向け" },
+  { source: "14-スキルツリー詳細.md", page: "スキルツリー詳細.md", section: "管理者向け" },
+  { source: "12-実装状況と注意点.md", page: "実装状況と注意点.md", section: "管理者向け" }
+];
+
+/** 設定から生成するページ。順序がそのまま目次・サイドバーの並びになる。 */
+const GENERATED_PAGES = [
+  { page: "サーバーの概要.md", section: "はじめに" },
+  { page: "事典-アイテム索引.md", section: "事典（アイテム）" },
+  { page: "事典-軽武器.md", section: "事典（アイテム）" },
+  { page: "事典-重武器.md", section: "事典（アイテム）" },
+  { page: "事典-遠距離武器と杖.md", section: "事典（アイテム）" },
+  { page: "事典-軽装.md", section: "事典（アイテム）" },
+  { page: "事典-重装.md", section: "事典（アイテム）" },
+  { page: "事典-スレッド.md", section: "事典（アイテム）" },
+  { page: "事典-採集道具とその他.md", section: "事典（アイテム）" },
+  { page: "事典-ダンジョンの鍵.md", section: "事典（アイテム）" },
+  { page: "事典-魔法の素材.md", section: "事典（アイテム）" },
+  { page: "事典-魔法の道具と設備.md", section: "事典（アイテム）" },
+  { page: "事典-儀式で作る品.md", section: "事典（アイテム）" },
+  { page: "事典-呪文グリフ.md", section: "事典（しくみ）" },
+  { page: "事典-職業スキルとスキルツリー.md", section: "事典（しくみ）" },
+  { page: "事典-モブとダンジョン.md", section: "事典（しくみ）" },
+  { page: "事典-ステータス.md", section: "事典（しくみ）" },
+  { page: "事典-その他の機能とコマンド.md", section: "事典（しくみ）" }
+];
+
+/** サイドバーの見出しと、その並び順。 */
+const SECTION_ORDER = ["はじめに", "遊び方", "事典（アイテム）", "事典（しくみ）", "管理者向け"];
+
 const PAGE_NAMES = [
   "Home.md",
-  "サーバーの概要.md",
+  "_Sidebar.md",
+  "_Footer.md",
+  ...PROSE_PAGES.map((entry) => entry.page),
+  ...GENERATED_PAGES.map((entry) => entry.page)
+];
+
+/**
+ * かつて生成していて、いまは出力しないページ。存在すれば削除する。
+ *
+ * 2026-08-16 の再編で、1 枚 3000 行超だった「追加アイテム」を種別ごとの
+ * 「事典-*」へ割り、旧名のページはすべてここへ移した。
+ * 消さずに残すと、GitHub Wiki のページ一覧に古い内容が並び続ける。
+ */
+const LEGACY_GENERATED_PAGE_NAMES = [
+  "README.md",
+  "追加アイテム.md",
+  "魔法.md",
   "職業スキルとスキルツリー.md",
   "モブとダンジョン.md",
   "プレイヤーステータス.md",
-  "魔法.md",
-  "追加アイテム.md",
-  "その他の追加機能とコマンド.md"
+  "その他の追加機能とコマンド.md",
+  // 手書き原稿を原稿名のまま置いていた分。正本は docs/wiki-source/prose/ にあり、
+  // 公開名は PROSE_PAGES で決まるので、原稿名のページが残っていると同じ内容が二重に並ぶ。
+  ...PROSE_PAGES.map((entry) => entry.source),
+  "04-アイテム図鑑.md"
 ];
-
-const LEGACY_GENERATED_PAGE_NAMES = ["README.md"];
 
 const CATEGORY_NAMES = {
   attack: "攻撃",
@@ -399,16 +465,14 @@ function requirementSummary(entry, profile, skillNames) {
   return `${skillNames.get(skill) || "対応する職業"} Lv.${level}`;
 }
 
+/** ページ名（拡張子つき）から、本文中に置くリンク記法を作る。 */
+function pageLink(fileName) {
+  return `[${fileName.replace(/\.md$/, "")}](${fileName})`;
+}
+
+/** 全ページの先頭に置く 1 行。迷子になったときの戻り先だけを示す。 */
 function navigation() {
-  return [
-    "[サーバーの概要](サーバーの概要.md)",
-    "[職業スキルとスキルツリー](職業スキルとスキルツリー.md)",
-    "[モブとダンジョン](モブとダンジョン.md)",
-    "[プレイヤーステータス](プレイヤーステータス.md)",
-    "[魔法](魔法.md)",
-    "[追加アイテム](追加アイテム.md)",
-    "[その他の追加機能とコマンド](その他の追加機能とコマンド.md)"
-  ].join(" ｜ ");
+  return `${pageLink("Home.md")} ｜ ${pageLink("はじめかた.md")} ｜ ${pageLink("バニラとの違い.md")}`;
 }
 
 function generatedNotice() {
@@ -417,6 +481,35 @@ function generatedNotice() {
 
 function page(title, body) {
   return `# ${title}\n\n${navigation()}\n\n${generatedNotice()}\n\n${body.trim()}\n`;
+}
+
+/** セクション見出し → そのセクションに属するページ名の一覧。 */
+function pagesBySection() {
+  const sections = new Map(SECTION_ORDER.map((name) => [name, []]));
+  for (const entry of [...PROSE_PAGES, ...GENERATED_PAGES]) {
+    const bucket = sections.get(entry.section);
+    if (!bucket) throw new Error(`未知のセクション名です: ${entry.section}`);
+    bucket.push(entry.page);
+  }
+  return sections;
+}
+
+/**
+ * GitHub Wiki のサイドバー。
+ *
+ * `_Sidebar.md` を置かないと、GitHub は全ページを 1 列のアルファベット順で並べる。
+ * 「何から読めばいいか分からない」の直接の原因なので、読む順に並べたものを生成する。
+ */
+function buildSidebar() {
+  const sections = [...pagesBySection()].map(([section, fileNames]) => {
+    const items = fileNames.map((fileName) => `- ${pageLink(fileName)}`).join("\n");
+    return `### ${section}\n\n${items}`;
+  });
+  return `### 入口\n\n- ${pageLink("Home.md")}\n\n${sections.join("\n\n")}\n`;
+}
+
+function buildFooter() {
+  return "事典のページ（`事典-` で始まるもの）は、サーバーの設定ファイルから自動で作られています。遊び方の説明は手書きです。\n";
 }
 
 function loadData(root) {
@@ -465,29 +558,46 @@ function loadData(root) {
 
 function buildHome(data) {
   const skills = data.skillTrees.map((tree) => plainText(tree["display-name"])).join("、");
-  const body = `## TrinityForge へようこそ
+  const sections = pagesBySection();
+  const catalogue = [...sections]
+    .filter(([section]) => section.startsWith("事典"))
+    .map(([section, fileNames]) => `**${section.replace(/^事典/, "").replace(/[（）]/g, "") || "事典"}**\n\n${fileNames.map((fileName) => `- ${pageLink(fileName)}`).join("\n")}`)
+    .join("\n\n");
+  const admin = (sections.get("管理者向け") || [])
+    .map((fileName) => `- ${pageLink(fileName)}`)
+    .join("\n");
+  const body = `TrinityForge は、戦闘・採集・ものづくり・魔法を自分の好みに合わせて伸ばし、仲間と強敵へ挑む協力型のサーバーです。バニラのマインクラフトを遊んだことがあれば、そのまま始められます。ただし **戦闘・エンチャント・アイテムの入手には、バニラと違うしくみが入っています**。
 
-TrinityForge は、戦闘・採集・ものづくり・魔法を自分の好みに合わせて伸ばし、仲間と強敵へ挑む協力型のサーバーです。現在は **${data.skillTrees.length}種類の職業**（${skills}）を選んで育てられます。
+## はじめての人へ（この順に読んでください）
 
-## 最初にすること
+| 読むもの | 分かること |
+| --- | --- |
+| 1. ${pageLink("はじめかた.md")} | ログインしてから最初の 30 分で何をすればいいか |
+| 2. ${pageLink("バニラとの違い.md")} | いつもの感覚のままだと損する所・危ない所 |
+| 3. ${pageLink("このサーバーの遊び方.md")} | このサーバー全体で何ができるのか |
 
-1. \`skills\` または \`/tf skills\` で職業の画面を開きます。
-2. 好きな行動を一つ選び、その行動に関係する職業を育てます。
-3. 職業の画面で新しい効果や作り方を解放します。
-4. 装備・魔法・回復手段を整え、より強いモンスターやダンジョンへ挑みます。
+そのあとは、やりたいことから選んでください。
 
-## 目標
+## やりたいことから探す
 
-強さは武器だけでは決まりません。職業を育て、装備に付いた補正を選び、物理攻撃と魔法を使い分けることで、各地のダンジョンを攻略していきます。
+| やりたいこと | 読むもの |
+| --- | --- |
+| 敵と戦って勝ちたい | ${pageLink("戦闘のしくみ.md")} |
+| 強い装備を選びたい・厳選したい | ${pageLink("装備とステータスの見方.md")} |
+| キャラクターを育てたい | ${pageLink("育成とスキルツリー.md")} |
+| 魔法を使いたい | ${pageLink("魔法のしくみ.md")} → ${pageLink("儀式とソース魔力.md")} |
+| ダンジョンへ挑みたい | ${pageLink("ダンジョン攻略の流れ.md")} |
+| 知らない言葉が出てきた | ${pageLink("用語集.md")} |
 
-## 読む順番
+## 事典（サーバー設定から自動生成）
 
-- 初めてなら [サーバーの概要](サーバーの概要.md)
-- 育て方を決めるなら [職業スキルとスキルツリー](職業スキルとスキルツリー.md)
-- 装備を選ぶなら [プレイヤーステータス](プレイヤーステータス.md) と [追加アイテム](追加アイテム.md)
-- 魔法を使うなら [魔法](魔法.md)
-- 挑戦先を決めるなら [モブとダンジョン](モブとダンジョン.md)
-`;
+数値や一覧を引くためのページです。サーバーの設定を変えると、ここも一緒に更新されます。現在は **${data.skillTrees.length}種類の職業**（${skills}）が用意されています。
+
+${catalogue}
+
+## 管理者・上級者向け
+
+${admin}`;
   return page("TrinityForge Wiki", body);
 }
 
@@ -515,10 +625,10 @@ function buildOverview(data) {
 
 1. 使いたい武器の必要レベルを満たしているか確認する。
 2. 食料、回復手段、予備の装備を用意する。
-3. ダンジョンの敵に物理攻撃と魔法のどちらが通りやすいか、[モブとダンジョン](モブとダンジョン.md)で確認する。
+3. ダンジョンの敵に物理攻撃と魔法のどちらが通りやすいか、[事典-モブとダンジョン](事典-モブとダンジョン.md)で確認する。
 4. 入場条件がある場合は、必要な戦闘レベルと入場用の品を準備する。
 
-詳しい数値の見方は [プレイヤーステータス](プレイヤーステータス.md)、作れる物は [追加アイテム](追加アイテム.md) を参照してください。`;
+詳しい数値の見方は [事典-ステータス](事典-ステータス.md)、作れる物は [事典-アイテム索引](事典-アイテム索引.md) を参照してください。`;
   return page("サーバーの概要", body);
 }
 
@@ -563,7 +673,7 @@ ${details}
 ## 特殊な行動
 
 現在、採掘には「高速破壊」の特殊行動があります。解放後、採掘用の道具を持って **しゃがみながら右クリック** すると発動します。持続時間と次に使えるまでの時間は、採掘の解放段階によって変わります。`;
-  return page("職業スキルとスキルツリー", body);
+  return page("事典-職業スキルとスキルツリー", body);
 }
 
 function findDungeonGate(gates, world, contentPackage) {
@@ -636,7 +746,7 @@ ${rows || "| 現在、個別に設定されたダンジョンはありません 
 ## 場所ごとの詳細
 
 ${details || "現在、表示できるダンジョンの詳細はありません。"}`;
-  return page("モブとダンジョン", body);
+  return page("事典-モブとダンジョン", body);
 }
 
 function buildStatsPage(data) {
@@ -675,8 +785,8 @@ ${sections}
 
 ## 装備の条件
 
-一部の武器・道具には、使うために必要な職業レベルがあります。条件は装備ごとに異なるため、[追加アイテム](追加アイテム.md)の「使うための条件」も確認してください。`;
-  return page("プレイヤーステータス", body);
+一部の武器・道具には、使うために必要な職業レベルがあります。条件は装備ごとに異なるため、[事典-アイテム索引](事典-アイテム索引.md)の「使うための条件」も確認してください。`;
+  return page("事典-ステータス", body);
 }
 
 function buildMagicPage(data, names) {
@@ -714,7 +824,7 @@ function buildMagicPage(data, names) {
   }).join("\n");
   const body = `## 魔法の基本
 
-魔法は魔法書や杖を使い、選んだ魔法を組み合わせて発動します。職業の「Ars魔法」を育てると、最大マナ、マナ回復、使える魔法の段階、魔法を置ける枠が増えます。魔法の内容を広げたい時は [職業スキルとスキルツリー](職業スキルとスキルツリー.md) の Ars魔法を確認してください。
+魔法は魔法書や杖を使い、選んだ魔法を組み合わせて発動します。職業の「Ars魔法」を育てると、最大マナ、マナ回復、使える魔法の段階、魔法を置ける枠が増えます。魔法の内容を広げたい時は [事典-職業スキルとスキルツリー](事典-職業スキルとスキルツリー.md) の Ars魔法を確認してください。
 
 ## 魔法書
 
@@ -736,28 +846,197 @@ ${glyphSections || "現在、解放できる魔法は設定されていません
 | --- | --- | --- |
 ${threadRows || "| 現在、スレッドは設定されていません | - | - |"}
 
-魔法の素材・道具・儀式で作るものは [追加アイテム](追加アイテム.md) にまとめています。`;
-  return page("魔法", body);
+魔法の素材は ${pageLink("事典-魔法の素材.md")}、道具と設備は ${pageLink("事典-魔法の道具と設備.md")}、儀式で作るものは ${pageLink("事典-儀式で作る品.md")} にまとめています。**各グリフが実際に何をするかの説明**は ${pageLink("呪文グリフの効果.md")} にあります（この表はマナと解放条件だけを、設定から自動で作っています）。`;
+  return page("事典-呪文グリフ", body);
 }
 
+/** 作り方の「場所」だけを 1 語で言い表す。一覧表の「入手」列に入れる。 */
+const RECIPE_METHOD_LABELS = {
+  ritual: "儀式",
+  combine: "金床",
+  netherite: "鍛冶台",
+  inventory: "手元のクラフト欄",
+  workbench: "作業台"
+};
+
+/** 一覧表に載せる「主な効果」の最大件数。多いと表が読めなくなる。 */
+const SUMMARY_EFFECT_LIMIT = 3;
+
+/**
+ * カタログの品を、プレイヤーから見た種別へ割り振る表。
+ *
+ * 判定の軸は `item-stats.yml` の `use-skill`。これはスキルツリーの区分そのものなので、
+ * 「軽武器を伸ばしているから軽武器のページを見る」という探し方がそのまま通る。
+ * 素材名（NETHERITE_SWORD 等）で切ると、同じ見た目で用途の違う品が混ざる。
+ *
+ * 上から順に判定し、最初に当たったものを採用する（`skills` を持たない行は無条件一致）。
+ */
+const CATALOG_SECTIONS = [
+  { page: "事典-スレッド.md", title: "スレッド", idPrefix: "thread_" },
+  { page: "事典-ダンジョンの鍵.md", title: "ダンジョンの鍵", material: "TRIAL_KEY" },
+  { page: "事典-軽武器.md", title: "軽武器", skills: ["LIGHT_WEAPONS"] },
+  { page: "事典-重武器.md", title: "重武器", skills: ["HEAVY_WEAPONS"] },
+  { page: "事典-遠距離武器と杖.md", title: "弓・クロスボウ", skills: ["ARCHERY"] },
+  { page: "事典-遠距離武器と杖.md", title: "魔法の杖", skills: ["ARS_MAGIC"] },
+  { page: "事典-軽装.md", title: "軽装", skills: ["LIGHT_ARMOR"] },
+  { page: "事典-重装.md", title: "重装", skills: ["HEAVY_ARMOR"] },
+  {
+    page: "事典-採集道具とその他.md",
+    title: "採集道具",
+    skills: ["MINING", "DIGGING", "WOODCUTTING", "FARMING", "FISHING", "SMITHING", "ALCHEMY", "ENCHANTING", "ARS_SMITHING"]
+  },
+  { page: "事典-採集道具とその他.md", title: "その他の品" }
+];
+
+/**
+ * まだプレイヤーへ配っていない品かどうか。
+ *
+ * `draft: true` はエディタの「準備中」で、`ItemCatalogConfig` が `template()` / `all()` から
+ * 除いているのでゲーム側には存在しない。Wiki に載せると「あるはずの品が手に入らない」になる。
+ */
+function isUnreleased(entry) {
+  return Boolean(entry && entry.draft === true);
+}
+
+/** カタログの 1 件が属する種別。CATALOG_SECTIONS の並び順で最初に当たったもの。 */
+function catalogSectionOf(id, entry, itemStats) {
+  const material = String(entry.material || "");
+  const profile = matchingStats(entry, itemStats);
+  const skill = profile["use-skill"] || entry["use-skill"];
+  for (const section of CATALOG_SECTIONS) {
+    if (section.idPrefix && !id.startsWith(section.idPrefix)) continue;
+    if (section.material && material !== section.material) continue;
+    if (section.skills && !section.skills.includes(skill)) continue;
+    return section;
+  }
+  throw new Error(`種別を決められない品があります: ${id}（CATALOG_SECTIONS の最後は無条件一致にしてください）`);
+}
+
+/**
+ * 品の一覧。`page` が同じものは 1 ページにまとめて出る。
+ *
+ * 2026-08-16 まではカタログ 420 件を 1 ページへ縦に並べていて 1 万行を超えていた。
+ * 目次から辿り着いても目的の品まで延々スクロールすることになるので、種別でページを割る。
+ */
 function itemGroups(data) {
+  const catalogEntries = new Map(CATALOG_SECTIONS.map((section) => [section, []]));
+  for (const [id, entry] of Object.entries(data.catalog.items || {})) {
+    catalogEntries.get(catalogSectionOf(id, entry, data.itemStats)).push({ id, entry });
+  }
   return [
-    ["追加装備・道具", Object.entries(data.catalog.items || {}).map(([id, entry]) => ({ id, entry }))],
-    ["魔法の素材", Object.entries(data.materials.materials || {}).map(([id, entry]) => ({ id, entry }))],
-    ["魔法の機能道具", Object.entries(data.functional.items || {}).map(([id, entry]) => ({ id, entry }))],
-    ["魔法の建物と貯蔵道具", [
-      ...Object.entries(data.sourceJars.jars || {}).map(([id, entry]) => ({ id, entry })),
-      ...Object.entries(data.sourceLinks.items || {}).map(([id, entry]) => ({ id, entry }))
-    ]],
-    ["儀式で作る効果付きの品", Object.entries(data.arsItems.items || {}).map(([id, entry]) => ({ id, entry, preferredName: entry.recipe && entry.recipe.name }))]
+    ...CATALOG_SECTIONS
+      .map((section) => ({ page: section.page, title: section.title, entries: catalogEntries.get(section) }))
+      .filter((group) => group.entries.length),
+    {
+      page: "事典-魔法の素材.md",
+      title: "魔法の素材",
+      entries: Object.entries(data.materials.materials || {}).map(([id, entry]) => ({ id, entry }))
+    },
+    {
+      page: "事典-魔法の道具と設備.md",
+      title: "魔法の機能道具",
+      entries: Object.entries(data.functional.items || {}).map(([id, entry]) => ({ id, entry }))
+    },
+    {
+      page: "事典-魔法の道具と設備.md",
+      title: "魔法の建物と貯蔵道具",
+      entries: [
+        ...Object.entries(data.sourceJars.jars || {}).map(([id, entry]) => ({ id, entry })),
+        ...Object.entries(data.sourceLinks.items || {}).map(([id, entry]) => ({ id, entry }))
+      ]
+    },
+    {
+      page: "事典-儀式で作る品.md",
+      title: "儀式で作る効果付きの品",
+      entries: Object.entries(data.arsItems.items || {}).map(([id, entry]) => ({ id, entry, preferredName: entry.recipe && entry.recipe.name }))
+    }
   ];
 }
 
-function buildItemsPage(data, names) {
+/** 一覧表の「入手」列。作り方が設定されていればその場所、無ければ設定済みの入手経路。 */
+function acquisitionSummary(recipes, acquisition) {
+  if (recipes.length) {
+    const places = [...new Set(recipes.map((recipe) => RECIPE_METHOD_LABELS[recipe.method || "workbench"] || "作業台"))];
+    return places.join("・");
+  }
+  if (acquisition && acquisition.size) return [...acquisition].join("、");
+  return "設定なし";
+}
+
+/** 一覧表の「主な効果」列。付く補正の名前だけを数個、順序は詳細と同じ並びで出す。 */
+function effectSummary(profile, lore) {
+  const names = [];
+  for (const section of ["fixed", "per-quality", "random"]) {
+    for (const { definition } of statRows(profile, section, lore)) {
+      const name = plainText(definition.name);
+      if (name && !names.includes(name)) names.push(name);
+    }
+  }
+  if (!names.length) return "補正なし";
+  const shown = names.slice(0, SUMMARY_EFFECT_LIMIT).join("、");
+  return names.length > SUMMARY_EFFECT_LIMIT ? `${shown} ほか${names.length - SUMMARY_EFFECT_LIMIT}件` : shown;
+}
+
+/** 事典の品ページ。1 群 = 「見渡すための一覧表」＋「畳んだ詳細」の 2 段構え。 */
+const ITEM_PAGE_LEADS = {
+  "事典-軽武器.md": `**軽武器**スキルで扱う、素早く振れる近接武器の一覧です。重い武器は ${"${事典-重武器}"} にあります。`,
+  "事典-重武器.md": `**重武器**スキルで扱う、一撃の重い近接武器の一覧です。軽い武器は ${"${事典-軽武器}"} にあります。`,
+  "事典-遠距離武器と杖.md": `離れて戦う武器の一覧です。弓・クロスボウは**弓術**、杖は**Ars魔法**のスキルで扱います。`,
+  "事典-軽装.md": `**軽装**スキルで扱う防具の一覧です。回避や移動を得意とします。重い防具は ${"${事典-重装}"} にあります。`,
+  "事典-重装.md": `**重装**スキルで扱う防具の一覧です。攻撃に耐えることを得意とします。軽い防具は ${"${事典-軽装}"} にあります。`,
+  "事典-スレッド.md": `防具のスレッド枠に挿して、効果を足すための品です。魔法の遊び方は ${"${魔法のしくみ}"} を参照してください。`,
+  "事典-採集道具とその他.md": `採集に使う道具と、上のどの分類にも入らない品の一覧です。`,
+  "事典-ダンジョンの鍵.md": `ダンジョンへ入るための鍵の一覧です。どこで使うかは ${"${ダンジョン攻略の流れ}"} を参照してください。`,
+  "事典-魔法の素材.md": `魔法（Ars）で使う素材の一覧です。
+
+魔法そのものの遊び方は ${"${魔法のしくみ}"}、儀式のやり方は ${"${儀式とソース魔力}"} を先に読んでください。`,
+  "事典-魔法の道具と設備.md": `魔法（Ars）の機能道具と、魔力を貯める設備の一覧です。
+
+魔法そのものの遊び方は ${"${魔法のしくみ}"}、儀式のやり方は ${"${儀式とソース魔力}"} を先に読んでください。`,
+  "事典-儀式で作る品.md": `儀式（ぎしき）でしか作れない、効果の付いた品の一覧です。
+
+儀式のやり方そのものは ${"${儀式とソース魔力}"} にあります。`
+};
+
+function itemPageLead(fileName) {
+  const template = ITEM_PAGE_LEADS[fileName] || "";
+  return template.replace(/\$\{([^}]+)\}/g, (_, name) => pageLink(`${name}.md`));
+}
+
+/** 事典（アイテム）の入口。どのページに何が載っているかだけを示す。 */
+function buildItemIndexPage(data) {
+  const counts = new Map();
+  for (const { page: fileName, title, entries } of itemGroups(data)) {
+    const visible = entries.filter(({ entry }) => !isPlaceholder(entry) && !isUnreleased(entry)).length;
+    const current = counts.get(fileName) || { titles: [], total: 0 };
+    current.titles.push(title);
+    current.total += visible;
+    counts.set(fileName, current);
+  }
+  const rows = [...counts].map(([fileName, { titles, total }]) =>
+    `| ${pageLink(fileName)} | ${total}種類 | ${markdown(titles.join("、"))} |`).join("\n");
+  const body = `追加されている品は、探しやすいように種別ごとのページへ分けてあります。**どのページにも、まず一覧表があります。** 目当ての品を表で見つけてから、その下の折りたたみを開いて数値を確認してください。
+
+| ページ | 収録数 | 載っているもの |
+| --- | --- | --- |
+${rows}
+
+## 探し方のこつ
+
+- **武器や防具を選びたい** … 自分が育てているスキル（軽武器・重武器・弓術・軽装・重装）のページを見てください。装備の分類はスキルツリーの区分とそろえてあります。
+- **数値の意味が分からない** … ${pageLink("事典-ステータス.md")} に、どの補正が何をするかをまとめています。
+- **どうやって手に入るか知りたい** … 各ページの一覧表に「入手」の列があります。作り方が設定されている品は、そこに作る場所（作業台・儀式・金床・鍛冶台）が出ます。
+- **同じ名前なのに性能が違う** … 品質とランダムな補正のためです。詳しくは ${pageLink("装備とステータスの見方.md")} を読んでください。`;
+  return page("事典-アイテム索引", body);
+}
+
+function buildItemPages(data, names) {
   const skillNames = new Map(data.skillTrees.map((tree) => [tree.skill, plainText(tree["display-name"])]));
   const acquisitions = collectConfiguredAcquisitions(data, names);
-  const groups = itemGroups(data).map(([title, entries]) => {
-    const visible = entries.filter(({ entry }) => !isPlaceholder(entry));
+  const byPage = new Map();
+  for (const { page: fileName, title, entries } of itemGroups(data)) {
+    const visible = entries.filter(({ entry }) => !isPlaceholder(entry) && !isUnreleased(entry));
+    const rows = [];
     const details = visible.map(({ id, entry, preferredName }) => {
       const name = plainText(preferredName || entry["display-name"] || entry.display_name || names.baseName(id));
       if (!name) return null;
@@ -767,27 +1046,40 @@ function buildItemsPage(data, names) {
       const requirement = requirementSummary(entry, profile, skillNames);
       const acquisition = acquisitions.get(name);
       const lore = (entry.lore || []).map(plainText).filter(Boolean);
+      rows.push(`| ${markdown(name)} | ${markdown(acquisitionSummary(entryRecipes(entry), acquisition))} | ${markdown(requirement)} | ${markdown(effectSummary(profile, data.lore))} |`);
       const sections = [
         recipes.length && `### 作り方\n\n${recipes.join("\n\n---\n\n")}`,
+        // 入手方法が無い品にまで「設定されていません」を書くと、420 件ぶんの空行が積み上がる。
+        // 一覧表の「入手」列に同じことが出ているので、詳細側では黙って省く。
         !recipes.length && acquisition && `### 入手方法\n\n${[...acquisition].map(markdown).join("、")}`,
-        !recipes.length && !acquisition && "### 入手方法\n\n個別の入手方法は設定されていません。",
         requirement !== "なし" && `### 使用条件\n\n**${markdown(requirement)}**`,
         stats,
         lore.length && `### 説明\n\n> ${lore.map(markdown).join("<br>\n> ")}`
       ].filter(Boolean).join("\n\n");
       return `<details>\n<summary><strong>${markdown(name)}</strong></summary>\n\n${sections}\n\n</details>`;
     }).filter(Boolean).join("\n\n");
-    return `## ${title}（${visible.length}種類）\n\n${details || "現在、表示できる品はありません。"}`;
-  }).join("\n\n");
+    const summary = rows.length
+      ? `| 名前 | 入手 | 使用条件 | 主な効果 |\n| --- | --- | --- | --- |\n${rows.join("\n")}`
+      : "現在、表示できる品はありません。";
+    const section = `## ${title}（${rows.length}種類）\n\n${summary}\n\n### ${title}の詳細\n\n${details || "現在、表示できる品はありません。"}`;
+    const bucket = byPage.get(fileName) || [];
+    bucket.push(section);
+    byPage.set(fileName, bucket);
+  }
 
-  const body = `## 入手方法の見方
+  const pages = new Map();
+  for (const [fileName, sections] of byPage) {
+    const title = fileName.replace(/\.md$/, "");
+    const body = `${itemPageLead(fileName)}
 
-追加の品には、作業台で作るもの、儀式で作るもの、金床で合成するもの、鍛冶台で強化するものがあります。作り方が設定されていない品は、ガチャ、採集、釣り、村人との取引、モンスターの追加ドロップなどで入手する場合があります。設定された入手方法だけを各項目に表示しています。
+## 入手の見方
 
-## 追加アイテム一覧
+作り方が設定されている品は「作業台・手元のクラフト欄・儀式・金床・鍛冶台」のどれかで作れます。作り方が設定されていない品は、ガチャ、採集、釣り、村人との取引、モンスターの追加ドロップなどで手に入ります。ここには、設定されている入手方法だけを載せています。
 
-${groups}`;
-  return page("追加アイテム", body);
+${sections.join("\n\n")}`;
+    pages.set(fileName, page(title, body));
+  }
+  return pages;
 }
 
 function configuredDropRows(data, names) {
@@ -906,23 +1198,117 @@ ${tradeRows || "| 現在、追加取引は設定されていません | - | - |"
 | \`/tf role\` | 現在の役割と、その効果を文字で確認する。${roleChangeAllowed ? "解除は `/tf role clear`。" : ""} |
 
 サーバー管理者向けの操作は、権限を持つ人だけが使えます。設定を反映する操作、装備の配布、職業レベルの調整などは、プレイヤー向けのコマンドとは分けて管理されています。`;
-  return page("その他の追加機能とコマンド", body);
+  return page("事典-その他の機能とコマンド", body);
+}
+
+const PROSE_SOURCE_DIRECTORY = "docs/wiki-source/prose";
+
+/**
+ * 手書き原稿どうしの相互リンクは原稿名（`02-戦闘のしくみ.md`）で書かれている。
+ * Wiki では別名で公開するので、そのまま複製すると全部 404 になる。
+ *
+ * 公開しない原稿（`04-アイテム図鑑.md`）は、内容を引き継いだ生成ページへ向ける。
+ */
+function proseLinkTargets() {
+  const targets = new Map(PROSE_PAGES.map(({ source, page: fileName }) => [source, fileName]));
+  targets.set("README.md", "Home.md");
+  // 手書きの「アイテム図鑑」は公開しない（生成側と重複してすぐ腐る）。
+  // 代わりに、種別ごとのページへ振り分ける索引を行き先にする。
+  targets.set("04-アイテム図鑑.md", "事典-アイテム索引.md");
+  return targets;
+}
+
+/** 原稿内の `](<原稿名>.md)` と `](<原稿名>.md#見出し)` を公開ページ名へ差し替える。 */
+function rewriteProseLinks(markdownText, targets, source) {
+  return markdownText.replace(/\]\(([^)#]+\.md)(#[^)]*)?\)/g, (whole, target, anchor) => {
+    const replacement = targets.get(target);
+    if (replacement) return `](${replacement}${anchor || ""})`;
+    // 原稿名の形をしているのに行き先が無いものは、公開後に 404 になる。
+    if (/^\d\d-.+\.md$/.test(target) || target === "README.md") {
+      throw new Error(`${source} のリンク先 "${target}" は公開されないページです。PROSE_PAGES か差し替え表を見直してください。`);
+    }
+    return whole;
+  });
+}
+
+/**
+ * 手書きページを Wiki の体裁へ整えて取り込む。
+ *
+ * 手書き原稿はリポジトリ内（`docs/wiki-source/prose/`）が正本で、Wiki 側は複製。
+ * ここで戻り先の 1 行を差し込むのは、GitHub Wiki には「1 つ上へ戻る」導線が無く、
+ * 深いページに直接飛んできた読者が迷子になるため。
+ */
+function buildProsePages(root) {
+  const pages = new Map();
+  const missing = [];
+  const targets = proseLinkTargets();
+  for (const { source, page: fileName } of PROSE_PAGES) {
+    const absolutePath = path.join(root, PROSE_SOURCE_DIRECTORY, source);
+    if (!fs.existsSync(absolutePath)) {
+      missing.push(source);
+      continue;
+    }
+    const original = rewriteProseLinks(
+      normalizeLineEndings(fs.readFileSync(absolutePath, "utf8")).trimEnd(),
+      targets,
+      source
+    );
+    const lines = original.split("\n");
+    // 原稿の 1 行目は必ず `# 見出し`。その直後へ戻り先を差し込む。
+    const heading = lines[0].startsWith("# ") ? lines[0] : `# ${fileName.replace(/\.md$/, "")}`;
+    const rest = lines[0].startsWith("# ") ? lines.slice(1).join("\n").replace(/^\n+/, "") : original;
+    pages.set(fileName, `${heading}\n\n${navigation()}\n\n${rest}\n`);
+  }
+  if (missing.length) {
+    throw new Error(
+      `手書きページの原稿が見つかりません: ${missing.join(", ")}\n`
+        + `${PROSE_SOURCE_DIRECTORY}/ に置くか、PROSE_PAGES から外してください。`
+    );
+  }
+  return pages;
 }
 
 function generatePages(root = PROJECT_ROOT) {
   const data = loadData(root);
   const names = createNameResolver(data);
-  const home = buildHome(data);
   const pages = new Map();
-  pages.set("Home.md", home);
+  pages.set("Home.md", buildHome(data));
+  pages.set("_Sidebar.md", buildSidebar());
+  pages.set("_Footer.md", buildFooter());
   pages.set("サーバーの概要.md", buildOverview(data));
-  pages.set("職業スキルとスキルツリー.md", buildSkillPage(data));
-  pages.set("モブとダンジョン.md", buildDungeonPage(data, names));
-  pages.set("プレイヤーステータス.md", buildStatsPage(data));
-  pages.set("魔法.md", buildMagicPage(data, names));
-  pages.set("追加アイテム.md", buildItemsPage(data, names));
-  pages.set("その他の追加機能とコマンド.md", buildOtherPage(data, names));
-  return pages;
+  pages.set("事典-職業スキルとスキルツリー.md", buildSkillPage(data));
+  pages.set("事典-モブとダンジョン.md", buildDungeonPage(data, names));
+  pages.set("事典-ステータス.md", buildStatsPage(data));
+  pages.set("事典-呪文グリフ.md", buildMagicPage(data, names));
+  pages.set("事典-その他の機能とコマンド.md", buildOtherPage(data, names));
+  pages.set("事典-アイテム索引.md", buildItemIndexPage(data));
+  for (const [fileName, content] of buildItemPages(data, names)) pages.set(fileName, content);
+  for (const [fileName, content] of buildProsePages(root)) pages.set(fileName, content);
+
+  // 出力一覧と PAGE_NAMES がずれると、サイドバーにだけ載っていて実体の無いリンクが出る。
+  const expected = new Set(PAGE_NAMES);
+  const unexpected = [...pages.keys()].filter((fileName) => !expected.has(fileName));
+  const notBuilt = [...expected].filter((fileName) => !pages.has(fileName));
+  if (unexpected.length || notBuilt.length) {
+    throw new Error(
+      `PAGE_NAMES と生成結果が一致しません。`
+        + `${unexpected.length ? ` 余分: ${unexpected.join(", ")}` : ""}`
+        + `${notBuilt.length ? ` 不足: ${notBuilt.join(", ")}` : ""}`
+    );
+  }
+  // 生成物どうしのリンク切れは、公開して踏むまで気づけない。ここで全部たどって落とす。
+  const dangling = [];
+  for (const [fileName, content] of pages) {
+    for (const match of content.matchAll(/\]\(([^)#\s]+\.md)(#[^)]*)?\)/g)) {
+      if (!pages.has(match[1])) dangling.push(`${fileName} → ${match[1]}`);
+    }
+  }
+  if (dangling.length) {
+    throw new Error(`存在しないページへのリンクがあります:\n  ${dangling.join("\n  ")}`);
+  }
+
+  // 並びは PAGE_NAMES（= サイドバーの並び）に合わせて返す。組み立てた順は関係ない。
+  return new Map(PAGE_NAMES.map((fileName) => [fileName, pages.get(fileName)]));
 }
 
 function writePages(pages, wikiDirectory, checkOnly) {
@@ -991,4 +1377,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_NAMES, generatePages, writePages, parseArguments, findDungeonGate, playerFacingMobName, tieredMaximumSummary, main };
+module.exports = { PAGE_NAMES, PROSE_PAGES, GENERATED_PAGES, generatePages, writePages, parseArguments, findDungeonGate, playerFacingMobName, tieredMaximumSummary, main };
