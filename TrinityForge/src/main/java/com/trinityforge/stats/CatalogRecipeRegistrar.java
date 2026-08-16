@@ -72,6 +72,12 @@ public final class CatalogRecipeRegistrar {
     private final java.util.function.Supplier<List<com.trinityforge.config.domains.CraftingFeaturesConfig.AddedRecipe>>
             addedRecipesSupplier;
     private final Set<NamespacedKey> registeredKeys = new HashSet<>();
+    /**
+     * 直近の {@link #registerAll()} で「ArsPaper 未 enable による未解決素材」を理由に登録を見送った
+     * カタログ id。ArsPaper enable 後の再登録で解決したかどうかを診断/テストから観測するために持つ
+     * (W-44)。登録し直すたびに {@link #removeAll()} で作り直される。
+     */
+    private final Set<String> deferredArsCatalogIds = new java.util.LinkedHashSet<>();
     /** Live view of what is currently registered, for {@code CatalogWorkbenchListener}. */
     private final Map<NamespacedKey, RegisteredRecipe> registeredSpecs = new LinkedHashMap<>();
 
@@ -356,6 +362,16 @@ public final class CatalogRecipeRegistrar {
         }
         registeredKeys.clear();
         registeredSpecs.clear();
+        deferredArsCatalogIds.clear();
+    }
+
+    /**
+     * 直近の {@link #registerAll()} が ArsPaper 未 enable のために登録を見送ったカタログ id
+     * (登録順)。空でないまま起動が終われば「ArsPaper enable 後の再登録が走らなかった / それでも
+     * 解決できなかった」ことを意味する — {@code ArsPaperRecipeRefreshListener} がこれを警告に使う。
+     */
+    public Set<String> deferredArsCatalogIds() {
+        return Set.copyOf(deferredArsCatalogIds);
     }
 
     private void registerOne(NamespacedKey key, ItemTemplate template, RecipeSpec spec) {
@@ -368,6 +384,7 @@ public final class CatalogRecipeRegistrar {
             // ArsPaper がまだ enable していないだけの一過性未解決。ArsPaper.onEnable の
             // refreshCatalogRecipes() で全レシピが再登録され解決するため、警告ではなく FINE で静かに残す
             // (「正しく設定したのに毎回スタックトレース警告が出る」誤アラームを防ぐ)。
+            deferredArsCatalogIds.add(template.id());
             plugin.getLogger().log(Level.FINE,
                     "[items/catalog.yml] deferring recipe for '" + template.id()
                     + "' until ArsPaper enables (ingredient '" + ex.getMessage() + "')");
@@ -509,7 +526,18 @@ public final class CatalogRecipeRegistrar {
             java.util.LinkedHashSet<Material> choices = new java.util.LinkedHashSet<>(ingredient.acceptedMaterials());
             if (ingredient.isList()) for (String id : MaterialLists.resolveCustomIds(ingredient.listId())) {
                 Material material = materialOfCustom(id);
-                if (material == null) throw new IllegalArgumentException("custom list member '" + id + "' is unknown");
+                if (material == null) {
+                    // W-44: list:<id> のメンバーにも custom: 単体とまったく同じ「ArsPaper がまだ enable して
+                    // いないだけの一過性未解決」がある。material-lists.yml の dungeon_seals は 28 件すべてが
+                    // ArsPaper 側 materials.yml 定義なので、TF の初回登録では 1 件も解決できず
+                    // key_binder のレシピが毎起動 WARNING 付きでスキップされ、永久にクラフト不可だった。
+                    // ArsPaper 導入済みでまだ未 enable なら保留として扱い、ArsPaper enable 後の
+                    // 再登録(ArsPaperRecipeRefreshListener → refreshCatalogRecipes)に委ねる。
+                    if (arsPaperLoadingPending()) {
+                        throw new PendingArsIngredientException(id);
+                    }
+                    throw new IllegalArgumentException("custom list member '" + id + "' is unknown");
+                }
                 choices.add(material);
             }
             if (choices.isEmpty()) throw new IllegalArgumentException("material list '" + ingredient.listId() + "' has no usable members");
