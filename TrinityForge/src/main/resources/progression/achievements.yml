@@ -47,8 +47,13 @@
 #
 # 【報酬の憲法】(2026-07-31 ユーザー確定「束縛者だけ縦強化、他は称号/コスメ」)
 #   縦強化(permanent-buffs)を持つのは goal_worldbinder ただ1つ。他は
-#   称号 / パーティクル / ガチャ券 / 職業EXP に限る。ここが緩むと格差吸収に選んだ3本
+#   称号 / パーティクル / ガチャ券 に限る。ここが緩むと格差吸収に選んだ3本
 #   (24時間EXP減衰 / 指数コスト / 横の選択肢)が全部無意味になる。
+#   <b>2026-08-16 ユーザー確定: 職業EXP(job-exp)は報酬から全廃した。</b>
+#   アチーブメントは「その職業を進めた結果」なので、職業EXPを返すと進行が自己加速して
+#   24時間EXP減衰による格差吸収を素通りする。代わりに<b>道の節目にだけ</b>特殊報酬
+#   (special = 称号/パーティクル/種)を置く ── 節目でないノードの報酬はガチャ券のみ。
+#   job-exp: [] の行は消さずに残すこと(エディタの往復で消えると差分が読めなくなる)。
 #
 # 【trigger.type: advancement を使わない理由】下の vanilla-advancements.disabled: true と
 #   噛み合わず、進捗解除イベント自体がキャンセルされて永久に達成不能になる。
@@ -155,9 +160,7 @@ achievements:
       special: []
       commands: []
       items: []
-      job-exp:
-        - skill: LIGHT_WEAPONS
-          amount: 200
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_copper:
@@ -182,9 +185,7 @@ achievements:
       items:
         - id: gacha_ticket_1
           amount: 1
-      job-exp:
-        - skill: LIGHT_WEAPONS
-          amount: 400
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_iron:
@@ -204,14 +205,13 @@ achievements:
         threshold: 1
     broadcast: false
     rewards:
-      special: []
+      special:
+        - title_ironbearer
       commands: []
       items:
         - id: gacha_ticket_1
           amount: 2
-      job-exp:
-        - skill: HEAVY_WEAPONS
-          amount: 800
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_diamond:
@@ -237,9 +237,7 @@ achievements:
       items:
         - id: gacha_ticket_2
           amount: 2
-      job-exp:
-        - skill: LIGHT_WEAPONS
-          amount: 2000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_netherite:
@@ -267,9 +265,7 @@ achievements:
       items:
         - id: gacha_ticket_3
           amount: 2
-      job-exp:
-        - skill: HEAVY_WEAPONS
-          amount: 5000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_nuclear:
@@ -306,9 +302,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 1
-      job-exp:
-        - skill: HEAVY_WEAPONS
-          amount: 12000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_hero:
@@ -345,9 +339,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 3
-      job-exp:
-        - skill: LIGHT_WEAPONS
-          amount: 20000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   w_infinity:
@@ -385,9 +377,7 @@ achievements:
       items:
         - id: custom:gacha_ticket_5
           amount: 2
-      job-exp:
-        - skill: HEAVY_WEAPONS
-          amount: 40000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   goal_worldbinder:
@@ -449,9 +439,7 @@ achievements:
       items:
         - id: gacha_ticket_1
           amount: 2
-      job-exp:
-        - skill: HEAVY_ARMOR
-          amount: 600
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   a_netherite:
@@ -473,14 +461,13 @@ achievements:
         threshold: 1
     broadcast: false
     rewards:
-      special: []
+      special:
+        - seed_flame
       commands: []
       items:
         - id: gacha_ticket_3
           amount: 2
-      job-exp:
-        - skill: HEAVY_ARMOR
-          amount: 5000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   a_top:
@@ -512,9 +499,7 @@ achievements:
       items:
         - id: custom:gacha_ticket_5
           amount: 1
-      job-exp:
-        - skill: LIGHT_ARMOR
-          amount: 20000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   s_one:
@@ -705,9 +690,7 @@ achievements:
       items:
         - id: source_berry
           amount: 10
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 300
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   m_glowberry:
@@ -732,9 +715,7 @@ achievements:
       items:
         - id: source_berry
           amount: 16
-      job-exp:
-        - skill: FARMING
-          amount: 300
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   m_first_ritual:
@@ -750,14 +731,13 @@ achievements:
       threshold: 1
     broadcast: false
     rewards:
-      special: []
+      special:
+        - title_ritual_novice
       commands: []
       items:
         - id: gacha_ticket_2
           amount: 3
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 800
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   m_ritual_effect:
@@ -779,9 +759,7 @@ achievements:
       items:
         - id: gacha_ticket_3
           amount: 2
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 1500
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   g_forms:
@@ -800,9 +778,7 @@ achievements:
       special: []
       commands: []
       items: []
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 500
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   g_harm:
@@ -821,9 +797,7 @@ achievements:
       special: []
       commands: []
       items: []
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 800
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   g_break:
@@ -842,9 +816,7 @@ achievements:
       special: []
       commands: []
       items: []
-      job-exp:
-        - skill: MINING
-          amount: 1500
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   g_exchange:
@@ -867,9 +839,7 @@ achievements:
       items:
         - id: gacha_ticket_3
           amount: 2
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 2000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   g_grow:
@@ -893,9 +863,7 @@ achievements:
       items:
         - id: gacha_ticket_3
           amount: 4
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 3000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   g_augment:
@@ -917,9 +885,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 2
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 6000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   m_catalyst:
@@ -940,9 +906,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 2
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 8000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   m_enchant_share:
@@ -963,9 +927,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 3
-      job-exp:
-        - skill: ENCHANTING
-          amount: 5000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   src_jar2:
@@ -991,9 +953,7 @@ achievements:
       items:
         - id: source_berry
           amount: 32
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 1000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   src_crystal:
@@ -1019,9 +979,7 @@ achievements:
       items:
         - id: gacha_ticket_3
           amount: 3
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 3000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   src_condenser:
@@ -1047,9 +1005,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 3
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 8000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   src_dominion:
@@ -1075,9 +1031,7 @@ achievements:
       items:
         - id: gacha_ticket_3
           amount: 5
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 4000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   src_vault:
@@ -1097,14 +1051,13 @@ achievements:
         percent: false
     broadcast: false
     rewards:
-      special: []
+      special:
+        - title_vault_keeper
       commands: []
       items:
         - id: gacha_ticket_4
           amount: 3
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 12000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   src_engine:
@@ -1133,9 +1086,7 @@ achievements:
       items:
         - id: custom:gacha_ticket_5
           amount: 2
-      job-exp:
-        - skill: ARS_MAGIC
-          amount: 25000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   goal_infinite_source:
@@ -1205,9 +1156,7 @@ achievements:
       special: []
       commands: []
       items: []
-      job-exp:
-        - skill: WOODCUTTING
-          amount: 800
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   adv_mine:
@@ -1228,11 +1177,7 @@ achievements:
       items:
         - id: gacha_ticket_2
           amount: 2
-      job-exp:
-        - skill: MINING
-          amount: 2500
-        - skill: DIGGING
-          amount: 1500
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   adv_farm:
@@ -1247,12 +1192,11 @@ achievements:
       threshold: 64
     broadcast: false
     rewards:
-      special: []
+      special:
+        - title_gatherer
       commands: []
       items: []
-      job-exp:
-        - skill: FARMING
-          amount: 1000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   adv_fish:
@@ -1273,9 +1217,7 @@ achievements:
       items:
         - id: custom:gacha_ticket_2
           amount: 3
-      job-exp:
-        - skill: FISHING
-          amount: 1200
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   adv_nether:
@@ -1291,14 +1233,13 @@ achievements:
       threshold: 256
     broadcast: false
     rewards:
-      special: []
+      special:
+        - title_flamewalker
       commands: []
       items:
         - id: gacha_ticket_2
           amount: 2
-      job-exp:
-        - skill: MINING
-          amount: 1500
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   adv_end:
@@ -1320,9 +1261,7 @@ achievements:
       items:
         - id: gacha_ticket_4
           amount: 2
-      job-exp:
-        - skill: HEAVY_WEAPONS
-          amount: 6000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   adv_walk:
@@ -1785,9 +1724,7 @@ achievements:
       items:
         - id: custom:gacha_ticket_4
           amount: 4
-      job-exp:
-        - skill: HEAVY_WEAPONS
-          amount: 8000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   sec_raid:
@@ -1808,9 +1745,7 @@ achievements:
       items:
         - id: EMERALD_BLOCK
           amount: 16
-      job-exp:
-        - skill: ARCHERY
-          amount: 4000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   sec_deaths:
@@ -1897,9 +1832,7 @@ achievements:
       items:
         - id: custom:gacha_ticket_5
           amount: 3
-      job-exp:
-        - skill: FISHING
-          amount: 20000
+      job-exp: []
       permanent-buffs: {}
       vanilla-exp: 0
   sec_billion_source:

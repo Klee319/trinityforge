@@ -95,6 +95,16 @@ titles:
     display: <gradient:#7df9ff:#ffffff><b>万刃の主</b></gradient>
   title_secret_keeper:
     display: <gradient:#8a2be2:#ff69b4><b>秘を知る者</b></gradient>
+  # 2026-08-16: アチーブメント報酬から職業EXPを外した代わりに、3本の道の「節目」へ配る称号
+  # (ユーザー指示「キリの良いところで特殊報酬を渡す」)。全ノードには配らない。
+  title_ironbearer:
+    display: <color:white><b>鉄を打つ者</b></color>
+  title_ritual_novice:
+    display: <color:light_purple><b>儀式の徒</b></color>
+  title_vault_keeper:
+    display: <color:dark_aqua><b>深淵を蓄える者</b></color>
+  title_flamewalker:
+    display: <gradient:#ff8c00:#ffd166><b>灼熱を歩く者</b></gradient>
 particles:
   particle_sparkle:
     particle: END_ROD

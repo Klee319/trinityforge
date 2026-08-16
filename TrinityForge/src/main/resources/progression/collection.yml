@@ -416,56 +416,55 @@ categories:
       display-name: スレッド
       order: 13
       entries:
-        - angler
-        - apiarist
-        - appraiser
-        - artisan
-        - backpack
-        - concussion
-        - conduit_power
-        - damage_mana_recovery
-        - diligence
-        - dolphins_grace
-        - empty
-        - endurance
-        - excavation
-        - experience
-        - fire_resistance
-        - flight
-        - gourmet
-        - harvest
-        - health_boost
-        - herder
-        - hero_of_the_village
-        - hit_mana_recovery
-        - jump_boost
-        - luck
-        - mana_amplify
-        - mana_boost
-        - mana_circulate
-        - mana_regen
-        - marksman
-        - mending_flesh
-        - miner
-        - night_vision
-        - perfumer
-        - ritualist
-        - salvage
-        - scholar
-        - slow_falling
-        - source_thrift
-        - speed
-        - spell_cost_down
-        - spoils
-        - swiftcast
-        - thorn
-        - thrift
-        - timber
+        - thread_angler
+        - thread_apiarist
+        - thread_appraiser
+        - thread_artisan
+        - thread_backpack
+        - thread_concussion
+        - thread_conduit_power
+        - thread_damage_mana_recovery
+        - thread_diligence
+        - thread_dolphins_grace
+        - thread_empty
+        - thread_endurance
+        - thread_excavation
+        - thread_experience
+        - thread_fire_resistance
+        - thread_flight
+        - thread_gourmet
+        - thread_harvest
+        - thread_health_boost
+        - thread_herder
+        - thread_hero_of_the_village
+        - thread_hit_mana_recovery
+        - thread_jump_boost
+        - thread_luck
+        - thread_mana_amplify
+        - thread_mana_boost
+        - thread_mana_circulate
+        - thread_mana_regen
+        - thread_marksman
+        - thread_mending_flesh
+        - thread_miner
+        - thread_night_vision
+        - thread_perfumer
+        - thread_ritualist
+        - thread_salvage
+        - thread_scholar
+        - thread_slow_falling
+        - thread_source_thrift
+        - thread_speed
+        - thread_spell_cost_down
+        - thread_spoils
+        - thread_swiftcast
+        - thread_thorn
+        - thread_thrift
+        - thread_timber
     material_tf:
       display-name: TF素材
       order: 14
       entries:
-        - categories
         - key_binder
         - key_bridge
         - key_cave
@@ -495,7 +494,6 @@ categories:
         - key_sewer_maze
         - key_steamworks
         - koujien
-        - orders
         - quality_upgrade_ticket
         - role_reselect_ticket
         - skill_node_lock

@@ -331,6 +331,34 @@ class ShippedAchievementTreeTest {
     }
 
     @Test
+    @DisplayName("職業EXP(job-exp)を配るアチーブメントは1件も無い")
+    void noAchievementGrantsJobExperience() {
+        // 2026-08-16 ユーザー確定「アチーブメントの報酬から職業経験値を除外」。
+        // アチーブメントは「その職業を進めた結果」なので、職業EXPを返すと進行が自己加速し、
+        // 格差吸収に選んだ24時間EXP減衰を素通りする。代わりに道の節目へ特殊報酬を置く。
+        List<String> offenders = achievements.stream()
+                .filter(a -> !a.rewards().jobExp().isEmpty())
+                .map(AchievementsConfig.Achievement::id)
+                .toList();
+        assertEquals(List.of(), offenders, "報酬に職業EXPが戻っている: " + offenders);
+    }
+
+    @Test
+    @DisplayName("特殊報酬は「節目」だけに置かれている(全ノードには配らない)")
+    void specialRewardsAreReservedForMilestones() {
+        long withSpecial = achievements.stream()
+                .filter(a -> !a.rewards().special().isEmpty())
+                .count();
+        long withoutSpecial = achievements.size() - withSpecial;
+        assertTrue(withSpecial >= 6, "特殊報酬を持つノードが " + withSpecial + " 件しかない"
+                + "(職業EXPを外した代わりの受け皿が消えている)");
+        assertTrue(withoutSpecial >= 10,
+                "特殊報酬の無いノードが " + withoutSpecial + " 件しか残っていない。"
+                        + "ユーザー指示は「キリの良いところ(すべてではない)」なので、"
+                        + "節目でないノードの報酬はガチャ券のみに保つこと");
+    }
+
+    @Test
     @DisplayName("最終目標3種が揃っている")
     void allThreeGoalsPresent() {
         Set<String> ids = new LinkedHashSet<>();
