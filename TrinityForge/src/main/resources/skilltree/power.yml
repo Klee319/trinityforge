@@ -270,13 +270,19 @@ nodes:
     name: 猛・充実
     level: 30
     role: greek
-    parent: B
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
+    parent: A-alpha-1
     icon: RED_DYE
     cost: 1
     effect-text: 最大体力増加
     buffs:
       max-health: 2
-    group: B-greek
   B-beta-1:
     name: 癒・充実
     level: 30
@@ -302,13 +308,19 @@ nodes:
     name: 猛・極み
     level: 50
     role: greek
-    parent: C
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
+    parent: B-alpha-1
     icon: RED_DYE
     cost: 1
     effect-text: 最大体力増加
     buffs:
       max-health: 2
-    group: C-greek
   C-beta-1:
     name: 癒・極み
     level: 50
@@ -334,13 +346,19 @@ nodes:
     name: 猛・息吹
     level: 70
     role: greek
-    parent: D
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
+    parent: C-alpha-1
     icon: RED_DYE
     cost: 1
     effect-text: 最大体力増加
     buffs:
       max-health: 2
-    group: D-greek
   D-beta-1:
     name: 癒・息吹
     level: 70
@@ -366,13 +384,19 @@ nodes:
     name: 猛・体躯
     level: 90
     role: greek
-    parent: E
+    # 2026-08-16: 猛レーンだけ parent が主軸(B/C/D/E)に付け替えられ、あわせて
+    # group: X-greek が足されていた。だが排他は「同じ親を持つ兄弟同士」でしか働かないので、
+    # この group は<兄弟ゼロ>で常に no-op になり、起動時に警告が出るだけだった。
+    # さらに実害として、A で癒/盾を選んだプレイヤーでも猛レーンへ横入りできていた
+    # (癒・盾は前段のレーン内ノードを親にしていて横入りできない = 非対称なバグ)。
+    # レーンは A-greek の三択を1回だけ縛る設計なので、親を前段の猛ノードへ戻し、
+    # 意味を持たない group は落とす。
+    parent: D-alpha-1
     icon: RED_DYE
     cost: 1
     effect-text: 最大体力増加
     buffs:
       max-health: 2
-    group: E-greek
   E-beta-1:
     name: 癒・体躯
     level: 90

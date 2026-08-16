@@ -149,7 +149,13 @@ particles:
     interval-ticks: 12
     shape: circle
   particle_dragon_aura:
-    particle: DRAGON_BREATH
+    # 2026-08-16: DRAGON_BREATH は Paper 1.21.11 で「追加データ(Float)が必須の粒子」になっており、
+    # SpecialRewardsConfig#parseParticle の「データ不要(Void)のみ通す」判定で丸ごと弾かれていた
+    # (起動時に警告1行が出るだけで、この特殊報酬は存在しないのと同じ状態だった)。
+    # 見た目が近くてデータ不要な REVERSE_PORTAL(紫の粒が立ち昇る)へ差し替える。
+    # 追加データが要る粒子は他にも DUST / FLASH / ENTITY_EFFECT / VIBRATION などがある。
+    # ShippedSpecialRewardParticleDataTest がここを機械的に固定している。
+    particle: REVERSE_PORTAL
     count: 10
     radius: 1
     interval-ticks: 12
