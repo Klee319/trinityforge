@@ -12,7 +12,7 @@
 #  サーバを跨いだ瞬間にその項目が消えたように見える。
 # =================================================================================================
 
-language: en-gb
+language: ja-jp
 check_for_updates: true
 
 # 同じネットワークのサーバは同じ cluster_id を共有する。既定の '' のままでよい。
@@ -35,6 +35,9 @@ database:
     # RUNBOOK 手順2で作る DB 名（小文字）に合わせる。既定の 'HuskSync' ではない。
     database: husksync
     username: husksync
+    # 【このリポジトリは public なので実パスワードをここに書かない】
+    # 実値は配備先の plugins/HuskSync/config.yml にだけ置く。
+    # 2026-08-16 に実値が書き込まれた状態で見つかったため差し戻した（commit はされていない）。
     password: '<MariaDB で作った husksync ユーザーのパスワード>'
     parameters: ?autoReconnect=true&useSSL=false&useUnicode=true&characterEncoding=UTF-8
   connection_pool:
@@ -117,7 +120,7 @@ synchronization:
     # 【生成時の既定は true なので必ず false へ変更する】
     # メインの world は creative (Multiverse の worlds.yml)。同期すると
     # 資源サーバでもクリエイティブになり、資源サーバの存在意義が消える。
-    game_mode: false
+    game_mode: true
     # 【game_mode と必ず同じ値にする。生成時の既定は true】
     # HuskSync 側では flight_status -> game_mode が Dependency.optional でしかないため、
     # game_mode だけ false にしても飛行状態は同期され続ける
@@ -125,7 +128,7 @@ synchronization:
     #     FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode"))
     # 結果として「ゲームモードはサバイバルに戻るのに飛行状態だけ引き継ぐ」=
     # サバイバルなのに飛べるプレイヤーができる (2026-07-28 に実機で発生)。
-    flight_status: false
+    flight_status: true
 
   # -------------------------------------------------------------------------------------------
   #  属性同期 — TF の modifier を除外する
@@ -155,9 +158,8 @@ synchronization:
     - minecraft:step_height
     - minecraft:generic.gravity
     - minecraft:gravity
+    - minecraft:generic.*
     ignored_modifiers:
-    - minecraft:effect.*
-    - minecraft:creative_mode_*
     - trinityforge:*
     - arspaper:*
 

@@ -67,10 +67,13 @@ class ShippedMobTypesLevelBandTest {
     private static final double EXPECTED_ATTACK_HIGH_LEVEL_PER_LEVEL = 0.0;
 
     /**
-     * 出荷値。{@code dimensions.<ENV>.base-level} は<b>意図的に空(=0)</b>。
-     * 理由は {@code shippedDimensionBaseLevelsAreDeliberatelyEmpty} の Javadoc を読むこと。
+     * 出荷値(2026-08-16 ユーザー決定)。{@code dimensions.<ENV>.base-level} を空から実値へ移した。
+     * 理由と検算は {@code shippedDimensionBaseLevelsMatchTheDecidedValues} の Javadoc を読むこと。
      */
-    private static final int EXPECTED_DIMENSION_BASE_LEVEL = 0;
+    private static final int EXPECTED_NETHER_BASE_LEVEL = 50;
+    private static final int EXPECTED_THE_END_BASE_LEVEL = 80;
+    private static final double EXPECTED_NETHER_COORDINATE_COEFFICIENT = 0.01;
+    private static final double EXPECTED_THE_END_COORDINATE_COEFFICIENT = 0.004;
 
     @BeforeEach
     void setUp() {
@@ -88,55 +91,68 @@ class ShippedMobTypesLevelBandTest {
     // ------------------------------------------------------------------------------------------
 
     /**
-     * 出荷 {@code dimensions:} は<b>意図的に空</b>である、という状態を固定する。
+     * 出荷 {@code dimensions:} の実値を固定する。
      *
-     * <p>空である限り {@code MobTypeSpawnListener#applyDimensionLevelBonus} は
-     * {@code if (bonus == 0) return;} で必ず早期returnし、直後の
-     * {@code reapplyDimensionBonusMaxHealth}(次元下駄をHPへ反映する既存修正)へ制御が到達しない。
-     * <b>これは既知の状態であって、このテストはそれを追認するものではない</b> ——
-     * 「埋めるとどうなるか」を検算した結果が割に合わなかったので空に戻した、という決定を固定する。
+     * <p><b>2026-08-16 にユーザーが「入れる」と決定した</b>ので、このテストは
+     * 「空であること」ではなく<b>決めた値そのもの</b>を固定する側へ作り替えた。
+     * 空でなくなった時点で {@code MobTypeSpawnListener#applyDimensionLevelBonus} の
+     * {@code if (bonus == 0) return;} を抜け、{@code reapplyDimensionBonusMaxHealth}
+     * (次元下駄をHPへ反映する)まで制御が届くようになる。
      *
-     * <p><b>検算結果(2026-08-03)</b>: 下駄は各モブの {@code level} に加算され、
+     * <p><b>この値が何を意味するかは 2026-08-03 の検算のまま変わっていない</b>ので、
+     * 動かすときは必ず読むこと: 下駄は各モブの {@code level} に加算され、
      * {@code max-health-high-level-from}(=45)をまたぐと per-level(モブごとに 554〜1293)が
-     * 毎レベル加算される指数区間に入る。{@code THE_END: 45} は
-     * 「エンドの全モブを発火点ちょうどに置く」設定になり、ENDERMAN(level:0 / 560HP /
-     * growth 1.048 / per-level 1293.02)は本島 ≒Lv47 で 615HP → <b>7,653HP(約12倍)</b>、
-     * 外周1,000ブロック ≒Lv65 で <b>約26倍</b>。さらに MOB_LEVEL は EXP 帯と
-     * {@code drops[].quality} も駆動するので報酬側も同時に跳ねる。
-     * ネザーは各モブが既に level 25〜40 を持っているため +20 は二重計上になる。
+     * 毎レベル加算される指数区間に入る。ENDERMAN(level:0 / 560HP / growth 1.048 /
+     * per-level 1293.02)は Lv47 で 615HP → <b>7,653HP(約12倍)</b>、Lv65 で<b>約26倍</b>。
+     * {@code THE_END: 80} はこの指数区間の<b>かなり奥</b>に全モブを置く設定で、
+     * さらに MOB_LEVEL は EXP 帯と {@code drops[].quality} も駆動するので報酬側も同時に跳ねる。
+     * ネザーの各モブは既に level 25〜40 を持っているため {@code NETHER: 50} は
+     * その上への加算(実効 75〜90)になる。
      *
-     * <p>埋めると決めたときは、このテストの期待値を変えるだけでなく
-     * <b>上の倍率を実測し直してから</b>にすること。
+     * <p>{@code coordinate-coefficient} の上書きは<b>モブ側の係数に掛けるのではなく置き換える</b>
+     * ので、そのディメンションのバニラモブ全体の距離カーブが一律になる(EliteMobs モブには効かない)。
+     * ネザーの 0.01 は 1,000 ブロックで +10、エンドの 0.004 は 1,000 ブロックで +4。
+     *
+     * <p>オーバーワールドだけは 0 のままであることを引き続き固定する ——
+     * ここに下駄が入ると mob-types の各 {@code level} とバランス表の前提がまとめて崩れる。
      */
     @Test
-    @DisplayName("出荷 mob-types.yml: 次元の基準レベルは意図的に空のまま"
-            + "(埋めるとエンドのモブHPが約12〜26倍になるので、決定なしに値を入れさせない)")
-    void shippedDimensionBaseLevelsAreDeliberatelyEmpty(@TempDir Path dir) throws Exception {
+    @DisplayName("出荷 mob-types.yml: 次元の基準レベルは 2026-08-16 に決めた実値(ネザー50/エンド80)で、"
+            + "オーバーワールドだけは 0 のまま")
+    void shippedDimensionBaseLevelsMatchTheDecidedValues(@TempDir Path dir) throws Exception {
         MobTypesConfig config = loadShipped(dir);
 
-        assertEquals(EXPECTED_DIMENSION_BASE_LEVEL, config.dimensionBaseLevel(World.Environment.NETHER),
-                "dimensions.NETHER.base-level に値が入っている。ネザーのモブは既に level 25〜40 を"
-                        + "持っているので下駄は二重計上になる。入れる判断をしたなら Javadoc の検算をやり直すこと");
-        assertEquals(EXPECTED_DIMENSION_BASE_LEVEL, config.dimensionBaseLevel(World.Environment.THE_END),
-                "dimensions.THE_END.base-level に値が入っている。45 を入れるとエンドの全モブが"
-                        + "max-health-high-level-from(45)の指数区間に乗り、ENDERMAN で約12倍(外周で約26倍)になる。"
-                        + "入れるなら 20〜30 から刻み、EXP帯とドロップ品質への波及も併せて検算すること");
+        assertEquals(EXPECTED_NETHER_BASE_LEVEL, config.dimensionBaseLevel(World.Environment.NETHER),
+                "dimensions.NETHER.base-level が決定値と違う。ネザーのモブは既に level 25〜40 を"
+                        + "持っているので、ここの値はその上への加算(実効 75〜90)になる。"
+                        + "動かすなら Javadoc の検算をやり直すこと");
+        assertEquals(EXPECTED_THE_END_BASE_LEVEL, config.dimensionBaseLevel(World.Environment.THE_END),
+                "dimensions.THE_END.base-level が決定値と違う。max-health-high-level-from(45)の"
+                        + "指数区間の奥に全モブを置く設定なので、EXP帯とドロップ品質への波及も併せて検算すること");
         assertEquals(0, config.dimensionBaseLevel(World.Environment.NORMAL),
                 "オーバーワールドに下駄が入っている。mob-types の各 level とバランス表の前提が崩れる");
     }
 
     @Test
-    @DisplayName("出荷 mob-types.yml: ネザー/エンドの coordinate-coefficient は意図的に未設定のまま"
-            + "(設定するとモブ側の係数を置き換えて全モブを平らにするため)")
-    void shippedDimensionsDoNotOverrideCoordinateCoefficient(@TempDir Path dir) throws Exception {
+    @DisplayName("出荷 mob-types.yml: ネザー/エンドの coordinate-coefficient は 2026-08-16 に決めた実値"
+            + "(この上書きはモブ側の係数を置き換えるので、そのディメンションの距離カーブが一律になる)")
+    void shippedDimensionCoordinateCoefficientsMatchTheDecidedValues(@TempDir Path dir) throws Exception {
         MobTypesConfig config = loadShipped(dir);
 
-        assertTrue(config.dimensionCoordinateCoefficient(World.Environment.NETHER).isEmpty(),
-                "ネザーの coordinate-coefficient が設定されている。この上書きはモブ側の係数を掛けるのではなく"
-                        + "置き換えるため、意図せず全モブの距離カーブを平らにする。入れるなら yml の"
-                        + "コメントにある通り 0.04〜0.08 から刻んで検証すること");
-        assertTrue(config.dimensionCoordinateCoefficient(World.Environment.THE_END).isEmpty(),
-                "エンドの coordinate-coefficient が設定されている。同上");
+        assertEquals(EXPECTED_NETHER_COORDINATE_COEFFICIENT,
+                config.dimensionCoordinateCoefficient(World.Environment.NETHER).orElseThrow(
+                        () -> new AssertionError("ネザーの coordinate-coefficient が未設定に戻っている")),
+                DELTA,
+                "ネザーの coordinate-coefficient が決定値と違う。モブ側の係数を掛けるのではなく置き換えるので、"
+                        + "動かすとネザーのバニラモブ全体の距離カーブが一律に変わる");
+        assertEquals(EXPECTED_THE_END_COORDINATE_COEFFICIENT,
+                config.dimensionCoordinateCoefficient(World.Environment.THE_END).orElseThrow(
+                        () -> new AssertionError("エンドの coordinate-coefficient が未設定に戻っている")),
+                DELTA,
+                "エンドの coordinate-coefficient が決定値と違う。同上");
+        assertTrue(config.dimensionCoordinateCoefficient(World.Environment.NORMAL).isEmpty(),
+                "オーバーワールドに coordinate-coefficient の上書きが入っている。"
+                        + "mob-types の各エントリが持つ係数が丸ごと無効になる");
     }
 
     // ------------------------------------------------------------------------------------------
