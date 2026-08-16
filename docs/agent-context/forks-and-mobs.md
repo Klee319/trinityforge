@@ -827,6 +827,40 @@ materials / threads / sourcejars・sourcelinks / spellbooks）すべてが**書�
   （VeinMining/TreeFelling/FarmingHarvest/Digging/break-vanilla-exp/ドロップテーブル）が冒頭で抜ける
   ③フォークが `breakEvent.isDropItems()` を尊重して二重ドロップを塞ぐ。
 
+### ⚠️⚠️ ArsPaper の yml は「フォークの HEAD」からしか配備先へ届かない ── 作業ツリーで直しただけでは永久に反映されない
+
+2026-08-16 に実サーバが起動のたびに落としていた
+`[items/catalog.yml] failed to register recipe for 'key_binder'; skipped` /
+`custom list member 'dungeon_seal_enchant_trial_10' is unknown` の**第2の真因**。
+「レシピ登録の失敗」に見えるが、実際には**素材そのものが配備先の config に存在しない**という意味。
+
+経路が2段あり、どちらも黙って古い版を維持する:
+
+1. **プラグイン自身は config を更新しない。** `ArsPaper#updateResourceFiles` は
+   **プラグインのバージョン文字列が変わったときしか**リソースを再展開しない。
+   VERSION はずっと `0.1.0-SNAPSHOT` のままなので、**新しい jar を配備しても
+   既存の `plugins/ArsPaper/*.yml` は 1 バイトも上書きされない**
+   （jar の中には新しい yml が入っているのに、稼働側は古いまま ―― これが最も気づきにくい）。
+   TF 本体側の同型の罠は `TrinityForgeConfigMigration`（トップレベルキー単位でしか差分を見ない）。
+2. **config 配備はフォークの HEAD を配る。** `ops/launch/deploy-config-head.cmd` は
+   `git show HEAD` 相当（**フォーク自身のリポジトリの HEAD**）から `*.yml` を robocopy する。
+   フォークのソースは outer repo の `.gitignore` で除外されているので、
+   **outer repo 側でいくら commit しても関係がない**。フォークの作業ツリーで yml を直しただけ、
+   あるいはフォークのローカルリポジトリで commit していないだけで、配備は古い版を配り続ける。
+
+実例の症状: TF 側の `items/material-lists.yml`（commit 済み）は印 28 種を要求していたのに、
+フォーク HEAD の `materials.yml` は単数の `dungeon_seal_enchant_trial` を含む 19 種のまま。
+28 種になっていたのは**フォークの作業ツリーと配備中の jar だけ**だった
+（jar 同梱版と作業ツリー版は byte 一致していた ―― つまり「ビルドはされたが commit されていない」状態）。
+結果、束縛者の鍵が作れず最下層へ入れなかった。
+
+- **How（フォークの yml を触ったら必ず）**: `git -C fork-handoff/arspaper/fork status --porcelain`
+  で自分の変更が ` M` のままになっていないか見る。**自分が触ったパスだけ**を
+  `git -C <fork> add -- <path>` して commit する（フォークにも他セッションの WIP が常に乗っている）。
+- **確認の型**: 「配備先の yml に入っているか」を jar の中身で判断しない。
+  `plugins/ArsPaper/<file>.yml` を直接読むか、`git -C <fork> show HEAD:src/main/resources/<file>.yml`
+  を読む。この 2 つが一致していない限り、config 配備を 1 回通すまで直っていない。
+
 ### ⚠️ `custom:<ArsPaperのid>` 素材は ExternalItemRegistry 登録が無いと永久にクラフト不可
 
 TFのカタログレシピで `custom:source_gem` のようにArsPaper側のアイテムを素材指定するとき、
