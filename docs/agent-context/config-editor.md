@@ -1078,6 +1078,44 @@ assets/trinityforge/textures/entity/equipment/humanoid_leggings/<セット名>.p
 `TrinityForge/src/main/resources/items/equipment-assets.yml` まで配線する）。
 手描きの PNG が上記パスにあればそちらが優先される。
 
+## `_editor.categories[*].itemIds`/`itemTabs`/`orders` の宙ぶらりん検出は「自ファイルの集合」だけでは誤検知する（2026-08-16）
+
+`_editor` メタは実データ(`items`/`materials`)を消した後もエディタ経由の削除
+(`window.removeEditorCategoryItem`)を通さない限り古い id を残し続ける
+（手編集・改名・別ツール削除は検出不能。実測: ArsPaper `materials.yml` に 19 件）。
+検出関数 `danglingEditorMetaIds(data, itemIdSet)`
+(`lib/editor-meta-integrity.js` / `public/js/editor-meta-integrity.js`、完全ミラー)は
+`itemIdSet` を突き合わせるだけの純関数だが、**`itemIdSet` を「そのファイル自身のキー」だけで
+組み立てると意図的な他ファイル参照が誤検知になる**。
+
+- 実例: ArsPaper `materials.yml` の `_editor.categories.material` にある
+  `cat_dungeon_keys`(「ダンジョンの鍵」カテゴリ、17件)は **TrinityForge本体の
+  `items/catalog.yml` の id を指すのが正しい設計**（鍵の実体を catalog.yml に置いたままにして
+  いるのは `dungeon/gates.yml` の `key-item` 判定・レシピ・CMD台帳が catalog.yml 前提のため。
+  materials.yml へ実移動するとダンジョン入場が壊れる）。
+- **How**: `editorMetaItemIdSet(ctx, configId, data)`(`lib/editor-meta-integrity.js`、
+  サーバ専用・`ctx.readEntryById` でクロスファイル読取)が configId ごとに集合を組む。
+  `"materials"` は `自身のmaterialsキー ∪ catalog.ymlのitemsキー`。`"catalog"`/`"item-stats"`
+  は自己完結（他ファイル参照なし）。新しい config 種別へ広げるときは、その `_editor` が
+  意図的に他ファイルの id を指す設計になっていないか（= 専用カテゴリの説明コメントが
+  yml 側にあるか）を先に確認してから itemIdSet を決めること。決め打ちで「自ファイルだけ」
+  にすると、常時ノイズを出す警告になり 1 週間で誰も読まなくなる。
+- 検出は**保存をブロックしない**(`lib/schema.js` の `errors` には入れない。
+  `server.js` の PUT `/api/config/:id` が `cmdWarnings` と同じ非ブロッキング応答フィールド
+  `editorMetaWarnings` として返し、`public/js/app.js` がトースト表示する。加えて
+  `public/js/split-views.js` の `withCategoryBar` が画面内にも `.form-banner` を出すが、
+  **警告が無いときは今までどおり `root.children = [nestBar, body]` の2要素のまま**にしてある
+  （`children[1]` のようなインデックス参照テストが複数あるため、警告があるときだけ先頭に
+  banner を差し込む設計。無条件で3要素にすると `thread-dedicated-ui-removed-2026-08-02.test.js`
+  等が壊れる）。
+- `_editor.itemTabs` は `pruneOrphanItemTabs`(`editor-categories.js`)が **`items` を持つ
+  ファイルの保存時にだけ**自動的に孤児を刈るが、`_editor.categories`/`_editor.orders` は
+  同関数のコメントに明記の通り「触らない」ため一生残り得る。実データでの検証
+  (`test/editor-meta-integrity-2026-08-16.test.js`)は事前に実測・裏取り済みの
+  `categories[*].itemIds` だけを厳密比較し、`itemTabs`/`orders` は fixture テストのみに留めている
+  （出荷データ全体の実測が無い状態で 0 件を断定すると、実装のバグと積年の孤児データの区別が
+  つかなくなるため）。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

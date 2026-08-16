@@ -894,6 +894,32 @@
     data._editor = cleaned;
   }
 
+  /**
+   * `_editor.categories`/`itemTabs`/`orders` の宙ぶらりんid(既に実在しないアイテムを指す
+   * カテゴリ所属・表示タブ・並び順)を画面上に警告する箱を作る。無ければ null を返す
+   * (呼び出し側で条件付きappendできるように)。検出のみ・自動修復はしない
+   * (docs/agent-context/config-editor.md 参照。改名/削除の誤検知の可能性があるため)。
+   * @param {object} host - このファイルの `_editor` を持つルートオブジェクト
+   * @param {Set<string>|string[]|null} itemIdSet - このファイルで有効な id 集合。null なら検査しない
+   */
+  window.buildDanglingEditorMetaWarning = function buildDanglingEditorMetaWarning(host, itemIdSet) {
+    if (!itemIdSet || typeof window.danglingEditorMetaIds !== "function") return null;
+    const dangling = window.danglingEditorMetaIds(host, itemIdSet);
+    if (!dangling.length) return null;
+    const box = h("div", { class: "form-banner" });
+    box.appendChild(h("div", {
+      text: `カテゴリ/表示タブ/並び順の設定に、もう実在しないアイテムidへの参照が${dangling.length}件あります`
+        + "(保存はブロックされません。改名した場合は該当箇所を新しいidへ付け替えてください):"
+    }));
+    const list = h("ul");
+    const describe = typeof window.describeDanglingEditorMetaId === "function"
+      ? window.describeDanglingEditorMetaId
+      : (d) => `${d.where}: id "${d.id}" が見つかりません`;
+    for (const d of dangling.slice(0, 50)) list.appendChild(h("li", { text: describe(d) }));
+    box.appendChild(list);
+    return box;
+  };
+
   window.ensureEditorMeta = ensureEditor;
   window.listEditorCategories = listCategories;
 })();

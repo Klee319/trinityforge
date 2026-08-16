@@ -35,7 +35,10 @@
   // item-stats/spellbooks など他ファイルの画面にまで無条件に出すと、そこへ入れても何も
   // 起きない(materials/threads)か、item-stats.yml に誰も読まない draft: true ゴーストキーが
   // 書かれる(2026-08-02 指摘4)。呼び出し側で o.type === "catalog" のときだけ true を渡す。
-  function withCategoryBar(host, tabKey, formEl, form, flowCategoryBar = false, includeDraftCategory = false) {
+  // itemIdSet: 「_editor.categories/itemTabs/orders の宙ぶらりんid」検査に使う、このファイルで
+  // 有効なidの集合。呼び出し側(buildSplitConfigView)が対応済みの type だけ渡す。null なら検査しない
+  // (2026-08-16。docs/agent-context/config-editor.md 参照。検出のみ・保存はブロックしない)。
+  function withCategoryBar(host, tabKey, formEl, form, flowCategoryBar = false, includeDraftCategory = false, itemIdSet = null) {
     const root = h("div", { class: "split-view" });
     const nestBar = h("div", { class: `hub-subtabs${flowCategoryBar ? " hub-subtabs-flow" : ""}` });
     const body = h("div", { class: "hub-body" });
@@ -53,6 +56,14 @@
     }
     renderBar();
     body.appendChild(formEl);
+    // 宙ぶらりんが無ければ何も追加しない(既存の `root=[nestBar, body]` という固定構造に
+    // 依存するテスト(例: thread-dedicated-ui-removed-2026-08-02.test.js の
+    // `view.element.children[1]` インデックス参照)を壊さないため。警告があるときだけ
+    // 先頭に差し込む(2026-08-16)。
+    if (typeof window.buildDanglingEditorMetaWarning === "function") {
+      const banner = window.buildDanglingEditorMetaWarning(host, itemIdSet);
+      if (banner) root.appendChild(banner);
+    }
     root.appendChild(nestBar);
     root.appendChild(body);
     return root;
@@ -91,6 +102,9 @@
     // 渡すことがあり、そこで data と working が別オブジェクトになる(2026-07-28 のバグ:
     // カテゴリを切り替えても一覧が絞り込まれない)。
     let categoryHost = data;
+    // _editor.categories/itemTabs/orders の宙ぶらりんid検査(withCategoryBar)に渡す、この画面で
+    // 有効なidの集合。対応済みの type だけ下の各分岐で設定する。null のままの type は検査しない。
+    let itemIdSet = null;
 
     // ファイル跨ぎ移動 (catalog⇄materials): 相手ファイルのデータを受け取っていれば
     // フォームへ渡し、移動が発生した保存時だけ extraGets 経由で相手ファイルも書き込む。
@@ -121,6 +135,9 @@
           categoryHost = catalogViewData;
         }
       }
+      // 宙ぶらりん検査は隠したTF特殊アイテムも「有効」に数える(この画面からは見えないだけで
+      // 実在するため、data.items(隠す前の原本)から集合を作る)。
+      if (data.items && typeof data.items === "object") itemIdSet = new Set(Object.keys(data.items));
       form = window.buildCatalogForm(catalogViewData, {
         hubMode: true,
         initialCategory: o.itemCategory || "weapon",
@@ -156,6 +173,14 @@
       const keyTab = window.CATALOG_KEY_TAB;
       const keyCategoryId = window.MATERIALS_KEY_CATEGORY_ID;
       const hasKeySection = !!(cross && cross.data && keyTab);
+      // 宙ぶらりん検査: materials.yml 自身の materials キー ∪ catalog.yml の items キー
+      // (「ダンジョンの鍵」カテゴリが意図的に catalog.yml の id を指す設計のため。
+      // 詳細は docs/agent-context/config-editor.md)。cross.data が無い(=カタログ未取得)画面では
+      // catalog側集合が作れないため検査自体をスキップする(誤検知を出さない、null のまま)。
+      if (data.materials && typeof data.materials === "object" && cross && cross.data
+          && cross.data.items && typeof cross.data.items === "object") {
+        itemIdSet = new Set([...Object.keys(data.materials), ...Object.keys(cross.data.items)]);
+      }
       function activeCategoryId() {
         return typeof window.activeEditorCategory === "function"
           ? window.activeEditorCategory(data, categoryKey) : null;
@@ -223,6 +248,9 @@
         return d;
       };
     } else if (o.type === "item-stats") {
+      // item-stats.yml の _editor.categories は自身の items キー(MATERIAL または
+      // MATERIAL#CMD 形式)だけを参照する自己完結型(他ファイル参照はない)。
+      if (data.items && typeof data.items === "object") itemIdSet = new Set(Object.keys(data.items));
       const skills = (window.ITEM_STATS_USE_SKILLS && window.ITEM_STATS_USE_SKILLS[o.itemCategory]) || null;
       // 「スレッド」タブは threads.yml / thread-sets.yml も横から一緒に読み書きする(2026-08-09)。
       // アイテムステータス側で「Ars効果とそれ以外」「効果とセット効果」を画面分割しない、
@@ -284,7 +312,7 @@
 
     const host = categoryHost;
     const flowCategoryBar = ["catalog", "item-stats"].includes(o.type);
-    const root = withCategoryBar(host, categoryKey, form.element, form, flowCategoryBar, o.type === "catalog");
+    const root = withCategoryBar(host, categoryKey, form.element, form, flowCategoryBar, o.type === "catalog", itemIdSet);
     const wrapGet = (fn) => () => {
       const d = fn();
       if (typeof window.pruneEditorUiState === "function") window.pruneEditorUiState(d);

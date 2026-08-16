@@ -19,6 +19,7 @@ const { SPELL_FORMS } = require("./lib/spell-form-vocabulary");
 const { buildMaterialLabels, JA_ITEMS_FILENAME } = require("./lib/materialLabels");
 const CmdRegistry = require("./lib/cmd-registry");
 const { registerCmdRoutes, computeCmdWarnings, syncCmdRegistryAfterSave } = require("./lib/cmd-routes");
+const { computeEditorMetaWarnings } = require("./lib/editor-meta-integrity");
 
 const ROOT = __dirname;
 const CONFIG_PATH = path.join(ROOT, "tool-config.json");
@@ -746,13 +747,26 @@ app.put("/api/config/:id", (req, res) => {
       if (syncWarning) cmdWarnings = [...(cmdWarnings || []), syncWarning];
     }
 
+    // `_editor.categories[*].itemIds` / `_editor.itemTabs` / `_editor.orders` が実在しない id を
+    // 指していないかの検査(2026-08-16、ブロックしない警告。手編集・改名・別ツールでの削除は
+    // 保存経路の孤児掃除(pruneOrphanItemTabs)を経由しないため検出できず残り続ける)。
+    // 対応外のconfigはeditorMetaItemIdSetがnullを返しcomputeEditorMetaWarningsが[]を返す。
+    let editorMetaWarnings;
+    try {
+      editorMetaWarnings = computeEditorMetaWarnings(cmdCtx, entry.id, data);
+    } catch (err) {
+      editorMetaWarnings = [`宙ぶらりんカテゴリ検査でエラーが発生しました: ${err.message}`];
+    }
+    if (!editorMetaWarnings.length) editorMetaWarnings = undefined;
+
     res.json({
       ok: true,
       backup: backup ? path.basename(backup) : null,
       path: abs,
       revision: fileRevision(abs),
       deploy,
-      cmdWarnings
+      cmdWarnings,
+      editorMetaWarnings
     });
   } catch (err) {
     res.status(500).json({ error: `保存に失敗しました: ${err.message}` });

@@ -1393,6 +1393,18 @@
     if (!warnings.length) return "";
     return `\n[CMD注意] ${warnings.join(" / ")}`;
   }
+
+  // PUT /api/config/:id が返す editorMetaWarnings (_editor.categories/itemTabs/orders の
+  // 宙ぶらりんid、保存はブロックしない) をまとめる。cmdWarningsNote と同じ作り。
+  function editorMetaWarningsNote(results) {
+    const arr = (Array.isArray(results) ? results : [results]).filter(Boolean);
+    const warnings = [];
+    for (const r of arr) {
+      if (Array.isArray(r.editorMetaWarnings)) warnings.push(...r.editorMetaWarnings);
+    }
+    if (!warnings.length) return "";
+    return `\n[表示メタ注意] ${warnings.join(" / ")}`;
+  }
   async function loadConfigs() {
     const r = await api("GET", "/api/configs");
     state.configs = r.configs;
@@ -1936,7 +1948,7 @@
       }
       const first = saved[0] || {};
       const backupMsg = first.backup ? `自動バックアップを作成しました (${first.backup})` : "";
-      const warnNote = cmdWarningsNote(saved);
+      const warnNote = cmdWarningsNote(saved) + editorMetaWarningsNote(saved);
       toast(`保存しました。${backupMsg}${deployToastNote(saved)}${warnNote}`, warnNote ? "warn" : "ok");
       await loadConfigs();
       // lore の表示名変更をステータスセレクトへ即時反映
@@ -1986,7 +1998,7 @@
           saved.push(er);
         }
       }
-      const warnNote = cmdWarningsNote(saved);
+      const warnNote = cmdWarningsNote(saved) + editorMetaWarningsNote(saved);
       toast(`保存しました。${deployToastNote(saved)}${warnNote}`, warnNote ? "warn" : "ok");
       await loadConfigs();
     } catch (err) {
