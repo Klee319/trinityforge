@@ -11,6 +11,7 @@
       usercache.json                                         … 名前↔UUID キャッシュ
       ops.json                                               … -KeepOps 以外を削除【権限】
       plugins/LuckPerms/luckperms-h2-v2.mv.db (+ .trace.db)  … 旧 H2 の権限データ【権限】
+                                                                (現行は MariaDB。下の SQL 側が本体)
       plugins/CommandBinderGUI/playerdata                    … コマンドバインド
       plugins/EliteMobs/data/player_data.db                  … EM のギルドランク/通貨
       plugins/ArsPaper/ranking_cache.json                    … Ars のランキング
@@ -41,9 +42,19 @@
     Dev_Server を -KeepOps のメンバーだけに絞る (server.properties の white-list=true と
     whitelist.json の書き換え)。既定で有効。-EnableDevWhitelist:$false で無効。
 
+.PARAMETER PurgeGroups
+    LuckPerms の【グループ定義そのもの】(luckperms_groups / luckperms_group_permissions /
+    luckperms_tracks) も消す。既定では消さない。
+
+    既定で残す理由: プレイヤーの所属は luckperms_user_permissions の group.<名前> ノードなので、
+    そちらを空にすれば「誰も何のグループにも属していない」状態になる。グループ定義まで消すと
+    default / member / admin の権限設計を /lp で 1 から作り直すことになり、
+    作り直しの過程で権限が緩いまま開幕する事故が起きやすい。
+
 .EXAMPLE
     .\purge-player-data.ps1
     .\purge-player-data.ps1 -Apply
+    .\purge-player-data.ps1 -Apply -PurgeGroups
 #>
 [CmdletBinding()]
 param(
@@ -51,6 +62,7 @@ param(
     [switch]   $Apply,
     [string[]] $KeepOps = @("Klee319"),
     [switch]   $KeepProgression,
+    [switch]   $PurgeGroups,
     [bool]     $EnableDevWhitelist = $true
 )
 
@@ -318,23 +330,45 @@ if ($EnableDevWhitelist -and $config.Servers.ContainsKey("Dev")) {
 #  ここを飛ばすと、ファイルを消しても HuskSync がインベントリを DB から復元し、
 #  LuckPerms が権限を読み直すので「消したのに戻る」ことになる。必ず流すこと。
 $sqlPath = Join-Path $config.VelocityRoot "purge-player-data-$stamp.sql"
-$sql = @'
--- LuckPerms の権限・プレイヤーと、HuskSync のインベントリを空にする。
+
+# プレイヤー側だけを空にする分。所属グループは user_permissions の group.<名前> ノードなので、
+# これを消せばグループ定義を残したまま「誰も属していない」状態にできる。
+$sqlPlayers = @'
+-- LuckPerms のプレイヤー権限と、HuskSync のインベントリを空にする。
 -- テーブル定義は残す (作り直させると型が変わる余地があるため)。
 -- 外部キーがあると TRUNCATE が弾かれるので一時的に外す。
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE luckperms.luckperms_user_permissions;
 TRUNCATE TABLE luckperms.luckperms_players;
 TRUNCATE TABLE luckperms.luckperms_actions;
+'@
+
+# グループ定義まで消す分 (-PurgeGroups のときだけ)。
+$sqlGroups = @'
+-- グループ定義も消す (-PurgeGroups)。開幕前に /lp で作り直すこと。
 DELETE FROM luckperms.luckperms_group_permissions;
 DELETE FROM luckperms.luckperms_groups;
 DELETE FROM luckperms.luckperms_tracks;
+'@
+
+$sqlTail = @'
 TRUNCATE TABLE husksync.husksync_user_data;
 TRUNCATE TABLE husksync.husksync_map_data;
 TRUNCATE TABLE husksync.husksync_map_ids;
 DELETE FROM husksync.husksync_users;
 SET FOREIGN_KEY_CHECKS = 1;
 '@
+
+if ($PurgeGroups) {
+    $sql = $sqlPlayers + "`r`n" + $sqlGroups + "`r`n" + $sqlTail + "`r`n"
+    Write-OpsLog "-PurgeGroups 指定: LuckPerms のグループ定義も消す SQL を出します。" -Level WARN
+} else {
+    $sql = $sqlPlayers + "`r`n" +
+           "-- グループ定義 (luckperms_groups / group_permissions / tracks) は残す。" + "`r`n" +
+           "-- 消す場合は purge-player-data.ps1 -PurgeGroups を使うこと。" + "`r`n" +
+           $sqlTail + "`r`n"
+    Write-OpsLog "LuckPerms のグループ定義は残します (-PurgeGroups で消せます)。"
+}
 
 if ($dryRun) {
     Write-OpsLog "SQL を書き出す: $sqlPath" -Level DRYRUN

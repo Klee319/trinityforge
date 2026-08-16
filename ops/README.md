@@ -62,7 +62,8 @@ gradlew test --tests "com.trinityforge.ops.*"
 | [scripts/show-status.ps1](scripts/show-status.ps1) | 何が上がっているか（プロセス＋3306/6379 の素性＋`stop.flag`） |
 | [scripts/check-logs.ps1](scripts/check-logs.ps1) | **起動後に流す。** 既知の症状を拾う（特に「HuskSync が無効なのにサーバは起動している」） |
 | [scripts/backup.ps1](scripts/backup.ps1) | 進行 DB と MariaDB の日次バックアップ |
-| [scripts/purge-player-data.ps1](scripts/purge-player-data.ps1) | **プレイヤーデータと権限の全消去**（テストプレイの後始末）。既定は下見で、消すには `-Apply`。サーバ起動中は中断する |
+| [scripts/purge-player-data.ps1](scripts/purge-player-data.ps1) | **プレイヤーデータと権限の全消去**（テストプレイの後始末）。既定は下見で、消すには `-Apply`。サーバ起動中は中断する。LuckPerms のグループ定義は既定で残す（消すなら `-PurgeGroups`） |
+| [scripts/reset-world.ps1](scripts/reset-world.ps1) | **正式開幕・仕切り直し用のワールド作り直し**（任意のバックエンド）。削除ではなく `_world-backup-<日時>\` へ退避し、資源サーバはデータパックを正本から入れ直す。既定は下見で、実行は `-Apply`。手順は RUNBOOK 手順 18 |
 
 設定は [ops-config.sample.psd1](ops-config.sample.psd1) を `ops-config.psd1` にコピーして編集する。
 **RCON パスワードは設定ファイルに書かず、環境変数 `TF_RCON_MAIN_PASSWORD` / `TF_RCON_RESOURCE_PASSWORD` / `TF_RCON_DEV_PASSWORD` で渡す。**

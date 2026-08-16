@@ -1486,6 +1486,163 @@ schtasks /create /tn "TF Network" /sc onstart /ru SYSTEM /rl HIGHEST /f ^
 
 ---
 
+## 手順 18. サーバをリセットして正式に開き直す
+
+テストプレイの痕跡を全部消して、新しいワールドで開幕し直すときの手順。
+**全部サーバを止めた状態で、上から順に叩く。**
+
+この手順で消えるもの / 残るもの:
+
+| | main | resource | dev |
+|---|---|---|---|
+| ワールドの地形・建築物 | **作り直す** | **作り直す** | 残す |
+| インベントリ・実績・統計 | **消す** | **消す** | **消す** |
+| スキル Lv / SP / パーク（TF 進行 DB） | **消す**（3 台共有の実体なので 1 回で全部） | ← | ← |
+| LuckPerms のプレイヤー所属 | **消す** | **消す** | **消す** |
+| LuckPerms のグループ定義（default / admin など） | **残す** | 残す | 残す |
+| 案1 のデータパック（DnT / Terralith など 17 個） | 入れない | **正本から入れ直す** | 入れない |
+
+> **ワールドは削除ではなく退避される。** `_world-backup-<日時>\` へ移すだけなので一瞬で終わり、
+> 開幕直後に「やっぱり戻したい」が効く。容量が惜しければ `-Delete` で即削除にできる。
+
+### 18-1. バックアップを取る
+
+TF の進行 DB（SQLite）と MariaDB の `husksync` / `luckperms` を退避する。
+**ここを飛ばすと 18-5 の SQL が取り返しのつかない操作になる。**
+
+```powershell
+cd C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforge\ops\scripts
+.\backup.ps1
+```
+
+> **`backup.ps1` はワールドを対象にしない**（メインは Backuper、資源は毎週消える前提のため）。
+> ワールドの退避は 18-6 の `reset-world.ps1` が `_world-backup-<日時>\` へ行う。
+
+### 18-2. 全サーバとプロキシを止める
+
+```powershell
+.\stop-network.ps1
+```
+
+止まりきったことを確認する（この後のスクリプトは起動中なら自分で中断するが、先に見ておく）:
+
+```powershell
+.\check-servers-stopped.ps1
+```
+
+### 18-3. jar をビルドして配る
+
+TF 本体・ArsPaper・EliteMobs のうち、変わったものだけをビルドして 3 台へ配る。
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd --dry-run
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\deploy.cmd
+```
+
+### 18-4. 古い出荷 config を入れ替える ⚠ 忘れやすい
+
+**プラグインは「ファイルが無いときだけ」jar の中の既定を書き出す**（`saveResource(name, false)`）。
+つまり **jar を新しくしても、サーバ側に古いファイルが残っている限り新版は永久に読まれない。**
+エラーも警告も出ないので、「配ったのに効かない」の原因になる。
+
+2026-08-16 現在、これに該当するのが ArsPaper の `loot-tables.yml`
+（構造物 346 本のティア制戦利品。旧版 231 行 → 新版 761 行）。
+消すのではなく**退避**してから起動すること:
+
+```powershell
+$stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+foreach ($s in "Main_Server", "Resource_Server", "Dev_Server") {
+    $f = "D:\game\minecraft\PaperServer\Velocity_for_TF\$s\plugins\ArsPaper\loot-tables.yml"
+    if (Test-Path -LiteralPath $f) { Move-Item -LiteralPath $f -Destination "$f.pre-reopen-$stamp" }
+}
+```
+
+起動後に新版が入ったかは行数で確認できる（761 行前後・`t5_structures` を含む）:
+
+```powershell
+Get-Content 'D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server\plugins\ArsPaper\loot-tables.yml' |
+    Measure-Object -Line
+```
+
+### 18-5. プレイヤーのデータと権限を消す
+
+```powershell
+.\purge-player-data.ps1            # 下見
+.\purge-player-data.ps1 -Apply
+```
+
+出力された SQL を流す（**これを飛ばすと HuskSync がインベントリを DB から復元して元に戻る**）:
+
+```powershell
+& 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p -e "source D:/game/minecraft/PaperServer/Velocity_for_TF/purge-player-data-<日時>.sql"
+```
+
+**既定では LuckPerms のグループ定義（`luckperms_groups` / `group_permissions` / `tracks`）は残る。**
+プレイヤーの所属は `luckperms_user_permissions` の `group.<名前>` ノードなので、そちらを空にすれば
+「誰も何のグループにも属していない」状態になる。グループ設計ごと作り直すなら `-PurgeGroups`
+を付ける（その場合は開幕前に手順 14-3 の `/lp` をやり直すこと）。
+
+詳しい対象一覧は手順 15。
+
+### 18-6. ワールドを作り直す
+
+```powershell
+.\reset-world.ps1                            # 下見（main と resource）
+.\reset-world.ps1 -Apply
+```
+
+やること:
+
+1. **データパックの正本を先に検査する。** 空なら 1 バイトも触らずに中断する
+   （world を消したあとで気づくと、その開幕は丸ごとバニラ地形で走ることになる）
+2. `world` / `world_nether` / `world_the_end` を `_world-backup-<日時>\<サーバ>\` へ退避
+3. 座標に縛られた残骸を消す（`ops-config.psd1` の `WorldResetTargets`。
+   Chunky のタスク・BlueMap のタイル・Ars のソース網・SetHome の拠点）
+4. 資源サーバの `world\datapacks` へ正本の 17 パックを**総入れ替え**で入れ直す
+
+> **`plugins\TrinityForge` は 3 台がジャンクションで共有している実体。**
+> 削除対象に混ざると全プレイヤーの進行データと全 config が 3 台分まとめて飛ぶので、
+> スクリプトは起動時点で名指しで拒否する（自己テストで固定済み）。
+
+dev のワールドも作り直すなら `-Target main,resource,dev`。
+
+### 18-7. 起動前チェック
+
+```powershell
+.\preflight.ps1
+```
+
+MariaDB / Garnet の疎通、HuskSync の資格情報と features、forwarding secret の一致を見る。
+**ここが赤いまま起動すると、HuskSync が enable に失敗してもサーバは止まらない**
+＝同期されないまま運用する事故になる。
+
+### 18-8. 起動して開幕後の設定を入れる
+
+```bat
+D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
+```
+
+起動したら、新しいワールドに対して入れ直すもの:
+
+| やること | コマンド | 備考 |
+|---|---|---|
+| ワールドボーダー | `/worldborder center 0 0` → `/worldborder set 5000` | main の 3 ワールドそれぞれ |
+| 資源のプリジェネ | `/chunky world world` → `/chunky center 0 0` → `/chunky radius 2500` → `/chunky start` | 週次の `reset-resource.ps1` は自動でやるが、手順 18 の経路では手で叩く |
+| 権限の確認 | `/lp group default info` など | 18-5 でグループを残した場合、所属だけが空になっている |
+| ArsPaper の戦利品 | 18-4 の行数確認 | 761 行前後でなければ古いファイルが残っている |
+
+**main を公開するなら `server.properties` の `white-list` を意図した値にすること。**
+dev は `purge-player-data.ps1` が `white-list=true` ＋ `-KeepOps` のメンバーだけに絞る（手順 14）。
+
+### 18-9. 見落としやすいもの
+
+- **稼働中のサーバに jar を差し替えると必ず `NoClassDefFoundError` になる。** 復旧は JVM 再起動しかない
+- **プラグインメッセージはプレイヤーの接続に相乗りする**ので、無人のサーバへはサーバ間チャットも TP も届かない（手順 16）
+- `_purge-backup-<日時>\` と `_world-backup-<日時>\` は自動では消えない。開幕が落ち着いてから消す
+- **`level-seed` は空**なので毎回別の地形になる。同じ地形で作り直したいなら先に seed を書くこと
+
+---
+
 ## 資源サーバのプレイヤー周知文（案）
 
 > **資源ワールドについて**

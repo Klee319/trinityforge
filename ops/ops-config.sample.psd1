@@ -73,6 +73,27 @@
         )
     }
 
+    # reset-world.ps1 (正式開幕・仕切り直し) が world と一緒に消すもの。
+    # サーバルートからの相対パス。週次の ResourceResetTargets とは別物で、
+    # 【どのバックエンドにも適用する】。world 本体はスクリプト側が持っているのでここには書かない。
+    #
+    # ここに挙げるのは「消えた座標を指し続ける」データだけ。残しても例外は出ないが、
+    # プリジェネが空振りしたり拠点へ飛べなかったりする形で静かに壊れる。
+    WorldResetTargets = @{
+        Directories = @(
+            # 消えたワールドを指し続ける Chunky のプリジェネ タスク状態
+            "plugins\Chunky\tasks"
+            # 消えた地形の BlueMap タイル (core.conf の data + storages\file.conf の root)
+            "bluemap\web\maps"
+        )
+        Files = @(
+            # ソース網のブロック座標 (SourceNetwork#saveSnapshot)
+            "plugins\ArsPaper\source-network.yml"
+            # 消えた地形の拠点
+            "plugins\SetHome\homes.yml"
+        )
+    }
+
     # 資源サーバに入れる構造物/地形データパック(案1)。
     #
     # ⚠⚠ **データパックを `world\datapacks` にだけ置くと、週次リセットの初回で全部消える。**

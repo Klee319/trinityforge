@@ -730,6 +730,116 @@ synchronization:
     }
 
     # ---- .cmd の ASCII 制約 ---------------------------------------------------------------------
+    # ---- reset-world (正式開幕のワールド作り直し) -----------------------------------------------
+    #  ここで守りたいのは 2 つ。
+    #   (1) world を「消す」のではなく「移す」ので、中身が本当に無傷で残ること
+    #       (退避したつもりで空だった、が一番取り返しがつかない)
+    #   (2) plugins\TrinityForge のジャンクションに絶対に手を出さないこと
+
+    Write-Host ""
+    Write-Host "=== reset-world のワールド作り直し ===" -ForegroundColor Cyan
+
+    function New-ResetWorldSandbox {
+        param([Parameter(Mandatory)] [string] $Name)
+
+        $root     = Join-Path $sandbox $Name
+        $mainRoot = Join-Path $root "Main_Server"
+        New-Item -ItemType Directory -Path (Join-Path $mainRoot "world\region") -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $mainRoot "world_nether") -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $mainRoot "plugins\SetHome") -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $mainRoot "world\region\r.0.0.mca") -Value "chunk" -NoNewline
+        Set-Content -LiteralPath (Join-Path $mainRoot "plugins\SetHome\homes.yml") -Value "x" -NoNewline
+
+        # 使っていないポートを割り当てる。実在ポートを書くと、他のサーバが立っている環境で
+        # 「稼働中」と誤判定してテストが落ちる。
+        $configPath = Join-Path $root "ops-config.psd1"
+        @"
+@{
+    VelocityRoot = "$root"
+    Servers = @{
+        Main     = @{ Name = "main";     Root = "$mainRoot";  RconHost = "127.0.0.1"; RconPort = 45586 }
+        Resource = @{ Name = "resource"; Root = "$root\nope"; RconHost = "127.0.0.1"; RconPort = 45587 }
+    }
+    ResourceResetTargets = @{ Directories = @("world"); Files = @() }
+    WorldResetTargets = @{ Directories = @(); Files = @("plugins\SetHome\homes.yml") }
+    ArsPaperSync = @{ ExcludeFiles = @(); ExcludePatterns = @() }
+    Backup = @{ Root = "$root\backup"; KeepDays = 1; Databases = @(); WslDistro = "Ubuntu" }
+}
+"@ | Set-Content -LiteralPath $configPath -Encoding UTF8
+
+        return @{ Root = $root; MainRoot = $mainRoot; ConfigPath = $configPath }
+    }
+
+    Test-Case "ワールドは削除ではなく退避され、中身が無傷で残る" {
+        $box = New-ResetWorldSandbox -Name "resetworld-move"
+        $script = Join-Path $PSScriptRoot "reset-world.ps1"
+
+        & $script -ConfigPath $box.ConfigPath -Target main -Apply -SkipDatapacks | Out-Null
+
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $box.MainRoot "world"))) `
+            "world が元の場所に残っている"
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $box.MainRoot "plugins\SetHome\homes.yml"))) `
+            "座標に縛られた残骸 (homes.yml) が消えていない"
+
+        $backupDirs = @(Get-ChildItem -LiteralPath $box.Root -Directory |
+            Where-Object { $_.Name -like "_world-backup-*" })
+        Assert-True ($backupDirs.Count -eq 1) "退避先が 1 つ作られていない: $($backupDirs.Count)"
+
+        $moved = Join-Path $backupDirs[0].FullName "main\world\region\r.0.0.mca"
+        Assert-True (Test-Path -LiteralPath $moved) "退避先にワールドの中身が無い: $moved"
+        Assert-True ((Get-Content -LiteralPath $moved -Raw) -eq "chunk") "退避で中身が壊れた"
+    }
+
+    Test-Case "world がジャンクションなら退避せずに中断する" {
+        # world をジャンクションにして運用している構成で、リンク先ごと引きずり出さないこと。
+        $box  = New-ResetWorldSandbox -Name "resetworld-junction"
+        $real = Join-Path $box.Root "real-world"
+        New-Item -ItemType Directory -Path $real -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $real "keep.txt") -Value "keep" -NoNewline
+
+        Remove-Item -LiteralPath (Join-Path $box.MainRoot "world") -Recurse -Force
+        New-Junction -Link (Join-Path $box.MainRoot "world") -Target $real
+
+        $script = Join-Path $PSScriptRoot "reset-world.ps1"
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command @"
+& '$script' -ConfigPath '$($box.ConfigPath)' -Target main -Apply -SkipDatapacks
+"@ 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+
+        Assert-True ($output -match "中断") "中断していない: $output"
+        Assert-True (Test-Path -LiteralPath (Join-Path $real "keep.txt")) `
+            "リンク先の実体が巻き込まれた"
+    }
+
+    Test-Case "WorldResetTargets に plugins\TrinityForge を書くと起動時点で拒否する" {
+        $box = New-ResetWorldSandbox -Name "resetworld-guard"
+        $bad = Get-Content -LiteralPath $box.ConfigPath -Raw
+        $bad = $bad -replace 'WorldResetTargets = @\{ Directories = @\(\);',
+                             'WorldResetTargets = @{ Directories = @("plugins\TrinityForge");'
+        Set-Content -LiteralPath $box.ConfigPath -Value $bad -Encoding UTF8
+
+        $script = Join-Path $PSScriptRoot "reset-world.ps1"
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command @"
+& '$script' -ConfigPath '$($box.ConfigPath)' -Target main -Apply -SkipDatapacks
+"@ 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+
+        Assert-True ($output -match "TrinityForge") "TrinityForge を名指しで拒否していない"
+        Assert-True ($output -match "中断") "中断していない"
+        Assert-True (Test-Path -LiteralPath (Join-Path $box.MainRoot "world")) `
+            "拒否したのに world を触っている"
+    }
+
     #  cmd.exe は UTF-8 のバッチファイルを正しく読めない。マルチバイト文字があると
     #  ファイル位置の計算がずれ、行の途中から実行を始める。実際に server-loop.cmd が
     #  日本語コメント入りだった間、stop.flag を見ずに空回りする無限ループになっていた
