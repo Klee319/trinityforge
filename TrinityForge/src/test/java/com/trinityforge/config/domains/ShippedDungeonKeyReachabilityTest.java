@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>入手経路として数えるのは
  * {@code items/catalog.yml} の {@code recipe:} / 採掘・掘削・釣りギミックの {@code drop-tables} /
- * {@code gacha.yml} の各プール。
+ * {@code gacha.yml} の各プール /
+ * <b>ArsPaper フォークの構造物戦利品({@code fork-handoff/arspaper/fork/src/main/resources/loot-tables.yml})</b>。
+ *
+ * <p><b>構造物戦利品を数える理由と、その扱い</b>(2026-08-16 再仕様化):
+ * 探索系の鍵({@code key_bridge} / {@code key_city} / {@code key_steamworks} / {@code key_climb} /
+ * {@code key_palace} / {@code key_sewer_maze} / {@code key_knight_castle} / {@code key_dark_cathedral} など)は
+ * レシピもギミックドロップも持たず、フォーク側の構造物チェスト抽選からだけ出る。
+ * ここを数えないとこの種の鍵が永久に「入手経路ゼロ」判定になり、テストが恒常的に赤くなる。
+ * ただしフォークのソースは {@code .gitignore} 除外なので<b>クリーンなクローンには存在しない</b>。
+ * そこで
+ * <ul>
+ *   <li>ファイルがある → 構造物戦利品も経路として数える(＝経路が消えたら落ちる)</li>
+ *   <li>ファイルが無い → TF 側の経路だけでは説明できない鍵が残った時点で
+ *       {@link org.junit.jupiter.api.Assumptions#abort} して<b>スキップ</b>にする
+ *       (フォーク不在を回帰と誤認しない)</li>
+ * </ul>
+ * とする。
  *
  * <p><b>EM ボスの確定ドロップ({@code combat/mob-overrides.yml})は意図的に数えない</b>
  * (2026-08-14 追記)。以前ここには「EM ボスは印({@code dungeon_seal_*})専用で鍵は配っていない」と
@@ -67,6 +84,14 @@ class ShippedDungeonKeyReachabilityTest {
             "src/main/resources/gacha.yml");
 
     /**
+     * ArsPaper フォークの構造物戦利品表。テストの作業ディレクトリは {@code TrinityForge/} なので
+     * 1つ上へ登る。<b>フォークのソースは {@code .gitignore} 除外</b>なので、この相対パスは
+     * クリーンなクローン／新しい worktree では存在しない(＝存在しないことは回帰ではない)。
+     */
+    private static final String ARS_STRUCTURE_LOOT =
+            "../fork-handoff/arspaper/fork/src/main/resources/loot-tables.yml";
+
+    /**
      * 意図的に未定義のまま残す鍵ID(現在は0件)。
      *
      * <p>※2026-08-08訂正: 以前は {@code key_hallosseum}/{@code key_north_pole} が
@@ -87,7 +112,7 @@ class ShippedDungeonKeyReachabilityTest {
     }
 
     @Test
-    @DisplayName("すべての key_* が入手経路(レシピ or ドロップ表)を持つ")
+    @DisplayName("すべての key_* が入手経路(レシピ / ドロップ表 / 構造物戦利品)を持つ")
     void everyDungeonKeyIsObtainable() {
         Set<String> keys = keyItemIds();
         assertFalse(keys.isEmpty(), "catalog.yml から key_* を1件も読めていない"
@@ -96,14 +121,36 @@ class ShippedDungeonKeyReachabilityTest {
         Set<String> craftable = keysWithRecipe();
         Set<String> dropped = droppedItemIds();
 
-        List<String> unreachable = new ArrayList<>();
+        List<String> unreachableInTf = new ArrayList<>();
         for (String key : keys) {
             if (!craftable.contains(key) && !dropped.contains(key)) {
-                unreachable.add(key);
+                unreachableInTf.add(key);
             }
         }
+        if (unreachableInTf.isEmpty()) {
+            return;
+        }
+
+        // ここから先は「TF 側だけでは説明できない鍵」の話。構造物戦利品(フォーク側)を見に行く。
+        File lootFile = new File(ARS_STRUCTURE_LOOT);
+        Assumptions.assumeTrue(lootFile.isFile(),
+                "ArsPaper フォークの " + ARS_STRUCTURE_LOOT + " が無いので、構造物戦利品からしか"
+                        + "出ない鍵の入手経路を検証できない(フォークのソースは .gitignore 除外なので"
+                        + "クリーンなクローンでは常にこの状態＝回帰ではない)。未検証の鍵: "
+                        + unreachableInTf);
+
+        Set<String> fromStructures = structureLootItemIds(lootFile);
+        assertFalse(fromStructures.isEmpty(),
+                "構造物戦利品 " + lootFile.getAbsolutePath() + " から custom: アイテムを1件も"
+                        + "読めていない。抽出側が壊れているとこの検査が丸ごと無効化されるので、"
+                        + "まず抽出できていることを確かめる");
+
+        List<String> unreachable = unreachableInTf.stream()
+                .filter(key -> !fromStructures.contains(key))
+                .toList();
         assertTrue(unreachable.isEmpty(),
-                "入手経路がゼロの鍵がある(レシピも無くどのドロップ表にも載っていない)。"
+                "入手経路がゼロの鍵がある(レシピも無く、TF のどのドロップ表にも、"
+                        + "ArsPaper の構造物戦利品(" + ARS_STRUCTURE_LOOT + ")にも載っていない)。"
                         + "この鍵を gates.yml の key-item に指定すると誰も入れないダンジョンになる: "
                         + unreachable);
     }
@@ -284,6 +331,36 @@ class ShippedDungeonKeyReachabilityTest {
                             out.add(String.valueOf(item).trim());
                         }
                     }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * ArsPaper の構造物戦利品表で配られている <b>{@code custom:} アイテムのID</b>(接頭辞を外したもの)。
+     *
+     * <p>形は TF のドロップ表と同じ {@code entries: [{item: custom:<id>, chance: N}, ...]} なので、
+     * プールの入れ子の深さに依存せず {@code entries} を再帰的に拾う。
+     */
+    private static Set<String> structureLootItemIds(File lootFile) {
+        Set<String> out = new LinkedHashSet<>();
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(lootFile);
+        for (Map.Entry<String, Object> entry : yaml.getValues(true).entrySet()) {
+            if (!entry.getKey().endsWith("entries") || !(entry.getValue() instanceof List<?> rows)) {
+                continue;
+            }
+            for (Object row : rows) {
+                if (!(row instanceof Map<?, ?> map)) {
+                    continue;
+                }
+                Object item = map.get("item");
+                if (item == null) {
+                    continue;
+                }
+                String token = String.valueOf(item).trim();
+                if (token.regionMatches(true, 0, "custom:", 0, "custom:".length())) {
+                    out.add(token.substring("custom:".length()).trim());
                 }
             }
         }

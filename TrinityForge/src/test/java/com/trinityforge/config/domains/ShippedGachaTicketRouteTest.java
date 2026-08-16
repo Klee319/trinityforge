@@ -35,9 +35,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 「ガチャ券が出ない」という体感が積み上がるまで誰も気づけない。
  *
  * <h2>ここで言う「恒常経路」</h2>
- * <b>モブ討伐ドロップだけ</b>を数える —— {@code combat/mob-level-table.yml} の {@code add-drops}
- * と {@code combat/mob-overrides.yml} の {@code drops}。進捗報酬（一回きり）とガチャ景品（自己循環）は
- * 意図的に数えない。この2つを数えてしまうと、上の事故がそのまま素通りする。
+ * <b>繰り返し供給される経路だけ</b>を数える。具体的には
+ * <ul>
+ *   <li>モブ討伐ドロップ —— {@code combat/mob-level-table.yml} の {@code add-drops} と
+ *       {@code combat/mob-overrides.yml} の {@code drops}</li>
+ *   <li><b>採取ギミックのドロップ表</b> —— {@code stats/fishing-gimmick.yml} /
+ *       {@code stats/digging-gimmick.yml} の {@code entries}(2026-08-16 追加)</li>
+ * </ul>
+ * 進捗報酬（一回きり）とガチャ景品（自己循環）は意図的に数えない。
+ * この2つを数えてしまうと、上の事故がそのまま素通りする。
+ *
+ * <p><b>ギミック経路を数える理由</b>(2026-08-16 再仕様化): 券のうち
+ * {@code gacha_ticket_fishing} / {@code gacha_ticket_digging} は<b>そもそもモブが落とす設計ではない</b>。
+ * 釣り・掘削のギミック抽選から出る専用券なので、モブドロップだけを数えると
+ * 「配線は正しいのに恒常的に赤い」状態になる。ただし<b>券IDの許可リストでは逃げない</b> ——
+ * 実際に上記2ファイルをパースして {@code custom:gacha_ticket_*} の出現を経路として数えるので、
+ * ギミック側から券のエントリが消えればそのまま落ちる。
  *
  * <h2>許可リストにしない工夫</h2>
  * 検査対象の券を手書きせず、{@code gacha.yml} の {@code tickets:} キーから毎回導出する。
@@ -49,6 +62,11 @@ class ShippedGachaTicketRouteTest {
     private static final String MOB_OVERRIDES = "src/main/resources/combat/mob-overrides.yml";
     private static final String GACHA = "src/main/resources/gacha.yml";
 
+    /** 券を配りうる採取ギミック。ここに無いファイルへ券を置いても恒常経路として数えない。 */
+    private static final List<String> GIMMICK_SOURCES = List.of(
+            "src/main/resources/stats/fishing-gimmick.yml",
+            "src/main/resources/stats/digging-gimmick.yml");
+
     private static final String CUSTOM_PREFIX = "custom:";
 
     /** 券の下限件数（{@code tickets:} 節ごと消えて検査が空回りするのを防ぐ）。 */
@@ -57,33 +75,41 @@ class ShippedGachaTicketRouteTest {
     // ------------------------------------------------------------------------------------------
 
     @Test
-    @DisplayName("gacha.yml が宣言する券は全件がモブ討伐ドロップの経路を持つ — 進捗報酬(一回きり)とガチャ景品(自己循環)は供給にならない")
+    @DisplayName("gacha.yml が宣言する券は全件が恒常経路(モブ討伐ドロップ or 採取ギミック)を持つ — 進捗報酬(一回きり)とガチャ景品(自己循環)は供給にならない")
     void everyDeclaredTicketHasARepeatableMobDropRoute() throws Exception {
         Set<String> tickets = declaredTicketIds();
         Set<String> fromBands = ticketIdsInLevelTable();
         Set<String> fromBosses = ticketIdsInMobOverrides();
+        Set<String> fromGimmicks = ticketIdsInGimmicks();
 
         assertTrue(!fromBands.isEmpty(),
                 MOB_LEVEL_TABLE + " の add-drops にガチャ券が1件も無い。抽出側が壊れていると"
                         + "この検査が丸ごと無効化されるので、まず抽出できていることを確かめる");
         assertTrue(!fromBosses.isEmpty(),
                 MOB_OVERRIDES + " の drops にガチャ券が1件も無い。同上");
+        assertTrue(!fromGimmicks.isEmpty(),
+                GIMMICK_SOURCES + " の entries にガチャ券が1件も無い。同上"
+                        + "(釣り・掘削の専用券はここからしか出ないので、抽出が壊れると"
+                        + "『配線は正しいのに恒常的に赤い』状態になる)");
 
         List<String> unobtainable = new ArrayList<>();
         for (String ticket : tickets) {
-            if (!fromBands.contains(ticket) && !fromBosses.contains(ticket)) {
+            if (!fromBands.contains(ticket) && !fromBosses.contains(ticket)
+                    && !fromGimmicks.contains(ticket)) {
                 unobtainable.add(ticket);
             }
         }
         assertTrue(unobtainable.isEmpty(),
-                "gacha.yml の tickets: に宣言されているのに、モブ討伐ドロップの経路が1本も無い券がある。"
+                "gacha.yml の tickets: に宣言されているのに、恒常入手経路が1本も無い券がある。"
                         + "進捗報酬は一回きり、ガチャ景品は『券を消費して券を引く』自己循環なので、"
                         + "どちらも恒常供給にはならない —— この状態はガチャの周回ループが恒久的に"
                         + "止まっていることを意味する(2026-08-14 に gacha_ticket_0 で実際に起きた)。"
-                        + "帯ドロップ(combat/mob-level-table.yml の add-drops)か"
-                        + "踏破ボスドロップ(combat/mob-overrides.yml の drops)のどちらかへ配線すること: "
+                        + "帯ドロップ(combat/mob-level-table.yml の add-drops)、"
+                        + "踏破ボスドロップ(combat/mob-overrides.yml の drops)、"
+                        + "採取ギミック(" + GIMMICK_SOURCES + " の entries)のいずれかへ配線すること: "
                         + unobtainable
-                        + " / 帯にある券=" + fromBands + " / ボスにある券=" + fromBosses);
+                        + " / 帯にある券=" + fromBands + " / ボスにある券=" + fromBosses
+                        + " / ギミックにある券=" + fromGimmicks);
     }
 
     @Test
@@ -195,7 +221,7 @@ class ShippedGachaTicketRouteTest {
     }
 
     @Test
-    @DisplayName("自分自身のプールの景品にもなっている券(自己循環)は、必ずモブドロップ経路も持つ — 循環だけでは供給ゼロ")
+    @DisplayName("自分自身のプールの景品にもなっている券(自己循環)は、必ず外部の恒常経路も持つ — 循環だけでは供給ゼロ")
     void selfCirculatingTicketsAlsoHaveAnExternalRoute() throws Exception {
         YamlConfiguration gacha = load(GACHA);
         ConfigurationSection tickets = gacha.getConfigurationSection("tickets");
@@ -203,6 +229,8 @@ class ShippedGachaTicketRouteTest {
 
         Set<String> external = new TreeSet<>(ticketIdsInLevelTable());
         external.addAll(ticketIdsInMobOverrides());
+        // 2026-08-16: 釣り・掘削の専用券はモブでなく採取ギミックが供給源なので、こちらも外部経路。
+        external.addAll(ticketIdsInGimmicks());
 
         List<String> selfCirculating = new ArrayList<>();
         List<String> problems = new ArrayList<>();
@@ -233,7 +261,7 @@ class ShippedGachaTicketRouteTest {
                 "『そのプールを引くのに必要な券が、そのプールの景品にも入っている』(=自己循環)のに、"
                         + "外部からの恒常入手経路が無い券がある。券を消費して券を引く以上、"
                         + "期待値が1未満なら残高は必ず減る —— 供給源にはなりえない。"
-                        + "モブ討伐ドロップ側へ配線すること: " + problems
+                        + "モブ討伐ドロップか採取ギミック側へ配線すること: " + problems
                         + " / 自己循環している券=" + selfCirculating);
     }
 
@@ -347,6 +375,32 @@ class ShippedGachaTicketRouteTest {
                 String id = customId(text(drop.get("item")));
                 if (id != null && id.startsWith("gacha_ticket_")) {
                     ids.add(id);
+                }
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * 採取ギミックのドロップ表で配られている券ID。
+     *
+     * <p>釣り・掘削のギミックは {@code drop-tables} / {@code unlock-groups} など入れ子の形が
+     * ファイルごとに違うので、深さに依存せず {@code entries} という名前のリストを再帰的に拾い、
+     * その {@code item:} が {@code custom:gacha_ticket_*} のものだけを数える。
+     */
+    private static Set<String> ticketIdsInGimmicks() throws Exception {
+        Set<String> ids = new TreeSet<>();
+        for (String path : GIMMICK_SOURCES) {
+            YamlConfiguration cfg = load(path);
+            for (Map.Entry<String, Object> node : cfg.getValues(true).entrySet()) {
+                if (!node.getKey().endsWith("entries")) {
+                    continue;
+                }
+                for (Map<?, ?> row : maps(node.getValue())) {
+                    String id = customId(text(row.get("item")));
+                    if (id != null && id.startsWith("gacha_ticket_")) {
+                        ids.add(id);
+                    }
                 }
             }
         }

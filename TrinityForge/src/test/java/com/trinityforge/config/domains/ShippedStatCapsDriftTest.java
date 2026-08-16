@@ -18,11 +18,9 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +39,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>そこでここでは <b>「cap は、そのキーを持つ単品装備の最大値を下回ってはならない」</b> を固定する。
  * バランス調整で cap を下げること自体は自由だが、装備を潰す高さまで下げた瞬間にここが落ちる。
+ *
+ * <h2>2026-08-16 ユーザー決定: 上限なしが正。バランスは thread-rolls の抽選幅で取る</h2>
+ * K-19 で入れた「攻撃側8キーの初期上限」は方針転換により<b>撤回された</b>。
+ * 出荷 {@code combat/stat-caps.yml} は {@code stat-caps: {}}(＝上限なし)が<b>意図された状態</b>である。
+ * よって以前ここにあった
+ * <ul>
+ *   <li>「出荷 cap が空なら落とす」(shippedCapsNeverClampShippedGear の冒頭)</li>
+ *   <li>「攻撃側8キーが揃っていること」(everyAttackSideKeyIsCapped)</li>
+ * </ul>
+ * は<b>廃止した</b>。厳選の伸びを縛りたい場合は stat-caps ではなく
+ * {@code thread-rolls.yml} の min/max(抽選幅)で取る、というのが現行の方針。
+ *
+ * <p>ただし<b>「上限を書いた場合に装備を潰していないか」の検出は価値が残る</b>ので保持する。
+ * caps が空なら比較対象が無いので何もせず緑、将来 caps が書かれたら即座に上の突き合わせが復活する。
  *
  * <h2>単品最大の定義</h2>
  * {@code item-stats.yml} の意味論そのまま: {@code fixed + per-quality × max-quality + random.max}。
@@ -154,13 +166,18 @@ class ShippedStatCapsDriftTest {
 
     // === drift 検出(1) 上限が装備を潰していないこと ===
 
+    /**
+     * <b>2026-08-16 ユーザー決定: 上限なしが正。バランスは thread-rolls の抽選幅で取る。</b>
+     * したがって caps が空(出荷の既定)なら比較対象が無いので何も検査せず緑。
+     * 将来ここに上限を書いたときだけ「装備を潰す高さになっていないか」が復活する。
+     */
     @Test
-    @DisplayName("出荷 cap は、出荷 item-stats の単品最大を下回らない(下回ると最上位装備が無言で潰れる)")
+    @DisplayName("出荷 cap を書いた場合は、出荷 item-stats の単品最大を下回らない(下回ると最上位装備が無言で潰れる / 空＝上限なしは正常)")
     void shippedCapsNeverClampShippedGear(@TempDir File tempDir) throws IOException {
         Map<String, Double> caps = loadShippedCaps(tempDir).caps();
-        assertFalse(caps.isEmpty(),
-                "出荷 stat-caps.yml が空。2026-08-01 に攻撃側8キーの初期値を入れた(K-19)ので、"
-                        + "空に戻っているなら意図的な差し戻しか、エディタ保存でセクションが落ちている。");
+        if (caps.isEmpty()) {
+            return; // 上限なし(出荷の意図された状態)。潰される装備も存在しない。
+        }
         int maxQuality = shippedMaxQuality();
         Map<String, ItemPeak> peaks = shippedItemPeaks(maxQuality);
 
@@ -191,22 +208,22 @@ class ShippedStatCapsDriftTest {
                         + "綴り間違いは【書いたのに何も起きない】という形で無言化する。"));
     }
 
-    // === drift 検出(3) 2026-08-01 に決めた攻撃側8キーが揃っていること ===
+    // === drift 検出(3) 出荷 yml が読める形であること(上限の有無そのものは問わない) ===
 
+    /**
+     * <b>2026-08-16 ユーザー決定: 上限なしが正。バランスは thread-rolls の抽選幅で取る。</b>
+     *
+     * <p>ここは以前「攻撃側8キー(K-19)が揃っていること」を要求していたが、方針転換で
+     * {@code stat-caps: {}}(上限なし)が出荷の正しい状態になったため、その要求は<b>廃止した</b>。
+     * 代わりに残すのは「出荷 yml が壊れていないこと」だけ —— パースに失敗すると
+     * {@link StatCapsConfig#load} は false を返し、上限機構そのものが無言で死ぬ。
+     * (パース失敗は {@code loadShippedCaps} 内で assert している)
+     */
     @Test
-    @DisplayName("攻撃側8キーが出荷 cap に揃っている(1つ抜けるとそのキーだけ青天井に戻る)")
-    void everyAttackSideKeyIsCapped(@TempDir File tempDir) throws IOException {
+    @DisplayName("出荷 stat-caps.yml はパースできる(上限が空＝上限なしは 2026-08-16 の決定どおりの正常状態)")
+    void shippedStatCapsFileParses(@TempDir File tempDir) throws IOException {
         Map<String, Double> caps = loadShippedCaps(tempDir).caps();
-        List<String> required = List.of(
-                "attack-power", "crit-chance", "crit-damage", "penetration",
-                "percent-bonus-damage", "flat-bonus-damage", "bleed-chance", "bleed-damage");
-        for (String key : required) {
-            assertTrue(caps.containsKey(StatKeys.canonical(key)),
-                    "攻撃側キー '" + key + "' の上限が出荷 stat-caps.yml から消えている。"
-                            + "K-19(19枠フル厳選で crit-chance 171% / attack-power 20,520 が乗る)への"
-                            + "唯一の歯止めなので、外すなら代わりの機構を用意すること。"
-                            + "現在の caps: " + caps.keySet());
-        }
+        assertNotNull(caps, "StatCapsConfig#caps() が null を返した(load は成功しているのに読めていない)");
     }
 
     // === drift 検出(4) 設定リファレンスの記載値が出荷 cap から離れていないこと ===
@@ -221,11 +238,20 @@ class ShippedStatCapsDriftTest {
      * 実際 2026-08-01→08-02 の2回の変更で {@code 137500}(実際は {@code 127500})、
      * 単品最大 {@code 120,349.8}(実際は {@code 111,395.9}) と<b>2箇所とも stale になった</b>。
      * 古い導出を読んだ人は「まだ余裕がある」と誤解して cap を据え置く。
+     *
+     * <p><b>2026-08-16 ユーザー決定: 上限なしが正。バランスは thread-rolls の抽選幅で取る。</b>
+     * 出荷 yml に {@code attack-power} の上限が無い状態が正常になったので、
+     * 「上限が書かれているときだけ md と突き合わせる」に変更した(以前は上限が消えた瞬間に
+     * {@code Map#get} が null を返して NPE で落ちていた)。
      */
     @Test
-    @DisplayName("設定リファレンスの attack-power 上限が出荷値と一致している(md が無言で腐らない)")
+    @DisplayName("設定リファレンスの attack-power 上限が出荷値と一致している(md が無言で腐らない / 上限なしのときは対象外)")
     void theConfigReferenceQuotesTheShippedAttackPowerCap(@TempDir File tempDir) throws IOException {
-        double cap = loadShippedCaps(tempDir).caps().get(StatKeys.canonical("attack-power"));
+        Double shipped = loadShippedCaps(tempDir).caps().get(StatKeys.canonical("attack-power"));
+        if (shipped == null) {
+            return; // 上限なし(2026-08-16 の決定)。md と突き合わせる値そのものが存在しない。
+        }
+        double cap = shipped;
         File doc = new File("../docs/config-reference/combat/stat-caps.md");
         assertTrue(doc.isFile(), "設定リファレンスが見つからない: " + doc.getAbsolutePath());
 

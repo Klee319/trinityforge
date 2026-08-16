@@ -271,18 +271,40 @@ class RateKeyDoubleShrinkGuardTest {
         return key.toLowerCase(Locale.ROOT).replace('-', '_');
     }
 
+    /**
+     * 監視対象のRATE_KEY集合。
+     *
+     * <p><b>2026-08-16 全数調査で見つかったこのガード自身の穴</b>: 元の実装はソース文字列
+     * {@code "RATE_KEYS = Set.of("} だけを見ていた。{@link PercentStatNormalize} は
+     * 「固定リスト({@code FIXED_RATE_KEYS})＋{@link SkillExpBonusKeys} 由来の職業EXP増加15キー」
+     * という構成へ変わっており、前者はたまたま部分文字列として引っかかって読めていたが、
+     * <b>後者の15キー({@code woodcutting_exp_bonus} 等)は一度も監視されていなかった</b>
+     * (ソース固定のガードが無言で検査範囲を失う典型)。
+     * ここでは実クラスの {@link SkillExpBonusKeys#all()} を直接足して穴を塞ぐ。
+     */
     private static Set<String> extractRateKeys() throws IOException {
         String src = Files.readString(PERCENT_STAT_NORMALIZE);
-        int start = src.indexOf("RATE_KEYS = Set.of(");
-        assertTrue(start >= 0, "RATE_KEYS宣言の開始位置を見つけられなかった");
+        int start = src.indexOf("FIXED_RATE_KEYS = Set.of(");
+        assertTrue(start >= 0,
+                "FIXED_RATE_KEYS宣言の開始位置を見つけられなかった(PercentStatNormalizeの構造が変わった)");
         int end = src.indexOf(");", start);
-        assertTrue(end >= 0, "RATE_KEYS宣言の終端 ');' を見つけられなかった");
+        assertTrue(end >= 0, "FIXED_RATE_KEYS宣言の終端 ');' を見つけられなかった");
         String block = src.substring(start, end);
         Set<String> keys = new LinkedHashSet<>();
         Matcher m = RATE_KEY_LITERAL.matcher(block);
         while (m.find()) {
             keys.add(canonical(m.group(1)));
         }
+        // 職業EXP増加(スキル別)は固定リストではなく SkillExpBonusKeys から導出される。
+        keys.addAll(SkillExpBonusKeys.all());
+
+        // 構造ドリフトで検査集合が痩せたら、静かに素通りせずここで落とす。
+        assertTrue(keys.contains("defense_rate"),
+                "固定リスト側のキーを1件も読めていない(正規表現かアンカー文字列がズレた): " + keys);
+        assertTrue(keys.contains(canonical("woodcutting-exp-bonus")),
+                "職業EXP増加(スキル別)が監視集合に入っていない: " + keys);
+        assertTrue(keys.size() >= 60,
+                "RATE_KEYSの読み取り件数が想定(固定約48 + スキル別15)を大きく下回る: " + keys.size());
         return keys;
     }
 }

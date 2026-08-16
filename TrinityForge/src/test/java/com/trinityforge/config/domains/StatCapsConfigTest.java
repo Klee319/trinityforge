@@ -150,16 +150,18 @@ class StatCapsConfigTest {
     /**
      * 出荷ymlの実バイトをコピーして {@link StatCapsConfig} の実ロード経路で読む。
      *
-     * <p><b>2026-08-01 に期待値を反転した</b>。以前ここは「出荷は上限0件(全部コメントアウト)」を
-     * 固定していたが、K-19(19枠フル厳選で crit-chance 171% / attack-power 20,520 が乗る)への対策として
-     * <b>攻撃側8キーの初期値を出荷するようになった</b>ので、0件を要求すると出荷内容と必ず食い違う。
+     * <p><b>2026-08-16 に方針が再反転した(ユーザー決定)</b>。経緯:
+     * 当初「出荷は上限0件」→ 2026-08-01 に K-19 対策で攻撃側8キーの初期値を出荷
+     * → 2026-08-16 に「天井があるとそこでゲームが終わるから要らない。バランスは
+     * thread-rolls の抽選幅で取る」という決定で<b>出荷は再び {@code stat-caps: {}}（上限なし）が正</b>になった。
+     * ここで非空を要求すると意図された出荷状態と必ず食い違うため、
+     * 「壊れずに読めて、既定＝上限なしで返る」ことだけを固定する。
      *
-     * <p>ここでは「出荷ymlが壊れずに読める」ことだけを見る。
-     * <b>個々の cap 値が妥当かどうか</b>(装備を潰していないか / キーが StatVocabulary 既知か)は
+     * <p>将来 caps が書かれた場合の妥当性(装備を潰していないか)は
      * {@code ShippedStatCapsDriftTest} が出荷 {@code item-stats.yml} と突き合わせて検査する。
      */
     @Test
-    void bundledYamlResourceShipsTheAttackSideCaps(@TempDir File tempDir) throws IOException {
+    void bundledYamlResourceParsesAndDefaultsToUncapped(@TempDir File tempDir) throws IOException {
         File source = new File("src/main/resources/" + StatCapsConfig.PATH);
         assertTrue(source.exists(), "bundled " + StatCapsConfig.PATH + " must exist under src/main/resources");
         File dest = new File(tempDir, StatCapsConfig.PATH);
@@ -168,8 +170,9 @@ class StatCapsConfigTest {
 
         StatCapsConfig config = new StatCapsConfig();
         assertTrue(config.load(fakePlugin(tempDir)), "bundled stat-caps.yml must parse without issues");
-        assertFalse(config.caps().isEmpty(),
-                "出荷 stat-caps.yml が空。2026-08-01 に攻撃側8キーの初期値を入れた(K-19)ので、"
-                        + "空へ戻っているなら意図的な差し戻しか、config-editor 保存でセクションが落ちている。");
+        assertTrue(config.caps().isEmpty(),
+                "出荷 stat-caps.yml に上限が書かれている。2026-08-16 のユーザー決定は「上限なしが正・"
+                        + "バランスは thread-rolls の抽選幅で取る」。上限を復活させるなら、その決定の"
+                        + "撤回をユーザーに確認してからこのテストごと更新すること。");
     }
 }
