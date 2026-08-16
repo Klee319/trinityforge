@@ -40,13 +40,18 @@ icon: SMITHING_TABLE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1
   at-level: 100
   name: 鍛冶王の栄光
   effect-text: 全ての品質 永続+3・ランダムステータスの上振れ率 永続+15%
   buffs:
-    workbench_quality_bonus: 3
-    workbench_upswing_bonus: 0.15
+    workbench-quality-bonus: 2
+    craft-roll-up-bonus: 2
+    craft-roll-down-reduction: 2
+    craft-roll-inset: 2
+  description: |-
+    作業台品質+2
+    ロールステータスの品質up
+  max-times: 5
 nodes:
   A:
     name: 駆け出しの鍛冶
@@ -59,7 +64,8 @@ nodes:
     effects:
       - 作業台クラフトの品質基準+2
     buffs:
-      workbench_quality_bonus: 2
+      workbench-quality-bonus: 1
+    description: 作業台品質+1
   B:
     name: 銅細工の鍛冶
     level: 30
@@ -72,8 +78,10 @@ nodes:
       - 作業台クラフトの品質基準+2
       - クラフト品のランダムステータス上振れ幅+1%
     buffs:
-      workbench_quality_bonus: 2
-      craft_roll_up_bonus: 1
+      workbench-quality-bonus: 1
+    description: |-
+      作業台品質+1
+      ロール効率+5%
   C:
     name: 鉄金の鍛冶師
     level: 50
@@ -87,9 +95,14 @@ nodes:
       - クラフト品質の上振れ幅+0.1
       - クラフト品のランダムステータス上振れ幅+2%
     buffs:
-      workbench_quality_bonus: 1
-      workbench_upswing_bonus: 0.1
-      craft_roll_up_bonus: 2
+      workbench-quality-bonus: 1
+    description: |-
+      作業台品質+1
+      解体 Lv1解放
+      &8ドロップしたアイテムに金床を落とすことで解体可能
+    dedicated-effects:
+      - id: feature:dismantle-unlock
+        value: 1
   D:
     name: ダイヤの鍛冶匠
     level: 70
@@ -103,9 +116,13 @@ nodes:
       - クラフト品質の上振れ幅+0.15
       - クラフト品のランダムステータス上振れ幅+3%
     buffs:
-      workbench_quality_bonus: 1
-      workbench_upswing_bonus: 0.15
-      craft_roll_up_bonus: 3
+      workbench-quality-bonus: 1
+    description: |-
+      作業台品質+1
+      解体 Lv2解放
+    dedicated-effects:
+      - id: feature:dismantle-unlock
+        value: 2
   E:
     name: ネザライトの鍛冶王
     level: 90
@@ -118,8 +135,16 @@ nodes:
       - 作業台クラフトの品質基準+1
       - 鍛冶師を解放
     buffs:
-      workbench_quality_bonus: 1
+      workbench-quality-bonus: 2
+    description: |-
+      作業台品質+2
+      解体 Lv3解放
     dedicated-effects:
+      - id: feature:dismantle-unlock
+        value: 3
+      # 2026-08-16復旧: trade: ゲートはフェイルクローズ(どのノードにも置かないと恒久ロック)。
+      # このノードの effects に「鍛冶師を解放」と書いてあるのに配置だけ落ちていて、
+      # villager-trades.yml の3職が誰にも解放されない状態になっていた。
       - id: trade:WEAPONSMITH
       - id: trade:ARMORER
       - id: trade:TOOLSMITH
@@ -136,6 +161,7 @@ nodes:
     dedicated-effects:
       - id: feature:furnace-smelt-speed
         value: 1
+    description: 精錬速度+25%
   A-2:
     name: 精錬速度II
     level: 40
@@ -149,9 +175,10 @@ nodes:
     dedicated-effects:
       - id: feature:furnace-smelt-speed
         value: 2
+    description: 精錬速度+50%
   A-3:
     name: 精錬速度III
-    level: 40
+    level: 60
     role: branch
     parent: A-2
     icon: BLAST_FURNACE
@@ -162,9 +189,10 @@ nodes:
     dedicated-effects:
       - id: feature:furnace-smelt-speed
         value: 3
+    description: 精錬速度+100%
   A-4:
     name: 精錬・制作魔法の解放
-    level: 60
+    level: 80
     role: branch
     parent: A-3
     icon: BLAST_FURNACE
@@ -178,7 +206,7 @@ nodes:
       - id: glyph:craft
   B-1:
     name: 精錬ボーナスI
-    level: 35
+    level: 40
     role: branch
     parent: B
     icon: RAW_IRON
@@ -191,7 +219,7 @@ nodes:
         value: 1
   B-2:
     name: 精錬ボーナスII
-    level: 40
+    level: 60
     role: branch
     parent: B-1
     icon: RAW_GOLD
@@ -202,9 +230,10 @@ nodes:
     dedicated-effects:
       - id: feature:furnace-smelt-bonus
         value: 2
+    description: 鉱石の精錬ボーナス+30%
   B-3:
     name: 精錬ボーナスIII
-    level: 60
+    level: 80
     role: branch
     parent: B-2
     icon: RAW_GOLD
@@ -215,22 +244,23 @@ nodes:
     dedicated-effects:
       - id: feature:furnace-smelt-bonus
         value: 3
+    description: 鉱石の精錬ボーナス+50%
   B-alpha-1:
     name: 下振れ軽減I
-    level: 30
+    level: 40
     role: greek
     parent: B
     group: B-greek
     icon: QUARTZ
     cost: 1
-    effect-text: ランダムステータスの品質で下振れが減少
     effects:
       - ランダムステータスの品質で下振れが減少
     buffs:
-      workbench_downswing_reduction: 10
+      workbench-downswing-reduction: 0.4
+    description: 品質効率up Lv1
   B-alpha-2:
     name: 下振れ軽減II
-    level: 50
+    level: 60
     role: greek
     parent: B-alpha-1
     group: B-greek
@@ -240,10 +270,11 @@ nodes:
     effects:
       - ランダムステータスの品質で下振れが減少
     buffs:
-      workbench_downswing_reduction: 10
+      workbench-downswing-reduction: 0.4
+    description: 品質効率up Lv2
   B-beta-1:
     name: 品質上限I
-    level: 30
+    level: 40
     role: greek
     parent: B
     group: B-greek
@@ -253,10 +284,11 @@ nodes:
     effects:
       - クラフト品質+1
     buffs:
-      workbench_quality_bonus: 1
+      workbench-upswing-bonus: 0.7
+    description: 品質運up Lv1
   B-beta-2:
     name: 品質上限II
-    level: 50
+    level: 60
     role: greek
     parent: B-beta-1
     group: B-greek
@@ -266,19 +298,5 @@ nodes:
     effects:
       - クラフト品質+1
     buffs:
-      workbench_quality_bonus: 1
-  B-3-upper:
-    name: 解体の術
-    level: 70
-    role: greek
-    parent: B-alpha-2
-    parents-any:
-      - B-beta-2
-    icon: SHEARS
-    cost: 1
-    effect-text: 解体解放
-    effects:
-      - 解体を解放
-    dedicated-effects:
-      - id: feature:dismantle-unlock
-        value: 1
+      workbench-upswing-bonus: 0.7
+    description: 品質運up Lv1

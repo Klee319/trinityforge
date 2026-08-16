@@ -167,9 +167,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>ガーディアンの気分</color>
-    # コンジットパワーのスレッド: バニラのコンジット構造(海洋の心+オウムガイの殻+シーランタン)を
-    # そのまま儀式へ写す。海底神殿の主(エルダーガーディアンの棘)と番人(ガーディアンの棘)で
-    # 「海の守護」を締める。強さ5位 → source 20,000。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -180,6 +177,8 @@ items:
         - SEA_LANTERN x1
         - HEART_OF_THE_SEA x1
       source: 20000
+      type: shapeless
+      ingredients: []
   thread_damage_mana_recovery:
     external-source: arspaper
     material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
@@ -213,9 +212,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>この好意はだれから？</color>
-    # イルカの好意のスレッド: 海の光(プリズマリンの結晶)と海の使者(オウムガイの殻)に、
-    # 番人の棘と水中呼吸ポーションの正素材(フグ)を合わせて「水中に受け入れられる」を表す。
-    # 強さ6位 → source 12,000。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -225,6 +221,8 @@ items:
         - custom:guardian_spine x2
         - PUFFERFISH x1
       source: 12000
+      type: shapeless
+      ingredients: []
   thread_empty:
     external-source: arspaper
     material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
@@ -236,12 +234,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>これははじまりにすぎない</color>
-    # 空のスレッド: これだけは自分自身をコアにできないので別設計。
-    # コアは魔力を帯びた繊維(マジックファイバー)＝「糸の芯」。台座は糸(String)・羊毛・源。
-    # 下流9本すべてのコアなのでここを高くすると全部詰まる。ガチャ全6ティアで配っている
-    # アイテムでもあるため、意図的に最安帯(source 1,000)＋2本出しにしてある。
-    # ⚠ magebloom_fiber の base_material は STRING なので、台座の素の STRING x3 と見た目が同じ。
-    #    機能上は PDC で区別されるが、案内するときは「コアが繊維・台座が糸」と伝えること。
     recipe:
       method: ritual
       core-item: custom:magebloom_fiber
@@ -251,6 +243,8 @@ items:
         - custom:source_gem x1
       source: 1000
       amount: 2
+      type: shapeless
+      ingredients: []
   thread_endurance:
     external-source: arspaper
     material: SHELTER_POTTERY_SHERD
@@ -372,10 +366,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>この痛みは勝利のために</color>
-    # 被弾マナ回復のスレッド: 打撃を受け止めるもの(ラヴェジャーの革・ピリジャーの鎧片)を、
-    # 魔力へ変換する繊維(マジックファイバー)と源(ソースジェム)で編み、
-    # 痛みから生まれる熱(マグマクリーム)で締める。強さ8位 → source 7,000。
-    # ラヴェジャーの革とピリジャーの鎧片を同居させて「襲撃を1回回せば両方揃う」ようにしてある。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -386,6 +376,8 @@ items:
         - custom:source_gem x1
         - MAGMA_CREAM x1
       source: 7000
+      type: shapeless
+      ingredients: []
   thread_jump_boost:
     external-source: arspaper
     material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
@@ -397,10 +389,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>軽やかな気分</color>
-    # 跳躍のスレッド: 跳躍ポーションの正素材(ウサギの足)に、跳ねる(スライムボール)・
-    # 滞空(ファントムの膜)・突進する獣(ホグリンの牙)を重ねる。強さ3位 → source 24,000。
-    # ⚠ Ars ネイティブの core 無し儀式 flight が [FEATHER x4, PHANTOM_MEMBRANE x2, source_gem x2] なので
-    #    PHANTOM_MEMBRANE x2 は共有するが、台座セット全体が違うので衝突しない。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -410,6 +398,8 @@ items:
         - PHANTOM_MEMBRANE x2
         - custom:hoglin_fang x1
       source: 24000
+      type: shapeless
+      ingredients: []
   thread_luck:
     external-source: arspaper
     material: EXPLORER_POTTERY_SHERD
@@ -443,9 +433,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>知恵は変容する</color>
-    # マナ最大値上昇のスレッド: 魔力そのもの(ソースジェム)を、蓄える器(ラピスブロック)と
-    # 結晶(アメジストの欠片)で受け止め、尽きぬ涙(ガストの涙)で「器の深さ」を表す。
-    # 強さ7位 → source 8,000。順位が中位なので希少素材は一切要求しない。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -455,6 +442,8 @@ items:
         - LAPIS_BLOCK x1
         - GHAST_TEAR x1
       source: 8000
+      type: shapeless
+      ingredients: []
   thread_mana_circulate:
     external-source: arspaper
     material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
@@ -466,9 +455,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>絶えず巡るものは尽きない</color>
-    # 循環のスレッド: 魔力そのもの(ソースジェム)と魔力を織る繊維(マジックファイバー)を大量に要求し、
-    # 止まらない動力(レッドストーンブロック)と尽きない秘薬(ウィッチの秘薬)で「巡る」を表す。
-    # 強さ4位 → source 22,000。素材のハードルではなく量のハードルで重さを出している。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -478,6 +464,8 @@ items:
         - REDSTONE_BLOCK x2
         - custom:witch_elixir x1
       source: 22000
+      type: shapeless
+      ingredients: []
   thread_mana_regen:
     external-source: arspaper
     material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
@@ -533,10 +521,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>暗闇よさらば</color>
-    # 暗視のスレッド: 暗視ポーションの正素材(金のニンジン)を主軸に、闇そのもの(エンダーマイトの煤)・
-    # 光の届かない沼(ボグドの骨)・視覚に依らない知覚(残響の欠片)を重ね、
-    # 深層都市の主(ウォーデンの触覚)を最上位ゲートに置く。強さ2位 → source 28,000。
-    # ⚠ ECHO_SHARD は古代都市の有限資源なので x2 に抑えてある(圧縮素材 echo_shard_2x は実32個で重すぎる)。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -547,6 +531,8 @@ items:
         - ECHO_SHARD x2
         - custom:warden_tendril x1
       source: 28000
+      type: shapeless
+      ingredients: []
   thread_perfumer:
     external-source: arspaper
     material: FLOWER_BANNER_PATTERN
@@ -624,11 +610,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>さぁ最高速度へ</color>
-    # 迅速のスレッド: 移動速度ポーションの正素材(砂糖)を主軸に、軽さ(羽)・風(ブリーズロッド)・
-    # 移動を奪う者から剥ぎ取った布(ストレイの布片)を要求する。強さ1位なので source は最上位帯の 30,000。
-    # ⚠ 当初案の custom:skeleton_horse_bone は SKELETON_HORSE が雷雨中のトラップホース限定湧きで、
-    #    最強スレッドのゲートに置くと事実上封印されるため不採用。代わりに雪原で無限に湧く
-    #    STRAY の布片へ置き換えた(「移動を奪うモブ」を迅速の対価にするのはコンセプト上も筋が通る)。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -638,6 +619,8 @@ items:
         - custom:stray_cloth x2
         - BREEZE_ROD x1
       source: 30000
+      type: shapeless
+      ingredients: []
   thread_spell_cost_down:
     external-source: arspaper
     material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
@@ -704,9 +687,6 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
       - ""
       - <color:dark_purple>一本の木が刻んだ歳月を、糸に写す</color>
-    # 年輪のスレッド: 樹種の違う原木を層のように重ねて「年輪」を表し、
-    # 木を裁つ刃(火打石)を1つだけ添える。純粋な資源スレッドなので
-    # 希少素材を一切要求しない(伐採職が伐採だけで作れることが設計意図)。強さ9位 → source 5,000。
     recipe:
       method: ritual
       core-item: custom:thread_empty
@@ -717,6 +697,8 @@ items:
         - DARK_OAK_LOG x1
         - FLINT x1
       source: 5000
+      type: shapeless
+      ingredients: []
   wooden_halberd:
     material: WOODEN_SWORD
     display-name: 木の<b>ハルバード</b>
@@ -7004,7 +6986,7 @@ items:
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
-      - <color:white>いいことがおきますように</color>
+      - <color:dark_purple>いいことがおきますように</color>
     display-name: <color:red>開運のスレッド</color>
     custom-model-data: 100023
   thread_gacha:
@@ -7020,7 +7002,7 @@ items:
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
-      - レッツ上振れ！
+      - <color:dark_purple>レッツ上振れ！</color>
     display-name: ロール運のスレッド
     custom-model-data: 100025
   thread_role_effeciency:
@@ -7028,9 +7010,25 @@ items:
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
-      - 効率よく生きよう
+      - <color:dark_purple>効率よく生きよう</color>
     display-name: ロール効率のスレッド
     custom-model-data: 100026
+  thread_blindness:
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>虫の息の君は何を望む？</color>
+    display-name: 崩命のスレッド
+    custom-model-data: 100027
+  thread_translate:
+    material: STRING
+    lore:
+      - <color:dark_gray>防具のスレッドスロットにセット可能</color>
+      - ""
+      - <color:dark_purple>直りやすくなっただろう？</color>
+    display-name: 流転のスレッド
+    custom-model-data: 100028
   skill_node_lock:
     material: AMETHYST_SHARD
     display-name: <color:gold>スキルノードの楔</color>
@@ -7100,14 +7098,10 @@ items:
       type: shapeless
       ingredients: []
       pedestal-items:
-        - CHERRY_LOG
-        - DARK_OAK_LOG
-        - ACACIA_LOG
-        - PALE_OAK_LOG
-        - MANGROVE_LOG
-        - SPRUCE_LOG
-        - CRIMSON_STEM
-        - WARPED_STEM
+        - custom:stone_2x
+        - custom:oak_wood_2x
+        - custom:cod_2x
+        - custom:hay_block_2x
       core-item: PAPER
       source: 10000
       amount: 1
@@ -7611,9 +7605,6 @@ _editor:
           - withered_silk_chestplate
           - withered_silk_helmet
           - withered_silk_leggings
-      - id: cat_abyss_binder_armor
-        label: 束縛者の装束
-        itemIds:
       - id: cat_auto_draft
         label: 準備中
         itemIds:
@@ -8049,6 +8040,8 @@ _editor:
       - thread_gacha
       - thread_role_luck
       - thread_role_effeciency
+      - thread_blindness
+      - thread_translate
     key:
       - key_mines
       - key_deep_mines
@@ -8353,3 +8346,5 @@ _editor:
     thread_gacha: thread
     thread_role_luck: thread
     thread_role_effeciency: thread
+    thread_blindness: thread
+    thread_translate: thread

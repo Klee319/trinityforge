@@ -20,18 +20,24 @@
 # 化ける(値が大きいほど強化される事故)。SmithingGimmickConfig はtierの完全一致が取れなかった場合に
 # 一度だけWARNINGログを出す — 起動直後のログにこの警告が出たら smithing.yml が旧versionのままなので
 # 再配備すること。
-auto-mode-multiplier: 0.25
 
+auto-mode-multiplier: 0.5
 furnace-smelt:
   speed:
-    percent: 10          # tier未定義/該当なしのときのフォールバック
+    percent: 10
     tiers:
-      1: { percent: 10 }
-      2: { percent: 20 }
-      3: { percent: 30 }
+      "1":
+        percent: 25
+      "2":
+        percent: 50
+      "3":
+        percent: 100
   bonus:
     percent: 10
     tiers:
-      1: { percent: 10 }
-      2: { percent: 20 }
-      3: { percent: 30 }
+      "1":
+        percent: 10
+      "2":
+        percent: 30
+      "3":
+        percent: 50

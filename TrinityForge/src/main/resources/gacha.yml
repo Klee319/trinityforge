@@ -30,7 +30,7 @@
 
 tickets:
   gacha_ticket_0:
-    pool: standard
+    pool: dust
   gacha_ticket_1:
     pool: tier1
   gacha_ticket_2:
@@ -41,32 +41,12 @@ tickets:
     pool: tier4
   gacha_ticket_5:
     pool: tier5
+  gacha_ticket_fishing:
+    pool: fishing
+  gacha_ticket_digging:
+    pool: digging
 pools:
-  standard:
-    pity:
-      threshold: 30
-    entries:
-      - item: tf_scrap
-        weight: 20
-        amount: 4
-      - item: COAL
-        weight: 18
-        amount: 8
-      - item: IRON_INGOT
-        weight: 14
-        amount: 4
-      - item: thread_empty
-        weight: 4
-        amount: 1
-      - item: gacha_ticket_1
-        weight: 3
-        amount: 1
-      - item: gacha_ticket_0
-        weight: 3
-        amount: 2
   tier1:
-    pity:
-      threshold: 20
     entries:
       - item: GOLD_INGOT
         weight: 15
@@ -89,9 +69,9 @@ pools:
       - item: gacha_ticket_2
         weight: 3
         amount: 1
-  tier2:
     pity:
-      threshold: 25
+      threshold: 50
+  tier2:
     entries:
       - item: EMERALD
         weight: 12
@@ -114,9 +94,9 @@ pools:
       - item: gacha_ticket_3
         weight: 3
         amount: 1
-  tier3:
     pity:
-      threshold: 25
+      threshold: 50
+  tier3:
     entries:
       - item: DIAMOND
         weight: 12
@@ -139,9 +119,9 @@ pools:
       - item: gacha_ticket_3
         weight: 3
         amount: 2
-  tier4:
     pity:
-      threshold: 20
+      threshold: 50
+  tier4:
     entries:
       - item: source_gem
         weight: 10
@@ -161,9 +141,9 @@ pools:
       - item: gacha_ticket_4
         weight: 3
         amount: 2
-  tier5:
     pity:
-      threshold: 15
+      threshold: 50
+  tier5:
     entries:
       - item: source_gem
         weight: 10
@@ -192,3 +172,86 @@ pools:
       - item: dragon_scale
         weight: 1
         amount: 1
+    pity:
+      threshold: 50
+  dust:
+    entries:
+      - item: tf_scrap
+        weight: 30
+        amount: 6
+      - item: BONE
+        weight: 10
+        amount: 8
+      - item: ROTTEN_FLESH
+        weight: 20
+        amount: 4
+      - item: POISONOUS_POTATO
+        weight: 5
+        amount: 1
+      - item: gacha_ticket_1
+        weight: 2
+        amount: 1
+      - item: gacha_ticket_0
+        weight: 1
+        amount: 2
+      - item: CALIBRATED_SCULK_SENSOR
+        weight: 3
+        amount: 1
+    pity:
+      threshold: 50
+  fishing:
+    entries:
+      - item: COD_BUCKET
+        weight: 20
+        amount: 1
+      - item: SALMON_BUCKET
+        weight: 20
+        amount: 1
+      - item: TROPICAL_FISH_BUCKET
+        weight: 20
+        amount: 1
+      - item: SALMON_BUCKET
+        weight: 10
+        amount: 1
+      - item: AXOLOTL_BUCKET
+        weight: 5
+        amount: 1
+      - item: TADPOLE_BUCKET
+        weight: 1
+        amount: 1
+      - item: gacha_ticket_5
+        weight: 2
+        amount: 1
+      - item: gacha_ticket_fishing
+        weight: 3
+        amount: 2
+      - item: thread_translate
+        weight: 2
+        amount: 1
+    pity:
+      threshold: 50
+  digging:
+    entries:
+      - item: STICK
+        weight: 20
+        amount: 1
+      - item: TALL_GRASS
+        weight: 10
+        amount: 1
+      - item: BIG_DRIPLEAF
+        weight: 10
+        amount: 1
+      - item: FIREFLY_BUSH
+        weight: 15
+        amount: 1
+      - item: koujien
+        weight: 2
+        amount: 1
+      - item: gacha_ticket_digging
+        weight: 5
+        amount: 1
+      - item: thread_blindness
+        weight: 1
+        amount: 1
+    pity:
+      threshold: 50

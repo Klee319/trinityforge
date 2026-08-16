@@ -281,6 +281,24 @@
   // ============================================================
   // ArsPaper config.yml
   // ============================================================
+
+  // 2026-08-16: マナ基礎3キー(default-max / default-regen-rate / regen-interval-ticks)の既定値。
+  // これらは 2026-07-25 に TrinityForge の combat/base-stats.yml へ移管されていたが、
+  // stats/lore.yml に非登録だったため editor のどの画面にも出ず、手編集でしか変えられなかった。
+  // 2026-08-16 に真源を ArsPaper の config.yml (mana.*) へ戻し、この画面から編集できるようにした。
+  //
+  // ここの値は **ArsPaper 側 Java の既定値(ManaConfig.fromConfig の第2引数)および出荷 config.yml と
+  // 完全に一致していなければならない**。ずれると「開いて保存しただけで yml の意味が変わる」事故になる。
+  // 契約値は 100 / 5 / 20(バランスは移設前後で不変)。
+  // test/ars-config-mana-base-2026-08-16.test.js がこの定数を契約値に固定し、
+  // フォークが手元にある環境では出荷 config.yml とも突き合わせる。
+  const MANA_BASE_DEFAULTS = {
+    "default-max": 100,
+    "default-regen-rate": 5,
+    "regen-interval-ticks": 20
+  };
+  window.MANA_BASE_DEFAULTS = MANA_BASE_DEFAULTS;
+
   window.buildArsConfigForm = function buildArsConfigForm(data) {
     const working = data && typeof data === "object" ? data : {};
     const formCd = ensureObj(working, "form-cooldowns");
@@ -384,8 +402,33 @@
       cdBox
     ]));
 
+    // マナ基礎3キーは 2026-08-16 に TrinityForge の combat/base-stats.yml から
+    // ここ(ArsPaper config.yml の mana.*)へ戻した。移設前は lore.yml 非登録で
+    // editor のどの画面にも出ず、手編集でしか変えられなかった。
+    //
+    // clearable: true は必須。空欄でキーごと削除して ArsPaper 側の既定値(100/5/20)に委ねる。
+    // 付け忘れると空欄が 0 として書き込まれ、「最大マナ0で魔法が一切撃てない」
+    // 「回復周期0tickで毎tick実行」という無言の事故になる(numField の既定は 0 書き込み)。
     root.appendChild(card(sectionTitle("マナ", "mana"), [
       grid([
+        numField(mana, "default-max", {
+          label: "最大マナの基礎値", int: true, clearable: true,
+          desc: "全プレイヤー共通の最大マナの土台。グリフ解放・防具・スレッド・エンチャント・"
+            + "スキルツリーによる上限加算はこの値に上乗せされる。"
+            + `空欄 = キーを書かない = ArsPaper の既定値 ${MANA_BASE_DEFAULTS["default-max"]}。`
+        }),
+        numField(mana, "default-regen-rate", {
+          label: "マナ自然回復量", int: true, clearable: true,
+          desc: "下の「マナ回復周期」1回あたりに回復するマナ量。"
+            + `既定の周期(${MANA_BASE_DEFAULTS["regen-interval-ticks"]}tick=1秒)なら「毎秒この量」になる。`
+            + `空欄 = キーを書かない = ArsPaper の既定値 ${MANA_BASE_DEFAULTS["default-regen-rate"]}。`
+        }),
+        numField(mana, "regen-interval-ticks", {
+          label: "マナ回復周期(tick)", int: true, clearable: true,
+          desc: "マナ自然回復が走る間隔。20 = 1秒。変更にはサーバ再起動が必要"
+            + "(回復タスクは起動時にこの間隔で組まれるため、/ars reload では張り替わらない)。"
+            + `空欄 = キーを書かない = ArsPaper の既定値 ${MANA_BASE_DEFAULTS["regen-interval-ticks"]}。`
+        }),
         numField(mana, "per-glyph-unlock-bonus", { label: "グリフ解放ごと上限+", int: true }),
         numField(mana, "max-percent-cap", { label: "%上昇キャップ", int: true })
       ])

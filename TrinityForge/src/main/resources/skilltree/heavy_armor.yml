@@ -44,17 +44,15 @@ prestige:
   name: 鉄壁の境地
   effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
-    # 2026-08-15 再々較正。目標は combat の設計線 F(L)=0.5*A(L)。
-    # Lv100 でモブ基準攻撃力 A=44.3 なので守備力の総量の目標は 22.2、
-    # 出荷 item-stats の最良装備4部位が phys 13.8 なので、ツリーの取り分は 8.4 が上限。
-    # (これ以上積むと残差が min-component-damage:1 に張り付いて全帯が「ゼロか爆発」になる)
-    # 7ノード合計で phys 8.4 / magic 25.2 になるよう配る。魔法が3倍なのは装備側の土俵が
-    # そもそも約3倍あるため(Lv100 の重装4部位で magic 62.6)。
     phys-flat-defense: 1.8
     magic-flat-defense: 5.4
-    # 防御率([0,1]の乗算軽減)。旧 armor-defense-rate(防具値)は 2026-08-15 に廃止済み。
     defense-rate: 0.1
     damage-reduction: 0.1
+  description: |-
+    物理守備力+1.8
+    魔法守備力+5.4
+    防御力+10%
+    被ダメ軽減+10%
 nodes:
   A:
     name: 重身の心得
@@ -71,6 +69,9 @@ nodes:
         move-speed: 0.02
     effects:
       - 空腹になりにくくなる
+    description: |-
+      3部位:移動速度+1.5%
+      4部位:移動速度+2%
   B:
     name: 鉄壁の装
     level: 30
@@ -83,6 +84,7 @@ nodes:
       armor-set-bonus: 0.1
     effects:
       - セット効果の効果量が増加する
+    description: セット効果+10%
   C:
     name: 剛守の型
     level: 50
@@ -92,7 +94,6 @@ nodes:
     cost: 1
     effect-text: ノックバック耐性アップ・守備力増加・憤怒発動可能・重装3部位でKB耐性セットボーナス成立(4部位で強化)
     buffs:
-      # 2026-08-15 再々較正(プレステージのコメント参照)。主軸Cは同レベルのαノードと同値。
       phys-flat-defense: 1.1
       magic-flat-defense: 3.3
     set-buffs:
@@ -103,6 +104,11 @@ nodes:
     effects:
       - 憤怒(Rage)が発動可能になる
       - 重装3部位以上でノックバック耐性セットボーナスが成立し、4部位で更に強化される
+    description: |-
+      物理守備力+1.1
+      魔法守備力+3.3
+      3部位:ノックバック耐性+10%
+      4部位:ノックバック耐性+15%
   D:
     name: 堅牢の境地
     level: 70
@@ -114,6 +120,9 @@ nodes:
     buffs:
       defense-rate: 0.1
       phys-resistance: 0.1
+    description: |-
+      防御率+10%
+      物理耐性+10%
   E:
     name: 極意・金剛
     level: 90
@@ -126,6 +135,7 @@ nodes:
       damage-reduction: 0.1
     effects:
       - 憤怒発動時のバフが強化される
+    description: 被ダメージ軽減+10%
   C-1-1:
     name: 魔除けの鎧
     level: 50
@@ -136,6 +146,7 @@ nodes:
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.1
+    description: 魔法耐性+10%
   C-1-2:
     name: 退魔の鎧
     level: 70
@@ -146,6 +157,7 @@ nodes:
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.1
+    description: 魔法耐性+10%
   D-1-1:
     name: 重心の構え
     level: 70
@@ -159,6 +171,9 @@ nodes:
         knockback-resistance: 0.1
       "4":
         knockback-resistance: 0.15
+    description: |-
+      3部位:ノックバック耐性+10%
+      4部位:ノックバック耐性+15%
   D-1-2:
     name: 不抜の構え
     level: 90
@@ -172,6 +187,9 @@ nodes:
         knockback-resistance: 0.1
       "4":
         knockback-resistance: 0.15
+    description: |-
+      3部位:ノックバック耐性+10%
+      4部位:ノックバック耐性+15%
   A-alpha-1:
     name: 堅・重身
     level: 10
@@ -182,9 +200,11 @@ nodes:
     cost: 1
     effect-text: 守備力増加
     buffs:
-      # 2026-08-15 再々較正。α路線は Lv10→Lv90 で 3 倍に逓増する(プレステージのコメント参照)。
       phys-flat-defense: 0.55
       magic-flat-defense: 1.65
+    description: |-
+      物理守備力+0.55
+      魔法守備力+1.65
   A-beta-1:
     name: 魔・重身
     level: 10
@@ -196,6 +216,7 @@ nodes:
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.02
+    description: 魔法耐性+2%
   A-gamma-1:
     name: 巌・重身
     level: 10
@@ -208,6 +229,9 @@ nodes:
     buffs:
       armor-strength: 0.01
       knockback-resistance: 0.01
+    description: |-
+      防具強度+1%
+      ノックバック耐性+1%
   B-alpha-1:
     name: 堅・鉄壁
     level: 30
@@ -215,12 +239,13 @@ nodes:
     parent: B
     icon: IRON_INGOT
     cost: 1
-    effect-text: 守備力増加
     buffs:
-      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。
       phys-flat-defense: 0.8
       magic-flat-defense: 2.4
     group: B-greek
+    description: |-
+      物理守備力+0.8
+      魔法守備力+2.4
   B-beta-1:
     name: 魔・鉄壁
     level: 30
@@ -232,6 +257,7 @@ nodes:
     buffs:
       magic-resistance: 0.02
     group: B-greek
+    description: 魔法耐性+2%
   B-gamma-1:
     name: 巌・鉄壁
     level: 30
@@ -244,6 +270,9 @@ nodes:
       armor-strength: 0.01
       knockback-resistance: 0.01
     group: B-greek
+    description: |-
+      防具強度+1%
+      ノックバック耐性+1%
   C-alpha-1:
     name: 堅・剛守
     level: 50
@@ -251,12 +280,13 @@ nodes:
     parent: C
     icon: IRON_INGOT
     cost: 1
-    effect-text: 守備力増加
     buffs:
-      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。
       phys-flat-defense: 1.1
       magic-flat-defense: 3.3
     group: C-greek
+    description: |-
+      物理守備力+1.1
+      魔法守備力+3.3
   C-beta-1:
     name: 魔・剛守
     level: 50
@@ -268,6 +298,7 @@ nodes:
     buffs:
       magic-resistance: 0.02
     group: C-greek
+    description: 魔法耐性+2%
   C-gamma-1:
     name: 巌・剛守
     level: 50
@@ -280,6 +311,9 @@ nodes:
       armor-strength: 0.01
       knockback-resistance: 0.01
     group: C-greek
+    description: |-
+      防具強度+1%
+      ノックバック耐性+1%
   D-alpha-1:
     name: 堅・堅牢
     level: 70
@@ -287,12 +321,13 @@ nodes:
     parent: D
     icon: IRON_INGOT
     cost: 1
-    effect-text: 守備力増加
     buffs:
-      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。
       phys-flat-defense: 1.4
       magic-flat-defense: 4.2
     group: D-greek
+    description: |-
+      物理守備力+1.4
+      魔法守備力+4.2
   D-beta-1:
     name: 魔・堅牢
     level: 70
@@ -304,6 +339,7 @@ nodes:
     buffs:
       magic-resistance: 0.02
     group: D-greek
+    description: 魔法耐性+2%
   D-gamma-1:
     name: 巌・堅牢
     level: 70
@@ -316,6 +352,9 @@ nodes:
       armor-strength: 0.01
       knockback-resistance: 0.01
     group: D-greek
+    description: |-
+      防具強度+1%
+      ノックバック耐性+1%
   E-alpha-1:
     name: 堅・金剛
     level: 90
@@ -323,12 +362,13 @@ nodes:
     parent: E
     icon: IRON_INGOT
     cost: 1
-    effect-text: 守備力増加
     buffs:
-      # 2026-08-15 再々較正(A-alpha-1 のコメント参照)。α路線の最終段。
       phys-flat-defense: 1.65
       magic-flat-defense: 4.95
     group: E-greek
+    description: |-
+      物理守備力+1.65
+      魔法守備力+4.95
   E-beta-1:
     name: 魔・金剛
     level: 90
@@ -340,6 +380,7 @@ nodes:
     buffs:
       magic-resistance: 0.02
     group: E-greek
+    description: 魔法耐性+2%
   E-gamma-1:
     name: 巌・金剛
     level: 90
@@ -352,3 +393,6 @@ nodes:
       armor-strength: 0.01
       knockback-resistance: 0.01
     group: E-greek
+    description: |-
+      防具強度+1%
+      ノックバック耐性+1%

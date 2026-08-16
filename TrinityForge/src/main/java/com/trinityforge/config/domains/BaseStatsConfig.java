@@ -50,22 +50,47 @@ import java.util.logging.Logger;
  * {@code DerivedItemStats.resolve} instead of this file / {@link StatVocabulary}. {@code attack-speed-bonus}
  * (the percentage-bonus counterpart) is unaffected and remains a normal addend-layer key here.
  *
- * <p>2026-07-25 (config editor T2): also holds the {@code mana-max-base} / {@code mana-regen-base} /
- * {@code mana-regen-interval-ticks} / {@code mana-onhit-percent} / {@code mana-onattack-percent} /
- * {@code mana-idle-seconds} / {@code mana-idle-bonus-percent} / {@code mana-idle-bonus-flat} keys — ArsPaper mana defaults
- * relocated here from ArsPaper's own {@code config.yml}. They are registered in
- * {@link StatVocabulary} (GENERAL channel) and {@link PercentStatNormalize} for the 3 percent keys,
- * but deliberately <b>not</b> in {@code stats/lore.yml}: lore.yml entries require a hand-maintained
- * description in the config editor's {@code labels.js}, enforced by
- * {@code tools/config-editor/test/lore-stat-descriptions.test.js}, and ArsPaper mana defaults are not
- * player-facing item-lore stats. ArsPaper reads them via
- * {@code TrinityForgeBridge.manaBaseStat(key, fallback)} → {@link #statOrDefault}.
+ * <p>2026-07-25 (config editor T2) / 2026-08-16 (一部を ArsPaper へ差し戻し): このファイルは ArsPaper の
+ * マナ関連の既定値のうち <b>5キー</b>({@code mana-onhit-percent} / {@code mana-onattack-percent} /
+ * {@code mana-idle-seconds} / {@code mana-idle-bonus-percent} / {@code mana-idle-bonus-flat})を持つ。
+ * これらは {@link StatVocabulary}(GENERAL チャネル)に登録され、percent 系は
+ * {@link PercentStatNormalize} で正規化される。ArsPaper は
+ * {@code TrinityForgeBridge.manaBaseStatRaw(key)} → {@link #stats()} 経由で読む。
+ *
+ * <p>2026-08-16: 残る3キー({@code mana-max-base} / {@code mana-regen-base} /
+ * {@code mana-regen-interval-ticks})は ArsPaper の {@code config.yml} の {@code mana.default-max} /
+ * {@code mana.default-regen-rate} / {@code mana.regen-interval-ticks} へ<b>移設した</b>。
+ * この3キーは {@code stats/lore.yml} に載せられない「全プレイヤー共通の定数」で、結果として
+ * 設定エディタのどの画面にも出ず手編集でしか変えられなかったため、真源を ArsPaper 側へ戻して
+ * 「ArsPaper 全体設定 (config)」画面から編集できるようにしたもの。
+ * 稼働中サーバの配備済みファイルには旧キーの行が残る({@link #load} の {@code saveResource} は
+ * 既存ファイルを上書きしない)ので、残存を検出したら移設先つきで WARNING を出す
+ * （{@link #MIGRATED_TO_ARSPAPER_KEYS}。黙って無視すると「設定したのに効かない」事故になる）。
  */
 public final class BaseStatsConfig implements LoadableConfig {
 
     public static final String PATH = "combat/base-stats.yml";
     private static final String SECTION = "base-stats";
     private static final String ATTACK_POWER_KEY = StatKeys.canonical("attack-power");
+
+    /**
+     * 2026-08-16 に ArsPaper の {@code config.yml} へ移設した旧キー(canonical) → 移設先キーの対応表。
+     *
+     * <p>{@link #load} は既存ファイルを上書きしない({@code saveResource(PATH, false)})ので、
+     * 稼働中サーバの {@code plugins/TrinityForge/combat/base-stats.yml} には旧キーの行が残り続ける。
+     * 黙って無視すると「設定したのに効かない」事故になるため、残存を検出したら移設先を示して警告する。
+     * 判定には {@code this.stats}(0値が落ちる)ではなく生のキー集合を使う — 「0 に書き換えて無効化した
+     * つもり」の人にも移設を伝える必要があるため。
+     */
+    private static final Map<String, String> MIGRATED_TO_ARSPAPER_KEYS = migratedToArsPaperKeys();
+
+    private static Map<String, String> migratedToArsPaperKeys() {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put(StatKeys.canonical("mana-max-base"), "mana.default-max");
+        map.put(StatKeys.canonical("mana-regen-base"), "mana.default-regen-rate");
+        map.put(StatKeys.canonical("mana-regen-interval-ticks"), "mana.regen-interval-ticks");
+        return java.util.Collections.unmodifiableMap(map);
+    }
 
     // Canonical stat-key -> normalised value. Before load it is empty; load injects the migrated
     // 25tick stun baseline even when an older file does not contain that key.
@@ -78,9 +103,13 @@ public final class BaseStatsConfig implements LoadableConfig {
 
     /**
      * Single base-stat value by (kebab- or snake-case) key, or {@code fallback} if absent/vanilla(0).
-     * Used by fork bridges that read one specific base-stat default directly (e.g. ArsPaper mana
-     * defaults via {@code TrinityForgeBridge.manaBaseStat}) rather than folding into the combat
+     * Used by fork bridges that read one specific base-stat default directly (ArsPaper のマナ回復5キーを
+     * {@code TrinityForgeBridge.manaBaseStat*} が読む経路)rather than folding into the combat
      * aggregate — see {@code combat/base-stats.yml} header comment for the "absent = vanilla" contract.
+     *
+     * <p>2026-08-16: マナ基礎3キー({@code mana-max-base} 等)はこの経路から外れ、ArsPaper の
+     * {@code config.yml} の {@code mana.*} が真源になった({@link #MIGRATED_TO_ARSPAPER_KEYS})。
+     * シグネチャ自体はフォークが使い続けるので残す。
      */
     public double statOrDefault(String key, double fallback) {
         Double value = stats.get(StatKeys.canonical(key));
@@ -152,9 +181,28 @@ public final class BaseStatsConfig implements LoadableConfig {
                     + "これは武器の基本ダメージを置き換える特殊ステで、全プレイヤーの素手/バニラ武器の"
                     + "ダメージ・エンチャント効果に影響します。意図的でなければ空欄にしてください。");
         }
+        // 2026-08-16: ArsPaper の config.yml へ移設したマナ基礎3キーの残存を検出して、移設先つきで警告する。
+        // 稼働中サーバの配備済みファイルは saveResource(false) では更新されないので旧キーが残り続ける。
+        // 黙って無視すると「base-stats.yml に書いた値が効かない」事故になる(下の汎用警告だけだと
+        // 「綴り間違い」に見えて移設先へ辿り着けない)。値0で書かれていても残存として扱う。
+        for (Map.Entry<String, String> migrated : MIGRATED_TO_ARSPAPER_KEYS.entrySet()) {
+            if (true || !rawFileKeysCanonical.contains(migrated.getKey())) {
+                continue;
+            }
+            log.warning("[" + PATH + "] '" + migrated.getKey().replace('_', '-')
+                    + "' は ArsPaper の config.yml の '" + migrated.getValue()
+                    + "' へ移設されました(2026-08-16)。この行はもう読まれません(無視されます) — "
+                    + "値の変更は設定エディタの「ArsPaper 全体設定 (config)」画面、または "
+                    + "plugins/ArsPaper/config.yml で行ってください。この行は削除して構いません。");
+        }
         // プレイヤーへ効果が届かないキー(綴り間違い / アイテム固有ステ等)を診断する。
         // 空欄はバニラなので、記述されたのに no-op になるキーだけを注意喚起する。
         for (String key : this.stats.keySet()) {
+            if (MIGRATED_TO_ARSPAPER_KEYS.containsKey(key)) {
+                // 移設済みキーは直上で移設先つきの専用警告を出している。ここで「綴り間違いの可能性」と
+                // 二重に出すと、旧ファイルを持つ全稼働サーバで誤解を招く(移設先へ辿り着けなくなる)。
+                continue;
+            }
             if (!StatVocabulary.isKnown(key)) {
                 log.warning("[" + PATH + "] base stat '" + key + "' はプレイヤーへ適用される既知のステータスでは"
                         + "ありません(綴り間違い、またはアイテム固有ステの可能性)。効果はありません。");

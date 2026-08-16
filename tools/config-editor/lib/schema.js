@@ -3447,6 +3447,31 @@ function validateArsConfig(data, errors) {
   const mana = data.mana;
   if (mana === undefined || mana === null) return;
   if (!isPlainObject(mana)) { errors.push("mana はマップである必要があります"); return; }
+  // 2026-08-16: マナ基礎3キー(default-max / default-regen-rate / regen-interval-ticks)の検証。
+  // **必ず source-auto-consume の早期 return より前に置くこと。** 下の `if (sac == null) return;` の
+  // 後ろへ書くと、source-auto-consume を持たない config.yml では一度も走らない(不正値がそのまま
+  // 保存できてしまうのに、fixture が常に sac を持つ既存テストでは緑のまま)。
+  //
+  // 未設定(キー無し)は「ArsPaper の既定値 100 / 5 / 20 に委ねる」正当な状態なので必須にしない。
+  // ここで既定値を補わないのも意図的(開いて保存しただけで yml にキーが増える往復差分を作らない)。
+  //
+  // 下限を 0 ではなく 1 にしているキーがある理由:
+  //   default-max 0         → 最大マナ0で魔法が一切撃てない
+  //   regen-interval-ticks 0 → 回復タスクの period=0 で毎tick実行(実質暴走)
+  // どちらも「設定できてしまうと無言でサーバが壊れる」値なので editor 側で弾く。
+  // default-regen-rate だけは 0 =「自然回復しない」という意味のある設定なので通す。
+  const MANA_BASE_MINIMUMS = [
+    ["default-max", 1],
+    ["default-regen-rate", 0],
+    ["regen-interval-ticks", 1]
+  ];
+  for (const [key, min] of MANA_BASE_MINIMUMS) {
+    const v = mana[key];
+    if (v === undefined || v === null) continue;
+    if (!(isInteger(v) && v >= min)) {
+      errors.push(`mana.${key}: ${min}以上の整数である必要があります`);
+    }
+  }
   const sac = mana["source-auto-consume"];
   if (sac === undefined || sac === null) return;
   if (!isPlainObject(sac)) { errors.push("mana.source-auto-consume はマップである必要があります"); return; }

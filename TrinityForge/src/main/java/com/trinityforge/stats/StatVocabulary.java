@@ -171,11 +171,12 @@ public final class StatVocabulary {
             // — 本登録は「パーク/base-statsから供給できる」ことの実現が目的で、fork既存の item専用経路とは別物。
             "hit_mana_recovery", "damage_mana_recovery",
             "mana_cost_reduction_flat", "mana_cost_reduction_percent",
-            // 2026-07-25 (config editor T2): combat/base-stats.yml 専用のマナ初期値キー
-            // (ArsPaper config.yml の mana.default-max 等の移設先)。stats/lore.yml へは意図的に
-            // 未登録(config editor の labels.js 全stat必須説明テストと衝突するため)。フォークは
-            // TrinityForgeBridge.manaBaseStat 経由で BaseStatsConfig.stats() を直接読む。
-            "mana_max_base", "mana_regen_base", "mana_regen_interval_ticks",
+            // 2026-08-16: mana_max_base / mana_regen_base / mana_regen_interval_ticks は語彙から外した。
+            // この3キーは「全プレイヤー共通のマナ初期値」で、装備・パークからは一切供給されず
+            // stats/lore.yml にも出せない(=どの editor 画面にも出ず手編集しかできない)状態だった。
+            // 真源を ArsPaper の config.yml (mana.default-max / mana.default-regen-rate /
+            // mana.regen-interval-ticks) へ戻し、「ArsPaper 全体設定 (config)」画面から編集する。
+            // 旧 base-stats.yml に行が残っている配備ファイルは BaseStatsConfig#load が移設先つきで警告する。
             // 2026-07-29(重複ステ間引き): mana_onhit_flat / mana_onattack_flat を廃止。
             // 「被弾/与ダメ時に固定量回復」は hit_mana_recovery / damage_mana_recovery と完全に同じで、
             // fork 側の ArmorManaListener と ManaRecoveryListener が同じイベントで別々に加算していた。
@@ -273,21 +274,8 @@ public final class StatVocabulary {
         return BY_KEY.keySet();
     }
 
-    /**
-     * combat/base-stats.yml 専用の「全プレイヤー共通の定数」キー。装備・パークからは供給されず、
-     * アイテムのロアに一行も出ない — したがって {@code stats/lore.yml} に表示定義を持たない。
-     *
-     * <p>2026-08-13: この集合を明示した。以前は「lore.yml へは意図的に未登録」と
-     * コメントに書いてあるだけで機械可読な印が無く、実際には 3 キーとも lore.yml へ紛れ込んで
-     * いた（{@code LoreVocabularyCoverageTest} が「語彙にあるのに lore.yml に無い」を全キーに
-     * 課すため、そこを通すためだけに足されたもの）。結果、config editor の「ロア表示」画面に
-     * 「マナ上限(基礎値)」が並び、アイテムに設定できる「マナ上限」({@code mana_bonus})との
-     * 区別が付かなくなっていた（2026-08-13 ユーザー報告）。
-     *
-     * <p>値の編集は config editor の「共通変数」画面（combat/base-stats.yml）で行う。
-     * フォーク側は {@code TrinityForgeBridge.manaBaseStat} → {@code BaseStatsConfig#statOrDefault}
-     * 経由で直接読む。
-     */
-    public static final Set<String> BASE_STATS_ONLY_KEYS = Set.of(
-            "mana_max_base", "mana_regen_base", "mana_regen_interval_ticks");
+    // 2026-08-16: BASE_STATS_ONLY_KEYS(combat/base-stats.yml 専用でロア表示を持たないキーの除外リスト)は
+    // 廃止した。中身はマナ基礎3キーだけで、その3キーが ArsPaper の config.yml (mana.*) へ移設された結果
+    // 集合が空になったため。空の除外リストは「検査ごと無効化する」方向にしか壊れないので残さない
+    // (LoreVocabularyCoverageTest の除外分岐も同時に削除済み = 語彙の全キーに lore.yml の表示定義を課す)。
 }

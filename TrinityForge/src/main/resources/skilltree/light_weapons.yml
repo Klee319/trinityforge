@@ -39,8 +39,6 @@ prestige:
   at-level: 100
   name: 剣聖の境地
   effect-text: ダメージ・会心率・会心ダメージが永続で増加
-  # 2026-08-15(W-31): プレステージは3回まで積めるので、旧値では会心率だけで +0.3 と
-  # ツリー本体(0.28)を上回っていた。ノード側と同じ比率で下げる。
   mainhand-buffs:
     crit-chance: 0.05
     crit-damage: 0.15
@@ -48,9 +46,9 @@ prestige:
     layer_1:
       attack-power: 1.15
   description: |-
-    攻撃力x1.15(永続)
-    会心率+5%(永続)
-    会心ダメージ+15%(永続)
+    攻撃力x1.15
+    会心率+5%
+    会心ダメージ+15%
 nodes:
   A:
     name: 鋭刃の心得
@@ -93,10 +91,6 @@ nodes:
     description: |-
       会心ダメージ+20%
       出血ダメージ率+5%
-    # 2026-08-15(W-30): 出血ダメージを実数(bleed-damage)から率(bleed-damage-rate)へ移した。
-    # 実数はアイテムの帯(Lv0で34 → Lv80以降で4,500)に対して固定なので、ツリー全取りの150は
-    # Lv0で武器の+440%・Lv100で+3.3%という「低帯で壊れ・高帯でno-op」になっていた。
-    # 率は「出血させた一撃の最終ダメージ」に対する割合なので全帯で同じ体感になる。
     mainhand-buffs:
       crit-damage: 0.2
       bleed-damage-rate: 0.05
@@ -158,10 +152,6 @@ nodes:
       出血ダメージ率x1.2
     mainhand-buffs:
       bleed-chance: 0.1
-    # 2026-08-15(W-30): 乗算レイヤは「1レイヤ=1ステ」で、基準ステと違うキーを書くと実行時に
-    # 無言で捨てられる(PerkBuffResolver#withValidMultiplierLayers)。ツリーは率しか配らなく
-    # なったので、率用の layer_4 を追加した上で実数(layer_2)側も残す ── 実数はアイテム由来の
-    # 出血ダメージに掛かるので、消すとこのノードが従来持っていた効果まで失われる。
     mainhand-multipliers:
       layer_2:
         bleed-damage: 1.2

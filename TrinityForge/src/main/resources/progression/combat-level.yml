@@ -21,11 +21,7 @@
 #   C1/LD-8 へ回すため除外。
 # weight はランク付け前の各スキルの倍率(1.0 で素のレベル)。
 
-skills:
-  LIGHT_WEAPONS: 1
-  HEAVY_WEAPONS: 1
-  ARCHERY: 1
-  ARS_MAGIC: 1
+skills: {}
 pillars:
   - top: 1
     divisor: 1.5

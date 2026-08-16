@@ -43,14 +43,15 @@ prestige:
   name: 韋駄天の境地
   effect-text: 守備力・防御率・被ダメージ軽減が永続で増加
   buffs:
-    # 2026-08-15 再々較正。重装備ツリーのちょうど半分(全取りで phys 4.2 / magic 12.6)。
-    # 重装備側の上限の出し方は heavy_armor.yml のプレステージのコメントを参照。
-    # プレステージ + 主軸 C/D/E の4ノードへ分散する(1ノードへ寄せると同レベルの
-    # 重装備ノードを単価で追い越すため)。
     phys-flat-defense: 1.5
     magic-flat-defense: 4.5
     defense-rate: 0.1
     damage-reduction: 0.1
+  description: |-
+    物理守備力+1.5
+    魔法守備力+4.5
+    防御率+10%
+    被ダメ軽減+10%
 nodes:
   A:
     name: 軽身の心得
@@ -67,6 +68,9 @@ nodes:
         move-speed: 0.02
     effects:
       - 空腹になりにくくなる
+    description: |-
+      3部位:移動速度+1.5%
+      4部位:移動速度+2%
   B:
     name: 連携の装
     level: 30
@@ -79,6 +83,7 @@ nodes:
       armor-set-bonus: 0.1
     effects:
       - セット効果の効果量が増加する
+    description: セット効果量UP+10%
   C:
     name: 回避の型
     level: 50
@@ -89,7 +94,6 @@ nodes:
     effect-text: 回避率アップ・守備力増加・アドレナリン発動可能・軽装3部位で回避率セットボーナス成立(4部位で強化)
     buffs:
       dodge-chance: 0.1
-      # 2026-08-15 再々較正(プレステージのコメント参照)。主軸 C/D/E で3等分。
       phys-flat-defense: 0.9
       magic-flat-defense: 2.7
     set-buffs:
@@ -100,6 +104,12 @@ nodes:
     effects:
       - アドレナリンが発動可能になる
       - 軽装3部位以上で回避率セットボーナスが成立し、4部位で更に強化される
+    description: |-
+      回避率+10%
+      物理守備力+0.9
+      魔法守備力+2.7
+      3部位:回避率+10%
+      4部位:回避率+15%
   D:
     name: 堅守の境地
     level: 70
@@ -109,11 +119,15 @@ nodes:
     cost: 1
     effect-text: 守備力・防御率・物理耐性UP
     buffs:
-      # 2026-08-15: 「堅守の境地」なのに守備力を1も配っていなかった。主軸 C/D/E で3等分。
       phys-flat-defense: 0.9
       magic-flat-defense: 2.7
       defense-rate: 0.1
       phys-resistance: 0.1
+    description: |-
+      物理守備力+0.9
+      魔法守備力+2.7
+      防御率+10%
+      物理耐性+10%
   E:
     name: 極意・不動
     level: 90
@@ -123,12 +137,15 @@ nodes:
     cost: 1
     effect-text: 守備力・被ダメージ軽減上昇・アドレナリン発動時バフ強化
     buffs:
-      # 2026-08-15: 主軸 C/D/E の3等分ぶん(プレステージのコメント参照)。
       phys-flat-defense: 0.9
       magic-flat-defense: 2.7
       damage-reduction: 0.1
     effects:
       - アドレナリン発動時のバフが強化される
+    description: |-
+      物理守備力+0.9
+      魔法守備力+2.7
+      被ダメ軽減+10%
   C-1-1:
     name: 魔除けの布
     level: 50
@@ -139,6 +156,7 @@ nodes:
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.1
+    description: 魔法耐性+10%
   C-1-2:
     name: 退魔の布
     level: 70
@@ -149,6 +167,7 @@ nodes:
     effect-text: 魔法耐性増加
     buffs:
       magic-resistance: 0.1
+    description: 魔法耐性+10%
   D-1-1:
     name: 見切りの足捌き
     level: 70
@@ -164,6 +183,10 @@ nodes:
         dodge-chance: 0.05
       "4":
         dodge-chance: 0.08
+    description: |-
+      回避率+5%
+      3部位:回避率+5%
+      4部位:回避率+8%
   D-1-2:
     name: 神速の足捌き
     level: 90
@@ -179,6 +202,10 @@ nodes:
         dodge-chance: 0.05
       "4":
         dodge-chance: 0.08
+    description: |-
+      回避率+5%
+      3部位:回避率+5%
+      4部位:回避率+8%
   A-alpha-1:
     name: 迅・軽身
     level: 10
@@ -190,6 +217,7 @@ nodes:
     effect-text: 回避率増加
     buffs:
       dodge-chance: 0.02
+    description: 回避率+2%
   A-beta-1:
     name: 盾・軽身
     level: 10
@@ -201,6 +229,7 @@ nodes:
     effect-text: 防御率増加
     buffs:
       defense-rate: 0.02
+    description: 防御率+2%
   A-gamma-1:
     name: 減・軽身
     level: 10
@@ -213,6 +242,9 @@ nodes:
     buffs:
       damage-reduction: 0.01
       move-speed: 0.01
+    description: |-
+      被ダメージ軽減+1%
+      移動速度+1%
   B-alpha-1:
     name: 迅・連携
     level: 30
@@ -224,6 +256,7 @@ nodes:
     buffs:
       dodge-chance: 0.02
     group: B-greek
+    description: 回避率+2%
   B-beta-1:
     name: 盾・連携
     level: 30
@@ -235,6 +268,7 @@ nodes:
     buffs:
       defense-rate: 0.02
     group: B-greek
+    description: 防御率+2%
   B-gamma-1:
     name: 減・連携
     level: 30
@@ -247,6 +281,9 @@ nodes:
       damage-reduction: 0.01
       move-speed: 0.01
     group: B-greek
+    description: |-
+      被ダメージ軽減+1%
+      移動速度+1%
   C-alpha-1:
     name: 迅・回避
     level: 50
@@ -258,6 +295,7 @@ nodes:
     buffs:
       dodge-chance: 0.02
     group: C-greek
+    description: 回避率+2%
   C-beta-1:
     name: 盾・回避
     level: 50
@@ -269,6 +307,7 @@ nodes:
     buffs:
       defense-rate: 0.02
     group: C-greek
+    description: 防御率+2%
   C-gamma-1:
     name: 減・回避
     level: 50
@@ -281,6 +320,9 @@ nodes:
       damage-reduction: 0.01
       move-speed: 0.01
     group: C-greek
+    description: |-
+      被ダメージ軽減+1%
+      移動速度+1%
   D-alpha-1:
     name: 迅・堅守
     level: 70
@@ -292,6 +334,7 @@ nodes:
     buffs:
       dodge-chance: 0.02
     group: D-greek
+    description: 回避率+2%
   D-beta-1:
     name: 盾・堅守
     level: 70
@@ -303,6 +346,7 @@ nodes:
     buffs:
       defense-rate: 0.02
     group: D-greek
+    description: 防御率+2%
   D-gamma-1:
     name: 減・堅守
     level: 70
@@ -315,6 +359,9 @@ nodes:
       damage-reduction: 0.01
       move-speed: 0.01
     group: D-greek
+    description: |-
+      被ダメージ軽減+1%
+      移動速度+1%
   E-alpha-1:
     name: 迅・不動
     level: 90
@@ -326,6 +373,7 @@ nodes:
     buffs:
       dodge-chance: 0.02
     group: E-greek
+    description: 回避率+2%
   E-beta-1:
     name: 盾・不動
     level: 90
@@ -337,6 +385,7 @@ nodes:
     buffs:
       defense-rate: 0.02
     group: E-greek
+    description: 防御率+2%
   E-gamma-1:
     name: 減・不動
     level: 90
@@ -349,3 +398,6 @@ nodes:
       damage-reduction: 0.01
       move-speed: 0.01
     group: E-greek
+    description: |-
+      被ダメージ軽減+1%
+      移動速度+1%

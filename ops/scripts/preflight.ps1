@@ -111,11 +111,6 @@ $defaultCredentials = @{
 # キー名は 4.0.0 の生成物に合わせている。値は「あるべき状態」。
 $requiredFeatures = @{
     "location"        = "false"
-    "game_mode"       = "false"
-    # flight_status は game_mode と必ず同値にする。HuskSync 側の依存は optional なので
-    # game_mode だけ false にしても飛行状態は同期され続け、
-    # 「サバイバルに戻ったのに飛べる」状態になる（2026-07-28 に実機で発生）。
-    "flight_status"   = "false"
     "persistent_data" = "true"
     "inventory"       = "true"
     "ender_chest"     = "true"

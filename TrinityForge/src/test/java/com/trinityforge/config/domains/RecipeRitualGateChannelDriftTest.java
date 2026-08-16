@@ -72,7 +72,16 @@ class RecipeRitualGateChannelDriftTest {
             "core_vegetable",
             "core_meat",
             "compressed_bread_1x",
-            "compressed_cooked_beef_1x");
+            "compressed_cooked_beef_1x",
+            // 2026-08-16 追加: 料理系の圧縮レシピ8件(materials.yml で method: workbench)。
+            "baked_cod_1x",
+            "baked_potato_1x",
+            "baked_salon_1x",
+            "cooked_chicken_1x",
+            "cooked_mutton_1x",
+            "cooked_porkchop_1x",
+            "cookie_1x",
+            "pumpkin_pie_1x");
 
     /**
      * {@code ritual:} チャンネルでなければ機能しないid(ArsPaper側で {@code method: ritual})。
@@ -83,7 +92,10 @@ class RecipeRitualGateChannelDriftTest {
             "enchant_book_mana_boost_1", "enchant_book_mana_boost_2", "enchant_book_mana_boost_3",
             "enchant_book_share", "enchant_book_soulbound",
             "volcanic_sourcelink",
-            "waystone", "teleport_compass");
+            "waystone", "teleport_compass",
+            // 2026-08-16 追加: 上位ソースジャー/コンデンサ/エンジンも materials.yml で method: ritual。
+            // 一度 recipe: 側へ置かれて無言で常時解放になっていたのを戻した。
+            "source_crystal", "source_condenser", "source_engine");
 
     private static Plugin fakePlugin(File dataFolder, Logger logger) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
@@ -111,7 +123,11 @@ class RecipeRitualGateChannelDriftTest {
         }
         SkillTreeConfig config = new SkillTreeConfig();
         Logger logger = Logger.getLogger("RecipeRitualGateChannelDriftTest-" + System.nanoTime());
-        assertTrue(config.load(fakePlugin(dataFolder, logger)), "skill trees must load OK");
+        // 戻り値は見ない。SkillTreeConfig#load は「警告が1件でもあれば false」なので、無関係な警告
+        // (解放効果の重複など)でこのテストが【チャンネル検査に到達する前に】落ちてしまう。実際
+        // 2026-08-16 に、その早期死のせいで ritual: → recipe: の取り違え14件を丸ごと見逃していた。
+        // ツリーが本当に壊れているかどうかは直後の件数チェックで見る。
+        config.load(fakePlugin(dataFolder, logger));
         java.util.Collection<SkillTree> trees = config.all().values();
         assertTrue(trees.size() == SKILL_TREE_FILES.length,
                 "test setup sanity: expected " + SKILL_TREE_FILES.length + " trees, got " + trees.size());

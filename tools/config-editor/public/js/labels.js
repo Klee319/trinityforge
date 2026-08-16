@@ -54,9 +54,11 @@
     "damage-mana-recovery": "Ars:攻撃マナ回復(実)↑",
     "mana-cost-reduction-flat": "Ars:マナ消費(実)↓",
     "mana-cost-reduction-percent": "Ars:マナ消費率↓",
-    "mana-max-base": "Ars:マナ上限(基礎)",
-    "mana-regen-base": "Ars:マナ回復(基礎)",
-    "mana-regen-interval-ticks": "Ars:マナ回復間隔",
+    // 2026-08-16: mana-max-base / mana-regen-base / mana-regen-interval-ticks のラベルは削除した。
+    // 真源が ArsPaper の config.yml (mana.default-max / default-regen-rate / regen-interval-ticks)へ
+    // 戻り、TF のステ語彙(base-stats.yml)から撤去されたため。編集口は「ArsPaper 全体設定 (config)」
+    // 画面のマナカード(tf-phase3-forms.js)で、そちらのラベルはフォーム側に直書きする
+    // (STAT_LABELS は `<接頭辞>:<説明>` 形式のステ語彙専用辞書なので、ここへ足してはいけない)。
     "mana-onhit-percent": "Ars:被弾マナ%↑",
     "mana-onattack-percent": "Ars:攻撃マナ%↑",
     "mana-idle-seconds": "Ars:待機マナ秒数",
@@ -283,12 +285,10 @@
       + "設定した値は適用時に物理守備力・魔法守備力のどちらかへ振り分けられ、"
       + "上限もその振り分け先のキーの上限に従う。新しく設定するときは物理守備力/魔法守備力を直接使うこと"
       + "(この画面からは既定で隠している)。"
-    ,"mana-max-base": "base-stats.yml専用のマナ初期値(基礎)。ArsPaperのmana.default-max相当の値をここで設定し、"
-      + "フォークはTrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
-    ,"mana-regen-base": "base-stats.yml専用のマナ自然回復(基礎)。フォークはTrinityForgeBridge.manaBaseStat"
-      + "経由で読む。通常アイテムには付与されない。"
-    ,"mana-regen-interval-ticks": "base-stats.yml専用のマナ自然回復の間隔(tick)。フォークは"
-      + "TrinityForgeBridge.manaBaseStat経由で読む。通常アイテムには付与されない。"
+    // 2026-08-16: mana-max-base / mana-regen-base / mana-regen-interval-ticks の説明は削除した。
+    // 真源が ArsPaper の config.yml (mana.*)へ戻り、TF のステ語彙から撤去されたため
+    // (この3キーは base-stats.yml 専用で lore.yml にも無く、どの画面にも出ていなかった)。
+    // 説明文は「ArsPaper 全体設定 (config)」画面のマナカードの desc に移した。
     ,"mana-onhit-percent": "被弾時マナ回復量への割合ボーナス(%)。ManaBaseStats.onHitPercent経由でフォークが読む。"
     ,"mana-onattack-percent": "攻撃時マナ回復量への割合ボーナス(%)。ManaBaseStats.onAttackPercent経由でフォークが読む。"
     ,"mana-idle-seconds": "待機(未行動)何秒でマナ回復ボーナスが発生するかの秒数。"

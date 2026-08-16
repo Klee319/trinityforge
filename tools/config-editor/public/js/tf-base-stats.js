@@ -56,9 +56,13 @@
     "tool-enchant-efficiency",
     // 2026-07-29(重複ステ間引き) 理由(c): 同じ画面の別キーと完全に同じ意味になるキー。
     // mana-bonus は「マナ上限への加算」、mana-regen は「マナ回復量への加算」で、
-    // 全員一律値としては mana-max-base / mana-regen-base に足されるだけだったため、
-    // この画面では基礎値側の2キーだけを見せる。アイテム/パークステとしては引き続き有効なので
-    // 語彙(StatVocabulary)からは消さない。既存値は保存でロスレスに温存される。
+    // 全員一律値としては基礎値へ足されるだけだったため、この画面からは外している。
+    // アイテム/パークステとしては引き続き有効なので語彙(StatVocabulary)からは消さない。
+    // 既存値は保存でロスレスに温存される。
+    // 2026-08-16 追記: 加算先の基礎値だった mana-max-base / mana-regen-base は
+    // base-stats.yml から撤去され、真源は ArsPaper の config.yml の
+    // mana.default-max / mana.default-regen-rate へ戻った(編集は「ArsPaper 全体設定 (config)」画面)。
+    // この Set の中身は変えない(test/tf-base-stats-form.test.js が2キーで固定している)。
     "mana-bonus",
     "mana-regen"
   ]);

@@ -34,34 +34,37 @@ satiety-buff:
 custom-foods:
   compressed_bread_1x:
     food-level: 20
-    saturation: 18
+    saturation: 10
   compressed_cooked_beef_1x:
     food-level: 20
     saturation: 20
   baked_potato_1x:
-    food-level: 20
-    saturation: 20
+    food-level: 16
+    saturation: 10
   cooked_porkchop_1x:
     food-level: 20
     saturation: 20
   cooked_mutton_1x:
-    food-level: 20
-    saturation: 20
-  cooked_chicken_1x:
-    food-level: 20
-    saturation: 20
-  cookie_1x:
     food-level: 18
-    saturation: 3.6
+    saturation: 15
+  cooked_chicken_1x:
+    food-level: 18
+    saturation: 13
+  cookie_1x:
+    food-level: 14
+    saturation: 7
   pumpkin_pie_1x:
-    food-level: 20
-    saturation: 20
-  tf_crystal_apple:
-    food-level: 4
-    saturation: 9.6
+    food-level: 18
+    saturation: 12
   source_berry:
     food-level: 0
     saturation: 0
+  baked_salon_1x:
+    food-level: 16
+    saturation: 15
+  baked_cod_1x:
+    food-level: 16
+    saturation: 15
 unregistered-custom-food-ban:
   enabled: true
   excluded-materials: []

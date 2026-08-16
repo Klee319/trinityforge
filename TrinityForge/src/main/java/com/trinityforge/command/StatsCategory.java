@@ -135,8 +135,10 @@ public enum StatsCategory {
             "mana_cost_reduction_flat", "mana_cost_reduction_percent", "source_cost_reduction",
             // 2026-07-25 害悪グリフ強化(ars_magic.yml B-3): 特定グリフのダメージ倍率ボーナス。
             "glyph_damage_multiplier_bonus",
-            // 2026-07-25 (config editor T2): base-stats.yml 専用のマナ初期値キー(lore.yml未登録)。
-            "mana_max_base", "mana_regen_base", "mana_regen_interval_ticks",
+            // 2026-08-16: mana_max_base / mana_regen_base / mana_regen_interval_ticks はここからも外した。
+            // ArsPaper の config.yml (mana.default-max / mana.default-regen-rate / mana.regen-interval-ticks)
+            // へ移設して StatVocabulary から削除したため、残すと「語彙に無い取り残し」になる
+            // (StatsCategoryCoverageTest.noCategoryKeyIsMissingFromVocabulary が落ちる)。
             // 2026-07-29(重複ステ間引き): mana_onhit_flat / mana_onattack_flat を廃止し、
             // hit_mana_recovery / damage_mana_recovery へ一本化した(同じ効果の2経路だった)。
             "mana_onhit_percent", "mana_onattack_percent",

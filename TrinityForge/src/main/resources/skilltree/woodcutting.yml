@@ -20,18 +20,16 @@ icon: IRON_AXE
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1
+  max-times: 5
   at-level: 100
   name: 大伐採者の栄光
   effect-text: メインに斧を持つと採掘速度上昇 永続+1・全てのリンゴドロップ増加 永続+10%・木材の経験値変換効率+10%
-  buffs:
-    woodcutting-break-vanilla-exp-bonus: 0.1
-    # 2026-08-13: 10(パーセントポイント記法)から 0.1(割合)へ。PercentStatNormalize が実行時に
-    # 10 -> 0.1 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
-    # ステを 値x100 で表示するため「1000%」と出ていた。同じ理由で下の mining-fortune も割合記法。
-    woodcutting-extra-drop-chance: 0.1
   mainhand-buffs:
     gathering-efficiency: 1
+    woodcutting-extra-drop-chance: 0.2
+  description: |-
+    効率強化増幅+1
+    幸運(伐採)+20%
 nodes:
   A:
     name: はじまりの木こり
@@ -58,6 +56,9 @@ nodes:
     dedicated-effects:
       - id: feature:tree-fell
         value: 1
+    description: |-
+      小さな木を一括破壊 1回/10s
+      &8/tf settings 設定でオン/オフ可能
   C:
     name: 雑木林の管理者
     level: 50
@@ -66,8 +67,12 @@ nodes:
     icon: GOLDEN_AXE
     cost: 1
     effect-text: 破壊で2倍のバニラEXP
-    buffs:
-      woodcutting-break-vanilla-exp-bonus: 1
+    description: |-
+      破壊で1.5倍のバニラEXP
+      効率強化増幅+1
+    mainhand-buffs:
+      woodcutting-break-vanilla-exp-bonus: 0.5
+      gathering-efficiency: 1
   D:
     name: 植林場の経営者
     level: 70
@@ -76,15 +81,16 @@ nodes:
     icon: IRON_AXE
     cost: 1
     effect-text: 大きな木を一括破壊 1回/10s・伐採グリフの解放・メインに斧を持つと採集効率+1
-    mainhand-buffs:
-      gathering-efficiency: 1
     effects:
       - 大きな木を一括破壊(1回/10秒)
       - 伐採グリフを解放
     dedicated-effects:
       - id: glyph:fell
       - id: feature:tree-fell
-        value: 3
+        value: 2
+    description: |-
+      大きな木を一括破壊 1回/10s
+      伐採グリフの解放
   E:
     name: プランテーションの資本家
     level: 90
@@ -101,32 +107,39 @@ nodes:
     dedicated-effects:
       - id: feature:wood-repair-unlock
       - id: recipe:core_wood
+    description: |-
+      耐久値を圧縮木材で回復可能にする機能が解放
+      &8圧縮木材を耐久値の減ったツールなどにドラッグアンドドロップすると回復します
+      さらに大きな木を一括破壊 1回/10s
+      ウッドコアのクラフト解放
   A-1:
-    name: リンゴ生活
+    name: 金リンゴ生活
     level: 20
     role: branch
     parent: A
-    icon: APPLE
+    icon: GOLDEN_APPLE
     cost: 1
     effect-text: リンゴが落ちやすくなる
     effects:
       - リンゴが落ちやすくなる
     dedicated-effects:
-      - id: drop:woodcutting:apple
+      - id: drop:woodcutting:golden_apple
+    description: 金リンゴがまれにおちる
   A-2:
-    name: 金リンゴ生活
-    level: 20
+    name: クリスタル金リンゴ生活
+    level: 40
     role: branch
     parent: A-1
-    icon: GOLDEN_APPLE
+    icon: DIAMOND
     cost: 1
     effect-text: 金リンゴが落ちやすくなる
     effects:
       - 金リンゴが落ちやすくなる
     dedicated-effects:
-      - id: drop:woodcutting:golden_apple
-  A-4:
-    name: クリスタルリンゴ生活
+      - id: drop:woodcutting:crystal_apple
+    description: クリスタル金リンゴがまれに落ちる
+  A-3:
+    name: エンチャント金リンゴ生活
     level: 60
     role: branch
     parent: A-2
@@ -137,65 +150,82 @@ nodes:
       - クリスタルリンゴが落ちやすくなる
       - 剪定を解放
     dedicated-effects:
-      - id: drop:woodcutting:crystal_apple
+      # 2026-08-16修正: crystal_apple は親の A-2 が解放済み。同じ解放を子ノードにも置くと
+      # Java 側が重複警告を出すだけで、取得条件は何も変わらない(A-3 の親は A-2)。
       - id: glyph:cut
-  B-1:
-    name: 効率破壊I
-    level: 35
+    description: |-
+      エンチャント金リンゴが落ちやすくなる
+      剪定のグリフ解放
+  A-2-1:
+    name: 効率伐採I
+    level: 20
     role: branch
     parent: B
-    icon: SHEARS
+    icon: OAK_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s
     effects:
       - 一括破壊のクールダウンを-3秒
     mainhand-buffs:
-      tree-fell-cooldown-reduction: 0.3
-  B-2:
-    name: 効率破壊II
+      tree-fell-cooldown-reduction: 0.2
+    description: 一括破壊のCTを-2sする
+  A-2-2:
+    name: 効率伐採II
     level: 40
     role: branch
-    parent: B-1
-    icon: SHEARS
+    parent: A-2-1
+    icon: BIRCH_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s
     effects:
       - 一括破壊のクールダウンを-3秒
     mainhand-buffs:
-      tree-fell-cooldown-reduction: 0.3
-  B-3:
-    name: 効率破壊II
+      tree-fell-cooldown-reduction: 0.2
+    description: 一括破壊のCTを-2sする
+  A-2-3:
+    name: 効率伐採Ⅲ
     level: 60
     role: branch
-    parent: B-2
-    icon: SHEARS
+    parent: A-2-2
+    icon: SPRUCE_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s
     effects:
       - 一括破壊のクールダウンを-3秒
     mainhand-buffs:
-      tree-fell-cooldown-reduction: 0.3
-  C-1:
+      tree-fell-cooldown-reduction: 0.2
+    description: 一括破壊のCTを-2sする
+  A-2-4:
+    role: branch
+    parent: A-2-3
+    name: 効率伐採Ⅳ
+    level: 80
+    mainhand-buffs:
+      tree-fell-cooldown-reduction: 0.2
+    description: 一括破壊のCTを-2sする
+    icon: JUNGLE_LOG
+  B-1:
     name: 精密製材I
     level: 40
     role: branch
     parent: C
     icon: STRIPPED_OAK_LOG
     cost: 1
-    effect-text: 伐採時に低確率で+1
     effects:
       - 伐採時に低確率でドロップ+1
     mainhand-buffs:
-      mining-fortune: 0.05
-  C-2:
+      woodcutting-extra-drop-chance: 0.2
+    description: 幸運(伐採)+20%
+  B-2:
     name: 精密製材II
     level: 60
     role: branch
-    parent: C-1
+    parent: B-1
     icon: STRIPPED_OAK_LOG
     cost: 1
     effect-text: 伐採時に1/2で+1
     effects:
       - 伐採時に1/2の確率でドロップ+1
     mainhand-buffs:
-      mining-fortune: 0.15
+      woodcutting-extra-drop-chance: 0.3
+    description: 幸運(伐採)+30%

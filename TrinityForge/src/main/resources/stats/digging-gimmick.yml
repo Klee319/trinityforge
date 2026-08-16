@@ -13,14 +13,30 @@ drop-tables:
         - item: custom:gacha_ticket_digging
           weight: 1
           amount: 1
-      trigger-chance-percent: 1
+      trigger-chance-percent: 2
+    tier2:
+      display-name: tier2
+      entries:
+        - item: custom:gacha_ticket_digging
+          weight: 1
+          amount: 1
+      trigger-chance-percent: 3
+    tier3:
+      display-name: tier3
+      entries:
+        - item: ANCIENT_DEBRIS
+          weight: 1
+          amount: 1
+      trigger-chance-percent: 0.1
 durability-exp:
   durability-per-percent: 500
   vanilla-exp:
     tiers:
       "1":
-        cap-percent: 50
+        cap-percent: 100
+        durability-per-percent: 250
   job-exp:
     tiers:
       "1":
-        cap-percent: 25
+        cap-percent: 50
+        durability-per-percent: 500

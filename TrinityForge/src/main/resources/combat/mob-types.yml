@@ -241,119 +241,24 @@
 # ============================================================================
 
 max-level: 100
-
-# dimensions: ディメンション別の基準(初期)レベルの下駄(2026-08-02導入)。
-#   effectiveLevel = (levelまたはdefaults.level + dimensions.<ENV>.base-level)
-#                    + floor(ワールドスポーンからの距離 × coordinate-coefficient)
-#   キーは World.Environment 名(NORMAL / NETHER / THE_END / CUSTOM)。ワールド名では引かない
-#   (ネザー/エンドのワールド名はサーバー構成依存で一致せず、EliteMobsのインスタンスワールドは
-#   毎回名前が変わるため — forks-and-mobs.md 既知の罠と同じ理由)。
-#
-#   【適用範囲】バニラモブ(mob-types 配下のタグ付き・defaults の未タグ付けの両方)に加え、
-#   EliteMobs 由来モブ(CustomBoss/取り込んだダンジョンモブ)の base-level にも乗る
-#   (2026-08-02修正、MobTypeSpawnListener#applyDimensionLevelBonus)。ただし EliteMobs モブには
-#   次の2点で「一律加算」ではない:
-#     - base-level だけを「EM側が既に決めた MOB_LEVEL」に加算する。EM 自身が刻んだ防御/攻撃/HPの
-#       値は一切上書きしない(EM のレベル決定ロジック自体を壊さないため)。
-#     - coordinate-coefficient の上書きは EliteMobs モブには適用されない。EM は座標距離ではなく
-#       自前のダンジョンレベル/SpawnRadiusDifficultyIncrementer で難度を決める別系統のため。
-#
-#   base-level: 整数、既定0(未設定/セクション自体を書かなくてもよい)。
-#   coordinate-coefficient: 省略可。指定した場合のみ、そのディメンションのバニラモブ全体で
-#     (mob-types各エントリ/defaults の)coordinate-coefficient を上書きする(EliteMobsモブには
-#     効かない、上記参照)。
-#     ⚠️ ネザーはオーバーワールド換算で距離が1/8になる(同じ体感距離でも実ブロック距離は1/8)。
-#     このファイルの実装は「その場のワールド内の生のブロック距離」に係数を掛けるだけで、
-#     8倍のような自動換算は一切行わない(据え置き)。ネザーでも通常世界と同じ体感カーブに
-#     揃えたい場合は、この coordinate-coefficient を明示的に引き上げて運用側で補正すること
-#     (ただし「8倍にする」は下の NETHER の節に書いたとおり max-level への飽和が早すぎるので非推奨)。
-#   未設定(このセクション自体が無い、または個々のキーが無い)は必ず「従来どおり無干渉」
-#   (下駄0・係数はモブ側の値のまま)になる。後方互換を壊さない。
-#
-# 【2026-08-03 ⚠️ここを空でなくするのは「バランスの大改造」であって設定作業ではない】
-#   空のままだと MobTypeSpawnListener#applyDimensionLevelBonus の `if (bonus == 0) return;` で
-#   必ず早期returnするため、その直後の reapplyDimensionBonusMaxHealth(「次元の下駄が攻撃力だけ
-#   上げてHPを上げていない」という指摘への修正)へ制御が一度も到達しない。
-#   ＝【下駄をHPへ反映する修正は、値を入れるまで死んだままである】。これは既知の状態。
-#
-#   一度 NETHER 20 / THE_END 45 を入れてみて、検算した結果【出せないと判断して戻した】:
-#     ・下駄は各モブの level に加算され、その level が max-health-high-level-from(=45)を
-#       またぐと per-level(モブごとに 554〜1293)が【毎レベル加算】される指数区間へ入る。
-#       THE_END 45 は「エンドの全モブを高レベル区間の発火点ちょうどに置く」設定になる。
-#       ENDERMAN(level:0 / 560HP / growth 1.048 / per-level 1293.02)で本島 ≒Lv47 の場合、
-#       615HP → 7,653HP(約12倍)。外周1,000ブロック(≒Lv65)なら 1,422HP → 37,665HP(約26倍)。
-#     ・ネザーは【二重計上】になる。ネザーのモブは既に level に難度が入っている
-#       (BLAZE/GHAST/HOGLIN/WITHER_SKELETON 35、PIGLIN_BRUTE 40、PIGLIN/MAGMA_CUBE 25)。
-#       オーバーワールドのモブが 0 なのに対し、そこへさらに +20 する意味は薄い。
-#     ・副作用として MOB_LEVEL は EXP 帯と drops[].quality(省略時はモブレベル駆動)も動かすので、
-#       取得EXPとドロップ品質も同時に跳ね上がる。
-#   本当に必要なのは ENDERMAN/SKELETON のような「両次元に湧く level:0 モブ」だけなので、
-#   入れるならモブ個別の level を見直す方が筋がよい。全体に効く下駄で解くなら、
-#   まず THE_END を 45 ではなく 20〜30(高レベル区間に入らない範囲)から刻むこと。
-dimensions: {}
-
-# summoned: 召喚モブ(Ars の召喚魔法で出るモブ)のレベルを、召喚者のスキルレベルで決める。
-#
-# なぜ要るか: 召喚モブは特別扱いされておらず、周囲の野良モブとまったく同じ
-# 「ワールドスポーンからの距離 × coordinate-coefficient」でレベルが決まっていた。
-# 召喚は普通は拠点や戦闘中のその場で行うので、実際には【ほぼ常に Lv0】になり、
-# 魔法使いがどれだけ熟練しても使い魔が強くならなかった。
-#
-# ここを有効にすると、召喚モブのレベルは召喚位置と無関係に
-#   level = base-level + floor(召喚者の skill のレベル × level-per-skill-level)
-# になる(max-level でクランプ)。HPと攻撃力はこのレベルから
-# そのEntityTypeの通常の係数でスケールするので、召喚された骨は
-# 「骨としての素の強さ」を保ったままレベルだけが召喚者に追随する。
-#
-# ⚠ 召喚モブの判別は ArsPaper が刻む PDC (arspaper:summoned / arspaper:summoner_uuid) に
-#    依存している。フォーク側でこのキー名を変えると【無言で効かなくなる】。
-# ⚠ 召喚者がオフライン等で引けない場合は、従来どおりの距離ベースへ落ちる。
+dimensions:
+  NETHER:
+    base-level: 50
+    coordinate-coefficient: 0.01
+  THE_END:
+    base-level: 80
+    coordinate-coefficient: 0.004
 summoned:
-  # false なら従来どおり(召喚モブも周囲のモブと同じ距離ベース)。
   enabled: true
-  # 参照するスキルid。ARS_MAGIC = 魔法。
   skill: ARS_MAGIC
-  # 召喚者のスキルレベル1につき、召喚モブのレベルをいくつ上げるか。
-  # 1.0 = 召喚者のレベルがそのまま召喚モブのレベルになる。
-  level-per-skill-level: 1.0
-  # スキルレベル0でも保証する下駄。0 のままだと初心者の使い魔が Lv0 のまま = 修正前と同じになる。
+  level-per-skill-level: 1
   base-level: 1
-  # 召喚モブ専用の上限。0 なら上の max-level に従う。
   max-level: 0
-
-# tamed: 手懐けた友好モブ(狼/猫/馬等、Bukkit の Tameable#isTamed())のレベルを、
-# 飼い主の"スキル"ではなく総合戦闘レベル(progression/combat-level.yml の pillar式)で決める(M-2)。
-#
-# なぜ単一スキルを参照しないか(= summoned: との違い):
-#   summoned: は Ars の召喚魔法という出所が決まっているので、参照するスキル(ARS_MAGIC)が
-#   自然に1つに定まる。一方、テイムには「テイム専用スキル」というものがそもそも存在しない。
-#   summoned: と同じ形式で単一スキルを指定するなら候補は ARS_MAGIC しかないが、それだと
-#   「魔法を上げないと狼が育たない」という筋の通らない依存になってしまう
-#   (弓/採掘/近接戦闘などを幾ら伸ばしても懐いた狼が全く育たない)。
-#   飼い主の総合的な強さに追随させるべきものなので、単一スキルではなく
-#   progression/combat-level.yml が出す総合戦闘レベルをそのまま見る。
-#   (このセクションに summoned.skill に相当する skill: キーは存在しない。単一スキル方式を
-#    採らないことの表明として意図的に省略している。将来 skill: を書いても無視される)
-#
-# level = base-level + floor(飼い主の総合戦闘レベル × level-per-skill-level) (max-level でクランプ)。
-# HPと攻撃力はこのレベルからそのEntityTypeの通常の係数でスケールする(summoned: と同じ考え方)。
-#
-# ⚠ EliteMobs 所有のモブ(MOB_PROFILE_ID/MOB_DUNGEON_THEME を持つ個体)には適用しない。
-# ⚠ 飼い主が特定できない場合(Tameable#getOwner()がnull等)は従来どおり無干渉。
-# ⚠ 飼い主の総合戦闘レベルが後から上がった場合、次にそのモブのチャンクが読み込まれた時点
-#   (EntitiesLoadEvent)で追随する。PlayerJoinEvent での全ワールド走査は
-#   「そのプレイヤーが飼い主であるモブ一覧」を得る仕組みが無く重すぎるため採用していない。
 tamed:
-  # false なら従来どおり(手懐けモブはEntityTypeごとの通常のバニラ/mob-types値のまま)。
   enabled: true
-  # 飼い主の総合戦闘レベル1につき、手懐けモブのレベルをいくつ上げるか。
-  # 1.0 = 飼い主の総合戦闘レベルがそのまま手懐けモブのレベルになる。
-  level-per-skill-level: 1.0
-  # 飼い主の総合戦闘レベルが0でも保証する下駄。0のままだと駆け出しの狼がLv0のまま(修正前と同じ)。
+  level-per-skill-level: 1
   base-level: 1
-  # 手懐けモブ専用の上限。0 なら上の max-level に従う。
   max-level: 0
-
 defaults:
   level: 0
   coordinate-coefficient: 0.02
@@ -382,12 +287,11 @@ defaults:
       flat-defense: 0.0025
     max-health: 0
     max-health-growth: 1.053
-    max-health-growth-interval: 1.0
+    max-health-growth-interval: 1
     max-health-high-level-from: 45
     max-health-high-level-per-level: 2309
   max-health: 800
 mob-types:
-  # --- A群: 敵対モブ(Paper の Enemy マーカー基準・41種) ---------------------
   BLAZE:
     level: 35
     coordinate-coefficient: 0.02
@@ -412,12 +316,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 火球
       magic-ratio: 0.8
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1963
       armor-strength: 0.0025
@@ -434,7 +337,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -468,12 +371,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 毒の矢。矢そのものは物理
       magic-ratio: 0.4
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1847
       armor-strength: 0.0025
@@ -490,7 +392,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -524,12 +426,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): ウィンドチャージの弾
       magic-ratio: 0.7
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -546,7 +447,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -583,7 +484,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1616
       armor-strength: 0.0025
@@ -600,7 +501,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -634,12 +535,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 樹脂の呪いで縛る。本体の打撃は物理
       magic-ratio: 0.5
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -656,7 +556,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -693,7 +593,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1732
       armor-strength: 0.0025
@@ -710,7 +610,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -747,7 +647,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -764,7 +664,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -798,12 +698,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): レーザーと採掘疲労の呪い
       magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 5080
       armor-strength: 0.0025
@@ -820,7 +719,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -857,7 +756,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 3233
       armor-strength: 0.0025
@@ -874,7 +773,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -911,7 +810,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1039
       armor-strength: 0.0025
@@ -928,7 +827,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -962,12 +861,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): ドラゴンブレス。突進そのものは物理なので完全魔法にはしない
       magic-ratio: 0.7
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 12699
       armor-strength: 0.0025
@@ -984,7 +882,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1018,12 +916,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 召喚した牙とヴェックスで攻撃する完全な術者
-      magic-ratio: 1.0
+      magic-ratio: 1
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -1040,7 +937,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1074,12 +971,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 火球
       magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1154
       armor-strength: 0.0025
@@ -1096,7 +992,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1133,7 +1029,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 6003
       armor-strength: 0.0025
@@ -1150,7 +1046,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1184,12 +1080,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): レーザー
       magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -1206,7 +1101,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1243,7 +1138,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 3002
       armor-strength: 0.0025
@@ -1260,7 +1155,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1297,7 +1192,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -1314,7 +1209,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1348,12 +1243,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 幻影と盲目付与で戦う完全な術者
-      magic-ratio: 1.0
+      magic-ratio: 1
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2424
       armor-strength: 0.0025
@@ -1370,7 +1264,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1407,7 +1301,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1385
       armor-strength: 0.0025
@@ -1424,7 +1318,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1461,7 +1355,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -1478,7 +1372,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1515,7 +1409,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1616
       armor-strength: 0.0025
@@ -1532,7 +1426,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1569,7 +1463,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -1586,7 +1480,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1623,7 +1517,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 3463
       armor-strength: 0.0025
@@ -1640,7 +1534,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1677,7 +1571,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2078
       armor-strength: 0.0025
@@ -1694,7 +1588,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1731,7 +1625,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 6003
       armor-strength: 0.0025
@@ -1748,7 +1642,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1782,12 +1676,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 浮遊を付与する誘導弾
       magic-ratio: 0.8
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2540
       armor-strength: 0.0025
@@ -1804,7 +1697,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1841,7 +1734,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1039
       armor-strength: 0.0025
@@ -1858,7 +1751,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1895,7 +1788,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1963
       armor-strength: 0.0025
@@ -1912,7 +1805,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -1949,7 +1842,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1154
       armor-strength: 0.0025
@@ -1966,7 +1859,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2003,7 +1896,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1616
       armor-strength: 0.0025
@@ -2020,7 +1913,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2054,12 +1947,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 氷結の矢。矢そのものは物理
       magic-ratio: 0.4
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1963
       armor-strength: 0.0025
@@ -2076,7 +1968,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2110,12 +2002,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 召喚された霊体だが攻撃手段は剣なので半々
       magic-ratio: 0.5
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 924
       armor-strength: 0.0025
@@ -2132,7 +2023,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2169,7 +2060,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2194
       armor-strength: 0.0025
@@ -2186,7 +2077,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2220,12 +2111,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): ソニックブーム。近接の叩きつけは物理なので混合
       magic-ratio: 0.6
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 13854
       armor-strength: 0.0025
@@ -2242,7 +2132,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2276,12 +2166,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 投擲ポーションのみで攻撃する完全な術者
-      magic-ratio: 1.0
+      magic-ratio: 1
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2078
       armor-strength: 0.0025
@@ -2298,7 +2187,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2332,12 +2221,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): ウィザースカルの弾
       magic-ratio: 0.9
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 11545
       armor-strength: 0.0025
@@ -2354,7 +2242,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2388,12 +2276,11 @@ mob-types:
       penetration: 0.05
       damage-modifier: 1
       fixed-damage: 0
-      # 魔法モブ(2026-08-02): 剣が主体だがウィザーを付与する
       magic-ratio: 0.3
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2540
       armor-strength: 0.0025
@@ -2410,7 +2297,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2447,7 +2334,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 3117
       armor-strength: 0.0025
@@ -2464,7 +2351,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2501,7 +2388,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -2518,7 +2405,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2555,7 +2442,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -2572,7 +2459,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2609,7 +2496,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -2626,7 +2513,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2636,8 +2523,6 @@ mob-types:
         crit-damage: 0
         damage-modifier: 0
         fixed-damage: 0
-
-  # --- B群: 反撃してくる中立モブ(9種) --------------------------------------
   BEE:
     level: 0
     coordinate-coefficient: 0.02
@@ -2665,7 +2550,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 808
       armor-strength: 0.0025
@@ -2682,7 +2567,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2719,7 +2604,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1154
       armor-strength: 0.0025
@@ -2736,7 +2621,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2773,7 +2658,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1154
       armor-strength: 0.0025
@@ -2790,7 +2675,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2827,7 +2712,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 5542
       armor-strength: 0.0025
@@ -2844,7 +2729,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2881,7 +2766,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1616
       armor-strength: 0.0025
@@ -2898,7 +2783,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2935,7 +2820,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1963
       armor-strength: 0.0025
@@ -2952,7 +2837,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -2989,7 +2874,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 2309
       armor-strength: 0.0025
@@ -3006,7 +2891,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -3043,7 +2928,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1616
       armor-strength: 0.0025
@@ -3060,7 +2945,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -3097,7 +2982,7 @@ mob-types:
     level-coefficients:
       max-health: 0
       max-health-growth: 1.053
-      max-health-growth-interval: 1.0
+      max-health-growth-interval: 1
       max-health-high-level-from: 45
       max-health-high-level-per-level: 1385
       armor-strength: 0.0025
@@ -3114,7 +2999,7 @@ mob-types:
       attack:
         attack-power: 0
         attack-power-growth: 1.0148
-        attack-power-growth-interval: 1.0
+        attack-power-growth-interval: 1
         attack-power-high-level-from: 45
         attack-power-high-level-per-level: 0
         flat-bonus-damage: 0
@@ -3124,210 +3009,276 @@ mob-types:
         crit-damage: 0
         damage-modifier: 0
         fixed-damage: 0
-
-  # --- C群: 友好・受動モブ(40種) -------------------------------------------
-  # レベルの刻印だけ行い、HP と与ダメージはバニラのまま。討伐で得られるのは
-  # バニラどおりの経験値だけで、mob-level-table.yml のレベル帯 vanilla-exp は
-  # 同ファイル側の mobs: フィルタでこの群を一度も列挙していない。
-  # 【2026-07-27】B群(中立)のうち繁殖・建造で無限に増やせるもの
-  # (BEE/GOAT/LLAMA/TRADER_LLAMA/PANDA/WOLF/IRON_GOLEM)も、同じ理由で
-  # mob-level-table.yml の mobs: から外した。牧場を殴るのが最効率のEXP稼ぎに
-  # なるのを防ぐため。B群で帯EXPが乗るのは DOLPHIN / POLAR_BEAR だけ
-  # (どちらも繁殖手段が無く自然スポーン依存)。
-  # このファイル側の定義(HP/攻撃/防御)は据え置き — 反撃してくる中立モブとしての
-  # 手応えは残しつつ、報酬だけを落とすのが狙い。
   ALLAY:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   ARMADILLO:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   AXOLOTL:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   BAT:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   CAMEL:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   CAMEL_HUSK:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   CAT:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   CHICKEN:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   COD:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   COPPER_GOLEM:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   COW:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   DONKEY:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   FOX:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   FROG:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   GLOW_SQUID:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   HAPPY_GHAST:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   HORSE:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   MOOSHROOM:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   MULE:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   NAUTILUS:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   OCELOT:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   PARROT:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   PIG:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   PUFFERFISH:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   RABBIT:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   SALMON:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   SHEEP:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   SKELETON_HORSE:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   SNIFFER:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   SNOW_GOLEM:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   SQUID:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   STRIDER:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   TADPOLE:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   TROPICAL_FISH:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   TURTLE:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   VILLAGER:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   WANDERING_TRADER:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   ZOMBIE_HORSE:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}
   ZOMBIE_NAUTILUS:
     level: 0
     coordinate-coefficient: 0.02
     attack:
       damage-modifier: 1
+    physical: {}
+    magical: {}

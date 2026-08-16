@@ -14,200 +14,223 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/fishing.md
+
 skill: FISHING
-display-name: "釣り"
+display-name: 釣り
 icon: FISHING_ROD
-starting-coords: "2,10"
+starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 5
   at-level: 100
-  name: "大海の釣り王の栄光"
-  effect-text: "同時ヒット確率 永続+10・宝釣りの確率 永続+10%"
-  buffs:
-    # 2026-08-13: 10(パーセントポイント記法)から 0.1(割合)へ。PercentStatNormalize が実行時に
-    # 10 -> 0.1 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
-    # ステを 値x100 で表示するため「1000%」と出ていた。他の割合ステ(skill-exp-bonus: 0.05 等)と
-    # 同じ割合記法へ揃える。以下このファイルの fishing-bonus も同じ理由。
-    fishing-bonus: 0.1
-    fishing-luck: 0.1
-
+  name: 大海の釣り王の栄光
+  effect-text: 同時ヒット確率 永続+10・宝釣りの確率 永続+10%
+  description: |-
+    二本釣り+15%
+    宝釣り+15%
+  mainhand-buffs:
+    fishing-bonus: 0.15
+    fishing-luck: 0.15
 nodes:
   A:
-    name: "駆け出しの釣り人"
+    name: 駆け出しの釣り人
     level: 10
     role: main
-    parent: null
+    parent:
     icon: FISHING_ROD
     cost: 1
-    effect-text: "同時ヒット確率アップ・得られる経験値量アップ"
     effects:
-      - "同時ヒット確率アップ"
-      - "得られる経験値量アップ"
-    buffs:
-      fishing-bonus: 0.05
-      skill-exp-bonus: 0.05
+      - 同時ヒット確率アップ
+      - 得られる経験値量アップ
+    description: 二本釣り+20%
+    mainhand-buffs:
+      fishing-bonus: 0.2
   B:
-    name: "宝釣りの心得"
+    name: 宝釣りの心得
     level: 30
     role: main
     parent: A
     icon: COD
     cost: 1
-    effect-text: "宝確率アップ・運+1・吸水・水源のグリフ開放"
     effects:
-      - "宝確率アップ"
-      - "運+1"
-      - "吸水・水源のグリフを解放"
-    buffs:
-      loot_luck: 1   # 旧 native power_luckbonus_add (stat化)
+      - 宝確率アップ
+      - 運+1
+      - 吸水・水源のグリフを解放
     dedicated-effects:
-      - id: "glyph:evaporate"
+      - id: glyph:evaporate
+    description: |-
+      宝釣り+10%
+      蒸発グリフ解放
+    mainhand-buffs:
+      fishing-luck: 0.1
   C:
-    name: "熟練の釣り師"
+    name: 熟練の釣り師
     level: 50
     role: main
     parent: B
     icon: SALMON
     cost: 1
-    effect-text: "同時ヒット確率アップ・得られる経験値量アップ"
+    effect-text: 同時ヒット確率アップ・得られる経験値量アップ
     effects:
-      - "同時ヒット確率アップ"
-      - "得られる経験値量アップ"
-    buffs:
-      fishing-bonus: 0.1
-      skill-exp-bonus: 0.05
+      - 同時ヒット確率アップ
+      - 得られる経験値量アップ
+    description: |-
+      二本釣り+20%
+      ガチャ券【釣り】がまれに釣れるようになる
+    dedicated-effects:
+      - id: drop:fishing:treasure:tier1
+    mainhand-buffs:
+      fishing-bonus: 0.2
   D:
-    name: "財宝ハンター"
+    name: 財宝ハンター
     level: 70
     role: main
     parent: C
     icon: TROPICAL_FISH
     cost: 1
-    effect-text: "宝確率アップ・回収グリフ解放"
+    effect-text: 宝確率アップ・回収グリフ解放
     effects:
-      - "宝確率アップ"
-      - "回収グリフを解放"
+      - 宝確率アップ
+      - 回収グリフを解放
     dedicated-effects:
-      - id: "glyph:pickup"
+      - id: glyph:pickup
+    description: |-
+      宝釣り+10%
+      回収グリフ解放
+    mainhand-buffs:
+      fishing-luck: 0.1
   E:
-    name: "大海の釣り王"
+    name: 大海の釣り王
     level: 90
     role: main
     parent: D
     icon: PUFFERFISH
     cost: 1
-    effect-text: "宝と同時ヒットの確率アップ・海洋のスレッドがまれに釣れる"
     effects:
-      - "宝と同時ヒットの確率アップ"
-      - "海洋のスレッドがまれに釣れる"
+      - 宝と同時ヒットの確率アップ
+      - 海洋のスレッドがまれに釣れる
+    description: |-
+      二本釣り+20%
+      ガチャ券【釣り】が釣れやすくなる
+    mainhand-buffs:
+      ocean-fishing-bonus: 0.25
+      fishing-bonus: 0.2
     dedicated-effects:
-      - id: "drop:fishing:ocean_thread"
-
+      - id: drop:fishing:treasure:tier2
   C-1:
-    name: "海釣りの心得I"
+    name: 海釣りの心得I
     level: 60
     role: branch
-    parent: C        # 線不明
+    parent: C
     icon: KELP
     cost: 1
-    effect-text: "海で釣ると同時ヒット確率アップ"
     effects:
-      - "海で釣ると同時ヒット確率アップ"
+      - 海で釣ると同時ヒット確率アップ
     buffs:
-      ocean_fishing_bonus: 0.05
+      ocean-fishing-bonus: 0.25
+    description: 海釣り+25%
   C-2:
-    name: "海釣りの心得II"
+    name: 海釣りの心得II
     level: 80
     role: branch
-    parent: C-1      # 直列連結。線不明
+    parent: C-1
     icon: SEAGRASS
     cost: 1
-    effect-text: "海で釣ると同時ヒット確率アップ"
+    effect-text: 海で釣ると同時ヒット確率アップ
     effects:
-      - "海で釣ると同時ヒット確率アップ"
+      - 海で釣ると同時ヒット確率アップ
     buffs:
-      ocean_fishing_bonus: 0.05
-
+      ocean-fishing-bonus: 0.5
+    description: 海釣り+50%
   B-alpha-1:
-    name: "スクラップ経済I"
-    level: 40           # alpha路線に明示Lvなし。beta路線に合わせ対称配置
+    name: スクラップ経済I
+    level: 40
     role: greek
     parent: B
     group: B-greek
     icon: ROTTEN_FLESH
     cost: 1
-    effect-text: "宝が釣れなくなりゴミがつれるが魚が売れるようになる（宝の確率でゴミが釣れる）"
+    effect-text: 宝が釣れなくなりゴミがつれるが魚が売れるようになる（宝の確率でゴミが釣れる）
     effects:
-      - "宝が釣れなくなりゴミが釣れるが魚が売れるようになる(宝の確率でゴミが釣れる)"
+      - 宝が釣れなくなりゴミが釣れるが魚が売れるようになる(宝の確率でゴミが釣れる)
     dedicated-effects:
-      - id: "feature:fish-sell-toggle"
+      - id: feature:fish-sell-toggle
+    description: |-
+      二本釣り+20%
+      宝が釣れなくなりゴミがつれるが魚が売れるようになる
+    mainhand-buffs:
+      fishing-bonus: 0.2
   B-alpha-2:
-    name: "スクラップ経済II"
+    name: スクラップ経済II
     level: 40
     role: greek
     parent: B-alpha-1
     group: B-greek
     icon: IRON_NUGGET
     cost: 1
-    effect-text: "同時ヒット確率アップ・ゴミをスクラップにできる・スクラップは素材に変換可能"
     effects:
-      - "同時ヒット確率アップ"
-      - "ゴミをスクラップにできる"
-      - "スクラップは素材に変換可能"
+      - 同時ヒット確率アップ
+      - ゴミをスクラップにできる
+      - スクラップは素材に変換可能
+    mainhand-buffs:
+      fishing-bonus: 0.2
+    description: |-
+      二本釣り+20%
+      ゴミがスクラップ化された状態で釣れやすくなる
     dedicated-effects:
-      - id: "feature:junk-to-scrap"
+      - id: drop:fishing:junk:tier1
   B-alpha-3:
-    name: "スクラップ経済III"
+    name: スクラップ経済III
     level: 60
     role: greek
     parent: B-alpha-2
     group: B-greek
     icon: IRON_INGOT
     cost: 1
-    effect-text: "スクラップの変換効率と魚の売却価格がアップ"
+    effect-text: スクラップの変換効率と魚の売却価格がアップ
     effects:
-      - "スクラップの変換効率と魚の売却価格がアップ"
+      - スクラップの変換効率と魚の売却価格がアップ
     buffs:
-      disassembly_return_bonus: 0.2
-      fish_sell_price_bonus: 0.2
-
+      disassembly-return-bonus: 0.2
+      fish-sell-price-bonus: 0.25
+    description: |-
+      魚の売却価格+25%
+      解体効率+20%
   B-beta-1:
-    name: "ガチャ運I"
+    name: ガチャ運I
     level: 40
     role: greek
     parent: B
     group: B-greek
     icon: NAUTILUS_SHELL
     cost: 1
-    effect-text: "ガチャ券4が釣れる"
+    effect-text: ガチャ券4が釣れる
     effects:
-      - "ガチャ券4が釣れる"
+      - ガチャ券4が釣れる
     dedicated-effects:
-      - id: "drop:fishing:item:gacha_ticket_4"
+      - id: drop:fishing:item:gacha_ticket_4
   B-beta-2:
-    name: "宝運上昇"
+    name: 宝運上昇
     level: 40
     role: greek
     parent: B-beta-1
     group: B-greek
     icon: HEART_OF_THE_SEA
     cost: 1
-    effect-text: "宝確率アップ・釣り竿の品質に応じてさらに確率アップ"
+    effect-text: 宝確率アップ・釣り竿の品質に応じてさらに確率アップ
     effects:
-      - "宝確率アップ"
-      - "釣り竿の品質に応じてさらに確率アップ"
+      - 宝確率アップ
+      - 釣り竿の品質に応じてさらに確率アップ
   B-beta-3:
-    name: "ガチャ運II"
+    name: ガチャ運II
     level: 60
     role: greek
     parent: B-beta-2
     group: B-greek
     icon: NAUTILUS_SHELL
     cost: 1
-    effect-text: "ガチャ券5が釣れる"
+    effect-text: ガチャ券5が釣れる
     effects:
-      - "ガチャ券5が釣れる"
+      - ガチャ券5が釣れる
     dedicated-effects:
-      - id: "drop:fishing:item:gacha_ticket_5"
-
+      - id: drop:fishing:item:gacha_ticket_5

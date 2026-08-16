@@ -87,7 +87,7 @@ fishing:
               weight: 15
               amount: 1
         treasure_vanilla:
-          display-name: バニラ宝(移植)
+          display-name: バニラ宝
           entries:
             - item: NAME_TAG
               weight: 10
@@ -152,16 +152,13 @@ fishing:
             - item: COPPER_HOE
               weight: 10
               amount: 1
-        gatya:
-          display-name: tier1
-          entries:
-            - item: custom:gacha_ticket_fishing
-              weight: 20
+            - item: ENCHANTED_BOOK
+              weight: 10
               amount: 1
     junk:
       categories:
         junk_vanilla:
-          display-name: バニラゴミ(移植)
+          display-name: バニラゴミ
           entries:
             - item: LEATHER_BOOTS
               weight: 1
@@ -190,3 +187,28 @@ fishing:
             - item: TRIPWIRE_HOOK
               weight: 1
               amount: 1
+          scrap-exempt: true
+  unlock-groups:
+    treasure:
+      categories:
+        tier1:
+          display-name: tier1
+          entries:
+            - item: custom:gacha_ticket_fishing
+              weight: 10
+              amount: 1
+        tier2:
+          display-name: tier2
+          entries:
+            - item: custom:gacha_ticket_fishing
+              weight: 20
+              amount: 1
+    junk:
+      categories:
+        tier1:
+          display-name: tier1
+          entries:
+            - item: custom:tf_scrap
+              weight: 1000
+              amount: 1
+          scrap-exempt: true

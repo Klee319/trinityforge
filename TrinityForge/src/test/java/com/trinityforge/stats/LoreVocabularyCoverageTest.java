@@ -57,10 +57,10 @@ class LoreVocabularyCoverageTest {
         assertTrue(lore.contains("attack_power") && StatVocabulary.isKnown("attack_power"),
                 "基準キー attack_power が両側に無い(比較が空振りしている疑い)");
         List<String> missing = new ArrayList<>();
+        // 2026-08-16: 除外リスト(BASE_STATS_ONLY_KEYS)は廃止した。中身はマナ基礎3キーだけで、
+        // その3キーが ArsPaper の config.yml (mana.*) へ移設された結果、除外すべきキーが無くなった。
+        // 以後は語彙の全キーに lore.yml の表示定義を課す(除外は「検査ごと無効化する」方向にしか壊れない)。
         for (String key : StatVocabulary.allKeys()) {
-            if (StatVocabulary.BASE_STATS_ONLY_KEYS.contains(key)) {
-                continue;
-            }
             if (!lore.contains(key)) {
                 missing.add(key);
             }
@@ -71,38 +71,14 @@ class LoreVocabularyCoverageTest {
     }
 
     /**
-     * 除外リスト自体のドリフト検知(2026-08-13)。除外は「検査ごと無効化する」方向に壊れるので、
-     * リストの各キーについて<b>両方向</b>を固定する:
-     * <ul>
-     *   <li>語彙に実在すること — 綴り間違い/廃止キーが残っていると、そのキーの除外は空振りし、
-     *       本来検査したい別のキーを守っているつもりで何も守っていない状態になる</li>
-     *   <li>出荷 lore.yml に<b>無い</b>こと — 除外したまま lore.yml へ戻すと、上の検査は素通りし
-     *       「アイテムのロアに出ない前提のキーが実は出ている」食い違いを誰も見つけられない
-     *       (2026-08-13 に実際にこの形で3キーが紛れ込んでいた)</li>
-     * </ul>
+     * 2026-08-13 に入れた除外リスト検査({@code baseStatsOnlyKeysAreRealAndAbsentFromShippedLore})は
+     * 2026-08-16 に削除した。除外対象だったマナ基礎3キー
+     * ({@code mana-max-base} / {@code mana-regen-base} / {@code mana-regen-interval-ticks})が
+     * ArsPaper の {@code config.yml} の {@code mana.*} へ移設され、語彙からも消えて除外リストが
+     * 空になったため（空の除外リストは検査を空振りさせるだけなので、集合ごと廃止した）。
+     * 移設が戻っていないことは {@code RetiredStatKeyDriftTest} と
+     * {@code ManaBaseKeysMigrationTest} が固定している。
      */
-    @Test
-    void baseStatsOnlyKeysAreRealAndAbsentFromShippedLore() throws Exception {
-        Set<String> lore = canonicalLoreKeys(shippedLoreStats());
-        assertTrue(!StatVocabulary.BASE_STATS_ONLY_KEYS.isEmpty(), "除外リストが空(この検査が空振り)");
-        List<String> notInVocabulary = new ArrayList<>();
-        List<String> stillInLore = new ArrayList<>();
-        for (String key : StatVocabulary.BASE_STATS_ONLY_KEYS) {
-            if (!StatVocabulary.isKnown(key)) {
-                notInVocabulary.add(key);
-            }
-            if (lore.contains(key)) {
-                stillInLore.add(key);
-            }
-        }
-        assertEquals(List.of(), notInVocabulary,
-                "BASE_STATS_ONLY_KEYS に語彙へ無いキーがある(除外が空振りしている)");
-        assertEquals(List.of(), stillInLore,
-                "BASE_STATS_ONLY_KEYS のキーが stats/lore.yml にも定義されている"
-                        + "(base-stats.yml 専用の定数なのでロア表示設定に置かない。"
-                        + "ロアに出したいなら除外リストから外すこと)");
-    }
-
     @Test
     void everyLoreEntryDeclaresANameAndAResolvableCategory() throws Exception {
         ConfigurationSection stats = shippedLoreStats();

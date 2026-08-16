@@ -10,22 +10,22 @@
 # ============================================================================
 
 # 設定リファレンス(本文コメント移設先): docs/config-reference/skilltree/digging.md
+
 skill: DIGGING
 display-name: 切削
 icon: IRON_SHOVEL
 starting-coords: 2,10
 prestige:
   enabled: true
-  max-times: 1  # 周回上限(現在の実効値=1、詳細: config-reference)
+  max-times: 5
   at-level: 100
   name: 土木大臣の栄光
-  effect-text: メインにシャベルを持つと採掘速度上昇 永続+1・ボーナスドロップ増加 永続+15%
   mainhand-buffs:
-    # 2026-08-13: 15(パーセントポイント記法)から 0.15(割合)へ。PercentStatNormalize が実行時に
-    # 15 -> 0.15 と矯正しているので**ゲーム内の効果は変わらない**が、設定エディタは PERCENT 宣言の
-    # ステを 値x100 で表示するため「1500%」と出ていた。
-    mining-fortune: 0.15
+    gacha-rate-bonus: 0.1
     gathering-efficiency: 1
+  description: |-
+    効率強化増幅+1
+    ガチャ運+10%
 nodes:
   A:
     name: はじまりの土木作業員
@@ -50,7 +50,12 @@ nodes:
     effects:
       - ガチャ券1を入手
     dedicated-effects:
-      - id: drop:mining:gacha_tier1
+      - id: drop:digging:tier1
+    description: |-
+      ガチャ券【掘削】が低確率でドロップするようになる
+      効率強化増幅+1
+    mainhand-buffs:
+      gathering-efficiency: 1
   C:
     name: 土木事務所の管理者
     level: 50
@@ -61,8 +66,12 @@ nodes:
     effect-text: 破壊で少量の追加バニラEXP
     effects:
       - 破壊で少量の追加バニラEXPを獲得
-    buffs:
-      digging-break-vanilla-exp-bonus: 0.25
+    mainhand-buffs:
+      digging-break-vanilla-exp-bonus: 0.5
+      gacha-rate-bonus: 0.1
+    description: |-
+      破壊で1.5倍のバニラEXP
+      ガチャ運+10%
   D:
     name: 国土交通省の官僚
     level: 70
@@ -76,7 +85,12 @@ nodes:
       - ガチャ券2を低確率で入手
     dedicated-effects:
       - id: glyph:crush
-      - id: drop:mining:gacha_tier2
+    description: |-
+      粉砕グリフ解放
+      自動回収グリフ解放
+      ガチャ運+10%
+    buffs:
+      gacha-rate-bonus: 0.1
   E:
     name: 国土交通大臣
     level: 90
@@ -84,91 +98,61 @@ nodes:
     parent: D
     icon: DIAMOND_SHOVEL
     cost: 1
-    effect-text: 遺跡のスレッドがまれにドロップ・ガチャ券の確率がアップ・ダートコア解放
     effects:
       - 遺跡のスレッドがまれにドロップ
       - ガチャ券の確率がアップ
       - ダートコアを解放
-    buffs:
-      gacha_rate_bonus: 10
     dedicated-effects:
-      - id: drop:digging:ruins_thread
-      # 2026-07-31 追加: コア4種の解放先を「その素材を集めるスキル」の最終ノードへ揃えた。
-      # 伐採=ウッドコア / 農業=ベジタブル+ミートコア / 採掘=ジュエリーコア に対し
-      # 切削だけダートコアの解放先が無く、素材(圧縮土)が作れても永久にコアが作れなかった。
       - id: recipe:core_ground
-  A-1:
-    name: 高速破壊I
-    level: 20
-    role: branch
-    parent: A
-    icon: REDSTONE
-    cost: 1
-    effect-text: スキル発動で 8s/30sCDの高速破壊(採掘速度上昇III)
-    effects:
-      - スキル発動で8秒間/CD30秒の高速破壊(採掘速度上昇III)
-    dedicated-effects:
-      # value はティア指定。mining.yml の同名ノード A-1(同じ効果テキスト=8秒/CD30秒/採掘速度上昇III)は
-      # value: 1 を持っているのに、ここだけ欠落していた(2026-07-26 修正)。
-      - id: feature:haste-active-mining
-        value: 1
-  A-2:
-    name: 高速破壊II
-    level: 40
-    role: branch
-    parent: A-1
-    icon: REDSTONE
-    cost: 1
-    effect-text: スキル発動で 10s/24sCDの高速破壊(採掘速度上昇IV)
-    effects:
-      - スキル発動で10秒間/CD24秒の高速破壊(採掘速度上昇IV)
-    dedicated-effects:
-      - id: feature:haste-active-mining
-        value: 3
+    description: |-
+      グランドコアのクラフト解放
+      破壊で1.5倍の追加バニラEXP
+      効率強化増幅+1
     mainhand-buffs:
-      haste-active-mining-cooldown-reduction: 0.2
-  A-3:
+      digging-break-vanilla-exp-bonus: 0.5
+      gathering-efficiency: 1
+  A-2:
     name: 切削速度上昇I
     level: 40
     role: branch
-    parent: A-2
+    parent: A
     icon: SUGAR
     cost: 1
-    effect-text: メインにシャベルを持つと採掘速度上昇+1
     effects:
       - メインにシャベルを持つと採掘速度上昇+1
     mainhand-buffs:
       gathering-efficiency: 1
+    description: 効率強化増幅+1
   B-1:
-    name: 考古学者I
+    name: ギャンブラーI
     level: 40
     role: branch
     parent: B
     icon: BRUSH
     cost: 1
-    effect-text: 怪しいブロックが25%で復活・古代のがれきが一定確率で入手可能
     effects:
       - 怪しいブロックが25%で復活
       - 古代のがれきが一定確率で入手可能
-    buffs:
-      suspicious_respawn_chance: 25
+    description: 一定確率で古代の残骸がドロップ
     dedicated-effects:
-      - id: drop:mining:ancient_debris
+      - id: drop:digging:tier3
   B-2:
-    name: 考古学者II
+    name: ギャンブラーII
     level: 60
     role: branch
     parent: B-1
     icon: BRUSH
     cost: 1
-    effect-text: 怪しいブロックが50%で復活・ガチャ券3を低確率で入手
     effects:
       - 怪しいブロックが50%で復活
       - ガチャ券3を低確率で入手
-    buffs:
-      suspicious_respawn_chance: 50
     dedicated-effects:
-      - id: drop:mining:gacha_tier3
+      - id: drop:digging:tier2
+    description: |-
+      ガチャ運+10%
+      ガチャ券【掘削】のドロップ率up
+    buffs:
+      gacha-rate-bonus: 0.1
   C-1:
     name: 縁の下の力持ちI
     level: 60
@@ -180,10 +164,11 @@ nodes:
     effects:
       - 消費したシャベルの耐久値の総量に応じてバニラ経験値の取得量がアップ(最大50%)
     dedicated-effects:
-      # 2026-07-28: valueは%直書き(旧アンチパターン、同じ数値をtierとしても流用していた)からtier番号へ
-      # 変更(数値の実体は stats/digging-gimmick.yml durability-exp.vanilla-exp.tiers)。tier1=上限50%。
-      - id: "feature:digging-durability-vanilla-exp"
+      - id: feature:digging-durability-vanilla-exp
         value: 1
+    description: |-
+      耐久消費に応じたバニラEXP獲得機能解放
+      &8消費したシャベルの耐久値の総量に応じてバニラ経験値の取得量がアップします。 最大100%
   C-2:
     name: 縁の下の力持ちII
     level: 80
@@ -195,8 +180,8 @@ nodes:
     effects:
       - 消費したシャベルの耐久値の総量に応じて職業経験値の取得量がアップ(最大25%)
     dedicated-effects:
-      # 2026-07-28: valueは%直書きからtier番号へ変更(数値の実体は stats/digging-gimmick.yml
-      # durability-exp.job-exp.tiers)。tier1=上限25%。
-      - id: "feature:digging-durability-job-exp"
+      - id: feature:digging-durability-job-exp
         value: 1
-
+    description: |-
+      耐久消費に応じた職業EXP獲得機能解放
+      消費したシャベルの耐久値の総量に応じてバニラ経験値の取得量がアップします。 最大50%

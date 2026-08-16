@@ -45,15 +45,13 @@ prestige:
   mainhand-multipliers:
     layer_1:
       attack-power: 1.15
-  # 2026-08-15(W-31): プレステージは3回まで積めるので、旧値では会心率だけで +0.3 と
-  # ツリー本体(0.28)を上回っていた。ノード側と同じ比率で下げる。
   mainhand-buffs:
     crit-chance: 0.05
     crit-damage: 0.15
   description: |-
-    攻撃力x1.15(永続)
-    会心率+5%(永続)
-    会心ダメージ+15%(永続)
+    攻撃力x1.15
+    会心率+5%
+    会心ダメージ+15%
 nodes:
   A:
     name: 剛撃の心得

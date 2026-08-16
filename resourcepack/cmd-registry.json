@@ -5171,17 +5171,17 @@
     },
     {
       "material": "DECORATED_POT",
-      "cmd": 200007,
-      "id": "source_singularity_jar",
-      "source": "sourcejars",
-      "allocatedAt": "2026-07-31T09:10:00.000Z"
-    },
-    {
-      "material": "DECORATED_POT",
       "cmd": 200008,
       "id": "source_vault",
       "source": "sourcejars",
       "allocatedAt": "2026-08-16T00:00:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200007,
+      "id": "source_singularity_jar",
+      "source": "sourcejars",
+      "allocatedAt": "2026-07-31T09:10:00.000Z"
     },
     {
       "material": "FURNACE",

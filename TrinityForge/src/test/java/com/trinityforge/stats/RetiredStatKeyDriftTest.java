@@ -39,6 +39,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       ({@code workbench-quality-bonus} / {@code ritual-quality-bonus} と同じ命名)。
  *       ロール3キー({@code craft-roll-*})は分割していない — アイテム PDC
  *       ({@code PdcKeys}) に焼かれており、キー名を変えると流通済みアイテムのロール補正が読めなくなる。</li>
+ *   <li><b>マナ基礎3キーの ArsPaper 移設(2026-08-16)</b>: {@code mana-max-base} /
+ *       {@code mana-regen-base} / {@code mana-regen-interval-ticks} は ArsPaper の
+ *       {@code config.yml} の {@code mana.default-max} / {@code mana.default-regen-rate} /
+ *       {@code mana.regen-interval-ticks} へ移設した。TF 側から見ると「語彙・出荷 yml の双方から
+ *       消えた」ので、他の廃止キーと同じ枠で固定する(旧キーが base-stats.yml へ戻ると
+ *       設定エディタに出ないキーが復活し、また手編集専用に逆戻りする)。
+ *       残りのマナ5キー({@code mana-onhit-percent} / {@code mana-onattack-percent} /
+ *       {@code mana-idle-seconds} / {@code mana-idle-bonus-percent} / {@code mana-idle-bonus-flat})は
+ *       移設対象外で TF 側に残る。</li>
  * </ul>
  *
  * <p>あわせて、近接/矢ノックバックの単位統一(FLAT + {@code m})と
@@ -52,7 +61,11 @@ class RetiredStatKeyDriftTest {
             "light_armor_move_speed_per_piece",
             "heavy_armor_move_speed_per_piece",
             "craft_upswing_bonus",
-            "craft_downswing_reduction");
+            "craft_downswing_reduction",
+            // 2026-08-16: ArsPaper の config.yml (mana.*) へ移設。TF 側では廃止キーと同じ扱い。
+            "mana_max_base",
+            "mana_regen_base",
+            "mana_regen_interval_ticks");
 
     /** 分割後の新キー(GENERAL / StatsCategory.CRAFT)。 */
     private static final List<String> SPLIT_KEYS = List.of(

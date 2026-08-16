@@ -54,9 +54,7 @@ base-stats:
   penetration: 0
   bleed-chance: 0
   bleed-damage: 0
-  # 出血ダメージ率(出血させた一撃の最終ダメージに対する割合)。上の実数と合算される。2026-08-15 新設。
   bleed-damage-rate: 0
-  # 防御率(被ダメージの乗算軽減, 0.0〜1.0)。2026-08-15 に防具値(armor-defense-rate)を廃止して統合した。
   defense-rate: 0
   armor-strength: 0
   max-health: 0
@@ -81,19 +79,18 @@ base-stats:
   thread-slots: 0
   mana-cost-reduction-flat: 0
   mana-cost-reduction-percent: 0
-  mana-max-base: 100
-  mana-regen-base: 5
-  mana-regen-interval-ticks: 20
-  mana-onhit-percent: 0.03
-  mana-onattack-percent: 0.03
-  mana-idle-seconds: 5
-  mana-idle-bonus-percent: 0.01
+  # 2026-08-16: マナ基礎3キー(mana-max-base / mana-regen-base / mana-regen-interval-ticks)は
+  # ArsPaper の config.yml の mana.default-max / mana.default-regen-rate / mana.regen-interval-ticks
+  # へ移設した。設定エディタの「ArsPaper 全体設定 (config)」画面で編集する(ここに書いても効かない)。
+  mana-onhit-percent: 0
+  mana-onattack-percent: 0
+  mana-idle-seconds: 0
+  mana-idle-bonus-percent: 0
   mana-idle-bonus-flat: 0
   phys-flat-defense: 0
   magic-flat-defense: 0
   flat-defense: 0
   fixed-damage: 0
-  bow-accuracy: 0
   ammo-save-chance: 0
   distance-damage-bonus: 0
   arrow-piercing: 0
@@ -116,8 +113,6 @@ base-stats:
   woodcutting-exp-bonus: 0
   farming-exp-bonus: 0
   digging-exp-bonus: 0
-  # 2026-08-05: 職業EXP増加(スキル別)を全スキル分そろえた(POWERを除く15スキル)。
-  # POWER は EXP がプレイヤー行動から直接付与されないため対象外(詳細は stats/lore.yml のコメント)。
   mining-exp-bonus: 0
   fishing-exp-bonus: 0
   alchemy-exp-bonus: 0
@@ -138,8 +133,6 @@ base-stats:
   hive-harvest-fortune: 0
   kill-vanilla-exp-bonus: 0
   break-vanilla-exp-bonus: 0
-  # 破壊時バニラEXP倍率の採取スキル別キー(2026-08-15)。上の共通キーは採取全般に効き、
-  # こちらは「その採取スキルとして扱われた破壊」にだけ効く。
   mining-break-vanilla-exp-bonus: 0
   woodcutting-break-vanilla-exp-bonus: 0
   digging-break-vanilla-exp-bonus: 0
@@ -163,14 +156,10 @@ base-stats:
   craft-roll-up-bonus: 0
   craft-roll-down-reduction: 0
   craft-roll-inset: 0
-  # 2026-08-14: lapis-cost-reduction を廃止した(ユーザー判断「ラピス効率は使わない」)。
-  # 消費側だった ArsPaper の LapisCostReductionListener も同時に削除している。
   material-refund-chance: 0
   ingredient-save-chance: 0
   source-cost-reduction: 0
   enchant-luck: 0
-  # 2026-08-14: enchant-exp-gain-bonus を廃止した。エンチャント時のスキルEXP増減は
-  # 職業EXP増加(エンチャント)＝上の enchanting-exp-bonus に一本化されている。
   enchant-cost-reduction: 0
   potion-quality-bonus: 0
   brew-speed-bonus: 0
@@ -178,3 +167,4 @@ base-stats:
   glyph-slot-bonus: 0
   glyph-damage-multiplier-bonus: 0
   armor-set-bonus: 0
+  bow-accuracy: -0.2

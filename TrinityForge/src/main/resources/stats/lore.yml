@@ -60,7 +60,7 @@ stats:
     order: 2
     show-sign: true
     hide-when-zero: true
-    unit: 回/秒
+    unit: 回/s
     category: attack
     trigger:
       when: PASSIVE_ATTRIBUTE
@@ -350,7 +350,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 54
+    order: 1
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -481,7 +481,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 80
+    order: 5
     show-sign: true
     hide-when-zero: true
     unit: Lv
@@ -496,7 +496,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 81
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -510,7 +510,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 82
+    order: 14
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -524,7 +524,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 83
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -626,12 +626,6 @@ stats:
   mana-cost-reduction-percent:
     name: マナ消費効率(率)
     icon: ""
-    # 2026-08-12: FLAT + unit "%" から PERCENT へ訂正した。このステは PercentStatNormalize が
-    # [0,1] の割合として扱うキー(item-stats.yml の出荷値も 0.004 / 0.007〜0.094 の割合)なのに
-    # FLAT decimals:0 と宣言していたため、(1) 実機の lore には 0.004 が "+0%" としか出ず
-    # 効果が無いように見え、(2) 設定エディタでも %入力ではなく素の数値入力になって
-    # 「単位が % なのに 0.004 と小数で出る」状態だった。PERCENT は自動で ×100 して % を
-    # 付けるので unit: の指定は不要(書くと "%%" になる)。
     format: PERCENT
     decimals: 1
     order: 8
@@ -878,7 +872,7 @@ stats:
     order: 112
     show-sign: true
     hide-when-zero: true
-    category: gathering
+    category: utility
   tree-fell-cooldown-reduction:
     name: 一括伐採CT効率
     icon: ""
@@ -887,7 +881,7 @@ stats:
     order: 113
     show-sign: true
     hide-when-zero: true
-    category: gathering
+    category: utility
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
@@ -919,19 +913,19 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 120
+    order: 2
     show-sign: true
     hide-when-zero: true
     category: utility
   mob-drop-bonus:
-    name: ドロップ効率
+    name: ドロップ増加
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 121
+    order: 4
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
     trigger:
       when: ON_KILL
       sources: ALL
@@ -944,7 +938,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 122
+    order: 11
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -958,7 +952,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 143
+    order: 12
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -972,7 +966,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 144
+    order: 13
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -986,7 +980,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 145
+    order: 14
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1000,7 +994,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 146
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1014,7 +1008,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 147
+    order: 16
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1028,7 +1022,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 148
+    order: 17
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1042,7 +1036,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 149
+    order: 18
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1056,7 +1050,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 150
+    order: 19
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1070,7 +1064,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 151
+    order: 20
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1084,7 +1078,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 152
+    order: 21
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1098,7 +1092,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 153
+    order: 22
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1112,7 +1106,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 154
+    order: 23
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1126,7 +1120,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 155
+    order: 24
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1140,7 +1134,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 156
+    order: 25
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1154,7 +1148,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 157
+    order: 26
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1168,20 +1162,20 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 123
+    order: 1
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   mob-drop-quality:
-    name: 品質運(ドロップ)
+    name: ドロップ品質
     icon: ""
     format: FLAT
     decimals: 1
-    order: 124
+    order: 2
     show-sign: true
     hide-when-zero: true
     unit: pt
-    category: utility
+    category: gathering
     trigger:
       when: ON_KILL
       sources: ALL
@@ -1192,16 +1186,16 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 125
+    order: 3
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   food-save-chance:
     name: 食料効率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 126
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1217,7 +1211,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 84
+    order: 18
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -1231,7 +1225,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 85
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -1240,7 +1234,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 127
+    order: 7
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1254,7 +1248,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 128
+    order: 8
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1263,10 +1257,6 @@ stats:
       sources: ALL
       applies-to:
         - PLAYER
-  # 破壊時バニラEXP増加(採取スキル別、2026-08-15)。上の break-vanilla-exp-bonus は
-  # 採取全般に効く共通キーで、こちらは「その採取スキルとして扱われた破壊」にだけ効く。
-  # 出荷スキルツリーの採掘/伐採/整地/農業ノードはこちらを使う(共通キーへ配ると
-  # 採掘で取った倍率が伐採・整地・農業の破壊EXPにも乗ってしまうため)。
   mining-break-vanilla-exp-bonus:
     name: EXP増加(採掘の破壊)
     icon: ""
@@ -1328,7 +1318,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 129
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1342,7 +1332,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 130
+    order: 9
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1351,10 +1341,10 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 131
+    order: 7
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
@@ -1365,10 +1355,10 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 132
+    order: 8
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
     trigger:
       when: ON_BLOCK_BREAK
       sources: ALL
@@ -1379,7 +1369,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 133
+    order: 4
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1393,7 +1383,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 134
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: utility
@@ -1403,32 +1393,32 @@ stats:
       applies-to:
         - PLAYER
   breeding-extra-child-chance:
-    name: 繁殖運
+    name: 双子率
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 135
+    order: 11
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   bred-animal-growth-bonus:
     name: 成長効率(動物)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 136
+    order: 12
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
   planted-crop-growth-bonus:
     name: 成長効率(作物)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 137
+    order: 9
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: gathering
     trigger:
       when: PASSIVE
       sources: ALL
@@ -1441,7 +1431,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 210
+    order: 4
     show-sign: true
     hide-when-zero: true
     unit: pt
@@ -1456,7 +1446,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 211
+    order: 1
     show-sign: true
     hide-when-zero: true
     unit: pt
@@ -1471,7 +1461,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 201
+    order: 2
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1487,7 +1477,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 202
+    order: 3
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1503,7 +1493,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 203
+    order: 5
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1519,7 +1509,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 204
+    order: 6
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1535,7 +1525,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 205
+    order: 7
     show-sign: true
     hide-when-zero: true
     unit: "%"
@@ -1552,7 +1542,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 206
+    order: 8
     show-sign: true
     hide-when-zero: true
     unit: "%"
@@ -1569,7 +1559,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 207
+    order: 9
     show-sign: true
     hide-when-zero: true
     unit: "%"
@@ -1582,11 +1572,11 @@ stats:
     limits:
       floor: 0
   material-refund-chance:
-    name: 素材効率（儀式）
+    name: 素材効率(儀式)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 208
+    order: 10
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1599,11 +1589,11 @@ stats:
       floor: 0
       cap: 1
   ingredient-save-chance:
-    name: 素材効率（醸造）
+    name: 素材効率(醸造)
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 209
+    order: 18
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1618,14 +1608,14 @@ stats:
       cap: 1
       cap-ref: java:com.trinityforge.listeners.BrewIngredientSaveListener#MAX_INGREDIENT_SAVE_CHANCE
   source-cost-reduction:
-    name: ソース消費効率
+    name: ソース効率
     icon: ""
     format: PERCENT
     decimals: 0
     order: 12
     show-sign: true
     hide-when-zero: true
-    category: ars
+    category: craft
     trigger:
       when: ON_CRAFT
       sources: ALL
@@ -1639,7 +1629,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 213
+    order: 14
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1685,7 +1675,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 140
+    order: 17
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -1701,10 +1691,10 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 141
+    order: 13
     show-sign: true
     hide-when-zero: true
-    category: utility
+    category: craft
     trigger:
       when: ON_DISASSEMBLE
       sources: ALL
@@ -1717,7 +1707,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 86
+    order: 16
     show-sign: true
     hide-when-zero: true
     category: gathering
@@ -1779,7 +1769,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 214
+    order: 15
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1795,7 +1785,7 @@ stats:
     icon: ""
     format: FLAT
     decimals: 1
-    order: 215
+    order: 16
     show-sign: true
     hide-when-zero: true
     unit: pt
@@ -1812,7 +1802,7 @@ stats:
     icon: ""
     format: PERCENT
     decimals: 0
-    order: 216
+    order: 17
     show-sign: true
     hide-when-zero: true
     category: craft
@@ -1830,19 +1820,11 @@ stats:
     icon: ""
     format: INTEGER
     decimals: 0
-    order: 217
+    order: 19
     show-sign: true
     hide-when-zero: true
     unit: 回
     category: craft
-  # 2026-08-13 削除: mana-max-base / mana-regen-base / mana-regen-interval-ticks
-  #   「マナ上限(基礎)」等はここ(アイテムのロア表示設定)に置くキーではなかった。
-  #   これらは combat/base-stats.yml 専用の**全プレイヤー共通の定数**(ArsPaper の
-  #   mana.default-max 等の移設先)で、装備・パークからは供給されず、アイテムのロアにも
-  #   出ない。StatVocabulary.BASE_STATS_ONLY_KEYS がこの 3 キーを列挙しており、
-  #   LoreVocabularyCoverageTest が「lore.yml に戻ったら落ちる」方向で固定している。
-  #   アイテムに設定するマナ上限は `mana-bonus`(マナ上限)。
-  #   値の編集は config editor の「共通変数」画面 (combat/base-stats.yml) で行う。
   mana-onhit-percent:
     name: 被弾マナ回復(率)
     icon: ""
