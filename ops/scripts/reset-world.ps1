@@ -18,9 +18,12 @@
     同じボリューム内の移動なので追加の空き容量も要らない。-Delete で即削除にできる。
 
     プレイヤーの個人データ (インベントリ・権限・進行) はこのスクリプトでは【消えない】。
-    world\playerdata などは world ごと退避されるが、HuskSync と LuckPerms と
-    TrinityForge の進行 DB は別の場所にあるので purge-player-data.ps1 を併用すること。
-    順番と全体の流れは ops\RUNBOOK.md 手順 18。
+    world\playerdata などは world ごと退避されるが、そもそも【インベントリの正本は
+    world の中に無い】。HuskSync がログイン時に Redis (無ければ MariaDB) から流し込むので、
+    ワールドを作り直しても持ち物はそのまま戻る。2026-08-16 に「ワールドをリセットしたのに
+    アイテムが消えていない」として実際に報告された。
+    LuckPerms の権限と TrinityForge の進行 DB も別の場所にある。
+    消すなら purge-player-data.ps1 を併用すること。順番と全体の流れは ops\RUNBOOK.md 手順 18。
 
 .PARAMETER Target
     対象サーバ。ops-config.psd1 の Servers のキー名か Name (main / resource / dev)。
@@ -279,4 +282,6 @@ if ($dryRun) {
     Write-OpsLog "次回起動時に新しい地形が生成されます。問題なければ退避先を削除してください。"
 }
 Write-OpsLog "プレイヤーの権限・進行・インベントリは別途 purge-player-data.ps1 で消します (RUNBOOK 手順 18)。"
+Write-OpsLog "  ※ インベントリの正本は world の中ではなく HuskSync の Redis / MariaDB です。" -Level WARN
+Write-OpsLog "     このスクリプトだけでは、次のログインで持ち物がそのまま戻ります。" -Level WARN
 exit 0

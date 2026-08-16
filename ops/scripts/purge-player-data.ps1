@@ -23,6 +23,14 @@
       ※ 3 サーバでジャンクション共有している実体。消すと 3 サーバ全部から消える。
          -KeepProgression を付けると残す。
 
+    さらに HuskSync の Redis キャッシュ (husksync:<cluster>:*) を消す。
+    ※ ここが抜けると【ワールドを作り直してもインベントリがそのまま戻る】。
+      HuskSync はログイン時に Redis を先に見て、無かったときだけ DB を読むため
+      (LockstepDataSyncer#syncApplyUserData)、SQL で husksync_user_data を空にしても
+      Redis にキーが残っている限り効かない。しかも latest_snapshot の TTL は
+      1 年 (RedisKeyType.TTL_1_YEAR = 31,536,000 秒) なので放置しても消えない。
+      -SkipRedis を付けると残す。
+
     MariaDB の luckperms / husksync は資格情報が要るのでこのスクリプトからは消さない。
     実行の最後に、そのまま流せる SQL を出力する。
 
@@ -37,6 +45,10 @@
 
 .PARAMETER KeepProgression
     TrinityForge の進行データ (player_progression.db) を消さずに残す。
+
+.PARAMETER SkipRedis
+    HuskSync の Redis キャッシュを消さない。既定では消す。
+    残すとログイン時にインベントリが Redis から復元されるので、通常は指定しない。
 
 .PARAMETER EnableDevWhitelist
     Dev_Server を -KeepOps のメンバーだけに絞る (server.properties の white-list=true と
@@ -63,6 +75,7 @@ param(
     [string[]] $KeepOps = @("Klee319"),
     [switch]   $KeepProgression,
     [switch]   $PurgeGroups,
+    [switch]   $SkipRedis,
     [bool]     $EnableDevWhitelist = $true
 )
 
@@ -71,6 +84,7 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "lib\Rcon.ps1")
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
+. (Join-Path $PSScriptRoot "lib\Redis.ps1")
 
 # ファイルしか触らないので RCON パスワードは要求しない。
 $config = Get-OpsConfig -Path $ConfigPath -RequireRconPasswords:$false
@@ -325,6 +339,95 @@ if ($EnableDevWhitelist -and $config.Servers.ContainsKey("Dev")) {
 }
 
 # -------------------------------------------------------------------------------------------------
+#  HuskSync の Redis キャッシュ
+# -------------------------------------------------------------------------------------------------
+#  【この節を飛ばすと、後段の SQL を流しても意味が無い。】
+#  HuskSync はログイン時にまず Redis の latest_snapshot キーを見て、
+#  【存在すればそれを適用し、DB は読まない】(LockstepDataSyncer#syncApplyUserData)。
+#  キーの TTL は 1 年 (RedisKeyType.TTL_1_YEAR = 31,536,000 秒) なので勝手には消えない。
+#
+#  2026-08-16 の実例: SQL で husksync_user_data を空にし、さらにワールドを作り直したのに、
+#  Redis に 8 人分の latest_snapshot が残っていたため全員のインベントリがそのまま復活した
+#  (DB 側の登録は 1 人だけになっていたので、DB を見ても異常に見えない)。
+$redisReport = $null
+if ($SkipRedis) {
+    Write-OpsLog "-SkipRedis 指定のため HuskSync の Redis キャッシュは残します。" -Level WARN
+    Write-OpsLog "残したキーの持ち主は、ログインした時点でインベントリが元に戻ります。" -Level WARN
+} else {
+    $huskSyncConfig = Join-Path $config.Servers.Main.Root "plugins\HuskSync\config.yml"
+    if (-not (Test-Path -LiteralPath $huskSyncConfig)) {
+        Write-OpsLog "HuskSync の config.yml がありません。Redis は扱いません: $huskSyncConfig" -Level WARN
+    } else {
+        $redis = Get-HuskSyncRedisSettings -ConfigPath $huskSyncConfig
+        Write-OpsLog ("HuskSync の Redis: $($redis.HostName):$($redis.Port) " +
+                      "db=$($redis.Database) 対象キー=$($redis.KeyPattern)")
+
+        # 接続できないときは黙って進まない。ここを警告で流すと
+        # 「掃除したつもりで 1 件も消していない」が無警告で成立してしまう。
+        $connection = Connect-RedisClient -HostName $redis.HostName -Port $redis.Port `
+            -Database $redis.Database -User $redis.User -Password $redis.Password
+        try {
+            $keys = @(Get-RedisKey -Connection $connection -Pattern $redis.KeyPattern)
+
+            # 種別ごとの内訳を出す (キーは "husksync:<cluster>:<種別>:<UUID>")。
+            $byType = @{}
+            foreach ($key in $keys) {
+                $parts = $key.Split(":")
+                $type  = if ($parts.Count -ge 3) { $parts[2] } else { "(不明)" }
+                if (-not $byType.ContainsKey($type)) { $byType[$type] = 0 }
+                $byType[$type]++
+            }
+            foreach ($type in ($byType.Keys | Sort-Object)) {
+                Write-OpsLog ("  {0} : {1} 件" -f $type, $byType[$type])
+            }
+
+            if ($keys.Count -eq 0) {
+                Write-OpsLog "Redis に HuskSync のキーはありません。"
+            } elseif ($dryRun) {
+                Write-OpsLog "Redis のキーを消す: $($keys.Count) 件" -Level DRYRUN
+            } else {
+                # 消す前に DUMP を退避する。RESTORE <key> <TTLms> <payload> で戻せる。
+                $saved = New-Object System.Collections.ArrayList
+                foreach ($key in $keys) {
+                    $ttl  = Invoke-RedisCommand -Connection $connection -Arguments @("PTTL", $key)
+                    $dump = $null
+                    try {
+                        $raw = Invoke-RedisCommand -Connection $connection -Arguments @("DUMP", $key)
+                        if ($raw -is [byte[]]) { $dump = [Convert]::ToBase64String($raw) }
+                    } catch {
+                        Write-OpsLog "DUMP に失敗しました (退避せず消します): $key" -Level WARN
+                    }
+                    [void]$saved.Add([pscustomobject]@{ key = $key; pttl = $ttl; dump = $dump })
+                }
+                $redisBackupDir = Join-Path $backup "redis"
+                if (-not (Test-Path -LiteralPath $redisBackupDir)) {
+                    New-Item -ItemType Directory -Path $redisBackupDir -Force | Out-Null
+                }
+                Write-TextNoBom -Path (Join-Path $redisBackupDir "husksync-keys.json") `
+                    -Text (ConvertTo-Json -InputObject @($saved.ToArray()) -Depth 4)
+
+                $deleted = 0
+                foreach ($key in $keys) {
+                    $deleted += [int](Invoke-RedisCommand -Connection $connection -Arguments @("DEL", $key))
+                }
+                Write-OpsLog "Redis のキーを消しました: $deleted / $($keys.Count) 件"
+
+                # 消し残しが無いことを実測で確かめる (DEL の戻り値だけでは足りない)。
+                $left = @(Get-RedisKey -Connection $connection -Pattern $redis.KeyPattern)
+                if ($left.Count -gt 0) {
+                    throw ("Redis に HuskSync のキーが $($left.Count) 件残っています。" +
+                           "このまま起動すると、その持ち主のインベントリは元に戻ります。")
+                }
+                Write-OpsLog "Redis に HuskSync のキーが 1 件も残っていないことを確認しました。"
+            }
+            $redisReport = @{ Count = $keys.Count }
+        } finally {
+            Disconnect-RedisClient -Connection $connection
+        }
+    }
+}
+
+# -------------------------------------------------------------------------------------------------
 #  MariaDB (資格情報が要るので手で流してもらう)
 # -------------------------------------------------------------------------------------------------
 #  ここを飛ばすと、ファイルを消しても HuskSync がインベントリを DB から復元し、
@@ -374,6 +477,9 @@ if ($dryRun) {
     Write-OpsLog "SQL を書き出す: $sqlPath" -Level DRYRUN
 } else {
     Write-TextNoBom -Path $sqlPath -Text $sql
+    if ($null -ne $redisReport) {
+        Write-OpsLog "Redis 側は処理済みです ($($redisReport.Count) 件)。残るのは下の SQL だけです。"
+    }
     Write-OpsLog "MariaDB 用の SQL を書き出しました: $sqlPath"
     Write-OpsLog "次のコマンドで流してください (パスワードは対話入力):"
     # PowerShell では < が使えない (「演算子 '<' は将来の使用のために予約されています」)。

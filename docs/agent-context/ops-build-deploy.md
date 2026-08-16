@@ -316,6 +316,36 @@ Jecon 同梱 config の英文コメント自身が「複数サーバで DB を�
 `ops/scripts/run-selftest.ps1` の「Jecon の正本は 3 台共有の前提を満たし…」が `true` への回帰を落とす。
 同じ理由で `database.type` を `sqlite` へ戻すと**サーバごとに別の財布**になる（これも無言）。
 
+### ⚠️⚠️ プレイヤーの持ち物は world の中に無い — ワールドを消しても Redis から丸ごと戻る
+**2026-08-16 の実報告「ワールドリセットされたがプレイヤーのアイテムが消えていなかった」の真因。**
+
+インベントリの正本は `world/playerdata` ではなく **HuskSync** で、しかも保管先が **2 段ある**:
+
+| 保管先 | 消し方 | 罠 |
+|---|---|---|
+| `world*/playerdata` | `reset-world.ps1` で world ごと消える | **正本ではない。**ログイン時に HuskSync が上書きする |
+| MariaDB `husksync.husksync_user_data` | `purge-player-data.ps1` が出す SQL | 流し忘れやすい（手作業なので） |
+| **Redis / Garnet `husksync:<cluster>:latest_snapshot:<UUID>`** | `purge-player-data.ps1` が自分で消す | **DB より先に読まれる。TTL は 1 年** |
+
+**HuskSync はログイン時にまず Redis を見て、あればそれを適用して DB を読まない**
+（`LockstepDataSyncer#syncApplyUserData`）。キーの TTL は `RedisKeyType.TTL_1_YEAR`
+＝ 31,536,000 秒なので、放っておいても消えない。
+つまり **SQL を流してワールドを作り直しても、Redis にキーが残っている人は全部戻る。**
+
+**気づきにくい形**: 実測時、MariaDB の `husksync_users` は 1 人だけになっていたのに、
+Redis には 8 人分（各 10〜32KB）が残り 352〜364 日で残っていた。
+**DB を見にいくと「ちゃんと消えている」ように見える。**
+
+- 現状の掃除経路は `ops/scripts/purge-player-data.ps1`（`-SkipRedis` で明示的に残せる）。
+  実装は `ops/scripts/lib/Redis.ps1`（RESP を直接喋る。redis-cli には依存しない）。
+- **消えたことを DEL の戻り値で判断しない。** 消した後にもう一度 SCAN して 0 件を確認する。
+- 退避は `_purge-backup-<日時>\redis\husksync-keys.json`（`DUMP` の base64 + TTL）。
+  戻すときは `RESTORE <key> <pttl> <payload>`。
+- **`Get-RedisKey` の戻り値を `,` で包まない。** 包むと呼び出し側の `@(...)` が
+  「要素 1 個（中身は配列）」になり、**何件あっても 1 件に見える**。
+  そのまま消しに行くと存在しないキーを 1 回消して「掃除完了」になる（実際に踏んだ）。
+  回帰は `run-selftest.ps1` の「`Get-RedisKey` の戻り値は `@()` で包んでも件数が変わらない」。
+
 ### Velocity の `/server` にバックエンドごとの権限ノードは無い
 Velocity の `ServerCommand` が参照する権限文字列は `velocity.command.server` の1つだけで、行き先ごとの
 ノード（`velocity.command.server.<name>` 等）は存在しない。判定は「未設定＝許可」なので、権限プラグインで

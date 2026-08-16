@@ -23,6 +23,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "lib\Common.ps1")
 . (Join-Path $PSScriptRoot "lib\DataStore.ps1")
 . (Join-Path $PSScriptRoot "lib\Yaml.ps1")
+. (Join-Path $PSScriptRoot "lib\Redis.ps1")
 
 $script:Passed = 0
 $script:Failed = 0
@@ -1043,6 +1044,225 @@ database:
         Assert-True ($output -match "中断") "中断していない: $output"
         $names = @(Get-EconomyJarNames -Box $box)
         Assert-True ($names.Count -eq 0) "壊れた正本なのに配った: $($names -join ', ')"
+    }
+
+    # ---------------------------------------------------------------------------------------------
+    #  HuskSync の Redis キャッシュを消す経路 (lib\Redis.ps1)
+    # ---------------------------------------------------------------------------------------------
+    #  2026-08-16: ワールドを作り直し、SQL で husksync_user_data も空にしたのに、
+    #  Redis に 8 人分の latest_snapshot が残っていて全員のインベントリが復活した。
+    #  HuskSync はログイン時に Redis を先に見て、あればそれを適用して DB を読まないため。
+    #
+    #  ここで固定するのは【値を取りこぼさずに読めること】。RESP の bulk string を
+    #  「1 回 Read すれば全部来る」「行区切りで読める」と書くと、
+    #  10〜30KB でバイナリの中に CRLF が入るスナップショットで必ず壊れる。
+    #  しかも壊れ方が「途中まで読めた」なので、消し漏れに気づけない。
+
+    Write-Host ""
+    Write-Host "=== Redis クライアント (RESP) ===" -ForegroundColor Cyan
+
+    Add-Type -TypeDefinition @"
+using System;
+using System.IO;
+
+// 1 回の Read で ChunkSize バイトしか返さないストリーム。
+// ネットワークが値を分割して届ける状況を、待ち時間なしで再現する。
+public class TfChunkedStream : Stream {
+    private readonly byte[] _data;
+    private readonly int _chunk;
+    private int _position;
+
+    public TfChunkedStream(byte[] data, int chunkSize) { _data = data; _chunk = chunkSize; }
+
+    public override int Read(byte[] buffer, int offset, int count) {
+        int remaining = _data.Length - _position;
+        if (remaining <= 0) { return 0; }
+        int n = Math.Min(Math.Min(count, _chunk), remaining);
+        Array.Copy(_data, _position, buffer, offset, n);
+        _position += n;
+        return n;
+    }
+
+    // 書き込みは捨てる。偽の接続として Invoke-RedisCommand にも使えるようにするため。
+    public override void Write(byte[] buffer, int offset, int count) { }
+
+    public override bool CanRead { get { return true; } }
+    public override bool CanSeek { get { return false; } }
+    public override bool CanWrite { get { return true; } }
+    public override long Length { get { return _data.Length; } }
+    public override long Position {
+        get { return _position; }
+        set { throw new NotSupportedException(); }
+    }
+    public override void Flush() { }
+    public override long Seek(long offset, SeekOrigin origin) { throw new NotSupportedException(); }
+    public override void SetLength(long value) { throw new NotSupportedException(); }
+}
+"@ -ErrorAction SilentlyContinue
+
+    function New-RespBulk {
+        <#
+        .SYNOPSIS 生バイト列を RESP の bulk string にする (長さは実バイト数)。
+        #>
+        param([Parameter(Mandatory)] [byte[]] $Payload)
+
+        $out = New-Object System.IO.MemoryStream
+        $head = [System.Text.Encoding]::ASCII.GetBytes("`$$($Payload.Length)`r`n")
+        $out.Write($head, 0, $head.Length)
+        $out.Write($Payload, 0, $Payload.Length)
+        $tail = [System.Text.Encoding]::ASCII.GetBytes("`r`n")
+        $out.Write($tail, 0, $tail.Length)
+        return $out.ToArray()
+    }
+
+    Test-Case "bulk string の中に CRLF があっても宣言長ぶんを正確に読む" {
+        # HuskSync のスナップショットは JSON/バイナリで、CRLF がそのまま入りうる。
+        # 行区切りで読む実装はここで値を途中で切る。
+        $payload = [System.Text.Encoding]::UTF8.GetBytes("{`"a`":1}`r`n{`"b`":2}`r`ntail")
+        $stream  = New-Object System.IO.MemoryStream (,(New-RespBulk -Payload $payload))
+        $value   = Read-RedisReply -Stream $stream
+
+        Assert-True ($value -is [byte[]]) "bulk が byte[] で返っていない"
+        Assert-True ($value.Length -eq $payload.Length) `
+            "長さが違う: 期待 $($payload.Length) / 実際 $($value.Length)"
+        Assert-True ((ConvertFrom-RedisBulk -Value $value) -eq
+                     [System.Text.Encoding]::UTF8.GetString($payload)) "中身が一致しない"
+    }
+
+    Test-Case "1 回の Read で全部届かなくても取りこぼさない" {
+        # 実測のスナップショットは 10〜30KB。1 回の Read では絶対に届かない。
+        $payload = New-Object byte[] 40000
+        for ($i = 0; $i -lt $payload.Length; $i++) { $payload[$i] = [byte]($i % 251) }
+        $bytes  = New-RespBulk -Payload $payload
+        $stream = New-Object -TypeName TfChunkedStream -ArgumentList $bytes, 7
+        $value  = Read-RedisReply -Stream $stream
+
+        Assert-True ($value.Length -eq $payload.Length) `
+            "分割されると短く読む: 期待 $($payload.Length) / 実際 $($value.Length)"
+        Assert-True ($value[39999] -eq $payload[39999]) "末尾のバイトが一致しない"
+    }
+
+    Test-Case "SCAN の応答 (カーソル + キー配列) を読める" {
+        # 宣言長は実バイト数から組み立てる。手で数えて書くと、ずれた瞬間に
+        # 「読めてはいるが 1 つ後ろへ食い込む」壊れ方をしてテスト自体が嘘になる。
+        $keys = @("husksync:::latest_snapshot:aaaa", "husksync:::x:b")
+        $text = "*2`r`n" + "`$1`r`n0`r`n" + "*$($keys.Count)`r`n"
+        foreach ($key in $keys) {
+            $text += "`$$([System.Text.Encoding]::UTF8.GetByteCount($key))`r`n$key`r`n"
+        }
+        $stream = New-Object System.IO.MemoryStream (,[System.Text.Encoding]::UTF8.GetBytes($text))
+        $reply  = Read-RedisReply -Stream $stream
+
+        Assert-True ($reply.Count -eq 2) "配列の要素数が 2 でない"
+        Assert-True ((ConvertFrom-RedisBulk -Value $reply[0]) -eq "0") "カーソルが読めていない"
+        Assert-True ($reply[1].Count -eq 2) "キーの件数が違う"
+        Assert-True ((ConvertFrom-RedisBulk -Value $reply[1][0]) -eq "husksync:::latest_snapshot:aaaa") `
+            "キーが読めていない"
+    }
+
+    Test-Case "エラー応答は握り潰さず例外にする" {
+        $stream = New-Object System.IO.MemoryStream (,[System.Text.Encoding]::UTF8.GetBytes("-NOAUTH required`r`n"))
+        $threw = $false
+        try { [void](Read-RedisReply -Stream $stream) } catch { $threw = $true }
+        Assert-True $threw "エラー応答が例外になっていない (掃除できていないのに成功扱いになる)"
+    }
+
+    Test-Case "Get-RedisKey の戻り値は @() で包んでも件数が変わらない" {
+        # 実際に踏んだ回帰: 戻り値を `,` で包んでいたので @(Get-RedisKey ...) が
+        # 【要素 1 個 (中身は 8 件の配列) の配列】になり、8 件あるキーが 1 件に見えた。
+        # そのまま消しに行くと、配列を文字列化した存在しないキーを 1 回消すだけで
+        # 「掃除できた」ことになる。消し漏れは無警告なので、ここで件数を固定する。
+        $keys = @("husksync:::latest_snapshot:aaaa",
+                  "husksync:::latest_snapshot:bbbb",
+                  "husksync:::server_switch:cccc")
+        $text = "*2`r`n`$1`r`n0`r`n*$($keys.Count)`r`n"
+        foreach ($key in $keys) {
+            $text += "`$$([System.Text.Encoding]::UTF8.GetByteCount($key))`r`n$key`r`n"
+        }
+        $fake = [pscustomobject]@{
+            Stream = New-Object -TypeName TfChunkedStream `
+                -ArgumentList ([System.Text.Encoding]::UTF8.GetBytes($text)), 4096
+        }
+
+        $wrapped = @(Get-RedisKey -Connection $fake -Pattern "husksync::*")
+        Assert-True ($wrapped.Count -eq $keys.Count) `
+            "@() で包むと件数が変わる: 期待 $($keys.Count) / 実際 $($wrapped.Count)"
+        Assert-True ($wrapped[0] -is [string]) `
+            "要素が文字列でない (配列が 1 つ入っている): $($wrapped[0].GetType().Name)"
+        Assert-True ($wrapped -contains "husksync:::server_switch:cccc") "キーが欠けている"
+    }
+
+    Test-Case "HuskSync の config から redis 側の資格情報を読む (database 側と取り違えない)" {
+        # config.yml には database.credentials.host と redis.credentials.host が両方ある。
+        # 行を素朴に検索すると MariaDB の資格情報で Redis へ繋ぎに行く。
+        $file = Join-Path $sandbox "husksync-config.yml"
+        @'
+cluster_id: ''
+database:
+  type: MARIADB
+  credentials:
+    host: db.example
+    port: 3306
+    database: husksync
+    username: husksync
+    password: 'DB-PASSWORD'
+redis:
+  credentials:
+    host: redis.example
+    port: 6380
+    database: 3
+    user: 'ruser'
+    password: 'REDIS-PASSWORD'
+'@ | Set-Content -LiteralPath $file -Encoding UTF8
+
+        $settings = Get-HuskSyncRedisSettings -ConfigPath $file
+        Assert-True ($settings.HostName -eq "redis.example") "host が redis 側でない: $($settings.HostName)"
+        Assert-True ($settings.Port -eq 6380)                "port が redis 側でない: $($settings.Port)"
+        Assert-True ($settings.Database -eq 3)               "database が redis 側でない: $($settings.Database)"
+        Assert-True ($settings.User -eq "ruser")             "user が redis 側でない: $($settings.User)"
+        Assert-True ($settings.Password -eq "REDIS-PASSWORD") "password が MariaDB 側になっている"
+    }
+
+    Test-Case "cluster_id からキーの照合パターンを組み、実キーの形と一致する" {
+        $file = Join-Path $sandbox "husksync-config-empty-cluster.yml"
+        @'
+cluster_id: ''
+redis:
+  credentials:
+    host: 127.0.0.1
+    port: 6379
+    database: 0
+    user: ''
+    password: ''
+'@ | Set-Content -LiteralPath $file -Encoding UTF8
+
+        $settings = Get-HuskSyncRedisSettings -ConfigPath $file
+        Assert-True ($settings.KeyPattern -eq "husksync::*") "既定 (cluster_id 空) のパターンが違う: $($settings.KeyPattern)"
+
+        # 実サーバで観測したキーの形。パターンの固定部分が接頭辞になっていること。
+        $actual = "husksync:::latest_snapshot:34607fc2-f3ce-43f6-83ed-ea179e0fbb3a"
+        $prefix = $settings.KeyPattern.TrimEnd('*')
+        Assert-True ($actual.StartsWith($prefix)) "実キー $actual を拾えないパターン: $($settings.KeyPattern)"
+
+        $named = Join-Path $sandbox "husksync-config-named-cluster.yml"
+        @'
+cluster_id: 'prod'
+redis:
+  credentials:
+    host: 127.0.0.1
+    port: 6379
+'@ | Set-Content -LiteralPath $named -Encoding UTF8
+        Assert-True ((Get-HuskSyncRedisSettings -ConfigPath $named).KeyPattern -eq "husksync:prod:*") `
+            "cluster_id 付きのパターンが違う"
+    }
+
+    Test-Case "purge-player-data は Redis を消す経路を持ち、既定で有効" {
+        # SQL だけ流す運用に戻ると、また「消したのに戻る」が起きる。
+        $script = Join-Path $PSScriptRoot "purge-player-data.ps1"
+        $text   = [System.IO.File]::ReadAllText($script)
+        Assert-True ($text -match "Get-HuskSyncRedisSettings") "Redis を消す経路が無い"
+        Assert-True ($text -match "\[switch\]\s+\`$SkipRedis") "-SkipRedis が無い (既定で消す形になっていない)"
+        Assert-True ($text -notmatch "\`$SkipRedis\s*=\s*\`$true") "-SkipRedis が既定で有効になっている"
     }
 
     #  cmd.exe は UTF-8 のバッチファイルを正しく読めない。マルチバイト文字があると

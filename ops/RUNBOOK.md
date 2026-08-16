@@ -1362,6 +1362,10 @@ cd C:\Users\T-319\Documents\Program\ClaudeCodeDev\products\minecraft\trinityforg
 & 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p -e "source D:/game/minecraft/PaperServer/Velocity_for_TF/purge-player-data-<日時>.sql"
 ```
 
+> **手順 2 の中で Redis（Garnet）の HuskSync キャッシュも消える。**
+> これが無いと **DB を空にしてもログイン時にインベントリが戻る**（HuskSync は Redis を
+> 先に読み、キーの TTL は 1 年）。詳しい理由と復元方法は 18-5。
+
 > **PowerShell では `< file` が使えない**（`演算子 '<' は将来の使用のために予約されています`）。
 > `Get-Content | mariadb.exe` も標準入力がパスワード入力と食い合うので不可。
 > クライアント組み込みの `source` に渡すこと。パスは `/` 区切りで書く。
@@ -1582,6 +1586,21 @@ Get-Content 'D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server\plugins\A
 ```powershell
 & 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe' -u root -p -e "source D:/game/minecraft/PaperServer/Velocity_for_TF/purge-player-data-<日時>.sql"
 ```
+
+> **Redis（Garnet）側はスクリプトが自分で消す。** ここは手作業ではないが、
+> **失敗していないかログを必ず見ること**。`Redis に HuskSync のキーが 1 件も残っていない`
+> と出ていなければ、この掃除は効いていない。
+>
+> **なぜ DB だけでは足りないか**: HuskSync はログイン時に
+> **まず Redis の `latest_snapshot` を見て、あればそれを適用して DB を読まない**
+> （`LockstepDataSyncer#syncApplyUserData`）。キーの TTL は **1 年**
+> （`RedisKeyType.TTL_1_YEAR` = 31,536,000 秒）なので放っておいても消えない。
+> **2026-08-16 に実際に踏んだ**: SQL を流し、さらにワールドを作り直したのに、
+> Redis に 8 人分のスナップショットが残っていて全員のインベントリがそのまま復活した。
+> DB 側の登録は 1 人だけになっていたので、**DB を見ても異常に見えない**のがたちが悪い。
+>
+> 消したキーは `_purge-backup-<日時>\redis\husksync-keys.json` に
+> `DUMP` の base64 と TTL で退避してある（`RESTORE <key> <pttl> <payload>` で戻せる）。
 
 **既定では LuckPerms のグループ定義（`luckperms_groups` / `group_permissions` / `tracks`）は残る。**
 プレイヤーの所属は `luckperms_user_permissions` の `group.<名前>` ノードなので、そちらを空にすれば
