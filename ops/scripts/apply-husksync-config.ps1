@@ -70,13 +70,19 @@ $edits = @(
     @{ Path = @("redis", "credentials", "host");              Value = "127.0.0.1" }
 
     # 【生成時の既定が危険なもの】
-    #  game_mode: メインの world は creative。同期すると資源サーバでもクリエイティブになる。
+    #  game_mode: 2026-08-16 にユーザー判断で true 運用へ変更した。
+    #  かつては false 必須で、理由は「メインの world が creative なので同期すると
+    #  資源サーバでもクリエイティブになる」。Multiverse の既定をサバイバルへ変えたので
+    #  この前提は消えた(実測: Main は Multiverse 3 ワールドとも survival、
+    #  Resource は Multiverse 管理外で server.properties が survival)。
+    #  ⚠ Dev_Server の overworld だけ creative のまま同じ cluster を共有している。
     @{ Path = @("synchronization", "features", "game_mode");  Value = "true" }
     #  flight_status: game_mode と必ず【同じ値】にする。
     #  HuskSync 側では flight_status -> game_mode は Dependency.optional なので、
-    #  game_mode だけ false にしても flight_status は同期され続ける
-    #  (Identifier.java: FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode")))。
-    #  その結果「ゲームモードはサバイバルに戻るのに飛行状態だけ引き継ぐ」= サバイバルで飛べる状態になる。
+    #  片方だけ変えると食い違う。false 運用へ戻すときは両方 false にすること ——
+    #  game_mode だけ false にすると飛行状態だけ同期され続け、
+    #  「ゲームモードはサバイバルに戻るのに飛べる」プレイヤーができる。
+    #  (Identifier.java: FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode")))
     @{ Path = @("synchronization", "features", "flight_status"); Value = "true" }
     #  location: true だと資源サーバで岩盤に埋まる。既定 false だが明示しておく。
     @{ Path = @("synchronization", "features", "location");   Value = "false" }

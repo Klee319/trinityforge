@@ -72,7 +72,8 @@ Velocity プロキシ + メインサーバ + 資源サーバ の 2 バックエ�
 
 **起動する前に [scripts/preflight.ps1](scripts/preflight.ps1) を流す。** 手順2・9-2・6-2 の
 やり残しを機械的に検出する（MariaDB / Garnet が実際に応答しているか、HuskSync の既定資格情報、
-`location` / `game_mode` / `persistent_data`、`trinityforge:*` の除外、
+`location` / `game_mode` / `persistent_data`（`game_mode` は 2026-08-16 以降 true 運用。
+`flight_status` と同値であることが条件）、`trinityforge:*` の除外、
 全バックエンドでの設定一致、forwarding secret の一致）。
 **HuskSync は enable に失敗してもサーバの起動を止めない**ため、
 ログを読まないと「同期されていないことに気付かないまま運用する」事故が起きる。
@@ -683,7 +684,8 @@ synchronization:
   features:
     persistent_data: true    # TF の図鑑・称号・Ars のマナ。これが層 B
     location: false          # 必ず false。true だと資源側で岩盤に埋まる
-    game_mode: false         # 【生成時の既定は true】必ず false。メインの world は creative
+    game_mode: true          # 2026-08-16 に true 運用へ変更（Multiverse の既定を survival にしたため）
+    flight_status: true      # game_mode と必ず同値。片方だけ変えると食い違う
   attributes:
     ignored_modifiers:
     - minecraft:effect.*
@@ -2003,8 +2005,8 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
 | サーバ移動でインベントリが消える / 増える | HuskSync の設定不一致、または `mode` が LOCKSTEP でない | 両サーバの `config.yml` を照合。`/reload` を使っていないか確認 |
 | 資源サーバでスキル Lv が 0 | ジャンクションが張れていない | `dir /al` で確認。`sync-configs.ps1` も検出する |
 | 資源サーバで岩盤に埋まる / 虚空に落ちる | HuskSync の `location: true` | `location: false` にする |
-| 資源サーバでクリエイティブになる | HuskSync の `game_mode: true` | `game_mode: false` にする |
-| **サーバ移動でゲームモードは戻るのに飛行状態だけ引き継ぐ**（サバイバルなのに飛べる） | HuskSync の `flight_status: true`。`flight_status` → `game_mode` の依存は **optional** なので、`game_mode` を false にしても飛行状態は同期され続ける（`Identifier.java`） | `flight_status: false` にする（`game_mode` と必ず同値）。`preflight.ps1` が検出する。既に飛んでいるプレイヤーは `/gamemode survival` を撃ち直せば解除される |
+| 資源サーバでクリエイティブになる | 移動元のワールドが creative（HuskSync の `game_mode: true` で持ち込まれる） | **2026-08-16 以降は Multiverse の既定が survival なので main/resource 間では起きない。** 起きたなら移動元は Dev_Server（overworld だけ creative のまま同じ cluster を共有している）。dev の overworld を survival にするか、dev だけ `cluster_id` を分ける |
+| **サーバ移動でゲームモードは戻るのに飛行状態だけ引き継ぐ**（サバイバルなのに飛べる） | `game_mode` と `flight_status` が食い違っている。`flight_status` → `game_mode` の依存は **optional** なので、`game_mode` だけ false にしても飛行状態は同期され続ける（`Identifier.java`）。**2026-08-16 以降は両方 true で揃えているので、この食い違いは設定を片方だけ触ったときにしか起きない** | `game_mode` と `flight_status` を必ず同値にする。`preflight.ps1` が検出する。既に飛んでいるプレイヤーは `/gamemode survival` を撃ち直せば解除される |
 | 起動時に `Ambiguous plugin name` | 同名 jar の二重配置 | `sync-configs.ps1` が検出する。古い方を退避 |
 | 資源サーバのモブが弱い | `spigot.yml` の `maxHealth.max` 未設定 | 手順 7 の記載どおりコピー |
 | リセット後に Ars アイテムが機能しない | ArsPaper config のコピー漏れ | `sync-configs.ps1` の SHA-256 照合で検出される |

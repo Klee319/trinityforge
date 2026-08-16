@@ -117,17 +117,30 @@ synchronization:
     # 週次リセットで地形が変わる資源サーバでは、岩盤の中や虚空に湧く。
     # （生成時点で既に false。変えないこと。）
     location: false
-    # 【生成時の既定は true なので必ず false へ変更する】
-    # メインの world は creative (Multiverse の worlds.yml)。同期すると
-    # 資源サーバでもクリエイティブになり、資源サーバの存在意義が消える。
+
+    # --- 【true のまま運用する。2026-08-16 にユーザー判断で false から戻した】 ---
+    # かつては false 必須だった。理由は「メインの world が creative (Multiverse の
+    # worlds.yml) なので、同期すると資源サーバでもクリエイティブになり資源サーバの
+    # 存在意義が消える」。2026-08-16 に Multiverse の既定をサバイバルへ変えたので
+    # この前提が消え、同期しても害が無くなった。
+    # 実測 (2026-08-16): Main_Server は Multiverse の 3 ワールドとも survival、
+    # Resource_Server は Multiverse 管理外で server.properties が survival。
+    #
+    # ⚠ 残っている唯一の穴: Dev_Server の overworld だけ creative のままで、
+    #   しかも 3 台とも同じ cluster_id ''・同じ husksync DB を共有している。
+    #   Velocity の /server は行き先ごとの権限ノードを持たない (既知の罠) ので、
+    #   /server を使える権限があれば dev へ入れてしまう。dev で creative になった
+    #   プレイヤーは main / resource へ戻っても creative のままになる。
+    #   塞ぐなら (a) dev の overworld を survival にする か
+    #   (b) dev だけ cluster_id を変える のどちらか。
     game_mode: true
-    # 【game_mode と必ず同じ値にする。生成時の既定は true】
+    # 【game_mode と必ず同じ値にする】
     # HuskSync 側では flight_status -> game_mode が Dependency.optional でしかないため、
-    # game_mode だけ false にしても飛行状態は同期され続ける
+    # 片方だけ変えると食い違う。false 運用に戻すときは両方 false にすること ——
+    # game_mode だけ false にすると飛行状態だけ同期され続け、
+    # 「ゲームモードはサバイバルに戻るのに飛べる」プレイヤーができる (2026-07-28 に実機で発生)。
     #   Identifier.java:
     #     FLIGHT_STATUS = huskSync("flight_status", true, Dependency.optional("game_mode"))
-    # 結果として「ゲームモードはサバイバルに戻るのに飛行状態だけ引き継ぐ」=
-    # サバイバルなのに飛べるプレイヤーができる (2026-07-28 に実機で発生)。
     flight_status: true
 
   # -------------------------------------------------------------------------------------------
