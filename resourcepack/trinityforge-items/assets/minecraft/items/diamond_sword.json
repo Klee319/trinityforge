@@ -101,8 +101,8 @@
       {
         "threshold": 400006,
         "model": {
-          "model": "minecraft:item/diamond_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/diamond_wand"
         }
       }
     ]

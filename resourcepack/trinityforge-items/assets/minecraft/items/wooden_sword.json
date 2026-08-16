@@ -52,8 +52,8 @@
       {
         "threshold": 400008,
         "model": {
-          "model": "minecraft:item/wooden_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/wooden_wand"
         }
       }
     ]

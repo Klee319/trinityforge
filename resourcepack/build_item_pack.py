@@ -42,11 +42,20 @@ import build_item_lang  # noqa: E402  (sys.path を整えてから読む必要�
 ROOTS = (BASE / "trinityforge-items", BASE / "trinityforge-skill-gui")
 REGISTRY = BASE / "cmd-registry.json"
 OUTPUT = BASE / "dist" / "TrinityForge-Pack.zip"
+# 「アイテム定義より先にアートだけ置いてある」ものを理由つきで通すための宣言ファイル。
+# 無ければ「宣言ゼロ」として扱う (存在しないこと自体は正常)。詳細は
+# load_unreferenced_declarations() の docstring。
+DECLARATIONS = BASE / "unreferenced-assets.json"
 
 
-def allocations() -> dict[str, set[int]]:
+def load_registry() -> dict:
+    return json.loads(REGISTRY.read_text(encoding="utf-8"))
+
+
+def allocations(document: dict | None = None) -> dict[str, set[int]]:
     """cmd-registry.json を material -> 割当済み CMD の集合 に畳む。"""
-    document = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    if document is None:
+        document = load_registry()
     table: dict[str, set[int]] = {}
     for entry in document["allocations"]:
         table.setdefault(entry["material"], set()).add(entry["cmd"])
@@ -187,8 +196,149 @@ def check_render_structure(path: Path, document: dict, root: Path) -> list[str]:
     return problems
 
 
+def load_unreferenced_declarations() -> dict[str, str]:
+    """「まだ配線していないが意図的に置いてある資産」の宣言を path -> 理由 で返す。
+
+    D-1 は「誰も参照していない資産」を落とすが、**アイテム定義より先にアートだけが
+    入る**ことは実際にある (例: ArsPaper の materials.yml が id を参照しているのに
+    アイテム定義がまだ無い hoglin_tusk)。そういうものを毎回ビルドを止める形で扱うと、
+    結局「検査を外す」方向へ倒れるので、理由を書かせたうえで通す逃げ道を用意する。
+
+    ただの黙らせリストに劣化させないために、呼び出し側で**逆方向も検査する**
+    (宣言したのに実は配線済み / 実はもう存在しない、を両方エラーにする)。
+    """
+    if not DECLARATIONS.exists():
+        return {}
+    document = json.loads(DECLARATIONS.read_text(encoding="utf-8"))
+    table: dict[str, str] = {}
+    for entry in document.get("assets", []):
+        reason = str(entry.get("reason", "")).strip()
+        if not reason:
+            raise RuntimeError(
+                f"{DECLARATIONS.name}: '{entry.get('path')}' に reason が無い。"
+                "理由の書いていない宣言は許可リストと同じで、書いた本人以外には検証できない"
+            )
+        table[entry["path"]] = reason
+    return table
+
+
+def item_asset_identifier(relative: str, kind: str) -> str | None:
+    """'assets/trinityforge/<kind>/item/xxx.ext' から 'trinityforge:item/xxx' を作る。
+
+    対象外 (item 以外の kind、font/entity/gui など別レーンの資産) なら None。
+    識別子は常に `trinityforge:item/<assetName>` の形しか使わない
+    (asset_path も cmd-registry.json の割当も全部この形なので、ここもそれに合わせる)。
+    """
+    prefix = f"assets/trinityforge/{kind}/item/"
+    if not relative.startswith(prefix):
+        return None
+    stem = relative[len(prefix):]
+    for suffix in (".json", ".png"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    else:
+        return None
+    return f"trinityforge:item/{stem}"
+
+
+def collect_reachable_item_assets(
+    items_root: Path, roots: tuple[Path, ...]
+) -> tuple[set[str], set[str]]:
+    """`assets/minecraft/items/*.json` を起点に trinityforge:item/ のモデル参照を
+    推移的に辿る (parent も辿る)。到達したモデル識別子集合とテクスチャ識別子集合を返す。
+
+    参照先が実在しない場合は既存の検査 (「model が無い」) が別途拾うので、ここでは
+    黙ってスキップする (二重報告を避ける)。
+    """
+    frontier: set[str] = set()
+    for path in sorted(items_root.glob("*.json")):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        model_ids(document, frontier)
+
+    reachable_models: set[str] = set()
+    reachable_textures: set[str] = set()
+    queue = list(frontier)
+    while queue:
+        identifier = queue.pop()
+        if identifier in reachable_models:
+            continue
+        reachable_models.add(identifier)
+
+        model_path = next(
+            (
+                candidate
+                for root in roots
+                if (candidate := asset_path(root, "models", identifier, ".json")).exists()
+            ),
+            None,
+        )
+        if model_path is None:
+            continue
+
+        model_document = json.loads(model_path.read_text(encoding="utf-8"))
+        for texture in model_document.get("textures", {}).values():
+            if isinstance(texture, str) and texture.startswith("trinityforge:"):
+                reachable_textures.add(texture)
+
+        parent = model_document.get("parent")
+        if isinstance(parent, str) and parent.startswith("trinityforge:"):
+            if parent not in reachable_models:
+                queue.append(parent)
+
+        nested: set[str] = set()
+        model_ids(model_document, nested)
+        for nested_identifier in nested:
+            if nested_identifier not in reachable_models:
+                queue.append(nested_identifier)
+
+    return reachable_models, reachable_textures
+
+
+def check_undrawn_item_assets(
+    registry_document: dict, items_root: Path, roots: tuple[Path, ...]
+) -> list[str]:
+    """cmd-registry.json の割当のうち、パックに実物 (model/texture) があるのに
+    items json の threshold に配線されていないものを列挙する。
+
+    CMD 割当の大半は「意図的にバニラ見た目のまま」で正常 (実測 800 件超) なので、
+    「パックに <id> の実物がある」もの**だけ**を対象にする。そうしないと検査が
+    無意味になる。
+    """
+    problems: list[str] = []
+    for entry in registry_document["allocations"]:
+        asset_name = entry["id"]
+        identifier = f"trinityforge:item/{asset_name}"
+        has_model = any(
+            asset_path(root, "models", identifier, ".json").exists() for root in roots
+        )
+        has_texture = any(
+            asset_path(root, "textures", identifier, ".png").exists() for root in roots
+        )
+        if not (has_model or has_texture):
+            continue
+
+        material = entry["material"]
+        items_path = items_root / f"{material.lower()}.json"
+        if not items_path.exists():
+            problems.append(
+                f"cmd {entry['cmd']} ({material}:{asset_name}): "
+                "パックに実物があるのに items json 自体が無い"
+            )
+            continue
+
+        document = json.loads(items_path.read_text(encoding="utf-8"))
+        if entry["cmd"] not in thresholds(document):
+            problems.append(
+                f"cmd {entry['cmd']} ({material}:{asset_name}): "
+                "パックに実物があるのに items json の threshold に配線されていない"
+            )
+    return problems
+
+
 def validate() -> list[tuple[Path, str]]:
-    registry = allocations()
+    registry_document = load_registry()
+    registry = allocations(registry_document)
     problems: list[str] = []
     packable: dict[str, Path] = {}
 
@@ -239,6 +389,39 @@ def validate() -> list[tuple[Path, str]]:
                     continue
                 if not asset_path(root, "textures", texture, ".png").exists():
                     problems.append(f"{relative}: texture {texture} が無い")
+
+    # D-1: 誰からも参照されていない資産 (旧自動生成スキームの残骸が典型例)。
+    declared = load_unreferenced_declarations()
+    reachable_models, reachable_textures = collect_reachable_item_assets(items_root, ROOTS)
+    unreferenced: set[str] = set()
+    for relative, path in sorted(packable.items()):
+        model_identifier = item_asset_identifier(relative, "models")
+        if model_identifier is not None and model_identifier not in reachable_models:
+            unreferenced.add(relative)
+        texture_identifier = item_asset_identifier(relative, "textures")
+        if texture_identifier is not None and texture_identifier not in reachable_textures:
+            unreferenced.add(relative)
+
+    for relative in sorted(unreferenced - set(declared)):
+        problems.append(
+            f"{relative}: どこからも参照されていない資産。"
+            f"(1) items json へ配線する (2) 削除する (3) 意図的に先行して置いてあるなら"
+            f" {DECLARATIONS.name} に理由つきで宣言する — のどれかを選ぶこと"
+        )
+    # 宣言の腐り止め。「宣言したまま実は配線済み/実は消えた」を放置すると、宣言ファイルが
+    # ただの黙らせリストに劣化して検査ごと無効化される (このリポジトリで実際に起きた事故)。
+    for relative in sorted(declared):
+        if relative not in packable:
+            problems.append(
+                f"{DECLARATIONS.name}: '{relative}' はもう存在しない。宣言を消すこと"
+            )
+        elif relative not in unreferenced:
+            problems.append(
+                f"{DECLARATIONS.name}: '{relative}' は配線済みになっている。宣言を消すこと"
+            )
+
+    # D-2: パックに実物があるのに items json の threshold に配線されていない CMD。
+    problems.extend(check_undrawn_item_assets(registry_document, items_root, ROOTS))
 
     if problems:
         raise RuntimeError(

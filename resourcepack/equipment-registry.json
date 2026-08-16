@@ -1,4 +1,31 @@
 {
   "version": 1,
-  "assets": []
+  "assets": [
+    {
+      "asset": "infinity",
+      "layers": [
+        "humanoid",
+        "humanoid_leggings"
+      ],
+      "members": [
+        "infinity_boots",
+        "infinity_chestplate",
+        "infinity_helmet",
+        "infinity_leggings"
+      ]
+    },
+    {
+      "asset": "source_gem",
+      "layers": [
+        "humanoid",
+        "humanoid_leggings"
+      ],
+      "members": [
+        "source_gem_boots",
+        "source_gem_chestplate",
+        "source_gem_helmet",
+        "source_gem_leggings"
+      ]
+    }
+  ]
 }

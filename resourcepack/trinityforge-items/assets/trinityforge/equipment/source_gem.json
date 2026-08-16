@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "trinityforge:source_gem"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "trinityforge:source_gem"
+      }
+    ]
+  }
+}

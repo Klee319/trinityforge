@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "trinityforge:infinity"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "trinityforge:infinity"
+      }
+    ]
+  }
+}

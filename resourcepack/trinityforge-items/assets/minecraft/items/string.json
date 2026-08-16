@@ -62,6 +62,20 @@
           "model": "minecraft:item/string",
           "type": "minecraft:model"
         }
+      },
+      {
+        "threshold": 100027,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
+      },
+      {
+        "threshold": 100028,
+        "model": {
+          "model": "minecraft:item/string",
+          "type": "minecraft:model"
+        }
       }
     ]
   }

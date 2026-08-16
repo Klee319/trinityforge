@@ -45,8 +45,8 @@
       {
         "threshold": 400003,
         "model": {
-          "model": "minecraft:item/copper_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/copper_wand"
         }
       }
     ]

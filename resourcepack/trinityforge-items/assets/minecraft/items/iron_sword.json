@@ -45,15 +45,15 @@
       {
         "threshold": 68,
         "model": {
-          "model": "minecraft:item/iron_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/fnis_peccati_profundi"
         }
       },
       {
         "threshold": 400004,
         "model": {
-          "model": "minecraft:item/iron_sword",
-          "type": "minecraft:model"
+          "type": "minecraft:model",
+          "model": "trinityforge:item/iron_wand"
         }
       }
     ]

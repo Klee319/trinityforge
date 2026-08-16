@@ -408,7 +408,9 @@
       "cmd": 68,
       "id": "fnis_peccati_profundi",
       "source": "catalog",
-      "allocatedAt": "2026-08-09T10:23:03.067Z"
+      "allocatedAt": "2026-08-09T10:23:03.067Z",
+      "assetName": "fnis_peccati_profundi",
+      "parent": "handheld"
     },
     {
       "material": "DIAMOND_HOE",
@@ -2087,7 +2089,9 @@
       "cmd": 84,
       "id": "novus_criculus_luminis",
       "source": "catalog",
-      "allocatedAt": "2026-08-09T10:23:03.067Z"
+      "allocatedAt": "2026-08-09T10:23:03.067Z",
+      "assetName": "novus_criculus_luminis",
+      "parent": "generated"
     },
     {
       "material": "DIAMOND_SHOVEL",
@@ -2121,49 +2125,63 @@
       "cmd": 400008,
       "id": "wooden_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "wooden_wand",
+      "parent": "handheld"
     },
     {
       "material": "STONE_SWORD",
       "cmd": 400002,
       "id": "stone_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "stone_wand",
+      "parent": "handheld"
     },
     {
       "material": "COPPER_SWORD",
       "cmd": 400003,
       "id": "copper_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "copper_wand",
+      "parent": "handheld"
     },
     {
       "material": "IRON_SWORD",
       "cmd": 400004,
       "id": "iron_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "iron_wand",
+      "parent": "handheld"
     },
     {
       "material": "GOLDEN_SWORD",
       "cmd": 400005,
       "id": "golden_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "golden_wand",
+      "parent": "handheld"
     },
     {
       "material": "DIAMOND_SWORD",
       "cmd": 400006,
       "id": "diamond_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "diamond_wand",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_SWORD",
       "cmd": 400007,
       "id": "netherite_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "netherite_wand",
+      "parent": "handheld"
     },
     {
       "material": "NETHERITE_PICKAXE",
@@ -2366,21 +2384,30 @@
       "cmd": 400012,
       "id": "magic_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "magic_wand",
+      "parent": "handheld",
+      "customModel": true
     },
     {
       "material": "NETHERITE_SWORD",
       "cmd": 400013,
       "id": "abyss_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "abyss_wand",
+      "parent": "handheld",
+      "customModel": true
     },
     {
       "material": "NETHERITE_SWORD",
       "cmd": 400014,
       "id": "boundary_wand",
       "source": "catalog",
-      "allocatedAt": "2026-08-08T00:00:00.000Z"
+      "allocatedAt": "2026-08-08T00:00:00.000Z",
+      "assetName": "boundary_wand",
+      "parent": "handheld",
+      "customModel": true
     },
     {
       "material": "NETHERITE_SWORD",
@@ -3139,6 +3166,20 @@
       "allocatedAt": "2026-08-13T11:54:41.602Z"
     },
     {
+      "material": "STRING",
+      "cmd": 100027,
+      "id": "thread_blindness",
+      "source": "catalog",
+      "allocatedAt": "2026-08-14T17:36:17.258Z"
+    },
+    {
+      "material": "STRING",
+      "cmd": 100028,
+      "id": "thread_translate",
+      "source": "catalog",
+      "allocatedAt": "2026-08-14T18:02:38.535Z"
+    },
+    {
       "material": "AMETHYST_SHARD",
       "cmd": 3,
       "id": "skill_node_lock",
@@ -3215,35 +3256,45 @@
       "cmd": 5441,
       "id": "source_shard",
       "source": "materials",
-      "allocatedAt": "2026-07-31T09:10:00.000Z"
+      "allocatedAt": "2026-07-31T09:10:00.000Z",
+      "assetName": "source_shard",
+      "parent": "generated"
     },
     {
       "material": "PRISMARINE_CRYSTALS",
       "cmd": 5442,
       "id": "source_crystal",
       "source": "materials",
-      "allocatedAt": "2026-07-31T09:10:00.000Z"
+      "allocatedAt": "2026-07-31T09:10:00.000Z",
+      "assetName": "source_crystal",
+      "parent": "generated"
     },
     {
       "material": "HEART_OF_THE_SEA",
       "cmd": 5443,
       "id": "source_condenser",
       "source": "materials",
-      "allocatedAt": "2026-07-31T09:10:00.000Z"
+      "allocatedAt": "2026-07-31T09:10:00.000Z",
+      "assetName": "source_condenser",
+      "parent": "generated"
     },
     {
       "material": "CONDUIT",
       "cmd": 5444,
       "id": "source_engine",
       "source": "materials",
-      "allocatedAt": "2026-07-31T09:10:00.000Z"
+      "allocatedAt": "2026-07-31T09:10:00.000Z",
+      "assetName": "source_engine",
+      "parent": "generated"
     },
     {
       "material": "NETHER_STAR",
       "cmd": 5445,
       "id": "infinity_source_core",
       "source": "materials",
-      "allocatedAt": "2026-07-31T09:10:00.000Z"
+      "allocatedAt": "2026-07-31T09:10:00.000Z",
+      "assetName": "infinity_source_core",
+      "parent": "generated"
     },
     {
       "material": "STONE",
@@ -3960,6 +4011,20 @@
       "allocatedAt": "2026-08-08T10:57:27.774Z"
     },
     {
+      "material": "COOKED_COD",
+      "cmd": 258,
+      "id": "baked_salon_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-14T18:08:55.039Z"
+    },
+    {
+      "material": "COOKED_COD",
+      "cmd": 259,
+      "id": "baked_cod_1x",
+      "source": "materials",
+      "allocatedAt": "2026-08-14T18:08:55.039Z"
+    },
+    {
       "material": "PUMPKIN_PIE",
       "cmd": 257,
       "id": "pumpkin_pie_1x",
@@ -4301,34 +4366,6 @@
       "id": "apple_3x",
       "source": "materials",
       "allocatedAt": "2026-08-05T07:25:01.678Z"
-    },
-    {
-      "material": "BREAD",
-      "cmd": 5423,
-      "id": "compressed_bread_2x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "BREAD",
-      "cmd": 5424,
-      "id": "compressed_bread_3x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "COOKED_BEEF",
-      "cmd": 5425,
-      "id": "compressed_cooked_beef_2x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
-    },
-    {
-      "material": "COOKED_BEEF",
-      "cmd": 5426,
-      "id": "compressed_cooked_beef_3x",
-      "source": "materials",
-      "allocatedAt": "2026-07-31T07:45:00.000Z"
     },
     {
       "material": "ENCHANTED_GOLDEN_APPLE",
@@ -5138,6 +5175,13 @@
       "id": "source_singularity_jar",
       "source": "sourcejars",
       "allocatedAt": "2026-07-31T09:10:00.000Z"
+    },
+    {
+      "material": "DECORATED_POT",
+      "cmd": 200008,
+      "id": "source_vault",
+      "source": "sourcejars",
+      "allocatedAt": "2026-08-16T00:00:00.000Z"
     },
     {
       "material": "FURNACE",
