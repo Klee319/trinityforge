@@ -662,6 +662,56 @@ per-mob の耐性型と真逆のラベルを9ダンジョンに付けていた�
 - `MobOverridesConfigTest` が「出荷ymlの scope 直下 stats は `physical()==null && magical()==null`」
   を要求しているので、再混入するとテストが落ちる
 
+## モブの特殊攻撃（mob-abilities.yml / mob-overrides.yml の `abilities:`）
+
+### ⚠️ 未定義のテンプレートIDは「エラー」ではなく「技を1つも撃たないボス」になる
+
+`MobAbilityTask#candidatesFor` は `abilitiesConfig.ability(id)` が null のとき `continue` する
+（ロード順に依存させないための意図的な設計。`combat/mob-abilities.yml` の読み込みが
+`mob-overrides.yml` より後でも壊れないようにするため）。したがって `abilities: [shockwaev]` の
+ような綴り違いは**ログにも出ず、そのモブだけ静かに無技化**する。400 体近いモブへ手で貼る運用では
+必ず起きるので、突き合わせは `ShippedMobAbilityAssignmentTest`（出荷 yml 同士を機械で照合）で落とす。
+同テストは「定義したのにどのモブにも貼られていないテンプレート」も落とす（死にテンプレート防止）。
+
+### ⚠️ yml の `knockback`（0〜5）はそのまま速度に使えない／ゼロベクトルを正規化すると操作不能になる
+
+Bukkit の速度は**ブロック/tick** なので、`knockback: 5` を `setVelocity` にそのまま渡すと毎秒 100
+ブロック＝場外まで吹き飛ぶ（バニラのノックバックは約 0.4）。`REPULSE`/`VORTEX_PULL` は
+`MobAbilityExecutor#repulseVelocity` / `#pullVelocity`（どちらも純関数・テスト済み）で水平 0.4 倍・
+垂直 0.18 倍（上限 0.9）へ換算する。垂直に天井を置くのは、打ち上げ高度を上げると**落下ダメージだけで
+殺せてしまい防具の投資が無意味になる**ため。加えて、攻撃者と被害者が同一座標だと差分ベクトルが
+ゼロになり `Vector#normalize()` が **NaN 速度**を返す ── 例外もログも出ないまま**プレイヤーが
+操作不能**になるので、両関数ともゼロ長を先に分岐して真上ベクトルへ落としている。
+なお `GROUND_SLAM` 等が使う `pushAway` は Y=0.35 固定・現在速度への**加算**なので、強度を上げても
+真横に滑るだけ。「強く吹き飛ばす」を作るなら `REPULSE`（速度の置き換え）を使う。
+
+### 多段ボスの技は「最深段」に置く（HP で通過するだけの段に置くと本番が無技になる）
+
+EliteMobs の phase ボスは `p2: 0.80 / p3: 0.50 / p4: 0.30` のように**HP 割合で次段へ移る**ので、
+中間段は数秒で通過し、最後の段が一番長い戦闘になる。`mob-overrides.yml` の `abilities:` を
+中間段（例 `*_p3`）に書くと、実際に戦う最終段（`*_p4`）が無技のままになる。出荷 yml は
+`the_climb_undead_beastmaster` / `the_castle_charlemagne` / `wood_league_wave_50_boss` などで
+最深段に置く形で統一してある。段の閾値はフォーク側 `custombosses/*.yml` の `phases` が一次情報。
+
+### 技の `damage-type` は「そのモブの耐性の逆」に揃える／雑魚には付けない
+
+per-mob の `stats.physical`/`stats.magical` が「どの属性が通る敵か」を表す（`mob-overrides.yml` の
+▼コンセプト行が要約）。物理装甲が厚い敵＝魔法が通る＝**敵の攻撃は物理**、が既存の規約
+（本ファイル「⚠️ scope 直下 `stats:` に守備ステを書いてはいけない」節の攻め／守りの向き）。
+テンプレートの `damage-type` もこれに合わせないと、攻めも守りも同じ属性で足りて属性分けが消える。
+**雑魚（`# 雑魚` 分類のモブ）には貼らない**: 同時湧きの頭数ぶん AoE が重なり、波の被ダメージが
+設計不能になる。出荷の割り当ては全てボス／ミニボス／節目の波ボスに限定してある。
+
+### `DELAYED_ZONE` の `duration-seconds` は AURA の持続とは別物（0 を即着弾にしない）
+
+`AURA` では `durationTicks()`（持続時間）、`DELAYED_ZONE` では `delayTicks()`（印を置いてから
+着弾までの予告時間、10〜100 tick へ丸め・**未設定は既定 30 tick**）と、同じ yml キーを別の意味で
+読む。`delayTicks()` が 0 を「即着弾」にすると、**予告を書き忘れた瞬間に「避けられる高倍率技」が
+「回避不能な高倍率技」へ静かに化ける**ので既定値へ落としてある（`MobAbility#delayTicks`）。
+印は発動時の足元に固定し追尾させない（追尾すると回避手段が射程外へ逃げるだけになる）。
+倍率は既存最大（`piercing_beam` の 2.0）を超えさせない ── 避けられるからと上げると被弾1回が
+実質ワンショットになり、防具の投資が意味を失う。
+
 ## 関連
 
 - [./progression-skilltree.md](./progression-skilltree.md)

@@ -973,6 +973,30 @@ player を生成経路まで手動で運ぶしかない」「個体差は Ars �
   ブリッジ呼び出しの**前**に前状態をキャプチャしておくこと（`ThreadRerollRitualEffect#execute`
   が実例。呼び出し順を逆にすると新旧が同じ値になり lore の差分除去が無言で空振りする）。
 
+### ⚠️ スレッド枠拡張儀式の `max-slots` は「1回で足す枠数」ではなく装備1個の累計上限 — 段位ごとに増やさないと上位段が無言で死ぬ
+
+`items.yml` の `effect-type: thread_slot_expand` に書く `effect-params.max-slots` は、装備の
+TF 側 PDC `ritual_thread_slot_bonus`（`PdcKeys.ITEM_RITUAL_THREAD_SLOT_BONUS`、**装備1個につき
+1個だけのカウンタ。全段の儀式がこれを共有する**）に対する上限値である。
+`ItemFactory#expandRitualThreadSlot`（`TrinityForge/src/main/java/com/trinityforge/stats/ItemFactory.java`）は
+`ritualBonus >= maxSlots` なら `Optional.empty()` を返し、`ThreadSlotExpandRitualEffect#validate`
+がそれを「拡張できません」で弾く（素材もソースも消費せず、ログにも何も出ない）。
+
+- **したがって上位段の `max-slots` を下位段以下にすると、下位段を1回回した時点で上位段が永久に失敗する。**
+  Ⅰ=1/Ⅱ=1 だった時期の Ⅱ がこの状態（Ⅰ の後は必ず失敗し、Ⅰ より先に回しても Ⅰ の上位互換にならない）。
+  現在は Ⅰ=1 / Ⅱ=2 / Ⅲ=5 の単調増加。回帰は
+  `fork-handoff/arspaper/fork/src/test/java/com/arspaper/ritual/ThreadRitualRecipeConfigTest`
+  の `slotExpandMaxSlotsAreStrictlyIncreasing`。
+- 実効上限はもう1段ある: `progression/crafting-features.yml` の `thread-slots.max-by-category`
+  （現在 armor/weapon/tool/other すべて 5）。`ThreadSlotPolicy#applyCategoryCap` が derivation の
+  たびにクランプするので、`max-slots` をこれ以上に上げても総枠は増えない（装備の基礎
+  `thread-slots` は `stats/item-stats.yml` で 2〜3）。**枠が増えないという報告が来たら、
+  まず `max-slots` の累計解釈とカテゴリ上限のどちらで止まっているかを切り分けること。**
+- 振り直し儀式 `thread_reroll` は **効果クラス（`ThreadRerollRitualEffect`）と `ArsPaper#register`
+  を残したまま、`items.yml` に儀式エントリを置かない＝ゲーム内非公開**という運用（2026-08-16 ユーザー決定）。
+  「実装済みの effect-type にレシピが無い＝配線漏れ」と誤診して足し直さないこと。同テストの
+  `rerollRitualIsNotPublished` が復活を検知する。
+
 ### ⚠️ `ThreadConfig`/`ThreadType` は静的初期化で `PotionEffectType` 定数を触るため、テスト基盤(Bukkitランタイム無し)ではクラスをロードするだけで落ちる
 
 `org.bukkit.potion.PotionEffectType.SPEED` 等の静的定数は内部的にレジストリ経由で解決されており、

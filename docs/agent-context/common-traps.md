@@ -535,6 +535,42 @@ CraftEventFactory.callEntityDeathEvent(...)   <- EntityDeathEvent はここで�
   村人・行商人・ピリジャー（収納をドロップしない）／アーマースタンド（装備を `drops` に積み、
   クリアはイベント後）／通常モブの装備・拾得品（`clearEquipmentSlots` で遅延）。
 
+## 調査・洗い出しの罠（2026-08-16 追加）
+
+2026-08-16 のサーバ開始前洗い出しで、**8件の調査ミスが同日にまとめて発覚した**（存在するものを「無い」と報告 ×4、
+解決済みを「未解決」と報告 ×3、別物を同一視 ×1）。全部が下の4パターンのどれかに落ちる。
+
+### ⚠️⚠️ 「無い／未配線／経路ゼロ」の全称否定は、供給レイヤの全走査なしに書いてはいけない
+1ファイルの grep や1本のテスト結果から「入手経路が無い」と断定した誤報が同日に3件
+（4大ボス素材＝`mob-level-table.yml` の add-drops に居た／ガチャ券＝採取ギミック供給だった／
+ダンジョン鍵8本＝fork の構造物戦利品に居た）。**アイテムの供給レイヤは最低これだけある**。
+全称否定を書く前に全部を見る:
+1. `combat/mob-overrides.yml` の `drops:`
+2. `combat/mob-level-table.yml` の `add-drops:`（field/dungeon 別）
+3. 採取ギミック5種 `stats/{fishing,digging,food,smithing,woodcutting}-gimmick.yml`
+4. `gacha.yml` のプール
+5. `items/catalog.yml` のレシピ（workbench/smithing/醸造）
+6. fork `arspaper/fork/src/main/resources/loot-tables.yml`（構造物戦利品。**gitignore 除外なので clean clone に無い**）
+7. fork `materials.yml` のレシピ＋`items.yml` の儀式
+8. `progression/achievements.yml` / `special-rewards.yml` の報酬
+
+### ⚠️ ACTIVE_RECORD・過去ログの記述は「書かれた日のスナップショット」。断定に転記する前に HEAD で裏を取る
+台帳の K-9 は「呼び出し元ゼロ」のままだったが、実物は 08-14（b969faa）に配線完了していた。
+束縛者のステ未設定（K-22）も 08-01 に解決済みだった。**「実コードで裏を取る」は洗い出しのような
+一括作業でこそ省略しがち**で、省略した項目がそのまま誤報になった。項目数が多くても、
+「未解決」と報告する行だけは必ず現物 yml/Java を開く。
+
+### ⚠️ テストの失敗は「テストの世界観での NG」であって、現実のバグの証明ではない
+`ShippedGachaTicketRouteTest` の「供給経路ゼロ」はテストがモブドロップしか経路と数えていないだけ、
+`ShippedDungeonKeyReachabilityTest` の「鍵8本経路ゼロ」は gitignore された fork yml をテストが読めないだけだった。
+失敗メッセージを転記する前に、**そのテストが何を「経路／正」と定義しているか**を1回読む。
+逆方向も同じ: WIP で汚れた worktree のテスト結果は現状より悪く見える（41失敗の大半が他セッションの編集中 yml 由来）。
+
+### ⚠️ grep のヒットだけで同定しない（同名異物）
+「apex」で grep して `collection.yml` の `apex:` を削除済み醸造 `apex-brew` の残骸と断定したが、
+実物は**モブ図鑑カテゴリ「強敵」**（ENDER_DRAGON 等9種、`achievements.yml` の `sec_apex_all` が参照）で、
+消すと逆に壊れる。ヒット行だけで判断せず、**親キーと周辺構造を開いてから**同定する。
+
 ## 関連
 - [./forks-and-mobs.md](./forks-and-mobs.md)
 - [./ops-build-deploy.md](./ops-build-deploy.md)
