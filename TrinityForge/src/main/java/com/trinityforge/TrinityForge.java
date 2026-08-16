@@ -243,6 +243,10 @@ public final class TrinityForge extends JavaPlugin {
     private TableGeneration tableGeneration;
     private ItemRefreshListener itemRefreshListener;
     private com.trinityforge.economy.EconomyBridge economyBridge;
+    // ランキング(PlaceholderAPI)向けの集計値。図鑑・グリフ解放数・討伐数は本人がログイン中の
+    // サーバからしか読めないので、共有 DB へ写してバックエンド間で同じ値を返せるようにする。
+    private com.trinityforge.ranking.RankingMirrorStore rankingMirrorStore;
+    private com.trinityforge.ranking.RankingStatsService rankingStatsService;
 
     @Override
     public void onEnable() {
@@ -269,6 +273,15 @@ public final class TrinityForge extends JavaPlugin {
                             new SqliteProgressionRepository(
                                     "jdbc:sqlite:" + database.getAbsolutePath())),
                     () -> configManager.combatLevel().cacheTtlMillis());
+            // ランキングミラーは進行データと同じファイルに同居させる。この DB は
+            // plugins/TrinityForge ごとジャンクションで全バックエンドに共有されているので、
+            // ここへ書けばメイン／資源のどちらから読んでも同じ値になる。
+            // 別コネクションになるが、複数コネクション同時アクセスの安全性は
+            // SharedSqliteConcurrencyTest で実測済み(transaction_mode=IMMEDIATE が前提)。
+            this.rankingMirrorStore = new com.trinityforge.ranking.RankingMirrorStore(
+                    "jdbc:sqlite:" + database.getAbsolutePath());
+            this.rankingStatsService = new com.trinityforge.ranking.RankingStatsService(
+                    this, rankingMirrorStore);
             this.progressionCatalog = NativeSkillCatalog.loadDataFolder(
                     getDataFolder(), getClassLoader());
             this.skillLevelSource = new NativeSkillLevelSource(progressionRepository);
@@ -1165,6 +1178,23 @@ public final class TrinityForge extends JavaPlugin {
         this.achievementPollTask = getServer().getScheduler().runTaskTimer(this,
                 achievementService::pollStatistics, 20L * 60, 20L * 60);
 
+        // ランキング(PlaceholderAPI)向けの集計。ログアウト時＋定期でミラーへ写す。
+        // ログイン時に写さないのは、HuskSync の流し込みが PlayerJoinEvent より後だから。
+        if (rankingStatsService != null) {
+            getServer().getPluginManager().registerEvents(rankingStatsService, this);
+            rankingStatsService.start();
+            // PlaceholderAPI は任意依存。未導入なら登録ごとスキップするだけで機能は落とさない。
+            // クラス参照を if の内側に閉じ込めているので、不在時にクラスロードも起きない。
+            if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+                try {
+                    new com.trinityforge.placeholder.TrinityForgePlaceholders(this).register();
+                    getLogger().info("PlaceholderAPI 拡張 'trinityforge' を登録しました。");
+                } catch (RuntimeException | LinkageError e) {
+                    getLogger().warning("PlaceholderAPI 拡張の登録に失敗しました: " + e);
+                }
+            }
+        }
+
         // 敵の特殊攻撃(2026-07-31): combat/mob-abilities.yml のテンプレートを
         // combat/mob-overrides.yml の abilities: に従って撃つ。プレイヤー周囲だけを走査する。
         this.mobAbilityTask = new com.trinityforge.combat.MobAbilityTask(this,
@@ -1264,6 +1294,20 @@ public final class TrinityForge extends JavaPlugin {
         if (mobAbilityTask != null) {
             mobAbilityTask.stop();
             mobAbilityTask = null;
+        }
+        // ランキングミラーの最終フラッシュ。onDisable 中は非同期タスクを投げられないため、
+        // shutdown() の中でメインスレッドのまま書き切る(サーバ停止時の取りこぼし防止)。
+        if (rankingStatsService != null) {
+            try {
+                rankingStatsService.shutdown();
+            } catch (RuntimeException e) {
+                getLogger().warning("ランキングミラーの最終フラッシュに失敗しました: " + e);
+            }
+            rankingStatsService = null;
+        }
+        if (rankingMirrorStore != null) {
+            rankingMirrorStore.close();
+            rankingMirrorStore = null;
         }
         try {
             if (experienceDispatcher != null) {
@@ -1533,6 +1577,11 @@ public final class TrinityForge extends JavaPlugin {
                                                                 StringArgumentType.getString(ctx, "player"));
                                                         if (target == null) return 0;
                                                         progressionRepository.resetPlayer(target.getUniqueId());
+                                                        // ランキングミラーは単調増加でしか更新されないので、
+                                                        // ここで消さないとリセット後も古い最大値が残り続ける。
+                                                        if (rankingStatsService != null) {
+                                                            rankingStatsService.forget(target.getUniqueId());
+                                                        }
                                                         perkAttributeApplier.apply(target);
                                                         perkMirrorService.sync(target);
                                                         ctx.getSource().getSender().sendMessage(Component.text(
@@ -1776,6 +1825,11 @@ public final class TrinityForge extends JavaPlugin {
 
     public NativeProgressionService progressionService() {
         return progressionService;
+    }
+
+    /** ランキング用集計値。DB を開けなかった場合は {@code null}（プレースホルダは 0 を返す）。 */
+    public com.trinityforge.ranking.RankingStatsService rankingStatsService() {
+        return rankingStatsService;
     }
 
     public NativeExperienceDispatcher experienceDispatcher() {

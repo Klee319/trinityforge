@@ -18,6 +18,12 @@ repositories {
     // 同一バージョンをコンパイル時参照する(バージョン差による NoSuchMethodError を避けるため、
     // ここのバージョンはサーバの jar と必ず一致させること)。
     maven("https://repo.codemc.io/repository/maven-releases/")
+    // PlaceholderAPI(任意依存)の配布元。
+    // ⚠️ EliteMobs フォークの build.gradle が使っている
+    //    https://repo.extendedclip.com/content/repositories/placeholderapi/ は【既に廃止】で、
+    //    2026-08-03 時点では 404 を返す(2.10.9 自体も配信されておらず、最古が 2.11.5)。
+    //    現行は Reposilite の /releases/。あちらの URL をコピーしてくると必ず解決できない。
+    maven("https://repo.extendedclip.com/releases/")
 }
 
 dependencies {
@@ -44,6 +50,15 @@ dependencies {
     // DamageIndicatorParticleLimiter ごと無効化されるだけ(fail-open)。
     // バージョンは実サーバの packetevents-spigot と一致させること(現在 2.11.1)。
     compileOnly("com.github.retrooper:packetevents-api:2.11.1")
+
+    // PlaceholderAPI soft-dependency (2026-08-03, ランキングプラグイン向けの値の供給): compile-time only,
+    // never bundled/shaded。未導入なら TrinityForgePlaceholders の登録ごとスキップされるだけ(fail-open)。
+    // ⚠️ paper-plugin.yml の dependencies にも join-classpath: true で書くこと。Paper プラグインは
+    //    クラスローダが分離されており、宣言していない相手のクラスは実行時に見えない。
+    // 2.11.6 は配信中の最古に近い安定版。PlaceholderExpansion の抽象メソッド
+    // (getIdentifier / getAuthor / getVersion / persist / onRequest)は 2.11〜2.12 で変わっていないので、
+    // ここを低めに固定しておけば新しい実サーバ(2.12.x)でもそのまま動く(逆は壊れる)。
+    compileOnly("me.clip:placeholderapi:2.11.6")
 
     // SQLite JDBC — Apache-2.0. Bundled in the shadow JAR (TrinityForge-*-all.jar) because
     // Paper server does not provide a SQLite driver on its classpath.

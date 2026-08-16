@@ -36,8 +36,10 @@ import java.util.logging.Logger;
  */
 public final class CollectionService {
 
-    private static final String ENTRY_PREFIX_ITEM = "item:";
-    private static final String ENTRY_PREFIX_MOB = "mob:";
+    // public: ランキング用の集計(RankingStatsService)がアイテム/モブを数え分けるのに同じ接頭辞を使う。
+    // 二重定義すると片方だけ変えたときに集計が黙ってゼロになるので、定義はここ1箇所だけに置く。
+    public static final String ENTRY_PREFIX_ITEM = "item:";
+    public static final String ENTRY_PREFIX_MOB = "mob:";
 
     private final CollectionConfig config;
     private final Logger log;

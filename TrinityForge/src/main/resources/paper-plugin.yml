@@ -26,6 +26,14 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
+    # ランキング系プラグインへ値を供給する PlaceholderAPI 拡張(識別子 trinityforge)専用。
+    # 未導入なら拡張の登録だけをスキップする(TrinityForge.onEnable の getPlugin(...) != null ガード)。
+    # 提供する値: スキル別レベル / グリフ解放数 / 図鑑登録数 / 討伐数。
+    # これらはメイン・資源のどちらから引いても同じ値になる(共有 DB 経由)。
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: true
 
 permissions:
   trinityforge.admin:
