@@ -1,4 +1,14 @@
-"""inv テクスチャの配色から、防具の「装備したときの見た目」レイヤー PNG を機械的に起こす。
+"""バニラの防具レイヤーを下地に、inv テクスチャの配色で塗り替えた「装備したときの見た目」を起こす。
+
+⚠⚠ 2026-08-16 に方式を全面的に入れ替えた（ユーザー報告「ヘルメットが頭全体を覆う」の修正）。
+   旧版は 64x32 のキャンバスへ UV 矩形を自前で塗り分けていたが、**全ピクセルを不透明**に
+   していたのが致命的だった。バニラの装備レイヤーは 7 割が透明で、その透明部分が
+   「顔が見える」「ブーツが足首で止まる」「腕の素肌が出る」を作っている。
+   モデルはバニラそのもの（equipment json は humanoid / humanoid_leggings を指すだけ）なので、
+   壊れていたのは常にテクスチャのアルファだった。
+   現在はバニラの同レイヤー PNG を下地に読み、**アルファを1ピクセルも変えずに**
+   不透明部分の色だけをセットのパレットへ写像する。バニラの陰影もそのまま残る。
+
 
 なぜ必要か
 ----------
@@ -24,18 +34,29 @@
 
 方針
 ----
-* セットのメンバー item_id と同名の inv PNG
-  (``resourcepack/trinityforge-items/assets/trinityforge/textures/item/<item_id>.png``) が
-  **1枚も無いセットは生成対象外**にする（バニラ以下の劣化を防ぐ。無から作らない）。
-* 生成対象でも、``collect_sets()`` が返す ``layers`` に無いレイヤーは作らない
-  （humanoid だけのセットに humanoid_leggings を作らない）。
+* **形はバニラから借りる。** そのアイテム自身の material (``LEATHER_HELMET`` なら LEATHER) に
+  対応するバニラの装備レイヤー PNG をクライアント jar から読み、下地にする。
+  魔導ローブは LEATHER なので柔らかい形、終盤の重装は NETHERITE の重厚な形になる ——
+  「どの系統にどの形を当てるか」を人が決める必要がない。
+* **アルファは1ピクセルも変えない。** 透明部分がバニラの見た目そのものなので、ここを
+  塗ると必ず壊れる（旧版の全面不透明が「頭全体を覆うヘルメット」の原因だった）。
 * 色は単純平均だと灰色に潰れるので、明度でソートして暗部/主色/ハイライトの3階調を
   彩度で重み付けした加重平均で抽出する（乱数不使用・決定的）。
+* セットのメンバー item_id と同名の inv PNG
+  (``resourcepack/trinityforge-items/assets/trinityforge/textures/item/<item_id>.png``) が
+  **1枚も無いセットは生成対象外**にする（色の手がかりが無いので無から作らない）。
+* 生成対象でも、``collect_sets()`` が返す ``layers`` に無いレイヤーは作らない
+  （humanoid だけのセットに humanoid_leggings を作らない）。
 
 使い方
 ------
     python resourcepack/build_armor_layers_from_items.py            # 生成する
     python resourcepack/build_armor_layers_from_items.py --dry-run  # 何を生成する予定かだけ出す
+    python resourcepack/build_armor_layers_from_items.py --vanilla-jar <path>  # 下地の jar を明示
+
+下地のバニラ PNG は ``%APPDATA%/.minecraft/versions/<ver>/<ver>.jar`` から読む
+（**リポジトリへは commit しない** — public リポジトリなので Mojang のアセットをそのまま
+置かず、色を差し替えた派生物だけを置く）。
 
 生成後は ``python resourcepack/build_equipment_assets.py`` を実行して初めて実際に配線される
 （このスクリプトは PNG を置くだけで、equipment json や台帳は書かない）。
@@ -183,102 +204,183 @@ def lerp_color(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tu
     return tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))  # type: ignore[return-value]
 
 
-# バニラの装備レイヤーシートは 64x32 の中に、クラシックなプレイヤースキンと同じ配置で
-# 頭/胴/腕/脚の UV 矩形が並ぶ（Mojang のプレイヤースキン規格そのもの。64x32 レイアウトでは
-# 左腕・左脚は右側の矩形をミラー参照するので、矩形は右側の1組だけで足りる）。
-# 均一グリッドで区切ると部位境界と無関係な位置に継ぎ目が出るため、輪郭線とグラデーションは
-# 必ずこの UV 矩形単位で描く。表記は (部位名, 面名, x, y, 幅, 高さ)。
-UV_RECTS: list[tuple[str, str, int, int, int, int]] = [
-    # 頭
-    ("head", "top", 8, 0, 8, 8),
-    ("head", "bottom", 16, 0, 8, 8),
-    ("head", "right", 0, 8, 8, 8),
-    ("head", "front", 8, 8, 8, 8),
-    ("head", "left", 16, 8, 8, 8),
-    ("head", "back", 24, 8, 8, 8),
-    # 胴
-    ("body", "top", 20, 16, 8, 4),
-    ("body", "bottom", 28, 16, 8, 4),
-    ("body", "right", 16, 20, 4, 12),
-    ("body", "front", 20, 20, 8, 12),
-    ("body", "left", 28, 20, 4, 12),
-    ("body", "back", 32, 20, 8, 12),
-    # 腕(右側の矩形を左腕がミラー参照する)
-    ("arm", "top", 44, 16, 4, 4),
-    ("arm", "bottom", 48, 16, 4, 4),
-    ("arm", "right", 40, 20, 4, 12),
-    ("arm", "front", 44, 20, 4, 12),
-    ("arm", "left", 48, 20, 4, 12),
-    ("arm", "back", 52, 20, 4, 12),
-    # 脚(右側の矩形を左脚がミラー参照する)
-    ("leg", "top", 4, 16, 4, 4),
-    ("leg", "bottom", 8, 16, 4, 4),
-    ("leg", "right", 0, 20, 4, 12),
-    ("leg", "front", 4, 20, 4, 12),
-    ("leg", "left", 8, 20, 4, 12),
-    ("leg", "back", 12, 20, 4, 12),
-]
+# ---------------------------------------------------------------------------------------------
+# バニラのレイヤー PNG を「形の下地」にする
+# ---------------------------------------------------------------------------------------------
+#
+# ⚠⚠ 2026-08-16 の作り直し。以前はここで 64x32 のキャンバスを UV 矩形ごとに塗り分けて
+#    自前で絵を起こしていたが、**全ピクセルを alpha=255 で塗っていた**のが致命的だった。
+#
+#    バニラの装備レイヤーは 7 割が透明で、その透明部分こそが見た目を作っている:
+#      humanoid/diamond.png   不透明 632/2048 = 30.9%
+#      humanoid/netherite.png 不透明 699/2048 = 34.1%
+#      humanoid_leggings/diamond.png 不透明 280/2048 = 13.7%
+#    全面不透明にすると、同じバニラのモデルに描いても
+#      ・ヘルメット → 顔の開口が埋まって<頭のボックス全体を覆う無地の箱>になる
+#      ・ブーツ     → 脚の矩形が全部塗られて<腰から足先までの脚全体>になる
+#      ・チェスト   → 腕も全面ベタ塗りになる
+#    という壊れ方をする(実際にユーザー報告で挙がった症状そのもの)。
+#
+#    そこで「形はバニラのまま、色だけ差し替える」へ方針を変えた。バニラの同レイヤー PNG を
+#    下地として読み、**alpha をそのまま引き継ぎ**、不透明ピクセルの明度だけをセットの
+#    3階調パレットへ写像する。バニラの陰影(リベット・稜線・縁取り)もそのまま残る。
+#
+# どのバニラ防具を下地にするかは、**そのアイテム自身の material** で決める。
+# catalog.yml の防具は LEATHER_* / DIAMOND_* / NETHERITE_* のいずれかを土台にしているので、
+# 「自分が実際に使っているバニラ防具の形」をそのまま使うのが最も忠実で、判断も要らない
+# (魔導ローブは LEATHER なので柔らかい形、終盤の重装は NETHERITE の重厚な形になる)。
+VANILLA_BASE_BY_MATERIAL = {
+    "LEATHER": "leather",
+    "CHAINMAIL": "chainmail",
+    "COPPER": "copper",
+    "IRON": "iron",
+    "GOLDEN": "gold",  # バニラのテクスチャ名は golden ではなく gold
+    "DIAMOND": "diamond",
+    "NETHERITE": "netherite",
+    "TURTLE": "turtle_scute",
+}
 
-# 矩形の外周1pxに引く縁取りの暗さ(暗部色をさらにこの倍率で暗くする)。
-BORDER_DARKEN = 0.6
+VANILLA_TEXTURE_DIR = "assets/minecraft/textures/entity/equipment"
+
+# クライアント jar の探索先。--vanilla-jar で明示指定もできる。
+# ⚠ バニラの PNG はこのリポジトリへ commit しない(public リポジトリなので Mojang の
+#   アセットをそのまま置かない)。生成時に jar から読むだけで、出力は色を差し替えた派生物。
+VANILLA_JAR_VERSIONS = ("1.21.11", "1.21.10", "1.21.8")
 
 
-def render_layer(
-    dark: tuple[int, int, int], main: tuple[int, int, int], light: tuple[int, int, int]
-) -> Image.Image:
-    """64x32 の装備レイヤー PNG を1枚描く。
+class VanillaBaseMissing(RuntimeError):
+    """下地にするバニラ PNG が手に入らない。"""
 
-    まずキャンバス全体を主色で塗りつぶし(UV_RECTS のどこからも参照されない領域はここで
-    塗った主色のまま残る)、その上から UV_RECTS の矩形ごとに「外周1pxの暗い縁取り＋内側は
-    矩形ローカルで上(ハイライト寄り)→下(暗部寄り)へ補間するグラデーション」を描く。
-    グラデーションはキャンバス全体で1本にせず、矩形ごとに独立させる(体の部位境界と無関係な
-    位置に継ぎ目が出るのを避けるため)。alpha は常に255(不透明)、乱数は使わないので
-    同じ入力なら常に同じ出力になる。
+
+def find_vanilla_jar(explicit: str | None) -> Path:
+    if explicit:
+        p = Path(explicit)
+        if not p.is_file():
+            raise VanillaBaseMissing(f"--vanilla-jar に指定された jar がありません: {p}")
+        return p
+
+    import os
+
+    appdata = os.environ.get("APPDATA")
+    roots = []
+    if appdata:
+        roots.append(Path(appdata) / ".minecraft" / "versions")
+    roots.append(Path.home() / ".minecraft" / "versions")
+
+    for root in roots:
+        for version in VANILLA_JAR_VERSIONS:
+            candidate = root / version / f"{version}.jar"
+            if candidate.is_file():
+                return candidate
+    raise VanillaBaseMissing(
+        "バニラのクライアント jar が見つかりません。装備レイヤーの<形>はバニラの PNG を"
+        " 下地にして起こすので、これが無いと生成できません。\n"
+        "  探した場所: " + ", ".join(str(r) for r in roots) + "\n"
+        "  探したバージョン: " + ", ".join(VANILLA_JAR_VERSIONS) + "\n"
+        "  --vanilla-jar <path> で明示指定もできます。"
+    )
+
+
+def load_vanilla_layer(jar: Path, layer: str, base: str) -> Image.Image:
+    """クライアント jar からバニラの装備レイヤー PNG を読む。"""
+    import io
+    import zipfile
+
+    name = f"{VANILLA_TEXTURE_DIR}/{layer}/{base}.png"
+    with zipfile.ZipFile(jar) as zf:
+        try:
+            raw = zf.read(name)
+        except KeyError as exc:
+            raise VanillaBaseMissing(f"{jar.name} に {name} がありません") from exc
+    with Image.open(io.BytesIO(raw)) as im:
+        return im.convert("RGBA")
+
+
+def base_material_for(entry: dict[str, object], layer: str) -> str | None:
+    """そのレイヤーを担当するメンバーが使っているバニラ防具の系統名(LEATHER 等)を返す。
+
+    catalog.yml の実データではセット内・レイヤー内で material 系統が混ざることは無いが、
+    万一混ざったら「一番多いもの」を採る(決定的にするため、同数なら名前順で先のもの)。
     """
-    im = Image.new("RGBA", (CANVAS_W, CANVAS_H), (main[0], main[1], main[2], 255))
-    px = im.load()
-    assert px is not None
+    members = entry["members"]
+    assert isinstance(members, dict)
+    counts: dict[str, int] = {}
+    for info in members.values():
+        if info["layer"] != layer:
+            continue
+        family = str(info["material"]).rsplit("_", 1)[0]
+        counts[family] = counts.get(family, 0) + 1
+    if not counts:
+        return None
+    return sorted(counts, key=lambda k: (-counts[k], k))[0]
 
-    border_color = scale_color(dark, BORDER_DARKEN)
 
-    for _part, _face, rx, ry, rw, rh in UV_RECTS:
-        for ly in range(rh):
-            y = ry + ly
-            on_border_y = ly == 0 or ly == rh - 1
-            if rh > 1:
-                t = ly / (rh - 1)  # 矩形ローカルの 0(上) → 1(下)
-            else:
-                t = 0.0
-            if t < 0.5:
-                row_color = lerp_color(light, main, t / 0.5)
-            else:
-                row_color = lerp_color(main, dark, (t - 0.5) / 0.5)
+def luminance(r: int, g: int, b: int) -> float:
+    """0..1 の相対輝度(ITU-R BT.709)。バニラの陰影の強弱をここで拾う。"""
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
 
-            for lx in range(rw):
-                x = rx + lx
-                on_border_x = lx == 0 or lx == rw - 1
-                if rw > 2 and rh > 2 and (on_border_x or on_border_y):
-                    color = border_color
-                elif rw <= 2 or rh <= 2:
-                    # 矩形が薄すぎて内側が確保できない場合は縁取り色で塗りつぶす。
-                    color = border_color
-                else:
-                    color = row_color
-                px[x, y] = (color[0], color[1], color[2], 255)
 
+def recolor_vanilla_layer(
+    base: Image.Image,
+    dark: tuple[int, int, int],
+    main: tuple[int, int, int],
+    light: tuple[int, int, int],
+) -> Image.Image:
+    """バニラのレイヤー PNG を、形と陰影を保ったままセットの3階調へ塗り替える。
+
+    * **alpha は1ピクセルも変えない。** ここがこの関数の存在理由で、透明部分こそが
+      「顔が見える」「ブーツが足首で止まる」を作っている。
+    * 不透明ピクセルは、そのテクスチャ内の最暗〜最明で正規化した明度 t を求め、
+      t<0.5 なら 暗部→主色、t>=0.5 なら 主色→ハイライト へ補間する。
+      バニラ側の相対的な陰影(縁の暗さ・面の明るさ)がそのまま残る。
+    * 乱数は使わないので、同じ下地と同じパレットなら常に同じ出力になる。
+    """
+    pixels: list[tuple[int, int, int, int]] = list(base.getdata())  # type: ignore[arg-type]
+    lums = [luminance(r, g, b) for r, g, b, a in pixels if a > 0]
+    if not lums:
+        raise VanillaBaseMissing("下地のバニラ PNG が全面透明です(バージョン差の可能性)")
+    lo, hi = min(lums), max(lums)
+    span = (hi - lo) or 1.0
+
+    out: list[tuple[int, int, int, int]] = []
+    for r, g, b, a in pixels:
+        if a == 0:
+            out.append((0, 0, 0, 0))
+            continue
+        t = (luminance(r, g, b) - lo) / span
+        if t < 0.5:
+            color = lerp_color(dark, main, t / 0.5)
+        else:
+            color = lerp_color(main, light, (t - 0.5) / 0.5)
+        out.append((color[0], color[1], color[2], a))
+
+    im = Image.new("RGBA", base.size)
+    im.putdata(out)
     return im
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="inv テクスチャの配色から防具の装備時レイヤー PNG を生成する"
+        description="バニラの防具レイヤーを下地に、inv テクスチャの配色で塗り替えた装備時レイヤー PNG を生成する"
     )
     parser.add_argument("--dry-run", action="store_true", help="書き込まず、生成予定だけ出す")
+    parser.add_argument(
+        "--vanilla-jar",
+        help="下地にするバニラ PNG を取り出すクライアント jar。省略すると .minecraft から自動で探す",
+    )
     args = parser.parse_args()
 
     if not bea.CATALOG.is_file():
         print(f"catalog.yml が見つかりません: {bea.CATALOG}", file=sys.stderr)
         return 1
+
+    try:
+        jar = find_vanilla_jar(args.vanilla_jar)
+    except VanillaBaseMissing as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"下地にするバニラ jar: {jar}")
+    print()
 
     sets = bea.collect_sets()
     if not sets:
@@ -311,6 +413,16 @@ def main() -> int:
         layers = sorted(entry["layers"])  # type: ignore[arg-type]
         print(f"[{asset}] inv素材: {', '.join(present)}")
         for layer in layers:
+            family = base_material_for(entry, layer)
+            base_name = VANILLA_BASE_BY_MATERIAL.get(family or "")
+            if base_name is None:
+                print(
+                    f"    -> {layer:<18} ⚠ material 系統 {family!r} に対応するバニラ下地が"
+                    " VANILLA_BASE_BY_MATERIAL に無いのでスキップ",
+                    file=sys.stderr,
+                )
+                continue
+
             sources = pick_source_textures(entry, layer)
             dark, main_c, light = extract_palette(sources)
             if layer == bea.LAYER_LEGGINGS:
@@ -320,12 +432,19 @@ def main() -> int:
             out_path = bea.texture_path(layer, asset)
             src_names = ", ".join(p.name for p in sources)
             print(
-                f"    -> {layer:<18} 素材[{src_names}]"
+                f"    -> {layer:<18} 下地[{base_name}] 色元[{src_names}]"
                 f" 暗{dark} 主{main_c} 明{light}  出力: {out_path.relative_to(HERE)}"
             )
             if not args.dry_run:
+                base = load_vanilla_layer(jar, layer, base_name)
+                if base.size != (CANVAS_W, CANVAS_H):
+                    print(
+                        f"    ⚠ 下地 {layer}/{base_name}.png が {base.size} で "
+                        f"{(CANVAS_W, CANVAS_H)} ではありません。バニラの仕様変更を疑うこと",
+                        file=sys.stderr,
+                    )
                 out_path.parent.mkdir(parents=True, exist_ok=True)
-                im = render_layer(dark, main_c, light)
+                im = recolor_vanilla_layer(base, dark, main_c, light)
                 im.save(out_path)
                 written += 1
 
@@ -336,7 +455,8 @@ def main() -> int:
 
     print(f"--- 生成しました ({written} 枚) ---")
     print(
-        "⚠ ここで作った PNG は inv テクスチャの色から機械的に起こした仮の見た目です。"
+        "⚠ ここで作った PNG は「バニラの防具の形と陰影のまま、色だけ差し替えた」ものです。"
+        " 形はバニラそのものなので、頭を覆いすぎる/脚が全部塗られる といった破綻は起きません。"
         " 手描きのレイヤー PNG を同じパスへ置けば、そちらに置き換わります"
         "(その場合はこのスクリプトを再実行しないこと)。"
     )
