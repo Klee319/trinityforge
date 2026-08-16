@@ -84,7 +84,7 @@ public final class BrewRecipeSupport {
      *       {@link Material#name()} へ正規化する({@code sugar} と {@code SUGAR} を別物にしない)。</li>
      *   <li>{@code custom:<id>}: {@link #matchesIngredient} が {@code customId::equals} で
      *       <b>大小を区別して</b>比較するので、ここでも小文字化しない
-     *       ({@code custom:Hoglin_Tusk} と {@code custom:hoglin_tusk} は実行時に別物なので
+     *       ({@code custom:Hoglin_Fang} と {@code custom:hoglin_fang} は実行時に別物なので
      *       重複にしてはいけない)。</li>
      * </ul>
      */

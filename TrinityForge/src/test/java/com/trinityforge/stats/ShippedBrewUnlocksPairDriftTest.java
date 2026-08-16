@@ -1,14 +1,12 @@
 package com.trinityforge.stats;
 
+import com.trinityforge.testsupport.KnownCustomItemIds;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -16,8 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -51,24 +47,6 @@ class ShippedBrewUnlocksPairDriftTest {
     private static final Map<String, String> EXPECTED_TIER_BASES = Map.of(
             "healthboost-haste", "THICK",
             "healthboost-haste-2", "MUNDANE");
-
-    /** TF カタログ(出荷 yml)。ここに書かれた id は {@code trinityforge:catalog_id} で一致する。 */
-    private static final File CATALOG = new File("src/main/resources/items/catalog.yml");
-
-    /**
-     * CMD 割り当て台帳。{@code source} が {@code catalog} / {@code materials} のどちらの
-     * レジストリに属する id かまで記録している<b>唯一の tracked な一覧</b>。
-     *
-     * <p>ArsPaper の {@code materials.yml}(= {@code arspaper:custom_item_id} の定義元)は
-     * {@code .gitignore} 除外でクローンにも worktree にも存在しないため、そこにしか無い id を
-     * 直接は検証できない。台帳は「その id が materials/catalog のどちらかに実在した時点で
-     * CMD を確保した」ことの記録なので、少なくとも<b>綴り間違い・定義忘れ</b>は捕まる。
-     */
-    private static final File CMD_REGISTRY = new File("../resourcepack/cmd-registry.json");
-
-    /** あれば使う(通常のクローン/worktree には無い)。あるときは最も強い証拠になる。 */
-    private static final File ARS_MATERIALS =
-            new File("../fork-handoff/arspaper/fork/src/main/resources/materials.yml");
 
     @Test
     void noTwoGroupsDeclareTheSameBaseIngredientPair() {
@@ -110,11 +88,11 @@ class ShippedBrewUnlocksPairDriftTest {
      */
     @Test
     void everyShippedIngredientIdCanActuallyResolveAtRuntime() {
-        Set<String> knownCustomIds = knownCustomItemIds();
+        KnownCustomItemIds.Result knownResult = KnownCustomItemIds.load();
+        Set<String> knownCustomIds = knownResult.ids();
         assertTrue(knownCustomIds.size() >= 100,
-                "custom アイテムIDの一覧を読めていない(パスが壊れている?): " + knownCustomIds.size()
-                        + " 件 / catalog=" + CATALOG.getAbsolutePath()
-                        + " / ledger=" + CMD_REGISTRY.getAbsolutePath());
+                "custom アイテムIDの一覧を読めていない(パスが壊れている?): " + knownCustomIds.size() + " 件"
+                        + " / モード=" + knownResult.describe());
 
         List<String> unresolvable = new ArrayList<>();
         forEachPotion((groupId, base, ingredient) -> {
@@ -152,42 +130,6 @@ class ShippedBrewUnlocksPairDriftTest {
         EXPECTED_TIER_BASES.forEach((groupId, expectedBase) -> assertEquals(Set.of(expectedBase),
                 basesByGroup.get(groupId),
                 groupId + " は " + expectedBase + " ベースで段を表す (両段が同じベースだと組が重複する)"));
-    }
-
-    /**
-     * {@code custom:<id>} として解決しうる id の集合。
-     * TF カタログ(出荷 yml)＋ CMD 割り当て台帳 ＋(あれば)ArsPaper の materials.yml。
-     */
-    private static Set<String> knownCustomItemIds() {
-        Set<String> ids = new LinkedHashSet<>();
-        assertTrue(CATALOG.isFile(), "出荷 catalog.yml が見つからない: " + CATALOG.getAbsolutePath());
-        ConfigurationSection items = YamlConfiguration.loadConfiguration(CATALOG)
-                .getConfigurationSection("items");
-        assertNotNull(items, "catalog.yml に items セクションが無い");
-        ids.addAll(items.getKeys(false));
-
-        assertTrue(CMD_REGISTRY.isFile(), "CMD 台帳が見つからない: " + CMD_REGISTRY.getAbsolutePath());
-        // JSON パーサを持ち込まずに "id": "<value>" だけを拾う(台帳は生成物なので形が安定している)。
-        Matcher matcher = Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"").matcher(read(CMD_REGISTRY));
-        while (matcher.find()) {
-            ids.add(matcher.group(1));
-        }
-
-        if (ARS_MATERIALS.isFile()) {
-            Matcher materials = Pattern.compile("(?m)^  ([A-Za-z0-9_]+):\\s*$").matcher(read(ARS_MATERIALS));
-            while (materials.find()) {
-                ids.add(materials.group(1));
-            }
-        }
-        return ids;
-    }
-
-    private static String read(File file) {
-        try {
-            return Files.readString(file.toPath(), StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new AssertionError("読めない: " + file.getAbsolutePath(), ex);
-        }
     }
 
     private interface PotionVisitor {

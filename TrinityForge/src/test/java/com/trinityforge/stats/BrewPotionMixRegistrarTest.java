@@ -52,7 +52,7 @@ class BrewPotionMixRegistrarTest {
     void everySpecGetsAStableUniqueKeyPerGroup() {
         Map<String, BrewUnlockGroup> groups = new LinkedHashMap<>();
         groups.put("apex-brew", new BrewUnlockGroup(List.of(
-                spec("THICK", "custom:hoglin_tusk"),
+                spec("THICK", "custom:hoglin_fang"),
                 spec("THICK", "custom:piglin_brute_plate"))));
         groups.put("hunter-hex", new BrewUnlockGroup(List.of(
                 spec("THICK", "custom:witch_elixir"))));
@@ -70,12 +70,12 @@ class BrewPotionMixRegistrarTest {
     @Test
     void specsWithoutAnIngredientAreSkipped() {
         Map<String, BrewUnlockGroup> groups = Map.of("g", new BrewUnlockGroup(List.of(
-                spec("THICK", ""), spec("THICK", "custom:hoglin_tusk"))));
+                spec("THICK", ""), spec("THICK", "custom:hoglin_fang"))));
 
         List<BrewPotionMixRegistrar.MixPlan> plans = BrewPotionMixRegistrar.plan(groups, log());
 
         assertEquals(1, plans.size());
-        assertEquals("custom:hoglin_tusk", plans.get(0).spec().ingredient());
+        assertEquals("custom:hoglin_fang", plans.get(0).spec().ingredient());
     }
 
     @Test
@@ -169,8 +169,8 @@ class BrewPotionMixRegistrarTest {
     @Test
     void duplicatePairsAreResolvedDeterministicallyWhenLevelsTie() {
         Map<String, BrewUnlockGroup> groups = new LinkedHashMap<>();
-        groups.put("first", new BrewUnlockGroup(List.of(spec("THICK", "custom:hoglin_tusk"))));
-        groups.put("second", new BrewUnlockGroup(List.of(spec("THICK", "custom:hoglin_tusk"))));
+        groups.put("first", new BrewUnlockGroup(List.of(spec("THICK", "custom:hoglin_fang"))));
+        groups.put("second", new BrewUnlockGroup(List.of(spec("THICK", "custom:hoglin_fang"))));
 
         List<BrewPotionMixRegistrar.MixPlan> plans = BrewPotionMixRegistrar.plan(groups, log());
 
@@ -203,12 +203,12 @@ class BrewPotionMixRegistrarTest {
         // 「重複として片方を黙って落としたのに、実行時には別アイテムとして扱う」取り違えになる。
         // matchesIngredient は custom: の id を大小区別して比較する(CrossPluginItemResolver の
         // PDC 値と equals)ので、pairKey も小文字化してはいけない。
-        ItemStack tusk = TestStacks.withArsId(Material.BONE, "hoglin_tusk");
-        assertTrue(BrewRecipeSupport.matchesIngredient(tusk, "custom:hoglin_tusk"));
-        assertFalse(BrewRecipeSupport.matchesIngredient(tusk, "custom:Hoglin_Tusk"),
+        ItemStack tusk = TestStacks.withArsId(Material.BONE, "hoglin_fang");
+        assertTrue(BrewRecipeSupport.matchesIngredient(tusk, "custom:hoglin_fang"));
+        assertFalse(BrewRecipeSupport.matchesIngredient(tusk, "custom:Hoglin_Fang"),
                 "実行時は大小を区別する = 別の素材");
-        assertNotEquals(BrewRecipeSupport.pairKey("THICK", "custom:Hoglin_Tusk"),
-                BrewRecipeSupport.pairKey("THICK", "custom:hoglin_tusk"),
+        assertNotEquals(BrewRecipeSupport.pairKey("THICK", "custom:Hoglin_Fang"),
+                BrewRecipeSupport.pairKey("THICK", "custom:hoglin_fang"),
                 "実行時に別物なら重複扱いしてはいけない(片方が WARNING だけで消えると"
                         + "「登録されているのに永久に一致しない」組が残る)");
 
@@ -328,7 +328,7 @@ class BrewPotionMixRegistrarTest {
     void registerAllIsIdempotentAndRemovesItsOwnKeysFirst() {
         RecordingSink sink = new RecordingSink();
         Map<String, BrewUnlockGroup> groups = Map.of("apex-brew", new BrewUnlockGroup(List.of(
-                spec("THICK", "custom:hoglin_tusk"))));
+                spec("THICK", "custom:hoglin_fang"))));
 
         BrewPotionMixRegistrar registrar = new BrewPotionMixRegistrar(
                 fakePlugin(), () -> groups, Map::of, sink, spec -> mock(ItemStack.class));

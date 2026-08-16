@@ -99,7 +99,7 @@ class BrewUnlockIngredientGateTest {
     void lockedPlayerCannotPlaceACustomIngredientIntoTheStand() {
         Player player = mock(Player.class);
         BrewerInventory inv = standWith(PotionType.THICK);
-        ItemStack tusk = arsItem(Material.BONE, "hoglin_tusk");
+        ItemStack tusk = arsItem(Material.BONE, "hoglin_fang");
         InventoryClickEvent event = placeEvent(player, inv, tusk);
 
         listener(false).onBrewerClick(event);
@@ -111,7 +111,7 @@ class BrewUnlockIngredientGateTest {
     void unlockedPlayerCanStillPlaceTheSameCustomIngredient() {
         Player player = mock(Player.class);
         BrewerInventory inv = standWith(PotionType.THICK);
-        ItemStack tusk = arsItem(Material.BONE, "hoglin_tusk");
+        ItemStack tusk = arsItem(Material.BONE, "hoglin_fang");
         InventoryClickEvent event = placeEvent(player, inv, tusk);
 
         listener(true).onBrewerClick(event);
@@ -160,7 +160,7 @@ class BrewUnlockIngredientGateTest {
     void shiftClickingFromThePlayerInventoryIsAlsoBlocked() {
         Player player = mock(Player.class);
         BrewerInventory inv = standWith(PotionType.THICK);
-        ItemStack tusk = arsItem(Material.BONE, "hoglin_tusk");
+        ItemStack tusk = arsItem(Material.BONE, "hoglin_fang");
         InventoryClickEvent event = mock(InventoryClickEvent.class);
         when(event.getInventory()).thenReturn(inv);
         when(event.getWhoClicked()).thenReturn(player);
@@ -222,7 +222,7 @@ class BrewUnlockIngredientGateTest {
         when(player.getUniqueId()).thenReturn(OWNER);
         BrewerInventory inv = standWith(PotionType.THICK);
         RecordingOwners owners = new RecordingOwners(null, player);
-        InventoryClickEvent event = placeEvent(player, inv, arsItem(Material.BONE, "hoglin_tusk"));
+        InventoryClickEvent event = placeEvent(player, inv, arsItem(Material.BONE, "hoglin_fang"));
 
         listener(true, owners).onBrewerClick(event);
 
@@ -235,7 +235,7 @@ class BrewUnlockIngredientGateTest {
         Player player = mock(Player.class);
         BrewerInventory inv = standWith(PotionType.THICK);
         RecordingOwners owners = new RecordingOwners(null, null);
-        InventoryClickEvent event = placeEvent(player, inv, arsItem(Material.BONE, "hoglin_tusk"));
+        InventoryClickEvent event = placeEvent(player, inv, arsItem(Material.BONE, "hoglin_fang"));
 
         listener(false, owners).onBrewerClick(event);
 
@@ -342,7 +342,7 @@ class BrewUnlockIngredientGateTest {
     @Test
     void hopperInsertionIsBlockedWhenTheStandHasNoRecordedOwner() {
         BrewerInventory inv = standWith(PotionType.THICK);
-        InventoryMoveItemEvent event = hopperEvent(inv, arsItem(Material.BONE, "hoglin_tusk"));
+        InventoryMoveItemEvent event = hopperEvent(inv, arsItem(Material.BONE, "hoglin_fang"));
 
         listener(false, new RecordingOwners(null, null)).onHopperMove(event);
 
@@ -352,7 +352,7 @@ class BrewUnlockIngredientGateTest {
     @Test
     void hopperInsertionIsAllowedWhenTheRecordedOwnerIsOnlineAndUnlocked() {
         BrewerInventory inv = standWith(PotionType.THICK);
-        InventoryMoveItemEvent event = hopperEvent(inv, arsItem(Material.BONE, "hoglin_tusk"));
+        InventoryMoveItemEvent event = hopperEvent(inv, arsItem(Material.BONE, "hoglin_fang"));
         Player owner = mock(Player.class);
 
         listener(true, new RecordingOwners(OWNER, owner)).onHopperMove(event);
@@ -364,7 +364,7 @@ class BrewUnlockIngredientGateTest {
     void hopperInsertionIsBlockedWhenTheRecordedOwnerIsOffline() {
         // 所有者が解決できなければ弾く(燃料が無言で溶けるより事故が少ない = D10 と同じ判断)。
         BrewerInventory inv = standWith(PotionType.THICK);
-        InventoryMoveItemEvent event = hopperEvent(inv, arsItem(Material.BONE, "hoglin_tusk"));
+        InventoryMoveItemEvent event = hopperEvent(inv, arsItem(Material.BONE, "hoglin_fang"));
 
         listener(true, new RecordingOwners(OWNER, null)).onHopperMove(event);
 
@@ -517,7 +517,7 @@ class BrewUnlockIngredientGateTest {
                                               BrewPotionSpec... extraSpecs) {
         List<MixPlan> plans = new ArrayList<>();
         plans.add(new MixPlan(new NamespacedKey("trinityforge", "brew_apex_brew_1"), "apex-brew",
-                new BrewPotionSpec("THICK", "custom:hoglin_tusk", mock(PotionEffectType.class), 3600, 2), 90));
+                new BrewPotionSpec("THICK", "custom:hoglin_fang", mock(PotionEffectType.class), 3600, 2), 90));
         int index = 1;
         for (BrewPotionSpec spec : extraSpecs) {
             plans.add(new MixPlan(new NamespacedKey("trinityforge", "brew_apex_brew_extra_" + index++),
@@ -556,7 +556,7 @@ class BrewUnlockIngredientGateTest {
     }
 
     /**
-     * ゲート対象(THICK + custom:hoglin_tusk)が成立している完成イベント。
+     * ゲート対象(THICK + custom:hoglin_fang)が成立している完成イベント。
      *
      * <p>ビンは<b>結果枠側</b>の {@code PotionMeta} で表現している({@code potionMetaForSlot} の
      * フォールバック経路)。こうすると「キャンセルするか」の判定だけを検証でき、結果の差し替え
@@ -602,7 +602,7 @@ class BrewUnlockIngredientGateTest {
     }
 
     private static ItemStack tusk() {
-        return arsItem(Material.BONE, "hoglin_tusk");
+        return arsItem(Material.BONE, "hoglin_fang");
     }
 
     /** ビンが1本も入っておらず、上段に素材だけが載っている醸造台。 */

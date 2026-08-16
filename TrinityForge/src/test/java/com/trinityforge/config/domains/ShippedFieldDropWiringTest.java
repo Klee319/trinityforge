@@ -335,7 +335,8 @@ class ShippedFieldDropWiringTest {
                 "mob-level-table.yml の add-drops が、出荷設定のどこにも定義が無い custom: IDを"
                         + "参照している。解決は討伐時にしか行われず、失敗しても WARNING 1行で"
                         + "その抽選が捨てられるだけなので、プレイヤーからは『落ちない』としか見えない。"
-                        + "IDのタイプミス(例: hoglin_tusk と hoglin_fang)を疑うこと: " + missing);
+                        + "IDのタイプミス(例: `hoglin_tusk` は 2026-08-16 に全参照を削除した"
+                        + "実在しない旧ID。正しくは `hoglin_fang`)を疑うこと: " + missing);
     }
 
     // ------------------------------------------------------------------------------------------
