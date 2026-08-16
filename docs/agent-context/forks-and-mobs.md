@@ -572,6 +572,28 @@ TF側のpublic API（configアクセサ/policyメソッド等）や `com.trinity
    `cmd //c '...\gradlew.bat compileJava'` は `gradlew`(sh) が無い環境向けの代替。
    TF本体・フォークとも Java 21。TF/ArsPaper のテストは JUnit5。
 
+#### ⚠️ 再生成した `libs/TrinityForge.jar` は**フォーク側で commit するところまでが手順**
+
+`releaseAssembly` が配るのはワークツリーのファイルだけなので、**jar を差し替えたまま
+commit しないと、そのフォークの HEAD は「新APIを呼ぶソース + 旧APIしか無い jar」という
+コンパイル不能な組み合わせで固定される**。ワークツリーでは通るので気づけない。
+2026-08-16 に ArsPaper で実際に踏んだ（HEAD で `compileJava` が 8 エラー:
+`resolveItemStats` の引数違い / `loreComposer()` 不在 / `statLoreBlock` 不在）。
+検出は**フォーク自身の worktree を HEAD で切って `compileJava` を打つ**のが確実:
+
+```bash
+git -C fork-handoff/arspaper/fork worktree add <CWD内のtmp>/ars-head HEAD
+cd <CWD内のtmp>/ars-head && ./gradlew compileJava --offline "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-21"
+```
+
+（この worktree は gradle デーモンがファイルを掴んで `git worktree remove` が
+Permission denied になることがある。その場合は PowerShell の
+`[System.IO.Directory]::Delete("\\?\"+$p, $true)` で消す。）
+
+**`ops/launch/deploy-config-head.cmd` はフォークの yml も「フォーク自身の git HEAD」から
+materialise する**ので、フォーク側の yml 変更は commit しない限り**どのサーバにも永久に届かない**
+（ワークツリーに置いてあるだけでは配備されない）。jar・Java・yml は 3 点セットで commit する。
+
 ### ⚠️ EliteMobs フォークの配布jarは `build/libs` の thin jar ではなく `testbed/plugins` の uberjar
 
 `gradlew`（sh）が無いフォークで `jar` タスクを実行すると `build/libs/EliteMobs-*-min.jar`
