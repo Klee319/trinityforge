@@ -1491,6 +1491,10 @@ schtasks /create /tn "TF Network" /sc onstart /ru SYSTEM /rl HIGHEST /f ^
 テストプレイの痕跡を全部消して、新しいワールドで開幕し直すときの手順。
 **全部サーバを止めた状態で、上から順に叩く。**
 
+> 以下は `ops\scripts\*.ps1` を直接叩く書き方だが、**同じものが配備先の
+> `launch\*.cmd` からも呼べる**（`backup.cmd` / `purge-player-data.cmd` /
+> `reset-world.cmd` など）。用途と引数の一覧は [launch/README.md](launch/README.md)。
+
 この手順で消えるもの / 残るもの:
 
 | | main | resource | dev |
