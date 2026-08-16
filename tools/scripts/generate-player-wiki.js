@@ -963,8 +963,8 @@ function acquisitionSummary(recipes, acquisition) {
   return "設定なし";
 }
 
-/** 一覧表の「主な効果」列。付く補正の名前だけを数個、順序は詳細と同じ並びで出す。 */
-function effectSummary(profile, lore) {
+/** この品に付く補正の名前を、詳細と同じ並びで重複なく並べたもの。 */
+function effectNames(profile, lore) {
   const names = [];
   for (const section of ["fixed", "per-quality", "random"]) {
     for (const { definition } of statRows(profile, section, lore)) {
@@ -972,9 +972,25 @@ function effectSummary(profile, lore) {
       if (name && !names.includes(name)) names.push(name);
     }
   }
+  return names;
+}
+
+/**
+ * 一覧表の「主な効果」列。
+ *
+ * lore の並び順どおりに先頭 3 件を出すと、防具はどの行も「移動速度、体力増強、防御率」になって
+ * 表として何も区別できなくなる。そこで<b>同じページの中で珍しい補正を先に</b>出す。
+ * こうすると「この品にしか付いていないもの」が列に残り、選ぶ手がかりになる。
+ */
+function effectSummary(profile, lore, frequency) {
+  const names = effectNames(profile, lore);
   if (!names.length) return "補正なし";
-  const shown = names.slice(0, SUMMARY_EFFECT_LIMIT).join("、");
-  return names.length > SUMMARY_EFFECT_LIMIT ? `${shown} ほか${names.length - SUMMARY_EFFECT_LIMIT}件` : shown;
+  const ranked = names
+    .map((name, index) => ({ name, index, count: (frequency && frequency.get(name)) || 0 }))
+    .sort((left, right) => left.count - right.count || left.index - right.index)
+    .map(({ name }) => name);
+  const shown = ranked.slice(0, SUMMARY_EFFECT_LIMIT).join("、");
+  return ranked.length > SUMMARY_EFFECT_LIMIT ? `${shown} ほか${ranked.length - SUMMARY_EFFECT_LIMIT}件` : shown;
 }
 
 /** 事典の品ページ。1 群 = 「見渡すための一覧表」＋「畳んだ詳細」の 2 段構え。 */
@@ -1036,6 +1052,13 @@ function buildItemPages(data, names) {
   const byPage = new Map();
   for (const { page: fileName, title, entries } of itemGroups(data)) {
     const visible = entries.filter(({ entry }) => !isPlaceholder(entry) && !isUnreleased(entry));
+    // この群の中で、どの補正が何件に付いているか。一覧表では珍しいものを先に出す。
+    const frequency = new Map();
+    for (const { entry } of visible) {
+      for (const name of effectNames(matchingStats(entry, data.itemStats), data.lore)) {
+        frequency.set(name, (frequency.get(name) || 0) + 1);
+      }
+    }
     const rows = [];
     const details = visible.map(({ id, entry, preferredName }) => {
       const name = plainText(preferredName || entry["display-name"] || entry.display_name || names.baseName(id));
@@ -1046,7 +1069,7 @@ function buildItemPages(data, names) {
       const requirement = requirementSummary(entry, profile, skillNames);
       const acquisition = acquisitions.get(name);
       const lore = (entry.lore || []).map(plainText).filter(Boolean);
-      rows.push(`| ${markdown(name)} | ${markdown(acquisitionSummary(entryRecipes(entry), acquisition))} | ${markdown(requirement)} | ${markdown(effectSummary(profile, data.lore))} |`);
+      rows.push(`| ${markdown(name)} | ${markdown(acquisitionSummary(entryRecipes(entry), acquisition))} | ${markdown(requirement)} | ${markdown(effectSummary(profile, data.lore, frequency))} |`);
       const sections = [
         recipes.length && `### 作り方\n\n${recipes.join("\n\n---\n\n")}`,
         // 入手方法が無い品にまで「設定されていません」を書くと、420 件ぶんの空行が積み上がる。
