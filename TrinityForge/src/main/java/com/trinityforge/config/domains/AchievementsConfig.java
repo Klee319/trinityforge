@@ -37,7 +37,65 @@ public final class AchievementsConfig implements LoadableConfig {
      * ({@code source_spent} = 儀式で消費した累計ソース など)をしきい値判定する。第2目標「1億ソース」を
      * 表現するために置いた ── 統計にも図鑑にも進捗にも乗らない量だったため。
      */
-    public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC, COUNTER }
+    /**
+     * {@code GEAR_USE} / {@code SKILL_LEVEL} は 2026-08-16 のアチーブメント再構築で追加。
+     *
+     * <p>{@code GEAR_USE} は「列挙した装備のうち N 種類を<b>実戦で使った</b>」。武器はそれで
+     * ダメージを与えたとき、防具はそれを着て被弾したときにだけ数える({@code GearUseListener} が
+     * {@link com.trinityforge.pdc.PlayerData#recordGearUsed} へ記録する)。クラフト統計
+     * ({@code CRAFT_ITEM})で書くと<b>使用可能レベルに達していなくても解除できてしまう</b>ため、
+     * 武器/防具のティア到達はこちらで書く。
+     *
+     * <p>{@code SKILL_LEVEL} は「列挙したスキルのうち N 種類が Lv◯以上」。{@code COMBAT} を
+     * 混ぜると総合戦闘レベルを見る。スキルレベルは累計値ではなく現在値なので、カウンタでは
+     * 表現できない(振り直しで下がりうる)。
+     */
+    public enum TriggerType { STATISTIC, ADVANCEMENT, STATIC, COUNTER, GEAR_USE, SKILL_LEVEL }
+
+    /** {@code type: gear-use} が見るスロット。 */
+    public enum GearSlot {
+        /** 手に持ってダメージを与えた武器。 */
+        WEAPON,
+        /** 着たまま被弾した防具。 */
+        ARMOR;
+
+        static GearSlot parse(String raw) {
+            if (raw == null || raw.isBlank()) {
+                return null;
+            }
+            try {
+                return valueOf(raw.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                return null;
+            }
+        }
+
+        /** {@link com.trinityforge.pdc.PlayerData#gearUsed()} に入る接頭辞。 */
+        public String tokenPrefix() {
+            return this == WEAPON ? "weapon:" : "armor:";
+        }
+    }
+
+    /**
+     * {@code type: skill-level} の中身。
+     *
+     * @param skills 対象スキルID({@link com.trinityforge.progression.core.SkillId} の値、または
+     *               総合戦闘レベルを指す {@code COMBAT})
+     * @param level  必要レベル
+     * @param count  {@code skills} のうち何種類がその水準に達している必要があるか
+     */
+    public record SkillLevelRequirement(List<String> skills, int level, int count) {
+        /** 総合戦闘レベルを指す擬似スキルID。 */
+        public static final String COMBAT = "COMBAT";
+
+        public SkillLevelRequirement {
+            skills = skills == null ? List.of() : List.copyOf(skills);
+            level = Math.max(1, level);
+            count = Math.max(1, count);
+        }
+
+        public static final SkillLevelRequirement NONE = new SkillLevelRequirement(List.of(), 1, 1);
+    }
 
     /**
      * type=STATISTIC の修飾子(qualifier)。Bukkit の統計には {@code MINE_BLOCK}(BLOCK) /
@@ -92,11 +150,27 @@ public final class AchievementsConfig implements LoadableConfig {
     public record Trigger(TriggerType type, Statistic statistic, StatisticQualifier statisticQualifier,
                           long threshold, String advancement,
                           String collectionScope, List<String> collectionTargets, boolean collectionPercent,
-                          String counter) {
+                          String counter, GearSlot gearSlot, List<String> gearItems,
+                          SkillLevelRequirement skillLevel) {
         public Trigger {
             collectionTargets = collectionTargets == null ? List.of() : List.copyOf(collectionTargets);
             statisticQualifier = statisticQualifier == null ? StatisticQualifier.NONE : statisticQualifier;
             counter = counter == null ? "" : counter.trim().toLowerCase(Locale.ROOT);
+            gearItems = gearItems == null ? List.of() : List.copyOf(gearItems);
+            skillLevel = skillLevel == null ? SkillLevelRequirement.NONE : skillLevel;
+        }
+
+        /**
+         * {@code gear-use} / {@code skill-level} 追加前(2026-08-16 以前)の引数順互換。
+         * その 2 型以外はこちらで足りる。
+         */
+        public Trigger(TriggerType type, Statistic statistic, StatisticQualifier statisticQualifier,
+                       long threshold, String advancement,
+                       String collectionScope, List<String> collectionTargets, boolean collectionPercent,
+                       String counter) {
+            this(type, statistic, statisticQualifier, threshold, advancement,
+                    collectionScope, collectionTargets, collectionPercent, counter,
+                    null, List.of(), SkillLevelRequirement.NONE);
         }
 
         /**
@@ -150,10 +224,14 @@ public final class AchievementsConfig implements LoadableConfig {
      *                    前提未達成の間は条件を満たしても達成にならない(2026-07-29 ユーザー確定)。
      * @param parentsAny  代替前提。{@code parent} かこの一覧のどれか1つを達成していれば前提を満たす
      *                    (スキルツリーの {@code parents-any} と同じ意味)。
+     * @param hidden      true で「裏アチーブメント」。<b>達成するまで GUI に一切出さない</b>
+     *                    (枠も名前も条件も出さない、2026-08-16 ユーザー確定)。達成後は通常ノードと
+     *                    同じように表示・解放できる。判定そのものは通常ノードと同じなので、
+     *                    <b>表示以外の意味は持たない</b>。
      */
     public record Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards,
                               String icon, List<String> lore, String coords,
-                              String parent, List<String> parentsAny) {
+                              String parent, List<String> parentsAny, boolean hidden) {
         public Achievement {
             icon = icon == null ? "" : icon.trim();
             lore = lore == null ? List.of() : List.copyOf(lore);
@@ -162,9 +240,16 @@ public final class AchievementsConfig implements LoadableConfig {
             parentsAny = parentsAny == null ? List.of() : List.copyOf(parentsAny);
         }
 
+        /** {@code hidden} 追加前(2026-08-16 以前)の引数順互換。 */
+        public Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards,
+                           String icon, List<String> lore, String coords,
+                           String parent, List<String> parentsAny) {
+            this(id, displayName, trigger, broadcast, rewards, icon, lore, coords, parent, parentsAny, false);
+        }
+
         /** 旧シグネチャ互換(既存テスト/呼び出し用): ノード表示系のフィールドを全て未設定にする。 */
         public Achievement(String id, String displayName, Trigger trigger, boolean broadcast, Rewards rewards) {
-            this(id, displayName, trigger, broadcast, rewards, "", List.of(), "", null, List.of());
+            this(id, displayName, trigger, broadcast, rewards, "", List.of(), "", null, List.of(), false);
         }
 
         /** 前提を1つも持たない(=ツリーの起点)か。 */
@@ -213,6 +298,16 @@ public final class AchievementsConfig implements LoadableConfig {
     /** type=COUNTER のアチーブメントのみ(周期ポーリング対象、2026-07-31)。 */
     public List<Achievement> counterAchievements() {
         return achievements.stream().filter(a -> a.trigger().type() == TriggerType.COUNTER).toList();
+    }
+
+    /** type=GEAR_USE のアチーブメントのみ(周期ポーリング対象、2026-08-16)。 */
+    public List<Achievement> gearUseAchievements() {
+        return achievements.stream().filter(a -> a.trigger().type() == TriggerType.GEAR_USE).toList();
+    }
+
+    /** type=SKILL_LEVEL のアチーブメントのみ(周期ポーリング対象、2026-08-16)。 */
+    public List<Achievement> skillLevelAchievements() {
+        return achievements.stream().filter(a -> a.trigger().type() == TriggerType.SKILL_LEVEL).toList();
     }
 
     /**
@@ -293,7 +388,8 @@ public final class AchievementsConfig implements LoadableConfig {
                         entry.getStringList("lore"),
                         entry.getString("coords", ""),
                         entry.getString("parent"),
-                        cleanIdList(entry.getStringList("parents-any"), id)));
+                        cleanIdList(entry.getStringList("parents-any"), id),
+                        entry.getBoolean("hidden", false)));
             }
         }
         List<Achievement> result = List.copyOf(parsed);
@@ -411,7 +507,8 @@ public final class AchievementsConfig implements LoadableConfig {
         TriggerType type = parseTriggerType(rawType);
         if (type == null) {
             log.warning("[" + PATH + "] achievement '" + achievementId
-                    + "' has invalid trigger.type (statistic|advancement|static|counter); skipped");
+                    + "' has invalid trigger.type"
+                    + " (statistic|advancement|static|counter|gear-use|skill-level); skipped");
             return null;
         }
         if (type == TriggerType.STATISTIC) {
@@ -458,6 +555,68 @@ public final class AchievementsConfig implements LoadableConfig {
             }
             return new Trigger(TriggerType.COUNTER, null, StatisticQualifier.NONE, threshold,
                     null, null, List.of(), false, counter);
+        }
+        if (type == TriggerType.GEAR_USE) {
+            // 2026-08-16: 「その装備を実戦で使った」型。対象は achievement 側に列挙する ──
+            // ティアの定義を Java へ持たせると、カタログへ武器を1本足すたびに Java の改修が要る。
+            GearSlot slot = GearSlot.parse(trigger.getString("gear-use.slot", ""));
+            if (slot == null) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has missing/invalid trigger.gear-use.slot (weapon|armor); skipped");
+                return null;
+            }
+            List<String> items = cleanIdList(trigger.getStringList("gear-use.items"), null);
+            if (items.isEmpty()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has empty trigger.gear-use.items; skipped");
+                return null;
+            }
+            // 既定は1(列挙したどれか1つを使えば達成)。ティア到達はこの既定で書ける。
+            long threshold = trigger.getLong("gear-use.threshold", 1L);
+            if (threshold < 1 || threshold > items.size()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has invalid trigger.gear-use.threshold (1.." + items.size() + "); skipped");
+                return null;
+            }
+            return new Trigger(TriggerType.GEAR_USE, null, StatisticQualifier.NONE, threshold,
+                    null, null, List.of(), false, "", slot, items, SkillLevelRequirement.NONE);
+        }
+        if (type == TriggerType.SKILL_LEVEL) {
+            List<String> skills = cleanIdList(trigger.getStringList("skill-level.skills"), null);
+            if (skills.isEmpty()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has empty trigger.skill-level.skills; skipped");
+                return null;
+            }
+            List<String> normalized = new ArrayList<>();
+            for (String skill : skills) {
+                String upper = skill.toUpperCase(Locale.ROOT);
+                if (!upper.equals(SkillLevelRequirement.COMBAT)
+                        && !com.trinityforge.progression.core.SkillId.ALL.contains(upper)) {
+                    log.warning("[" + PATH + "] achievement '" + achievementId
+                            + "' trigger.skill-level.skills contains unknown skill '" + skill + "'; skipped");
+                    return null;
+                }
+                if (!normalized.contains(upper)) {
+                    normalized.add(upper);
+                }
+            }
+            int level = trigger.getInt("skill-level.level", -1);
+            if (level < 1) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has missing/invalid trigger.skill-level.level (>=1); skipped");
+                return null;
+            }
+            // 既定は1種類。「2〜3種を同時に上げる」はここを 2/3 にして書く。
+            int count = trigger.getInt("skill-level.count", 1);
+            if (count < 1 || count > normalized.size()) {
+                log.warning("[" + PATH + "] achievement '" + achievementId
+                        + "' has invalid trigger.skill-level.count (1.." + normalized.size() + "); skipped");
+                return null;
+            }
+            return new Trigger(TriggerType.SKILL_LEVEL, null, StatisticQualifier.NONE, count,
+                    null, null, List.of(), false, "", null, List.of(),
+                    new SkillLevelRequirement(normalized, level, count));
         }
         if (type == TriggerType.STATIC) {
             String scope = trigger.getString("collection.scope", "all").trim().toLowerCase(Locale.ROOT);
@@ -522,7 +681,10 @@ public final class AchievementsConfig implements LoadableConfig {
             return TriggerType.STATIC; // old config migration; editor saves the canonical static form.
         }
         try {
-            return TriggerType.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+            // yml 側は他のキーと同じくケバブケース(gear-use / skill-level)で書く。'-' を '_' へ
+            // 直さずに valueOf すると "GEAR-USE" になり、<b>型が読めずアチーブメントごと skip</b> される
+            // (警告は1行出るがサーバは正常起動するので、GUI から消えるまで気づけない)。
+            return TriggerType.valueOf(raw.trim().toUpperCase(Locale.ROOT).replace('-', '_'));
         } catch (IllegalArgumentException ex) {
             return null;
         }

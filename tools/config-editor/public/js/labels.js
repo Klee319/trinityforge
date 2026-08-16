@@ -664,9 +664,24 @@
     "glyph-tier": { "1": "T1 (Novice)", "2": "T2 (Apprentice)", "3": "T3 (Archmage)" },
     // skilltree.yml node role (レイアウト・配置に影響)
     "skill-role": { "main": "主軸", "intermediate": "中間", "branch": "分岐", "greek": "排他(ギリシャ)" },
-    "achievement-trigger": { "statistic": "統計", "advancement": "進捗", "static": "図鑑登録", "counter": "累計カウンタ" },
+    "achievement-trigger": {
+      "statistic": "統計", "advancement": "進捗", "static": "図鑑登録", "counter": "累計カウンタ",
+      "gear-use": "装備で与ダメージ", "skill-level": "スキルレベル"
+    },
     // 累計カウンタID(trigger.counter)。Java/フォーク側が実際に加算しているものだけを並べる。
-    "achievement-counter": { "source_spent": "儀式で消費した累計ソース" },
+    "achievement-counter": {
+      "source_spent": "儀式で消費した累計ソース",
+      "glyph_unlocked": "解放したグリフの種類数",
+      "glyph_harm": "害悪グリフの解放",
+      "glyph_break": "破壊グリフの解放",
+      "glyph_exchange": "交換グリフの解放",
+      "glyph_grow": "成長グリフの解放",
+      "ritual_performed": "実行した儀式の回数",
+      "ritual_effect_used": "使った儀式エフェクトの種類数(作成儀式は除く)",
+      "spell_augment_used": "使った増強グリフの種類数(全24種)",
+      "catalyst_cast": "触媒(杖)で唱えた回数",
+      "enchant_book_shared": "共有エンチャントで唱えた回数"
+    },
     // ---- 2026-08-01: 日本語化の取りこぼし ----
     // mob-abilities.yml ability.type。mob-abilities-form.js が
     // selectLabeledInput(..., "mob-ability-type", ...) で引いていたのに、この辞書に
@@ -679,7 +694,11 @@
       "aura": "持続オーラ (aura)",
       "teleport_strike": "背後へ転移して斬る (teleport_strike)",
       "beam": "直線ビーム (beam)",
-      "summon": "増援召喚 (summon)"
+      "summon": "増援召喚 (summon)",
+      // 2026-08-16 追加(Java の MobAbility.Type と 1:1)
+      "repulse": "強ノックバック (repulse)",
+      "vortex_pull": "引き寄せ (vortex_pull)",
+      "delayed_zone": "予告設置 (delayed_zone)"
     },
     "mob-ability-damage-type": { "physical": "物理", "magical": "魔法" }
     // "rarity-color"(スレッド厳選専用のレア度カラー辞書)は 2026-08-02 に専用UI(p5-forms.js の

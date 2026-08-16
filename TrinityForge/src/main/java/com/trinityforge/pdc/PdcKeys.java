@@ -241,6 +241,21 @@ public final class PdcKeys {
     // --- アチーブメント (2026-07-23-stat-gate-overhaul §6.2) ---
     /** 達成済みアチーブメントID集合。0x1F 結合 STRING。 */
     public static final NamespacedKey PLAYER_ACHIEVEMENTS_DONE = key("achievements_done");
+    /**
+     * 「実際に戦闘で使った装備」の記録 (2026-08-16, アチーブメント再構築)。
+     * {@link #PLAYER_COLLECTION_ENTRIES} と同じ 0x1F 結合 STRING。
+     *
+     * <p>入る値は {@code weapon:<catalogIdかMaterial名>} / {@code armor:<同左>} の 2 種。
+     * <b>図鑑({@link #PLAYER_COLLECTION_ENTRIES})とは意図的に別の器</b>にしてある ── 図鑑は
+     * 「入手した」を数えるので、そこへ混ぜると図鑑の登録数が装備の使用で勝手に増え、
+     * 報酬ティアのしきい値の意味が壊れる。
+     *
+     * <p>「クラフトしただけ／持っているだけ」では入らない。武器は<b>そのアイテムで実際に
+     * ダメージを与えた</b>とき、防具は<b>それを着たまま被弾した</b>ときにだけ記録する
+     * ({@code GearUseListener})。使用可能レベルが足りない装備はそもそも攻撃/装備できないので、
+     * この方式は「使用レベルを無視した先取り解除」を原理的に防ぐ(2026-08-16 ユーザー要件)。
+     */
+    public static final NamespacedKey PLAYER_GEAR_USED = key("gear_used");
 
     // --- パーティクルシード (2026-07-23-stat-gate-overhaul §6.1): 道具側に焼き込むシードID。 ---
     public static final NamespacedKey ITEM_PARTICLE_SEED = key("particle_seed");

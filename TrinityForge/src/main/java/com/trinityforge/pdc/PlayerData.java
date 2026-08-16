@@ -97,6 +97,33 @@ public final class PlayerData {
         writeJoined(PdcKeys.PLAYER_COLLECTION_ENTRIES, entries, "collection entry id");
     }
 
+    /**
+     * 戦闘で実際に使った装備の記録 (2026-08-16)。要素は {@code weapon:<id>} / {@code armor:<id>}。
+     * 未記録なら空。
+     */
+    public List<String> gearUsed() {
+        return readJoined(PdcKeys.PLAYER_GEAR_USED);
+    }
+
+    /**
+     * 装備の使用を1件記録する。
+     *
+     * @return 新規に記録されたら true(既に記録済みなら false・冪等)。
+     */
+    public boolean recordGearUsed(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        String normalized = token.trim();
+        List<String> current = new java.util.ArrayList<>(gearUsed());
+        if (current.contains(normalized)) {
+            return false;
+        }
+        current.add(normalized);
+        writeJoined(PdcKeys.PLAYER_GEAR_USED, current, "gear use token");
+        return true;
+    }
+
     /** コレクション図鑑: 解放済み報酬ティアID一覧。未解放なら空。 */
     public List<String> claimedCollectionTiers() {
         return readJoined(PdcKeys.PLAYER_COLLECTION_CLAIMED_TIERS);

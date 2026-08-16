@@ -2180,8 +2180,12 @@ function validateMobAbilityRefs(abilities, prefix, errors) {
 }
 
 // ---- combat/mob-abilities.yml (tf-mob-abilities) 2026-07-31新設 ----
+// Java の MobAbility.Type と 1:1。増やすときは public/js/mob-abilities-form.js の TYPES と
+// public/js/labels.js の ENUM_LABELS["mob-ability-type"] も同時に更新する(ミラー3本)。
 const MOB_ABILITY_TYPES = ["ground_slam", "projectile_volley", "charge", "aura",
-  "teleport_strike", "beam", "summon"];
+  "teleport_strike", "beam", "summon",
+  // 2026-08-16 追加
+  "repulse", "vortex_pull", "delayed_zone"];
 
 /** Java の MobAbility が clamp する範囲。editor だけ広いと「保存できたのに実挙動が違う」になる。 */
 const MOB_ABILITY_RANGES = {
@@ -2935,10 +2939,25 @@ function validateRewardExtras(rewards, prefix, errors) {
 // ---- progression/achievements.yml (tf-achievements) ----
 // 2026-07-31: counter を追加(AchievementsConfig.TriggerType と 1:1)。累計カウンタ型は
 // バニラ統計に無い総量(儀式で消費した累計ソース等)をしきい値判定する。
-const ACHIEVEMENT_TRIGGER_TYPES = ["statistic", "advancement", "static", "counter"];
+// 2026-08-16: gear-use(その装備で実際にダメージを与えた) / skill-level(任意のスキルをLv◯まで)を追加。
+// yml 側はケバブケースで書き、Java 側 parseTriggerType が '-' を '_' へ直してから valueOf する。
+const ACHIEVEMENT_TRIGGER_TYPES = [
+  "statistic", "advancement", "static", "counter", "gear-use", "skill-level"
+];
 
 /** trigger.type: counter で選べる累計カウンタID。Java/フォーク側が実際に加算しているものだけ。 */
-const ACHIEVEMENT_COUNTER_IDS = ["source_spent"];
+// ShippedAchievementTreeTest の IMPLEMENTED_COUNTERS と同じ集合を保つこと。
+const ACHIEVEMENT_COUNTER_IDS = [
+  "source_spent", "glyph_unlocked", "glyph_harm", "glyph_break", "glyph_exchange",
+  "glyph_grow", "ritual_performed", "ritual_effect_used", "spell_augment_used",
+  "catalyst_cast", "enchant_book_shared"
+];
+
+/** trigger.type: gear-use の対象部位。Java 側 AchievementsConfig.GearSlot と 1:1。 */
+const ACHIEVEMENT_GEAR_SLOTS = ["weapon", "armor"];
+
+/** trigger.type: skill-level で選べるスキルID。COMBAT は「総合戦闘レベル」の擬似ID。 */
+const ACHIEVEMENT_SKILL_LEVEL_IDS = [...REWARD_JOB_SKILLS, "COMBAT"];
 // 2026-07-30: Bukkit の Statistic.Type が UNTYPED でないもの = 修飾子(Material/EntityType)必須。
 // public/js/tf-rewards-forms.js の QUALIFIED_STATISTIC_OPTIONS と同じ集合を保つこと。
 const QUALIFIED_STATISTICS = [
@@ -2985,6 +3004,10 @@ function validateTfAchievements(data, errors) {
     }
     if (entry.broadcast !== undefined && entry.broadcast !== null && typeof entry.broadcast !== "boolean") {
       errors.push(`${prefix}.broadcast: 真偽値である必要があります`);
+    }
+    // 2026-08-16: 裏アチーブメント。true だと達成するまで GUI に現れず、系統の母数からも外れる。
+    if (entry.hidden !== undefined && entry.hidden !== null && typeof entry.hidden !== "boolean") {
+      errors.push(`${prefix}.hidden: 真偽値である必要があります`);
     }
     // アイコン/説明Lore/前提・配置 (2026-07-29)。前提は「達成そのものを縛る」ので、
     // 不明IDや自己参照をここで止めないと「条件を満たしても永久に取れない」定義が通ってしまう。
@@ -3033,6 +3056,16 @@ function validateTfAchievements(data, errors) {
         });
       }
     }
+    // 起点(親なし)を hidden にすると、その系統がまるごと GUI から消えて誰も入口を見つけられない。
+    if (entry.hidden === true) {
+      const hasParent = typeof entry.parent === "string" && entry.parent.trim();
+      const hasAnyParent = Array.isArray(parentsAny)
+        && parentsAny.some((v) => typeof v === "string" && v.trim());
+      if (!hasParent && !hasAnyParent) {
+        errors.push(`${prefix}.hidden: 起点(前提なし)を hidden にはできません`
+          + `(その系統がまるごと GUI から消え、入口が無くなります)`);
+      }
+    }
     const trigger = entry.trigger;
     if (trigger === undefined || trigger === null) {
       errors.push(`${prefix}.trigger: 必須です`);
@@ -3070,6 +3103,50 @@ function validateTfAchievements(data, errors) {
         }
         if (!isPositiveInt(trigger.threshold)) {
           errors.push(`${prefix}.trigger.threshold: 1以上の整数である必要があります`);
+        }
+      } else if (trigger.type === "gear-use") {
+        // 記録側は GearUseListener が「実ダメージを与えた瞬間」だけ書く。items が空だと
+        // 到達不能な定義になるので、ここで必ず1件以上を要求する。
+        const g = trigger["gear-use"];
+        if (!isPlainObject(g)) {
+          errors.push(`${prefix}.trigger.gear-use: マップである必要があります`);
+        } else {
+          if (!ACHIEVEMENT_GEAR_SLOTS.includes(g.slot)) {
+            errors.push(`${prefix}.trigger.gear-use.slot: ${ACHIEVEMENT_GEAR_SLOTS.join(" / ")} のいずれかである必要があります`);
+          }
+          if (!Array.isArray(g.items) || !g.items.length
+              || g.items.some((v) => typeof v !== "string" || !v.trim())) {
+            errors.push(`${prefix}.trigger.gear-use.items: 空でない文字列の配列(カタログID または Material名)である必要があります`);
+          }
+        }
+      } else if (trigger.type === "skill-level") {
+        // count は「skills のうち何種類が level に達したら達成か」。skills の件数を超えると
+        // 永久に達成できない定義になるので、その場で落とす。
+        const s = trigger["skill-level"];
+        if (!isPlainObject(s)) {
+          errors.push(`${prefix}.trigger.skill-level: マップである必要があります`);
+        } else {
+          const skills = s.skills;
+          if (!Array.isArray(skills) || !skills.length) {
+            errors.push(`${prefix}.trigger.skill-level.skills: 空でない配列である必要があります`);
+          } else {
+            skills.forEach((v, i) => {
+              if (typeof v !== "string" || !ACHIEVEMENT_SKILL_LEVEL_IDS.includes(v.trim().toUpperCase())) {
+                errors.push(`${prefix}.trigger.skill-level.skills[${i}]: 未知のスキルIDです: ${v}`);
+              }
+            });
+          }
+          if (!isPositiveInt(s.level) || s.level > 100) {
+            errors.push(`${prefix}.trigger.skill-level.level: 1〜100 の整数である必要があります`);
+          }
+          if (s.count !== undefined && s.count !== null) {
+            if (!isPositiveInt(s.count)) {
+              errors.push(`${prefix}.trigger.skill-level.count: 1以上の整数である必要があります`);
+            } else if (Array.isArray(skills) && s.count > skills.length) {
+              errors.push(`${prefix}.trigger.skill-level.count: skills の件数(${skills.length})を超えています`
+                + `(どうやっても達成できない定義になります)`);
+            }
+          }
         }
       } else if (trigger.type === "static") {
         const c = trigger.collection;

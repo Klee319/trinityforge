@@ -616,6 +616,16 @@ public final class TrinityForge extends JavaPlugin {
         this.catalogRecipeRegistrar = new CatalogRecipeRegistrar(this, configManager.itemCatalog(), itemFactory,
                 () -> configManager.craftingFeatures().addedRecipes());
         catalogRecipeRegistrar.registerAll();
+        // W-44: ArsPaper 定義の custom: 素材(例 material-lists.yml の dungeon_seals 28件)は TF が
+        // 先に enable する都合で上の初回登録では解決できない。フォーク側の enable フック頼みだと
+        // フォークが古い/呼び出しが落ちた瞬間に「毎起動レシピ登録失敗 = 永久にクラフト不可」になるので、
+        // TF 自身も ArsPaper の enable を検知して再登録する(冪等)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.ArsPaperRecipeRefreshListener(
+                        this::refreshCatalogRecipes,
+                        catalogRecipeRegistrar::deferredArsCatalogIds,
+                        getLogger()::warning),
+                this);
         CatalogRitualBridge.registerAll(this, configManager.itemCatalog());
         // D7: 登録しただけではレシピ帳に出ない(Bukkit.addRecipe は discover を配らない)。
         // ログイン時・ノード解放時・reload 後に TF/Ars のレシピを解禁するリスナー。
@@ -756,8 +766,16 @@ public final class TrinityForge extends JavaPlugin {
         this.achievementService = new com.trinityforge.progression.AchievementService(
                 configManager.achievements(), getLogger(), crossPluginItemResolver, experienceDispatcher,
                 perkAttributeApplier, collectionService);
+        // 2026-08-16: type: skill-level(任意のスキルをLv◯まで上げる)が読むレベル源。
+        // AchievementService の構築時点では両方とも既に組み上がっているが、循環を避けるため
+        // コンストラクタ引数ではなく setter で渡す。
+        achievementService.setLevelSources(skillLevelSource, combatService::combatLevelOf);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.AchievementListener(achievementService), this);
+        // 2026-08-16: type: gear-use(その武器でダメージを与えた / その防具を着て被弾した)の記録側。
+        // 武器/防具のティア到達をクラフト統計で書くと使用可能レベルを無視して解除できるため。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.GearUseListener(configManager.achievements()), this);
         // /achievement の進捗GUI(2026-07-29)。スキルツリーGUIと同じコネクタ/移動ボタンを再利用する。
         this.achievementGui = new com.trinityforge.progression.achievement.AchievementGui(
                 this, configManager.achievements(), crossPluginItemResolver, collectionService,

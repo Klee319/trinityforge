@@ -164,7 +164,7 @@ public final class AchievementGui implements Listener {
      * @param focusId 中央に寄せたいアチーブメントID(null=前回の位置、無ければ既定の起点)
      */
     public void open(Player player, String focusId) {
-        List<Achievement> achievements = config.achievements();
+        List<Achievement> achievements = visibleAchievements(PlayerData.of(player).achievedIds());
         if (achievements.isEmpty()) {
             player.sendMessage(Component.text("アチーブメントが未設定です。", NamedTextColor.GRAY));
             return;
@@ -192,7 +192,8 @@ public final class AchievementGui implements Listener {
     private void render(Player player, AchievementCanvas canvas, AchievementCanvas.Point center,
                         String pendingId, String selectedHeadId) {
         AchievementCanvas.Point safe = canvas.clamp(center);
-        List<String> heads = AchievementCanvas.branchHeadIds(config.achievements());
+        List<String> visibleIds = PlayerData.of(player).achievedIds();
+        List<String> heads = AchievementCanvas.branchHeadIds(visibleAchievements(visibleIds));
         String head = selectedHeadId != null && heads.contains(selectedHeadId)
                 ? selectedHeadId
                 : (heads.isEmpty() ? null : heads.getFirst());
@@ -269,7 +270,7 @@ public final class AchievementGui implements Listener {
         }
         String label = achievement == null ? headId : MiniText.plain(achievement.displayName());
         meta.displayName(plain(label, selected ? NamedTextColor.GOLD : NamedTextColor.WHITE));
-        List<String> section = sectionIds(headId);
+        List<String> section = sectionIds(headId, achieved);
         long done = section.stream().filter(achieved::contains).count();
         long got = section.stream().filter(claimed::contains).count();
         meta.lore(List.of(
@@ -281,6 +282,25 @@ public final class AchievementGui implements Listener {
         meta.getPersistentDataContainer().set(headKey, PersistentDataType.STRING, headId);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /**
+     * そのプレイヤーに見せてよいアチーブメント一覧(2026-08-16)。
+     *
+     * <p>{@code hidden: true}(裏アチーブメント)は<b>達成するまで一切出さない</b> ── 枠も名前も
+     * 条件も出さない、というユーザー確定仕様。達成後は通常ノードと同じに扱う。
+     *
+     * <p><b>描画対象を決める場所でだけ</b>これを通すこと。{@code achievementById} などの
+     * 「既に画面に出ているIDを引き直す」経路まで絞ると、達成直後の裏ノードを解放できなくなる。
+     */
+    private List<Achievement> visibleAchievements(List<String> achievedIds) {
+        List<Achievement> visible = new ArrayList<>();
+        for (Achievement achievement : config.achievements()) {
+            if (!achievement.hidden() || achievedIds.contains(achievement.id())) {
+                visible.add(achievement);
+            }
+        }
+        return visible;
     }
 
     private Achievement achievementById(String id) {
@@ -296,15 +316,18 @@ public final class AchievementGui implements Listener {
      * {@code headId} を起点に {@code parent} 鎖でたどれる子孫(自分を含む)。
      * 別の系統の起点に当たったらそこで打ち切る(系統ごとの件数を出すため)。循環しても止まる。
      */
-    private List<String> sectionIds(String headId) {
-        List<String> heads = AchievementCanvas.branchHeadIds(config.achievements());
+    private List<String> sectionIds(String headId, List<String> achievedIds) {
+        // 未達成の裏アチーブメントは件数にも入れない ── 入れると「12件中3件」の分母だけが
+        // 増えて、隠しているはずのノードの存在が漏れる。
+        List<Achievement> visible = visibleAchievements(achievedIds);
+        List<String> heads = AchievementCanvas.branchHeadIds(visible);
         List<String> section = new ArrayList<>();
         java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>(List.of(headId));
         java.util.Set<String> seen = new java.util.HashSet<>(List.of(headId));
         while (!queue.isEmpty()) {
             String current = queue.poll();
             section.add(current);
-            for (Achievement achievement : config.achievements()) {
+            for (Achievement achievement : visible) {
                 if (current.equals(achievement.parent())
                         && !heads.contains(achievement.id())
                         && seen.add(achievement.id())) {
@@ -498,6 +521,11 @@ public final class AchievementGui implements Listener {
     static String counterLabel(String counterId) {
         return switch (counterId) {
             case "source_spent" -> "儀式で消費した累計ソース";
+            case "ritual_performed" -> "成功させた儀式の回数";
+            case "glyph_unlocked" -> "解放したグリフの種類";
+            case "spell_cast" -> "詠唱した魔法の回数";
+            case "catalyst_cast" -> "触媒を持って詠唱した回数";
+            case "enchant_book_shared" -> "作った共有エンチャント本";
             default -> counterId;
         };
     }
@@ -531,6 +559,46 @@ public final class AchievementGui implements Listener {
                 yield scope + " を " + achievement.trigger().threshold()
                         + (achievement.trigger().collectionPercent() ? "%" : "件");
             }
+            // 装備一覧をそのまま並べると lore が数十行になるので件数だけ出す
+            // (どの装備が対象かは display-name と lore で人間向けに書く)。
+            case GEAR_USE -> (achievement.trigger().gearSlot()
+                        == com.trinityforge.config.domains.AchievementsConfig.GearSlot.ARMOR
+                    ? "対象の防具を着て被弾する"
+                    : "対象の武器でダメージを与える")
+                    + "(" + achievement.trigger().gearItems().size() + "種のうち "
+                    + achievement.trigger().threshold() + "種)";
+            case SKILL_LEVEL -> {
+                var requirement = achievement.trigger().skillLevel();
+                String skills = requirement.skills().stream()
+                        .map(AchievementGui::skillLabel)
+                        .collect(java.util.stream.Collectors.joining(" / "));
+                yield skills + " を Lv" + requirement.level()
+                        + " 以上に(" + requirement.count() + "種)";
+            }
+        };
+    }
+
+    /** スキルIDの日本語名。未知のIDはそのまま返す。 */
+    static String skillLabel(String skillId) {
+        return switch (skillId) {
+            case "COMBAT" -> "総合戦闘レベル";
+            case "ALCHEMY" -> "調合";
+            case "ARCHERY" -> "弓術";
+            case "ARS_MAGIC" -> "魔法";
+            case "ARS_SMITHING" -> "魔法鍛冶";
+            case "DIGGING" -> "切削";
+            case "ENCHANTING" -> "付呪";
+            case "FARMING" -> "農業";
+            case "FISHING" -> "釣り";
+            case "HEAVY_ARMOR" -> "重装備";
+            case "HEAVY_WEAPONS" -> "重武器";
+            case "LIGHT_ARMOR" -> "軽装備";
+            case "LIGHT_WEAPONS" -> "軽武器";
+            case "MINING" -> "採掘";
+            case "POWER" -> "剛力";
+            case "SMITHING" -> "鍛冶";
+            case "WOODCUTTING" -> "伐採";
+            default -> skillId;
         };
     }
 
@@ -569,7 +637,19 @@ public final class AchievementGui implements Listener {
                 }
                 return progress[0] + " / " + achievement.trigger().threshold();
             }
+            case GEAR_USE -> {
+                if (achievement.trigger().gearSlot() == null) {
+                    return null;
+                }
+                var used = new java.util.HashSet<>(com.trinityforge.pdc.PlayerData.of(player).gearUsed());
+                String prefix = achievement.trigger().gearSlot().tokenPrefix();
+                long matched = achievement.trigger().gearItems().stream()
+                        .filter(item -> used.contains(prefix + item)).count();
+                return matched + " / " + achievement.trigger().threshold();
+            }
             default -> {
+                // SKILL_LEVEL はここでは出さない。レベル源を GUI へ通していないうえ、条件文
+                // (conditionText)だけで「どのスキルを何レベルまで」が読み切れるため。
                 return null;
             }
         }
@@ -671,7 +751,8 @@ public final class AchievementGui implements Listener {
             }
             AchievementCanvas canvas;
             try {
-                canvas = AchievementCanvas.project(config.achievements());
+                canvas = AchievementCanvas.project(
+                        visibleAchievements(PlayerData.of(player).achievedIds()));
             } catch (RuntimeException ex) {
                 return;
             }

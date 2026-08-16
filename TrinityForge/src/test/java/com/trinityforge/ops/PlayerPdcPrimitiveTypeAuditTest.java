@@ -214,6 +214,9 @@ class PlayerPdcPrimitiveTypeAuditTest {
         data.markAchievementClaimed("ach.first_kill");
         data.markAchievementClaimMigrationDone();
         data.markPendingClaimNotified("ach.first_kill");
+        // 実戦で使った武器/防具(2026-08-16, type: gear-use)。同期されないと資源サーバで
+        // 進めた武器ティアの実績がメインへ戻った瞬間に巻き戻る。
+        data.recordGearUsed("weapon:IRON_SWORD");
         data.setGachaPityCount(SAMPLE_GACHA_POOL, 7);
 
         // PlayerData を経由しないプレイヤー PDC。書き手のクラスと同じ型で書く。

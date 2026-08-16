@@ -43,9 +43,24 @@ public final class AchievementService {
     private final NativeExperienceDispatcher experienceDispatcher;
     private final PerkAttributeApplier perkAttributeApplier;
     private final CollectionService collectionService;
+    private volatile SkillLevelSource skillLevelSource;
+    private volatile CombatLevelSource combatLevelSource;
 
     public AchievementService(AchievementsConfig config, Logger log) {
         this(config, log, null, null, null, null);
+    }
+
+    /**
+     * {@code trigger.type: skill-level} の判定に使うレベル源を後付けで注入する(2026-08-16)。
+     *
+     * <p>コンストラクタ引数にしていないのは、{@code TrinityForge#onEnable} の配線順で
+     * {@code AchievementService} の方が {@code SkillLevelSource}/{@code CombatLevelSource} より
+     * 先に組み上がるため。未注入のままなら skill-level 型は<b>常に未達成</b>として扱う
+     * (fail-soft。既存の itemResolver/experienceDispatcher と同じ方針)。
+     */
+    public void setLevelSources(SkillLevelSource skillLevelSource, CombatLevelSource combatLevelSource) {
+        this.skillLevelSource = skillLevelSource;
+        this.combatLevelSource = combatLevelSource;
     }
 
     /**
@@ -95,8 +110,10 @@ public final class AchievementService {
         List<AchievementsConfig.Achievement> collectionTargets = config.staticAchievements();
         List<AchievementsConfig.Achievement> advancementTargets = config.advancementAchievements();
         List<AchievementsConfig.Achievement> counterTargets = config.counterAchievements();
+        List<AchievementsConfig.Achievement> gearUseTargets = config.gearUseAchievements();
+        List<AchievementsConfig.Achievement> skillLevelTargets = config.skillLevelAchievements();
         if (targets.isEmpty() && collectionTargets.isEmpty() && advancementTargets.isEmpty()
-                && counterTargets.isEmpty()) {
+                && counterTargets.isEmpty() && gearUseTargets.isEmpty() && skillLevelTargets.isEmpty()) {
             return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -133,6 +150,23 @@ public final class AchievementService {
                 for (AchievementsConfig.Achievement achievement : counterTargets) {
                     if (!done.contains(achievement.id()) && gateOpen(achievement, done)
                             && counterReached(player, achievement) && markAchieved(player, achievement)) {
+                        done.add(achievement.id());
+                        progressed = true;
+                    }
+                }
+                // 装備使用型(2026-08-16)。記録は GearUseListener がイベントで書き込むが、判定は
+                // 他の型と同じくこの1周に混ぜる ── ここで判定しておけば「装備を使った瞬間に前提が
+                // 解けて次のノードも同じ周で達成できる」という連鎖が他型と揃う。
+                for (AchievementsConfig.Achievement achievement : gearUseTargets) {
+                    if (!done.contains(achievement.id()) && gateOpen(achievement, done)
+                            && gearUseReached(player, achievement) && markAchieved(player, achievement)) {
+                        done.add(achievement.id());
+                        progressed = true;
+                    }
+                }
+                for (AchievementsConfig.Achievement achievement : skillLevelTargets) {
+                    if (!done.contains(achievement.id()) && gateOpen(achievement, done)
+                            && skillLevelReached(player, achievement) && markAchieved(player, achievement)) {
                         done.add(achievement.id());
                         progressed = true;
                     }
@@ -226,6 +260,65 @@ public final class AchievementService {
             return false;
         }
         return PlayerData.of(player).lifetimeCounter(counter) >= achievement.trigger().threshold();
+    }
+
+    /**
+     * 列挙した装備のうち、しきい値以上を「実戦で使った」か(2026-08-16)。
+     *
+     * <p>記録側({@code GearUseListener})が {@code weapon:<id>} / {@code armor:<id>} で書くので、
+     * ここでもスロット接頭辞を付けて突き合わせる。<b>接頭辞を落として比較してはいけない</b> ──
+     * 同じ Material 名が武器にも防具にも現れうる(例: カスタム品が同じベース Material を共有する)ため、
+     * 落とすと「防具を着ただけで武器のティアが解ける」経路ができる。
+     */
+    boolean gearUseReached(Player player, AchievementsConfig.Achievement achievement) {
+        AchievementsConfig.Trigger trigger = achievement.trigger();
+        if (trigger.gearSlot() == null || trigger.gearItems().isEmpty()) {
+            return false;
+        }
+        java.util.Set<String> used = new java.util.HashSet<>(PlayerData.of(player).gearUsed());
+        String prefix = trigger.gearSlot().tokenPrefix();
+        long matched = 0;
+        for (String item : trigger.gearItems()) {
+            if (used.contains(prefix + item)) {
+                matched++;
+            }
+        }
+        return matched >= trigger.threshold();
+    }
+
+    /**
+     * 列挙したスキルのうち、必要レベルに達しているものが {@code count} 種類以上あるか(2026-08-16)。
+     *
+     * <p>{@code COMBAT} は総合戦闘レベル。レベル源が未注入なら常に false(fail-soft) ── ここで
+     * 例外にすると、レベル源より先に組み上がる配線順のせいで起動そのものが落ちる。
+     */
+    boolean skillLevelReached(Player player, AchievementsConfig.Achievement achievement) {
+        AchievementsConfig.SkillLevelRequirement requirement = achievement.trigger().skillLevel();
+        if (requirement.skills().isEmpty()) {
+            return false;
+        }
+        SkillLevelSource levels = this.skillLevelSource;
+        CombatLevelSource combat = this.combatLevelSource;
+        Map<String, Integer> bySkill = levels == null ? Map.of() : levels.levelsOf(player.getUniqueId());
+        int reached = 0;
+        for (String skill : requirement.skills()) {
+            int level;
+            if (AchievementsConfig.SkillLevelRequirement.COMBAT.equals(skill)) {
+                if (combat == null) {
+                    continue;
+                }
+                level = combat.combatLevelOf(player.getUniqueId());
+            } else {
+                if (levels == null) {
+                    continue;
+                }
+                level = bySkill.getOrDefault(skill, 0);
+            }
+            if (level >= requirement.level()) {
+                reached++;
+            }
+        }
+        return reached >= requirement.count();
     }
 
     private boolean statisticReached(Player player, AchievementsConfig.Achievement achievement) {

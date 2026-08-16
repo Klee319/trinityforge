@@ -142,11 +142,19 @@ class ShippedThreadAcquisitionRouteTest {
                         + "抽出コードを yml の実構造に合わせ直すこと: " + dead + " / 全系統の件数: " + counts);
 
         // 進捗報酬(rewards.items)は現在スレッドを1件も配っていないので0件を許す。
-        // ただし「抽出が動いていること」自体は、券などスレッド以外も含む総件数で確かめる。
-        assertTrue(achievementRewardItemIds().size() >= 10,
-                "progression/achievements.yml の rewards.items が "
-                        + achievementRewardItemIds().size() + " 件しか読めていない。"
-                        + "報酬の構造が変わって抽出が壊れている可能性がある");
+        // ただし「抽出が動いていること」自体はここで確かめる。
+        //
+        // 2026-08-16: 以前はここに「10件以上」と件数を直書きしていた。だがこれは
+        // アチーブメントの設計(何種類のアイテムを配るか)の写しであって抽出の健全性ではなく、
+        // ツリーを組み替えて報酬の種類が減っただけで【正しく直した側】が落ちていた。
+        // 同じ yml を独立に2通り読み(節の数 / id の数)、その食い違いだけを見る形へ直す。
+        int sections = achievementRewardItemSectionCount();
+        assertTrue(sections > 0,
+                "progression/achievements.yml に rewards.items の節が1つも無い。"
+                        + "報酬の構造(キー名)が変わって抽出側が黙って壊れている可能性が高い");
+        assertTrue(!achievementRewardItemIds().isEmpty(),
+                "rewards.items の節は " + sections + " 件あるのに、アイテムIDが1件も読めていない。"
+                        + "節の中身の構造(id: キー)が変わって抽出が壊れている");
     }
 
     @Test
@@ -260,6 +268,18 @@ class ShippedThreadAcquisitionRouteTest {
     }
 
     /** 進捗報酬 {@code rewards.items[].id} の全ID（{@code custom:} は剥がす）。 */
+    /** {@code rewards.items} の節のうち、1件以上のアイテムを並べているものの数。 */
+    private static int achievementRewardItemSectionCount() throws Exception {
+        YamlConfiguration cfg = load(ACHIEVEMENTS);
+        int count = 0;
+        for (String key : cfg.getKeys(true)) {
+            if (key.endsWith("rewards.items") && !cfg.getMapList(key).isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private static Set<String> achievementRewardItemIds() throws Exception {
         Set<String> ids = new TreeSet<>();
         YamlConfiguration cfg = load(ACHIEVEMENTS);

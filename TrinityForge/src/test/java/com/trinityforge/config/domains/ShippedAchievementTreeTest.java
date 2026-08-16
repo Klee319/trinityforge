@@ -46,8 +46,25 @@ class ShippedAchievementTreeTest {
     private static final String SPECIAL_REWARDS = "src/main/resources/progression/special-rewards.yml";
     private static final String COLLECTION = "src/main/resources/progression/collection.yml";
 
-    /** 実装のある累計カウンタID。増やすときは加算側(ArsPaper RitualManager 等)も必ず用意する。 */
-    private static final Set<String> IMPLEMENTED_COUNTERS = Set.of("source_spent");
+    /**
+     * 実装のある累計カウンタID。増やすときは加算側(ArsPaper フォーク)も必ず用意する。
+     *
+     * <p>2026-08-16 の再構築で source_spent 以外を追加した。加算箇所はいずれも ArsPaper 側:
+     * グリフ解放(ScribingTable)/ 儀式成立・儀式エフェクト(RitualManager)/ 呪文詠唱(SpellCaster)/
+     * 共有エンチャント(EnchantBook)。TF 本体は読むだけ。
+     */
+    private static final Set<String> IMPLEMENTED_COUNTERS = Set.of(
+            "source_spent",
+            "glyph_unlocked",
+            "glyph_harm",
+            "glyph_break",
+            "glyph_exchange",
+            "glyph_grow",
+            "ritual_performed",
+            "ritual_effect_used",
+            "spell_augment_used",
+            "catalyst_cast",
+            "enchant_book_shared");
 
     private List<AchievementsConfig.Achievement> achievements;
     private List<String> warnings;
@@ -130,14 +147,38 @@ class ShippedAchievementTreeTest {
         }
     }
 
+    /**
+     * 2026-08-16 の再構築で「1起点5章」から「3つの道 + 秘された道」へ変えた。
+     * 起点はそのまま GUI の系統バーの見出しになるので、意図しない起点が増えると
+     * <b>タブが1つ勝手に生える</b>(= どこかのノードの parent を打ち間違えたサイン)。
+     */
     @Test
-    @DisplayName("起点は1つだけ(=GUIが1本の木として開ける)")
-    void exactlyOneRoot() {
+    @DisplayName("起点はちょうど4つ(3つの道 + 秘された道)")
+    void rootsAreTheFourPaths() {
         List<String> roots = achievements.stream()
                 .filter(AchievementsConfig.Achievement::isRoot)
                 .map(AchievementsConfig.Achievement::id)
                 .toList();
-        assertEquals(List.of("main"), roots, "起点が main 以外にもある: " + roots);
+        assertEquals(List.of("warrior_root", "mage_root", "adventurer_root", "secrets_root"), roots,
+                "起点が想定と違う(parent の打ち間違いで系統タブが増減する): " + roots);
+    }
+
+    /**
+     * 裏アチーブメントは「達成するまで完全非表示」(2026-08-16 ユーザー確定)。
+     * <b>起点にしてはいけない</b> ── 起点は系統バーの見出しなので、隠しノードを起点にすると
+     * 達成した瞬間にタブが増え、逆に未達成のうちは系統ごと消えて座標計算が飛ぶ。
+     */
+    @Test
+    @DisplayName("hidden なノードは起点にしない(必ず secrets_root の下に置く)")
+    void hiddenAchievementsAreNeverRoots() {
+        List<String> offenders = achievements.stream()
+                .filter(AchievementsConfig.Achievement::hidden)
+                .filter(AchievementsConfig.Achievement::isRoot)
+                .map(AchievementsConfig.Achievement::id)
+                .toList();
+        assertEquals(List.of(), offenders, "hidden なのに起点になっている: " + offenders);
+        assertFalse(achievements.stream().noneMatch(AchievementsConfig.Achievement::hidden),
+                "裏アチーブメントが1件も無い(hidden: true の指定が全部落ちている)");
     }
 
     @Test

@@ -26,7 +26,23 @@
   // 累計カウンタID (trigger.type: counter)。lib/schema.js の ACHIEVEMENT_COUNTER_IDS と 1:1。
   // 実際に加算実装があるものだけを並べる ── 存在しないIDを書けるようにすると
   // 「条件を満たしようがないアチーブメント」が静かにできあがる。
-  const ACHIEVEMENT_COUNTER_IDS = ["source_spent"];
+  const ACHIEVEMENT_COUNTER_IDS = [
+    "source_spent", "glyph_unlocked", "glyph_harm", "glyph_break", "glyph_exchange",
+    "glyph_grow", "ritual_performed", "ritual_effect_used", "spell_augment_used",
+    "catalyst_cast", "enchant_book_shared"
+  ];
+
+  // 2026-08-16 追加のトリガー種別。lib/schema.js の同名定数と 1:1 で保つこと。
+  const ACHIEVEMENT_TRIGGER_TYPES = [
+    "statistic", "advancement", "static", "counter", "gear-use", "skill-level"
+  ];
+  const ACHIEVEMENT_GEAR_SLOTS = ["weapon", "armor"];
+  // COMBAT は「総合戦闘レベル」の擬似ID (Java 側 SkillLevelRequirement.COMBAT)。
+  const ACHIEVEMENT_SKILL_LEVEL_IDS = [
+    "ALCHEMY", "ARCHERY", "ARS_MAGIC", "ARS_SMITHING", "DIGGING", "ENCHANTING",
+    "FARMING", "FISHING", "HEAVY_ARMOR", "HEAVY_WEAPONS", "LIGHT_ARMOR",
+    "LIGHT_WEAPONS", "MINING", "POWER", "SMITHING", "WOODCUTTING", "COMBAT"
+  ];
 
   // 特殊報酬/アチーブメント/図鑑カテゴリの共通ID規則: 半角英数字・ハイフン・アンダースコアのみ。
   const REWARD_ID_RE = /^[a-zA-Z0-9_-]+$/;
@@ -46,7 +62,7 @@
   function normalizeAchievementTrigger(trigger) {
     const t = trigger && typeof trigger === "object" && !Array.isArray(trigger) ? trigger : {};
     if (t.type === "collection") t.type = "static";
-    if (!["statistic", "advancement", "static", "counter"].includes(t.type)) t.type = "statistic";
+    if (!ACHIEVEMENT_TRIGGER_TYPES.includes(t.type)) t.type = "statistic";
     if (t.type === "statistic") {
       if (typeof t.statistic !== "string") t.statistic = "";
       // 2026-07-30: 修飾子必須の統計 (MINE_BLOCK / CRAFT_ITEM / KILL_ENTITY 等) 用。
@@ -61,6 +77,28 @@
       // (= 書いたのに存在しない) ので、既定値を入れておく。
       if (!ACHIEVEMENT_COUNTER_IDS.includes(t.counter)) t.counter = ACHIEVEMENT_COUNTER_IDS[0];
       if (!Number.isFinite(Number(t.threshold)) || Number(t.threshold) < 1) t.threshold = 1;
+    } else if (t.type === "gear-use") {
+      // 2026-08-16: その装備で実際にダメージを与えたら達成。items が空だと到達不能な定義に
+      // なるので、実体だけは必ず作っておく(空配列は保存時に検証で落ちる)。
+      if (!t["gear-use"] || typeof t["gear-use"] !== "object") t["gear-use"] = {};
+      const g = t["gear-use"];
+      if (!ACHIEVEMENT_GEAR_SLOTS.includes(g.slot)) g.slot = ACHIEVEMENT_GEAR_SLOTS[0];
+      g.items = (Array.isArray(g.items) ? g.items : [])
+        .filter((v) => typeof v === "string" && v.trim() !== "")
+        .map((v) => v.trim());
+    } else if (t.type === "skill-level") {
+      // 2026-08-16: skills のうち count 種類が level に達したら達成。count は skills 件数が上限。
+      if (!t["skill-level"] || typeof t["skill-level"] !== "object") t["skill-level"] = {};
+      const s = t["skill-level"];
+      s.skills = (Array.isArray(s.skills) ? s.skills : [])
+        .filter((v) => typeof v === "string" && v.trim() !== "")
+        .map((v) => v.trim().toUpperCase())
+        .filter((v, i, arr) => arr.indexOf(v) === i);
+      const level = Number(s.level);
+      s.level = Number.isFinite(level) ? Math.min(100, Math.max(1, Math.floor(level))) : 1;
+      const count = Number(s.count);
+      s.count = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+      if (s.skills.length) s.count = Math.min(s.count, s.skills.length);
     } else if (t.type === "static") {
       if (!t.collection || typeof t.collection !== "object") t.collection = {};
       if (!["all", "category", "item", "mob"].includes(t.collection.scope)) t.collection.scope = "all";
@@ -1120,6 +1158,20 @@
         })
       ]));
 
+      // 裏アチーブメント (2026-08-16): 達成するまで GUI に一切出ない。系統バーの母数からも外れる。
+      // 起点(前提なし)に付けると系統ごと消えてしまうので、前提が無いノードでは出さない。
+      const hasAnyPrerequisite = (typeof entry.parent === "string" && entry.parent.trim())
+        || (Array.isArray(entry["parents-any"]) && entry["parents-any"].some((v) => typeof v === "string" && v.trim()));
+      if (hasAnyPrerequisite || entry.hidden === true) {
+        sections.basic.push(field("裏アチーブメント (hidden)",
+          window.checkboxInput(entry.hidden === true, (v) => {
+            entry.hidden = !!v;
+            renderDetail();
+          }),
+          "ONにすると達成するまでGUIに現れず、「この系統: N件」の母数からも外れます。"
+            + "前提が無いノード(系統の起点)には付けられません(系統ごと入口が消えるため)。"));
+      }
+
       // 2026-07-29: 以前はここを form-field-group(枠線+内側パディング)で囲み、さらに
       // それを「トリガー」ラベル付きの form-field で包んでいた。だが「達成条件」タブの中身は
       // このトリガー設定しかないので、ラベルも枠も同じことを 3 回言っているだけで、
@@ -1127,7 +1179,7 @@
       const triggerBody = h("div", { class: "ach-trigger-fields" });
       function renderTriggerFields() {
         triggerBody.innerHTML = "";
-        triggerBody.appendChild(field("トリガー種別", window.selectLabeledInput(entry.trigger.type, ["statistic", "advancement", "static", "counter"], "achievement-trigger", (v) => {
+        triggerBody.appendChild(field("トリガー種別", window.selectLabeledInput(entry.trigger.type, ACHIEVEMENT_TRIGGER_TYPES, "achievement-trigger", (v) => {
           entry.trigger.type = v;
           entry.trigger = normalizeAchievementTrigger(entry.trigger);
           renderTriggerFields();
@@ -1170,6 +1222,157 @@
           triggerBody.appendChild(field("閾値 (trigger.threshold)", window.numberInput(entry.trigger.threshold, (v) => {
             if (v != null) entry.trigger.threshold = Math.max(1, Math.floor(v));
           }, { int: true }), "1以上。0や空欄だと読み込み時にこのアチーブメントごと捨てられます。"));
+        } else if (entry.trigger.type === "gear-use") {
+          // 2026-08-16: 「その装備で実際にダメージを与えた」で判定する。クラフトで判定すると
+          // 使用レベル制限を跨いで先に取れてしまうため、記録側は GearUseListener が
+          // EntityDamageByEntityEvent(MONITOR) でだけ書く。
+          const g = entry.trigger["gear-use"];
+          const plainName = (raw) => (typeof window.stripDisplayNamePlain === "function"
+            ? window.stripDisplayNamePlain(raw) : String(raw == null ? "" : raw));
+          const gearCandidates = (Array.isArray(opts.catalogCandidates) ? opts.catalogCandidates : [])
+            .map((v) => {
+              const name = plainName(v.label != null && v.label !== "" ? v.label : v.displayName);
+              return { value: v.id, primary: name || v.id, secondary: v.id };
+            })
+            .concat((Array.isArray(window.MATERIALS) ? window.MATERIALS : []).map((mat) => {
+              const ja = window.LABELS && typeof window.LABELS.materialLabel === "function"
+                ? window.LABELS.materialLabel(mat) : "";
+              return { value: mat, primary: `バニラ: ${ja || mat}`, secondary: mat };
+            }));
+          triggerBody.appendChild(field("部位 (gear-use.slot)", window.listSelect({
+            value: g.slot,
+            options: [
+              { value: "weapon", primary: "武器(与ダメージ時の手持ち)", secondary: "weapon" },
+              { value: "armor", primary: "防具(与ダメージ時の着用)", secondary: "armor" }
+            ],
+            onCommit: (v) => {
+              const next = String(v || "weapon");
+              if (next === g.slot) return false;
+              g.slot = next;
+              return true;
+            }
+          }), "武器は矢を撃った時点の弓/クロスボウも記録します(撃った後に持ち替えても誤記録しません)。"));
+          const itemsBody = h("div", { class: "stat-rows" });
+          function renderGearItems() {
+            itemsBody.innerHTML = "";
+            if (!g.items.length) itemsBody.appendChild(emptyHint("対象が選ばれていません(このままだと誰も達成できません)。"));
+            g.items.forEach((item, idx) => {
+              const row = h("div", { class: "stat-row" });
+              row.appendChild(window.listSelect({
+                value: item,
+                options: gearCandidates,
+                onCommit: (v) => {
+                  const next = String(v || "").trim();
+                  if (!next) return false;
+                  g.items = g.items.slice();
+                  g.items[idx] = next;
+                  g.items = g.items.filter((x, i, arr) => arr.indexOf(x) === i);
+                  renderGearItems();
+                  return true;
+                }
+              }));
+              row.appendChild(h("button", {
+                class: "btn-small danger", type: "button", text: "×", title: "この装備を外す",
+                onclick: () => { g.items = g.items.filter((_, i) => i !== idx); renderGearItems(); }
+              }));
+              itemsBody.appendChild(row);
+            });
+            const pool = gearCandidates.filter((o) => !g.items.includes(o.value));
+            if (pool.length) {
+              const addRow = h("div", { class: "stat-row" });
+              addRow.appendChild(window.listSelect({
+                value: "", options: pool, placeholder: "＋ 装備を追加…",
+                onCommit: (v) => {
+                  const next = String(v || "").trim();
+                  if (!next || g.items.includes(next)) return false;
+                  g.items = g.items.concat(next);
+                  renderGearItems();
+                  return true;
+                }
+              }));
+              itemsBody.appendChild(addRow);
+            }
+          }
+          renderGearItems();
+          triggerBody.appendChild(field("対象装備 (gear-use.items)", itemsBody,
+            "列挙したどれか1つで達成です(「和」ではなく「or」)。同じ階梯の武器を全部並べてください。"));
+        } else if (entry.trigger.type === "skill-level") {
+          // 2026-08-16: 「skills のうち count 種類が level に達したら達成」。
+          // count > skills 件数 は永久に達成できないので UI 側で上限を掛ける。
+          const s = entry.trigger["skill-level"];
+          const skillLabel = (id) => {
+            const hit = JOB_EXP_SKILLS.find(([v]) => v === id);
+            return hit ? hit[1] : id;
+          };
+          const skillCandidates = ACHIEVEMENT_SKILL_LEVEL_IDS.map((id) => ({
+            value: id,
+            primary: id === "COMBAT" ? "総合戦闘レベル" : skillLabel(id),
+            secondary: id
+          }));
+          const countInput = window.numberInput(s.count, (v) => {
+            const max = Math.max(1, s.skills.length);
+            s.count = Math.min(max, Math.max(1, Math.floor(Number(v) || 1)));
+          }, { int: true });
+          const skillsBody = h("div", { class: "stat-rows" });
+          function renderSkillRows() {
+            skillsBody.innerHTML = "";
+            if (!s.skills.length) skillsBody.appendChild(emptyHint("スキルが選ばれていません(このままだと誰も達成できません)。"));
+            s.skills.forEach((skill, idx) => {
+              const row = h("div", { class: "stat-row" });
+              row.appendChild(window.listSelect({
+                value: skill,
+                options: skillCandidates,
+                onCommit: (v) => {
+                  const next = String(v || "").trim().toUpperCase();
+                  if (!next) return false;
+                  const copy = s.skills.slice();
+                  copy[idx] = next;
+                  s.skills = copy.filter((x, i, arr) => arr.indexOf(x) === i);
+                  syncSkillCount();
+                  renderSkillRows();
+                  return true;
+                }
+              }));
+              row.appendChild(h("button", {
+                class: "btn-small danger", type: "button", text: "×", title: "このスキルを外す",
+                onclick: () => {
+                  s.skills = s.skills.filter((_, i) => i !== idx);
+                  syncSkillCount();
+                  renderSkillRows();
+                }
+              }));
+              skillsBody.appendChild(row);
+            });
+            const pool = skillCandidates.filter((o) => !s.skills.includes(o.value));
+            if (pool.length) {
+              const addRow = h("div", { class: "stat-row" });
+              addRow.appendChild(window.listSelect({
+                value: "", options: pool, placeholder: "＋ スキルを追加…",
+                onCommit: (v) => {
+                  const next = String(v || "").trim().toUpperCase();
+                  if (!next || s.skills.includes(next)) return false;
+                  s.skills = s.skills.concat(next);
+                  renderSkillRows();
+                  return true;
+                }
+              }));
+              skillsBody.appendChild(addRow);
+            }
+          }
+          function syncSkillCount() {
+            const max = Math.max(1, s.skills.length);
+            if (s.count <= max) return;
+            s.count = max;
+            countInput.value = String(max);
+          }
+          renderSkillRows();
+          triggerBody.appendChild(field("対象スキル (skill-level.skills)", skillsBody,
+            "ここに並べたスキルのうち、下の「必要な種類数」だけがレベルに達したら達成です。"));
+          triggerBody.appendChild(field("必要レベル (skill-level.level)", window.numberInput(s.level, (v) => {
+            if (v != null) s.level = Math.min(100, Math.max(1, Math.floor(v)));
+          }, { int: true }), "1〜100。"));
+          triggerBody.appendChild(field("必要な種類数 (skill-level.count)", countInput,
+            "1なら「どれか1つ」、対象スキル数と同じなら「全部」。対象スキル数を超える値は保存できません。"));
         } else {
           const c = entry.trigger.collection;
           const categories = [];

@@ -89,6 +89,12 @@ titles:
     display: <gradient:#00c2ff:#7f5af0><b>無限の器</b></gradient>
   title_completionist:
     display: <gradient:#ffd700:#ff8c00:#ffd700><b>万象を知る者</b></gradient>
+  title_warrior_path:
+    display: <color:red><b>練達</b></color>
+  title_armsmaster:
+    display: <gradient:#7df9ff:#ffffff><b>万刃の主</b></gradient>
+  title_secret_keeper:
+    display: <gradient:#8a2be2:#ff69b4><b>秘を知る者</b></gradient>
 particles:
   particle_sparkle:
     particle: END_ROD

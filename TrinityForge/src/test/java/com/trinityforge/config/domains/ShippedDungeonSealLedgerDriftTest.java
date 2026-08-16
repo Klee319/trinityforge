@@ -114,16 +114,31 @@ class ShippedDungeonSealLedgerDriftTest {
                 "印を複数要求するアチーブメントが1件も無い(「全踏破」が消えたか、achievements.yml の"
                         + "構造が変わった)。0件のまま緑で通すとこの検査が丸ごと無効になるので落とす");
 
+        // 2026-08-16: 「そのボス自身が落とす印」だけは、複数要求ノードから外すことを許す。
+        // 束縛者の印は束縛者を倒さないと手に入らないので、これを『最下層への鍵』(=挑む前提)へ
+        // 入れると鍵がボスの後にしか開かない循環になる(K-22(2) と同じ形)。
+        // ⚠ ここも許可リストにしない: 除外してよい印は「1件だけを要求している印ノード」
+        //   (= 討伐そのものを表すノード)から実読して導く。IDを書き写した時点で検査の意味が消える。
+        Set<String> bossOwnSeals = new TreeSet<>();
+        itemScopedAchievements().stream()
+                .filter(a -> a.targets().size() == 1)
+                .filter(a -> a.targets().stream().allMatch(t -> normalizeId(t).startsWith(SEAL_PREFIX)))
+                .forEach(a -> a.targets().forEach(t -> bossOwnSeals.add(normalizeId(t))));
+        Set<String> ledgerWithoutBossSeals = new TreeSet<>(ledger);
+        ledgerWithoutBossSeals.removeAll(bossOwnSeals);
+
         for (ItemAchievement achievement : sealAchievements) {
             Set<String> targets = new TreeSet<>();
             achievement.targets().forEach(t -> targets.add(normalizeId(t)));
 
             // 両方向の集合比較。assertEquals(Set, Set) は片側にしか無い要素を両方とも差分に出す。
-            assertEquals(ledger, targets,
+            Set<String> expected = targets.equals(ledgerWithoutBossSeals) ? ledgerWithoutBossSeals : ledger;
+            assertEquals(expected, targets,
                     achievement.id() + " が要求する印の集合が台帳と食い違っている。"
                             + "台帳(" + ledger.size() + "種) = combat/mob-overrides.yml のドロップ表"
                             + "(items/material-lists.yml と progression/collection.yml が一致していることも"
-                            + "上で確認済み)。"
+                            + "上で確認済み)。許されるのは【台帳ぴったり】か"
+                            + "【台帳からボス自身の印(" + bossOwnSeals + ")を除いた集合】の2通りだけ。"
                             + "台帳にあってここに無い印 = そのダンジョンを踏破しなくても『全踏破』が解除される。"
                             + "ここにあって台帳に無い印 = 落とすモブが居ないので永久に達成不能。"
                             + " ── 印を増減させたら【4ファイルとも】直すこと。");
