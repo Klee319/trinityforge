@@ -432,6 +432,33 @@ class MobOverrideDropListenerTest {
         assertEquals(withoutBonus + 1, withBonus, "+100% はランダム個数のドロップを確定で1個増やす");
     }
 
+    @Test
+    void progressionDropFallsBackToTheGroundWithoutEliteMobs(@TempDir File dir) throws Exception {
+        // 2026-08-18: 確定ドロップ(進行アイテム)は need/greed ではなく「全員に1個ずつ」経路へ回す。
+        // その経路も EliteMobs 不在なら従来どおり地面へ落ちる — ここが壊れると、ダンジョン印が
+        // ソロやフィールドで【1個も落ちない】か【二重に落ちる】かのどちらかになる。
+        MobOverridesConfig config = loadedConfig(dir, """
+                overrides:
+                  default:
+                    mobs:
+                      goblin_chief:
+                        drops:
+                          - { item: DIAMOND, chance: 1.0, min: 1, max: 1 }
+                          - { item: BONE, chance: 0.0, min: 1, max: 1 }
+                """);
+        CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
+        MobOverrideDropListener listener =
+                new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
+
+        Zombie zombie = world.spawn(world.getSpawnLocation(), Zombie.class);
+        EntityDeathEvent event = deathEventFor(zombie, "goblin_chief");
+        listener.onDeath(event);
+
+        assertEquals(1, event.getDrops().size(), "確定ドロップは重複せずちょうど1件だけ地面へ落ちる");
+        assertEquals(Material.DIAMOND, event.getDrops().get(0).getType());
+        assertEquals(1, event.getDrops().get(0).getAmount());
+    }
+
     /** 同じ listener で n 回キルさせ、TF追加ドロップが1件でも出た回数を数える。 */
     private int countHits(MobOverrideDropListener listener, int trials) {
         int hits = 0;

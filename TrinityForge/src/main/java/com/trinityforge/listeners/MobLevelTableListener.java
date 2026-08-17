@@ -250,6 +250,10 @@ public final class MobLevelTableListener implements Listener {
                 // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
                 // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら
                 // deliver() の中で従来どおり event.getDrops() へ積まれる。
+                // 2026-08-18: 【この表には「全員に1個ずつ」経路を通さない】。確定ドロップを進行
+                // アイテムとみなす規約は combat/mob-overrides.yml(ダンジョンボス表)限定で、こちらの
+                // add-drops は帯ごとのフィールド報酬。実際 dragon_scale は chance 1.0 / min 0 max 2 /
+                // where: field で、「確定＝全員に配ってよいもの」ではない。
                 com.trinityforge.mobs.EliteMobsSharedLootBridge.deliver(event, stack);
             }
         }

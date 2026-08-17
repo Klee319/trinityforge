@@ -9,6 +9,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MobDropRollerTest {
 
     @Test
+    void onlyGuaranteedDropsCountAsProgression() {
+        // 確定ドロップ(ダンジョン印・試練の鍵)だけが「全員に1個ずつ」の対象。
+        assertTrue(MobDropRoller.isProgressionDrop(1.0));
+        // スレッド(0.2)・ガチャ券(0.05〜0.5)は need/greed の抽選に乗せる。
+        assertFalse(MobDropRoller.isProgressionDrop(0.2));
+        assertFalse(MobDropRoller.isProgressionDrop(0.5));
+        assertFalse(MobDropRoller.isProgressionDrop(0.0));
+        // 境界: 0.999 は確定ではない。ここを > ではなく >= で書き間違えると
+        // 「ほぼ確定のレア報酬」が全員配布へ化ける。
+        assertFalse(MobDropRoller.isProgressionDrop(0.999));
+    }
+
+    @Test
+    void progressionIsDecidedBeforeBonusesInflateTheChance() {
+        // ドロップ増加ステで 0.9 → 1.0 まで底上げされた確率で判定してはいけない。
+        // 判定に渡すのは常に yml の設定値なので、boostedChance の結果は進行アイテム扱いにならない。
+        double boosted = MobDropRoller.boostedChance(0.9, 1.0);
+        assertEquals(1.0, boosted, 1e-9);
+        assertFalse(MobDropRoller.isProgressionDrop(0.9),
+                "設定値 0.9 のドロップはボーナスで確定になっても進行アイテムではない");
+    }
+
+    @Test
     void chanceZeroNeverRolls() {
         assertFalse(MobDropRoller.rolls(0.0, 0.0));
         assertFalse(MobDropRoller.rolls(0.0, 0.5));

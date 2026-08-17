@@ -36,6 +36,7 @@ public final class EliteMobsSharedLootBridge {
     private static final String SHARED_LOOT_CLASS =
             "com.magmaguy.elitemobs.trinityforge.TrinityForgeSharedLoot";
     private static final String OFFER_METHOD = "offerDungeonLoot";
+    private static final String OFFER_PER_PLAYER_METHOD = "offerPerPlayerLoot";
 
     private static final Logger LOG = Logger.getLogger(EliteMobsSharedLootBridge.class.getName());
 
@@ -60,20 +61,53 @@ public final class EliteMobsSharedLootBridge {
     }
 
     /**
+     * 進行アイテム1スタックを<b>ダメージ寄与者全員に1個ずつ</b>配る(2026-08-18)。
+     * 引き取り条件は {@link #deliver} と同じ(エリートモブ・寄与者2人以上・インスタンス化ダンジョン)で、
+     * 違うのは分配の仕方だけ — need/greed の抽選を通さず全員に渡す。
+     *
+     * <p><b>なぜ分けるのか。</b> 共有戦利品テーブルは1スタックにつき当選者を1人しか選ばない。
+     * スレッドのようなランダム報酬ならそれで正しいが、ダンジョン印や試練の鍵のように
+     * <b>全員が1個ずつ持っていないと先へ進めない/図鑑が埋まらない</b>ものを同じ経路に乗せると、
+     * 複数人で潜った瞬間に片方が詰む。どのドロップがこちらへ来るかは
+     * {@link MobDropRoller#isProgressionDrop(double)} が決める。
+     *
+     * @return {@code true} = EliteMobs 側が配り終えた(地面には落ちない)。
+     */
+    public static boolean deliverToEveryDamager(EntityDeathEvent event, ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+        if (offerPerPlayer(event.getEntity(), stack)) {
+            return true;
+        }
+        event.getDrops().add(stack);
+        return false;
+    }
+
+    /**
      * 共有戦利品テーブルへ差し出すだけの下位API(呼び出し側でフォールバック先を決めたいとき用)。
      * EliteMobs が入っていない・クラスが読めない・反射呼び出しが失敗した場合は {@code false}。
      */
     public static boolean offer(Entity entity, ItemStack stack) {
+        return invoke(OFFER_METHOD, entity, stack);
+    }
+
+    /** 全員配布へ差し出すだけの下位API。条件を満たさなければ {@code false}。 */
+    public static boolean offerPerPlayer(Entity entity, ItemStack stack) {
+        return invoke(OFFER_PER_PLAYER_METHOD, entity, stack);
+    }
+
+    private static boolean invoke(String methodName, Entity entity, ItemStack stack) {
         if (entity == null || stack == null || Bukkit.getPluginManager().getPlugin(PLUGIN_NAME) == null) {
             return false;
         }
         try {
             Class<?> sharedLoot = Class.forName(SHARED_LOOT_CLASS);
-            Method offer = sharedLoot.getMethod(OFFER_METHOD, Entity.class, ItemStack.class);
+            Method offer = sharedLoot.getMethod(methodName, Entity.class, ItemStack.class);
             Object result = offer.invoke(null, entity, stack);
             return result instanceof Boolean taken && taken;
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) {
-            LOG.log(Level.FINE, "[elitemobs-shared-loot] offer failed for " + stack.getType(), ex);
+            LOG.log(Level.FINE, "[elitemobs-shared-loot] " + methodName + " failed for " + stack.getType(), ex);
             return false;
         }
     }

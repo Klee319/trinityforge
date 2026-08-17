@@ -111,4 +111,24 @@ public final class MobDropRoller {
     public static boolean isSingleFixed(int min, int max) {
         return min == 1 && max == 1;
     }
+
+    /**
+     * このドロップを<b>進行アイテム</b>(＝複数人ダンジョンで全員に1個ずつ配るべきもの)とみなすか。
+     * 判定は<b>yml に書かれた素の {@code chance} が 1.0(確定ドロップ)かどうか</b>だけ。
+     *
+     * <p><b>なぜ確率で決めるのか(2026-08-18)。</b> 複数人でインスタンス化ダンジョンに潜ると、
+     * TF の追加ドロップは EliteMobs の共有戦利品テーブル(need/greed)へ回り、
+     * <b>1スタックにつき当選者が1人だけ</b>選ばれる。スレッド(chance 0.2)やガチャ券のような
+     * ランダム報酬ならそれが正しい分配だが、{@code combat/mob-overrides.yml} の確定ドロップは
+     * ダンジョン印・試練の鍵・かけらといった<b>全員が1個ずつ持っていないと詰むもの</b>しかない
+     * (2人で試練1を倒すと試練2の鍵が1本しか出ず、片方が次へ入れなかった)。
+     * 「確定で落ちる＝全員に配る前提で書かれている」という規約をそのまま判定にしている。
+     *
+     * <p>渡すのは<b>倍率を掛ける前の設定値</b>であること。ドロップ増加ステや低レベル狩りの
+     * 倍率を掛けたあとの確率で判定すると、0.9 のランダム報酬がボーナスで 1.0 に到達した瞬間
+     * 「全員に配る」へ化ける。
+     */
+    public static boolean isProgressionDrop(double configuredChance) {
+        return configuredChance >= 1.0;
+    }
 }

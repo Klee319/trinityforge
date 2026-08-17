@@ -83,6 +83,13 @@ import java.util.logging.Logger;
  * EliteMobs の共有戦利品テーブル(emloot、need/greed)が引き取り、60秒の投票を経て当選者1人へ渡る。
  * それ以外(ソロ・フィールド・EliteMobs 不在)は橋の中で従来どおり {@code event.getDrops()} へ
  * 積まれるので、この分岐でドロップが失われることはない。
+ *
+ * <p><b>確定ドロップは need/greed に乗せない(2026-08-18):</b> 共有戦利品テーブルは1スタックにつき
+ * 当選者を1人しか選ばないため、{@code chance: 1.0} で書かれた進行アイテム(ダンジョン印・試練の鍵・
+ * かけら)まで同じ経路に乗せると、2人で潜ったとき片方が<b>次の試練に入れず図鑑も埋まらない</b>。
+ * {@link MobDropRoller#isProgressionDrop} が真のスタックだけ
+ * {@link EliteMobsSharedLootBridge#deliverToEveryDamager} へ回し、ダメージ寄与者全員へ1個ずつ配る。
+ * 引き取り条件(エリート・2人以上・インスタンス化ダンジョン)は need/greed 経路と同一。
  */
 public final class MobOverrideDropListener implements Listener {
 
@@ -176,7 +183,15 @@ public final class MobOverrideDropListener implements Listener {
                 // 2026-08-09: 複数人でインスタンス化ダンジョンに潜っているときだけ、地面へ落とさず
                 // EliteMobs の共有戦利品テーブル(emloot、need/greed)へ回す。対象外なら
                 // deliver() の中で従来どおり event.getDrops() へ積まれる。
-                EliteMobsSharedLootBridge.deliver(event, stack);
+                // 2026-08-18: ただし確定ドロップ(＝ダンジョン印・試練の鍵などの進行アイテム)だけは
+                // need/greed に乗せない。抽選すると当選者1人しか受け取れず、複数人で潜った片方が
+                // 次の試練に入れない/図鑑が埋まらない状態になっていた。判定に渡すのは倍率を掛ける
+                // 前の drop.chance() であること(理由は MobDropRoller#isProgressionDrop)。
+                if (MobDropRoller.isProgressionDrop(drop.chance())) {
+                    EliteMobsSharedLootBridge.deliverToEveryDamager(event, stack);
+                } else {
+                    EliteMobsSharedLootBridge.deliver(event, stack);
+                }
             }
         }
     }
