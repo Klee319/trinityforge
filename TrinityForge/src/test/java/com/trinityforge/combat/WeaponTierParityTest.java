@@ -482,7 +482,15 @@ class WeaponTierParityTest {
         //  (2) 強さが剣を超えない: attack-speed 1.6 でも同系列の剣の 87.6〜92.3% にしかならない
         //      (弓は 103〜104%、弩は 112〜113% で剣を超える)。上限側の歯止めは MELEE_BAND の
         //      trident 帯 と noWeaponOutDpsesTheStrongestSwordOfItsLevel が引き続き効かせる。
-        Set<String> ranged = Set.of("bow", "crossbow");
+        //
+        // 2026-08-18: 杖をこの集合へ足した。実サーバ報告「杖は素殴りでも敵を倒せる程度の DPS が
+        // 出てしまう」の真因が【杖だけ attack-speed 1.6 のまま 2026-08-02 の一斉変更から漏れて
+        // いたこと】だったため（revolution_bow とまったく同じ取りこぼし方）。杖の attack-power は
+        // 詠唱DPS = attack-power ÷ item-cooldown から逆算した値なので全武器で最大級（Lv100 で
+        // 80,965 ＝ 剣の 2.1 倍）で、それを毎秒 1.6 回振れると殴りが成立してしまう。
+        // ⚠ attack-speed はバニラの ATTACK_SPEED 属性にしか写像しないので、0.1 にしても
+        //    魔法の詠唱速度・item-cooldown・詠唱DPS には一切影響しない（落ちるのは殴りだけ）。
+        Set<String> ranged = Set.of("bow", "crossbow", "wand");
         List<String> problems = new ArrayList<>();
         int checked = 0;
         for (Weapon w : loadWeapons()) {

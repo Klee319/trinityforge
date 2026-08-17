@@ -64,11 +64,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       殴り武器になる」は実測で否定されている ―― 触媒の振り間隔は
  *       {@code CombatListener#meleeWeaponOnCooldown} が主命中をイベントごとキャンセルすることで
  *       {@code item-cooldown} 秒に律速されるので、{@code attack-speed} をいくつにしても
- *       手数は変わらない(出荷値では全12本が {@code item-cooldown × attack-speed ≥ 1} =
- *       既にフルチャージ到達済み)。<b>本当に守るべきは「触媒が item-cooldown を持つこと」</b>で、
+ *       手数は変わらない。<b>本当に守るべきは「触媒が item-cooldown を持つこと」</b>で、
  *       これが無いと詠唱CTが一切掛からない上に素早い殴り武器にもなる
  *       ({@code ENDER_EYE#85} が実際にその状態だった)。上限は剣と同じ 1.6 に置く。</li>
  * </ol>
+ *
+ * <h2>2026-08-18: 触媒を「剣と同じ 1.6」から「遠隔と同じ最低値 0.1」へ移した</h2>
+ * 実サーバ報告「杖は素殴りでも敵を倒せる程度の DPS が出てしまう」。上の 2026-08-14 の
+ * <b>「手数は変わらないから 1.6 でよい」は片側しか見ていなかった</b> —— 手数(発/秒)は確かに
+ * {@code item-cooldown} で決まるが、<b>1発あたりの威力は {@code MeleeChargeMultiplier} で決まり、
+ * そちらは attack-speed の関数</b>である。
+ * <ul>
+ *   <li>倍率 = {@code min + (経過tick ÷ (20/AS))^exp × (1-min)}（出荷 min 0.1 / exp 1.6）。</li>
+ *   <li>AS 1.6 ならフルチャージまで 12.5 tick。CT は 2.07〜3.45 秒(41〜69 tick)なので
+ *       <b>毎回きっかりフルチャージ = 倍率 1.0</b>。つまり「CTが長い」ことが逆に殴りを最適化していた。</li>
+ *   <li>AS 0.1 ならフルチャージまで 200 tick。CT では 20〜35% しか溜まらず倍率は
+ *       <b>0.20〜0.26</b>。殴りだけが 1/4 になる。</li>
+ * </ul>
+ * <b>詠唱は一切変わらない</b> —— attack-speed の適用先はバニラの {@code Attribute.ATTACK_SPEED}
+ * だけで、詠唱DPS({@code attack-power ÷ item-cooldown})にも {@code item-cooldown} にも触れない。
+ * 杖の {@code attack-power} は詠唱DPSから逆算した値なので全武器中で最大級(Lv100 で 80,965 =
+ * 剣の 2.1 倍)であり、それをフルチャージで振れることが報告の直接の原因だった。
  */
 class MeleeUnintendedItemAttackSpeedTest {
 
@@ -161,20 +177,13 @@ class MeleeUnintendedItemAttackSpeedTest {
                 continue;
             }
             double speed = fixed.getDouble("attack-speed");
-            if (ranged) {
-                // 遠隔武器は「素振りが本来の使い方でない」ので最低値に張り付ける。
-                if (Math.abs(speed - minimum) > 1.0e-9) {
-                    tooFast.add(id + "=" + speed + "(遠隔は " + minimum + " 固定)");
-                }
-                continue;
-            }
-            // 触媒: 振り間隔を律速するのは attack-speed ではなく item-cooldown なので、
-            // 守るべき不変条件は「CTを持つこと」。速度は剣(1.6)を超えないことだけ見る。
-            if (!(fixed.getDouble("item-cooldown") > 0.0)) {
+            // 触媒も「CTを持つこと」は不変条件のまま。これが無いと詠唱CTが一切掛からない。
+            if (catalyst && !(fixed.getDouble("item-cooldown") > 0.0)) {
                 missingCooldown.add(id);
             }
-            if (!(speed > 0.0) || speed > SWORD_ATTACK_SPEED + 1.0e-9) {
-                tooFast.add(id + "=" + speed + "(触媒は 0 超 " + SWORD_ATTACK_SPEED + " 以下)");
+            // 遠隔武器も触媒も「素振りが本来の使い方でない」ので最低値に張り付ける。
+            if (Math.abs(speed - minimum) > 1.0e-9) {
+                tooFast.add(id + "=" + speed + "(" + (ranged ? "遠隔" : "触媒") + "は " + minimum + " 固定)");
             }
         }
 
@@ -200,43 +209,33 @@ class MeleeUnintendedItemAttackSpeedTest {
                         + "遠隔武器や触媒を増減したなら EXPECTED_TARGETS も更新すること。対象: " + checked);
     }
 
+    /**
+     * トライデントだけが「CTを持つ近接武器」。触媒は 2026-08-18 にこの規約から外して
+     * 遠隔と同じ最低値へ移した（下の理由）。
+     */
     @Test
-    @DisplayName("CT付き武器(トライデント/触媒)の attack-speed は剣と同じ 1.6")
-    void cooldownBearingWeaponsSwingAtSwordSpeed() throws IOException {
+    @DisplayName("トライデントの attack-speed は剣と同じ 1.6（CT持ちでも近接武器として扱う）")
+    void tridentsSwingAtSwordSpeed() throws IOException {
         ConfigurationSection items = shippedItems();
 
         List<String> offSpec = new ArrayList<>();
         int tridents = 0;
-        int catalysts = 0;
         for (String id : items.getKeys(false)) {
             ConfigurationSection fixed = attackCapableFixed(items, id);
-            if (fixed == null) {
+            if (fixed == null || !"TRIDENT".equals(id.contains("#") ? id.substring(0, id.indexOf('#')) : id)) {
                 continue;
             }
-            String material = id.contains("#") ? id.substring(0, id.indexOf('#')) : id;
-            boolean trident = "TRIDENT".equals(material);
-            boolean catalyst = CATALYST_SKILL.equals(items.getConfigurationSection(id).getString("use-skill"));
-            if (!trident && !catalyst) {
-                continue;
-            }
-            if (trident) {
-                tridents++;
-            } else {
-                catalysts++;
-            }
+            tridents++;
             if (Math.abs(fixed.getDouble("attack-speed") - SWORD_ATTACK_SPEED) > 1.0e-9) {
                 offSpec.add(id + "=" + fixed.getDouble("attack-speed"));
             }
         }
 
         assertTrue(offSpec.isEmpty(),
-                "CT付き武器の attack-speed が剣(" + SWORD_ATTACK_SPEED + ")と違う: " + offSpec
-                        + "。触媒は item-cooldown が振り間隔を律速する(出荷値は全本 CT×AS ≥ 1 で"
-                        + "既にフルチャージ到達済み)ので、1.6 にしても実効DPSは1も動かない。"
-                        + "トライデントは use-skill が剣と同じ LIGHT_WEAPONS で、1.6 でも"
-                        + "同帯最良近接の 0.88〜0.90 倍にしかならず剣を超えない。");
+                "トライデントの attack-speed が剣(" + SWORD_ATTACK_SPEED + ")と違う: " + offSpec
+                        + "。use-skill が剣と同じ LIGHT_WEAPONS なので『素振りだけで ARCHERY が上がる』"
+                        + "抜け道は原理的に無く、1.6 でも同帯最良近接を超えない。");
         assertEquals(16, tridents, "トライデントの件数が変わっている(実測 " + tridents + ")");
-        assertEquals(12, catalysts, "触媒の件数が変わっている(実測 " + catalysts + ")");
     }
 
     @Test
