@@ -183,6 +183,26 @@ test("catalog.yml の非draft なスレッドは全件 thread カテゴリに入
   assert.deepEqual(missing, [], "スレッド専用カテゴリに入っていないスレッド");
 });
 
+test("catalog.yml の非draft なスレッドは Ars threads.yml にも定義がある", () => {
+  // 2026-08-18: catalog.yml の thread_* 51件のうち6件(CMD 100023〜100028)が Ars 側の
+  // threads.yml / ThreadType に無く、arspaper:thread_item_type PDC が付かないため
+  // ThreadGui#isEffectThread に弾かれて【ドロップするのに防具へ永久に挿せない】状態だった。
+  // ログには何も出ない。catalog と threads.yml の両方が見えるここで突き合わせる。
+  const threadsYml = readYaml(path.join(ARS_RES, "threads.yml"));
+  if (!threadsYml) return; // ArsPaper フォークは .gitignore 除外でワークツリーに無いことがある。
+  const arsKeys = new Set(Object.keys(threadsYml.threads || threadsYml || {}));
+  const catalog = readYaml(path.join(TF_RES, "items/catalog.yml"));
+  const defined = Object.entries((catalog && catalog.items) || {})
+    .filter(([id, v]) => /^thread_/.test(id) && !(v && v.draft))
+    .map(([id]) => id);
+  assert.ok(defined.length > 0, "catalog.yml からスレッドを1件も読めていない");
+  const missing = defined.filter((id) => !arsKeys.has(id.slice("thread_".length)));
+  assert.deepEqual(missing, [], "Ars threads.yml に定義が無いスレッド(防具に挿せない)");
+  // external-source が無いと TF 経由で配った個体に Ars の PDC が付かない(同じ症状)。
+  const noExternal = defined.filter((id) => catalog.items[id]["external-source"] !== "arspaper");
+  assert.deepEqual(noExternal, [], "external-source: arspaper が無いスレッド");
+});
+
 test("一括追加の走査集合は items ならバニラ Material も含む(*_SWORD が引ける)", () => {
   const catalogCandidates = [{ id: "infinity_sword" }, { id: "thread_luck" }];
   const ids = bulkAddCandidateIds("items", catalogCandidates, vanillaMaterials, ["ZOMBIE"]);

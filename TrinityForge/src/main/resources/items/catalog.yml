@@ -526,11 +526,11 @@ items:
       core-item: custom:thread_empty
       pedestal-items:
         - GOLDEN_CARROT x4
-        - custom:endermite_soot x3
-        - custom:bogged_mossy_bone x2
-        - ECHO_SHARD x2
-        - custom:warden_tendril x1
-      source: 28000
+        - ENDER_PEARL x3
+        - SPIDER_EYE x2
+        - GLOWSTONE_DUST x2
+        - TORCH
+      source: 8000
       type: shapeless
       ingredients: []
   thread_perfumer:
@@ -6982,6 +6982,7 @@ items:
       - <dark_gray><italic>刃を研ぐ音で、次の一本が決まる。</italic></dark_gray>
       - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
   thread_better_fortune:
+    external-source: arspaper
     material: STRING
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
@@ -6990,6 +6991,7 @@ items:
     display-name: <color:red>開運のスレッド</color>
     custom-model-data: 100023
   thread_gacha:
+    external-source: arspaper
     material: STRING
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
@@ -6998,6 +7000,7 @@ items:
     display-name: <color:#ff0000>ガ</color><color:#ffa500>チ</color><color:#ffff00>ャ</color><color:#008000>ス</color><color:#0000ff>レ</color><color:#000080>ッ</color><color:#800080>ド</color>
     custom-model-data: 100024
   thread_role_luck:
+    external-source: arspaper
     material: STRING
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
@@ -7006,6 +7009,7 @@ items:
     display-name: ロール運のスレッド
     custom-model-data: 100025
   thread_role_effeciency:
+    external-source: arspaper
     material: STRING
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
@@ -7014,6 +7018,7 @@ items:
     display-name: ロール効率のスレッド
     custom-model-data: 100026
   thread_blindness:
+    external-source: arspaper
     material: STRING
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
@@ -7022,6 +7027,7 @@ items:
     display-name: 崩命のスレッド
     custom-model-data: 100027
   thread_translate:
+    external-source: arspaper
     material: STRING
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
