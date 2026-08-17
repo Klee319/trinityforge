@@ -169,30 +169,38 @@ class BreakVanillaExpBonusKeysTest {
     @DisplayName("出荷スキルツリーはスコープ無しキーを使わず、各ツリーが自分のキーだけを使う")
     void shippedTreesUseTheirOwnScopedKey() throws Exception {
         List<String> leaks = new ArrayList<>();
-        int scopedHits = 0;
+        List<String> treesWithoutOwnKey = new ArrayList<>();
         for (String tree : SHIPPED_TREES) {
             String yml = readShipped("skilltree/" + tree + ".yml");
             if (SCOPELESS_LINE.matcher(yml).find()) {
                 leaks.add(tree + ".yml: スコープ無しの break-vanilla-exp-bonus を使っている"
                         + "(この倍率は他の採取スキルの破壊EXPにも乗る)");
             }
+            int ownHits = 0;
             for (String key : BreakVanillaExpBonusKeys.all()) {
                 String ymlKey = key.replace('_', '-');
-                // 1ツリーに複数ノードがあるので「出現回数」を数える(digging/farming は各2ノード)。
+                // 1ツリーに複数ノードが配ることがあるので「出現回数」で数える。
                 int hits = countOccurrences(yml, ymlKey + ":");
                 if (hits == 0) {
                     continue;
                 }
-                scopedHits += hits;
                 String owner = ymlKey.substring(0, ymlKey.indexOf("-break-"));
-                if (!owner.replace('-', '_').equals(tree)) {
+                if (owner.replace('-', '_').equals(tree)) {
+                    ownHits += hits;
+                } else {
                     leaks.add(tree + ".yml: 他ツリーのキー " + ymlKey + " を配っている");
                 }
             }
+            // 「合計何箇所」ではなく「各採取ツリーに自分のキーが1つ以上ある」で固定する。
+            // 合計値で縛ると、エディタからノード構成を変えただけ(倍率を別ノードへ寄せる/
+            // ノードを減らす)で赤くなり、本来の検出対象=共通キーへの逆戻りと区別できない。
+            if (GATHERING_TREES.contains(tree) && ownHits == 0) {
+                treesWithoutOwnKey.add(tree + ".yml: 自分のキー " + tree.replace('_', '-')
+                        + "-break-vanilla-exp-bonus を1箇所も配っていない"
+                        + "(共通キーへ戻っていないか、倍率ノードが消えていないか確認する)");
+            }
         }
-        assertTrue(scopedHits >= 6,
-                "採取スキル別キーが出荷ツリーで6箇所未満しか使われていない(" + scopedHits
-                        + ")。共通キーへ戻っていないか確認する");
+        assertEquals(List.of(), treesWithoutOwnKey, String.join("\n", treesWithoutOwnKey));
         assertEquals(List.of(), leaks, String.join("\n", leaks));
     }
 
