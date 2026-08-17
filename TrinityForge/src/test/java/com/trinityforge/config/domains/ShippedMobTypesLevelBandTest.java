@@ -161,6 +161,46 @@ class ShippedMobTypesLevelBandTest {
                         + "mob-types の各エントリが持つ係数が丸ごと無効になる");
     }
 
+    @Test
+    @DisplayName("出荷 mob-types.yml: Lv80固定ボス3体(ウィザー/エルダーガーディアン/ウォーデン)は"
+            + "level:80 かつ coordinate-coefficient:0 で、それ以外の全モブは level:0")
+    void shippedFixedLevelBossesArePinnedAndEveryOtherMobStaysAtZero() throws Exception {
+        ConfigurationSection types = shippedYaml().getConfigurationSection("mob-types");
+        assertNotNull(types, "出荷 mob-types.yml に mob-types: 節が無い");
+
+        // 2026-08-18 ユーザー決定: エンドラ(THE_END base-level:80 + level:0)と同じ Lv80 帯へ揃える。
+        // この3体はオーバーワールドに湧く/召喚するのでディメンションの base-level を持てず、
+        // 個別 level に直接書くしかない。coordinate-coefficient を 0 にしてあるのは
+        // 「どこで戦っても同じ強さ」にするため(0.02 のままだと 4,000 ブロック先で Lv80、
+        // 拠点付近で Lv0 と桁違いにブレる)。
+        List<String> fixedLevelBosses = List.of("WITHER", "ELDER_GUARDIAN", "WARDEN");
+
+        List<String> wrongBoss = new ArrayList<>();
+        List<String> unexpectedNonZero = new ArrayList<>();
+        for (String id : types.getKeys(false)) {
+            int level = types.getInt(id + ".level", 0);
+            double coefficient = types.getDouble(id + ".coordinate-coefficient", 0.0);
+            if (fixedLevelBosses.contains(id)) {
+                if (level != 80 || Math.abs(coefficient) > DELTA) {
+                    wrongBoss.add(id + "={level=" + level + ", coordinate-coefficient=" + coefficient + "}");
+                }
+            } else if (level != 0) {
+                unexpectedNonZero.add(id + "={level=" + level + "}");
+            }
+        }
+
+        assertTrue(wrongBoss.isEmpty(),
+                "Lv80固定ボスの level/coordinate-coefficient がずれている。「モブ個別の level は 0 に"
+                        + "統一する」という W-66 の設計ルールを機械的に適用してこの3体まで 0 にすると、"
+                        + "拠点付近で Lv0 の張りぼてボスになる(ウィザー Lv80=653,150HP → Lv0=4,000HP)。該当: "
+                        + wrongBoss);
+        assertTrue(unexpectedNonZero.isEmpty(),
+                "Lv80固定ボス以外に個別 level が入っている。base-level と加算されて意図の倍近い値になる"
+                        + "(W-66 の実害: ピグリン level:25 + NETHER base-level:50 = Lv75)。"
+                        + "帯を変えたいなら dimensions.<ENV>.base-level 側を動かすこと。該当: "
+                        + unexpectedNonZero);
+    }
+
     // ------------------------------------------------------------------------------------------
     // 2. attack-power の高レベル区間
     // ------------------------------------------------------------------------------------------

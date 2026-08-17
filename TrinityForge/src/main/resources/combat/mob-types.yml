@@ -250,6 +250,12 @@ max-level: 100
 # ピグリン(level:25) + NETHER(base-level:50) = Lv75 になっており、下駄だけ下げても効かなかった。
 # 新しいモブを足すときも `level: 0` のままにすること。
 #
+# 【例外: Lv80固定ボス】WITHER / ELDER_GUARDIAN / WARDEN の3体だけは `level: 80` +
+# `coordinate-coefficient: 0` を直接書いている。オーバーワールドに湧く／召喚するボスなので
+# base-level 由来の帯を持てず、かつ距離補正が乗ると拠点付近と遠征先で桁違いにブレるため。
+# エンドラ(THE_END base-level:80 + level:0)と同じ Lv80 帯へ意図的に揃えてある。
+# この3体の level を 0 へ「統一」しないこと。
+#
 # coordinate-coefficient はモブ個別の値を **置換** する（加算ではない）。
 dimensions:
   NETHER:
@@ -685,8 +691,13 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ELDER_GUARDIAN:
-    level: 0
-    coordinate-coefficient: 0.02
+    # 【Lv80固定ボス 2026-08-18】エンドラ(THE_END base-level:80)と同じ帯へ揃える。
+    # 通常モブの設計ルール(level は 0 にしてディメンションの base-level で決める)の
+    # 明示的な例外。「どこで戦っても同じ強さ」にしたいので coordinate-coefficient も 0 にして
+    # 拠点からの距離補正を切る(0.02 のままだと 4,000 ブロック先で Lv80、拠点付近で Lv0 と桁違いにブレる)。
+    # ELDER_GUARDIAN / WARDEN はオーバーワールド専用なので base-level 加算が無く、これで Lv80 に固定される。
+    level: 80
+    coordinate-coefficient: 0
     max-health: 1760
     armor-strength: 0
     physical:
@@ -2098,8 +2109,9 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   WARDEN:
-    level: 0
-    coordinate-coefficient: 0.02
+    # 【Lv80固定ボス 2026-08-18】ELDER_GUARDIAN と同じ扱い。理由はそちらのコメント参照。
+    level: 80
+    coordinate-coefficient: 0
     max-health: 4800
     armor-strength: 0
     physical:
@@ -2208,8 +2220,14 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   WITHER:
-    level: 55
-    coordinate-coefficient: 0.02
+    # 【Lv80固定ボス 2026-08-18】ELDER_GUARDIAN と同じ扱い(理由はそちらのコメント参照)。
+    # ⚠ ただしウィザーだけは召喚場所を選べるため、完全な固定にはならない:
+    #   オーバーワールド召喚 → Lv80 / ネザー召喚 → 80+25=105 / エンド召喚 → 80+80=160。
+    #   どちらも max-level: 100 で頭打ちになるので実効 Lv100 になる。
+    #   「どこで召喚しても Lv80」にするにはディメンション下駄を無視するフラグの新設が必要で、
+    #   2026-08-18 の判断で見送った(config だけで済ませる)。仕様変更する場合はここを読むこと。
+    level: 80
+    coordinate-coefficient: 0
     max-health: 4000
     armor-strength: 0
     physical:
