@@ -340,9 +340,11 @@ class CraftQualityListenerSmithingExpTest {
     }
 
     /**
-     * 2026-07-30「鍛冶のレベルが上がりにくい」への対応: 素材別EXP表が設定されていれば、
-     * 鍛冶EXPは<b>盤面に置いた素材の個数分の合計</b>になる(定額 exp-per-craft は使わない)。
+     * 2026-08-17: 鍛冶EXPは<b>定額 exp-per-craft ＋ 盤面の素材ぶんの合計</b>。
      * 表に無い素材は 0 として扱う。
+     *
+     * <p>スロットに素材が積まれていても<b>1クラフト＝各スロット1個</b>で数える
+     * (積んでおくだけでEXPが倍増していた不具合の回帰テストも兼ねる)。
      */
     @Test
     void smithingExpIsTheSumOfTheMaterialsOnTheGrid() {
@@ -373,8 +375,41 @@ class CraftQualityListenerSmithingExpTest {
 
         listener().onCraft(event);
 
-        // ダイヤ2個(25×2) + 棒1本(0.5) + 表に無い金インゴット(0) = 50.5
-        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, 50.5);
+        // 定額15 + ダイヤ枠(25。2個積まれていても1個ぶん) + 棒枠(0.5) + 表に無い金インゴット(0) = 40.5
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, 40.5);
+    }
+
+    /**
+     * 2026-08-17 回帰: <b>use-level-requirement: 0 のティア0装備でも鍛冶EXPが入る</b>。
+     *
+     * <p>出荷 item-stats.yml には要求レベル0の装備が33件あり(木の各種ツール・革防具・銅防具・弓 など)、
+     * 旧実装は「使用可能レベル &gt; 0」でゲートしていたため、この帯を作っても一切EXPが入らなかった
+     * (実測: 木の鎌)。この検証を戻すと 0 EXP になり落ちる。
+     */
+    @Test
+    void tierZeroEquipmentStillGrantsSmithingExp() {
+        ItemStack result = new ItemStack(Material.WOODEN_HOE);
+        when(itemStats.profileFor(eq(Material.WOODEN_HOE), any()))
+                .thenReturn(Optional.of(mock(ItemStatProfile.class)));
+        when(itemStats.qualityModeOffsetFor(eq(Material.WOODEN_HOE), any())).thenReturn(0);
+        // 木の鎌 (WOODEN_HOE#58) の出荷値: use-level-requirement: 0 / use-skill: LIGHT_WEAPONS
+        when(itemStats.useRequirementFor(eq(Material.WOODEN_HOE), any()))
+                .thenReturn(Optional.of(new com.trinityforge.stats.ItemUseRequirement(0, SkillId.LIGHT_WEAPONS)));
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{new ItemStack(Material.STICK, 1)});
+        CraftItemEvent event = mock(CraftItemEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(result);
+        when(event.getRecipe()).thenReturn(mock(Recipe.class));
+        when(event.isShiftClick()).thenReturn(false);
+        stubRealCraftClick(event, false);
+
+        listener().onCraft(event);
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.SMITHING, SMITHING_EXP_PER_CRAFT);
     }
 
     /**

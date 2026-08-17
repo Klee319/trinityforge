@@ -162,4 +162,38 @@ class CatalogWorkbenchListenerShadowedVanillaTest {
 
         verify(inventory).setResult(null);
     }
+
+    /**
+     * 2026-08-17(ユーザー報告「ディスペンサーがクラフトできない」)。
+     *
+     * <p>個数を偽れるのは重ねられる品だけなので、スタック不可の装備カタログ品(TF の弓など)は
+     * バニラレシピに使わせる。直上のテスト(グロウストーン=重ねられる)との対比がこの線引きそのもの。
+     */
+    @Test
+    @DisplayName("スタック不可の装備カタログ品はバニラレシピの素材として使える")
+    void unstackableCatalogGearIsUsableInVanillaRecipes() {
+        CatalogRecipeRegistrar registrar = mock(CatalogRecipeRegistrar.class);
+        when(registrar.registered(any())).thenReturn(Optional.empty());
+        when(registrar.allRegistered()).thenReturn(java.util.List.of());
+        listener = new CatalogWorkbenchListener(registrar, mock(ItemCatalogConfig.class));
+
+        ShapelessRecipe vanilla = new ShapelessRecipe(
+                new NamespacedKey("minecraft", "dispenser"), new ItemStack(Material.DISPENSER));
+        vanilla.addIngredient(Material.BOW);
+        ItemStack tfBow = new ItemStack(Material.BOW);
+        ItemMeta meta = tfBow.getItemMeta();
+        meta.setCustomModelData(700);
+        ItemData.of(meta).setCatalogId("copper_bow");
+        tfBow.setItemMeta(meta);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[] {tfBow, null, null, null});
+        PrepareItemCraftEvent event = mock(PrepareItemCraftEvent.class);
+        when(event.getRecipe()).thenReturn(vanilla);
+        when(event.getInventory()).thenReturn(inventory);
+
+        listener.onPrepareCraft(event);
+
+        verify(inventory, org.mockito.Mockito.never()).setResult(any());
+    }
 }

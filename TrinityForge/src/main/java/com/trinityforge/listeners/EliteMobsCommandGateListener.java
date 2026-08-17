@@ -50,13 +50,18 @@ public final class EliteMobsCommandGateListener implements Listener {
      *   <li>{@code quit} — インスタンスからの脱出。塞ぐとダンジョンに閉じ込められうるので必須。</li>
      *   <li>{@code track} — ボスバーのクリック({@code elitemobs track boss <uuid>})。
      *       表示専用で進行を動かさない。</li>
+     *   <li>{@code start} — <b>2026-08-17 復活(ユーザー報告)</b>。インスタンス内での開始操作。
+     *       {@code dungeontp} と違い<b>入場済みのインスタンスの中でしか意味を持たない</b>ので、
+     *       TF 側の鍵チェック・戦闘レベルチェックを迂回しない(入場は既に済んでいる)。
+     *       塞いだままだとパーティが揃ってもダンジョンを始められず詰む。
+     *       EliteMobs 側の権限 {@code elitemobs.instance.start} は既定 true。</li>
      * </ul>
      *
      * <p>これで塞がれる導線の TF 側の代替: 入場は {@code /tf dungeon}(管理者)と
      * {@code DungeonEntryGui}(鍵アイテム)、インスタンスの開始/終了は {@code /tf start} /
      * {@code /tf stop} / {@code /tf quit}({@code InstanceCommand})。
      */
-    private static final List<String> ALLOWED_EM_SUBCOMMANDS = List.of("quit", "track");
+    private static final List<String> ALLOWED_EM_SUBCOMMANDS = List.of("quit", "track", "start");
 
     public EliteMobsCommandGateListener() {
     }

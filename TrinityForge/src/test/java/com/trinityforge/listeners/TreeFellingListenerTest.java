@@ -126,13 +126,15 @@ class TreeFellingListenerTest {
     }
 
     @Test
-    void ignoresPlayerPlacedLogBlock() {
+    void ignoresPlayerPlacedLeafBlock() {
         DropTableConfig.Category category = new DropTableConfig.Category("apple", "Apple", 100.0,
                 List.of(new DropTableConfig.Entry("APPLE", 1, 1)), false);
         when(gimmickConfig.dropTables()).thenReturn(Map.of("apple", category));
 
+        // 設置ブロック除外の検証。葉で書くこと — 原木はそもそも対象外になったので
+        // 原木で書くと「設置チェックが効いている」ことを何も確かめないテストに化ける。
         Block block = player.getWorld().getBlockAt(0, 64, 0);
-        block.setType(Material.OAK_LOG);
+        block.setType(Material.OAK_LEAVES);
         placedBlockTracker.markPlaced(block);
 
         listener().onBlockBreakDropTables(breakEvent(block));
@@ -141,14 +143,14 @@ class TreeFellingListenerTest {
     }
 
     @Test
-    void logBreakRollsDropTableWhenNotPlacedByPlayer() {
+    void leafBreakRollsDropTableWhenNotPlacedByPlayer() {
         DropTableConfig.Category category = new DropTableConfig.Category("apple", "Apple", 100.0,
                 List.of(new DropTableConfig.Entry("APPLE", 1, 1)), false);
         when(gimmickConfig.dropTables()).thenReturn(Map.of("apple", category));
         when(itemResolver.create(eq("APPLE"))).thenReturn(Optional.of(new ItemStack(Material.APPLE)));
 
         Block block = player.getWorld().getBlockAt(0, 64, 0);
-        block.setType(Material.OAK_LOG);
+        block.setType(Material.OAK_LEAVES);
 
         int itemsBefore = player.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
 
@@ -157,6 +159,24 @@ class TreeFellingListenerTest {
         int itemsAfter = player.getWorld().getEntitiesByClass(org.bukkit.entity.Item.class).size();
         assertEquals(1, itemsAfter - itemsBefore,
                 "trigger-chance-percent=100 must always draw+drop the sole open entry");
+    }
+
+    /**
+     * 2026-08-17(ユーザー報告「原木破壊で金リンゴが出る」)。リンゴ系のドロップテーブルは
+     * 葉からのみ。原木は対象外(この検証を戻すとリンゴが原木からも落ちる)。
+     */
+    @Test
+    void logBreakDoesNotRollDropTable() {
+        DropTableConfig.Category category = new DropTableConfig.Category("apple", "Apple", 100.0,
+                List.of(new DropTableConfig.Entry("APPLE", 1, 1)), false);
+        when(gimmickConfig.dropTables()).thenReturn(Map.of("apple", category));
+
+        Block block = player.getWorld().getBlockAt(0, 64, 0);
+        block.setType(Material.OAK_LOG);
+
+        listener().onBlockBreakDropTables(breakEvent(block));
+
+        verifyNoInteractions(itemResolver);
     }
 
     @Test

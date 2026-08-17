@@ -80,6 +80,10 @@ public final class CatalogWorkbenchListener implements Listener {
             if (foreignRecipeOwnsGridItems(selected, matrix)) {
                 return;
             }
+            // 装備(スタック不可)のカタログ品はバニラ/他プラグインのレシピに使わせる (2026-08-17)。
+            if (gridCatalogItemsAreAllGear(matrix)) {
+                return;
+            }
             // A catalog stack may only be consumed by a recipe that explicitly opted into its
             // identity. Try our registered recipes first; otherwise clear a vanilla/plugin result
             // that matched only because the stack shares its base Material.
@@ -135,6 +139,9 @@ public final class CatalogWorkbenchListener implements Listener {
             // 作業台と同じ委譲 (D5)。3箇所を揃えないと「手ではできるが Crafter では止まる」になる。
             if (foreignRecipeOwnsGridItems(event.getRecipe(), matrix)) {
                 return;
+            }
+            if (gridCatalogItemsAreAllGear(matrix)) {
+                return; // 作業台側と同じ線引き (2026-08-17)
             }
             for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
                 if (matches(matrix, 3, candidate.spec())) {
@@ -530,6 +537,34 @@ public final class CatalogWorkbenchListener implements Listener {
         Optional<String> catalogId = CatalogIdentity.find(catalog, item.getType(), cmd).map(ItemTemplate::id);
         if (catalogId.isPresent()) return catalogId;
         return ExternalItemRegistry.find(item.getType(), cmd).map(ExternalItemRegistry.Definition::id);
+    }
+
+    /**
+     * 盤面のカタログ品が<b>すべてスタック不可(＝装備・道具)</b>か。
+     *
+     * <p><b>2026-08-17 (ユーザー報告「ディスペンサーがクラフトできない」)</b>: 直上の
+     * 「カタログ品を消費できるのはオプトインした TF レシピだけ」という規則は、
+     * <b>圧縮素材が個数を偽ってバニラレシピに食われる</b>のを防ぐためのもので、その例も
+     * {@code foreignRecipeOwnsGridItems} の javadoc のとおり「圧縮鉄ブロック → 鉄9個」だ。
+     * ところが判定はカタログ品かどうかしか見ていなかったため、TF 製の弓のような
+     * <b>装備カタログ品もバニラレシピから締め出されて</b>いた
+     * (バニラのディスペンサーは弓を1本要求するので、TF の弓しか持っていないと永久に作れない)。
+     *
+     * <p>個数を偽れるのは重ねられる品だけなので、スタック上限1のカタログ品は素通しする。
+     * カタログ品が1つでも重ねられるなら従来どおり TF が守る。
+     */
+    private boolean gridCatalogItemsAreAllGear(ItemStack[] matrix) {
+        boolean sawCatalogItem = false;
+        for (ItemStack item : matrix) {
+            if (item == null || item.getType().isAir() || catalogIdentityOf(item).isEmpty()) {
+                continue;
+            }
+            if (item.getMaxStackSize() > 1) {
+                return false;
+            }
+            sawCatalogItem = true;
+        }
+        return sawCatalogItem;
     }
 
     private boolean gridHasCatalogItem(ItemStack[] matrix) {

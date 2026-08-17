@@ -161,8 +161,10 @@ public final class TreeFellingListener implements Listener, SemiActiveCooldown {
             return;
         }
         Material type = block.getType();
-        if (!(WoodcuttingMaterials.isLog(type) || WoodcuttingMaterials.isLeaves(type))
-                || placedBlockTracker.isPlaced(block)) {
+        // ⚠️ 2026-08-17 修正: ここは以前 isLog(type) も通していたため、原木を割るだけで
+        // リンゴ系のドロップテーブルが回っていた(実測: 原木破壊で金リンゴ)。
+        // リンゴは葉から採るもので、直下の javadoc/コメントも元から「葉のみ」と書いてある。
+        if (!WoodcuttingMaterials.isLeaves(type) || placedBlockTracker.isPlaced(block)) {
             return;
         }
         // LeavesDecayEvent(自然消滅)はブロック破壊の原因プレイヤーを特定できないため対象外

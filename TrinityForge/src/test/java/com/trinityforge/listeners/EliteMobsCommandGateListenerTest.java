@@ -26,12 +26,23 @@ class EliteMobsCommandGateListenerTest {
      */
     @Test
     void blocksInstanceAndTeleportSubcommandsForUnprivilegedPlayers() {
-        assertTrue(EliteMobsCommandGateListener.isBlocked("em", "start"));
         assertTrue(EliteMobsCommandGateListener.isBlocked("em", "dungeontp"));
         assertTrue(EliteMobsCommandGateListener.isBlocked("em", "dungeontpdialog"));
         assertTrue(EliteMobsCommandGateListener.isBlocked("em", "spawntp"));
         assertTrue(EliteMobsCommandGateListener.isBlocked("em", "arena"));
-        assertTrue(EliteMobsCommandGateListener.isBlocked("elitemobs", "start"));
+    }
+
+    /**
+     * 2026-08-17(ユーザー報告): ダンジョン内で {@code /em start} が打てず開始できなかった。
+     * {@code start} は入場済みインスタンスの中でしか意味を持たず TF のゲートを迂回しないので許可する。
+     * {@code quit} は元から許可(閉じ込め防止)。
+     */
+    @Test
+    void allowsInstanceStartAndQuitForUnprivilegedPlayers() {
+        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "start"));
+        assertFalse(EliteMobsCommandGateListener.isBlocked("elitemobs", "start"));
+        assertFalse(EliteMobsCommandGateListener.isBlocked("em", "quit"));
+        assertFalse(EliteMobsCommandGateListener.isBlocked("elitemobs", "quit"));
     }
 
     @Test
@@ -59,10 +70,9 @@ class EliteMobsCommandGateListenerTest {
     void parsesRawMessageIncludingNamespaceCaseAndSpacing() {
         // 名前空間付き・大文字・余分な空白でもラベル/サブコマンドを正しく取り出せること。
         assertFalse(EliteMobsCommandGateListener.isBlockedCommand("/minecraft:elitemobs track boss abc"));
-        // 2026-07-30: 許可は quit/track だけになったので、start はここでもブロック側に回る
-        // (このテストが見ているのは「大文字・余分な空白でもラベル/サブコマンドを取り出せるか」なので、
-        //  許可判定そのものは blocksInstanceAndTeleportSubcommandsForUnprivilegedPlayers が担当する)。
-        assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/EM   Start"));
+        // 大文字・余分な空白でもラベル/サブコマンドを取り出せること(許可判定そのものは別テスト)。
+        assertFalse(EliteMobsCommandGateListener.isBlockedCommand("/EM   Start"));
+        assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/EM   Shop"));
         assertFalse(EliteMobsCommandGateListener.isBlockedCommand("/EM   Quit"));
         assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/minecraft:em"));
         assertTrue(EliteMobsCommandGateListener.isBlockedCommand("/em  shop"));

@@ -176,13 +176,18 @@ public final class CraftQualityListener implements Listener {
                 // 使用可能レベル連動EXP (2026-07-28): 「作成したツール/装備」= 品質スタンプ済みの stamped
                 // 自身の使用可能レベルを見る。ARS_SMITHING(上のgrantSmithingExp)には掛けない —
                 // 要件は「鍛冶」であってArs鍛冶ではないため、この線引きは意図的。
-                int useLevel = UseRequirementResolver.resolve(stamped, itemStats)
-                        .map(UseRequirementResolver.Resolved::level)
-                        .orElse(0);
-                // 素材ベースEXP (2026-07-30): 完成品に使用可能レベルが無いものは EXP を一切出さない。
+                var useRequirement = UseRequirementResolver.resolve(stamped, itemStats);
+                // 素材ベースEXP (2026-07-30): 完成品に使用可能条件が無いものは EXP を一切出さない。
                 // 解体で素材へ戻せる装備を作り直し続ける無限EXP経路(unzipサイクル)を塞ぐため、
                 // 「素材の合計」方式に切り替えるのと同時に導入した必須のゲート。
-                if (useLevel > 0) {
+                //
+                // ⚠️ 2026-08-17 修正: 以前はここが「使用可能レベル > 0」だった。出荷 item-stats.yml には
+                // use-level-requirement: 0 の装備が 33 件ある(木の各種ツール/木の鎌・革防具・銅防具・弓 など)。
+                // これらは「使用条件が無い」のではなく「レベル0から使えるティア0装備」であり、
+                // 旧ゲートでは最序盤の装備を作っても鍛冶EXPが一切入らなかった(実測: 木の鎌)。
+                // 判定は「使用条件そのものが宣言されているか」で行う。レベル0の倍率は 1.0 なので安全。
+                if (useRequirement.isPresent()) {
+                    int useLevel = useRequirement.get().level();
                     double multiplier = skillExp.useLevelExpMultiplier(SkillId.SMITHING, useLevel);
                     double base = smithingBaseExp(event.getInventory().getMatrix());
                     ArsProgressionBridge.grantSkillExp(plugin, player, SkillId.SMITHING,
@@ -195,24 +200,32 @@ public final class CraftQualityListener implements Listener {
     }
 
     /**
-     * 1回のクラフト操作で得る鍛冶EXPの素点。クラフト盤面に置かれた素材<b>1個ずつ</b>に
-     * {@code smithing.exp-per-material} の値を掛けて合計する(2026-07-30「鍛冶のレベルが上がりにくい」対応)。
+     * 1回のクラフト操作で得る鍛冶EXPの素点 = 定額 {@code smithing.exp-per-craft}
+     * ＋ 盤面の素材ぶんの {@code smithing.exp-per-material} の合計。
      *
-     * <p>表が空のサーバ(yml未更新)では従来の定額 {@code smithing.exp-per-craft} に落とす。
-     * 表に無い素材は 0 として扱う — 「未設定の素材は無報酬」が設計意図なので、
+     * <p><b>2026-08-17 修正 (1) 定額は常に乗る</b>: 以前は定額を「素材表が空のときだけのフォールバック」に
+     * していたため、出荷ymlのように表が埋まっているサーバでは exp-per-craft が一度も使われず、
+     * editor で編集しても何も変わらなかった。仕様は「1回につき定額＋素材ぶん」。
+     *
+     * <p><b>2026-08-17 修正 (2) 1スロット＝1個で数える</b>: 以前は {@code getAmount()} を掛けていたが、
+     * {@code matrix} は<b>スロットに積まれているスタック全体</b>を返す。1回のクラフトが消費するのは
+     * 各スロット1個なので、素材を積んでおくだけで「作れる個数分」のEXPが1クラフトで入っていた
+     * (実測: 15 のはずが 30)。shift クラフトの複数回ぶんは呼び出し側が craftOperations で掛ける。
+     *
+     * <p>表に無い素材は 0 として扱う — 「未設定の素材は無報酬」が設計意図なので、
      * ここで暗黙の既定値を出してはいけない。
      */
     private double smithingBaseExp(ItemStack[] matrix) {
+        double total = skillExp.smithingExpPerCraft();
         var perMaterial = skillExp.smithingExpPerMaterial();
         if (perMaterial.isEmpty() || matrix == null) {
-            return skillExp.smithingExpPerCraft();
+            return total;
         }
-        double total = 0.0;
         for (ItemStack ingredient : matrix) {
             if (ingredient == null || ingredient.getType().isAir()) continue;
             Double value = perMaterial.get(materialToken(ingredient));
             if (value != null) {
-                total += value * ingredient.getAmount();
+                total += value;
             }
         }
         return total;
