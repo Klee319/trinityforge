@@ -84,7 +84,7 @@ mobs: 置換の対象とする EntityType 名。既定はバニラで日光焼�
   明るさが15 / DamageCause が FIRE_TICK。夜間・屋内・ネザー/エンドではバニラのまま。
 ```
 
-### 直後: `level-cutoff:` (2026-08-09 移設 / 2026-08-18 線形傾斜追加 W-60)
+### 直後: `level-cutoff:` (2026-08-09 移設 / 2026-08-18 線形傾斜追加 W-60 / 2026-08-18 under-level 対称化 W-72)
 
 ```
 レベル差による経験値・ドロップの足きり(低レベル狩りの抑制 / 高レベルモブのドロップ制限)。
@@ -93,8 +93,20 @@ mobs: 置換の対象とする EntityType 名。既定はバニラで日光焼�
 over-level: 自分(戦闘レベル)が threshold 以上モブより高いと発動。exp-rate/drop-rate は発動直後の初期倍率
 (-1で完全遮断、1で無干渉)。exp-decay-per-level/drop-decay-per-level は閾値超過1レベルごとに
 その初期倍率からさらに引く量(既定0=減衰なし=従来どおり固定レートのまま)。rate-floor は減衰後の下限。
-under-level: モブが自分よりitem-threshold以上高いとTF追加ドロップを完全遮断(段階なし、経験値には無関係)。
+under-level: モブが自分より item-threshold 以上高いと発動。2026-08-18 に over-level と完全対称にした
+(以前は「TF追加ドロップを一切付けない」の全か無かだけで、経験値には一切効かなかった)。狙いは
+低レベルのままハメ殺しやデスルーラーで高レベルのモブを狩る行為の抑制。撃破EXPはモブのレベルで伸びるので、
+経験値に効かないことが一番大きな抜け穴だった。
+⚠ 閾値のキー名は item-threshold のまま据え置き(リネームすると配備済み config の値が無言で
+  既定値に化けるため)。実際にはアイテムと経験値の両方の発動条件を兼ねる。
+⚠ パーティでの同行は区別しない。レベル差だけで判定するので、高レベルの人にダンジョンへ連れて行って
+  もらった低レベルも同じだけ削られる(免除を入れると低レベルを連れて行くだけで抑制を回避できるため)。
 ```
+
+出荷値は `item-threshold: 20 / exp-rate: 1 / drop-rate: -1 / exp-decay-per-level: 0.1 /
+drop-decay-per-level: 0 / rate-floor: 0`。**over-level は出荷時 `threshold: -1`(無効)のままで、
+実際に有効なのは under-level 側だけ**。20レベル差から TF追加ドロップが止まり、経験値は20差では等倍、
+超過1レベルごとに0.1ずつ落ちて30差以上で0になる。
 
 `CombatDamageConfig#levelCutoff()` → `MobLevelCutoff`(`com.trinityforge.mobs.MobLevelCutoff`)が実体。
 適用点は `KillRewardAdjuster` 一点(EXP側の `LevelCutoffExpListener`/`CombatListener#onCombatKill`、
@@ -115,11 +127,22 @@ rate   = clamp(rate-floor, 1.0, 基準rate(exp-rate/drop-rate) − excess × dec
 `excess` がいくつであっても減衰量は常に0になるため、2026-08-09時点の「閾値到達で固定レートへジャンプする
 だけのステップ関数」と完全に一致する(既存の出荷設定・回帰テストは無変更)。
 
-**under-level(モブのほうが高レベル)は今回のW-60では変更していない**。`item-threshold` 以上のレベル差がある
-モブを相手にすると、TF追加ドロップは`blocksItems()`によって常に完全遮断される二値のみで、
-over-level側のような段階的な減衰(rate相当のフィールド)は存在しない。「高レベルモブからのドロップを
-段階的に減らしたい(全遮断ではなく徐々に減らしたい)」という要件が出た場合は、over-levelと同型の
-`item-decay-per-level`+floor を追加する拡張余地がある(現状は未実装、意図的にスコープ外)。
+**under-level(モブのほうが高レベル)の計算式は over-level と完全に同型**(2026-08-18 W-72)。
+`diff = モブLv − プレイヤー戦闘Lv` が `item-threshold` 以上で発動し、
+`excess = max(0, diff - item-threshold)` に対して同じ `clamp(rate-floor, 1.0, 基準rate − excess × decay)`
+を適用する。`-1` が完全遮断で減衰計算より優先されるのも同じ。対称性そのものは
+`MobLevelCutoffTest#underLevelIsExactlySymmetricWithOverLevel`(同じ数値を両向きに置き、レベルを
+鏡写しにして0〜30超過まで突き合わせる)が固定している。
+
+**両方が同時に発動した場合は厳しいほう(小さいほう)を採る**。ただし両方が同時に発動するのは
+閾値が両方 `0` かつプレイヤーとモブが同レベルのときだけ。
+
+**新キーの既定値は「対称化する前の挙動」に合わせてある**: `under-level.exp-rate: 1.0`(経験値に触れない)、
+`under-level.drop-rate: -1`(発動したらTF追加ドロップを一切付けない)、decay/floor は `0`。
+`under-level` のキーを1つも書いていない配備済み config は意味が変わらない。
+逆に言うと**出荷 yml を配備し直さない限り新しい足きりは効かない**(配備済み `damage.yml` の
+`item-threshold` は明示的に `-1` = 無効のままなので、editor で書き換えるか config を配備し直す必要がある)。
+出荷値そのものは `ShippedLevelCutoffTest` が固定していて、`item-threshold` を `-1` に戻すと落ちる。
 
 
 

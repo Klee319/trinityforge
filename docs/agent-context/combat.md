@@ -966,10 +966,20 @@ TF追加ドロップ3系統(`MobOverrideDropListener`=ダンジョンモブ個�
 既存4引数コンストラクタは残しており(7引数版へ委譲、新3フィールドは0.0固定)、呼び出し元を
 一切変えずに済んでいる。
 
-**`under-level`(モブがプレイヤーより高レベル)側は今回のW-60では変更していない。**
-`item-threshold` しか持たず、rate相当のフィールドが無いまま(`blocksItems` は常に全遮断の
-二値でEXPには一切影響しない、意図的仕様)。段階的に絞りたい要件が出た場合は、over-level と
-同型の `item-decay-per-level`+floor を追加する拡張余地がある(現状は未実装)。
+**`under-level`(モブがプレイヤーより高レベル)側は 2026-08-18(W-72)に over-level と完全対称にした。**
+それ以前は `item-threshold` しか持たず、効果は「TF追加ドロップを一切付けない」の全か無かだけで
+**EXPには一切影響しなかった**(`expMultiplier` が `isOverLevelActive` でしか分岐していなかった)。
+つまり**低レベルのままハメ殺し/デスルーラーで高レベルのモブを倒すと、バニラの経験値オーブも
+TFの戦闘スキルEXPも満額入っていた** ── 撃破EXPはモブのレベルで伸びるので、ここが最大の抜け穴だった。
+現在は `exp-rate`/`drop-rate`/`exp-decay-per-level`/`drop-decay-per-level`/`rate-floor` を
+under 側にも持ち、計算式・`-1` の優先・`excess==0` で減衰なし、まで over-level と同型。
+両方が同時に発動したら小さいほうを採る(起きるのは閾値が両方0で同レベルのときだけ)。
+**閾値のキー名は `item-threshold` のまま**(リネームすると配備済み config の値が無言で既定に化ける)。
+**パーティでの同行は区別しない**(レベル差だけで判定。免除を入れると低レベルを連れて行くだけで回避できる)。
+新キーの既定値は対称化前の挙動(`exp-rate: 1.0` / `drop-rate: -1` / decay・floor は 0)なので、
+under-level のキーを書いていない config の意味は変わらない。
+**出荷 `damage.yml` では under-level だけが有効**(`item-threshold: 20`、EXPは 0.1/Lv で逓減して30差で0。
+over-level は `threshold: -1` = 無効のまま)。値は `ShippedLevelCutoffTest` が固定している。
 
 先例(over-levelの線形減衰を設計する際に参照した3つ、いずれも
 「threshold/per-amount + 1段あたりの減衰量 + floor」という共通の骨格を持つ):

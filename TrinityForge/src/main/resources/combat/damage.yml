@@ -73,7 +73,16 @@ early-level-attack:
 # over-level: 自分(戦闘レベル)が threshold 以上モブより高いと発動。exp-rate/drop-rate は発動直後の初期倍率
 # (-1で完全遮断、1で無干渉)。exp-decay-per-level/drop-decay-per-level は閾値超過1レベルごとに
 # その初期倍率からさらに引く量(既定0=減衰なし=従来どおり固定レートのまま)。rate-floor は減衰後の下限。
-# under-level: モブが自分よりitem-threshold以上高いとTF追加ドロップを完全遮断(段階なし、経験値には無関係)。
+# under-level: モブが自分より item-threshold 以上高いと発動。2026-08-18 に over-level と完全対称にした
+# (以前は「TF追加ドロップを一切付けない」の全か無かだけで、経験値には一切効かなかった)。狙いは
+# 低レベルのままハメ殺しやデスルーラーで高レベルのモブを狩る行為の抑制。撃破EXPはモブのレベルで伸びるので、
+# 経験値に効かないことが一番大きな抜け穴だった。
+# ⚠ 閾値のキー名は item-threshold のまま据え置き(リネームすると配備済み config の値が無言で
+#   既定値に化けるため)。実際にはアイテムと経験値の両方の発動条件を兼ねる。
+# ⚠ パーティでの同行は区別しない。レベル差だけで判定するので、高レベルの人にダンジョンへ連れて行って
+#   もらった低レベルも同じだけ削られる(免除を入れると低レベルを連れて行くだけで抑制を回避できるため)。
+# 下の既定値: 20レベル差から発動し、TF追加ドロップは完全遮断。経験値は20差で等倍のまま、
+# 超過1レベルごとに0.1ずつ落ちて30差以上で0になる。
 level-cutoff:
   over-level:
     threshold: -1
@@ -83,7 +92,12 @@ level-cutoff:
     drop-decay-per-level: 0
     rate-floor: 0
   under-level:
-    item-threshold: -1
+    item-threshold: 20
+    exp-rate: 1
+    drop-rate: -1
+    exp-decay-per-level: 0.1
+    drop-decay-per-level: 0
+    rate-floor: 0
 durability:
   dungeon-only: true
   respect-unbreaking: true

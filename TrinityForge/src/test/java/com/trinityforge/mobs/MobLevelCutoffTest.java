@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -174,8 +175,9 @@ class MobLevelCutoffTest {
     }
 
     @Test
-    void expMultiplierUnaffectedByUnderLevel() {
-        // under-level must never influence EXP (spec: "経験値には影響しない").
+    void underLevelLeavesExpAloneWhenItsRateIsUnset() {
+        // 2026-08-18(W-72)で under-level も経験値へ効くようにしたが、under側の exp-rate が
+        // 未設定(=旧コンストラクタの既定)なら従来どおり経験値には触れない。
         MobLevelCutoff cutoff = new MobLevelCutoff(null, null, null, 1);
         assertEquals(1.0, cutoff.expMultiplier(0, 50));
     }
@@ -250,5 +252,86 @@ class MobLevelCutoffTest {
         // floor未設定(null)は0.0扱い ── 減衰しすぎても回復扱いの負値にはならない。
         MobLevelCutoff cutoff = new MobLevelCutoff(10, 0.5, null, null, 1.0, 0.0, null);
         assertEquals(0.0, cutoff.expMultiplier(200, 0));
+    }
+
+    // --- 2026-08-18 (W-72) under-level を over-level と完全対称にした ---
+
+    @Test
+    void sevenArgConstructorKeepsTheLegacyUnderLevelBehaviour() {
+        // 対称化前の under-level は「経験値には触れない / 発動したら追加ドロップを一切付けない」。
+        // 7引数コンストラクタ(既存呼び出し元・既存テスト)はこの意味を保つ必要がある。
+        MobLevelCutoff cutoff = new MobLevelCutoff(null, null, null, 20, 0.0, 0.0, 0.0);
+        assertNull(cutoff.underLevelExpRate());
+        assertEquals(-1.0, cutoff.underLevelDropRate().doubleValue());
+        assertEquals(1.0, cutoff.expMultiplier(0, 20), "under側 exp-rate 未設定なら経験値は素通り");
+        assertTrue(cutoff.blocksItems(0, 20), "under側 drop-rate=-1 なので追加ドロップは完全遮断");
+    }
+
+    @Test
+    void underLevelExpRateMinusOneZeroesExp() {
+        // ここが対称化の本命 ── 低レベルのままハメ殺しで高レベルモブを倒しても経験値が入らない設定。
+        MobLevelCutoff cutoff = new MobLevelCutoff(null, null, null, 20, 0.0, 0.0, 0.0,
+                -1.0, -1.0, 0.0, 0.0, 0.0);
+        assertEquals(0.0, cutoff.expMultiplier(0, 20));
+        assertEquals(1.0, cutoff.expMultiplier(0, 19), "閾値未満は無干渉");
+    }
+
+    @Test
+    void underLevelExpDecaysLinearlyPastThresholdLikeOverLevel() {
+        // 出荷値そのもの: item-threshold=20 / exp-rate=1.0 / exp-decay-per-level=0.1 / rate-floor=0。
+        MobLevelCutoff cutoff = new MobLevelCutoff(-1, 1.0, 1.0, 20, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.1, 0.0, 0.0);
+        assertEquals(1.0, cutoff.expMultiplier(0, 20), 1e-9, "閾値ちょうど(20差)は減衰なし");
+        assertEquals(0.5, cutoff.expMultiplier(0, 25), 1e-9, "25差 = 超過5 -> 1.0 - 0.1*5");
+        assertEquals(0.0, cutoff.expMultiplier(0, 30), 1e-9, "30差 = 超過10 -> 経験値0");
+        assertEquals(0.0, cutoff.expMultiplier(0, 90), 1e-9, "それ以上は下限0でクランプ");
+        assertEquals(1.0, cutoff.expMultiplier(0, 19), 1e-9, "19差はまだ無干渉");
+    }
+
+    @Test
+    void underLevelIsExactlySymmetricWithOverLevel() {
+        // 同じ数値をそれぞれの向きに置き、レベルを鏡写しにすると同じ倍率になる(対称性そのものの証明)。
+        MobLevelCutoff over = new MobLevelCutoff(15, 0.8, 0.6, null, 0.05, 0.02, 0.1);
+        MobLevelCutoff under = new MobLevelCutoff(null, null, null, 15, 0.0, 0.0, 0.0,
+                0.8, 0.6, 0.05, 0.02, 0.1);
+        for (int excess = 0; excess <= 30; excess++) {
+            assertEquals(over.expMultiplier(15 + excess, 0), under.expMultiplier(0, 15 + excess), 1e-9,
+                    "超過" + excess + "レベルでの経験値倍率が非対称");
+            assertEquals(over.dropChanceMultiplier(15 + excess, 0), under.dropChanceMultiplier(0, 15 + excess), 1e-9,
+                    "超過" + excess + "レベルでのドロップ倍率が非対称");
+        }
+    }
+
+    @Test
+    void underLevelDropRateOtherThanMinusOneDecaysInsteadOfBlockingOutright() {
+        MobLevelCutoff cutoff = new MobLevelCutoff(null, null, null, 20, 0.0, 0.0, 0.0,
+                null, 1.0, 0.0, 0.1, 0.0);
+        assertFalse(cutoff.blocksItems(0, 20), "-1 以外なら完全遮断にはならない");
+        assertEquals(1.0, cutoff.dropChanceMultiplier(0, 20), 1e-9);
+        assertEquals(0.7, cutoff.dropChanceMultiplier(0, 23), 1e-9, "超過3 -> 1.0 - 0.1*3");
+    }
+
+    @Test
+    void bothSidesActiveTakesTheStricterMultiplier() {
+        // 両方が同時に発動するのは閾値が両方0でプレイヤーとモブが同レベルのときだけ。
+        // そのとき厳しいほう(小さいほう)を採る。
+        MobLevelCutoff cutoff = new MobLevelCutoff(0, 0.8, 0.8, 0, 0.0, 0.0, 0.0,
+                0.3, 0.3, 0.0, 0.0, 0.0);
+        assertTrue(cutoff.isOverLevelActive(10, 10) && cutoff.isUnderLevelActive(10, 10));
+        assertEquals(0.3, cutoff.expMultiplier(10, 10), 1e-9);
+        assertEquals(0.3, cutoff.dropChanceMultiplier(10, 10), 1e-9);
+    }
+
+    @Test
+    void minusOneOnEitherSideWinsOverTheOtherSidesRate() {
+        MobLevelCutoff underBlocks = new MobLevelCutoff(0, 1.0, 1.0, 0, 0.0, 0.0, 0.0,
+                -1.0, -1.0, 0.0, 0.0, 0.0);
+        assertEquals(0.0, underBlocks.expMultiplier(10, 10));
+        assertTrue(underBlocks.blocksItems(10, 10));
+
+        MobLevelCutoff overBlocks = new MobLevelCutoff(0, -1.0, -1.0, 0, 0.0, 0.0, 0.0,
+                1.0, 1.0, 0.0, 0.0, 0.0);
+        assertEquals(0.0, overBlocks.expMultiplier(10, 10));
+        assertTrue(overBlocks.blocksItems(10, 10));
     }
 }

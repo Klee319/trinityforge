@@ -88,11 +88,12 @@ test("2026-08-09 レベル差による足きり: damage.yml に移設され共�
   const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
   const { fields } = extractConstants(damage, {});
 
-  // 出荷既定は「足きり無し」。閾値 -1 = 無効、倍率 1.0 = 無干渉。
+  // over-level(低レベル狩り)の出荷既定は「足きり無し」。閾値 -1 = 無効、倍率 1.0 = 無干渉。
   assert.equal(fields["level-cutoff.over-level.threshold"], -1);
   assert.equal(fields["level-cutoff.over-level.exp-rate"], 1.0);
   assert.equal(fields["level-cutoff.over-level.drop-rate"], 1.0);
-  assert.equal(fields["level-cutoff.under-level.item-threshold"], -1);
+  // under-level(高レベルモブ狩り)は 2026-08-18(W-72) から出荷時点で有効。
+  assert.equal(fields["level-cutoff.under-level.item-threshold"], 20);
 
   const payload = { fields: {
     "level-cutoff.over-level.threshold": 10,
@@ -270,6 +271,49 @@ test("2026-08-18 W-60: level-cutoff の逓減3キー(exp-decay-per-level/drop-de
     ["level-cutoff.over-level.rate-floor: 1以下である必要があります"]);
   assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.rate-floor": -1.1 } }),
     ["level-cutoff.over-level.rate-floor: -1以上の値が必要です"]);
+});
+
+test("2026-08-18 W-72: under-level の5キーが共通変数に出て、未設定は旧挙動へフォールバックする", () => {
+  // 対称化する前(=under-level が item-threshold 1本しか無かった頃)の damage.yml を模した合成データ。
+  // ここでのフォールバック値が Java の SchemaField 既定とずれると、「旧damage.ymlを開いて保存しただけ」で
+  // 意味が変わる(exp-rate が 0 に化ければ経験値が消え、drop-rate が 1 に化けば足きりが無効化する)。
+  const damage = {
+    "level-cutoff": {
+      "over-level": { threshold: -1, "exp-rate": 1, "drop-rate": 1 },
+      "under-level": { "item-threshold": 20 }
+    }
+  };
+  const { fields } = extractConstants(damage, {});
+  assert.equal(fields["level-cutoff.under-level.exp-rate"], 1);      // 経験値に触れない
+  assert.equal(fields["level-cutoff.under-level.drop-rate"], -1);    // 発動したら追加ドロップ無し
+  assert.equal(fields["level-cutoff.under-level.exp-decay-per-level"], 0);
+  assert.equal(fields["level-cutoff.under-level.drop-decay-per-level"], 0);
+  assert.equal(fields["level-cutoff.under-level.rate-floor"], 0);
+
+  const payload = { fields: {
+    "level-cutoff.under-level.exp-rate": 1,
+    "level-cutoff.under-level.drop-rate": -1,
+    "level-cutoff.under-level.exp-decay-per-level": 0.1,
+    "level-cutoff.under-level.drop-decay-per-level": 0,
+    "level-cutoff.under-level.rate-floor": 0
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["exp-decay-per-level"], 0.1);
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["drop-rate"], -1);
+  // 同節の既存キーは温存される。
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["item-threshold"], 20);
+  assert.equal(updated.damage["level-cutoff"]["over-level"].threshold, -1);
+
+  // 範囲: rate は [-1,1](-1 は「完全に入手不可」の特別値)、decay/floor は [0,1]。
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.exp-rate": 2 } }),
+    ["level-cutoff.under-level.exp-rate: 1以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.drop-rate": -1.1 } }),
+    ["level-cutoff.under-level.drop-rate: -1以上の値が必要です"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.exp-decay-per-level": -0.1 } }),
+    ["level-cutoff.under-level.exp-decay-per-level: 0以上の値が必要です"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.rate-floor": 1.1 } }),
+    ["level-cutoff.under-level.rate-floor: 1以下である必要があります"]);
 });
 
 test("撤去した attack/defense stat-key はもう共通変数に現れない", () => {

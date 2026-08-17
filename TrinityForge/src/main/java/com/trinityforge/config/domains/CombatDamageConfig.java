@@ -93,6 +93,17 @@ public final class CombatDamageConfig {
     private static final String LEVEL_CUTOFF_OVER_DROP_DECAY_PER_LEVEL =
             "level-cutoff.over-level.drop-decay-per-level";
     private static final String LEVEL_CUTOFF_OVER_RATE_FLOOR = "level-cutoff.over-level.rate-floor";
+    // 2026-08-18 (W-72) under-level を over-level と完全対称にした。以前は item-threshold 1本だけで
+    // 「TF追加ドロップを付けない」の全か無かしか無く、経験値には一切効かなかったので、低レベルのまま
+    // ハメ殺し/デスルーラーで高レベルのモブを倒すとバニラEXPもTF戦闘EXPも満額入っていた。
+    // 閾値のキー名は item-threshold のまま(配備済み config の値が無言で既定値に化けるのを避ける)。
+    private static final String LEVEL_CUTOFF_UNDER_EXP_RATE = "level-cutoff.under-level.exp-rate";
+    private static final String LEVEL_CUTOFF_UNDER_DROP_RATE = "level-cutoff.under-level.drop-rate";
+    private static final String LEVEL_CUTOFF_UNDER_EXP_DECAY_PER_LEVEL =
+            "level-cutoff.under-level.exp-decay-per-level";
+    private static final String LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL =
+            "level-cutoff.under-level.drop-decay-per-level";
+    private static final String LEVEL_CUTOFF_UNDER_RATE_FLOOR = "level-cutoff.under-level.rate-floor";
 
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
@@ -231,7 +242,18 @@ public final class CombatDamageConfig {
                 .field(SchemaField.number(LEVEL_CUTOFF_OVER_DROP_DECAY_PER_LEVEL, SchemaField.Type.DOUBLE,
                         0.0, 0.0, 1.0))
                 // 減衰後レートの下限。既定0 = 完全に0まで絞れる(従来の clamp01 の下限と同じ)。
-                .field(SchemaField.number(LEVEL_CUTOFF_OVER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0));
+                .field(SchemaField.number(LEVEL_CUTOFF_OVER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0))
+                // 2026-08-18 (W-72): under-level 側も over-level と同じ4つの道具を持つ。
+                // 既定値は「対称化する前の under-level の挙動」に合わせてある ── exp-rate 1.0(経験値に
+                // 触れない) / drop-rate -1(発動したらTF追加ドロップを一切付けない) / decay・floor は 0。
+                // これにより under-level のキーを1つも書いていない配備済み config の意味が変わらない。
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_EXP_RATE, SchemaField.Type.DOUBLE, 1.0, -1.0, 1.0))
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_DROP_RATE, SchemaField.Type.DOUBLE, -1.0, -1.0, 1.0))
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_EXP_DECAY_PER_LEVEL, SchemaField.Type.DOUBLE,
+                        0.0, 0.0, 1.0))
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL, SchemaField.Type.DOUBLE,
+                        0.0, 0.0, 1.0))
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -485,6 +507,11 @@ public final class CombatDamageConfig {
      * <p>2026-08-18 (W-60): {@code exp-decay-per-level}/{@code drop-decay-per-level}/{@code rate-floor}
      * を追加し、閾値超過量に応じた線形の傾斜を掛けられるようにした。既定は全て {@code 0.0} なので、
      * 出荷設定では従来どおり「閾値到達で固定レートへジャンプする」ステップ関数のまま変わらない。
+     *
+     * <p>2026-08-18 (W-72): {@code under-level} 側にも同じ4つ(exp-rate / drop-rate / 2つのdecay / rate-floor)
+     * を追加して over-level と対称にした。キー未記載の config でも意味が変わらないよう、既定値は
+     * 対称化する前の挙動({@code exp-rate: 1.0} = 経験値に触れない、{@code drop-rate: -1} = 発動したら
+     * TF追加ドロップを一切付けない)に合わせてある。
      */
     public MobLevelCutoff levelCutoff() {
         TypedConfig config = domain.get();
@@ -495,7 +522,12 @@ public final class CombatDamageConfig {
                 config.getInt(LEVEL_CUTOFF_UNDER_ITEM_THRESHOLD),
                 config.getDouble(LEVEL_CUTOFF_OVER_EXP_DECAY_PER_LEVEL),
                 config.getDouble(LEVEL_CUTOFF_OVER_DROP_DECAY_PER_LEVEL),
-                config.getDouble(LEVEL_CUTOFF_OVER_RATE_FLOOR));
+                config.getDouble(LEVEL_CUTOFF_OVER_RATE_FLOOR),
+                config.getDouble(LEVEL_CUTOFF_UNDER_EXP_RATE),
+                config.getDouble(LEVEL_CUTOFF_UNDER_DROP_RATE),
+                config.getDouble(LEVEL_CUTOFF_UNDER_EXP_DECAY_PER_LEVEL),
+                config.getDouble(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL),
+                config.getDouble(LEVEL_CUTOFF_UNDER_RATE_FLOOR));
     }
 
     public DurabilityPenaltySettings durabilityPenalty() {

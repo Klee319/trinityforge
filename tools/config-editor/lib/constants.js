@@ -114,7 +114,19 @@ const FIELD_SPECS = Object.freeze([
   { id: "level-cutoff.over-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "over-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "level-cutoff.over-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "over-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "level-cutoff.over-level.rate-floor", file: "damage", path: ["level-cutoff", "over-level", "rate-floor"], kind: "number", min: -1, max: 1, def: 0 },
+  // 2026-08-18 W-72: under-level も over-level と完全対称にした。以前は item-threshold 1本だけで
+  // 「TF追加ドロップを付けない」の全か無かしか無く、経験値には一切効かなかったので、低レベルのまま
+  // ハメ殺し/デスルーラーで高レベルのモブを倒すとバニラEXPもTF戦闘EXPも満額入っていた。
+  // 閾値のキー名は item-threshold のまま据え置き(リネームすると配備済み config の値が無言で既定値に
+  // 化けるため)。実際にはアイテムと経験値の両方の発動条件を兼ねる。
+  // def は【出荷 yml の値ではなく Java の SchemaField 既定値】に合わせる。ここがずれると
+  // 「editor で開いて保存しただけ」で yml の意味が変わる(キー未記載の環境で顕在化する)。
   { id: "level-cutoff.under-level.item-threshold", file: "damage", path: ["level-cutoff", "under-level", "item-threshold"], kind: "int", min: -1, max: 10000, def: -1 },
+  { id: "level-cutoff.under-level.exp-rate", file: "damage", path: ["level-cutoff", "under-level", "exp-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  { id: "level-cutoff.under-level.drop-rate", file: "damage", path: ["level-cutoff", "under-level", "drop-rate"], kind: "number", min: -1, max: 1, def: -1 },
+  { id: "level-cutoff.under-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.under-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.under-level.rate-floor", file: "damage", path: ["level-cutoff", "under-level", "rate-floor"], kind: "number", min: 0, max: 1, def: 0 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。
