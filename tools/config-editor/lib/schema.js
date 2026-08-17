@@ -996,8 +996,10 @@ function validateTfSkillExp(data, errors) {
     // 0以上の数値。専用分岐は作らず、他スキルに同名キーが増えても同じ検証で構わない汎用扱いにする。
     const expPerSource = section["exp-per-source"];
     validateNonNegativeExpNumber(expPerSource, `${skill}.exp-per-source`, errors);
-    // 2026-07-30: 素材別クラフトEXP (smithing.exp-per-material)。
-    // キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
+    // 2026-07-30: 素材別クラフトEXP。キーは Material 名 または custom:<カタログID>、値は 0 以上の数値。
+    // ⚠️ 2026-08-17: 表は2本ある(作業台の smithing.exp-per-material と儀式/Ars専用の
+    // ars-smithing.exp-per-material)。それまで共用だったので editor で通常鍛冶の素材リストを
+    // 編集すると Ars 側のEXPまで動いていた。検証規則は同じなのでスキル別分岐は作らない。
     const perMaterial = section["exp-per-material"];
     if (perMaterial !== undefined && perMaterial !== null) {
       if (!isPlainObject(perMaterial)) {

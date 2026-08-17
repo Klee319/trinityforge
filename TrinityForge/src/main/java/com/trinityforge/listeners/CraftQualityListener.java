@@ -166,7 +166,7 @@ public final class CraftQualityListener implements Listener {
                         plugin,
                         player,
                         stamped,
-                        skillExp.arsSmithingExpPerCraft() * craftOperations);
+                        arsSmithingBaseExp(event.getInventory().getMatrix()) * craftOperations);
             }
             // PRG-13 (2026-07-25): SMITHING EXPの唯一のソース。categorySkill(weapon/armor/tool -> SMITHING,
             // CraftQualityConfig)で線引き済みなのでバニラの土ブロック等クラフトでは発生しない。
@@ -215,6 +215,37 @@ public final class CraftQualityListener implements Listener {
      * <p>表に無い素材は 0 として扱う — 「未設定の素材は無報酬」が設計意図なので、
      * ここで暗黙の既定値を出してはいけない。
      */
+    /**
+     * Ars鍛冶(作業台経路)の基礎EXP: 盤面の素材ぶんの {@code ars-smithing.exp-per-material} の合計
+     * (2026-08-17 ユーザー確定)。
+     *
+     * <p><b>定額は無い。</b> {@code ars-smithing.exp-per-craft} は機能ごと削除した
+     * (儀式経路と同じ規約 — 詳細は {@link com.trinityforge.config.domains.SkillExpConfig
+     * #arsSmithingExpPerMaterial()})。表に無い素材は 0。
+     *
+     * <p>表は<b>作業台の {@code smithing.exp-per-material} とは別</b>。同じ表を共用していたため、
+     * editor で通常鍛冶の素材リストを編集すると Ars 側まで動いていた。
+     *
+     * <p>1スロット＝1個で数えるのは {@link #smithingBaseExp} と同じ理由
+     * ({@code matrix} はスタック全体を返すので {@code getAmount()} を掛けると
+     * 「作れる個数分」のEXPが1クラフトで入る)。
+     */
+    private double arsSmithingBaseExp(ItemStack[] matrix) {
+        var perMaterial = skillExp.arsSmithingExpPerMaterial();
+        if (perMaterial.isEmpty() || matrix == null) {
+            return 0.0;
+        }
+        double total = 0.0;
+        for (ItemStack ingredient : matrix) {
+            if (ingredient == null || ingredient.getType().isAir()) continue;
+            Double value = perMaterial.get(materialToken(ingredient));
+            if (value != null) {
+                total += value;
+            }
+        }
+        return total;
+    }
+
     private double smithingBaseExp(ItemStack[] matrix) {
         double total = skillExp.smithingExpPerCraft();
         var perMaterial = skillExp.smithingExpPerMaterial();

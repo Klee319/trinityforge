@@ -25,9 +25,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -147,63 +149,84 @@ class ArsProgressionBridgeMaterialExpTest {
     }
 
     @Test
-    @DisplayName("素材が1つも表に無ければ従来の定額へ戻す(儀式EXPが無言で消えない)")
-    void unknownMaterialsFallBackToTheFlatAmount() {
+    @DisplayName("素材が1つも表に無ければEXPは付かない(定額へ戻さない ―― 定額は2026-08-17に廃止)")
+    void unknownMaterialsYieldNothing() {
         PlayerMock player = server.addPlayer();
         NativeExperienceDispatcher dispatcher = stubTrinityForge(Map.of("IRON_INGOT", 8.0));
 
         ArsProgressionBridge.grantSmithingCraftExp(MockBukkit.createMockPlugin(), player,
                 new ItemStack(Material.BOOK), List.of("custom:表に無い素材"));
 
-        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
+        // 0 は grantSkillExp が早期returnするので dispatcher は呼ばれない(以前は定額100が入っていた)。
+        verify(dispatcher, never()).grant(any(), eq(SkillId.ARS_SMITHING), anyDouble());
     }
 
+    /**
+     * 定額があった間は「1つでも表に無い素材があれば合計を捨てて定額へ戻す」という全か無かの分岐が
+     * 必要で、<b>素材を1つ足すとEXPが100分の1に落ちる</b>向きの不整合が実際に出ていた
+     * ({@code binder_spear} が 100 → 1。同格の {@code binder_sword} は全素材が表に無いおかげで
+     * 100 のまま)。定額を消したので部分カバーは「その素材ぶんが乗らないだけ」で単調になる。
+     */
     @Test
-    @DisplayName("1つでも表に無い素材があれば合計を捨てて定額へ戻す(安い素材を足してEXPが激減しない)")
-    void partialCoverageFallsBackToTheFlatAmountInsteadOfTheStubSum() {
+    @DisplayName("部分カバーでも引けた素材ぶんは素直に積む(足してEXPが落ちる向きの分岐が無い)")
+    void partialCoverageIsMonotonic() {
         PlayerMock player = server.addPlayer();
         NativeExperienceDispatcher dispatcher = stubTrinityForge(Map.of("STICK", 0.5));
 
-        // 実バグの再現形: 最上位素材4種は表に無く、STICK だけが引ける。
-        // 「合計>0なら合計」という規則だと 1.0 EXP まで落ちていた(同格で STICK 抜きの品は 100)。
         ArsProgressionBridge.grantSmithingCraftExp(MockBukkit.createMockPlugin(), player,
                 new ItemStack(Material.BOOK),
                 List.of("custom:binder_fragment", "custom:abyssal_ingot",
                         "custom:dungeon_seal_binder", "custom:reality_thread_core",
                         "STICK", "STICK"));
 
-        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 1.0);
+    }
+
+    /**
+     * 2026-08-17: 儀式EXPの表は<b>儀式専用</b>({@code ars-smithing.exp-per-material})。
+     * editor で通常鍛冶({@code smithing.exp-per-material})の素材リストを編集しても
+     * Ars 側は動いてはいけない ―― ここが共用に戻ると必ず落ちる。
+     */
+    @Test
+    @DisplayName("儀式EXPは作業台の素材表(smithing.exp-per-material)を読まない")
+    void ritualExpIgnoresTheWorkbenchTable() {
+        PlayerMock player = server.addPlayer();
+        SkillExpConfig skillExp = mock(SkillExpConfig.class);
+        when(skillExp.arsSmithingExpPerMaterial()).thenReturn(Map.of("IRON_INGOT", 8.0));
+        when(skillExp.smithingExpPerMaterial()).thenReturn(Map.of("IRON_INGOT", 999.0));
+        when(skillExp.useLevelExpMultiplier(SkillId.ARS_SMITHING, 0)).thenReturn(1.0);
+
+        ConfigManager config = mock(ConfigManager.class);
+        when(config.skillExp()).thenReturn(skillExp);
+        when(config.itemStats()).thenReturn(mock(ItemStatsConfig.class));
+        NativeExperienceDispatcher dispatcher = mock(NativeExperienceDispatcher.class);
+        TrinityForge tf = mock(TrinityForge.class);
+        when(tf.config()).thenReturn(config);
+        when(tf.experienceDispatcher()).thenReturn(dispatcher);
+        TrinityForgeSingletonTestSupport.set(tf);
+
+        ArsProgressionBridge.grantSmithingCraftExp(MockBukkit.createMockPlugin(), player,
+                new ItemStack(Material.BOOK), List.of("IRON_INGOT"));
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 8.0);
     }
 
     @Test
-    @DisplayName("allMaterialsListed は全カバーのときだけ true(空入力は false=定額へ倒す)")
-    void allMaterialsListedOnlyAcceptsFullCoverage() {
-        Map<String, Double> table = Map.of("IRON_INGOT", 8.0, "custom:source_gem", 20.0);
-        assertTrue(ArsProgressionBridge.allMaterialsListed(
-                List.of("IRON_INGOT", "custom:source_gem"), table));
-        assertFalse(ArsProgressionBridge.allMaterialsListed(
-                List.of("IRON_INGOT", "DIRT"), table));
-        assertFalse(ArsProgressionBridge.allMaterialsListed(List.of(), table));
-        assertFalse(ArsProgressionBridge.allMaterialsListed(List.of("IRON_INGOT"), Map.of()));
-    }
-
-    @Test
-    @DisplayName("素材を渡さない旧シグネチャは定額のまま(既存の呼び出し元を壊さない)")
-    void legacyCallSiteKeepsTheFlatAmount() {
+    @DisplayName("素材を渡さない旧シグネチャはEXPが付かない(定額が無いので素材ぶんも無い)")
+    void legacyCallSiteGrantsNothing() {
         PlayerMock player = server.addPlayer();
         NativeExperienceDispatcher dispatcher = stubTrinityForge(Map.of("IRON_INGOT", 8.0));
 
         ArsProgressionBridge.grantSmithingCraftExp(MockBukkit.createMockPlugin(), player,
                 new ItemStack(Material.BOOK));
 
-        verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
+        verify(dispatcher, never()).grant(any(), eq(SkillId.ARS_SMITHING), anyDouble());
     }
 
-    /** 定額100・use-level倍率1.0 の TF シングルトンを立てて dispatcher を返す。 */
+    /** 儀式専用の素材表 {@code perMaterial}・use-level倍率1.0 の TF シングルトンを立てる。 */
     private NativeExperienceDispatcher stubTrinityForge(Map<String, Double> perMaterial) {
         SkillExpConfig skillExp = mock(SkillExpConfig.class);
-        when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
-        when(skillExp.smithingExpPerMaterial()).thenReturn(perMaterial);
+        when(skillExp.arsSmithingExpPerMaterial()).thenReturn(perMaterial);
         when(skillExp.useLevelExpMultiplier(SkillId.ARS_SMITHING, 0)).thenReturn(1.0);
 
         ConfigManager config = mock(ConfigManager.class);

@@ -50,7 +50,8 @@ class ArsProgressionBridgeSmithingTest {
         result.setItemMeta(meta);
 
         SkillExpConfig skillExp = mock(SkillExpConfig.class);
-        when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
+        // 2026-08-17: 定額(ars-smithing.exp-per-craft)は廃止。基礎値は儀式専用の素材表から出す。
+        when(skillExp.arsSmithingExpPerMaterial()).thenReturn(java.util.Map.of("IRON_INGOT", 100.0));
         when(skillExp.useLevelExpMultiplier(SkillId.ARS_SMITHING, 55)).thenReturn(1.55);
 
         ItemStatsConfig itemStats = mock(ItemStatsConfig.class);
@@ -69,7 +70,7 @@ class ArsProgressionBridgeSmithingTest {
         TrinityForgeSingletonTestSupport.set(tf);
 
         ArsProgressionBridge.grantSmithingCraftExp(
-                MockBukkit.createMockPlugin(), player, result);
+                MockBukkit.createMockPlugin(), player, result, java.util.List.of("IRON_INGOT"));
 
         verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 155.0);
         verify(skillExp).useLevelExpMultiplier(SkillId.ARS_SMITHING, 55);
@@ -81,7 +82,7 @@ class ArsProgressionBridgeSmithingTest {
         ItemStack result = new ItemStack(Material.BOOK);
 
         SkillExpConfig skillExp = mock(SkillExpConfig.class);
-        when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
+        when(skillExp.arsSmithingExpPerMaterial()).thenReturn(java.util.Map.of("IRON_INGOT", 100.0));
         when(skillExp.useLevelExpMultiplier(SkillId.ARS_SMITHING, 0)).thenReturn(1.0);
         ItemStatsConfig itemStats = mock(ItemStatsConfig.class);
 
@@ -95,7 +96,7 @@ class ArsProgressionBridgeSmithingTest {
         TrinityForgeSingletonTestSupport.set(tf);
 
         ArsProgressionBridge.grantSmithingCraftExp(
-                MockBukkit.createMockPlugin(), player, result);
+                MockBukkit.createMockPlugin(), player, result, java.util.List.of("IRON_INGOT"));
 
         verify(dispatcher).grant(player.getUniqueId(), SkillId.ARS_SMITHING, 100.0);
     }

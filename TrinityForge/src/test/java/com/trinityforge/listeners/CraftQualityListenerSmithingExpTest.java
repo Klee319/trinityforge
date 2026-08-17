@@ -87,7 +87,10 @@ class CraftQualityListenerSmithingExpTest {
         // 2026-07-30: 素材別EXP表が空 = 従来の定額 exp-per-craft へフォールバックする既定。
         // 素材合計の挙動は smithingExpIsTheSumOfTheMaterialsOnTheGrid が別途検証する。
         when(skillExp.smithingExpPerMaterial()).thenReturn(java.util.Map.of());
-        when(skillExp.arsSmithingExpPerCraft()).thenReturn(100.0);
+        // 2026-08-17: Ars鍛冶の定額(ars-smithing.exp-per-craft)は機能ごと廃止したので、
+        // 基礎値は儀式/Ars専用の素材表から出す。以下の3素材で「1クラフト=100」になるよう組む。
+        when(skillExp.arsSmithingExpPerMaterial()).thenReturn(java.util.Map.of(
+                "IRON_INGOT", 100.0, "BOOK", 60.0, "AMETHYST_SHARD", 40.0));
         // 2026-07-28 使用可能レベル連動EXP: このテストは倍率の挙動自体を検証しないので、
         // 常に1.0(影響なし)を返すようスタブする(スタブが無いと Mockito のdouble既定値0.0が
         // 返り、amount<=0.0 で grantSkillExp が早期returnして「呼ばれない」誤検知になる)。
@@ -191,6 +194,8 @@ class CraftQualityListenerSmithingExpTest {
 
         CraftingInventory inventory = mock(CraftingInventory.class);
         when(inventory.getResult()).thenReturn(result);
+        // 基礎値は盤面の素材から出る(IRON_INGOT = 100)。
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{new ItemStack(Material.IRON_INGOT, 1)});
         CraftItemEvent event = mock(CraftItemEvent.class);
         when(event.getWhoClicked()).thenReturn(player);
         when(event.getInventory()).thenReturn(inventory);
@@ -292,6 +297,7 @@ class CraftQualityListenerSmithingExpTest {
 
         CraftingInventory inventory = mock(CraftingInventory.class);
         when(inventory.getResult()).thenReturn(result);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[]{new ItemStack(Material.IRON_INGOT, 1)});
         CraftItemEvent event = mock(CraftItemEvent.class);
         when(event.getWhoClicked()).thenReturn(player);
         when(event.getInventory()).thenReturn(inventory);

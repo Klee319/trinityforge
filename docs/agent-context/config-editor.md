@@ -390,24 +390,32 @@ quality-spread 専用フォーム)+ `split-views.js` の「スレッド」タブ
   editor がスキーマ検証も専用フォームも持たないまま黙って素通しする。専用UIを外しても
   「開いて保存しただけで消える」事故にはならない。
 
-## 「もう1つのカードでも同じ実体を編集させたい」ときは新セクションを作らず参照を渡す (2026-08-03)
+## 「2つのカードに同じ表を出す」は編集が漏れる ── 実体を分けるのが正解 (2026-08-03 → 2026-08-17 に方針転換)
 
-`skill-exp.yml` の Ars鍛冶(`ars-smithing`)カードは長らく `exp-per-craft` の定額表示のままだったが、
-Java側 (`ArsProgressionBridge#grantSmithingCraftExp`, 2026-08-01以降) は儀式経路でも
-`smithing.exp-per-material`(鍛冶カードの素材表)を読むよう変わっていた ── 消費素材が**全部**表に
-載っているときだけ合計値を使い、**1つでも表に無ければ** `ars-smithing.exp-per-craft` の定額に戻る。
-この種の「片方のカードの実装が先に進み、もう片方のカード表示が古いまま」を直すとき、
-`ars-smithing.exp-per-material` のような**新しいキーを作ってはいけない**(Javaが読まない死に設定になる)。
-正しい直し方は、Ars鍛冶カードの描画関数の中で `working.smithing["exp-per-material"]` への
-**直接参照**を `expMapEditor` に渡すこと。同一オブジェクト参照なので、どちらのカードで編集しても
-もう片方に即時反映される(浅いクローンを挟むとこの反映が壊れる、既知のWeakMap選択状態の罠と同根)。
-`working.smithing` や `exp-per-material` が存在しない場合は `ensureObj` で強制生成せず(lazy-touch)、
-編集不可の案内だけを出す ── ここで強制生成すると「Ars鍛冶カードを開いて保存しただけで
-`smithing: {}` が yml に生える」正規化ドリフト事故になる。実装は `public/js/tf-forms.js` の
-`buildSharedSmithingMaterialSection`。`lib/schema.js` 側は `exp-per-craft`/`exp-per-material` を
-セクション名に関係なく汎用検証しているため、この種の「表示だけ2箇所に出す」変更は `lib/` 側の
-ミラー更新が不要な数少ないケース(新しいYAMLキーを増やしていないため)。回帰テストは
-`test/ars-smithing-shared-material-2026-08-03.test.js`。
+**現在の正: Ars鍛冶(`ars-smithing`)と鍛冶(`smithing`)の素材別EXP表は別実体。**
+`skill-exp.yml` に `ars-smithing.exp-per-material` と `smithing.exp-per-material` が並んでおり、
+Java 側 (`SkillExpConfig#arsSmithingExpPerMaterial` / `#smithingExpPerMaterial`) が別々に読む。
+editor 側の特別扱いは無く、`scalarSectionBody` が `exp-per-material` を素材マップとして描くだけ
+(`MATERIAL_EXP_MAP_KEYS` にキー名が入っているため、セクションに置けば自動で表になる)。
+回帰テストは `test/ars-smithing-material-table-split-2026-08-17.test.js`。
+
+**なぜ方針転換したか(踏んだ罠)**: 2026-08-03 時点の Java は `smithing.exp-per-material` しか
+読まなかったので、Ars鍛冶カードには**鍛冶の表そのものへの参照**を渡していた
+(`buildSharedSmithingMaterialSection`、同一オブジェクト参照なので両カードに即時反映)。
+「Javaが読まないキーを editor から生やすな」という判断としては正しかったが、
+ユーザーから見ると**Ars用の値を直したつもりで通常鍛冶のEXPまで動く**ので実用にならなかった。
+2026-08-17 に Java 側を分離し、editor もそれに追随した。
+
+**残る教訓**: 「同じ実体を2画面に出す」のは、値の意味が本当に1つしかないときだけ。
+少しでも「片方だけ変えたい」が起きる設定は、**表示を共有するのではなく実体を分ける**。
+なお、実体を分けるときは `lib/schema.js` の検証がセクション名に依存していないか確認する
+(`exp-per-craft`/`exp-per-material` は汎用検証なので、新セクションに同名キーを置いても
+検証は自動で効き、`lib/` 側のミラー追加は要らなかった)。
+
+**廃止**: `ars-smithing.exp-per-craft`(素材表が引けないときの定額EXP)は 2026-08-17 に機能ごと削除。
+定額があると「1つでも表に無い素材があれば合計を捨てて定額へ戻す」全か無かの分岐が必要で、
+**素材を1つ足すとEXPが100分の1に落ちる**向きの不整合が出ていた(`binder_spear` が 100 → 1)。
+古い yml に行が残っている環境向けに、editor はこの欄を「【廃止】読まれません」と表示する。
 
 ## レイアウト: `.main` のあふれは「スクロール」ではなく「クリップ」（2026-08-04）
 

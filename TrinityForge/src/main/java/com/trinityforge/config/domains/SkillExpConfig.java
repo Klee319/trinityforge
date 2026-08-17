@@ -24,7 +24,17 @@ public final class SkillExpConfig {
     /** タスク1: 採取EXPの算出方式({@code gathering.exp-mode})。 */
     public enum GatheringExpMode { DROP_SUM, BLOCK_VALUE, MAX }
 
-    private volatile double arsSmithingExpPerCraft = 10.0;
+    // ⚠️ 2026-08-17 (ユーザー確定): ars-smithing.exp-per-craft(素材表が引けないときの定額EXP)は
+    // 機能ごと削除した。儀式EXPは「消費ソースに応じた基礎値 + 通常鍛冶と同様の素材ぶん」で決まる。
+    // 定額があったせいで「素材表に無い素材が1つでも混ざると合計を捨てて定額へ戻す」という
+    // 全か無かの分岐が必要で、素材を1つ足すとEXPが100分の1に落ちる向きの不整合が実際に出ていた。
+    // 定額を消すと部分カバーは「その素材ぶんが乗らないだけ」の単調な挙動になり、分岐自体が要らなくなる。
+    //
+    // 2026-08-17 (ユーザー確定「editorで鍛冶EXP素材リストがArsと通常鍛冶で同期される => 分離」):
+    // 儀式は儀式専用の表を引く。作業台の smithing.exp-per-material とは別の表なので、
+    // editor で片方を編集してももう片方は動かない。出荷値は分離時点で同一なので、
+    // 分離そのものによる挙動変化は無い。
+    private volatile Map<String, Double> arsSmithingExpPerMaterial = Map.of();
     // 2026-08-04: 儀式で実際に消費したソース量に比例した追加EXP({@code ars-smithing.exp-per-source})。
     // 素材表/定額で決まる base に「消費ソース量 × この値」を足し込む(別付与にはしない — 別々に
     // grantSkillExp すると逓減の窓が2回進み、素材由来ぶんと合わせた総量が読めなくなる)。
@@ -129,16 +139,26 @@ public final class SkillExpConfig {
     private volatile double useLevelScalingMaxMultiplier = 3.0;
     private volatile Map<String, Double> useLevelScalingPerLevel = Map.of();
 
-    /** ARS_SMITHING experience granted when a player crafts Ars gear (the custom skill's EXP source). */
-    public double arsSmithingExpPerCraft() {
-        return arsSmithingExpPerCraft;
+    /**
+     * {@code ars-smithing.exp-per-material}: <b>儀式で消費した素材1個あたり</b>の ARS_SMITHING EXP
+     * (2026-08-17 ユーザー確定「editor で鍛冶EXP素材リストが Ars と通常鍛冶で同期される => 分離」)。
+     *
+     * <p>キーの語彙は作業台側 {@link #smithingExpPerMaterial()} と同じ(バニラは Material 名、
+     * TF カタログ品と ArsPaper のカスタム品は {@code custom:<id>})だが、<b>表そのものは別</b>。
+     * editor で片方を編集してももう片方は動かない。
+     *
+     * <p><b>表に無い素材は 0</b>(未設定=無報酬)。定額へのフォールバックは無い —
+     * {@code ars-smithing.exp-per-craft} は 2026-08-17 に機能ごと削除した。
+     */
+    public Map<String, Double> arsSmithingExpPerMaterial() {
+        return arsSmithingExpPerMaterial;
     }
 
     /**
-     * 儀式で消費したソース1あたりの追加 ARS_SMITHING EXP。0.0 = ソースを加味しない(既定)。
+     * 儀式で消費したソース1あたりの ARS_SMITHING EXP。0.0 = ソースを加味しない。
      *
-     * <p>素材表({@link #smithingExpPerMaterial()})や定額({@link #arsSmithingExpPerCraft()})で
-     * 決まった base に足し込む形で使う。ソース要求量は儀式の階梯とともに桁で増えるので、
+     * <p>2026-08-17 以降、儀式EXPは<b>「消費ソースぶん + 素材表ぶん」の2項だけ</b>で決まる
+     * (定額のフォールバックは削除済み)。ソース要求量は儀式の階梯とともに桁で増えるので、
      * 大きな値を入れると上位儀式1回で最大レベルに届く点に注意。
      */
     public double arsSmithingExpPerSource() {
@@ -170,9 +190,13 @@ public final class SkillExpConfig {
      * SMITHING experience granted when a player crafts weapon/armor/tool equipment (PRG-13: the sole
      * SMITHING EXP source since the durability-based grant was removed).
      *
-     * <p>2026-07-30 以降は {@link #smithingExpPerMaterial()} が非空ならそちらが優先され、この定額は
-     * <b>素材表が未設定のときのフォールバック</b>としてのみ使われる(jar だけ更新して yml を
-     * 書いていないサーバで鍛冶EXPが丸ごと0になるのを防ぐため)。
+     * <p><b>この定額と {@link #smithingExpPerMaterial()} は加算</b>(2026-08-17 に確定。
+     * 実測報告「1つで15+素材分のはず」がそのまま仕様)。つまり1クラフトのEXPは
+     * {@code exp-per-craft + 盤面の素材ぶんの合計}。表が空でも定額ぶんは入るので、
+     * jar だけ更新して yml を書いていないサーバでも鍛冶EXPが0にはならない。
+     *
+     * <p>⚠️ Ars鍛冶側には対応する定額が無い({@code ars-smithing.exp-per-craft} は
+     * 2026-08-17 に機能ごと削除)。両者を同じ形だと思って書くと片方が壊れる。
      */
     public double smithingExpPerCraft() {
         return smithingExpPerCraft;
@@ -184,7 +208,10 @@ public final class SkillExpConfig {
      *
      * <p>キーは素材トークン: バニラは Material 名({@code IRON_INGOT})、TFカタログ品は
      * {@code custom:<catalogId>}。<b>表に無い素材は 0</b>(未設定=無報酬)。
-     * 表が空の場合だけ従来の定額 {@link #smithingExpPerCraft()} にフォールバックする。
+     * 合計は定額 {@link #smithingExpPerCraft()} に<b>足される</b>(フォールバックではない)。
+     *
+     * <p>⚠️ 儀式/Ars作業台の表は別物({@link #arsSmithingExpPerMaterial()})。2026-08-17 まで
+     * この表を共用していたので、editor で通常鍛冶の素材リストを編集すると Ars 側まで動いていた。
      *
      * <p>付与は「完成品に使用可能レベルが設定されているとき」に限る({@code CraftQualityListener})
      * — 解体で素材へ戻せるアイテムを延々と作り直す EXP 稼ぎを塞ぐため。
@@ -486,7 +513,8 @@ public final class SkillExpConfig {
      * 受け取りにして分離してある。
      */
     void applyFrom(org.bukkit.configuration.ConfigurationSection yaml, Logger log) {
-        this.arsSmithingExpPerCraft = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-craft", 10.0));
+        // ars-smithing.exp-per-craft(定額)は 2026-08-17 に機能ごと削除。yml に残っていても読まない。
+        this.arsSmithingExpPerMaterial = readMaterialTokenMap(yaml, "ars-smithing.exp-per-material");
         this.arsSmithingExpPerSource = Math.max(0.0, yaml.getDouble("ars-smithing.exp-per-source", 0.0));
         // 0 以下は 1 に丸める。0 を許すと「0レベルごとに1点」でゼロ除算、負を許すとポイントが
         // レベルとともに減る意味不明な挙動になるため、どちらも設定ミスとして 1 扱いにする。

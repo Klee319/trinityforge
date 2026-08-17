@@ -44,12 +44,283 @@ power:
   # reload の中の再計算処理だけで、ログインでは走らない(打たないと次のレベルアップまで旧残高のまま)。
   levels-per-skill-point: 1
 ars-smithing:
-  exp-per-craft: 100
   # 儀式で実際に消費したソース1あたりの追加EXP。0 = ソースを加味しない。
-  # 素材表(smithing.exp-per-material)または上の定額で決まった値に「消費ソース量 × この値」を足す。
+  # 下の exp-per-material の合計に「消費ソース量 × この値」を足したものが儀式1回のEXP。
   # ⚠️ ソース要求量は階梯とともに桁で増える(ソースの欠片100 → 無限のソース核45,000,000)ので、
   # 1.0 のような値を入れると上位儀式1回で最大レベルに届く。0.001 程度から様子を見ること。
   exp-per-source: 0.01
+  # 儀式・Ars作業台で消費した素材1個あたりのEXP。表に無い素材は 0(＝その素材ぶんが乗らないだけ)。
+  #
+  # ⚠️ この表は通常鍛冶(smithing.exp-per-material)とは【別物】。2026-08-17 に分離した
+  #    ―― それまで共用だったので、editor で通常鍛冶の素材リストを編集すると Ars 側の
+  #    儀式EXPまで一緒に動いていた。初期値は分離時点の通常鍛冶の表の複製なので、
+  #    以後はどちらか片方だけ編集して構わない。
+  #
+  # ⚠️ 定額 exp-per-craft は 2026-08-17 に機能ごと廃止した(書いても読まれない)。
+  #    定額があった間は「1つでも表に無い素材があれば合計を捨てて定額へ戻す」という
+  #    全か無かの分岐が必要で、素材を1つ足すとEXPが100分の1に落ちる向きの不整合が出ていた。
+  #    いまは「消費ソースぶん + この表の合計」の2項だけで決まる。
+  #
+  # キーの語彙: バニラは Material 名 / カスタム品は custom:<id>(大小を潰さない)。
+  # 圧縮素材(custom:<id>_Nx)は 0。圧縮するだけでEXPが増える経路を作らないため(J-12)。
+  exp-per-material:
+    STICK: 0.5
+    OAK_PLANKS: 1
+    SPRUCE_PLANKS: 1
+    BIRCH_PLANKS: 1
+    JUNGLE_PLANKS: 1
+    ACACIA_PLANKS: 1
+    DARK_OAK_PLANKS: 1
+    MANGROVE_PLANKS: 1
+    CHERRY_PLANKS: 1
+    PALE_OAK_PLANKS: 1
+    BAMBOO_PLANKS: 1
+    CRIMSON_PLANKS: 1
+    WARPED_PLANKS: 1
+    STRING: 1
+    LEATHER: 3
+    COBBLESTONE: 1.5
+    STONE: 1.5
+    COBBLED_DEEPSLATE: 2
+    DEEPSLATE: 2
+    BLACKSTONE: 2
+    COPPER_INGOT: 4
+    IRON_INGOT: 8
+    GOLD_INGOT: 8
+    AMETHYST_SHARD: 6
+    DIAMOND: 25
+    NETHERITE_SCRAP: 30
+    NETHERITE_INGOT: 120
+    BLAZE_ROD: 8
+    BREEZE_ROD: 20
+    PHANTOM_MEMBRANE: 6
+    PRISMARINE_SHARD: 4
+    PRISMARINE_CRYSTALS: 5
+    SHULKER_SHELL: 20
+    ECHO_SHARD: 30
+    HEART_OF_THE_SEA: 60
+    NETHER_STAR: 200
+    # 2026-08-03: 賢者(Lv80)の儀式で使うので追加。エンドラ討伐が要る＝BREEZE_ROD より上、
+    # ECHO_SHARD(深層都市の探索)と同格に置いている。
+    DRAGON_BREATH: 30
+    custom:stone_2x: 0
+    custom:netherrack_2x: 0
+    custom:thread_empty: 4
+    custom:magebloom_fiber: 8
+    custom:reinforced_fiber: 10
+    custom:wither_rose_1x: 0
+    custom:amethyst_block_2x: 0
+    custom:reinforced_leather: 12
+    custom:blaze_rod_2x: 0
+    custom:source_gem: 20
+    custom:shulker_shell_1x: 0
+    custom:blaze_rod_3x: 0
+    custom:dragon_breath_3x: 0
+    custom:breeze_rod_2x: 0
+    custom:shulker_shell_2x: 0
+    custom:hard_metal: 40
+    custom:heavy_metal: 40
+    custom:elder_guardian_spike: 40
+    custom:bogged_mossy_bone: 20
+    custom:guardian_spine: 20
+    custom:hoglin_fang: 20
+    custom:parched_sandy_bone: 20
+    custom:piglin_ear: 20
+    custom:witch_elixir: 20
+    # 2026-08-14: スレッド儀式10本で消費するので追加。同格の討伐素材(bogged_mossy_bone /
+    # guardian_spine / hoglin_fang / parched_sandy_bone / piglin_ear / witch_elixir)に合わせて 20。
+    # ⚠ ravager_hide / pillager_plate は thread_hit_mana_recovery、endermite_soot は
+    #    thread_night_vision、stray_cloth は thread_speed が要求する。1行でも欠けると
+    #    ArsProgressionBridge#grantSmithingCraftExp が素材合計を捨てて定額100へ落ちる。
+    custom:ravager_hide: 20
+    custom:pillager_plate: 20
+    custom:endermite_soot: 20
+    custom:stray_cloth: 20
+    # 下の3種は今回のスレッド儀式では使わないが、討伐素材カテゴリ(collection.yml の mob_parts)の
+    # 残りで表から抜けていた分。フィールドドロップが配線されれば儀式素材になり得るので、
+    # 「使い始めた瞬間に定額EXPへ落ちる」穴を先に塞いでおく。値は同格に合わせて 20。
+    custom:husk_cloth: 20
+    custom:piglin_brute_plate: 20
+    custom:skeleton_horse_bone: 20
+    custom:wither_skull_fragment: 40
+    custom:core_jewelry: 5000
+    custom:dragon_scale: 80
+    custom:warden_tendril: 90
+    custom:source_gem_block: 180
+    custom:diamond_block_2x: 0
+    custom:dragon_breath_2x: 0
+    custom:gold_block_2x: 0
+    custom:iron_block_2x: 0
+    # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
+    # ⚠️ 行を消してはいけない。ArsProgressionBridge#grantSmithingCraftExp は消費素材が1つでも
+    #    表に無いと素材合計を丸ごと捨てて ars-smithing.exp-per-craft の定額(100)へ戻すので、
+    #    行を消すと「EXPなし」ではなく「素材価値と無関係な定額EXP」になり意図と逆になる。
+    #    0 と書くことで「この素材は数えるが価値ゼロ」を表現している。
+    # ⚠️ 圧縮素材を新設したら必ずここへ 0 の行を足すこと
+    #    (ShippedRitualMaterialExpCoverageTest が落ちて気づけるようにはなっている)。
+    LAPIS_LAZULI: 1
+    LAPIS_BLOCK: 9
+    REDSTONE: 1
+    REDSTONE_BLOCK: 9
+    QUARTZ: 2
+    QUARTZ_BLOCK: 8
+    EMERALD: 10
+    EMERALD_BLOCK: 90
+    IRON_BLOCK: 72
+    GOLD_BLOCK: 72
+    DIAMOND_BLOCK: 225
+    NETHERITE_BLOCK: 1080
+    WHEAT: 1
+    HAY_BLOCK: 9
+    WHITE_WOOL: 4
+    FEATHER: 1
+    FLINT: 2
+    SUGAR: 0.5
+    SLIME_BALL: 2
+    GLOWSTONE_DUST: 2
+    BLAZE_POWDER: 4
+    MAGMA_CREAM: 6
+    PUFFERFISH: 4
+    GOLDEN_CARROT: 10
+    GOLDEN_APPLE: 72
+    RABBIT_FOOT: 8
+    CHEST: 8
+    TRIPWIRE_HOOK: 5
+    SHIELD: 20
+    ENDER_PEARL: 5
+    CHORUS_FRUIT: 4
+    ENDER_EYE: 10
+    ENDER_CHEST: 90
+    CRYING_OBSIDIAN: 12
+    GHAST_TEAR: 20
+    END_CRYSTAL: 90
+    SEA_LANTERN: 25
+    NAUTILUS_SHELL: 20
+    TOTEM_OF_UNDYING: 200
+    ELYTRA: 250
+    HEAVY_CORE: 150
+    DRAGON_EGG: 300
+    IRON_HELMET: 40
+    IRON_CHESTPLATE: 64
+    IRON_LEGGINGS: 56
+    IRON_BOOTS: 32
+    GOLDEN_HELMET: 40
+    GOLDEN_CHESTPLATE: 64
+    GOLDEN_LEGGINGS: 56
+    GOLDEN_BOOTS: 32
+    DIAMOND_HELMET: 125
+    DIAMOND_CHESTPLATE: 200
+    DIAMOND_LEGGINGS: 175
+    DIAMOND_BOOTS: 100
+    OAK_LOG: 4
+    ACACIA_LOG: 4
+    BIRCH_LOG: 4
+    CHERRY_LOG: 4
+    CRIMSON_STEM: 4
+    DARK_OAK_LOG: 4
+    JUNGLE_LOG: 4
+    MANGROVE_LOG: 4
+    PALE_OAK_LOG: 4
+    SPRUCE_LOG: 4
+    WARPED_STEM: 4
+    PAPER: 0.5
+    BOOK: 2
+    NAME_TAG: 8
+    TURTLE_EGG: 6
+    OCHRE_FROGLIGHT: 12
+    PEARLESCENT_FROGLIGHT: 12
+    VERDANT_FROGLIGHT: 12
+    COOKED_BEEF: 4
+    DIRT: 0.5
+    custom:core_wood: 5000
+    custom:core_meat: 5000
+    custom:core_vegetable: 5000
+    custom:core_ground: 5000
+    custom:stone_5x: 0
+    custom:wither_rose_2x: 0
+    custom:breeze_rod_3x: 0
+    custom:emerald_block_4x: 0
+    custom:netherite_block_1x: 0
+    custom:echo_shard_2x: 0
+    custom:abyssal_ingot: 250
+    custom:dungeon_seal_binder: 300
+    custom:reality_thread_core: 350
+    custom:binder_fragment: 400
+    custom:spell_book_novice: 40
+    custom:spell_book_apprentice: 80
+    custom:mage_arcane_novice_helmet: 60
+    custom:mage_arcane_novice_chestplate: 90
+    custom:mage_arcane_novice_leggings: 80
+    custom:mage_arcane_novice_boots: 50
+    custom:mage_arcane_apprentice_helmet: 120
+    custom:mage_arcane_apprentice_chestplate: 180
+    custom:mage_arcane_apprentice_leggings: 160
+    custom:mage_arcane_apprentice_boots: 100
+    # 2026-08-09: 魔導シリーズの大魔導士がこの表から丸ごと抜けていた(魔織・守護には 240/360/320/200 が
+    # ある)。賢者/星詠みを足すのに合わせて、EXPが 0 -> 480 と飛ぶ穴を埋める。値は他2シリーズと同一。
+    custom:mage_arcane_archmage_helmet: 240
+    custom:mage_arcane_archmage_chestplate: 360
+    custom:mage_arcane_archmage_leggings: 320
+    custom:mage_arcane_archmage_boots: 200
+    custom:mage_arcane_sage_helmet: 480
+    custom:mage_arcane_sage_chestplate: 720
+    custom:mage_arcane_sage_leggings: 640
+    custom:mage_arcane_sage_boots: 400
+    custom:mage_arcane_starseer_helmet: 960
+    custom:mage_arcane_starseer_chestplate: 1440
+    custom:mage_arcane_starseer_leggings: 1280
+    custom:mage_arcane_starseer_boots: 800
+    custom:mage_weaver_novice_helmet: 60
+    custom:mage_weaver_novice_chestplate: 90
+    custom:mage_weaver_novice_leggings: 80
+    custom:mage_weaver_novice_boots: 50
+    custom:mage_weaver_apprentice_helmet: 120
+    custom:mage_weaver_apprentice_chestplate: 180
+    custom:mage_weaver_apprentice_leggings: 160
+    custom:mage_weaver_apprentice_boots: 100
+    custom:mage_guardian_novice_helmet: 60
+    custom:mage_guardian_novice_chestplate: 90
+    custom:mage_guardian_novice_leggings: 80
+    custom:mage_guardian_novice_boots: 50
+    custom:mage_guardian_apprentice_helmet: 120
+    custom:mage_guardian_apprentice_chestplate: 180
+    custom:mage_guardian_apprentice_leggings: 160
+    custom:mage_guardian_apprentice_boots: 100
+    # 2026-08-03: 大魔導士(Lv60)以上が表に無く、儀式で作っても魔法EXPが0だった。
+    # 賢者(Lv80)/星詠み(Lv100)を追加するにあたり、段ごとに倍増する形で大魔導士から埋めている。
+    # mage_arcane_* は catalog.yml に定義が無い(CMDとステだけ残った未配線シリーズ)ので載せない。
+    custom:mage_weaver_archmage_helmet: 240
+    custom:mage_weaver_archmage_chestplate: 360
+    custom:mage_weaver_archmage_leggings: 320
+    custom:mage_weaver_archmage_boots: 200
+    custom:mage_weaver_sage_helmet: 480
+    custom:mage_weaver_sage_chestplate: 720
+    custom:mage_weaver_sage_leggings: 640
+    custom:mage_weaver_sage_boots: 400
+    custom:mage_weaver_starseer_helmet: 960
+    custom:mage_weaver_starseer_chestplate: 1440
+    custom:mage_weaver_starseer_leggings: 1280
+    custom:mage_weaver_starseer_boots: 800
+    custom:mage_guardian_archmage_helmet: 240
+    custom:mage_guardian_archmage_chestplate: 360
+    custom:mage_guardian_archmage_leggings: 320
+    custom:mage_guardian_archmage_boots: 200
+    custom:mage_guardian_sage_helmet: 480
+    custom:mage_guardian_sage_chestplate: 720
+    custom:mage_guardian_sage_leggings: 640
+    custom:mage_guardian_sage_boots: 400
+    custom:mage_guardian_starseer_helmet: 960
+    custom:mage_guardian_starseer_chestplate: 1440
+    custom:mage_guardian_starseer_leggings: 1280
+    custom:mage_guardian_starseer_boots: 800
+    # 2026-08-17: 儀式で消費するのに表に無かった素材(ShippedRitualMaterialExpCoverageTest が検出)。
+    # 圧縮素材(_Nx)は J-12 の規約どおり 0。
+    custom:oak_wood_2x: 0
+    custom:cod_2x: 0
+    custom:hay_block_2x: 0
+    # 一般的なモブドロップ / 松明。LEATHER(3) より安い帯に置く。
+    SPIDER_EYE: 2
+    TORCH: 1
 smithing:
   exp-per-craft: 15
   exp-per-material:

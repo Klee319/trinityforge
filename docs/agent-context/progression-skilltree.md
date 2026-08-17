@@ -723,11 +723,18 @@ TF/フォーク境界の`catch (Throwable)`を新設・変更するときは、�
 ### `items/catalog.yml` は儀式レシピを2種類のキーで書ける（`recipe:`単数 と `recipes:`複数）
 
 両方とも`ItemTemplate#recipes()`（TF側）に統合され、`CatalogRitualRegistrar`/`RitualManager`
-（フォーク側）から見て完全に同じ扱いになる。**しかし`ShippedRitualMaterialExpCoverageTest`
-（`smithing.exp-per-material`の網羅性を固定するテスト）は単数`.recipe`キーしか走査しない**ため、
-`recipes:`（複数、主にスレッド`thread_*`40件が使用）の消費素材は網羅チェックの対象外——
-表に無い素材があっても警告も落ちるテストも無い。儀式のカバレッジ関連テストを触るときは、
+（フォーク側）から見て完全に同じ扱いになる。**片方だけを走査するコードを書くとアイテムごと
+取りこぼす**のがこのキーの罠で、実際に`ShippedRitualMaterialExpCoverageTest`
+（儀式素材の網羅性を固定するテスト）が単数`.recipe`しか見ておらず、`recipes:`側
+（主にスレッド`thread_*`40件）の消費素材が丸ごと検査対象外だった時期がある（現在は両方走査し、
+それ自体をfixtureで固定している）。儀式のカバレッジ関連テストを触るときは、
 この2キーが両方とも実際に登録される点を踏まえること（`ItemTemplate`のjavadocに明記あり）。
+
+なお、そのテストが見る表は **2026-08-17 以降 `ars-smithing.exp-per-material`**（儀式専用）。
+それまでは作業台と同じ`smithing.exp-per-material`を共用していたが、editorで通常鍛冶の素材リストを
+編集すると儀式EXPまで動いてしまうため分離した。同時に`ars-smithing.exp-per-craft`（定額）を
+機能ごと廃止したので、**表に無い素材は「その素材ぶんが乗らないだけ」**（以前は合計を丸ごと捨てて
+定額へ跳ね上がった）。
 
 ### `getItemInMainHand()`は空スロットでも`null`でなく`AIR`の`ItemStack`(既定amount=1)を返す
 

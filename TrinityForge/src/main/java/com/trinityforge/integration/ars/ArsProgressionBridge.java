@@ -59,25 +59,23 @@ public final class ArsProgressionBridge {
      * ({@link com.trinityforge.listeners.CraftQualityListener})にしか繋がっていなかった。
      * そのため「ネザライト級の素材を溶かす儀式」も「石を並べる儀式」も同じEXPだった。
      *
-     * <p><b>表は作業台と共用する</b>。素材1個あたりの価値を2箇所で二重管理すると必ずずれるため、
-     * 儀式専用の表は<b>作らない</b>。トークンの語彙も同じ({@code IRON_INGOT} / {@code custom:<id>})。
+     * <p><b>表は儀式専用</b>({@code ars-smithing.exp-per-material})。2026-08-17 まで作業台の
+     * {@code smithing.exp-per-material} を共用していたが、editor で通常鍛冶の素材リストを
+     * 編集すると Ars 側のEXPまで動いてしまうため分離した。トークンの語彙は同じ
+     * ({@code IRON_INGOT} / {@code custom:<id>})。
      *
-     * <p><b>1つでも表に無い素材があれば定額へ戻す</b>(2026-08-02 修正)。作業台経路では
-     * 「表に無い素材は無報酬」が解体ループ対策のゲートとして意図的だが、儀式素材は Ars 側の
-     * materials.yml 由来のものが多く、表に無いだけで儀式EXPが丸ごと消えると
-     * 「jarだけ新しいサーバで儀式が無報酬になる」回帰になる。
-     *
-     * <p>ここで<b>「合計が0のときだけ定額」にしてはいけない</b>。表を部分的にしか引けないと
-     * 「表に載っている安い素材ぶんだけ」が合計になり、<b>素材を1つ足すとEXPが100分の1に落ちる</b>
-     * という向きの不整合が出る(実際、この規則で {@code binder_spear} が 100 → 1 になっていた。
-     * 同格の {@code binder_sword} は全素材が表に無いおかげで 100 のまま、という食い違い)。
-     * 部分カバーは「表が未整備」と同じ状態なので、<b>全素材が引けたときだけ</b>合計を信用する。
+     * <p><b>定額へのフォールバックは無い</b>(2026-08-17 に {@code ars-smithing.exp-per-craft} を
+     * 機能ごと廃止)。定額があった間は「1つでも表に無い素材があれば合計を捨てて定額へ戻す」という
+     * 全か無かの分岐が必要で、そのせいで<b>素材を1つ足すとEXPが100分の1に落ちる</b>向きの
+     * 不整合が実際に出ていた({@code binder_spear} が 100 → 1。同格の {@code binder_sword} は
+     * 全素材が表に無いおかげで 100 のまま、という食い違い)。定額が無ければ部分カバーは
+     * 「その素材ぶんが乗らないだけ」の単調な挙動になるので、分岐そのものが不要になる。
      *
      * <p>出荷データが常に全カバーであることは
      * {@code ShippedRitualMaterialExpCoverageTest} が保証する。
      *
      * @param materialTokens 消費した素材のトークン({@code IRON_INGOT} / {@code custom:<id>})。
-     *                       1個につき1要素(同じ素材2個なら2要素)。空なら定額のまま。
+     *                       1個につき1要素(同じ素材2個なら2要素)。空なら素材ぶんは 0。
      */
     public static void grantSmithingCraftExp(Plugin plugin, Player player, ItemStack result,
                                              Collection<String> materialTokens) {
@@ -102,11 +100,16 @@ public final class ArsProgressionBridge {
             return;
         }
         SkillExpConfig skillExp = tf.config().skillExp();
-        double fromMaterials = sumMaterialExp(materialTokens, skillExp.smithingExpPerMaterial());
-        boolean covered = allMaterialsListed(materialTokens, skillExp.smithingExpPerMaterial());
-        double base = covered && fromMaterials > 0.0
-                ? fromMaterials
-                : skillExp.arsSmithingExpPerCraft();
+        // ⚠️ 2026-08-17 (ユーザー確定): 表は【儀式専用の ars-smithing.exp-per-material】を引く。
+        // 以前は作業台と同じ smithing.exp-per-material を共用していたので、editor で通常鍛冶の
+        // 素材リストを編集すると Ars 側まで動いていた。
+        //
+        // 定額(ars-smithing.exp-per-craft)へのフォールバックも同時に廃止した。定額があったせいで
+        // 「1つでも表に無い素材があれば合計を捨てて定額へ戻す」という全か無かの分岐が必要で、
+        // 素材を1つ足すとEXPが100分の1に落ちる向きの不整合が実際に出ていた(binder_spear 100→1)。
+        // 定額が無ければ部分カバーは「その素材ぶんが乗らないだけ」の単調な挙動になるので、
+        // 分岐そのものが不要になる。儀式EXPは「消費ソースぶん + 素材ぶん」の2項だけで決まる。
+        double base = sumMaterialExp(materialTokens, skillExp.arsSmithingExpPerMaterial());
         base += sourceExp(consumedSource, skillExp.arsSmithingExpPerSource());
         grantSmithingExpForResult(plugin, player, result, base);
     }
@@ -141,28 +144,6 @@ public final class ArsProgressionBridge {
             }
         }
         return total;
-    }
-
-    /**
-     * 消費素材が<b>1つ残らず</b>表に載っているか。空のトークン列・空の表はいずれも false
-     * (＝合計を信用せず定額へ戻す)。
-     */
-    public static boolean allMaterialsListed(Collection<String> materialTokens,
-                                             Map<String, Double> perMaterial) {
-        if (materialTokens == null || materialTokens.isEmpty()
-                || perMaterial == null || perMaterial.isEmpty()) {
-            return false;
-        }
-        boolean sawToken = false;
-        for (String token : materialTokens) {
-            if (token == null || token.isBlank()) continue;
-            sawToken = true;
-            Double value = perMaterial.get(SkillExpConfig.normalizeMaterialToken(token));
-            if (value == null || !Double.isFinite(value)) {
-                return false;
-            }
-        }
-        return sawToken;
     }
 
     /**

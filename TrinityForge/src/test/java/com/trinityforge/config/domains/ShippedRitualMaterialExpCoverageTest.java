@@ -23,22 +23,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 出荷 {@code items/catalog.yml} の儀式レシピが消費する素材が
- * <b>1つ残らず {@code stats/skill-exp.yml} の {@code smithing.exp-per-material} に載っている</b>
- * ことを固定する（2026-08-02）。
+ * <b>1つ残らず {@code stats/skill-exp.yml} の {@code ars-smithing.exp-per-material} に載っている</b>
+ * ことを固定する（2026-08-02、表の分離にあわせて 2026-08-17 に参照先を変更）。
  *
  * <p><b>なぜ全カバーが要るか（実装事実）</b>:
  * {@link com.trinityforge.integration.ars.ArsProgressionBridge#grantSmithingCraftExp} は
- * 消費素材を上の表で合計した値を鍛冶EXPにするが、<b>1つでも表に無い素材があれば</b>
- * 合計を信用せず {@code ars-smithing.exp-per-craft} の定額へ戻す。
- * よって行が欠けたレシピは「素材価値と無関係な定額」に落ちる——
+ * 儀式EXPを「消費ソースぶん ＋ 上の表で引いた素材ぶんの合計」で決める。
+ * 行が欠けた素材は<b>0として黙って積まれる</b>ので、そのレシピだけEXPが目減りする——
  * <b>警告もエラーも出ないので、EXP を見比べない限り気づけない</b>。
+ *
+ * <p><b>表が2本ある理由</b>: 2026-08-17 まで儀式は作業台と同じ
+ * {@code smithing.exp-per-material} を共用していたため、editor で通常鍛冶の素材リストを
+ * 編集すると儀式EXPまで一緒に動いていた。分離後の初期値は分離時点の通常鍛冶の表の複製。
  *
  * <p><b>実際に踏んだ規模</b>: 導入直後（2026-08-01）は表に儀式素材の行が1つも無く、
  * 当時の「合計が0のときだけ定額」という規則と噛み合って
  * <b>121件中57件が定額100より下へ落ちていた</b>。最悪の例が {@code binder_spear}
  * （source 60,000 の最上位武器なのに <b>1 EXP</b>）で、同格の {@code binder_sword} は
  * 全素材が表に無いおかげで 100 のまま——<b>安い素材を1つ足すとEXPが100分の1になる</b>
- * という向きの不整合だった。規則を「全カバーのときだけ合計」に変え、表を埋めて解消してある。
+ * という向きの不整合だった。定額そのものを 2026-08-17 に廃止したのでこの分岐は消えたが、
+ * 「行が無い素材はEXPが乗らない」ことは変わらないので、全カバーは引き続き要る。
  *
  * <p>このテストは<b>値の妥当性は見ない</b>（バランスは設計判断なので固定しない）。
  * 見るのは「引けるかどうか」だけ。
@@ -61,7 +65,7 @@ class ShippedRitualMaterialExpCoverageTest {
     }
 
     @Test
-    @DisplayName("儀式レシピの消費素材は全て smithing.exp-per-material に載っている(1つ欠けると定額へ落ちる)")
+    @DisplayName("儀式レシピの消費素材は全て ars-smithing.exp-per-material に載っている(欠けた素材は0で積まれる)")
     void everyRitualMaterialHasAnExpRow() {
         Set<String> table = loadMaterialTableKeys();
         Scan scan = scan(table, loadCatalogItems());
@@ -85,12 +89,12 @@ class ShippedRitualMaterialExpCoverageTest {
         });
 
         throw new AssertionError(
-                "儀式で消費するのに smithing.exp-per-material に行が無い素材が "
+                "儀式で消費するのに ars-smithing.exp-per-material に行が無い素材が "
                         + scan.missing().size() + " 種類ある(影響する儀式レシピ " + affected.size() + " 件)。"
-                        + "ArsProgressionBridge#grantSmithingCraftExp は1つでも引けないと"
-                        + "素材合計を捨てて ars-smithing.exp-per-craft の定額へ戻すので、"
-                        + "これらのレシピは素材価値と無関係な固定EXPになる。"
-                        + "skill-exp.yml に行を足すこと(値の目安はファイル内のコメント参照)。"
+                        + "ArsProgressionBridge#grantSmithingCraftExp は表に無い素材を 0 として積むので、"
+                        + "これらのレシピは素材価値ぶんのEXPを取りこぼす(無言)。"
+                        + "skill-exp.yml の ars-smithing.exp-per-material に行を足すこと"
+                        + "(値の目安はファイル内のコメント参照。通常鍛冶の smithing.exp-per-material とは別表)。"
                         + message);
     }
 
@@ -117,8 +121,8 @@ class ShippedRitualMaterialExpCoverageTest {
                         + "このままだと2本目を足したレシピが検査対象から丸ごと外れる");
         assertEquals(Set.of("GOLD_INGOT", "custom:uncovered_material"), scan.missing().keySet(),
                 "recipes: 側の儀式が使う「表に無い素材」が検出されていない。"
-                        + "検出されなければ ArsProgressionBridge が鍛冶EXPを定額へ落とすのに"
-                        + "誰も気づけない。実際の検出結果: " + scan.missing());
+                        + "検出されなければ ArsProgressionBridge がその素材ぶんのEXPを"
+                        + "無言で落とすのに誰も気づけない。実際の検出結果: " + scan.missing());
     }
 
     // ------------------------------------------------------------------------------------------
@@ -240,9 +244,11 @@ class ShippedRitualMaterialExpCoverageTest {
     private static Set<String> loadMaterialTableKeys() {
         File file = new File(SKILL_EXP);
         assertTrue(file.isFile(), "出荷 skill-exp.yml が見つからない: " + file.getAbsolutePath());
+        // 2026-08-17: 儀式が読むのは【儀式専用】の表。通常鍛冶の smithing.exp-per-material を
+        // 見に行くとここが緑のまま儀式EXPだけ壊れるので、参照先を取り違えないこと。
         ConfigurationSection table = YamlConfiguration.loadConfiguration(file)
-                .getConfigurationSection("smithing.exp-per-material");
-        assertNotNull(table, SKILL_EXP + " に smithing.exp-per-material 節が無い");
+                .getConfigurationSection("ars-smithing.exp-per-material");
+        assertNotNull(table, SKILL_EXP + " に ars-smithing.exp-per-material 節が無い");
         Set<String> keys = new LinkedHashSet<>();
         for (String key : table.getKeys(false)) {
             keys.add(normalize(key));
