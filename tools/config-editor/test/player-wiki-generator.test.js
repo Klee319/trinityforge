@@ -33,9 +33,36 @@ test("player wiki generator publishes the hand written pages with rewritten link
 
   // 手書き原稿は原稿名で相互リンクしている。公開名へ差し替えないと全部 404 になる。
   const combat = pages.get("戦闘のしくみ.md");
-  assert.match(combat, /^# 戦闘のしくみ\n\n\[Home\]\(Home\.md\)/);
+  assert.match(combat, /^# 戦闘のしくみ\n\n\[Home\]\(Home\)/);
   assert.doesNotMatch([...pages.values()].join("\n"), /\]\(\d\d-[^)]*\.md/);
-  assert.match(pages.get("このサーバーの遊び方.md"), /\[戦闘のしくみ\]\(戦闘のしくみ\.md\)/);
+  assert.match(pages.get("このサーバーの遊び方.md"), /\[戦闘のしくみ\]\(戦闘のしくみ\)/);
+});
+
+test("player wiki generator links between pages without the .md extension", () => {
+  const pages = generator.generatePages(ROOT);
+
+  // GitHub Wiki のページ URL は `/wiki/<ページ名>`。`.md` を付けると ASCII 名は
+  // raw.githubusercontent.com へ、非 ASCII 名は `/wiki/`（トップ）へ 302 され、
+  // どちらも本文のリンクが全部死ぬ。実測で確認した挙動なので書式で固定する。
+  const offenders = [];
+  for (const [fileName, content] of pages) {
+    for (const match of content.matchAll(/\]\(([^)\s]+\.md(?:#[^)]*)?)\)/g)) {
+      offenders.push(`${fileName} → ${match[1]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `.md 付きのリンクは GitHub Wiki で解決されません:\n${offenders.join("\n")}`);
+
+  // 拡張子を落としたリンク先が、実在するページを指していることまで見る（空振り防止）。
+  const linked = new Set();
+  for (const content of pages.values()) {
+    for (const match of content.matchAll(/\]\(([^)#\s]+)(?:#[^)]*)?\)/g)) {
+      if (!/^(?:https?:|\/|`)/.test(match[1])) linked.add(match[1]);
+    }
+  }
+  assert.ok(linked.size >= 20, `ページ間リンクが ${linked.size} 件しかありません`);
+  for (const target of linked) {
+    assert.ok(pages.has(`${target}.md`), `リンク先 ${target} は生成されていません`);
+  }
 });
 
 test("player wiki generator gives every item page a summary table before the folded details", () => {
@@ -103,7 +130,7 @@ test("player wiki generator builds a sidebar that links only to pages it actuall
 
   assert.ok(linked.length >= 20, `サイドバーのリンクが ${linked.length} 件しかありません`);
   for (const target of linked) {
-    assert.ok(pages.has(target), `サイドバーの ${target} は生成されていません`);
+    assert.ok(pages.has(`${target}.md`), `サイドバーの ${target} は生成されていません`);
   }
   // 見出しが無いとページ名のべた並びになり、いまの「見にくい」状態へ戻る。
   assert.match(sidebar, /### 事典（アイテム）/);

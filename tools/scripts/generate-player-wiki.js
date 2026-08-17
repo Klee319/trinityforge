@@ -1291,6 +1291,10 @@ function buildProsePages(root) {
   return pages;
 }
 
+function stripPageExtensionFromLinks(markdownText) {
+  return markdownText.replace(/\]\(([^)#\s]+)\.md(#[^)]*)?\)/g, (whole, target, anchor) => `](${target}${anchor || ""})`);
+}
+
 function generatePages(root = PROJECT_ROOT) {
   const data = loadData(root);
   const names = createNameResolver(data);
@@ -1328,6 +1332,14 @@ function generatePages(root = PROJECT_ROOT) {
   }
   if (dangling.length) {
     throw new Error(`存在しないページへのリンクがあります:\n  ${dangling.join("\n  ")}`);
+  }
+
+  // ここまでは `.md` 付きで組み立てて検査する（原稿もページ名も `.md` 付きなので突き合わせが素直）。
+  // 公開直前に拡張子を落とす。GitHub Wiki のページ URL は `/wiki/<ページ名>` で、`.md` を付けると
+  // ページとして解決されない ── ASCII 名は raw.githubusercontent.com へ 302（生の md が落ちてくる）、
+  // 非 ASCII 名は `/wiki/` へ 302（Wiki トップへ飛ばされる）。どちらも「リンクが全部死ぬ」に見える。
+  for (const [fileName, content] of pages) {
+    pages.set(fileName, stripPageExtensionFromLinks(content));
   }
 
   // 並びは PAGE_NAMES（= サイドバーの並び）に合わせて返す。組み立てた順は関係ない。
