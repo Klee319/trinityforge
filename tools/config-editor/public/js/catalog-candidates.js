@@ -169,9 +169,43 @@
     return out;
   }
 
+  /**
+   * 「パターンで一括追加」が走査するID集合 (2026-08-18)。
+   *
+   * <p>図鑑(collection.yml)の一括追加が {@code catalogCandidates} だけを見ていたため、
+   * 1件ずつのセレクト({@code itemRefSelect})では選べるバニラ Material が一括追加からは
+   * 構造的に addressable でなかった(`*_SWORD` と打っても0件)。図鑑には ore / nature /
+   * structure / weapon_vanilla のように<b>バニラ枠のカテゴリが実在する</b>ので、
+   * セレクトと同じ候補集合(カスタムID → バニラ Material の順)へ揃える。
+   *
+   * @param groupKey        "items" なら カスタム＋バニラ Material、それ以外は entityTypes
+   * @param catalogCandidates buildCatalogCandidates の戻り
+   * @param vanillaMaterials  window.MATERIALS
+   * @param entityTypes       window.VANILLA_MOBS
+   */
+  function bulkAddCandidateIds(groupKey, catalogCandidates, vanillaMaterials, entityTypes) {
+    if (groupKey !== "items") {
+      return Array.isArray(entityTypes) ? entityTypes.slice() : [];
+    }
+    const custom = Array.isArray(catalogCandidates)
+      ? catalogCandidates.map((v) => (v && v.id ? v.id : "")).filter(Boolean)
+      : [];
+    const vanilla = Array.isArray(vanillaMaterials) ? vanillaMaterials : [];
+    const seen = new Set(custom);
+    for (const m of vanilla) {
+      if (m && !seen.has(m)) { custom.push(m); seen.add(m); }
+    }
+    return custom;
+  }
+
+  /** app.js の EXTRA_CONFIGS と対で更新されているかをテストから機械的に検査するために公開する。 */
+  const EXTRA_SOURCE_KEYS = Object.freeze(EXTRA_SOURCES.map((s) => s.key));
+
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { buildCatalogCandidates };
+    module.exports = { buildCatalogCandidates, bulkAddCandidateIds, EXTRA_SOURCE_KEYS };
   }
   if (!isBrowser) return;
   root.buildCatalogCandidates = buildCatalogCandidates;
+  root.bulkAddCandidateIds = bulkAddCandidateIds;
+  root.CATALOG_EXTRA_SOURCE_KEYS = EXTRA_SOURCE_KEYS;
 })(typeof window !== "undefined" ? window : globalThis, typeof window !== "undefined" && typeof document !== "undefined");

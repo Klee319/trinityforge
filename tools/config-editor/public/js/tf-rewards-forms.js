@@ -1846,12 +1846,23 @@
           class: "btn-small", type: "button", text: "+ 追加",
           onclick: () => { entry.entries.push(""); renderBody(); }
         }));
-        const bulkInput = h("input", { class: "field-input", placeholder: "sword_* / ZOMBIE, SKELETON（*可）" });
+        const bulkInput = h("input", {
+          class: "field-input",
+          placeholder: groupKey === "items"
+            ? "infinity_* / *_SWORD / DIAMOND（カンマ区切り・*可）"
+            : "ZOMBIE, SKELETON（カンマ区切り・*可）"
+        });
         entriesBox.appendChild(h("div", { class: "stat-row" }, [bulkInput, h("button", {
           class: "btn-small", type: "button", text: "一括追加",
           onclick: () => {
             const patterns = bulkInput.value.split(",").map((v) => v.trim()).filter(Boolean);
-            const candidates = groupKey === "items" ? catalogCandidates.map((v) => v.id) : ENTITY_TYPE_CANDIDATES;
+            // 2026-08-18: items 側の候補が catalogCandidates(カスタムIDのみ)だけで、
+            // itemRefSelect では選べるバニラ Material が一括追加からは構造的に選べなかった。
+            // 候補集合の作り方は catalog-candidates.js の bulkAddCandidateIds に集約してある
+            // (Node テストから直接検証するため)。
+            const candidates = typeof window.bulkAddCandidateIds === "function"
+              ? window.bulkAddCandidateIds(groupKey, catalogCandidates, window.MATERIALS, ENTITY_TYPE_CANDIDATES)
+              : (groupKey === "items" ? catalogCandidates.map((v) => v.id) : ENTITY_TYPE_CANDIDATES);
             const added = [];
             for (const pattern of patterns) {
               const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");

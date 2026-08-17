@@ -868,6 +868,59 @@ categories:
         - TRIAL_KEY
         - TRIDENT
         - WIND_CHARGE
+    # 2026-08-18: バニラの武器・道具が1件も載っていなかった(TRIDENT/MACE/ELYTRA だけが
+    # structure に混ざっている状態)。TF品の weapon_*/tool と混ぜず、ore/nature/structure と
+    # 同じ「バニラ枠」の末尾に置く。斧は TF の採取スキル側では採取道具扱いだが、
+    # 図鑑では素直に武器へ入れる(プレイヤーの認識に合わせる)。
+    weapon_vanilla:
+      display-name: 武器(バニラ)
+      order: 22
+      entries:
+        - BOW
+        - COPPER_AXE
+        - COPPER_SWORD
+        - CROSSBOW
+        - DIAMOND_AXE
+        - DIAMOND_SWORD
+        - GOLDEN_AXE
+        - GOLDEN_SWORD
+        - IRON_AXE
+        - IRON_SWORD
+        - NETHERITE_AXE
+        - NETHERITE_SWORD
+        - SHIELD
+        - STONE_AXE
+        - STONE_SWORD
+        - WOODEN_AXE
+        - WOODEN_SWORD
+    tool_vanilla:
+      display-name: 道具(バニラ)
+      order: 23
+      entries:
+        - COPPER_HOE
+        - COPPER_PICKAXE
+        - COPPER_SHOVEL
+        - DIAMOND_HOE
+        - DIAMOND_PICKAXE
+        - DIAMOND_SHOVEL
+        - FISHING_ROD
+        - FLINT_AND_STEEL
+        - GOLDEN_HOE
+        - GOLDEN_PICKAXE
+        - GOLDEN_SHOVEL
+        - IRON_HOE
+        - IRON_PICKAXE
+        - IRON_SHOVEL
+        - NETHERITE_HOE
+        - NETHERITE_PICKAXE
+        - NETHERITE_SHOVEL
+        - SHEARS
+        - STONE_HOE
+        - STONE_PICKAXE
+        - STONE_SHOVEL
+        - WOODEN_HOE
+        - WOODEN_PICKAXE
+        - WOODEN_SHOVEL
   mobs:
     undead:
       display-name: アンデッド
@@ -886,6 +939,8 @@ categories:
         - ZOGLIN
         - PHANTOM
         - ZOMBIE_HORSE
+        # 2026-08-18 追加。PARCHED は API 上 AbstractSkeleton(スケルトン系)なのでここ。
+        - PARCHED
     apex:
       display-name: 強敵
       order: 2
@@ -942,6 +997,9 @@ categories:
         - AXOLOTL
         - TADPOLE
         - FROG
+        # 2026-08-18 追加。どちらも API 上 AbstractNautilus なので同じ水棲枠に置く。
+        - NAUTILUS
+        - ZOMBIE_NAUTILUS
     passive:
       display-name: 友好モブ
       order: 6
@@ -975,6 +1033,16 @@ categories:
         - IRON_GOLEM
         - SNOW_GOLEM
         - ALLAY
+        # 2026-08-18 追加。API 上 CAMEL_HUSK は Camel、COPPER_GOLEM は Golem、
+        # HAPPY_GHAST は Animals なのでいずれも友好枠。
+        - CAMEL_HUSK
+        - COPPER_GOLEM
+        - HAPPY_GHAST
+    # ⚠️ 意図的に載せていない EntityType (2026-08-18):
+    #   GIANT     — 実装は残っているが自然スポーンもスポーンエッグも無く、討伐経路が無い。
+    #   MANNEQUIN — Mob ではなく LivingEntity(プレイヤー像の設置物)で、討伐という概念が無い。
+    # どちらも載せると「永久に埋まらない枠」が分母に入り、collection の percent: 100 系
+    # アチーブメント(goal_completionist)を到達不能にする。K-11 と同じ形の事故になるので入れない。
 # 報酬ティア。2026-08-16 に図鑑を 140 → 750 件規模へ拡充したのに合わせて引き直した。
 # 旧しきい値(10/30/60/120/200)のままだと t5「万象を知る者」が全体の 26% で解放されてしまい、
 # 最終目標の称号が序盤の称号に化ける。おおむね 4% / 13% / 33% / 60% / 93% になるよう置いた。
