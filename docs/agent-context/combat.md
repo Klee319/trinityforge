@@ -712,6 +712,46 @@ per-mob の `stats.physical`/`stats.magical` が「どの属性が通る敵か�
 倍率は既存最大（`piercing_beam` の 2.0）を超えさせない ── 避けられるからと上げると被弾1回が
 実質ワンショットになり、防具の投資が意味を失う。
 
+## 「戦闘レベルが全プレイヤーで0になる」を疑ったら先に確認すること（2026-08-17 調査）
+
+`progression/combat-level.yml` の `skills:` キー空間は、`SkillId`定数（`LIGHT_WEAPONS`/
+`HEAVY_WEAPONS`/`ARCHERY`/`ARS_MAGIC`）／`PlayerProgression#skills()`のキー（`NativeSkillLevelSource`が
+そのまま返す。javadoc に明記の「keyed by uppercase skill ID」）／`NativeSkillCatalog`の登録キー
+（`SkillId.ALL`）／EXP付与の呼び出し側（`CombatKillCreditTracker`→`CombatListener#onCombatKill`→
+`ArsProgressionBridge.grantSkillExp`）が使う文字列、の**全層で一致している**（2026-08-17 に
+全経路をコードで裏取り済み）。実サーバ `Velocity_for_TF/Main_Server/logs/latest.log` にも
+「軽量武器」「重量武器」「Ars魔法」（=LIGHT_WEAPONS/HEAVY_WEAPONS/ARS_MAGIC）のレベルアップ
+メッセージが複数プレイヤーで実際に記録されている。**「combat-level.yml のキーと SkillLevelSource が
+返す id が食い違っていて常時0になる」という仮説は、少なくとも現行 HEAD では再現しない。**
+同じ疑いを持ったら、この一致を再度コードで裏取りするのではなく、まず以下を見ること:
+
+1. `/tf status`（`StatsCommand`/`StatusGui`、`stats/status/StatusGui.java:175`,
+   `command/StatsCommand.java:126`）は両方とも `SymmetricCombatService#combatLevelOf`
+   （`CombatListener` が読むのと同一実体）を直接呼ぶ。ここで0が出るなら、そのプレイヤーが
+   本当に LIGHT_WEAPONS/HEAVY_WEAPONS/ARCHERY/ARS_MAGIC のどれも育てていない（採取・鍛冶等専業）
+   だけの可能性が高い ── **pillars 式の設計上、非戦闘プレイヤーの戦闘レベルが0になるのは
+   仕様どおりでバグではない**。
+2. EliteMobs 側のダンジョン入場条件・モブ難易度は**別のフォールバック経路**を持つ
+   （`fork-handoff/elitemobs/elitemobs-fork/.../skills/CombatLevelCalculator.java`）。
+   `TrinityForgeIntegration.isCombatLevelMappingEnabled()`（`available && combat-level-mapping`
+   設定、既定true）が真の間だけTFの `combatLevelOf` へ委譲し、false なら EliteMobs 自前の
+   （現在は入力経路が存在せず事実上死んでいる）スキルXPシステムへフォールバックして計算する。
+   `available` は EliteMobs の `onEnable` 時に TrinityForge プラグインが `isEnabled()` でなければ
+   **恒久的にfalseのまま**（再起動まで直らない、`TrinityForgeIntegration.java:111-141`）。
+   **この経路で見えている「0」は TF 側の計算バグではない**。ログの
+   `TrinityForge combat-level mapping failed` / `... delegation disabled` /
+   `... delegation is active` で判別すること。EliteMobs は旧形式 `plugin.yml` の
+   `softdepend: [TrinityForge]` で読み込み順自体は保証されている（`paper-plugin.yml` と違い
+   `softdepend:` は無視されない）ので、通常運用ではこの分岐に落ちないはずだが、TF側の起動失敗
+   （例外/設定エラーで `onEnable` が完走しない）が起きるとここに落ちる。
+   **2026-08-17 に実測済み**: ローテート済みログ 12 本を展開して起動バナーを全部拾ったところ、
+   記録が残っている 10 回の起動すべてで `TrinityForge detected — ... delegation is active.` が出ており、
+   `delegation disabled` / `standalone (non-delegated)` は 1 件も無い。**この経路は現状ヒットしていない。**
+3. `NativeSkillLevelSource` 自体（DB→id空間の実データ経路）を検証する専用の JUnit テストは
+   存在しない（`SymmetricCombatServiceMagicalIntegrationTest` 等は手作りの `SkillLevelSource`
+   を注入した「計算部分」のみの検証）。実データに起因する不具合はユニットテストで検出できない
+   ── 疑うときは `player_progression.db` を直接クエリするか、上記ログを見ること。
+
 ## 関連
 
 - [./progression-skilltree.md](./progression-skilltree.md)
