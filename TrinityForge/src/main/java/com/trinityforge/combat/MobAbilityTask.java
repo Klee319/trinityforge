@@ -114,12 +114,24 @@ public final class MobAbilityTask implements Runnable {
         }
     }
 
-    /** そのモブが今この相手へ技を撃てるなら撃つ。 */
-    private boolean tryFire(LivingEntity mob, Player target) {
+    /**
+     * そのモブが今この相手へ技を撃てるなら撃つ。
+     *
+     * <p>パッケージ非公開なのはテストのため（2026-08-18、W-62）。交戦条件を
+     * {@link #engagementAllows(boolean, boolean, boolean, boolean, boolean)} の純関数として
+     * 検証するだけでは<b>「判定は正しいが呼ばれていない」no-op 修正を見逃す</b>ので、
+     * 実体を渡してここまでの配線ごと固定する。
+     */
+    boolean tryFire(LivingEntity mob, Player target) {
         // 技ごとのクールダウンより先に、モブ単位の共通クールダウンを見る(2026-08-17)。
         // これが無いと、技を複数持つモブは「どれか1つは必ず明けている」状態が途切れず、
         // 判定のたびに抽選が走って技が常時発動しているように見える。
         if (!cooldowns.ready(mob.getUniqueId(), GLOBAL_GAP_KEY)) {
+            return false;
+        }
+        // 2026-08-18 (W-62): 交戦条件。走査がプレイヤー起点の「半径32m以内の全 LivingEntity」なので、
+        // ここで絞らないと【こちらに気づいてすらいないモブが壁越しに撃ってくる】。
+        if (!engagementAllows(mob, target)) {
             return false;
         }
         List<MobAbility> candidates = candidatesFor(mob, target);
@@ -139,6 +151,50 @@ public final class MobAbilityTask implements Runnable {
         cooldowns.arm(mob.getUniqueId(), ability.id(), ability.cooldownMillis());
         cooldowns.arm(mob.getUniqueId(), GLOBAL_GAP_KEY, abilitiesConfig.globalCooldownMillis());
         return true;
+    }
+
+    /**
+     * 交戦条件を満たすか（2026-08-18、W-62「死角・非追跡状態でも発動する」）。
+     *
+     * <p>実体から必要な事実だけを取り出して {@link #engagementAllows(boolean, boolean, boolean,
+     * boolean, boolean)} に渡す。分けてあるのは<b>MockBukkit が {@code hasLineOfSight} も
+     * {@code Mob#getTarget} も実装していない</b>ため — ここを直接テストすると
+     * 「未実装APIで SKIPPED に化けて、判定ロジックが一度も検証されない」既知の罠を踏む。
+     */
+    private boolean engagementAllows(LivingEntity mob, Player target) {
+        boolean requireTarget = abilitiesConfig.requireTarget();
+        boolean requireLineOfSight = abilitiesConfig.requireLineOfSight();
+        if (!requireTarget && !requireLineOfSight) {
+            return true; // どちらも切ってあるなら実体に一切触らない（2026-08-18 以前の挙動）。
+        }
+        boolean hasAi = mob instanceof org.bukkit.entity.Mob;
+        boolean targetsThisPlayer =
+                hasAi && target.equals(((org.bukkit.entity.Mob) mob).getTarget());
+        if (!engagementAllows(requireTarget, hasAi, targetsThisPlayer, false, true)) {
+            return false;
+        }
+        // 視線判定はレイトレースで重いので、ターゲット条件を通った相手にだけ引く。
+        return !requireLineOfSight || mob.hasLineOfSight(target);
+    }
+
+    /**
+     * 交戦条件の判定本体（純関数）。
+     *
+     * @param requireTarget      「狙っている相手にだけ撃つ」を要求するか
+     * @param mobHasAi           そのモブが {@code org.bukkit.entity.Mob}（＝狙う対象を持てる）か
+     * @param targetsThisPlayer  {@code Mob#getTarget()} がこの相手本人か
+     * @param requireLineOfSight 「遮蔽越しには撃たない」を要求するか
+     * @param hasLineOfSight     実際に視線が通っているか
+     */
+    static boolean engagementAllows(boolean requireTarget, boolean mobHasAi,
+                                    boolean targetsThisPlayer, boolean requireLineOfSight,
+                                    boolean hasLineOfSight) {
+        // AI を持たない LivingEntity には「狙う対象」の概念自体が無いので、この条件は課さない。
+        // ここを課すと、AI を切られたボスや実体だけのギミックモブが技を一生撃たなくなる。
+        if (requireTarget && mobHasAi && !targetsThisPlayer) {
+            return false;
+        }
+        return !requireLineOfSight || hasLineOfSight;
     }
 
     /** 発動可能な技（テンプレート実在 + クールダウン明け + 射程内）。 */

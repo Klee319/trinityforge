@@ -159,7 +159,8 @@ class MobTypeSpawnListenerTamedIntegrationTest {
     }
 
     @Test
-    @DisplayName("EntitiesLoadEventは未テイムの個体には一切触らない")
+    @DisplayName("EntitiesLoadEventは未テイムの個体に「飼い主由来のレベル」を与えない"
+            + "(2026-08-18 W-61 で受け皿が入り、未刻印なら通常のレベル計算は走るようになった)")
     void entitiesLoadSkipsUntamedMobs() {
         when(mobTypesConfig.tamedLevelPolicy())
                 .thenReturn(new MobTypesConfig.TamedLevelPolicy(true, 1.0, 1, 0));
@@ -170,6 +171,9 @@ class MobTypeSpawnListenerTamedIntegrationTest {
 
         listener.onEntitiesLoad(new EntitiesLoadEvent(wolf.getLocation().getChunk(), List.of(wolf)));
 
-        assertEquals(0, MobData.of(wolf).level(), "未テイムの個体はM-2の対象外");
+        // 飼い主の総合戦闘レベル 50 + base-level 1 = 51 が付いたら M-2 の適用ミス。
+        // 受け皿(W-61)が走った結果の 0 は正しい(ワールドスポーン直上に置いた個体なので距離0)。
+        assertEquals(0, MobData.of(wolf).level(),
+                "未テイムの個体に飼い主由来のレベル(51)が付いている = M-2 の対象判定が壊れている");
     }
 }

@@ -38,8 +38,15 @@ public final class MobAbilitiesConfig implements LoadableConfig {
     private volatile int checkIntervalTicks = 20;
     private volatile double globalCooldownSeconds = DEFAULT_GLOBAL_COOLDOWN_SECONDS;
 
+    private volatile boolean requireTarget = DEFAULT_REQUIRE_TARGET;
+    private volatile boolean requireLineOfSight = DEFAULT_REQUIRE_LINE_OF_SIGHT;
+
     /** 技と技の間に必ず空ける秒数の既定。 */
     public static final double DEFAULT_GLOBAL_COOLDOWN_SECONDS = 12.0;
+    /** 「狙っている相手にだけ撃つ」の既定。false は 2026-08-18 以前の挙動（非追跡でも発動）。 */
+    public static final boolean DEFAULT_REQUIRE_TARGET = true;
+    /** 「遮蔽越しには撃たない」の既定。false は 2026-08-18 以前の挙動（壁の裏でも発動）。 */
+    public static final boolean DEFAULT_REQUIRE_LINE_OF_SIGHT = true;
     /** 同、下限。0 を許すと「常時発動」に戻せてしまうので置かない選択はしない。 */
     public static final double MIN_GLOBAL_COOLDOWN_SECONDS = 0.0;
     /** 同、上限（10分）。書き間違いで技が一生出てこないのを防ぐ。 */
@@ -89,6 +96,31 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         return Math.round(globalCooldownSeconds * 1000.0);
     }
 
+    /**
+     * <b>そのモブが実際にその相手を狙っているときだけ技を撃つか</b>
+     * （2026-08-18、ユーザー報告「非追跡状態でも発動する」）。
+     *
+     * <p>発動判定の走査はプレイヤー起点で「半径32m以内の全 LivingEntity」を舐めるだけなので、
+     * これが false だと<b>こちらに気づいてすらいないモブが技を撃ってくる</b>。
+     * {@code true} のとき、AI を持つモブ（{@code org.bukkit.entity.Mob}）は
+     * {@code getTarget()} がその相手本人である場合のみ発動する。
+     * AI を持たない {@code LivingEntity} には狙う対象の概念自体が無いので、この条件は課されない。
+     */
+    public boolean requireTarget() {
+        return requireTarget;
+    }
+
+    /**
+     * <b>遮蔽物越しに技を撃たないか</b>（2026-08-18、ユーザー報告「壁の裏でも発動する」）。
+     *
+     * <p>{@code true} のとき {@code LivingEntity#hasLineOfSight} が通らない相手には発動しない。
+     * 「壁に隠れて凌ぐ」という回避手段を成立させるための条件で、W-63（予兆を入れて回避余地を作る）
+     * と目的は同じだが、こちらは<b>そもそも撃たせない</b>側の門。
+     */
+    public boolean requireLineOfSight() {
+        return requireLineOfSight;
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -109,6 +141,9 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         this.globalCooldownSeconds = Math.max(MIN_GLOBAL_COOLDOWN_SECONDS,
                 Math.min(MAX_GLOBAL_COOLDOWN_SECONDS,
                         yaml.getDouble("global-cooldown-seconds", DEFAULT_GLOBAL_COOLDOWN_SECONDS)));
+        this.requireTarget = yaml.getBoolean("require-target", DEFAULT_REQUIRE_TARGET);
+        this.requireLineOfSight =
+                yaml.getBoolean("require-line-of-sight", DEFAULT_REQUIRE_LINE_OF_SIGHT);
 
         ParseResult result = parse(yaml.getConfigurationSection("abilities"), log);
         this.abilities = result.abilities();

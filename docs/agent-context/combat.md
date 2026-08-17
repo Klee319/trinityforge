@@ -156,10 +156,13 @@ high-level-per-level 12699、`level: 60`。
 TF のスケール値になっていた。したがって `mob-types.yml` の `ENDER_DRAGON` 定義は適用され、
 戦闘レベルも刻まれるので **`mob-level-table.yml` の `add-drops`（`dragon_scale` など）も効く**。
 
-**これはコードからは判定できない。** TF がモブへ刻印する入口は `MobTypeSpawnListener.onSpawn(CreatureSpawnEvent)`
-の1本だけで（`onEntitiesLoad` は `Tameable` 実装しか処理せず `EnderDragon` は該当しない）、
-ドラゴン専用の経路は存在しない。分岐点は「バニラのエンドラがそのイベントを発火するか」だけで、
+**これはコードからは判定できない。** 分岐点は「バニラのエンドラがそのイベントを発火するか」だけで、
 それは Paper 側の実装依存なのでリポジトリ内には答えが無い。
+
+> **2026-08-18 追記（W-61）**: 「刻印の入口は `onSpawn(CreatureSpawnEvent)` の1本だけ」は
+> **もう正しくない**。下記「構造物に最初から置かれているモブ」の受け皿として
+> `EntitiesLoadEvent` と `EntityAddToWorldEvent` からも刻印が走るようになった。
+> ただし**未刻印（`MOB_LEVEL` キーが無い）個体だけ**が対象なので、この節の結論は変わらない。
 
 **ログで確かめようとして誤読しないこと。** 診断行 `[mob-types] spawn ...` は
 `LOG.fine`（`MobTypeSpawnListener.java:543`）なので**既定の INFO コンソールには出ない**。
@@ -195,6 +198,51 @@ CUSTOM環境は下駄0のまま、かつそのワールド自身の spawn 起点
 コードの静的解析だけでは判定できないので、実機（`/data get entity <mob> PersistentData` や
 一時的な `LOG.fine` 有効化）での確認が必須（`[mob-types] spawn ...` は既定 INFO では出ない、
 前掲の「ログで確かめようとして誤読しないこと」と同じ罠）。
+
+### ⚠️ 構造物に最初から置かれているモブは `CreatureSpawnEvent` を発火しない（2026-08-18 修正、W-61）
+
+上の②の**具体的な原因がこれ**。構造物テンプレートの NBT に焼かれているモブ
+（データパックの構造物、バニラの前哨基地・海底神殿など）は、**チャンクが生成された時点で
+既に存在している**のでスポーン処理そのものを通らない。Bukkit の
+`CreatureSpawnEvent.SpawnReason.CHUNK_GEN` 自体が
+「no longer called, as chunks are generated with entities already existing」として
+**非推奨（1.14 以降・1.21 では削除予定）**になっている。**データパック固有の問題ではない。**
+
+受け皿は `MobTypeSpawnListener#backfillUnstampedProfile` で、
+`EntitiesLoadEvent` と `com.destroystokyo.paper.event.entity.EntityAddToWorldEvent` の
+**両方**から呼ぶ。片方に寄せていないのは、`EntitiesLoadEvent` の javadoc が
+"Called when entities are loaded." としか書かず**新規生成チャンクを含むか明言していない**ため。
+**冪等性は `MobData#hasProfile()`（＝`MOB_LEVEL` キーの有無）が担保する。**
+ここを緩めるとチャンク読み込みのたびにステが再計算され、HP が張り直される。
+
+**⚠️ 受け皿の対象は `org.bukkit.entity.Mob` に限定すること。**
+`EntityAddToWorldEvent` は `LivingEntity` なら何にでも飛ぶので、
+`CreatureSpawnEvent` の母集団より**広い**。とくに**アーマースタンド**は
+LivingEntity でありながら `CreatureSpawnEvent` を発火しない＝これまで TF が一度も
+触っていなかった実体で、絞らないと `defaults`（`max-health: 800` + 防御ステ）を刻まれ、
+`MOB_TYPE_STAMPED` まで付いて**ドロップ処理の対象にまで入る**。
+ホログラム・装飾・他プラグインの表示用アーマースタンドを巻き込む事故になる。
+
+### ⚠️ モブ特殊攻撃の走査は「プレイヤーの周囲を舐めるだけ」— 交戦条件は自前で書く（2026-08-18、W-62）
+
+`MobAbilityTask#run` はオンラインの各プレイヤーの半径 32m 以内の全 `LivingEntity` を走査し、
+**射程とクールダウンしか見ない**。モブ側の AI 状態は一切参照しないので、
+条件を足さない限り**索敵していないモブも壁を挟んだモブも等しく抽選対象**になる
+（「壁の裏から矢の雨が降ってくる」の正体）。
+
+現在の交戦条件は `mob-abilities.yml` の `require-target` / `require-line-of-sight`（既定 true）。
+
+- **追跡条件は `org.bukkit.entity.Mob` にだけ課す。** AI を持たない `LivingEntity` には
+  `getTarget()` の概念自体が無いので、一律に課すと AI を切ったボスや実体だけのギミックモブが
+  **技を一生撃たなくなる**。
+- **視線判定はレイトレースなので、追跡条件を通った相手にだけ引く。**
+- **判定本体は純関数（`MobAbilityTask#engagementAllows`）に切り出してある。**
+  MockBukkit は `LivingEntity#hasLineOfSight` も `Mob#getTarget` も実装しておらず、
+  実体経由でテストを書くと `UnimplementedOperationException` が SKIPPED に化けて
+  **一度も検証されないまま緑になる**。
+  ただし純関数だけでは「判定は正しいが呼ばれていない」no-op 修正を見逃すので、
+  `tryFire` をパッケージ非公開にして配線ごと固定する試験を必ず併置すること
+  （視線条件を切れば MockBukkit でも `setTarget`/`getTarget` は動く）。
 
 ### FIRE_TICK は日光炎上と火属性着火を区別できない
 

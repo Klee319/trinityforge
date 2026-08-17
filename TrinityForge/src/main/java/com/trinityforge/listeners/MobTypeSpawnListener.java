@@ -14,6 +14,9 @@ import com.trinityforge.mobs.MobTypeDefinition;
 import com.trinityforge.pdc.MobData;
 import com.trinityforge.progression.CombatLevelSource;
 import com.trinityforge.progression.SkillLevelSource;
+// W-61: 「ワールドに実体が現れた」側の入口。パッケージは io.papermc ではなく
+// com.destroystokyo.paper（Paper 1.21.11 の paper-api でもこちらのまま）。
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -24,6 +27,7 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -340,17 +344,85 @@ public final class MobTypeSpawnListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntitiesLoad(EntitiesLoadEvent event) {
         for (Entity loaded : event.getEntities()) {
-            if (!(loaded instanceof Tameable tameable) || !tameable.isTamed()) {
-                continue;
-            }
             if (!(loaded instanceof LivingEntity entity)) {
                 continue;
             }
             if (isEliteMobsOwned(MobData.of(entity))) {
                 continue;
             }
-            applyTamedLevelFromOwner(entity, tameable.getOwner(), currentHealthRatio(entity));
+            if (loaded instanceof Tameable tameable && tameable.isTamed()) {
+                applyTamedLevelFromOwner(entity, tameable.getOwner(), currentHealthRatio(entity));
+                continue;
+            }
+            backfillUnstampedProfile(entity);
         }
+    }
+
+    /**
+     * W-61（2026-08-18）: <b>{@code CreatureSpawnEvent} が一度も発火しないモブ</b>を拾う受け皿。
+     *
+     * <p>構造物に「最初から置かれている」モブ（データパックの構造物、バニラの前哨基地・海底神殿など、
+     * 構造物テンプレートの NBT に焼かれている個体）は、<b>チャンクが生成された時点で既に存在する</b>ため
+     * スポーン処理を通らない。Bukkit の {@code SpawnReason.CHUNK_GEN} も
+     * <b>「もう呼ばれない」として非推奨</b>になっている（Paper 1.21 javadoc）。
+     * 結果 {@link MobTypeSpawnListener#onSpawn} がそのモブに一度も触れず、{@code MOB_LEVEL} PDC が
+     * 付かないまま {@link MobData#level()} が既定の 0 を返す ＝ <b>「Lv0 のモブ」</b>になる。
+     *
+     * <p>そこで「ワールドに実体が現れた」側からも同じ処理を掛ける。{@link EntitiesLoadEvent} と
+     * {@code EntityAddToWorldEvent} の<b>両方</b>から呼ぶのは、前者が新規生成チャンクを含むかを
+     * javadoc が明言しておらず（"Called when entities are loaded."）、後者だけでは
+     * ディメンション移動などの経路差を読み切れないため。何度呼ばれても下の
+     * {@code hasProfile()} で弾かれるので二重適用にはならない。
+     */
+    private void backfillUnstampedProfile(LivingEntity entity) {
+        // ⚠ 対象は AI を持つモブ(org.bukkit.entity.Mob)だけに絞る。
+        // この受け皿の入口は「LivingEntity がワールドに入った」であって、
+        // {@code CreatureSpawnEvent} が扱う母集団より【広い】。特にアーマースタンドは
+        // LivingEntity だが CreatureSpawnEvent を発火しないので、これまで TF が一度も
+        // 触っていない。絞らないと、ホログラム/装飾/他プラグインの表示用アーマースタンドが
+        // defaults(max-health 800 + 防御ステ)を刻まれ、MOB_TYPE_STAMPED まで付いて
+        // ドロップ処理の対象にまで入ってしまう。
+        if (!(entity instanceof org.bukkit.entity.Mob)) {
+            return;
+        }
+        MobData data = MobData.of(entity);
+        // 刻印済み（レベル0で刻まれた個体を含む）は絶対に触らない。ここを緩めると
+        // チャンク読み込みのたびにステが再計算され、HPが張り直されて事故になる。
+        if (data.hasProfile()) {
+            return;
+        }
+        // 現在HPの比率は必ず引き継ぐ。引き継がないと「チャンクを読むたびに全快する」。
+        double healthRatio = currentHealthRatio(entity);
+        Optional<MobTypeDefinition> maybeDef = mobTypesConfig.definition(entity.getType());
+        if (maybeDef.isPresent()) {
+            MobTypeDefinition def = maybeDef.get();
+            applyScaledProfile(entity, def.level(), def.coordinateCoefficient(),
+                    def.physical(), def.magical(), def.maxHealth(),
+                    def.attack(), def.levelCoefficients(),
+                    "backfill:mob-types." + entity.getType().name(),
+                    healthRatio, attackPowerHighLevelFor(entity.getType()));
+            return;
+        }
+        applyUntaggedDefaults(entity, healthRatio);
+    }
+
+    /**
+     * W-61 のもう一方の入口。{@link #backfillUnstampedProfile} の javadoc を参照。
+     *
+     * <p>通常のスポーンでは {@code CreatureSpawnEvent}（キャンセル可能＝実体をワールドへ入れる前）が
+     * 先に飛ぶので、ここへ来る頃には {@link #onSpawn} が刻印済みで素通りする。
+     * EliteMobs が {@code EliteMobSpawnEvent} で所有権を主張する個体も同様に刻印済みなので、
+     * この受け皿が横取りすることはない。
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntityAddToWorld(EntityAddToWorldEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity entity) || entity instanceof Player) {
+            return;
+        }
+        if (isEliteMobsOwned(MobData.of(entity))) {
+            return;
+        }
+        backfillUnstampedProfile(entity);
     }
 
     private void applyTamedLevelFromOwner(LivingEntity entity, AnimalTamer owner, double healthRatio) {
@@ -567,6 +639,13 @@ public final class MobTypeSpawnListener implements Listener {
     }
 
     private static boolean isZeroDefense(DefenseStats stats) {
+        // null を「防御設定なし」として潰すのは attackPowerHighLevelFor の nonNull と同じ事情:
+        // 実 config は必ず DefenseStats.NONE を返すが、Mockito でモックした MobTypesConfig は
+        // 未スタブのアクセサで null を返す。W-61 の受け皿は EntitiesLoadEvent からも呼ばれるので、
+        // ここで NPE にすると本来無関係な既存テストが道連れで落ちる。
+        if (stats == null) {
+            return true;
+        }
         return stats.defenseRate() == 0.0
                 && stats.resistance() == 0.0
                 && stats.damageReduction() == 0.0
@@ -575,6 +654,10 @@ public final class MobTypeSpawnListener implements Listener {
     }
 
     private static boolean isZeroCoeffs(MobLevelCoefficients coeffs) {
+        // null 潰しの事情は isZeroDefense と同じ（Mockito の未スタブアクセサ対策）。
+        if (coeffs == null) {
+            return true;
+        }
         return coeffs.maxHealth() == 0.0
                 && coeffs.armorStrength() == 0.0
                 && isZeroDefenseCoeffs(coeffs.physical())
