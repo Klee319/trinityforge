@@ -57,26 +57,48 @@ public final class RoleBuffListener implements Listener {
         });
     }
 
-    /** Synchronizes the player's role-exclusive potion effects to their current support role. */
+    /**
+     * Synchronizes the player's role-exclusive potion effects to their current support role.
+     *
+     * <p><b>2026-08-18 修正(ユーザー報告「幸運のエフェクトが消える」)</b>: 以前はここで
+     * 「サポートロールが付け得るポーション型」を<b>全部無条件に</b> {@code removePotionEffect} していた。
+     * {@code role-buffs.yml} の {@code fisher} が {@code LUCK} を付けるので、
+     * <b>プレイヤーや管理コマンドが付けた幸運も毎回この一括除去で消えていた</b>。
+     * 除去は {@link RolePotionOwnership} が「自前で付けた形」と認めた効果だけに限定する。
+     */
     public void refreshSupportBuff(Player player) {
         if (player == null) {
             return;
         }
-        roleBuffs.supportRoles().values().stream()
-                .map(SupportRoleSpec::potionBuff)
-                .filter(Objects::nonNull)
-                .map(spec -> spec.type())
-                .distinct()
-                .forEach(player::removePotionEffect);
         PlayerData data = PlayerData.of(player);
         SupportRoleSpec support = data.roleSupport()
                 .map(roleBuffs::supportRole)
                 .orElse(null);
-        if (support == null || support.potionBuff() == null) {
+        var current = support == null ? null : support.potionBuff();
+        // 旧ロールのバフを剥がす。current と同じ型は付け直しで上書きするので触らない
+        // (剥がしてから付けると1tick分でも効果が切れる瞬間ができる)。
+        roleBuffs.supportRoles().values().stream()
+                .map(SupportRoleSpec::potionBuff)
+                .filter(Objects::nonNull)
+                .filter(spec -> current == null || !spec.type().equals(current.type()))
+                .forEach(spec -> removeIfOwned(player, spec));
+        if (current == null) {
             return;
         }
-        var spec = support.potionBuff();
         player.addPotionEffect(new PotionEffect(
-                spec.type(), spec.durationTicks(), spec.amplifier(), true, false, true));
+                current.type(), current.durationTicks(), current.amplifier(), true, false, true));
+    }
+
+    /** {@code spec} が付けたと形から判定できる効果だけを剥がす({@link RolePotionOwnership} が正本)。 */
+    private static void removeIfOwned(Player player, RoleBuffsConfig.PotionBuffSpec spec) {
+        PotionEffect existing = player.getPotionEffect(spec.type());
+        if (existing == null) {
+            return;
+        }
+        if (RolePotionOwnership.mayRemoveRoleBuff(spec.amplifier(), spec.durationTicks(),
+                existing.getAmplifier(), existing.isAmbient(), existing.hasParticles(),
+                existing.isInfinite(), existing.getDuration())) {
+            player.removePotionEffect(spec.type());
+        }
     }
 }

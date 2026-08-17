@@ -955,8 +955,9 @@ public final class TrinityForge extends JavaPlugin {
         this.activeSkillRegistry = new ActiveSkillRegistry();
         this.activeSkillRegistry.register(new HasteActiveSkill(configManager.miningGimmick()));
         // 2026-08-18 (W-59): シャベル専用の独立アクティブスキル(haste-active-digging)。
-        // HasteActiveSkillとCooldownManager上のCTバケツを共有する(ActiveSkill#cooldownGroup())が、
         // 解放ゲート・数値(amplifier/持続/CT)・設定ファイル(DiggingGimmickConfig)は完全に独立。
+        // 第2波(ユーザー確定要件)でCTバケツの共有はやめ、代わりに「対象ツールから持ち替えると
+        // 効果を強制終了する」(ActiveSkill#toolBound → ToolBoundEffectListener)方式へ移した。
         this.activeSkillRegistry.register(new DiggingHasteActiveSkill(configManager.diggingGimmick()));
         // 2026-07-25 CT設計一本化 §2: 登録した全ActiveSkillに対応するCT短縮ステータスキー
         // (StatVocabulary.ATTACK_KEYS の "<id>-cooldown-reduction") が存在するか起動時に検査する。
@@ -967,9 +968,17 @@ public final class TrinityForge extends JavaPlugin {
         this.activeFeedbackLayer = new FeedbackLayer();
         this.activeCommand = new ActiveCommand(activeSkillRegistry, configManager.dedicatedEffects(),
                 activeCooldownManager, activeFeedbackLayer, aggregator);
+        // 2026-08-18: ツール束縛の効果(採掘速度上昇など)のセッション台帳。ディスパッチャと
+        // ToolBoundEffectListener で**同じインスタンス**を共有すること(別々に作ると持ち替え検知が
+        // 「セッションが開いていない」と判断して何もしない)。
+        com.trinityforge.active.ActiveEffectSessions activeEffectSessions =
+                new com.trinityforge.active.ActiveEffectSessions();
         getServer().getPluginManager().registerEvents(
                 new ActivationDispatcher(activeSkillRegistry, configManager.dedicatedEffects(),
-                        activeCooldownManager, activeFeedbackLayer, aggregator), this);
+                        activeCooldownManager, activeFeedbackLayer, aggregator, activeEffectSessions), this);
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.active.ToolBoundEffectListener(this, activeSkillRegistry,
+                        activeEffectSessions, activeFeedbackLayer), this);
         // 採掘スキルツリーのflag系dedicated-effect(各 skilltree/*.yml ノードの dedicated-effects: フィールド)consumer群
         // (stats/mining-gimmick.yml でチューニング): 鉱脈破壊/怪しいブロック復活/スポナーST回収 +
         // mining drop-table(旧ガチャ券1-3/古代のがれき個別consumerを置換、2026-07-23 §4)。

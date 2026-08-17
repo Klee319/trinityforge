@@ -67,15 +67,28 @@ public final class ActivationDispatcher implements Listener {
     private final CooldownManager cooldowns;
     private final FeedbackLayer feedback;
     private final PlayerStatAggregator aggregator;
+    private final ActiveEffectSessions sessions;
 
     public ActivationDispatcher(ActiveSkillRegistry registry, DedicatedEffectsConfig dedicatedEffects,
                                  CooldownManager cooldowns, FeedbackLayer feedback,
                                  PlayerStatAggregator aggregator) {
+        this(registry, dedicatedEffects, cooldowns, feedback, aggregator, new ActiveEffectSessions());
+    }
+
+    /**
+     * {@link ActiveEffectSessions} を明示注入する版(2026-08-18)。{@link ToolBoundEffectListener} と
+     * <b>同じインスタンス</b>を渡さないと、持ち替え検知が「セッションが開いていない」と見て何もしない。
+     * 引数省略版は自前のセッション台帳を作るので、テスト以外では使わないこと。
+     */
+    public ActivationDispatcher(ActiveSkillRegistry registry, DedicatedEffectsConfig dedicatedEffects,
+                                 CooldownManager cooldowns, FeedbackLayer feedback,
+                                 PlayerStatAggregator aggregator, ActiveEffectSessions sessions) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.dedicatedEffects = Objects.requireNonNull(dedicatedEffects, "dedicatedEffects");
         this.cooldowns = Objects.requireNonNull(cooldowns, "cooldowns");
         this.feedback = Objects.requireNonNull(feedback, "feedback");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
+        this.sessions = Objects.requireNonNull(sessions, "sessions");
     }
 
     /**
@@ -139,6 +152,13 @@ public final class ActivationDispatcher implements Listener {
             ActivationResult result = skill.activate(player, new ActiveContext(tier, mainHand));
             event.setCancelled(true);
             if (result.success()) {
+                // 2026-08-18: ツール束縛の効果はセッションを開く。ToolBoundEffectListener が
+                // 「メインハンドが targetSkills() から外れた瞬間」に cancelEffect を呼ぶための土台で、
+                // これが無いと持ち替えても効果が残り、別ツールへ横流しできてしまう。
+                if (skill.toolBound()) {
+                    sessions.open(player.getUniqueId(), skill.id(), tier,
+                            now + skill.effectDurationTicks(tier) * 50L);
+                }
                 feedback.success(player, result.feedbackMessage());
             } else {
                 feedback.failure(player, result.feedbackMessage());

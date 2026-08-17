@@ -51,14 +51,19 @@ class HasteActiveSkillTest {
     }
 
     @Test
-    void sharesCooldownGroupWithDiggingHasteActiveSkill() {
-        // 2026-08-18 (W-59) ユーザー決定「持ち替えたらCTに入る」の実装点: id()は互いに異なるが、
-        // cooldownGroup()は両者とも同じ定数を返す(CooldownManagerのバケツ共有キー)。
+    void keepsIndependentCooldownBucketsAndEndsOnToolSwitch() {
+        // 2026-08-18 第2波(ユーザー確定要件「共有ではなく持ち替えで効果が強制終了する」):
+        // 初版の cooldownGroup 共有は撤回した。共有CTでは「ツルハシで発動 → シャベルへ持ち替え」で
+        // 効果だけを横流しできてしまい、シャベル側のノードを解放していないのに掘削が速くなる。
         HasteActiveSkill mining = new HasteActiveSkill(new MiningGimmickConfig());
         DiggingHasteActiveSkill digging = new DiggingHasteActiveSkill(new com.trinityforge.config.domains.DiggingGimmickConfig());
-        assertEquals(mining.cooldownGroup(), digging.cooldownGroup());
-        assertEquals(HasteActiveSkill.COOLDOWN_GROUP, mining.cooldownGroup());
-        // 一方でidそのものは独立(CT短縮ステータス等、id単位の仕組みは互いに影響しない)。
+        assertTrue(!mining.cooldownGroup().equals(digging.cooldownGroup()),
+                "CTバケツを共有に戻してはいけない(持ち替え強制終了が本線)");
+        assertEquals(mining.id(), mining.cooldownGroup(), "CTバケツは id 単位");
+        assertEquals(digging.id(), digging.cooldownGroup(), "CTバケツは id 単位");
+        // 効果はツール束縛。false に戻ると持ち替えても効果が残る(=ずるが復活する)。
+        assertTrue(mining.toolBound());
+        assertTrue(digging.toolBound());
         assertTrue(!mining.id().equals(digging.id()));
     }
 

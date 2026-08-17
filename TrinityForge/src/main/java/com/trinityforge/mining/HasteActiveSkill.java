@@ -18,6 +18,14 @@ import java.util.Set;
  * with {@code CooldownManager} + {@code FeedbackLayer}). Grants {@link PotionEffectType#HASTE} at the
  * tier-resolved amplifier/duration ({@code stats/mining-gimmick.yml haste-active-mining.tiers}, §1/§6 Q3).
  *
+ * <p><b>2026-08-18 第2波(ユーザー確定要件) — CT共有はやめ、「持ち替えで強制終了」へ移した。</b>
+ * {@code haste-active-digging} と {@link #cooldownGroup()} を共有していたが、共有CTでは
+ * <b>ツルハシで発動してシャベルへ持ち替える</b>ことで効果だけを横流しでき、シャベル側のノードを
+ * 解放していないのに掘削が速くなる状態が残っていた。現在は各スキルが独立CTを持ち、
+ * {@link #toolBound()} により {@link com.trinityforge.active.ToolBoundEffectListener} が
+ * 対象ツールを手放した瞬間に {@link #cancelEffect} で効果を切る(CTは発動時から走ったままなので、
+ * 持ち替えは「効果を捨ててCTだけ払う」= 得をしない)。
+ *
  * <p><b>2026-08-18 (W-59) — {@link #targetSkills()} was narrowed back down to just {@code "MINING"}.</b>
  * From 2026-07-25 through 2026-08-17 this returned {@code {"MINING", "DIGGING"}}, but {@code digging.yml}
  * never actually had a {@code feature:haste-active-mining} gate placement (only {@code mining.yml} A-1
@@ -33,12 +41,6 @@ import java.util.Set;
 public final class HasteActiveSkill implements ActiveSkill {
 
     public static final String ID = "haste-active-mining";
-    /**
-     * {@link ActiveSkill#cooldownGroup()} shared with {@link DiggingHasteActiveSkill}
-     * (2026-08-18 W-59): alternating pickaxe/shovel consumes the same CT bucket, so combined uptime from
-     * the two skills together never exceeds what either skill provides alone.
-     */
-    public static final String COOLDOWN_GROUP = "haste-active";
     private static final Set<String> TARGET_SKILLS = Set.of("MINING");
 
     private final MiningGimmickConfig gimmickConfig;
@@ -67,9 +69,37 @@ public final class HasteActiveSkill implements ActiveSkill {
         return TARGET_SKILLS;
     }
 
+    /**
+     * ツールを手放したら維持できない効果(2026-08-18 ユーザー確定要件)。
+     * これが {@code false} に戻ると、ツルハシで発動した採掘速度上昇をシャベルへ持ち替えて
+     * そのまま使える状態(=シャベル側のノードを解放していないのに掘削が速い)に戻る。
+     */
     @Override
-    public String cooldownGroup() {
-        return COOLDOWN_GROUP;
+    public boolean toolBound() {
+        return true;
+    }
+
+    @Override
+    public int effectDurationTicks(int tier) {
+        return gimmickConfig.hasteDurationTicks(tier);
+    }
+
+    /**
+     * 付与した HASTE を取り消す。<b>剥がすのは「自分が付けたと確認できる効果」だけ</b>:
+     * amplifier が発動時の値と一致し、かつ無期限でないこと(ビーコンの採掘速度上昇は amplifier 0/1 で
+     * 常時付け直され、無期限効果は管理コマンド由来)。無条件に {@code removePotionEffect} すると
+     * W-54(幸運エフェクトを他人が剥がす)と同型の事故になる。
+     */
+    @Override
+    public void cancelEffect(Player player, int tier) {
+        PotionEffect current = player.getPotionEffect(PotionEffectType.HASTE);
+        if (current == null || current.isInfinite()) {
+            return;
+        }
+        if (current.getAmplifier() != gimmickConfig.hasteAmplifier(tier)) {
+            return;
+        }
+        player.removePotionEffect(PotionEffectType.HASTE);
     }
 
     /**

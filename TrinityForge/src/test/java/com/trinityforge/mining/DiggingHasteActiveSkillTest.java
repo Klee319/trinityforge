@@ -45,8 +45,9 @@ class DiggingHasteActiveSkillTest {
         assertEquals("haste-active-digging", skill.id());
         assertEquals("haste-active-digging", skill.gateEffectId());
         assertEquals(Set.of("DIGGING"), skill.targetSkills());
-        // HasteActiveSkill(mining)とは別idだが、CTバケツ(cooldownGroup)は共有する。
-        assertEquals(HasteActiveSkill.COOLDOWN_GROUP, skill.cooldownGroup());
+        // 2026-08-18 第2波: CTバケツの共有は撤回し、id 単位の独立CT + 持ち替えで効果強制終了へ移した。
+        assertEquals(skill.id(), skill.cooldownGroup());
+        assertTrue(skill.toolBound(), "持ち替えで効果を終了する設定が外れている");
     }
 
     @Test

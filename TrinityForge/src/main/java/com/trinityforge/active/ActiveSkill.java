@@ -116,4 +116,45 @@ public interface ActiveSkill {
      * resolved) and cooldown checks already passed — implementations do not need to re-check either.
      */
     ActivationResult activate(Player player, ActiveContext ctx);
+
+    /**
+     * この効果は<b>発動に使ったツールを持ち続けていないと維持できない</b>か
+     * (2026-08-18 ユーザー確定要件「該当のツールから持ち替えると効果が強制終了する」)。
+     *
+     * <p>{@code true} を返すと {@link ActivationDispatcher} が発動成功時に
+     * {@link ActiveEffectSessions} へセッションを開き、{@link ToolBoundEffectListener} が
+     * メインハンドが {@link #targetSkills()} 外になった瞬間に {@link #cancelEffect} を呼ぶ。
+     *
+     * <p><b>なぜCT共有ではなくこの形にしたか</b>: 2026-08-18 の初版は
+     * {@code haste-active-mining} と {@code haste-active-digging} で {@link #cooldownGroup()} を
+     * 共有し「持ち替えても連発できない」を担保していた。しかし共有CTでは
+     * <b>ツルハシで発動 → シャベルへ持ち替え</b>という順序で効果だけが残るため、
+     * 「シャベル側を解放していないのに掘削がヘイストで速い」というずるが成立していた。
+     * ユーザー確定要件により、CTの共有はやめ(各スキル独立CT)、
+     * <b>持ち替えた瞬間に効果を強制終了する</b>方式へ移した。CTは発動時から走ったままなので、
+     * 持ち替えは「効果を捨ててCTだけ払う」= 得をしない。
+     */
+    default boolean toolBound() {
+        return false;
+    }
+
+    /**
+     * 効果の持続tick({@link ActiveEffectSessions} の有効期限計算用)。
+     * {@link #toolBound()} が {@code true} のスキルは必ず上書きすること
+     * (0 のままだとセッションが即失効し、持ち替え検知が一度も働かない)。
+     */
+    default int effectDurationTicks(int tier) {
+        return 0;
+    }
+
+    /**
+     * 付与した効果を強制終了する({@link ToolBoundEffectListener} からのみ呼ばれる)。
+     *
+     * <p>実装は<b>自分が付けた効果だと確認できる場合だけ</b>取り消すこと ── ビーコンや
+     * ポーションで同じ型の効果が乗っていることがあり、無条件に
+     * {@code removePotionEffect} すると他人の効果を剥がす(W-54 と同型の事故)。
+     */
+    default void cancelEffect(Player player, int tier) {
+        // 既定は何もしない(効果が瞬間的なスキルは持ち替えで終了する対象が無い)。
+    }
 }

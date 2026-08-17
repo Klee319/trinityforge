@@ -30,14 +30,14 @@ import java.util.Set;
  * ({@link #gateEffectId()}) only against placements in whichever tree the held item's {@code use-skill}
  * names, so a shovel can never accidentally borrow the mining tree's tier.
  *
- * <p><b>Uptime invariant (ユーザー決定 2026-08-18): "3；ただし、持ち替えたらCTに入る"</b> — this skill shares
- * {@link HasteActiveSkill#COOLDOWN_GROUP} via {@link #cooldownGroup()}, so
- * {@link com.trinityforge.active.CooldownManager} tracks one bucket for both skills: firing this one locks
- * out {@link HasteActiveSkill} (and vice versa) for however long the shorter/longer of the two configured
- * cooldowns dictates (whichever skill actually consumed the bucket last — see
- * {@link com.trinityforge.active.CooldownManager} class doc). A player alternating pickaxe/shovel therefore
- * can never get combined uptime exceeding what committing to one tool alone would provide, and switching
- * tools mid-cooldown does not reset or extend anything — it just hits the same shared lock.
+ * <p><b>Uptime invariant (ユーザー確定要件 2026-08-18 第2波): 「共有ではなく該当のツールから持ち変えると
+ * 効果が強制終了する方針」</b> — 初版はこのスキルと {@link HasteActiveSkill} で CT バケツを共有して
+ * 「持ち替えて連発できない」だけを担保していたが、<b>効果そのものは持ち替えても残る</b>ので、
+ * ツルハシで発動してシャベルへ持ち替えれば「シャベル側のノードを解放していないのに掘削が速い」状態が
+ * 作れた(CT共有では効果の横流しは止められない)。現在は CT は各スキル独立で、
+ * {@link #toolBound()} により {@link com.trinityforge.active.ToolBoundEffectListener} が
+ * <b>メインハンドが {@link #targetSkills()} 外になった瞬間</b>に {@link #cancelEffect} を呼ぶ。
+ * CT は発動時から走ったままなので、持ち替えは「効果を捨てて CT だけ払う」= 常に損。
  */
 public final class DiggingHasteActiveSkill implements ActiveSkill {
 
@@ -70,9 +70,36 @@ public final class DiggingHasteActiveSkill implements ActiveSkill {
         return TARGET_SKILLS;
     }
 
+    /**
+     * ツールを手放したら維持できない効果(2026-08-18 ユーザー確定要件)。
+     * {@code cooldownGroup()} の共有(初版)はこの方式へ置き換えたので上書きしない
+     * ── CT は {@link #id()} 単位で mining 側と完全に独立している。
+     */
     @Override
-    public String cooldownGroup() {
-        return HasteActiveSkill.COOLDOWN_GROUP;
+    public boolean toolBound() {
+        return true;
+    }
+
+    @Override
+    public int effectDurationTicks(int tier) {
+        return gimmickConfig.hasteDurationTicks(tier);
+    }
+
+    /**
+     * 付与した HASTE を取り消す。剥がすのは「amplifier が発動時の値と一致し、かつ無期限でない」
+     * 効果だけ(ビーコン/管理コマンド由来を剥がさないための照合。{@link HasteActiveSkill#cancelEffect}
+     * と同じ規約)。
+     */
+    @Override
+    public void cancelEffect(Player player, int tier) {
+        PotionEffect current = player.getPotionEffect(PotionEffectType.HASTE);
+        if (current == null || current.isInfinite()) {
+            return;
+        }
+        if (current.getAmplifier() != gimmickConfig.hasteAmplifier(tier)) {
+            return;
+        }
+        player.removePotionEffect(PotionEffectType.HASTE);
     }
 
     /**
