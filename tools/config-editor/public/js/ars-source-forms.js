@@ -399,8 +399,22 @@
     const root = h("div", { class: "dedicated-form card-list" });
     const expanded = new Set();
 
+    // 2026-08-18 (W-52・機構C): この画面で編集中の display-name をこのセッション中の他画面
+    // (解放ゲート・他レシピの ingredient/pedestal-items 欄)にも反映する。ars-forms.js の
+    // buildMaterialsForm と同じ「render() のたびに現在値で再登録する」パターン。
+    function registerCustomLabels() {
+      if (typeof window.setCustomItemCandidates !== "function") return;
+      window.setCustomItemCandidates(Object.keys(jars).map((jid) => ({
+        id: jid,
+        label: window.stripDisplayNamePlain
+          ? window.stripDisplayNamePlain(jars[jid] && jars[jid]["display-name"])
+          : ""
+      })), { replace: false });
+    }
+
     function render() {
       root.innerHTML = "";
+      registerCustomLabels();
       root.appendChild(h("div", {
         class: "field-desc",
         style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 12px;",
@@ -622,8 +636,21 @@
       ]);
     }
 
+    // 2026-08-18 (W-52・機構C): sourcejars 側と同じ理由(このセッション中の display-name 編集を
+    // 解放ゲート・他レシピの ingredient/pedestal-items 欄へ追随させる)。
+    function registerCustomLabels() {
+      if (typeof window.setCustomItemCandidates !== "function") return;
+      window.setCustomItemCandidates(Object.keys(items).map((iid) => ({
+        id: iid,
+        label: window.stripDisplayNamePlain
+          ? window.stripDisplayNamePlain(items[iid] && items[iid]["display-name"])
+          : ""
+      })), { replace: false });
+    }
+
     function render() {
       root.innerHTML = "";
+      registerCustomLabels();
       root.appendChild(h("div", {
         class: "field-desc",
         style: "font-size:11px;color:var(--muted,#6b7280);margin:0 0 12px;",

@@ -84,7 +84,44 @@ mobs: 置換の対象とする EntityType 名。既定はバニラで日光焼�
   明るさが15 / DamageCause が FIRE_TICK。夜間・屋内・ネザー/エンドではバニラのまま。
 ```
 
-### 直後: `early-level-attack:` (2026-07-28)
+### 直後: `level-cutoff:` (2026-08-09 移設 / 2026-08-18 線形傾斜追加 W-60)
+
+```
+レベル差による経験値・ドロップの足きり(低レベル狩りの抑制 / 高レベルモブのドロップ制限)。
+⚠ over/under はモブではなく【プレイヤー】が主語。over-level はプレイヤーのほうが高レベルなときに
+  効く側で、「格上狩り」と読むと向きが逆になるのでその言い方はしない。
+over-level: 自分(戦闘レベル)が threshold 以上モブより高いと発動。exp-rate/drop-rate は発動直後の初期倍率
+(-1で完全遮断、1で無干渉)。exp-decay-per-level/drop-decay-per-level は閾値超過1レベルごとに
+その初期倍率からさらに引く量(既定0=減衰なし=従来どおり固定レートのまま)。rate-floor は減衰後の下限。
+under-level: モブが自分よりitem-threshold以上高いとTF追加ドロップを完全遮断(段階なし、経験値には無関係)。
+```
+
+`CombatDamageConfig#levelCutoff()` → `MobLevelCutoff`(`com.trinityforge.mobs.MobLevelCutoff`)が実体。
+適用点は `KillRewardAdjuster` 一点(EXP側の `LevelCutoffExpListener`/`CombatListener#onCombatKill`、
+ドロップ側の `MobOverrideDropListener`/`MobTypeDropListener`/`MobLevelTableListener` が全てここを経由)。
+
+**over-level(プレイヤーのほうが高レベル＝低レベル狩り)の計算式**: `diff = プレイヤー戦闘Lv − モブLv` が `threshold` 以上で発動。
+発動時のレートは
+
+```
+excess = max(0, diff - threshold)
+rate   = clamp(rate-floor, 1.0, 基準rate(exp-rate/drop-rate) − excess × decay-per-level)
+```
+
+`exp-rate`/`drop-rate` が `-1` の場合はこの計算を経由せず常に完全遮断(exp=0 / dropは`blocksItems`扱い)を返す
+── 「rateを-1にして締め出す」と「decayで徐々に絞る」は排他で、-1が常に優先される。
+`excess == 0`(閾値ちょうど)では減衰が一切乗らない(基準rateがそのまま使われる)。
+`exp-decay-per-level`/`drop-decay-per-level`/`rate-floor` の既定は全て `0`。この場合
+`excess` がいくつであっても減衰量は常に0になるため、2026-08-09時点の「閾値到達で固定レートへジャンプする
+だけのステップ関数」と完全に一致する(既存の出荷設定・回帰テストは無変更)。
+
+**under-level(モブのほうが高レベル)は今回のW-60では変更していない**。`item-threshold` 以上のレベル差がある
+モブを相手にすると、TF追加ドロップは`blocksItems()`によって常に完全遮断される二値のみで、
+over-level側のような段階的な減衰(rate相当のフィールド)は存在しない。「高レベルモブからのドロップを
+段階的に減らしたい(全遮断ではなく徐々に減らしたい)」という要件が出た場合は、over-levelと同型の
+`item-decay-per-level`+floor を追加する拡張余地がある(現状は未実装、意図的にスコープ外)。
+
+
 
 ```
 モブの attack-power は combat/mob-types.yml で指数カーブ(base 5.5〜6.6 × 1.033^Lv)として校正されて

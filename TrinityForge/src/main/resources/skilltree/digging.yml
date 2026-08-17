@@ -38,7 +38,7 @@ nodes:
     effects:
       - 破壊で少量のバニラEXPを獲得
     dedicated-effects:
-      - id: feature:break-vanilla-exp
+      - id: feature:break-vanilla-exp-digging
   B:
     name: 道路工事の土木工
     level: 30
@@ -111,6 +111,28 @@ nodes:
     mainhand-buffs:
       digging-break-vanilla-exp-bonus: 0.5
       gathering-efficiency: 1
+  A-1:
+    # 2026-08-18 (W-59): haste-active-digging(シャベル専用の独立アクティブスキル)解放ノード。
+    # mining.yml A-1(feature:haste-active-mining)と対になるが、gate id・数値(amplifier/持続/CT)は
+    # 完全に独立(stats/digging-gimmick.yml haste-active-digging参照)。CTバケツはCooldownManager上で
+    # haste-active-miningと共有するため、シャベル/つるはしを持ち替えて連発しても合計アップタイムは
+    # 増えない(片方のCTが残っていればもう片方も撃てない)。
+    name: 高速掘削I
+    level: 20
+    role: branch
+    parent: A
+    icon: REDSTONE
+    cost: 1
+    effect-text: スキル発動で 6s/40sCDの高速掘削(採掘速度上昇II)
+    effects:
+      - スキル発動で6秒間/CD40秒の高速掘削(採掘速度上昇II)
+    dedicated-effects:
+      - id: feature:haste-active-digging
+        value: 1
+    description: |-
+      スキル発動で6sの高速掘削(採掘速度上昇II)
+      CT40s
+      &8つるはしの高速破壊とCTを共有します(持ち替えても連発不可)
   A-2:
     name: 切削速度上昇I
     level: 40

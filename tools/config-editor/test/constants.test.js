@@ -227,6 +227,51 @@ test("2026-07-31 D6: magical.attack-power-scale が共通変数に出て、0も�
     ["magical.attack-power-scale: 0以上の値が必要です"]);
 });
 
+test("2026-08-18 W-60: level-cutoff の逓減3キー(exp-decay-per-level/drop-decay-per-level/rate-floor)"
+  + " が共通変数に出て、ロスレスに保存される", () => {
+  // combat/damage.yml 本体への追加は別レーンの担当のため、ここでは実ファイルに依存せず
+  // 未設定(=キー自体が無い旧damage.yml)を模した合成データで確認する。
+  const damage = {
+    "level-cutoff": {
+      "over-level": { threshold: -1, "exp-rate": 1, "drop-rate": 1 },
+      "under-level": { "item-threshold": -1 }
+    }
+  };
+  const { fields } = extractConstants(damage, {});
+  // 未設定は0(=逓減なし)にフォールバックする。ここが1や-1に化けると
+  // 「配備前の旧damage.ymlを開いて保存しただけ」で逓減が勝手に発動する事故になる。
+  assert.equal(fields["level-cutoff.over-level.exp-decay-per-level"], 0);
+  assert.equal(fields["level-cutoff.over-level.drop-decay-per-level"], 0);
+  assert.equal(fields["level-cutoff.over-level.rate-floor"], 0);
+
+  const payload = { fields: {
+    "level-cutoff.over-level.exp-decay-per-level": 0.05,
+    "level-cutoff.over-level.drop-decay-per-level": 0.1,
+    "level-cutoff.over-level.rate-floor": 0.2
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage["level-cutoff"]["over-level"]["exp-decay-per-level"], 0.05);
+  assert.equal(updated.damage["level-cutoff"]["over-level"]["drop-decay-per-level"], 0.1);
+  assert.equal(updated.damage["level-cutoff"]["over-level"]["rate-floor"], 0.2);
+  // 同節の既存キー(threshold/exp-rate/drop-rate)は温存される。
+  assert.equal(updated.damage["level-cutoff"]["over-level"].threshold, -1);
+  assert.equal(updated.damage["level-cutoff"]["over-level"]["exp-rate"], 1);
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["item-threshold"], -1);
+
+  // 範囲外は弾く。exp-decay/drop-decay は [0,1]、rate-floor は [-1,1]。
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.exp-decay-per-level": 1.5 } }),
+    ["level-cutoff.over-level.exp-decay-per-level: 1以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.exp-decay-per-level": -0.1 } }),
+    ["level-cutoff.over-level.exp-decay-per-level: 0以上の値が必要です"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.drop-decay-per-level": 2 } }),
+    ["level-cutoff.over-level.drop-decay-per-level: 1以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.rate-floor": 1.1 } }),
+    ["level-cutoff.over-level.rate-floor: 1以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.over-level.rate-floor": -1.1 } }),
+    ["level-cutoff.over-level.rate-floor: -1以上の値が必要です"]);
+});
+
 test("撤去した attack/defense stat-key はもう共通変数に現れない", () => {
   // 恒等マップのためハードコード化(2026-07-24)。editor の FIELD_SPECS から除外済みで、
   // extractConstants は該当キーを surface せず、既存 damage.yml の値は保存時に温存される。

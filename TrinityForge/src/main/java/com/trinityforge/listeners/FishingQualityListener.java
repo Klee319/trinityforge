@@ -60,12 +60,31 @@ public final class FishingQualityListener implements Listener {
     private final ItemStatsConfig itemStats;
     private final NamespacedKey treasureFlagKey;
 
+    /**
+     * ArsPaper スレッドの再刻印経路。既定は {@link PickupQualityListener#defaultArsThreadRestamp}
+     * (拾得経路とまったく同じ実装を共有する — 別実装にすると片方だけ lore 体裁が壊れる)。
+     */
+    private final PickupQualityListener.ArsThreadQualityRestamper arsThreadRestamper;
+
     public FishingQualityListener(ItemFactory itemFactory,
                                   QualityConfig quality, FishingGimmickConfig fishingGimmick,
                                   SkillLevelSource skillLevelSource,
                                   ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck,
                                   PlayerStatAggregator aggregator, ItemStatsConfig itemStats,
                                   NamespacedKey treasureFlagKey) {
+        this(itemFactory, quality, fishingGimmick, skillLevelSource, itemCatalog, lootLuck,
+                aggregator, itemStats, treasureFlagKey, PickupQualityListener::defaultArsThreadRestamp);
+    }
+
+    /** テスト用: ArsPaper 非搭載でもスレッド経路を検証できるよう再刻印を差し替える。 */
+    FishingQualityListener(ItemFactory itemFactory,
+                           QualityConfig quality, FishingGimmickConfig fishingGimmick,
+                           SkillLevelSource skillLevelSource,
+                           ItemCatalogConfig itemCatalog, PlayerLootLuckSource lootLuck,
+                           PlayerStatAggregator aggregator, ItemStatsConfig itemStats,
+                           NamespacedKey treasureFlagKey,
+                           PickupQualityListener.ArsThreadQualityRestamper arsThreadRestamper) {
+        this.arsThreadRestamper = Objects.requireNonNull(arsThreadRestamper, "arsThreadRestamper");
         this.itemFactory = Objects.requireNonNull(itemFactory, "itemFactory");
         this.quality = Objects.requireNonNull(quality, "quality");
         this.fishingGimmick = Objects.requireNonNull(fishingGimmick, "fishingGimmick");
@@ -107,13 +126,43 @@ public final class FishingQualityListener implements Listener {
         boolean isEquipment = MaterialTier.of(caughtStack.getType()).isEquipment();
         boolean alreadyStamped = caughtStack.hasItemMeta() && ItemData.of(caughtStack.getItemMeta()).hasRollSeed();
 
-        if (isEquipment && !alreadyStamped) {
+        if (isStampableCatch(caughtStack, isEquipment) && !alreadyStamped) {
             stampCaughtEquipment(caught, caughtStack, player);
         }
 
+        // 追加ドロップの分岐は「バニラ装備を釣ったか」のまま据え置く(複製回避が目的で、品質刻印とは別の関心事)。
+        // ここまで isStampableCatch へ広げると、ステータス付きの非装備TF品を釣ったときに
+        // fishing-bonus の追加ドロップが黙って消える。
         if (!isEquipment) {
             dropFishingBonus(caught, player, agg, fishingLevel, caughtStack.getType());
         }
+    }
+
+    /**
+     * 釣果に品質を刻んでよいか。
+     *
+     * <p><b>2026-08-18 の修正</b>: 以前は {@link MaterialTier#isEquipment()} 単独で判定していた。
+     * これは {@code CraftQualityListener#isStampableCraftResult} が 2026-08-04 に塞いだのと同じ穴で、
+     * <b>ベース素材がバニラ装備でない TF 品(広辞苑・杖・触媒、そして ArsPaper のスレッド)は
+     * {@code item-stats.yml} に品質で変動する層を持っていても品質ロールに一度も到達しない</b>。
+     * 現時点では釣果テーブルにこれらが登場しないため実害は出ていないが、
+     * 1 件でも追加された瞬間に「常に品質0で釣れる」が再発する。
+     *
+     * <p>バニラの魚・棒・糸などを巻き込まないのは、{@code item-stats.yml} に
+     * {@code MATERIAL#CMD} のプロファイルが無ければ {@code qualityApplies} が偽になるため。
+     */
+    private boolean isStampableCatch(ItemStack caughtStack, boolean isEquipment) {
+        if (isEquipment) {
+            return true;
+        }
+        ItemMeta meta = caughtStack.hasItemMeta() ? caughtStack.getItemMeta() : null;
+        if (meta != null && PickupQualityListener.hasArsThreadMarker(meta)) {
+            return true;
+        }
+        Integer cmd = meta != null ? DerivedItemStats.customModelDataOf(meta) : null;
+        return itemStats.profileFor(caughtStack.getType(), cmd)
+                .filter(com.trinityforge.stats.ItemStatProfile::qualityApplies)
+                .isPresent();
     }
 
     private void stampCaughtEquipment(Item caught, ItemStack caughtStack, Player fisher) {
@@ -128,6 +177,16 @@ public final class FishingQualityListener implements Listener {
                 quality.spreadUp(), quality.spreadDown(), quality.maxQuality());
 
         ItemStack stamped = caughtStack.clone();
+        // ArsPaper のスレッドは lore がスレッド専用体裁(効果説明/スロット案内/バックパック行)なので、
+        // 汎用 ItemFactory#stamp(lore 全体を組み直す)へ絶対に流さない。再刻印に失敗したら
+        // 無刻印のまま諦める(lore を壊すより良い)。拾得経路 PickupQualityListener と同じ判断。
+        ItemMeta stampedMeta = stamped.getItemMeta();
+        if (stampedMeta != null && PickupQualityListener.hasArsThreadMarker(stampedMeta)) {
+            if (arsThreadRestamper.restampIfThread(stamped, rolled)) {
+                caught.setItemStack(stamped);
+            }
+            return;
+        }
         long seed = ThreadLocalRandom.current().nextLong();
         itemFactory.stamp(stamped, seed, rolled);
         CatalogIdentity.ensure(stamped, itemCatalog);

@@ -227,6 +227,59 @@ class ActivationDispatcherTest {
         org.mockito.Mockito.verify(shovelEvent, org.mockito.Mockito.never()).setCancelled(true);
     }
 
+    // --- 2026-08-18 (W-59): cooldownGroup() で"別idの2スキル"がCTバケツを共有する ---
+
+    /**
+     * {@code cooldownIsSharedAcrossTargetSkillsNotPerTriggeringItem} は「1つの ActiveSkill が複数
+     * targetSkills() から届く」場合の共有を縛るが、こちらは<b>id()もgateEffectId()も別々の、独立した
+     * 2つの ActiveSkill インスタンス</b>が {@link ActiveSkill#cooldownGroup()} だけを同じ定数へ
+     * オーバーライドしたときの共有を縛る — haste-active-mining/haste-active-digging の実配線と同型。
+     */
+    @Test
+    void twoIndependentActiveSkillsSharingACooldownGroupBlockEachOtherAcrossToolSwitch() {
+        String groupSkillA = "fake-haste-mining";
+        String groupSkillB = "fake-haste-digging";
+        String sharedGroup = "fake-haste-group";
+        AtomicInteger groupBActivateCalls = new AtomicInteger();
+        registry.register(new ActiveSkill() {
+            public String id() { return groupSkillA; }
+            public String gateEffectId() { return groupSkillA; }
+            public Set<String> targetSkills() { return Set.of("SMITHING"); }
+            public long cooldownMillis(int tier) { return 1000L; }
+            public String cooldownGroup() { return sharedGroup; }
+            public ActivationResult activate(Player p, ActiveContext ctx) {
+                activateCalls.incrementAndGet();
+                return ActivationResult.success("A発動！");
+            }
+        });
+        registry.register(new ActiveSkill() {
+            public String id() { return groupSkillB; }
+            public String gateEffectId() { return groupSkillB; }
+            public Set<String> targetSkills() { return Set.of("ALCHEMY"); }
+            public long cooldownMillis(int tier) { return 200L; }
+            public String cooldownGroup() { return sharedGroup; }
+            public ActivationResult activate(Player p, ActiveContext ctx) {
+                groupBActivateCalls.incrementAndGet();
+                return ActivationResult.success("B発動！");
+            }
+        });
+        when(dedicatedEffects.valueMax(any(), eq(groupSkillA), any())).thenReturn(OptionalDouble.of(1.0));
+        when(dedicatedEffects.valueMax(any(), eq(groupSkillB), any())).thenReturn(OptionalDouble.of(1.0));
+
+        // スキルA(id=fake-haste-mining、SMITHINGツリー)を発動 -> 共有バケツを消費。
+        dispatcher.onInteract(interactEvent(taggedItem("SMITHING"), true));
+        assertEquals(1, activateCalls.get());
+
+        // 直後に別ツール(ALCHEMYツリー、id=fake-haste-digging、CT=200msと短い)へ持ち替えて
+        // 発動を試みても、id()が違う独立スキルであるにもかかわらず共有CTバケツでブロックされる。
+        PlayerInteractEvent secondTool = interactEvent(taggedItem("ALCHEMY"), true);
+        dispatcher.onInteract(secondTool);
+
+        assertEquals(0, groupBActivateCalls.get(),
+                "cooldownGroup()を共有する別スキルへ持ち替えても、共有バケツがロック中なら発動できないこと");
+        org.mockito.Mockito.verify(secondTool, org.mockito.Mockito.never()).setCancelled(true);
+    }
+
     @Test
     void offHandInteractIsIgnored() {
         stubUnlocked(OptionalDouble.of(1.0));

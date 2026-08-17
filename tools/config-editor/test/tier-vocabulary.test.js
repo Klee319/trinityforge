@@ -16,7 +16,8 @@ const assert = require("node:assert/strict");
 const { buildTierVocabulary, extractTierNumbers, SCALE_FEATURE_SECTIONS } = require("../lib/tier-vocabulary");
 
 const EMPTY_ALL = {
-  "vein-mining": [], "haste-active-mining": [], "tree-fell": [], "area-harvest": [],
+  "vein-mining": [], "haste-active-mining": [], "haste-active-digging": [],
+  "tree-fell": [], "area-harvest": [],
   "xp-bottle-store-unlock": [], "potion-merge": [],
   "furnace-smelt-speed": [], "furnace-smelt-bonus": [],
   "digging-durability-vanilla-exp": [], "digging-durability-job-exp": []

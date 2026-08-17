@@ -229,8 +229,23 @@
       window.RECIPES_UI.ensureCustomDatalist().catch(() => {});
     }
 
+    // 2026-08-18 (W-52): この画面の7件のうち4件(pedestal/ritual_core/scribing_table/waystone)は
+    // material を持たない(仕様上編集不可)ため、catalog-candidates.js の候補生成側で拾えても
+    // 表示名が古いまま(このセッション中の display-name 編集を追わない)ことがある。
+    // ars-forms.js の buildMaterialsForm と同じ「render() のたびに現在値で再登録する」パターンに
+    // 揃え、custom: 参照(解放ゲート・レシピの ingredient/pedestal-items 欄)の表示名を
+    // このセッション中の編集にも追随させる。
+    function registerCustomLabels() {
+      if (typeof window.setCustomItemCandidates !== "function") return;
+      window.setCustomItemCandidates(CORE_LOGIC.FUNCTIONAL_ITEM_IDS.map((fid) => ({
+        id: fid,
+        label: window.stripDisplayNamePlain(working.items[fid]["display-name"]) || ITEM_LABELS[fid] || fid
+      })), { replace: false });
+    }
+
     function render() {
       listBox.innerHTML = "";
+      registerCustomLabels();
       for (const id of CORE_LOGIC.FUNCTIONAL_ITEM_IDS) listBox.appendChild(renderCard(id));
     }
 
@@ -369,9 +384,19 @@
         working.items[id] && typeof working.items[id] === "object");
     }
 
+    function registerCustomLabels(ids) {
+      if (typeof window.setCustomItemCandidates !== "function") return;
+      window.setCustomItemCandidates(ids.map((eid) => ({
+        id: eid,
+        label: window.stripDisplayNamePlain(working.items[eid]["display-name"])
+          || CORE_LOGIC.ARS_ENCHANT_BOOK_LABELS[eid] || eid
+      })), { replace: false });
+    }
+
     function render() {
       listBox.innerHTML = "";
       const ids = presentIds();
+      registerCustomLabels(ids);
       if (ids.length === 0) {
         listBox.appendChild(h("div", { class: "empty-guide" }, [
           h("div", { class: "empty-guide-title", text: "エンチャント本の定義がありません" }),
@@ -494,6 +519,13 @@
 
     function render() {
       listBox.innerHTML = "";
+      if (typeof window.setCustomItemCandidates === "function") {
+        window.setCustomItemCandidates(CORE_LOGIC.TF_SPECIAL_ITEM_IDS.map((tid) => ({
+          id: tid,
+          label: window.stripDisplayNamePlain(catalogWorking.items[tid]["display-name"])
+            || CORE_LOGIC.TF_SPECIAL_ITEM_LABELS[tid] || tid
+        })), { replace: false });
+      }
       for (const id of CORE_LOGIC.TF_SPECIAL_ITEM_IDS) listBox.appendChild(renderCard(id));
     }
 

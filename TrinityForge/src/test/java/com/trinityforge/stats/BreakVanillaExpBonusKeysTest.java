@@ -136,6 +136,36 @@ class BreakVanillaExpBonusKeysTest {
     }
 
     @Test
+    @DisplayName("featureId: 4スキル分の gate id が導出でき、他スキルは null")
+    void featureIdCoversTheFourGatheringSkillsOnly() {
+        assertEquals("break-vanilla-exp-mining", BreakVanillaExpBonusKeys.featureId(SkillId.MINING));
+        assertEquals("break-vanilla-exp-woodcutting", BreakVanillaExpBonusKeys.featureId(SkillId.WOODCUTTING));
+        assertEquals("break-vanilla-exp-digging", BreakVanillaExpBonusKeys.featureId(SkillId.DIGGING));
+        assertEquals("break-vanilla-exp-farming", BreakVanillaExpBonusKeys.featureId(SkillId.FARMING));
+
+        // 破壊が採取扱いにならないスキルは null(呼び出し側はゲート照会自体をスキップできる)。
+        assertNull(BreakVanillaExpBonusKeys.featureId(SkillId.FISHING));
+        assertNull(BreakVanillaExpBonusKeys.featureId(SkillId.POWER));
+        assertNull(BreakVanillaExpBonusKeys.featureId(null));
+        assertNull(BreakVanillaExpBonusKeys.featureId(""));
+
+        // 大文字小文字を問わない(SkillId定数は大文字だが、小文字で呼ばれても解決できる)。
+        assertEquals("break-vanilla-exp-mining", BreakVanillaExpBonusKeys.featureId("mining"));
+    }
+
+    @Test
+    @DisplayName("featureId は FeatureEffectRegistry に実在する id を返す (2026-08-18 W-58)")
+    void featureIdsAreRegisteredInFeatureEffectRegistry() {
+        for (String skillId : BreakVanillaExpBonusKeys.GATHERING_SKILLS) {
+            String featureId = BreakVanillaExpBonusKeys.featureId(skillId);
+            assertTrue(com.trinityforge.skilltree.effects.FeatureEffectRegistry.isKnown(featureId),
+                    "FeatureEffectRegistry に未登録: " + featureId);
+        }
+        // 旧・4ツリー共通の単一idはW-58で分割済みのため、もう存在しない。
+        assertTrue(!com.trinityforge.skilltree.effects.FeatureEffectRegistry.isKnown("break-vanilla-exp"));
+    }
+
+    @Test
     @DisplayName("出荷スキルツリーはスコープ無しキーを使わず、各ツリーが自分のキーだけを使う")
     void shippedTreesUseTheirOwnScopedKey() throws Exception {
         List<String> leaks = new ArrayList<>();
@@ -164,5 +194,28 @@ class BreakVanillaExpBonusKeysTest {
                 "採取スキル別キーが出荷ツリーで6箇所未満しか使われていない(" + scopedHits
                         + ")。共通キーへ戻っていないか確認する");
         assertEquals(List.of(), leaks, String.join("\n", leaks));
+    }
+
+    /** 4採取ツリーのバレル。{@link #SHIPPED_TREES}(16本)からの絞り込み。 */
+    private static final List<String> GATHERING_TREES = List.of("mining", "digging", "farming", "woodcutting");
+
+    @Test
+    @DisplayName("2026-08-18 (W-58): 4採取ツリーは feature:break-vanilla-exp-<tree> だけを使い、"
+            + "旧・共通idはもう使っていない")
+    void shippedGatheringTreesUseTheirOwnScopedFeatureGate() throws Exception {
+        List<String> problems = new ArrayList<>();
+        for (String tree : GATHERING_TREES) {
+            String yml = readShipped("skilltree/" + tree + ".yml");
+            String expectedGate = "feature:break-vanilla-exp-" + tree;
+            if (!yml.contains(expectedGate)) {
+                problems.add(tree + ".yml: 期待するゲート " + expectedGate + " が見つからない");
+            }
+            // 旧・4ツリー共通の単一id(サフィックス無し)が残っていないこと。行頭一致で
+            // "feature:break-vanilla-exp-mining" 等への誤ヒットを避ける(直後に文字が続かないことを確認)。
+            if (Pattern.compile("feature:break-vanilla-exp(?!-)").matcher(yml).find()) {
+                problems.add(tree + ".yml: 旧・共通id(feature:break-vanilla-exp、サフィックス無し)がまだ残っている");
+            }
+        }
+        assertEquals(List.of(), problems, String.join("\n", problems));
     }
 }

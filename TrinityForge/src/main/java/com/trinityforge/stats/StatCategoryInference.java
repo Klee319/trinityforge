@@ -28,6 +28,7 @@ public final class StatCategoryInference {
                 // (さもないと下の key.contains("mining") 等の部分一致ルールに先取りされ、意図しない
                 // カテゴリに落ちる)。
                 || key.equals("haste_active_mining_cooldown_reduction")
+                || key.equals("haste_active_digging_cooldown_reduction")
                 || key.equals("tree_fell_cooldown_reduction")
                 || key.equals("distance_damage_bonus")) {
             return StatCategory.ATTACK;

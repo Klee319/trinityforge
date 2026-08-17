@@ -53,8 +53,30 @@ import java.util.Set;
  */
 public interface ActiveSkill {
 
-    /** Stable identifier used as the {@link CooldownManager} key and {@code /tf active} debug target. */
+    /** Stable identifier used as the {@code /tf active} debug target (and the default {@link #cooldownGroup()}). */
     String id();
+
+    /**
+     * The {@link CooldownManager} key actually consumed/checked by {@link ActivationDispatcher} and
+     * {@link ActiveCooldownDisplay}. Defaults to {@link #id()} (one skill = one private CT bucket, the
+     * original framework shape).
+     *
+     * <p><b>2026-08-18 (W-59)</b> — override this to share a CT bucket with a DIFFERENT {@link ActiveSkill}
+     * that has its own independent {@link #id()}, {@link #gateEffectId()}, unlock level and
+     * {@link #cooldownMillis(int)}. This is how {@code haste-active-mining} (pickaxe) and
+     * {@code haste-active-digging} (shovel) are kept as two genuinely separate, separately-tunable skills
+     * while still guaranteeing "switching tools never grants extra combined uptime": both return the same
+     * constant from {@code cooldownGroup()}, so {@link CooldownManager} treats one activation as consuming
+     * the other's cooldown too — a player alternating pickaxe/shovel hits the shared lock on the second
+     * attempt instead of getting a fresh CT from the tool switch. Do NOT achieve this by registering the same
+     * ability under {@link #targetSkills()} covering both trees (see the class doc's warning above) — that
+     * reintroduces the tree-scoped-unlock bug this design fixed on 2026-08-01; two independent skills whose
+     * gates are each scoped to their own tree is the only way both requirements (shared CT, independent
+     * unlock/config) hold at once.
+     */
+    default String cooldownGroup() {
+        return id();
+    }
 
     /**
      * プレイヤーに見せる名前(CT残り表示など)。既定は {@link #id()} — 新しいアクティブスキルを

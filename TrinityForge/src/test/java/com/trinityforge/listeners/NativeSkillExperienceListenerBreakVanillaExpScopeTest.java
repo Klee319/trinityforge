@@ -7,6 +7,7 @@ import com.trinityforge.progression.NativeExperienceDispatcher;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import com.trinityforge.stats.BreakVanillaExpBonusKeys;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -33,8 +35,8 @@ import static org.mockito.Mockito.when;
 /**
  * 2026-08-01 実サーバ報告の回帰テスト — <b>破壊時バニラEXP解放がツリーを横断して漏れていた件</b>。
  *
- * <p>{@code feature:break-vanilla-exp} は mining / woodcutting / digging / farming の
- * <b>4ツリーすべて</b>が A ノード(Lv10)に置いている。
+ * <p>2026-08-01 当時、{@code feature:break-vanilla-exp} は mining / woodcutting / digging / farming の
+ * <b>4ツリーすべて</b>が A ノード(Lv10)に置く<b>共有id</b>だった。
  * {@link NativeSkillExperienceListener} は以前これをツリー非限定の
  * {@code DedicatedEffectsConfig#isActive(player, id)} で見ていたため、
  * <b>採掘の A を1つ取っただけで、作物・原木・土の破壊でもバニラEXPが出ていた</b>
@@ -45,13 +47,21 @@ import static org.mockito.Mockito.when;
  * 修正を戻す(3引数→2引数)と {@link #miningUnlockDoesNotLeakToFarmingBreaks()} と
  * {@link #miningUnlockDoesNotLeakToWoodcuttingBreaks()} が RED になる。
  *
+ * <p><b>2026-08-18 (W-58) 追記 — gate id 自体がスキルごとに分割された後もこのテストは有効</b>:
+ * {@code break-vanilla-exp} は {@link BreakVanillaExpBonusKeys#featureId(String)} が導出する
+ * スキル専用id(例: {@code break-vanilla-exp-mining})へ分割されたので、
+ * {@code FLAG} という単一定数はもう存在しない — 各アサーションは
+ * {@code BreakVanillaExpBonusKeys.featureId(SkillId.XXX)} で問い合わせるべき"そのスキル専用id"を
+ * 明示的に使う。3引数呼び出しは belt-and-suspenders として引き続き維持されるため、このテストの
+ * 「3引数→2引数への退行を検出する」という核心的な主張は変わらない
+ * (id自体が分かれた今も、退行の実害はより小さくなっただけで、2引数呼び出しへ戻れば依然として
+ * 検出できる退行であることを、このテストで固定する)。
+ *
  * <p>MockBukkit を使わない({@code Block#getDrops} 等の未実装APIでテストが SKIPPED に化けるのを
  * 避ける)ため、Block/Player は Mockito モックで組む
  * — {@link NativeSkillExperienceListenerCropMaturityTest} と同じ方針。
  */
 class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
-
-    private static final String FLAG = "break-vanilla-exp";
 
     private static final SkillCatalogEntry FARMING = new SkillCatalogEntry(
             SkillId.FARMING, 100, "1", level -> 1L,
@@ -80,7 +90,8 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
         // BASE_BREAK_EXP=1、ボーナス0 → 1。自分のツリーなので当然出る。
         verify(fixture.player()).giveExp(1);
         // 照会が「採掘として扱われた破壊」であることを明示的に縛る(スコープを取り違えていないこと)。
-        verify(fixture.dedicatedEffects()).isActive(fixture.player(), FLAG, SkillId.MINING);
+        verify(fixture.dedicatedEffects()).isActive(fixture.player(),
+                BreakVanillaExpBonusKeys.featureId(SkillId.MINING), SkillId.MINING);
     }
 
     @Test
@@ -94,7 +105,8 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
         verify(fixture.dispatcher()).grant(fixture.player().getUniqueId(), SkillId.FARMING, 10.0);
         // だが農業ツリーのAを取っていないのでバニラEXPは出ない。
         verify(fixture.player(), never()).giveExp(anyInt());
-        verify(fixture.dedicatedEffects()).isActive(fixture.player(), FLAG, SkillId.FARMING);
+        verify(fixture.dedicatedEffects()).isActive(fixture.player(),
+                BreakVanillaExpBonusKeys.featureId(SkillId.FARMING), SkillId.FARMING);
     }
 
     @Test
@@ -106,7 +118,8 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
 
         verify(fixture.dispatcher()).grant(fixture.player().getUniqueId(), SkillId.WOODCUTTING, 12.0);
         verify(fixture.player(), never()).giveExp(anyInt());
-        verify(fixture.dedicatedEffects()).isActive(fixture.player(), FLAG, SkillId.WOODCUTTING);
+        verify(fixture.dedicatedEffects()).isActive(fixture.player(),
+                BreakVanillaExpBonusKeys.featureId(SkillId.WOODCUTTING), SkillId.WOODCUTTING);
     }
 
     // ============================================================
@@ -140,7 +153,7 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
         fixture.listener().onBlockBreak(breakEvent(glass, fixture.player()));
 
         verify(fixture.player(), never()).giveExp(anyInt());
-        verify(fixture.dedicatedEffects(), never()).isActive(any(Player.class), eq(FLAG), any());
+        verify(fixture.dedicatedEffects(), never()).isActive(any(Player.class), anyString(), any());
     }
 
     // ============================================================
@@ -154,11 +167,14 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
     }
 
     /**
-     * {@code unlockedSkill} のツリーでだけ {@code feature:break-vanilla-exp} を解放している状態。
+     * {@code unlockedSkill} のツリーでだけ {@code feature:break-vanilla-exp-<unlockedSkill>} を
+     * 解放している状態。
      *
-     * <p>ツリー非限定の2引数版は <b>true</b> を返すように仕込んである — これが修正前の実装が見ていた値で、
-     * 「どこか1本で解放している」という事実そのもの。修正後の実装がこちらを読んでしまうと
-     * 全ツリーで発火してしまうため、リークのテストはこの仕込みによって RED になる。
+     * <p>ツリー非限定の2引数版は<b>そのスキル専用idについて</b> <b>true</b> を返すように仕込んである —
+     * これが2026-08-01修正前の実装が見ていた値で、「どこか1本で解放している」という事実そのもの。
+     * 修正後の実装がこちらを読んでしまうと全ツリーで発火してしまうため、リークのテストはこの仕込みに
+     * よって RED になる(2026-08-18のid分割後も、2引数への退行を検出するという核心は変わらない —
+     * クラスjavadoc参照)。
      */
     private static Fixture fixtureUnlockedIn(String unlockedSkill) {
         NativeExperienceDispatcher dispatcher = mock(NativeExperienceDispatcher.class);
@@ -170,9 +186,10 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
         when(placedBlockTracker.clearIfPlaced(any())).thenReturn(false);
 
         Player player = player();
+        String unlockedFlag = BreakVanillaExpBonusKeys.featureId(unlockedSkill);
         DedicatedEffectsConfig dedicatedEffects = mock(DedicatedEffectsConfig.class);
-        when(dedicatedEffects.isActive(eq(player), eq(FLAG))).thenReturn(true);
-        when(dedicatedEffects.isActive(eq(player), eq(FLAG), eq(unlockedSkill))).thenReturn(true);
+        when(dedicatedEffects.isActive(eq(player), eq(unlockedFlag))).thenReturn(true);
+        when(dedicatedEffects.isActive(eq(player), eq(unlockedFlag), eq(unlockedSkill))).thenReturn(true);
 
         PlayerStatAggregator aggregator = mock(PlayerStatAggregator.class);
         when(aggregator.aggregate(player)).thenReturn(

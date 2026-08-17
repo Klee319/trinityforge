@@ -873,6 +873,17 @@ stats:
     show-sign: true
     hide-when-zero: true
     category: utility
+  haste-active-digging-cooldown-reduction:
+    name: 高速掘削CT効率
+    icon: ""
+    format: PERCENT
+    decimals: 0
+    # 2026-08-18: utilityカテゴリの order は 112(直上)/113(直下のtree-fell)が既に埋まっているため、
+    # 同カテゴリ内の最大値(30、line ~1316)より大きい31を採番(orderはカテゴリ内で一意が必須)。
+    order: 31
+    show-sign: true
+    hide-when-zero: true
+    category: utility
   tree-fell-cooldown-reduction:
     name: 一括伐採CT効率
     icon: ""

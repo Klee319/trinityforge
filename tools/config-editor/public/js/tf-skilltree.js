@@ -871,13 +871,13 @@
       /** チェックを外したID(既定は全選択なので、外したものだけ覚える)。 */
       const deselected = new Set();
 
-      // クラフトレシピはカタログIDなので表示名を引ける(CUSTOM_ITEM_LABELS、catalogタブを
-      // 開いた後なら埋まっている)。儀式側は ArsPaper items.yml ritual_effects の自己記述的な slug は
-      // 生IDのまま、TFカタログ由来(tf_catalog_*)だけ 2026-08-16 に表示名を引けるようにした。
+      // 2026-08-18 (W-52): レシピ/儀式のどちらも vocab 自身が持つラベル辞書(recipeLabels/
+      // ritualLabels、gate-vocabulary.js が catalog.yml と ArsPaper 各ソースから合成)を
+      // 直接引く。以前はレシピ側だけ window.CUSTOM_ITEM_LABELS(カタログ画面を一度開いていないと
+      // 空)に依存しており、他タブを経由していないと常に生ID表示だった。
       function matchLabel(id) {
-        if (kind !== "recipe") return ((vocab && vocab.ritualLabels) || {})[id] || id;
-        const labels = window.CUSTOM_ITEM_LABELS || {};
-        return labels[`custom:${id}`] || labels[`custom:${String(id).toLowerCase()}`] || id;
+        const labels = (kind === "recipe" ? vocab.recipeLabels : vocab.ritualLabels) || {};
+        return labels[id] || id;
       }
 
       const overlay = h("div", { class: "modal-overlay" });
@@ -1046,7 +1046,13 @@
       const shown = String(target || "").startsWith("custom:") ? target : `custom:${target || ""}`;
       if (typeof window.setCustomItemCandidates === "function") {
         // 別タブを一度も開いていない場合でも、レシピゲートの候補は必ずサジェストする。
-        window.setCustomItemCandidates(vocab.recipes, { replace: false });
+        // 2026-08-18 (W-52): 素の ID 配列だけ渡すとラベルが登録されず `カスタム: <id>`
+        // 表示に落ちていたため、vocab.recipeLabels を添えて {id, label} で登録する。
+        const recipeLabels = vocab.recipeLabels || {};
+        window.setCustomItemCandidates(
+          vocab.recipes.map((id) => ({ id, label: recipeLabels[id] || "" })),
+          { replace: false }
+        );
       }
       return [mode, window.materialInput(shown, "material-list", (v) => {
         const raw = String(v == null ? "" : v).trim();
@@ -1320,13 +1326,18 @@
           ? json.specialRewardLabels : {},
         ritualLabels: json && typeof json.ritualLabels === "object" && json.ritualLabels
           ? json.ritualLabels : {},
+        // 2026-08-18 (W-52): recipe: ゲートのセレクトも生ID(またはカスタム表示)だったので、
+        // 儀式側と同じ形でラベル辞書を受け取る。
+        recipeLabels: json && typeof json.recipeLabels === "object" && json.recipeLabels
+          ? json.recipeLabels : {},
         recipes: Array.isArray(json.recipes) ? json.recipes : [],
         rituals: Array.isArray(json.rituals) ? json.rituals : []
       };
     } catch (_) {
       return {
         glyphs: [], brews: [], trades: [], features: [], overenchants: [], drops: [],
-        specialRewards: [], specialRewardLabels: {}, ritualLabels: {}, recipes: [], rituals: []
+        specialRewards: [], specialRewardLabels: {}, ritualLabels: {}, recipeLabels: {},
+        recipes: [], rituals: []
       };
     }
   }

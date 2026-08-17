@@ -103,6 +103,7 @@ base-stats:
   power-attack-radius: 0
   cooldown-reduction: 0
   haste-active-mining-cooldown-reduction: 0
+  haste-active-digging-cooldown-reduction: 0
   tree-fell-cooldown-reduction: 0
   health-regen-bonus: 0
   reflect-flat: 0
@@ -167,4 +168,4 @@ base-stats:
   glyph-slot-bonus: 0
   glyph-damage-multiplier-bonus: 0
   armor-set-bonus: 0
-  bow-accuracy: -0.2
+  bow-accuracy: -0.3

@@ -46,7 +46,7 @@ nodes:
       - 収穫時にバニラEXPを獲得
     dedicated-effects:
       - id: feature:auto-replant
-      - id: feature:break-vanilla-exp
+      - id: feature:break-vanilla-exp-farming
     description: |-
       うえ直しと収穫が同時に行われる
       &8/tf settings 設定でオン/オフ可能

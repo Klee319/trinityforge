@@ -108,6 +108,12 @@ const FIELD_SPECS = Object.freeze([
   { id: "level-cutoff.over-level.threshold", file: "damage", path: ["level-cutoff", "over-level", "threshold"], kind: "int", min: -1, max: 10000, def: -1 },
   { id: "level-cutoff.over-level.exp-rate", file: "damage", path: ["level-cutoff", "over-level", "exp-rate"], kind: "number", min: -1, max: 1, def: 1 },
   { id: "level-cutoff.over-level.drop-rate", file: "damage", path: ["level-cutoff", "over-level", "drop-rate"], kind: "number", min: -1, max: 1, def: 1 },
+  // 2026-08-18 W-60: 低レベル狩り(over-level)の倍率を閾値超で急に切り替えるのでなく、レベル差1ごとに線形で
+  // 削っていくための減衰キー(すべて既定0=従来どおり無効)。rate-floor は「-1で完全遮断」とは
+  // 別軸で、減衰が続いても倍率がこれより下がらない下限。
+  { id: "level-cutoff.over-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "over-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.over-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "over-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "level-cutoff.over-level.rate-floor", file: "damage", path: ["level-cutoff", "over-level", "rate-floor"], kind: "number", min: -1, max: 1, def: 0 },
   { id: "level-cutoff.under-level.item-threshold", file: "damage", path: ["level-cutoff", "under-level", "item-threshold"], kind: "int", min: -1, max: 10000, def: -1 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は

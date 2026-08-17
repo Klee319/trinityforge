@@ -173,19 +173,27 @@ ArsPaper の `UnlockGate` は `hasRecipePermission` と `hasRitualPermission` �
 - **ポーション品質（alchemy）＝効果時間・強度の割増に読み替える**（新品質ティアの移植はしない）。強度は切り捨て整数キャスト（例: 0.5設定で「2品質ごとに+1」）。
 - **fishing の「海で釣ると同時ヒット確率UP」＝バイオーム判定を新設する**（条件を外した一律加算にはしない）。
 - **alchemy「素材を消費しない確率UP」＝既存`ingredient_save_chance`をバニラの`BrewEvent`にも配線して拡張する**（新規stat不要）。
-- **`feature:break-vanilla-exp`（破壊時バニラEXP解放）はスキルツリー側に一切配置されていない場合がある。** `FeatureEffectRegistry`への登録・`NativeSkillExperienceListener.grantBreakVanillaExp`の消費側実装は揃っていても、ツリーの各ノードに配置されていなければ丸ごと無効。配置は「設定のみ」の範囲としてユーザー側管理。`grantBreakVanillaExp`は`amount = BASE × (1 + bonus)`の連続値なので、段階的な強化表現（I/II/III）が可能。
+- **破壊時バニラEXP解放のゲートidは2026-08-18(W-58)以降、`feature:break-vanilla-exp-<skill>`（スキルごとに別id）である。** ※旧説「4ツリー共通の`feature:break-vanilla-exp`」は分割済みで誤り。`BreakVanillaExpBonusKeys.featureId(skillId)`が唯一の変換窓口（`mining`/`digging`/`farming`/`woodcutting`のみ非null）。`FeatureEffectRegistry`への登録・`NativeSkillExperienceListener.grantBreakVanillaExp`の消費側実装は揃っていても、ツリーの各ノードに配置されていなければ丸ごと無効。配置は「設定のみ」の範囲としてユーザー側管理。`grantBreakVanillaExp`は`amount = BASE × (1 + bonus)`の連続値なので、段階的な強化表現（I/II/III）が可能。
 
 ## use-skill / 採取EXP表の落とし穴
 
 ### ⚠️⚠️ 解放ゲートを職業別にしても、同じノードの `buffs`/`mainhand-buffs` は職業間で漏れ続ける
 
 **2026-08-01 と 2026-08-15 に同じ機能で2回踏んだ**。`feature:break-vanilla-exp`（破壊時バニラEXP解放）は
-mining/woodcutting/digging/farming の4ツリーが A ノードに置いており、解放ゲート側は
+当時 mining/woodcutting/digging/farming の4ツリーが A ノードに置く**共有id**で、解放ゲート側は
 `DedicatedEffectsConfig#isActive(player, effectId, skill)` に**壊したブロックの採取スキル**を渡すことで
 ツリー別に絞れる（`DedicatedEffectGateIndex#isActiveByPerks` が `placement.skill()` と一致比較する）。
 **ところが倍率側の stat にはスコープの概念が無い** ── `PlayerStatAggregator#totalOf(key)` は
 装備・パーク・役職・永続・base-stats を**全ツリーまたいで合算**するので、採掘ツリーのノードに
 `break-vanilla-exp-bonus: 0.5` と書くと**伐採・整地・農業の破壊EXPにも同じ +50% が乗る**。
+
+**2026-08-18(W-58)で3つ目の対策として、gate id自体も`feature:break-vanilla-exp-<skill>`へ分割した**
+（`BreakVanillaExpBonusKeys.featureId(String)`が唯一の変換窓口。`FeatureEffectRegistry`の該当4エントリ、
+`skilltree/{mining,digging,farming,woodcutting}.yml`のAノード）。3引数isActive呼び出しは
+belt-and-suspenders として維持（id自体が分かれた今もツリー限定呼び出しを外さない）。
+**解放状態の永続化（`PlayerData#heldPerks`）はノードID基準でgate id文字列を保持しないため、
+このid分割にプレイヤーデータ移行は不要**——feature:/glyph:等のdedicated-effect idを改名するときの
+一般則としてよい（idはparseされて即座にPerkNaming経由のノードIDへ写像され、idそのものは保存されない）。
 
 **見つかりにくい理由**: ノードの説明文が「破壊で1.5倍のバニラEXP」のようにツリー内で完結する書き方で、
 解放ゲートが職業別に直った時点で「もう職業別になった」と読めてしまう。実測しても、4ツリーとも解放して
@@ -202,6 +210,52 @@ mining/woodcutting/digging/farming の4ツリーが A ノードに置いてお�
   スキル別キーは部分一致より**前**に判定しないと `mining_...` だけ GATHERING へ落ちて4キーが別タブに散る。
 - スコープ無しの旧キー（`break_vanilla_exp_bonus` 等）は**消さずに「全体版」として残す**。
   消すと配備先に残った base-stats/item-stats の記述が警告も出さずに無効化される。
+
+**2026-08-17 に3度目の同症状報告が来たが、今回はソースは既に直っていた。** `NativeSkillExperienceListener#grantBreakVanillaExp`
+は `BreakVanillaExpBonusKeys.featureId(gatheringSkill)`（2026-08-18からスキル別gate id）と
+`dedicatedEffects.isActive(player, featureId, gatheringSkill)`（3引数＝ツリー限定）と
+`BreakVanillaExpBonusKeys.forSkill(gatheringSkill)`（スキル別倍率キー）の3つを併用しており、4ツリー
+（mining/digging/farming/woodcutting）とも `A` ノードに独立した `feature:break-vanilla-exp-<skill>` ゲート＋
+`<skill>-break-vanilla-exp-bonus` バフを持つ。回帰テスト
+`NativeSkillExperienceListenerBreakVanillaExpScopeTest`（修正を3引数→2引数へ戻すとRED）と
+`BreakVanillaExpBonusKeysTest`も緑のまま。**「機能解放ゲートがスキル間で共有されている」という報告を
+3回目以降に受けたら、まずコードではなくデプロイ済みjarの鮮度（2026-08-01/08-15/08-18の修正を含む
+再ビルドが実際にサーバへ配備済みか）を疑うこと**——ソース上は同じ穴を3回塞ぎ直した実績があるので、
+次に疑うべきは実装漏れではなく配備漏れである可能性が高い。
+
+**⚠️ `BreakVanillaExpBonusKeysTest#shippedTreesUseTheirOwnScopedKey`が赤いなら、まず`farming.yml`の
+`-break-vanilla-exp-bonus`出現数を数える。** 2026-08-18時点で digging は2ノード(C-1相当/E)、
+mining/woodcutting は各1ノードだが、**farming は1ノードしか無い**（本来2ノードあるべきで、
+`reports/ACTIVE_RECORD.md`の2026-08-15エントリはfarming.yml行78/92の2箇所に配置したと記録している——
+どちらかが後続の無関係な編集で失われた）。このテストは合計6箇所以上を要求するが現状5箇所しか無いため
+**W-58/W-59の変更とは無関係にベースラインで赤い**。farming.yml側の欠損ノード特定・復元は別タスクの
+スコープ（この文書を読んでいるエージェント自身が担当領域なら直してよいが、他セッションの未コミット
+WIPと衝突している可能性があるので、直す前に`git log -p -- '*/farming.yml'`等で経緯を確認すること）。
+
+### `haste-active-mining`/`haste-active-digging` は別idの2スキルだが、CTバケツは`cooldownGroup()`で共有する
+
+※旧説「`haste-active-mining`はMINING/DIGGING両対応設計だがdigging.ymlにゲート配置が無く、シャベルから
+恒久的に発動不能」は2026-08-18(W-59)で解消済み。以下が現状。
+
+`ActiveSkill`インタフェースに`default String cooldownGroup() { return id(); }`を追加した
+（`active/ActiveSkill.java`）。`CooldownManager`/`ActivationDispatcher`/`ActiveCooldownDisplay`は
+`CooldownManager#tryConsume`/`remainingMillis`/`hasRecord`のキーとして**`ActiveSkill#id()`ではなく
+`cooldownGroup()`**を使う。`mining/HasteActiveSkill`(targetSkills=MINING単独に縮小、gate=
+`feature:haste-active-mining`)と新設`mining/DiggingHasteActiveSkill`(targetSkills=DIGGING、gate=
+`feature:haste-active-digging`、`digging.yml`A-1に配置、`config/domains/DiggingGimmickConfig`の
+独立amplifier/duration/cooldown)は、id・gate・config は完全に独立だが`cooldownGroup()`は両方とも
+`HasteActiveSkill.COOLDOWN_GROUP`("haste-active")を返す——つるはし→即シャベルの連発は共有バケツで
+ブロックされ、「持ち替えてCTを実質2倍にする」抜け道が塞がる。
+
+**`CooldownManager`の内部実装で要注意な点（`CooldownManagerTest`参照）**: 共有バケツの「ロック期間」は
+**そのバケツを最後に消費した呼び出しの`cooldownMillis`**で決まり、後から短いCTの側が問い合わせても
+その短い値では判定されない（`CooldownRecord(lastUseMillis, lockMillis)`として消費時点の長さごと保存する
+——単に`lastUseMillis`だけを`Map<String,Long>`で共有すると、CTが短い方のスキルが先にバケツを触った瞬間
+「共有グループ全体が短い方のCTへ縮む」バグになる）。
+
+**CT短縮ステータス（`ActiveSkillCooldownKeys.forSkill(id)`）は`cooldownGroup()`ではなく`id()`単位のまま**
+——`haste-active-mining-cooldown-reduction`と`haste-active-digging-cooldown-reduction`は別キーで、
+片方を伸ばしても他方には影響しない（共有されるのはCTバケツだけで、CT短縮の適用対象は個別）。
 
 ### ⚠️ `use-skill`はアイテムの分類マーカーではない
 
@@ -619,6 +673,11 @@ TF 本体に無い**。現在唯一の実装 `source_spent` は ArsPaper フォ�
 - アクティブスキルの正式トリガーは`/tf active <id>`＋GUI。sneak+右クリックのような暗黙トリガー（haste等）は補助として温存してよいが、新設スキルの主経路にはしない。
 - コスト層（mana等の消費）はv1では実体を作らず、インターフェースのみ用意する。
 - **Java側の`FeatureEffectRegistry`とeditor側の`gate-vocabulary.js`のFEATURES配列は語彙パリティを保つ必須ペア。** 片方にだけ追加すると、実装済みなのにeditorから配置できない（またはその逆）という事故になる（`break-vanilla-exp`が過去に実際にこれで踏まれた）。
+  **2026-08-18(W-58/W-59)でJava側だけ更新済み・editor側は未反映**: `break-vanilla-exp`(NONE)を削除し
+  `break-vanilla-exp-mining`/`-digging`/`-farming`/`-woodcutting`(NONE、各4つ)と`haste-active-digging`
+  (SCALE)を追加した。`tools/config-editor/lib/gate-vocabulary.js`のFEATURES配列とミラー先
+  `public/js/`側を同じ差分で更新するまで、`tools/config-editor/test/gate-vocabulary-java-parity.test.js`
+  は赤いまま（このタスクの担当外・editor担当レーンへの引き継ぎ事項）。
 
 ### ⚠️ `drop:<prof>:<categoryId>` は「自動反転規則」でfail-open。配置ゼロ=無条件開放
 
@@ -831,6 +890,40 @@ SP総数の式は元々3箇所に重複していた（2026-08-04 に `PlayerProg
 (他人の未コミットWIPが縮めているだけなら、自分の変更を疑って時間を溶かす前に気づける)。
 このドリフトは他セッションの作業中と判断し、**復元せずそのまま**(上に自分の追加を積むだけ)にした
 ——復元すると相手の意図した削除を巻き戻す可能性があるため。
+
+## ネザライト強化（スミス台）はカタログ品（CMD付き）だけが正しく再構築される
+
+`CatalogSmithingListener`（`listeners/CatalogSmithingListener.java`）の `match()` は
+`CatalogItemMatch.matchesTemplate` を経由するが、この関数は **`CustomModelData` が無い（`cmd == null`）と
+即 `false` を返す**。CMD を持たない「プレーンなバニラ素材の装備」（例: ただの `DIAMOND_SWORD`、
+CMD無しの `source_gem_sword` 系など）は、TF が品質/rollSeed をPDCスタンプ済みでも
+**この一致判定に一度も乗らない**。その結果 `onPrepare`/`onSmith` は共に「素通し」に落ち、
+Bukkit 標準の `minecraft:netherite_sword_smithing`（`copyDataComponents` 既定=true）が base の
+PDC（rollSeed・quality・`use-level-requirement`・既に焼き込み済みの lore/AttributeModifiers/耐久上限）を
+**そのまま** Material=NETHERITE_SWORD の結果へコピーする。これがユーザー報告
+「ダイヤ剣をネザライト化しても使用可能レベルを含めて全部ダイヤ剣の性能」の機構的な真因
+（`CatalogRecipeRegistrar#registerNetheriteOne` の javadoc 内 `copyDataComponents=false` の記述が
+「vanilla側は既定で true＝丸ごとコピーする」ことの根拠）。
+
+**部分的に「効いて見える」箇所があるので、検証時は騙されないこと**: `DerivedItemStats.resolve`
+（`stats/DerivedItemStats.java`）は `item.getType()` を都度ライブに読むため、`stats/item-stats.yml` に
+`NETHERITE_SWORD:`（無CMD）の素プロファイルが定義されていれば、近接ダメージの
+fixed/per-quality/random 部分（=攻撃力の大半）は Material が切り替わった瞬間から自動的に
+ネザライト側の値へ切り替わる（`CombatListener`→`WeaponAttackStatResolver.forItem`が同じ経路）。
+`UseRequirementResolver.resolve`（`progression/UseRequirementResolver.java`）も同様に
+`stack.getType()` をライブ参照するので、**装備不可ゲート自体（Lv不足の弾き）は正しく新素材の
+基準で判定される**。一方で **表示される lore の数値・耐久上限（`Damageable#setMaxDamage`）・
+`use-level-requirement` の PDC生値（`DerivedItemStats.resolve`内の武器基礎式のuseLevel入力に使われる）は
+`ItemAssembler.assemble()` を再度呼ばない限り更新されない**。それを呼ぶのは
+`ItemFactory.create/stamp`（カタログ経路）と `ItemRefreshListener`（`tableGeneration` が
+reloadで進んだときだけ）の2箇所のみで、**どちらも「Materialが変わったこと」自体をトリガにしていない**
+（`ItemRefreshPolicy.needsRefresh` は generation スタンプの新旧比較だけを見る）。
+
+既存テスト `CatalogSmithingListenerTest#unrelatedVanillaUpgradeResultIsLeftAlone` は
+**この「素通し」を仕様として固定しているテスト**であり、バグの再現を防いでいるテストではない
+（Material が NETHERITE_SWORD になったことしか assert していない）。修正を入れる場合は
+このテストの意図（カタログ以外のバニラ強化に干渉しない）を壊さずに、
+「PDCの再スタンプ」を別経路で足す設計にすること。
 
 ## 関連
 

@@ -53,7 +53,8 @@ public enum StatsCategory {
             // 新しいActiveSkillを追加したら、対応する "<id>_cooldown_reduction" をここにも追加すること
             // (ActiveSkillCooldownKeys/StatVocabulary/PercentStatNormalize/StatCategoryInferenceと同様、
             // このSetも独立して手動管理されており自動同期しない)。
-            "haste_active_mining_cooldown_reduction", "tree_fell_cooldown_reduction");
+            "haste_active_mining_cooldown_reduction", "haste_active_digging_cooldown_reduction",
+            "tree_fell_cooldown_reduction");
 
     private static final Set<String> ARMOR_KEYS = Set.of(
             // 2026-08-15: 防具値(armor_defense_rate)を廃止し defense_rate(軽減率%)へ一本化した。

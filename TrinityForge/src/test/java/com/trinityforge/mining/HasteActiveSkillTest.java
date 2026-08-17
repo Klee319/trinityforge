@@ -44,7 +44,22 @@ class HasteActiveSkillTest {
         HasteActiveSkill skill = new HasteActiveSkill(new MiningGimmickConfig());
         assertEquals("haste-active-mining", skill.id());
         assertEquals("haste-active-mining", skill.gateEffectId());
-        assertEquals(Set.of("MINING", "DIGGING"), skill.targetSkills());
+        // 2026-08-18 (W-59): digging.yml には元々 feature:haste-active-mining の配置が一度も無く、
+        // "DIGGING" 対応は実質シャベルから発動不能な死んだ宣言だった。専用の DiggingHasteActiveSkill
+        // (targetSkills=DIGGING、独立gate/config)へ切り出したため、こちらは MINING 単独へ戻す。
+        assertEquals(Set.of("MINING"), skill.targetSkills());
+    }
+
+    @Test
+    void sharesCooldownGroupWithDiggingHasteActiveSkill() {
+        // 2026-08-18 (W-59) ユーザー決定「持ち替えたらCTに入る」の実装点: id()は互いに異なるが、
+        // cooldownGroup()は両者とも同じ定数を返す(CooldownManagerのバケツ共有キー)。
+        HasteActiveSkill mining = new HasteActiveSkill(new MiningGimmickConfig());
+        DiggingHasteActiveSkill digging = new DiggingHasteActiveSkill(new com.trinityforge.config.domains.DiggingGimmickConfig());
+        assertEquals(mining.cooldownGroup(), digging.cooldownGroup());
+        assertEquals(HasteActiveSkill.COOLDOWN_GROUP, mining.cooldownGroup());
+        // 一方でidそのものは独立(CT短縮ステータス等、id単位の仕組みは互いに影響しない)。
+        assertTrue(!mining.id().equals(digging.id()));
     }
 
     @Test

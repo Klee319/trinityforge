@@ -95,6 +95,8 @@ public final class PercentStatNormalize {
             // "<id>-cooldown-reduction" をここにも追加すること(ActiveSkillCooldownKeysのクラスコメント参照 —
             // このSetはStatVocabularyとは独立して手動管理されており自動同期しない)。
             StatKeys.canonical("haste-active-mining-cooldown-reduction"),
+            // 2026-08-18 (W-59): haste-active-digging専用CT短縮キー(StatVocabulary参照)。
+            StatKeys.canonical("haste-active-digging-cooldown-reduction"),
             // 2026-07-25 PRG-07/伐採一括伐採CT短縮: tree-fell専用CT短縮キー(StatVocabulary参照)。
             StatKeys.canonical("tree-fell-cooldown-reduction"),
             // 2026-07-25 課題2: 棘の鎧ステータス化の反射率（割）。reflect-flat は固定ダメージ量(FLAT)なので

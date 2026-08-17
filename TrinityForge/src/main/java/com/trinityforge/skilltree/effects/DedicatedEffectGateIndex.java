@@ -112,11 +112,16 @@ public final class DedicatedEffectGateIndex {
      * {@code skill} ({@code null}/blank = unrestricted, identical to the two-argument form).
      *
      * <p><b>2026-08-01 実サーバ報告の修正 (param:none 版)</b>: {@link #valueMaxByPerks(Set, String, String)}
-     * と同じ理由でツリー限定が要る効果は、値を持つ効果 (SCALE) だけではない。{@code feature:break-vanilla-exp}
-     * は {@code mining.yml} / {@code woodcutting.yml} / {@code digging.yml} / {@code farming.yml} の
-     * <b>4ツリーすべてが A ノードに置いている</b>ので、「どこか1本で解放したら全部の採取で発動する」
-     * 判定にすると<b>採掘ツリーだけ育てたプレイヤーが作物や原木でもバニラEXPを得てしまう</b>。
-     * 破壊したブロックが属する採取スキルでこちらを使って絞ること。
+     * と同じ理由でツリー限定が要る効果は、値を持つ効果 (SCALE) だけではない。当時の
+     * {@code feature:break-vanilla-exp} は {@code mining.yml} / {@code woodcutting.yml} /
+     * {@code digging.yml} / {@code farming.yml} の<b>4ツリーすべてが A ノードに置く共有id</b>だったので、
+     * 「どこか1本で解放したら全部の採取で発動する」判定にすると<b>採掘ツリーだけ育てたプレイヤーが
+     * 作物や原木でもバニラEXPを得てしまう</b>。破壊したブロックが属する採取スキルでこちらを使って絞ること。
+     *
+     * <p><b>2026-08-18 (W-58) 追記</b>: {@code break-vanilla-exp} はスキルごとの id
+     * ({@code break-vanilla-exp-mining} 等、{@code BreakVanillaExpBonusKeys#featureId(String)})へ
+     * 分割済みで、共有id自体はもう存在しない。この3引数呼び出しは belt-and-suspenders として
+     * 引き続き維持されている(id分割だけでも同種の漏れは防げるが、二重の安全策として残す)。
      */
     public boolean isActiveByPerks(Set<String> heldPerks, String effectId, String skill) {
         if (heldPerks == null || heldPerks.isEmpty() || effectId == null) {

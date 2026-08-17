@@ -40,3 +40,11 @@ durability-exp:
       "1":
         cap-percent: 50
         durability-per-percent: 500
+# haste-active-digging (2026-08-18 W-59): シャベル専用の独立アクティブスキル。
+# mining-gimmick.yml の haste-active-mining とは別の数値(意図的にミラーしない)。
+# CooldownManager 側の CooldownGroup は haste-active-mining と共有するため、ツールを持ち替えて
+# 連発しても合計アップタイムは増えない(片方のCTが残っていればもう片方も撃てない)。
+haste-active-digging:
+  amplifier: 1
+  duration-ticks: 120
+  cooldown-ticks: 800

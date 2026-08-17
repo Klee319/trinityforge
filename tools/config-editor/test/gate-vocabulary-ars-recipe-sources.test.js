@@ -160,11 +160,125 @@ test("実データ: 出荷 ArsPaper の機能アイテムと儀式アイテム�
   assert.ok(vocab.rituals.includes("waystone"),
     "機能アイテムの儀式レシピが ritual: 候補に出ていない");
 
+  // 2026-08-18 (W-52): 「候補に出るか」だけでなく「ラベルが生IDではないこと」も固定する。
+  // ここが無かったため、以前は recipe:pedestal / ritual:waystone のセレクトが
+  // `カスタム: pedestal` のような生ID表示のままだった。
+  assert.equal(vocab.recipeLabels.dominion_wand, "ドミニオンワンド");
+  assert.equal(vocab.ritualLabels.waystone, "ウェイストーン");
+
   // 儀式アイテム(items.yml items:)。TF の RecipeRitualGateChannelDriftTest が
   // 「ritual: チャンネルでなければ機能しない」と固定している ID 群。
   for (const id of ["enchant_book_mana_regen_1", "enchant_book_mana_boost_1", "enchant_book_soulbound"]) {
     assert.ok(vocab.rituals.includes(id), `${id} が ritual: 候補に出ていない`);
     assert.ok(!vocab.recipes.includes(id),
       `${id} が recipe: 候補に出ている(儀式経路は recipe マップを見ないので無言で常時解放になる)`);
+    assert.ok(vocab.ritualLabels[id] && vocab.ritualLabels[id] !== id,
+      `${id} のラベルが付いていない/生IDのまま`);
   }
+});
+
+// ============================================================
+// 2026-08-18 (W-52): 実サーバ報告「解放ゲートのセレクトに生アイテムIDが出る」の再発防止。
+//
+// 機構A(このファイル): recipe:/ritual: ゲートのラベル辞書(recipeLabels/ritualLabels)。
+// 「候補にIDが出るか」に加えて「そのラベルが生ID・`カスタム: <id>`のままではないこと」を
+// 機械的に固定する。特定IDを列挙する許可リスト方式は使わない ── 出荷 yml を実読みし、
+// display-name(または name / display_name)を持つ全キーを母集合として検査する。
+// ============================================================
+
+test("解放ゲート機構A: 儀式エフェクト(items.yml ritual_effects)の name: がラベルになる", () => {
+  const vocab = buildGateVocabulary({
+    items: {
+      ritual_effects: {
+        weather_clear: { name: "晴天の儀式" },
+        no_name: {}
+      }
+    }
+  });
+  assert.equal(vocab.ritualLabels.weather_clear, "晴天の儀式");
+  assert.ok(!vocab.ritualLabels.no_name, "name: を持たないエントリにラベルを捏造してはいけない");
+});
+
+test("解放ゲート機構A: materials.yml は snake_case (display_name) でもラベルが付く", () => {
+  const vocab = buildGateVocabulary({
+    materials: {
+      materials: {
+        source_gem: { display_name: "&bソースジェム", recipe: { method: "ritual" } }
+      }
+    }
+  });
+  assert.ok(vocab.rituals.includes("source_gem"));
+  assert.equal(vocab.ritualLabels.source_gem, "ソースジェム",
+    "materials.yml の display_name(snake_case)からラベルが引けていない");
+});
+
+test("解放ゲート機構A: sourcelinks.yml のレシピにもラベルが付く(recipe/ritual 両方へマージされる)", () => {
+  const vocab = buildGateVocabulary({
+    sourcelinks: {
+      items: {
+        volcanic_sourcelink: { "display-name": "ヴォルカニックソースリンク", recipe: { method: "ritual" } }
+      }
+    }
+  });
+  assert.ok(vocab.rituals.includes("volcanic_sourcelink"));
+  assert.equal(vocab.ritualLabels.volcanic_sourcelink, "ヴォルカニックソースリンク");
+  // recipeLabels 側にも同じラベルが merge されている(1つのIDが workbench/ritual 両方の
+  // レシピを持つケースがあるため、method に関わらずラベル自体は両方へ載せる設計)。
+  assert.equal(vocab.recipeLabels.volcanic_sourcelink, "ヴォルカニックソースリンク");
+});
+
+test("実データ監査: display-name/display_name/name を持つ全ArsPaperキーに生ID以外のラベルが付く", () => {
+  const functionalItems = readArsYml("functional-items.yml");
+  const materials = readArsYml("materials.yml");
+  const sourcejars = readArsYml("sourcejars.yml");
+  const sourcelinks = readArsYml("sourcelinks.yml");
+  const items = readArsYml("items.yml");
+  const spellbooks = readArsYml("spellbooks.yml");
+  if (!functionalItems || !materials || !sourcejars || !sourcelinks || !items || !spellbooks) {
+    console.log("skip: fork-handoff/arspaper のソースがこのワークツリーに無い");
+    return;
+  }
+  const vocab = buildGateVocabulary({ functionalItems, materials, sourcejars, sourcelinks, items, spellbooks });
+
+  function assertLabeled(id, source) {
+    const inRecipes = vocab.recipes.includes(id);
+    const inRituals = vocab.rituals.includes(id);
+    if (!inRecipes && !inRituals) return; // ゲート候補にすら出ないキーは対象外
+    const label = inRituals ? vocab.ritualLabels[id] : vocab.recipeLabels[id];
+    assert.ok(label, `[${source}] ${id} にラベルが付いていない(display-name/nameを持つのに生ID表示になる)`);
+    assert.notEqual(label, id, `[${source}] ${id} のラベルが生IDのまま`);
+  }
+
+  let audited = 0;
+  const sections = [
+    [functionalItems.items, "display-name", "functional-items.items"],
+    [materials.materials, "display_name", "materials.materials"],
+    [sourcejars.jars, "display-name", "sourcejars.jars"],
+    [sourcelinks.items, "display-name", "sourcelinks.items"]
+  ];
+  for (const [section, nameKey, label] of sections) {
+    if (!section) continue;
+    for (const [id, entry] of Object.entries(section)) {
+      if (!entry || typeof entry !== "object" || entry[nameKey] == null || entry[nameKey] === "") continue;
+      audited += 1;
+      assertLabeled(id, label);
+    }
+  }
+  const effects = items.ritual_effects;
+  if (effects) {
+    for (const [id, entry] of Object.entries(effects)) {
+      if (!entry || !entry.name) continue;
+      audited += 1;
+      assertLabeled(id, "items.ritual_effects");
+    }
+  }
+  const books = spellbooks["spell-books"];
+  if (Array.isArray(books)) {
+    for (const book of books) {
+      if (!book || !book.id || !book["display-name"]) continue;
+      audited += 1;
+      assertLabeled(String(book.id), "spellbooks.spell-books");
+    }
+  }
+  assert.ok(audited >= 40, `母集合が想定より少ない(${audited}件)。yml のパースが壊れていないか確認する`);
 });

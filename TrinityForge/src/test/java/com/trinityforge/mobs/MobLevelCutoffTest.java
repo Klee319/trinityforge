@@ -185,4 +185,70 @@ class MobLevelCutoffTest {
         MobLevelCutoff cutoff = new MobLevelCutoff(10, 2.0, null, null);
         assertEquals(1.0, cutoff.expMultiplier(10, 0));
     }
+
+    // --- 2026-08-18 (W-60) 線形傾斜: decay-per-level / rate-floor ---
+
+    @Test
+    void fourArgConstructorDefaultsDecayFieldsToZeroForBackwardCompatibility() {
+        // 4引数コンストラクタ(既存呼び出し元)は decay系3フィールドを0.0にする。
+        MobLevelCutoff cutoff = new MobLevelCutoff(10, 1.0, 1.0, null);
+        assertEquals(0.0, cutoff.overLevelExpDecayPerLevel());
+        assertEquals(0.0, cutoff.overLevelDropDecayPerLevel());
+        assertEquals(0.0, cutoff.overLevelRateFloor());
+    }
+
+    @Test
+    void zeroDecayReproducesLegacyStepFunctionRegardlessOfExcess() {
+        // decay=0 なら超過が5でも50でも基準rateのまま(後方互換の直接証拠)。
+        MobLevelCutoff cutoff = new MobLevelCutoff(10, 1.0, 0.5, null, 0.0, 0.0, 0.0);
+        assertEquals(1.0, cutoff.expMultiplier(15, 0), "超過5でも減衰0なら基準値のまま");
+        assertEquals(1.0, cutoff.expMultiplier(60, 0), "超過50でも減衰0なら基準値のまま");
+        assertEquals(0.5, cutoff.dropChanceMultiplier(15, 0), "超過5でも減衰0なら基準値のまま");
+        assertEquals(0.5, cutoff.dropChanceMultiplier(60, 0), "超過50でも減衰0なら基準値のまま");
+    }
+
+    @Test
+    void expMultiplierDecaysLinearlyPastThreshold() {
+        // RED実証シナリオ: threshold=10, exp-rate=1.0, exp-decay-per-level=0.05, rate-floor既定0。
+        MobLevelCutoff cutoff = new MobLevelCutoff(10, 1.0, null, null, 0.05, 0.0, 0.0);
+        // excess=5 -> 1.0 - 0.05*5 = 0.75
+        assertEquals(0.75, cutoff.expMultiplier(15, 0), 1e-9);
+        // excess=50 -> 1.0 - 0.05*50 = -1.5 -> floor(0.0)にクランプ
+        assertEquals(0.0, cutoff.expMultiplier(60, 0), 1e-9);
+        // excess=0(閾値ちょうど) -> 減衰なし、基準値のまま
+        assertEquals(1.0, cutoff.expMultiplier(10, 0), 1e-9);
+    }
+
+    @Test
+    void expMultiplierRespectsCustomRateFloor() {
+        MobLevelCutoff cutoff = new MobLevelCutoff(10, 1.0, null, null, 0.05, 0.0, 0.3);
+        // excess=50 -> 1.0 - 2.5 = -1.5 -> floor 0.3 にクランプ(0.0ではない)
+        assertEquals(0.3, cutoff.expMultiplier(60, 0), 1e-9);
+    }
+
+    @Test
+    void dropChanceMultiplierDecaysLinearlyPastThreshold() {
+        MobLevelCutoff cutoff = new MobLevelCutoff(10, null, 1.0, null, 0.0, 0.1, 0.0);
+        // excess=3 -> 1.0 - 0.1*3 = 0.7
+        assertEquals(0.7, cutoff.dropChanceMultiplier(13, 0), 1e-9);
+    }
+
+    @Test
+    void minusOneShortCircuitsBeforeDecayCalculation() {
+        // rate=-1 は減衰計算を経由せず常に完全遮断/0を返す(超過が0でも巨大でも変わらない)。
+        MobLevelCutoff exp = new MobLevelCutoff(10, -1.0, null, null, 0.05, 0.0, 0.5);
+        assertEquals(0.0, exp.expMultiplier(10, 0));
+        assertEquals(0.0, exp.expMultiplier(60, 0));
+
+        MobLevelCutoff drop = new MobLevelCutoff(10, null, -1.0, null, 0.0, 0.05, 0.5);
+        assertTrue(drop.blocksItems(10, 0));
+        assertEquals(0.0, drop.dropChanceMultiplier(60, 0));
+    }
+
+    @Test
+    void expMultiplierNeverGoesNegativeEvenWithoutExplicitFloor() {
+        // floor未設定(null)は0.0扱い ── 減衰しすぎても回復扱いの負値にはならない。
+        MobLevelCutoff cutoff = new MobLevelCutoff(10, 0.5, null, null, 1.0, 0.0, null);
+        assertEquals(0.0, cutoff.expMultiplier(200, 0));
+    }
 }

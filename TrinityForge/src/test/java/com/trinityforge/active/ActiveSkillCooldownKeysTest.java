@@ -61,6 +61,17 @@ class ActiveSkillCooldownKeysTest {
     }
 
     @Test
+    void verifyRegisteredPassesForHasteActiveDiggingToo() {
+        // 2026-08-18 (W-59): haste-active-digging も StatVocabulary.ATTACK_KEYS/PercentStatNormalize/
+        // StatCategoryInference/StatsCategory/lore.yml/base-stats.yml へ登録済みであることの回帰。
+        ActiveSkillRegistry registry = new ActiveSkillRegistry();
+        registry.register(fake("haste-active-mining"));
+        registry.register(fake("haste-active-digging"));
+
+        ActiveSkillCooldownKeys.verifyRegistered(registry);
+    }
+
+    @Test
     void verifyRegisteredThrowsWhenARegisteredSkillsKeyIsMissingFromStatVocabulary() {
         // Simulates the exact mistake the check exists to catch: a new ActiveSkill registered without
         // its "<id>-cooldown-reduction" ever being added to StatVocabulary.ATTACK_KEYS.

@@ -3,6 +3,7 @@ package com.trinityforge.listeners;
 import com.trinityforge.config.domains.ItemCatalogConfig;
 import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.CatalogIdentity;
+import com.trinityforge.stats.DerivedItemStats;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
 import com.trinityforge.stats.PreviewRollSeeds;
@@ -16,6 +17,7 @@ import org.bukkit.event.inventory.PrepareSmithingEvent;
 import org.bukkit.event.inventory.SmithItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.SmithingInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Map;
 import java.util.Objects;
@@ -39,6 +41,17 @@ import java.util.concurrent.ThreadLocalRandom;
  * 精密照合({@link CatalogItemMatch#matchesTemplate})が外れたときに
  * {@link #clearForeignNetheriteResult} が結果を消すことで「素の弓＋インゴット→ネザライトの弓」の
  * 抜け道を塞いでいる。
+ *
+ * <p><b>W-51(2026-08-18)</b>: カタログ照合が外れるのは「よそのカタログ品」だけではない。
+ * {@link CatalogItemMatch#matchesTemplate} は CMD(CustomModelData) を持たないアイテムを
+ * 問答無用で false にするため、CMD の無い<b>素のバニラ装備</b>(品質 PDC だけは
+ * {@code CraftQualityListener} により刻まれている)もここに落ちてくる。そのままだと
+ * Bukkit 標準のスミスレシピ({@code copyDataComponents} 既定 true)が base の PDC を
+ * 丸ごとコピーしたまま Material だけ差し替えるので、lore・耐久上限・use-level-requirement が
+ * 旧 Material(ダイヤ等)の値に凍結される。{@link #restampPlainQualityUpgrade}/
+ * {@link #restampPlainQualitySmith} がこのケースを検知し、{@link ItemFactory#stamp}
+ * で新 Material の item-stats プロファイルに基づいて再組み立てする(品質は引き継ぎ、
+ * rollSeed のみ再抽選 — ユーザー確定仕様)。
  */
 public final class CatalogSmithingListener implements Listener {
 
@@ -59,7 +72,9 @@ public final class CatalogSmithingListener implements Listener {
         }
         Match match = match(inventory);
         if (match == null) {
-            clearForeignNetheriteResult(event);
+            if (!restampPlainQualityUpgrade(event, inventory.getInputEquipment())) {
+                clearForeignNetheriteResult(event);
+            }
             return;
         }
         int quality = CatalogItemMatch.qualityOf(match.base());
@@ -73,6 +88,7 @@ public final class CatalogSmithingListener implements Listener {
     public void onSmith(SmithItemEvent event) {
         Match match = match(event.getInventory());
         if (match == null) {
+            restampPlainQualitySmith(event);
             return;
         }
         ItemStack current = event.getCurrentItem();
@@ -88,6 +104,69 @@ public final class CatalogSmithingListener implements Listener {
         if (event.getWhoClicked() instanceof org.bukkit.entity.Player player && !event.isShiftClick()) {
             player.setItemOnCursor(stamped.clone());
         }
+    }
+
+    /**
+     * W-51: プレビュー({@link #onPrepare})側の CMD 無し品質付きバニラ装備の救済。
+     * {@link PreviewRollSeeds#SMITHING} で仮ロールを見せる点はカタログ品のプレビューと揃える
+     * (実ロールは {@link #restampPlainQualitySmith} で確定する)。
+     *
+     * @return この経路で処理した(=結果を差し替えた)なら {@code true}。{@code false} のときは
+     *         呼び出し側が {@link #clearForeignNetheriteResult} など既存の経路へフォールバックする。
+     */
+    private boolean restampPlainQualityUpgrade(PrepareSmithingEvent event, ItemStack base) {
+        ItemStack vanillaResult = event.getResult();
+        if (!isPlainQualityUpgrade(base, vanillaResult)) {
+            return false;
+        }
+        int quality = CatalogItemMatch.qualityOf(base);
+        ItemStack stamped = vanillaResult.clone();
+        itemFactory.stamp(stamped, PreviewRollSeeds.SMITHING, quality);
+        event.setResult(stamped);
+        return true;
+    }
+
+    /**
+     * W-51: 実際に強化を確定させる側。品質は base から引き継ぎ、rollSeed は毎回新規発番する
+     * (ユーザー確定仕様: 「品質は引き継ぐが、ランダムロールは再抽選する」)。
+     */
+    private boolean restampPlainQualitySmith(SmithItemEvent event) {
+        ItemStack base = event.getInventory().getInputEquipment();
+        ItemStack current = event.getCurrentItem();
+        if (!isPlainQualityUpgrade(base, current)) {
+            return false;
+        }
+        int quality = CatalogItemMatch.qualityOf(base);
+        long seed = ThreadLocalRandom.current().nextLong();
+        ItemStack stamped = current.clone();
+        itemFactory.stamp(stamped, seed, quality);
+        event.setCurrentItem(stamped.clone());
+        if (event.getWhoClicked() instanceof org.bukkit.entity.Player player && !event.isShiftClick()) {
+            player.setItemOnCursor(stamped.clone());
+        }
+        return true;
+    }
+
+    /**
+     * 「CMD 無し・TF 品質 PDC(rollSeed) 持ち・Material が実際に変わっている」の 3 条件が揃ったときだけ
+     * true。CMD 付きは {@link CatalogItemMatch#matchesTemplate} 側の経路に任せる(カタログ品を
+     * 二重に処理しない)。rollSeed を一度も刻まれていない完全な素のバニラ装備(品質 0 未満どころか
+     * PDC 自体が無い)はこれまで通り素通しのまま(仕様変更の対象外 — 救済は「TF 品質を持つ既存装備」
+     * だけ)。
+     */
+    private static boolean isPlainQualityUpgrade(ItemStack base, ItemStack candidateResult) {
+        if (base == null || base.getType().isAir() || !base.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta baseMeta = base.getItemMeta();
+        if (DerivedItemStats.customModelDataOf(baseMeta) != null) {
+            return false;
+        }
+        if (!ItemData.of(baseMeta).hasRollSeed()) {
+            return false;
+        }
+        return candidateResult != null && !candidateResult.getType().isAir()
+                && candidateResult.getType() != base.getType();
     }
 
     /**

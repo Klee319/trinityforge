@@ -132,4 +132,70 @@ class DiggingGimmickConfigTest {
                 """);
         assertEquals(0.0, config.vanillaExpCapPercent(1), 1e-9);
     }
+
+    // --- 2026-08-18 (W-59): haste-active-digging — mining-gimmick.yml haste-active-mining と同型の
+    // 独立scalar+tiers表(MiningGimmickConfigTest#tieredAccessorsFallBackToGlobalScalarWhenTiersUndefined
+    // 等と対称のケース)。数値・段数は意図的にミラーしない(別クラスの別フィールド)。
+
+    @Test
+    void hasteDefaultsWhenSectionAbsent(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, "# empty\n");
+        assertEquals(1, config.hasteAmplifier());
+        assertEquals(120, config.hasteDurationTicks());
+        assertEquals(800, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteHonorsExplicitOverrides(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  amplifier: 2
+                  duration-ticks: 100
+                  cooldown-ticks: 300
+                """);
+        assertEquals(2, config.hasteAmplifier());
+        assertEquals(100, config.hasteDurationTicks());
+        assertEquals(300, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteNonPositiveTickValuesFallBackToDefault(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  duration-ticks: 0
+                  cooldown-ticks: -1
+                """);
+        assertEquals(120, config.hasteDurationTicks());
+        assertEquals(800, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteTieredAccessorsFallBackToGlobalScalarWhenTiersUndefined(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  amplifier: 1
+                  duration-ticks: 120
+                  cooldown-ticks: 800
+                """);
+        assertEquals(1, config.hasteAmplifier(1));
+        assertEquals(120, config.hasteDurationTicks(1));
+        // CTはmining側と同じ設計方針でtier不変 — グローバルscalarの1値のみ。
+        assertEquals(800, config.hasteCooldownTicks());
+    }
+
+    @Test
+    void hasteTieredAccessorsResolveFloorEntryFromTiersTable(@TempDir File tempDir) throws IOException {
+        DiggingGimmickConfig config = loaded(tempDir, """
+                haste-active-digging:
+                  cooldown-ticks: 800
+                  tiers:
+                    1: { amplifier: 1, duration-ticks: 100 }
+                    3: { amplifier: 2, duration-ticks: 160 }
+                """);
+        assertEquals(1, config.hasteAmplifier(1));
+        assertEquals(100, config.hasteDurationTicks(1));
+        assertEquals(2, config.hasteAmplifier(3));
+        assertEquals(2, config.hasteAmplifier(99), "floor resolve: 99 -> tier 3 row");
+        assertEquals(800, config.hasteCooldownTicks());
+    }
 }

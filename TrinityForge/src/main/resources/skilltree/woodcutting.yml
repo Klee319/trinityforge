@@ -42,7 +42,7 @@ nodes:
     effects:
       - 破壊で少量のバニラEXPを獲得
     dedicated-effects:
-      - id: feature:break-vanilla-exp
+      - id: feature:break-vanilla-exp-woodcutting
   B:
     name: 斧の使い手
     level: 30
@@ -107,6 +107,8 @@ nodes:
     dedicated-effects:
       - id: feature:wood-repair-unlock
       - id: recipe:core_wood
+      - id: feature:tree-fell
+        value: 3
     description: |-
       耐久値を圧縮木材で回復可能にする機能が解放
       &8圧縮木材を耐久値の減ったツールなどにドラッグアンドドロップすると回復します
@@ -123,7 +125,7 @@ nodes:
     effects:
       - リンゴが落ちやすくなる
     dedicated-effects:
-      - id: drop:woodcutting:golden_apple
+      - id: drop:woodcutting:apple
     description: 金リンゴがまれにおちる
   A-2:
     name: クリスタル金リンゴ生活
@@ -136,7 +138,7 @@ nodes:
     effects:
       - 金リンゴが落ちやすくなる
     dedicated-effects:
-      - id: drop:woodcutting:crystal_apple
+      - id: drop:woodcutting:golden_apple
     description: クリスタル金リンゴがまれに落ちる
   A-3:
     name: エンチャント金リンゴ生活
@@ -153,6 +155,7 @@ nodes:
       # 2026-08-16修正: crystal_apple は親の A-2 が解放済み。同じ解放を子ノードにも置くと
       # Java 側が重複警告を出すだけで、取得条件は何も変わらない(A-3 の親は A-2)。
       - id: glyph:cut
+      - id: drop:woodcutting:crystal_apple
     description: |-
       エンチャント金リンゴが落ちやすくなる
       剪定のグリフ解放
@@ -160,7 +163,7 @@ nodes:
     name: 効率伐採I
     level: 20
     role: branch
-    parent: B
+    parent: A
     icon: OAK_LOG
     cost: 1
     effect-text: 一括破壊のcdを-3s

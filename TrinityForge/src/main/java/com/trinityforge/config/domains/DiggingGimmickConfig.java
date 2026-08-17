@@ -40,13 +40,27 @@ public final class DiggingGimmickConfig {
 
     private static final double DEFAULT_DURABILITY_PER_PERCENT = 100.0;
 
+    // --- 2026-08-18 (W-59): haste-active-digging (SCALE) — mining-gimmick.yml の haste-active-mining
+    // と同じ形の独立したscalar+tiers表。あちらとは別クラス(DiggingGimmickConfig)の別フィールドなので、
+    // 数値・段数はミラーしない(意図的に独立して調整できる。ミラーしていない=バグではない)。
+    private static final int DEFAULT_HASTE_AMPLIFIER = 1;
+    private static final int DEFAULT_HASTE_DURATION_TICKS = 120;
+    private static final int DEFAULT_HASTE_COOLDOWN_TICKS = 800;
+
     /** 1 tier行(cap-percent必須、durability-per-percentは省略可でグローバル既定値へフォールバック)。 */
     public record DurabilityExpTierRow(double capPercent, Double durabilityPerPercentOverride) {}
+
+    /** {@code haste-active-digging.tiers.<tier>.{amplifier,duration-ticks}} 1行(CTはtier不変、mining側と同じ設計)。 */
+    public record HasteTierValues(int amplifier, int durationTicks) {}
 
     private volatile Map<String, DropTableConfig.Category> dropTables = Map.of();
     private volatile double durabilityPerPercent = DEFAULT_DURABILITY_PER_PERCENT;
     private volatile TierTable<DurabilityExpTierRow> vanillaExpTiers = TierTable.empty();
     private volatile TierTable<DurabilityExpTierRow> jobExpTiers = TierTable.empty();
+    private volatile int hasteAmplifier = DEFAULT_HASTE_AMPLIFIER;
+    private volatile int hasteDurationTicks = DEFAULT_HASTE_DURATION_TICKS;
+    private volatile int hasteCooldownTicks = DEFAULT_HASTE_COOLDOWN_TICKS;
+    private volatile TierTable<HasteTierValues> hasteTiers = TierTable.empty();
     private volatile Logger log;
     /** 「tierの完全一致が取れなかった」WARNINGを同じtierに対して1度だけ出すための抑制セット。reload毎に作り直す。 */
     private volatile Set<String> nonExactTierWarned = ConcurrentHashMap.newKeySet();
@@ -88,6 +102,34 @@ public final class DiggingGimmickConfig {
     public double durabilityPerPercentForJobExp(int tier) {
         return resolveRow(jobExpTiers, tier, "durability-exp.job-exp")
                 .map(DurabilityExpTierRow::durabilityPerPercentOverride).orElse(durabilityPerPercent);
+    }
+
+    /** haste-active-digging が付与する HASTE の amplifier。tiers未定義時のグローバル既定値。 */
+    public int hasteAmplifier() {
+        return hasteAmplifier;
+    }
+
+    /** haste-active-digging の持続時間(tick)。tiers未定義時のグローバル既定値。 */
+    public int hasteDurationTicks() {
+        return hasteDurationTicks;
+    }
+
+    /**
+     * haste-active-digging のクールダウン(tick)。mining側と同じ設計方針で、tierは一切CTに影響させない
+     * (段階が支配するのは {@link #hasteAmplifier(int)}/{@link #hasteDurationTicks(int)} の効果量だけ)。
+     */
+    public int hasteCooldownTicks() {
+        return hasteCooldownTicks;
+    }
+
+    /** tier解決込みの amplifier(floor+フォールバック則、{@link #vanillaExpCapPercent(int)}と同じ規則)。 */
+    public int hasteAmplifier(int tier) {
+        return hasteTiers.resolve(tier).map(HasteTierValues::amplifier).orElse(hasteAmplifier);
+    }
+
+    /** tier解決込みの持続時間(tick)。 */
+    public int hasteDurationTicks(int tier) {
+        return hasteTiers.resolve(tier).map(HasteTierValues::durationTicks).orElse(hasteDurationTicks);
     }
 
     private Optional<DurabilityExpTierRow> resolveRow(TierTable<DurabilityExpTierRow> table, int tier, String fieldLabel) {
@@ -139,9 +181,69 @@ public final class DiggingGimmickConfig {
                 yaml.getConfigurationSection("durability-exp.vanilla-exp.tiers"), "durability-exp.vanilla-exp.tiers", log);
         this.jobExpTiers = parseDurabilityExpTiers(
                 yaml.getConfigurationSection("durability-exp.job-exp.tiers"), "durability-exp.job-exp.tiers", log);
+        this.hasteAmplifier = Math.max(0,
+                yaml.getInt("haste-active-digging.amplifier", DEFAULT_HASTE_AMPLIFIER));
+        this.hasteDurationTicks = clampPositiveInt(
+                yaml.getInt("haste-active-digging.duration-ticks", DEFAULT_HASTE_DURATION_TICKS),
+                "haste-active-digging.duration-ticks", DEFAULT_HASTE_DURATION_TICKS, log);
+        this.hasteCooldownTicks = clampPositiveInt(
+                yaml.getInt("haste-active-digging.cooldown-ticks", DEFAULT_HASTE_COOLDOWN_TICKS),
+                "haste-active-digging.cooldown-ticks", DEFAULT_HASTE_COOLDOWN_TICKS, log);
+        this.hasteTiers = parseHasteTiers(
+                yaml.getConfigurationSection("haste-active-digging.tiers"), log);
 
         log.info("[" + PATH + "] loaded " + this.dropTables.size() + " drop-table categor(y/ies) OK");
         return true;
+    }
+
+    /** Non-finite/non-positive guard for a tick/count value: falls back to {@code fallback}, never throws. */
+    private static int clampPositiveInt(int raw, String key, int fallback, Logger log) {
+        if (raw <= 0) {
+            log.warning("[" + PATH + "] '" + key + "' must be > 0 (was " + raw + "); using default " + fallback);
+            return fallback;
+        }
+        return raw;
+    }
+
+    /**
+     * {@code haste-active-digging.tiers: {<tier>: {amplifier, duration-ticks}}} — mining-gimmick.yml の
+     * 同名セクションと同じ形/同じ規則(CTはtierに一切依存しない)。Absent/empty section yields
+     * {@link TierTable#empty()}. A row with a non-positive {@code duration-ticks} is skipped with a
+     * warning ({@code amplifier} may legitimately be 0).
+     */
+    private static TierTable<HasteTierValues> parseHasteTiers(ConfigurationSection section, Logger log) {
+        if (section == null) {
+            return TierTable.empty();
+        }
+        Map<Integer, HasteTierValues> rows = new LinkedHashMap<>();
+        for (String tierKey : section.getKeys(false)) {
+            int tier;
+            try {
+                tier = Integer.parseInt(tierKey.trim());
+                if (tier <= 0) {
+                    log.warning("[" + PATH + "] 'haste-active-digging.tiers." + tierKey
+                            + "' key must be a positive integer; skipped");
+                    continue;
+                }
+            } catch (NumberFormatException ex) {
+                log.warning("[" + PATH + "] 'haste-active-digging.tiers." + tierKey + "' key is not an integer; skipped");
+                continue;
+            }
+            ConfigurationSection row = section.getConfigurationSection(tierKey);
+            if (row == null) {
+                log.warning("[" + PATH + "] 'haste-active-digging.tiers." + tierKey + "' is not a map; row skipped");
+                continue;
+            }
+            int amplifier = Math.max(0, row.getInt("amplifier", DEFAULT_HASTE_AMPLIFIER));
+            int durationTicks = row.getInt("duration-ticks", 0);
+            if (durationTicks <= 0) {
+                log.warning("[" + PATH + "] 'haste-active-digging.tiers." + tierKey
+                        + "' duration-ticks must be > 0; row skipped");
+                continue;
+            }
+            rows.put(tier, new HasteTierValues(amplifier, durationTicks));
+        }
+        return TierTable.of(rows);
     }
 
     private static double clampPositive(double raw, Logger log) {

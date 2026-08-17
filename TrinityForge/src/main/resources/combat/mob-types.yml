@@ -241,10 +241,20 @@
 # ============================================================================
 
 max-level: 100
+# ディメンション別の共通レベル下駄。
+#
+# 【設計ルール 2026-08-18】モブごとの `mob-types.<TYPE>.level` は 0 に統一し、
+# 「そのディメンションのモブは何レベル帯か」は必ずこの `base-level` 一本で決める。
+# 理由: base-level はモブ個別の level に **加算** される（MobTypeSpawnListener#applyScaledProfile）ので、
+# 両方に値を入れると合算されて意図の倍近い値になる。実際 2026-08-17 まで
+# ピグリン(level:25) + NETHER(base-level:50) = Lv75 になっており、下駄だけ下げても効かなかった。
+# 新しいモブを足すときも `level: 0` のままにすること。
+#
+# coordinate-coefficient はモブ個別の値を **置換** する（加算ではない）。
 dimensions:
   NETHER:
-    base-level: 50
-    coordinate-coefficient: 0.01
+    coordinate-coefficient: 0.015
+    base-level: 25
   THE_END:
     base-level: 80
     coordinate-coefficient: 0.004
@@ -293,7 +303,7 @@ defaults:
   max-health: 800
 mob-types:
   BLAZE:
-    level: 35
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 680
     armor-strength: 0
@@ -838,7 +848,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ENDER_DRAGON:
-    level: 60
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 4400
     armor-strength: 0
@@ -948,7 +958,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   GHAST:
-    level: 35
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 400
     armor-strength: 0
@@ -1112,7 +1122,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   HOGLIN:
-    level: 35
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 1040
     armor-strength: 0
@@ -1275,7 +1285,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   MAGMA_CUBE:
-    level: 25
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 480
     armor-strength: 0
@@ -1437,7 +1447,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   PIGLIN:
-    level: 25
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 800
     armor-strength: 0
@@ -1491,7 +1501,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   PIGLIN_BRUTE:
-    level: 40
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 1200
     armor-strength: 0
@@ -1653,7 +1663,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   SHULKER:
-    level: 45
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 880
     armor-strength: 0
@@ -1777,7 +1787,7 @@ mob-types:
       damage-reduction: 0
       flat-defense: 0
     attack:
-      attack-power: 8.4
+      attack-power: 6.4
       flat-bonus-damage: 0
       percent-bonus-damage: 0
       crit-chance: 0
@@ -2253,7 +2263,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   WITHER_SKELETON:
-    level: 35
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 880
     armor-strength: 0
@@ -2308,7 +2318,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ZOGLIN:
-    level: 35
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 1080
     armor-strength: 0
@@ -2470,7 +2480,7 @@ mob-types:
         damage-modifier: 0
         fixed-damage: 0
   ZOMBIFIED_PIGLIN:
-    level: 25
+    level: 0
     coordinate-coefficient: 0.02
     max-health: 800
     armor-strength: 0

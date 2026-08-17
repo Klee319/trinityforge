@@ -56,16 +56,32 @@
   //       item-stats 側に枠を作っても誰も読まない。
   //   - 触媒に statless を付けないのは、触媒が実際にステを持つため
   //     (BLAZE_ROD#400002-400014 の杖10本と ENDER_EYE#85 が item-stats.yml に実在する)。
+  //
+  // 【materialless (2026-08-18, W-52・機構B)】
+  //   functional-items.yml の12件(pedestal/ritual_core/scribing_table/waystoneの4ブロックと
+  //   enchant_book_*の8件)は仕様上 material: を持たない(同ファイルの説明コメント参照)。
+  //   従来の「material 無しは候補から除外」を functionalItems にもそのまま適用していたため、
+  //   この12件は window.CUSTOM_ITEM_LABELS に一生登録されず、参照する側(解放ゲート・レシピの
+  //   ingredient欄等)で `カスタム: <id>` 生ID表示に落ちていた。
+  //   materialless: true を付けたソースだけ material 欠落を許容し、candidate.material は
+  //   空文字のまま返す(アイコン解決は呼び出し側が material の有無で分岐している前提。
+  //   material を推測で埋めると「黙って違う見た目になる」ので絶対にしない)。
+  //   主系統の catalog.yml (buildCatalogCandidates 冒頭のループ)はこの緩和の対象外
+  //   (test/catalog-candidates.test.js が「material無しは除外」を意図的に固定している)。
   const EXTRA_SOURCES = Object.freeze([
-    { key: "functionalItems", root: "items", tab: "other", statless: true },
+    { key: "functionalItems", root: "items", tab: "other", statless: true, materialless: true },
     { key: "sourcejars", root: "jars", tab: "other", statless: true },
+    // 2026-08-18 (W-52・機構C): sourcelinks.yml の25件は material: / display-name: を両方
+    // 持つのに候補源リストに入っていなかった(=呼び出し側 app.js の EXTRA_CONFIGS にも無い)。
+    // ブロックなので item-stats は持たない(sourcejars と同じ扱い)。
+    { key: "sourcelinks", root: "items", tab: "other", statless: true },
     { key: "catalysts", root: "catalysts", tab: "catalyst" }
   ]);
 
   /**
    * @param catalogData   items/catalog.yml
    * @param materialsData ArsPaper materials.yml
-   * @param extraData     {functionalItems, sourcejars, catalysts} — 省略可。
+   * @param extraData     {functionalItems, sourcejars, sourcelinks, catalysts} — 省略可。
    *                      catalysts は spellbooks.yml をそのまま渡してよい(catalysts: 節だけ見る)。
    */
   function buildCatalogCandidates(catalogData, materialsData, extraData) {
@@ -129,7 +145,7 @@
         if (seen.has(id)) continue; // catalog.yml / materials.yml が先勝ち
         if (!entry || typeof entry !== "object") continue;
         const material = normalizeMaterial(entry.material);
-        if (!material) continue;
+        if (!material && !source.materialless) continue;
         const candidate = {
           id,
           displayName: entry["display-name"] == null ? "" : String(entry["display-name"]),
@@ -141,6 +157,10 @@
         // 既存の候補オブジェクト(catalog / materials 由来)と形を揃えて
         // 「このキーがあるかどうか」だけで判定できるようにするため。
         if (source.statless) candidate.noItemStats = true;
+        // material を推測で埋められない品(仕様上 material を持たない)の印。
+        // 呼び出し側がアイコン解決を諦める/スキップする判断に使う(material: "" と
+        // 「material列自体が無効」を区別できないと黙って誤ったアイコンに化けうるため)。
+        if (!material) candidate.materialless = true;
         out.push(candidate);
         seen.add(id);
       }

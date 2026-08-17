@@ -71,6 +71,10 @@ public final class StatVocabulary {
             // haste-active-mining (ActivationDispatcher/ActiveCommand → CooldownManager.applyReduction で消費)。
             // cooldown_reduction(アイテムCT)とは完全に独立で、互いのCTには一切影響しない。
             "haste_active_mining_cooldown_reduction",
+            // 2026-08-18 (W-59): haste-active-digging はシャベル専用の独立ActiveSkill
+            // (DiggingHasteActiveSkill)。CooldownManager上のCTバケツはhaste-active-miningと共有する
+            // (ActiveSkill#cooldownGroup())が、CT短縮ステータスはActiveSkill#id()単位なので別キー。
+            "haste_active_digging_cooldown_reduction",
             // 2026-07-25 PRG-07/伐採一括伐採CT短縮: tree-fellはActiveSkillRegistryに載らない
             // (sneak+クリック発動ではなくパッシブなブロック破壊ギミックのため)が、CT短縮キーの命名規約は
             // ActiveSkillCooldownKeys.forSkill("tree-fell")と揃える(TreeFellingListenerが

@@ -1151,6 +1151,73 @@ Material にも無い名前で、**同じ CMD の実体は別素材**（68 = `IR
 という「素材名だけ古い」型の取り残しがある点に注意。回帰は
 `test/editor-meta-item-stats-universe-2026-08-16.test.js`（母集合の非空回り検査つき）。
 
+## 解放ゲート(recipe:/ritual:)のラベルは「候補に出るか」と「ラベルが付くか」が別の検査になる(2026-08-18, W-52)
+
+`vocab.recipes`/`vocab.rituals`(ID配列)にIDが出ることと、そのIDが `カスタム: <id>` や生ID表示にならず
+日本語ラベルで出ることは**別のバグになりうる**。`lib/gate-vocabulary.js` はID収集(`collectArsGateTargets`/
+`extractRitualEffects`)とラベル収集(`extractArsEntryLabels`/`extractCatalogRecipeLabels`/
+`extractCatalogRitualLabels`/`extractRitualEffectLabels`)を別関数に分けており、**片方だけ実装してもう片方を
+足し忘れる**という事故が実際に起きていた(「解放ゲート > クラフトレシピ」だけ `recipeLabels` 辞書が
+存在せず生ID/`カスタム:`表示、儀式側は `ritualLabels` があるので直っていた)。
+- **How**: ID源が増えたら(`ARS_RECIPE_SOURCES` へのエントリ追加、新しい `ritual_effects` 相当セクション等)、
+  対になる `extract*Labels` 関数への追加も必ずセットで行う。`buildGateVocabulary` の戻り値は
+  `recipes`/`rituals`(ID配列)と `recipeLabels`/`ritualLabels`(ID→表示名の辞書)の**4つの独立フィールド**で、
+  クライアント(`tf-skilltree.js`)は選択肢生成にID配列、表示にラベル辞書を別々に参照する
+  (`renderRecipeGateRow`/`renderRitualGateRow`/`openWildcardModal` の `matchLabel`)。
+- 回帰テストは `test/gate-vocabulary-ars-recipe-sources.test.js` の実データ監査(出荷 ArsPaper 6ファイル +
+  TF catalog.yml を実読みし、`display-name`/`display_name`/`name` を持つ全エントリに非生IDラベルが
+  付くことを確認。特定ID列挙ではない)。
+
+## `custom:` 候補の登録経路は複数あり、`ensureCustomItemCandidates`(app.js)だけが「どの画面より先に必ず走る」(2026-08-18, W-52)
+
+`window.setCustomItemCandidates`(util.js)への登録呼び出しは複数箇所に分散している
+(`app.js#ensureCustomItemCandidates`、各フォームの `render()` 冒頭、`renderRecipeGateRow` 等)。
+このうち `buildEditorForLoadedConfig()` が画面構築の直前に必ず `await` する `ensureCustomItemCandidates()`
+だけが「どの画面を開いても必ず1回は走る」経路で、他は「そのフォームを開いたことがあれば副次的に
+埋まっている」に過ぎない。**あるフォームのセレクトがラベル無しになる原因を、他画面を開けば直る
+`window.CUSTOM_ITEM_LABELS` の副作用に頼って誤魔化さないこと**(実際に `openWildcardModal` の
+`matchLabel` がこれをやっていて「他タブを一度も開いていないと生ID表示」という再現性の低いバグになっていた)。
+新しい候補源を追加するときは、その値を実際に使う画面の `render()` 冒頭で自前に
+`setCustomItemCandidates` を呼ぶ(`replace:false`)のが安全(`functional-items.js`/`ars-source-forms.js`
+の3セクションがこのパターン、`ars-forms.js:488-503` も同型)。
+
+## `catalog-candidates.js` の `EXTRA_SOURCES` は `material` 必須がデフォルトだが、`materialless: true` で個別に緩められる(2026-08-18, W-52)
+
+主系統(`catalog.yml` の `items:`)は `material` を持たないエントリを常に除外する(既存回帰
+`test/catalog-candidates.test.js` の「素材キー欠落は除外」で固定済み、ここは緩めてはいけない)。
+一方 ArsPaper `functional-items.yml` の pedestal/ritual_core/scribing_table/waystone + 8種の
+`enchant_book_*`(計12件)は**設計上そもそも `material:` を持たない**(ブロック系アイテム/概念的な鍵)ため、
+このガードのまま `EXTRA_SOURCES` へ足すと永久に候補から漏れる。
+- **How**: `EXTRA_SOURCES` の各エントリに `statless`(既存、item-stats 生成をスキップ)と対になる
+  `materialless: true` を追加し、ループ側で `if (!material && !source.materialless) continue;` に緩めた上、
+  `material` が無い候補には `candidate.materialless = true` を立てて呼び出し側が判別できるようにする。
+  **この緩和は `EXTRA_SOURCES` 経由のループにだけ適用し、主系統(catalog.yml)のループには絶対に混ぜない**
+  (同じ関数内で分岐を共有すると次に触った人が両方に効かせてしまう)。
+- `functionalItems`/`sourcejars`/`sourcelinks` の3つは `EXTRA_SOURCES`(catalog-candidates.js、
+  `key`/`root`/`tab`/`statless?`/`materialless?`)と `EXTRA_CONFIGS`(app.js、`[key, configId]` の
+  fetch対応)の**2つの並列リストを両方更新しないと機能しない**(片方だけだと「候補生成関数は対応した
+  つもりなのに、そもそもそのソースのデータが一度もfetchされない」という無言の欠落になる。
+  `sourcelinks.yml` はこれで長期間 `EXTRA_CONFIGS`/`EXTRA_SOURCES` 両方から漏れていた)。
+
+## `window.CUSTOM_ITEM_UNLABELED`(util.js)は生ID表示の再発防止に使える機械的フック(2026-08-18, W-52で新設)
+
+`setCustomItemCandidates` は登録した `custom:` キーのうちラベルが付かなかったものを
+`window.CUSTOM_ITEM_UNLABELED` へ積むようにした(ラベル付き登録が後から来れば都度除去される)。
+**許可リスト方式(特定IDを列挙するテスト)を使わずに「生ID/`カスタム:<id>`表示になるものが無い」を
+機械的に検査する**ための唯一の入口で、出荷 yml の `display-name` 付きエントリを実際にこの関数へ
+通した結果が空配列であることを確認すればよい(`test/custom-item-label-audit-2026-08-18.test.js`)。
+新しい候補源を追加したときの動作確認は、この配列を見るのが最短。
+
+## W-60: `level-cutoff.over-level` の逓減3キー(exp-decay-per-level/drop-decay-per-level/rate-floor)を追加(2026-08-18)
+
+`combat/damage.yml` 本体への追加は別レーンの担当で、editor 側は `lib/constants.js` の `FIELD_SPECS` と
+`public/js/constants.js` の `FIELD_GROUPS`(UIラベル/説明)へキーを足すだけ。この2ファイルは**役割が違う
+ミラー**(前者はスカラー抽出/保存/検証のためのIDと範囲だけ、後者はUI表示用のラベル・説明文)なので、
+`id` 文字列を一致させることが同期の条件で、中身の構造は別物。範囲は既定0・シナリオ上 `[0,1]`
+(rate-floor は「-1で完全遮断」という別軸のsentinelと衝突しないよう `[-1,1]`)とした
+(Java側の実際のSchemaFieldはこのレーンの完了時に確定するので、範囲がJava側と食い違っていないかは
+Java側の変更が着地した時点で `test/constants.test.js` を突き合わせて確認すること)。
+
 ## 関連
 - [./ops-build-deploy.md](./ops-build-deploy.md)
 - [./combat.md](./combat.md)

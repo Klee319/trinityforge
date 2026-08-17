@@ -70,9 +70,12 @@ class ShippedMobTypesLevelBandTest {
      * 出荷値(2026-08-16 ユーザー決定)。{@code dimensions.<ENV>.base-level} を空から実値へ移した。
      * 理由と検算は {@code shippedDimensionBaseLevelsMatchTheDecidedValues} の Javadoc を読むこと。
      */
-    private static final int EXPECTED_NETHER_BASE_LEVEL = 50;
+    // 2026-08-18 ユーザー決定(W-66): モブ個別の level は 0 に統一し、「そのディメンションのモブは
+    // 何レベル帯か」は base-level 一本で決める設計へ移した。以前は個別 level(25〜40)と下駄(50)が
+    // 加算されて実効 75〜90 になっており、下駄だけ下げても効かなかった。
+    private static final int EXPECTED_NETHER_BASE_LEVEL = 25;
     private static final int EXPECTED_THE_END_BASE_LEVEL = 80;
-    private static final double EXPECTED_NETHER_COORDINATE_COEFFICIENT = 0.01;
+    private static final double EXPECTED_NETHER_COORDINATE_COEFFICIENT = 0.015;
     private static final double EXPECTED_THE_END_COORDINATE_COEFFICIENT = 0.004;
 
     @BeforeEach
@@ -106,26 +109,29 @@ class ShippedMobTypesLevelBandTest {
      * per-level 1293.02)は Lv47 で 615HP → <b>7,653HP(約12倍)</b>、Lv65 で<b>約26倍</b>。
      * {@code THE_END: 80} はこの指数区間の<b>かなり奥</b>に全モブを置く設定で、
      * さらに MOB_LEVEL は EXP 帯と {@code drops[].quality} も駆動するので報酬側も同時に跳ねる。
-     * ネザーの各モブは既に level 25〜40 を持っているため {@code NETHER: 50} は
-     * その上への加算(実効 75〜90)になる。
+     * <p><b>2026-08-18 (W-66) の設計変更</b>: 以前はネザーの各モブが個別に level 25〜40 を持ち、
+     * {@code NETHER: 50} がその上へ<b>加算</b>されて実効 75〜90 になっていた。下駄だけ下げても
+     * 効かないという報告を受け、<b>モブ個別の level を 0 に統一し、ディメンションの帯は
+     * {@code base-level} 一本で決める</b>設計へ移した。したがって現在の {@code NETHER: 25} は
+     * そのまま実効レベルの下限(距離ボーナスのみ上乗せ)を意味する。
      *
      * <p>{@code coordinate-coefficient} の上書きは<b>モブ側の係数に掛けるのではなく置き換える</b>
      * ので、そのディメンションのバニラモブ全体の距離カーブが一律になる(EliteMobs モブには効かない)。
-     * ネザーの 0.01 は 1,000 ブロックで +10、エンドの 0.004 は 1,000 ブロックで +4。
+     * ネザーの 0.015 は 1,000 ブロックで +15、エンドの 0.004 は 1,000 ブロックで +4。
      *
      * <p>オーバーワールドだけは 0 のままであることを引き続き固定する ——
      * ここに下駄が入ると mob-types の各 {@code level} とバランス表の前提がまとめて崩れる。
      */
     @Test
-    @DisplayName("出荷 mob-types.yml: 次元の基準レベルは 2026-08-16 に決めた実値(ネザー50/エンド80)で、"
+    @DisplayName("出荷 mob-types.yml: 次元の基準レベルは 2026-08-18 に決めた実値(ネザー25/エンド80)で、"
             + "オーバーワールドだけは 0 のまま")
     void shippedDimensionBaseLevelsMatchTheDecidedValues(@TempDir Path dir) throws Exception {
         MobTypesConfig config = loadShipped(dir);
 
         assertEquals(EXPECTED_NETHER_BASE_LEVEL, config.dimensionBaseLevel(World.Environment.NETHER),
-                "dimensions.NETHER.base-level が決定値と違う。ネザーのモブは既に level 25〜40 を"
-                        + "持っているので、ここの値はその上への加算(実効 75〜90)になる。"
-                        + "動かすなら Javadoc の検算をやり直すこと");
+                "dimensions.NETHER.base-level が決定値と違う。2026-08-18 以降、ネザーのモブは"
+                        + "個別 level を 0 に揃えてあるので、この値がそのまま実効レベルの下限になる"
+                        + "(距離ボーナスのみ上乗せ)。動かすなら Javadoc の検算をやり直すこと");
         assertEquals(EXPECTED_THE_END_BASE_LEVEL, config.dimensionBaseLevel(World.Environment.THE_END),
                 "dimensions.THE_END.base-level が決定値と違う。max-health-high-level-from(45)の"
                         + "指数区間の奥に全モブを置く設定なので、EXP帯とドロップ品質への波及も併せて検算すること");

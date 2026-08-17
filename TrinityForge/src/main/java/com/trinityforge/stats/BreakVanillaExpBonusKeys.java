@@ -32,6 +32,19 @@ import java.util.Set;
  * {@code NativeSkillExperienceListener#grantGathering} が採取扱いと判定した破壊にしか出ず、
  * その戻り値は FARMING/WOODCUTTING/DIGGING/MINING のいずれかに限られる。他スキル分を作っても
  * <b>一度も読まれない死んだキー</b>になる(POWER を除く {@link SkillExpBonusKeys} と同じ判断)。
+ *
+ * <p><b>2026-08-18 (W-58) — {@code feature:break-vanilla-exp} 解放ゲート自体もスキルごとに分割</b>:
+ * このクラスがこれまで扱っていたのは<b>倍率</b>({@code <skill>_break_vanilla_exp_bonus}、通常stat)
+ * だけで、<b>解放</b>({@code feature:break-vanilla-exp}、{@code FeatureEffectRegistry}の
+ * {@code feature:}語彙)は4ツリー共通の1本のidのままだった。倍率側と対称になるよう
+ * {@link #featureId(String)} を追加し、gate id も
+ * {@code break-vanilla-exp-mining}/{@code -digging}/{@code -farming}/{@code -woodcutting} の
+ * スキルごとの id へ分割した(登録は {@code FeatureEffectRegistry}、消費側は
+ * {@code NativeSkillExperienceListener#grantBreakVanillaExp} がこの新メソッドを経由する)。
+ * <b>解放状態の永続化(PlayerData#heldPerks)はノードID(PerkNaming.perkId(skill, nodeId))基準</b>で、
+ * この gate id 文字列そのものを保存するわけではないため、この改名にプレイヤーデータ移行は不要
+ * (既存プレイヤーの解放状態は無傷)。3引数の木限定 {@code DedicatedEffectsConfig#isActive/valueMax}
+ * 呼び出しは、gate id が既にスキル専用になった後も引き続き保険として維持する。
  */
 public final class BreakVanillaExpBonusKeys {
 
@@ -39,6 +52,9 @@ public final class BreakVanillaExpBonusKeys {
 
     /** キー接尾辞。{@link #forSkill(String)} が組み立てる文字列と一致させること。 */
     public static final String SUFFIX = "_break_vanilla_exp_bonus";
+
+    /** {@code feature:} gate id の接頭辞。{@link #featureId(String)} が組み立てる文字列と一致させること。 */
+    public static final String FEATURE_ID_PREFIX = "break-vanilla-exp-";
 
     /**
      * 破壊が採取扱いになりうる4スキル。
@@ -77,5 +93,26 @@ public final class BreakVanillaExpBonusKeys {
     /** {@code canonicalKey} が採取スキル別の破壊時バニラEXP増加ステなら {@code true}。 */
     public static boolean contains(String canonicalKey) {
         return canonicalKey != null && KEYS.contains(canonicalKey);
+    }
+
+    /**
+     * 採取スキルIDに対応する {@code feature:} gate id(bare、prefix無し。例:
+     * {@code MINING} -&gt; {@code break-vanilla-exp-mining})。{@link #forSkill(String)} と対になる
+     * gate版 — 採取扱いにならないスキル(や {@code null}/空文字)なら {@code null} を返すので、呼び出し側は
+     * 「存在しない feature id を isActive/valueMax に渡す」ことなく素通りできる。
+     *
+     * <p>大文字小文字は問わない({@link SkillId} 定数は大文字だが、比較は正規化して行う)。
+     */
+    public static String featureId(String skillId) {
+        if (skillId == null || skillId.isBlank()) {
+            return null;
+        }
+        String normalized = skillId.trim().toUpperCase(java.util.Locale.ROOT);
+        for (String gatheringSkill : GATHERING_SKILLS) {
+            if (gatheringSkill.equals(normalized)) {
+                return FEATURE_ID_PREFIX + gatheringSkill.toLowerCase(java.util.Locale.ROOT);
+            }
+        }
+        return null;
     }
 }

@@ -76,9 +76,8 @@ public final class NativeSkillExperienceListener implements Listener {
     private static final String BREW_MODE_MANUAL = "manual";
     private static final String BREW_MODE_AUTO = "auto";
 
-    /** 破壊時バニラEXP解放({@code break-vanilla-exp})1回分のベース付与量。倍率は各stat側でチューニング。 */
+    /** 破壊時バニラEXP解放({@code break-vanilla-exp-<skill>})1回分のベース付与量。倍率は各stat側でチューニング。 */
     private static final int BASE_BREAK_EXP = 1;
-    private static final String FEATURE_BREAK_VANILLA_EXP = "break-vanilla-exp";
     private static final String VANILLA_EXP_BONUS = StatKeys.canonical("vanilla_exp_bonus");
     private static final String BREAK_VANILLA_EXP_BONUS = StatKeys.canonical("break_vanilla_exp_bonus");
     // 2026-08-14: enchant_exp_gain_bonus はここで消費していたが、職業EXP増加の共通機構
@@ -228,32 +227,44 @@ public final class NativeSkillExperienceListener implements Listener {
     }
 
     /**
-     * 破壊時バニラEXP解放({@code break-vanilla-exp}, dedicated-effect機能フラグ)。既存の
+     * 破壊時バニラEXP解放({@code break-vanilla-exp-<skill>}, dedicated-effect機能フラグ)。既存の
      * FARMING/WOODCUTTING/DIGGING/MINING分類(={@link #grantGathering}が採取扱いと判定したブロック)
      * かつ非設置ブロックに限って、バニラEXPオーブを{@code BASE_BREAK_EXP}を基準に上乗せする。
      * vanilla_exp_bonus/break_vanilla_exp_bonusはどちらもフラクション値(0.2=+20%)であり、パーセント
      * 変換は行わない。dedicatedEffects/aggregatorが未配線(旧コンストラクタ経由)の場合は何もしない。
      *
      * <p><b>2026-08-01 実サーバ報告の修正 — 解放判定はツリー横断してはいけない</b>:
-     * {@code feature:break-vanilla-exp} は mining/woodcutting/digging/farming の<b>4ツリーすべて</b>が
-     * A ノードに置いている。以前はツリーを問わない {@code isActive(player, id)} で見ていたため、
-     * <b>採掘ツリーの A しか取っていないプレイヤーが作物・原木・土でもバニラEXPを得ていた</b>
-     * (=3ツリー分の解放をタダ取りできる)。破壊が属する採取スキルで絞る。
+     * かつては {@code feature:break-vanilla-exp} という<b>4ツリー共通の1本のid</b>を
+     * mining/woodcutting/digging/farming の A ノードが全員で共有していた。ツリーを問わない
+     * {@code isActive(player, id)} で見ていたため、<b>採掘ツリーの A しか取っていないプレイヤーが
+     * 作物・原木・土でもバニラEXPを得ていた</b>(=3ツリー分の解放をタダ取りできる)。3引数(ツリー限定)の
+     * {@code isActive(player, id, gatheringSkill)} へ切り替え、破壊が属する採取スキルで絞った。
      *
      * <p><b>2026-08-15 実サーバ報告の修正 — 倍率も職業間で漏れていた</b>:
-     * 上の解放ゲートは職業別になったが、倍率の {@code break_vanilla_exp_bonus} はスコープを持たない
-     * 総合ステのままで、出荷スキルツリーの6ノード全部がそこへ {@code 0.5} を配っていた。
+     * 上の解放ゲートは3引数呼び出しでツリー限定になっていたが、倍率の {@code break_vanilla_exp_bonus} は
+     * スコープを持たない総合ステのままで、出荷スキルツリーの6ノード全部がそこへ {@code 0.5} を配っていた。
      * その結果<b>採掘で取った +50% が伐採・整地・農業の破壊EXPにもそのまま乗っていた</b>
      * (説明文は「破壊で1.5倍」等とツリー内で完結する前提の書き方)。採取スキル別の
      * {@link BreakVanillaExpBonusKeys} を導入し、出荷ノードはそちらへ移した。
      * スコープ無しの {@code break_vanilla_exp_bonus} は「採取全般」の意味で引き続き加算する。
+     *
+     * <p><b>2026-08-18 (W-58) — gate id 自体もスキルごとに分割</b>: 上の2件の修正はどちらも
+     * 「3引数呼び出し(ツリー限定)を守れば1本のid共有でも安全」という前提だったが、念のための
+     * belt-and-suspenders として gate id 自体も {@link BreakVanillaExpBonusKeys#featureId(String)} が
+     * 導出する<b>スキル専用のid</b>(例: {@code break-vanilla-exp-mining})へ分割した。3引数の
+     * ツリー限定呼び出しはそれでも維持する(2重の安全策。片方が将来剥がれても他方が残る)。
+     * {@code gatheringSkill} が採取4スキルのいずれでもない({@link BreakVanillaExpBonusKeys#featureId}が
+     * {@code null}を返す)場合は何もしない — {@link #grantGathering}の契約上到達しないはずの経路だが、
+     * 念のためnullガードしている。
      *
      * @param gatheringSkill {@link #grantGathering} が確定させた採取スキルID
      *                       (FARMING/WOODCUTTING/DIGGING/MINING)。このツリーに置かれた配置だけを見る。
      */
     private void grantBreakVanillaExp(Player player, String gatheringSkill) {
         if (dedicatedEffects == null || aggregator == null) return;
-        if (!dedicatedEffects.isActive(player, FEATURE_BREAK_VANILLA_EXP, gatheringSkill)) return;
+        String featureId = BreakVanillaExpBonusKeys.featureId(gatheringSkill);
+        if (featureId == null) return;
+        if (!dedicatedEffects.isActive(player, featureId, gatheringSkill)) return;
         var totals = aggregator.aggregate(player);
         double bonus = totals.totalOf(VANILLA_EXP_BONUS) + totals.totalOf(BREAK_VANILLA_EXP_BONUS);
         // 採取スキル別の倍率(2026-08-15)。破壊が属するツリーのキーだけを足す。

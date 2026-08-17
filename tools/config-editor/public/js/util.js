@@ -240,6 +240,13 @@ window.setCustomItemCandidates = function setCustomItemCandidates(entries, opts)
   }
   window.CUSTOM_ITEM_CANDIDATES = out;
   window.CUSTOM_ITEM_LABELS = labels;
+  // 2026-08-18 (W-52): 候補を作る入口はこの関数1本に集約されている。ここでラベル無し登録を
+  // 検出すれば、新設した候補源が label を渡し忘れても機械的に落とせる(許可リスト方式ではなく、
+  // 「custom: として登録された全キー」から「ラベルが付いたキー」を引いた差分で判定するので、
+  // 新しい候補源を足しても対象が自動的に広がる)。
+  // 呼び出し側は materialInput の customOption が `カスタム: <id>` へフォールバックする
+  // (=生ID表示になる)キーの一覧として使える。
+  window.CUSTOM_ITEM_UNLABELED = out.filter((key) => !labels[key]);
 };
 
 // 数値入力。整数フラグで step を切り替える。空欄は null を返す。

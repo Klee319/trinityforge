@@ -50,6 +50,15 @@ import java.util.OptionalDouble;
  * 値の合算は {@link PlayerStatAggregator} の既存経路({@code aggregate(player).totalOf(...)}) に乗せ、
  * クランプは {@link CooldownManager#applyReduction} で {@code cooldown-reduction} と同じ流儀(揃えた上下限)
  * にする。
+ *
+ * <p><b>2026-08-18(W-59) CTバケツのキーは {@link ActiveSkill#id()} ではなく {@link ActiveSkill#cooldownGroup()}</b>:
+ * {@link CooldownManager#tryConsume}/{@link CooldownManager#remainingMillis} へ渡す第2引数はこのキー。
+ * 既定は {@code id()} と同じなので大半のスキルは今までどおりだが、{@code haste-active-mining} と
+ * {@code haste-active-digging} のように独立した2つの {@link ActiveSkill} が同じ定数を返すよう
+ * オーバーライドすると、CTバケツを共有しながら解放レベル・倍率・持続・CT長はそれぞれ独立に保てる
+ * (ツールを持ち替えて連発しても合計アップタイムが増えない — 実サーバ報告「持ち替えでCT無視できる」対策)。
+ * {@code CT短縮ステータス}(直上の段落)は引き続き {@link ActiveSkill#id()} 単位(スキル固有の短縮)であり、
+ * これと混同しないこと。
  */
 public final class ActivationDispatcher implements Listener {
 
@@ -120,8 +129,9 @@ public final class ActivationDispatcher implements Listener {
             double skillCooldownReduction = aggregator.aggregate(player)
                     .totalOf(ActiveSkillCooldownKeys.forSkill(skill.id()));
             long cooldownMillis = CooldownManager.applyReduction(skill.cooldownMillis(tier), skillCooldownReduction);
-            if (!cooldowns.tryConsume(player.getUniqueId(), skill.id(), cooldownMillis, now)) {
-                long remainingMillis = cooldowns.remainingMillis(player.getUniqueId(), skill.id(), cooldownMillis, now);
+            String cooldownKey = skill.cooldownGroup();
+            if (!cooldowns.tryConsume(player.getUniqueId(), cooldownKey, cooldownMillis, now)) {
+                long remainingMillis = cooldowns.remainingMillis(player.getUniqueId(), cooldownKey, cooldownMillis, now);
                 feedback.onCooldown(player, Math.max(1, Math.ceilDiv(remainingMillis, 1000L)));
                 return; // on cooldown: an activation attempt was made, but never cancel (brief, non-negotiable).
             }

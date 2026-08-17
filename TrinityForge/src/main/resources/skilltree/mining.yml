@@ -67,7 +67,7 @@ nodes:
     cost: 1
     description: 破壊で少量のバニラEXP
     dedicated-effects:
-      - id: feature:break-vanilla-exp
+      - id: feature:break-vanilla-exp-mining
   B:
     name: 洞窟の導き手
     level: 30

@@ -51,8 +51,12 @@ class FeatureEffectRegistryTest {
                 "junkfood-immunity", "junkfood-inversion", "satiety-buff", "junk-to-scrap",
                 "xp-bottle-store-unlock", "dismantle-unlock", "potion-merge", "wood-repair-unlock",
                 "weapon-coating-unlock", "source-auto-consume",
-                // S9(2026-07-24): 破壊時バニラEXP解放の前提機能。
-                "break-vanilla-exp",
+                // 2026-08-18 (W-58): 単一の"break-vanilla-exp"を4ツリー専用idへ分割
+                // (BreakVanillaExpBonusKeys#featureId参照)。S9(2026-07-24)由来の前提機能。
+                "break-vanilla-exp-mining", "break-vanilla-exp-digging",
+                "break-vanilla-exp-farming", "break-vanilla-exp-woodcutting",
+                // 2026-08-18 (W-59): シャベル専用の独立ハステアクティブ(digging.yml A-1)。
+                "haste-active-digging",
                 // 2026-07-25: 経済連携(Vault対応)により復活。docs/archive/2026-07-23-stat-gate-overhaul.md
                 // §3.2 の表を合わせて更新済み(以前は #5 exploit fix でno-op化され語彙から除外されていた)。
                 "fish-sell-toggle",
@@ -68,6 +72,10 @@ class FeatureEffectRegistryTest {
                 }) {
             assertTrue(FeatureEffectRegistry.isKnown(id), "missing feature vocab entry: " + id);
         }
-        assertEquals(25, FeatureEffectRegistry.all().size());
+        assertFalse(FeatureEffectRegistry.isKnown("break-vanilla-exp"),
+                "旧・4ツリー共通の break-vanilla-exp は W-58 で分割済みのため語彙から消えているはず");
+        // 2026-08-18 (W-58/W-59): 25(旧) - 1(break-vanilla-exp削除) + 4(スキル別break-vanilla-exp)
+        // + 1(haste-active-digging新設) = 29。
+        assertEquals(29, FeatureEffectRegistry.all().size());
     }
 }

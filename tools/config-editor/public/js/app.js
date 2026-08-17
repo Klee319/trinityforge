@@ -351,10 +351,13 @@
     } catch (_) { /* optional */ }
     // 2026-07-30: 特殊アイテム(ソースベリー等)/ソースジャー/触媒も候補に載せる。
     // どれか1本でも取得に失敗しても候補作りは続行する(欠けるのはその1本分だけ)。
+    // 2026-08-18 (W-52・機構C): sourcelinks (material/display-name を両方持つのに一度も
+    // 読まれていなかった) を追加。catalog-candidates.js の EXTRA_SOURCES と対で更新すること。
     const extraData = {};
     const EXTRA_CONFIGS = [
       ["functionalItems", "functional-items"],
       ["sourcejars", "sourcejars"],
+      ["sourcelinks", "sourcelinks"],
       ["catalysts", "spellbooks"]
     ];
     await Promise.all(EXTRA_CONFIGS.map(async ([key, configId]) => {

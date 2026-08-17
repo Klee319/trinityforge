@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.ToIntFunction;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * {@code /trinityforge give <item> [quality] [amount <n>] [player]} — catalog items and ArsPaper player
@@ -95,14 +96,88 @@ public final class GiveItemCommand {
     private final ItemCatalogConfig catalog;
     private final QualityConfig quality;
     private final CrossPluginItemResolver resolver;
+    private final ThreadQualityRestamper threadRestamper;
 
     public GiveItemCommand(Plugin plugin, ItemFactory factory, ItemCatalogConfig catalog,
                            QualityConfig quality) {
+        this(plugin, factory, catalog, quality, GiveItemCommand::defaultThreadRestamp);
+    }
+
+    /**
+     * テスト用シーム。{@code threadRestamper} は「ArsPaper のスレッド(ThreadItem)専用の品質再刻印」を
+     * 行う関数で、本番は必ず {@link #defaultThreadRestamp} が入る(4引数コンストラクタ)。
+     *
+     * <p>差し替え可能にしてあるのは、本番実装が {@code Bukkit.getPluginManager().getPlugin("ArsPaper")}
+     * 越しのリフレクションで、ユニットテストからは実際の ArsPaper プラグイン(と ThreadItem の実体)を
+     * 用意できないため({@link com.trinityforge.stats.CrossPluginItemResolver} が同じ理由で
+     * 外部解決関数を差し替え可能にしているのと同じ制約)。
+     */
+    GiveItemCommand(Plugin plugin, ItemFactory factory, ItemCatalogConfig catalog,
+                    QualityConfig quality, ThreadQualityRestamper threadRestamper) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.factory = Objects.requireNonNull(factory, "factory");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.quality = Objects.requireNonNull(quality, "quality");
         this.resolver = new CrossPluginItemResolver(catalog, factory);
+        this.threadRestamper = Objects.requireNonNull(threadRestamper, "threadRestamper");
+    }
+
+    /**
+     * ArsPaper のスレッド(ThreadItem)専用の品質再刻印関数。{@code itemId} が実際にスレッドで、
+     * かつ品質を持つ(={@code threadType.hasEffect()})場合にのみ再刻印し {@code true} を返す。
+     * それ以外(スレッドでない/ArsPaper未ロード/reflection失敗)は {@code false}
+     * (呼び出し側は既存の {@code isQualityStamped}/{@code isEquipment} ゲートへフォールバックする)。
+     */
+    @FunctionalInterface
+    interface ThreadQualityRestamper {
+        boolean restamp(String itemId, ItemStack item, int quality);
+    }
+
+    /**
+     * {@link ThreadQualityRestamper} の本番実装。ArsPaper 側 {@code ThreadItem#restampWithQuality}
+     * (メソッド名/シグネチャは合わせて変更する契約)へ reflection 経由で委譲する。
+     *
+     * <p><b>なぜ必要か(W-53)</b>: ArsPaper のスレッドは {@code isQualityStamped()==false}
+     * (装備ではなく素材扱い)かつ非装備材質(防具トリム型/陶器の欠片/旗の模様)なので、
+     * 下の {@link #stampArsItem} が持つ通常ゲート(isQualityStamped || isEquipment)に一切
+     * 引っかからず、{@code /tf give} で指定した quality が常に無視されていた
+     * (既知の「品質の門を {@code isEquipment()} で書くと非装備TF品が常に品質0になる」落とし穴と同型
+     * ── {@link com.trinityforge.listeners.CraftQualityListener#isStampableCraftResult} が
+     * クラフト経路で同型の穴を塞いだのと同じ形)。
+     *
+     * <p>{@code ItemFactory#stamp}(TFの汎用装備lore組み立て経路)をスレッドへそのまま適用すると、
+     * 効果説明/スロット案内/バックパック行を含むスレッド専用loreを上書きしてしまうため、ここでは
+     * 汎用stampを一切呼ばず、ArsPaper側の専用経路(スレッド自身の lore ビルダーを使う
+     * {@code restampWithQuality})へ委譲する。
+     */
+    private static boolean defaultThreadRestamp(String itemId, ItemStack item, int quality) {
+        if (!ArsItemGiveBridge.isAvailable()) {
+            return false;
+        }
+        try {
+            Plugin ars = Bukkit.getPluginManager().getPlugin("ArsPaper");
+            if (ars == null) {
+                return false;
+            }
+            Object registry = ars.getClass().getMethod("getItemRegistry").invoke(ars);
+            Object opt = registry.getClass().getMethod("get", String.class).invoke(registry, itemId);
+            if (!(opt instanceof Optional<?> optional) || optional.isEmpty()) {
+                return false;
+            }
+            Object customItem = optional.get();
+            java.lang.reflect.Method restamp;
+            try {
+                restamp = customItem.getClass().getMethod("restampWithQuality", ItemStack.class, int.class);
+            } catch (NoSuchMethodException notAThread) {
+                // ThreadItem 以外(魔導書/触媒/素材等): 対象外。呼び出し側が既存ゲートへフォールバックする。
+                return false;
+            }
+            return (boolean) restamp.invoke(customItem, item, quality);
+        } catch (ReflectiveOperationException ex) {
+            Logger.getLogger(GiveItemCommand.class.getName())
+                    .log(Level.FINE, "[give] ArsPaper thread quality restamp failed for " + itemId, ex);
+            return false;
+        }
     }
 
     /**
@@ -492,8 +567,8 @@ public final class GiveItemCommand {
         return dropped;
     }
 
-    /** 組み立て結果。{@code sourceLabel} は完了メッセージに出す出所表示。 */
-    private record Built(ItemStack stack, String sourceLabel) {}
+    /** 組み立て結果。{@code sourceLabel} は完了メッセージに出す出所表示。 package-private: テスト用。 */
+    record Built(ItemStack stack, String sourceLabel) {}
 
     /**
      * アイテムを1個だけ組み立てる。<b>解決経路はここ1箇所にしかない</b> — 複数個配るときの
@@ -511,22 +586,7 @@ public final class GiveItemCommand {
         // 判定は CrossPluginItemResolver#createArsGated 1箇所に寄せてある。
         Optional<ItemStack> ars = resolver.createArsGated(itemId);
         if (ars.isPresent()) {
-            ItemStack built = ars.get();
-            // Catalysts/spellbooks (isQualityStamped) and equipment-tier materials get TF quality.
-            boolean stampable = ArsItemGiveBridge.isQualityStamped(itemId)
-                    || MaterialTier.of(built.getType()).isEquipment();
-            if (stampable) {
-                try {
-                    factory.stamp(built, ThreadLocalRandom.current().nextLong(), quality);
-                } catch (RuntimeException ex) {
-                    plugin.getLogger().log(Level.SEVERE,
-                            "Failed to stamp Ars item '" + itemId + "' quality=" + quality, ex);
-                    sender.sendMessage(Component.text(
-                            "Item quality stamp failed; see console for details.", NamedTextColor.RED));
-                    return null;
-                }
-            }
-            return new Built(built, "arspaper");
+            return stampArsItem(sender, itemId, ars.get(), quality);
         }
         Optional<ItemStack> built = resolver.createCatalog(
                 itemId, ThreadLocalRandom.current().nextLong(), quality);
@@ -536,5 +596,49 @@ public final class GiveItemCommand {
             return null;
         }
         return new Built(built.get(), "catalog");
+    }
+
+    /**
+     * ArsPaper 側で既に解決済みのアイテム({@code built})へ {@code /tf give} の quality 引数を反映する。
+     * package-private: {@link #resolver}(実 ArsPaper 有無に依存)を経由せず直接テストできるように
+     * するため(本番の Ars 可用性判定は呼び出し元 {@link #buildOne} が既に済ませている)。
+     *
+     * <p>まず {@link #threadRestamper}(スレッド専用の再刻印)を試す。ArsPaper のスレッドは
+     * {@code isQualityStamped()==false} かつ非装備材質なので、下の通常ゲート
+     * ({@code isQualityStamped || isEquipment})に一切引っかからず quality が無視されていた
+     * (W-53、{@link #defaultThreadRestamp} のjavadoc参照)。{@link #threadRestamper} が
+     * {@code true}(=スレッドとして処理済み)を返したら、下の通常ゲートは一切通らない。
+     *
+     * @return 刻印(またはスレッド専用再刻印)に成功したら {@code built} を包んだ {@link Built}。
+     *         失敗時は {@code sender} へ通知して {@code null}(呼び出し元はそのまま返す契約)。
+     */
+    Built stampArsItem(CommandSender sender, String itemId, ItemStack built, int quality) {
+        boolean threadHandled;
+        try {
+            threadHandled = threadRestamper.restamp(itemId, built, quality);
+        } catch (RuntimeException ex) {
+            return stampFailed(sender, itemId, quality, ex);
+        }
+        if (!threadHandled) {
+            // Catalysts/spellbooks (isQualityStamped) and equipment-tier materials get TF quality.
+            boolean stampable = ArsItemGiveBridge.isQualityStamped(itemId)
+                    || MaterialTier.of(built.getType()).isEquipment();
+            if (stampable) {
+                try {
+                    factory.stamp(built, ThreadLocalRandom.current().nextLong(), quality);
+                } catch (RuntimeException ex) {
+                    return stampFailed(sender, itemId, quality, ex);
+                }
+            }
+        }
+        return new Built(built, "arspaper");
+    }
+
+    private Built stampFailed(CommandSender sender, String itemId, int quality, RuntimeException ex) {
+        plugin.getLogger().log(Level.SEVERE,
+                "Failed to stamp Ars item '" + itemId + "' quality=" + quality, ex);
+        sender.sendMessage(Component.text(
+                "Item quality stamp failed; see console for details.", NamedTextColor.RED));
+        return null;
     }
 }

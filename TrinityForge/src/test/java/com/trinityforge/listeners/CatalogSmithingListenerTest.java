@@ -5,11 +5,13 @@ import com.trinityforge.pdc.ItemData;
 import com.trinityforge.stats.ItemAssembler;
 import com.trinityforge.stats.ItemFactory;
 import com.trinityforge.stats.ItemTemplate;
+import com.trinityforge.stats.PreviewRollSeeds;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareSmithingEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +21,9 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.inventory.SimpleInventoryViewMock;
 import org.mockbukkit.mockbukkit.inventory.SmithingInventoryMock;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +33,7 @@ import java.nio.file.Files;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -91,13 +97,23 @@ class CatalogSmithingListenerTest {
         return config;
     }
 
-    private static ItemFactory factory() {
-        ItemAssembler assembler = org.mockito.Mockito.mock(ItemAssembler.class);
-        org.mockito.Mockito.when(assembler.assemble(
-                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+    /**
+     * {@code assemble(...)} を素通し(0を返すだけ)で止めた mock。W-51 の再スタンプ系テストは
+     * この mock への呼び出し引数(material/quality/rollSeed)を検証することで、実際の数値導出
+     * ({@link ItemAssembler} 自体の責務、他所のテストで担保済み)に踏み込まずに
+     * 「新Materialで正しく再組み立てが呼ばれたか」だけを確かめる。
+     */
+    private static ItemAssembler mockAssembler() {
+        ItemAssembler assembler = Mockito.mock(ItemAssembler.class);
+        Mockito.when(assembler.assemble(
+                        ArgumentMatchers.any(), ArgumentMatchers.any(),
+                        ArgumentMatchers.anyLong(), ArgumentMatchers.anyInt()))
                 .thenReturn(0);
-        return new ItemFactory(assembler);
+        return assembler;
+    }
+
+    private static ItemFactory factory() {
+        return new ItemFactory(mockAssembler());
     }
 
     /** 鍛冶台の 3 スロット + 結果を持つイベントを組み立てる。 */
@@ -175,13 +191,16 @@ class CatalogSmithingListenerTest {
     }
 
     /**
-     * バニラのダイヤ装備→ネザライト装備は TF のカタログIDを持たないので、消してはいけない
-     * (base 側の PDC が結果に引き継がれるケースも「素材側のID」なので対象外)。
+     * バニラのダイヤ装備→ネザライト装備は TF のカタログIDを持たないので、結果を「消す」ことは無い
+     * (base 側の PDC が結果に引き継がれるケースも「素材側のID」なので消去対象外)。
+     * ただし TF 品質 PDC(rollSeed) が無い、一度も TF に触られていない完全な素の装備は
+     * 再スタンプの対象にもならず素通しのまま(仕様変更の対象外 — 救済は「TF 品質を持つ既存装備」だけ)。
      */
     @Test
-    void unrelatedVanillaUpgradeResultIsLeftAlone(@TempDir File tempDir) throws IOException {
+    void bareVanillaEquipmentWithoutQualityIsLeftAlone(@TempDir File tempDir) throws IOException {
         ItemCatalogConfig catalog = loadCatalog(tempDir);
-        CatalogSmithingListener listener = new CatalogSmithingListener(catalog, factory());
+        ItemAssembler assembler = mockAssembler();
+        CatalogSmithingListener listener = new CatalogSmithingListener(catalog, new ItemFactory(assembler));
 
         PrepareSmithingEvent event = event(netheriteTemplate(),
                 new ItemStack(Material.DIAMOND_SWORD), netheriteIngot(),
@@ -190,6 +209,56 @@ class CatalogSmithingListenerTest {
 
         assertNotNull(event.getResult());
         assertEquals(Material.NETHERITE_SWORD, event.getResult().getType());
+        Mockito.verify(assembler, Mockito.never()).assemble(
+                ArgumentMatchers.any(), ArgumentMatchers.any(),
+                ArgumentMatchers.anyLong(), ArgumentMatchers.anyInt());
+    }
+
+    /**
+     * W-51(2026-08-18): 素のバニラ装備でも TF 品質 PDC(rollSeed) を持っていれば、ネザライト化で
+     * 「素通し」ではなく「品質を引き継ぎつつ再スタンプ」される(仕様変更 — 旧仕様は
+     * {@code unrelatedVanillaUpgradeResultIsLeftAlone} という名前でこの素通しを固定していたが、
+     * それこそが「lore・耐久上限・use-level-requirement がダイヤ時代の値のまま凍結される」バグの
+     * 本体だった)。
+     *
+     * <p>{@link ItemAssembler} は mock なので数値導出そのもの({@code useLevelRequirement} の実値等)
+     * はここでは検証しない(それは {@code ItemAssemblerTest} 等の責務)。ここで固定するのは
+     * 「{@link ItemFactory#stamp} が新Material(NETHERITE_SWORD)・引き継いだ品質(5)・base とは
+     * 異なる rollSeed(プレビューは {@link PreviewRollSeeds#SMITHING} 固定)で呼ばれること」という
+     * このリスナーの配線責務。
+     */
+    @Test
+    void plainQualityVanillaUpgradeIsRestampedWithInheritedQuality(@TempDir File tempDir) throws IOException {
+        ItemCatalogConfig catalog = loadCatalog(tempDir);
+        ItemAssembler assembler = mockAssembler();
+        CatalogSmithingListener listener = new CatalogSmithingListener(catalog, new ItemFactory(assembler));
+
+        ItemStack base = new ItemStack(Material.DIAMOND_SWORD);
+        ItemMeta baseMeta = base.getItemMeta();
+        ItemData.of(baseMeta).setRollSeed(999L);
+        ItemData.of(baseMeta).setQuality(5);
+        base.setItemMeta(baseMeta);
+
+        PrepareSmithingEvent event = event(netheriteTemplate(), base, netheriteIngot(),
+                new ItemStack(Material.NETHERITE_SWORD));
+        listener.onPrepare(event);
+
+        ItemStack result = event.getResult();
+        assertNotNull(result, "品質付きバニラ装備は再スタンプ対象になるはず");
+        assertEquals(Material.NETHERITE_SWORD, result.getType());
+
+        ArgumentCaptor<Material> materialCaptor = ArgumentCaptor.forClass(Material.class);
+        ArgumentCaptor<Long> seedCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<Integer> qualityCaptor = ArgumentCaptor.forClass(Integer.class);
+        Mockito.verify(assembler).assemble(ArgumentMatchers.any(),
+                materialCaptor.capture(), seedCaptor.capture(), qualityCaptor.capture());
+        assertEquals(Material.NETHERITE_SWORD, materialCaptor.getValue(),
+                "新Material(ネザライト)基準で再組み立てされていない");
+        assertEquals(5, qualityCaptor.getValue(), "品質がbaseから引き継がれていない");
+        assertEquals(PreviewRollSeeds.SMITHING, (long) seedCaptor.getValue(),
+                "プレビューはカタログ品と同じ固定プレビューseedで見せるべき");
+        assertNotEquals(999L, (long) seedCaptor.getValue(),
+                "rollSeedがbaseのまま(=再抽選されていない)");
     }
 
     /** 素材側のカタログIDが結果に引き継がれても、そのIDが netherite レシピを持たないなら消さない。 */

@@ -1029,6 +1029,57 @@ player を生成経路まで手動で運ぶしかない」「個体差は Ars �
   ブリッジ呼び出しの**前**に前状態をキャプチャしておくこと（`ThreadRerollRitualEffect#execute`
   が実例。呼び出し順を逆にすると新旧が同じ値になり lore の差分除去が無言で空振りする）。
 
+### ⚠️ スレッドの `item-stats.yml` profile は「薄くても実在する」— `profileFor().isEmpty()` でスレッド判定してはいけない（W-53、2026-08-18）
+
+`ThreadType` の全 CMD（`WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001` 等）には出荷
+`stats/item-stats.yml` に必ずエントリが存在する。中身が `socketed-only-stats: true` /
+`offhand-stats-apply: false` のような**フラグだけ**（`fixed`/`per-quality`/`random` は空）でも、
+`ItemStatsConfig#load`（`parsed.put(normalizedKey, new ItemStatProfile(...))`）はエントリキーが
+あれば無条件に `ItemStatProfile` を1件生成するため、`itemStats.profileFor(material, cmd)` は
+スレッドに対しても**必ず非空**で返る。「スレッドは item-stats.yml に profile を持たないはず」という
+早合点で `profileFor().isEmpty()` を「これはスレッドか非スレッドか」の判定に使うと、
+**スレッドが通常の非スレッド用ゲートを素通りしてしまい**、`PickupQualityListener#stampIfEligible`
+の汎用 `itemFactory.stamp()`（`ItemAssembler#assemble` によるlore全体の再組み立て）へ流れ込み、
+スレッド専用lore（`ThreadItem#fullLore`）を上書きしてしまう。スレッド検出は必ず生の PDC マーカー
+（`new NamespacedKey("arspaper", "thread_item_type")`、reflection 不要で読める）で行うこと
+（`PickupQualityListener#hasArsThreadMarker`）。
+
+### ⚠️ スレッドは「作られた瞬間」に rollSeed+quality=0 を自己刻印していた — 生成者不明経路は未刻印のまま返し、品質決定は後から `restampWithQuality` で行う（W-53、2026-08-18 修正済み）
+
+`ThreadItem#createItemStack()`（引数なし、`crafter==null` 経路 = ルートチェスト/ダンジョンドロップ/
+管理コマンド付与）は、旧実装では `crafter==null` でも `TrinityForgeBridge#stampThreadIdentity` を呼び
+rollSeed を新規発番しつつ quality=0固定で刻んでいた。TF の `ItemData#hasRollSeed()` は PDC キーの
+**有無だけ**を見る（値が0でも刻印済み扱い）ため、`/tf give thread_xxx <quality>` の quality 引数も
+`PickupQualityListener` の開運(loot-luck)ベース品質ロールも二度と効かなくなっていた。現在は
+`crafter==null` のとき PDC を意図的に未刻印のまま返す（`ThreadItem.java:75-95`）。品質は後から
+`ThreadItem#restampWithQuality(ItemStack, int)`（`writeItemRoll` でPDCのみ軽量に書き、lore は
+`fullLore` で組み直す）で確定する。TF側の呼び出し元は2つ、**どちらも reflection 契約
+（メソッド名/シグネチャ変更時は両方直す）**: `GiveItemCommand#defaultThreadRestamp`
+（管理者が明示指定した quality）と `PickupQualityListener#defaultArsThreadRestamp`
+（開運ベースでロールした quality、PDCマーカーで検出）。
+
+### ⚠️ 無期限ポーション効果は「無期限かどうか」だけでは所有者を判定できない — 所有権台帳が必要（W-54、2026-08-18 修正済み）
+
+`ArmorManaListener#isThreadGranted(PotionEffect)`（無期限か判定するだけ）を「スレッドが付与したか」の
+判定に単独で使うと、`/effect give @s luck infinite` のようなプレイヤー/他プラグイン起因の無期限効果まで
+「スレッドが付けたもの」と誤認し、次の `recalculateArmorBonus`（装備変更のたびに走る）で
+`removePotionEffect` により誤って剥がしてしまう。修正はプレイヤーごとの所有権台帳
+`ArmorManaListener#threadGrantedPotions`（`Map<UUID, Map<PotionEffectType, Integer>>`）を持ち、
+除去は「台帳に記録があり(`owned.remove(type) != null`)、かつ現在も無期限のまま
+(`isThreadGranted(existing)`)」の両方を要求する。**サーバ再起動/再ログインで台帳は必ず失われる
+（プロセス内メモリのみ）が、その場合は「自分のものではない」として扱い絶対に剥がさない**という
+安全側の設計選択（`ArmorManaListener.java:515-517` に明記）。実際にスレッドが付与した効果は
+次回の `recalculateArmorBonus` で台帳が再構築されるため実害は無い。
+
+### `MaterialTier#isEquipment()` 単独ゲートは他にも同型箇所がある（未修正、監査用メモ）
+
+`FishingQualityListener.java:107` の `boolean isEquipment = MaterialTier.of(caughtStack.getType()).isEquipment()`
+は釣果の品質刻印可否を`isEquipment()`単独で決めており、`GiveItemCommand`/`PickupQualityListener`で
+実際に踏んだのと同じ形（非装備素材のTF品は品質が付かない）。現時点では釣りの戦利品テーブルに
+Arsスレッドが登場しないため実害は未確認だが、将来スレッドや他の非装備TF品が釣果に加わると
+同じ穴が開く。`CraftQualityListener#isStampableCraftResult`（isQualityStamped/hasQualityBearingStatsProfile
+とのOR）が既に踏んだ後の直し方の実例。
+
 ### ⚠️ スレッド枠拡張儀式の `max-slots` は「1回で足す枠数」ではなく装備1個の累計上限 — 段位ごとに増やさないと上位段が無言で死ぬ
 
 `items.yml` の `effect-type: thread_slot_expand` に書く `effect-params.max-slots` は、装備の

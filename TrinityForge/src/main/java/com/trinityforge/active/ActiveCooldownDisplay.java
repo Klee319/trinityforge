@@ -74,7 +74,11 @@ public final class ActiveCooldownDisplay implements Runnable {
         String useSkill = ActivationDispatcher.mainHandUseSkill(player.getInventory().getItemInMainHand());
         if (useSkill != null) {
             for (ActiveSkill skill : registry.forTargetSkill(useSkill)) {
-                if (!cooldowns.hasRecord(player.getUniqueId(), skill.id())) {
+                // 2026-08-18(W-59): CooldownManager 側のキーは cooldownGroup()(既定は id())。共有CT
+                // グループのスキル同士(haste-active-mining/haste-active-digging)は同じ定数を返すので、
+                // ここも ActivationDispatcher と同じキーで問い合わせないと表示だけ食い違う。
+                String cooldownKey = skill.cooldownGroup();
+                if (!cooldowns.hasRecord(player.getUniqueId(), cooldownKey)) {
                     continue; // 一度も使っていない = CTは走っていない(重い集計を避ける)
                 }
                 // 表示条件はトリガー条件と同じ絞り込み(クラスjavadoc) — ゲートも
@@ -89,7 +93,7 @@ public final class ActiveCooldownDisplay implements Runnable {
                         .totalOf(ActiveSkillCooldownKeys.forSkill(skill.id()));
                 long cooldownMillis = CooldownManager.applyReduction(
                         skill.cooldownMillis((int) tier.getAsDouble()), reduction);
-                long remaining = cooldowns.remainingMillis(player.getUniqueId(), skill.id(), cooldownMillis, now);
+                long remaining = cooldowns.remainingMillis(player.getUniqueId(), cooldownKey, cooldownMillis, now);
                 if (remaining > 0L) {
                     // アクションバーは1行しか出せないので、最初に見つかった1件だけ表示する。
                     feedback.cooldownTicking(player, skill.displayName(), remaining);

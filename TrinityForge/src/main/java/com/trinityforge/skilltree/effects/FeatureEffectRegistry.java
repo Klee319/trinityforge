@@ -22,6 +22,12 @@ public final class FeatureEffectRegistry {
         Map<String, FeatureEffectDefinition> map = new LinkedHashMap<>();
         add(map, "vein-mining", "鉱脈一括破壊", FeatureEffectParam.SCALE);
         add(map, "haste-active-mining", "採掘ハステアクティブ", FeatureEffectParam.SCALE);
+        // 2026-08-18 (W-59): シャベル専用の独立アクティブスキル。digging.yml には元々
+        // feature:haste-active-mining の配置が一度も無く(mining.yml A-1だけがこのゲートを置いていた)、
+        // 「MINING/DIGGING両対応」を謳っていたHasteActiveSkillは実質シャベルから発動不能だった。専用ゲート
+        // を新設し、digging.yml A-1 に配置する(mining側のCTバケツはActiveSkill#cooldownGroup()で
+        // 共有するので、ツールを持ち替えても合計アップタイムは増えない)。
+        add(map, "haste-active-digging", "掘削ハステアクティブ", FeatureEffectParam.SCALE);
         add(map, "spawner-silktouch-harvest", "スポナーST回収", FeatureEffectParam.NONE);
         // 2026-07-25 gather-rework-active-framework §6 Q1: small-tree-fell/large-tree-fell を統合。
         add(map, "tree-fell", "木一括伐採", FeatureEffectParam.SCALE);
@@ -56,7 +62,18 @@ public final class FeatureEffectRegistry {
         // 移設し、ここから削除した。skilltree/alchemy.yml 側は dedicated-effects ではなく buffs: へ書く。
         // WeaponCoatingListener は PlayerStatAggregator#totalOf 経由でこの stat を読む。
         add(map, "source-auto-consume", "ソース自動消費", FeatureEffectParam.NONE);
-        add(map, "break-vanilla-exp", "破壊時バニラEXP解放", FeatureEffectParam.NONE);
+        // 2026-08-18 (W-58): 単一の feature:break-vanilla-exp をスキルごとに分割した。旧来は
+        // mining/digging/farming/woodcutting の4ツリーが全員この1本の gate id を共有しており、
+        // NativeSkillExperienceListener が3引数(ツリー限定)の isActive を呼んでいても「そのツリーの
+        // A ノードを取っていない別ツリー経由の解放」を誤って認識しうる余地が残っていた(2026-08-01/
+        // 08-15の同種スコープ漏れ修正の延長)。BreakVanillaExpBonusKeys#featureId(skillId) が
+        // id⇄featureId変換の唯一の窓口(NativeSkillExperienceListenerもここを経由する)。
+        // 解放状態の永続化(PlayerData#heldPerks)はノードID(PerkNaming.perkId)基準でfeature:idの文字列
+        // 自体は保持しないため、この改名にプレイヤーデータ移行は不要。
+        add(map, "break-vanilla-exp-mining", "破壊時バニラEXP解放(採掘)", FeatureEffectParam.NONE);
+        add(map, "break-vanilla-exp-digging", "破壊時バニラEXP解放(掘削)", FeatureEffectParam.NONE);
+        add(map, "break-vanilla-exp-farming", "破壊時バニラEXP解放(農業)", FeatureEffectParam.NONE);
+        add(map, "break-vanilla-exp-woodcutting", "破壊時バニラEXP解放(伐採)", FeatureEffectParam.NONE);
         // 2026-07-28 (数値のギミックyml集約): 精錬速度/精錬ボーナスは LEVEL(生%直書き)から SCALE(tier
         // 番号)へ変更した。数値の実体は stats/smithing-gimmick.yml の furnace-smelt.speed/bonus.tiers に
         // 移し、ノードは tier(1/2/3)だけを持つ。SCALEのdefaultsMissingValue()により value省略時はtier1が

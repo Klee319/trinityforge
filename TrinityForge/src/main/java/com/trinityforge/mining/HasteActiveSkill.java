@@ -18,26 +18,28 @@ import java.util.Set;
  * with {@code CooldownManager} + {@code FeedbackLayer}). Grants {@link PotionEffectType#HASTE} at the
  * tier-resolved amplifier/duration ({@code stats/mining-gimmick.yml haste-active-mining.tiers}, §1/§6 Q3).
  *
- * <p>2026-07-25 regression fix: the gate ({@code feature:haste-active-mining}) is placed by BOTH
- * {@code mining.yml} A-1 (pickaxe tree) AND {@code digging.yml} A-1 (shovel tree) — the pre-framework
- * {@code HasteActiveMiningListener} triggered off either tool type via material inspection
- * ({@code isPickaxeOrShovel}). {@link #targetSkills()} therefore returns both {@code "MINING"} and
- * {@code "DIGGING"} so a shovel tagged {@code use-skill: DIGGING} keeps triggering this exactly as a
- * pickaxe tagged {@code use-skill: MINING} does, with a single shared cooldown (see {@link ActiveSkill}
- * class doc) — a player cannot extend uptime by switching tools mid-cooldown.
- *
- * <p><b>2026-08-01 実サーバ報告「シャベルを手に持っていても採掘速度上昇のバフが発動できる」</b>:
- * {@code targetSkills()} が両方を返すこと自体は仕様どおり(切削ツリーにも A-1 がある)。バグだったのは
- * <b>解放判定がツリーを問わなかった</b>ことで、{@code mining.yml} A-1/A-2/A-3 しか取っていない
- * プレイヤーでもシャベルで発動できていた。{@link ActivationDispatcher} が
- * ゲート({@code feature:haste-active-mining})を「持ったツールの {@code use-skill} と同じツリーの配置」
- * だけに絞って解決するようになり、ツルハシは採掘ツリー、シャベルは切削ツリーの解放段階で判定される
- * (tier もそのツリー内の最大値)。CTは引き続き1本を共有する。
+ * <p><b>2026-08-18 (W-59) — {@link #targetSkills()} was narrowed back down to just {@code "MINING"}.</b>
+ * From 2026-07-25 through 2026-08-17 this returned {@code {"MINING", "DIGGING"}}, but {@code digging.yml}
+ * never actually had a {@code feature:haste-active-mining} gate placement (only {@code mining.yml} A-1
+ * did) — so the "DIGGING" membership was dead: a shovel could never resolve a tier for this gate and the
+ * candidate was always skipped in {@link ActivationDispatcher}. The genuinely-reachable shovel-side ability
+ * is now the separate {@link com.trinityforge.mining.DiggingHasteActiveSkill} (own id, own gate, own
+ * config, own unlock node at {@code digging.yml} A-1), which shares {@link #cooldownGroup()} with this
+ * skill so switching tools still cannot exceed either skill's own uptime alone — see
+ * {@link ActiveSkill#cooldownGroup()} and {@link ActivationDispatcher}'s 2026-08-18 class-doc note for the
+ * full "why not just widen targetSkills() again" reasoning (answer: because that would silently reopen the
+ * 2026-08-01 tree-scoped-unlock bug, not because sharing a CT bucket is undesirable).
  */
 public final class HasteActiveSkill implements ActiveSkill {
 
     public static final String ID = "haste-active-mining";
-    private static final Set<String> TARGET_SKILLS = Set.of("MINING", "DIGGING");
+    /**
+     * {@link ActiveSkill#cooldownGroup()} shared with {@link DiggingHasteActiveSkill}
+     * (2026-08-18 W-59): alternating pickaxe/shovel consumes the same CT bucket, so combined uptime from
+     * the two skills together never exceeds what either skill provides alone.
+     */
+    public static final String COOLDOWN_GROUP = "haste-active";
+    private static final Set<String> TARGET_SKILLS = Set.of("MINING");
 
     private final MiningGimmickConfig gimmickConfig;
 
@@ -63,6 +65,11 @@ public final class HasteActiveSkill implements ActiveSkill {
     @Override
     public Set<String> targetSkills() {
         return TARGET_SKILLS;
+    }
+
+    @Override
+    public String cooldownGroup() {
+        return COOLDOWN_GROUP;
     }
 
     /**

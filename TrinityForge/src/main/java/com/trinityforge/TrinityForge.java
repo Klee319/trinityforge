@@ -81,6 +81,7 @@ import com.trinityforge.listeners.UseRequirementListener;
 import com.trinityforge.listeners.PickupQualityListener;
 import com.trinityforge.listeners.VeinMiningListener;
 import com.trinityforge.listeners.XpBottleListener;
+import com.trinityforge.mining.DiggingHasteActiveSkill;
 import com.trinityforge.mining.HasteActiveSkill;
 import com.trinityforge.mob.DamagePopupDisplay;
 import com.trinityforge.mob.FocusHpDisplay;
@@ -953,6 +954,10 @@ public final class TrinityForge extends JavaPlugin {
         // §3 component 5設計どおりW3の採取系フィードバック(B-1)とも共有する。
         this.activeSkillRegistry = new ActiveSkillRegistry();
         this.activeSkillRegistry.register(new HasteActiveSkill(configManager.miningGimmick()));
+        // 2026-08-18 (W-59): シャベル専用の独立アクティブスキル(haste-active-digging)。
+        // HasteActiveSkillとCooldownManager上のCTバケツを共有する(ActiveSkill#cooldownGroup())が、
+        // 解放ゲート・数値(amplifier/持続/CT)・設定ファイル(DiggingGimmickConfig)は完全に独立。
+        this.activeSkillRegistry.register(new DiggingHasteActiveSkill(configManager.diggingGimmick()));
         // 2026-07-25 CT設計一本化 §2: 登録した全ActiveSkillに対応するCT短縮ステータスキー
         // (StatVocabulary.ATTACK_KEYS の "<id>-cooldown-reduction") が存在するか起動時に検査する。
         // 新しいActiveSkillを追加して対応するキーの登録を忘れると、ここでIllegalStateExceptionが飛んで

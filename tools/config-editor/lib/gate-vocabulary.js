@@ -12,6 +12,9 @@
 const FEATURES = Object.freeze([
   { id: "vein-mining", label: "鉱脈一括破壊", param: "scale" },
   { id: "haste-active-mining", label: "採掘ハステアクティブ", param: "scale" },
+  // 2026-08-18 (W-59): 掘削を採掘から分離。ツルハシ⇔シャベルの持ち替えでCTを
+  // 踏み倒せていたため、CTバケツ(cooldownGroup)は採掘側と共有する。
+  { id: "haste-active-digging", label: "掘削ハステアクティブ", param: "scale" },
   { id: "spawner-silktouch-harvest", label: "スポナーST回収", param: "none" },
   { id: "tree-fell", label: "木一括伐採", param: "scale" },
   { id: "auto-replant", label: "自動再植", param: "none" },
@@ -34,7 +37,13 @@ const FEATURES = Object.freeze([
   // 2026-07-28 (数値のギミックyml集約): coating-stack-increase は feature から通常stat
   // (coating_charges_bonus)へ移設したため削除。Java側 FeatureEffectRegistry と同期必須。
   { id: "source-auto-consume", label: "ソース自動消費", param: "none" },
-  { id: "break-vanilla-exp", label: "破壊時バニラEXP解放", param: "none" },
+  // 2026-08-18 (W-58): 破壊時バニラEXPの解放ゲートを採取スキル別に4分割した。
+  // 旧 break-vanilla-exp は「採掘の木で取ると伐採でも解放される」状態だったため廃止。
+  // Java側 BreakVanillaExpBonusKeys#featureId が生成するidと1対1で対応する。
+  { id: "break-vanilla-exp-mining", label: "採掘の破壊時バニラEXP解放", param: "none" },
+  { id: "break-vanilla-exp-digging", label: "掘削の破壊時バニラEXP解放", param: "none" },
+  { id: "break-vanilla-exp-farming", label: "農業の破壊時バニラEXP解放", param: "none" },
+  { id: "break-vanilla-exp-woodcutting", label: "伐採の破壊時バニラEXP解放", param: "none" },
   // 2026-07-28 (数値のギミックyml集約): 精錬速度/ボーナスと切削耐久累計2件をlevel(生%直書き) ->
   // scale(tier番号)化。実値は stats/smithing-gimmick.yml / stats/digging-gimmick.yml のtierテーブルへ
   // 移設した。Java側 FeatureEffectRegistry と同期必須。
@@ -255,11 +264,46 @@ function extractCatalogRitualLabels(catalog) {
   return out;
 }
 
+// catalog.yml の workbench/inventory レシピ(recipe: ゲートの素のカタログID対象)にも
+// 同じくラベルを添える。2026-08-18 (W-52): これが無かったため「解放ゲート > クラフトレシピ」の
+// セレクトが常に `カスタム: <id>` 表示だった(こちらは tf_catalog_ プレフィックスを付けない
+// 素のIDなので、儀式側の extractCatalogRitualLabels とはキーの作り方が違う)。
+function extractCatalogRecipeLabels(catalog) {
+  const items = catalog && catalog.items;
+  const out = {};
+  if (!isPlainObject(items)) return out;
+  for (const id of Object.keys(items)) {
+    const item = items[id];
+    let gateable = false;
+    for (const recipe of recipeEntriesOf(item)) {
+      if (CATALOG_GATEABLE_METHODS.has(methodOf(recipe))) { gateable = true; break; }
+    }
+    if (!gateable) continue;
+    const name = stripMiniMessage(item["display-name"]);
+    if (name) out[id] = name;
+  }
+  return out;
+}
+
 // ArsPaper items.yml: ritual_effects.<id> は完成品を作るレシピではなく、
 // ワールドへ作用する「儀式エフェクト」。ritual: ゲートはこのIDを対象にする。
 function extractRitualEffects(itemsData) {
   const effects = itemsData && itemsData.ritual_effects;
   return isPlainObject(effects) ? Object.keys(effects).sort() : [];
+}
+
+// 2026-08-18 (W-52): ritual_effects.<id> は id が機械名(weather_clear 等)なので、
+// エントリの name: (儀式の日本語名)をラベル辞書として添える。
+// これが無かったため「解放ゲート > 儀式エフェクト」のセレクトが常に生ID表示だった。
+function extractRitualEffectLabels(itemsData) {
+  const effects = itemsData && itemsData.ritual_effects;
+  const out = {};
+  if (!isPlainObject(effects)) return out;
+  for (const [id, entry] of Object.entries(effects)) {
+    const label = isPlainObject(entry) ? stripMiniMessage(entry.name) : "";
+    if (label) out[id] = label;
+  }
+  return out;
 }
 
 // 2026-08-14 (実サーバ報告「解放ゲートで機能アイテムカテゴリのアイテムを設定できない」):
@@ -326,6 +370,41 @@ function collectArsGateTargets(sources, recipes, rituals) {
   }
 }
 
+// 2026-08-18 (W-52・機構A): ARS_RECIPE_SOURCES の各エントリIDに表示ラベルを添える。
+// collectArsGateTargets と同じ走査だが、id を集めるのではなく display-name を引く。
+// materials.yml だけ snake_case (display_name) なので両方見る
+// (public/js/catalog-candidates.js#buildCatalogCandidates と同じ二重対応)。
+// このラベル辞書は method に関わらず1つだけ作り、recipeLabels/ritualLabels の両方へ
+// 同じ内容をマージする(1つのIDが workbench/ritual 両方のレシピを持つケースがあり、
+// どちらのチャンネルでも同じ表示名で構わないため)。
+function labelFromArsEntry(entry) {
+  if (!isPlainObject(entry)) return "";
+  const raw = entry["display-name"] != null ? entry["display-name"] : entry.display_name;
+  return stripMiniMessage(raw);
+}
+
+function extractArsEntryLabels(sources) {
+  const out = {};
+  const s = sources || {};
+  for (const [sourceKey, sectionKey] of ARS_RECIPE_SOURCES) {
+    const section = s[sourceKey] && s[sourceKey][sectionKey];
+    if (!isPlainObject(section)) continue;
+    for (const id of Object.keys(section)) {
+      const label = labelFromArsEntry(section[id]);
+      if (label) out[id] = label;
+    }
+  }
+  const books = s.spellbooks && s.spellbooks["spell-books"];
+  if (Array.isArray(books)) {
+    for (const book of books) {
+      if (!isPlainObject(book) || !book.id) continue;
+      const label = labelFromArsEntry(book);
+      if (label) out[String(book.id)] = label;
+    }
+  }
+  return out;
+}
+
 /**
  * @param {object} sources
  * @param {object} [sources.glyphs] glyphs.yml の生データ
@@ -340,6 +419,16 @@ function buildGateVocabulary(sources) {
   const recipes = new Set(catalogTargets.recipes);
   const rituals = new Set([...extractRitualEffects(s.items), ...catalogTargets.rituals]);
   collectArsGateTargets(s, recipes, rituals);
+  // 2026-08-18 (W-52・機構A): recipe:/ritual: ゲートのセレクトが常に生ID(またはカタログ画面を
+  // 開いたことがある場合だけ偶然埋まる `カスタム: <id>`)だった。ArsPaper の各ソース(機能アイテム/
+  // 中間素材/ソースジャー/ソースリンク/魔導書)と catalog.yml/items.yml のラベルを合流させる。
+  const arsEntryLabels = extractArsEntryLabels(s);
+  const recipeLabels = { ...extractCatalogRecipeLabels(s.catalog), ...arsEntryLabels };
+  const ritualLabels = {
+    ...extractCatalogRitualLabels(s.catalog),
+    ...extractRitualEffectLabels(s.items),
+    ...arsEntryLabels
+  };
   return {
     glyphs: extractGlyphs(s.glyphs),
     brews: extractBrews(s.craftingFeatures),
@@ -351,7 +440,8 @@ function buildGateVocabulary(sources) {
     specialRewardLabels: extractSpecialRewardLabels(s.specialRewards),
     recipes: [...recipes].sort(),
     rituals: [...rituals].sort(),
-    ritualLabels: extractCatalogRitualLabels(s.catalog)
+    recipeLabels,
+    ritualLabels
   };
 }
 

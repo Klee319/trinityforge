@@ -26,6 +26,9 @@
 const SCALE_FEATURE_SECTIONS = Object.freeze({
   "vein-mining": { gimmick: "mining", key: "vein-mining" },
   "haste-active-mining": { gimmick: "mining", key: "haste-active-mining" },
+  // 2026-08-18 (W-59): 掘削ハステを採掘から分離。tiers は stats/digging-gimmick.yml の
+  // トップレベル直下(ドット無し)にあるので key は素の id で解決できる。
+  "haste-active-digging": { gimmick: "digging", key: "haste-active-digging" },
   "tree-fell": { gimmick: "woodcutting", key: "tree-fell" },
   "area-harvest": { gimmick: "farming", key: "area-harvest" },
   // 2026-08-15: xp-bottle-store は stats/fishing-gimmick.yml から progression/crafting-features.yml

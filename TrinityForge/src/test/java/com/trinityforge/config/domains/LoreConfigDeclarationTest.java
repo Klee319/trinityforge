@@ -76,6 +76,9 @@ class LoreConfigDeclarationTest {
             "bow-accuracy", "ammo-save-chance", "arrow-piercing",
             "arrow-velocity",
             "haste-active-mining-cooldown-reduction",
+            // 2026-08-18 (W-59): haste-active-mining と同じ理由で未宣言(sneak+右クリック発動のCT短縮
+            // 系は trigger.when 語彙が無い)。DiggingHasteActiveSkill/ActiveSkillCooldownKeys参照。
+            "haste-active-digging-cooldown-reduction",
             "health-regen-bonus", "coating-charges",
             // 2026-07-28: coating-stack-increase(feature)からの通常stat化で新設。姉妹キー
             // coating-charges(アイテム固有)と同じ理由(PlayerInteractEventのコーティング適用に相当する

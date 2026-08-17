@@ -170,6 +170,32 @@ TF のスケール値になっていた。したがって `mob-types.yml` の `E
 
 `MobTypeSpawnListener.applyMaxHealth` はバニラの max_health 属性上限に当たると**無言で縮む**（例外を捕まえて `min(value, attr.getValue())` に落とすだけ）。このサーバーの `spigot.yml` は `settings.attribute.maxHealth.max` を `Double.MAX_VALUE` 相当に設定して運用する前提で高レベルモブのHP設計をしている。この設定が既定値へ戻されると、全高レベルモブのHPが静かに1024へ崩れる。触るときは検出用WARNINGログの有無も確認すること。
 
+### ⚠️ 「モブが Lv0」はコードだけでは2通りに区別できない（2026-08-18 調査、W-61）
+
+`MobData.level()`（`pdc/MobData.java:29,70-71`）は `MOB_LEVEL` PDC が**無いときの既定値も 0**
+（`DEFAULT_LEVEL = 0`）。つまり表示上の「Lv0」は次の2通りが区別できない:
+
+1. **本当に距離ベースで0と計算された**（`MobLevelScaling.effectiveLevel` は
+   `base + floor(distance × coordinate-coefficient)`。多くのフィールドモブは `level: 0` +
+   `coordinate-coefficient: 0.02` なので、**ワールドスポーンから50ブロック未満**だと
+   `floor(49×0.02)=0` でちょうど0になる。これは仕様どおり）。
+2. **`CreatureSpawnEvent` 自体が一度も発火せず、`MobTypeSpawnListener` がそのモブに一度も
+   触っていない**（PDCキーが皆無なので `level()` は既定の0を返すだけ）。距離が数千ブロックあっても
+   同じ「Lv0」に見える。
+
+距離は `entity.getLocation().distance(entity.getWorld().getSpawnLocation())`
+（`listeners/MobTypeSpawnListener.java:715-722`、ワールド不一致は0にフォールバック）で、
+**ワールドの `getSpawnLocation()`** を使う。datapack が別ディメンション（`World.Environment.CUSTOM`）
+を追加している場合、`dimensions:` セクションは NETHER/THE_END しか設定が無く（`mob-types.yml:244-250`）
+CUSTOM環境は下駄0のまま、かつそのワールド自身の spawn 起点からの距離になる（オーバーワールドの
+拠点からどれだけ離れたかとは無関係）。
+
+**切り分け方**: (a) 実際のブロック座標とそのワールドの `getSpawnLocation()` の距離を測る、
+(b) そのモブに `MOB_LEVEL` PDC キー自体があるかを確認する（無ければ②、有って値が0なら①）。
+コードの静的解析だけでは判定できないので、実機（`/data get entity <mob> PersistentData` や
+一時的な `LOG.fine` 有効化）での確認が必須（`[mob-types] spawn ...` は既定 INFO では出ない、
+前掲の「ログで確かめようとして誤読しないこと」と同じ罠）。
+
 ### FIRE_TICK は日光炎上と火属性着火を区別できない
 
 `EntityDamageEvent.DamageCause.FIRE_TICK` は「燃えている間の継続ダメージ」でしかなく、着火原因（日光／火属性エンチャント／溶岩／火打石）を一切保持しない。Bukkit に「日光で燃えた」専用イベントも存在しない。モブHPが巨大なためバニラ固定ダメージでは焼却が機能せず、最大HP割合へ置き換える必要があるが、原因を区別せず全モブへ適用すると野外・昼間の火属性着火だけでボスが毎秒10%溶ける＝火属性エンチャントが最強の攻撃手段になってしまう。
@@ -244,6 +270,66 @@ SKELETON なら Lv0 で 340・Lv45 で 2,805）。**HP だけ持ち上げて mob
 `hit-mana-recovery` は base-stats を含む全供給源を拾う `mana-onhit-flat` の上位互換であり、両方を別々のリスナーで加算すると二重計上になる（過去に実際に発生した）。マナ系ステータスを触る前は、被弾／与ダメの各イベントに複数のハンドラが載っていないかを先に確認すること。`mana-onhit-percent`/`mana-onattack-percent`（最大マナの%）は flat とは計算式が別なので統合しない。
 
 `mana-bonus` / `mana-regen` は yml の行を消せない仕様になっている（`BaseStatsConfig.missingVocabularyKeys` が「StatVocabulary の全キーが base-stats.yml に存在すること」を強制するテストになっているため）。UI上で隠したい場合は editor 側の除外リストで対応し、config側の行は残す。
+
+## スレッド（ArsPaperフォーク）の品質・常時効果・数値ステ（2026-08-17調査）
+
+### ⚠️ スレッドは「作られた瞬間」に rollSeed+quality=0 を自己刻印する — `/tf give` の quality 引数もピックアップ時の開運(loot-luck)ロールも二度と効かない
+
+`ThreadItem#createItemStack()`（引数なし版、`ArsItemGiveBridge.create`/gacha/mob-drop 等が呼ぶ経路）は
+内部で `createItemStack(null)` → `TrinityForgeBridge.stampThreadIdentity(item, null)` を呼び、
+crafter が null（生成者不明経路: ルートチェスト/ダンジョンドロップ/**管理コマンド付与も含む**）のときは
+**quality を必ず 0 に固定したまま `ItemFactory.stamp()` で rollSeed を発番する**（
+`TrinityForgeBridge.currentArsSmithingQuality` が `crafter==null` を見て即 0 を返す設計、
+`fork-handoff/arspaper/fork/.../ThreadItem.java:51-56`, `TrinityForgeBridge.java:1360-1381`)。
+
+この「作成時に rollSeed 済み」が2箇所を同時に殺す:
+
+1. **`/tf give thread_xxx <quality>` の quality 引数が無視される**: `GiveItemCommand#buildOne` の
+   再刻印ゲート `stampable = ArsItemGiveBridge.isQualityStamped(itemId) || MaterialTier.of(built.getType()).isEquipment()`
+   は、スレッドの `isQualityStamped()`(`BaseCustomItem` 既定 false, `ThreadItem` は override しない)も
+   `isEquipment()`(スレッドの素材＝防具トリム型/陶器の欠片/旗の模様はどれも非装備材質)も false になるため
+   **常に false**。よってコマンド側の `factory.stamp(built, ..., quality)` 再刻印が一度も走らず、
+   `ArsItemGiveBridge.create()` が内部で既に焼いた quality=0 がそのまま残る。**これは既知の
+   「品質の門を `isEquipment()` で書くと非装備TF品が常に品質0になる」落とし穴と同型**
+   （`GiveItemCommand.java:508-530`）。
+2. **開運(loot-luck)によるピックアップ時品質ボーナスが一生発動しない**: `PickupQualityListener#stampIfEligible`
+   は `data.hasRollSeed()==true` の時点で（`PreviewRollSeeds` でなければ）即 `return false`
+   する（`PickupQualityListener.java:215-224`）。スレッドは1で述べたとおり生成時点で既に
+   rollSeed 済みなので、`quality.lootBaseQuality() + lootLuck.qualityModeBonus(...)` を計算する
+   分岐（開運ステの唯一の品質適用点）に**スレッドが到達することは構造的に無い**。開運を盛っても
+   ドロップ/ガチャ/give由来のスレッド品質は一切変わらない。
+   儀式クラフトでできたスレッドだけは別経路（`ThreadItem#createItemStack(Player)` → 実クラフター指定で
+   `currentArsSmithingQuality` → `ARS_SMITHING` スキル + `ritual_quality_bonus` パーク由来）で品質が付くが、
+   これも loot-luck とは無関係な別ロジック。
+
+**How（修正するなら）**: `/tf give` 側でスレッドを検出して stampable 判定へ含める、または
+Ars 側に「admin 指定 quality で作る」専用エントリを新設して `writeItemRoll` + `ThreadItem.fullLore`
+で組み直す。**`ItemFactory.stamp()` をそのままスレッドへ適用する場合は lore を必ず
+`ThreadItem.fullLore`/`equipmentStyleRollLore` で作り直すこと**（stamp 自身の汎用装備lore
+アセンブラは thread 専用の lore 体裁と食い違う）。
+
+### ⚠️ スレッドの「常時効果」（ポーション/飛行/バックパック）は着用防具でしか発動しない — 仕様（2026-07-31 F2 確定）
+
+`ThreadApplicationPolicy.appliesAmbientEffects(origin)` は `origin == WORN_ARMOR` のときだけ true。
+数値ステ（`appliesNumericStats`）は防具/メインハンド/オフハンド全部で true だが、
+ポーション効果・滑空・バックパックは**着用防具のみ**。理由は「事故に見えるから」（javadoc、
+剣を握っただけで滑空/ポーション点滅は不具合として受け取られる）。GUI（`ThreadGui`）は対象が防具でない
+ときスロットの lore に `※この装備では常時効果は発動しません`（`ThreadGui.java:423-427`、条件は
+`!targetIsArmor && ThreadApplicationPolicy.isAmbientOnlyEffect(type)`）を出す。**これは意図した仕様で
+バグではない。** 幸運(LUCK)/迅速/暗視/耐火/イルカの好意/体力増強/浮遊/村の英雄/コンジットパワー/飛行/
+バックパックの各スレッドが対象。マナ系(mana_regen/mana_boost 等)・数値のみのスレッドはこの制約を受けない。
+
+### 開運(loot-luck)はドロップ数/確率を一切増やさない — 効くのは「品質」だけ
+
+`PlayerLootLuckSource.totalLuck()`（`loot_luck` 装備+perk合算 + バニラ `PotionEffectType.LUCK`
+効果レベル）の唯一の消費者は `qualityModeBonus()` で、呼び出し元は
+`PickupQualityListener`（一般ドロップ/チェスト/クリエイティブ取得品の品質ロール mode 加算）と
+`FishingQualityListener`（釣果の品質ロール mode 加算）の2つだけ。ドロップ**数・確率**を増やす経路
+（`mob_drop_bonus`=モブ撃破時のTF追加ドロップchance倍率、`mining-fortune`=採掘追加ドロップ期待値、
+`fishing_luck`=釣り追加ドロップ期待値、`hive_harvest_fortune`=養蜂、`woodcutting_extra_drop_chance`/
+`harvest_extra_drop_chance`=伐採/収穫）はどれも別ステータス・別リスナーで、開運とは加算されない。
+「幸運系ステが多すぎて紛らわしい」相談を受けたら、まず「品質を上げるもの」と「個数/確率を上げるもの」
+で軸を分けて説明すること。
 
 ## アイテムステータス（item-stats.yml）
 
@@ -712,6 +798,52 @@ per-mob の `stats.physical`/`stats.magical` が「どの属性が通る敵か�
 倍率は既存最大（`piercing_beam` の 2.0）を超えさせない ── 避けられるからと上げると被弾1回が
 実質ワンショットになり、防具の投資が意味を失う。
 
+### ⚠️ 特殊攻撃は視線判定もターゲット追跡判定も一切持たない（2026-08-18 全走査で確認、W-62）
+
+`MobAbilityTask#run`/`#tryFire`/`#candidatesFor`（`combat/MobAbilityTask.java`）は
+「オンラインプレイヤーの周囲 `SCAN_RADIUS`(32m) 以内にいる `LivingEntity`」を無条件に相手役として
+使い、`candidatesFor` は**距離（`ability.range()`）とクールダウンしか見ない**。`MobAbilityExecutor`
+（同パッケージ）側にも `hasLineOfSight` / `getTarget()` の類は一切無い（`grep -rn
+"hasLineOfSight|getTarget\(\)" combat/` で package 全体・`java` ツリー全体を確認、ヒットは無関係な
+2ファイルのみ）。つまり **壁の向こうにいても・そのモブが実際にはそのプレイヤーを敵視/追跡していなくても、
+距離と乱数だけで技が飛ぶ**。
+
+- **LOS が要るもの**（狙って飛ばす/瞬間移動する型）: `PROJECTILE_VOLLEY` / `PROJECTILE_RAIN` /
+  `CHARGE` / `TELEPORT_STRIKE` / `BEAM` / `DELAYED_ZONE`（対象の**現在地**へ印を置く＝発射時点で
+  対象を捕捉できている前提の技）。
+- **LOS が要らない（むしろ入れると壊れる）もの**: `GROUND_SLAM` / `AURA` / `REPULSE` /
+  `VORTEX_PULL`（自分中心の近接AoE。至近距離が前提なので壁越し判定はほぼ意味を持たない）／
+  `SUMMON`（対象を狙わず自分の周囲に湧かせるだけ）。
+- **ターゲット追跡（非追跡状態での発動抑止）はどちらの分類にも共通で未実装**。対応するなら
+  `LivingEntity instanceof org.bukkit.entity.Mob m` の `m.getTarget()` が実際にその `target` と
+  一致する場合のみ `candidatesFor`/`tryFire` を通す形が候補（EliteMobs 由来モブが Bukkit の
+  `Mob#getTarget()` を実際に維持しているかは未検証 ── フォーク自前AIが素通りしている可能性がある
+  ため、導入時は EM モブでの実機確認が要る）。
+
+### ⚠️ 予兆（テレグラフ）があるのは `DELAYED_ZONE` だけ／他は演出と着弾が同時（W-63）
+
+`MobAbilityExecutor` の各型は `playEffects`（パーティクル/音）を**発動と同時**に鳴らし、そのまま
+同一 tick か直後で `applyHit` する。唯一の例外が `delayedZone()`: `TELEGRAPH_INTERVAL_TICKS`(5tick)
+ごとに着弾地点で予告パーティクルを出しながら `delayTicks()`（既定 30tick=1.5秒、10〜100tickに丸め）
+待ってから着弾する。`charge()` も突進〜着地判定まで 12tick の間があるので部分的な予兆になるが、
+`playEffects` 自体は発動と同時に鳴る点は同じ。`GROUND_SLAM`/`PROJECTILE_VOLLEY`/`AURA`（初撃）/
+`TELEPORT_STRIKE`/`BEAM`/`REPULSE`/`VORTEX_PULL`/`SUMMON` は**発動を告げる演出が無く、
+気づいたときには着弾している**（`announce()` の action bar 表示も `playEffects` と同時発火）。
+「予兆時間」を追加するなら `DELAYED_ZONE` の `TELEGRAPH_INTERVAL_TICKS` 方式（`BukkitRunnable` で
+着弾前に一定間隔パーティクルを出す）を他の型にも展開する形が自然（config には既に
+`duration-seconds`/`delay` 相当のキー体系があるので新規レイヤは不要）。
+
+### ⚠️ 技のクールダウンはモブ**個体ごと**に独立 — 同時湧きの頭数分だけ体感頻度が上がる
+
+`MobAbilityCooldowns`（`combat/MobAbilityCooldowns.java`）は `Map<UUID, Map<String, Long>>` で
+モブの `UniqueId` をキーにする。同じテンプレートを持つモブが 5 体同時にいれば、各個体が独立して
+`chance`/`cooldown-seconds`/`global-cooldown-seconds` を持つため、**プレイヤー視点の体感発動頻度は
+単純にモブの頭数倍**になる（複数体の技をまとめて抑える仕組みは無い）。
+2026-08-17 に `MobAbilityTask.GLOBAL_GAP_KEY` + `mob-abilities.yml` の `global-cooldown-seconds`
+（既定12秒）が追加済みで、これは**1体が複数の技を交互に連発する**頻度は抑えるが、
+**複数体が同時に技を持つ**ケースには一切効かない（別UUIDなので別台帳）。「頻度が高すぎる」報告が
+この2026-08-17の修正後も続く場合、原因はほぼ確実に後者（同時湧きの頭数）。
+
 ## 「戦闘レベルが全プレイヤーで0になる」を疑ったら先に確認すること（2026-08-17 調査）
 
 `progression/combat-level.yml` の `skills:` キー空間は、`SkillId`定数（`LIGHT_WEAPONS`/
@@ -751,6 +883,65 @@ per-mob の `stats.physical`/`stats.magical` が「どの属性が通る敵か�
    存在しない（`SymmetricCombatServiceMagicalIntegrationTest` 等は手作りの `SkillLevelSource`
    を注入した「計算部分」のみの検証）。実データに起因する不具合はユニットテストで検出できない
    ── 疑うときは `player_progression.db` を直接クエリするか、上記ログを見ること。
+
+## レベル差による経験値・ドロップ減衰(level-cutoff)は線形の傾斜を持つ(2026-08-18 W-60実装)
+
+`combat/damage.yml` の `level-cutoff:`(`CombatDamageConfig#levelCutoff` → `MobLevelCutoff`)は、
+バニラ経験値オーブ(`LevelCutoffExpListener`)・TF戦闘スキルEXP(`CombatListener#onCombatKill`)・
+TF追加ドロップ3系統(`MobOverrideDropListener`=ダンジョンモブ個別／`MobTypeDropListener`=フィールド
+モブ／`MobLevelTableListener`=レベル帯add-drops)を**すべて `KillRewardAdjuster` 一点に統一済み**
+(2026-08-09)。「EXP側とドロップ側で別実装かもしれない」という懸念は現行 HEAD では成立しない。
+
+※2026-08-17時点では「閾値到達で有効化される単一の固定レート」というステップ関数で、超過量
+(`diff - threshold`)を一切見なかった。2026-08-18(W-60)で `over-level` に線形減衰を追加した:
+`overLevelExpDecayPerLevel`/`overLevelDropDecayPerLevel`(超過1レベルごとに基準レートから引く量)
+と `overLevelRateFloor`(減衰後の下限)。既定は全て `0.0` で、この場合は従来のステップ関数と完全に
+一致する(後方互換)。計算式は `rate = clamp(floor, 1.0, 基準rate − max(0, diff-threshold) × decay)`。
+`exp-rate`/`drop-rate` が `-1`(完全遮断)のときは減衰計算に入る前に無条件で0/ブロックを返す
+(-1 と decay は排他、-1 が常に優先)。実体は `MobLevelCutoff`(`mobs/MobLevelCutoff.java`)、
+既存4引数コンストラクタは残しており(7引数版へ委譲、新3フィールドは0.0固定)、呼び出し元を
+一切変えずに済んでいる。
+
+**`under-level`(モブがプレイヤーより高レベル)側は今回のW-60では変更していない。**
+`item-threshold` しか持たず、rate相当のフィールドが無いまま(`blocksItems` は常に全遮断の
+二値でEXPには一切影響しない、意図的仕様)。段階的に絞りたい要件が出た場合は、over-level と
+同型の `item-decay-per-level`+floor を追加する拡張余地がある(現状は未実装)。
+
+先例(over-levelの線形減衰を設計する際に参照した3つ、いずれも
+「threshold/per-amount + 1段あたりの減衰量 + floor」という共通の骨格を持つ):
+`LocationExpDiminishing`(同一地点逓減、線形 `decay-per-kill`)/`DailyExpDiminishing`(日次逓減、
+乗算 `decay-per-amount`)/`SkillExpDiminishingCurve` + `FormulaParser`(プレイヤー自身のレベルに
+対する `%level%` 式、`level-diminishing.formula`)。
+
+## EliteMobsフォークは「レベル差によるEXP減衰」の別実装を独自に持つ(TFのlevel-cutoffと無関係、TFの有無も見ない)
+
+`fork-handoff/elitemobs/.../skills/SkillXPHandler.java`(`EliteMobDeathEvent` 購読)は EliteMobs 独自の
+武器/防具スキルレベリング(レベルアップでタイトル表示・全体アナウンス・防具スキルはHPボーナス付与、
+`PlayerData` 独自ストレージ)を持ち、`skills.yml` の `skillSystemEnabled`(既定 `true`)だけで
+有効/無効が決まる──**`TrinityForgeIntegration.isAvailable()` 等、TFの有無を見るゲートが一切無い**
+(`EliteDropPolicy` の他の全ゲートとは対照的)。内部の `FarmingProtection.getXPMultiplier`/
+`getEffectiveMobLevelForXP` がレベル差±5(`MAX_LEVEL_DIFFERENCE`、yml設定不可のハードコード定数)で
+TF側とは別の減衰を掛ける(over-level側=連続的な比率減衰、under-level側=閾値超えで0固定)。
+
+対象はEliteMobs管理下のエリートモブのみ(フィールドモブは対象外)。`CombatLevelCalculator` 経由で
+TFの戦闘レベルを読むためレベル値自体はTFと一致するが、**判定式・閾値・付与するステータス(EM独自の
+武器/防具スキルXP)はTFの`level-cutoff`/`ArsProgressionBridge.grantSkillExp`と完全に別物**。
+`skillSystemEnabled: true` のまま運用していると、エリート撃破のたびにTFのHEAVY_WEAPONS等のEXPと
+EM独自の武器/防具スキルEXPが同時に加算される(意図した二重進行かどうかは運用側の判断次第だが、
+「level-cutoffを拡張しても効かない体感」の原因になりうるので、レベル差減衰まわりの実サーバ報告が
+出たら真っ先に疑うこと)。
+
+## TFのlevel-cutoffはTF追加ドロップにしか及ばず、EliteMobsネイティブ戦利品には無防備
+
+`level-cutoff`(`KillRewardAdjuster`)が触るのは `mob-overrides.yml drops:` / `mob-types.yml drops:` /
+`mob-level-table.yml add-drops:` という**TFが追加した**ドロップ3系統だけ。EliteMobs自身のランダム
+戦利品・特殊アイテム・エリートスクロール等ネイティブ機構は対象外で、かつEliteMobs自身の
+`lootLevelDifferenceLockout` は `EliteDropPolicy.blocksLootByLevelDifference` が
+`TrinityForgeIntegration.isAvailable()` の間ずっと `false` 固定で無効化している
+(`fork-handoff/elitemobs/.../trinityforge/EliteDropPolicy.java`)。したがってTF導入後は
+**EliteMobsネイティブ戦利品にレベル差抑制が一切掛からない**(旧ロックアウトを消した代替がTF側に
+無い)。判定軸の違い(旧ロックアウト=装備tier平均、TF=戦闘レベル)を理由にした意図的な撤去だが
+(javadocに説明あり)、「低レベル狩りの抑制」を謳うなら考慮漏れになりうる残課題。
 
 ## 関連
 
