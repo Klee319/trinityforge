@@ -78,30 +78,32 @@ class WeaponTierParityTest {
      */
     private static final Map<String, double[]> MELEE_BAND = Map.ofEntries(
             Map.entry("sword", new double[] {1.00, 1.00}),
-            Map.entry("dagger", new double[] {0.78, 0.95}),
-            Map.entry("rapier", new double[] {0.73, 0.88}),
-            Map.entry("grate_sword", new double[] {0.67, 0.82}),
-            Map.entry("greataxe", new double[] {0.74, 0.92}),
-            Map.entry("warhammer", new double[] {0.85, 0.97}),
-            Map.entry("scythe", new double[] {0.82, 0.92}),
+            Map.entry("dagger", new double[] {0.82, 0.99}),
+            Map.entry("rapier", new double[] {0.71, 0.86}),
+            Map.entry("grate_sword", new double[] {0.64, 0.79}),
+            Map.entry("greataxe", new double[] {0.71, 0.88}),
+            Map.entry("warhammer", new double[] {0.82, 0.94}),
+            Map.entry("scythe", new double[] {0.79, 0.89}),
             // 2026-08-18 (W-72): リーチを ±2.0 まで広げたのに合わせて、全部の帯を
-            // 「リーチ 1.0 につき実効DPS 5%」で移動させた(下の REACH のコメント参照)。
+            // 「リーチ 1.0 につき実効DPS 10%」で移動させた(下の REACH のコメント参照)。
             // 移動前の帯は sword 1.00 / dagger 0.75-0.90 / rapier 0.75-0.90 /
             // grate_sword 0.70-0.85 / greataxe 0.78-0.95 / warhammer 0.88-1.00 /
             // scythe 0.85-0.95 / spear 0.80-0.95 / axe 0.85-0.95 / mace 0.80-0.95 /
             // trident 0.85-0.95。丸めは必ず外側へ(下限は切り捨て・上限は切り上げ)。
             //
-            // メイスは power-attack-damage 0.35 があるので空中では約 1.15 倍になる。
-            // 上限側を 0.90 より上へ動かすときは attack-power の単品最大が stat-caps の
-            // 余裕を食い潰さないか必ず確かめる(上のクラスコメント参照)。
-            Map.entry("spear", new double[] {0.76, 0.91}),
-            Map.entry("axe", new double[] {0.84, 0.95}),
-            Map.entry("mace", new double[] {0.83, 0.99}),
+            // メイスだけは scaled の上限が 1.026 になるが、【近接の頂点は剣】という
+            // noWeaponOutDpsesTheStrongestSwordOfItsLevel の不変条件と食い違うので 1.00 で頭を
+            // 打たせている。power-attack-damage 0.35 があるので空中では約 1.15 倍になる。
+            // 上限側を動かすときは attack-power の単品最大が stat-caps の余裕を食い潰さないか
+            // 必ず確かめる(上のクラスコメント参照)。
+            Map.entry("spear", new double[] {0.72, 0.86}),
+            Map.entry("axe", new double[] {0.83, 0.94}),
+            Map.entry("mace", new double[] {0.86, 1.00}),
             // 2026-08-14: トライデントを遠隔扱いから近接武器へ移した(下の
             // rangedWeaponsKeepTheirMinimumMeleeSpeed のコメント参照)。帯を持たせないと
             // 「近接として使う武器なのに帯の検査だけ素通り」という、この表がもともと
             // 塞いだはずの穴が復活する。
-            Map.entry("trident", new double[] {0.81, 0.92})
+            Map.entry("trident", new double[] {0.78, 0.88})
     );
 
     /**
@@ -114,13 +116,34 @@ class WeaponTierParityTest {
      * 旧表の幅は −0.5〜+1.0（実効 2.5〜4.0）しかなく、実測では武器種の差が体感できなかった。
      *
      * <p><b>火力補正</b>: リーチを伸ばした武器はそのぶん実効DPSを下げ、縮めた武器は上げる。
-     * 強さは<b>リーチ 1.0 あたり 5%</b>（ユーザー決定 2026-08-18）。旧値からの差 ×5% を
-     * 符号反転して {@code attack-power} と {@code fixed-damage} に一律で掛けた:
-     * 短剣 +5% / メイス +4% / 剣 ±0 / 斧 −1% / レイピア −2.5% / ウォーハンマー −3% /
-     * 鎌 −3.5% / 大剣・大斧・トライデント・狩人の投槍 −4% / 槍・ハルバード −5%。
+     * 強さは<b>リーチ 1.0 あたり 10%</b>（ユーザー決定 2026-08-18。当初 5% で作ったが
+     * 「もうちょっと大差を付けていい」で倍にした）。旧リーチからの差 ×10% を符号反転した倍率:
+     * 短剣 ×1.10 / メイス ×1.08 / 剣 ×1.00 / 斧 ×0.98 / レイピア ×0.95 / ウォーハンマー ×0.94 /
+     * 鎌 ×0.93 / 大剣・大斧・トライデント・狩人の投槍 ×0.92 / 槍・ハルバード ×0.90。
+     * <b>これ以上強めると短剣が同帯の剣を追い越す</b>（12% が実質上限）。
+     *
+     * <p><b>掛け方は「倍率を掛ける」ではなく「目標DPSから逆算する」</b>。同時に会心率・会心倍率も
+     * 武器種ごとに動かしており（下記）、会心は実効DPSの式に入るので単純に掛けると目標からずれる。
+     * {@code attack-power} と {@code fixed-damage} は DPS に対して線形なので、
+     * {@code s = (目標DPS − 出血) / ((AP×K' + FD) × rate)} を武器 1 本ずつ解いて掛けてある。
      * {@code bleed-damage} は<b>意図的に据え置いた</b> —— 上位段の鎌は {@code stat-caps} の
      * 上限 4,500 に張り付けてあり、下げると「上限張り付き」が外れて
      * {@link #scytheBleedIsMeaningfulUpToTheCap} の出血比率（8〜25%）に落ちるため。
+     *
+     * <p><b>武器種の個性</b>（同日・ユーザー要望「DPSは据え置いたまま武器種特有のステを尖らせる」。
+     * 不変条件は {@code ShippedWeaponIdentityTest} が固定する）:
+     * <ul>
+     *   <li><b>範囲ダメージ</b>を大剣・大斧・ハルバード・鎌へ新設。出荷 216 本の武器は
+     *       <b>1 本も {@code aoe-*} を持っていなかった</b>ので、まるごと空いていた差別化軸。</li>
+     *   <li><b>出血を鎌へ集約</b>。トライデントが全 16 段で鎌と同率（0.16）の出血を持っていて
+     *       鎌の個性を薄めていたので落とし、失ったぶんは単体火力へ振り替えた。
+     *       鎌は出血率を 1.8 倍（0.16〜0.18 → 0.29〜0.32）。</li>
+     *   <li><b>貫通を刺突へ集中</b>。槍・レイピア・トライデント・投槍・ハルバードは ×1.3、
+     *       打撃（メイス・大斧 ×0.5 / ウォーハンマー ×0.35）は剣を下回るまで下げる。</li>
+     *   <li><b>会心を二極化</b>。短剣 率×1.6 倍率×0.85 / レイピア 率×1.5 倍率×0.9、
+     *       大斧・ウォーハンマー 率×0.5 倍率×1.15 / 大剣・メイス 率×0.6 倍率×1.12。
+     *       期待値（1 + 率×倍率）のズレは上の逆算が吸収するので、変わるのは分散だけ。</li>
+     * </ul>
      */
     private static final Map<String, Double> REACH = new LinkedHashMap<>();
 
@@ -144,6 +167,34 @@ class WeaponTierParityTest {
         // 伸びたので、その肩書きを保つために 1.4 → 2.2 へ引き上げた（槍の1段上）。
         REACH.put("javelin", 2.2);       // 5.20 game 内で最長
     }
+
+    /**
+     * W-72 (2026-08-18) で武器種ごとに掛けた<b>実効DPSの倍率</b>。上の {@link #REACH} と
+     * 2本セットで初めて意味を持つ（リーチを伸ばした武器をそのぶん弱くする補正）。
+     *
+     * <p><b>{@code WeaponDpsParityTest} がこの表を読む。</b> あちらは「重武器 vs 同格の軽武器」の
+     * 実効DPS比を 0.85〜1.16 で見るが、W-72 の補正はその比を<b>意図的に</b>動かす
+     * （例: 大剣 ×0.92 に対して短剣 ×1.10 なので、ペアの比だけで 0.836 倍ずれる）。
+     * 割り戻さずに帯へ当てると「重武器を選ぶ理由が無い」という<b>別の設計意図の検査が、
+     * 実際には壊れていないのに落ちる</b>。ここを唯一の出どころにして両方から読む。
+     */
+    static final Map<String, Double> REACH_DPS_FACTOR = Map.ofEntries(
+            Map.entry("dagger", 1.10),
+            Map.entry("mace", 1.08),
+            Map.entry("sword", 1.00),
+            Map.entry("bow", 1.00),
+            Map.entry("crossbow", 1.00),
+            Map.entry("wand", 1.00),
+            Map.entry("axe", 0.98),
+            Map.entry("rapier", 0.95),
+            Map.entry("warhammer", 0.94),
+            Map.entry("scythe", 0.93),
+            Map.entry("grate_sword", 0.92),
+            Map.entry("greataxe", 0.92),
+            Map.entry("trident", 0.92),
+            Map.entry("javelin", 0.92),
+            Map.entry("spear", 0.90),
+            Map.entry("halberd", 0.90));
 
     /** id の接尾辞から武器種を引く。長い接尾辞を先に置く（grate_sword が sword に食われないため）。 */
     private static final List<String> TYPES = List.of(

@@ -226,31 +226,31 @@ items:
         max: 0.06
   WOODEN_SPEAR:
     fixed:
-      attack-power: 92.15
+      attack-power: 87.3
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 35
-      fixed-damage: 1.05
+      fixed-damage: 0.99
     per-quality:
-      attack-power: 4.47
+      attack-power: 4.23
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 6
     use-level-requirement: 0
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -15.2
-        max: 18.05
+        min: -14.4
+        max: 17.1
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
@@ -309,31 +309,31 @@ items:
         max: 0.06
   STONE_SPEAR:
     fixed:
-      attack-power: 152.95
+      attack-power: 144.9
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 78
-      fixed-damage: 1.33
+      fixed-damage: 1.26
     per-quality:
-      attack-power: 7.32
+      attack-power: 6.93
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 13
     use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -24.7
-        max: 30.4
+        min: -23.4
+        max: 28.8
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
@@ -392,31 +392,31 @@ items:
         max: 0.06
   COPPER_SPEAR:
     fixed:
-      attack-power: 174.8
+      attack-power: 165.6
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 114
-      fixed-damage: 1.81
+      fixed-damage: 1.71
     per-quality:
-      attack-power: 29.17
+      attack-power: 27.63
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 19
     use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -27.55
-        max: 35.15
+        min: -26.1
+        max: 33.3
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
@@ -475,31 +475,31 @@ items:
         max: 0.06
   IRON_SPEAR:
     fixed:
-      attack-power: 430.35
+      attack-power: 407.7
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 150
-      fixed-damage: 2.47
+      fixed-damage: 2.34
     per-quality:
-      attack-power: 20.52
+      attack-power: 19.44
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 25
     use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -69.35
-        max: 86.45
+        min: -65.7
+        max: 81.9
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
@@ -564,28 +564,28 @@ items:
         max: 0.2
   GOLDEN_SPEAR:
     fixed:
-      attack-power: 851.68
+      attack-power: 806.85
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.96
       durability: 19
-      fixed-damage: 3.23
+      fixed-damage: 3.06
     per-quality:
-      attack-power: 23.56
+      attack-power: 22.32
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 3
     use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -284.05
-        max: 284.05
+        min: -269.1
+        max: 269.1
       crit-chance:
         min: -0.34
         max: 0.26
@@ -593,8 +593,8 @@ items:
         min: -0.7
         max: 0.7
       penetration:
-        min: -0.25
-        max: 0.225
+        min: -0.325
+        max: 0.2925
       damage-modifier:
         min: -0.16
         max: 0.2
@@ -665,31 +665,31 @@ items:
         max: 0.06
   DIAMOND_SPEAR:
     fixed:
-      attack-power: 1847.75
+      attack-power: 1750.5
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 936
-      fixed-damage: 5.03
+      fixed-damage: 4.77
     per-quality:
-      attack-power: 87.97
+      attack-power: 83.34
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -295.45
-        max: 369.55
+        min: -279.9
+        max: 350.1
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
@@ -748,31 +748,31 @@ items:
         max: 0.06
   NETHERITE_SPEAR:
     fixed:
-      attack-power: 5547.05
+      attack-power: 5255.1
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 1218
-      fixed-damage: 7.89
+      fixed-damage: 7.47
     per-quality:
-      attack-power: 264.1
+      attack-power: 250.2
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -887.3
-        max: 1109.6
+        min: -840.6
+        max: 1051.2
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
@@ -870,65 +870,63 @@ items:
         max: 0.15
   TRIDENT:
     fixed:
-      attack-power: 1088.64
+      attack-power: 1074.344385
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 108
       durability: 936
     per-quality:
-      attack-power: 51.84
+      attack-power: 51.159256
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -173.76
-        max: 217.92
+        min: -171.478248
+        max: 215.058356
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   MACE:
     fixed:
-      attack-power: 2050.88
+      attack-power: 2153.314282
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 936
     per-quality:
-      attack-power: 97.66
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 102.533576
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 156
     use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -328.64
-        max: 409.76
+        min: -345.054418
+        max: 430.226079
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   SHEARS:
     fixed:
       durability: 142
@@ -2279,7 +2277,7 @@ items:
         max: 0.004
   WOODEN_AXE#77:
     fixed:
-      attack-power: 85.14
+      attack-power: 84.28
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2288,7 +2286,7 @@ items:
       damage-modifier: 0.81
       durability: 35
     per-quality:
-      attack-power: 4.16
+      attack-power: 4.116
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2298,8 +2296,8 @@ items:
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -13.86
-        max: 16.83
+        min: -13.72
+        max: 16.66
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2308,7 +2306,7 @@ items:
         max: 0.06
   STONE_AXE#78:
     fixed:
-      attack-power: 141.57
+      attack-power: 140.14
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2317,7 +2315,7 @@ items:
       damage-modifier: 0.81
       durability: 78
     per-quality:
-      attack-power: 6.73
+      attack-power: 6.664
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2327,8 +2325,8 @@ items:
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -22.77
-        max: 28.71
+        min: -22.54
+        max: 28.42
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2337,7 +2335,7 @@ items:
         max: 0.06
   COPPER_AXE#79:
     fixed:
-      attack-power: 161.37
+      attack-power: 159.74
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2346,7 +2344,7 @@ items:
       damage-modifier: 0.81
       durability: 114
     per-quality:
-      attack-power: 26.93
+      attack-power: 26.656
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2356,8 +2354,8 @@ items:
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -25.74
-        max: 32.67
+        min: -25.48
+        max: 32.34
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2366,7 +2364,7 @@ items:
         max: 0.06
   IRON_AXE#80:
     fixed:
-      attack-power: 396.99
+      attack-power: 392.98
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2375,7 +2373,7 @@ items:
       damage-modifier: 0.81
       durability: 150
     per-quality:
-      attack-power: 18.91
+      attack-power: 18.718
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2385,8 +2383,8 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -63.36
-        max: 79.2
+        min: -62.72
+        max: 78.4
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2395,7 +2393,7 @@ items:
         max: 0.06
   GOLDEN_AXE#81:
     fixed:
-      attack-power: 855.86
+      attack-power: 847.21
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2404,7 +2402,7 @@ items:
       damage-modifier: 0.98
       durability: 19
     per-quality:
-      attack-power: 23.66
+      attack-power: 23.422
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2414,8 +2412,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -286.11
-        max: 286.11
+        min: -283.22
+        max: 283.22
       crit-chance:
         min: -0.34
         max: 0.26
@@ -2430,7 +2428,7 @@ items:
         max: 0.2
   DIAMOND_AXE#82:
     fixed:
-      attack-power: 1699.83
+      attack-power: 1682.66
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2439,7 +2437,7 @@ items:
       damage-modifier: 0.81
       durability: 936
     per-quality:
-      attack-power: 80.98
+      attack-power: 80.164
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2449,8 +2447,8 @@ items:
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -272.25
-        max: 339.57
+        min: -269.5
+        max: 336.14
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2459,7 +2457,7 @@ items:
         max: 0.06
   NETHERITE_AXE#83:
     fixed:
-      attack-power: 5099.49
+      attack-power: 5047.98
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2468,7 +2466,7 @@ items:
       damage-modifier: 0.81
       durability: 1218
     per-quality:
-      attack-power: 242.85
+      attack-power: 240.394
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2478,8 +2476,8 @@ items:
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -815.76
-        max: 1019.7
+        min: -807.52
+        max: 1009.4
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2488,7 +2486,7 @@ items:
         max: 0.06
   DIAMOND_SWORD#1114:
     fixed:
-      attack-power: 362.34
+      attack-power: 358.68
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2498,7 +2496,7 @@ items:
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 17.23
+      attack-power: 17.052
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2508,8 +2506,8 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -58.41
-        max: 72.27
+        min: -57.82
+        max: 71.54
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2518,7 +2516,7 @@ items:
         max: 0.06
   NETHERITE_AXE#139:
     fixed:
-      attack-power: 50994.9
+      attack-power: 50479.8
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2527,7 +2525,7 @@ items:
       damage-modifier: 0.81
       durability: 1218
     per-quality:
-      attack-power: 2428.27
+      attack-power: 2403.744
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2537,8 +2535,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -8158.59
-        max: 10198.98
+        min: -8076.18
+        max: 10095.96
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2547,7 +2545,7 @@ items:
         max: 0.06
   NETHERITE_AXE#140:
     fixed:
-      attack-power: 31729.5
+      attack-power: 31409
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2557,7 +2555,7 @@ items:
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 1510.94
+      attack-power: 1495.676
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2567,8 +2565,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5076.72
-        max: 6345.9
+        min: -5025.44
+        max: 6281.8
       crit-damage:
         min: -0.12
         max: 0.18
@@ -2577,7 +2575,7 @@ items:
         max: 0.06
   NETHERITE_AXE#141:
     fixed:
-      attack-power: 17005.23
+      attack-power: 16833.46
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -2589,7 +2587,7 @@ items:
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 809.72
+      attack-power: 801.542
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2599,8 +2597,8 @@ items:
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -2720.52
-        max: 3400.65
+        min: -2693.04
+        max: 3366.3
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -2609,153 +2607,156 @@ items:
         max: 0.004
   WOODEN_SWORD#51:
     fixed:
-      attack-power: 61.75
+      attack-power: 58.5
       attack-speed: 1.4
       attack-reach: 2
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.25
+      aoe-max-targets: 4
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 35
-      fixed-damage: 1.05
+      fixed-damage: 0.99
     per-quality:
-      attack-power: 3.04
+      attack-power: 2.88
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 6
     use-level-requirement: 0
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -9.5
-        max: 12.35
+        min: -9
+        max: 11.7
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   DIAMOND_SPEAR#50:
     fixed:
-      attack-power: 393.3
+      attack-power: 372.6
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       thread-slots: 2
       durability: 936
-      fixed-damage: 2.47
+      fixed-damage: 2.34
     per-quality:
-      attack-power: 18.72
+      attack-power: 17.73
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 30
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -62.7
-        max: 78.85
+        min: -59.4
+        max: 74.7
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_SPEAR#118:
     fixed:
-      attack-power: 55496.15
+      attack-power: 52575.3
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 1218
-      fixed-damage: 19
+      fixed-damage: 18
     per-quality:
-      attack-power: 2642.71
+      attack-power: 2503.62
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -8879.65
-        max: 11098.85
+        min: -8412.3
+        max: 10514.7
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_SPEAR#119:
     fixed:
-      attack-power: 34528.7
+      attack-power: 32711.4
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       thread-slots: 3
       durability: 1218
-      fixed-damage: 19
+      fixed-damage: 18
     per-quality:
-      attack-power: 1644.17
+      attack-power: 1557.63
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5524.25
-        max: 6905.55
+        min: -5233.5
+        max: 6542.1
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_SPEAR#120:
     fixed:
-      attack-power: 18382.5
+      attack-power: 17415
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
-      fixed-damage: 12.35
+      fixed-damage: 11.7
     per-quality:
-      attack-power: 875.33
+      attack-power: 829.26
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -2941.2
-        max: 3676.5
+        min: -2786.4
+        max: 3483
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -2764,18 +2765,21 @@ items:
         max: 0.004
   NETHERITE_HOE#52:
     fixed:
-      attack-power: 2381.62
+      attack-power: 2264.746966
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 1850
       durability: 1218
     per-quality:
-      attack-power: 113.39
+      attack-power: 107.823245
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2785,28 +2789,31 @@ items:
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -381.17
-        max: 476.71
+        min: -362.469632
+        max: 453.316451
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   DIAMOND_HOE#53:
     fixed:
-      attack-power: 794.2
+      attack-power: 755.222922
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 559
       durability: 936
     per-quality:
-      attack-power: 37.83
+      attack-power: 35.971736
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2816,28 +2823,31 @@ items:
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -127.38
-        max: 159.23
+        min: -121.129314
+        max: 151.411643
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   GOLDEN_HOE#54:
     fixed:
-      attack-power: 358.3
+      attack-power: 342.463617
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.96
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 165
       durability: 19
     per-quality:
-      attack-power: 9.84
+      attack-power: 9.407834
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2847,8 +2857,8 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -120.62
-        max: 120.63
+        min: -115.292087
+        max: 115.292087
       crit-chance:
         min: -0.34
         max: 0.26
@@ -2863,18 +2873,21 @@ items:
         max: 0.2
   IRON_HOE#55:
     fixed:
-      attack-power: 185.28
+      attack-power: 176.192796
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 112
       durability: 150
     per-quality:
-      attack-power: 8.78
+      attack-power: 8.350804
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2884,28 +2897,31 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -29.91
-        max: 36.67
+        min: -28.447795
+        max: 34.871491
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   COPPER_HOE#56:
     fixed:
-      attack-power: 75.27
+      attack-power: 71.576055
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 42
       durability: 114
     per-quality:
-      attack-power: 12.64
+      attack-power: 12.021107
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2915,28 +2931,31 @@ items:
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -12.54
-        max: 15.44
+        min: -11.929343
+        max: 14.682268
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   STONE_HOE#57:
     fixed:
-      attack-power: 66.58
+      attack-power: 63.317444
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 34
       durability: 78
     per-quality:
-      attack-power: 3.18
+      attack-power: 3.028226
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2946,28 +2965,31 @@ items:
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -10.61
-        max: 13.51
+        min: -10.094085
+        max: 12.847018
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   WOODEN_HOE#58:
     fixed:
-      attack-power: 39.57
+      attack-power: 37.628658
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 19
       durability: 35
     per-quality:
-      attack-power: 1.93
+      attack-power: 1.835544
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -2977,31 +2999,34 @@ items:
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -6.37
-        max: 7.91
+        min: -6.057296
+        max: 7.525732
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#1:
     fixed:
-      attack-power: 8515.16
+      attack-power: 8140.289293
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 405.49
+      attack-power: 387.641609
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -3011,8 +3036,8 @@ items:
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -1362.58
-        max: 1703.23
+        min: -1302.59389
+        max: 1628.242362
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -3021,19 +3046,22 @@ items:
         max: 0.004
   DIAMOND_HOE#49:
     fixed:
-      attack-power: 169.84
+      attack-power: 161.50899
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 107
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 8.01
+      attack-power: 7.616617
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -3043,28 +3071,31 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -27.02
-        max: 33.78
+        min: -25.694612
+        max: 32.118265
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#124:
     fixed:
-      attack-power: 27204.32
+      attack-power: 26158.288243
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       durability: 1218
     per-quality:
-      attack-power: 1295.42
+      attack-power: 1245.606262
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -3074,29 +3105,32 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4353.11
-        max: 5440.67
+        min: -4185.734393
+        max: 5231.47207
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#125:
     fixed:
-      attack-power: 16618.27
+      attack-power: 15956.189173
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 791.3
+      attack-power: 759.77441
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -3106,31 +3140,34 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -2658.57
-        max: 3323.46
+        min: -2552.656708
+        max: 3191.052524
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#126:
     fixed:
-      attack-power: 8375.24
+      attack-power: 8005.43855
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 398.83
+      attack-power: 381.224537
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -3140,8 +3177,8 @@ items:
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -1340.38
-        max: 1675.24
+        min: -1281.202229
+        max: 1601.272188
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -3150,339 +3187,339 @@ items:
         max: 0.004
   WOODEN_SWORD#22:
     fixed:
-      attack-power: 87.3
+      attack-power: 86.085133
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 4.46
+      fixed-damage: 4.399907
       durability: 35
     per-quality:
-      attack-power: 4.17
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 4.112956
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 6
     use-level-requirement: 0
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -13.58
-        max: 17.46
+        min: -13.391021
+        max: 17.217027
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   STONE_SWORD#23:
     fixed:
-      attack-power: 145.5
+      attack-power: 143.478628
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 7.47
+      fixed-damage: 7.365236
       durability: 78
     per-quality:
-      attack-power: 6.98
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 6.886974
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 13
     use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -23.28
-        max: 29.1
+        min: -22.95658
+        max: 28.695726
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   COPPER_SWORD#24:
     fixed:
-      attack-power: 165.87
+      attack-power: 163.543509
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 11.64
+      fixed-damage: 11.476737
       durability: 114
     per-quality:
-      attack-power: 27.65
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 27.257252
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 19
     use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -26.19
-        max: 32.98
+        min: -25.822659
+        max: 32.517423
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   IRON_SWORD#25:
     fixed:
-      attack-power: 405.46
+      attack-power: 399.857857
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 21.34
+      fixed-damage: 21.04515
       durability: 150
     per-quality:
-      attack-power: 19.3
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 19.036295
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 25
     use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -64.99
-        max: 81.48
+        min: -64.092049
+        max: 80.354211
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   GOLDEN_SWORD#26:
     fixed:
-      attack-power: 822.85
+      attack-power: 799.719083
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.98
-      fixed-damage: 32.98
+      fixed-damage: 32.052869
       durability: 19
     per-quality:
-      attack-power: 22.8
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 22.154189
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 3
     use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -274.51
-        max: 274.51
+        min: -266.792998
+        max: 266.792998
       crit-chance:
-        min: -0.34
-        max: 0.26
+        min: -0.17
+        max: 0.13
       crit-damage:
-        min: -0.7
-        max: 0.7
+        min: -0.805
+        max: 0.805
       penetration:
-        min: -0.25
-        max: 0.225
+        min: -0.0875
+        max: 0.07875
       damage-modifier:
         min: -0.16
         max: 0.2
   DIAMOND_SWORD#1104:
     fixed:
-      attack-power: 1739.21
+      attack-power: 1715.311058
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 89.24
+      fixed-damage: 88.01373
       durability: 936
     per-quality:
-      attack-power: 82.84
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 81.699701
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 156
     use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -278.39
-        max: 348.23
+        min: -274.56457
+        max: 343.44488
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#27:
     fixed:
-      attack-power: 5217.63
+      attack-power: 5146.122214
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 268.69
+      fixed-damage: 265.007595
       durability: 1218
     per-quality:
-      attack-power: 248.51
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 245.108108
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -835.17
-        max: 1043.72
+        min: -823.723969
+        max: 1029.415784
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   DIAMOND_SWORD#1109:
     fixed:
-      attack-power: 371.51
+      attack-power: 366.385097
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 19.4
+      fixed-damage: 19.132381
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 17.65
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 17.410467
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 156
     use-level-requirement: 30
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -59.17
-        max: 74.69
+        min: -58.353762
+        max: 73.659667
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#133:
     fixed:
-      attack-power: 52180.18
+      attack-power: 51468.891019
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2684.96
+      fixed-damage: 2648.360232
       durability: 1218
     per-quality:
-      attack-power: 2484.75
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2450.881348
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -8348.79
-        max: 10436.23
+        min: -8234.984292
+        max: 10293.969559
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#134:
     fixed:
-      attack-power: 32467.84
+      attack-power: 32025.259614
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 1670.34
+      fixed-damage: 1647.571016
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 1546.08
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1525.007806
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5194.35
-        max: 6493.18
+        min: -5123.544014
+        max: 6404.669212
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#135:
     fixed:
-      attack-power: 17393.07
+      attack-power: 17096.247452
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 895.31
+      fixed-damage: 880.03103
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 828.28
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 814.147884
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -2782.93
-        max: 3478.42
+        min: -2735.43773
+        max: 3419.058801
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -3491,18 +3528,18 @@ items:
         max: 0.004
   WOODEN_SWORD#11:
     fixed:
-      attack-power: 45.15
+      attack-power: 46.144614
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 35
     per-quality:
-      attack-power: 2.1
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 2.146261
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 6
     use-level-requirement: 0
@@ -3510,28 +3547,28 @@ items:
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -7.14
-        max: 9.03
+        min: -7.297288
+        max: 9.228923
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   STONE_SWORD#2:
     fixed:
-      attack-power: 74.55
+      attack-power: 76.192269
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 78
     per-quality:
-      attack-power: 3.57
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 3.648644
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 13
     use-level-requirement: 5
@@ -3539,28 +3576,28 @@ items:
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -11.55
-        max: 14.7
+        min: -11.804436
+        max: 15.023828
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   COPPER_SWORD#4:
     fixed:
-      attack-power: 86.1
+      attack-power: 87.996705
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 114
     per-quality:
-      attack-power: 14.28
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 14.594575
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 19
     use-level-requirement: 15
@@ -3568,28 +3605,28 @@ items:
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -13.65
-        max: 16.8
+        min: -13.950697
+        max: 17.170089
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   IRON_SWORD#5:
     fixed:
-      attack-power: 210
+      attack-power: 214.62611
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 150
     per-quality:
-      attack-power: 9.98
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 10.19474
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 25
     use-level-requirement: 25
@@ -3597,28 +3634,28 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -33.6
-        max: 42
+        min: -34.340178
+        max: 42.925222
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   GOLDEN_SWORD#12:
     fixed:
-      attack-power: 425.15
+      attack-power: 438.733356
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.95
       durability: 19
     per-quality:
-      attack-power: 11.76
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 12.13587
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 3
     use-level-requirement: 35
@@ -3626,14 +3663,14 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -141.75
-        max: 141.75
+        min: -146.280571
+        max: 146.280571
       crit-chance:
-        min: -0.34
-        max: 0.26
+        min: -0.544
+        max: 0.416
       crit-damage:
-        min: -0.7
-        max: 0.7
+        min: -0.595
+        max: 0.595
       penetration:
         min: -0.25
         max: 0.225
@@ -3642,18 +3679,18 @@ items:
         max: 0.2
   DIAMOND_SWORD#1101:
     fixed:
-      attack-power: 899.85
+      attack-power: 919.67288
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 936
     per-quality:
-      attack-power: 42.84
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 43.783726
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 156
     use-level-requirement: 45
@@ -3661,28 +3698,28 @@ items:
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -143.85
-        max: 179.55
+        min: -147.018885
+        max: 183.505324
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#6:
     fixed:
-      attack-power: 2698.5
+      attack-power: 2757.94551
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 1218
     per-quality:
-      attack-power: 128.52
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 131.351179
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 60
@@ -3690,29 +3727,29 @@ items:
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -431.55
-        max: 539.7
+        min: -441.056655
+        max: 551.589102
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   DIAMOND_SWORD#1106:
     fixed:
-      attack-power: 192.15
+      attack-power: 196.38289
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 9.14
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 9.336236
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 156
     use-level-requirement: 30
@@ -3720,28 +3757,28 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -30.45
-        max: 38.85
+        min: -31.120786
+        max: 39.70583
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#109:
     fixed:
-      attack-power: 26989.2
+      attack-power: 27583.747617
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 1218
     per-quality:
-      attack-power: 1285.2
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1313.511791
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -3749,29 +3786,29 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4318.65
-        max: 5398.05
+        min: -4413.785946
+        max: 5516.96415
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#110:
     fixed:
-      attack-power: 16793.7
+      attack-power: 17163.649992
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 799.68
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 817.296226
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -3779,21 +3816,21 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -2686.95
-        max: 3358.95
+        min: -2746.141073
+        max: 3432.944624
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#111:
     fixed:
-      attack-power: 8996.4
+      attack-power: 9219.311408
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       thread-slots: 2
@@ -3801,9 +3838,9 @@ items:
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 428.4
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 439.014829
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 80
@@ -3811,8 +3848,8 @@ items:
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -1439.55
-        max: 1799.7
+        min: -1475.218947
+        max: 1844.292688
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -3821,328 +3858,328 @@ items:
         max: 0.004
   WOODEN_SWORD#13:
     fixed:
-      attack-power: 47.78
+      attack-power: 46.031546
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 35
     per-quality:
-      attack-power: 2.24
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2.160664
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 6
     use-level-requirement: 0
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -7.7
-        max: 9.56
+        min: -7.421413
+        max: 9.206309
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   STONE_SWORD#7:
     fixed:
-      attack-power: 79.95
+      attack-power: 77.032384
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 78
     per-quality:
-      attack-power: 3.8
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 3.663735
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 13
     use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -12.67
-        max: 15.6
+        min: -12.212451
+        max: 15.030709
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   COPPER_SWORD#8:
     fixed:
-      attack-power: 91.65
+      attack-power: 88.305416
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 114
     per-quality:
-      attack-power: 15.21
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 14.654941
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 19
     use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -14.62
-        max: 18.52
+        min: -14.09129
+        max: 17.848967
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   IRON_SWORD#9:
     fixed:
-      attack-power: 223.28
+      attack-power: 215.127023
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 150
     per-quality:
-      attack-power: 10.63
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 10.239671
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 25
     use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -36.07
-        max: 44.85
+        min: -34.758515
+        max: 43.213289
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   GOLDEN_SWORD#14:
     fixed:
-      attack-power: 453.18
+      attack-power: 439.510973
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.97
       durability: 19
     per-quality:
-      attack-power: 12.58
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 12.198132
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 3
     use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -151.12
-        max: 151.13
+        min: -146.566697
+        max: 146.566697
       crit-chance:
-        min: -0.34
-        max: 0.26
+        min: -0.51
+        max: 0.39
       crit-damage:
-        min: -0.7
-        max: 0.7
+        min: -0.63
+        max: 0.63
       penetration:
-        min: -0.25
-        max: 0.225
+        min: -0.325
+        max: 0.2925
       damage-modifier:
         min: -0.16
         max: 0.2
   DIAMOND_SWORD#1102:
     fixed:
-      attack-power: 958.43
+      attack-power: 923.449187
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 936
     per-quality:
-      attack-power: 45.63
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 43.964824
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -153.07
-        max: 192.08
+        min: -147.488833
+        max: 185.065605
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SWORD#15:
     fixed:
-      attack-power: 2874.3
+      attack-power: 2769.408142
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 1218
     per-quality:
-      attack-power: 136.89
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 131.894472
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -460.2
-        max: 575.25
+        min: -443.405917
+        max: 554.257396
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   DIAMOND_SWORD#1107:
     fixed:
-      attack-power: 204.75
+      attack-power: 197.278056
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 9.75
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 9.394193
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 30
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -33.15
-        max: 40.95
+        min: -31.940257
+        max: 39.455611
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SWORD#115:
     fixed:
-      attack-power: 28746.9
+      attack-power: 27697.839098
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 1218
     per-quality:
-      attack-power: 1368.9
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1318.944719
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4599.07
-        max: 5749.58
+        min: -4431.240911
+        max: 5539.755703
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SWORD#116:
     fixed:
-      attack-power: 17887.35
+      attack-power: 17234.586762
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 851.76
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 820.676714
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -2861.62
-        max: 3577.28
+        min: -2757.195691
+        max: 3446.729468
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SWORD#117:
     fixed:
-      attack-power: 9582.3
+      attack-power: 9237.862785
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 456.3
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 439.898228
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -1532.7
-        max: 1916.85
+        min: -1477.606868
+        max: 1847.948538
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -4151,328 +4188,361 @@ items:
         max: 0.004
   WOODEN_SWORD#28:
     fixed:
-      attack-power: 95.04
+      attack-power: 92.500948
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 35
     per-quality:
-      attack-power: 4.51
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 4.391459
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 6
     use-level-requirement: 0
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -15.36
-        max: 19.2
+        min: -14.949648
+        max: 18.68706
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   STONE_SWORD#29:
     fixed:
-      attack-power: 158.4
+      attack-power: 154.168247
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 78
     per-quality:
-      attack-power: 7.58
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 7.381389
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 13
     use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -24.96
-        max: 31.68
+        min: -24.293178
+        max: 30.833649
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   COPPER_SWORD#30:
     fixed:
-      attack-power: 181.44
+      attack-power: 176.592719
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 114
     per-quality:
-      attack-power: 30.24
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 29.43212
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 19
     use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -28.8
-        max: 36.48
+        min: -28.03059
+        max: 35.505414
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   IRON_SWORD#31:
     fixed:
-      attack-power: 444.48
+      attack-power: 432.605445
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 150
     per-quality:
-      attack-power: 21.12
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 20.555766
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 25
     use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -71.04
-        max: 89.28
+        min: -69.142123
+        max: 86.89483
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   GOLDEN_SWORD#32:
     fixed:
-      attack-power: 917.95
+      attack-power: 879.704
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.98
       durability: 19
     per-quality:
-      attack-power: 24.86
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 23.828
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 3
     use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -311.04
-        max: 311.04
+        min: -298.08
+        max: 298.08
       crit-chance:
-        min: -0.34
-        max: 0.26
+        min: -0.17
+        max: 0.13
       crit-damage:
-        min: -0.7
-        max: 0.7
+        min: -0.805
+        max: 0.805
       penetration:
-        min: -0.25
-        max: 0.225
+        min: -0.125
+        max: 0.1125
       damage-modifier:
         min: -0.16
         max: 0.2
   DIAMOND_SWORD#1105:
     fixed:
-      attack-power: 1903.68
+      attack-power: 1852.822025
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 936
     per-quality:
-      attack-power: 90.62
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 88.202924
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 156
     use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -304.32
-        max: 381.12
+        min: -296.189905
+        max: 370.938146
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#33:
     fixed:
-      attack-power: 5710.08
+      attack-power: 5557.531722
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 1218
     per-quality:
-      attack-power: 271.87
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 264.608773
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -913.92
-        max: 1142.4
+        min: -889.504069
+        max: 1111.880086
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   DIAMOND_SWORD#1110:
     fixed:
-      attack-power: 406.08
+      attack-power: 395.231325
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 19.3
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 18.780496
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 156
     use-level-requirement: 30
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -65.28
-        max: 81.6
+        min: -63.536005
+        max: 79.420006
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#142:
     fixed:
-      attack-power: 57099.84
+      attack-power: 55574.382869
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 1218
     per-quality:
-      attack-power: 2719.01
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2646.368039
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -9136.32
-        max: 11420.16
+        min: -8892.237626
+        max: 11115.063444
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#143:
     fixed:
-      attack-power: 35528.64
+      attack-power: 34579.470664
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 1691.81
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1646.610315
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5684.16
-        max: 7105.92
+        min: -5532.304191
+        max: 6916.081003
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#144:
     fixed:
-      attack-power: 19032.96
+      attack-power: 18459.539718
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 906.34
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 879.030135
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -3045.12
-        max: 3806.4
+        min: -2953.377383
+        max: 3691.721728
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -4481,18 +4551,21 @@ items:
         max: 0.004
   WOODEN_SWORD#62:
     fixed:
-      attack-power: 78.72
+      attack-power: 76.323902
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 35
     per-quality:
-      attack-power: 3.74
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 3.630039
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 6
     use-level-requirement: 0
@@ -4500,28 +4573,31 @@ items:
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -12.48
-        max: 15.36
+        min: -12.100131
+        max: 14.892469
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   STONE_SWORD#63:
     fixed:
-      attack-power: 130.56
+      attack-power: 126.585984
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 78
     per-quality:
-      attack-power: 6.24
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 6.050065
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 13
     use-level-requirement: 5
@@ -4529,28 +4605,31 @@ items:
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -21.12
-        max: 25.92
+        min: -20.477145
+        max: 25.131041
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   COPPER_SWORD#64:
     fixed:
-      attack-power: 149.76
+      attack-power: 145.20157
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 114
     per-quality:
-      attack-power: 24.86
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 24.107184
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 19
     use-level-requirement: 15
@@ -4558,28 +4637,31 @@ items:
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -24
-        max: 29.76
+        min: -23.269482
+        max: 28.854158
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   IRON_SWORD#65:
     fixed:
-      attack-power: 365.76
+      attack-power: 354.626912
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 150
     per-quality:
-      attack-power: 17.47
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 16.940183
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 25
     use-level-requirement: 25
@@ -4587,28 +4669,31 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -58.56
-        max: 72.96
+        min: -56.777537
+        max: 70.739227
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   GOLDEN_SWORD#66:
     fixed:
-      attack-power: 741.22
+      attack-power: 711.678089
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.98
       durability: 19
     per-quality:
-      attack-power: 20.54
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 19.725309
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 3
     use-level-requirement: 35
@@ -4616,14 +4701,14 @@ items:
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -247.68
-        max: 247.68
+        min: -237.809801
+        max: 237.809801
       crit-chance:
-        min: -0.34
-        max: 0.26
+        min: -0.204
+        max: 0.156
       crit-damage:
-        min: -0.7
-        max: 0.7
+        min: -0.784
+        max: 0.784
       penetration:
         min: -0.25
         max: 0.225
@@ -4632,18 +4717,21 @@ items:
         max: 0.2
   DIAMOND_SWORD#1113:
     fixed:
-      attack-power: 1567.68
+      attack-power: 1519.962592
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 936
     per-quality:
-      attack-power: 74.69
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 72.414629
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 156
     use-level-requirement: 45
@@ -4651,28 +4739,31 @@ items:
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -250.56
-        max: 313.92
+        min: -242.933397
+        max: 304.36483
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_SWORD#67:
     fixed:
-      attack-power: 4702.08
+      attack-power: 4558.956997
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 1218
     per-quality:
-      attack-power: 223.97
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 217.15081
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 60
@@ -4680,28 +4771,31 @@ items:
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -752.64
-        max: 940.8
+        min: -729.730969
+        max: 912.163711
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_SWORD#136:
     fixed:
-      attack-power: 47023.68
+      attack-power: 45592.362307
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 1218
     per-quality:
-      attack-power: 2239.2
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 2171.04271
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -4709,29 +4803,32 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7523.52
-        max: 9405.12
+        min: -7294.517351
+        max: 9118.844773
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_SWORD#137:
     fixed:
-      attack-power: 29258.88
+      attack-power: 28368.291415
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 1393.25
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1350.839994
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -4739,21 +4836,24 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4680.96
-        max: 5852.16
+        min: -4538.479852
+        max: 5674.030595
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_SWORD#138:
     fixed:
-      attack-power: 15674.88
+      attack-power: 15161.915628
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       thread-slots: 2
@@ -4761,9 +4861,9 @@ items:
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 746.4
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 721.973873
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 80
@@ -4771,8 +4871,8 @@ items:
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -2507.52
-        max: 3135.36
+        min: -2425.46078
+        max: 3032.754559
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -4781,19 +4881,22 @@ items:
         max: 0.004
   DIAMOND_SWORD#1119:
     fixed:
-      attack-power: 334.08
+      attack-power: 323.911195
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 15.84
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 15.357858
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 156
     use-level-requirement: 30
@@ -4801,14 +4904,14 @@ items:
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -53.76
-        max: 67.2
+        min: -52.123641
+        max: 65.154551
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   BOW#1091:
     fixed:
       attack-power: 115
@@ -5229,153 +5332,143 @@ items:
         max: 0.004
   TRIDENT#174:
     fixed:
-      attack-power: 54.72
+      attack-power: 54.700177
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 5.4
       durability: 35
     per-quality:
-      attack-power: 2.59
+      attack-power: 2.591061
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 6
     use-level-requirement: 0
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -8.74
-        max: 10.56
+        min: -8.732835
+        max: 10.556175
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#175:
     fixed:
-      attack-power: 91.2
+      attack-power: 90.972172
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 9
       durability: 78
     per-quality:
-      attack-power: 4.32
+      attack-power: 4.309208
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 13
     use-level-requirement: 5
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -14.4
-        max: 18.24
+        min: -14.364027
+        max: 18.194434
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#176:
     fixed:
-      attack-power: 103.68
+      attack-power: 104.423129
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 14
       durability: 114
     per-quality:
-      attack-power: 17.28
+      attack-power: 17.403855
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 19
     use-level-requirement: 15
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -16.32
-        max: 21.12
+        min: -16.436974
+        max: 21.271378
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#177:
     fixed:
-      attack-power: 254.4
+      attack-power: 252.137501
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 25
       durability: 150
     per-quality:
-      attack-power: 12.1
+      attack-power: 11.988425
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 25
     use-level-requirement: 25
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -40.32
-        max: 50.88
+        min: -39.961415
+        max: 50.4275
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#178:
     fixed:
-      attack-power: 514.66
+      attack-power: 504.457569
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.98
-      bleed-chance: 0.16
-      bleed-damage: 40
       durability: 19
     per-quality:
-      attack-power: 14.3
+      attack-power: 14.020552
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 3
     use-level-requirement: 35
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -170.88
-        max: 170.88
+        min: -167.493839
+        max: 167.493839
       crit-chance:
         min: -0.34
         max: 0.26
@@ -5383,196 +5476,184 @@ items:
         min: -0.7
         max: 0.7
       penetration:
-        min: -0.25
-        max: 0.225
+        min: -0.325
+        max: 0.2925
       damage-modifier:
         min: -0.16
         max: 0.2
   TRIDENT#179:
     fixed:
-      attack-power: 1088.64
+      attack-power: 1074.344385
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 108
       durability: 936
     per-quality:
-      attack-power: 51.84
+      attack-power: 51.159256
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -173.76
-        max: 217.92
+        min: -171.478248
+        max: 215.058356
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#180:
     fixed:
-      attack-power: 3265.92
+      attack-power: 3214.320637
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 324
       durability: 1218
     per-quality:
-      attack-power: 155.52
+      attack-power: 153.062887
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 60
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -522.24
-        max: 652.8
+        min: -513.988955
+        max: 642.486194
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#181:
     fixed:
-      attack-power: 232.32
+      attack-power: 230.03112
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 23
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 11.04
+      attack-power: 10.931231
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 30
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -37.44
-        max: 46.08
+        min: -37.071131
+        max: 45.626007
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#121:
     fixed:
-      attack-power: 32659.2
+      attack-power: 31974.235356
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 3240
       durability: 1218
     per-quality:
-      attack-power: 1555.2
+      attack-power: 1522.582636
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5225.28
-        max: 6531.84
+        min: -5115.689684
+        max: 6394.847071
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#122:
     fixed:
-      attack-power: 20321.28
+      attack-power: 19895.078262
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 2016
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 967.68
+      attack-power: 947.384679
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3251.52
-        max: 4064.64
+        min: -3183.325306
+        max: 3979.391599
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#123:
     fixed:
-      attack-power: 10886.4
+      attack-power: 10683.470307
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 1080
       thread-slots: 2
       move-speed: -0.018
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 518.4
+      attack-power: 508.736681
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 80
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -1741.44
-        max: 2177.28
+        min: -1708.978407
+        max: 2136.694061
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -5581,320 +5662,320 @@ items:
         max: 0.004
   MACE#167:
     fixed:
-      attack-power: 102.96
+      attack-power: 108.102492
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 35
     per-quality:
-      attack-power: 4.89
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 5.132139
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 6
     use-level-requirement: 0
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: 0
     random:
       attack-power:
-        min: -16.64
-        max: 20.8
+        min: -17.47111
+        max: 21.838887
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#168:
     fixed:
-      attack-power: 170.56
+      attack-power: 179.078875
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 78
     per-quality:
-      attack-power: 8.11
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 8.517166
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 13
     use-level-requirement: 5
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -1
     random:
       attack-power:
-        min: -27.04
-        max: 34.32
+        min: -28.390553
+        max: 36.034164
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#169:
     fixed:
-      attack-power: 195.52
+      attack-power: 205.28554
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 114
     per-quality:
-      attack-power: 32.55
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 34.177859
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 19
     use-level-requirement: 15
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -2
     random:
       attack-power:
-        min: -31.2
-        max: 39.52
+        min: -32.758331
+        max: 41.493886
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#170:
     fixed:
-      attack-power: 478.4
+      attack-power: 502.294406
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 150
     per-quality:
-      attack-power: 22.78
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 23.913582
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 25
     use-level-requirement: 25
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -76.96
-        max: 95.68
+        min: -80.803883
+        max: 100.458881
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#171:
     fixed:
-      attack-power: 965.85
+      attack-power: 1006.588256
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.98
       power-attack-damage: 0.35
       durability: 19
     per-quality:
-      attack-power: 26.73
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 27.855409
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 3
     use-level-requirement: 35
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -4
     random:
       attack-power:
-        min: -322.4
-        max: 322.4
+        min: -335.999095
+        max: 335.999095
       crit-chance:
-        min: -0.34
-        max: 0.26
+        min: -0.204
+        max: 0.156
       crit-damage:
-        min: -0.7
-        max: 0.7
+        min: -0.784
+        max: 0.784
       penetration:
-        min: -0.25
-        max: 0.225
+        min: -0.125
+        max: 0.1125
       damage-modifier:
         min: -0.16
         max: 0.2
   MACE#172:
     fixed:
-      attack-power: 2050.88
+      attack-power: 2153.314282
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 936
     per-quality:
-      attack-power: 97.66
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 102.533576
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 156
     use-level-requirement: 45
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -328.64
-        max: 409.76
+        min: -345.054418
+        max: 430.226079
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#173:
     fixed:
-      attack-power: 6152.64
+      attack-power: 6459.942845
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 1218
     per-quality:
-      attack-power: 293.07
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 307.709921
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -984.88
-        max: 1230.32
+        min: -1034.071311
+        max: 1291.77018
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#182:
     fixed:
-      attack-power: 437.84
+      attack-power: 459.708576
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       thread-slots: 2
       durability: 936
     per-quality:
-      attack-power: 20.8
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 21.838887
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 156
     use-level-requirement: 30
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -3
     random:
       attack-power:
-        min: -69.68
-        max: 87.36
+        min: -73.160272
+        max: 91.723326
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#127:
     fixed:
-      attack-power: 61530.56
+      attack-power: 64603.796228
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 1218
     per-quality:
-      attack-power: 2929.99
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 3076.334851
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -9844.64
-        max: 12306.32
+        min: -10336.34533
+        max: 12920.977635
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#128:
     fixed:
-      attack-power: 38285.52
+      attack-power: 40197.747795
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       thread-slots: 3
       durability: 1218
     per-quality:
-      attack-power: 1823.02
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1914.069272
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6125.6
-        max: 7657.52
+        min: -6431.552292
+        max: 8039.986337
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   MACE#129:
     fixed:
-      attack-power: 20389.2
+      attack-power: 21397.608827
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       thread-slots: 2
@@ -5902,18 +5983,18 @@ items:
       dodge-chance: -0.02
       durability: 1218
     per-quality:
-      attack-power: 970.94
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1018.964938
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 80
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -7
     random:
       attack-power:
-        min: -3262.48
-        max: 4077.84
+        min: -3423.8357
+        max: 4279.521765
       phys-resistance:
         min: -0.08
         max: 0.04
@@ -8615,19 +8696,19 @@ items:
         max: 0.06
   NETHERITE_SWORD#5601:
     fixed:
-      attack-power: 21591.15
+      attack-power: 22066.783468
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.1
       damage-modifier: 0.5
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1028.16
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1050.809433
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -8635,122 +8716,123 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3454.5
-        max: 4318.65
+        min: -3530.599504
+        max: 4413.785946
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#5602:
     fixed:
-      attack-power: 22997.33
+      attack-power: 22158.083394
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.26
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.338
       damage-modifier: 0.56
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1095.12
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1055.155775
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3679.65
-        max: 4599.08
+        min: -3545.368497
+        max: 4431.240911
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SPEAR#5602:
     fixed:
-      attack-power: 44397.3
+      attack-power: 42060.6
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.3
+      penetration: 0.39
       damage-modifier: 0.59
       durability: 1218
-      fixed-damage: 15.2
+      fixed-damage: 14.4
       thread-slots: 3
     per-quality:
-      attack-power: 2114.13
+      attack-power: 2002.86
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7103.15
-        max: 8879.65
+        min: -6729.3
+        max: 8412.3
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#5602:
     fixed:
-      attack-power: 26127.36
+      attack-power: 25714.565094
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.26
+      penetration: 0.338
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 3240
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1244.16
+      attack-power: 1224.5031
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4180.8
-        max: 5225.28
+        min: -4114.746141
+        max: 5142.724052
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#5602:
     fixed:
-      attack-power: 21600.56
+      attack-power: 20757.779735
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.12
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1028.59
+      attack-power: 988.461286
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -8760,91 +8842,94 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3455.66
-        max: 4320.31
+        min: -3320.836724
+        max: 4151.741417
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   MACE#5602:
     fixed:
-      attack-power: 49224.24
+      attack-power: 51682.818594
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.14
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.07
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2344.06
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2461.133397
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7875.92
-        max: 9844.64
+        min: -8269.294653
+        max: 10336.34533
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   NETHERITE_SWORD#5603:
     fixed:
-      attack-power: 41743.95
+      attack-power: 41174.923681
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.16
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.056
       damage-modifier: 0.84
-      fixed-damage: 2147.58
+      fixed-damage: 2118.305589
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1987.82
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1960.72432
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6678.45
-        max: 8348.79
+        min: -6587.413722
+        max: 8234.984736
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#5604:
     fixed:
-      attack-power: 37618.56
+      attack-power: 36473.517534
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.12
       damage-modifier: 0.72
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1791.36
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1736.834168
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -8852,17 +8937,17 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6019.2
-        max: 7523.52
+        min: -5835.986192
+        max: 7294.517351
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_AXE#5604:
     fixed:
-      attack-power: 40795.92
+      attack-power: 40383.84
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -8872,7 +8957,7 @@ items:
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1942.58
+      attack-power: 1922.956
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -8882,8 +8967,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6527.07
-        max: 8159.58
+        min: -6461.14
+        max: 8077.16
       crit-damage:
         min: -0.12
         max: 0.18
@@ -8892,34 +8977,37 @@ items:
         max: 0.06
   NETHERITE_SWORD#5605:
     fixed:
-      attack-power: 45679.68
+      attack-power: 44459.319425
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.14
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.07
       damage-modifier: 0.9
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2175.26
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2117.150493
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7308.48
-        max: 9136.32
+        min: -7113.229489
+        max: 8892.237626
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   BOW#5605:
     fixed:
       attack-power: 33134
@@ -9022,19 +9110,19 @@ items:
         max: 0.06
   NETHERITE_SWORD#5607:
     fixed:
-      attack-power: 31038
+      attack-power: 31721.739012
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1477.98
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1510.53856
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -9042,122 +9130,123 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4965.45
-        max: 6207.6
+        min: -5074.834364
+        max: 6344.347802
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#5608:
     fixed:
-      attack-power: 33059.32
+      attack-power: 31852.89073
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1574.24
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1516.786427
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5289.37
-        max: 6611.48
+        min: -5096.349786
+        max: 6370.202378
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SPEAR#5608:
     fixed:
-      attack-power: 63821
+      attack-power: 60462
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 1218
-      fixed-damage: 21.85
+      fixed-damage: 20.7
       thread-slots: 3
     per-quality:
-      attack-power: 3039.05
+      attack-power: 2879.1
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -10211.55
-        max: 12764.2
+        min: -9674.1
+        max: 12092.4
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#5608:
     fixed:
-      attack-power: 37558.08
+      attack-power: 36668.996626
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 3240
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1788.48
+      attack-power: 1746.142696
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6009.6
-        max: 7512
+        min: -5867.339388
+        max: 7334.174235
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#5608:
     fixed:
-      attack-power: 31407.86
+      attack-power: 30209.368117
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 1495.65
+      attack-power: 1438.581118
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -9167,91 +9256,94 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5025.72
-        max: 6281.19
+        min: -4833.944424
+        max: 6041.502353
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   MACE#5608:
     fixed:
-      attack-power: 70759.52
+      attack-power: 74293.710496
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 3369.5
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 3537.790538
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -11321.44
-        max: 14152.32
+        min: -11886.906324
+        max: 14859.178877
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   NETHERITE_SWORD#5609:
     fixed:
-      attack-power: 60007.11
+      attack-power: 59189.130105
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 3087.51
+      fixed-damage: 3045.422969
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2857.43
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2818.475332
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -9601.06
-        max: 12001.81
+        min: -9470.184275
+        max: 11838.208732
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#5610:
     fixed:
-      attack-power: 54076.8
+      attack-power: 52430.797802
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2575.1
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 2496.722386
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -9259,17 +9351,17 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -8652.48
-        max: 10815.36
+        min: -8389.113804
+        max: 10486.15956
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_AXE#5610:
     fixed:
-      attack-power: 58643.64
+      attack-power: 58051.28
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -9279,7 +9371,7 @@ items:
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 2792.49
+      attack-power: 2764.286
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -9289,8 +9381,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -9383.22
-        max: 11728.53
+        min: -9288.44
+        max: 11610.06
       crit-damage:
         min: -0.12
         max: 0.18
@@ -9299,34 +9391,37 @@ items:
         max: 0.06
   NETHERITE_SWORD#5611:
     fixed:
-      attack-power: 65664.96
+      attack-power: 63910.680453
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 1218
       thread-slots: 3
     per-quality:
-      attack-power: 3126.91
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 3043.374634
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -10506.24
-        max: 13132.8
+        min: -10225.559376
+        max: 12781.94922
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   BOW#5611:
     fixed:
       attack-power: 47631
@@ -9523,11 +9618,11 @@ items:
         max: 0.06
   NETHERITE_SWORD#5701:
     fixed:
-      attack-power: 18892.65
+      attack-power: 19340.85713
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 1218
@@ -9535,9 +9630,9 @@ items:
       bleed-chance: 0.12
       bleed-damage: 1799
     per-quality:
-      attack-power: 899.64
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 920.982959
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -9545,126 +9640,127 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3022.95
-        max: 3778.95
+        min: -3094.66613
+        max: 3868.60139
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#5702:
     fixed:
-      attack-power: 20123.02
+      attack-power: 19367.662014
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 1218
       thread-slots: 2
       bleed-chance: 0.12
       bleed-damage: 2064
     per-quality:
-      attack-power: 958.23
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 922.260683
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3219.45
-        max: 4024.8
+        min: -3098.600706
+        max: 3873.720083
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SPEAR#5700:
     fixed:
-      attack-power: 38142.5
+      attack-power: 36059.367435
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 1218
       thread-slots: 2
       bleed-chance: 0.12
       bleed-damage: 1844
-      fixed-damage: 19
+      fixed-damage: 17.962325
     per-quality:
-      attack-power: 1816.21
+      attack-power: 1717.018647
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6102.8
-        max: 7628.5
+        min: -5769.49879
+        max: 7211.873487
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#5700:
     fixed:
-      attack-power: 22861.44
+      attack-power: 22381.961828
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 2268
       durability: 1218
       thread-slots: 2
     per-quality:
-      attack-power: 1088.64
+      attack-power: 1065.807706
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 203
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3657.6
-        max: 4572.48
+        min: -3580.888325
+        max: 4476.580339
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#5700:
     fixed:
-      attack-power: 18798.2
+      attack-power: 18057.058605
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       durability: 1218
       thread-slots: 2
     per-quality:
-      attack-power: 895.13
+      attack-power: 859.842277
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -9674,22 +9770,22 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3007.9
-        max: 3759.64
+        min: -2889.314767
+        max: 3611.411721
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   MACE#5700:
     fixed:
-      attack-power: 41776.8
+      attack-power: 43961.78573
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 1218
@@ -9697,64 +9793,67 @@ items:
       bleed-chance: 0.12
       bleed-damage: 3061
     per-quality:
-      attack-power: 1989.42
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2093.465271
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6684.08
-        max: 8355.36
+        min: -7033.666838
+        max: 8792.357146
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   NETHERITE_SWORD#5703:
     fixed:
-      attack-power: 36526.32
+      attack-power: 35949.587585
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2684.96
+      fixed-damage: 2642.565818
       durability: 1218
       thread-slots: 2
       bleed-chance: 0.12
       bleed-damage: 3766
     per-quality:
-      attack-power: 1739.31
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1711.844208
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5844.25
-        max: 7305.07
+        min: -5751.972201
+        max: 7189.72658
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#5704:
     fixed:
-      attack-power: 32916.48
+      attack-power: 31818.059251
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 1218
@@ -9762,9 +9861,9 @@ items:
       bleed-chance: 0.12
       bleed-damage: 3429
     per-quality:
-      attack-power: 1567.49
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1515.18103
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 203
     use-level-requirement: 100
@@ -9772,17 +9871,17 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5266.56
-        max: 6583.68
+        min: -5090.815243
+        max: 6363.983036
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_AXE#5700:
     fixed:
-      attack-power: 34490.61
+      attack-power: 34117.873424
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -9794,7 +9893,7 @@ items:
       bleed-chance: 0.12
       bleed-damage: 3643
     per-quality:
-      attack-power: 1642.41
+      attack-power: 1624.660639
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -9804,8 +9903,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -5518.26
-        max: 6898.32
+        min: -5458.624716
+        max: 6823.770545
       crit-damage:
         min: -0.12
         max: 0.18
@@ -9814,36 +9913,39 @@ items:
         max: 0.06
   NETHERITE_SWORD#5705:
     fixed:
-      attack-power: 39969.6
+      attack-power: 38763.987564
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 1218
       thread-slots: 2
       bleed-chance: 0.12
       bleed-damage: 4164
     per-quality:
-      attack-power: 1903.3
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1845.886436
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 203
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6395.52
-        max: 7993.92
+        min: -6202.610428
+        max: 7752.797513
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   BOW#5700:
     fixed:
       attack-power: 28993
@@ -9950,19 +10052,19 @@ items:
         max: 0.06
   NETHERITE_SWORD#5721:
     fixed:
-      attack-power: 22940.4
+      attack-power: 23445.756222
       attack-speed: 2
       attack-reach: -1.5
-      crit-chance: 0.12
-      crit-damage: 0.55
+      crit-chance: 0.192
+      crit-damage: 0.4675
       penetration: 0.04
       damage-modifier: 0.5
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 1092.42
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1116.485023
+      crit-chance: 0.0048
+      crit-damage: 0.017
       penetration: 0.004
       durability: 609
     use-level-requirement: 100
@@ -9970,122 +10072,123 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3670.8
-        max: 4588.5
+        min: -3751.664397
+        max: 4689.580497
       crit-chance:
-        min: -0.05
-        max: 0.07
+        min: -0.08
+        max: 0.112
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.085
+        max: 0.1275
   NETHERITE_SWORD#5722:
     fixed:
-      attack-power: 24434.48
+      attack-power: 23542.787465
       attack-speed: 1.8
       attack-reach: 0.8
-      crit-chance: 0.07
-      crit-damage: 0.45
-      penetration: 0.2
+      crit-chance: 0.105
+      crit-damage: 0.405
+      penetration: 0.26
       damage-modifier: 0.56
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 1163.57
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 1121.103011
+      crit-chance: 0.0045
+      crit-damage: 0.018
+      penetration: 0.0052
       durability: 609
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3909.75
-        max: 4886.7
+        min: -3767.071455
+        max: 4708.369609
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.09
+        max: 0.135
   NETHERITE_SPEAR#5720:
     fixed:
-      attack-power: 47171.3
+      attack-power: 44688.6
       attack-speed: 0.9
       attack-reach: 2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 3654
       thread-slots: 2
-      fixed-damage: 19
+      fixed-damage: 18
     per-quality:
-      attack-power: 2246.18
+      attack-power: 2127.96
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 609
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7547.75
-        max: 9434.45
+        min: -7150.5
+        max: 8937.9
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   TRIDENT#5720:
     fixed:
-      attack-power: 27760.32
+      attack-power: 27178.10833
       attack-speed: 1.6
       attack-reach: 1.6
       crit-chance: 0.06
       crit-damage: 0.5
-      penetration: 0.2
+      penetration: 0.26
       damage-modifier: 0.62
-      bleed-chance: 0.16
-      bleed-damage: 2754
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 1321.92
+      attack-power: 1294.195635
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 609
     use-level-requirement: 100
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -4441.92
-        max: 5551.68
+        min: -4348.760495
+        max: 5435.24572
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15
   NETHERITE_HOE#5720:
     fixed:
-      attack-power: 23000.78
+      attack-power: 22107.208415
       attack-speed: 2
       attack-reach: 1.2
+      aoe-radius: 3
+      aoe-damage-rate: 0.2
+      aoe-max-targets: 3
       crit-chance: 0.06
       crit-damage: 0.45
       penetration: 0.06
       damage-modifier: 0.53
-      bleed-chance: 0.16
+      bleed-chance: 0.288
       bleed-damage: 4500
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 1095.27
+      attack-power: 1052.72421
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -10095,91 +10198,94 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -3680.51
-        max: 4600.16
+        min: -3537.524351
+        max: 4421.441683
       bleed-chance:
-        min: -0.07
-        max: 0.11
+        min: -0.126
+        max: 0.198
       crit-damage:
         min: -0.1
         max: 0.15
   MACE#5720:
     fixed:
-      attack-power: 52300.56
+      attack-power: 54912.790016
       attack-speed: 0.9
       attack-reach: -0.8
-      crit-chance: 0.06
-      crit-damage: 0.55
-      penetration: 0.08
+      crit-chance: 0.036
+      crit-damage: 0.616
+      penetration: 0.04
       damage-modifier: 0.65
       power-attack-damage: 0.35
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 2490.49
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2614.879163
+      crit-chance: 0.0018
+      crit-damage: 0.0224
+      penetration: 0.002
       durability: 609
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -8367.84
-        max: 10460.32
+        min: -8785.784336
+        max: 10982.776392
       power-attack-damage:
         min: -0.12
         max: 0.18
       crit-damage:
-        min: -0.1
-        max: 0.15
+        min: -0.112
+        max: 0.168
   NETHERITE_SWORD#5723:
     fixed:
-      attack-power: 44353.25
+      attack-power: 43746.354244
       attack-speed: 1
       attack-reach: 1
-      crit-chance: 0.05
-      crit-damage: 0.7
-      penetration: 0.1
+      crit-chance: 0.025
+      crit-damage: 0.805
+      penetration: 0.035
       damage-modifier: 0.84
-      fixed-damage: 2684.96
+      fixed-damage: 2648.221073
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 2112.08
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2083.177949
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.0014
       durability: 609
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7096.52
-        max: 8870.65
+        min: -6999.416679
+        max: 8749.270849
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_SWORD#5724:
     fixed:
-      attack-power: 39969.6
+      attack-power: 38752.996032
       attack-speed: 1
       attack-reach: 1.4
-      crit-chance: 0.05
-      crit-damage: 0.58
+      aoe-radius: 3
+      aoe-damage-rate: 0.3
+      aoe-max-targets: 3
+      crit-chance: 0.03
+      crit-damage: 0.6496
       penetration: 0.06
       damage-modifier: 0.72
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 1903.3
-      crit-chance: 0.003
-      crit-damage: 0.02
+      attack-power: 1845.363034
+      crit-chance: 0.0018
+      crit-damage: 0.0224
       penetration: 0.004
       durability: 609
     use-level-requirement: 100
@@ -10187,17 +10293,17 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6395.52
-        max: 7993.92
+        min: -6200.851677
+        max: 7750.599206
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.1344
+        max: 0.2016
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.024
+        max: 0.036
   NETHERITE_AXE#5720:
     fixed:
-      attack-power: 43345.17
+      attack-power: 42907.34
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
@@ -10207,7 +10313,7 @@ items:
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 2064.15
+      attack-power: 2043.3
       crit-chance: 0.003
       crit-damage: 0.02
       penetration: 0.004
@@ -10217,8 +10323,8 @@ items:
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -6934.95
-        max: 8669.43
+        min: -6864.9
+        max: 8581.86
       crit-damage:
         min: -0.12
         max: 0.18
@@ -10227,34 +10333,37 @@ items:
         max: 0.06
   NETHERITE_SWORD#5725:
     fixed:
-      attack-power: 48534.72
+      attack-power: 47238.085286
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 3654
       thread-slots: 2
     per-quality:
-      attack-power: 2311.2
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 2249.454879
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 609
     use-level-requirement: 100
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -8
     random:
       attack-power:
-        min: -7765.44
-        max: 9706.56
+        min: -7557.981523
+        max: 9447.243316
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   BOW#5720:
     fixed:
       attack-power: 35205
@@ -10421,36 +10530,39 @@ items:
         max: 2.8
   NETHERITE_SWORD#5740:
     fixed:
-      attack-power: 4032
+      attack-power: 3924.282655
       attack-speed: 0.8
       attack-reach: 1.4
-      crit-chance: 0.04
-      crit-damage: 0.72
-      penetration: 0.08
+      aoe-radius: 3.5
+      aoe-damage-rate: 0.35
+      aoe-max-targets: 4
+      crit-chance: 0.02
+      crit-damage: 0.828
+      penetration: 0.04
       damage-modifier: 0.9
       durability: 900
       thread-slots: 1
       woodcutting-exp-bonus: 0.15
       woodcutting-extra-drop-chance: 0.03
     per-quality:
-      attack-power: 192
-      crit-chance: 0.003
-      crit-damage: 0.02
-      penetration: 0.004
+      attack-power: 186.870603
+      crit-chance: 0.0015
+      crit-damage: 0.023
+      penetration: 0.002
       durability: 150
     use-level-requirement: 60
     use-skill: HEAVY_WEAPONS
     quality-mode-offset: -6
     random:
       attack-power:
-        min: -645.12
-        max: 806.4
+        min: -627.885225
+        max: 784.856531
       crit-damage:
-        min: -0.12
-        max: 0.18
+        min: -0.138
+        max: 0.207
       crit-chance:
-        min: -0.04
-        max: 0.06
+        min: -0.02
+        max: 0.03
   NETHERITE_CHESTPLATE#5740:
     fixed:
       defense-rate: 0.03
@@ -10499,32 +10611,32 @@ items:
         max: 2.3
   NETHERITE_SPEAR#5740:
     fixed:
-      attack-power: 2046.72
+      attack-power: 1961.44
       attack-speed: 0.8
       attack-reach: 2.2
       crit-chance: 0.05
       crit-damage: 0.48
-      penetration: 0.24
+      penetration: 0.312
       damage-modifier: 0.59
       durability: 936
-      fixed-damage: 5.09
+      fixed-damage: 4.876
       thread-slots: 1
     per-quality:
-      attack-power: 97.44
+      attack-power: 93.38
       crit-chance: 0.003
       crit-damage: 0.02
-      penetration: 0.004
+      penetration: 0.0052
       durability: 156
     use-level-requirement: 45
     use-skill: LIGHT_WEAPONS
     quality-mode-offset: -5
     random:
       attack-power:
-        min: -327.36
-        max: 408.96
+        min: -313.72
+        max: 391.92
       penetration:
-        min: -0.06
-        max: 0.09
+        min: -0.078
+        max: 0.117
       crit-damage:
         min: -0.1
         max: 0.15

@@ -256,19 +256,26 @@ class WeaponDpsParityTest {
                 }
                 double hd = effectiveDps(heavy.get(), chargeEnabled, chargeMin, chargeExponent);
                 double ld = effectiveDps(light.get(), chargeEnabled, chargeMin, chargeExponent);
-                double ratio = hd / ld;
+                // W-72 のリーチ補正は「重武器 = 長リーチ」を意図的に弱くしているので、
+                // その意図ぶんを割り戻してから帯へ当てる。割り戻さないと、重武器/軽武器の
+                // パリティは壊れていないのに(=このテストが守っている設計は無傷なのに)落ちる。
+                double intended = WeaponTierParityTest.REACH_DPS_FACTOR.getOrDefault(pair[0], 1.0)
+                        / WeaponTierParityTest.REACH_DPS_FACTOR.getOrDefault(pair[1], 1.0);
+                double ratio = hd / ld / intended;
                 comparisons++;
                 String label = "Lv" + band + " " + heavy.get().id() + " / " + light.get().id();
                 observed.put(label, ratio);
+                String reachNote = Math.abs(intended - 1.0) < 1e-9 ? ""
+                        : String.format("(素の比 %.4f ÷ W-72 のリーチ補正 %.4f)", hd / ld, intended);
                 assertTrue(ratio <= MAX_HEAVY_OVER_LIGHT,
-                        label + " の実効DPS比が " + String.format("%.4f", ratio) + " で上限 "
+                        label + " の実効DPS比が " + String.format("%.4f", ratio) + reachNote + " で上限 "
                                 + MAX_HEAVY_OVER_LIGHT + " を超えている。重武器の目標帯は"
                                 + "「軽武器と同等〜+15%」。attack-power を上げたなら下げ直すこと"
                                 + "(attack-speed ×0.85 は一撃の重さで差を付ける設計の根幹なので、"
                                 + "そちらで調整しない)。実効DPS = attack-power × damage-modifier期待値 ×"
                                 + " 手数係数、手数係数は無敵時間10tick(最大2発/秒)と melee-charge で決まる。");
                 assertTrue(ratio >= MIN_HEAVY_OVER_LIGHT,
-                        label + " の実効DPS比が " + String.format("%.4f", ratio) + " で下限 "
+                        label + " の実効DPS比が " + String.format("%.4f", ratio) + reachNote + " で下限 "
                                 + MIN_HEAVY_OVER_LIGHT + " を割っている。重武器は手数を捨てている分、"
                                 + "一撃で取り返せないと選ぶ理由が無くなる。");
             }
