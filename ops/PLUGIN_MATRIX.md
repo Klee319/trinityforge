@@ -36,6 +36,7 @@
 | DPSChecker-TF | — | ○ | ○ | |
 | CommandBinderGUI | — | ○ | ○ | |
 | Quick-EnderChest | — | ○ | ○ | EC は HuskSync が同期するので両方で使える |
+| ~~DeathChest~~ → **AxGraves** | — | ○ | ○ | **2026-08-18 差し替え**。DeathChest 1.5.7 は保存キーの末尾がプレイヤー名で、Floodgate の `.` 接頭辞が入ると Bukkit の YAML がキーを入れ子と解釈し、`ClassCastException` で enable できない（上流に修正版なし）。AxGraves は `data.json` を **UUID** で持つので起こりえない。差し替えは [swap-deathchest-to-axgraves.ps1](scripts/swap-deathchest-to-axgraves.ps1) |
 | **SetHome** | — | ○ | ○ | home は同期されず**サーバごとに独立**。要件どおり |
 | **EliteMobs** | — | ○ | **✕ 推奨** | 下記 |
 | **BlueMap** | — | ○ | **✕ 推奨** | 下記 |
