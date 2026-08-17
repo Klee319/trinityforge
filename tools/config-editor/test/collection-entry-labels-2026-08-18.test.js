@@ -137,6 +137,20 @@ test("バニラの武器・道具が図鑑に登録されている(1件も無い
   }
 });
 
+test("圧縮素材(*_<n>x)は material_compressed 以外のカテゴリに置かれていない", () => {
+  // 2026-08-18: material_ars(現 material_misc)に *_4x / stone_5x の11件が混ざっていた。
+  // 圧縮シリーズは ID の形で機械的に判定できるので、散り始めたら落ちるようにしておく。
+  const cats = (collection && collection.categories && collection.categories.items) || {};
+  const strays = [];
+  for (const [id, cat] of Object.entries(cats)) {
+    if (id === "material_compressed") continue;
+    for (const e of (Array.isArray(cat.entries) ? cat.entries : [])) {
+      if (/_\d+x$/.test(String(e))) strays.push(id + "/" + e);
+    }
+  }
+  assert.deepEqual(strays, [], "圧縮素材は material_compressed にまとめること");
+});
+
 test("一括追加の走査集合は items ならバニラ Material も含む(*_SWORD が引ける)", () => {
   const catalogCandidates = [{ id: "infinity_sword" }, { id: "thread_luck" }];
   const ids = bulkAddCandidateIds("items", catalogCandidates, vanillaMaterials, ["ZOMBIE"]);

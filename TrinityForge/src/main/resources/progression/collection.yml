@@ -551,23 +551,20 @@ categories:
         - thread_thrift
         - thread_timber
         - thread_translate
-    material_ars:
-      display-name: Ars素材
+    material_misc:
+      display-name: 素材等
+      # 2026-08-18: 圧縮素材(*_4x / stone_5x の11件)が混ざっていたので material_compressed へ移し、
+      # 残りはコア・ガチャ券・スクラップ・中間素材で「Ars素材」という括りが実態と合わないため改名した。
+      # 旧カテゴリID: material_ars (他の yml から参照されていないことを確認済み)。
       order: 15
       entries:
-        - andesite_4x
         - copper_ingot_scrap
         - core_ground
         - core_jewelry
         - core_meat
         - core_vegetable
         - core_wood
-        - deepslate_4x
         - diamond_scrap
-        - diorite_4x
-        - dirt_4x
-        - emerald_block_4x
-        - end_stone_4x
         - gacha_ticket_0
         - gacha_ticket_1
         - gacha_ticket_2
@@ -577,22 +574,17 @@ categories:
         - gacha_ticket_digging
         - gacha_ticket_fishing
         - gold_ingot_scrap
-        - granite_4x
         - hard_metal
         - heavy_metal
         - iron_ingot_scrap
         - leather_scrap
         - magebloom_fiber
         - netherite_ingot_scrap
-        - netherrack_4x
         - reinforced_fiber
         - reinforced_leather
-        - sand_4x
         - source_gem
         - source_gem_block
         - sourcestone
-        - stone_4x
-        - stone_5x
         - tf_crystal_apple
         - tf_scrap
         - turtle_scute_scrap
@@ -609,6 +601,7 @@ categories:
         - andesite_1x
         - andesite_2x
         - andesite_3x
+        - andesite_4x
         - apple_1x
         - apple_2x
         - apple_3x
@@ -660,15 +653,18 @@ categories:
         - deepslate_1x
         - deepslate_2x
         - deepslate_3x
+        - deepslate_4x
         - diamond_block_1x
         - diamond_block_2x
         - diamond_block_3x
         - diorite_1x
         - diorite_2x
         - diorite_3x
+        - diorite_4x
         - dirt_1x
         - dirt_2x
         - dirt_3x
+        - dirt_4x
         - dragon_breath_1x
         - dragon_breath_2x
         - dragon_breath_3x
@@ -677,9 +673,11 @@ categories:
         - emerald_block_1x
         - emerald_block_2x
         - emerald_block_3x
+        - emerald_block_4x
         - end_stone_1x
         - end_stone_2x
         - end_stone_3x
+        - end_stone_4x
         - glow_berries_1x
         - glow_berries_2x
         - glow_berries_3x
@@ -689,6 +687,7 @@ categories:
         - granite_1x
         - granite_2x
         - granite_3x
+        - granite_4x
         - hay_block_1x
         - hay_block_2x
         - hay_block_3x
@@ -714,6 +713,7 @@ categories:
         - netherrack_1x
         - netherrack_2x
         - netherrack_3x
+        - netherrack_4x
         - oak_wood_1x
         - oak_wood_2x
         - oak_wood_3x
@@ -745,6 +745,7 @@ categories:
         - sand_1x
         - sand_2x
         - sand_3x
+        - sand_4x
         - shulker_shell_1x
         - shulker_shell_2x
         - source_gem_block_1x
@@ -755,6 +756,8 @@ categories:
         - stone_1x
         - stone_2x
         - stone_3x
+        - stone_4x
+        - stone_5x
         - sweet_berries_1x
         - sweet_berries_2x
         - sweet_berries_3x
