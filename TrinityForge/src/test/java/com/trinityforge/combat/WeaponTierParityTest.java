@@ -78,48 +78,71 @@ class WeaponTierParityTest {
      */
     private static final Map<String, double[]> MELEE_BAND = Map.ofEntries(
             Map.entry("sword", new double[] {1.00, 1.00}),
-            Map.entry("dagger", new double[] {0.75, 0.90}),
-            Map.entry("rapier", new double[] {0.75, 0.90}),
-            Map.entry("grate_sword", new double[] {0.70, 0.85}),
-            Map.entry("greataxe", new double[] {0.78, 0.95}),
-            Map.entry("warhammer", new double[] {0.88, 1.00}),
-            Map.entry("scythe", new double[] {0.85, 0.95}),
-            // 槍とメイスは 0.85 狙い。0.90 まで上げると attack-power の単品最大が
-            // stat-caps の余裕を食い潰す(上のクラスコメント参照)。メイスは
-            // power-attack-damage 0.35 があるので空中では約 1.15 倍になる。
-            Map.entry("spear", new double[] {0.80, 0.95}),
-            Map.entry("axe", new double[] {0.85, 0.95}),
-            Map.entry("mace", new double[] {0.80, 0.95}),
+            Map.entry("dagger", new double[] {0.78, 0.95}),
+            Map.entry("rapier", new double[] {0.73, 0.88}),
+            Map.entry("grate_sword", new double[] {0.67, 0.82}),
+            Map.entry("greataxe", new double[] {0.74, 0.92}),
+            Map.entry("warhammer", new double[] {0.85, 0.97}),
+            Map.entry("scythe", new double[] {0.82, 0.92}),
+            // 2026-08-18 (W-72): リーチを ±2.0 まで広げたのに合わせて、全部の帯を
+            // 「リーチ 1.0 につき実効DPS 5%」で移動させた(下の REACH のコメント参照)。
+            // 移動前の帯は sword 1.00 / dagger 0.75-0.90 / rapier 0.75-0.90 /
+            // grate_sword 0.70-0.85 / greataxe 0.78-0.95 / warhammer 0.88-1.00 /
+            // scythe 0.85-0.95 / spear 0.80-0.95 / axe 0.85-0.95 / mace 0.80-0.95 /
+            // trident 0.85-0.95。丸めは必ず外側へ(下限は切り捨て・上限は切り上げ)。
+            //
+            // メイスは power-attack-damage 0.35 があるので空中では約 1.15 倍になる。
+            // 上限側を 0.90 より上へ動かすときは attack-power の単品最大が stat-caps の
+            // 余裕を食い潰さないか必ず確かめる(上のクラスコメント参照)。
+            Map.entry("spear", new double[] {0.76, 0.91}),
+            Map.entry("axe", new double[] {0.84, 0.95}),
+            Map.entry("mace", new double[] {0.83, 0.99}),
             // 2026-08-14: トライデントを遠隔扱いから近接武器へ移した(下の
-            // rangedWeaponsKeepTheirMinimumMeleeSpeed のコメント参照)。attack-speed 1.6 で
-            // 実測 87.6〜92.3%。帯を持たせないと「近接として使う武器なのに帯の検査だけ素通り」
-            // という、この表がもともと塞いだはずの穴が復活する。
-            Map.entry("trident", new double[] {0.85, 0.95})
+            // rangedWeaponsKeepTheirMinimumMeleeSpeed のコメント参照)。帯を持たせないと
+            // 「近接として使う武器なのに帯の検査だけ素通り」という、この表がもともと
+            // 塞いだはずの穴が復活する。
+            Map.entry("trident", new double[] {0.81, 0.92})
     );
 
     /**
      * 武器種ごとの {@code attack-reach}（バニラの {@code entity_interaction_range} 3.0 への<b>加算</b>）。
      * 剣 = 0（＝バニラの剣そのまま）を基準に、体感できる刻みへ引き直した表 (W-35)。
      * ユーザー決定 2026-08-05「剣=バニラの剣の基準で」。
+     *
+     * <p><b>2026-08-18 (W-72) に幅を広げた</b>。ユーザー指示「各種武器のリーチにもっとがっつり
+     * 差をつけていい。短剣は実効 1.5、槍は +2 くらいを目安に他も分散させる」。
+     * 旧表の幅は −0.5〜+1.0（実効 2.5〜4.0）しかなく、実測では武器種の差が体感できなかった。
+     *
+     * <p><b>火力補正</b>: リーチを伸ばした武器はそのぶん実効DPSを下げ、縮めた武器は上げる。
+     * 強さは<b>リーチ 1.0 あたり 5%</b>（ユーザー決定 2026-08-18）。旧値からの差 ×5% を
+     * 符号反転して {@code attack-power} と {@code fixed-damage} に一律で掛けた:
+     * 短剣 +5% / メイス +4% / 剣 ±0 / 斧 −1% / レイピア −2.5% / ウォーハンマー −3% /
+     * 鎌 −3.5% / 大剣・大斧・トライデント・狩人の投槍 −4% / 槍・ハルバード −5%。
+     * {@code bleed-damage} は<b>意図的に据え置いた</b> —— 上位段の鎌は {@code stat-caps} の
+     * 上限 4,500 に張り付けてあり、下げると「上限張り付き」が外れて
+     * {@link #scytheBleedIsMeaningfulUpToTheCap} の出血比率（8〜25%）に落ちるため。
      */
     private static final Map<String, Double> REACH = new LinkedHashMap<>();
 
     static {
-        REACH.put("dagger", -0.5);       // 2.50 最短
+        REACH.put("dagger", -1.5);       // 1.50 最短。密着して刺す武器
+        REACH.put("mace", -0.8);         // 2.20 短い打撃武器
         REACH.put("sword", 0.0);         // 3.00 基準
-        REACH.put("mace", 0.0);          // 3.00 短い打撃武器
         REACH.put("bow", 0.0);
         REACH.put("crossbow", 0.0);
         REACH.put("wand", 0.0);
-        REACH.put("axe", 0.2);           // 3.20 片手斧
-        REACH.put("rapier", 0.3);        // 3.30 刺突
-        REACH.put("warhammer", 0.4);     // 3.40 両手の柄
-        REACH.put("scythe", 0.5);        // 3.50 長柄
-        REACH.put("grate_sword", 0.6);   // 3.60
-        REACH.put("greataxe", 0.6);      // 3.60
-        REACH.put("trident", 0.8);       // 3.80 投擲槍
-        REACH.put("spear", 1.0);         // 4.00 最長
-        REACH.put("halberd", 1.0);       // 4.00 最長
+        REACH.put("axe", 0.4);           // 3.40 片手斧
+        REACH.put("rapier", 0.8);        // 3.80 刺突
+        REACH.put("warhammer", 1.0);     // 4.00 両手の柄
+        REACH.put("scythe", 1.2);        // 4.20 長柄
+        REACH.put("grate_sword", 1.4);   // 4.40
+        REACH.put("greataxe", 1.4);      // 4.40
+        REACH.put("trident", 1.6);       // 4.60 投擲槍
+        REACH.put("spear", 2.0);         // 5.00 武器種としては最長
+        REACH.put("halberd", 2.0);       // 5.00 武器種としては最長
+        // 狩人の投槍は 2026-08-02 に「game 内で最長」として決めた単発品。W-72 で槍が 2.0 まで
+        // 伸びたので、その肩書きを保つために 1.4 → 2.2 へ引き上げた（槍の1段上）。
+        REACH.put("javelin", 2.2);       // 5.20 game 内で最長
     }
 
     /** id の接尾辞から武器種を引く。長い接尾辞を先に置く（grate_sword が sword に食われないため）。 */
@@ -431,13 +454,14 @@ class WeaponTierParityTest {
     @DisplayName("attack-reach が武器種ごとの表と一致している（剣=バニラ3.0が基準）")
     void reachMatchesThePerTypeTable() {
         List<String> problems = new ArrayList<>();
-        // 狩人の投槍(hunter_javelin)は 2026-08-02 に「game 内で最長」として 1.4 を意図的に決めた
-        // 単発品なので表から外す。ここに足すと表の意味が「武器種の規約」でなくなる。
-        Set<String> exempt = Set.of("hunter_javelin");
+        // 2026-08-18 (W-72): 狩人の投槍(hunter_javelin)を除外リストから表側へ移した。
+        // 槍が 2.0 まで伸びたので 1.4 のままでは「game 内で最長」という決定(2026-08-02)が
+        // 成り立たず、除外しておくと<b>その矛盾を検査が一切見なくなる</b>。javelin 型は
+        // この1本しか無いので、表に 2.2 を書けば武器種の規約としてそのまま守れる。
         int checked = 0;
         for (Weapon w : loadWeapons()) {
             Double expected = REACH.get(w.type());
-            if (expected == null || exempt.contains(w.id())) {
+            if (expected == null) {
                 continue;
             }
             checked++;
