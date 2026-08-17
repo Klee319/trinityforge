@@ -189,6 +189,13 @@ public final class CatalogWorkbenchListener implements Listener {
         if (foreignRecipeOwnsGridItems(selected, matrix)) {
             return;
         }
+        // 2026-08-18: 装備カタログ品の素通し (2026-08-17) をこの取り出しゲートに入れ忘れていた。
+        // onPrepareCraft だけ直したので結果枠にはディスペンサーが出るのに、クリックした瞬間
+        // ここで setCancelled(true) され「見えるのに取れない」状態のままだった
+        // ── 直上のコメントがまさに警告している失敗の仕方を、そのまま踏んでいた。
+        if (gridCatalogItemsAreAllGear(matrix)) {
+            return;
+        }
         int gridWidth = matrix.length == 4 ? 2 : 3;
         for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
             if (matches(matrix, gridWidth, candidate.spec())) {

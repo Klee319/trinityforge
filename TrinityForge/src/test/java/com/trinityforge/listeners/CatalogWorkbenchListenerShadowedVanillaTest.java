@@ -196,4 +196,41 @@ class CatalogWorkbenchListenerShadowedVanillaTest {
 
         verify(inventory, org.mockito.Mockito.never()).setResult(any());
     }
+
+    /**
+     * 2026-08-18: 上のテストが {@code onPrepareCraft} しか見ていなかったため、
+     * <b>結果枠にはディスペンサーが出るのに、クリックすると取れない</b>状態が残っていた
+     * ({@code onCraftItem} が装備の素通しを持たず {@code setCancelled(true)} していた)。
+     *
+     * <p>プレビューと取り出しは別のイベントなので、<b>「作れる」を主張するテストは必ず両方通す</b>。
+     * 片方だけ緑にすると「見えるのに取れない」という、報告されたのと区別のつかない症状で残る。
+     */
+    @Test
+    @DisplayName("スタック不可の装備カタログ品は結果を取り出すところまで通る")
+    void unstackableCatalogGearSurvivesTheTakeGate() {
+        CatalogRecipeRegistrar registrar = mock(CatalogRecipeRegistrar.class);
+        when(registrar.registered(any())).thenReturn(Optional.empty());
+        when(registrar.allRegistered()).thenReturn(java.util.List.of());
+        listener = new CatalogWorkbenchListener(registrar, mock(ItemCatalogConfig.class));
+
+        ShapelessRecipe vanilla = new ShapelessRecipe(
+                new NamespacedKey("minecraft", "dispenser"), new ItemStack(Material.DISPENSER));
+        vanilla.addIngredient(Material.BOW);
+        ItemStack tfBow = new ItemStack(Material.BOW);
+        ItemMeta meta = tfBow.getItemMeta();
+        meta.setCustomModelData(700);
+        ItemData.of(meta).setCatalogId("copper_bow");
+        tfBow.setItemMeta(meta);
+
+        CraftingInventory inventory = mock(CraftingInventory.class);
+        when(inventory.getMatrix()).thenReturn(new ItemStack[] {tfBow, null, null, null});
+        org.bukkit.event.inventory.CraftItemEvent event =
+                mock(org.bukkit.event.inventory.CraftItemEvent.class);
+        when(event.getRecipe()).thenReturn(vanilla);
+        when(event.getInventory()).thenReturn(inventory);
+
+        listener.onCraftItem(event);
+
+        verify(event, org.mockito.Mockito.never()).setCancelled(true);
+    }
 }
