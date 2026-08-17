@@ -463,7 +463,10 @@ public final class TrinityForge extends JavaPlugin {
                 this, experienceDispatcher, progressionCatalog,
                 placedBlockTracker, roleBuffResolver,
                 configManager.dedicatedEffects(), aggregator,
-                configManager.mobLevelTable());
+                configManager.mobLevelTable(),
+                // 2026-08-18: 破壊時バニラEXPのベース量を config 化したので skillExp も渡す
+                // (渡さないと BreakVanillaExpLedger.DEFAULT_BASE_EXP 固定になり yml が効かない)。
+                configManager.skillExp());
         this.chainBreakExpGrant = nativeSkillExperienceListener::grantChainBreak;
         getServer().getPluginManager().registerEvents(nativeSkillExperienceListener, this);
         getServer().getPluginManager().registerEvents(

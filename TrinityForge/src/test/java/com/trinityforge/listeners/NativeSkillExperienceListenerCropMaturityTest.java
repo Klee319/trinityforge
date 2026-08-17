@@ -74,9 +74,12 @@ class NativeSkillExperienceListenerCropMaturityTest {
         Fixture fixture = fixture();
         Block cane = ageableBlock(Material.SUGAR_CANE, 0, 15, Material.SUGAR_CANE, fixture.player());
 
-        fixture.listener().onBlockBreak(breakEvent(cane, fixture.player()));
+        // 2026-08-18: ベース量は config 化され既定 0.25(旧 1 の 1/4)。端数を持ち越すので4回で1EXP。
+        // 検証したいのは金額ではなく「成熟ガードの return false で止まらず解放経路まで来る」こと。
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(cane, fixture.player()));
+        }
 
-        // BASE_BREAK_EXP=1、ボーナス0 → 1。以前は成熟ガードの return false でここまで来られなかった。
         verify(fixture.player()).giveExp(1);
     }
 
@@ -99,10 +102,14 @@ class NativeSkillExperienceListenerCropMaturityTest {
         Fixture fixture = fixture();
         Block carrots = ageableBlock(Material.CARROTS, 7, 7, Material.CARROT, fixture.player());
 
-        fixture.listener().onBlockBreak(breakEvent(carrots, fixture.player()));
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(carrots, fixture.player()));
+        }
 
         // DROP_SUM(プラグイン未起動時の既定)なのでドロップ品CARROT行の10。
-        verify(fixture.dispatcher()).grant(fixture.player().getUniqueId(), SkillId.FARMING, 10.0);
+        verify(fixture.dispatcher(), org.mockito.Mockito.times(4))
+                .grant(fixture.player().getUniqueId(), SkillId.FARMING, 10.0);
+        // ベース 0.25 なので4回で1EXP(2026-08-18 の config 化)。
         verify(fixture.player()).giveExp(1);
     }
 
@@ -120,9 +127,13 @@ class NativeSkillExperienceListenerCropMaturityTest {
         Block carrots = ageableBlock(Material.CARROTS, 7, 7, Material.CARROT, fixture.player());
         when(fixture.placedBlockTracker().clearIfPlaced(carrots)).thenReturn(true);
 
-        fixture.listener().onBlockBreak(breakEvent(carrots, fixture.player()));
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(carrots, fixture.player()));
+        }
 
-        verify(fixture.dispatcher()).grant(fixture.player().getUniqueId(), SkillId.FARMING, 10.0);
+        verify(fixture.dispatcher(), org.mockito.Mockito.times(4))
+                .grant(fixture.player().getUniqueId(), SkillId.FARMING, 10.0);
+        // ベース 0.25 なので4回で1EXP(2026-08-18 の config 化)。
         verify(fixture.player()).giveExp(1);
     }
 

@@ -570,6 +570,34 @@
       ]
     ));
 
+    // break-vanilla-exp.base-exp: 破壊時バニラEXP(スキルツリーの解放ノード)で落ちるバニラEXPオーブの量。
+    // 2026-08-18 ユーザー要望で 1.0 -> 0.25 へ下げつつ config 化した。小数を書いてよい(端数は持ち越し)。
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "破壊時バニラEXP" })],
+      [
+        h("div", { class: "form-field" }, [
+          window.fieldLabelEl("base-exp", {
+            label: "1回の破壊あたりのベース量",
+            desc: "スキルツリーで「破壊時バニラEXP」を解放したプレイヤーが採取扱いのブロックを壊したときに"
+              + "落ちる【バニラのEXPオーブ】の量です(TFのスキルEXPとは別物)。"
+              + "実際の付与量はこの値 ×(1 + 倍率ステの合計)。0.25(既定)は旧実装1.0の1/4。"
+              + "0にすると解放しても増えません。小数を書いてよく、端数はプレイヤーごとに持ち越して"
+              + "1貯まったぶんだけ渡します(0.25なら4回壊して1EXP)。",
+            hideKey: true
+          }),
+          window.numberInput(
+            (working["break-vanilla-exp"] || {})["base-exp"],
+            (v) => {
+              if (v === null || v === "") return;
+              if (!working["break-vanilla-exp"]) working["break-vanilla-exp"] = {};
+              working["break-vanilla-exp"]["base-exp"] = v;
+            },
+            { int: false }
+          )
+        ])
+      ]
+    ));
+
     // power.levels-per-skill-point: 総合(POWER)を何レベル進めるごとにスキルポイントを1点与えるか。
     // ページ上部の専用カードだけに出す。汎用セクションループ側でも working.power は
     // (progression-power の曲線を持つため)「レベル曲線・獲得レート」の総合カードへ合流するので、

@@ -917,6 +917,20 @@ function validateTfSkillExp(data, errors) {
       continue;
     }
     if (!isPlainObject(section)) { errors.push(`${skill}: マップである必要があります`); continue; }
+    // 2026-08-18: 破壊時バニラEXPのベース量。0以上の数値のみ(負値はEXPが減る向きの寄与になる)。
+    // 明示的に検証しないと base-exp のスペルミスが黙って無視され、「設定したのに効かない」になる。
+    if (skill === "break-vanilla-exp") {
+      const baseExp = section["base-exp"];
+      if (baseExp !== undefined && baseExp !== null && (!isNumber(baseExp) || baseExp < 0)) {
+        errors.push("break-vanilla-exp.base-exp: 0以上の数値である必要があります");
+      }
+      validateNonNegativeExpMap(
+        section["per-skill-base-exp"],
+        "break-vanilla-exp.per-skill-base-exp",
+        errors
+      );
+      continue;
+    }
     if (skill === "gathering") {
       const mode = section["exp-mode"];
       if (mode !== undefined && mode !== null

@@ -95,6 +95,14 @@ public final class SkillExpConfig {
     // max           : ドロップ合計とブロック値の大きい方。
     private volatile GatheringExpMode gatheringExpMode = GatheringExpMode.DROP_SUM;
     /**
+     * 破壊時バニラEXP 1回分のベース量。既定は
+     * {@link com.trinityforge.stats.BreakVanillaExpLedger#DEFAULT_BASE_EXP}(旧実装 1.0 の 1/4)。
+     * <b>出荷 yml と必ず一致させること</b>({@code SkillExpConfigTest} のドリフト検知が突き合わせる)。
+     */
+    private volatile double breakVanillaBaseExp = com.trinityforge.stats.BreakVanillaExpLedger.DEFAULT_BASE_EXP;
+    /** 採取スキルID(大文字)→ベース量の上書き。空 = 全スキル共通値のみ。 */
+    private volatile Map<String, Double> breakVanillaBaseExpPerSkill = Map.of();
+    /**
      * 討伐時ベースの武器スキルEXP基礎値。N5(2026-07-31)で {@code ARCHERY} を追加した(弓術も軽・重武器と
      * 同じ討伐時ベースへ統一)。同時に {@code LIGHT_WEAPONS} の 25.0 を出荷 yml の 20 へ揃えた
      * (既定値だけ 25 で出荷 yml が 20 という drift があり、yml を消した環境だけ挙動が変わっていた)。
@@ -325,6 +333,31 @@ public final class SkillExpConfig {
     /** タスク1: 採取EXPの算出方式(既定 {@link GatheringExpMode#DROP_SUM} = 現行挙動と完全一致)。 */
     public GatheringExpMode gatheringExpMode() {
         return gatheringExpMode;
+    }
+
+    /**
+     * 破壊時バニラEXP({@code feature:break-vanilla-exp-<skill>})1回分のベース付与量
+     * (2026-08-18 ユーザー要望「もらえるバニラ経験値が多すぎる。現状の 1/4 程度の量にして
+     * 設定もできるようにして」)。
+     *
+     * <p>採取スキルID({@code MINING} 等)で上書きがあればそれを返し、無ければ全スキル共通の
+     * {@code break-vanilla-exp.base-exp} を返す。整数化と端数の持ち越しは
+     * {@link com.trinityforge.stats.BreakVanillaExpLedger} の責務
+     * ── ここは<b>1回あたりの実数量</b>だけを決める。
+     */
+    public double breakVanillaBaseExp(String skillId) {
+        if (skillId != null && !skillId.isBlank()) {
+            Double override = breakVanillaBaseExpPerSkill.get(skillId.trim().toUpperCase(java.util.Locale.ROOT));
+            if (override != null) {
+                return override;
+            }
+        }
+        return breakVanillaBaseExp;
+    }
+
+    /** {@code break-vanilla-exp.per-skill-base-exp} の不変コピー(空 = 全スキル共通値のみ)。 */
+    public Map<String, Double> breakVanillaBaseExpPerSkill() {
+        return breakVanillaBaseExpPerSkill;
     }
 
     /**
@@ -561,6 +594,11 @@ public final class SkillExpConfig {
                 yaml.getBoolean("spot-diminishing.exempt-dungeon-worlds", true);
         // タスク1: 採取EXPの算出方式。未知の値/キー欠落は安全側でdrop_sum(現行挙動)にフォールバックする。
         this.gatheringExpMode = parseGatheringExpMode(yaml.getString("gathering.exp-mode", "drop_sum"));
+        // 破壊時バニラEXPのベース量(2026-08-18)。負値は0へ丸める(EXPが減る向きの寄与は作らない)。
+        this.breakVanillaBaseExp = Math.max(0.0, yaml.getDouble("break-vanilla-exp.base-exp",
+                com.trinityforge.stats.BreakVanillaExpLedger.DEFAULT_BASE_EXP));
+        this.breakVanillaBaseExpPerSkill =
+                readNonNegativeMap(yaml, "break-vanilla-exp.per-skill-base-exp", true);
         Map<String, Double> killBases = readNonNegativeMap(yaml, "combat.kill-exp.base", true);
         if (killBases.isEmpty()) {
             killBases = Map.of("HEAVY_WEAPONS", 30.0, "LIGHT_WEAPONS", 20.0, "ARCHERY", 25.0);

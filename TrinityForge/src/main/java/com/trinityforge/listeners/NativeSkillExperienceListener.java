@@ -76,8 +76,13 @@ public final class NativeSkillExperienceListener implements Listener {
     private static final String BREW_MODE_MANUAL = "manual";
     private static final String BREW_MODE_AUTO = "auto";
 
-    /** 破壊時バニラEXP解放({@code break-vanilla-exp-<skill>})1回分のベース付与量。倍率は各stat側でチューニング。 */
-    private static final int BASE_BREAK_EXP = 1;
+    /**
+     * 破壊時バニラEXPのベース量と端数の持ち越し(2026-08-18)。
+     * かつては {@code BASE_BREAK_EXP = 1} のハードコードだったが、
+     * ユーザー要望で config 化({@code stats/skill-exp.yml break-vanilla-exp.base-exp})し既定を 1/4 にした。
+     */
+    private final com.trinityforge.stats.BreakVanillaExpLedger breakVanillaExp =
+            new com.trinityforge.stats.BreakVanillaExpLedger();
     private static final String VANILLA_EXP_BONUS = StatKeys.canonical("vanilla_exp_bonus");
     private static final String BREAK_VANILLA_EXP_BONUS = StatKeys.canonical("break_vanilla_exp_bonus");
     // 2026-08-14: enchant_exp_gain_bonus はここで消費していたが、職業EXP増加の共通機構
@@ -101,6 +106,12 @@ public final class NativeSkillExperienceListener implements Listener {
      * null許容 — 未配線(以下の旧コンストラクタ経由、既存テスト互換)なら防具スキルEXP抑止は無効。
      */
     private final MobLevelTableConfig mobLevelTable;
+    /**
+     * {@code stats/skill-exp.yml}。破壊時バニラEXPのベース量({@code break-vanilla-exp.base-exp})を引く。
+     * null許容 — 未配線(旧コンストラクタ経由、既存テスト互換)なら
+     * {@link com.trinityforge.stats.BreakVanillaExpLedger#DEFAULT_BASE_EXP} を使う。
+     */
+    private final com.trinityforge.config.domains.SkillExpConfig skillExp;
 
     public NativeSkillExperienceListener(Plugin plugin, NativeExperienceDispatcher progression,
                                          NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker) {
@@ -132,7 +143,25 @@ public final class NativeSkillExperienceListener implements Listener {
                                          DedicatedEffectsConfig dedicatedEffects,
                                          PlayerStatAggregator aggregator,
                                          MobLevelTableConfig mobLevelTable) {
+        this(plugin, progression, catalog, placedBlockTracker, roleBuffResolver, dedicatedEffects,
+                aggregator, mobLevelTable, null);
+    }
+
+    /**
+     * @param skillExp {@code stats/skill-exp.yml}。破壊時バニラEXPのベース量
+     *                 ({@code break-vanilla-exp.base-exp}、2026-08-18 に config 化)を引くためだけに使う。
+     *                 null可 —— その場合は {@link com.trinityforge.stats.BreakVanillaExpLedger#DEFAULT_BASE_EXP}
+     *                 (出荷 yml と同じ値)にフォールバックする。
+     */
+    public NativeSkillExperienceListener(Plugin plugin, NativeExperienceDispatcher progression,
+                                         NativeSkillCatalog catalog, PlacedBlockTracker placedBlockTracker,
+                                         RoleBuffResolver roleBuffResolver,
+                                         DedicatedEffectsConfig dedicatedEffects,
+                                         PlayerStatAggregator aggregator,
+                                         MobLevelTableConfig mobLevelTable,
+                                         com.trinityforge.config.domains.SkillExpConfig skillExp) {
         this.plugin = plugin;
+        this.skillExp = skillExp;
         this.progression = progression;
         this.catalog = catalog;
         this.placedBlockTracker = placedBlockTracker;
@@ -272,7 +301,14 @@ public final class NativeSkillExperienceListener implements Listener {
         if (perSkillKey != null) {
             bonus += totals.totalOf(perSkillKey);
         }
-        int amount = (int) Math.round(BASE_BREAK_EXP * (1.0 + Math.max(0.0, bonus)));
+        // 2026-08-18 ユーザー要望「もらえるバニラ経験値が多すぎる。現状の1/4程度にして設定もできるように」:
+        // ベース量は stats/skill-exp.yml の break-vanilla-exp.base-exp(既定 0.25 = 旧 1.0 の 1/4)。
+        // Math.round で整数化していた旧実装のままベースを小数にすると、bonus 0 では常に 0 へ丸められて
+        // 機能が死ぬので、端数はプレイヤーごとに持ち越す(BreakVanillaExpLedger)。
+        double baseExp = skillExp == null
+                ? com.trinityforge.stats.BreakVanillaExpLedger.DEFAULT_BASE_EXP
+                : skillExp.breakVanillaBaseExp(gatheringSkill);
+        int amount = breakVanillaExp.take(player.getUniqueId(), baseExp, bonus);
         if (amount > 0) {
             player.giveExp(amount);
         }

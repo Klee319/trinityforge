@@ -84,13 +84,17 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
     void miningUnlockReleasesVanillaExpOnMiningBreaks() {
         Fixture fixture = fixtureUnlockedIn(SkillId.MINING);
 
-        fixture.listener().onBlockBreak(breakEvent(plainBlock(Material.STONE, Material.COBBLESTONE,
-                fixture.player()), fixture.player()));
+        // 2026-08-18: ベース量が config 化され既定 0.25 になった(旧 1 の 1/4)。端数は持ち越すので
+        // 「4回壊して1EXP」。1回だけ壊して giveExp(1) を期待していた旧アサーションはここで4回へ直した
+        // (検証したいのは金額そのものではなく『自分のツリーの破壊なら解放経路まで到達する』こと)。
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(plainBlock(Material.STONE, Material.COBBLESTONE,
+                    fixture.player()), fixture.player()));
+        }
 
-        // BASE_BREAK_EXP=1、ボーナス0 → 1。自分のツリーなので当然出る。
         verify(fixture.player()).giveExp(1);
         // 照会が「採掘として扱われた破壊」であることを明示的に縛る(スコープを取り違えていないこと)。
-        verify(fixture.dedicatedEffects()).isActive(fixture.player(),
+        verify(fixture.dedicatedEffects(), org.mockito.Mockito.atLeastOnce()).isActive(fixture.player(),
                 BreakVanillaExpBonusKeys.featureId(SkillId.MINING), SkillId.MINING);
     }
 
@@ -130,13 +134,18 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
     void woodcuttingUnlockReleasesVanillaExpOnlyOnWoodcuttingBreaks() {
         Fixture fixture = fixtureUnlockedIn(SkillId.WOODCUTTING);
 
-        fixture.listener().onBlockBreak(breakEvent(
-                plainBlock(Material.OAK_LOG, Material.OAK_LOG, fixture.player()), fixture.player()));
+        // ベース 0.25 なので4回で1EXP(2026-08-18 の config 化)。
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(
+                    plainBlock(Material.OAK_LOG, Material.OAK_LOG, fixture.player()), fixture.player()));
+        }
         verify(fixture.player()).giveExp(1);
 
-        fixture.listener().onBlockBreak(breakEvent(
-                plainBlock(Material.STONE, Material.COBBLESTONE, fixture.player()), fixture.player()));
-        // 採掘破壊では増えない(=1回のまま)。
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(
+                    plainBlock(Material.STONE, Material.COBBLESTONE, fixture.player()), fixture.player()));
+        }
+        // 採掘破壊では増えない(=1回のまま)。解放していないツリーの破壊は端数も積まない。
         verify(fixture.player()).giveExp(anyInt());
     }
 
