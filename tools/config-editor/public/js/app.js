@@ -206,7 +206,8 @@
       // (HIDDEN_CONFIG_IDS 経由でサイドバーから隠すので、この order にも含めない)。
       // enchant-gimmick / brew-gimmick は「その他ギミック」(crafting-features) から切り出した新タブ。
       order: [
-            "skill-exp", "level-broadcast", "skills-ars-magic", "skills-ars-smithing",
+            // level-broadcast は 2026-08-17 に「その他」へ移動(ユーザー指示)。
+            "skill-exp", "skills-ars-magic", "skills-ars-smithing",
             "gacha",
             "mining-gimmick", "smithing-gimmick", "woodcutting-gimmick", "digging-gimmick", "farming-gimmick",
             "fishing-gimmick",
@@ -216,7 +217,7 @@
     },
     {
       key: "other", title: "その他", level: "main",
-      order: ["role-buffs", "special-rewards", "achievements", "collection"]
+      order: ["role-buffs", "special-rewards", "achievements", "collection", "level-broadcast"]
     },
     {
       key: "mobs-dungeon", title: "モブダンジョン", level: "main",
@@ -886,6 +887,7 @@
         return window.buildUseRequirementsForm(data, { afkData });
       }
       case "tf-special-rewards": return window.buildSpecialRewardsForm(data);
+      case "tf-level-broadcast": return window.buildLevelBroadcastForm(data);
       case "tf-achievements": {
         // 2026-07-31: ここだけ候補を catalog.yml 単体から作っていたため、ArsPaper materials.yml
         // 由来の品(ダンジョンの印/次元の破片/ガチャ券…)が構造的に候補へ入らず、図鑑対象・付与

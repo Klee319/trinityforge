@@ -2815,6 +2815,80 @@ function validateExternalItems(data, errors) {
   }
 }
 
+// ---- progression/level-broadcast.yml (tf-level-broadcast) ----
+// 2026-08-17 新設。それまで schema: "generic" だったので「型が壊れていても保存できる」状態だった。
+// Java 側(LevelBroadcastConfig)は不正値を警告つきで既定へ戻すが、
+// message の差し込み欠落だけは「誰が何レベルになったのか分からない行」が流れる事故になるので、
+// 保存時に落とす(Java 側の警告と同じ条件)。
+function validateTfLevelBroadcast(data, errors) {
+  if (data === null) return;
+  if (!isPlainObject(data)) { errors.push("ルートはマップである必要があります"); return; }
+
+  if (data.enabled !== undefined && data.enabled !== null && typeof data.enabled !== "boolean") {
+    errors.push("enabled: 真偽値である必要があります");
+  }
+  if (data["include-power"] !== undefined && data["include-power"] !== null
+      && typeof data["include-power"] !== "boolean") {
+    errors.push("include-power: 真偽値である必要があります");
+  }
+  if (data["multiple-of"] !== undefined && data["multiple-of"] !== null) {
+    if (!isNonNegInteger(data["multiple-of"]) || data["multiple-of"] < 1) {
+      errors.push("multiple-of: 1以上の整数である必要があります");
+    }
+  }
+  if (data["max-announcements-per-batch"] !== undefined && data["max-announcements-per-batch"] !== null) {
+    if (!isNonNegInteger(data["max-announcements-per-batch"]) || data["max-announcements-per-batch"] < 1) {
+      errors.push("max-announcements-per-batch: 1以上の整数である必要があります");
+    }
+  }
+  if (data.message !== undefined && data.message !== null) {
+    if (typeof data.message !== "string") {
+      errors.push("message: 文字列(MiniMessage)である必要があります");
+    } else {
+      // %player% と %level% は必須。欠けると「誰が何レベルか分からない行」になる。
+      if (!data.message.includes("%player%")) errors.push("message: %player% が含まれていません");
+      if (!data.message.includes("%level%")) errors.push("message: %level% が含まれていません");
+    }
+  }
+
+  const sound = data.sound;
+  if (sound !== undefined && sound !== null) {
+    if (!isPlainObject(sound)) {
+      errors.push("sound はマップである必要があります");
+    } else {
+      if (sound.enabled !== undefined && sound.enabled !== null && typeof sound.enabled !== "boolean") {
+        errors.push("sound.enabled: 真偽値である必要があります");
+      }
+      if (sound.key !== undefined && sound.key !== null && typeof sound.key !== "string") {
+        errors.push("sound.key: 文字列(音名)である必要があります");
+      }
+      if (sound.volume !== undefined && sound.volume !== null
+          && (!isNumber(sound.volume) || sound.volume < 0)) {
+        errors.push("sound.volume: 0以上の数値である必要があります");
+      }
+      if (sound.pitch !== undefined && sound.pitch !== null && !isNumber(sound.pitch)) {
+        errors.push("sound.pitch: 数値である必要があります");
+      }
+    }
+  }
+
+  const skills = data["excluded-skills"];
+  if (skills !== undefined && skills !== null) {
+    if (!Array.isArray(skills)) errors.push("excluded-skills: リストである必要があります");
+    else skills.forEach((v, i) => {
+      if (typeof v !== "string") errors.push(`excluded-skills[${i}]: 文字列(スキルID)である必要があります`);
+    });
+  }
+
+  const levels = data["excluded-levels"];
+  if (levels !== undefined && levels !== null) {
+    if (!Array.isArray(levels)) errors.push("excluded-levels: リストである必要があります");
+    else levels.forEach((v, i) => {
+      if (!isNonNegInteger(v)) errors.push(`excluded-levels[${i}]: 0以上の整数である必要があります`);
+    });
+  }
+}
+
 // ---- progression/special-rewards.yml (tf-special-rewards) ----
 const PARTICLE_SHAPES = ["circle", "aura"];
 
@@ -3669,6 +3743,9 @@ function validate(schemaType, data) {
       break;
     case "tf-special-rewards":
       validateTfSpecialRewards(data, errors);
+      break;
+    case "tf-level-broadcast":
+      validateTfLevelBroadcast(data, errors);
       break;
     case "tf-achievements":
       validateTfAchievements(data, errors);

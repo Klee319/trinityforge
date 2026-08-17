@@ -28,9 +28,10 @@ const REGISTRY = Object.freeze([
   // 節目レベルアップの全体アナウンス (2026-08-16)。旧 ValhallaMMO アドオン ValTopBoard の
   // level-up-broadcast を TF 本体へ移したもの。本人向けのレベルアップ通知(skill-exp の level-up.*)とは
   // 別ファイル・別経路なので、タブも skill-exp の隣に独立して置く。
-  // 構造がスカラー + 2 本のリストだけなので専用フォームは作らず汎用(構造)エディタで編集する
-  // — alchemy-quality / enchant-luck / gathering-efficiency と同じ扱い(schema: "generic")。
-  { id: "level-broadcast", label: "レベル到達アナウンス (level-broadcast)", group: "TrinityForge", section: "skill-gimmicks", base: "trinityforge", rel: "progression/level-broadcast.yml", schema: "generic" },
+  // 2026-08-17 (ユーザー指示): 「その他」カテゴリへ移し、専用GUIを与えた。
+  // それまでは section: "skill-gimmicks" / schema: "generic" で、キー名が英字のまま出る
+  // 汎用JSONツリーエディタしか無く、除外スキルもレベルも手打ちだった。
+  { id: "level-broadcast", label: "レベル到達アナウンス (level-broadcast)", group: "TrinityForge", section: "other", base: "trinityforge", rel: "progression/level-broadcast.yml", schema: "tf-level-broadcast" },
   // Progression curve SoT (skills/base/*_progression.yml). Hidden from sidebar; edited as companions
   // on the skill-exp screen (gain rates + curves). These are TF's native progression source.
   { id: "progression-alchemy", label: "曲線: alchemy", group: "TrinityForge", section: "skilltree", base: "trinityforge", rel: "skills/base/alchemy_progression.yml", schema: "generic" },
