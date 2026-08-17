@@ -102,6 +102,9 @@ const FIELD_SPECS = Object.freeze([
   // 2026-08-09 レベル差による足きり。combat/mob-overrides.yml の level-cutoff から移設した
   // (旧実装はEliteMobsが刻印したダンジョンモブにしか効かず、野良モブが素通りしていた)。
   // min/max/def は CombatDamageConfig の SchemaField と一致させること。
+  // 向きに注意: over-level は【プレイヤーのほうが高レベル】のとき発動する側(低レベル狩りの抑制)、
+  // under-level は【モブのほうが高レベル】のとき発動する側。キー名の over/under はモブではなく
+  // プレイヤーが主語なので、日本語のラベルでは「格上/格下」を使わない(主語が反転して読める)。
   { id: "level-cutoff.over-level.threshold", file: "damage", path: ["level-cutoff", "over-level", "threshold"], kind: "int", min: -1, max: 10000, def: -1 },
   { id: "level-cutoff.over-level.exp-rate", file: "damage", path: ["level-cutoff", "over-level", "exp-rate"], kind: "number", min: -1, max: 1, def: 1 },
   { id: "level-cutoff.over-level.drop-rate", file: "damage", path: ["level-cutoff", "over-level", "drop-rate"], kind: "number", min: -1, max: 1, def: 1 },

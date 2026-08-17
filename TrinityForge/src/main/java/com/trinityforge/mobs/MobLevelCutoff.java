@@ -6,12 +6,15 @@ package com.trinityforge.mobs;
  * {@code level-cutoff:} ブロック1つぶんを表す、Bukkit非依存の純粋ロジック。
  *
  * <p>{@code diff = プレイヤーの戦闘レベル - モブのレベル} を基準に2つの独立した足きりを判定する。
+ * <b>over/under が指すのはモブではなくプレイヤーの側</b>で、{@code over-level} は
+ * 「プレイヤーのほうが高レベル」＝<b>低レベル狩り</b>のときに効く。日本語で「格上狩り」と呼ぶと
+ * 主語が反転して読めるため、その言い方はしない(2026-08-18 ユーザー指摘)。
  * <ul>
- *   <li><b>over-level</b>(自分が格上): {@code diff >= overLevelThreshold} で発動。発動すると
+ *   <li><b>over-level</b>(プレイヤーが高レベル＝低レベル狩り): {@code diff >= overLevelThreshold} で発動。発動すると
  *       経験値に {@link #expMultiplier}、TF追加ドロップの確率に {@link #dropChanceMultiplier} が
  *       乗算される。どちらのレートも {@code -1} なら「完全に入手不可(経験値0 / 追加ドロップ無し)」を
  *       表す特別値。</li>
- *   <li><b>under-level</b>(自分が格下): {@code -diff >= underLevelItemThreshold}(= モブが自分より
+ *   <li><b>under-level</b>(プレイヤーが低レベル): {@code -diff >= underLevelItemThreshold}(= モブが自分より
  *       指定値以上高レベル)で発動。発動するとTF追加ドロップが一切付かなくなる({@link #blocksItems}）。
  *       経験値には影響しない。</li>
  * </ul>
@@ -52,7 +55,7 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
                 && (playerLevel - mobLevel) >= overLevelThreshold;
     }
 
-    /** under-levelが発動中か({@code mobLevel - playerLevel} が閾値以上、= モブが格上)。 */
+    /** under-levelが発動中か({@code mobLevel - playerLevel} が閾値以上、= モブのほうが高レベル)。 */
     public boolean isUnderLevelActive(int playerLevel, int mobLevel) {
         return underLevelItemThreshold != null && underLevelItemThreshold >= 0
                 && (mobLevel - playerLevel) >= underLevelItemThreshold;
