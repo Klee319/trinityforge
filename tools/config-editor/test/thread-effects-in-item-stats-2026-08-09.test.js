@@ -31,7 +31,7 @@
 //
 // buildItemStatsForm の実カード描画は util.js の window.h が本物の document.createElement に
 // 依存する重い依存関係を持つため(30種超の window.* ヘルパー)、本ファイルでは
-// (a) 実データでの id 解決(45件)、(b) 静的ソースチェックによる配線確認、
+// (a) 実データでの id 解決(出荷スレッド全件。2026-08-18 に45→51種)、(b) 静的ソースチェックによる配線確認、
 // (c) 既存パターン(item-stats-cmdless-candidate-no-bare-key-2026-08-04.test.js と同じ
 //     「DOM未定義でも候補同期ループは完了する」トリック)による最小限の動的確認、の3本で担保する。
 // 効果の追加/削除そのものの挙動(数値効果・potion-effect・flight・slots)は
@@ -224,7 +224,7 @@ test("threadsData/threadSetsData を渡さない(旧来の呼び出し)場合で
 
 // ---------------------------------------------------------------------------
 // 5. 実データ: MATERIAL#CMD(item-stats.yml) → catalog.yml の thread_<id> → threads.yml の <id>
-//    という id 解決が、出荷 yml の45件すべてで成立すること。thread-sets.yml のキーも
+//    という id 解決が、出荷 yml のスレッド全件で成立すること(件数は増えるのでリテラルで固定しない)。thread-sets.yml のキーも
 //    「エディタにしか無いキーを新たに生やさない」ことのガードとして、threads.yml と同じ
 //    id 空間の部分集合であることを確認する。
 // ---------------------------------------------------------------------------
@@ -233,7 +233,7 @@ function loadYml(relParts) {
   return YAML.parse(fs.readFileSync(path.join(...relParts), "utf8"));
 }
 
-test("実データ: catalog.yml の _editor.itemTabs で「thread」に割り当てられた品は45件、threads.yml の id も45件で完全に1:1対応する", () => {
+test("実データ: catalog.yml の _editor.itemTabs で「thread」に割り当てられた品と threads.yml の id は件数も中身も完全に1:1対応する", () => {
   const catalog = loadYml([RESOURCES, "items", "catalog.yml"]);
   if (!fs.existsSync(THREADS_YML_PATH)) {
     // fork は .gitignore 除外 + 他セッションのWIPで存在しないことがある(config-editor.md 既知の注意)。
@@ -246,8 +246,14 @@ test("実データ: catalog.yml の _editor.itemTabs で「thread」に割り当
   const threadCatalogIds = Object.entries(itemTabs).filter(([, t]) => t === "thread").map(([id]) => id);
   const threadYmlIds = Object.keys((threads && threads.threads) || {});
 
-  assert.equal(threadCatalogIds.length, 45, "catalog.yml の thread タブ品数が45件から変わっている(前提が変わったのでテストの見直しが必要)");
-  assert.equal(threadYmlIds.length, 45, "threads.yml のスレッド種数が45件から変わっている(前提が変わったのでテストの見直しが必要)");
+  // 2026-08-18: 件数リテラル(45)で固定していたが、スレッドが 51 種へ増えた時点で
+  // 「1:1 かどうか」ではなく「45 かどうか」で落ちるようになった。件数リテラルは許可リストと
+  // 同型で、最初から誤っていると取りこぼしを緑で通す(allowlist-tests の教訓)。
+  // 片側の件数を他方から導出し、空回り防止の下限だけを別に置く。
+  assert.ok(threadYmlIds.length > 40,
+    `threads.yml のスレッド種数が ${threadYmlIds.length} 件しか読めていない(検査が空回りしている)`);
+  assert.equal(threadCatalogIds.length, threadYmlIds.length,
+    `catalog.yml の thread タブ(${threadCatalogIds.length}件)と threads.yml の id(${threadYmlIds.length}件)の件数が合わない`);
 
   const missing = [];
   for (const catId of threadCatalogIds) {
@@ -263,7 +269,7 @@ test("実データ: catalog.yml の _editor.itemTabs で「thread」に割り当
   assert.deepEqual(extra, [], "threads.yml にあるのに catalog.yml 側の対応する thread_<id> が無いものがある");
 });
 
-test("実データ: item-stats.yml は45件すべての thread 品について MATERIAL#CMD キーを持つ", () => {
+test("実データ: item-stats.yml は出荷スレッド全件について MATERIAL#CMD キーを持つ", () => {
   const catalog = loadYml([RESOURCES, "items", "catalog.yml"]);
   const itemStats = loadYml([RESOURCES, "stats", "item-stats.yml"]);
   const itemTabs = (catalog._editor && catalog._editor.itemTabs) || {};

@@ -874,12 +874,17 @@
       });
 
       function renderStackable(m) {
+        // 2026-08-18: フォーク側の既定が反転した(ThreadApplicationPolicy.DEFAULT_STACKABLE = true /
+        // DEFAULT_MAX_STACK = 2)。未記載の項目でチェックを外して見せると「重複不可」と誤読させるので、
+        // 未記載は【有効】として描く(触らなければ yml へは何も書かない = 既定のまま)。
         const box = h("div", { class: "result-slot" });
-        const stackOn = h("input", { type: "checkbox", checked: !!m.stackable, onchange: (e) => { m.stackable = e.target.checked; m.hasStackable = true; render(); } });
-        box.appendChild(h("label", { class: "result-default" }, [stackOn, h("span", { text: "同じ防具に複数セット可 (stackable)" })]));
+        const effectiveStackable = m.hasStackable ? !!m.stackable : true;
+        const stackOn = h("input", { type: "checkbox", checked: effectiveStackable, onchange: (e) => { m.stackable = e.target.checked; m.hasStackable = true; render(); } });
+        box.appendChild(h("label", { class: "result-default" }, [stackOn, h("span", { text: "同じ装備に複数セット可 (stackable・未設定でも可)" })]));
         const maxInput = window.numberInput(m.max, (v) => { m.max = v == null ? 1 : v; m.hasMax = true; }, { int: true });
-        if (!m.stackable) { maxInput.disabled = true; maxInput.title = "stackable が有効なときのみ設定できます"; }
-        box.appendChild(fieldRow("max", maxInput, "最大セット数 (max)"));
+        if (!effectiveStackable) { maxInput.disabled = true; maxInput.title = "stackable が有効なときのみ設定できます"; }
+        else if (!m.hasMax) { maxInput.placeholder = "未設定 = 2"; }
+        box.appendChild(fieldRow("max", maxInput, "最大セット数 (max・未設定は2)"));
         return box;
       }
     }

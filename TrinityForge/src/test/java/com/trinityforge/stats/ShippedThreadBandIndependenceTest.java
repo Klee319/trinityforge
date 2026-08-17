@@ -269,8 +269,9 @@ class ShippedThreadBandIndependenceTest {
         assertTrue(perCopy.size() * ARMOR_PIECES >= 16,
                 "percent-bonus-damage を配るスレッドが少なすぎて最大枠(16)を埋められない: " + perCopy.size());
 
-        // (1) フォーク非依存の下限側モデル。同一種の上限は 1部位1本 × 4部位 = 4
-        //     (threads.yml で stackable を書かない種の値 = 全種の上限の下限)、セット効果は 0。
+        // (1) フォーク非依存の下限側モデル。同一種の上限は 1部位1本 × 4部位 = 4、セット効果は 0。
+        //     2026-08-18 以降 threads.yml の既定は「重複可・1装備 max 2」なので、この 4 は
+        //     実仕様(最大 8)より小さい**意図的な下限**(明示的に max: 1 を書いた種の値)。
         //     ここが超えていたら実仕様でも必ず超えるので、フォークが無い環境でも空回りしない。
         Map<Integer, Integer> floorCaps = new LinkedHashMap<>();
         perCopy.keySet().forEach(cmd -> floorCaps.put(cmd, ARMOR_PIECES));
@@ -397,9 +398,17 @@ class ShippedThreadBandIndependenceTest {
 
     /**
      * フォークの {@code threads.yml} から「装備1点あたりの同一種の上限」。
-     * {@code ThreadConfig#isStackable} は未記載を {@code false}(=1本)、
-     * {@code ThreadConfig#getMaxStack} は未記載を {@code Integer.MAX_VALUE} として読む。
+     *
+     * <p><b>2026-08-18</b>: フォーク側の既定が反転した(ユーザー確定要件「同一のスレッドを重複で
+     * 入れられるようにしてほしい」)。{@code ThreadConfig#isStackable} は未記載を
+     * {@code ThreadApplicationPolicy.DEFAULT_STACKABLE}(= true)、{@code #getMaxStack} は未記載を
+     * {@code DEFAULT_MAX_STACK}(= 2)として読む ── かつては「未記載 = 1本」「max 未記載 = 無制限」
+     * だった。ここの既定をフォークに合わせ忘れると、モデルが実際より弱い編成しか作らず
+     * <b>帯目標の超過を緑で通す</b>(=検査の無効化)。
      */
+    private static final boolean FORK_DEFAULT_STACKABLE = true;
+    private static final int FORK_DEFAULT_MAX_STACK = 2;
+
     private static Map<String, Integer> perItemCapById() {
         ConfigurationSection threads = YamlConfiguration
                 .loadConfiguration(FORK_MAIN.resolve(Path.of("resources", "threads.yml")).toFile())
@@ -408,8 +417,10 @@ class ShippedThreadBandIndependenceTest {
         Map<String, Integer> out = new LinkedHashMap<>();
         for (String id : threads.getKeys(false)) {
             ConfigurationSection entry = threads.getConfigurationSection(id);
-            boolean stackable = entry != null && entry.getBoolean("stackable", false);
-            out.put(id, stackable ? entry.getInt("max", Integer.MAX_VALUE) : 1);
+            boolean stackable = entry != null && entry.getBoolean("stackable", FORK_DEFAULT_STACKABLE);
+            out.put(id, stackable
+                    ? (entry == null ? FORK_DEFAULT_MAX_STACK : entry.getInt("max", FORK_DEFAULT_MAX_STACK))
+                    : 1);
         }
         return out;
     }
