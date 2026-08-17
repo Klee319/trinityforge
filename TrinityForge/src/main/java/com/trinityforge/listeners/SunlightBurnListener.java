@@ -41,6 +41,14 @@ public final class SunlightBurnListener implements Listener {
     /** 空からの明るさがこの値のときだけ「日光が直接当たっている」と見なす(バニラの焼却条件相当)。 */
     private static final int FULL_SKY_LIGHT = 15;
 
+    /** 置換値を素通しさせるために 0 にする軽減系修飾子({@link #clearReductionModifiers} 参照)。 */
+    @SuppressWarnings("deprecation") // DamageModifier は非推奨だが、修飾子を潰す API は他に無い
+    private static final List<EntityDamageEvent.DamageModifier> REDUCTION_MODIFIERS = List.of(
+            EntityDamageEvent.DamageModifier.ARMOR,
+            EntityDamageEvent.DamageModifier.RESISTANCE,
+            EntityDamageEvent.DamageModifier.MAGIC,
+            EntityDamageEvent.DamageModifier.ABSORPTION);
+
     private final CombatDamageConfig damageConfig;
 
     public SunlightBurnListener(CombatDamageConfig damageConfig) {
@@ -77,7 +85,31 @@ public final class SunlightBurnListener implements Listener {
             // バニラの方が大きい(小型モブ等)ならバニラのまま — この置換は上げる方向にだけ働く。
             return;
         }
+        clearReductionModifiers(event);
         event.setDamage(replacement);
+    }
+
+    /**
+     * 軽減系の {@link EntityDamageEvent.DamageModifier} を 0 にしてから置換値を書く。
+     *
+     * <p><b>2026-08-17 修正 (ユーザー報告「日光のダメージがカスでいつまでも死なないスケルトンがいた」)</b>:
+     * {@code setDamage(double)} が書き換えるのは {@code BASE} だけで、最終ダメージは
+     * そのあとに掛かる修飾子(防具・耐性・<b>火炎耐性/ダメージ軽減エンチャント = MAGIC</b>)で削られる。
+     * EliteMobs のスケルトンはエンチャント付き防具を着ていることがあり、火炎耐性が乗っていると
+     * 「最大HPの10%」と書いたつもりの1発がほぼ 0 まで削られて<b>永久に焼け死ななかった</b>。
+     *
+     * <p>ここで狙っているのは「日光で焼き切れるまでの時間を一定にする」ことなので、
+     * 軽減を通さずそのまま入れるのが正しい(この置換は元から上げる方向にしか働かない)。
+     * 適用不能な修飾子に触ると {@link UnsupportedOperationException} が飛ぶため必ず
+     * {@code isApplicable} で確認する。
+     */
+    @SuppressWarnings("deprecation") // 上の REDUCTION_MODIFIERS と同じ理由
+    private static void clearReductionModifiers(EntityDamageEvent event) {
+        for (EntityDamageEvent.DamageModifier modifier : REDUCTION_MODIFIERS) {
+            if (event.isApplicable(modifier)) {
+                event.setDamage(modifier, 0.0);
+            }
+        }
     }
 
     /**

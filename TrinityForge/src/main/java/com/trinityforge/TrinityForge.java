@@ -242,6 +242,12 @@ public final class TrinityForge extends JavaPlugin {
     // are stale (SELECTION_SPEC 5); see TableGeneration.
     private TableGeneration tableGeneration;
     private ItemRefreshListener itemRefreshListener;
+
+    /**
+     * 自動植え直しの通知先。{@link FarmingHarvestListener} より先に生成されるので
+     * フィールドで持ち越す(2026-08-17: 自動で植えた作物に成長ボーナスが乗っていなかった対応)。
+     */
+    private com.trinityforge.listeners.PlantedCropGrowthListener plantedCropGrowthListener;
     private com.trinityforge.economy.EconomyBridge economyBridge;
     // ランキング(PlaceholderAPI)向けの集計値。図鑑・グリフ解放数・討伐数は本人がログイン中の
     // サーバからしか読めないので、共有 DB へ写してバックエンド間で同じ値を返せるようにする。
@@ -493,8 +499,9 @@ public final class TrinityForge extends JavaPlugin {
                         configManager.dedicatedEffects(), configManager.foodGimmick()), this);
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.BreedingBonusListener(aggregator), this);
-        getServer().getPluginManager().registerEvents(
-                new com.trinityforge.listeners.PlantedCropGrowthListener(this, aggregator), this);
+        this.plantedCropGrowthListener =
+                new com.trinityforge.listeners.PlantedCropGrowthListener(this, aggregator);
+        getServer().getPluginManager().registerEvents(plantedCropGrowthListener, this);
         // 数値・解放フラグはすべて buffs 経由で集計する。
         getServer().getPluginManager().registerEvents(new NativeSurvivalPerkListener(aggregator), this);
         getServer().getPluginManager().registerEvents(
@@ -704,7 +711,8 @@ public final class TrinityForge extends JavaPlugin {
                 aggregator,
                 configManager.lore(),
                 skillLevelSource);
-        this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs());
+        // plugin を渡すのは必須: リスポーン直後のバフ再付与を次tickへ逃がすため (2026-08-17)。
+        this.roleBuffListener = new RoleBuffListener(configManager.roleBuffs(), this);
         // 2026-07-28: /tf role はロールとバフの内訳をチャットへ出す。付け替えは選択GUI
         // (RoleSelectGui)だけが入口で、可否判定は RoleChangeService に集約してある。
         com.trinityforge.progression.RoleChangeService roleChangeService =
@@ -1025,9 +1033,14 @@ public final class TrinityForge extends JavaPlugin {
         // (stats/farming-gimmick.yml でチューニング): 植え直しと収穫同時(auto-replant)・範囲収穫
         // (area-harvest)・動物への与ダメ倍率(animal-damage-4x)・ハチ非敵対+養蜂幸運(bee-no-aggro/
         // hive-harvest-fortune)。
-        getServer().getPluginManager().registerEvents(
-                new FarmingHarvestListener(this, configManager.dedicatedEffects(),
-                        configManager.farmingGimmick(), activeFeedbackLayer, chainBreakExpGrant), this);
+        FarmingHarvestListener farmingHarvestListener = new FarmingHarvestListener(
+                this, configManager.dedicatedEffects(),
+                configManager.farmingGimmick(), activeFeedbackLayer, chainBreakExpGrant);
+        // 自動で植え直した作物にも「自分で植えた作物」と同じ成長ボーナスを乗せる (2026-08-17)。
+        if (plantedCropGrowthListener != null) {
+            farmingHarvestListener.setOnCropReplanted(plantedCropGrowthListener::trackPlanted);
+        }
+        getServer().getPluginManager().registerEvents(farmingHarvestListener, this);
         getServer().getPluginManager().registerEvents(
                 new AnimalDamageListener(configManager.dedicatedEffects(), configManager.farmingGimmick()), this);
         getServer().getPluginManager().registerEvents(

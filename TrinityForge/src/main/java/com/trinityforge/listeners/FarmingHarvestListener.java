@@ -74,6 +74,21 @@ public final class FarmingHarvestListener implements Listener {
      */
     private boolean processingAreaHarvest = false;
 
+    /**
+     * 自動で植え直した作物を「そのプレイヤーが植えたもの」として下流へ知らせるフック
+     * (既定は何もしない)。{@link PlantedCropGrowthListener#trackPlanted} を繋ぐ。
+     *
+     * <p><b>2026-08-17 (ユーザー報告「自動植えつけの作物と自分で植えた作物で成長速度が違う」)</b>:
+     * 自動植え直しは {@code setType}/{@code setBlockData} で直接置くため
+     * {@code BlockPlaceEvent} が発火せず、成長ボーナスの所有権登録から漏れていた。
+     */
+    private java.util.function.BiConsumer<Block, Player> onCropReplanted = (block, player) -> { };
+
+    /** 植え直し通知先を差し込む(配線は TrinityForge#registerListeners)。 */
+    public void setOnCropReplanted(java.util.function.BiConsumer<Block, Player> hook) {
+        this.onCropReplanted = hook == null ? (block, player) -> { } : hook;
+    }
+
     /** 右クリック収穫の認可用に合成したBlockBreakEventを、自身で通常破壊として二重処理しないためのガード。 */
     private boolean authorizingRightClickHarvest = false;
 
@@ -185,6 +200,7 @@ public final class FarmingHarvestListener implements Listener {
         Ageable replanted = (Ageable) block.getBlockData();
         replanted.setAge(0);
         block.setBlockData(replanted);
+        onCropReplanted.accept(block, player);
     }
 
     /** 起点ブロック: バニラdropを止め、種1個分を差し引いたdropを自前で撒いてからage0で再設置予約する。 */
@@ -193,7 +209,7 @@ public final class FarmingHarvestListener implements Listener {
         List<DropStack> drops = readDrops(block, tool);
         List<DropStack> adjusted = DropAdjustment.subtractOne(drops, FarmingCropCatalog.seedMaterial(type));
         dropAll(block.getWorld(), block.getLocation(), adjusted);
-        scheduleReplant(block.getWorld(), block.getLocation(), type);
+        scheduleReplant(block.getWorld(), block.getLocation(), type, event.getPlayer());
     }
 
     /**
@@ -222,7 +238,7 @@ public final class FarmingHarvestListener implements Listener {
                 // 確率ドロップだと「EXPの根拠」と「手に入る物」が食い違い、抽選コストも2倍だった)。
                 Collection<ItemStack> rolled =
                         ChainBreakSupport.grantExpFor(chainBreakExp, player, neighbor, tool);
-                harvestNeighbor(neighbor, neighborType, tool, replantActive, rolled);
+                harvestNeighbor(neighbor, neighborType, tool, replantActive, rolled, player);
                 harvested++;
             }
             if (harvested > 0) {
@@ -245,7 +261,7 @@ public final class FarmingHarvestListener implements Listener {
      * area-harvest が area-harvest を再誘発することは無い(旧実装の性質そのまま)。
      */
     private void harvestNeighbor(Block block, Material type, ItemStack tool, boolean replantActive,
-                                 Collection<ItemStack> rolled) {
+                                 Collection<ItemStack> rolled, Player harvester) {
         List<DropStack> drops = toDropStacks(rolled);
         if (replantActive) {
             drops = DropAdjustment.subtractOne(drops, FarmingCropCatalog.seedMaterial(type));
@@ -255,7 +271,7 @@ public final class FarmingHarvestListener implements Listener {
         block.setType(Material.AIR);
         dropAll(world, location, drops);
         if (replantActive) {
-            scheduleReplant(world, location, type);
+            scheduleReplant(world, location, type, harvester);
         }
     }
 
@@ -294,7 +310,7 @@ public final class FarmingHarvestListener implements Listener {
      * 1tick後、その場が(誰にも上書きされず)まだ空気のままなら age0 の同じ作物を再設置する
      * ({@link MiningGimmickListener#onBlockBreak}の怪しいブロック復活処理と同じ「空気のみ上書き」ガード)。
      */
-    private void scheduleReplant(World world, Location location, Material cropType) {
+    private void scheduleReplant(World world, Location location, Material cropType, Player planter) {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Block current = world.getBlockAt(location);
             if (current.getType() != Material.AIR) {
@@ -305,6 +321,8 @@ public final class FarmingHarvestListener implements Listener {
                 ageable.setAge(0);
                 current.setBlockData(ageable);
             }
+            // 実際に置けたときだけ通知する(空気でなくて諦めた場合は所有権を作らない)。
+            onCropReplanted.accept(current, planter);
         }, REPLANT_DELAY_TICKS);
     }
 }
