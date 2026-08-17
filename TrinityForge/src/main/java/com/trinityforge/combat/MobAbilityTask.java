@@ -36,6 +36,16 @@ public final class MobAbilityTask implements Runnable {
     /** クールダウン台帳を掃除する間隔（このタスクの実行回数）。 */
     private static final int PURGE_EVERY = 60;
 
+    /**
+     * 「技の種類によらずモブ単位で効く共通クールダウン」を技IDと同じ台帳に載せるための予約キー
+     * （2026-08-17）。
+     *
+     * <p><b>先頭の空白は必須。</b> 技IDは {@code MobAbilitiesConfig#parse} で
+     * {@code trim().toLowerCase()} されるので、先頭に空白を持つIDは<b>どう書いても生成されない</b>。
+     * つまりこのキーは yml 側の技IDと衝突しえない。
+     */
+    static final String GLOBAL_GAP_KEY = " global-gap";
+
     private final Plugin plugin;
     private final MobAbilitiesConfig abilitiesConfig;
     private final MobOverridesConfig overrides;
@@ -106,6 +116,12 @@ public final class MobAbilityTask implements Runnable {
 
     /** そのモブが今この相手へ技を撃てるなら撃つ。 */
     private boolean tryFire(LivingEntity mob, Player target) {
+        // 技ごとのクールダウンより先に、モブ単位の共通クールダウンを見る(2026-08-17)。
+        // これが無いと、技を複数持つモブは「どれか1つは必ず明けている」状態が途切れず、
+        // 判定のたびに抽選が走って技が常時発動しているように見える。
+        if (!cooldowns.ready(mob.getUniqueId(), GLOBAL_GAP_KEY)) {
+            return false;
+        }
         List<MobAbility> candidates = candidatesFor(mob, target);
         if (candidates.isEmpty()) {
             return false;
@@ -121,6 +137,7 @@ public final class MobAbilityTask implements Runnable {
             return false;
         }
         cooldowns.arm(mob.getUniqueId(), ability.id(), ability.cooldownMillis());
+        cooldowns.arm(mob.getUniqueId(), GLOBAL_GAP_KEY, abilitiesConfig.globalCooldownMillis());
         return true;
     }
 

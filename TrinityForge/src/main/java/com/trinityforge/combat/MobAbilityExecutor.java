@@ -54,6 +54,16 @@ public final class MobAbilityExecutor {
     static final double PULL_LIFT = 0.2;
     /** {@code DELAYED_ZONE} の予告パーティクルを撒く間隔。 */
     private static final long TELEGRAPH_INTERVAL_TICKS = 5L;
+    /**
+     * {@code PROJECTILE_RAIN} の発射高さ。着弾まで約1秒あることが「動けば避けられる」の根拠なので、
+     * 低くしすぎると回避不能技になる。天井のある部屋では屋根に刺さって不発になるが、
+     * それは「屋内では雨が降らない」という直感どおりの結果なので許容する。
+     */
+    static final double RAIN_SPAWN_HEIGHT = 9.0;
+    /** 同、投射物の初速（ブロック/tick）。 */
+    static final double RAIN_SPEED = 1.1;
+    /** 同、着弾点のばらつき。0 にすると全弾が同一点へ収束して回避不能になる。 */
+    static final double RAIN_AIM_JITTER = 0.6;
 
     private final Plugin plugin;
     private final SymmetricCombatService combat;
@@ -81,6 +91,7 @@ public final class MobAbilityExecutor {
             return switch (ability.type()) {
                 case GROUND_SLAM -> groundSlam(mob, ability);
                 case PROJECTILE_VOLLEY -> projectileVolley(mob, target, ability);
+                case PROJECTILE_RAIN -> projectileRain(mob, target, ability);
                 case CHARGE -> charge(mob, target, ability);
                 case AURA -> aura(mob, ability);
                 case TELEPORT_STRIKE -> teleportStrike(mob, target, ability);
@@ -133,6 +144,53 @@ public final class MobAbilityExecutor {
             } else {
                 spawned.setVelocity(direction.multiply(1.6));
             }
+        }
+        return true;
+    }
+
+    /**
+     * 対象の頭上から投射物を降らせる（2026-08-17、ユーザー報告「矢の雨が当たらない」）。
+     *
+     * <p>{@link #projectileVolley} との違いは<b>発射位置</b>。あちらはモブの目線から水平に扇状へ撒くので、
+     * 開き角のぶんだけ中央以外は最初から相手を向いておらず、さらに水平発射した矢は落下で下へ逸れる。
+     * こちらは相手の頭上に散らして出し、着弾点を相手の足元付近へ<b>収束</b>させる。
+     *
+     * <p>ねらいは「当たる技」ではなく「<b>その場に立っていると当たる技</b>」。着弾までに約1秒あり、
+     * 発射時の座標へ向けて落ちてくるので、動けば外れる。避けさせるために着弾点へ演出を出す
+     * （頭上から降る技は音だけでは反応できない）。
+     */
+    private boolean projectileRain(LivingEntity mob, Player target, MobAbility ability) {
+        EntityType type = entityType(ability.projectile());
+        if (type == null || ability.count() <= 0) {
+            return false;
+        }
+        Location center = target.getLocation().clone();
+        double scatter = Math.max(0.5, ability.radius());
+        // 着弾点の予告。ここが見えないと「頭上から降ってくる」ことに気づけない。
+        playEffects(center, ability);
+        java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < ability.count(); i++) {
+            // 円板上に一様分布させる（sqrt を取らないと中心に偏って「雨」に見えない）。
+            double angle = rng.nextDouble() * Math.PI * 2.0;
+            double distance = scatter * Math.sqrt(rng.nextDouble());
+            Location spawn = center.clone().add(
+                    Math.cos(angle) * distance, RAIN_SPAWN_HEIGHT, Math.sin(angle) * distance);
+            Vector aim = center.toVector()
+                    .add(new Vector(rng.nextDouble(-RAIN_AIM_JITTER, RAIN_AIM_JITTER), 0.0,
+                            rng.nextDouble(-RAIN_AIM_JITTER, RAIN_AIM_JITTER)))
+                    .subtract(spawn.toVector());
+            if (aim.lengthSquared() < 1.0e-6) {
+                aim = new Vector(0.0, -1.0, 0.0);
+            }
+            Entity spawned = mob.getWorld().spawnEntity(spawn, type);
+            if (spawned instanceof Projectile projectile) {
+                projectile.setShooter(mob);
+            }
+            // 降ってきた矢を拾えると「被弾するほど矢が増える」ので拾得を禁じる。
+            if (spawned instanceof org.bukkit.entity.AbstractArrow arrow) {
+                arrow.setPickupStatus(org.bukkit.entity.AbstractArrow.PickupStatus.DISALLOWED);
+            }
+            spawned.setVelocity(aim.normalize().multiply(RAIN_SPEED));
         }
         return true;
     }

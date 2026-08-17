@@ -36,6 +36,14 @@ public final class MobAbilitiesConfig implements LoadableConfig {
     private volatile Map<String, MobAbility> abilities = Map.of();
     private volatile boolean enabled = true;
     private volatile int checkIntervalTicks = 20;
+    private volatile double globalCooldownSeconds = DEFAULT_GLOBAL_COOLDOWN_SECONDS;
+
+    /** 技と技の間に必ず空ける秒数の既定。 */
+    public static final double DEFAULT_GLOBAL_COOLDOWN_SECONDS = 12.0;
+    /** 同、下限。0 を許すと「常時発動」に戻せてしまうので置かない選択はしない。 */
+    public static final double MIN_GLOBAL_COOLDOWN_SECONDS = 0.0;
+    /** 同、上限（10分）。書き間違いで技が一生出てこないのを防ぐ。 */
+    public static final double MAX_GLOBAL_COOLDOWN_SECONDS = 600.0;
 
     /** テンプレートID→定義。未定義IDの参照は {@code null} を返す（呼び出し側が読み飛ばす）。 */
     public MobAbility ability(String id) {
@@ -63,6 +71,24 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         return checkIntervalTicks;
     }
 
+    /**
+     * <b>同じモブが技と技の間に必ず空ける秒数</b>（2026-08-17、ユーザー報告「スキルが常時発動している」）。
+     *
+     * <p>技ごとの {@code cooldown-seconds} だけでは頻度を抑えられない。技を2〜3個持つモブでは
+     * 「どれか1つはクールダウン明け」の状態がほぼ途切れず、判定のたびに {@code chance} を引くので
+     * <b>技を足すほど発動間隔が短くなる</b>（3個持たせると平均3秒に1回）。
+     * ここは技の種類によらずモブ単位で効く共通の間合いで、
+     * 「バニラの通常行動の合間に技が挟まる」テンポを作るための唯一の摘み。
+     */
+    public double globalCooldownSeconds() {
+        return globalCooldownSeconds;
+    }
+
+    /** 同、ミリ秒。 */
+    public long globalCooldownMillis() {
+        return Math.round(globalCooldownSeconds * 1000.0);
+    }
+
     @Override
     public boolean load(Plugin plugin) {
         Logger log = plugin.getLogger();
@@ -80,6 +106,9 @@ public final class MobAbilitiesConfig implements LoadableConfig {
         }
         this.enabled = yaml.getBoolean("enabled", true);
         this.checkIntervalTicks = Math.max(5, Math.min(200, yaml.getInt("check-interval-ticks", 20)));
+        this.globalCooldownSeconds = Math.max(MIN_GLOBAL_COOLDOWN_SECONDS,
+                Math.min(MAX_GLOBAL_COOLDOWN_SECONDS,
+                        yaml.getDouble("global-cooldown-seconds", DEFAULT_GLOBAL_COOLDOWN_SECONDS)));
 
         ParseResult result = parse(yaml.getConfigurationSection("abilities"), log);
         this.abilities = result.abilities();
