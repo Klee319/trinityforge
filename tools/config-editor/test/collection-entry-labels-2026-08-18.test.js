@@ -151,6 +151,38 @@ test("圧縮素材(*_<n>x)は material_compressed 以外のカテゴリに置か
   assert.deepEqual(strays, [], "圧縮素材は material_compressed にまとめること");
 });
 
+test("同じエントリが2つ以上のカテゴリに入っていない(図鑑で二重に並ぶ)", () => {
+  // 2026-08-18: thread_* 51件が material_tf と thread の両方に入っていた。
+  // scope: all の分母は集合なので件数は狂わないが、図鑑GUIには二重に並ぶ。
+  const cats = (collection && collection.categories) || {};
+  for (const kind of ["items", "mobs"]) {
+    const where = new Map();
+    for (const [catId, cat] of Object.entries(cats[kind] || {})) {
+      for (const e of (Array.isArray(cat.entries) ? cat.entries : [])) {
+        const id = String(e).trim();
+        where.set(id, (where.get(id) || []).concat(catId));
+      }
+    }
+    const dupes = [...where.entries()].filter(([, cs]) => cs.length > 1)
+      .map(([id, cs]) => kind + ": " + id + " -> " + cs.join(" + "));
+    assert.deepEqual(dupes, [], "重複エントリ " + dupes.length + " 件");
+  }
+});
+
+test("catalog.yml の非draft なスレッドは全件 thread カテゴリに入っている", () => {
+  const catalog = readYaml(path.join(TF_RES, "items/catalog.yml"));
+  assert.ok(catalog && catalog.items, "catalog.yml を読めていない");
+  const defined = Object.entries(catalog.items)
+    .filter(([id, v]) => /^thread/.test(id) && !(v && v.draft))
+    .map(([id]) => id);
+  assert.ok(defined.length > 0, "catalog.yml からスレッドを1件も読めていない");
+  const inThreadCat = new Set(
+    ((collection.categories.items.thread || {}).entries || []).map((e) => String(e).trim())
+  );
+  const missing = defined.filter((id) => !inThreadCat.has(id));
+  assert.deepEqual(missing, [], "スレッド専用カテゴリに入っていないスレッド");
+});
+
 test("一括追加の走査集合は items ならバニラ Material も含む(*_SWORD が引ける)", () => {
   const catalogCandidates = [{ id: "infinity_sword" }, { id: "thread_luck" }];
   const ids = bulkAddCandidateIds("items", catalogCandidates, vanillaMaterials, ["ZOMBIE"]);

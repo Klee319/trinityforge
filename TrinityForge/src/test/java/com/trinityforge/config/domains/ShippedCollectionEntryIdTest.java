@@ -75,11 +75,31 @@ class ShippedCollectionEntryIdTest {
     }
 
     @Test
-    @DisplayName("thread カテゴリは全件がカタログの thread_* で、出荷済み(draft でない)")
+    @DisplayName("thread カテゴリはカタログの非draft な thread_* と完全一致する")
     void threadCategoryPointsAtShippedCatalogEntries() {
         YamlConfiguration catalog = load(CATALOG);
         List<String> entries = entries("thread");
-        assertEquals(45, entries.size(), "thread カテゴリの件数");
+        // 2026-08-18: ここは件数を 45 という<b>リテラルで固定していた</b>。実際のスレッド定義は
+        // 51 件で、6 件(thread_better_fortune / thread_blindness / thread_gacha /
+        // thread_role_effeciency / thread_role_luck / thread_translate)は thread カテゴリに
+        // 一度も入らず material_tf(TF素材)にだけ居た。**リテラルが誤っていたので、
+        // この検査は「取りこぼしがある状態」をずっと緑で通していた**(許可リスト方式と同じ罠)。
+        // 期待値はカタログから導出する ── スレッドを1件足したら図鑑にも足さないと落ちる。
+        Set<String> shippedThreads = new LinkedHashSet<>();
+        ConfigurationSection catalogItems = catalog.getConfigurationSection("items");
+        if (catalogItems == null) {
+            throw new AssertionError("catalog.yml に items が無い");
+        }
+        for (String id : catalogItems.getKeys(false)) {
+            if (id.startsWith("thread_") && !catalogItems.getBoolean(id + ".draft")) {
+                shippedThreads.add(id);
+            }
+        }
+        assertTrue(shippedThreads.size() > 40,
+                "カタログから読めたスレッドが " + shippedThreads.size() + " 件しかない(空振りしている)");
+        assertEquals(shippedThreads, new LinkedHashSet<>(entries),
+                "thread カテゴリはカタログの非draft な thread_* と完全一致すること"
+                        + " —— 足りない側は図鑑に出ず、余る側は永久に未収集の枠になる");
         List<String> problems = new ArrayList<>();
         for (String entry : entries) {
             if (!entry.startsWith("thread_")) {

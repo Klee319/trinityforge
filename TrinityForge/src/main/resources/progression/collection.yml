@@ -421,90 +421,6 @@ categories:
         - thread_appraiser
         - thread_artisan
         - thread_backpack
-        - thread_concussion
-        - thread_conduit_power
-        - thread_damage_mana_recovery
-        - thread_diligence
-        - thread_dolphins_grace
-        - thread_empty
-        - thread_endurance
-        - thread_excavation
-        - thread_experience
-        - thread_fire_resistance
-        - thread_flight
-        - thread_gourmet
-        - thread_harvest
-        - thread_health_boost
-        - thread_herder
-        - thread_hero_of_the_village
-        - thread_hit_mana_recovery
-        - thread_jump_boost
-        - thread_luck
-        - thread_mana_amplify
-        - thread_mana_boost
-        - thread_mana_circulate
-        - thread_mana_regen
-        - thread_marksman
-        - thread_mending_flesh
-        - thread_miner
-        - thread_night_vision
-        - thread_perfumer
-        - thread_ritualist
-        - thread_salvage
-        - thread_scholar
-        - thread_slow_falling
-        - thread_source_thrift
-        - thread_speed
-        - thread_spell_cost_down
-        - thread_spoils
-        - thread_swiftcast
-        - thread_thorn
-        - thread_thrift
-        - thread_timber
-    material_tf:
-      display-name: TF素材
-      order: 14
-      entries:
-        - key_binder
-        - key_bridge
-        - key_cave
-        - key_city
-        - key_climb
-        - key_dark_cathedral
-        - key_deep_mines
-        - key_enchant_trial_1
-        - key_enchant_trial_10
-        - key_enchant_trial_2
-        - key_enchant_trial_3
-        - key_enchant_trial_4
-        - key_enchant_trial_5
-        - key_enchant_trial_6
-        - key_enchant_trial_7
-        - key_enchant_trial_8
-        - key_enchant_trial_9
-        - key_fireworks
-        - key_hallosseum
-        - key_knight_castle
-        - key_mines
-        - key_nether_bell
-        - key_nether_wastes
-        - key_north_pole
-        - key_palace
-        - key_quarry
-        - key_sewer_maze
-        - key_steamworks
-        - koujien
-        - quality_upgrade_ticket
-        - role_reselect_ticket
-        - skill_node_lock
-        - skill_tree_reset
-        - someones_eyes
-        - stat_reroll_ticket
-        - thread_angler
-        - thread_apiarist
-        - thread_appraiser
-        - thread_artisan
-        - thread_backpack
         - thread_better_fortune
         - thread_blindness
         - thread_concussion
@@ -551,6 +467,48 @@ categories:
         - thread_thrift
         - thread_timber
         - thread_translate
+    material_tf:
+      display-name: TF素材
+      # 2026-08-18: thread_* 51件がここと thread カテゴリの両方に入っていて図鑑で二重に
+      # 並んでいたので落とした(スレッドには専用カテゴリがある)。うち6件は thread 側に
+      # 一度も入っておらず、この移動でようやくスレッドの定義51件と図鑑が一致した。
+      order: 14
+      entries:
+        - key_binder
+        - key_bridge
+        - key_cave
+        - key_city
+        - key_climb
+        - key_dark_cathedral
+        - key_deep_mines
+        - key_enchant_trial_1
+        - key_enchant_trial_10
+        - key_enchant_trial_2
+        - key_enchant_trial_3
+        - key_enchant_trial_4
+        - key_enchant_trial_5
+        - key_enchant_trial_6
+        - key_enchant_trial_7
+        - key_enchant_trial_8
+        - key_enchant_trial_9
+        - key_fireworks
+        - key_hallosseum
+        - key_knight_castle
+        - key_mines
+        - key_nether_bell
+        - key_nether_wastes
+        - key_north_pole
+        - key_palace
+        - key_quarry
+        - key_sewer_maze
+        - key_steamworks
+        - koujien
+        - quality_upgrade_ticket
+        - role_reselect_ticket
+        - skill_node_lock
+        - skill_tree_reset
+        - someones_eyes
+        - stat_reroll_ticket
     material_misc:
       display-name: 素材等
       # 2026-08-18: 圧縮素材(*_4x / stone_5x の11件)が混ざっていたので material_compressed へ移し、
