@@ -89,7 +89,7 @@ public final class CatalogWorkbenchListener implements Listener {
             // that matched only because the stack shares its base Material.
             if (!rematch(event, matrix)) {
                 event.getInventory().setResult(null);
-                notifyBlockedByCatalogItem(event);
+                notifyBlockedByCatalogItem(event, matrix);
             }
             return;
         }
@@ -126,19 +126,64 @@ public final class CatalogWorkbenchListener implements Listener {
      * <p>アクションバーなのは兄弟の {@link CatalogCraftGateListener#onPrepareCraft} と揃えるため
      * (このイベントはマス目を触るたびに飛ぶので、チャットへ書くと即座に流れて読めなくなる)。
      */
-    private static void notifyBlockedByCatalogItem(PrepareItemCraftEvent event) {
+    private void notifyBlockedByCatalogItem(PrepareItemCraftEvent event, ItemStack[] matrix) {
         // view が無い経路(自動作業台やテストの合成イベント)では宛先が無いので何もしない。
         // 通知は付け足しであって、ここで落として結果クリア自体を巻き添えにしてはいけない。
         if (event.getView() != null
                 && event.getView().getPlayer() instanceof org.bukkit.entity.Player player) {
-            player.sendActionBar(CATALOG_INGREDIENT_MESSAGE);
+            player.sendActionBar(blockedMessage(matrix));
         }
     }
 
+    /**
+     * 「どのアイテムのせいで止まったか」を名指しする (2026-08-18、W-87 の実物確認を受けて)。
+     *
+     * <p><b>名前を出さないと解決しない</b>ことが実サーバで判明した ── 詰まる原因になるカスタム品は
+     * <b>リソースパックに item 定義が無く、見た目がバニラと1ピクセルも変わらない</b>ものばかりで
+     * (例: {@code netherite_block_1x}「9倍圧縮ネザライトブロック」、{@code thread_excavation} は
+     * ネザライトアップグレードの鍛冶型)、材料欄では<b>ホバーしない限り区別が付かない</b>。
+     * 「専用アイテムが入っています」だけだと、プレイヤーからは全部バニラに見えるので
+     * 「バニラのレシピが壊れている」という結論にしかならない。
+     */
+    net.kyori.adventure.text.Component blockedMessage(ItemStack[] matrix) {
+        Optional<net.kyori.adventure.text.Component> name = firstCatalogItemName(matrix);
+        if (name.isEmpty()) {
+            return CATALOG_INGREDIENT_MESSAGE;
+        }
+        return net.kyori.adventure.text.Component.text("", RED)
+                .append(name.get())
+                .append(net.kyori.adventure.text.Component.text(
+                        " はこのレシピの材料にできません（見た目が同じでも別のアイテムです）", RED));
+    }
+
+    /** 盤面で最初に見つかったカタログ品の表示名。表示名が無ければカタログ id で代用する。 */
+    private Optional<net.kyori.adventure.text.Component> firstCatalogItemName(ItemStack[] matrix) {
+        for (ItemStack item : matrix) {
+            if (item == null || item.getType().isAir()) {
+                continue;
+            }
+            Optional<String> identity = catalogIdentityOf(item);
+            if (identity.isEmpty()) {
+                continue;
+            }
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null && meta.hasDisplayName()) {
+                net.kyori.adventure.text.Component displayName = meta.displayName();
+                if (displayName != null) {
+                    return Optional.of(displayName);
+                }
+            }
+            return Optional.of(net.kyori.adventure.text.Component.text(identity.get(), RED));
+        }
+        return Optional.empty();
+    }
+
+    private static final net.kyori.adventure.text.format.NamedTextColor RED =
+            net.kyori.adventure.text.format.NamedTextColor.RED;
+
     private static final net.kyori.adventure.text.Component CATALOG_INGREDIENT_MESSAGE =
             net.kyori.adventure.text.Component.text(
-                    "このレシピは専用アイテムを材料にできません（材料欄のアイテム名を確認してください）",
-                    net.kyori.adventure.text.format.NamedTextColor.RED);
+                    "このレシピは専用アイテムを材料にできません（材料欄のアイテム名を確認してください）", RED);
 
     /**
      * Crafter (自動作業台, 1.21) 経路の防御。{@code PrepareItemCraftEvent} はCrafterでは発火しない
