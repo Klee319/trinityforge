@@ -157,11 +157,16 @@ public final class TrinityForge extends JavaPlugin {
     private SkillLevelSource skillLevelSource;
     private NativeProgressionService progressionService;
     /**
-     * 日次EXP逓減の状態保持器(2026-07-31)。プレイヤー×スキルごとに指数移動窓を持つだけなので
-     * DB を増やさない。退出時に {@code forget} して有界に保つ。
+     * 日次EXP逓減の状態保持器(2026-07-31)。プレイヤー×スキルごとに指数移動窓を持つ。
+     * 退出時に {@code forget} してメモリを有界に保ち、蓄積そのものは
+     * {@link com.trinityforge.progression.DailyExpWindowPersistence} が共有DBへ逃がす(2026-08-18)。
      */
     private final com.trinityforge.progression.DailyExpDiminishing dailyExpDiminishing =
             new com.trinityforge.progression.DailyExpDiminishing();
+    /** 逓減の蓄積の永続化先(共有 player_progression.db)。 */
+    private com.trinityforge.progression.infrastructure.sqlite.DailyExpWindowStore dailyExpWindowStore;
+    private com.trinityforge.progression.DailyExpWindowPersistence dailyExpPersistence;
+    private org.bukkit.scheduler.BukkitTask dailyExpAutosaveTask;
     private NativeProgressionAdminService progressionAdminService;
     private NativeExperienceDispatcher experienceDispatcher;
     private ProgressionRepository progressionRepository;
@@ -289,6 +294,11 @@ public final class TrinityForge extends JavaPlugin {
                     "jdbc:sqlite:" + database.getAbsolutePath());
             this.rankingStatsService = new com.trinityforge.ranking.RankingStatsService(
                     this, rankingMirrorStore);
+            // 日次EXP逓減の蓄積も同じ共有DBへ(2026-08-18)。ここへ置くと
+            // メイン⇄資源のサーバ移動でも逓減が引き継がれる(別々に持つと往復で消せてしまう)。
+            this.dailyExpWindowStore =
+                    new com.trinityforge.progression.infrastructure.sqlite.DailyExpWindowStore(
+                            "jdbc:sqlite:" + database.getAbsolutePath());
             this.progressionCatalog = NativeSkillCatalog.loadDataFolder(
                     getDataFolder(), getClassLoader());
             this.skillLevelSource = new NativeSkillLevelSource(progressionRepository);
@@ -400,8 +410,24 @@ public final class TrinityForge extends JavaPlugin {
         // NativeSkillExperienceListener の登録は aggregator/dedicatedEffects を要する
         // 破壊時バニラEXP(S9)配線のため aggregator 生成後(下方)へ移動した。gimmick系(Digging/VeinMining/
         // TreeFelling)より前に登録される点は変わらないので、placed-mark の消去順序は不変。
+        // 逓減の蓄積の永続化(2026-08-18)。これが無いと退出のたびに蓄積が消え、
+        // 「逓減が掛かったら入り直す」だけで等倍に戻せてしまう(＝機構が無いのと同じ)。
+        this.dailyExpPersistence = dailyExpWindowStore == null ? null
+                : new com.trinityforge.progression.DailyExpWindowPersistence(
+                        dailyExpDiminishing, dailyExpWindowStore,
+                        () -> configManager.skillExp().dailyDiminishing(),
+                        message -> getLogger().warning(message));
         getServer().getPluginManager().registerEvents(
-                new ProgressionPreloadListener(this, progressionRepository, dailyExpDiminishing), this);
+                new ProgressionPreloadListener(this, progressionRepository, dailyExpDiminishing,
+                        dailyExpPersistence), this);
+        // 定期保存。退出時保存だけだと(1)クラッシュで丸ごと消える (2)Velocity の
+        // サーバ移動では【移動先の join が移動元の quit より先に起きる】ので移動先が
+        // 古い値を読む、の2つが残る。5分ごとに書いておけば取りこぼしがその幅に収まる。
+        if (dailyExpPersistence != null) {
+            long autosaveTicks = 20L * 60L * 5L;
+            this.dailyExpAutosaveTask = getServer().getScheduler().runTaskTimerAsynchronously(
+                    this, () -> dailyExpPersistence.saveAll(), autosaveTicks, autosaveTicks);
+        }
         this.nativePerkService = new NativePerkService(progressionService,
                 () -> configManager.skillTrees().all().values());
         // スキルノードロック(2026-07-27): プレステージ時に維持する perk をプレイヤーPDCから供給する。
@@ -1367,6 +1393,25 @@ public final class TrinityForge extends JavaPlugin {
             rankingMirrorStore.close();
             rankingMirrorStore = null;
         }
+        // 日次逓減の最終フラッシュ。/stop の全員キックで飛ぶ PlayerQuitEvent は
+        // 非同期タスクを投げられないので保存を先送りしてある(ProgressionPreloadListener 参照)。
+        // ここで書かないと「サーバ再起動で全員の逓減がリセット」に戻る。
+        if (dailyExpAutosaveTask != null) {
+            dailyExpAutosaveTask.cancel();
+            dailyExpAutosaveTask = null;
+        }
+        if (dailyExpPersistence != null) {
+            try {
+                dailyExpPersistence.saveAll();
+            } catch (RuntimeException e) {
+                getLogger().warning("日次EXP逓減の最終フラッシュに失敗しました: " + e);
+            }
+            dailyExpPersistence = null;
+        }
+        if (dailyExpWindowStore != null) {
+            dailyExpWindowStore.close();
+            dailyExpWindowStore = null;
+        }
         try {
             if (experienceDispatcher != null) {
                 experienceDispatcher.close();
@@ -1639,6 +1684,17 @@ public final class TrinityForge extends JavaPlugin {
                                                         // ここで消さないとリセット後も古い最大値が残り続ける。
                                                         if (rankingStatsService != null) {
                                                             rankingStatsService.forget(target.getUniqueId());
+                                                        }
+                                                        // 日次逓減の蓄積も落とす。残すと「進行を初期化したのに
+                                                        // EXP取得量だけ減ったまま」という説明のつかない状態になる。
+                                                        dailyExpDiminishing.forget(target.getUniqueId());
+                                                        if (dailyExpWindowStore != null) {
+                                                            try {
+                                                                dailyExpWindowStore.delete(target.getUniqueId());
+                                                            } catch (java.sql.SQLException ex) {
+                                                                getLogger().warning(
+                                                                        "日次EXP逓減の蓄積を削除できませんでした: " + ex);
+                                                            }
                                                         }
                                                         perkAttributeApplier.apply(target);
                                                         perkMirrorService.sync(target);

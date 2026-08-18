@@ -1,5 +1,8 @@
 package com.trinityforge.progression;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -35,8 +38,13 @@ import java.util.function.LongSupplier;
  * <b>段数は切り捨て（離散）</b>にしてある ── 連続に薄めると「気づかないうちにじわじわ減っている」
  * だけで、あと何EXPで落ちるのか・何をすれば戻るのかがプレイヤーに伝わらないため。
  *
- * <p><b>永続化しない</b>のは意図的。サーバ再起動で蓄積が消えるが、プレイヤーは再起動を選べないので
- * 悪用経路にならず、DB スキーマを増やさずに済む。
+ * <p><b>永続化する</b>（2026-08-18 ユーザー指示「ログアウトで蓄積が全部消える＝これは直さないとダメ」）。
+ * このクラス自身はメモリしか持たないが、{@link #snapshot(UUID)} と
+ * {@link #restore(Settings, UUID, java.util.Collection)} を通じて
+ * {@code DailyExpWindowStore}（共有 SQLite）へ出し入れする。
+ * <b>永続化しないと機構ごと無効になる</b> ── 退出で蓄積が消えるなら、
+ * 逓減が効き始めた瞬間に再ログインするだけで等倍に戻せてしまい、
+ * 「1日の稼ぎ総量を薄める」という目的が1ミリも達成されない。
  */
 public final class DailyExpDiminishing {
 
@@ -242,9 +250,9 @@ public final class DailyExpDiminishing {
      * 蓄積が {@code target} まで落ちるのに掛かる時間。指数減衰
      * {@code A(t) = A × exp(-t / 窓)} を t について解いた {@code t = 窓 × ln(A / target)}。
      *
-     * <p><b>この見積りは「そのスキルでEXPを稼がずにオンラインでいる」前提</b>。
-     * 蓄積は永続化しておらず退出時に捨てられるので、再ログインした場合はここで出した時間を
-     * 待たずにリセットされる（＝表示より早く戻る方向にしか外れない）。
+     * <p><b>この見積りは「そのスキルでEXPを稼がない」前提</b>。蓄積は退出後も永続化され
+     * オフライン時間ぶんも同じ式で減衰するので、ログアウトして待った場合も同じ時間で戻る
+     * （2026-08-18 に永続化するまでは「再ログインで即リセット」だった）。
      */
     private static double millisUntilAmount(Settings settings, double accumulated, double target) {
         if (target <= 0.0 || accumulated <= target) {
@@ -319,6 +327,91 @@ public final class DailyExpDiminishing {
     /** 追跡中のプレイヤー数（テスト用）。 */
     public int trackedPlayers() {
         return windows.size();
+    }
+
+    /** 追跡中のプレイヤー（停止時の一括保存で回すため）。 */
+    public Set<UUID> trackedPlayerIds() {
+        return Set.copyOf(windows.keySet());
+    }
+
+    /**
+     * 永続化する1行ぶん。<b>減衰を適用しない生の値</b>を持つ。
+     *
+     * <p>保存時点で「今まで」減衰させてしまうと、保存から復元までのオフライン時間が
+     * 二重に効くか、逆に一切効かないかのどちらかになる。生の {@code (量, その時刻)} を
+     * そのまま持ち回れば、復元側が「保存時刻→現在」を1回だけ掛ければ済む。
+     *
+     * @param skillId         正規化済みスキルID
+     * @param amount          減衰前の蓄積量
+     * @param updatedAtMillis その量が有効だった時刻
+     */
+    public record WindowSnapshot(String skillId, double amount, long updatedAtMillis) { }
+
+    /** そのプレイヤーの全スキルぶんの保存用スナップショット（状態は進めない）。 */
+    public List<WindowSnapshot> snapshot(UUID playerId) {
+        if (playerId == null) {
+            return List.of();
+        }
+        Map<String, Window> perSkill = windows.get(playerId);
+        if (perSkill == null || perSkill.isEmpty()) {
+            return List.of();
+        }
+        List<WindowSnapshot> out = new ArrayList<>(perSkill.size());
+        for (Map.Entry<String, Window> e : perSkill.entrySet()) {
+            Window window = e.getValue();
+            synchronized (window) {
+                if (window.amount > 0.0) {
+                    out.add(new WindowSnapshot(e.getKey(), window.amount, window.updatedAtMillis));
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 保存しておいた蓄積をメモリへ戻す。<b>上書きではなくマージ</b>。
+     *
+     * <p>読み込んだ量は保存時刻から現在まで、既にメモリにある量は最終更新から現在まで、
+     * それぞれ指数減衰させてから足す。上書きにすると、ログイン直後の1回目の付与が先に
+     * 走っていた場合（非同期ロードなので普通に起こる）にその分が消えるし、
+     * 逆に読み込みを捨てると永続化した意味が無くなる。
+     *
+     * <p>{@code lastMultiplier} も復元後の倍率へ合わせる。1.0 のままにすると、
+     * ログイン後の最初の付与で「取得量が下がりました」という偽の通知が必ず出る
+     * （実際には下がっておらず、ログアウト前から下がったままなだけ）。
+     */
+    public void restore(Settings settings, UUID playerId, Collection<WindowSnapshot> entries) {
+        if (settings == null || playerId == null || entries == null || entries.isEmpty()) {
+            return;
+        }
+        long now = clock.getAsLong();
+        for (WindowSnapshot entry : entries) {
+            if (entry == null || entry.skillId() == null || entry.skillId().isBlank()) {
+                continue;
+            }
+            if (!Double.isFinite(entry.amount()) || entry.amount() <= 0.0) {
+                continue;
+            }
+            long offline = Math.max(0L, now - entry.updatedAtMillis());
+            double carried = entry.amount()
+                    * Math.exp(-((double) offline) / settings.windowMillis());
+            if (!Double.isFinite(carried) || carried <= 0.0) {
+                continue;
+            }
+            Map<String, Window> perSkill =
+                    windows.computeIfAbsent(playerId, id -> new ConcurrentHashMap<>());
+            Window window = perSkill.computeIfAbsent(entry.skillId(), id -> new Window(now));
+            synchronized (window) {
+                long elapsed = Math.max(0L, now - window.updatedAtMillis);
+                if (elapsed > 0L && window.amount > 0.0) {
+                    window.amount = window.amount
+                            * Math.exp(-((double) elapsed) / settings.windowMillis());
+                }
+                window.updatedAtMillis = now;
+                window.amount += carried;
+                window.lastMultiplier = multiplierFor(settings, window.amount);
+            }
+        }
     }
 
     /**
