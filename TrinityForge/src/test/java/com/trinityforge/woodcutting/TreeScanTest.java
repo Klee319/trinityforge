@@ -151,6 +151,85 @@ class TreeScanTest {
                 "叩いた1本はイベント本体が壊すので連鎖対象に含めない");
     }
 
+    // --- 2026-08-18 W-98: 曲がり幹(アカシア/ジャングル)は面隣接では繋がっていない ---
+
+    /**
+     * バニラの {@code BendingTrunkPlacer}(アカシア/ジャングル)が置く幹の形。
+     *
+     * <p>まっすぐ {@code straight} 段まで上がったあと、「水平へ1マス → 置く → 上へ1マス」を
+     * {@code bend} 回繰り返す。<b>曲がり目の連続する原木は {@code (1, 1, 0)} だけずれた斜め隣接</b>で、
+     * 面隣接では一切繋がっていない(ここが W-98 の全体)。
+     */
+    private static Set<BlockPos> bendingTrunk(int straight, int bend) {
+        Set<BlockPos> logs = new HashSet<>();
+        for (int y = 0; y < straight; y++) {
+            logs.add(new BlockPos(0, y, 0));
+        }
+        for (int step = 1; step <= bend; step++) {
+            logs.add(new BlockPos(step, straight - 1 + step, 0));
+        }
+        return logs;
+    }
+
+    @Test
+    void bendingTrunkIsNotFaceConnected() {
+        // ガードの前提そのもの: この形が面隣接で繋がっていたら、W-98 の修正は無意味になる。
+        Set<BlockPos> logs = bendingTrunk(5, 3);
+        BlockPos lastStraight = new BlockPos(0, 4, 0);
+        BlockPos firstBent = new BlockPos(1, 5, 0);
+
+        assertTrue(logs.contains(lastStraight) && logs.contains(firstBent));
+        assertFalse(lastStraight.faceNeighbors().contains(firstBent),
+                "曲がり目が面隣接になっている。テストが再現している木の形が実物と違う");
+        assertTrue(lastStraight.bentTrunkNeighbors().contains(firstBent),
+                "曲がり目が曲がり幹近傍にも入っていない。BENT_TRUNK_OFFSETS の定義が誤っている");
+    }
+
+    @Test
+    void wholeTreeFollowsTheBendInsteadOfStoppingAtIt() {
+        Set<BlockPos> logs = bendingTrunk(5, 3);
+
+        List<BlockPos> tree = TreeScan.wholeTree(new BlockPos(0, 0, 0), trunkOf(logs),
+                TreeScan.TREE_SCAN_LIMIT);
+
+        assertEquals(logs, new HashSet<>(tree),
+                "曲がった先の原木が走査から落ちている。面隣接だけで BFS すると曲がり目で必ず"
+                        + "打ち切られ、アカシアの上半分が伐り残る(W-98)");
+    }
+
+    @Test
+    void bendingTreeFellsIdenticallyFromAnyStruckLog() {
+        // 曲がり幹でも「叩いた場所に依らず同じ集合が消える」という N1 の不変条件を保つこと。
+        Set<BlockPos> logs = bendingTrunk(5, 3);
+        int maxExtra = logs.size();
+
+        Set<BlockPos> expected = null;
+        for (BlockPos struck : logs) {
+            BlockPos base = TreeScan.trunkBase(struck, trunkOf(logs));
+            List<BlockPos> tree = TreeScan.wholeTree(base, trunkOf(logs), TreeScan.TREE_SCAN_LIMIT);
+            Set<BlockPos> removed = new HashSet<>(TreeScan.selectFelled(tree, struck, maxExtra));
+            removed.add(struck);
+
+            if (expected == null) {
+                expected = removed;
+                assertEquals(logs, removed, "木全体が倒れること");
+            } else {
+                assertEquals(expected, removed, struck + " を叩いたときだけ消える範囲が違う");
+            }
+        }
+    }
+
+    @Test
+    void horizontalDiagonalsAreStillNotConnected() {
+        // 隣り合って生えた別の木へ「同じ高さの斜め」で飛び移らせないこと(26近傍にしない理由)。
+        BlockPos here = new BlockPos(0, 5, 0);
+
+        assertFalse(here.bentTrunkNeighbors().contains(new BlockPos(1, 5, 1)),
+                "水平だけの斜めが繋がっている。隣の木の幹を巻き込む");
+        assertFalse(here.bentTrunkNeighbors().contains(new BlockPos(1, 6, 1)),
+                "角(3軸同時)が繋がっている。26近傍にはしない方針から外れている");
+    }
+
     // --- 2026-07-31 G1 round2 レビュー指摘10: base 自身も述語で検査する ---
 
     @Test

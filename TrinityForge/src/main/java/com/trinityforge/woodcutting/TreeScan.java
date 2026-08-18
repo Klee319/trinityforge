@@ -139,6 +139,13 @@ public final class TreeScan {
      * 「設置丸太は木ではない」という本クラスの主張とは食い違っていた。空を返せば呼び出し側の
      * {@code planLeaves} も {@code treeLogs.isEmpty()} で即座に降りる。
      *
+     * <p><b>2026-08-18 W-98: 走査は {@link VeinMiningAlgorithm#BENT_TRUNK}(面隣接 + 上下1段の斜め)で
+     * 行う。</b> バニラのアカシア/ジャングルの幹は {@code BendingTrunkPlacer} が
+     * 「水平へ1マス → 置く → 上へ1マス」で曲げるため、<b>曲がり目の連続する原木が斜め隣接になり
+     * 面では繋がっていない</b>。面隣接だけで BFS するとそこで必ず打ち切られ、曲がった先が丸ごと
+     * 伐り残っていた(実サーバ報告「アカシアなどのくねくねしてる原木も一括破壊出来るようにしてほしい」)。
+     * 水平だけの斜めと角は入れていない — 隣り合って生えた別の木へ飛び移らせないため。
+     *
      * @param scanLimit {@code base} を含めた本数の上限。0以下なら空を返す。
      */
     public static List<BlockPos> wholeTree(BlockPos base, Predicate<BlockPos> isTrunk, int scanLimit) {
@@ -149,7 +156,8 @@ public final class TreeScan {
         }
         List<BlockPos> tree = new ArrayList<>();
         tree.add(base);
-        tree.addAll(VeinMiningAlgorithm.collect(base, isTrunk, scanLimit - 1));
+        tree.addAll(VeinMiningAlgorithm.collect(
+                base, isTrunk, scanLimit - 1, VeinMiningAlgorithm.BENT_TRUNK));
         tree.sort(BOTTOM_UP);
         return List.copyOf(tree);
     }
