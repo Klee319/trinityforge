@@ -50,4 +50,34 @@ class SunlightBurnListenerTest {
         assertTrue(SunlightBurnListener.isTargeted(EntityType.ZOMBIE, mobs));
         assertFalse(SunlightBurnListener.isTargeted(EntityType.CREEPER, mobs));
     }
+
+    // ---- 空が見えているかの判定 (2026-08-19 / W-114) -------------------------------------------
+    //
+    // バニラの日光焼却は【目の高さ】で空が見えるかを見る(Mob#isSunBurnTick)。旧実装は足元ブロック
+    // だけを見ていたので、浅い水に立つ個体(水がスカイライトを減衰させる)で
+    // 「バニラは焼いているのに TF の置換だけ効かない = 1ダメージのまま」になっていた。
+    // 出荷対象に DROWNED が居ること、水は火を消すことから、報告の
+    // 「一度鎮火してから再炎上するとき」と状況が一致する。
+
+    @Test
+    @DisplayName("足元のスカイライトが落ちていても、目の高さで空が見えていれば日光扱いにする")
+    void eyeLevelSkyLightAloneIsEnough() {
+        // 浅い水に立つ DROWNED: 足元(水中)は 11、頭は水面より上で 15。
+        assertTrue(SunlightBurnListener.seesSky(15, 11),
+                "目の高さで空が見えているのに置換しないと、バニラの1ダメージのまま焼け死ななくなる");
+    }
+
+    @Test
+    @DisplayName("足元だけで空が見えている場合も日光扱いにする(小型モブ・頭がめり込む個体の保険)")
+    void feetLevelSkyLightAloneIsEnough() {
+        assertTrue(SunlightBurnListener.seesSky(11, 15));
+    }
+
+    @Test
+    @DisplayName("目の高さも足元も空が見えていなければ日光扱いにしない")
+    void obstructedBothWaysIsNotDaylight() {
+        assertFalse(SunlightBurnListener.seesSky(11, 11),
+                "屋内や地下で火属性エンチャントに着火されただけの個体まで%HPダメージ化してはいけない");
+        assertFalse(SunlightBurnListener.seesSky(0, 0));
+    }
 }
