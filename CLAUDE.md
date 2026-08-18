@@ -30,6 +30,10 @@ Minecraft **Paper 1.21.11 / Java 21** 向けの大規模プラグイン群。TF 
 - **カレントディレクトリ外にファイルを作らない**（一時ファイルも `tmp/` 内で完結させる）。
   ただし `tmp/findings/` と `tmp/user-requests-all.md` は**参照が生きている**ので消さない。
 - **yml 内のコメントは日本語で書く。**
+- **config の yml を編集したら、その作業のコミットに必ず含める。** config 配備は 2026-08-18 から
+  「HEAD にワーキングツリーの yml を重ねる」= **未コミットの yml がそのまま出荷される**。
+  自分の編集途中を残すと他人の配備に混ざる。ワーキングツリーに残ってよい未コミット yml は
+  **ユーザーが設定エディタで編集したものだけ**（これを配備するのがこの方式の目的）。
 - **`rm -rf` と `git rm` は permissions で deny 済み。** 削除は PowerShell の `Remove-Item`、
   追跡ファイルは「消してから `git add -- <path>`」。長いパスは `\\?\` 付きの
   `[System.IO.Directory]::Delete` でないと消せない（Gradle の生成物が MAX_PATH を超える）。

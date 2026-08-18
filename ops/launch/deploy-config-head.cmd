@@ -71,9 +71,11 @@ call "%SELF%launch-config.cmd" || exit /b 1
 
 set "DRYRUN="
 set "ONLY_REL="
+set "HEADONLY="
 :parse_args
 if "%~1"=="" goto parsed_args
 if /i "%~1"=="--dry-run" (set "DRYRUN=1" & shift /1 & goto parse_args)
+if /i "%~1"=="--head-only" (set "HEADONLY=1" & shift /1 & goto parse_args)
 if /i "%~1"=="--help" goto usage
 if /i "%~1"=="-h" goto usage
 if /i "%~1"=="--only" (
@@ -96,11 +98,17 @@ set "ARSRES=%STAGE%\ars\src\main\resources"
 set "TFDST=%VELOCITY_ROOT%\%TF_CONFIG_HOST%\plugins\TrinityForge"
 
 echo ============================================================
-echo  deploy config from HEAD (committed state only)
+if defined HEADONLY (
+    echo  deploy config from HEAD ^(committed state only^)
+) else (
+    echo  deploy config: HEAD + working tree yml ^(editor edits win^)
+)
 echo ============================================================
 echo   repo        : %TF_REPO%
 echo   config host : %TF_CONFIG_HOST%
 echo   backends    : %TF_BACKENDS%
+if defined HEADONLY echo   source      : HEAD only -- uncommitted editor edits will NOT ship
+if not defined HEADONLY echo   source      : HEAD, then the working tree yml layered on top
 if defined ONLY_REL echo   scope       : ONLY %ONLY_REL% (TrinityForge; ArsPaper skipped)
 echo.
 
@@ -132,7 +140,11 @@ REM ---- 2/3  export HEAD ------------------------------------------------------
 REM  Runs even under --dry-run: the export writes only inside tmp\ and its report of
 REM  "uncommitted, therefore not deployed" is the main thing a dry run is for.
 echo --- 2/3  export HEAD into tmp\deploy-head ---
-powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\export-head-config.ps1"
+if defined HEADONLY (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\export-head-config.ps1" -HeadOnly
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\export-head-config.ps1"
+)
 if errorlevel 1 (
     echo   [ERROR] HEAD export failed. Nothing was copied.
     exit /b 1
@@ -244,9 +256,15 @@ exit /b 0
 
 REM ---------------------------------------------------------------------------------------------
 :usage
-echo Usage: deploy-config-head.cmd [--dry-run] [--only ^<rel\path^>]
+echo Usage: deploy-config-head.cmd [--dry-run] [--head-only] [--only ^<rel\path^>]
 echo.
-echo   Copies the COMMITTED (HEAD) yml onto the deployed config, for TrinityForge and ArsPaper.
+echo   --head-only        ship the COMMITTED state only. Without it (the default since
+echo                      2026-08-18, W-106) the working tree yml is layered on top of HEAD so
+echo                      that edits made in the config editor are NOT rolled back. Every file
+echo                      taken from the working tree is listed; check it for other sessions'
+echo                      half-finished work before continuing.
+echo.
+echo   Copies the yml onto the deployed config, for TrinityForge and ArsPaper.
 echo   Config only -- run deploy.cmd (without --config) for the jars.
 echo   Aborts while any backend is running.
 echo.

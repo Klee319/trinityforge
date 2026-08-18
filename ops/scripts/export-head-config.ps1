@@ -20,6 +20,24 @@
     そこで「未コミットを除外する」のではなく【HEAD の内容そのものを配備する】。
     出荷されるのは常に「コミット済みの状態」= 誰の編集途中も混ざらない、と定義できる。
 
+    ── 2026-08-18 方針変更(W-106): 既定を「HEAD + ワーキングツリーの yml」に変えた ────────
+    上の定義には実運用で致命的な副作用があった。設定エディタ(tools\config-editor)の保存先は
+    リポジトリの src\main\resources なので、【エディタで直しただけの変更は未コミット】であり、
+    次の config 配備で HEAD の内容に無言で上書きされる。ユーザーからは
+    「設定が勝手にロールバックした」ようにしか見えない(2026-08-18 W-101 の実例:
+    ヴォルカニックソースリンクの解放ゲートを外したのに、配備のたびに復活していた)。
+
+    そこで既定を【HEAD を土台にして、ワーキングツリーの yml を上から重ねる】に変えた。
+    エディタでの編集が最優先で残る = ロールバックしない。
+
+    元の懸念(他セッションの編集途中が混ざる)は、次の2点で担保する:
+      1. 重ねたファイルを【必ず一覧で表示する】。何が HEAD ではなく現物で出荷されたかが見える。
+      2. エージェントが config を直接編集したら【その場で commit する】運用にする。
+         こうするとワーキングツリーに残る未コミット yml は
+         「人がエディタで編集したもの」だけになり、競合そのものが起きない。
+
+    従来どおり「コミット済みだけ」を配りたいときは -HeadOnly を付ける。
+
     取り出しは git archive の tar 経由で行う。git show 経由だと PowerShell の文字列化で
     UTF-8 の日本語コメントと改行が壊れるため、バイト列のまま展開する必要がある。
 
@@ -41,7 +59,10 @@
 #>
 param(
     [string] $RepoRoot,
-    [string] $StageRoot
+    [string] $StageRoot,
+    # 付けると従来どおり「コミット済みだけ」を出荷する(ワーキングツリーを重ねない)。
+    # 既定はワーキングツリー優先 = エディタでの編集をロールバックさせない(W-106)。
+    [switch] $HeadOnly
 )
 
 Set-StrictMode -Version Latest
@@ -113,35 +134,98 @@ if (Test-Path (Join-Path $forkDir ".git")) {
     Write-Host "  [SKIP ] ArsPaper: フォークのソースがここには無い(.gitignore 除外)"
 }
 
-# ---- 配備されない変更を明示する -------------------------------------------------------------
-# 「HEAD を配ります」だけでは、何を配らなかったのかが分からない。
-# 未コミットの yml を列挙して、意図的に取り残したことを目に見える形にする。
-Write-Host ""
-Write-Host "--- 未コミットのため今回は配備されない yml ---"
-$dirty = New-Object System.Collections.Generic.List[string]
+# ---- ワーキングツリーと HEAD の差分を拾う ----------------------------------------------------
+# git status --porcelain は変更(M)も未追跡(??)も返す。エディタが新規 yml を作ることもあるので
+# 未追跡も対象に含める。削除(D)だけは重ねようがないので別扱いにする。
+function Get-DirtyYml {
+    param(
+        [Parameter(Mandatory = $true)][string] $GitDir,
+        [Parameter(Mandatory = $true)][string] $PathSpec,
+        [Parameter(Mandatory = $true)][string] $Label
+    )
 
-foreach ($line in (& git -C $RepoRoot status --porcelain -- $tfRel)) {
-    if ([string]::IsNullOrWhiteSpace($line)) { continue }
-    $rel = $line.Substring(3).Trim().Trim('"')
-    if ($rel -match '\s->\s') { $rel = ($rel -split '\s->\s')[-1] }
-    if ($rel -match '\.yml$') { $dirty.Add("TF   " + $rel) }
-}
-if (Test-Path (Join-Path $forkDir ".git")) {
-    foreach ($line in (& git -C $forkDir status --porcelain -- $arsRel)) {
+    $result = New-Object System.Collections.Generic.List[psobject]
+    foreach ($line in (& git -C $GitDir status --porcelain -- $PathSpec)) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $rel = $line.Substring(3).Trim().Trim('"')
+        # リネームは "old -> new"。重ねたいのは新しい方。
         if ($rel -match '\s->\s') { $rel = ($rel -split '\s->\s')[-1] }
-        if ($rel -match '\.yml$') { $dirty.Add("ARS  " + $rel) }
+        if ($rel -notmatch '\.yml$') { continue }
+        $result.Add([pscustomobject]@{
+            Label   = $Label
+            Rel     = $rel
+            GitDir  = $GitDir
+            Deleted = -not (Test-Path -LiteralPath (Join-Path $GitDir $rel))
+        })
     }
+    return $result
 }
 
-if ($dirty.Count -eq 0) {
-    Write-Host "  (なし。ワーキングツリーの yml は HEAD と一致しています)"
-} else {
-    foreach ($d in $dirty) { Write-Host ("  " + $d) }
-    Write-Host ""
-    Write-Host ("  {0} 件。これらは HEAD の内容が配備されます(ワーキングツリー側の編集は届きません)。" -f $dirty.Count)
-    Write-Host "  自分の変更がこの一覧にある場合は、先に commit してから配備し直してください。"
+$dirty = New-Object System.Collections.Generic.List[psobject]
+foreach ($d in (Get-DirtyYml -GitDir $RepoRoot -PathSpec $tfRel -Label "TF ")) { $dirty.Add($d) }
+if (Test-Path (Join-Path $forkDir ".git")) {
+    foreach ($d in (Get-DirtyYml -GitDir $forkDir -PathSpec $arsRel -Label "ARS")) { $dirty.Add($d) }
 }
+
+# TF は git archive のパススペックがリポジトリ相対なので、展開先も同じ相対パスで揃う。
+# フォークも同様(フォーク自身のリポジトリ相対)。したがって重ねる先は <展開ルート>\<相対パス>。
+$stageRootOf = @{}
+$stageRootOf[$RepoRoot] = $tfDest
+$stageRootOf[$forkDir]  = $arsDest
+
+Write-Host ""
+if ($HeadOnly) {
+    Write-Host "--- -HeadOnly: 未コミットのため今回は配備されない yml ---"
+    if ($dirty.Count -eq 0) {
+        Write-Host "  (なし。ワーキングツリーの yml は HEAD と一致しています)"
+    } else {
+        foreach ($d in $dirty) { Write-Host ("  {0}  {1}" -f $d.Label, $d.Rel) }
+        Write-Host ""
+        Write-Host ("  {0} 件。これらは HEAD の内容が配備されます(ワーキングツリー側の編集は届きません)。" -f $dirty.Count)
+        Write-Host "  エディタでの編集をそのまま配備したい場合は -HeadOnly を外してください。"
+    }
+    exit 0
+}
+
+# ---- ワーキングツリーを HEAD の上に重ねる(既定) ----------------------------------------------
+# ここで重ねた分が「HEAD ではなく現物が出荷されたファイル」。ロールバック事故の逆で、
+# 今度は【他人の編集途中を出荷してしまう】のが唯一のリスクなので、必ず全件を表示する。
+Write-Host "--- ワーキングツリーの yml を HEAD の上に重ねる(エディタでの編集を優先) ---"
+if ($dirty.Count -eq 0) {
+    Write-Host "  (重ねるものなし。ワーキングツリーの yml は HEAD と一致しています)"
+    exit 0
+}
+
+$overlaid = 0
+$skipped  = New-Object System.Collections.Generic.List[string]
+foreach ($d in $dirty) {
+    if ($d.Deleted) {
+        # ワーキングツリーで消えている = 重ねる中身が無い。HEAD の内容をそのまま配る。
+        # (配備先のファイルを消す動作はこのスクリプトには無い。消したいなら commit して別途対応)
+        $skipped.Add(("{0}  {1}  (ワーキングツリーで削除済み。HEAD の内容を配備)" -f $d.Label, $d.Rel))
+        continue
+    }
+    $destRoot = $stageRootOf[$d.GitDir]
+    if (-not $destRoot) {
+        $skipped.Add(("{0}  {1}  (展開先が不明)" -f $d.Label, $d.Rel))
+        continue
+    }
+    $src  = Join-Path $d.GitDir $d.Rel
+    $dest = Join-Path $destRoot $d.Rel
+    $destDir = Split-Path -Parent $dest
+    if (-not (Test-Path -LiteralPath $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    }
+    Copy-Item -LiteralPath $src -Destination $dest -Force
+    Write-Host ("  [重ねた] {0}  {1}" -f $d.Label, $d.Rel)
+    $overlaid++
+}
+
+foreach ($s in $skipped) { Write-Host ("  [スキップ] " + $s) }
+
+Write-Host ""
+Write-Host ("  {0} 件をワーキングツリーの内容で配備します。" -f $overlaid)
+Write-Host "  ⚠ この一覧に【身に覚えのないファイル】があれば、他セッションの編集途中が混ざっています。"
+Write-Host "     その場合は配備を中止するか、-HeadOnly でコミット済みだけを配備してください。"
 
 exit 0
