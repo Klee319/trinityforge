@@ -6,12 +6,14 @@ import com.trinityforge.pdc.PdcKeys;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.EnderDragon;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -25,6 +27,8 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 import java.util.HashSet;
@@ -48,11 +52,8 @@ public final class FocusHpDisplay implements Listener {
 
     private static final long PERIOD_TICKS = 1L;
     private static final int MAX_TARGET_DISTANCE_BLOCKS = 20;
-    private static final double EYE_HEIGHT_OFFSET = 0.55;
     /** Client-side lerp ticks between teleports (smooth follow while the scheduler runs every tick). */
     private static final int TELEPORT_DURATION_TICKS = 2;
-    /** Cosine of half-cone (~25°) for look-direction fallback when raycast misses. */
-    private static final double LOOK_CONE_DOT = 0.90;
 
     private final Plugin plugin;
     private final MobDisplayNames displayNames;
@@ -182,46 +183,104 @@ public final class FocusHpDisplay implements Listener {
     }
 
     /**
-     * Prefer Bukkit raycast; if it misses (oblique angle / partial block), fall back to the nearest
-     * living entity in the player's look cone so the label is not direction-gated to a few yaw slices.
+     * 視線がそのモブの<b>ヒットボックスを貫くか</b>で判定する(2026-08-18 ユーザー確定要件:
+     * 「ヒットボックスのどこを見ても表示」「外したら表示されない」)。
+     *
+     * <p><b>旧実装が大型モブで機能しなかった理由</b>: 当たらなかったときの救済が
+     * 「目の位置どうしの角度が 25°以内」という<b>点と点の円錐</b>だったため、
+     * ヒットボックスが大きいほど<b>体の端を見ても中心方向から外れて落ちる</b>。
+     * エンダードラゴンやガストで「モブを向いているのに出ない」のはこれ。
+     * 逆に小さいモブでは円錐が広すぎて「外したのに出る」側にも外れていた。
+     *
+     * <p>そこで2段構えにする:
+     * <ol>
+     *   <li>{@code World#rayTrace} — ブロック遮蔽も見る本来のレイキャスト。壁越しに出さない。</li>
+     *   <li>ヒットボックス({@link #focusBox})への AABB レイキャスト。
+     *       エンダードラゴンのように<b>本体の当たり判定が小さく、実体はパーツ側にある</b>モブは
+     *       1 段目が素通りするので、ここで拾う。遮蔽ブロックより手前だけを有効にする。</li>
+     * </ol>
+     *
+     * <p>自分が<b>騎乗しているモブは対象外</b>(ユーザー報告: ハッピーガスト/馬/ストライダーで
+     * ラベルが視界の真ん中に居座る)。乗り物の乗り物まで辿るのは、馬に乗ってボートに乗るような
+     * 多段騎乗でも同じ理由が成立するため。
      */
     private LivingEntity findFocusTarget(Player player) {
-        Entity direct = player.getTargetEntity(MAX_TARGET_DISTANCE_BLOCKS);
-        if (direct instanceof LivingEntity living && !(direct instanceof Player)
-                && !(direct instanceof ArmorStand)
-                && !living.isDead() && living.isValid() && !TrainingDummies.isTrainingDummy(living)) {
-            return living;
-        }
         Location eye = player.getEyeLocation();
         Vector look = eye.getDirection().normalize();
-        LivingEntity best = null;
-        double bestScore = Double.POSITIVE_INFINITY;
+        Set<UUID> ridden = riddenEntities(player);
         double maxDist = MAX_TARGET_DISTANCE_BLOCKS;
+
+        RayTraceResult hit = player.getWorld().rayTrace(eye, look, maxDist,
+                FluidCollisionMode.NEVER, true, 0.0,
+                entity -> entity instanceof LivingEntity living && isFocusable(living, ridden));
+        if (hit != null && hit.getHitEntity() instanceof LivingEntity living) {
+            return living;
+        }
+        // 1段目がブロックに当たっていたら、そこまでが視線の届く距離。
+        double limit = maxDist;
+        if (hit != null && hit.getHitBlock() != null) {
+            limit = hit.getHitPosition().distance(eye.toVector());
+        }
+
+        Vector origin = eye.toVector();
+        LivingEntity best = null;
+        double bestDistance = Double.POSITIVE_INFINITY;
         for (Entity entity : player.getNearbyEntities(maxDist, maxDist, maxDist)) {
             // ArmorStand implements LivingEntity in the Bukkit API but is a decoration with no meaningful
             // level/HP; excluded unconditionally (type-correctness fix, not a policy toggle — see
             // DamagePopupDisplay's identical exclusion for the matching rationale).
-            if (!(entity instanceof LivingEntity living) || entity instanceof Player
-                    || entity instanceof ArmorStand
-                    || living.isDead() || !living.isValid() || TrainingDummies.isTrainingDummy(living)) {
+            if (!(entity instanceof LivingEntity living) || !isFocusable(living, ridden)) {
                 continue;
             }
-            Vector to = living.getEyeLocation().toVector().subtract(eye.toVector());
-            double dist = to.length();
-            if (dist < 0.2 || dist > maxDist) {
+            double distance = FocusHitbox.lookDistance(focusBox(living), origin, look, limit);
+            if (!FocusHitbox.isHit(distance)) {
                 continue;
             }
-            double dot = look.dot(to.multiply(1.0 / dist));
-            if (dot < LOOK_CONE_DOT) {
-                continue;
-            }
-            double score = dist / Math.max(0.01, dot);
-            if (score < bestScore) {
-                bestScore = score;
+            if (distance < bestDistance) {
+                bestDistance = distance;
                 best = living;
             }
         }
         return best;
+    }
+
+    private static boolean isFocusable(LivingEntity living, Set<UUID> ridden) {
+        return !(living instanceof Player)
+                && !(living instanceof ArmorStand)
+                && !living.isDead() && living.isValid()
+                && !TrainingDummies.isTrainingDummy(living)
+                && !ridden.contains(living.getUniqueId());
+    }
+
+    /** 自分が乗っている乗り物(多段騎乗なら全段)。 */
+    private static Set<UUID> riddenEntities(Player player) {
+        Entity vehicle = player.getVehicle();
+        if (vehicle == null) {
+            return Set.of();
+        }
+        Set<UUID> ids = new HashSet<>();
+        // 乗り物の連鎖は現実的に浅いが、循環していても落ちないように既出で打ち切る。
+        while (vehicle != null && ids.add(vehicle.getUniqueId())) {
+            vehicle = vehicle.getVehicle();
+        }
+        return ids;
+    }
+
+    /**
+     * ラベルの位置と視線判定に使う当たり判定。
+     *
+     * <p>エンダードラゴンは<b>本体の {@code getBoundingBox()} が実際の見た目より遥かに小さく</b>、
+     * 当たり判定は {@code getParts()}(頭・首・胴・翼・尾)側にある。パーツを合併しないと
+     * 「体を見ているのに判定に入らない」「ラベルが体に埋まる」の両方が起きる。
+     */
+    private static BoundingBox focusBox(LivingEntity living) {
+        BoundingBox box = living.getBoundingBox();
+        if (living instanceof EnderDragon dragon) {
+            for (Entity part : dragon.getParts()) {
+                box.union(part.getBoundingBox());
+            }
+        }
+        return box;
     }
 
     private void updateFor(LivingEntity livingTarget) {
@@ -231,8 +290,11 @@ public final class FocusHpDisplay implements Listener {
         }
         UUID targetId = livingTarget.getUniqueId();
         Component text = formatFor(livingTarget);
-        Location location = livingTarget.getLocation();
-        location.add(0.0, livingTarget.getEyeHeight() + EYE_HEIGHT_OFFSET, 0.0);
+        // ヒットボックスの最上面の中心の少し上(2026-08-18 ユーザー確定)。目の高さ基準だと
+        // ガストやエンダードラゴンのように「目より上に体が続く」モブでラベルが体に埋まる。
+        BoundingBox box = focusBox(livingTarget);
+        Location location = new Location(livingTarget.getWorld(),
+                box.getCenterX(), FocusHitbox.labelY(box), box.getCenterZ());
 
         TrackedDisplay tracked = active.get(targetId);
         if (tracked == null) {
