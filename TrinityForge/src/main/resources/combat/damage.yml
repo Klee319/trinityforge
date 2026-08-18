@@ -98,6 +98,15 @@ level-cutoff:
     exp-decay-per-level: 0.1
     drop-decay-per-level: 0
     rate-floor: 0
+    # 2026-08-18 (W-80) 少し格上のモブを倒したときの報酬上乗せ。レベル差1につき経験値とTF追加ドロップ確率を
+    # bonus-per-level ぶん増やし、bonus-cap で頭打ちにする。0 にすると機能ごと無効。
+    # ⚠ 効くのは上の item-threshold に「届かない」レベル差だけ。届いた差は足きりが優先されるので、
+    #   ハメ殺し/デスルーラー対策(20差以上でドロップ遮断・EXP逓減)には一切穴を空けない。
+    # 狙い: EMのダイナミックダンジョンは入場時に「戦闘レベル −5 / ±0 / +5」からレベルを選べるが、
+    #   選んだレベルはボスの強さにしか効かず報酬に一切効いていなかったため、高いレベルを選ぶ理由が無かった。
+    #   既定では +5 のレベル差で経験値もドロップ確率も 1.30 倍になる。
+    bonus-per-level: 0.06
+    bonus-cap: 0.5
 durability:
   dungeon-only: true
   respect-unbreaking: true

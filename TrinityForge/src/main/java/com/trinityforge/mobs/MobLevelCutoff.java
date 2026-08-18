@@ -91,13 +91,19 @@ package com.trinityforge.mobs;
  * @param underLevelExpDecayPerLevel  under-level超過1レベルごとに {@code underLevelExpRate} から引く量。
  * @param underLevelDropDecayPerLevel under-level超過1レベルごとに {@code underLevelDropRate} から引く量。
  * @param underLevelRateFloor         under-level側の減衰の下限 [0,1]。{@code null} なら {@code 0.0} 扱い。
+ * @param underLevelBonusPerLevel 「自分より少しだけ高レベルのモブ」を倒したときに、レベル差1につき
+ *                                経験値とTF追加ドロップ確率へ上乗せする割合。{@code 0.06} なら
+ *                                レベル差1ごとに +6%。{@code null}/{@code 0.0} で無効(既定)。
+ * @param underLevelBonusCap      上の上乗せの上限 [0,∞)。{@code 0.5} なら最大 +50%。
+ *                                {@code null}/{@code 0.0} なら上乗せ自体が無効。
  */
 public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate, Double overLevelDropRate,
                               Integer underLevelItemThreshold, Double overLevelExpDecayPerLevel,
                               Double overLevelDropDecayPerLevel, Double overLevelRateFloor,
                               Double underLevelExpRate, Double underLevelDropRate,
                               Double underLevelExpDecayPerLevel, Double underLevelDropDecayPerLevel,
-                              Double underLevelRateFloor) {
+                              Double underLevelRateFloor,
+                              Double underLevelBonusPerLevel, Double underLevelBonusCap) {
 
     /** 全フィールド未設定 = 常に無効。 */
     public static final MobLevelCutoff NONE = new MobLevelCutoff(null, null, null, null);
@@ -124,6 +130,23 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
         this(overLevelThreshold, overLevelExpRate, overLevelDropRate, underLevelItemThreshold,
                 overLevelExpDecayPerLevel, overLevelDropDecayPerLevel, overLevelRateFloor,
                 null, -1.0, 0.0, 0.0, 0.0);
+    }
+
+    /**
+     * 2026-08-18(W-73)の12引数コンストラクタ(既存呼び出し元・既存テストとの後方互換)。
+     * 「少し格上のモブを倒したときの報酬上乗せ」は {@code 0.0}(無効)で初期化するので、
+     * W-80 を入れる前と完全に同じ挙動になる。
+     */
+    public MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate, Double overLevelDropRate,
+                           Integer underLevelItemThreshold, Double overLevelExpDecayPerLevel,
+                           Double overLevelDropDecayPerLevel, Double overLevelRateFloor,
+                           Double underLevelExpRate, Double underLevelDropRate,
+                           Double underLevelExpDecayPerLevel, Double underLevelDropDecayPerLevel,
+                           Double underLevelRateFloor) {
+        this(overLevelThreshold, overLevelExpRate, overLevelDropRate, underLevelItemThreshold,
+                overLevelExpDecayPerLevel, overLevelDropDecayPerLevel, overLevelRateFloor,
+                underLevelExpRate, underLevelDropRate, underLevelExpDecayPerLevel,
+                underLevelDropDecayPerLevel, underLevelRateFloor, 0.0, 0.0);
     }
 
     /**
@@ -182,7 +205,41 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
             rate = Math.min(rate, decayedRate(underLevelDropRate, underLevelDropDecayPerLevel,
                     excessUnderLevels(playerLevel, mobLevel), underLevelRateFloor));
         }
-        return rate;
+        return rate * overMobLevelBonus(playerLevel, mobLevel);
+    }
+
+    /**
+     * 「自分より少しだけ高レベルのモブ」を倒したときに経験値とTF追加ドロップ確率へ掛かる
+     * <b>1.0以上</b>の上乗せ倍率(2026-08-18 W-80)。
+     *
+     * <p><b>なぜ要るか(ユーザー報告)。</b> EMのダイナミックダンジョンは入場時に
+     * 「自分の戦闘レベル −5 / ±0 / +5」からレベルを選ぶが、選んだレベルはボスの強さにしか効かず、
+     * <b>報酬側には一切効いていなかった</b>(TF追加ドロップは {@code combat/mob-overrides.yml} の
+     * 固定 {@code chance} で、レベルの項が無い)。結果「低レベルで挑んだほうが簡単に勝てるうえ、
+     * 報酬は同じ」となり、高レベルを選ぶ理由が構造的に存在しなかった。
+     * モブのレベルはプレイヤーのレベルとの差で報酬に反映されるべき、という一般則としてここに置く
+     * (ダンジョン専用の分岐にはしない ── オーバーワールドの格上モブにも同じ理屈が通るため)。
+     *
+     * <p><b>足きりとは排他になる。</b> 上乗せが効くのは {@link #isUnderLevelActive} が偽、つまり
+     * under-level の足きり閾値に<b>届いていない</b>差のときだけ。差が閾値以上(既定20)なら
+     * ハメ殺し/デスルーラー対策の足きり(W-73)が優先され、上乗せは一切乗らない。
+     * over-level(プレイヤーのほうが高レベル)側では {@code mobLevel - playerLevel <= 0} なので
+     * そもそも上乗せは発生しない。
+     */
+    public double overMobLevelBonus(int playerLevel, int mobLevel) {
+        double perLevel = orZero(underLevelBonusPerLevel);
+        double cap = orZero(underLevelBonusCap);
+        if (perLevel <= 0.0 || cap <= 0.0) {
+            return 1.0;
+        }
+        if (isUnderLevelActive(playerLevel, mobLevel)) {
+            return 1.0;
+        }
+        int levelsAbove = mobLevel - playerLevel;
+        if (levelsAbove <= 0) {
+            return 1.0;
+        }
+        return 1.0 + Math.min(cap, perLevel * levelsAbove);
     }
 
     /**
@@ -207,7 +264,7 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
             rate = Math.min(rate, decayedRate(underLevelExpRate, underLevelExpDecayPerLevel,
                     excessUnderLevels(playerLevel, mobLevel), underLevelRateFloor));
         }
-        return rate;
+        return rate * overMobLevelBonus(playerLevel, mobLevel);
     }
 
     /**

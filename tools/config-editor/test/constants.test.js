@@ -316,6 +316,31 @@ test("2026-08-18 W-72: under-level の5キーが共通変数に出て、未設�
     ["level-cutoff.under-level.rate-floor: 1以下である必要があります"]);
 });
 
+test("2026-08-18 格上ボーナス(bonus-per-level / bonus-cap)の既定と範囲", () => {
+  // def は出荷 yml(0.06/0.5)ではなく Java の SchemaField 既定値(0/0)。ここがずれると
+  // キー未記載の配備済み config を開いて保存しただけで上乗せが有効化されてしまう。
+  const damage = { "level-cutoff": { "under-level": { "item-threshold": 20 } } };
+  const { fields } = extractConstants(damage, {});
+  assert.equal(fields["level-cutoff.under-level.bonus-per-level"], 0);
+  assert.equal(fields["level-cutoff.under-level.bonus-cap"], 0);
+
+  // 出荷値がそのまま往復すること(editor で開いて保存しても意味が変わらない)。
+  const payload = { fields: {
+    "level-cutoff.under-level.bonus-per-level": 0.06,
+    "level-cutoff.under-level.bonus-cap": 0.5
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["bonus-per-level"], 0.06);
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["bonus-cap"], 0.5);
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["item-threshold"], 20);
+
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.bonus-per-level": -0.1 } }),
+    ["level-cutoff.under-level.bonus-per-level: 0以上の値が必要です"]);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.bonus-cap": 5.1 } }),
+    ["level-cutoff.under-level.bonus-cap: 5以下である必要があります"]);
+});
+
 test("撤去した attack/defense stat-key はもう共通変数に現れない", () => {
   // 恒等マップのためハードコード化(2026-07-24)。editor の FIELD_SPECS から除外済みで、
   // extractConstants は該当キーを surface せず、既存 damage.yml の値は保存時に温存される。

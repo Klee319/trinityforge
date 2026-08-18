@@ -46,19 +46,21 @@ class ShippedLevelCutoffTest {
                 "under-level の閾値が無効値(-1)。低レベルでの高レベルモブ狩りが素通りになる");
     }
 
-    @Test
-    void shippedUnderLevelCurveZeroesExpAtATenLevelExcess() {
+    /** 出荷 yml の {@code under-level} ブロックをそのまま組み立てたもの(上乗せの2キーも含む)。 */
+    private static MobLevelCutoff shipped() {
         ConfigurationSection under = underLevel();
-        MobLevelCutoff cutoff = new MobLevelCutoff(
+        return new MobLevelCutoff(
                 -1, 1.0, 1.0, under.getInt("item-threshold"), 0.0, 0.0, 0.0,
                 under.getDouble("exp-rate"), under.getDouble("drop-rate"),
                 under.getDouble("exp-decay-per-level"), under.getDouble("drop-decay-per-level"),
-                under.getDouble("rate-floor"));
-        int threshold = under.getInt("item-threshold");
+                under.getDouble("rate-floor"),
+                under.getDouble("bonus-per-level"), under.getDouble("bonus-cap"));
+    }
 
-        // 閾値の1つ手前までは完全に無干渉 ── 正規の攻略(自分の帯のダンジョン)を巻き込まない。
-        assertEquals(1.0, cutoff.expMultiplier(0, threshold - 1), 1e-9);
-        assertEquals(1.0, cutoff.dropChanceMultiplier(0, threshold - 1), 1e-9);
+    @Test
+    void shippedUnderLevelCurveZeroesExpAtATenLevelExcess() {
+        MobLevelCutoff cutoff = shipped();
+        int threshold = underLevel().getInt("item-threshold");
 
         // 閾値ちょうどでTF追加ドロップは止まり、経験値はここから逓減が始まる。
         assertTrue(cutoff.blocksItems(0, threshold), "閾値到達でTF追加ドロップは付かない");
@@ -67,5 +69,42 @@ class ShippedLevelCutoffTest {
         // 閾値からさらに10レベル開くと経験値0。ここが「ハメ殺しても何も入らない」ラインになる。
         assertEquals(0.0, cutoff.expMultiplier(0, threshold + 10), 1e-9);
         assertEquals(0.0, cutoff.expMultiplier(0, threshold + 60), 1e-9);
+    }
+
+    /**
+     * 出荷設定で「少し格上のモブを倒すと報酬が増える」ことを固定する(2026-08-18 W-80)。
+     *
+     * <p>EM のダイナミックダンジョンは入場時に「自分の戦闘レベル −5 / ±0 / +5」からレベルを選べるが、
+     * 選んだレベルはボスの強さにしか効かず<b>報酬側に一切効いていなかった</b>ので、高いレベルを選ぶ理由が
+     * 構造的に存在しなかった(ユーザー報告「低レベルで挑んだ方が簡単に勝ててしまう／高レベルで挑む理由を作る
+     * 必要がありそう」)。ここの値が 0 に戻ると、その理由がまた消える。
+     */
+    @Test
+    void shippedBonusRewardsFightingAboveYourLevel() {
+        ConfigurationSection under = underLevel();
+        assertTrue(under.getDouble("bonus-per-level") > 0.0 && under.getDouble("bonus-cap") > 0.0,
+                "格上ボーナスが無効値。ダイナミックダンジョンで高いレベルを選ぶ理由が無くなる");
+
+        MobLevelCutoff cutoff = shipped();
+        // ダンジョンで「+5」を選んだときに実際に効く倍率。経験値もTF追加ドロップ確率も同じだけ増える。
+        double plus5 = cutoff.expMultiplier(50, 55);
+        assertTrue(plus5 > 1.0, "+5レベルを選んでも報酬が増えないなら、高レベルを選ぶ理由が無い");
+        assertEquals(plus5, cutoff.dropChanceMultiplier(50, 55), 1e-9, "経験値とドロップで倍率が食い違う");
+        // 「−5」を選んだ側(自分のほうが高レベル)には上乗せが乗らない = 低レベル選択が有利にならない。
+        assertEquals(1.0, cutoff.expMultiplier(50, 45), 1e-9);
+    }
+
+    /**
+     * 上乗せがハメ殺し／デスルーラー対策(W-72)に穴を空けていないこと。
+     * 足きりの閾値に届いた差では上乗せは一切乗らず、遮断と逓減がそのまま効く。
+     */
+    @Test
+    void shippedBonusNeverReopensTheAntiCheeseCutoff() {
+        MobLevelCutoff cutoff = shipped();
+        int threshold = underLevel().getInt("item-threshold");
+        assertEquals(0.0, cutoff.dropChanceMultiplier(0, threshold), 1e-9,
+                "閾値到達時のTF追加ドロップ遮断が上乗せで復活している");
+        assertEquals(0.0, cutoff.expMultiplier(0, threshold + 10), 1e-9,
+                "閾値+10 の経験値0 が上乗せで復活している");
     }
 }

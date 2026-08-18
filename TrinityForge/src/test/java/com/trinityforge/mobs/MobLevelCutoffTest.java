@@ -334,4 +334,67 @@ class MobLevelCutoffTest {
         assertEquals(0.0, overBlocks.expMultiplier(10, 10));
         assertTrue(overBlocks.blocksItems(10, 10));
     }
+
+    // ---- W-80: 少し格上のモブを倒したときの報酬上乗せ ----
+    // EMのダイナミックダンジョンは入場時に「戦闘レベル −5 / ±0 / +5」からレベルを選べるが、
+    // 選んだレベルはボスの強さにしか効かず報酬に一切効いていなかった(TF追加ドロップは
+    // mob-overrides.yml の固定chanceでレベルの項が無い)。高レベルを選ぶ理由を作るための上乗せ。
+
+    /** 出荷値(item-threshold=20 / bonus-per-level=0.06 / bonus-cap=0.5)そのもの。 */
+    private static MobLevelCutoff shippedWithBonus() {
+        return new MobLevelCutoff(-1, 1.0, 1.0, 20, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.1, 0.0, 0.0, 0.06, 0.5);
+    }
+
+    @Test
+    void bonusIsDisabledByDefaultSoOlderConstructorsAreUnchanged() {
+        // 12引数(W-73時点)のコンストラクタは上乗せ 0.0 で初期化される = W-80 前と完全に同じ挙動。
+        MobLevelCutoff before = new MobLevelCutoff(-1, 1.0, 1.0, 20, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.1, 0.0, 0.0);
+        assertEquals(1.0, before.overMobLevelBonus(50, 55), 1e-9);
+        assertEquals(1.0, before.expMultiplier(50, 55), 1e-9);
+        assertEquals(1.0, before.dropChanceMultiplier(50, 55), 1e-9);
+    }
+
+    @Test
+    void bonusScalesExpAndDropWithHowFarAboveTheMobIs() {
+        MobLevelCutoff cutoff = shippedWithBonus();
+        // ダイナミックダンジョンで「+5」を選んだときの実際の値 ── 経験値もドロップ確率も1.30倍。
+        assertEquals(1.30, cutoff.expMultiplier(50, 55), 1e-9, "+5レベル -> 1 + 0.06*5");
+        assertEquals(1.30, cutoff.dropChanceMultiplier(50, 55), 1e-9, "+5レベル -> 1 + 0.06*5");
+        assertEquals(1.06, cutoff.expMultiplier(50, 51), 1e-9, "+1レベルでも上乗せは効く");
+    }
+
+    @Test
+    void bonusIsCappedAndNeverAppliesDownward() {
+        MobLevelCutoff cutoff = shippedWithBonus();
+        assertEquals(1.5, cutoff.expMultiplier(50, 59), 1e-9, "+9で上限0.5に到達");
+        assertEquals(1.5, cutoff.expMultiplier(50, 69), 1e-9, "+19でも上限で頭打ち");
+        assertEquals(1.0, cutoff.expMultiplier(50, 50), 1e-9, "同レベルには乗らない");
+        assertEquals(1.0, cutoff.expMultiplier(60, 50), 1e-9, "自分のほうが高レベルなら乗らない");
+        assertEquals(1.0, cutoff.dropChanceMultiplier(60, 50), 1e-9);
+    }
+
+    @Test
+    void cutoffAlwaysWinsOverTheBonusSoTheAntiCheeseGuardKeepsWorking() {
+        // ここが一番大事 ── 上乗せがハメ殺し/デスルーラー対策(W-73)に穴を空けていないこと。
+        MobLevelCutoff cutoff = shippedWithBonus();
+        assertTrue(cutoff.blocksItems(50, 70), "20差ちょうどでTF追加ドロップは遮断されたまま");
+        assertEquals(0.0, cutoff.dropChanceMultiplier(50, 70), 1e-9, "遮断は上乗せで復活しない");
+        assertEquals(1.0, cutoff.expMultiplier(50, 70), 1e-9, "20差ちょうどは等倍(上乗せは乗らない)");
+        assertEquals(0.5, cutoff.expMultiplier(50, 75), 1e-9, "25差は逓減のみが効く");
+        assertEquals(0.0, cutoff.expMultiplier(50, 80), 1e-9, "30差で経験値0のまま");
+        assertEquals(1.0, cutoff.overMobLevelBonus(50, 70), 1e-9, "足きり発動中は上乗せ自体が無効");
+    }
+
+    @Test
+    void bonusNeedsBothKnobsSetToTakeEffect() {
+        // 片方だけ 0 なら機能ごと無効(「上限0なのに上乗せが乗る」という事故を防ぐ)。
+        MobLevelCutoff noCap = new MobLevelCutoff(-1, 1.0, 1.0, 20, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.1, 0.0, 0.0, 0.06, 0.0);
+        MobLevelCutoff noRate = new MobLevelCutoff(-1, 1.0, 1.0, 20, 0.0, 0.0, 0.0,
+                1.0, -1.0, 0.1, 0.0, 0.0, 0.0, 0.5);
+        assertEquals(1.0, noCap.expMultiplier(50, 55), 1e-9);
+        assertEquals(1.0, noRate.expMultiplier(50, 55), 1e-9);
+    }
 }
