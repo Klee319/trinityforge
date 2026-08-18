@@ -89,6 +89,36 @@ wood-repair:
     cherry_blossom_wood_2x:
       durability: 1800
       quick-repair: true
+    # 3x（27倍圧縮）の9種。2026-08-15 の db6d4b1 が「xp-bottle-store を移す」コミットの
+    # ついでに黙って削除していたぶんを復旧した（2026-08-18 / W-109）。
+    # 耐久 16200 = 1800 × 9 で 1x→2x→3x の等比を保つ。
+    oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    birch_wood_3x:
+      durability: 16200
+      quick-repair: true
+    spruce_wood_3x:
+      durability: 16200
+      quick-repair: true
+    jungle_wood_3x:
+      durability: 16200
+      quick-repair: true
+    acacia_wood_3x:
+      durability: 16200
+      quick-repair: true
+    dark_oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    mangrove_wood_3x:
+      durability: 16200
+      quick-repair: true
+    pale_oak_wood_3x:
+      durability: 16200
+      quick-repair: true
+    cherry_blossom_wood_3x:
+      durability: 16200
+      quick-repair: true
 disassembly:
   percent-per-level: 25
   items:

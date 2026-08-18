@@ -431,6 +431,62 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 | W-104 | ソースリンクから近くのソースジャーへドミニオンワンドで転送できない。**設定完了通知は出るが転送が開始されない** | ~~未着手~~ **修正済み（ArsPaper fork）** |
 | W-105 | ドミニオンワンドを手に持ったとき、接続しているソースジャーとソースリンクがパーティクルで繋がって見えるようにしてほしい | ~~未着手~~ **経路可視化は実装済み（2026-08-01）＋隣接供給の可視化を追加（ArsPaper fork）** |
 
+### 実サーバ報告バッチ（2026-08-18 受領 第4陣。W-108〜W-109）
+
+| ID | 報告 | 状態 |
+|---|---|---|
+| W-108 | **ポーションがまだ作れない**（2026-08-18 ユーザー報告。切り分けの確認で「**バニラ醸造が完成しない**」を選択） | **調査中。TF 側に「純バニラの醸造を止める経路」は存在しないところまで確定（下記）。別に実バグを1件特定した** |
+| W-109 | **2026-08-15 の `db6d4b1` が「xp-bottle-store を移す」コミットのついでに `crafting-features.yml` の内容を黙って削除していた**（W-108 の調査中に発見） | **圧縮木材の修繕9種は復旧済み。行き止まり素材の醸造出口は判断待ち（下記）** |
+
+**W-108 の切り分け（TF はバニラの醸造を止められない、を機構レベルで確定させた）。**
+醸造を止めうる TF の経路は**4本しかない**。全部を純バニラの `水入り瓶 + ネザーウォート` に当てて潰した:
+
+| 経路 | 発火条件 | 純バニラで当たるか |
+|---|---|---|
+| `BrewUnlockListener#onBrew`（キャンセル） | `matchesIngredient` が出荷15件の素材に一致 **かつ** 下段に `THICK`/`MUNDANE` のビン | **当たらない**（素材は砂糖・ウサギの足・金のニンジン・キラキラスイカ・金リンゴ・custom×8 のみ。ネザーウォートは1件も無い） |
+| `BrewUnlockListener#onBrewingStandFuel`（燃料拒否） | `isLockedBrew` = 上と同じ条件 | **当たらない**（同上。`matchesBase` は `PotionType.valueOf` の完全一致なので `WATER` が `THICK` に化けることも無い） |
+| `CatalogVanillaOperationGuardListener#onBrew` | 素材枠かビン枠に**CMD 付きのカタログ品** | **当たらない**（ネザーウォートにも水入り瓶にも CMD は無い） |
+| `CatalogVanillaOperationGuardListener#onBrewingFuel` | 燃料枠がカタログ品 | **当たらない**（素のブレイズパウダー） |
+
+**W-82/W-83 の修正が乗っていないという線も潰した。** 稼働中の jar
+（`Main/Dev/Resource` の3台とも 8/18 19:45）を展開して `BrewRecipeSupport.class` /
+`PotionQualityListener.class` に **`potionDisplayName` が実在すること**を確認済み。
+サーバは 20:33 起動なので**修正は live**。起動ログにも
+`brew-unlocks: registered 15 custom potion mix(es)` が出ており、登録も全件通っている
+（6グループ = 2+2+3+4+2+2 = 15 で一致）。醸造まわりの例外・警告は1行も無い。
+
+**→ 調査中に特定した実バグ（未修正・要判断）: 品質が乗ったポーションは延長・強化ができない。**
+`PotionQualityListener#applyQuality` は品質ぶんを足すときに
+**`meta.setBasePotionType(PotionType.WATER)` でベースを倒し、全部カスタム効果へ移す**
+（段階違いの効果を一意に確定させるための既存パターン）。この結果、出来上がったポーションは
+**バニラから見ると「WATER ベースのポーション」**になる。バニラの醸造表は
+`(ベースの PotionType, 素材) → PotionType` で引くので、`WATER + レッドストーン` /
+`WATER + グロウストーンダスト` は**1件も存在しない = 醸造が始まらない**。
+つまり**錬金術ステを持っているプレイヤーほど、自分で作ったポーションを延長・強化できなくなる**。
+容器 mix（火薬＝スプラッシュ化）は素材側で引くので影響しない。
+`potion_quality_bonus` が 0 のプレイヤーは `applyQuality` に入らないので**この症状も出ない**
+（＝「一部の人だけ壊れる」に見える。W-83 と同じ現れ方）。
+→ **残: 塞ぐなら「WATER ベース + レッドストーン/グロウストーン/発酵したクモの目」の mix を
+TF 側で登録し直す**（`BrewPotionMixRegistrar` は既にその仕組みを持っている）。要方針判断。
+
+**W-109 の内訳（`db6d4b1` が消したもの）。**
+コミットメッセージは「経験値瓶格納を移す」だけだが、実際には設定エディタの往復とみられる
+**内容の消失**が同居していた。`db6d4b1^` と現 HEAD のキーを突き合わせた結果:
+
+- **`wood-repair` の圧縮木材 `*_3x` 9種**（`durability: 16200 / quick-repair: true`）—— 対になる追加が無い**純粋な消失**。
+  → **復旧済み**。`CraftingFeaturesConfigWoodRepairTest` の 27 種網羅テストが 5/5 で緑に戻った（復旧前は1件赤）。
+- **`brew-unlocks.apex-brew`（極致の調合5種）/ `survivor-brew`（生存者の醸造3種）** —— こちらは**単純な消失ではない**。
+  同時期の `13f1d20` が `skilltree/alchemy.yml` の解放ノード側も `brew:apex-brew` / `brew:survivor-brew` →
+  `brew:luck` / `brew:healing` へ**差し替えている**ので、現状は「6グループ / 6ゲート」で**整合が取れている**。
+  **ここで yml だけ機械的に戻すと、解放するノードが1つも無いグループが復活する。**
+  `holdsUnlock` は常に false になるので、そのグループは**永久に解放できないのにゲートだけ掛かる**
+  （＝素材を入れると燃料まで拒否される）状態になり、今より悪化する。**戻すなら解放ノードとセットで決める必要がある。**
+- **副作用: 行き止まり素材3種の出口が消えた** —— `survivor-brew` は K-22(2)/柱4 で
+  `guardian_spine` / `husk_cloth` / `pillager_plate` に用途を作るために足されたもの。
+  `ravager_hide` だけは `healthboost-haste-2` に残ったが、**残り3種は再び行き止まり**。
+  `ShippedBrewDeadEndMaterialTest`（2件）と `ShippedBrewDeadEndPlanTest`（1件）が赤のままなのはこれ。
+  → **残: 「新しい解放ノードを足して出口を作り直す」か「行き止まりを許容してテスト側を現状に合わせる」かの判断。**
+
 **W-104 の解決根拠（真因: 貯蔵先の PDC キーがブロック種別で違う）。**
 ソースの置き場は**ジャーが `arspaper:source_amount`、ソースリンクが `arspaper:sourcelink_buffer`**
 （`Sourcelink.SOURCE_BUFFER`）と別物なのに、`SourceNetwork#tickTransfer` は
