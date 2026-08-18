@@ -32,6 +32,8 @@ tab-suffix: true
 tab-suffix-text: " <gray>[AFK]</gray>"
 exempt-permission: trinityforge.afk.exempt
 check-interval-ticks: 40
+warn-before-seconds: 30
+warn-title: true
 suppress:
   skill-exp: true
   vanilla-exp: true

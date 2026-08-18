@@ -50,9 +50,26 @@ test("schema.js: tf-afk 正常系フル指定でエラー無し", () => {
     "tab-suffix-text": " <gray>[AFK]</gray>",
     "exempt-permission": "trinityforge.afk.exempt",
     "check-interval-ticks": 40,
+    "warn-before-seconds": 30,
+    "warn-title": true,
     suppress: { "skill-exp": true, "vanilla-exp": true, "mob-drops": true, "fishing-sell": true }
   };
   assert.deepEqual(validate("tf-afk", ok), []);
+});
+
+// 2026-08-18 ユーザー報告「AFKが現状訪れるので title 等でカウントダウンか通知を表示してほしい」。
+// Java側(AfkConfig#load)は idle-seconds 以上の予告を idle-seconds-1 へ黙って引き下げるので、
+// editor は保存値と実挙動がずれないよう保存時点で弾く(kick-after-seconds と同じ方針)。
+test("schema.js: tf-afk warn-before-seconds が idle-seconds 以上はエラー", () => {
+  assert.ok(validate("tf-afk", { "idle-seconds": 300, "warn-before-seconds": 300 }).length > 0,
+    "idle-seconds ちょうどなのにエラーが出ない");
+  assert.ok(validate("tf-afk", { "idle-seconds": 300, "warn-before-seconds": 600 }).length > 0,
+    "idle-seconds 超過なのにエラーが出ない");
+});
+
+test("schema.js: tf-afk warn-before-seconds が 0(予告しない)と idle-seconds 未満はOK", () => {
+  assert.deepEqual(validate("tf-afk", { "idle-seconds": 300, "warn-before-seconds": 0 }), []);
+  assert.deepEqual(validate("tf-afk", { "idle-seconds": 300, "warn-before-seconds": 299 }), []);
 });
 
 test("schema.js: tf-afk の exempt-permission 空文字は「免除無効」という意味のある値として許容される", () => {
@@ -91,6 +108,9 @@ test("schema.js: tf-afk 型違い/範囲違いはそれぞれエラー", () => {
   assert.ok(validate("tf-afk", { "tab-suffix": 1 }).length > 0, "tab-suffix");
   assert.ok(validate("tf-afk", { "tab-suffix-text": 1 }).length > 0, "tab-suffix-text");
   assert.ok(validate("tf-afk", { "exempt-permission": 1 }).length > 0, "exempt-permission 型");
+  assert.ok(validate("tf-afk", { "warn-before-seconds": -1 }).length > 0, "warn-before-seconds は0以上");
+  assert.ok(validate("tf-afk", { "warn-before-seconds": "30" }).length > 0, "warn-before-seconds 型");
+  assert.ok(validate("tf-afk", { "warn-title": 1 }).length > 0, "warn-title 型");
   assert.ok(validate("tf-afk", { suppress: "x" }).length > 0, "suppress 型");
   assert.ok(validate("tf-afk", { suppress: { "skill-exp": "yes" } }).length > 0, "suppress.skill-exp 型");
 });
@@ -224,6 +244,8 @@ test("buildAfkSection: getData は往復ロスレス(既存値をそのまま保
     "tab-suffix-text": "",
     "exempt-permission": "",
     "check-interval-ticks": 100,
+    "warn-before-seconds": 15,
+    "warn-title": false,
     suppress: { "skill-exp": false, "vanilla-exp": true, "mob-drops": false, "fishing-sell": true }
   };
   const original = JSON.parse(JSON.stringify(afkData));

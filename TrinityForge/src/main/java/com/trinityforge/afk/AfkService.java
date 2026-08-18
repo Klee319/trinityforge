@@ -4,11 +4,13 @@ import com.trinityforge.config.domains.AfkConfig;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -42,7 +44,21 @@ public final class AfkService {
      * すると、フラグだけを見る実装では [AFK] が張り付いたまま残ってしまう。
      */
     private final Set<UUID> tabSuffixApplied = ConcurrentHashMap.newKeySet();
+    /**
+     * 予告カウントダウンで「タイトルを出し終えた段階」。同じ段階のあいだタイトルを出し直さないためだけに
+     * 持つ（毎秒タイトルを再送すると画面が点滅して読めない）。アクションバーは毎秒更新する。
+     */
+    private final Map<UUID, WarnStage> warnStages = new ConcurrentHashMap<>();
     private BukkitTask task;
+    private BukkitTask warnTask;
+
+    /** 予告カウントダウンの対象となる「次に起きること」。 */
+    enum WarnStage {
+        /** まだ AFK ではなく、AFK 判定までの残りが予告窓に入った。 */
+        BEFORE_AFK,
+        /** すでに AFK で、自動キックまでの残りが予告窓に入った。 */
+        BEFORE_KICK
+    }
 
     public AfkService(Plugin plugin, AfkConfig config) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -57,6 +73,11 @@ public final class AfkService {
         }
         long interval = Math.max(20L, config.checkIntervalTicks());
         this.task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, interval, interval);
+        // 予告は判定タイマーとは別に毎秒回す。判定間隔(既定40tick=2秒)に相乗りさせると
+        // カウントダウンが 30,28,26... と飛んで「カウントダウン」に見えないため。
+        if (config.warnBeforeSeconds() > 0) {
+            this.warnTask = Bukkit.getScheduler().runTaskTimer(plugin, this::warnTick, 20L, 20L);
+        }
     }
 
     public void stop() {
@@ -64,12 +85,18 @@ public final class AfkService {
             task.cancel();
             task = null;
         }
+        if (warnTask != null) {
+            warnTask.cancel();
+            warnTask = null;
+        }
+        warnStages.clear();
     }
 
     /** ログアウト時に状態を捨てる(再ログイン時は活動直後として扱われる)。 */
     public void forget(UUID playerId) {
         lastActivityMillis.remove(playerId);
         afkFlags.remove(playerId);
+        warnStages.remove(playerId);
         // 再入場時は新しい Player でタブ名も既定へ戻るので、付けた実績も一緒に捨てる。
         tabSuffixApplied.remove(playerId);
     }
@@ -84,6 +111,11 @@ public final class AfkService {
         }
         UUID id = player.getUniqueId();
         lastActivityMillis.put(id, System.currentTimeMillis());
+        if (warnStages.remove(id) != null) {
+            // 予告中に動いた = 予告は用済み。残ったカウントダウンを即座に消す
+            // (放っておいても数秒で薄れるが、「あと5秒」が残ったままなのは動いた側に伝わらない)。
+            clearActionBar(player);
+        }
         if (Boolean.TRUE.equals(afkFlags.get(id))) {
             clearAfk(player);
         }
@@ -142,6 +174,114 @@ public final class AfkService {
                 kick(player);
             }
         }
+    }
+
+    /**
+     * 予告カウントダウン(2026-08-18 ユーザー報告「AFK が現状訪れるので title 等でカウントダウンか
+     * 通知を表示してほしい」)。
+     *
+     * <p><b>判定タイマーに相乗りさせない理由</b>: 既定の {@code check-interval-ticks} は 40(=2秒)なので、
+     * そこで出すと「30, 28, 26, ...」と飛んでカウントダウンに見えない。ここは常に毎秒回す。
+     *
+     * <p>タイトルは<b>段階が変わった1回だけ</b>出す。毎秒出し直すと fadeIn がかかり直して画面が
+     * 点滅し、かえって読めなくなる。毎秒更新するのはアクションバーの数字のほうだけ。
+     */
+    private void warnTick() {
+        long warnMillis = config.warnBeforeSeconds() * 1000L;
+        if (!config.enabled() || warnMillis <= 0) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long idleMillis = config.idleSeconds() * 1000L;
+        long kickMillis = config.kickAfterSeconds() * 1000L;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID id = player.getUniqueId();
+            if (isExempt(player)) {
+                warnStages.remove(id);
+                continue;
+            }
+            Long last = lastActivityMillis.get(id);
+            if (last == null) {
+                continue;
+            }
+            WarnState state = warnStateFor(Boolean.TRUE.equals(afkFlags.get(id)),
+                    now - last, idleMillis, kickMillis, warnMillis);
+            if (state == null) {
+                if (warnStages.remove(id) != null) {
+                    clearActionBar(player);
+                }
+                continue;
+            }
+            if (warnStages.put(id, state.stage()) != state.stage() && config.warnTitle()) {
+                showWarnTitle(player, state);
+            }
+            player.sendActionBar(actionBarFor(state));
+        }
+    }
+
+    /** 予告の1コマ。{@code stage} は「次に何が起きるか」、{@code remainingSeconds} はそこまでの残り秒。 */
+    record WarnState(WarnStage stage, int remainingSeconds) {
+    }
+
+    /**
+     * 予告を出すべきかと、その残り秒を決める<b>純関数</b>(表示から切り離してあるのは検証のため)。
+     * 出さないなら {@code null}。
+     *
+     * <p>AFK 前は「AFK 判定まで」、AFK 中は「自動キックまで」を数える。
+     * {@code kickMillis <= 0}(キックしない設定)なら AFK 中は何も予告しない ——
+     * 何も起きないのにカウントダウンを出しても意味が無い。
+     */
+    static WarnState warnStateFor(boolean afk, long elapsedMillis,
+                                  long idleMillis, long kickMillis, long warnMillis) {
+        if (warnMillis <= 0) {
+            return null;
+        }
+        long deadline = afk ? kickMillis : idleMillis;
+        if (afk && kickMillis <= 0) {
+            return null;
+        }
+        long remaining = deadline - elapsedMillis;
+        if (remaining <= 0 || remaining > warnMillis) {
+            return null;
+        }
+        // 切り上げ。残り 0.4 秒を「あと0秒」と出すと、消えるまでのあいだ嘘の表示になる。
+        int seconds = (int) Math.max(1L, (remaining + 999L) / 1000L);
+        return new WarnState(afk ? WarnStage.BEFORE_KICK : WarnStage.BEFORE_AFK, seconds);
+    }
+
+    private static Component actionBarFor(WarnState state) {
+        // 残り5秒以下は赤へ。色だけで「もう本当に直前」と分かるようにする。
+        NamedTextColor color = state.remainingSeconds() <= 5 ? NamedTextColor.RED : NamedTextColor.YELLOW;
+        String label = state.stage() == WarnStage.BEFORE_KICK ? "切断まで " : "放置判定まで ";
+        return Component.text(label, color)
+                .append(Component.text(state.remainingSeconds() + " 秒", color))
+                .append(Component.text(" — 動けば解除されます", NamedTextColor.GRAY));
+    }
+
+    private void showWarnTitle(Player player, WarnState state) {
+        Component main = state.stage() == WarnStage.BEFORE_KICK
+                ? Component.text("まもなく切断されます", NamedTextColor.RED)
+                : Component.text("まもなく放置判定になります", NamedTextColor.YELLOW);
+        Component sub = state.stage() == WarnStage.BEFORE_KICK
+                ? Component.text("何か操作すれば切断されません", NamedTextColor.GRAY)
+                : Component.text("この間の経験値・追加ドロップ・自動換金は入りません", NamedTextColor.GRAY);
+        // fadeOut を短くしてアクションバーのカウントダウンへ視線を渡す。
+        player.showTitle(Title.title(main, sub,
+                Title.Times.times(Duration.ofMillis(200), Duration.ofSeconds(2), Duration.ofMillis(400))));
+    }
+
+    /**
+     * 出しっぱなしのカウントダウンを消す。{@code touch} は {@code AsyncChatEvent}(非同期)からも
+     * 来るので、{@link #applyTabSuffix} と同じくここでメインスレッドへ寄せる。
+     */
+    private void clearActionBar(Player player) {
+        if (!Bukkit.isPrimaryThread()) {
+            if (plugin.isEnabled()) {
+                Bukkit.getScheduler().runTask(plugin, () -> clearActionBar(player));
+            }
+            return;
+        }
+        player.sendActionBar(Component.empty());
     }
 
     private void markAfk(Player player) {

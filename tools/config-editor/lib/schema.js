@@ -2693,6 +2693,18 @@ function validateTfAfk(data, errors) {
   if (checkIntervalTicks !== undefined && checkIntervalTicks !== null && !(isInteger(checkIntervalTicks) && checkIntervalTicks >= 20)) {
     errors.push("check-interval-ticks: 20以上の整数である必要があります(20未満はJava側で20へ丸められるため)");
   }
+  const warnBeforeSeconds = data["warn-before-seconds"];
+  if (warnBeforeSeconds !== undefined && warnBeforeSeconds !== null && !(isInteger(warnBeforeSeconds) && warnBeforeSeconds >= 0)) {
+    errors.push("warn-before-seconds: 0以上の整数である必要があります");
+  }
+  // Java側は idle-seconds 以上の予告を idle-seconds-1 へ黙って引き下げる(そのままだとログインした
+  // 瞬間から常時カウントダウンが出る)。editor は保存値と実挙動のずれを防ぐため保存時点で弾く。
+  if (isInteger(warnBeforeSeconds) && isInteger(idleSeconds) && warnBeforeSeconds >= idleSeconds) {
+    errors.push("warn-before-seconds: idle-seconds 未満である必要があります(以上にすると常時カウントダウンが出るため、Java側は idle-seconds-1 へ引き下げます)");
+  }
+  if (data["warn-title"] !== undefined && data["warn-title"] !== null && typeof data["warn-title"] !== "boolean") {
+    errors.push("warn-title: 真偽値(true/false)である必要があります");
+  }
   const suppress = data.suppress;
   if (suppress !== undefined && suppress !== null) {
     if (!isPlainObject(suppress)) {

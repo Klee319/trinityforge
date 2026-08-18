@@ -404,7 +404,7 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 | W-87 | ネザライトアップグレードの鍛冶型が複製できない。バニラ挙動が潰されていそう | 未着手（静的調査は空振り、下記） |
 | W-88 | スレッドスロット GUI に装備のテクスチャが反映されていない | ~~未着手~~ **修正済み（ArsPaper fork）** |
 | W-89 | 騎乗中に騎乗しているモブの HP テキストディスプレイが視線にかぶって邪魔 | ~~未着手~~ **修正済み** |
-| W-90 | AFK が予告なく訪れるので title 等でカウントダウンか通知を出したい | 未着手 |
+| W-90 | AFK が予告なく訪れるので title 等でカウントダウンか通知を出したい | ~~未着手~~ **修正済み** |
 | W-91 | エンダードラゴンやガストなど当たり判定の大きいモブで HP 表示が出せない／体に埋まる | ~~未着手~~ **修正済み** |
 
 **W-89 / W-91 の解決根拠。** `FocusHpDisplay#findFocusTarget` の救済判定が
@@ -426,6 +426,21 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 CustomModelData / item_model / 防具トリム / 染色が全部落ちていた。`BaseGui#createButtonFrom`
 （実アイテムを `clone()` して名前と lore だけ差し替える）を足して `ThreadGui` の 2 箇所を差し替えた。
 **ArsPaper fork のソースは `.gitignore` 除外なので commit されない。反映は jar の再ビルドと配備のみ。**
+
+**W-90 の解決根拠。** AFK 突入の通知は<b>突入した後</b>にしか出ないので、プレイヤーからは
+「何の前触れもなく報酬が止まった」ようにしか見えなかった。`afk.yml` に
+`warn-before-seconds`（既定 30・0 で無効）と `warn-title`（既定 true）を足し、
+AFK 前は「AFK 判定まで」、AFK 中は「自動キックまで」を数える予告を出す
+（`kick-after-seconds: 0` なら AFK 中は何も出さない ── 何も起きないのに数えない）。
+**カウントダウンは判定タイマーと別に毎秒回す** ── 既定の `check-interval-ticks: 40`（2 秒）に
+相乗りさせると「30, 28, 26, ...」と飛んでカウントダウンに見えないため。
+タイトルは<b>段階が変わった 1 回だけ</b>（毎秒出し直すと fadeIn がかかり直して点滅する）、
+毎秒更新するのはアクションバーの数字のほうで残り 5 秒以下は赤へ変わる。
+判定は `AfkService#warnStateFor` という純関数へ切り出して MockBukkit 無しで検証している
+（`AfkWarnCountdownTest` 11 件・スキップ 0）。`warn-before-seconds` が `idle-seconds` 以上だと
+ログインした瞬間から出続けるので Java 側は `idle-seconds - 1` へ引き下げ、
+editor は保存時点で弾く（`kick-after-seconds` と同じ方針）。
+editor の「使用制限スイッチ」画面にも 2 キーを出した。
 
 **W-85 は設計確認が要る。** 現状は仕様どおりの挙動で、事故ではない ——
 `RitualManager` が成果物を `dropItemNaturally` で落とし、`PdcKeys.ITEM_PENDING_CRAFT_QUALITY` が付いた品を

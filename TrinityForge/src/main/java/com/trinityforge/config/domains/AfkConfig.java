@@ -25,6 +25,7 @@ public final class AfkConfig implements LoadableConfig {
     private static final int DEFAULT_KICK_AFTER_SECONDS = 1800;
     private static final int DEFAULT_CHECK_INTERVAL_TICKS = 40;
     private static final int MIN_CHECK_INTERVAL_TICKS = 20;
+    private static final int DEFAULT_WARN_BEFORE_SECONDS = 30;
     private static final String DEFAULT_KICK_MESSAGE =
             "<yellow>長時間の放置により切断しました。<newline><gray>またのご参加をお待ちしています。";
     private static final String DEFAULT_TAB_SUFFIX = " <gray>[AFK]</gray>";
@@ -39,6 +40,8 @@ public final class AfkConfig implements LoadableConfig {
     private volatile String tabSuffixText = DEFAULT_TAB_SUFFIX;
     private volatile String exemptPermission = DEFAULT_EXEMPT_PERMISSION;
     private volatile int checkIntervalTicks = DEFAULT_CHECK_INTERVAL_TICKS;
+    private volatile int warnBeforeSeconds = DEFAULT_WARN_BEFORE_SECONDS;
+    private volatile boolean warnTitle = true;
     private volatile boolean suppressSkillExp = true;
     private volatile boolean suppressVanillaExp = true;
     private volatile boolean suppressMobDrops = true;
@@ -80,6 +83,22 @@ public final class AfkConfig implements LoadableConfig {
 
     public int checkIntervalTicks() {
         return checkIntervalTicks;
+    }
+
+    /**
+     * AFK 判定・自動キックの何秒前から予告カウントダウンを出すか。0 で予告しない。
+     *
+     * <p>2026-08-18 ユーザー報告「AFK が現状訪れるので title 等でカウントダウンか通知を表示してほしい」。
+     * 予告が無いと、プレイヤーからは<b>何の前触れもなく報酬が止まる</b>ように見える
+     * （AFK 突入の通知は突入<b>後</b>に出るので、止まった後にしか気づけない）。
+     */
+    public int warnBeforeSeconds() {
+        return warnBeforeSeconds;
+    }
+
+    /** 予告の開始時に画面中央のタイトルも出すか（false ならアクションバーのカウントダウンだけ）。 */
+    public boolean warnTitle() {
+        return warnTitle;
     }
 
     public boolean suppressSkillExp() {
@@ -137,13 +156,26 @@ public final class AfkConfig implements LoadableConfig {
         this.checkIntervalTicks = Math.max(MIN_CHECK_INTERVAL_TICKS,
                 yaml.getInt("check-interval-ticks", DEFAULT_CHECK_INTERVAL_TICKS));
 
+        int rawWarn = Math.max(0, yaml.getInt("warn-before-seconds", DEFAULT_WARN_BEFORE_SECONDS));
+        // 予告が idle-seconds 以上だと「ログインした瞬間からカウントダウンが出続ける」ことになるので、
+        // idle-seconds の手前で頭打ちにする(0 = 予告しない はそのまま尊重する)。
+        if (rawWarn >= idleSeconds) {
+            log.warning("[" + PATH + "] warn-before-seconds(" + rawWarn + ") が idle-seconds("
+                    + idleSeconds + ") 以上です。常時カウントダウンが出るのを避けるため "
+                    + (idleSeconds - 1) + " へ引き下げました。");
+            rawWarn = idleSeconds - 1;
+        }
+        this.warnBeforeSeconds = rawWarn;
+        this.warnTitle = yaml.getBoolean("warn-title", true);
+
         this.suppressSkillExp = yaml.getBoolean("suppress.skill-exp", true);
         this.suppressVanillaExp = yaml.getBoolean("suppress.vanilla-exp", true);
         this.suppressMobDrops = yaml.getBoolean("suppress.mob-drops", true);
         this.suppressFishingSell = yaml.getBoolean("suppress.fishing-sell", true);
 
         log.info("[" + PATH + "] loaded OK (enabled=" + enabled + ", idle=" + idleSeconds + "s, kick="
-                + (kickAfterSeconds == 0 ? "off" : kickAfterSeconds + "s") + ")");
+                + (kickAfterSeconds == 0 ? "off" : kickAfterSeconds + "s") + ", warn="
+                + (warnBeforeSeconds == 0 ? "off" : warnBeforeSeconds + "s") + ")");
         return true;
     }
 
