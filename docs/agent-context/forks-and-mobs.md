@@ -1359,6 +1359,28 @@ id は `gacha_ticket_1`〜`gacha_ticket_5`（**`tf_` 接頭辞なし**、`BaseCu
   `CraftQualityPolicy.resolveDropQuality`（TF `craft-quality.yml` の `drop:` 節 + `quality.yml`）
   という既存パイプに乗る。
 - fork連携はfail-open規約（`TrinityForgeIntegration` 参照）。
+- **ダイナミックダンジョンのモブレベルは「選んだ挑戦レベル」で正しく決まっている**（2026-08-18 W-80 で実測）。
+  ブループリント配置のモブは全部 `InstancedBossEntity` で、そのコンストラクタが `level == -1` のとき
+  `DynamicDungeonInstance#getSelectedLevel()` を入れてから spawn する。実測でも `em_id_the_mines` 38 体・
+  `the_sewers` 29 体・`em_id_the_city` 12 体は**全部 `level: dynamic` かつ大半が `isRegionalBoss: true`**。
+  「雑魚だけレベル1のまま」というのは**誤り**なので、そこを疑う前にこの段落を読むこと。
+  `DynamicDungeonInstance.SetBossLevelsTask`（4 秒後）は重ね掛けの保険。
+- **ただしその経路を通らない個体は装備tier由来のレベルに落ちる。** 召喚された増援・フェーズ2/3の本体・
+  API 経由・インスタンス内の自然湧きは `CustomBossEntity#getDynamicLevel` に行き、
+  **近くのプレイヤーの EliteMobs 装備tier**（`ElitePlayerInventory#getNaturalMobSpawnLevel`）で
+  レベルが決まる。TF は EM のアイテム体系を使わないので **tier は実質 0 ＝ レベル1相当の張りぼて**になる。
+  2026-08-18 に `DynamicDungeonLevelListener`（`EliteMobSpawnEvent`, `LOWEST`）で塞いだ。
+  **`LOWEST` でなければならない**: TF の PDC 刻印（`TrinityForgeSpawnListener`, `HIGH`）が
+  `getLevel()` を読んで `MOB_LEVEL` を書くので、後から直しても HP・攻撃力・撃破EXP・報酬が全部ずれる。
+- **難易度 normal/hard/mythic は TF プレイヤーには実質無効。** `levelSync` は EliteMobs の
+  **装備tier上限**（`PlayerItem` が itemTier をこの値へクランプする）であって敵の強さではない。
+  TF 装備は EM のアイテムではないのでクランプの対象にならない。「難易度を変えても何も変わらない」の答えはこれ。
+- **選んだレベルに応じた報酬の上乗せは TF 側**（`combat/damage.yml` の `dungeon-level-reward`、
+  `KillRewardAdjuster`）。判定は**倒したモブのレベル**だけで、プレイヤーとのレベル差は見ない。
+  適用先は `DungeonWorldRegistry#isDungeonWorld` でダンジョンインスタンス内のキルに限定する。
+  **レベル差で書いてはいけない** ── オーバーワールドの高レベルモブにも効いて
+  `level-cutoff.under-level`（低レベルのまま高レベルモブを狩る行為の抑制）と正面衝突する
+  （2026-08-18 に一度その実装をしてユーザーに差し戻された）。
 
 ## 関連
 
