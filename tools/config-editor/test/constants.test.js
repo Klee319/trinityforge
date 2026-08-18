@@ -116,6 +116,40 @@ test("2026-08-09 レベル差による足きり: damage.yml に移設され共�
     ["level-cutoff.over-level.threshold: 整数である必要があります"]);
 });
 
+test("2026-08-18 W-80 ダンジョンの挑戦レベルに応じた報酬の上乗せ: 出荷値が共通変数に出て編集できる", () => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
+  const { fields } = extractConstants(damage, {});
+
+  // 出荷既定: 有効 / レベル10から効き始め / ドロップ+2%毎(上限+150%) / EXP+1%毎(上限+75%)
+  assert.equal(fields["dungeon-level-reward.enabled"], true);
+  assert.equal(fields["dungeon-level-reward.base-level"], 10);
+  assert.equal(fields["dungeon-level-reward.drop-bonus-per-level"], 0.02);
+  assert.equal(fields["dungeon-level-reward.drop-bonus-cap"], 1.5);
+  assert.equal(fields["dungeon-level-reward.exp-bonus-per-level"], 0.01);
+  assert.equal(fields["dungeon-level-reward.exp-bonus-cap"], 0.75);
+
+  const payload = { fields: {
+    "dungeon-level-reward.base-level": 20,
+    "dungeon-level-reward.drop-bonus-cap": 2.5
+  } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage["dungeon-level-reward"]["base-level"], 20);
+  assert.equal(updated.damage["dungeon-level-reward"]["drop-bonus-cap"], 2.5);
+  // 触っていない同節のキーは温存される。
+  assert.equal(updated.damage["dungeon-level-reward"]["enabled"], true);
+  assert.equal(updated.damage["dungeon-level-reward"]["exp-bonus-cap"], 0.75);
+
+  // 上乗せ割合は [0,1]、上限は [0,10]。負の上乗せは設定ミスなので弾く。
+  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.drop-bonus-per-level": -0.1 } }),
+    ["dungeon-level-reward.drop-bonus-per-level: 0以上の値が必要です"]);
+  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.drop-bonus-cap": 11 } }),
+    ["dungeon-level-reward.drop-bonus-cap: 10以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.base-level": 1.5 } }),
+    ["dungeon-level-reward.base-level: 整数である必要があります"]);
+});
+
 test("defense.max-dodge-chance is retained and persisted", () => {
   const updated = buildUpdatedData(
     { fields: { "defense.max-dodge-chance": 0.25 } },

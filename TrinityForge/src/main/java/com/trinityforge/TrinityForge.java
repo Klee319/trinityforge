@@ -615,8 +615,12 @@ public final class TrinityForge extends JavaPlugin {
         // 討伐報酬に共通で掛かる調整(2026-08-09): レベル差の足きり(combat/damage.yml の level-cutoff、
         // 旧 mob-overrides.yml)とドロップ増加ステ(mob_drop_bonus)。EXP側(戦闘スキルEXP/バニラオーブ)と
         // TF追加ドロップ側の4リスナーが同じ判定を共有するため、ここで1つだけ作って配る。
+        // 2026-08-18 (W-80): 3つ目としてダンジョン限定の報酬上乗せ(dungeon-level-reward)が乗ったので、
+        // ダンジョンワールド判定(DungeonWorldRegistry)を渡す。この述語が false を返す限り上乗せは
+        // 一切効かない ＝ オーバーワールドのモブには構造的に届かない。
         KillRewardAdjuster killRewardAdjuster =
-                new KillRewardAdjuster(configManager.combatDamage(), combatService, aggregator);
+                new KillRewardAdjuster(configManager.combatDamage(), combatService, aggregator,
+                        world -> world != null && dungeonWorldRegistry.isDungeonWorld(world.getUID()));
         CombatListener combatListener = new CombatListener(this, combatService,
                 configManager.itemStats(), configManager.combatDamage(),
                 skillLevelSource, bleedService, perkBuffResolver, aggregator,

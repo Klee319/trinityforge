@@ -8,6 +8,7 @@ import com.trinityforge.config.ConfigSchema;
 import com.trinityforge.config.SchemaField;
 import com.trinityforge.config.TypedConfig;
 import com.trinityforge.durability.DurabilityPenaltySettings;
+import com.trinityforge.mobs.DungeonLevelReward;
 import com.trinityforge.mobs.MobLevelCutoff;
 
 import java.util.List;
@@ -104,6 +105,18 @@ public final class CombatDamageConfig {
     private static final String LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL =
             "level-cutoff.under-level.drop-decay-per-level";
     private static final String LEVEL_CUTOFF_UNDER_RATE_FLOOR = "level-cutoff.under-level.rate-floor";
+
+    // 2026-08-18 (W-80) ダンジョンの挑戦レベルに応じた報酬の上乗せ。
+    // EMダイナミックダンジョンの選択レベルは敵の強さにしか効いておらず報酬には無関係だったので、
+    // 一番低いレベルを選んで回すのが常に最適だった。判定はプレイヤーとのレベル差ではなく
+    // 「倒したモブのレベル」=選んだレベルそのもので、適用先もダンジョンワールドに限る
+    // (レベル差で書くとオーバーワールドの高レベルモブにも効いて level-cutoff.under-level と衝突する)。
+    private static final String DUNGEON_LEVEL_REWARD_ENABLED = "dungeon-level-reward.enabled";
+    private static final String DUNGEON_LEVEL_REWARD_BASE_LEVEL = "dungeon-level-reward.base-level";
+    private static final String DUNGEON_LEVEL_REWARD_DROP_PER_LEVEL = "dungeon-level-reward.drop-bonus-per-level";
+    private static final String DUNGEON_LEVEL_REWARD_DROP_CAP = "dungeon-level-reward.drop-bonus-cap";
+    private static final String DUNGEON_LEVEL_REWARD_EXP_PER_LEVEL = "dungeon-level-reward.exp-bonus-per-level";
+    private static final String DUNGEON_LEVEL_REWARD_EXP_CAP = "dungeon-level-reward.exp-bonus-cap";
 
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
@@ -253,7 +266,18 @@ public final class CombatDamageConfig {
                         0.0, 0.0, 1.0))
                 .field(SchemaField.number(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL, SchemaField.Type.DOUBLE,
                         0.0, 0.0, 1.0))
-                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0));
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0))
+                // 2026-08-18 (W-80): ダンジョンの挑戦レベルに応じた報酬の上乗せ。
+                // 既定は「無効」── 出荷 yml 側で有効にする。ここを true 既定にすると、この節を1行も
+                // 書いていない配備済み config の意味が jar 差し替えだけで変わってしまうため。
+                .field(SchemaField.of(DUNGEON_LEVEL_REWARD_ENABLED, SchemaField.Type.BOOLEAN, false))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_BASE_LEVEL, SchemaField.Type.INT, 0, 0, 10_000))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_DROP_PER_LEVEL, SchemaField.Type.DOUBLE,
+                        0.0, 0.0, 1.0))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_DROP_CAP, SchemaField.Type.DOUBLE, 0.0, 0.0, 10.0))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_PER_LEVEL, SchemaField.Type.DOUBLE,
+                        0.0, 0.0, 1.0))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_CAP, SchemaField.Type.DOUBLE, 0.0, 0.0, 10.0));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -528,6 +552,29 @@ public final class CombatDamageConfig {
                 config.getDouble(LEVEL_CUTOFF_UNDER_EXP_DECAY_PER_LEVEL),
                 config.getDouble(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL),
                 config.getDouble(LEVEL_CUTOFF_UNDER_RATE_FLOOR));
+    }
+
+    /**
+     * ダンジョンの挑戦レベルに応じた報酬の上乗せ(2026-08-18 W-80)。
+     *
+     * <p>EMダイナミックダンジョンの選択レベルはインスタンス内のモブ全員のレベルになるので敵の強さには
+     * 効いていたが、TF追加ドロップの確率({@code combat/mob-overrides.yml} の固定 {@code chance})にも
+     * 撃破EXPの傾斜にもほとんど効かず、「一番低いレベルを選んで最速で回す」のが常に最適だった。
+     *
+     * <p>判定に使うのは<b>倒したモブのレベル</b>(= 選んだレベル)だけで、プレイヤーのレベルは見ない。
+     * 適用先は呼び出し側({@code KillRewardAdjuster})が<b>ダンジョンワールドで倒したモブに限定</b>する。
+     * レベル差で書くとオーバーワールドの高レベルモブにも効いてしまい、
+     * {@code level-cutoff.under-level}(W-73)の狙いと正面衝突するため(2026-08-18 差し戻し)。
+     */
+    public DungeonLevelReward dungeonLevelReward() {
+        TypedConfig config = domain.get();
+        return new DungeonLevelReward(
+                config.getBoolean(DUNGEON_LEVEL_REWARD_ENABLED),
+                config.getInt(DUNGEON_LEVEL_REWARD_BASE_LEVEL),
+                config.getDouble(DUNGEON_LEVEL_REWARD_DROP_PER_LEVEL),
+                config.getDouble(DUNGEON_LEVEL_REWARD_DROP_CAP),
+                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_PER_LEVEL),
+                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_CAP));
     }
 
     public DurabilityPenaltySettings durabilityPenalty() {

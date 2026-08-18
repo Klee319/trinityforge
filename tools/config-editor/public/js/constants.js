@@ -159,6 +159,17 @@
         { id: "level-cutoff.under-level.rate-floor", label: "逓減の下限(高レベルモブ側)", kind: "number", desc: "高レベルモブ側の経験値/ドロップ確率倍率が逓減し続けても、この値より下には下がらない下限。既定0=0まで絞れる。" }
       ]
     },
+    {
+      title: "ダンジョンの挑戦レベルに応じた報酬の上乗せ (2026-08-18)",
+      fields: [
+        { id: "dungeon-level-reward.enabled", label: "上乗せを有効にする", kind: "boolean", desc: "EMダイナミックダンジョンで選んだ挑戦レベルが高いほど報酬を良くする。⚠効くのはダンジョンインスタンス内で倒したモブだけで、オーバーワールドのモブには一切効かない。判定は「倒したモブのレベル」(=選んだ挑戦レベル)で、プレイヤーとのレベル差は見ない。出荷値は有効。" },
+        { id: "dungeon-level-reward.base-level", label: "上乗せが効き始めるモブレベル", kind: "int", desc: "このレベル以下のモブは完全に等倍(低レベル帯の初挑戦を巻き込まないための足切り)。出荷値10。" },
+        { id: "dungeon-level-reward.drop-bonus-per-level", label: "TF追加ドロップ確率の上乗せ(レベル1毎)", kind: "number", desc: "上の開始レベルを1超えるごとにTF追加ドロップの確率へ足す割合。0.02なら1レベルにつき+2%。0でドロップ側の上乗せは無効。出荷値0.02。バニラ本来のドロップには一切関与しない。" },
+        { id: "dungeon-level-reward.drop-bonus-cap", label: "ドロップ側の上乗せの上限", kind: "number", desc: "ドロップ確率の上乗せの頭打ち。1.5なら最大+150%(=2.5倍)。0にするとドロップ側の上乗せ機能ごと無効。出荷値1.5(=モブレベル85で頭打ち)。" },
+        { id: "dungeon-level-reward.exp-bonus-per-level", label: "撃破EXPの上乗せ(レベル1毎)", kind: "number", desc: "開始レベルを1超えるごとに撃破EXPへ足す割合。EXPはモブレベル自体でも伸びるのでドロップより緩やかにしてある。0でEXP側の上乗せは無効。出荷値0.01。" },
+        { id: "dungeon-level-reward.exp-bonus-cap", label: "EXP側の上乗せの上限", kind: "number", desc: "撃破EXPの上乗せの頭打ち。0.75なら最大+75%。0にするとEXP側の上乗せ機能ごと無効。出荷値0.75。" }
+      ]
+    },
     // 攻撃ステキー対応 / 防御ステキー対応 の欄は撤去(2026-07-24)。2026-07-26 に Java 側の
     // config 経路も撤去され(CMB-31)、キー名は AttackStatKeys / DefenseStatKeys の定数が単一の真実。
     // config からは改名できないので、editor に欄を戻してはいけない。
