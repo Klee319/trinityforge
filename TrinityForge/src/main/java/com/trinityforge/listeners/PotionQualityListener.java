@@ -5,6 +5,7 @@ import com.trinityforge.config.domains.AlchemyQualityConfig;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import com.trinityforge.stats.BrewRecipeSupport;
 import com.trinityforge.stats.StatKeys;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -136,6 +137,13 @@ public final class PotionQualityListener implements Listener {
         meta.clearCustomEffects();
         for (PotionEffect effect : boosted) {
             meta.addCustomEffect(effect, true);
+        }
+        // baseをWATERへ倒すと【名前も「水入り瓶」に化ける】。ポーション名はベースの種類からしか
+        // 引かれないので(PotionContents#getName)、効果を足しても名前は戻らない。
+        // 2026-08-18 実サーバ報告「進捗バーも動いて完了音も鳴るのに水入り瓶が完成する」の真因がこれ。
+        // 既に名前が付いている(ゲート付き醸造の完成品など)ならそちらを尊重する。
+        if (!meta.hasDisplayName()) {
+            meta.displayName(BrewRecipeSupport.potionDisplayName(result.getType(), boosted));
         }
         result.setItemMeta(meta);
     }

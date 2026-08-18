@@ -1,12 +1,15 @@
 package com.trinityforge.stats;
 
 import com.trinityforge.config.domains.CraftingFeaturesConfig.BrewPotionSpec;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -123,8 +126,48 @@ public final class BrewRecipeSupport {
     }
 
     /**
+     * base を {@code WATER} へ倒したポーションに焼き付ける表示名。効果が無ければ {@code null}
+     * (＝バニラの名前をそのまま使う)。
+     *
+     * <h2>なぜ必要か(2026-08-18 実サーバ報告の真因)</h2>
+     * 「醸造の進捗バーも動くし完了音も鳴るのに、出てくるのが<b>水入り瓶</b>」という報告の原因は
+     * ここにある。TF は段階の異なる効果を一意に確定させるためにベースを {@code WATER} へ倒すが、
+     * <b>Minecraft のポーション名はベースの種類からしか引かれない</b>
+     * ({@code PotionContents#getName})。カスタム効果を何個足しても名前は「水入り瓶」のままで、
+     * 効果自体は正しく付いているので<b>ログにも例外にも一切現れない</b>。
+     * ベースを倒すのは外せない(倒さないとベース効果と強化版が二重に掛かる)ので、
+     * 名前を明示的に付け直すのが唯一の手当てになる。
+     *
+     * <p><b>翻訳キーは効果名({@code effect.minecraft.<効果>})を使い、ポーション名
+     * ({@code item.minecraft.potion.effect.<名前>})は使わない。</b>後者は<b>バニラに実在する
+     * ポーションにしか訳語が無い</b>ため、{@code HASTE}(採掘速度上昇) / {@code HEALTH_BOOST}(体力増強)
+     * のように「効果はあるがバニラにポーションが無い」出荷レシピで生の翻訳キーが画面に出る。
+     *
+     * <p>効果が複数ある場合は先頭(＝レシピが主役として宣言した効果)で命名する。
+     */
+    public static Component potionDisplayName(Material bottleType, List<PotionEffect> effects) {
+        if (effects == null || effects.isEmpty()) {
+            return null;
+        }
+        PotionEffect primary = effects.get(0);
+        if (primary == null || primary.getType() == null) {
+            return null;
+        }
+        Component name = Component.translatable(
+                "effect.minecraft." + primary.getType().getKey().getKey());
+        if (bottleType == Material.SPLASH_POTION) {
+            name = Component.text("スプラッシュ").append(name);
+        } else if (bottleType == Material.LINGERING_POTION) {
+            name = Component.text("残留").append(name);
+        }
+        // 付け直した名前は斜体にしない(装備・カタログ品と同じ規約。バニラ品と字面を揃える)。
+        return name.append(Component.text("のポーション")).decoration(TextDecoration.ITALIC, false);
+    }
+
+    /**
      * spec の効果を持つポーションを組み立てる。段階の異なる効果を一意に確定させるため base は
      * {@code WATER} へ倒して全て custom effects で表現する({@code PotionQualityListener} と同じ既存パターン)。
+     * ベースを倒すと名前が「水入り瓶」に化けるので、{@link #potionDisplayName} で名前を焼き付ける。
      *
      * <p><b>Bukkit サーバが必要</b>({@code Bukkit.getItemFactory()} 経由で {@code ItemMeta} を作る)。
      * サーバ無しで検証したい呼び出し側は組み立て自体を注入できるようにしてある
@@ -137,9 +180,11 @@ public final class BrewRecipeSupport {
         if (!(out.getItemMeta() instanceof PotionMeta meta)) {
             return out;
         }
+        PotionEffect effect = new PotionEffect(spec.type(), spec.durationTicks(), spec.amplifier());
         meta.clearCustomEffects();
         meta.setBasePotionType(PotionType.WATER);
-        meta.addCustomEffect(new PotionEffect(spec.type(), spec.durationTicks(), spec.amplifier()), true);
+        meta.addCustomEffect(effect, true);
+        meta.displayName(potionDisplayName(type, List.of(effect)));
         out.setItemMeta(meta);
         return out;
     }

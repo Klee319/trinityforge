@@ -6,6 +6,8 @@ import com.trinityforge.config.domains.AlchemyQualityConfig;
 import com.trinityforge.progression.catalog.NativeSkillCatalog;
 import com.trinityforge.progression.catalog.SkillCatalogEntry;
 import com.trinityforge.progression.core.SkillId;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -194,6 +197,36 @@ class PotionQualityListenerTest {
         PotionEffect effect = meta.getCustomEffects().get(0);
         assertEquals(3640, effect.getDuration(), "3600 + 20*2 quality points");
         assertEquals(1, effect.getAmplifier(), "floor(0.5 * 2 quality points) == 1 (2品質ごとに+1)");
+    }
+
+    /**
+     * 2026-08-18 実サーバ報告「進捗バーも動いて完了音も鳴るのに、出てくるのが水入り瓶」の再発防止。
+     *
+     * <p>品質を適用するときに base を {@code WATER} へ倒すのは効果を一意に確定させるために必要だが、
+     * <b>Minecraft のポーション名はベースの種類からしか引かれない</b>ため、名前を焼き直さないと
+     * 全ての完成品が画面上「水入り瓶」になる。効果は正しく付いたままなので<b>ログにも例外にも出ない</b>。
+     *
+     * <p>このクラスの他のテストは(MockBukkit 回避のため)最初から base を {@code WATER} にした
+     * ポーションを渡しているので、<b>名前の破壊を構造的に観測できなかった</b>。
+     * ここだけは明示的に名前をアサートする。
+     */
+    @Test
+    void 品質適用後のポーションは水入り瓶のままにならず効果名が付く() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
+        PotionQualityListener listener = new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(strengthPotion(3600, 0));
+        listener.onBrew(brewEvent(results));
+
+        Component name = results.get(0).getItemMeta().displayName();
+        assertNotNull(name, "表示名が付いていない(= 画面上は『水入り瓶』のまま)");
+        assertTrue(PlainTextComponentSerializer.plainText().serialize(name).endsWith("のポーション"),
+                "実際の名前: " + PlainTextComponentSerializer.plainText().serialize(name));
     }
 
     @Test
