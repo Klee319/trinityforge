@@ -44,6 +44,15 @@ public final class DailyExpDiminishing {
     private static final class Window {
         private long updatedAtMillis;
         private double amount;
+        /**
+         * 直前の付与に実際に掛かった倍率（2026-08-18、通知用）。
+         *
+         * <p><b>「減衰だけ適用した今の値」と比べてはいけない</b> ── 付与は蓄積を増やす方向にしか
+         * 動かないので、その比較では倍率が上がることが構造的にあり得ず「戻りました」が永久に出ない。
+         * プレイヤーにとっての意味は「前回もらえた率」と「今回もらえた率」の差なので、
+         * 前回返した倍率そのものを覚える。
+         */
+        private double lastMultiplier = 1.0;
 
         Window(long nowMillis) {
             this.updatedAtMillis = nowMillis;
@@ -73,18 +82,36 @@ public final class DailyExpDiminishing {
      * @param amount   逓減前の付与量（これも蓄積に加える）
      */
     public double consume(Settings settings, UUID playerId, String skillId, double amount) {
+        return consumeDetailed(settings, playerId, skillId, amount).multiplier();
+    }
+
+    /**
+     * {@link #consume} と同じことをして、<b>この付与の前後で倍率が動いたか</b>も返す。
+     *
+     * <p>段が落ちた／戻った瞬間をプレイヤーへ通知するために要る（2026-08-18）。
+     * 「今の倍率」だけでは前回との差が取れず、通知側が自前で前回値を覚えると
+     * <b>付与とスレッドが違うので取りこぼす</b>（EXP付与は非同期タスクから走る）。
+     * 差分の判定は蓄積を進めるのと同じ {@code synchronized} ブロックの中で確定させる。
+     *
+     * <p>比較相手は<b>直前の付与に掛かった倍率</b>。「減衰だけ適用した今の値」と比べる実装にすると、
+     * 付与は蓄積を増やす方向にしか動かないので倍率が上がることが構造的に起こらず、
+     * <b>「戻りました」が永久に出ない</b>（実際にその実装で書いてテストに落とされた）。
+     */
+    public Applied consumeDetailed(Settings settings, UUID playerId, String skillId, double amount) {
         if (settings == null || !settings.enabled() || playerId == null || skillId == null) {
-            return 1.0;
+            return Applied.UNCHANGED;
         }
         if (!Double.isFinite(amount) || amount <= 0.0) {
-            return 1.0;
+            return Applied.UNCHANGED;
         }
         if (settings.exemptSkills().contains(skillId)) {
-            return 1.0;
+            return Applied.UNCHANGED;
         }
         long now = clock.getAsLong();
         Map<String, Window> perSkill = windows.computeIfAbsent(playerId, id -> new ConcurrentHashMap<>());
         Window window = perSkill.computeIfAbsent(skillId, id -> new Window(now));
+        double previous;
+        double multiplier;
         double accumulated;
         synchronized (window) {
             long elapsed = Math.max(0L, now - window.updatedAtMillis);
@@ -96,8 +123,34 @@ public final class DailyExpDiminishing {
             // 常に等倍で通り、大量EXPを1回で受け取る経路（ボス撃破など）が逓減をすり抜ける。
             window.amount += amount;
             accumulated = window.amount;
+            multiplier = multiplierFor(settings, accumulated);
+            previous = window.lastMultiplier;
+            window.lastMultiplier = multiplier;
         }
-        return multiplierFor(settings, accumulated);
+        return new Applied(multiplier, previous, accumulated);
+    }
+
+    /**
+     * 1回の付与に対して実際に掛かった倍率と、その直前の倍率。
+     *
+     * @param multiplier         この付与に掛かった倍率
+     * @param previousMultiplier <b>直前の付与</b>に掛かった倍率（初回は 1.0）
+     * @param accumulated        付与後の蓄積量
+     */
+    public record Applied(double multiplier, double previousMultiplier, double accumulated) {
+
+        /** 逓減が働いていない状態（無効・免除・付与量0）。 */
+        public static final Applied UNCHANGED = new Applied(1.0, 1.0, 0.0);
+
+        /** 段が落ちた（取得量が減った）。 */
+        public boolean worsened() {
+            return multiplier < previousMultiplier;
+        }
+
+        /** 段が戻った（取得量が増えた）。 */
+        public boolean improved() {
+            return multiplier > previousMultiplier;
+        }
     }
 
     /**
@@ -141,6 +194,96 @@ public final class DailyExpDiminishing {
         double per = settings.perAmount();
         double into = Math.max(0.0, accumulated) % per;
         return per - into;
+    }
+
+    /**
+     * 倍率が<b>実際に1段よくなる</b>まで、あと何ミリ秒その スキルを休めばよいかの目安。
+     * 既に等倍なら {@code -1}。
+     *
+     * <p><b>「1段減る」ではなく「倍率が変わる」で数える</b>のが肝。下限({@link Settings#floor})に
+     * 張り付いている領域では段が1つ減っても倍率は動かないので、素朴に
+     * {@code (段数-1)×perAmount} を目標にすると「あと少しで回復」と出したのに何も変わらない、
+     * という嘘の表示になる。
+     */
+    public static double millisUntilNextImprovement(Settings settings, double accumulated) {
+        if (settings == null || !settings.enabled() || !Double.isFinite(accumulated)) {
+            return -1.0;
+        }
+        double current = multiplierFor(settings, accumulated);
+        if (current >= 1.0) {
+            return -1.0;
+        }
+        long steps = (long) Math.floor(accumulated / settings.perAmount());
+        long target = -1L;
+        // 下限クランプで潰れている段を飛ばして、初めて倍率が上がる段を探す。
+        // 走査は「クランプが解ける段」で必ず止まるので、上限は暴走よけの保険。
+        for (long candidate = steps - 1L; candidate >= 0L && steps - candidate <= 4096L; candidate--) {
+            if (Math.pow(settings.decayPerAmount(), candidate) > current + 1.0e-9) {
+                target = candidate;
+                break;
+            }
+        }
+        if (target < 0L) {
+            return -1.0;
+        }
+        return millisUntilAmount(settings, accumulated, (target + 1L) * settings.perAmount());
+    }
+
+    /** 完全に等倍へ戻るまでの目安ミリ秒。既に等倍なら {@code -1}。 */
+    public static double millisUntilFullRecovery(Settings settings, double accumulated) {
+        if (settings == null || !settings.enabled()
+                || multiplierFor(settings, accumulated) >= 1.0) {
+            return -1.0;
+        }
+        return millisUntilAmount(settings, accumulated, settings.perAmount());
+    }
+
+    /**
+     * 蓄積が {@code target} まで落ちるのに掛かる時間。指数減衰
+     * {@code A(t) = A × exp(-t / 窓)} を t について解いた {@code t = 窓 × ln(A / target)}。
+     *
+     * <p><b>この見積りは「そのスキルでEXPを稼がずにオンラインでいる」前提</b>。
+     * 蓄積は永続化しておらず退出時に捨てられるので、再ログインした場合はここで出した時間を
+     * 待たずにリセットされる（＝表示より早く戻る方向にしか外れない）。
+     */
+    private static double millisUntilAmount(Settings settings, double accumulated, double target) {
+        if (target <= 0.0 || accumulated <= target) {
+            return 0.0;
+        }
+        return settings.windowMillis() * Math.log(accumulated / target);
+    }
+
+    /**
+     * 表示用のスナップショット。GUI とチャットで別々に計算すると必ず食い違うので、
+     * 出す数字は全部ここから引く。
+     *
+     * @param multiplier           現在の倍率
+     * @param accumulated          現在の蓄積量
+     * @param expUntilNextStep     次に1段落ちるまでの残りEXP（下限に張り付いていれば {@code -1}）
+     * @param millisUntilImproved  倍率が1段よくなるまでの目安ミリ秒（等倍なら {@code -1}）
+     * @param millisUntilFull      等倍へ戻るまでの目安ミリ秒（等倍なら {@code -1}）
+     */
+    public record Status(double multiplier, double accumulated, double expUntilNextStep,
+                         double millisUntilImproved, double millisUntilFull) {
+
+        /** 逓減が掛かっていない（等倍）。 */
+        public boolean atFullRate() {
+            return multiplier >= 1.0;
+        }
+    }
+
+    /** 蓄積量から表示用スナップショットを組む純関数。 */
+    public static Status statusOf(Settings settings, double accumulated) {
+        double multiplier = multiplierFor(settings, accumulated);
+        return new Status(multiplier, Math.max(0.0, accumulated),
+                untilNextStep(settings, accumulated),
+                millisUntilNextImprovement(settings, accumulated),
+                millisUntilFullRecovery(settings, accumulated));
+    }
+
+    /** そのプレイヤー・スキルの現在の表示用スナップショット（状態は進めない）。 */
+    public Status status(Settings settings, UUID playerId, String skillId) {
+        return statusOf(settings, accumulated(settings, playerId, skillId));
     }
 
     /** 現在の蓄積量（減衰を適用した値。状態は進めない）。表示・デバッグ用。 */

@@ -367,10 +367,23 @@ public final class TrinityForge extends JavaPlugin {
             }
             return skillId;
         };
+        // 日次逓減(直近24時間の稼ぎでEXP取得量が薄まる)の可視化(2026-08-18)。
+        // 機構は 2026-07-31 から動いていたが【プレイヤーへ知らせる経路が1つも無く】、
+        // 「なんとなくEXPが渋い」としか分からなかった。段が離散なのは「あと何EXPで落ちるか
+        // 数えられるように」という設計なので、その数字を出す側をここで配線する。
+        // 参照は必ず読み取り専用の dailyExpRateStatus 経由 —— consume を呼ぶと表示のたびに
+        // 蓄積が進み、見ただけでEXPが減る。
+        java.util.function.BiFunction<java.util.UUID, String,
+                com.trinityforge.progression.DailyExpDiminishing.Status> dailyExpRateLookup =
+                (playerId, skillId) -> progressionService.dailyExpRateStatus(playerId, skillId);
+        this.progressionService.setDailyExpRateSink(
+                new com.trinityforge.progression.event.BukkitDailyExpRateNotifier(
+                        this, skillDisplayName, dailyExpRateLookup));
         // EXP獲得ボスバー/アクションバー表示 + レベルアップ通知 (S5/S6)。スキル表示名はスキルツリー定義から解決。
         com.trinityforge.progression.SkillExpFeedbackService skillExpFeedbackService =
                 new com.trinityforge.progression.SkillExpFeedbackService(
-                this, configManager.skillExp(), progressionCatalog, skillDisplayName);
+                this, configManager.skillExp(), progressionCatalog, skillDisplayName,
+                dailyExpRateLookup);
         this.experienceDispatcher.setFeedback(skillExpFeedbackService);
         // 節目レベルアップの全体アナウンス(progression/level-broadcast.yml, 2026-08-16)。
         // 旧 ValhallaMMO アドオン ValTopBoard の level-up-broadcast を TF 本体へ移したもの。
@@ -730,8 +743,10 @@ public final class TrinityForge extends JavaPlugin {
         // /tf status: 同じ数値をGUIで見るための画面 (2026-07-29)。合算は combined()、整形は
         // StatValueRenderer と、チャット版 (/tf stats) と同じ経路を通す。
         // 2026-08-05 (W-28): ロールの確認・変更の入口もここへ統合したので roleSelectGui より後に作る。
+        // progressionService を渡すのは日次逓減の倍率(×70% 等)をスキル一覧に出すためだけ(2026-08-18)。
         this.statusGui = new com.trinityforge.stats.status.StatusGui(this, combatService, aggregator,
-                configManager.lore(), skillLevelSource, nativePerkService, roleChangeService, roleSelectGui);
+                configManager.lore(), skillLevelSource, nativePerkService, roleChangeService, roleSelectGui,
+                progressionService);
         getServer().getPluginManager().registerEvents(statusGui, this);
 
         // 特殊アイテム3種(2026-08-04新設): 職業付け替えの証 / 厳選やり直しの護符 / 品質昇華の結晶。

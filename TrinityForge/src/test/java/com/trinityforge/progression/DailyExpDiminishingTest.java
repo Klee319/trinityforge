@@ -145,6 +145,95 @@ class DailyExpDiminishingTest {
         assertEquals(1.0, daily.consume(settings(), player, "MINING", 900.0), 1e-9);
     }
 
+    // --- 2026-08-18: プレイヤーへ見せるための表示・通知系 -------------------------------------------
+
+    @Test
+    @DisplayName("consumeDetailed は段が落ちた／戻った瞬間を報告する（通知の発火条件）")
+    void consumeDetailedReportsStepChanges() {
+        AtomicLong now = new AtomicLong(0L);
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+
+        // 蓄積 900: まだ1段目に届かない → 何も動かない
+        DailyExpDiminishing.Applied first = daily.consumeDetailed(settings(), player, "MINING", 900.0);
+        assertTrue(!first.worsened() && !first.improved(), "段が動いていないのに通知が飛ぶ");
+
+        // 蓄積 1400: 1段落ちた瞬間
+        DailyExpDiminishing.Applied dropped = daily.consumeDetailed(settings(), player, "MINING", 500.0);
+        assertTrue(dropped.worsened(), "段が落ちたのに報告されない");
+        assertEquals(0.5, dropped.multiplier(), 1e-9);
+        assertEquals(1.0, dropped.previousMultiplier(), 1e-9);
+
+        // 同じ段の中で稼いでも通知しない（毎回流すとチャットが埋まって読まれなくなる）
+        DailyExpDiminishing.Applied same = daily.consumeDetailed(settings(), player, "MINING", 100.0);
+        assertTrue(!same.worsened() && !same.improved(), "同じ段のあいだは通知しない");
+
+        // 十分に時間が経つと戻る。比較対象が「減衰だけ適用した値」でないと、
+        // 戻ったぶんが次の付与の増分に埋もれて improved が一度も立たない。
+        now.addAndGet((long) (48 * HOUR));
+        DailyExpDiminishing.Applied recovered = daily.consumeDetailed(settings(), player, "MINING", 1.0);
+        assertTrue(recovered.improved(), "時間経過で戻ったのに報告されない");
+        assertEquals(1.0, recovered.multiplier(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("回復までの時間は「倍率が実際に上がる段」まで数える（下限で潰れた段を飛ばす）")
+    void recoveryEstimateSkipsStepsFlattenedByTheFloor() {
+        // settings(): per=1000 / decay=0.5 / floor=0.25 → 2段(0.25)で既に下限。
+        // 蓄積 5000(=5段)から見ると、4段(0.0625)も3段(0.125)も下限クランプで 0.25 のまま動かない。
+        // 素朴に「1段減るまで」を出すと『あと少しで回復』と言ったのに何も変わらない嘘になる。
+        assertEquals(0.25, DailyExpDiminishing.multiplierFor(settings(), 5000.0), 1e-9,
+                "前提: 5段目は下限に張り付いている");
+        assertEquals(0.25, DailyExpDiminishing.multiplierFor(settings(), 2500.0), 1e-9,
+                "前提: 1段減らしても倍率は動かない");
+
+        // 実際に 0.25 -> 0.5 へ戻るのは、蓄積が 2000 を割って1段になったとき。
+        assertEquals(24 * HOUR * Math.log(5000.0 / 2000.0),
+                DailyExpDiminishing.millisUntilNextImprovement(settings(), 5000.0), 1.0);
+
+        assertEquals(-1.0, DailyExpDiminishing.millisUntilNextImprovement(settings(), 999.0), 1e-9,
+                "等倍なら案内しない");
+    }
+
+    @Test
+    @DisplayName("等倍へ戻るまでの時間は、蓄積が per-amount を割るまでの指数減衰で出す")
+    void fullRecoveryEstimateUsesTheDecayWindow() {
+        assertEquals(24 * HOUR * Math.log(4000.0 / 1000.0),
+                DailyExpDiminishing.millisUntilFullRecovery(settings(), 4000.0), 1.0);
+        assertEquals(-1.0, DailyExpDiminishing.millisUntilFullRecovery(settings(), 500.0), 1e-9);
+    }
+
+    @Test
+    @DisplayName("表示用スナップショットは倍率・残りEXP・回復時間を1回で返す")
+    void statusBundlesEverythingTheUiNeeds() {
+        DailyExpDiminishing.Status full = DailyExpDiminishing.statusOf(settings(), 400.0);
+        assertTrue(full.atFullRate());
+        assertEquals(600.0, full.expUntilNextStep(), 1e-9, "あと600で1段落ちる");
+        assertEquals(-1.0, full.millisUntilFull(), 1e-9);
+
+        DailyExpDiminishing.Status diminished = DailyExpDiminishing.statusOf(settings(), 1500.0);
+        assertEquals(0.5, diminished.multiplier(), 1e-9);
+        assertTrue(!diminished.atFullRate());
+        assertEquals(500.0, diminished.expUntilNextStep(), 1e-9);
+        assertTrue(diminished.millisUntilFull() > 0.0);
+    }
+
+    @Test
+    @DisplayName("表示文字列は全画面で同じ整形を通す（GUIとチャットで数字が食い違わないこと）")
+    void displayTextIsFormattedInOnePlace() {
+        assertEquals("70%", DailyExpRateText.percent(0.7));
+        assertEquals("34%", DailyExpRateText.percent(0.343));
+        assertEquals("×50%", DailyExpRateText.badge(DailyExpDiminishing.statusOf(settings(), 1500.0)));
+        assertEquals(null, DailyExpRateText.badge(DailyExpDiminishing.statusOf(settings(), 10.0)),
+                "等倍のときにバッジを出すと常時ノイズになる");
+
+        assertEquals("約30分", DailyExpRateText.duration(30 * 60_000.0));
+        assertEquals("約2.0時間", DailyExpRateText.duration(2 * HOUR));
+        assertEquals("まもなく", DailyExpRateText.duration(10_000.0));
+        assertEquals(null, DailyExpRateText.duration(-1.0), "該当なしは行ごと落とせるように null");
+        assertEquals("42,300", DailyExpRateText.exp(42_300.0));
+    }
+
     @Test
     @DisplayName("floor は Settings 側で 0〜1 にクランプされる（0除算や増幅を作らない）")
     void settingsClampsRanges() {

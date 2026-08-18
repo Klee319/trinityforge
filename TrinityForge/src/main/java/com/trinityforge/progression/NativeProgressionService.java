@@ -74,6 +74,14 @@ public final class NativeProgressionService {
     private volatile com.trinityforge.progression.event.SkillLevelUpSink levelUpSink =
             com.trinityforge.progression.event.SkillLevelUpSink.NOOP;
 
+    /**
+     * 日次逓減の段が動いたときの通知先（2026-08-18）。{@link #levelUpSink} と同じく既定は NOOP で、
+     * 配線しない限り挙動は変わらない。配線は {@code TrinityForge#onEnable} が
+     * {@link com.trinityforge.progression.event.BukkitDailyExpRateNotifier} で行う。
+     */
+    private volatile com.trinityforge.progression.event.DailyExpRateChangeSink dailyRateSink =
+            com.trinityforge.progression.event.DailyExpRateChangeSink.NOOP;
+
     public NativeProgressionService(ProgressionRepository repository, NativeSkillCatalog catalog) {
         this(repository, catalog, id -> 0.0);
     }
@@ -172,9 +180,37 @@ public final class NativeProgressionService {
                 ? com.trinityforge.progression.event.SkillLevelUpSink.NOOP : sink;
     }
 
+    /**
+     * 日次逓減の段が動いたときの通知先を差し替える。{@code null} で無効化。
+     * {@link #setLevelUpSink} と同じく永続化の<b>後</b>にだけ呼ばれる。
+     */
+    public void setDailyExpRateSink(com.trinityforge.progression.event.DailyExpRateChangeSink sink) {
+        this.dailyRateSink = sink == null
+                ? com.trinityforge.progression.event.DailyExpRateChangeSink.NOOP : sink;
+    }
+
     /** 日次逓減の状態保持器（退出時に {@code forget} を呼ぶリスナ用）。無効なら {@code null}。 */
     public DailyExpDiminishing dailyDiminishing() {
         return dailyDiminishing;
+    }
+
+    /**
+     * 表示用: そのスキルの現在の日次逓減の状態（状態は進めない）。逓減が無効なら {@code null}。
+     *
+     * <p>ボスバー・チャット・スキルツリーGUI・{@code /tf status} が全部ここを読む。
+     * 各画面が {@code accumulated()} と {@code multiplierFor()} を自前で組み合わせると、
+     * 「片方だけ設定の読み直しに追随していない」という食い違いが出るため入口を1つにする。
+     */
+    public DailyExpDiminishing.Status dailyExpRateStatus(UUID playerId, String rawSkillId) {
+        if (dailyDiminishing == null || dailySettings == null || playerId == null
+                || rawSkillId == null || rawSkillId.isBlank()) {
+            return null;
+        }
+        DailyExpDiminishing.Settings settings = dailySettings.get();
+        if (settings == null || !settings.enabled()) {
+            return null;
+        }
+        return dailyDiminishing.status(settings, playerId, normalizeSkillId(rawSkillId));
     }
 
     /** Exposes the shared per-player lock so sibling services can serialize against it. */
@@ -243,8 +279,10 @@ public final class NativeProgressionService {
         // 乗算で合成する。consume は「読み取りと蓄積の加算」が一体なので1回の付与につき1回だけ呼ぶ。
         // 逓減前の amount(レベル逓減適用後)を蓄積へ入れる ── 逓減後の値を入れると、薄まるほど
         // 蓄積が増えなくなって自分で自分を打ち消す(いくら稼いでも threshold に届かない)。
+        DailyExpDiminishing.Applied dailyApplied = DailyExpDiminishing.Applied.UNCHANGED;
         if (dailyDiminishing != null && dailySettings != null) {
-            double daily = dailyDiminishing.consume(dailySettings.get(), playerId, skillId, amount);
+            dailyApplied = dailyDiminishing.consumeDetailed(dailySettings.get(), playerId, skillId, amount);
+            double daily = dailyApplied.multiplier();
             if (Double.isFinite(daily) && daily != 1.0) {
                 amount = amount * Math.max(0.0, daily);
                 if (!Double.isFinite(amount) || amount == 0.0) {
@@ -288,7 +326,28 @@ public final class NativeProgressionService {
             notifyLevelUp(playerId, POWER,
                     powerAfter.level() - powerLevelsChanged, powerAfter.level());
         }
+        notifyDailyRateChange(playerId, skillId, dailyApplied);
         return new GrantResult(skillId, before, after, levelsChanged, powerLevelsChanged);
+    }
+
+    /**
+     * 日次逓減の段が動いたときだけ受け口へ流す（2026-08-18）。
+     *
+     * <p><b>毎回の付与では流さない。</b> 段は離散なので「動いた瞬間」は1段につき1回しか来ず、
+     * そこだけ知らせればプレイヤーは自分で数えられる。毎回流すとチャットが埋まって読まれなくなる。
+     * {@link #notifyLevelUp} と同じく永続化の後・例外は握り潰す（通知の失敗で付与を壊さない）。
+     */
+    private void notifyDailyRateChange(UUID playerId, String skillId,
+                                       DailyExpDiminishing.Applied applied) {
+        if (applied == null || (!applied.worsened() && !applied.improved())) {
+            return;
+        }
+        try {
+            dailyRateSink.onDailyExpRateChanged(playerId, skillId, applied);
+        } catch (RuntimeException ex) {
+            LOG.log(Level.WARNING, "[progression] daily rate notification failed for "
+                    + playerId + " / " + skillId, ex);
+        }
     }
 
     /**

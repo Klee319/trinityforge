@@ -86,11 +86,26 @@ public final class StatusGui implements Listener {
     private final NativePerkService perkService;
     private final RoleChangeService roleChangeService;
     private final RoleSelectGui roleSelectGui;
+    /** 日次逓減の倍率を引くためだけの参照（2026-08-18）。{@code null} 可 = 倍率を出さない。 */
+    private final com.trinityforge.progression.NativeProgressionService progression;
     private final NamespacedKey categoryKey;
 
     public StatusGui(Plugin plugin, SymmetricCombatService combatService, PlayerStatAggregator aggregator,
                      LoreConfig loreConfig, SkillLevelSource skillLevelSource, NativePerkService perkService,
                      RoleChangeService roleChangeService, RoleSelectGui roleSelectGui) {
+        this(plugin, combatService, aggregator, loreConfig, skillLevelSource, perkService,
+                roleChangeService, roleSelectGui, null);
+    }
+
+    /**
+     * 日次逓減の倍率つき（2026-08-18）。{@code progression} が {@code null} なら倍率を出さない
+     * （逓減が無効なサーバ・テストでは従来どおりの表示になる）。
+     */
+    public StatusGui(Plugin plugin, SymmetricCombatService combatService, PlayerStatAggregator aggregator,
+                     LoreConfig loreConfig, SkillLevelSource skillLevelSource, NativePerkService perkService,
+                     RoleChangeService roleChangeService, RoleSelectGui roleSelectGui,
+                     com.trinityforge.progression.NativeProgressionService progression) {
+        this.progression = progression;
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.combatService = Objects.requireNonNull(combatService, "combatService");
         this.aggregator = Objects.requireNonNull(aggregator, "aggregator");
@@ -224,14 +239,20 @@ public final class StatusGui implements Listener {
                 if (level == null) {
                     continue;
                 }
-                lore.add(entry(skillLabel(skillId), Integer.toString(level)));
+                lore.add(entry(skillLabel(skillId), levelText(player, skillId, level)));
             }
             // 並び順表に無いスキル(config追加分)も落とさない。
             for (Map.Entry<String, Integer> e : levels.entrySet()) {
                 if (!SKILL_ORDER.contains(e.getKey())) {
-                    lore.add(entry(skillLabel(e.getKey()), Integer.toString(e.getValue())));
+                    lore.add(entry(skillLabel(e.getKey()),
+                            levelText(player, e.getKey(), e.getValue())));
                 }
             }
+        }
+        if (anyDiminished(player, levels.keySet())) {
+            lore.add(Component.empty());
+            lore.add(plain("×○% = 稼ぎすぎでEXP取得量が下がっています", NamedTextColor.RED));
+            lore.add(plain("そのスキルを休むと戻ります(/skills で残り時間)", NamedTextColor.DARK_GRAY));
         }
         lore.add(Component.empty());
         lore.add(plain("/skills でスキルツリーを開けます", NamedTextColor.DARK_GRAY));
@@ -239,6 +260,35 @@ public final class StatusGui implements Listener {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /**
+     * 「12」または「12  ×70%」。後者は日次逓減(直近24時間の稼ぎでEXP取得量が薄まる仕組み)が
+     * 効いている状態で、2026-08-18 まで<b>プレイヤーがどこからも確認できなかった</b>。
+     * 残り時間まではここに置かず {@code /skills} 側へ寄せる(この lore は16スキル分並ぶので行を増やせない)。
+     */
+    private String levelText(Player player, String skillId, int level) {
+        String badge = rateBadge(player, skillId);
+        return badge == null ? Integer.toString(level) : level + "  " + badge;
+    }
+
+    /** 1つでも逓減が効いていれば凡例を出す(効いていないときに出すと意味が分からない)。 */
+    private boolean anyDiminished(Player player, java.util.Collection<String> skillIds) {
+        for (String skillId : skillIds) {
+            if (rateBadge(player, skillId) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 逓減が効いているときだけ {@code "×70%"}。未配線・無効・等倍なら {@code null}。 */
+    private String rateBadge(Player player, String skillId) {
+        if (progression == null) {
+            return null;
+        }
+        return com.trinityforge.progression.DailyExpRateText.badge(
+                progression.dailyExpRateStatus(player.getUniqueId(), skillId));
     }
 
     /** スキルの日本語名はスキルツリー定義の display-name が唯一の出所。無ければIDのまま。 */

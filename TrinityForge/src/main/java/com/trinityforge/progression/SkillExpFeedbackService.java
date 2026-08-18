@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -57,6 +58,12 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
     private final SkillExpConfig config;
     private final NativeSkillCatalog catalog;
     private final Function<String, String> skillDisplayName;
+    /**
+     * 日次逓減の現在値（2026-08-18）。{@code null} なら倍率を表示しない。
+     * <b>状態を進めない読み取り専用の参照</b>であることが重要 ── ここで {@code consume} を呼ぶと
+     * 表示のたびに蓄積が増え、見ただけでEXPが減る。
+     */
+    private final BiFunction<UUID, String, DailyExpDiminishing.Status> dailyRateLookup;
     /** プレイヤーごとのスキル別ボスバー管理。挿入順を保つ({@link LinkedHashMap})のでFIFO失効に使える。 */
     private final Map<UUID, PlayerBossBars> playerBossBars = new ConcurrentHashMap<>();
 
@@ -68,10 +75,25 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
 
     public SkillExpFeedbackService(Plugin plugin, SkillExpConfig config, NativeSkillCatalog catalog,
                                    Function<String, String> skillDisplayName) {
+        this(plugin, config, catalog, skillDisplayName, null);
+    }
+
+    /**
+     * 日次逓減の倍率つき（2026-08-18）。{@code dailyRateLookup} が {@code null} なら
+     * 従来どおり倍率を出さない。
+     *
+     * <p><b>なぜここに出すか</b>: EXP を稼いだその瞬間に必ず出る唯一の表示がこのボスバー／
+     * アクションバーで、逓減が効いていることに気づける場所が他に無かった。段が落ちた瞬間の
+     * チャット({@code BukkitDailyExpRateNotifier})は見落とせるが、こちらは稼いでいる間ずっと出る。
+     */
+    public SkillExpFeedbackService(Plugin plugin, SkillExpConfig config, NativeSkillCatalog catalog,
+                                   Function<String, String> skillDisplayName,
+                                   BiFunction<UUID, String, DailyExpDiminishing.Status> dailyRateLookup) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.config = Objects.requireNonNull(config, "config");
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.skillDisplayName = Objects.requireNonNull(skillDisplayName, "skillDisplayName");
+        this.dailyRateLookup = dailyRateLookup;
     }
 
     @Override
@@ -92,10 +114,15 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
         if (gain <= 0) {
             gain = amount > 0 ? 1 : 0; // 端数でも「獲得した」ことは示す
         }
+        String rateBadge = rateBadge(playerId, skillId);
         if (config.expDisplayActionBarOnly()) {
-            player.sendActionBar(Component.text("+" + gain + " " + name + " EXP", NamedTextColor.GREEN));
+            Component line = Component.text("+" + gain + " " + name + " EXP", NamedTextColor.GREEN);
+            if (rateBadge != null) {
+                line = line.append(Component.text("  " + rateBadge, NamedTextColor.RED));
+            }
+            player.sendActionBar(line);
         } else {
-            showBossBar(player, skillId, name, result.after(), gain);
+            showBossBar(player, skillId, name, result.after(), gain, rateBadge);
         }
         if (result.levelsChanged() > 0) {
             onLevelUp(player, name, result.after().level());
@@ -108,13 +135,17 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
      * ({@link SkillExpConfig#maxConcurrentBossBars()}) に達している場合は、最も古く追加されたスキルの
      * バーを1本閉じてから追加する。
      */
-    private void showBossBar(Player player, String skillId, String name, SkillProgress after, long gain) {
+    private void showBossBar(Player player, String skillId, String name, SkillProgress after, long gain,
+                             String rateBadge) {
         int level = after.level();
         float progress = progressWithin(skillId, after);
         Component title = Component.text(name + " Lv" + level + "  ", NamedTextColor.AQUA)
                 .append(Component.text(fmt(after.residualExp()) + "/" + fmt(spanForLevel(skillId, level)),
                         NamedTextColor.WHITE))
                 .append(Component.text("  (+" + gain + ")", NamedTextColor.GREEN));
+        if (rateBadge != null) {
+            title = title.append(Component.text("  " + rateBadge, NamedTextColor.RED));
+        }
 
         UUID id = player.getUniqueId();
         PlayerBossBars pb = playerBossBars.computeIfAbsent(id, k -> new PlayerBossBars());
@@ -137,6 +168,23 @@ public final class SkillExpFeedbackService implements SkillExpFeedback, Listener
         long ticks = Math.max(10L, Math.round(config.expBarSeconds() * 20.0));
         BukkitTask hide = Bukkit.getScheduler().runTaskLater(plugin, () -> hideOne(player, id, skillId), ticks);
         pb.hideTasks.put(skillId, hide);
+    }
+
+    /**
+     * 日次逓減が効いているときだけ {@code "×70%"} を返す（等倍・未配線・例外時は {@code null}）。
+     *
+     * <p>逓減の参照は外部から注入された関数なので、ここで投げられると<b>EXP表示ごと落ちる</b>。
+     * 表示のためだけの値なので握り潰して「出さない」へ倒す。
+     */
+    private String rateBadge(UUID playerId, String skillId) {
+        if (dailyRateLookup == null) {
+            return null;
+        }
+        try {
+            return DailyExpRateText.badge(dailyRateLookup.apply(playerId, skillId));
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     /** 上限到達時、最も古く追加された(=挿入順が先頭の)スキルのボスバーを1本閉じる(FIFO失効, B3)。 */

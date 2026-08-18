@@ -575,18 +575,58 @@ public final class NativeSkillTreeMenu implements Listener {
             SkillTree tree = trees.get(Math.floorMod(selected + offset, trees.size()));
             var skill = snapshot.skillOrDefault(tree.skill(), 100);
             String suffix = skill.prestige() > 0 ? " " + roman(skill.prestige()) : "";
+            List<Component> lore = new ArrayList<>(List.of(
+                    Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
+                    Component.text("EXP: " + Math.round(skill.residualExp()), NamedTextColor.GRAY),
+                    Component.text("スキルポイント: " + snapshot.availablePoints(),
+                            NamedTextColor.GRAY)));
+            lore.addAll(dailyRateLore(snapshot.playerId(), tree.skill()));
             inventory.setItem(49 + offset, button(
                     SkillTreeGuiVisuals.skill(
                             tree.skill(), material(tree.icon(), Material.NETHER_STAR)),
                     "select-skill", tree.skill(),
                     Component.text(tree.displayName() + suffix,
                             offset == 0 ? NamedTextColor.GOLD : NamedTextColor.WHITE),
-                    List.of(
-                            Component.text("レベル: " + skill.level(), NamedTextColor.GRAY),
-                            Component.text("EXP: " + Math.round(skill.residualExp()), NamedTextColor.GRAY),
-                            Component.text("スキルポイント: " + snapshot.availablePoints(),
-                                    NamedTextColor.GRAY))));
+                    lore));
         }
+    }
+
+    /**
+     * 日次逓減(直近24時間の稼ぎで薄まるEXP取得量)の行。逓減が無効なら空。
+     *
+     * <p>2026-08-18 に足した。逓減自体は 2026-07-31 から動いていたが、<b>倍率を確認できる画面が
+     * 1つも無かった</b>ため「なんとなくEXPが渋い」としか分からなかった。段が離散なのは
+     * 「あと何EXPで落ちるか数えられるように」という設計なので、その数字をここで出す。
+     *
+     * <p><b>⚠ 回復までの時間は「オンラインのまま、そのスキルを稼がずにいる」前提の目安</b>。
+     * 蓄積は永続化しておらず退出時に捨てられるので、再ログインすると表示より早く戻る。
+     */
+    private List<Component> dailyRateLore(java.util.UUID playerId, String skillId) {
+        com.trinityforge.progression.DailyExpDiminishing.Status status =
+                progression.dailyExpRateStatus(playerId, skillId);
+        if (status == null) {
+            return List.of();
+        }
+        if (status.atFullRate()) {
+            String untilDrop = status.expUntilNextStep() < 0 ? null
+                    : com.trinityforge.progression.DailyExpRateText.exp(status.expUntilNextStep());
+            if (untilDrop == null) {
+                return List.of();
+            }
+            return List.of(
+                    Component.text("EXP取得量: 100%", NamedTextColor.GREEN),
+                    Component.text("あと " + untilDrop + " EXP でこのスキルの取得量が下がります",
+                            NamedTextColor.DARK_GRAY));
+        }
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.text("EXP取得量: "
+                + com.trinityforge.progression.DailyExpRateText.percent(status.multiplier())
+                + "（稼ぎすぎによる逓減）", NamedTextColor.RED));
+        String untilFull = com.trinityforge.progression.DailyExpRateText.duration(status.millisUntilFull());
+        if (untilFull != null) {
+            lines.add(Component.text("休むと戻ります: 等倍まで " + untilFull, NamedTextColor.DARK_GRAY));
+        }
+        return lines;
     }
 
     /**
