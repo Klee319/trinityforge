@@ -444,6 +444,43 @@ package で、Nightbreakの `NightbreakAccount`/`NightbreakContentManager` を�
   （`world_blueprints/`）が未ダウンロードであること。運用者が `/em downloadall` 等で
   Nightbreak権限相当のコンテンツを取得すれば解消する、TF連携とは独立した論点。
 
+### ⚠️⚠️ エンチャント試練（`enchantmentChallenge: true`）は入口が2系統あり、鍵ゲート経由では賭けアイテムが両方 null になる
+
+`initializeInstancedWorld` は `isEnchantmentChallenge()` を見て **`EnchantmentDungeonInstance`** を作る。
+しかし `upgradedItem`（成功時に渡す強化後アイテム）と `currentItem`（失敗時に返す元アイテム）を
+セットするのは **エンチャントメニュー経由の `setupRandomEnchantedChallengeDungeon` だけ**。
+TF の鍵ゲート／`/em` ダンジョンブラウザから入った個体は **両方 null のまま**で、
+`victory()`／`defeat()` がそのまま走ると `currentItem.getItemMeta()` で NPE になる。
+
+**怖いのは NPE そのものではなく、例外が抜けた先で何が飛ぶか。**
+`defeat()` は `InstancePlayerManager#playerDeath` から呼ばれ、**その直後の行が「元の位置へテレポートして戻す」**。
+例外で飛ぶと、プレイヤーは `players` からは外れているのに `spectators` にも入っていない状態になり、
+`removeAnyKind` が `players.contains` / `spectators.contains` のどちらにも当たらず**何もしない**。
+＝ **`/em quit` でも戻れない**。ワールドも「中に人が居る」ので削除に失敗し、
+`Failed to unload world ... Skipping folder deletion` で**残り続ける**（2026-08-18 実障害。2本残留）。
+2026-08-18 修正: `hasEnchantmentStake()` で分岐 ＋ `playerDeath` の `defeat()` を try/catch で包み
+**脱出だけは必ず通す**。`EnchantmentTrialEntryOrderTest` が呼び出し順をバイトコードで固定している。
+
+### ⚠️⚠️ 鍵の消費は `super.addNewPlayer()` の**後**でなければならない — 手前に置くと満員・開催中で「鍵だけ消える」
+
+`MatchInstance#addNewPlayer` は **①開催中（`WAITING` 以外）②満員（`maxPlayerCount` 超過）③権限不足**
+の3つで `false` を返す。`DungeonInstance#addNewPlayer` で TF の鍵消費をこの手前に置くと、
+弾かれた参加者から**鍵だけ取り上げる**。エンチャント試練は `maxPlayerCount: 1` の**ソロ専用**なので、
+ブラウザから既存インスタンスへ参加した2人目以降が必ずこれを踏む
+（2026-08-18 実報告「4人ぶんの鍵を作ったのに1人しか入れず、残り3人は鍵だけ消えた」）。
+正しい順序は **非消費の `previewDungeonEntryAllowed` → `super.addNewPlayer()` → `checkDungeonEntryAllowed`（消費）**。
+preview と consume の間は同期処理だけなので、preview が通った直後の consume が鍵不足で落ちることはない。
+
+### バニラモブの自動エリート化（`doNaturalEliteMobSpawning`）は TF 構成では表示もレベルも二重にする
+
+`MobCombatSettings.yml` の `doNaturalEliteMobSpawning`（既定 true）が有効だと、EliteMobs は自然湧きした
+バニラモブを確率で「エリート ○○」へ変換し、レベル入りの名前を持たせる。TF は
+`mob-level-table.yml` / `mob-overrides.yml` で全モブにレベル・HP を持たせ、FocusHp 表示
+（`Lv.N 名前` ＋ HP の2行）を出すので、**レベル体系も頭上テキストも二重になる**。
+止めるのは `ops\launch\disable-natural-elites.cmd -Apply`（**サーバ停止中**。戻すのは `-Revert -Apply`）。
+`TrinityForgeConfigMigration` は既存キーの値を絶対に書き換えないので、**jar の既定値を変えても配備済みには届かない**
+（同ディレクトリの `⚠️ TrinityForgeConfigMigration はトップレベルキー単位でしか差分検出しない` 参照）。
+
 ### ダンジョン難易度選択（levelSync/difficultyID）は実際にゲームプレイへ反映される — 3つの独立経路で消費される、死にコードではない
 
 `DungeonInstance#setDifficulty` が `contentPackagesConfigFields.getDifficulties()`（yml の

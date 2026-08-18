@@ -406,6 +406,41 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 | W-89 | 騎乗中に騎乗しているモブの HP テキストディスプレイが視線にかぶって邪魔 | ~~未着手~~ **修正済み** |
 | W-90 | AFK が予告なく訪れるので title 等でカウントダウンか通知を出したい | ~~未着手~~ **修正済み** |
 | W-91 | エンダードラゴンやガストなど当たり判定の大きいモブで HP 表示が出せない／体に埋まる | ~~未着手~~ **修正済み** |
+| W-92 | エンチャント試練 1 の鍵を 4 人ぶん作ったのに 1 人しか入れず、残り 3 人は鍵だけ消費された | ~~未着手~~ **修正済み（EliteMobs fork）** |
+| W-93 | エンチャント試練に入って `/em start` すると敵が一瞬で消え、`/em quit` でも帰れなくなる | ~~未着手~~ **修正済み（EliteMobs fork）** |
+| W-94 | バニラモブが EliteMobs の仕様でエリート化して湧き、頭上のテキスト表示が二重になる | ~~未着手~~ **設定スクリプトを用意（実行はユーザー）** |
+
+**W-92 の解決根拠。** `enchantment_challenge_*_sanctum` は `maxPlayerCount: 1` の**ソロ専用**。
+ダンジョンブラウザから既存インスタンスへ参加すると `DungeonInstance#addNewPlayer` が走るが、
+**TrinityForge の鍵消費（`checkDungeonEntryAllowed`）が `super.addNewPlayer()` より手前**にあったため、
+2 人目以降は**鍵を取られてから「満員」で追い返されていた**。
+判定は非消費版 `previewDungeonEntryAllowed` で先に行い、**参加が成立した後に消費**する順序へ変更。
+`EnchantmentTrialEntryOrderTest#keyIsConsumedOnlyAfterTheJoinActuallySucceeded` が
+`addNewPlayer` の**バイトコード内での呼び出し順**を固定する（消費を手前へ戻すと落ちる。実測済み）。
+
+**W-93 の解決根拠。** 17:44–17:47 のログが一次証拠。
+`/em start` の 6 秒後に `EnchantmentDungeonInstance.defeat(...:111)` で
+`NullPointerException: ... "this.currentItem" is null`、その 40 秒後に
+`Attempting to delete world em_id_enchantment_challenge_1_2 with 1 players still in it!`。
+真因は**入口が 2 系統あること** —— エンチャントメニュー経由（`setupRandomEnchantedChallengeDungeon`）でだけ
+賭けアイテム（`currentItem`／`upgradedItem`）がセットされ、**TF の鍵ゲート経由の通常入場では両方 null のまま**
+`EnchantmentDungeonInstance` が作られる。そこで `defeat()` が NPE を投げ、
+**例外が `InstancePlayerManager#playerDeath` まで抜けて直後の「元の位置へ戻す」を丸ごと飛ばす**。
+結果プレイヤーは `players` にも `spectators` にも属さなくなり、`removeAnyKind` が何もしないので
+`/em quit` でも戻れず、ワールドも「中に人が居る」ため削除に失敗して残り続けた
+（`em_id_enchantment_challenge_1_1` / `_2` の 2 本が停止時まで残留）。
+直したのは 2 点 —— (1) `hasEnchantmentStake()` が false のときは `victory()`／`defeat()` が賭けアイテムに触れず、
+`endMatch()` も通常ダンジョンの終了処理へ委ねる、(2) `playerDeath` の `defeat()` を try/catch で包み、
+**何が起きても脱出テレポートだけは必ず通す**。RED は「ガードを消すと落ちる」で確認済み。
+なお「敵が一瞬で消えた」のは defeat 後の `removeInstance()` が
+`world.getEntities()` を `WORLD_UNLOAD` で unregister するため。
+
+**W-94 について。** `MobCombatSettings.yml` の `doNaturalEliteMobSpawning: true` が生きており、
+バニラモブが「エリート ○○」へ変換されてレベル入りの名前を持つ。TF 側は `mob-level-table.yml` /
+`mob-overrides.yml` で全モブにレベル・HP を持たせ FocusHp 表示（`Lv.N 名前` ＋ HP）を出しているので、
+**レベル体系も頭上表示も二重になる**。TF 構成では EliteMobs 側の自然エリート化は役割が無いため止める。
+`ops\launch\disable-natural-elites.cmd -Apply`（**サーバ停止中に実行**）。
+既に湧いているエリートは倒す／デスポーンするまで残る。戻すときは `-Revert -Apply`。
 
 **W-89 / W-91 の解決根拠。** `FocusHpDisplay#findFocusTarget` の救済判定が
 **「プレイヤーの目とモブの目を結ぶ角度が `LOOK_CONE_DOT = 0.90`（≒25.8°）以内」という点と点の円錐**
