@@ -426,7 +426,7 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 
 | ID | 報告 | 状態 |
 |---|---|---|
-| W-102 | `gacha` / `role_luck` / `role_efficiency` / `blindness` など**プロジェクト後半に editor から追加したスレッド**だけ挙動が違う（lore の生タグ・品質が出ない／反映されない）。**アイテムカタログのスレッドタブで設定したらスレッドとして扱われる**という従来仕様に揃える | **原因究明済み・未修正** |
+| W-102 | `gacha` / `role_luck` / `role_efficiency` / `blindness` など**プロジェクト後半に editor から追加したスレッド**だけ挙動が違う（lore の生タグ・品質が出ない／反映されない）。**アイテムカタログのスレッドタブで設定したらスレッドとして扱われる**という従来仕様に揃える | ~~未着手~~ **修正済み（ArsPaper fork）** |
 | W-103 | 既存スレッドのベース材質を（重複可で）**すべて鍛冶型**に統一する。現状は壺の欠片・糸などが混ざっている | 未着手 |
 | W-104 | ソースリンクから近くのソースジャーへドミニオンワンドで転送できない。**設定完了通知は出るが転送が開始されない** | ~~未着手~~ **修正済み（ArsPaper fork）** |
 | W-105 | ドミニオンワンドを手に持ったとき、接続しているソースジャーとソースリンクがパーティクルで繋がって見えるようにしてほしい | ~~未着手~~ **経路可視化は実装済み（2026-08-01）＋隣接供給の可視化を追加（ArsPaper fork）** |
@@ -450,6 +450,36 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 後者は `storageAt(fromTile)` を潰すと落ちることを実測済み（435 tests / 1 failed → 復帰後 BUILD SUCCESSFUL）。
 ※ フォークのテスト基盤には Bukkit ランタイムも MockBukkit も無い（`testImplementation` は JUnit と paper-api だけ）
 ため、ブロックを 1 個も作れない。挙動テストは書けないのでソース検査で配線を縛っている。
+
+**W-102 の解決根拠（真因: 「スレッドかどうか」の判定がコンパイル時に閉じていた）。**
+`ThreadType` が enum だったため、**enum に定数が無い id は「スレッドではない」と判定される**。
+`ThreadGui#isEffectThread` は PDC の `arspaper:thread_item_type` を `ThreadType.fromId` に
+通して装着可否を決めるので、エディタからスレッドを足しても jar を作り直すまで防具に挿せない。
+**報告された3症状はすべてこの1点から出ていた**:
+
+- **lore が生タグ** —— これだけは別因（`ThreadConfig.loreText` が markup を解釈していなかった）。W-96 で修正済み。
+- **防具に挿せない** —— `fromId` が null。
+- **品質が出ない／反映されない** —— 品質のスレッド専用再刻印（W-53）の発動条件が
+  `threadType.hasEffect()` なので、**定数が無い間は品質が常に無視される**。
+
+修正は `ThreadType` を **enum → 「組み込み定数 + 実行時登録」の final クラス**へ変更し、
+`BY_ID` を唯一の台帳にしたうえで、`ThreadConfig#load` が `threads.yml` の未知 id を
+`ThreadType.register` で登録するようにした（`display_name` / `custom-model-data` / `material` を読む。
+効果の数値は持たせない —— 後発スレッドの効果は TF の `item-stats.yml` が持つので、
+両方に持たせると二重に効く）。**設定エディタには `threads` エディタ（`arspaper/threads.yml`）が
+既にある**ので、これで「設定したらスレッドとして扱われる」が成立する。
+
+非自明な点を3つ:
+
+- **`BY_ID` は定数より前に宣言する必要がある**。各定数のコンストラクタが自分を登録するので、
+  宣言順を入れ替えると静的初期化中の NPE で全スレッドが死ぬ。
+- **1 id につき1インスタンスなのは変わらない**ので `==` 比較は従来どおり通る。
+  ただし `EnumMap`/`EnumSet`/`switch` は使えない（`ArmorManaListener` の `EnumMap` を `LinkedHashMap` へ）。
+- **永続化は `getId()` の文字列**で `name()`/`ordinal()` はどこからも使われていないため、セーブデータは無影響。
+
+`ThreadsYamlEnumParityTest` を**片方向の検査に変更**した（yml にあって定数に無いのは
+今や正常なので、逆向きだけを落とす）。実行時登録の配線は同テストの新しいケースが縛り、
+`registerIfUnknown` の呼び出しを潰すと落ちることを実測済み（436 tests / 1 failed → 復帰後 BUILD SUCCESSFUL）。
 
 **W-105 の現状。** ワンド保持中の**経路パーティクル可視化は 2026-08-01 に実装済み**で、
 `sourcelinks.yml` の `transfer.network.path-particles.enabled` は既定 true、
