@@ -31,20 +31,28 @@ import static org.mockito.Mockito.when;
  * レシピだけ」という規則で結果枠を消す。これ自体は圧縮ブロックがバニラの分解レシピで
  * 素材に溶けるのを防ぐための正しい保護。
  *
- * <p>問題は<b>見え方</b>で、詰まる原因になる品は
- * {@code netherite_block_1x}（「9倍圧縮ネザライトブロック」、base=NETHERITE_BLOCK, CMD 100121）や
- * {@code thread_excavation}（base=NETHERITE_UPGRADE_SMITHING_TEMPLATE）のように
- * <b>リソースパックに item 定義が無く、見た目がバニラと完全に同一</b>。
- * 材料欄ではホバーしない限り区別が付かないので、名前を出さない限り
- * プレイヤーは「バニラのレシピが壊れている」としか判断できない。
+ * <p><b>2026-08-18 追記: 実物の犯人を特定した。</b> 当初は {@code netherite_block_1x} を例にしていたが、
+ * サーバの jar から取り出した実際のバニラレシピは
+ * <pre>
+ *   "#": minecraft:diamond / "C": minecraft:netherrack / "S": netherite_upgrade_smithing_template
+ *   pattern: ["#S#", "#C#", "###"]
+ * </pre>
+ * で、<b>中央はネザーラック</b>。ArsPaper には {@code netherrack_1x}〜{@code netherrack_4x}
+ * （「9倍圧縮ネザーラック」〜「6561倍圧縮ネザーラック」、base=NETHERRACK, CMD 1001〜1004）があり、
+ * <b>リソースパックに item 定義が無いので素のネザーラックと見た目が完全に同一</b>。
+ * ネザーラックは誰でも大量に持つ＝誰でも圧縮する素材なので、
+ * <b>サーバの複数人が同時に「バニラの鍛冶型が複製できない」と報告した</b>のはこれが理由。
+ * 鍛冶型もダイヤもバニラのままで正しかった。
  *
- * <p>よってここで固定するのは「止めること」ではなく「<b>止めた理由として実物の名前を出すこと</b>」。
+ * <p>材料欄ではホバーしない限り区別が付かないので、名前を出さない限り
+ * プレイヤーは「バニラのレシピが壊れている」としか判断できない。
+ * よってここで固定するのは「止めること」ではなく「<b>止めた理由として実物の名前を出すこと</b>」。
  */
 class CatalogWorkbenchBlockedMessageTest {
 
     private static final String PLUGIN_LAYER = "arspaper";
-    private static final int COMPRESSED_NETHERITE_CMD = 100121;
-    private static final String COMPRESSED_NETHERITE_NAME = "9倍圧縮ネザライトブロック";
+    private static final int COMPRESSED_NETHERRACK_CMD = 1001;
+    private static final String COMPRESSED_NETHERRACK_NAME = "81倍圧縮ネザーラック";
 
     private CatalogWorkbenchListener listener;
 
@@ -55,9 +63,9 @@ class CatalogWorkbenchBlockedMessageTest {
         when(registrar.registered(any())).thenReturn(Optional.empty());
         listener = new CatalogWorkbenchListener(registrar, mock(ItemCatalogConfig.class));
         ExternalItemRegistry.updateExternalPlugin(PLUGIN_LAYER, Map.of(
-                "netherite_block_1x", new ExternalItemRegistry.Definition(
-                        "netherite_block_1x", Material.NETHERITE_BLOCK,
-                        COMPRESSED_NETHERITE_CMD, COMPRESSED_NETHERITE_NAME)));
+                "netherrack_2x", new ExternalItemRegistry.Definition(
+                        "netherrack_2x", Material.NETHERRACK,
+                        COMPRESSED_NETHERRACK_CMD, COMPRESSED_NETHERRACK_NAME)));
     }
 
     @AfterEach
@@ -70,19 +78,23 @@ class CatalogWorkbenchBlockedMessageTest {
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
-    /** 見た目はバニラのネザライトブロックそのままの「9倍圧縮ネザライトブロック」。 */
-    private static ItemStack compressedNetheriteBlock(boolean withDisplayName) {
-        ItemStack stack = new ItemStack(Material.NETHERITE_BLOCK);
+    /** 見た目は素のネザーラックそのままの「81倍圧縮ネザーラック」。 */
+    private static ItemStack compressedNetherrack(boolean withDisplayName) {
+        ItemStack stack = new ItemStack(Material.NETHERRACK);
         stack.editMeta(meta -> {
-            meta.setCustomModelData(COMPRESSED_NETHERITE_CMD);
+            meta.setCustomModelData(COMPRESSED_NETHERRACK_CMD);
             if (withDisplayName) {
-                meta.displayName(Component.text(COMPRESSED_NETHERITE_NAME));
+                meta.displayName(Component.text(COMPRESSED_NETHERRACK_NAME));
             }
         });
         return stack;
     }
 
-    /** バニラの鍛冶型複製の盤面（ダイヤ7 + 鍛冶型 + ネザライトブロック）。 */
+    /**
+     * バニラの鍛冶型複製の盤面（ダイヤ7 + 鍛冶型 + <b>ネザーラック</b>）。
+     * 中央がネザーラックであることは server jar の
+     * {@code data/minecraft/recipe/netherite_upgrade_smithing_template.json} で確認済み。
+     */
     private static ItemStack[] templateDuplicationGrid(ItemStack center) {
         ItemStack diamond = new ItemStack(Material.DIAMOND);
         return new ItemStack[] {
@@ -96,10 +108,10 @@ class CatalogWorkbenchBlockedMessageTest {
     @DisplayName("止めた原因のアイテム名を名指しする(見た目がバニラと同じなので名前が出ないと解決しない)")
     void namesTheItemThatBlockedTheRecipe() {
         String message = plain(listener.blockedMessage(
-                templateDuplicationGrid(compressedNetheriteBlock(true))));
+                templateDuplicationGrid(compressedNetherrack(true))));
 
-        assertTrue(message.contains(COMPRESSED_NETHERITE_NAME),
-                "止めた原因のアイテム名が出ていない。見た目がバニラのネザライトブロックと"
+        assertTrue(message.contains(COMPRESSED_NETHERRACK_NAME),
+                "止めた原因のアイテム名が出ていない。見た目が素のネザーラックと"
                         + "1ピクセルも変わらないので、名前が無いと「バニラのレシピが壊れている」"
                         + "としか判断できない(W-87)。実際のメッセージ: " + message);
         assertTrue(message.contains("材料にできません"), "何が起きたのかが書かれていない: " + message);
@@ -109,9 +121,9 @@ class CatalogWorkbenchBlockedMessageTest {
     @DisplayName("表示名の無いカタログ品ならカタログidで代用する")
     void fallsBackToCatalogIdWhenTheItemHasNoDisplayName() {
         String message = plain(listener.blockedMessage(
-                templateDuplicationGrid(compressedNetheriteBlock(false))));
+                templateDuplicationGrid(compressedNetherrack(false))));
 
-        assertTrue(message.contains("netherite_block_1x"),
+        assertTrue(message.contains("netherrack_2x"),
                 "表示名が無いときに何も名指しできていない: " + message);
     }
 
@@ -121,9 +133,9 @@ class CatalogWorkbenchBlockedMessageTest {
         // この盤面ではそもそも結果はクリアされない(呼び出し元が gridHasCatalogItem で弾く)。
         // ここで固定するのは「名前が取れないときに嘘の名前を出さない」こと。
         String message = plain(listener.blockedMessage(
-                templateDuplicationGrid(new ItemStack(Material.NETHERITE_BLOCK))));
+                templateDuplicationGrid(new ItemStack(Material.NETHERRACK))));
 
-        assertFalse(message.contains(COMPRESSED_NETHERITE_NAME),
+        assertFalse(message.contains(COMPRESSED_NETHERRACK_NAME),
                 "素のバニラ素材をカスタム品として名指ししている: " + message);
         assertTrue(message.contains("専用アイテム"), "汎用メッセージへ落ちていない: " + message);
     }
@@ -131,12 +143,12 @@ class CatalogWorkbenchBlockedMessageTest {
     @Test
     @DisplayName("CustomModelData の無いスタックは常にバニラ扱い(名指ししない)")
     void stacksWithoutCustomModelDataAreNeverNamed() {
-        ItemStack noCmd = new ItemStack(Material.NETHERITE_BLOCK);
-        noCmd.editMeta(meta -> meta.displayName(Component.text(COMPRESSED_NETHERITE_NAME)));
+        ItemStack noCmd = new ItemStack(Material.NETHERRACK);
+        noCmd.editMeta(meta -> meta.displayName(Component.text(COMPRESSED_NETHERRACK_NAME)));
 
         String message = plain(listener.blockedMessage(templateDuplicationGrid(noCmd)));
 
-        assertFalse(message.contains(COMPRESSED_NETHERITE_NAME),
+        assertFalse(message.contains(COMPRESSED_NETHERRACK_NAME),
                 "CMD が無いスタックはカタログ品ではない(既存規約)のに名指ししている: " + message);
     }
 }

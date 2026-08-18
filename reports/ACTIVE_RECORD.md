@@ -410,6 +410,18 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 | W-93 | エンチャント試練に入って `/em start` すると敵が一瞬で消え、`/em quit` でも帰れなくなる | ~~未着手~~ **修正済み（EliteMobs fork）** |
 | W-94 | バニラモブが EliteMobs の仕様でエリート化して湧き、頭上のテキスト表示が二重になる | ~~未着手~~ **設定スクリプトを用意（実行はユーザー）** |
 
+### 実サーバ報告バッチ（2026-08-18 受領 第2陣。W-95〜W-101）
+
+| ID | 報告 | 状態 |
+|---|---|---|
+| W-95 | バニラ材質を共用するカスタム品がなぜ混ざるのか。CMD が違うはずでは。**原因究明してから修正**（ユーザー明示） | 未着手 |
+| W-96 | フレーバーテキストのカラーコードが反映されず生文字列が見える（例: ガチャスレッド。`<gold>` `<color:dark_purple>` がそのまま表示） | 未着手 |
+| W-97 | レシピ／図鑑のソート順を記憶保持してほしい | 未着手 |
+| W-98 | 一括伐採でアカシアのようなくねくねした原木も一括破壊できるようにしてほしい | 未着手 |
+| W-99 | 圧縮レシピが多すぎる。最大倍率の 1 つだけをレシピ一覧に出し、中間レシピと解凍レシピはオプションで on/off（既定 off） | 未着手 |
+| W-100 | 儀式で作った魔導書（＝所有者が付く全アイテム？）を、lore の所有者名の本人が使えない | 未着手 |
+| W-101 | ヴォルカニックソースリンクに解放ゲートを設定していないのにクラフトできない（以前ゲートを除去して直したはずが再発。config のロールバック？） | 未着手 |
+
 **W-92 の解決根拠。** `enchantment_challenge_*_sanctum` は `maxPlayerCount: 1` の**ソロ専用**。
 ダンジョンブラウザから既存インスタンスへ参加すると `DungeonInstance#addNewPlayer` が走るが、
 **TrinityForge の鍵消費（`checkDungeonEntryAllowed`）が `super.addNewPlayer()` より手前**にあったため、
@@ -558,15 +570,32 @@ TF/Ars のどのレシピも鍛冶型を材料に使っていない（＝同形�
 （このイベントはマス目を触るたび飛ぶのでチャットには書かない）。
 
 **2026-08-18 追記: 実物のスクリーンショットで確定した。** 盤面は
-`#S#` / `#C#` / `###`（ダイヤ 7 + 鍛冶型 + ネザライトブロック）= **バニラの複製レシピそのもの**で、
-**結果枠が空**。つまり上の「保護が意図どおり働いて結果が消えた」が実際に起きている。
+`#S#` / `#C#` / `###` = **バニラの複製レシピそのもの**で、**結果枠が空**。
+つまり上の「保護が意図どおり働いて結果が消えた」が実際に起きている。
 
-**容疑者は `thread_excavation` だけではなかった。** より踏みやすいのが
-**`netherite_block_1x`「9倍圧縮ネザライトブロック」**（ArsPaper `materials.yml`、
-`base_material: NETHERITE_BLOCK` / CMD 100121）。
+**⚠️ 2026-08-18 訂正: 犯人は圧縮ネザーラック。** ユーザーから
+「みんな**普通の鍛冶型**で起きたと言っている」と指摘され、**バニラのレシピ本体を server jar から抽出した**
+（`bluemap/minecraft-client-1.21.11.jar` → `data/minecraft/recipe/netherite_upgrade_smithing_template.json`）:
+
+```json
+"key": { "#": "minecraft:diamond", "C": "minecraft:netherrack",
+         "S": "minecraft:netherite_upgrade_smithing_template" }
+"pattern": [ "#S#", "#C#", "###" ]
+```
+
+**中央はネザーラック**（ネザライトブロックではない）。そして ArsPaper には
+**`netherrack_1x`〜`netherrack_4x`（「9倍圧縮ネザーラック」〜「6561倍圧縮ネザーラック」、
+`base_material: NETHERRACK` / CMD 1001〜1004）**があり、
+`assets/minecraft/items/netherrack.json` が無いので**素のネザーラックと見た目が完全に同一**。
+**ネザーラックは誰でも大量に持つ＝誰でも圧縮する素材**なので、
+複数人が同時に「バニラの鍛冶型が複製できない」と報告したのはこれで説明が付く。
+鍛冶型もダイヤもバニラのままで正しかった。
+
+**したがって当初名指しした `thread_excavation` / `netherite_block_1x` は容疑者としては外れ**
+（機構は同じなので理屈上は踏み得るが、今回の報告の実物ではない）。
 `resourcepack/trinityforge-items/assets/minecraft/items/` には
-**`netherite_block.json` も `diamond.json` も `netherite_upgrade_smithing_template.json` も無い**ので、
-この 3 材質のカスタム品は**見た目がバニラと 1 ピクセルも変わらない**。
+**`netherrack.json` も `diamond.json` も `netherite_upgrade_smithing_template.json` も無い**ので、
+これらの材質のカスタム品は**見た目がバニラと 1 ピクセルも変わらない**。
 機構は全段コードで裏取り済み:
 `catalogIdentityOf` は PDC → `catalog.yml` → **`ExternalItemRegistry`（= Ars 品もカタログ品扱い）**の 3 段 →
 `gridHasCatalogItem` が true →
