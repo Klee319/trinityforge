@@ -365,4 +365,131 @@ class PotionQualityListenerTest {
                 "HIGH-priority quality listener must read the owner before the MONITOR-priority clear runs");
         assertTrue(ownership.ownerOf(stand).isEmpty(), "the clearer still ran afterward and removed the owner PDC");
     }
+
+    // ---- 延長(レッドストーン) / 強化(グロウストーンダスト) の救済 (2026-08-18 / W-108) ----------
+    //
+    // TF は品質を乗せるときベースを WATER へ倒す。バニラの醸造表は (ベースの PotionType, 素材) で
+    // しか引かないので、WATER + レッドストーン → ありふれたポーション、WATER + グロウストーンダスト
+    // → 濃厚なポーションになり、**カスタム効果が丸ごと消える**。＝ 品質ステを持つプレイヤーほど
+    // 自分のポーションを延長・強化できず、試すと中身を失う。
+    //
+    // ここは素の ItemStack を使う(spy 不要)。救済コードが読むのは getCustomEffects() /
+    // getBasePotionType() / hasCustomEffects() だけで、MockBukkit 未実装の getAllEffects() は
+    // 通らないため。
+
+    private PotionQualityListener upgradeListener() {
+        when(alchemyQuality.durationTicksPerQuality()).thenReturn(20.0);
+        when(alchemyQuality.amplifierPerQuality()).thenReturn(0.5);
+        when(alchemyQuality.lingeringSplashDurationTicksPerQuality()).thenReturn(10.0);
+        return new PotionQualityListener(plugin, aggregator, alchemyQuality, progressionCatalog);
+    }
+
+    /** spy を掛けない素のカスタム効果ポーション(スタンドへ入れる用)。 */
+    private static ItemStack rawStrengthPotion(int durationTicks, int amplifier) {
+        ItemStack potion = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.WATER);
+        meta.clearCustomEffects();
+        meta.addCustomEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, amplifier), true);
+        potion.setItemMeta(meta);
+        return potion;
+    }
+
+    /**
+     * バニラが返す「ありふれた/濃厚なポーション」相当(カスタム効果なし)。救済されなければこれが残る。
+     *
+     * <p><b>spy で包むのが重要。</b>救済を外すとこの結果は品質側({@code applyQuality})まで流れ、
+     * MockBukkit 未実装の {@code getAllEffects()} に当たって<b>テストが SKIPPED に化ける</b>。
+     * そうなると「アサーションが落ちる」ことを確認できず、RED を証明したことにならない。
+     */
+    private ItemStack vanillaMundaneResult() {
+        ItemStack potion = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) potion.getItemMeta();
+        meta.setBasePotionType(PotionType.MUNDANE);
+        meta.clearCustomEffects();
+        potion.setItemMeta(meta);
+        return potionSpyItem(potion);
+    }
+
+    private BrewEvent upgradeBrew(ItemStack bottle, Material ingredient, List<ItemStack> results) {
+        BrewerInventory inv = stand.getInventory();
+        inv.setItem(0, bottle);
+        inv.setIngredient(new ItemStack(ingredient));
+        return new BrewEvent(stand.getBlock(), inv, results, 20);
+    }
+
+    @Test
+    void レッドストーンはカスタム効果を消さずに持続時間を延ばす() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaMundaneResult()); // バニラが書いた結果(効果ゼロ)
+
+        upgradeListener().onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.REDSTONE, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(),
+                "延長でカスタム効果が消えている(バニラの MUNDANE 化に負けている)");
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(9600, effect.getDuration(), "3600 * 8/3 (バニラの 3:00→8:00 と同じ比)");
+        assertEquals(0, effect.getAmplifier(), "延長では効力を上げない");
+    }
+
+    @Test
+    void グロウストーンダストは効力を1段上げて持続を半分にする() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaMundaneResult());
+
+        upgradeListener().onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.GLOWSTONE_DUST, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(), "強化でカスタム効果が消えている");
+        PotionEffect effect = meta.getCustomEffects().get(0);
+        assertEquals(1, effect.getAmplifier(), "効力 +1");
+        assertEquals(1800, effect.getDuration(), "3600 * 1/2 (バニラの 3:00→1:30 と同じ比)");
+    }
+
+    @Test
+    void 二度目の延長は何も起こさないが中身は失われない() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        PotionQualityListener listener = upgradeListener();
+
+        List<ItemStack> first = new ArrayList<>();
+        first.add(vanillaMundaneResult());
+        listener.onBrew(upgradeBrew(rawStrengthPotion(3600, 0), Material.REDSTONE, first));
+        ItemStack once = first.get(0);
+
+        List<ItemStack> second = new ArrayList<>();
+        second.add(vanillaMundaneResult());
+        listener.onBrew(upgradeBrew(once, Material.REDSTONE, second));
+
+        PotionMeta meta = (PotionMeta) second.get(0).getItemMeta();
+        assertEquals(1, meta.getCustomEffects().size(),
+                "2回目でバニラの MUNDANE 化に落ちて効果が消えている(バニラ同様「何も起きない」で止める)");
+        assertEquals(9600, meta.getCustomEffects().get(0).getDuration(),
+                "延長は1回きり(バニラの『長い』が二重に掛からないのと同じ)");
+    }
+
+    @Test
+    void 素の水入り瓶はバニラの結果のまま触らない() {
+        writeManualOwner(player);
+        stubQuality(2.0);
+        ItemStack plainWater = new ItemStack(Material.POTION);
+        PotionMeta waterMeta = (PotionMeta) plainWater.getItemMeta();
+        waterMeta.setBasePotionType(PotionType.WATER);
+        waterMeta.clearCustomEffects();
+        plainWater.setItemMeta(waterMeta);
+
+        List<ItemStack> results = new ArrayList<>();
+        results.add(vanillaMundaneResult());
+
+        upgradeListener().onBrew(upgradeBrew(plainWater, Material.REDSTONE, results));
+
+        PotionMeta meta = (PotionMeta) results.get(0).getItemMeta();
+        assertEquals(PotionType.MUNDANE, meta.getBasePotionType(),
+                "水入り瓶+レッドストーン→ありふれたポーションというバニラの挙動を奪ってはいけない");
+    }
 }
