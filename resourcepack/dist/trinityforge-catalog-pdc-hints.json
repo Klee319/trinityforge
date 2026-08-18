@@ -67,7 +67,7 @@
     },
     {
       "pdc_identifier": "trinityforge:abyss_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:netherite_sword",
       "display_name": "黒淵の杖"
     },
     {
@@ -207,7 +207,7 @@
     },
     {
       "pdc_identifier": "trinityforge:boundary_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:netherite_sword",
       "display_name": "冥境の杖"
     },
     {
@@ -307,7 +307,7 @@
     },
     {
       "pdc_identifier": "trinityforge:copper_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:copper_sword",
       "display_name": "銅の杖"
     },
     {
@@ -432,7 +432,7 @@
     },
     {
       "pdc_identifier": "trinityforge:diamond_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:diamond_sword",
       "display_name": "ダイヤモンドの杖"
     },
     {
@@ -552,7 +552,7 @@
     },
     {
       "pdc_identifier": "trinityforge:fnis_peccati_profundi",
-      "base_item": "minecraft:iron_chain",
+      "base_item": "minecraft:iron_sword",
       "display_name": "深罪の終幕"
     },
     {
@@ -637,7 +637,7 @@
     },
     {
       "pdc_identifier": "trinityforge:golden_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:golden_sword",
       "display_name": "金の杖"
     },
     {
@@ -887,7 +887,7 @@
     },
     {
       "pdc_identifier": "trinityforge:iron_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:iron_sword",
       "display_name": "鉄の杖"
     },
     {
@@ -931,14 +931,64 @@
       "display_name": "深層鉱山の鍵"
     },
     {
-      "pdc_identifier": "trinityforge:key_enchant_trial",
+      "pdc_identifier": "trinityforge:key_enchant_trial_1",
       "base_item": "minecraft:trial_key",
-      "display_name": "エンチャント試練の鍵"
+      "display_name": "エンチャント試練1の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_10",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練10の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_2",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練2の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_3",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練3の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_4",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練4の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_5",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練5の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_6",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練6の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_7",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練7の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_8",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練8の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_enchant_trial_9",
+      "base_item": "minecraft:trial_key",
+      "display_name": "エンチャント試練9の鍵"
     },
     {
       "pdc_identifier": "trinityforge:key_fireworks",
       "base_item": "minecraft:trial_key",
       "display_name": "花火工房の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_hallosseum",
+      "base_item": "minecraft:trial_key",
+      "display_name": "ハロウィン闘技場の鍵"
     },
     {
       "pdc_identifier": "trinityforge:key_knight_castle",
@@ -959,6 +1009,11 @@
       "pdc_identifier": "trinityforge:key_nether_wastes",
       "base_item": "minecraft:trial_key",
       "display_name": "ネザーの荒野の鍵"
+    },
+    {
+      "pdc_identifier": "trinityforge:key_north_pole",
+      "base_item": "minecraft:trial_key",
+      "display_name": "北極ミニダンジョンの鍵"
     },
     {
       "pdc_identifier": "trinityforge:key_palace",
@@ -1054,6 +1109,46 @@
       "pdc_identifier": "trinityforge:mage_arcane_novice_leggings",
       "base_item": "minecraft:leather_leggings",
       "display_name": "見習いの魔導レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_sage_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "賢者の魔導ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_sage_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "賢者の魔導チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_sage_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "賢者の魔導ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_sage_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "賢者の魔導レギンス"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_starseer_boots",
+      "base_item": "minecraft:leather_boots",
+      "display_name": "星詠みの魔導ブーツ"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_starseer_chestplate",
+      "base_item": "minecraft:leather_chestplate",
+      "display_name": "星詠みの魔導チェストプレート"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_starseer_helmet",
+      "base_item": "minecraft:leather_helmet",
+      "display_name": "星詠みの魔導ヘルメット"
+    },
+    {
+      "pdc_identifier": "trinityforge:mage_arcane_starseer_leggings",
+      "base_item": "minecraft:leather_leggings",
+      "display_name": "星詠みの魔導レギンス"
     },
     {
       "pdc_identifier": "trinityforge:mage_guardian_apprentice_boots",
@@ -1257,7 +1352,7 @@
     },
     {
       "pdc_identifier": "trinityforge:magic_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:netherite_sword",
       "display_name": "魔源の杖"
     },
     {
@@ -1312,7 +1407,7 @@
     },
     {
       "pdc_identifier": "trinityforge:netherite_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:netherite_sword",
       "display_name": "ネザライトの杖"
     },
     {
@@ -1327,7 +1422,7 @@
     },
     {
       "pdc_identifier": "trinityforge:novus_criculus_luminis",
-      "base_item": "minecraft:glowstone",
+      "base_item": "minecraft:glowstone_dust",
       "display_name": "新生の光輪"
     },
     {
@@ -1434,11 +1529,6 @@
       "pdc_identifier": "trinityforge:role_reselect_ticket",
       "base_item": "minecraft:name_tag",
       "display_name": "転職の証"
-    },
-    {
-      "pdc_identifier": "trinityforge:sharpstone_crossbow",
-      "base_item": "minecraft:crossbow",
-      "display_name": "鋭い石のクロスボウ"
     },
     {
       "pdc_identifier": "trinityforge:skill_node_lock",
@@ -1632,7 +1722,7 @@
     },
     {
       "pdc_identifier": "trinityforge:stone_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:stone_sword",
       "display_name": "石の杖"
     },
     {
@@ -1647,22 +1737,22 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_angler",
-      "base_item": "minecraft:angler_pottery_sherd",
+      "base_item": "minecraft:coast_armor_trim_smithing_template",
       "display_name": "潮読みのスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_apiarist",
-      "base_item": "minecraft:field_masoned_banner_pattern",
+      "base_item": "minecraft:dune_armor_trim_smithing_template",
       "display_name": "養蜂のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_appraiser",
-      "base_item": "minecraft:prize_pottery_sherd",
+      "base_item": "minecraft:coast_armor_trim_smithing_template",
       "display_name": "鑑識のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_artisan",
-      "base_item": "minecraft:arms_up_pottery_sherd",
+      "base_item": "minecraft:tide_armor_trim_smithing_template",
       "display_name": "匠のスレッド"
     },
     {
@@ -1671,8 +1761,18 @@
       "display_name": "バックパックのスレッド"
     },
     {
+      "pdc_identifier": "trinityforge:thread_better_fortune",
+      "base_item": "minecraft:eye_armor_trim_smithing_template",
+      "display_name": "開運のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_blindness",
+      "base_item": "minecraft:wild_armor_trim_smithing_template",
+      "display_name": "崩命のスレッド"
+    },
+    {
       "pdc_identifier": "trinityforge:thread_concussion",
-      "base_item": "minecraft:blade_pottery_sherd",
+      "base_item": "minecraft:wayfinder_armor_trim_smithing_template",
       "display_name": "昏倒のスレッド"
     },
     {
@@ -1687,7 +1787,7 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_diligence",
-      "base_item": "minecraft:friend_pottery_sherd",
+      "base_item": "minecraft:rib_armor_trim_smithing_template",
       "display_name": "研鑽のスレッド"
     },
     {
@@ -1702,7 +1802,7 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_endurance",
-      "base_item": "minecraft:shelter_pottery_sherd",
+      "base_item": "minecraft:snout_armor_trim_smithing_template",
       "display_name": "持久のスレッド"
     },
     {
@@ -1712,7 +1812,7 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_experience",
-      "base_item": "minecraft:howl_pottery_sherd",
+      "base_item": "minecraft:silence_armor_trim_smithing_template",
       "display_name": "経験のスレッド"
     },
     {
@@ -1726,13 +1826,18 @@
       "display_name": "飛行のスレッド"
     },
     {
+      "pdc_identifier": "trinityforge:thread_gacha",
+      "base_item": "minecraft:host_armor_trim_smithing_template",
+      "display_name": "ガチャスレッド"
+    },
+    {
       "pdc_identifier": "trinityforge:thread_gourmet",
-      "base_item": "minecraft:heartbreak_pottery_sherd",
+      "base_item": "minecraft:wild_armor_trim_smithing_template",
       "display_name": "美食のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_harvest",
-      "base_item": "minecraft:sheaf_pottery_sherd",
+      "base_item": "minecraft:eye_armor_trim_smithing_template",
       "display_name": "実りのスレッド"
     },
     {
@@ -1742,7 +1847,7 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_herder",
-      "base_item": "minecraft:piglin_banner_pattern",
+      "base_item": "minecraft:sentry_armor_trim_smithing_template",
       "display_name": "牧人のスレッド"
     },
     {
@@ -1762,7 +1867,7 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_luck",
-      "base_item": "minecraft:explorer_pottery_sherd",
+      "base_item": "minecraft:raiser_armor_trim_smithing_template",
       "display_name": "幸運のスレッド"
     },
     {
@@ -1787,17 +1892,17 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_marksman",
-      "base_item": "minecraft:archer_pottery_sherd",
+      "base_item": "minecraft:ward_armor_trim_smithing_template",
       "display_name": "射手のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_mending_flesh",
-      "base_item": "minecraft:heart_pottery_sherd",
+      "base_item": "minecraft:flow_armor_trim_smithing_template",
       "display_name": "治癒のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_miner",
-      "base_item": "minecraft:miner_pottery_sherd",
+      "base_item": "minecraft:sentry_armor_trim_smithing_template",
       "display_name": "豊鉱のスレッド"
     },
     {
@@ -1807,32 +1912,42 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_perfumer",
-      "base_item": "minecraft:flower_banner_pattern",
+      "base_item": "minecraft:shaper_armor_trim_smithing_template",
       "display_name": "調香のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_ritualist",
-      "base_item": "minecraft:brewer_pottery_sherd",
+      "base_item": "minecraft:ward_armor_trim_smithing_template",
       "display_name": "儀式師のスレッド"
     },
     {
+      "pdc_identifier": "trinityforge:thread_role_effeciency",
+      "base_item": "minecraft:snout_armor_trim_smithing_template",
+      "display_name": "ロール効率のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_role_luck",
+      "base_item": "minecraft:rib_armor_trim_smithing_template",
+      "display_name": "ロール運のスレッド"
+    },
+    {
       "pdc_identifier": "trinityforge:thread_salvage",
-      "base_item": "minecraft:scrape_pottery_sherd",
+      "base_item": "minecraft:shaper_armor_trim_smithing_template",
       "display_name": "解体のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_scholar",
-      "base_item": "minecraft:burn_pottery_sherd",
+      "base_item": "minecraft:dune_armor_trim_smithing_template",
       "display_name": "選書のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_slow_falling",
-      "base_item": "minecraft:guster_pottery_sherd",
+      "base_item": "minecraft:vex_armor_trim_smithing_template",
       "display_name": "浮遊のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_source_thrift",
-      "base_item": "minecraft:flow_pottery_sherd",
+      "base_item": "minecraft:wayfinder_armor_trim_smithing_template",
       "display_name": "源流節約のスレッド"
     },
     {
@@ -1847,28 +1962,33 @@
     },
     {
       "pdc_identifier": "trinityforge:thread_spoils",
-      "base_item": "minecraft:skull_pottery_sherd",
+      "base_item": "minecraft:spire_armor_trim_smithing_template",
       "display_name": "戦利品のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_swiftcast",
-      "base_item": "minecraft:mourner_pottery_sherd",
+      "base_item": "minecraft:tide_armor_trim_smithing_template",
       "display_name": "速攻のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_thorn",
-      "base_item": "minecraft:danger_pottery_sherd",
+      "base_item": "minecraft:bolt_armor_trim_smithing_template",
       "display_name": "棘のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_thrift",
-      "base_item": "minecraft:plenty_pottery_sherd",
+      "base_item": "minecraft:raiser_armor_trim_smithing_template",
       "display_name": "倹約のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:thread_timber",
-      "base_item": "minecraft:snort_pottery_sherd",
+      "base_item": "minecraft:host_armor_trim_smithing_template",
       "display_name": "年輪のスレッド"
+    },
+    {
+      "pdc_identifier": "trinityforge:thread_translate",
+      "base_item": "minecraft:vex_armor_trim_smithing_template",
+      "display_name": "流転のスレッド"
     },
     {
       "pdc_identifier": "trinityforge:tide_float",
@@ -1962,7 +2082,7 @@
     },
     {
       "pdc_identifier": "trinityforge:wooden_wand",
-      "base_item": "minecraft:blaze_rod",
+      "base_item": "minecraft:wooden_sword",
       "display_name": "木の杖"
     },
     {

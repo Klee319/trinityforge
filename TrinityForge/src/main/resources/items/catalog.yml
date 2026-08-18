@@ -92,7 +92,7 @@
 items:
   thread_angler:
     external-source: arspaper
-    material: ANGLER_POTTERY_SHERD
+    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <blue>潮読みのスレッド</blue>
     custom-model-data: 300025
     bind-type: TRADEABLE
@@ -103,7 +103,7 @@ items:
       - <color:dark_purple>水面のわずかな乱れが、すべてを語る</color>
   thread_apiarist:
     external-source: arspaper
-    material: FIELD_MASONED_BANNER_PATTERN
+    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <yellow>養蜂のスレッド</yellow>
     custom-model-data: 300042
     bind-type: TRADEABLE
@@ -114,7 +114,7 @@ items:
       - <color:dark_purple>恐れる者に、蜜は渡らない</color>
   thread_appraiser:
     external-source: arspaper
-    material: PRIZE_POTTERY_SHERD
+    material: COAST_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gold>鑑識のスレッド</gold>
     custom-model-data: 300044
     bind-type: TRADEABLE
@@ -125,7 +125,7 @@ items:
       - <color:dark_purple>見る目が値を決める</color>
   thread_artisan:
     external-source: arspaper
-    material: ARMS_UP_POTTERY_SHERD
+    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gold>匠のスレッド</gold>
     custom-model-data: 300020
     bind-type: TRADEABLE
@@ -147,7 +147,7 @@ items:
       - <color:dark_purple>準備から冒険ははじまっている</color>
   thread_concussion:
     external-source: arspaper
-    material: BLADE_POTTERY_SHERD
+    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_aqua>昏倒のスレッド</dark_aqua>
     custom-model-data: 300036
     bind-type: TRADEABLE
@@ -192,7 +192,7 @@ items:
       - <color:dark_purple>攻撃こそ最大の防御</color>
   thread_diligence:
     external-source: arspaper
-    material: FRIEND_POTTERY_SHERD
+    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <green>研鑽のスレッド</green>
     custom-model-data: 300029
     bind-type: TRADEABLE
@@ -247,7 +247,7 @@ items:
       ingredients: []
   thread_endurance:
     external-source: arspaper
-    material: SHELTER_POTTERY_SHERD
+    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gold>持久のスレッド</gold>
     custom-model-data: 300033
     bind-type: TRADEABLE
@@ -269,7 +269,7 @@ items:
       - <color:dark_purple>削り方を知るもののみ持つ</color>
   thread_experience:
     external-source: arspaper
-    material: HOWL_POTTERY_SHERD
+    material: SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <green>経験のスレッド</green>
     custom-model-data: 300030
     bind-type: TRADEABLE
@@ -302,7 +302,7 @@ items:
       - <color:dark_purple>彼方からの贈り物</color>
   thread_gourmet:
     external-source: arspaper
-    material: HEARTBREAK_POTTERY_SHERD
+    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <red>美食のスレッド</red>
     custom-model-data: 300034
     bind-type: TRADEABLE
@@ -313,7 +313,7 @@ items:
       - <color:dark_purple>良い一日は良い食事から</color>
   thread_harvest:
     external-source: arspaper
-    material: SHEAF_POTTERY_SHERD
+    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <yellow>実りのスレッド</yellow>
     custom-model-data: 300026
     bind-type: TRADEABLE
@@ -335,7 +335,7 @@ items:
       - <color:dark_purple>まだ、耐えられる</color>
   thread_herder:
     external-source: arspaper
-    material: PIGLIN_BANNER_PATTERN
+    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <green>牧人のスレッド</green>
     custom-model-data: 300043
     bind-type: TRADEABLE
@@ -402,7 +402,7 @@ items:
       ingredients: []
   thread_luck:
     external-source: arspaper
-    material: EXPLORER_POTTERY_SHERD
+    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gold>幸運のスレッド</gold>
     custom-model-data: 300040
     bind-type: TRADEABLE
@@ -479,7 +479,7 @@ items:
       - <color:dark_purple>祈りは届く</color>
   thread_marksman:
     external-source: arspaper
-    material: ARCHER_POTTERY_SHERD
+    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_green>射手のスレッド</dark_green>
     custom-model-data: 300038
     bind-type: TRADEABLE
@@ -490,7 +490,7 @@ items:
       - <color:dark_purple>一射を軽んじる者に明日は無い</color>
   thread_mending_flesh:
     external-source: arspaper
-    material: HEART_POTTERY_SHERD
+    material: FLOW_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <red>治癒のスレッド</red>
     custom-model-data: 300032
     bind-type: TRADEABLE
@@ -501,7 +501,7 @@ items:
       - <color:dark_purple>傷は塞がる。だが、記憶は残る</color>
   thread_miner:
     external-source: arspaper
-    material: MINER_POTTERY_SHERD
+    material: SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_gray>豊鉱のスレッド</dark_gray>
     custom-model-data: 300024
     bind-type: TRADEABLE
@@ -535,7 +535,7 @@ items:
       ingredients: []
   thread_perfumer:
     external-source: arspaper
-    material: FLOWER_BANNER_PATTERN
+    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <light_purple>調香のスレッド</light_purple>
     custom-model-data: 300041
     bind-type: TRADEABLE
@@ -546,7 +546,7 @@ items:
       - <color:dark_purple>今日はこの香りで</color>
   thread_ritualist:
     external-source: arspaper
-    material: BREWER_POTTERY_SHERD
+    material: WARD_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <light_purple>儀式師のスレッド</light_purple>
     custom-model-data: 300021
     bind-type: TRADEABLE
@@ -557,7 +557,7 @@ items:
       - <dark_gray>防具のスレッドスロットにセット可能</dark_gray>
   thread_salvage:
     external-source: arspaper
-    material: SCRAPE_POTTERY_SHERD
+    material: SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gray>解体のスレッド</gray>
     custom-model-data: 300023
     bind-type: TRADEABLE
@@ -568,7 +568,7 @@ items:
       - <color:dark_purple>壊し方を知る者は、作り方も知っている</color>
   thread_scholar:
     external-source: arspaper
-    material: BURN_POTTERY_SHERD
+    material: DUNE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_purple>選書のスレッド</dark_purple>
     custom-model-data: 300031
     bind-type: TRADEABLE
@@ -579,7 +579,7 @@ items:
       - <color:dark_purple>棚から一冊を選ぶのも、技のうち</color>
   thread_slow_falling:
     external-source: arspaper
-    material: GUSTER_POTTERY_SHERD
+    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <white>浮遊のスレッド</white>
     custom-model-data: 300039
     bind-type: TRADEABLE
@@ -590,7 +590,7 @@ items:
       - <color:dark_purple>落ちるのではなく、降りるのだ</color>
   thread_source_thrift:
     external-source: arspaper
-    material: FLOW_POTTERY_SHERD
+    material: WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_aqua>源流節約のスレッド</dark_aqua>
     custom-model-data: 300019
     bind-type: TRADEABLE
@@ -634,7 +634,7 @@ items:
       - <color:dark_purple>質よりも手数で</color>
   thread_spoils:
     external-source: arspaper
-    material: SKULL_POTTERY_SHERD
+    material: SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <gold>戦利品のスレッド</gold>
     custom-model-data: 300028
     bind-type: TRADEABLE
@@ -645,7 +645,7 @@ items:
       - <color:dark_purple>働き者に祝福を</color>
   thread_swiftcast:
     external-source: arspaper
-    material: MOURNER_POTTERY_SHERD
+    material: TIDE_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <yellow>速攻のスレッド</yellow>
     custom-model-data: 300037
     bind-type: TRADEABLE
@@ -656,7 +656,7 @@ items:
       - <color:dark_purple>先に動いた方が、生き残る</color>
   thread_thorn:
     external-source: arspaper
-    material: DANGER_POTTERY_SHERD
+    material: BOLT_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_red>棘のスレッド</dark_red>
     custom-model-data: 300035
     bind-type: TRADEABLE
@@ -667,7 +667,7 @@ items:
       - <color:dark_purple>痛みは生の証明</color>
   thread_thrift:
     external-source: arspaper
-    material: PLENTY_POTTERY_SHERD
+    material: RAISER_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <yellow>倹約のスレッド</yellow>
     custom-model-data: 300022
     bind-type: TRADEABLE
@@ -678,7 +678,7 @@ items:
       - <color:dark_purple>捨てるところなど、どこにもない</color>
   thread_timber:
     external-source: arspaper
-    material: SNORT_POTTERY_SHERD
+    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
     display-name: <dark_green>年輪のスレッド</dark_green>
     custom-model-data: 300027
     bind-type: TRADEABLE
@@ -6983,7 +6983,7 @@ items:
       - <gray>木こりだけが使える装飾品。オフハンドに持つと一括伐採のCTが縮む。</gray>
   thread_better_fortune:
     external-source: arspaper
-    material: STRING
+    material: EYE_ARMOR_TRIM_SMITHING_TEMPLATE
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -6992,7 +6992,7 @@ items:
     custom-model-data: 100023
   thread_gacha:
     external-source: arspaper
-    material: STRING
+    material: HOST_ARMOR_TRIM_SMITHING_TEMPLATE
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7001,7 +7001,7 @@ items:
     custom-model-data: 100024
   thread_role_luck:
     external-source: arspaper
-    material: STRING
+    material: RIB_ARMOR_TRIM_SMITHING_TEMPLATE
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7010,7 +7010,7 @@ items:
     custom-model-data: 100025
   thread_role_effeciency:
     external-source: arspaper
-    material: STRING
+    material: SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7019,7 +7019,7 @@ items:
     custom-model-data: 100026
   thread_blindness:
     external-source: arspaper
-    material: STRING
+    material: WILD_ARMOR_TRIM_SMITHING_TEMPLATE
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""
@@ -7028,7 +7028,7 @@ items:
     custom-model-data: 100027
   thread_translate:
     external-source: arspaper
-    material: STRING
+    material: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
     lore:
       - <color:dark_gray>防具のスレッドスロットにセット可能</color>
       - ""

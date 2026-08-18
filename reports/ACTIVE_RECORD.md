@@ -427,7 +427,7 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 | ID | 報告 | 状態 |
 |---|---|---|
 | W-102 | `gacha` / `role_luck` / `role_efficiency` / `blindness` など**プロジェクト後半に editor から追加したスレッド**だけ挙動が違う（lore の生タグ・品質が出ない／反映されない）。**アイテムカタログのスレッドタブで設定したらスレッドとして扱われる**という従来仕様に揃える | ~~未着手~~ **修正済み（ArsPaper fork）** |
-| W-103 | 既存スレッドのベース材質を（重複可で）**すべて鍛冶型**に統一する。現状は壺の欠片・糸などが混ざっている | 未着手 |
+| W-103 | 既存スレッドのベース材質を（重複可で）**すべて鍛冶型**に統一する。現状は壺の欠片・糸などが混ざっている | ~~未着手~~ **修正済み（TF config + resourcepack + ArsPaper fork）** |
 | W-104 | ソースリンクから近くのソースジャーへドミニオンワンドで転送できない。**設定完了通知は出るが転送が開始されない** | ~~未着手~~ **修正済み（ArsPaper fork）** |
 | W-105 | ドミニオンワンドを手に持ったとき、接続しているソースジャーとソースリンクがパーティクルで繋がって見えるようにしてほしい | ~~未着手~~ **経路可視化は実装済み（2026-08-01）＋隣接供給の可視化を追加（ArsPaper fork）** |
 
@@ -480,6 +480,43 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 `ThreadsYamlEnumParityTest` を**片方向の検査に変更**した（yml にあって定数に無いのは
 今や正常なので、逆向きだけを落とす）。実行時登録の配線は同テストの新しいケースが縛り、
 `registerIfUnknown` の呼び出しを潰すと落ちることを実測済み（436 tests / 1 failed → 復帰後 BUILD SUCCESSFUL）。
+
+**W-103 の解決根拠（材質は 5 箇所に分かれて持たれている）。**
+スレッド 51 件のうち **32 件**を壺の欠片／旗の模様／糸から**防具装飾の鍛冶型 18 種**へ移した
+（`excavation` の 1 件だけは `NETHERITE_UPGRADE_SMITHING_TEMPLATE` のまま残す。
+ここを動かすと W-87 で直したネザライト鍛冶型の複製問題に触るため）。ユーザー指示どおり**材質の重複は許容**。
+
+**同じ材質が 5 箇所に別々に書かれていて、1 つでも漏らすと無言で壊れる**:
+
+| 場所 | 役割 | 漏らすとどうなる |
+|---|---|---|
+| ArsPaper `ThreadType.java` の `baseMaterial` | 実際に配るアイテムの材質 | 配られる物と設定が食い違う |
+| TF `items/catalog.yml` の `material:` | 図鑑・レシピ・エディタが見る材質 | 図鑑に出ない／レシピが組めない |
+| TF `stats/item-stats.yml` の `<材質>#<CMD>` キー | ステータスの引き当てキー | **ステが 0 になる**（キー不一致は警告も出ない） |
+| `resourcepack/cmd-registry.json` の `material` | CMD の永続台帳 | 次に CMD を採る人が衝突に気づけない |
+| `resourcepack/.../assets/minecraft/items/<材質>.json` | CMD → モデルの宣言 | CMD が参照されず見た目を分けられない（W-95 と同じ穴） |
+
+置換件数は機械的に照合済み: `ThreadType` 32 / `catalog.yml` 32 / `item-stats.yml` 124 箇所
+（26 材質 × 4 領域 + `STRING` 6 種）/ `cmd-registry.json` 32。
+**`catalog.yml` と `ThreadType` の (id, 材質, CMD) は 51/51 完全一致**を突き合わせで確認した。
+`cmd-registry.json` に **(材質, CMD) の衝突は 0 件**（総アロケーション 686 のまま）。
+
+副次的に直したもの:
+
+- `assets/minecraft/items/` に**鍛冶型 19 種の宣言を新設**した（`range_dispatch` + `fallback`。
+  entries は 51 スレッド分の CMD を全部並べ、今はどれもバニラモデルを指す）。
+  **宣言ファイルが無いと CMD は一切参照されない**ので、テクスチャを足すときに
+  「モデルを差し替えるだけ」で済む形にしてある（W-95 の受け皿）。
+- `items/string.json` の `100023`〜`100028`（旧 TF ステ専用スレッド 6 種）が死に定義になったので削除。
+- `resourcepack/dist/trinityforge-catalog-pdc-hints.json` を再生成（`build_pdc_hints.py`）。
+  **この生成物は元から stale だった**ので、材質変更のほかに剣の base_item 7 件と
+  エンチャント試練の鍵 10 件が併せて入る（どちらも HEAD の `catalog.yml` が正）。
+
+追随が必要だったテスト 3 本（いずれも**材質名をリテラルで持っていた**）:
+
+- editor `item-stat-decimal-policy-2026-08-09.test.js` の `PER_QUALITY_EXEMPT` 5 件。
+  ここは `item-stats.yml` のエントリ名そのままなので、**追随しないと除外が外れて違反として出る**。
+- TF `ThreadSocketedOnlyAggregationTest` / `ItemAssemblerStatLoreBlockTest` の材質フィクスチャ。
 
 **W-105 の現状。** ワンド保持中の**経路パーティクル可視化は 2026-08-01 に実装済み**で、
 `sourcelinks.yml` の `transfer.network.path-particles.enabled` は既定 true、

@@ -2,28 +2,28 @@
   "version": 1,
   "allocations": [
     {
-      "material": "ANGLER_POTTERY_SHERD",
+      "material": "COAST_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300025,
       "id": "thread_angler",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "FIELD_MASONED_BANNER_PATTERN",
+      "material": "DUNE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300042,
       "id": "thread_apiarist",
       "source": "catalog",
       "allocatedAt": "2026-08-03T00:00:00.000Z"
     },
     {
-      "material": "PRIZE_POTTERY_SHERD",
+      "material": "COAST_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300044,
       "id": "thread_appraiser",
       "source": "catalog",
       "allocatedAt": "2026-08-03T00:00:00.000Z"
     },
     {
-      "material": "ARMS_UP_POTTERY_SHERD",
+      "material": "TIDE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300020,
       "id": "thread_artisan",
       "source": "catalog",
@@ -37,7 +37,7 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "BLADE_POTTERY_SHERD",
+      "material": "WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300036,
       "id": "thread_concussion",
       "source": "catalog",
@@ -58,7 +58,7 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "FRIEND_POTTERY_SHERD",
+      "material": "RIB_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300029,
       "id": "thread_diligence",
       "source": "catalog",
@@ -79,7 +79,7 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "SHELTER_POTTERY_SHERD",
+      "material": "SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300033,
       "id": "thread_endurance",
       "source": "catalog",
@@ -93,7 +93,7 @@
       "allocatedAt": "2026-08-03T00:00:00.000Z"
     },
     {
-      "material": "HOWL_POTTERY_SHERD",
+      "material": "SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300030,
       "id": "thread_experience",
       "source": "catalog",
@@ -114,14 +114,14 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "HEARTBREAK_POTTERY_SHERD",
+      "material": "WILD_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300034,
       "id": "thread_gourmet",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "SHEAF_POTTERY_SHERD",
+      "material": "EYE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300026,
       "id": "thread_harvest",
       "source": "catalog",
@@ -135,7 +135,7 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "PIGLIN_BANNER_PATTERN",
+      "material": "SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300043,
       "id": "thread_herder",
       "source": "catalog",
@@ -163,7 +163,7 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "EXPLORER_POTTERY_SHERD",
+      "material": "RAISER_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300040,
       "id": "thread_luck",
       "source": "catalog",
@@ -198,21 +198,21 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "ARCHER_POTTERY_SHERD",
+      "material": "WARD_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300038,
       "id": "thread_marksman",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "HEART_POTTERY_SHERD",
+      "material": "FLOW_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300032,
       "id": "thread_mending_flesh",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "MINER_POTTERY_SHERD",
+      "material": "SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300024,
       "id": "thread_miner",
       "source": "catalog",
@@ -226,42 +226,42 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "FLOWER_BANNER_PATTERN",
+      "material": "SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300041,
       "id": "thread_perfumer",
       "source": "catalog",
       "allocatedAt": "2026-08-03T00:00:00.000Z"
     },
     {
-      "material": "BREWER_POTTERY_SHERD",
+      "material": "WARD_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300021,
       "id": "thread_ritualist",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "SCRAPE_POTTERY_SHERD",
+      "material": "SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300023,
       "id": "thread_salvage",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "BURN_POTTERY_SHERD",
+      "material": "DUNE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300031,
       "id": "thread_scholar",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "GUSTER_POTTERY_SHERD",
+      "material": "VEX_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300039,
       "id": "thread_slow_falling",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "FLOW_POTTERY_SHERD",
+      "material": "WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300019,
       "id": "thread_source_thrift",
       "source": "catalog",
@@ -282,35 +282,35 @@
       "allocatedAt": "2026-07-22T21:56:36.875Z"
     },
     {
-      "material": "SKULL_POTTERY_SHERD",
+      "material": "SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300028,
       "id": "thread_spoils",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "MOURNER_POTTERY_SHERD",
+      "material": "TIDE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300037,
       "id": "thread_swiftcast",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "DANGER_POTTERY_SHERD",
+      "material": "BOLT_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300035,
       "id": "thread_thorn",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "PLENTY_POTTERY_SHERD",
+      "material": "RAISER_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300022,
       "id": "thread_thrift",
       "source": "catalog",
       "allocatedAt": "2026-08-02T00:00:00.000Z"
     },
     {
-      "material": "SNORT_POTTERY_SHERD",
+      "material": "HOST_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 300027,
       "id": "thread_timber",
       "source": "catalog",
@@ -3145,35 +3145,35 @@
       "allocatedAt": "2026-08-13T11:54:41.602Z"
     },
     {
-      "material": "STRING",
+      "material": "WILD_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 100024,
       "id": "thread_gacha",
       "source": "catalog",
       "allocatedAt": "2026-08-13T11:54:41.602Z"
     },
     {
-      "material": "STRING",
+      "material": "SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 100025,
       "id": "thread_role_luck",
       "source": "catalog",
       "allocatedAt": "2026-08-13T11:54:41.602Z"
     },
     {
-      "material": "STRING",
+      "material": "EYE_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 100026,
       "id": "thread_role_effeciency",
       "source": "catalog",
       "allocatedAt": "2026-08-13T11:54:41.602Z"
     },
     {
-      "material": "STRING",
+      "material": "HOST_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 100027,
       "id": "thread_blindness",
       "source": "catalog",
       "allocatedAt": "2026-08-14T17:36:17.258Z"
     },
     {
-      "material": "STRING",
+      "material": "RIB_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 100028,
       "id": "thread_translate",
       "source": "catalog",
@@ -3238,7 +3238,7 @@
       "allocatedAt": "2026-08-13T03:35:02.722Z"
     },
     {
-      "material": "STRING",
+      "material": "VEX_ARMOR_TRIM_SMITHING_TEMPLATE",
       "cmd": 100021,
       "id": "magebloom_fiber",
       "source": "materials",

@@ -63,11 +63,14 @@ function javaRateKeys() {
 // per-quality を1桁へ丸めると設計が壊れる箇所。キーは item-stats.yml のエントリ名。
 const PER_QUALITY_EXEMPT = new Map([
   ["SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300007|magic-resistance", 0.0015],
-  ["ARMS_UP_POTTERY_SHERD#300020|workbench-quality-bonus", 0.12],
-  ["BREWER_POTTERY_SHERD#300021|ritual-quality-bonus", 0.12],
-  ["EXPLORER_POTTERY_SHERD#300040|loot-luck", 0.15],
-  ["FLOWER_BANNER_PATTERN#300041|potion-quality-bonus", 0.12],
-  ["PRIZE_POTTERY_SHERD#300044|mob-drop-quality", 0.06],
+  // 2026-08-18(W-103) スレッドのベース材質を鍛冶型へ統一したのでキー名が変わった。
+  // ここは item-stats.yml のエントリ名そのままなので、材質を変えたら必ず追随させる
+  // (追随を忘れると除外が外れ、意図した小数がまとめて違反として出る)。
+  ["TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020|workbench-quality-bonus", 0.12],
+  ["WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021|ritual-quality-bonus", 0.12],
+  ["RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040|loot-luck", 0.15],
+  ["SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041|potion-quality-bonus", 0.12],
+  ["COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044|mob-drop-quality", 0.06],
   ["NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045|gathering-efficiency", 0.06],
 ]);
 

@@ -1,0 +1,33 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/rib_armor_trim_smithing_template"
+    },
+    "entries": [
+      {
+        "threshold": 100025,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/rib_armor_trim_smithing_template"
+        }
+      },
+      {
+        "threshold": 300011,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/rib_armor_trim_smithing_template"
+        }
+      },
+      {
+        "threshold": 300029,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:item/rib_armor_trim_smithing_template"
+        }
+      }
+    ]
+  }
+}

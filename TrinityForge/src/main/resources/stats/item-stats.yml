@@ -10882,7 +10882,7 @@ items:
   WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001:
     offhand-stats-apply: false
     socketed-only-stats: true
-  DANGER_POTTERY_SHERD#300035:
+  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035:
     per-quality:
       reflect-percent: 0.006
     random:
@@ -10911,7 +10911,7 @@ items:
         reflect-percent: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  BLADE_POTTERY_SHERD#300036:
+  WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036:
     per-quality:
       stun-chance: 0.003
     random:
@@ -10940,7 +10940,7 @@ items:
         stun-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  ARCHER_POTTERY_SHERD#300038:
+  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038:
     per-quality:
       ammo-save-chance: 0.006
     random:
@@ -10969,7 +10969,7 @@ items:
         ammo-save-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  MOURNER_POTTERY_SHERD#300037:
+  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037:
     per-quality:
       cooldown-reduction: 0.006
     random:
@@ -10998,7 +10998,7 @@ items:
         cooldown-reduction: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  SKULL_POTTERY_SHERD#300028:
+  SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028:
     per-quality:
       mob-drop-bonus: 0.006
     random:
@@ -11056,7 +11056,7 @@ items:
         phys-flat-defense: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  SHELTER_POTTERY_SHERD#300033:
+  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033:
     per-quality:
       hunger-save-chance: 0.005
     random:
@@ -11143,7 +11143,7 @@ items:
         magic-flat-defense: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  HEART_POTTERY_SHERD#300032:
+  FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032:
     per-quality:
       health-regen-bonus: 0.006
     random:
@@ -11172,7 +11172,7 @@ items:
         health-regen-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  GUSTER_POTTERY_SHERD#300039:
+  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039:
     per-quality:
       dodge-chance: 0.001
     random:
@@ -11404,7 +11404,7 @@ items:
         mana-regen: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  FLOW_POTTERY_SHERD#300019:
+  WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019:
     per-quality:
       source-cost-reduction: 0.004
     random:
@@ -11433,7 +11433,7 @@ items:
         source-cost-reduction: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  BURN_POTTERY_SHERD#300031:
+  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031:
     per-quality:
       enchant-luck: 0.2
     random:
@@ -11636,7 +11636,7 @@ items:
         phys-flat-defense: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  ARMS_UP_POTTERY_SHERD#300020:
+  TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020:
     per-quality:
       workbench-quality-bonus: 0.12
     random:
@@ -11665,7 +11665,7 @@ items:
         workbench-quality-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  BREWER_POTTERY_SHERD#300021:
+  WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021:
     per-quality:
       ritual-quality-bonus: 0.12
     random:
@@ -11694,7 +11694,7 @@ items:
         ritual-quality-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  PLENTY_POTTERY_SHERD#300022:
+  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022:
     per-quality:
       material-refund-chance: 0.004
     random:
@@ -11723,7 +11723,7 @@ items:
         material-refund-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  SCRAPE_POTTERY_SHERD#300023:
+  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023:
     per-quality:
       disassembly-return-bonus: 0.004
     random:
@@ -11752,7 +11752,7 @@ items:
         disassembly-return-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  MINER_POTTERY_SHERD#300024:
+  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024:
     per-quality:
       mining-fortune: 0.005
     random:
@@ -11781,7 +11781,7 @@ items:
         mining-fortune: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  ANGLER_POTTERY_SHERD#300025:
+  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025:
     per-quality:
       fishing-luck: 0.005
     random:
@@ -11810,7 +11810,7 @@ items:
         fishing-luck: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  SHEAF_POTTERY_SHERD#300026:
+  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026:
     per-quality:
       harvest-extra-drop-chance: 0.005
     random:
@@ -11839,7 +11839,7 @@ items:
         harvest-extra-drop-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  SNORT_POTTERY_SHERD#300027:
+  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027:
     per-quality:
       woodcutting-extra-drop-chance: 0.005
     random:
@@ -11868,7 +11868,7 @@ items:
         woodcutting-extra-drop-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  FRIEND_POTTERY_SHERD#300029:
+  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029:
     per-quality:
       skill-exp-bonus: 0.004
     random:
@@ -11897,7 +11897,7 @@ items:
         skill-exp-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  HEARTBREAK_POTTERY_SHERD#300034:
+  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034:
     per-quality:
       food-restore-bonus: 0.02
     random:
@@ -11926,7 +11926,7 @@ items:
         food-restore-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  HOWL_POTTERY_SHERD#300030:
+  SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030:
     per-quality:
       vanilla-exp-bonus: 0.006
     random:
@@ -11955,7 +11955,7 @@ items:
         vanilla-exp-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  EXPLORER_POTTERY_SHERD#300040:
+  RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040:
     per-quality:
       loot-luck: 0.15
     random:
@@ -12013,7 +12013,7 @@ items:
         percent-bonus-damage: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  FLOWER_BANNER_PATTERN#300041:
+  SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041:
     per-quality:
       potion-quality-bonus: 0.12
     random:
@@ -12042,7 +12042,7 @@ items:
         potion-quality-bonus: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  FIELD_MASONED_BANNER_PATTERN#300042:
+  DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042:
     per-quality:
       hive-harvest-fortune: 0.005
     random:
@@ -12071,7 +12071,7 @@ items:
         hive-harvest-fortune: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  PIGLIN_BANNER_PATTERN#300043:
+  SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043:
     per-quality:
       breeding-extra-child-chance: 0.005
     random:
@@ -12100,7 +12100,7 @@ items:
         breeding-extra-child-chance: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  PRIZE_POTTERY_SHERD#300044:
+  COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044:
     per-quality:
       mob-drop-quality: 0.06
     random:
@@ -12158,7 +12158,7 @@ items:
         gathering-efficiency: 1
     offhand-stats-apply: false
     socketed-only-stats: true
-  STRING#100023:
+  EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023:
     fixed:
       loot-luck: 1
     per-quality:
@@ -12167,7 +12167,7 @@ items:
       loot-luck:
         min: 1
         max: 5
-  STRING#100024:
+  HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024:
     fixed:
       gacha-rate-bonus: 0.01
     per-quality:
@@ -12176,7 +12176,7 @@ items:
       gacha-rate-bonus:
         min: 0.01
         max: 0.1
-  STRING#100025:
+  RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025:
     fixed:
       craft-roll-up-bonus: 1
     per-quality:
@@ -12185,7 +12185,7 @@ items:
       craft-roll-up-bonus:
         min: 1
         max: 5
-  STRING#100026:
+  SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026:
     fixed:
       craft-roll-down-reduction: 5
     per-quality:
@@ -12194,10 +12194,10 @@ items:
       craft-roll-down-reduction:
         min: -10
         max: 10
-  STRING#100027:
+  WILD_ARMOR_TRIM_SMITHING_TEMPLATE#100027:
     fixed:
       move-speed: 0.01
-  STRING#100028:
+  VEX_ARMOR_TRIM_SMITHING_TEMPLATE#100028:
     fixed:
       hidden-saturation-bonus: 0.05
 _editor:
@@ -12779,8 +12779,8 @@ _editor:
           - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010
           - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011
           - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015
-          - GUSTER_POTTERY_SHERD#300039
-          - EXPLORER_POTTERY_SHERD#300040
+          - VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039
+          - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040
           - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016
       - id: cat_20260802_thread_mana
         label: マナ系
@@ -12795,41 +12795,41 @@ _editor:
       - id: cat_20260802_thread_utility
         label: 品質系
         itemIds:
-          - ARMS_UP_POTTERY_SHERD#300020
-          - BREWER_POTTERY_SHERD#300021
-          - ANGLER_POTTERY_SHERD#300025
-          - FLOWER_BANNER_PATTERN#300041
-          - PRIZE_POTTERY_SHERD#300044
-          - BURN_POTTERY_SHERD#300031
-          - STRING#100023
-          - STRING#100024
-          - STRING#100025
-          - STRING#100026
+          - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020
+          - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021
+          - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025
+          - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041
+          - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044
+          - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031
+          - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023
+          - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024
+          - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025
+          - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026
       - id: cat_1786620805575
         label: 効率系
         itemIds:
-          - PLENTY_POTTERY_SHERD#300022
-          - SKULL_POTTERY_SHERD#300028
-          - HOWL_POTTERY_SHERD#300030
-          - FLOW_POTTERY_SHERD#300019
-          - SCRAPE_POTTERY_SHERD#300023
-          - FRIEND_POTTERY_SHERD#300029
-          - SHELTER_POTTERY_SHERD#300033
-          - HEARTBREAK_POTTERY_SHERD#300034
+          - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022
+          - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028
+          - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030
+          - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019
+          - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023
+          - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029
+          - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033
+          - WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034
           - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
-          - FIELD_MASONED_BANNER_PATTERN#300042
-          - PIGLIN_BANNER_PATTERN#300043
-          - SNORT_POTTERY_SHERD#300027
-          - SHEAF_POTTERY_SHERD#300026
-          - MINER_POTTERY_SHERD#300024
+          - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042
+          - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043
+          - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027
+          - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026
+          - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024
       - id: cat_20260802_thread_combat
         label: 戦闘系
         itemIds:
-          - HEART_POTTERY_SHERD#300032
-          - DANGER_POTTERY_SHERD#300035
-          - BLADE_POTTERY_SHERD#300036
-          - MOURNER_POTTERY_SHERD#300037
-          - ARCHER_POTTERY_SHERD#300038
+          - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032
+          - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035
+          - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036
+          - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037
+          - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038
       - id: cat_20260802_thread_base
         label: 無強化
         itemIds:
@@ -13253,12 +13253,12 @@ _editor:
     HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010: thread
     RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011: thread
     SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015: thread
-    GUSTER_POTTERY_SHERD#300039: thread
-    EXPLORER_POTTERY_SHERD#300040: thread
-    FLOWER_BANNER_PATTERN#300041: thread
-    FIELD_MASONED_BANNER_PATTERN#300042: thread
-    PIGLIN_BANNER_PATTERN#300043: thread
-    PRIZE_POTTERY_SHERD#300044: thread
+    VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039: thread
+    RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040: thread
+    SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041: thread
+    DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042: thread
+    SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043: thread
+    COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044: thread
     NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045: thread
     TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002: thread
     WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003: thread
@@ -13268,33 +13268,33 @@ _editor:
     FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017: thread
     BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018: thread
     SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016: thread
-    FLOW_POTTERY_SHERD#300019: thread
-    ARMS_UP_POTTERY_SHERD#300020: thread
-    BREWER_POTTERY_SHERD#300021: thread
-    PLENTY_POTTERY_SHERD#300022: thread
-    SCRAPE_POTTERY_SHERD#300023: thread
-    BURN_POTTERY_SHERD#300031: thread
-    MINER_POTTERY_SHERD#300024: thread
-    ANGLER_POTTERY_SHERD#300025: thread
-    SHEAF_POTTERY_SHERD#300026: thread
-    SNORT_POTTERY_SHERD#300027: thread
-    FRIEND_POTTERY_SHERD#300029: thread
-    SHELTER_POTTERY_SHERD#300033: thread
-    HEARTBREAK_POTTERY_SHERD#300034: thread
-    SKULL_POTTERY_SHERD#300028: thread
-    HOWL_POTTERY_SHERD#300030: thread
-    HEART_POTTERY_SHERD#300032: thread
-    DANGER_POTTERY_SHERD#300035: thread
-    BLADE_POTTERY_SHERD#300036: thread
-    MOURNER_POTTERY_SHERD#300037: thread
-    ARCHER_POTTERY_SHERD#300038: thread
+    WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019: thread
+    TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020: thread
+    WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021: thread
+    RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022: thread
+    SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023: thread
+    DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031: thread
+    SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024: thread
+    COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025: thread
+    EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026: thread
+    HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027: thread
+    RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029: thread
+    SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033: thread
+    WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034: thread
+    SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028: thread
+    SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030: thread
+    FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032: thread
+    BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035: thread
+    WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036: thread
+    TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037: thread
+    WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038: thread
     WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001: thread
-    STRING#100023: thread
-    STRING#100024: thread
-    STRING#100025: thread
-    STRING#100026: thread
-    STRING#100027: thread
-    STRING#100028: thread
+    EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023: thread
+    HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024: thread
+    RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025: thread
+    SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026: thread
+    WILD_ARMOR_TRIM_SMITHING_TEMPLATE#100027: thread
+    VEX_ARMOR_TRIM_SMITHING_TEMPLATE#100028: thread
   orders:
     weapon:
       - DIAMOND_SWORD#1111
@@ -13722,8 +13722,8 @@ _editor:
       - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300010
       - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300011
       - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300015
-      - GUSTER_POTTERY_SHERD#300039
-      - EXPLORER_POTTERY_SHERD#300040
+      - VEX_ARMOR_TRIM_SMITHING_TEMPLATE#300039
+      - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300040
       - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300002
       - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300003
       - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300012
@@ -13732,33 +13732,33 @@ _editor:
       - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300017
       - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300018
       - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300016
-      - FLOW_POTTERY_SHERD#300019
-      - ARMS_UP_POTTERY_SHERD#300020
-      - BREWER_POTTERY_SHERD#300021
-      - PLENTY_POTTERY_SHERD#300022
-      - SCRAPE_POTTERY_SHERD#300023
-      - BURN_POTTERY_SHERD#300031
-      - MINER_POTTERY_SHERD#300024
-      - ANGLER_POTTERY_SHERD#300025
-      - SHEAF_POTTERY_SHERD#300026
-      - SNORT_POTTERY_SHERD#300027
-      - FRIEND_POTTERY_SHERD#300029
-      - SHELTER_POTTERY_SHERD#300033
-      - HEARTBREAK_POTTERY_SHERD#300034
-      - SKULL_POTTERY_SHERD#300028
-      - HOWL_POTTERY_SHERD#300030
-      - HEART_POTTERY_SHERD#300032
-      - DANGER_POTTERY_SHERD#300035
-      - BLADE_POTTERY_SHERD#300036
-      - MOURNER_POTTERY_SHERD#300037
-      - ARCHER_POTTERY_SHERD#300038
+      - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300019
+      - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300020
+      - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300021
+      - RAISER_ARMOR_TRIM_SMITHING_TEMPLATE#300022
+      - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300023
+      - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300031
+      - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300024
+      - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300025
+      - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#300026
+      - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#300027
+      - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#300029
+      - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#300033
+      - WILD_ARMOR_TRIM_SMITHING_TEMPLATE#300034
+      - SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE#300028
+      - SILENCE_ARMOR_TRIM_SMITHING_TEMPLATE#300030
+      - FLOW_ARMOR_TRIM_SMITHING_TEMPLATE#300032
+      - BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035
+      - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300036
+      - TIDE_ARMOR_TRIM_SMITHING_TEMPLATE#300037
+      - WARD_ARMOR_TRIM_SMITHING_TEMPLATE#300038
       - WAYFINDER_ARMOR_TRIM_SMITHING_TEMPLATE#300001
-      - FLOWER_BANNER_PATTERN#300041
-      - FIELD_MASONED_BANNER_PATTERN#300042
-      - PIGLIN_BANNER_PATTERN#300043
-      - PRIZE_POTTERY_SHERD#300044
+      - SHAPER_ARMOR_TRIM_SMITHING_TEMPLATE#300041
+      - DUNE_ARMOR_TRIM_SMITHING_TEMPLATE#300042
+      - SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE#300043
+      - COAST_ARMOR_TRIM_SMITHING_TEMPLATE#300044
       - NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045
-      - STRING#100023
-      - STRING#100024
-      - STRING#100025
-      - STRING#100026
+      - EYE_ARMOR_TRIM_SMITHING_TEMPLATE#100023
+      - HOST_ARMOR_TRIM_SMITHING_TEMPLATE#100024
+      - RIB_ARMOR_TRIM_SMITHING_TEMPLATE#100025
+      - SNOUT_ARMOR_TRIM_SMITHING_TEMPLATE#100026

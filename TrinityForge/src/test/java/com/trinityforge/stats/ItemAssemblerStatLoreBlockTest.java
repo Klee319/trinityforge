@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ItemAssemblerStatLoreBlockTest {
 
     /** Damageable でない素材を使う: 装備側に耐久行が注入されると突き合わせが崩れるため。 */
-    private static final Material THREAD_LIKE = Material.DANGER_POTTERY_SHERD;
+    private static final Material THREAD_LIKE = Material.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE;
 
     @BeforeEach
     void setUp() {
@@ -110,7 +110,7 @@ class ItemAssemblerStatLoreBlockTest {
     private static ItemAssembler assembler(File dir) throws IOException {
         ItemStatsConfig itemStats = loadItemStats(dir, """
                 items:
-                  DANGER_POTTERY_SHERD:
+                  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE:
                     fixed:
                       attack-power: 4.0
                     per-quality:

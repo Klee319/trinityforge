@@ -258,7 +258,7 @@ class ThreadSocketedOnlyAggregationTest {
     void withoutTheFlagTheSameItemDoesContribute(@TempDir File dir) throws IOException {
         String withFlag = """
                 items:
-                  DANGER_POTTERY_SHERD#300035:
+                  BOLT_ARMOR_TRIM_SMITHING_TEMPLATE#300035:
                     fixed:
                       phys-flat-defense: 12.4
                       percent-bonus-damage: 0.5
@@ -268,7 +268,7 @@ class ThreadSocketedOnlyAggregationTest {
                 """;
         String withoutFlag = withFlag.replace("    socketed-only-stats: true\n", "");
 
-        ItemStack thread = itemOf(Material.DANGER_POTTERY_SHERD, 300035);
+        ItemStack thread = itemOf(Material.BOLT_ARMOR_TRIM_SMITHING_TEMPLATE, 300035);
 
         PlayerStatAggregator blocked = aggregator(itemStats(dir, withFlag));
         Player p1 = server.addPlayer();
