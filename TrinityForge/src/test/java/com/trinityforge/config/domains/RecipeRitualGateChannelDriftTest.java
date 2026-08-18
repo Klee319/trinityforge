@@ -97,6 +97,21 @@ class RecipeRitualGateChannelDriftTest {
             // 一度 recipe: 側へ置かれて無言で常時解放になっていたのを戻した。
             "source_crystal", "source_condenser", "source_engine");
 
+    /**
+     * {@link #RITUAL_ONLY_IDS} のうち、<b>意図的にゲートを掛けていない</b>id。
+     *
+     * <p>「儀式チャンネルが正しい」ことと「ゲートを掛ける」ことは別の話なので、集合を2つに分ける。
+     * ここに入れたidは {@code ritual:} 側にも {@code recipe:} 側にも現れないのが正しい状態だが、
+     * <b>{@code recipe:} 側に現れたら依然として取り違え</b>なので
+     * {@link #ritualOnlyIds_neverAppearOnRecipeChannel} の監視対象からは外さない。
+     *
+     * <p>2026-08-18 W-101(実サーバ報告「ヴォルカニックソースリンクの解放ゲートを設定していないのに
+     * クラフトできない」): 解放ゲートの除去が<b>作業ツリーに置かれたままコミットされておらず</b>、
+     * config を配備し直すと HEAD の内容(=ゲート有り)が書き戻って復活していた。config の
+     * ロールバックではなく、単に未コミットだったのが原因。ここで正式に外す。
+     */
+    private static final Set<String> INTENTIONALLY_UNGATED_RITUAL_IDS = Set.of("volcanic_sourcelink");
+
     private static Plugin fakePlugin(File dataFolder, Logger logger) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {
             case "getDataFolder" -> dataFolder;
@@ -166,10 +181,27 @@ class RecipeRitualGateChannelDriftTest {
         Set<String> actualRitual = loadIndex(dataFolder).ritualGatePerks().keySet();
 
         Set<String> missing = new TreeSet<>(RITUAL_ONLY_IDS);
+        missing.removeAll(INTENTIONALLY_UNGATED_RITUAL_IDS);
         missing.removeAll(actualRitual);
 
         assertTrue(missing.isEmpty(),
                 "ritual: ゲートとして配置されているはずのidがスキルツリーから消えた(または recipe: へ"
                         + "戻された)。フェイルオープンなので実行時は無警告で常時解放になる: " + missing);
+    }
+
+    @Test
+    @DisplayName("意図的に非ゲートのidが両チャンネルとも不在(W-101 の復活を検出)")
+    void intentionallyUngatedIds_appearOnNeitherChannel(@TempDir File dataFolder) throws IOException {
+        DedicatedEffectGateIndex index = loadIndex(dataFolder);
+
+        Set<String> resurrected = new TreeSet<>(INTENTIONALLY_UNGATED_RITUAL_IDS);
+        Set<String> placed = new TreeSet<>(index.ritualGatePerks().keySet());
+        placed.addAll(index.recipeGatePerks().keySet());
+        resurrected.retainAll(placed);
+
+        assertTrue(resurrected.isEmpty(),
+                "解放ゲートを外したはずのidがスキルツリーへ戻っている。yml を直したのに"
+                        + "コミットせず配備し直すと HEAD の内容が書き戻って復活する(W-101 の再発): "
+                        + resurrected);
     }
 }

@@ -160,7 +160,6 @@ nodes:
       - id: ritual:source_crystal
       - id: ritual:source_condenser
       - id: ritual:source_engine
-      - id: ritual:volcanic_sourcelink
     description: 上位ソースジャー・ソースリンクの素材クラフト解放
   D-1:
     name: Waystoneクラフト
