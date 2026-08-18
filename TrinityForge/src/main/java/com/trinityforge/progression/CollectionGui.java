@@ -81,6 +81,9 @@ public final class CollectionGui implements Listener {
     private final NamespacedKey tabIndexKey;
     private final NamespacedKey navKey;
     private final NamespacedKey actionKey;
+    /** プレイヤーPDCに保存する並び順/絞り込み(W-97)。ボタン側の PDC キーとは別枠。 */
+    private final NamespacedKey savedSortKey;
+    private final NamespacedKey savedFilterKey;
     /** 検索語のチャット入力待ちプレイヤー -> 待ち状態(復帰先のタブ/ページ)。 */
     private final Map<UUID, PendingSearch> pendingSearches = new ConcurrentHashMap<>();
 
@@ -104,6 +107,8 @@ public final class CollectionGui implements Listener {
         this.tabIndexKey = new NamespacedKey(plugin, "collection_gui_tab");
         this.navKey = new NamespacedKey(plugin, "collection_gui_nav");
         this.actionKey = new NamespacedKey(plugin, "collection_gui_action");
+        this.savedSortKey = new NamespacedKey(plugin, "collection_pref_sort");
+        this.savedFilterKey = new NamespacedKey(plugin, "collection_pref_filter");
     }
 
     public void open(Player player) {
@@ -112,8 +117,53 @@ public final class CollectionGui implements Listener {
             player.sendMessage(Component.text("図鑑カテゴリが未設定です。", NamedTextColor.GRAY));
             return;
         }
-        open(player, new ViewState(tabs, 0, 0, CollectionGuiModel.SortMode.DEFAULT,
-                CollectionGuiModel.FilterMode.ALL, ""));
+        // 並び順と絞り込みは前回の選択を引き継ぐ(2026-08-18 W-97 実サーバ報告
+        // 「以前設定していたレシピ・図鑑のソートの記憶保持をするようにしてほしい」)。
+        // 検索語だけは持ち越さない —— 開くたびに前回の検索で絞られていると
+        // 「アイテムが消えた」ようにしか見えないため。
+        open(player, new ViewState(tabs, 0, 0, savedSort(player), savedFilter(player), ""));
+    }
+
+    /**
+     * 保存済みの並び順。未設定 / 不正値なら {@link CollectionGuiModel.SortMode#DEFAULT}。
+     *
+     * <p><b>enum の {@code name()} で保存する</b>(ordinal ではない)。ordinal だと
+     * {@code SortMode} に定数を1つ挿しただけで、保存済みの全プレイヤーの設定が
+     * 無言で別の並び順に化ける。
+     */
+    private CollectionGuiModel.SortMode savedSort(Player player) {
+        return readEnum(player.getPersistentDataContainer(), savedSortKey,
+                CollectionGuiModel.SortMode.class, CollectionGuiModel.SortMode.DEFAULT);
+    }
+
+    /** 保存済みの絞り込み。未設定 / 不正値なら {@link CollectionGuiModel.FilterMode#ALL}。 */
+    private CollectionGuiModel.FilterMode savedFilter(Player player) {
+        return readEnum(player.getPersistentDataContainer(), savedFilterKey,
+                CollectionGuiModel.FilterMode.class, CollectionGuiModel.FilterMode.ALL);
+    }
+
+    /**
+     * PDC に保存した enum を読み戻す。未設定・削除された定数・読み取り失敗はすべて {@code fallback}。
+     *
+     * <p>package-private なのは単体テストのため。<b>ここが「設定が化ける/画面が開かない」の
+     * 唯一の分岐点</b>で、GUI 本体は Bukkit のインベントリ生成を伴うので直接は叩けない。
+     */
+    static <E extends Enum<E>> E readEnum(org.bukkit.persistence.PersistentDataContainer pdc,
+                                          NamespacedKey key, Class<E> type, E fallback) {
+        try {
+            String stored = pdc.get(key, PersistentDataType.STRING);
+            return stored == null ? fallback : Enum.valueOf(type, stored);
+        } catch (RuntimeException ex) {
+            return fallback; // 削除された定数が残っていた / PDC を読めなかった
+        }
+    }
+
+    /** 表示に使った並び順/絞り込みをプレイヤーへ保存する。次に開いたときの初期値になる。 */
+    private void rememberPreferences(Player player, ViewState state) {
+        player.getPersistentDataContainer()
+                .set(savedSortKey, PersistentDataType.STRING, state.sort().name());
+        player.getPersistentDataContainer()
+                .set(savedFilterKey, PersistentDataType.STRING, state.filter().name());
     }
 
     private void open(Player player, ViewState requested) {
@@ -131,6 +181,7 @@ public final class CollectionGui implements Listener {
 
         ViewState state = new ViewState(tabs, clampedTab, clampedPage, requested.sort(),
                 requested.filter(), requested.search());
+        rememberPreferences(player, state);
         Session session = new Session(state);
         Inventory inventory = Bukkit.createInventory(session, SIZE,
                 Component.text("図鑑: " + tab.displayName() + " (" + (clampedPage + 1) + "/" + pages.size() + ")"));
