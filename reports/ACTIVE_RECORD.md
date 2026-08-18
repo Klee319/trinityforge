@@ -401,7 +401,7 @@ ArsPaper の `materials.yml` に **ホグリンの牙（`hoglin_tusk`）の定�
 |---|---|---|
 | W-85 | 儀式で作成者より先に他プレイヤーが拾うと所有権と品質がその拾った人基準になる。ドロップではなく右クリック回収にしたい | 未着手（**設計確認待ち**、下記） |
 | W-86 | 儀式・グリフ解放の最中にブロックが壊された／素材が回収されたときにロストや増殖が無いかの調査 | ~~未着手~~ **調査完了・3 件修正（ArsPaper fork）** |
-| W-87 | ネザライトアップグレードの鍛冶型が複製できない。バニラ挙動が潰されていそう | 未着手（静的調査は空振り、下記） |
+| W-87 | ネザライトアップグレードの鍛冶型が複製できない。バニラ挙動が潰されていそう | **原因特定・確認待ち**（下記） |
 | W-88 | スレッドスロット GUI に装備のテクスチャが反映されていない | ~~未着手~~ **修正済み（ArsPaper fork）** |
 | W-89 | 騎乗中に騎乗しているモブの HP テキストディスプレイが視線にかぶって邪魔 | ~~未着手~~ **修正済み** |
 | W-90 | AFK が予告なく訪れるので title 等でカウントダウンか通知を出したい | ~~未着手~~ **修正済み** |
@@ -475,13 +475,34 @@ editor の「使用制限スイッチ」画面にも 2 キーを出した。
 右クリック回収へ変えるなら「**回収を儀式実行者だけに限定するのか**、誰でも拾えるが品質は実行者基準にするのか」で
 実装が変わる（前者は放置された成果物の回収不能を招く）。
 
-**W-87 は静的調査では潰し切れなかった。** TF 側の
-`CatalogSmithingListener` / `CatalogCraftGateListener` / `VanillaRecipeRemover` / `RecipeDiscoveryListener` /
-`CatalogRecipeRegistrar#NetheriteUpgradeGuard`、fork 側の
-`CustomIngredientCraftGuardListener` / `WorkbenchGridGateListener` / `RecipeUnlockGate` を全部読んだが、
-鍛冶型の複製レシピを塞ぐ経路は見つからなかった。**`NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045` は
-`thread_excavation`（ArsPaper 由来のスレッド品）に使われている**ので、
-「素材として置けない」のか「結果枠が空」なのか「レシピ帳に出ない」のかで原因の系統が変わる。切り分けが要る。
+**W-87 の原因（確認待ち）。バニラは潰されていない。潰れるのは「バニラに見えるカタログ品」を入れたとき。**
+順に潰した結果、**バニラの複製レシピ `minecraft:netherite_upgrade_smithing_template` を止める経路は無い**:
+`removed-vanilla-recipes` は出荷も配備済みも `[]`、`gated-catalog-recipes` も `{}`、
+`CatalogCraftGateListener` の recipe ゲートは「そのゲート ID を配置したノードが在る場合だけ」効くが
+`recipe:netherite_upgrade_smithing_template` を置いたノードは無い、
+`CatalogVanillaOperationGuardListener` はそもそも作業台のハンドラを持たない上に
+**CustomModelData を必須**にしているので素のバニラ鍛冶型はカタログ品と判定されない、
+`CatalogRecipeRegistrar#NetheriteUpgradeGuard` は「自分の登録を諦める」だけでバニラを消さない、
+TF/Ars のどのレシピも鍛冶型を材料に使っていない（＝同形シャドウイングも起きない）。
+
+**残った唯一の経路がこれ。** `CatalogWorkbenchListener#onPrepareCraft` は
+「カタログ品は、その identity を明示的に受け取るレシピでしか消費させない」ため、
+装備でないカタログ品がグリッドに乗っていて対応する TF レシピが無ければ**結果枠を消す**。
+そして **`thread_excavation`（掘削のスレッド）のベース材質は `NETHERITE_UPGRADE_SMITHING_TEMPLATE`
+（CMD 300045）**で、**リソースパックに `assets/minecraft/items/netherite_upgrade_smithing_template.json` が無い**
+（`assets/minecraft/items/` の 62 件を確認。陶器の欠片系スレッドも同様に未定義）ため、
+**このスレッドは見た目がバニラの鍛冶型と完全に同一**。つまり
+「鍛冶型のつもりでスレッドを置いた」なら、保護が意図どおり働いて結果が消えたことになる。
+（見た目の統一そのものは既存の **W-70「スレッドのバニラマテリアル統一」** と同じ問題。）
+
+**併せて直したこと。** それまでは**結果枠が黙って空になるだけ**で理由が一切出ず、
+プレイヤーからは「バニラのレシピが壊れている」ようにしか見えなかった。
+兄弟の `CatalogCraftGateListener` と同じくアクションバーで理由を出すようにした
+（このイベントはマス目を触るたび飛ぶのでチャットには書かない）。
+
+**ユーザーへの確認事項**: 複製しようとしたアイテムの**名前**が「掘削のスレッド」ではなかったか。
+もし素のバニラ鍛冶型だったなら別系統なので、そのときの症状
+（結果枠が空／レシピ帳に出ない／材料が置けない）を教えてほしい。
 
 ---
 

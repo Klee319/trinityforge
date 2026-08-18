@@ -89,6 +89,7 @@ public final class CatalogWorkbenchListener implements Listener {
             // that matched only because the stack shares its base Material.
             if (!rematch(event, matrix)) {
                 event.getInventory().setResult(null);
+                notifyBlockedByCatalogItem(event);
             }
             return;
         }
@@ -112,6 +113,32 @@ public final class CatalogWorkbenchListener implements Listener {
         ItemStack vanilla = shadowedVanillaResult(matrix, matrix.length == 4 ? 2 : 3);
         event.getInventory().setResult(vanilla); // null = クラフト不可(従来どおり)
     }
+
+    /**
+     * 「カタログ品が乗っているせいで結果が消えた」ことを本人へ伝える(2026-08-18)。
+     *
+     * <p>それまでは<b>結果枠が黙って空になるだけ</b>で、プレイヤーからは「バニラのレシピが壊れている」
+     * ようにしか見えなかった。とくに<b>見た目がバニラそのままのカタログ品</b>
+     * (リソースパックに item 定義が無い CMD。例: {@code thread_excavation} は
+     * ネザライトアップグレードの鍛冶型と区別が付かない)を材料に入れた場合、
+     * 「ネザライトの鍛冶型が複製できない」という報告になる。
+     *
+     * <p>アクションバーなのは兄弟の {@link CatalogCraftGateListener#onPrepareCraft} と揃えるため
+     * (このイベントはマス目を触るたびに飛ぶので、チャットへ書くと即座に流れて読めなくなる)。
+     */
+    private static void notifyBlockedByCatalogItem(PrepareItemCraftEvent event) {
+        // view が無い経路(自動作業台やテストの合成イベント)では宛先が無いので何もしない。
+        // 通知は付け足しであって、ここで落として結果クリア自体を巻き添えにしてはいけない。
+        if (event.getView() != null
+                && event.getView().getPlayer() instanceof org.bukkit.entity.Player player) {
+            player.sendActionBar(CATALOG_INGREDIENT_MESSAGE);
+        }
+    }
+
+    private static final net.kyori.adventure.text.Component CATALOG_INGREDIENT_MESSAGE =
+            net.kyori.adventure.text.Component.text(
+                    "このレシピは専用アイテムを材料にできません（材料欄のアイテム名を確認してください）",
+                    net.kyori.adventure.text.format.NamedTextColor.RED);
 
     /**
      * Crafter (自動作業台, 1.21) 経路の防御。{@code PrepareItemCraftEvent} はCrafterでは発火しない
