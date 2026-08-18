@@ -533,6 +533,11 @@ public final class TrinityForge extends JavaPlugin {
         // (品質/速度と違いauto_mult減衰すら適用しない、詳細はBrewIngredientSaveListenerのjavadoc参照)。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.BrewIngredientSaveListener(this, aggregator), this);
+        // 醸造の診断計装(2026-08-19 / W-112)。「進捗は完走するのに中身が変わらない」報告を推測なしで
+        // 切り分けるため、どの優先度でキャンセルされたかと入出力を実測する。正常な醸造では1行も出ない
+        // (詳細と読み方は BrewDiagnosticListener のクラスjavadoc)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.BrewDiagnosticListener(this), this);
         // S9: 採取追加ドロップ/食事バフ/繁殖バフ/植えた作物の成長ボーナス consumer 群。
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.GatheringExtraDropListener(aggregator, placedBlockTracker), this);
