@@ -105,18 +105,28 @@ public final class CombatDamageConfig {
     private static final String LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL =
             "level-cutoff.under-level.drop-decay-per-level";
     private static final String LEVEL_CUTOFF_UNDER_RATE_FLOOR = "level-cutoff.under-level.rate-floor";
+    // 2026-08-18 経験値だけ別の閾値から絞り始めるための追加キー。未設定(-1)なら item-threshold を使う
+    // (＝従来どおり1本の閾値でアイテムと経験値の両方が発動する)。出荷値は経験値だけ 15 から絞り始め、
+    // アイテムは 20 で完全遮断のまま ── 「経験値は15〜30レベル差の区間をかけて0になるように」という指示。
+    private static final String LEVEL_CUTOFF_UNDER_EXP_THRESHOLD = "level-cutoff.under-level.exp-threshold";
 
-    // 2026-08-18 (W-80) ダンジョンの挑戦レベルに応じた報酬の上乗せ。
+    // 2026-08-18 (W-80) ダンジョンの挑戦レベルに応じた報酬の増減。
     // EMダイナミックダンジョンの選択レベルは敵の強さにしか効いておらず報酬には無関係だったので、
     // 一番低いレベルを選んで回すのが常に最適だった。判定はプレイヤーとのレベル差ではなく
-    // 「倒したモブのレベル」=選んだレベルそのもので、適用先もダンジョンワールドに限る
+    // 「倒したモブのレベル」=選んだレベル±難易度補正で、適用先もダンジョンワールドに限る
     // (レベル差で書くとオーバーワールドの高レベルモブにも効いて level-cutoff.under-level と衝突する)。
+    // pivot-level で等倍、それより低いダンジョンは規定値より少なく、高いダンジョンは多くなる。
+    // step レベル刻みの階段にするのは、EMの難易度(normal/hard/mythic)がモブレベルを ∓5 動かすので
+    // 「難易度1段=報酬1段」で対応させるため。
     private static final String DUNGEON_LEVEL_REWARD_ENABLED = "dungeon-level-reward.enabled";
-    private static final String DUNGEON_LEVEL_REWARD_BASE_LEVEL = "dungeon-level-reward.base-level";
-    private static final String DUNGEON_LEVEL_REWARD_DROP_PER_LEVEL = "dungeon-level-reward.drop-bonus-per-level";
+    private static final String DUNGEON_LEVEL_REWARD_PIVOT_LEVEL = "dungeon-level-reward.pivot-level";
+    private static final String DUNGEON_LEVEL_REWARD_STEP = "dungeon-level-reward.step";
+    private static final String DUNGEON_LEVEL_REWARD_DROP_PER_STEP = "dungeon-level-reward.drop-bonus-per-step";
     private static final String DUNGEON_LEVEL_REWARD_DROP_CAP = "dungeon-level-reward.drop-bonus-cap";
-    private static final String DUNGEON_LEVEL_REWARD_EXP_PER_LEVEL = "dungeon-level-reward.exp-bonus-per-level";
+    private static final String DUNGEON_LEVEL_REWARD_DROP_PENALTY_CAP = "dungeon-level-reward.drop-penalty-cap";
+    private static final String DUNGEON_LEVEL_REWARD_EXP_PER_STEP = "dungeon-level-reward.exp-bonus-per-step";
     private static final String DUNGEON_LEVEL_REWARD_EXP_CAP = "dungeon-level-reward.exp-bonus-cap";
+    private static final String DUNGEON_LEVEL_REWARD_EXP_PENALTY_CAP = "dungeon-level-reward.exp-penalty-cap";
 
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
@@ -267,17 +277,27 @@ public final class CombatDamageConfig {
                 .field(SchemaField.number(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL, SchemaField.Type.DOUBLE,
                         0.0, 0.0, 1.0))
                 .field(SchemaField.number(LEVEL_CUTOFF_UNDER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0))
-                // 2026-08-18 (W-80): ダンジョンの挑戦レベルに応じた報酬の上乗せ。
+                // 経験値だけ別の閾値から絞り始めたいとき用。既定 -1 = 未設定 = item-threshold を使う
+                // (＝1本の閾値でアイテムと経験値の両方が発動する従来挙動のまま)。
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_EXP_THRESHOLD, SchemaField.Type.INT, -1, -1, 10_000))
+                // 2026-08-18 (W-80): ダンジョンの挑戦レベルに応じた報酬の増減。
                 // 既定は「無効」── 出荷 yml 側で有効にする。ここを true 既定にすると、この節を1行も
                 // 書いていない配備済み config の意味が jar 差し替えだけで変わってしまうため。
                 .field(SchemaField.of(DUNGEON_LEVEL_REWARD_ENABLED, SchemaField.Type.BOOLEAN, false))
-                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_BASE_LEVEL, SchemaField.Type.INT, 0, 0, 10_000))
-                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_DROP_PER_LEVEL, SchemaField.Type.DOUBLE,
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_PIVOT_LEVEL, SchemaField.Type.INT, 0, 0, 10_000))
+                // 0 は「未設定」= 既定の5レベル刻み扱い(DungeonLevelReward 側で解決する)。
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_STEP, SchemaField.Type.INT, 0, 0, 1_000))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_DROP_PER_STEP, SchemaField.Type.DOUBLE,
                         0.0, 0.0, 1.0))
                 .field(SchemaField.number(DUNGEON_LEVEL_REWARD_DROP_CAP, SchemaField.Type.DOUBLE, 0.0, 0.0, 10.0))
-                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_PER_LEVEL, SchemaField.Type.DOUBLE,
+                // 減少側の上限は 0.9 まで。1.0 以上を許すと報酬が 0 や負になってしまう。
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_DROP_PENALTY_CAP, SchemaField.Type.DOUBLE,
+                        0.0, 0.0, 0.9))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_PER_STEP, SchemaField.Type.DOUBLE,
                         0.0, 0.0, 1.0))
-                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_CAP, SchemaField.Type.DOUBLE, 0.0, 0.0, 10.0));
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_CAP, SchemaField.Type.DOUBLE, 0.0, 0.0, 10.0))
+                .field(SchemaField.number(DUNGEON_LEVEL_REWARD_EXP_PENALTY_CAP, SchemaField.Type.DOUBLE,
+                        0.0, 0.0, 0.9));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -551,30 +571,39 @@ public final class CombatDamageConfig {
                 config.getDouble(LEVEL_CUTOFF_UNDER_DROP_RATE),
                 config.getDouble(LEVEL_CUTOFF_UNDER_EXP_DECAY_PER_LEVEL),
                 config.getDouble(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL),
-                config.getDouble(LEVEL_CUTOFF_UNDER_RATE_FLOOR));
+                config.getDouble(LEVEL_CUTOFF_UNDER_RATE_FLOOR),
+                config.getInt(LEVEL_CUTOFF_UNDER_EXP_THRESHOLD));
     }
 
     /**
-     * ダンジョンの挑戦レベルに応じた報酬の上乗せ(2026-08-18 W-80)。
+     * ダンジョンの挑戦レベルに応じた報酬の増減(2026-08-18 W-80)。
      *
      * <p>EMダイナミックダンジョンの選択レベルはインスタンス内のモブ全員のレベルになるので敵の強さには
      * 効いていたが、TF追加ドロップの確率({@code combat/mob-overrides.yml} の固定 {@code chance})にも
      * 撃破EXPの傾斜にもほとんど効かず、「一番低いレベルを選んで最速で回す」のが常に最適だった。
      *
-     * <p>判定に使うのは<b>倒したモブのレベル</b>(= 選んだレベル)だけで、プレイヤーのレベルは見ない。
+     * <p>判定に使うのは<b>倒したモブのレベル</b>(= 選んだレベル±難易度補正)だけで、プレイヤーのレベルは見ない。
      * 適用先は呼び出し側({@code KillRewardAdjuster})が<b>ダンジョンワールドで倒したモブに限定</b>する。
      * レベル差で書くとオーバーワールドの高レベルモブにも効いてしまい、
      * {@code level-cutoff.under-level}(W-73)の狙いと正面衝突するため(2026-08-18 差し戻し)。
+     *
+     * <p>2026-08-18 ユーザー指示で片側の上乗せから<b>増減両方</b>へ変えた。{@code pivot-level} で等倍、
+     * それより低いダンジョンは規定値より少なく、高いダンジョンは多くなる。同じ「選ぶ動機」を
+     * より低い頭打ち倍率で作れる。刻みが {@code step} レベル単位なのは、EMの難易度が
+     * モブレベルを ∓5 動かすので「難易度1段=報酬1段」で対応させるため。
      */
     public DungeonLevelReward dungeonLevelReward() {
         TypedConfig config = domain.get();
         return new DungeonLevelReward(
                 config.getBoolean(DUNGEON_LEVEL_REWARD_ENABLED),
-                config.getInt(DUNGEON_LEVEL_REWARD_BASE_LEVEL),
-                config.getDouble(DUNGEON_LEVEL_REWARD_DROP_PER_LEVEL),
+                config.getInt(DUNGEON_LEVEL_REWARD_PIVOT_LEVEL),
+                config.getInt(DUNGEON_LEVEL_REWARD_STEP),
+                config.getDouble(DUNGEON_LEVEL_REWARD_DROP_PER_STEP),
                 config.getDouble(DUNGEON_LEVEL_REWARD_DROP_CAP),
-                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_PER_LEVEL),
-                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_CAP));
+                config.getDouble(DUNGEON_LEVEL_REWARD_DROP_PENALTY_CAP),
+                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_PER_STEP),
+                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_CAP),
+                config.getDouble(DUNGEON_LEVEL_REWARD_EXP_PENALTY_CAP));
     }
 
     public DurabilityPenaltySettings durabilityPenalty() {

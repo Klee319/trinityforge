@@ -116,38 +116,67 @@ test("2026-08-09 レベル差による足きり: damage.yml に移設され共�
     ["level-cutoff.over-level.threshold: 整数である必要があります"]);
 });
 
-test("2026-08-18 W-80 ダンジョンの挑戦レベルに応じた報酬の上乗せ: 出荷値が共通変数に出て編集できる", () => {
+test("2026-08-18 W-80 ダンジョンの挑戦レベルに応じた報酬の増減: 出荷値が共通変数に出て編集できる", () => {
   const root = path.resolve(__dirname, "..", "..", "..");
   const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
   const { fields } = extractConstants(damage, {});
 
-  // 出荷既定: 有効 / レベル10から効き始め / ドロップ+2%毎(上限+150%) / EXP+1%毎(上限+75%)
+  // 出荷既定: 有効 / レベル35で等倍 / 5レベル刻み / ドロップ±8%毎(+50%・-30%) / EXP±4%毎(+25%・-20%)
   assert.equal(fields["dungeon-level-reward.enabled"], true);
-  assert.equal(fields["dungeon-level-reward.base-level"], 10);
-  assert.equal(fields["dungeon-level-reward.drop-bonus-per-level"], 0.02);
-  assert.equal(fields["dungeon-level-reward.drop-bonus-cap"], 1.5);
-  assert.equal(fields["dungeon-level-reward.exp-bonus-per-level"], 0.01);
-  assert.equal(fields["dungeon-level-reward.exp-bonus-cap"], 0.75);
+  assert.equal(fields["dungeon-level-reward.pivot-level"], 35);
+  assert.equal(fields["dungeon-level-reward.step"], 5);
+  assert.equal(fields["dungeon-level-reward.drop-bonus-per-step"], 0.08);
+  assert.equal(fields["dungeon-level-reward.drop-bonus-cap"], 0.5);
+  assert.equal(fields["dungeon-level-reward.drop-penalty-cap"], 0.3);
+  assert.equal(fields["dungeon-level-reward.exp-bonus-per-step"], 0.04);
+  assert.equal(fields["dungeon-level-reward.exp-bonus-cap"], 0.25);
+  assert.equal(fields["dungeon-level-reward.exp-penalty-cap"], 0.2);
 
   const payload = { fields: {
-    "dungeon-level-reward.base-level": 20,
-    "dungeon-level-reward.drop-bonus-cap": 2.5
+    "dungeon-level-reward.pivot-level": 40,
+    "dungeon-level-reward.drop-bonus-cap": 0.8
   } };
   assert.deepEqual(validateConstants(payload), []);
   const updated = buildUpdatedData(payload, damage, {});
-  assert.equal(updated.damage["dungeon-level-reward"]["base-level"], 20);
-  assert.equal(updated.damage["dungeon-level-reward"]["drop-bonus-cap"], 2.5);
+  assert.equal(updated.damage["dungeon-level-reward"]["pivot-level"], 40);
+  assert.equal(updated.damage["dungeon-level-reward"]["drop-bonus-cap"], 0.8);
   // 触っていない同節のキーは温存される。
   assert.equal(updated.damage["dungeon-level-reward"]["enabled"], true);
-  assert.equal(updated.damage["dungeon-level-reward"]["exp-bonus-cap"], 0.75);
+  assert.equal(updated.damage["dungeon-level-reward"]["exp-penalty-cap"], 0.2);
+  assert.equal(updated.damage["dungeon-level-reward"]["step"], 5);
 
-  // 上乗せ割合は [0,1]、上限は [0,10]。負の上乗せは設定ミスなので弾く。
-  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.drop-bonus-per-level": -0.1 } }),
-    ["dungeon-level-reward.drop-bonus-per-level: 0以上の値が必要です"]);
+  // 増減割合は [0,1]、増加の上限は [0,10]、減少の上限は [0,0.9](1.0以上は報酬が0や負になる)。
+  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.drop-bonus-per-step": -0.1 } }),
+    ["dungeon-level-reward.drop-bonus-per-step: 0以上の値が必要です"]);
   assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.drop-bonus-cap": 11 } }),
     ["dungeon-level-reward.drop-bonus-cap: 10以下である必要があります"]);
-  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.base-level": 1.5 } }),
-    ["dungeon-level-reward.base-level: 整数である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.exp-penalty-cap": 1 } }),
+    ["dungeon-level-reward.exp-penalty-cap: 0.9以下である必要があります"]);
+  assert.deepEqual(validateConstants({ fields: { "dungeon-level-reward.pivot-level": 1.5 } }),
+    ["dungeon-level-reward.pivot-level: 整数である必要があります"]);
+});
+
+test("2026-08-18 経験値だけの足きり閾値: アイテムより手前から絞れる", () => {
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const damage = YAML.parse(fs.readFileSync(path.join(root, "TrinityForge/src/main/resources/combat/damage.yml"), "utf8"));
+  const { fields } = extractConstants(damage, {});
+
+  // 出荷値: TF追加ドロップは20差で完全遮断、経験値は15差から絞り始めて30差で0。
+  assert.equal(fields["level-cutoff.under-level.item-threshold"], 20);
+  assert.equal(fields["level-cutoff.under-level.exp-threshold"], 15);
+  assert.equal(fields["level-cutoff.under-level.exp-decay-per-level"], 0.067);
+
+  const payload = { fields: { "level-cutoff.under-level.exp-threshold": 10 } };
+  assert.deepEqual(validateConstants(payload), []);
+  const updated = buildUpdatedData(payload, damage, {});
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["exp-threshold"], 10);
+  // 同節のアイテム側は巻き込まれない。
+  assert.equal(updated.damage["level-cutoff"]["under-level"]["item-threshold"], 20);
+
+  // -1 は「未設定=item-threshold を使う」を表す特別値なので min:-1 で通す必要がある。
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.exp-threshold": -1 } }), []);
+  assert.deepEqual(validateConstants({ fields: { "level-cutoff.under-level.exp-threshold": -2 } }),
+    ["level-cutoff.under-level.exp-threshold: -1以上の値が必要です"]);
 });
 
 test("defense.max-dodge-chance is retained and persisted", () => {

@@ -127,18 +127,26 @@ const FIELD_SPECS = Object.freeze([
   { id: "level-cutoff.under-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "level-cutoff.under-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "level-cutoff.under-level.rate-floor", file: "damage", path: ["level-cutoff", "under-level", "rate-floor"], kind: "number", min: 0, max: 1, def: 0 },
-  // 2026-08-18 W-80: ダンジョンの挑戦レベルに応じた報酬の上乗せ。EMダイナミックダンジョンで選んだ
+  // 2026-08-18: 経験値だけアイテムより手前から絞り始めるための追加キー。-1(既定)なら item-threshold を
+  // 使う=従来どおり1本の閾値で両方が発動する。出荷値は経験値15/アイテム20。
+  { id: "level-cutoff.under-level.exp-threshold", file: "damage", path: ["level-cutoff", "under-level", "exp-threshold"], kind: "int", min: -1, max: 10000, def: -1 },
+  // 2026-08-18 W-80: ダンジョンの挑戦レベルに応じた報酬の増減。EMダイナミックダンジョンで選んだ
   // 挑戦レベルは敵の強さにしか効いておらず報酬には無関係だったので、一番低いレベルを選んで回すのが
-  // 常に最適だった。判定は【倒したモブのレベル】= 選んだレベルそのもので、プレイヤーとのレベル差では
+  // 常に最適だった。判定は【倒したモブのレベル】= 選んだレベル±難易度補正で、プレイヤーとのレベル差では
   // ない。適用先もダンジョンワールドで倒したモブだけ(レベル差で書くとオーバーワールドの高レベルモブ
   // にも効いて上の under-level と正面衝突する)。
+  // pivot-level で等倍、それより低いダンジョンは規定値より少なく、高いダンジョンは多くなる。
+  // step 刻みの階段にするのは、EMの難易度がモブレベルを ∓5 動かすので難易度1段=報酬1段にするため。
   // def は【出荷 yml の値ではなく Java の SchemaField 既定値】に合わせる(enabled は false 側)。
   { id: "dungeon-level-reward.enabled", file: "damage", path: ["dungeon-level-reward", "enabled"], kind: "boolean", def: false },
-  { id: "dungeon-level-reward.base-level", file: "damage", path: ["dungeon-level-reward", "base-level"], kind: "int", min: 0, max: 10000, def: 0 },
-  { id: "dungeon-level-reward.drop-bonus-per-level", file: "damage", path: ["dungeon-level-reward", "drop-bonus-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "dungeon-level-reward.pivot-level", file: "damage", path: ["dungeon-level-reward", "pivot-level"], kind: "int", min: 0, max: 10000, def: 0 },
+  { id: "dungeon-level-reward.step", file: "damage", path: ["dungeon-level-reward", "step"], kind: "int", min: 0, max: 1000, def: 0 },
+  { id: "dungeon-level-reward.drop-bonus-per-step", file: "damage", path: ["dungeon-level-reward", "drop-bonus-per-step"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "dungeon-level-reward.drop-bonus-cap", file: "damage", path: ["dungeon-level-reward", "drop-bonus-cap"], kind: "number", min: 0, max: 10, def: 0 },
-  { id: "dungeon-level-reward.exp-bonus-per-level", file: "damage", path: ["dungeon-level-reward", "exp-bonus-per-level"], kind: "number", min: 0, max: 1, def: 0 },
+  { id: "dungeon-level-reward.drop-penalty-cap", file: "damage", path: ["dungeon-level-reward", "drop-penalty-cap"], kind: "number", min: 0, max: 0.9, def: 0 },
+  { id: "dungeon-level-reward.exp-bonus-per-step", file: "damage", path: ["dungeon-level-reward", "exp-bonus-per-step"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "dungeon-level-reward.exp-bonus-cap", file: "damage", path: ["dungeon-level-reward", "exp-bonus-cap"], kind: "number", min: 0, max: 10, def: 0 },
+  { id: "dungeon-level-reward.exp-penalty-cap", file: "damage", path: ["dungeon-level-reward", "exp-penalty-cap"], kind: "number", min: 0, max: 0.9, def: 0 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。

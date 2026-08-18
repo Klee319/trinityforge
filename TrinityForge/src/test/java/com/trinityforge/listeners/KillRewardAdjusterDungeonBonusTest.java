@@ -52,9 +52,9 @@ class KillRewardAdjusterDungeonBonusTest {
         MockBukkit.unmock();
     }
 
-    /** 出荷値と同じ形: base 10 / drop +2%毎(上限+150%) / exp +1%毎(上限+75%)。 */
+    /** 出荷値と同じ形: pivot 35 / 5レベル刻み / drop ±8%毎(上限+50%・下限-30%) / exp ±4%毎(+25%・-20%)。 */
     private static final DungeonLevelReward SHIPPED_SHAPE =
-            new DungeonLevelReward(true, 10, 0.02, 1.5, 0.01, 0.75);
+            new DungeonLevelReward(true, 35, 5, 0.08, 0.5, 0.3, 0.04, 0.25, 0.2);
 
     private KillRewardAdjuster adjuster(int playerLevel, MobLevelCutoff cutoff, DungeonLevelReward reward) {
         SymmetricCombatService combatService = mock(SymmetricCombatService.class);
@@ -82,18 +82,40 @@ class KillRewardAdjusterDungeonBonusTest {
     void dungeonKillScalesBothDropChanceAndExpWithTheMobLevel() {
         KillRewardAdjuster adjuster = adjuster(50, MobLevelCutoff.NONE, SHIPPED_SHAPE);
         Player killer = server.addPlayer();
-        // レベル50 = base 10 を 40 超過 -> drop +80%, exp +40%
+        // レベル50 = pivot 35 から3段上 -> drop +24%, exp +12%
         Zombie zombie = mob(dungeon, 50);
-        assertEquals(1.8, adjuster.chanceMultiplier(killer, zombie), 1e-9);
-        assertEquals(1.4, adjuster.expMultiplier(killer, zombie), 1e-9);
+        assertEquals(1.24, adjuster.chanceMultiplier(killer, zombie), 1e-9);
+        assertEquals(1.12, adjuster.expMultiplier(killer, zombie), 1e-9);
+    }
+
+    @Test
+    void dungeonKillBelowThePivotPaysLessThanTheBaseline() {
+        // 2026-08-18 ユーザー指示「低いレベルでは規定値より少なくし」。ここが 1.0 に戻ると
+        // 頭打ちの倍率を下げた意味が消える(低い側で減らないなら高い側で大きく増やすしかなくなる)。
+        KillRewardAdjuster adjuster = adjuster(50, MobLevelCutoff.NONE, SHIPPED_SHAPE);
+        Player killer = server.addPlayer();
+        Zombie zombie = mob(dungeon, 20);
+        assertEquals(0.76, adjuster.chanceMultiplier(killer, zombie), 1e-9);
+        assertEquals(0.88, adjuster.expMultiplier(killer, zombie), 1e-9);
     }
 
     @Test
     void overworldKillGetsNoBonusEvenAtAHugeMobLevel() {
-        // 差し戻された実装はここが 1.8 / 1.4 になっていた。ダンジョン限定であることの直接の証拠。
+        // 差し戻された実装はここが増えていた。ダンジョン限定であることの直接の証拠。
         KillRewardAdjuster adjuster = adjuster(50, MobLevelCutoff.NONE, SHIPPED_SHAPE);
         Player killer = server.addPlayer();
         Zombie zombie = mob(overworld, 50);
+        assertEquals(1.0, adjuster.chanceMultiplier(killer, zombie), 1e-9);
+        assertEquals(1.0, adjuster.expMultiplier(killer, zombie), 1e-9);
+    }
+
+    @Test
+    void overworldKillIsNotPenalisedEitherAtALowMobLevel() {
+        // 減少側もダンジョン限定であること。ここが 0.76 になると、オーバーワールドの低レベルモブの
+        // 報酬まで一律で削れてしまい、ダンジョンと無関係な帯を壊す。
+        KillRewardAdjuster adjuster = adjuster(50, MobLevelCutoff.NONE, SHIPPED_SHAPE);
+        Player killer = server.addPlayer();
+        Zombie zombie = mob(overworld, 20);
         assertEquals(1.0, adjuster.chanceMultiplier(killer, zombie), 1e-9);
         assertEquals(1.0, adjuster.expMultiplier(killer, zombie), 1e-9);
     }

@@ -91,16 +91,37 @@ package com.trinityforge.mobs;
  * @param underLevelExpDecayPerLevel  under-level超過1レベルごとに {@code underLevelExpRate} から引く量。
  * @param underLevelDropDecayPerLevel under-level超過1レベルごとに {@code underLevelDropRate} から引く量。
  * @param underLevelRateFloor         under-level側の減衰の下限 [0,1]。{@code null} なら {@code 0.0} 扱い。
+ * @param underLevelExpThreshold      <b>経験値だけ</b>の under-level 発動閾値(2026-08-18 追加)。
+ *                                    {@code null} または負値なら {@link #underLevelItemThreshold} を使う
+ *                                    (＝1本の閾値でアイテムと経験値の両方が発動する従来挙動)。
+ *                                    アイテムより手前から経験値を絞り始めたいときだけ設定する。
  */
 public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate, Double overLevelDropRate,
                               Integer underLevelItemThreshold, Double overLevelExpDecayPerLevel,
                               Double overLevelDropDecayPerLevel, Double overLevelRateFloor,
                               Double underLevelExpRate, Double underLevelDropRate,
                               Double underLevelExpDecayPerLevel, Double underLevelDropDecayPerLevel,
-                              Double underLevelRateFloor) {
+                              Double underLevelRateFloor, Integer underLevelExpThreshold) {
 
     /** 全フィールド未設定 = 常に無効。 */
     public static final MobLevelCutoff NONE = new MobLevelCutoff(null, null, null, null);
+
+    /**
+     * 2026-08-18 に {@code exp-threshold} を足す前からの12引数コンストラクタ(既存呼び出し元・既存テストとの
+     * 後方互換)。経験値側の閾値を {@code null} で初期化するので、経験値もアイテムと同じ
+     * {@code underLevelItemThreshold} で発動する ── これが分離する前の挙動そのもの。
+     */
+    public MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate, Double overLevelDropRate,
+                           Integer underLevelItemThreshold, Double overLevelExpDecayPerLevel,
+                           Double overLevelDropDecayPerLevel, Double overLevelRateFloor,
+                           Double underLevelExpRate, Double underLevelDropRate,
+                           Double underLevelExpDecayPerLevel, Double underLevelDropDecayPerLevel,
+                           Double underLevelRateFloor) {
+        this(overLevelThreshold, overLevelExpRate, overLevelDropRate, underLevelItemThreshold,
+                overLevelExpDecayPerLevel, overLevelDropDecayPerLevel, overLevelRateFloor,
+                underLevelExpRate, underLevelDropRate, underLevelExpDecayPerLevel,
+                underLevelDropDecayPerLevel, underLevelRateFloor, null);
+    }
 
     /**
      * 2026-08-18(W-60)以前からの4引数コンストラクタ(既存呼び出し元との後方互換)。
@@ -134,7 +155,7 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
      */
     public boolean isNone() {
         return overLevelThreshold == null && overLevelExpRate == null && overLevelDropRate == null
-                && underLevelItemThreshold == null;
+                && underLevelItemThreshold == null && underLevelExpThreshold == null;
     }
 
     /** over-levelが発動中か({@code diff = playerLevel - mobLevel} が閾値以上)。 */
@@ -147,6 +168,27 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
     public boolean isUnderLevelActive(int playerLevel, int mobLevel) {
         return underLevelItemThreshold != null && underLevelItemThreshold >= 0
                 && (mobLevel - playerLevel) >= underLevelItemThreshold;
+    }
+
+    /**
+     * 経験値側の under-level が発動中か(2026-08-18 追加)。閾値は {@link #underLevelExpThreshold} が
+     * 設定されていればそれ、無ければ {@link #underLevelItemThreshold}。
+     *
+     * <p>アイテムより手前から経験値を絞り始めるための分離。出荷値はアイテムが20差で完全遮断、
+     * 経験値は15差から絞り始めて30差で0 ── 「経験値は15〜30レベル差の区間をかけて0になるように」
+     * という2026-08-18のユーザー指示。
+     */
+    public boolean isUnderLevelExpActive(int playerLevel, int mobLevel) {
+        int threshold = effectiveUnderLevelExpThreshold();
+        return threshold >= 0 && (mobLevel - playerLevel) >= threshold;
+    }
+
+    /** 経験値側の under-level 閾値。未設定なら item 側へフォールバックし、それも未設定なら {@code -1}(無効)。 */
+    private int effectiveUnderLevelExpThreshold() {
+        if (underLevelExpThreshold != null && underLevelExpThreshold >= 0) {
+            return underLevelExpThreshold;
+        }
+        return underLevelItemThreshold == null ? -1 : underLevelItemThreshold;
     }
 
     /**
@@ -194,7 +236,7 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
      */
     public double expMultiplier(int playerLevel, int mobLevel) {
         boolean overActive = isOverLevelActive(playerLevel, mobLevel);
-        boolean underActive = isUnderLevelActive(playerLevel, mobLevel);
+        boolean underActive = isUnderLevelExpActive(playerLevel, mobLevel);
         if ((overActive && isMinusOne(overLevelExpRate)) || (underActive && isMinusOne(underLevelExpRate))) {
             return 0.0;
         }
@@ -205,7 +247,7 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
         }
         if (underActive && underLevelExpRate != null) {
             rate = Math.min(rate, decayedRate(underLevelExpRate, underLevelExpDecayPerLevel,
-                    excessUnderLevels(playerLevel, mobLevel), underLevelRateFloor));
+                    excessUnderExpLevels(playerLevel, mobLevel), underLevelRateFloor));
         }
         return rate;
     }
@@ -227,6 +269,16 @@ public record MobLevelCutoff(Integer overLevelThreshold, Double overLevelExpRate
     private int excessUnderLevels(int playerLevel, int mobLevel) {
         int diff = mobLevel - playerLevel;
         return Math.max(0, diff - underLevelItemThreshold);
+    }
+
+    /**
+     * 経験値側の under-level 閾値をどれだけ超過しているか。閾値が {@link #underLevelItemThreshold} と
+     * 分かれている場合に、経験値の減衰がアイテムとは別の起点から始まるようにするためのもの。
+     * {@link #isUnderLevelExpActive} が真の場合にのみ呼ばれる前提。
+     */
+    private int excessUnderExpLevels(int playerLevel, int mobLevel) {
+        int diff = mobLevel - playerLevel;
+        return Math.max(0, diff - effectiveUnderLevelExpThreshold());
     }
 
     /**

@@ -1372,15 +1372,25 @@ id は `gacha_ticket_1`〜`gacha_ticket_5`（**`tf_` 接頭辞なし**、`BaseCu
   2026-08-18 に `DynamicDungeonLevelListener`（`EliteMobSpawnEvent`, `LOWEST`）で塞いだ。
   **`LOWEST` でなければならない**: TF の PDC 刻印（`TrinityForgeSpawnListener`, `HIGH`）が
   `getLevel()` を読んで `MOB_LEVEL` を書くので、後から直しても HP・攻撃力・撃破EXP・報酬が全部ずれる。
-- **難易度 normal/hard/mythic は TF プレイヤーには実質無効。** `levelSync` は EliteMobs の
-  **装備tier上限**（`PlayerItem` が itemTier をこの値へクランプする）であって敵の強さではない。
+- **素の EM では難易度 normal/hard/mythic は TF プレイヤーには完全な no-op だった。** `levelSync` は
+  EliteMobs の**装備tier上限**（`PlayerItem` が itemTier をこの値へクランプする）であって敵の強さではない。
   TF 装備は EM のアイテムではないのでクランプの対象にならない。「難易度を変えても何も変わらない」の答えはこれ。
-- **選んだレベルに応じた報酬の上乗せは TF 側**（`combat/damage.yml` の `dungeon-level-reward`、
+- **2026-08-18 に難易度をモブレベルへ反映させた（フォーク側）。** `DungeonInstance#getDifficultyMobLevelOffset`
+  が相対 `levelSync`（`+5 / +0 / -5`）の**符号を反転**した値を返し、`DynamicDungeonInstance#getMobLevel()`
+  ＝ `max(1, 選択レベル + 補正)` がモブの実効レベルになる（normal は −5、mythic は +5）。
+  使う側は `InstancedBossEntity` のコンストラクタ・`SetBossLevelsTask`・`DynamicDungeonLevelListener` の3つ。
+  **絶対値指定（`levelSync: 70` など）は補正 0** ── 固定レベルのダンジョンで使われており難易度差ではないため。
+  **`getSelectedLevel()` はそのまま「選んだ値」**なので、クエスト・宝箱・ブラウザ表示は従来どおり。
+  モブの強さを見たい箇所で `getSelectedLevel()` を使うと難易度が消える。
+- **選んだレベルに応じた報酬の増減は TF 側**（`combat/damage.yml` の `dungeon-level-reward`、
   `KillRewardAdjuster`）。判定は**倒したモブのレベル**だけで、プレイヤーとのレベル差は見ない。
   適用先は `DungeonWorldRegistry#isDungeonWorld` でダンジョンインスタンス内のキルに限定する。
   **レベル差で書いてはいけない** ── オーバーワールドの高レベルモブにも効いて
   `level-cutoff.under-level`（低レベルのまま高レベルモブを狩る行為の抑制）と正面衝突する
   （2026-08-18 に一度その実装をしてユーザーに差し戻された）。
+  曲線は `pivot-level` で等倍・それ未満は 1.0 未満・超えたら 1.0 超で、**`step`（既定5）レベル刻みの階段**。
+  刻みが 5 なのは上の難易度補正 ∓5 と噛み合わせて**難易度1段＝報酬1段**にするため。
+  **増減の片側だけを潰す運用も書ける**（`*-bonus-cap: 0` で増加だけ無効、`*-penalty-cap: 0` で減少だけ無効）。
 
 ## 関連
 
