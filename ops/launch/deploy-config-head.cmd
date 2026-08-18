@@ -22,8 +22,18 @@ REM
 REM    It also prints which yml differ from HEAD, so "what did NOT get deployed" is visible.
 REM
 REM  Usage:
-REM    deploy-config-head.cmd                copy the committed yml
-REM    deploy-config-head.cmd --dry-run      print the plan. Copies nothing.
+REM    deploy-config-head.cmd                     copy the committed yml
+REM    deploy-config-head.cmd --dry-run           print the plan. Copies nothing.
+REM    deploy-config-head.cmd --only <rel\path>   copy ONE TrinityForge yml (skips ArsPaper).
+REM
+REM  Why --only exists (2026-08-18)
+REM    "The committed state" is the right unit only when everything committed is meant to ship.
+REM    In practice HEAD also carries OTHER sessions' finished-but-not-yet-deployed work, and a
+REM    full copy ships all of it at once. Real case: deploying one level-cutoff key would have
+REM    dragged along stats\item-stats.yml (a whole weapon rebalance), stats\skill-exp.yml and
+REM    skills\base\farming_progression.yml, none of which the operator had asked for yet.
+REM    --only narrows the copy to a single file so an unrelated change cannot ride along.
+REM    The path is relative to the TrinityForge config root, e.g.  --only combat\damage.yml
 REM
 REM  This deploys CONFIG ONLY. Jars are deploy.cmd's job (run it WITHOUT --config).
 REM
@@ -54,12 +64,31 @@ REM  path by which an ArsPaper yml change reaches a server.
 REM
 REM  ASCII ONLY -- cmd.exe mis-parses UTF-8 batch files and starts executing the middle of a line.
 REM =============================================================================================
-call "%~dp0launch-config.cmd" || exit /b 1
+REM  Capture the script directory BEFORE any shift: shift moves %0 too, so %~dp0 stops being
+REM  this script's folder as soon as an option is consumed.
+set "SELF=%~dp0"
+call "%SELF%launch-config.cmd" || exit /b 1
 
 set "DRYRUN="
-if /i "%~1"=="--dry-run" set "DRYRUN=1"
+set "ONLY_REL="
+:parse_args
+if "%~1"=="" goto parsed_args
+if /i "%~1"=="--dry-run" (set "DRYRUN=1" & shift /1 & goto parse_args)
 if /i "%~1"=="--help" goto usage
 if /i "%~1"=="-h" goto usage
+if /i "%~1"=="--only" (
+    if "%~2"=="" (
+        echo   [ERROR] --only needs a path relative to the TrinityForge config root, e.g. combat\damage.yml
+        exit /b 1
+    )
+    set "ONLY_REL=%~2"
+    shift /1
+    shift /1
+    goto parse_args
+)
+echo   [ERROR] unknown option: %~1
+goto usage
+:parsed_args
 
 set "STAGE=%TF_REPO%\tmp\deploy-head"
 set "TFRES=%STAGE%\tf\TrinityForge\src\main\resources"
@@ -72,6 +101,7 @@ echo ============================================================
 echo   repo        : %TF_REPO%
 echo   config host : %TF_CONFIG_HOST%
 echo   backends    : %TF_BACKENDS%
+if defined ONLY_REL echo   scope       : ONLY %ONLY_REL% (TrinityForge; ArsPaper skipped)
 echo.
 
 REM ---- 1/3  are the backends stopped -----------------------------------------------------------
@@ -122,6 +152,7 @@ if not exist "%TFDST%\" (
     echo   [SKIP ] TrinityForge: %TFDST% does not exist
     goto ars
 )
+if defined ONLY_REL goto copy_one
 if defined DRYRUN (
     echo   [DRY  ] TrinityForge: would copy *.yml recursively, once
     echo              from %TFRES%
@@ -135,9 +166,45 @@ if errorlevel 8 (
     exit /b 1
 )
 echo   [ OK  ] TrinityForge: copied to %TF_CONFIG_HOST% -- the junction carries it to the rest
+goto ars
+
+REM  --only <rel\path>: copy exactly one file. Sources come from the same HEAD export, so the
+REM  "committed state only" guarantee is unchanged -- this just narrows what ships.
+:copy_one
+set "SRCFILE=%TFRES%\%ONLY_REL%"
+set "DSTFILE=%TFDST%\%ONLY_REL%"
+if not exist "%SRCFILE%" (
+    echo   [ERROR] not present in HEAD: %ONLY_REL%
+    echo              looked for %SRCFILE%
+    exit /b 1
+)
+REM  A trailing backslash would escape the closing quote, so pass the directories as "<dir>\.".
+for %%F in ("%SRCFILE%") do set "ONE_SRCDIR=%%~dpF"
+for %%F in ("%SRCFILE%") do set "ONE_NAME=%%~nxF"
+for %%F in ("%DSTFILE%") do set "ONE_DSTDIR=%%~dpF"
+if defined DRYRUN (
+    echo   [DRY  ] TrinityForge: would copy ONE file
+    echo              from %SRCFILE%
+    echo              to   %DSTFILE%
+    goto ars
+)
+if not exist "%ONE_DSTDIR%" (
+    echo   [ERROR] destination folder missing: %ONE_DSTDIR%
+    exit /b 1
+)
+robocopy "%ONE_SRCDIR%." "%ONE_DSTDIR%." "%ONE_NAME%" /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 (
+    echo   [ERROR] TrinityForge single-file copy failed. robocopy exit=%errorlevel%
+    exit /b 1
+)
+echo   [ OK  ] TrinityForge: copied %ONLY_REL% to %TF_CONFIG_HOST% -- the junction carries it to the rest
 
 :ars
 echo.
+if defined ONLY_REL (
+    echo   [SKIP ] ArsPaper: --only names a TrinityForge path
+    goto done
+)
 if not exist "%ARSRES%\" (
     echo   [SKIP ] ArsPaper: fork sources are gitignored and absent here
     goto done
@@ -177,9 +244,14 @@ exit /b 0
 
 REM ---------------------------------------------------------------------------------------------
 :usage
-echo Usage: deploy-config-head.cmd [--dry-run]
+echo Usage: deploy-config-head.cmd [--dry-run] [--only ^<rel\path^>]
 echo.
 echo   Copies the COMMITTED (HEAD) yml onto the deployed config, for TrinityForge and ArsPaper.
 echo   Config only -- run deploy.cmd (without --config) for the jars.
 echo   Aborts while any backend is running.
+echo.
+echo   --only ^<rel\path^>  copy ONE TrinityForge yml instead of the whole tree, e.g.
+echo                        deploy-config-head.cmd --only combat\damage.yml
+echo                      Use it when HEAD also carries other sessions' finished-but-not-yet
+echo                      -wanted work that must not ride along. ArsPaper is skipped.
 exit /b 0
