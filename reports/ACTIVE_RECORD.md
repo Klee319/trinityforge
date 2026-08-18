@@ -821,8 +821,9 @@ TF/Ars のどのレシピも鍛冶型を材料に使っていない（＝同形�
 | # | 報告 | 状態 |
 |---|---|---|
 | W-110 | **`network.yml` を書き換えたのに config デプロイでロールバックした** | **原因確定 → 配備前の検出＋退避を実装（ユーザー選択）** |
-| W-111 | ヴォルカニックソースリンクが「もうゲート撤廃しているはずなのに作れない」（W-101 の再報告・伝聞） | **再調査済み（下記）。00:36 再起動以降の再テスト待ち** |
-| W-112 | 「まだポーションが作れない」（W-108 の再報告） | **再調査済み（下記）。00:36 再起動以降の再テスト＋具体症状待ち** |
+| W-111 | ヴォルカニックソースリンクが「もうゲート撤廃しているはずなのに作れない」（W-101 の再報告・伝聞） | ~~未解決~~ **解決（原因＝稼働中 JVM が旧 config 保持。再起動で解消をユーザー確認）** |
+| W-112 | 「まだポーションが作れない」（W-108 の再報告） | **切り分け済み（下記 a〜d）。素材非消費は仕様、AWKWARD 単体の再現条件のみ未解明** |
+| W-113 | **TF のポーションが統合版で必ず「水入り瓶」の見た目になる**（W-112 調査中に発見） | **未修正。`PotionMeta#setColor` を焼いていないのが原因** |
 
 **W-111/W-112 の再調査（2026-08-19 01:00 実測）— 報告はほぼ確実に「再起動前のテスト」。**
 
@@ -845,10 +846,51 @@ TF/Ars のどのレシピも鍛冶型を材料に使っていない（＝同形�
    純バニラ醸造を止める TF 側経路が無いことは W-108 で機構レベル確定済みのまま変わらず
    （燃料ゲート `isLockedBrew` は「登録済み gated mix の組み合わせ」しか見ない）。
 
-**次に要る情報（再起動後 = 00:36 以降のテストで）:**
-- 儀式: 失敗時に出るメッセージがどれか。「これらのアイテムに一致する儀式がありません」＝レシピ不一致
-  ／「この儀式を行う権限がありません」＝ゲート（これが出たら機構の見落とし）／「ソースが不足しています」＝ソース不足。
-- 醸造: ブレイズパウダーが入るか（燃料バーが点くか）・矢印が動くか・使った瓶と素材の組み合わせ。
+**W-111 は解決（再起動後にユーザー確認済み）。** 原因は上記 3 のとおり「稼働中の JVM が旧 config を保持していた」。
+
+**W-112 の続報（2026-08-19 01:20 受領）: 「奇妙なポーションを作ると、完成しても
+ネザーウォートが消費されず瓶も水入り瓶のまま。ただし EXP は入る。ブレイズパウダーは消費される」**
+
+症状ごとに分けて確定させた。
+
+**(a) ネザーウォートが消費されない ＝ `ingredient-save-chance`（材料節約率）が正常動作している。**
+`BrewIngredientSaveListener`(HIGHEST) が、当たりを引くと素材スタックを **+1** しておき、
+直後にバニラが行う `shrink(1)` と相殺させる方式（`EntityShootBowEvent#getConsumable` の
+`ammo-save-chance` と同一手法）。**バグではない**が、プレイヤーからは「消費されない＝醸造が失敗した」
+としか見えない。alchemy ツリー D の「素材を消費しない確率UP」を取っていると発現する。
+
+**(b) EXP が入る ＝ BrewEvent はキャンセルされていない（確定）。**
+TF の `BrewEvent` 購読は 5 本（`BrewUnlockListener` NORMAL / `CatalogVanillaOperationGuardListener` HIGH /
+`PotionQualityListener` HIGH / `BrewIngredientSaveListener` HIGHEST / `NativeSkillExperienceListener` MONITOR）で、
+**全て `ignoreCancelled = true`**。EXP を配るのは MONITOR の 1 本だけなので、
+**EXP が入った時点でキャンセル経路は全て否定される**。
+
+**(c) 純バニラの 水入り瓶 + ネザーウォート に TF は一切触れないことを機構レベルで再確認。**
+- `BrewUnlockListener`: `matchesIngredient` は `Material.matchMaterial` の厳密一致、
+  `custom:` は `CrossPluginItemResolver.idOf(...).filter(id::equals).isPresent()` で、
+  NETHER_WART は出荷 15 レシピのどの素材（SUGAR/RABBIT_FOOT/GLISTERING_MELON_SLICE/GOLDEN_CARROT/
+  GOLDEN_APPLE/`custom:*`）にも一致しない → `matched.isEmpty()` で即 return。
+- `CatalogVanillaOperationGuardListener`: `catalogIdOf` は **CustomModelData が無いと即 empty**。
+  素の水入り瓶もネザーウォートも CMD を持たないのでキャンセルしない。
+- `PotionQualityListener#applyQuality`: `meta.getAllEffects()` が空なら return。
+  **AWKWARD（奇妙なポーション）は効果を持たない**ので何もしない。
+- `BrewPotionMixRegistrar`: `inputChoice`/`ingredientChoice` は述語だが中身は上と同じ厳密判定。
+  出荷 15 件の base は全て THICK / MUNDANE で、WATER ベースを横取りするものは無い。
+- 配備 jar（0:26:44）に W-108 の修正が入っていることを `PotionQualityListener.class` の
+  文字列（`brew_upgrade` / `rewriteCustomEffectUpgrade` / `potionDisplayName`）で確認済み。
+
+**(d) 新たに見つけた実バグ（未修正・W-113 として起票）: TF のポーションは統合版で必ず「水入り瓶」に見える。**
+TF は段階の違う効果を一意にするため、`BrewRecipeSupport#customPotion` でも
+`PotionQualityListener#applyQuality` でも **ベースを `PotionType.WATER` へ倒して全部カスタム効果で表現**する。
+そして **`PotionMeta#setColor` を一度も呼んでいない**（`setColor` の呼び出しは
+`ItemFactory` の革防具 1 箇所のみ。全ソース走査で確認）。
+Java 版クライアントは**効果からポーション色を導出する**ので見た目は正しくなるが、
+**Geyser はポーションを base の種類で対応付ける**ため、統合版では base=WATER のまま
+＝**水入り瓶の見た目**になる。W-82/W-83 の修正は `displayName` を焼く**名前側の手当て**なので、
+**見た目は直っていない**。実サーバの在席者は Floodgate 接続（`.` プレフィックス）が大半。
+
+ただし **(d) は「奇妙なポーション」単体の説明にはならない**（AWKWARD は TF が触らないため）。
+その一点だけは未解明なので、Java 版クライアントで同じ醸造を試した結果が要る。
 
 **W-110 の原因（W-106 のオーバーレイは「リポジトリ側」しか守らない）。**
 W-106 で config 配備の既定を「HEAD ＋ ワーキングツリーの yml を上に重ねる」に変えたが、
