@@ -35,6 +35,14 @@ REM    skills\base\farming_progression.yml, none of which the operator had asked
 REM    --only narrows the copy to a single file so an unrelated change cannot ride along.
 REM    The path is relative to the TrinityForge config root, e.g.  --only combat\damage.yml
 REM
+REM  Server-side edits (2026-08-19, W-110)
+REM    Deployment is one-way repo -> server, and the W-106 overlay protects the REPOSITORY working
+REM    tree only. The config editor has no screen for every yml (network.yml, for one), so editing
+REM    the deployed file by hand is sometimes the only option -- and that edit used to vanish here
+REM    silently, with no backup. Step 3/4 now compares the deployed yml against a manifest taken at
+REM    the end of the previous deploy, names what changed since, and backs it up into
+REM    tmp\deploy-config-backup before overwriting. It warns; it does not block.
+REM
 REM  This deploys CONFIG ONLY. Jars are deploy.cmd's job (run it WITHOUT --config).
 REM
 REM  ABORTS WHILE ANY BACKEND IS RUNNING. A plugin reads its yml at enable time, so copying under
@@ -112,11 +120,11 @@ if not defined HEADONLY echo   source      : HEAD, then the working tree yml lay
 if defined ONLY_REL echo   scope       : ONLY %ONLY_REL% (TrinityForge; ArsPaper skipped)
 echo.
 
-REM ---- 1/3  are the backends stopped -----------------------------------------------------------
+REM ---- 1/4  are the backends stopped -----------------------------------------------------------
 REM  Uses the same detector as deploy.cmd. Probing world\session.lock from cmd REPORTS A LIVE
 REM  SERVER AS STOPPED: cmd opens the append handle with enough sharing that Paper's lock does not
 REM  block it. check-servers-stopped.ps1 opens with FileShare.None and also looks at the RCON port.
-echo --- 1/3  are the backends stopped ---
+echo --- 1/4  are the backends stopped ---
 set "RUNNING="
 powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\check-servers-stopped.ps1"
 if errorlevel 1 set "RUNNING=1"
@@ -136,10 +144,10 @@ echo   [ OK  ] no backend looks alive.
 :after_check
 echo.
 
-REM ---- 2/3  export HEAD -------------------------------------------------------------------------
+REM ---- 2/4  export HEAD -------------------------------------------------------------------------
 REM  Runs even under --dry-run: the export writes only inside tmp\ and its report of
 REM  "uncommitted, therefore not deployed" is the main thing a dry run is for.
-echo --- 2/3  export HEAD into tmp\deploy-head ---
+echo --- 2/4  export HEAD into tmp\deploy-head ---
 if defined HEADONLY (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\export-head-config.ps1" -HeadOnly
 ) else (
@@ -155,11 +163,28 @@ if not exist "%TFRES%\" (
 )
 echo.
 
-REM ---- 3/3  copy ------------------------------------------------------------------------------
+REM ---- 3/4  did anyone edit the DEPLOYED yml -----------------------------------------------------
+REM  Deployment is one-way repo -> server. The W-106 overlay protects edits made in the REPOSITORY
+REM  working tree, not edits made to the deployed file itself -- and the config editor has no
+REM  screen for every yml, so "edit it on the server" is sometimes the only way. Those edits used
+REM  to be overwritten silently and with no backup (2026-08-19, network.yml, W-110).
+REM  guard-deployed-config.ps1 compares the deployed yml against a manifest taken at the end of the
+REM  previous deploy, names anything that changed since, and copies it into tmp\deploy-config-backup
+REM  before it is overwritten. It never blocks the deploy: nothing is lost once it is backed up.
+echo --- 3/4  check the deployed config for server-side edits ---
+set "GUARD_ARGS=-VelocityRoot "%VELOCITY_ROOT%" -ConfigHost "%TF_CONFIG_HOST%" -Backends "%TF_BACKENDS%""
+if defined DRYRUN (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS% -NoBackup
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Check %GUARD_ARGS%
+)
+echo.
+
+REM ---- 4/4  copy ------------------------------------------------------------------------------
 REM  TF yml goes to TF_CONFIG_HOST ONCE: plugins\TrinityForge is an NTFS junction to it on the
 REM  other backends (ops\scripts\setup-junction.cmd), so one write is seen by all three.
 REM  plugins\ArsPaper is a real directory everywhere -- three copies.
-echo --- 3/3  copy onto the deployed config ---
+echo --- 4/4  copy onto the deployed config ---
 if not exist "%TFDST%\" (
     echo   [SKIP ] TrinityForge: %TFDST% does not exist
     goto ars
@@ -225,11 +250,23 @@ for %%B in (%TF_BACKENDS%) do call :copy_ars "%%B"
 
 :done
 echo.
+REM  Record what the deployed config looks like NOW, so the next run can tell "someone edited the
+REM  server copy" apart from "the repository changed". Skipped under --dry-run, which copied
+REM  nothing and must not move the baseline.
+if not defined DRYRUN (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%OPS_SCRIPTS%\guard-deployed-config.ps1" -Mode Record %GUARD_ARGS%
+)
+echo.
 echo ============================================================
 if defined DRYRUN (
     echo  DRY RUN finished. Nothing was copied.
 ) else (
     echo  Config deployed from HEAD. Start the network:  launch\start-all.cmd
+)
+if not defined DRYRUN (
+    echo  Re-read step 3/4 above: any [DRIFT] line is an edit made on the SERVER that has just been
+    echo  overwritten. The old content is under tmp\deploy-config-backup -- to keep it, put it into
+    echo  TrinityForge\src\main\resources and deploy again.
 )
 echo ============================================================
 exit /b 0
