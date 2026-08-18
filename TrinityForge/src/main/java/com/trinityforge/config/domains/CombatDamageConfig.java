@@ -105,14 +105,6 @@ public final class CombatDamageConfig {
             "level-cutoff.under-level.drop-decay-per-level";
     private static final String LEVEL_CUTOFF_UNDER_RATE_FLOOR = "level-cutoff.under-level.rate-floor";
 
-    // 2026-08-18 (W-80) 「少し格上のモブを倒したときの報酬上乗せ」。EM のダイナミックダンジョンは
-    // 入場時に自分の戦闘レベル ±5 からレベルを選べるが、選んだレベルはボスの強さにしか効かず
-    // 報酬側に一切効いていなかったので、高いレベルを選ぶ理由が構造的に存在しなかった。
-    // 足きり(item-threshold)に届かない範囲のレベル差にだけ乗る ── 届いた差は足きりが優先される。
-    private static final String LEVEL_CUTOFF_UNDER_BONUS_PER_LEVEL =
-            "level-cutoff.under-level.bonus-per-level";
-    private static final String LEVEL_CUTOFF_UNDER_BONUS_CAP = "level-cutoff.under-level.bonus-cap";
-
     private static final String VANILLA_ARMOR_DEFENSE_RATE_PER_POINT = "vanilla-armor.defense-rate-per-point";
     private static final String VANILLA_ARMOR_DEFENSE_RATE_MAX = "vanilla-armor.defense-rate-max";
     private static final String VANILLA_ARMOR_STRENGTH_PER_POINT = "vanilla-armor.armor-strength-per-point";
@@ -261,12 +253,7 @@ public final class CombatDamageConfig {
                         0.0, 0.0, 1.0))
                 .field(SchemaField.number(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL, SchemaField.Type.DOUBLE,
                         0.0, 0.0, 1.0))
-                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0))
-                // W-80 の上乗せ。既定は 0.0 = 無効。既定を出荷 yml の値ではなく 0 にしてあるのは、
-                // キーを書いていない配備済み config の意味を変えないため(editor 側の def も 0 に揃える)。
-                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_BONUS_PER_LEVEL, SchemaField.Type.DOUBLE,
-                        0.0, 0.0, 1.0))
-                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_BONUS_CAP, SchemaField.Type.DOUBLE, 0.0, 0.0, 5.0));
+                .field(SchemaField.number(LEVEL_CUTOFF_UNDER_RATE_FLOOR, SchemaField.Type.DOUBLE, 0.0, 0.0, 1.0));
         // 2026-07-25 (CMB-31): attack-stat-keys.* / defense-stat-keys.* のconfig駆動スキーマ項目は
         // 削除した。AttackStatKeys/DefenseStatKeys の固定名を参照する理由は両クラスのjavadoc参照。
         this.domain = new ConfigDomain(PATH, schema);
@@ -540,9 +527,7 @@ public final class CombatDamageConfig {
                 config.getDouble(LEVEL_CUTOFF_UNDER_DROP_RATE),
                 config.getDouble(LEVEL_CUTOFF_UNDER_EXP_DECAY_PER_LEVEL),
                 config.getDouble(LEVEL_CUTOFF_UNDER_DROP_DECAY_PER_LEVEL),
-                config.getDouble(LEVEL_CUTOFF_UNDER_RATE_FLOOR),
-                config.getDouble(LEVEL_CUTOFF_UNDER_BONUS_PER_LEVEL),
-                config.getDouble(LEVEL_CUTOFF_UNDER_BONUS_CAP));
+                config.getDouble(LEVEL_CUTOFF_UNDER_RATE_FLOOR));
     }
 
     public DurabilityPenaltySettings durabilityPenalty() {

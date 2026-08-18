@@ -127,11 +127,6 @@ const FIELD_SPECS = Object.freeze([
   { id: "level-cutoff.under-level.exp-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "exp-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "level-cutoff.under-level.drop-decay-per-level", file: "damage", path: ["level-cutoff", "under-level", "drop-decay-per-level"], kind: "number", min: 0, max: 1, def: 0 },
   { id: "level-cutoff.under-level.rate-floor", file: "damage", path: ["level-cutoff", "under-level", "rate-floor"], kind: "number", min: 0, max: 1, def: 0 },
-  // 2026-08-18 (W-80) 少し格上のモブを倒したときの報酬上乗せ。def は出荷 yml(0.06/0.5)ではなく
-  // Java の SchemaField 既定値(0/0 = 無効)に合わせる ── ここを出荷値にすると、キー未記載の
-  // 配備済み config を editor で開いて保存しただけで上乗せが有効化されてしまう。
-  { id: "level-cutoff.under-level.bonus-per-level", file: "damage", path: ["level-cutoff", "under-level", "bonus-per-level"], kind: "number", min: 0, max: 1, def: 0 },
-  { id: "level-cutoff.under-level.bonus-cap", file: "damage", path: ["level-cutoff", "under-level", "bonus-cap"], kind: "number", min: 0, max: 5, def: 0 },
   // attack-stat-keys.* / defense-stat-keys.* は editor から撤去(2026-07-24)し、2026-07-26 に
   // Java 側(CombatDamageConfig schema / damage.yml)からも撤去済み(CMB-31)。キー名は
   // AttackStatKeys / DefenseStatKeys の定数が単一の真実で、config からは改名できない。
