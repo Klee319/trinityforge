@@ -1244,7 +1244,9 @@
       return card([h("span", { class: "entry-key-label", text: title })], [sBody]);
     }
     root.appendChild(furnaceSmeltSection(speedSection, "精錬速度 (furnace-smelt.speed)",
-      "skilltree/smithing.yml A-1/A-2/A-3 の feature:furnace-smelt-speed value(tier番号)で引く。"));
+      "skilltree/smithing.yml A-1/A-2/A-3 の feature:furnace-smelt-speed value(tier番号)で引く。"
+      + "%は「精錬速度が何%増えるか」で、所要時間は 基準 ÷ (1 + %/100)。100なら2倍速、170なら2.7倍速で、"
+      + "100を超える値も指定できます(かまどのバニラ基準は200tick=10.0秒/個)。"));
     root.appendChild(furnaceSmeltSection(bonusSection, "精錬ボーナス (furnace-smelt.bonus)",
       "skilltree/smithing.yml B-1/B-2/B-3 の feature:furnace-smelt-bonus value(tier番号)で引く。"));
 

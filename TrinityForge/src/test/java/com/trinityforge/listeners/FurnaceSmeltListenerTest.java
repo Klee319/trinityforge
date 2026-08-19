@@ -105,13 +105,14 @@ class FurnaceSmeltListenerTest {
     void manualInsertStampsInserterAsOwnerAndAppliesSpeedBonus() {
         listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
 
-        // 2026-07-28: valueMax は tier番号(3)を返し、gimmickConfig.smeltSpeedPercent(tier) が実際の30%へ解決する。
+        // 2026-07-28: valueMax は tier番号(3)を返し、gimmickConfig.smeltSpeedPercent(tier) が実際の%へ解決する。
+        // 2026-08-19 (W-150): %は「速度が何%増えるか」= 200 / (1 + 170/100) = 74 tick。出荷tier3の値で縛る。
         when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
-        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(30.0);
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(170.0);
         FurnaceStartSmeltEvent event = new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 
-        assertEquals(140, event.getTotalCookTime(), "owner's 30% speed bonus must reduce 200 -> 140 ticks");
+        assertEquals(74, event.getTotalCookTime(), "owner's +170% speed (2.7x) must turn 200 -> 74 ticks");
     }
 
     @Test
@@ -121,12 +122,12 @@ class FurnaceSmeltListenerTest {
         listener.onInventoryClick(insert);
 
         when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
-        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(30.0);
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(170.0);
         FurnaceStartSmeltEvent event =
                 new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 
-        assertEquals(140, event.getTotalCookTime(),
+        assertEquals(74, event.getTotalCookTime(),
                 "an empty destination has no currentItem; the non-empty cursor is the inserted stack");
     }
 
@@ -312,7 +313,31 @@ class FurnaceSmeltListenerTest {
         FurnaceStartSmeltEvent event = new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), null, 200);
         listener.onStartSmelt(event);
 
-        // 40% * 0.25 auto-multiplier = 10% effective reduction -> 200 * 0.9 = 180.
-        assertEquals(180, event.getTotalCookTime(), "hopper-fed (auto) mode must decay the bonus by autoModeMultiplier");
+        // 40% * 0.25 auto-multiplier = 実効 +10% 速度 -> 200 / 1.1 = 181.8 -> 182 tick。
+        assertEquals(182, event.getTotalCookTime(), "hopper-fed (auto) mode must decay the bonus by autoModeMultiplier");
+    }
+
+    /**
+     * W-150: 短縮の基準は【レシピのバニラ調理時間】であって「イベントが持ってきた現在値」ではない。
+     * 現在値を基準にすると、既に縮んだ値がもう一度縮んで連続精錬のたびに複利で速くなり、
+     * 最終的に 1 tick へ張り付く(報告の「1スタック3秒」を悪化させる経路)。
+     * レシピが取れる場合は必ずそちらを使うことを縛る。
+     */
+    @Test
+    void speedBonusIsAppliedToRecipeBaseNotToAlreadyReducedCookTime() {
+        listener.onInventoryClick(manualInsertEvent(owner, new ItemStack(Material.IRON_ORE), 0));
+        when(dedicatedEffects.valueMax(eq(owner), eq(EFFECT_SPEED))).thenReturn(OptionalDouble.of(3.0));
+        when(gimmickConfig.smeltSpeedPercent(3)).thenReturn(170.0);
+
+        org.bukkit.inventory.FurnaceRecipe recipe = new org.bukkit.inventory.FurnaceRecipe(
+                org.bukkit.NamespacedKey.minecraft("iron_ingot_from_smelting_iron_ore"),
+                new ItemStack(Material.IRON_INGOT), Material.IRON_ORE, 0.7f, 200);
+        // 第4引数には「前回の精錬で既に 74 まで縮んだ値」を渡す。
+        FurnaceStartSmeltEvent event =
+                new FurnaceStartSmeltEvent(block, new ItemStack(Material.IRON_ORE), recipe, 74);
+        listener.onStartSmelt(event);
+
+        assertEquals(74, event.getTotalCookTime(),
+                "レシピ基準200から74になるだけで、74がさらに縮んで27になってはならない");
     }
 }

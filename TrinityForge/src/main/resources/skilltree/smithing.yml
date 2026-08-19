@@ -155,13 +155,15 @@ nodes:
     parent: A
     icon: FURNACE
     cost: 1
-    effect-text: 精錬速度+10%
+    # 2026-08-19 (W-150): effect-text/effects/description が +10%/+10%/+25% と三者バラバラだった。
+    # 実数値は stats/smithing-gimmick.yml の furnace-smelt.speed.tiers が持つので、そこに合わせる。
+    effect-text: 精錬速度+25%
     effects:
-      - 精錬速度+10%
+      - 精錬速度+25%
     dedicated-effects:
       - id: feature:furnace-smelt-speed
         value: 1
-    description: 精錬速度+25%
+    description: 精錬速度+25%(1.25倍速。かまど1個あたり10.0秒→8.0秒)
   A-2:
     name: 精錬速度II
     level: 40
@@ -169,13 +171,13 @@ nodes:
     parent: A-1
     icon: FURNACE
     cost: 1
-    effect-text: 精錬速度+20%
+    effect-text: 精錬速度+75%
     effects:
-      - 精錬速度+20%
+      - 精錬速度+75%
     dedicated-effects:
       - id: feature:furnace-smelt-speed
         value: 2
-    description: 精錬速度+50%
+    description: 精錬速度+75%(1.75倍速。かまど1個あたり10.0秒→5.7秒)
   A-3:
     name: 精錬速度III
     level: 60
@@ -183,13 +185,13 @@ nodes:
     parent: A-2
     icon: BLAST_FURNACE
     cost: 1
-    effect-text: 精錬速度+30%
+    effect-text: 精錬速度+170%
     effects:
-      - 精錬速度+30%
+      - 精錬速度+170%
     dedicated-effects:
       - id: feature:furnace-smelt-speed
         value: 3
-    description: 精錬速度+100%
+    description: 精錬速度+170%(2.7倍速。かまど1個あたり10.0秒→3.7秒 / 1スタック約237秒)
   A-4:
     name: 精錬・制作魔法の解放
     level: 80

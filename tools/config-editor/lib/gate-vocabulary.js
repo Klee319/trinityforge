@@ -47,7 +47,7 @@ const FEATURES = Object.freeze([
   // 2026-07-28 (数値のギミックyml集約): 精錬速度/ボーナスと切削耐久累計2件をlevel(生%直書き) ->
   // scale(tier番号)化。実値は stats/smithing-gimmick.yml / stats/digging-gimmick.yml のtierテーブルへ
   // 移設した。Java側 FeatureEffectRegistry と同期必須。
-  { id: "furnace-smelt-speed", label: "精錬速度短縮tier", param: "scale" },
+  { id: "furnace-smelt-speed", label: "精錬速度tier", param: "scale" },
   { id: "furnace-smelt-bonus", label: "精錬ボーナスtier", param: "scale" },
   { id: "junk-food-restore-boost", label: "ゴミ食回復ボーナス%", param: "level" },
   { id: "digging-durability-vanilla-exp", label: "耐久累計→バニラEXP tier", param: "scale" },

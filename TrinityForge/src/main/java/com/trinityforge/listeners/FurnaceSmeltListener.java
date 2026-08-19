@@ -170,7 +170,29 @@ public final class FurnaceSmeltListener implements Listener {
                 rawPercent, automated, gimmickConfig.autoModeMultiplier());
         if (effectivePercent <= 0.0) return;
 
-        event.setTotalCookTime(FurnaceSmeltPolicy.reducedCookTime(event.getTotalCookTime(), effectivePercent));
+        event.setTotalCookTime(
+                FurnaceSmeltPolicy.cookTimeWithSpeedBonus(vanillaCookTime(event), effectivePercent));
+    }
+
+    /**
+     * 短縮の基準にする「バニラの調理時間」。<b>レシピ側から引く</b>のが本命で、
+     * {@link FurnaceStartSmeltEvent#getTotalCookTime()} は最後の砦。
+     *
+     * <p>理由(2026-08-19 W-150): 我々は同じかまどの {@code cookTimeTotal} を毎回書き換えている。
+     * イベントが渡してくる現在値を基準にすると、実装によっては<b>前回短縮した値を基準に
+     * さらに短縮する</b>=1個ごとに複利で縮んで最終的に1tickへ落ちる、という壊れ方をしうる。
+     * レシピの {@code cookingTime} は我々が触らない不変値なので、そこから引けば何個目でも同じ結果になる。
+     */
+    private static int vanillaCookTime(FurnaceStartSmeltEvent event) {
+        try {
+            org.bukkit.inventory.CookingRecipe<?> recipe = event.getRecipe();
+            if (recipe != null && recipe.getCookingTime() > 0) {
+                return recipe.getCookingTime();
+            }
+        } catch (RuntimeException | LinkageError ignored) {
+            // MockBukkit 等でレシピが取れない環境ではイベントの現在値へフォールバックする。
+        }
+        return event.getTotalCookTime();
     }
 
     /** 精錬ボーナス: 確率で追加の結果アイテムをかまどの結果スロットへ積む(入り切らない分だけ地面へ)。 */

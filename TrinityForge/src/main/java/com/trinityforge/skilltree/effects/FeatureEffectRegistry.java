@@ -79,7 +79,9 @@ public final class FeatureEffectRegistry {
         // 移し、ノードは tier(1/2/3)だけを持つ。SCALEのdefaultsMissingValue()により value省略時はtier1が
         // 自動補完されるが、既存配置は全てvalue明示済みなので後方互換上の影響はない(旧value 10/20/30を
         // そのまま tier 1/2/3 に読み替えた — smithing.yml 側も同時に更新済み)。
-        add(map, "furnace-smelt-speed", "精錬速度短縮tier", FeatureEffectParam.SCALE);
+        // 2026-08-19 (W-150): ラベルの「短縮」を外した。tier表の%は「時間の短縮率」ではなく
+        // 「速度の増加率」(時間 = 基準 ÷ (1 + %/100))なので、旧ラベルは意味が逆に読めた。
+        add(map, "furnace-smelt-speed", "精錬速度tier", FeatureEffectParam.SCALE);
         add(map, "furnace-smelt-bonus", "精錬ボーナスtier", FeatureEffectParam.SCALE);
         // 農業ツリーA-alpha-2: ゴミ食のみの満腹度回復ボーナス%。同じ1ノードが「非ゴミ食のfood_restore_bonus
         // を戻す(適用しない)」動作も兼ねる(FoodBonusListener#JUNK_FOOD_RESTORE_BOOST 参照)。
