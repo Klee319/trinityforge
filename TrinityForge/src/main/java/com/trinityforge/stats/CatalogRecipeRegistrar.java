@@ -81,8 +81,21 @@ public final class CatalogRecipeRegistrar {
     /** Live view of what is currently registered, for {@code CatalogWorkbenchListener}. */
     private final Map<NamespacedKey, RegisteredRecipe> registeredSpecs = new LinkedHashMap<>();
 
-    /** One registered catalog workbench recipe: owning catalog entry + the parsed spec. */
-    public record RegisteredRecipe(NamespacedKey key, ItemTemplate template, RecipeSpec spec) {
+    /**
+     * One registered TF workbench recipe: owning catalog entry + the parsed spec.
+     *
+     * <p><b>{@code added-recipes} は {@code template} が {@code null} で {@code fixedResult} を持つ</b>
+     * ({@code progression/crafting-features.yml} の追加レシピには結果になるカタログエントリが無く、
+     * 結果は素のバニラ {@link ItemStack} で固定のため)。結果スタックが要る呼び出し側は
+     * {@code template()} を直接使わず {@link CatalogRecipeRegistrar#resultOf(RegisteredRecipe)} を使うこと。
+     */
+    public record RegisteredRecipe(NamespacedKey key, ItemTemplate template, RecipeSpec spec,
+                                   ItemStack fixedResult) {
+
+        /** カタログ由来のレシピ(結果はエントリ自身から組み立てる)。 */
+        public RegisteredRecipe(NamespacedKey key, ItemTemplate template, RecipeSpec spec) {
+            this(key, template, spec, null);
+        }
     }
 
     /** Back-compat overload (existing tests / call sites): no {@code added-recipes} supplier. */
@@ -299,6 +312,14 @@ public final class CatalogRecipeRegistrar {
                 Recipe recipe = buildStandaloneRecipe(key, result, addedRecipe.spec());
                 Bukkit.addRecipe(recipe);
                 registeredKeys.add(key);
+                // ⚠️ registeredSpecs へ載せるのは必須 (2026-08-19, ユーザー報告
+                // 「スクラップをクラフトして鉱石に戻せない／見た目が同じでも違うアイテムですと出る」)。
+                // CatalogWorkbenchListener は「選択レシピが registeredSpecs に無い」ものを
+                // 他人のレシピとみなし、盤面にカタログ品(ここではスクラップ)が乗っていれば
+                // 結果を消して警告を出す。載せ忘れると custom: 素材を使う added-recipes は
+                // 例外なく「レシピ帳には出るのに永久にクラフト不可」になる。
+                registeredSpecs.put(key,
+                        new RegisteredRecipe(key, null, addedRecipe.spec(), result.clone()));
             } catch (PendingArsIngredientException ex) {
                 plugin.getLogger().log(Level.FINE,
                         "[progression/crafting-features.yml] deferring added-recipes entry #" + index
@@ -340,6 +361,21 @@ public final class CatalogRecipeRegistrar {
     /** All currently registered catalog workbench recipes (registration order). */
     public Collection<RegisteredRecipe> allRegistered() {
         return List.copyOf(registeredSpecs.values());
+    }
+
+    /**
+     * 登録済みレシピ1件の結果スタック。カタログ由来なら {@link #buildResult} で毎回組み立て直し、
+     * {@code added-recipes} 由来なら固定結果の複製を返す。
+     *
+     * <p>{@link RegisteredRecipe#template()} は added-recipes では {@code null} なので、
+     * 結果が要る側は必ずここを通すこと。
+     */
+    public ItemStack resultOf(RegisteredRecipe registered) {
+        ItemStack fixed = registered.fixedResult();
+        if (fixed != null) {
+            return fixed.clone();
+        }
+        return buildResult(registered.template(), registered.spec());
     }
 
     /**

@@ -89,6 +89,34 @@ PDC 付き実物と `ExactChoice` が `isSimilar` 不一致になる問題を避
 **新しい `custom:` 材料を yml に足すたびに新しい衝突が起こり得るので、個別対処ではなく
 経路（`shadowedVanillaResult`）で塞ぐのが正しい。**
 
+### ⚠️⚠️ `CatalogRecipeRegistrar` は台帳を **2 本** 持つ。片方だけに載せると **TF が自分のレシピを殺す**
+`Bukkit.addRecipe` するだけでは足りない。登録時に触る台帳は
+
+| 台帳 | 用途 |
+|---|---|
+| `registeredKeys` | `removeAll()`（reload 時の掃除）と `RecipeDiscoveryListener` のレシピ帳解禁 |
+| `registeredSpecs` | **`CatalogWorkbenchListener` が「これは TF のレシピか」を判定する唯一の根拠** |
+
+`registeredSpecs` に無いレシピは per-slot ガードから**他プラグイン／バニラのもの**に見える。
+そのとき盤面にカタログ品（`custom:` 素材）が乗っていれば、
+
+1. `foreignRecipeOwnsGridItems` は「レシピキーの namespace == 品の所有プラグイン」を要求するので、
+   **TF のレシピが Ars の品を食う組み合わせでは必ず false**（＝委譲せず保護を続ける）、
+2. 重ねられる品なので装備カタログ品の素通しにも当たらず、
+3. 救済の `rematch` が走査する `allRegistered()` も `registeredSpecs` 由来なので**そこにも居ない**、
+
+で `setResult(null)` ＋「見た目が同じでも別のアイテムです」が出る。
+**config は正しいまま、レシピ帳には出るのに永久にクラフト不可**という形で無言死するので、
+報告は必ず「設定が効いていない」に見える。
+
+実例（W-144, 2026-08-19）: `progression/crafting-features.yml` の `added-recipes`
+（スクラップ4個 → インゴットの7件）が `registeredSpecs` に載っておらず、
+**`custom:` 素材を使う added-recipes が1件残らず作れなかった**。
+
+`_decompress` 逆レシピは**意図的に** `registeredSpecs` へ載せていない（結果がエントリ自身でないため）。
+これは `ExactChoice` 登録で per-slot ガードに掛からないから成立している例外で、
+**`MaterialChoice` で登録するものを載せ忘れると必ず上記の死に方をする。**
+
 ## Paper プラグイン基盤の罠
 
 ### ⚠️ `paper-plugin.yml` は Bukkit形式の `softdepend:` を黙って捨てる

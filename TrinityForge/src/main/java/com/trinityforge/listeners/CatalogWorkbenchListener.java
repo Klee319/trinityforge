@@ -217,7 +217,7 @@ public final class CatalogWorkbenchListener implements Listener {
             }
             for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
                 if (matches(matrix, 3, candidate.spec())) {
-                    event.setResult(registrarResult(candidate.template(), candidate.spec()));
+                    event.setResult(registrar.resultOf(candidate));
                     return;
                 }
             }
@@ -234,7 +234,7 @@ public final class CatalogWorkbenchListener implements Listener {
         }
         for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
             if (matches(matrix, 3, candidate.spec())) {
-                event.setResult(registrarResult(candidate.template(), candidate.spec()));
+                event.setResult(registrar.resultOf(candidate));
                 return;
             }
         }
@@ -427,16 +427,11 @@ public final class CatalogWorkbenchListener implements Listener {
         int gridWidth = matrix.length == 4 ? 2 : 3;
         for (CatalogRecipeRegistrar.RegisteredRecipe candidate : registrar.allRegistered()) {
             if (matches(matrix, gridWidth, candidate.spec())) {
-                event.getInventory().setResult(
-                        registrarResult(candidate.template(), candidate.spec()));
+                event.getInventory().setResult(registrar.resultOf(candidate));
                 return true;
             }
         }
         return false;
-    }
-
-    private ItemStack registrarResult(ItemTemplate template, RecipeSpec spec) {
-        return registrar.buildResult(template, spec);
     }
 
     private Optional<CatalogRecipeRegistrar.RegisteredRecipe> registeredOf(Recipe recipe) {

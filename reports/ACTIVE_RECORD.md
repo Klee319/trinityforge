@@ -1767,6 +1767,51 @@ RED は両方向で確認済み: 付与を消すと2件落ち、上限を無効�
 
 ---
 
+### 実サーバ報告バッチ（2026-08-19 受領 第9陣。W-144）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-144 | スクラップをクラフトして鉱石に戻そうとすると「見た目が同じでも別のアイテムです」と出て戻せない（正しいアイテムを使っている） | ✅ **真因確定・修正済（配備待ち）**。TF が**自分の追加レシピを他人のレシピと誤認して自分で殺していた**（下記） |
+
+#### W-144 スクラップ → インゴットが永久にクラフト不可 — 真因は**設定ではなく登録漏れ**
+
+**設定側は最初から正しかった**。`progression/crafting-features.yml` の `added-recipes` に
+スクラップ4個（2×2）→ インゴット1個が7件（銅／鉄／金／ダイヤ／ネザライト／革／カメの甲羅）あり、
+**稼働中サーバの `Main_Server/plugins/TrinityForge/progression/crafting-features.yml` も
+リポジトリと同一**であることを確認済み。プレイヤーが使っていたアイテムも正しかった。
+
+真因は `CatalogRecipeRegistrar#registerAddedRecipes` が
+`Bukkit.addRecipe` とキー記録（`registeredKeys`）はするのに、
+**`registeredSpecs` に載せていなかった**こと。`CatalogWorkbenchListener` は
+「選択レシピが `registeredSpecs` に無い」ものを**他プラグイン／バニラのレシピ**とみなすので、
+そこから先は保護規則が全部逆向きに働く:
+
+1. `registeredOf(selected)` が空 → 「カタログ品を食おうとしている他人のレシピ」扱いになる。
+2. `foreignRecipeOwnsGridItems` は namespace が `trinityforge` なのに
+   スクラップの所有プラグインは `arspaper` なので **false**（＝委譲しない、保護を続ける）。
+3. スクラップは重ねられるので、装備カタログ品の素通し（2026-08-17）にも当たらない。
+4. 救済のはずの `rematch` が走査する `allRegistered()` は `registeredSpecs` 由来なので、
+   **added-recipes はそこにも入っていない** → 一致するものが見つからない。
+
+結果 `setResult(null)` ＋ 名指しメッセージ（W-87 で足したもの）が出る。
+つまり **`custom:` 素材を使う `added-recipes` は1件残らず「レシピ帳には出るのに
+永久にクラフト不可」**だった。設定が正しいまま無言で死ぬので「設定が効いていない」ようにしか見えない。
+
+修正は `registeredSpecs.put(key, new RegisteredRecipe(key, null, spec, result.clone()))`。
+added-recipes には結果になるカタログエントリが無いので `RegisteredRecipe` に
+`fixedResult`（固定結果）を足し、結果が要る側は `template()` を直接使わず
+新設の `CatalogRecipeRegistrar#resultOf` を通すようにした（listener の3箇所を置換）。
+
+回帰テストは `CatalogWorkbenchAddedRecipeTest`（**3件**）。**実物と同じ経路で組む**のが要点で、
+モックの registrar では「登録漏れ」そのものを再現できない ──
+実 registrar に added-recipes を食わせて `Bukkit` へ登録し、
+ArsPaper の実値（`iron_ingot_scrap` / base `IRON_NUGGET` / CMD 5313）を
+`ExternalItemRegistry` へ入れた盤面で `onPrepareCraft` と `onCraftItem` の**両方**を通す
+（片方だけだと「結果枠には出るのに取り出せない」で残る。2026-08-18 に同じ失敗を踏んでいる）。
+RED 確認済み: `registeredSpecs.put` を外すと3件とも落ちる。
+
+---
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。
