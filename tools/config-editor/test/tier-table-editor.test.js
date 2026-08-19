@@ -282,6 +282,56 @@ test("tierTableEditor: 行を全部消すと tiers キー自体が消える(空�
   assert.equal("tiers" in saved["vein-mining"], false, "全行削除後は vein-mining.tiers キー自体が消えるはず");
 });
 
+// ---- W-146 (2026-08-19): 掘削加速(haste-active-digging)を掘削ギミックページで編集できること ----
+//
+// 採掘ギミックには「採掘加速」カードがあるのに掘削側には1枚も無く、haste-active-digging の
+// amplifier / duration-ticks / cooldown-ticks / tier表を editor から一切いじれなかった。
+
+test("buildDiggingGimmickForm: 掘削加速カードがあり、CT以外の2列tier表を持つ", () => {
+  const data = {
+    "haste-active-digging": {
+      amplifier: 1,
+      "duration-ticks": 120,
+      "cooldown-ticks": 800,
+      tiers: { 1: { amplifier: 1, "duration-ticks": 120 }, 2: { amplifier: 2, "duration-ticks": 160 } }
+    },
+    "drop-tables": { categories: {} },
+    "durability-exp": { "durability-per-percent": 500 }
+  };
+  const form = window.buildDiggingGimmickForm(data);
+
+  assert.ok(findByText(form.element, "掘削加速 (haste-active-digging)"),
+    "掘削加速カードの見出しが見つからない(editorから設定できない状態)");
+
+  // haste の tier行は「amplifier + duration-ticks」の2列。耐久EXP側も2列なので、
+  // tier番号で絞ってこのカードの行だけを見る。
+  const tierRows = collectAll(form.element, (el) => hasClass(el, "tier-row"));
+  const keys = tierRows.map((r) => String(r.children.find((c) => hasClass(c, "tier-key-input")).value));
+  assert.ok(keys.includes("1") && keys.includes("2"),
+    `haste-active-digging.tiers の 1/2 が描画されていない: ${JSON.stringify(keys)}`);
+
+  const saved = form.getData();
+  assert.deepEqual(saved["haste-active-digging"].tiers, data["haste-active-digging"].tiers);
+  assert.equal(saved["haste-active-digging"]["cooldown-ticks"], 800,
+    "CTはtier表に含めず単独フィールドとして保持する(採掘側と同じ設計)");
+});
+
+test("ロスレス: digging-gimmick.yml 実データを開いて何も操作せず保存しても haste-active-digging が変形しない", () => {
+  const ymlPath = path.join(__dirname, "..", "..", "..", "TrinityForge", "src", "main", "resources", "stats", "digging-gimmick.yml");
+  assert.ok(fs.existsSync(ymlPath), `not found: ${ymlPath}`);
+  const original = YAML.parse(fs.readFileSync(ymlPath, "utf8"));
+  assert.ok(original["haste-active-digging"],
+    "出荷ymlに haste-active-digging が無い(テストの前提を見直すこと)");
+
+  const working = JSON.parse(JSON.stringify(original));
+  const saved = window.buildDiggingGimmickForm(working).getData();
+
+  assert.deepEqual(saved["haste-active-digging"], original["haste-active-digging"],
+    "何も操作していないのに haste-active-digging が変形/消失した");
+  assert.equal("tiers" in saved["haste-active-digging"], false,
+    "出荷ymlに tiers は無いので空オブジェクトを作ってはいけない");
+});
+
 // ---- タスク3: 一括伐採の死んだキー(small/large-max-extra-logs)の掃除 ----
 
 test("buildWoodcuttingGimmickForm: small/large-max-extra-logs は保存後に残らず、max-extra-logsに統合される", () => {

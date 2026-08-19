@@ -693,6 +693,38 @@
         ]
       ));
     }
+    // 2026-08-19 (W-146): 採掘ギミックには「採掘加速」カードがあるのに、掘削側には
+    // 1枚も無かった(= haste-active-digging の amplifier / duration / CT / tier表を editor から
+    // 一切いじれない)。数値は mining 側と意図的にミラーしない独立の値なので、
+    // 保存先も stats/digging-gimmick.yml 本体のまま(コンパニオン扱いにはしない)。
+    const hasteDigging = ensureObj(working, "haste-active-digging");
+    root.appendChild(card(
+      [h("span", { class: "entry-key-label", text: "掘削加速 (haste-active-digging)" })],
+      [
+        h("div", { class: "form-hint", text:
+          "シャベル専用のアクティブスキル。CTのバケツは採掘加速と共有するので、ツールを持ち替えて"
+          + "連発しても合計アップタイムは増えません(採掘側のCTが残っていればこちらも撃てません)。" }),
+        grid([
+          numField(hasteDigging, "amplifier", {
+            label: "Haste段階(グローバル既定値)", int: true,
+            desc: "0=I, 1=II。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(hasteDigging, "duration-ticks", {
+            label: "持続tick(グローバル既定値)", int: true,
+            desc: "20=1秒。下のtier表に該当tier行がある場合はそちらが優先され、この値は使われない。"
+          }),
+          numField(hasteDigging, "cooldown-ticks", {
+            label: "CT(tick)", int: true,
+            desc: "tierに関わらず常にこの値(CT短縮は haste-active-digging-cooldown-reduction stat専用。tier表には含めない)。"
+          })
+        ]),
+        sub("tier別設定 (tiers) — 該当tier行があればグローバル既定値より優先される (CTは含まない)"),
+        tierTableEditor(hasteDigging, [
+          { key: "amplifier", label: "Haste段階", int: true },
+          { key: "duration-ticks", label: "持続(tick)", int: true }
+        ])
+      ]
+    ));
     root.appendChild(card(
       [h("span", { class: "entry-key-label", text: "追加ドロップ (drop-tables)" })],
       [dropTableEditor(working, ["drop-tables"], { triggerChance: true })]
