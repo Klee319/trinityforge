@@ -1982,6 +1982,24 @@ D:\game\minecraft\PaperServer\Velocity_for_TF\launch\start-all.cmd
 - main で採掘してから `/server resource` へ移り、同じ数字が出る（＝合算されている）
 - `SELECT DISTINCT server FROM pixelrank.rank_stats;` が **main / resource / dev の 3 行**になる
 
+### 20-4b. どのランキングを出すかは 2 つの設定で決まる（2026-08-19〜）
+
+| セクション | 決めること |
+|---|---|
+| `ranks.*` | その順位表が**存在するか**（`/pixelrank rank <短縮名>` で引けるか） |
+| `scoreboard.*` | **サイドバーの巡回に入るか**（勝手に流れてくるか） |
+
+`ranks.*` が false のものは `scoreboard.*` が true でも出ない（存在しないため）。
+
+**TF のスキル 16 種は `ranks.*` が全部 true。** サイドバーの巡回だけ代表 8 枚
+（採掘 / 重武器 / 魔法 ＋ 総合 / スキル合計 / 図鑑 2 種 / グリフ）に絞ってある。
+巡回を増やしたければ `scoreboard.*` を true にする。**`ranks.*` を false にして絞らないこと** ——
+それをやると `/pixelrank rank` からも引けなくなり、「一部のスキルしか順位表が無い」状態に戻る
+（実際 2026-08-19 まで 12 スキルがこの状態だった）。
+
+既に配ってある config は `ranks.migrate-tf-ranks: true` により**次の起動で 1 回だけ**
+全 TF 項目が true へ戻り、フラグは自動で false になる。config を配り直さなくてよい。
+
 ### 20-5. 踏み抜きやすいところ
 
 - **`server-name` を 3 台で同じにしてはいけない。** 同名だと `rank_stats` の同じ行
