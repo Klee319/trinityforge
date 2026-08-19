@@ -832,7 +832,7 @@ TF/Ars のどのレシピも鍛冶型を材料に使っていない（＝同形�
 |---|---|---|
 | W-110 | **`network.yml` を書き換えたのに config デプロイでロールバックした** | **原因確定 → 配備前の検出＋退避を実装（ユーザー選択）** |
 | W-111 | ヴォルカニックソースリンクが「もうゲート撤廃しているはずなのに作れない」（W-101 の再報告・伝聞） | ~~未解決~~ **解決（原因＝稼働中 JVM が旧 config 保持。再起動で解消をユーザー確認）** |
-| W-112 | 「まだポーションが作れない」（W-108 の再報告） | **未解決。TF 側の変換経路・配備・ログ・パックを全排除済み。残る分岐（キャンセル有無）を実測する計装を投入 → 次の醸造 1 回で確定する** |
+| W-112 | 「まだポーションが作れない」（W-108 の再報告） | ✅ **真因確定・未修正**（W-124 で決着）。`BrewEvent` の最中に呼ぶ `stand.update()` が醸造台を醸造前の状態へ巻き戻していた。詳細は「W-124 醸造ログ」節 |
 | W-113 | **TF のポーションが統合版で必ず「水入り瓶」の見た目になる**（W-112 調査中に発見） | **未修正。`PotionMeta#setColor` を焼いていないのが原因** |
 | W-114 | 日光炎上の「最大HP10%」が反映されず**1ダメージのままのアンデッドがいる**。「一度鎮火してから再炎上するときかも」 | ~~未着手~~ **修正済み（真因＝空の判定を足元ブロックで見ていた）** |
 | W-115 | **ポーション統合パーク（`potion-merge`）が一度も発火しない**（W-112 調査中に発見） | **原因確定・未修正。発火条件が実クライアントで成立しない組み合わせ。テストも同じ穴で緑のまま** |
@@ -1169,7 +1169,7 @@ W-117/W-118 のコミットには**自分のブロックだけを index に載�
 | W-121 | 儀式レシピの素材が本家 Ars より貧弱（ネザースター・残響の欠片・ネザライト等を使うはず） | ✅ 対応（下記。W-120 の台座事故もここで修正） |
 | W-122 | レシピ一覧で圧縮アイテムを既定で省略する機能が効いていない | ✅ 対応（= W-99。fork `f26a8fc`。下記） |
 | W-123 | 絞り込みに「儀式エフェクト」を足し、日の出／スレッド枠付与をそちらへ | ✅ 対応（fork `f26a8fc`。下記） |
-| W-124 | 再起動後に醸造したのでログ確認（W-112 の決着） | ✅ 調査済（再現せず。下記） |
+| W-124 | 再起動後に醸造したのでログ確認（W-112 の決着） | ✅ **真因確定・未修正**。`BrewEvent` 中の `stand.update()` が醸造台をスナップショットへ巻き戻していた（下記） |
 | W-125 | editor の数値が小数点以下細かすぎる（`76.323902` 等） | ✅ 対応（下記） |
 | W-126 | 重武器が弱い。範囲武器の対象上限を最低5→tierで10、軽武器にも3体。各武器種に尖ったステ | ✅ 対応（下記） |
 | W-127 | 杖が強すぎるので微ナーフ（全 tier 監査） | ✅ 対応（下記） |
@@ -1428,13 +1428,69 @@ TF 側 `CatalogVanillaOperationGuardListener` は `BlockCookEvent` を塞いで�
 判定が `CatalogVanillaOperationPolicy.isCatalogItem`＝**TF `items/catalog.yml` 限定**なので
 ArsPaper の `materials.yml` 品（圧縮素材・ウッドコア等）は対象外。
 
-#### W-124 醸造ログ — **今回は再現しなかった**
+#### W-124 醸造ログ → ~~今回は再現しなかった~~ **真因確定（2026-08-19 夕）**
 
-`Main_Server/logs/latest.log`（10:55:30 起動 〜 11:53 まで）に **`[brew-diag]` の行が 1 本も無い**。
-配備 jar は当日 10:53 ビルドの現物で、`BrewDiagnosticListener` は `TrinityForge.java:540` で登録済み。
-計装は「キャンセルされた」か「どのビン枠も変換されていない」ときだけ 1 行出す作りなので、
-**行が無い = その窓で問題のある醸造が起きていない**。WARNING 72 行も全て GeyserExtra/ArsPaper 由来で無関係。
-→ **再現手順を絞って再度お願いする必要がある**（素の水入り瓶＋ネザーウォート＝奇妙なポーション）。
+**真因は `BrewOwnership#clear` が `BrewEvent` の最中に呼ぶ `stand.update()`。**
+`NativeSkillExperienceListener.onBrew`（`MONITOR`）は
+`event.getBlock().getState()` で**醸造前のスナップショット**を取り、所有者 PDC を消したあと
+`stand.update()` する（`BrewOwnership.java:144-151`）。ところが
+`CraftBlockEntityState#update()` は PDC だけを書き戻すのではなく、
+**スナップショットの NBT を丸ごと実体へ `loadWithComponents` する**（PaperMC `CraftBlockEntityState#copyData`）。
+`BrewingStandBlockEntity#loadAdditional` は
+
+```java
+this.items = NonNullList.withSize(this.getContainerSize(), ItemStack.EMPTY);
+ContainerHelper.loadAllItems(tag, this.items, registries);
+```
+
+と **`items` フィールドを新しいリストへ差し替える**。一方 Paper の `doBrew` は
+
+```java
+private static void doBrew(Level level, BlockPos pos, NonNullList<ItemStack> items, BrewingStandBlockEntity entity) {
+    ItemStack ingredient = items.get(3);           // ← イベント前に掴む
+    ...
+    if (!event.callEvent()) return;                // ← ここで TF の MONITOR が update() する
+    for (int dest = 0; dest < 3; dest++)
+        items.set(dest, ...asNMSCopy(brewResults.get(dest)));   // ← 引数の【古い】リストへ書く
+    ingredient.shrink(1);                          // ← 【古い】ItemStack を減らす
+```
+
+（呼び出しは `doBrew(level, pos, entity.items, entity)`。PaperMC `paper-server/patches/sources/.../BrewingStandBlockEntity.java.patch` 現物）
+なので、**イベント中の `update()` 以降、`doBrew` の書き込み先は醸造台から切り離された孤児**になる。
+結果、醸造台には**醸造前のスナップショットがそのまま残る**。
+
+これで報告の4症状が過不足なく説明できる:
+
+| 報告 | 説明 |
+|---|---|
+| ネザーウォートが消費されない | `ingredient.shrink(1)` が孤児 `ItemStack` を減らしている |
+| 瓶が水入り瓶のまま | `items.set(...)` が孤児リストへ書かれ、実体はスナップショット（水入り瓶）に戻る |
+| EXP は入る | EXP 付与は同じ `MONITOR` ハンドラ内で `update()` の直後に走るので無傷 |
+| ブレイズパウダーは消費される | 燃料は醸造**開始時**（400tick 前）に減っており、スナップショットは既に減った値を持つ＝戻らない |
+
+**`[brew-diag]` が 0 行なのは正常。** 計装は `event.getResults()` を見るが、
+この不具合では results は**正しく奇妙のポーションになっている**（壊れるのはイベント後の書き戻し先）。
+つまり `isSuspicious` は構造的に false で、**この不具合を捕まえられない計装だった**。
+加えて `latest.log` は 13:18:56 始まりで、**10:52〜13:18 の窓（= 再起動直後の実測）がログに残っていない**ので、
+「行が無い」は元々証拠として使えなかった。上の「再現しなかった」は**取り消し**。
+
+**影響範囲は醸造全部。** `clear(stand)` は `ownerId.isEmpty()` の判定より**前**で無条件に呼ばれる
+（`NativeSkillExperienceListener.java:813-823`）ので、**所有者記録の有無に関係なく全プレイヤーの全醸造が戻る**。
+`stand.update()` を `BrewEvent` の中で呼ぶ実装は **git 初回取り込み（`7ad0522` / 2026-07-27）から存在**しており、
+「W-108 で直したはずがまた作れない」「java でもダメ」もこれで一貫する。
+MockBukkit は `update()` が実体へ書き戻さないので、テストは緑のまま通る。
+
+**直し方（未実装）**: `BrewEvent` の最中にブロック実体へ書き戻さないこと。
+PDC の消去は次 tick へ回し（`runTask` で**その時点の新しい `BlockState`** を取り直す）、
+`BrewEvent` ハンドラ内では読むだけにする。`PotionQualityListener#applySpeed` の `stand.update()` は
+`BrewEvent` の外なのでこの経路には該当しない。
+
+**GeyserExtra の `BedrockDurabilityBarScaler` は無関係（棄却）。** `latest.log` に
+`Damage cannot exceed max damage` が 13,195 行あり、うち `WINDOW_ITEMS` 716 / `SET_SLOT` 1,923 で
+「醸造台の中身が更新されないのはパケット落ち」に見えたが、
+`onPacketSending` が例外を自前で catch してログするだけ（`BedrockDurabilityBarScaler.java:84-96`）で
+**パケットは素通りする**うえ、書き換えは `item.clone()` に対して行うので元パケットは無傷。
+ただし **例外自体は geyserExtra 側の実バグ**（`m.setMaxDamage(null)` の直後に投げている）なので別途対処が要る。
 
 #### W-128 ドラゴンエッグのドロップ（`environment:` 軸を新設）
 
