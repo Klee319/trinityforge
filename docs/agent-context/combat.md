@@ -2,6 +2,37 @@
 
 このコードベースに初めて触るAIエージェント／開発者向けに、戦闘計算・ステータス集約・モブ連携まわりの「今後も踏みうる落とし穴」と「設計上の不変条件」だけをまとめる。作業履歴・日付経緯は扱わない（それは `reports/ACTIVE_RECORD.md` の役割）。
 
+### ⚠ バニラの damage modifier(盾 BLOCKING / 吸収 ABSORPTION)は「割合」ではなく【絶対値】
+
+`EntityDamageEvent` の modifier は**イベント生成時にバニラのダメージ規模で確定した絶対値**で、
+プラグインが BASE を書き換えても**再計算されない**（Paper の `setDamage(DamageModifier,double)` は
+`modifiers.put` しかしない）。TF は `CombatListener` で BASE を自前の値へ丸ごと書き換えるので:
+
+- **BASE を膨らませる**と、盾/吸収ハートの寄与が相対的に**誤差へ潰れる**
+  → 「盾を構えても被ダメージが変わらない」（W-163・2026-08-20）
+- **BASE を縮める**と、逆に絶対値のままの modifier が効きすぎて**最終ダメージが負に潰れる**
+  → 「盾や金リンゴを持った相手に物理が一切通らない」（2026-08-01 修正済み。
+     縮める側は `FinalDamageScaling#scaleModifiersExceptBase` で同じ係数を掛けている）
+
+**BASE の規模を変えたら、BASE 以外の生き残り modifier も同じ係数で動かすか、TF 側で明示的に代替すること。**
+片方向だけ手当てすると、もう片方が数か月見つからない。
+
+### 盾は「構えている間だけ」ステが乗る（2026-08-20 / W-163）
+
+盾専用の config 層は無い。既存の per-item 機構を 2 つ組み合わせるだけ:
+
+| `item-stats.yml` のキー | 意味 | 既定 |
+|---|---|---|
+| `offhand-stats-apply` | オフハンドに持ったときステを合算する | false |
+| `offhand-stats-require-blocking` | 上の合算を `Player#isBlocking()` の間に限定する | false |
+
+判定は**材質ではなく per-item のフラグ**（`Material.SHIELD` 決め打ちにすると CMD 付きの
+他のオフハンド品へ同じ挙動を与えられないため）。門の実体は
+`PlayerStatAggregator#offhandContributes` 1 箇所で、加算・乗算・`equipmentDefenseItemStats` が共有する。
+
+⚠ **`item-stats.yml` に `SHIELD` の行が無いと、機構を直しても盾は何も起きない。**
+2026-08-20 まで実際に 1 行も無く、エディタの「盾」カテゴリも `itemIds: []` だった。
+
 ## 全ステ合算アーキテクチャ
 
 ### プレイヤーのステータスは単一の合算パイプラインを必ず経由する
