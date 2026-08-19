@@ -780,6 +780,13 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new com.trinityforge.listeners.CatalogWorkbenchListener(
                         catalogRecipeRegistrar, configManager.itemCatalog()), this);
+        // W-158 続報の診断計装(2026-08-20)。統合版だけカスタム素材のクラフトが通らないのが
+        // 「どのレシピが選ばれているか」「どの優先度帯で結果が消えているか」のどちらなのかを実測する。
+        // 盤面に識別付きアイテムが乗っているときだけ1行出す。原因が確定したら外すこと
+        // (詳細と読み方は CraftIdentityDiagnosticListener のクラスjavadoc)。
+        getServer().getPluginManager().registerEvents(
+                new com.trinityforge.listeners.CraftIdentityDiagnosticListener(
+                        this, configManager.itemCatalog()), this);
         this.giveItemCommand = new GiveItemCommand(this, itemFactory, configManager.itemCatalog(),
                 configManager.quality());
         this.bindCommand = new BindCommand(itemFactory);
