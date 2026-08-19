@@ -47,6 +47,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -839,29 +840,36 @@ public final class NativeSkillExperienceListener implements Listener {
         // any click while the stand GUI happens to be open (e.g. clicking the player's own
         // inventory, or withdrawing a finished potion) — a single stray click must not flip a
         // hopper-fed automated brewer to the 8x manual rate forever.
-        int rawSlot = event.getRawSlot();
-        boolean directPlacement = switch (event.getAction()) {
-            // InventoryClickEvent exposes the pre-click state. For placement into an empty brewing
-            // slot currentItem is null; the item being inserted is still on the cursor.
-            case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR ->
-                    event.getCursor() != null && !event.getCursor().getType().isAir();
-            case HOTBAR_SWAP -> {
-                int hotbarButton = event.getHotbarButton();
-                ItemStack inserted = hotbarButton >= 0
-                        ? player.getInventory().getItem(hotbarButton)
-                        : player.getInventory().getItemInOffHand();
-                yield inserted != null && !inserted.getType().isAir();
-            }
-            default -> false;
-        };
-        boolean intoStandSlot = rawSlot >= 0
-                && rawSlot < event.getView().getTopInventory().getSize()
-                && directPlacement;
-        if (!intoStandSlot) return;
+        //
+        // 2026-08-19 (W-147): 判定は BrewInsertion へ集約した。ここには独立した実装が置かれていて
+        // 【シフトクリック(MOVE_TO_OTHER_INVENTORY)と HOTBAR_MOVE_AND_READD を取りこぼしていた】。
+        // 所有者が記録されないと onBrew は ownerId.isEmpty() で即 return するので、
+        // シフトクリックで素材を入れた人には錬金EXPが1点も入らなかった(品質補正・手動倍率も同時に死ぬ)。
+        if (!isRealStack(BrewInsertion.insertedStack(event, event.getView().getTopInventory()))) return;
         // 先着優先(BrewOwnership の書き込み規則1)。最後に触った人が上書きできると、他人の醸造の
         // 報酬を最後にクリックするだけで奪えるうえ、未解放プレイヤーが最後に触るだけで
         // 解放済みの台のゲート付き醸造を止められる(同じ1本のキーを解放ゲートも読むため)。
         brewOwnership.rememberOwner(stand, player);
+    }
+
+    /**
+     * ドラッグで醸造台のスロットへ配る経路。{@link BrewUnlockListener#onBrewerDrag} が解放ゲートを
+     * 見ているのと同じ操作で、こちらは所有者を記録する(2026-08-19 / W-147)。
+     * 記録が無いと {@link #onBrew} が錬金EXPを配らない。
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void rememberBrewerDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)
+                || !(event.getView().getTopInventory().getHolder() instanceof BrewingStand stand)) {
+            return;
+        }
+        if (excluded(player)) return;
+        if (!isRealStack(BrewInsertion.draggedStack(event, event.getView().getTopInventory()))) return;
+        brewOwnership.rememberOwner(stand, player);
+    }
+
+    private static boolean isRealStack(ItemStack stack) {
+        return stack != null && !stack.getType().isAir();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

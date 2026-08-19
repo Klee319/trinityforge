@@ -13,7 +13,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BrewingStartEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.BrewingStandFuelEvent;
-import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
@@ -328,21 +327,9 @@ public final class BrewUnlockListener implements Listener {
      * ここを通るテストは必ず action を明示的にスタブすること(このリポジトリの既知の罠)。
      */
     private static ItemStack insertedStack(InventoryClickEvent event, BrewerInventory brew) {
-        InventoryAction action = event.getAction();
-        if (action == null) {
-            return null;
-        }
-        boolean clickedStand = event.getClickedInventory() == brew;
-        return switch (action) {
-            case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR ->
-                    clickedStand ? event.getCursor() : null;
-            // 醸造台以外(=プレイヤーインベントリ)からのシフトクリックが「入れる」側。
-            case MOVE_TO_OTHER_INVENTORY -> clickedStand ? null : event.getCurrentItem();
-            case HOTBAR_SWAP, HOTBAR_MOVE_AND_READD -> clickedStand
-                    ? event.getWhoClicked().getInventory().getItem(event.getHotbarButton())
-                    : null;
-            default -> null;
-        };
+        // 2026-08-19 (W-147): 同じ判定が NativeSkillExperienceListener 側にも独立して書かれており、
+        // そちらがシフトクリックを取りこぼして錬金EXPが入らなくなっていた。判定は BrewInsertion へ集約。
+        return BrewInsertion.insertedStack(event, brew);
     }
 
     /**

@@ -209,4 +209,117 @@ class NativeSkillExperienceListenerBrewTest {
                 java.util.Optional.of(player.getUniqueId()), ownership.ownerOf(stand));
         org.junit.jupiter.api.Assertions.assertFalse(ownership.isAutomated(stand));
     }
+
+    /**
+     * 醸造台のGUIを開いた状態でのクリックイベントを組む。{@code clicked} が上段(=醸造台)なら
+     * 醸造台側のスロットを、そうでなければプレイヤーインベントリ側をクリックしたことにする。
+     */
+    private InventoryClickEvent clickEvent(InventoryAction action, ItemStack currentItem,
+                                          ItemStack cursor, boolean clickedStand) {
+        InventoryClickEvent event = mock(InventoryClickEvent.class);
+        InventoryView view = mock(InventoryView.class);
+        Inventory top = mock(Inventory.class);
+        when(top.getHolder()).thenReturn(stand);
+        when(top.getSize()).thenReturn(5);
+        when(view.getTopInventory()).thenReturn(top);
+        when(event.getView()).thenReturn(view);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getClickedInventory())
+                .thenReturn(clickedStand ? top : mock(org.bukkit.inventory.PlayerInventory.class));
+        when(event.getRawSlot()).thenReturn(clickedStand ? 3 : 30);
+        when(event.getCurrentItem()).thenReturn(currentItem);
+        when(event.getCursor()).thenReturn(cursor);
+        when(event.getAction()).thenReturn(action);
+        return event;
+    }
+
+    /**
+     * W-147 の本体。シフトクリック({@code MOVE_TO_OTHER_INVENTORY})で素材を投入したときに
+     * 所有者が記録されなかったため、<b>醸造が完成しても錬金EXPが1点も入らなかった</b>。
+     */
+    @Test
+    void shiftClickInsertionRemembersBrewer() {
+        listener.rememberBrewer(clickEvent(InventoryAction.MOVE_TO_OTHER_INVENTORY,
+                new ItemStack(Material.REDSTONE), null, false));
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Optional.of(player.getUniqueId()), ownership.ownerOf(currentStand()));
+        org.junit.jupiter.api.Assertions.assertFalse(ownership.isAutomated(currentStand()));
+    }
+
+    /** 症状そのものを縛る: シフトクリックで入れて醸造すると錬金EXPが入る(手動倍率)。 */
+    @Test
+    void shiftClickedIngredientGrantsAlchemyExpOnBrew() {
+        listener.rememberBrewer(clickEvent(InventoryAction.MOVE_TO_OTHER_INVENTORY,
+                new ItemStack(Material.REDSTONE), null, false));
+
+        listener.onBrew(brewEvent());
+
+        verify(dispatcher).grant(player.getUniqueId(), SkillId.ALCHEMY, 50.0); // 25 * manual 2.0
+    }
+
+    /** ホットバー入れ替えの「戻し」変種も投入として扱う。 */
+    @Test
+    void hotbarMoveAndReaddRemembersBrewer() {
+        player.getInventory().setItem(0, new ItemStack(Material.REDSTONE));
+        InventoryClickEvent event = clickEvent(InventoryAction.HOTBAR_MOVE_AND_READD, null, null, true);
+        when(event.getHotbarButton()).thenReturn(0);
+
+        listener.rememberBrewer(event);
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Optional.of(player.getUniqueId()), ownership.ownerOf(currentStand()));
+    }
+
+    /**
+     * 逆方向は記録しない。完成したポーションをシフトクリックで<b>取り出す</b>操作で所有者になれると、
+     * 他人の醸造の報酬を横取りできる(先着優先の意味が消える)。
+     */
+    @Test
+    void shiftClickWithdrawalFromTheStandDoesNotRememberBrewer() {
+        listener.rememberBrewer(clickEvent(InventoryAction.MOVE_TO_OTHER_INVENTORY,
+                new ItemStack(Material.POTION), null, true));
+
+        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(currentStand()).isEmpty());
+    }
+
+    @Test
+    void dragIntoStandSlotsRemembersBrewer() {
+        org.bukkit.event.inventory.InventoryDragEvent event =
+                mock(org.bukkit.event.inventory.InventoryDragEvent.class);
+        InventoryView view = mock(InventoryView.class);
+        Inventory top = mock(Inventory.class);
+        when(top.getHolder()).thenReturn(stand);
+        when(top.getSize()).thenReturn(5);
+        when(view.getTopInventory()).thenReturn(top);
+        when(event.getView()).thenReturn(view);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getRawSlots()).thenReturn(java.util.Set.of(3));
+        when(event.getOldCursor()).thenReturn(new ItemStack(Material.REDSTONE));
+
+        listener.rememberBrewerDrag(event);
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Optional.of(player.getUniqueId()), ownership.ownerOf(currentStand()));
+    }
+
+    /** プレイヤー側スロットだけを撫でたドラッグでは所有者にならない。 */
+    @Test
+    void dragTouchingOnlyPlayerSlotsDoesNotRememberBrewer() {
+        org.bukkit.event.inventory.InventoryDragEvent event =
+                mock(org.bukkit.event.inventory.InventoryDragEvent.class);
+        InventoryView view = mock(InventoryView.class);
+        Inventory top = mock(Inventory.class);
+        when(top.getHolder()).thenReturn(stand);
+        when(top.getSize()).thenReturn(5);
+        when(view.getTopInventory()).thenReturn(top);
+        when(event.getView()).thenReturn(view);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getRawSlots()).thenReturn(java.util.Set.of(30, 31));
+        when(event.getOldCursor()).thenReturn(new ItemStack(Material.REDSTONE));
+
+        listener.rememberBrewerDrag(event);
+
+        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(currentStand()).isEmpty());
+    }
 }
