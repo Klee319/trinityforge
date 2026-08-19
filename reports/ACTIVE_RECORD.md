@@ -1650,6 +1650,109 @@ W-120 で重さを出すつもりで `custom:magebloom_fiber x24` と書いた�
 テストは **4,323 件 / 失敗 24 / スキップ 2**。新規 5 件は全て緑で、**失敗は増えていない**
 （残る 24 件は他セッションの WIP と、上記の未コミット素材表削除に反応する 1 件）。
 
+### 実サーバ報告バッチ（2026-08-19 受領 第8陣。W-139〜W-143）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-139 | 軽武器・重武器（Ars魔法）が上がりやすい。Lv80 エンダーマンの討伐EXPを 8000〜10000 → 約4000 へ。ただし序盤の上がり方は変えず、HPに応じた指数だけ調整 | ✅ 対応（下記） |
+| W-140 | 鍛冶台でネザライト化すると素材を消費せず無限にネザライト化できる（増殖） | ✅ 対応（下記） |
+| W-141 | クリエイティブのユーザーが持ったアイテムが、サバイバルのユーザーの同じアイテムとスタックしない（バニラ品でも） | ✅ 対応（下記） |
+| W-142 | 範囲収穫が機能していない | ✅ 対応（下記） |
+| W-143 | 一括伐採発動時に1個分しか経験値が入らない | ⏸ **切り分け済み・判断待ち**（下記） |
+
+#### W-139 討伐EXPの最大HP項に指数を入れた（序盤は1ミリも変えない形）
+
+討伐EXPは `(base + per-mob-level*Lv + per-max-health*最大HP) * 各種倍率`。
+**HP項は全帯で支配的**（Lv10 のエンダーマンでも HP項 353 対 base+Lv項 40）なので、
+`per-max-health` を下げるだけでは序盤も同率で下がり、要件「序盤は変えない」を満たせない。
+
+そこで HP項だけを次の形にした（`stats/skill-exp.yml` の `combat.kill-exp` と
+`ars-magic.kill-exp` の**2箇所**。片方だけ直すと軽武器/重武器で食い違う）:
+
+```
+HP項 = per-max-health * min(最大HP, anchor * (最大HP/anchor)^exponent)
+per-max-health-anchor: 8000
+per-max-health-exponent: 0.74
+```
+
+`min()` が本質。指数形は `HP < anchor` の帯では**線形より大きくなる**ので、
+これが無いと Lv0 のEXPが 210.56 → 351.06（1.67倍）に**上がってしまう**（RED で実測した）。
+`anchor: 0` か `exponent: 1` を書けば従来どおりの線形に戻る。
+
+エンダーマンでの倍率: **Lv38以下 1.00 / Lv50 0.71 / Lv60 0.57 / Lv80 0.44 / Lv100 0.37**。
+Lv80（最大HP 約183,000）で 0.44 倍 = 報告値 8000〜10000 → 約 4000。
+
+純関数 `stats/KillExpHealthTerm#healthTerm` に切り出し、`KillExpHealthTermTest`（4件）と
+出荷ymlを実読みする `ShippedKillExpHealthExponentTest`（2件）で固定した。
+
+#### W-140 鍛冶台のネザライト化の増殖 — 2026-07-28 のクラフト複製と**同一機構**
+
+真因は設定でもレシピでもなく `CatalogSmithingListener#onSmith` が
+`player.setItemOnCursor(...)` を呼んでいたこと。`SmithItemEvent` は `InventoryClickEvent` で、
+CraftBukkit の `handleContainerClick` は**イベント発火 → バニラの `AbstractContainerMenu.clicked`**
+の順に走る。ハンドラ内でカーソルへ完成品を載せると、続くバニラ処理は
+「カーソル空 → 結果枠を取る」ではなく「カーソルに同じ品 → マージ」へ入り、
+最大スタック1の装備では `tryRemove(count, maxStackSize - cursorCount)` の上限が `1-1=0` になる。
+その結果 **`ResultSlot#onTake` が一度も呼ばれず素材（素材装備・インゴット・テンプレート）が
+一切消費されない**のに、手にはこちらが載せた完成品が残る = サーバ側の複製。
+
+修正は `event.setCurrentItem(...)`（結果枠）だけにして**カーソルには触らない**。
+`onSmith` と `restampPlainQualitySmith` の2箇所。`CraftQualityListener#onCraft` が
+2026-07-28 に同じ理由で通った道なので、同じ様式の挙動テスト
+`CatalogSmithingListenerDupeTest`（3件）を追加し、修正前へ戻すと2件落ちることを確認した。
+
+#### W-141 クリエ品とサバイバル品がスタックしない — 図鑑の「クリエ由来」印が原因
+
+ユーザーの推測（品質が全部付いている）は**外れ**。全77件の素材系 `item-stats` キーを
+数え上げて確認したが、いずれもスタック不可の装備で、品質刻印の各経路も
+`itemStats.profileFor(...)` / `MaterialTier.isEquipment()` のゲートを通っている。
+
+真因は `CollectionListener` の**図鑑不正対策マーカー**。クリエイティブで出した品には
+「クリエ由来」PDC を刻んでいたが、**PDC を1つでも書くと同じアイテムの無刻印スタックと
+`isSimilor` でなくなる**ため、サバイバルで拾った同じ土/丸石とスタックできなくなっていた。
+刻む対象を**図鑑に記録され得る品だけ**（`resolveEntryId` が解決できるもの）へ絞った
+＝ 記録され得ない品に刻んでも不正対策としての意味が無く、スタック破壊だけが残るため。
+
+判断を1本の純関数 `marksCreativeOrigin` に置き、「刻む集合 = 記録する集合」を
+直積で突き合わせるテストを追加（`CollectionEntryResolutionTest` 17件 /
+`CollectionListenerGuardsTest` 39件、いずれも緑）。
+
+#### W-142 範囲収穫が「機能していない」— 右クリック収穫からは一度も到達していなかった
+
+範囲収穫のゲートは `FarmingHarvestListener#onBlockBreak` にしか無かった。ところが
+`auto-replant` を解放すると、成熟作物への右クリックは `onPlayerInteract`（HIGHEST）が
+丸ごと引き取り（元イベントをキャンセルし、認可用の合成 `BlockBreakEvent` は
+`authorizingRightClickHarvest` で自分の break 経路から除外される）。したがって
+**右クリック収穫では範囲収穫の判定に一度も到達しなかった。**
+
+`feature:area-harvest` を置くノード（farming C）は `feature:auto-replant` を置くノード（B）の
+子なので、**範囲収穫を解放した全員が右クリック収穫を先に持っている** = 主要な収穫動作では
+機能ゼロに見える。破壊収穫にしか無かったゲート判定を `maybeHarvestArea` へ切り出し、
+右クリック収穫からも同じゲート（トグル / 鍬 / tier）・同じ半径で呼ぶようにした。
+
+config（`stats/farming-gimmick.yml` の radius 1/2/3、`skilltree/farming.yml` の
+`feature:area-harvest` value 1/2/3）は**配備先の実ファイルを読んで正しいことを確認済み**。
+`FarmingHarvestListenerTest` に3件（発動する / トグルOFFなら発動しない / 鍬でなければ発動しない）を
+追加し、呼び出しを消すと1件落ちることを確認した。
+
+#### W-143 一括伐採のEXP — **採取スキルEXPは連鎖分も入っている。origin 限定なのはバニラEXPオーブ**
+
+切り分けた結果、連鎖破壊分のEXPには経路が2本あり、**片方だけが意図的に起点1回分**だった:
+
+| 経路 | 連鎖分 | 根拠 |
+|---|---|---|
+| 伐採スキルEXP | **1本ごとに入る** | `ChainBreakSupport#breakOnce` → `NativeSkillExperienceListener#grantChainBreak` → `grantGathering`。新規テストで 40.0 × 3本を実測 |
+| 破壊時バニラEXP（経験値オーブ） | **入らない（起点1回分だけ）** | `grantChainBreak` の javadoc: 「連鎖ぶんまでバニラEXPオーブを配ると一括破壊がそのままバニラEXP増殖装置になる」という 2026-07-28 の設計判断 |
+
+これまで**前者を縛るテストが1本も無かった**（`TreeFellingListenerTest` は
+「`ChainBreakExpGrant` が N 回呼ばれる」までしか見ていない）ので、
+`NativeSkillExperienceListenerChainBreakExpTest`（3件）で両方を別々に固定した。
+仕様変更するときは `chainBreakDoesNotGrantVanillaExpOrbs` が落ちて設計判断の変更に気づける。
+
+**判断待ち**: 報告がバニラEXPオーブを指しているなら、これは仕様変更（+ 増殖対策の上限）が必要。
+2026-08-18 に `break-vanilla-exp.base-exp` を 1.0 → 0.25 へ下げた直後の報告なので、
+バニラEXP側を指している可能性が高いが、伐採スキルEXP側の話であれば別の調査が要る。
+
 ---
 
 ## 4. 既知の未修正の問題・弱点

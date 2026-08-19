@@ -625,6 +625,19 @@ ars-magic:
     # 「以前比 約1.5倍」まで戻す。base / per-mob-level は最大HPに依らないので触らない
     # (実際には最大HP項が支配的なので、この係数がほぼそのまま倍率になる)。
     per-max-health: 0.188
+    # 【最大HP項の指数】(2026-08-19 ユーザー要望「80lvエンダーマンで約4000へ。ただし序盤の
+    # 上がり方は変えたくないのでHPに応じた経験値指数だけ調整して」)
+    # HP項 = per-max-health * min(HP, anchor * (HP/anchor)^exponent)
+    #   ・HP <= anchor の帯は min が線形側を選ぶので【1ミリも変わらない】= 序盤の上がり方はそのまま
+    #   ・HP > anchor では (HP/anchor)^(exponent-1) 倍に圧縮される
+    #   ・anchor: 0 か exponent: 1 で従来どおりの線形に戻る
+    # なぜ per-max-health を下げるだけでは駄目か: HP項は全帯で支配的(Lv10のエンダーマンでも
+    # HP項353 対 base+Lv項40)なので、係数を半分にすると序盤も半分になる。
+    # 8000 は「モブHPが指数的に爆発し始める Lv40 前後」のHP。0.74 は Lv80 エンダーマン
+    # (HP約183000)で現行の約0.44倍になる値 = 報告値 8000~10000 -> 約4000。
+    # 参考の倍率(エンダーマン): Lv38以下 1.00 / Lv50 0.71 / Lv60 0.57 / Lv80 0.44 / Lv100 0.37
+    per-max-health-anchor: 8000
+    per-max-health-exponent: 0.74
     unlisted-entity-multiplier: 0
     # 非敵対モブは載せない（方針は combat.kill-exp 側の注記を参照）。
     entity-type-multipliers:
@@ -686,6 +699,19 @@ combat:
     per-mob-level: 2
     # 2026-08-12: 0.25 -> 0.188(x0.75)。理由は ars-magic.kill-exp 側の注記と同じ。
     per-max-health: 0.188
+    # 【最大HP項の指数】(2026-08-19 ユーザー要望「80lvエンダーマンで約4000へ。ただし序盤の
+    # 上がり方は変えたくないのでHPに応じた経験値指数だけ調整して」)
+    # HP項 = per-max-health * min(HP, anchor * (HP/anchor)^exponent)
+    #   ・HP <= anchor の帯は min が線形側を選ぶので【1ミリも変わらない】= 序盤の上がり方はそのまま
+    #   ・HP > anchor では (HP/anchor)^(exponent-1) 倍に圧縮される
+    #   ・anchor: 0 か exponent: 1 で従来どおりの線形に戻る
+    # なぜ per-max-health を下げるだけでは駄目か: HP項は全帯で支配的(Lv10のエンダーマンでも
+    # HP項353 対 base+Lv項40)なので、係数を半分にすると序盤も半分になる。
+    # 8000 は「モブHPが指数的に爆発し始める Lv40 前後」のHP。0.74 は Lv80 エンダーマン
+    # (HP約183000)で現行の約0.44倍になる値 = 報告値 8000~10000 -> 約4000。
+    # 参考の倍率(エンダーマン): Lv38以下 1.00 / Lv50 0.71 / Lv60 0.57 / Lv80 0.44 / Lv100 0.37
+    per-max-health-anchor: 8000
+    per-max-health-exponent: 0.74
     unlisted-entity-multiplier: 0
     # 非敵対モブ（Paper の Enemy インターフェースを持たないモブ）は討伐EXPの対象外。
     # unlisted-entity-multiplier: 0 なので「行を書かない＝EXPゼロ」であり、0 で明示する必要も無い。

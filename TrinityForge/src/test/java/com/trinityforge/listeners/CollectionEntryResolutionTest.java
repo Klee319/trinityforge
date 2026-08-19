@@ -3,10 +3,12 @@ package com.trinityforge.listeners;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -265,5 +267,58 @@ class CollectionEntryResolutionTest {
     void creativeOriginBeatsTheCatalogTemplateMatch() {
         assertTrue(CollectionListener.resolveEntryId("ECHO_SHARD", true,
                         creativeFacts(null, null, 100083, "skill_tree_reset"), WATCHED).isEmpty());
+    }
+
+    // --- W-141 (2026-08-19): 出自マーカーを刻む対象を「記録され得る品」だけに絞る ---
+    // 実サーバ報告「クリエで持ったアイテムがサバイバルの入手品とスタックされない(バニラでも)」。
+    // 印は PDC なので刻んだ瞬間に同種の無印スタックと合体しなくなる。記録経路が解決できない品は
+    // 印が無くても最初から記録されないので、刻む意味がゼロ・副作用だけが残っていた。
+
+    @Test
+    @DisplayName("監視外のバニラ品には出自マーカーを刻まない(スタックが壊れるだけで得が無い)")
+    void doesNotMarkUnwatchedVanillaStacks() {
+        assertFalse(CollectionListener.marksCreativeOrigin("DIRT", false, emptyFacts(), WATCHED),
+                "監視外の素のバニラ品に刻むと、サバイバル入手の同種スタックと積めなくなる");
+        assertFalse(CollectionListener.marksCreativeOrigin("COBBLESTONE", true, emptyFacts(), WATCHED),
+                "meta があっても PDC/CMD が無く監視外なら刻まない");
+    }
+
+    @Test
+    @DisplayName("監視対象のバニラ品・カタログ品・Ars品には従来どおり刻む(抜け道を開けない)")
+    void stillMarksEverythingThatCouldBeRecorded() {
+        assertTrue(CollectionListener.marksCreativeOrigin("ELYTRA", false, emptyFacts(), WATCHED),
+                "items.structure の監視バニラ品はクリエイティブから出せるので必ず刻む");
+        assertTrue(CollectionListener.marksCreativeOrigin("ECHO_SHARD", true,
+                        facts("warden_tendril", null, null, null), WATCHED),
+                "TFカタログ刻印品(中クリック複製で出せる)は刻む");
+        assertTrue(CollectionListener.marksCreativeOrigin("ECHO_SHARD", true,
+                        facts(null, "reality_thread_core", null, null), WATCHED),
+                "監視対象の Ars 品は刻む");
+        assertTrue(CollectionListener.marksCreativeOrigin("ECHO_SHARD", true,
+                        facts(null, null, 100083, "skill_tree_reset"), WATCHED),
+                "CMD がカタログテンプレートに一致する品は刻む");
+    }
+
+    @Test
+    @DisplayName("刻む条件と記録する条件は同じ関数で決まる(食い違わない)")
+    void markingAndRecordingShareTheSameDecision() {
+        List<CollectionListener.MetaFacts> cases = List.of(
+                emptyFacts(),
+                facts("warden_tendril", null, null, null),
+                facts(null, "reality_thread_core", null, null),
+                facts(null, null, 100083, "skill_tree_reset"),
+                creativeFacts(null, null, null, null));
+        for (String material : List.of("DIRT", "ELYTRA", "ECHO_SHARD", "HEART_OF_THE_SEA")) {
+            for (boolean hasMeta : List.of(true, false)) {
+                for (CollectionListener.MetaFacts facts : cases) {
+                    CollectionListener.MetaFacts effective = hasMeta ? facts : emptyFacts();
+                    assertEquals(
+                            CollectionListener.resolveEntryId(material, hasMeta, effective, WATCHED)
+                                    .isPresent(),
+                            CollectionListener.marksCreativeOrigin(material, hasMeta, effective, WATCHED),
+                            material + " (hasMeta=" + hasMeta + ") で刻む条件と記録条件が食い違っている");
+                }
+            }
+        }
     }
 }

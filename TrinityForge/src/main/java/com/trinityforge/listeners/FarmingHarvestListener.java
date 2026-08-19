@@ -136,18 +136,31 @@ public final class FarmingHarvestListener implements Listener {
         if (replantActive) {
             replantOriginBlock(event, block, type, player.getInventory().getItemInMainHand());
         }
-        // 2026-07-27: 範囲収穫にツール判定を追加。従来は**判定が一切無く**、素手でも杖でもピッケルでも
-        // 3x3収穫が発動していた。鍬(TFの use-skill: FARMING、または素のバニラの鍬)を要求する。
-        // auto-replant は意図的に対象外 — 作物はバニラでも素手で収穫できるものであり、自動再植は
-        // 種を1つ差し引く等価交換で悪用の余地が無いため、素手収穫を殺してまで縛る理由がない。
-        if (playerData.areaHarvestEnabled()
-                && GatheringToolMatcher.matches(player.getInventory().getItemInMainHand(),
-                        GatheringToolMatcher.FARMING)) {
-            OptionalDouble areaHarvestTier = dedicatedEffects.valueMax(player, EFFECT_AREA_HARVEST);
-            if (areaHarvestTier.isPresent()) {
-                harvestArea(player, block, replantActive, (int) areaHarvestTier.getAsDouble());
-            }
+        maybeHarvestArea(player, playerData, block, replantActive);
+    }
+
+    /**
+     * {@code area-harvest} のゲート判定と発動。破壊収穫・右クリック収穫の<b>両方</b>から呼ぶ。
+     *
+     * <p>2026-07-27: 範囲収穫にツール判定を追加。従来は<b>判定が一切無く</b>、素手でも杖でもピッケルでも
+     * 3x3収穫が発動していた。鍬(TFの use-skill: FARMING、または素のバニラの鍬)を要求する。
+     * {@code auto-replant} は意図的に対象外 — 作物はバニラでも素手で収穫できるものであり、自動再植は
+     * 種を1つ差し引く等価交換で悪用の余地が無いため、素手収穫を殺してまで縛る理由がない。
+     */
+    private void maybeHarvestArea(Player player, PlayerData playerData, Block origin, boolean replantActive) {
+        // 2026-07-25 §2 B-2: プレイヤートグルOFF(選択収穫したい場面向け)。
+        if (!playerData.areaHarvestEnabled()) {
+            return;
         }
+        if (!GatheringToolMatcher.matches(player.getInventory().getItemInMainHand(),
+                GatheringToolMatcher.FARMING)) {
+            return;
+        }
+        OptionalDouble areaHarvestTier = dedicatedEffects.valueMax(player, EFFECT_AREA_HARVEST);
+        if (areaHarvestTier.isEmpty()) {
+            return;
+        }
+        harvestArea(player, origin, replantActive, (int) areaHarvestTier.getAsDouble());
     }
 
     /**
@@ -173,7 +186,8 @@ public final class FarmingHarvestListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        if (!PlayerData.of(player).autoReplantEnabled()
+        PlayerData playerData = PlayerData.of(player);
+        if (!playerData.autoReplantEnabled()
                 || !dedicatedEffects.isActive(player, EFFECT_AUTO_REPLANT)) {
             return;
         }
@@ -201,6 +215,14 @@ public final class FarmingHarvestListener implements Listener {
         replanted.setAge(0);
         block.setBlockData(replanted);
         onCropReplanted.accept(block, player);
+        // W-142(2026-08-19) 実サーバ報告「範囲収穫機能が機能していない」の真因:
+        // 範囲収穫のゲートは onBlockBreak 側にしか無かった。ところが auto-replant を解放すると
+        // 成熟作物への右クリックはこのハンドラが丸ごと引き取り(event をキャンセルし、認可用の合成
+        // BlockBreakEvent は authorizingRightClickHarvest で自分の break 経路から除外される)ため、
+        // **右クリック収穫では範囲収穫の判定に一度も到達しなかった**。area-harvest を持つノード(C)は
+        // auto-replant を持つノード(B)の子なので、解放した全員が右クリック収穫を先に持っている =
+        // 主要な収穫動作では機能ゼロに見える。破壊収穫と同じゲート・同じ半径でここでも発動させる。
+        maybeHarvestArea(player, playerData, block, true);
     }
 
     /** 起点ブロック: バニラdropを止め、種1個分を差し引いたdropを自前で撒いてからage0で再設置予約する。 */

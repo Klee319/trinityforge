@@ -222,6 +222,89 @@ class FarmingHarvestListenerTest {
         assertEquals(Material.AIR, neighbor.getType(), "toggle ON + unlocked must area-harvest the neighbor");
     }
 
+    // --- W-142(2026-08-19) 実サーバ報告「範囲収穫機能が機能していない」 ---
+
+    /**
+     * 範囲収穫のゲートは {@code onBlockBreak} 側にしか無く、auto-replant を解放したプレイヤーの
+     * <b>右クリック収穫では一度も到達しなかった</b>。area-harvest を持つノード(C)は auto-replant を
+     * 持つノード(B)の子なので、解放した全員が右クリック収穫を先に持っている = 主要な収穫動作では
+     * 機能ゼロに見えていた。
+     */
+    @Test
+    void rightClickHarvestAlsoAreaHarvestsTheNeighbor() {
+        when(dedicatedEffects.isActive(any(), eq("auto-replant"))).thenReturn(true);
+        when(dedicatedEffects.valueMax(any(), eq("area-harvest"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.areaHarvestRadius(1)).thenReturn(1);
+        Plugin plugin = MockBukkit.createMockPlugin();
+        server.getPluginManager().registerEvents(
+                new FarmingHarvestListener(plugin, dedicatedEffects, gimmickConfig,
+                        new FeedbackLayer(), mock(ChainBreakExpGrant.class)),
+                plugin);
+
+        Block crop = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+
+        server.getPluginManager().callEvent(rightClick(crop));
+
+        // 隣は「収穫(=AIR)」まで済んでいれば範囲収穫が走った証拠(植え直しは1tick後のタスク)。
+        assertEquals(Material.AIR, neighbor.getType(),
+                "右クリック収穫からも範囲収穫が発動すること");
+        assertEquals(Material.WHEAT, crop.getType(), "起点はその場で age0 に植え直される");
+        assertEquals(0, ((Ageable) crop.getBlockData()).getAge());
+    }
+
+    @Test
+    void rightClickHarvestDoesNotAreaHarvestWhenTheToggleIsOff() {
+        when(dedicatedEffects.isActive(any(), eq("auto-replant"))).thenReturn(true);
+        when(dedicatedEffects.valueMax(any(), eq("area-harvest"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.areaHarvestRadius(1)).thenReturn(1);
+        PlayerData.of(player).setAreaHarvestEnabled(false);
+        Plugin plugin = MockBukkit.createMockPlugin();
+        server.getPluginManager().registerEvents(
+                new FarmingHarvestListener(plugin, dedicatedEffects, gimmickConfig,
+                        new FeedbackLayer(), mock(ChainBreakExpGrant.class)),
+                plugin);
+
+        Block crop = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+
+        server.getPluginManager().callEvent(rightClick(crop));
+
+        assertEquals(Material.WHEAT, crop.getType(), "自動再植そのものは効いたまま");
+        assertEquals(0, ((Ageable) crop.getBlockData()).getAge());
+        assertEquals(7, ((Ageable) neighbor.getBlockData()).getAge(),
+                "トグルOFFなら右クリック収穫でも隣に手を出さない");
+    }
+
+    /** 右クリック収穫は鍬を要求する(破壊経路と同じゲート)。 */
+    @Test
+    void rightClickHarvestDoesNotAreaHarvestWithoutAHoe() {
+        player.getInventory().setItemInMainHand(new ItemStack(Material.STICK));
+        when(dedicatedEffects.isActive(any(), eq("auto-replant"))).thenReturn(true);
+        when(dedicatedEffects.valueMax(any(), eq("area-harvest"))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.areaHarvestRadius(1)).thenReturn(1);
+        Plugin plugin = MockBukkit.createMockPlugin();
+        server.getPluginManager().registerEvents(
+                new FarmingHarvestListener(plugin, dedicatedEffects, gimmickConfig,
+                        new FeedbackLayer(), mock(ChainBreakExpGrant.class)),
+                plugin);
+
+        Block crop = matureWheat(player, 0, 0);
+        Block neighbor = matureWheat(player, 1, 0);
+
+        server.getPluginManager().callEvent(rightClick(crop));
+
+        assertEquals(0, ((Ageable) crop.getBlockData()).getAge(),
+                "素手/棒でも自動再植は従来どおり効く(意図的にツール判定なし)");
+        assertEquals(7, ((Ageable) neighbor.getBlockData()).getAge(),
+                "鍬でなければ範囲収穫は発動しない");
+    }
+
+    private PlayerInteractEvent rightClick(Block block) {
+        return new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK,
+                player.getInventory().getItemInMainHand(), block, BlockFace.UP, EquipmentSlot.HAND);
+    }
+
     // --- 2026-07-31 G1 round2 レビュー指摘7: 範囲収穫もルートテーブルを1回だけ引く ---
 
     /**

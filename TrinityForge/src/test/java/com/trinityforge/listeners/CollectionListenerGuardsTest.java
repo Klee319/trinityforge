@@ -743,6 +743,9 @@ class CollectionListenerGuardsTest {
     @DisplayName("並べ替えを1件覚えたあとでも、別の品の新規生成には印を付ける(緩めすぎていないこと)")
     void spawningADifferentItemAfterARearrangeIsStillStamped() {
         Fixture f = fixture();
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("ELYTRA", "TOTEM_OF_UNDYING");
         Player player = creativePlayer();
         ItemStack legit = new ItemStack(Material.ELYTRA);
         player.getInventory().setItem(0, legit);
@@ -789,6 +792,9 @@ class CollectionListenerGuardsTest {
     @DisplayName("印付きの品を既に持っている状態なら、印無しの同種を湧かせた分は刻む")
     void spawningAnUnstampedCopyOfAStampedItemIsStillStamped() {
         Fixture f = fixture();
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("TOTEM_OF_UNDYING");
         Player player = creativePlayer();
         ItemStack stamped = new ItemStack(Material.TOTEM_OF_UNDYING);
         ItemMeta meta = stamped.getItemMeta();
@@ -822,6 +828,9 @@ class CollectionListenerGuardsTest {
     @DisplayName("退出で並べ替えの記憶を捨てる(掃除しないマップは増え続ける)")
     void quitDropsTheRememberedCreativeRemoval() {
         Fixture f = fixture();
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("ELYTRA");
         Player player = creativePlayer();
         ItemStack legit = new ItemStack(Material.ELYTRA);
         player.getInventory().setItem(0, legit);
@@ -851,6 +860,9 @@ class CollectionListenerGuardsTest {
     void creativePickBlockStampsTheDuplicatedItem() {
         Plugin plugin = MockBukkit.createMockPlugin();
         Fixture f = new Fixture(plugin);
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("DRAGON_EGG");
         Player player = creativePlayer();
 
         f.listener.onPickBlock(new PlayerPickBlockEvent(
@@ -868,6 +880,9 @@ class CollectionListenerGuardsTest {
     void pickBlockOfAnAlreadyOwnedItemIsNotStamped() {
         Plugin plugin = MockBukkit.createMockPlugin();
         Fixture f = new Fixture(plugin);
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("DRAGON_EGG");
         Player player = creativePlayer();
         player.getInventory().setItem(7, new ItemStack(Material.DRAGON_EGG));
 
@@ -901,6 +916,9 @@ class CollectionListenerGuardsTest {
     void creativePickEntityStampsTheDuplicatedItem() {
         Plugin plugin = MockBukkit.createMockPlugin();
         Fixture f = new Fixture(plugin);
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("ELYTRA");
         Player player = creativePlayer();
 
         f.listener.onPickEntity(new PlayerPickEntityEvent(
@@ -1000,6 +1018,9 @@ class CollectionListenerGuardsTest {
     void pickBlockMarkerLandsOnTheActualHotbarSlot() {
         Plugin plugin = MockBukkit.createMockPlugin();
         Fixture f = new Fixture(plugin);
+        // W-141: 印を刻むのは「図鑑に記録され得る品」だけになったので、
+        // このテストが使う Material を監視対象に入れる(意図は変えない)。
+        f.setWatched("DRAGON_EGG");
         Player player = creativePlayer();
         player.getInventory().setHeldItemSlot(4);
 

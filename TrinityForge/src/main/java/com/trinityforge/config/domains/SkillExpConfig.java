@@ -64,6 +64,9 @@ public final class SkillExpConfig {
     private volatile double arsMagicKillExpBase = 20.0;
     private volatile double arsMagicKillExpPerMobLevel = 1.5;
     private volatile double arsMagicKillExpPerMaxHealth = 0.25;
+    /** 最大HP項の指数と起点HP(2026-08-19)。combat 側と同じ意味・同じ既定(＝線形)。 */
+    private volatile double arsMagicKillExpPerMaxHealthExponent = 1.0;
+    private volatile double arsMagicKillExpPerMaxHealthAnchor = 0.0;
     private volatile Map<String, Double> arsMagicKillEntityTypeMultipliers = Map.of();
     private volatile boolean arsMagicBlockBreakExpEnabled = true;
     private volatile double arsMagicBlockBreakSourceMultiplier = 1.0;
@@ -115,6 +118,12 @@ public final class SkillExpConfig {
             "ARCHERY", 25.0);
     private volatile double combatKillExpPerMobLevel = 2.0;
     private volatile double combatKillExpPerMaxHealth = 0.25;
+    /**
+     * 最大HP項に掛ける指数とその起点HP(2026-08-19)。既定は「指数なし＝従来どおりの線形」。
+     * 意味と式は {@link com.trinityforge.stats.KillExpHealthTerm}。
+     */
+    private volatile double combatKillExpPerMaxHealthExponent = 1.0;
+    private volatile double combatKillExpPerMaxHealthAnchor = 0.0;
     private volatile Map<String, Double> combatKillEntityTypeMultipliers = Map.of();
     /**
      * 2026-07-28 ユーザー要望「モブ定義にないモブは経験値なし」: {@code entity-type-multipliers} に
@@ -249,7 +258,9 @@ public final class SkillExpConfig {
         }
         double base = arsMagicKillExpBase
                 + Math.max(0, mobLevel) * arsMagicKillExpPerMobLevel
-                + Math.max(0.0, maxHealth) * arsMagicKillExpPerMaxHealth;
+                + com.trinityforge.stats.KillExpHealthTerm.healthTerm(arsMagicKillExpPerMaxHealth,
+                        maxHealth, arsMagicKillExpPerMaxHealthAnchor,
+                        arsMagicKillExpPerMaxHealthExponent);
         return Math.max(0.0, base) * entityMultiplier(arsMagicKillEntityTypeMultipliers, entityType,
                 arsMagicKillUnlistedEntityMultiplier);
     }
@@ -375,7 +386,8 @@ public final class SkillExpConfig {
         String skill = skillId == null ? "" : skillId.trim().toUpperCase(Locale.ROOT);
         double base = combatKillExpBase.getOrDefault(skill, 0.0)
                 + Math.max(0, mobLevel) * combatKillExpPerMobLevel
-                + Math.max(0.0, maxHealth) * combatKillExpPerMaxHealth;
+                + com.trinityforge.stats.KillExpHealthTerm.healthTerm(combatKillExpPerMaxHealth,
+                        maxHealth, combatKillExpPerMaxHealthAnchor, combatKillExpPerMaxHealthExponent);
         return Math.max(0.0, base) * entityMultiplier(combatKillEntityTypeMultipliers, entityType,
                 combatKillUnlistedEntityMultiplier);
     }
@@ -560,6 +572,10 @@ public final class SkillExpConfig {
                 Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.per-mob-level", 1.5));
         this.arsMagicKillExpPerMaxHealth =
                 Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.per-max-health", 0.25));
+        this.arsMagicKillExpPerMaxHealthExponent =
+                Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.per-max-health-exponent", 1.0));
+        this.arsMagicKillExpPerMaxHealthAnchor =
+                Math.max(0.0, yaml.getDouble("ars-magic.kill-exp.per-max-health-anchor", 0.0));
         this.arsMagicKillEntityTypeMultipliers =
                 readNonNegativeMap(yaml, "ars-magic.kill-exp.entity-type-multipliers", true);
         this.arsMagicBlockBreakExpEnabled =
@@ -608,6 +624,10 @@ public final class SkillExpConfig {
                 Math.max(0.0, yaml.getDouble("combat.kill-exp.per-mob-level", 2.0));
         this.combatKillExpPerMaxHealth =
                 Math.max(0.0, yaml.getDouble("combat.kill-exp.per-max-health", 0.25));
+        this.combatKillExpPerMaxHealthExponent =
+                Math.max(0.0, yaml.getDouble("combat.kill-exp.per-max-health-exponent", 1.0));
+        this.combatKillExpPerMaxHealthAnchor =
+                Math.max(0.0, yaml.getDouble("combat.kill-exp.per-max-health-anchor", 0.0));
         this.combatKillEntityTypeMultipliers =
                 readNonNegativeMap(yaml, "combat.kill-exp.entity-type-multipliers", true);
         this.combatKillUnlistedEntityMultiplier = Math.max(0.0,

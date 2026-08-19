@@ -52,6 +52,19 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@link #restampPlainQualitySmith} がこのケースを検知し、{@link ItemFactory#stamp}
  * で新 Material の item-stats プロファイルに基づいて再組み立てする(品質は引き継ぎ、
  * rollSeed のみ再抽選 — ユーザー確定仕様)。
+ *
+ * <p><b>W-140(2026-08-19) 増殖バグ修正 — {@code setItemOnCursor} を呼んではいけない</b>:
+ * 実サーバ報告「鍛冶台でネザライト化する際に素材を消費せず無限にネザライト化できる」。
+ * {@link SmithItemEvent} は {@code InventoryClickEvent} であり、CraftBukkit の
+ * {@code handleContainerClick} は<b>イベントを発火してから</b>バニラの実処理
+ * ({@code AbstractContainerMenu.clicked}) を走らせる。そこでカーソルへ完成品を載せてしまうと、
+ * バニラは「カーソルが埋まっている」状態から結果枠の取得を試みるので
+ * {@code tryRemove(count, maxStackSize - cursorCount)} の上限が 1-1=0 になり
+ * <b>{@code ResultSlot#onTake} が一度も呼ばれない = 素材が消費されない</b>。それでいて手には
+ * こちらが載せた完成品が残るため、盤面そのままで無限に取り出せる。
+ * {@code CraftQualityListener#onCraft} が 2026-07-28 に同じ理由で通った道で、
+ * <b>結果枠({@code setCurrentItem})だけを差し替えれば</b>バニラが正規の
+ * 「カーソル空 → onTake(素材消費) → カーソルへ」を実行する。
  */
 public final class CatalogSmithingListener implements Listener {
 
@@ -100,10 +113,8 @@ public final class CatalogSmithingListener implements Listener {
         ItemStack stamped = itemFactory.create(match.resultTemplate(), seed, quality);
         CatalogIdentity.ensure(stamped, itemCatalog);
         carryOverEnchantments(match.base(), stamped);
+        // 結果枠だけを差し替える。カーソルには絶対に触らない(理由は setItemOnCursor の禁止理由)。
         event.setCurrentItem(stamped.clone());
-        if (event.getWhoClicked() instanceof org.bukkit.entity.Player player && !event.isShiftClick()) {
-            player.setItemOnCursor(stamped.clone());
-        }
     }
 
     /**
@@ -140,10 +151,8 @@ public final class CatalogSmithingListener implements Listener {
         long seed = ThreadLocalRandom.current().nextLong();
         ItemStack stamped = current.clone();
         itemFactory.stamp(stamped, seed, quality);
+        // 結果枠だけを差し替える。カーソルには絶対に触らない(理由は setItemOnCursor の禁止理由)。
         event.setCurrentItem(stamped.clone());
-        if (event.getWhoClicked() instanceof org.bukkit.entity.Player player && !event.isShiftClick()) {
-            player.setItemOnCursor(stamped.clone());
-        }
         return true;
     }
 

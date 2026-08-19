@@ -352,6 +352,9 @@ public final class CollectionListener implements Listener {
         if (!isNewlySpawned(player, written, previous)) {
             return;
         }
+        if (!canEverBeRecorded(written)) {
+            return;
+        }
         ItemStack marked = written.clone();
         if (markCreativeOrigin(marked)) {
             event.setCursor(marked);
@@ -481,12 +484,48 @@ public final class CollectionListener implements Listener {
                     return;
                 }
             }
+            if (!canEverBeRecorded(picked)) {
+                // 記録され得ない品に刻むとスタックできなくなるだけ(W-141)。詳細は canEverBeRecorded。
+                return;
+            }
             if (markCreativeOrigin(picked)) {
                 // getItemInMainHand() は mirror なので上の書き込みで既に通っているが、
                 // copy を返す実装に変わった場合に備えて書き戻す(冪等)。
                 player.getInventory().setItemInMainHand(picked);
             }
         });
+    }
+
+    /**
+     * このスタックが<b>そもそも図鑑に記録され得るか</b>(2026-08-19 W-141)。
+     *
+     * <p><b>なぜこの門が必要か</b>: 実サーバ報告「クリエイティブユーザーが持ったアイテムが
+     * サバイバルユーザーの入手品とスタックされない(バニラのアイテムであっても)」。
+     * 出自マーカーは PDC なので、刻んだスタックは<b>同種の無印スタックと永久に合体しない</b>
+     * ({@link #onCreativeSet} の javadoc にも副作用として書いてあった)。石でも鉄インゴットでも
+     * クリエイティブのアイテム欄から出した瞬間に刻まれていたため、サバイバル側の同じ品と
+     * 積めなくなっていた。
+     *
+     * <p><b>刻まなくても抜け道にならない理由</b>: 記録経路({@link #onPickup} /
+     * {@link #scanInventory})は {@link #catalogIdOf} が解決できたIDしか登録しない。
+     * つまり<b>解決できないスタックは印が無くても最初から記録されない</b>ので、印は純粋に
+     * 「スタックしなくなる」という副作用だけを生んでいた。監視対象(監視バニラ Material /
+     * カタログ品 / Ars 品)にだけ絞れば、塞ぎたい「持っていない品を無料で図鑑に載せる」経路は
+     * そのまま塞がったままになる。
+     */
+    private boolean canEverBeRecorded(ItemStack stack) {
+        return catalogIdOf(stack).isPresent();
+    }
+
+    /**
+     * {@link #canEverBeRecorded} の判定本体を {@link ItemStack} から切り離した純関数
+     * (テストの理由は {@link #resolveEntryId} の javadoc と同じ)。
+     * <b>「刻む条件」と「記録する条件」を同じ1本の関数で決める</b>ので、片方だけ直して
+     * 食い違う(印は付くのに記録されない/その逆)ということが起きない。
+     */
+    static boolean marksCreativeOrigin(String materialName, boolean hasItemMeta,
+                                       MetaFacts facts, Set<String> watched) {
+        return resolveEntryId(materialName, hasItemMeta, facts, watched).isPresent();
     }
 
     /**
