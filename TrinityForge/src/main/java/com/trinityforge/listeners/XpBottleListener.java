@@ -121,16 +121,12 @@ public final class XpBottleListener implements Listener {
         if (heldType != Material.GLASS_BOTTLE && heldType != Material.EXPERIENCE_BOTTLE) {
             return;
         }
-        // 2026-07-26 tier-expand: xp-bottle-store-unlock は feature:<id> SCALE化(旧NONE)。valueMax の
-        // present/emptyそのものが従来の isActive() 相当のゲートを兼ねる(SCALEはvalue省略時にtier1が
-        // 自動補完されるため、既存の単一解放ノードは無改変のまま従来どおり動作する — VeinMiningListener
-        // と同じidiom)。
-        OptionalDouble tierValue = dedicatedEffects.valueMax(player, EFFECT_XP_BOTTLE_STORE);
-        if (tierValue.isEmpty()) {
-            return;
-        }
-        int tier = (int) tierValue.getAsDouble();
-
+        // 2026-08-19 W-134: 取り出しは【解放判定より前】に処理する。
+        // 以前はここで解放ゲートを通していたため、未解放のプレイヤーが充填済みの瓶を右クリックすると
+        // そのままバニラの投擲に流れ、格納した経験値が投擲時の固定量に化けて消えていた
+        // (実サーバ報告「未解放だとエンチャント瓶として投げてしまう」)。
+        // 充填(=瓶に詰める)には従来どおり解放が要るが、取り出しは誰でもできてよい ——
+        // 瓶そのものは受け渡し・保管される持ち物で、解放者しか開けられない道理が無いため。
         if (heldType == Material.EXPERIENCE_BOTTLE) {
             Integer storedAmount = readStoredAmount(heldStack);
             if (storedAmount == null) {
@@ -139,9 +135,19 @@ public final class XpBottleListener implements Listener {
             }
             // Always cancel: see class javadoc (protects the stored amount from vanilla's throw).
             event.setCancelled(true);
-            handleWithdraw(player, heldStack, storedAmount, tier);
+            handleWithdraw(player, heldStack, storedAmount, withdrawTier(heldStack, player));
             return;
         }
+
+        // 2026-07-26 tier-expand: xp-bottle-store-unlock は feature:<id> SCALE化(旧NONE)。valueMax の
+        // present/emptyそのものが従来の isActive() 相当のゲートを兼ねる(SCALEはvalue省略時にtier1が
+        // 自動補完されるため、既存の単一解放ノードは無改変のまま従来どおり動作する — VeinMiningListener
+        // と同じidiom)。ここから先(=充填)は解放者だけ。
+        OptionalDouble tierValue = dedicatedEffects.valueMax(player, EFFECT_XP_BOTTLE_STORE);
+        if (tierValue.isEmpty()) {
+            return;
+        }
+        int tier = (int) tierValue.getAsDouble();
 
         // ガラス瓶: バニラの用途(水汲み/蜜採取/ブロック操作)が成立するクリックでは何もしない。
         if (wouldVanillaUseTheBottle(event, player, heldStack)) {
@@ -220,7 +226,7 @@ public final class XpBottleListener implements Listener {
         // ガラス瓶1本を「充填済み経験値瓶」(EXPERIENCE_BOTTLE + PDC)に変える。素の瓶のmetaは
         // 引き継がない(バニラのガラス瓶に付いた表示名などを経験値瓶へ持ち込まないため)。
         ItemStack filledBottle = new ItemStack(Material.EXPERIENCE_BOTTLE);
-        stampFilledBottle(filledBottle, toStore);
+        stampFilledBottle(filledBottle, toStore, tier);
         consumeOneAndGive(player, heldStack, filledBottle);
 
         player.sendMessage(MINI_MESSAGE.deserialize(
@@ -255,12 +261,33 @@ public final class XpBottleListener implements Listener {
         player.setTotalExperience(0);
     }
 
-    private static void stampFilledBottle(ItemStack bottle, int amount) {
+    /**
+     * 取り出しの還元率を引く tier(2026-08-19 / W-134)。
+     *
+     * <p>優先順位は (1) 瓶に焼き付けられた<b>充填時の tier</b>、(2) 持ち主の解放 tier、(3) tier1。
+     * 瓶側を先に見るのは、取り出しに解放が要らなくなった以上
+     * 「そのとき持っている人の tier」で引くと<b>受け渡すだけで還元率が変わってしまう</b>ため。
+     * (2) は W-134 以前に詰められた瓶（tier の刻印が無い）への救済で、
+     * そこも取れなければ tier1 ＝ 従来のグローバル既定へ落ちる。
+     */
+    private int withdrawTier(ItemStack bottle, Player player) {
+        Integer stamped = readStoredTier(bottle);
+        if (stamped != null && stamped > 0) {
+            return stamped;
+        }
+        OptionalDouble holderTier = dedicatedEffects.valueMax(player, EFFECT_XP_BOTTLE_STORE);
+        return holderTier.isPresent() ? Math.max(1, (int) holderTier.getAsDouble()) : 1;
+    }
+
+    private static void stampFilledBottle(ItemStack bottle, int amount, int tier) {
         ItemMeta meta = bottle.getItemMeta();
         if (meta == null) {
             return;
         }
         meta.getPersistentDataContainer().set(PdcKeys.ITEM_XP_BOTTLE_AMOUNT, PersistentDataType.INTEGER, amount);
+        if (tier > 0) {
+            meta.getPersistentDataContainer().set(PdcKeys.ITEM_XP_BOTTLE_TIER, PersistentDataType.INTEGER, tier);
+        }
         meta.displayName(MINI_MESSAGE.deserialize("<light_purple>充填済み経験値瓶</light_purple>"));
         meta.lore(List.of(MINI_MESSAGE.deserialize(
                 "<gray>格納された経験値: <white><amount></white></gray>",
@@ -278,6 +305,17 @@ public final class XpBottleListener implements Listener {
             return null;
         }
         return meta.getPersistentDataContainer().get(PdcKeys.ITEM_XP_BOTTLE_AMOUNT, PersistentDataType.INTEGER);
+    }
+
+    /** 充填時に焼き付けた tier(無ければ {@code null} = W-134 以前に詰められた瓶)。 */
+    private static Integer readStoredTier(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) {
+            return null;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        return meta == null
+                ? null
+                : meta.getPersistentDataContainer().get(PdcKeys.ITEM_XP_BOTTLE_TIER, PersistentDataType.INTEGER);
     }
 
     /** Removes one {@code original} from the player's hand and gives {@code replacement} (falls back

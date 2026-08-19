@@ -117,6 +117,16 @@ public final class PdcKeys {
      */
     public static final NamespacedKey ITEM_XP_BOTTLE_AMOUNT = key("xp_bottle_amount");
     /**
+     * 充填時の解放 tier(2026-08-19 / W-134)。取り出しの還元率
+     * ({@code CraftingFeaturesConfig#xpBottleReturnRate(int)})はこの値で引く。
+     *
+     * <p><b>持ち主でなく瓶に持たせる理由</b>: 取り出しは解放が要らない仕様になったので、
+     * 「そのとき持っている人の tier」で引くと<b>受け渡すだけで還元率が変わる</b>。
+     * 還元率は詰めた時点で決まっているべきものなので、瓶側へ焼き付ける。
+     * このキーを持たない旧い瓶は tier1 相当へフォールバックする。
+     */
+    public static final NamespacedKey ITEM_XP_BOTTLE_TIER = key("xp_bottle_tier");
+    /**
      * TFがこのアイテムへ実行時に足した「効率強化」エンチャントレベル(2026-07-25 採集効率エンチャント
      * 連動方式、属性ベースを取り下げ再設計)。除去は必ずこの記録値ぶんだけ厳密に差し引く(現在のレベルから
      * 機械的に引くと、金床や tool-enchant-efficiency 由来の正規のレベルまで消してしまう)。absent = 0

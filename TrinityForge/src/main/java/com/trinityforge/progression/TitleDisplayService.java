@@ -71,8 +71,16 @@ public final class TitleDisplayService implements Listener {
 
     /** 追従tick間隔。{@code FocusHpDisplay} と揃える。 */
     private static final long PERIOD_TICKS = 1L;
-    /** テレポート間をクライアント側で補間するtick数(2tick毎のカクつきを消す)。 */
-    private static final int TELEPORT_DURATION_TICKS = 2;
+    /**
+     * テレポート間をクライアント側で補間するtick数。
+     *
+     * <p><b>{@link #PERIOD_TICKS} と必ず同じ値にすること(2026-08-19 / W-135)。</b>
+     * 補間長が更新間隔より長いと、毎tick「まだ終わっていない補間」を新しい目的地で
+     * 上書きし続けることになり、称号は常に本体より遅れて追いつけないまま<b>揺れて見える</b>
+     * (実サーバ報告「少し揺れる」)。等しくしておけば、補間はちょうど次の更新が届く瞬間に
+     * 完了するので、滑らかさを保ったまま遅れが出ない。
+     */
+    private static final int TELEPORT_DURATION_TICKS = (int) PERIOD_TICKS;
     /**
      * バニラがネームタグを描画する高さ(足元から {@code 高さ + この値})。Minecraft 側の定数であり
      * 設定値ではない。ここを config にすると「バニラの描画位置」という観測事実が設定ミスで
@@ -108,9 +116,26 @@ public final class TitleDisplayService implements Listener {
      * スケール変更にも自動追従し、立ち状態(1.8)を定数で埋め込まない。
      */
     static double titleAnchorY(double playerHeight, double clearance) {
+        return titleAnchorY(playerHeight, 0.0, clearance);
+    }
+
+    /**
+     * 目線の高さも見る版(2026-08-19 / W-135)。
+     *
+     * <p><b>なぜ要るか(実バグ)</b>: トロッコ搭乗などで姿勢が変わると
+     * {@code player.getHeight()} は当たり判定の高さ(座り姿勢で 1.8 → 0.6 前後)まで縮む。
+     * 一方 {@link org.bukkit.entity.Player#getLocation()} の原点は乗り物の座席側へ上がるので、
+     * 「高さ + 0.5」で置いた称号が<b>そのまま目の前に来て視界を塞ぐ</b>。
+     * 高さと目線のどちらか高い方を基準にすれば、姿勢が縮んでも称号は必ず目線より上に残る。
+     *
+     * <p>{@code eyeHeight} に 0 以下・非有限を渡すと従来どおり高さだけで決める
+     * (＝この引数を知らない呼び出し元の挙動は変わらない)。
+     */
+    static double titleAnchorY(double playerHeight, double eyeHeight, double clearance) {
         double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
+        double eyes = Double.isFinite(eyeHeight) && eyeHeight > 0 ? eyeHeight : 0.0;
         double gap = Double.isFinite(clearance) && clearance >= 0 ? clearance : FALLBACK_CLEARANCE;
-        return height + VANILLA_NAMETAG_OFFSET + gap;
+        return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + gap;
     }
 
     public void start() {
@@ -186,7 +211,8 @@ public final class TitleDisplayService implements Listener {
     }
 
     private Location anchorFor(Player player) {
-        return player.getLocation().add(0.0, titleAnchorY(player.getHeight(), nametagClearance.getAsDouble()), 0.0);
+        return player.getLocation().add(0.0,
+                titleAnchorY(player.getHeight(), player.getEyeHeight(), nametagClearance.getAsDouble()), 0.0);
     }
 
     private void spawn(Player player, Component text) {

@@ -251,12 +251,68 @@ class XpBottleListenerTest {
         assertEquals(3, totalPlayerExp());
     }
 
+    @Test
+    @DisplayName("W-134: 未解放でも充填済みの瓶は取り出せる(バニラの投擲に流れて中身が消えない)")
+    void withdrawalWorksWithoutTheUnlock() {
+        // 実バグ: 解放ゲートが取り出しより先にあったため、未解放者が右クリックすると
+        // バニラのエンチャント瓶として投げられ、格納した経験値が投擲時の固定量に化けて消えていた。
+        when(dedicatedEffects.valueMax(any(), eq(EFFECT))).thenReturn(OptionalDouble.empty());
+        when(gimmickConfig.xpBottleReturnRate(1)).thenReturn(1.0);
+        PlayerInteractEvent event = interactEvent(filledBottle(100), null);
+
+        listener.onInteract(event);
+
+        assertEquals(100, totalPlayerExp(), "未解放でも格納量が返ること");
+        assertEquals(Material.GLASS_BOTTLE, player.getInventory().getItemInMainHand().getType());
+        verify(event, times(1)).setCancelled(true);
+    }
+
+    @Test
+    @DisplayName("W-134: 還元率は充填時の tier で引く(受け渡しても率が変わらない)")
+    void withdrawalUsesTheTierStampedAtFillTime() {
+        // 持ち主は tier1、瓶は tier3 で詰められている。瓶側が勝つこと。
+        when(dedicatedEffects.valueMax(any(), eq(EFFECT))).thenReturn(OptionalDouble.of(1.0));
+        when(gimmickConfig.xpBottleReturnRate(1)).thenReturn(0.5);
+        when(gimmickConfig.xpBottleReturnRate(3)).thenReturn(1.0);
+        PlayerInteractEvent event = interactEvent(filledBottle(100, 3), null);
+
+        listener.onInteract(event);
+
+        assertEquals(100, totalPlayerExp(), "瓶に焼き付けた tier3 の還元率(1.0)で返ること");
+    }
+
+    @Test
+    @DisplayName("W-134: 充填すると瓶に tier が焼き付く")
+    void storingStampsTheTierOntoTheBottle() {
+        when(dedicatedEffects.valueMax(any(), eq(EFFECT))).thenReturn(OptionalDouble.of(2.0));
+        when(gimmickConfig.xpBottleStoreAmount(2)).thenReturn(100);
+        player.giveExp(500);
+        PlayerInteractEvent event = interactEvent(new ItemStack(Material.GLASS_BOTTLE), null);
+
+        listener.onInteract(event);
+
+        ItemStack filled = player.getInventory().getItemInMainHand();
+        assertEquals(Material.EXPERIENCE_BOTTLE, filled.getType());
+        assertEquals(2, filled.getItemMeta().getPersistentDataContainer()
+                .get(PdcKeys.ITEM_XP_BOTTLE_TIER, PersistentDataType.INTEGER),
+                "充填時の tier が瓶に残らないと、取り出し時に持ち主の tier で率が揺れる");
+    }
+
     // ---- fixtures -----------------------------------------------------------------------------
 
     private ItemStack filledBottle(int storedAmount) {
         ItemStack bottle = new ItemStack(Material.EXPERIENCE_BOTTLE);
         ItemMeta meta = bottle.getItemMeta();
         meta.getPersistentDataContainer().set(PdcKeys.ITEM_XP_BOTTLE_AMOUNT, PersistentDataType.INTEGER, storedAmount);
+        bottle.setItemMeta(meta);
+        return bottle;
+    }
+
+    /** 充填時 tier まで刻んだ瓶(2026-08-19 / W-134)。 */
+    private ItemStack filledBottle(int storedAmount, int tier) {
+        ItemStack bottle = filledBottle(storedAmount);
+        ItemMeta meta = bottle.getItemMeta();
+        meta.getPersistentDataContainer().set(PdcKeys.ITEM_XP_BOTTLE_TIER, PersistentDataType.INTEGER, tier);
         bottle.setItemMeta(meta);
         return bottle;
     }

@@ -107,6 +107,36 @@ class TitleDisplayServiceTest {
     }
 
     @Test
+    void ridingPostureKeepsTheTitleAboveTheEyes() {
+        // W-135: トロッコ搭乗などで姿勢が変わると当たり判定の高さは 0.6 前後まで縮むが、
+        // Location の原点は座席側へ上がるので「高さ+0.5」で置くと目の前に来て視界を塞ぐ。
+        double crouchedHitbox = 0.6;
+        double eyes = 1.27;
+
+        double anchor = TitleDisplayService.titleAnchorY(crouchedHitbox, eyes, 0.4);
+
+        assertTrue(anchor > eyes, "称号は必ず目線より上に置くこと(視界を塞がない): " + anchor);
+        assertEquals(eyes + 0.5 + 0.4, anchor, 1e-9, "目線の高さが基準になること");
+    }
+
+    @Test
+    void standingPostureIsUnchangedByTheEyeHeightArgument() {
+        // 立ち状態は 高さ(1.8) > 目線(1.62) なので、従来どおり高さが基準のまま。
+        assertEquals(TitleDisplayService.titleAnchorY(1.8, 0.4),
+                TitleDisplayService.titleAnchorY(1.8, 1.62, 0.4), 1e-9,
+                "目線引数を足しても、立ち状態の位置は1mmも動かないこと");
+    }
+
+    @Test
+    void brokenEyeHeightIsIgnoredRatherThanBreakingTheAnchor() {
+        double heightOnly = TitleDisplayService.titleAnchorY(1.8, 0.4);
+
+        assertEquals(heightOnly, TitleDisplayService.titleAnchorY(1.8, 0.0, 0.4), 1e-9);
+        assertEquals(heightOnly, TitleDisplayService.titleAnchorY(1.8, -1.0, 0.4), 1e-9);
+        assertEquals(heightOnly, TitleDisplayService.titleAnchorY(1.8, Double.NaN, 0.4), 1e-9);
+    }
+
+    @Test
     void brokenHeightFallsBackToTheStandingHeight() {
         double standing = TitleDisplayService.titleAnchorY(1.8, 0.4);
 

@@ -2682,7 +2682,7 @@ items:
     material: LEATHER_HELMET
     display-name: <light_purple>見習いの魔導ヘルメット</light_purple>
     custom-model-data: 200031
-    color: "#6B3FA0"
+    color: "#3B2566"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2704,7 +2704,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <light_purple>見習いの魔導チェストプレート</light_purple>
     custom-model-data: 200032
-    color: "#6B3FA0"
+    color: "#3B2566"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2726,7 +2726,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <light_purple>見習いの魔導レギンス</light_purple>
     custom-model-data: 200033
-    color: "#6B3FA0"
+    color: "#3B2566"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2748,7 +2748,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <light_purple>見習いの魔導ブーツ</light_purple>
     custom-model-data: 200034
-    color: "#6B3FA0"
+    color: "#3B2566"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2862,7 +2862,7 @@ items:
     material: LEATHER_HELMET
     display-name: <gold>大魔導士の魔導ヘルメット</gold>
     custom-model-data: 200051
-    color: "#6B3FA0"
+    color: "#9457E8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2886,7 +2886,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <gold>大魔導士の魔導チェストプレート</gold>
     custom-model-data: 200052
-    color: "#6B3FA0"
+    color: "#9457E8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2910,7 +2910,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <gold>大魔導士の魔導レギンス</gold>
     custom-model-data: 200053
-    color: "#6B3FA0"
+    color: "#9457E8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2934,7 +2934,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <gold>大魔導士の魔導ブーツ</gold>
     custom-model-data: 200054
-    color: "#6B3FA0"
+    color: "#9457E8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2958,7 +2958,7 @@ items:
     material: LEATHER_HELMET
     display-name: <aqua>賢者の魔導ヘルメット</aqua>
     custom-model-data: 200241
-    color: "#6B3FA0"
+    color: "#C08CFF"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -2983,7 +2983,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <aqua>賢者の魔導チェストプレート</aqua>
     custom-model-data: 200242
-    color: "#6B3FA0"
+    color: "#C08CFF"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3008,7 +3008,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <aqua>賢者の魔導レギンス</aqua>
     custom-model-data: 200243
-    color: "#6B3FA0"
+    color: "#C08CFF"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3033,7 +3033,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <aqua>賢者の魔導ブーツ</aqua>
     custom-model-data: 200244
-    color: "#6B3FA0"
+    color: "#C08CFF"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3058,7 +3058,7 @@ items:
     material: LEATHER_HELMET
     display-name: <color:#C8A2FF>星詠みの魔導ヘルメット</color>
     custom-model-data: 200251
-    color: "#6B3FA0"
+    color: "#E3C6FF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3084,7 +3084,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <color:#C8A2FF>星詠みの魔導チェストプレート</color>
     custom-model-data: 200252
-    color: "#6B3FA0"
+    color: "#E3C6FF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3110,7 +3110,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <color:#C8A2FF>星詠みの魔導レギンス</color>
     custom-model-data: 200253
-    color: "#6B3FA0"
+    color: "#E3C6FF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3136,7 +3136,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <color:#C8A2FF>星詠みの魔導ブーツ</color>
     custom-model-data: 200254
-    color: "#6B3FA0"
+    color: "#E3C6FF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3162,7 +3162,7 @@ items:
     material: LEATHER_HELMET
     display-name: <light_purple>見習いの魔織ヘルメット</light_purple>
     custom-model-data: 200061
-    color: "#2ECC71"
+    color: "#14532D"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3184,7 +3184,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <light_purple>見習いの魔織チェストプレート</light_purple>
     custom-model-data: 200062
-    color: "#2ECC71"
+    color: "#14532D"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3206,7 +3206,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <light_purple>見習いの魔織レギンス</light_purple>
     custom-model-data: 200063
-    color: "#2ECC71"
+    color: "#14532D"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3228,7 +3228,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <light_purple>見習いの魔織ブーツ</light_purple>
     custom-model-data: 200064
-    color: "#2ECC71"
+    color: "#14532D"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3250,7 +3250,7 @@ items:
     material: LEATHER_HELMET
     display-name: <dark_purple>魔術師の魔織ヘルメット</dark_purple>
     custom-model-data: 200071
-    color: "#2ECC71"
+    color: "#1F8A4C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3273,7 +3273,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <dark_purple>魔術師の魔織チェストプレート</dark_purple>
     custom-model-data: 200072
-    color: "#2ECC71"
+    color: "#1F8A4C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3296,7 +3296,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <dark_purple>魔術師の魔織レギンス</dark_purple>
     custom-model-data: 200073
-    color: "#2ECC71"
+    color: "#1F8A4C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3319,7 +3319,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <dark_purple>魔術師の魔織ブーツ</dark_purple>
     custom-model-data: 200074
-    color: "#2ECC71"
+    color: "#1F8A4C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3438,7 +3438,7 @@ items:
     material: LEATHER_HELMET
     display-name: <aqua>賢者の魔織ヘルメット</aqua>
     custom-model-data: 200221
-    color: "#2ECC71"
+    color: "#6FE39B"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3463,7 +3463,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <aqua>賢者の魔織チェストプレート</aqua>
     custom-model-data: 200222
-    color: "#2ECC71"
+    color: "#6FE39B"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3488,7 +3488,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <aqua>賢者の魔織レギンス</aqua>
     custom-model-data: 200223
-    color: "#2ECC71"
+    color: "#6FE39B"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3513,7 +3513,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <aqua>賢者の魔織ブーツ</aqua>
     custom-model-data: 200224
-    color: "#2ECC71"
+    color: "#6FE39B"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3538,7 +3538,7 @@ items:
     material: LEATHER_HELMET
     display-name: <color:#C8A2FF>星詠みの魔織ヘルメット</color>
     custom-model-data: 200231
-    color: "#2ECC71"
+    color: "#B7F5CF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3564,7 +3564,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <color:#C8A2FF>星詠みの魔織チェストプレート</color>
     custom-model-data: 200232
-    color: "#2ECC71"
+    color: "#B7F5CF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3590,7 +3590,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <color:#C8A2FF>星詠みの魔織レギンス</color>
     custom-model-data: 200233
-    color: "#2ECC71"
+    color: "#B7F5CF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3616,7 +3616,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <color:#C8A2FF>星詠みの魔織ブーツ</color>
     custom-model-data: 200234
-    color: "#2ECC71"
+    color: "#B7F5CF"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -3642,7 +3642,7 @@ items:
     material: LEATHER_HELMET
     display-name: <light_purple>見習いの守護ヘルメット</light_purple>
     custom-model-data: 200001
-    color: "#A0A0B0"
+    color: "#33455C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3664,7 +3664,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <light_purple>見習いの守護チェストプレート</light_purple>
     custom-model-data: 200002
-    color: "#A0A0B0"
+    color: "#33455C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3686,7 +3686,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <light_purple>見習いの守護レギンス</light_purple>
     custom-model-data: 200003
-    color: "#A0A0B0"
+    color: "#33455C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3708,7 +3708,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <light_purple>見習いの守護ブーツ</light_purple>
     custom-model-data: 200004
-    color: "#A0A0B0"
+    color: "#33455C"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3730,7 +3730,7 @@ items:
     material: LEATHER_HELMET
     display-name: <dark_purple>魔術師の守護ヘルメット</dark_purple>
     custom-model-data: 200011
-    color: "#A0A0B0"
+    color: "#4A6785"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3753,7 +3753,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <dark_purple>魔術師の守護チェストプレート</dark_purple>
     custom-model-data: 200012
-    color: "#A0A0B0"
+    color: "#4A6785"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3776,7 +3776,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <dark_purple>魔術師の守護レギンス</dark_purple>
     custom-model-data: 200013
-    color: "#A0A0B0"
+    color: "#4A6785"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3799,7 +3799,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <dark_purple>魔術師の守護ブーツ</dark_purple>
     custom-model-data: 200014
-    color: "#A0A0B0"
+    color: "#4A6785"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3822,7 +3822,7 @@ items:
     material: LEATHER_HELMET
     display-name: <gold>大魔導士の守護ヘルメット</gold>
     custom-model-data: 200021
-    color: "#A0A0B0"
+    color: "#6E93B8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3846,7 +3846,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <gold>大魔導士の守護チェストプレート</gold>
     custom-model-data: 200022
-    color: "#A0A0B0"
+    color: "#6E93B8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3870,7 +3870,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <gold>大魔導士の守護レギンス</gold>
     custom-model-data: 200023
-    color: "#A0A0B0"
+    color: "#6E93B8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3894,7 +3894,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <gold>大魔導士の守護ブーツ</gold>
     custom-model-data: 200024
-    color: "#A0A0B0"
+    color: "#6E93B8"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3918,7 +3918,7 @@ items:
     material: LEATHER_HELMET
     display-name: <aqua>賢者の守護ヘルメット</aqua>
     custom-model-data: 200201
-    color: "#A0A0B0"
+    color: "#9BC0DE"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3943,7 +3943,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <aqua>賢者の守護チェストプレート</aqua>
     custom-model-data: 200202
-    color: "#A0A0B0"
+    color: "#9BC0DE"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3968,7 +3968,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <aqua>賢者の守護レギンス</aqua>
     custom-model-data: 200203
-    color: "#A0A0B0"
+    color: "#9BC0DE"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -3993,7 +3993,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <aqua>賢者の守護ブーツ</aqua>
     custom-model-data: 200204
-    color: "#A0A0B0"
+    color: "#9BC0DE"
     enchant-glow: false
     bind-type: TRADEABLE
     recipe:
@@ -4018,7 +4018,7 @@ items:
     material: LEATHER_HELMET
     display-name: <color:#C8A2FF>星詠みの守護ヘルメット</color>
     custom-model-data: 200211
-    color: "#A0A0B0"
+    color: "#C9E4F5"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -4044,7 +4044,7 @@ items:
     material: LEATHER_CHESTPLATE
     display-name: <color:#C8A2FF>星詠みの守護チェストプレート</color>
     custom-model-data: 200212
-    color: "#A0A0B0"
+    color: "#C9E4F5"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -4070,7 +4070,7 @@ items:
     material: LEATHER_LEGGINGS
     display-name: <color:#C8A2FF>星詠みの守護レギンス</color>
     custom-model-data: 200213
-    color: "#A0A0B0"
+    color: "#C9E4F5"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -4096,7 +4096,7 @@ items:
     material: LEATHER_BOOTS
     display-name: <color:#C8A2FF>星詠みの守護ブーツ</color>
     custom-model-data: 200214
-    color: "#A0A0B0"
+    color: "#C9E4F5"
     enchant-glow: true
     bind-type: TRADEABLE
     recipe:
@@ -7106,6 +7106,7 @@ items:
   gladiator_belt:
     draft: true
     material: LEATHER_CHESTPLATE
+    color: "#8C2F1F"
     display-name: <color:#b48ee0>闘士の帯</color>
     custom-model-data: 5760
     recipe:
@@ -7160,6 +7161,7 @@ items:
   harvest_basket:
     draft: true
     material: LEATHER_CHESTPLATE
+    color: "#C08A3E"
     display-name: <color:#b48ee0>実りの籠</color>
     custom-model-data: 5761
     recipe:
@@ -7178,6 +7180,7 @@ items:
   tide_float:
     draft: true
     material: LEATHER_HELMET
+    color: "#2FA4B8"
     display-name: <color:#b48ee0>潮見の浮き</color>
     custom-model-data: 5760
     recipe:
@@ -7196,6 +7199,7 @@ items:
   pit_lamp:
     draft: true
     material: LEATHER_HELMET
+    color: "#E0B23C"
     display-name: <color:#b48ee0>坑夫の灯</color>
     custom-model-data: 5761
     recipe:
@@ -7214,6 +7218,7 @@ items:
   leveling_gloves:
     draft: true
     material: LEATHER_CHESTPLATE
+    color: "#7A6A5A"
     display-name: <color:#b48ee0>均しの手袋</color>
     custom-model-data: 5762
     recipe:
