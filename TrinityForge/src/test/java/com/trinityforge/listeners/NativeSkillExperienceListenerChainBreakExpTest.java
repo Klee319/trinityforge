@@ -123,17 +123,30 @@ class NativeSkillExperienceListenerChainBreakExpTest {
         verify(f.player(), never()).giveExp(anyInt());
     }
 
+    /**
+     * 手動設置した丸太は、連鎖分でも<b>採取スキルEXPもバニラEXPオーブも</b>入らない
+     * (2026-08-19 ユーザー確認要望)。W-143 でバニラEXPを連鎖へ広げたので、
+     * 「置く→壊す」ファーム対策がそちらにも効いていることを明示的に縛る。
+     *
+     * <p><b>非空虚であることの根拠</b>: ベースを 1.0 にしてあるので、ガードが外れれば
+     * 1ブロックごとに `giveExp(1)` が出る(既定 0.25 のままだと 3回では端数 0.75 が
+     * 整数化されず、ガードが無くてもオーブが出ない = 退行を検出できない)。
+     */
     @Test
     @DisplayName("設置された丸太の連鎖分はEXP対象外(置く→壊すファーム対策は連鎖でも効く)")
     void chainBreakOfPlacedLogGrantsNothing() {
-        Fixture f = fixture();
+        Fixture f = fixture(skillExp(1.0, 64));
         Block log = logBlock();
         when(f.placedBlockTracker().clearIfPlaced(log)).thenReturn(true);
+        List<ItemStack> drops = List.of(stack(Material.OAK_LOG));
 
-        f.listener().grantChainBreak(f.player(), log, List.of(stack(Material.OAK_LOG)), f.tool());
+        for (int i = 0; i < 3; i++) {
+            f.listener().grantChainBreak(f.player(), log, drops, f.tool());
+        }
 
         verify(f.dispatcher(), never()).grant(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
+        verify(f.player(), never()).giveExp(anyInt());
     }
 
     // ============================================================

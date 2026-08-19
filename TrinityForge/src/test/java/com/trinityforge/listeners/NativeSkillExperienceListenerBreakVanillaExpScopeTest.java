@@ -150,6 +150,42 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
     }
 
     // ============================================================
+    // 「置く→壊す」ファーム対策が破壊時バニラEXPにも効いていること
+    // ============================================================
+
+    /**
+     * 手動設置したブロックを壊しても破壊時バニラEXPは増えない
+     * (2026-08-19 ユーザー確認要望)。
+     *
+     * <p><b>非空虚であることの根拠</b>: 同じブロック・同じ回数(4回)で設置マークだけを外した
+     * {@link #miningUnlockReleasesVanillaExpOnMiningBreaks} は `giveExp(1)` を通す。
+     * ベース 0.25 × 4回 = 1 なので、ガードが外れれば必ず 1EXP が出て落ちる
+     * (1回だけ壊すテストにすると、ガードが無くても端数 0.25 が整数化されず 0 のままで
+     * <b>ガード退行を検出できない</b>)。
+     *
+     * <p>端数が持ち越されないことも併せて縛る: ガードは
+     * {@code BreakVanillaExpLedger#take} を呼ぶ前に return するので、
+     * 「設置ブロックを大量に壊して端数を溜め、自然ブロック1個で回収する」経路も存在しない。
+     */
+    @Test
+    void placedBlockNeverReleasesVanillaExp() {
+        Fixture fixture = fixtureUnlockedIn(SkillId.MINING);
+        Block stone = plainBlock(Material.STONE, Material.COBBLESTONE, fixture.player());
+        when(fixture.placedBlockTracker().clearIfPlaced(stone)).thenReturn(true);
+
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(stone, fixture.player()));
+        }
+
+        verify(fixture.player(), never()).giveExp(anyInt());
+        // 採掘スキルEXP側も入らない(ガードは両方の手前で return する)。
+        verify(fixture.dispatcher(), never()).grant(any(), anyString(),
+                org.mockito.ArgumentMatchers.anyDouble());
+        // ゲート自体に到達していない = 解放状況とは無関係に弾いている。
+        verify(fixture.dedicatedEffects(), never()).isActive(any(Player.class), anyString(), any());
+    }
+
+    // ============================================================
     // 採取扱いでない破壊はそもそもゲートを引かない
     // ============================================================
 
@@ -172,7 +208,8 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
     private record Fixture(NativeSkillExperienceListener listener,
                            NativeExperienceDispatcher dispatcher,
                            DedicatedEffectsConfig dedicatedEffects,
-                           Player player) {
+                           Player player,
+                           PlacedBlockTracker placedBlockTracker) {
     }
 
     /**
@@ -206,7 +243,7 @@ class NativeSkillExperienceListenerBreakVanillaExpScopeTest {
 
         NativeSkillExperienceListener listener = new NativeSkillExperienceListener(
                 fakePlugin(), dispatcher, catalog, placedBlockTracker, null, dedicatedEffects, aggregator);
-        return new Fixture(listener, dispatcher, dedicatedEffects, player);
+        return new Fixture(listener, dispatcher, dedicatedEffects, player, placedBlockTracker);
     }
 
     private static Player player() {

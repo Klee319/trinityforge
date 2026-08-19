@@ -161,7 +161,12 @@ class NativeSkillExperienceListenerCropMaturityTest {
         Block cane = ageableBlock(Material.SUGAR_CANE, 15, 15, Material.SUGAR_CANE, fixture.player());
         when(fixture.placedBlockTracker().clearIfPlaced(cane)).thenReturn(true);
 
-        fixture.listener().onBlockBreak(breakEvent(cane, fixture.player()));
+        // 2026-08-19: 1回だけ壊す形だと、ベース 0.25 が整数化されず【ガードが無くても】
+        // giveExp が呼ばれない = バニラEXP側のアサーションが空虚だった。4回壊せばガードが
+        // 外れた瞬間に 1EXP が出るので、設置マークがバニラEXPも弾いていることを実際に縛れる。
+        for (int i = 0; i < 4; i++) {
+            fixture.listener().onBlockBreak(breakEvent(cane, fixture.player()));
+        }
 
         verify(fixture.dispatcher(), never()).grant(org.mockito.ArgumentMatchers.any(), anyString(),
                 org.mockito.ArgumentMatchers.anyDouble());
