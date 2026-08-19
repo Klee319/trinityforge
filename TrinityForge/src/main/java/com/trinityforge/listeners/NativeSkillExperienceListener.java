@@ -83,6 +83,11 @@ public final class NativeSkillExperienceListener implements Listener {
      */
     private final com.trinityforge.stats.BreakVanillaExpLedger breakVanillaExp =
             new com.trinityforge.stats.BreakVanillaExpLedger();
+    /**
+     * W-143: 連鎖破壊分の破壊時バニラEXPを「1バースト最大 N ブロック」に抑えるための消費記録
+     * (プレイヤー→そのバースト)。エントリはプレイヤーごとに1個だけを上書きし続けるので溜まらない。
+     */
+    private final Map<UUID, ChainVanillaExpBurst> chainVanillaExpBursts = new java.util.HashMap<>();
     private static final String VANILLA_EXP_BONUS = StatKeys.canonical("vanilla_exp_bonus");
     private static final String BREAK_VANILLA_EXP_BONUS = StatKeys.canonical("break_vanilla_exp_bonus");
     // 2026-08-14: enchant_exp_gain_bonus はここで消費していたが、職業EXP増加の共通機構
@@ -245,14 +250,76 @@ public final class NativeSkillExperienceListener implements Listener {
      * いなかった</strong>。爆破採掘({@link #onEntityExplode})と同じく「イベントの無い破壊」なので、
      * そちらと同じ形で {@link #grantGathering} を直接呼ぶ。
      *
-     * <p>破壊時バニラEXP({@code break-vanilla-exp})は意図的に付けない — 起点1回分のままにする
-     * (連鎖ぶんまでバニラEXPオーブを配ると、一括破壊がそのままバニラEXP増殖装置になる)。
+     * <p><b>2026-08-19(W-143) 仕様変更: 破壊時バニラEXP({@code break-vanilla-exp})も連鎖分へ配る。</b>
+     * 実サーバ報告「一括伐採発動時に1個分しか経験値が入らない」はこちらを指していた(ユーザー確認済み)。
+     * 旧仕様は「連鎖ぶんまでバニラEXPオーブを配ると一括破壊がそのままバニラEXP増殖装置になる」という
+     * 理由で意図的に起点1回分だけにしていたので、その懸念は
+     * {@code break-vanilla-exp.chain-max-blocks}(1バースト = 同tick・同プレイヤーあたりの上限
+     * ブロック数、既定 64。<b>0 を書けば旧挙動へ戻る</b>)で押さえる。
+     *
+     * <p>採取EXPには上限を掛けない — あちらは元から連鎖1ブロックごとに入っており、
+     * 今回の変更対象ではない。
      */
     public void grantChainBreak(Player player, Block block, Collection<ItemStack> drops, ItemStack tool) {
         if (player == null || block == null || excluded(player)) return;
         // 設置ブロックの連鎖破壊はEXP対象外(起点と同じ規則、成熟ガード作物の例外も同じ)。
         if (blockedByPlaceBreakGuard(block)) return;
-        grantGathering(player, block, drops, false, tool);
+        String gatheringSkill = grantGathering(player, block, drops, false, tool);
+        if (gatheringSkill != null && consumeChainVanillaExpBudget(player)) {
+            grantBreakVanillaExp(player, gatheringSkill);
+        }
+    }
+
+    /**
+     * W-143: 連鎖破壊分の破壊時バニラEXPを「1バースト最大 {@code chain-max-blocks} ブロック」に抑える。
+     *
+     * <p><b>バースト = 同 tick・同プレイヤー。</b> 一括伐採/一括破壊/範囲収穫の連鎖は1tickで走り切るので
+     * これで「斧1振りぶん」を数えられる。段階破壊される葉は
+     * {@link #grantGathering} が採取扱いにしない(出荷 yml に葉の行が無い＝{@code null} が返る)ため
+     * そもそもここへ来ない。
+     *
+     * <p>tick が読めない環境(プラグイン未起動のユニットテスト等)では {@code -1} を1つのバーストとして
+     * 扱う。テストからは「同じバーストで上限まで数えて止まる」ことがそのまま観測できる。
+     *
+     * @return このブロックぶんを数えてよければ {@code true}(=バニラEXPを配る)
+     */
+    private boolean consumeChainVanillaExpBudget(Player player) {
+        int limit = skillExp == null
+                ? com.trinityforge.config.domains.SkillExpConfig.DEFAULT_BREAK_VANILLA_CHAIN_MAX_BLOCKS
+                : skillExp.breakVanillaChainMaxBlocks();
+        if (limit <= 0) {
+            return false;
+        }
+        int tick = currentTick();
+        ChainVanillaExpBurst burst = chainVanillaExpBursts.get(player.getUniqueId());
+        if (burst == null || burst.tick != tick) {
+            burst = new ChainVanillaExpBurst(tick);
+            chainVanillaExpBursts.put(player.getUniqueId(), burst);
+        }
+        if (burst.granted >= limit) {
+            return false;
+        }
+        burst.granted++;
+        return true;
+    }
+
+    /** サーバの現在 tick。読めない環境(テスト等)では {@code -1} を返す(1つのバースト扱い)。 */
+    private int currentTick() {
+        try {
+            return plugin.getServer().getCurrentTick();
+        } catch (RuntimeException | LinkageError ex) {
+            return -1;
+        }
+    }
+
+    /** 同 tick 内で連鎖分のバニラEXPを何ブロック配ったか。 */
+    private static final class ChainVanillaExpBurst {
+        private final int tick;
+        private int granted;
+
+        private ChainVanillaExpBurst(int tick) {
+            this.tick = tick;
+        }
     }
 
     /**

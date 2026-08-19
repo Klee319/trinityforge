@@ -106,6 +106,20 @@ public final class SkillExpConfig {
     /** 採取スキルID(大文字)→ベース量の上書き。空 = 全スキル共通値のみ。 */
     private volatile Map<String, Double> breakVanillaBaseExpPerSkill = Map.of();
     /**
+     * W-143(2026-08-19 ユーザー要望): 一括伐採/一括破壊/範囲収穫の<b>連鎖破壊分</b>にも
+     * 破壊時バニラEXPを配る上限ブロック数。1回のバースト(同tick・同プレイヤー)でここまで数える。
+     * <b>0 = 連鎖分には配らない</b>(2026-07-28 以来の旧挙動)。
+     * <b>出荷 yml と必ず一致させること</b>。
+     */
+    private volatile int breakVanillaChainMaxBlocks = DEFAULT_BREAK_VANILLA_CHAIN_MAX_BLOCKS;
+
+    /**
+     * {@code break-vanilla-exp.chain-max-blocks} の既定値。出荷 tier の一括伐採は
+     * tier1=16 / tier2=64 / tier3=128 本なので、64 は「通常の伐採はほぼ全部数えるが、
+     * 最上位の1振りでも 64 ブロック分で止まる」上限。
+     */
+    public static final int DEFAULT_BREAK_VANILLA_CHAIN_MAX_BLOCKS = 64;
+    /**
      * 討伐時ベースの武器スキルEXP基礎値。N5(2026-07-31)で {@code ARCHERY} を追加した(弓術も軽・重武器と
      * 同じ討伐時ベースへ統一)。同時に {@code LIGHT_WEAPONS} の 25.0 を出荷 yml の 20 へ揃えた
      * (既定値だけ 25 で出荷 yml が 20 という drift があり、yml を消した環境だけ挙動が変わっていた)。
@@ -372,6 +386,15 @@ public final class SkillExpConfig {
     }
 
     /**
+     * {@code break-vanilla-exp.chain-max-blocks}: 一括伐採/一括破壊/範囲収穫の<b>連鎖破壊分</b>にも
+     * 破壊時バニラEXPを配る上限ブロック数(1バースト = 同tick・同プレイヤーあたり)。
+     * <b>0 なら連鎖分には配らない</b>(2026-07-28 以来の旧挙動)。
+     */
+    public int breakVanillaChainMaxBlocks() {
+        return breakVanillaChainMaxBlocks;
+    }
+
+    /**
      * 軽武器/重武器/弓術の討伐EXP。命中ダメージではなく、倒した敵の種類・TFモブレベル・最大体力で決める。
      *
      * <p>N5(2026-07-31): 弓術({@code ARCHERY})もこの式へ統一した。{@code base} マップに行が無いスキルは
@@ -615,6 +638,8 @@ public final class SkillExpConfig {
                 com.trinityforge.stats.BreakVanillaExpLedger.DEFAULT_BASE_EXP));
         this.breakVanillaBaseExpPerSkill =
                 readNonNegativeMap(yaml, "break-vanilla-exp.per-skill-base-exp", true);
+        this.breakVanillaChainMaxBlocks = Math.max(0, yaml.getInt("break-vanilla-exp.chain-max-blocks",
+                DEFAULT_BREAK_VANILLA_CHAIN_MAX_BLOCKS));
         Map<String, Double> killBases = readNonNegativeMap(yaml, "combat.kill-exp.base", true);
         if (killBases.isEmpty()) {
             killBases = Map.of("HEAVY_WEAPONS", 30.0, "LIGHT_WEAPONS", 20.0, "ARCHERY", 25.0);

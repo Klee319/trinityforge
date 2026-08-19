@@ -1658,7 +1658,7 @@ W-120 で重さを出すつもりで `custom:magebloom_fiber x24` と書いた�
 | W-140 | 鍛冶台でネザライト化すると素材を消費せず無限にネザライト化できる（増殖） | ✅ 対応（下記） |
 | W-141 | クリエイティブのユーザーが持ったアイテムが、サバイバルのユーザーの同じアイテムとスタックしない（バニラ品でも） | ✅ 対応（下記） |
 | W-142 | 範囲収穫が機能していない | ✅ 対応（下記） |
-| W-143 | 一括伐採発動時に1個分しか経験値が入らない | ⏸ **切り分け済み・判断待ち**（下記） |
+| W-143 | 一括伐採発動時に1個分しか経験値が入らない | ✅ 対応（下記。ユーザー確認で**バニラEXPオーブ**側と確定） |
 
 #### W-139 討伐EXPの最大HP項に指数を入れた（序盤は1ミリも変えない形）
 
@@ -1735,23 +1735,35 @@ config（`stats/farming-gimmick.yml` の radius 1/2/3、`skilltree/farming.yml` 
 `FarmingHarvestListenerTest` に3件（発動する / トグルOFFなら発動しない / 鍬でなければ発動しない）を
 追加し、呼び出しを消すと1件落ちることを確認した。
 
-#### W-143 一括伐採のEXP — **採取スキルEXPは連鎖分も入っている。origin 限定なのはバニラEXPオーブ**
+#### W-143 一括伐採のEXP — **バニラEXPオーブを連鎖分へ配るよう仕様変更（上限つき）**
 
 切り分けた結果、連鎖破壊分のEXPには経路が2本あり、**片方だけが意図的に起点1回分**だった:
 
-| 経路 | 連鎖分 | 根拠 |
+| 経路 | 変更前 | 根拠 |
 |---|---|---|
-| 伐採スキルEXP | **1本ごとに入る** | `ChainBreakSupport#breakOnce` → `NativeSkillExperienceListener#grantChainBreak` → `grantGathering`。新規テストで 40.0 × 3本を実測 |
+| 伐採スキルEXP | **元から1本ごとに入る** | `ChainBreakSupport#breakOnce` → `NativeSkillExperienceListener#grantChainBreak` → `grantGathering`。新規テストで 40.0 × 3本を実測 |
 | 破壊時バニラEXP（経験値オーブ） | **入らない（起点1回分だけ）** | `grantChainBreak` の javadoc: 「連鎖ぶんまでバニラEXPオーブを配ると一括破壊がそのままバニラEXP増殖装置になる」という 2026-07-28 の設計判断 |
 
-これまで**前者を縛るテストが1本も無かった**（`TreeFellingListenerTest` は
-「`ChainBreakExpGrant` が N 回呼ばれる」までしか見ていない）ので、
-`NativeSkillExperienceListenerChainBreakExpTest`（3件）で両方を別々に固定した。
-仕様変更するときは `chainBreakDoesNotGrantVanillaExpOrbs` が落ちて設計判断の変更に気づける。
+**ユーザー確認の結果、報告が指していたのは後者（バニラの経験値オーブ）**だったので、
+連鎖分にも配るよう `grantChainBreak` を変更した。旧仕様が連鎖分を切っていた理由
+（一括破壊がそのままバニラEXP増殖装置になる）は、新設した上限で押さえる:
 
-**判断待ち**: 報告がバニラEXPオーブを指しているなら、これは仕様変更（+ 増殖対策の上限）が必要。
-2026-08-18 に `break-vanilla-exp.base-exp` を 1.0 → 0.25 へ下げた直後の報告なので、
-バニラEXP側を指している可能性が高いが、伐採スキルEXP側の話であれば別の調査が要る。
+```
+break-vanilla-exp:
+  chain-max-blocks: 64   # 1バースト(=同tick・同プレイヤー = 斧1振りぶん)で配る上限ブロック数
+```
+
+- **`0` を書けば連鎖分に配らない** = 2026-07-28 以来の旧挙動へ戻せる。
+- 64 の根拠: 出荷 tier の一括伐採は tier1=16 / tier2=64 / tier3=128 本。通常の伐採は
+  ほぼ全部数えつつ、最上位の1振りでも 64 ブロック分で止まる。段階破壊される葉は
+  そもそも採取扱いにならない（出荷ymlに葉の行が無い）ので数に入らない。
+- 上限は**バニラEXPだけ**に掛ける。採取スキルEXPは元から連鎖1本ごとに入っており、
+  今回の変更対象ではない（テストで「上限2でもスキルEXPは10回」と明示的に固定した）。
+
+これまで**採取スキルEXP側を縛るテストが1本も無かった**（`TreeFellingListenerTest` は
+「`ChainBreakExpGrant` が N 回呼ばれる」までしか見ていない）ので、
+`NativeSkillExperienceListenerChainBreakExpTest`（**5件**）で両方を別々に固定した。
+RED は両方向で確認済み: 付与を消すと2件落ち、上限を無効化すると上限側の2件が落ちる。
 
 ---
 
