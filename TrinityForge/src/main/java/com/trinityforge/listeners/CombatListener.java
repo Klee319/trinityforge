@@ -599,9 +599,9 @@ public final class CombatListener implements Listener {
                     AOE_RADIUS_KEY, agg.totalOf(AOE_RADIUS_KEY),
                     AOE_DAMAGE_RATE_KEY, agg.totalOf(AOE_DAMAGE_RATE_KEY),
                     AOE_MAX_TARGETS_KEY, agg.totalOf(AOE_MAX_TARGETS_KEY));
-            maybeApplyAreaDamage(attacker, victim, aoeStats, total);
+            maybeApplyAreaDamage(attacker, mainhandContributor, victim, aoeStats, total);
             if (powerAttackRadius > 0.0) {
-                maybeApplyAreaDamage(attacker, victim, Map.of(
+                maybeApplyAreaDamage(attacker, mainhandContributor, victim, Map.of(
                         AOE_RADIUS_KEY, powerAttackRadius,
                         AOE_DAMAGE_RATE_KEY, 0.35), total);
             }
@@ -1386,7 +1386,7 @@ public final class CombatListener implements Listener {
      * 対象数を制限する。スプラッシュは {@code target.damage(splash, attacker)} で与えるため、{@link #applyingAoe}
      * ガードにより二次被弾はTF処理を通さずバニラ(各対象自身の防具)で軽減される。負値/0の主命中では発生しない。
      */
-    private void maybeApplyAreaDamage(Player attacker, Entity primaryVictim,
+    private void maybeApplyAreaDamage(Player attacker, ItemStack weapon, Entity primaryVictim,
                                       Map<String, Double> aggregateStats, double primaryDamage) {
         if (primaryDamage <= 0.0 || !(primaryVictim instanceof LivingEntity primary)) {
             return;
@@ -1424,6 +1424,9 @@ public final class CombatListener implements Listener {
         }
         // 再入ガードを立ててから同期的に各対象へダメージ。スプラッシュ由来の被弾イベントは
         // onEntityDamageByEntity 冒頭で早期returnされる(AoEの連鎖防止 + splash量の再計算上書き防止)。
+        // 2026-08-19 W-136: スプラッシュ被弾も戦闘EXP台帳へ記録するので、主命中と同じワールド倍率
+        // ゲートをここで1回だけ引く(対象ごとに引き直すとワールドは同じなのに無駄が増える)。
+        double worldRate = worldExpRate(primary.getWorld());
         applyingAoe = true;
         try {
             for (LivingEntity target : targets) {
@@ -1435,6 +1438,17 @@ public final class CombatListener implements Listener {
                                 damageConfig.pvpEnabled(), damageConfig.pvpDamageMultiplier(),
                                 damageConfig.pvpMaxDamagePercentOfMaxHealth())
                         : splash;
+                // 2026-08-19 W-136「軽武器・重武器だけ討伐EXPが少ない」の真因。
+                // 【同じ applyingAoe ガードが戦闘EXP台帳への記録ごと飛ばしていた】。武器スキルEXPは
+                // 討伐時に台帳の寄与ぶんだけ支払う方式(onCombatKill)なので、記録が無いスプラッシュは
+                //   ・スプラッシュで止めを刺したモブ → 台帳が空 = EXPが【まるごと0】
+                //   ・主命中と併殺したモブ         → 主命中ぶんの share しか立たず目減り
+                // という形で消えていた。AoEを持つのは大剣(重武器)と鎌(軽武器)、および
+                // パーク由来のパワーアタック範囲(近接全般)だけで、弓術には無い。
+                // 記録は必ずダメージ適用より前に行う(台帳は被弾前HPでクランプするため)。
+                if (amount > 0.0 && worldRate > 0.0 && !TrainingDummies.isTrainingDummy(target)) {
+                    maybeRecordCombatSkillDamage(attacker, weapon, target.getUniqueId(), amount, target);
+                }
                 target.damage(amount, attacker);
             }
         } finally {
