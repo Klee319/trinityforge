@@ -409,15 +409,20 @@ class SkillExpConfigTest {
                 "combat.kill-exp.base.HEAVY_WEAPONS が出荷値30から変わっている");
         assertEquals(20.0, config.combatKillExp(SkillId.LIGHT_WEAPONS, "ZOMBIE", 0, 0.0), 1e-9,
                 "combat.kill-exp.base.LIGHT_WEAPONS が出荷値20から変わっている");
-        assertEquals(25.0, config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0), 1e-9,
-                "combat.kill-exp.base.ARCHERY の行が無い(または25でない)。弓術の討伐EXPが"
+        assertEquals(30.0, config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0), 1e-9,
+                "combat.kill-exp.base.ARCHERY の行が無い(または30でない)。弓術の討伐EXPが"
                         + "基礎値0の中途半端な値になる");
-        // 意図の固定: 弓術は軽武器より上・重武器より下(遠距離で安全な代わりに手数と弾薬コストがある)。
+        // 意図の固定: 弓術は軽武器より上・重武器以下。
+        // 2026-08-19(W-118 実サーバ報告「弓の攻撃にかかる時間の割に火力と経験値が渋い」)で
+        // 25 -> 30 = 重武器と同値へ引き上げた。従来の「重武器より下」の根拠は「遠距離で安全」
+        // だったが、弓は【1発ごとに約1秒の引き絞りが要る】ため同じ時間で殴れる回数が近接の
+        // 半分以下で、安全と引き換えに失う時間のほうが大きかった。上限は重武器と同値までとし、
+        // 「遠距離が最速の育成手段になる」ところまでは行かせない。
         assertTrue(config.combatKillExp(SkillId.LIGHT_WEAPONS, "ZOMBIE", 0, 0.0)
                         < config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0)
                         && config.combatKillExp(SkillId.ARCHERY, "ZOMBIE", 0, 0.0)
-                        < config.combatKillExp(SkillId.HEAVY_WEAPONS, "ZOMBIE", 0, 0.0),
-                "弓術の基礎値は 軽武器 < 弓術 < 重武器 に収める");
+                        <= config.combatKillExp(SkillId.HEAVY_WEAPONS, "ZOMBIE", 0, 0.0),
+                "弓術の基礎値は 軽武器 < 弓術 <= 重武器 に収める");
     }
 
     /**

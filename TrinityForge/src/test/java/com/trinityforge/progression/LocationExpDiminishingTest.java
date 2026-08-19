@@ -15,9 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LocationExpDiminishingTest {
 
-    private static final int THRESHOLD = 30;
-    private static final double DECAY = 0.05;
-    private static final double FLOOR = 0.1;
+    // 出荷値(stats/skill-exp.yml の spot-diminishing)と一致させること。ここが実値とずれると
+    // 「テストは緑なのに実サーバでは別のカーブ」になり、この機構の検査そのものが無意味になる。
+    // 2026-08-19 W-117 で 30/0.05/0.1 から緩和(正常な「集めて刈る」プレイが下限に張り付いていた)。
+    private static final int THRESHOLD = 80;
+    private static final double DECAY = 0.02;
+    private static final double FLOOR = 0.4;
 
     @Test
     void belowThresholdIsUntouched() {
@@ -28,15 +31,15 @@ class LocationExpDiminishingTest {
 
     @Test
     void firstKillOverThresholdStartsDecaying() {
-        // しきい値ちょうど(=既に30回稼いだ状態での31回目)から減り始める。
-        assertEquals(0.95, LocationExpDiminishing.multiplier(THRESHOLD, THRESHOLD, DECAY, FLOOR), 1e-9);
-        assertEquals(0.90, LocationExpDiminishing.multiplier(THRESHOLD + 1, THRESHOLD, DECAY, FLOOR), 1e-9);
+        // しきい値ちょうど(=既に80回稼いだ状態での81回目)から減り始める。
+        assertEquals(0.98, LocationExpDiminishing.multiplier(THRESHOLD, THRESHOLD, DECAY, FLOOR), 1e-9);
+        assertEquals(0.96, LocationExpDiminishing.multiplier(THRESHOLD + 1, THRESHOLD, DECAY, FLOOR), 1e-9);
     }
 
     @Test
     void decayStopsAtFloorAndNeverGoesNegative() {
-        // 1 - 18*0.05 = 0.10 ちょうどで下限に到達し、それ以降は何回稼いでも下限のまま。
-        assertEquals(FLOOR, LocationExpDiminishing.multiplier(THRESHOLD + 17, THRESHOLD, DECAY, FLOOR), 1e-9);
+        // 1 - 30*0.02 = 0.40 ちょうどで下限に到達し、それ以降は何回稼いでも下限のまま。
+        assertEquals(FLOOR, LocationExpDiminishing.multiplier(THRESHOLD + 29, THRESHOLD, DECAY, FLOOR), 1e-9);
         assertEquals(FLOOR, LocationExpDiminishing.multiplier(THRESHOLD + 500, THRESHOLD, DECAY, FLOOR), 1e-9);
         assertEquals(FLOOR, LocationExpDiminishing.multiplier(1_000_000, THRESHOLD, DECAY, FLOOR), 1e-9);
     }
@@ -44,7 +47,7 @@ class LocationExpDiminishingTest {
     @Test
     void decayIsMonotonicAndStaysInRange() {
         double previous = 1.0;
-        for (int count = 0; count <= 200; count++) {
+        for (int count = 0; count <= 400; count++) {
             double value = LocationExpDiminishing.multiplier(count, THRESHOLD, DECAY, FLOOR);
             assertTrue(value <= previous + 1e-9, "倍率は単調非増加であること (count=" + count + ")");
             assertTrue(value >= FLOOR - 1e-9 && value <= 1.0, "倍率は[floor,1.0]に収まること (count=" + count + ")");
@@ -63,12 +66,14 @@ class LocationExpDiminishingTest {
     void thresholdIsReachedOnlyByKillsNotByEveryExpEvent() {
         // 設計の要: カウンタを増やすのは撃破だけ。被弾/命中でも増やしていた頃は、5体を相手に
         // 各6発もらうだけで30件に達し、正常なプレイでEXPが減り始めていた。
-        // ここでは「30という数字が撃破回数として妥当か」を人間可読な形で残す:
-        // 同じ場所で5分に30体は、探索しながら戦うプレイでは到達しない密度。
-        assertEquals(1.0, LocationExpDiminishing.multiplier(29, THRESHOLD, DECAY, FLOOR),
-                "5分・半径24ブロックで29体までは無傷であること");
-        assertTrue(LocationExpDiminishing.multiplier(48, THRESHOLD, DECAY, FLOOR) <= FLOOR + 1e-9,
-                "TT相当(同一地点で49体目)では下限まで落ちていること");
+        // ここでは「80という数字が撃破回数として妥当か」を人間可読な形で残す:
+        // 5分に80体 = 3.75秒に1体を半径16から動かずに維持し続ける密度。エンダーマンやピグリンを
+        // 「集めて刈る」手動プレイでは届かず(旧値30体では届いていた = W-117 の誤爆)、
+        // 湧き機構のある farm では確実に届く。
+        assertEquals(1.0, LocationExpDiminishing.multiplier(79, THRESHOLD, DECAY, FLOOR),
+                "5分・半径16ブロックで79体までは無傷であること");
+        assertTrue(LocationExpDiminishing.multiplier(109, THRESHOLD, DECAY, FLOOR) <= FLOOR + 1e-9,
+                "TT相当(同一地点で110体目)では下限まで落ちていること");
     }
 
     @Test
