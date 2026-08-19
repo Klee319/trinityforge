@@ -63,6 +63,12 @@
 #                    where   : このエントリを適用する場所 (省略可。field / dungeon / any、既定 any)。
 #                    baby    : 子供個体だけ(true) / 大人個体だけ(false) に絞る (省略可)。
 #                              省略時は区別しない。判定は Bukkit の Ageable#isAdult()。
+#                    environment : 討伐したワールドのディメンションで絞る (省略可。NORMAL / NETHER /
+#                              THE_END の一覧)。省略時はディメンションを問わない。
+#                              where: とは別の軸 —— where: は「ダンジョンインスタンスワールドか」しか
+#                              見ないので、オーバーワールドとジ・エンドはどちらも field になり
+#                              区別できない。両方に出るモブ(エンダードラゴン等)を片方だけに
+#                              限定したいときはこちらを使う。
 #                    roles   : このエントリを適用する【倒したプレイヤーの職業】の一覧 (省略可)。
 #                              省略時は職業を問わない(従来どおり)。戦闘職・補助職のどちらの枠で
 #                              一致しても通る。職業未選択のプレイヤーには落ちない。
@@ -300,6 +306,13 @@ tiers:
       #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
       # エンダードラゴンの鱗
       - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】オーバーワールドに出るエンダードラゴンの討伐でのみ 100% 1個(2026-08-19 / W-128)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   environment: [NORMAL] が要るのは where: では足りないため —— where: は「ダンジョンインスタンスか」
+      #   しか見ないので、オーバーワールドもジ・エンドもどちらも field になる。ここを絞らないと
+      #   エンドクリスタルで復活させたエンドラからも落ちるようになり、依頼(オーバーワールド限定)から外れる。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field, environment: [NORMAL] }
       #
       # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
       #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
@@ -426,6 +439,13 @@ tiers:
       #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
       # エンダードラゴンの鱗
       - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】オーバーワールドに出るエンダードラゴンの討伐でのみ 100% 1個(2026-08-19 / W-128)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   environment: [NORMAL] が要るのは where: では足りないため —— where: は「ダンジョンインスタンスか」
+      #   しか見ないので、オーバーワールドもジ・エンドもどちらも field になる。ここを絞らないと
+      #   エンドクリスタルで復活させたエンドラからも落ちるようになり、依頼(オーバーワールド限定)から外れる。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field, environment: [NORMAL] }
       #
       # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
       #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
@@ -552,6 +572,13 @@ tiers:
       #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
       # エンダードラゴンの鱗
       - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】オーバーワールドに出るエンダードラゴンの討伐でのみ 100% 1個(2026-08-19 / W-128)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   environment: [NORMAL] が要るのは where: では足りないため —— where: は「ダンジョンインスタンスか」
+      #   しか見ないので、オーバーワールドもジ・エンドもどちらも field になる。ここを絞らないと
+      #   エンドクリスタルで復活させたエンドラからも落ちるようになり、依頼(オーバーワールド限定)から外れる。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field, environment: [NORMAL] }
       #
       # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
       #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
@@ -693,6 +720,13 @@ tiers:
       #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
       # エンダードラゴンの鱗
       - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】オーバーワールドに出るエンダードラゴンの討伐でのみ 100% 1個(2026-08-19 / W-128)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   environment: [NORMAL] が要るのは where: では足りないため —— where: は「ダンジョンインスタンスか」
+      #   しか見ないので、オーバーワールドもジ・エンドもどちらも field になる。ここを絞らないと
+      #   エンドクリスタルで復活させたエンドラからも落ちるようになり、依頼(オーバーワールド限定)から外れる。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field, environment: [NORMAL] }
       #
       # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
       #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
@@ -825,6 +859,13 @@ tiers:
       #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
       # エンダードラゴンの鱗
       - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】オーバーワールドに出るエンダードラゴンの討伐でのみ 100% 1個(2026-08-19 / W-128)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   environment: [NORMAL] が要るのは where: では足りないため —— where: は「ダンジョンインスタンスか」
+      #   しか見ないので、オーバーワールドもジ・エンドもどちらも field になる。ここを絞らないと
+      #   エンドクリスタルで復活させたエンドラからも落ちるようになり、依頼(オーバーワールド限定)から外れる。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field, environment: [NORMAL] }
       #
       # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
       #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】
@@ -957,6 +998,13 @@ tiers:
       #   chance-by-level を使わず 100% にし、個数側(0〜2個)だけを揺らす。
       # エンダードラゴンの鱗
       - { material: "custom:dragon_scale", chance: 1.0, min: 0, max: 2, mobs: [ENDER_DRAGON], where: field }
+      # 【ドラゴンの卵】オーバーワールドに出るエンダードラゴンの討伐でのみ 100% 1個(2026-08-19 / W-128)。
+      #   hero 武器(Lv100)の儀式コア素材が DRAGON_EGG なのに、バニラでは「ジ・エンドの初回討伐1個きり」で
+      #   再入手できず、上位帯が事実上作れなかった。
+      #   environment: [NORMAL] が要るのは where: では足りないため —— where: は「ダンジョンインスタンスか」
+      #   しか見ないので、オーバーワールドもジ・エンドもどちらも field になる。ここを絞らないと
+      #   エンドクリスタルで復活させたエンドラからも落ちるようになり、依頼(オーバーワールド限定)から外れる。
+      - { material: DRAGON_EGG, chance: 1.0, min: 1, max: 1, mobs: [ENDER_DRAGON], where: field, environment: [NORMAL] }
       #
       # 【スレッド5種】フィールドのみ / 1個固定 / Lv1 1% → Lv100 10%。
       #   min:1,max:1 は意図的 ——【1個固定のエントリだけドロップ増加ステが"抽選確率"側に乗る】

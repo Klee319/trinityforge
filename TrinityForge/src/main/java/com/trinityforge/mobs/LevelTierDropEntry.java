@@ -1,6 +1,7 @@
 package com.trinityforge.mobs;
 
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 
 import java.util.Objects;
@@ -46,10 +47,15 @@ import java.util.Set;
  *                  {@code null} = 区別しない(後方互換の既定)。判定は
  *                  {@link org.bukkit.entity.Ageable#isAdult()} なので、{@code Ageable} を実装しない
  *                  モブに書くと<b>常に不一致</b>(1個も落ちない)になる
+ * @param environments {@code environment:} — 討伐したワールドのディメンションで絞る(2026-08-19)。
+ *                  空 = ディメンションを問わない(後方互換の既定)。{@link #where()} とは<b>別の軸</b>で、
+ *                  あちらは「ダンジョンインスタンスか」しか見ないためオーバーワールドとジ・エンドを
+ *                  区別できない(エンダードラゴンのように両方に出るモブで必要になる)
  */
 public record LevelTierDropEntry(Material material, String catalogId, double chance, int min, int max,
                                   MobTargetFilter targets, Set<String> roles,
-                                  ChanceCurve chanceByLevel, DropScope where, Boolean baby) {
+                                  ChanceCurve chanceByLevel, DropScope where, Boolean baby,
+                                  Set<World.Environment> environments) {
 
     /**
      * {@code where:} — このドロップを適用する場所。判定は「討伐したワールドが
@@ -156,6 +162,8 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
         roles = roles == null ? Set.of() : Set.copyOf(roles);
         // 2026-08-14: where は null を ANY へ丸める(既存の yml/呼び出し側は where を書かない)。
         where = where == null ? DropScope.ANY : where;
+        // 2026-08-19: environment は null/空を「問わない」に丸める(既存の yml は書かない)。
+        environments = environments == null || environments.isEmpty() ? Set.of() : Set.copyOf(environments);
     }
 
     public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
@@ -182,16 +190,32 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
     public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
                                                  MobTargetFilter targets, Set<String> roles,
                                                  ChanceCurve chanceByLevel, DropScope where, Boolean baby) {
-        return new LevelTierDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max,
-                targets, roles, chanceByLevel, where, baby);
+        return ofMaterial(material, chance, min, max, targets, roles, chanceByLevel, where, baby, Set.of());
     }
 
     /** 2026-08-14 フィールドドロップ配線: {@code chance-by-level} / {@code where} / {@code baby} 込み。 */
     public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
                                                 MobTargetFilter targets, Set<String> roles,
                                                 ChanceCurve chanceByLevel, DropScope where, Boolean baby) {
+        return ofCatalog(catalogId, chance, min, max, targets, roles, chanceByLevel, where, baby, Set.of());
+    }
+
+    /** 2026-08-19 ディメンション絞り込み: 上の 9 引数版に {@code environment:} を足したもの。 */
+    public static LevelTierDropEntry ofMaterial(Material material, double chance, int min, int max,
+                                                 MobTargetFilter targets, Set<String> roles,
+                                                 ChanceCurve chanceByLevel, DropScope where, Boolean baby,
+                                                 Set<World.Environment> environments) {
+        return new LevelTierDropEntry(Objects.requireNonNull(material, "material"), null, chance, min, max,
+                targets, roles, chanceByLevel, where, baby, environments);
+    }
+
+    /** 2026-08-19 ディメンション絞り込み: 上の 9 引数版に {@code environment:} を足したもの。 */
+    public static LevelTierDropEntry ofCatalog(String catalogId, double chance, int min, int max,
+                                                MobTargetFilter targets, Set<String> roles,
+                                                ChanceCurve chanceByLevel, DropScope where, Boolean baby,
+                                                Set<World.Environment> environments) {
         return new LevelTierDropEntry(null, Objects.requireNonNull(catalogId, "catalogId"), chance, min, max,
-                targets, roles, chanceByLevel, where, baby);
+                targets, roles, chanceByLevel, where, baby, environments);
     }
 
     /** Back-compat overload for callers/tests that only narrow by {@link EntityType}. */
@@ -246,6 +270,21 @@ public record LevelTierDropEntry(Material material, String catalogId, double cha
             case DUNGEON -> inDungeonWorld;
             case ANY -> true;
         };
+    }
+
+    /**
+     * {@code environment:} の判定(2026-08-19)。空の {@code environment:} は常に一致する
+     * (ディメンションを問わない従来どおりの挙動)。
+     *
+     * <p>{@code null}(ワールドが取れない)を渡した場合、{@code environment:} を書いたエントリは
+     * <b>一致しない</b>。{@code baby:} と同じ判断で、「指定したのに全ディメンションで落ちる」より
+     * 「1個も落ちない」ほうが設定ミスとして気づけるため。
+     */
+    public boolean appliesInEnvironment(World.Environment environment) {
+        if (environments.isEmpty()) {
+            return true;
+        }
+        return environment != null && environments.contains(environment);
     }
 
     /**

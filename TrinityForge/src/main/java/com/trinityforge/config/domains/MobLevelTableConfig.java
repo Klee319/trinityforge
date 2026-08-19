@@ -6,6 +6,7 @@ import com.trinityforge.mobs.LevelTierRule;
 import com.trinityforge.mobs.MobLevelBandTable;
 import com.trinityforge.mobs.MobTargetFilter;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -303,15 +304,16 @@ public final class MobLevelTableConfig implements LoadableConfig {
             LevelTierDropEntry.DropScope where = parseDropScope(map.get("where"), context, log);
             Boolean baby = parseBabyFilter(map.get("baby"), context, log);
             warnIfBabyFilterCannotMatch(baby, mobFilter.targets(), context, log);
+            Set<World.Environment> environments = parseEnvironmentFilter(map.get("environment"), context, log);
             try {
                 double chance = clamp01(requireDouble(map, "chance", minLevel, label, log));
                 int min = requireInt(map, "min", minLevel, label, log);
                 int max = requireInt(map, "max", minLevel, label, log);
                 drops.add(catalogId != null
                         ? LevelTierDropEntry.ofCatalog(catalogId, chance, min, max, mobFilter.targets(), roles,
-                                curve, where, baby)
+                                curve, where, baby, environments)
                         : LevelTierDropEntry.ofMaterial(material, chance, min, max, mobFilter.targets(), roles,
-                                curve, where, baby));
+                                curve, where, baby, environments));
             } catch (IllegalArgumentException ex) {
                 log.warning("[" + PATH + "] min-level=" + minLevel + " add-drops for " + label + " invalid ("
                         + ex.getMessage() + "); skipped");
@@ -403,6 +405,40 @@ public final class MobLevelTableConfig implements LoadableConfig {
             return LevelTierDropEntry.DropScope.ANY;
         }
         return parsed;
+    }
+
+    /**
+     * {@code environment: [NORMAL, NETHER, THE_END]} — 討伐したワールドのディメンションで絞る
+     * (2026-08-19)。未指定なら空集合＝ディメンションを問わない(後方互換)。
+     *
+     * <p>{@code where:} では足りない場面があるので別の軸として足した:  {@code where:} は
+     * 「ダンジョンインスタンスワールドか」しか見ないので、オーバーワールドとジ・エンドは
+     * どちらも {@code field} になり区別できない。エンダードラゴンのように両方に出るモブへ
+     * 「オーバーワールドで倒したときだけ」のドロップを付けるには、この軸が要る。
+     *
+     * <p>不正値は<b>そのエントリを落とさず</b>警告して読み飛ばす(他のキーと同じ fail-soft)。
+     * ただし全要素が不正だったときは空集合＝「問わない」に倒れるので、警告を必ず出す。
+     */
+    private static Set<World.Environment> parseEnvironmentFilter(Object raw, String context, Logger log) {
+        if (raw == null) {
+            return Set.of();
+        }
+        List<?> list = raw instanceof List<?> l ? l : List.of(raw);
+        Set<World.Environment> parsed = new LinkedHashSet<>();
+        for (Object entry : list) {
+            String name = entry == null ? null : String.valueOf(entry).trim();
+            if (name == null || name.isBlank()) {
+                log.warning("[" + PATH + "] " + context + " has a blank 'environment' entry; skipped");
+                continue;
+            }
+            try {
+                parsed.add(World.Environment.valueOf(name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ex) {
+                log.warning("[" + PATH + "] " + context + " 'environment' must be NORMAL/NETHER/THE_END"
+                        + " (was '" + name + "'); skipped");
+            }
+        }
+        return Set.copyOf(parsed);
     }
 
     /**

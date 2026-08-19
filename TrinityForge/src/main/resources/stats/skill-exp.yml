@@ -115,6 +115,9 @@ ars-smithing:
     IRON_INGOT: 8
     GOLD_INGOT: 8
     AMETHYST_SHARD: 6
+    # アメジストブロック(=欠片4個)。魔術師段の魔導防具の儀式で消費するので行が要る
+    # (この表に無い素材は 0 として積まれ、無言でEXPを取りこぼす)。
+    AMETHYST_BLOCK: 40
     DIAMOND: 25
     NETHERITE_SCRAP: 30
     NETHERITE_INGOT: 120

@@ -2689,8 +2689,10 @@ items:
       method: ritual
       core-item: IRON_HELMET
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 5000
       type: shapeless
       ingredients: []
@@ -2709,8 +2711,10 @@ items:
       method: ritual
       core-item: IRON_CHESTPLATE
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 10000
       type: shapeless
       ingredients: []
@@ -2729,8 +2733,10 @@ items:
       method: ritual
       core-item: IRON_LEGGINGS
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 8000
       type: shapeless
       ingredients: []
@@ -2749,8 +2755,10 @@ items:
       method: ritual
       core-item: IRON_BOOTS
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 5000
       type: shapeless
       ingredients: []
@@ -2769,9 +2777,11 @@ items:
       method: ritual
       core-item: custom:mage_arcane_novice_helmet
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 50000
       type: shapeless
       ingredients: []
@@ -2790,9 +2800,11 @@ items:
       method: ritual
       core-item: custom:mage_arcane_novice_chestplate
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 100000
       type: shapeless
       ingredients: []
@@ -2811,9 +2823,11 @@ items:
       method: ritual
       core-item: custom:mage_arcane_novice_leggings
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 80000
       type: shapeless
       ingredients: []
@@ -2832,9 +2846,11 @@ items:
       method: ritual
       core-item: custom:mage_arcane_novice_boots
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 50000
       type: shapeless
       ingredients: []
@@ -2853,9 +2869,12 @@ items:
       method: ritual
       core-item: custom:mage_arcane_apprentice_helmet
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 400000
       type: shapeless
       ingredients: []
@@ -2874,9 +2893,12 @@ items:
       method: ritual
       core-item: custom:mage_arcane_apprentice_chestplate
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 800000
       type: shapeless
       ingredients: []
@@ -2895,9 +2917,12 @@ items:
       method: ritual
       core-item: custom:mage_arcane_apprentice_leggings
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 640000
       type: shapeless
       ingredients: []
@@ -2916,9 +2941,12 @@ items:
       method: ritual
       core-item: custom:mage_arcane_apprentice_boots
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 400000
       type: shapeless
       ingredients: []
@@ -2937,10 +2965,13 @@ items:
       method: ritual
       core-item: custom:mage_arcane_archmage_helmet
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 2000000
       type: shapeless
       ingredients: []
@@ -2959,10 +2990,13 @@ items:
       method: ritual
       core-item: custom:mage_arcane_archmage_chestplate
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 4000000
       type: shapeless
       ingredients: []
@@ -2981,10 +3015,13 @@ items:
       method: ritual
       core-item: custom:mage_arcane_archmage_leggings
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 3200000
       type: shapeless
       ingredients: []
@@ -3003,10 +3040,13 @@ items:
       method: ritual
       core-item: custom:mage_arcane_archmage_boots
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 2000000
       type: shapeless
       ingredients: []
@@ -3025,10 +3065,14 @@ items:
       method: ritual
       core-item: custom:mage_arcane_sage_helmet
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 8000000
       type: shapeless
       ingredients: []
@@ -3047,10 +3091,14 @@ items:
       method: ritual
       core-item: custom:mage_arcane_sage_chestplate
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 16000000
       type: shapeless
       ingredients: []
@@ -3069,10 +3117,14 @@ items:
       method: ritual
       core-item: custom:mage_arcane_sage_leggings
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 12800000
       type: shapeless
       ingredients: []
@@ -3091,10 +3143,14 @@ items:
       method: ritual
       core-item: custom:mage_arcane_sage_boots
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 8000000
       type: shapeless
       ingredients: []
@@ -3113,8 +3169,10 @@ items:
       method: ritual
       core-item: GOLDEN_HELMET
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 5000
       type: shapeless
       ingredients: []
@@ -3133,8 +3191,10 @@ items:
       method: ritual
       core-item: GOLDEN_CHESTPLATE
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 10000
       type: shapeless
       ingredients: []
@@ -3153,8 +3213,10 @@ items:
       method: ritual
       core-item: GOLDEN_LEGGINGS
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 8000
       type: shapeless
       ingredients: []
@@ -3173,8 +3235,10 @@ items:
       method: ritual
       core-item: GOLDEN_BOOTS
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 5000
       type: shapeless
       ingredients: []
@@ -3193,9 +3257,11 @@ items:
       method: ritual
       core-item: custom:mage_weaver_novice_helmet
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 50000
       type: shapeless
       ingredients: []
@@ -3214,9 +3280,11 @@ items:
       method: ritual
       core-item: custom:mage_weaver_novice_chestplate
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 100000
       type: shapeless
       ingredients: []
@@ -3235,9 +3303,11 @@ items:
       method: ritual
       core-item: custom:mage_weaver_novice_leggings
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 80000
       type: shapeless
       ingredients: []
@@ -3256,9 +3326,11 @@ items:
       method: ritual
       core-item: custom:mage_weaver_novice_boots
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 50000
       type: shapeless
       ingredients: []
@@ -3277,9 +3349,12 @@ items:
       method: ritual
       core-item: custom:mage_weaver_apprentice_helmet
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 400000
       type: shapeless
       ingredients: []
@@ -3298,9 +3373,12 @@ items:
       method: ritual
       core-item: custom:mage_weaver_apprentice_chestplate
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 800000
       type: shapeless
       ingredients: []
@@ -3319,9 +3397,12 @@ items:
       method: ritual
       core-item: custom:mage_weaver_apprentice_leggings
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 640000
       type: shapeless
       ingredients: []
@@ -3340,9 +3421,12 @@ items:
       method: ritual
       core-item: custom:mage_weaver_apprentice_boots
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 400000
       type: shapeless
       ingredients: []
@@ -3361,10 +3445,13 @@ items:
       method: ritual
       core-item: custom:mage_weaver_archmage_helmet
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 2000000
       type: shapeless
       ingredients: []
@@ -3383,10 +3470,13 @@ items:
       method: ritual
       core-item: custom:mage_weaver_archmage_chestplate
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 4000000
       type: shapeless
       ingredients: []
@@ -3405,10 +3495,13 @@ items:
       method: ritual
       core-item: custom:mage_weaver_archmage_leggings
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 3200000
       type: shapeless
       ingredients: []
@@ -3427,10 +3520,13 @@ items:
       method: ritual
       core-item: custom:mage_weaver_archmage_boots
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 2000000
       type: shapeless
       ingredients: []
@@ -3449,10 +3545,14 @@ items:
       method: ritual
       core-item: custom:mage_weaver_sage_helmet
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 8000000
       type: shapeless
       ingredients: []
@@ -3471,10 +3571,14 @@ items:
       method: ritual
       core-item: custom:mage_weaver_sage_chestplate
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 16000000
       type: shapeless
       ingredients: []
@@ -3493,10 +3597,14 @@ items:
       method: ritual
       core-item: custom:mage_weaver_sage_leggings
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 12800000
       type: shapeless
       ingredients: []
@@ -3515,10 +3623,14 @@ items:
       method: ritual
       core-item: custom:mage_weaver_sage_boots
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 8000000
       type: shapeless
       ingredients: []
@@ -3537,8 +3649,10 @@ items:
       method: ritual
       core-item: DIAMOND_HELMET
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 5000
       type: shapeless
       ingredients: []
@@ -3557,8 +3671,10 @@ items:
       method: ritual
       core-item: DIAMOND_CHESTPLATE
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 10000
       type: shapeless
       ingredients: []
@@ -3577,8 +3693,10 @@ items:
       method: ritual
       core-item: DIAMOND_LEGGINGS
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 8000
       type: shapeless
       ingredients: []
@@ -3597,8 +3715,10 @@ items:
       method: ritual
       core-item: DIAMOND_BOOTS
       pedestal-items:
-        - custom:magebloom_fiber x8
-        - custom:source_gem x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem x2
+        - GOLD_BLOCK
+        - LAPIS_BLOCK
       source: 5000
       type: shapeless
       ingredients: []
@@ -3617,9 +3737,11 @@ items:
       method: ritual
       core-item: custom:mage_guardian_novice_helmet
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 50000
       type: shapeless
       ingredients: []
@@ -3638,9 +3760,11 @@ items:
       method: ritual
       core-item: custom:mage_guardian_novice_chestplate
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 100000
       type: shapeless
       ingredients: []
@@ -3659,9 +3783,11 @@ items:
       method: ritual
       core-item: custom:mage_guardian_novice_leggings
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 80000
       type: shapeless
       ingredients: []
@@ -3680,9 +3806,11 @@ items:
       method: ritual
       core-item: custom:mage_guardian_novice_boots
       pedestal-items:
-        - custom:magebloom_fiber x16
-        - custom:source_gem x8
-        - custom:source_gem_block x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem x3
+        - custom:source_gem_block
+        - BLAZE_ROD x2
+        - AMETHYST_BLOCK
       source: 50000
       type: shapeless
       ingredients: []
@@ -3701,9 +3829,12 @@ items:
       method: ritual
       core-item: custom:mage_guardian_apprentice_helmet
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 400000
       type: shapeless
       ingredients: []
@@ -3722,9 +3853,12 @@ items:
       method: ritual
       core-item: custom:mage_guardian_apprentice_chestplate
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 800000
       type: shapeless
       ingredients: []
@@ -3743,9 +3877,12 @@ items:
       method: ritual
       core-item: custom:mage_guardian_apprentice_leggings
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 640000
       type: shapeless
       ingredients: []
@@ -3764,9 +3901,12 @@ items:
       method: ritual
       core-item: custom:mage_guardian_apprentice_boots
       pedestal-items:
-        - custom:magebloom_fiber x24
-        - custom:source_gem_block x4
-        - custom:source_crystal x1
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
+        - custom:source_crystal
+        - ECHO_SHARD x2
+        - ENDER_EYE x2
+        - DIAMOND_BLOCK
       source: 400000
       type: shapeless
       ingredients: []
@@ -3785,10 +3925,13 @@ items:
       method: ritual
       core-item: custom:mage_guardian_archmage_helmet
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 2000000
       type: shapeless
       ingredients: []
@@ -3807,10 +3950,13 @@ items:
       method: ritual
       core-item: custom:mage_guardian_archmage_chestplate
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 4000000
       type: shapeless
       ingredients: []
@@ -3829,10 +3975,13 @@ items:
       method: ritual
       core-item: custom:mage_guardian_archmage_leggings
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 3200000
       type: shapeless
       ingredients: []
@@ -3851,10 +4000,13 @@ items:
       method: ritual
       core-item: custom:mage_guardian_archmage_boots
       pedestal-items:
-        - custom:source_gem_block x8
-        - custom:source_crystal x4
+        - custom:source_gem_block x4
+        - custom:source_crystal x2
         - custom:dragon_scale x2
-        - custom:echo_shard_2x x2
+        - custom:echo_shard_2x
+        - NETHERITE_INGOT x2
+        - NETHER_STAR
+        - CRYING_OBSIDIAN
       source: 2000000
       type: shapeless
       ingredients: []
@@ -3873,10 +4025,14 @@ items:
       method: ritual
       core-item: custom:mage_guardian_sage_helmet
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 8000000
       type: shapeless
       ingredients: []
@@ -3895,10 +4051,14 @@ items:
       method: ritual
       core-item: custom:mage_guardian_sage_chestplate
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 16000000
       type: shapeless
       ingredients: []
@@ -3917,10 +4077,14 @@ items:
       method: ritual
       core-item: custom:mage_guardian_sage_leggings
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 12800000
       type: shapeless
       ingredients: []
@@ -3939,10 +4103,14 @@ items:
       method: ritual
       core-item: custom:mage_guardian_sage_boots
       pedestal-items:
-        - custom:source_gem_block x16
-        - custom:source_condenser x2
-        - custom:warden_tendril x4
-        - custom:amethyst_block_2x x4
+        - custom:source_gem_block x4
+        - custom:source_condenser
+        - custom:warden_tendril x2
+        - custom:amethyst_block_2x x2
+        - NETHER_STAR x2
+        - NETHERITE_BLOCK
+        - TOTEM_OF_UNDYING x2
+        - END_CRYSTAL
       source: 8000000
       type: shapeless
       ingredients: []
@@ -4575,8 +4743,8 @@ items:
         - GOLD_BLOCK
         - QUARTZ_BLOCK
         - BLAZE_ROD
-        - custom:magebloom_fiber x16
-        - custom:source_gem_block x4
+        - custom:magebloom_fiber x4
+        - custom:source_gem_block x2
       source: 100000
       type: shapeless
       ingredients: []
@@ -4596,7 +4764,7 @@ items:
         - END_CRYSTAL
         - ENDER_EYE
         - TOTEM_OF_UNDYING
-        - custom:source_gem_block x8
+        - custom:source_gem_block x4
         - custom:source_crystal x2
       source: 1000000
       type: shapeless

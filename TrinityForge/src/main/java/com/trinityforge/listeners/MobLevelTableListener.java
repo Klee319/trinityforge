@@ -225,6 +225,12 @@ public final class MobLevelTableListener implements Listener {
             if (!drop.appliesToAge(babyStateOf(entity))) {
                 continue;
             }
+            // 2026-08-19 ディメンション絞り込み: environment: [NORMAL] など。
+            // where: では「ダンジョンか否か」しか見ないのでオーバーワールドとジ・エンドを分けられない
+            // (エンダードラゴンのように両方に出るモブで必要になる)。
+            if (!drop.appliesInEnvironment(entity.getWorld().getEnvironment())) {
+                continue;
+            }
             // 2026-08-13: ドロップ増加ステの効かせ方はドロップの形で分かれる。
             // 1個固定(=レアドロップ)は抽選確率を上げ、それ以外は個数を足す。
             boolean singleFixed = MobDropRoller.isSingleFixed(drop.min(), drop.max());
