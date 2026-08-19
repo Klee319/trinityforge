@@ -2439,6 +2439,91 @@ EliteMobs の `PreventUpgradeDiamondToNetherite`（エリート装備のネザ�
 
 ---
 
+### 実サーバ報告バッチ（2026-08-20 受領 第15陣。W-158 続報 / W-161）
+
+配備後（TF jar 2026-08-20 00:33）の再テストで出た 2 件。**どちらも Java では再現しない。**
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-158（続報） | 統合版でカスタムアイテムを材料にしたクラフトが**軒並み**通らず、TF の「◯◯ はこのレシピの材料にできません（見た目が同じでも別のアイテムです）」が出る。ソースジャー／TF 圧縮素材／TF 装備の3系統すべてで発生 | 🔍 機構は特定。**レシピ帳（自動クラフト）経由なら必ずこうなる**ことを Geyser のソースで確認。手詰めでも落ちるかは未確認 |
+| W-161 | 鍛冶台・作業台の GUI を開いている状態で shift クリック／ドラッグするとアイテムがちらつく | 🔍 **原因は TF ではなく GeyserExtra**。修正は保留（ユーザー判断: まず調査結果だけ） |
+
+#### W-158 続報 — 「誰がマス目にアイテムを入れるか」が Java と統合版で違う
+
+TF 側でこのメッセージを出しているのは `CatalogWorkbenchListener#onPrepareCraft` の
+**`ours.isEmpty()` 分岐**（＝選択されたレシピが TF のカタログレシピ<b>ではない</b>）で、条件は
+①盤面に識別付きアイテムが乗っている ②そのレシピの持ち主がその品の所有者ではない
+③兄弟カタログレシピへの再マッチにも失敗した、の3つが揃ったとき。
+アイテム名が出た＝**盤面には正規の識別付きアイテムが乗っていた**ことが確定する
+（`catalogIdentityOf` は TF カタログ品だけでなく `ExternalItemRegistry` 経由で ArsPaper 品も識別する）。
+
+**なぜ統合版だけか**: Geyser の `InventoryTranslator#translateAutoCraftingRequest` は、
+どのスロットから材料を吸うかを**Bedrock クライアントが送ってきた `ConsumeAction` のスロットで決める**。
+アイテムの中身を照合していない（`SlotDisplay` は結果スロットにしか使われない）。
+つまり**材料の選択権は完全に Bedrock クライアント側にある**。
+
+そして Bedrock クライアントは TF/Ars のカスタム品とバニラ品を**見分けられない**か、
+**別物として扱って絶対に選ばない**かのどちらかにしかならない:
+
+- GeyserExtra は素材アートの無いマッピング（PDC のみの約 493 件）を意図的に登録せず
+  **バニラ素材そのものとして描画させている** → クライアントから見て完全に同一。
+  レシピ帳が「レンガ」を要求したとき、圧縮レンガの束を掴むことがある
+  → 盤面にカタログ品が乗り、選択レシピはバニラ側 → **このメッセージ**。
+- 逆にアートがあって Bedrock カスタム item として登録されている品は**別 ID**になるので、
+  「バニラのレンガ」を要求するレシピ（＝ `custom:` 素材は型でしか表現できない。W-158 本文参照）には
+  クライアントが**絶対に入れてくれない**。
+
+どちらに転んでも**レシピ帳経由の自動クラフトは成立しない**。Java では材料を選ぶのが人間で、
+ツールチップで名前を見て選べるので起きない。
+
+**切り分けと当座の回避策（次回テストで確認したい）**: レシピ帳をタップせず、
+**3×3 のマスへ自分でアイテムをドラッグして置く**と通るはず。作業台のマス目はスミス台の base スロットと違い
+クライアント側の受け入れ判定が無いので、置いたスタックがそのまま Java 側の盤面に入る。
+**ここが通るなら原因は自動クラフト経路で確定**し、TF 側で直す/回避する余地も出る。
+通らないなら別の機構がもう1つあるので、`CatalogWorkbenchListener` の遮断点に
+（選択レシピのキー・各マスの material/CMD/カタログ id・Bedrock か否か）を吐く診断ログを入れて取り直す。
+
+#### W-161 ちらつきの原因 — GeyserExtra が Bedrock プレイヤーにだけ `updateInventory()` を撃っている
+
+`geyserExtraα` に、Bedrock プレイヤー限定で **1 tick 後に `player.updateInventory()` を呼ぶ箇所が3つ**ある。
+
+| 場所 | 発火条件 |
+|---|---|
+| `recipe/CraftingRecipeHandler#onPrepareCraft`(MONITOR) | **作業台のマス目が変わるたび**（ドラッグ／shift クリックで大量に飛ぶ） |
+| `recipe/CraftingRecipeHandler#onInventoryClick`(HIGH) | 作業台の結果枠クリック後 |
+| `recipe/SmithingRecipeHandler#onInventoryClick`(HIGH) | **鍛冶台**の結果枠クリック後 |
+
+`updateInventory()` は開いているコンテナ＋プレイヤーインベントリを丸ごと再送するので、
+Bedrock ではクライアントの予測状態が毎回上書きされる＝ちらつく。鍛冶台と作業台の両方で起きるという
+報告の形と一致する（W-159 で直した base スロットのちらつきとは**別原因**）。
+
+同ファイルで見つけた併発の問題:
+
+- `CraftingRecipeHandler#onPrepareCraft` は 1 tick 後に `inventory.setResult(result)` を**再適用**するが、
+  `onInventoryClick` 側にはある**盤面の再検証が無い**。1 tick の間に盤面が変われば
+  **消えたはずの古い結果を差し戻す**（TF が識別ガードで消した結果も戻りうる）。
+- `SmithingRecipeHandler#customRecipes` は **`registerRecipe` の呼び出し元がゼロ**で
+  `onPrepareSmithing` は空ループ。このクラスが実際にやっているのは `updateInventory()` を撃つことだけ。
+
+**未修正**（2026-08-20 ユーザー判断「まず調査結果だけ」）。直す場合は GeyserExtra 側のビルドと配備が要る。
+
+#### 併発: 毎ログインで出ているログ ERROR（`catalog_key_quarry`）
+
+`Tried to load unrecognized recipe: ResourceKey[minecraft:recipe / trinityforge:catalog_key_quarry] removed now.`
+がプレイヤーの参加ごとに出ている。原因は**ワークツリーの未コミット `items/catalog.yml`**（＝設定エディタでの編集分。
+配備はワークツリーの yml をそのまま出荷するので、これが動いている config）で
+**`key_quarry` の `recipe:` ブロックが丸ごと無くなっている**こと。HEAD には
+`shapeless: custom:stone_3x ×2 + list:scrap_metals ×3` がある。
+プレイヤーのレシピ帳には解放済みとして残っているので、参加のたびに未登録キーとして弾かれる。
+
+同じ差分で `key_binder` も **shapeless（`list:dungeon_seals` ×5 + 深淵インゴット ×2 + 現実の糸核）から
+shaped（5素材の十字配置）へ作り替えられ**、表示名も変わっている。これは意図的な再設計に見える。
+**`key_quarry` のレシピ削除が意図的かどうかは要確認**（意図的ならレシピ帳のエラーは無害、
+そうでなければ編集事故なので HEAD から戻す）。
+`list:` 参照の増減はこの 2 件だけで、他の 421 項目・362 レシピは HEAD と同数（＝一括消失は起きていない）。
+
+---
+
 ---
 
 ## 4. 既知の未修正の問題・弱点
