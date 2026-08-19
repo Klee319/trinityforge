@@ -2355,6 +2355,19 @@ public final class TrinityForge extends JavaPlugin {
     }
 
     /**
+     * 醸造 customMix の登録器。ArsPaper フォークのレシピ一覧 GUI（{@code /tf recipes}）が
+     * 「醸造」カテゴリを出すために参照する (W-167, 2026-08-20)。
+     *
+     * <p>参照するのは {@link com.trinityforge.stats.BrewPotionMixRegistrar#livePlans()} 側だけにすること。
+     * 生の {@code brew-unlocks} には「バニラ衝突・綴り間違い・重複の敗者」で<b>登録されなかった組</b>が
+     * 混ざっており、それを一覧に出すと「載っているのに永久に作れない」レシピを見せることになる。
+     * {@code onEnable} まで null。
+     */
+    public com.trinityforge.stats.BrewPotionMixRegistrar brewPotionMixRegistrar() {
+        return brewPotionMixRegistrar;
+    }
+
+    /**
      * The aggro/threat service (gap C5). Owns the bounded, self-evicting hate table that the
      * tank/beastmaster wall behaviour (R2) will read. Null until {@link #onEnable} has run.
      */
