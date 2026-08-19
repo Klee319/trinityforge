@@ -42,8 +42,16 @@ class ShippedCatalogDraftTest {
 
     private static final String CATALOG = "src/main/resources/items/catalog.yml";
 
-    /** 準備中の下限。節ごと消えた/一括で外れたことに気づくため。 */
-    private static final int MIN_EXPECTED_DRAFTS = 90;
+    /**
+     * 準備中の下限。節ごと消えた/一括で外れたことに気づくため。
+     *
+     * <p>2026-08-20 (W-162): 90 のままだったので<b>2026-08-14 から6日間ずっと赤</b>だった。
+     * 落ちっぱなしのガードは何も守らない ── その間に本当に一括解禁が起きても気づけない。
+     * 100 → 80 に減ったのは {@code b969faa}(ダンジョン難易度の再設計)でスレッド24種を
+     * 意図的に解禁したためで、解禁されたのは {@code thread_*} だけ(装備は1件も外れていない)。
+     * 現在値ちょうどに合わせ直して、次に1件でも外れたら落ちるようにする。
+     */
+    private static final int MIN_EXPECTED_DRAFTS = 80;
 
     private static Plugin fakePlugin(File dataFolder) {
         InvocationHandler handler = (proxy, method, args) -> switch (method.getName()) {

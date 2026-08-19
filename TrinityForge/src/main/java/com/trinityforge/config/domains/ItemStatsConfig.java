@@ -441,7 +441,10 @@ public final class ItemStatsConfig {
                             parseMultipliers(entry),  // may throw -> skip item
                             // 装着専用(スレッド)。true のアイテムは装備/手持ちスロットから
                             // ステを一切寄与しない。詳細は ItemStatProfile#socketedOnly の javadoc。
-                            entry.getBoolean("socketed-only-stats", false)));
+                            entry.getBoolean("socketed-only-stats", false),
+                            // 2026-08-20 W-163: オフハンド寄与を「盾を構えている間」に限定する。
+                            // offhand-stats-apply が false のときは意味を持たない。
+                            entry.getBoolean("offhand-stats-require-blocking", false)));
                     ItemUseRequirement useReq = parseUseRequirement(entry);
                     // Keep skill-only OR level-authored rows (level-only needs UseSkillDefaults later).
                     if (useReq.hasSkill() || useReq.hasRole()

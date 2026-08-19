@@ -1693,6 +1693,20 @@
         offCb
       ]));
 
+      // offhand-stats-require-blocking (2026-08-20 / W-163): オフハンド合算の対象を
+      // 「盾を構えている間」に限定する。上の「オフハンド合算」がOFFなら意味を持たない。
+      const blockCb = window.checkboxInput(entry["offhand-stats-require-blocking"] === true, (v) => {
+        if (v) entry["offhand-stats-require-blocking"] = true;
+        else delete entry["offhand-stats-require-blocking"];
+      });
+      grid.appendChild(h("label", { class: "form-field inline-check" }, [
+        window.fieldLabelEl("offhand-stats-require-blocking", {
+          label: "構えている間だけ",
+          desc: "ONにすると、上の「オフハンド合算」で乗るステータスが【盾を構えている間だけ】乗る(持っているだけでは乗らない)。盾向け。「オフハンド合算」がOFFのときは効果がない。既定OFF。"
+        }),
+        blockCb
+      ]));
+
       grid.appendChild(fieldRow("use-level-requirement", window.numberInput(
         entry["use-level-requirement"] != null ? entry["use-level-requirement"] : 0,
         (v) => {

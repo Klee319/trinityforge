@@ -40,6 +40,11 @@ import java.util.Map;
  * {@code false}(合算しない)。旧・グローバルトグル {@code stat-unification.offhand-enabled} を廃止し、per-item
  * ({@code offhand-stats-apply: true})で制御するようにした(ユーザー確定)。
  *
+ * <p>{@code offhandRequiresBlocking} — {@code offhandApplies} が真のアイテムのうち、<b>盾を構えている間だけ</b>
+ * ステを乗せるもの(既定 {@code false} = 持っているだけで常時乗る)。盾({@code SHIELD})向け
+ * (2026-08-20 / W-163 ユーザー確定「しゃがんだ時＝構えているときだけ設定したステータスが乗る」)。
+ * {@code offhandApplies} が偽ならこのフラグは意味を持たない。
+ *
  * <p>{@code multipliers} — 乗算モードのステ(レイヤID→{@link MultiplierSpec})。加算集計とは別に、
  * プレイヤーの合算済み総合ステータスへ「x倍率」として掛かる。同一レイヤの倍率はプレイヤー全体で
  * {@code 1 + Σ(v-1)} に合成され、レイヤ同士は乗算される。authored value は倍率そのもの(1.2 = x1.2)。
@@ -63,11 +68,13 @@ import java.util.Map;
  * @param grantChances         ステキーごとの付与確率(0.0〜1.0)。未記載キーは 1.0
  * @param multipliers          乗算レイヤID -&gt; 乗算ステ定義(fixed/per-quality/random)。空=乗算なし
  * @param socketedOnly         装着専用(スロット由来の寄与を全面禁止)。既定 false
+ * @param offhandRequiresBlocking オフハンド寄与を「構えている間」に限定するか(既定 false)
  */
 public record ItemStatProfile(Map<String, Double> fixed, Map<String, Double> perQuality,
                               Map<String, StatRange> random, Integer durability, boolean offhandApplies,
                               boolean randomizeGrants, Map<String, Double> grantChances,
-                              Map<String, MultiplierSpec> multipliers, boolean socketedOnly) {
+                              Map<String, MultiplierSpec> multipliers, boolean socketedOnly,
+                              boolean offhandRequiresBlocking) {
 
     /**
      * 乗算モードのステ定義(1レイヤ分)。値の解決は加算ステと同じ fixed + per-quality×品質 + random ロール
@@ -134,6 +141,18 @@ public record ItemStatProfile(Map<String, Double> fixed, Map<String, Double> per
             });
         }
         multipliers = Map.copyOf(multCopy);
+    }
+
+    /**
+     * {@code offhandRequiresBlocking} 無しの9引数コンストラクタ(back-compat)。
+     * 「構えている間だけ」の制限は掛からない(＝従来どおり持っているだけで乗る)。
+     */
+    public ItemStatProfile(Map<String, Double> fixed, Map<String, Double> perQuality,
+                           Map<String, StatRange> random, Integer durability, boolean offhandApplies,
+                           boolean randomizeGrants, Map<String, Double> grantChances,
+                           Map<String, MultiplierSpec> multipliers, boolean socketedOnly) {
+        this(fixed, perQuality, random, durability, offhandApplies, randomizeGrants, grantChances,
+                multipliers, socketedOnly, false);
     }
 
     /**

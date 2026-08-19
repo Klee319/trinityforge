@@ -12314,6 +12314,28 @@ items:
   VEX_ARMOR_TRIM_SMITHING_TEMPLATE#100028:
     fixed:
       hidden-saturation-bonus: 0.05
+  # 盾(2026-08-20 / W-163)。それまで盾には TF のステが1つも無く、
+  # バニラの盾軽減も「TF が BASE を自前の絶対値で上書きする」せいで誤差に潰れていたため、
+  # 構えても構えなくても被ダメージが変わらなかった。
+  #
+  # offhand-stats-require-blocking: true = 【構えている間だけ】この行のステが乗る
+  # (ユーザー確定: しゃがんだ時＝構えているときだけ設定したステータスが乗る)。
+  # 持っているだけでは一切乗らないので、常時装備の防御力にはならない。
+  #
+  # damage-reduction は被ダメージに (1 - 値) を掛ける割合軽減なので、
+  # どの装備帯でも同じ体感で効く(帯が進んでも置いていかれない)。
+  # 数値はバランス調整の対象 ── 設定エディタの「盾」カテゴリから変更できる。
+  SHIELD:
+    fixed:
+      damage-reduction: 0.35
+      phys-flat-defense: 2.0
+      magic-flat-defense: 1.0
+    per-quality:
+      damage-reduction: 0.01
+      phys-flat-defense: 0.6
+      magic-flat-defense: 0.3
+    offhand-stats-apply: true
+    offhand-stats-require-blocking: true
 _editor:
   categories:
     weapon:
@@ -12660,7 +12682,8 @@ _editor:
           - GLOWSTONE_DUST#84
       - id: cat_1784735489541
         label: 盾
-        itemIds: []
+        itemIds:
+          - SHIELD
     armor:
       - id: cat_20260724_source_gem
         label: ソースジェム

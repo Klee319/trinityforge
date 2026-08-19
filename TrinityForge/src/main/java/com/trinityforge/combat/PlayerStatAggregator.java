@@ -685,7 +685,8 @@ public final class PlayerStatAggregator {
         // (mainhand には混ぜない — アイテムCTはメインハンド専用のまま)。既定 false なので未設定なら合算しない。
         // 装着専用(スレッド)は offhand-stats-apply の値によらず寄与しない。
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (!excludeOffhand && offhandStatsApply(offhand) && !socketedOnly(offhand, itemStats)) {
+        if (!excludeOffhand && offhandContributes(offhand, player.isBlocking(), itemStats)
+                && !socketedOnly(offhand, itemStats)) {
             DerivedItemStats.resolve(offhand, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
         }
@@ -703,7 +704,8 @@ public final class PlayerStatAggregator {
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(piece, itemStats));
         }
         ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (!excludeOffhand && offhandStatsApply(offhand) && !socketedOnly(offhand, itemStats)) {
+        if (!excludeOffhand && offhandContributes(offhand, player.isBlocking(), itemStats)
+                && !socketedOnly(offhand, itemStats)) {
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(offhand, itemStats));
         }
         return multipliers;
@@ -802,6 +804,39 @@ public final class PlayerStatAggregator {
      * {@link #offhandStatsApply(ItemStack)} の static 版。外部の防御者集計
      * ({@link #equipmentDefenseItemStats})が同一の {@code offhand-stats-apply} 判定を共有するために切り出す。
      */
+    /**
+     * オフハンドのアイテムが「いま」ステを寄与するか。{@code offhand-stats-apply} に加えて、
+     * {@code offhand-stats-require-blocking: true} のアイテム(盾)は<b>構えている間だけ</b>通す
+     * (2026-08-20 / W-163)。
+     *
+     * <p>なぜ盾を材質で決め打ちしないか: 判定を {@code Material.SHIELD} に固定すると、CMD 付きの
+     * TF 製の盾以外(モジュール追加の盾・別素材の受け系オフハンド品)に同じ挙動を与えられない。
+     * {@code offhand-stats-apply} と同じ per-item のフラグにしておけば、item-stats.yml だけで
+     * 「持っているだけで乗る品」と「構えたときだけ乗る品」を書き分けられる。
+     *
+     * @param blocking {@code Player#isBlocking()}。盾を構えている間だけ true になる
+     */
+    private static boolean offhandContributes(ItemStack offhand, boolean blocking,
+                                              ItemStatsConfig itemStats) {
+        if (!offhandStatsApply(offhand, itemStats)) {
+            return false;
+        }
+        return blocking || !offhandRequiresBlocking(offhand, itemStats);
+    }
+
+    /** {@code offhand-stats-require-blocking}(既定 false)。null/エア/未設定は false。 */
+    private static boolean offhandRequiresBlocking(ItemStack offhand, ItemStatsConfig itemStats) {
+        if (offhand == null || offhand.getType().isAir()) {
+            return false;
+        }
+        Integer cmd = offhand.hasItemMeta()
+                ? DerivedItemStats.customModelDataOf(offhand.getItemMeta()) : null;
+        return itemStats.profileFor(offhand.getType(), cmd)
+                .map(com.trinityforge.stats.ItemStatProfile::offhandRequiresBlocking)
+                .orElseGet(() -> itemStats.fallback().map(
+                        com.trinityforge.stats.ItemStatProfile::offhandRequiresBlocking).orElse(false));
+    }
+
     private static boolean offhandStatsApply(ItemStack offhand, ItemStatsConfig itemStats) {
         if (offhand == null || offhand.getType().isAir()) {
             return false;
@@ -857,6 +892,22 @@ public final class PlayerStatAggregator {
     public static Map<String, Double> equipmentDefenseItemStats(
             ItemStack[] armorContents, ItemStack mainhand, ItemStack offhand,
             ItemStatsConfig itemStats, CombatDamageConfig combatDamage) {
+        // blocking を知らない旧シグネチャ(back-compat)。「構えていない」として扱うので、
+        // offhand-stats-require-blocking: true のアイテム(盾)は寄与しない。
+        // 既定 false の他のオフハンド品の挙動は従来どおり変わらない。
+        return equipmentDefenseItemStats(armorContents, mainhand, offhand, false, itemStats, combatDamage);
+    }
+
+    /**
+     * {@link #equipmentDefenseItemStats(ItemStack[], ItemStack, ItemStack, ItemStatsConfig, CombatDamageConfig)}
+     * に「いま盾を構えているか」を渡せる版(2026-08-20 / W-163)。
+     *
+     * @param blocking {@code Player#isBlocking()}。{@code offhand-stats-require-blocking: true} の
+     *                 オフハンド品は、これが true のときだけ寄与する
+     */
+    public static Map<String, Double> equipmentDefenseItemStats(
+            ItemStack[] armorContents, ItemStack mainhand, ItemStack offhand, boolean blocking,
+            ItemStatsConfig itemStats, CombatDamageConfig combatDamage) {
         Objects.requireNonNull(itemStats, "itemStats");
         Objects.requireNonNull(combatDamage, "combatDamage");
         Map<String, Double> item = new LinkedHashMap<>();
@@ -873,8 +924,9 @@ public final class PlayerStatAggregator {
             }
         }
         // オフハンドは offhand-stats-apply: true のときのみ(プレイヤー防御と同一ゲート)。
+        // offhand-stats-require-blocking: true の品は構えている間だけ(2026-08-20 W-163)。
         // 装着専用(スレッド)はここでも寄与しない。
-        if (offhandStatsApply(offhand, itemStats) && !socketedOnly(offhand, itemStats)) {
+        if (offhandContributes(offhand, blocking, itemStats) && !socketedOnly(offhand, itemStats)) {
             DerivedItemStats.resolve(offhand, itemStats, combatDamage.weaponBaseFormula())
                     .forEach((key, value) -> item.merge(StatKeys.canonical(key), value, Double::sum));
             mergeMultipliers(multipliers, DerivedItemStats.resolveMultipliers(offhand, itemStats));
