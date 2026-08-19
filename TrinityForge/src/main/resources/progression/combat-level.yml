@@ -17,8 +17,10 @@
 # 対象スキル (LD-7 / SKILL_TREE_SPEC section 0・4):
 #   物理柱 = 軽量武器(LIGHT_WEAPONS) / 重量武器(HEAVY_WEAPONS) / 弓術(ARCHERY)
 #   魔法柱 = Ars魔法(ARS_MAGIC, カスタムスキル)
-#   防具2種(LIGHT_ARMOR/HEAVY_ARMOR)は combat level に入れない(LD-7)。防御プロファイル
-#   C1/LD-8 へ回すため除外。
+#   防具柱 = 軽量防具(LIGHT_ARMOR) / 重量防具(HEAVY_ARMOR)
+#   ※ 当初の LD-7 は防具2種を除外し防御プロファイル C1/LD-8 へ回す設計だったが、
+#     2026-08-19 に方針変更し、防具を伸ばしたビルドも戦闘レベルへ反映するため対象に含める。
+#     防具の影響を薄めたい場合は weight を 1 未満(例 0.5)にする。
 # weight はランク付け前の各スキルの倍率(1.0 で素のレベル)。
 
 skills:
@@ -26,6 +28,8 @@ skills:
   HEAVY_WEAPONS: 1
   ARCHERY: 1
   ARS_MAGIC: 1
+  LIGHT_ARMOR: 1
+  HEAVY_ARMOR: 1
 pillars:
   - top: 1
     divisor: 1.5

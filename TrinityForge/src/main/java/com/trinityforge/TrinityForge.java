@@ -508,10 +508,11 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.skillExp());
         this.chainBreakExpGrant = nativeSkillExperienceListener::grantChainBreak;
         getServer().getPluginManager().registerEvents(nativeSkillExperienceListener, this);
-        getServer().getPluginManager().registerEvents(
+        com.trinityforge.listeners.ArsMagicExperienceListener arsMagicExperienceListener =
                 new com.trinityforge.listeners.ArsMagicExperienceListener(
                         this, configManager.skillExp(), progressionCatalog, placedBlockTracker,
-                        configManager.mobLevelTable()), this);
+                        configManager.mobLevelTable());
+        getServer().getPluginManager().registerEvents(arsMagicExperienceListener, this);
         // かまど/エンチャント/ポーションは実行者(=スキル取得者)限定ステ反映(2026-07-25)。
         // エンチャント運(良エンチャント出現率格上げ) + オーバーエンチャント解放者の出現率追加ボーナス。
         getServer().getPluginManager().registerEvents(
@@ -633,6 +634,9 @@ public final class TrinityForge extends JavaPlugin {
                 configManager.craftingFeatures(), roleBuffResolver,
                 configManager.mobLevelTable(), progressionCatalog);
         combatListener.setKillRewardAdjuster(killRewardAdjuster);
+        // 2026-08-19 W-148: 魔法の討伐EXPにも武器・弓術と同じ足きりを掛ける。ここを外すと
+        // 「同じモブを倒しても魔法だけ満額で入る」非対称が戻る(実サーバ報告の症状そのもの)。
+        arsMagicExperienceListener.setKillRewardAdjuster(killRewardAdjuster);
         getServer().getPluginManager().registerEvents(combatListener, this);
 
         // Aggro/threat tracking (gap C5). The service owns a bounded, self-evicting HateTable and

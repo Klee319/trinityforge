@@ -67,45 +67,51 @@ class ShippedLevelCutoffTest {
     }
 
     @Test
-    void shippedExpCurveFadesToZeroAcrossTheFifteenToThirtyBand() {
-        // 2026-08-18 ユーザー指示「経験値は15〜30レベルの差の区間をかけて0になるようにしたい」。
-        // アイテム側(20差で完全遮断)とは別の閾値から始まることが、この分離を入れた理由そのもの。
+    void shippedExpCurveFadesToZeroAcrossTheTwentyFiveToFiftyBand() {
+        // 2026-08-19 W-148: 帯を 15〜30 差から【25〜50 差】へ広げた。
+        //
+        // 旧値はスキルレベルを基準に置かれていたが、この足きりが実際に比較するのは
+        // 【戦闘レベル】(progression/combat-level.yml の pillar 写像)で、単一特化のプレイヤーでは
+        // 最高スキルの約 2/3 にしかならない。つまり「スキル78 vs Lv80モブ」は
+        // レベル差 2 ではなく 28 として判定され、旧値では 0.13 倍まで削られていた
+        // (配備先DBの実データで、戦闘Lv53の人が約1000、戦闘Lv50以下の人がきっかり0)。
+        // 25 は「純特化ぶんの構造的なズレ(最高スキルの 1/3)」を吸収する幅。
         ConfigurationSection under = underLevel();
         MobLevelCutoff cutoff = shippedCutoff();
         int expThreshold = under.getInt("exp-threshold", -1);
-        assertEquals(15, expThreshold, "経験値の逓減は15レベル差から始まること");
+        assertEquals(25, expThreshold, "経験値の逓減は25レベル差から始まること");
 
-        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold - 1), 1e-9, "15差の手前は満額");
-        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold), 1e-9, "15差ちょうどはまだ満額");
-
-        // アイテムの閾値(20)より手前の帯で既に減っていること。ここが 1.0 に戻ると exp-threshold が
-        // 効いておらず、経験値もアイテムと同じ20差からしか絞られない(分離を入れた意味が消える)。
-        int itemThreshold = under.getInt("item-threshold");
-        for (int diff = expThreshold + 1; diff < itemThreshold; diff++) {
-            assertTrue(cutoff.expMultiplier(0, diff) < 1.0,
-                    "レベル差" + diff + "(アイテム閾値" + itemThreshold + "の手前)で経験値が減っていない");
-        }
+        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold - 1), 1e-9, "25差の手前は満額");
+        assertEquals(1.0, cutoff.expMultiplier(0, expThreshold), 1e-9, "25差ちょうどはまだ満額");
+        assertTrue(cutoff.expMultiplier(0, expThreshold + 1) < 1.0, "26差からは減り始めること");
 
         // 途中は単調に減り、両端の間で必ず中間値を通る(ステップ関数に戻っていないことの確認)。
-        double at20 = cutoff.expMultiplier(0, 20);
-        double at25 = cutoff.expMultiplier(0, 25);
-        assertTrue(at20 > at25, "20差より25差のほうが少ないこと: " + at20 + " / " + at25);
-        assertTrue(at25 > 0.0, "25差でまだ0になっていないこと(区間をかけて減る): " + at25);
-        assertTrue(at20 < 1.0, "20差では既に減っていること: " + at20);
+        double at30 = cutoff.expMultiplier(0, 30);
+        double at40 = cutoff.expMultiplier(0, 40);
+        assertTrue(at30 > at40, "30差より40差のほうが少ないこと: " + at30 + " / " + at40);
+        assertTrue(at40 > 0.0, "40差でまだ0になっていないこと(区間をかけて減る): " + at40);
+        assertTrue(at30 < 1.0, "30差では既に減っていること: " + at30);
 
-        // 30差で0。ここが「ハメ殺しても何も入らない」ライン。
-        assertEquals(0.0, cutoff.expMultiplier(0, 30), 1e-9);
+        // 50差で0。ここが「ハメ殺しても何も入らない」ライン。
+        assertEquals(0.0, cutoff.expMultiplier(0, 50), 1e-9);
         assertEquals(0.0, cutoff.expMultiplier(0, 90), 1e-9);
     }
 
     @Test
-    void shippedExpCutoffStartsEarlierThanTheItemCutoff() {
-        // 経験値だけ手前から絞る、という分離が生きていること。ここが同値に戻ると
-        // exp-threshold を足した意味が無くなり、20差まで満額のまま抜け穴が残る。
+    void carriedLowLevelPlayerStillGetsNeitherExpNorItems() {
+        // 足きりを緩めても【ハメ狩り・お連れ様の抑制】という当初の狙いは残っていること。
+        // 経験値の閾値(25)がアイテムの閾値(20)より後ろになったのは 2026-08-19 の意図的な変更で、
+        // 旧テスト(shippedExpCutoffStartsEarlierThanTheItemCutoff)が固定していた
+        // 「経験値のほうが手前から絞られる」という順序は【もう成り立たない】。
+        // 順序そのものに意味があったのではなく「経験値にも効くこと」が狙いだったので、
+        // ここでは順序ではなく“大差では両方止まる”という結果のほうを固定する。
         ConfigurationSection under = underLevel();
-        assertTrue(under.getInt("exp-threshold", -1) < under.getInt("item-threshold"),
-                "経験値の閾値はアイテムの閾値より手前であること");
-        assertTrue(shippedCutoff().expMultiplier(0, under.getInt("item-threshold")) < 1.0,
-                "アイテムが止まるレベル差では経験値も既に減っていること");
+        MobLevelCutoff cutoff = shippedCutoff();
+        int itemThreshold = under.getInt("item-threshold");
+
+        assertTrue(cutoff.blocksItems(0, 50), "50差でTF追加ドロップは付かない");
+        assertEquals(0.0, cutoff.expMultiplier(0, 50), 1e-9, "50差で経験値も0");
+        assertTrue(cutoff.blocksItems(0, itemThreshold),
+                "アイテム側の閾値(" + itemThreshold + ")は据え置きで、そこから完全遮断のままであること");
     }
 }

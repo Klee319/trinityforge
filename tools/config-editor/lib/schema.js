@@ -520,6 +520,13 @@ function validateArsMaterials(data, errors) {
     if (entry.enchant_glow !== undefined && entry.enchant_glow !== null && typeof entry.enchant_glow !== "boolean") {
       errors.push(`${prefix}.enchant_glow: 真偽値である必要があります`);
     }
+    // edible: 圧縮食料を「食べてよい素材」として通す旗(2026-08-19 W-131/W-149)。
+    // UI の既知キー(ars-forms.js の MATERIAL_KNOWN)には【意図的に入れていない】——
+    // 入れると serializeMaterialEntry に対応する case が無いぶん保存時に黙って落ちる。
+    // 未知キーとして _extra へ verbatim 保存される現状のままでよく、ここでは型だけ見る。
+    if (entry.edible !== undefined && entry.edible !== null && typeof entry.edible !== "boolean") {
+      errors.push(`${prefix}.edible: 真偽値である必要があります`);
+    }
     validateRecipeForms(entry, prefix, errors, validateRitualRecipe);
   }
 }

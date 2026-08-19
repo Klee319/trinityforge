@@ -39,6 +39,22 @@ public final class ArsMagicExperienceListener implements Listener {
     private final NativeSkillCatalog catalog;
     private final PlacedBlockTracker placedBlocks;
     private final MobLevelTableConfig mobLevelTable;
+    /**
+     * レベル差の足きり({@code combat/damage.yml} の {@code level-cutoff})。
+     *
+     * <p><b>2026-08-19 W-148 の真因</b>: ここが未配線だったため、<b>武器・弓術の討伐EXPだけが
+     * 足きりを受け、魔法だけが満額で入る</b>という非対称になっていた
+     * ({@code CombatListener#onCombatKill} は {@code KillRewardAdjuster#expMultiplier} を掛けている)。
+     * 実サーバ報告「軽武器78でLv80エンダーマンを倒しても1000程度か0しか入らないのに、魔法だけは入る」は
+     * この非対称そのもの。足きりが見るのは<b>スキルレベルではなく戦闘レベル</b>
+     * ({@code progression/combat-level.yml} の pillar 写像)で、単一特化だと最高スキルの約 2/3 まで
+     * 下がるため、スキル78 = 戦闘Lv52 となりレベル差は 2 ではなく 28 だった。
+     *
+     * <p>{@code TrinityForge} の配線順の都合でコンストラクタ引数にはできない
+     * ({@link KillRewardAdjuster} はこのリスナーより後に生成される)。未設定(null)なら足きり無効＝
+     * 従来どおり満額付与なので、セットし忘れても壊れる方向には倒れない。
+     */
+    private volatile KillRewardAdjuster killRewardAdjuster;
 
     public ArsMagicExperienceListener(Plugin plugin, SkillExpConfig skillExp,
                                       NativeSkillCatalog catalog, PlacedBlockTracker placedBlocks,
@@ -48,6 +64,11 @@ public final class ArsMagicExperienceListener implements Listener {
         this.catalog = Objects.requireNonNull(catalog, "catalog");
         this.placedBlocks = Objects.requireNonNull(placedBlocks, "placedBlocks");
         this.mobLevelTable = mobLevelTable;
+    }
+
+    /** レベル差の足きりを注入する(生成順の都合でコンストラクタ後に呼ばれる)。 */
+    public void setKillRewardAdjuster(KillRewardAdjuster killRewardAdjuster) {
+        this.killRewardAdjuster = killRewardAdjuster;
     }
 
     /**
@@ -85,7 +106,12 @@ public final class ArsMagicExperienceListener implements Listener {
         double spot = tf == null ? 1.0
                 : tf.locationExpDiminishing().multiplierForKillSpot(killer, dead, skillExp,
                         tf.dungeonWorldRegistry().isDungeonWorld(dead.getWorld().getUID()));
-        ArsProgressionBridge.grantMagicExp(plugin, killer, amount * spot);
+        // レベル差の足きり。武器・弓術({@code CombatListener#onCombatKill})と同じ倍率を同じ引数で掛ける
+        // (受取人＝止めを刺した本人なので、そのプレイヤー自身の戦闘レベルで判定される)。
+        KillRewardAdjuster adjuster = this.killRewardAdjuster;
+        double cutoff = adjuster == null ? 1.0 : adjuster.expMultiplier(killer, dead);
+        if (cutoff <= 0.0) return;
+        ArsProgressionBridge.grantMagicExp(plugin, killer, amount * spot * cutoff);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
