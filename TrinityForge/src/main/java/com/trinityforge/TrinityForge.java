@@ -110,6 +110,7 @@ import com.trinityforge.skilltree.runtime.SkillPerkStatSource;
 import com.trinityforge.skilltree.runtime.NativeSkillPerkStatSource;
 import com.trinityforge.skilltree.runtime.NativePerkService;
 import com.trinityforge.skilltree.runtime.NativeSkillTreeMenu;
+import com.trinityforge.smithing.BedrockSmithingAssistListener;
 import com.trinityforge.stats.AttributeApplier;
 import com.trinityforge.stats.CatalogRitualBridge;
 import com.trinityforge.stats.CatalogRecipeRegistrar;
@@ -1020,6 +1021,10 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ItemDamageClampListener(), this);
         getServer().getPluginManager().registerEvents(
                 new CatalogSmithingListener(configManager.itemCatalog(), itemFactory), this);
+        // 統合版(Bedrock)クライアントは鍛冶台のスロット判定を自前で持っていて、
+        // サーバが登録したレシピでは広がらない(Geyser #4706 は "Can't Fix")。
+        // 本物の鍛冶台へサーバ側からアイテムを差し込むことで、既存の判定を一切迂回せずに解消する。
+        getServer().getPluginManager().registerEvents(new BedrockSmithingAssistListener(), this);
         getServer().getPluginManager().registerEvents(
                 new CatalogAnvilListener(this, configManager.itemCatalog(), itemFactory), this);
         // 釣果が宝/ゴミどちらのグループから引かれたか(FishingGimmickListenerの置換フロー)を

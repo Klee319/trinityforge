@@ -45,3 +45,7 @@ permissions:
   trinityforge.elitemobs.commands:
     description: Bypass EliteMobs/AdventurersGuild player-command gate (dungeon tooling)
     default: op
+  # 統合版(Bedrock)プレイヤーには常に有効なので、この権限は Java 版から動作確認するためだけのもの
+  trinityforge.smithing.bedrock-assist:
+    description: Force the Bedrock smithing-table assist (server-side base-slot insert) on Java clients too
+    default: false

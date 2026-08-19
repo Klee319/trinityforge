@@ -2308,6 +2308,117 @@ ops\launchpply-block-break-exploits.cmd -Target resource
 |---|---|---|
 | W-156 | 資源サーバで岩盤が壊せない | ⏸ 設定変更スクリプトは用意済み。**ユーザーが実行＋再起動する**まで未反映 |
 
+### 実サーバ報告バッチ（2026-08-19 受領 第14陣。W-157〜W-160）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-157 | 統合版のスキンが DiscordSRV の通知に反映されない | ⏸ 原因確定・直し方も確定。**書き換え先が `D:` 配下なのでユーザーが適用する** |
+| W-158 | CMD 付きの item でもマテリアルが共通のものを利用したカスタムクラフトができない（**統合版のみ**。実例=ソースジャー） | ❌ **Bukkit のレシピでは原理的に表現できない**ことが確定。残る手は3つ（下記）。今回は着手していない |
+| W-159 | 鍛冶台で CMD 付き・非ダイヤ系のアイテム（ダイヤの弓／クロスボウ）をネザライト化できない（**統合版のみ**。そもそも base スロットに置けない） | ✅ 実装（TF jar。**本物の鍛冶台へサーバ側から差し込む**） |
+| W-160 | 鍛冶台インベントリを開くとアイテムがちらつく（一瞬増殖したように見える） | ✅ W-159 と同一原因（クライアント予測の拒否→再同期の往復）。同じ修正で消えるはず。**統合版実機での確認が要る** |
+
+#### W-157 DiscordSRV のアバター — 既定 URL が **Mojang に存在しない UUID** を引いている
+
+DiscordSRV 1.30.5 は `AvatarUrl: ""` のとき
+`https://crafthead.net/helm/{uuid-nodashes}/{size}#{texture}` を使う。統合版プレイヤーの UUID は
+Floodgate が組んだもの（上位 64bit が 0）で **Mojang に存在しない**ため、crafthead は既定の頭を返す。
+
+一方 `{texture}` は**統合版でも正しく解決する**。DiscordSRV の `NMSUtil.getTexture(Player)` は
+GameProfile の `textures` プロパティを実物から読むだけで、そこは Floodgate が統合版スキンで埋めている。
+実際にそのプレイヤーのテクスチャハッシュが入っていること、`https://crafthead.net/helm/<hash>/64` が
+200 / image/png を返すことを確認済み。
+
+**直し方**（`D:` 配下＝エージェントは書けないのでユーザーが実行）:
+
+```
+D:\game\minecraft\PaperServer\Velocity_for_TF\Main_Server\plugins\DiscordSRV\config.yml
+AvatarUrl: "https://crafthead.net/helm/{texture}/{size}"
+```
+
+そのあと `/discordsrv reload`。**参加メッセージだけは依然スキンが乗らないことがある**
+（Floodgate がスキンを適用するのが非同期なので、参加通知の方が先に出うる）。
+
+#### W-158 統合版で `custom:` 素材のクラフトができない — **レシピで表現する道が無い**
+
+`ExactChoice` に変えれば直る、という筋は**間違い**（この方向で一度提案して撤回した）。機構:
+
+1. 1.21.2 以降の `net.minecraft.world.item.crafting.Ingredient` は **`HolderSet<Item>`＝アイテム型の集合だけ**で、
+   ItemStack を持てない。
+2. Paper の `Ingredient.java.patch` は ExactChoice 用に `itemStacks` と厳密な `test()` を足しているが、
+   **`display()` は上書きしていない** → クライアントへ送る `SlotDisplay` は**アイテム型のみ**。
+   MaterialChoice でも ExactChoice でも送られる内容は同じ。
+3. Geyser の `RecipeUtil.translateToInput` は `ItemStackSlotDisplay` を受けたときだけ
+   `CustomItemTranslator.getCustomItem` を通す。Bukkit レシピの素材はそこへ到達しない。
+
+つまり **「この CMD のアイテムを素材にせよ」をクライアントへ表現する経路が存在しない**。
+TF の `CatalogRecipeRegistrar#choiceFor` も ArsPaper の `RecipeManager#resolveIngredient` も
+`custom:` を `MaterialChoice(base material)` にしているが、これは**原因ではなく唯一可能な選択**。
+
+**残る手は3つ**（どれも未着手。②③はユーザー判断が要る）:
+
+- ① その素材を Bedrock カスタム登録しない（見た目がバニラ素材になる。GeyserExtra が既に 493 件でこの方針）
+- ② TF 側に統合版専用の代替クラフト GUI を作る
+- ③ GeyserExtra から Bedrock へ補正レシピを注入する。**Geyser の internal API と ItemStackRequest の
+  受け側が要る**うえ、`GeyserAutoUpdate` が入っているので Geyser 更新で**無言で壊れる**。
+  さらに 1.21.2 以降はレシピの名前空間キーがクライアントへ送られないので、TF→GeyserExtra の対応付けは
+  結果 CMD やパターンからの推測になる
+
+副産物（別の落とし穴）: Paper の `RecipeManager#addRecipe` は `finalizeRecipeLoading()` →
+**`getPlayerList().reloadResources()`** まで走る。起動時は無害だが、**人がいる状態で
+`/trinityforge reload` を叩くと `Bukkit.addRecipe` の回数だけ全オンラインプレイヤーへレシピ再送**になる。
+
+#### W-159 / W-160 鍛冶台 — **統合版クライアント側のスロット判定**で、サーバからは広げられない
+
+TF 側の登録は正しかった。`CatalogRecipeRegistrar#registerNetheriteOne` は base=BOW/CROSSBOW/TRIDENT/MACE の
+`SmithingTransformRecipe` を実際に登録しているし（`CatalogRecipeRegistrarNetheriteTest` が固定済み）、
+`catalog.yml` の該当 13 件に `draft: true` は無く、配備済み jar・config も当日の最新だった。
+Java 版では置ける。**置けないのは統合版だけ** ── 鍛冶台のスロットが何を受け付けるかは
+Bedrock クライアントが自前で持っていて、サーバから届くレシピでは広がらない。
+GeyserMC/Geyser#4706 が **"Can't Fix / Missing Client Feature"** で閉じているのがこれ。
+W-160 のちらつきは、その拒否とサーバ状態の再同期の往復（Geyser#3332 の
+"input item glitches out, item count turns yellow" と同じ見え方）。
+
+**採らなかった案**: チェスト型の独自 GUI で結果を自前計算する方式。`PrepareSmithingEvent` には
+**3 プラグイン 7 つの判定**が乗っているので、全部バイパスして二重管理になる ──
+TF の `CatalogSmithingListener`（宣言済みネザライト化 / W-51 の品質再刻印）・
+`CatalogCraftGateListener`（スキルツリーの `recipe:<id>` ゲート）・
+`CatalogVanillaOperationGuardListener`（宣言外のカタログ品を止める）、
+ArsPaper の `SmithingTableUnlockGate`（perk ゲート）と `CustomItemListener`（Ars カスタム防具のトリムで PDC 保全）、
+EliteMobs の `PreventUpgradeDiamondToNetherite`（エリート装備のネザライト化禁止）。
+
+**採った案**: `com/trinityforge/smithing/BedrockSmithingAssistListener.java`（新規）。
+統合版プレイヤーが**アイテムを持った状態で**鍛冶台を右クリックしたら横取りし、
+`MenuType.SMITHING` で**本物の鍛冶台**のビューを組み、**開く前に**サーバ側から base スロットへ差し込む。
+サーバ側の `Inventory#setItem` はクライアントのスロット判定を通らないので置ける。
+以降は完全にバニラの経路で、`ItemCombinerMenu` の入力コンテナは `setChanged()` →
+`slotsChanged()` → `createResult()` を呼ぶため **差し込みでも `PrepareSmithingEvent` は正規に発火する**
+＝上の 7 つはそのまま効き、トリムもバニラのネザライト強化も Java と同じになる。
+
+非自明な確認事項（実物で取った裏）:
+
+- **結果の取り出しは統合版でも通る。** Geyser の `SmithingInventoryTranslator` は Java 0/1/2/3 を
+  Bedrock 53/51/52/50 へ写すだけで `shouldRejectItemPlace` も `getSlotType` も上書きしていない。
+  さらに `InventoryTranslator#translateRequest` は汎用コンテナでの `CRAFT_RECIPE` を **break で読み飛ばす**ので、
+  結果スロットからの取り出しは**ただの TAKE** として Java スロット 3 のクリックに変換される。
+  **クライアントがそのレシピを知っている必要はない**（＝W-158 の制約はここには効かない）。
+- 7 つの判定はどれも `event.getView().getPlayer()` しか見ておらず **`getViewers()` に依存していない**ので、
+  「開く前に差し込む」順序でも壊れない（`getViewers()` はその時点でまだ空）。
+- 統合版の判定は **UUID の上位 64bit が 0 か**で行う（Floodgate は `new UUID(0, xuid)` で組む）。
+  `paper-plugin.yml` は `softdepend:` を黙って捨てるので Floodgate API に依存させない。
+  Java 版から動作確認する逃げ道として `trinityforge.smithing.bedrock-assist`（既定 false）を用意した。
+- **横取りする条件を絞ってある**。「どれかのスミスレシピの base に一致し、かつ型・追加素材のどれにも
+  一致しない」ときだけ。判定はハードコード一覧ではなく**登録済みレシピの ingredient から引く**ので、
+  バニラやプラグインが素材を足しても追随する。緩めると
+  「鍛冶台を開いただけでインゴットや鍛冶型を base スロットへ吸われる」という**元より悪い壊れ方**をする
+  （`BedrockSmithingAssistListenerTest` 10 件で固定。base と addition の両方に一致する物は
+  **addition を優先して横取りしない**ことも含む）。
+
+**実機確認が残っている**（統合版クライアントが要るのでエージェントには取れない）:
+ダイヤの弓／クロスボウを持って鍛冶台を右クリック → base スロットに入るか → ネザライト強化が成立するか →
+ちらつきが消えるか。**トリムとバニラのネザライト強化が今までどおり動くこと**も併せて見る。
+
+---
+
 ---
 
 ## 4. 既知の未修正の問題・弱点
@@ -2469,6 +2580,7 @@ git 系:
 
 | 日付 | 内容 |
 |---|---|
+| 2026-08-19 | **実サーバ報告 第14陣 W-157〜W-160**（統合版まわり4件）。**W-159/W-160 は同一原因**で、統合版クライアントが鍛冶台のスロット判定を自前で持っているためサーバのレシピ登録では広がらない（Geyser#4706 は Can't Fix）。独自 GUI は `PrepareSmithingEvent` に乗る**3プラグイン7判定**を全部バイパスするので採らず、**本物の鍛冶台へサーバ側から差し込む** `BedrockSmithingAssistListener` を新設した（`Inventory#setItem` は `slotsChanged()` を通るので `PrepareSmithingEvent` は正規に発火＝7判定はそのまま効く）。**W-158（`custom:` 素材の統合版クラフト）は Bukkit のレシピでは原理的に表現できない**ことが確定（Paper は `Ingredient#display()` を上書きしていないので ExactChoice でも送られる内容は型だけ）で未着手。**W-157 は DiscordSRV の `AvatarUrl` を `{texture}` 基準へ変えるだけ**だが書き換え先が稼働サーバ配下なのでユーザー適用待ち |
 | 2026-08-18 | **図鑑のユーザー報告 2 件**（「エディタの図鑑でアイテム名がID表記になっている」「バニラの武器やモブの一部が登録されていない」）。**1 件目は本日 01:30 の `667a362` で既に直っていた**ので、直したのは再発防止と 2 件目。生ID表示の機構は `util.js` の `itemRefSelect` が**候補集合に無い値を primary=生ID で描く**ことで、`collection.yml` の `items.sourcelink` 25 件と `items.functional` 15 件（`material:` を持たない品）が候補源リストから漏れていたのが実害の 40 件。**候補源の取りこぼしは警告が一切出ない**ので、`test/collection-entry-labels-2026-08-18.test.js` で「出荷 `collection.yml` の全エントリが名前付きで解決する」ことと「`catalog-candidates.js` の `EXTRA_SOURCES` と `app.js` の `EXTRA_CONFIGS` が対になっている」ことを機械的に固定した（`667a362` 以前の候補源へ戻すと 2 件が実際に落ちることを実走確認）。2 件目は**バニラの武器・道具が図鑑に 1 件も無かった**（`TRIDENT`/`MACE`/`ELYTRA` だけが `structure` に混在）ので `weapon_vanilla` 17 件・`tool_vanilla` 24 件を新設、モブは 6 件追加（`PARCHED`＝AbstractSkeleton→undead、`NAUTILUS`/`ZOMBIE_NAUTILUS`＝AbstractNautilus→aquatic、`CAMEL_HUSK`/`COPPER_GOLEM`/`HAPPY_GHAST`→passive。分類は paper-api のインタフェース階層を `javap` で確認して決めた）。**`GIANT` と `MANNEQUIN` は意図的に入れない** ── 前者は討伐経路が無く後者は Mob ではないので、載せると分母に「永久に埋まらない枠」が入り `percent: 100` 系アチーブメントが到達不能になる（K-11 と同型）。**「一括追加」も直した**: 走査集合が `catalogCandidates`（カスタムIDのみ）だったのでバニラ Material が**構造的に addressable でなかった**（`*_SWORD` と打っても 0 件）。候補集合の組み立ては `catalog-candidates.js#bulkAddCandidateIds` に出して Node テストから直接検証している。**続けてカテゴリの整理**（ユーザー報告「Ars素材カテゴリに圧縮素材やただの中間素材が入っている」）: `material_ars` に混ざっていた圧縮素材 11 件（`*_4x` と `stone_5x`。圧縮シリーズの最上位 2 段だけが取り残されていた）を `material_compressed`（160→171 件＝定義側の圧縮 171 件と一致）の五十音順の位置へ移し、残り 30 件（コア 5・ガチャ券 9・スクラップ 6・中間素材 10）は「Ars素材」という括りが実態と合わないので **`material_misc`「素材等」へ改名**した（旧ID `material_ars` は collection.yml 以外から参照されていないことを確認済み）。ID の形で機械判定できるので「圧縮素材が `material_compressed` 以外に置かれていない」ことをテストに追加した。**さらにスレッドの重複も解消した**: `thread_*` が `material_tf` と `thread` の両方に入っていて図鑑で二重に並んでいたので `material_tf` から落とした（86→35 件）。調べたら**`material_tf` の `thread_*` は 51 件あり、うち 6 件（`thread_better_fortune` / `thread_blindness` / `thread_gacha` / `thread_role_effeciency` / `thread_role_luck` / `thread_translate`）は `thread` カテゴリに一度も入っていなかった**ので `thread` を 45→51 件にした。**見逃していた真因は `ShippedCollectionEntryIdTest` が件数を `45` というリテラルで固定していたこと** ── リテラル自体が誤っていたので「6 件取りこぼしのある状態」をずっと緑で通していた（許可リスト方式と同じ罠）。期待値をカタログの非draft な `thread_*` から導出する形へ作り替え、直前のコミット状態へ戻すと欠けている 6 件を名指しで落とすことを実走確認した。あわせて editor 側に「同じエントリが2カテゴリに入っていない」「カタログの非draft スレッドは全件 `thread` に入っている」を追加。エントリ総数 774→**729 件（ユニーク 729・重複ゼロ）**。**さらに、その 6 スレッドが「ドロップするのに防具へ永久に挿せない」状態だったのを直した**（ユーザー承認のうえ `catalog.yml` に着手）。**`external-source: arspaper` を足すだけでは直らなかった** ── 6 種は CMD **100023〜100028** で、正規の 45 種（CMD 3000xx）とは別系統で、**Ars の `ThreadType` enum にも `threads.yml` にも定義が無かった**（`blindness` と `translate` だけ `{}` で置かれていた）。`ThreadGui#isEffectThread` は `arspaper:thread_item_type` PDC を `ThreadType.fromId` へ通すので、定数が無い id は必ず null になり装着が弾かれる。**効果は装着時にしか乗らないので 6 種は実質死んでいた**（ログには何も出ず、`ShippedCatalogExternalSourceDriftTest` が赤いことでしか気づけない）。処置は ArsPaper fork `fca43eb`（`ThreadType` に 6 定数＋`threads.yml` に `display_name`/`lore`。効果の実体は TF の `item-stats.yml` `STRING#1000xx` が持つので数値は全部 0、`baseMaterial` は `STRING` で catalog・item-stats・cmd-registry と一致させた）＋ TF 側で 6 エントリに `external-source: arspaper`。**「今後カタログにスレッドを足したら自動で対応する」形（enum → config 駆動レジストリ化）は採らなかった**: `ThreadType` は単なる registry ではなく**スレッドごとに固有の base Material と CMD を保持**していて（それが `item-stats.yml` のキー `<MATERIAL>#<CMD>` になる）、`SocketedThreads.Entry` の型でもあるため、切り離すと fork 11 ファイル＋ソース文字列を固定しているテストに波及する。代わりに**忘れたら落ちるガードを両側に置いた**: fork の `ThreadsYamlEnumParityTest`（`threads.yml` のキー ⇔ `ThreadType` の id を両方向で一致、各エントリの `display_name` 必須）と editor の「catalog の非draft スレッドは Ars `threads.yml` にも定義があり `external-source` を持つ」。どちらも変更前に戻すと欠けている件を名指しで落とすことを実走確認した。fork は **410 件・失敗 5**（着手前 408 件・失敗 6。`ShippedRecipeDisplayNameTest` が解消）。**⚠ 未実施（ユーザー作業）: ArsPaper jar の再ビルドと配備**（Java 変更を含むので config だけでは効かない）。**続けて、赤かったスレッド系ガード 4 件を全部閉じた**（ユーザー指摘「これ修正済みじゃなかったっけ。テストが赤いのおかしい」）── ArsPaper fork `ad4b952`。**うち 3 件はテスト側の誤検知で、実データも実装も正しかった**: ①`mana_regen が旧 3 段のまま` は `assertFalse(contains("mana_regen.thresholds.3"))` と書かれていたが、**引き上げ後の規約は 3/5 段**（同じテストが `hero_of_the_village`／`night_vision`／`conduit_power` を 3/5 で固定している）で、旧実装 3/6 と区別できるのは 6 段の有無だけ。②`translate の mana-bonus 累計 −100 が死に値` は、`translate` が `mana-bonus −100` の代償で `mana-regen +10` を得る**トレードオフ型**（`blindness` も `max-health −10` の代償で `attack-power +250`）で、負の累計は意図した代償。抽選最小値との比較は正の累計だけに当て、代わりに「代償があるなら見返りもあること」を縛る形にした。③`ジャンプ時刻を記録していない` は実装が `LAST_JUMP_AT.put/remove` で正しく配線済みで、テストが `lastJumpAt.put(` という**識別子の綴り**を固定していたため定数命名へ直した時点で赤くなっていた（大文字小文字と下線を落として突き合わせる形へ）。**実データの不具合は 1 件だけ**: `role_luck`／`role_effeciency` は `threads.yml` で `stackable` を持たないので上限が「1 個 × キャリア 5」で、**6 段は物理的に発動しない**（設計書 §3-A-5 が上限 5 を見落とした分で `mana_regen` の 6→5 と同型）。最終ティアの累計を変えないよう 6 段の値を 5 段へ畳んだ（`role_luck` 2→4 ／ `role_effeciency` 5→15）。**`role_effeciency` も同じ不具合を持っていたのに、テストが最初の 1 件で止まるため隠れていた。** RED 実証（`potion-effect: wither` を書き 6 段を戻すと該当 2 本が落ちる）済み。fork は **410 件・失敗 0**（着手前 408 件・失敗 6）。**「落ちるべきでないときに落ちるテスト」も「落ちるべきときに落ちないテスト」と同じくらい高くつく** ── 3 件とも「もう直っている」と気づくまでに調査が必要だった。検証: TF **4155 件・失敗25・skip2**（失敗 21 クラスはどれも collection を読んでいない＝他セッションの未コミット分。collection 系 16 クラス 136 件は全緑）、config-editor **1388 件・失敗23**（着手前と同じ失敗集合）。**config のみの変更なので jar 再ビルドは不要**。 **その後、ユーザー要件「role_luck の 6 段が到達不能=>これ修正して。別件で同一のスレッドを重複で入れられるようにしてほしい」で方針を差し替えた** ── ArsPaper fork `ad8747e`。2 つは同じ話で、**重複を許せば上限が上がって 6 段が到達可能になる**ので、直前に入れた「6 段を 5 段へ畳む」修正は撤回し、設計書 §3-A-5 どおりの 6 段へ戻した（`role_luck` 5段:2 + 6段:2 ／ `role_effeciency` 5段:5 + 6段:10）。**既定を反転**: `ThreadApplicationPolicy.DEFAULT_STACKABLE = true` / `DEFAULT_MAX_STACK = 2` を新設し、`ThreadConfig#isStackable`／`#getMaxStack` の未記載時の既定をここから読む（旧: 未記載＝重複不可・max 未記載＝無制限）。上限は 1 装備 2 本 × キャリア 5 個 = **10 本**。`ThreadGui` が持っていた重複/最大積載の分岐は純関数`canSocketAnother` へ移した（フォークのテスト基盤は `ThreadConfig` をロードできない ── 静的初期化が `PotionEffectType` を引くため ── ので、挙動を固定できる場所が純関数側だけ）。**⚠ 村の英雄のスレッドだけは `max: 1` を明示した（balance）**: このスレッドは `percent-bonus-damage` を1 本 +6% 配る唯一の突出枠で次点（棘 +2.5%）の 2.4 倍あり、既定 2 本を許すと防具 4 部位で 8 本になって `ShippedThreadBandIndependenceTest` が**全帯で +22.0pt 超過**を検出した（Lv20 +61% ／ Lv60 +71% ／ Lv100 +81%、目標 +39/49/59%）。**帯目標は 2026-08-14 の戦闘リワークで「1 装備 1 本」前提に較正されている**ので、2 本以上にしたいなら先に `item-stats.yml` の 1 本あたりの割合ダメージを下げる必要がある（yml にその旨を明記）。残り 44 種は既定どおり同一装備へ重複できる（装備が違えば従来どおりキャリア 5 個ぶん重複可）。TF 側の帯モデル `perItemCapById` の既定もフォークに合わせて更新した（**ここを合わせ忘れると帯目標の超過を緑で通す**＝検査の無効化）。editor の「重複設定」も既定反転に追随（未記載はチェック済みで描き、`max` に「未設定 = 2」を出す。実際の描画結果をブラウザで評価して確認した）。あわせて `thread-effects-in-item-stats-2026-08-09.test.js` の**件数リテラル 45 を導出比較へ置換**（スレッドが 51 種へ増えて赤くなっていた。件数リテラルは許可リストと同型）。RED 実証: `role_luck` に `stackable: false` を書き戻すと「6 段は到達不能」で落ち、`ThreadConfig` の既定を `false` に戻すと新設の配線ガードが落ちる。検証: fork **413 件・失敗 0**、TF の `*Thread*` 50 件は `ShippedThreadItemStatsTest` の 1 件だけ失敗（**他セッション由来**：`13f1d20` が `NETHERITE_UPGRADE_SMITHING_TEMPLATE#300045` の `grant-chances` に主ステ `gathering-efficiency: 1` を足したため 4 件規約に対して 5 件。触っていないので未対応）、config-editor **1391 件・失敗 22**（着手前の集合から 1 件減）。**⚠ 未実施（ユーザー作業）: ArsPaper jar の再ビルドと配備**（Java を変更しているので config だけでは効かない）。 |
 | 2026-08-17 | **実サーバ報告 17 件のバッチを全件クローズした**（ユーザー報告「複数のバグが発見されたので修正」14 件＋追加 3 件）。commit `ea36193` / `fb28da2` / `84b5d60` / `07312d6` / `410b929`。**鍛冶EXP系 5 件は全部「別々のバグ」だった**（1 つの原因ではない）: ①**木のツールでEXPが入らない**＝旧実装が「使用可能レベル > 0」でゲートしており、出荷 `item-stats.yml` に**要求レベル0の装備が33件**（木の各種ツール・革防具・銅防具・弓）あるので**その帯を作っても永久に0**だった（実測は木の鎌）。②**15+素材分のはずが30入る**＝定額と素材表が「どちらか一方」ではなく**加算**なのが正で、実装がそうなっていなかった。③**スタック素材で可能個数分のEXPが入る**＝`CraftingInventory#getMatrix()` は**スタック全体**を返すので `getAmount()` を掛けると1クラフトで「作れる個数分」入る。**1スロット＝1個で数える**のが正。④**editorで素材リストがArsと通常鍛冶で同期される**＝儀式/Ars作業台が作業台と同じ `smithing.exp-per-material` を読んでいた。`ars-smithing.exp-per-material` を新設して分離（初期値は分離時点の複製なので当日の挙動は不変）。⑤**Arsの定額EXPを機能ごと削除** ＝ 定額があると「1つでも表に無い素材があれば合計を捨てて定額へ戻す」全か無かの分岐が必要で、**素材を1つ足すとEXPが100分の1に落ちる**向きの不整合が実際に出ていた（`binder_spear` 100→1、同格の `binder_sword` は全素材が表に無いおかげで100のまま）。定額を消せば部分カバーは「その素材ぶんが乗らないだけ」で単調になり、分岐そのものが不要になる。**残り12件で非自明だったもの**: **ディスペンサーがクラフトできない**は推測どおり弓が原因で、`custom:` 素材の `MaterialChoice` 登録が**同形のバニラレシピを無言で潰す**既知の罠と同型。**崩命スレッドが杖に付けられない**は `SpellBindListener` が**無条件に `setCancelled` していた**ため、スニーク+右クリックのスレッドGUI経路がそもそも到達しなかった（スレッド限定でもなく、配備jarの鮮度でもない ── 配備済み ArsPaper jar はビルド出力と同一日時で最新だったことを確認して stale 説を潰した）。**矢の雨が当たらない**は技の種別が `projectile_volley`（モブ本体から水平に扇状）で、**射程24m・開き角50度なら端の矢は10m横を通る**＝当たらないのが幾何的に必然。新種別 `projectile_rain`（対象の頭上9mから降らせる）を追加して置き換えた。**モブスキルが常時発動**は技ごとのCTしか無く**技全体の間隔が無かった**ため、`global-cooldown-seconds`（既定12秒）を新設。キーは `" global-gap"`（先頭空白）で、技IDは `trim().toLowerCase()` されるので衝突しえないことをテストで固定した。**称号/パーティクルの9個目以降が出ない**、**原木破壊で金リンゴ**、**釣った鉱石が積めない**、**死ぬとロールバフが消える**、**日光で焼け死なない**、**`/em start`・`/em quit` が使えない**、**自動植え付けの成長速度差**も同バッチで修正済み（詳細は各 commit）。**レベル到達アナウンス**は editor の「その他」カテゴリへ移し、11項目の専用GUI（MiniMessage入力・スキル選択・レベルチップ）にした。**副産物**: HEAD 時点で赤かった `ShippedRitualMaterialExpCoverageTest`（儀式で消費するのに表に無い素材3種。`role_reselect_ticket` の圧縮素材）を直した。`ShippedCompressedMaterialExpZeroTest` は定額廃止で「行を消すのは不可」の前提が消えたので、**行数の下限をやめて「0以外の値が入っていないこと」だけを表2本ぶん見る**形に作り替えた。検証: TF フルテスト **4119 件・失敗27・skip2**（27 は全て他セッションの未コミット yml 由来か HEAD 由来で、触った領域は1件も含まない）、config-editor **1364 件・失敗22**（着手前と同じ16ファイル）。**⚠ 未実施（ユーザー作業）: TF jar と ArsPaper jar の再ビルド＋配備＋サーバ再起動**（Java 変更を含むので config だけでは効かない。崩命スレッドの修正は ArsPaper jar 側）。 |
 | 2026-08-17 | **公開した Wiki の本文リンクが全部死んでいたのを直した**（ユーザー報告「ハイパーリンクが全て死んでいて正しい記載箇所に転送されない」）。**原因は GitHub Wiki のページ URL 規則で、中身の質とは無関係**: ページは `/wiki/<ページ名>` で提供され、**`.md` を付けるとページとして解決されない**。実測した挙動は 2 通りで、どちらも「リンクが死ぬ」に見える —— **ASCII 名は `raw.githubusercontent.com` へ 302**（ブラウザに生の Markdown が落ちてくる）、**非 ASCII 名は `/wiki/` へ 302**（Wiki トップに飛ばされて元の話に戻れない）。拡張子なしなら 200。**サイドバーだけ生きていた**のは GitHub が自前で絶対 URL を吐いていたためで、そのせいで「一部は動くのに本文だけ全滅」という分かりにくい壊れ方をしていた。**直し方**: 組み立てと壊れリンク検査は `.md` 付きのまま（原稿もページ名も `.md` 付きなので突き合わせが素直）、`generatePages` の最後で拡張子だけ落とす。**RED 実証**: strip を外すと 3 件（新規 1・既存 2）が実際に落ちることを実走確認し、戻して **15/15 緑**。**公開後に本物で検証**: 出力に含まれる**リンク先 34 件すべてを HTTP で叩いて 200 を確認**した（`Home` の 301 は Wiki トップへの正規化）。commit: 本体 `b1c9f5e`、Wiki `66e091f`。 |
