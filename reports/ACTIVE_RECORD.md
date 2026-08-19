@@ -1812,6 +1812,55 @@ RED 確認済み: `registeredSpecs.put` を外すと3件とも落ちる。
 
 ---
 
+### 実サーバ報告バッチ（2026-08-19 受領 第10陣。W-145）
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-145 | 精錬魔法をブロックに撃つときの対応増強グリフを「半径増加」から「範囲（各種）」に変え、増強グリフの設定範囲が精錬されるようにしてほしい | ✅ **対応済（ArsPaper jar 配備待ち）**。半径増加は**ブロック精錬に一切効かない軸**だった（下記） |
+
+#### W-145 精錬の範囲対応 — 「半径増加」は最初からブロックには効かない軸だった
+
+要望は「半径増加 → 範囲（各種）へ差し替え」だが、実態は**差し替え前が機能していなかった**。
+
+「半径増加」(`aoe_radius`) が動かすのは `SpellContext#aoeRadiusLevel` で、これを読むのは
+
+- エンティティAOE展開（`resolveGroupsOnEntity`）
+- `handlesAoeInternally() == true` のエフェクト（爆発・召喚数など）
+
+の2つだけ。**ブロックAOE展開（`SpellContext#resolveGroupsOnBlock`）は
+`aoeLevel` / `aoeHeightLevel` / `aoeVerticalLevel` の3軸しか読まない**。
+精錬は `handlesAoeInternally()` が false のままなので、
+**半径増加を何個積んでもブロックは狙った1個しか精錬されなかった**
+（グリフは装着できるのに効果が無い、という無言死）。
+
+修正は3点。
+
+1. `GlyphConfig.AUGMENT_COMPAT` の `smelt` を `Set.of("aoe_radius")` → `Set.of("aoe")` へ。
+   **互換表は yml ではなくソース側の定数**（loader に「augments互換性はソースコード定義(AUGMENT_COMPAT)
+   のため、ymlからは読まない」と明記されている）ので、**`glyphs.yml` だけ直しても何も変わらない**。
+   `aoe` を入れれば `isAugmentCompatible` の特例で `aoe_height` / `aoe_vertical` も自動的に互換になる。
+2. `glyphs.yml` の `smelt.max-augments` を `aoe: 6` / `aoe_height: 6` / `aoe_vertical: 3` へ。
+   **未記載の軸は `getMaxAugmentStack` が `Integer.MAX_VALUE` を返す**＝上限なし（実質、展開ループ側の10）
+   になるので、3軸とも明示しないと高さ／法線だけ極端に伸ばせてしまう（破壊グリフが現にそうなっている）。
+3. `SmeltEffect#getAoeMode()` を `AoeMode.HIT_FACE_INWARD` へ（`BreakEffect` と同じ）。
+   既定の `FIXED` は法線方向の符号が `+1`（＝手前＝設置系の向き）なので、
+   壁を狙って範囲[法線]を積むと**壁の中ではなく自分側の空気**が対象になる。
+
+**範囲対応で新たに生じた事故を先回りで潰した**: `applyToBlock` は範囲内の全ブロック分（最大で約1000回）
+呼ばれ、その先頭で毎回半径2のドロップアイテム掃き取りが走る。`SMELT_MAP` には
+`COBBLESTONE → STONE → SMOOTH_STONE` という**2段の連鎖**があるため、ガードが無いと
+落ちている丸石が1回の詠唱で滑らかな石まで進む（範囲が1ブロックだった頃は掃き取りも1回だけで表面化しなかった）。
+`itemSweepTick` + `smeltedThisTick`（UUID集合）で**1tickにつき1アイテム1回**に固定した。
+
+回帰テストは `SmeltAreaAugmentCompatTest`（**5件**）。互換表・出荷 yml の3軸上限・展開の向き・
+多重精錬ガードを固定する。このフォークのテストには MockBukkit も Mockito も無く
+`new SmeltEffect(...)` は `NamespacedKey(plugin, ...)` で NPE になるので、
+向きとガードは兄弟の `SpellBreakMarkerCoverageTest` と同じソース走査で固定している。
+RED 確認済み: 互換表を `aoe_radius` に戻すと5件中2件が落ちる。
+フォーク全体 **450件 / 失敗0 / エラー0 / スキップ0**、`ArsPaper-1.0.0.jar` ビルド済み。
+
+---
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。
