@@ -154,6 +154,7 @@ MariaDB → Garnet → preflight → main → resource → dev → Velocity
 |---|---|---|
 | [apply-husksync-config.cmd](apply-husksync-config.cmd) | HuskSync の `config.yml` を全バックエンドで同一内容に揃える | `-BaseFrom <名前>` / `-DryRun` |
 | [apply-velocity-forwarding.cmd](apply-velocity-forwarding.cmd) | forwarding secret を各 `paper-global.yml` へ反映 | `-Target <名前>\|all` / `-DryRun` |
+| [apply-block-break-exploits.cmd](apply-block-break-exploits.cmd) | 岩盤剥がしの可否（`unsupported-settings`）を各 `paper-global.yml` で揃える | `-Target <名前>\|all` / `-Disable` / `-IncludePistonDuplication` / `-DryRun` |
 | [seed-backend-configs.cmd](seed-backend-configs.cmd) | あるバックエンドの**設定だけ**を他へ配る（データは持って行かない） | `-From` / `-To` / `-Overwrite` / `-DryRun` |
 | [set-resource-pack.cmd](set-resource-pack.cmd) | `server.properties` にリソースパックの URL と SHA-1 を書く | `-Url` / `-Sha1`（**必須**）/ `-Server` |
 | [prune-geyser-items.cmd](prune-geyser-items.cmd) | GeyserExtra の `custom_items.json` から**再生成できる分だけ**を消す | `-Apply` / `-MaxDelete <n>` |

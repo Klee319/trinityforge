@@ -2198,6 +2198,45 @@ W-126 で入った大剣・鎌・剣の値も反映されていなかった。
 
 ---
 
+### W-156（2026-08-19 受領）資源サーバで岩盤が壊せない — TF ではなく Paper の `unsupported-settings` の食い違い
+
+**TF は無関係**（TF のソース・yml に `BEDROCK` の参照は 1 件も無い）。原因は Paper の
+`config/paper-global.yml` → `unsupported-settings` が **バックエンド 3 台でバラバラだった**こと。
+
+| キー | Main_Server | Resource_Server | Dev_Server |
+|---|---|---|---|
+| `allow-permanent-block-break-exploits` | true | **false** | **false** |
+| `allow-headless-pistons` | true | **false** | **false** |
+| `allow-piston-duplication` | true | false | false |
+
+`allow-permanent-block-break-exploits` は「バニラでは可能な岩盤・エンドポータル枠などの破壊」を
+Paper が既定で塞いでいるスイッチ（既定 false）。**岩盤剥がしができないのはこの設定どおりの挙動**で、
+メインでは通り資源サーバでだけ通らない、という食い違いになっていた。
+
+切り分けが要らない確認方法: **同じ機構をメインで組んで動けば、設定差が原因で確定**。
+
+`ops/templates/paper-global.yml.diff` は `proxies` しか面倒を見ないので、この差は誰も検出しない。
+揃えるスクリプトを追加した（**触るのは上記 2 キーだけ。増殖バグの `allow-piston-duplication` は
+既定では触らず `-IncludePistonDuplication` を付けたときだけ**）:
+
+```
+ops\launchpply-block-break-exploits.cmd -DryRun
+ops\launchpply-block-break-exploits.cmd -Target resource
+```
+
+**稼働中のサーバには効かない。反映には再起動が必要**（2026-08-19 22:40 時点で 3 台とも稼働中だった
+ため、書き換えは未実行）。
+
+注意: PaperMC/Paper#11168 は「フラグを true にしてもピストン式の岩盤破壊がバニラと同じにならない」
+という報告が **works as intended で close** されている。フラグを開けても設計によっては
+バニラどおりにならない可能性がある。
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-156 | 資源サーバで岩盤が壊せない | ⏸ 設定変更スクリプトは用意済み。**ユーザーが実行＋再起動する**まで未反映 |
+
+---
+
 ## 4. 既知の未修正の問題・弱点
 
 いずれも**意図的に許容している**か、**直すには判断が要る**もの。新規に見つけたバグはここへ足す。

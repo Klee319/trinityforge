@@ -51,6 +51,7 @@ gradlew test --tests "com.trinityforge.ops.*"
 | [scripts/run-selftest.ps1](scripts/run-selftest.ps1) | **削除ガードの実測。** 実際にジャンクションを作り、誤削除が止まることを確認する |
 | [scripts/preflight.ps1](scripts/preflight.ps1) | **起動前チェック。** MariaDB / Garnet が実際に応答しているか（ポートの開閉ではなくプロトコルで判定）、HuskSync の既定資格情報と同期設定、全バックエンドでの設定一致、forwarding secret の一致 |
 | [scripts/apply-velocity-forwarding.ps1](scripts/apply-velocity-forwarding.ps1) | `forwarding.secret` を全バックエンドの `paper-global.yml` へ反映（冪等・退避あり・secret は表示しない） |
+| [scripts/apply-block-break-exploits.ps1](scripts/apply-block-break-exploits.ps1) | `paper-global.yml` の `unsupported-settings`（岩盤剥がしの可否）を全バックエンドで揃える（冪等・退避あり・要再起動） |
 | [scripts/apply-husksync-config.ps1](scripts/apply-husksync-config.ps1) | HuskSync の config.yml を全バックエンドで同一内容に揃える（パスワードは実行時に入力） |
 | [scripts/seed-backend-configs.ps1](scripts/seed-backend-configs.ps1) | 正本サーバのプラグイン config を他バックエンドへ初期配布（**データは配らない**・資源除外は PLUGIN_MATRIX 準拠） |
 | [scripts/setup-junction.cmd](scripts/setup-junction.cmd) | `plugins/TrinityForge` のディレクトリジャンクションを張る（引数=バックエンド名・冪等）。**dev にも張る** |
