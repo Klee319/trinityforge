@@ -179,12 +179,15 @@ ars-smithing:
     custom:gold_block_2x: 0
     custom:iron_block_2x: 0
     # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
-    # ⚠️ 行を消してはいけない。ArsProgressionBridge#grantSmithingCraftExp は消費素材が1つでも
-    #    表に無いと素材合計を丸ごと捨てて ars-smithing.exp-per-craft の定額(100)へ戻すので、
-    #    行を消すと「EXPなし」ではなく「素材価値と無関係な定額EXP」になり意図と逆になる。
-    #    0 と書くことで「この素材は数えるが価値ゼロ」を表現している。
-    # ⚠️ 圧縮素材を新設したら必ずここへ 0 の行を足すこと
-    #    (ShippedRitualMaterialExpCoverageTest が落ちて気づけるようにはなっている)。
+    # 2026-08-19 訂正: ここには「行を消すと素材合計を丸ごと捨てて定額(100)へ戻る」と書いてあったが、
+    #    その全か無かの分岐は【2026-08-17 に定額 exp-per-craft ごと廃止済み】で、もう存在しない。
+    #    現在の ArsProgressionBridge#sumMaterialExp / CraftQualityListener#arsSmithingBaseExp は
+    #    どちらも「表に無い素材は 0 を積む」だけの単調な合計なので、
+    #    **0 の行を消しても挙動は 1 ミリも変わらない**(0 を積むか何も積まないかの違いしかない)。
+    #    値のある行を消した場合は「その素材ぶんが乗らなくなる」だけで、他の素材には波及しない。
+    # ⚠️ ただし ShippedRitualMaterialExpCoverageTest は今も「儀式で消費する素材は全て表にある」ことを
+    #    要求する。意図して無報酬にする素材があるなら、行を消すのではなく 0 を書くのが安全
+    #    (消すと「意図的に0」と「足し忘れ」を機械的に区別できなくなる)。
     LAPIS_LAZULI: 1
     LAPIS_BLOCK: 9
     REDSTONE: 1
@@ -439,12 +442,15 @@ smithing:
     custom:gold_block_2x: 0
     custom:iron_block_2x: 0
     # 2026-08-10(J-12): 圧縮素材(_Nx)は鍛冶EXPの対象外。ユーザー判断「圧縮素材は経験値不要」。
-    # ⚠️ 行を消してはいけない。ArsProgressionBridge#grantSmithingCraftExp は消費素材が1つでも
-    #    表に無いと素材合計を丸ごと捨てて ars-smithing.exp-per-craft の定額(100)へ戻すので、
-    #    行を消すと「EXPなし」ではなく「素材価値と無関係な定額EXP」になり意図と逆になる。
-    #    0 と書くことで「この素材は数えるが価値ゼロ」を表現している。
-    # ⚠️ 圧縮素材を新設したら必ずここへ 0 の行を足すこと
-    #    (ShippedRitualMaterialExpCoverageTest が落ちて気づけるようにはなっている)。
+    # 2026-08-19 訂正: ここには「行を消すと素材合計を丸ごと捨てて定額(100)へ戻る」と書いてあったが、
+    #    その全か無かの分岐は【2026-08-17 に定額 exp-per-craft ごと廃止済み】で、もう存在しない。
+    #    現在の ArsProgressionBridge#sumMaterialExp / CraftQualityListener#arsSmithingBaseExp は
+    #    どちらも「表に無い素材は 0 を積む」だけの単調な合計なので、
+    #    **0 の行を消しても挙動は 1 ミリも変わらない**(0 を積むか何も積まないかの違いしかない)。
+    #    値のある行を消した場合は「その素材ぶんが乗らなくなる」だけで、他の素材には波及しない。
+    # ⚠️ ただし ShippedRitualMaterialExpCoverageTest は今も「儀式で消費する素材は全て表にある」ことを
+    #    要求する。意図して無報酬にする素材があるなら、行を消すのではなく 0 を書くのが安全
+    #    (消すと「意図的に0」と「足し忘れ」を機械的に区別できなくなる)。
     LAPIS_LAZULI: 1
     LAPIS_BLOCK: 9
     REDSTONE: 1

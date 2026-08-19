@@ -1089,13 +1089,26 @@ Lv78 の次レベルに要るEXPは曲線 `(%level% + 75×2^(%level%/8)) + 300` 
 `WeaponTierParityTest` / `WeaponDpsParityTest` / `ShippedWeaponIdentityTest` /
 `MeleeUnintendedItemAttackSpeedTest` / `ItemStatsConfigTest` は全て緑のまま。
 
-> ⚠ **`skill-exp.yml` に他セッション／設定エディタ由来の未コミット編集が同居している。**
-> `ars-smithing.exp-per-material` から **84素材（影響する儀式レシピ 153件）** の行が消えており、
-> `ShippedRitualMaterialExpCoverageTest` が落ちている。同ファイルのコメントが警告しているとおり
-> `ArsProgressionBridge#grantSmithingCraftExp` は**表に無い素材を0として積む**ので、
-> このまま配備すると**儀式EXPが無言で目減りする**。W-117/W-118 のコミットには
-> **自分の2ブロック（`spot-diminishing` と `ARCHERY`）だけを index に載せた**ので、この編集は
-> ワーキングツリーに未コミットのまま残っている。**配備前に要判断。**
+**`skill-exp.yml` の素材表に未コミットの再スケールが同居している（ユーザー確認済み＝意図的）。**
+W-117/W-118 のコミットには**自分のブロックだけを index に載せた**ので、この編集はワーキングツリーに
+未コミットのまま残っている（W-106 のオーバーレイでそのまま配備される）。実測した中身:
+
+| 種別 | 件数 | 実際の効き方 |
+|---|---|---|
+| 値の変更 | 75 | 安価な素材を 10 に平坦化＋ボス素材を増額（`HEAVY_CORE` 150→1500 / `DRAGON_EGG` 300→3000 / `NETHERITE_BLOCK` 1080→2000） |
+| 行の削除（値 0） | 23 | **挙動不変**。圧縮素材 `custom:*_Nx` の 0 行 |
+| 行の削除（値あり） | 74 | その素材ぶんが**乗らなくなる**。バニラ鉄/金/ダイヤ防具12件・魔導書2件・魔導防具シリーズ60件 |
+
+**`_Nx` の 0 行を消しても壊れないことを実装で確定した（同ファイルの警告コメントは古かった）。**
+コメントは「1つでも表に無い素材があると素材合計を丸ごと捨てて `ars-smithing.exp-per-craft` の
+定額(100)へ戻る」と書いていたが、**その全か無かの分岐は 2026-08-17 に定額ごと廃止済み**。
+現在は `ArsProgressionBridge#sumMaterialExp` も `CraftQualityListener#arsSmithingBaseExp` も
+**「表に無い素材は 0 を積む」だけの単調な合計**で、他の素材へは波及しない。
+古い警告文は 2 箇所（`ars-smithing` 節と `smithing` 節）とも訂正した。
+
+**残っている赤: `ShippedRitualMaterialExpCoverageTest`。** この編集を commit するなら、
+テスト側にも「意図して無報酬にした素材」の除外を入れる必要がある。
+**行を消すより 0 を書くほうが安全**（消すと「意図的に0」と「足し忘れ」を機械的に区別できない）。
 
 ---
 
