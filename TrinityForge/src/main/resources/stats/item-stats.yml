@@ -2346,7 +2346,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.81
       durability: 35
@@ -2375,7 +2375,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.81
       durability: 78
@@ -2404,7 +2404,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.81
       durability: 114
@@ -2433,7 +2433,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.81
       durability: 150
@@ -2462,7 +2462,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.98
       durability: 19
@@ -2497,7 +2497,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.81
       durability: 936
@@ -2526,7 +2526,7 @@ items:
       attack-speed: 1
       attack-reach: 0.4
       crit-chance: 0.06
-      crit-damage: 0.6
+      crit-damage: 1
       penetration: 0.08
       damage-modifier: 0.81
       durability: 1218
@@ -6849,6 +6849,7 @@ items:
       mana-bonus:
         min: -0.3
         max: 0.4
+    draft: true
   ENDER_EYE#85:
     fixed:
       attack-power: 18
@@ -12547,13 +12548,13 @@ _editor:
       - id: cat_20260723_触媒
         label: 触媒
         itemIds:
-          - BLAZE_ROD#400001
           - ENDER_EYE#85
       - id: cat_auto_draft
         label: 準備中
         itemIds:
           - AMETHYST_SHARD#5760
           - AMETHYST_SHARD#5761
+          - BLAZE_ROD#400001
     tool:
       - id: cat_1784781029395
         label: ツルハシ

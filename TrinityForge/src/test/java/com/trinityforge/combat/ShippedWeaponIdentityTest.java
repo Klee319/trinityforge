@@ -74,10 +74,14 @@ class ShippedWeaponIdentityTest {
             "fnis_peccati_profundi", "scythe",
             "koujien", "special");
 
+    /**
+     * {@code critDamage} は fixed＋random中央の実効値、{@code critDamageBase} は fixed だけ。
+     * ロール幅（random）は個体差の設計なので、武器種の「素の尖り」を見るときは base を使う。
+     */
     private record Weapon(String id, String type, String series,
                           double aoeRadius, double aoeRate, double aoeMaxTargets,
                           double bleedChance, double penetration,
-                          double critChance, double critDamage) {}
+                          double critChance, double critDamage, double critDamageBase) {}
 
     // ---------------------------------------------------------------- 読み込み
 
@@ -160,7 +164,7 @@ class ShippedWeaponIdentityTest {
                     stat(item, "aoe-radius"), stat(item, "aoe-damage-rate"),
                     stat(item, "aoe-max-targets"), stat(item, "bleed-chance"),
                     stat(item, "penetration"), stat(item, "crit-chance"),
-                    stat(item, "crit-damage")));
+                    stat(item, "crit-damage"), fixed.getDouble("crit-damage", 0.0)));
         }
         assertTrue(out.size() >= 210, "武器を " + out.size() + " 件しか読めていない(この検査は空振りしている)");
         return out;
@@ -434,5 +438,36 @@ class ShippedWeaponIdentityTest {
         }
         assertTrue(compared >= 24, "比較できた武器が " + compared + " 本しかない(この検査は空振りしている)");
         assertTrue(problems.isEmpty(), "会心の二極化が値に出ていない:\n" + String.join("\n", problems));
+    }
+
+    /**
+     * 2026-08-19 W-126 の取りこぼしの再発防止。
+     *
+     * <p>斧の会心倍率 1.0(「短剣＝会心率 / 斧＝会心倍率」の棲み分け)を入れたとき、
+     * <b>CMD を持つ上位帯の8本にしか適用されず、木〜ネザライトの7本が 0.6 のまま残っていた</b>。
+     * 同じ武器種なのに帯をまたぐと尖りが消える、という段差になる。
+     *
+     * <p>ここで固定するのは「斧の会心倍率は全帯で同じ」という1点だけ。武器種によっては
+     * 帯で伸ばすのが正しい尖りもある(大剣の対象上限 5→10、弓の会心率)ので、
+     * <b>全ステを一律に「帯で不変」と縛ってはいけない</b>。
+     *
+     * <p>見るのは fixed だけ。random のロール幅は個体差の設計で、金の斧(±0.7 の大振れ)や
+     * 原子力の斧(ロール無し)のように<b>帯ごとに違ってよい</b>ため、実効値で縛ると誤検知する。
+     */
+    @Test
+    @DisplayName("斧の会心倍率は全 tier で同じ（尖りが帯をまたいで消えない）")
+    void axeCritDamageIsUniformAcrossTiers() {
+        List<Double> values = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
+        for (Weapon w : loadWeapons()) {
+            if ("axe".equals(w.type())) {
+                values.add(w.critDamageBase());
+                ids.add(w.id() + "=" + w.critDamageBase());
+            }
+        }
+        assertTrue(values.size() >= 14, "斧を " + values.size() + " 本しか読めていない(この検査は空振りしている)");
+        double first = values.get(0);
+        assertTrue(values.stream().allMatch(v -> Math.abs(v - first) < 1e-9),
+                "斧の会心倍率が帯によって違う(上位帯だけに適用した取りこぼし):\n" + String.join("\n", ids));
     }
 }
