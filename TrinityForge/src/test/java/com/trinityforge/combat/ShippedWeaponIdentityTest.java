@@ -49,7 +49,7 @@ class ShippedWeaponIdentityTest {
      * 多少の範囲攻撃機能を付けていい」)で {@code sword} を追加した。剣は全 tier を並べても
      * 尖ったステが1つも無いまま実効DPSが最上位という状態で、武器種として何も選ばせていなかった。
      * 剣に与えるのは<b>半径2・対象3体・倍率0.15</b>の小さい巻き込みだけで、
-     * 薙ぎ払い勢(大剣・大斧・ハルバード・鎌)より必ず下に置く({@link #theGreataxeSweepsHardest} と
+     * 薙ぎ払い勢(大剣・大斧・ハルバード・鎌)より必ず下に置く({@link #theGreatswordSweepsHardest} と
      * {@link #swordCleaveStaysSmallerThanEverySweeper} が上下関係を固定する)。
      */
     private static final Set<String> AOE_TYPES =
@@ -324,25 +324,84 @@ class ShippedWeaponIdentityTest {
         assertTrue(problems.isEmpty(), "鎌と大剣の範囲の上下が規約と違う:\n" + String.join("\n", problems));
     }
 
+    /**
+     * <b>2026-08-19 W-151 で「薙ぎ払いの一番手」を大斧から大剣へ移した。</b>
+     *
+     * <p>旧版は {@code theGreataxeSweepsHardest} で「大斧の範囲倍率が全武器種で最大」を固定していた。
+     * ところが W-126 で大剣を範囲の主役へ寄せた際に大剣の倍率も 0.35 へ上げたため、
+     * <b>大斧と完全に同値（半径 3.5 / 倍率 0.35）になり、しかも大斧は単体火力が全近接1位</b>
+     * （攻撃力 5558 / damage-modifier 0.90）という状態になった。
+     * 「大剣＝範囲の主役」と「大斧＝範囲倍率の最大値保持者」が正面衝突していて、
+     * 大剣を選ぶ理由が対象数だけになっていた。
+     *
+     * <p>ユーザー判断（2026-08-19）で大斧の巻き込みを <b>半径 2.5 / 倍率 0.20</b> へ縮め、
+     * 「重い一撃＋おまけの巻き込み」へ純化した。したがって固定すべき不変条件も
+     * <b>大剣が倍率の一番手</b>へ入れ替わる。
+     *
+     * <p>大斧が再び大剣に並ぶ／上回ることを {@link #theGreataxeSweepStaysUnderTheGreatsword} が
+     * 別に禁じているので、同値へ戻す変更もこのクラスで落ちる。
+     */
     @Test
-    @DisplayName("大斧の範囲ダメージが最も大きい（薙ぎ払いの一番手は大斧）")
-    void theGreataxeSweepsHardest() {
-        double greataxe = 0.0;
+    @DisplayName("大剣の範囲ダメージが最も大きい（薙ぎ払いの一番手は大剣。W-151 で大斧から交代）")
+    void theGreatswordSweepsHardest() {
+        double greatsword = 0.0;
         List<String> problems = new ArrayList<>();
         List<Weapon> weapons = loadWeapons();
         for (Weapon w : weapons) {
-            if ("greataxe".equals(w.type())) {
-                greataxe = Math.max(greataxe, w.aoeRate());
+            if ("grate_sword".equals(w.type())) {
+                greatsword = Math.max(greatsword, w.aoeRate());
             }
         }
-        assertTrue(greataxe > 0, "大斧の範囲ダメージが読めていない");
+        assertTrue(greatsword > 0, "大剣の範囲ダメージが読めていない");
         for (Weapon w : weapons) {
-            if (!"greataxe".equals(w.type()) && w.aoeRate() > greataxe + 1e-9) {
-                problems.add(String.format("%s (%s): 範囲ダメージ %.2f が大斧の %.2f を上回っている",
-                        w.id(), w.type(), w.aoeRate(), greataxe));
+            if (!"grate_sword".equals(w.type()) && w.aoeRate() > greatsword + 1e-9) {
+                problems.add(String.format("%s (%s): 範囲ダメージ %.2f が大剣の %.2f を上回っている",
+                        w.id(), w.type(), w.aoeRate(), greatsword));
             }
         }
         assertTrue(problems.isEmpty(), String.join("\n", problems));
+    }
+
+    /**
+     * 大斧の巻き込みが大剣に並ぶところまで戻っていないこと（W-151）。
+     *
+     * <p>{@link #theGreatswordSweepsHardest} は「大剣より<b>上</b>が居ない」ことしか見ないので、
+     * 大斧を 0.35 へ戻して<b>同値</b>にする変更はあちらを素通りしてしまう。
+     * 同値がまさに W-151 で解消した状態なので、こちらで <b>大斧 &lt; 大剣</b> を別に固定する。
+     * 半径も見るのは、倍率だけ下げて半径を大剣と同じに戻すと「範囲の主役」が再びぼやけるため。
+     */
+    @Test
+    @DisplayName("大斧の巻き込みは倍率も半径も大剣を下回る（同値へ戻す変更もここで落ちる）")
+    void theGreataxeSweepStaysUnderTheGreatsword() {
+        double greatswordRate = 0.0;
+        double greatswordRadius = 0.0;
+        List<Weapon> weapons = loadWeapons();
+        for (Weapon w : weapons) {
+            if ("grate_sword".equals(w.type())) {
+                greatswordRate = Math.max(greatswordRate, w.aoeRate());
+                greatswordRadius = Math.max(greatswordRadius, w.aoeRadius());
+            }
+        }
+        assertTrue(greatswordRate > 0, "大剣の範囲ダメージが読めていない");
+
+        List<String> problems = new ArrayList<>();
+        int greataxes = 0;
+        for (Weapon w : weapons) {
+            if (!"greataxe".equals(w.type())) {
+                continue;
+            }
+            greataxes++;
+            if (w.aoeRate() >= greatswordRate - 1e-9) {
+                problems.add(String.format("%s: 大斧の範囲倍率 %.2f が大剣の最大 %.2f 以上",
+                        w.id(), w.aoeRate(), greatswordRate));
+            }
+            if (w.aoeRadius() >= greatswordRadius - 1e-9) {
+                problems.add(String.format("%s: 大斧の範囲半径 %.1f が大剣の最大 %.1f 以上",
+                        w.id(), w.aoeRadius(), greatswordRadius));
+            }
+        }
+        assertTrue(greataxes >= 10, "大斧が " + greataxes + " 本しか読めていない(この検査は空振りしている)");
+        assertTrue(problems.isEmpty(), "大斧の巻き込みが大剣を上回っている:\n" + String.join("\n", problems));
     }
 
     @Test
