@@ -42,8 +42,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ShippedWeaponIdentityTest {
 
-    /** 範囲ダメージを持つ武器種。長柄・両手の「薙ぎ払い」だけに許す。 */
-    private static final Set<String> AOE_TYPES = Set.of("grate_sword", "greataxe", "halberd", "scythe");
+    /**
+     * 範囲ダメージを持つ武器種。長柄・両手の「薙ぎ払い」＋<b>剣の小さい巻き込み</b>。
+     *
+     * <p>2026-08-19 W-126(ユーザー指示「一部他武器との差別化が弱い軽武器も対象上限3体など
+     * 多少の範囲攻撃機能を付けていい」)で {@code sword} を追加した。剣は全 tier を並べても
+     * 尖ったステが1つも無いまま実効DPSが最上位という状態で、武器種として何も選ばせていなかった。
+     * 剣に与えるのは<b>半径2・対象3体・倍率0.15</b>の小さい巻き込みだけで、
+     * 薙ぎ払い勢(大剣・大斧・ハルバード・鎌)より必ず下に置く({@link #theGreataxeSweepsHardest} と
+     * {@link #swordCleaveStaysSmallerThanEverySweeper} が上下関係を固定する)。
+     */
+    private static final Set<String> AOE_TYPES =
+            Set.of("grate_sword", "greataxe", "halberd", "scythe", "sword");
+
+    /** 「薙ぎ払い」本職。剣の巻き込みは必ずこれらより小さい。 */
+    private static final Set<String> SWEEPER_TYPES =
+            Set.of("grate_sword", "greataxe", "halberd", "scythe");
 
     /** 刺突。貫通が同系列の剣より必ず高い。 */
     private static final Set<String> PIERCING_TYPES = Set.of("spear", "rapier", "trident", "javelin", "halberd");
@@ -193,6 +207,117 @@ class ShippedWeaponIdentityTest {
         }
         assertTrue(withAoe >= 40, "範囲ダメージを持つ武器が " + withAoe + " 本しかない(この検査は空振りしている)");
         assertTrue(problems.isEmpty(), "範囲ダメージの割り当てが規約と違う:\n" + String.join("\n", problems));
+    }
+
+    @Test
+    @DisplayName("剣の巻き込みは薙ぎ払い勢より必ず小さい（対象3体・半径2・倍率は全 sweeper 未満）")
+    void swordCleaveStaysSmallerThanEverySweeper() {
+        List<Weapon> weapons = loadWeapons();
+        double weakestSweeperTargets = Double.MAX_VALUE;
+        double weakestSweeperRate = Double.MAX_VALUE;
+        for (Weapon w : weapons) {
+            if (w.type() != null && SWEEPER_TYPES.contains(w.type()) && w.aoeMaxTargets() > 0) {
+                weakestSweeperTargets = Math.min(weakestSweeperTargets, w.aoeMaxTargets());
+                weakestSweeperRate = Math.min(weakestSweeperRate, w.aoeRate());
+            }
+        }
+        assertTrue(weakestSweeperTargets < Double.MAX_VALUE, "薙ぎ払い勢の範囲が1本も読めていない");
+
+        List<String> problems = new ArrayList<>();
+        int swords = 0;
+        for (Weapon w : weapons) {
+            if (!"sword".equals(w.type())) {
+                continue;
+            }
+            swords++;
+            if (w.aoeMaxTargets() != 3.0) {
+                problems.add(w.id() + ": 剣の対象上限が3ではない(" + w.aoeMaxTargets() + ")");
+            }
+            if (w.aoeMaxTargets() > weakestSweeperTargets) {
+                problems.add(w.id() + ": 剣の対象上限が薙ぎ払い勢の最小を超えている");
+            }
+            if (w.aoeRate() >= weakestSweeperRate) {
+                problems.add(String.format("%s: 剣の範囲倍率 %.2f が薙ぎ払い勢の最小 %.2f 以上",
+                        w.id(), w.aoeRate(), weakestSweeperRate));
+            }
+        }
+        assertTrue(swords >= 10, "剣が " + swords + " 本しか読めていない(この検査は空振りしている)");
+        assertTrue(problems.isEmpty(), "剣の巻き込みが規約と違う:\n" + String.join("\n", problems));
+    }
+
+    @Test
+    @DisplayName("大剣の対象上限は最下位 tier でも5・最上位で10まで段で伸びる（W-126）")
+    void greatswordTargetCapRisesFromFiveToTen() {
+        // tier の並びは攻撃力の実測順(tmp/audit-weapon-dps.js)。
+        List<String> ladder = List.of(
+                "wooden_grate_sword", "stone_grate_sword", "copper_grate_sword",
+                "source_gem_grate_sword", "iron_grate_sword", "golden_grate_sword",
+                "diamond_grate_sword", "netherite_grate_sword", "nuclear_grate_sword",
+                "hero_grate_sword", "cryocore_grate_sword", "abyss_grate_sword",
+                "emberforge_grate_sword", "infinity_grate_sword", "binder_grate_sword");
+        Map<String, Weapon> byId = new HashMap<>();
+        for (Weapon w : loadWeapons()) {
+            byId.put(w.id(), w);
+        }
+
+        List<String> problems = new ArrayList<>();
+        double previous = 0.0;
+        for (String id : ladder) {
+            Weapon w = byId.get(id);
+            assertNotNull(w, "大剣 " + id + " が読めない(tier 表がずれている)");
+            if (w.aoeMaxTargets() < 5.0) {
+                problems.add(id + ": 対象上限が5未満(" + w.aoeMaxTargets() + ")");
+            }
+            if (w.aoeMaxTargets() < previous) {
+                problems.add(id + ": 前の tier より対象上限が下がっている");
+            }
+            previous = w.aoeMaxTargets();
+        }
+        assertTrue(problems.isEmpty(), "大剣の対象上限の段が規約と違う:\n" + String.join("\n", problems));
+        assertTrue(byId.get(ladder.get(0)).aoeMaxTargets() == 5.0,
+                "最下位 tier の大剣の対象上限は5であるべき");
+        assertTrue(byId.get(ladder.get(ladder.size() - 1)).aoeMaxTargets() == 10.0,
+                "最上位 tier の大剣の対象上限は10であるべき");
+    }
+
+    @Test
+    @DisplayName("鎌の範囲は対象数・半径・倍率のすべてで同 tier の大剣以下（範囲の主役は大剣）")
+    void scytheStaysBelowTheGreatswordOnEveryAreaKnob() {
+        List<String> greatswords = List.of(
+                "wooden_grate_sword", "stone_grate_sword", "copper_grate_sword",
+                "source_gem_grate_sword", "iron_grate_sword", "golden_grate_sword",
+                "diamond_grate_sword", "netherite_grate_sword", "nuclear_grate_sword",
+                "hero_grate_sword", "cryocore_grate_sword", "abyss_grate_sword",
+                "emberforge_grate_sword", "infinity_grate_sword", "binder_grate_sword");
+        // 出荷 id の綴り違い(golad / nethrite)はそのまま使う。
+        List<String> scythes = List.of(
+                "wooden_scythe", "stone_scythe", "copper_scythe", "source_gem_scythe",
+                "iron_scythe", "golad_scythe", "diamond_scythe", "nethrite_scythe",
+                "nuclear_scythe", "hero_scythe", "cryocore_scythe", "abyss_scythe",
+                "emberforge_scythe", "infinity_scythe", "binder_scythe");
+        Map<String, Weapon> byId = new HashMap<>();
+        for (Weapon w : loadWeapons()) {
+            byId.put(w.id(), w);
+        }
+
+        List<String> problems = new ArrayList<>();
+        for (int i = 0; i < greatswords.size(); i++) {
+            Weapon gs = byId.get(greatswords.get(i));
+            Weapon sc = byId.get(scythes.get(i));
+            assertNotNull(gs, greatswords.get(i) + " が読めない");
+            assertNotNull(sc, scythes.get(i) + " が読めない");
+            if (sc.aoeMaxTargets() > gs.aoeMaxTargets()
+                    || sc.aoeRadius() > gs.aoeRadius()
+                    || sc.aoeRate() > gs.aoeRate()) {
+                problems.add(String.format("%s(%.0f体/%.1f/%.2f) が %s(%.0f体/%.1f/%.2f) を上回っている",
+                        sc.id(), sc.aoeMaxTargets(), sc.aoeRadius(), sc.aoeRate(),
+                        gs.id(), gs.aoeMaxTargets(), gs.aoeRadius(), gs.aoeRate()));
+            }
+            if (sc.aoeMaxTargets() <= 0) {
+                problems.add(sc.id() + ": 鎌が範囲を失っている");
+            }
+        }
+        assertTrue(problems.isEmpty(), "鎌と大剣の範囲の上下が規約と違う:\n" + String.join("\n", problems));
     }
 
     @Test
