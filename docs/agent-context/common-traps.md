@@ -178,6 +178,45 @@ Bukkit のイベントバス(`RegisteredListener#callEvent`)は `ignoreCancelled
 既存の `fakePlugin` ヘルパーがコンストラクタで `NamespacedKey` を新規に作る型を初めて構築対象にした
 瞬間にこの罠を踏む(2026-08-02、`GachaListener` に確認GUI用の `NamespacedKey` を足したことで発覚)。
 
+### ⚠️⚠️ `BlockState#update()` は PDC だけを書き戻すのではない ── **コンテナの中身ごとスナップショットへ巻き戻す**
+
+`Block#getState()` が返す `TileState`（`BrewingStand` / `Chest` / `Furnace` ...）は**スナップショット**で、
+`getPersistentDataContainer()` に書いた値は `update()` するまで実体へ反映されない ── ここまでは既知。
+**見落とされるのはその先**で、`CraftBlockEntityState#update()` は
+`copyData` → `snapshot.saveWithFullMetadata()` → `live.loadWithComponents(...)` と、
+**スナップショットの NBT を丸ごと**実体へ流し込む。つまり `Items` / `Fuel` / `BrewTime` まで戻る。
+
+しかも `loadAdditional` は多くのコンテナで
+
+```java
+this.items = NonNullList.withSize(this.getContainerSize(), ItemStack.EMPTY);
+ContainerHelper.loadAllItems(tag, this.items, registries);
+```
+
+と **`items` フィールドを新しいリストへ差し替える**。したがって
+「バニラがイベント前に `entity.items` の参照や `items.get(n)` の `ItemStack` を掴んでいて、
+イベント後にそこへ書き戻す」型の処理は、**イベント中に `update()` を呼ばれると孤児へ書く**ことになる。
+
+**実例（W-112 / W-124、2026-07-27〜2026-08-19 の間ずっと醸造が完成しなかった真因）**:
+`NativeSkillExperienceListener#onBrew`（`MONITOR`）が所有者 PDC を消すために
+`BrewOwnership#clear` → `stand.update()` を `BrewEvent` の**最中**に呼んでいた。Paper の `doBrew` は
+
+```java
+ItemStack ingredient = items.get(3);        // イベント前に掴む
+if (!event.callEvent()) return;             // ここで update() が items を差し替える
+items.set(dest, ...);                       // 孤児リストへ書く
+ingredient.shrink(1);                       // 孤児 ItemStack を減らす
+```
+
+なので、**素材が減らず・瓶も変換されず・EXP だけ入り・燃料は開始時に減っているので戻らない**という
+「一見すると説明のつかない」症状になる。**イベントの結果 (`event.getResults()`) 自体は正しい**ので、
+結果を見る診断計装では永遠に捕まらない。
+
+**規則**: **ブロックの状態変化を伴うイベント（`BrewEvent` / `FurnaceSmeltEvent` / `InventoryClickEvent` 等）の
+ハンドラ内で `BlockState#update()` を呼ばない。** PDC の書き換えが要るなら
+`Bukkit.getScheduler().runTask` で次 tick へ回し、**その時点で `getState()` を取り直す**。
+`BlockState` を跨いで保持したまま後から `update()` するのも同じ理由で危険。
+
 ## 並行処理
 
 ### ⚠️ 非同期スレッドから戦闘集計を呼ぶと ConcurrentModificationException になる（原因はスレッド跨ぎ、再入ではない）
