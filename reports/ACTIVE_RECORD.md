@@ -2532,7 +2532,11 @@ shaped（5素材の十字配置）へ作り替えられ**、表示名も変わ�
 **2026-08-20 ユーザー回答: 「意図的に削除した」。** レシピ帳の ERROR 自体は無害
 （既に解放済みだった人の帳に古いキーが残っているだけで、`ServerRecipeBook` が読み込み時に落としている）。
 
-**ただし副作用が 2 つ残っている**（`ShippedDungeonKeyReachabilityTest` が 2 件落ちて検出）:
+**2026-08-20 ユーザー回答（再確認）: 下の 2 件も含めて設定エディタでの意図的な変更。受容する。**
+`ShippedDungeonKeyReachabilityTest` の 2 件は**恒常的に落ちる想定**なので、
+テスト基準値の帰属判定でこれを「誰かの回帰」と読まないこと。**元に戻さない。**
+
+以下は受容した副作用（`ShippedDungeonKeyReachabilityTest` が検出）:
 
 - **採石場ダンジョンに誰も入れなくなっている。** `dungeon/gates.yml` の `em_id_the_quarry` は
   `key-item: key_quarry` を要求しているが、レシピ削除で **`key_quarry` の入手経路がゼロ**になった
