@@ -910,7 +910,7 @@ items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
         - custom:elder_guardian_spike x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -927,7 +927,7 @@ items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
         - custom:hard_metal x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -1724,7 +1724,7 @@ items:
         - custom:blaze_rod_3x x2
         - custom:dragon_breath_3x x2
         - custom:wither_skull_fragment x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -1741,7 +1741,7 @@ items:
         - custom:blaze_rod_2x x2
         - custom:wither_rose_1x x2
         - custom:heavy_metal x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -1862,7 +1862,7 @@ items:
         - custom:blaze_rod_3x x1
         - custom:dragon_breath_3x x1
         - custom:elder_guardian_spike x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -1879,7 +1879,7 @@ items:
         - custom:blaze_rod_2x x1
         - custom:wither_rose_1x x1
         - custom:hard_metal x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -1912,7 +1912,7 @@ items:
         - custom:dragon_breath_3x x2
         - custom:elder_guardian_spike x2
         - FEATHER x1
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -1930,7 +1930,7 @@ items:
         - custom:wither_rose_1x x2
         - custom:hard_metal x2
         - FEATHER x1
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -1962,7 +1962,7 @@ items:
         - custom:dragon_breath_3x x1
         - custom:elder_guardian_spike x2
         - STICK x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -1980,7 +1980,7 @@ items:
         - custom:wither_rose_1x x1
         - custom:hard_metal x2
         - STICK x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2013,7 +2013,7 @@ items:
         - custom:dragon_breath_3x x2
         - custom:elder_guardian_spike x2
         - PRISMARINE_SHARD x1
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2031,7 +2031,7 @@ items:
         - custom:wither_rose_1x x2
         - custom:hard_metal x2
         - PRISMARINE_SHARD x1
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2063,7 +2063,7 @@ items:
         - custom:blaze_rod_3x x3
         - custom:dragon_breath_3x x3
         - custom:elder_guardian_spike x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2080,7 +2080,7 @@ items:
         - custom:blaze_rod_2x x3
         - custom:wither_rose_1x x3
         - custom:hard_metal x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2112,7 +2112,7 @@ items:
         - custom:blaze_rod_3x x5
         - custom:dragon_breath_3x x5
         - custom:wither_skull_fragment x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2129,7 +2129,7 @@ items:
         - custom:blaze_rod_2x x5
         - custom:wither_rose_1x x5
         - custom:heavy_metal x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2161,7 +2161,7 @@ items:
         - custom:blaze_rod_3x x4
         - custom:dragon_breath_3x x4
         - custom:wither_skull_fragment x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2178,7 +2178,7 @@ items:
         - custom:blaze_rod_2x x4
         - custom:wither_rose_1x x4
         - custom:heavy_metal x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2211,7 +2211,7 @@ items:
         - custom:dragon_breath_3x x5
         - custom:wither_skull_fragment x2
         - NETHERITE_SCRAP x1
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2229,7 +2229,7 @@ items:
         - custom:wither_rose_1x x5
         - custom:heavy_metal x2
         - NETHERITE_SCRAP x1
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2262,7 +2262,7 @@ items:
         - custom:dragon_breath_3x x4
         - custom:wither_skull_fragment x2
         - NETHERITE_SCRAP x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2280,7 +2280,7 @@ items:
         - custom:wither_rose_1x x4
         - custom:heavy_metal x2
         - NETHERITE_SCRAP x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2312,7 +2312,7 @@ items:
         - custom:blaze_rod_3x x3
         - custom:dragon_breath_3x x3
         - custom:warden_tendril x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2329,7 +2329,7 @@ items:
         - custom:blaze_rod_2x x3
         - custom:wither_rose_1x x3
         - custom:reinforced_fiber x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2362,7 +2362,7 @@ items:
         - custom:blaze_rod_3x x1
         - custom:dragon_breath_3x x1
         - custom:warden_tendril x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2379,7 +2379,7 @@ items:
         - custom:blaze_rod_2x x1
         - custom:wither_rose_1x x1
         - custom:reinforced_fiber x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2481,7 +2481,7 @@ items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
         - custom:dragon_scale x2
-      source: 8000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2499,7 +2499,7 @@ items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
         - custom:dragon_scale x4
-      source: 16000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2517,7 +2517,7 @@ items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
         - custom:dragon_scale x3
-      source: 12000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2535,7 +2535,7 @@ items:
         - custom:shulker_shell_2x x5
         - custom:dragon_breath_3x x5
         - custom:dragon_scale x1
-      source: 4000
+      source: 2000000
       type: shapeless
       ingredients: []
     lore:
@@ -2553,7 +2553,7 @@ items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
         - custom:reinforced_leather x2
-      source: 15000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2571,7 +2571,7 @@ items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
         - custom:reinforced_leather x4
-      source: 30000
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2589,7 +2589,7 @@ items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
         - custom:reinforced_leather x3
-      source: 22500
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
@@ -2607,7 +2607,7 @@ items:
         - custom:shulker_shell_1x x5
         - custom:wither_rose_1x x5
         - custom:reinforced_leather x1
-      source: 7500
+      source: 250000
       type: shapeless
       ingredients: []
     lore:
