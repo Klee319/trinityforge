@@ -239,7 +239,10 @@ class MobOverrideDropListenerTest {
                 """);
         ItemStack builtStack = new ItemStack(Material.LEATHER);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("tf_core_meat")).thenReturn(Optional.of(builtStack));
+        // 2026-08-19 W-130: 品質を渡す3引数版で組むようになったので、stub も3引数で置く。
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("tf_core_meat"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.of(builtStack));
         MobOverrideDropListener listener =
                 new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 
@@ -264,7 +267,9 @@ class MobOverrideDropListenerTest {
                           - { item: BONE, chance: 1.0, min: 1, max: 1 }
                 """);
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("not_a_real_catalog_id")).thenReturn(Optional.empty());
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("not_a_real_catalog_id"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.empty());
         MobOverrideDropListener listener =
                 new MobOverrideDropListener(config, resolver, adjuster(0), new SplittableRandom(0));
 

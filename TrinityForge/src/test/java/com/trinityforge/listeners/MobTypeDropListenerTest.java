@@ -136,7 +136,10 @@ class MobTypeDropListenerTest {
     @Test
     void customDropIsBuiltByTheResolverWithTheRolledCount() {
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("tf_scrap")).thenReturn(Optional.of(new ItemStack(Material.PAPER, 1)));
+        // 2026-08-19 W-130: 品質を渡す3引数版で組むようになったので、stub も3引数で置く。
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("tf_scrap"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.of(new ItemStack(Material.PAPER, 1)));
         MobTypeDropListener custom = listenerWith(
                 List.of(MobDropEntry.ofCatalog("tf_scrap", 1.0, 3, 3, null)), resolver);
         EntityDeathEvent event = deathEvent(server.addPlayer());
@@ -147,13 +150,16 @@ class MobTypeDropListenerTest {
         assertEquals(Material.PAPER, event.getDrops().get(0).getType());
         assertEquals(3, event.getDrops().get(0).getAmount(),
                 "解決したスタックの個数は抽選結果で上書きされる");
-        verify(resolver).create("tf_scrap");
+        verify(resolver).create(org.mockito.ArgumentMatchers.eq("tf_scrap"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
     void unresolvableCustomDropSkipsOnlyThatRollAndKeepsVanillaDrops() {
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("gone")).thenReturn(Optional.empty());
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("gone"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.empty());
         MobTypeDropListener custom = listenerWith(
                 List.of(MobDropEntry.ofCatalog("gone", 1.0, 1, 1, null),
                         new MobDropEntry(Material.DIAMOND, 1.0, 1, 1, null)),
@@ -187,7 +193,9 @@ class MobTypeDropListenerTest {
     @Test
     void customDropIsNeverQualityStampedAgain() {
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create("tf_sword")).thenReturn(Optional.of(new ItemStack(Material.IRON_SWORD, 1)));
+        when(resolver.create(org.mockito.ArgumentMatchers.eq("tf_sword"),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(Optional.of(new ItemStack(Material.IRON_SWORD, 1)));
         ItemFactory itemFactory = mock(ItemFactory.class);
         MobTypesConfig mobTypes = mock(MobTypesConfig.class);
         when(mobTypes.definition(org.bukkit.entity.EntityType.ZOMBIE)).thenReturn(Optional.of(

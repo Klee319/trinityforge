@@ -63,6 +63,9 @@ public final class MobTypeDropListener implements Listener {
      */
     private final CrossPluginItemResolver itemResolver;
     private final SplittableRandom random;
+
+    /** {@link #qualityResolver()} の遅延初期化キャッシュ(2026-08-19 / W-130)。 */
+    private com.trinityforge.mobs.MobDropQualityResolver qualityResolver;
     private volatile java.util.function.Predicate<Player> dropGate;
     /** レベル差の足きり + ドロップ増加ステ(2026-08-09)。null可 = 未配線なら素の抽選結果のまま。 */
     private volatile KillRewardAdjuster killRewardAdjuster;
@@ -189,7 +192,8 @@ public final class MobTypeDropListener implements Listener {
             if (drop.isCustom()) {
                 // 2026-08-01 U13: カタログ/Ars のカスタムアイテム。解決失敗はこの1件だけ捨てる
                 // (fail-open。MobOverrideDropListener / MobLevelTableListener と同じ契約)。
-                ItemStack custom = buildCustomStack(drop, count, entity.getType().name());
+                ItemStack custom = buildCustomStack(drop, count, entity.getType().name(),
+                        mobLevel, bonusMode);
                 if (custom != null) {
                     event.getDrops().add(custom);
                 }
@@ -209,11 +213,15 @@ public final class MobTypeDropListener implements Listener {
      * {@code custom:<id>} ドロップの組み立て。解決できない(未知IDや resolver 未配線)ときは WARNING を
      * 出して {@code null} を返す(この抽選だけ捨てる)。
      *
-     * <p>品質は {@code CrossPluginItemResolver#create} 側の {@code ItemFactory#create} が既に打つので、
-     * ここで {@code itemFactory.stamp} を重ねない。個数0の抽選も捨てる({@code ItemStack#setAmount(0)}
-     * のスタックを drops へ積まない — 兄弟2リスナーと同じ)。
+     * <p><b>2026-08-19 / W-130 訂正。</b>ここには「品質は {@code CrossPluginItemResolver#create} 側が
+     * 既に打つので stamp を重ねない」と書いてあったが、呼んでいた1引数版 {@code create(String)} は
+     * <b>品質を 0 に固定</b>する実装だった（最低品質＝劣悪）。そのためスレッドのような品質付き
+     * カスタム品は、モブのレベルにも {@code mob_drop_quality} ステにも反応せず必ず劣悪で落ちていた。
+     * 現在は {@link com.trinityforge.mobs.MobDropQualityResolver#stamped} で決め直している
+     * （バニラ材質の装備ドロップと同じ式）。個数0の抽選を捨てるのは従来どおり。
      */
-    private ItemStack buildCustomStack(MobDropEntry drop, int count, String mobLabel) {
+    private ItemStack buildCustomStack(MobDropEntry drop, int count, String mobLabel,
+                                       int mobLevel, int bonusMode) {
         if (count <= 0) {
             return null;
         }
@@ -227,16 +235,34 @@ public final class MobTypeDropListener implements Listener {
             }
             return null;
         }
-        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId());
+        long seed = random.nextLong();
+        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);
         if (resolved.isEmpty()) {
             LOG.log(Level.WARNING, "[mob-types] " + mobLabel + " の drops custom item '"
                     + drop.catalogId() + "' could not be resolved (unknown catalog/Ars id?);"
                     + " this roll was skipped");
             return null;
         }
-        ItemStack stack = resolved.get();
+        ItemStack stack = com.trinityforge.mobs.MobDropQualityResolver.stamped(
+                qualityResolver(), itemResolver, drop.catalogId(), seed, resolved.get(),
+                mobLevel, bonusMode, random);
         stack.setAmount(count);
         return stack;
+    }
+
+    /**
+     * 品質決定を共有クラスへ委譲するためのアダプタ(2026-08-19 / W-130)。
+     * このリスナーは必要な依存を全部持っているので、初回だけ束ねて使い回す
+     * (公開コンストラクタが4本あるので、そこへ引数を足さずに済む形にしている)。
+     */
+    private com.trinityforge.mobs.MobDropQualityResolver qualityResolver() {
+        com.trinityforge.mobs.MobDropQualityResolver cached = this.qualityResolver;
+        if (cached == null) {
+            cached = new com.trinityforge.mobs.MobDropQualityResolver(
+                    craftQuality, quality, itemStats, mobDropBonus);
+            this.qualityResolver = cached;
+        }
+        return cached;
     }
 
     /** AFK判定側の一時障害で通常プレイのドロップまで失わないよう、述語失敗時は付与を継続する。 */

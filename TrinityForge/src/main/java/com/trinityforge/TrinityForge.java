@@ -1177,6 +1177,11 @@ public final class TrinityForge extends JavaPlugin {
         MobLevelTableListener mobLevelTableListener = new MobLevelTableListener(
                 configManager.mobLevelTable(), dungeonWorldRegistry, crossPluginItemResolver);
         mobLevelTableListener.setKillRewardAdjuster(killRewardAdjuster);
+        // 2026-08-19 W-130: custom: ドロップの品質決定器。未配線だと品質0固定(=常に劣悪)になる。
+        com.trinityforge.mobs.MobDropQualityResolver mobDropQualityResolver =
+                new com.trinityforge.mobs.MobDropQualityResolver(configManager.craftQuality(),
+                        configManager.quality(), configManager.itemStats(), mobDropBonusSource);
+        mobLevelTableListener.setQualityResolver(mobDropQualityResolver);
         getServer().getPluginManager().registerEvents(mobLevelTableListener, this);
 
         // ダンジョン(ワールド)×モブid単位のドロップオーバーライド(combat/mob-overrides.yml、
@@ -1185,6 +1190,7 @@ public final class TrinityForge extends JavaPlugin {
         MobOverrideDropListener mobOverrideDropListener =
                 // 2026-08-09: レベル差の足きりとドロップ増加ステは KillRewardAdjuster へ集約した。
                 new MobOverrideDropListener(configManager.mobOverrides(), crossPluginItemResolver, killRewardAdjuster);
+        mobOverrideDropListener.setQualityResolver(mobDropQualityResolver);
         getServer().getPluginManager().registerEvents(mobOverrideDropListener, this);
 
         // 同じ combat/mob-overrides.yml の「モブごとのレベル依存EXP式」(2026-07-26)。同じMONITOR優先度で

@@ -1152,7 +1152,7 @@ W-117/W-118 のコミットには**自分のブロックだけを index に載�
 
 ---
 
-### 実サーバ報告バッチ（2026-08-19 受領 第7陣。W-121〜W-130）
+### 実サーバ報告バッチ（2026-08-19 受領 第7陣。W-121〜W-133）
 
 | ID | 内容 | 状態 |
 |---|---|---|
@@ -1164,8 +1164,52 @@ W-117/W-118 のコミットには**自分のブロックだけを index に載�
 | W-126 | 重武器が弱い。範囲武器の対象上限を最低5→tierで10、軽武器にも3体。各武器種に尖ったステ | 未着手 |
 | W-127 | 杖が強すぎるので微ナーフ（全 tier 監査） | 未着手 |
 | W-128 | オーバーワールドのエンダードラゴンでドラゴンエッグ 100% 1個 | ✅ 対応（下記） |
-| W-129 | 圧縮ブロック・圧縮素材にエンチャントオーラを付ける | 未着手 |
-| W-130 | モブレベル／ドロップ品質ステに応じるはずの品質付きドロップが劣悪しか出ない | 未着手 |
+| W-129 | 圧縮ブロック・圧縮素材にエンチャントオーラを付ける | ✅ 対応（fork `9d336ee`。171 件を `enchant_glow: true` に統一） |
+| W-130 | モブレベル／ドロップ品質ステに応じるはずの品質付きドロップが劣悪しか出ない | ✅ 対応（下記） |
+| W-131 | 農業ギミックで登録しているのに圧縮ご飯が食べられない | ✅ 対応（下記） |
+| W-132 | 中間素材（ウッドコア等）がクイック移動では入らないのにホッパーでかまどへ搬入できる | 未着手（真因は特定済。下記） |
+| W-133 | 革装備ベースのカスタム装備の色が重複していて識別できない（白が複数） | 未着手 |
+
+#### W-130 討伐ドロップの品質が**必ず劣悪**だった（品質0固定）
+
+`CrossPluginItemResolver#create(String)`（1引数版）は
+`create(id, ThreadLocalRandom...nextLong(), 0)` と**品質を 0 に固定**する。
+討伐ドロップを積むリスナー3本（`MobTypeDropListener` / `MobLevelTableListener` /
+`MobOverrideDropListener`）が全部この1引数版を呼んでいたため、
+`custom:` で書かれたドロップ（スレッド等）は**モブレベルにも `mob_drop_quality` ステにも
+一切反応せず必ず劣悪**で落ちていた。バニラ材質の装備ドロップだけは
+`MobTypeDropListener#resolveQuality` が正しく振っていたので「効く場合もある」ぶん気づきにくい。
+`MobTypeDropListener#buildCustomStack` の javadoc は「品質は resolver 内で打たれている」と
+**誤ったことを書いており**、それが3本とも直されなかった理由。→ その場で訂正した。
+
+式は `com.trinityforge.mobs.MobDropQualityResolver` 1箇所へ集約
+（`modeFromLevel(mobLevel) + mob_drop_quality ぶん + quality-mode-offset` を中心にした split-normal）。
+`stamped(...)` は**品質0で1回組んでから素材と CustomModelData を読み、同じ `rollSeed` で組み直す**
+（品質基準値の引き当てに現物が要るため。seed 共有なので品質以外のロールは1回目と同じ）。
+`mob_drop_quality` の底上げは**1キルにつき1回**だけ引く（ドロップごとに引くとステの効きが薄まって見える）。
+回帰は `MobDropQualityResolverTest`（5件）と `MobLevelTableListenerTest`（捕捉した品質が全部0なら落ちる）。
+
+#### W-131 9倍圧縮の生鮮食品が**1件も**食料登録されていなかった
+
+`unregistered-custom-food-ban` は「`custom-foods` に載っていないカスタムID付き食料は素材扱いで
+**食べられない**」という規則そのものが判定基準。`stats/food-gimmick.yml` には
+**焼き物の `_1x` だけ**が載っていて、`carrot_1x`／`potato_1x`／`beef_1x` 等の生鮮 13 件と
+`tf_crystal_apple` が漏れており、**圧縮ニンジン等が一切食べられない**状態だった
+（症状はアクションバー1行のみ・ログ無警告）。14 件を追加登録。
+`_2x`（81倍）・`_3x`（729倍）は**意図どおり未登録のまま**（満腹度20のために729個を消し飛ばす事故を防ぐ設計）。
+回帰は `ShippedCompressedFoodRegistrationTest`（載るべき23件・載ってはいけない8件・ban 有効の3本）。
+
+#### W-132 ホッパー搬入が素通りする真因（未修正）
+
+ArsPaper フォークの `CustomItemListener` は
+`onVanillaMachineClick(InventoryClickEvent)` で FURNACE/BLAST_FURNACE/SMOKER/BREWING への
+**クリック経路だけ**を塞いでいる。`InventoryMoveItemEvent` の購読は
+`onHopperToComposter`（COMPOSTER 限定）しか無いので、**ホッパー／ドロッパー経由は素通り**する。
+さらに `BlockCookEvent` を購読していないため、`beef_1x`（ベース `BEEF`）のように
+**ベース材質が精錬可能な圧縮素材はホッパーで入れると実際に焼かれて 9 個ぶんが 1 個になる**。
+TF 側 `CatalogVanillaOperationGuardListener` は `BlockCookEvent` を塞いでいるが、
+判定が `CatalogVanillaOperationPolicy.isCatalogItem`＝**TF `items/catalog.yml` 限定**なので
+ArsPaper の `materials.yml` 品（圧縮素材・ウッドコア等）は対象外。
 
 #### W-124 醸造ログ — **今回は再現しなかった**
 

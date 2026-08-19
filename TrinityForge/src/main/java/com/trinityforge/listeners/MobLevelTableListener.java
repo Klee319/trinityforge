@@ -88,6 +88,20 @@ public final class MobLevelTableListener implements Listener {
     private final SplittableRandom random;
 
     /**
+     * {@code custom:} ドロップの品質を決める層(2026-08-19 / W-130)。{@code null} = 未配線で、
+     * そのときは従来どおり品質0(劣悪)固定になる。
+     *
+     * <p>コンストラクタ引数ではなくセッターにしているのは {@link #setKillRewardAdjuster} と同じ理由
+     * (このクラスの公開コンストラクタを一斉に壊さないため)。
+     */
+    private com.trinityforge.mobs.MobDropQualityResolver qualityResolver;
+
+    /** @see #qualityResolver */
+    public void setQualityResolver(com.trinityforge.mobs.MobDropQualityResolver resolver) {
+        this.qualityResolver = resolver;
+    }
+
+    /**
      * @param itemResolver resolves {@code custom:<catalogId>} add-drops (2026-07-25 レベルテーブルの
      *                      モブ別ドロップ指定拡張, §2-B) via {@code items/catalog.yml}/ArsPaper at
      *                      drop-roll time — the SAME seam {@code CrossPluginItemResolver}'s own javadoc
@@ -203,6 +217,10 @@ public final class MobLevelTableListener implements Listener {
         Set<String> killerRoles = addDrops.stream().anyMatch(d -> !d.roles().isEmpty())
                 ? rolesOf(entity.getKiller())
                 : Set.of();
+        // 2026-08-19 W-130: mob_drop_quality による品質の底上げは【1キルにつき1回】引く
+        // (同じキルで複数個落ちたときに個体差が出ないよう、mob-types 側の実装と揃える)。
+        int bonusMode = qualityResolver == null ? 0
+                : qualityResolver.bonusMode(entity.getKiller(), random);
         for (LevelTierDropEntry drop : addDrops) {
             if (!drop.allowsRoles(killerRoles)) {
                 continue;
@@ -246,7 +264,8 @@ public final class MobLevelTableListener implements Listener {
             if (count <= 0) {
                 continue;
             }
-            ItemStack stack = buildDropStack(drop, count, profileId != null ? profileId : mobType.name());
+            ItemStack stack = buildDropStack(drop, count,
+                    profileId != null ? profileId : mobType.name(), mobData.level(), bonusMode);
             if (stack != null) {
                 if (!singleFixed && dropBonus > 0.0) {
                     stack.setAmount(MobDropRoller.cappedCount(
@@ -307,11 +326,15 @@ public final class MobLevelTableListener implements Listener {
         return roles;
     }
 
-    private ItemStack buildDropStack(LevelTierDropEntry drop, int count, String mobLabel) {
+    private ItemStack buildDropStack(LevelTierDropEntry drop, int count, String mobLabel,
+                                     int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
             return new ItemStack(drop.material(), count);
         }
-        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId());
+        // 2026-08-19 W-130: 品質を決めずに 1 引数版 create(id) を呼んでいたため、スレッドのような
+        // 品質付きカスタム品が【必ず品質0(劣悪)】で落ちていた。ここで実際に決める。
+        long seed = random.nextLong();
+        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);
         if (resolved.isEmpty()) {
             LOG.log(Level.WARNING, "[mob-level-table] " + mobLabel + " の add-drops custom item '"
                     + drop.catalogId() + "' could not be resolved (unknown catalog/Ars id?);"
@@ -319,6 +342,8 @@ public final class MobLevelTableListener implements Listener {
             return null;
         }
         ItemStack stack = resolved.get();
+        stack = com.trinityforge.mobs.MobDropQualityResolver.stamped(qualityResolver, itemResolver,
+                drop.catalogId(), seed, stack, mobLevel, bonusMode, random);
         stack.setAmount(count);
         return stack;
     }

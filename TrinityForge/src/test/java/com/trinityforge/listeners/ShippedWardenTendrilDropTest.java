@@ -229,7 +229,10 @@ class ShippedWardenTendrilDropTest {
 
     private CrossPluginItemResolver tendrilResolver() {
         CrossPluginItemResolver resolver = mock(CrossPluginItemResolver.class);
-        when(resolver.create(anyString())).thenAnswer(invocation -> {
+        // 2026-08-19 W-130: リスナーは品質を渡す3引数版で組むようになったので、stub も3引数で置く
+        // (1引数版のままだと mock が Optional.empty() を返し、ドロップが1個も積まれない)。
+        when(resolver.create(anyString(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt())).thenAnswer(invocation -> {
             String id = invocation.getArgument(0);
             // 毎回新しい ItemStack を返す(同一インスタンスを返すと setAmount が過去の戦利品まで書き換える)。
             return Optional.of(new ItemStack("warden_tendril".equals(id) ? TENDRIL_MATERIAL : Material.PAPER));

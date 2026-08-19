@@ -65,6 +65,56 @@ custom-foods:
   baked_cod_1x:
     food-level: 16
     saturation: 15
+  # 2026-08-19 W-131: 9倍圧縮の生鮮食品(_1x)が1件も登録されていなかったため、
+  # 下の unregistered-custom-food-ban が働いて【圧縮ニンジン等が一切食べられない】状態だった。
+  # ここに載っている＝食料、載っていない＝素材、という規則そのものが判定基準なので、
+  # 81倍(_2x)・729倍(_3x)は意図どおり登録しない(食べるには解凍する)。
+  carrot_1x:
+    food-level: 20
+    saturation: 20
+  potato_1x:
+    food-level: 9
+    saturation: 5
+  beetroot_1x:
+    food-level: 9
+    saturation: 10
+  apple_1x:
+    food-level: 20
+    saturation: 20
+  sweet_berries_1x:
+    food-level: 18
+    saturation: 4
+  glow_berries_1x:
+    food-level: 18
+    saturation: 4
+  # 生肉・生魚。焼くと栄養が上がるのはバニラと同じ関係を保つため、圧縮焼き物より控えめにする。
+  beef_1x:
+    food-level: 20
+    saturation: 16
+  porkchop_1x:
+    food-level: 20
+    saturation: 16
+  rabbit_1x:
+    food-level: 20
+    saturation: 16
+  chicken_1x:
+    food-level: 18
+    saturation: 10
+  mutton_1x:
+    food-level: 18
+    saturation: 10
+  cod_1x:
+    food-level: 18
+    saturation: 4
+  salmon_1x:
+    food-level: 18
+    saturation: 4
+  # クリスタルリンゴ。ベースはエンチャント金リンゴなので、バニラ相当の栄養を明示して
+  # 「未登録＝食べられない」側へ落ちないようにする(FoodGimmickConfig の設計コメントどおり、
+  # 例外はハードコードのID除外ではなく custom-foods への登録で表現する)。
+  tf_crystal_apple:
+    food-level: 4
+    saturation: 10
 unregistered-custom-food-ban:
   enabled: true
   excluded-materials: []

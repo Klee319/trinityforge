@@ -126,6 +126,17 @@ public final class MobOverrideDropListener implements Listener {
         this.dropGate = gate;
     }
 
+    /**
+     * {@code custom:} ドロップの品質を決める器(2026-08-19 / W-130)。未配線(null)なら
+     * 従来どおり品質0固定になる —— コンストラクタを増やさずに後付けするための setter。
+     */
+    private volatile com.trinityforge.mobs.MobDropQualityResolver qualityResolver;
+
+    /** 討伐ドロップの品質決定器を設定する(2026-08-19 / W-130)。null で無効化。 */
+    public void setQualityResolver(com.trinityforge.mobs.MobDropQualityResolver resolver) {
+        this.qualityResolver = resolver;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
@@ -149,6 +160,10 @@ public final class MobOverrideDropListener implements Listener {
         }
         double dropMultiplier = adjuster.chanceMultiplier(entity.getKiller(), entity);
         double dropBonus = adjuster.dropBonus(entity.getKiller());
+        // 2026-08-19 W-130: mob_drop_quality ぶんの品質底上げは【1キルにつき1回】引く。
+        // ドロップごとに引くと同じキルの中で品質がばらけ、ステの効き目が薄まって見える。
+        com.trinityforge.mobs.MobDropQualityResolver resolver = this.qualityResolver;
+        int bonusMode = resolver == null ? 0 : resolver.bonusMode(entity.getKiller(), random);
         List<MobOverrideDropEntry> drops = mobOverrides.dropsFor(worldName, profileId.get());
         // 2026-07-26: 解決失敗の警告に「どのモブの設定か」を載せる。モブidだけだと 396 体の生成物の
         // どれなのか運用側で追えないため、display-name があれば日本語名を併記する。
@@ -170,7 +185,7 @@ public final class MobOverrideDropListener implements Listener {
             if (count <= 0) {
                 continue;
             }
-            ItemStack stack = buildDropStack(drop, count, mobLabel);
+            ItemStack stack = buildDropStack(drop, count, mobLabel, mobData.level(), bonusMode);
             if (stack != null && !singleFixed && dropBonus > 0.0) {
                 // 2026-08-09: ドロップ増加ステ(mob_drop_bonus)。NativeSurvivalPerkListener は同じ
                 // MONITOR優先度でも登録順で先に走るため、あとから足すこのドロップには一度も
@@ -198,23 +213,32 @@ public final class MobOverrideDropListener implements Listener {
 
     /**
      * Builds the rolled stack: a plain {@code new ItemStack(material, count)} for a vanilla entry, or a
-     * {@link CrossPluginItemResolver#create(String)}-built item for a {@code custom:<id>} entry, with its
-     * amount overwritten to the rolled {@code count}. Returns {@code null} (skip this roll, never fatal)
-     * when a {@code custom:} id fails to resolve, logging a warning either way — mirrors
+     * {@link CrossPluginItemResolver#create(String, long, int)}-built item for a {@code custom:<id>} entry,
+     * with its amount overwritten to the rolled {@code count}. Returns {@code null} (skip this roll, never
+     * fatal) when a {@code custom:} id fails to resolve, logging a warning either way — mirrors
      * {@code MobLevelTableListener#buildDropStack}'s fail-open contract.
+     *
+     * <p><b>2026-08-19 W-130:</b> 以前はここで1引数版の {@code create(id)} を呼んでいた。あの版は
+     * 品質を <b>0 に固定</b>するので、スレッドのような品質付きカスタム品がモブレベルにも
+     * {@code mob_drop_quality} ステにも反応せず<b>必ず劣悪で落ちていた</b>。品質決定は
+     * {@link com.trinityforge.mobs.MobDropQualityResolver} に一本化してある。
      */
-    private ItemStack buildDropStack(MobOverrideDropEntry drop, int count, String mobLabel) {
+    private ItemStack buildDropStack(MobOverrideDropEntry drop, int count, String mobLabel,
+                                     int mobLevel, int bonusMode) {
         if (!drop.isCustom()) {
             return new ItemStack(drop.material(), count);
         }
-        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId());
+        long seed = random.nextLong();
+        Optional<ItemStack> resolved = itemResolver.create(drop.catalogId(), seed, 0);
         if (resolved.isEmpty()) {
             LOG.log(Level.WARNING, "[mob-overrides] " + mobLabel + " の drops custom item '"
                     + drop.catalogId() + "' could not be resolved (unknown catalog/Ars id?);"
                     + " this roll was skipped");
             return null;
         }
-        ItemStack stack = resolved.get();
+        ItemStack stack = com.trinityforge.mobs.MobDropQualityResolver.stamped(
+                this.qualityResolver, itemResolver, drop.catalogId(), seed, resolved.get(),
+                mobLevel, bonusMode, random);
         stack.setAmount(count);
         return stack;
     }
