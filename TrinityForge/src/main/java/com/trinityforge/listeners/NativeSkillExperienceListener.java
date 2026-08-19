@@ -811,7 +811,8 @@ public final class NativeSkillExperienceListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBrew(BrewEvent event) {
-        if (!(event.getBlock().getState() instanceof BrewingStand stand)) return;
+        Block brewBlock = event.getBlock();
+        if (!(brewBlock.getState() instanceof BrewingStand stand)) return;
         Optional<UUID> ownerId = brewOwnership.ownerOf(stand);
         boolean automated = brewOwnership.isAutomated(stand);
         // Always clear brewer/mode attribution after this brew completes, win or lose, so credit
@@ -820,7 +821,26 @@ public final class NativeSkillExperienceListener implements Listener {
         // 2026-07-31: 醸造解放ゲートも同じ記録を読むので、このクリアは
         // 「ゲート付き醸造はサイクルごとに解放済みプレイヤーの手投入が必要(=完全なホッパー自動化は
         // できない)」も同時に意味する(BrewUnlockListener のクラスjavadoc参照)。
-        brewOwnership.clear(stand);
+        //
+        // ⚠️⚠️ 消去は【次tick】へ回す。BrewEvent の最中に呼んではいけない (W-112 / W-124 の真因)。
+        //   BrewOwnership#clear は PDC を書き戻すために stand.update() する。ところが
+        //   CraftBlockEntityState#update() は PDC だけでなく【スナップショットのNBTを丸ごと】
+        //   実体へ load し、BrewingStandBlockEntity#loadAdditional は items フィールドを
+        //   新しい NonNullList へ差し替える。一方 Paper の doBrew は
+        //     ItemStack ingredient = items.get(3);   // ← イベント前に掴む
+        //     if (!event.callEvent()) return;        // ← ここで我々が update() していた
+        //     items.set(dest, ...);                  // ← 引数の【古い】リストへ書く
+        //     ingredient.shrink(1);                  // ← 【古い】ItemStack を減らす
+        //   なので、イベント中に update() すると doBrew の書き込み先が醸造台から切り離され、
+        //   【素材が減らず・瓶も変換されず・EXPだけ入り・燃料は開始時に減っているので戻らない】
+        //   という症状になる。醸造が成立しないバグの正体がこれで、2026-07-27 から存在していた。
+        //   MockBukkit の update() は実体へ書き戻さないので、テストは緑のまま素通りする。
+        //   かまど側(FurnaceSmeltListener#onSmelt)は既にこの形で回避している。
+        //
+        //   次tickで BlockState を【取り直す】ことが必須(この場の stand を後で update() しても
+        //   同じ巻き戻しが起きる)。Bukkit のスケジューラはワールド/ブロックエンティティの tick より
+        //   先に走るので、ホッパーが割り込む隙間もできない。
+        plugin.getServer().getScheduler().runTask(plugin, () -> clearBrewOwner(brewBlock));
         if (ownerId.isEmpty()) return;
         SkillCatalogEntry alchemy = catalog.get(SkillId.ALCHEMY);
         ItemStack ingredient = brewIngredient(event);
@@ -844,6 +864,19 @@ public final class NativeSkillExperienceListener implements Listener {
                 : alchemy.rate("alchemy.manual_mult", 2.0);
         if (mult <= 0.0) mult = automated ? 0.25 : 1.0;
         progression.grant(ownerId.get(), SkillId.ALCHEMY, brew * mult);
+    }
+
+    /**
+     * 醸造所有者PDCの消去(次tick実行)。<b>必ずここで {@link Block#getState()} を取り直す</b> —
+     * {@link #onBrew} が持っていたスナップショットを後から {@code update()} しても、
+     * そのスナップショットは醸造前の中身を抱えたままなので同じ巻き戻しが起きる。
+     *
+     * <p>醸造台が壊された/別のブロックへ置き換わっていたら何もしない。
+     */
+    void clearBrewOwner(Block block) {
+        if (block.getState() instanceof BrewingStand fresh) {
+            brewOwnership.clear(fresh);
+        }
     }
 
     /**

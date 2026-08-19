@@ -288,6 +288,20 @@ public final class FurnaceSmeltListener implements Listener {
         return smelting == null || smelting.getType().isAir() || smelting.getAmount() <= 0;
     }
 
+    /**
+     * 所有者/モードの刻印。<b>{@code furnace.update()} は「かまどの中身をスナップショットへ巻き戻す」
+     * 操作でもある</b>ので、呼ぶ場所を選ぶ（{@code CraftBlockEntityState#update()} は PDC だけでなく
+     * スナップショットの NBT を丸ごと実体へ load し、{@code loadAdditional} は {@code items} を
+     * 新しいリストへ差し替える。詳細は {@link BrewOwnership} のクラス javadoc と
+     * {@code docs/agent-context/common-traps.md}）。
+     *
+     * <p>ここが安全なのは、呼び口が {@code InventoryClickEvent} /
+     * {@code InventoryMoveItemEvent} / {@code FurnaceStartSmeltEvent} の<b>いずれもバニラが
+     * 中身を書き換える前</b>だから — スナップショット＝現在の中身なので書き戻しが実質 no-op になる。
+     * <b>{@code FurnaceSmeltEvent}（精錬完了）の最中に呼んではいけない</b>。
+     * そちらは {@link #onSmelt} が {@code runTask} で次 tick へ回し、
+     * {@link #clearIfIdle(org.bukkit.block.Block)} で {@code BlockState} を取り直している。
+     */
     private void stamp(Furnace furnace, UUID owner, String mode) {
         if (owner != null) {
             furnace.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, owner.toString());

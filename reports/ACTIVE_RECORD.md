@@ -832,7 +832,7 @@ TF/Ars のどのレシピも鍛冶型を材料に使っていない（＝同形�
 |---|---|---|
 | W-110 | **`network.yml` を書き換えたのに config デプロイでロールバックした** | **原因確定 → 配備前の検出＋退避を実装（ユーザー選択）** |
 | W-111 | ヴォルカニックソースリンクが「もうゲート撤廃しているはずなのに作れない」（W-101 の再報告・伝聞） | ~~未解決~~ **解決（原因＝稼働中 JVM が旧 config 保持。再起動で解消をユーザー確認）** |
-| W-112 | 「まだポーションが作れない」（W-108 の再報告） | ✅ **真因確定・未修正**（W-124 で決着）。`BrewEvent` の最中に呼ぶ `stand.update()` が醸造台を醸造前の状態へ巻き戻していた。詳細は「W-124 醸造ログ」節 |
+| W-112 | 「まだポーションが作れない」（W-108 の再報告） | ✅ **真因確定・修正済（配備待ち）**（W-124 で決着）。`BrewEvent` の最中に呼ぶ `stand.update()` が醸造台を醸造前の状態へ巻き戻していた。詳細は「W-124 醸造ログ」節 |
 | W-113 | **TF のポーションが統合版で必ず「水入り瓶」の見た目になる**（W-112 調査中に発見） | **未修正。`PotionMeta#setColor` を焼いていないのが原因** |
 | W-114 | 日光炎上の「最大HP10%」が反映されず**1ダメージのままのアンデッドがいる**。「一度鎮火してから再炎上するときかも」 | ~~未着手~~ **修正済み（真因＝空の判定を足元ブロックで見ていた）** |
 | W-115 | **ポーション統合パーク（`potion-merge`）が一度も発火しない**（W-112 調査中に発見） | **原因確定・未修正。発火条件が実クライアントで成立しない組み合わせ。テストも同じ穴で緑のまま** |
@@ -1169,7 +1169,7 @@ W-117/W-118 のコミットには**自分のブロックだけを index に載�
 | W-121 | 儀式レシピの素材が本家 Ars より貧弱（ネザースター・残響の欠片・ネザライト等を使うはず） | ✅ 対応（下記。W-120 の台座事故もここで修正） |
 | W-122 | レシピ一覧で圧縮アイテムを既定で省略する機能が効いていない | ✅ 対応（= W-99。fork `f26a8fc`。下記） |
 | W-123 | 絞り込みに「儀式エフェクト」を足し、日の出／スレッド枠付与をそちらへ | ✅ 対応（fork `f26a8fc`。下記） |
-| W-124 | 再起動後に醸造したのでログ確認（W-112 の決着） | ✅ **真因確定・未修正**。`BrewEvent` 中の `stand.update()` が醸造台をスナップショットへ巻き戻していた（下記） |
+| W-124 | 再起動後に醸造したのでログ確認（W-112 の決着） | ✅ **真因確定・修正済（配備待ち）**。`BrewEvent` 中の `stand.update()` が醸造台をスナップショットへ巻き戻していた（下記） |
 | W-125 | editor の数値が小数点以下細かすぎる（`76.323902` 等） | ✅ 対応（下記） |
 | W-126 | 重武器が弱い。範囲武器の対象上限を最低5→tierで10、軽武器にも3体。各武器種に尖ったステ | ✅ 対応（下記） |
 | W-127 | 杖が強すぎるので微ナーフ（全 tier 監査） | ✅ 対応（下記） |
@@ -1516,10 +1516,35 @@ private static void doBrew(Level level, BlockPos pos, NonNullList<ItemStack> ite
 「W-108 で直したはずがまた作れない」「java でもダメ」もこれで一貫する。
 MockBukkit は `update()` が実体へ書き戻さないので、テストは緑のまま通る。
 
-**直し方（未実装）**: `BrewEvent` の最中にブロック実体へ書き戻さないこと。
-PDC の消去は次 tick へ回し（`runTask` で**その時点の新しい `BlockState`** を取り直す）、
-`BrewEvent` ハンドラ内では読むだけにする。`PotionQualityListener#applySpeed` の `stand.update()` は
-`BrewEvent` の外なのでこの経路には該当しない。
+**修正（2026-08-19 実施・配備待ち）**: `NativeSkillExperienceListener#onBrew` の
+`brewOwnership.clear(stand)` を `runTask` で**次 tick** へ回し、新設した `clearBrewOwner(Block)` が
+**その時点で `BlockState` を取り直して**から消去するようにした（醸造台が壊れていれば何もしない）。
+Bukkit のスケジューラはワールド／ブロックエンティティの tick より先に走るので、
+ホッパーが割り込む隙間はできない。かまど側 `FurnaceSmeltListener#onSmelt` は
+元々この形（`runTask` → `clearIfIdle(Block)`）で回避していたので、それに揃えた形になる。
+
+**RED 証明**: 新テスト `NativeSkillExperienceListenerBrewTest#ownerPdcIsNotClearedDuringTheBrewEventItself`
+は「イベント直後はまだ所有者PDCが残っており、1 tick 後に消えている」ことを固定する。
+消去をイベント中へ戻すと `expected: <Optional[...]> but was: <Optional.empty>` で落ちることを実測済み。
+MockBukkit の `update()` は実体へ書き戻さないので巻き戻しそのものは再現できず、この形でしか固定できない。
+
+**同種の `update()` の棚卸し（依頼により全走査）**:
+
+| 呼び口 | 判定 |
+|---|---|
+| `BrewOwnership#clear` ← `onBrew`（`BrewEvent`） | **これだけが壊れていた**。次 tick へ修正 |
+| `BrewOwnership#rememberOwner` / `replaceOwner` / `markAutomated` | 安全。`InventoryClickEvent` / `InventoryMoveItemEvent` は**バニラが中身を書き換える前**に飛ぶのでスナップショット＝現在の中身＝書き戻しが no-op。**次 tick へ回してはいけない**（同じ tick 内で解放ゲートが所有者を読む） |
+| `FurnaceSmeltListener#stamp` ← クリック／ホッパー／`FurnaceStartSmeltEvent` | 同上の理由で安全。完了側 `onSmelt` は元から次 tick |
+| `PotionQualityListener#applySpeed` | `runTask` の中（イベント外）で状態を取り直しているので該当しない |
+| `MiningGimmickListener`（`brushable.update(true)` / スポナー復元） | 前者は `runTaskLater` の中、後者は `BlockPlaceEvent`（配置は既に完了済みで後続のバニラ書き込みが無い）。該当しない |
+| フォーク（ArsPaper / EliteMobs）の `update()` 全 27 箇所 | `@EventHandler` の中にあるのは `Waystone#onChat`（`AsyncChatEvent`、コンテナ非関与）だけ。残りは自前ブロックの永続化・爆破復元で該当しない |
+
+理由と規則は `docs/agent-context/common-traps.md`「`BlockState#update()` は PDC だけを書き戻すのではない」に恒久知識として書いた。
+
+**テスト実測**: 修正あり `4349 tests / 26 failures / 2 skipped`、
+HEAD に戻した基準値 `4347 tests / 26 failures / 2 skipped` で**失敗クラス 21 本が完全一致**
+（すべて他セッションの未コミット yml 由来の shipped-yml テスト）。回帰なし。
+`releaseAssembly` も BUILD SUCCESSFUL で、生成 jar に `clearBrewOwner` が入っていることを確認済み。
 
 **GeyserExtra の `BedrockDurabilityBarScaler` は無関係（棄却）。** `latest.log` に
 `Damage cannot exceed max damage` が 13,195 行あり、うち `WINDOW_ITEMS` 716 / `SET_SLOT` 1,923 で

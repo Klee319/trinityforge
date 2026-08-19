@@ -82,13 +82,21 @@ class NativeSkillExperienceListenerBrewTest {
         return new BrewEvent(stand.getBlock(), inv, results, 20);
     }
 
-    @Test
-    void manualOwnerGrantsWithManualMultiplier() {
+    /** 醸造台の現在の状態を取り直す(消去は次tickなので、古いスナップショットで見ない)。 */
+    private BrewingStand currentStand() {
+        return (BrewingStand) stand.getBlock().getState();
+    }
+
+    private void markOwned(String mode) {
         stand.getPersistentDataContainer().set(
                 ownership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
-        stand.getPersistentDataContainer().set(
-                ownership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_MANUAL);
+        stand.getPersistentDataContainer().set(ownership.brewModeKey(), PersistentDataType.STRING, mode);
         stand.update();
+    }
+
+    @Test
+    void manualOwnerGrantsWithManualMultiplier() {
+        markOwned(BrewOwnership.MODE_MANUAL);
 
         listener.onBrew(brewEvent());
 
@@ -97,11 +105,7 @@ class NativeSkillExperienceListenerBrewTest {
 
     @Test
     void automatedOwnerGrantsWithAutoMultiplier() {
-        stand.getPersistentDataContainer().set(
-                ownership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
-        stand.getPersistentDataContainer().set(
-                ownership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_AUTO);
-        stand.update();
+        markOwned(BrewOwnership.MODE_AUTO);
 
         listener.onBrew(brewEvent());
 
@@ -117,25 +121,57 @@ class NativeSkillExperienceListenerBrewTest {
 
     @Test
     void ownerPdcIsAlwaysClearedAfterward() {
-        stand.getPersistentDataContainer().set(
-                ownership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
-        stand.getPersistentDataContainer().set(
-                ownership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_MANUAL);
-        stand.update();
+        markOwned(BrewOwnership.MODE_MANUAL);
+
+        listener.onBrew(brewEvent());
+        server.getScheduler().performOneTick();
+
+        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(currentStand()).isEmpty());
+        org.junit.jupiter.api.Assertions.assertFalse(ownership.isAutomated(currentStand()));
+    }
+
+    /**
+     * <b>W-112 / W-124 の回帰ガード</b>: 所有者PDCの消去を {@link BrewEvent} の<b>最中</b>に
+     * やってはいけない。消去は {@code stand.update()} を伴い、
+     * {@code CraftBlockEntityState#update()} はスナップショットのNBTを丸ごと実体へ load するので、
+     * イベント後に走る Paper の {@code doBrew}（{@code items.set(...)} と
+     * {@code ingredient.shrink(1)}）が<b>醸造台から切り離された孤児</b>へ書くことになり、
+     * 素材が減らず瓶も変換されない（＝醸造が一切完成しない）。
+     *
+     * <p>MockBukkit の {@code update()} は実体へ書き戻さないため、この巻き戻し自体は再現できない。
+     * そこで「イベント中に消去していないこと」＝<b>消去が次tickへ回っていること</b>を固定する。
+     * この判定を落とすには消去をイベント中へ戻すしかないので、真因の再発を確実に捕まえられる。
+     */
+    @Test
+    void ownerPdcIsNotClearedDuringTheBrewEventItself() {
+        markOwned(BrewOwnership.MODE_MANUAL);
 
         listener.onBrew(brewEvent());
 
-        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(stand).isEmpty());
-        org.junit.jupiter.api.Assertions.assertFalse(ownership.isAutomated(stand));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Optional.of(player.getUniqueId()), ownership.ownerOf(currentStand()),
+                "BrewEvent の最中にブロック実体へ書き戻すと doBrew の書き込み先が孤児になる");
+
+        server.getScheduler().performOneTick();
+
+        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(currentStand()).isEmpty(),
+                "次tickでは消えていること(手動レートが後続の醸造へ持ち越されないため)");
+    }
+
+    /** 醸造台が壊されていても次tickの消去が落ちない。 */
+    @Test
+    void deferredClearSurvivesTheStandBeingBroken() {
+        markOwned(BrewOwnership.MODE_MANUAL);
+
+        listener.onBrew(brewEvent());
+        stand.getBlock().setType(Material.AIR);
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> server.getScheduler().performOneTick());
     }
 
     @Test
     void configuredIngredientStageOverridesFlatFallback() {
-        stand.getPersistentDataContainer().set(
-                ownership.lastBrewerKey(), PersistentDataType.STRING, player.getUniqueId().toString());
-        stand.getPersistentDataContainer().set(
-                ownership.brewModeKey(), PersistentDataType.STRING, BrewOwnership.MODE_MANUAL);
-        stand.update();
+        markOwned(BrewOwnership.MODE_MANUAL);
         BrewerInventory contents = mock(BrewerInventory.class);
         ItemStack ingredient = mock(ItemStack.class);
         when(ingredient.getType()).thenReturn(Material.REDSTONE);
@@ -148,7 +184,8 @@ class NativeSkillExperienceListenerBrewTest {
         listener.onBrew(event);
 
         verify(dispatcher).grant(player.getUniqueId(), SkillId.ALCHEMY, 200.0); // 100 * manual 2.0
-        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(stand).isEmpty());
+        server.getScheduler().performOneTick();
+        org.junit.jupiter.api.Assertions.assertTrue(ownership.ownerOf(currentStand()).isEmpty());
     }
 
     @Test

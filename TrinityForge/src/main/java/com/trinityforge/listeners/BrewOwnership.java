@@ -58,6 +58,30 @@ import java.util.UUID;
  * <p><b>PDC の書き戻し</b>: {@link BrewingStand} は {@link org.bukkit.block.TileState} なので、
  * {@code getPersistentDataContainer()} で書いた値は<b>スナップショット側</b>に乗る。
  * {@code stand.update()} を呼ぶまで実体へ反映されない(このクラスの write は必ず update() する)。
+ *
+ * <h2>⚠️⚠️ このクラスのメソッドを {@code BrewEvent} の最中に呼んではいけない（W-112 / W-124）</h2>
+ * {@code CraftBlockEntityState#update()} は PDC だけを書き戻すのではなく、
+ * <b>スナップショットの NBT を丸ごと</b>実体へ {@code loadWithComponents} する。
+ * {@code BrewingStandBlockEntity#loadAdditional} は {@code items} フィールドを
+ * <b>新しい {@code NonNullList} へ差し替える</b>ので、Paper の {@code doBrew} が
+ * イベント<b>前</b>に掴んでいた素材 {@code ItemStack} とアイテムリストは
+ * <b>醸造台から切り離された孤児</b>になる。その結果 {@code items.set(...)} も
+ * {@code ingredient.shrink(1)} も実体に届かず、
+ * <b>素材が減らない・瓶が変換されない・EXP だけ入る・燃料は戻らない</b>という
+ * 「醸造が一切完成しない」状態になる（2026-07-27 から 2026-08-19 まで実際にそうなっていた）。
+ *
+ * <p>したがって醸造完了時の {@link #clear} は
+ * {@code BukkitScheduler#runTask} で<b>次 tick</b>へ回し、
+ * <b>その時点で {@code Block#getState()} を取り直す</b>こと
+ * （{@link NativeSkillExperienceListener#clearBrewOwner} が唯一の呼び口）。
+ * 投入時の {@link #rememberOwner} / {@link #replaceOwner} / {@link #markAutomated} は
+ * <b>クリック/ホッパー移送がバニラに適用される前</b>に走るため、
+ * スナップショット＝現在の中身で書き戻しが実質 no-op になり、この問題を起こさない
+ * （＝これらは次 tick へ回してはいけない。同じ tick 内で解放ゲートが所有者を読むため）。
+ *
+ * <p><b>MockBukkit の {@code update()} は実体へ書き戻さないので、この事故はテストでは再現しない。</b>
+ * 代わりに {@code NativeSkillExperienceListenerBrewTest#ownerPdcIsNotClearedDuringTheBrewEventItself}
+ * が「消去が次 tick である」ことを固定している。
  */
 public final class BrewOwnership {
 
