@@ -39,6 +39,11 @@ public final class SettingsGui implements Listener {
 
     private static final int SIZE = 54;
     private static final int TOGGLE_SLOT = 4;
+    /**
+     * メール受信箱への入口(2026-08-19 / W-155)。ユーザー要望「tfのメニューからも受け取れるように」。
+     * 統合メニューは W-28 で廃止済みなので、いま全員が開ける画面の中ではここが一番近い。
+     */
+    private static final int MAIL_SLOT = 0;
     // 2026-07-25 gather-rework-active-framework §2 B-2: 採取プレイヤートグル4種、同じ0行目の空きスロットへ。
     private static final int GATHER_TOGGLE_VEIN_MINING_SLOT = 5;
     private static final int GATHER_TOGGLE_TREE_FELL_SLOT = 6;
@@ -60,10 +65,13 @@ public final class SettingsGui implements Listener {
     private final NamespacedKey titleKey;
     private final NamespacedKey particleKey;
     private final NamespacedKey toggleKey;
+    private final NamespacedKey mailKey;
     private final NamespacedKey gatherToggleKey;
     private final NamespacedKey titlePageKey;
     private final NamespacedKey particlePageKey;
     private Consumer<Player> onTitleChanged = p -> { };
+    /** メール受信箱を開くフック。メール機能の初期化に失敗した回は null のままで、ボタンも出さない。 */
+    private Consumer<Player> onOpenMail;
     private Consumer<Player> onParticleChanged = p -> { };
 
     public SettingsGui(Plugin plugin, SpecialRewardsConfig config, SpecialRewardService rewardService) {
@@ -73,9 +81,15 @@ public final class SettingsGui implements Listener {
         this.titleKey = new NamespacedKey(plugin, "settings_gui_title");
         this.particleKey = new NamespacedKey(plugin, "settings_gui_particle");
         this.toggleKey = new NamespacedKey(plugin, "settings_gui_toggle");
+        this.mailKey = new NamespacedKey(plugin, "settings_gui_mail");
         this.gatherToggleKey = new NamespacedKey(plugin, "settings_gui_gather_toggle");
         this.titlePageKey = new NamespacedKey(plugin, "settings_gui_title_page");
         this.particlePageKey = new NamespacedKey(plugin, "settings_gui_particle_page");
+    }
+
+    /** メール受信箱を開くフック({@code MailInboxGui::open})。未設定ならボタンを描かない。 */
+    public void setOnOpenMail(Consumer<Player> onOpenMail) {
+        this.onOpenMail = onOpenMail;
     }
 
     /** 称号の装備/解除が確定した直後に呼ばれるフック(頭上表示の張り直し用)。 */
@@ -113,6 +127,9 @@ public final class SettingsGui implements Listener {
         PlayerData playerData = PlayerData.of(player);
         boolean hideOthers = playerData.hideOthersCosmetics();
         inventory.setItem(TOGGLE_SLOT, toggleButton(hideOthers));
+        if (onOpenMail != null) {
+            inventory.setItem(MAIL_SLOT, mailButton());
+        }
 
         // 2026-07-25 gather-rework-active-framework §2 B-2: 採取プレイヤートグル4種。
         inventory.setItem(GATHER_TOGGLE_VEIN_MINING_SLOT, gatherToggleButton(
@@ -187,6 +204,19 @@ public final class SettingsGui implements Listener {
         meta.displayName(Component.text(label, NamedTextColor.YELLOW)
                 .decoration(TextDecoration.ITALIC, false));
         meta.getPersistentDataContainer().set(key, PersistentDataType.INTEGER, targetPage);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    /** メール受信箱を開くボタン(2026-08-19 / W-155)。 */
+    private ItemStack mailButton() {
+        ItemStack stack = new ItemStack(Material.CHEST_MINECART);
+        ItemMeta meta = stack.getItemMeta();
+        meta.displayName(Component.text("メール受信箱", NamedTextColor.GOLD));
+        meta.lore(List.of(
+                Component.text("運営から届いたメールを受け取る", NamedTextColor.GRAY),
+                Component.text("/tf mail でも開けます", NamedTextColor.DARK_GRAY)));
+        meta.getPersistentDataContainer().set(mailKey, PersistentDataType.BYTE, (byte) 1);
         stack.setItemMeta(meta);
         return stack;
     }
@@ -313,6 +343,14 @@ public final class SettingsGui implements Listener {
         Integer nextParticlePage = meta.getPersistentDataContainer().get(particlePageKey, PersistentDataType.INTEGER);
         if (nextParticlePage != null) {
             open(player, titlePage, nextParticlePage);
+            return;
+        }
+        if (meta.getPersistentDataContainer().has(mailKey, PersistentDataType.BYTE)) {
+            Consumer<Player> openMail = onOpenMail;
+            if (openMail != null) {
+                player.closeInventory();
+                openMail.accept(player);
+            }
             return;
         }
         if (meta.getPersistentDataContainer().has(toggleKey, PersistentDataType.BYTE)) {

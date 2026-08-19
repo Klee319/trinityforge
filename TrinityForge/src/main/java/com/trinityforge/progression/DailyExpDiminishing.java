@@ -61,6 +61,24 @@ public final class DailyExpDiminishing {
          * 前回返した倍率そのものを覚える。
          */
         private double lastMultiplier = 1.0;
+        /**
+         * <b>逓減が発動した時刻</b>（倍率が初めて 1.0 を下回った瞬間）。等倍なら 0
+         *（2026-08-19 / W-154、ユーザー指示「一度かかったら24時間で強制解除して100%へ戻す」）。
+         *
+         * <p><b>なぜ「最終更新から24時間」ではないのか</b>: ユーザーの選択は
+         * 「<b>逓減が発動した時刻から</b>24時間」。稼ぎ続けている間も時計は進み、
+         * 24時間経てば必ず等倍へ戻る。指数減衰だけだと 24 時間放置しても
+         * {@code e^-1 ≒ 37%} が残る（＝一度下がると戻り切らない）ので、
+         * この期限が無いと「ロックが解けない」という体感になる。
+         */
+        private long lockedAtMillis;
+        /**
+         * 逓減が掛かっているか。<b>{@code lockedAtMillis > 0} で代用してはいけない</b> ——
+         * 時計を 0 から進めるテストでは「発動時刻 0」が「未発動」と区別できず、期限が永久に来ない
+         *（実際にそれで落ちた）。実運用の {@code currentTimeMillis} が 0 を返さないことに
+         * 依存した書き方をしない。
+         */
+        private boolean locked;
 
         Window(long nowMillis) {
             this.updatedAtMillis = nowMillis;
@@ -122,6 +140,9 @@ public final class DailyExpDiminishing {
         double multiplier;
         double accumulated;
         synchronized (window) {
+            // 24時間経過での強制解除を先に見る（W-154）。ここで解除しないと、期限切れの蓄積に
+            // 今回の付与を足した値で倍率を決めてしまい、解除された瞬間にまた下がる。
+            releaseIfExpired(settings, window, now);
             long elapsed = Math.max(0L, now - window.updatedAtMillis);
             if (elapsed > 0L && window.amount > 0.0) {
                 window.amount = window.amount * Math.exp(-((double) elapsed) / settings.windowMillis());
@@ -134,8 +155,51 @@ public final class DailyExpDiminishing {
             multiplier = multiplierFor(settings, accumulated);
             previous = window.lastMultiplier;
             window.lastMultiplier = multiplier;
+            stampLock(window, multiplier, now);
         }
         return new Applied(multiplier, previous, accumulated);
+    }
+
+    /**
+     * 期限（{@link Settings#lockReleaseMillis}）を過ぎた逓減を<b>完全に解除</b>する
+     * （2026-08-19 / W-154）。呼び出し側は {@code window} を保持していること。
+     *
+     * <p>解除は「蓄積をゼロに戻す」であって「倍率だけ 1.0 に見せる」ではない。倍率だけ戻すと、
+     * 次の付与で蓄積がそのまま効いて即座に下がり直し、プレイヤーからは<b>解除されていないのと同じ</b>に見える。
+     *
+     * @return 解除したなら true
+     */
+    private static boolean releaseIfExpired(Settings settings, Window window, long now) {
+        if (settings == null || settings.lockReleaseMillis() <= 0.0 || !window.locked) {
+            return false;
+        }
+        if (now - window.lockedAtMillis < settings.lockReleaseMillis()) {
+            return false;
+        }
+        window.amount = 0.0;
+        window.lastMultiplier = 1.0;
+        window.locked = false;
+        window.lockedAtMillis = 0L;
+        window.updatedAtMillis = now;
+        return true;
+    }
+
+    /**
+     * 逓減の発動時刻を打つ／解除する（2026-08-19 / W-154）。
+     *
+     * <p>等倍へ戻ったら時刻を落とす —— 落とさないと、自然回復で等倍に戻ってからまた下がったときに
+     * <b>前回の発動時刻のまま</b>期限を数えることになり、下がった直後に解除される。
+     */
+    private static void stampLock(Window window, double multiplier, long now) {
+        if (multiplier < 1.0) {
+            if (!window.locked) {
+                window.locked = true;
+                window.lockedAtMillis = now;
+            }
+        } else {
+            window.locked = false;
+            window.lockedAtMillis = 0L;
+        }
     }
 
     /**
@@ -309,6 +373,12 @@ public final class DailyExpDiminishing {
         }
         long now = clock.getAsLong();
         synchronized (window) {
+            // 期限切れ（W-154）は「もう蓄積は無い」と読む。ここで見ないと、表示だけが
+            // 解除前の倍率を出し続け、実際の付与（consumeDetailed 側で解除される）と食い違う。
+            if (settings.lockReleaseMillis() > 0.0 && window.locked
+                    && now - window.lockedAtMillis >= settings.lockReleaseMillis()) {
+                return 0.0;
+            }
             long elapsed = Math.max(0L, now - window.updatedAtMillis);
             if (elapsed <= 0L || window.amount <= 0.0) {
                 return window.amount;
@@ -345,7 +415,17 @@ public final class DailyExpDiminishing {
      * @param amount          減衰前の蓄積量
      * @param updatedAtMillis その量が有効だった時刻
      */
-    public record WindowSnapshot(String skillId, double amount, long updatedAtMillis) { }
+    public record WindowSnapshot(String skillId, double amount, long updatedAtMillis,
+                                 long lockedAtMillis) {
+
+        /**
+         * 逓減の発動時刻を持たない旧形式（2026-08-19 / W-154 より前）。
+         * <b>0 = 未発動</b>として扱う。既存の呼び出し・テストを壊さないために残してある。
+         */
+        public WindowSnapshot(String skillId, double amount, long updatedAtMillis) {
+            this(skillId, amount, updatedAtMillis, 0L);
+        }
+    }
 
     /** そのプレイヤーの全スキルぶんの保存用スナップショット（状態は進めない）。 */
     public List<WindowSnapshot> snapshot(UUID playerId) {
@@ -361,7 +441,9 @@ public final class DailyExpDiminishing {
             Window window = e.getValue();
             synchronized (window) {
                 if (window.amount > 0.0) {
-                    out.add(new WindowSnapshot(e.getKey(), window.amount, window.updatedAtMillis));
+                    // 未発動は 0 で表す(実運用の currentTimeMillis は 0 を返さないので衝突しない)。
+                    out.add(new WindowSnapshot(e.getKey(), window.amount, window.updatedAtMillis,
+                            window.locked ? window.lockedAtMillis : 0L));
                 }
             }
         }
@@ -392,6 +474,12 @@ public final class DailyExpDiminishing {
             if (!Double.isFinite(entry.amount()) || entry.amount() <= 0.0) {
                 continue;
             }
+            // 期限切れ（W-154）の行は復元しない。復元してしまうと、ログインし直すたびに
+            // 解除済みのロックが蘇る（＝期限が事実上無くなる）。
+            if (settings.lockReleaseMillis() > 0.0 && entry.lockedAtMillis() > 0L
+                    && now - entry.lockedAtMillis() >= settings.lockReleaseMillis()) {
+                continue;
+            }
             long offline = Math.max(0L, now - entry.updatedAtMillis());
             double carried = entry.amount()
                     * Math.exp(-((double) offline) / settings.windowMillis());
@@ -410,6 +498,14 @@ public final class DailyExpDiminishing {
                 window.updatedAtMillis = now;
                 window.amount += carried;
                 window.lastMultiplier = multiplierFor(settings, window.amount);
+                // 発動時刻は「早い方」を採る（W-154）。遅い方を採ると、サーバ移動や再ログインの
+                // たびに期限が延びて、24時間経っても解除されない。
+                if (entry.lockedAtMillis() > 0L
+                        && (!window.locked || entry.lockedAtMillis() < window.lockedAtMillis)) {
+                    window.locked = true;
+                    window.lockedAtMillis = entry.lockedAtMillis();
+                }
+                stampLock(window, window.lastMultiplier, now);
             }
         }
     }
@@ -423,9 +519,12 @@ public final class DailyExpDiminishing {
      * @param decayPerAmount  1段あたりの倍率（0.8 なら1段ごとに現在の80%＝20%減る）
      * @param floor           倍率の下限（0 にすると完全に稼げなくなるので必ず 0 より大きくする）
      * @param exemptSkills    逓減しないスキルID
+     * @param lockReleaseMillis 逓減が発動してからこの時間が経ったら<b>蓄積ごとゼロに戻して等倍へ戻す</b>
+     *                          （2026-08-19 / W-154、既定 24時間）。0 なら期限なし（従来どおり指数減衰だけで戻る）
      */
     public record Settings(boolean enabled, double windowMillis, double perAmount,
-                           double decayPerAmount, double floor, Set<String> exemptSkills) {
+                           double decayPerAmount, double floor, Set<String> exemptSkills,
+                           double lockReleaseMillis) {
 
         public Settings {
             windowMillis = Math.max(1.0, windowMillis);
@@ -433,10 +532,22 @@ public final class DailyExpDiminishing {
             decayPerAmount = Math.max(0.0, Math.min(1.0, decayPerAmount));
             floor = Math.max(0.0, Math.min(1.0, floor));
             exemptSkills = exemptSkills == null ? Set.of() : Set.copyOf(exemptSkills);
+            lockReleaseMillis = Double.isFinite(lockReleaseMillis) && lockReleaseMillis > 0.0
+                    ? lockReleaseMillis : 0.0;
+        }
+
+        /**
+         * 強制解除を持たない旧形式（2026-08-19 / W-154 より前）。既存の呼び出し・テストを
+         * 壊さないために残してある。{@code lockReleaseMillis = 0} ＝<b>期限なし</b>
+         *（指数減衰だけで戻る従来の挙動）。
+         */
+        public Settings(boolean enabled, double windowMillis, double perAmount,
+                        double decayPerAmount, double floor, Set<String> exemptSkills) {
+            this(enabled, windowMillis, perAmount, decayPerAmount, floor, exemptSkills, 0.0);
         }
 
         /** 逓減なし。 */
         public static final Settings DISABLED =
-                new Settings(false, 86_400_000.0, 1.0, 1.0, 1.0, Set.of());
+                new Settings(false, 86_400_000.0, 1.0, 1.0, 1.0, Set.of(), 0.0);
     }
 }

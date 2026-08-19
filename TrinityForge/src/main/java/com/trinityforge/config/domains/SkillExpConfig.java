@@ -89,6 +89,8 @@ public final class SkillExpConfig {
      * この機構は「既にある」と思われていたが実在せず、あったのは spot-diminishing(同一地点)だけだった。
      * 既定は無効なので、yml に書くまで挙動は変わらない。
      */
+    /** {@link #dailyDiminishingResetId()}。空文字 = 一括解除を要求していない。 */
+    private volatile String dailyDiminishingResetId = "";
     private volatile com.trinityforge.progression.DailyExpDiminishing.Settings dailyDiminishing =
             com.trinityforge.progression.DailyExpDiminishing.Settings.DISABLED;
     // --- 2026-07-26 EXP調整タスク1: 採取EXPの算出方式 ---
@@ -316,6 +318,19 @@ public final class SkillExpConfig {
     /** 日次逓減の設定(daily-diminishing)。無効時は {@code Settings.DISABLED}。 */
     public com.trinityforge.progression.DailyExpDiminishing.Settings dailyDiminishing() {
         return dailyDiminishing;
+    }
+
+    /**
+     * 日次逓減の蓄積を<b>全員ぶん1回だけ</b>消すための合言葉({@code daily-diminishing.reset-id})。
+     *
+     * <p>2026-08-19 W-154 のユーザー指示「修正時に全員の既にかかっているロックを解除したい」用。
+     * 起動時に、DBへ記録してある「前回適用した値」と違っていれば {@code daily_exp_window} を
+     * 全削除し、この値を記録する。<b>フラグ(true/false)ではなく合言葉にしてある</b>のは、
+     * true のままだと再起動のたびに消えて逓減が永久に効かなくなり、false へ戻し忘れると
+     * その事故が誰にも気づかれないため。空文字なら何もしない。
+     */
+    public String dailyDiminishingResetId() {
+        return dailyDiminishingResetId;
     }
 
     // --- TT/放置対策: 同一地点の逓減 (spot-diminishing) ---
@@ -619,7 +634,16 @@ public final class SkillExpConfig {
                 yaml.getDouble("daily-diminishing.per-amount", 150000.0),
                 yaml.getDouble("daily-diminishing.decay-per-amount", 1.0),
                 yaml.getDouble("daily-diminishing.floor", 0.25),
-                new java.util.HashSet<>(yaml.getStringList("daily-diminishing.exempt-skills")));
+                new java.util.HashSet<>(yaml.getStringList("daily-diminishing.exempt-skills")),
+                // 2026-08-19 W-154(ユーザー指示「一度かかったら24時間で強制解除して100%へ戻す」)。
+                // 0 を書くと期限なし = 指数減衰だけで戻る従来の挙動(24時間放置しても約37%残る)。
+                Math.max(0.0, yaml.getDouble("daily-diminishing.lock-release-hours", 24.0))
+                        * 3_600_000.0);
+        // 2026-08-19 W-154: 「修正時に全員の既にかかっているロックを解除したい」。
+        // この文字列を書き換えると、次回起動時に daily_exp_window の全行を1回だけ削除する
+        // (適用済みの値をDBに残すので、再起動を繰り返しても2度は消えない)。
+        this.dailyDiminishingResetId =
+                String.valueOf(yaml.getString("daily-diminishing.reset-id", "")).trim();
         this.spotDiminishingEnabled = yaml.getBoolean("spot-diminishing.enabled", true);
         this.spotDiminishingRadius = Math.max(1.0, yaml.getDouble("spot-diminishing.radius", 24.0));
         this.spotDiminishingWindowSeconds =

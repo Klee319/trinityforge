@@ -145,6 +145,54 @@ class TitleDisplayServiceTest {
         assertEquals(standing, TitleDisplayService.titleAnchorY(Double.NaN, 0.4), 1e-9);
     }
 
+    /**
+     * <b>2026-08-19 / W-153</b>: 実サーバ報告「称号の位置がネームタグと同期していない。
+     * 少し遅れてついてくる」への対処でクライアント騎乗へ移した。騎乗した乗客の描画基準は
+     * 足元ではなく<b>取付点(高さ×0.75)</b>になるので、平行移動はその差分でなければならない。
+     * ここを当て推量の定数にしていたのが 2026-08-02 以前の「称号が名前に重なる」バグの正体。
+     */
+    @Test
+    void mountTranslationIsTheGapBetweenTheAttachmentPointAndTheTitleAnchor() {
+        double height = 1.8;
+        double eyes = 1.62;
+        double clearance = 0.4;
+
+        double translation = TitleDisplayService.mountTranslationY(height, eyes, clearance);
+
+        assertEquals(TitleDisplayService.titleAnchorY(height, eyes, clearance) - height * 0.75,
+                translation, 1e-9, "平行移動は『置きたい絶対高さ - 取付点』でなければならない");
+        // 取付点 + 平行移動 が、置きたい絶対高さに一致すること(= 実際の描画位置が正しい)。
+        assertEquals(TitleDisplayService.titleAnchorY(height, eyes, clearance),
+                height * 0.75 + translation, 1e-9);
+    }
+
+    @Test
+    void mountedTitleStaysAboveTheVanillaNametagForEveryPosture() {
+        // 立ち / スニーク / 搭乗(当たり判定が縮み目線が上に残る) の3姿勢で、
+        // 取付点 + 平行移動 が必ずバニラのネームタグ(高さ+0.5)より上にあること。
+        double[][] postures = {{1.8, 1.62}, {1.5, 1.27}, {0.6, 1.27}};
+        for (double[] posture : postures) {
+            double height = posture[0];
+            double eyes = posture[1];
+            for (double clearance : new double[] {0.0, 0.1, 0.4, 1.0}) {
+                double rendered = height * 0.75
+                        + TitleDisplayService.mountTranslationY(height, eyes, clearance);
+                assertTrue(rendered >= height + 0.5,
+                        "騎乗時の描画高さ " + rendered + " がネームタグ(" + (height + 0.5)
+                                + ")より下。名前が隠れるバグへ逆戻りしている");
+            }
+        }
+    }
+
+    @Test
+    void brokenHeightDoesNotBlowUpTheMountTranslation() {
+        // 高さが壊れた値でも 1.8 として扱い、取付点もその 1.8 で引く(式の両側が同じ既定を使う)。
+        assertEquals(TitleDisplayService.mountTranslationY(1.8, 1.62, 0.4),
+                TitleDisplayService.mountTranslationY(Double.NaN, 1.62, 0.4), 1e-9);
+        assertEquals(TitleDisplayService.mountTranslationY(1.8, 1.62, 0.4),
+                TitleDisplayService.mountTranslationY(-1.0, 1.62, 0.4), 1e-9);
+    }
+
     @Test
     void refreshWithNoEquippedTitleNeverSpawnsAnythingAndNeverReadsTheClearance() {
         AtomicInteger reads = new AtomicInteger();

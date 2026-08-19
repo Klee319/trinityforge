@@ -22,6 +22,8 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Transformation;
+import org.joml.Vector3f;
 
 import java.util.Map;
 import java.util.Objects;
@@ -60,6 +62,22 @@ import java.util.function.Function;
  * <b>パッセンジャーが付いたエンティティはプラグインからのテレポートを妨げる</b>という
  * 旧実装のもう1つの欠陥(ダンジョン入口の転送が失敗しうる)も同時に消えている。
  *
+ * <h2>2026-08-19 (W-153): 追従のズレは「クライアント騎乗」で構造的に消した</h2>
+ * 実サーバ報告「称号の位置がネームタグの位置と同期していない。少し遅れてついてきている」。
+ * <b>毎tickテレポート追従では原理的に直らない</b> ── クライアントはプレイヤー本体と表示体を
+ * 別々に補間する(本体は移動パケットを既定3tickかけて補間、表示体は {@code teleport_duration} ぶん)ので、
+ * 補間長をどう合わせても両者が同じ動きにはならない。W-135 で補間長を更新間隔に揃えて<b>揺れ</b>は
+ * 消えたが、<b>ズレ</b>はこの理由で残っていた。
+ *
+ * <p>Paper のドキュメントが勧めるとおり表示体をパッセンジャーにすればズレは構造的に消えるが、
+ * <b>サーバ側で本当に騎乗させると乗騎のテレポートが無言で失敗する</b>(PaperMC/Paper#10168。
+ * {@code PlayerTeleportEvent} すら発火しないので他プラグインからは原因が見えない)。
+ * そこで {@link TitleDisplayMountBridge} が<b>パケットだけ</b>で騎乗させる ──
+ * サーバ側は独立エンティティのままなのでテレポートを一切妨げない。
+ * 騎乗中の描画基準は取付点(高さ×0.75)になるので、{@link #mountTranslationY} が
+ * 「置きたい絶対高さ − 取付点」を {@link Transformation} の平行移動として与える。
+ * packetevents 未導入の環境では騎乗せず、従来のテレポート追従のまま動く(ズレは残るが表示は出る)。
+ *
  * <p>{@code FocusHpDisplay} と同じ「死亡位置に浮遊残留させない」規律も維持する: 死亡/リスポーン/
  * ログアウトで確実に despawn し、リスポーン/参加では {@code textResolver} 経由で現在の装備称号を
  * 取得して張り直す。非永続 + {@link PdcKeys#TITLE_DISPLAY} タグ付けで孤児掃除
@@ -89,6 +107,15 @@ public final class TitleDisplayService implements Listener {
     private static final double VANILLA_NAMETAG_OFFSET = 0.5;
     /** {@link #nametagClearance} が壊れた値(NaN/負)を返したときのフォールバック。 */
     private static final double FALLBACK_CLEARANCE = 0.4;
+    /**
+     * 乗客(パッセンジャー)の描画基準になる取付点の高さ比率。バニラ既定の
+     * {@code EntityAttachments} は {@code 高さ × 0.75} をパッセンジャー取付点に置く。
+     * Minecraft 側の定数であり設定値ではない(config にすると「バニラの描画位置」という
+     * 観測事実が設定ミスでずれ、称号がまた名前に重なる余地を作る)。
+     */
+    private static final double VANILLA_PASSENGER_ATTACHMENT_RATIO = 0.75;
+    /** 平行移動を metadata で撃ち直す閾値(ブロック)。これ未満の変化は無視して通信量を抑える。 */
+    private static final double TRANSLATION_EPSILON = 0.01;
 
     private final Plugin plugin;
     /** プレイヤーの現在の装備称号MiniMessage文字列を返す(未装備/未保有なら null)。 */
@@ -96,6 +123,19 @@ public final class TitleDisplayService implements Listener {
     /** ネームタグ上端からさらに上へ空ける余白(ブロック)。config駆動、reloadで次tickから反映。 */
     private final DoubleSupplier nametagClearance;
     private final Map<UUID, TextDisplay> active = new ConcurrentHashMap<>();
+    /**
+     * パケット層のクライアント騎乗に使う「乗騎(プレイヤー)と称号表示の entity id 対」
+     * (2026-08-19 / W-153)。<b>キーは両者の entity id</b>(どちらの SPAWN_ENTITY を見ても
+     * 同じ対が引けるようにするため)。値は {@code {乗騎id, 乗客id}}。
+     *
+     * <p>パケット層は netty のスレッドから読むので {@link ConcurrentHashMap} で持つ。
+     * Bukkit の API をそちらから触らずに済むよう、必要な id だけをここへ写しておく。
+     */
+    private final Map<Integer, int[]> mountPairsByEntityId = new ConcurrentHashMap<>();
+    /** 直近に適用した平行移動のY(表示ごと)。metadata パケットを毎tick撒かないための差分判定用。 */
+    private final Map<UUID, Double> appliedTranslationY = new ConcurrentHashMap<>();
+    /** パケット層のクライアント騎乗が実際に動いているか({@code TitleDisplayMountBridge} が立てる)。 */
+    private volatile boolean mountBridgeActive;
     private BukkitTask task;
 
     public TitleDisplayService(Plugin plugin, Function<Player, String> textResolver, DoubleSupplier nametagClearance) {
@@ -138,6 +178,48 @@ public final class TitleDisplayService implements Listener {
         return Math.max(height, eyes) + VANILLA_NAMETAG_OFFSET + gap;
     }
 
+    /**
+     * クライアント騎乗させたときの、表示エンティティに与える<b>平行移動のY</b>(2026-08-19 / W-153)。
+     *
+     * <p>騎乗した乗客の描画基準は足元ではなく<b>乗騎のパッセンジャー取付点</b>
+     * (バニラ既定は {@code 高さ × 0.75})になる。称号を置きたいのは
+     * {@link #titleAnchorY(double, double, double)} が返す<b>足元からの絶対高さ</b>なので、
+     * 差分だけを {@link Transformation} の平行移動で足す。
+     *
+     * <p><b>ここを当て推量で書いたのが 2026-08-02 以前のバグの正体</b>(オフセットに config 値を
+     * そのまま入れていたため、ネームタグに重なって名前が読めなかった)。取付点を式に明示して
+     * 引き算する形にしてあるので、どの clearance を入れてもネームタグより下には来ない。
+     */
+    static double mountTranslationY(double playerHeight, double eyeHeight, double clearance) {
+        double height = Double.isFinite(playerHeight) && playerHeight > 0 ? playerHeight : 1.8;
+        return titleAnchorY(playerHeight, eyeHeight, clearance)
+                - height * VANILLA_PASSENGER_ATTACHMENT_RATIO;
+    }
+
+    /**
+     * {@code entityId}(乗騎でも乗客でもよい)に対応する {@code {乗騎id, 乗客id}}。
+     * 無ければ {@code null}。<b>パケット層(netty スレッド)から呼ばれる</b>ので Bukkit API を触らない。
+     */
+    public int[] mountPairFor(int entityId) {
+        return mountPairsByEntityId.get(entityId);
+    }
+
+    /**
+     * パケット層のクライアント騎乗が有効になったことを通知する({@code TitleDisplayMountBridge} が呼ぶ)。
+     *
+     * <p>true の間だけ表示体へ平行移動を載せる。false のまま平行移動を載せると、
+     * 騎乗していない(＝実座標がそのまま描画位置になる)フォールバック経路で
+     * <b>称号が二重にせり上がる</b>。
+     */
+    public void setMountBridgeActive(boolean active) {
+        this.mountBridgeActive = active;
+    }
+
+    /** 現在の全ペア(新規に張り直すとき用)。 */
+    public java.util.Collection<int[]> mountPairs() {
+        return mountPairsByEntityId.values();
+    }
+
     public void start() {
         sweepOrphans();
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -157,6 +239,8 @@ public final class TitleDisplayService implements Listener {
             safeRemove(display);
         }
         active.clear();
+        mountPairsByEntityId.clear();
+        appliedTranslationY.clear();
     }
 
     /** 装備状態(称号テキスト)に合わせて表示を張り直す。称号未装備/死亡中/オフラインなら消すのみ。 */
@@ -207,6 +291,10 @@ public final class TitleDisplayService implements Listener {
             }
             display.setTeleportDuration(TELEPORT_DURATION_TICKS);
             display.teleport(anchor);
+            // 実座標の追従はクライアント騎乗中も残す —— 描画位置はもう乗騎側で決まるが、
+            // エンティティ追跡(誰に見えるか)は実座標で決まるので、置き去りにすると
+            // 遠くのプレイヤーから称号が消える。
+            syncMountTranslation(player, display);
         }
     }
 
@@ -231,10 +319,53 @@ public final class TitleDisplayService implements Listener {
             d.text(text);
         });
         active.put(player.getUniqueId(), display);
+        // クライアント騎乗用のペア台帳(2026-08-19 / W-153)。乗騎・乗客どちらの id からも引けるようにする。
+        int[] pair = {player.getEntityId(), display.getEntityId()};
+        mountPairsByEntityId.put(pair[0], pair);
+        mountPairsByEntityId.put(pair[1], pair);
+        appliedTranslationY.remove(player.getUniqueId());
+        syncMountTranslation(player, display);
+    }
+
+    /**
+     * クライアント騎乗中の平行移動を現在の姿勢に合わせる(2026-08-19 / W-153)。
+     *
+     * <p>スニークや乗り物で {@code getHeight()} が縮むと取付点も称号の目標高さも動くので、
+     * 差分である平行移動も動かす必要がある。metadata パケットになるため、
+     * {@link #TRANSLATION_EPSILON} 以上動いたときだけ書く。
+     *
+     * <p>騎乗ブリッジが動いていない環境(packetevents 未導入)では<b>何もしない</b> ——
+     * その場合の描画位置は実座標そのものなので、平行移動を足すと二重にせり上がる。
+     */
+    private void syncMountTranslation(Player player, TextDisplay display) {
+        if (!mountBridgeActive) {
+            return;
+        }
+        double translationY = mountTranslationY(
+                player.getHeight(), player.getEyeHeight(), nametagClearance.getAsDouble());
+        Double previous = appliedTranslationY.get(player.getUniqueId());
+        if (previous != null && Math.abs(previous - translationY) < TRANSLATION_EPSILON) {
+            return;
+        }
+        Transformation transformation = display.getTransformation();
+        display.setTransformation(new Transformation(
+                new Vector3f(0.0f, (float) translationY, 0.0f),
+                transformation.getLeftRotation(),
+                transformation.getScale(),
+                transformation.getRightRotation()));
+        appliedTranslationY.put(player.getUniqueId(), translationY);
     }
 
     private void despawn(UUID playerId) {
-        safeRemove(active.remove(playerId));
+        TextDisplay display = active.remove(playerId);
+        appliedTranslationY.remove(playerId);
+        if (display != null) {
+            int[] pair = mountPairsByEntityId.remove(display.getEntityId());
+            if (pair != null) {
+                mountPairsByEntityId.remove(pair[0]);
+            }
+        }
+        safeRemove(display);
     }
 
     private static void safeRemove(Entity entity) {

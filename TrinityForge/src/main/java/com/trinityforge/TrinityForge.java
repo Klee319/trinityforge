@@ -165,6 +165,12 @@ public final class TrinityForge extends JavaPlugin {
             new com.trinityforge.progression.DailyExpDiminishing();
     /** 逓減の蓄積の永続化先(共有 player_progression.db)。 */
     private com.trinityforge.progression.infrastructure.sqlite.DailyExpWindowStore dailyExpWindowStore;
+    /** メール(W-155)。受信箱は共有DBに置く —— 送信者がログアウト中でも届くという要件のため。 */
+    private com.trinityforge.mail.MailStore mailStore;
+    private com.trinityforge.mail.MailService mailService;
+    private com.trinityforge.mail.MailInboxGui mailInboxGui;
+    private com.trinityforge.mail.MailComposeGui mailComposeGui;
+    private com.trinityforge.command.MailCommand mailCommand;
     private com.trinityforge.progression.DailyExpWindowPersistence dailyExpPersistence;
     private org.bukkit.scheduler.BukkitTask dailyExpAutosaveTask;
     private NativeProgressionAdminService progressionAdminService;
@@ -194,6 +200,8 @@ public final class TrinityForge extends JavaPlugin {
      * 型解決が走らないよう、あえて packetevents の型ではなく {@link Runnable} で保持する。
      */
     private Runnable damageIndicatorUninstaller;
+    /** 称号のクライアント騎乗(任意依存 packetevents)の登録解除。未導入なら null のまま。 */
+    private Runnable titleMountUninstaller;
     private ItemFactory itemFactory;
     /** {@link #loreComposer()} の実体。{@code inertStatKeys} 配線済みの1本を共有する。 */
     private LoreComposer loreComposer;
@@ -299,6 +307,24 @@ public final class TrinityForge extends JavaPlugin {
             this.dailyExpWindowStore =
                     new com.trinityforge.progression.infrastructure.sqlite.DailyExpWindowStore(
                             "jdbc:sqlite:" + database.getAbsolutePath());
+            // 2026-08-19 W-154(ユーザー指示「修正時に全員の既にかかっているロックを解除したい」)。
+            // stats/skill-exp.yml の daily-diminishing.reset-id を書き換えたときだけ、
+            // 起動時に1回だけ全員の蓄積を消す(適用済みの値をDBに残すので再起動では2度消えない)。
+            try {
+                int cleared = dailyExpWindowStore.applyResetIfRequested(
+                        configManager.skillExp().dailyDiminishingResetId());
+                if (cleared >= 0) {
+                    getLogger().info("[skill-exp] daily-diminishing.reset-id の変更を検出したため、"
+                            + "日次逓減の蓄積を全員ぶん解除しました(" + cleared + " 行)。");
+                }
+            } catch (java.sql.SQLException ex) {
+                // 解除できなくても逓減自体は従来どおり動く。起動は止めない。
+                getLogger().warning("[skill-exp] 日次逓減の一括解除に失敗しました: " + ex);
+            }
+            // メール(2026-08-19 / W-155)も同じ共有DBへ。受信箱をプレイヤーPDCに置くと
+            // 「送信者がログアウト中でも送れる」という要件が成立しない(PDCはオンラインにしか書けない)。
+            this.mailStore = new com.trinityforge.mail.MailStore(
+                    "jdbc:sqlite:" + database.getAbsolutePath());
             this.progressionCatalog = NativeSkillCatalog.loadDataFolder(
                     getDataFolder(), getClassLoader());
             this.skillLevelSource = new NativeSkillLevelSource(progressionRepository);
@@ -835,6 +861,22 @@ public final class TrinityForge extends JavaPlugin {
         settingsGui.setOnTitleChanged(titleDisplayService::refresh);
         settingsGui.setOnParticleChanged(particleEffectService::invalidate);
         getServer().getPluginManager().registerEvents(settingsGui, this);
+        // メール(2026-08-19 / W-155)。受信箱・送信GUI・参加時の通知。
+        // 宛先の「送信時点で存在するプレイヤー」は進行DBの listPlayerIds() から取る
+        // (usercache はバックエンドごとに別物なので、共有DBを見ないと資源サーバ側の人が抜ける)。
+        if (mailStore != null) {
+            this.mailService = new com.trinityforge.mail.MailService(
+                    this, mailStore, () -> progressionRepository.listPlayerIds());
+            getServer().getPluginManager().registerEvents(mailService, this);
+            this.mailInboxGui = new com.trinityforge.mail.MailInboxGui(this, mailService);
+            getServer().getPluginManager().registerEvents(mailInboxGui, this);
+            this.mailComposeGui = new com.trinityforge.mail.MailComposeGui(this, mailService);
+            getServer().getPluginManager().registerEvents(mailComposeGui, this);
+            this.mailCommand = new com.trinityforge.command.MailCommand(
+                    mailInboxGui, mailComposeGui, TrinityForge::isTfAdmin);
+            settingsGui.setOnOpenMail(mailInboxGui::open);
+            mailService.purgeOldMailAsync();
+        }
         this.settingsCommand = new com.trinityforge.command.SettingsCommand(settingsGui);
         // /tf catalog: カタログ閲覧・配布GUI(2026-08-05)。Java版はサーバからクリエイティブ
         // タブへ項目を足せないので、同じ用途をサーバ側の画面で満たす。
@@ -1276,6 +1318,7 @@ public final class TrinityForge extends JavaPlugin {
         damagePopupDisplay.start();
 
         installDamageIndicatorLimiter();
+        installTitleDisplayMountBridge();
 
         // 称号頭上表示(パッセンジャーTextDisplay) + パーティクル演出の周期タスク開始。
         titleDisplayService.start();
@@ -1343,6 +1386,34 @@ public final class TrinityForge extends JavaPlugin {
         }
     }
 
+    /**
+     * 称号の表示体をクライアント側でだけプレイヤーへ騎乗させる(任意依存、2026-08-19 / W-153)。
+     *
+     * <p>実サーバ報告「称号の位置がネームタグと同期していない。少し遅れてついてくる」への対処。
+     * サーバ側で本当に騎乗させると<b>そのプレイヤーのテレポートが無言で失敗する</b>
+     * (PaperMC/Paper#10168)ので、パケットだけで騎乗させる。
+     * packetevents が無ければ {@link com.trinityforge.progression.TitleDisplayMountBridge} を
+     * <b>参照してはならない</b>(クラスロードが {@link NoClassDefFoundError} になる)。
+     * 未導入時は従来のテレポート追従のまま動く(ズレは残るが表示は出る)。
+     */
+    private void installTitleDisplayMountBridge() {
+        if (titleDisplayService == null) {
+            return;
+        }
+        if (getServer().getPluginManager()
+                .getPlugin(com.trinityforge.progression.TitleDisplayMountBridge.PACKETEVENTS_PLUGIN) == null) {
+            getLogger().info("[title-display] packetevents が未導入のため、称号はテレポート追従で表示します"
+                    + "(ネームタグとの追従に僅かなズレが残ります)。");
+            return;
+        }
+        try {
+            this.titleMountUninstaller =
+                    com.trinityforge.progression.TitleDisplayMountBridge.install(this, titleDisplayService);
+        } catch (Throwable ex) { // NoClassDefFoundError も含めて握る — 表示だけの機能で起動を止めない
+            getLogger().warning("[title-display] 称号のクライアント騎乗を有効化できませんでした: " + ex);
+        }
+    }
+
     @Override
     public void onDisable() {
         // Stop the sweep task and drop all tracked threat so a disable/hot-reload leaks nothing.
@@ -1382,6 +1453,14 @@ public final class TrinityForge extends JavaPlugin {
                 getLogger().warning("[display] damage_indicator パーティクル上限の登録解除に失敗しました: " + ex);
             }
             damageIndicatorUninstaller = null;
+        }
+        if (titleMountUninstaller != null) {
+            try {
+                titleMountUninstaller.run();
+            } catch (Throwable ex) {
+                getLogger().warning("[title-display] 称号のクライアント騎乗の登録解除に失敗しました: " + ex);
+            }
+            titleMountUninstaller = null;
         }
         // DamagePopupDisplay has no shutdown(): its displays are one-shot and so short-lived (default
         // 15 ticks = 0.75s) that forced cleanup on disable is unnecessary — each already schedules its
@@ -1434,6 +1513,10 @@ public final class TrinityForge extends JavaPlugin {
             dailyExpWindowStore.close();
             dailyExpWindowStore = null;
         }
+        if (mailStore != null) {
+            mailStore.close();
+            mailStore = null;
+        }
         try {
             if (experienceDispatcher != null) {
                 experienceDispatcher.close();
@@ -1480,7 +1563,7 @@ public final class TrinityForge extends JavaPlugin {
                                     || src.getSender().hasPermission("trinityforge.use"))
                             .executes(ctx -> {
                                 ctx.getSource().getSender().sendMessage(Component.text(
-                                        "用法: /tf <menu|reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
+                                        "用法: /tf <mail|reload|skills|achievement|start|stop|progression|give|bind|stamp|import|dungeon|stats|status|role|collection|recipes|glyphs|settings|reward|inspect>",
                                         NamedTextColor.YELLOW));
                                 ctx.getSource().getSender().sendMessage(Component.text(
                                         "※ reload/progression/give/bind/stamp/import/dungeon/reward は OP または trinityforge.admin が必要です。",
@@ -1778,6 +1861,15 @@ public final class TrinityForge extends JavaPlugin {
                             .then(glyphsCommand.node())
                             .then(settingsCommand.node())
                             .then(catalogCommand.node())
+                            .then(mailCommand == null
+                                    ? io.papermc.paper.command.brigadier.Commands.literal("mail")
+                                            .executes(ctx -> {
+                                                ctx.getSource().getSender().sendMessage(Component.text(
+                                                        "メール機能は初期化に失敗しています(サーバログを確認してください)。",
+                                                        NamedTextColor.RED));
+                                                return 0;
+                                            })
+                                    : mailCommand.node())
                             // /tf menu(統合メニュー)は 2026-08-05 (W-28) に廃止。
                             // 入口が二重化するとどちらが正か分からなくなるため復活させない。
                             .then(specialRewardCommand.node()

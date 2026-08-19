@@ -208,4 +208,109 @@ class DailyExpWindowPersistenceTest {
         persistence.load(player);
         assertEquals(1.0, daily.status(settings(), player, "MINING").multiplier(), 1e-9);
     }
+
+    // ------------------------------------------------------------------
+    // 2026-08-19 / W-154: 24時間での強制解除と、全員ぶんの一括解除
+    // ------------------------------------------------------------------
+
+    /** 発動から24時間で強制解除する設定。 */
+    private static DailyExpDiminishing.Settings settingsWithRelease() {
+        return new DailyExpDiminishing.Settings(true, 24 * HOUR, 1000.0, 0.5, 0.25, Set.of(), 24 * HOUR);
+    }
+
+    @Test
+    @DisplayName("W-154: 逓減の発動時刻も永続化される（保存→復元で期限が延びない）")
+    void theLockTimestampSurvivesASaveAndLoad() throws SQLException {
+        UUID player = UUID.randomUUID();
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        long lockedAt = now.get();
+        daily.consume(settingsWithRelease(), player, "MINING", 50_000.0);
+
+        store.save(player, daily.snapshot(player), settingsWithRelease().windowMillis());
+        List<DailyExpDiminishing.WindowSnapshot> loaded = store.load(player);
+
+        assertEquals(1, loaded.size());
+        assertEquals(lockedAt, loaded.get(0).lockedAtMillis(),
+                "発動時刻を保存していないと、入り直すたびに期限が後ろへずれて24時間経っても解除されない");
+
+        // 24時間後にログインし直した体で復元 → 期限切れなので何も戻らない（＝等倍）。
+        now.set(lockedAt + (long) (24 * HOUR) + 1L);
+        DailyExpDiminishing fresh = new DailyExpDiminishing(now::get);
+        fresh.restore(settingsWithRelease(), player, loaded);
+        assertEquals(1.0, fresh.status(settingsWithRelease(), player, "MINING").multiplier(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("W-154: reset-id を変えたときだけ全員ぶんが1回消える（再起動で2度は消えない）")
+    void theResetTokenClearsEveryoneExactlyOnce() throws SQLException {
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        daily.consume(settings(), a, "MINING", 50_000.0);
+        daily.consume(settings(), b, "WOODCUTTING", 50_000.0);
+        store.save(a, daily.snapshot(a), settings().windowMillis());
+        store.save(b, daily.snapshot(b), settings().windowMillis());
+        assertFalse(store.load(a).isEmpty());
+        assertFalse(store.load(b).isEmpty());
+
+        assertEquals(2, store.applyResetIfRequested("2026-08-19-w154"), "2人ぶん消えること");
+        assertTrue(store.load(a).isEmpty());
+        assertTrue(store.load(b).isEmpty());
+
+        // 同じ合言葉での再起動では消さない（消し続けると逓減が永久に効かなくなる）。
+        daily.consume(settings(), a, "MINING", 50_000.0);
+        store.save(a, daily.snapshot(a), settings().windowMillis());
+        assertEquals(-1, store.applyResetIfRequested("2026-08-19-w154"));
+        assertFalse(store.load(a).isEmpty(), "同じ reset-id では2度目は消さないこと");
+
+        // 別の合言葉にすればもう一度消える。
+        assertEquals(1, store.applyResetIfRequested("2026-09-01-again"));
+        assertTrue(store.load(a).isEmpty());
+    }
+
+    @Test
+    @DisplayName("W-154: 空の reset-id は何もしない（既定で勝手に消さない）")
+    void anEmptyResetTokenIsANoOp() throws SQLException {
+        UUID player = UUID.randomUUID();
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        daily.consume(settings(), player, "MINING", 50_000.0);
+        store.save(player, daily.snapshot(player), settings().windowMillis());
+
+        assertEquals(-1, store.applyResetIfRequested(""));
+        assertEquals(-1, store.applyResetIfRequested(null));
+        assertFalse(store.load(player).isEmpty());
+    }
+
+    @Test
+    @DisplayName("W-154: locked_at 列が無い既存DBでも開ける（CREATE TABLE IF NOT EXISTS は列を足さない）")
+    void anOlderDatabaseWithoutTheLockColumnIsMigrated() throws SQLException {
+        // 旧スキーマ（locked_at 無し）のDBを直接作る。実サーバのDBはこの形なので、
+        // ここを通らないと「新品の環境だけ動く」修正になる。
+        java.io.File file;
+        try {
+            file = java.io.File.createTempFile("tf-daily-exp-migration", ".db");
+        } catch (java.io.IOException ex) {
+            throw new AssertionError(ex);
+        }
+        file.deleteOnExit();
+        String url = "jdbc:sqlite:" + file.getAbsolutePath();
+        try (java.sql.Connection c = java.sql.DriverManager.getConnection(url);
+             java.sql.Statement st = c.createStatement()) {
+            st.executeUpdate("CREATE TABLE daily_exp_window ("
+                    + "player_uuid TEXT NOT NULL, skill_id TEXT NOT NULL,"
+                    + " amount REAL NOT NULL, updated_at INTEGER NOT NULL,"
+                    + " PRIMARY KEY (player_uuid, skill_id))");
+            st.executeUpdate("INSERT INTO daily_exp_window VALUES ('"
+                    + UUID.nameUUIDFromBytes("old".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    + "', 'MINING', 12345.0, 1000000)");
+        }
+
+        try (DailyExpWindowStore migrated = new DailyExpWindowStore(url, now::get)) {
+            List<DailyExpDiminishing.WindowSnapshot> rows = migrated.load(
+                    UUID.nameUUIDFromBytes("old".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            assertEquals(1, rows.size(), "旧DBの行が読めなくなっている");
+            assertEquals(12345.0, rows.get(0).amount(), 1e-9);
+            assertEquals(0L, rows.get(0).lockedAtMillis(), "既存行は未発動(0)として読むこと");
+        }
+    }
 }

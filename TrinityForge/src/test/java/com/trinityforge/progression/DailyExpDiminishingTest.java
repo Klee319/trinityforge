@@ -234,6 +234,105 @@ class DailyExpDiminishingTest {
         assertEquals("42,300", DailyExpRateText.exp(42_300.0));
     }
 
+    /** W-154: 逓減の発動から24時間で強制解除する設定（それ以外は {@link #settings()} と同じ）。 */
+    private static DailyExpDiminishing.Settings settingsWithRelease() {
+        return new DailyExpDiminishing.Settings(true, 24 * HOUR, 1000.0, 0.5, 0.25, Set.of(), 24 * HOUR);
+    }
+
+    @Test
+    @DisplayName("W-154: 逓減が発動してから24時間で、稼ぎ続けていても等倍へ強制解除される")
+    void lockIsForciblyReleasedAfterTheConfiguredHours() {
+        AtomicLong now = new AtomicLong(0L);
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+
+        // 発動（0時間目）: 2段目まで落として下限に張り付かせる
+        daily.consume(settingsWithRelease(), player, "MINING", 2500.0);
+        assertTrue(daily.status(settingsWithRelease(), player, "MINING").multiplier() < 1.0,
+                "前提: この時点で逓減が掛かっていること");
+
+        // 23時間後: 稼ぎ続けているので、まだ解除されない
+        now.set((long) (23 * HOUR));
+        daily.consume(settingsWithRelease(), player, "MINING", 1000.0);
+        assertTrue(daily.status(settingsWithRelease(), player, "MINING").multiplier() < 1.0,
+                "期限前に解除されている。24時間より早く戻ってはいけない");
+
+        // 24時間後: 発動時刻から24時間なので、稼ぎ続けていても解除される
+        now.set((long) (24 * HOUR) + 1L);
+        assertEquals(1.0, daily.consume(settingsWithRelease(), player, "MINING", 10.0), 1e-9,
+                "発動から24時間経ったら等倍へ戻ること（ユーザー指示: 一度かかったら24時間で強制解除）");
+        assertEquals(1.0, daily.status(settingsWithRelease(), player, "MINING").multiplier(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("W-154: 解除は倍率だけでなく蓄積ごとゼロにする（直後の1回でまた落ちない）")
+    void releaseClearsTheAccumulationNotJustTheMultiplier() {
+        AtomicLong now = new AtomicLong(0L);
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+
+        daily.consume(settingsWithRelease(), player, "MINING", 50_000.0); // 下限まで叩き落とす
+        now.set((long) (24 * HOUR) + 1L);
+
+        // 解除直後の付与。蓄積が残っていれば即座に下限へ戻るので、ここが 1.0 であることが
+        // 「蓄積ごと消えた」ことの証明になる（倍率だけ戻す実装だとここで 0.25 になる）。
+        assertEquals(1.0, daily.consume(settingsWithRelease(), player, "MINING", 900.0), 1e-9);
+        assertTrue(daily.accumulated(settingsWithRelease(), player, "MINING") < 1000.0,
+                "蓄積が持ち越されている");
+    }
+
+    @Test
+    @DisplayName("W-154: 期限が0（未設定）なら従来どおり指数減衰だけで戻る＝24時間でも戻り切らない")
+    void withoutTheReleaseTheOldExponentialBehaviourIsUnchanged() {
+        AtomicLong now = new AtomicLong(0L);
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+
+        daily.consume(settings(), player, "MINING", 50_000.0);
+        now.set((long) (24 * HOUR) + 1L);
+
+        // e^-1 ≒ 0.37 しか減らないので、まだ下がったまま（これが報告の「戻らない」状態）。
+        assertTrue(daily.status(settings(), player, "MINING").multiplier() < 1.0,
+                "期限なし設定の挙動を変えてはいけない（既定は後方互換）");
+    }
+
+    @Test
+    @DisplayName("W-154: 等倍へ自然回復したら発動時刻を捨てる（次に落ちた直後に解除されない）")
+    void theLockClockRestartsAfterRecoveringToFullRate() {
+        AtomicLong now = new AtomicLong(0L);
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+
+        daily.consume(settingsWithRelease(), player, "MINING", 1500.0); // 1段落ちる（発動）
+        // 十分に時間を空けて自然回復させる（期限より手前で等倍へ戻す）
+        now.set((long) (20 * HOUR));
+        assertEquals(1.0, daily.consume(settingsWithRelease(), player, "MINING", 1.0), 1e-9,
+                "前提: 20時間の指数減衰で等倍へ戻っていること");
+
+        // 21時間目に再び落とす。発動時刻を捨てていなければ、24時間目（＝3時間後）に解除されてしまう。
+        now.set((long) (21 * HOUR));
+        daily.consume(settingsWithRelease(), player, "MINING", 2500.0);
+        now.set((long) (24 * HOUR) + 1L);
+        assertTrue(daily.status(settingsWithRelease(), player, "MINING").multiplier() < 1.0,
+                "2回目の発動は、その発動時刻から24時間数え直すこと");
+    }
+
+    @Test
+    @DisplayName("W-154: 期限切れの保存行は復元しない（ログインし直しでロックが蘇らない）")
+    void expiredSnapshotsAreNotRestored() {
+        AtomicLong now = new AtomicLong((long) (30 * HOUR));
+        DailyExpDiminishing daily = new DailyExpDiminishing(now::get);
+        UUID player = UUID.randomUUID();
+
+        // 5時間目に発動して保存された行（＝現在 30時間目なので、既に25時間経っている）
+        daily.restore(settingsWithRelease(), player, java.util.List.of(
+                new DailyExpDiminishing.WindowSnapshot("MINING", 50_000.0,
+                        (long) (29 * HOUR), (long) (5 * HOUR))));
+
+        assertEquals(1.0, daily.status(settingsWithRelease(), player, "MINING").multiplier(), 1e-9,
+                "期限切れの行を復元すると、入り直すたびにロックが蘇って期限が事実上無くなる");
+    }
+
     @Test
     @DisplayName("floor は Settings 側で 0〜1 にクランプされる（0除算や増幅を作らない）")
     void settingsClampsRanges() {

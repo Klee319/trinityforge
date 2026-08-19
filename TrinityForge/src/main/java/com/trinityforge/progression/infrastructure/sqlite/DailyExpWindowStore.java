@@ -58,15 +58,35 @@ public final class DailyExpWindowStore implements AutoCloseable {
             + "    PRIMARY KEY (player_uuid, skill_id)\n"
             + ")";
 
+    /**
+     * 逓減の発動時刻の列(2026-08-19 / W-154)。<b>既存DBには無いので後付けする</b>
+     * ({@link #CREATE_TABLE} は {@code IF NOT EXISTS} なので、既に表がある環境では列定義の変更が
+     * 一切反映されない —— ここを忘れると「新品の環境だけ動いて実サーバでは動かない」という
+     * 一番気づきにくい形で壊れる)。
+     */
+    private static final String ADD_LOCKED_AT_COLUMN =
+            "ALTER TABLE daily_exp_window ADD COLUMN locked_at INTEGER NOT NULL DEFAULT 0";
+
+    /** 一括解除(W-154)の「適用済みの合言葉」を覚えておく表。 */
+    private static final String CREATE_META_TABLE =
+            "CREATE TABLE IF NOT EXISTS daily_exp_meta (\n"
+            + "    key   TEXT PRIMARY KEY,\n"
+            + "    value TEXT NOT NULL\n"
+            + ")";
+
+    private static final String RESET_ID_KEY = "reset_id";
+
     private static final String SELECT =
-            "SELECT skill_id, amount, updated_at FROM daily_exp_window WHERE player_uuid = ?";
+            "SELECT skill_id, amount, updated_at, locked_at FROM daily_exp_window "
+            + "WHERE player_uuid = ?";
 
     private static final String UPSERT =
-            "INSERT INTO daily_exp_window (player_uuid, skill_id, amount, updated_at)\n"
-            + "VALUES (?, ?, ?, ?)\n"
+            "INSERT INTO daily_exp_window (player_uuid, skill_id, amount, updated_at, locked_at)\n"
+            + "VALUES (?, ?, ?, ?, ?)\n"
             + "ON CONFLICT(player_uuid, skill_id) DO UPDATE SET\n"
             + "    amount     = excluded.amount,\n"
-            + "    updated_at = excluded.updated_at";
+            + "    updated_at = excluded.updated_at,\n"
+            + "    locked_at  = excluded.locked_at";
 
     private static final String DELETE_ROW =
             "DELETE FROM daily_exp_window WHERE player_uuid = ? AND skill_id = ?";
@@ -106,6 +126,14 @@ public final class DailyExpWindowStore implements AutoCloseable {
                 s.execute("PRAGMA journal_mode = WAL");
                 s.execute("PRAGMA synchronous = NORMAL");
                 s.executeUpdate(CREATE_TABLE);
+                s.executeUpdate(CREATE_META_TABLE);
+                // 既存DBへの列追加。2回目以降は「duplicate column name」で失敗するのが正常。
+                // SQLite の ALTER TABLE は IF NOT EXISTS を持たないので、例外で判定するしかない。
+                try {
+                    s.executeUpdate(ADD_LOCKED_AT_COLUMN);
+                } catch (SQLException alreadyMigrated) {
+                    // 列は既にある。何もしない。
+                }
             }
             this.stmtSelect = c.prepareStatement(SELECT);
             this.stmtUpsert = c.prepareStatement(UPSERT);
@@ -130,7 +158,7 @@ public final class DailyExpWindowStore implements AutoCloseable {
         try (ResultSet rs = stmtSelect.executeQuery()) {
             while (rs.next()) {
                 out.add(new DailyExpDiminishing.WindowSnapshot(
-                        rs.getString(1), rs.getDouble(2), rs.getLong(3)));
+                        rs.getString(1), rs.getDouble(2), rs.getLong(3), rs.getLong(4)));
             }
         }
         return out;
@@ -180,6 +208,7 @@ public final class DailyExpWindowStore implements AutoCloseable {
                 stmtUpsert.setString(2, entry.skillId());
                 stmtUpsert.setDouble(3, keep);
                 stmtUpsert.setLong(4, now);
+                stmtUpsert.setLong(5, earlierLock(entry, stored));
                 stmtUpsert.executeUpdate();
             }
             conn.commit();
@@ -196,6 +225,76 @@ public final class DailyExpWindowStore implements AutoCloseable {
         Objects.requireNonNull(playerId, "playerId");
         stmtDeletePlayer.setString(1, playerId.toString());
         stmtDeletePlayer.executeUpdate();
+    }
+
+    /**
+     * 逓減の発動時刻は<b>早い方</b>を残す(2026-08-19 / W-154)。
+     *
+     * <p>蓄積量と違って「大きい方」ではない。遅い方を採ると、メイン⇄資源のサーバ移動や再ログインの
+     * たびに期限が後ろへずれて、<b>24時間経っても解除されない</b>。0 は「未発動」なので候補から外す。
+     */
+    private static long earlierLock(DailyExpDiminishing.WindowSnapshot incoming,
+                                    DailyExpDiminishing.WindowSnapshot stored) {
+        long a = incoming == null ? 0L : incoming.lockedAtMillis();
+        long b = stored == null ? 0L : stored.lockedAtMillis();
+        if (a <= 0L) {
+            return Math.max(0L, b);
+        }
+        if (b <= 0L) {
+            return a;
+        }
+        return Math.min(a, b);
+    }
+
+    /**
+     * 合言葉が前回適用したものと違えば、<b>全プレイヤーの蓄積を1回だけ全消し</b>する
+     * (2026-08-19 / W-154、ユーザー指示「修正時に全員の既にかかっているロックを解除したい」)。
+     *
+     * <p>適用済みの合言葉をDBへ残すので、再起動を繰り返しても2度は消えない。
+     * <b>フラグ(true/false)にしなかった理由</b>: true のままだと再起動のたびに消えて逓減が
+     * 永久に効かなくなり、false へ戻し忘れてもその事故が誰にも気づかれない。
+     *
+     * @return 実際に削除した行数。要求が無い/適用済みなら {@code -1}
+     */
+    public synchronized int applyResetIfRequested(String resetId) throws SQLException {
+        if (resetId == null || resetId.isBlank()) {
+            return -1;
+        }
+        String applied = null;
+        try (PreparedStatement select =
+                     conn.prepareStatement("SELECT value FROM daily_exp_meta WHERE key = ?")) {
+            select.setString(1, RESET_ID_KEY);
+            try (ResultSet rs = select.executeQuery()) {
+                if (rs.next()) {
+                    applied = rs.getString(1);
+                }
+            }
+        }
+        if (resetId.equals(applied)) {
+            return -1;
+        }
+        boolean autoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+        try {
+            int deleted;
+            try (Statement s = conn.createStatement()) {
+                deleted = s.executeUpdate("DELETE FROM daily_exp_window");
+            }
+            try (PreparedStatement upsert = conn.prepareStatement(
+                    "INSERT INTO daily_exp_meta (key, value) VALUES (?, ?)\n"
+                    + "ON CONFLICT(key) DO UPDATE SET value = excluded.value")) {
+                upsert.setString(1, RESET_ID_KEY);
+                upsert.setString(2, resetId);
+                upsert.executeUpdate();
+            }
+            conn.commit();
+            return deleted;
+        } catch (SQLException | RuntimeException e) {
+            try { conn.rollback(); } catch (SQLException ignored) { /* 元の例外を潰さない */ }
+            throw e;
+        } finally {
+            conn.setAutoCommit(autoCommit);
+        }
     }
 
     private static double decayTo(long now, DailyExpDiminishing.WindowSnapshot row, double window) {
