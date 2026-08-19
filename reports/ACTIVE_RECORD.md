@@ -2413,6 +2413,26 @@ EliteMobs の `PreventUpgradeDiamondToNetherite`（エリート装備のネザ�
   （`BedrockSmithingAssistListenerTest` 10 件で固定。base と addition の両方に一致する物は
   **addition を優先して横取りしない**ことも含む）。
 
+**自己レビューで見つけて直した欠陥（アイテム消滅）**: `HumanEntity#openInventory(InventoryView)` は
+**戻り値が void で、`InventoryOpenEvent` がキャンセルされると CraftBukkit は何もせず黙って返る**
+（`CraftEventFactory#callInventoryOpenEventWithTitle` が container=null を返す経路。Paper のソースで確認）。
+初版は成否を見ずに手持ちを消していたので、**キャンセルされた瞬間にアイテムが消える**。
+現在は「手持ちを消す → 差し込む → 開く → 開けたか中身で確認 → 駄目なら巻き戻して手に返す」にしてある。
+どの瞬間もアイテムの実体が手持ちか鍛冶台のどちらか一方にしか無いので、複製にも消滅にも倒れない。
+`openedWith` を `return true`（＝初版の挙動）へ差し戻すとテスト 2 件が実際に落ちることを確認済み。
+
+**分かっている制限**:
+
+- 補助が効くのは「**アイテムを持って鍛冶台を右クリック**」のときだけ。開いた後にインベントリから
+  base スロットへドラッグする経路は統合版では依然できない（クライアント側判定なので手が無い）。
+  差し込み時にアクションバーで知らせている。
+- 保護系プラグインが `PlayerInteractEvent` を **HIGHEST で** DENY する構成だと、こちらが HIGH なので
+  先に開いてしまう。現在の構成には該当プラグインが無いので HIGH のままにしてある
+  （HIGHEST へ動かすと TF 自身の `CatalogVanillaOperationGuardListener`(HIGHEST) との順序が変わる）。
+- `MenuType` は `@ApiStatus.Experimental`。
+- ハンドラ本体（右クリック横取り）は MockBukkit で組み立てられないので、テストは
+  **判定関数（横取りするか / 開けたか）だけ**を固定している。
+
 **実機確認が残っている**（統合版クライアントが要るのでエージェントには取れない）:
 ダイヤの弓／クロスボウを持って鍛冶台を右クリック → base スロットに入るか → ネザライト強化が成立するか →
 ちらつきが消えるか。**トリムとバニラのネザライト強化が今までどおり動くこと**も併せて見る。

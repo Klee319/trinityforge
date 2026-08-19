@@ -1,7 +1,10 @@
 package com.trinityforge.smithing;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.SmithingRecipe;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.util.List;
 import java.util.UUID;
@@ -141,6 +145,43 @@ class BedrockSmithingAssistListenerTest {
         assertTrue(BedrockSmithingAssistListener.isBedrockId(
                 UUID.fromString("00000000-0000-0000-0009-0123456789ab")));
         assertTrue(BedrockSmithingAssistListener.isBedrockId(new UUID(0L, 1L)));
+    }
+
+    /**
+     * <b>アイテム消滅の再発防止。</b> {@code openInventory(InventoryView)} は戻り値が void で、
+     * {@code InventoryOpenEvent} がキャンセルされると CraftBukkit は何もせず黙って返る
+     * ({@code CraftEventFactory#callInventoryOpenEventWithTitle} が container=null を返す経路)。
+     * 成否を見ずに手持ちを消すと、そのときアイテムが消える。
+     *
+     * <p>ここは「開かなかった」= プレイヤーが自分のクラフトビューのままである状態を模す。
+     */
+    @Test
+    void openedWithIsFalseWhenNothingWasOpened() {
+        PlayerMock player = MockBukkit.getMock().addPlayer();
+
+        assertFalse(BedrockSmithingAssistListener.openedWith(player, new ItemStack(Material.BOW)));
+    }
+
+    /** 差し込んだアイテムを持った鍛冶台が開いていれば成功と判定する(＝手持ちを消してよい)。 */
+    @Test
+    void openedWithIsTrueWhenSmithingViewHoldsThePlacedItem() {
+        PlayerMock player = MockBukkit.getMock().addPlayer();
+        Inventory smithing = Bukkit.createInventory(null, InventoryType.SMITHING);
+        smithing.setItem(1, new ItemStack(Material.BOW));
+        player.openInventory(smithing);
+
+        assertTrue(BedrockSmithingAssistListener.openedWith(player, new ItemStack(Material.BOW)));
+    }
+
+    /** 鍛冶台は開いたが base スロットが別物なら成功と見なさない(巻き戻して手持ちへ返す)。 */
+    @Test
+    void openedWithIsFalseWhenBaseSlotHoldsSomethingElse() {
+        PlayerMock player = MockBukkit.getMock().addPlayer();
+        Inventory smithing = Bukkit.createInventory(null, InventoryType.SMITHING);
+        smithing.setItem(1, new ItemStack(Material.DIAMOND_SWORD));
+        player.openInventory(smithing);
+
+        assertFalse(BedrockSmithingAssistListener.openedWith(player, new ItemStack(Material.BOW)));
     }
 
     /** Java 版の正規 UUID は version 4 = 上位 64bit に version ビットが立つので必ず非 0。 */

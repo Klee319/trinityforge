@@ -124,15 +124,42 @@ public final class BedrockSmithingAssistListener implements Listener {
             return; // 想定外。何も奪わない(手持ちはそのまま)
         }
         Inventory top = view.getTopInventory();
+        ItemStack moved = held.clone();
+        // 手持ちを先に消してから差し込む。どの瞬間もアイテムの実体が
+        // 「手持ち」か「鍛冶台」のどちらか一方にしか無いようにするため。
+        player.getInventory().setItemInMainHand(null);
         // 開く前に差し込む。開いた後だと空→充填の 2 パケットになり、
         // 今回直そうとしている「ちらつき」を自分で作ることになる。
-        top.setItem(BASE_SLOT, held.clone());
-        // 手持ちを消すのは openInventory が成功してから。ここで先に消すと
-        // 開けなかったときにアイテムが宙に浮いたビューごと消える。
+        top.setItem(BASE_SLOT, moved);
         player.openInventory(view);
-        player.getInventory().setItemInMainHand(null);
+
+        // openInventory は戻り値が void だが、InventoryOpenEvent が
+        // キャンセルされると CraftHumanEntity は何もせず黙って返る
+        // (CraftEventFactory#callInventoryOpenEventWithTitle が container=null を返す経路)。
+        // 成否を見ずに手持ちを消すと、そのときアイテムが消滅する。
+        if (!openedWith(player, moved)) {
+            top.setItem(BASE_SLOT, null);
+            player.getInventory().setItemInMainHand(moved);
+            player.updateInventory();
+            return;
+        }
         player.updateInventory();
         player.sendActionBar(PLACED_MESSAGE);
+    }
+
+    /**
+     * 差し込んだアイテムを持った鍛冶台が実際に開いたか。
+     *
+     * <p>ビューの同一性ではなく<b>中身で</b>判定する。実装側がビューを包み直しても
+     * 誤って「開けなかった」に倒れないため。キャンセルされた場合の
+     * {@link Player#getOpenInventory()} はプレイヤー自身のクラフトビューなので、
+     * {@link SmithingInventory} でない時点で判別できる。
+     */
+    static boolean openedWith(Player player, ItemStack placed) {
+        InventoryView open = player.getOpenInventory();
+        return open != null
+                && open.getTopInventory() instanceof SmithingInventory smithing
+                && placed.isSimilar(smithing.getItem(BASE_SLOT));
     }
 
     /** この補助の対象か(統合版プレイヤー、または動作確認用の権限保持者)。 */
