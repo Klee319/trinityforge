@@ -1183,6 +1183,7 @@ W-117/W-118 のコミットには**自分のブロックだけを index に載�
 | W-135 | 称号が揺れる／トロッコ搭乗など姿勢変化時に視界を塞ぐ | ✅ 対応（下記） |
 | W-136 | 軽武器と重武器だけ討伐EXPが少ない（Lv80 エンダーマンで 1600 程度） | ✅ 対応（`720253c`。下記） |
 | W-137 | ランキングに全スキルが用意されていない（魔法・重武器など一部レベルだけ） | ✅ 対応（UserRankBoard `f6225fc`。下記） |
+| W-138 | 職業バフが付いていない人がまだいる（確認しているのは火炎耐性＝きこり） | ✅ **真因確定・修正済（配備待ち）**。参加時の再付与が HuskSync の snapshot 適用より前で毎回消されていた（下記） |
 
 #### W-137 スキル別ランキングは 12 件が config で無効にされていた
 
@@ -1463,6 +1464,54 @@ ArsPaper フォークの `CustomItemListener` は
 TF 側 `CatalogVanillaOperationGuardListener` は `BlockCookEvent` を塞いでいるが、
 判定が `CatalogVanillaOperationPolicy.isCatalogItem`＝**TF `items/catalog.yml` 限定**なので
 ArsPaper の `materials.yml` 品（圧縮素材・ウッドコア等）は対象外。
+
+#### W-138 職業バフ（火炎耐性）が付いていない人がいる — **真因確定・修正済**
+
+**真因は「参加時の再付与が HuskSync より前に走っていた」こと。** 症例の火炎耐性は
+`progression/role-buffs.yml` の `woodcutter`（きこり）の `potion-buff`（`FIRE_RESISTANCE` / `duration: 999999` / `amplifier: 0`）。
+
+`RoleBuffListener#onJoin` は `PlayerJoinEvent`（MONITOR）の**中で**バフを付けていた。ところが
+配備中の HuskSync（`mode: LOCKSTEP`、`features.potion_effects: true` / `persistent_data: true`）は
+**snapshot の適用が `PlayerJoinEvent` より後**で、その中身が
+
+- `PotionEffects#apply` — `for (PotionEffect e : player.getActivePotionEffects()) player.removePotionEffect(e.getType());` の**後に**保存済みの効果だけを付け直す
+- `PersistentData#apply` — `container.clearNBT()` の**後に** snapshot の PDC を merge する
+
+（どちらも HuskSync の `BukkitData` 現物）。つまり
+
+1. 参加イベントで付けたロールバフは、直後の `PotionEffects#apply` で**必ず剥がされる**
+2. そこで読んだ PDC（＝どのロールか）も、`clearNBT()` で**捨てられる前の値**だった
+
+ので、**ロールバフは一度も付け直されておらず、HuskSync の効果 snapshot に相乗りして残っていただけ**。
+残り時間は減る一方で更新されないので、`999999` tick ＝ **約 13 時間 53 分**の累計プレイで無言で切れる。
+牛乳・`/effect clear`・浄化で消えた場合も同じで、**再ログインしても戻らない**
+（戻る道は「死んでリスポーン」か「ロール変更」だけ。リスポーンは HuskSync を経由しないので次 tick 再付与が効く）。
+＝ **プレイ時間の長い人から順に落ちていく**ので「まだ付いていない人がいる」に見える。
+
+**修正（2026-08-19 実施・配備待ち）**
+
+1. `onJoin` の再付与を **40 tick（2 秒）遅延**へ。`CollectionListener#JOIN_SCAN_DELAY_TICKS` と同値・同理由
+   （このリポジトリは `RankingStatsService` / `AchievementService` / `CrossServerTeleport` でも同じ待ちを入れている。
+   **`RoleBuffListener` だけがこの処理を受けていなかった**）。
+2. **60 秒ごとの定期リフレッシュ**を新設（`RoleBuffListener#startPeriodicRefresh`、`TrinityForge.java` の
+   リスナー登録直後で 1 回だけ起動）。`role-buffs.yml` の説明文が「**常時**」と書いている以上、
+   付け直しの機会が参加／リスポーン／ロール変更しか無い設計では、そのどれか 1 つを取りこぼした瞬間に永久に落ちる。
+   これが唯一の自己修復経路で、**既に失っているプレイヤーも配備後 60 秒以内に自動で戻る**（コマンド操作は不要）。
+   弱い効果の `addPotionEffect` はバニラの効果解決で「より強い既存効果」を上書きしないので、
+   プレイヤー自身が飲んだ上位ポーションを潰すこともない。
+
+**RED 証明**: `RoleBuffListenerTest#joinReapplyIsDeferredPastTheHuskSyncSnapshotWindow`
+（イベント中に付けると `expected: <false> but was: <true>`）と
+`#periodicRefreshRestoresABuffThatWasClearedAfterJoin`
+（定期リフレッシュを潰すと `expected: <true> but was: <false>`）の 2 本が、
+それぞれ修正を戻すと落ちることを実測済み。
+
+**注意（棚卸しの限界）**: このバッチの実走時、**別セッションが作業ツリーを編集中**だったため
+（`SkillExpConfig.java` / `CatalogSmithingListener.java` / `CollectionListener.java` と yml 多数）、
+テスト総数が 4349 → 4363 に増え失敗も 26 → 27（`ShippedCompressedFoodRegistrationTest` が追加、
+内容は `carrot_1x が custom-foods に無い`＝ `food-gimmick.yml` の WIP）へ動いている。
+**自分の変更に触れる失敗は 1 件も無い**（失敗 22 クラスはいずれも `RoleBuffListener` を参照しない出荷 yml テスト、
+`RoleBuffListenerTest` 6/6・`NativeSkillExperienceListenerBrewTest` 8/8 は緑）。
 
 #### W-124 醸造ログ → ~~今回は再現しなかった~~ **真因確定（2026-08-19 夕）**
 

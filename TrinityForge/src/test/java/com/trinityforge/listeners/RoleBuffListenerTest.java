@@ -105,6 +105,56 @@ class RoleBuffListenerTest {
         assertTrue(player.hasPotionEffect(PotionEffectType.SPEED));
     }
 
+    /**
+     * <b>2026-08-19 ユーザー報告「職業バフが付いていない人がまだいる／確認しているのは火炎耐性」の回帰ガード。</b>
+     *
+     * <p>HuskSync の snapshot 適用は {@link PlayerJoinEvent} より後で、
+     * {@code PotionEffects#apply} が<b>今付いている効果を全部剥がしてから</b>保存済みの効果を付け直す。
+     * 参加イベントの中で付けると必ずその除去に巻き込まれるので、
+     * <b>参加時の再付与は遅延していなければならない</b>。
+     */
+    @Test
+    void joinReapplyIsDeferredPastTheHuskSyncSnapshotWindow() {
+        org.bukkit.plugin.Plugin plugin = MockBukkit.createMockPlugin();
+        Player player = server.addPlayer();
+        PlayerData.of(player).setRoles("tank", "digger");
+
+        RoleBuffListener listener = new RoleBuffListener(configWithDiggerSpeed(), plugin);
+        listener.onJoin(new PlayerJoinEvent(player, Component.empty()));
+
+        assertFalse(player.hasPotionEffect(PotionEffectType.SPEED),
+                "参加イベントの中で付けると HuskSync の効果差し替えに消される");
+
+        server.getScheduler().performTicks(41L);
+
+        assertTrue(player.hasPotionEffect(PotionEffectType.SPEED),
+                "HuskSync の適用が終わったあとに付け直されていない");
+    }
+
+    /**
+     * 常時バフの自己修復。牛乳・{@code /effect clear}・浄化・{@code duration} 満了・
+     * HuskSync の遅れた適用のどれで落ちても、次の定期リフレッシュで戻ること。
+     * これが無いと、一度失ったプレイヤーは<b>再ログインしても戻らない</b>。
+     */
+    @Test
+    void periodicRefreshRestoresABuffThatWasClearedAfterJoin() {
+        org.bukkit.plugin.Plugin plugin = MockBukkit.createMockPlugin();
+        Player player = server.addPlayer();
+        PlayerData.of(player).setRoles("tank", "digger");
+
+        RoleBuffListener listener = new RoleBuffListener(configWithDiggerSpeed(), plugin);
+        listener.refreshSupportBuff(player);
+        listener.startPeriodicRefresh();
+
+        player.removePotionEffect(PotionEffectType.SPEED); // 牛乳などで全消しされた状態
+        assertFalse(player.hasPotionEffect(PotionEffectType.SPEED));
+
+        server.getScheduler().performTicks(20L * 60L + 1L);
+
+        assertTrue(player.hasPotionEffect(PotionEffectType.SPEED),
+                "定期リフレッシュが無いと、一度落ちた常時バフは二度と戻らない");
+    }
+
     private static RoleBuffsConfig configWithDiggerSpeed() {
         PotionBuffSpec potion = new PotionBuffSpec(PotionEffectType.SPEED, 999_999, 0);
         SupportRoleSpec digger = new SupportRoleSpec(

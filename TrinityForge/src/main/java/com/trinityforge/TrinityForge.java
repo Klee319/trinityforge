@@ -938,6 +938,9 @@ public final class TrinityForge extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new OverEnchantListener(configManager.dedicatedEffects(), configManager.craftingFeatures()), this);
         getServer().getPluginManager().registerEvents(roleBuffListener, this);
+        // 「常時」バフの自己修復(2026-08-19)。参加/リスポーン/ロール変更だけだと、牛乳・/effect clear・
+        // duration 満了・HuskSync の遅れた snapshot 適用のどれか1つで永久に落ちる。
+        roleBuffListener.startPeriodicRefresh();
         // TF装備の砥石: エンチャ除去のみ許可し、砥石が剥がす見た目/派生ステを元のロールで復元する(U4)。
         getServer().getPluginManager().registerEvents(
                 new GrindstonePreserveListener(configManager.itemCatalog(), itemFactory), this);
