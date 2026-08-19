@@ -325,6 +325,26 @@ W-106 のオーバーレイが守るのは**リポジトリのワーキングツ
 - 逆に **TF の yml は Main へ 1 回**。「3 台に配ったつもりが同じファイルを 3 回上書きしただけ」も、
   「1 台だけ直して 2 台が古いまま」も、どちらもエラーを出さない。
 
+### ⚠ `paper-global.yml` は 3 台バラバラになる — 揃っているのは forwarding secret だけ
+`ops/templates/paper-global.yml.diff` と `apply-velocity-forwarding.ps1` が面倒を見ているのは
+**`proxies.velocity` だけ**。それ以外のキーは 3 台とも「Paper が生成した既定値＋誰かが手で触った値」で、
+**揃っている保証がまったく無い**。実際 2026-08-19 に `unsupported-settings` が食い違っていた:
+
+| キー | Main | Resource | Dev |
+|---|---|---|---|
+| `allow-permanent-block-break-exploits` | true | false | false |
+| `allow-headless-pistons` | true | false | false |
+| `allow-piston-duplication` | true | false | false |
+
+`allow-permanent-block-break-exploits` は **バニラでは可能な岩盤・エンドポータル枠の破壊を
+Paper が既定（false）で塞いでいる**スイッチ。この差のせいで「メインではできる岩盤剥がしが
+資源サーバでだけできない」という、プラグインのバグにしか見えない症状になっていた。
+
+**プラグイン側を疑う前に 3 台の `config\paper-global.yml` を diff する。**
+揃えるスクリプトは `ops/scripts/apply-block-break-exploits.ps1`（触るキーを限定・冪等・退避あり）。
+**config を書き換えても稼働中のサーバには効かない**（再起動が要る）ので、
+「直したのに変わらない」と誤診しやすい。
+
 ### DB ごとの文字コードは MariaDB に接続せずに読める
 データディレクトリは `D:\game\minecraft\PaperServer\Velocity_for_TF\TrinityForge_DB\DB`
 （`同\my.ini` の `datadir`）。各データベースの既定文字コードは `<DB名>\db.opt` にそのまま入っており、
